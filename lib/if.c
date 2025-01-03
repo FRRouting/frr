@@ -1286,16 +1286,28 @@ DEFPY_YANG (no_interface,
 	return nb_cli_apply_changes(vty, "%s", xpath_list);
 }
 
-static void netns_ifname_split(const char *xpath, char *ifname, char *vrfname)
+/*
+ * sometimes the interface name passed is just the interface name `ifname`
+ * sometimes it's `<vrf name>:<interface>`
+ * and finally it is sometimes `<namespace name>:<interface>`
+ *
+ * Let's just split it out according to that.  If we find the colon
+ * then it's a variety of the later two, and just split them up and
+ * return that data
+ * If there is no delimiter than it is just the interface name
+ * so just return that.
+ */
+static void ifname_split(const char *xpath, char *ifname, char *vrfname)
 {
 	char *delim;
 	int len;
 
-	assert(vrf_is_backend_netns());
-
 	delim = strchr(xpath, ':');
-	assert(delim);
 
+	if (!delim) {
+		strlcpy(ifname, xpath, XPATH_MAXLEN);
+		return;
+	}
 	len = delim - xpath;
 	memcpy(vrfname, xpath, len);
 	vrfname[len] = 0;
@@ -1306,23 +1318,20 @@ static void netns_ifname_split(const char *xpath, char *ifname, char *vrfname)
 static void cli_show_interface(struct vty *vty, const struct lyd_node *dnode,
 			       bool show_defaults)
 {
+	char ifname[XPATH_MAXLEN] = { 0 };
+	char vrfname[XPATH_MAXLEN] = { 0 };
+
 	vty_out(vty, "!\n");
 
-	if (vrf_is_backend_netns()) {
-		char ifname[XPATH_MAXLEN];
-		char vrfname[XPATH_MAXLEN];
+	ifname_split(yang_dnode_get_string(dnode, "name"), ifname, vrfname);
 
-		netns_ifname_split(yang_dnode_get_string(dnode, "name"),
-				   ifname, vrfname);
-
+	if (vrfname[0] != '\0') {
 		vty_out(vty, "interface %s", ifname);
+
 		if (!strmatch(vrfname, VRF_DEFAULT_NAME))
 			vty_out(vty, " vrf %s", vrfname);
-	} else {
-		const char *ifname = yang_dnode_get_string(dnode, "name");
-
+	} else
 		vty_out(vty, "interface %s", ifname);
-	}
 
 	vty_out(vty, "\n");
 }
@@ -1465,36 +1474,24 @@ void if_cmd_init_default(void)
  */
 static int lib_interface_create(struct nb_cb_create_args *args)
 {
-	const char *ifname;
 	struct interface *ifp;
+	char ifname[XPATH_MAXLEN] = { 0 };
+	char vrfname[XPATH_MAXLEN] = { 0 };
 
-	ifname = yang_dnode_get_string(args->dnode, "name");
+	ifname_split(yang_dnode_get_string(args->dnode, "name"), ifname, vrfname);
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		if (vrf_is_backend_netns()) {
-			char ifname_ns[XPATH_MAXLEN];
-			char vrfname_ns[XPATH_MAXLEN];
+		if (strlen(ifname) > 16) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Maximum interface name length is 16 characters");
+			return NB_ERR_VALIDATION;
+		}
 
-			netns_ifname_split(ifname, ifname_ns, vrfname_ns);
-
-			if (strlen(ifname_ns) > 16) {
-				snprintf(
-					args->errmsg, args->errmsg_len,
-					"Maximum interface name length is 16 characters");
-				return NB_ERR_VALIDATION;
-			}
-			if (strlen(vrfname_ns) > 36) {
-				snprintf(
-					args->errmsg, args->errmsg_len,
-					"Maximum VRF name length is 36 characters");
-				return NB_ERR_VALIDATION;
-			}
-		} else {
-			if (strlen(ifname) > 16) {
-				snprintf(
-					args->errmsg, args->errmsg_len,
-					"Maximum interface name length is 16 characters");
+		if (vrfname[0] != '\0') {
+			if (strlen(vrfname) > 36) {
+				snprintf(args->errmsg, args->errmsg_len,
+					 "Maximum VRF name length is 36 characters");
 				return NB_ERR_VALIDATION;
 			}
 		}
@@ -1503,18 +1500,10 @@ static int lib_interface_create(struct nb_cb_create_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		if (vrf_is_backend_netns()) {
-			char ifname_ns[XPATH_MAXLEN];
-			char vrfname_ns[XPATH_MAXLEN];
-
-			netns_ifname_split(ifname, ifname_ns, vrfname_ns);
-
-			ifp = if_get_by_name(ifname_ns, VRF_UNKNOWN,
-					     vrfname_ns);
-		} else {
-			ifp = if_get_by_name(ifname, VRF_UNKNOWN,
-					     VRF_DEFAULT_NAME);
-		}
+		if (vrfname[0] != '\0')
+			ifp = if_get_by_name(ifname, VRF_UNKNOWN, vrfname);
+		else
+			ifp = if_get_by_name(ifname, VRF_UNKNOWN, VRF_DEFAULT_NAME);
 
 		ifp->configured = true;
 		nb_running_set_entry(args->dnode, ifp);
@@ -1602,19 +1591,18 @@ static int lib_interface_get_keys(struct nb_cb_get_keys_args *args)
 static const void *
 lib_interface_lookup_entry(struct nb_cb_lookup_entry_args *args)
 {
-	if (vrf_is_backend_netns()) {
-		char ifname[XPATH_MAXLEN];
-		char vrfname[XPATH_MAXLEN];
-		struct vrf *vrf;
+	char ifname[XPATH_MAXLEN];
+	char vrfname[XPATH_MAXLEN];
+	struct vrf *vrf;
 
-		netns_ifname_split(args->keys->key[0], ifname, vrfname);
+	ifname_split(args->keys->key[0], ifname, vrfname);
 
+	if (vrfname[0] != '\0') {
 		vrf = vrf_lookup_by_name(vrfname);
 
 		return vrf ? if_lookup_by_name(ifname, vrf->vrf_id) : NULL;
-	} else {
-		return if_lookup_by_name_all_vrf(args->keys->key[0]);
-	}
+	} else
+		return if_lookup_by_name_all_vrf(ifname);
 }
 
 /*
