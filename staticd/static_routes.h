@@ -264,6 +264,7 @@ extern void static_bfd_initialize(struct zclient *zc, struct event_loop *tm);
 
 extern void static_bfd_show(struct vty *vty, bool isjson);
 
+extern void static_route_show(struct vty *vty, afi_t afi, char *vrf_name, bool vrf_all);
 #ifdef __cplusplus
 }
 #endif
