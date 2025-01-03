@@ -212,8 +212,10 @@ daemon_stop() {
 		return 1
 	fi
 
-	debug "kill -2 $pid"
-	kill -2 "$pid"
+	[ "$2" = "SIGKILL" ] && signal=-9 || signal=-2
+
+	debug "kill $signal $pid"
+	kill "$signal" "$pid"
 	cnt=1200
 	while kill -0 "$pid" 2>/dev/null; do
 		sleep .1
