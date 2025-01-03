@@ -17,7 +17,7 @@ extern "C" {
 extern void zebra_rnh_init(void);
 
 extern struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, safi_t safi,
-				 bool *exists);
+				 bool *exists, uint32_t srte_color);
 extern struct rnh *zebra_lookup_rnh(struct prefix *p, vrf_id_t vrfid,
 				    safi_t safi);
 extern void zebra_free_rnh(struct rnh *rnh);
@@ -27,7 +27,7 @@ extern int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
 				 vrf_id_t vrf_id, uint32_t srte_color);
 extern void zebra_register_rnh_pseudowire(vrf_id_t, struct zebra_pw *, bool *);
 extern void zebra_deregister_rnh_pseudowire(vrf_id_t, struct zebra_pw *);
-extern void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client);
+extern void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client, bool delete_all);
 extern void zebra_evaluate_rnh(struct zebra_vrf *zvrf, afi_t afi, int force,
 			       const struct prefix *p, safi_t safi);
 extern void zebra_print_rnh_table(vrf_id_t vrfid, afi_t afi, safi_t safi,

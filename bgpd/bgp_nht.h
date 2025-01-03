@@ -37,6 +37,8 @@ extern int bgp_find_or_add_nexthop(struct bgp *bgp_route,
  *   p - path structure.
  */
 extern void bgp_unlink_nexthop(struct bgp_path_info *p);
+extern void bgp_unlink_te_nexthop(struct bgp_path_info *path);
+
 void bgp_unlink_nexthop_by_peer(struct peer *peer);
 void bgp_replace_nexthop_by_peer(struct peer *from, struct peer *to);
 /**
@@ -61,6 +63,8 @@ extern void bgp_cleanup_nexthops(struct bgp *bgp);
  */
 extern void path_nh_map(struct bgp_path_info *path,
 			struct bgp_nexthop_cache *bnc, bool make);
+extern void path_tenh_map(struct bgp_path_info *path,
+			struct bgp_nexthop_cache *te_bnc, bool make);
 /*
  * When we actually have the connection to
  * the zebra daemon, we need to reregister
