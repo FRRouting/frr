@@ -108,6 +108,9 @@ static const struct option lo_always[] = {
 	{ "module", no_argument, NULL, 'M' },
 	{ "profile", required_argument, NULL, 'F' },
 	{ "pathspace", required_argument, NULL, 'N' },
+#ifdef HAVE_NETLINK
+	{ "vrfwnetns", no_argument, NULL, 'w' },
+#endif
 	{ "vrfdefaultname", required_argument, NULL, 'o' },
 	{ "graceful_restart", optional_argument, NULL, 'K' },
 	{ "vty_socket", required_argument, NULL, OPTION_VTYSOCK },
@@ -120,6 +123,9 @@ static const struct option lo_always[] = {
 	{ NULL }
 };
 static const struct optspec os_always = {
+#ifdef HAVE_NETLINK
+	"w"
+#endif
 	"hvdM:F:N:o:K::",
 	"  -h, --help         Display this help and exit\n"
 	"  -v, --version      Print program version\n"
@@ -127,6 +133,9 @@ static const struct optspec os_always = {
 	"  -M, --module       Load specified module\n"
 	"  -F, --profile      Use specified configuration profile\n"
 	"  -N, --pathspace    Insert prefix into config & socket paths\n"
+#ifdef HAVE_NETLINK
+	"  -w, --vrfwnetns    Use network namespaces for VRFs\n"
+#endif
 	"  -o, --vrfdefaultname     Set default VRF name.\n"
 	"  -K, --graceful_restart   FRR starting in Graceful Restart mode, with optional route-cleanup timer\n"
 	"      --vty_socket   Override vty socket path\n"
@@ -516,6 +525,11 @@ static int frr_opt(int opt)
 			snprintf(frr_zclientpath, sizeof(frr_zclientpath),
 				 ZAPI_SOCK_NAME);
 		break;
+#ifdef HAVE_NETLINK
+	case 'w':
+		vrf_configure_backend(VRF_BACKEND_NETNS);
+		break;
+#endif
 	case 'o':
 		vrf_set_default_name(optarg);
 		break;

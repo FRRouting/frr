@@ -819,6 +819,12 @@ class TopoRouter(TopoGear):
         gear += " TopoRouter<>"
         return gear
 
+    def use_netns_vrf(self):
+        """
+        Use netns as VRF backend.
+        """
+        self.net.useNetnsVRF()
+
     def check_capability(self, daemon, param):
         """
         Checks a capability daemon against an argument option
