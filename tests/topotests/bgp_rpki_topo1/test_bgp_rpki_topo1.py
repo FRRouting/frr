@@ -101,6 +101,16 @@ def show_rpki_prefixes(rname, expected, vrf=None):
     return topotest.json_cmp(output, expected)
 
 
+def show_rpki_valid(rname, expected, vrf=None):
+    tgen = get_topogen()
+
+    cmd = "show bgp ipv4 detail json"
+
+    output = json.loads(tgen.gears[rname].vtysh_cmd(cmd))
+
+    return topotest.json_cmp(output, expected)
+
+
 def show_bgp_ipv4_table_rpki(rname, rpki_state, expected, vrf=None):
     tgen = get_topogen()
 
@@ -121,6 +131,25 @@ def show_bgp_ipv4_table_rpki(rname, rpki_state, expected, vrf=None):
         return {"error": "expected {} prefixes. Got {}".format(expected_nb, output_nb)}
 
     return topotest.json_cmp(output, expected)
+
+
+def test_show_bgp_rpki_prefixes_valid():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["r1", "r3"]:
+        logger.info("{}: checking if rtrd is running".format(rname))
+        if rtrd_process[rname].poll() is not None:
+            pytest.skip(tgen.errors)
+
+    rname = "r2"
+    expected = open(os.path.join(CWD, "{}/bgp_rpki_valid.json".format(rname))).read()
+    expected_json = json.loads(expected)
+    test_func = functools.partial(show_rpki_valid, rname, expected_json)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to see RPKI on {}".format(rname)
 
 
 def test_show_bgp_rpki_prefixes():

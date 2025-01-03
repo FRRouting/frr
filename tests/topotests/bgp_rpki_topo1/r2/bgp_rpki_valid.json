@@ -1,0 +1,70 @@
+{
+    "vrfId": 0,
+    "vrfName": "default",
+    "tableVersion": 3,
+    "routerId": "192.0.2.2",
+    "defaultLocPrf": 100,
+    "localAS": 65002,
+    "routes": {
+        "198.51.100.0/24": [
+            {
+                "origin": "IGP",
+                "metric": 0,
+                "valid": true,
+                "version": 2,
+                "rpkiValidationState": "valid",
+                "bestpath": {
+                    "overall": true,
+                    "selectionReason": "First path received"
+                },
+                "nexthops": [
+                    {
+                        "ip": "192.0.2.1",
+                        "hostname": "r1",
+                        "afi": "ipv4",
+                        "metric": 0,
+                        "accessible": true,
+                        "used": true
+                    }
+                ],
+                "peer": {
+                    "peerId": "192.0.2.1",
+                    "routerId": "192.0.2.1",
+                    "hostname": "r1",
+                    "type": "external"
+                }
+            }
+        ],
+        "203.0.113.0/24": [
+            {
+                "origin": "IGP",
+                "metric": 0,
+                "valid": true,
+                "version": 3,
+                "rpkiValidationState": "valid",
+                "bestpath": {
+                    "overall": true,
+                    "selectionReason": "First path received"
+                },
+                "nexthops": [
+                    {
+                        "ip": "192.0.2.1",
+                        "hostname": "r1",
+                        "afi": "ipv4",
+                        "metric": 0,
+                        "accessible": true,
+                        "used": true
+                    }
+                ],
+                "peer": {
+                    "peerId": "192.0.2.1",
+                    "routerId": "192.0.2.1",
+                    "hostname": "r1",
+                    "type": "external"
+                }
+            }
+        ]
+    },
+    "totalRoutes": 3,
+    "totalPaths": 3
+}
