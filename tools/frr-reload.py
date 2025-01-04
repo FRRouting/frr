@@ -270,7 +270,7 @@ ctx_keywords = {
     "mpls ldp": {"address-family ": {"interface ": {}}},
     "l2vpn ": {"member pseudowire ": {}},
     "key chain ": {"key ": {}},
-    "vrf ": {},
+    "vrf ": {"rpki": {}},
     "interface ": {"link-params": {}},
     "pseudowire ": {},
     "segment-routing": {
