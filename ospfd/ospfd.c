@@ -843,7 +843,7 @@ static void ospf_finish_final(struct ospf *ospf)
 	ospf_distance_reset(ospf);
 	route_table_finish(ospf->distance_table);
 
-	/* Release extrenal Aggregator table */
+	/* Release external Aggregator table */
 	for (rn = route_top(ospf->rt_aggr_tbl); rn; rn = route_next(rn)) {
 		struct ospf_external_aggr_rt *aggr;
 

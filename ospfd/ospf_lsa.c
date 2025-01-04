@@ -4064,7 +4064,7 @@ struct ospf_lsa *ospf_lsa_refresh(struct ospf *ospf, struct ospf_lsa *lsa)
 				ospf, lsa, ei, LSA_REFRESH_FORCE, false);
 		else {
 			aggr = (struct ospf_external_aggr_rt *)
-				ospf_extrenal_aggregator_lookup(ospf, &p);
+				ospf_external_aggregator_lookup(ospf, &p);
 			if (aggr) {
 				struct external_info ei_aggr;
 
