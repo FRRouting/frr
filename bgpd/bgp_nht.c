@@ -340,11 +340,9 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		 * peer's LL) using route-map. In such a scenario, do not set
 		 * the ifindex.
 		 */
-		if (afi == AFI_IP6 &&
-		    IN6_IS_ADDR_LINKLOCAL(
-			    &pi->peer->connection->su.sin6.sin6_addr) &&
-		    IPV6_ADDR_SAME(&pi->peer->connection->su.sin6.sin6_addr,
-				   &p.u.prefix6))
+		if (pi->peer->conf_if && afi == AFI_IP6 &&
+		    IN6_IS_ADDR_LINKLOCAL(&pi->peer->connection->su.sin6.sin6_addr) &&
+		    IPV6_ADDR_SAME(&pi->peer->connection->su.sin6.sin6_addr, &p.u.prefix6))
 			ifindex = pi->peer->connection->su.sin6.sin6_scope_id;
 
 		if (!is_bgp_static_route && orig_prefix && prefix_same(&p, orig_prefix) &&
