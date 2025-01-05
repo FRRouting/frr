@@ -854,8 +854,15 @@ static enum nb_error be_client_send_tree_data_batch(const struct lyd_node *tree,
 		more = true;
 		ret = NB_OK;
 	}
-	if (ret != NB_OK)
+	if (ret != NB_OK) {
+		if (be_client_send_error(client, args->txn_id, args->req_id, false, -EINVAL,
+					 "BE client %s txn-id %Lu error fetching oper state %d",
+					 client->name, args->txn_id, ret))
+			ret = NB_ERR;
+		else
+			ret = NB_OK;
 		goto done;
+	}
 
 	tree_msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_tree_data, 0,
 					     MTYPE_MSG_NATIVE_TREE_DATA);
@@ -870,20 +877,15 @@ static enum nb_error be_client_send_tree_data_batch(const struct lyd_node *tree,
 				     (LYD_PRINT_SHRINK | LYD_PRINT_WD_EXPLICIT |
 				      LYD_PRINT_WITHSIBLINGS));
 	if (err) {
-		ret = NB_ERR;
-		goto done;
+		mgmt_msg_native_free_msg(tree_msg);
+		/* We will be called again to send the error */
+		return NB_ERR;
 	}
 	(void)be_client_send_native_msg(client, tree_msg,
 					mgmt_msg_native_get_msg_len(tree_msg),
 					false);
-done:
 	mgmt_msg_native_free_msg(tree_msg);
-	if (ret)
-		be_client_send_error(client, args->txn_id, args->req_id, false,
-				     -EINVAL,
-				     "BE client %s txn-id %" PRIu64
-				     " error fetching oper state %d",
-				     client->name, args->txn_id, ret);
+done:
 	if (ret != NB_OK || !more)
 		XFREE(MTYPE_MGMTD_BE_GT_CB_ARGS, args);
 	return ret;

@@ -1483,17 +1483,13 @@ static void nb_op_walk_continue(struct event *thread)
 
 	ret = __walk(ys, true);
 	if (ret == NB_YIELD) {
-		if (nb_op_yield(ys) != NB_OK) {
-			if (ys->should_batch)
-				goto stopped;
-			else
-				goto finish;
-		}
-		return;
+		ret = nb_op_yield(ys);
+		if (ret == NB_OK)
+			return;
 	}
 finish:
+	assert(ret != NB_YIELD);
 	(*ys->finish)(ys_root_node(ys), ys->finish_arg, ret);
-stopped:
 	nb_op_free_yield_state(ys, false);
 }
 
@@ -1552,6 +1548,13 @@ static void nb_op_trim_yield_state(struct nb_op_yield_state *ys)
 	       (int)darr_lasti(ys->node_infos));
 }
 
+/**
+ * nb_op_yield() - Yield during the walk.
+ * @ys: the yield state tracking the walk.
+ *
+ * Return: Any error from the `ys->finish` callback which should terminate the
+ * walk. Otherwise if `ys->should_batch` == false always returns NB_OK.
+ */
 static enum nb_error nb_op_yield(struct nb_op_yield_state *ys)
 {
 	enum nb_error ret;
@@ -1764,17 +1767,13 @@ void *nb_oper_walk(const char *xpath, struct yang_translator *translator,
 
 	ret = nb_op_walk_start(ys);
 	if (ret == NB_YIELD) {
-		if (nb_op_yield(ys) != NB_OK) {
-			if (ys->should_batch)
-				goto stopped;
-			else
-				goto finish;
-		}
-		return ys;
+		ret = nb_op_yield(ys);
+		if (ret == NB_OK)
+			return ys;
 	}
-finish:
+
+	assert(ret != NB_YIELD);
 	(void)(*ys->finish)(ys_root_node(ys), ys->finish_arg, ret);
-stopped:
 	nb_op_free_yield_state(ys, false);
 	return NULL;
 }
