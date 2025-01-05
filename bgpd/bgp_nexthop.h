@@ -82,7 +82,7 @@ struct bgp_nexthop_cache {
  * L3 unreachable | VALID      = 0 | VALID      = 0
  *                | INCOMPLETE = 0 | INCOMPLETE = 0
  */
-#define BGP_NEXTHOP_EVPN_INCOMPLETE (1 << 7)
+#define BGP_NEXTHOP_EVPN_INCOMPLETE (1 << 8)
 
 	uint32_t srte_color;
 
