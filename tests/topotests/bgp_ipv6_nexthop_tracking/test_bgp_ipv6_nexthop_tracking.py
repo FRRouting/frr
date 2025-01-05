@@ -54,7 +54,7 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
-def test_issue_12502():
+def test_bgp_ipv6_nexthop_tracking():
     tgen = get_topogen()
 
     if tgen.routers_have_failure():
@@ -72,14 +72,6 @@ def test_issue_12502():
                     },
                     "valid": True,
                     "nexthops": [
-                        {
-                            "ip": "fe80::2222",
-                            "hostname": "r2",
-                            "afi": "ipv6",
-                            "scope": "global",
-                            "metric": 0,
-                            "accessible": True,
-                        },
                         {
                             "ip": "fe80::2222",
                             "hostname": "r2",
@@ -103,6 +95,30 @@ def test_issue_12502():
     test_func = functools.partial(_bgp_converge)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Failed to see fd00:2222::/48 with a valid next-hop"
+
+    def _check_bgp_nexthop_cache():
+        output = json.loads(r1.vtysh_cmd("show bgp nexthop json"))
+        expected = {
+            "ipv6": {
+                "fe80::2222": {
+                    "valid": True,
+                    "complete": True,
+                    "pathCount": 1,
+                    "peer": "fe80::2222",
+                    "resolvedPrefix": "fe80::/64",
+                    "nexthops": [
+                        {
+                            "interfaceName": "r1-eth1",
+                        }
+                    ],
+                }
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_check_bgp_nexthop_cache)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Failed to see a valid next-hop (fe80::2222) in BGP NH cache"
 
 
 if __name__ == "__main__":
