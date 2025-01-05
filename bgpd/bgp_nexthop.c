@@ -869,6 +869,9 @@ static void bgp_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
 							? bnc->ifindex_ipv6_ll
 							: nexthop->ifindex,
 						bgp->vrf_id));
+				json_object_int_add(json_gate, "ifindex",
+						    bnc->ifindex_ipv6_ll ? bnc->ifindex_ipv6_ll
+									 : nexthop->ifindex);
 				break;
 			case NEXTHOP_TYPE_IPV4:
 				json_object_string_addf(json_gate, "ip", "%pI4",
@@ -882,6 +885,9 @@ static void bgp_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
 							? bnc->ifindex_ipv6_ll
 							: nexthop->ifindex,
 						bgp->vrf_id));
+				json_object_int_add(json_gate, "ifindex",
+						    bnc->ifindex_ipv6_ll ? bnc->ifindex_ipv6_ll
+									 : nexthop->ifindex);
 				break;
 			case NEXTHOP_TYPE_IPV4_IFINDEX:
 				json_object_string_addf(json_gate, "ip", "%pI4",
@@ -893,6 +899,9 @@ static void bgp_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
 							? bnc->ifindex_ipv6_ll
 							: nexthop->ifindex,
 						bgp->vrf_id));
+				json_object_int_add(json_gate, "ifindex",
+						    bnc->ifindex_ipv6_ll ? bnc->ifindex_ipv6_ll
+									 : nexthop->ifindex);
 				break;
 			case NEXTHOP_TYPE_BLACKHOLE:
 				json_object_boolean_true_add(json_gate,
@@ -926,13 +935,13 @@ static void bgp_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
 			vty_out(vty, "  gate %pI6", &nexthop->gate.ipv6);
 			if (nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX &&
 			    bnc->ifindex_ipv6_ll)
-				vty_out(vty, ", if %s\n",
-					ifindex2ifname(bnc->ifindex_ipv6_ll,
-						       bgp->vrf_id));
+				vty_out(vty, ", if %s, ifindex %d\n",
+					ifindex2ifname(bnc->ifindex_ipv6_ll, bgp->vrf_id),
+					bnc->ifindex_ipv6_ll);
 			else if (nexthop->ifindex)
-				vty_out(vty, ", if %s\n",
-					ifindex2ifname(nexthop->ifindex,
-						       bgp->vrf_id));
+				vty_out(vty, ", if %s, ifindex %d\n",
+					ifindex2ifname(nexthop->ifindex, bgp->vrf_id),
+					nexthop->ifindex);
 			else
 				vty_out(vty, "\n");
 			break;
@@ -941,22 +950,22 @@ static void bgp_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
 			vty_out(vty, "  gate %pI4", &nexthop->gate.ipv4);
 			if (nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX &&
 			    bnc->ifindex_ipv6_ll)
-				vty_out(vty, ", if %s\n",
-					ifindex2ifname(bnc->ifindex_ipv6_ll,
-						       bgp->vrf_id));
+				vty_out(vty, ", if %s, ifindex %d\n",
+					ifindex2ifname(bnc->ifindex_ipv6_ll, bgp->vrf_id),
+					bnc->ifindex_ipv6_ll);
 			else if (nexthop->ifindex)
-				vty_out(vty, ", if %s\n",
-					ifindex2ifname(nexthop->ifindex,
-						       bgp->vrf_id));
+				vty_out(vty, ", if %s, ifindex %d\n",
+					ifindex2ifname(nexthop->ifindex, bgp->vrf_id),
+					nexthop->ifindex);
 			else
 				vty_out(vty, "\n");
 			break;
 		case NEXTHOP_TYPE_IFINDEX:
-			vty_out(vty, "  if %s\n",
-				ifindex2ifname(bnc->ifindex_ipv6_ll
-						       ? bnc->ifindex_ipv6_ll
-						       : nexthop->ifindex,
-					       bgp->vrf_id));
+			vty_out(vty, "  if %s, ifindex %d\n",
+				ifindex2ifname(bnc->ifindex_ipv6_ll ? bnc->ifindex_ipv6_ll
+								    : nexthop->ifindex,
+					       bgp->vrf_id),
+				bnc->ifindex_ipv6_ll ? bnc->ifindex_ipv6_ll : nexthop->ifindex);
 			break;
 		case NEXTHOP_TYPE_BLACKHOLE:
 			vty_out(vty, "  blackhole\n");
