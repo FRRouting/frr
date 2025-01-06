@@ -1076,9 +1076,17 @@ bool zlog_5424_apply_dst(struct zlog_cfg_5424 *zcf)
 
 bool zlog_5424_apply_meta(struct zlog_cfg_5424 *zcf)
 {
+	int fd;
+
 	frr_with_mutex (&zcf->cfg_mtx) {
 		if (zcf->active)
-			zlog_5424_cycle(zcf, zcf->active->fd);
+			fd = zcf->active->fd;
+		else if (zcf->prio_min != ZLOG_DISABLED)
+			fd = zlog_5424_open(zcf, -1);
+		else
+			fd = -1;
+		if (fd >= 0)
+			zlog_5424_cycle(zcf, fd);
 	}
 
 	return true;
