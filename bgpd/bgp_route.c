@@ -12730,16 +12730,22 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 static void bgp_show_path_info(const struct prefix_rd *pfx_rd, struct bgp_dest *bgp_node,
 			       struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			       json_object *json, enum bgp_path_type pathtype, int *display,
-			       enum rpki_states rpki_target_state, struct attr *attr)
+			       enum rpki_states rpki_target_state, struct bgp_adj_out *adj_out)
 {
-	struct bgp_path_info *pi;
+	struct bgp_path_info *pi, *pi_adj_out = NULL;
 	int header = 1;
 	json_object *json_header = NULL;
 	json_object *json_paths = NULL;
 	const struct prefix *p = bgp_dest_get_prefix(bgp_node);
 
+	if (adj_out && adj_out->adv)
+		pi_adj_out = adj_out->adv->pathi;
+
 	for (pi = bgp_dest_get_bgp_path_info(bgp_node); pi; pi = pi->next) {
 		enum rpki_states rpki_curr_state = RPKI_NOT_BEING_USED;
+
+		if (pi_adj_out && pi != pi_adj_out)
+			continue;
 
 		if (p->family == AF_INET || p->family == AF_INET6)
 			rpki_curr_state = hook_call(bgp_rpki_prefix_status,
@@ -12774,7 +12780,8 @@ static void bgp_show_path_info(const struct prefix_rd *pfx_rd, struct bgp_dest *
 			&& (CHECK_FLAG(pi->flags, BGP_PATH_MULTIPATH)
 			    || CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))))
 			route_vty_out_detail(vty, bgp, bgp_node, bgp_dest_get_prefix(bgp_node), pi,
-					     afi, safi, rpki_curr_state, json_paths, attr);
+					     afi, safi, rpki_curr_state, json_paths,
+					     adj_out ? adj_out->attr : NULL);
 	}
 
 	if (json && json_paths) {
@@ -15032,7 +15039,7 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 						bgp_show_path_info(NULL, dest, vty, bgp, afi, safi,
 								   json_net, BGP_PATH_SHOW_ALL,
 								   &display, RPKI_NOT_BEING_USED,
-								   adj->attr);
+								   adj);
 						if (use_json)
 							json_object_object_addf(json_ar, json_net,
 										"%pFX", rn_p);
