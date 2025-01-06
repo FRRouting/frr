@@ -323,22 +323,29 @@ _Static_assert(sizeof(struct mgmt_msg_get_data) ==
 		       offsetof(struct mgmt_msg_get_data, xpath),
 	       "Size mismatch");
 
+
+#define NOTIFY_OP_NOTIFICATION 0
+#define NOTIFY_OP_DS_REPLACE   1
+#define NOTIFY_OP_DS_DELETE    2
+#define NOTIFY_OP_DS_PATCH     3
+
 /**
  * struct mgmt_msg_notify_data - Message carrying notification data.
  *
  * @result_type: ``LYD_FORMAT`` for format of the @result value.
  * @data: The xpath string of the notification followed by the tree data in
  *        @result_type format.
+ * @op: notify operation type.
  */
 struct mgmt_msg_notify_data {
 	struct mgmt_msg_header;
 	uint8_t result_type;
-	uint8_t resv2[7];
+	uint8_t op;
+	uint8_t resv2[6];
 
 	alignas(8) char data[];
 };
-_Static_assert(sizeof(struct mgmt_msg_notify_data) ==
-		       offsetof(struct mgmt_msg_notify_data, data),
+_Static_assert(sizeof(struct mgmt_msg_notify_data) == offsetof(struct mgmt_msg_notify_data, data),
 	       "Size mismatch");
 
 #define EDIT_FLAG_IMPLICIT_LOCK	  0x01
