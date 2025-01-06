@@ -287,6 +287,7 @@ struct frr_signal_t zebra_signals[] = {
 
 /* clang-format off */
 static const struct frr_yang_module_info *const zebra_yang_modules[] = {
+	&frr_backend_info,
 	&frr_filter_info,
 	&frr_interface_info,
 	&frr_route_map_info,

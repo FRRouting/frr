@@ -99,12 +99,12 @@ struct mgmt_be_client {
 	struct nb_config *candidate_config;
 	struct nb_config *running_config;
 
-	unsigned long num_edit_nb_cfg;
-	unsigned long avg_edit_nb_cfg_tm;
-	unsigned long num_prep_nb_cfg;
-	unsigned long avg_prep_nb_cfg_tm;
-	unsigned long num_apply_nb_cfg;
-	unsigned long avg_apply_nb_cfg_tm;
+	uint64_t num_edit_nb_cfg;
+	uint64_t avg_edit_nb_cfg_tm;
+	uint64_t num_prep_nb_cfg;
+	uint64_t avg_prep_nb_cfg_tm;
+	uint64_t num_apply_nb_cfg;
+	uint64_t avg_apply_nb_cfg_tm;
 
 	struct mgmt_be_txns_head txn_head;
 
@@ -117,7 +117,7 @@ struct mgmt_be_client {
 
 struct debug mgmt_dbg_be_client = {
 	.conf = "debug mgmt client backend",
-	.desc = "Management backend client operations"
+	.desc = "Management backend client operations",
 };
 
 /* NOTE: only one client per proc for now. */
@@ -621,7 +621,7 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
 	mgmt_be_send_cfgdata_create_reply(client_ctx, txn->txn_id,
 		error ? false : true, error ? err_buf : NULL);
 
-	debug_be_client("Avg-nb-edit-duration %lu uSec, nb-prep-duration %lu (avg: %lu) uSec, batch size %u",
+	debug_be_client("Avg-nb-edit-duration %Lu uSec, nb-prep-duration %lu (avg: %Lu) uSec, batch size %u",
 			client_ctx->avg_edit_nb_cfg_tm, prep_nb_cfg_tm,
 			client_ctx->avg_prep_nb_cfg_tm, (uint32_t)num_processed);
 
@@ -770,10 +770,9 @@ static int mgmt_be_txn_proc_cfgapply(struct mgmt_be_txn_ctx *txn)
 	gettimeofday(&apply_nb_cfg_end, NULL);
 
 	apply_nb_cfg_tm = timeval_elapsed(apply_nb_cfg_end, apply_nb_cfg_start);
-	client_ctx->avg_apply_nb_cfg_tm = ((client_ctx->avg_apply_nb_cfg_tm *
-					    client_ctx->num_apply_nb_cfg) +
-					   apply_nb_cfg_tm) /
-					  (client_ctx->num_apply_nb_cfg + 1);
+	client_ctx->avg_apply_nb_cfg_tm =
+		((client_ctx->avg_apply_nb_cfg_tm * client_ctx->num_apply_nb_cfg) + apply_nb_cfg_tm) /
+		(client_ctx->num_apply_nb_cfg + 1);
 	client_ctx->num_apply_nb_cfg++;
 	txn->nb_txn = NULL;
 
@@ -789,8 +788,8 @@ static int mgmt_be_txn_proc_cfgapply(struct mgmt_be_txn_ctx *txn)
 
 	mgmt_be_send_apply_reply(client_ctx, txn->txn_id, true, NULL);
 
-	debug_be_client("Nb-apply-duration %lu (avg: %lu) uSec",
-			apply_nb_cfg_tm, client_ctx->avg_apply_nb_cfg_tm);
+	debug_be_client("Nb-apply-duration %lu (avg: %Lu) uSec", apply_nb_cfg_tm,
+			client_ctx->avg_apply_nb_cfg_tm);
 
 	return 0;
 }
@@ -1332,6 +1331,190 @@ DEFPY(debug_mgmt_client_be, debug_mgmt_client_be_cmd,
 
 	return CMD_SUCCESS;
 }
+
+/*
+ * XPath: /frr-backend:clients/client
+ *
+ * We only implement a list of one entry (for the this backend client) the
+ * results will be merged inside mgmtd.
+ */
+static const void *clients_client_get_next(struct nb_cb_get_next_args *args)
+{
+	if (args->list_entry == NULL)
+		return __be_client;
+	return NULL;
+}
+
+static int clients_client_get_keys(struct nb_cb_get_keys_args *args)
+{
+	args->keys->num = 1;
+	strlcpy(args->keys->key[0], __be_client->name, sizeof(args->keys->key[0]));
+
+	return NB_OK;
+}
+
+static const void *clients_client_lookup_entry(struct nb_cb_lookup_entry_args *args)
+{
+	const char *name = args->keys->key[0];
+
+	if (!strcmp(name, __be_client->name))
+		return __be_client;
+
+	return NULL;
+}
+
+/*
+ * XPath: /frr-backend:clients/client/name
+ */
+static enum nb_error clients_client_name_get(const struct nb_node *nb_node,
+					     const void *parent_list_entry, struct lyd_node *parent)
+{
+	const struct lysc_node *snode = nb_node->snode;
+	LY_ERR err;
+
+	err = lyd_new_term(parent, snode->module, snode->name, __be_client->name, false, NULL);
+	if (err != LY_SUCCESS)
+		return NB_ERR_RESOURCE;
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-backend:clients/client/state/candidate-config-version
+ */
+static enum nb_error clients_client_state_candidate_config_version_get(
+	const struct nb_node *nb_node, const void *parent_list_entry, struct lyd_node *parent)
+{
+	const struct lysc_node *snode = nb_node->snode;
+	uint64_t value = __be_client->candidate_config->version;
+
+	if (lyd_new_term_bin(parent, snode->module, snode->name, &value, sizeof(value),
+			     LYD_NEW_PATH_UPDATE, NULL))
+		return NB_ERR_RESOURCE;
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-backend:clients/client/state/running-config-version
+ */
+static enum nb_error clients_client_state_running_config_version_get(const struct nb_node *nb_node,
+								     const void *parent_list_entry,
+								     struct lyd_node *parent)
+{
+	const struct lysc_node *snode = nb_node->snode;
+	uint64_t value = __be_client->running_config->version;
+
+	if (lyd_new_term_bin(parent, snode->module, snode->name, &value, sizeof(value),
+			     LYD_NEW_PATH_UPDATE, NULL))
+		return NB_ERR_RESOURCE;
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-backend:clients/client/state/notify-selectors
+ *
+ * Is this better in northbound_notif.c? Let's decide when we add more to this module.
+ */
+
+static enum nb_error clients_client_state_notify_selectors_get(const struct nb_node *nb_node,
+							       const void *parent_list_entry,
+							       struct lyd_node *parent)
+{
+	const struct lysc_node *snode = nb_node->snode;
+	const char **p;
+	LY_ERR err;
+
+	darr_foreach_p (nb_notif_filters, p) {
+		err = lyd_new_term(parent, snode->module, snode->name, *p, false, NULL);
+		if (err != LY_SUCCESS)
+			return NB_ERR_RESOURCE;
+	}
+
+	return NB_OK;
+}
+
+/* clang-format off */
+const struct frr_yang_module_info frr_backend_info = {
+	.name = "frr-backend",
+	.nodes = {
+		{
+			.xpath = "/frr-backend:clients/client",
+			.cbs = {
+				.get_next = clients_client_get_next,
+				.get_keys = clients_client_get_keys,
+				.lookup_entry = clients_client_lookup_entry,
+			}
+		},
+		{
+			.xpath = "/frr-backend:clients/client/name",
+			.cbs.get = clients_client_name_get,
+		},
+		{
+			.xpath = "/frr-backend:clients/client/state/candidate-config-version",
+			.cbs = {
+				.get = clients_client_state_candidate_config_version_get,
+			}
+		},
+		{
+			.xpath = "/frr-backend:clients/client/state/running-config-version",
+			.cbs = {
+				.get = clients_client_state_running_config_version_get,
+			}
+		},
+		{
+			.xpath = "/frr-backend:clients/client/state/edit-count",
+			.cbs = {
+				.get = nb_oper_uint64_get,
+				.get_elem = (void *)(intptr_t)offsetof(struct mgmt_be_client, num_edit_nb_cfg),
+			}
+		},
+		{
+			.xpath = "/frr-backend:clients/client/state/avg-edit-time",
+			.cbs = {
+				.get = nb_oper_uint64_get,
+				.get_elem = (void *)(intptr_t)offsetof(struct mgmt_be_client, avg_edit_nb_cfg_tm),
+			}
+		},
+		{
+			.xpath = "/frr-backend:clients/client/state/prep-count",
+			.cbs = {
+				.get = nb_oper_uint64_get,
+				.get_elem = (void *)(intptr_t)offsetof(struct mgmt_be_client, num_prep_nb_cfg),
+			}
+		},
+		{
+			.xpath = "/frr-backend:clients/client/state/avg-prep-time",
+			.cbs = {
+				.get = nb_oper_uint64_get,
+				.get_elem = (void *)(intptr_t)offsetof(struct mgmt_be_client, avg_prep_nb_cfg_tm),
+			}
+		},
+		{
+			.xpath = "/frr-backend:clients/client/state/apply-count",
+			.cbs = {
+				.get = nb_oper_uint64_get,
+				.get_elem = (void *)(intptr_t)offsetof(struct mgmt_be_client, num_apply_nb_cfg),
+			}
+		},
+		{
+			.xpath = "/frr-backend:clients/client/state/avg-apply-time",
+			.cbs = {
+				.get = nb_oper_uint64_get,
+				.get_elem = (void *)(intptr_t)offsetof(struct mgmt_be_client, avg_apply_nb_cfg_tm),
+			}
+		},
+		{
+			.xpath = "/frr-backend:clients/client/state/notify-selectors",
+			.cbs.get = clients_client_state_notify_selectors_get,
+		},
+		{
+			.xpath = NULL,
+		},
+	}
+};
+/* clang-format on */
 
 struct mgmt_be_client *mgmt_be_client_create(const char *client_name,
 					     struct mgmt_be_client_cbs *cbs,

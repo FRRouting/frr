@@ -85,6 +85,8 @@ struct mgmt_be_client_cbs {
 
 extern struct debug mgmt_dbg_be_client;
 
+extern const struct frr_yang_module_info frr_backend_info;
+
 /***************************************************************
  * API prototypes
  ***************************************************************/

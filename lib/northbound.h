@@ -836,6 +836,9 @@ extern struct debug nb_dbg_libyang;
 /* Global running configuration. */
 extern struct nb_config *running_config;
 
+/* Global notification filters */
+extern const char **nb_notif_filters;
+
 /* Wrappers for the northbound callbacks. */
 extern struct yang_data *nb_callback_has_new_get_elem(const struct nb_node *nb_node);
 
@@ -1520,6 +1523,13 @@ extern void *nb_oper_walk_finish_arg(void *walk);
  * nb_oper_walk_cb_arg() - return the callback arg for this walk
  */
 extern void *nb_oper_walk_cb_arg(void *walk);
+
+/* Generic getter functions */
+extern enum nb_error nb_oper_uint32_get(const struct nb_node *nb_node,
+					const void *parent_list_entry, struct lyd_node *parent);
+
+extern enum nb_error nb_oper_uint64_get(const struct nb_node *nb_node,
+					const void *parent_list_entry, struct lyd_node *parent);
 
 /*
  * Validate if the northbound callback operation is valid for the given node.
