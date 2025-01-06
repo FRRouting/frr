@@ -24,7 +24,7 @@ struct prng {
 
 struct prng *prng_new(unsigned long long seed)
 {
-	struct prng *rv = calloc(sizeof(*rv), 1);
+	struct prng *rv = calloc(1, sizeof(*rv));
 	assert(rv);
 
 	rv->state = seed;

@@ -62,7 +62,7 @@ static struct nexthop_chain *nexthop_chain_new(void)
 {
 	struct nexthop_chain *rv;
 
-	rv = calloc(sizeof(*rv), 1);
+	rv = calloc(1, sizeof(*rv));
 	assert(rv);
 	return rv;
 }
@@ -71,7 +71,7 @@ static void nexthop_chain_add_top(struct nexthop_chain *nc)
 {
 	struct nexthop *nh;
 
-	nh = calloc(sizeof(*nh), 1);
+	nh = calloc(1, sizeof(*nh));
 	assert(nh);
 
 	if (nc->head.nexthop) {
@@ -109,7 +109,7 @@ static void nexthop_chain_add_recursive(struct nexthop_chain *nc)
 {
 	struct nexthop *nh;
 
-	nh = calloc(sizeof(*nh), 1);
+	nh = calloc(1, sizeof(*nh));
 	assert(nh);
 
 	assert(nc->current_top);
@@ -128,7 +128,7 @@ static void nexthop_chain_add_recursive_level(struct nexthop_chain *nc)
 {
 	struct nexthop *nh;
 
-	nh = calloc(sizeof(*nh), 1);
+	nh = calloc(1, sizeof(*nh));
 	assert(nh);
 
 	assert(nc->current_top);
