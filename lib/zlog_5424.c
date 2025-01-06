@@ -782,7 +782,7 @@ static void zlog_5424_cycle(struct zlog_cfg_5424 *zcf, int fd)
 	}
 
 	old = zcf->active ? &zcf->active->zt : NULL;
-	old = zlog_target_replace(old, &zlt->zt);
+	old = zlog_target_replace(old, zlt ? &zlt->zt : NULL);
 	zcf->active = zlt;
 
 	/* oldt->fd == fd happens for zlog_5424_apply_meta() */
