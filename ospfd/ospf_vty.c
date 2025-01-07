@@ -10258,8 +10258,10 @@ DEFUN (ospf_external_route_aggregation,
 		tag = strtoul(argv[idx + 2]->arg, NULL, 10);
 
 	ret = ospf_asbr_external_aggregator_set(ospf, &p, tag);
-	if (ret == OSPF_INVALID)
-		vty_out(vty, "Invalid configuration!!\n");
+	if (ret == OSPF_FAILURE) {
+		vty_out(vty, "%% Failed to set summary-address!\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	return CMD_SUCCESS;
 }
@@ -10611,8 +10613,10 @@ DEFUN (ospf_external_route_aggregation_no_adrvertise,
 	}
 
 	ret = ospf_asbr_external_rt_no_advertise(ospf, &p);
-	if (ret == OSPF_INVALID)
-		vty_out(vty, "Invalid configuration!!\n");
+	if (ret == OSPF_FAILURE) {
+		vty_out(vty, "%% Failed to set summary-address!\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	return CMD_SUCCESS;
 }
