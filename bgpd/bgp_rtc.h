@@ -41,6 +41,7 @@ extern char *bgp_rtc_prefix_display(char *buf, size_t size, uint16_t prefix_len,
 extern void bgp_rtc_plist_free(void *arg);
 extern struct bgp_rtc_plist *bgp_peer_get_rtc_plist(struct peer *peer);
 extern int bgp_rtc_plist_entry_set(struct peer *peer, struct prefix *p, bool add);
+extern void bgp_show_rtc_plist(struct vty *vty, struct bgp_rtc_plist *rtc_plist, bool json);
 
 extern void bgp_rtc_init(void);
 #endif /* BGP_RTC_H */
