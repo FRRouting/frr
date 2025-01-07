@@ -1326,6 +1326,24 @@ enum zclient_send_status zclient_nhg_send(struct zclient *zclient, int cmd,
 	return zclient_send_message(zclient);
 }
 
+/* size needed by a stream for redistributing a route */
+int zapi_redistribute_stream_size(struct zapi_route *api)
+{
+	size_t msg_size = 0;
+	size_t nh_size = sizeof(struct zapi_nexthop);
+
+	msg_size = sizeof(struct zapi_route);
+	/* remove unused nexthop structures */
+	msg_size -= (MULTIPATH_NUM - api->nexthop_num) * nh_size;
+	/* remove unused backup nexthop structures */
+	msg_size -= (MULTIPATH_NUM - api->backup_nexthop_num) * nh_size;
+	/* remove unused opaque values */
+	msg_size -= ZAPI_MESSAGE_OPAQUE_LENGTH - api->opaque.length;
+
+	return msg_size;
+}
+
+
 int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 {
 	struct zapi_nexthop *api_nh;

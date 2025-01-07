@@ -518,8 +518,7 @@ int zsend_redistribute_route(int cmd, struct zserv *client, const struct route_n
 	const struct prefix *p, *src_p;
 	uint16_t count = 0;
 	afi_t afi;
-	size_t stream_size =
-		MAX(ZEBRA_MAX_PACKET_SIZ, sizeof(struct zapi_route));
+	size_t stream_size = 0;
 
 	srcdest_rnode_prefixes(rn, &p, &src_p);
 	memset(&api, 0, sizeof(api));
@@ -611,6 +610,7 @@ int zsend_redistribute_route(int cmd, struct zserv *client, const struct route_n
 	SET_FLAG(api.message, ZAPI_MESSAGE_MTU);
 	api.mtu = re->mtu;
 
+	stream_size = zapi_redistribute_stream_size(&api);
 	struct stream *s = stream_new(stream_size);
 
 	/* Encode route and send. */
