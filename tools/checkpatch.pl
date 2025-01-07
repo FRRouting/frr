@@ -6285,13 +6285,14 @@ sub process {
 		while ($line =~ /(?:^|")([X\t]*)(?:"|$)/g) {
 			my $string = substr($rawline, $-[1], $+[1] - $-[1]);
 			$string =~ s/%%/__/g;
-			# check for %L
-			if ($show_L && $string =~ /%[\*\d\.\$]*L([diouxX])/) {
-				WARN("PRINTF_L",
-				     "\%L$1 is non-standard C, use %ll$1\n" . $herecurr);
-				$show_L = 0;
-			}
-			# check for %Z
+                        # check for %L
+                        # OK in FRR
+                        # if ($show_L && $string =~ /%[\*\d\.\$]*L([diouxX])/) {
+                        #       WARN("PRINTF_L",
+                        #            "\%L$1 is non-standard C, use %ll$1\n" . $herecurr);
+                        #       $show_L = 0;
+                        # }
+                        # check for %Z
 			if ($show_Z && $string =~ /%[\*\d\.\$]*Z([diouxX])/) {
 				WARN("PRINTF_Z",
 				     "%Z$1 is non-standard C, use %z$1\n" . $herecurr);
