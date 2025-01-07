@@ -1339,7 +1339,7 @@ static void bgp_zebra_announce_parse_nexthop(
 			 * overridden on 1st nexthop */
 			if (mpinfo == info) {
 				if (metric)
-					*metric = mpinfo_cp->attr->med;
+					*metric = bgp_med_value(mpinfo_cp->attr, bgp);
 				if (tag)
 					*tag = mpinfo_cp->attr->tag;
 			}
