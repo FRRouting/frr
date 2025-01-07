@@ -1,0 +1,155 @@
+{
+  "2001:db8:2::/64": [
+    {
+      "internalNextHopActiveNum": 1,
+      "nexthops": [
+        {
+          "fib": true,
+          "interfaceName": "r1-eth0",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:3::/64": [
+    {
+      "internalNextHopActiveNum": 1,
+      "nexthops": [
+        {
+          "fib": true,
+          "interfaceName": "r1-eth1",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:4::/64": [
+    {
+      "internalNextHopActiveNum": 1,
+      "nexthops": [
+        {
+          "fib": true,
+          "interfaceName": "r1-eth2",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:5::/64": [
+    {
+      "internalNextHopActiveNum": 1,
+      "nexthops": [
+        {
+          "fib": true,
+          "interfaceName": "r1-eth0",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:6::/64": [
+    {
+      "internalNextHopActiveNum": 2,
+      "nexthops": [
+        {
+          "fib": true,
+          "interfaceName": "r1-eth2",
+          "active": true
+        },
+        {
+          "fib": true,
+          "interfaceName": "r1-eth1",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:7::/64": [
+    {
+      "internalNextHopActiveNum": 3,
+      "nexthops": [
+        {
+          "fib": true,
+          "interfaceName": "r1-eth2",
+          "active": true
+        },
+        {
+          "fib": true,
+          "interfaceName": "r1-eth0",
+          "active": true
+        },
+        {
+          "fib": true,
+          "interfaceName": "r1-eth1",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:8::/64": [
+    {
+      "internalNextHopActiveNum": 3,
+      "nexthops": [
+        {
+          "fib": true,
+          "interfaceName": "r1-eth2",
+          "active": true
+        },
+        {
+          "fib": true,
+          "interfaceName": "r1-eth0",
+          "active": true
+        },
+        {
+          "fib": true,
+          "interfaceName": "r1-eth1",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:8007::/64": [
+    {
+      "internalNextHopActiveNum": 3,
+      "nexthops": [
+        {
+          "fib": true,
+          "interfaceName": "r1-eth2",
+          "active": true
+        },
+        {
+          "fib": true,
+          "interfaceName": "r1-eth0",
+          "active": true
+        },
+        {
+          "fib": true,
+          "interfaceName": "r1-eth1",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:8008::/64": [
+    {
+      "internalNextHopActiveNum": 3,
+      "nexthops": [
+        {
+          "fib": true,
+          "interfaceName": "r1-eth2",
+          "active": true
+        },
+        {
+          "fib": true,
+          "interfaceName": "r1-eth0",
+          "active": true
+        },
+        {
+          "fib": true,
+          "interfaceName": "r1-eth1",
+          "active": true
+        }
+      ]
+    }
+  ]
+}
