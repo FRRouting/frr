@@ -1326,6 +1326,80 @@ enum zclient_send_status zclient_nhg_send(struct zclient *zclient, int cmd,
 	return zclient_send_message(zclient);
 }
 
+/* size needed by a stream for redistributing a route */
+int zapi_redistribute_stream_size(struct zapi_route *api)
+{
+	/*
+	 *	zclient_create_header(s, cmd, api->vrf_id);
+	 *	stream_putc(s, api->type);stream_putw(s, api->instance);
+	 *	stream_putl(s, api->flags);stream_putl(s, api->message);
+	 *	stream_putc(s, api->safi);
+	 *
+	 *	stream_size += 22;
+	 *
+	 *
+	 *	stream_putc(s, api->prefix.family);
+	 *      psize = PSIZE(api->prefix.prefixlen);
+	 *	stream_putc(s, api->prefix.prefixlen);
+	 *      stream_write(s, &api->prefix.u.prefix, psize);
+	 *
+	 *	stream_size += 18;
+	 *
+	 *
+	 *      psize = PSIZE(api->src_prefix.prefixlen);
+	 *      stream_putc(s, api->src_prefix.prefixlen);
+	 *      stream_write(s, (uint8_t *)&api->src_prefix.prefix, psize);
+	 *
+	 *	stream_size += 17;
+	 *
+	 *
+	 *      Nexthops.
+	 *
+	 *      stream_putw(s, api->nexthop_num);
+	 *	stream_size += 2;
+	 *
+	 *
+	 *      for (nexthop = re->nhe->nhg.nexthop;nexthop; nexthop = nexthop->next) {
+	 *              stream_putl(s, api_nh->vrf_id);
+	 *              stream_putc(s, api_nh->type);
+	 *
+	 *	        stream_size += 5;
+	 *
+	 *              stream_putc(s, nh_flags);
+	 *	        stream_size += 1;
+	 *
+	 *
+	 *              max of
+	 *                   stream_putc(s, api_nh->bh_type);
+	 *                   ( stream_put_in_addr(s, &api_nh->gate.ipv4);
+	 *                     stream_putl(s, api_nh->ifindex);)
+	 *                   stream_putl(s, api_nh->ifindex);
+	 *                   ( stream_write(s, (uint8_t *)&api_nh->gate.ipv6, 16);
+	 *                      stream_putl(s, api_nh->ifindex);)
+	 *
+	 *	        stream_size += 20;
+	 *
+	 *              stream_putq(s, a pi_nh->weight);
+	 *	        stream_size += 8;
+	 *      }
+	 *
+	 *      Attributes.
+	 *
+	 *      stream_putc(s, api->distance);
+	 *      stream_putl(s, api->metric);
+	 *	stream_putl(s, api->tag);
+	 *      stream_putl(s, api->mtu);
+	 *
+	 *      stream_size += 13;
+	 *
+	 *      Put length at the first point of the stream.
+	 *      stream_putw_at(s, 0, stream_get_endp(s));
+	 *	stream_size += 2;
+	 */
+	return 74 + (34 * api->nexthop_num);
+}
+
+
 int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 {
 	struct zapi_nexthop *api_nh;
