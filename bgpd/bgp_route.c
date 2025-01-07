@@ -15096,10 +15096,9 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 	}
 }
 
-static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
-			   safi_t safi, enum bgp_show_adj_route_type type,
-			   const char *rmap_name, const struct prefix *match,
-			   uint16_t show_flags)
+int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
+		    enum bgp_show_adj_route_type type, const char *rmap_name,
+		    const struct prefix *match, uint16_t show_flags, const struct prefix_rd *prd)
 {
 	struct bgp *bgp;
 	struct bgp_table *table;
@@ -15181,8 +15180,13 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 
 		for (dest = bgp_table_top(table); dest;
 		     dest = bgp_route_next(dest)) {
+			const struct prefix *dest_p = bgp_dest_get_prefix(dest);
+
 			table = bgp_dest_get_bgp_table_info(dest);
 			if (!table)
+				continue;
+
+			if (prd && memcmp(dest_p->u.val, prd->val, RD_BYTES) != 0)
 				continue;
 
 			output_count_per_rd = 0;
@@ -15295,8 +15299,7 @@ DEFPY (show_ip_bgp_instance_neighbor_bestpath_route,
 	if (!peer)
 		return CMD_WARNING;
 
-	return peer_adj_routes(vty, peer, afi, safi, type, rmap_name, NULL,
-			       show_flags);
+	return peer_adj_routes(vty, peer, afi, safi, type, rmap_name, NULL, show_flags, NULL);
 }
 
 DEFPY(show_ip_bgp_instance_neighbor_advertised_route,
@@ -15378,7 +15381,7 @@ DEFPY(show_ip_bgp_instance_neighbor_advertised_route,
 
 	if (!all)
 		return peer_adj_routes(vty, peer, afi, safi, type, route_map,
-				       prefix_str ? prefix : NULL, show_flags);
+				       prefix_str ? prefix : NULL, show_flags, NULL);
 	if (uj)
 		vty_out(vty, "{\n");
 
@@ -15405,8 +15408,8 @@ DEFPY(show_ip_bgp_instance_neighbor_advertised_route,
 						get_afi_safi_str(afi, safi,
 								 false));
 
-				peer_adj_routes(vty, peer, afi, safi, type,
-						route_map, prefix, show_flags);
+				peer_adj_routes(vty, peer, afi, safi, type, route_map, prefix,
+						show_flags, NULL);
 			}
 		}
 	} else {
@@ -15429,8 +15432,8 @@ DEFPY(show_ip_bgp_instance_neighbor_advertised_route,
 						get_afi_safi_str(afi, safi,
 								 false));
 
-				peer_adj_routes(vty, peer, afi, safi, type,
-						route_map, prefix, show_flags);
+				peer_adj_routes(vty, peer, afi, safi, type, route_map, prefix,
+						show_flags, NULL);
 			}
 		}
 	}

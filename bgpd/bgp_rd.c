@@ -163,6 +163,9 @@ char *prefix_rd2str(const struct prefix_rd *prd, char *buf, size_t size,
 	uint16_t type;
 	struct rd_as rd_as;
 	struct rd_ip rd_ip;
+#ifdef ENABLE_BGP_VNC
+	struct rd_vnc_eth rd_vnc_eth = { 0 };
+#endif
 	int len = 0;
 
 	assert(size >= RD_ADDRSTRLEN);
@@ -190,11 +193,13 @@ char *prefix_rd2str(const struct prefix_rd *prd, char *buf, size_t size,
 	}
 #ifdef ENABLE_BGP_VNC
 	else if (type == RD_TYPE_VNC_ETH) {
+		decode_rd_vnc_eth(pnt, &rd_vnc_eth);
 		snprintf(buf, size, "LHI:%d, %02x:%02x:%02x:%02x:%02x:%02x",
-			 *(pnt + 1), /* LHI */
-			 *(pnt + 2), /* MAC[0] */
-			 *(pnt + 3), *(pnt + 4), *(pnt + 5), *(pnt + 6),
-			 *(pnt + 7));
+			 rd_vnc_eth.local_nve_id,     /* LHI */
+			 rd_vnc_eth.macaddr.octet[0], /* MAC[0] */
+			 rd_vnc_eth.macaddr.octet[1], rd_vnc_eth.macaddr.octet[2],
+			 rd_vnc_eth.macaddr.octet[3], rd_vnc_eth.macaddr.octet[4],
+			 rd_vnc_eth.macaddr.octet[5]);
 
 		return buf;
 	}
