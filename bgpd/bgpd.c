@@ -6459,7 +6459,7 @@ int peer_allowas_in_set(struct peer *peer, afi_t afi, safi_t safi,
 				SET_FLAG(member->af_flags[afi][safi],
 					 PEER_FLAG_ALLOWAS_IN_ORIGIN);
 				member->allowas_in[afi][safi] = 0;
-				peer_on_policy_change(peer, afi, safi, 0);
+				peer_on_policy_change(member, afi, safi, 0);
 			}
 		} else {
 			if (member->allowas_in[afi][safi] != allow_num
@@ -6468,7 +6468,7 @@ int peer_allowas_in_set(struct peer *peer, afi_t afi, safi_t safi,
 				UNSET_FLAG(member->af_flags[afi][safi],
 					   PEER_FLAG_ALLOWAS_IN_ORIGIN);
 				member->allowas_in[afi][safi] = allow_num;
-				peer_on_policy_change(peer, afi, safi, 0);
+				peer_on_policy_change(member, afi, safi, 0);
 			}
 		}
 	}
