@@ -9946,6 +9946,7 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 					       "ipv6");
 			json_object_string_add(json_nexthop_global, "scope",
 					       "global");
+			json_object_int_add(json_nexthop_global, "length", attr->mp_nexthop_len);
 
 			/* We display both LL & GL if both have been
 			 * received */
@@ -9969,6 +9970,8 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 						       "ipv6");
 				json_object_string_add(json_nexthop_ll, "scope",
 						       "link-local");
+				json_object_int_add(json_nexthop_global, "length",
+						    attr->mp_nexthop_len);
 
 				if ((IPV6_ADDR_CMP(&attr->mp_nexthop_global,
 						   &attr->mp_nexthop_local) !=
@@ -11090,6 +11093,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 					       "ipv6");
 			json_object_string_add(json_nexthop_global, "scope",
 					       "global");
+			json_object_int_add(json_nexthop_global, "length", attr->mp_nexthop_len);
 		} else {
 			if (nexthop_hostname)
 				vty_out(vty, "    %pI6(%s)",
@@ -11277,6 +11281,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			json_object_string_add(json_nexthop_ll, "afi", "ipv6");
 			json_object_string_add(json_nexthop_ll, "scope",
 					       "link-local");
+			json_object_int_add(json_nexthop_ll, "length", attr->mp_nexthop_len);
 
 			json_object_boolean_true_add(json_nexthop_ll,
 						     "accessible");
