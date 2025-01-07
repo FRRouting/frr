@@ -15718,6 +15718,53 @@ DEFPY(show_ip_bgp_instance_neighbor_advertised_route,
 	return CMD_SUCCESS;
 }
 
+DEFUN (show_ip_bgp_neighbor_rt_constraint_plist,
+       show_ip_bgp_neighbor_rt_constraint_plist_cmd,
+       "show [ip] bgp [" BGP_AFI_ALL_CMD_STR" [" BGP_SAFI_ALL_CMD_STR"]] neighbors <A.B.C.D|X:X::X:X|WORD> rt-prefix-list [json]",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       BGP_AFI_ALL_HELP_STR
+       BGP_SAFI_ALL_HELP_STR
+       "Detailed information on TCP and BGP neighbor connections\n"
+       "Neighbor to display information about\n"
+       "Neighbor to display information about\n"
+       "Neighbor on BGP configured interface\n"
+       "Display the route-target prefix-list\n"
+       JSON_STR)
+{
+	char *peerstr = NULL;
+	struct peer *peer;
+	int idx = 0;
+	struct bgp *bgp = bgp_get_default();
+	bool uj = use_json(argc, argv);
+	struct bgp_rtc_plist *rtc_plist;
+
+	if (!bgp)
+		return CMD_WARNING;
+
+	if (uj)
+		argc--;
+
+	/* neighbors <A.B.C.D|X:X::X:X|WORD> */
+	argv_find(argv, argc, "neighbors", &idx);
+	peerstr = argv[++idx]->arg;
+
+	peer = peer_lookup_in_view(vty, bgp, peerstr, uj);
+	if (!peer)
+		return CMD_WARNING;
+
+	rtc_plist = bgp_peer_get_rtc_plist(peer);
+	if (rtc_plist)
+		bgp_show_rtc_plist(vty, rtc_plist, !!uj);
+	else if (uj)
+		vty_out(vty, "{}\n");
+	else
+		vty_out(vty, "No RTC prefix-list\n");
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_ip_bgp_neighbor_received_prefix_filter,
        show_ip_bgp_neighbor_received_prefix_filter_cmd,
        "show [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6> [unicast]] neighbors <A.B.C.D|X:X::X:X|WORD> received prefix-filter [json]",
@@ -16906,6 +16953,7 @@ void bgp_route_init(void)
 	install_element(VIEW_NODE, &show_ip_bgp_neighbor_routes_cmd);
 	install_element(VIEW_NODE,
 			&show_ip_bgp_neighbor_received_prefix_filter_cmd);
+	install_element(VIEW_NODE, &show_ip_bgp_neighbor_rt_constraint_plist_cmd);
 #ifdef KEEP_OLD_VPN_COMMANDS
 	install_element(VIEW_NODE, &show_ip_bgp_vpn_all_route_prefix_cmd);
 #endif /* KEEP_OLD_VPN_COMMANDS */
