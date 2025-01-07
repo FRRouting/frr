@@ -1237,8 +1237,8 @@ static void fe_adapter_handle_session_req(struct mgmt_fe_client_adapter *adapter
 	struct mgmt_fe_session_ctx *session;
 	uint64_t client_id;
 
-	__dbg("Got session-req creating: %u for refer-id %" PRIu64 " from '%s'",
-	      msg->refer_id == 0, msg->refer_id, adapter->name);
+	__dbg("Got session-req is create %u req-id %Lu for refer-id %Lu from '%s'",
+	      msg->refer_id == 0, msg->req_id, msg->refer_id, adapter->name);
 
 	if (msg->refer_id) {
 		uint64_t session_id = msg->refer_id;

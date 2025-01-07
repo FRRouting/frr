@@ -797,16 +797,19 @@ typedef int (*nb_oper_data_cb)(const struct lysc_node *snode,
  *        error.
  *
  * If nb_op_iterate_yielding() was passed with @should_batch set then this
- * callback will be invoked during each portion (batch) of the walk.
+ * callback will be invoked during each portion (batch) of the walk with @ret
+ * set to NB_YIELD.
  *
  * The @tree is read-only and should not be modified or freed.
  *
- * If this function returns anything but NB_OK then the walk will be terminated.
- * and this function will not be called again regardless of if @ret was
- * `NB_YIELD` or not.
+ * When @ret is NB_YIELD and this function returns anything but NB_OK then the
+ * walk will be terminated, and this function *will* be called again with @ret
+ * set the non-NB_OK return value it just returned. This allows the callback
+ * have a single bit of code to send an error message and do any cleanup for any
+ * type of failure, whether that failure was from itself or from the infra code.
  *
- * Return: NB_OK to continue or complete the walk normally, otherwise an error
- * to immediately terminate the walk.
+ * Return: NB_OK or an error during handling of @ret == NB_YIELD otherwise the
+ * value is ignored.
  */
 /* Callback function used by nb_oper_data_iter_yielding(). */
 typedef enum nb_error (*nb_oper_data_finish_cb)(const struct lyd_node *tree,
