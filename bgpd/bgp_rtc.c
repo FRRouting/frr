@@ -524,6 +524,62 @@ int bgp_rtc_plist_entry_set(struct peer *peer, struct prefix *p, bool add)
 	return bgp_rtc_plist_entry_del(peer->rtc_plist, p);
 }
 
+void bgp_show_rtc_plist(struct vty *vty, struct bgp_rtc_plist *rtc_plist, bool uj)
+{
+	struct bgp_rtc_plist_entry *rtc_pentry = NULL;
+	json_object *json, *json_rtc_plist, *json_rt, *json_as_array;
+	char bgp_router_id_str[INET_ADDRSTRLEN];
+	struct listnode *enode, *asnode;
+	as_t *origin_as = NULL;
+
+	snprintfrr(bgp_router_id_str, sizeof(bgp_router_id_str), "%pI4", &rtc_plist->router_id);
+
+	if (uj) {
+		json = json_object_new_object();
+		json_rtc_plist = json_object_new_object();
+
+		json_object_object_add(json, "rtcPrefixList", json_rtc_plist);
+		json_object_int_add(json_rtc_plist, "prefixListCounter",
+				    listcount(rtc_plist->entries));
+
+		json_object_string_add(json_rtc_plist, "prefixListName", bgp_router_id_str);
+
+		for (ALL_LIST_ELEMENTS_RO(rtc_plist->entries, enode, rtc_pentry)) {
+			json_rt = json_object_new_object();
+			if (rtc_pentry->prefixlen == 0 || rtc_pentry->prefixlen == 32)
+				json_object_object_addf(json_rtc_plist, json_rt, "0/%u",
+							rtc_pentry->prefixlen);
+			else
+				json_object_object_addf(json_rtc_plist, json_rt, "%s/%u",
+							ecommunity_rt_str(rtc_pentry->route_target),
+							rtc_pentry->prefixlen);
+
+			json_as_array = json_object_new_array();
+			json_object_object_add(json_rt, "originAS", json_as_array);
+			for (ALL_LIST_ELEMENTS_RO(rtc_pentry->origin_as, asnode, origin_as))
+				/* Display a string and not an integer to support AS dot notation in the future */
+				json_array_string_addf(json_as_array, "%u", *origin_as);
+		}
+
+		vty_json(vty, json);
+
+		return;
+	}
+
+	vty_out(vty, "RTC prefix-list for peer router-ID %s: %d entries\n", bgp_router_id_str,
+		listcount(rtc_plist->entries));
+
+	for (ALL_LIST_ELEMENTS_RO(rtc_plist->entries, enode, rtc_pentry)) {
+		if (rtc_pentry->prefixlen == 0 || rtc_pentry->prefixlen == 32)
+			vty_out(vty, "   0/%u from origin ASNs:\n", rtc_pentry->prefixlen);
+		else
+			vty_out(vty, "   %s/%u from origin ASNs:\n",
+				ecommunity_rt_str(rtc_pentry->route_target), rtc_pentry->prefixlen);
+		for (ALL_LIST_ELEMENTS_RO(rtc_pentry->origin_as, asnode, origin_as))
+			vty_out(vty, "      %u\n", *origin_as);
+	}
+}
+
 void bgp_rtc_init(void)
 {
 	prefix_set_rtc_display_hook(bgp_rtc_prefix_display);
