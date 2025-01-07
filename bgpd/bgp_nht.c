@@ -41,6 +41,9 @@ static void unregister_zebra_rnh(struct bgp_nexthop_cache *bnc);
 static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p);
 static void bgp_nht_ifp_initial(struct event *thread);
 
+DEFINE_HOOK(bgp_nht_path_update, (struct bgp *bgp, struct bgp_path_info *pi, bool valid),
+	    (bgp, pi, valid));
+
 static int bgp_isvalid_nexthop(struct bgp_nexthop_cache *bnc)
 {
 	return (bgp_zebra_num_connects() == 0
@@ -1448,6 +1451,9 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 						path);
 			}
 		}
+
+		if (path_valid != bnc_is_valid_nexthop)
+			hook_call(bgp_nht_path_update, bgp_path, path, bnc_is_valid_nexthop);
 
 		bgp_process(bgp_path, dest, path, afi, safi);
 	}

@@ -86,6 +86,7 @@ DEFINE_QOBJ_TYPE(bgp);
 DEFINE_QOBJ_TYPE(peer);
 DEFINE_HOOK(bgp_inst_delete, (struct bgp *bgp), (bgp));
 DEFINE_HOOK(bgp_instance_state, (struct bgp *bgp), (bgp));
+DEFINE_HOOK(bgp_routerid_update, (struct bgp *bgp, bool withdraw), (bgp, withdraw));
 
 /* BGP process wide configuration.  */
 static struct bgp_master bgp_master;
@@ -301,6 +302,8 @@ static int bgp_router_id_set(struct bgp *bgp, const struct in_addr *id,
 
 	vpn_handle_router_id_update(bgp, true, is_config);
 
+	hook_call(bgp_routerid_update, bgp, true);
+
 	IPV4_ADDR_COPY(&bgp->router_id, id);
 
 	/* Set all peer's local identifier with this value. */
@@ -318,6 +321,7 @@ static int bgp_router_id_set(struct bgp *bgp, const struct in_addr *id,
 
 	vpn_handle_router_id_update(bgp, false, is_config);
 
+	hook_call(bgp_routerid_update, bgp, false);
 	return 0;
 }
 

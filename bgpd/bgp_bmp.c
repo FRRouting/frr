@@ -28,6 +28,7 @@
 #include "bgpd/bgp_table.h"
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_route.h"
+#include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_dump.h"
 #include "bgpd/bgp_errors.h"
@@ -1708,6 +1709,26 @@ static int bmp_process(struct bgp *bgp, afi_t afi, safi_t safi,
 	return 0;
 }
 
+static int bmp_nht_path_valid(struct bgp *bgp, struct bgp_path_info *path, bool valid)
+{
+	struct bgp_dest *dest = path->net;
+	struct bgp_table *table;
+
+	if (frrtrace_enabled(frr_bgp, bmp_nht_path_valid)) {
+		char pfxprint[PREFIX2STR_BUFFER];
+
+		prefix2str(&dest->rn->p, pfxprint, sizeof(pfxprint));
+		frrtrace(4, frr_bgp, bmp_nht_path_valid, bgp, pfxprint, path, valid);
+	}
+	if (bgp->peer_self == path->peer)
+		/* self declared networks or redistributed networks are not relevant for bmp */
+		return 0;
+
+	table = bgp_dest_table(dest);
+
+	return bmp_process(bgp, table->afi, table->safi, dest, path->peer, !valid);
+}
+
 static void bmp_stat_put_u32(struct stream *s, size_t *cnt, uint16_t type,
 		uint32_t value)
 {
@@ -2013,11 +2034,16 @@ static void bmp_bgp_peer_vrf(struct bmp_bgp_peer *bbpeer, struct bgp *bgp)
 	size_t open_len = stream_get_endp(s);
 
 	bbpeer->open_rx_len = open_len;
+	if (bbpeer->open_rx)
+		XFREE(MTYPE_BMP_OPEN, bbpeer->open_rx);
 	bbpeer->open_rx = XMALLOC(MTYPE_BMP_OPEN, open_len);
 	memcpy(bbpeer->open_rx, s->data, open_len);
 
 	bbpeer->open_tx_len = open_len;
-	bbpeer->open_tx = bbpeer->open_rx;
+	if (bbpeer->open_tx)
+		XFREE(MTYPE_BMP_OPEN, bbpeer->open_tx);
+	bbpeer->open_tx = XMALLOC(MTYPE_BMP_OPEN, open_len);
+	memcpy(bbpeer->open_tx, s->data, open_len);
 
 	stream_free(s);
 }
@@ -2057,6 +2083,7 @@ bool bmp_bgp_update_vrf_status(struct bmp_bgp *bmpbgp, enum bmp_vrf_state force)
 		} else {
 			bbpeer = bmp_bgp_peer_find(peer->qobj_node.nid);
 			if (bbpeer) {
+				XFREE(MTYPE_BMP_OPEN, bbpeer->open_tx);
 				XFREE(MTYPE_BMP_OPEN, bbpeer->open_rx);
 				bmp_peerh_del(&bmp_peerh, bbpeer);
 				XFREE(MTYPE_BMP_PEER, bbpeer);
@@ -3090,10 +3117,13 @@ static int bmp_route_update(struct bgp *bgp, afi_t afi, safi_t safi,
 		return 0;
 	}
 
-	struct bmp_bgp *bmpbgp = bmp_bgp_get(bgp);
+	struct bmp_bgp *bmpbgp = bmp_bgp_find(bgp);
 	struct peer *peer = updated_route->peer;
 	struct bmp_targets *bt;
 	struct bmp *bmp;
+
+	if (!bmpbgp)
+		return 0;
 
 	frr_each (bmp_targets, &bmpbgp->targets, bt) {
 		if (CHECK_FLAG(bt->afimon[afi][safi], BMP_MON_LOC_RIB)) {
@@ -3149,6 +3179,37 @@ static int bgp_bmp_early_fini(void)
 	return 0;
 }
 
+/* called when the routerid of an instance changes */
+static int bmp_bgp_attribute_updated(struct bgp *bgp, bool withdraw)
+{
+	struct bmp_bgp *bmpbgp = bmp_bgp_find(bgp);
+
+	if (!bmpbgp)
+		return 0;
+
+	bmp_bgp_update_vrf_status(bmpbgp, vrf_state_unknown);
+
+	if (bmpbgp->vrf_state == vrf_state_down)
+		/* do not send peer events, router id will not be enough to set state to up
+		 */
+		return 0;
+
+	/* vrf_state is up: trigger a peer event
+	 */
+	bmp_send_all_safe(bmpbgp, bmp_peerstate(bgp->peer_self, withdraw));
+	return 1;
+}
+
+static int bmp_routerid_update(struct bgp *bgp, bool withdraw)
+{
+	return bmp_bgp_attribute_updated(bgp, withdraw);
+}
+
+static int bmp_route_distinguisher_update(struct bgp *bgp, afi_t afi, bool preconfig)
+{
+	return bmp_bgp_attribute_updated(bgp, preconfig);
+}
+
 /* called when a bgp instance goes up/down, implying that the underlying VRF
  * has been created or deleted in zebra
  */
@@ -3194,6 +3255,7 @@ static int bgp_bmp_module_init(void)
 	hook_register(peer_status_changed, bmp_peer_status_changed);
 	hook_register(peer_backward_transition, bmp_peer_backward);
 	hook_register(bgp_process, bmp_process);
+	hook_register(bgp_nht_path_update, bmp_nht_path_valid);
 	hook_register(bgp_inst_config_write, bmp_config_write);
 	hook_register(bgp_inst_delete, bmp_bgp_del);
 	hook_register(frr_late_init, bgp_bmp_init);
@@ -3201,6 +3263,8 @@ static int bgp_bmp_module_init(void)
 	hook_register(frr_early_fini, bgp_bmp_early_fini);
 	hook_register(bgp_instance_state, bmp_vrf_state_changed);
 	hook_register(bgp_vrf_status_changed, bmp_vrf_itf_state_changed);
+	hook_register(bgp_routerid_update, bmp_routerid_update);
+	hook_register(bgp_route_distinguisher_update, bmp_route_distinguisher_update);
 	return 0;
 }
 
