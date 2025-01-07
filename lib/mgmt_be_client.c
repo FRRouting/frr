@@ -312,11 +312,11 @@ static int be_client_send_error(struct mgmt_be_client *client, uint64_t txn_id,
 	return ret;
 }
 
-static int mgmt_be_send_notification(void *__be_client, const char *xpath,
-				     const struct lyd_node *tree)
+static int __send_notification(struct mgmt_be_client *client, const char *xpath,
+			       const struct lyd_node *tree, uint8_t op)
 {
-	struct mgmt_be_client *client = __be_client;
 	struct mgmt_msg_notify_data *msg = NULL;
+	// LYD_FORMAT format = LYD_LYB;
 	LYD_FORMAT format = LYD_JSON;
 	uint8_t **darrp;
 	LY_ERR err;
@@ -324,35 +324,89 @@ static int mgmt_be_send_notification(void *__be_client, const char *xpath,
 
 	assert(tree);
 
-	debug_be_client("%s: sending YANG notification: %s", __func__,
-			tree->schema->name);
+	debug_be_client("%s: sending %sYANG %snotification: %s", __func__,
+			op == NOTIFY_OP_DS_DELETE    ? "delete "
+			: op == NOTIFY_OP_DS_REPLACE ? "replace "
+			: op == NOTIFY_OP_DS_PATCH   ? "patch "
+						     : "",
+			op == NOTIFY_OP_NOTIFICATION ? "" : "DS ", xpath ?: tree->schema->name);
 	/*
 	 * Allocate a message and append the data to it using `format`
 	 */
-	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_notify_data, 0,
-					MTYPE_MSG_NATIVE_NOTIFY);
+	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_notify_data, 0, MTYPE_MSG_NATIVE_NOTIFY);
 	msg->code = MGMT_MSG_CODE_NOTIFY;
 	msg->result_type = format;
+	msg->op = op;
 
 	mgmt_msg_native_xpath_encode(msg, xpath);
 
-	darrp = mgmt_msg_native_get_darrp(msg);
-	err = yang_print_tree_append(darrp, tree, format,
-				     (LYD_PRINT_SHRINK | LYD_PRINT_WD_EXPLICIT |
-				      LYD_PRINT_WITHSIBLINGS));
-	if (err) {
-		flog_err(EC_LIB_LIBYANG,
-			 "%s: error creating notification data: %s", __func__,
-			 ly_strerrcode(err));
-		ret = 1;
-		goto done;
+	if (tree) {
+		darrp = mgmt_msg_native_get_darrp(msg);
+		err = yang_print_tree_append(darrp, tree, format,
+					     (LYD_PRINT_SHRINK | LYD_PRINT_WD_EXPLICIT |
+					      LYD_PRINT_WITHSIBLINGS));
+		if (err) {
+			flog_err(EC_LIB_LIBYANG, "%s: error creating notification data: %s",
+				 __func__, ly_strerrcode(err));
+			ret = 1;
+			goto done;
+		}
 	}
 
-	(void)be_client_send_native_msg(client, msg,
-					mgmt_msg_native_get_msg_len(msg), false);
+	ret = be_client_send_native_msg(client, msg, mgmt_msg_native_get_msg_len(msg), false);
 done:
 	mgmt_msg_native_free_msg(msg);
 	return ret;
+}
+
+/**
+ * mgmt_be_send_ds_delete_notification() - Send DS notification to mgmtd
+ */
+int mgmt_be_send_ds_delete_notification(const char *path)
+{
+	if (!__be_client) {
+		debug_be_client("%s: No mgmtd connection for DS delete notification: %s", __func__,
+				path);
+		return 1;
+	}
+	return __send_notification(__be_client, path, NULL, NOTIFY_OP_DS_DELETE);
+}
+
+/**
+ * mgmt_be_send_ds_patch_notification() - Send a YANG patch DS notification to mgmtd
+ */
+int mgmt_be_send_ds_patch_notification(const char *path, const struct lyd_node *patch)
+{
+	if (!__be_client) {
+		debug_be_client("%s: No mgmtd connection for DS delete notification: %s", __func__,
+				path);
+		return 1;
+	}
+	return __send_notification(__be_client, path, patch, NOTIFY_OP_DS_PATCH);
+}
+
+/**
+ * mgmt_be_send_ds_replace_notification() - Send a replace DS notification to mgmtd
+ */
+int mgmt_be_send_ds_replace_notification(const char *path, const struct lyd_node *tree)
+{
+	if (!__be_client) {
+		debug_be_client("%s: No mgmtd connection for DS delete notification: %s", __func__,
+				path);
+		return 1;
+	}
+	return __send_notification(__be_client, path, tree, NOTIFY_OP_DS_REPLACE);
+}
+
+/**
+ * mgmt_be_send_notification() - Send notification to mgmtd
+ *
+ * This function is attached to the northbound notification hook.
+ */
+static int mgmt_be_send_notification(void *__client, const char *path, const struct lyd_node *tree)
+{
+	__send_notification(__client, path, tree, NOTIFY_OP_NOTIFICATION);
+	return 0;
 }
 
 static int mgmt_be_send_txn_reply(struct mgmt_be_client *client_ctx,
