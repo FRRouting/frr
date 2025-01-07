@@ -535,6 +535,66 @@ extern struct lyd_node *yang_dnode_dup(const struct lyd_node *dnode);
  */
 extern void yang_dnode_free(struct lyd_node *dnode);
 
+/**
+ * yang_state_new() - Create new state data.
+ * @tree: subtree @path is relative to or NULL in which case @path must be
+ *	  absolute.
+ * @path: The path of the state node to create.
+ * @value: The canonical value of the state.
+ *
+ * Return: The new libyang node.
+ */
+extern struct lyd_node *yang_state_new(struct lyd_node *tree, const char *path, const char *value);
+
+/**
+ * yang_state_delete() - Delete state data.
+ * @tree: subtree @path is relative to or NULL in which case @path must be
+ *	  absolute.
+ * @path: The path of the state node to delete, or NULL if @tree should just be
+ *	  deleted.
+ */
+extern void yang_state_delete(struct lyd_node *tree, const char *path);
+
+/**
+ * yang_state_new_pathf() - Create new state data.
+ * @tree: subtree @path_fmt is relative to or NULL in which case @path_fmt must
+ *        be absolute.
+ * @path_fmt: The path format string of the state node to create.
+ * @value: The canonical value of the state.
+ * @...: The values to substitute into @path_fmt.
+ *
+ * Return: The new libyang node.
+ */
+extern struct lyd_node *yang_state_new_pathf(struct lyd_node *tree, const char *path_fmt,
+					     const char *value, ...) PRINTFRR(2, 4);
+extern struct lyd_node *yang_state_new_vpathf(struct lyd_node *tree, const char *path_fmt,
+					      const char *value, va_list ap);
+/**
+ * yang_state_delete_pathf() - Delete state data.
+ * @tree: subtree @path_fmt is relative to or NULL in which case @path_fmt must
+ *	  be absolute.
+ * @path: The path of the state node to delete.
+ * @...: The values to substitute into @path_fmt.
+ */
+extern void yang_state_delete_pathf(struct lyd_node *tree, const char *path_fmt, ...) PRINTFRR(2, 3);
+extern void yang_state_delete_vpathf(struct lyd_node *tree, const char *path_fmt, va_list ap);
+
+/**
+ * yang_state_newf() - Create new state data.
+ * @tree: subtree @path is relative to or NULL in which case @path must be
+ *	  absolute.
+ * @path: The path of the state node to create.
+ * @val_fmt: The value format string to set the canonical value of the state.
+ * @...: The values to substitute into @val_fmt.
+ *
+ * Return: The new libyang node.
+ */
+extern struct lyd_node *yang_state_newf(struct lyd_node *tree, const char *path,
+					const char *val_fmt, ...) PRINTFRR(3, 4);
+
+extern struct lyd_node *yang_state_vnewf(struct lyd_node *tree, const char *path,
+					 const char *val_fmt, va_list ap);
+
 /*
  * Add a libyang data node to an RPC/action output container.
  *

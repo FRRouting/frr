@@ -35,6 +35,7 @@
  * We must also process containers with lookup-next descendants last.
  */
 
+DEFINE_MTYPE_STATIC(LIB, NB_STATE, "Northbound State");
 DEFINE_MTYPE_STATIC(LIB, NB_YIELD_STATE, "NB Yield State");
 DEFINE_MTYPE_STATIC(LIB, NB_NODE_INFOS, "NB Node Infos");
 
