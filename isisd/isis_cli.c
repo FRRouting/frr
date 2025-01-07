@@ -622,10 +622,17 @@ DEFPY_YANG(domain_passwd, domain_passwd_cmd,
 }
 
 DEFPY_YANG(no_area_passwd, no_area_passwd_cmd,
-      "no <area-password|domain-password>$cmd",
+      "no <area-password|domain-password>$cmd [<clear|md5>$pwd_type WORD$pwd [authenticate snp <send-only|validate>$snp]]",
       NO_STR
       "Configure the authentication password for an area\n"
-      "Set the authentication password for a routing domain\n")
+      "Set the authentication password for a routing domain\n"
+      "Clear-text authentication type\n"
+      "MD5 authentication type\n"
+      "Level-wide password\n"
+      "Authentication\n"
+      "SNP PDUs\n"
+      "Send but do not check PDUs on receiving\n"
+      "Send and check PDUs on receiving\n")
 {
 	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
