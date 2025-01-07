@@ -54,6 +54,7 @@ struct nb_op_node_info {
 	struct lyd_node *inner;
 	const struct lysc_node *schema; /* inner schema in case we rm inner */
 	struct yang_list_keys keys;	/* if list, keys to locate element */
+	uint position;			/* if keyless list, list position */
 	const void *list_entry;		/* opaque entry from user or NULL */
 	uint xpath_len;		  /* length of the xpath string for this node */
 	uint niters;		  /* # list elems create this iteration */
@@ -232,6 +233,22 @@ static void nb_op_get_keys(struct lyd_node_inner *list_node,
 	keys->num = n;
 }
 
+static uint nb_op_get_position_predicate(struct nb_op_yield_state *ys, struct nb_op_node_info *ni)
+{
+	const char *cursor = ys->xpath + ni->xpath_len - 1;
+
+	if (cursor[0] != ']')
+		return 0;
+
+	while (--cursor > ys->xpath && isdigit(cursor[0]))
+		;
+
+	if (cursor[0] != '[')
+		return 0;
+
+	return atoi(&cursor[1]);
+}
+
 /**
  * __move_back_to_next() - move back to the next lookup-next schema
  */
@@ -344,7 +361,8 @@ static void nb_op_resume_data_tree(struct nb_op_yield_state *ys)
 /**
  * nb_op_xpath_to_trunk() - generate a lyd_node tree (trunk) using an xpath.
  * @xpath_in: xpath query string to build trunk from.
- * @dnode: resulting tree (trunk)
+ * @xpath_out: resulting xpath for the trunk.
+ * @trunk: resulting tree (trunk)
  *
  * Use the longest prefix of @xpath_in as possible to resolve to a tree (trunk).
  * This is logically as if we walked along the xpath string resolving each
@@ -352,7 +370,7 @@ static void nb_op_resume_data_tree(struct nb_op_yield_state *ys)
  *
  * Return: error if any, if no error then @dnode contains the tree (trunk).
  */
-static enum nb_error nb_op_xpath_to_trunk(const char *xpath_in,
+static enum nb_error nb_op_xpath_to_trunk(const char *xpath_in, char **xpath_out,
 					  struct lyd_node **trunk)
 {
 	char *xpath = NULL;
@@ -370,7 +388,10 @@ static enum nb_error nb_op_xpath_to_trunk(const char *xpath_in,
 		if (ret != NB_OK)
 			break;
 	}
-	darr_free(xpath);
+	if (ret == NB_OK)
+		*xpath_out = xpath;
+	else
+		darr_free(xpath);
 	return ret;
 }
 
@@ -410,28 +431,57 @@ static enum nb_error nb_op_ys_finalize_node_info(struct nb_op_yield_state *ys,
 	ni->lookup_next_ok = yield_ok && ni->has_lookup_next &&
 			     (index == 0 || ni[-1].lookup_next_ok);
 
-	nb_op_get_keys((struct lyd_node_inner *)inner, &ni->keys);
+	if (CHECK_FLAG(nn->flags, F_NB_NODE_KEYLESS_LIST)) {
+		uint i;
 
-	/* A list entry cannot be present in a tree w/o it's keys */
-	assert(ni->keys.num == yang_snode_num_keys(inner->schema));
+		ni->position = nb_op_get_position_predicate(ys, ni);
+		if (!ni->position) {
+			flog_warn(EC_LIB_NB_OPERATIONAL_DATA,
+				  "%s: can't decode keyless list positional predicate in %s",
+				  __func__, ys->xpath);
+			return NB_ERR_NOT_FOUND;
+		}
 
-	/*
-	 * Get this nodes opaque list_entry object
-	 */
+		/*
+		 * Get the entry at the position given by the predicate
+		 */
 
-	if (!nn->cbs.lookup_entry) {
-		flog_warn(EC_LIB_NB_OPERATIONAL_DATA,
-			  "%s: data path doesn't support iteration over operational data: %s",
-			  __func__, ys->xpath);
-		return NB_ERR_NOT_FOUND;
-	}
+		/* ni->list_entry starts as the parent entry of this node */
+		ni->list_entry = nb_callback_get_next(nn, ni->list_entry, NULL);
+		for (i = 1; i < ni->position && ni->list_entry; i++)
+			ni->list_entry = nb_callback_get_next(nn, ni->list_entry, ni->list_entry);
 
-	/* ni->list_entry starts as the parent entry of this node */
-	ni->list_entry = nb_callback_lookup_entry(nn, ni->list_entry, &ni->keys);
-	if (ni->list_entry == NULL) {
-		flog_warn(EC_LIB_NB_OPERATIONAL_DATA,
-			  "%s: list entry lookup failed", __func__);
-		return NB_ERR_NOT_FOUND;
+		if (i != ni->position || !ni->list_entry) {
+			flog_warn(EC_LIB_NB_OPERATIONAL_DATA,
+				  "%s: entry at position %d doesn't exist in: %s", __func__,
+				  ni->position, ys->xpath);
+			return NB_ERR_NOT_FOUND;
+		}
+
+	} else {
+		nb_op_get_keys((struct lyd_node_inner *)inner, &ni->keys);
+		/* A list entry cannot be present in a tree w/o it's keys */
+		assert(ni->keys.num == yang_snode_num_keys(inner->schema));
+
+		/*
+		 * Get this nodes opaque list_entry object
+		 */
+
+		/* We need a lookup entry unless this is a keyless list */
+		if (!nn->cbs.lookup_entry && ni->keys.num) {
+			flog_warn(EC_LIB_NB_OPERATIONAL_DATA,
+				  "%s: data path doesn't support iteration over operational data: %s",
+				  __func__, ys->xpath);
+			return NB_ERR_NOT_FOUND;
+		}
+
+		/* ni->list_entry starts as the parent entry of this node */
+		ni->list_entry = nb_callback_lookup_entry(nn, ni->list_entry, &ni->keys);
+		if (ni->list_entry == NULL) {
+			flog_warn(EC_LIB_NB_OPERATIONAL_DATA, "%s: list entry lookup failed",
+				  __func__);
+			return NB_ERR_NOT_FOUND;
+		}
 	}
 
 	/*
@@ -460,8 +510,9 @@ static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 	struct lyd_node *inner;
 	struct lyd_node *node = NULL;
 	enum nb_error ret;
-	uint i, len;
-	char *tmp;
+	const char *cur;
+	char *xpath = NULL;
+	uint i, len, prevlen, xplen;
 
 	/*
 	 * Obtain the trunk of the data node tree of the query.
@@ -471,8 +522,8 @@ static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 	 * node could be identified (e.g., a list-node name with no keys).
 	 */
 
-	ret = nb_op_xpath_to_trunk(ys->xpath, &node);
-	if (ret || !node) {
+	ret = nb_op_xpath_to_trunk(ys->xpath, &xpath, &node);
+	if (ret != NB_OK || !node) {
 		flog_warn(EC_LIB_LIBYANG,
 			  "%s: can't instantiate concrete path using xpath: %s",
 			  __func__, ys->xpath);
@@ -482,11 +533,17 @@ static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 	}
 
 	/* Move up to the container if on a leaf currently. */
-	if (node &&
-	    !CHECK_FLAG(node->schema->nodetype, LYS_CONTAINER | LYS_LIST)) {
+	if (!CHECK_FLAG(node->schema->nodetype, LYS_CONTAINER | LYS_LIST)) {
 		struct lyd_node *leaf = node;
 
 		node = &node->parent->node;
+
+		/* Have to trim the leaf from the xpath now */
+		ret = yang_xpath_pop_node(xpath);
+		if (ret != NB_OK) {
+			darr_free(xpath);
+			return ret;
+		}
 
 		/*
 		 * If the leaf is not a key, delete it, because it has a wrong
@@ -495,10 +552,7 @@ static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 		if (!lysc_is_key(leaf->schema))
 			lyd_free_tree(leaf);
 	}
-	assert(!node ||
-	       CHECK_FLAG(node->schema->nodetype, LYS_CONTAINER | LYS_LIST));
-	if (!node)
-		return NB_ERR_NOT_FOUND;
+	assert(CHECK_FLAG(node->schema->nodetype, LYS_CONTAINER | LYS_LIST));
 
 	inner = node;
 	for (len = 1; inner->parent; len++)
@@ -511,26 +565,42 @@ static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 	 * -- save the prefix length.
 	 */
 	inner = node;
+	prevlen = 0;
+	xplen = strlen(xpath);
+	darr_free(xpath);
 	for (i = len; i > 0; i--, inner = &inner->parent->node) {
 		ni = &ys->node_infos[i - 1];
 		ni->inner = inner;
 		ni->schema = inner->schema;
+
+		if (i == len) {
+			prevlen = xplen;
+			ni->xpath_len = prevlen;
+			continue;
+		}
+
 		/*
-		 * NOTE: we could build this by hand with a litte more effort,
-		 * but this simple implementation works and won't be expensive
-		 * since the number of nodes is small and only done once per
-		 * query.
+		 * The only predicates we should have are concrete ones at this
+		 * point b/c of nb_op_xpath_to_trunk() above, so we aren't in
+		 * danger of finding a division symbol in the path, only '/'s
+		 * inside strings which frrstr_back_to_char skips over.
 		 */
-		tmp = yang_dnode_get_path(inner, NULL, 0);
-		ni->xpath_len = strlen(tmp);
 
-		/* Replace users supplied xpath with the libyang returned value */
-		if (i == len)
-			darr_in_strdup(ys->xpath, tmp);
+		assert(prevlen == xplen || ys->xpath[prevlen] == '/');
+		if (prevlen != xplen)
+			ys->xpath[prevlen] = 0;
+		cur = frrstr_back_to_char(ys->xpath, '/');
+		if (prevlen != xplen)
+			ys->xpath[prevlen] = '/';
 
-		/* The prefix must match the prefix of the stored xpath */
-		assert(!strncmp(tmp, ys->xpath, ni->xpath_len));
-		free(tmp);
+		if (!cur || cur == ys->xpath) {
+			flog_warn(EC_LIB_LIBYANG, "%s: error tokenizing query xpath: %s", __func__,
+				  ys->xpath);
+			return NB_ERR_VALIDATION;
+		}
+
+		prevlen = cur - ys->xpath;
+		ni->xpath_len = prevlen;
 	}
 
 	/*
