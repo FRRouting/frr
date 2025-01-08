@@ -72,6 +72,7 @@ extern unsigned long conf_bgp_debug_graceful_restart;
 extern unsigned long conf_bgp_debug_evpn_mh;
 extern unsigned long conf_bgp_debug_bfd;
 extern unsigned long conf_bgp_debug_cond_adv;
+extern unsigned long conf_bgp_debug_aggregate;
 
 extern unsigned long term_bgp_debug_as4;
 extern unsigned long term_bgp_debug_neighbor_events;
@@ -91,6 +92,7 @@ extern unsigned long term_bgp_debug_graceful_restart;
 extern unsigned long term_bgp_debug_evpn_mh;
 extern unsigned long term_bgp_debug_bfd;
 extern unsigned long term_bgp_debug_cond_adv;
+extern unsigned long term_bgp_debug_aggregate;
 
 extern struct list *bgp_debug_neighbor_events_peers;
 extern struct list *bgp_debug_keepalive_peers;
@@ -99,6 +101,7 @@ extern struct list *bgp_debug_update_out_peers;
 extern struct list *bgp_debug_update_prefixes;
 extern struct list *bgp_debug_bestpath_prefixes;
 extern struct list *bgp_debug_zebra_prefixes;
+extern struct list *bgp_debug_aggregate_prefixes;
 
 struct bgp_debug_filter {
 	char *host;
@@ -138,6 +141,7 @@ struct bgp_debug_filter {
 
 #define BGP_DEBUG_BFD_LIB             0x01
 #define BGP_DEBUG_COND_ADV 0x01
+#define BGP_DEBUG_AGGREGATE	      0x01
 
 #define CONF_DEBUG_ON(a, b)	(conf_bgp_debug_ ## a |= (BGP_DEBUG_ ## b))
 #define CONF_DEBUG_OFF(a, b)	(conf_bgp_debug_ ## a &= ~(BGP_DEBUG_ ## b))
@@ -175,6 +179,7 @@ extern bool bgp_debug_update(const struct peer *peer, const struct prefix *p,
 			     struct update_group *updgrp, unsigned int inbound);
 extern bool bgp_debug_bestpath(struct bgp_dest *dest);
 extern bool bgp_debug_zebra(const struct prefix *p);
+extern bool bgp_debug_aggregate(const struct prefix *p);
 
 extern const char *bgp_debug_rdpfxpath2str(
 	afi_t afi, safi_t safi, const struct prefix_rd *prd,
