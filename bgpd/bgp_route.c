@@ -7799,9 +7799,8 @@ static void bgp_aggregate_install(
 		 * If the aggregate information has not changed
 		 * no need to re-install it again.
 		 */
-		if (pi && (!aggregate->rmap.changed &&
-			   bgp_aggregate_info_same(pi, origin, aspath, community,
-						   ecommunity, lcommunity))) {
+		if (pi && bgp_aggregate_info_same(pi, origin, aspath, community,
+						  ecommunity, lcommunity)) {
 			bgp_dest_unlock_node(dest);
 
 			if (aspath)
@@ -8796,7 +8795,6 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 		aggregate->rmap.name =
 			XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap);
 		aggregate->rmap.map = route_map_lookup_by_name(rmap);
-		aggregate->rmap.changed = true;
 		route_map_counter_increment(aggregate->rmap.map);
 	}
 
