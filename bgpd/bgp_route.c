@@ -7982,6 +7982,10 @@ static void bgp_aggregate_install(
 	struct bgp_table *table;
 	struct bgp_path_info *pi, *orig, *new;
 	struct attr *attr;
+	bool debug = bgp_debug_aggregate(p);
+
+	if (debug)
+		zlog_debug("%s: aggregate %pFX, count %lu", __func__, p, aggregate->count);
 
 	table = bgp->rib[afi][safi];
 
@@ -8017,7 +8021,8 @@ static void bgp_aggregate_install(
 				ecommunity_free(&ecommunity);
 			if (lcommunity)
 				lcommunity_free(&lcommunity);
-
+			if (debug)
+				zlog_debug("  aggregate %pFX: duplicate", p);
 			return;
 		}
 
@@ -8027,6 +8032,8 @@ static void bgp_aggregate_install(
 		if (pi) {
 			bgp_path_info_delete(dest, pi);
 			bgp_process(bgp, dest, pi, afi, safi);
+			if (debug)
+				zlog_debug("  aggregate %pFX: existing, removed", p);
 		}
 
 		attr = bgp_attr_aggregate_intern(
@@ -8040,9 +8047,8 @@ static void bgp_aggregate_install(
 			lcommunity_free(&lcommunity);
 			bgp_dest_unlock_node(dest);
 			bgp_aggregate_delete(bgp, p, afi, safi, aggregate);
-			if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
-				zlog_debug("%s: %pFX null attribute", __func__,
-					   p);
+			if (debug)
+				zlog_debug("%s: %pFX null attribute", __func__, p);
 			return;
 		}
 
@@ -8053,6 +8059,8 @@ static void bgp_aggregate_install(
 
 		bgp_path_info_add(dest, new);
 		bgp_process(bgp, dest, new, afi, safi);
+		if (debug)
+			zlog_debug("  aggregate %pFX: installed", p);
 	} else {
 	uninstall_aggregate_route:
 		for (pi = orig; pi; pi = pi->next)
@@ -8065,6 +8073,8 @@ static void bgp_aggregate_install(
 		if (pi) {
 			bgp_path_info_delete(dest, pi);
 			bgp_process(bgp, dest, pi, afi, safi);
+			if (debug)
+				zlog_debug("  aggregate %pFX: uninstall", p);
 		}
 	}
 
