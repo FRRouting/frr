@@ -64,6 +64,8 @@ struct event_loop *nb_notif_master;
 struct event *nb_notif_timer;
 void *nb_notif_walk;
 
+const char **nb_notif_filters;
+
 /*
  * We maintain a queue of change lists one entry per query and notification send
  * action
@@ -635,6 +637,20 @@ static void nb_notif_set_walk_timer(void)
 			     &nb_notif_timer);
 }
 
+void nb_notif_set_filters(const char **selectors, bool replace)
+{
+	const char **csp;
+
+	if (replace) {
+		darr_free_free(nb_notif_filters);
+		nb_notif_filters = selectors;
+		return;
+	}
+	darr_foreach_p (selectors, csp)
+		*darr_append(nb_notif_filters) = *csp;
+	darr_free(selectors);
+}
+
 void nb_notif_init(struct event_loop *tm)
 {
 	nb_notif_master = tm;
@@ -659,4 +675,6 @@ void nb_notif_terminate(void)
 
 	while ((group = op_changes_group_next()))
 		op_changes_group_free(group);
+
+	darr_free_free(nb_notif_filters);
 }

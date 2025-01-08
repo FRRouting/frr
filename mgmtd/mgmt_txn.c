@@ -237,6 +237,7 @@ struct mgmt_txn_ctx {
 	struct event *clnup;
 
 	/* List of backend adapters involved in this transaction */
+	/* XXX reap this */
 	struct mgmt_txn_badapters_head be_adapters;
 
 	int refcount;
@@ -2647,6 +2648,52 @@ int mgmt_txn_send_rpc(uint64_t txn_id, uint64_t req_id, uint64_t clients,
 
 	event_add_timer(mgmt_txn_tm, txn_rpc_timeout, txn_req,
 			MGMTD_TXN_RPC_MAX_DELAY_SEC, &txn->rpc_timeout);
+
+	return 0;
+}
+
+int mgmt_txn_send_notify_selectors(uint64_t req_id, uint64_t clients, const char **selectors)
+{
+	struct mgmt_msg_notify_select *msg;
+	char **all_selectors = NULL;
+	uint64_t id;
+	int ret;
+	uint i;
+
+	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_notify_select, 0,
+					MTYPE_MSG_NATIVE_NOTIFY_SELECT);
+	msg->refer_id = MGMTD_TXN_ID_NONE;
+	msg->req_id = req_id;
+	msg->code = MGMT_MSG_CODE_NOTIFY_SELECT;
+	msg->replace = selectors == NULL;
+
+	if (selectors == NULL) {
+		/* Get selectors for all sessions */
+		all_selectors = mgmt_fe_get_all_selectors();
+		selectors = (const char **)all_selectors;
+	}
+
+	darr_foreach_i (selectors, i)
+		mgmt_msg_native_add_str(msg, selectors[i]);
+
+	assert(clients);
+	FOREACH_BE_CLIENT_BITS (id, clients) {
+		/* make sure the backend is running/connected */
+		if (!mgmt_be_get_adapter_by_id(id))
+			continue;
+		ret = mgmt_be_send_native(id, msg);
+		if (ret) {
+			__log_err("Could not send notify-select message to backend client %s",
+				  mgmt_be_client_id2name(id));
+			continue;
+		}
+
+		__dbg("Sent notify-select req to backend client %s", mgmt_be_client_id2name(id));
+	}
+	mgmt_msg_native_free_msg(msg);
+
+	if (all_selectors)
+		darr_free_free(all_selectors);
 
 	return 0;
 }

@@ -320,7 +320,7 @@ static void mgmt_be_xpath_map_init(void)
 
 	__dbg("Total Cfg XPath Maps: %u", darr_len(be_cfg_xpath_map));
 	__dbg("Total Oper XPath Maps: %u", darr_len(be_oper_xpath_map));
-	__dbg("Total Noitf XPath Maps: %u", darr_len(be_notif_xpath_map));
+	__dbg("Total Notif XPath Maps: %u", darr_len(be_notif_xpath_map));
 	__dbg("Total RPC XPath Maps: %u", darr_len(be_rpc_xpath_map));
 }
 
@@ -651,13 +651,17 @@ int mgmt_be_send_native(enum mgmt_be_client_id id, void *msg)
 	return mgmt_msg_native_send_msg(adapter->conn, msg, false);
 }
 
+/*
+ * Send notification to back-ends that subscribed for them.
+ */
 static void mgmt_be_adapter_send_notify(struct mgmt_msg_notify_data *msg,
 					size_t msglen)
 {
 	struct mgmt_be_client_adapter *adapter;
 	struct mgmt_be_xpath_map *map;
-	struct nb_node *nb_node;
+	struct nb_node *nb_node = NULL;
 	const char *notif;
+	bool is_root;
 	uint id, len;
 
 	if (!darr_len(be_notif_xpath_map))
@@ -669,27 +673,33 @@ static void mgmt_be_adapter_send_notify(struct mgmt_msg_notify_data *msg,
 		return;
 	}
 
-	nb_node = nb_node_find(notif);
-	if (!nb_node) {
-		__log_err("No schema found for notification: %s", notif);
-		return;
+	is_root = !strcmp(notif, "/");
+	if (!is_root) {
+		nb_node = nb_node_find(notif);
+		if (!nb_node) {
+			__log_err("No schema found for notification: %s", notif);
+			return;
+		}
 	}
 
 	darr_foreach_p (be_notif_xpath_map, map) {
-		len = strlen(map->xpath_prefix);
-		if (strncmp(map->xpath_prefix, nb_node->xpath, len) &&
-		    strncmp(map->xpath_prefix, notif, len))
-			continue;
-
+		if (!is_root) {
+			len = strlen(map->xpath_prefix);
+			if (strncmp(map->xpath_prefix, nb_node->xpath, len) &&
+			    strncmp(map->xpath_prefix, notif, len))
+				continue;
+		}
 		FOREACH_BE_CLIENT_BITS (id, map->clients) {
 			adapter = mgmt_be_get_adapter_by_id(id);
 			if (!adapter)
 				continue;
+
 			msg_conn_send_msg(adapter->conn, MGMT_MSG_VERSION_NATIVE,
 					  msg, msglen, NULL, false);
 		}
 	}
 }
+
 
 /*
  * Handle a native encoded message
@@ -735,6 +745,9 @@ static void be_adapter_handle_native_msg(struct mgmt_be_client_adapter *adapter,
 		mgmt_txn_notify_rpc_reply(adapter, rpc_msg, msg_len);
 		break;
 	case MGMT_MSG_CODE_NOTIFY:
+		/*
+		 * Handle notify message from a back-end client
+		 */
 		notify_msg = (typeof(notify_msg))msg;
 		__dbg("Got NOTIFY from '%s'", adapter->name);
 		mgmt_be_adapter_send_notify(notify_msg, msg_len);

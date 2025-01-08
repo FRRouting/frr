@@ -297,6 +297,16 @@ extern int mgmt_txn_send_rpc(uint64_t txn_id, uint64_t req_id, uint64_t clients,
 			     LYD_FORMAT result_type, const char *xpath,
 			     const char *data, size_t data_len);
 
+/**
+ * mgmt_txn_send_notify_selectors() - Send NOTIFY SELECT request.
+ * @req_id: FE client request identifier.
+ * @clients: Bitmask of clients to send RPC to.
+ * @selectors: Array of selectors or NULL to resend all selectors to BE clients.
+ *
+ * Returns 0 on success.
+ */
+extern int mgmt_txn_send_notify_selectors(uint64_t req_id, uint64_t clients, const char **selectors);
+
 /*
  * Notifiy backend adapter on connection.
  */

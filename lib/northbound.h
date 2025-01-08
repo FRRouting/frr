@@ -1815,6 +1815,15 @@ extern struct lyd_node *nb_op_updatef(struct lyd_node *tree, const char *path, c
 extern struct lyd_node *nb_op_vupdatef(struct lyd_node *tree, const char *path, const char *val_fmt,
 				       va_list ap);
 
+/**
+ * nb_notif_set_filters() - add or replace notification filters
+ * @selectors: darr array of selector (filter) xpath strings, can be NULL if
+ *	       @replace is true. nb_notif_set_filters takes ownership of this
+ *	       array and the contained darr strings.
+ * @replace: true to replace existing set otherwise append.
+ */
+extern void nb_notif_set_filters(const char **selectors, bool replace);
+
 extern void nb_notif_init(struct event_loop *loop);
 extern void nb_notif_terminate(void);
 
