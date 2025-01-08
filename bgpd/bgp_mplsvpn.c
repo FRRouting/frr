@@ -1803,7 +1803,7 @@ static void _vpn_leak_from_vrf_update_leak_attr(struct attr *static_attr, struct
 	 * because of loop checking.
 	 */
 	if (new_info)
-		vpn_leak_to_vrf_update(from_bgp, new_info, NULL);
+		vpn_leak_to_vrf_update(from_bgp, new_info, NULL, path_vrf->peer);
 	else
 		bgp_dest_unlock_node(bn);
 }
@@ -2342,10 +2342,10 @@ static struct bgp *bgp_lookup_by_rd(struct bgp_path_info *bpi,
 	return NULL;
 }
 
-static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,   /* to */
+static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	/* to */
 					  struct bgp *from_bgp, /* from */
-					  struct bgp_path_info *path_vpn,
-					  struct prefix_rd *prd)
+					  struct bgp_path_info *path_vpn, struct prefix_rd *prd,
+					  struct peer *from)
 {
 	const struct prefix *p = bgp_dest_get_prefix(path_vpn->net);
 	afi_t afi = family2afi(p->family);
@@ -2660,9 +2660,8 @@ bool vpn_leak_to_vrf_no_retain_filter_check(struct bgp *from_bgp,
 	return true;
 }
 
-void vpn_leak_to_vrf_update(struct bgp *from_bgp,
-			    struct bgp_path_info *path_vpn,
-			    struct prefix_rd *prd)
+void vpn_leak_to_vrf_update(struct bgp *from_bgp, struct bgp_path_info *path_vpn,
+			    struct prefix_rd *prd, struct peer *peer)
 {
 	struct listnode *mnode, *mnnode;
 	struct bgp *bgp;
@@ -2676,8 +2675,7 @@ void vpn_leak_to_vrf_update(struct bgp *from_bgp,
 	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
 		if (!path_vpn->extra || !path_vpn->extra->vrfleak ||
 		    path_vpn->extra->vrfleak->bgp_orig != bgp) { /* no loop */
-			vpn_leak_to_vrf_update_onevrf(bgp, from_bgp, path_vpn,
-						      prd);
+			vpn_leak_to_vrf_update_onevrf(bgp, from_bgp, path_vpn, prd, peer);
 		}
 	}
 }
@@ -2865,8 +2863,8 @@ void vpn_leak_to_vrf_update_all(struct bgp *to_bgp, struct bgp *vpn_from,
 				    bpi->extra->vrfleak->bgp_orig == to_bgp)
 					continue;
 
-				vpn_leak_to_vrf_update_onevrf(to_bgp, vpn_from,
-							      bpi, NULL);
+				vpn_leak_to_vrf_update_onevrf(to_bgp, vpn_from, bpi, NULL,
+							      bpi->peer);
 			}
 		}
 	}
