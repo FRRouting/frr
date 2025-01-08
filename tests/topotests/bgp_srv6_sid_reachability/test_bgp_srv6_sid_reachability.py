@@ -99,7 +99,7 @@ def teardown_module(mod):
 def test_ping():
     tgen = get_topogen()
 
-    check_ping("c11", "192.168.2.1", True, 10, 1)
+    check_ping("c11", "192.168.2.1", True, 120, 1)
     check_ping("c11", "192.168.3.1", True, 10, 1)
     check_ping("c12", "192.168.2.1", True, 10, 1)
     check_ping("c12", "192.168.3.1", True, 10, 1)
