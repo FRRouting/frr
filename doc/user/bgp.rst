@@ -1953,6 +1953,15 @@ Configuring Peers
    are not supporting this capability or supporting BGP Capabilities
    Negotiation RFC 2842.
 
+.. clicmd:: neighbor PEER capability link-local
+
+   Send the Link-Local Next Hop capability in the BGP OPEN message to the neighbor.
+   This is useful in data center environments where point-to-point (unnumbered) links
+   are utilized. This capability standardizes the operation of BGP over a
+   point-to-point links using link-local IPv6 addressing only.
+
+   Enabled by default for the ``datacenter`` profile.
+
 .. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> accept-own
 
    Enable handling of self-originated VPN routes containing ``accept-own`` community.
