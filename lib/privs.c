@@ -179,7 +179,7 @@ static pset_t *zcaps2sys(zebra_capabilities_t *zcaps, int num)
 	for (i = 0; i < num; i++)
 		count += cap_map[zcaps[i]].num;
 
-	if ((syscaps = XCALLOC(MTYPE_PRIVS, (sizeof(pset_t) * num))) == NULL) {
+	if ((syscaps = XCALLOC(MTYPE_PRIVS, sizeof(pset_t))) == NULL) {
 		fprintf(stderr, "%s: could not allocate syscaps!", __func__);
 		return NULL;
 	}
