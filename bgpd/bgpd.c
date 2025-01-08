@@ -1575,6 +1575,9 @@ struct peer *peer_new(struct bgp *bgp)
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SOFT_VERSION_CAPABILITY))
 		peer_flag_set(peer, PEER_FLAG_CAPABILITY_SOFT_VERSION);
 
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_LINK_LOCAL_CAPABILITY))
+		peer_flag_set(peer, PEER_FLAG_CAPABILITY_LINK_LOCAL);
+
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DYNAMIC_CAPABILITY))
 		peer_flag_set(peer, PEER_FLAG_DYNAMIC_CAPABILITY);
 
@@ -2963,6 +2966,11 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 		if (CHECK_FLAG(conf->flags, PEER_FLAG_DYNAMIC_CAPABILITY))
 			SET_FLAG(peer->flags,
 				 PEER_FLAG_DYNAMIC_CAPABILITY);
+
+	/* capability link-local apply */
+	if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_CAPABILITY_LINK_LOCAL))
+		if (CHECK_FLAG(conf->flags, PEER_FLAG_CAPABILITY_LINK_LOCAL))
+			SET_FLAG(peer->flags, PEER_FLAG_CAPABILITY_LINK_LOCAL);
 
 	/* password apply */
 	if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_PASSWORD))
@@ -4834,6 +4842,7 @@ static const struct peer_flag_action peer_flag_action_list[] = {
 	{PEER_FLAG_EXTENDED_LINK_BANDWIDTH, 0, peer_change_none},
 	{PEER_FLAG_LONESOUL, 0, peer_change_reset_out},
 	{PEER_FLAG_TCP_MSS, 0, peer_change_none},
+	{PEER_FLAG_CAPABILITY_LINK_LOCAL, 0, peer_change_none},
 	{0, 0, 0}};
 
 static const struct peer_flag_action peer_af_flag_action_list[] = {
@@ -4924,7 +4933,7 @@ static void peer_flag_modify_action(struct peer *peer, uint64_t flag)
 	if (flag == PEER_FLAG_DYNAMIC_CAPABILITY || flag == PEER_FLAG_CAPABILITY_ENHE ||
 	    flag == PEER_FLAG_CAPABILITY_FQDN || flag == PEER_FLAG_CAPABILITY_SOFT_VERSION ||
 	    flag == PEER_FLAG_DONT_CAPABILITY || flag == PEER_FLAG_OVERRIDE_CAPABILITY ||
-	    flag == PEER_FLAG_STRICT_CAP_MATCH)
+	    flag == PEER_FLAG_STRICT_CAP_MATCH || flag == PEER_FLAG_CAPABILITY_LINK_LOCAL)
 		peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
 	else if (flag == PEER_FLAG_PASSIVE)
 		peer->last_reset = PEER_DOWN_PASSIVE_CHANGE;

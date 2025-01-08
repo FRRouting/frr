@@ -2450,6 +2450,10 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 			if (!peer->nexthop.ifp) {
 				zlog_warn("%s sent a v6 global attribute but address is a V6 LL and there's no peer interface information. Hence, withdrawing",
 					  peer->host);
+				if (CHECK_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_ADV) &&
+				    CHECK_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_RCV))
+					bgp_notify_send(peer->connection, BGP_NOTIFY_UPDATE_ERR,
+							BGP_NOTIFY_UPDATE_UNREACH_NEXT_HOP);
 				return BGP_ATTR_PARSE_WITHDRAW;
 			}
 			attr->nh_ifindex = peer->nexthop.ifp->ifindex;
