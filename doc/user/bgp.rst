@@ -4149,6 +4149,11 @@ Debugging
 
    Enable or disable debugging of communications between *bgpd* and *zebra*.
 
+.. clicmd:: debug bgp aggregate [prefix <A.B.C.D/M|X:X::X:X/M>]
+
+   Enable or disable debugging of route aggregation, either for one or more
+   aggregate addresses or for all aggregate addresses.
+
 Dumping Messages and Routing Tables
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
