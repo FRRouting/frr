@@ -7729,44 +7729,6 @@ static bool aggr_unsuppress_path(struct bgp_aggregate *aggregate,
 	return false;
 }
 
-static bool bgp_aggregate_info_same(struct bgp_path_info *pi, uint8_t origin,
-				    struct aspath *aspath,
-				    struct community *comm,
-				    struct ecommunity *ecomm,
-				    struct lcommunity *lcomm)
-{
-	static struct aspath *ae = NULL;
-	enum asnotation_mode asnotation;
-
-	asnotation = bgp_get_asnotation(NULL);
-
-	if (!aspath)
-		ae = aspath_empty(asnotation);
-
-	if (!pi)
-		return false;
-
-	if (origin != pi->attr->origin)
-		return false;
-
-	if (!aspath_cmp(pi->attr->aspath, (aspath) ? aspath : ae))
-		return false;
-
-	if (!community_cmp(bgp_attr_get_community(pi->attr), comm))
-		return false;
-
-	if (!ecommunity_cmp(bgp_attr_get_ecommunity(pi->attr), ecomm))
-		return false;
-
-	if (!lcommunity_cmp(bgp_attr_get_lcommunity(pi->attr), lcomm))
-		return false;
-
-	if (!CHECK_FLAG(pi->flags, BGP_PATH_VALID))
-		return false;
-
-	return true;
-}
-
 static void bgp_aggregate_install(
 	struct bgp *bgp, afi_t afi, safi_t safi, const struct prefix *p,
 	uint8_t origin, struct aspath *aspath, struct community *community,
@@ -7775,14 +7737,14 @@ static void bgp_aggregate_install(
 {
 	struct bgp_dest *dest;
 	struct bgp_table *table;
-	struct bgp_path_info *pi, *orig, *new;
+	struct bgp_path_info *pi, *new;
 	struct attr *attr;
 
 	table = bgp->rib[afi][safi];
 
 	dest = bgp_node_get(table, p);
 
-	for (orig = pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
+	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
 		if (pi->peer == bgp->peer_self && pi->type == ZEBRA_ROUTE_BGP
 		    && pi->sub_type == BGP_ROUTE_AGGREGATE)
 			break;
@@ -7799,10 +7761,21 @@ static void bgp_aggregate_install(
 		 * If the aggregate information has not changed
 		 * no need to re-install it again.
 		 */
-		if (pi && bgp_aggregate_info_same(pi, origin, aspath, community,
-						  ecommunity, lcommunity)) {
+		attr = bgp_attr_aggregate_intern(bgp, origin, aspath, community, ecommunity,
+						 lcommunity, aggregate, atomic_aggregate, p);
+		if (!attr) {
+			aspath_free(aspath);
+			community_free(&community);
+			ecommunity_free(&ecommunity);
+			lcommunity_free(&lcommunity);
 			bgp_dest_unlock_node(dest);
+			bgp_aggregate_delete(bgp, p, afi, safi, aggregate);
+			if (debug)
+				zlog_debug("%s: %pFX null attribute", __func__, p);
+			return;
+		}
 
+<<<<<<< HEAD
 			if (aspath)
 				aspath_free(aspath);
 			if (community)
@@ -7812,6 +7785,13 @@ static void bgp_aggregate_install(
 			if (lcommunity)
 				lcommunity_free(&lcommunity);
 
+=======
+		if (pi && CHECK_FLAG(pi->flags, BGP_PATH_VALID) && attrhash_cmp(pi->attr, attr)) {
+			bgp_attr_unintern(&attr);
+			bgp_dest_unlock_node(dest);
+			if (debug)
+				zlog_debug("  aggregate %pFX: duplicate", p);
+>>>>>>> 43c567014 (bgpd: apply route-map for aggregate before attribute comparison)
 			return;
 		}
 
@@ -7823,6 +7803,7 @@ static void bgp_aggregate_install(
 			bgp_process(bgp, dest, pi, afi, safi);
 		}
 
+<<<<<<< HEAD
 		attr = bgp_attr_aggregate_intern(
 			bgp, origin, aspath, community, ecommunity, lcommunity,
 			aggregate, atomic_aggregate, p);
@@ -7839,6 +7820,8 @@ static void bgp_aggregate_install(
 					   p);
 			return;
 		}
+=======
+>>>>>>> 43c567014 (bgpd: apply route-map for aggregate before attribute comparison)
 
 		new = info_make(ZEBRA_ROUTE_BGP, BGP_ROUTE_AGGREGATE, 0,
 				bgp->peer_self, attr, dest);
@@ -7849,6 +7832,7 @@ static void bgp_aggregate_install(
 		bgp_process(bgp, dest, new, afi, safi);
 	} else {
 	uninstall_aggregate_route:
+<<<<<<< HEAD
 		for (pi = orig; pi; pi = pi->next)
 			if (pi->peer == bgp->peer_self
 			    && pi->type == ZEBRA_ROUTE_BGP
@@ -7860,6 +7844,15 @@ static void bgp_aggregate_install(
 			bgp_path_info_delete(dest, pi);
 			bgp_process(bgp, dest, pi, afi, safi);
 		}
+=======
+			/* Withdraw the aggregate route from routing table. */
+			if (pi) {
+				bgp_path_info_delete(dest, pi);
+				bgp_process(bgp, dest, pi, afi, safi);
+				if (debug)
+					zlog_debug("  aggregate %pFX: uninstall", p);
+			}
+>>>>>>> 43c567014 (bgpd: apply route-map for aggregate before attribute comparison)
 	}
 
 	bgp_dest_unlock_node(dest);
