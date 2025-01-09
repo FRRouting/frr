@@ -858,47 +858,6 @@ struct nbr_connected *nbr_connected_check(struct interface *ifp,
 	return NULL;
 }
 
-/* Print if_addr structure. */
-static void __attribute__((unused))
-connected_log(struct connected *connected, char *str)
-{
-	struct prefix *p;
-	struct interface *ifp;
-	char logbuf[BUFSIZ];
-	char buf[BUFSIZ];
-
-	ifp = connected->ifp;
-	p = connected->address;
-
-	snprintf(logbuf, sizeof(logbuf), "%s interface %s vrf %s(%u) %s %pFX ",
-		 str, ifp->name, ifp->vrf->name, ifp->vrf->vrf_id,
-		 prefix_family_str(p), p);
-
-	p = connected->destination;
-	if (p) {
-		strlcat(logbuf, inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ),
-			BUFSIZ);
-	}
-	zlog_info("%s", logbuf);
-}
-
-/* Print if_addr structure. */
-static void __attribute__((unused))
-nbr_connected_log(struct nbr_connected *connected, char *str)
-{
-	struct prefix *p;
-	struct interface *ifp;
-	char logbuf[BUFSIZ];
-
-	ifp = connected->ifp;
-	p = connected->address;
-
-	snprintf(logbuf, sizeof(logbuf), "%s interface %s %s %pFX ", str,
-		 ifp->name, prefix_family_str(p), p);
-
-	zlog_info("%s", logbuf);
-}
-
 /* count the number of connected addresses that are in the given family */
 unsigned int connected_count_by_family(struct interface *ifp, int family)
 {
