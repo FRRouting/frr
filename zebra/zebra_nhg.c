@@ -3089,7 +3089,7 @@ static struct nhg_hash_entry *zebra_nhg_rib_compare_old_nhe(
 int nexthop_active_update(struct route_node *rn, struct route_entry *re,
 			  struct route_entry *old_re)
 {
-	struct nhg_hash_entry *curr_nhe;
+	struct nhg_hash_entry *curr_nhe, *remove;
 	uint32_t curr_active = 0, backup_active = 0;
 
 	if (PROTO_OWNED(re->nhe))
@@ -3143,16 +3143,25 @@ backups_done:
 
 		new_nhe = zebra_nhg_rib_find_nhe(curr_nhe, rt_afi);
 
+		remove = new_nhe;
+
 		if (old_re && old_re->type == re->type &&
 		    old_re->instance == re->instance)
 			new_nhe = zebra_nhg_rib_compare_old_nhe(rn, re, new_nhe,
 								old_re->nhe);
 
 		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-			zlog_debug(
-				"%s: re %p CHANGED: nhe %p (%pNG) => new_nhe %p (%pNG)",
-				__func__, re, re->nhe, re->nhe, new_nhe,
-				new_nhe);
+			zlog_debug("%s: re %p CHANGED: nhe %p (%pNG) => new_nhe %p (%pNG) rib_find_nhe returned %p (%pNG) refcnt: %d",
+				   __func__, re, re->nhe, re->nhe, new_nhe, new_nhe, remove, remove,
+				   remove ? remove->refcnt : 0);
+
+		/*
+		 * if the results from zebra_nhg_rib_find_nhe is being
+		 * dropped and it was generated in that function
+		 * (refcnt of 0) then we know we can clean it up
+		 */
+		if (remove && remove != new_nhe && remove != re->nhe && remove->refcnt == 0)
+			zebra_nhg_handle_uninstall(remove);
 
 		route_entry_update_nhe(re, new_nhe);
 	}
