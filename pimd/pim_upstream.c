@@ -332,7 +332,14 @@ static void join_timer_stop(struct pim_upstream *up)
 {
 	struct pim_neighbor *nbr = NULL;
 
-	EVENT_OFF(up->t_join_timer);
+    if (up->t_join_timer) {
+        EVENT_OFF(up->t_join_timer);
+    } else {
+		if (PIM_DEBUG_PIM_EVENTS) {
+			zlog_debug(
+				"%s: join timer thread already canceled",__func__);
+		}
+    }
 
 	if (up->rpf.source_nexthop.interface)
 		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
