@@ -429,9 +429,6 @@ DEFUN_NOSH (show_event_poll,
 	return CMD_SUCCESS;
 }
 
-#if CONFDATE > 20241231
-CPP_NOTICE("Remove `clear thread cpu` command")
-#endif
 DEFUN (clear_event_cpu,
        clear_event_cpu_cmd,
        "clear event cpu [FILTER]",
@@ -456,14 +453,6 @@ DEFUN (clear_event_cpu,
 	cpu_record_clear(filter);
 	return CMD_SUCCESS;
 }
-
-ALIAS (clear_event_cpu,
-       clear_thread_cpu_cmd,
-       "clear thread cpu [FILTER]",
-       "Clear stored data in all pthreads\n"
-       "Thread information\n"
-       "Thread CPU usage\n"
-       "Display filter (rwtexb)\n")
 
 static void show_event_timers_helper(struct vty *vty, struct event_loop *m)
 {
@@ -504,7 +493,6 @@ void event_cmd_init(void)
 {
 	install_element(VIEW_NODE, &show_event_cpu_cmd);
 	install_element(VIEW_NODE, &show_event_poll_cmd);
-	install_element(ENABLE_NODE, &clear_thread_cpu_cmd);
 	install_element(ENABLE_NODE, &clear_event_cpu_cmd);
 
 	install_element(CONFIG_NODE, &service_cputime_stats_cmd);
