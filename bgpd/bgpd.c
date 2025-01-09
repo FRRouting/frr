@@ -3671,7 +3671,7 @@ struct bgp *bgp_lookup(as_t as, const char *name)
 }
 
 /* Lookup BGP structure by view name. */
-static struct bgp *bgp_lookup_by_name_filter(const char *name, bool filter_auto)
+struct bgp *bgp_lookup_by_name_filter(const char *name, bool filter_auto)
 {
 	struct bgp *bgp;
 	struct listnode *node, *nnode;

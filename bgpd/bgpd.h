@@ -2247,6 +2247,7 @@ extern void bgp_zclient_reset(void);
 extern struct bgp *bgp_get_default(void);
 extern struct bgp *bgp_lookup(as_t, const char *);
 extern struct bgp *bgp_lookup_by_name(const char *);
+extern struct bgp *bgp_lookup_by_name_filter(const char *name, bool filter_auto);
 extern struct bgp *bgp_lookup_by_vrf_id(vrf_id_t);
 extern struct bgp *bgp_get_evpn(void);
 extern void bgp_set_evpn(struct bgp *bgp);

@@ -10556,7 +10556,7 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 		SET_FLAG(bgp_default->flags, BGP_FLAG_INSTANCE_HIDDEN);
 	}
 
-	vrf_bgp = bgp_lookup_by_name(import_name);
+	vrf_bgp = bgp_lookup_by_name_filter(import_name, false);
 	if (!vrf_bgp) {
 		if (strcmp(import_name, VRF_DEFAULT_NAME) == 0) {
 			vrf_bgp = bgp_default;
