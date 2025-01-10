@@ -1504,7 +1504,6 @@ int prefix_bgp_show_prefix_list(struct vty *vty, afi_t afi, char *name,
 	if (use_json) {
 		json = json_object_new_object();
 		json_prefix = json_object_new_object();
-		json_list = json_object_new_object();
 
 		json_object_int_add(json_prefix, "prefixListCounter",
 				    plist->count);
@@ -1512,10 +1511,7 @@ int prefix_bgp_show_prefix_list(struct vty *vty, afi_t afi, char *name,
 				       plist->name);
 
 		for (pentry = plist->head; pentry; pentry = pentry->next) {
-			struct prefix *p = &pentry->prefix;
-			char buf_a[BUFSIZ];
-
-			snprintf(buf_a, sizeof(buf_a), "%pFX", p);
+			json_list = json_object_new_object();
 
 			json_object_int_add(json_list, "seq", pentry->seq);
 			json_object_string_add(json_list, "seqPrefixListType",
@@ -1528,7 +1524,7 @@ int prefix_bgp_show_prefix_list(struct vty *vty, afi_t afi, char *name,
 				json_object_int_add(json_list, "le",
 						    pentry->le);
 
-			json_object_object_add(json_prefix, buf_a, json_list);
+			json_object_object_addf(json_prefix, json_list, "%pFX", &pentry->prefix);
 		}
 		if (afi == AFI_IP)
 			json_object_object_add(json, "ipPrefixList",
