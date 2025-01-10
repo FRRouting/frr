@@ -583,9 +583,9 @@ void bgp_timers_set(struct vty *vty, struct bgp *bgp, uint32_t keepalive,
 /* mostly for completeness - CLI uses its own defaults */
 void bgp_timers_unset(struct bgp *bgp)
 {
-	bgp->default_keepalive = BGP_DEFAULT_KEEPALIVE;
-	bgp->default_holdtime = BGP_DEFAULT_HOLDTIME;
-	bgp->default_connect_retry = BGP_DEFAULT_CONNECT_RETRY;
+	bgp->default_keepalive = DFLT_BGP_KEEPALIVE;
+	bgp->default_holdtime = DFLT_BGP_HOLDTIME;
+	bgp->default_connect_retry = DFLT_BGP_CONNECT_RETRY;
 	bgp->default_delayopen = BGP_DEFAULT_DELAYOPEN;
 }
 
