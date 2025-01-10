@@ -322,6 +322,7 @@ static int __send_notification(struct mgmt_be_client *client, const char *xpath,
 	LY_ERR err;
 	int ret = 0;
 
+	assert(op != NOTIFY_OP_NOTIFICATION || xpath || tree);
 	debug_be_client("%s: sending %sYANG %snotification: %s", __func__,
 			op == NOTIFY_OP_DS_DELETE    ? "delete "
 			: op == NOTIFY_OP_DS_REPLACE ? "replace "

@@ -571,16 +571,16 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
  * Return:
  *	The dynamic_array D with the new string content.
  */
-#define darr_in_strcat(D, S)                                                   \
-	({                                                                     \
-		uint __dlen = darr_strlen(D);                                  \
-		uint __slen = strlen(S);                                       \
-		darr_ensure_cap_mt(D, __dlen + __slen + 1, MTYPE_DARR_STR);    \
-		if (darr_len(D) == 0)                                          \
-			*darr_append(D) = 0;                                   \
-		memcpy(darr_last(D), (S), __slen + 1);                         \
-		_darr_len(D) += __slen;                                        \
-		D;                                                             \
+#define darr_in_strcat(D, S)                                                                       \
+	({                                                                                         \
+		uint __dlen = darr_strlen(D);                                                      \
+		uint __slen = strlen(S);                                                           \
+		darr_ensure_cap_mt(D, __dlen + __slen + 1, MTYPE_DARR_STR);                        \
+		if (darr_len(D) == 0)                                                              \
+			*darr_append(D) = 0;                                                       \
+		memcpy(&(D)[darr_strlen(D)] /* darr_last(D) clangSA :( */, (S), __slen + 1);       \
+		_darr_len(D) += __slen;                                                            \
+		D;                                                                                 \
 	})
 
 /**
