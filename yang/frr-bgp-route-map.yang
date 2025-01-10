@@ -148,6 +148,12 @@ module frr-bgp-route-map {
       "Match BGP community list";
   }
 
+  identity match-community-limit {
+    base frr-route-map:rmap-match-type;
+    description
+      "Match BGP community limit count";
+  }
+
   identity match-large-community {
     base frr-route-map:rmap-match-type;
     description
