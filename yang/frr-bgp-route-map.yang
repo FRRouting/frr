@@ -802,6 +802,17 @@ identity set-extcommunity-color {
       }
     }
 
+    case community-limit {
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:match-community-limit')";
+      description
+        "Match BGP updates when the list of communities count is less than the configured limit.";
+      leaf community-limit {
+        type uint16 {
+          range "1..1024";
+        }
+      }
+    }
+
     case comm-list-name {
       when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:match-community') or "
         + "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:match-large-community') or "

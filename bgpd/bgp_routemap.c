@@ -1303,6 +1303,61 @@ static const struct route_map_rule_cmd route_match_evpn_rd_cmd = {
 	route_match_rd_free
 };
 
+/* `match community-limit' */
+
+/* Match function should return :
+ * - RMAP_MATCH if the bgp update community list count
+ * is less or equal to the configured limit.
+ * - RMAP_NOMATCH if the community list count is greater than the
+ * configured limit.
+ */
+static enum route_map_cmd_result_t
+route_match_community_limit(void *rule, const struct prefix *prefix, void *object)
+{
+	struct bgp_path_info *path = NULL;
+	struct community *picomm = NULL;
+	uint16_t count = 0;
+	uint16_t *limit_rule = rule;
+
+	path = (struct bgp_path_info *)object;
+
+	picomm = bgp_attr_get_community(path->attr);
+	if (picomm)
+		count = picomm->size;
+
+	if (count <= *limit_rule)
+		return RMAP_MATCH;
+
+	return RMAP_NOMATCH;
+}
+
+/* Route map `community-limit' match statement. */
+static void *route_match_community_limit_compile(const char *arg)
+{
+	uint16_t *limit = NULL;
+	char *end = NULL;
+
+	limit = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(uint16_t));
+	*limit = strtoul(arg, &end, 10);
+	if (*end != '\0') {
+		XFREE(MTYPE_ROUTE_MAP_COMPILED, limit);
+		return NULL;
+	}
+	return limit;
+}
+
+/* Free route map's compiled `community-limit' value. */
+static void route_match_community_limit_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Route map commands for community limit matching. */
+static const struct route_map_rule_cmd route_match_community_limit_cmd = {
+	"community-limit", route_match_community_limit,
+	route_match_community_limit_compile, route_match_community_limit_free
+};
+
 static enum route_map_cmd_result_t
 route_set_evpn_gateway_ip(void *rule, const struct prefix *prefix, void *object)
 {
@@ -5708,6 +5763,25 @@ DEFPY_YANG(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(
+	match_community_limit, match_community_limit_cmd,
+	"[no$no] match community-limit ![(0-65535)$limit]",
+	NO_STR
+	MATCH_STR
+	"Match BGP community limit\n"
+	"Community limit number\n")
+{
+	const char *xpath = "./match-condition[condition='frr-bgp-route-map:match-community-limit']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, no ? NB_OP_DESTROY : NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:community-limit", xpath);
+
+	nb_cli_enqueue_change(vty, xpath_value, no ? NB_OP_DESTROY : NB_OP_MODIFY, limit_str);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFUN_YANG(
 	no_match_community, no_match_community_cmd,
 	"no match community [<(1-99)|(100-500)|COMMUNITY_LIST_NAME> [<exact-match$exact|any$any>]]",
@@ -7906,6 +7980,7 @@ void bgp_route_map_init(void)
 	route_map_install_match(&route_match_evpn_vni_cmd);
 	route_map_install_match(&route_match_evpn_route_type_cmd);
 	route_map_install_match(&route_match_evpn_rd_cmd);
+	route_map_install_match(&route_match_community_limit_cmd);
 	route_map_install_match(&route_match_evpn_default_route_cmd);
 	route_map_install_match(&route_match_vrl_source_vrf_cmd);
 
@@ -7978,6 +8053,7 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &no_match_alias_cmd);
 	install_element(RMAP_NODE, &match_community_cmd);
 	install_element(RMAP_NODE, &no_match_community_cmd);
+	install_element(RMAP_NODE, &match_community_limit_cmd);
 	install_element(RMAP_NODE, &match_lcommunity_cmd);
 	install_element(RMAP_NODE, &no_match_lcommunity_cmd);
 	install_element(RMAP_NODE, &match_ecommunity_cmd);
