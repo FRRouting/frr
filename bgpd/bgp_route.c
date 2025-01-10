@@ -7962,8 +7962,15 @@ static void bgp_aggregate_install(
 	 * If we have paths with different MEDs, then don't install
 	 * (or uninstall) the aggregate route.
 	 */
-	if (aggregate->match_med && aggregate->med_mismatched)
+	if (aggregate->match_med && aggregate->med_mismatched) {
+		aspath_free(aspath);
+		community_free(&community);
+		ecommunity_free(&ecommunity);
+		lcommunity_free(&lcommunity);
+		if (debug)
+			zlog_debug("  aggregate %pFX: med mismatch", p);
 		goto uninstall_aggregate_route;
+	}
 
 	if (aggregate->count > 0) {
 		/*
