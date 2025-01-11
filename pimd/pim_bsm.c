@@ -391,7 +391,7 @@ static void pim_on_g2rp_timer(struct event *t)
 		return;
 	}
 
-	if (rp_info->rp_src != RP_SRC_STATIC) {
+	if (rp_info->rp_src == RP_SRC_BSR) {
 		/* If new rp available, change it else delete the existing */
 		if (bsrp) {
 			pim_g2rp_timer_start(
