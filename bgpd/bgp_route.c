@@ -8874,6 +8874,27 @@ static int bgp_aggregate_unset(struct vty *vty, const char *prefix_str,
 	return CMD_SUCCESS;
 }
 
+static bool bgp_aggregate_cmp_params(struct bgp_aggregate *aggregate, const char *rmap,
+				     uint8_t summary_only, uint8_t as_set, uint8_t origin,
+				     bool match_med, const char *suppress_map)
+{
+	if ((aggregate->origin != origin) || (aggregate->as_set != as_set) ||
+	    (aggregate->match_med != match_med) || (aggregate->summary_only != summary_only))
+		return false;
+
+	if ((!rmap && aggregate->rmap.name) || (rmap && !aggregate->rmap.name) ||
+	    (rmap && aggregate->rmap.name && !strmatch(rmap, aggregate->rmap.name)))
+		return false;
+
+	if ((!suppress_map && aggregate->suppress_map_name) ||
+	    (suppress_map && !aggregate->suppress_map_name) ||
+	    (suppress_map && aggregate->suppress_map_name &&
+	     !strmatch(suppress_map, aggregate->suppress_map_name)))
+		return false;
+
+	return true;
+}
+
 static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 			     safi_t safi, const char *rmap,
 			     uint8_t summary_only, uint8_t as_set,
@@ -8913,6 +8934,11 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 	aggregate = bgp_dest_get_bgp_aggregate_info(dest);
 
 	if (aggregate) {
+		/* Check for duplicate configs */
+		if (bgp_aggregate_cmp_params(aggregate, rmap, summary_only, as_set, origin,
+					     match_med, suppress_map))
+			return CMD_SUCCESS;
+
 		vty_out(vty, "There is already same aggregate network.\n");
 		/* try to remove the old entry */
 		ret = bgp_aggregate_unset(vty, prefix_str, afi, safi);
