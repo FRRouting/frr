@@ -492,9 +492,6 @@ struct bgp_aggregate {
 	/* Aggregate route's as-path. */
 	struct aspath *aspath;
 
-	/* SAFI configuration. */
-	safi_t safi;
-
 	/** MED value found in current group. */
 	uint32_t med_matched_value;
 

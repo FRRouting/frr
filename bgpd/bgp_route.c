@@ -8948,7 +8948,7 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 	}
 
 	aggregate->as_set = as_set_new;
-	aggregate->safi = safi;
+
 	/* Override ORIGIN attribute if defined.
 	 * E.g.: Cisco and Juniper set ORIGIN for aggregated address
 	 * to IGP which is not what rfc4271 says.
