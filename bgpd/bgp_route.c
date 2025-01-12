@@ -2464,8 +2464,6 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	 * announced to an EBGP peer (and they have the same attributes barring
 	 * their nexthop).
 	 */
-	if (ibgp_to_ibgp)
-		SET_FLAG(attr->rmap_change_flags, BATTR_REFLECTED);
 
 #define NEXTHOP_IS_V6                                                          \
 	((safi != SAFI_ENCAP && safi != SAFI_MPLS_VPN                          \

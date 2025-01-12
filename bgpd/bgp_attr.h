@@ -323,7 +323,6 @@ struct attr {
 /* rmap_change_flags definition */
 #define BATTR_RMAP_IPV4_NHOP_CHANGED (1 << 0)
 #define BATTR_RMAP_NEXTHOP_PEER_ADDRESS (1 << 1)
-#define BATTR_REFLECTED (1 << 2)
 #define BATTR_RMAP_NEXTHOP_UNCHANGED (1 << 3)
 #define BATTR_RMAP_IPV6_GLOBAL_NHOP_CHANGED (1 << 4)
 #define BATTR_RMAP_IPV6_LL_NHOP_CHANGED (1 << 5)
