@@ -180,7 +180,7 @@ class TestCase:
 
     # sum_hfmt = "{:5.5s} {:4.4s} {:>6.6s} {}"
     # sum_dfmt = "{:5s} {:4.4s} {:^6.6s} {}"
-    sum_fmt = "%-8.8s %4.4s %{}s %6s  %s"
+    sum_fmt = "%-10s %4.4s %{}s %6s  %s"
 
     def __init__(
         self,
