@@ -948,10 +948,14 @@ def bgp_remove_neighbor_cfg(lines_to_del, del_nbr_dict):
     lines_to_del_to_del = []
 
     for ctx_keys, line in lines_to_del:
+        # lines_to_del has following
+        # (('router bgp 100',), 'neighbor swp1.10 interface peer-group dpeergrp_2'),
+        # (('router bgp 100',), 'neighbor swp1.10 advertisement-interval 1'),
+        # (('router bgp 100',), 'no neighbor swp1.10 capability dynamic'),
         if (
             ctx_keys[0].startswith("router bgp")
             and line
-            and line.startswith("neighbor ")
+            and ((line.startswith("neighbor ") or line.startswith("no neighbor ")))
         ):
             if ctx_keys[0] in del_nbr_dict:
                 for nbr in del_nbr_dict[ctx_keys[0]]:
