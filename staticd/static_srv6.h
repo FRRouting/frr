@@ -85,6 +85,15 @@ extern void static_srv6_init(void);
 /* Clean up all the SRv6 data structures. */
 extern void static_srv6_cleanup(void);
 
+/*
+ * When an interface is enabled in the kernel, go through all the static SRv6 SIDs in
+ * the system that use this interface and install/remove them in the zebra RIB.
+ *
+ * ifp   - The interface being enabled
+ * is_up - Whether the interface is up or down
+ */
+void static_ifp_srv6_sids_update(struct interface *ifp, bool is_up);
+
 struct static_srv6_locator *static_srv6_locator_alloc(const char *name);
 void static_srv6_locator_free(struct static_srv6_locator *locator);
 struct static_srv6_locator *static_srv6_locator_lookup(const char *name);

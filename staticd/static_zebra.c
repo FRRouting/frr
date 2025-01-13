@@ -116,12 +116,16 @@ static int static_ifp_up(struct interface *ifp)
 {
 	static_ifindex_update(ifp, true);
 
+	static_ifp_srv6_sids_update(ifp, true);
+
 	return 0;
 }
 
 static int static_ifp_down(struct interface *ifp)
 {
 	static_ifindex_update(ifp, false);
+
+	static_ifp_srv6_sids_update(ifp, false);
 
 	return 0;
 }

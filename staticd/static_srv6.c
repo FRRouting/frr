@@ -14,6 +14,7 @@
 #include "static_srv6.h"
 #include "static_vrf.h"
 #include "static_zebra.h"
+#include "static_debug.h"
 
 /*
  * List of SRv6 SIDs.
@@ -23,6 +24,45 @@ struct list *srv6_sids;
 
 DEFINE_MTYPE_STATIC(STATIC, STATIC_SRV6_LOCATOR, "Static SRv6 locator");
 DEFINE_MTYPE_STATIC(STATIC, STATIC_SRV6_SID, "Static SRv6 SID");
+
+/*
+ * When an interface is enabled in the kernel, go through all the static SRv6 SIDs in
+ * the system that use this interface and install/remove them in the zebra RIB.
+ *
+ * ifp   - The interface being enabled
+ * is_up - Whether the interface is up or down
+ */
+void static_ifp_srv6_sids_update(struct interface *ifp, bool is_up)
+{
+	struct static_srv6_sid *sid;
+	struct listnode *node;
+
+	if (!srv6_sids || !ifp)
+		return;
+
+	DEBUGD(&static_dbg_srv6, "%s: Interface %s %s. %s SIDs that depend on the interface",
+	       __func__, (is_up) ? "enabled" : "disabled", (is_up) ? "Removing" : "disabled",
+	       ifp->name);
+
+	/*
+	 * iterate over the list of SRv6 SIDs and remove the SIDs that use this
+	 * VRF from the zebra RIB
+	 */
+	for (ALL_LIST_ELEMENTS_RO(srv6_sids, node, sid)) {
+		if ((strcmp(sid->attributes.vrf_name, ifp->name) == 0) ||
+		    (strncmp(ifp->name, DEFAULT_SRV6_IFNAME, sizeof(ifp->name)) == 0 &&
+		     (sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END ||
+		      sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID))) {
+			if (is_up) {
+				static_zebra_srv6_sid_install(sid);
+				SET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
+			} else {
+				static_zebra_srv6_sid_uninstall(sid);
+				UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
+			}
+		}
+	}
+}
 
 /*
  * Allocate an SRv6 SID object and initialize the fields common to all the
