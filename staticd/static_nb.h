@@ -236,6 +236,24 @@ int routing_control_plane_protocols_name_validate(
 	FRR_S_ROUTE_SRC_INFO_KEY_NO_DISTANCE_XPATH                             \
 	FRR_STATIC_ROUTE_NH_KEY_XPATH
 
+/* srv6 */
+#define FRR_STATIC_SRV6_INFO_KEY_XPATH                                                             \
+	"/frr-routing:routing/control-plane-protocols/"                                            \
+	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"                                  \
+	"frr-staticd:staticd/segment-routing/srv6"
+
+/* srv6/static-sids */
+#define FRR_STATIC_SRV6_SID_KEY_XPATH                                                              \
+	FRR_STATIC_SRV6_INFO_KEY_XPATH                                                             \
+	"/static-sids/"                                                                            \
+	"sid[sid='%s']"
+
+#define FRR_STATIC_SRV6_SID_BEHAVIOR_XPATH "/behavior"
+
+#define FRR_STATIC_SRV6_SID_VRF_NAME_XPATH "/vrf-name"
+
+#define FRR_STATIC_SRV6_SID_LOCATOR_NAME_XPATH "/locator-name"
+
 #ifdef __cplusplus
 }
 #endif
