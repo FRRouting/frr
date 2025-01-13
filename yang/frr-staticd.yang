@@ -20,6 +20,10 @@ module frr-staticd {
     prefix frr-bfdd;
   }
 
+  import frr-vrf {
+    prefix frr-vrf;
+  }
+
   organization
     "FRRouting";
   contact
@@ -92,6 +96,64 @@ module frr-staticd {
     }
   }
 
+  typedef srv6-behavior-codepoint {
+    description
+      "SRv6 Endpoint Behaviors Codepoints as per
+      https://www.iana.org/assignments/segment-routing/segment-routing.xhtml.";
+    type enumeration {
+      enum End {
+        value 1;
+        description
+          "This enum indicates End endpoint behavior.";
+      }
+      enum End.X {
+        value 5;
+        description
+          "This enum indicates End.X endpoint behavior.";
+      }
+      enum End.DT6 {
+        value 18;
+        description
+          "This enum indicates End.DT6 endpoint behavior.";
+      }
+      enum End.DT4 {
+        value 19;
+        description
+          "This enum indicates End.DT4 endpoint behavior.";
+      }
+      enum End.DT46 {
+        value 20;
+        description
+          "This enum indicates End.DT46 endpoint behavior.";
+      }
+      enum uN {
+        value 43;
+        description
+          "This enum indicates End with NEXT-CSID endpoint behavior.";
+      }
+      enum uA {
+        value 52;
+        description
+          "This enum indicates End.X with NEXT-CSID endpoint behavior.";
+      }
+      enum uDT6 {
+        value 62;
+        description
+          "This enum indicates End.DT6 with NEXT-CSID endpoint behavior.";
+      }
+      enum uDT4 {
+        value 63;
+        description
+          "This enum indicates End.DT4 with NEXT-CSID endpoint behavior.";
+      }
+      enum uDT46 {
+        value 64;
+        description
+          "This enum indicates End.DT46 with NEXT-CSID endpoint behavior.";
+      }
+    }
+  }
+
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol" {
     container staticd {
       when "../frr-rt:type = 'frr-staticd:staticd'" {
@@ -142,6 +204,44 @@ module frr-staticd {
           }
 
           uses staticd-prefix-attributes;
+        }
+      }
+
+      container segment-routing {
+        description
+          "Segment Routing configuration.";
+        container srv6 {
+          description
+            "Segment Routing over IPv6 (SRv6) configuration.";
+          container static-sids {
+            description
+              "This container lists the SRv6 Static SIDs instantiated on the local node.";
+            list sid {
+              description
+                "List of SRv6 Static SIDs.";
+              key "sid";
+              leaf sid {
+                type inet:ipv6-prefix;
+                description
+                  "Value of the SRv6 SID.";
+              }
+              leaf behavior {
+                type srv6-behavior-codepoint;
+                description
+                  "Behavior bound to the SRv6 SID.";
+              }
+              leaf locator-name {
+                type string;
+                description
+                  "SRv6 locator name.";
+              }
+              leaf vrf-name {
+                type frr-vrf:vrf-ref;
+                description
+                  "The VRF name.";
+              }
+            }
+          }
         }
       }
     }
