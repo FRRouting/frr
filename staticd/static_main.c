@@ -26,6 +26,7 @@
 #include "static_zebra.h"
 #include "static_debug.h"
 #include "static_nb.h"
+#include "static_srv6.h"
 
 #include "mgmt_be_client.h"
 
@@ -76,6 +77,10 @@ static void sigint(void)
 	static_vrf_terminate();
 
 	static_zebra_stop();
+
+	/* clean up SRv6 data structures */
+	static_srv6_cleanup();
+
 	frr_fini();
 
 	exit(0);
@@ -160,6 +165,9 @@ int main(int argc, char **argv, char **envp)
 
 	static_debug_init();
 	static_vrf_init();
+
+	/* initialize SRv6 data structures */
+	static_srv6_init();
 
 	static_zebra_init();
 	static_vty_init();
