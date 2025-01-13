@@ -1706,6 +1706,100 @@ static int static_path_list_cli_cmp(const struct lyd_node *dnode1,
 	return (int)distance1 - (int)distance2;
 }
 
+static void static_segment_routing_cli_show(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults)
+{
+	vty_out(vty, "segment-routing\n");
+}
+
+static void static_segment_routing_cli_show_end(struct vty *vty, const struct lyd_node *dnode)
+{
+	vty_out(vty, "exit\n");
+	vty_out(vty, "!\n");
+}
+
+static void static_srv6_cli_show(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	vty_out(vty, " srv6\n");
+}
+
+static void static_srv6_cli_show_end(struct vty *vty, const struct lyd_node *dnode)
+{
+	vty_out(vty, " exit\n");
+	vty_out(vty, " !\n");
+}
+
+static void static_sids_cli_show(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	vty_out(vty, "  static-sids\n");
+}
+
+static void static_sids_cli_show_end(struct vty *vty, const struct lyd_node *dnode)
+{
+	vty_out(vty, "  exit\n");
+	vty_out(vty, "  !\n");
+}
+
+static void srv6_sid_cli_show(struct vty *vty, const struct lyd_node *sid, bool show_defaults)
+{
+	enum srv6_endpoint_behavior_codepoint srv6_behavior;
+	struct prefix_ipv6 sid_value;
+
+	yang_dnode_get_ipv6p(&sid_value, sid, "sid");
+
+	vty_out(vty, "   sid %pFX", &sid_value);
+	vty_out(vty, " locator %s", yang_dnode_get_string(sid, "locator-name"));
+
+	srv6_behavior = yang_dnode_get_enum(sid, "behavior");
+	switch (srv6_behavior) {
+	case SRV6_ENDPOINT_BEHAVIOR_END:
+		vty_out(vty, " behavior End");
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_X:
+		vty_out(vty, " behavior End.X");
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT6:
+		vty_out(vty, " behavior End.DT6");
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT4:
+		vty_out(vty, " behavior End.DT4");
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT46:
+		vty_out(vty, " behavior End.DT46");
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID:
+		vty_out(vty, " behavior uN");
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID:
+		vty_out(vty, " behavior uA");
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID:
+		vty_out(vty, " behavior uDT6");
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID:
+		vty_out(vty, " behavior uDT4");
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID:
+		vty_out(vty, " behavior uDT46");
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_RESERVED:
+	case SRV6_ENDPOINT_BEHAVIOR_OPAQUE:
+		vty_out(vty, " behavior unknown");
+		break;
+	}
+
+	if (yang_dnode_exists(sid, "vrf-name"))
+		vty_out(vty, " vrf %s", yang_dnode_get_string(sid, "vrf-name"));
+
+	vty_out(vty, "\n");
+}
+
+static void static_srv6_sid_cli_show(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults)
+{
+	srv6_sid_cli_show(vty, dnode, show_defaults);
+}
+
 const struct frr_yang_module_info frr_staticd_cli_info = {
 	.name = "frr-staticd",
 	.ignore_cfg_cbs = true,
@@ -1770,14 +1864,14 @@ const struct frr_yang_module_info frr_staticd_cli_info = {
 			}
 		},
 		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/local-sids",
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/static-sids",
 			.cbs = {
 				.cli_show = static_sids_cli_show,
 				.cli_show_end = static_sids_cli_show_end,
 			}
 		},
 		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/local-sids/sid",
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/static-sids/sid",
 			.cbs = {
 				.cli_show = static_srv6_sid_cli_show,
 			}
