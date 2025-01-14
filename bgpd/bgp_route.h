@@ -432,7 +432,6 @@ struct bgp_aggregate {
 	struct {
 		char *name;
 		struct route_map *map;
-		bool changed;
 	} rmap;
 
 	/* Suppress-count. */
