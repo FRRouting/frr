@@ -1512,6 +1512,15 @@ extern void nb_oper_cancel_walk(void *walk);
  */
 extern void nb_oper_cancel_all_walks(void);
 
+/**
+ * nb_oper_walk_finish_arg() - return the finish arg for this walk
+ */
+extern void *nb_oper_walk_finish_arg(void *walk);
+/**
+ * nb_oper_walk_cb_arg() - return the callback arg for this walk
+ */
+extern void *nb_oper_walk_cb_arg(void *walk);
+
 /*
  * Validate if the northbound callback operation is valid for the given node.
  *
@@ -1743,6 +1752,80 @@ extern void nb_terminate(void);
 extern void nb_oper_init(struct event_loop *loop);
 extern void nb_oper_terminate(void);
 extern bool nb_oper_is_yang_lib_query(const char *xpath);
+
+
+/**
+ * nb_op_update() - Create new state data.
+ * @tree: subtree @path is relative to or NULL in which case @path must be
+ *	  absolute.
+ * @path: The path of the state node to create.
+ * @value: The canonical value of the state.
+ *
+ * Return: The new libyang node.
+ */
+extern struct lyd_node *nb_op_update(struct lyd_node *tree, const char *path, const char *value);
+
+/**
+ * nb_op_update_delete() - Delete state data.
+ * @tree: subtree @path is relative to or NULL in which case @path must be
+ *	  absolute.
+ * @path: The path of the state node to delete, or NULL if @tree should just be
+ *	  deleted.
+ */
+extern void nb_op_update_delete(struct lyd_node *tree, const char *path);
+
+/**
+ * nb_op_update_pathf() - Create new state data.
+ * @tree: subtree @path_fmt is relative to or NULL in which case @path_fmt must
+ *        be absolute.
+ * @path_fmt: The path format string of the state node to create.
+ * @value: The canonical value of the state.
+ * @...: The values to substitute into @path_fmt.
+ *
+ * Return: The new libyang node.
+ */
+extern struct lyd_node *nb_op_update_pathf(struct lyd_node *tree, const char *path_fmt,
+					   const char *value, ...) PRINTFRR(2, 4);
+extern struct lyd_node *nb_op_update_vpathf(struct lyd_node *tree, const char *path_fmt,
+					    const char *value, va_list ap);
+/**
+ * nb_op_update_delete_pathf() - Delete state data.
+ * @tree: subtree @path_fmt is relative to or NULL in which case @path_fmt must
+ *	  be absolute.
+ * @path: The path of the state node to delete.
+ * @...: The values to substitute into @path_fmt.
+ */
+extern void nb_op_update_delete_pathf(struct lyd_node *tree, const char *path_fmt, ...)
+	PRINTFRR(2, 3);
+extern void nb_op_update_delete_vpathf(struct lyd_node *tree, const char *path_fmt, va_list ap);
+
+/**
+ * nb_op_updatef() - Create new state data.
+ * @tree: subtree @path is relative to or NULL in which case @path must be
+ *	  absolute.
+ * @path: The path of the state node to create.
+ * @val_fmt: The value format string to set the canonical value of the state.
+ * @...: The values to substitute into @val_fmt.
+ *
+ * Return: The new libyang node.
+ */
+extern struct lyd_node *nb_op_updatef(struct lyd_node *tree, const char *path, const char *val_fmt,
+				      ...) PRINTFRR(3, 4);
+
+extern struct lyd_node *nb_op_vupdatef(struct lyd_node *tree, const char *path, const char *val_fmt,
+				       va_list ap);
+
+/**
+ * nb_notif_set_filters() - add or replace notification filters
+ * @selectors: darr array of selector (filter) xpath strings, can be NULL if
+ *	       @replace is true. nb_notif_set_filters takes ownership of this
+ *	       array and the contained darr strings.
+ * @replace: true to replace existing set otherwise append.
+ */
+extern void nb_notif_set_filters(const char **selectors, bool replace);
+
+extern void nb_notif_init(struct event_loop *loop);
+extern void nb_notif_terminate(void);
 
 #ifdef __cplusplus
 }

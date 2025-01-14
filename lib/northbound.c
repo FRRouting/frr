@@ -2754,10 +2754,15 @@ void nb_init(struct event_loop *tm,
 
 	/* Initialize oper-state */
 	nb_oper_init(tm);
+
+	/* Initialize notification-state */
+	nb_notif_init(tm);
 }
 
 void nb_terminate(void)
 {
+	nb_notif_terminate();
+
 	nb_oper_terminate();
 
 	/* Terminate the northbound CLI. */

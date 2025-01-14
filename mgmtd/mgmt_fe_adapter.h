@@ -225,6 +225,13 @@ extern int mgmt_fe_adapter_txn_error(uint64_t txn_id, uint64_t req_id,
 				     const char *errstr);
 
 
+/**
+ * mgmt_fe_get_all_selectors() - Get all selectors for all frontend adapters.
+ *
+ * Returns: A darr array of all selectors for all frontend adapters.
+ */
+extern char **mgmt_fe_get_all_selectors(void);
+
 /* Fetch frontend client session set-config stats */
 extern struct mgmt_setcfg_stats *
 mgmt_fe_get_session_setcfg_stats(uint64_t session_id);

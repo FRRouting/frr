@@ -14,6 +14,7 @@
 #include <libyang/version.h>
 #include "northbound.h"
 #include "frrstr.h"
+#include "darr.h"
 
 #include "lib/config_paths.h"
 
@@ -678,6 +679,116 @@ void yang_dnode_rpc_output_add(struct lyd_node *output, const char *xpath,
 	err = lyd_new_path(output, ly_native_ctx, xpath, value,
 			   LYD_NEW_VAL_OUTPUT | LYD_NEW_PATH_UPDATE, NULL);
 	assert(err == LY_SUCCESS);
+}
+
+struct lyd_node *yang_state_new(struct lyd_node *tree, const char *path, const char *value)
+{
+	struct lyd_node *dnode, *parent;
+	LY_ERR err;
+
+	err = lyd_new_path2(tree, ly_native_ctx, path, value, 0, 0, LYD_NEW_PATH_UPDATE, &parent,
+			    &dnode);
+	assert(err == LY_SUCCESS);
+
+	/*
+	 * If the node exists and isn't updated returned dnode will be NULL, so
+	 * we need to find it. But even if returned it can be the first newly
+	 * created node (could be container of path) not the actual path dnode.
+	 * So we always find.
+	 */
+	err = lyd_find_path(tree ?: parent, path, false, &dnode);
+	assert(err == LY_SUCCESS);
+
+	return dnode;
+}
+
+void yang_state_delete(struct lyd_node *tree, const char *path)
+{
+	LY_ERR err;
+
+	if (!tree)
+		return;
+
+	if (path) {
+		err = lyd_find_path(tree, path, false, &tree);
+		if (err != LY_SUCCESS) {
+			zlog_info("State %s has already been deleted", path);
+			return;
+		}
+	}
+	lyd_free_tree(tree);
+}
+
+PRINTFRR(2, 0)
+struct lyd_node *yang_state_new_vpathf(struct lyd_node *tree, const char *path_fmt,
+				       const char *value, va_list ap)
+{
+	struct lyd_node *dnode;
+	char *path;
+
+	path = darr_vsprintf(path_fmt, ap);
+	dnode = yang_state_new(tree, path, value);
+	darr_free(path);
+
+	return dnode;
+}
+
+struct lyd_node *yang_state_new_pathf(struct lyd_node *tree, const char *path_fmt,
+				      const char *value, ...)
+{
+	struct lyd_node *dnode;
+	va_list ap;
+
+	va_start(ap, value);
+	dnode = yang_state_new_vpathf(tree, path_fmt, value, ap);
+	va_end(ap);
+
+	return dnode;
+}
+
+PRINTFRR(2, 0)
+void yang_state_delete_vpathf(struct lyd_node *tree, const char *path_fmt, va_list ap)
+{
+	char *path;
+
+	path = darr_vsprintf(path_fmt, ap);
+	yang_state_delete(tree, path);
+	darr_free(path);
+}
+
+void yang_state_delete_pathf(struct lyd_node *tree, const char *path_fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, path_fmt);
+	yang_state_delete_vpathf(tree, path_fmt, ap);
+	va_end(ap);
+}
+
+PRINTFRR(3, 0)
+struct lyd_node *yang_state_vnewf(struct lyd_node *tree, const char *path, const char *val_fmt,
+				  va_list ap)
+{
+	struct lyd_node *dnode;
+	char *value;
+
+	value = darr_vsprintf(val_fmt, ap);
+	dnode = yang_state_new(tree, path, value);
+	darr_free(value);
+
+	return dnode;
+}
+
+struct lyd_node *yang_state_newf(struct lyd_node *tree, const char *path, const char *val_fmt, ...)
+{
+	struct lyd_node *dnode;
+	va_list ap;
+
+	va_start(ap, val_fmt);
+	dnode = yang_state_vnewf(tree, path, val_fmt, ap);
+	va_end(ap);
+
+	return dnode;
 }
 
 struct yang_data *yang_data_new(const char *xpath, const char *value)

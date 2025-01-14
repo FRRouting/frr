@@ -35,6 +35,7 @@
  * We must also process containers with lookup-next descendants last.
  */
 
+DEFINE_MTYPE_STATIC(LIB, NB_STATE, "Northbound State");
 DEFINE_MTYPE_STATIC(LIB, NB_YIELD_STATE, "NB Yield State");
 DEFINE_MTYPE_STATIC(LIB, NB_NODE_INFOS, "NB Node Infos");
 
@@ -1831,6 +1832,20 @@ bool nb_oper_is_yang_lib_query(const char *xpath)
 		return false;
 
 	return strlen(xpath) > liblen;
+}
+
+void *nb_oper_walk_finish_arg(void *walk)
+{
+	struct nb_op_yield_state *ys = walk;
+
+	return ys->finish_arg;
+}
+
+void *nb_oper_walk_cb_arg(void *walk)
+{
+	struct nb_op_yield_state *ys = walk;
+
+	return ys->cb_arg;
 }
 
 void *nb_oper_walk(const char *xpath, struct yang_translator *translator,
