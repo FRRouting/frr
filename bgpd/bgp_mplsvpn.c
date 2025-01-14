@@ -1312,8 +1312,8 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 	else
 		bgp_path_info_unset_flag(bn, new, BGP_PATH_VALID);
 
-	bgp_aggregate_increment(to_bgp, p, new, afi, safi);
 	bgp_path_info_add(bn, new);
+	bgp_aggregate_increment(to_bgp, p, new, afi, safi);
 
 	bgp_process(to_bgp, bn, new, afi, safi);
 
