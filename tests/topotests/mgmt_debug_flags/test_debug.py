@@ -27,6 +27,10 @@ def tgen(request):
     tgen = Topogen(topodef, request.module.__name__)
     tgen.start_topology()
 
+    out = tgen.gears["r1"].vtysh_cmd("show version")
+    if "--disable-staticd-mgmtd" in out:
+        pytest.skip("Test requires staticd mgmtd dependency")
+
     for rname, router in tgen.routers().items():
         router.load_frr_config("frr.conf")
 

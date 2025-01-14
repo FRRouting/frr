@@ -41,6 +41,10 @@ def tgen(request):
     tgen = Topogen(topodef, request.module.__name__)
     tgen.start_topology()
 
+    out = tgen.gears["r1"].vtysh_cmd("show version")
+    if "--disable-staticd-mgmtd" in out:
+        pytest.skip("Test requires staticd mgmtd dependency")
+
     prologue = open(f"{CWD}/r1/mgmtd.conf").read()
 
     confpath = f"{tgen.gears['r1'].gearlogdir}/r1-late-big.conf"

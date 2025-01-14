@@ -111,6 +111,10 @@ def setup_module(mod):
         )
         pytest.skip(error_msg)
 
+    out = tgen.gears["r1"].vtysh_cmd("show version")
+    if "--disable-staticd-mgmtd" in out:
+        pytest.skip("Test requires staticd mgmtd dependency")
+
     # Don't run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)

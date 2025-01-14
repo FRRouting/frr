@@ -28,6 +28,10 @@ def tgen(request):
     tgen = Topogen(topodef, request.module.__name__)
     tgen.start_topology()
 
+    out = tgen.gears["r4"].vtysh_cmd("show version")
+    if "--disable-staticd-mgmtd" in out:
+        pytest.skip("Test requires staticd mgmtd dependency")
+
     # configure mgmtd using current mgmtd config file
     tgen.gears["r4"].load_frr_config("frr.conf")
 
