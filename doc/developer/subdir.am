@@ -28,6 +28,7 @@ dev_RSTFILES = \
 	doc/developer/building-frr-for-ubuntu1804.rst \
 	doc/developer/building-frr-for-ubuntu2004.rst \
 	doc/developer/building-frr-for-ubuntu2204.rst \
+	doc/developer/building-doc.rst \
 	doc/developer/building-libunwind-note.rst \
 	doc/developer/building-libyang.rst \
 	doc/developer/building.rst \

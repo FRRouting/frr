@@ -153,7 +153,7 @@ feature you're interested in, it should be supported on your platform.
 
 .. comment - the :mark:`X` pieces mesh with a little bit of JavaScript and
    CSS in _static/overrides.{js,css} respectively.  The JS code looks at the
-   presence of the 'Y' 'N' '≥' '†' or 'CP' strings.  This seemed to be the
+   presence of the 'Y' 'N' '>=' '†' or 'CP' strings.  This seemed to be the
    best / least intrusive way of getting a nice table in HTML.  The table
    will look somewhat shoddy on other sphinx targets like PDF or info (but
    should still be readable.)
@@ -165,9 +165,9 @@ feature you're interested in, it should be supported on your platform.
 +-----------------------------------+----------------+--------------+------------+------------+
 | `zebra`                           | :mark:`Y`      | :mark:`Y`    | :mark:`Y`  | :mark:`Y`  |
 +-----------------------------------+----------------+--------------+------------+------------+
-|    VRF                            | :mark:`≥4.8`   | :mark:`N`    | :mark:`N`  | :mark:`N`  |
+|    VRF                            | :mark:`>=4.8`  | :mark:`N`    | :mark:`N`  | :mark:`N`  |
 +-----------------------------------+----------------+--------------+------------+------------+
-|    MPLS                           | :mark:`≥4.5`   | :mark:`Y`    | :mark:`N`  | :mark:`N`  |
+|    MPLS                           | :mark:`>=4.5`  | :mark:`Y`    | :mark:`N`  | :mark:`N`  |
 +-----------------------------------+----------------+--------------+------------+------------+
 | `pbrd` (Policy Routing)           | :mark:`Y`      | :mark:`N`    | :mark:`N`  | :mark:`N`  |
 +-----------------------------------+----------------+--------------+------------+------------+
@@ -175,21 +175,21 @@ feature you're interested in, it should be supported on your platform.
 +-----------------------------------+----------------+--------------+------------+------------+
 | `bgpd` (BGP)                      | :mark:`Y`      | :mark:`Y`    | :mark:`Y`  | :mark:`Y`  |
 +-----------------------------------+----------------+--------------+------------+------------+
-|    VRF / L3VPN                    | :mark:`≥4.8`   | :mark:`CP`   | :mark:`CP` | :mark:`CP` |
+|    VRF / L3VPN                    | :mark:`>=4.8`  | :mark:`CP`   | :mark:`CP` | :mark:`CP` |
 |                                   | :mark:`†4.3`   |              |            |            |
 +-----------------------------------+----------------+--------------+------------+------------+
-|    EVPN                           | :mark:`≥4.18`  | :mark:`CP`   | :mark:`CP` | :mark:`CP` |
+|    EVPN                           | :mark:`>=4.18` | :mark:`CP`   | :mark:`CP` | :mark:`CP` |
 |                                   | :mark:`†4.9`   |              |            |            |
 +-----------------------------------+----------------+--------------+------------+------------+
 |    VNC (Virtual Network Control)  | :mark:`CP`     | :mark:`CP`   | :mark:`CP` | :mark:`CP` |
 +-----------------------------------+----------------+--------------+------------+------------+
 |    Flowspec                       | :mark:`CP`     | :mark:`CP`   | :mark:`CP` | :mark:`CP` |
 +-----------------------------------+----------------+--------------+------------+------------+
-| `ldpd` (LDP)                      | :mark:`≥4.5`   | :mark:`Y`    | :mark:`N`  | :mark:`N`  |
+| `ldpd` (LDP)                      | :mark:`>=4.5`  | :mark:`Y`    | :mark:`N`  | :mark:`N`  |
 +-----------------------------------+----------------+--------------+------------+------------+
-|    VPWS / PW                      | :mark:`N`      | :mark:`≥5.8` | :mark:`N`  | :mark:`N`  |
+|    VPWS / PW                      | :mark:`N`      | :mark:`>=5.8`| :mark:`N`  | :mark:`N`  |
 +-----------------------------------+----------------+--------------+------------+------------+
-|    VPLS                           | :mark:`N`      | :mark:`≥5.8` | :mark:`N`  | :mark:`N`  |
+|    VPLS                           | :mark:`N`      | :mark:`>=5.8`| :mark:`N`  | :mark:`N`  |
 +-----------------------------------+----------------+--------------+------------+------------+
 | `nhrpd` (NHRP)                    | :mark:`Y`      | :mark:`N`    | :mark:`N`  | :mark:`N`  |
 +-----------------------------------+----------------+--------------+------------+------------+
@@ -197,7 +197,7 @@ feature you're interested in, it should be supported on your platform.
 +-----------------------------------+----------------+--------------+------------+------------+
 | `ospfd` (OSPFv2)                  | :mark:`Y`      | :mark:`Y`    | :mark:`Y`  | :mark:`Y`  |
 +-----------------------------------+----------------+--------------+------------+------------+
-|    Segment Routing                | :mark:`≥4.12`  | :mark:`N`    | :mark:`N`  | :mark:`N`  |
+|    Segment Routing                | :mark:`>=4.12` | :mark:`N`    | :mark:`N`  | :mark:`N`  |
 +-----------------------------------+----------------+--------------+------------+------------+
 | `ospf6d` (OSPFv3)                 | :mark:`Y`      | :mark:`Y`    | :mark:`Y`  | :mark:`Y`  |
 +-----------------------------------+----------------+--------------+------------+------------+
@@ -215,21 +215,21 @@ feature you're interested in, it should be supported on your platform.
 +-----------------------------------+----------------+--------------+------------+------------+
 | **Multicast Routing**             |                |              |            |            |
 +-----------------------------------+----------------+--------------+------------+------------+
-| `pimd` (PIM)                      | :mark:`≥4.19`  | :mark:`N`    | :mark:`Y`  | :mark:`Y`  |
+| `pimd` (PIM)                      | :mark:`>=4.19` | :mark:`N`    | :mark:`Y`  | :mark:`Y`  |
 +-----------------------------------+----------------+--------------+------------+------------+
 |    SSM (Source Specific)          | :mark:`Y`      | :mark:`N`    | :mark:`Y`  | :mark:`Y`  |
 +-----------------------------------+----------------+--------------+------------+------------+
 |    ASM (Any Source)               | :mark:`Y`      | :mark:`N`    | :mark:`N`  | :mark:`N`  |
 +-----------------------------------+----------------+--------------+------------+------------+
-|    EVPN BUM Forwarding            | :mark:`≥5.0`   | :mark:`N`    | :mark:`N`  | :mark:`N`  |
+|    EVPN BUM Forwarding            | :mark:`>=5.0`  | :mark:`N`    | :mark:`N`  | :mark:`N`  |
 +-----------------------------------+----------------+--------------+------------+------------+
-| `vrrpd` (VRRP)                    | :mark:`≥5.1`   | :mark:`N`    | :mark:`N`  | :mark:`N`  |
+| `vrrpd` (VRRP)                    | :mark:`>=5.1`  | :mark:`N`    | :mark:`N`  | :mark:`N`  |
 +-----------------------------------+----------------+--------------+------------+------------+
 
 The indicators have the following semantics:
 
 * :mark:`Y` - daemon/feature fully functional
-* :mark:`≥X.X` - fully functional with kernel version X.X or newer
+* :mark:`>=X.X` - fully functional with kernel version X.X or newer
 * :mark:`†X.X` - restricted functionality or impaired performance with kernel version X.X or newer
 * :mark:`CP` - control plane only (i.e. BGP route server / route reflector)
 * :mark:`N` - daemon/feature not supported by operating system
