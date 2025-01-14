@@ -354,24 +354,29 @@ static void pim_on_g2rp_timer(struct event *t)
 	bsrp = EVENT_ARG(t);
 	EVENT_OFF(bsrp->g2rp_timer);
 	bsgrp_node = bsrp->bsgrp_node;
-
-	/* elapse time is the hold time of expired node */
-	elapse = bsrp->rp_holdtime;
+	pim = bsgrp_node->scope->pim;
 	bsrp_addr = bsrp->rp_address;
 
-	/* update elapse for all bsrp nodes */
-	frr_each_safe (bsm_rpinfos, bsgrp_node->bsrp_list, bsrp_node) {
-		bsrp_node->elapse_time += elapse;
+	/*
+	 * Update elapse for all bsrp nodes except on the BSR itself.
+	 * The timer is meant to remove any bsr RPs learned from the BSR that
+	 * we don't hear from anymore. on the BSR itself, no need to do this.
+	 */
+	if (pim->global_scope.state != BSR_ELECTED) {
+		/* elapse time is the hold time of expired node */
+		elapse = bsrp->rp_holdtime;
+		frr_each_safe (bsm_rpinfos, bsgrp_node->bsrp_list, bsrp_node) {
+			bsrp_node->elapse_time += elapse;
 
-		if (is_hold_time_elapsed(bsrp_node)) {
-			bsm_rpinfos_del(bsgrp_node->bsrp_list, bsrp_node);
-			pim_bsm_rpinfo_free(bsrp_node);
+			if (is_hold_time_elapsed(bsrp_node)) {
+				bsm_rpinfos_del(bsgrp_node->bsrp_list, bsrp_node);
+				pim_bsm_rpinfo_free(bsrp_node);
+			}
 		}
 	}
 
 	/* Get the next elected rp node */
 	bsrp = bsm_rpinfos_first(bsgrp_node->bsrp_list);
-	pim = bsgrp_node->scope->pim;
 	rn = route_node_lookup(pim->rp_table, &bsgrp_node->group);
 
 	if (!rn) {
@@ -386,7 +391,7 @@ static void pim_on_g2rp_timer(struct event *t)
 		return;
 	}
 
-	if (rp_info->rp_src != RP_SRC_STATIC) {
+	if (rp_info->rp_src == RP_SRC_BSR) {
 		/* If new rp available, change it else delete the existing */
 		if (bsrp) {
 			pim_g2rp_timer_start(
