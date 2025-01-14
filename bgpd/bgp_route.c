@@ -5290,7 +5290,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		}
 		if ((SAFI_MPLS_VPN == safi)
 		    && (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)) {
-			vpn_leak_to_vrf_update(bgp, pi, prd);
+			vpn_leak_to_vrf_update(bgp, pi, prd, peer);
 		}
 
 #ifdef ENABLE_BGP_VNC
@@ -5424,7 +5424,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	}
 	if ((SAFI_MPLS_VPN == safi)
 	    && (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)) {
-		vpn_leak_to_vrf_update(bgp, new, prd);
+		vpn_leak_to_vrf_update(bgp, new, prd, peer);
 	}
 #ifdef ENABLE_BGP_VNC
 	if (SAFI_MPLS_VPN == safi) {
@@ -6937,8 +6937,7 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 
 			if (SAFI_MPLS_VPN == safi &&
 			    bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
-				vpn_leak_to_vrf_update(bgp, pi,
-						       &bgp_static->prd);
+				vpn_leak_to_vrf_update(bgp, pi, &bgp_static->prd, NULL);
 			}
 #ifdef ENABLE_BGP_VNC
 			if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP ||
@@ -7002,7 +7001,7 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 
 	if (SAFI_MPLS_VPN == safi &&
 	    bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
-		vpn_leak_to_vrf_update(bgp, new, &bgp_static->prd);
+		vpn_leak_to_vrf_update(bgp, new, &bgp_static->prd, NULL);
 	}
 #ifdef ENABLE_BGP_VNC
 	if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP || safi == SAFI_EVPN)
