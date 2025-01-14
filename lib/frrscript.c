@@ -248,10 +248,12 @@ int _frrscript_call_lua(struct lua_function_state *lfs, int nargs)
 		zlog_err("Lua hook call '%s' : error handler error: %s",
 			 lfs->name, lua_tostring(lfs->L, -1));
 		break;
+#if defined(LUA_VERSION_NUM) && LUA_VERSION_NUM <= 503
 	case LUA_ERRGCMM:
 		zlog_err("Lua hook call '%s' : garbage collector error: %s",
 			 lfs->name, lua_tostring(lfs->L, -1));
 		break;
+#endif
 	default:
 		zlog_err("Lua hook call '%s' : unknown error: %s", lfs->name,
 			 lua_tostring(lfs->L, -1));
