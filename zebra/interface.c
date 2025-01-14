@@ -35,6 +35,8 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_cli.h"
+#include "zebra/zebra_defaults.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZINFO, "Zebra Interface Information");
 
@@ -134,7 +136,8 @@ static int if_zebra_new_hook(struct interface *ifp)
 	zebra_if->ifp = ifp;
 
 	zebra_if->multicast = IF_ZEBRA_DATA_UNSPEC;
-	zebra_if->mpls_config = IF_ZEBRA_DATA_UNSPEC;
+	zebra_if->mpls_config = DFLT_ZEBRA_MPLS;
+
 	zebra_if->shutdown = IF_ZEBRA_DATA_UNSPEC;
 
 	zebra_if->link_nsid = NS_UNKNOWN;
@@ -568,6 +571,10 @@ void if_add_update(struct interface *ifp)
 			dplane_intf_mpls_modify_state(ifp, true);
 		else if (if_data->mpls_config == IF_ZEBRA_DATA_OFF)
 			dplane_intf_mpls_modify_state(ifp, false);
+		else if (if_data->mpls_config == IF_ZEBRA_DATA_AUTO &&
+			 if_data->mpls_dynamic != IF_ZEBRA_DATA_UNSPEC)
+			dplane_intf_mpls_modify_state(ifp,
+						      if_data->mpls_dynamic);
 
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
@@ -3007,6 +3014,15 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 		json_object_string_add(json_if, "OsDescription",
 				       zebra_if->desc);
 
+	if (zebra_if->mpls_config == IF_ZEBRA_DATA_UNSPEC)
+		json_object_string_add(json_if, "mplsConfig", "unspecified");
+	else if (zebra_if->mpls_config == IF_ZEBRA_DATA_ON)
+		json_object_string_add(json_if, "mplsConfig", "mplsEnabled");
+	else if (zebra_if->mpls_config == IF_ZEBRA_DATA_OFF)
+		json_object_string_add(json_if, "mplsConfig", "mplsDisabled");
+	else if (zebra_if->mpls_config == IF_ZEBRA_DATA_AUTO)
+		json_object_string_add(json_if, "mplsConfig", "mplsAuto");
+
 	json_object_boolean_add(json_if, "mplsEnabled", zebra_if->mpls);
 	json_object_boolean_add(json_if, "linkDown", zebra_if->linkdown);
 	json_object_boolean_add(json_if, "linkDownV6", zebra_if->linkdownv6);
@@ -3907,6 +3923,59 @@ void if_ipv6_address_uninstall(struct interface *ifp, struct prefix *prefix)
 	dplane_intf_addr_unset(ifp, ifc);
 
 	UNSET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
+}
+
+static void mpls_auto_interface_data_internal(struct interface *ifp, bool mpls)
+{
+	struct zebra_if *zif;
+	uint8_t mpls_val;
+
+	if (!ifp || !ifp->info)
+		return;
+	zif = ifp->info;
+	if (zif->mpls_config != IF_ZEBRA_DATA_AUTO)
+		return;
+
+	if (zif->mpls == mpls)
+		return;
+
+	if (mpls)
+		mpls_val = IF_ZEBRA_DATA_ON;
+	else
+		mpls_val = IF_ZEBRA_DATA_OFF;
+
+	if (zif->mpls_dynamic == mpls_val)
+		return;
+
+	zif->mpls_dynamic = mpls;
+	dplane_intf_mpls_modify_state(ifp, mpls);
+}
+
+void mpls_auto_interface_data_on(struct interface *ifp)
+{
+	mpls_auto_interface_data_internal(ifp, true);
+}
+
+void mpls_auto_interface_data_off(struct interface *ifp)
+{
+	mpls_auto_interface_data_internal(ifp, false);
+}
+
+void zebra_interface_mpls_set(ZAPI_HANDLER_ARGS)
+{
+	struct interface *ifp;
+	bool mpls = false;
+	struct stream *s;
+
+	s = msg;
+	ifp = zebra_interface_mpls_set_read(s, zvrf->vrf->vrf_id, &mpls);
+	if (!ifp)
+		return;
+
+	if (mpls)
+		mpls_auto_interface_data_on(ifp);
+	else
+		mpls_auto_interface_data_off(ifp);
 }
 
 /* Allocate and initialize interface vector. */

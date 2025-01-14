@@ -166,6 +166,8 @@ static void frr_default_apply_one(struct frr_default *dflt, bool check)
 		*dflt->dflt_ulong = dfltentry->val_ulong;
 	if (dflt->dflt_float)
 		*dflt->dflt_float = dfltentry->val_float;
+	if (dflt->dflt_uint8_t)
+		*dflt->dflt_uint8_t = dfltentry->val_uint8_t;
 	if (dflt->save_bool)
 		*dflt->save_bool = saveentry->val_bool;
 	if (dflt->save_str)
@@ -176,6 +178,8 @@ static void frr_default_apply_one(struct frr_default *dflt, bool check)
 		*dflt->save_ulong = saveentry->val_ulong;
 	if (dflt->save_float)
 		*dflt->save_float = saveentry->val_float;
+	if (dflt->save_uint8_t)
+		*dflt->save_uint8_t = saveentry->val_uint8_t;
 }
 
 void frr_defaults_apply(void)

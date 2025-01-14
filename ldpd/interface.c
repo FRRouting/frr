@@ -8,6 +8,7 @@
  */
 
 #include <zebra.h>
+#include "privs.h"
 
 #include "ldpd.h"
 #include "ldpe.h"
@@ -15,6 +16,8 @@
 #include "ldp_debug.h"
 
 #include "sockopt.h"
+
+extern struct zebra_privs_t ldpe_privs;
 
 static __inline int	 iface_compare(const struct iface *, const struct iface *);
 static struct if_addr	*if_addr_new(struct kaddr *);
@@ -91,6 +94,20 @@ ldpe_if_init(struct iface *iface)
 
 	/* LGP IGP Sync */
 	ldp_sync_fsm_init(iface, LDP_SYNC_STA_NOT_ACH);
+}
+
+/* proc sys net mpls conf <name> input set to 1 or 0
+ * should be used from ldpe only
+ */
+void ldpe_interface_set_mpls(struct iface *iface, bool val)
+{
+	struct ldp_igp_configure_if_mpls config;
+
+	config.ifindex = iface->ifindex;
+	config.enabled = val;
+
+	ldpe_imsg_compose_parent(IMSG_LDP_CONFIGURE_IF_MPLS, getpid(), &config,
+				 sizeof(config));
 }
 
 void
@@ -277,6 +294,7 @@ if_start(struct iface *iface, int af)
 
 	log_debug("%s: %s address-family %s", __func__, iface->name, af_name(af));
 
+	ldpe_interface_set_mpls(iface, true);
 	ia = iface_af_get(iface, af);
 
 	gettimeofday(&now, NULL);

@@ -17,6 +17,7 @@
 #include "zebra/zebra_nhg_private.h"
 #include "zebra/zebra_router.h"
 #include "zebra/rtadv.h"
+#include "zebra/zserv.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -26,6 +27,14 @@ extern "C" {
 #define IF_ZEBRA_DATA_UNSPEC 0
 #define IF_ZEBRA_DATA_ON 1
 #define IF_ZEBRA_DATA_OFF 2
+#define IF_ZEBRA_DATA_AUTO   3
+
+enum if_zebra_data_mode {
+	IF_DATA_UNSPEC = IF_ZEBRA_DATA_UNSPEC,
+	IF_DATA_ON = IF_ZEBRA_DATA_ON,
+	IF_DATA_OFF = IF_ZEBRA_DATA_OFF,
+	IF_DATA_AUTO = IF_ZEBRA_DATA_AUTO
+};
 
 #define IF_VLAN_BITMAP_MAX 4096
 
@@ -112,6 +121,12 @@ struct zebra_if {
 
 	/* MPLS configuration */
 	uint8_t mpls_config;
+
+	/* MPLS dynamic configuration - when mpls_config is auto
+	 * by default, set to IF_ZEBRA_DATA_UNSPEC
+	 * when used, acceptable values: IF_ZEBRA_DATA_ON or IF_ZEBRA_DATA_OFF
+	 */
+	uint8_t mpls_dynamic;
 
 	/* Linkdown status */
 	bool linkdown, linkdownv6;
@@ -336,6 +351,10 @@ extern void zebra_l2_map_slave_to_bond(struct zebra_if *zif, vrf_id_t vrf);
 extern void zebra_l2_unmap_slave_from_bond(struct zebra_if *zif);
 extern const char *zebra_protodown_rc_str(uint32_t protodown_rc, char *pd_buf,
 					  uint32_t pd_buf_len);
+extern void mpls_auto_interface_data_off(struct interface *ifp);
+extern void mpls_auto_interface_data_on(struct interface *ifp);
+extern void zebra_interface_mpls_set(struct zserv *client, struct zmsghdr *hdr,
+				     struct stream *msg, struct zebra_vrf *zvrf);
 void zebra_if_dplane_result(struct zebra_dplane_ctx *ctx);
 
 #ifdef HAVE_PROC_NET_DEV

@@ -75,7 +75,6 @@ pytestmark = [pytest.mark.ldpd, pytest.mark.ospfd]
 
 
 def build_topo(tgen):
-
     # Setup Routers
     for i in range(1, 5):
         tgen.add_router("r%s" % i)
@@ -134,6 +133,7 @@ def setup_module(module):
     tgen.start_topology()
 
     net = tgen.net
+    os.environ["TOPOTESTS_MPLS_AUTO"] = "1"
 
     # Starting Routers
     for i in range(1, 5):
@@ -781,6 +781,37 @@ def test_linux_mpls_routes():
         assert fatal_error == "", fatal_error
 
 
+def _check_mpls_interface_set(rname, ifname, value):
+    tgen = get_topogen()
+    val = (
+        tgen.net[rname]
+        .cmd_raises("sysctl -n " + "net.mpls.conf." + ifname + ".input")
+        .strip()
+    )
+    assert (
+        val == value
+    ), f"{rname}, interface {ifname} has MPLS flag set to {val}, unexpected"
+
+
+def test_linux_mpls_interface_settings():
+    global fatal_error
+
+    # Skip if previous fatal error condition is raised
+    if fatal_error != "":
+        pytest.skip(fatal_error)
+
+    # Verify Linux Kernel MPLS settings
+    print("\n\n** Verifying Linux MPLS interface settings")
+    print("******************************************\n")
+    _check_mpls_interface_set("r1", "r1-eth0", "1")
+    _check_mpls_interface_set("r2", "r2-eth0", "1")
+    _check_mpls_interface_set("r2", "r2-eth1", "1")
+    _check_mpls_interface_set("r2", "r2-eth2", "1")
+    _check_mpls_interface_set("r3", "r3-eth0", "1")
+    _check_mpls_interface_set("r3", "r3-eth1", "1")
+    _check_mpls_interface_set("r4", "r4-eth0", "1")
+
+
 def test_shutdown_check_stderr():
     global fatal_error
     net = get_topogen().net
@@ -837,7 +868,6 @@ def test_shutdown_check_memleak():
 
 
 if __name__ == "__main__":
-
     # To suppress tracebacks, either use the following pytest call or add "--tb=no" to cli
     # retval = pytest.main(["-s", "--tb=no"])
     retval = pytest.main(["-s"])
