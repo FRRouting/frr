@@ -524,11 +524,26 @@ uint32_t dplane_ctx_get_flags(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_flags(struct zebra_dplane_ctx *ctx, uint32_t flags);
 uint32_t dplane_ctx_get_metric(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_old_metric(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_route_metric(struct zebra_dplane_ctx *ctx, uint32_t metric);
+void dplane_ctx_set_route_mtu(struct zebra_dplane_ctx *ctx, uint32_t mtu);
 uint32_t dplane_ctx_get_mtu(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_nh_mtu(const struct zebra_dplane_ctx *ctx);
 uint8_t dplane_ctx_get_distance(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_distance(struct zebra_dplane_ctx *ctx, uint8_t distance);
 uint8_t dplane_ctx_get_old_distance(const struct zebra_dplane_ctx *ctx);
+/* Route blackhole type */
+enum blackhole_type dplane_ctx_get_route_bhtype(
+	const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_route_bhtype(struct zebra_dplane_ctx *ctx,
+				 enum blackhole_type bhtype);
+/* IPv4 'preferred source', at route-level */
+const struct ipaddr *dplane_ctx_get_route_prefsrc(
+	const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_route_prefsrc(struct zebra_dplane_ctx *ctx,
+				  const struct ipaddr *addr);
+/* Route 'gateway', at route-level */
+const struct ipaddr *dplane_ctx_get_route_gw(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_route_gw(struct zebra_dplane_ctx *ctx, const struct ipaddr *gw);
 
 /* Accessors for traffic control context */
 int dplane_ctx_tc_qdisc_get_kind(const struct zebra_dplane_ctx *ctx);
@@ -572,6 +587,7 @@ void dplane_ctx_set_nexthops(struct zebra_dplane_ctx *ctx, struct nexthop *nh);
 void dplane_ctx_set_backup_nhg(struct zebra_dplane_ctx *ctx,
 			       const struct nexthop_group *nhg);
 
+void dplane_ctx_set_nhg_id(struct zebra_dplane_ctx *ctx, uint32_t nhgid);
 uint32_t dplane_ctx_get_nhg_id(const struct zebra_dplane_ctx *ctx);
 const struct nexthop_group *dplane_ctx_get_ng(
 	const struct zebra_dplane_ctx *ctx);
@@ -1255,16 +1271,6 @@ void zebra_dplane_shutdown(void);
 
 void zebra_dplane_startup_stage(struct zebra_ns *zns,
 				enum zebra_dplane_startup_notifications spot);
-
-/*
- * decision point for sending a routing update through the old
- * straight to zebra master pthread or through the dplane to
- * the master pthread for handling
- */
-void dplane_rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
-			      struct prefix_ipv6 *src_p, struct route_entry *re,
-			      struct nexthop_group *ng, int startup,
-			      struct zebra_dplane_ctx *ctx);
 
 enum zebra_dplane_startup_notifications
 dplane_ctx_get_startup_spot(struct zebra_dplane_ctx *ctx);

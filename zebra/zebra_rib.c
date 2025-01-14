@@ -2220,8 +2220,20 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 	bool fib_changed = false;
 	bool debug_p = IS_ZEBRA_DEBUG_DPLANE | IS_ZEBRA_DEBUG_RIB;
 	int start_count, end_count;
+	vrf_id_t vrf_id;
+	int tableid;
 
-	vrf = vrf_lookup_by_id(dplane_ctx_get_vrf(ctx));
+	/* Locate vrf and route table - we must have one or the other */
+	tableid = dplane_ctx_get_table(ctx);
+	vrf_id = dplane_ctx_get_vrf(ctx);
+	if (vrf_id == VRF_UNKNOWN)
+		vrf_id = zebra_vrf_lookup_by_table(tableid,
+						   dplane_ctx_get_ns_id(ctx));
+	else if (tableid == ZEBRA_ROUTE_TABLE_UNKNOWN)
+		tableid = zebra_vrf_lookup_tableid(vrf_id,
+						   dplane_ctx_get_ns_id(ctx));
+
+	vrf = vrf_lookup_by_id(vrf_id);
 
 	/* Locate rn and re(s) from ctx */
 	rn = rib_find_rn_from_ctx(ctx);
@@ -2230,7 +2242,7 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 			zlog_debug(
 				"Failed to process dplane notification: no routes for %s(%u:%u):%pRN",
 				VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
-				dplane_ctx_get_table(ctx), rn);
+				tableid, rn);
 		}
 		goto done;
 	}
@@ -2240,7 +2252,7 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 	if (debug_p)
 		zlog_debug("%s(%u:%u):%pRN Processing dplane notif ctx %p",
 			   VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
-			   dplane_ctx_get_table(ctx), rn, ctx);
+			   tableid, rn, ctx);
 
 	/*
 	 * Take a pass through the routes, look for matches with the context
@@ -2257,7 +2269,7 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 			zlog_debug(
 				"%s(%u:%u):%pRN Unable to process dplane notification: no entry for type %s",
 				VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
-				dplane_ctx_get_table(ctx), rn,
+				tableid, rn,
 				zebra_route_string(dplane_ctx_get_type(ctx)));
 
 		goto done;
@@ -2293,7 +2305,7 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 					"%s(%u:%u):%pRN dplane notif, uninstalled type %s route",
 					VRF_LOGNAME(vrf),
 					dplane_ctx_get_vrf(ctx),
-					dplane_ctx_get_table(ctx), rn,
+					tableid, rn,
 					zebra_route_string(
 						dplane_ctx_get_type(ctx)));
 		} else {
@@ -2303,7 +2315,7 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 					"%s(%u:%u):%pRN dplane notif, but type %s not selected_fib",
 					VRF_LOGNAME(vrf),
 					dplane_ctx_get_vrf(ctx),
-					dplane_ctx_get_table(ctx), rn,
+					tableid, rn,
 					zebra_route_string(
 						dplane_ctx_get_type(ctx)));
 		}
@@ -2342,7 +2354,7 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 			zlog_debug(
 				"%s(%u:%u):%pRN dplane notification: rib_update returns FALSE",
 				VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
-				dplane_ctx_get_table(ctx), rn);
+				tableid, rn);
 	}
 
 	/*
@@ -2361,7 +2373,7 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 					"%s(%u:%u):%pRN applied nexthop changes from dplane notification",
 					VRF_LOGNAME(vrf),
 					dplane_ctx_get_vrf(ctx),
-					dplane_ctx_get_table(ctx), rn);
+					tableid, rn);
 
 			/* Changed nexthops - update kernel/others */
 			dplane_route_notif_update(rn, re,
@@ -2373,7 +2385,7 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 					"%s(%u:%u):%pRN installed transition from dplane notification",
 					VRF_LOGNAME(vrf),
 					dplane_ctx_get_vrf(ctx),
-					dplane_ctx_get_table(ctx), rn);
+					tableid, rn);
 
 			/* We expect this to be the selected route, so we want
 			 * to tell others about this transition.
@@ -2393,7 +2405,7 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 					"%s(%u:%u):%pRN un-installed transition from dplane notification",
 					VRF_LOGNAME(vrf),
 					dplane_ctx_get_vrf(ctx),
-					dplane_ctx_get_table(ctx), rn);
+					tableid, rn);
 
 			/* Transition from _something_ installed to _nothing_
 			 * installed.
@@ -3973,10 +3985,10 @@ static void rib_link(struct route_node *rn, struct route_entry *re, int process)
 
 	dest = rib_dest_from_rnode(rn);
 	if (!dest) {
+		dest = zebra_rib_create_dest(rn);
+
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			rnode_debug(rn, re->vrf_id, "rn %p adding dest", rn);
-
-		dest = zebra_rib_create_dest(rn);
 	}
 
 	re_list_add_head(&dest->routes, re);
