@@ -8,6 +8,12 @@
 
 #include "hook.h"
 
+struct bgp_enhe_capability {
+	uint16_t afi;
+	uint16_t safi;
+	uint16_t nh_afi;
+};
+
 DECLARE_HOOK(bgp_packet_dump,
 		(struct peer *peer, uint8_t type, bgp_size_t size,
 			struct stream *s),

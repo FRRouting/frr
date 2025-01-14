@@ -5977,13 +5977,17 @@ DEFUN (neighbor_capability_enhe,
 {
 	int idx_peer = 1;
 	struct peer *peer;
+	int ret;
 
 	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
 	if (peer && peer->conf_if)
 		return CMD_SUCCESS;
 
-	return peer_flag_set_vty(vty, argv[idx_peer]->arg,
-				 PEER_FLAG_CAPABILITY_ENHE);
+	ret = peer_flag_set_vty(vty, argv[idx_peer]->arg, PEER_FLAG_CAPABILITY_ENHE);
+
+	bgp_capability_send(peer, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_ENHE, CAPABILITY_ACTION_SET);
+
+	return ret;
 }
 
 DEFUN (no_neighbor_capability_enhe,
@@ -5997,6 +6001,7 @@ DEFUN (no_neighbor_capability_enhe,
 {
 	int idx_peer = 2;
 	struct peer *peer;
+	int ret;
 
 	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
 	if (peer && peer->conf_if) {
@@ -6006,8 +6011,12 @@ DEFUN (no_neighbor_capability_enhe,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	return peer_flag_unset_vty(vty, argv[idx_peer]->arg,
-				   PEER_FLAG_CAPABILITY_ENHE);
+	ret = peer_flag_unset_vty(vty, argv[idx_peer]->arg, PEER_FLAG_CAPABILITY_ENHE);
+
+	bgp_capability_send(peer, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_ENHE,
+			    CAPABILITY_ACTION_UNSET);
+
+	return ret;
 }
 
 /* neighbor capability software-version */
