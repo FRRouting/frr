@@ -2583,12 +2583,21 @@ int lib_interface_zebra_ipv6_router_advertisements_max_rtr_adv_interval_modify(
 {
 	struct interface *ifp;
 	uint32_t interval;
+	struct zebra_if *zif;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	ifp = nb_running_get_entry(args->dnode, NULL, true);
 	interval = yang_dnode_get_uint32(args->dnode, NULL);
+	zif = ifp->info;
+
+	if (zif->rtadv.AdvDefaultLifetime > 0 &&
+	    interval > (unsigned int)zif->rtadv.AdvDefaultLifetime * 1000) {
+		snprintfrr(args->errmsg, args->errmsg_len,
+			   "This ra-interval would conflict with configured ra-lifetime");
+		return NB_ERR;
+	}
 
 	ipv6_nd_interval_set(ifp, interval);
 
