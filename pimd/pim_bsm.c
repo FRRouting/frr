@@ -2170,6 +2170,7 @@ static void cand_addrsel_config_write(struct vty *vty,
 int pim_cand_config_write(struct pim_instance *pim, struct vty *vty)
 {
 	struct bsm_scope *scope = &pim->global_scope;
+	struct cand_rp_group *group;
 	int ret = 0;
 
 	if (scope->cand_rp_addrsel.cfg_enable) {
@@ -2181,14 +2182,11 @@ int pim_cand_config_write(struct pim_instance *pim, struct vty *vty)
 		cand_addrsel_config_write(vty, &scope->cand_rp_addrsel);
 		vty_out(vty, "\n");
 		ret++;
+	}
 
-		struct cand_rp_group *group;
-
-		frr_each (cand_rp_groups, scope->cand_rp_groups, group) {
-			vty_out(vty, " bsr candidate-rp group %pFX\n",
-				&group->p);
-			ret++;
-		}
+	frr_each (cand_rp_groups, scope->cand_rp_groups, group) {
+		vty_out(vty, " bsr candidate-rp group %pFX\n", &group->p);
+		ret++;
 	}
 
 	if (scope->bsr_addrsel.cfg_enable) {
