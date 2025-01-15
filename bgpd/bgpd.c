@@ -4953,6 +4953,10 @@ static void peer_flag_modify_action(struct peer *peer, uint64_t flag)
 			peer->v_start = BGP_INIT_START_TIMER;
 			BGP_EVENT_ADD(peer->connection, BGP_Stop);
 		}
+	} else if (CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) &&
+		   CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV) &&
+		   flag == PEER_FLAG_CAPABILITY_ENHE) {
+		peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
 	} else if (!peer_notify_config_change(peer->connection))
 		bgp_session_reset(peer);
 }
