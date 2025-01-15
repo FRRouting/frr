@@ -14298,25 +14298,41 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 		if (CHECK_FLAG(p->af_flags[afi][safi], PEER_FLAG_MED_UNCHANGED))
 			json_object_boolean_true_add(
 				json_addr, "unchangedMedPropogatedToNbr");
-		if (CHECK_FLAG(p->af_flags[afi][safi], PEER_FLAG_SEND_COMMUNITY)
-		    || CHECK_FLAG(p->af_flags[afi][safi],
-				  PEER_FLAG_SEND_EXT_COMMUNITY)) {
-			if (CHECK_FLAG(p->af_flags[afi][safi],
-				       PEER_FLAG_SEND_COMMUNITY)
-			    && CHECK_FLAG(p->af_flags[afi][safi],
-					  PEER_FLAG_SEND_EXT_COMMUNITY))
-				json_object_string_add(json_addr,
-						       "commAttriSentToNbr",
-						       "extendedAndStandard");
-			else if (CHECK_FLAG(p->af_flags[afi][safi],
-					    PEER_FLAG_SEND_EXT_COMMUNITY))
-				json_object_string_add(json_addr,
-						       "commAttriSentToNbr",
-						       "extended");
-			else
-				json_object_string_add(json_addr,
-						       "commAttriSentToNbr",
-						       "standard");
+		if (CHECK_FLAG(p->af_flags[afi][safi], PEER_FLAG_SEND_COMMUNITY) ||
+		    CHECK_FLAG(p->af_flags[afi][safi], PEER_FLAG_SEND_LARGE_COMMUNITY) ||
+		    CHECK_FLAG(p->af_flags[afi][safi], PEER_FLAG_SEND_EXT_COMMUNITY)) {
+			char commAttriSentToNbr[BGP_SEND_COMMUNITY_MAX_LENGTH] = { 0 };
+
+			if (CHECK_FLAG(p->af_flags[afi][safi], PEER_FLAG_SEND_COMMUNITY)) {
+				strncat(commAttriSentToNbr, "standard",
+					sizeof(commAttriSentToNbr) - strlen(commAttriSentToNbr) - 1);
+			}
+
+			if (CHECK_FLAG(p->af_flags[afi][safi], PEER_FLAG_SEND_EXT_COMMUNITY)) {
+				if (strlen(commAttriSentToNbr) > 0) {
+					strncat(commAttriSentToNbr, "And",
+						sizeof(commAttriSentToNbr) -
+							strlen(commAttriSentToNbr) - 1);
+				}
+				strncat(commAttriSentToNbr, "extended",
+					sizeof(commAttriSentToNbr) - strlen(commAttriSentToNbr) - 1);
+			}
+
+			if (CHECK_FLAG(p->af_flags[afi][safi], PEER_FLAG_SEND_LARGE_COMMUNITY)) {
+				if (strlen(commAttriSentToNbr) > 0) {
+					strncat(commAttriSentToNbr, "And",
+						sizeof(commAttriSentToNbr) -
+							strlen(commAttriSentToNbr) - 1);
+				}
+				strncat(commAttriSentToNbr, "large",
+					sizeof(commAttriSentToNbr) - strlen(commAttriSentToNbr) - 1);
+			}
+
+			if (strlen(commAttriSentToNbr) == 0) {
+				strncpy(commAttriSentToNbr, "none", sizeof(commAttriSentToNbr) - 1);
+			}
+
+			json_object_string_add(json_addr, "commAttriSentToNbr", commAttriSentToNbr);
 		}
 		if (CHECK_FLAG(p->af_flags[afi][safi],
 			       PEER_FLAG_DEFAULT_ORIGINATE)) {
