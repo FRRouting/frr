@@ -121,6 +121,29 @@ def test_bgp_convergence():
     expect_loopback_route("r2", "ip", "10.254.254.1/32", "bgp")
 
 
+def test_msdp_connect():
+    "Test that the MSDP peers have connected."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    def msdp_is_connected(router, peer):
+        logger.info(f"waiting MSDP peer {peer} in router {router}")
+        expected = {peer: {"state": "established"}}
+        test_func = partial(
+            topotest.router_json_cmp,
+            tgen.gears[router],
+            "show ip msdp peer json",
+            expected,
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=40, wait=2)
+        assertmsg = '"{}" convergence failure'.format(router)
+        assert result is None, assertmsg
+
+    msdp_is_connected("r1", "192.168.1.2")
+    msdp_is_connected("r2", "192.168.1.1")
+
+
 def test_sa_learn():
     """
     Test that the learned SA uses the configured originator ID instead
@@ -145,10 +168,10 @@ def test_sa_learn():
                     "local": "no",
                 }
             }
-        }
+        },
     )
-    _, result = topotest.run_and_expect(test_func, None, count=100, wait=1)
-    assert result is None, 'r2 SA convergence failure'
+    _, result = topotest.run_and_expect(test_func, None, count=80, wait=2)
+    assert result is None, "r2 SA convergence failure"
 
 
 def test_memory_leak():
