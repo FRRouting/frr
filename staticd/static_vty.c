@@ -1603,17 +1603,18 @@ const struct frr_yang_module_info frr_staticd_cli_info = {
 #else /* ifdef INCLUDE_MGMTD_CMDDEFS_ONLY */
 
 DEFPY_YANG(debug_staticd, debug_staticd_cmd,
-	   "[no] debug static [{events$events|route$route|bfd$bfd}]",
+	   "[no] debug static [{events$events|route$route|bfd$bfd|srv6$srv6}]",
 	   NO_STR DEBUG_STR STATICD_STR
 	   "Debug events\n"
 	   "Debug route\n"
-	   "Debug bfd\n")
+	   "Debug bfd\n"
+	   "Debug srv6\n")
 {
 	/* If no specific category, change all */
 	if (strmatch(argv[argc - 1]->text, "static"))
-		static_debug_set(vty->node, !no, true, true, true);
+		static_debug_set(vty->node, !no, true, true, true, true);
 	else
-		static_debug_set(vty->node, !no, !!events, !!route, !!bfd);
+		static_debug_set(vty->node, !no, !!events, !!route, !!bfd, !!srv6);
 
 	return CMD_SUCCESS;
 }
