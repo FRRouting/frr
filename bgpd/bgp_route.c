@@ -5592,11 +5592,11 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	/* Addpath ID */
 	new->addpath_rx_id = addpath_id;
 
-	/* Increment prefix */
-	bgp_aggregate_increment(bgp, p, new, afi, safi);
-
 	/* Register new BGP information. */
 	bgp_path_info_add(dest, new);
+
+	/* Increment prefix */
+	bgp_aggregate_increment(bgp, p, new, afi, safi);
 
 	/* route_node_get lock */
 	bgp_dest_unlock_node(dest);
@@ -7186,11 +7186,11 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 
 	bgp_nexthop_reachability_check(afi, safi, new, p, dest, bgp, bgp);
 
-	/* Aggregate address increment. */
-	bgp_aggregate_increment(bgp, p, new, afi, safi);
-
 	/* Register new BGP information. */
 	bgp_path_info_add(dest, new);
+
+	/* Aggregate address increment. */
+	bgp_aggregate_increment(bgp, p, new, afi, safi);
 
 	/* route_node_get lock */
 	bgp_dest_unlock_node(dest);
@@ -9336,8 +9336,8 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 				bgp->peer_self, new_attr, bn);
 		SET_FLAG(new->flags, BGP_PATH_VALID);
 
-		bgp_aggregate_increment(bgp, p, new, afi, SAFI_UNICAST);
 		bgp_path_info_add(bn, new);
+		bgp_aggregate_increment(bgp, p, new, afi, SAFI_UNICAST);
 		bgp_dest_unlock_node(bn);
 		SET_FLAG(bn->flags, BGP_NODE_FIB_INSTALLED);
 		bgp_process(bgp, bn, new, afi, SAFI_UNICAST);
