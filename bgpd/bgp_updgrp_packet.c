@@ -1284,10 +1284,6 @@ bpacket_vec_arr_inherit_attr_flags(struct bpacket_attr_vec_arr *vecarr,
 		SET_FLAG(vecarr->entries[BGP_ATTR_VEC_NH].flags,
 			 BPKT_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS);
 
-	if (CHECK_FLAG(attr->rmap_change_flags, BATTR_REFLECTED))
-		SET_FLAG(vecarr->entries[BGP_ATTR_VEC_NH].flags,
-			 BPKT_ATTRVEC_FLAGS_REFLECTED);
-
 	if (CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_NEXTHOP_UNCHANGED))
 		SET_FLAG(vecarr->entries[BGP_ATTR_VEC_NH].flags,
 			 BPKT_ATTRVEC_FLAGS_RMAP_NH_UNCHANGED);
