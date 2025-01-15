@@ -62,4 +62,6 @@ int pim_rpf_addr_is_inaddr_any(struct pim_rpf *rpf);
 
 int pim_rpf_is_same(struct pim_rpf *rpf1, struct pim_rpf *rpf2);
 void pim_rpf_set_refresh_time(struct pim_instance *pim);
+bool pim_route_lookup(struct pim_instance *pim, pim_addr addr, uint32_t *asn,
+		      struct pim_nexthop *pn);
 #endif /* PIM_RPF_H */

@@ -4027,6 +4027,119 @@ static void zserv_error_invalid_msg_type(ZAPI_HANDLER_ARGS)
 	zsend_error_msg(client, ZEBRA_INVALID_MSG_TYPE, hdr);
 }
 
+static void zsend_route_result(struct zserv *zc, struct zebra_vrf *zvrf, struct prefix *p,
+			       struct route_entry *re)
+{
+	struct nexthop *nexthop;
+	struct stream *s;
+	uint32_t nexthop_num = 0;
+	struct ipaddr ip = {};
+
+	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+	zclient_create_header(s, ZEBRA_ROUTE_LOOKUP, zvrf_id(zvrf));
+
+	/**
+	 * Format:
+	 * - 1 byte: search success status
+	 * - X bytes: route prefix
+	 * - 4 bytes: distance
+	 * - 4 bytes: metric
+	 * - 4 bytes: type
+	 * - 4 bytes: next hop number.
+	 * - X bytes: next hop(s) information.
+	 * - 4 bytes: opaque data size
+	 * - X bytes: opaque data
+	 *
+	 * When first byte (search result status) is zero no more data
+	 * will be appended.
+	 */
+
+	/* No routes found case. */
+	if (re == NULL) {
+		stream_putc(s, 0);
+		goto finish_and_send;
+	}
+
+	/* Convert prefix to ipaddr. */
+	ip.ipa_type = p->family;
+	switch (ip.ipa_type) {
+	case IPADDR_V4:
+		ip.ip._v4_addr = p->u.prefix4;
+		break;
+	case IPADDR_V6:
+		ip.ip._v6_addr = p->u.prefix6;
+		break;
+
+	case IPADDR_NONE:
+	default:
+		zlog_warn("%s: unsupported prefix type %d", __func__, ip.ipa_type);
+		break;
+	}
+
+	stream_putc(s, 1);
+	stream_put_ipaddr(s, &ip);
+	stream_putw(s, p->prefixlen);
+	stream_putl(s, re->distance);
+	stream_putl(s, re->metric);
+	stream_putl(s, re->type);
+
+	/* Calculate total amount of next hops. */
+	for (nexthop = re->nhe->nhg.nexthop; nexthop; nexthop = nexthop->next)
+		nexthop_num++;
+
+	stream_putl(s, nexthop_num);
+
+	/* Encode the next hops. */
+	for (nexthop = re->nhe->nhg.nexthop; nexthop; nexthop = nexthop->next)
+		zserv_encode_nexthop(s, nexthop);
+
+	/* Encode opaque data. */
+	if (re->opaque) {
+		stream_putl(s, re->opaque->length);
+		if (re->opaque->length > 0)
+			stream_put(s, re->opaque->data, re->opaque->length);
+	} else
+		stream_putl(s, 0);
+
+finish_and_send:
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zserv_send_message(zc, s);
+}
+
+static void zread_route_lookup(ZAPI_HANDLER_ARGS)
+{
+	struct route_entry *re = NULL;
+	struct route_node *rn = NULL;
+	union g_addr addr;
+	uint32_t af;
+
+	/*
+	 * Request format:
+	 * - 4 bytes: address family (AF_INET, AF_INET6)
+	 * - X bytes: address.
+	 */
+	STREAM_GETL(msg, af);
+	switch (af) {
+	case AF_INET:
+		STREAM_GET(&addr.ipv4, msg, sizeof(addr.ipv4));
+		break;
+	case AF_INET6:
+		STREAM_GET(&addr.ipv6, msg, sizeof(addr.ipv6));
+		break;
+	default:
+		zlog_warn("%s: unsupported address family %d", __func__, af);
+		return;
+	}
+
+	/* Look up route in RIB. */
+	re = rib_match(af == AF_INET ? AFI_IP : AFI_IP6, SAFI_UNICAST, zvrf_id(zvrf), &addr, &rn);
+	/* Send result whether it found or not. */
+	zsend_route_result(client, zvrf, &rn->p, re);
+
+stream_failure:
+	zlog_warn("%s: invalid stream format", __func__);
+}
+
 void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_ROUTER_ID_ADD] = zread_router_id_add,
 	[ZEBRA_ROUTER_ID_DELETE] = zread_router_id_delete,
@@ -4123,6 +4236,7 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_TC_CLASS_DELETE] = zread_tc_class,
 	[ZEBRA_TC_FILTER_ADD] = zread_tc_filter,
 	[ZEBRA_TC_FILTER_DELETE] = zread_tc_filter,
+	[ZEBRA_ROUTE_LOOKUP] = zread_route_lookup,
 };
 
 /*

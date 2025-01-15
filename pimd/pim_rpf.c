@@ -257,3 +257,100 @@ int pim_rpf_is_same(struct pim_rpf *rpf1, struct pim_rpf *rpf2)
 
 	return 0;
 }
+
+bool pim_route_lookup(struct pim_instance *pim, pim_addr addr, uint32_t *asn, struct pim_nexthop *pn)
+{
+	struct interface *ifp;
+	struct zroute_info *ri;
+	struct zroute_nh_info *rni;
+	bool found = false;
+
+	/* Zero out pim next hop response.*/
+	memset(pn, 0, sizeof(*pn));
+
+	/* Search route information. */
+	ri = zclient_route_lookup(pim, &addr);
+	if (ri == NULL) {
+		if (PIM_DEBUG_ZEBRA)
+			zlog_debug("%s: could not find route for address %pPA", __func__, &addr);
+		return false;
+	}
+
+	/*
+	 * AS check (in case AS number was provided).
+	 *
+	 * This code path checks for the following MSDP rule:
+	 *
+	 * > For a direct peering inter-domain environment to be successful, the
+	 * > first AS in the MBGP best path to the originating RP should be the
+	 * > same as the AS of the MSDP peer.
+	 *
+	 * RFC 4611 Section 2.1. Peering between PIM Border Routers.
+	 */
+	if (asn) {
+		if (ri->ri_type == ZEBRA_ROUTE_BGP)
+			*asn = strtoull((char *)ri->ri_opaque, NULL, 10);
+		else
+			*asn = 0;
+	}
+
+	SLIST_FOREACH (rni, &ri->ri_nhlist, rni_entry) {
+		ifp = if_lookup_by_index(rni->rni_ifindex, pim->vrf->vrf_id);
+		if (ifp == NULL) {
+			if (PIM_DEBUG_ZEBRA)
+				zlog_debug("%s: could not find interface for ifindex %d (address %pPA)",
+					   __func__, rni->rni_ifindex, &addr);
+			continue;
+		}
+		if (ifp->info == NULL) {
+			if (PIM_DEBUG_ZEBRA)
+				zlog_debug("%s: multicast not enabled on input interface %s (ifindex=%d, RPF for source %pPA)",
+					   __func__, ifp->name, rni->rni_ifindex, &addr);
+			continue;
+		}
+
+		/* Fill next hop parameter and return. */
+		switch (rni->rni_type) {
+		case NEXTHOP_TYPE_IPV4:
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
+			if (PIM_DEBUG_ZEBRA)
+				zlog_debug("%s: found nexthop %pI4 for address %pPA: interface %s ifindex=%d metric=%d pref=%d",
+					   __func__, &rni->rni_addr.v4, &addr, ifp->name,
+					   rni->rni_ifindex, ri->ri_metric, ri->ri_distance);
+
+#if PIM_IPV == 4
+			pn->mrib_nexthop_addr = rni->rni_addr.v4;
+#endif
+			break;
+		case NEXTHOP_TYPE_IPV6:
+		case NEXTHOP_TYPE_IPV6_IFINDEX:
+			if (PIM_DEBUG_ZEBRA)
+				zlog_debug("%s: found nexthop %pI6 for address %pPA: interface %s ifindex=%d metric=%d pref=%d",
+					   __func__, &rni->rni_addr.v6, &addr, ifp->name,
+					   rni->rni_ifindex, ri->ri_metric, ri->ri_distance);
+
+#if PIM_IPV == 6
+			pn->mrib_nexthop_addr = rni->rni_addr.v6;
+#endif
+			break;
+		case NEXTHOP_TYPE_IFINDEX:
+			break;
+
+		default:
+			zlog_warn("%s: invalid next hop address type %d", __func__, rni->rni_type);
+			continue;
+		}
+
+		pn->interface = ifp;
+		pn->mrib_metric_preference = ri->ri_distance;
+		pn->mrib_route_metric = ri->ri_metric;
+		pn->last_lookup = addr;
+		pn->last_lookup_time = pim_time_monotonic_usec();
+
+		found = true;
+		break;
+	}
+
+	zroute_info_free(&ri);
+	return found;
+}
