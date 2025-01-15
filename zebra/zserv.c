@@ -937,6 +937,10 @@ void zserv_close(void)
 /*
  * Open zebra's ZAPI listener socket. This is done early during startup,
  * before zebra is ready to listen and accept client connections.
+ *
+ * This function should only ever be called from the startup pthread
+ * from main.c.  If it is called multiple times it will cause problems
+ * because it causes the zsock global variable to be setup.
  */
 void zserv_open(const char *path)
 {
