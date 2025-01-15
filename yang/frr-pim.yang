@@ -202,11 +202,29 @@ module frr-pim {
     description
       "A grouping defining per address family pim global attributes";
 
-    leaf mcast-rpf-lookup {
-      type mcast-rpf-lookup-mode;
-      default "none";
+    list mcast-rpf-lookup {
+      key "group-list source-list";
       description
-        "Multicast RPF lookup behavior.";
+        "RPF lookup modes.";
+
+      leaf group-list {
+        type plist-ref;
+        description
+          "Multicast group prefix list.";
+      }
+
+      leaf source-list {
+        type plist-ref;
+        description
+          "Unicast source address prefix list.";
+      }
+
+      leaf mode {
+        type mcast-rpf-lookup-mode;
+        default "none";
+        description
+          "Multicast RPF lookup behavior.";
+      }
     }
 
     leaf ecmp {

@@ -1895,12 +1895,25 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_re
 /*
  * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/mcast-rpf-lookup
  */
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_mcast_rpf_lookup_modify(
-	struct nb_cb_modify_args *args)
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_mcast_rpf_lookup_create(
+	struct nb_cb_create_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		break;
+	}
+
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_mcast_rpf_lookup_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	struct vrf *vrf;
 	struct pim_instance *pim;
-	enum pim_rpf_lookup_mode old_mode;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1910,15 +1923,37 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_mc
 	case NB_EV_APPLY:
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
 		pim = vrf->info;
-		old_mode = pim->rpf_mode;
-		pim->rpf_mode = yang_dnode_get_enum(args->dnode, NULL);
+		pim_nht_change_rpf_mode(pim, yang_dnode_get_string(args->dnode, "group-list"),
+					yang_dnode_get_string(args->dnode, "source-list"),
+					MCAST_NO_CONFIG);
+		break;
+	}
 
-		if (pim->rpf_mode != old_mode &&
-		    /* MCAST_MIX_MRIB_FIRST is the default if not configured */
-		    (old_mode != MCAST_NO_CONFIG && pim->rpf_mode != MCAST_MIX_MRIB_FIRST)) {
-			pim_nht_mode_changed(pim);
-		}
+	return NB_OK;
+}
 
+/*
+ * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/mcast-rpf-lookup/mode
+ */
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_mcast_rpf_lookup_mode_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	enum pim_rpf_lookup_mode mode = MCAST_NO_CONFIG;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		mode = yang_dnode_get_enum(args->dnode, NULL);
+		pim_nht_change_rpf_mode(pim, yang_dnode_get_string(args->dnode, "../group-list"),
+					yang_dnode_get_string(args->dnode, "../source-list"), mode);
 		break;
 	}
 

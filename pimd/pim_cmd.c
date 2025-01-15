@@ -3296,7 +3296,7 @@ DEFUN (show_ip_rib,
 		return CMD_WARNING;
 	}
 
-	if (!pim_nht_lookup(vrf->info, &nexthop, addr, 0)) {
+	if (!pim_nht_lookup(vrf->info, &nexthop, addr, PIMADDR_ANY, false)) {
 		vty_out(vty,
 			"Failure querying RIB nexthop for unicast address %s\n",
 			addr_str);
@@ -8878,21 +8878,31 @@ done:
 }
 
 DEFPY_YANG(pim_rpf_lookup_mode, pim_rpf_lookup_mode_cmd,
-           "[no] rpf-lookup-mode ![urib-only|mrib-only|mrib-then-urib|lower-distance|longer-prefix]$mode",
+           "[no] rpf-lookup-mode\
+            ![urib-only|mrib-only|mrib-then-urib|lower-distance|longer-prefix]$mode\
+            [{group-list PREFIX_LIST$grp_list|source-list PREFIX_LIST$src_list}]",
            NO_STR
            "RPF lookup behavior\n"
            "Lookup in unicast RIB only\n"
            "Lookup in multicast RIB only\n"
            "Try multicast RIB first, fall back to unicast RIB\n"
            "Lookup both, use entry with lower distance\n"
-           "Lookup both, use entry with longer prefix\n")
+           "Lookup both, use entry with longer prefix\n"
+           "Set a specific mode matching group\n"
+           "Multicast group prefix list\n"
+           "Set a specific mode matching source address\n"
+           "Source address prefix list\n")
 {
-	if (no)
-		nb_cli_enqueue_change(vty, "./mcast-rpf-lookup", NB_OP_DESTROY, NULL);
-	else
-		nb_cli_enqueue_change(vty, "./mcast-rpf-lookup", NB_OP_MODIFY, mode);
+	if (no) {
+		nb_cli_enqueue_change(vty, "./mode", NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	} else {
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, "./mode", NB_OP_MODIFY, mode);
+	}
 
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes(vty, "./mcast-rpf-lookup[group-list='%s'][source-list='%s']",
+				    (grp_list ? grp_list : ""), (src_list ? src_list : ""));
 }
 
 struct cmd_node pim_node = {

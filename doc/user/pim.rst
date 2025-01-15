@@ -217,7 +217,7 @@ PIM Routers
    never do SM over. This command is vrf aware, to configure for a vrf, specify
    the vrf in the router pim block.
 
-.. clicmd:: rpf-lookup-mode MODE
+.. clicmd:: rpf-lookup-mode MODE [group-list PREFIX_LIST] [source-list PREFIX_LIST]
 
    MODE sets the method used to perform RPF lookups. Supported modes:
 
@@ -245,6 +245,18 @@ PIM Routers
       configured. If this is the desired behavior, it should be explicitly
       configured to make the configuration immune against possible changes in
       what the default behavior is.
+
+   If a group and/or source prefix list is provided, then the RPF lookup mode
+   will only apply to source, group addresses that match the given prefix list(s).
+   Not all RPF lookups have a valid group address when performing a lookup, e.g. RPF
+   to an RP only does a lookup to the RP address and has no specific group.
+   Lookups that do not have a specific group will only use lookup modes that do not
+   specify a group-list.
+   A global rpf lookup mode that does not have a group or source list is always installed
+   and, as documented above, uses the ``mrib-then-urib`` mode by default.
+   This can be changed with an rpf-lookup-mode MODE that does not specify group or source lists.
+   There can be any number of rpf lookup modes, as long as the combination of group and source
+   list is unique.
 
 .. warning::
 
