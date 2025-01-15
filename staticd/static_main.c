@@ -107,6 +107,7 @@ struct frr_signal_t static_signals[] = {
 };
 
 static const struct frr_yang_module_info *const staticd_yang_modules[] = {
+	&frr_backend_info,
 	&frr_interface_info,
 	&frr_vrf_info,
 	&frr_routing_info,
