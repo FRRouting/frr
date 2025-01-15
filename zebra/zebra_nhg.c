@@ -3454,7 +3454,13 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 						 ZAPI_NHG_INSTALLED);
 			break;
 		case ZEBRA_DPLANE_REQUEST_FAILURE:
-			UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+			/*
+			 * With a request failure it is unknown what we now know
+			 * this is because Zebra has lost track of whether or not
+			 * any previous versions of this NHG are in the kernel
+			 * or even what those versions were.  So at this point
+			 * we cannot unset the INSTALLED flag.
+			 */
 			/* If daemon nhg, send it an update */
 			if (PROTO_OWNED(nhe))
 				zsend_nhg_notify(nhe->type, nhe->zapi_instance,
@@ -3918,7 +3924,14 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 			__func__, ifp->name);
 
 	frr_each (nhg_connected_tree, &zif->nhg_dependents, rb_node_dep) {
+		/*
+		 * The nexthop associated with this was set as !ACTIVE
+		 * so we need to turn it back to active when we get to
+		 * this point again
+		 */
+		SET_FLAG(rb_node_dep->nhe->nhg.nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		nh = rb_node_dep->nhe->nhg.nexthop;
+
 		if (zebra_nhg_set_valid_if_active(rb_node_dep->nhe)) {
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 				zlog_debug(
