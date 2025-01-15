@@ -2461,6 +2461,9 @@ struct bgp_nlri {
 #define BGP_AIGP_TLV_METRIC_MAX 0xffffffffffffffffULL
 #define BGP_AIGP_TLV_METRIC_DESC "Accumulated IGP Metric"
 
+/* Max Buffer size for BGP Send Community */
+#define BGP_SEND_COMMUNITY_STR_SIZE 30
+
 /* Flag for peer_clear_soft().  */
 enum bgp_clear_type {
 	BGP_CLEAR_SOFT_NONE,
