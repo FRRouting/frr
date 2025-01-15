@@ -525,8 +525,9 @@ static void bgp_holdtime_timer(struct event *thread)
 	 * for systems where we are heavily loaded for one
 	 * reason or another.
 	 */
-	inq_count = atomic_load_explicit(&connection->ibuf->count,
-					 memory_order_relaxed);
+	frr_with_mutex (&connection->io_mtx) {
+		inq_count = atomic_load_explicit(&connection->ibuf->count, memory_order_relaxed);
+	}
 	if (inq_count)
 		BGP_TIMER_ON(connection->t_holdtime, bgp_holdtime_timer,
 			     peer->v_holdtime);
