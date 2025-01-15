@@ -484,6 +484,9 @@ static void bgp_accept(struct event *thread)
 			/* Dynamic neighbor has been created, let it proceed */
 			connection1->fd = bgp_sock;
 
+			connection1->su_local = sockunion_getsockname(connection1->fd);
+			connection1->su_remote = sockunion_dup(&su);
+
 			if (bgp_set_socket_ttl(connection1) < 0) {
 				peer1->last_reset = PEER_DOWN_SOCKET_ERROR;
 				zlog_err("%s: Unable to set min/max TTL on peer %s (dynamic), error received: %s(%d)",
@@ -623,7 +626,10 @@ static void bgp_accept(struct event *thread)
 
 	peer->doppelganger = peer1;
 	peer1->doppelganger = peer;
+
 	connection->fd = bgp_sock;
+	connection->su_local = sockunion_getsockname(connection->fd);
+	connection->su_remote = sockunion_dup(&su);
 
 	if (bgp_set_socket_ttl(connection) < 0)
 		if (bgp_debug_neighbor_events(peer))
@@ -857,24 +863,28 @@ enum connect_result bgp_connect(struct peer_connection *connection)
 			   peer->host, connection->fd);
 
 	/* Connect to the remote peer. */
-	return sockunion_connect(connection->fd, &connection->su,
-				 htons(peer->port), ifindex);
-}
+	enum connect_result res;
 
-void bgp_updatesockname(struct peer *peer, struct peer_connection *connection)
-{
-	if (peer->su_local) {
-		sockunion_free(peer->su_local);
-		peer->su_local = NULL;
+	res = sockunion_connect(connection->fd, &connection->su, htons(peer->port), ifindex);
+
+	if (connection->su_remote)
+		sockunion_free(connection->su_remote);
+
+	connection->su_remote = sockunion_dup(&connection->su);
+	switch (connection->su.sa.sa_family) {
+	case AF_INET:
+		connection->su_remote->sin.sin_port = htons(peer->port);
+		break;
+	case AF_INET6:
+		connection->su_remote->sin6.sin6_port = htons(peer->port);
+		break;
 	}
 
-	if (peer->su_remote) {
-		sockunion_free(peer->su_remote);
-		peer->su_remote = NULL;
-	}
+	if (connection->su_local)
+		sockunion_free(connection->su_local);
+	connection->su_local = sockunion_getsockname(connection->fd);
 
-	peer->su_local = sockunion_getsockname(connection->fd);
-	peer->su_remote = sockunion_getpeername(connection->fd);
+	return res;
 }
 
 /* After TCP connection is established.  Get local address and port. */
@@ -882,17 +892,13 @@ int bgp_getsockname(struct peer_connection *connection)
 {
 	struct peer *peer = connection->peer;
 
-	bgp_updatesockname(peer, peer->connection);
-
-	if (!bgp_zebra_nexthop_set(peer->su_local, peer->su_remote,
-				   &peer->nexthop, peer)) {
-		flog_err(
-			EC_BGP_NH_UPD,
-			"%s: nexthop_set failed, local: %pSUp remote: %pSUp update_if: %s resetting connection - intf %s",
-			peer->host, peer->su_local, peer->su_remote,
-			peer->update_if ? peer->update_if : "(None)",
-			peer->nexthop.ifp ? peer->nexthop.ifp->name
-					  : "(Unknown)");
+	if (!bgp_zebra_nexthop_set(connection->su_local, connection->su_remote, &peer->nexthop,
+				   peer)) {
+		flog_err(EC_BGP_NH_UPD,
+			 "%s: nexthop_set failed, local: %pSUp remote: %pSUp update_if: %s resetting connection - intf %s",
+			 peer->host, connection->su_local, connection->su_remote,
+			 peer->update_if ? peer->update_if : "(None)",
+			 peer->nexthop.ifp ? peer->nexthop.ifp->name : "(Unknown)");
 		return -1;
 	}
 	return 0;

@@ -188,7 +188,7 @@ void bgp_peer_bfd_update_source(struct peer *p)
 			}
 		}
 	} else {
-		source = p->su_local;
+		source = p->connection->su_local;
 	}
 
 	/* Update peer's source/destination addresses. */
@@ -316,13 +316,14 @@ void bgp_peer_configure_bfd(struct peer *p, bool manual)
 	/* Configure session with basic BGP peer data. */
 	if (p->connection->su.sa.sa_family == AF_INET)
 		bfd_sess_set_ipv4_addrs(p->bfd_config->session,
-					p->su_local ? &p->su_local->sin.sin_addr
-						    : NULL,
+					p->connection->su_local
+						? &p->connection->su_local->sin.sin_addr
+						: NULL,
 					&p->connection->su.sin.sin_addr);
 	else
 		bfd_sess_set_ipv6_addrs(p->bfd_config->session,
-					p->su_local
-						? &p->su_local->sin6.sin6_addr
+					p->connection->su_local
+						? &p->connection->su_local->sin6.sin6_addr
 						: NULL,
 					&p->connection->su.sin6.sin6_addr);
 

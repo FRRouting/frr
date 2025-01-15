@@ -1931,8 +1931,8 @@ static void rfapiBgpInfoAttachSorted(struct agg_node *rn,
 	if (VNC_DEBUG(IMPORT_BI_ATTACH)) {
 		vnc_zlog_debug_verbose("%s: info_new->peer=%p", __func__,
 				       info_new->peer);
-		vnc_zlog_debug_verbose("%s: info_new->peer->su_remote=%p",
-				       __func__, info_new->peer->su_remote);
+		vnc_zlog_debug_verbose("%s: info_new->peer->su_remote=%p", __func__,
+				       info_new->peer->connection->su_remote);
 	}
 
 	for (prev = NULL, next = rn->info; next;

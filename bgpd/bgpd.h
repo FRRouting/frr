@@ -1258,6 +1258,9 @@ struct peer_connection {
 	union sockunion su;
 #define BGP_CONNECTION_SU_UNSPEC(connection)                                   \
 	(connection->su.sa.sa_family == AF_UNSPEC)
+
+	union sockunion *su_local;  /* Sockunion of local address. */
+	union sockunion *su_remote; /* Sockunion of remote address. */
 };
 extern struct peer_connection *bgp_peer_connection_new(struct peer *peer);
 extern void bgp_peer_connection_free(struct peer_connection **connection);
@@ -1350,8 +1353,6 @@ struct peer {
 	char *update_if;
 	union sockunion *update_source;
 
-	union sockunion *su_local;  /* Sockunion of local address.  */
-	union sockunion *su_remote; /* Sockunion of remote address.  */
 	bool shared_network;	    /* Is this peer shared same network. */
 	struct bgp_nexthop nexthop; /* Nexthop */
 

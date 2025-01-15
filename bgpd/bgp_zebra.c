@@ -953,13 +953,10 @@ bgp_path_info_to_ipv6_nexthop(struct bgp_path_info *path, ifindex_t *ifindex)
 				*ifindex = path->attr->nh_ifindex;
 		} else {
 			/* Workaround for Cisco's nexthop bug.  */
-			if (IN6_IS_ADDR_UNSPECIFIED(
-				    &path->attr->mp_nexthop_global)
-			    && path->peer->su_remote
-			    && path->peer->su_remote->sa.sa_family
-				       == AF_INET6) {
-				nexthop =
-					&path->peer->su_remote->sin6.sin6_addr;
+			if (IN6_IS_ADDR_UNSPECIFIED(&path->attr->mp_nexthop_global) &&
+			    path->peer->connection->su_remote &&
+			    path->peer->connection->su_remote->sa.sa_family == AF_INET6) {
+				nexthop = &path->peer->connection->su_remote->sin6.sin6_addr;
 				if (IN6_IS_ADDR_LINKLOCAL(nexthop))
 					*ifindex = path->peer->nexthop.ifp
 							   ->ifindex;
