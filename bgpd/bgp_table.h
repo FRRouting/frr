@@ -60,6 +60,7 @@ enum bgp_path_selection_reason {
 	bgp_path_selection_stale,
 	bgp_path_selection_local_configured,
 	bgp_path_selection_neighbor_ip,
+	bgp_path_selection_rtc_rr_client,
 	bgp_path_selection_default,
 };
 
