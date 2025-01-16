@@ -752,6 +752,7 @@ DECLARE_HOOK(bgp_route_update,
 #define BGP_SHOW_OPT_JSON_DETAIL (1 << 7)
 #define BGP_SHOW_OPT_TERSE (1 << 8)
 #define BGP_SHOW_OPT_ROUTES_DETAIL (1 << 9)
+#define BGP_SHOW_OPT_INTERNAL_DATA (1 << 10)
 
 /* Prototypes. */
 extern void bgp_rib_remove(struct bgp_dest *dest, struct bgp_path_info *pi,
@@ -969,7 +970,7 @@ extern void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 extern void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 				 const struct prefix *p, struct bgp_path_info *path, afi_t afi,
 				 safi_t safi, enum rpki_states, json_object *json_paths,
-				 struct attr *attr);
+				 struct attr *attr, uint16_t show_opts);
 extern int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			     struct bgp_table *table, struct prefix_rd *prd,
 			     enum bgp_show_type type, void *output_arg,
