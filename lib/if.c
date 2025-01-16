@@ -416,7 +416,6 @@ static struct interface *if_lookup_by_ifindex(ifindex_t ifindex,
 struct interface *if_lookup_by_index(ifindex_t ifindex, vrf_id_t vrf_id)
 {
 	switch (vrf_get_backend()) {
-	case VRF_BACKEND_UNKNOWN:
 	case VRF_BACKEND_NETNS:
 		return(if_lookup_by_ifindex(ifindex, vrf_id));
 	case VRF_BACKEND_VRF_LITE:
@@ -686,7 +685,6 @@ struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id,
 	struct vrf *vrf;
 
 	switch (vrf_get_backend()) {
-	case VRF_BACKEND_UNKNOWN:
 	case VRF_BACKEND_NETNS:
 		vrf = vrf_get(vrf_id, vrf_name);
 		assert(vrf);

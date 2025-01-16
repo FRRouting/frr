@@ -1467,6 +1467,7 @@ class Router(Node):
         self.daemons_options = {"zebra": ""}
         self.reportCores = True
         self.version = None
+        self.use_netns_vrf = False
 
         self.ns_cmd = "sudo nsenter -a -t {} ".format(self.pid)
         try:
@@ -1621,6 +1622,9 @@ class Router(Node):
                 logger.error("%s can't remove IPs %s", self, str(ex))
                 # breakpoint()
                 # assert False, "can't remove IPs %s" % str(ex)
+
+    def useNetnsVRF(self):
+        self.use_netns_vrf = True
 
     def checkCapability(self, daemon, param):
         if param is not None:
@@ -1908,6 +1912,8 @@ class Router(Node):
 
         def start_daemon(daemon, instance=None):
             daemon_opts = self.daemons_options.get(daemon, "")
+            if self.use_netns_vrf:
+                daemon_opts += " -w"
 
             # get pid and vty filenames and remove the files
             m = re.match(r"(.* |^)-n (\d+)( ?.*|$)", daemon_opts)
