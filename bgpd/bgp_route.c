@@ -985,6 +985,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	bool new_origin, exist_origin;
 	struct bgp_path_info *bpi_ultimate;
 	struct peer *peer_new, *peer_exist;
+	bool new_intra_as_rr_client, exist_intra_as_rr_client;
 
 	bgp->bestpath_runs++;
 
@@ -1254,6 +1255,40 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		if (ret >= 0) {
 			*reason = bgp_path_selection_admin_distance;
 			return ret;
+		}
+	}
+
+	/* 0. Route-target constraint intra-AS prefix: Route-reflector client */
+	if (afi == AFI_IP && safi == SAFI_RTC) {
+		/* rfc4684 section-3.2 - Intra-AS VPN Route Distribution
+		 * ii.  When advertising an RT membership NLRI to a non-client peer, if
+		 *	the best path as selected by the path selection procedure
+		 *	described in Section 9.1 of the base BGP specification [4] is a
+		 *	route received from a non-client peer, and if there is an
+		 *	alternative path to the same destination from a client, the
+		 *	attributes of the client path are advertised to the peer.
+		 */
+		new_intra_as_rr_client = CHECK_FLAG(new->peer->af_flags[AFI_IP][SAFI_RTC],
+						    PEER_FLAG_REFLECTOR_CLIENT) &&
+					 aspath_count_hops(newattr->aspath) == 0;
+		exist_intra_as_rr_client = CHECK_FLAG(exist->peer->af_flags[AFI_IP][SAFI_RTC],
+						      PEER_FLAG_REFLECTOR_CLIENT) &&
+					   aspath_count_hops(existattr->aspath) == 0;
+
+		if (new_intra_as_rr_client && !exist_intra_as_rr_client) {
+			*reason = bgp_path_selection_rtc_rr_client;
+			if (debug)
+				zlog_debug("%s: %s wins over %s due to route-target constraint reflector client preference",
+					   pfx_buf, new_buf, exist_buf);
+			return 1;
+		}
+
+		if (!new_intra_as_rr_client && exist_intra_as_rr_client) {
+			*reason = bgp_path_selection_rtc_rr_client;
+			if (debug)
+				zlog_debug("%s: %s loses to %s due to route-target constraint reflector client preference",
+					   pfx_buf, new_buf, exist_buf);
+			return 0;
 		}
 	}
 
@@ -12308,6 +12343,8 @@ const char *bgp_path_selection_reason2str(enum bgp_path_selection_reason reason)
 		return "Locally configured route";
 	case bgp_path_selection_neighbor_ip:
 		return "Neighbor IP";
+	case bgp_path_selection_rtc_rr_client:
+		return "RTC Route-reflector client";
 	case bgp_path_selection_default:
 		return "Nothing left to compare";
 	}
