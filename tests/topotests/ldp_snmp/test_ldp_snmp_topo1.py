@@ -107,6 +107,11 @@ def build_topo(tgen):
 
 def setup_module(mod):
     "Sets up the pytest environment"
+
+    if not os.path.isfile("/usr/sbin/snmpd"):
+        error_msg = "SNMP not installed - skipping"
+        pytest.skip(error_msg)
+
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
