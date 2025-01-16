@@ -1,0 +1,26 @@
+{
+  "default": {
+    "ipv4Unicast": {
+      "peers": {
+        "172.16.2.1": {
+          "hostname": "pe1",
+          "state": "Established"
+        },
+        "3fff:2::1": {
+          "hostname": "pe1",
+          "state": "Established"
+        }
+      },
+      "totalPeers": 2
+    },
+    "ipv6Unicast": {
+      "peers": {
+        "3fff:2::1": {
+          "hostname": "pe1",
+          "state": "Established"
+        }
+      },
+      "totalPeers": 1
+    }
+  }
+}
