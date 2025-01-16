@@ -1837,10 +1837,10 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 			 * be a case that self-originated LSA with MaxAge still
 			 * remain
 			 * in the routing domain.
-			 * Just send an LSAck message to cease retransmission.
+			 * Just send an LS Ack message to cease retransmission.
 			 */
 			if (IS_LSA_MAXAGE(lsa)) {
-				zlog_info("LSA[%s]: Boomerang effect?",
+				zlog_info("LSA[%s]: MaxAge Self-originated Opaque-LSA LSA received",
 					  dump_lsa_key(lsa));
 				ospf_ls_ack_send_direct(nbr, lsa);
 				ospf_lsa_discard(lsa);
@@ -1870,9 +1870,8 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 			 * just opaque */
 			if (current == NULL) {
 				if (IS_DEBUG_OSPF_EVENT)
-					zlog_debug(
-						"LSA[%s]: Previously originated Opaque-LSA, not found in the LSDB.",
-						dump_lsa_key(lsa));
+					zlog_debug("LSA[%s]: Self-originated Opaque-LSA, not found in the LSDB.",
+						   dump_lsa_key(lsa));
 
 				SET_FLAG(lsa->flags, OSPF_LSA_SELF);
 
@@ -4045,43 +4044,6 @@ void ospf_ls_ack_send_direct(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 			   ntohs(lsa->data->ls_age), &nbr->router_id,
 			   IF_NAME(nbr->oi));
 
-	/*
-	 * On Point-to-Multipoint broadcast-capabile interfaces,
-	 * where direct acks from are sent to the ALLSPFRouters
-	 * address and one direct ack send event, may include LSAs
-	 * from multiple neighbors, there is a possibility of the same
-	 * LSA being processed more than once in the same send event.
-	 * In this case, the instances subsequent to the first can be
-	 * ignored.
-	 */
-	if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT && !oi->p2mp_non_broadcast) {
-		struct ospf_lsa_list_entry *ls_ack_list_entry;
-		struct ospf_lsa *ack_queue_lsa;
-
-		frr_each (ospf_lsa_list, &oi->ls_ack_direct, ls_ack_list_entry) {
-			ack_queue_lsa = ls_ack_list_entry->lsa;
-			if ((lsa == ack_queue_lsa) ||
-			    ((lsa->data->type == ack_queue_lsa->data->type) &&
-			     (lsa->data->id.s_addr ==
-			      ack_queue_lsa->data->id.s_addr) &&
-			     (lsa->data->adv_router.s_addr ==
-			      ack_queue_lsa->data->adv_router.s_addr) &&
-			     (lsa->data->ls_seqnum ==
-			      ack_queue_lsa->data->ls_seqnum))) {
-				if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
-					zlog_debug("%s:LSA[Type%d:%pI4:%pI4]: seq 0x%x age %u NBR %pI4 (%s) ack queue duplicate",
-						   __func__, lsa->data->type,
-						   &lsa->data->id,
-						   &lsa->data->adv_router,
-						   ntohl(lsa->data->ls_seqnum),
-						   ntohs(lsa->data->ls_age),
-						   &nbr->router_id,
-						   IF_NAME(nbr->oi));
-				return;
-			}
-		}
-	}
-
 	if (IS_GRACE_LSA(lsa)) {
 		if (IS_DEBUG_OSPF_GR)
 			zlog_debug("%s, Sending GRACE ACK to Restarter.",
@@ -4094,12 +4056,10 @@ void ospf_ls_ack_send_direct(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 	/*
 	 * Determine the destination address - Direct LS acknowledgments
 	 * are sent the AllSPFRouters multicast address on Point-to-Point
-	 * and Point-to-Multipoint broadcast-capable interfaces. For all other
-	 * interface types, they are unicast directly to the neighbor.
+	 * interfaces. For all other interface types, they are unicast
+	 * directly to the neighbor.
 	 */
-	if (oi->type == OSPF_IFTYPE_POINTOPOINT ||
-	    (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT &&
-	     !oi->p2mp_non_broadcast))
+	if (oi->type == OSPF_IFTYPE_POINTOPOINT)
 		ls_ack_list_entry->list_entry_dst.s_addr =
 			htonl(OSPF_ALLSPFROUTERS);
 	else
