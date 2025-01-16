@@ -1857,7 +1857,7 @@ int nb_callback_rpc(const struct nb_node *nb_node, const char *xpath,
 	return nb_node->cbs.rpc(&args);
 }
 
-void nb_callback_notify(const struct nb_node *nb_node, const char *xpath,
+void nb_callback_notify(const struct nb_node *nb_node, uint8_t op, const char *xpath,
 			struct lyd_node *dnode)
 {
 	struct nb_cb_notify_args args = {};
@@ -1865,6 +1865,7 @@ void nb_callback_notify(const struct nb_node *nb_node, const char *xpath,
 	DEBUGD(&nb_dbg_cbs_notify, "northbound notify: %s", xpath);
 
 	args.xpath = xpath;
+	args.op = op;
 	args.dnode = dnode;
 	nb_node->cbs.notify(&args);
 }
