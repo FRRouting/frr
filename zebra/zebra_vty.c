@@ -1091,7 +1091,7 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 	char up_str[MONOTIME_STRLEN];
 	char time_left[MONOTIME_STRLEN];
 	json_object *json_dependants = NULL;
-	json_object *json_depends = NULL;
+	json_object *json_pic_dependants = NULL;
 	json_object *json_nexthop_array = NULL;
 	json_object *json_nexthops = NULL;
 	json_object *json = NULL;
@@ -1173,22 +1173,20 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 
 	if (!zebra_nhg_depends_is_empty(nhe)) {
 		if (json)
-			json_depends = json_object_new_array();
+			json_pic_dependants = json_object_new_array();
 		else
-			vty_out(vty, "     Depends:");
-		frr_each(nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
-			if (json_depends)
-				json_object_array_add(
-					json_depends,
-					json_object_new_int(
-						rb_node_dep->nhe->id));
+			vty_out(vty, "     PIC Dependents:");
+		frr_each (nhg_connected_tree, &nhe->picnh_dependents, rb_node_dep) {
+			if (json)
+				json_object_array_add(json_pic_dependants,
+						      json_object_new_int(rb_node_dep->nhe->id));
 			else
 				vty_out(vty, " (%u)", rb_node_dep->nhe->id);
 		}
-		if (!json_depends)
-			vty_out(vty, "\n");
+		if (json)
+			json_object_object_add(json, "pic_dependents", json_pic_dependants);
 		else
-			json_object_object_add(json, "depends", json_depends);
+			vty_out(vty, "\n");
 	}
 
 	/* Output nexthops */
@@ -1312,7 +1310,24 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 	}
 
 	if (nhe->pic_nhe)
-		vty_out(vty, "     pic nhe:%d \n", nhe->pic_nhe->id);
+		vty_out(vty, "     pic nhe:%d\n", nhe->pic_nhe->id);
+	if (!zebra_nhg_pic_dependents_is_empty(nhe)) {
+		if (json)
+			json_pic_dependants = json_object_new_array();
+		else
+			vty_out(vty, "     PIC Dependents:");
+		frr_each (nhg_connected_tree, &nhe->picnh_dependents, rb_node_dep) {
+			if (json)
+				json_object_array_add(json_pic_dependants,
+							  json_object_new_int(rb_node_dep->nhe->id));
+			else
+				vty_out(vty, " (%u)", rb_node_dep->nhe->id);
+		}
+		if (json)
+			json_object_object_add(json, "pic_dependents", json_pic_dependants);
+		else
+			vty_out(vty, "\n");
+	}
 
 	if (nhe->nhg.nhgr.buckets) {
 		if (json) {

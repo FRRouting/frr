@@ -283,6 +283,45 @@ static void zebra_nhg_depends_release(struct nhg_hash_entry *nhe)
 	}
 }
 
+unsigned int zebra_nhg_pic_dependents_count(const struct nhg_hash_entry *nhe)
+{
+	return nhg_connected_tree_count(&nhe->picnh_dependents);
+}
+
+
+bool zebra_nhg_pic_dependents_is_empty(const struct nhg_hash_entry *nhe)
+{
+	return nhg_connected_tree_is_empty(&nhe->picnh_dependents);
+}
+
+static void zebra_nhg_pic_dependents_del(struct nhg_hash_entry *from, struct nhg_hash_entry *pic_nh)
+{
+	nhg_connected_tree_del_nhe(&from->picnh_dependents, pic_nh);
+}
+
+static void zebra_nhg_pic_dependents_add(struct nhg_hash_entry *to, struct nhg_hash_entry *pic_nh)
+{
+	nhg_connected_tree_add_nhe(&to->picnh_dependents, pic_nh);
+}
+
+static void zebra_nhg_pic_dependents_init(struct nhg_hash_entry *nhe)
+{
+	nhg_connected_tree_init(&nhe->picnh_dependents);
+}
+
+/* Release this nhe from anything depending on it */
+static void zebra_nhg_pic_dependents_release(struct nhg_hash_entry *nhe)
+{
+	struct nhg_connected *rb_node_dep = NULL;
+
+	frr_each_safe (nhg_connected_tree, &nhe->picnh_dependents, rb_node_dep) {
+		if (rb_node_dep->nhe->pic_nhe) {
+			zebra_nhg_pic_dependents_del(nhe, rb_node_dep->nhe);
+			zebra_nhg_decrement_ref(rb_node_dep->nhe->pic_nhe);
+			rb_node_dep->nhe->pic_nhe = NULL;
+		}
+	}
+}
 
 struct nhg_hash_entry *zebra_nhg_lookup_id(uint32_t id)
 {
@@ -691,8 +730,12 @@ static bool zebra_need_to_create_pic(struct nexthop *nh)
 {
 	if (!fpm_pic_nexthop)
 		return false;
-	if (nh && nh->nh_srv6 && nh->nh_srv6->seg6_segs && !sid_zero(nh->nh_srv6->seg6_segs))
-		return true;
+	if (nh) {
+		if (nh->nh_srv6 && nh->nh_srv6->seg6_segs && !sid_zero(nh->nh_srv6->seg6_segs))
+			return true;
+		if (nh->nh_label)
+			return true;
+	}
 	return false;
 }
 
@@ -945,6 +988,9 @@ bool zebra_pic_nhe_find(struct nhg_hash_entry **pic_nhe, /* return value */
 	created = zebra_nhe_find(&picnhe, &pic_nh_lookup, NULL, afi, from_dplane, true);
 
 	*pic_nhe = picnhe;
+	if (created)
+		zebra_nhg_pic_dependents_init(picnhe);
+	zebra_nhg_pic_dependents_add(picnhe, nhe);
 	if (pic_nh_lookup.nhg.nexthop)
 		nexthops_free(pic_nh_lookup.nhg.nexthop);
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
@@ -1221,6 +1267,7 @@ static void zebra_nhg_release_all_deps(struct nhg_hash_entry *nhe)
 	/* Remove it from any lists it may be on */
 	zebra_nhg_depends_release(nhe);
 	zebra_nhg_dependents_release(nhe);
+	zebra_nhg_pic_dependents_release(nhe);
 	if (nhe->ifp) {
 		struct zebra_if *zif = nhe->ifp->info;
 
@@ -1745,9 +1792,11 @@ static void zebra_nhg_free_members(struct nhg_hash_entry *nhe)
 
 	/* Decrement to remove connection ref */
 	nhg_connected_tree_decrement_ref(&nhe->nhg_depends);
-	if (nhe->pic_nhe)
+	if (nhe->pic_nhe) {
+		zebra_nhg_pic_dependents_del(nhe->pic_nhe, nhe);
 		zebra_nhg_decrement_ref(nhe->pic_nhe);
-	nhe->pic_nhe = NULL;
+		nhe->pic_nhe = NULL;
+	}
 	nhg_connected_tree_free(&nhe->nhg_depends);
 	nhg_connected_tree_free(&nhe->nhg_dependents);
 }
