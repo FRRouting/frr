@@ -1333,6 +1333,149 @@ static void unregister_zebra_rnh(struct bgp_nexthop_cache *bnc)
 	sendmsg_zebra_rnh(bnc, ZEBRA_NEXTHOP_UNREGISTER);
 }
 
+static bool check_bnc_is_valid_nexthop(struct bgp_nexthop_cache *bnc,
+	struct bgp_path_info *path)
+{
+	struct bgp_dest *dest;
+	struct bgp_table *table;
+	afi_t afi;
+	safi_t safi;
+	struct bgp *bgp_path;
+	const struct prefix *p;
+	bool bnc_is_valid_nexthop = false;
+
+	dest = path->net;
+	assert(dest && bgp_dest_table(dest));
+	p = bgp_dest_get_prefix(dest);
+	afi = family2afi(p->family);
+	table = bgp_dest_table(dest);
+	safi = table->safi;
+
+	bgp_path = table->bgp;
+
+	struct bgp_route_evpn *bre =
+		bgp_attr_get_evpn_overlay(path->attr);
+
+	if (safi == SAFI_UNICAST &&
+		path->sub_type == BGP_ROUTE_IMPORTED &&
+		BGP_PATH_INFO_NUM_LABELS(path) &&
+		!(bre && bre->type == OVERLAY_INDEX_GATEWAY_IP)) {
+		bnc_is_valid_nexthop =
+			bgp_isvalid_nexthop_for_l3vpn(bnc, path)
+				? true
+				: false;
+	} else if (safi == SAFI_MPLS_VPN &&
+		path->sub_type != BGP_ROUTE_IMPORTED) {
+		/* avoid not redistributing mpls vpn routes */
+		bnc_is_valid_nexthop = true;
+	} else {
+		/* mpls-vpn routes with BGP_ROUTE_IMPORTED subtype */
+		if (bgp_update_martian_nexthop(
+				bnc->bgp, afi, safi, path->type,
+				path->sub_type, path->attr, dest)) {
+			if (BGP_DEBUG(nht, NHT))
+				zlog_debug(
+					"%s: prefix %pBD (vrf %s), ignoring path due to martian or self-next-hop",
+					__func__, dest, bgp_path->name);
+		} else
+			bnc_is_valid_nexthop =
+				bgp_isvalid_nexthop(bnc) ? true : false;
+	}
+	return bnc_is_valid_nexthop;
+}
+
+static void evaluate_paths_for_vpn_leak(struct bgp_nexthop_cache *bnc,
+				      struct bgp_path_info *path, bool bnc_is_valid, bool is_te)
+{
+	struct bgp_dest *dest;
+	struct bgp_table *table;
+	afi_t afi;
+	safi_t safi;
+	struct bgp *bgp_path;
+	const struct prefix *p;
+	bool path_valid = false;
+
+	dest = path->net;
+	assert(dest && bgp_dest_table(dest));
+	p = bgp_dest_get_prefix(dest);
+	afi = family2afi(p->family);
+	table = bgp_dest_table(dest);
+	safi = table->safi;
+	bgp_path = table->bgp;
+	path_valid = CHECK_FLAG(path->flags, BGP_PATH_VALID);
+
+	if (path->type == ZEBRA_ROUTE_BGP &&
+		path->sub_type == BGP_ROUTE_STATIC &&
+		!CHECK_FLAG(bgp_path->flags, BGP_FLAG_IMPORT_CHECK))
+		/*
+		 * static routes with 'no bgp network import-check' are
+		 * always valid. if nht is called with static routes,
+		 * the vpn exportation needs to be triggered
+		 */
+		vpn_leak_from_vrf_update(bgp_get_default(), bgp_path,
+					path);
+	else if (path->sub_type == BGP_ROUTE_REDISTRIBUTE &&
+		safi == SAFI_UNICAST &&
+		(bgp_path->inst_type == BGP_INSTANCE_TYPE_VRF ||
+		bgp_path->inst_type == BGP_INSTANCE_TYPE_DEFAULT))
+		/*
+		 * redistribute routes are always valid
+		 * if nht is called with redistribute routes, the vpn
+		 * exportation needs to be triggered
+		 */
+		vpn_leak_from_vrf_update(bgp_get_default(), bgp_path,
+					path);
+	else if (path_valid != bnc_is_valid) {
+		if (path_valid) {
+			/*
+			 * No longer valid, clear flag; also for EVPN
+			 * routes, unimport from VRFs if needed.
+			 */
+			bgp_aggregate_decrement(bgp_path, p, path, afi,
+						safi);
+			UNSET_FLAG(path->flags, BGP_PATH_SRV6_TE_VALID);
+
+			if (!is_te) {
+				bgp_path_info_unset_flag(dest, path,
+						BGP_PATH_VALID);
+				if (safi == SAFI_EVPN &&
+					bgp_evpn_is_prefix_nht_supported(bgp_dest_get_prefix(dest)))
+					bgp_evpn_unimport_route(bgp_path,
+						afi, safi, bgp_dest_get_prefix(dest), path);
+				if (safi == SAFI_UNICAST &&
+					(bgp_path->inst_type !=
+					BGP_INSTANCE_TYPE_VIEW))
+					vpn_leak_from_vrf_withdraw(
+						bgp_get_default(), bgp_path,
+						path);
+			}
+
+		} else {
+			/*
+			 * Path becomes valid, set flag; also for EVPN
+			 * routes, import from VRFs if needed.
+			 */
+			bgp_path_info_set_flag(dest, path,
+						BGP_PATH_VALID);
+			if (is_te)
+				SET_FLAG(path->flags, BGP_PATH_SRV6_TE_VALID);
+
+			bgp_aggregate_increment(bgp_path, p, path, afi,
+						safi);
+			if (safi == SAFI_EVPN &&
+				bgp_evpn_is_prefix_nht_supported(bgp_dest_get_prefix(dest)))
+				bgp_evpn_import_route(bgp_path,
+					afi, safi, bgp_dest_get_prefix(dest), path);
+			if (safi == SAFI_UNICAST &&
+				(bgp_path->inst_type !=
+				BGP_INSTANCE_TYPE_VIEW))
+				vpn_leak_from_vrf_update(
+					bgp_get_default(), bgp_path,
+					path);
+		}
+	}
+}
+
 /**
  * evaluate_paths - Evaluate the paths/nets associated with a nexthop.
  * ARGUMENTS:
@@ -1369,21 +1512,21 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 	if (bnc->srte_color) {
 		LIST_FOREACH (path, &(bnc->paths), te_nh_thread) {
 			/*
-			* Currently when a peer goes down, bgp immediately
-			* sees this via the interface events( if it is directly
-			* connected).  And in this case it takes and puts on
-			* a special peer queue all path info's associated with
-			* but these items are not yet processed typically when
-			* the nexthop is being handled here.  Thus we end
-			* up in a situation where the process Queue for BGP
-			* is being asked to look at the same path info multiple
-			* times.  Let's just cut to the chase here and if
-			* the bnc has a peer associated with it and the path info
-			* being looked at uses that peer and the peer is no
-			* longer established we know the path_info is being
-			* handled elsewhere and we do not need to process
-			* it here at all since the pathinfo is going away
-			*/
+			 * Currently when a peer goes down, bgp immediately
+			 * sees this via the interface events( if it is directly
+			 * connected).  And in this case it takes and puts on
+			 * a special peer queue all path info's associated with
+			 * but these items are not yet processed typically when
+			 * the nexthop is being handled here.  Thus we end
+			 * up in a situation where the process Queue for BGP
+			 * is being asked to look at the same path info multiple
+			 * times.  Let's just cut to the chase here and if
+			 * the bnc has a peer associated with it and the path info
+			 * being looked at uses that peer and the peer is no
+			 * longer established we know the path_info is being
+			 * handled elsewhere and we do not need to process
+			 * it here at all since the pathinfo is going away
+			 */
 			if (peer && path->peer == peer && !peer_established(peer->connection))
 				continue;
 
@@ -1430,33 +1573,8 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 			 * do not check for a valid label.
 			 */
 
-			bool bnc_is_valid_nexthop = false;
+			bool bnc_is_valid_nexthop = check_bnc_is_valid_nexthop(bnc, path);
 			bool path_valid = false;
-
-			if (safi == SAFI_UNICAST &&
-				path->sub_type == BGP_ROUTE_IMPORTED &&
-				BGP_PATH_INFO_NUM_LABELS(path)) {
-				bnc_is_valid_nexthop =
-					bgp_isvalid_nexthop_for_l3vpn(bnc, path)
-						? true
-						: false;
-			} else if (safi == SAFI_MPLS_VPN &&
-				path->sub_type != BGP_ROUTE_IMPORTED) {
-				/* avoid not redistributing mpls vpn routes */
-				bnc_is_valid_nexthop = true;
-			} else {
-				/* mpls-vpn routes with BGP_ROUTE_IMPORTED subtype */
-				if (bgp_update_martian_nexthop(
-						bnc->bgp, afi, safi, path->type,
-						path->sub_type, path->attr, dest)) {
-					if (BGP_DEBUG(nht, NHT))
-						zlog_debug(
-							"%s: prefix %pBD (vrf %s), ignoring path due to martian or self-next-hop",
-							__func__, dest, bgp_path->name);
-				} else
-					bnc_is_valid_nexthop =
-						bgp_isvalid_nexthop(bnc) ? true : false;
-			}
 
 
 			if (BGP_DEBUG(nht, NHT)) {
@@ -1495,45 +1613,8 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 			if (bnc_is_valid_nexthop)
 				SET_FLAG(path->flags, BGP_PATH_SRV6_TE_VALID);
 
-			if (path->type == ZEBRA_ROUTE_BGP &&
-				path->sub_type == BGP_ROUTE_STATIC &&
-				!CHECK_FLAG(bgp_path->flags, BGP_FLAG_IMPORT_CHECK))
-				/* static routes with 'no bgp network import-check' are
-				 * always valid. if nht is called with static routes,
-				 * the vpn exportation needs to be triggered
-				 */
-				vpn_leak_from_vrf_update(bgp_get_default(), bgp_path,
-							path);
-			else if (path->sub_type == BGP_ROUTE_REDISTRIBUTE &&
-				safi == SAFI_UNICAST &&
-				(bgp_path->inst_type == BGP_INSTANCE_TYPE_VRF ||
-				bgp_path->inst_type == BGP_INSTANCE_TYPE_DEFAULT))
-				/* redistribute routes are always valid
-				 * if nht is called with redistribute routes, the vpn
-				 * exportation needs to be triggered
-				 */
-				vpn_leak_from_vrf_update(bgp_get_default(), bgp_path,
-							path);
-			else if (path_valid != bnc_is_valid_nexthop) {
-				if (path_valid) {
-					UNSET_FLAG(path->flags, BGP_PATH_SRV6_TE_VALID);
-				} else {
-					/* Path becomes valid, set flag; also for EVPN
-					 * routes, import from VRFs if needed.
-					 */
-					bgp_path_info_set_flag(dest, path,
-								BGP_PATH_VALID);
-					SET_FLAG(path->flags, BGP_PATH_SRV6_TE_VALID);
-					bgp_aggregate_increment(bgp_path, p, path, afi,
-								safi);
-					if (safi == SAFI_UNICAST &&
-						(bgp_path->inst_type !=
-						BGP_INSTANCE_TYPE_VIEW))
-						vpn_leak_from_vrf_update(
-							bgp_get_default(), bgp_path,
-							path);
-				}
-			}
+			evaluate_paths_for_vpn_leak(bnc, path, bnc_is_valid_nexthop, true);
+
 			if (path_valid != bnc_is_valid_nexthop)
 				hook_call(bgp_nht_path_update, bgp_path, path, bnc_is_valid_nexthop);
 			bgp_process(bgp_path, dest, path, afi, safi);
@@ -1541,21 +1622,21 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 	} else {
 		LIST_FOREACH (path, &(bnc->paths), nh_thread) {
 			/*
-			* Currently when a peer goes down, bgp immediately
-			* sees this via the interface events( if it is directly
-			* connected).  And in this case it takes and puts on
-			* a special peer queue all path info's associated with
-			* but these items are not yet processed typically when
-			* the nexthop is being handled here.  Thus we end
-			* up in a situation where the process Queue for BGP
-			* is being asked to look at the same path info multiple
-			* times.  Let's just cut to the chase here and if
-			* the bnc has a peer associated with it and the path info
-			* being looked at uses that peer and the peer is no
-			* longer established we know the path_info is being
-			* handled elsewhere and we do not need to process
-			* it here at all since the pathinfo is going away
-			*/
+			 * Currently when a peer goes down, bgp immediately
+			 * sees this via the interface events( if it is directly
+			 * connected).  And in this case it takes and puts on
+			 * a special peer queue all path info's associated with
+			 * but these items are not yet processed typically when
+			 * the nexthop is being handled here.  Thus we end
+			 * up in a situation where the process Queue for BGP
+			 * is being asked to look at the same path info multiple
+			 * times.  Let's just cut to the chase here and if
+			 * the bnc has a peer associated with it and the path info
+			 * being looked at uses that peer and the peer is no
+			 * longer established we know the path_info is being
+			 * handled elsewhere and we do not need to process
+			 * it here at all since the pathinfo is going away
+			 */
 			if (peer && path->peer == peer && !peer_established(peer->connection))
 				continue;
 
@@ -1602,36 +1683,8 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 			 * do not check for a valid label.
 			 */
 
-			bool bnc_is_valid_nexthop = false;
+			bool bnc_is_valid_nexthop = check_bnc_is_valid_nexthop(bnc, path);
 			bool path_valid = false;
-			struct bgp_route_evpn *bre =
-				bgp_attr_get_evpn_overlay(path->attr);
-
-			if (safi == SAFI_UNICAST &&
-				path->sub_type == BGP_ROUTE_IMPORTED &&
-				BGP_PATH_INFO_NUM_LABELS(path) &&
-				!(bre && bre->type == OVERLAY_INDEX_GATEWAY_IP)) {
-				bnc_is_valid_nexthop =
-					bgp_isvalid_nexthop_for_l3vpn(bnc, path)
-						? true
-						: false;
-			} else if (safi == SAFI_MPLS_VPN &&
-				path->sub_type != BGP_ROUTE_IMPORTED) {
-				/* avoid not redistributing mpls vpn routes */
-				bnc_is_valid_nexthop = true;
-			} else {
-				/* mpls-vpn routes with BGP_ROUTE_IMPORTED subtype */
-				if (bgp_update_martian_nexthop(
-						bnc->bgp, afi, safi, path->type,
-						path->sub_type, path->attr, dest)) {
-					if (BGP_DEBUG(nht, NHT))
-						zlog_debug(
-							"%s: prefix %pBD (vrf %s), ignoring path due to martian or self-next-hop",
-							__func__, dest, bgp_path->name);
-				} else
-					bnc_is_valid_nexthop =
-						bgp_isvalid_nexthop(bnc) ? true : false;
-			}
 
 			if (BGP_DEBUG(nht, NHT)) {
 
@@ -1675,65 +1728,8 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 				SET_FLAG(path->flags, BGP_PATH_IGP_CHANGED);
 
 			path_valid = CHECK_FLAG(path->flags, BGP_PATH_VALID);
-			if (path->type == ZEBRA_ROUTE_BGP &&
-				path->sub_type == BGP_ROUTE_STATIC &&
-				!CHECK_FLAG(bgp_path->flags, BGP_FLAG_IMPORT_CHECK))
-				/* static routes with 'no bgp network import-check' are
-				 * always valid. if nht is called with static routes,
-				 * the vpn exportation needs to be triggered
-				 */
-				vpn_leak_from_vrf_update(bgp_get_default(), bgp_path,
-							path);
-			else if (path->sub_type == BGP_ROUTE_REDISTRIBUTE &&
-				safi == SAFI_UNICAST &&
-				(bgp_path->inst_type == BGP_INSTANCE_TYPE_VRF ||
-				bgp_path->inst_type == BGP_INSTANCE_TYPE_DEFAULT))
-				/* redistribute routes are always valid
-				 * if nht is called with redistribute routes, the vpn
-				 * exportation needs to be triggered
-				 */
-				vpn_leak_from_vrf_update(bgp_get_default(), bgp_path,
-							path);
-			else if (path_valid != bnc_is_valid_nexthop) {
-				if (path_valid) {
-					/* No longer valid, clear flag; also for EVPN
-					 * routes, unimport from VRFs if needed.
-					 */
-					bgp_aggregate_decrement(bgp_path, p, path, afi,
-								safi);
-					bgp_path_info_unset_flag(dest, path,
-								BGP_PATH_VALID);
-					UNSET_FLAG(path->flags, BGP_PATH_SRV6_TE_VALID);
-					if (safi == SAFI_EVPN &&
-						bgp_evpn_is_prefix_nht_supported(bgp_dest_get_prefix(dest)))
-						bgp_evpn_unimport_route(bgp_path,
-							afi, safi, bgp_dest_get_prefix(dest), path);
-					if (safi == SAFI_UNICAST &&
-						(bgp_path->inst_type !=
-						BGP_INSTANCE_TYPE_VIEW))
-						vpn_leak_from_vrf_withdraw(
-							bgp_get_default(), bgp_path,
-							path);
-				} else {
-					/* Path becomes valid, set flag; also for EVPN
-					 * routes, import from VRFs if needed.
-					 */
-					bgp_path_info_set_flag(dest, path,
-								BGP_PATH_VALID);
-					bgp_aggregate_increment(bgp_path, p, path, afi,
-								safi);
-					if (safi == SAFI_EVPN &&
-						bgp_evpn_is_prefix_nht_supported(bgp_dest_get_prefix(dest)))
-						bgp_evpn_import_route(bgp_path,
-							afi, safi, bgp_dest_get_prefix(dest), path);
-					if (safi == SAFI_UNICAST &&
-						(bgp_path->inst_type !=
-						BGP_INSTANCE_TYPE_VIEW))
-						vpn_leak_from_vrf_update(
-							bgp_get_default(), bgp_path,
-							path);
-				}
-			}
+			evaluate_paths_for_vpn_leak(bnc, path, bnc_is_valid_nexthop, false);
+
 			if (path_valid != bnc_is_valid_nexthop)
 				hook_call(bgp_nht_path_update, bgp_path, path, bnc_is_valid_nexthop);
 			bgp_process(bgp_path, dest, path, afi, safi);
