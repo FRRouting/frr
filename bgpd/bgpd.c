@@ -4921,7 +4921,10 @@ static int peer_flag_action_set(const struct peer_flag_action *action_list,
 
 static void peer_flag_modify_action(struct peer *peer, uint64_t flag)
 {
-	if (flag == PEER_FLAG_DYNAMIC_CAPABILITY)
+	if (flag == PEER_FLAG_DYNAMIC_CAPABILITY || flag == PEER_FLAG_CAPABILITY_ENHE ||
+	    flag == PEER_FLAG_CAPABILITY_FQDN || flag == PEER_FLAG_CAPABILITY_SOFT_VERSION ||
+	    flag == PEER_FLAG_DONT_CAPABILITY || flag == PEER_FLAG_OVERRIDE_CAPABILITY ||
+	    flag == PEER_FLAG_STRICT_CAP_MATCH)
 		peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
 	else if (flag == PEER_FLAG_PASSIVE)
 		peer->last_reset = PEER_DOWN_PASSIVE_CHANGE;
