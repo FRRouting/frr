@@ -1,0 +1,35 @@
+{
+    "vrfId": 0,
+    "vrfName": "default",
+    "routerId": "10.254.254.1",
+    "defaultLocPrf": 100,
+    "localAS": 101,
+    "routes": {
+        "2001:db8:1::/64": [{
+            "valid":true,
+            "bestpath":true,
+            "selectionReason":"First path received",
+            "pathFrom":"external",
+            "prefix":"2001:db8:1::",
+            "prefixLen":64,
+            "network":"2001:db8:1::/64",
+            "metric":0,
+            "weight":0,
+            "path":"102",
+            "origin":"incomplete",
+            "nexthops":[{
+                "ip":"2001:db8:1::2",
+                "hostname":"r2",
+                "afi":"ipv6",
+                "scope":"global"
+            },{
+                "interface":"r1-eth0",
+                "hostname":"r2",
+                "afi":"ipv6",
+                "scope":"link-local",
+                "used":true
+            }]}]
+    },
+    "totalRoutes": 1,
+    "totalPaths": 1
+}
