@@ -2693,6 +2693,12 @@ The following commands can be used in route maps:
    happen only when BGP updates have completely same communities value
    specified in the community list.
 
+.. clicmd:: match community-limit (0-65535)
+
+   This command matches BGP updates that use community list, and with a community
+   list count less or equal than the defined limit. Setting community-limit to 0
+   will only match BGP updates with no community.
+
 .. clicmd:: set community <none|COMMUNITY> additive
 
    This command sets the community value in BGP updates.  If the attribute is

@@ -810,6 +810,10 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 			yang_dnode_get_string(
 				dnode,
 				"./rmap-match-condition/frr-bgp-route-map:list-name"));
+	} else if (IS_MATCH_COMMUNITY_LIMIT(condition)) {
+		vty_out(vty, " match community-limit %s\n",
+			yang_dnode_get_string(dnode,
+					      "./rmap-match-condition/frr-bgp-route-map:community-limit"));
 	} else if (IS_MATCH_COMMUNITY(condition)) {
 		vty_out(vty, " match community %s",
 			yang_dnode_get_string(

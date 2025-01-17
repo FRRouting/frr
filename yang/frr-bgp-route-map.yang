@@ -148,6 +148,12 @@ module frr-bgp-route-map {
       "Match BGP community list";
   }
 
+  identity match-community-limit {
+    base frr-route-map:rmap-match-type;
+    description
+      "Match BGP community limit count";
+  }
+
   identity match-large-community {
     base frr-route-map:rmap-match-type;
     description
@@ -799,6 +805,17 @@ identity set-extcommunity-color {
         "Match eVPN route-distinguisher";
       leaf route-distinguisher {
         type route-distinguisher;
+      }
+    }
+
+    case community-limit {
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:match-community-limit')";
+      description
+        "Match BGP updates when the list of communities count is less than the configured limit.";
+      leaf community-limit {
+        type uint16 {
+          range "1..1024";
+        }
       }
     }
 

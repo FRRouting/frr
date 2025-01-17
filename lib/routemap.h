@@ -310,6 +310,7 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(C, "frr-bgp-route-map:ip-route-source"))
 #define IS_MATCH_ROUTE_SRC_PL(C)                                               \
 	(strmatch(C, "frr-bgp-route-map:ip-route-source-prefix-list"))
+#define IS_MATCH_COMMUNITY_LIMIT(C) (strmatch(C, "frr-bgp-route-map:match-community-limit"))
 #define IS_MATCH_COMMUNITY(C)                                                  \
 	(strmatch(C, "frr-bgp-route-map:match-community"))
 #define IS_MATCH_LCOMMUNITY(C)                                                 \
