@@ -2026,8 +2026,11 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 	if (bgp->autoshutdown)
 		peer_flag_set(peer, PEER_FLAG_SHUTDOWN);
 	/* Set up peer's events and timers. */
-	else if (!active && peer_active(peer->connection))
+	else if (!active && peer_active(peer->connection)) {
+		if (peer->last_reset == PEER_DOWN_NOAFI_ACTIVATED)
+			peer->last_reset = 0;
 		bgp_timer_set(peer->connection);
+	}
 
 	bgp_peer_gr_flags_update(peer);
 	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(bgp, bgp->peer);
