@@ -1114,17 +1114,22 @@ static void be_client_handle_notify(struct mgmt_be_client *client, void *msgbuf,
 				    size_t msg_len)
 {
 	struct mgmt_msg_notify_data *notif_msg = msgbuf;
-	struct nb_node *nb_node;
-	struct lyd_node *dnode;
+	struct nb_node *nb_node, *nb_parent;
+	struct lyd_node *dnode = NULL;
 	const char *data = NULL;
 	const char *notif;
-	LY_ERR err;
+	bool is_yang_notify;
+	LY_ERR err = LY_SUCCESS;
 
 	debug_be_client("Received notification for client %s", client->name);
 
 	notif = mgmt_msg_native_xpath_data_decode(notif_msg, msg_len, data);
-	if (!notif || !data) {
+	if (!notif) {
 		log_err_be_client("Corrupt notify msg");
+		return;
+	}
+	if (!data && (notif_msg->op == NOTIFY_OP_DS_REPLACE || notif_msg->op == NOTIFY_OP_DS_PATCH)) {
+		log_err_be_client("Corrupt replace/patch notify msg: missing data");
 		return;
 	}
 
@@ -1134,20 +1139,41 @@ static void be_client_handle_notify(struct mgmt_be_client *client, void *msgbuf,
 		return;
 	}
 
-	if (!nb_node->cbs.notify) {
+	is_yang_notify = !!CHECK_FLAG(nb_node->snode->nodetype, LYS_NOTIF);
+
+	if (is_yang_notify && !nb_node->cbs.notify) {
 		debug_be_client("No notification callback for: %s", notif);
 		return;
 	}
 
-	err = yang_parse_notification(notif, notif_msg->result_type, data,
+	if (!nb_node->cbs.notify) {
+		/*
+		 * See if a parent has a callback, this is so backend's can
+		 * listen for changes on an entire datastore sub-tree.
+		 */
+		for (nb_parent = nb_node->parent; nb_parent; nb_parent = nb_node->parent)
+			if (nb_parent->cbs.notify)
+				break;
+		if (!nb_parent) {
+			debug_be_client("Including parents, no DS notification callback for: %s",
+					notif);
+			return;
+		}
+		nb_node = nb_parent;
+	}
+
+	if (data && is_yang_notify) {
+		err = yang_parse_notification(notif, notif_msg->result_type, data, &dnode);
+	} else if (data) {
+		err = yang_parse_data(notif, notif_msg->result_type, false, true, false, data,
 				      &dnode);
+	}
 	if (err) {
-		log_err_be_client("Can't parse notification data for: %s",
-				  notif);
+		log_err_be_client("Can't parse notification data for: %s", notif);
 		return;
 	}
 
-	nb_callback_notify(nb_node, notif, dnode);
+	nb_callback_notify(nb_node, notif_msg->op, notif, dnode);
 
 	lyd_free_all(dnode);
 }

@@ -681,6 +681,25 @@ extern struct ly_ctx *yang_ctx_new_setup(bool embedded_modules, bool explicit_co
  */
 extern void yang_debugging_set(bool enable);
 
+
+/*
+ * Parse YANG data.
+ *
+ * Args:
+ *	xpath: xpath of the data.
+ *	format: LYD_FORMAT of input data.
+ *	as_subtree: parse the data as starting at the subtree identified by xpath.
+ *	is_oper: parse as operational state allows for invalid (logs warning).
+ *	validate: validate the data (otherwise treat as non-final).
+ *	data: input data.
+ *	notif: pointer to the libyang data tree to store the parsed notification.
+ *	       If the notification is not on the top level of the yang model,
+ *	       the pointer to the notification node is still returned, but it's
+ *	       part of the full data tree with all its parents.
+ */
+LY_ERR yang_parse_data(const char *xpath, LYD_FORMAT format, bool as_subtree, bool is_oper,
+		       bool validate, const char *data, struct lyd_node **tree);
+
 /*
  * Parse a YANG notification.
  *

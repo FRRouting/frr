@@ -107,32 +107,49 @@ static void mgmt_fe_free_ns_strings(struct ns_string_head *head)
 	ns_string_fini(head);
 }
 
-static void mgmt_fe_ns_string_remove_session(struct ns_string_head *head,
-					     struct mgmt_fe_session_ctx *session)
+static uint64_t mgmt_fe_ns_string_remove_session(struct ns_string_head *head,
+						 struct mgmt_fe_session_ctx *session)
 {
+	struct listnode *node;
 	struct ns_string *ns;
+	uint64_t clients = 0;
 
 	frr_each_safe (ns_string, head, ns) {
-		listnode_delete(ns->sessions, session);
+		node = listnode_lookup(ns->sessions, session);
+		if (!node)
+			continue;
+		list_delete_node(ns->sessions, node);
+		clients |= mgmt_be_interested_clients(ns->s, MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
 		if (list_isempty(ns->sessions)) {
 			ns_string_del(head, ns);
 			mgmt_fe_free_ns_string(ns);
 		}
 	}
+
+	return clients;
 }
 
-static void mgmt_fe_add_ns_string(struct ns_string_head *head, const char *path, size_t plen,
-				  struct mgmt_fe_session_ctx *session)
+static uint64_t mgmt_fe_add_ns_string(struct ns_string_head *head, const char *path, size_t plen,
+				      struct mgmt_fe_session_ctx *session)
 {
 	struct ns_string *e, *ns;
+	uint64_t clients = 0;
 
 	ns = XCALLOC(MTYPE_MGMTD_XPATH, sizeof(*ns) + plen + 1);
 	strlcpy(ns->s, path, plen + 1);
+
 	e = ns_string_add(head, ns);
-	if (!e)
+	if (!e) {
 		ns->sessions = list_new();
-	if (!listnode_lookup(ns->sessions, session))
 		listnode_add(ns->sessions, session);
+		clients = mgmt_be_interested_clients(ns->s, MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
+	} else {
+		XFREE(MTYPE_MGMTD_XPATH, ns);
+		if (!listnode_lookup(e->sessions, session))
+			listnode_add(e->sessions, session);
+	}
+
+	return clients;
 }
 
 char **mgmt_fe_get_all_selectors(void)
@@ -1653,7 +1670,7 @@ static void fe_adapter_handle_notify_select(struct mgmt_fe_session_ctx *session,
 	}
 
 	if (msg->replace) {
-		mgmt_fe_ns_string_remove_session(&mgmt_fe_ns_strings, session);
+		clients = mgmt_fe_ns_string_remove_session(&mgmt_fe_ns_strings, session);
 		// [ ] Keep a local tree to optimize sending selectors to BE?
 		// [*] Or just KISS and fanout the original message to BEs?
 		// mgmt_remove_add_notify_selectors(session->notify_xpaths, selectors);
@@ -1684,18 +1701,11 @@ static void fe_adapter_handle_notify_select(struct mgmt_fe_session_ctx *session,
 
 	/* Add the new selectors to the global tree */
 	darr_foreach_p (selectors, sp)
-		mgmt_fe_add_ns_string(&mgmt_fe_ns_strings, *sp, darr_strlen(*sp), session);
+		clients |= mgmt_fe_add_ns_string(&mgmt_fe_ns_strings, *sp, darr_strlen(*sp),
+						 session);
 
-	/* Check if any backends are interested in the new selectors. */
-	if (msg->replace) {
-		/* If we are replacing we'll send all the selectors again with replace flag */
-		clients = mgmt_be_interested_clients("/", MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
-	} else {
-		darr_foreach_p (selectors, sp)
-			clients |= mgmt_be_interested_clients(*sp, MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
-	}
 	if (!clients) {
-		__dbg("No backends provide oper for notify selectors: '%s' txn-id %Lu session-id: %Lu",
+		__dbg("No backends to newly notify for selectors: '%s' txn-id %Lu session-id: %Lu",
 		      selstr, session->txn_id, session->session_id);
 		goto done;
 	}

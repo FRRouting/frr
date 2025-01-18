@@ -305,6 +305,7 @@ struct nb_cb_rpc_args {
 struct nb_cb_notify_args {
 	/* XPath of the notification. */
 	const char *xpath;
+	uint8_t op;
 
 	/*
 	 * libyang data node representing the notification. If the notification
@@ -861,7 +862,7 @@ extern const void *nb_callback_lookup_next(const struct nb_node *nb_node,
 extern int nb_callback_rpc(const struct nb_node *nb_node, const char *xpath,
 			   const struct lyd_node *input, struct lyd_node *output,
 			   char *errmsg, size_t errmsg_len);
-extern void nb_callback_notify(const struct nb_node *nb_node, const char *xpath,
+extern void nb_callback_notify(const struct nb_node *nb_node, uint8_t op, const char *xpath,
 			       struct lyd_node *dnode);
 
 /*

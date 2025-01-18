@@ -84,6 +84,13 @@ static const char *const zebra_oper_xpaths[] = {
 	NULL,
 };
 
+#ifdef HAVE_MGMTD_TESTC
+static const char *const mgmtd_testc_oper_xpaths[] = {
+	"/frr-backend:clients",
+	NULL,
+};
+#endif
+
 #ifdef HAVE_RIPD
 static const char *const ripd_config_xpaths[] = {
 	"/frr-filter:lib",
@@ -154,6 +161,9 @@ static const char *const *be_client_config_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
 };
 
 static const char *const *be_client_oper_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
+#ifdef HAVE_MGMTD_TESTC
+	[MGMTD_BE_CLIENT_ID_TESTC] = mgmtd_testc_oper_xpaths,
+#endif
 #ifdef HAVE_RIPD
 	[MGMTD_BE_CLIENT_ID_RIPD] = ripd_oper_xpaths,
 #endif

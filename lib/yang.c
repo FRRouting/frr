@@ -874,6 +874,60 @@ static void ly_zlog_cb(LY_LOG_LEVEL level, const char *msg, const char *data_pat
 		zlog(priority, "libyang: %s", msg);
 }
 
+LY_ERR yang_parse_data(const char *xpath, LYD_FORMAT format, bool as_subtree, bool is_oper,
+		       bool validate, const char *data, struct lyd_node **tree)
+{
+	struct ly_in *in = NULL;
+	struct lyd_node *subtree = NULL;
+	uint32_t parse_options = LYD_PARSE_STRICT | LYD_PARSE_ONLY;
+	uint32_t validate_options = LYD_VALIDATE_PRESENT;
+	LY_ERR err;
+
+	err = ly_in_new_memory(data, &in);
+	if (err != LY_SUCCESS)
+		return err;
+
+	if (as_subtree) {
+		struct lyd_node *parent;
+
+		/*
+		 * Create the subtree branch from root using the xpath. This
+		 * will be used below to parse the data rooted at the subtree --
+		 * a common YANG JSON technique (vs XML which starts all
+		 * data trees from the root).
+		 */
+		err = lyd_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, 0, &parent, &subtree);
+		if (err != LY_SUCCESS)
+			goto done;
+		err = lyd_find_path(parent, xpath, false, &subtree);
+		if (err != LY_SUCCESS)
+			goto done;
+	}
+
+	if (is_oper)
+		validate_options |= LYD_VALIDATE_OPERATIONAL;
+
+#ifdef LYD_VALIDATE_NOT_FINAL
+	if (!validate)
+		validate_options |= LYD_VALIDATE_NOT_FINAL;
+#endif
+
+	err = lyd_parse_data(ly_native_ctx, subtree, in, format, parse_options, validate_options,
+			     tree);
+	if (err == LY_SUCCESS && subtree)
+		*tree = subtree;
+done:
+	ly_in_free(in, 0);
+	if (err != LY_SUCCESS) {
+		if (*tree)
+			lyd_free_all(*tree);
+		else if (subtree)
+			lyd_free_all(subtree);
+		*tree = NULL;
+	}
+	return err;
+}
+
 LY_ERR yang_parse_notification(const char *xpath, LYD_FORMAT format,
 			       const char *data, struct lyd_node **notif)
 {
