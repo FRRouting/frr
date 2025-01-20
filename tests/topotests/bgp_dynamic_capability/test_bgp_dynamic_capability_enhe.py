@@ -114,7 +114,7 @@ def test_bgp_dynamic_capability_enhe():
 
     # Clear message stats to check if we receive a notification or not after we
     # change the role.
-    r1.vtysh_cmd("clear bgp 2001:db8::2 message-stats")
+    r2.vtysh_cmd("clear bgp 2001:db8::1 message-stats")
     r1.vtysh_cmd(
         """
     configure terminal
@@ -122,32 +122,6 @@ def test_bgp_dynamic_capability_enhe():
       neighbor 2001:db8::2 capability extended-nexthop
     """
     )
-
-    def _bgp_check_if_session_not_reset():
-        output = json.loads(r2.vtysh_cmd("show bgp neighbor 2001:db8::1 json"))
-        expected = {
-            "2001:db8::1": {
-                "bgpState": "Established",
-                "neighborCapabilities": {
-                    "dynamic": "advertisedAndReceived",
-                    "extendedNexthop": "advertisedAndReceived",
-                    "extendedNexthopFamililesByPeer": {
-                        "ipv4Unicast": "recieved",
-                    },
-                },
-                "messageStats": {
-                    "notificationsRecv": 0,
-                    "capabilityRecv": 1,
-                },
-            }
-        }
-        return topotest.json_cmp(output, expected)
-
-    test_func = functools.partial(
-        _bgp_check_if_session_not_reset,
-    )
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-    assert result is None, "Session was reset after setting ENHE capability"
 
     def _bgp_check_if_session_not_reset():
         output = json.loads(r2.vtysh_cmd("show bgp neighbor 2001:db8::1 json"))
