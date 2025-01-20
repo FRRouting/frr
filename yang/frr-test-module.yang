@@ -7,12 +7,13 @@ module frr-test-module {
   import ietf-inet-types {
     prefix inet;
   }
-  import ietf-yang-types {
-    prefix yang;
-  }
   import frr-interface {
     prefix frr-interface;
   }
+
+  organization "placeholder for lint";
+
+  contact "placeholder for lint";
 
   description
     "FRRouting internal testing module.
@@ -45,41 +46,56 @@ module frr-test-module {
   revision 2018-11-26 {
     description
       "Initial revision.";
+    reference "placeholder for lint";
   }
 
   container frr-test-module {
     config false;
+    description "a container for test module data";
     container vrfs {
+      description "a container of vrfs";
       list vrf {
         key "name";
+        description "a keyed vrf list object";
 
         leaf name {
           type string;
+          description "name of vrf";
         }
         container interfaces {
+          description "container of leaf-list interfaces";
           leaf-list interface {
             type frr-interface:interface-ref;
+            description "leaf list interface object";
           }
           leaf-list interface-new {
             type frr-interface:interface-ref;
+            description "second leaf list interface object";
           }
         }
         container routes {
+          description "container of key-less route objects";
           list route {
+            description "a key-less route object";
             leaf prefix {
               type inet:ipv4-prefix;
+              description "prefix of the route object";
             }
             leaf next-hop {
               type inet:ipv4-address;
+              description "nexthop of the route object";
             }
             leaf interface {
               type frr-interface:interface-ref;
+              description "interface of the route object";
             }
             leaf metric {
               type uint8;
+              description "metric of the route object";
             }
             leaf active {
               type empty;
+              description "active status of the route object";
             }
           }
         }
@@ -87,16 +103,19 @@ module frr-test-module {
           input {
             leaf data {
               type string;
+              description "data input to ping action.";
             }
           }
           output {
             leaf vrf {
               type string;
+              description "vrf returned from ping action.";
             }
             // can't use the same name in input and output
             // because of a bug in libyang < 2.1.148
             leaf data-out {
               type string;
+              description "data return from ping action.";
             }
           }
         }
