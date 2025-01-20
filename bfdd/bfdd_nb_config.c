@@ -13,14 +13,50 @@
 
 #include "bfd.h"
 #include "bfdd_nb.h"
+#include <ifaddrs.h>
 
 /*
  * Helpers.
  */
+static void get_ip_by_interface(const char *ifname, const char *vrfname, int family, char *ifip)
+{
+	char intfip[INET6_ADDRSTRLEN];
+	const struct interface *interface;
+	const struct connected *connected;
+	struct vrf *vrf;
+
+	vrf = vrf_lookup_by_name(vrfname ? vrfname : VRF_DEFAULT_NAME);
+	if (!vrf)
+		return;
+
+	interface = if_lookup_by_name_vrf(ifname, vrf);
+	if (interface == NULL)
+		return;
+
+	frr_each (if_connected_const, interface->connected, connected) {
+		if (!connected->address)
+			continue;
+
+		if (family != connected->address->family)
+			continue;
+
+		if (family == AF_INET6 && IN6_IS_ADDR_LINKLOCAL(&connected->address->u.prefix6))
+			continue;
+
+		inet_ntop(family,
+			  family == AF_INET ? (void *)(&connected->address->u.prefix4)
+					    : (void *)(&connected->address->u.prefix6),
+			  intfip, INET6_ADDRSTRLEN);
+		strlcpy(ifip, intfip, INET6_ADDRSTRLEN - 1);
+		break;
+	}
+}
+
 static void bfd_session_get_key(bool mhop, const struct lyd_node *dnode,
 				struct bfd_key *bk)
 {
 	const char *ifname = NULL, *vrfname = NULL;
+	char ifip[INET6_ADDRSTRLEN] = { 0 };
 	struct sockaddr_any psa, lsa;
 
 	/* Required destination parameter. */
@@ -37,10 +73,16 @@ static void bfd_session_get_key(bool mhop, const struct lyd_node *dnode,
 		ifname = yang_dnode_get_string(dnode, "interface");
 		if (strcmp(ifname, "*") == 0)
 			ifname = NULL;
+
+		if (ifname != NULL && !yang_dnode_exists(dnode, "source-addr") &&
+		    psa.sa_sin.sin_family != 0) {
+			get_ip_by_interface(ifname, vrfname, psa.sa_sin.sin_family, ifip);
+			strtosa(ifip, &lsa);
+		}
 	}
 
 	/* Generate the corresponding key. */
-	gen_bfd_key(bk, &psa, &lsa, mhop, ifname, vrfname);
+	gen_bfd_key(bk, &psa, &lsa, mhop, ifname, vrfname, NULL);
 }
 
 struct session_iter {
