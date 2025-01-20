@@ -525,6 +525,7 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			mod_v6nhg = &peer->nexthop.v6_global;
 			gnh_modified = 1;
 		} else if (IS_MAPPED_IPV6(&v6nhglobal) &&
+			   !IS_MAPPED_IPV6(&peer->nexthop.v6_global) &&
 			   !IN6_IS_ADDR_LINKLOCAL(&peer->nexthop.v6_global)) {
 			/* prefer a IPv6 native global address over
 			 * an IPv4-mapped IPv6 address as nexthop when
