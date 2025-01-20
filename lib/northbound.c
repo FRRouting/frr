@@ -685,19 +685,30 @@ void nb_config_diff(const struct nb_config *config1,
 	lyd_free_all(diff);
 }
 
-static int dnode_create(struct nb_config *candidate, const char *xpath,
-			const char *value, uint32_t options,
-			struct lyd_node **new_dnode)
+/**
+ * dnode_create() - create a new node in the tree
+ * @candidate: config tree to create node in.
+ * @xpath: target node to create.
+ * @value: value for the new if required.
+ * @options: lyd_new_path options
+ * @new_dnode: the newly created node. If options includes LYD_NEW_PATH_UPDATE,
+ *             and the node exists (i.e., isn't create but updated), then
+ *             new_node will be set to NULL not the existing node).
+ *
+ * Return: NB_OK or NB_ERR.
+ */
+static LY_ERR dnode_create(struct nb_config *candidate, const char *xpath, const char *value,
+			   uint32_t options, struct lyd_node **new_dnode)
 {
 	struct lyd_node *dnode;
 	LY_ERR err;
 
-	err = lyd_new_path(candidate->dnode, ly_native_ctx, xpath, value,
-			   options, &dnode);
+	err = lyd_new_path2(candidate->dnode, ly_native_ctx, xpath, value, 0, 0, options, NULL,
+			    &dnode);
 	if (err) {
 		flog_warn(EC_LIB_LIBYANG, "%s: lyd_new_path(%s) failed: %d",
 			  __func__, xpath, err);
-		return NB_ERR;
+		return err;
 	} else if (dnode) {
 		err = lyd_new_implicit_tree(dnode, LYD_IMPLICIT_NO_STATE, NULL);
 		if (err) {
@@ -708,7 +719,7 @@ static int dnode_create(struct nb_config *candidate, const char *xpath,
 	}
 	if (new_dnode)
 		*new_dnode = dnode;
-	return NB_OK;
+	return LY_SUCCESS;
 }
 
 int nb_candidate_edit(struct nb_config *candidate, const struct nb_node *nb_node,
