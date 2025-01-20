@@ -19,6 +19,7 @@
 #include "lib/qobj.h"
 #include "lib/queue.h"
 #include "lib/vrf.h"
+#include "lib/bfd.h"
 
 #ifdef BFD_DEBUG
 #define BFDD_JSON_CONV_OPTIONS (JSON_C_TO_STRING_PRETTY)
@@ -86,6 +87,10 @@ struct bfd_peer_cfg {
 
 	bool bpc_has_profile;
 	char bpc_profile[64];
+
+	vrf_id_t vrf_id;
+	char bfd_name[BFD_NAME_SIZE + 1];
+	uint8_t bfd_name_len;
 };
 
 /* bfd Authentication Type. */
@@ -260,6 +265,7 @@ struct bfd_key {
 	struct in6_addr local;
 	char ifname[IFNAMSIZ];
 	char vrfname[VRF_NAMSIZ];
+	char bfdname[BFD_NAME_SIZE + 1];
 } __attribute__((packed));
 
 struct bfd_session_stats {
@@ -381,6 +387,9 @@ struct bfd_session {
 	uint8_t rtt_valid;	    /* number of valid samples */
 	uint8_t rtt_index;	    /* last index added */
 	uint64_t rtt[BFD_RTT_SAMPLE]; /* RRT in usec for echo to be looped */
+	char bfd_name[BFD_NAME_SIZE + 1];
+
+	uint32_t bfd_mode;
 };
 
 struct bfd_diag_str_list {
@@ -604,14 +613,13 @@ void bs_observer_del(struct bfd_session_observer *bso);
 
 void bs_to_bpc(struct bfd_session *bs, struct bfd_peer_cfg *bpc);
 
-void gen_bfd_key(struct bfd_key *key, struct sockaddr_any *peer,
-		 struct sockaddr_any *local, bool mhop, const char *ifname,
-		 const char *vrfname);
+void gen_bfd_key(struct bfd_key *key, struct sockaddr_any *peer, struct sockaddr_any *local,
+		 bool mhop, const char *ifname, const char *vrfname, const char *bfdname);
 struct bfd_session *bfd_session_new(void);
 struct bfd_session *bs_registrate(struct bfd_session *bs);
 void bfd_session_free(struct bfd_session *bs);
-const struct bfd_session *bfd_session_next(const struct bfd_session *bs,
-					   bool mhop);
+const struct bfd_session *bfd_session_next(const struct bfd_session *bs, bool mhop,
+					   uint32_t bfd_mode);
 void bfd_sessions_remove_manual(void);
 void bfd_profiles_remove(void);
 void bfd_rtt_init(struct bfd_session *bfd);

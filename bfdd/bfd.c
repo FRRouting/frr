@@ -222,10 +222,11 @@ void bfd_profile_remove(struct bfd_session *bs)
 	bfd_session_apply(bs);
 }
 
-void gen_bfd_key(struct bfd_key *key, struct sockaddr_any *peer,
-		 struct sockaddr_any *local, bool mhop, const char *ifname,
-		 const char *vrfname)
+void gen_bfd_key(struct bfd_key *key, struct sockaddr_any *peer, struct sockaddr_any *local,
+		 bool mhop, const char *ifname, const char *vrfname, const char *bfdname)
 {
+	struct vrf *vrf = NULL;
+
 	memset(key, 0, sizeof(*key));
 
 	switch (peer->sa_sin.sin_family) {
@@ -248,10 +249,20 @@ void gen_bfd_key(struct bfd_key *key, struct sockaddr_any *peer,
 	key->mhop = mhop;
 	if (ifname && ifname[0])
 		strlcpy(key->ifname, ifname, sizeof(key->ifname));
-	if (vrfname && vrfname[0])
-		strlcpy(key->vrfname, vrfname, sizeof(key->vrfname));
-	else
+	if (vrfname && vrfname[0] && strcmp(vrfname, VRF_DEFAULT_NAME) != 0) {
+		vrf = vrf_lookup_by_name(vrfname);
+		if (vrf) {
+			strlcpy(key->vrfname, vrf->name, sizeof(key->vrfname));
+		} else {
+			strlcpy(key->vrfname, vrfname, sizeof(key->vrfname));
+		}
+	} else {
 		strlcpy(key->vrfname, VRF_DEFAULT_NAME, sizeof(key->vrfname));
+	}
+
+	if (bfdname && bfdname[0]) {
+		strlcpy(key->bfdname, bfdname, sizeof(key->bfdname));
+	}
 }
 
 struct bfd_session *bs_peer_find(struct bfd_peer_cfg *bpc)
@@ -259,8 +270,8 @@ struct bfd_session *bs_peer_find(struct bfd_peer_cfg *bpc)
 	struct bfd_key key;
 
 	/* Otherwise fallback to peer/local hash lookup. */
-	gen_bfd_key(&key, &bpc->bpc_peer, &bpc->bpc_local, bpc->bpc_mhop,
-		    bpc->bpc_localif, bpc->bpc_vrfname);
+	gen_bfd_key(&key, &bpc->bpc_peer, &bpc->bpc_local, bpc->bpc_mhop, bpc->bpc_localif,
+		    bpc->bpc_vrfname, bpc->bfd_name);
 
 	return bfd_key_lookup(key);
 }
@@ -599,7 +610,7 @@ struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp,
 	vrf = vrf_lookup_by_id(vrfid);
 
 	gen_bfd_key(&key, peer, local, is_mhop, ifp ? ifp->name : NULL,
-		    vrf ? vrf->name : VRF_DEFAULT_NAME);
+		    vrf ? vrf->name : VRF_DEFAULT_NAME, NULL);
 
 	/* XXX maybe remoteDiscr should be checked for remoteHeard cases. */
 	return bfd_key_lookup(key);
@@ -1713,6 +1724,7 @@ void bfd_shutdown(void)
 struct bfd_session_iterator {
 	int bsi_stop;
 	bool bsi_mhop;
+	uint32_t bsi_bfdmode;
 	const struct bfd_session *bsi_bs;
 };
 
@@ -1724,7 +1736,7 @@ static int _bfd_session_next(struct hash_bucket *hb, void *arg)
 	/* Previous entry signaled stop. */
 	if (bsi->bsi_stop == 1) {
 		/* Match the single/multi hop sessions. */
-		if (bs->key.mhop != bsi->bsi_mhop)
+		if ((bs->key.mhop != bsi->bsi_mhop) || (bs->bfd_mode != bsi->bsi_bfdmode))
 			return HASHWALK_CONTINUE;
 
 		bsi->bsi_bs = bs;
@@ -1736,7 +1748,8 @@ static int _bfd_session_next(struct hash_bucket *hb, void *arg)
 		bsi->bsi_stop = 1;
 		/* Set entry to NULL to signal end of list. */
 		bsi->bsi_bs = NULL;
-	} else if (bsi->bsi_bs == NULL && bsi->bsi_mhop == bs->key.mhop) {
+	} else if (bsi->bsi_bs == NULL && bsi->bsi_mhop == bs->key.mhop &&
+		   bsi->bsi_bfdmode == bs->bfd_mode) {
 		/* We want the first list item. */
 		bsi->bsi_stop = 1;
 		bsi->bsi_bs = hb->data;
@@ -1751,14 +1764,15 @@ static int _bfd_session_next(struct hash_bucket *hb, void *arg)
  *
  * `bs` might point to NULL to get the first item of the data structure.
  */
-const struct bfd_session *bfd_session_next(const struct bfd_session *bs,
-					   bool mhop)
+const struct bfd_session *bfd_session_next(const struct bfd_session *bs, bool mhop,
+					   uint32_t bfd_mode)
 {
 	struct bfd_session_iterator bsi;
 
 	bsi.bsi_stop = 0;
 	bsi.bsi_bs = bs;
 	bsi.bsi_mhop = mhop;
+	bsi.bsi_bfdmode = bfd_mode;
 	hash_walk(bfd_key_hash, _bfd_session_next, &bsi);
 	if (bsi.bsi_stop == 0)
 		return NULL;

@@ -26,6 +26,8 @@ extern "C" {
 
 #define BFD_PROFILE_NAME_LEN 64
 
+#define BFD_NAME_SIZE 255
+
 const char *bfd_get_status_str(int status);
 
 extern void bfd_client_sendmsg(struct zclient *zclient, int command,
@@ -409,6 +411,8 @@ struct bfd_session_arg {
 	uint32_t min_tx;
 	/** Detection multiplier. */
 	uint32_t detection_multiplier;
+	/* bfd session name*/
+	char bfd_name[BFD_NAME_SIZE + 1];
 };
 
 /**
