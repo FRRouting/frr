@@ -9915,6 +9915,9 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 			     == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
 			    || (path->peer->conf_if)) {
 				json_nexthop_ll = json_object_new_object();
+				if (path->peer->conf_if)
+					json_object_string_add(json_nexthop_ll, "interface",
+							       path->peer->conf_if);
 				json_object_string_addf(
 					json_nexthop_ll, "ip", "%pI6",
 					&attr->mp_nexthop_local);
