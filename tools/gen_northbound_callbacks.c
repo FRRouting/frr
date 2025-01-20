@@ -238,12 +238,10 @@ static int generate_prototypes(const struct lysc_node *snode, void *arg)
 		generate_callback_name(snode, cb->operation, cb_name,
 				       sizeof(cb_name));
 
-		if (cb->operation == NB_CB_GET_ELEM) {
-			if (f_new_cbs)
-				generate_prototype(&nb_oper_get, cb_name);
-			else
-				generate_prototype(cb, cb_name);
-		}
+		if (cb->operation == NB_CB_GET_ELEM && f_new_cbs)
+			generate_prototype(&nb_oper_get, cb_name);
+		else
+			generate_prototype(cb, cb_name);
 
 		if (cb->need_config_write && need_config_write) {
 			generate_config_write_cb_name(snode, cb_name,
@@ -344,12 +342,10 @@ static int generate_callbacks(const struct lysc_node *snode, void *arg)
 		generate_callback_name(snode, cb->operation, cb_name,
 				       sizeof(cb_name));
 
-		if (cb->operation == NB_CB_GET_ELEM) {
-			if (f_new_cbs)
-				generate_callback(&nb_oper_get, cb_name);
-			else
-				generate_callback(cb, cb_name);
-		}
+		if (cb->operation == NB_CB_GET_ELEM && f_new_cbs)
+			generate_callback(&nb_oper_get, cb_name);
+		else
+			generate_callback(cb, cb_name);
 
 		if (cb->need_config_write && need_config_write) {
 			generate_config_write_cb_name(snode, cb_name,
