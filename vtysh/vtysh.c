@@ -1312,6 +1312,13 @@ static struct cmd_node srv6_node = {
 	.prompt = "%s(config-srv6)# ",
 };
 
+static struct cmd_node srv6_sids_node = {
+	.name = "srv6-sids",
+	.node = SRV6_SIDS_NODE,
+	.parent_node = SRV6_NODE,
+	.prompt = "%s(config-srv6-sids)# ",
+};
+
 static struct cmd_node srv6_locs_node = {
 	.name = "srv6-locators",
 	.node = SRV6_LOCS_NODE,
@@ -1685,11 +1692,19 @@ DEFUNSH(VTYSH_REALLYALL, vtysh_end_all, vtysh_end_all_cmd, "end",
 	return vtysh_end();
 }
 
-DEFUNSH(VTYSH_ZEBRA, srv6, srv6_cmd,
+DEFUNSH(VTYSH_ZEBRA | VTYSH_MGMTD, srv6, srv6_cmd,
 	"srv6",
 	"Segment-Routing SRv6 configuration\n")
 {
 	vty->node = SRV6_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_MGMTD, srv6_sids, srv6_sids_cmd,
+	"static-sids",
+	"Segment-Routing SRv6 SIDs configuration\n")
+{
+	vty->node = SRV6_SIDS_NODE;
 	return CMD_SUCCESS;
 }
 
@@ -2216,7 +2231,7 @@ DEFUNSH(VTYSH_FABRICD, router_openfabric, router_openfabric_cmd, "router openfab
 }
 #endif /* HAVE_FABRICD */
 
-DEFUNSH(VTYSH_SR, segment_routing, segment_routing_cmd,
+DEFUNSH(VTYSH_SR | VTYSH_MGMTD, segment_routing, segment_routing_cmd,
 	"segment-routing",
 	"Configure segment routing\n")
 {
@@ -2535,7 +2550,7 @@ DEFUNSH(VTYSH_VRF, exit_vrf_config, exit_vrf_config_cmd, "exit-vrf",
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_ZEBRA, exit_srv6_config, exit_srv6_config_cmd, "exit",
+DEFUNSH(VTYSH_ZEBRA | VTYSH_MGMTD, exit_srv6_config, exit_srv6_config_cmd, "exit",
 	"Exit from SRv6 configuration mode\n")
 {
 	if (vty->node == SRV6_NODE)
@@ -2547,6 +2562,14 @@ DEFUNSH(VTYSH_ZEBRA, exit_srv6_locs_config, exit_srv6_locs_config_cmd, "exit",
 	"Exit from SRv6-locator configuration mode\n")
 {
 	if (vty->node == SRV6_LOCS_NODE)
+		vty->node = SRV6_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_MGMTD, exit_srv6_sids_config, exit_srv6_sids_config_cmd, "exit",
+	"Exit from SRv6-SIDs configuration mode\n")
+{
+	if (vty->node == SRV6_SIDS_NODE)
 		vty->node = SRV6_NODE;
 	return CMD_SUCCESS;
 }
@@ -2806,13 +2829,13 @@ DEFUNSH(VTYSH_KEYS, vtysh_quit_keys, vtysh_quit_keys_cmd, "quit",
 	return vtysh_exit_keys(self, vty, argc, argv);
 }
 
-DEFUNSH(VTYSH_SR, vtysh_exit_sr, vtysh_exit_sr_cmd, "exit",
+DEFUNSH(VTYSH_SR | VTYSH_MGMTD, vtysh_exit_sr, vtysh_exit_sr_cmd, "exit",
 	"Exit current mode and down to previous mode\n")
 {
 	return vtysh_exit(vty);
 }
 
-DEFUNSH(VTYSH_SR, vtysh_quit_sr, vtysh_quit_sr_cmd, "quit",
+DEFUNSH(VTYSH_SR | VTYSH_MGMTD, vtysh_quit_sr, vtysh_quit_sr_cmd, "quit",
 	"Exit current mode and down to previous mode\n")
 {
 	return vtysh_exit(vty);
@@ -4999,6 +5022,7 @@ void vtysh_init_vty(void)
 	install_node(&rmap_node);
 	install_node(&vty_node);
 	install_node(&srv6_node);
+	install_node(&srv6_sids_node);
 	install_node(&srv6_locs_node);
 	install_node(&srv6_loc_node);
 	install_node(&srv6_encap_node);
@@ -5442,6 +5466,10 @@ void vtysh_init_vty(void)
 	install_element(SRV6_NODE, &exit_srv6_config_cmd);
 	install_element(SRV6_NODE, &vtysh_end_all_cmd);
 	install_element(SRV6_NODE, &srv6_encap_cmd);
+	install_element(SRV6_NODE, &srv6_sids_cmd);
+
+	install_element(SRV6_SIDS_NODE, &exit_srv6_sids_config_cmd);
+	install_element(SRV6_SIDS_NODE, &vtysh_end_all_cmd);
 
 	install_element(SRV6_LOCS_NODE, &srv6_locator_cmd);
 	install_element(SRV6_LOCS_NODE, &exit_srv6_locs_config_cmd);

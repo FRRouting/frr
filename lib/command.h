@@ -154,6 +154,7 @@ enum node_type {
 	PCEP_PCE_NODE,		 /* PCE configuration node */
 	PCEP_PCC_NODE,		 /* PCC configuration node */
 	SRV6_NODE,		 /* SRv6 node */
+	SRV6_SIDS_NODE,		 /* SRv6 SIDs node */
 	SRV6_LOCS_NODE,		 /* SRv6 locators node */
 	SRV6_LOC_NODE,		 /* SRv6 locator node */
 	SRV6_ENCAP_NODE,		 /* SRv6 encapsulation node */

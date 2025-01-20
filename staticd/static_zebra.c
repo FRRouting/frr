@@ -30,6 +30,9 @@
 #include "static_nht.h"
 #include "static_vty.h"
 #include "static_debug.h"
+#include "zclient.h"
+#include "static_srv6.h"
+#include "lib_errors.h"
 
 DEFINE_MTYPE_STATIC(STATIC, STATIC_NHT_DATA, "Static Nexthop tracking data");
 PREDECL_HASH(static_nht_hash);
@@ -113,12 +116,16 @@ static int static_ifp_up(struct interface *ifp)
 {
 	static_ifindex_update(ifp, true);
 
+	static_ifp_srv6_sids_update(ifp, true);
+
 	return 0;
 }
 
 static int static_ifp_down(struct interface *ifp)
 {
 	static_ifindex_update(ifp, false);
+
+	static_ifp_srv6_sids_update(ifp, false);
 
 	return 0;
 }
@@ -530,10 +537,660 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 			   zclient, &api);
 }
 
+/**
+ * Send SRv6 SID to ZEBRA for installation or deletion.
+ *
+ * @param cmd		ZEBRA_ROUTE_ADD or ZEBRA_ROUTE_DELETE
+ * @param sid		SRv6 SID to install or delete
+ * @param prefixlen	Prefix length
+ * @param oif		Outgoing interface
+ * @param action	SID action
+ * @param context	SID context
+ */
+static void static_zebra_send_localsid(int cmd, const struct in6_addr *sid, uint16_t prefixlen,
+				       ifindex_t oif, enum seg6local_action_t action,
+				       const struct seg6local_context *context)
+{
+	struct prefix_ipv6 p = {};
+	struct zapi_route api = {};
+	struct zapi_nexthop *znh;
+
+	if (cmd != ZEBRA_ROUTE_ADD && cmd != ZEBRA_ROUTE_DELETE) {
+		flog_warn(EC_LIB_DEVELOPMENT, "%s: wrong ZEBRA command", __func__);
+		return;
+	}
+
+	if (prefixlen > IPV6_MAX_BITLEN) {
+		flog_warn(EC_LIB_DEVELOPMENT, "%s: wrong prefixlen %u", __func__, prefixlen);
+		return;
+	}
+
+	DEBUGD(&static_dbg_srv6, "%s:  |- %s SRv6 SID %pI6 behavior %s", __func__,
+	       cmd == ZEBRA_ROUTE_ADD ? "Add" : "Delete", sid, seg6local_action2str(action));
+
+	p.family = AF_INET6;
+	p.prefixlen = prefixlen;
+	p.prefix = *sid;
+
+	api.vrf_id = VRF_DEFAULT;
+	api.type = ZEBRA_ROUTE_STATIC;
+	api.instance = 0;
+	api.safi = SAFI_UNICAST;
+	memcpy(&api.prefix, &p, sizeof(p));
+
+	if (cmd == ZEBRA_ROUTE_DELETE)
+		return (void)zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
+
+	SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
+	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
+
+	znh = &api.nexthops[0];
+
+	memset(znh, 0, sizeof(*znh));
+
+	znh->type = NEXTHOP_TYPE_IFINDEX;
+	znh->ifindex = oif;
+	SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL);
+	znh->seg6local_action = action;
+	memcpy(&znh->seg6local_ctx, context, sizeof(struct seg6local_context));
+
+	api.nexthop_num = 1;
+
+	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
+}
+
+/**
+ * Install SRv6 SID in the forwarding plane through Zebra.
+ *
+ * @param sid		SRv6 SID
+ */
+void static_zebra_srv6_sid_install(struct static_srv6_sid *sid)
+{
+	enum seg6local_action_t action = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
+	struct seg6local_context ctx = {};
+	struct interface *ifp = NULL;
+	struct vrf *vrf;
+
+	if (!sid)
+		return;
+
+	if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA))
+		return;
+
+	if (!sid->locator) {
+		zlog_err("Failed to install SID %pFX: missing locator information", &sid->addr);
+		return;
+	}
+
+	switch (sid->behavior) {
+	case SRV6_ENDPOINT_BEHAVIOR_END:
+		action = ZEBRA_SEG6_LOCAL_ACTION_END;
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID:
+		action = ZEBRA_SEG6_LOCAL_ACTION_END;
+		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
+		ctx.flv.lcblock_len = sid->locator->block_bits_length;
+		ctx.flv.lcnode_func_len = sid->locator->node_bits_length;
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT6:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID:
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+		vrf = vrf_lookup_by_name(sid->attributes.vrf_name);
+		if (!vrf_is_enabled(vrf)) {
+			zlog_warn("Failed to install SID %pFX: VRF %s is inactive", &sid->addr,
+				  sid->attributes.vrf_name);
+			return;
+		}
+		ctx.table = vrf->data.l.table_id;
+		ifp = if_get_vrf_loopback(vrf->vrf_id);
+		if (!ifp) {
+			zlog_warn("Failed to install SID %pFX: failed to get loopback for vrf %s",
+				  &sid->addr, sid->attributes.vrf_name);
+			return;
+		}
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT4:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID:
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_DT4;
+		vrf = vrf_lookup_by_name(sid->attributes.vrf_name);
+		if (!vrf_is_enabled(vrf)) {
+			zlog_warn("Failed to install SID %pFX: VRF %s is inactive", &sid->addr,
+				  sid->attributes.vrf_name);
+			return;
+		}
+		ctx.table = vrf->data.l.table_id;
+		ifp = if_get_vrf_loopback(vrf->vrf_id);
+		if (!ifp) {
+			zlog_warn("Failed to install SID %pFX: failed to get loopback for vrf %s",
+				  &sid->addr, sid->attributes.vrf_name);
+			return;
+		}
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT46:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID:
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
+		vrf = vrf_lookup_by_name(sid->attributes.vrf_name);
+		if (!vrf_is_enabled(vrf)) {
+			zlog_warn("Failed to install SID %pFX: VRF %s is inactive", &sid->addr,
+				  sid->attributes.vrf_name);
+			return;
+		}
+		ctx.table = vrf->data.l.table_id;
+		ifp = if_get_vrf_loopback(vrf->vrf_id);
+		if (!ifp) {
+			zlog_warn("Failed to install SID %pFX: failed to get loopback for vrf %s",
+				  &sid->addr, sid->attributes.vrf_name);
+			return;
+		}
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_X:
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID:
+	case SRV6_ENDPOINT_BEHAVIOR_OPAQUE:
+	case SRV6_ENDPOINT_BEHAVIOR_RESERVED:
+		zlog_warn("unsupported behavior: %u", sid->behavior);
+		break;
+	}
+
+	ctx.block_len = sid->locator->block_bits_length;
+	ctx.node_len = sid->locator->node_bits_length;
+	ctx.function_len = sid->locator->function_bits_length;
+	ctx.argument_len = sid->locator->argument_bits_length;
+
+	/* Attach the SID to the SRv6 interface */
+	if (!ifp) {
+		ifp = if_lookup_by_name(DEFAULT_SRV6_IFNAME, VRF_DEFAULT);
+		if (!ifp) {
+			zlog_warn("Failed to install SRv6 SID %pFX: %s interface not found",
+				  &sid->addr, DEFAULT_SRV6_IFNAME);
+			return;
+		}
+	}
+
+	/* Send the SID to zebra */
+	static_zebra_send_localsid(ZEBRA_ROUTE_ADD, &sid->addr.prefix, sid->addr.prefixlen,
+				   ifp->ifindex, action, &ctx);
+
+	SET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
+}
+
+void static_zebra_srv6_sid_uninstall(struct static_srv6_sid *sid)
+{
+	enum seg6local_action_t action = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
+	struct interface *ifp = NULL;
+	struct seg6local_context ctx = {};
+	struct vrf *vrf;
+
+	if (!sid)
+		return;
+
+	if (!CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA))
+		return;
+
+	if (!sid->locator) {
+		zlog_err("Failed to uninstall SID %pFX: missing locator information", &sid->addr);
+		return;
+	}
+
+	switch (sid->behavior) {
+	case SRV6_ENDPOINT_BEHAVIOR_END:
+	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID:
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT6:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID:
+		vrf = vrf_lookup_by_name(sid->attributes.vrf_name);
+		if (!vrf_is_enabled(vrf)) {
+			zlog_warn("Failed to install SID %pFX: VRF %s is inactive", &sid->addr,
+				  sid->attributes.vrf_name);
+			return;
+		}
+		ifp = if_get_vrf_loopback(vrf->vrf_id);
+		if (!ifp) {
+			zlog_warn("Failed to install SID %pFX: failed to get loopback for vrf %s",
+				  &sid->addr, sid->attributes.vrf_name);
+			return;
+		}
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT4:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID:
+		vrf = vrf_lookup_by_name(sid->attributes.vrf_name);
+		if (!vrf_is_enabled(vrf)) {
+			zlog_warn("Failed to install SID %pFX: VRF %s is inactive", &sid->addr,
+				  sid->attributes.vrf_name);
+			return;
+		}
+		ifp = if_get_vrf_loopback(vrf->vrf_id);
+		if (!ifp) {
+			zlog_warn("Failed to install SID %pFX: failed to get loopback for vrf %s",
+				  &sid->addr, sid->attributes.vrf_name);
+			return;
+		}
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT46:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID:
+		vrf = vrf_lookup_by_name(sid->attributes.vrf_name);
+		if (!vrf_is_enabled(vrf)) {
+			zlog_warn("Failed to install SID %pFX: VRF %s is inactive", &sid->addr,
+				  sid->attributes.vrf_name);
+			return;
+		}
+		ifp = if_get_vrf_loopback(vrf->vrf_id);
+		if (!ifp) {
+			zlog_warn("Failed to install SID %pFX: failed to get loopback for vrf %s",
+				  &sid->addr, sid->attributes.vrf_name);
+			return;
+		}
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_X:
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID:
+	case SRV6_ENDPOINT_BEHAVIOR_OPAQUE:
+	case SRV6_ENDPOINT_BEHAVIOR_RESERVED:
+		zlog_warn("unsupported behavior: %u", sid->behavior);
+		break;
+	}
+
+	/* The SID is attached to the SRv6 interface */
+	if (!ifp) {
+		ifp = if_lookup_by_name(DEFAULT_SRV6_IFNAME, VRF_DEFAULT);
+		if (!ifp) {
+			zlog_warn("%s interface not found: nothing to uninstall",
+				  DEFAULT_SRV6_IFNAME);
+			return;
+		}
+	}
+
+	ctx.block_len = sid->locator->block_bits_length;
+	ctx.node_len = sid->locator->node_bits_length;
+	ctx.function_len = sid->locator->function_bits_length;
+	ctx.argument_len = sid->locator->argument_bits_length;
+
+	static_zebra_send_localsid(ZEBRA_ROUTE_DELETE, &sid->addr.prefix, sid->addr.prefixlen,
+				   ifp->ifindex, action, &ctx);
+
+	UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
+}
+
+extern void static_zebra_request_srv6_sid(struct static_srv6_sid *sid)
+{
+	struct srv6_sid_ctx ctx = {};
+	int ret = 0;
+	struct vrf *vrf;
+
+	if (!sid)
+		return;
+
+	/* convert `srv6_endpoint_behavior_codepoint` to `seg6local_action_t` */
+	switch (sid->behavior) {
+	case SRV6_ENDPOINT_BEHAVIOR_END:
+	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID:
+		ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END;
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT6:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID:
+		ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+		/* process SRv6 SID attributes */
+		/* generate table ID from the VRF name, if configured */
+		if (sid->attributes.vrf_name[0] != '\0') {
+			vrf = vrf_lookup_by_name(sid->attributes.vrf_name);
+			if (!vrf_is_enabled(vrf))
+				return;
+			ctx.vrf_id = vrf->vrf_id;
+		}
+
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT4:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID:
+		ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT4;
+		/* process SRv6 SID attributes */
+		/* generate table ID from the VRF name, if configured */
+		if (sid->attributes.vrf_name[0] != '\0') {
+			vrf = vrf_lookup_by_name(sid->attributes.vrf_name);
+			if (!vrf_is_enabled(vrf))
+				return;
+			ctx.vrf_id = vrf->vrf_id;
+		}
+
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT46:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID:
+		ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
+		/* process SRv6 SID attributes */
+		/* generate table ID from the VRF name, if configured */
+		if (sid->attributes.vrf_name[0] != '\0') {
+			vrf = vrf_lookup_by_name(sid->attributes.vrf_name);
+			if (!vrf_is_enabled(vrf))
+				return;
+			ctx.vrf_id = vrf->vrf_id;
+		}
+
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_X:
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID:
+	case SRV6_ENDPOINT_BEHAVIOR_OPAQUE:
+	case SRV6_ENDPOINT_BEHAVIOR_RESERVED:
+		zlog_warn("unsupported behavior: %u", sid->behavior);
+		return;
+	}
+
+	/* Request SRv6 SID from SID Manager */
+	ret = srv6_manager_get_sid(zclient, &ctx, &sid->addr.prefix, sid->locator->name, NULL);
+	if (ret < 0)
+		zlog_warn("%s: error getting SRv6 SID!", __func__);
+}
+
+extern void static_zebra_release_srv6_sid(struct static_srv6_sid *sid)
+{
+	struct srv6_sid_ctx ctx = {};
+	struct vrf *vrf;
+	int ret = 0;
+
+	if (!sid || !CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID))
+		return;
+
+	/* convert `srv6_endpoint_behavior_codepoint` to `seg6local_action_t` */
+	switch (sid->behavior) {
+	case SRV6_ENDPOINT_BEHAVIOR_END:
+	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID:
+		ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END;
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT6:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID:
+		ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+		/* process SRv6 SID attributes */
+		/* generate table ID from the VRF name, if configured */
+		if (sid->attributes.vrf_name[0] != '\0') {
+			vrf = vrf_lookup_by_name(sid->attributes.vrf_name);
+			if (!vrf_is_enabled(vrf))
+				return;
+			ctx.vrf_id = vrf->vrf_id;
+		}
+
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT4:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID:
+		ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT4;
+		/* process SRv6 SID attributes */
+		/* generate table ID from the VRF name, if configured */
+		if (sid->attributes.vrf_name[0] != '\0') {
+			vrf = vrf_lookup_by_name(sid->attributes.vrf_name);
+			if (!vrf_is_enabled(vrf))
+				return;
+			ctx.vrf_id = vrf->vrf_id;
+		}
+
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT46:
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID:
+		ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
+		/* process SRv6 SID attributes */
+		/* generate table ID from the VRF name, if configured */
+		if (sid->attributes.vrf_name[0] != '\0') {
+			vrf = vrf_lookup_by_name(sid->attributes.vrf_name);
+			if (!vrf_is_enabled(vrf))
+				return;
+			ctx.vrf_id = vrf->vrf_id;
+		}
+
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_X:
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID:
+	case SRV6_ENDPOINT_BEHAVIOR_OPAQUE:
+	case SRV6_ENDPOINT_BEHAVIOR_RESERVED:
+		zlog_warn("unsupported behavior: %u", sid->behavior);
+		return;
+	}
+
+	/* remove the SRv6 SID from the zebra RIB */
+	ret = srv6_manager_release_sid(zclient, &ctx);
+	if (ret == ZCLIENT_SEND_FAILURE)
+		flog_err(EC_LIB_ZAPI_SOCKET, "zclient_send_get_srv6_sid() delete failed: %s",
+			 safe_strerror(errno));
+}
+
+/**
+ * Ask the SRv6 Manager (zebra) about a specific locator
+ *
+ * @param name Locator name
+ * @return 0 on success, -1 otherwise
+ */
+int static_zebra_srv6_manager_get_locator(const char *name)
+{
+	if (!name)
+		return -1;
+
+	/*
+	 * Send the Get Locator request to the SRv6 Manager and return the
+	 * result
+	 */
+	return srv6_manager_get_locator(zclient, name);
+}
+
+static void request_srv6_sids(struct static_srv6_locator *locator)
+{
+	struct static_srv6_sid *sid;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(srv6_sids, node, sid)) {
+		if (sid->locator == locator)
+			static_zebra_request_srv6_sid(sid);
+	}
+}
+
+/**
+ * Internal function to process an SRv6 locator
+ *
+ * @param locator The locator to be processed
+ */
+static int static_zebra_process_srv6_locator_internal(struct srv6_locator *locator)
+{
+	struct static_srv6_locator *loc;
+	struct listnode *node;
+	struct static_srv6_sid *sid;
+
+	if (!locator)
+		return -1;
+
+	DEBUGD(&static_dbg_srv6,
+	       "%s: Received SRv6 locator %s %pFX, loc-block-len=%u, loc-node-len=%u func-len=%u, arg-len=%u",
+	       __func__, locator->name, &locator->prefix, locator->block_bits_length,
+	       locator->node_bits_length, locator->function_bits_length,
+	       locator->argument_bits_length);
+
+	/* If we are already aware about the locator, nothing to do */
+	loc = static_srv6_locator_lookup(locator->name);
+	if (loc)
+		return 0;
+
+	loc = static_srv6_locator_alloc(locator->name);
+
+	DEBUGD(&static_dbg_srv6, "%s: SRv6 locator (locator %s, prefix %pFX) set", __func__,
+	       locator->name, &locator->prefix);
+
+	/* Store the locator prefix */
+	loc->prefix = locator->prefix;
+	loc->block_bits_length = locator->block_bits_length;
+	loc->node_bits_length = locator->node_bits_length;
+	loc->function_bits_length = locator->function_bits_length;
+	loc->argument_bits_length = locator->argument_bits_length;
+	loc->flags = locator->flags;
+
+	listnode_add(srv6_locators, loc);
+
+	for (ALL_LIST_ELEMENTS_RO(srv6_sids, node, sid)) {
+		if (strncmp(sid->locator_name, loc->name, sizeof(loc->name)) == 0)
+			sid->locator = loc;
+	}
+
+	/* Request SIDs from the locator */
+	request_srv6_sids(loc);
+
+	return 0;
+}
+
+/**
+ * Callback to process an SRv6 locator received from SRv6 Manager (zebra).
+ *
+ * @result 0 on success, -1 otherwise
+ */
+static int static_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
+{
+	struct srv6_locator loc = {};
+
+	if (!srv6_locators)
+		return -1;
+
+	/* Decode the SRv6 locator */
+	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
+		return -1;
+
+	return static_zebra_process_srv6_locator_internal(&loc);
+}
+
+/**
+ * Callback to process a notification from SRv6 Manager (zebra) of an SRv6
+ * locator deleted.
+ *
+ * @result 0 on success, -1 otherwise
+ */
+static int static_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
+{
+	struct srv6_locator loc = {};
+	struct listnode *node2, *nnode2;
+	struct static_srv6_sid *sid;
+	struct static_srv6_locator *locator;
+
+	if (!srv6_locators)
+		return -1;
+
+	/* Decode the received zebra message */
+	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
+		return -1;
+
+	DEBUGD(&static_dbg_srv6,
+	       "%s: SRv6 locator deleted in zebra: name %s, prefix %pFX, block_len %u, node_len %u, func_len %u, arg_len %u",
+	       __func__, loc.name, &loc.prefix, loc.block_bits_length, loc.node_bits_length,
+	       loc.function_bits_length, loc.argument_bits_length);
+
+	locator = static_srv6_locator_lookup(loc.name);
+	if (!locator)
+		return 0;
+
+	DEBUGD(&static_dbg_srv6, "%s: Deleting srv6 sids from locator %s", __func__, locator->name);
+
+	/* Delete SRv6 SIDs */
+	for (ALL_LIST_ELEMENTS(srv6_sids, node2, nnode2, sid)) {
+		if (sid->locator != locator)
+			continue;
+
+
+		DEBUGD(&static_dbg_srv6, "%s: Deleting SRv6 SID (locator %s, sid %pFX)", __func__,
+		       locator->name, &sid->addr);
+
+		/*
+		 * Uninstall the SRv6 SID from the forwarding plane
+		 * through Zebra
+		 */
+		if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA)) {
+			static_zebra_srv6_sid_uninstall(sid);
+			UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
+		}
+	}
+
+	listnode_delete(srv6_locators, locator);
+	static_srv6_locator_free(locator);
+
+	return 0;
+}
+
+static int static_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
+{
+	struct srv6_sid_ctx ctx;
+	struct in6_addr sid_addr;
+	enum zapi_srv6_sid_notify note;
+	uint32_t sid_func;
+	struct listnode *node;
+	char buf[256];
+	struct static_srv6_sid *sid = NULL;
+	char *loc_name;
+	bool found = false;
+
+	if (!srv6_locators)
+		return -1;
+
+	/* Decode the received notification message */
+	if (!zapi_srv6_sid_notify_decode(zclient->ibuf, &ctx, &sid_addr, &sid_func, NULL, &note,
+					 &loc_name)) {
+		zlog_err("%s : error in msg decode", __func__);
+		return -1;
+	}
+
+	DEBUGD(&static_dbg_srv6,
+	       "%s: received SRv6 SID notify: ctx %s sid_value %pI6 sid_func %u note %s", __func__,
+	       srv6_sid_ctx2str(buf, sizeof(buf), &ctx), &sid_addr, sid_func,
+	       zapi_srv6_sid_notify2str(note));
+
+	/* Handle notification */
+	switch (note) {
+	case ZAPI_SRV6_SID_ALLOCATED:
+
+		DEBUGD(&static_dbg_srv6, "%s: SRv6 SID %pI6 %s ALLOCATED", __func__, &sid_addr,
+		       srv6_sid_ctx2str(buf, sizeof(buf), &ctx));
+
+		for (ALL_LIST_ELEMENTS_RO(srv6_sids, node, sid)) {
+			if (IPV6_ADDR_SAME(&sid->addr.prefix, &sid_addr)) {
+				found = true;
+				break;
+			}
+		}
+
+		if (!found || !sid) {
+			zlog_err("SRv6 SID %pI6 %s: not found", &sid_addr,
+				 srv6_sid_ctx2str(buf, sizeof(buf), &ctx));
+			return 0;
+		}
+
+		SET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID);
+
+		/*
+		 * Install the new SRv6 End SID in the forwarding plane through
+		 * Zebra
+		 */
+		static_zebra_srv6_sid_install(sid);
+
+		SET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
+
+		break;
+	case ZAPI_SRV6_SID_RELEASED:
+
+		DEBUGD(&static_dbg_srv6, "%s: SRv6 SID %pI6 %s: RELEASED", __func__, &sid_addr,
+		       srv6_sid_ctx2str(buf, sizeof(buf), &ctx));
+
+		UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID);
+
+		break;
+	case ZAPI_SRV6_SID_FAIL_ALLOC:
+		zlog_err("SRv6 SID %pI6 %s: Failed to allocate", &sid_addr,
+			 srv6_sid_ctx2str(buf, sizeof(buf), &ctx));
+
+		/* Error will be logged by zebra module */
+		break;
+	case ZAPI_SRV6_SID_FAIL_RELEASE:
+		zlog_err("%s: SRv6 SID %pI6 %s failure to release", __func__, &sid_addr,
+			 srv6_sid_ctx2str(buf, sizeof(buf), &ctx));
+
+		/* Error will be logged by zebra module */
+		break;
+	}
+
+	return 0;
+}
+
 static zclient_handler *const static_handlers[] = {
 	[ZEBRA_INTERFACE_ADDRESS_ADD] = interface_address_add,
 	[ZEBRA_INTERFACE_ADDRESS_DELETE] = interface_address_delete,
 	[ZEBRA_ROUTE_NOTIFY_OWNER] = route_notify_owner,
+	[ZEBRA_SRV6_LOCATOR_ADD] = static_zebra_process_srv6_locator_add,
+	[ZEBRA_SRV6_LOCATOR_DELETE] = static_zebra_process_srv6_locator_delete,
+	[ZEBRA_SRV6_SID_NOTIFY] = static_zebra_srv6_sid_notify,
 };
 
 void static_zebra_init(void)

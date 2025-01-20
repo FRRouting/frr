@@ -16,8 +16,7 @@
 #define ISIS_DEFAULT_SRV6_MAX_SEG_LEFT_MSD        3
 #define ISIS_DEFAULT_SRV6_MAX_END_POP_MSD         3
 #define ISIS_DEFAULT_SRV6_MAX_H_ENCAPS_MSD        2
-#define ISIS_DEFAULT_SRV6_MAX_END_D_MSD           5
-#define ISIS_DEFAULT_SRV6_IFNAME                 "sr0"
+#define ISIS_DEFAULT_SRV6_MAX_END_D_MSD		  5
 
 /* SRv6 SID structure */
 struct isis_srv6_sid_structure {

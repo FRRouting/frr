@@ -118,12 +118,42 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 	struct nb_cb_modify_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_traffic_class_destroy(
 	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_create(
+	struct nb_cb_create_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_create(
+	struct nb_cb_create_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_local_sids_create(
+	struct nb_cb_create_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_local_sids_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_local_sids_sid_create(
+	struct nb_cb_create_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_local_sids_sid_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_local_sids_sid_behavior_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_local_sids_sid_behavior_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_local_sids_sid_vrf_name_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_local_sids_sid_vrf_name_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_local_sids_sid_locator_name_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_local_sids_sid_locator_name_destroy(
+	struct nb_cb_destroy_args *args);
 
 /* Optional 'apply_finish' callbacks. */
 
 void routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_apply_finish(
 	struct nb_cb_apply_finish_args *args);
 void routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_apply_finish(
+	struct nb_cb_apply_finish_args *args);
+void routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_local_sids_sid_apply_finish(
 	struct nb_cb_apply_finish_args *args);
 
 /* Optional 'pre_validate' callbacks. */
@@ -205,6 +235,24 @@ int routing_control_plane_protocols_name_validate(
 #define FRR_DEL_S_ROUTE_SRC_NH_KEY_NO_DISTANCE_XPATH                           \
 	FRR_S_ROUTE_SRC_INFO_KEY_NO_DISTANCE_XPATH                             \
 	FRR_STATIC_ROUTE_NH_KEY_XPATH
+
+/* srv6 */
+#define FRR_STATIC_SRV6_INFO_KEY_XPATH                                                             \
+	"/frr-routing:routing/control-plane-protocols/"                                            \
+	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"                                  \
+	"frr-staticd:staticd/segment-routing/srv6"
+
+/* srv6/static-sids */
+#define FRR_STATIC_SRV6_SID_KEY_XPATH                                                              \
+	FRR_STATIC_SRV6_INFO_KEY_XPATH                                                             \
+	"/static-sids/"                                                                            \
+	"sid[sid='%s']"
+
+#define FRR_STATIC_SRV6_SID_BEHAVIOR_XPATH "/behavior"
+
+#define FRR_STATIC_SRV6_SID_VRF_NAME_XPATH "/vrf-name"
+
+#define FRR_STATIC_SRV6_SID_LOCATOR_NAME_XPATH "/locator-name"
 
 #ifdef __cplusplus
 }

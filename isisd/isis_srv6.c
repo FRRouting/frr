@@ -698,7 +698,7 @@ void isis_srv6_area_init(struct isis_area *area)
 	srv6db->config.max_end_pop_msd = ISIS_DEFAULT_SRV6_MAX_END_POP_MSD;
 	srv6db->config.max_h_encaps_msd = ISIS_DEFAULT_SRV6_MAX_H_ENCAPS_MSD;
 	srv6db->config.max_end_d_msd = ISIS_DEFAULT_SRV6_MAX_END_D_MSD;
-	strlcpy(srv6db->config.srv6_ifname, ISIS_DEFAULT_SRV6_IFNAME, sizeof(srv6db->config.srv6_ifname));
+	strlcpy(srv6db->config.srv6_ifname, DEFAULT_SRV6_IFNAME, sizeof(srv6db->config.srv6_ifname));
 #endif
 
 	/* Initialize SRv6 Locator chunks list */
