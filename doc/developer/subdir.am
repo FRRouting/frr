@@ -83,6 +83,7 @@ dev_RSTFILES = \
 	doc/developer/northbound/transactional-cli.rst \
 	doc/developer/northbound/yang-module-translator.rst \
 	doc/developer/northbound/yang-tools.rst \
+	doc/developer/sbfd.rst \
 	# end
 
 EXTRA_DIST += \
