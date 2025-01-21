@@ -792,6 +792,7 @@ struct bgp {
  * for bestpath comparison of imported paths.
  */
 #define BGP_FLAG_BESTPATH_USE_IMPORTED_ATTRS (1ULL << 47)
+#define BGP_FLAG_RTC_EOR_MARKER		     (1ULL << 63)
 
 	/* BGP default address-families.
 	 * New peers inherit enabled afi/safis from bgp instance.
@@ -1914,6 +1915,7 @@ struct peer {
 #define PEER_FLAG_LS_LOCAL_LINK_ID  (1ULL << 49)
 #define PEER_FLAG_LS_REMOTE_LINK_ID (1ULL << 50)
 #define PEER_FLAG_EBGP_MULTIHOP	    (1ULL << 51) /* explicit ebgp-multihop config */
+#define PEER_FLAG_RTC_UPDATE	    (1ULL << 63)
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
