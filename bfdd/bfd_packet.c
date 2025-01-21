@@ -65,11 +65,11 @@ static int bp_raw_sbfd_red_send(int sd, uint8_t *data, size_t datalen, uint16_t 
 				struct in6_addr *out_sip, struct in6_addr *sip,
 				struct in6_addr *dip, uint16_t src_port, uint16_t dst_port,
 				uint8_t seg_num, struct in6_addr *segment_list);
-ssize_t bfd_recv_ipv4_fp(int sd, uint8_t *msgbuf, size_t msgbuflen,
-			 uint8_t *ttl, ifindex_t *ifindex,
-			 struct sockaddr_any *local, struct sockaddr_any *peer);
-void bfd_peer_mac_set(int sd, struct bfd_session *bfd,
-		      struct sockaddr_any *peer, struct interface *ifp);
+static ssize_t bfd_recv_ipv4_fp(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
+				ifindex_t *ifindex, struct sockaddr_any *local,
+				struct sockaddr_any *peer);
+static void bfd_peer_mac_set(int sd, struct bfd_session *bfd, struct sockaddr_any *peer,
+			     struct interface *ifp);
 int bp_udp_send_fp(int sd, uint8_t *data, size_t datalen,
 		   struct bfd_session *bfd);
 ssize_t bfd_recv_fp_echo(int sd, uint8_t *msgbuf, size_t msgbuflen,
@@ -470,9 +470,9 @@ void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 /*
  * receive the ipv4 echo packet that was loopback in the peers forwarding plane
  */
-ssize_t bfd_recv_ipv4_fp(int sd, uint8_t *msgbuf, size_t msgbuflen,
-			 uint8_t *ttl, ifindex_t *ifindex,
-			 struct sockaddr_any *local, struct sockaddr_any *peer)
+static ssize_t bfd_recv_ipv4_fp(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
+				ifindex_t *ifindex, struct sockaddr_any *local,
+				struct sockaddr_any *peer)
 {
 	ssize_t mlen;
 	struct sockaddr_ll msgaddr;
@@ -1808,8 +1808,8 @@ int bp_echov6_socket(const struct vrf *vrf)
 /* get peer's mac address to be used with Echo packets when they are looped in
  * peers forwarding plane
  */
-void bfd_peer_mac_set(int sd, struct bfd_session *bfd,
-		      struct sockaddr_any *peer, struct interface *ifp)
+static void bfd_peer_mac_set(int sd, struct bfd_session *bfd, struct sockaddr_any *peer,
+			     struct interface *ifp)
 {
 	struct arpreq arpreq_;
 

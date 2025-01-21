@@ -18,6 +18,7 @@
 #include "table.h"
 #include "vty.h"
 #include "bfd.h"
+#include "bfdd/bfd.h"
 
 DEFINE_MTYPE_STATIC(LIB, BFD_INFO, "BFD info");
 DEFINE_MTYPE_STATIC(LIB, BFD_SOURCE, "BFD source cache");
@@ -140,14 +141,15 @@ static void bfd_source_cache_put(struct bfd_session_params *session);
  * bfd_get_peer_info - Extract the Peer information for which the BFD session
  *                     went down from the message sent from Zebra to clients.
  */
-static struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp,
-					   struct prefix *sp, int *status,
-					   int *remote_cbit, vrf_id_t vrf_id)
+static struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp, struct prefix *sp,
+					   int *status, int *remote_cbit, vrf_id_t vrf_id,
+					   char *bfd_name)
 {
 	unsigned int ifindex;
 	struct interface *ifp = NULL;
 	int plen;
 	int local_remote_cbit;
+	uint8_t bfd_name_len = 0;
 
 	/*
 	 * If the ifindex lookup fails the
@@ -194,6 +196,13 @@ static struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp,
 	STREAM_GETC(s, local_remote_cbit);
 	if (remote_cbit)
 		*remote_cbit = local_remote_cbit;
+
+	STREAM_GETC(s, bfd_name_len);
+	if (bfd_name_len) {
+		STREAM_GET(bfd_name, s, bfd_name_len);
+		*(bfd_name + bfd_name_len) = 0;
+	}
+
 	return ifp;
 
 stream_failure:
@@ -365,6 +374,7 @@ int zclient_bfd_command(struct zclient *zc, struct bfd_session_arg *args)
 	stream_putc(s, args->profilelen);
 	if (args->profilelen)
 		stream_put(s, args->profile, args->profilelen);
+
 #else /* PTM BFD */
 	/* Encode timers if this is a registration message. */
 	if (args->command != ZEBRA_BFD_DEST_DEREGISTER) {
@@ -742,6 +752,7 @@ void bfd_sess_install(struct bfd_session_params *bsp)
 	event_add_event(bsglobal.tm, _bfd_sess_send, bsp, 0, &bsp->installev);
 }
 
+
 void bfd_sess_uninstall(struct bfd_session_params *bsp)
 {
 	bsp->lastev = BSE_UNINSTALL;
@@ -918,6 +929,7 @@ int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
 	struct prefix dp;
 	struct prefix sp;
 	char ifstr[128], cbitstr[32];
+	char bfd_name[BFD_NAME_SIZE + 1] = { 0 };
 
 	if (!zclient->bfd_integration)
 		return 0;
@@ -926,8 +938,7 @@ int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
 	if (bsglobal.shutting_down)
 		return 0;
 
-	ifp = bfd_get_peer_info(zclient->ibuf, &dp, &sp, &state, &remote_cbit,
-				vrf_id);
+	ifp = bfd_get_peer_info(zclient->ibuf, &dp, &sp, &state, &remote_cbit, vrf_id, bfd_name);
 	/*
 	 * When interface lookup fails or an invalid stream is read, we must
 	 * not proceed otherwise it will trigger an assertion while checking
