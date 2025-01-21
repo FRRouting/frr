@@ -503,6 +503,136 @@ module frr-bfdd {
             config false;
           }
         }
+
+        list sbfd-echo {
+          key "source-addr bfd-name vrf";
+          description "support a special echo SBFD session in RFC7880, and enhanced with SRv6 encapsulation";
+
+          leaf source-addr {
+            type inet:ip-address;
+            description "Local IP address";
+          }
+
+          leaf dest-addr {
+            type inet:ip-address;
+            description "IP address of the peer";
+          }
+
+          leaf bfd-name {
+            type string;
+            default "";
+            description "Bfd session name.";
+          }
+
+          leaf vrf {
+            type frr-vrf:vrf-ref;
+            description "Virtual Routing Domain name";
+          }
+
+          leaf profile {
+            type profile-ref;
+            description "Override defaults with profile.";
+          }
+
+          leaf-list srv6-encap-data {
+            type inet:ipv6-address;
+            max-elements 6;
+
+            description "segment list ipv6 addresses for srv6 encapsulation";
+          }
+
+          leaf srv6-source-ipv6 {
+            type inet:ipv6-address;
+            description "source ipv6 address for srv6 encapsulation";
+          }
+
+          leaf bfd-mode {
+            type uint32;
+            description "Bfd session mode.";
+          }
+
+          leaf multi-hop {
+            type boolean;
+            description "Use multi hop session instead of single hop.";
+          }
+
+          uses session-common;
+          uses session-multi-hop;
+          uses session-echo;
+
+          container stats {
+            uses session-states;
+            config false;
+          }
+        }
+
+        list sbfd-init {
+          key "source-addr dest-addr bfd-name vrf";
+          description "support SBFD session in RFC7880, and optional with SRv6 encapsulation";
+
+          leaf source-addr {
+            type inet:ip-address;
+            description "Local IP address";
+          }
+
+          leaf dest-addr {
+            type inet:ip-address;
+            description "IP address of the peer";
+          }
+
+          leaf bfd-name {
+            type string;
+            default "";
+            description "Bfd session name.";
+          }
+
+          leaf vrf {
+            type frr-vrf:vrf-ref;
+            description "Virtual Routing Domain name";
+          }
+
+          leaf profile {
+            type profile-ref;
+            description "Override defaults with profile.";
+          }
+
+          leaf-list srv6-encap-data {
+            type inet:ipv6-address;
+            max-elements 6;
+
+            description "segment list ipv6 addresses for srv6 encapsulation";
+          }
+
+          leaf srv6-source-ipv6 {
+            type inet:ip-address;
+            description "source ipv6 address for srv6 encapsulation";
+          }
+
+          leaf remote-discr {
+            type uint32;
+            default 0;
+            description
+              "Remote session identifier";
+          }
+
+          leaf bfd-mode {
+            type uint32;
+            description "Bfd session mode.";
+          }
+
+          leaf multi-hop {
+            type boolean;
+            description "Use multi hop session instead of single hop.";
+          }
+
+          uses session-common;
+          uses session-multi-hop;
+
+          container stats {
+            uses session-states;
+            config false;
+          }
+        }
       }
     }
   }
