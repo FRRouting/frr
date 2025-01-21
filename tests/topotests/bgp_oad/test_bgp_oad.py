@@ -56,6 +56,7 @@ def test_bgp_oad():
     r2 = tgen.gears["r2"]
     r3 = tgen.gears["r3"]
     r4 = tgen.gears["r4"]
+    r5 = tgen.gears["r5"]
 
     def _bgp_converge():
         output = json.loads(r1.vtysh_cmd("show bgp ipv4 unicast 10.10.10.10/32 json"))
@@ -120,6 +121,38 @@ def test_bgp_oad():
     )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "10.10.10.1/32 should not be advertised to r4 (not OAD peer)"
+
+    def _bgp_check_non_transitive_extended_community(
+        router, arg={"string": "LB:65003:12500000 (100.000 Mbps)"}
+    ):
+        output = json.loads(
+            router.vtysh_cmd("show bgp ipv4 unicast 10.10.10.20/32 json")
+        )
+        expected = {
+            "paths": [
+                {
+                    "extendedCommunity": arg,
+                }
+            ]
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(
+        _bgp_check_non_transitive_extended_community,
+        r4,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert (
+        result is None
+    ), "10.10.10.20/32 should be received at r4 with non-transitive extended community"
+
+    test_func = functools.partial(
+        _bgp_check_non_transitive_extended_community, r5, None
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert (
+        result is None
+    ), "10.10.10.20/32 should NOT be received at r5 with non-transitive extended community"
 
 
 if __name__ == "__main__":
