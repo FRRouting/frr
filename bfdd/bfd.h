@@ -580,13 +580,21 @@ typedef void (*bfd_ev_cb)(struct event *t);
 
 void bfd_recvtimer_update(struct bfd_session *bs);
 void bfd_echo_recvtimer_update(struct bfd_session *bs);
+void sbfd_init_recvtimer_update(struct bfd_session *bs);
+void sbfd_echo_recvtimer_update(struct bfd_session *bs);
 void bfd_xmttimer_update(struct bfd_session *bs, uint64_t jitter);
 void bfd_echo_xmttimer_update(struct bfd_session *bs, uint64_t jitter);
+void sbfd_init_xmttimer_update(struct bfd_session *bs, uint64_t jitter);
+void sbfd_echo_xmttimer_update(struct bfd_session *bs, uint64_t jitter);
 
 void bfd_xmttimer_delete(struct bfd_session *bs);
 void bfd_echo_xmttimer_delete(struct bfd_session *bs);
+void sbfd_init_xmttimer_delete(struct bfd_session *bs);
+void sbfd_echo_xmttimer_delete(struct bfd_session *bs);
 void bfd_recvtimer_delete(struct bfd_session *bs);
 void bfd_echo_recvtimer_delete(struct bfd_session *bs);
+void sbfd_init_recvtimer_delete(struct bfd_session *bs);
+void sbfd_echo_recvtimer_delete(struct bfd_session *bs);
 
 void bfd_recvtimer_assign(struct bfd_session *bs, bfd_ev_cb cb, int sd);
 void bfd_echo_recvtimer_assign(struct bfd_session *bs, bfd_ev_cb cb, int sd);
@@ -609,6 +617,9 @@ void ptm_bfd_echo_stop(struct bfd_session *bfd);
 void ptm_bfd_echo_start(struct bfd_session *bfd);
 void ptm_bfd_xmt_TO(struct bfd_session *bfd, int fbit);
 void ptm_bfd_start_xmt_timer(struct bfd_session *bfd, bool is_echo);
+void ptm_sbfd_init_xmt_TO(struct bfd_session *bfd, int fbit);
+void ptm_sbfd_init_reset(struct bfd_session *bfd);
+void ptm_sbfd_echo_reset(struct bfd_session *bfd);
 struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp,
 				      struct sockaddr_any *peer,
 				      struct sockaddr_any *local,
@@ -642,6 +653,7 @@ const struct bfd_session *bfd_session_next(const struct bfd_session *bs, bool mh
 					   uint32_t bfd_mode);
 void bfd_sessions_remove_manual(void);
 void bfd_profiles_remove(void);
+void bs_sbfd_echo_timer_handler(struct bfd_session *bs);
 void bfd_rtt_init(struct bfd_session *bfd);
 
 extern void bfd_vrf_toggle_echo(struct bfd_vrf_global *bfd_vrf);
@@ -711,6 +723,11 @@ void bfd_recvtimer_cb(struct event *t);
 void bfd_echo_recvtimer_cb(struct event *t);
 void bfd_xmt_cb(struct event *t);
 void bfd_echo_xmt_cb(struct event *t);
+
+void sbfd_init_recvtimer_cb(struct event *t);
+void sbfd_echo_recvtimer_cb(struct event *t);
+void sbfd_init_xmt_cb(struct event *t);
+void sbfd_echo_xmt_cb(struct event *t);
 
 extern struct in6_addr zero_addr;
 
@@ -852,4 +869,12 @@ struct sbfd_reflector *sbfd_reflector_new(const uint32_t discr, struct in6_addr 
 void sbfd_reflector_free(const uint32_t discr);
 void sbfd_reflector_flush(void);
 
+/*sbfd*/
+void ptm_sbfd_echo_sess_dn(struct bfd_session *bfd, uint8_t diag);
+void ptm_sbfd_init_sess_dn(struct bfd_session *bfd, uint8_t diag);
+void ptm_sbfd_sess_up(struct bfd_session *bfd);
+void sbfd_echo_state_handler(struct bfd_session *bs, int nstate);
+void sbfd_initiator_state_handler(struct bfd_session *bs, int nstate);
+
+struct bfd_session *bfd_session_get_by_name(const char *name);
 #endif /* _BFD_H_ */

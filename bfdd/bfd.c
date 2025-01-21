@@ -40,6 +40,10 @@ static void bs_down_handler(struct bfd_session *bs, int nstate);
 static void bs_init_handler(struct bfd_session *bs, int nstate);
 static void bs_up_handler(struct bfd_session *bs, int nstate);
 
+static void ptm_sbfd_echo_xmt_TO(struct bfd_session *bfd);
+static void sbfd_down_handler(struct bfd_session *bs, int nstate);
+static void sbfd_up_handler(struct bfd_session *bs, int nstate);
+
 /**
  * Remove BFD profile from all BFD sessions so we don't leave dangling
  * pointers.
@@ -468,6 +472,37 @@ void ptm_bfd_xmt_TO(struct bfd_session *bfd, int fbit)
 	ptm_bfd_start_xmt_timer(bfd, false);
 }
 
+static void ptm_sbfd_echo_xmt_TO(struct bfd_session *bfd)
+{
+	/* Send the scheduled sbfd-echo  packet */
+	ptm_sbfd_echo_snd(bfd);
+
+	/* Restart the timer for next time */
+	ptm_bfd_start_xmt_timer(bfd, true);
+}
+
+void ptm_sbfd_init_xmt_TO(struct bfd_session *bfd, int fbit)
+{
+	/* Send the scheduled control packet */
+	ptm_sbfd_initiator_snd(bfd, fbit);
+
+	/* Restart the timer for next time */
+	ptm_bfd_start_xmt_timer(bfd, false);
+}
+
+void ptm_sbfd_init_reset(struct bfd_session *bfd)
+{
+	bfd->xmt_TO = BFD_DEF_SLOWTX;
+	bfd->detect_TO = 0;
+	ptm_sbfd_init_xmt_TO(bfd, 0);
+}
+void ptm_sbfd_echo_reset(struct bfd_session *bfd)
+{
+	bfd->echo_xmt_TO = SBFD_ECHO_DEF_SLOWTX;
+	bfd->echo_detect_TO = 0;
+	ptm_sbfd_echo_xmt_TO(bfd);
+}
+
 void ptm_bfd_echo_stop(struct bfd_session *bfd)
 {
 	bfd->echo_xmt_TO = 0;
@@ -568,6 +603,96 @@ void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag)
 	bfd_rtt_init(bfd);
 }
 
+/*sbfd session up , include sbfd and sbfd echo*/
+void ptm_sbfd_sess_up(struct bfd_session *bfd)
+{
+	int old_state = bfd->ses_state;
+
+	bfd->local_diag = 0;
+	bfd->ses_state = PTM_BFD_UP;
+	monotime(&bfd->uptime);
+
+	/*notify session up*/
+	ptm_bfd_notify(bfd, bfd->ses_state);
+
+	if (old_state != bfd->ses_state) {
+		bfd->stats.session_up++;
+		if (bglobal.debug_peer_event)
+			zlog_info("state-change: [%s] %s -> %s", bs_to_string(bfd),
+				  state_list[old_state].str, state_list[bfd->ses_state].str);
+	}
+}
+
+/*sbfd init session TO */
+void ptm_sbfd_init_sess_dn(struct bfd_session *bfd, uint8_t diag)
+{
+	int old_state = bfd->ses_state;
+
+	bfd->local_diag = diag;
+	bfd->ses_state = PTM_BFD_DOWN;
+	bfd->polling = 0;
+	bfd->demand_mode = 0;
+	monotime(&bfd->downtime);
+
+	/*
+	 * Only attempt to send if we have a valid socket:
+	 * this function might be called by session disablers and in
+	 * this case we won't have a valid socket (i.e. interface was
+	 * removed or VRF doesn't exist anymore).
+	 */
+	if (bfd->sock != -1)
+		ptm_sbfd_init_reset(bfd);
+
+	/* Slow down the control packets, the connection is down. */
+	bs_set_slow_timers(bfd);
+
+	/* only signal clients when going from up->down state */
+	if (old_state == PTM_BFD_UP)
+		ptm_bfd_notify(bfd, PTM_BFD_DOWN);
+
+	/* Stop attempting to transmit or expect control packets if passive. */
+	if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_PASSIVE)) {
+		sbfd_init_recvtimer_delete(bfd);
+		sbfd_init_xmttimer_delete(bfd);
+	}
+
+	if (old_state != bfd->ses_state) {
+		bfd->stats.session_down++;
+		if (bglobal.debug_peer_event)
+			zlog_debug("state-change: [%s] %s -> %s reason:%s", bs_to_string(bfd),
+				   state_list[old_state].str, state_list[bfd->ses_state].str,
+				   get_diag_str(bfd->local_diag));
+	}
+	/* reset local address ,it might has been be changed after bfd is up*/
+	//memset(&bfd->local_address, 0, sizeof(bfd->local_address));
+}
+
+/*sbfd echo session TO */
+void ptm_sbfd_echo_sess_dn(struct bfd_session *bfd, uint8_t diag)
+{
+	int old_state = bfd->ses_state;
+
+	bfd->local_diag = diag;
+	bfd->discrs.remote_discr = 0;
+	bfd->ses_state = PTM_BFD_DOWN;
+	bfd->polling = 0;
+	bfd->demand_mode = 0;
+	monotime(&bfd->downtime);
+	/* only signal clients when going from up->down state */
+	if (old_state == PTM_BFD_UP)
+		ptm_bfd_notify(bfd, PTM_BFD_DOWN);
+
+	ptm_sbfd_echo_reset(bfd);
+
+	if (old_state != bfd->ses_state) {
+		bfd->stats.session_down++;
+		if (bglobal.debug_peer_event)
+			zlog_warn("state-change: [%s] %s -> %s reason:%s", bs_to_string(bfd),
+				  state_list[old_state].str, state_list[bfd->ses_state].str,
+				  get_diag_str(bfd->local_diag));
+	}
+}
+
 static struct bfd_session *bfd_find_disc(struct sockaddr_any *sa,
 					 uint32_t ldisc)
 {
@@ -632,6 +757,21 @@ void bfd_echo_xmt_cb(struct event *t)
 		ptm_bfd_echo_xmt_TO(bs);
 }
 
+void sbfd_init_xmt_cb(struct event *t)
+{
+	struct bfd_session *bs = EVENT_ARG(t);
+
+	ptm_sbfd_init_xmt_TO(bs, 0);
+}
+
+void sbfd_echo_xmt_cb(struct event *t)
+{
+	struct bfd_session *bs = EVENT_ARG(t);
+
+	if (bs->echo_xmt_TO > 0)
+		ptm_sbfd_echo_xmt_TO(bs);
+}
+
 /* Was ptm_bfd_detect_TO() */
 void bfd_recvtimer_cb(struct event *t)
 {
@@ -654,6 +794,42 @@ void bfd_echo_recvtimer_cb(struct event *t)
 	case PTM_BFD_INIT:
 	case PTM_BFD_UP:
 		ptm_bfd_sess_dn(bs, BD_ECHO_FAILED);
+		break;
+	}
+}
+
+void sbfd_init_recvtimer_cb(struct event *t)
+{
+	struct bfd_session *bs = EVENT_ARG(t);
+
+	switch (bs->ses_state) {
+	case PTM_BFD_INIT:
+	case PTM_BFD_UP:
+		ptm_sbfd_init_sess_dn(bs, BD_PATH_DOWN);
+		break;
+
+	default:
+		/* Second detect time expiration, zero remote discr (section
+		 * 6.5.1)
+		 */
+		break;
+	}
+}
+void sbfd_echo_recvtimer_cb(struct event *t)
+{
+	struct bfd_session *bs = EVENT_ARG(t);
+
+	if (bglobal.debug_peer_event) {
+		zlog_debug("%s:  time-out bfd: [%s]  bfd'state is %s", __func__, bs_to_string(bs),
+			   state_list[bs->ses_state].str);
+	}
+
+	switch (bs->ses_state) {
+	case PTM_BFD_INIT:
+	case PTM_BFD_UP:
+		ptm_sbfd_echo_sess_dn(bs, BD_PATH_DOWN);
+		break;
+	case PTM_BFD_DOWN:
 		break;
 	}
 }
@@ -984,6 +1160,30 @@ static void bs_down_handler(struct bfd_session *bs, int nstate)
 	}
 }
 
+static void sbfd_down_handler(struct bfd_session *bs, int nstate)
+{
+	switch (nstate) {
+	case PTM_BFD_ADM_DOWN:
+		/*
+		 * Remote peer doesn't want to talk, so lets keep the
+		 * connection down.
+		 */
+		break;
+	case PTM_BFD_UP:
+		/* down - > up*/
+		ptm_sbfd_sess_up(bs);
+		break;
+
+	case PTM_BFD_DOWN:
+		break;
+
+	default:
+		if (bglobal.debug_peer_event)
+			zlog_err("state-change: unhandled sbfd state: %d", nstate);
+		break;
+	}
+}
+
 static void bs_init_handler(struct bfd_session *bs, int nstate)
 {
 	switch (nstate) {
@@ -1035,6 +1235,29 @@ static void bs_up_handler(struct bfd_session *bs, int nstate)
 	}
 }
 
+static void sbfd_up_handler(struct bfd_session *bs, int nstate)
+{
+	switch (nstate) {
+	case PTM_BFD_ADM_DOWN:
+	case PTM_BFD_DOWN:
+		if (bs->bfd_mode == BFD_MODE_TYPE_SBFD_ECHO) {
+			ptm_sbfd_echo_sess_dn(bs, BD_ECHO_FAILED);
+		} else
+			ptm_sbfd_init_sess_dn(bs, BD_ECHO_FAILED);
+
+		break;
+
+	case PTM_BFD_UP:
+		/* Path is up and working. */
+		break;
+
+	default:
+		if (bglobal.debug_peer_event)
+			zlog_debug("state-change: unhandled neighbor state: %d", nstate);
+		break;
+	}
+}
+
 void bs_state_handler(struct bfd_session *bs, int nstate)
 {
 	switch (bs->ses_state) {
@@ -1055,6 +1278,58 @@ void bs_state_handler(struct bfd_session *bs, int nstate)
 		if (bglobal.debug_peer_event)
 			zlog_debug("state-change: [%s] is in invalid state: %d",
 				   bs_to_string(bs), nstate);
+		break;
+	}
+}
+
+void sbfd_echo_state_handler(struct bfd_session *bs, int nstate)
+{
+	if (bglobal.debug_peer_event)
+		zlog_debug("%s:  bfd(%u) state: %s , notify state: %s", __func__,
+			   bs->discrs.my_discr, state_list[bs->ses_state].str,
+			   state_list[nstate].str);
+
+	switch (bs->ses_state) {
+	case PTM_BFD_ADM_DOWN:
+		// bs_admin_down_handler(bs, nstate);
+		break;
+	case PTM_BFD_DOWN:
+		sbfd_down_handler(bs, nstate);
+		break;
+	case PTM_BFD_UP:
+		sbfd_up_handler(bs, nstate);
+		break;
+
+	default:
+		if (bglobal.debug_peer_event)
+			zlog_debug("state-change: [%s] is in invalid state: %d", bs_to_string(bs),
+				   nstate);
+		break;
+	}
+}
+
+void sbfd_initiator_state_handler(struct bfd_session *bs, int nstate)
+{
+	if (bglobal.debug_peer_event)
+		zlog_debug("%s:  sbfd(%u) state: %s , notify state: %s", __func__,
+			   bs->discrs.my_discr, state_list[bs->ses_state].str,
+			   state_list[nstate].str);
+
+	switch (bs->ses_state) {
+	case PTM_BFD_ADM_DOWN:
+		// bs_admin_down_handler(bs, nstate);
+		break;
+	case PTM_BFD_DOWN:
+		sbfd_down_handler(bs, nstate);
+		break;
+	case PTM_BFD_UP:
+		sbfd_up_handler(bs, nstate);
+		break;
+
+	default:
+		if (bglobal.debug_peer_event)
+			zlog_debug("state-change: [%s] is in invalid state: %d", bs_to_string(bs),
+				   nstate);
 		break;
 	}
 }
@@ -2168,6 +2443,41 @@ void sbfd_reflector_flush()
 {
 	sbfd_discr_iterate(_sbfd_reflector_free, NULL);
 	return;
+}
+
+struct bfd_session_name_match_unique {
+	const char *bfd_name;
+	struct bfd_session *bfd_found;
+};
+
+static int _bfd_session_name_cmp(struct hash_bucket *hb, void *arg)
+{
+	struct bfd_session *bs = hb->data;
+	struct bfd_session_name_match_unique *match = (struct bfd_session_name_match_unique *)arg;
+
+	if (strlen(bs->bfd_name) != strlen(match->bfd_name)) {
+		return HASHWALK_CONTINUE;
+	}
+
+	if (!strncmp(bs->bfd_name, match->bfd_name, strlen(bs->bfd_name))) {
+		match->bfd_found = bs;
+		return HASHWALK_ABORT;
+	}
+	return HASHWALK_CONTINUE;
+}
+
+struct bfd_session *bfd_session_get_by_name(const char *name)
+{
+	if (!name || name[0] == '\0')
+		return NULL;
+
+	struct bfd_session_name_match_unique match;
+	match.bfd_name = name;
+	match.bfd_found = NULL;
+
+	hash_walk(bfd_key_hash, _bfd_session_name_cmp, &match);
+
+	return match.bfd_found;
 }
 
 void bfd_rtt_init(struct bfd_session *bfd)
