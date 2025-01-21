@@ -251,6 +251,7 @@ struct update_subgroup {
 
 	uint16_t flags;
 #define SUBGRP_FLAG_NEEDS_REFRESH (1 << 0)
+#define SUBGRP_FLAG_NEEDS_RTC_REFRESH (1 << 1)
 };
 
 /*
@@ -578,6 +579,85 @@ static inline void bgp_announce_peer(struct peer *peer)
 		paf = peer->peer_af_array[afidx];
 		if (paf != NULL)
 			subgroup_announce_all(PAF_SUBGRP(paf));
+	}
+}
+
+static inline uint8_t _bgp_announce_peer_set_rtc_refresh(struct peer *peer)
+{
+	struct peer_af *paf;
+	int afidx;
+	uint8_t nb_af = 0;
+
+	for (afidx = BGP_AF_START; afidx < BGP_AF_MAX; afidx++) {
+		if (afidx != BGP_AF_IPV4_VPN && afidx != BGP_AF_IPV6_VPN &&
+		    afidx != BGP_AF_L2VPN_EVPN)
+			continue;
+
+		paf = peer->peer_af_array[afidx];
+		if (paf && PAF_SUBGRP(paf)) {
+			SET_FLAG(PAF_SUBGRP(paf)->flags, SUBGRP_FLAG_NEEDS_RTC_REFRESH);
+
+			nb_af++;
+		}
+	}
+
+	return nb_af;
+}
+
+/* Mark peer_af for update due to an RTC update */
+static inline void bgp_announce_peer_set_rtc_refresh(struct peer *peer)
+{
+	struct listnode *node;
+	struct peer *peer_iter;
+	struct bgp *bgp = peer->bgp;
+	uint8_t ipv4_vpn = !!bgp->af_peer_count[AFI_IP][SAFI_MPLS_VPN];
+	uint8_t ipv6_vpn = !!bgp->af_peer_count[AFI_IP6][SAFI_MPLS_VPN];
+	uint8_t evpn = !!bgp->af_peer_count[AFI_L2VPN][SAFI_EVPN];
+	uint8_t max_af = ipv4_vpn + ipv6_vpn + evpn;
+	uint8_t nb_af = 0;
+
+	if (max_af == 1) {
+		/* There is only one enabled (E)VPN address-family */
+		_bgp_announce_peer_set_rtc_refresh(peer);
+
+		return;
+	}
+
+	/* The remote router specified by 'peer' may establish multiple BGP sessions.
+	 * Identify any other sessions matching the remote router ID.
+	 */
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer_iter)) {
+		if (peer != peer_iter && peer->remote_id.s_addr != peer_iter->remote_id.s_addr)
+			continue;
+
+		nb_af += _bgp_announce_peer_set_rtc_refresh(peer_iter);
+
+		if (nb_af == max_af)
+			/* Cannot have more peers with the same router ID */
+			break;
+	}
+}
+
+/*
+ * update_group_adjust_peer_afs
+ *
+ * Adjust all peer_af structures for the given peer.
+ */
+static inline void bgp_announce_peer_rtc_refresh(struct peer *peer)
+{
+	struct peer_af *paf;
+	int afidx;
+
+	for (afidx = BGP_AF_START; afidx < BGP_AF_MAX; afidx++) {
+		if (afidx != BGP_AF_IPV4_VPN && afidx != BGP_AF_IPV6_VPN &&
+		    afidx != BGP_AF_L2VPN_EVPN)
+			continue;
+		paf = peer->peer_af_array[afidx];
+		if (paf && PAF_SUBGRP(paf) &&
+		    CHECK_FLAG(PAF_SUBGRP(paf)->flags, SUBGRP_FLAG_NEEDS_RTC_REFRESH)) {
+			subgroup_announce_all(PAF_SUBGRP(paf));
+			UNSET_FLAG(PAF_SUBGRP(paf)->flags, SUBGRP_FLAG_NEEDS_RTC_REFRESH);
+		}
 	}
 }
 

@@ -568,6 +568,7 @@ struct bgp {
 #define BGP_FLAG_L3VNI_SCHEDULE_FOR_INSTALL (1ULL << 41)
 #define BGP_FLAG_L3VNI_SCHEDULE_FOR_DELETE  (1ULL << 42)
 #define BGP_FLAG_LINK_LOCAL_CAPABILITY	    (1ULL << 43)
+#define BGP_FLAG_RTC_EOR_MARKER		    (1ULL << 44)
 
 	/* BGP default address-families.
 	 * New peers inherit enabled afi/safis from bgp instance.
@@ -1572,6 +1573,7 @@ struct peer {
 #define PEER_FLAG_EXTENDED_LINK_BANDWIDTH (1ULL << 39)
 #define PEER_FLAG_DUAL_AS		  (1ULL << 40)
 #define PEER_FLAG_CAPABILITY_LINK_LOCAL	  (1ULL << 41)
+#define PEER_FLAG_RTC_UPDATE		  (1ULL << 42)
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART

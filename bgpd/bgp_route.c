@@ -3931,7 +3931,9 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 				zlog_info("Removing prefix %pFX: dest %p has pi peer %pBP valid %u selected %u",
 					  p, dest, pi->peer, !!CHECK_FLAG(pi->flags, BGP_PATH_VALID),
 					  !!CHECK_FLAG(pi->flags, BGP_PATH_SELECTED));
-				bgp_rtc_plist_entry_set(pi->peer, (struct prefix *)p, false);
+				if (bgp_rtc_plist_entry_set(pi->peer, (struct prefix *)p, false))
+					/* only set update flags if the peer prefix-list has changed */
+					SET_FLAG(pi->peer->flags, PEER_FLAG_RTC_UPDATE);
 			}
 		}
 	}
@@ -3973,7 +3975,9 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 				zlog_info("Adding prefix %pFX: dest %p has pi peer %pBP valid %u selected %u",
 					  p, dest, pi->peer, !!CHECK_FLAG(pi->flags, BGP_PATH_VALID),
 					  !!CHECK_FLAG(pi->flags, BGP_PATH_SELECTED));
-				bgp_rtc_plist_entry_set(pi->peer, (struct prefix *)p, true);
+				if (bgp_rtc_plist_entry_set(pi->peer, (struct prefix *)p, true))
+					/* only set update flags if the peer prefix-list has changed */
+					SET_FLAG(pi->peer->flags, PEER_FLAG_RTC_UPDATE);
 			}
 		}
 	}
@@ -4057,6 +4061,8 @@ void bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi)
 	int cnt = 0;
 	struct afi_safi_info *thread_info;
 	bool route_sync_pending = false;
+	struct listnode *node;
+	struct peer *peer;
 
 	if (bgp->gr_info[afi][safi].t_route_select) {
 		struct event *t = bgp->gr_info[afi][safi].t_route_select;
@@ -4091,6 +4097,20 @@ void bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi)
 	if (dest) {
 		bgp_dest_unlock_node(dest);
 		dest = NULL;
+	}
+
+	if (safi == SAFI_RTC) {
+		for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+			if (!CHECK_FLAG(peer->flags, PEER_FLAG_RTC_UPDATE))
+				continue;
+			if (!peer->rtc_plist)
+				/* Create an empty RTC prefix-list if no RTC prefix were received */
+				bgp_peer_init_rtc_plist(peer);
+			bgp_announce_peer_set_rtc_refresh(peer);
+			UNSET_FLAG(peer->flags, PEER_FLAG_RTC_UPDATE);
+		}
+		for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer))
+			bgp_announce_peer_rtc_refresh(peer);
 	}
 
 	/* Send EOR message when all routes are processed */
@@ -4228,6 +4248,8 @@ static void process_eoiu_marker(struct bgp_dest *dest)
 static void process_rtc_eor_marker(struct bgp_dest *dest)
 {
 	struct bgp_rtc_eor_info *info = bgp_dest_get_bgp_rtc_eor_info(dest);
+	struct peer *peer = NULL;
+	struct listnode *node = NULL;
 
 	if (!info || !info->bgp) {
 		zlog_err("Unable to retrieve BGP instance, can't process RTC EOR marker");
@@ -4238,7 +4260,19 @@ static void process_rtc_eor_marker(struct bgp_dest *dest)
 		zlog_debug("RTC EOR Marker dequeued from sub-queue %s",
 			   subqueue2str(META_QUEUE_RTC_EOR_MARKER));
 
-	/* TODO: refresh L3VPN and EVPN prefix update */
+	for (ALL_LIST_ELEMENTS_RO(info->bgp->peer, node, peer)) {
+		if (!CHECK_FLAG(peer->flags, PEER_FLAG_RTC_UPDATE))
+			continue;
+		if (!peer->rtc_plist)
+			/* Create an empty RTC prefix-list if no RTC prefix were received */
+			bgp_peer_init_rtc_plist(peer);
+		bgp_announce_peer_set_rtc_refresh(peer);
+		UNSET_FLAG(peer->flags, PEER_FLAG_RTC_UPDATE);
+	}
+	for (ALL_LIST_ELEMENTS_RO(info->bgp->peer, node, peer))
+		bgp_announce_peer_rtc_refresh(peer);
+
+	UNSET_FLAG(info->bgp->flags, BGP_FLAG_RTC_EOR_MARKER);
 
 	XFREE(MTYPE_BGP_RTC_EOR_MARKER_INFO, info);
 	XFREE(MTYPE_BGP_NODE, dest);
@@ -4672,6 +4706,9 @@ void bgp_add_eoiu_mark(struct bgp *bgp)
 
 void bgp_add_rtc_eor_mark(struct bgp *bgp)
 {
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_RTC_EOR_MARKER))
+		return;
+
 	/*
 	 * Create a dummy dest as the meta queue expects all its elements to be
 	 * dest's
@@ -4684,6 +4721,8 @@ void bgp_add_rtc_eor_mark(struct bgp *bgp)
 
 	bgp_dest_set_bgp_rtc_eor_info(dummy_dest, rtc_eor_info);
 	rtc_eor_marker_process(bgp, dummy_dest);
+
+	SET_FLAG(bgp->flags, BGP_FLAG_RTC_EOR_MARKER);
 }
 
 static void bgp_maximum_prefix_restart_timer(struct event *thread)

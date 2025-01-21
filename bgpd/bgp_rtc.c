@@ -42,7 +42,8 @@ int bgp_nlri_parse_rtc(struct peer *peer, struct attr *attr, struct bgp_nlri *pa
 
 		apply_mask(&p);
 
-		if (withdraw || peer->as == peer->bgp->as)
+		if ((withdraw || peer->as == peer->bgp->as) &&
+		    bgp_rtc_plist_entry_set(peer, &p, !withdraw))
 			/* RFC4684 says
 			 * "When processing RT membership NLRIs received from internal iBGP
 			 * peers, it is necessary to consider all available iBGP paths for a
@@ -54,8 +55,10 @@ int bgp_nlri_parse_rtc(struct peer *peer, struct attr *attr, struct bgp_nlri *pa
 			 * Prefixes from external peers are added if needed into prefix-list
 			 * after best path computation. They can be deleted on withdraw now
 			 * because they cannot be selected anymore by best path computation.
+			 *
+			 * Only set update flags if the peer prefix-list has changed
 			 */
-			bgp_rtc_plist_entry_set(peer, &p, !withdraw);
+			SET_FLAG(peer->flags, PEER_FLAG_RTC_UPDATE);
 
 		if (withdraw)
 			bgp_withdraw(peer, &p, 0, packet->afi, packet->safi, ZEBRA_ROUTE_BGP,
@@ -594,7 +597,7 @@ static int bgp_rtc_plist_entry_del(struct bgp_rtc_plist *rtc_plist, struct prefi
 	return ret;
 }
 
-static void bgp_peer_init_rtc_plist(struct peer *peer)
+void bgp_peer_init_rtc_plist(struct peer *peer)
 {
 	peer->rtc_plist = bgp_rtc_plist_new();
 	peer->rtc_plist->router_id.s_addr = peer->remote_id.s_addr;
