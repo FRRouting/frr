@@ -3,7 +3,7 @@
 Packaging Red Hat
 =================
 
-Tested on CentOS 6, CentOS 7, CentOS 8 and Fedora 24.
+Tested on CentOS 6, CentOS 7, Rocky 8 and Fedora 24.
 
 1. On CentOS 6, refer to :ref:`building-centos6` for details on installing
    sufficiently up-to-date package versions to enable building FRR.
@@ -18,14 +18,14 @@ Tested on CentOS 6, CentOS 7, CentOS 8 and Fedora 24.
 
       yum install rpm-build net-snmp-devel pam-devel libcap-devel
 
-   For CentOS 7 and CentOS 8, the package will be built using python3
+   For CentOS 7 and Rocky 8, the package will be built using python3
    and requires additional python3 packages::
 
        yum install python3-devel python3-sphinx
 
    .. note::
 
-     For CentOS 8 you need to install ``platform-python-devel`` package
+     For Rocky 8 you need to install ``platform-python-devel`` package
      to provide ``/usr/bin/pathfix.py``::
 
        yum install platform-python-devel
@@ -33,7 +33,7 @@ Tested on CentOS 6, CentOS 7, CentOS 8 and Fedora 24.
 
    If ``yum`` is not present on your system, use ``dnf`` instead.
 
-   You should enable ``PowerTools`` repo if using CentOS 8 which
+   You should enable ``PowerTools`` repo if using Rocky 8 which
    is disabled by default.
 
 4. Checkout FRR::
@@ -88,10 +88,17 @@ Tested on CentOS 6, CentOS 7, CentOS 8 and Fedora 24.
       %{!?with_watchfrr:      %global  with_watchfrr      1 }
       %{!?with_pathd:         %global  with_pathd         1 }
       %{!?with_grpc:          %global  with_grpc          0 }
+      %{!?with_rpki:          %global  with_rpki          1 }
+      %{!?with_docs:          %global  with_docs          1 }
 
 8. Build the RPM::
 
       rpmbuild --define "_topdir `pwd`/rpmbuild" -ba rpmbuild/SPECS/frr.spec
+
+   To override :file:`rpm/SPECS/frr.spec` defaults on the rpmbuild
+   commandline with:
+
+      rpmbuild --define 'variable value'
 
    If building with RPKI, then download and install the additional RPKI
    packages from
