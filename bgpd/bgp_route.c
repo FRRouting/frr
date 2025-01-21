@@ -2700,6 +2700,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	if (nh_reset &&
 	    bgp_path_info_mpath_chkwtd(bgp, pi) &&
 	    (cum_bw = bgp_path_info_mpath_cumbw(pi)) != 0 &&
+<<<<<<< HEAD
 	    !CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_LINK_BW_SET))
 		bgp_attr_set_ecommunity(
 			attr,
@@ -2708,6 +2709,94 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 				CHECK_FLAG(
 					peer->flags,
 					PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE)));
+=======
+	    !CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_LINK_BW_SET)) {
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_EXTENDED_LINK_BANDWIDTH))
+			bgp_attr_set_ipv6_ecommunity(
+				attr,
+				ecommunity_replace_linkbw(bgp->as,
+							  bgp_attr_get_ipv6_ecommunity(
+								  attr),
+							  cum_bw, false, true));
+		else
+			bgp_attr_set_ecommunity(
+				attr,
+				ecommunity_replace_linkbw(
+					bgp->as, bgp_attr_get_ecommunity(attr),
+					cum_bw,
+					CHECK_FLAG(peer->flags,
+						   PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE),
+					false));
+	}
+
+	/*
+	 * Adjust AIGP for propagation when the nexthop is set to ourselves,
+	 * e.g., using "set ip nexthop peer-address" or when advertising to
+	 * EBGP. Note in route reflection the nexthop is usually unmodified
+	 * and the AIGP should not be adjusted in that case.
+	 */
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP)) && AIGP_TRANSMIT_ALLOWED(peer)) {
+		if (nh_reset ||
+		    CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_NEXTHOP_PEER_ADDRESS)) {
+			uint64_t aigp = bgp_aigp_metric_total(pi);
+
+			bgp_attr_set_aigp_metric(attr, aigp);
+		}
+	}
+
+	/* Extended communities can be transitive and non-transitive.
+	 * If the extended community is non-transitive, strip it off,
+	 * unless it's a locally originated route (static, aggregate,
+	 * redistributed, etc.).
+	 * draft-uttaro-idr-bgp-oad says:
+	 * Extended communities which are non-transitive across an AS
+	 * boundary MAY be advertised over an EBGP-OAD session if allowed
+	 * by explicit policy configuration. If allowed, all the members
+	 * of the OAD SHOULD be configured to use the same criteria.
+	 * For example, the Origin Validation State Extended Community,
+	 * defined as non-transitive in [RFC8097], can be advertised to
+	 * peers in the same OAD.
+	 */
+	if (from->sort == BGP_PEER_EBGP && from->sub_sort != BGP_PEER_EBGP_OAD &&
+	    peer->sort == BGP_PEER_EBGP && peer->sub_sort != BGP_PEER_EBGP_OAD &&
+	    pi->sub_type == BGP_ROUTE_NORMAL) {
+		struct ecommunity *new_ecomm;
+		struct ecommunity *old_ecomm;
+
+		old_ecomm = bgp_attr_get_ecommunity(attr);
+		if (old_ecomm) {
+			new_ecomm = ecommunity_dup(old_ecomm);
+			if (ecommunity_strip_non_transitive(new_ecomm)) {
+				bgp_attr_set_ecommunity(attr, new_ecomm);
+				if (!old_ecomm->refcnt)
+					ecommunity_free(&old_ecomm);
+				if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
+					zlog_debug("%pBP: %pFX stripped non-transitive extended communities",
+						   peer, p);
+			} else {
+				ecommunity_free(&new_ecomm);
+			}
+		}
+
+		/* Extended link-bandwidth communities are encoded as IPv6
+		 * address-specific extended communities.
+		 */
+		old_ecomm = bgp_attr_get_ipv6_ecommunity(attr);
+		if (old_ecomm) {
+			new_ecomm = ecommunity_dup(old_ecomm);
+			if (ecommunity_strip_non_transitive(new_ecomm)) {
+				bgp_attr_set_ipv6_ecommunity(attr, new_ecomm);
+				if (!old_ecomm->refcnt)
+					ecommunity_free(&old_ecomm);
+				if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
+					zlog_debug("%pBP: %pFX stripped non-transitive ipv6 extended communities",
+						   peer, p);
+			} else {
+				ecommunity_free(&new_ecomm);
+			}
+		}
+	}
+>>>>>>> f2759c46c (bgpd: Send non-transitive extended communities from/to OAD peers)
 
 	return true;
 }
