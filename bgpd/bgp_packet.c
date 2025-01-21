@@ -2255,6 +2255,7 @@ static int bgp_update_receive(struct peer_connection *connection,
 	bgp_size_t update_len;
 	bgp_size_t withdraw_len;
 	bool restart = false;
+	bool safi_rtc_refresh = false;
 
 	enum NLRI_TYPES {
 		NLRI_UPDATE,
@@ -2450,11 +2451,15 @@ static int bgp_update_receive(struct peer_connection *connection,
 		case NLRI_MP_UPDATE:
 			nlri_ret = bgp_nlri_parse(peer, NLRI_ATTR_ARG,
 						  &nlris[i], 0);
+			if (nlris[i].safi == SAFI_RTC)
+				safi_rtc_refresh = true;
 			break;
 		case NLRI_WITHDRAW:
 		case NLRI_MP_WITHDRAW:
 			nlri_ret = bgp_nlri_parse(peer, NLRI_ATTR_ARG,
 						  &nlris[i], 1);
+			if (nlris[i].safi == SAFI_RTC)
+				safi_rtc_refresh = true;
 			break;
 		default:
 			nlri_ret = BGP_NLRI_PARSE_ERROR;
@@ -2474,6 +2479,24 @@ static int bgp_update_receive(struct peer_connection *connection,
 			return BGP_Stop;
 		}
 	}
+
+	if (safi_rtc_refresh)
+		/* Upon BGP session establishment, an End-of-RIB (EoR) message is sent
+		 * for each negotiated AFI/SAFI. However, subsequent UPDATEs do not
+		 * conclude with an EoR message.
+		 *
+		 * When receiving an RTC UPDATE, there is no way to determine if it will
+		 * be the last one. To address this, an RTC EoR marker is added to the
+		 * queue upon each RTC UPDATE reception.
+		 *
+		 * Since RTC UPDATEs are prioritized over the RTC EoR marker in the queue,
+		 * the marker ensures that (E)VPN announcements are refreshed only after
+		 * processing all RTC UPDATEs.
+		 *
+		 * Additionally, a check prevents multiple EoR markers from being added
+		 * if one is already present in the queue.
+		 */
+		bgp_add_rtc_eor_mark(peer->bgp);
 
 	/* EoR checks
 	 *
@@ -2546,6 +2569,22 @@ static int bgp_update_receive(struct peer_connection *connection,
 			/* NSF delete stale route */
 			if (peer->nsf[afi][safi])
 				bgp_clear_stale_route(peer, afi, safi);
+
+			if (peer->afc_nego[AFI_IP][SAFI_RTC] && !safi_rtc_refresh) {
+				/* Upon BGP session establishment, an End-of-RIB (EoR) message is sent
+				 * for each negotiated AFI/SAFI. If an EoR is received for the RTC SAFI
+				 * but no UPDATE was received for that SAFI, it indicates that the peer
+				 * does not subscribe to any Route-Target and does not wish to receive
+				 * any (E)VPN prefixes.
+				 *
+				 * Since no RTC UPDATEs were received, the peer was not flagged for RTC UPDATEs,
+				 * and no RTC EoR marker was added to the queue. The flag is required to build
+				 * an empty prefix-list, while the marker ensures that any previously sent
+				 * prefixes are properly withdrawn.
+				 */
+				SET_FLAG(peer->flags, PEER_FLAG_RTC_UPDATE);
+				bgp_add_rtc_eor_mark(peer->bgp);
+			}
 
 			zlog_info(
 				"%s: rcvd End-of-RIB for %s from %s in vrf %s",
