@@ -152,7 +152,6 @@ struct bfd_echo_pkt {
 	uint64_t time_sent_usec;
 };
 
-
 /* Macros for manipulating control packets */
 #define BFD_VERMASK 0x07
 #define BFD_DIAGMASK 0x1F
@@ -470,9 +469,10 @@ struct bfd_vrf_global {
 	int bg_mhop6;
 	int bg_echo;
 	int bg_echov6;
+	int bg_initv6;
 	struct vrf *vrf;
 
-	struct event *bg_ev[6];
+	struct event *bg_ev[7];
 };
 
 /* Forward declaration of data plane context struct. */
