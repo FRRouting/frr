@@ -112,6 +112,26 @@ bfdd_bfd_sessions_single_hop_stats_echo_packet_output_count_get_elem(
 	struct nb_cb_get_elem_args *args);
 int bfdd_bfd_sessions_multi_hop_create(struct nb_cb_create_args *args);
 int bfdd_bfd_sessions_multi_hop_destroy(struct nb_cb_destroy_args *args);
+int bfdd_bfd_sessions_sbfd_echo_create(struct nb_cb_create_args *args);
+int bfdd_bfd_sessions_sbfd_echo_destroy(struct nb_cb_destroy_args *args);
+int bfdd_bfd_sessions_sbfd_echo_dest_addr_modify(struct nb_cb_modify_args *args);
+int bfdd_bfd_sessions_sbfd_echo_mode_modify(struct nb_cb_modify_args *args);
+int bfdd_bfd_sessions_sbfd_echo_dest_addr_destroy(struct nb_cb_destroy_args *args);
+int bfdd_bfd_sessions_sbfd_srv6_source_ipv6_modify(struct nb_cb_modify_args *args);
+int bfdd_bfd_sessions_sbfd_srv6_source_ipv6_destroy(struct nb_cb_destroy_args *args);
+int bfdd_bfd_sessions_sbfd_init_remote_discr_modify(struct nb_cb_modify_args *args);
+int bfdd_bfd_sessions_sbfd_multi_hop_modify(struct nb_cb_modify_args *args);
+int bfdd_bfd_sessions_sbfd_multi_hop_destroy(struct nb_cb_destroy_args *args);
+
+int bfdd_bfd_sessions_sbfd_init_create(struct nb_cb_create_args *args);
+int bfdd_bfd_sessions_sbfd_init_destroy(struct nb_cb_destroy_args *args);
+const void *bfdd_bfd_sessions_sbfd_echo_get_next(struct nb_cb_get_next_args *args);
+int bfdd_bfd_sessions_sbfd_echo_get_keys(struct nb_cb_get_keys_args *args);
+const void *bfdd_bfd_sessions_sbfd_echo_lookup_entry(struct nb_cb_lookup_entry_args *args);
+const void *bfdd_bfd_sessions_sbfd_init_get_next(struct nb_cb_get_next_args *args);
+int bfdd_bfd_sessions_sbfd_init_get_keys(struct nb_cb_get_keys_args *args);
+const void *bfdd_bfd_sessions_sbfd_init_lookup_entry(struct nb_cb_lookup_entry_args *args);
+
 const void *
 bfdd_bfd_sessions_multi_hop_get_next(struct nb_cb_get_next_args *args);
 int bfdd_bfd_sessions_multi_hop_get_keys(struct nb_cb_get_keys_args *args);
@@ -185,6 +205,8 @@ void bfd_cli_show_single_hop_peer(struct vty *vty, const struct lyd_node *dnode,
 				  bool show_defaults);
 void bfd_cli_show_multi_hop_peer(struct vty *vty, const struct lyd_node *dnode,
 				 bool show_defaults);
+void bfd_cli_show_sbfd_echo_peer(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void bfd_cli_show_sbfd_init_peer(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 void bfd_cli_show_peer_end(struct vty *vty, const struct lyd_node *dnode);
 void bfd_cli_show_mult(struct vty *vty, const struct lyd_node *dnode,
 		       bool show_defaults);
@@ -209,5 +231,11 @@ void bfd_cli_show_passive(struct vty *vty, const struct lyd_node *dnode,
 			  bool show_defaults);
 void bfd_cli_show_minimum_ttl(struct vty *vty, const struct lyd_node *dnode,
 			      bool show_defaults);
+
+int bfdd_bfd_sessions_bfd_mode_modify(struct nb_cb_modify_args *args);
+int bfdd_bfd_sessions_bfd_mode_destroy(struct nb_cb_destroy_args *args);
+
+int bfdd_bfd_sessions_segment_list_create(struct nb_cb_create_args *args);
+int bfdd_bfd_sessions_segment_list_destroy(struct nb_cb_destroy_args *args);
 
 #endif /* _FRR_BFDD_NB_H_ */
