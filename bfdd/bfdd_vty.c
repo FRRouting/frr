@@ -58,7 +58,49 @@ _find_peer_or_error(struct vty *vty, int argc, struct cmd_token **argv,
 		    const char *label, const char *peer_str,
 		    const char *local_str, const char *ifname,
 		    const char *vrfname);
+static void _display_bfd_by_bfdname_json_iter(struct hash_bucket *hb, void *arg);
+static void _display_bfd_by_bfdname_iter(struct hash_bucket *hb, void *arg);
+static void _display_bfd_by_bfdname(struct vty *vty, const char *vrfname, const char *bfdname,
+				    bool use_json);
+static void _display_bfd_counters_by_bfdname_iter(struct hash_bucket *hb, void *arg);
+static void _display_bfd_counters_json_by_bfdname_iter(struct hash_bucket *hb, void *arg);
+static void _display_bfd_counters_by_bfdname(struct vty *vty, const char *vrfname,
+					     const char *bfdname, bool use_json);
+static void _clear_bfd_counters_by_bfdname(const char *vrfname, const char *bfdname);
+static void _clear_peer_counter(struct bfd_session *bs);
 
+static const char *bfd_mode_type_to_string(enum bfd_mode_type mode)
+{
+	switch (mode) {
+	case BFD_MODE_TYPE_BFD:
+		return "bfd";
+	case BFD_MODE_TYPE_SBFD_ECHO:
+		return "sbfd-echo";
+	case BFD_MODE_TYPE_SBFD_INIT:
+		return "sbfd-init";
+	default:
+		return "Unknown";
+	}
+}
+
+static char *sbfd_sidlist_to_string(struct in6_addr *sidlist, uint8_t segnum)
+{
+	static char buf[INET6_ADDRSTRLEN * SRV6_MAX_SEGS];
+	int pos = 0;
+	uint8_t i = 0;
+	char addr_buf[INET6_ADDRSTRLEN];
+
+	memset(buf, 0, 256);
+
+	pos = snprintf(buf, sizeof(buf), "%s",
+		       inet_ntop(AF_INET6, &sidlist[0], addr_buf, sizeof(addr_buf)));
+
+	for (i = 1; i < segnum; i++)
+		pos += snprintf(buf + pos, sizeof(buf) - pos, " %s",
+				inet_ntop(AF_INET6, &sidlist[i], addr_buf, sizeof(addr_buf)));
+
+	return buf;
+}
 
 /*
  * Show commands helper functions
@@ -70,6 +112,12 @@ static void _display_peer_header(struct vty *vty, struct bfd_session *bs)
 	vty_out(vty, "\tpeer %s",
 		inet_ntop(bs->key.family, &bs->key.peer, addr_buf,
 			  sizeof(addr_buf)));
+
+	if (bs->bfd_mode == BFD_MODE_TYPE_SBFD_ECHO || bs->bfd_mode == BFD_MODE_TYPE_SBFD_INIT)
+		vty_out(vty, " bfd-mode %s", bfd_mode_type_to_string(bs->bfd_mode));
+
+	if (bs->bfd_name[0])
+		vty_out(vty, " bfd-name %s", bs->bfd_name);
 
 	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH))
 		vty_out(vty, " multihop");
@@ -83,6 +131,20 @@ static void _display_peer_header(struct vty *vty, struct bfd_session *bs)
 		vty_out(vty, " vrf %s", bs->key.vrfname);
 	if (bs->key.ifname[0])
 		vty_out(vty, " interface %s", bs->key.ifname);
+
+	if (bs->bfd_mode == BFD_MODE_TYPE_SBFD_ECHO || bs->bfd_mode == BFD_MODE_TYPE_SBFD_INIT) {
+		if (bs->bfd_mode == BFD_MODE_TYPE_SBFD_INIT)
+			vty_out(vty, " remote-discr %u", bs->discrs.remote_discr);
+
+		if (bs->bfd_name[0] && bs->segnum) {
+			vty_out(vty, " srv6-source-ipv6 %s",
+				inet_ntop(AF_INET6, &bs->out_sip6, addr_buf, sizeof(addr_buf)));
+
+			vty_out(vty, " srv6-encap-data %s",
+				sbfd_sidlist_to_string(bs->seg_list, bs->segnum));
+		}
+	}
+
 	vty_out(vty, "\n");
 }
 
@@ -135,10 +197,16 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs)
 
 	vty_out(vty, "\t\tDiagnostics: %s\n", diag2str(bs->local_diag));
 	vty_out(vty, "\t\tRemote diagnostics: %s\n", diag2str(bs->remote_diag));
-	vty_out(vty, "\t\tPeer Type: %s\n",
-		CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG) ? "configured" : "dynamic");
-	_display_rtt(&min, &avg, &max, bs);
-	vty_out(vty, "\t\tRTT min/avg/max: %u/%u/%u usec\n", min, avg, max);
+	if (bs->bfd_mode == BFD_MODE_TYPE_SBFD_INIT) {
+		vty_out(vty, "\t\tPeer Type: sbfd initiator\n");
+	} else if (bs->bfd_mode == BFD_MODE_TYPE_SBFD_ECHO) {
+		vty_out(vty, "\t\tPeer Type: echo\n");
+	} else {
+		vty_out(vty, "\t\tPeer Type: %s\n",
+			CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG) ? "configured" : "dynamic");
+		_display_rtt(&min, &avg, &max, bs);
+		vty_out(vty, "\t\tRTT min/avg/max: %u/%u/%u usec\n", min, avg, max);
+	}
 
 	vty_out(vty, "\t\tLocal timers:\n");
 	vty_out(vty, "\t\t\tDetect-multiplier: %u\n",
@@ -152,24 +220,32 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs)
 			bs->timers.required_min_echo_rx / 1000);
 	else
 		vty_out(vty, "\t\t\tEcho receive interval: disabled\n");
-	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO) || bs->bfd_mode == BFD_MODE_TYPE_SBFD_ECHO)
 		vty_out(vty, "\t\t\tEcho transmission interval: %ums\n",
 			bs->timers.desired_min_echo_tx / 1000);
 	else
 		vty_out(vty, "\t\t\tEcho transmission interval: disabled\n");
 
-	vty_out(vty, "\t\tRemote timers:\n");
-	vty_out(vty, "\t\t\tDetect-multiplier: %u\n",
-		bs->remote_detect_mult);
-	vty_out(vty, "\t\t\tReceive interval: %ums\n",
-		bs->remote_timers.required_min_rx / 1000);
-	vty_out(vty, "\t\t\tTransmission interval: %ums\n",
-		bs->remote_timers.desired_min_tx / 1000);
-	if (bs->remote_timers.required_min_echo != 0)
-		vty_out(vty, "\t\t\tEcho receive interval: %ums\n",
-			bs->remote_timers.required_min_echo / 1000);
-	else
-		vty_out(vty, "\t\t\tEcho receive interval: disabled\n");
+
+	if (bs->bfd_mode == BFD_MODE_TYPE_SBFD_INIT || bs->bfd_mode == BFD_MODE_TYPE_SBFD_ECHO) {
+		vty_out(vty, "\t\tRemote timers:\n");
+		vty_out(vty, "\t\t\tDetect-multiplier: -\n");
+		vty_out(vty, "\t\t\tReceive interval: -\n");
+		vty_out(vty, "\t\t\tTransmission interval: -\n");
+		vty_out(vty, "\t\t\tEcho receive interval: -\n");
+	} else {
+		vty_out(vty, "\t\tRemote timers:\n");
+		vty_out(vty, "\t\t\tDetect-multiplier: %u\n", bs->remote_detect_mult);
+		vty_out(vty, "\t\t\tReceive interval: %ums\n",
+			bs->remote_timers.required_min_rx / 1000);
+		vty_out(vty, "\t\t\tTransmission interval: %ums\n",
+			bs->remote_timers.desired_min_tx / 1000);
+		if (bs->remote_timers.required_min_echo != 0)
+			vty_out(vty, "\t\t\tEcho receive interval: %ums\n",
+				bs->remote_timers.required_min_echo / 1000);
+		else
+			vty_out(vty, "\t\t\tEcho receive interval: disabled\n");
+	}
 
 	vty_out(vty, "\n");
 }
@@ -216,6 +292,9 @@ static struct json_object *__display_peer_json(struct bfd_session *bs)
 	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH))
 		json_object_int_add(jo, "minimum-ttl", bs->mh_ttl);
 
+	if (bs->bfd_mode != BFD_MODE_TYPE_BFD)
+		json_object_string_add(jo, "bfd-name", bs->bfd_name);
+
 	switch (bs->ses_state) {
 	case PTM_BFD_ADM_DOWN:
 		json_object_string_add(jo, "status", "shutdown");
@@ -253,7 +332,13 @@ static struct json_object *__display_peer_json(struct bfd_session *bs)
 			    bs->timers.desired_min_tx / 1000);
 	json_object_int_add(jo, "echo-receive-interval",
 			    bs->timers.required_min_echo_rx / 1000);
-	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
+	if (bs->bfd_mode == BFD_MODE_TYPE_SBFD_INIT || bs->bfd_mode == BFD_MODE_TYPE_SBFD_ECHO) {
+		json_object_int_add(jo, "configured-echo-transmit-interval",
+				    bs->timers.desired_min_echo_tx / 1000);
+		json_object_int_add(jo, "current-echo-transmit-interval", bs->echo_xmt_TO / 1000);
+		json_object_int_add(jo, "current-detect-echo-receive-interval",
+				    bs->echo_detect_TO / 1000);
+	} else if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
 		json_object_int_add(jo, "echo-transmit-interval",
 				    bs->timers.desired_min_echo_tx / 1000);
 	else
@@ -289,6 +374,7 @@ struct bfd_vrf_tuple {
 	const char *vrfname;
 	struct vty *vty;
 	struct json_object *jo;
+	const char *bfdname;
 };
 
 static void _display_peer_iter(struct hash_bucket *hb, void *arg)
@@ -306,6 +392,30 @@ static void _display_peer_iter(struct hash_bucket *hb, void *arg)
 		    !strmatch(bs->key.vrfname, bvt->vrfname))
 			return;
 	}
+	_display_peer(vty, bs);
+}
+
+static void _display_bfd_by_bfdname_iter(struct hash_bucket *hb, void *arg)
+{
+	struct bfd_vrf_tuple *bvt = (struct bfd_vrf_tuple *)arg;
+	struct vty *vty;
+	struct bfd_session *bs = hb->data;
+
+	if (!bvt)
+		return;
+	vty = bvt->vty;
+
+	if (bvt->vrfname) {
+		if (!bs->key.vrfname[0] || !strmatch(bs->key.vrfname, bvt->vrfname))
+			return;
+	}
+
+	if (bvt->bfdname) {
+		if ((!bs->key.bfdname[0] || !strmatch(bs->key.bfdname, bvt->bfdname)) &&
+		    (!bs->bfd_name[0] || !strmatch(bs->bfd_name, bvt->bfdname)))
+			return;
+	}
+
 	_display_peer(vty, bs);
 }
 
@@ -332,6 +442,58 @@ static void _display_peer_json_iter(struct hash_bucket *hb, void *arg)
 	}
 
 	json_object_array_add(jo, jon);
+}
+
+static void _display_bfd_by_bfdname_json_iter(struct hash_bucket *hb, void *arg)
+{
+	struct bfd_vrf_tuple *bvt = (struct bfd_vrf_tuple *)arg;
+	struct json_object *jo, *jon = NULL;
+	struct bfd_session *bs = hb->data;
+
+	if (!bvt)
+		return;
+	jo = bvt->jo;
+
+	if (bvt->vrfname) {
+		if (!bs->key.vrfname[0] || !strmatch(bs->key.vrfname, bvt->vrfname))
+			return;
+	}
+
+	if (bvt->bfdname) {
+		if ((!bs->key.bfdname[0] || !strmatch(bs->key.bfdname, bvt->bfdname)) &&
+		    (!bs->bfd_name[0] || !strmatch(bs->bfd_name, bvt->bfdname)))
+			return;
+	}
+
+	jon = __display_peer_json(bs);
+	if (jon == NULL) {
+		zlog_warn("%s: not enough memory", __func__);
+		return;
+	}
+
+	json_object_array_add(jo, jon);
+}
+static void _display_bfd_by_bfdname(struct vty *vty, const char *vrfname, const char *bfdname,
+				    bool use_json)
+{
+	struct json_object *jo;
+	struct bfd_vrf_tuple bvt = { 0 };
+
+	bvt.vrfname = vrfname;
+	bvt.bfdname = bfdname;
+
+	if (!use_json) {
+		bvt.vty = vty;
+		vty_out(vty, "BFD Peers:\n");
+		bfd_id_iterate(_display_bfd_by_bfdname_iter, &bvt);
+		return;
+	}
+
+	jo = json_object_new_array();
+	bvt.jo = jo;
+	bfd_id_iterate(_display_bfd_by_bfdname_json_iter, &bvt);
+
+	vty_json(vty, jo);
 }
 
 static void _display_all_peers(struct vty *vty, char *vrfname, bool use_json)
@@ -378,6 +540,7 @@ static void _display_peer_counter(struct vty *vty, struct bfd_session *bs)
 		bs->stats.session_down);
 	vty_out(vty, "\t\tZebra notifications: %" PRIu64 "\n",
 		bs->stats.znotification);
+	vty_out(vty, "\t\tTx fail packet: %" PRIu64 "\n", bs->stats.tx_fail_pkt);
 	vty_out(vty, "\n");
 }
 
@@ -397,6 +560,9 @@ static struct json_object *__display_peer_counters_json(struct bfd_session *bs)
 	json_object_int_add(jo, "session-up", bs->stats.session_up);
 	json_object_int_add(jo, "session-down", bs->stats.session_down);
 	json_object_int_add(jo, "zebra-notifications", bs->stats.znotification);
+
+	if (bs->bfd_mode == BFD_MODE_TYPE_SBFD_INIT || bs->bfd_mode == BFD_MODE_TYPE_SBFD_ECHO)
+		json_object_int_add(jo, "tx-fail-packet", bs->stats.tx_fail_pkt);
 
 	return jo;
 }
@@ -472,6 +638,109 @@ static void _display_peers_counter(struct vty *vty, char *vrfname, bool use_json
 	vty_json(vty, jo);
 }
 
+static void _display_bfd_counters_by_bfdname_iter(struct hash_bucket *hb, void *arg)
+{
+	struct bfd_vrf_tuple *bvt = arg;
+	struct vty *vty;
+	struct bfd_session *bs = hb->data;
+
+	if (!bvt)
+		return;
+	vty = bvt->vty;
+
+	if (bvt->vrfname) {
+		if (!bs->key.vrfname[0] || !strmatch(bs->key.vrfname, bvt->vrfname))
+			return;
+	}
+
+	if (bvt->bfdname) {
+		if (!bs->key.bfdname[0] || !strmatch(bs->key.bfdname, bvt->bfdname))
+			return;
+	}
+
+	_display_peer_counter(vty, bs);
+}
+static void _display_bfd_counters_json_by_bfdname_iter(struct hash_bucket *hb, void *arg)
+{
+	struct json_object *jo, *jon = NULL;
+	struct bfd_session *bs = hb->data;
+	struct bfd_vrf_tuple *bvt = arg;
+
+	if (!bvt)
+		return;
+	jo = bvt->jo;
+
+	if (bvt->vrfname) {
+		if (!bs->key.vrfname[0] || !strmatch(bs->key.vrfname, bvt->vrfname))
+			return;
+	}
+
+	if (bvt->bfdname) {
+		if (!bs->key.bfdname[0] || !strmatch(bs->key.bfdname, bvt->bfdname))
+			return;
+	}
+
+	jon = __display_peer_counters_json(bs);
+	if (jon == NULL) {
+		zlog_warn("%s: not enough memory", __func__);
+		return;
+	}
+
+	json_object_array_add(jo, jon);
+}
+static void _display_bfd_counters_by_bfdname(struct vty *vty, const char *vrfname,
+					     const char *bfdname, bool use_json)
+{
+	struct json_object *jo;
+	struct bfd_vrf_tuple bvt = { 0 };
+
+	bvt.vrfname = vrfname;
+	bvt.bfdname = bfdname;
+
+	if (!use_json) {
+		bvt.vty = vty;
+		vty_out(vty, "BFD Peers:\n");
+		bfd_id_iterate(_display_bfd_counters_by_bfdname_iter, &bvt);
+		return;
+	}
+
+	jo = json_object_new_array();
+	bvt.jo = jo;
+	bfd_id_iterate(_display_bfd_counters_json_by_bfdname_iter, &bvt);
+
+	vty_json(vty, jo);
+}
+static void _clear_bfd_counters_by_bfdname_iter(struct hash_bucket *hb, void *arg)
+{
+	struct bfd_vrf_tuple *bvt = arg;
+	struct bfd_session *bs = hb->data;
+
+	if (!bvt)
+		return;
+
+	if (bvt->vrfname) {
+		if (!bs->key.vrfname[0] || !strmatch(bs->key.vrfname, bvt->vrfname))
+			return;
+	}
+
+	if (bvt->bfdname) {
+		if (!bs->key.bfdname[0] || !strmatch(bs->key.bfdname, bvt->bfdname))
+			return;
+	}
+
+	_clear_peer_counter(bs);
+}
+
+static void _clear_bfd_counters_by_bfdname(const char *vrfname, const char *bfdname)
+{
+	struct bfd_vrf_tuple bvt = { 0 };
+
+	bvt.vrfname = vrfname;
+	bvt.bfdname = bfdname;
+
+	bfd_id_iterate(_clear_bfd_counters_by_bfdname_iter, &bvt);
+}
+
 static void _clear_peer_counter(struct bfd_session *bs)
 {
 	/* Clear only pkt stats, intention is not to loose system
@@ -486,12 +755,21 @@ static void _display_peer_brief(struct vty *vty, struct bfd_session *bs)
 {
 	char addr_buf[INET6_ADDRSTRLEN];
 
-	vty_out(vty, "%-10u", bs->discrs.my_discr);
-	inet_ntop(bs->key.family, &bs->key.local, addr_buf, sizeof(addr_buf));
-	vty_out(vty, " %-40s", addr_buf);
-	inet_ntop(bs->key.family, &bs->key.peer, addr_buf, sizeof(addr_buf));
-	vty_out(vty, " %-40s", addr_buf);
-	vty_out(vty, "%-15s\n", state_list[bs->ses_state].str);
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)) {
+		vty_out(vty, "%-10u", bs->discrs.my_discr);
+		inet_ntop(bs->key.family, &bs->key.local, addr_buf, sizeof(addr_buf));
+		vty_out(vty, " %-40s", addr_buf);
+		inet_ntop(bs->key.family, &bs->key.peer, addr_buf, sizeof(addr_buf));
+		vty_out(vty, " %-40s", addr_buf);
+		vty_out(vty, "%-15s\n", state_list[bs->ses_state].str);
+	} else {
+		vty_out(vty, "%-10u", bs->discrs.my_discr);
+		vty_out(vty, " %-40s", satostr(&bs->local_address));
+		inet_ntop(bs->key.family, &bs->key.peer, addr_buf, sizeof(addr_buf));
+		vty_out(vty, " %-40s", addr_buf);
+
+		vty_out(vty, "%-15s\n", state_list[bs->ses_state].str);
+	}
 }
 
 static void _display_peer_brief_iter(struct hash_bucket *hb, void *arg)
@@ -558,6 +836,8 @@ _find_peer_or_error(struct vty *vty, int argc, struct cmd_token **argv,
 	struct bfd_peer_cfg bpc;
 	struct sockaddr_any psa, lsa, *lsap;
 	char errormsg[128];
+	struct vrf *vrf = NULL;
+	char *tmpName = NULL;
 
 	if (peer_str) {
 		strtosa(peer_str, &psa);
@@ -570,9 +850,18 @@ _find_peer_or_error(struct vty *vty, int argc, struct cmd_token **argv,
 		idx = 0;
 		mhop = argv_find(argv, argc, "multihop", &idx);
 
-		if (bfd_configure_peer(&bpc, mhop, &psa, lsap, ifname, vrfname,
-				       errormsg, sizeof(errormsg))
-		    != 0) {
+		tmpName = (char *)vrfname;
+		if (vrfname) {
+			vrf = vrf_lookup_by_name(vrfname);
+			if (vrf == NULL) {
+				vty_out(vty, "%% Vrf is not exist: %s\n", vrfname);
+				return NULL;
+			}
+			tmpName = vrf->name;
+		}
+
+		if (bfd_configure_peer(&bpc, mhop, &psa, lsap, ifname, tmpName, errormsg,
+				       sizeof(errormsg)) != 0) {
 			vty_out(vty, "%% Invalid peer configuration: %s\n",
 				errormsg);
 			return NULL;
@@ -631,6 +920,49 @@ void _display_rtt(uint32_t *min, uint32_t *avg, uint32_t *max,
 /*
  * Show commands.
  */
+DEFPY(bfd_show_by_bfdname, bfd_show_by_bfdname_cmd,
+      "show bfd [vrf NAME$vrf_name] bfd-name BFDNAME$bfdname [json]",
+      SHOW_STR
+      "Bidirection Forwarding Detection\n"
+      VRF_CMD_HELP_STR
+	  "Specify bfd session name\n"
+	  "bfd session name\n"
+	  JSON_STR)
+{
+	_display_bfd_by_bfdname(vty, vrf_name, bfdname, use_json(argc, argv));
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(bfd_show_counters_by_bfdname, bfd_show_counters_by_bfdname_cmd,
+      "show bfd [vrf NAME$vrf_name] bfd-name BFDNAME$bfdname counters [json]",
+      SHOW_STR
+      "Bidirection Forwarding Detection\n"
+      VRF_CMD_HELP_STR
+	  "Specify bfd session name\n"
+	  "bfd session name\n"
+      "Show BFD peer counters information\n"
+      JSON_STR)
+{
+	_display_bfd_counters_by_bfdname(vty, vrf_name, bfdname, use_json(argc, argv));
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(bfd_clear_counters_by_bfdname, bfd_clear_counters_by_bfdname_cmd,
+      "clear bfd [vrf NAME$vrfname] bfd-name BFDNAME$bfdname counters",
+      CLEAR_STR
+      "Bidirection Forwarding Detection\n"
+      VRF_CMD_HELP_STR
+	  "Specify bfd session name\n"
+	  "bfd session name\n"
+	  "clear BFD peer counters information\n")
+{
+	_clear_bfd_counters_by_bfdname(vrfname, bfdname);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(bfd_show_peers, bfd_show_peers_cmd, "show bfd [vrf NAME] peers [json]",
       SHOW_STR
       "Bidirection Forwarding Detection\n"
@@ -971,6 +1303,22 @@ struct cmd_node bfd_peer_node = {
 	.prompt = "%s(config-bfd-peer)# ",
 };
 
+static void _sbfd_reflector_write_config(struct hash_bucket *hb, void *arg)
+{
+	struct sbfd_reflector *sr = hb->data;
+	char buf[INET6_ADDRSTRLEN];
+	struct vty *vty;
+
+	vty = (struct vty *)arg;
+	inet_ntop(AF_INET6, &sr->local, buf, sizeof(buf));
+	vty_out(vty, "  sbfd reflector source-address %s discriminator %u\n", buf, sr->discr);
+}
+
+static void sbfd_reflector_write_config(struct vty *vty)
+{
+	sbfd_discr_iterate(_sbfd_reflector_write_config, vty);
+}
+
 static int bfdd_write_config(struct vty *vty)
 {
 	struct lyd_node *dnode;
@@ -1002,6 +1350,9 @@ static int bfdd_write_config(struct vty *vty)
 		written = 1;
 	}
 
+	/*sbfd config*/
+	sbfd_reflector_write_config(vty);
+
 	return written;
 }
 
@@ -1011,6 +1362,9 @@ void bfdd_vty_init(void)
 	install_element(ENABLE_NODE, &bfd_show_peer_counters_cmd);
 	install_element(ENABLE_NODE, &bfd_clear_peer_counters_cmd);
 	install_element(ENABLE_NODE, &bfd_show_peers_cmd);
+	install_element(ENABLE_NODE, &bfd_show_by_bfdname_cmd);
+	install_element(ENABLE_NODE, &bfd_show_counters_by_bfdname_cmd);
+	install_element(ENABLE_NODE, &bfd_clear_counters_by_bfdname_cmd);
 	install_element(ENABLE_NODE, &bfd_show_peer_cmd);
 	install_element(ENABLE_NODE, &bfd_show_peers_brief_cmd);
 	install_element(ENABLE_NODE, &show_bfd_distributed_cmd);
