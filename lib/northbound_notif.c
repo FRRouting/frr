@@ -600,6 +600,7 @@ static void timer_walk_continue(struct event *event)
 			timer_walk_done(args);
 			return;
 		}
+		group = args->group;
 	}
 
 	path = group->cur_change->path;
