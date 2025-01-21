@@ -529,6 +529,7 @@ struct bgp {
 #define BGP_FLAG_SOFT_VERSION_CAPABILITY (1ULL << 34)
 #define BGP_FLAG_ENFORCE_FIRST_AS (1ULL << 33)
 #define BGP_FLAG_INSTANCE_HIDDEN	 (1ULL << 39)
+#define BGP_FLAG_RTC_EOR_MARKER		 (1ULL << 40)
 
 	/* BGP default address-families.
 	 * New peers inherit enabled afi/safis from bgp instance.
@@ -1488,6 +1489,7 @@ struct peer {
 
 #define PEER_FLAG_EXTENDED_LINK_BANDWIDTH (1ULL << 39)
 #define PEER_FLAG_AS_LOOP_DETECTION (1ULL << 40) /* as path loop detection */
+#define PEER_FLAG_RTC_UPDATE		  (1ULL << 41)
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
