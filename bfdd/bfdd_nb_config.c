@@ -85,6 +85,26 @@ static void bfd_session_get_key(bool mhop, const struct lyd_node *dnode,
 	gen_bfd_key(bk, &psa, &lsa, mhop, ifname, vrfname, NULL);
 }
 
+static void sbfd_session_get_key(bool mhop, const struct lyd_node *dnode, struct bfd_key *bk)
+{
+	const char *ifname = NULL, *vrfname = NULL, *bfdname = NULL;
+	struct sockaddr_any psa, lsa;
+
+	/* Required source parameter. */
+	strtosa(yang_dnode_get_string(dnode, "source-addr"), &lsa);
+
+	strtosa(yang_dnode_get_string(dnode, "dest-addr"), &psa);
+
+	if (yang_dnode_exists(dnode, "bfd-name"))
+		bfdname = yang_dnode_get_string(dnode, "bfd-name");
+
+	if (yang_dnode_exists(dnode, "vrf"))
+		vrfname = yang_dnode_get_string(dnode, "vrf");
+
+	/* Generate the corresponding key. */
+	gen_bfd_key(bk, &psa, &lsa, mhop, ifname, vrfname, bfdname);
+}
+
 struct session_iter {
 	int count;
 	bool wildcard;
@@ -105,7 +125,25 @@ static int session_iter_cb(const struct lyd_node *dnode, void *arg)
 	return YANG_ITER_CONTINUE;
 }
 
-static int bfd_session_create(struct nb_cb_create_args *args, bool mhop)
+static int segment_list_iter_cb(const struct lyd_node *dnode, void *arg)
+{
+	struct bfd_session *bs = arg;
+	uint8_t segnum = bs->segnum;
+	const char *addr;
+	struct sockaddr_any sa;
+
+	addr = yang_dnode_get_string(dnode, NULL);
+
+	if (strtosa(addr, &sa) < 0 || sa.sa_sin6.sin6_family != AF_INET6)
+		return YANG_ITER_STOP;
+
+	memcpy(&bs->seg_list[segnum], &sa.sa_sin6.sin6_addr, sizeof(struct in6_addr));
+	bs->segnum = segnum + 1;
+
+	return YANG_ITER_CONTINUE;
+}
+
+static int bfd_session_create(struct nb_cb_create_args *args, bool mhop, uint32_t bfd_mode)
 {
 	const struct lyd_node *sess_dnode;
 	struct session_iter iter;
@@ -115,10 +153,20 @@ static int bfd_session_create(struct nb_cb_create_args *args, bool mhop)
 	const char *vrfname;
 	struct bfd_key bk;
 	struct prefix p;
+	const char *bfd_name = NULL;
+	struct sockaddr_any out_sip6;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		yang_dnode_get_prefix(&p, args->dnode, "dest-addr");
+		if ((bfd_mode == BFD_MODE_TYPE_SBFD_ECHO) || (bfd_mode == BFD_MODE_TYPE_SBFD_INIT)) {
+			if (bfd_session_get_by_name(yang_dnode_get_string(args->dnode, "bfd-name"))) {
+				snprintf(args->errmsg, args->errmsg_len, "bfd name already exist.");
+				return NB_ERR_VALIDATION;
+			}
+			return NB_OK;
+		}
+
+		yang_dnode_get_prefix(&p, args->dnode, "./dest-addr");
 
 		if (mhop) {
 			/*
@@ -170,34 +218,123 @@ static int bfd_session_create(struct nb_cb_create_args *args, bool mhop)
 		break;
 
 	case NB_EV_PREPARE:
-		bfd_session_get_key(mhop, args->dnode, &bk);
-		bs = bfd_key_lookup(bk);
+		if (bfd_mode == BFD_MODE_TYPE_BFD) {
+			bfd_session_get_key(mhop, args->dnode, &bk);
+			bs = bfd_key_lookup(bk);
 
-		/* This session was already configured by another daemon. */
-		if (bs != NULL) {
-			/* Now it is configured also by CLI. */
+			/* This session was already configured by another daemon. */
+			if (bs != NULL) {
+				/* Now it is configured also by CLI. */
+				SET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG);
+				bs->refcount++;
+
+				args->resource->ptr = bs;
+				break;
+			}
+
+			bs = bfd_session_new(BFD_MODE_TYPE_BFD);
+
+			/* Fill the session key. */
+			bfd_session_get_key(mhop, args->dnode, &bs->key);
+			/* Set configuration flags. */
+			bs->refcount = 1;
 			SET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG);
-			bs->refcount++;
+			if (mhop)
+				SET_FLAG(bs->flags, BFD_SESS_FLAG_MH);
+			if (bs->key.family == AF_INET6)
+				SET_FLAG(bs->flags, BFD_SESS_FLAG_IPV6);
 
 			args->resource->ptr = bs;
 			break;
+		} else if (bfd_mode == BFD_MODE_TYPE_SBFD_ECHO ||
+			   bfd_mode == BFD_MODE_TYPE_SBFD_INIT) {
+			sbfd_session_get_key(mhop, args->dnode, &bk);
+			bs = bfd_key_lookup(bk);
+
+			/* This session was already configured by another daemon. */
+			if (bs != NULL) {
+				/* Now it is configured also by CLI. */
+				SET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG);
+				bs->refcount++;
+
+				args->resource->ptr = bs;
+				break;
+			}
+
+			if (bfd_mode == BFD_MODE_TYPE_SBFD_ECHO &&
+			    !yang_dnode_exists(args->dnode, "srv6-encap-data")) {
+				//srv6-encap-data should not be null for sbfd echo
+				snprintf(args->errmsg, args->errmsg_len,
+					 "srv6-encap-data should not be null");
+				return NB_ERR_RESOURCE;
+			}
+
+			if (bfd_mode == BFD_MODE_TYPE_SBFD_ECHO &&
+			    !yang_dnode_exists(args->dnode, "srv6-source-ipv6")) {
+				snprintf(args->errmsg, args->errmsg_len,
+					 "source_ipv6 should not be null");
+				return NB_ERR_RESOURCE;
+			}
+
+			if (bfd_mode == BFD_MODE_TYPE_SBFD_INIT) {
+				if (!yang_dnode_exists(args->dnode, "remote-discr")) {
+					snprintf(args->errmsg, args->errmsg_len,
+						 "remote-discr should not be null");
+					return NB_ERR_RESOURCE;
+				}
+			}
+
+			bfd_name = yang_dnode_get_string(args->dnode, "bfd-name");
+
+			bs = bfd_session_new(bfd_mode);
+			if (bs == NULL) {
+				snprintf(args->errmsg, args->errmsg_len,
+					 "session-new: allocation failed");
+				return NB_ERR_RESOURCE;
+			}
+			/* Fill the session key. */
+			sbfd_session_get_key(mhop, args->dnode, &bs->key);
+			strlcpy(bs->bfd_name, bfd_name, BFD_NAME_SIZE);
+
+			if (yang_dnode_exists(args->dnode, "srv6-encap-data")) {
+				yang_dnode_iterate(segment_list_iter_cb, bs, args->dnode,
+						   "./srv6-encap-data");
+
+
+				strtosa(yang_dnode_get_string(args->dnode, "./srv6-source-ipv6"),
+					&out_sip6);
+				memcpy(&bs->out_sip6, &out_sip6.sa_sin6.sin6_addr,
+				       sizeof(struct in6_addr));
+			}
+
+			if (bfd_mode == BFD_MODE_TYPE_SBFD_INIT) {
+				bs->discrs.remote_discr = yang_dnode_get_uint32(args->dnode,
+										"./remote-discr");
+			}
+
+			/* Set configuration flags. */
+			bs->refcount = 1;
+			SET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG);
+			if (mhop)
+				SET_FLAG(bs->flags, BFD_SESS_FLAG_MH);
+
+			if (bs->key.family == AF_INET6)
+				SET_FLAG(bs->flags, BFD_SESS_FLAG_IPV6);
+
+			if (bfd_mode == BFD_MODE_TYPE_SBFD_ECHO) {
+				memcpy(&bs->key.peer, &bs->key.local, sizeof(struct in6_addr));
+			} else {
+				bs->xmt_TO = bs->timers.desired_min_tx;
+				bs->detect_TO = bs->detect_mult * bs->xmt_TO;
+			}
+
+			args->resource->ptr = bs;
+			break;
+
+		} else {
+			snprintf(args->errmsg, args->errmsg_len, "bfd mode must be bfd or sbfd.");
+			return NB_ERR_VALIDATION;
 		}
-
-		bs = bfd_session_new();
-
-		/* Fill the session key. */
-		bfd_session_get_key(mhop, args->dnode, &bs->key);
-
-		/* Set configuration flags. */
-		bs->refcount = 1;
-		SET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG);
-		if (mhop)
-			SET_FLAG(bs->flags, BFD_SESS_FLAG_MH);
-		if (bs->key.family == AF_INET6)
-			SET_FLAG(bs->flags, BFD_SESS_FLAG_IPV6);
-
-		args->resource->ptr = bs;
-		break;
 
 	case NB_EV_APPLY:
 		bs = args->resource->ptr;
@@ -219,15 +356,19 @@ static int bfd_session_create(struct nb_cb_create_args *args, bool mhop)
 	return NB_OK;
 }
 
-static int bfd_session_destroy(enum nb_event event,
-			       const struct lyd_node *dnode, bool mhop)
+static int bfd_session_destroy(enum nb_event event, const struct lyd_node *dnode, bool mhop,
+			       uint32_t bfd_mode)
 {
 	struct bfd_session *bs;
 	struct bfd_key bk;
 
 	switch (event) {
 	case NB_EV_VALIDATE:
-		bfd_session_get_key(mhop, dnode, &bk);
+		if (bfd_mode == BFD_MODE_TYPE_BFD)
+			bfd_session_get_key(mhop, dnode, &bk);
+		else
+			sbfd_session_get_key(mhop, dnode, &bk);
+
 		if (bfd_key_lookup(bk) == NULL)
 			return NB_ERR_INCONSISTENCY;
 		break;
@@ -247,6 +388,12 @@ static int bfd_session_destroy(enum nb_event event,
 		/* There are still daemons using it. */
 		if (bs->refcount > 0)
 			break;
+
+		if (bglobal.debug_peer_event)
+			zlog_info("session destroy: %s", bs_to_string(bs));
+
+		if (bfd_mode == BFD_MODE_TYPE_SBFD_ECHO || bfd_mode == BFD_MODE_TYPE_SBFD_INIT)
+			ptm_bfd_notify(bs, PTM_BFD_DOWN);
 
 		bfd_session_free(bs);
 		break;
@@ -552,12 +699,12 @@ int bfdd_bfd_profile_required_echo_receive_interval_modify(
  */
 int bfdd_bfd_sessions_single_hop_create(struct nb_cb_create_args *args)
 {
-	return bfd_session_create(args, false);
+	return bfd_session_create(args, false, BFD_MODE_TYPE_BFD);
 }
 
 int bfdd_bfd_sessions_single_hop_destroy(struct nb_cb_destroy_args *args)
 {
-	return bfd_session_destroy(args->event, args->dnode, false);
+	return bfd_session_destroy(args->event, args->dnode, false, BFD_MODE_TYPE_BFD);
 }
 
 /*
@@ -853,12 +1000,12 @@ int bfdd_bfd_sessions_single_hop_required_echo_receive_interval_modify(
  */
 int bfdd_bfd_sessions_multi_hop_create(struct nb_cb_create_args *args)
 {
-	return bfd_session_create(args, true);
+	return bfd_session_create(args, true, BFD_MODE_TYPE_BFD);
 }
 
 int bfdd_bfd_sessions_multi_hop_destroy(struct nb_cb_destroy_args *args)
 {
-	return bfd_session_destroy(args->event, args->dnode, true);
+	return bfd_session_destroy(args->event, args->dnode, true, BFD_MODE_TYPE_BFD);
 }
 
 /*

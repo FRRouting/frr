@@ -657,11 +657,13 @@ void bfd_echo_recvtimer_cb(struct event *t)
 	}
 }
 
-struct bfd_session *bfd_session_new(void)
+struct bfd_session *bfd_session_new(enum bfd_mode_type mode)
 {
 	struct bfd_session *bs;
 
-	bs = XCALLOC(MTYPE_BFDD_CONFIG, sizeof(*bs));
+	bs = XCALLOC(MTYPE_BFDD_CONFIG, sizeof(struct bfd_session));
+	bs->segnum = 0;
+	bs->bfd_mode = mode;
 
 	/* Set peer session defaults. */
 	bfd_profile_set_default(&bs->peer_profile);
@@ -799,7 +801,7 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 	}
 
 	/* Get BFD session storage with its defaults. */
-	bfd = bfd_session_new();
+	bfd = bfd_session_new(BFD_MODE_TYPE_BFD);
 
 	/*
 	 * Store interface/VRF name in case we need to delay session
