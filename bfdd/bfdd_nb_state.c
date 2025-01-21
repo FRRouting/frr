@@ -358,3 +358,83 @@ bfdd_bfd_sessions_multi_hop_lookup_entry(struct nb_cb_lookup_entry_args *args)
 
 	return bfd_key_lookup(bk);
 }
+
+/*
+ * XPath: /frr-bfdd:bfdd/bfd/sessions/sbfd-echo
+ */
+const void *bfdd_bfd_sessions_sbfd_echo_get_next(struct nb_cb_get_next_args *args)
+{
+	return bfd_session_next(args->list_entry, true, BFD_MODE_TYPE_SBFD_ECHO);
+}
+
+int bfdd_bfd_sessions_sbfd_echo_get_keys(struct nb_cb_get_keys_args *args)
+{
+	const struct bfd_session *bs = args->list_entry;
+	char srcbuf[INET6_ADDRSTRLEN];
+
+	inet_ntop(bs->key.family, &bs->key.local, srcbuf, sizeof(srcbuf));
+
+	args->keys->num = 3;
+	strlcpy(args->keys->key[0], srcbuf, sizeof(args->keys->key[0]));
+	strlcpy(args->keys->key[1], bs->key.bfdname, sizeof(args->keys->key[1]));
+	strlcpy(args->keys->key[2], bs->key.vrfname, sizeof(args->keys->key[2]));
+
+	return NB_OK;
+}
+
+const void *bfdd_bfd_sessions_sbfd_echo_lookup_entry(struct nb_cb_lookup_entry_args *args)
+{
+	const char *source_addr = args->keys->key[0];
+	const char *bfdname = args->keys->key[1];
+	const char *vrf = args->keys->key[2];
+	struct sockaddr_any psa, lsa;
+	struct bfd_key bk;
+
+	strtosa(source_addr, &lsa);
+	memset(&psa, 0, sizeof(psa));
+	gen_bfd_key(&bk, &psa, &lsa, true, NULL, vrf, bfdname);
+
+	return bfd_key_lookup(bk);
+}
+
+/*
+ * XPath: /frr-bfdd:bfdd/bfd/sessions/sbfd-init
+ */
+const void *bfdd_bfd_sessions_sbfd_init_get_next(struct nb_cb_get_next_args *args)
+{
+	return bfd_session_next(args->list_entry, true, BFD_MODE_TYPE_SBFD_INIT);
+}
+
+int bfdd_bfd_sessions_sbfd_init_get_keys(struct nb_cb_get_keys_args *args)
+{
+	const struct bfd_session *bs = args->list_entry;
+	char srcbuf[INET6_ADDRSTRLEN];
+	char dstbuf[INET6_ADDRSTRLEN];
+
+	inet_ntop(bs->key.family, &bs->key.local, srcbuf, sizeof(srcbuf));
+	inet_ntop(bs->key.family, &bs->key.peer, dstbuf, sizeof(dstbuf));
+
+	args->keys->num = 4;
+	strlcpy(args->keys->key[0], srcbuf, sizeof(args->keys->key[0]));
+	strlcpy(args->keys->key[1], dstbuf, sizeof(args->keys->key[1]));
+	strlcpy(args->keys->key[2], bs->key.bfdname, sizeof(args->keys->key[2]));
+	strlcpy(args->keys->key[3], bs->key.vrfname, sizeof(args->keys->key[3]));
+
+	return NB_OK;
+}
+
+const void *bfdd_bfd_sessions_sbfd_init_lookup_entry(struct nb_cb_lookup_entry_args *args)
+{
+	const char *source_addr = args->keys->key[0];
+	const char *dest_addr = args->keys->key[1];
+	const char *bfdname = args->keys->key[2];
+	const char *vrf = args->keys->key[3];
+	struct sockaddr_any psa, lsa;
+	struct bfd_key bk;
+
+	strtosa(source_addr, &lsa);
+	strtosa(dest_addr, &psa);
+	gen_bfd_key(&bk, &psa, &lsa, true, NULL, vrf, bfdname);
+
+	return bfd_key_lookup(bk);
+}
