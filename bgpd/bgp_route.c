@@ -84,6 +84,7 @@
 #include "bgpd/bgp_flowspec.h"
 #include "bgpd/bgp_flowspec_util.h"
 #include "bgpd/bgp_pbr.h"
+#include "bgpd/bgp_rtc.h"
 
 #include "bgpd/bgp_route_clippy.c"
 
@@ -4548,6 +4549,21 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 				&bgp->t_rmap_def_originate_eval);
 	}
 
+	if (safi == SAFI_RTC && old_select != new_select) {
+		/* Remove route-target constraint prefix from old_select in rtc prefix-list */
+		for (struct bgp_path_info *pi = old_select; pi; pi = pi->next) {
+			if (pi->peer->as != bgp->as && bgp->peer_self != pi->peer &&
+			    CHECK_FLAG(pi->flags, BGP_PATH_VALID) &&
+			    CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)) {
+				zlog_info("Removing prefix %pFX: dest %p has pi peer %pBP valid %u selected %u",
+					  p, dest, pi->peer,
+					  !!CHECK_FLAG(pi->flags, BGP_PATH_VALID),
+					  !!CHECK_FLAG(pi->flags, BGP_PATH_SELECTED));
+				bgp_rtc_plist_entry_set(pi->peer, (struct prefix *)p, false);
+			}
+		}
+	}
+
 	/* TODO BMP insert rib update hook */
 	if (old_select)
 		bgp_path_info_unset_flag(dest, old_select, BGP_PATH_SELECTED);
@@ -4577,6 +4593,20 @@ void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest, afi_t afi, saf
 			  new_select);
 	}
 
+	if (safi == SAFI_RTC && old_select != new_select) {
+		/* Add route-target constraint prefix from new_select in rtc prefix-list */
+		for (struct bgp_path_info *pi = new_select; pi; pi = pi->next) {
+			if (pi->peer->as != bgp->as && bgp->peer_self != pi->peer &&
+			    CHECK_FLAG(pi->flags, BGP_PATH_VALID) &&
+			    CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)) {
+				zlog_info("Adding prefix %pFX: dest %p has pi peer %pBP valid %u selected %u",
+					  p, dest, pi->peer,
+					  !!CHECK_FLAG(pi->flags, BGP_PATH_VALID),
+					  !!CHECK_FLAG(pi->flags, BGP_PATH_SELECTED));
+				bgp_rtc_plist_entry_set(pi->peer, (struct prefix *)p, true);
+			}
+		}
+	}
 
 #ifdef ENABLE_BGP_VNC
 	if ((afi == AFI_IP || afi == AFI_IP6) && (safi == SAFI_UNICAST)) {
