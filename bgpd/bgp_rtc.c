@@ -41,6 +41,21 @@ int bgp_nlri_parse_rtc(struct peer *peer, struct attr *attr, struct bgp_nlri *pa
 
 		apply_mask(&p);
 
+		if (withdraw || peer->as == peer->bgp->as)
+			/* RFC4684 says
+			 * "When processing RT membership NLRIs received from internal iBGP
+			 * peers, it is necessary to consider all available iBGP paths for a
+			 * given RT prefix, for building the outbound route filter, and not just
+			 * the best path."
+			 *
+			 * (Un)set prefix-list for internal peers for all received path here.
+			 *
+			 * Prefixes from external peers are added if needed into prefix-list
+			 * after best path computation. They can be deleted on withdraw now
+			 * because they cannot be selected anymore by best path computation.
+			 */
+			bgp_rtc_plist_entry_set(peer, &p, !withdraw);
+
 		if (withdraw)
 			bgp_withdraw(peer, &p, 0, packet->afi, packet->safi, ZEBRA_ROUTE_BGP,
 				     BGP_ROUTE_NORMAL, NULL, NULL, 0);
