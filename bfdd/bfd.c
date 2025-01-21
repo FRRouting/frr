@@ -23,6 +23,7 @@ DEFINE_MTYPE_STATIC(BFDD, BFDD_CONFIG, "long-lived configuration memory");
 DEFINE_MTYPE_STATIC(BFDD, BFDD_PROFILE, "long-lived profile memory");
 DEFINE_MTYPE_STATIC(BFDD, BFDD_SESSION_OBSERVER, "Session observer");
 DEFINE_MTYPE_STATIC(BFDD, BFDD_VRF, "BFD VRF");
+DEFINE_MTYPE_STATIC(BFDD, SBFD_REFLECTOR, "SBFD REFLECTOR");
 
 /*
  * Prototypes
@@ -1529,6 +1530,10 @@ void bs_to_bpc(struct bfd_session *bs, struct bfd_peer_cfg *bpc)
 static struct hash *bfd_id_hash;
 static struct hash *bfd_key_hash;
 
+/*sbfd reflector discr hash*/
+static struct hash *sbfd_rflt_hash;
+static unsigned int sbfd_discr_hash_do(const void *p);
+
 static unsigned int bfd_id_hash_do(const void *p);
 static unsigned int bfd_key_hash_do(const void *p);
 
@@ -1604,6 +1609,20 @@ static bool bfd_key_hash_cmp(const void *n1, const void *n2)
 	return true;
 }
 
+/* SBFD disr hash . */
+static unsigned int sbfd_discr_hash_do(const void *p)
+{
+	const struct sbfd_reflector *sr = p;
+
+	return jhash_1word(sr->discr, 0);
+}
+
+static bool sbfd_discr_hash_cmp(const void *n1, const void *n2)
+{
+	const struct sbfd_reflector *sr1 = n1, *sr2 = n2;
+
+	return sr1->discr == sr2->discr;
+}
 
 /*
  * Hash public interface / exported functions.
@@ -1626,6 +1645,15 @@ struct bfd_session *bfd_key_lookup(struct bfd_key key)
 	bs.key = key;
 
 	return hash_lookup(bfd_key_hash, &bs);
+}
+
+struct sbfd_reflector *sbfd_discr_lookup(uint32_t discr)
+{
+	struct sbfd_reflector sr;
+
+	sr.discr = discr;
+
+	return hash_lookup(sbfd_rflt_hash, &sr);
 }
 
 /*
@@ -1656,6 +1684,15 @@ struct bfd_session *bfd_key_delete(struct bfd_key key)
 	return hash_release(bfd_key_hash, &bs);
 }
 
+struct sbfd_reflector *sbfd_discr_delete(uint32_t discr)
+{
+	struct sbfd_reflector sr;
+
+	sr.discr = discr;
+
+	return hash_release(sbfd_rflt_hash, &sr);
+}
+
 /* Iteration functions. */
 void bfd_id_iterate(hash_iter_func hif, void *arg)
 {
@@ -1665,6 +1702,11 @@ void bfd_id_iterate(hash_iter_func hif, void *arg)
 void bfd_key_iterate(hash_iter_func hif, void *arg)
 {
 	hash_iterate(bfd_key_hash, hif, arg);
+}
+
+void sbfd_discr_iterate(hash_iter_func hif, void *arg)
+{
+	hash_iterate(sbfd_rflt_hash, hif, arg);
 }
 
 /*
@@ -1683,12 +1725,24 @@ bool bfd_key_insert(struct bfd_session *bs)
 	return (hash_get(bfd_key_hash, bs, hash_alloc_intern) == bs);
 }
 
+bool sbfd_discr_insert(struct sbfd_reflector *sr)
+{
+	return (hash_get(sbfd_rflt_hash, sr, hash_alloc_intern) == sr);
+}
+
+unsigned long sbfd_discr_get_count(void)
+{
+	return sbfd_rflt_hash->count;
+}
+
 void bfd_initialize(void)
 {
 	bfd_id_hash = hash_create(bfd_id_hash_do, bfd_id_hash_cmp,
 				  "BFD session discriminator hash");
 	bfd_key_hash = hash_create(bfd_key_hash_do, bfd_key_hash_cmp,
 				   "BFD session hash");
+	sbfd_rflt_hash = hash_create(sbfd_discr_hash_do, sbfd_discr_hash_cmp,
+				     "SBFD reflector discriminator hash");
 	TAILQ_INIT(&bplist);
 }
 
@@ -1698,6 +1752,14 @@ static void _bfd_free(struct hash_bucket *hb,
 	struct bfd_session *bs = hb->data;
 
 	bfd_session_free(bs);
+}
+
+static void _sbfd_reflector_free(struct hash_bucket *hb, void *arg __attribute__((__unused__)))
+{
+	struct sbfd_reflector *sr = hb->data;
+
+
+	sbfd_reflector_free(sr->discr);
 }
 
 void bfd_shutdown(void)
@@ -1714,9 +1776,13 @@ void bfd_shutdown(void)
 	bfd_id_iterate(_bfd_free, NULL);
 	assert(bfd_key_hash->count == 0);
 
+	sbfd_discr_iterate(_sbfd_reflector_free, NULL);
+	assert(sbfd_rflt_hash->count == 0);
+
 	/* Now free the hashes themselves. */
 	hash_free(bfd_id_hash);
 	hash_free(bfd_key_hash);
+	hash_free(sbfd_rflt_hash);
 
 	/* Free all profile allocations. */
 	while ((bp = TAILQ_FIRST(&bplist)) != NULL)
@@ -2064,6 +2130,44 @@ struct bfd_vrf_global *bfd_vrf_look_by_session(struct bfd_session *bfd)
 unsigned long bfd_get_session_count(void)
 {
 	return bfd_key_hash->count;
+}
+
+struct sbfd_reflector *sbfd_reflector_new(const uint32_t discr, struct in6_addr *sip)
+{
+	struct sbfd_reflector *sr;
+
+	sr = sbfd_discr_lookup(discr);
+	if (sr)
+		return sr;
+
+	sr = XCALLOC(MTYPE_SBFD_REFLECTOR, sizeof(*sr));
+	sr->discr = discr;
+	memcpy(&sr->local, sip, sizeof(struct in6_addr));
+
+	sbfd_discr_insert(sr);
+
+
+	return sr;
+}
+
+void sbfd_reflector_free(const uint32_t discr)
+{
+	struct sbfd_reflector *sr;
+
+	sr = sbfd_discr_lookup(discr);
+	if (!sr)
+		return;
+
+	sbfd_discr_delete(discr);
+	XFREE(MTYPE_SBFD_REFLECTOR, sr);
+
+	return;
+}
+
+void sbfd_reflector_flush()
+{
+	sbfd_discr_iterate(_sbfd_reflector_free, NULL);
+	return;
 }
 
 void bfd_rtt_init(struct bfd_session *bfd)
