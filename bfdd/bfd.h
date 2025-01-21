@@ -411,6 +411,11 @@ struct bfd_session_observer {
 };
 TAILQ_HEAD(obslist, bfd_session_observer);
 
+/*sbfd reflector struct*/
+struct sbfd_reflector {
+	uint32_t discr;
+	struct in6_addr local;
+};
 
 /* States defined per 4.1 */
 #define PTM_BFD_ADM_DOWN 0
@@ -667,18 +672,22 @@ void bfd_vrf_terminate(void);
 struct bfd_vrf_global *bfd_vrf_look_by_session(struct bfd_session *bfd);
 struct bfd_session *bfd_id_lookup(uint32_t id);
 struct bfd_session *bfd_key_lookup(struct bfd_key key);
-
+struct sbfd_reflector *sbfd_discr_lookup(uint32_t discr);
 struct bfd_session *bfd_id_delete(uint32_t id);
 struct bfd_session *bfd_key_delete(struct bfd_key key);
+struct sbfd_reflector *sbfd_discr_delete(uint32_t discr);
 
 bool bfd_id_insert(struct bfd_session *bs);
 bool bfd_key_insert(struct bfd_session *bs);
+bool sbfd_discr_insert(struct sbfd_reflector *sr);
 
 typedef void (*hash_iter_func)(struct hash_bucket *hb, void *arg);
 void bfd_id_iterate(hash_iter_func hif, void *arg);
 void bfd_key_iterate(hash_iter_func hif, void *arg);
+void sbfd_discr_iterate(hash_iter_func hif, void *arg);
 
 unsigned long bfd_get_session_count(void);
+unsigned long sbfd_discr_get_count(void);
 
 /* Export callback functions for `event.c`. */
 extern struct event_loop *master;
@@ -822,5 +831,10 @@ int bfd_dplane_delete_session(struct bfd_session *bs);
 int bfd_dplane_update_session_counters(struct bfd_session *bs);
 
 void bfd_dplane_show_counters(struct vty *vty);
+
+/*sbfd relfector*/
+struct sbfd_reflector *sbfd_reflector_new(const uint32_t discr, struct in6_addr *sip);
+void sbfd_reflector_free(const uint32_t discr);
+void sbfd_reflector_flush(void);
 
 #endif /* _BFD_H_ */
