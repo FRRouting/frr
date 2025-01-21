@@ -199,6 +199,8 @@ struct bfd_echo_pkt {
 #define BFD_ECHO_VERSION 1
 #define BFD_ECHO_PKT_LEN sizeof(struct bfd_echo_pkt)
 
+#define RTH_BASE_HEADER_LEN   8
+#define GET_RTH_HDR_LEN(size) (((size) >> 3) - 1)
 enum bfd_diagnosticis {
 	BD_OK = 0,
 	/* Control Detection Time Expired. */
@@ -276,6 +278,7 @@ struct bfd_session_stats {
 	uint64_t session_up;
 	uint64_t session_down;
 	uint64_t znotification;
+	uint64_t tx_fail_pkt;
 };
 
 /**
@@ -390,6 +393,9 @@ struct bfd_session {
 	char bfd_name[BFD_NAME_SIZE + 1];
 
 	uint32_t bfd_mode;
+	uint8_t segnum;
+	struct in6_addr out_sip6;
+	struct in6_addr seg_list[SRV6_MAX_SEGS];
 };
 
 struct bfd_diag_str_list {
@@ -433,6 +439,7 @@ struct sbfd_reflector {
 #define BFD_DEF_DES_MIN_ECHO_TX (50 * 1000) /* microseconds. */
 #define BFD_DEF_REQ_MIN_ECHO_RX (50 * 1000) /* microseconds. */
 #define BFD_DEF_SLOWTX (1000 * 1000) /* microseconds. */
+#define SBFD_ECHO_DEF_SLOWTX	(1000 * 1000) /* microseconds. */
 /** Minimum multi hop TTL. */
 #define BFD_DEF_MHOP_TTL 254
 #define BFD_PKT_LEN 24 /* Length of control packet */
@@ -447,7 +454,9 @@ struct sbfd_reflector {
 #define BFD_DEFDESTPORT 3784
 #define BFD_DEF_ECHO_PORT 3785
 #define BFD_DEF_MHOP_DEST_PORT 4784
+#define BFD_DEF_SBFD_DEST_PORT 7784
 
+#define BFD_SBFD_INITIATOR_DEMAND 1
 
 /*
  * bfdd.c
@@ -539,6 +548,7 @@ int bp_set_ttl(int sd, uint8_t value);
 int bp_set_tosv6(int sd, uint8_t value);
 int bp_set_tos(int sd, uint8_t value);
 int bp_bind_dev(int sd, const char *dev);
+void bp_set_prio(int sd, int value);
 
 int bp_udp_shop(const struct vrf *vrf);
 int bp_udp_mhop(const struct vrf *vrf);
@@ -548,10 +558,15 @@ int bp_peer_socket(const struct bfd_session *bs);
 int bp_peer_socketv6(const struct bfd_session *bs);
 int bp_echo_socket(const struct vrf *vrf);
 int bp_echov6_socket(const struct vrf *vrf);
+int bp_peer_srh_socketv6(struct bfd_session *bs);
+int bp_sbfd_socket(const struct vrf *vrf);
+int bp_initv6_socket(const struct vrf *vrf);
 
 void ptm_bfd_snd(struct bfd_session *bfd, int fbit);
 void ptm_bfd_echo_snd(struct bfd_session *bfd);
 void ptm_bfd_echo_fp_snd(struct bfd_session *bfd);
+void ptm_sbfd_echo_snd(struct bfd_session *bfd);
+void ptm_sbfd_initiator_snd(struct bfd_session *bfd, int fbit);
 
 void bfd_recv_cb(struct event *t);
 
