@@ -111,6 +111,7 @@ static inline int fpm__nexthop__get(const Fpm__Nexthop *nh,
 
 			nexthop->vrf_id = VRF_DEFAULT;
 			nexthop->type = NEXTHOP_TYPE_IPV4;
+			memset(&nexthop->gate, 0, sizeof(nexthop->gate));
 			nexthop->gate.ipv4 = ipv4;
 			if (ifindex) {
 				nexthop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
