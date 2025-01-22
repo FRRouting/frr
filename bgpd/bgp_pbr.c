@@ -2624,7 +2624,6 @@ static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
 static void bgp_pbr_handle_entry(struct bgp *bgp, struct bgp_path_info *path,
 				 struct bgp_pbr_entry_main *api, bool add)
 {
-	struct nexthop nh;
 	int i = 0;
 	int continue_loop = 1;
 	float rate = 0;
@@ -2639,7 +2638,6 @@ static void bgp_pbr_handle_entry(struct bgp *bgp, struct bgp_path_info *path,
 	struct bgp_pbr_val_mask bpvm;
 
 	memset(&range, 0, sizeof(range));
-	memset(&nh, 0, sizeof(nh));
 	memset(&bpf, 0, sizeof(bpf));
 	memset(&bpof, 0, sizeof(bpof));
 	if (CHECK_FLAG(api->match_bitmask, PREFIX_SRC_PRESENT) ||
@@ -2652,8 +2650,6 @@ static void bgp_pbr_handle_entry(struct bgp *bgp, struct bgp_path_info *path,
 		dst = &api->dst_prefix;
 	if (api->type == BGP_PBR_IPRULE)
 		bpf.type = api->type;
-	memset(&nh, 0, sizeof(nh));
-	nh.vrf_id = VRF_UNKNOWN;
 	if (api->match_protocol_num) {
 		proto = (uint8_t)api->protocol[0].value;
 		if (api->afi == AF_INET6 && proto == IPPROTO_ICMPV6)
@@ -2778,8 +2774,10 @@ static void bgp_pbr_handle_entry(struct bgp *bgp, struct bgp_path_info *path,
 		case ACTION_TRAFFICRATE:
 			/* drop packet */
 			if (api->actions[i].u.r.rate == 0) {
-				nh.vrf_id = api->vrf_id;
-				nh.type = NEXTHOP_TYPE_BLACKHOLE;
+				struct nexthop nh = {
+					.vrf_id = api->vrf_id,
+					.type = NEXTHOP_TYPE_BLACKHOLE,
+				};
 				bgp_pbr_policyroute_add_to_zebra(
 					bgp, path, &bpf, &bpof, &nh, &rate);
 			} else {
@@ -2802,18 +2800,15 @@ static void bgp_pbr_handle_entry(struct bgp *bgp, struct bgp_path_info *path,
 			/* terminate action: run other filters
 			 */
 			break;
-		case ACTION_REDIRECT_IP:
-			nh.vrf_id = api->vrf_id;
+		case ACTION_REDIRECT_IP: {
+			struct nexthop nh = { .vrf_id = api->vrf_id };
+
 			if (api->afi == AFI_IP) {
 				nh.type = NEXTHOP_TYPE_IPV4;
-				nh.gate.ipv4.s_addr =
-					api->actions[i].u.zr.
-					redirect_ip_v4.s_addr;
+				nh.gate.ipv4 = api->actions[i].u.zr.redirect_ip_v4;
 			} else {
 				nh.type = NEXTHOP_TYPE_IPV6;
-				memcpy(&nh.gate.ipv6,
-				       &api->actions[i].u.zr.redirect_ip_v6,
-				       sizeof(struct in6_addr));
+				nh.gate.ipv6 = api->actions[i].u.zr.redirect_ip_v6;
 			}
 			bgp_pbr_policyroute_add_to_zebra(bgp, path, &bpf, &bpof,
 							 &nh, &rate);
@@ -2822,7 +2817,10 @@ static void bgp_pbr_handle_entry(struct bgp *bgp, struct bgp_path_info *path,
 			 */
 			continue_loop = 0;
 			break;
-		case ACTION_REDIRECT:
+		}
+		case ACTION_REDIRECT: {
+			struct nexthop nh = {};
+
 			if (api->afi == AFI_IP)
 				nh.type = NEXTHOP_TYPE_IPV4;
 			else
@@ -2832,6 +2830,7 @@ static void bgp_pbr_handle_entry(struct bgp *bgp, struct bgp_path_info *path,
 							 &nh, &rate);
 			continue_loop = 0;
 			break;
+		}
 		case ACTION_MARKING:
 			if (BGP_DEBUG(pbr, PBR)) {
 				bgp_pbr_print_policy_route(api);
