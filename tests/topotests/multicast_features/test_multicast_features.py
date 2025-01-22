@@ -174,32 +174,36 @@ def test_pim_convergence():
     # This neighbor is denied by default
     expect_pim_peer("r1", "ip", "r1-eth1", "192.168.2.2", missing=True)
     # Lets configure the prefix list so the above neighbor gets accepted:
-    tgen.gears["r1"].vtysh_cmd("""
+    tgen.gears["r1"].vtysh_cmd(
+        """
         configure terminal
         ip prefix-list pim-eth0-neighbors permit 192.168.2.0/24
-    """)
+    """
+    )
     expect_pim_peer("r1", "ip", "r1-eth1", "192.168.2.2", missing=False)
 
     #
     # IPv6 part
     #
     out = tgen.gears["r1"].vtysh_cmd("show interface r1-eth0 json", True)
-    r1_r2_link_address = out["r1-eth0"]["ipAddresses"][1]["address"].split('/')[0]
+    r1_r2_link_address = out["r1-eth0"]["ipAddresses"][1]["address"].split("/")[0]
     out = tgen.gears["r1"].vtysh_cmd("show interface r1-eth1 json", True)
-    r1_r3_link_address = out["r1-eth1"]["ipAddresses"][1]["address"].split('/')[0]
+    r1_r3_link_address = out["r1-eth1"]["ipAddresses"][1]["address"].split("/")[0]
     out = tgen.gears["r2"].vtysh_cmd("show interface r2-eth0 json", True)
-    r2_link_address = out["r2-eth0"]["ipAddresses"][1]["address"].split('/')[0]
+    r2_link_address = out["r2-eth0"]["ipAddresses"][1]["address"].split("/")[0]
     out = tgen.gears["r3"].vtysh_cmd("show interface r3-eth0 json", True)
-    r3_link_address = out["r3-eth0"]["ipAddresses"][1]["address"].split('/')[0]
+    r3_link_address = out["r3-eth0"]["ipAddresses"][1]["address"].split("/")[0]
 
     expect_pim_peer("r1", "ipv6", "r1-eth0", r2_link_address)
     expect_pim_peer("r2", "ipv6", "r2-eth0", r1_r2_link_address)
     expect_pim_peer("r1", "ipv6", "r1-eth1", r3_link_address, missing=True)
 
-    tgen.gears["r1"].vtysh_cmd(f"""
+    tgen.gears["r1"].vtysh_cmd(
+        f"""
         configure terminal
         ipv6 prefix-list pimv6-eth0-neighbors permit {r3_link_address}/64
-    """)
+    """
+    )
 
     expect_pim_peer("r1", "ipv6", "r1-eth1", r3_link_address, missing=False)
 
@@ -500,6 +504,279 @@ def test_mldv1_immediate_leave():
         tgen.gears["h1"], "net.ipv6.conf.h1-eth0.force_mld_version", "0"
     )
     app_helper.stop_host("h3")
+
+
+def host_send_igmp_packet(host, script, type, source, group, router_alert=True):
+    "Sends packet using specified script from host."
+    command = f"python3 {CWD}/../lib/packet/{script}"
+    command += f" --src_ip={source} --gaddr={group}"
+    command += f" --iface={host}-eth0 --type={type}"
+    if router_alert:
+        command += f" --enable_router_alert"
+
+    tgen = get_topogen()
+    tgen.gears[host].run(command)
+
+
+def host_send_igmpv3_packet(host, source, group, router_alert=True):
+    "Sends packet using specified script from host."
+    command = f"python3 {CWD}/../lib/packet/igmp/igmp_v3.py"
+    command += f" --src_ip={source} --iface={host}-eth0"
+    command += f" --maddr={group} --rtype=2"
+    if router_alert:
+        command += f" --enable_router_alert"
+
+    tgen = get_topogen()
+    tgen.gears[host].run(command)
+
+
+def expect_igmp_group(router, interface, group, missing=False):
+    tgen = get_topogen()
+
+    igmp_groups = tgen.gears[router].vtysh_cmd("show ip igmp groups json", isjson=True)
+    try:
+        for entry in igmp_groups[interface]["groups"]:
+            if entry["group"] == group:
+                return True
+
+        return False
+    except KeyError:
+        return False
+
+
+def test_igmp_router_alert():
+    "Test IGMP router alert check feature."
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    #
+    # Test that without require-router-alert we learn IGMP groups
+    #
+    source = "192.168.100.100"
+    group = "224.100.10.10"
+    host_send_igmp_packet(
+        "h1", "igmp/igmp_v1.py", 0x12, source, group, router_alert=False
+    )
+    test_func = partial(expect_igmp_group, "r1", "r1-eth2", group)
+    logger.info(f"Waiting for r1 to learn {group} in interface r1-eth2")
+    rv, _ = topotest.run_and_expect(test_func, True, count=10, wait=2)
+    assert rv, "failed to learn group using IGMPv1 without router alert"
+
+    group = "224.100.10.11"
+    host_send_igmp_packet(
+        "h1", "igmp/igmp_v2.py", 0x16, source, group, router_alert=False
+    )
+    test_func = partial(expect_igmp_group, "r1", "r1-eth2", group)
+    logger.info(f"Waiting for r1 to learn {group} in interface r1-eth2")
+    rv, _ = topotest.run_and_expect(test_func, True, count=10, wait=2)
+    assert rv, "failed to learn group using IGMPv2 without router alert"
+
+    group = "224.100.10.12"
+    host_send_igmpv3_packet("h1", source, group, False)
+    test_func = partial(expect_igmp_group, "r1", "r1-eth2", group)
+    logger.info(f"Waiting for r1 to learn {group} in interface r1-eth2")
+    rv, _ = topotest.run_and_expect(test_func, True, count=10, wait=2)
+    assert rv, "failed to learn group using IGMPv3 without router alert"
+
+    #
+    # Test that with require-router-alert we don't learn IGMP groups
+    #
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        interface r1-eth2
+         ip igmp require-router-alert
+    """
+    )
+
+    source = "192.168.100.100"
+    group = "224.100.10.20"
+    host_send_igmp_packet(
+        "h1", "igmp/igmp_v1.py", 0x12, source, group, router_alert=False
+    )
+    test_func = partial(expect_igmp_group, "r1", "r1-eth2", group)
+    logger.info(f"Waiting for r1 to not learn {group} in interface r1-eth2")
+    rv, _ = topotest.run_and_expect(test_func, True, count=10, wait=2)
+    assert rv == False, "failed to learn group using IGMPv1 without router alert"
+
+    group = "224.100.10.21"
+    host_send_igmp_packet(
+        "h1", "igmp/igmp_v2.py", 0x16, source, group, router_alert=False
+    )
+    test_func = partial(expect_igmp_group, "r1", "r1-eth2", group)
+    logger.info(f"Waiting for r1 to not learn {group} in interface r1-eth2")
+    rv, _ = topotest.run_and_expect(test_func, True, count=10, wait=2)
+    assert rv == False, "failed to learn group using IGMPv2 without router alert"
+
+    group = "224.100.10.22"
+    host_send_igmpv3_packet("h1", source, group, False)
+    test_func = partial(expect_igmp_group, "r1", "r1-eth2", group)
+    logger.info(f"Waiting for r1 to not learn {group} in interface r1-eth2")
+    rv, _ = topotest.run_and_expect(test_func, True, count=10, wait=2)
+    assert rv == False, "failed to learn group using IGMPv3 without router alert"
+
+    #
+    # Test that with require-router-alert we learn IGMP groups
+    #
+    source = "192.168.100.100"
+    group = "224.100.10.30"
+    host_send_igmp_packet(
+        "h1", "igmp/igmp_v1.py", 0x12, source, group, router_alert=True
+    )
+    test_func = partial(expect_igmp_group, "r1", "r1-eth2", group)
+    logger.info(f"Waiting for r1 to learn {group} in interface r1-eth2")
+    rv, _ = topotest.run_and_expect(test_func, True, count=10, wait=2)
+    assert rv, "failed to learn group using IGMPv1 without router alert"
+
+    group = "224.100.10.31"
+    host_send_igmp_packet(
+        "h1", "igmp/igmp_v2.py", 0x16, source, group, router_alert=True
+    )
+    test_func = partial(expect_igmp_group, "r1", "r1-eth2", group)
+    logger.info(f"Waiting for r1 to learn {group} in interface r1-eth2")
+    rv, _ = topotest.run_and_expect(test_func, True, count=10, wait=2)
+    assert rv, "failed to learn group using IGMPv2 without router alert"
+
+    group = "224.100.10.32"
+    host_send_igmpv3_packet("h1", source, group, True)
+    test_func = partial(expect_igmp_group, "r1", "r1-eth2", group)
+    logger.info(f"Waiting for r1 to learn {group} in interface r1-eth2")
+    rv, _ = topotest.run_and_expect(test_func, True, count=10, wait=2)
+    assert rv, "failed to learn group using IGMPv3 without router alert"
+
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        interface r1-eth2
+         no ip igmp require-router-alert
+    """
+    )
+
+
+def host_send_mldv1_packet(host, source, group, router_alert=True):
+    "Sends packet using specified script from host."
+    command = f"python3 {CWD}/../lib/packet/mld/mld_v1.py"
+    command += f" --src_ip={source} --gaddr={group}"
+    command += f" --iface={host}-eth0"
+    if router_alert:
+        command += f" --enable_router_alert"
+
+    tgen = get_topogen()
+    tgen.gears[host].run(command)
+
+
+def host_send_mldv2_packet(host, source, group, router_alert=True):
+    "Sends packet using specified script from host."
+    command = f"python3 {CWD}/../lib/packet/mld/mld_v2.py"
+    command += f" --src_ip={source} --iface={host}-eth0"
+    command += f" --maddr={group} --rtype=2"
+    if router_alert:
+        command += f" --enable_router_alert"
+
+    tgen = get_topogen()
+    tgen.gears[host].run(command)
+
+
+def expect_mld_group(router, interface, group, missing=False):
+    tgen = get_topogen()
+
+    igmp_groups = tgen.gears[router].vtysh_cmd("show ipv6 mld groups json", isjson=True)
+    try:
+        for entry in igmp_groups[interface]["groups"]:
+            if entry["group"] == group:
+                return True
+
+        return False
+    except KeyError:
+        return False
+
+
+def test_mld_router_alert():
+    "Test IGMP router alert check feature."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    addr_out = json.loads(tgen.gears["h1"].run("ip -j addr show dev h1-eth0"))
+    source = None
+    for address in addr_out[0]["addr_info"]:
+        if address["family"] != "inet6":
+            continue
+        if address["scope"] != "link":
+            continue
+
+        source = address["local"]
+        break
+    assert source is not None, "failed to find link-local address"
+
+    #
+    # Test that without require-router-alert we learn MLD groups
+    #
+    group = "ff05::100"
+    host_send_mldv1_packet("h1", source, group, router_alert=False)
+    test_func = partial(expect_mld_group, "r1", "r1-eth2", group)
+    logger.info(f"Waiting for r1 to learn {group} in interface r1-eth2")
+    rv, _ = topotest.run_and_expect(test_func, True, count=10, wait=2)
+    assert rv, "failed to learn group using MLDv1 without router alert"
+
+    group = "ff05::101"
+    host_send_mldv2_packet("h1", source, group, router_alert=False)
+    test_func = partial(expect_mld_group, "r1", "r1-eth2", group)
+    logger.info(f"Waiting for r1 to learn {group} in interface r1-eth2")
+    rv, _ = topotest.run_and_expect(test_func, True, count=10, wait=2)
+    assert rv, "failed to learn group using MLDv2 without router alert"
+
+    #
+    # Test that with require-router-alert we don't learn MLD groups
+    #
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        interface r1-eth2
+         ipv6 mld require-router-alert
+    """
+    )
+
+    group = "ff05::110"
+    host_send_mldv1_packet("h1", source, group, router_alert=False)
+    test_func = partial(expect_mld_group, "r1", "r1-eth2", group)
+    logger.info(f"Waiting for r1 to learn {group} in interface r1-eth2")
+    rv, _ = topotest.run_and_expect(test_func, True, count=10, wait=2)
+    assert rv == False, "failed to learn group using MLDv1 without router alert"
+
+    group = "ff05::111"
+    host_send_mldv2_packet("h1", source, group, router_alert=False)
+    test_func = partial(expect_mld_group, "r1", "r1-eth2", group)
+    logger.info(f"Waiting for r1 to learn {group} in interface r1-eth2")
+    rv, _ = topotest.run_and_expect(test_func, True, count=10, wait=2)
+    assert rv == False, "failed to learn group using MLDv2 without router alert"
+
+    #
+    # Test that with require-router-alert we learn MLD groups
+    #
+    group = "ff05::120"
+    host_send_mldv1_packet("h1", source, group, router_alert=True)
+    test_func = partial(expect_mld_group, "r1", "r1-eth2", group)
+    logger.info(f"Waiting for r1 to learn {group} in interface r1-eth2")
+    rv, _ = topotest.run_and_expect(test_func, True, count=10, wait=2)
+    assert rv, "failed to learn group using MLDv1 without router alert"
+
+    group = "ff05::121"
+    host_send_mldv2_packet("h1", source, group, router_alert=True)
+    test_func = partial(expect_mld_group, "r1", "r1-eth2", group)
+    logger.info(f"Waiting for r1 to learn {group} in interface r1-eth2")
+    rv, _ = topotest.run_and_expect(test_func, True, count=10, wait=2)
+    assert rv, "failed to learn group using MLDv2 without router alert"
+
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        interface r1-eth2
+         no ipv6 mld require-router-alert
+    """
+    )
 
 
 def test_memory_leak():
