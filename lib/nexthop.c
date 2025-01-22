@@ -772,68 +772,30 @@ unsigned int nexthop_level(const struct nexthop *nexthop)
 	return rv;
 }
 
-/* Only hash word-sized things, let cmp do the rest. */
-uint32_t nexthop_hash_quick(const struct nexthop *nexthop)
+uint32_t nexthop_hash(const struct nexthop *nexthop)
 {
 	uint32_t key = 0x45afe398;
-	int i;
 
-	key = jhash_3words(nexthop->type, nexthop->vrf_id,
-			   nexthop->nh_label_type, key);
+	/* type, vrf, ifindex, ip addresses - see nexthop.h */
+	key = _nexthop_hash_bytes(nexthop, key);
+
+	key = jhash_1word(nexthop->flags & NEXTHOP_FLAGS_HASHED, key);
 
 	if (nexthop->nh_label) {
-		int labels = nexthop->nh_label->num_labels;
+		const struct mpls_label_stack *ls = nexthop->nh_label;
 
-		i = 0;
-
-		while (labels >= 3) {
-			key = jhash_3words(nexthop->nh_label->label[i],
-					   nexthop->nh_label->label[i + 1],
-					   nexthop->nh_label->label[i + 2],
-					   key);
-			labels -= 3;
-			i += 3;
-		}
-
-		if (labels >= 2) {
-			key = jhash_2words(nexthop->nh_label->label[i],
-					   nexthop->nh_label->label[i + 1],
-					   key);
-			labels -= 2;
-			i += 2;
-		}
-
-		if (labels >= 1)
-			key = jhash_1word(nexthop->nh_label->label[i], key);
+		/* num_labels itself isn't useful to hash, if the number of
+		 * labels is different, the hash value will change just due to
+		 * that already.
+		 */
+		key = jhash(ls->label, sizeof(ls->label[0]) * ls->num_labels, key);
 	}
-
-	key = jhash_2words(nexthop->ifindex,
-			   CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK),
-			   key);
 
 	/* Include backup nexthops, if present */
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
 		int backups = nexthop->backup_num;
 
-		i = 0;
-
-		while (backups >= 3) {
-			key = jhash_3words(nexthop->backup_idx[i],
-					   nexthop->backup_idx[i + 1],
-					   nexthop->backup_idx[i + 2], key);
-			backups -= 3;
-			i += 3;
-		}
-
-		while (backups >= 2) {
-			key = jhash_2words(nexthop->backup_idx[i],
-					   nexthop->backup_idx[i + 1], key);
-			backups -= 2;
-			i += 2;
-		}
-
-		if (backups >= 1)
-			key = jhash_1word(nexthop->backup_idx[i], key);
+		key = jhash(nexthop->backup_idx, sizeof(nexthop->backup_idx[0]) * backups, key);
 	}
 
 	if (nexthop->nh_srv6) {
@@ -864,31 +826,6 @@ uint32_t nexthop_hash_quick(const struct nexthop *nexthop)
 			}
 		}
 	}
-
-	return key;
-}
-
-
-#define GATE_SIZE 4 /* Number of uint32_t words in struct g_addr */
-
-/* For a more granular hash */
-uint32_t nexthop_hash(const struct nexthop *nexthop)
-{
-	uint32_t gate_src_rmap_raw[GATE_SIZE * 3] = {};
-	/* Get all the quick stuff */
-	uint32_t key = nexthop_hash_quick(nexthop);
-
-	assert(((sizeof(nexthop->gate) + sizeof(nexthop->src)
-		 + sizeof(nexthop->rmap_src))
-		/ 3)
-	       == (GATE_SIZE * sizeof(uint32_t)));
-
-	memcpy(gate_src_rmap_raw, &nexthop->gate, GATE_SIZE);
-	memcpy(gate_src_rmap_raw + GATE_SIZE, &nexthop->src, GATE_SIZE);
-	memcpy(gate_src_rmap_raw + (2 * GATE_SIZE), &nexthop->rmap_src,
-	       GATE_SIZE);
-
-	key = jhash2(gate_src_rmap_raw, (GATE_SIZE * 3), key);
 
 	return key;
 }
