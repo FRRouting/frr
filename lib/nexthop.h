@@ -8,6 +8,7 @@
 #ifndef _LIB_NEXTHOP_H
 #define _LIB_NEXTHOP_H
 
+#include "jhash.h"
 #include "prefix.h"
 #include "mpls.h"
 #include "vxlan.h"
@@ -56,15 +57,48 @@ struct nexthop {
 	struct nexthop *next;
 	struct nexthop *prev;
 
-	/*
-	 * What vrf is this nexthop associated with?
+
+	/* begin of hashed data - all fields from here onwards are given to
+	 * jhash() as one consecutive chunk.  DO NOT create "padding holes".
+	 * DO NOT insert pointers that need to be deep-hashed.
+	 *
+	 * static_assert() below needs to be updated when fields are added
 	 */
+	char _hash_begin[0];
+
+	/* see above */
+	enum nexthop_types_t type;
+
+	/* What vrf is this nexthop associated with? */
 	vrf_id_t vrf_id;
 
 	/* Interface index. */
 	ifindex_t ifindex;
 
-	enum nexthop_types_t type;
+	/* Type of label(s), if any */
+	enum lsp_types_t nh_label_type;
+
+	/* padding: keep 16 byte alignment here */
+
+	/* Nexthop address
+	 * make sure all 16 bytes for IPv6 are zeroed when putting in an IPv4
+	 * address since the entire thing is hashed as-is
+	 */
+	union {
+		union g_addr gate;
+		enum blackhole_type bh_type;
+	};
+	union g_addr src;
+	union g_addr rmap_src; /* Src is set via routemap */
+
+	/* end of hashed data - remaining fields in this struct are not
+	 * directly fed into jhash().  Most of them are actually part of the
+	 * hash but have special rules or handling attached.
+	 */
+	char _hash_end[0];
+
+	/* Weight of the nexthop ( for unequal cost ECMP ) */
+	uint8_t weight;
 
 	uint16_t flags;
 #define NEXTHOP_FLAG_ACTIVE     (1 << 0) /* This nexthop is alive. */
@@ -82,17 +116,14 @@ struct nexthop {
 #define NEXTHOP_FLAG_EVPN       (1 << 8) /* nexthop is EVPN */
 #define NEXTHOP_FLAG_LINKDOWN   (1 << 9) /* is not removed on link down */
 
+	/* which flags are part of nexthop_hash().  Should probably be split
+	 * off into a separate field...
+	 */
+#define NEXTHOP_FLAGS_HASHED NEXTHOP_FLAG_ONLINK
+
 #define NEXTHOP_IS_ACTIVE(flags)                                               \
 	(CHECK_FLAG(flags, NEXTHOP_FLAG_ACTIVE)                                \
 	 && !CHECK_FLAG(flags, NEXTHOP_FLAG_DUPLICATE))
-
-	/* Nexthop address */
-	union {
-		union g_addr gate;
-		enum blackhole_type bh_type;
-	};
-	union g_addr src;
-	union g_addr rmap_src; /* Src is set via routemap */
 
 	/* Nexthops obtained by recursive resolution.
 	 *
@@ -104,14 +135,8 @@ struct nexthop {
 	/* Recursive parent */
 	struct nexthop *rparent;
 
-	/* Type of label(s), if any */
-	enum lsp_types_t nh_label_type;
-
 	/* Label(s) associated with this nexthop. */
 	struct mpls_label_stack *nh_label;
-
-	/* Weight of the nexthop ( for unequal cost ECMP ) */
-	uint8_t weight;
 
 	/* Count and index of corresponding backup nexthop(s) in a backup list;
 	 * only meaningful if the HAS_BACKUP flag is set.
@@ -137,6 +162,29 @@ struct nexthop {
 	/* SRv6 information */
 	struct nexthop_srv6 *nh_srv6;
 };
+
+/* all hashed fields (including padding, if it is necessary to add) need to
+ * be listed in the static_assert below
+ */
+
+#define S(field) sizeof(((struct nexthop *)NULL)->field)
+
+static_assert(
+	offsetof(struct nexthop, _hash_end) - offsetof(struct nexthop, _hash_begin) ==
+		S(type) + S(vrf_id) + S(ifindex) + S(nh_label_type) + S(gate) + S(src) + S(rmap_src),
+	"struct nexthop contains padding, this can break things. insert _pad fields at appropriate places");
+
+#undef S
+
+/* this is here to show exactly what is meant by the comments above about
+ * the hashing
+ */
+static inline uint32_t _nexthop_hash_bytes(const struct nexthop *nh, uint32_t seed)
+{
+	return jhash(&nh->_hash_begin,
+		     offsetof(struct nexthop, _hash_end) - offsetof(struct nexthop, _hash_begin),
+		     seed);
+}
 
 /* Utility to append one nexthop to another. */
 #define NEXTHOP_APPEND(to, new)           \
@@ -183,27 +231,11 @@ struct nexthop *nexthop_from_blackhole(enum blackhole_type bh_type,
 /*
  * Hash a nexthop. Suitable for use with hash tables.
  *
- * This function uses the following values when computing the hash:
- * - vrf_id
- * - ifindex
- * - type
- * - gate
- *
- * nexthop
- *    The nexthop to hash
- *
- * Returns:
- *    32-bit hash of nexthop
+ * Please double check the code on what is included in the hash, there was
+ * documentation here but it got outdated and the only thing worse than no
+ * doc is incorrect doc.
  */
 uint32_t nexthop_hash(const struct nexthop *nexthop);
-/*
- * Hash a nexthop only on word-sized attributes:
- * - vrf_id
- * - ifindex
- * - type
- * - (some) flags
- */
-uint32_t nexthop_hash_quick(const struct nexthop *nexthop);
 
 extern bool nexthop_same(const struct nexthop *nh1, const struct nexthop *nh2);
 extern bool nexthop_same_no_labels(const struct nexthop *nh1,
