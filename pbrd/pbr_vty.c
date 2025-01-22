@@ -1488,7 +1488,7 @@ pbrms_nexthop_group_write_individual_nexthop(
 {
 	struct pbr_nexthop_group_cache find;
 	struct pbr_nexthop_group_cache *pnhgc;
-	struct pbr_nexthop_cache lookup;
+	struct pbr_nexthop_cache lookup = {};
 	struct pbr_nexthop_cache *pnhc;
 
 	memset(&find, 0, sizeof(find));
