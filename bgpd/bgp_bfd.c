@@ -114,6 +114,10 @@ void bgp_peer_config_apply(struct peer *p, struct peer_group *pg)
 	 */
 	gconfig = pg->conf;
 
+	if (CHECK_FLAG(gconfig->flags, PEER_FLAG_UPDATE_SOURCE) ||
+	    CHECK_FLAG(p->flags_override, PEER_FLAG_UPDATE_SOURCE))
+		bgp_peer_bfd_update_source(p);
+
 	/*
 	 * If using default control plane independent configuration,
 	 * then prefer group's (e.g. it means it wasn't manually configured).
