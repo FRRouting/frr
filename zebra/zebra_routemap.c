@@ -959,10 +959,11 @@ route_set_src(void *rule, const struct prefix *prefix, void *object)
 /* set src compilation. */
 static void *route_set_src_compile(const char *arg)
 {
-	union g_addr src, *psrc;
+	union g_addr src = {}, *psrc;
 
-	if ((inet_pton(AF_INET6, arg, &src.ipv6) == 1)
-	    || (inet_pton(AF_INET, arg, &src.ipv4) == 1)) {
+	/* IPv4 first, to ensure no garbage in the 12 unused bytes */
+	if ((inet_pton(AF_INET, arg, &src.ipv4) == 1) ||
+	    (inet_pton(AF_INET6, arg, &src.ipv6) == 1)) {
 		psrc = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(union g_addr));
 		*psrc = src;
 		return psrc;
