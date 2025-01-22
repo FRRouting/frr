@@ -328,6 +328,19 @@ struct bgp_path_info_extra *bgp_path_info_extra_get(struct bgp_path_info *pi)
 	return pi->extra;
 }
 
+/* Get bgp_path_info extra along with evpn information for the given bgp_path_info.
+ * This is used for EVPN imported routes like Type-5.
+ */
+struct bgp_path_info_extra *bgp_evpn_path_info_extra_get(struct bgp_path_info *pi)
+{
+	if (!pi->extra)
+		pi->extra = bgp_path_info_extra_new();
+	if (!pi->extra->evpn)
+		pi->extra->evpn = XCALLOC(MTYPE_BGP_ROUTE_EXTRA_EVPN,
+					  sizeof(struct bgp_path_info_extra_evpn));
+	return pi->extra;
+}
+
 bool bgp_path_info_has_valid_label(const struct bgp_path_info *path)
 {
 	if (!BGP_PATH_INFO_NUM_LABELS(path))

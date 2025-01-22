@@ -4737,7 +4737,7 @@ bgp_evpn_path_nh_info_new(struct bgp_path_info *pi)
 	struct bgp_path_mh_info *mh_info;
 	struct bgp_path_evpn_nh_info *nh_info;
 
-	e = bgp_path_info_extra_get(pi);
+	e = bgp_evpn_path_info_extra_get(pi);
 
 	/* If mh_info doesn't exist allocate it */
 	mh_info = e->evpn->mh_info;
