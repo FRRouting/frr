@@ -2300,7 +2300,27 @@ struct nexthop *nexthop_from_zapi_nexthop(const struct zapi_nexthop *znh)
 	n->type = znh->type;
 	n->vrf_id = znh->vrf_id;
 	n->ifindex = znh->ifindex;
-	n->gate = znh->gate;
+
+	/* only copy values that have meaning - make sure "spare bytes" are
+	 * left zeroed for hashing (look at _nexthop_hash_bytes)
+	 */
+	switch (znh->type) {
+	case NEXTHOP_TYPE_BLACKHOLE:
+		n->bh_type = znh->bh_type;
+		break;
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		n->gate.ipv4 = znh->gate.ipv4;
+		break;
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		n->gate.ipv6 = znh->gate.ipv6;
+		break;
+	case NEXTHOP_TYPE_IFINDEX:
+		/* nothing, ifindex is always copied */
+		break;
+	}
+
 	n->srte_color = znh->srte_color;
 	n->weight = znh->weight;
 
