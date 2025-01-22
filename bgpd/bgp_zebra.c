@@ -3141,11 +3141,14 @@ static int bgp_ifp_create(struct interface *ifp)
 		zlog_debug("Rx Intf add VRF %u IF %s", ifp->vrf->vrf_id,
 			   ifp->name);
 
+	/* We don't need to check for vrf->bgp link to add this local MAC
+	 * to the hash table as the tenant VRF might not have the BGP instance.
+	 */
+	bgp_mac_add_mac_entry(ifp);
+
 	bgp = ifp->vrf->info;
 	if (!bgp)
 		return 0;
-
-	bgp_mac_add_mac_entry(ifp);
 
 	bgp_update_interface_nbrs(bgp, ifp, ifp);
 	hook_call(bgp_vrf_status_changed, bgp, ifp);
