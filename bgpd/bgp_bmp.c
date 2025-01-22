@@ -2451,7 +2451,7 @@ static void bmp_send_all_bgp(struct peer *peer, bool down)
 		if (!bmpbgp)
 			continue;
 		frr_each (bmp_targets, &bmpbgp->targets, bt) {
-			if (bgp_vrf != peer->bgp && !bmp_imported_bgp_find(bt, peer->bgp->name))
+			if (bgp_vrf == peer->bgp || !bmp_imported_bgp_find(bt, peer->bgp->name))
 				continue;
 			bmp_send_bt(bt, s);
 		}
