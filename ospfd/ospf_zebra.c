@@ -304,6 +304,27 @@ void ospf_zebra_add(struct ospf *ospf, struct prefix_ipv4 *p,
 		if (api.nexthop_num >= ospf->max_multipath)
 			break;
 
+		/*
+		 * Prune duplicate next-hops from the route that is
+		 * installed in the zebra IP route table. OSPF Intra-Area
+		 * routes never have duplicates.
+		 */
+		if (or->path_type != OSPF_PATH_INTRA_AREA) {
+			struct zapi_nexthop *api_nh = &api.nexthops[0];
+			unsigned int nh_index;
+			bool duplicate_next_hop = false;
+
+			for (nh_index = 0; nh_index < api.nexthop_num; api_nh++, nh_index++) {
+				if (IPV4_ADDR_SAME(&api_nh->gate.ipv4, &path->nexthop) &&
+				    (api_nh->ifindex == path->ifindex)) {
+					duplicate_next_hop = true;
+					break;
+				}
+			}
+			if (duplicate_next_hop)
+				continue;
+		}
+
 		ospf_zebra_add_nexthop(ospf, path, &api);
 
 		if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE)) {
