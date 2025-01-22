@@ -334,7 +334,7 @@ def test_ping_step1():
 
     # Setup encap route on rt1, decap route on rt2
     tgen.gears["rt1"].vtysh_cmd(
-        "sharp install seg6-routes fc00:0:9::1 nexthop-seg6 2001:db8:1::2 encap fc00:0:1:2:6:f00d:: 1"
+        "sharp install seg6-routes fc00:0:9::1 nexthop-seg6 2001:db8:1::2 encap fc00:0:2:6:f00d:: 1"
     )
     tgen.gears["rt6"].vtysh_cmd(
         "sharp install seg6local-routes fc00:0:f00d:: nexthop-seg6local eth-dst End_DT6 254 1"
@@ -444,7 +444,8 @@ def test_ping_step2():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_ping6("rt1", "fc00:0:9::1", False)
+    # ping should pass because route to fc00:0:2:6:f00d:: is still valid
+    check_ping6("rt1", "fc00:0:9::1", True)
 
 
 #
@@ -644,7 +645,8 @@ def test_ping_step4():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_ping6("rt1", "fc00:0:9::1", False)
+    # ping should pass because route to fc00:0:2:6:f00d:: is still valid
+    check_ping6("rt1", "fc00:0:9::1", True)
 
 
 #
@@ -839,7 +841,8 @@ def test_ping_step6():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_ping6("rt1", "fc00:0:9::1", False)
+    # ping should pass because route to fc00:0:2:6:f00d:: is still valid
+    check_ping6("rt1", "fc00:0:9::1", True)
 
 
 #
@@ -1034,7 +1037,8 @@ def test_ping_step8():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_ping6("rt1", "fc00:0:9::1", False)
+    # ping should pass because route to fc00:0:2:6:f00d:: is still valid
+    check_ping6("rt1", "fc00:0:9::1", True)
 
 
 #
