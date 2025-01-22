@@ -638,12 +638,6 @@ def pre_config_for_source_dr_tests(
                         "interfaceName": "r5-r4-eth1",
                         "weight": 1,
                     },
-                    {
-                        "ip": "10.0.3.1",
-                        "afi": "ipv4",
-                        "interfaceName": "r5-r4-eth1",
-                        "weight": 1,
-                    },
                 ],
             }
         ]
