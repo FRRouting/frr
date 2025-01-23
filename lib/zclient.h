@@ -271,6 +271,12 @@ struct redist_proto {
 /**
  * Redistribute table direct instance data structure: keeps the VRF
  * that subscribed to the table ID.
+ *
+ * **NOTE**
+ * `table_id` is an integer because that is what the netlink interface
+ * uses for route attribute RTA_TABLE (32bit int), however the whole
+ * zclient API uses `unsigned short` (and CLI commands) so it will be
+ * limited to the range 1 to 65535.
  */
 struct redist_table_direct {
 	vrf_id_t vrf_id;

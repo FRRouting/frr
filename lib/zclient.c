@@ -4774,6 +4774,16 @@ static void zclient_redistribute_table_direct(struct zclient *zclient, vrf_id_t 
 void zclient_redistribute(int command, struct zclient *zclient, afi_t afi,
 			  int type, unsigned short instance, vrf_id_t vrf_id)
 {
+	/*
+	 * When asking for table-direct redistribution the parameter
+	 * `instance` has a different meaning: it means table
+	 * identification.
+	 *
+	 * The table identification information is stored in
+	 * `zclient->mi_redist` along with the VRF identification
+	 * information in a pair (different from the usual single protocol
+	 * instance value).
+	 */
 	if (type == ZEBRA_ROUTE_TABLE_DIRECT) {
 		zclient_redistribute_table_direct(zclient, vrf_id, afi, instance, command);
 		return;

@@ -2043,6 +2043,18 @@ int bgp_redistribute_set(struct bgp *bgp, afi_t afi, int type,
 	/* Return if already redistribute flag is set. */
 	if (instance) {
 		if (type == ZEBRA_ROUTE_TABLE_DIRECT) {
+			/*
+			 * When redistribution type is `table-direct` the
+			 * instance means `table identification`.
+			 *
+			 * `table_id` support 32bit integers, however since
+			 * `instance` is being overloaded to `table_id` it
+			 * will only be possible to use the first 65535
+			 * entries.
+			 *
+			 * Also the ZAPI must also support `int`
+			 * (see `zebra_redistribute_add`).
+			 */
 			struct redist_table_direct table = {
 				.table_id = instance,
 				.vrf_id = bgp->vrf_id,
