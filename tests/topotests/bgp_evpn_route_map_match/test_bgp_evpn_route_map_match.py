@@ -24,6 +24,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topolog import logger
 from lib.common_config import step
 
 pytestmark = [pytest.mark.bgpd]
@@ -67,7 +68,7 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
-def test_bgp_evpn_route_map_match_route_type():
+def test_bgp_evpn_route_map_match_route_type5():
     tgen = get_topogen()
 
     if tgen.routers_have_failure():
@@ -88,16 +89,12 @@ def test_bgp_evpn_route_map_match_route_type():
                         "valid": True,
                     }
                 },
-                "10.10.10.2:2": {
-                    "[3]:[0]:[32]:[10.10.10.2]": {
-                        "valid": True,
-                    }
-                },
             },
-            "totalPrefixCounter": 2,
+            "totalPrefixCounter": 1,
         }
         return topotest.json_cmp(output, expected)
 
+    logger.info("Check route type-5 filtering")
     test_func = functools.partial(
         _bgp_converge,
     )
