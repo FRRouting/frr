@@ -83,10 +83,8 @@ struct zebra_sr_policy *zebra_sr_policy_find_by_name(char *name)
 }
 
 static int process_routes_for_policy(struct zebra_sr_policy *policy, struct zserv *client,
-				     uint32_t message, struct stream *s, struct zapi_nexthop *znh,
-				     unsigned long *nump)
+				     uint32_t message, struct stream *s, struct zapi_nexthop *znh)
 {
-	int num = 0;
 	int ret, i;
 	struct prefix p = {};
 
@@ -99,20 +97,14 @@ static int process_routes_for_policy(struct zebra_sr_policy *policy, struct zser
 	stream_putw(s, 0); /* instance - not available */
 	stream_putc(s, policy->segment_list.distance);
 	stream_putl(s, policy->segment_list.metric);
-	*nump = stream_get_endp(s);
-	stream_putc(s, 0);
+	stream_putw(s, policy->segment_list.nexthop_resolved_num);
 
 	for (i = 0; i < policy->segment_list.nexthop_resolved_num; i++) {
 		znh = &policy->segment_list.nexthop_resolved[i];
-		/* add SRTE in znh */
-		if (CHECK_FLAG(message, ZAPI_MESSAGE_SRTE))
-			znh->srte_color = policy->color;
-		ret = zapi_nexthop_encode(s, znh, 0, message);
+		ret = zapi_nexthop_encode(s, znh, 0, 0);
 		if (ret < 0)
 			goto failure;
-		num++;
 	}
-	stream_putc_at(s, *nump, num);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	client->nh_last_upd_time = monotime(NULL);
@@ -180,7 +172,7 @@ static int zebra_sr_policy_notify_update_client(struct zebra_sr_policy *policy,
 		policy->segment_list.srv6_segs.num_segs = SRV6_MAX_SIDS;
 
 	if (policy->segment_list.srv6_segs.num_segs > 0)
-		return process_routes_for_policy(policy, client, message, s, &znh, &nump);
+		return process_routes_for_policy(policy, client, message, s, &znh);
 
 	num = 0;
 	frr_each (nhlfe_list_const, &policy->lsp->nhlfe_list, nhlfe) {
