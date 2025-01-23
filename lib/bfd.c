@@ -374,7 +374,6 @@ int zclient_bfd_command(struct zclient *zc, struct bfd_session_arg *args)
 	stream_putc(s, args->profilelen);
 	if (args->profilelen)
 		stream_put(s, args->profile, args->profilelen);
-
 #else /* PTM BFD */
 	/* Encode timers if this is a registration message. */
 	if (args->command != ZEBRA_BFD_DEST_DEREGISTER) {
@@ -751,7 +750,6 @@ void bfd_sess_install(struct bfd_session_params *bsp)
 	bsp->lastev = BSE_INSTALL;
 	event_add_event(bsglobal.tm, _bfd_sess_send, bsp, 0, &bsp->installev);
 }
-
 
 void bfd_sess_uninstall(struct bfd_session_params *bsp)
 {

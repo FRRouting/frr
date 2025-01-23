@@ -2107,16 +2107,18 @@ int bp_peer_srh_socketv6(struct bfd_session *bs)
 		close(sd);
 		return -1;
 	}
-#if defined(HAVE_IPV6_HDRINCL)
+#ifdef IPV6_HDRINCL
 	int on = 1;
 
 	/*manage the IP6 header all on own onwn*/
 	if (setsockopt(sd, IPPROTO_IPV6, IPV6_HDRINCL, &on, sizeof(on))) {
+#else
+	if (true) {
+#endif
 		zlog_err("setsockopt IPV6_HDRINCL error: %s", strerror(errno));
 		close(sd);
 		return -1;
 	}
-#endif
 
 	return sd;
 }
