@@ -1789,9 +1789,24 @@ DEFPY (show_route_detail,
 	rib_dest_t *dest;
 	bool network_found = false;
 	bool show_ng = !!ng;
+	int idx = 0;
+
+	/*
+	 * Return error if V6 address/prefix is passed as an argument to
+	 * "show ip route" cmd.
+	 *
+	 * When "show ip route <X:X::X:X|X:X::X:X/M>" is queried,
+	 * argv[idx]->text will be set to "ipv6" but argv[idx]->arg will be set
+	 * to "ip".
+	 */
+	if (argv_find(argv, argc, "ipv6", &idx) && !strcmp(argv[idx]->arg, "ip")) {
+		vty_out(vty, "%% Cannot specify IPv6 address/prefix for IPv4 table\n");
+		return CMD_WARNING;
+	}
 
 	if (address_str)
 		prefix_str = address_str;
+
 	if (str2prefix(prefix_str, &p) < 0) {
 		vty_out(vty, "%% Malformed address\n");
 		return CMD_WARNING;
