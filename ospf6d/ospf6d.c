@@ -1408,13 +1408,13 @@ static void install_element_ospf6_debug_event(void)
 }
 
 /* Install ospf related commands. */
-void ospf6_init(struct event_loop *master)
+void ospf6_init(struct event_loop *mst)
 {
 	ospf6_top_init();
 	ospf6_area_init();
 	ospf6_interface_init();
 	ospf6_neighbor_init();
-	ospf6_zebra_init(master);
+	ospf6_zebra_init(mst);
 
 	ospf6_lsa_init();
 	ospf6_spf_init();
