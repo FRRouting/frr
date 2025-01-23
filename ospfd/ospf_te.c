@@ -1709,15 +1709,15 @@ static int ospf_te_export(uint8_t type, void *link_state)
 	switch (type) {
 	case LS_MSG_TYPE_NODE:
 		ls_vertex2msg(&msg, (struct ls_vertex *)link_state);
-		rc = ls_send_msg(zclient, &msg, NULL);
+		rc = ls_send_msg(ospf_zclient, &msg, NULL);
 		break;
 	case LS_MSG_TYPE_ATTRIBUTES:
 		ls_edge2msg(&msg, (struct ls_edge *)link_state);
-		rc = ls_send_msg(zclient, &msg, NULL);
+		rc = ls_send_msg(ospf_zclient, &msg, NULL);
 		break;
 	case LS_MSG_TYPE_PREFIX:
 		ls_subnet2msg(&msg, (struct ls_subnet *)link_state);
-		rc = ls_send_msg(zclient, &msg, NULL);
+		rc = ls_send_msg(ospf_zclient, &msg, NULL);
 		break;
 	default:
 		rc = -1;
@@ -3113,7 +3113,7 @@ int ospf_te_sync_ted(struct zapi_opaque_reg_info dst)
 	if (!OspfMplsTE.enabled || !OspfMplsTE.export)
 		return rc;
 
-	rc = ls_sync_ted(OspfMplsTE.ted, zclient, &dst);
+	rc = ls_sync_ted(OspfMplsTE.ted, ospf_zclient, &dst);
 
 	return rc;
 }
@@ -4306,7 +4306,7 @@ DEFUN (ospf_mpls_te_export,
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 
 	if (OspfMplsTE.enabled) {
-		if (ls_register(zclient, true) != 0) {
+		if (ls_register(ospf_zclient, true) != 0) {
 			vty_out(vty, "Unable to register Link State\n");
 			return CMD_WARNING;
 		}
@@ -4330,7 +4330,7 @@ DEFUN (no_ospf_mpls_te_export,
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 
 	if (OspfMplsTE.export) {
-		if (ls_unregister(zclient, true) != 0) {
+		if (ls_unregister(ospf_zclient, true) != 0) {
 			vty_out(vty, "Unable to unregister Link State\n");
 			return CMD_WARNING;
 		}
