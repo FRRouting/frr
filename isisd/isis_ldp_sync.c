@@ -40,9 +40,8 @@
 #include "isisd/isis_errors.h"
 #include "isisd/isis_tx_queue.h"
 #include "isisd/isis_nb.h"
+#include "isisd/isis_zebra.h"
 #include "isisd/isis_ldp_sync.h"
-
-extern struct zclient *zclient;
 
 /*
  * LDP-SYNC msg between IGP and LDP
@@ -122,8 +121,8 @@ void isis_ldp_sync_state_req_msg(struct isis_circuit *circuit)
 	request.proto = LDP_IGP_SYNC_IF_STATE_REQUEST;
 	request.ifindex = ifp->ifindex;
 
-	zclient_send_opaque(zclient, LDP_IGP_SYNC_IF_STATE_REQUEST,
-		(uint8_t *)&request, sizeof(request));
+	zclient_send_opaque(isis_zclient, LDP_IGP_SYNC_IF_STATE_REQUEST,
+			    (uint8_t *)&request, sizeof(request));
 }
 
 /*
