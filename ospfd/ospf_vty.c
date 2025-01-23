@@ -12308,8 +12308,6 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 				else
 					vty_out(vty, " ip ospf");
 
-				char buf[INET_ADDRSTRLEN];
-
 				area_id2str(buf, sizeof(buf), &params->if_area,
 					    params->if_area_id_fmt);
 				vty_out(vty, " area %s", buf);
