@@ -108,20 +108,29 @@ static enum rtc_prefix_list_type bgp_rtc_plist_entry_match(struct bgp_rtc_plist 
 
 /* Return whether route-target constraint must filter an advertisement via 'peer' based on the
  * route-target attributes contained in the 'ecom' extended community list.
+ *
+ * prefix 'p' argument is optional. If set, it enables logging when "debug bgp update out" is on.
+ * Its value is displayed in the logs.
  */
-enum rtc_prefix_list_type bgp_rtc_filter(struct peer *peer, struct ecommunity *ecom)
+enum rtc_prefix_list_type bgp_rtc_filter(struct peer *peer, struct ecommunity *ecom,
+					 struct prefix *p)
 {
 	uint8_t sub_type = 0;
 	uint8_t *pnt;
 	bool rt_found = false;
 	char *ecom_str;
+	bool debug = p && BGP_DEBUG(update, UPDATE_OUT);
 	struct bgp_rtc_plist *rtc_plist = bgp_peer_get_rtc_plist(peer);
 
 	if (!rtc_plist) {
-		if (BGP_DEBUG(update, UPDATE_OUT)) {
+		if (debug) {
 			ecom_str = ecommunity_ecom2str(ecom, ECOMMUNITY_FORMAT_DISPLAY, 0);
-			zlog_debug("Accepted a prefix with EC(%s) to peer %pBP because RTC prefix-list does not exist",
-				   ecom_str, peer);
+			if (p->family == AF_ETHERNET)
+				zlog_debug("Send update to peer %pBP for EVPN prefixes with EC(%s) - RTC prefix-list does not exist",
+					   peer, ecom_str);
+			else
+				zlog_debug("Send update to peer %pBP for %pFX with EC(%s) - RTC prefix-list does not exist",
+					   peer, p, ecom_str);
 			XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
 		}
 		return RTC_PREFIX_PERMIT;
@@ -139,10 +148,14 @@ enum rtc_prefix_list_type bgp_rtc_filter(struct peer *peer, struct ecommunity *e
 		if (bgp_rtc_plist_entry_match(rtc_plist, pnt) == RTC_PREFIX_DENY)
 			continue;
 
-		if (BGP_DEBUG(update, UPDATE_OUT)) {
+		if (debug) {
 			ecom_str = ecommunity_ecom2str(ecom, ECOMMUNITY_FORMAT_DISPLAY, 0);
-			zlog_debug("Accepted a prefix with EC(%s) to peer %pBP because of RTC prefix-list: case 0",
-				   ecom_str, peer);
+			if (p->family == AF_ETHERNET)
+				zlog_debug("Send update to peer %pBP for EVPN prefixes with EC(%s) - accepted by RTC prefix-list",
+					   peer, ecom_str);
+			else
+				zlog_debug("Send update to peer %pBP for %pFX with EC(%s) - accepted by RTC prefix-list",
+					   peer, p, ecom_str);
 			XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
 		}
 
@@ -153,10 +166,14 @@ enum rtc_prefix_list_type bgp_rtc_filter(struct peer *peer, struct ecommunity *e
 		/* No Route-target found => No filtering */
 		return RTC_PREFIX_PERMIT;
 
-	if (BGP_DEBUG(update, UPDATE_OUT)) {
+	if (debug) {
 		ecom_str = ecommunity_ecom2str(ecom, ECOMMUNITY_FORMAT_DISPLAY, 0);
-		zlog_debug("Filtered a prefix with EC(%s) to peer %pBP because of RTC prefix-list",
-			   ecom_str, peer);
+		if (p->family == AF_ETHERNET)
+			zlog_debug("Send withdraw to peer %pBP for EVPN prefixes with EC(%s) - filtered by RTC prefix-list",
+				   peer, ecom_str);
+		else
+			zlog_debug("Send withdraw to peer %pBP for %pFX with EC(%s) - filtered by RTC prefix-list",
+				   peer, p, ecom_str);
 		XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
 	}
 

@@ -341,6 +341,8 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 	uint16_t ecomlen;
 	size_t offset_ecom;
 	struct ecommunity ecom = {};
+	struct prefix p = {};
+	uint8_t prefixlen;
 	afi_t afi;
 	safi_t safi;
 
@@ -363,7 +365,25 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 		ecom.unit_size = ECOMMUNITY_SIZE;
 		ecom.size = ecomlen / ECOMMUNITY_SIZE;
 		ecom.val = (uint8_t *)(pkt->buffer->data + offset_ecom);
-		if (bgp_rtc_filter(peer, &ecom) == RTC_PREFIX_DENY)
+
+#define VPN_PREFIXLEN_MIN_BYTES (3 + 8) /* label + RD */
+
+		if (BGP_DEBUG(update, UPDATE_OUT)) {
+			p.family = afi2family(afi);
+			if (safi == SAFI_MPLS_VPN) {
+				/* Decode prefix for debugging. Only for L3VPN.
+				 * Decoding EVPN is too complex because several prefixes
+				 * can be sent in a single UPDATE message.
+				 */
+				vec = &pkt->arr.entries[BGP_ATTR_VEC_MP_PREFIX_LABEL];
+				prefixlen = stream_getc_from(pkt->buffer, vec->offset - 1);
+				p.prefixlen = prefixlen - VPN_PREFIXLEN_MIN_BYTES * 8;
+				memcpy(&p.u.val, pkt->buffer->data + vec->offset + 11,
+				       PSIZE(prefixlen) - VPN_PREFIXLEN_MIN_BYTES);
+			}
+		}
+
+		if (bgp_rtc_filter(peer, &ecom, &p) == RTC_PREFIX_DENY)
 			return NULL;
 	}
 
@@ -872,10 +892,9 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 				mpattrlen_pos = bgp_packet_mpattr_start(snlri, peer, afi, safi,
 									&mp_vecarr, adv->baa->attr);
 
-			bgp_packet_mpattr_prefix(snlri, afi, safi, dest_p, prd,
-						 label_pnt, num_labels,
-						 addpath_capable, addpath_tx_id,
-						 adv->baa->attr);
+			bgp_packet_mpattr_prefix(snlri, afi, safi, dest_p, prd, label_pnt,
+						 num_labels, addpath_capable, addpath_tx_id,
+						 adv->baa->attr, &mp_vecarr);
 		}
 
 		num_pfx++;
