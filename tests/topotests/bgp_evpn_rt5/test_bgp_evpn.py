@@ -42,16 +42,21 @@ def build_topo(tgen):
 
     tgen.add_router("r1")
     tgen.add_router("r2")
+    tgen.add_router("r3")
 
     switch = tgen.add_switch("s1")
     switch.add_link(tgen.gears["r1"])
     switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r3"])
 
     switch = tgen.add_switch("s2")
     switch.add_link(tgen.gears["r1"])
 
     switch = tgen.add_switch("s3")
     switch.add_link(tgen.gears["r2"])
+
+    switch = tgen.add_switch("s4")
+    switch.add_link(tgen.gears["r3"])
 
 
 def setup_module(mod):
@@ -71,16 +76,16 @@ def setup_module(mod):
         )
         return pytest.skip("Skipping BGP EVPN RT5 NETNS Test. Kernel not supported")
 
-    # create VRF vrf-101 on R1 and R2
+    # create VRF vrf-101 on R1, R2, R3
     # create loop101
     cmds_vrflite = [
-        "ip link add {}-vrf-101 type vrf table 101",
-        "ip ru add oif {}-vrf-101 table 101",
-        "ip ru add iif {}-vrf-101 table 101",
-        "ip link set dev {}-vrf-101 up",
-        "ip link add loop101 type dummy",
-        "ip link set dev loop101 master {}-vrf-101",
-        "ip link set dev loop101 up",
+        "ip link add {0}-vrf-{1} type vrf table {1}",
+        "ip ru add oif {0}-vrf-{1} table {1}",
+        "ip ru add iif {0}-vrf-{1} table {1}",
+        "ip link set dev {0}-vrf-{1} up",
+        "ip link add loop{1} type dummy",
+        "ip link set dev loop{1} master {0}-vrf-{1}",
+        "ip link set dev loop{1} up",
     ]
 
     cmds_r2 = [  # config routing 101
@@ -90,6 +95,15 @@ def setup_module(mod):
         "ip link add name vxlan-101 type vxlan id 101 dstport 4789 dev r2-eth0 local 192.168.100.41",
         "ip link set dev vxlan-101 master bridge-101",
         "ip link set vxlan-101 up type bridge_slave learning off flood off mcast_flood off",
+    ]
+
+    cmds_r3 = [  # config routing 102
+        "ip link add name bridge-102 up type bridge stp_state 0",
+        "ip link set bridge-102 master {}-vrf-102",
+        "ip link set dev bridge-102 up",
+        "ip link add name vxlan-102 type vxlan id 102 dstport 4789 dev r3-eth0 local 192.168.100.61",
+        "ip link set dev vxlan-102 master bridge-102",
+        "ip link set vxlan-102 up type bridge_slave learning off flood off mcast_flood off",
     ]
 
     # cmds_r1_netns_method3 = [
@@ -111,13 +125,24 @@ def setup_module(mod):
 
     router = tgen.gears["r2"]
     for cmd in cmds_vrflite:
-        logger.info("cmd to r2: " + cmd.format("r2"))
-        output = router.cmd_raises(cmd.format("r2"))
+        logger.info("cmd to r2: " + cmd.format("r2", 101))
+        output = router.cmd_raises(cmd.format("r2", 101))
         logger.info("result: " + output)
 
     for cmd in cmds_r2:
         logger.info("cmd to r2: " + cmd.format("r2"))
         output = router.cmd_raises(cmd.format("r2"))
+        logger.info("result: " + output)
+
+    router = tgen.gears["r3"]
+    for cmd in cmds_vrflite:
+        logger.info("cmd to r3: " + cmd.format("r3", 102))
+        output = router.cmd_raises(cmd.format("r3", 102))
+        logger.info("result: " + output)
+
+    for cmd in cmds_r3:
+        logger.info("cmd to r3: " + cmd.format("r3"))
+        output = router.cmd_raises(cmd.format("r3"))
         logger.info("result: " + output)
 
     tgen.net["r1"].cmd_raises(
@@ -134,19 +159,13 @@ def setup_module(mod):
     tgen.net["r1"].cmd_raises("ip -n r1-vrf-101 link set bridge-101 up")
     tgen.net["r1"].cmd_raises("ip -n r1-vrf-101 link set vxlan-101 up")
 
-    for rname, router in router_list.items():
+    for rname, router in tgen.routers().items():
+        logger.info("Loading router %s" % rname)
         if rname == "r1":
             router.use_netns_vrf()
-            router.load_config(
-                TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-            )
+            router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
         else:
-            router.load_config(
-                TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-            )
-        router.load_config(
-            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
-        )
+            router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
 
     # Initialize all routers.
     tgen.start_router()

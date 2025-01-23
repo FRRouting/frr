@@ -2285,6 +2285,7 @@ extern void bgp_zclient_reset(void);
 extern struct bgp *bgp_get_default(void);
 extern struct bgp *bgp_lookup(as_t, const char *);
 extern struct bgp *bgp_lookup_by_name(const char *);
+extern struct bgp *bgp_lookup_by_name_filter(const char *name, bool filter_auto);
 extern struct bgp *bgp_lookup_by_vrf_id(vrf_id_t);
 extern struct bgp *bgp_get_evpn(void);
 extern void bgp_set_evpn(struct bgp *bgp);
@@ -2859,11 +2860,9 @@ extern struct peer *peer_new(struct bgp *bgp);
 
 extern struct peer *peer_lookup_in_view(struct vty *vty, struct bgp *bgp,
 					const char *ip_str, bool use_json);
-extern int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as,
-				      const char *as_pretty,
-				      enum asnotation_mode asnotation,
-				      const char *name,
-				      enum bgp_instance_type inst_type);
+extern int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as, const char *as_pretty,
+				      enum asnotation_mode asnotation, const char *name,
+				      enum bgp_instance_type inst_type, bool force_config);
 
 /* Hooks */
 DECLARE_HOOK(bgp_vrf_status_changed, (struct bgp *bgp, struct interface *ifp),

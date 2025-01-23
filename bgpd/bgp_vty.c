@@ -1499,13 +1499,12 @@ DEFUN_NOSH (router_bgp,
 	int idx_asn = 2;
 	int idx_view_vrf = 3;
 	int idx_vrf = 4;
-	int is_new_bgp = 0;
 	int idx_asnotation = 3;
 	int idx_asnotation_kind = 4;
 	enum asnotation_mode asnotation = ASNOTATION_UNDEFINED;
 	int ret;
 	as_t as;
-	struct bgp *bgp;
+	struct bgp *bgp = NULL;
 	const char *name = NULL;
 	enum bgp_instance_type inst_type;
 
@@ -1567,35 +1566,40 @@ DEFUN_NOSH (router_bgp,
 				asnotation = ASNOTATION_PLAIN;
 		}
 
-		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-			is_new_bgp = (bgp_lookup(as, name) == NULL);
-
-		ret = bgp_get_vty(&bgp, &as, name, inst_type,
-				  argv[idx_asn]->arg, asnotation);
+		ret = bgp_lookup_by_as_name_type(&bgp, &as, argv[idx_asn]->arg, asnotation, name,
+						 inst_type, true);
+		if (bgp && ret == BGP_INSTANCE_EXISTS)
+			ret = CMD_SUCCESS;
+		else if (bgp == NULL && ret == CMD_SUCCESS)
+			/* SUCCESS and bgp is NULL */
+			ret = bgp_get_vty(&bgp, &as, name, inst_type, argv[idx_asn]->arg,
+					  asnotation);
 		switch (ret) {
 		case BGP_ERR_AS_MISMATCH:
 			vty_out(vty, "BGP is already running; AS is %s\n",
-				bgp->as_pretty);
+				bgp ? bgp->as_pretty : "unknown");
 			return CMD_WARNING_CONFIG_FAILED;
 		case BGP_ERR_INSTANCE_MISMATCH:
 			vty_out(vty,
 				"BGP instance name and AS number mismatch\n");
-			vty_out(vty,
-				"BGP instance is already running; AS is %s\n",
-				bgp->as_pretty);
+			vty_out(vty, "BGP instance is already running; AS is %s\n",
+				bgp ? bgp->as_pretty : "unknown");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 
+		if (!bgp) {
+			vty_out(vty, "BGP instance not found\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 		/*
 		 * If we just instantiated the default instance, complete
 		 * any pending VRF-VPN leaking that was configured via
 		 * earlier "router bgp X vrf FOO" blocks.
 		 */
-		if (is_new_bgp && inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
 			vpn_leak_postchange_all();
 
-		if (inst_type == BGP_INSTANCE_TYPE_VRF ||
-		    IS_BGP_INSTANCE_HIDDEN(bgp)) {
+		if (inst_type == BGP_INSTANCE_TYPE_VRF || IS_BGP_INSTANCE_HIDDEN(bgp)) {
 			bgp_vpn_leak_export(bgp);
 			UNSET_FLAG(bgp->flags, BGP_FLAG_INSTANCE_HIDDEN);
 			UNSET_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS);
@@ -10559,7 +10563,7 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 		SET_FLAG(bgp_default->flags, BGP_FLAG_INSTANCE_HIDDEN);
 	}
 
-	vrf_bgp = bgp_lookup_by_name(import_name);
+	vrf_bgp = bgp_lookup_by_name_filter(import_name, false);
 	if (!vrf_bgp) {
 		if (strcmp(import_name, VRF_DEFAULT_NAME) == 0) {
 			vrf_bgp = bgp_default;
