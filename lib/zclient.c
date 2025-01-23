@@ -3893,8 +3893,6 @@ int zapi_sr_policy_encode(struct stream *s, int cmd, struct zapi_sr_policy *zp)
 
 	stream_putw(s, zt->nexthop_resolved_num);
 
-	stream_putw(s, zt->nexthop_resolved_num);
-
 	for (i = 0; i < zt->nexthop_resolved_num; i++) {
 		znh = &zt->nexthop_resolved[i];
 
@@ -3955,8 +3953,6 @@ int zapi_sr_policy_decode(struct stream *s, struct zapi_sr_policy *zp)
 			 zt->nexthop_resolved_num);
 		return -1;
 	}
-
-	STREAM_GETW(s, zt->nexthop_resolved_num);
 
 	for (i = 0; i < zt->nexthop_resolved_num; i++) {
 		znh = &zt->nexthop_resolved[i];
