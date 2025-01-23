@@ -1125,7 +1125,6 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 		struct isis_router_cap *rcap;
 #ifndef FABRICD
 		struct isis_router_cap_fad *rcap_fad;
-		struct listnode *node;
 		struct flex_algo *fa;
 #endif /* ifndef FABRICD */
 

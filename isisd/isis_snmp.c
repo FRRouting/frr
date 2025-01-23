@@ -692,15 +692,15 @@ static int isis_circuit_snmp_id_free(struct isis_circuit *circuit)
 static struct isis_circuit *isis_snmp_circuit_next(struct isis_circuit *circuit)
 {
 	uint32_t start;
-	uint32_t off;
+	uint32_t offset;
 
 	start = 1;
 
 	if (circuit != NULL)
 		start = circuit->snmp_id + 1;
 
-	for (off = start; off < SNMP_CIRCUITS_MAX; off++) {
-		circuit = snmp_circuits[off];
+	for (offset = start; offset < SNMP_CIRCUITS_MAX; offset++) {
+		circuit = snmp_circuits[offset];
 
 		if (circuit != NULL)
 			return circuit;
@@ -759,7 +759,7 @@ static int isis_snmp_get_level_match(int is_type, int level)
 static int isis_snmp_conv_exact(uint8_t *buf, size_t max_len, size_t *out_len,
 				const oid *idx, size_t idx_len)
 {
-	size_t off;
+	size_t offset;
 	size_t len;
 
 	/* Oid representation: length followed by bytes */
@@ -774,11 +774,11 @@ static int isis_snmp_conv_exact(uint8_t *buf, size_t max_len, size_t *out_len,
 	if (idx_len < len + 1)
 		return 0;
 
-	for (off = 0; off < len; off++) {
-		if (idx[off + 1] > 0xff)
+	for (offset = 0; offset < len; offset++) {
+		if (idx[offset + 1] > 0xff)
 			return 0;
 
-		buf[off] = (uint8_t)(idx[off + 1] & 0xff);
+		buf[offset] = (uint8_t)(idx[offset + 1] & 0xff);
 	}
 
 	*out_len = len;
@@ -789,7 +789,7 @@ static int isis_snmp_conv_exact(uint8_t *buf, size_t max_len, size_t *out_len,
 static int isis_snmp_conv_next(uint8_t *buf, size_t max_len, size_t *out_len,
 			       int *try_exact, const oid *idx, size_t idx_len)
 {
-	size_t off;
+	size_t offset;
 	size_t len;
 	size_t cmp_len;
 
@@ -809,15 +809,15 @@ static int isis_snmp_conv_next(uint8_t *buf, size_t max_len, size_t *out_len,
 	if ((idx_len - 1) < cmp_len)
 		cmp_len = idx_len - 1;
 
-	for (off = 0; off < cmp_len; off++) {
-		if (idx[off + 1] > 0xff) {
-			memset(buf + off, 0xff, len - off);
+	for (offset = 0; offset < cmp_len; offset++) {
+		if (idx[offset + 1] > 0xff) {
+			memset(buf + offset, 0xff, len - off);
 			*out_len = len;
 			*try_exact = 1;
 			return 1;
 		}
 
-		buf[off] = (uint8_t)(idx[off + 1] & 0xff);
+		buf[offset] = (uint8_t)(idx[offset + 1] & 0xff);
 	}
 
 	if (cmp_len < len)
@@ -983,7 +983,7 @@ static int isis_snmp_circuit_lookup_exact(oid *oid_idx, size_t oid_idx_len,
 static int isis_snmp_circuit_lookup_next(oid *oid_idx, size_t oid_idx_len,
 					 struct isis_circuit **ret_circuit)
 {
-	oid off;
+	oid offset;
 	oid start;
 	struct isis_circuit *circuit;
 
@@ -996,10 +996,10 @@ static int isis_snmp_circuit_lookup_next(oid *oid_idx, size_t oid_idx_len,
 		start = oid_idx[0];
 	}
 
-	for (off = start; off < SNMP_CIRCUITS_MAX; ++off) {
-		circuit = snmp_circuits[off];
+	for (offset = start; offset < SNMP_CIRCUITS_MAX; ++offset) {
+		circuit = snmp_circuits[offset];
 
-		if (circuit != NULL && off > start) {
+		if (circuit != NULL && offset > start) {
 			if (ret_circuit != NULL)
 				*ret_circuit = circuit;
 
@@ -1052,7 +1052,7 @@ static int isis_snmp_circuit_level_lookup_next(
 	oid *oid_idx, size_t oid_idx_len, int check_match,
 	struct isis_circuit **ret_circuit, int *ret_level)
 {
-	oid off;
+	oid offset;
 	oid start;
 	struct isis_circuit *circuit = NULL;
 	int level;
@@ -1066,13 +1066,13 @@ static int isis_snmp_circuit_level_lookup_next(
 		start = oid_idx[0];
 	}
 
-	for (off = start; off < SNMP_CIRCUITS_MAX; off++) {
-		circuit = snmp_circuits[off];
+	for (offset = start; offset < SNMP_CIRCUITS_MAX; offset++) {
+		circuit = snmp_circuits[offset];
 
 		if (circuit == NULL)
 			continue;
 
-		if (off > start || oid_idx_len < 2) {
+		if (offset > start || oid_idx_len < 2) {
 			/* Found and can use level 1 */
 			level = IS_LEVEL_1;
 			break;
@@ -1504,7 +1504,7 @@ static uint8_t *isis_snmp_find_man_area(struct variable *v, oid *name,
 	struct iso_address *area_addr = NULL;
 	oid *oid_idx;
 	size_t oid_idx_len;
-	size_t off = 0;
+	size_t offset = 0;
 
 	*write_method = NULL;
 
@@ -1539,8 +1539,8 @@ static uint8_t *isis_snmp_find_man_area(struct variable *v, oid *name,
 		/* Append index */
 		name[v->namelen] = area_addr->addr_len;
 
-		for (off = 0; off < area_addr->addr_len; off++)
-			name[v->namelen + 1 + off] = area_addr->area_addr[off];
+		for (offset = 0; offset < area_addr->addr_len; offset++)
+			name[v->namelen + 1 + offset] = area_addr->area_addr[offset];
 
 		*length = v->namelen + 1 + area_addr->addr_len;
 	}
@@ -1628,7 +1628,7 @@ static uint8_t *isis_snmp_find_router(struct variable *v, oid *name,
 	struct isis_dynhn *dyn = NULL;
 	oid *oid_idx;
 	size_t oid_idx_len;
-	size_t off = 0;
+	size_t offset = 0;
 	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
 
 	if (isis == NULL)
@@ -1729,8 +1729,8 @@ static uint8_t *isis_snmp_find_router(struct variable *v, oid *name,
 	/* Append index */
 	name[v->namelen] = ISIS_SYS_ID_LEN;
 
-	for (off = 0; off < ISIS_SYS_ID_LEN; off++)
-		name[v->namelen + 1 + off] = dyn->id[off];
+	for (offset = 0; offset < ISIS_SYS_ID_LEN; offset++)
+		name[v->namelen + 1 + off] = dyn->id[offset];
 
 	name[v->namelen + 1 + ISIS_SYS_ID_LEN] = (oid)dyn->level;
 
@@ -2803,8 +2803,8 @@ static int isis_snmp_init(struct event_loop *tm)
 	struct isis_func_to_prefix *h2f = isis_func_to_prefix_arr;
 	struct variable *v;
 
-	for (size_t off = 0; off < isis_var_count; off++) {
-		v = &isis_var_arr[off];
+	for (size_t offset = 0; offset < isis_var_count; offset++) {
+		v = &isis_var_arr[offset];
 
 		if (v->findVar != h2f->ihtp_func) {
 			/* Next table */
@@ -2858,7 +2858,7 @@ static int isis_snmp_db_overload_update(const struct isis_area *area)
 {
 	netsnmp_variable_list *notification_vars;
 	long val;
-	uint32_t off;
+	uint32_t offset;
 
 	if (!isis_snmp_trap_throttle(ISIS_TRAP_DB_OVERLOAD))
 		return 0;
@@ -2880,8 +2880,8 @@ static int isis_snmp_db_overload_update(const struct isis_area *area)
 		(uint8_t *)&val, sizeof(val));
 
 	/* Patch sys_level_state with proper index */
-	off = array_size(isis_snmp_trap_data_var_sys_level_state) - 1;
-	isis_snmp_trap_data_var_sys_level_state[off] = val;
+	offset = array_size(isis_snmp_trap_data_var_sys_level_state) - 1;
+	isis_snmp_trap_data_var_sys_level_state[offset] = val;
 
 	/* Prepare data */
 	if (area->overload_bit)

@@ -704,15 +704,15 @@ static int isis_te_export(uint8_t type, void *link_state)
 	switch (type) {
 	case LS_MSG_TYPE_NODE:
 		ls_vertex2msg(&msg, (struct ls_vertex *)link_state);
-		rc = ls_send_msg(zclient, &msg, NULL);
+		rc = ls_send_msg(isis_zclient, &msg, NULL);
 		break;
 	case LS_MSG_TYPE_ATTRIBUTES:
 		ls_edge2msg(&msg, (struct ls_edge *)link_state);
-		rc = ls_send_msg(zclient, &msg, NULL);
+		rc = ls_send_msg(isis_zclient, &msg, NULL);
 		break;
 	case LS_MSG_TYPE_PREFIX:
 		ls_subnet2msg(&msg, (struct ls_subnet *)link_state);
-		rc = ls_send_msg(zclient, &msg, NULL);
+		rc = ls_send_msg(isis_zclient, &msg, NULL);
 		break;
 	default:
 		rc = -1;
@@ -1494,7 +1494,7 @@ static void isis_te_parse_lsp(struct mpls_te_area *mta, struct isis_lsp *lsp)
 
 	/* Clean remaining Orphan Edges or Subnets */
 	if (IS_EXPORT_TE(mta))
-		ls_vertex_clean(ted, vertex, zclient);
+		ls_vertex_clean(ted, vertex, isis_zclient);
 	else
 		ls_vertex_clean(ted, vertex, NULL);
 }
@@ -1653,7 +1653,7 @@ int isis_te_sync_ted(struct zapi_opaque_reg_info dst)
 			if (IS_MPLS_TE(mta) && IS_EXPORT_TE(mta)) {
 				te_debug("  |- Export TED from area %s",
 					 area->area_tag);
-				rc = ls_sync_ted(mta->ted, zclient, &dst);
+				rc = ls_sync_ted(mta->ted, isis_zclient, &dst);
 				if (rc != 0)
 					return rc;
 			}

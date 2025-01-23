@@ -1195,7 +1195,7 @@ end:
 	    && !spftree->area->attached_bit_rcv_ignore
 	    && (spftree->area->is_type & IS_LEVEL_1)
 	    && !isis_level2_adj_up(spftree->area)) {
-		struct prefix_pair ip_info = { {0} };
+		memset(&ip_info, 0, sizeof(ip_info));
 		if (IS_DEBUG_RTE_EVENTS)
 			zlog_debug("ISIS-Spf (%pLS): add default %s route",
 				   lsp->hdr.lsp_id,
