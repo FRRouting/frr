@@ -214,6 +214,10 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    reports on the interface. Refer to the next ``ipv6 mld`` command for MLD
    management.
 
+.. clicmd:: ipv6 pim allowed-neighbors prefix-list PREFIX_LIST
+
+   Only establish sessions with PIM neighbors allowed by the prefix-list.
+
 .. clicmd:: ipv6 pim use-source X:X::X:X
 
    If you have multiple addresses configured on a particular interface
