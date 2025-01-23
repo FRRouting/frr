@@ -1382,9 +1382,9 @@ static int ospf6TrapIfStateChange(struct ospf6_interface *oi, int next_state,
 }
 
 /* Register OSPFv3-MIB. */
-static int ospf6_snmp_init(struct event_loop *master)
+static int ospf6_snmp_init(struct event_loop *mstr)
 {
-	smux_init(master);
+	smux_init(mstr);
 	REGISTER_MIB("OSPFv3MIB", ospfv3_variables, variable, ospfv3_oid);
 	return 0;
 }

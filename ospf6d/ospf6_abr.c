@@ -515,8 +515,6 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 			summary->path.origin.id =
 				ADV_ROUTER_IN_PREFIX(&route->prefix);
 		} else {
-			struct ospf6_lsa *old;
-
 			summary->path.origin.type =
 				htons(OSPF6_LSTYPE_INTER_PREFIX);
 
