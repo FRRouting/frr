@@ -2037,13 +2037,16 @@ int update_group_adjust_soloness(struct peer *peer, int set)
 	struct peer_group *group;
 	struct listnode *node, *nnode;
 
-	peer_flag_set(peer, PEER_FLAG_LONESOUL);
-
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		peer_lonesoul_or_not(peer, set);
 		if (peer_established(peer->connection))
 			bgp_announce_route_all(peer);
 	} else {
+		if (set)
+			peer_flag_set(peer, PEER_FLAG_LONESOUL);
+		else
+			peer_flag_unset(peer, PEER_FLAG_LONESOUL);
+
 		group = peer->group;
 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
 			peer_lonesoul_or_not(peer, set);
