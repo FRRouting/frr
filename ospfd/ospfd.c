@@ -59,9 +59,6 @@ struct ospf_master *om;
 
 unsigned short ospf_instance;
 
-extern struct zclient *zclient;
-extern struct zclient *zclient_sync;
-
 /* OSPF config processing timer thread */
 struct event *t_ospf_cfg;
 
@@ -648,8 +645,8 @@ void ospf_terminate(void)
 	 * One or more ospf_finish()'s may have deferred shutdown to a timer
 	 * thread
 	 */
-	zclient_stop(zclient);
-	zclient_free(zclient);
+	zclient_stop(ospf_zclient);
+	zclient_free(ospf_zclient);
 	zclient_stop(zclient_sync);
 	zclient_free(zclient_sync);
 
@@ -2214,13 +2211,13 @@ void ospf_update_bufsize(struct ospf *ospf, uint32_t recvsize,
 		ospf_sock_bufsize_update(ospf, ospf->fd, type);
 }
 
-void ospf_master_init(struct event_loop *master)
+void ospf_master_init(struct event_loop *mst)
 {
 	memset(&ospf_master, 0, sizeof(ospf_master));
 
 	om = &ospf_master;
 	om->ospf = list_new();
-	om->master = master;
+	om->master = mst;
 }
 
 /* Link OSPF instance to VRF. */
@@ -2273,20 +2270,20 @@ static void ospf_set_redist_vrf_bitmaps(struct ospf *ospf, bool set)
 				"%s: setting redist vrf %d bitmap for type %d",
 				__func__, ospf->vrf_id, type);
 		if (set)
-			vrf_bitmap_set(&zclient->redist[AFI_IP][type],
+			vrf_bitmap_set(&ospf_zclient->redist[AFI_IP][type],
 				       ospf->vrf_id);
 		else
-			vrf_bitmap_unset(&zclient->redist[AFI_IP][type],
+			vrf_bitmap_unset(&ospf_zclient->redist[AFI_IP][type],
 					 ospf->vrf_id);
 	}
 
 	red_list = ospf->redist[DEFAULT_ROUTE];
 	if (red_list) {
 		if (set)
-			vrf_bitmap_set(&zclient->default_information[AFI_IP],
+			vrf_bitmap_set(&ospf_zclient->default_information[AFI_IP],
 				       ospf->vrf_id);
 		else
-			vrf_bitmap_unset(&zclient->default_information[AFI_IP],
+			vrf_bitmap_unset(&ospf_zclient->default_information[AFI_IP],
 					 ospf->vrf_id);
 	}
 }
