@@ -391,6 +391,10 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    reports on the interface. Refer to the next `ip igmp` command for IGMP
    management.
 
+.. clicmd:: ip pim allowed-neighbors prefix-list PREFIX_LIST
+
+   Only establish sessions with PIM neighbors allowed by the prefix-list.
+
 .. clicmd:: ip pim use-source A.B.C.D
 
    If you have multiple addresses configured on a particular interface
