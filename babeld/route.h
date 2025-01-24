@@ -38,7 +38,6 @@ struct babel_route {
 
 struct route_stream;
 
-extern struct babel_route **routes;
 extern int kernel_metric;
 extern enum babel_diversity diversity_kind;
 extern int diversity_factor;
