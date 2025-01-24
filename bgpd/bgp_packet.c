@@ -323,6 +323,78 @@ static void bgp_update_explicit_eors(struct peer *peer)
 	bgp_check_update_delay(peer->bgp);
 }
 
+/*
+ * Helper for parsing RTC NLRIs
+ */
+static int bgp_nlri_parse_rtc(struct peer *peer, struct attr *attr,
+			      struct bgp_nlri *packet, bool mp_withdraw)
+
+{
+	uint8_t *pnt = packet->nlri;
+	uint8_t *lim = packet->nlri + packet->length;
+	int psize = 0;
+
+	for (; pnt < lim; pnt += psize) {
+		struct prefix p = {0};
+		uint8_t value[ECOMMUNITY_SIZE] = {0};
+		int offset, shift;
+
+		p.family = AF_RTC;
+
+		p.prefixlen = *pnt++;
+		if (p.prefixlen > 96 ||
+		    (p.prefixlen != 0 && p.prefixlen < 32)) {
+			flog_err(EC_BGP_PKT_PROCESS,
+				 "%u:%s - SAFI_RTC parse error: Invalid prefixlen: %u",
+				 peer->bgp->vrf_id, peer->host, p.prefixlen);
+			return BGP_NLRI_PARSE_ERROR;
+		}
+
+		psize = PSIZE(p.prefixlen);
+		if (pnt + psize > lim) {
+			flog_err(EC_BGP_PKT_PROCESS,
+				 "%u:%s - SAFI_RTC parse error: bad len: %d",
+				 peer->bgp->vrf_id, peer->host, psize);
+			return BGP_NLRI_PARSE_ERROR;
+		}
+
+		/* Default prefix is zero-len */
+		if (p.prefixlen == 0)
+			goto parse_done;
+
+		p.u.prefix_rtc.origin_as = ntohl(*(uint32_t *)pnt);
+
+		/* origin-as only is valid */
+		if (p.prefixlen == 32)
+			goto parse_done;
+
+		memcpy(value, pnt + 4, psize - 4);
+		offset = (p.prefixlen - 32) / 8;
+		shift = (p.prefixlen - 32) % 8;
+
+		if (offset < ECOMMUNITY_SIZE) {
+			for (; shift < 8; shift++) {
+				value[offset] &= ~(1 << shift);
+			}
+		}
+
+		memcpy(&p.u.prefix_rtc.route_target, value, ECOMMUNITY_SIZE);
+
+parse_done:
+		if (mp_withdraw) {
+			bgp_withdraw(peer, &p, 0, packet->afi, packet->safi,
+				     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL,
+				     NULL, 0);
+		} else {
+			bgp_update(peer, &p, 0, attr, packet->afi, packet->safi,
+				   ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL,
+				   NULL, 0, 0, NULL);
+		}
+	}
+
+	return BGP_NLRI_PARSE_OK;
+}
+
 /**
  * Frontend for NLRI parsing, to fan-out to AFI/SAFI specific parsers.
  *
@@ -347,6 +419,8 @@ int bgp_nlri_parse(struct peer *peer, struct attr *attr,
 		return bgp_nlri_parse_evpn(peer, attr, packet, mp_withdraw);
 	case SAFI_FLOWSPEC:
 		return bgp_nlri_parse_flowspec(peer, attr, packet, mp_withdraw);
+	case SAFI_RTC:
+		return bgp_nlri_parse_rtc(peer, attr, packet, mp_withdraw);
 	}
 	return BGP_NLRI_PARSE_ERROR;
 }
