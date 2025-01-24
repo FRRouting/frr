@@ -568,7 +568,7 @@ enum bgp_path_type {
 };
 
 /* meta-queue structure size */
-#define MQ_SIZE 4
+#define MQ_SIZE 5
 
 /* For checking that an object has already queued in some sub-queue */
 #define MQ_BIT_MASK ((1 << MQ_SIZE) - 1)
@@ -591,11 +591,16 @@ struct bgp_eoiu_info {
 	struct bgp *bgp;
 };
 
+struct bgp_rtc_eor_info {
+	struct bgp *bgp;
+};
+
 /*
  * Meta Q's specific names
  */
 enum meta_queue_indexes {
 	META_QUEUE_RTC_ROUTE,
+	META_QUEUE_RTC_EOR_MARKER,
 	META_QUEUE_EARLY_ROUTE,
 	META_QUEUE_OTHER_ROUTE,
 	META_QUEUE_EOIU_MARKER,
@@ -860,6 +865,13 @@ extern void bgp_process_early(struct bgp *bgp, struct bgp_dest *dest,
  * queue element with NULL bgp node.
  */
 extern void bgp_add_eoiu_mark(struct bgp *);
+
+/*
+ * Add an RTC EoR marker to the process queue. This is just a
+ * queue element with NULL bgp node.
+ */
+extern void bgp_add_rtc_eor_mark(struct bgp *bgp);
+
 extern void bgp_config_write_table_map(struct vty *, struct bgp *, afi_t,
 				       safi_t);
 extern void bgp_config_write_network(struct vty *, struct bgp *, afi_t, safi_t);
@@ -996,4 +1008,5 @@ extern int early_route_process(struct bgp *bgp, struct bgp_dest *dest);
 extern int other_route_process(struct bgp *bgp, struct bgp_dest *dest);
 extern int rtc_route_process(struct bgp *bgp, struct bgp_dest *dest);
 extern int eoiu_marker_process(struct bgp *bgp, struct bgp_dest *dest);
+extern int rtc_eor_marker_process(struct bgp *bgp, struct bgp_dest *dest);
 #endif /* _QUAGGA_BGP_ROUTE_H */
