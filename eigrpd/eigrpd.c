@@ -52,7 +52,6 @@ static struct eigrp_master eigrp_master;
 
 struct eigrp_master *eigrp_om;
 
-extern struct zclient *zclient;
 extern struct in_addr router_id_zebra;
 
 int eigrp_master_hash_cmp(const struct eigrp *a, const struct eigrp *b)
