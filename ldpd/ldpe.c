@@ -373,8 +373,8 @@ static void ldpe_dispatch_main(struct event *thread)
 			if (imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(struct ldpd_init))
 				fatalx("INIT imsg with wrong len");
 
-			memcpy(&init, imsg.data, sizeof(init));
-			ldpe_init(&init);
+			memcpy(&ldp_init, imsg.data, sizeof(ldp_init));
+			ldpe_init(&ldp_init);
 			break;
 		case IMSG_AGENTX_ENABLED:
 			ldp_agentx_enabled();
