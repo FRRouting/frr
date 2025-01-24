@@ -755,8 +755,10 @@ babel_interface_close_all(void)
     }
     /* Disable babel redistribution */
     for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
-        zclient_redistribute (ZEBRA_REDISTRIBUTE_DELETE, zclient, AFI_IP, type, 0, VRF_DEFAULT);
-        zclient_redistribute (ZEBRA_REDISTRIBUTE_DELETE, zclient, AFI_IP6, type, 0, VRF_DEFAULT);
+        zclient_redistribute(ZEBRA_REDISTRIBUTE_DELETE, babel_zclient, AFI_IP, type, 0,
+			     VRF_DEFAULT);
+        zclient_redistribute(ZEBRA_REDISTRIBUTE_DELETE, babel_zclient, AFI_IP6, type, 0,
+			     VRF_DEFAULT);
     }
 }
 
@@ -974,6 +976,7 @@ DEFUN (show_babel_route,
 {
     struct route_stream *routes = NULL;
     struct xroute_stream *xroutes = NULL;
+
     routes = route_stream(0);
     if(routes) {
         while(1) {
