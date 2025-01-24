@@ -402,6 +402,17 @@ static inline void bgp_dest_set_bgp_eoiu_info(struct bgp_dest *dest, struct bgp_
 	dest->info = eoiu_info;
 }
 
+static inline struct bgp_rtc_eor_info *bgp_dest_get_bgp_rtc_eor_info(struct bgp_dest *dest)
+{
+	return dest ? dest->info : NULL;
+}
+
+static inline void bgp_dest_set_bgp_rtc_eor_info(struct bgp_dest *dest,
+						 struct bgp_rtc_eor_info *rtc_eor_info)
+{
+	dest->info = rtc_eor_info;
+}
+
 static inline struct bgp_table *
 bgp_dest_get_bgp_table_info(struct bgp_dest *dest)
 {

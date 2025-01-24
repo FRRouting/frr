@@ -79,6 +79,7 @@
 
 #include "bgpd/bgp_route_clippy.c"
 
+DEFINE_MTYPE_STATIC(BGPD, BGP_RTC_EOR_MARKER_INFO, "BGP RTC EOR Marker info");
 DEFINE_MTYPE_STATIC(BGPD, BGP_EOIU_MARKER_INFO, "BGP EOIU Marker info");
 DEFINE_MTYPE_STATIC(BGPD, BGP_METAQ, "BGP MetaQ");
 
@@ -4141,6 +4142,8 @@ static const char *subqueue2str(enum meta_queue_indexes index)
 		return "RTC Route";
 	case META_QUEUE_EOIU_MARKER:
 		return "EOIU Marker";
+	case META_QUEUE_RTC_EOR_MARKER:
+		return "RTC EOR Marker";
 	}
 
 	return "Unknown";
@@ -4220,6 +4223,28 @@ static void process_eoiu_marker(struct bgp_dest *dest)
 }
 
 /*
+ * Process a node from the rtc_eor marker subqueue.
+ */
+static void process_rtc_eor_marker(struct bgp_dest *dest)
+{
+	struct bgp_rtc_eor_info *info = bgp_dest_get_bgp_rtc_eor_info(dest);
+
+	if (!info || !info->bgp) {
+		zlog_err("Unable to retrieve BGP instance, can't process RTC EOR marker");
+		return;
+	}
+
+	if (BGP_DEBUG(update, UPDATE_IN))
+		zlog_debug("RTC EOR Marker dequeued from sub-queue %s",
+			   subqueue2str(META_QUEUE_RTC_EOR_MARKER));
+
+	/* TODO: refresh L3VPN and EVPN prefix update */
+
+	XFREE(MTYPE_BGP_RTC_EOR_MARKER_INFO, info);
+	XFREE(MTYPE_BGP_NODE, dest);
+}
+
+/*
  * Examine the specified subqueue; process one entry and return 1 if
  * there is a node, return 0 otherwise.
  */
@@ -4245,6 +4270,9 @@ static unsigned int process_subq(struct bgp_dest_queue *subq, enum meta_queue_in
 		break;
 	case META_QUEUE_EOIU_MARKER:
 		process_eoiu_marker(dest);
+		break;
+	case META_QUEUE_RTC_EOR_MARKER:
+		process_rtc_eor_marker(dest);
 	}
 
 	return 1;
@@ -4326,6 +4354,20 @@ static int eoiu_marker_meta_queue_add(struct meta_queue *mq, void *data)
 	return 0;
 }
 
+static int rtc_eor_marker_meta_queue_add(struct meta_queue *mq, void *data)
+{
+	uint8_t qindex = META_QUEUE_RTC_EOR_MARKER;
+	struct bgp_dest *dest = data;
+
+	if (BGP_DEBUG(update, UPDATE_IN))
+		zlog_debug("RTC EOR Marker queued into sub-queue %s", subqueue2str(qindex));
+
+	assert(STAILQ_NEXT(dest, pq) == NULL);
+	STAILQ_INSERT_TAIL(mq->subq[qindex], dest, pq);
+	mq->size++;
+	return 0;
+}
+
 static int mq_add_handler(struct bgp *bgp, void *data,
 			  int (*mq_add_func)(struct meta_queue *mq, void *data))
 {
@@ -4378,6 +4420,16 @@ int eoiu_marker_process(struct bgp *bgp, struct bgp_dest *dest)
 	}
 
 	return mq_add_handler(bgp, dest, eoiu_marker_meta_queue_add);
+}
+
+int rtc_eor_marker_process(struct bgp *bgp, struct bgp_dest *dest)
+{
+	if (!dest) {
+		zlog_err("%s: rtc eor marker dest is NULL!", __func__);
+		return -1;
+	}
+
+	return mq_add_handler(bgp, dest, rtc_eor_marker_meta_queue_add);
 }
 
 /* Create new meta queue.
@@ -4453,6 +4505,21 @@ static void eoiu_marker_queue_free(struct meta_queue *mq, struct bgp_dest_queue 
 	}
 }
 
+/* Clean up the rtc eor marker meta-queue list */
+static void rtc_eor_marker_queue_free(struct meta_queue *mq, struct bgp_dest_queue *l)
+{
+	struct bgp_dest *dest;
+
+	while (!STAILQ_EMPTY(l)) {
+		dest = STAILQ_FIRST(l);
+		XFREE(MTYPE_BGP_RTC_EOR_MARKER_INFO, dest->info);
+		STAILQ_REMOVE_HEAD(l, pq);
+		STAILQ_NEXT(dest, pq) = NULL; /* complete unlink */
+		XFREE(MTYPE_BGP_NODE, dest);
+		mq->size--;
+	}
+}
+
 void bgp_meta_queue_free(struct meta_queue *mq)
 {
 	enum meta_queue_indexes i;
@@ -4470,6 +4537,9 @@ void bgp_meta_queue_free(struct meta_queue *mq)
 			break;
 		case META_QUEUE_EOIU_MARKER:
 			eoiu_marker_queue_free(mq, mq->subq[i]);
+			break;
+		case META_QUEUE_RTC_EOR_MARKER:
+			rtc_eor_marker_queue_free(mq, mq->subq[i]);
 			break;
 		}
 
@@ -4598,6 +4668,22 @@ void bgp_add_eoiu_mark(struct bgp *bgp)
 
 	bgp_dest_set_bgp_eoiu_info(dummy_dest, eoiu_info);
 	eoiu_marker_process(bgp, dummy_dest);
+}
+
+void bgp_add_rtc_eor_mark(struct bgp *bgp)
+{
+	/*
+	 * Create a dummy dest as the meta queue expects all its elements to be
+	 * dest's
+	 */
+	struct bgp_dest *dummy_dest = XCALLOC(MTYPE_BGP_NODE, sizeof(struct bgp_dest));
+
+	struct bgp_rtc_eor_info *rtc_eor_info = XCALLOC(MTYPE_BGP_RTC_EOR_MARKER_INFO,
+							sizeof(struct bgp_eoiu_info));
+	rtc_eor_info->bgp = bgp;
+
+	bgp_dest_set_bgp_rtc_eor_info(dummy_dest, rtc_eor_info);
+	rtc_eor_marker_process(bgp, dummy_dest);
 }
 
 static void bgp_maximum_prefix_restart_timer(struct event *thread)
