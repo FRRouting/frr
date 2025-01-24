@@ -74,6 +74,7 @@ typedef uint16_t zebra_size_t;
 #define NEXTHOP_REGISTER_FLAG_RESOLVE_VIA_DEFAULT (1 << 1)
 #define NEXTHOP_REGISTER_FLAG_COLOR               (1 << 2)
 
+
 /* Client capabilities */
 enum zserv_client_capabilities {
 	ZEBRA_CLIENT_GR_CAPABILITIES = 1,
@@ -242,6 +243,8 @@ typedef enum {
 	ZEBRA_TC_FILTER_DELETE,
 	ZEBRA_OPAQUE_NOTIFY,
 	ZEBRA_SRV6_SID_NOTIFY,
+	ZEBRA_SRV6_POLICY_SET,
+	ZEBRA_SRV6_POLICY_DELETE,
 } zebra_message_types_t;
 /* Zebra message types. Please update the corresponding
  * command_types array with any changes!
@@ -655,11 +658,16 @@ struct zapi_srte_tunnel {
 	mpls_label_t labels[MPLS_MAX_LABELS];
 };
 
+struct zapi_srv6te_tunnel {
+	uint8_t seg_num;
+	struct ipaddr segs[SRV6_MAX_SEGS];
+};
 struct zapi_sr_policy {
 	uint32_t color;
 	struct ipaddr endpoint;
 	char name[SRTE_POLICY_NAME_MAX_LENGTH];
 	struct zapi_srte_tunnel segment_list;
+	struct zapi_srv6te_tunnel segment_list_v6;
 	int status;
 };
 
@@ -1134,6 +1142,8 @@ extern int zapi_sr_policy_decode(struct stream *s, struct zapi_sr_policy *zp);
 extern int zapi_sr_policy_notify_status_decode(struct stream *s,
 					       struct zapi_sr_policy *zp);
 
+extern int zapi_srv6_policy_encode(struct stream *s, int cmd, struct zapi_sr_policy *zp);
+extern int zapi_srv6_policy_decode(struct stream *s, struct zapi_sr_policy *zp);
 extern enum zclient_send_status zebra_send_mpls_labels(struct zclient *zclient,
 						       int cmd,
 						       struct zapi_labels *zl);

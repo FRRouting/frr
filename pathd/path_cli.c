@@ -600,7 +600,6 @@ void cli_show_srte_segment_list_segment(struct vty *vty,
 		vty_out(vty, " mpls label %s",
 			yang_dnode_get_string(dnode, "sid-value"));
 	}
-
 	if (yang_dnode_exists(dnode, "nai")) {
 		struct ipaddr addr;
 		struct ipaddr addr_rmt;

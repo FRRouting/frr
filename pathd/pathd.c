@@ -121,6 +121,7 @@ struct srte_segment_list *srte_segment_list_add(const char *name)
 
 	segment_list = XCALLOC(MTYPE_PATH_SEGMENT_LIST, sizeof(*segment_list));
 	strlcpy(segment_list->name, name, sizeof(segment_list->name));
+	segment_list->type = SRTE_SEGMENT_LIST_TYPE_UNDEFINED;
 	RB_INIT(srte_segment_entry_head, &segment_list->segments);
 	RB_INSERT(srte_segment_list_head, &srte_segment_lists, segment_list);
 
@@ -329,6 +330,7 @@ struct srte_policy *srte_policy_add(uint32_t color, struct ipaddr *endpoint,
 	policy->endpoint = *endpoint;
 	policy->binding_sid = MPLS_LABEL_NONE;
 	policy->protocol_origin = origin;
+	policy->type = SRTE_POLICY_TYPE_UNDEFINED;
 	if (originator != NULL)
 		strlcpy(policy->originator, originator,
 			sizeof(policy->originator));
@@ -351,9 +353,14 @@ void srte_policy_del(struct srte_policy *policy)
 {
 	struct srte_candidate *candidate;
 
-	path_zebra_delete_sr_policy(policy);
+	if (policy->type == SRTE_POLICY_TYPE_MPLS) {
+		path_zebra_delete_sr_policy(policy);
 
-	path_zebra_release_label(policy->binding_sid);
+		path_zebra_release_label(policy->binding_sid);
+	}
+
+	if (policy->type == SRTE_POLICY_TYPE_SRV6)
+		path_zebra_delete_srv6_policy(policy);
 
 	while (!RB_EMPTY(srte_candidate_head, &policy->candidate_paths)) {
 		candidate =
@@ -518,14 +525,23 @@ srte_policy_best_candidate(const struct srte_policy *policy)
 {
 	struct srte_candidate *candidate;
 
-	RB_FOREACH_REVERSE (candidate, srte_candidate_head,
-			    &policy->candidate_paths) {
-		/* search for highest preference with existing segment list */
-		if (!CHECK_FLAG(candidate->flags, F_CANDIDATE_DELETED)
-		    && candidate->lsp->segment_list
-		    && (!CHECK_FLAG(candidate->lsp->segment_list->flags,
-				    F_SEGMENT_LIST_SID_CONFLICT)))
-			return candidate;
+	if (policy->type == SRTE_POLICY_TYPE_MPLS) {
+		RB_FOREACH_REVERSE (candidate, srte_candidate_head,
+				&policy->candidate_paths) {
+			/* search for highest preference with existing segment list */
+			if (!CHECK_FLAG(candidate->flags, F_CANDIDATE_DELETED)
+				&& candidate->lsp->segment_list
+				&& (!CHECK_FLAG(candidate->lsp->segment_list->flags,
+						F_SEGMENT_LIST_SID_CONFLICT)))
+				return candidate;
+		}
+	} else if (policy->type == SRTE_POLICY_TYPE_SRV6) {
+		RB_FOREACH_REVERSE (candidate, srte_candidate_head,
+				&policy->candidate_paths) {
+			if (!CHECK_FLAG(candidate->flags, F_CANDIDATE_DELETED)
+				&& candidate->segment_list)
+				return candidate;
+		}
 	}
 
 	return NULL;
@@ -598,6 +614,9 @@ void srte_policy_apply_changes(struct srte_policy *policy)
 	struct srte_candidate *new_best_candidate;
 	char endpoint[ENDPOINT_STR_LENGTH];
 
+	if (policy->type != SRTE_POLICY_TYPE_MPLS && policy->type != SRTE_POLICY_TYPE_SRV6)
+		return;
+
 	ipaddr2str(&policy->endpoint, endpoint, sizeof(endpoint));
 
 	/* Get old and new best candidate path. */
@@ -621,17 +640,24 @@ void srte_policy_apply_changes(struct srte_policy *policy)
 			 * Rely on replace semantics if there's a new best
 			 * candidate.
 			 */
-			if (!new_best_candidate)
-				path_zebra_delete_sr_policy(policy);
+			if (!new_best_candidate) {
+				if (policy->type == SRTE_POLICY_TYPE_MPLS)
+					path_zebra_delete_sr_policy(policy);
+				else
+					path_zebra_delete_srv6_policy(policy);
+			}
 		}
 		if (new_best_candidate) {
 			policy->best_candidate = new_best_candidate;
 			SET_FLAG(new_best_candidate->flags, F_CANDIDATE_BEST);
 			SET_FLAG(new_best_candidate->flags,
 				 F_CANDIDATE_MODIFIED);
-
-			path_zebra_add_sr_policy(
-				policy, new_best_candidate->lsp->segment_list);
+			if (policy->type == SRTE_POLICY_TYPE_MPLS)
+				path_zebra_add_sr_policy(
+					policy, new_best_candidate->lsp->segment_list);
+			else
+				path_zebra_add_srv6_policy(
+					policy, new_best_candidate->segment_list);
 		}
 	} else if (new_best_candidate) {
 		/* The best candidate path did not change, but some of its
@@ -652,8 +678,12 @@ void srte_policy_apply_changes(struct srte_policy *policy)
 				endpoint, policy->color,
 				new_best_candidate->name);
 
-			path_zebra_add_sr_policy(
-				policy, new_best_candidate->lsp->segment_list);
+			if (policy->type == SRTE_POLICY_TYPE_MPLS)
+				path_zebra_add_sr_policy(
+					policy, new_best_candidate->lsp->segment_list);
+			else
+				path_zebra_add_srv6_policy(
+					policy, new_best_candidate->segment_list);
 		}
 	}
 
@@ -734,8 +764,8 @@ void srte_candidate_del(struct srte_candidate *candidate)
 
 	RB_REMOVE(srte_candidate_head, &srte_policy->candidate_paths,
 		  candidate);
-
-	XFREE(MTYPE_PATH_SR_CANDIDATE, candidate->lsp);
+	if (candidate->lsp)
+		XFREE(MTYPE_PATH_SR_CANDIDATE, candidate->lsp);
 	XFREE(MTYPE_PATH_SR_CANDIDATE, candidate);
 }
 
