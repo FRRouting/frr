@@ -424,12 +424,13 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 				   peer);
 	} else {
 		if (BGP_DEBUG(nht, NHT))
-			zlog_debug("Found existing bnc %pFX(%d)(%s) flags 0x%x ifindex %d #paths %d peer %p, resolved prefix %pFX",
-					&bnc->prefix, bnc->ifindex_ipv6_ll, bnc->srte_color,
-					bnc->bgp->name_pretty, bnc->flags,
-					bnc->ifindex_ipv6_ll, bnc->path_count,
-					bnc->nht_info, &bnc->resolved_prefix);
+			zlog_debug("Found existing bnc %pFX(%d)(%u)(%s) flags 0x%x ifindex %d #paths %d peer %p, resolved prefix %pFX",
+				   &bnc->prefix, bnc->ifindex_ipv6_ll, bnc->srte_color,
+				   bnc->bgp->name_pretty, bnc->flags,
+				   bnc->ifindex_ipv6_ll, bnc->path_count,
+				   bnc->nht_info, &bnc->resolved_prefix);
 	}
+
 	if (srte_color) {
 		if (!make_prefix(afi, pi, &p, true))
 			return 1;
@@ -747,12 +748,23 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 				SET_FLAG(bnc->flags, BGP_NEXTHOP_SRV6TE_VALID);
 				num_segs = nexthop->nh_srv6->seg6_segs->num_segs;
 			}
+
 			if (BGP_DEBUG(nht, NHT)) {
-				char buf[NEXTHOP_STRLEN];
+				char buf[NEXTHOP_STRLEN] = {0};
+				char labelstr[MPLS_LABEL_STRLEN] = {0};
+				char seg_buf[SRV6_SEG_STRLEN] = {0};
+				if (num_labels)
+					mpls_label2str(num_labels, nexthop->nh_label->label,
+						labelstr, sizeof(labelstr), nexthop->nh_label_type, 1);
+
+				if (num_segs)
+					snprintf_seg6_seg_stack(seg_buf, SRV6_SEG_STRLEN,
+						nexthop->nh_srv6->seg6_segs);
+
 				zlog_debug(
-					"    nhop via %s (%d labels)",
+					"    nhop via %s labels(%d):%s segs(%d):%s",
 					nexthop2str(nexthop, buf, sizeof(buf)),
-					num_labels);
+					num_labels, labelstr, num_segs, seg_buf);
 			}
 
 			if (nhlist_tail) {
@@ -1238,9 +1250,10 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 	}
 
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("%s: sending cmd %s for %pFX (vrf %s)", __func__,
+		zlog_debug("%s: sending cmd %s for %pFX (vrf %s) color %d", __func__,
 			   zserv_command_string(command), &bnc->prefix,
-			   bnc->bgp->name_pretty);
+			   bnc->bgp->name_pretty, bnc->srte_color);
+
 	if (bnc->srte_color)
 		SET_FLAG(flags, NEXTHOP_REGISTER_FLAG_COLOR);
 

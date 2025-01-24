@@ -1489,8 +1489,8 @@ static void bgp_debug_zebra_nh(struct zapi_route *api)
 	char eth_buf[ETHER_ADDR_STRLEN + 7] = { '\0' };
 	char buf1[ETHER_ADDR_STRLEN];
 	char label_buf[20];
-	char sid_buf[20];
-	char segs_buf[256];
+	char sid_buf[INET6_ADDRSTRLEN];
+	char segs_buf[512];
 	struct zapi_nexthop *api_nh;
 	int count;
 
@@ -1529,20 +1529,31 @@ static void bgp_debug_zebra_nh(struct zapi_route *api)
 		    !CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN))
 			snprintf(label_buf, sizeof(label_buf), "label %u",
 				 api_nh->labels[0]);
+
 		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6) &&
-		    !CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN)) {
-			inet_ntop(AF_INET6, &api_nh->seg6_segs[0], sid_buf,
-				  sizeof(sid_buf));
-			snprintf(segs_buf, sizeof(segs_buf), "segs %s", sid_buf);
+			!CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN)) {
+
+			strlcat(segs_buf, "segs ", sizeof(segs_buf));
+			for (int j = 0; j < api_nh->seg_num; j++) {
+				memset(sid_buf, 0, sizeof(sid_buf));
+				inet_ntop(AF_INET6, &api_nh->seg6_segs[j],
+						sid_buf, sizeof(sid_buf));
+
+				if (j > 0 && j < api_nh->seg_num - 1)
+					strlcat(segs_buf, "/", sizeof(segs_buf));
+
+				strlcat(segs_buf, sid_buf, sizeof(segs_buf));
+			}
 		}
 		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN) &&
 		    !is_zero_mac(&api_nh->rmac))
 			snprintf(eth_buf, sizeof(eth_buf), " RMAC %s",
 				 prefix_mac2str(&api_nh->rmac, buf1,
 						sizeof(buf1)));
-		zlog_debug("  nhop [%d]: %s if %u VRF %u wt %" PRIu64
+
+		zlog_debug("  nhop [%d][%u]: %s if %u VRF %u wt %" PRIu64
 			   " %s %s %s",
-			   i + 1, nh_buf, api_nh->ifindex, api_nh->vrf_id,
+			   i + 1, api_nh->srte_color, nh_buf, api_nh->ifindex, api_nh->vrf_id,
 			   api_nh->weight, label_buf, segs_buf, eth_buf);
 	}
 }
@@ -1668,9 +1679,9 @@ bgp_zebra_announce_actual(struct bgp_dest *dest, struct bgp_path_info *info,
 	}
 
 	if (bgp_debug_zebra(p)) {
-		zlog_debug("Tx route add %s (table id %u) %pFX metric %u tag %" ROUTE_TAG_PRI
+		zlog_debug("Tx route add %s (table id %u) %pFX color %u metric %u tag %" ROUTE_TAG_PRI
 			   " count %d nhg %d",
-			   bgp->name_pretty, api.tableid, &api.prefix,
+			   bgp->name_pretty, api.tableid, &api.prefix, api.srte_color,
 			   api.metric, api.tag, api.nexthop_num, nhg_id);
 		bgp_debug_zebra_nh(&api);
 

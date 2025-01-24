@@ -127,7 +127,7 @@ static inline char *bgp_route_dump_path_info_flags(struct bgp_path_info *pi,
 		return buf;
 	}
 
-	snprintfrr(buf, len, "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
+	snprintfrr(buf, len, "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
 		   CHECK_FLAG(flags, BGP_PATH_IGP_CHANGED) ? "IGP Changed " : "",
 		   CHECK_FLAG(flags, BGP_PATH_DAMPED) ? "Damped" : "",
 		   CHECK_FLAG(flags, BGP_PATH_HISTORY) ? "History " : "",
@@ -152,7 +152,8 @@ static inline char *bgp_route_dump_path_info_flags(struct bgp_path_info *pi,
 		   CHECK_FLAG(flags, BGP_PATH_MPLSVPN_NH_LABEL_BIND)
 			   ? "MPLS Label Bind "
 			   : "",
-		   CHECK_FLAG(flags, BGP_PATH_UNSORTED) ? "Unsorted " : "");
+		   CHECK_FLAG(flags, BGP_PATH_UNSORTED) ? "Unsorted " : "",
+		   CHECK_FLAG(flags, BGP_PATH_SRV6_TE_VALID) ? "SRv6 TE " : "");
 
 	return buf;
 }
@@ -11536,6 +11537,67 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	if (!json_paths)
 		vty_out(vty, "\n");
 
+	if (path->nexthop) {
+		struct nexthop *nexthop;
+		struct bgp_nexthop_cache *bnc = path->nexthop;
+
+		if (!json_paths) {
+			vty_out(vty, "      Relay-Nexthop(ip):");
+			for (nexthop = bnc->nexthop; nexthop; nexthop = nexthop->next) {
+				switch (nexthop->type) {
+				case NEXTHOP_TYPE_IPV6:
+					vty_out(vty, " gate %s, ",
+						inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf,
+							  sizeof(buf)));
+					break;
+				case NEXTHOP_TYPE_IPV6_IFINDEX:
+					vty_out(vty, " gate %s, if %s, ",
+						inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf,
+							  sizeof(buf)),
+						ifindex2ifname(bnc->ifindex_ipv6_ll ? bnc->ifindex_ipv6_ll
+										: nexthop->ifindex,
+								   bgp->vrf_id));
+					break;
+				case NEXTHOP_TYPE_IPV4:
+					vty_out(vty, " gate %s, ",
+						inet_ntop(AF_INET, &nexthop->gate.ipv4, buf,
+							  sizeof(buf)));
+					break;
+				case NEXTHOP_TYPE_IFINDEX:
+					vty_out(vty, " if %s, ",
+						ifindex2ifname(bnc->ifindex_ipv6_ll ? bnc->ifindex_ipv6_ll
+										: nexthop->ifindex,
+								   bgp->vrf_id));
+					break;
+				case NEXTHOP_TYPE_IPV4_IFINDEX:
+					vty_out(vty, " gate %s, if %s, ",
+						inet_ntop(AF_INET, &nexthop->gate.ipv4, buf,
+							  sizeof(buf)),
+						ifindex2ifname(bnc->ifindex_ipv6_ll ? bnc->ifindex_ipv6_ll
+										: nexthop->ifindex,
+								   bgp->vrf_id));
+					break;
+				case NEXTHOP_TYPE_BLACKHOLE:
+					vty_out(vty, " blackhole, ");
+					break;
+				default:
+					vty_out(vty, " invalid nexthop type %u\n",
+						nexthop->type);
+				}
+			}
+
+			vty_out(vty, "\n");
+			if (path->te_nexthop) {
+				bnc = path->te_nexthop;
+				vty_out(vty, "      Relay-Nexthop(tunnel):");
+				if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_SRV6TE_VALID))
+					vty_out(vty, " srv6-tunnel:%s|%u(endpoint|color), ",
+							inet_ntop(bnc->prefix.family, &bnc->prefix.u.prefix, buf, sizeof(buf)),
+							bnc->srte_color);
+				vty_out(vty, "\n");
+			}
+		}
+	}
 	/* Line 4 display Community */
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES))) {
 		if (json_paths) {
