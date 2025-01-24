@@ -82,7 +82,8 @@ bool bnc_existing_for_prefix(struct bgp_nexthop_cache *bnc)
 	frr_each (bgp_nexthop_cache, bnc->tree, bnc_tmp) {
 		if (bnc_tmp == bnc)
 			continue;
-		if (prefix_cmp(&bnc->prefix, &bnc_tmp->prefix) == 0)
+		if (prefix_cmp(&bnc->prefix, &bnc_tmp->prefix) == 0
+			&& (bnc->srte_color == bnc_tmp->srte_color))
 			return true;
 	}
 	return false;
@@ -125,6 +126,7 @@ static void bgp_nexthop_cache_reset(struct bgp_nexthop_cache_head *tree)
 			bgp_mplsvpn_path_nh_label_bind_unlink(path);
 
 			path_nh_map(path, bnc, false);
+			path_tenh_map(path, bnc, false);
 		}
 
 		bnc_free(bnc);

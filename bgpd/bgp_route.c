@@ -370,6 +370,7 @@ void bgp_path_info_free_with_caller(const char *name,
 	bgp_attr_unintern(&path->attr);
 
 	bgp_unlink_nexthop(path);
+	bgp_unlink_te_nexthop(path);
 	bgp_path_info_extra_free(&path->extra);
 	bgp_path_info_mpath_free(&path->mpath);
 	if (path->net)
@@ -571,6 +572,7 @@ void bgp_path_info_delete(struct bgp_dest *dest, struct bgp_path_info *pi)
 	bgp_path_info_set_flag(dest, pi, BGP_PATH_REMOVED);
 	/* set of previous already took care of pcount */
 	UNSET_FLAG(pi->flags, BGP_PATH_VALID);
+	UNSET_FLAG(pi->flags, BGP_PATH_SRV6_TE_VALID);
 }
 
 /* undo the effects of a previous call to bgp_path_info_delete; typically
@@ -4913,6 +4915,9 @@ bgp_update_nexthop_reachability_check(struct bgp *bgp, struct peer *peer, struct
 				bgp_path_info_set_flag(dest, pi, BGP_PATH_ACCEPT_OWN);
 
 			bgp_path_info_set_flag(dest, pi, BGP_PATH_VALID);
+			if (CHECK_FLAG(pi->flags, BGP_PATH_SRV6_TE))
+				SET_FLAG(pi->flags, BGP_PATH_SRV6_TE_VALID);
+
 		} else {
 			if (BGP_DEBUG(nht, NHT)) {
 				zlog_debug("%s(%pI4): NH unresolved for existing %pFX pi %p flags 0x%x",
@@ -4920,6 +4925,7 @@ bgp_update_nexthop_reachability_check(struct bgp *bgp, struct peer *peer, struct
 					   pi->flags);
 			}
 			bgp_path_info_unset_flag(dest, pi, BGP_PATH_VALID);
+			UNSET_FLAG(pi->flags, BGP_PATH_SRV6_TE_VALID);
 		}
 	} else {
 		/* case mpls-vpn routes with accept-own community
@@ -4929,6 +4935,8 @@ bgp_update_nexthop_reachability_check(struct bgp *bgp, struct peer *peer, struct
 		if (accept_own)
 			bgp_path_info_set_flag(dest, pi, BGP_PATH_ACCEPT_OWN);
 		bgp_path_info_set_flag(dest, pi, BGP_PATH_VALID);
+		if (CHECK_FLAG(pi->flags, BGP_PATH_SRV6_TE))
+			SET_FLAG(pi->flags, BGP_PATH_SRV6_TE_VALID);
 	}
 }
 
@@ -5697,6 +5705,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 filtered:
 	if (new) {
 		bgp_unlink_nexthop(new);
+		bgp_unlink_te_nexthop(new);
 		bgp_path_info_delete(dest, new);
 		bgp_path_info_extra_free(&new->extra);
 		XFREE(MTYPE_BGP_ROUTE, new);
@@ -6953,10 +6962,11 @@ static void bgp_nexthop_reachability_check(afi_t afi, safi_t safi,
 	if (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST) {
 		if (CHECK_FLAG(bgp->flags, BGP_FLAG_IMPORT_CHECK)) {
 			if (bgp_find_or_add_nexthop(bgp, bgp_nexthop, afi, safi,
-						    bpi, NULL, 0, p))
-				bgp_path_info_set_flag(dest, bpi,
-						       BGP_PATH_VALID);
-			else {
+						    bpi, NULL, 0, p)) {
+				bgp_path_info_set_flag(dest, bpi, BGP_PATH_VALID);
+				if (CHECK_FLAG(bpi->flags, BGP_PATH_SRV6_TE))
+					SET_FLAG(bpi->flags, BGP_PATH_SRV6_TE_VALID);
+			} else {
 				if (BGP_DEBUG(nht, NHT)) {
 					char buf1[INET6_ADDRSTRLEN];
 
@@ -6967,6 +6977,7 @@ static void bgp_nexthop_reachability_check(afi_t afi, safi_t safi,
 				}
 				bgp_path_info_unset_flag(dest, bpi,
 							 BGP_PATH_VALID);
+				UNSET_FLAG(bpi->flags, BGP_PATH_SRV6_TE_VALID);
 			}
 		} else {
 			/* Delete the NHT structure if any, if we're toggling between
@@ -6974,8 +6985,10 @@ static void bgp_nexthop_reachability_check(afi_t afi, safi_t safi,
 			* from NHT to avoid overloading NHT and the process interaction
 			*/
 			bgp_unlink_nexthop(bpi);
-
+			bgp_unlink_te_nexthop(bpi);
 			bgp_path_info_set_flag(dest, bpi, BGP_PATH_VALID);
+			if (CHECK_FLAG(bpi->flags, BGP_PATH_SRV6_TE))
+				SET_FLAG(bpi->flags, BGP_PATH_SRV6_TE_VALID);
 		}
 	}
 }
@@ -7297,6 +7310,7 @@ void bgp_static_withdraw(struct bgp *bgp, const struct prefix *p, afi_t afi,
 		}
 		bgp_aggregate_decrement(bgp, p, pi, afi, safi);
 		bgp_unlink_nexthop(pi);
+		bgp_unlink_te_nexthop(pi);
 		bgp_path_info_delete(dest, pi);
 		bgp_process(bgp, dest, pi, afi, safi);
 	}
@@ -7703,6 +7717,7 @@ static void bgp_purge_af_static_redist_routes(struct bgp *bgp, afi_t afi,
 					bgp, bgp_dest_get_prefix(dest), pi, afi,
 					safi);
 				bgp_unlink_nexthop(pi);
+				bgp_unlink_te_nexthop(pi);
 				bgp_path_info_delete(dest, pi);
 				bgp_process(bgp, dest, pi, afi, safi);
 			}

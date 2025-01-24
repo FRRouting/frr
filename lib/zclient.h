@@ -74,7 +74,6 @@ typedef uint16_t zebra_size_t;
 #define NEXTHOP_REGISTER_FLAG_RESOLVE_VIA_DEFAULT (1 << 1)
 #define NEXTHOP_REGISTER_FLAG_COLOR               (1 << 2)
 
-
 /* Client capabilities */
 enum zserv_client_capabilities {
 	ZEBRA_CLIENT_GR_CAPABILITIES = 1,

@@ -111,10 +111,12 @@ struct nexthop {
 					  * active one
 					  */
 #define NEXTHOP_FLAG_RNH_FILTERED  (1 << 5) /* rmap filtered, used by rnh */
-#define NEXTHOP_FLAG_HAS_BACKUP (1 << 6)    /* Backup nexthop index is set */
-#define NEXTHOP_FLAG_SRTE       (1 << 7) /* SR-TE color used for BGP traffic */
-#define NEXTHOP_FLAG_EVPN       (1 << 8) /* nexthop is EVPN */
-#define NEXTHOP_FLAG_LINKDOWN   (1 << 9) /* is not removed on link down */
+#define NEXTHOP_FLAG_HAS_BACKUP    (1 << 6)    /* Backup nexthop index is set */
+#define NEXTHOP_FLAG_SRTE          (1 << 7) /* SR-TE color used for BGP traffic */
+#define NEXTHOP_FLAG_EVPN          (1 << 8) /* nexthop is EVPN */
+#define NEXTHOP_FLAG_LINKDOWN      (1 << 9) /* is not removed on link down */
+#define NEXTHOP_FLAG_SRV6TE        (1 << 10) /* SRv6-TE color used for BGP traffic */
+#define NEXTHOP_FLAG_SRV6_TUNNEL   (1 << 11) /* SRv6-TUNNEL used for BGP traffic */
 
 	/* which flags are part of nexthop_hash().  Should probably be split
 	 * off into a separate field...
