@@ -191,6 +191,9 @@ BuildRequires:  ncurses-devel
 BuildRequires:  readline-devel
 BuildRequires:  texinfo
 BuildRequires:  libyang-devel >= 2.1.128
+# Version requirement don't get reflected down from a BuildRequire
+# to Require, so need to require libyang version as both ways
+Requires: libyang >= 2.1.128
 BuildRequires:  pcre2-devel
 %if 0%{?rhel} && 0%{?rhel} < 7
 #python27-devel is available from ius community repo for RedHat/CentOS 6
