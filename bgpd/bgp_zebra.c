@@ -1234,6 +1234,42 @@ static bool bgp_zebra_use_nhop_weighted(struct bgp *bgp, struct attr *attr,
 	return true;
 }
 
+static int bgp_zebra_fill_seg6_segs(struct bgp_path_info *mpinfo,
+			struct zapi_route *api,
+			mpls_label_t *labels,
+			struct zapi_nexthop *api_nh)
+{
+	mpls_label_t nh_label;
+	uint32_t ttl = 0;
+	uint32_t bos = 0;
+	uint32_t exp = 0;
+
+	struct in6_addr *sid_tmp =
+		mpinfo->attr->srv6_l3vpn
+			? (&mpinfo->attr->srv6_l3vpn->sid)
+			: (&mpinfo->attr->srv6_vpn->sid);
+
+	memcpy(&api_nh->seg6_segs[0], sid_tmp,
+		sizeof(api_nh->seg6_segs[0]));
+
+	if (mpinfo->attr->srv6_l3vpn &&
+		mpinfo->attr->srv6_l3vpn->transposition_len != 0) {
+		mpls_lse_decode(labels[0], &nh_label, &ttl,
+				&exp, &bos);
+
+		if (nh_label < MPLS_LABEL_UNRESERVED_MIN) {
+			if (bgp_debug_zebra(&api->prefix))
+				zlog_debug(
+					"skip invalid SRv6 routes: transposition scheme is used, but label is too small");
+			return 1;
+		}
+		transpose_sid(&api_nh->seg6_segs[0], nh_label,
+			mpinfo->attr->srv6_l3vpn->transposition_offset,
+			mpinfo->attr->srv6_l3vpn->transposition_len);
+	}
+	return 0;
+}
+
 static void bgp_zebra_announce_parse_nexthop(
 	struct bgp_path_info *info, const struct prefix *p, struct bgp *bgp,
 	struct zapi_route *api, unsigned int *valid_nh_count, afi_t afi,
@@ -1257,6 +1293,8 @@ static void bgp_zebra_announce_parse_nexthop(
 	uint32_t bos = 0;
 	uint32_t exp = 0;
 	struct bgp_route_evpn *bre = NULL;
+	struct nexthop_srv6 *nh_srv6 = NULL;
+	uint8_t num_segs = 0;
 
 	/* Determine if we're doing weighted ECMP or not */
 	do_wt_ecmp = bgp_path_info_mpath_chkwtd(bgp, info);
@@ -1412,41 +1450,31 @@ static void bgp_zebra_announce_parse_nexthop(
 			       sizeof(struct ethaddr));
 
 		api_nh->weight = nh_weight;
+		if (CHECK_FLAG(mpinfo->flags, BGP_PATH_SRV6_TE_VALID) && mpinfo->te_nexthop) {
+			nh_srv6 = mpinfo->te_nexthop->nexthop->nh_srv6;
+			SET_FLAG(api->message, ZAPI_MESSAGE_SRTE);
+		}
 
-		if (((mpinfo->attr->srv6_l3vpn &&
-		      !sid_zero_ipv6(&mpinfo->attr->srv6_l3vpn->sid)) ||
-		     (mpinfo->attr->srv6_vpn &&
-		      !sid_zero_ipv6(&mpinfo->attr->srv6_vpn->sid))) &&
-		    !is_evpn && bgp_is_valid_label(&labels[0])) {
-			struct in6_addr *sid_tmp =
-				mpinfo->attr->srv6_l3vpn
-					? (&mpinfo->attr->srv6_l3vpn->sid)
-					: (&mpinfo->attr->srv6_vpn->sid);
-
-			memcpy(&api_nh->seg6_segs[0], sid_tmp,
-			       sizeof(api_nh->seg6_segs[0]));
-
-			if (mpinfo->attr->srv6_l3vpn &&
-			    mpinfo->attr->srv6_l3vpn->transposition_len != 0) {
-				mpls_lse_decode(labels[0], &nh_label, &ttl,
-						&exp, &bos);
-
-				if (nh_label < MPLS_LABEL_UNRESERVED_MIN) {
-					if (bgp_debug_zebra(&api->prefix))
-						zlog_debug(
-							"skip invalid SRv6 routes: transposition scheme is used, but label is too small");
-					continue;
-				}
-
-				transpose_sid(&api_nh->seg6_segs[0], nh_label,
-					      mpinfo->attr->srv6_l3vpn
-						      ->transposition_offset,
-					      mpinfo->attr->srv6_l3vpn
-						      ->transposition_len);
+		if (nh_srv6 && nh_srv6->seg6_segs && nh_srv6->seg6_segs->num_segs) {
+			for (num_segs = 0; num_segs < nh_srv6->seg6_segs->num_segs; num_segs++) {
+				memcpy(&api_nh->seg6_segs[num_segs], &nh_srv6->seg6_segs->seg[num_segs],
+					sizeof(struct in6_addr));
 			}
-
-			api_nh->seg_num = 1;
+			api_nh->seg_num = nh_srv6->seg6_segs->num_segs;
 			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6);
+		} else {
+			if (((mpinfo->attr->srv6_l3vpn &&
+				!sid_zero_ipv6(&mpinfo->attr->srv6_l3vpn->sid)) ||
+				(mpinfo->attr->srv6_vpn &&
+				!sid_zero_ipv6(&mpinfo->attr->srv6_vpn->sid))) &&
+				!is_evpn && bgp_is_valid_label(&labels[0])) {
+
+				if (bgp_zebra_fill_seg6_segs(mpinfo, api, labels, api_nh))
+					continue;
+
+				api_nh->seg_num = 1;
+				SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6);
+			}
 		}
 
 		(*valid_nh_count)++;

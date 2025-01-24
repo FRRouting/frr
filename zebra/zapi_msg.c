@@ -1304,7 +1304,8 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 			STREAM_GETL(s, srte_color);
 			l += 4;
 		}
-		rnh = zebra_add_rnh(&p, zvrf_id(zvrf), safi, &exist);
+
+		rnh = zebra_add_rnh(&p, zvrf_id(zvrf), safi, &exist, srte_color);
 		if (!rnh)
 			return;
 
@@ -1407,9 +1408,14 @@ static void zread_rnh_unregister(ZAPI_HANDLER_ARGS)
 		}
 
 		rnh = zebra_lookup_rnh(&p, zvrf_id(zvrf), safi);
+		/* check color */
+		for (; rnh; rnh = rnh->next)
+			if (rnh->srte_color == srte_color)
+				break;
+
 		if (rnh) {
 			client->nh_dereg_time = monotime(NULL);
-			zebra_remove_rnh_client(rnh, client);
+			zebra_remove_rnh_client(rnh, client, false);
 		}
 	}
 stream_failure:
@@ -1854,6 +1860,8 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 		enum lsp_types_t label_type;
 		char nhbuf[NEXTHOP_STRLEN];
 		char labelbuf[MPLS_LABEL_STRLEN];
+		char seg_buf[SRV6_SEG_STRLEN];
+		struct seg6_segs segs;
 		struct zapi_nexthop *api_nh = &nhops[i];
 
 		/* Convert zapi nexthop */
@@ -1883,6 +1891,7 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 
 		if (CHECK_FLAG(message, ZAPI_MESSAGE_SRTE)) {
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_SRTE);
+			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_SRV6TE);
 			nexthop->srte_color = api_nh->srte_color;
 		}
 
