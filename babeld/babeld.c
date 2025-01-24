@@ -108,8 +108,8 @@ babel_config_write (struct vty *vty)
     /* list redistributed protocols */
     for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
         for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-		if (i != zclient->redist_default &&
-		    vrf_bitmap_check(&zclient->redist[afi][i], VRF_DEFAULT)) {
+		if (i != babel_zclient->redist_default &&
+		    vrf_bitmap_check(&babel_zclient->redist[afi][i], VRF_DEFAULT)) {
 			vty_out(vty, " redistribute %s %s\n",
 				(afi == AFI_IP) ? "ipv4" : "ipv6",
 				zebra_route_string(i));

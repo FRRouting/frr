@@ -19,7 +19,7 @@ void babelz_zebra_init(void);
 
 
 /* we must use a pointer because of zclient.c's functions (new, free). */
-struct zclient *zclient;
+struct zclient *babel_zclient;
 
 /* Debug types */
 static const struct {
@@ -94,9 +94,10 @@ DEFUN (babel_redistribute_type,
     }
 
     if (!negate)
-        zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, afi, type, 0, VRF_DEFAULT);
+        zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, babel_zclient, afi, type, 0, VRF_DEFAULT);
     else {
-        zclient_redistribute (ZEBRA_REDISTRIBUTE_DELETE, zclient, afi, type, 0, VRF_DEFAULT);
+        zclient_redistribute(ZEBRA_REDISTRIBUTE_DELETE, babel_zclient, afi, type, 0,
+			     VRF_DEFAULT);
         /* perhaps should we remove xroutes having the same type... */
     }
     return CMD_SUCCESS;
@@ -230,11 +231,11 @@ static zclient_handler *const babel_handlers[] = {
 
 void babelz_zebra_init(void)
 {
-    zclient = zclient_new(master, &zclient_options_default, babel_handlers,
-			  array_size(babel_handlers));
-    zclient_init(zclient, ZEBRA_ROUTE_BABEL, 0, &babeld_privs);
+    babel_zclient = zclient_new(master, &zclient_options_default, babel_handlers,
+				array_size(babel_handlers));
+    zclient_init(babel_zclient, ZEBRA_ROUTE_BABEL, 0, &babeld_privs);
 
-    zclient->zebra_connected = babel_zebra_connected;
+    babel_zclient->zebra_connected = babel_zebra_connected;
 
     install_element(BABEL_NODE, &babel_redistribute_type_cmd);
     install_element(ENABLE_NODE, &debug_babel_cmd);
@@ -248,6 +249,6 @@ void babelz_zebra_init(void)
 void
 babel_zebra_close_connexion(void)
 {
-    zclient_stop(zclient);
-    zclient_free(zclient);
+    zclient_stop(babel_zclient);
+    zclient_free(babel_zclient);
 }
