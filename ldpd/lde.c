@@ -538,8 +538,8 @@ static void lde_dispatch_parent(struct event *thread)
 			    sizeof(struct ldpd_init))
 				fatalx("INIT imsg with wrong len");
 
-			memcpy(&init, imsg.data, sizeof(init));
-			lde_init(&init);
+			memcpy(&ldp_init, imsg.data, sizeof(ldp_init));
+			lde_init(&ldp_init);
 			break;
 		case IMSG_AGENTX_ENABLED:
 			ldp_agentx_enabled();
