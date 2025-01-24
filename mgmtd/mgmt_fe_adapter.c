@@ -1442,7 +1442,6 @@ static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session,
 	/* Check for yang-library shortcut */
 	if (nb_oper_is_yang_lib_query(msg->xpath)) {
 		struct lyd_node *ylib = NULL;
-		LY_ERR err;
 
 		err = ly_ctx_get_yanglib_data(ly_native_ctx, &ylib, "%u",
 					      ly_ctx_get_change_count(

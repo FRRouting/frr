@@ -151,9 +151,9 @@ void mgmt_ds_reset_candidate(void)
 }
 
 
-int mgmt_ds_init(struct mgmt_master *mm)
+int mgmt_ds_init(struct mgmt_master *m)
 {
-	if (mgmt_ds_mm || mm->running_ds || mm->candidate_ds || mm->oper_ds)
+	if (mgmt_ds_mm || m->running_ds || m->candidate_ds || m->oper_ds)
 		assert(!"MGMTD: Call ds_init only once!");
 
 	/* Use Running DS from NB module??? */
@@ -178,10 +178,10 @@ int mgmt_ds_init(struct mgmt_master *mm)
 	oper.config_ds = false;
 	oper.ds_id = MGMTD_DS_OPERATIONAL;
 
-	mm->running_ds = &running;
-	mm->candidate_ds = &candidate;
-	mm->oper_ds = &oper;
-	mgmt_ds_mm = mm;
+	m->running_ds = &running;
+	m->candidate_ds = &candidate;
+	m->oper_ds = &oper;
+	mgmt_ds_mm = m;
 
 	return 0;
 }
@@ -195,16 +195,15 @@ void mgmt_ds_destroy(void)
 	oper.root.dnode_root = NULL;
 }
 
-struct mgmt_ds_ctx *mgmt_ds_get_ctx_by_id(struct mgmt_master *mm,
-					  Mgmtd__DatastoreId ds_id)
+struct mgmt_ds_ctx *mgmt_ds_get_ctx_by_id(struct mgmt_master *m, Mgmtd__DatastoreId ds_id)
 {
 	switch (ds_id) {
 	case MGMTD_DS_CANDIDATE:
-		return (mm->candidate_ds);
+		return (m->candidate_ds);
 	case MGMTD_DS_RUNNING:
-		return (mm->running_ds);
+		return (m->running_ds);
 	case MGMTD_DS_OPERATIONAL:
-		return (mm->oper_ds);
+		return (m->oper_ds);
 	case MGMTD_DS_NONE:
 	case MGMTD__DATASTORE_ID__STARTUP_DS:
 	case _MGMTD__DATASTORE_ID_IS_INT_SIZE:
