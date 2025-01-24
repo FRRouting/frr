@@ -1928,9 +1928,6 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 
 		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6)
 		    && api_nh->type != NEXTHOP_TYPE_BLACKHOLE) {
-			if (IS_ZEBRA_DEBUG_RECV)
-				zlog_debug("%s: adding seg6", __func__);
-
 			nexthop_add_srv6_seg6(nexthop, &api_nh->seg6_segs[0],
 					      api_nh->seg_num);
 		}
@@ -1938,6 +1935,7 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 		if (IS_ZEBRA_DEBUG_RECV) {
 			labelbuf[0] = '\0';
 			nhbuf[0] = '\0';
+			seg_buf[0] = '\0';
 
 			nexthop2str(nexthop, nhbuf, sizeof(nhbuf));
 
@@ -1949,8 +1947,20 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 					       nexthop->nh_label_type, false);
 			}
 
-			zlog_debug("%s: nh=%s, vrf_id=%d %s",
-				   __func__, nhbuf, api_nh->vrf_id, labelbuf);
+			if (nexthop->nh_srv6 && nexthop->nh_srv6->seg6_segs) {
+				segs.num_segs = nexthop->nh_srv6->seg6_segs->num_segs;
+				size_t num = 0;
+
+				for (num = 0; num < segs.num_segs; num++)
+					memcpy(&segs.segs[num],
+							&nexthop->nh_srv6->seg6_segs->seg[num],
+							sizeof(struct in6_addr));
+
+				snprintf_seg6_segs(seg_buf, SRV6_SEG_STRLEN, &segs);
+			}
+
+			zlog_debug("%s: nh=%s, vrf_id=%d label=%s seg6=%s color=%u",
+					__func__, nhbuf, api_nh->vrf_id, labelbuf, seg_buf, nexthop->srte_color);
 		}
 
 		if (ng) {
@@ -2181,9 +2191,9 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	vrf_id = zvrf_id(zvrf);
 
 	if (IS_ZEBRA_DEBUG_RECV)
-		zlog_debug("%s: p=(%s:%u)%pFX, msg flags=0x%x, flags=0x%x",
+		zlog_debug("%s: p=(%s:%u)%pFX, msg flags=0x%x, flags=0x%x, color=%u",
 			   __func__, zvrf_name(zvrf), api.tableid, &api.prefix,
-			   (int)api.message, api.flags);
+			   (int)api.message, api.flags, api.srte_color);
 
 	/* Allocate new route. */
 	re = zebra_rib_route_entry_new(
