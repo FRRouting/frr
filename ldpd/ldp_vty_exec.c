@@ -1954,10 +1954,9 @@ ldp_vty_show_interface(struct vty *vty, const char *af_str, const char *json)
 	return (ldp_vty_dispatch(vty, &ibuf, SHOW_IFACE, &params));
 }
 
-int
-ldp_vty_show_capabilities(struct vty *vty, const char *json)
+int ldp_vty_show_capabilities(struct vty *vty, const char *use_json)
 {
-	if (json) {
+	if (use_json) {
 		json_object	*json;
 		json_object	*json_array;
 		json_object	*json_cap;
