@@ -13,6 +13,7 @@
 Test BGP aggregate address features.
 """
 
+import json
 import os
 import sys
 import pytest
@@ -263,6 +264,24 @@ match ip address acl-sup-three
             "192.168.2.3/32": None,
         },
     )
+
+
+def test_check_bgp_attribute():
+    "Dump the suppressed attribute of the 192.168.0.1/32 prefix in r1."
+    tgen = get_topogen()
+
+    logger.info("Test that the BGP path to 192.168.0.1 is as expected.")
+    expected = json.loads(open("{}/r1/bgp_192_168_0_1.json".format(CWD)).read())
+
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        tgen.gears["r1"],
+        "show bgp ipv4 192.168.0.1/32 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assertmsg = '"r1" BGP 192.168.0.1 route output failed'
+    assert result is None, assertmsg
 
 
 def test_memory_leak():
