@@ -52,7 +52,6 @@ static struct eigrp_master eigrp_master;
 
 struct eigrp_master *eigrp_om;
 
-extern struct zclient *zclient;
 extern struct in_addr router_id_zebra;
 
 
@@ -237,9 +236,9 @@ void eigrp_finish(struct eigrp *eigrp)
 	/* eigrp being shut-down? If so, was this the last eigrp instance? */
 	if (CHECK_FLAG(eigrp_om->options, EIGRP_MASTER_SHUTDOWN)
 	    && (listcount(eigrp_om->eigrp) == 0)) {
-		if (zclient) {
-			zclient_stop(zclient);
-			zclient_free(zclient);
+		if (eigrp_zclient) {
+			zclient_stop(eigrp_zclient);
+			zclient_free(eigrp_zclient);
 		}
 		exit(0);
 	}
