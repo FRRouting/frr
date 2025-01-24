@@ -1278,6 +1278,25 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 	}
 
 	LIST_FOREACH (path, &(bnc->paths), nh_thread) {
+		/*
+		 * Currently when a peer goes down, bgp immediately
+		 * sees this via the interface events( if it is directly
+		 * connected).  And in this case it takes and puts on
+		 * a special peer queue all path info's associated with
+		 * but these items are not yet processed typically when
+		 * the nexthop is being handled here.  Thus we end
+		 * up in a situation where the process Queue for BGP
+		 * is being asked to look at the same path info multiple
+		 * times.  Let's just cut to the chase here and if
+		 * the bnc has a peer associated with it and the path info
+		 * being looked at uses that peer and the peer is no
+		 * longer established we know the path_info is being
+		 * handled elsewhere and we do not need to process
+		 * it here at all since the pathinfo is going away
+		 */
+		if (peer && path->peer == peer && !peer_established(peer->connection))
+			continue;
+
 		if (path->type == ZEBRA_ROUTE_BGP &&
 		    (path->sub_type == BGP_ROUTE_NORMAL ||
 		     path->sub_type == BGP_ROUTE_STATIC ||
