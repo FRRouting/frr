@@ -739,7 +739,7 @@ struct ctl_ldp_sync {
 
 extern struct ldpd_conf		*ldpd_conf, *vty_conf;
 extern struct ldpd_global	 global;
-extern struct ldpd_init		 init;
+extern struct ldpd_init ldp_init;
 
 /* parse.y */
 struct ldpd_conf	*parse_config(char *);
