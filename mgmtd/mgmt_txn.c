@@ -1993,17 +1993,17 @@ static void mgmt_txn_register_event(struct mgmt_txn_ctx *txn,
 	}
 }
 
-int mgmt_txn_init(struct mgmt_master *mm, struct event_loop *tm)
+int mgmt_txn_init(struct mgmt_master *m, struct event_loop *loop)
 {
 	if (mgmt_txn_mm || mgmt_txn_tm)
 		assert(!"MGMTD TXN: Call txn_init() only once");
 
-	mgmt_txn_mm = mm;
-	mgmt_txn_tm = tm;
-	mgmt_txns_init(&mm->txn_list);
+	mgmt_txn_mm = m;
+	mgmt_txn_tm = loop;
+	mgmt_txns_init(&m->txn_list);
 	mgmt_txn_hash_init();
-	assert(!mm->cfg_txn);
-	mm->cfg_txn = NULL;
+	assert(!m->cfg_txn);
+	m->cfg_txn = NULL;
 
 	return 0;
 }
