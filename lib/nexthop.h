@@ -209,6 +209,8 @@ void nexthop_add_srv6_seg6local(struct nexthop *nexthop, uint32_t action,
 void nexthop_del_srv6_seg6local(struct nexthop *nexthop);
 void nexthop_add_srv6_seg6(struct nexthop *nexthop, const struct in6_addr *seg,
 			   int num_segs);
+void nexthop_add_srv6_seg6_ipaddr(struct nexthop *nexthop, const struct ipaddr *segs,
+			int num_segs);
 void nexthop_del_srv6_seg6(struct nexthop *nexthop);
 
 /*
