@@ -52,7 +52,7 @@ struct eigrp_master {
 };
 
 /* Extern variables. */
-extern struct zclient *zclient;
+extern struct zclient *eigrp_zclient;
 extern struct event_loop *master;
 extern struct eigrp_master *eigrp_om;
 extern struct zebra_privs_t eigrpd_privs;

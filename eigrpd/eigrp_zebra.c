@@ -46,7 +46,7 @@ static int eigrp_interface_address_delete(ZAPI_CALLBACK_ARGS);
 static int eigrp_zebra_read_route(ZAPI_CALLBACK_ARGS);
 
 /* Zebra structure to hold current status. */
-struct zclient *zclient = NULL;
+struct zclient *eigrp_zclient = NULL;
 
 /* For registering threads. */
 extern struct event_loop *master;
@@ -98,17 +98,17 @@ static zclient_handler *const eigrp_handlers[] = {
 
 void eigrp_zebra_init(void)
 {
-	zclient = zclient_new(master, &zclient_options_default, eigrp_handlers,
-			      array_size(eigrp_handlers));
+	eigrp_zclient = zclient_new(master, &zclient_options_default, eigrp_handlers,
+				    array_size(eigrp_handlers));
 
-	zclient_init(zclient, ZEBRA_ROUTE_EIGRP, 0, &eigrpd_privs);
-	zclient->zebra_connected = eigrp_zebra_connected;
+	zclient_init(eigrp_zclient, ZEBRA_ROUTE_EIGRP, 0, &eigrpd_privs);
+	eigrp_zclient->zebra_connected = eigrp_zebra_connected;
 }
 
 void eigrp_zebra_stop(void)
 {
-	zclient_stop(zclient);
-	zclient_free(zclient);
+	zclient_stop(eigrp_zclient);
+	zclient_free(eigrp_zclient);
 }
 
 /* Zebra route add and delete treatment. */
@@ -192,7 +192,7 @@ void eigrp_zebra_route_add(struct eigrp *eigrp, struct prefix *p,
 	struct listnode *node;
 	int count = 0;
 
-	if (!zclient->redist[AFI_IP][ZEBRA_ROUTE_EIGRP])
+	if (!eigrp_zclient->redist[AFI_IP][ZEBRA_ROUTE_EIGRP])
 		return;
 
 	memset(&api, 0, sizeof(api));
@@ -226,14 +226,14 @@ void eigrp_zebra_route_add(struct eigrp *eigrp, struct prefix *p,
 		zlog_debug("Zebra: Route add %pFX", p);
 	}
 
-	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
+	zclient_route_send(ZEBRA_ROUTE_ADD, eigrp_zclient, &api);
 }
 
 void eigrp_zebra_route_delete(struct eigrp *eigrp, struct prefix *p)
 {
 	struct zapi_route api;
 
-	if (!zclient->redist[AFI_IP][ZEBRA_ROUTE_EIGRP])
+	if (!eigrp_zclient->redist[AFI_IP][ZEBRA_ROUTE_EIGRP])
 		return;
 
 	memset(&api, 0, sizeof(api));
@@ -241,7 +241,7 @@ void eigrp_zebra_route_delete(struct eigrp *eigrp, struct prefix *p)
 	api.type = ZEBRA_ROUTE_EIGRP;
 	api.safi = SAFI_UNICAST;
 	memcpy(&api.prefix, p, sizeof(*p));
-	zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
+	zclient_route_send(ZEBRA_ROUTE_DELETE, eigrp_zclient, &api);
 
 	if (IS_DEBUG_EIGRP(zebra, ZEBRA_REDISTRIBUTE))
 		zlog_debug("Zebra: Route del %pFX", p);
@@ -252,10 +252,8 @@ void eigrp_zebra_route_delete(struct eigrp *eigrp, struct prefix *p)
 static int eigrp_is_type_redistributed(int type, vrf_id_t vrf_id)
 {
 	return ((DEFAULT_ROUTE_TYPE(type))
-			? vrf_bitmap_check(
-				  &zclient->default_information[AFI_IP], vrf_id)
-			: vrf_bitmap_check(&zclient->redist[AFI_IP][type],
-					   vrf_id));
+			? vrf_bitmap_check(&eigrp_zclient->default_information[AFI_IP], vrf_id)
+			: vrf_bitmap_check(&eigrp_zclient->redist[AFI_IP][type], vrf_id));
 }
 
 int eigrp_redistribute_set(struct eigrp *eigrp, int type,
@@ -280,7 +278,7 @@ int eigrp_redistribute_set(struct eigrp *eigrp, int type,
 
 	eigrp->dmetric[type] = metric;
 
-	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP, type, 0,
+	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, eigrp_zclient, AFI_IP, type, 0,
 			     eigrp->vrf_id);
 
 	++eigrp->redistribute;
@@ -293,7 +291,7 @@ int eigrp_redistribute_unset(struct eigrp *eigrp, int type)
 
 	if (eigrp_is_type_redistributed(type, eigrp->vrf_id)) {
 		memset(&eigrp->dmetric[type], 0, sizeof(struct eigrp_metrics));
-		zclient_redistribute(ZEBRA_REDISTRIBUTE_DELETE, zclient, AFI_IP,
+		zclient_redistribute(ZEBRA_REDISTRIBUTE_DELETE, eigrp_zclient, AFI_IP,
 				     type, 0, eigrp->vrf_id);
 		--eigrp->redistribute;
 	}
