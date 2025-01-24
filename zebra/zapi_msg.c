@@ -2753,6 +2753,16 @@ static void zread_sr_policy_delete(ZAPI_HANDLER_ARGS)
 	zebra_sr_policy_del(policy);
 }
 
+static void zread_srv6_policy_set(ZAPI_HANDLER_ARGS)
+{
+
+}
+
+static void zread_srv6_policy_delete(ZAPI_HANDLER_ARGS)
+{
+
+}
+
 int zsend_sr_policy_notify_status(uint32_t color, struct ipaddr *endpoint,
 				  char *name, int status)
 {
@@ -4157,6 +4167,8 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_TC_CLASS_DELETE] = zread_tc_class,
 	[ZEBRA_TC_FILTER_ADD] = zread_tc_filter,
 	[ZEBRA_TC_FILTER_DELETE] = zread_tc_filter,
+	[ZEBRA_SRV6_POLICY_SET] = zread_srv6_policy_set,
+	[ZEBRA_SRV6_POLICY_DELETE] = zread_srv6_policy_delete,
 };
 
 /*

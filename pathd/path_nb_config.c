@@ -278,7 +278,6 @@ void pathd_srte_segment_list_segment_nai_apply_finish(
 
 	zlog_debug(" Segment list name (%d) index (%s) ", segment->index,
 		   segment->segment_list->name);
-
 	if (srte_segment_entry_set_nai(segment, type, &local_addr, local_iface,
 					&remote_addr, remote_iface, algo,
 					local_prefix_len)) {
