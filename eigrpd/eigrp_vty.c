@@ -280,14 +280,14 @@ DEFPY (show_ip_eigrp_neighbors,
 	struct eigrp *eigrp;
 
 	if (vrf && strncmp(vrf, "all", sizeof("all")) == 0) {
-		struct vrf *vrf;
+		struct vrf *tvrf;
 
-		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-			eigrp = eigrp_lookup(vrf->vrf_id);
+		RB_FOREACH (tvrf, vrf_name_head, &vrfs_by_name) {
+			eigrp = eigrp_lookup(tvrf->vrf_id);
 			if (!eigrp)
 				continue;
 
-			vty_out(vty, "VRF %s:\n", vrf->name);
+			vty_out(vty, "VRF %s:\n", tvrf->name);
 
 			eigrp_neighbors_helper(vty, eigrp, ifname, detail);
 		}
