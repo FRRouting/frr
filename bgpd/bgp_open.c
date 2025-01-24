@@ -204,6 +204,11 @@ void bgp_capability_vty_out(struct vty *vty, struct peer *peer, bool use_json,
 						"flowspec");
 					break;
 				case SAFI_RTC:
+					json_object_string_add(
+						json_cap,
+						"capabilityErrorMultiProtocolSafi",
+						"rtc");
+					break;
 				case SAFI_UNSPEC:
 				case SAFI_MAX:
 					json_object_int_add(
@@ -254,6 +259,8 @@ void bgp_capability_vty_out(struct vty *vty, struct peer *peer, bool use_json,
 					vty_out(vty, "SAFI EVPN");
 					break;
 				case SAFI_RTC:
+					vty_out(vty, "SAFI RTC");
+					break;
 				case SAFI_UNSPEC:
 				case SAFI_MAX:
 					vty_out(vty, "SAFI Unknown %d ",
@@ -1482,19 +1489,7 @@ int bgp_open_option_parse(struct peer *peer, uint16_t length,
 	   error. */
 	if (*mp_capability
 	    && !CHECK_FLAG(peer->flags, PEER_FLAG_OVERRIDE_CAPABILITY)) {
-		if (!peer->afc_nego[AFI_IP][SAFI_UNICAST]
-		    && !peer->afc_nego[AFI_IP][SAFI_MULTICAST]
-		    && !peer->afc_nego[AFI_IP][SAFI_LABELED_UNICAST]
-		    && !peer->afc_nego[AFI_IP][SAFI_MPLS_VPN]
-		    && !peer->afc_nego[AFI_IP][SAFI_ENCAP]
-		    && !peer->afc_nego[AFI_IP][SAFI_FLOWSPEC]
-		    && !peer->afc_nego[AFI_IP6][SAFI_UNICAST]
-		    && !peer->afc_nego[AFI_IP6][SAFI_MULTICAST]
-		    && !peer->afc_nego[AFI_IP6][SAFI_LABELED_UNICAST]
-		    && !peer->afc_nego[AFI_IP6][SAFI_MPLS_VPN]
-		    && !peer->afc_nego[AFI_IP6][SAFI_ENCAP]
-		    && !peer->afc_nego[AFI_IP6][SAFI_FLOWSPEC]
-		    && !peer->afc_nego[AFI_L2VPN][SAFI_EVPN]) {
+		if (!peer_active_nego(peer)) {
 			flog_err(EC_BGP_PKT_OPEN,
 				 "%s [Error] Configured AFI/SAFIs do not overlap with received MP capabilities",
 				 peer->host);
