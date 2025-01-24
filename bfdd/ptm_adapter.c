@@ -36,7 +36,7 @@ struct ptm_client {
 TAILQ_HEAD(pcqueue, ptm_client);
 
 static struct pcqueue pcqueue;
-static struct zclient *zclient;
+static struct zclient *bfd_zclient;
 
 
 /*
@@ -209,7 +209,7 @@ int ptm_bfd_notify(struct bfd_session *bs, uint8_t notify_state)
 	 *
 	 * q(64), l(32), w(16), c(8)
 	 */
-	msg = zclient->obuf;
+	msg = bfd_zclient->obuf;
 	stream_reset(msg);
 
 	/* TODO: VRF handling */
@@ -264,7 +264,7 @@ int ptm_bfd_notify(struct bfd_session *bs, uint8_t notify_state)
 	/* Write packet size. */
 	stream_putw_at(msg, 0, stream_get_endp(msg));
 
-	return zclient_send_message(zclient);
+	return zclient_send_message(bfd_zclient);
 }
 
 static void _ptm_msg_read_address(struct stream *msg, struct sockaddr_any *sa)
@@ -600,7 +600,7 @@ stream_failure:
 
 static int bfdd_replay(ZAPI_CALLBACK_ARGS)
 {
-	struct stream *msg = zclient->ibuf;
+	struct stream *msg = bfd_zclient->ibuf;
 	uint32_t rcmd;
 
 	STREAM_GETL(msg, rcmd);
@@ -653,7 +653,7 @@ static void bfdd_zebra_connected(struct zclient *zc)
 	zclient_create_header(msg, ZEBRA_INTERFACE_ADD, VRF_DEFAULT);
 
 	/* Send requests. */
-	zclient_send_message(zclient);
+	zclient_send_message(zc);
 }
 
 static void bfdd_sessions_enable_interface(struct interface *ifp)
@@ -837,32 +837,32 @@ void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv)
 {
 	hook_register_prio(if_real, 0, bfd_ifp_create);
 	hook_register_prio(if_unreal, 0, bfd_ifp_destroy);
-	zclient = zclient_new(master, &zclient_options_default, bfd_handlers,
-			      array_size(bfd_handlers));
-	assert(zclient != NULL);
-	zclient_init(zclient, ZEBRA_ROUTE_BFD, 0, bfdd_priv);
+	bfd_zclient = zclient_new(master, &zclient_options_default, bfd_handlers,
+				  array_size(bfd_handlers));
+	assert(bfd_zclient != NULL);
+	zclient_init(bfd_zclient, ZEBRA_ROUTE_BFD, 0, bfdd_priv);
 
 	/* Send replay request on zebra connect. */
-	zclient->zebra_connected = bfdd_zebra_connected;
+	bfd_zclient->zebra_connected = bfdd_zebra_connected;
 }
 
 void bfdd_zclient_register(vrf_id_t vrf_id)
 {
-	if (!zclient || zclient->sock < 0)
+	if (!bfd_zclient || bfd_zclient->sock < 0)
 		return;
-	zclient_send_reg_requests(zclient, vrf_id);
+	zclient_send_reg_requests(bfd_zclient, vrf_id);
 }
 
 void bfdd_zclient_unregister(vrf_id_t vrf_id)
 {
-	if (!zclient || zclient->sock < 0)
+	if (!bfd_zclient || bfd_zclient->sock < 0)
 		return;
-	zclient_send_dereg_requests(zclient, vrf_id);
+	zclient_send_dereg_requests(bfd_zclient, vrf_id);
 }
 
 void bfdd_zclient_stop(void)
 {
-	zclient_stop(zclient);
+	zclient_stop(bfd_zclient);
 
 	/* Clean-up and free ptm clients data memory. */
 	pc_free_all();
@@ -870,7 +870,7 @@ void bfdd_zclient_stop(void)
 
 void bfdd_zclient_terminate(void)
 {
-	zclient_free(zclient);
+	zclient_free(bfd_zclient);
 }
 
 
