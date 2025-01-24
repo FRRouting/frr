@@ -2718,6 +2718,7 @@ static void zread_sr_policy_set(ZAPI_HANDLER_ARGS)
 	if (!policy) {
 		policy = zebra_sr_policy_add(zp.color, &zp.endpoint, zp.name);
 		policy->sock = client->sock;
+		policy->type = ZEBRA_SR_POLICY_TYPE_MPLS;
 	}
 	/* TODO: per-VRF list of SR-TE policies. */
 	policy->zvrf = zvrf;
@@ -2755,12 +2756,63 @@ static void zread_sr_policy_delete(ZAPI_HANDLER_ARGS)
 
 static void zread_srv6_policy_set(ZAPI_HANDLER_ARGS)
 {
+	struct stream *s;
+	struct zapi_sr_policy zp;
+	struct zapi_srv6te_tunnel *zt;
+	struct zebra_sr_policy *policy;
 
+	/* Get input stream.  */
+	s = msg;
+	if (zapi_srv6_policy_decode(s, &zp) < 0) {
+		if (IS_ZEBRA_DEBUG_RECV)
+			zlog_debug("%s: Unable to decode zapi_sr_policy sent",
+				   __func__);
+		return;
+	}
+	zt = &zp.segment_list_v6;
+	if (zt->seg_num < 1) {
+		if (IS_ZEBRA_DEBUG_RECV)
+			zlog_debug(
+				"%s: SRV6-TE tunnel must contain at least one sid",
+				__func__);
+		return;
+	}
+
+	policy = zebra_sr_policy_find(zp.color, &zp.endpoint);
+	if (!policy) {
+		policy = zebra_sr_policy_add(zp.color, &zp.endpoint, zp.name);
+		policy->sock = client->sock;
+		policy->type = ZEBRA_SR_POLICY_TYPE_SRV6;
+	}
+	/* TODO: per-VRF list of SR-TE policies. */
+	policy->zvrf = zvrf;
+
+	zebra_srv6_policy_validate(policy, &zp.segment_list_v6);
 }
 
 static void zread_srv6_policy_delete(ZAPI_HANDLER_ARGS)
 {
+	struct stream *s;
+	struct zapi_sr_policy zp;
+	struct zebra_sr_policy *policy;
 
+	/* Get input stream.  */
+	s = msg;
+	if (zapi_srv6_policy_decode(s, &zp) < 0) {
+		if (IS_ZEBRA_DEBUG_RECV)
+			zlog_debug("%s: Unable to decode zapi_sr_policy sent",
+				   __func__);
+		return;
+	}
+
+	policy = zebra_sr_policy_find(zp.color, &zp.endpoint);
+	if (!policy) {
+		if (IS_ZEBRA_DEBUG_RECV)
+			zlog_debug("%s: Unable to find SRV6-TE policy", __func__);
+		return;
+	}
+
+	zebra_sr_policy_del(policy);
 }
 
 int zsend_sr_policy_notify_status(uint32_t color, struct ipaddr *endpoint,
