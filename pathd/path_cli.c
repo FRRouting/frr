@@ -106,7 +106,7 @@ DEFPY(show_srte_policy,
 
 	/* Prepare table. */
 	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
-	ttable_add_row(tt, "Endpoint|Color|Name|BSID|Status");
+	ttable_add_row(tt, "Endpoint|Color|Name|BSID|Status|Type");
 	tt->style.cell.rpad = 2;
 	tt->style.corner = '+';
 	ttable_restyle(tt);
@@ -121,11 +121,12 @@ DEFPY(show_srte_policy,
 			snprintf(binding_sid, sizeof(binding_sid), "%u",
 				 policy->binding_sid);
 
-		ttable_add_row(tt, "%s|%u|%s|%s|%s", endpoint, policy->color,
-			       policy->name, binding_sid,
-			       policy->status == SRTE_POLICY_STATUS_UP
-				       ? "Active"
-				       : "Inactive");
+		ttable_add_row(tt, "%s|%u|%s|%s|%s|%s", endpoint, policy->color,
+				policy->name, binding_sid,
+				policy->status == SRTE_POLICY_STATUS_UP ? "Active" : "Inactive",
+				policy->type == SRTE_POLICY_TYPE_MPLS
+					? "MPLS"
+					: (policy->type == SRTE_POLICY_TYPE_SRV6 ? "SRV6" : "Undefined"));
 	}
 
 	/* Dump the generated table. */
@@ -172,37 +173,60 @@ DEFPY(show_srte_policy_detail,
 			snprintf(binding_sid, sizeof(binding_sid), "%u",
 				 policy->binding_sid);
 		vty_out(vty,
-			"Endpoint: %s  Color: %u  Name: %s  BSID: %s  Status: %s\n",
+			"Endpoint: %s  Color: %u  Name: %s  BSID: %s  Status: %s Type: %s\n",
 			endpoint, policy->color, policy->name, binding_sid,
-			policy->status == SRTE_POLICY_STATUS_UP ? "Active"
-								: "Inactive");
+			policy->status == SRTE_POLICY_STATUS_UP ? "Active" : "Inactive",
+			policy->type == SRTE_POLICY_TYPE_MPLS
+				? "MPLS"
+				: (policy->type == SRTE_POLICY_TYPE_SRV6 ? "SRV6" : "Undefined"));
 
 		RB_FOREACH (candidate, srte_candidate_head,
 			    &policy->candidate_paths) {
 			struct srte_segment_list *segment_list;
+			if (policy->type == SRTE_POLICY_TYPE_MPLS) {
+				segment_list = candidate->lsp->segment_list;
+				if (segment_list == NULL)
+					segment_list_info = undefined_info;
+				else if (segment_list->protocol_origin
+					== SRTE_ORIGIN_PCEP)
+					segment_list_info = created_by_pce_info;
+				else
+					segment_list_info =
+						candidate->lsp->segment_list->name;
 
-			segment_list = candidate->lsp->segment_list;
-			if (segment_list == NULL)
-				segment_list_info = undefined_info;
-			else if (segment_list->protocol_origin
-				 == SRTE_ORIGIN_PCEP)
-				segment_list_info = created_by_pce_info;
-			else
-				segment_list_info =
-					candidate->lsp->segment_list->name;
+				vty_out(vty,
+					"  %s Preference: %d  Name: %s  Type: %s  Segment-List: %s  Protocol-Origin: %s\n",
+					CHECK_FLAG(candidate->flags, F_CANDIDATE_BEST)
+						? "*"
+						: " ",
+					candidate->preference, candidate->name,
+					candidate->type == SRTE_CANDIDATE_TYPE_EXPLICIT
+						? "explicit"
+						: "dynamic",
+					segment_list_info,
+					srte_origin2str(
+						candidate->lsp->protocol_origin));
+			} else if (policy->type == SRTE_POLICY_TYPE_SRV6) {
+				segment_list = candidate->segment_list;
+				if (segment_list == NULL)
+					segment_list_info = undefined_info;
+				else
+					segment_list_info =
+						candidate->segment_list->name;
 
-			vty_out(vty,
-				"  %s Preference: %d  Name: %s  Type: %s  Segment-List: %s  Protocol-Origin: %s\n",
-				CHECK_FLAG(candidate->flags, F_CANDIDATE_BEST)
-					? "*"
-					: " ",
-				candidate->preference, candidate->name,
-				candidate->type == SRTE_CANDIDATE_TYPE_EXPLICIT
-					? "explicit"
-					: "dynamic",
-				segment_list_info,
-				srte_origin2str(
-					candidate->lsp->protocol_origin));
+				vty_out(vty,
+					"  %s Preference: %d  Name: %s  Type: %s  Segment-List: %s  Protocol-Origin: %s\n",
+					CHECK_FLAG(candidate->flags, F_CANDIDATE_BEST)
+						? "*"
+						: " ",
+					candidate->preference, candidate->name,
+					candidate->type == SRTE_CANDIDATE_TYPE_EXPLICIT
+						? "explicit"
+						: "dynamic",
+					segment_list_info,
+					srte_origin2str(
+						candidate->protocol_origin));
+			}
 		}
 
 		vty_out(vty, "\n");
@@ -308,6 +332,7 @@ static int segment_list_has_src_dst(
 
 	struct ipaddr ip_src = {};
 	struct ipaddr ip_dst = {};
+
 	if (adj_src_ipv4_str != NULL) {
 		ip_src.ipa_type = IPADDR_V4;
 		ip_src.ip._v4_addr = adj_src_ipv4;
@@ -527,6 +552,24 @@ DEFPY(srte_segment_list_segment, srte_segment_list_segment_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(srv6te_segment_list_segment, srv6te_segment_list_segment_cmd,
+      "index (0-4294967295)$index ipv6-address  X:X::X:X$ipv6_addr",
+      "Index\n"
+      "Index Value\n"
+      IPV6_STR
+      "IPv6 address\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./segment[index='%s']", index_str);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(xpath, sizeof(xpath),
+			"./segment[index='%s']/srv6-sid-value", index_str);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, ipv6_addr_str);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFPY(srte_segment_list_no_segment,
       srte_segment_list_no_segment_cmd,
       "no index (0-4294967295)$index",
@@ -547,10 +590,17 @@ void cli_show_srte_segment_list_segment(struct vty *vty,
 					bool show_defaults)
 {
 	vty_out(vty, "   index %s", yang_dnode_get_string(dnode, "index"));
+
+	if (yang_dnode_exists(dnode, "srv6-sid-value")) {
+		vty_out(vty, " ipv6-address %s",
+			yang_dnode_get_string(dnode, "srv6-sid-value"));
+	}
+
 	if (yang_dnode_exists(dnode, "sid-value")) {
 		vty_out(vty, " mpls label %s",
 			yang_dnode_get_string(dnode, "sid-value"));
 	}
+
 	if (yang_dnode_exists(dnode, "nai")) {
 		struct ipaddr addr;
 		struct ipaddr addr_rmt;
@@ -1331,6 +1381,8 @@ void path_cli_init(void)
 	install_element(SR_TRAFFIC_ENG_NODE, &srte_no_segment_list_cmd);
 	install_element(SR_SEGMENT_LIST_NODE,
 			&srte_segment_list_segment_cmd);
+	install_element(SR_SEGMENT_LIST_NODE,
+			&srv6te_segment_list_segment_cmd);
 	install_element(SR_SEGMENT_LIST_NODE,
 			&srte_segment_list_no_segment_cmd);
 	install_element(SR_TRAFFIC_ENG_NODE, &srte_policy_cmd);

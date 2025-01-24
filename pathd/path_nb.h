@@ -20,6 +20,7 @@ const void *
 pathd_srte_segment_list_lookup_entry(struct nb_cb_lookup_entry_args *args);
 
 int pathd_srte_segment_list_segment_create(struct nb_cb_create_args *args);
+int pathd_srte_segment_list_segment_check_validate(struct nb_cb_create_args *args);
 int pathd_srte_segment_list_segment_destroy(struct nb_cb_destroy_args *args);
 int pathd_srte_segment_list_protocol_origin_modify(
 	struct nb_cb_modify_args *args);
@@ -31,6 +32,10 @@ int pathd_srte_segment_list_segment_nai_destroy(
 void pathd_srte_segment_list_segment_nai_apply_finish(
 	struct nb_cb_apply_finish_args *args);
 int pathd_srte_segment_list_segment_sid_value_destroy(
+	struct nb_cb_destroy_args *args);
+int pathd_srte_segment_list_segment_v6_sid_value_modify(
+	struct nb_cb_modify_args *args);
+int pathd_srte_segment_list_segment_v6_sid_value_destroy(
 	struct nb_cb_destroy_args *args);
 int pathd_srte_policy_create(struct nb_cb_create_args *args);
 int pathd_srte_policy_destroy(struct nb_cb_destroy_args *args);
@@ -53,6 +58,8 @@ pathd_srte_policy_candidate_path_get_next(struct nb_cb_get_next_args *args);
 int pathd_srte_policy_candidate_path_get_keys(struct nb_cb_get_keys_args *args);
 const void *pathd_srte_policy_candidate_path_lookup_entry(
 	struct nb_cb_lookup_entry_args *args);
+int pathd_srte_policy_candidate_path_check_validate(
+	struct nb_cb_create_args *args);
 void pathd_srte_policy_candidate_path_bandwidth_apply_finish(
 	struct nb_cb_apply_finish_args *args);
 int pathd_srte_policy_candidate_path_bandwidth_destroy(
