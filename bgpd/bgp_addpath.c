@@ -10,8 +10,6 @@
 
 #include "bgp_addpath.h"
 #include "bgp_route.h"
-#include "bgp_open.h"
-#include "bgp_packet.h"
 
 static const struct bgp_addpath_strategy_names strat_names[BGP_ADDPATH_MAX] = {
 	{
@@ -361,6 +359,7 @@ void bgp_addpath_type_changed(struct bgp *bgp)
 	}
 }
 
+<<<<<<< HEAD
 int bgp_addpath_capability_action(enum bgp_addpath_strat addpath_type,
 				  uint8_t paths)
 {
@@ -386,6 +385,8 @@ int bgp_addpath_capability_action(enum bgp_addpath_strat addpath_type,
 	return action;
 }
 
+=======
+>>>>>>> 4338e21aa (Revert "bgpd: Handle Addpath capability using dynamic capabilities")
 /*
  * Change the addpath type assigned to a peer, or peer group. In addition to
  * adjusting the counts, peer sessions will be reset as needed to make the
@@ -400,7 +401,6 @@ void bgp_addpath_set_peer_type(struct peer *peer, afi_t afi, safi_t safi,
 	struct listnode *node, *nnode;
 	struct peer *tmp_peer;
 	struct peer_group *group;
-	int action = bgp_addpath_capability_action(addpath_type, paths);
 
 	if (safi == SAFI_LABELED_UNICAST)
 		safi = SAFI_UNICAST;
@@ -458,12 +458,9 @@ void bgp_addpath_set_peer_type(struct peer *peer, afi_t afi, safi_t safi,
 			}
 		}
 	} else {
-		if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) &&
-		    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
-			peer_change_action(peer, afi, safi, peer_change_reset);
+		peer_change_action(peer, afi, safi, peer_change_reset);
 	}
 
-	bgp_capability_send(peer, afi, safi, CAPABILITY_CODE_ADDPATH, action);
 }
 
 /*

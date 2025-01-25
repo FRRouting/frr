@@ -6,7 +6,13 @@
 #
 
 """
+<<<<<<< HEAD:tests/topotests/bgp_dynamic_capability/test_bgp_dynamic_capability_addpath.py
 Test if Addpath capability is adjusted dynamically.
+=======
+Test if Addpath/Paths-Limit capabilities are adjusted dynamically.
+T1: Enable Addpath/Paths-Limit capabilities and check if they are exchanged dynamically
+T2: Disable paths limit and check if it's exchanged dynamically
+>>>>>>> 4338e21aa (Revert "bgpd: Handle Addpath capability using dynamic capabilities"):tests/topotests/bgp_dynamic_capability/test_bgp_dynamic_capability_path_limit.py
 """
 
 import os
@@ -65,8 +71,24 @@ def test_bgp_dynamic_capability_addpath():
                     "dynamic": "advertisedAndReceived",
                     "addPath": {
                         "ipv4Unicast": {
+<<<<<<< HEAD:tests/topotests/bgp_dynamic_capability/test_bgp_dynamic_capability_addpath.py
                             "txAdvertised": True,
                             "rxAdvertisedAndReceived": True,
+=======
+                            "txAdvertisedAndReceived": True,
+                            "txAdvertised": True,
+                            "txReceived": True,
+                            "rxAdvertisedAndReceived": False,
+                            "rxAdvertised": True,
+                            "rxReceived": False,
+                        }
+                    },
+                    "pathsLimit": {
+                        "ipv4Unicast": {
+                            "advertisedAndReceived": True,
+                            "advertisedPathsLimit": 10,
+                            "receivedPathsLimit": 20,
+>>>>>>> 4338e21aa (Revert "bgpd: Handle Addpath capability using dynamic capabilities"):tests/topotests/bgp_dynamic_capability/test_bgp_dynamic_capability_path_limit.py
                         }
                     },
                 },
@@ -93,6 +115,68 @@ def test_bgp_dynamic_capability_addpath():
     r2.vtysh_cmd(
         """
     configure terminal
+<<<<<<< HEAD:tests/topotests/bgp_dynamic_capability/test_bgp_dynamic_capability_addpath.py
+=======
+     router bgp
+      address-family ipv4 unicast
+       neighbor 192.168.1.1 addpath-rx-paths-limit 21
+    """
+    )
+
+    def _enable_addpath_paths_limit():
+        output = json.loads(r1.vtysh_cmd("show bgp neighbor json"))
+        expected = {
+            "192.168.1.2": {
+                "bgpState": "Established",
+                "neighborCapabilities": {
+                    "dynamic": "advertisedAndReceived",
+                    "addPath": {
+                        "ipv4Unicast": {
+                            "txAdvertisedAndReceived": True,
+                            "txAdvertised": True,
+                            "txReceived": True,
+                            "rxAdvertisedAndReceived": False,
+                            "rxAdvertised": True,
+                            "rxReceived": False,
+                        }
+                    },
+                    "pathsLimit": {
+                        "ipv4Unicast": {
+                            "advertisedAndReceived": True,
+                            "advertisedPathsLimit": 10,
+                            "receivedPathsLimit": 21,
+                        }
+                    },
+                },
+                "addressFamilyInfo": {
+                    "ipv4Unicast": {
+                        "acceptedPrefixCounter": 3,
+                    }
+                },
+                "messageStats": {
+                    "notificationsRecv": 0,
+                    "notificationsSent": 0,
+                    "capabilityRecv": 1,
+                },
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(
+        _enable_addpath_paths_limit,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert (
+        result is None
+    ), "Something went wrong when enabling Addpath/Paths-Limit capabilities"
+
+    ###
+    # T2: Disable paths limit and check if it's exchanged dynamically
+    ###
+    r2.vtysh_cmd(
+        """
+    configure terminal
+>>>>>>> 4338e21aa (Revert "bgpd: Handle Addpath capability using dynamic capabilities"):tests/topotests/bgp_dynamic_capability/test_bgp_dynamic_capability_path_limit.py
     router bgp
      address-family ipv4 unicast
       neighbor 192.168.1.1 addpath-tx-all-paths
@@ -109,7 +193,22 @@ def test_bgp_dynamic_capability_addpath():
                     "addPath": {
                         "ipv4Unicast": {
                             "txAdvertisedAndReceived": True,
+<<<<<<< HEAD:tests/topotests/bgp_dynamic_capability/test_bgp_dynamic_capability_addpath.py
                             "rxAdvertisedAndReceived": True,
+=======
+                            "txAdvertised": True,
+                            "txReceived": True,
+                            "rxAdvertisedAndReceived": False,
+                            "rxAdvertised": True,
+                            "rxReceived": False,
+                        }
+                    },
+                    "pathsLimit": {
+                        "ipv4Unicast": {
+                            "advertisedAndReceived": True,
+                            "advertisedPathsLimit": 10,
+                            "receivedPathsLimit": 0,
+>>>>>>> 4338e21aa (Revert "bgpd: Handle Addpath capability using dynamic capabilities"):tests/topotests/bgp_dynamic_capability/test_bgp_dynamic_capability_path_limit.py
                         }
                     },
                 },
@@ -120,7 +219,12 @@ def test_bgp_dynamic_capability_addpath():
                 },
                 "messageStats": {
                     "notificationsRecv": 0,
+<<<<<<< HEAD:tests/topotests/bgp_dynamic_capability/test_bgp_dynamic_capability_addpath.py
                     "capabilityRecv": 1,
+=======
+                    "notificationsSent": 0,
+                    "capabilityRecv": 2,
+>>>>>>> 4338e21aa (Revert "bgpd: Handle Addpath capability using dynamic capabilities"):tests/topotests/bgp_dynamic_capability/test_bgp_dynamic_capability_path_limit.py
                 },
             }
         }
@@ -132,6 +236,7 @@ def test_bgp_dynamic_capability_addpath():
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Session was reset after enabling Addpath capability"
 
+<<<<<<< HEAD:tests/topotests/bgp_dynamic_capability/test_bgp_dynamic_capability_addpath.py
     step("Disable Addpath capability RX and check if it's exchanged dynamically")
 
     # Clear message stats to check if we receive a notification or not after we
@@ -214,6 +319,8 @@ def test_bgp_dynamic_capability_addpath():
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Failed to disable Addpath capability"
 
+=======
+>>>>>>> 4338e21aa (Revert "bgpd: Handle Addpath capability using dynamic capabilities"):tests/topotests/bgp_dynamic_capability/test_bgp_dynamic_capability_path_limit.py
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
