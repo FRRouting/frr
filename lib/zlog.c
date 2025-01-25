@@ -685,8 +685,17 @@ static void zlog_backtrace_msg(const struct xref_logmsg *xref, int prio)
 		     tc->xref->xref.line);
 }
 
-void vzlogx(const struct xref_logmsg *xref, int prio,
-	    const char *fmt, va_list ap)
+PRINTFRR(2, 3)
+void ezlog(int prio, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	vzlog(prio, fmt, ap);
+	va_end(ap);
+}
+
+void vzlogx(const struct xref_logmsg *xref, int prio, const char *fmt, va_list ap)
 {
 	struct zlog_tls *zlog_tls = zlog_tls_get();
 
