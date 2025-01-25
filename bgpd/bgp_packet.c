@@ -1211,7 +1211,6 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 	uint16_t len;
 	uint32_t gr_restart_time;
 	uint8_t addpath_afi_safi_count = 0;
-	bool adv_addpath_tx = false;
 	unsigned long number_of_orfs_p;
 	uint8_t number_of_orfs = 0;
 	const char *capability = lookup_msg(capcode_str, capability_code,
@@ -1376,87 +1375,6 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 		COND_FLAG(peer->cap, PEER_CAP_LLGR_ADV,
 			  action == CAPABILITY_ACTION_SET);
 		break;
-	case CAPABILITY_CODE_ADDPATH:
-		FOREACH_AFI_SAFI (afi, safi) {
-			if (peer->afc[afi][safi]) {
-				addpath_afi_safi_count++;
-
-				/* Only advertise addpath TX if a feature that
-				* will use it is
-				* configured */
-				if (peer->addpath_type[afi][safi] !=
-				    BGP_ADDPATH_NONE)
-					adv_addpath_tx = true;
-
-				/* If we have enabled labeled unicast, we MUST check
-				* against unicast SAFI because addpath IDs are
-				* allocated under unicast SAFI, the same as the RIB
-				* is managed in unicast SAFI.
-				*/
-				if (safi == SAFI_LABELED_UNICAST)
-					if (peer->addpath_type[afi][SAFI_UNICAST] !=
-					    BGP_ADDPATH_NONE)
-						adv_addpath_tx = true;
-			}
-		}
-
-		stream_putc(s, action);
-		stream_putc(s, CAPABILITY_CODE_ADDPATH);
-		stream_putc(s, CAPABILITY_CODE_ADDPATH_LEN *
-				       addpath_afi_safi_count);
-
-		FOREACH_AFI_SAFI (afi, safi) {
-			if (peer->afc[afi][safi]) {
-				bool adv_addpath_rx =
-					!CHECK_FLAG(peer->af_flags[afi][safi],
-						    PEER_FLAG_DISABLE_ADDPATH_RX);
-				uint8_t flags = 0;
-
-				/* Convert AFI, SAFI to values for packet. */
-				bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi,
-							  &pkt_safi);
-
-				stream_putw(s, pkt_afi);
-				stream_putc(s, pkt_safi);
-
-				if (adv_addpath_rx) {
-					SET_FLAG(flags, BGP_ADDPATH_RX);
-					SET_FLAG(peer->af_cap[afi][safi],
-						 PEER_CAP_ADDPATH_AF_RX_ADV);
-				} else {
-					UNSET_FLAG(peer->af_cap[afi][safi],
-						   PEER_CAP_ADDPATH_AF_RX_ADV);
-				}
-
-				if (adv_addpath_tx) {
-					SET_FLAG(flags, BGP_ADDPATH_TX);
-					SET_FLAG(peer->af_cap[afi][safi],
-						 PEER_CAP_ADDPATH_AF_TX_ADV);
-					if (safi == SAFI_LABELED_UNICAST)
-						SET_FLAG(peer->af_cap[afi]
-								     [SAFI_UNICAST],
-							 PEER_CAP_ADDPATH_AF_TX_ADV);
-				} else {
-					UNSET_FLAG(peer->af_cap[afi][safi],
-						   PEER_CAP_ADDPATH_AF_TX_ADV);
-				}
-
-				stream_putc(s, flags);
-			}
-		}
-
-		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("%pBP sending CAPABILITY has %s %s for afi/safi: %s/%s",
-				   peer,
-				   action == CAPABILITY_ACTION_SET
-					   ? "Advertising"
-					   : "Removing",
-				   capability, iana_afi2str(pkt_afi),
-				   iana_safi2str(pkt_safi));
-
-		COND_FLAG(peer->cap, PEER_CAP_ADDPATH_ADV,
-			  action == CAPABILITY_ACTION_SET);
-		break;
 	case CAPABILITY_CODE_PATHS_LIMIT:
 		FOREACH_AFI_SAFI (afi, safi) {
 			if (!peer->afc[afi][safi])
@@ -1612,6 +1530,7 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 	case CAPABILITY_CODE_REFRESH:
 	case CAPABILITY_CODE_AS4:
 	case CAPABILITY_CODE_DYNAMIC:
+	case CAPABILITY_CODE_ADDPATH:
 	case CAPABILITY_CODE_ENHANCED_RR:
 	case CAPABILITY_CODE_ENHE:
 	case CAPABILITY_CODE_EXT_MESSAGE:
@@ -3142,6 +3061,7 @@ static int bgp_route_refresh_receive(struct peer_connection *connection,
 	return BGP_PACKET_NOOP;
 }
 
+<<<<<<< HEAD
 static void bgp_dynamic_capability_addpath(uint8_t *pnt, int action,
 					   struct capability_header *hdr,
 					   struct peer *peer)
@@ -3244,6 +3164,8 @@ ignore:
 	}
 }
 
+=======
+>>>>>>> 4338e21aa (Revert "bgpd: Handle Addpath capability using dynamic capabilities")
 static void bgp_dynamic_capability_paths_limit(uint8_t *pnt, int action,
 					       struct capability_header *hdr,
 					       struct peer *peer)
@@ -3929,9 +3851,6 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 		case CAPABILITY_CODE_LLGR:
 			bgp_dynamic_capability_llgr(pnt, action, hdr, peer);
 			break;
-		case CAPABILITY_CODE_ADDPATH:
-			bgp_dynamic_capability_addpath(pnt, action, hdr, peer);
-			break;
 		case CAPABILITY_CODE_PATHS_LIMIT:
 			bgp_dynamic_capability_paths_limit(pnt, action, hdr,
 							   peer);
@@ -3945,6 +3864,7 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 		case CAPABILITY_CODE_REFRESH:
 		case CAPABILITY_CODE_AS4:
 		case CAPABILITY_CODE_DYNAMIC:
+		case CAPABILITY_CODE_ADDPATH:
 		case CAPABILITY_CODE_ENHANCED_RR:
 		case CAPABILITY_CODE_ENHE:
 		case CAPABILITY_CODE_EXT_MESSAGE:

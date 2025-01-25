@@ -9,8 +9,6 @@
 Test if Addpath/Paths-Limit capabilities are adjusted dynamically.
 T1: Enable Addpath/Paths-Limit capabilities and check if they are exchanged dynamically
 T2: Disable paths limit and check if it's exchanged dynamically
-T3: Disable Addpath capability RX and check if it's exchanged dynamically
-T4: Disable Addpath capability and check if it's exchanged dynamically
 """
 
 import os
@@ -65,12 +63,12 @@ def test_bgp_addpath_paths_limit():
                     "dynamic": "advertisedAndReceived",
                     "addPath": {
                         "ipv4Unicast": {
-                            "txAdvertisedAndReceived": False,
+                            "txAdvertisedAndReceived": True,
                             "txAdvertised": True,
-                            "txReceived": False,
-                            "rxAdvertisedAndReceived": True,
+                            "txReceived": True,
+                            "rxAdvertisedAndReceived": False,
                             "rxAdvertised": True,
-                            "rxReceived": True,
+                            "rxReceived": False,
                         }
                     },
                     "pathsLimit": {
@@ -105,7 +103,6 @@ def test_bgp_addpath_paths_limit():
     configure terminal
      router bgp
       address-family ipv4 unicast
-       neighbor 192.168.1.1 addpath-tx-all-paths
        neighbor 192.168.1.1 addpath-rx-paths-limit 21
     """
     )
@@ -122,9 +119,9 @@ def test_bgp_addpath_paths_limit():
                             "txAdvertisedAndReceived": True,
                             "txAdvertised": True,
                             "txReceived": True,
-                            "rxAdvertisedAndReceived": True,
+                            "rxAdvertisedAndReceived": False,
                             "rxAdvertised": True,
-                            "rxReceived": True,
+                            "rxReceived": False,
                         }
                     },
                     "pathsLimit": {
@@ -143,7 +140,7 @@ def test_bgp_addpath_paths_limit():
                 "messageStats": {
                     "notificationsRecv": 0,
                     "notificationsSent": 0,
-                    "capabilityRecv": 2,
+                    "capabilityRecv": 1,
                 },
             }
         }
@@ -181,9 +178,9 @@ def test_bgp_addpath_paths_limit():
                             "txAdvertisedAndReceived": True,
                             "txAdvertised": True,
                             "txReceived": True,
-                            "rxAdvertisedAndReceived": True,
+                            "rxAdvertisedAndReceived": False,
                             "rxAdvertised": True,
-                            "rxReceived": True,
+                            "rxReceived": False,
                         }
                     },
                     "pathsLimit": {
@@ -197,7 +194,7 @@ def test_bgp_addpath_paths_limit():
                 "messageStats": {
                     "notificationsRecv": 0,
                     "notificationsSent": 0,
-                    "capabilityRecv": 3,
+                    "capabilityRecv": 2,
                 },
             }
         }
@@ -208,104 +205,6 @@ def test_bgp_addpath_paths_limit():
     )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Something went wrong after disabling paths limit"
-
-    ###
-    # T3: Disable Addpath capability RX and check if it's exchanged dynamically
-    ###
-    r2.vtysh_cmd(
-        """
-    configure terminal
-    router bgp
-     address-family ipv4 unicast
-      neighbor 192.168.1.1 disable-addpath-rx
-    """
-    )
-
-    def _disable_addpath_rx():
-        output = json.loads(r1.vtysh_cmd("show bgp neighbor json"))
-        expected = {
-            "192.168.1.2": {
-                "bgpState": "Established",
-                "neighborCapabilities": {
-                    "dynamic": "advertisedAndReceived",
-                    "addPath": {
-                        "ipv4Unicast": {
-                            "txAdvertisedAndReceived": True,
-                            "txAdvertised": True,
-                            "txReceived": True,
-                            "rxAdvertisedAndReceived": False,
-                            "rxAdvertised": True,
-                            "rxReceived": False,
-                        }
-                    },
-                    "pathsLimit": {
-                        "ipv4Unicast": {
-                            "advertisedAndReceived": True,
-                            "advertisedPathsLimit": 10,
-                            "receivedPathsLimit": 0,
-                        }
-                    },
-                },
-                "messageStats": {
-                    "notificationsRecv": 0,
-                    "notificationsSent": 0,
-                    "capabilityRecv": 4,
-                },
-            }
-        }
-        return topotest.json_cmp(output, expected)
-
-    test_func = functools.partial(
-        _disable_addpath_rx,
-    )
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-    assert result is None, "Something went wrong after disabling Addpath RX flags"
-
-    ###
-    # T4: Disable Addpath capability and check if it's exchanged dynamically
-    ###
-    r1.vtysh_cmd(
-        """
-    configure terminal
-    router bgp
-     address-family ipv4 unicast
-      no neighbor 192.168.1.2 addpath-tx-all-paths
-    """
-    )
-
-    def _disable_addpath():
-        output = json.loads(r1.vtysh_cmd("show bgp neighbor json"))
-        expected = {
-            "192.168.1.2": {
-                "bgpState": "Established",
-                "neighborCapabilities": {
-                    "dynamic": "advertisedAndReceived",
-                    "addPath": {
-                        "ipv4Unicast": {
-                            "txAdvertisedAndReceived": False,
-                            "txAdvertised": False,
-                            "txReceived": True,
-                            "rxAdvertisedAndReceived": False,
-                            "rxAdvertised": True,
-                            "rxReceived": False,
-                        }
-                    },
-                },
-                "messageStats": {
-                    "notificationsRecv": 0,
-                    "notificationsSent": 0,
-                    "capabilitySent": 1,
-                    "capabilityRecv": 4,
-                },
-            }
-        }
-        return topotest.json_cmp(output, expected)
-
-    test_func = functools.partial(
-        _disable_addpath,
-    )
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-    assert result is None, "Something went wrong when disabling Addpath capability"
 
 
 if __name__ == "__main__":
