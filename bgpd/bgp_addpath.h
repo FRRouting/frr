@@ -15,12 +15,6 @@
 #include "bgpd/bgp_table.h"
 #include "lib/json.h"
 
-struct bgp_addpath_capability {
-	uint16_t afi;
-	uint8_t safi;
-	uint8_t flags;
-};
-
 #define BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE 1
 
 void bgp_addpath_init_bgp_data(struct bgp_addpath_bgp_data *d);
@@ -63,6 +57,4 @@ void bgp_addpath_update_ids(struct bgp *bgp, struct bgp_dest *dest, afi_t afi,
 			    safi_t safi);
 
 void bgp_addpath_type_changed(struct bgp *bgp);
-extern int bgp_addpath_capability_action(enum bgp_addpath_strat addpath_type,
-					 uint8_t paths);
 #endif
