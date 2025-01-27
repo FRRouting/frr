@@ -6,6 +6,10 @@
 
 #include "bgpd/bgp_rtc.h"
 
+DEFINE_MTYPE(BGPD, BGP_RTC_PLIST, "BGP Route-Target Constraint prefix-list");
+DEFINE_MTYPE(BGPD, BGP_RTC_PLIST_ENTRY, "BGP Route-Target Constraint prefix-list entry");
+DEFINE_MTYPE(BGPD, BGP_RTC_PLIST_ENTRY_ASN, "BGP Route-Target Constraint prefix-list Origin AS");
+
 int bgp_nlri_parse_rtc(struct peer *peer, struct attr *attr, struct bgp_nlri *packet, bool withdraw)
 {
 	uint8_t *pnt = packet->nlri;
@@ -319,6 +323,190 @@ char *bgp_rtc_prefix_display(char *buf, size_t size, uint16_t prefix_len,
 		snprintfrr(buf, size, "UNK-RTC");
 
 	return cbuf;
+}
+
+static as_t *bgp_rtc_plist_entry_asn_new(void)
+{
+	return XCALLOC(MTYPE_BGP_RTC_PLIST_ENTRY_ASN, sizeof(as_t));
+}
+
+static void bgp_rtc_plist_entry_asn_free(void *arg)
+{
+	as_t *origin_as = arg;
+
+	XFREE(MTYPE_BGP_RTC_PLIST_ENTRY_ASN, origin_as);
+}
+
+static struct bgp_rtc_plist_entry *bgp_rtc_plist_entry_new(void)
+{
+	struct bgp_rtc_plist_entry *rtc_pentry;
+
+	rtc_pentry = XCALLOC(MTYPE_BGP_RTC_PLIST_ENTRY, sizeof(struct bgp_rtc_plist_entry));
+	rtc_pentry->origin_as = list_new();
+	rtc_pentry->origin_as->del = bgp_rtc_plist_entry_asn_free;
+
+	return rtc_pentry;
+}
+
+static void bgp_rtc_plist_entry_free(void *args)
+{
+	struct bgp_rtc_plist_entry *rtc_pentry = args;
+
+	list_delete(&rtc_pentry->origin_as);
+
+	XFREE(MTYPE_BGP_RTC_PLIST_ENTRY, rtc_pentry);
+}
+
+static struct bgp_rtc_plist *bgp_rtc_plist_new(void)
+{
+	struct bgp_rtc_plist *rtc_plist;
+
+	rtc_plist = XCALLOC(MTYPE_BGP_RTC_PLIST, sizeof(struct bgp_rtc_plist));
+	rtc_plist->entries = list_new();
+	rtc_plist->entries->del = bgp_rtc_plist_entry_free;
+
+	return rtc_plist;
+}
+
+void bgp_rtc_plist_free(void *arg)
+{
+	struct bgp_rtc_plist *rtc_plist = arg;
+
+	list_delete(&rtc_plist->entries);
+
+	XFREE(MTYPE_BGP_RTC_PLIST, rtc_plist);
+}
+
+/* Add a RTC prefix p into rtc_plist RTC prefix-list
+ *
+ * Return 0 if the entry was already present and nothing has been done.
+ * Return 1 instead if the entry was added.
+ */
+static int bgp_rtc_plist_entry_add(struct bgp_rtc_plist *rtc_plist, struct prefix *p)
+{
+	struct bgp_rtc_plist_entry *rtc_pentry = NULL;
+	as_t *origin_as = NULL;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(rtc_plist->entries, node, rtc_pentry)) {
+		if (memcmp(rtc_pentry->route_target, &p->u.prefix_rtc.route_target,
+			   sizeof(rtc_pentry->route_target)))
+			continue;
+		if (rtc_pentry->prefixlen == p->prefixlen)
+			break;
+	}
+
+	if (!rtc_pentry) {
+		rtc_pentry = bgp_rtc_plist_entry_new();
+		memcpy(rtc_pentry->route_target, &p->u.prefix_rtc.route_target,
+		       sizeof(rtc_pentry->route_target));
+		rtc_pentry->prefixlen = p->prefixlen;
+
+		origin_as = bgp_rtc_plist_entry_asn_new();
+		*origin_as = p->u.prefix_rtc.origin_as;
+
+		listnode_add(rtc_pentry->origin_as, origin_as);
+		listnode_add(rtc_plist->entries, rtc_pentry);
+
+		return 1;
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(rtc_pentry->origin_as, node, origin_as)) {
+		if (*origin_as == p->u.prefix_rtc.origin_as)
+			break;
+	}
+
+	if (!origin_as) {
+		origin_as = bgp_rtc_plist_entry_asn_new();
+		*origin_as = p->u.prefix_rtc.origin_as;
+
+		listnode_add(rtc_pentry->origin_as, origin_as);
+
+		return 1;
+	}
+
+	return 0;
+}
+
+/* Delete a RTC prefix p from rtc_plist RTC prefix-list
+ *
+ * Return 0 if no entry was found.
+ * Return 1 instead if an entry was actually removed.
+ */
+static int bgp_rtc_plist_entry_del(struct bgp_rtc_plist *rtc_plist, struct prefix *p)
+{
+	struct bgp_rtc_plist_entry *rtc_pentry = NULL;
+	struct listnode *enode, *nenode, *asnode, *nasnode;
+	as_t *origin_as = NULL;
+	int ret = 0;
+
+	for (ALL_LIST_ELEMENTS(rtc_plist->entries, enode, nenode, rtc_pentry)) {
+		if (memcmp(rtc_pentry->route_target, &p->u.prefix_rtc.route_target,
+			   sizeof(rtc_pentry->route_target)))
+			continue;
+		if (rtc_pentry->prefixlen != p->prefixlen)
+			continue;
+		for (ALL_LIST_ELEMENTS(rtc_pentry->origin_as, asnode, nasnode, origin_as)) {
+			if (*origin_as != p->u.prefix_rtc.origin_as)
+				continue;
+			listnode_delete(rtc_pentry->origin_as, origin_as);
+			bgp_rtc_plist_entry_asn_free(origin_as);
+			ret = 1;
+			break;
+		}
+		if (!list_isempty(rtc_pentry->origin_as))
+			break;
+
+		listnode_delete(rtc_plist->entries, rtc_pentry);
+		bgp_rtc_plist_entry_free(rtc_pentry);
+		break;
+	}
+
+	return ret;
+}
+
+static void bgp_peer_init_rtc_plist(struct peer *peer)
+{
+	peer->rtc_plist = bgp_rtc_plist_new();
+	peer->rtc_plist->router_id.s_addr = peer->remote_id.s_addr;
+
+	listnode_add(peer->bgp->rtc_plists, peer->rtc_plist);
+}
+
+struct bgp_rtc_plist *bgp_peer_get_rtc_plist(struct peer *peer)
+{
+	struct bgp_rtc_plist *rtc_plist = NULL;
+	struct listnode *node;
+
+	if (peer->rtc_plist)
+		return peer->rtc_plist;
+
+	if (!peer->remote_id.s_addr)
+		return NULL;
+
+	if (peer->afc_nego[AFI_IP][SAFI_RTC]) {
+		bgp_peer_init_rtc_plist(peer);
+
+		return peer->rtc_plist;
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(peer->bgp->rtc_plists, node, rtc_plist)) {
+		if (!IPV4_ADDR_CMP(&rtc_plist->router_id, &peer->remote_id))
+			return rtc_plist;
+	}
+
+	return NULL;
+}
+
+int bgp_rtc_plist_entry_set(struct peer *peer, struct prefix *p, bool add)
+{
+	if (!peer->rtc_plist)
+		bgp_peer_init_rtc_plist(peer);
+
+	if (add)
+		return bgp_rtc_plist_entry_add(peer->rtc_plist, p);
+
+	return bgp_rtc_plist_entry_del(peer->rtc_plist, p);
 }
 
 void bgp_rtc_init(void)

@@ -13,6 +13,18 @@
 #include "vty.h"
 #include "bgp_nht.h"
 
+
+struct bgp_rtc_plist_entry {
+	struct list *origin_as;
+	uint8_t route_target[8];
+	uint8_t prefixlen;
+};
+
+struct bgp_rtc_plist {
+	struct list *entries;
+	struct in_addr router_id;
+};
+
 extern int bgp_nlri_parse_rtc(struct peer *peer, struct attr *attr, struct bgp_nlri *packet,
 			      bool withdraw);
 extern void bgp_rtc_add_ecommunity_val_dynamic(struct bgp *bgp, struct ecommunity_val *eval);
@@ -25,5 +37,10 @@ extern int bgp_rtc_static_from_str(struct vty *vty, struct bgp *bgp, const char 
 
 extern char *bgp_rtc_prefix_display(char *buf, size_t size, uint16_t prefix_len,
 				    const struct rtc_info *rtc_info);
+
+extern void bgp_rtc_plist_free(void *arg);
+extern struct bgp_rtc_plist *bgp_peer_get_rtc_plist(struct peer *peer);
+extern int bgp_rtc_plist_entry_set(struct peer *peer, struct prefix *p, bool add);
+
 extern void bgp_rtc_init(void);
 #endif /* BGP_RTC_H */
