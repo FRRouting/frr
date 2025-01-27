@@ -883,10 +883,10 @@ uint32_t nexthop_hash(const struct nexthop *nexthop)
 		/ 3)
 	       == (GATE_SIZE * sizeof(uint32_t)));
 
-	memcpy(gate_src_rmap_raw, &nexthop->gate, GATE_SIZE);
-	memcpy(gate_src_rmap_raw + GATE_SIZE, &nexthop->src, GATE_SIZE);
+	memcpy(gate_src_rmap_raw, &nexthop->gate, GATE_SIZE * sizeof(uint32_t));
+	memcpy(gate_src_rmap_raw + GATE_SIZE, &nexthop->src, GATE_SIZE * sizeof(uint32_t));
 	memcpy(gate_src_rmap_raw + (2 * GATE_SIZE), &nexthop->rmap_src,
-	       GATE_SIZE);
+	       GATE_SIZE * sizeof(uint32_t));
 
 	key = jhash2(gate_src_rmap_raw, (GATE_SIZE * 3), key);
 
