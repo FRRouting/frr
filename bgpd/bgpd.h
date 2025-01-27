@@ -887,6 +887,9 @@ struct bgp {
 
 	struct zebra_l3_vni_item zl3vni;
 
+	/* list if Route-Target Constraint prefix-list */
+	struct list *rtc_plists;
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(bgp);
@@ -1815,6 +1818,9 @@ struct peer {
 
 	/* ORF Prefix-list */
 	struct prefix_list *orf_plist[AFI_MAX][SAFI_MAX];
+
+	/* Route Target Constrain list */
+	struct bgp_rtc_plist *rtc_plist;
 
 	/* Text description of last attribute rcvd */
 	char rcvd_attr_str[BUFSIZ];

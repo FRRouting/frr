@@ -3506,6 +3506,9 @@ peer_init:
 		bgp->group = list_new();
 	bgp->group->cmp = (int (*)(void *, void *))peer_group_cmp;
 
+	bgp->rtc_plists = list_new();
+	bgp->rtc_plists->del = bgp_rtc_plist_free;
+
 	FOREACH_AFI_SAFI (afi, safi) {
 		if (!hidden) {
 			bgp->route[afi][safi] = bgp_table_init(bgp, afi, safi);
@@ -4310,6 +4313,8 @@ int bgp_delete(struct bgp *bgp)
 		else
 			bgp_set_evpn(bgp_get_default());
 	}
+
+	list_delete(&bgp->rtc_plists);
 
 	if (!IS_BGP_INSTANCE_HIDDEN(bgp)) {
 		if (bgp->process_queue)
