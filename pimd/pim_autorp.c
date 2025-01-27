@@ -83,6 +83,12 @@ static void pim_autorp_free(struct pim_autorp *autorp)
 	pim_autorp_rp_fini(&(autorp->candidate_rp_list));
 }
 
+static bool pim_autorp_should_close(struct pim_autorp *autorp)
+{
+	/* If discovery or mapping agent is active, then we need the socket open */
+	return !autorp->do_discovery && !autorp->send_rp_discovery;
+}
+
 static bool pim_autorp_join_groups(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
@@ -303,8 +309,282 @@ static bool pim_autorp_add_rp(struct pim_autorp *autorp, pim_addr rpaddr,
 	return true;
 }
 
+<<<<<<< HEAD
 static bool pim_autorp_discovery(struct pim_autorp *autorp, uint8_t rpcnt,
 				 uint16_t holdtime, char *buf, size_t buf_size)
+=======
+static size_t autorp_build_disc_rps(struct pim_autorp *autorp, uint8_t *buf, size_t buf_sz,
+				    size_t *sz)
+{
+	/* Header has already been added, fill in starting with the address of RP1
+	 *  buf_sz is the max size of the buf
+	 *  sz is the current size of the packet, update as buf is filled
+	 *  return the total number of RP's added
+	 *
+	 *
+	 * We need to resolve the announced RP's following these rules:
+	 *  1) Co-existence of longer and shorter group prefixes, from different RPs. E.g. when RP1
+	 *     announces 224.2.*.*, and RP2 announces 224.2.2.*, both are accepted;
+	 *  2) For announcements for identical group prefixes from two different RPs, the one from the
+	 *     RP with the higher IP address is accepted;
+	 *  3) No duplicates are sent to the AUTORP-DISCOVERY address. E.g. if an RP announces both
+	 *     224.2.2.* and 224.2.*.*, the former group-prefix is not sent and only 224.2.*.* is sent
+	 *     to the AUTORP-DISCOVERY address.
+	 *
+	 *
+	 * The approach to resolution, first loop the stored RP's and extract the group prefixes, stored
+	 * in a sorted list, sorted from least specific to most 0.0.0.0/0 -> 239.255.255.255/32. Each
+	 * group prefix will then store the RP advertising that group prefix, this will resolve 2.
+	 * The next step is to then loop the group prefix list and store them back into a list sorted by
+	 * RP address, where the least specific group address will be stored, resolving 3. 1 is more
+	 * about what is allowed, and in the example above the different prefixes will be unique in the
+	 * list of group prefixes, and when they go back into RP's, they are also from different RP's
+	 * and will therefore be sent.
+	 */
+
+	struct pim_autorp_rp *rp;
+	struct pim_autorp_rp *trp;
+	struct pim_autorp_grppfix *grp;
+	struct pim_autorp_grppfix *grp2;
+	struct pim_autorp_grppfix *tgrp;
+	struct pim_autorp_grppfix_head grplist;
+	bool skip = false;
+	size_t rpcnt = 0;
+	size_t bsz = 0;
+
+	/* Initialize the lists, grplist is temporary, disc rp list is stored long term for
+	 * show output, so make sure it's empty
+	 */
+	pim_autorp_grppfix_init(&grplist);
+	pim_autorp_rplist_free(&autorp->advertised_rp_list, false);
+
+	/* Loop the advertised RP's and their group prefixes and make a unique list of group prefixes,
+	 * keeping just the highest IP RP for each group prefix
+	 */
+	frr_each (pim_autorp_rp, &autorp->mapping_rp_list, rp) {
+		frr_each (pim_autorp_grppfix, &rp->grp_pfix_list, grp) {
+			grp2 = XCALLOC(MTYPE_PIM_AUTORP_GRPPFIX, sizeof(struct pim_autorp_grppfix));
+			prefix_copy(&grp2->grp, &grp->grp);
+			grp2->negative = grp->negative;
+			grp2->rp = rp->addr;
+			tgrp = pim_autorp_grppfix_add(&grplist, grp2);
+			if (tgrp != NULL) {
+				/* Returned an existing entry. Use the highest RP addr and free allocated object */
+				if (IPV4_ADDR_CMP(&tgrp->rp, &grp2->rp))
+					tgrp->rp = grp2->rp;
+				XFREE(MTYPE_PIM_AUTORP_GRPPFIX, grp2);
+			}
+		}
+	}
+
+	/* Now loop the unique group prefixes and put it back into an RP list */
+	frr_each (pim_autorp_grppfix, &grplist, grp) {
+		rp = XCALLOC(MTYPE_PIM_AUTORP_RP, sizeof(struct pim_autorp_rp));
+		rp->addr = grp->rp;
+		trp = pim_autorp_rp_add(&autorp->advertised_rp_list, rp);
+		if (trp == NULL) {
+			/* RP was brand new, finish initializing */
+			rp->autorp = NULL;
+			rp->holdtime = 0;
+			rp->hold_timer = NULL;
+			rp->grplist[0] = '\0';
+			memset(&(rp->grp), 0, sizeof(rp->grp));
+			pim_autorp_grppfix_init(&rp->grp_pfix_list);
+		} else {
+			/* Returned an existing entry, free allocated RP */
+			XFREE(MTYPE_PIM_AUTORP_RP, rp);
+			rp = trp;
+		}
+
+		/* Groups are in order from least specific to most, so go through the existing
+		 * groups for this RP and see if the current group is within the prefix of one that
+		 * is already in the list, if so, skip it, if not, add it
+		 * If one is a positive match and the other is negative, then still include it.
+		 */
+		skip = false;
+		frr_each (pim_autorp_grppfix, &rp->grp_pfix_list, grp2) {
+			if (prefix_match(&grp2->grp, &grp->grp) && grp->negative == grp2->negative) {
+				skip = true;
+				break;
+			}
+		}
+
+		if (skip)
+			continue;
+
+		/* add the group to the RP's group list */
+		grp2 = XCALLOC(MTYPE_PIM_AUTORP_GRPPFIX, sizeof(struct pim_autorp_grppfix));
+		prefix_copy(&grp2->grp, &grp->grp);
+		grp2->negative = grp->negative;
+		tgrp = pim_autorp_grppfix_add(&rp->grp_pfix_list, grp2);
+		assert(tgrp == NULL);
+	}
+
+	/* Done with temporary group prefix list, so free and finish */
+	pim_autorp_grppfix_free(&grplist);
+	pim_autorp_grppfix_fini(&grplist);
+
+	/* Now finally we can loop the disc rp list and build the packet */
+	frr_each (pim_autorp_rp, &autorp->advertised_rp_list, rp) {
+		struct autorp_pkt_rp *brp;
+		struct autorp_pkt_grp *bgrp;
+		size_t rp_sz;
+		size_t grpcnt;
+
+		grpcnt = pim_autorp_grppfix_count(&rp->grp_pfix_list);
+		rp_sz = sizeof(struct autorp_pkt_rp) + (grpcnt * sizeof(struct autorp_pkt_grp));
+		if (buf_sz < *sz + rp_sz) {
+			if (PIM_DEBUG_AUTORP)
+				zlog_debug("%s: Failed to pack AutoRP discovery packet, buffer overrun, (%u < %u)",
+					   __func__, (uint32_t)buf_sz, (uint32_t)(*sz + rp_sz));
+			break;
+		}
+
+		if (PIM_DEBUG_AUTORP)
+			zlog_debug("%s: Add RP %pI4 (grpcnt=%u) to discovery message", __func__,
+				   &rp->addr, (uint32_t)grpcnt);
+
+		rpcnt++;
+
+		brp = (struct autorp_pkt_rp *)(buf + bsz);
+		bsz += sizeof(struct autorp_pkt_rp);
+
+		/* Since this is an in_addr, assume it's already the right byte order */
+		brp->addr = rp->addr.s_addr;
+		brp->pimver = AUTORP_PIM_V2;
+		brp->reserved = 0;
+		brp->grpcnt = grpcnt;
+
+		frr_each (pim_autorp_grppfix, &rp->grp_pfix_list, grp) {
+			bgrp = (struct autorp_pkt_grp *)(buf + bsz);
+			bsz += sizeof(struct autorp_pkt_grp);
+
+			bgrp->addr = grp->grp.u.prefix4.s_addr;
+			bgrp->masklen = grp->grp.prefixlen;
+			bgrp->negprefix = grp->negative;
+
+			if (PIM_DEBUG_AUTORP)
+				zlog_debug("%s: Add group %s%pFX for RP %pI4 to discovery message",
+					   __func__, (grp->negative ? "!" : ""), &grp->grp,
+					   &rp->addr);
+		}
+
+		/* Update the size with this RP now that it is packed */
+		*sz += bsz;
+	}
+
+	return rpcnt;
+}
+
+static size_t autorp_build_disc_packet(struct pim_autorp *autorp, uint8_t *buf, size_t buf_sz)
+{
+	size_t sz = 0;
+	struct autorp_pkt_hdr *hdr;
+
+	if (buf_sz >= AUTORP_HDRLEN) {
+		hdr = (struct autorp_pkt_hdr *)buf;
+		hdr->version = AUTORP_VERSION;
+		hdr->type = AUTORP_DISCOVERY_TYPE;
+		hdr->holdtime = htons(autorp->discovery_holdtime);
+		hdr->reserved = 0;
+		sz += AUTORP_HDRLEN;
+		hdr->rpcnt = autorp_build_disc_rps(autorp, buf + sizeof(struct autorp_pkt_hdr),
+						   (buf_sz - AUTORP_HDRLEN), &sz);
+		if (hdr->rpcnt == 0)
+			sz = 0;
+	}
+	return sz;
+}
+
+static void autorp_send_discovery(struct event *evt)
+{
+	struct pim_autorp *autorp = EVENT_ARG(evt);
+	struct sockaddr_in discGrp;
+	size_t disc_sz;
+	size_t buf_sz = 65535;
+	uint8_t buf[65535] = { 0 };
+
+	if (PIM_DEBUG_AUTORP)
+		zlog_debug("%s: AutoRP sending discovery info", __func__);
+
+	/* Mark true, even if nothing is sent */
+	autorp->mapping_agent_active = true;
+	disc_sz = autorp_build_disc_packet(autorp, buf, buf_sz);
+
+	if (disc_sz > 0) {
+		discGrp.sin_family = AF_INET;
+		discGrp.sin_port = htons(PIM_AUTORP_PORT);
+		inet_pton(PIM_AF, PIM_AUTORP_DISCOVERY_GRP, &discGrp.sin_addr);
+
+		if (setsockopt(autorp->sock, IPPROTO_IP, IP_MULTICAST_TTL,
+			       &(autorp->discovery_scope), sizeof(autorp->discovery_scope)) == 0) {
+			if (setsockopt(autorp->sock, IPPROTO_IP, IP_MULTICAST_IF,
+				       &(autorp->mapping_agent_addrsel.run_addr),
+				       sizeof(autorp->mapping_agent_addrsel.run_addr)) == 0) {
+				if (sendto(autorp->sock, buf, disc_sz, 0,
+					   (struct sockaddr *)&discGrp, sizeof(discGrp)) > 0) {
+					if (PIM_DEBUG_AUTORP)
+						zlog_debug("%s: AutoRP discovery message sent",
+							   __func__);
+				} else if (PIM_DEBUG_AUTORP)
+					zlog_warn("%s: Failed to send AutoRP discovery message, errno=%d, %s",
+						  __func__, errno, safe_strerror(errno));
+			} else if (PIM_DEBUG_AUTORP)
+				zlog_warn("%s: Failed to set Multicast Interface for sending AutoRP discovery message, errno=%d, %s",
+					  __func__, errno, safe_strerror(errno));
+		} else if (PIM_DEBUG_AUTORP)
+			zlog_warn("%s: Failed to set Multicast TTL for sending AutoRP discovery message, errno=%d, %s",
+				  __func__, errno, safe_strerror(errno));
+	}
+
+	/* Start the new timer for the entire send discovery interval */
+	event_add_timer(router->master, autorp_send_discovery, autorp, autorp->discovery_interval,
+			&(autorp->send_discovery_timer));
+}
+
+static bool pim_autorp_socket_enable(struct pim_autorp *autorp);
+static bool pim_autorp_socket_disable(struct pim_autorp *autorp);
+
+static void autorp_send_discovery_on(struct pim_autorp *autorp)
+{
+	int interval = 5;
+
+	/* Make sure the socket is open and ready */
+	if (!pim_autorp_socket_enable(autorp)) {
+		zlog_err("%s: AutoRP failed to open socket", __func__);
+		return;
+	}
+
+	/* Send the first discovery shortly after being enabled.
+	 * If the configured interval is less than 5 seconds, then just use that.
+	 */
+	if (interval > autorp->discovery_interval)
+		interval = autorp->discovery_interval;
+
+	if (autorp->send_discovery_timer)
+		if (PIM_DEBUG_AUTORP)
+			zlog_debug("%s: AutoRP discovery sending enabled in %u seconds", __func__,
+				   interval);
+
+	event_add_timer(router->master, autorp_send_discovery, autorp, interval,
+			&(autorp->send_discovery_timer));
+}
+
+static void autorp_send_discovery_off(struct pim_autorp *autorp)
+{
+	if (autorp->send_discovery_timer)
+		if (PIM_DEBUG_AUTORP)
+			zlog_debug("%s: AutoRP discovery sending disabled", __func__);
+	event_cancel(&(autorp->send_discovery_timer));
+
+	/* Close the socket if we need to */
+	if (pim_autorp_should_close(autorp) && !pim_autorp_socket_disable(autorp))
+		zlog_warn("%s: AutoRP failed to close socket", __func__);
+}
+
+static bool autorp_recv_discovery(struct pim_autorp *autorp, uint8_t rpcnt, uint16_t holdtime,
+				  char *buf, size_t buf_size, pim_addr src)
+>>>>>>> 5d102a0a7 (pimd: Close AutoRP socket when not needed)
 {
 	int i, j;
 	struct autorp_pkt_rp *rp;
@@ -490,6 +770,10 @@ static bool pim_autorp_socket_enable(struct pim_autorp *autorp)
 {
 	int fd;
 
+	/* Return early if socket is already enabled */
+	if (autorp->sock != -1)
+		return true;
+
 	frr_with_privs (&pimd_privs) {
 		fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
 		if (fd < 0) {
@@ -516,6 +800,10 @@ static bool pim_autorp_socket_enable(struct pim_autorp *autorp)
 
 static bool pim_autorp_socket_disable(struct pim_autorp *autorp)
 {
+	/* Return early if socket is already disabled */
+	if (autorp->sock == -1)
+		return true;
+
 	if (close(autorp->sock)) {
 		zlog_warn("Failure closing autorp socket: fd=%d errno=%d: %s",
 			  autorp->sock, errno, safe_strerror(errno));
@@ -967,6 +1255,12 @@ void pim_autorp_start_discovery(struct pim_instance *pim)
 	struct interface *ifp;
 	struct pim_autorp *autorp = pim->autorp;
 
+	/* Make sure the socket is open and ready */
+	if (!pim_autorp_socket_enable(autorp)) {
+		zlog_err("%s: AutoRP failed to open socket", __func__);
+		return;
+	}
+
 	if (!autorp->do_discovery) {
 		autorp->do_discovery = true;
 		autorp_read_on(autorp);
@@ -996,6 +1290,10 @@ void pim_autorp_stop_discovery(struct pim_instance *pim)
 		if (PIM_DEBUG_AUTORP)
 			zlog_debug("%s: AutoRP Discovery stopped", __func__);
 	}
+
+	/* Close the socket if we need to */
+	if (pim_autorp_should_close(autorp) && !pim_autorp_socket_disable(autorp))
+		zlog_warn("%s: AutoRP failed to close socket", __func__);
 }
 
 void pim_autorp_init(struct pim_instance *pim)
@@ -1016,11 +1314,14 @@ void pim_autorp_init(struct pim_instance *pim)
 
 	pim->autorp = autorp;
 
+<<<<<<< HEAD
 	if (!pim_autorp_socket_enable(autorp)) {
 		zlog_err("%s: AutoRP failed to initialize, feature will not work correctly", __func__);
 		return;
 	}
 
+=======
+>>>>>>> 5d102a0a7 (pimd: Close AutoRP socket when not needed)
 	if (PIM_DEBUG_AUTORP)
 		zlog_debug("%s: AutoRP Initialized", __func__);
 
