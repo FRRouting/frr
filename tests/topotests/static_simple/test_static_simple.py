@@ -202,6 +202,7 @@ def do_config_inner(
 def do_config(*args, **kwargs):
     do_config_inner(*args, do_ipv6=False, do_sadr=False, **kwargs)
     do_config_inner(*args, do_ipv6=True, do_sadr=False, **kwargs)
+    do_config_inner(*args, do_ipv6=True, do_sadr=True, **kwargs)
 
 
 def guts(tgen, vrf, use_cli):
