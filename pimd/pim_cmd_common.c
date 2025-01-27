@@ -608,26 +608,14 @@ int pim_process_no_rp_plist_cmd(struct vty *vty, const char *rp_str,
 
 int pim_process_autorp_cmd(struct vty *vty)
 {
-	char xpath[XPATH_MAXLEN];
-
-	snprintf(xpath, sizeof(xpath), "%s/%s", FRR_PIM_AUTORP_XPATH,
-		 "discovery-enabled");
-
-	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, "true");
-
-	return nb_cli_apply_changes(vty, NULL);
+	nb_cli_enqueue_change(vty, "./discovery-enabled", NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, "%s", FRR_PIM_AUTORP_XPATH);
 }
 
 int pim_process_no_autorp_cmd(struct vty *vty)
 {
-	char xpath[XPATH_MAXLEN];
-
-	snprintf(xpath, sizeof(xpath), "%s/%s", FRR_PIM_AUTORP_XPATH,
-		 "discovery-enabled");
-
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
+	nb_cli_enqueue_change(vty, "./discovery-enabled", NB_OP_MODIFY, "false");
+	return nb_cli_apply_changes(vty, "%s", FRR_PIM_AUTORP_XPATH);
 }
 
 int pim_process_autorp_candidate_rp_cmd(struct vty *vty, bool no, const char *rpaddr_str,
