@@ -740,6 +740,10 @@ static int route_notify_internal(const struct route_node *rn, int type,
 	struct zserv *client;
 	struct stream *s;
 	uint8_t blen;
+	const struct prefix *p, *src_p;
+	struct prefix src_dummy = {};
+
+	srcdest_rnode_prefixes(rn, &p, &src_p);
 
 	client = zserv_find_client(type, instance);
 	if (!client || !client->notify_owner) {
@@ -771,9 +775,17 @@ static int route_notify_internal(const struct route_node *rn, int type,
 
 	stream_putc(s, rn->p.family);
 
-	blen = prefix_blen(&rn->p);
-	stream_putc(s, rn->p.prefixlen);
-	stream_put(s, &rn->p.u.prefix, blen);
+	blen = prefix_blen(p);
+	stream_putc(s, p->prefixlen);
+	stream_put(s, &p->u.prefix, blen);
+
+	if (!src_p) {
+		src_dummy.family = p->family;
+		src_p = &src_dummy;
+	}
+	blen = prefix_blen(src_p);
+	stream_putc(s, src_p->prefixlen);
+	stream_put(s, &src_p->u.prefix, blen);
 
 	stream_putl(s, table_id);
 
