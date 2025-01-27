@@ -165,13 +165,18 @@ module frr-staticd {
         "Support for a 'staticd' pseudo-protocol instance
          consists of a list of routes.";
       list route-list {
-        key "prefix afi-safi";
+        key "prefix src-prefix afi-safi";
         description
           "List of staticd IP routes.";
         leaf prefix {
           type inet:ip-prefix;
           description
             "IP prefix.";
+        }
+        leaf src-prefix {
+          type inet:ipv6-prefix;
+          description
+            "IPv6 source prefix for dst-src routes";
         }
         leaf afi-safi {
           type identityref {
@@ -180,6 +185,12 @@ module frr-staticd {
           description
             "AFI-SAFI type.";
         }
+        /* note dst-src routes are semantically invalid in MRIB */
+        must "afi-safi = 'frr-rt:ipv6-unicast'
+           or afi-safi = 'frr-rt:ipv6-labeled-unicast'
+           or afi-safi = 'frr-rt:l3vpn-ipv6-unicast'
+           or src-prefix = '::/0'
+        ";
 
         uses staticd-prefix-attributes {
           augment "path-list/frr-nexthops/nexthop" {
@@ -193,17 +204,6 @@ module frr-staticd {
               uses frr-bfdd:bfd-monitoring;
             }
           }
-        }
-
-        list src-list {
-          key "src-prefix";
-          leaf src-prefix {
-            type inet:ipv6-prefix;
-            description
-              "IPv6 source prefix";
-          }
-
-          uses staticd-prefix-attributes;
         }
       }
 
