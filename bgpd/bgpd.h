@@ -1183,6 +1183,9 @@ struct bgp {
 	uint64_t node_already_on_queue;
 	uint64_t node_deferred_on_queue;
 
+	/* list if Route-Target Constraint prefix-list */
+	struct list *rtc_plists;
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(bgp);
@@ -2163,6 +2166,9 @@ struct peer {
 
 	/* ORF Prefix-list */
 	struct prefix_list *orf_plist[AFI_MAX][SAFI_MAX];
+
+	/* Route Target Constraint list */
+	struct bgp_rtc_plist *rtc_plist;
 
 	/* Accepted prefix count */
 	uint32_t pcount[AFI_MAX][SAFI_MAX];

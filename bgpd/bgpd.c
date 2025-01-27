@@ -4043,6 +4043,11 @@ peer_init:
 		bgp->connectionhash->max_size = BGP_PEER_MAX_HASH_SIZE;
 	}
 
+	if (!bgp->rtc_plists) {
+		bgp->rtc_plists = list_new();
+		bgp->rtc_plists->del = bgp_rtc_plist_free;
+	}
+
 	if (!bgp->group)
 		bgp->group = list_new();
 	bgp->group->cmp = (int (*)(void *, void *))peer_group_cmp;
@@ -4991,6 +4996,8 @@ int bgp_delete(struct bgp *bgp)
 			bgp_set_evpn(bgp_get_default());
 	}
 
+	list_delete_all_node(bgp->rtc_plists);
+
 	if (!IS_BGP_INSTANCE_HIDDEN(bgp) || bm->terminating) {
 		if (bgp->process_queue)
 			work_queue_free_and_null(&bgp->process_queue);
@@ -5041,6 +5048,7 @@ void bgp_free(struct bgp *bgp)
 
 	list_delete(&bgp->group);
 	list_delete(&bgp->peer);
+	list_delete(&bgp->rtc_plists);
 
 	hash_clean_and_free(&bgp->connectionhash, NULL);
 
