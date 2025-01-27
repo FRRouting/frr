@@ -79,7 +79,7 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 	char xpath_seg[XPATH_MAXLEN];
 	char ab_xpath[XPATH_MAXLEN];
 	char buf_prefix[PREFIX_STRLEN];
-	char buf_src_prefix[PREFIX_STRLEN] = {};
+	char buf_src_prefix[PREFIX_STRLEN] = "::/0";
 	char buf_nh_type[PREFIX_STRLEN] = {};
 	char buf_tag[PREFIX_STRLEN];
 	uint8_t label_stack_id = 0;
@@ -116,6 +116,7 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 	}
 
 	assert(!!str2prefix(args->prefix, &p));
+	src = (struct prefix){ .family = p.family, .prefixlen = 0 };
 
 	switch (args->afi) {
 	case AFI_IP:
@@ -146,7 +147,7 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (args->source)
+	if (src.prefixlen)
 		prefix2str(&src, buf_src_prefix, sizeof(buf_src_prefix));
 	if (args->gateway)
 		buf_gate_str = args->gateway;
@@ -183,25 +184,10 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 
 	static_get_nh_type(type, buf_nh_type, sizeof(buf_nh_type));
 	if (!args->delete) {
-		if (args->source)
-			snprintf(ab_xpath, sizeof(ab_xpath),
-				 FRR_DEL_S_ROUTE_SRC_NH_KEY_NO_DISTANCE_XPATH,
-				 "frr-staticd:staticd", "staticd", args->vrf,
-				 buf_prefix,
-				 yang_afi_safi_value2identity(args->afi,
-							      args->safi),
-				 buf_src_prefix, table_id, buf_nh_type,
-				 args->nexthop_vrf, buf_gate_str,
-				 args->interface_name);
-		else
-			snprintf(ab_xpath, sizeof(ab_xpath),
-				 FRR_DEL_S_ROUTE_NH_KEY_NO_DISTANCE_XPATH,
-				 "frr-staticd:staticd", "staticd", args->vrf,
-				 buf_prefix,
-				 yang_afi_safi_value2identity(args->afi,
-							      args->safi),
-				 table_id, buf_nh_type, args->nexthop_vrf,
-				 buf_gate_str, args->interface_name);
+		snprintf(ab_xpath, sizeof(ab_xpath), FRR_DEL_S_ROUTE_NH_KEY_NO_DISTANCE_XPATH,
+			 "frr-staticd:staticd", "staticd", args->vrf, buf_prefix, buf_src_prefix,
+			 yang_afi_safi_value2identity(args->afi, args->safi), table_id, buf_nh_type,
+			 args->nexthop_vrf, buf_gate_str, args->interface_name);
 
 		/*
 		 * If there's already the same nexthop but with a different
@@ -218,22 +204,9 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 		}
 
 		/* route + path procesing */
-		if (args->source)
-			snprintf(xpath_prefix, sizeof(xpath_prefix),
-				 FRR_S_ROUTE_SRC_INFO_KEY_XPATH,
-				 "frr-staticd:staticd", "staticd", args->vrf,
-				 buf_prefix,
-				 yang_afi_safi_value2identity(args->afi,
-							      args->safi),
-				 buf_src_prefix, table_id, distance);
-		else
-			snprintf(xpath_prefix, sizeof(xpath_prefix),
-				 FRR_STATIC_ROUTE_INFO_KEY_XPATH,
-				 "frr-staticd:staticd", "staticd", args->vrf,
-				 buf_prefix,
-				 yang_afi_safi_value2identity(args->afi,
-							      args->safi),
-				 table_id, distance);
+		snprintf(xpath_prefix, sizeof(xpath_prefix), FRR_STATIC_ROUTE_INFO_KEY_XPATH,
+			 "frr-staticd:staticd", "staticd", args->vrf, buf_prefix, buf_src_prefix,
+			 yang_afi_safi_value2identity(args->afi, args->safi), table_id, distance);
 
 		nb_cli_enqueue_change(vty, xpath_prefix, NB_OP_CREATE, NULL);
 
@@ -412,51 +385,18 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 		if (orig_seg)
 			XFREE(MTYPE_TMP, orig_seg);
 	} else {
-		if (args->source) {
-			if (args->distance)
-				snprintf(ab_xpath, sizeof(ab_xpath),
-					 FRR_DEL_S_ROUTE_SRC_NH_KEY_XPATH,
-					 "frr-staticd:staticd", "staticd",
-					 args->vrf, buf_prefix,
-					 yang_afi_safi_value2identity(
-						 args->afi, args->safi),
-					 buf_src_prefix, table_id, distance,
-					 buf_nh_type, args->nexthop_vrf,
-					 buf_gate_str, args->interface_name);
-			else
-				snprintf(
-					ab_xpath, sizeof(ab_xpath),
-					FRR_DEL_S_ROUTE_SRC_NH_KEY_NO_DISTANCE_XPATH,
-					"frr-staticd:staticd", "staticd",
-					args->vrf, buf_prefix,
-					yang_afi_safi_value2identity(
-						args->afi, args->safi),
-					buf_src_prefix, table_id, buf_nh_type,
-					args->nexthop_vrf, buf_gate_str,
-					args->interface_name);
-		} else {
-			if (args->distance)
-				snprintf(ab_xpath, sizeof(ab_xpath),
-					 FRR_DEL_S_ROUTE_NH_KEY_XPATH,
-					 "frr-staticd:staticd", "staticd",
-					 args->vrf, buf_prefix,
-					 yang_afi_safi_value2identity(
-						 args->afi, args->safi),
-					 table_id, distance, buf_nh_type,
-					 args->nexthop_vrf, buf_gate_str,
-					 args->interface_name);
-			else
-				snprintf(
-					ab_xpath, sizeof(ab_xpath),
-					FRR_DEL_S_ROUTE_NH_KEY_NO_DISTANCE_XPATH,
-					"frr-staticd:staticd", "staticd",
-					args->vrf, buf_prefix,
-					yang_afi_safi_value2identity(
-						args->afi, args->safi),
-					table_id, buf_nh_type,
-					args->nexthop_vrf, buf_gate_str,
-					args->interface_name);
-		}
+		if (args->distance)
+			snprintf(ab_xpath, sizeof(ab_xpath), FRR_DEL_S_ROUTE_NH_KEY_XPATH,
+				 "frr-staticd:staticd", "staticd", args->vrf, buf_prefix,
+				 buf_src_prefix, yang_afi_safi_value2identity(args->afi, args->safi),
+				 table_id, distance, buf_nh_type, args->nexthop_vrf, buf_gate_str,
+				 args->interface_name);
+		else
+			snprintf(ab_xpath, sizeof(ab_xpath),
+				 FRR_DEL_S_ROUTE_NH_KEY_NO_DISTANCE_XPATH, "frr-staticd:staticd",
+				 "staticd", args->vrf, buf_prefix, buf_src_prefix,
+				 yang_afi_safi_value2identity(args->afi, args->safi), table_id,
+				 buf_nh_type, args->nexthop_vrf, buf_gate_str, args->interface_name);
 
 		dnode = yang_dnode_get(vty->candidate_config->dnode, ab_xpath);
 		if (!dnode) {
@@ -1439,9 +1379,8 @@ static int srv6_seg_iter_cb(const struct lyd_node *dnode, void *arg)
 }
 
 static void nexthop_cli_show(struct vty *vty, const struct lyd_node *route,
-			     const struct lyd_node *src,
-			     const struct lyd_node *path,
-			     const struct lyd_node *nexthop, bool show_defaults)
+			     const struct lyd_node *path, const struct lyd_node *nexthop,
+			     bool show_defaults)
 {
 	const char *vrf;
 	const char *afi_safi;
@@ -1455,6 +1394,7 @@ static void nexthop_cli_show(struct vty *vty, const struct lyd_node *route,
 	struct srv6_seg_iter seg_iter;
 	const char *nexthop_vrf;
 	uint32_t table_id;
+	struct prefix src_prefix;
 	bool onlink;
 
 	vrf = yang_dnode_get_string(route, "../../vrf");
@@ -1476,9 +1416,9 @@ static void nexthop_cli_show(struct vty *vty, const struct lyd_node *route,
 
 	vty_out(vty, " %s", yang_dnode_get_string(route, "prefix"));
 
-	if (src)
-		vty_out(vty, " from %s",
-			yang_dnode_get_string(src, "src-prefix"));
+	yang_dnode_get_prefix(&src_prefix, route, "src-prefix");
+	if (src_prefix.prefixlen)
+		vty_out(vty, " from %pFX", &src_prefix);
 
 	nh_type = yang_dnode_get_enum(nexthop, "nh-type");
 	switch (nh_type) {
@@ -1582,18 +1522,7 @@ static void static_nexthop_cli_show(struct vty *vty,
 	const struct lyd_node *route =
 		yang_dnode_get_parent(path, "route-list");
 
-	nexthop_cli_show(vty, route, NULL, path, dnode, show_defaults);
-}
-
-static void static_src_nexthop_cli_show(struct vty *vty,
-					const struct lyd_node *dnode,
-					bool show_defaults)
-{
-	const struct lyd_node *path = yang_dnode_get_parent(dnode, "path-list");
-	const struct lyd_node *src = yang_dnode_get_parent(path, "src-list");
-	const struct lyd_node *route = yang_dnode_get_parent(src, "route-list");
-
-	nexthop_cli_show(vty, route, src, path, dnode, show_defaults);
+	nexthop_cli_show(vty, route, path, dnode, show_defaults);
 }
 
 static int static_nexthop_cli_cmp(const struct lyd_node *dnode1,
@@ -1658,6 +1587,8 @@ static int static_route_list_cli_cmp(const struct lyd_node *dnode1,
 	afi_t afi1, afi2;
 	safi_t safi1, safi2;
 	struct prefix prefix1, prefix2;
+	struct prefix src_prefix1, src_prefix2;
+	int rv;
 
 	afi_safi1 = yang_dnode_get_string(dnode1, "afi-safi");
 	yang_afi_safi_identity2value(afi_safi1, &afi1, &safi1);
@@ -1673,19 +1604,13 @@ static int static_route_list_cli_cmp(const struct lyd_node *dnode1,
 
 	yang_dnode_get_prefix(&prefix1, dnode1, "prefix");
 	yang_dnode_get_prefix(&prefix2, dnode2, "prefix");
+	rv = prefix_cmp(&prefix1, &prefix2);
+	if (rv)
+		return rv;
 
-	return prefix_cmp(&prefix1, &prefix2);
-}
-
-static int static_src_list_cli_cmp(const struct lyd_node *dnode1,
-				   const struct lyd_node *dnode2)
-{
-	struct prefix prefix1, prefix2;
-
-	yang_dnode_get_prefix(&prefix1, dnode1, "src-prefix");
-	yang_dnode_get_prefix(&prefix2, dnode2, "src-prefix");
-
-	return prefix_cmp(&prefix1, &prefix2);
+	yang_dnode_get_prefix(&src_prefix1, dnode1, "src-prefix");
+	yang_dnode_get_prefix(&src_prefix2, dnode2, "src-prefix");
+	return prefix_cmp(&src_prefix1, &src_prefix2);
 }
 
 static int static_path_list_cli_cmp(const struct lyd_node *dnode1,
@@ -1827,25 +1752,6 @@ const struct frr_yang_module_info frr_staticd_cli_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/frr-nexthops/nexthop",
 			.cbs = {
 				.cli_show = static_nexthop_cli_show,
-				.cli_cmp = static_nexthop_cli_cmp,
-			}
-		},
-		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/src-list",
-			.cbs = {
-				.cli_cmp = static_src_list_cli_cmp,
-			}
-		},
-		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/src-list/path-list",
-			.cbs = {
-				.cli_cmp = static_path_list_cli_cmp,
-			}
-		},
-		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/src-list/path-list/frr-nexthops/nexthop",
-			.cbs = {
-				.cli_show = static_src_nexthop_cli_show,
 				.cli_cmp = static_nexthop_cli_cmp,
 			}
 		},

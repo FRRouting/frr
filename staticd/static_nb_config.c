@@ -502,16 +502,6 @@ void routing_control_plane_protocols_control_plane_protocol_staticd_route_list_p
 	static_install_nexthop(nh);
 }
 
-void routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_apply_finish(
-	struct nb_cb_apply_finish_args *args)
-{
-	struct static_nexthop *nh;
-
-	nh = nb_running_get_entry(args->dnode, NULL, true);
-
-	static_install_nexthop(nh);
-}
-
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_pre_validate(
 	struct nb_cb_pre_validate_args *args)
 {
@@ -576,7 +566,7 @@ int routing_control_plane_protocols_staticd_destroy(
 		if (!stable)
 			continue;
 
-		for (rn = route_top(stable); rn; rn = route_next(rn))
+		for (rn = route_top(stable); rn; rn = srcdest_route_next(rn))
 			static_del_route(rn);
 	}
 
@@ -595,7 +585,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_cr
 	struct static_vrf *svrf;
 	struct route_node *rn;
 	const struct lyd_node *vrf_dnode;
-	struct prefix prefix;
+	struct prefix prefix, src_prefix, *src_p;
 	const char *afi_safi;
 	afi_t prefix_afi;
 	afi_t afi;
@@ -604,6 +594,8 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_cr
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		yang_dnode_get_prefix(&prefix, args->dnode, "prefix");
+		yang_dnode_get_prefix(&src_prefix, args->dnode, "src-prefix");
+		src_p = src_prefix.prefixlen ? &src_prefix : NULL;
 		afi_safi = yang_dnode_get_string(args->dnode, "afi-safi");
 		yang_afi_safi_identity2value(afi_safi, &afi, &safi);
 		prefix_afi = family2afi(prefix.family);
@@ -612,6 +604,14 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_cr
 				EC_LIB_NB_CB_CONFIG_VALIDATE,
 				"route node %s creation failed",
 				yang_dnode_get_string(args->dnode, "prefix"));
+			return NB_ERR_VALIDATION;
+		}
+
+		if (src_p && afi != AFI_IP6) {
+			flog_warn(EC_LIB_NB_CB_CONFIG_VALIDATE,
+				  "invalid use of IPv6 dst-src prefix %s on %s",
+				  yang_dnode_get_string(args->dnode, "src-prefix"),
+				  yang_dnode_get_string(args->dnode, "prefix"));
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -624,10 +624,12 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_cr
 		svrf = nb_running_get_entry(vrf_dnode, NULL, true);
 
 		yang_dnode_get_prefix(&prefix, args->dnode, "prefix");
+		yang_dnode_get_prefix(&src_prefix, args->dnode, "src-prefix");
+		src_p = src_prefix.prefixlen ? &src_prefix : NULL;
 		afi_safi = yang_dnode_get_string(args->dnode, "afi-safi");
 		yang_afi_safi_identity2value(afi_safi, &afi, &safi);
 
-		rn = static_add_route(afi, safi, &prefix, NULL, svrf);
+		rn = static_add_route(afi, safi, &prefix, (struct prefix_ipv6 *)src_p, svrf);
 		if (!svrf->vrf || svrf->vrf->vrf_id == VRF_UNKNOWN)
 			snprintf(
 				args->errmsg, args->errmsg_len,
@@ -1042,331 +1044,6 @@ int route_next_hop_bfd_profile_destroy(struct nb_cb_destroy_args *args)
 
 	sn = nb_running_get_entry(args->dnode, NULL, true);
 	static_next_hop_bfd_profile(sn, NULL);
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/src-list
- */
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_create(
-	struct nb_cb_create_args *args)
-{
-	struct static_vrf *s_vrf;
-	struct route_node *rn;
-	struct route_node *src_rn;
-	struct prefix_ipv6 src_prefix = {};
-	struct stable_info *info;
-	afi_t afi;
-	safi_t safi = SAFI_UNICAST;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
-	case NB_EV_APPLY:
-		rn = nb_running_get_entry(args->dnode, NULL, true);
-		info = route_table_get_info(rn->table);
-		s_vrf = info->svrf;
-		yang_dnode_get_ipv6p(&src_prefix, args->dnode, "src-prefix");
-		afi = family2afi(src_prefix.family);
-		src_rn =
-			static_add_route(afi, safi, &rn->p, &src_prefix, s_vrf);
-		nb_running_set_entry(args->dnode, src_rn);
-		break;
-	}
-	return NB_OK;
-}
-
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	struct route_node *src_rn;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
-	case NB_EV_APPLY:
-		src_rn = nb_running_unset_entry(args->dnode);
-		static_del_route(src_rn);
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/src-list/path-list
- */
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_create(
-	struct nb_cb_create_args *args)
-{
-	return static_path_list_create(args);
-}
-
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	return static_path_list_destroy(args);
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/src-list/path-list/tag
- */
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_tag_modify(
-	struct nb_cb_modify_args *args)
-{
-	return static_path_list_tag_modify(args);
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/src-list/path-list/frr-nexthops/nexthop
- */
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_create(
-	struct nb_cb_create_args *args)
-{
-	return static_nexthop_create(args);
-}
-
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	return static_nexthop_destroy(args);
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/src-list/path-list/frr-nexthops/nexthop/bh-type
- */
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_bh_type_modify(
-	struct nb_cb_modify_args *args)
-{
-	return static_nexthop_bh_type_modify(args);
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/src-list/path-list/frr-nexthops/nexthop/onlink
- */
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_onlink_modify(
-	struct nb_cb_modify_args *args)
-{
-	return static_nexthop_onlink_modify(args);
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/src-list/path-list/frr-nexthops/nexthop/srte-color
- */
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_color_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
-	case NB_EV_APPLY:
-		if (static_nexthop_color_modify(args) != NB_OK)
-			return NB_ERR;
-
-		break;
-	}
-	return NB_OK;
-}
-
-
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_color_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
-	case NB_EV_APPLY:
-		if (static_nexthop_color_destroy(args) != NB_OK)
-			return NB_ERR;
-		break;
-	}
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/src-list/path-list/frr-nexthops/nexthop/srv6-segs-stack/entry
- */
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_srv6_segs_stack_entry_create(
-	struct nb_cb_create_args *args)
-{
-	return nexthop_srv6_segs_stack_entry_create(args);
-}
-
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_srv6_segs_stack_entry_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	return nexthop_srv6_segs_stack_entry_destroy(args);
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/src-list/path-list/frr-nexthops/nexthop/srv6-segs-stack/entry/seg
- */
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_srv6_segs_stack_entry_seg_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
-	case NB_EV_APPLY:
-		if (static_nexthop_srv6_segs_modify(args) != NB_OK)
-			return NB_ERR;
-		break;
-	}
-	return NB_OK;
-}
-
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_srv6_segs_stack_entry_seg_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	/*
-	 * No operation is required in this call back.
-	 * nexthop_mpls_seg_stack_entry_destroy() will take care
-	 * to reset the seg vaue.
-	 */
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		break;
-	}
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/src-list/path-list/frr-nexthops/nexthop/mpls-label-stack/entry
- */
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_create(
-	struct nb_cb_create_args *args)
-{
-	return nexthop_mpls_label_stack_entry_create(args);
-}
-
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	return nexthop_mpls_label_stack_entry_destroy(args);
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/src-list/path-list/frr-nexthops/nexthop/mpls-label-stack/entry/label
- */
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_label_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
-	case NB_EV_APPLY:
-		if (static_nexthop_mpls_label_modify(args) != NB_OK)
-			return NB_ERR;
-		break;
-	}
-	return NB_OK;
-}
-
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_label_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	/*
-	 * No operation is required in this call back.
-	 * nexthop_mpls_label_stack_entry_destroy() will take care
-	 * to reset the label vaue.
-	 */
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		break;
-	}
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/src-list/path-list/frr-nexthops/nexthop/mpls-label-stack/entry/ttl
- */
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_ttl_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		break;
-	}
-
-	return NB_OK;
-}
-
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_ttl_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/src-list/path-list/frr-nexthops/nexthop/mpls-label-stack/entry/traffic-class
- */
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_traffic_class_modify(
-	struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		break;
-	}
-
-	return NB_OK;
-}
-
-int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_traffic_class_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		break;
-	}
 
 	return NB_OK;
 }
