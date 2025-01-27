@@ -15245,7 +15245,7 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 				if (type == bgp_show_adj_route_advertised ||
 				    type == bgp_show_adj_route_received) {
 					if (first) {
-						vty_out(vty, "\"%s\":", rd_str);
+						vty_out(vty, "{\"%s\":", rd_str);
 						first = false;
 					} else {
 						vty_out(vty, ",\"%s\":", rd_str);
@@ -15259,6 +15259,8 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 			output_count += output_count_per_rd;
 			filtered_count += filtered_count_per_rd;
 		}
+		if (first == false && json_routes)
+			vty_out(vty, "}");
 	} else {
 		show_adj_route(vty, peer, table, afi, safi, type, rmap_name,
 			       json, json_ar, show_flags, &header1, &header2,
