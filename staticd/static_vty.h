@@ -15,10 +15,8 @@ extern "C" {
 void static_cli_show(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 void static_cli_show_end(struct vty *vty, const struct lyd_node *dnode);
 void static_nexthop_cli_show(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
-void static_src_nexthop_cli_show(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
 int static_nexthop_cli_cmp(const struct lyd_node *dnode1, const struct lyd_node *dnode2);
 int static_route_list_cli_cmp(const struct lyd_node *dnode1, const struct lyd_node *dnode2);
-int static_src_list_cli_cmp(const struct lyd_node *dnode1, const struct lyd_node *dnode2);
 int static_path_list_cli_cmp(const struct lyd_node *dnode1, const struct lyd_node *dnode2);
 #endif /* !defined(HAVE_STATICD_MGMTD) && defined(HAVE_STATICD_NB) */
 

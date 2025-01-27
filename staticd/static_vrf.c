@@ -56,10 +56,8 @@ struct static_vrf *static_vrf_alloc(const char *name)
 
 	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
 		for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++) {
-			if (afi == AFI_IP6)
-				table = srcdest_table_init();
-			else
-				table = route_table_init();
+			table = srcdest_table_init();
+			table->cleanup = zebra_stable_node_cleanup;
 
 			info = XCALLOC(MTYPE_STATIC_RTABLE_INFO,
 				       sizeof(struct stable_info));
@@ -68,7 +66,6 @@ struct static_vrf *static_vrf_alloc(const char *name)
 			info->safi = safi;
 			route_table_set_info(table, info);
 
-			table->cleanup = zebra_stable_node_cleanup;
 			svrf->stable[afi][safi] = table;
 #ifndef HAVE_STATICD_NB
 			static_route_args_list_init(&svrf->route_args_list);

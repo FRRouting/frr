@@ -35,10 +35,6 @@ void zebra_stable_node_cleanup(struct route_table *table,
 	struct static_nexthop *nh;
 	struct static_path *pn;
 	struct static_route_info *si;
-	struct route_table *src_table;
-	struct route_node *src_node;
-	struct static_path *src_pn;
-	struct static_route_info *src_si;
 
 	si = node->info;
 
@@ -53,37 +49,6 @@ void zebra_stable_node_cleanup(struct route_table *table,
 			static_path_list_del(&si->path_list, pn);
 			XFREE(MTYPE_STATIC_PATH, pn);
 		}
-
-		/* clean up for dst table */
-		src_table = srcdest_srcnode_table(node);
-		if (src_table) {
-			/* This means the route_node is part of the top
-			 * hierarchy and refers to a destination prefix.
-			 */
-			for (src_node = route_top(src_table); src_node;
-			     src_node = route_next(src_node)) {
-				src_si = src_node->info;
-
-				frr_each_safe(static_path_list,
-					      &src_si->path_list, src_pn) {
-					frr_each_safe(static_nexthop_list,
-						      &src_pn->nexthop_list,
-						      nh) {
-						static_next_hop_pm_destroy(nh);
-						static_nexthop_list_del(
-							&src_pn->nexthop_list,
-							nh);
-						XFREE(MTYPE_STATIC_NEXTHOP, nh);
-					}
-					static_path_list_del(&src_si->path_list,
-							     src_pn);
-					XFREE(MTYPE_STATIC_PATH, src_pn);
-				}
-
-				XFREE(MTYPE_STATIC_ROUTE, src_node->info);
-			}
-		}
-
 		XFREE(MTYPE_STATIC_ROUTE, node->info);
 	}
 }
@@ -148,28 +113,10 @@ struct route_node *static_add_route(afi_t afi, safi_t safi, struct prefix *p,
 	return rn;
 }
 
-/* To delete the srcnodes */
-static void static_del_src_route(struct route_node *rn)
-{
-	struct static_path *pn;
-	struct static_route_info *si;
-
-	si = rn->info;
-
-	frr_each_safe(static_path_list, &si->path_list, pn) {
-		static_del_path(pn);
-	}
-
-	XFREE(MTYPE_STATIC_ROUTE, rn->info);
-	route_unlock_node(rn);
-}
-
 void static_del_route(struct route_node *rn)
 {
 	struct static_path *pn;
 	struct static_route_info *si;
-	struct route_table *src_table;
-	struct route_node *src_node;
 
 	si = rn->info;
 
@@ -177,17 +124,6 @@ void static_del_route(struct route_node *rn)
 		static_del_path(pn);
 	}
 
-	/* clean up for dst table */
-	src_table = srcdest_srcnode_table(rn);
-	if (src_table) {
-		/* This means the route_node is part of the top hierarchy
-		 * and refers to a destination prefix.
-		 */
-		for (src_node = route_top(src_table); src_node;
-		     src_node = route_next(src_node)) {
-			static_del_src_route(src_node);
-		}
-	}
 	XFREE(MTYPE_STATIC_ROUTE, rn->info);
 	route_unlock_node(rn);
 }
@@ -547,7 +483,7 @@ static void static_fixup_vrf(struct vrf *vrf, struct route_table *stable,
 	struct static_path *pn;
 	struct static_route_info *si;
 
-	for (rn = route_top(stable); rn; rn = route_next(rn)) {
+	for (rn = route_top(stable); rn; rn = srcdest_route_next(rn)) {
 		si = static_route_info_from_rnode(rn);
 		if (!si)
 			continue;
@@ -599,7 +535,7 @@ static void static_enable_vrf(struct route_table *stable, afi_t afi, safi_t safi
 	struct static_path *pn;
 	struct static_route_info *si;
 
-	for (rn = route_top(stable); rn; rn = route_next(rn)) {
+	for (rn = route_top(stable); rn; rn = srcdest_route_next(rn)) {
 		si = static_route_info_from_rnode(rn);
 		if (!si)
 			continue;
@@ -657,7 +593,7 @@ static void static_cleanup_vrf(struct vrf *vrf, struct route_table *stable,
 	struct static_path *pn;
 	struct static_route_info *si;
 
-	for (rn = route_top(stable); rn; rn = route_next(rn)) {
+	for (rn = route_top(stable); rn; rn = srcdest_route_next(rn)) {
 		si = static_route_info_from_rnode(rn);
 		if (!si)
 			continue;
@@ -690,7 +626,7 @@ static void static_disable_vrf(struct route_table *stable,
 	struct static_path *pn;
 	struct static_route_info *si;
 
-	for (rn = route_top(stable); rn; rn = route_next(rn)) {
+	for (rn = route_top(stable); rn; rn = srcdest_route_next(rn)) {
 		si = static_route_info_from_rnode(rn);
 		if (!si)
 			continue;
