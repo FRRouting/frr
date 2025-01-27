@@ -132,35 +132,37 @@ static int static_ifp_down(struct interface *ifp)
 
 static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 {
-	struct prefix p;
+	struct prefix p, src_p, *src_pp;
 	enum zapi_route_notify_owner note;
 	uint32_t table_id;
 	safi_t safi;
 
-	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table_id, &note, NULL,
-				      &safi))
+	if (!zapi_route_notify_decode_srcdest(zclient->ibuf, &p, &src_p, &table_id, &note, NULL,
+					      &safi))
 		return -1;
+
+	src_pp = src_p.prefixlen ? &src_p : NULL;
 
 	switch (note) {
 	case ZAPI_ROUTE_FAIL_INSTALL:
-		static_nht_mark_state(&p, safi, vrf_id, STATIC_NOT_INSTALLED);
+		static_nht_mark_state(&p, src_pp, safi, vrf_id, STATIC_NOT_INSTALLED);
 		zlog_warn("%s: Route %pFX failed to install for table: %u",
 			  __func__, &p, table_id);
 		break;
 	case ZAPI_ROUTE_BETTER_ADMIN_WON:
-		static_nht_mark_state(&p, safi, vrf_id, STATIC_NOT_INSTALLED);
+		static_nht_mark_state(&p, src_pp, safi, vrf_id, STATIC_NOT_INSTALLED);
 		zlog_warn(
 			"%s: Route %pFX over-ridden by better route for table: %u",
 			__func__, &p, table_id);
 		break;
 	case ZAPI_ROUTE_INSTALLED:
-		static_nht_mark_state(&p, safi, vrf_id, STATIC_INSTALLED);
+		static_nht_mark_state(&p, src_pp, safi, vrf_id, STATIC_INSTALLED);
 		break;
 	case ZAPI_ROUTE_REMOVED:
-		static_nht_mark_state(&p, safi, vrf_id, STATIC_NOT_INSTALLED);
+		static_nht_mark_state(&p, src_pp, safi, vrf_id, STATIC_NOT_INSTALLED);
 		break;
 	case ZAPI_ROUTE_REMOVE_FAIL:
-		static_nht_mark_state(&p, safi, vrf_id, STATIC_INSTALLED);
+		static_nht_mark_state(&p, src_pp, safi, vrf_id, STATIC_INSTALLED);
 		zlog_warn("%s: Route %pFX failure to remove for table: %u",
 			  __func__, &p, table_id);
 		break;
@@ -226,8 +228,8 @@ static void static_zebra_nexthop_update(struct vrf *vrf, struct prefix *matched,
 		nhtd->nh_num = nhr->nexthop_num;
 
 		static_nht_reset_start(matched, afi, nhr->safi, nhtd->nh_vrf_id);
-		static_nht_update(NULL, matched, nhr->nexthop_num, afi,
-				  nhr->safi, nhtd->nh_vrf_id);
+		static_nht_update(NULL, NULL, matched, nhr->nexthop_num, afi, nhr->safi,
+				  nhtd->nh_vrf_id);
 	} else
 		zlog_err("No nhtd?");
 }
@@ -312,9 +314,12 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 {
 	struct static_path *pn = nh->pn;
 	struct route_node *rn = pn->rn;
+	const struct prefix *p, *src_p;
 	struct static_route_info *si = static_route_info_from_rnode(rn);
 	struct static_nht_data *nhtd, lookup = {};
 	uint32_t cmd;
+
+	srcdest_rnode_prefixes(rn, &p, &src_p);
 
 	if (!static_zebra_nht_get_prefix(nh, &lookup.nh))
 		return;
@@ -351,8 +356,8 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 			if (nh->state == STATIC_NOT_INSTALLED ||
 			    nh->state == STATIC_SENT_TO_ZEBRA)
 				nh->state = STATIC_START;
-			static_nht_update(&rn->p, &nhtd->nh, nhtd->nh_num, afi,
-					  si->safi, nh->nh_vrf_id);
+			static_nht_update(p, src_p, &nhtd->nh, nhtd->nh_num, afi, si->safi,
+					  nh->nh_vrf_id);
 			return;
 		}
 
