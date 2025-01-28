@@ -233,10 +233,12 @@ int frr_pthread_non_controlled_startup(pthread_t thread, const char *name,
 		unused, cleanup(_frr_mtx_unlock))) = _frr_mtx_lock(mutex),     \
 	/* end */
 
-#define frr_with_mutex(...)                                                    \
-	for (pthread_mutex_t MACRO_REPEAT(_frr_with_mutex, ##__VA_ARGS__)      \
-	     *_once = NULL; _once == NULL; _once = (void *)1)                  \
+#define _frr_with_mutex_once(_once, ...)                                                           \
+	for (pthread_mutex_t MACRO_REPEAT(_frr_with_mutex, ##__VA_ARGS__)*_once = NULL;           \
+	     _once == NULL; _once = (void *)1)                                                     \
 	/* end */
+
+#define frr_with_mutex(...) _frr_with_mutex_once(NAMECTR(_once_), __VA_ARGS__)
 
 /* variant 2:
  * (more suitable for long blocks, no extra indentation)
