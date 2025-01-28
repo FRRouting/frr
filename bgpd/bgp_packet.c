@@ -1225,6 +1225,9 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 	const char *hostname = cmd_hostname_get();
 	const char *domainname = cmd_domainname_get();
 
+	if (!peer)
+		return;
+
 	if (!peer_established(peer->connection))
 		return;
 
