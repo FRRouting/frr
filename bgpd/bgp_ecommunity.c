@@ -1023,6 +1023,16 @@ static int ecommunity_rt_soo_str(char *buf, size_t bufsz, const uint8_t *pnt,
 					      ECOMMUNITY_SIZE);
 }
 
+char *ecommunity_rt_str(const uint8_t *pnt)
+{
+	static char buf[sizeof("RT:XXX.XXX.XXX.XXX:YYYYY")];
+	size_t bufsz = sizeof(buf);
+
+	ecommunity_rt_soo_str(buf, bufsz, pnt + 2, *pnt, *(pnt + 1), ECOMMUNITY_FORMAT_DISPLAY);
+
+	return buf;
+}
+
 /* Helper function to convert IEEE-754 Floating Point to uint32 */
 static uint32_t ieee_float_uint32_to_uint32(uint32_t u)
 {
