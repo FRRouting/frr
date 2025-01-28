@@ -31,6 +31,7 @@
 
 DEFINE_MTYPE_STATIC(LIB, ZCLIENT, "Zclient");
 DEFINE_MTYPE_STATIC(LIB, REDIST_INST, "Redistribution instance IDs");
+DEFINE_MTYPE_STATIC(LIB, REDIST_TABLE_DIRECT, "Redistribution table direct");
 
 /* Zebra client events. */
 enum zclient_event { ZCLIENT_SCHEDULE, ZCLIENT_READ, ZCLIENT_CONNECT };
@@ -104,6 +105,11 @@ void zclient_free(struct zclient *zclient)
 	XFREE(MTYPE_ZCLIENT, zclient);
 }
 
+static void redist_free_instance(void *data)
+{
+	XFREE(MTYPE_REDIST_INST, data);
+}
+
 unsigned short *redist_check_instance(struct redist_proto *red,
 				      unsigned short instance)
 {
@@ -126,8 +132,10 @@ void redist_add_instance(struct redist_proto *red, unsigned short instance)
 
 	red->enabled = 1;
 
-	if (!red->instances)
+	if (!red->instances) {
 		red->instances = list_new();
+		red->instances->del = redist_free_instance;
+	}
 
 	in = XMALLOC(MTYPE_REDIST_INST, sizeof(unsigned short));
 	*in = instance;
@@ -143,8 +151,89 @@ void redist_del_instance(struct redist_proto *red, unsigned short instance)
 		return;
 
 	listnode_delete(red->instances, id);
-	XFREE(MTYPE_REDIST_INST, id);
+	red->instances->del(id);
 	if (!red->instances->count) {
+		red->enabled = 0;
+		list_delete(&red->instances);
+	}
+}
+
+static void redist_free_table_direct(void *data)
+{
+	XFREE(MTYPE_REDIST_TABLE_DIRECT, data);
+}
+
+struct redist_table_direct *redist_lookup_table_direct(const struct redist_proto *red,
+						       const struct redist_table_direct *table)
+{
+	struct redist_table_direct *ntable;
+	struct listnode *node;
+
+	if (red->instances == NULL)
+		return NULL;
+
+	for (ALL_LIST_ELEMENTS_RO(red->instances, node, ntable)) {
+		if (table->vrf_id != ntable->vrf_id)
+			continue;
+		if (table->table_id != ntable->table_id)
+			continue;
+
+		return ntable;
+	}
+
+	return NULL;
+}
+
+bool redist_table_direct_has_id(const struct redist_proto *red, int table_id)
+{
+	struct redist_table_direct *table;
+	struct listnode *node;
+
+	if (red->instances == NULL)
+		return false;
+
+	for (ALL_LIST_ELEMENTS_RO(red->instances, node, table)) {
+		if (table->table_id != table_id)
+			continue;
+
+		return true;
+	}
+
+	return false;
+}
+
+void redist_add_table_direct(struct redist_proto *red, const struct redist_table_direct *table)
+{
+	struct redist_table_direct *ntable;
+
+	ntable = redist_lookup_table_direct(red, table);
+	if (ntable != NULL)
+		return;
+
+	if (red->instances == NULL) {
+		red->instances = list_new();
+		red->instances->del = redist_free_table_direct;
+	}
+
+	red->enabled = 1;
+
+	ntable = XCALLOC(MTYPE_REDIST_TABLE_DIRECT, sizeof(*ntable));
+	ntable->vrf_id = table->vrf_id;
+	ntable->table_id = table->table_id;
+	listnode_add(red->instances, ntable);
+}
+
+void redist_del_table_direct(struct redist_proto *red, const struct redist_table_direct *table)
+{
+	struct redist_table_direct *ntable;
+
+	ntable = redist_lookup_table_direct(red, table);
+	if (ntable == NULL)
+		return;
+
+	listnode_delete(red->instances, ntable);
+	red->instances->del(ntable);
+	if (red->instances->count == 0) {
 		red->enabled = 0;
 		list_delete(&red->instances);
 	}
@@ -152,14 +241,10 @@ void redist_del_instance(struct redist_proto *red, unsigned short instance)
 
 void redist_del_all_instances(struct redist_proto *red)
 {
-	struct listnode *ln, *nn;
-	unsigned short *id;
-
 	if (!red->instances)
 		return;
 
-	for (ALL_LIST_ELEMENTS(red->instances, ln, nn, id))
-		redist_del_instance(red, *id);
+	list_delete(&red->instances);
 }
 
 /* Stop zebra client services. */
@@ -480,6 +565,17 @@ enum zclient_send_status zclient_send_localsid(struct zclient *zclient,
 	return zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
 }
 
+static void zclient_send_table_direct(struct zclient *zclient, afi_t afi, int type)
+{
+	struct redist_table_direct *table;
+	struct redist_proto *red = &zclient->mi_redist[afi][ZEBRA_ROUTE_TABLE_DIRECT];
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(red->instances, node, table))
+		zebra_redistribute_send(type, zclient, afi, ZEBRA_ROUTE_TABLE_DIRECT,
+					table->table_id, table->vrf_id);
+}
+
 /* Send register requests to zebra daemon for the information in a VRF. */
 void zclient_send_reg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 {
@@ -512,6 +608,12 @@ void zclient_send_reg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 			for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 				if (!zclient->mi_redist[afi][i].enabled)
 					continue;
+
+				if (i == ZEBRA_ROUTE_TABLE_DIRECT) {
+					zclient_send_table_direct(zclient, afi,
+								  ZEBRA_REDISTRIBUTE_ADD);
+					continue;
+				}
 
 				struct listnode *node;
 				unsigned short *id;
@@ -579,6 +681,12 @@ void zclient_send_dereg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 			for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 				if (!zclient->mi_redist[afi][i].enabled)
 					continue;
+
+				if (i == ZEBRA_ROUTE_TABLE_DIRECT) {
+					zclient_send_table_direct(zclient, afi,
+								  ZEBRA_REDISTRIBUTE_DELETE);
+					continue;
+				}
 
 				struct listnode *node;
 				unsigned short *id;
@@ -4634,9 +4742,52 @@ static void zclient_read(struct event *thread)
 	zclient_event(ZCLIENT_READ, zclient);
 }
 
+static void zclient_redistribute_table_direct(struct zclient *zclient, vrf_id_t vrf_id, afi_t afi,
+					      int instance, int command)
+{
+	struct redist_proto *red = &zclient->mi_redist[afi][ZEBRA_ROUTE_TABLE_DIRECT];
+	bool has_table;
+	struct redist_table_direct table = {
+		.vrf_id = vrf_id,
+		.table_id = instance,
+	};
+
+	has_table = redist_lookup_table_direct(red, &table);
+
+	if (command == ZEBRA_REDISTRIBUTE_ADD) {
+		if (has_table)
+			return;
+
+		redist_add_table_direct(red, &table);
+	} else {
+		if (!has_table)
+			return;
+
+		redist_del_table_direct(red, &table);
+	}
+
+	if (zclient->sock > 0)
+		zebra_redistribute_send(command, zclient, afi, ZEBRA_ROUTE_TABLE_DIRECT, instance,
+					vrf_id);
+}
+
 void zclient_redistribute(int command, struct zclient *zclient, afi_t afi,
 			  int type, unsigned short instance, vrf_id_t vrf_id)
 {
+	/*
+	 * When asking for table-direct redistribution the parameter
+	 * `instance` has a different meaning: it means table
+	 * identification.
+	 *
+	 * The table identification information is stored in
+	 * `zclient->mi_redist` along with the VRF identification
+	 * information in a pair (different from the usual single protocol
+	 * instance value).
+	 */
+	if (type == ZEBRA_ROUTE_TABLE_DIRECT) {
+		zclient_redistribute_table_direct(zclient, vrf_id, afi, instance, command);
+		return;
+	}
 
 	if (instance) {
 		if (command == ZEBRA_REDISTRIBUTE_ADD) {
