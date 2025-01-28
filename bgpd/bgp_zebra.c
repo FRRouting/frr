@@ -1674,11 +1674,23 @@ void bgp_zebra_announce_table(struct bgp *bgp, afi_t afi, safi_t safi)
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest))
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
 			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED) &&
-			    (pi->type == ZEBRA_ROUTE_BGP
-			     && (pi->sub_type == BGP_ROUTE_NORMAL
-				 || pi->sub_type == BGP_ROUTE_IMPORTED)))
-				bgp_zebra_route_install(dest, pi, bgp, true,
-							NULL, false);
+			    (pi->type == ZEBRA_ROUTE_BGP && (pi->sub_type == BGP_ROUTE_NORMAL ||
+							     pi->sub_type == BGP_ROUTE_IMPORTED))) {
+				bool is_add = true;
+
+				if (bgp->table_map[afi][safi].name) {
+					struct attr local_attr = *pi->attr;
+					struct bgp_path_info local_info = *pi;
+
+					local_info.attr = &local_attr;
+
+					is_add = bgp_table_map_apply(bgp->table_map[afi][safi].map,
+								     bgp_dest_get_prefix(dest),
+								     &local_info);
+				}
+
+				bgp_zebra_route_install(dest, pi, bgp, is_add, NULL, false);
+			}
 }
 
 /* Announce routes of any bgp subtype of a table to zebra */
