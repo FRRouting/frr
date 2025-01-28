@@ -1168,6 +1168,9 @@ bool zapi_route_notify_decode(struct stream *s, struct prefix *p,
 			      uint32_t *tableid,
 			      enum zapi_route_notify_owner *note,
 			      afi_t *afi, safi_t *safi);
+bool zapi_route_notify_decode_srcdest(struct stream *s, struct prefix *p, struct prefix *src_p,
+				      uint32_t *tableid, enum zapi_route_notify_owner *note,
+				      afi_t *afi, safi_t *safi);
 bool zapi_rule_notify_decode(struct stream *s, uint32_t *seqno,
 			     uint32_t *priority, uint32_t *unique, char *ifname,
 			     enum zapi_rule_notify_owner *note);
