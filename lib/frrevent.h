@@ -139,6 +139,10 @@ struct cpu_event_history {
 	struct cpu_records_item item;
 
 	void (*func)(struct event *e);
+
+	/* fields between the pair of these two are nulled on "clear event cpu" */
+	char _clear_begin[0];
+
 	atomic_size_t total_cpu_warn;
 	atomic_size_t total_wall_warn;
 	atomic_size_t total_starv_warn;
@@ -149,6 +153,10 @@ struct cpu_event_history {
 	} real;
 	struct time_stats cpu;
 	atomic_uint_fast32_t types;
+
+	/* end of cleared region */
+	char _clear_end[0];
+
 	const char *funcname;
 };
 

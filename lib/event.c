@@ -111,6 +111,11 @@ static struct cpu_event_history *cpu_records_get(struct event_loop *loop,
 	return res;
 }
 
+static void cpu_records_clear(struct cpu_event_history *p)
+{
+	memset(p->_clear_begin, 0, p->_clear_end - p->_clear_begin);
+}
+
 static void cpu_records_free(struct cpu_event_history **p)
 {
 	XFREE(MTYPE_EVENT_STATS, *p);
@@ -250,20 +255,15 @@ static void cpu_record_clear(uint8_t filter)
 		for (ALL_LIST_ELEMENTS_RO(masters, ln, m)) {
 			frr_with_mutex (&m->mtx) {
 				struct cpu_event_history *item;
-				struct cpu_records_head old[1];
 
-				cpu_records_init(old);
-				cpu_records_swap_all(old, m->cpu_records);
-
-				while ((item = cpu_records_pop(old))) {
+				/* it isn't possible to free the memory here
+				 * because some of these will be in use (e.g.
+				 * the one we're currently running in!)
+				 */
+				frr_each (cpu_records, m->cpu_records, item) {
 					if (item->types & filter)
-						cpu_records_free(&item);
-					else
-						cpu_records_add(m->cpu_records,
-								item);
+						cpu_records_clear(item);
 				}
-
-				cpu_records_fini(old);
 			}
 		}
 	}
