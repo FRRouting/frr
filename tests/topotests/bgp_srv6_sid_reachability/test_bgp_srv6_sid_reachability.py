@@ -159,6 +159,36 @@ def test_sid_reachable_again_bgp_update():
     check_ping("c11", "192.168.2.1", True, 10, 1)
 
 
+def test_sid_unreachable_no_router():
+    get_topogen().gears["r2"].vtysh_cmd(
+        """
+        configure terminal
+        no router bgp 65002 vrf vrf10
+        """
+    )
+    check_ping("c11", "192.168.2.1", False, 10, 1)
+
+
+def test_sid_reachable_again_no_router():
+    get_topogen().gears["r2"].vtysh_cmd(
+        """
+        configure terminal
+        router bgp 65002 vrf vrf10
+        bgp router-id 192.0.2.2
+        !
+         address-family ipv4 unicast
+          redistribute connected
+          sid vpn export 1
+          rd vpn export 65002:10
+          rt vpn both 0:10
+          import vpn
+          export vpn
+         exit-address-family
+        """
+    )
+    check_ping("c11", "192.168.2.1", True, 10, 1)
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
