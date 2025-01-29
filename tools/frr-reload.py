@@ -237,6 +237,14 @@ def get_normalized_interface_vrf(line):
     return line
 
 
+def get_normalized_ebgp_multihop_line(line):
+    obj = re.search(r"(.*)ebgp-multihop\s+255", line)
+    if obj:
+        line = obj.group(1) + "ebgp-multihop"
+
+    return line
+
+
 # This dictionary contains a tree of all commands that we know start a
 # new multi-line context. All other commands are treated either as
 # commands inside a multi-line context or as single-line contexts. This
@@ -381,6 +389,9 @@ class Config(object):
 
             if ":" in line:
                 line = get_normalized_mac_ip_line(line)
+
+            if "ebgp-multihop" in line:
+                line = get_normalized_ebgp_multihop_line(line)
 
             # vrf static routes can be added in two ways. The old way is:
             #
