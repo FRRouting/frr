@@ -127,9 +127,12 @@ printf "#define SHOW_ROUTE_V6_HEADER \\\n%s\n", codelist(@protosv6);
 print "\n";
 
 sub collect {
-	my ($daemon, $ipv4, $ipv6, $any) = @_;
+	my ($daemon, $ipv4, $ipv6, $any, $ip_prot) = @_;
 	my (@names, @help) = ((), ());
 	for my $p (@protos) {
+		next if ($ip_prot == 1 && $daemon eq "zebra" && $protodetail{$p}->{"cname"} eq "kernel");
+		next if ($ip_prot == 1 && $daemon eq "zebra" && $protodetail{$p}->{"cname"} eq "connected");
+		next if ($ip_prot == 1 && $daemon eq "zebra" && $protodetail{$p}->{"cname"} eq "local");
 		next if ($protodetail{$p}->{"daemon"} eq $daemon && $daemon ne "zebra");
 		next if ($protodetail{$p}->{"restrict2"} ne "" && 
 		         $protodetail{$p}->{"restrict2"} ne $daemon);
@@ -151,24 +154,24 @@ for my $daemon (sort keys %daemons) {
 	next unless ($daemons{$daemon}->{"ipv4"} || $daemons{$daemon}->{"ipv6"});
 	printf "/* %s */\n", $daemon;
 	if ($daemons{$daemon}->{"ipv4"} && $daemons{$daemon}->{"ipv6"}) {
-		my ($names, $help) = collect($daemon, 1, 1, 0);
+		my ($names, $help) = collect($daemon, 1, 1, 0, 0);
 		printf "#define FRR_REDIST_STR_%s \\\n  %s\n", uc $daemon, $names;
 		printf "#define FRR_REDIST_HELP_STR_%s \\\n%s\n", uc $daemon, $help;
 
-		($names, $help) = collect($daemon, 1, 0, 0);
+		($names, $help) = collect($daemon, 1, 0, 0, 0);
 		printf "#define FRR_IP_REDIST_STR_%s \\\n  %s\n", uc $daemon, $names;
 		printf "#define FRR_IP_REDIST_HELP_STR_%s \\\n%s\n", uc $daemon, $help;
 
-		($names, $help) = collect($daemon, 0, 1, 0);
+		($names, $help) = collect($daemon, 0, 1, 0, 0);
 		printf "#define FRR_IP6_REDIST_STR_%s \\\n  %s\n", uc $daemon, $names;
 		printf "#define FRR_IP6_REDIST_HELP_STR_%s \\\n%s\n", uc $daemon, $help;
 
 		if ($daemon eq "zebra") {
-			($names, $help) = collect($daemon, 1, 0, 1);
+			($names, $help) = collect($daemon, 1, 0, 1, 1);
 			printf "#define FRR_IP_PROTOCOL_MAP_STR_%s \\\n  %s\n", uc $daemon, $names;
 			printf "#define FRR_IP_PROTOCOL_MAP_HELP_STR_%s \\\n%s\n", uc $daemon, $help;
 
-			($names, $help) = collect($daemon, 0, 1, 1);
+			($names, $help) = collect($daemon, 0, 1, 1, 1);
 			printf "#define FRR_IP6_PROTOCOL_MAP_STR_%s \\\n  %s\n", uc $daemon, $names;
 			printf "#define FRR_IP6_PROTOCOL_MAP_HELP_STR_%s \\\n%s\n", uc $daemon, $help;
 		}
