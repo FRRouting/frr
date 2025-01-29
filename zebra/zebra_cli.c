@@ -1983,6 +1983,10 @@ static void lib_vrf_zebra_ipv6_router_id_cli_write(struct vty *vty,
 	vty_out(vty, "ipv6 router-id %s\n", id);
 }
 
+/*
+ * Both the v4 and v6 version of this command are now limiting the
+ * usage of System route types from being considered here at all
+ */
 DEFPY_YANG (ip_protocol,
        ip_protocol_cmd,
        "[no] ip protocol " FRR_IP_PROTOCOL_MAP_STR_ZEBRA
