@@ -571,7 +571,7 @@ static void bgp_accept(struct event *thread)
 
 	/* Do not try to reconnect if the peer reached maximum
 	 * prefixes, restart timer is still running or the peer
-	 * is shutdown.
+	 * is shutdown, or BGP identifier is not set (0.0.0.0).
 	 */
 	if (BGP_PEER_START_SUPPRESSED(peer1)) {
 		if (bgp_debug_neighbor_events(peer1)) {
@@ -584,6 +584,14 @@ static void bgp_accept(struct event *thread)
 					"[Event] Incoming BGP connection rejected from %s due to maximum-prefix or shutdown",
 					peer1->host);
 		}
+		close(bgp_sock);
+		return;
+	}
+
+	if (peer1->bgp->router_id.s_addr == INADDR_ANY) {
+		zlog_warn("[Event] Incoming BGP connection rejected from %s due missing BGP identifier, set it with `bgp router-id`",
+			  peer1->host);
+		peer1->last_reset = PEER_DOWN_ROUTER_ID_ZERO;
 		close(bgp_sock);
 		return;
 	}
@@ -775,6 +783,13 @@ enum connect_result bgp_connect(struct peer_connection *connection)
 	assert(!CHECK_FLAG(connection->thread_flags, PEER_THREAD_WRITES_ON));
 	assert(!CHECK_FLAG(connection->thread_flags, PEER_THREAD_READS_ON));
 	ifindex_t ifindex = 0;
+
+	if (peer->bgp->router_id.s_addr == INADDR_ANY) {
+		peer->last_reset = PEER_DOWN_ROUTER_ID_ZERO;
+		zlog_warn("%s: BGP identifier is missing for peer %s, set it with `bgp router-id`",
+			  __func__, peer->host);
+		return connect_error;
+	}
 
 	if (peer->conf_if && BGP_CONNECTION_SU_UNSPEC(connection)) {
 		if (bgp_debug_neighbor_events(peer))
