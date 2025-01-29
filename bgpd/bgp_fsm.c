@@ -600,6 +600,11 @@ const char *const peer_down_str[] = {
 	"Socket Error",
 	"Admin. shutdown (RTT)",
 	"Suppress Fib Turned On or Off",
+<<<<<<< HEAD
+=======
+	"Password config change",
+	"Router ID is missing",
+>>>>>>> 739f2b566 (bgpd: Do not start BGP session if BGP identifier is not set)
 };
 
 static void bgp_graceful_restart_timer_off(struct peer_connection *connection,
