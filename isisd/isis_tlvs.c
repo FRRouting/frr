@@ -1282,6 +1282,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 			     adj; adj = adj->next) {
 				snprintfrr(cnt_buf, sizeof(cnt_buf), "%pI6",
 					   &adj->sid);
+<<<<<<< HEAD
 				flags_json = json_object_new_object();
 				json_object_string_addf(flags_json, "sid",
 							"%pI6", &adj->sid);
@@ -1309,6 +1310,35 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 						? "1"
 						: "0");
 				json_object_array_add(arr_adj_json, flags_json);
+=======
+				srv6_endx_sid_json = json_object_new_object();
+				json_object_string_addf(srv6_endx_sid_json,
+							"sid", "%pI6",
+							&adj->sid);
+				json_object_string_add(srv6_endx_sid_json,
+						       "algorithm",
+						       sr_algorithm_string(
+							       adj->algorithm));
+				json_object_int_add(srv6_endx_sid_json,
+						    "weight", adj->weight);
+				json_object_string_add(srv6_endx_sid_json, "behavior",
+						       srv6_endpoint_behavior_codepoint2str(
+							       adj->behavior));
+				json_object_boolean_add(
+					srv6_endx_sid_json, "flagB",
+					!!(adj->flags &
+					   EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG));
+				json_object_boolean_add(
+					srv6_endx_sid_json, "flagS",
+					!!(adj->flags &
+					   EXT_SUBTLV_LINK_SRV6_ENDX_SID_SFLG));
+				json_object_boolean_add(
+					srv6_endx_sid_json, "flagP",
+					!!(adj->flags &
+					   EXT_SUBTLV_LINK_SRV6_ENDX_SID_PFLG));
+				json_object_array_add(arr_adj_json,
+						      srv6_endx_sid_json);
+>>>>>>> 4150f9bbb (isisd: fix erroneous srv6 information in database)
 				if (adj->subsubtlvs)
 					isis_format_subsubtlvs(adj->subsubtlvs,
 							       NULL,
@@ -1358,22 +1388,17 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 			for (adj = (struct isis_srv6_endx_sid_subtlv *)
 					   exts->srv6_endx_sid.head;
 			     adj; adj = adj->next) {
-				sbuf_push(
-					buf, indent,
-					"SRv6 End.X SID: %pI6, Algorithm: %s, Weight: %hhu, Endpoint Behavior: %s, Flags: B:%c, S:%c, P:%c\n",
-					&adj->sid,
-					sr_algorithm_string(adj->algorithm),
-					adj->weight,
-					seg6local_action2str(adj->behavior),
-					adj->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG
-						? '1'
-						: '0',
-					adj->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_SFLG
-						? '1'
-						: '0',
-					adj->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_PFLG
-						? '1'
-						: '0');
+				sbuf_push(buf, indent,
+					  "SRv6 End.X SID: %pI6, Algorithm: %s, Weight: %hhu, Endpoint Behavior: %s, Flags: B:%c, S:%c, P:%c\n",
+					  &adj->sid, sr_algorithm_string(adj->algorithm),
+					  adj->weight,
+					  srv6_endpoint_behavior_codepoint2str(adj->behavior),
+					  adj->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG ? '1'
+											  : '0',
+					  adj->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_SFLG ? '1'
+											  : '0',
+					  adj->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_PFLG ? '1'
+											  : '0');
 				if (adj->subsubtlvs)
 					isis_format_subsubtlvs(adj->subsubtlvs,
 							       buf, NULL,
@@ -1454,10 +1479,17 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 				json_object_string_add(flags_json, "algorithm",
 						       sr_algorithm_string(
 							       lan->algorithm));
+<<<<<<< HEAD
 				json_object_int_add(flags_json, "weight",
 						    lan->weight);
 				json_object_string_add(flags_json, "behavior",
 						       seg6local_action2str(
+=======
+				json_object_int_add(srv6_lan_endx_sid_json,
+						    "weight", lan->weight);
+				json_object_string_add(srv6_lan_endx_sid_json, "behavior",
+						       srv6_endpoint_behavior_codepoint2str(
+>>>>>>> 4150f9bbb (isisd: fix erroneous srv6 information in database)
 							       lan->behavior));
 				json_object_boolean_add(
 					flags_json, "flagB",
@@ -1485,24 +1517,19 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 			for (lan = (struct isis_srv6_lan_endx_sid_subtlv *)
 					   exts->srv6_lan_endx_sid.head;
 			     lan; lan = lan->next) {
-				sbuf_push(
-					buf, indent,
-					"SRv6 Lan End.X SID: %pI6, Algorithm: %s, Weight: %hhu, Endpoint Behavior: %s, Flags: B:%c, S:%c, P:%c "
-					"Neighbor-ID: %pSY\n",
-					&lan->sid,
-					sr_algorithm_string(lan->algorithm),
-					lan->weight,
-					seg6local_action2str(lan->behavior),
-					lan->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG
-						? '1'
-						: '0',
-					lan->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_SFLG
-						? '1'
-						: '0',
-					lan->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_PFLG
-						? '1'
-						: '0',
-					lan->neighbor_id);
+				sbuf_push(buf, indent,
+					  "SRv6 Lan End.X SID: %pI6, Algorithm: %s, Weight: %hhu, Endpoint Behavior: %s, Flags: B:%c, S:%c, P:%c "
+					  "Neighbor-ID: %pSY\n",
+					  &lan->sid, sr_algorithm_string(lan->algorithm),
+					  lan->weight,
+					  srv6_endpoint_behavior_codepoint2str(lan->behavior),
+					  lan->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG ? '1'
+											  : '0',
+					  lan->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_SFLG ? '1'
+											  : '0',
+					  lan->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_PFLG ? '1'
+											  : '0',
+					  lan->neighbor_id);
 				if (lan->subsubtlvs)
 					isis_format_subsubtlvs(lan->subsubtlvs,
 							       buf, NULL,
@@ -3214,7 +3241,7 @@ static void format_item_srv6_end_sid(uint16_t mtid, struct isis_item *i,
 		sid_json = json_object_new_object();
 		json_object_object_add(json, "srv6EndSid", sid_json);
 		json_object_string_add(sid_json, "endpointBehavior",
-				       seg6local_action2str(sid->behavior));
+				       srv6_endpoint_behavior_codepoint2str(sid->behavior));
 		json_object_string_addf(sid_json, "sidValue", "%pI6", &sid->sid);
 		if (sid->subsubtlvs) {
 			struct json_object *subtlvs_json;
@@ -3227,7 +3254,7 @@ static void format_item_srv6_end_sid(uint16_t mtid, struct isis_item *i,
 	} else {
 		sbuf_push(buf, indent, "SRv6 End SID ");
 		sbuf_push(buf, 0, "Endpoint Behavior: %s, ",
-			  seg6local_action2str(sid->behavior));
+			  srv6_endpoint_behavior_codepoint2str(sid->behavior));
 		sbuf_push(buf, 0, "SID value: %pI6\n", &sid->sid);
 
 		if (sid->subsubtlvs) {
