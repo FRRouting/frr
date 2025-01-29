@@ -282,7 +282,9 @@ internal or external.
    interface and address information. In that case default router ID value is
    selected as the largest IP Address of the interfaces. When `router zebra` is
    not enabled *bgpd* can't get interface information so `router-id` is set to
-   0.0.0.0. So please set router-id by hand.
+   0.0.0.0, which is invalid and BGP session can't be established.
+
+   So please set router-id by manually.
 
 
 .. _bgp-multiple-autonomous-systems:
@@ -2938,7 +2940,7 @@ BGP Extended Communities in Route Map
 
 ``CO:COLOR``
    This is a format to define colors value. ``CO`` part is always 00 (default),
-   it can be used to support the requirements of Color-Only steering when using 
+   it can be used to support the requirements of Color-Only steering when using
    a Null Endpoint in the SR-TE Policy as specified in Section 8.8 of [RFC9256].
    The below shows in detail what the different combinations of ``CO`` bits can
    match on to for the purpose of determining what type of SR-TE Policy Tunnel
