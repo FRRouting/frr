@@ -27,12 +27,16 @@ pytestmark = [pytest.mark.bgpd]
 
 
 def build_topo(tgen):
-    for routern in range(1, 3):
+    for routern in range(1, 4):
         tgen.add_router("r{}".format(routern))
 
     switch = tgen.add_switch("s1")
     switch.add_link(tgen.gears["r1"])
     switch.add_link(tgen.gears["r2"])
+
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r3"])
 
 
 def setup_module(mod):
@@ -64,6 +68,7 @@ def test_bgp_ipv6_link_local_peering():
         pytest.skip(tgen.errors)
 
     r1 = tgen.gears["r1"]
+    r3 = tgen.gears["r3"]
 
     def _bgp_converge():
         output = json.loads(r1.vtysh_cmd("show bgp summary json"))
@@ -81,6 +86,28 @@ def test_bgp_ipv6_link_local_peering():
     test_func = functools.partial(_bgp_converge)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Failed to see BGP convergence on R2"
+
+    def _bgp_router_id_missing():
+        output = json.loads(r3.vtysh_cmd("show bgp summary failed json"))
+        expected = {
+            "ipv4Unicast": {
+                "routerId": "0.0.0.0",
+                "as": 65003,
+                "peers": {
+                    "fe80:1::1": {
+                        "connectionsEstablished": 0,
+                        "connectionsDropped": 0,
+                        "peerUptime": "never",
+                        "lastResetDueTo": "Router ID is missing",
+                    }
+                },
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_bgp_router_id_missing)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "r3 should stay down due to missing router ID"
 
 
 if __name__ == "__main__":
