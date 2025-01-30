@@ -535,6 +535,13 @@ Reject routes with AS_SET or AS_CONFED_SET types
 
    This command enables rejection of incoming and outgoing routes having AS_SET or AS_CONFED_SET type.
 
+   The aggregated routes are not sent to the contributing neighbors.
+
+.. seealso::
+   https://datatracker.ietf.org/doc/html/draft-ietf-idr-deprecate-as-set-confed-set
+
+   Default: disabled.
+
 Enforce first AS
 ----------------
 
@@ -2938,7 +2945,7 @@ BGP Extended Communities in Route Map
 
 ``CO:COLOR``
    This is a format to define colors value. ``CO`` part is always 00 (default),
-   it can be used to support the requirements of Color-Only steering when using 
+   it can be used to support the requirements of Color-Only steering when using
    a Null Endpoint in the SR-TE Policy as specified in Section 8.8 of [RFC9256].
    The below shows in detail what the different combinations of ``CO`` bits can
    match on to for the purpose of determining what type of SR-TE Policy Tunnel
