@@ -894,9 +894,12 @@ static enum nb_error nb_op_iter_leaf(struct nb_op_yield_state *ys,
 		return nb_op_libyang_cb_get(ys, nb_node, ni->inner, xpath);
 
 	/* Check for new simple get */
-	if (nb_node->cbs.get)
+	if (nb_node->cbs.get) {
 		/* XXX: need to run through translator */
+		DEBUGD(&nb_dbg_cbs_state, "northbound callback (get): xpath [%s] list_entry [%p]",
+		       xpath, ni->list_entry);
 		return nb_node->cbs.get(nb_node, ni->list_entry, ni->inner);
+	}
 
 	data = nb_callback_get_elem(nb_node, xpath, ni->list_entry);
 	if (data == NULL)
@@ -932,9 +935,12 @@ static enum nb_error nb_op_iter_leaflist(struct nb_op_yield_state *ys,
 		return NB_OK;
 
 	/* Check for new simple get */
-	if (nb_node->cbs.get)
+	if (nb_node->cbs.get) {
 		/* XXX: need to run through translator */
+		DEBUGD(&nb_dbg_cbs_state, "northbound callback (get): xpath [%s] list_entry [%p]",
+		       xpath, ni->list_entry);
 		return nb_node->cbs.get(nb_node, ni->list_entry, ni->inner);
+	}
 
 	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_HAS_GET_TREE))
 		/* XXX: need to run through translator */
