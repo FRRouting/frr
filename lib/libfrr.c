@@ -1192,9 +1192,10 @@ void frr_detach(void)
 	frr_check_detach();
 }
 
-void frr_run(struct event_loop *master)
+void frr_run(struct event_loop *loop)
 {
 	char instanceinfo[64] = "";
+	struct event thread;
 
 	if (!(di->flags & FRR_MANUAL_VTY_START))
 		frr_vty_serv_start(false);
@@ -1212,7 +1213,7 @@ void frr_run(struct event_loop *master)
 		vty_stdio(frr_terminal_close);
 		if (daemon_ctl_sock != -1) {
 			set_nonblocking(daemon_ctl_sock);
-			event_add_read(master, frr_daemon_ctl, NULL,
+			event_add_read(loop, frr_daemon_ctl, NULL,
 				       daemon_ctl_sock, &daemon_ctl_thread);
 		}
 	} else if (di->daemon_mode) {
@@ -1242,8 +1243,7 @@ void frr_run(struct event_loop *master)
 	/* end fixed stderr startup logging */
 	zlog_startup_end();
 
-	struct event thread;
-	while (event_fetch(master, &thread))
+	while (event_fetch(loop, &thread))
 		event_call(&thread);
 }
 
