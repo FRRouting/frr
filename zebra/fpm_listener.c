@@ -756,8 +756,10 @@ static void fpm_serve(void)
 	while (1) {
 
 		hdr = read_fpm_msg(buf, sizeof(buf));
-		if (!hdr)
+		if (!hdr) {
+			close(glob->sock);
 			return;
+		}
 
 		process_fpm_msg(hdr);
 	}
