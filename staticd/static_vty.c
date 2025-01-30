@@ -1696,8 +1696,20 @@ static void srv6_sid_cli_show(struct vty *vty, const struct lyd_node *sid, bool 
 	case SRV6_ENDPOINT_BEHAVIOR_END:
 		vty_out(vty, " behavior End");
 		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_PSP:
+		vty_out(vty, " behavior End PSP");
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_PSP_USD:
+		vty_out(vty, " behavior End PSP/USD");
+		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_X:
 		vty_out(vty, " behavior End.X");
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_PSP:
+		vty_out(vty, " behavior End.X PSP");
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_PSP_USD:
+		vty_out(vty, " behavior End.X PSP/USD");
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_DT6:
 		vty_out(vty, " behavior End.DT6");
@@ -1711,8 +1723,20 @@ static void srv6_sid_cli_show(struct vty *vty, const struct lyd_node *sid, bool 
 	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID:
 		vty_out(vty, " behavior uN");
 		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP:
+		vty_out(vty, " behavior uN PSP");
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP_USD:
+		vty_out(vty, " behavior uN PSP/USD");
+		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID:
 		vty_out(vty, " behavior uA");
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID_PSP:
+		vty_out(vty, " behavior uA PSP");
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID_PSP_USD:
+		vty_out(vty, " behavior uA PSP/USD");
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID:
 		vty_out(vty, " behavior uDT6");
