@@ -726,7 +726,7 @@ int main(int argc, char **argv, char **env)
 
 	vtysh_readline_init();
 
-	vty_hello(vty);
+	vty_hello(gvty);
 
 	/* Enter into enable node. */
 	if (!user_mode)
