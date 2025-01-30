@@ -152,7 +152,7 @@ void suid_off(void);
 /* Child process execution flag. */
 extern int execute_flag;
 
-extern struct vty *vty;
+extern struct vty *gvty;
 
 extern int user_mode;
 
