@@ -587,7 +587,6 @@ static void fpm_read(struct event *t)
 	struct zebra_dplane_ctx *ctx;
 	size_t available_bytes;
 	size_t hdr_available_bytes;
-	int ival;
 
 	/* Let's ignore the input at the moment. */
 	rv = stream_read_try(fnc->ibuf, fnc->socket,
@@ -724,12 +723,18 @@ static void fpm_read(struct event *t)
 					      NULL);
 
 			if (netlink_route_notify_read_ctx(hdr, 0, ctx) >= 0) {
-				/* In the FPM encoding, the vrfid is present */
-				ival = dplane_ctx_get_table(ctx);
-				dplane_ctx_set_vrf(ctx, ival);
-				dplane_ctx_set_table(ctx,
-						     ZEBRA_ROUTE_TABLE_UNKNOWN);
-
+				/*
+				 * Receiving back a netlink message from
+				 * the fpm.  Currently the netlink messages
+				 * do not have a way to specify the vrf
+				 * so it must be unknown.  I'm looking
+				 * at you sonic.  If you are reading this
+				 * and wondering why it's not working
+				 * you must extend your patch to translate
+				 * the tableid to the vrfid and set the
+				 * tableid to 0 in order for this to work.
+				 */
+				dplane_ctx_set_vrf(ctx, VRF_UNKNOWN);
 				dplane_provider_enqueue_to_zebra(ctx);
 			} else {
 				/*
