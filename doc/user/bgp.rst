@@ -537,6 +537,13 @@ Reject routes with AS_SET or AS_CONFED_SET types
 
    This command enables rejection of incoming and outgoing routes having AS_SET or AS_CONFED_SET type.
 
+   The aggregated routes are not sent to the contributing neighbors.
+
+.. seealso::
+   https://datatracker.ietf.org/doc/html/draft-ietf-idr-deprecate-as-set-confed-set
+
+   Default: disabled.
+
 Enforce first AS
 ----------------
 
