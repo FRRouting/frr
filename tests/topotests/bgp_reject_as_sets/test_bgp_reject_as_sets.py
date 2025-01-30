@@ -38,7 +38,7 @@ pytestmark = [pytest.mark.bgpd]
 
 
 def build_topo(tgen):
-    for routern in range(1, 4):
+    for routern in range(1, 5):
         tgen.add_router("r{}".format(routern))
 
     switch = tgen.add_switch("s1")
@@ -48,6 +48,10 @@ def build_topo(tgen):
     switch = tgen.add_switch("s2")
     switch.add_link(tgen.gears["r2"])
     switch.add_link(tgen.gears["r3"])
+
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r4"])
 
 
 def setup_module(mod):
@@ -78,10 +82,12 @@ def test_bgp_reject_as_sets():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    router = tgen.gears["r2"]
+    r2 = tgen.gears["r2"]
+    r3 = tgen.gears["r3"]
+    r4 = tgen.gears["r4"]
 
-    def _bgp_converge(router):
-        output = json.loads(router.vtysh_cmd("show ip bgp neighbor 192.168.255.2 json"))
+    def _bgp_converge():
+        output = json.loads(r2.vtysh_cmd("show ip bgp neighbor 192.168.255.2 json"))
         expected = {
             "192.168.255.2": {
                 "bgpState": "Established",
@@ -90,47 +96,88 @@ def test_bgp_reject_as_sets():
         }
         return topotest.json_cmp(output, expected)
 
-    def _bgp_has_aggregated_route_with_stripped_as_set(router):
-        output = json.loads(router.vtysh_cmd("show ip bgp 172.16.0.0/16 json"))
+    test_func = functools.partial(_bgp_converge)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed bgp convergence at r2"
+
+    def _bgp_has_aggregated_route():
+        output = json.loads(r2.vtysh_cmd("show ip bgp 172.16.0.0/16 json"))
         expected = {
-            "paths": [{"aspath": {"string": "Local", "segments": [], "length": 0}}]
+            "paths": [
+                {
+                    "aspath": {
+                        "string": "{65001,65003}",
+                        "segments": [{"type": "as-set", "list": [65001, 65003]}],
+                        "length": 1,
+                    },
+                    "aggregatorAs": 65002,
+                    "aggregatorId": "192.168.255.1",
+                }
+            ]
         }
         return topotest.json_cmp(output, expected)
 
-    def _bgp_announce_route_without_as_sets(router):
-        output = json.loads(
-            router.vtysh_cmd(
-                "show ip bgp neighbor 192.168.254.2 advertised-routes json"
-            )
-        )
+    test_func = functools.partial(_bgp_has_aggregated_route)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to see an aggregated route at r2"
+
+    def _bgp_announce_route_without_as_sets():
+        output = json.loads(r4.vtysh_cmd("show ip bgp 172.16.0.0/16 json"))
         expected = {
-            "advertisedRoutes": {
-                "172.16.0.0/16": {"path": ""},
-                "192.168.254.0/30": {"path": "65003"},
-                "192.168.255.0/30": {"path": "65001"},
+            "paths": [
+                {
+                    "aspath": {
+                        "string": "65002",
+                        "segments": [{"type": "as-sequence", "list": [65002]}],
+                        "length": 1,
+                    },
+                    "aggregatorAs": 65002,
+                    "aggregatorId": "192.168.255.1",
+                }
+            ]
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_bgp_announce_route_without_as_sets)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Route 172.16.0.0/16 should be sent without AS_SET to r4"
+
+    def _bgp_filter_aggregated_route_to_contributing_as():
+        output = json.loads(r3.vtysh_cmd("show ip bgp json"))
+        expected = {
+            "routes": {
+                "172.16.254.254/32": [
+                    {
+                        "valid": True,
+                        "bestpath": True,
+                    }
+                ],
+                "192.168.254.0/30": [
+                    {
+                        "valid": True,
+                        "bestpath": True,
+                    },
+                    {
+                        "valid": True,
+                    },
+                ],
+                "192.168.255.0/30": [
+                    {
+                        "valid": True,
+                        "bestpath": True,
+                    }
+                ],
             },
-            "totalPrefixCounter": 3,
+            "totalRoutes": 3,
+            "totalPaths": 4,
         }
         return topotest.json_cmp(output, expected)
 
-    test_func = functools.partial(_bgp_converge, router)
+    test_func = functools.partial(_bgp_filter_aggregated_route_to_contributing_as)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
-
-    assert result is None, 'Failed bgp convergence in "{}"'.format(router)
-
-    test_func = functools.partial(
-        _bgp_has_aggregated_route_with_stripped_as_set, router
-    )
-    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
-
-    assert result is None, 'Failed to see an aggregated route in "{}"'.format(router)
-
-    test_func = functools.partial(_bgp_announce_route_without_as_sets, router)
-    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
-
     assert (
         result is None
-    ), 'Route 172.16.0.0/16 should be sent without AS_SET to r3 "{}"'.format(router)
+    ), "Route 172.16.0.0/16 should NOT be sent to contributing AS (r3)"
 
 
 if __name__ == "__main__":
