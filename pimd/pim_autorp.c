@@ -113,6 +113,12 @@ static void pim_autorp_free(struct pim_autorp *autorp)
 		XFREE(MTYPE_PIM_AUTORP_ANNOUNCE, autorp->announce_pkt);
 }
 
+static bool pim_autorp_should_close(struct pim_autorp *autorp)
+{
+	/* If discovery or mapping agent is active, then we need the socket open */
+	return !autorp->do_discovery && !autorp->send_rp_discovery;
+}
+
 static bool pim_autorp_join_groups(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
@@ -670,9 +676,18 @@ static void autorp_send_discovery(struct event *evt)
 			&(autorp->send_discovery_timer));
 }
 
+static bool pim_autorp_socket_enable(struct pim_autorp *autorp);
+static bool pim_autorp_socket_disable(struct pim_autorp *autorp);
+
 static void autorp_send_discovery_on(struct pim_autorp *autorp)
 {
 	int interval = 5;
+
+	/* Make sure the socket is open and ready */
+	if (!pim_autorp_socket_enable(autorp)) {
+		zlog_err("%s: AutoRP failed to open socket", __func__);
+		return;
+	}
 
 	/* Send the first discovery shortly after being enabled.
 	 * If the configured interval is less than 5 seconds, then just use that.
@@ -695,6 +710,10 @@ static void autorp_send_discovery_off(struct pim_autorp *autorp)
 		if (PIM_DEBUG_AUTORP)
 			zlog_debug("%s: AutoRP discovery sending disabled", __func__);
 	event_cancel(&(autorp->send_discovery_timer));
+
+	/* Close the socket if we need to */
+	if (pim_autorp_should_close(autorp) && !pim_autorp_socket_disable(autorp))
+		zlog_warn("%s: AutoRP failed to close socket", __func__);
 }
 
 static bool autorp_recv_discovery(struct pim_autorp *autorp, uint8_t rpcnt, uint16_t holdtime,
@@ -949,6 +968,10 @@ static bool pim_autorp_socket_enable(struct pim_autorp *autorp)
 {
 	int fd;
 
+	/* Return early if socket is already enabled */
+	if (autorp->sock != -1)
+		return true;
+
 	frr_with_privs (&pimd_privs) {
 		fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
 		if (fd < 0) {
@@ -975,6 +998,10 @@ static bool pim_autorp_socket_enable(struct pim_autorp *autorp)
 
 static bool pim_autorp_socket_disable(struct pim_autorp *autorp)
 {
+	/* Return early if socket is already disabled */
+	if (autorp->sock == -1)
+		return true;
+
 	if (close(autorp->sock)) {
 		zlog_warn("Failure closing autorp socket: fd=%d errno=%d: %s", autorp->sock, errno,
 			  safe_strerror(errno));
@@ -1453,6 +1480,12 @@ void pim_autorp_start_discovery(struct pim_instance *pim)
 	struct interface *ifp;
 	struct pim_autorp *autorp = pim->autorp;
 
+	/* Make sure the socket is open and ready */
+	if (!pim_autorp_socket_enable(autorp)) {
+		zlog_err("%s: AutoRP failed to open socket", __func__);
+		return;
+	}
+
 	if (!autorp->do_discovery) {
 		autorp->do_discovery = true;
 		autorp_read_on(autorp);
@@ -1482,6 +1515,10 @@ void pim_autorp_stop_discovery(struct pim_instance *pim)
 		if (PIM_DEBUG_AUTORP)
 			zlog_debug("%s: AutoRP Discovery stopped", __func__);
 	}
+
+	/* Close the socket if we need to */
+	if (pim_autorp_should_close(autorp) && !pim_autorp_socket_disable(autorp))
+		zlog_warn("%s: AutoRP failed to close socket", __func__);
 }
 
 void pim_autorp_init(struct pim_instance *pim)
@@ -1509,12 +1546,6 @@ void pim_autorp_init(struct pim_instance *pim)
 	cand_addrsel_clear(&(autorp->mapping_agent_addrsel));
 
 	pim->autorp = autorp;
-
-	if (!pim_autorp_socket_enable(autorp)) {
-		zlog_warn("%s: AutoRP failed to initialize, feature will not work correctly",
-			  __func__);
-		return;
-	}
 
 	if (PIM_DEBUG_AUTORP)
 		zlog_debug("%s: AutoRP Initialized", __func__);
