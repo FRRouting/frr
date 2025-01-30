@@ -556,23 +556,23 @@ reswitch:	switch (ch) {
 		case 'G':
 			if (flags & LONGDBL) {
 				long double arg = GETARG(long double);
-				char fmt[6] = "%.*L";
-				fmt[4] = ch;
-				fmt[5] = '\0';
+				char lfmt[6] = "%.*L";
+				lfmt[4] = ch;
+				lfmt[5] = '\0';
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"
-				snprintf(buf, sizeof(buf), fmt, prec, arg);
+				snprintf(buf, sizeof(buf), lfmt, prec, arg);
 #pragma GCC diagnostic pop
 			} else {
 				double arg = GETARG(double);
-				char fmt[5] = "%.*";
-				fmt[3] = ch;
-				fmt[4] = '\0';
+				char lfmt[5] = "%.*";
+				lfmt[3] = ch;
+				lfmt[4] = '\0';
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"
-				snprintf(buf, sizeof(buf), fmt, prec, arg);
+				snprintf(buf, sizeof(buf), lfmt, prec, arg);
 #pragma GCC diagnostic pop
 			}
 			cp = buf;

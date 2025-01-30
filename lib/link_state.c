@@ -2555,9 +2555,9 @@ static void ls_show_edge_json(struct ls_edge *edge, struct json_object *json)
 	if (CHECK_FLAG(attr->flags, LS_ATTR_UNRSV_BW)) {
 		jbw = json_object_new_array();
 		json_object_object_add(jte, "unreserved-bandwidth", jbw);
-		for (int i = 0; i < MAX_CLASS_TYPE; i++) {
+		for (i = 0; i < MAX_CLASS_TYPE; i++) {
 			jobj = json_object_new_object();
-			snprintfrr(buf, 13, "class-type-%u", i);
+			snprintfrr(buf, 13, "class-type-%u", (unsigned int)i);
 			json_object_double_add(jobj, buf,
 					       attr->standard.unrsv_bw[i]);
 			json_object_array_add(jbw, jobj);
@@ -2599,7 +2599,7 @@ static void ls_show_edge_json(struct ls_edge *edge, struct json_object *json)
 	if (CHECK_FLAG(attr->flags, LS_ATTR_SRLG)) {
 		jsrlg = json_object_new_array();
 		json_object_object_add(jte, "srlgs", jsrlg);
-		for (int i = 1; i < attr->srlg_len; i++) {
+		for (i = 1; i < attr->srlg_len; i++) {
 			jobj = json_object_new_object();
 			json_object_int_add(jobj, "srlg", attr->srlgs[i]);
 			json_object_array_add(jsrlg, jobj);
