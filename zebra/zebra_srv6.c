@@ -1547,9 +1547,26 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid,
 	}
 
 	if (ctx->behavior == ZEBRA_SEG6_LOCAL_ACTION_END) {
-		zlog_err("%s: invalid SM request arguments: explicit SID allocation not allowed for End/uN behavior",
-			 __func__);
-		return -1;
+		zctx = zebra_srv6_sid_ctx_alloc();
+		zctx->ctx = *ctx;
+
+		*sid = zebra_srv6_sid_alloc(zctx, sid_value, locator, block, sid_func,
+					    SRV6_SID_ALLOC_MODE_EXPLICIT);
+		if (!(*sid)) {
+			flog_err(EC_ZEBRA_SM_CANNOT_ASSIGN_SID,
+				 "%s: failed to create SRv6 SID %s (%pI6)", __func__,
+				 srv6_sid_ctx2str(buf, sizeof(buf), ctx), sid_value);
+			return -1;
+		}
+		(*sid)->ctx = zctx;
+		zctx->sid = *sid;
+		listnode_add(srv6->sids, zctx);
+
+		if (IS_ZEBRA_DEBUG_SRV6)
+			zlog_debug("%s: allocated explicit SRv6 SID %pI6 for context %s", __func__,
+				   &(*sid)->value, srv6_sid_ctx2str(buf, sizeof(buf), ctx));
+
+		return 1;
 	}
 
 	/* Allocate an explicit SID function for the SID */
