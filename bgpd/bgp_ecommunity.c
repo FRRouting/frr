@@ -2107,3 +2107,22 @@ bool soo_in_ecom(struct ecommunity *ecom, struct ecommunity *soo)
 	}
 	return false;
 }
+
+/*
+ * Return data from ecom at index 'idx', or NULL
+ */
+const uint8_t *ecommunity_idx(const struct ecommunity *ecom, uint32_t idx)
+{
+	const uint8_t *ptr = NULL;
+
+	if (ecom == NULL || ecom->size == 0 || ecom->val == NULL)
+		goto done;
+
+	if (idx >= ecom->size)
+		goto done;
+
+	ptr = ecom->val + (ecom->unit_size * idx);
+
+done:
+	return ptr;
+}

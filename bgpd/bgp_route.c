@@ -7735,6 +7735,89 @@ static int bgp_table_map_unset(struct vty *vty, afi_t afi, safi_t safi,
 	return CMD_SUCCESS;
 }
 
+/*
+ * Helper to form RTC prefix from RT data
+ */
+static void rtc_prefix_from_rt(struct prefix *p, uint32_t as_num,
+			       const uint8_t *rtval)
+{
+	memset(p, 0, sizeof(*p));
+	p->family = AF_RTC;
+	p->prefixlen = 96;
+	p->u.prefix_rtc.origin_as = as_num;
+	memcpy(p->u.prefix_rtc.route_target, rtval, 8);
+}
+
+/*
+ * RT import change, may trigger RTC SAFI changes. May be "remove imports",
+ * or "add/change imports"
+ */
+int bgp_rtc_import_update(struct bgp *bgp, const struct ecommunity *oldcomm,
+			  const struct ecommunity *newcomm, bool update)
+{
+	int ret = 0;
+	uint32_t newidx, oldidx;
+	const uint8_t *ptr;
+	struct prefix p;
+	struct bgp_static *bgp_static;
+
+	/* Check for peer with active config in the RTC SAFI */
+	if (!bgp_afi_safi_peer_exists(bgp, AFI_IP, SAFI_RTC))
+		goto done;
+
+	if (bgp_debug_update(NULL, NULL, NULL, 1))
+		zlog_debug("%s: oldcomm %p, newcomm %p, %s", __func__, oldcomm,
+			   newcomm, update ? "update" : "del");
+
+	if (update) {
+		/* Add/update new RTC prefixes */
+		newidx = 0;
+		ptr = ecommunity_idx(newcomm, newidx);
+		while (ptr != NULL) {
+			/* Create prefix */
+			rtc_prefix_from_rt(&p, bgp->as, ptr);
+
+			/* Set up static route context */
+			bgp_static = bgp_static_new();
+			bgp_static->backdoor = 0;
+			bgp_static->valid = 0;
+			bgp_static->igpmetric = 0;
+			bgp_static->igpnexthop.s_addr = INADDR_ANY;
+			bgp_static->label = MPLS_INVALID_LABEL;
+			bgp_static->label_index = BGP_INVALID_LABEL_INDEX;
+
+			bgp_static_update(bgp, &p, bgp_static, AFI_IP,
+					  SAFI_RTC);
+
+			newidx++;
+			ptr = ecommunity_idx(newcomm, newidx);
+		}
+
+		if (oldcomm) {
+			/* TODO --
+			 * Need to figure out what has changed in the RT list
+			 * and remove prefixes to match.
+			 */
+		}
+	} else {
+		/* Delete: determine which RTs are being deleted. */
+		oldidx = 0;
+		ptr = ecommunity_idx(oldcomm, oldidx);
+		while (ptr != NULL) {
+			/* Create prefix */
+			rtc_prefix_from_rt(&p, bgp->as, ptr);
+
+			bgp_static_withdraw(bgp, &p, AFI_IP, SAFI_RTC, NULL);
+
+			oldidx++;
+			ptr = ecommunity_idx(oldcomm, oldidx);
+		}
+	}
+
+done:
+	return ret;
+}
+
 void bgp_config_write_table_map(struct vty *vty, struct bgp *bgp, afi_t afi,
 				safi_t safi)
 {
@@ -12586,6 +12669,10 @@ static int bgp_show(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 
 	if (safi == SAFI_EVPN)
 		return bgp_evpn_show_all_routes(vty, bgp, type, use_json, 0);
+
+	if (afi == AFI_IP && safi == SAFI_RTC)
+		return bgp_show_table_rtc(vty, bgp, safi, table, type,
+					  output_arg, show_flags);
 
 	return bgp_show_table(vty, bgp, afi, safi, table, type, output_arg, NULL, 1,
 			      NULL, NULL, &json_header_depth, show_flags,

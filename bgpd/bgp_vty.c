@@ -10373,6 +10373,16 @@ DEFPY (af_rt_vpn_imexport,
 
 		vpn_leak_prechange(dir, afi, bgp_get_default(), bgp);
 
+		if (dir == BGP_VPN_POLICY_DIR_FROMVPN) {
+			/* Check for the RTC feature, affected by changes to
+			 * imports: we provide the existing comm list, and
+			 * the new one - either may be NULL.
+			 */
+			bgp_rtc_import_update(bgp,
+					      bgp->vpn_policy[afi].rtlist[dir],
+					      ecom, yes);
+		}
+
 		if (yes) {
 			if (bgp->vpn_policy[afi].rtlist[dir])
 				ecommunity_free(

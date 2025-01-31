@@ -452,4 +452,8 @@ extern struct ecommunity *ecommunity_add_node_target(struct in_addr *node_id,
 						     bool non_trans);
 extern bool ecommunity_node_target_match(struct ecommunity *ecomm,
 					 struct in_addr *local_id);
+
+/* Return data from ecom at index 'idx', or NULL */
+const uint8_t *ecommunity_idx(const struct ecommunity *ecom, uint32_t idx);
+
 #endif /* _QUAGGA_BGP_ECOMMUNITY_H */
