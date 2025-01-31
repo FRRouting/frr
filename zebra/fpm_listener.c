@@ -771,6 +771,8 @@ int main(int argc, char **argv)
 	int r;
 	bool fork_daemon = false;
 
+	setbuf(stdout, NULL);
+
 	memset(glob, 0, sizeof(*glob));
 
 	while ((r = getopt(argc, argv, "rdv")) != -1) {
