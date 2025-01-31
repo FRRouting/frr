@@ -112,7 +112,7 @@ def setup_module(mod):
             TopoRouter.RD_ISIS, os.path.join(CWD, "{}/isisd.conf".format(rname))
         )
 
-        if "pe" in rname:
+        if rname in ("pe1", "pe2", "p3"):
             router.load_config(
                 TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
             )
