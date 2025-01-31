@@ -3885,6 +3885,12 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 					 BGP_PATH_ATTR_CHANGED);
 		UNSET_FLAG(new_select->flags, BGP_PATH_MULTIPATH_CHG);
 		UNSET_FLAG(new_select->flags, BGP_PATH_LINK_BW_CHG);
+	} else {
+		/*
+		 * Ensure that on uninstall that the INSTALL_PENDING
+		 * is no longer set
+		 */
+		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);
 	}
 
 	/* call bmp hook for loc-rib route update / withdraw after flags were
