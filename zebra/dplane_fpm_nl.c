@@ -951,8 +951,6 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 
 	nl_buf_len = 0;
 
-	frr_mutex_lock_autounlock(&fnc->obuf_mutex);
-
 	/*
 	 * If route replace is enabled then directly encode the install which
 	 * is going to use `NLM_F_REPLACE` (instead of delete/add operations).
@@ -1104,6 +1102,8 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 
 	/* We must know if someday a message goes beyond 65KiB. */
 	assert((nl_buf_len + FPM_HEADER_SIZE) <= UINT16_MAX);
+
+	frr_mutex_lock_autounlock(&fnc->obuf_mutex);
 
 	/* Check if we have enough buffer space. */
 	if (STREAM_WRITEABLE(fnc->obuf) < (nl_buf_len + FPM_HEADER_SIZE)) {
