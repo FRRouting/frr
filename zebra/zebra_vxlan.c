@@ -1604,7 +1604,7 @@ static void svd_nh_del_terminate(void *ptr)
 	struct zebra_neigh *n = ptr;
 
 	n->refcnt = 0;
-	svd_nh_del(n);
+	XFREE(MTYPE_L3NEIGH, n);
 }
 
 
