@@ -567,11 +567,8 @@ enum bgp_path_type {
 	BGP_PATH_SHOW_MULTIPATH
 };
 
-/* meta-queue structure:
- * sub-queue 0: soo routes
- * sub-queue 1: other routes
- */
-#define MQ_SIZE 3
+/* meta-queue structure size */
+#define MQ_SIZE 4
 
 /* For checking that an object has already queued in some sub-queue */
 #define MQ_BIT_MASK ((1 << MQ_SIZE) - 1)
@@ -598,6 +595,7 @@ struct bgp_eoiu_info {
  * Meta Q's specific names
  */
 enum meta_queue_indexes {
+	META_QUEUE_RTC_ROUTE,
 	META_QUEUE_EARLY_ROUTE,
 	META_QUEUE_OTHER_ROUTE,
 	META_QUEUE_EOIU_MARKER,
@@ -996,5 +994,6 @@ extern int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 extern void bgp_meta_queue_free(struct meta_queue *mq);
 extern int early_route_process(struct bgp *bgp, struct bgp_dest *dest);
 extern int other_route_process(struct bgp *bgp, struct bgp_dest *dest);
+extern int rtc_route_process(struct bgp *bgp, struct bgp_dest *dest);
 extern int eoiu_marker_process(struct bgp *bgp, struct bgp_dest *dest);
 #endif /* _QUAGGA_BGP_ROUTE_H */
