@@ -4137,6 +4137,8 @@ static const char *subqueue2str(enum meta_queue_indexes index)
 		return "Early Route";
 	case META_QUEUE_OTHER_ROUTE:
 		return "Other Route";
+	case META_QUEUE_RTC_ROUTE:
+		return "RTC Route";
 	case META_QUEUE_EOIU_MARKER:
 		return "EOIU Marker";
 	}
@@ -4171,6 +4173,23 @@ static void process_subq_other_route(struct bgp_dest *dest)
 	if (bgp_debug_bestpath(dest))
 		zlog_debug("%s dequeued from sub-queue %s", bgp_dest_get_prefix_str(dest),
 			   subqueue2str(META_QUEUE_OTHER_ROUTE));
+
+	/* note, new DESTs may be added as part of processing */
+	bgp_process_main_one(table->bgp, dest, table->afi, table->safi);
+	bgp_dest_unlock_node(dest);
+	bgp_table_unlock(table);
+}
+
+/*
+ * Process a node from the other subqueue.
+ */
+static void process_subq_rtc_route(struct bgp_dest *dest)
+{
+	struct bgp_table *table = bgp_dest_table(dest);
+
+	if (bgp_debug_bestpath(dest))
+		zlog_debug("%s dequeued from sub-queue %s", bgp_dest_get_prefix_str(dest),
+			   subqueue2str(META_QUEUE_RTC_ROUTE));
 
 	/* note, new DESTs may be added as part of processing */
 	bgp_process_main_one(table->bgp, dest, table->afi, table->safi);
@@ -4221,6 +4240,9 @@ static unsigned int process_subq(struct bgp_dest_queue *subq, enum meta_queue_in
 	case META_QUEUE_OTHER_ROUTE:
 		process_subq_other_route(dest);
 		break;
+	case META_QUEUE_RTC_ROUTE:
+		process_subq_rtc_route(dest);
+		break;
 	case META_QUEUE_EOIU_MARKER:
 		process_eoiu_marker(dest);
 	}
@@ -4263,6 +4285,21 @@ static int early_route_meta_queue_add(struct meta_queue *mq, void *data)
 static int other_route_meta_queue_add(struct meta_queue *mq, void *data)
 {
 	uint8_t qindex = META_QUEUE_OTHER_ROUTE;
+	struct bgp_dest *dest = data;
+
+	if (bgp_debug_bestpath(dest))
+		zlog_debug("%s queued into sub-queue %s", bgp_dest_get_prefix_str(dest),
+			   subqueue2str(qindex));
+
+	assert(STAILQ_NEXT(dest, pq) == NULL);
+	STAILQ_INSERT_TAIL(mq->subq[qindex], dest, pq);
+	mq->size++;
+	return 0;
+}
+
+static int rtc_route_meta_queue_add(struct meta_queue *mq, void *data)
+{
+	uint8_t qindex = META_QUEUE_RTC_ROUTE;
 	struct bgp_dest *dest = data;
 
 	if (bgp_debug_bestpath(dest))
@@ -4323,6 +4360,16 @@ int other_route_process(struct bgp *bgp, struct bgp_dest *dest)
 	return mq_add_handler(bgp, dest, other_route_meta_queue_add);
 }
 
+int rtc_route_process(struct bgp *bgp, struct bgp_dest *dest)
+{
+	if (!dest) {
+		zlog_err("%s: rtc route dest is NULL!", __func__);
+		return -1;
+	}
+
+	return mq_add_handler(bgp, dest, rtc_route_meta_queue_add);
+}
+
 int eoiu_marker_process(struct bgp *bgp, struct bgp_dest *dest)
 {
 	if (!dest) {
@@ -4378,6 +4425,19 @@ static void other_meta_queue_free(struct meta_queue *mq, struct bgp_dest_queue *
 	}
 }
 
+/* Clean up the other meta-queue list */
+static void rtc_meta_queue_free(struct meta_queue *mq, struct bgp_dest_queue *l)
+{
+	struct bgp_dest *dest;
+
+	while (!STAILQ_EMPTY(l)) {
+		dest = STAILQ_FIRST(l);
+		STAILQ_REMOVE_HEAD(l, pq);
+		STAILQ_NEXT(dest, pq) = NULL; /* complete unlink */
+		mq->size--;
+	}
+}
+
 /* Clean up the eoiu marker meta-queue list */
 static void eoiu_marker_queue_free(struct meta_queue *mq, struct bgp_dest_queue *l)
 {
@@ -4404,6 +4464,9 @@ void bgp_meta_queue_free(struct meta_queue *mq)
 			break;
 		case META_QUEUE_OTHER_ROUTE:
 			other_meta_queue_free(mq, mq->subq[i]);
+			break;
+		case META_QUEUE_RTC_ROUTE:
+			rtc_meta_queue_free(mq, mq->subq[i]);
 			break;
 		case META_QUEUE_EOIU_MARKER:
 			eoiu_marker_queue_free(mq, mq->subq[i]);
@@ -4434,9 +4497,8 @@ void bgp_process_queue_init(struct bgp *bgp)
 	bgp->mq = meta_queue_new();
 }
 
-static void bgp_process_internal(struct bgp *bgp, struct bgp_dest *dest,
-				 struct bgp_path_info *pi, afi_t afi,
-				 safi_t safi, bool early_process)
+static void bgp_process_internal(struct bgp *bgp, struct bgp_dest *dest, struct bgp_path_info *pi,
+				 afi_t afi, safi_t safi, enum meta_queue_indexes qindex)
 {
 	/*
 	 * Indicate that *this* pi is in an unsorted
@@ -4493,24 +4555,33 @@ static void bgp_process_internal(struct bgp *bgp, struct bgp_dest *dest,
 	SET_FLAG(dest->flags, BGP_NODE_PROCESS_SCHEDULED);
 	bgp_dest_lock_node(dest);
 
-	if (early_process)
+	switch (qindex) {
+	case META_QUEUE_EARLY_ROUTE:
 		early_route_process(bgp, dest);
-	else
+		break;
+	case META_QUEUE_OTHER_ROUTE:
 		other_route_process(bgp, dest);
-
-	return;
+		break;
+	case META_QUEUE_RTC_ROUTE:
+		rtc_route_process(bgp, dest);
+		break;
+	case META_QUEUE_EOIU_MARKER:
+	case META_QUEUE_RTC_EOR_MARKER:
+		assert(!"Marker queues are not for real BGP dest");
+	}
 }
 
 void bgp_process(struct bgp *bgp, struct bgp_dest *dest,
 		 struct bgp_path_info *pi, afi_t afi, safi_t safi)
 {
-	bgp_process_internal(bgp, dest, pi, afi, safi, false);
+	bgp_process_internal(bgp, dest, pi, afi, safi,
+			     (safi == SAFI_RTC) ? META_QUEUE_RTC_ROUTE : META_QUEUE_OTHER_ROUTE);
 }
 
 void bgp_process_early(struct bgp *bgp, struct bgp_dest *dest,
 		       struct bgp_path_info *pi, afi_t afi, safi_t safi)
 {
-	bgp_process_internal(bgp, dest, pi, afi, safi, true);
+	bgp_process_internal(bgp, dest, pi, afi, safi, META_QUEUE_EARLY_ROUTE);
 }
 
 void bgp_add_eoiu_mark(struct bgp *bgp)
