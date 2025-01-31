@@ -210,10 +210,11 @@ int zprivs_change_caps(zebra_privs_ops_t op)
 {
 	cap_flag_value_t cflag;
 
-	/* should be no possibility of being called without valid caps */
-	assert(zprivs_state.syscaps_p && zprivs_state.caps);
-	if (!(zprivs_state.syscaps_p && zprivs_state.caps))
-		exit(1);
+	/* Called without valid caps - just return. Not every daemon needs
+	 * privs.
+	 */
+	if (zprivs_state.syscaps_p == NULL || zprivs_state.caps == NULL)
+		return 0;
 
 	if (op == ZPRIVS_RAISE)
 		cflag = CAP_SET;
