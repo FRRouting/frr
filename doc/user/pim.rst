@@ -437,6 +437,14 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
 
    Set the IGMP version used on this interface. The default value is 3.
 
+.. clicmd:: ip igmp max-groups (0-4294967295)
+
+   Set the maximum number of IGMP groups that the can be joined on an interface.
+
+.. clicmd:: ip igmp max-sources (0-4294967295)
+
+   Set the maximum number of IGMP sources to learn per group.
+
 .. clicmd:: ip multicast boundary oil WORD
 
    Set a PIM multicast boundary, based upon the WORD prefix-list. If a PIM join
