@@ -258,6 +258,14 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
 
    Set the MLD version used on this interface. The default value is 2.
 
+.. clicmd:: ipv6 mld max-groups (0-4294967295)
+
+   Set the maximum number of MLD groups that the can be joined on an interface.
+
+.. clicmd:: ipv6 mld max-sources (0-4294967295)
+
+   Set the maximum number of MLD sources to learn per group.
+
 .. clicmd:: ipv6 multicast boundary oil WORD
 
    Set a PIMv6 multicast boundary, based upon the WORD prefix-list. If a PIMv6
