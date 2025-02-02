@@ -1169,6 +1169,19 @@ static int static_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 		DEBUGD(&static_dbg_srv6, "%s: SRv6 SID %pI6 %s: RELEASED", __func__, &sid_addr,
 		       srv6_sid_ctx2str(buf, sizeof(buf), &ctx));
 
+		for (ALL_LIST_ELEMENTS_RO(srv6_sids, node, sid)) {
+			if (IPV6_ADDR_SAME(&sid->addr.prefix, &sid_addr)) {
+				found = true;
+				break;
+			}
+		}
+
+		if (!found || !sid) {
+			zlog_err("SRv6 SID %pI6 %s: not found", &sid_addr,
+				 srv6_sid_ctx2str(buf, sizeof(buf), &ctx));
+			return 0;
+		}
+
 		UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID);
 
 		break;
