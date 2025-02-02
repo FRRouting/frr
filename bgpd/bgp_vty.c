@@ -122,6 +122,9 @@ FRR_CFG_DEFAULT_BOOL(BGP_ENFORCE_FIRST_AS,
 	{ .val_bool = false, .match_version = "< 9.1", },
 	{ .val_bool = true },
 );
+FRR_CFG_DEFAULT_BOOL(BGP_RR_ALLOW_OUTBOUND_POLICY,
+	{ .val_bool = false },
+);
 
 DEFINE_HOOK(bgp_inst_config_write,
 		(struct bgp *bgp, struct vty *vty),
@@ -622,6 +625,8 @@ int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
 				 BGP_FLAG_DYNAMIC_CAPABILITY);
 		if (DFLT_BGP_ENFORCE_FIRST_AS)
 			SET_FLAG((*bgp)->flags, BGP_FLAG_ENFORCE_FIRST_AS);
+		if (DFLT_BGP_RR_ALLOW_OUTBOUND_POLICY)
+			SET_FLAG((*bgp)->flags, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY);
 
 		ret = BGP_SUCCESS;
 	}
@@ -19780,10 +19785,12 @@ int bgp_config_write(struct vty *vty)
 			}
 		}
 
-		if (CHECK_FLAG(bgp->flags, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY)) {
-			vty_out(vty,
-				" bgp route-reflector allow-outbound-policy\n");
-		}
+		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY) !=
+		    SAVE_BGP_RR_ALLOW_OUTBOUND_POLICY)
+			vty_out(vty, " %sbgp route-reflector allow-outbound-policy\n",
+				CHECK_FLAG(bgp->flags, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY) ? ""
+											  : "no ");
+
 		if (CHECK_FLAG(bgp->flags, BGP_FLAG_COMPARE_ROUTER_ID))
 			vty_out(vty, " bgp bestpath compare-routerid\n");
 		if (CHECK_FLAG(bgp->flags, BGP_FLAG_COMPARE_AIGP))
