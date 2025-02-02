@@ -101,6 +101,7 @@ def setup_module(mod):
             TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
         )
 
+    tgen.gears["r1"].run("sysctl net.vrf.strict_mode=1")
     tgen.gears["r1"].run("ip link add vrf10 type vrf table 10")
     tgen.gears["r1"].run("ip link set vrf10 up")
     tgen.gears["r1"].run("ip link add vrf20 type vrf table 20")
@@ -109,6 +110,7 @@ def setup_module(mod):
     tgen.gears["r1"].run("ip link set eth2 master vrf10")
     tgen.gears["r1"].run("ip link set eth3 master vrf20")
 
+    tgen.gears["r2"].run("sysctl net.vrf.strict_mode=1")
     tgen.gears["r2"].run("ip link add vrf10 type vrf table 10")
     tgen.gears["r2"].run("ip link set vrf10 up")
     tgen.gears["r2"].run("ip link add vrf20 type vrf table 20")
