@@ -1337,6 +1337,31 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 					snprintf(encbuf, sizeof(encbuf),
 						 "DF: (alg: %u, pref: %u)", alg,
 						 pref);
+			} else if (*pnt == ECOMMUNITY_EVPN_SUBTYPE_LAYER2_ATTR) {
+				uint16_t flags, l2mtu;
+
+				++pnt;
+				memcpy(&flags, pnt, 2);
+				++pnt;
+				++pnt;
+
+				memcpy(&l2mtu, pnt, 2);
+
+				snprintf(encbuf, sizeof(encbuf),
+					 "L2: P flag:%c, B Flag %c, C word %c, MTU %d",
+					 CHECK_FLAG(flags,
+						    ECOMMUNITY_EVPN_SUBTYPE_LAYER2_ATTR_PRIMARY_PE_FLAG)
+						 ? 'Y'
+						 : 'N',
+					 CHECK_FLAG(flags,
+						    ECOMMUNITY_EVPN_SUBTYPE_LAYER2_ATTR_BACKUP_PE_FLAG)
+						 ? 'Y'
+						 : 'N',
+					 CHECK_FLAG(flags,
+						    ECOMMUNITY_EVPN_SUBTYPE_LAYER2_ATTR_CONTROL_WORD_FLAG)
+						 ? 'Y'
+						 : 'N',
+					 l2mtu);
 			} else
 				unk_ecom = true;
 		} else if (type == ECOMMUNITY_ENCODE_REDIRECT_IP_NH) {
