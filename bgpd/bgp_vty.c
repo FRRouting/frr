@@ -125,6 +125,9 @@ FRR_CFG_DEFAULT_BOOL(BGP_ENFORCE_FIRST_AS,
 FRR_CFG_DEFAULT_BOOL(BGP_RR_ALLOW_OUTBOUND_POLICY,
 	{ .val_bool = false },
 );
+FRR_CFG_DEFAULT_BOOL(BGP_COMPARE_AIGP,
+	{ .val_bool = false },
+);
 
 DEFINE_HOOK(bgp_inst_config_write,
 		(struct bgp *bgp, struct vty *vty),
@@ -627,6 +630,8 @@ int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
 			SET_FLAG((*bgp)->flags, BGP_FLAG_ENFORCE_FIRST_AS);
 		if (DFLT_BGP_RR_ALLOW_OUTBOUND_POLICY)
 			SET_FLAG((*bgp)->flags, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY);
+		if (DFLT_BGP_COMPARE_AIGP)
+			SET_FLAG((*bgp)->flags, BGP_FLAG_COMPARE_AIGP);
 
 		ret = BGP_SUCCESS;
 	}
@@ -19793,8 +19798,11 @@ int bgp_config_write(struct vty *vty)
 
 		if (CHECK_FLAG(bgp->flags, BGP_FLAG_COMPARE_ROUTER_ID))
 			vty_out(vty, " bgp bestpath compare-routerid\n");
-		if (CHECK_FLAG(bgp->flags, BGP_FLAG_COMPARE_AIGP))
-			vty_out(vty, " bgp bestpath aigp\n");
+
+		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_COMPARE_AIGP) != SAVE_BGP_COMPARE_AIGP)
+			vty_out(vty, " %sbgp bestpath aigp\n",
+				CHECK_FLAG(bgp->flags, BGP_FLAG_COMPARE_AIGP) ? "" : "no ");
+
 		if (CHECK_FLAG(bgp->flags, BGP_FLAG_MED_CONFED)
 		    || CHECK_FLAG(bgp->flags, BGP_FLAG_MED_MISSING_AS_WORST)) {
 			vty_out(vty, " bgp bestpath med");
