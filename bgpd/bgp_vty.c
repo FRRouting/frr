@@ -16691,9 +16691,9 @@ static int bgp_show_route_leak_vty(struct vty *vty, const char *name,
 						json_object_new_string(vname));
 			json_object_object_add(json, "exportToVrfs",
 					       json_export_vrfs);
-			json_object_string_addf(
-				json, "routeDistinguisher", "%s",
-				bgp->vpn_policy[afi].tovpn_rd_pretty);
+			json_object_string_addf(json, "routeDistinguisher",
+						BGP_RD_AS_FORMAT(bgp->asnotation),
+						&bgp->vpn_policy[afi].tovpn_rd);
 			dir = BGP_VPN_POLICY_DIR_TOVPN;
 			if (bgp->vpn_policy[afi].rtlist[dir]) {
 				ecom_str = ecommunity_ecom2str(
