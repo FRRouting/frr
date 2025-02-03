@@ -1273,8 +1273,8 @@ DEFPY_YANG(no_srv6_sid, no_srv6_sid_cmd,
 {
 	char xpath[XPATH_MAXLEN + 37];
 
-	snprintf(xpath, sizeof(xpath), FRR_STATIC_SRV6_INFO_KEY_XPATH, "frr-staticd:staticd",
-		 "staticd", VRF_DEFAULT_NAME);
+	snprintf(xpath, sizeof(xpath), FRR_STATIC_SRV6_SID_KEY_XPATH, "frr-staticd:staticd",
+		 "staticd", VRF_DEFAULT_NAME, sid_str);
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
