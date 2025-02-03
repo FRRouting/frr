@@ -83,6 +83,12 @@ static void pim_autorp_free(struct pim_autorp *autorp)
 	pim_autorp_rp_fini(&(autorp->candidate_rp_list));
 }
 
+static bool pim_autorp_should_close(struct pim_autorp *autorp)
+{
+	/* If discovery is active, then we need the socket open */
+	return !autorp->do_discovery;
+}
+
 static bool pim_autorp_join_groups(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
@@ -490,6 +496,10 @@ static bool pim_autorp_socket_enable(struct pim_autorp *autorp)
 {
 	int fd;
 
+	/* Return early if socket is already enabled */
+	if (autorp->sock != -1)
+		return true;
+
 	frr_with_privs (&pimd_privs) {
 		fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
 		if (fd < 0) {
@@ -516,6 +526,10 @@ static bool pim_autorp_socket_enable(struct pim_autorp *autorp)
 
 static bool pim_autorp_socket_disable(struct pim_autorp *autorp)
 {
+	/* Return early if socket is already disabled */
+	if (autorp->sock == -1)
+		return true;
+
 	if (close(autorp->sock)) {
 		zlog_warn("Failure closing autorp socket: fd=%d errno=%d: %s",
 			  autorp->sock, errno, safe_strerror(errno));
@@ -967,6 +981,12 @@ void pim_autorp_start_discovery(struct pim_instance *pim)
 	struct interface *ifp;
 	struct pim_autorp *autorp = pim->autorp;
 
+	/* Make sure the socket is open and ready */
+	if (!pim_autorp_socket_enable(autorp)) {
+		zlog_err("%s: AutoRP failed to open socket", __func__);
+		return;
+	}
+
 	if (!autorp->do_discovery) {
 		autorp->do_discovery = true;
 		autorp_read_on(autorp);
@@ -996,6 +1016,10 @@ void pim_autorp_stop_discovery(struct pim_instance *pim)
 		if (PIM_DEBUG_AUTORP)
 			zlog_debug("%s: AutoRP Discovery stopped", __func__);
 	}
+
+	/* Close the socket if we need to */
+	if (pim_autorp_should_close(autorp) && !pim_autorp_socket_disable(autorp))
+		zlog_warn("%s: AutoRP failed to close socket", __func__);
 }
 
 void pim_autorp_init(struct pim_instance *pim)
@@ -1015,11 +1039,6 @@ void pim_autorp_init(struct pim_instance *pim)
 	autorp->announce_holdtime = DEFAULT_ANNOUNCE_HOLDTIME;
 
 	pim->autorp = autorp;
-
-	if (!pim_autorp_socket_enable(autorp)) {
-		zlog_err("%s: AutoRP failed to initialize, feature will not work correctly", __func__);
-		return;
-	}
 
 	if (PIM_DEBUG_AUTORP)
 		zlog_debug("%s: AutoRP Initialized", __func__);
