@@ -3988,6 +3988,7 @@ int bgp_delete(struct bgp *bgp)
 	uint32_t a_ann_cnt = 0, a_l2_cnt = 0, a_l3_cnt = 0;
 	struct bgp *bgp_to_proc = NULL;
 	struct bgp *bgp_to_proc_next = NULL;
+	struct bgp *bgp_default = bgp_get_default();
 
 	assert(bgp);
 
@@ -4041,12 +4042,25 @@ int bgp_delete(struct bgp *bgp)
 	bgp_soft_reconfig_table_task_cancel(bgp, NULL, NULL);
 
 	/* make sure we withdraw any exported routes */
-	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(),
-			   bgp);
-	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(),
-			   bgp);
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_default, bgp);
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_default, bgp);
 
 	bgp_vpn_leak_unimport(bgp);
+
+	/*
+	 * Release SRv6 SIDs, like it's done in `vpn_leak_postchange()`
+	 * and bgp_sid_vpn_export_cmd/af_sid_vpn_export_cmd commands.
+	 */
+	bgp->tovpn_sid_index = 0;
+	UNSET_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO);
+	delete_vrf_tovpn_sid_per_vrf(bgp_default, bgp);
+	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+		bgp->vpn_policy[afi].tovpn_sid_index = 0;
+		UNSET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO);
+		delete_vrf_tovpn_sid_per_af(bgp_default, bgp, afi);
+
+		vpn_leak_zebra_vrf_sid_withdraw(bgp, afi);
+	}
 
 	bgp_vpn_release_label(bgp, AFI_IP, true);
 	bgp_vpn_release_label(bgp, AFI_IP6, true);
