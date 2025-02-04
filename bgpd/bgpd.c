@@ -3671,19 +3671,24 @@ struct bgp *bgp_lookup(as_t as, const char *name)
 }
 
 /* Lookup BGP structure by view name. */
-struct bgp *bgp_lookup_by_name(const char *name)
+struct bgp *bgp_lookup_by_name_filter(const char *name, bool filter_auto)
 {
 	struct bgp *bgp;
 	struct listnode *node, *nnode;
 
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
-		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO))
+		if (filter_auto && CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO))
 			continue;
 		if ((bgp->name == NULL && name == NULL)
 		    || (bgp->name && name && strcmp(bgp->name, name) == 0))
 			return bgp;
 	}
 	return NULL;
+}
+
+struct bgp *bgp_lookup_by_name(const char *name)
+{
+	return bgp_lookup_by_name_filter(name, true);
 }
 
 /* Lookup BGP instance based on VRF id. */
@@ -3771,10 +3776,9 @@ int bgp_handle_socket(struct bgp *bgp, struct vrf *vrf, vrf_id_t old_vrf_id,
 		return bgp_check_main_socket(create, bgp);
 }
 
-int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as,
-			       const char *as_pretty,
+int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as, const char *as_pretty,
 			       enum asnotation_mode asnotation, const char *name,
-			       enum bgp_instance_type inst_type)
+			       enum bgp_instance_type inst_type, bool force_config)
 {
 	struct bgp *bgp;
 	struct peer *peer = NULL;
@@ -3783,7 +3787,7 @@ int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as,
 
 	/* Multiple instance check. */
 	if (name)
-		bgp = bgp_lookup_by_name(name);
+		bgp = bgp_lookup_by_name_filter(name, !force_config);
 	else
 		bgp = bgp_get_default();
 
@@ -3793,7 +3797,7 @@ int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as,
 		/* Handle AS number change */
 		if (bgp->as != *as) {
 			if (hidden || CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO)) {
-				if (hidden) {
+				if (force_config == false && hidden) {
 					bgp_create(as, name, inst_type,
 						   as_pretty, asnotation, bgp,
 						   hidden);
@@ -3801,7 +3805,8 @@ int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as,
 						   BGP_FLAG_INSTANCE_HIDDEN);
 				} else {
 					bgp->as = *as;
-					UNSET_FLAG(bgp->vrf_flags, BGP_VRF_AUTO);
+					if (force_config == false)
+						UNSET_FLAG(bgp->vrf_flags, BGP_VRF_AUTO);
 				}
 
 				/* Set all peer's local AS with this ASN */
@@ -3838,8 +3843,7 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 	struct vrf *vrf = NULL;
 	int ret = 0;
 
-	ret = bgp_lookup_by_as_name_type(bgp_val, as, as_pretty, asnotation,
-					 name, inst_type);
+	ret = bgp_lookup_by_as_name_type(bgp_val, as, as_pretty, asnotation, name, inst_type, false);
 	if (ret || *bgp_val)
 		return ret;
 
