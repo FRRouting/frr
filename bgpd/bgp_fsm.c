@@ -607,6 +607,7 @@ const char *const peer_down_str[] = {
 	"Admin. shutdown (RTT)",
 	"Suppress Fib Turned On or Off",
 	"Password config change",
+	"Router ID is missing",
 };
 
 static void bgp_graceful_restart_timer_off(struct peer_connection *connection,
