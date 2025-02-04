@@ -1295,6 +1295,9 @@ static int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
 					   flags, &p,
 					   (struct prefix_ipv6 *)&src_p, &nh, 0,
 					   table, metric, distance, true);
+
+				if (nh.nh_label)
+					nexthop_del_labels(&nh);
 			} else {
 				/* XXX: need to compare the entire list of
 				 * nexthops here for NLM_F_APPEND stupidity */
