@@ -1074,6 +1074,9 @@ int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
 				rib_delete(afi, SAFI_UNICAST, vrf_id, proto, 0,
 					   flags, &p, &src_p, &nh, 0, table,
 					   metric, distance, true);
+
+				if (nh.nh_label)
+					nexthop_del_labels(&nh);
 			} else {
 				/* XXX: need to compare the entire list of
 				 * nexthops here for NLM_F_APPEND stupidity */
