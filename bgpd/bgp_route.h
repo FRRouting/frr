@@ -1019,5 +1019,7 @@ extern uint32_t bgp_med_value(struct attr *attr, struct bgp *bgp);
 /* RTC import change: may be "remove imports", or "add/change imports" */
 int bgp_rtc_import_update(struct bgp *bgp, const struct ecommunity *oldcomm,
 			  const struct ecommunity *newcomm, bool update);
+/* RTC peer activate/deactivate change */
+int bgp_rtc_peer_update(struct peer *peer, afi_t afi, safi_t safi, bool active);
 
 #endif /* _QUAGGA_BGP_ROUTE_H */

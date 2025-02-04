@@ -421,7 +421,7 @@ static const char *ecommunity_origin_validation_state2str(
 }
 
 static void ecommunity_origin_validation_state_str(char *buf, size_t bufsz,
-						   uint8_t *ptr)
+						   const uint8_t *ptr)
 {
 	/* Origin Validation State is encoded in the last octet
 	 *
@@ -1536,6 +1536,23 @@ bool ecommunity_include(struct ecommunity *e1, struct ecommunity *e2)
 				    e1->unit_size))
 				return true;
 		}
+	}
+	return false;
+}
+
+/*
+ * See whether 'e1' contains the value 'val'
+ */
+bool ecommunity_include_val(const struct ecommunity *e1, const uint8_t *val)
+{
+	uint32_t i;
+
+	if (!e1)
+		return false;
+	for (i = 0; i < e1->size; ++i) {
+		if (memcmp(e1->val + (i * e1->unit_size), val, e1->unit_size) ==
+		    0)
+			return true;
 	}
 	return false;
 }

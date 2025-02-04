@@ -385,6 +385,7 @@ extern bool ecommunity_has_route_target(struct ecommunity *ecom);
 extern void ecommunity_strfree(char **s);
 extern bool ecommunity_include_one(struct ecommunity *ecom, uint8_t *ptr);
 extern bool ecommunity_include(struct ecommunity *e1, struct ecommunity *e2);
+bool ecommunity_include_val(const struct ecommunity *e1, const uint8_t *val);
 extern bool ecommunity_match(const struct ecommunity *,
 			     const struct ecommunity *);
 extern const char *ecommunity_str(struct ecommunity *ecom);

@@ -162,6 +162,12 @@ DEFINE_HOOK(bgp_process,
 	     struct peer *peer, bool withdraw),
 	    (bgp, afi, safi, bn, peer, withdraw));
 
+/* Populate RTC prefix with RT data from 'as' and 'rtval' */
+static void rtc_prefix_from_rt(struct prefix *p, uint32_t as_num,
+			       const uint8_t *rtval);
+/* Helper to create static advertisement for RTC prefix */
+static void rtc_advertise_static(struct bgp *bgp, const struct prefix *p);
+
 /** Test if path is suppressed. */
 bool bgp_path_suppressed(struct bgp_path_info *pi)
 {
@@ -7737,6 +7743,7 @@ static int bgp_table_map_unset(struct vty *vty, afi_t afi, safi_t safi,
 
 /*
  * Helper to form RTC prefix from RT data
+ * TODO -- currently uses full prefixes
  */
 static void rtc_prefix_from_rt(struct prefix *p, uint32_t as_num,
 			       const uint8_t *rtval)
@@ -7749,8 +7756,121 @@ static void rtc_prefix_from_rt(struct prefix *p, uint32_t as_num,
 }
 
 /*
- * RT import change, may trigger RTC SAFI changes. May be "remove imports",
- * or "add/change imports"
+ * Helper to create static advertisement for RTC prefix
+ */
+static void rtc_advertise_static(struct bgp *bgp, const struct prefix *p)
+{
+	struct bgp_static *bgp_static;
+
+	/* Set up static route context */
+	bgp_static = bgp_static_new();
+	bgp_static->backdoor = 0;
+	bgp_static->valid = 0;
+	bgp_static->igpmetric = 0;
+	bgp_static->igpnexthop.s_addr = INADDR_ANY;
+	bgp_static->label = MPLS_INVALID_LABEL;
+	bgp_static->label_index = BGP_INVALID_LABEL_INDEX;
+
+	bgp_static_update(bgp, p, bgp_static, AFI_IP, SAFI_RTC);
+}
+
+/*
+ * Check RTC prefixes based on the RTs in 'ecomm', install any that
+ * aren't present in 'bgp'.
+ */
+static int rtc_install_from_ecomm(struct bgp *bgp,
+				  const struct ecommunity *ecomm)
+{
+	struct prefix p;
+	struct bgp_dest *dest;
+	uint32_t idx;
+	const uint8_t *ptr;
+	bool ret = false;
+
+	/* Examine the RTs, ensure they're advertised */
+	idx = 0;
+	ptr = ecommunity_idx(ecomm, idx);
+	while (ptr != NULL) {
+		rtc_prefix_from_rt(&p, bgp->as, ptr);
+
+		dest = bgp_node_lookup(bgp->route[AFI_IP][SAFI_RTC], &p);
+		if (dest) {
+			bgp_dest_unlock_node(dest);
+		} else {
+			/* Create advertisement */
+			rtc_advertise_static(bgp, &p);
+			ret = true;
+		}
+
+		idx++;
+		ptr = ecommunity_idx(ecomm, idx);
+	}
+
+	return ret;
+}
+
+/*
+ * Handle peer activate/deactivate in the RTC safi
+ */
+int bgp_rtc_peer_update(struct peer *peer, afi_t afi, safi_t safi, bool active)
+{
+	int ret = 0;
+	struct bgp *bgp = peer->bgp;
+	const struct peer *tpeer;
+	struct listnode *node;
+	struct ecommunity *ecomm;
+	enum vpn_policy_direction dir = BGP_VPN_POLICY_DIR_FROMVPN;
+
+	/* Must be a safi we care about. */
+	if (afi != AFI_IP || safi != SAFI_RTC)
+		goto done;
+
+	if (active) {
+		/* If this is the first peer to be activated,
+		 * examine the RT lists for the VPN afi/safis;
+		 * ensure they're represented in the RTC safi RIB.
+		 */
+		for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, tpeer)) {
+			if (tpeer->afc[afi][safi] && tpeer != peer)
+				goto done;
+		}
+
+		/* Check the VPN afi/safis' RTs */
+		ecomm = bgp->vpn_policy[AFI_IP].rtlist[dir];
+		if (ecomm)
+			rtc_install_from_ecomm(bgp, ecomm);
+
+		/* Check the VPN afi/safis' RTs */
+		ecomm = bgp->vpn_policy[AFI_IP6].rtlist[dir];
+		if (ecomm)
+			rtc_install_from_ecomm(bgp, ecomm);
+
+		/* Check the VPN afi/safis' RTs */
+		ecomm = bgp->vpn_policy[AFI_L2VPN].rtlist[dir];
+		if (ecomm)
+			rtc_install_from_ecomm(bgp, ecomm);
+	} else {
+		/* TODO -- do we care about deactivation, if the SAFI is
+		 * configured? Should we remove the RTC prefixes if there are
+		 * no configured peers?
+		 */
+		for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, tpeer)) {
+			if (tpeer->afc[afi][safi] && tpeer != peer)
+				goto done;
+		}
+
+		/* If this is the last peer, examine the RT lists
+		 * for the VPN afi/safis and remove any derived RTC prefixes.
+		 */
+	}
+
+done:
+
+	return ret;
+}
+
+/*
+ * RT import change in instance 'bgp'; may trigger RTC SAFI changes.
  */
 int bgp_rtc_import_update(struct bgp *bgp, const struct ecommunity *oldcomm,
 			  const struct ecommunity *newcomm, bool update)
@@ -7759,10 +7879,14 @@ int bgp_rtc_import_update(struct bgp *bgp, const struct ecommunity *oldcomm,
 	uint32_t newidx, oldidx;
 	const uint8_t *ptr;
 	struct prefix p;
-	struct bgp_static *bgp_static;
+	struct bgp *defbgp; /* Default instance */
+
+	defbgp = bgp_get_default();
+	if (defbgp == NULL)
+		goto done;
 
 	/* Check for peer with active config in the RTC SAFI */
-	if (!bgp_afi_safi_peer_exists(bgp, AFI_IP, SAFI_RTC))
+	if (!bgp_afi_safi_peer_exists(defbgp, AFI_IP, SAFI_RTC))
 		goto done;
 
 	if (bgp_debug_update(NULL, NULL, NULL, 1))
@@ -7774,40 +7898,41 @@ int bgp_rtc_import_update(struct bgp *bgp, const struct ecommunity *oldcomm,
 		newidx = 0;
 		ptr = ecommunity_idx(newcomm, newidx);
 		while (ptr != NULL) {
-			/* Create prefix */
-			rtc_prefix_from_rt(&p, bgp->as, ptr);
+			/* Create prefix and advertise. */
+			rtc_prefix_from_rt(&p, defbgp->as, ptr);
 
-			/* Set up static route context */
-			bgp_static = bgp_static_new();
-			bgp_static->backdoor = 0;
-			bgp_static->valid = 0;
-			bgp_static->igpmetric = 0;
-			bgp_static->igpnexthop.s_addr = INADDR_ANY;
-			bgp_static->label = MPLS_INVALID_LABEL;
-			bgp_static->label_index = BGP_INVALID_LABEL_INDEX;
-
-			bgp_static_update(bgp, &p, bgp_static, AFI_IP,
-					  SAFI_RTC);
+			rtc_advertise_static(defbgp, &p);
 
 			newidx++;
 			ptr = ecommunity_idx(newcomm, newidx);
 		}
 
 		if (oldcomm) {
-			/* TODO --
-			 * Need to figure out what has changed in the RT list
+			/* Need to figure out what has changed in the RT list
 			 * and remove prefixes to match.
 			 */
+			oldidx = 0;
+			ptr = ecommunity_idx(oldcomm, oldidx);
+			while (ptr != NULL) {
+				if (!ecommunity_include_val(newcomm, ptr)) {
+					/* Remove prefix */
+					rtc_prefix_from_rt(&p, defbgp->as, ptr);
+					bgp_static_withdraw(defbgp, &p, AFI_IP,
+							    SAFI_RTC, NULL);
+				}
+
+				oldidx++;
+				ptr = ecommunity_idx(oldcomm, oldidx);
+			}
 		}
 	} else {
 		/* Delete: determine which RTs are being deleted. */
 		oldidx = 0;
 		ptr = ecommunity_idx(oldcomm, oldidx);
 		while (ptr != NULL) {
-			/* Create prefix */
-			rtc_prefix_from_rt(&p, bgp->as, ptr);
-
-			bgp_static_withdraw(bgp, &p, AFI_IP, SAFI_RTC, NULL);
+			/* Remove prefix */
+			rtc_prefix_from_rt(&p, defbgp->as, ptr);
+			bgp_static_withdraw(defbgp, &p, AFI_IP, SAFI_RTC, NULL);
 
 			oldidx++;
 			ptr = ecommunity_idx(oldcomm, oldidx);
@@ -12547,7 +12672,7 @@ int bgp_show_table_rtc(struct vty *vty, struct bgp *bgp, safi_t safi,
 				ecom, ECOMMUNITY_FORMAT_DISPLAY, 0);
 
 			vty_out(vty,
-				"Prefix: \n\tOrigin-as: %u\n\tRoute Target: %s/%u\n",
+				"Prefix:\n    Origin-as: %u\n    Route Target: %s/%u\n",
 				local_p.u.prefix_rtc.origin_as, ecomstr,
 				local_p.prefixlen);
 

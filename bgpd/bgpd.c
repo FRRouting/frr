@@ -2504,6 +2504,16 @@ int peer_activate(struct peer *peer, afi_t afi, safi_t safi)
 
 	bgp = peer->bgp;
 
+	/* Handle RTC safi, only allowed in default instance;
+	 * may require looking at RTs.
+	 */
+	if (safi == SAFI_RTC) {
+		if (bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT) {
+			return BGP_ERR_INVALID_VALUE;
+		}
+		bgp_rtc_peer_update(peer, afi, safi, true);
+	}
+
 	/* This is a peer-group so activate all of the members of the
 	 * peer-group as well */
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
