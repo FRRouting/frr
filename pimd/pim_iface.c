@@ -192,11 +192,15 @@ void pim_if_delete(struct interface *ifp)
 	assert(pim_ifp);
 
 	pim_ifp->pim->mcast_if_count--;
-	if (pim_ifp->gm_join_list)
+	if (pim_ifp->gm_join_list) {
 		pim_if_gm_join_del_all(ifp);
+		list_delete(&pim_ifp->gm_join_list);
+	}
 
-	if (pim_ifp->static_group_list)
+	if (pim_ifp->static_group_list) {
 		pim_if_static_group_del_all(ifp);
+		list_delete(&pim_ifp->static_group_list);
+	}
 
 	pim_ifchannel_delete_all(ifp);
 #if PIM_IPV == 4
