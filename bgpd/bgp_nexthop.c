@@ -584,6 +584,14 @@ bool bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type,
 	return false;
 }
 
+bool bgp_hostroute_self(struct bgp *bgp, const struct prefix *p)
+{
+	struct bgp_addr tmp;
+
+	tmp.p = *p;
+	return hash_lookup(bgp->address_hash, &tmp) ? true : false;
+}
+
 bool bgp_multiaccess_check_v4(struct in_addr nexthop, struct peer *peer)
 {
 	struct bgp_dest *dest1;
