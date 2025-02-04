@@ -2851,8 +2851,17 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	 * If the extended community is non-transitive, strip it off,
 	 * unless it's a locally originated route (static, aggregate,
 	 * redistributed, etc.).
+	 * draft-uttaro-idr-bgp-oad says:
+	 * Extended communities which are non-transitive across an AS
+	 * boundary MAY be advertised over an EBGP-OAD session if allowed
+	 * by explicit policy configuration. If allowed, all the members
+	 * of the OAD SHOULD be configured to use the same criteria.
+	 * For example, the Origin Validation State Extended Community,
+	 * defined as non-transitive in [RFC8097], can be advertised to
+	 * peers in the same OAD.
 	 */
-	if (from->sort == BGP_PEER_EBGP && peer->sort == BGP_PEER_EBGP &&
+	if (from->sort == BGP_PEER_EBGP && from->sub_sort != BGP_PEER_EBGP_OAD &&
+	    peer->sort == BGP_PEER_EBGP && peer->sub_sort != BGP_PEER_EBGP_OAD &&
 	    pi->sub_type == BGP_ROUTE_NORMAL) {
 		struct ecommunity *new_ecomm;
 		struct ecommunity *old_ecomm;
