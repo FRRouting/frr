@@ -1077,6 +1077,9 @@ int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
 
 				if (nh.nh_label)
 					nexthop_del_labels(&nh);
+
+				if (nh.nh_srv6)
+					nexthop_del_srv6_seg6(&nh);
 			} else {
 				/* XXX: need to compare the entire list of
 				 * nexthops here for NLM_F_APPEND stupidity */
