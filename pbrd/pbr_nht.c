@@ -493,7 +493,7 @@ void pbr_nht_change_group(const char *name)
 	}
 
 	for (ALL_NEXTHOPS(nhgc->nhg, nhop)) {
-		struct pbr_nexthop_cache lookup;
+		struct pbr_nexthop_cache lookup = {};
 		struct pbr_nexthop_cache *pnhc;
 
 		lookup.nexthop = *nhop;
@@ -565,7 +565,7 @@ void pbr_nht_add_individual_nexthop(struct pbr_map_sequence *pbrms,
 	struct pbr_nexthop_group_cache *pnhgc;
 	struct pbr_nexthop_group_cache find;
 	struct pbr_nexthop_cache *pnhc;
-	struct pbr_nexthop_cache lookup;
+	struct pbr_nexthop_cache lookup = {};
 	struct nexthop *nh;
 	char buf[PBR_NHC_NAMELEN];
 
@@ -624,7 +624,7 @@ static void pbr_nht_release_individual_nexthop(struct pbr_map_sequence *pbrms)
 	struct pbr_nexthop_group_cache *pnhgc;
 	struct pbr_nexthop_group_cache find;
 	struct pbr_nexthop_cache *pnhc;
-	struct pbr_nexthop_cache lup;
+	struct pbr_nexthop_cache lup = {};
 	struct nexthop *nh;
 	enum nexthop_types_t nh_type = 0;
 
@@ -690,7 +690,7 @@ struct pbr_nexthop_group_cache *pbr_nht_add_group(const char *name)
 	DEBUGD(&pbr_dbg_nht, "%s: Retrieved NHGC @ %p", __func__, pnhgc);
 
 	for (ALL_NEXTHOPS(nhgc->nhg, nhop)) {
-		struct pbr_nexthop_cache lookupc;
+		struct pbr_nexthop_cache lookupc = {};
 		struct pbr_nexthop_cache *pnhc;
 
 		lookupc.nexthop = *nhop;
