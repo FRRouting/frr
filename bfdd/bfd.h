@@ -698,7 +698,7 @@ void bfd_vrf_init(void);
 void bfd_vrf_terminate(void);
 struct bfd_vrf_global *bfd_vrf_look_by_session(struct bfd_session *bfd);
 struct bfd_session *bfd_id_lookup(uint32_t id);
-struct bfd_session *bfd_key_lookup(struct bfd_key key);
+struct bfd_session *bfd_key_lookup(struct bfd_key *key);
 struct sbfd_reflector *sbfd_discr_lookup(uint32_t discr);
 struct bfd_session *bfd_id_delete(uint32_t id);
 struct bfd_session *bfd_key_delete(struct bfd_key key);
