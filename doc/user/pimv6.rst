@@ -489,6 +489,10 @@ PIMv6 Clear Commands
 
 Clear commands reset various variables.
 
+.. clicmd:: clear ipv6 mld [vrf NAME] interfaces
+
+   Reset learned multicast groups / sources.
+
 .. clicmd:: clear ipv6 mroute
 
    Reset multicast routes.
