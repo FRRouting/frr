@@ -280,7 +280,7 @@ struct bfd_session *bs_peer_find(struct bfd_peer_cfg *bpc)
 	gen_bfd_key(&key, &bpc->bpc_peer, &bpc->bpc_local, bpc->bpc_mhop, bpc->bpc_localif,
 		    bpc->bpc_vrfname, bpc->bfd_name);
 
-	return bfd_key_lookup(key);
+	return bfd_key_lookup(&key);
 }
 
 /*
@@ -770,7 +770,7 @@ struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp,
 		    vrf ? vrf->name : VRF_DEFAULT_NAME, NULL);
 
 	/* XXX maybe remoteDiscr should be checked for remoteHeard cases. */
-	return bfd_key_lookup(key);
+	return bfd_key_lookup(&key);
 }
 
 void bfd_xmt_cb(struct event *t)
@@ -1962,11 +1962,11 @@ struct bfd_session *bfd_id_lookup(uint32_t id)
 	return hash_lookup(bfd_id_hash, &bs);
 }
 
-struct bfd_session *bfd_key_lookup(struct bfd_key key)
+struct bfd_session *bfd_key_lookup(struct bfd_key *key)
 {
 	struct bfd_session bs;
 
-	bs.key = key;
+	bs.key = *key;
 
 	return hash_lookup(bfd_key_hash, &bs);
 }
