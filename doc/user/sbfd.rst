@@ -27,7 +27,7 @@ SBFD takes the same data packet format as BFD, but with a much simpler state mac
 According to RFC7880, SBFD has a stateless SBFDReflector and a stateful SBFDInitiator with the state machine as below:
 
 ::
-   
+
                        +--+
           ADMIN DOWN,  |  |
           TIMER        |  V
@@ -73,24 +73,28 @@ In the following example, we set up a sbfd session to monitor the path A-B-D (al
 A is the SBFDInitiator, and D is the SBFDReflector, A will trasmit the SBFD packet to B as the format:
 
 ::
+
    IPv6(src="200::A", dst="100::B", nh=43)/IPv6ExtHdrSegmentRouting(addresses=["100::D"], nh=41, segleft=1)/IPv6(src="200::A", dst="200::D")/UDP(dport=7784)/BFD(my_dis=123, your_disc=456, state=UP)
 
 
 Upon receiving the packet, B will take the Srv6 End action since the dst ip 100::B is the End address, B will the shift the dst address according to Srv6 spec, then trasmit the SBFD packet to D as the format:
 
 ::
+
    IPv6(src="200::A", dst="100::D", nh=41)/IPv6(src="200::A", dst="200::D")/UDP(dport=7784)/BFD(my_dis=123, your_disc=456, state=UP)
 
 
 After D receive the packet, It will decap the outer IPv6 header since the dst ip 100::D is the End address, the decapped packet is:
 
 ::
+
    IPv6(src="200::A", dst="200::D")/UDP(dport=7784)/BFD(my_dis=123, your_disc=456, state=UP)
 
 
 This packet will be routed to kernel stack of D since its dst is 200::D. Then the SBFDReflector service on D will get the packet and Reflect it. The response packet will be:
 
 ::
+
    IPv6(src="200::D", dst="200::A")/UDP(sport=7784)/BFD(my_dis=456, your_disc=123, state=UP)
 
 
@@ -132,18 +136,21 @@ For example, we use Echo SBFD session to protect Srv6 path: A-B-D
 A is also the SBFDInitiator, and B, C, D is Srv6 ready nodes, A will trasmit the SBFD packet to B as the format:
 
 ::
+
    IPv6(src="200::A", dst="100::B", nh=43)/IPv6ExtHdrSegmentRouting(addresses=["100::D"], nh=41, segleft=1)/IPv6(src="200::A", dst="200::A")/UDP(dport=3785)/BFD(my_dis=123, your_disc=123, state=UP)
 
 
 Upon receiving the packet, B will take the Srv6 End action since the dst ip 100::B is the End address, B will the shift the dst address according to Srv6 spec, then trasmit the SBFD packet to D as the format:
 
 ::
+
    IPv6(src="200::A", dst="100::D", nh=41)/IPv6(src="200::A", dst="200::A")/UDP(dport=3785)/BFD(my_dis=123, your_disc=123, state=UP)
 
 
 After D receive the packet, It will decap the outer IPv6 header since the dst ip 100::D is the End address, the decapped packet is:
 
 ::
+
    IPv6(src="200::A", dst="200::A")/UDP(dport=3785)/BFD(my_dis=123, your_disc=123, state=UP)
 
 
@@ -181,6 +188,7 @@ We can also configure a SBFD Initiator-Reflector session based on simple IPv6/IP
 A is the SBFDInitiator, and D is the SBFDReflector, A will trasmit the SBFD packet to B or C as the format: 
 
 ::
+
    IPv6(src="200::A", dst="200::D")/UDP(dport=7784)/BFD(my_dis=123, your_disc=456, state=UP)
 
 
@@ -189,6 +197,7 @@ Upon receiving the packet, B/C will route the packet to D according to the dst i
 After D receive the packet, packet will be sent to kernel stack of D since its dst is 200::D. Then the SBFDReflector service on D will get the packet and reflect it. The response packet will be:
 
 ::
+
    IPv6(src="200::D", dst="200::A")/UDP(sport=7784)/BFD(my_dis=456, your_disc=123, state=UP)
 
 
@@ -226,6 +235,7 @@ This command will show all the BFD and SBFD sessions in the bfdd:
 
 
 ::
+
    BFD Peers:
            peer 200::D bfd-mode sbfd-init bfd-name a-d multihop local-address 200::A vrf default remote-discr 456
                 ID: 1421669725
@@ -254,6 +264,7 @@ This command will show all the BFD and SBFD session packet counters:
 .. clicmd:: show bfd peers counters
 
 ::
+
    BFD Peers:
         peer 200::A bfd-mode sbfd-echo bfd-name a-b-d local-address 200::A vrf default srv6-source-ipv6 200::A srv6-encap-data 100::B 100::D
                 Control packet input: 0 packets
@@ -281,6 +292,7 @@ we also implemented a new show command to display BFD sessions with a bfd-name, 
 .. clicmd:: show bfd bfd-name a-b-d
 
 ::
+
    BFD Peers:
         peer 200::A bfd-mode sbfd-echo bfd-name a-b-d local-address 200::A vrf default srv6-source-ipv6 200::A srv6-encap-data 100::B 100::D
                 ID: 123
