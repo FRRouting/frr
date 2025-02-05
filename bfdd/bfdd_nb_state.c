@@ -52,7 +52,7 @@ bfdd_bfd_sessions_single_hop_lookup_entry(struct nb_cb_lookup_entry_args *args)
 	memset(&lsa, 0, sizeof(lsa));
 	gen_bfd_key(&bk, &psa, &lsa, false, ifname, vrf, NULL);
 
-	return bfd_key_lookup(bk);
+	return bfd_key_lookup(&bk);
 }
 
 /*
@@ -356,7 +356,7 @@ bfdd_bfd_sessions_multi_hop_lookup_entry(struct nb_cb_lookup_entry_args *args)
 	strtosa(source_addr, &lsa);
 	gen_bfd_key(&bk, &psa, &lsa, true, NULL, vrf, NULL);
 
-	return bfd_key_lookup(bk);
+	return bfd_key_lookup(&bk);
 }
 
 /*
@@ -394,7 +394,7 @@ const void *bfdd_bfd_sessions_sbfd_echo_lookup_entry(struct nb_cb_lookup_entry_a
 	memset(&psa, 0, sizeof(psa));
 	gen_bfd_key(&bk, &psa, &lsa, true, NULL, vrf, bfdname);
 
-	return bfd_key_lookup(bk);
+	return bfd_key_lookup(&bk);
 }
 
 /*
@@ -436,5 +436,5 @@ const void *bfdd_bfd_sessions_sbfd_init_lookup_entry(struct nb_cb_lookup_entry_a
 	strtosa(dest_addr, &psa);
 	gen_bfd_key(&bk, &psa, &lsa, true, NULL, vrf, bfdname);
 
-	return bfd_key_lookup(bk);
+	return bfd_key_lookup(&bk);
 }
