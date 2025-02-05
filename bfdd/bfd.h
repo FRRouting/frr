@@ -658,7 +658,12 @@ struct bfd_session *bfd_key_lookup(struct bfd_key *key);
 struct sbfd_reflector *sbfd_discr_lookup(uint32_t discr);
 >>>>>>> 6d80d0c59 (bfdd: Use pass by reference instead of pass by value for a struct)
 struct bfd_session *bfd_id_delete(uint32_t id);
+<<<<<<< HEAD
 struct bfd_session *bfd_key_delete(struct bfd_key key);
+=======
+struct bfd_session *bfd_key_delete(struct bfd_key *key);
+struct sbfd_reflector *sbfd_discr_delete(uint32_t discr);
+>>>>>>> 8119e167b (bfdd: Use pass by reference for bfd_key_delete)
 
 bool bfd_id_insert(struct bfd_session *bs);
 bool bfd_key_insert(struct bfd_session *bs);
