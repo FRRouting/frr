@@ -1090,7 +1090,7 @@ void watchfrr_status(struct vty *vty)
 	}
 }
 
-static void sigint(void)
+static __attribute__((__noreturn__)) void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 	systemd_send_stopping();

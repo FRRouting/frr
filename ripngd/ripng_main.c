@@ -67,7 +67,7 @@ static void sighup(void)
 }
 
 /* SIGINT handler. */
-static void sigint(void)
+static __attribute__((__noreturn__)) void sigint(void)
 {
 	struct vrf *vrf;
 

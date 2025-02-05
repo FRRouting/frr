@@ -443,8 +443,7 @@ main(int argc, char *argv[])
 	return (0);
 }
 
-static void
-ldpd_shutdown(void)
+static __attribute__((__noreturn__)) void ldpd_shutdown(void)
 {
 	pid_t		 pid;
 	int		 status;

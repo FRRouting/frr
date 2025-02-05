@@ -182,8 +182,7 @@ ldpe_init(struct ldpd_init *init)
 	accept_init();
 }
 
-static void
-ldpe_shutdown(void)
+static __attribute__((__noreturn__)) void ldpe_shutdown(void)
 {
 	struct if_addr		*if_addr;
 	struct adj		*adj;
