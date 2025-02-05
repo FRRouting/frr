@@ -75,7 +75,7 @@ const char *seg6local_context2str(char *str, size_t size,
 	switch (action) {
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END:
-		snprintf(str, size, "USP");
+		snprintf(str, size, "-");
 		return str;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_X:
