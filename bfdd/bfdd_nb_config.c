@@ -128,8 +128,14 @@ static int bfd_session_create(struct nb_cb_create_args *args, bool mhop)
 		break;
 
 	case NB_EV_PREPARE:
+<<<<<<< HEAD
 		bfd_session_get_key(mhop, args->dnode, &bk);
 		bs = bfd_key_lookup(bk);
+=======
+		if (bfd_mode == BFD_MODE_TYPE_BFD) {
+			bfd_session_get_key(mhop, args->dnode, &bk);
+			bs = bfd_key_lookup(&bk);
+>>>>>>> 6d80d0c59 (bfdd: Use pass by reference instead of pass by value for a struct)
 
 		/* This session was already configured by another daemon. */
 		if (bs != NULL) {
@@ -139,6 +145,97 @@ static int bfd_session_create(struct nb_cb_create_args *args, bool mhop)
 
 			args->resource->ptr = bs;
 			break;
+<<<<<<< HEAD
+=======
+		} else if (bfd_mode == BFD_MODE_TYPE_SBFD_ECHO ||
+			   bfd_mode == BFD_MODE_TYPE_SBFD_INIT) {
+			sbfd_session_get_key(mhop, args->dnode, &bk);
+			bs = bfd_key_lookup(&bk);
+
+			/* This session was already configured by another daemon. */
+			if (bs != NULL) {
+				/* Now it is configured also by CLI. */
+				SET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG);
+				bs->refcount++;
+
+				args->resource->ptr = bs;
+				break;
+			}
+
+			if (bfd_mode == BFD_MODE_TYPE_SBFD_ECHO &&
+			    !yang_dnode_exists(args->dnode, "srv6-encap-data")) {
+				//srv6-encap-data should not be null for sbfd echo
+				snprintf(args->errmsg, args->errmsg_len,
+					 "srv6-encap-data should not be null");
+				return NB_ERR_RESOURCE;
+			}
+
+			if (bfd_mode == BFD_MODE_TYPE_SBFD_ECHO &&
+			    !yang_dnode_exists(args->dnode, "srv6-source-ipv6")) {
+				snprintf(args->errmsg, args->errmsg_len,
+					 "source_ipv6 should not be null");
+				return NB_ERR_RESOURCE;
+			}
+
+			if (bfd_mode == BFD_MODE_TYPE_SBFD_INIT) {
+				if (!yang_dnode_exists(args->dnode, "remote-discr")) {
+					snprintf(args->errmsg, args->errmsg_len,
+						 "remote-discr should not be null");
+					return NB_ERR_RESOURCE;
+				}
+			}
+
+			bfd_name = yang_dnode_get_string(args->dnode, "bfd-name");
+
+			bs = bfd_session_new(bfd_mode);
+			if (bs == NULL) {
+				snprintf(args->errmsg, args->errmsg_len,
+					 "session-new: allocation failed");
+				return NB_ERR_RESOURCE;
+			}
+			/* Fill the session key. */
+			sbfd_session_get_key(mhop, args->dnode, &bs->key);
+			strlcpy(bs->bfd_name, bfd_name, BFD_NAME_SIZE);
+
+			if (yang_dnode_exists(args->dnode, "srv6-encap-data")) {
+				yang_dnode_iterate(segment_list_iter_cb, bs, args->dnode,
+						   "./srv6-encap-data");
+
+
+				strtosa(yang_dnode_get_string(args->dnode, "./srv6-source-ipv6"),
+					&out_sip6);
+				memcpy(&bs->out_sip6, &out_sip6.sa_sin6.sin6_addr,
+				       sizeof(struct in6_addr));
+			}
+
+			if (bfd_mode == BFD_MODE_TYPE_SBFD_INIT) {
+				bs->discrs.remote_discr = yang_dnode_get_uint32(args->dnode,
+										"./remote-discr");
+			}
+
+			/* Set configuration flags. */
+			bs->refcount = 1;
+			SET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG);
+			if (mhop)
+				SET_FLAG(bs->flags, BFD_SESS_FLAG_MH);
+
+			if (bs->key.family == AF_INET6)
+				SET_FLAG(bs->flags, BFD_SESS_FLAG_IPV6);
+
+			if (bfd_mode == BFD_MODE_TYPE_SBFD_ECHO) {
+				memcpy(&bs->key.peer, &bs->key.local, sizeof(struct in6_addr));
+			} else {
+				bs->xmt_TO = bs->timers.desired_min_tx;
+				bs->detect_TO = bs->detect_mult * bs->xmt_TO;
+			}
+
+			args->resource->ptr = bs;
+			break;
+
+		} else {
+			snprintf(args->errmsg, args->errmsg_len, "bfd mode must be bfd or sbfd.");
+			return NB_ERR_VALIDATION;
+>>>>>>> 6d80d0c59 (bfdd: Use pass by reference instead of pass by value for a struct)
 		}
 
 		bs = bfd_session_new();
@@ -185,8 +282,17 @@ static int bfd_session_destroy(enum nb_event event,
 
 	switch (event) {
 	case NB_EV_VALIDATE:
+<<<<<<< HEAD
 		bfd_session_get_key(mhop, dnode, &bk);
 		if (bfd_key_lookup(bk) == NULL)
+=======
+		if (bfd_mode == BFD_MODE_TYPE_BFD)
+			bfd_session_get_key(mhop, dnode, &bk);
+		else
+			sbfd_session_get_key(mhop, dnode, &bk);
+
+		if (bfd_key_lookup(&bk) == NULL)
+>>>>>>> 6d80d0c59 (bfdd: Use pass by reference instead of pass by value for a struct)
 			return NB_ERR_INCONSISTENCY;
 		break;
 
