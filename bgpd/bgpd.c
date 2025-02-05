@@ -3735,7 +3735,7 @@ int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as, const char *name,
 
 	/* Multiple instance check. */
 	if (name)
-		bgp = bgp_lookup_by_name_filter(name, false);
+		bgp = bgp_lookup_by_name(name);
 	else
 		bgp = bgp_get_default();
 
