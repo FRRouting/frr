@@ -34,16 +34,64 @@ def interface_name_to_index(name):
     return None
 
 
-def multicast_join(sock, ifindex, group, port):
+def interface_index_to_address(index, iptype="inet"):
+    "Gets the interface main address using its name. Returns None on failure."
+    interfaces = json.loads(subprocess.check_output("ip -j addr show", shell=True))
+
+    for interface in interfaces:
+        if interface["ifindex"] == index:
+            break
+
+    for address in interface["addr_info"]:
+        if address["family"] == iptype:
+            break
+
+    local_address = ipaddress.ip_address(address["local"])
+
+    return local_address.packed
+
+
+def group_source_req(ifindex, group, source):
+    "Packs the information into 'struct group_source_req' format."
+    mreq = struct.pack("<I", ifindex)
+    group_bytes = (
+        struct.pack("<IHHI", 0, socket.AF_INET6, 0, 0)
+        + group.packed
+        + struct.pack("<I", 0)
+    )
+    group_bytes += struct.pack(f"<{128 - len(group_bytes)}x")
+
+    source_bytes = (
+        struct.pack("<IHHI", 0, socket.AF_INET6, 0, 0)
+        + source.packed
+        + struct.pack("<I", 0)
+    )
+    source_bytes += struct.pack(f"<{128 - len(source_bytes)}x")
+
+    return mreq + group_bytes + source_bytes + struct.pack("<4x")
+
+
+def multicast_join(sock, ifindex, group, port, source=None):
     "Joins a multicast group."
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
     if ip_version == 4:
-        mreq = group.packed + struct.pack("@II", socket.INADDR_ANY, ifindex)
-        opt = socket.IP_ADD_MEMBERSHIP
+        if source is None:
+            mreq = group.packed + struct.pack("@II", socket.INADDR_ANY, ifindex)
+            opt = socket.IP_ADD_MEMBERSHIP
+        else:
+            source = ipaddress.ip_address(source)
+            mreq = group.packed + interface_index_to_address(ifindex) + source.packed
+            opt = 39
     else:
-        mreq = group.packed + struct.pack("@I", ifindex)
-        opt = socket.IPV6_JOIN_GROUP
+        if source is None:
+            mreq = group.packed + struct.pack("@I", ifindex)
+            opt = socket.IPV6_JOIN_GROUP
+        else:
+            mreq = group_source_req(ifindex, group, ipaddress.ip_address(source))
+            print(mreq)
+            opt = 46
+
     sock.bind((str(group), port))
     sock.setsockopt(ip_proto, opt, mreq)
 
@@ -57,6 +105,7 @@ parser.add_argument("interface", help="Interface name")
 parser.add_argument("--port", type=int, default=1000, help="port to send to")
 parser.add_argument("--ttl", type=int, default=16, help="TTL/hops for sending packets")
 parser.add_argument("--socket", help="Point to topotest UNIX socket")
+parser.add_argument("--source", help="Source address for multicast")
 parser.add_argument(
     "--send", help="Transmit instead of join with interval", type=float, default=0
 )
@@ -112,7 +161,7 @@ if args.send > 0:
     # Block to ensure packet send.
     msock.setblocking(True)
 else:
-    multicast_join(msock, ifindex, args.group, args.port)
+    multicast_join(msock, ifindex, args.group, args.port, args.source)
 
 
 def should_exit():
