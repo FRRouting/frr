@@ -76,7 +76,6 @@ void seg6local_context2json(const struct seg6local_context *ctx,
 {
 	switch (action) {
 	case ZEBRA_SEG6_LOCAL_ACTION_END:
-		json_object_boolean_add(json, "USP", true);
 		return;
 	case ZEBRA_SEG6_LOCAL_ACTION_END_X:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX6:
@@ -116,7 +115,7 @@ const char *seg6local_context2str(char *str, size_t size,
 	switch (action) {
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END:
-		snprintf(str, size, "USP");
+		snprintf(str, size, "-");
 		return str;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_X:
