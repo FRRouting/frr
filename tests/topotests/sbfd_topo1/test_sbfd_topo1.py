@@ -56,7 +56,7 @@ test_sbfd_topo1.py: test simple sbfd with IPv6 encap. RT1 is sbfd Initiator, RT2
  +----+----+        +----+----+
 
 """
-pytestmark = [pytest.mark.bfdd, pytest.mark.sbfd]
+pytestmark = [pytest.mark.bfdd]
 
 def show_bfd_check(router, status, type='echo', encap=None):
     output = router.cmd("vtysh -c 'show bfd peers'")
