@@ -2075,6 +2075,8 @@ void ospf_apiserver_flush_opaque_lsa(struct ospf_apiserver *apiserv,
 	struct listnode *node, *nnode;
 	struct ospf *ospf;
 	struct ospf_area *area;
+	struct route_node *rn;
+	struct ospf_lsa *lsa;
 
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 	assert(ospf);
@@ -2085,9 +2087,6 @@ void ospf_apiserver_flush_opaque_lsa(struct ospf_apiserver *apiserv,
 	param.opaque_type = opaque_type;
 
 	switch (lsa_type) {
-		struct route_node *rn;
-		struct ospf_lsa *lsa;
-
 	case OSPF_OPAQUE_LINK_LSA:
 		for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area))
 			LSDB_LOOP (OPAQUE_LINK_LSDB(area), rn, lsa)
