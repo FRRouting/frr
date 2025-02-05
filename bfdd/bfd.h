@@ -701,7 +701,7 @@ struct bfd_session *bfd_id_lookup(uint32_t id);
 struct bfd_session *bfd_key_lookup(struct bfd_key *key);
 struct sbfd_reflector *sbfd_discr_lookup(uint32_t discr);
 struct bfd_session *bfd_id_delete(uint32_t id);
-struct bfd_session *bfd_key_delete(struct bfd_key key);
+struct bfd_session *bfd_key_delete(struct bfd_key *key);
 struct sbfd_reflector *sbfd_discr_delete(uint32_t discr);
 
 bool bfd_id_insert(struct bfd_session *bs);

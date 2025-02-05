@@ -982,7 +982,7 @@ void bfd_session_free(struct bfd_session *bs)
 	/* Remove session from data plane if any. */
 	bfd_dplane_delete_session(bs);
 
-	bfd_key_delete(bs->key);
+	bfd_key_delete(&bs->key);
 	bfd_id_delete(bs->discrs.my_discr);
 
 	/* Remove observer if any. */
@@ -1999,11 +1999,11 @@ struct bfd_session *bfd_id_delete(uint32_t id)
 	return hash_release(bfd_id_hash, &bs);
 }
 
-struct bfd_session *bfd_key_delete(struct bfd_key key)
+struct bfd_session *bfd_key_delete(struct bfd_key *key)
 {
 	struct bfd_session bs;
 
-	bs.key = key;
+	bs.key = *key;
 
 	return hash_release(bfd_key_hash, &bs);
 }
