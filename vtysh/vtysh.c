@@ -40,6 +40,7 @@
 #include "json.h"
 #include "ferr.h"
 #include "sockopt.h"
+#include "vtysh_extensions.h"
 
 DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CMD, "Vtysh cmd copy");
 
@@ -462,7 +463,7 @@ static int vtysh_client_execute(struct vtysh_client *head_client,
 }
 
 /* Execute by name */
-static int vtysh_client_execute_name(const char *name, const char *line)
+int vtysh_client_execute_name(const char *name, const char *line)
 {
 	int ret = CMD_SUCCESS;
 	int idx_client = -1;
@@ -3013,7 +3014,7 @@ static int show_per_daemon(struct vty *vty, struct cmd_token **argv, int argc,
 }
 #pragma GCC diagnostic pop
 
-static int show_one_daemon(struct vty *vty, struct cmd_token **argv, int argc,
+int show_one_daemon(struct vty *vty, struct cmd_token **argv, int argc,
 			   const char *name)
 {
 	int ret;
@@ -4623,6 +4624,18 @@ DEFUN_HIDDEN(show_cli_graph_vtysh,
 	return CMD_SUCCESS;
 }
 
+DEFUN (show_vtysh_extensions,
+        show_vtysh_extensions_cmd,
+        "show vtysh extensions",
+        SHOW_STR
+        "VTYSH\n"
+        "extension info\n")
+{
+    vtysh_show_extensions(vty);
+    return CMD_SUCCESS;
+}
+
+
 static void vtysh_install_default(enum node_type node)
 {
 	_install_element(node, &config_list_cmd);
@@ -5560,4 +5573,7 @@ void vtysh_init_vty(void)
 	install_element(CONFIG_NODE, &no_vtysh_password_cmd);
 	install_element(CONFIG_NODE, &vtysh_enable_password_cmd);
 	install_element(CONFIG_NODE, &no_vtysh_enable_password_cmd);
+
+	/* vtysh extensions */
+	install_element(VIEW_NODE, &show_vtysh_extensions_cmd);
 }
