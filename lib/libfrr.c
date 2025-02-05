@@ -1275,7 +1275,12 @@ void frr_fini(void)
 	master = NULL;
 	zlog_tls_buffer_fini();
 
-	if (0) {
+	/*
+	 * The extra paranthesis around the 0 is telling the compiler that
+	 * we are intentionally not calling zlog_fini().  So if you see
+	 * this and are going... why.... this is why.
+	 */
+	if ((0)) {
 		/* this is intentionally disabled.  zlog remains running until
 		 * exit(), so even the very last item done during shutdown can
 		 * have its zlog() messages written out.
