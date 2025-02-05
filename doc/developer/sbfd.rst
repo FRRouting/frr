@@ -27,7 +27,7 @@ SBFD takes the same data packet format as BFD, but with a much simpler state mac
 According to RFC7880, SBFD has a stateless SBFDReflector and a stateful SBFDInitiator with the state machine as below:
 
 ::
-   
+
                        +--+
           ADMIN DOWN,  |  |
           TIMER        |  V
@@ -78,6 +78,7 @@ A bfd-name is always associated with a TE path, for example if we use the sbfd s
 Meanwhile bfdd will notify the sbfd status to the Pathd, we should add the bfd-name field in PTM bfd notify message ZEBRA_BFD_DEST_REPLAY:
 
 ::
+
 	 * Message format:
 	 * - header: command, vrf
 	 * - l: interface index
@@ -113,6 +114,7 @@ According to RFC7881, SBFD Control packet dst port should be 7784, src port can 
 
 
 ::
+
    UDP(sport=4784, dport=7784)/BFD() or UDP(sport=3784, dport=7784)/BFD()
 
 if "multihop" is specified for sbfd initiator we choose the 4784 as the source port, so the reflected packet will take 4784 as the dst port, this is a local BFD_MULTI_HOP_PORT so the reflected packet can be handled by the existing bfd_recv_cb function.
@@ -122,6 +124,7 @@ if "multihop" is not specified for sbfd initiator we choose the 3784 as the sour
 For echo SBFD with SRv6 encapsulation case, we re-use the BFD Echo port, the UDP ports in packet are set as:
 
 ::
+
    UDP(sport=3785, dport=3785)/BFD()
 
 
