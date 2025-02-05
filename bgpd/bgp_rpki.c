@@ -1553,11 +1553,9 @@ static int bgp_rpki_write_vrf(struct vty *vty, struct vrf *vrf)
 
 	for (ALL_LIST_ELEMENTS_RO(rpki_vrf->cache_list, cache_node, cache)) {
 		switch (cache->type) {
+		case TCP: {
 			struct tr_tcp_config *tcp_config;
-#if defined(FOUND_SSH)
-			struct tr_ssh_config *ssh_config;
-#endif
-		case TCP:
+
 			tcp_config = cache->tr_config.tcp_config;
 			vty_out(vty, "%s rpki cache tcp %s %s ", sep,
 				tcp_config->host, tcp_config->port);
@@ -1565,8 +1563,11 @@ static int bgp_rpki_write_vrf(struct vty *vty, struct vrf *vrf)
 				vty_out(vty, "source %s ",
 					tcp_config->bindaddr);
 			break;
+		}
 #if defined(FOUND_SSH)
-		case SSH:
+		case SSH: {
+			struct tr_ssh_config *ssh_config;
+
 			ssh_config = cache->tr_config.ssh_config;
 			vty_out(vty, "%s rpki cache ssh %s %u %s %s %s ", sep,
 				ssh_config->host, ssh_config->port,
@@ -1579,6 +1580,7 @@ static int bgp_rpki_write_vrf(struct vty *vty, struct vrf *vrf)
 				vty_out(vty, "source %s ",
 					ssh_config->bindaddr);
 			break;
+		}
 #endif
 		default:
 			break;
