@@ -518,20 +518,25 @@ int zsend_redistribute_route(int cmd, struct zserv *client, const struct route_n
 	const struct prefix *p, *src_p;
 	uint16_t count = 0;
 	afi_t afi;
-	size_t stream_size =
-		MAX(ZEBRA_MAX_PACKET_SIZ, sizeof(struct zapi_route));
+	size_t stream_size = 0;
 
 	srcdest_rnode_prefixes(rn, &p, &src_p);
 	memset(&api, 0, sizeof(api));
+	/* stream_size += 10; header */
+	/* stream_size += 4; */
 	api.vrf_id = re->vrf_id;
+	/* stream_size += 1; */
 	api.type = re->type;
+	/* stream_size += 1; */
 	api.safi = SAFI_UNICAST;
+	/* stream_size += 2; */
 	if (to_vrf != NULL) {
 		api.instance = re->table;
 		api.type = ZEBRA_ROUTE_TABLE_DIRECT;
 		api.vrf_id = *to_vrf;
 	} else
 		api.instance = re->instance;
+	/* stream_size += 4; */
 	api.flags = re->flags;
 
 	afi = family2afi(p->family);
@@ -555,6 +560,7 @@ int zsend_redistribute_route(int cmd, struct zserv *client, const struct route_n
 	}
 
 	/* Prefix. */
+	/* stream_size += 18 + 17; */
 	api.prefix = *p;
 	if (src_p) {
 		SET_FLAG(api.message, ZAPI_MESSAGE_SRCPFX);
@@ -567,9 +573,13 @@ int zsend_redistribute_route(int cmd, struct zserv *client, const struct route_n
 			continue;
 
 		api_nh = &api.nexthops[count];
+		/* stream_size += 4; */
 		api_nh->vrf_id = nexthop->vrf_id;
+		/* stream_size += 1; */
 		api_nh->type = nexthop->type;
+		/* stream_size += 8; */
 		api_nh->weight = nexthop->weight;
+		/* stream_size += 20; */
 		switch (nexthop->type) {
 		case NEXTHOP_TYPE_BLACKHOLE:
 			api_nh->bh_type = nexthop->bh_type;
@@ -591,26 +601,33 @@ int zsend_redistribute_route(int cmd, struct zserv *client, const struct route_n
 	}
 
 	/* Nexthops. */
+	/* stream_size += 2; */
 	if (count) {
 		SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 		api.nexthop_num = count;
 	}
 
 	/* Attributes. */
+	/* stream_size += 1; */
 	SET_FLAG(api.message, ZAPI_MESSAGE_DISTANCE);
 	if (to_vrf != NULL)
 		api.distance = ZEBRA_TABLEDIRECT_DISTANCE_DEFAULT;
 	else
 		api.distance = re->distance;
+	/* stream_size += 4; */
 	SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
 	api.metric = re->metric;
+	/* stream_size += 4; */
 	if (re->tag) {
 		SET_FLAG(api.message, ZAPI_MESSAGE_TAG);
 		api.tag = re->tag;
 	}
+	/* stream_size += 4; */
 	SET_FLAG(api.message, ZAPI_MESSAGE_MTU);
 	api.mtu = re->mtu;
 
+	/* stream_size += 4; api.message */
+	stream_size = (76 + (count * 33));
 	struct stream *s = stream_new(stream_size);
 
 	/* Encode route and send. */
