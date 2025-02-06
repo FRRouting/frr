@@ -1284,76 +1284,67 @@ Debugging OSPF
 
 .. clicmd:: debug ospf [(1-65535)] client-api
 
-   Show debug information for the OSPF opaque data client API.
+   Enable or disable debugging for the OSPF opaque data client API.
 
 .. clicmd:: debug ospf [(1-65535)] default-information
 
-   Show debug information of default information
+   Enable or disable debugging of default information origination
 
 .. clicmd:: debug ospf [(1-65535)] packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) [detail]
 
-
-   Dump Packet for debugging
+   Enable or disable debugging for received and transmitted OSPF packets
 
 .. clicmd:: debug ospf [(1-65535)] ism [status|events|timers]
 
-
-
-   Show debug information of Interface State Machine
+   Enable or disable debugging of Interface State Machine
 
 .. clicmd:: debug ospf [(1-65535)] nsm [status|events|timers]
 
-
-
-   Show debug information of Network State Machine
+   Enable or disable debugging of Neighbor State Machine transitions
 
 .. clicmd:: debug ospf [(1-65535)] event
 
-
-   Show debug information of OSPF event
+   Enable or disable debugging of OSPF events
 
 .. clicmd:: debug ospf [(1-65535)] nssa
 
-
-   Show debug information about Not So Stub Area
+   Enable or disable debugging about Not-So-Stubby-Areas (NSSAs)
 
 .. clicmd:: debug ospf [(1-65535)] ldp-sync
 
-   Show debug information about LDP-Sync
+   Enable or disable debugging about LDP-Sync
 
 .. clicmd:: debug ospf [(1-65535)] lsa [aggregate|flooding|generate|install|refresh]
 
-
-
-   Show debug detail of Link State messages
+   Enable or disable detail debuggin of Link State Advertisements (LSAs)
 
 .. clicmd:: debug ospf [(1-65535)] sr
 
-   Show debug information about Segment Routing
+   Enable or disable debugging about Segment Routing
 
 .. clicmd:: debug ospf [(1-65535)] te
 
-
-   Show debug information about Traffic Engineering LSA
+   Enable or disable debugging about MPLS Traffic Engineering LSA
 
 .. clicmd:: debug ospf [(1-65535)] ti-lfa
 
-   Show debug information about SR TI-LFA
+   Enable or disable debugging about SR TI-LFA
 
 .. clicmd:: debug ospf [(1-65535)] zebra [interface|redistribute]
 
-
-
-   Show debug information of ZEBRA API
+   Enable or disable debugging of ZEBRA API
 
 .. clicmd:: debug ospf [(1-65535)] graceful-restart
 
+   Enable or disable debugying for OSPF Graceful Restart Helper
 
-   Enable/disable debug information for OSPF Graceful Restart Helper
+.. clicmd:: debug ospf [(1-65535)] graceful-restart
+
+   Enable or disable debugging for OSPF Opaque LSA processing
 
 .. clicmd:: show debugging ospf
 
-
+   Show enabled OSPF debugging options
 
 Sample Configuration
 ====================

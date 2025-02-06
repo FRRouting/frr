@@ -147,10 +147,6 @@ static void ospf_lsdb_delete_entry(struct ospf_lsdb *lsdb,
 
 	rn->info = NULL;
 	route_unlock_node(rn);
-#ifdef MONITOR_LSDB_CHANGE
-	if (lsdb->del_lsa_hook != NULL)
-		(*lsdb->del_lsa_hook)(lsa);
-#endif			       /* MONITOR_LSDB_CHANGE */
 	ospf_lsa_unlock(&lsa); /* lsdb */
 	return;
 }
@@ -187,10 +183,6 @@ void ospf_lsdb_add(struct ospf_lsdb *lsdb, struct ospf_lsa *lsa)
 	    CHECK_FLAG(lsa->data->options, OSPF_OPTION_DC))
 		lsa->area->fr_info.router_lsas_recv_dc_bit++;
 
-#ifdef MONITOR_LSDB_CHANGE
-	if (lsdb->new_lsa_hook != NULL)
-		(*lsdb->new_lsa_hook)(lsa);
-#endif /* MONITOR_LSDB_CHANGE */
 	lsdb->type[lsa->data->type].checksum += ntohs(lsa->data->checksum);
 	rn->info = ospf_lsa_lock(lsa); /* lsdb */
 }
