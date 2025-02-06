@@ -83,7 +83,8 @@ static void circuit_commence_level(struct isis_circuit *circuit, int level)
 
 		send_hello_sched(circuit, level, TRIGGERED_IIH_DELAY);
 		circuit->u.bc.lan_neighs[level - 1] = list_new();
-		circuit->u.bc.adjdb[level - 1] = list_new();
+		if (!circuit->u.bc.adjdb[level - 1])
+			circuit->u.bc.adjdb[level - 1] = list_new();
 	}
 }
 
