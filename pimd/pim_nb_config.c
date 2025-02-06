@@ -1387,8 +1387,8 @@ int pim_msdp_peer_sa_filter_in_modify(struct nb_cb_modify_args *args)
 		break;
 	case NB_EV_APPLY:
 		mp = nb_running_get_entry(args->dnode, NULL, true);
-		XFREE(MTYPE_TMP, mp->acl_in);
-		mp->acl_in = XSTRDUP(MTYPE_TMP,
+		XFREE(MTYPE_PIM_MSDP_FILTER_NAME, mp->acl_in);
+		mp->acl_in = XSTRDUP(MTYPE_PIM_MSDP_FILTER_NAME,
 				     yang_dnode_get_string(args->dnode, NULL));
 		break;
 	}
@@ -1408,7 +1408,7 @@ int pim_msdp_peer_sa_filter_in_destroy(struct nb_cb_destroy_args *args)
 		break;
 	case NB_EV_APPLY:
 		mp = nb_running_get_entry(args->dnode, NULL, true);
-		XFREE(MTYPE_TMP, mp->acl_in);
+		XFREE(MTYPE_PIM_MSDP_FILTER_NAME, mp->acl_in);
 		break;
 	}
 
@@ -1431,8 +1431,8 @@ int pim_msdp_peer_sa_filter_out_modify(struct nb_cb_modify_args *args)
 		break;
 	case NB_EV_APPLY:
 		mp = nb_running_get_entry(args->dnode, NULL, true);
-		XFREE(MTYPE_TMP, mp->acl_out);
-		mp->acl_out = XSTRDUP(MTYPE_TMP,
+		XFREE(MTYPE_PIM_MSDP_FILTER_NAME, mp->acl_out);
+		mp->acl_out = XSTRDUP(MTYPE_PIM_MSDP_FILTER_NAME,
 				      yang_dnode_get_string(args->dnode, NULL));
 		break;
 	}
@@ -1452,7 +1452,7 @@ int pim_msdp_peer_sa_filter_out_destroy(struct nb_cb_destroy_args *args)
 		break;
 	case NB_EV_APPLY:
 		mp = nb_running_get_entry(args->dnode, NULL, true);
-		XFREE(MTYPE_TMP, mp->acl_out);
+		XFREE(MTYPE_PIM_MSDP_FILTER_NAME, mp->acl_out);
 		break;
 	}
 
