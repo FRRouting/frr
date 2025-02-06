@@ -289,6 +289,13 @@ module frr-interface {
   }
 
   container lib {
+    leaf debug-enable {
+      type boolean;
+      default false;
+      description
+        "Enable library-level debugs.";
+    }
+
     list interface {
       key "name";
       description
