@@ -325,7 +325,7 @@ static int bgp_vrf_disable(struct vrf *vrf)
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("VRF disable %s id %d", vrf->name, vrf->vrf_id);
 
-	bgp = bgp_lookup_by_name_filter(vrf->name, false);
+	bgp = bgp_lookup_by_name(vrf->name);
 	if (bgp) {
 
 		vpn_leak_zebra_vrf_label_withdraw(bgp, AFI_IP);
