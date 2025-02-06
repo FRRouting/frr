@@ -628,3 +628,106 @@ void static_get_nh_str(struct static_nexthop *nh, char *nexthop, size_t size)
 		break;
 	};
 }
+
+void static_route_show_nexthop(struct vty *vty,
+				    const struct static_nexthop *sn)
+{
+
+	switch (sn->type) {
+	case STATIC_IFNAME:
+		vty_out(vty, " ifname(%d):%s", sn->ifindex, sn->ifname);
+		break;
+	case STATIC_IPV4_GATEWAY:
+		vty_out(vty, " ip4:%pI4", &sn->addr.ipv4);
+		break;
+	case STATIC_IPV4_GATEWAY_IFNAME:
+		vty_out(vty, " ip4-ifindex(%d):%pI4 :%s", sn->ifindex,
+			&sn->addr.ipv4, sn->ifname);
+		break;
+	case STATIC_BLACKHOLE:
+		vty_out(vty, " blackhole:%d", sn->bh_type);
+		break;
+	case STATIC_IPV6_GATEWAY:
+		vty_out(vty, " ip6:%pI6", &sn->addr.ipv6);
+		break;
+	case STATIC_IPV6_GATEWAY_IFNAME:
+		vty_out(vty, " ip6-ifindex(%d):%pI6 :%s", sn->ifindex,
+			&sn->addr.ipv6, sn->ifname);
+		break;
+	};
+
+	vty_out(vty, " %s, registered:%s, state:%d\n",
+		sn->nh_valid ? "valid" : "invalid",
+		sn->nh_registered ? "yes" : "no", sn->state);
+}
+
+void static_route_show_path(struct vty *vty, struct route_table *stable)
+{
+	struct route_node *rn;
+	bool first = true;
+	int len_rn = 0;
+
+	for (rn = route_top(stable); rn; rn = srcdest_route_next(rn)) {
+		struct static_route_info *si = static_route_info_from_rnode(rn);
+		struct static_path *sp;
+
+		if (si == NULL)
+			continue;
+
+		frr_each (static_path_list, &si->path_list, sp) {
+			struct static_nexthop *sn;
+
+			len_rn = vty_out(vty, "        %pRN", sp->rn);
+			frr_each (static_nexthop_list, &sp->nexthop_list, sn) {
+				if (first)
+					first = false;
+				else
+					vty_out(vty, "%*c", len_rn, ' ');
+				static_route_show_nexthop(vty, sn);
+			}
+		}
+		first = true;
+	}
+}
+
+void static_route_show(struct vty *vty, afi_t afi, char *vrf_name, bool vrf_all)
+{
+	struct route_table *stable;
+	struct static_vrf *svrf;
+
+	vty_out(vty, "Staticd routes:\n");
+	if (vrf_all) {
+		RB_FOREACH (svrf, svrf_name_head, &svrfs) {
+			stable = static_vrf_static_table(afi, SAFI_UNICAST, svrf);
+			if (stable) {
+				vty_out(vty, "    VRF %s %s Unicast:\n", svrf->name, afi2str(afi));
+				static_route_show_path(vty, stable);
+			}
+
+			stable = static_vrf_static_table(afi, SAFI_MULTICAST, svrf);
+			if (stable) {
+				vty_out(vty, "    VRF %s %s Municast:\n", svrf->name, afi2str(afi));
+				static_route_show_path(vty, stable);
+			}
+		}
+	} else {
+		RB_FOREACH (svrf, svrf_name_head, &svrfs) {
+			if (strcmp(vrf_name, svrf->name) != 0)
+				continue;
+
+			stable = static_vrf_static_table(afi, SAFI_UNICAST, svrf);
+			if (stable) {
+				vty_out(vty, "    VRF %s %s Unicast:\n", svrf->name, afi2str(afi));
+				static_route_show_path(vty, stable);
+			}
+
+			stable = static_vrf_static_table(afi, SAFI_MULTICAST, svrf);
+			if (stable) {
+				vty_out(vty, "    VRF %s %s Municast:\n", svrf->name, afi2str(afi));
+				static_route_show_path(vty, stable);
+			}
+		}
+	}
+
+	vty_out(vty, "\n");
+}
