@@ -62,8 +62,13 @@ static void ospf_opaque_funclist_init(void);
 static void ospf_opaque_funclist_term(void);
 static void free_opaque_info_per_type_del(void *val);
 static void free_opaque_info_per_id(void *val);
-static int ospf_opaque_lsa_install_hook(struct ospf_lsa *lsa);
+
+/*
+ * OSPF Opaque specific hooks and state.
+ */
+static int ospf_opaque_lsa_update_hook(struct ospf_lsa *lsa);
 static int ospf_opaque_lsa_delete_hook(struct ospf_lsa *lsa);
+static bool ospf_opaque_lsa_hooks_registered;
 
 void ospf_opaque_init(void)
 {
@@ -152,19 +157,19 @@ int ospf_opaque_type10_lsa_init(struct ospf_area *area)
 	area->opaque_lsa_self = list_new();
 	area->opaque_lsa_self->del = free_opaque_info_per_type_del;
 	area->t_opaque_lsa_self = NULL;
-
-#ifdef MONITOR_LSDB_CHANGE
-	area->lsdb->new_lsa_hook = ospf_opaque_lsa_install_hook;
-	area->lsdb->del_lsa_hook = ospf_opaque_lsa_delete_hook;
-#endif /* MONITOR_LSDB_CHANGE */
+	if (!ospf_opaque_lsa_hooks_registered) {
+		hook_register(ospf_lsa_update, ospf_opaque_lsa_update_hook);
+		hook_register(ospf_lsa_delete, ospf_opaque_lsa_delete_hook);
+		ospf_opaque_lsa_hooks_registered = true;
+	}
 	return 0;
 }
 
 void ospf_opaque_type10_lsa_term(struct ospf_area *area)
 {
-#ifdef MONITOR_LSDB_CHANGE
-	area->lsdb->new_lsa_hook = area->lsdb->del_lsa_hook = NULL;
-#endif /* MONITOR_LSDB_CHANGE */
+	hook_unregister(ospf_lsa_update, ospf_opaque_lsa_update_hook);
+	hook_unregister(ospf_lsa_delete, ospf_opaque_lsa_delete_hook);
+	ospf_opaque_lsa_hooks_registered = false;
 
 	EVENT_OFF(area->t_opaque_lsa_self);
 	if (area->opaque_lsa_self != NULL)
@@ -181,19 +186,11 @@ int ospf_opaque_type11_lsa_init(struct ospf *top)
 	top->opaque_lsa_self->del = free_opaque_info_per_type_del;
 	top->t_opaque_lsa_self = NULL;
 
-#ifdef MONITOR_LSDB_CHANGE
-	top->lsdb->new_lsa_hook = ospf_opaque_lsa_install_hook;
-	top->lsdb->del_lsa_hook = ospf_opaque_lsa_delete_hook;
-#endif /* MONITOR_LSDB_CHANGE */
 	return 0;
 }
 
 void ospf_opaque_type11_lsa_term(struct ospf *top)
 {
-#ifdef MONITOR_LSDB_CHANGE
-	top->lsdb->new_lsa_hook = top->lsdb->del_lsa_hook = NULL;
-#endif /* MONITOR_LSDB_CHANGE */
-
 	EVENT_OFF(top->t_opaque_lsa_self);
 	if (top->opaque_lsa_self != NULL)
 		list_delete(&top->opaque_lsa_self);
@@ -297,7 +294,7 @@ static void ospf_opaque_del_functab(void *val)
 {
 	struct ospf_opaque_functab *functab = (struct ospf_opaque_functab *)val;
 
-	if (IS_DEBUG_OSPF_EVENT)
+	if (IS_DEBUG_OSPF_OPAQUE_LSA)
 		zlog_debug("%s: Opaque LSA functab list deletion callback type %u (%p)",
 			   __func__, functab->opaque_type, functab);
 
@@ -309,7 +306,7 @@ static void ospf_opaque_funclist_init(void)
 {
 	struct list *funclist;
 
-	if (IS_DEBUG_OSPF_EVENT)
+	if (IS_DEBUG_OSPF_OPAQUE_LSA)
 		zlog_debug("%s: Function list initialize", __func__);
 
 	funclist = ospf_opaque_wildcard_funclist = list_new();
@@ -330,7 +327,7 @@ static void ospf_opaque_funclist_term(void)
 {
 	struct list *funclist;
 
-	if (IS_DEBUG_OSPF_EVENT)
+	if (IS_DEBUG_OSPF_OPAQUE_LSA)
 		zlog_debug("%s: Function list terminate", __func__);
 
 	funclist = ospf_opaque_wildcard_funclist;
@@ -408,7 +405,7 @@ int ospf_register_opaque_functab(
 
 	for (ALL_LIST_ELEMENTS(funclist, node, nnode, functab))
 		if (functab->opaque_type == opaque_type) {
-			if (IS_DEBUG_OSPF_EVENT)
+			if (IS_DEBUG_OSPF_OPAQUE_LSA)
 				zlog_debug("%s: Opaque LSA functab found type %u, (%p)",
 					   __func__, functab->opaque_type,
 					   functab);
@@ -419,7 +416,7 @@ int ospf_register_opaque_functab(
 		new = XCALLOC(MTYPE_OSPF_OPAQUE_FUNCTAB,
 			      sizeof(struct ospf_opaque_functab));
 	else {
-		if (IS_DEBUG_OSPF_EVENT)
+		if (IS_DEBUG_OSPF_OPAQUE_LSA)
 			zlog_debug("%s: Re-register Opaque LSA type %u, opaque type %u, (%p)",
 				   __func__, lsa_type, opaque_type, functab);
 		return 0;
@@ -439,7 +436,7 @@ int ospf_register_opaque_functab(
 	new->new_lsa_hook = new_lsa_hook;
 	new->del_lsa_hook = del_lsa_hook;
 
-	if (IS_DEBUG_OSPF_EVENT)
+	if (IS_DEBUG_OSPF_OPAQUE_LSA)
 		zlog_debug("%s: Register Opaque LSA type %u, opaque type %u, (%p)",
 			   __func__, lsa_type, opaque_type, new);
 
@@ -458,7 +455,7 @@ void ospf_delete_opaque_functab(uint8_t lsa_type, uint8_t opaque_type)
 	if ((funclist = ospf_get_opaque_funclist(lsa_type)) != NULL)
 		for (ALL_LIST_ELEMENTS(funclist, node, nnode, functab)) {
 			if (functab->opaque_type == opaque_type) {
-				if (IS_DEBUG_OSPF_EVENT)
+				if (IS_DEBUG_OSPF_OPAQUE_LSA)
 					zlog_debug("%s: Delete Opaque functab LSA type %u, opaque type %u, (%p)",
 						   __func__, lsa_type,
 						   opaque_type, functab);
@@ -608,7 +605,7 @@ register_opaque_info_per_type(struct ospf_opaque_functab *functab,
 	oipt->id_list = list_new();
 	oipt->id_list->del = free_opaque_info_per_id;
 
-	if (IS_DEBUG_OSPF_EVENT)
+	if (IS_DEBUG_OSPF_OPAQUE_LSA)
 		zlog_debug("%s: Register Opaque info-per-type LSA type %u, opaque type %u, (%p), Functab (%p)",
 			   __func__, oipt->lsa_type, oipt->opaque_type, oipt,
 			   oipt->functab);
@@ -662,7 +659,7 @@ static void free_opaque_info_per_type(struct opaque_info_per_type *oipt,
 	if (oipt->functab)
 		ospf_opaque_functab_deref(oipt->functab);
 
-	if (IS_DEBUG_OSPF_EVENT)
+	if (IS_DEBUG_OSPF_OPAQUE_LSA)
 		zlog_debug("%s: Free Opaque info-per-type LSA type %u, opaque type %u, (%p), Functab (%p)",
 			   __func__, oipt->lsa_type, oipt->opaque_type, oipt,
 			   oipt->functab);
@@ -825,7 +822,7 @@ void ospf_opaque_type9_lsa_if_cleanup(struct ospf_interface *oi)
 		 * is removed from the interface opaque info list.
 		 */
 		if (lsa->oi == oi) {
-			if (IS_DEBUG_OSPF_EVENT)
+			if (IS_DEBUG_OSPF_OPAQUE_LSA)
 				zlog_debug("Delete Type-9 Opaque-LSA on interface delete: [opaque-type=%u, opaque-id=%x]",
 					   GET_OPAQUE_TYPE(
 						   ntohl(lsa->data->id.s_addr)),
@@ -833,6 +830,12 @@ void ospf_opaque_type9_lsa_if_cleanup(struct ospf_interface *oi)
 						   lsa->data->id.s_addr)));
 			ospf_lsdb_delete(lsdb, lsa);
 			lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
+
+			/*
+			 * Invoke the delete hook directly since it bypasses the normal MAXAGE
+			 * processing.
+			 */
+			ospf_opaque_lsa_delete_hook(lsa);
 			lsa->oi = NULL;
 			ospf_lsa_discard(lsa);
 		}
@@ -859,7 +862,7 @@ DEFUN (capability_opaque,
 
 	/* Turn on the "master switch" of opaque-lsa capability. */
 	if (!CHECK_FLAG(ospf->config, OSPF_OPAQUE_CAPABLE)) {
-		if (IS_DEBUG_OSPF_EVENT)
+		if (IS_DEBUG_OSPF_OPAQUE_LSA)
 			zlog_debug("Opaque capability: OFF -> ON");
 
 		SET_FLAG(ospf->config, OSPF_OPAQUE_CAPABLE);
@@ -888,7 +891,7 @@ DEFUN (no_capability_opaque,
 
 	/* Turn off the "master switch" of opaque-lsa capability. */
 	if (CHECK_FLAG(ospf->config, OSPF_OPAQUE_CAPABLE)) {
-		if (IS_DEBUG_OSPF_EVENT)
+		if (IS_DEBUG_OSPF_OPAQUE_LSA)
 			zlog_debug("Opaque capability: ON -> OFF");
 
 		UNSET_FLAG(ospf->config, OSPF_OPAQUE_CAPABLE);
@@ -1151,7 +1154,7 @@ void ospf_opaque_nsm_change(struct ospf_neighbor *nbr, int old_state)
 		if (CHECK_FLAG(nbr->options, OSPF_OPTION_O)) {
 			if (!CHECK_FLAG(top->opaque,
 					OPAQUE_OPERATION_READY_BIT)) {
-				if (IS_DEBUG_OSPF_EVENT)
+				if (IS_DEBUG_OSPF_OPAQUE_LSA)
 					zlog_debug(
 						"Opaque-LSA: Now get operational!");
 
@@ -1316,11 +1319,15 @@ void ospf_opaque_lsa_dump(struct stream *s, uint16_t length)
 	return;
 }
 
-static int ospf_opaque_lsa_install_hook(struct ospf_lsa *lsa)
+static int ospf_opaque_lsa_update_hook(struct ospf_lsa *lsa)
 {
 	struct list *funclist;
 	int rc = -1;
 
+	if (IS_DEBUG_OSPF_OPAQUE_LSA)
+		zlog_debug("%s: LSA [Type %d: %pI4] Seq: 0x%x %sLSA Update Hook ", __func__,
+			   lsa->data->type, &lsa->data->id, ntohl(lsa->data->ls_seqnum),
+			   IS_LSA_MAXAGE(lsa) ? "MaxAged " : "");
 	/*
 	 * Some Opaque-LSA user may want to monitor every LSA installation
 	 * into the LSDB, regardless with target LSA type.
@@ -1351,6 +1358,10 @@ static int ospf_opaque_lsa_delete_hook(struct ospf_lsa *lsa)
 	struct list *funclist;
 	int rc = -1;
 
+	if (IS_DEBUG_OSPF_OPAQUE_LSA)
+		zlog_debug("%s: LSA [Type %d: %pI4] Seq: 0x%x %sLSA Delete Hook ", __func__,
+			   lsa->data->type, &lsa->data->id, ntohl(lsa->data->ls_seqnum),
+			   IS_LSA_MAXAGE(lsa) ? "MaxAged " : "");
 	/*
 	 * Some Opaque-LSA user may want to monitor every LSA deletion
 	 * from the LSDB, regardless with target LSA type.
@@ -1394,14 +1405,14 @@ void ospf_opaque_lsa_originate_schedule(struct ospf_interface *oi, int *delay0)
 	int delay = 0;
 
 	if ((top = oi_to_top(oi)) == NULL || (area = oi->area) == NULL) {
-		if (IS_DEBUG_OSPF_EVENT)
+		if (IS_DEBUG_OSPF_OPAQUE_LSA)
 			zlog_debug("%s: Invalid argument?", __func__);
 		return;
 	}
 
 	/* It may not a right time to schedule origination now. */
 	if (!CHECK_FLAG(top->opaque, OPAQUE_OPERATION_READY_BIT)) {
-		if (IS_DEBUG_OSPF_EVENT)
+		if (IS_DEBUG_OSPF_OPAQUE_LSA)
 			zlog_debug("%s: Not operational.", __func__);
 		return; /* This is not an error. */
 	}
@@ -1423,7 +1434,7 @@ void ospf_opaque_lsa_originate_schedule(struct ospf_interface *oi, int *delay0)
 	if (!list_isempty(ospf_opaque_type9_funclist)
 	    && list_isempty(oi->opaque_lsa_self)
 	    && oi->t_opaque_lsa_self == NULL) {
-		if (IS_DEBUG_OSPF_EVENT)
+		if (IS_DEBUG_OSPF_OPAQUE_LSA)
 			zlog_debug(
 				"Schedule Type-9 Opaque-LSA origination in %d ms later.",
 				delay);
@@ -1441,7 +1452,7 @@ void ospf_opaque_lsa_originate_schedule(struct ospf_interface *oi, int *delay0)
 		 * conditions prevent from scheduling the originate function
 		 * again and again.
 		 */
-		if (IS_DEBUG_OSPF_EVENT)
+		if (IS_DEBUG_OSPF_OPAQUE_LSA)
 			zlog_debug(
 				"Schedule Type-10 Opaque-LSA origination in %d ms later.",
 				delay);
@@ -1459,7 +1470,7 @@ void ospf_opaque_lsa_originate_schedule(struct ospf_interface *oi, int *delay0)
 		 * conditions prevent from scheduling the originate function
 		 * again and again.
 		 */
-		if (IS_DEBUG_OSPF_EVENT)
+		if (IS_DEBUG_OSPF_OPAQUE_LSA)
 			zlog_debug(
 				"Schedule Type-11 Opaque-LSA origination in %d ms later.",
 				delay);
@@ -1559,7 +1570,7 @@ static void ospf_opaque_type9_lsa_originate(struct event *t)
 	oi = EVENT_ARG(t);
 	oi->t_opaque_lsa_self = NULL;
 
-	if (IS_DEBUG_OSPF_EVENT)
+	if (IS_DEBUG_OSPF_OPAQUE_LSA)
 		zlog_debug("Timer[Type9-LSA]: Originate Opaque-LSAs for OI %s",
 			   IF_NAME(oi));
 
@@ -1573,7 +1584,7 @@ static void ospf_opaque_type10_lsa_originate(struct event *t)
 	area = EVENT_ARG(t);
 	area->t_opaque_lsa_self = NULL;
 
-	if (IS_DEBUG_OSPF_EVENT)
+	if (IS_DEBUG_OSPF_OPAQUE_LSA)
 		zlog_debug(
 			"Timer[Type10-LSA]: Originate Opaque-LSAs for Area %pI4",
 			&area->area_id);
@@ -1588,7 +1599,7 @@ static void ospf_opaque_type11_lsa_originate(struct event *t)
 	top = EVENT_ARG(t);
 	top->t_opaque_lsa_self = NULL;
 
-	if (IS_DEBUG_OSPF_EVENT)
+	if (IS_DEBUG_OSPF_OPAQUE_LSA)
 		zlog_debug(
 			"Timer[Type11-LSA]: Originate AS-External Opaque-LSAs");
 
@@ -1643,12 +1654,10 @@ struct ospf_lsa *ospf_opaque_lsa_install(struct ospf_lsa *lsa, int rt_recalc)
 		goto out;
 	}
 
-	if (IS_DEBUG_OSPF(lsa, LSA_INSTALL))
-		zlog_debug(
-			"Install Type-%u Opaque-LSA: [opaque-type=%u, opaque-id=%x]",
-			lsa->data->type,
-			GET_OPAQUE_TYPE(ntohl(lsa->data->id.s_addr)),
-			GET_OPAQUE_ID(ntohl(lsa->data->id.s_addr)));
+	if (IS_DEBUG_OSPF_OPAQUE_LSA)
+		zlog_debug("%s: Install Type-%u Opaque-LSA: [opaque-type=%u, opaque-id=%x]",
+			   __func__, lsa->data->type, GET_OPAQUE_TYPE(ntohl(lsa->data->id.s_addr)),
+			   GET_OPAQUE_ID(ntohl(lsa->data->id.s_addr)));
 
 	/* Replace the existing lsa with the new one. */
 	if ((oipt = lookup_opaque_info_by_type(lsa)) != NULL
@@ -1722,7 +1731,7 @@ struct ospf_lsa *ospf_opaque_lsa_refresh(struct ospf_lsa *lsa)
 		 * Anyway, this node still has a responsibility to flush this
 		 * LSA from the routing domain.
 		 */
-		if (IS_DEBUG_OSPF_EVENT)
+		if (IS_DEBUG_OSPF_OPAQUE_LSA)
 			zlog_debug("LSA[Type%d:%pI4]: Flush stray Opaque-LSA",
 				   lsa->data->type, &lsa->data->id);
 
@@ -1841,7 +1850,7 @@ void ospf_opaque_lsa_reoriginate_schedule(void *lsa_type_dependent,
 
 	/* It may not a right time to schedule reorigination now. */
 	if (!CHECK_FLAG(top->opaque, OPAQUE_OPERATION_READY_BIT)) {
-		if (IS_DEBUG_OSPF_EVENT)
+		if (IS_DEBUG_OSPF_OPAQUE_LSA)
 			zlog_debug("%s: Not operational.", __func__);
 		goto out; /* This is not an error. */
 	}
@@ -1870,7 +1879,7 @@ void ospf_opaque_lsa_reoriginate_schedule(void *lsa_type_dependent,
 	}
 
 	if (oipt->t_opaque_lsa_self != NULL) {
-		if (IS_DEBUG_OSPF_EVENT)
+		if (IS_DEBUG_OSPF_OPAQUE_LSA)
 			zlog_debug(
 				"Type-%u Opaque-LSA has already scheduled to RE-ORIGINATE: [opaque-type=%u]",
 				lsa_type,
@@ -1887,7 +1896,7 @@ void ospf_opaque_lsa_reoriginate_schedule(void *lsa_type_dependent,
 	 */
 	delay = top->min_ls_interval; /* XXX */
 
-	if (IS_DEBUG_OSPF_EVENT)
+	if (IS_DEBUG_OSPF_OPAQUE_LSA)
 		zlog_debug(
 			"Schedule Type-%u Opaque-LSA to RE-ORIGINATE in %d ms later: [opaque-type=%u]",
 			lsa_type, delay,
@@ -1943,7 +1952,7 @@ static void ospf_opaque_type9_lsa_reoriginate_timer(struct event *t)
 	if (!CHECK_FLAG(top->config, OSPF_OPAQUE_CAPABLE) ||
 	    !OSPF_IF_PARAM(oi, opaque_capable) || !ospf_if_is_enable(oi) ||
 	    ospf_nbr_count_opaque_capable(oi) == 0) {
-		if (IS_DEBUG_OSPF_EVENT)
+		if (IS_DEBUG_OSPF_OPAQUE_LSA)
 			zlog_debug(
 				"Suspend re-origination of Type-9 Opaque-LSAs (opaque-type=%u) for a while...",
 				oipt->opaque_type);
@@ -1952,7 +1961,7 @@ static void ospf_opaque_type9_lsa_reoriginate_timer(struct event *t)
 		return;
 	}
 
-	if (IS_DEBUG_OSPF_EVENT)
+	if (IS_DEBUG_OSPF_OPAQUE_LSA)
 		zlog_debug(
 			"Timer[Type9-LSA]: Re-originate Opaque-LSAs (opaque-type=%u) for OI (%s)",
 			oipt->opaque_type, IF_NAME(oi));
@@ -1992,7 +2001,7 @@ static void ospf_opaque_type10_lsa_reoriginate_timer(struct event *t)
 	}
 
 	if (n == 0 || !CHECK_FLAG(top->config, OSPF_OPAQUE_CAPABLE)) {
-		if (IS_DEBUG_OSPF_EVENT)
+		if (IS_DEBUG_OSPF_OPAQUE_LSA)
 			zlog_debug(
 				"Suspend re-origination of Type-10 Opaque-LSAs (opaque-type=%u) for a while...",
 				oipt->opaque_type);
@@ -2001,7 +2010,7 @@ static void ospf_opaque_type10_lsa_reoriginate_timer(struct event *t)
 		return;
 	}
 
-	if (IS_DEBUG_OSPF_EVENT)
+	if (IS_DEBUG_OSPF_OPAQUE_LSA)
 		zlog_debug(
 			"Timer[Type10-LSA]: Re-originate Opaque-LSAs (opaque-type=%u) for Area %pI4",
 			oipt->opaque_type, &area->area_id);
@@ -2029,7 +2038,7 @@ static void ospf_opaque_type11_lsa_reoriginate_timer(struct event *t)
 	}
 
 	if (!CHECK_FLAG(top->config, OSPF_OPAQUE_CAPABLE)) {
-		if (IS_DEBUG_OSPF_EVENT)
+		if (IS_DEBUG_OSPF_OPAQUE_LSA)
 			zlog_debug(
 				"Suspend re-origination of Type-11 Opaque-LSAs (opaque-type=%u) for a while...",
 				oipt->opaque_type);
@@ -2038,7 +2047,7 @@ static void ospf_opaque_type11_lsa_reoriginate_timer(struct event *t)
 		return;
 	}
 
-	if (IS_DEBUG_OSPF_EVENT)
+	if (IS_DEBUG_OSPF_OPAQUE_LSA)
 		zlog_debug(
 			"Timer[Type11-LSA]: Re-originate Opaque-LSAs (opaque-type=%u).",
 			oipt->opaque_type);
@@ -2067,7 +2076,7 @@ void ospf_opaque_lsa_refresh_schedule(struct ospf_lsa *lsa0)
 	}
 
 	if (oipi->t_opaque_lsa_self != NULL) {
-		if (IS_DEBUG_OSPF_EVENT)
+		if (IS_DEBUG_OSPF_OPAQUE_LSA)
 			zlog_debug(
 				"Type-%u Opaque-LSA has already scheduled to REFRESH: [opaque-type=%u, opaque-id=%x]",
 				lsa->data->type,
@@ -2098,7 +2107,7 @@ void ospf_opaque_lsa_refresh_schedule(struct ospf_lsa *lsa0)
 
 	delay = ospf_lsa_refresh_delay(ospf, lsa);
 
-	if (IS_DEBUG_OSPF_EVENT)
+	if (IS_DEBUG_OSPF_OPAQUE_LSA)
 		zlog_debug("Schedule Type-%u Opaque-LSA to REFRESH in %d msec later: [opaque-type=%u, opaque-id=%x]",
 			   lsa->data->type, delay, GET_OPAQUE_TYPE(ntohl(lsa->data->id.s_addr)),
 			   GET_OPAQUE_ID(ntohl(lsa->data->id.s_addr)));
@@ -2114,7 +2123,7 @@ static void ospf_opaque_lsa_refresh_timer(struct event *t)
 	struct ospf_opaque_functab *functab;
 	struct ospf_lsa *lsa;
 
-	if (IS_DEBUG_OSPF_EVENT)
+	if (IS_DEBUG_OSPF_OPAQUE_LSA)
 		zlog_debug("Timer[Opaque-LSA]: (Opaque-LSA Refresh expire)");
 
 	oipi = EVENT_ARG(t);
@@ -2180,7 +2189,7 @@ void ospf_opaque_lsa_flush_schedule(struct ospf_lsa *lsa0)
 	/* Dequeue listnode entry from the list. */
 	listnode_delete(oipt->id_list, oipi);
 
-	if (IS_DEBUG_OSPF_EVENT)
+	if (IS_DEBUG_OSPF_OPAQUE_LSA)
 		zlog_debug(
 			"Schedule Type-%u Opaque-LSA to FLUSH: [opaque-type=%u, opaque-id=%x]",
 			lsa->data->type,
@@ -2202,7 +2211,7 @@ void ospf_opaque_self_originated_lsa_received(struct ospf_neighbor *nbr,
 	if ((top = oi_to_top(nbr->oi)) == NULL)
 		return;
 
-	if (IS_DEBUG_OSPF_EVENT)
+	if (IS_DEBUG_OSPF_OPAQUE_LSA)
 		zlog_debug(
 			"LSA[Type%d:%pI4]: processing self-originated Opaque-LSA",
 			lsa->data->type, &lsa->data->id);
