@@ -35,7 +35,9 @@ log = logging.getLogger(__name__)
 
 
 class VtyshException(Exception):
-    pass
+    def __init__(self, *args, **kwargs):
+        super(VtyshException, self).__init__(*args)
+        self.stderr = kwargs.get("stderr", None)
 
 
 class Vtysh(object):
@@ -101,10 +103,12 @@ class Vtysh(object):
         return True
 
     def exec_file(self, filename):
-        child = self._call(["-f", filename])
+        child = self._call(["-f", filename], stderr=subprocess.PIPE)
+        _, stderr = child.communicate()
         if child.wait() != 0:
             raise VtyshException(
-                "vtysh (exec file) exited with status %d" % (child.returncode)
+                "vtysh (exec file) exited with status %d" % (child.returncode),
+                stderr=stderr,
             )
 
     def mark_file(self, filename, stdin=None):
@@ -1990,6 +1994,140 @@ def compare_context_objects(newconf, running):
     return (lines_to_add, lines_to_del)
 
 
+def get_failed_cmds(stderr, filename):
+    """
+    Extract the line numbers of failed lines from the given stderr output
+    and retrieve the corresponding commands from the file.
+    """
+    failed_line_nums = []
+    for line in stderr.split("\n"):
+        # Example stderr:
+        #   line 7: % Unknown command[4]: ...
+        #   line 11: % Unknown command[4]: ...
+        if line.startswith("line") and "Unknown command" in line:
+            failed_line_num = line.split()[1][:-1]
+            if failed_line_num.isdigit():
+                failed_line_nums.append(int(failed_line_num))
+
+    with open(filename) as fh:
+        lines = ["!"] + [line.rstrip("\n") for line in fh.readlines()]
+
+    # In the file, each command is separated by a '!' line.
+    # If a command is not a single-line command, it will be followed by
+    # one or more 'exit' lines. We need to find the start and end of
+    # each command that contains a failed line so that we can extract
+    # the failed commands from the file.
+    failed_cmds = OrderedDict()
+    for num in failed_line_nums:
+        if lines[num].strip() in {"!", "exit"}:
+            continue
+
+        cmd_start = cmd_end = num
+        while cmd_start > 1 and lines[cmd_start - 1] != "!":
+            cmd_start -= 1
+        while cmd_end < len(lines) and lines[cmd_end].strip() not in {"!", "exit"}:
+            cmd_end += 1
+
+        failed_cmds[cmd_start] = lines[cmd_start:cmd_end]
+
+    return list(failed_cmds.values())
+
+
+def exec_lines(lines, delete, x):
+    exec_suceess = True
+    lines_to_configure = []
+    failed_cmds = []
+
+    for ctx_keys, line in lines:
+        if line == "!":
+            continue
+
+        # Don't run "no" commands twice since they can error
+        # out the second time due to first deletion
+        if not delete and x == 1 and ctx_keys[0].startswith("no "):
+            continue
+
+        cmd = "\n".join(lines_to_config(ctx_keys, line, delete)) + "\n"
+        lines_to_configure.append(cmd)
+
+    if lines_to_configure:
+        random_string = "".join(
+            random.SystemRandom().choice(string.ascii_uppercase + string.digits)
+            for _ in range(6)
+        )
+
+        filename = args.rundir + "/reload-%s.txt" % random_string
+        log.info("%s content\n%s" % (filename, pformat(lines_to_configure)))
+
+        with open(filename, "w") as fh:
+            for line in lines_to_configure:
+                fh.write(line + "!\n")
+
+        try:
+            vtysh.exec_file(filename)
+        except VtyshException as e:
+            if delete:
+                log.info("Failed to execute deletion script due to\n%s" % e.args)
+                failed_cmds = get_failed_cmds(e.stderr, filename)
+            else:
+                log.warning("Failed to execute addition script due to\n%s" % e.args)
+                exec_suceess = False
+
+        os.unlink(filename)
+
+    for cmd in failed_cmds:
+        # 'no' commands are tricky, we can't just put them in a file and
+        # vtysh -f that file. See the next comment for an explanation
+        # of their quirks
+        original_cmd = cmd
+
+        # Some commands in frr are picky about taking a "no" of the entire line.
+        # OSPF is bad about this, you can't "no" the entire line, you have to "no"
+        # only the beginning. If we hit one of these command an exception will be
+        # thrown.  Catch it and remove the last '-c', 'FOO' from cmd and try again.
+        #
+        # Example:
+        # frr(config-if)# ip ospf authentication message-digest 1.1.1.1
+        # frr(config-if)# no ip ospf authentication message-digest 1.1.1.1
+        #  % Unknown command.
+        # frr(config-if)# no ip ospf authentication message-digest
+        #  % Unknown command.
+        # frr(config-if)# no ip ospf authentication
+        # frr(config-if)#
+        stdouts = []
+        while True:
+            try:
+                vtysh(["configure"] + cmd, stdouts)
+
+            except VtyshException:
+                # - Pull the last entry from cmd (this would be
+                #   'no ip ospf authentication message-digest 1.1.1.1' in
+                #   our example above
+                # - Split that last entry by whitespace and drop the last word
+                log.info("Failed to execute %s", " ".join(cmd))
+                last_arg = cmd[-1].split(" ")
+
+                if len(last_arg) <= 2:
+                    log.error(
+                        '"%s" we failed to remove this command',
+                        " -- ".join(original_cmd),
+                    )
+                    # Log first error msg for original_cmd
+                    if stdouts:
+                        log.error(stdouts[0])
+                    exec_suceess = False
+                    break
+
+                new_last_arg = last_arg[0:-1]
+                cmd[-1] = " ".join(new_last_arg)
+
+            else:
+                log.info('Executed "%s"', " ".join(cmd))
+                break
+
+    return exec_suceess
+
+
 if __name__ == "__main__":
     # Command line options
     parser = argparse.ArgumentParser(
@@ -2321,96 +2459,10 @@ if __name__ == "__main__":
             # apply to other scenarios as well where configuring FOO adds BAR
             # to the config.
             if lines_to_del and x == 0:
-                for ctx_keys, line in lines_to_del:
-                    if line == "!":
-                        continue
-
-                    # 'no' commands are tricky, we can't just put them in a file and
-                    # vtysh -f that file. See the next comment for an explanation
-                    # of their quirks
-                    cmd = lines_to_config(ctx_keys, line, True)
-                    original_cmd = cmd
-
-                    # Some commands in frr are picky about taking a "no" of the entire line.
-                    # OSPF is bad about this, you can't "no" the entire line, you have to "no"
-                    # only the beginning. If we hit one of these command an exception will be
-                    # thrown.  Catch it and remove the last '-c', 'FOO' from cmd and try again.
-                    #
-                    # Example:
-                    # frr(config-if)# ip ospf authentication message-digest 1.1.1.1
-                    # frr(config-if)# no ip ospf authentication message-digest 1.1.1.1
-                    #  % Unknown command.
-                    # frr(config-if)# no ip ospf authentication message-digest
-                    #  % Unknown command.
-                    # frr(config-if)# no ip ospf authentication
-                    # frr(config-if)#
-
-                    stdouts = []
-                    while True:
-                        try:
-                            vtysh(["configure"] + cmd, stdouts)
-
-                        except VtyshException:
-                            # - Pull the last entry from cmd (this would be
-                            #   'no ip ospf authentication message-digest 1.1.1.1' in
-                            #   our example above
-                            # - Split that last entry by whitespace and drop the last word
-                            log.error("Failed to execute %s", " ".join(cmd))
-                            last_arg = cmd[-1].split(" ")
-
-                            if len(last_arg) <= 2:
-                                log.error(
-                                    '"%s" we failed to remove this command',
-                                    " -- ".join(original_cmd),
-                                )
-                                # Log first error msg for original_cmd
-                                if stdouts:
-                                    log.error(stdouts[0])
-                                reload_ok = False
-                                break
-
-                            new_last_arg = last_arg[0:-1]
-                            cmd[-1] = " ".join(new_last_arg)
-                        else:
-                            log.info('Executed "%s"', " ".join(cmd))
-                            break
+                reload_ok = exec_lines(lines_to_del, True, x) and reload_ok
 
             if lines_to_add:
-                lines_to_configure = []
-
-                for ctx_keys, line in lines_to_add:
-                    if line == "!":
-                        continue
-
-                    # Don't run "no" commands twice since they can error
-                    # out the second time due to first deletion
-                    if x == 1 and ctx_keys[0].startswith("no "):
-                        continue
-
-                    cmd = "\n".join(lines_to_config(ctx_keys, line, False)) + "\n"
-                    lines_to_configure.append(cmd)
-
-                if lines_to_configure:
-                    random_string = "".join(
-                        random.SystemRandom().choice(
-                            string.ascii_uppercase + string.digits
-                        )
-                        for _ in range(6)
-                    )
-
-                    filename = args.rundir + "/reload-%s.txt" % random_string
-                    log.info("%s content\n%s" % (filename, pformat(lines_to_configure)))
-
-                    with open(filename, "w") as fh:
-                        for line in lines_to_configure:
-                            fh.write(line + "\n")
-
-                    try:
-                        vtysh.exec_file(filename)
-                    except VtyshException as e:
-                        log.warning("frr-reload.py failed due to\n%s" % e.args)
-                        reload_ok = False
-                    os.unlink(filename)
+                reload_ok = exec_lines(lines_to_add, False, x) and reload_ok
 
         # Make these changes persistent
         target = str(args.confdir + "/frr.conf")
