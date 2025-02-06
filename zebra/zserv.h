@@ -262,6 +262,9 @@ extern void zserv_close(void);
  *
  * path
  *    where to place the Unix domain socket
+ *
+ * This function *should* only ever be called from
+ * main() and only every from 1 pthread.
  */
 extern void zserv_open(const char *path);
 
