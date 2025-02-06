@@ -363,4 +363,10 @@ static inline bool ospf_check_indication_lsa(struct ospf_lsa *lsa)
 
 	return false;
 }
+
+/*
+ * LSA Update and Delete Hook LSAs.
+ */
+DECLARE_HOOK(ospf_lsa_update, (struct ospf_lsa *lsa), (lsa));
+DECLARE_HOOK(ospf_lsa_delete, (struct ospf_lsa *lsa), (lsa));
 #endif /* _ZEBRA_OSPF_LSA_H */
