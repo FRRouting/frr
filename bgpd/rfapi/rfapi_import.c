@@ -4067,9 +4067,15 @@ static void rfapiProcessPeerDownRt(struct peer *peer,
 						bpi, import_table, afi, -1);
 					import_table->holddown_count[afi] += 1;
 				}
-				rfapiBiStartWithdrawTimer(import_table, rn, bpi,
-							  afi, safi,
-							  timer_service_func);
+				if (bm->terminating) {
+					if (safi == SAFI_MPLS_VPN)
+						rfapiExpireVpnNow(import_table, rn, bpi, 1);
+					else
+						rfapiExpireEncapNow(import_table, rn, bpi);
+
+				} else
+					rfapiBiStartWithdrawTimer(import_table, rn, bpi, afi, safi,
+								  timer_service_func);
 			}
 		}
 	}
