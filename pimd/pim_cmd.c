@@ -5656,6 +5656,43 @@ DEFUN (interface_no_ip_igmp_last_member_query_interval,
 	return gm_process_no_last_member_query_interval_cmd(vty);
 }
 
+DEFPY_YANG(interface_ip_igmp_limits,
+           interface_ip_igmp_limits_cmd,
+           "[no] ip igmp <max-sources$do_src (0-4294967295)$val"
+	     "|max-groups$do_grp (0-4294967295)$val>",
+           NO_STR
+           IP_STR
+           IFACE_IGMP_STR
+           "Limit number of IGMPv3 sources to track\n"
+           "Permitted number of sources\n"
+           "Limit number of IGMP group memberships to track\n"
+           "Permitted number of groups\n")
+{
+	const char *xpath;
+
+	assert(do_src || do_grp);
+	if (do_src)
+		xpath = "./max-sources";
+	else
+		xpath = "./max-groups";
+
+	if (no)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, val_str);
+
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
+}
+
+ALIAS_YANG(interface_ip_igmp_limits,
+           no_interface_ip_igmp_limits_cmd,
+           "no ip igmp <max-sources$do_src|max-groups$do_grp>",
+           NO_STR
+           IP_STR
+           IFACE_IGMP_STR
+           "Limit number of IGMPv3 sources to track\n"
+           "Limit number of IGMP group memberships to track\n")
+
 DEFUN (interface_ip_pim_drprio,
        interface_ip_pim_drprio_cmd,
        "ip pim drpriority (0-4294967295)",
@@ -9101,6 +9138,8 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE,
 			&interface_no_ip_igmp_last_member_query_interval_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_igmp_proxy_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_igmp_limits_cmd);
+	install_element(INTERFACE_NODE, &no_interface_ip_igmp_limits_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_activeactive_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_ssm_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_ssm_cmd);
