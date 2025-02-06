@@ -1095,6 +1095,8 @@ static void pim_msdp_peer_free(struct pim_msdp_peer *mp)
 	if (mp->auth_listen_sock != -1)
 		close(mp->auth_listen_sock);
 
+	XFREE(MTYPE_PIM_MSDP_FILTER_NAME, mp->acl_in);
+	XFREE(MTYPE_PIM_MSDP_FILTER_NAME, mp->acl_out);
 	XFREE(MTYPE_PIM_MSDP_MG_NAME, mp->mesh_group_name);
 
 	mp->pim = NULL;
