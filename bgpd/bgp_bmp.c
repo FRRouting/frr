@@ -56,6 +56,7 @@ static int bmp_route_update_bgpbmp(struct bmp_targets *bt, afi_t afi, safi_t saf
 static void bmp_send_all_bgp(struct peer *peer, bool down);
 static struct bmp_imported_bgp *bmp_imported_bgp_find(struct bmp_targets *bt, char *name);
 static void bmp_stats_per_instance(struct bgp *bgp, struct bmp_targets *bt);
+static void bmp_bgp_peer_vrf(struct bmp_bgp_peer *bbpeer, struct bgp *bgp);
 
 DEFINE_MGROUP(BMP, "BMP (BGP Monitoring Protocol)");
 
@@ -551,9 +552,12 @@ static struct stream *bmp_peerstate(struct peer *peer, bool down)
 
 		bbpeer = bmp_bgp_peer_find(peer->qobj_node.nid);
 
-		if (bbpeer && bbpeer->open_tx)
+		if (bbpeer && bbpeer->open_tx) {
+			if (is_locrib)
+				/* update bgp id each time peer up LOC-RIB message is to be sent */
+				bmp_bgp_peer_vrf(bbpeer, peer->bgp);
 			stream_put(s, bbpeer->open_tx, bbpeer->open_tx_len);
-		else {
+		} else {
 			stream_put(s, dummy_open, sizeof(dummy_open));
 			zlog_warn("bmp: missing TX OPEN message for peer %s",
 				  peer->host);
@@ -2209,6 +2213,8 @@ static void bmp_bgp_peer_vrf(struct bmp_bgp_peer *bbpeer, struct bgp *bgp)
 	struct peer *peer = bgp->peer_self;
 	uint16_t send_holdtime;
 	as_t local_as;
+	struct stream *s;
+	size_t open_len;
 
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER))
 		send_holdtime = peer->holdtime;
@@ -2221,8 +2227,8 @@ static void bmp_bgp_peer_vrf(struct bmp_bgp_peer *bbpeer, struct bgp *bgp)
 	else
 		local_as = peer->local_as;
 
-	struct stream *s = bgp_open_make(peer, send_holdtime, local_as);
-	size_t open_len = stream_get_endp(s);
+	s = bgp_open_make(peer, send_holdtime, local_as, &peer->local_id);
+	open_len = stream_get_endp(s);
 
 	bbpeer->open_rx_len = open_len;
 	if (bbpeer->open_rx)
@@ -2230,6 +2236,10 @@ static void bmp_bgp_peer_vrf(struct bmp_bgp_peer *bbpeer, struct bgp *bgp)
 	bbpeer->open_rx = XMALLOC(MTYPE_BMP_OPEN, open_len);
 	memcpy(bbpeer->open_rx, s->data, open_len);
 
+	stream_free(s);
+
+	s = bgp_open_make(peer, send_holdtime, local_as, &bgp->router_id);
+	open_len = stream_get_endp(s);
 	bbpeer->open_tx_len = open_len;
 	if (bbpeer->open_tx)
 		XFREE(MTYPE_BMP_OPEN, bbpeer->open_tx);
