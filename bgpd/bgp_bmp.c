@@ -3532,7 +3532,6 @@ static int bmp_bgp_attribute_updated(struct bgp *bgp, bool withdraw)
 	struct bmp_targets *bt;
 	struct listnode *node;
 	struct bmp_imported_bgp *bib;
-	int ret = 0;
 	struct stream *s = bmp_peerstate(bgp->peer_self, withdraw);
 	struct bmp *bmp;
 	afi_t afi;
@@ -3543,7 +3542,7 @@ static int bmp_bgp_attribute_updated(struct bgp *bgp, bool withdraw)
 
 	if (bmpbgp) {
 		frr_each (bmp_targets, &bmpbgp->targets, bt) {
-			ret = bmp_bgp_attribute_updated_instance(bt, &bmpbgp->vrf_state, bgp,
+			(void)bmp_bgp_attribute_updated_instance(bt, &bmpbgp->vrf_state, bgp,
 								 withdraw, s);
 			if (withdraw)
 				continue;
@@ -3565,8 +3564,8 @@ static int bmp_bgp_attribute_updated(struct bgp *bgp, bool withdraw)
 			frr_each (bmp_imported_bgps, &bt->imported_bgps, bib) {
 				if (bgp_lookup_by_name(bib->name) != bgp)
 					continue;
-				ret += bmp_bgp_attribute_updated_instance(bt, &bib->vrf_state, bgp,
-									  withdraw, s);
+				(void)bmp_bgp_attribute_updated_instance(bt, &bib->vrf_state, bgp,
+									 withdraw, s);
 				if (withdraw)
 					continue;
 				frr_each (bmp_session, &bt->sessions, bmp) {
