@@ -189,7 +189,7 @@ read_fpm_msg(char *buf, size_t buf_len)
 			fprintf(stderr,
 				"Read %lu bytes but expected to read %lu bytes instead\n",
 				bytes_read, need_len);
-			return NULL;
+			continue;
 		}
 
 		if (reading_full_msg)
