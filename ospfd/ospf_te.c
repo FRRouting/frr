@@ -3096,19 +3096,6 @@ static int ospf_mpls_te_lsa_delete(struct ospf_lsa *lsa)
 		return -1;
 	}
 
-	/*
-	 * Process only self LSAs that reach MAX_AGE. Indeed, when the router
-	 * need to update or refresh an LSA, it first removes the old LSA from
-	 * the LSDB and then insert the new one. Thus, to avoid removing
-	 * corresponding Link State element and loosing some parameters
-	 * instead of just updating it, only self LSAs that reach MAX_AGE are
-	 * processed here. Other LSAs are processed by ospf_mpls_te_lsa_update()
-	 * and eventually removed when LSA age is MAX_AGE i.e. LSA is flushed
-	 * by the originator.
-	 */
-	if (!IS_LSA_SELF(lsa) || !IS_LSA_MAXAGE(lsa))
-		return 0;
-
 	/* Parse Link State information */
 	switch (lsa->data->type) {
 	case OSPF_ROUTER_LSA:

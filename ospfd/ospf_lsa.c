@@ -61,6 +61,12 @@ static struct ospf_lsa *
 ospf_exnl_lsa_prepare_and_flood(struct ospf *ospf, struct external_info *ei,
 				struct in_addr id);
 
+/*
+ * LSA Update and Delete Hook LSAs.
+ */
+DEFINE_HOOK(ospf_lsa_update, (struct ospf_lsa * lsa), (lsa));
+DEFINE_HOOK(ospf_lsa_delete, (struct ospf_lsa * lsa), (lsa));
+
 uint32_t get_metric(uint8_t *metric)
 {
 	uint32_t m;
@@ -3148,6 +3154,11 @@ struct ospf_lsa *ospf_lsa_install(struct ospf *ospf, struct ospf_interface *oi,
 		ospf_lsa_maxage(ospf, lsa);
 	}
 
+	/*
+	 * Invoke the LSA update hook.
+	 */
+	hook_call(ospf_lsa_update, new);
+
 	return new;
 }
 
@@ -3250,8 +3261,14 @@ void ospf_maxage_lsa_remover(struct event *event)
 
 					continue;
 				}
+
+				/*
+				 * Invoke the LSA update hook.
+				 */
+				hook_call(ospf_lsa_delete, lsa);
 				ospf_discard_from_db(ospf, lsa->lsdb, lsa);
 				ospf_lsdb_delete(lsa->lsdb, lsa);
+
 			} else {
 				if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
 					zlog_debug(

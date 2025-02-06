@@ -46,6 +46,7 @@ unsigned long conf_debug_ospf_ldp_sync;
 unsigned long conf_debug_ospf_gr;
 unsigned long conf_debug_ospf_bfd;
 unsigned long conf_debug_ospf_client_api;
+unsigned long conf_debug_ospf_opaque_lsa;
 
 /* Enable debug option variables -- valid only session. */
 unsigned long term_debug_ospf_packet[5] = {0, 0, 0, 0, 0};
@@ -64,6 +65,7 @@ unsigned long term_debug_ospf_ldp_sync;
 unsigned long term_debug_ospf_gr;
 unsigned long term_debug_ospf_bfd;
 unsigned long term_debug_ospf_client_api;
+unsigned long term_debug_ospf_opaque_lsa;
 
 const char *ospf_redist_string(unsigned int route_type)
 {
@@ -1577,6 +1579,33 @@ DEFPY (debug_ospf_client_api,
 	return CMD_SUCCESS;
 }
 
+DEFPY (debug_ospf_opaque_lsa,
+       debug_ospf_opaque_lsa_cmd,
+       "[no$no] debug ospf [(1-65535)$instance] opaque-lsa",
+       NO_STR
+       DEBUG_STR
+       OSPF_STR
+       "Instance ID\n"
+       "OSPF Opaque LSA information\n")
+{
+	if (instance && instance != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
+
+	if (vty->node == CONFIG_NODE) {
+		if (no)
+			DEBUG_OFF(opaque_lsa, OPAQUE_LSA);
+		else
+			DEBUG_ON(opaque_lsa, OPAQUE_LSA);
+	} else {
+		if (no)
+			TERM_DEBUG_OFF(opaque_lsa, OPAQUE_LSA);
+		else
+			TERM_DEBUG_ON(opaque_lsa, OPAQUE_LSA);
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (no_debug_ospf,
        no_debug_ospf_cmd,
        "no debug ospf",
@@ -1612,6 +1641,7 @@ DEFUN (no_debug_ospf,
 		DEBUG_OFF(sr, SR);
 		DEBUG_OFF(ti_lfa, TI_LFA);
 		DEBUG_OFF(client_api, CLIENT_API);
+		DEBUG_OFF(opaque_lsa, OPAQUE_LSA);
 
 		/* BFD debugging is two parts: OSPF and library. */
 		DEBUG_OFF(bfd, BFD_LIB);
@@ -1649,6 +1679,7 @@ DEFUN (no_debug_ospf,
 	TERM_DEBUG_OFF(ti_lfa, TI_LFA);
 	TERM_DEBUG_OFF(bfd, BFD_LIB);
 	TERM_DEBUG_OFF(client_api, CLIENT_API);
+	TERM_DEBUG_OFF(opaque_lsa, OPAQUE_LSA);
 
 	return CMD_SUCCESS;
 }
@@ -1774,9 +1805,13 @@ static int show_debugging_ospf_common(struct vty *vty)
 		vty_out(vty,
 			"  OSPF BFD integration library debugging is on\n");
 
-	/* Show debug status for LDP-SYNC. */
+	/* Show debug status for CLIENT-API. */
 	if (IS_DEBUG_OSPF(client_api, CLIENT_API) == OSPF_DEBUG_CLIENT_API)
 		vty_out(vty, "  OSPF client-api debugging is on\n");
+
+	/* Show debug status for OPAQUE-LSA. */
+	if (IS_DEBUG_OSPF(opaque_lsa, OPAQUE_LSA) == OSPF_DEBUG_OPAQUE_LSA)
+		vty_out(vty, "  OSPF opaque-lsa debugging is on\n");
 
 	return CMD_SUCCESS;
 }
@@ -1983,6 +2018,12 @@ static int config_write_debug(struct vty *vty)
 		write = 1;
 	}
 
+	/* debug ospf opaque-lsa */
+	if (IS_CONF_DEBUG_OSPF(opaque_lsa, OPAQUE_LSA) == OSPF_DEBUG_OPAQUE_LSA) {
+		vty_out(vty, "debug ospf%s opaque-lsa\n", str);
+		write = 1;
+	}
+
 	/* debug ospf default-information */
 	if (IS_CONF_DEBUG_OSPF(defaultinfo, DEFAULTINFO) ==
 	    OSPF_DEBUG_DEFAULTINFO) {
@@ -2011,6 +2052,7 @@ void ospf_debug_init(void)
 	install_element(ENABLE_NODE, &debug_ospf_default_info_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_ldp_sync_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_client_api_cmd);
+	install_element(ENABLE_NODE, &debug_ospf_opaque_lsa_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_ism_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_nsm_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_lsa_cmd);
@@ -2050,6 +2092,7 @@ void ospf_debug_init(void)
 	install_element(CONFIG_NODE, &debug_ospf_default_info_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_ldp_sync_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_client_api_cmd);
+	install_element(CONFIG_NODE, &debug_ospf_opaque_lsa_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_nsm_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_lsa_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_zebra_cmd);
