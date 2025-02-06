@@ -22,6 +22,7 @@
 #include "mpls.h"
 #include "srcdest_table.h"
 #include "zebra/zebra_nhg.h"
+#include "srte.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -35,6 +36,10 @@ PREDECL_LIST(rnh_list);
 
 /* Nexthop structure. */
 struct rnh {
+	/* For linked list. */
+	struct rnh *next;
+	struct rnh *prev;
+
 	uint8_t flags;
 
 #define ZEBRA_NHT_CONNECTED 0x1
@@ -64,6 +69,8 @@ struct rnh {
 	int filtered[ZEBRA_ROUTE_MAX];
 
 	struct rnh_list_item rnh_list_item;
+	uint32_t srte_color;
+	enum zebra_sr_policy_status srp_status;
 };
 
 #define DISTANCE_INFINITY  255

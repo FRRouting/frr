@@ -118,8 +118,33 @@ static void zebra_rnh_store_in_routing_table(struct rnh *rnh)
 	route_unlock_node(rn);
 }
 
+static void zebra_rnh_info_add(struct route_node *dest, struct rnh *pi)
+{
+	struct rnh *top;
+
+	top = dest->info;
+
+	pi->next = top;
+	pi->prev = NULL;
+	if (top)
+		top->prev = pi;
+	dest->info = pi;
+
+	route_lock_node(dest);
+}
+
+static void zebra_rnh_info_del(struct route_node *dest, struct rnh *pi)
+{
+	if (pi->next)
+		pi->next->prev = pi->prev;
+	if (pi->prev)
+		pi->prev->next = pi->next;
+	else
+		dest->info = pi->next;
+}
+
 struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, safi_t safi,
-			  bool *exists)
+			  bool *exists, uint32_t srte_color)
 {
 	struct route_table *table;
 	struct route_node *rn;
@@ -129,8 +154,8 @@ struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, safi_t safi,
 	if (IS_ZEBRA_DEBUG_NHT) {
 		struct vrf *vrf = vrf_lookup_by_id(vrfid);
 
-		zlog_debug("%s(%u): Add RNH %pFX for safi: %u",
-			   VRF_LOGNAME(vrf), vrfid, p, safi);
+		zlog_debug("%s(%u): Add RNH %pFX for safi: %u, srte_color: %u",
+			   VRF_LOGNAME(vrf), vrfid, p, safi, srte_color);
 	}
 
 	table = get_rnh_table(vrfid, afi, safi);
@@ -150,7 +175,11 @@ struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, safi_t safi,
 	/* Lookup (or add) route node.*/
 	rn = route_node_get(table, p);
 
-	if (!rn->info) {
+	for (rnh = rn->info; rnh; rnh = rnh->next)
+		if (rnh->srte_color == srte_color)
+			break;
+
+	if (!rnh) {
 		rnh = XCALLOC(MTYPE_RNH, sizeof(struct rnh));
 
 		/*
@@ -167,16 +196,18 @@ struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, safi_t safi,
 		rnh->safi = safi;
 		rnh->zebra_pseudowire_list = list_new();
 		route_lock_node(rn);
-		rn->info = rnh;
 		rnh->node = rn;
+		rnh->srte_color = srte_color;
+		rnh->srp_status = ZEBRA_SR_POLICY_DOWN;
 		*exists = false;
-
-		zebra_rnh_store_in_routing_table(rnh);
+		zebra_rnh_info_add(rn, rnh);
+		if (!srte_color)
+			zebra_rnh_store_in_routing_table(rnh);
 	} else
 		*exists = true;
 
 	route_unlock_node(rn);
-	return (rn->info);
+	return rnh;
 }
 
 struct rnh *zebra_lookup_rnh(struct prefix *p, vrf_id_t vrfid, safi_t safi)
@@ -247,9 +278,19 @@ static void zebra_delete_rnh(struct rnh *rnh)
 			   rnh->vrf_id, rnh->node);
 	}
 
+	zebra_rnh_info_del(rn, rnh);
 	zebra_free_rnh(rnh);
-	rn->info = NULL;
 	route_unlock_node(rn);
+}
+
+static struct zebra_sr_policy *zebra_sr_policy_find_by_rnh(struct rnh *rnh)
+{
+	struct ipaddr ip = {0};
+
+	if (!prefix2ipaddr(&rnh->node->p, &ip))
+		return zebra_sr_policy_find(rnh->srte_color, &ip);
+
+	return NULL;
 }
 
 /*
@@ -263,6 +304,10 @@ static void zebra_delete_rnh(struct rnh *rnh)
 void zebra_add_rnh_client(struct rnh *rnh, struct zserv *client,
 			  vrf_id_t vrf_id)
 {
+	struct zebra_sr_policy *policy = NULL;
+	struct ipaddr ip = {0};
+	struct prefix *p = &rnh->node->p;
+
 	if (IS_ZEBRA_DEBUG_NHT) {
 		struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 
@@ -277,11 +322,23 @@ void zebra_add_rnh_client(struct rnh *rnh, struct zserv *client,
 	 * We always need to respond with known information,
 	 * currently multiple daemons expect this behavior
 	 */
-	zebra_send_rnh_update(rnh, client, vrf_id, 0);
+	if (!rnh->srte_color)
+		zebra_send_rnh_update(rnh, client, vrf_id, 0);
+	else {
+		if (!prefix2ipaddr(p, &ip)) {
+			policy = zebra_sr_policy_find_by_rnh(rnh);
+			if (policy)
+				zebra_sr_policy_notify_update(policy);
+			else
+				zebra_sr_policy_notify_unknown(rnh, client);
+		}
+	}
 }
 
-void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client)
+void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client, bool delete_all)
 {
+	struct rnh *rnh_next = NULL;
+
 	if (IS_ZEBRA_DEBUG_NHT) {
 		struct vrf *vrf = vrf_lookup_by_id(rnh->vrf_id);
 
@@ -289,8 +346,17 @@ void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client)
 			   zebra_route_string(client->proto), VRF_LOGNAME(vrf),
 			   vrf->vrf_id, rnh->node);
 	}
-	listnode_delete(rnh->client_list, client);
-	zebra_delete_rnh(rnh);
+	if (delete_all) {
+		while (rnh) {
+			listnode_delete(rnh->client_list, client);
+			rnh_next = rnh->next;
+			zebra_delete_rnh(rnh);
+			rnh = rnh_next;
+		}
+	} else {
+		listnode_delete(rnh->client_list, client);
+		zebra_delete_rnh(rnh);
+	}
 }
 
 /* XXX move this utility function elsewhere? */
@@ -330,7 +396,7 @@ void zebra_register_rnh_pseudowire(vrf_id_t vrf_id, struct zebra_pw *pw,
 		return;
 
 	addr2hostprefix(pw->af, &pw->nexthop, &nh);
-	rnh = zebra_add_rnh(&nh, vrf_id, SAFI_UNICAST, &exists);
+	rnh = zebra_add_rnh(&nh, vrf_id, SAFI_UNICAST, &exists, 0);
 	if (!rnh)
 		return;
 
@@ -1444,7 +1510,7 @@ static int zebra_cleanup_rnh_client(vrf_id_t vrf_id, afi_t afi, safi_t safi,
 			continue;
 
 		rnh = nrn->info;
-		zebra_remove_rnh_client(rnh, client);
+		zebra_remove_rnh_client(rnh, client, true);
 	}
 	return 1;
 }
