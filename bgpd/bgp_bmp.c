@@ -2238,7 +2238,7 @@ static void bmp_bgp_peer_vrf(struct bmp_bgp_peer *bbpeer, struct bgp *bgp)
 
 	stream_free(s);
 
-	s = bgp_open_make(peer, send_holdtime, local_as, &bgp->router_id);
+	s = bgp_open_make(peer, send_holdtime, bgp->as, &bgp->router_id);
 	open_len = stream_get_endp(s);
 	bbpeer->open_tx_len = open_len;
 	if (bbpeer->open_tx)
