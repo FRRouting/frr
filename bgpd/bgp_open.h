@@ -54,6 +54,7 @@ struct graceful_restart_af {
 #define CAPABILITY_CODE_EXT_MESSAGE     6 /* Extended Message Support */
 #define CAPABILITY_CODE_ROLE            9 /* Role Capability */
 #define CAPABILITY_CODE_PATHS_LIMIT    76 /* Paths Limit Capability */
+#define CAPABILITY_CODE_LINK_LOCAL	77 /* draft-white-linklocal-capability */
 
 /* Capability Length */
 #define CAPABILITY_CODE_MP_LEN          4
@@ -71,6 +72,7 @@ struct graceful_restart_af {
 #define CAPABILITY_CODE_EXT_MESSAGE_LEN 0 /* Extended Message Support */
 #define CAPABILITY_CODE_ROLE_LEN        1
 #define CAPABILITY_CODE_SOFT_VERSION_LEN 1
+#define CAPABILITY_CODE_LINK_LOCAL_LEN	 0
 
 /* Cooperative Route Filtering Capability.  */
 

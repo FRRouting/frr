@@ -1245,6 +1245,18 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 
 	/* Encode MP_EXT capability. */
 	switch (capability_code) {
+	case CAPABILITY_CODE_LINK_LOCAL:
+		stream_putc(s, action);
+		stream_putc(s, CAPABILITY_CODE_LINK_LOCAL);
+		stream_putc(s, 0);
+
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%pBP sending CAPABILITY has %s %s for afi/safi: %s/%s", peer,
+				   action == CAPABILITY_ACTION_SET ? "Advertising" : "Removing",
+				   capability, iana_afi2str(pkt_afi), iana_safi2str(pkt_safi));
+
+		COND_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_ADV, action == CAPABILITY_ACTION_SET);
+		break;
 	case CAPABILITY_CODE_SOFT_VERSION:
 		stream_putc(s, action);
 		stream_putc(s, CAPABILITY_CODE_SOFT_VERSION);
@@ -3769,6 +3781,7 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 		case CAPABILITY_CODE_ROLE:
 		case CAPABILITY_CODE_SOFT_VERSION:
 		case CAPABILITY_CODE_PATHS_LIMIT:
+		case CAPABILITY_CODE_LINK_LOCAL:
 			if (hdr->length < cap_minsizes[hdr->code]) {
 				zlog_info("%pBP: %s Capability length error: got %u, expected at least %u",
 					  peer, capability, hdr->length,

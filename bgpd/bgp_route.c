@@ -2506,8 +2506,16 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		} else if (!ibgp_to_ibgp && !transparent &&
 			   !CHECK_FLAG(from->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT) &&
 			   IN6_IS_ADDR_LINKLOCAL(&peer->nexthop.v6_local) && peer->shared_network &&
-			   (from == bgp->peer_self || peer->sort == BGP_PEER_EBGP))
-			global_and_ll = true;
+			   (from == bgp->peer_self || peer->sort == BGP_PEER_EBGP)) {
+			/* If an implementation intends to send a single link-local forwarding
+			 * address in the Next Hop field of the MP_REACH_NLRI, it MUST set the
+			 * length of the Next Hop field to 16 and include only the IPv6 link-local
+			 * address in the Next Hop field.
+			 */
+			if (!(CHECK_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_ADV) &&
+			      CHECK_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_RCV)))
+				global_and_ll = true;
+		}
 
 		if (global_and_ll) {
 			if (safi == SAFI_MPLS_VPN)
@@ -9946,6 +9954,7 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 					       "ipv6");
 			json_object_string_add(json_nexthop_global, "scope",
 					       "global");
+			json_object_int_add(json_nexthop_global, "length", attr->mp_nexthop_len);
 
 			/* We display both LL & GL if both have been
 			 * received */
@@ -9969,6 +9978,8 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 						       "ipv6");
 				json_object_string_add(json_nexthop_ll, "scope",
 						       "link-local");
+				json_object_int_add(json_nexthop_global, "length",
+						    attr->mp_nexthop_len);
 
 				if ((IPV6_ADDR_CMP(&attr->mp_nexthop_global,
 						   &attr->mp_nexthop_local) !=
@@ -11090,6 +11101,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 					       "ipv6");
 			json_object_string_add(json_nexthop_global, "scope",
 					       "global");
+			json_object_int_add(json_nexthop_global, "length", attr->mp_nexthop_len);
 		} else {
 			if (nexthop_hostname)
 				vty_out(vty, "    %pI6(%s)",
@@ -11277,6 +11289,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			json_object_string_add(json_nexthop_ll, "afi", "ipv6");
 			json_object_string_add(json_nexthop_ll, "scope",
 					       "link-local");
+			json_object_int_add(json_nexthop_ll, "length", attr->mp_nexthop_len);
 
 			json_object_boolean_true_add(json_nexthop_ll,
 						     "accessible");
