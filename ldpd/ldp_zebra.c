@@ -38,7 +38,7 @@ static int 	ldp_sync_zebra_send_announce(void);
 static int 	ldp_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS);
 static void 	ldp_sync_zebra_init(void);
 
-static struct zclient	*zclient;
+static struct zclient *ldp_zclient;
 extern struct zclient *zclient_sync;
 static bool zebra_registered = false;
 
@@ -100,23 +100,23 @@ pw2zpw(struct l2vpn_pw *pw, struct zapi_pw *zpw)
 static void
 ldp_zebra_opaque_register(void)
 {
-	zclient_register_opaque(zclient, LDP_IGP_SYNC_IF_STATE_REQUEST);
-	zclient_register_opaque(zclient, LDP_RLFA_REGISTER);
-	zclient_register_opaque(zclient, LDP_RLFA_UNREGISTER_ALL);
+	zclient_register_opaque(ldp_zclient, LDP_IGP_SYNC_IF_STATE_REQUEST);
+	zclient_register_opaque(ldp_zclient, LDP_RLFA_REGISTER);
+	zclient_register_opaque(ldp_zclient, LDP_RLFA_UNREGISTER_ALL);
 }
 
 static void
 ldp_zebra_opaque_unregister(void)
 {
-	zclient_unregister_opaque(zclient, LDP_IGP_SYNC_IF_STATE_REQUEST);
-	zclient_unregister_opaque(zclient, LDP_RLFA_REGISTER);
-	zclient_unregister_opaque(zclient, LDP_RLFA_UNREGISTER_ALL);
+	zclient_unregister_opaque(ldp_zclient, LDP_IGP_SYNC_IF_STATE_REQUEST);
+	zclient_unregister_opaque(ldp_zclient, LDP_RLFA_REGISTER);
+	zclient_unregister_opaque(ldp_zclient, LDP_RLFA_UNREGISTER_ALL);
 }
 
 int
 ldp_sync_zebra_send_state_update(struct ldp_igp_sync_if_state *state)
 {
-	if (zclient_send_opaque(zclient, LDP_IGP_SYNC_IF_STATE_UPDATE,
+	if (zclient_send_opaque(ldp_zclient, LDP_IGP_SYNC_IF_STATE_UPDATE,
 				(const uint8_t *)state, sizeof(*state))
 	    == ZCLIENT_SEND_FAILURE)
 		return -1;
@@ -130,9 +130,9 @@ ldp_sync_zebra_send_announce(void)
 	struct ldp_igp_sync_announce announce;
 	announce.proto = ZEBRA_ROUTE_LDP;
 
-	if (zclient_send_opaque(zclient, LDP_IGP_SYNC_ANNOUNCE_UPDATE,
-				(const uint8_t *)&announce, sizeof(announce))
-	    == ZCLIENT_SEND_FAILURE)
+	if (zclient_send_opaque(ldp_zclient, LDP_IGP_SYNC_ANNOUNCE_UPDATE,
+				(const uint8_t *)&announce,
+				sizeof(announce)) == ZCLIENT_SEND_FAILURE)
 		return -1;
 	else
 		return 0;
@@ -142,7 +142,7 @@ int ldp_zebra_send_rlfa_labels(struct zapi_rlfa_response *rlfa_labels)
 {
 	int ret;
 
-	ret = zclient_send_opaque(zclient, LDP_RLFA_LABELS,
+	ret = zclient_send_opaque(ldp_zclient, LDP_RLFA_LABELS,
 				  (const uint8_t *)rlfa_labels,
 				  sizeof(*rlfa_labels));
 	if (ret == ZCLIENT_SEND_FAILURE) {
@@ -271,7 +271,7 @@ ldp_zebra_send_mpls_labels(int cmd, struct kroute *kr)
 	znh->label_num = 1;
 	znh->labels[0] = kr->remote_label;
 
-	if (zebra_send_mpls_labels(zclient, cmd, &zl) == ZCLIENT_SEND_FAILURE)
+	if (zebra_send_mpls_labels(ldp_zclient, cmd, &zl) == ZCLIENT_SEND_FAILURE)
 		return -1;
 
 	return 0;
@@ -295,7 +295,7 @@ kmpw_add(struct zapi_pw *zpw)
 	debug_zebra_out("pseudowire %s nexthop %s (add)",
 	    zpw->ifname, log_addr(zpw->af, (union ldpd_addr *)&zpw->nexthop));
 
-	return zebra_send_pw(zclient, ZEBRA_PW_ADD, zpw) == ZCLIENT_SEND_FAILURE;
+	return zebra_send_pw(ldp_zclient, ZEBRA_PW_ADD, zpw) == ZCLIENT_SEND_FAILURE;
 }
 
 int
@@ -304,7 +304,7 @@ kmpw_del(struct zapi_pw *zpw)
 	debug_zebra_out("pseudowire %s nexthop %s (del)",
 	    zpw->ifname, log_addr(zpw->af, (union ldpd_addr *)&zpw->nexthop));
 
-	return zebra_send_pw(zclient, ZEBRA_PW_DELETE, zpw) == ZCLIENT_SEND_FAILURE;
+	return zebra_send_pw(ldp_zclient, ZEBRA_PW_DELETE, zpw) == ZCLIENT_SEND_FAILURE;
 }
 
 int
@@ -314,7 +314,7 @@ kmpw_set(struct zapi_pw *zpw)
 	    zpw->ifname, log_addr(zpw->af, (union ldpd_addr *)&zpw->nexthop),
 	    zpw->local_label, zpw->remote_label);
 
-	return zebra_send_pw(zclient, ZEBRA_PW_SET, zpw) == ZCLIENT_SEND_FAILURE;
+	return zebra_send_pw(ldp_zclient, ZEBRA_PW_SET, zpw) == ZCLIENT_SEND_FAILURE;
 }
 
 int
@@ -323,7 +323,7 @@ kmpw_unset(struct zapi_pw *zpw)
 	debug_zebra_out("pseudowire %s nexthop %s (unset)",
 	    zpw->ifname, log_addr(zpw->af, (union ldpd_addr *)&zpw->nexthop));
 
-	return zebra_send_pw(zclient, ZEBRA_PW_UNSET, zpw) == ZCLIENT_SEND_FAILURE;
+	return zebra_send_pw(ldp_zclient, ZEBRA_PW_UNSET, zpw) == ZCLIENT_SEND_FAILURE;
 }
 
 void
@@ -620,18 +620,18 @@ void ldp_zebra_regdereg_zebra_info(bool want_register)
 		  want_register ? "Register" : "De-register");
 
 	if (want_register) {
-		zclient_send_reg_requests(zclient, VRF_DEFAULT);
-		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP,
+		zclient_send_reg_requests(ldp_zclient, VRF_DEFAULT);
+		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, ldp_zclient, AFI_IP,
 					ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
-		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient,
+		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, ldp_zclient,
 					AFI_IP6, ZEBRA_ROUTE_ALL, 0,
 					VRF_DEFAULT);
 	} else {
-		zclient_send_dereg_requests(zclient, VRF_DEFAULT);
-		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE, zclient,
+		zclient_send_dereg_requests(ldp_zclient, VRF_DEFAULT);
+		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE, ldp_zclient,
 					AFI_IP, ZEBRA_ROUTE_ALL, 0,
 					VRF_DEFAULT);
-		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE, zclient,
+		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE, ldp_zclient,
 					AFI_IP6, ZEBRA_ROUTE_ALL, 0,
 					VRF_DEFAULT);
 	}
@@ -678,7 +678,7 @@ static zclient_handler *const ldp_handlers[] = {
 	[ZEBRA_OPAQUE_MESSAGE] = ldp_zebra_opaque_msg_handler,
 };
 
-void ldp_zebra_init(struct event_loop *master)
+void ldp_zebra_init(struct event_loop *mst)
 {
 	hook_register_prio(if_real, 0, ldp_ifp_create);
 	hook_register_prio(if_up, 0, ldp_ifp_up);
@@ -686,12 +686,12 @@ void ldp_zebra_init(struct event_loop *master)
 	hook_register_prio(if_unreal, 0, ldp_ifp_destroy);
 
 	/* Set default values. */
-	zclient = zclient_new(master, &zclient_options_default, ldp_handlers,
-			      array_size(ldp_handlers));
-	zclient_init(zclient, ZEBRA_ROUTE_LDP, 0, &ldpd_privs);
+	ldp_zclient = zclient_new(mst, &zclient_options_default, ldp_handlers,
+				  array_size(ldp_handlers));
+	zclient_init(ldp_zclient, ZEBRA_ROUTE_LDP, 0, &ldpd_privs);
 
 	/* set callbacks */
-	zclient->zebra_connected = ldp_zebra_connected;
+	ldp_zclient->zebra_connected = ldp_zebra_connected;
 
 	/* Access list initialize. */
 	access_list_add_hook(ldp_zebra_filter_update);
@@ -702,9 +702,9 @@ void
 ldp_zebra_destroy(void)
 {
 	ldp_zebra_opaque_unregister();
-	zclient_stop(zclient);
-	zclient_free(zclient);
-	zclient = NULL;
+	zclient_stop(ldp_zclient);
+	zclient_free(ldp_zclient);
+	ldp_zclient = NULL;
 
 	if (zclient_sync == NULL)
 		return;

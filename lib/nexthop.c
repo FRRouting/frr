@@ -800,7 +800,8 @@ uint32_t nexthop_hash(const struct nexthop *nexthop)
 
 	if (nexthop->nh_srv6) {
 		int segs_num = 0;
-		int i = 0;
+
+		i = 0;
 
 		if (nexthop->nh_srv6->seg6local_action !=
 		    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC) {
