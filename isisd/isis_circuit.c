@@ -840,12 +840,10 @@ void isis_circuit_down(struct isis_circuit *circuit)
 		if (circuit->u.bc.adjdb[0]) {
 			circuit->u.bc.adjdb[0]->del = isis_delete_adj;
 			list_delete(&circuit->u.bc.adjdb[0]);
-			circuit->u.bc.adjdb[0] = NULL;
 		}
 		if (circuit->u.bc.adjdb[1]) {
 			circuit->u.bc.adjdb[1]->del = isis_delete_adj;
 			list_delete(&circuit->u.bc.adjdb[1]);
-			circuit->u.bc.adjdb[1] = NULL;
 		}
 		if (circuit->u.bc.is_dr[0]) {
 			isis_dr_resign(circuit, 1);
