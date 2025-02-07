@@ -114,6 +114,10 @@ FRR_CFG_DEFAULT_BOOL(BGP_SOFT_VERSION_CAPABILITY,
 	{ .val_bool = true, .match_profile = "datacenter", },
 	{ .val_bool = false },
 );
+FRR_CFG_DEFAULT_BOOL(BGP_LINK_LOCAL_CAPABILITY,
+	{ .val_bool = true, .match_profile = "datacenter", },
+	{ .val_bool = false },
+);
 FRR_CFG_DEFAULT_BOOL(BGP_DYNAMIC_CAPABILITY,
 	{ .val_bool = true, .match_profile = "datacenter", },
 	{ .val_bool = false },
@@ -623,6 +627,8 @@ int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
 		if (DFLT_BGP_SOFT_VERSION_CAPABILITY)
 			SET_FLAG((*bgp)->flags,
 				 BGP_FLAG_SOFT_VERSION_CAPABILITY);
+		if (DFLT_BGP_LINK_LOCAL_CAPABILITY)
+			SET_FLAG((*bgp)->flags, BGP_FLAG_LINK_LOCAL_CAPABILITY);
 		if (DFLT_BGP_DYNAMIC_CAPABILITY)
 			SET_FLAG((*bgp)->flags,
 				 BGP_FLAG_DYNAMIC_CAPABILITY);
@@ -4436,6 +4442,24 @@ DEFPY (bgp_default_software_version_capability,
 	return CMD_SUCCESS;
 }
 
+DEFPY (bgp_default_link_local_capability,
+       bgp_default_link_local_capability_cmd,
+       "[no] bgp default link-local-capability",
+       NO_STR
+       BGP_STR
+       "Configure BGP defaults\n"
+       "Advertise Link-Local Next Hop capability for all neighbors\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (no)
+		UNSET_FLAG(bgp->flags, BGP_FLAG_LINK_LOCAL_CAPABILITY);
+	else
+		SET_FLAG(bgp->flags, BGP_FLAG_LINK_LOCAL_CAPABILITY);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY (bgp_default_dynamic_capability,
        bgp_default_dynamic_capability_cmd,
        "[no] bgp default dynamic-capability",
@@ -6061,6 +6085,34 @@ DEFPY(neighbor_capability_software_version,
 			    CAPABILITY_CODE_SOFT_VERSION,
 			    no ? CAPABILITY_ACTION_UNSET
 			       : CAPABILITY_ACTION_SET);
+
+	return ret;
+}
+
+/* neighbor capability link-local */
+DEFPY(neighbor_capability_link_local,
+      neighbor_capability_link_local_cmd,
+      "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor capability link-local",
+      NO_STR
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Advertise capability to the peer\n"
+      "Advertise Link-Local Next Hop capability to the peer\n")
+{
+	struct peer *peer;
+	int ret;
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (no)
+		ret = peer_flag_unset_vty(vty, neighbor, PEER_FLAG_CAPABILITY_LINK_LOCAL);
+	else
+		ret = peer_flag_set_vty(vty, neighbor, PEER_FLAG_CAPABILITY_LINK_LOCAL);
+
+	bgp_capability_send(peer, AFI_IP, SAFI_UNICAST, CAPABILITY_CODE_LINK_LOCAL,
+			    no ? CAPABILITY_ACTION_UNSET : CAPABILITY_ACTION_SET);
 
 	return ret;
 }
@@ -14942,6 +14994,16 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			json_object_object_add(json_cap, "softwareVersion",
 					       json_soft_version);
 
+			/* Link-Local Next Hop capability */
+			json_object *json_link_local = NULL;
+
+			json_link_local = json_object_new_object();
+			json_object_boolean_add(json_link_local, "advertised",
+						!!CHECK_FLAG(p->cap, PEER_CAP_LINK_LOCAL_ADV));
+			json_object_boolean_add(json_link_local, "received",
+						!!CHECK_FLAG(p->cap, PEER_CAP_LINK_LOCAL_RCV));
+			json_object_object_add(json_cap, "linkLocalNextHop", json_link_local);
+
 			/* Graceful Restart */
 			if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV) ||
 			    CHECK_FLAG(p->cap, PEER_CAP_RESTART_ADV)) {
@@ -15365,6 +15427,21 @@ CPP_NOTICE("Remove `gracefulRestartCapability` JSON field")
 					p->soft_version ? p->soft_version
 							: "n/a");
 			} else
+				vty_out(vty, " not received");
+
+			vty_out(vty, "\n");
+
+			/* Link-Local Next Hop capability */
+			vty_out(vty, "    Link-Local Next Hop Capability:");
+
+			if (CHECK_FLAG(p->cap, PEER_CAP_LINK_LOCAL_ADV))
+				vty_out(vty, " advertised link-local");
+			else
+				vty_out(vty, " not advertised");
+
+			if (CHECK_FLAG(p->cap, PEER_CAP_LINK_LOCAL_RCV))
+				vty_out(vty, " received link-local");
+			else
 				vty_out(vty, " not received");
 
 			vty_out(vty, "\n");
@@ -18913,6 +18990,15 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 				addr);
 	}
 
+	/* capability link-local */
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_LINK_LOCAL_CAPABILITY)) {
+		if (!peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_LINK_LOCAL))
+			vty_out(vty, " no neighbor %s capability link-local\n", addr);
+	} else {
+		if (peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_LINK_LOCAL))
+			vty_out(vty, " neighbor %s capability link-local\n", addr);
+	}
+
 	/* dont-capability-negotiation */
 	if (peergroup_flag_check(peer, PEER_FLAG_DONT_CAPABILITY))
 		vty_out(vty, " neighbor %s dont-capability-negotiate\n", addr);
@@ -19621,6 +19707,11 @@ int bgp_config_write(struct vty *vty)
 					   BGP_FLAG_SOFT_VERSION_CAPABILITY)
 					? ""
 					: "no ");
+
+		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_LINK_LOCAL_CAPABILITY) !=
+		    SAVE_BGP_LINK_LOCAL_CAPABILITY)
+			vty_out(vty, " %sbgp default link-local-capability\n",
+				CHECK_FLAG(bgp->flags, BGP_FLAG_LINK_LOCAL_CAPABILITY) ? "" : "no ");
 
 		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_DYNAMIC_CAPABILITY) !=
 		    SAVE_BGP_DYNAMIC_CAPABILITY)
@@ -20728,6 +20819,9 @@ void bgp_vty_init(void)
 	/* bgp default software-version-capability */
 	install_element(BGP_NODE, &bgp_default_software_version_capability_cmd);
 
+	/* bgp default link-local-capability */
+	install_element(BGP_NODE, &bgp_default_link_local_capability_cmd);
+
 	/* bgp default dynamic-capability */
 	install_element(BGP_NODE, &bgp_default_dynamic_capability_cmd);
 
@@ -21382,6 +21476,9 @@ void bgp_vty_init(void)
 
 	/* "neighbor capability software-version" commands.*/
 	install_element(BGP_NODE, &neighbor_capability_software_version_cmd);
+
+	/* "neighbor capability link-local" commands.*/
+	install_element(BGP_NODE, &neighbor_capability_link_local_cmd);
 
 	/* "neighbor capability orf prefix-list" commands.*/
 	install_element(BGP_NODE, &neighbor_capability_orf_prefix_hidden_cmd);

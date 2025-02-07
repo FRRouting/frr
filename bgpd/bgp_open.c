@@ -43,6 +43,7 @@ const struct message capcode_str[] = {
 	{ CAPABILITY_CODE_ROLE, "Role" },
 	{ CAPABILITY_CODE_SOFT_VERSION, "Software Version" },
 	{ CAPABILITY_CODE_PATHS_LIMIT, "Paths-Limit" },
+	{ CAPABILITY_CODE_LINK_LOCAL, "Link-Local Next Hop" },
 	{ 0 }
 };
 
@@ -63,6 +64,7 @@ const size_t cap_minsizes[] = {
 	[CAPABILITY_CODE_ROLE] = CAPABILITY_CODE_ROLE_LEN,
 	[CAPABILITY_CODE_SOFT_VERSION] = CAPABILITY_CODE_SOFT_VERSION_LEN,
 	[CAPABILITY_CODE_PATHS_LIMIT] = CAPABILITY_CODE_PATHS_LIMIT_LEN,
+	[CAPABILITY_CODE_LINK_LOCAL] = CAPABILITY_CODE_LINK_LOCAL_LEN,
 };
 
 /* value the capability must be a multiple of.
@@ -1067,6 +1069,7 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 		case CAPABILITY_CODE_ROLE:
 		case CAPABILITY_CODE_SOFT_VERSION:
 		case CAPABILITY_CODE_PATHS_LIMIT:
+		case CAPABILITY_CODE_LINK_LOCAL:
 			/* Check length. */
 			if (caphdr.length < cap_minsizes[caphdr.code]) {
 				zlog_info(
@@ -1167,6 +1170,9 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 			break;
 		case CAPABILITY_CODE_SOFT_VERSION:
 			ret = bgp_capability_software_version(peer, &caphdr);
+			break;
+		case CAPABILITY_CODE_LINK_LOCAL:
+			SET_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_RCV);
 			break;
 		case CAPABILITY_CODE_PATHS_LIMIT:
 			ret = bgp_capability_paths_limit(peer, &caphdr);
@@ -1966,6 +1972,16 @@ uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
 			: stream_putc(s, CAPABILITY_CODE_DYNAMIC_LEN + 2);
 		stream_putc(s, CAPABILITY_CODE_DYNAMIC);
 		stream_putc(s, CAPABILITY_CODE_DYNAMIC_LEN);
+	}
+
+	/* Link-Local Next Hop capability. */
+	if (peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_LINK_LOCAL)) {
+		SET_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_ADV);
+		stream_putc(s, BGP_OPEN_OPT_CAP);
+		ext_opt_params ? stream_putw(s, CAPABILITY_CODE_LINK_LOCAL_LEN + 2)
+			       : stream_putc(s, CAPABILITY_CODE_LINK_LOCAL_LEN + 2);
+		stream_putc(s, CAPABILITY_CODE_LINK_LOCAL);
+		stream_putc(s, CAPABILITY_CODE_LINK_LOCAL_LEN);
 	}
 
 	/* FQDN capability */
