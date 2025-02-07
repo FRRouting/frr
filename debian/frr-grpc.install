@@ -1,2 +1,3 @@
 usr/lib/*/frr/libfrrgrpc_pb.*
 usr/lib/*/frr/modules/grpc.so
+usr/lib/*/frr/frr/*.proto /usr/lib/frr
