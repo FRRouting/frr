@@ -1233,12 +1233,20 @@ int bgp_evpn_type1_route_process(struct peer *peer, afi_t afi, safi_t safi,
 	build_evpn_type1_prefix(&p, eth_tag, &esi, vtep_ip);
 	/* Process the route. */
 	if (attr) {
+<<<<<<< HEAD
 		bgp_update(peer, (struct prefix *)&p, addpath_id, attr, afi,
 			   safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL,
 			   0, 0, NULL);
 	} else {
 		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, afi, safi,
 			     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL, 0);
+=======
+		bgp_update(peer, (struct prefix *)&p, addpath_id, attr, afi, safi, ZEBRA_ROUTE_BGP,
+			   BGP_ROUTE_NORMAL, &prd, &label, 1, 0, NULL);
+	} else {
+		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, afi, safi, ZEBRA_ROUTE_BGP,
+			     BGP_ROUTE_NORMAL, &prd, &label, 1);
+>>>>>>> 82d28f137 (bgpd: simplify bgp_evpn_process_rt1 with label)
 	}
 	return 0;
 }
