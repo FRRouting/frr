@@ -2043,6 +2043,11 @@ int lib_interface_pim_address_family_pim_enable_modify(struct nb_cb_modify_args 
 					 ifp->name);
 				return NB_ERR_INCONSISTENCY;
 			}
+
+			/* Trigger election in case it was never run before */
+			pim_ifp = ifp->info;
+			if (pim_addr_is_any(pim_ifp->pim_dr_addr))
+				pim_if_dr_election(ifp);
 		} else {
 			pim_ifp = ifp->info;
 			if (!pim_ifp)
@@ -2076,6 +2081,10 @@ int lib_interface_pim_address_family_pim_passive_enable_modify(
 		pim_ifp = ifp->info;
 		pim_ifp->pim_passive_enable =
 			yang_dnode_get_bool(args->dnode, NULL);
+
+		/* Trigger election in case it was never run before */
+		if (pim_ifp->pim_passive_enable && pim_addr_is_any(pim_ifp->pim_dr_addr))
+			pim_if_dr_election(ifp);
 		break;
 	}
 
