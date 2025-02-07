@@ -42,6 +42,7 @@
 #include "frrcu.h"
 #include "seqlock.h"
 #include "atomlist.h"
+#include "sigevent.h"
 
 DEFINE_MTYPE_STATIC(LIB, RCU_THREAD,    "RCU thread");
 DEFINE_MTYPE_STATIC(LIB, RCU_NEXT,      "RCU sequence barrier");
@@ -346,7 +347,19 @@ static void rcu_start(void)
 	 */
 	sigset_t oldsigs, blocksigs;
 
-	sigfillset(&blocksigs);
+	/* technically, the RCU thread is very poorly suited to run even just a
+	 * crashlog handler, since zlog_sigsafe() could deadlock on transiently
+	 * invalid (due to RCU) logging data structures
+	 *
+	 * but given that when we try to write a crashlog, we're already in
+	 * b0rked territory anyway - give the crashlog handler a chance.
+	 *
+	 * (also cf. the SIGALRM usage in writing crashlogs to avoid hung
+	 * processes on any kind of deadlock in crash handlers)
+	 */
+	sigemptyset(&blocksigs);
+	frr_sigset_add_mainonly(&blocksigs);
+	/* new thread inherits mask */
 	pthread_sigmask(SIG_BLOCK, &blocksigs, &oldsigs);
 
 	rcu_active = true;
