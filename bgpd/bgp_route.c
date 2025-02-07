@@ -6718,58 +6718,28 @@ static void bgp_cleanup_table(struct bgp *bgp, struct bgp_table *table,
 /* Delete all kernel routes. */
 void bgp_cleanup_routes(struct bgp *bgp)
 {
+	safi_t safi;
 	afi_t afi;
 	struct bgp_dest *dest;
 	struct bgp_table *table;
 
-	for (afi = AFI_IP; afi < AFI_MAX; ++afi) {
-		if (afi == AFI_L2VPN)
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (safi != SAFI_MPLS_VPN && safi != SAFI_ENCAP && safi != SAFI_EVPN) {
+			bgp_cleanup_table(bgp, bgp->rib[afi][safi], afi, safi);
 			continue;
-		bgp_cleanup_table(bgp, bgp->rib[afi][SAFI_UNICAST], afi,
-				  SAFI_UNICAST);
+		}
+
 		/*
 		 * VPN and ENCAP and EVPN tables are two-level (RD is top level)
 		 */
-		if (afi != AFI_L2VPN) {
-			safi_t safi;
-			safi = SAFI_MPLS_VPN;
-			if (!IS_BGP_INSTANCE_HIDDEN(bgp)) {
-				for (dest = bgp_table_top(bgp->rib[afi][safi]);
-				     dest; dest = bgp_route_next(dest)) {
-					table = bgp_dest_get_bgp_table_info(
-						dest);
-					if (table != NULL) {
-						bgp_cleanup_table(bgp, table,
-								  afi, safi);
-						bgp_table_finish(&table);
-						bgp_dest_set_bgp_table_info(dest,
-									    NULL);
-						dest = bgp_dest_unlock_node(
-							dest);
-						assert(dest);
-					}
-				}
-			}
-			safi = SAFI_ENCAP;
-			for (dest = bgp_table_top(bgp->rib[afi][safi]); dest;
-			     dest = bgp_route_next(dest)) {
-				table = bgp_dest_get_bgp_table_info(dest);
-				if (table != NULL) {
-					bgp_cleanup_table(bgp, table, afi, safi);
-					bgp_table_finish(&table);
-					bgp_dest_set_bgp_table_info(dest, NULL);
-					dest = bgp_dest_unlock_node(dest);
+		if (safi != SAFI_MPLS_VPN && IS_BGP_INSTANCE_HIDDEN(bgp))
+			continue;
 
-					assert(dest);
-				}
-			}
-		}
-	}
-	for (dest = bgp_table_top(bgp->rib[AFI_L2VPN][SAFI_EVPN]); dest;
-	     dest = bgp_route_next(dest)) {
-		table = bgp_dest_get_bgp_table_info(dest);
-		if (table != NULL) {
-			bgp_cleanup_table(bgp, table, afi, SAFI_EVPN);
+		for (dest = bgp_table_top(bgp->rib[afi][safi]); dest; dest = bgp_route_next(dest)) {
+			table = bgp_dest_get_bgp_table_info(dest);
+			if (!table)
+				continue;
+			bgp_cleanup_table(bgp, table, afi, safi);
 			bgp_table_finish(&table);
 			bgp_dest_set_bgp_table_info(dest, NULL);
 			dest = bgp_dest_unlock_node(dest);
