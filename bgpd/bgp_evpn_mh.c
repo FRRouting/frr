@@ -1198,7 +1198,7 @@ int bgp_evpn_type1_route_process(struct peer *peer, afi_t afi, safi_t safi,
 	struct prefix_rd prd;
 	esi_t esi;
 	uint32_t eth_tag;
-	mpls_label_t label;
+	mpls_label_t label[BGP_MAX_LABELS] = {};
 	struct in_addr vtep_ip;
 	struct prefix_evpn p;
 
@@ -1224,7 +1224,7 @@ int bgp_evpn_type1_route_process(struct peer *peer, afi_t afi, safi_t safi,
 	eth_tag = ntohl(eth_tag);
 	pfx += EVPN_ETH_TAG_BYTES;
 
-	memcpy(&label, pfx, BGP_LABEL_BYTES);
+	memcpy(&label[0], pfx, BGP_LABEL_BYTES);
 
 	/* EAD route prefix doesn't include the nexthop in the global
 	 * table
@@ -1234,10 +1234,10 @@ int bgp_evpn_type1_route_process(struct peer *peer, afi_t afi, safi_t safi,
 	/* Process the route. */
 	if (attr) {
 		bgp_update(peer, (struct prefix *)&p, addpath_id, attr, afi, safi, ZEBRA_ROUTE_BGP,
-			   BGP_ROUTE_NORMAL, &prd, &label, 1, 0, NULL);
+			   BGP_ROUTE_NORMAL, &prd, &label[0], 1, 0, NULL);
 	} else {
 		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, afi, safi, ZEBRA_ROUTE_BGP,
-			     BGP_ROUTE_NORMAL, &prd, &label, 1);
+			     BGP_ROUTE_NORMAL, &prd, &label[0], 1);
 	}
 	return 0;
 }
