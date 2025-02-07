@@ -1,0 +1,13 @@
+{
+  "ipv6Vpn": {
+    "routerId": "198.51.100.5",
+    "as": 65501,
+    "peers": {
+      "192.0.2.2": {
+        "remoteAs": 65500,
+        "state": "Established",
+        "peerState": "OK"
+      }
+    }
+  }
+}

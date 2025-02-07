@@ -323,11 +323,6 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 			afi = BGP_ATTR_MP_NEXTHOP_LEN_IP6(pi->attr) ? AFI_IP6
 								    : AFI_IP;
 
-		/* Validation for the ipv4 mapped ipv6 nexthop. */
-		if (IS_MAPPED_IPV6(&pi->attr->mp_nexthop_global)) {
-			afi = AFI_IP;
-		}
-
 		/* This will return true if the global IPv6 NH is a link local
 		 * addr */
 		if (make_prefix(afi, pi, &p) < 0)
@@ -358,7 +353,9 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 			}
 			return 0;
 		}
-
+		if (afi == AFI_IP6 && p.family == AF_INET)
+			/* IPv4 mapped IPv6 nexthop address */
+			afi = AFI_IP;
 		srte_color = bgp_attr_get_color(pi->attr);
 
 	} else if (peer) {
@@ -1051,19 +1048,11 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 			p->u.prefix4 = p_orig->u.prefix4;
 			p->prefixlen = p_orig->prefixlen;
 		} else {
-			if (IS_MAPPED_IPV6(&pi->attr->mp_nexthop_global)) {
-				ipv4_mapped_ipv6_to_ipv4(
-					&pi->attr->mp_nexthop_global, &ipv4);
-				p->u.prefix4 = ipv4;
-				p->prefixlen = IPV4_MAX_BITLEN;
-			} else {
-				if (p_orig->family == AF_EVPN)
-					p->u.prefix4 =
-						pi->attr->mp_nexthop_global_in;
-				else
-					p->u.prefix4 = pi->attr->nexthop;
-				p->prefixlen = IPV4_MAX_BITLEN;
-			}
+			if (p_orig->family == AF_EVPN)
+				p->u.prefix4 = pi->attr->mp_nexthop_global_in;
+			else
+				p->u.prefix4 = pi->attr->nexthop;
+			p->prefixlen = IPV4_MAX_BITLEN;
 		}
 		break;
 	case AFI_IP6:
@@ -1086,6 +1075,7 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 			/* If we receive MP_REACH nexthop with ::(LL)
 			 * or LL(LL), use LL address as nexthop cache.
 			 */
+			p->prefixlen = IPV6_MAX_BITLEN;
 			if (pi->attr &&
 			    pi->attr->mp_nexthop_len ==
 				    BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL &&
@@ -1099,16 +1089,28 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 			else if (pi->attr &&
 				 pi->attr->mp_nexthop_len ==
 					 BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
-				if (CHECK_FLAG(pi->attr->nh_flags,
-					       BGP_ATTR_NH_MP_PREFER_GLOBAL))
-					p->u.prefix6 =
-						pi->attr->mp_nexthop_global;
-				else
+				if (CHECK_FLAG(pi->attr->nh_flags, BGP_ATTR_NH_MP_PREFER_GLOBAL)) {
+					if (IS_MAPPED_IPV6(&pi->attr->mp_nexthop_global)) {
+						ipv4_mapped_ipv6_to_ipv4(&pi->attr->mp_nexthop_global,
+									 &ipv4);
+						p->u.prefix4 = ipv4;
+						p->prefixlen = IPV4_MAX_BITLEN;
+						p->family = AF_INET;
+					} else
+						p->u.prefix6 = pi->attr->mp_nexthop_global;
+				} else
 					p->u.prefix6 =
 						pi->attr->mp_nexthop_local;
-			} else
-				p->u.prefix6 = pi->attr->mp_nexthop_global;
-			p->prefixlen = IPV6_MAX_BITLEN;
+			} else {
+				if (IS_MAPPED_IPV6(&pi->attr->mp_nexthop_global)) {
+					ipv4_mapped_ipv6_to_ipv4(&pi->attr->mp_nexthop_global,
+								 &ipv4);
+					p->u.prefix4 = ipv4;
+					p->prefixlen = IPV4_MAX_BITLEN;
+					p->family = AF_INET;
+				} else
+					p->u.prefix6 = pi->attr->mp_nexthop_global;
+			}
 		}
 		break;
 	default:
