@@ -615,6 +615,9 @@ void static_zebra_srv6_sid_install(struct static_srv6_sid *sid)
 	struct seg6local_context ctx = {};
 	struct interface *ifp = NULL;
 	struct vrf *vrf;
+	struct prefix_ipv6 sid_block = {};
+	struct prefix_ipv6 locator_block = {};
+	struct prefix_ipv6 sid_locator = {};
 
 	if (!sid)
 		return;
@@ -696,10 +699,30 @@ void static_zebra_srv6_sid_install(struct static_srv6_sid *sid)
 		break;
 	}
 
-	ctx.block_len = sid->locator->block_bits_length;
-	ctx.node_len = sid->locator->node_bits_length;
-	ctx.function_len = sid->locator->function_bits_length;
-	ctx.argument_len = sid->locator->argument_bits_length;
+	sid_block = sid->addr;
+	sid_block.prefixlen = sid->locator->block_bits_length;
+	apply_mask(&sid_block);
+
+	locator_block = sid->locator->prefix;
+	locator_block.prefixlen = sid->locator->block_bits_length;
+	apply_mask(&locator_block);
+
+	if (prefix_same(&sid_block, &locator_block))
+		ctx.block_len = sid->locator->block_bits_length;
+	else {
+		zlog_warn("SID block %pFX does not match locator block %pFX", &sid_block,
+			  &locator_block);
+		return;
+	}
+
+	sid_locator = sid->addr;
+	sid_locator.prefixlen = sid->locator->block_bits_length + sid->locator->node_bits_length;
+	apply_mask(&sid_locator);
+
+	if (prefix_same(&sid_locator, &sid->locator->prefix))
+		ctx.node_len = sid->locator->node_bits_length;
+
+	ctx.function_len = sid->addr.prefixlen - (ctx.block_len + ctx.node_len);
 
 	/* Attach the SID to the SRv6 interface */
 	if (!ifp) {
@@ -724,6 +747,9 @@ void static_zebra_srv6_sid_uninstall(struct static_srv6_sid *sid)
 	struct interface *ifp = NULL;
 	struct seg6local_context ctx = {};
 	struct vrf *vrf;
+	struct prefix_ipv6 sid_block = {};
+	struct prefix_ipv6 locator_block = {};
+	struct prefix_ipv6 sid_locator = {};
 
 	if (!sid)
 		return;
@@ -803,10 +829,30 @@ void static_zebra_srv6_sid_uninstall(struct static_srv6_sid *sid)
 		}
 	}
 
-	ctx.block_len = sid->locator->block_bits_length;
-	ctx.node_len = sid->locator->node_bits_length;
-	ctx.function_len = sid->locator->function_bits_length;
-	ctx.argument_len = sid->locator->argument_bits_length;
+	sid_block = sid->addr;
+	sid_block.prefixlen = sid->locator->block_bits_length;
+	apply_mask(&sid_block);
+
+	locator_block = sid->locator->prefix;
+	locator_block.prefixlen = sid->locator->block_bits_length;
+	apply_mask(&locator_block);
+
+	if (prefix_same(&sid_block, &locator_block))
+		ctx.block_len = sid->locator->block_bits_length;
+	else {
+		zlog_warn("SID block %pFX does not match locator block %pFX", &sid_block,
+			  &locator_block);
+		return;
+	}
+
+	sid_locator = sid->addr;
+	sid_locator.prefixlen = sid->locator->block_bits_length + sid->locator->node_bits_length;
+	apply_mask(&sid_locator);
+
+	if (prefix_same(&sid_locator, &sid->locator->prefix))
+		ctx.node_len = sid->locator->node_bits_length;
+
+	ctx.function_len = sid->addr.prefixlen - (ctx.block_len + ctx.node_len);
 
 	static_zebra_send_localsid(ZEBRA_ROUTE_DELETE, &sid->addr.prefix, sid->addr.prefixlen,
 				   ifp->ifindex, action, &ctx);
