@@ -25,7 +25,13 @@
 					"active": true,
 					"weight": 1,
 					"seg6local": {
-						"action": "End.DT4"
+						"action": "End.DT4",
+						"sidStructure": {
+							"blockLen": 32,
+							"nodeLen": 16,
+							"funcLen": 16,
+							"argLen": 0
+						}
 					},
 					"seg6localContext": {
 						"table": 10
@@ -60,7 +66,13 @@
 					"active": true,
 					"weight": 1,
 					"seg6local": {
-						"action": "End.DT46"
+						"action": "End.DT46",
+						"sidStructure": {
+							"blockLen": 32,
+							"nodeLen": 16,
+							"funcLen": 16,
+							"argLen": 0
+						}
 					},
 					"seg6localContext": {
 						"table": 30
