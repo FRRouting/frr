@@ -2349,6 +2349,13 @@ void bgp_zebra_instance_register(struct bgp *bgp)
 		bgp_zebra_advertise_all_vni(bgp, 1);
 
 	bgp_nht_register_nexthops(bgp);
+
+	/*
+	 * Request SRv6 locator information from Zebra, if SRv6 is enabled
+	 * and a locator is configured for this BGP instance.
+	 */
+	if (bgp->srv6_enabled && bgp->srv6_locator_name[0] != '\0' && !bgp->srv6_locator)
+		bgp_zebra_srv6_manager_get_locator(bgp->srv6_locator_name);
 }
 
 /* Deregister this instance with Zebra. Invoked upon the instance
