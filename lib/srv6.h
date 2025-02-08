@@ -363,6 +363,7 @@ const char *seg6local_context2str(char *str, size_t size,
 				  uint32_t action);
 void seg6local_context2json(const struct seg6local_context *ctx,
 			    uint32_t action, json_object *json);
+void srv6_sid_structure2json(const struct seg6local_context *ctx, json_object *json);
 
 static inline const char *srv6_sid_ctx2str(char *str, size_t size,
 					   const struct srv6_sid_ctx *ctx)

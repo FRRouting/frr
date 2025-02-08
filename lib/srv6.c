@@ -71,6 +71,14 @@ int snprintf_seg6_segs(char *str,
 	return strlen(str);
 }
 
+void srv6_sid_structure2json(const struct seg6local_context *ctx, json_object *json)
+{
+	json_object_int_add(json, "blockLen", ctx->block_len);
+	json_object_int_add(json, "nodeLen", ctx->node_len);
+	json_object_int_add(json, "funcLen", ctx->function_len);
+	json_object_int_add(json, "argLen", ctx->argument_len);
+}
+
 void seg6local_context2json(const struct seg6local_context *ctx,
 			    uint32_t action, json_object *json)
 {
