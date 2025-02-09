@@ -137,7 +137,7 @@ static void pullwr_resize(struct pullwr *pullwr, size_t need)
 	}
 
 	niov = pullwr_iov(pullwr, iov);
-	if (niov >= 1) {
+	if (newbuf && niov >= 1) {
 		memcpy(newbuf, iov[0].iov_base, iov[0].iov_len);
 		if (niov >= 2)
 			memcpy(newbuf + iov[0].iov_len,
