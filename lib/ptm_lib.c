@@ -429,6 +429,7 @@ int ptm_lib_process_msg(ptm_lib_handle_t *hdl, int fd, char *inbuf, int inlen,
 			hdl->response_cb(arg, p_ctxt);
 		break;
 	default:
+		free(p_ctxt);
 		return -1;
 	}
 
