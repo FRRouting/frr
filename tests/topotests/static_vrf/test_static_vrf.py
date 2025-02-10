@@ -13,6 +13,9 @@ Test static route functionality
 import ipaddress
 
 import pytest
+import json
+import functools
+from lib import topotest
 from lib.topogen import Topogen
 from lib.common_config import retry
 
@@ -86,6 +89,17 @@ def test_static_vrf(tgen):
     check_kernel(r1, "203.0.113.2", ["r1-eth1"], "red")
     check_kernel(r1, "203.0.113.129", ["192.0.2.2"], "blue")
     check_kernel(r1, "203.0.113.130", ["r1-eth0"], "blue")
+    filename = "static_route.json"
+    expected = json.loads(open(filename).read())
+
+    def compare_static_route(router, expected):
+        "Helper function to test static topology convergence."
+        actual = json.loads(router.vtysh_cmd("show static ip route vrf all json"))
+        return topotest.json_cmp(actual, expected)
+
+    static_func = functools.partial(compare_static_route, r1, expected)
+    (result, diff) = topotest.run_and_expect(static_func, None, wait=1, count=120)
+    assert result, "Staitc route not match {}:\n{}".format(r1, diff)
 
     # Delete VRF red
     r1.net.del_iface("red")
