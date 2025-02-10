@@ -184,7 +184,7 @@ int nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 	       : (cmd == ZEBRA_NEIGH_ADDED) ? "new-neigh"
 					    : "del-neigh",
 	       &addr, ifp->name, &lladdr, ndm_state, c->used, c->cur.type);
-	if (cmd == ZEBRA_NEIGH_GET) {
+	if (cmd == ZEBRA_NEIGH_GET && ndm_state != ZEBRA_NEIGH_STATE_INCOMPLETE) {
 		if (c->cur.type >= NHRP_CACHE_CACHED) {
 			nhrp_cache_set_used(c, 1);
 			debugf(NHRP_DEBUG_KERNEL,
