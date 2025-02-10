@@ -538,7 +538,7 @@ resize_receive_buffer(int size)
 }
 
 static void
-babel_distribute_update (struct distribute_ctx *ctx, struct distribute *dist)
+babel_distribute_update (struct distribute_ctx *ctx __attribute__((__unused__)), struct distribute *dist)
 {
     struct interface *ifp;
     babel_interface_nfo *babel_ifp;
@@ -593,7 +593,7 @@ babel_distribute_update_all (struct prefix_list *notused)
 }
 
 static void
-babel_distribute_update_all_wrapper (struct access_list *notused)
+babel_distribute_update_all_wrapper (struct access_list *notused __attribute__((__unused__)))
 {
     babel_distribute_update_all(NULL);
 }
@@ -872,16 +872,18 @@ babeld_quagga_init(void)
 /* Stubs to adapt Babel's filtering calls to Quagga's infrastructure. */
 
 int
-input_filter(const unsigned char *id,
+input_filter(const unsigned char *id __attribute__((__unused__)),
              const unsigned char *prefix, unsigned short plen,
-             const unsigned char *neigh, unsigned int ifindex)
+             const unsigned char *neigh __attribute__((__unused__)),
+	     unsigned int ifindex)
 {
     return babel_filter(0, prefix, plen, ifindex);
 }
 
 int
-output_filter(const unsigned char *id, const unsigned char *prefix,
-              unsigned short plen, unsigned int ifindex)
+output_filter(const unsigned char *id __attribute__((__unused__)),
+	      const unsigned char *prefix, unsigned short plen,
+	      unsigned int ifindex)
 {
     return babel_filter(1, prefix, plen, ifindex);
 }
