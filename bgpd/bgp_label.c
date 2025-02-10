@@ -387,6 +387,8 @@ void bgp_reg_dereg_for_label(struct bgp_dest *dest, struct bgp_path_info *pi,
 			 */
 			if (!have_label_to_reg) {
 				SET_FLAG(dest->flags, BGP_NODE_LABEL_REQUESTED);
+				struct bgp_table *table;
+
 				if (BGP_DEBUG(labelpool, LABELPOOL))
 					zlog_debug(
 						"%s: Requesting label from LP for %pFX",
@@ -396,7 +398,9 @@ void bgp_reg_dereg_for_label(struct bgp_dest *dest, struct bgp_path_info *pi,
 				 * the pool. This means we'll never register
 				 * FECs withoutvalid labels.
 				 */
-				bgp_lp_get(LP_TYPE_BGP_LU, dest,
+				table = bgp_dest_table(dest);
+
+				bgp_lp_get(LP_TYPE_BGP_LU, dest, table->bgp->vrf_id,
 					   bgp_reg_for_label_callback);
 				return;
 			}
