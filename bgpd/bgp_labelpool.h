@@ -35,8 +35,8 @@ struct labelpool {
 
 extern void bgp_lp_init(struct event_loop *master, struct labelpool *pool);
 extern void bgp_lp_finish(void);
-extern void bgp_lp_get(int type, void *labelid,
-	int (*cbfunc)(mpls_label_t label, void *labelid, bool allocated));
+extern void bgp_lp_get(int type, void *labelid, vrf_id_t vrf_id,
+		       int (*cbfunc)(mpls_label_t label, void *labelid, bool allocated));
 extern void bgp_lp_release(int type, void *labelid, mpls_label_t label);
 extern void bgp_lp_event_chunk(uint32_t first, uint32_t last);
 extern void bgp_lp_event_zebra_down(void);
