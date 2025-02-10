@@ -43,6 +43,10 @@ a static prefix and gateway, with several possible forms.
 
 .. clicmd:: ipv6 route NETWORK [from SRCPREFIX] (Null0|blackhole|reject) [DISTANCE] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
 
+.. clicmd:: show static (ip|ipv6) route [vrf <NAME|all>] [json]
+
+
+
    NETWORK is destination prefix with a valid v4 or v6 network based upon
    initial form of the command.
    
@@ -112,6 +116,20 @@ nexthops, if the platform supports this.
    ip route 10.0.0.0/8 10.0.0.2
    ip route 10.0.0.0/8 10.0.0.3
    ip route 10.0.0.0/8 null0 255
+
+
+.. code-block:: frr
+
+   router# show static ip route vrf all
+   Staticd routes:
+       VRF Vrf1 IPv4 Unicast:
+           2.3.4.5/32 ip4:192.168.11.100 valid, registered:yes, state:2
+           2.3.4.6/32 ip4:192.168.11.200 valid, registered:yes, state:2
+       VRF Vrf1 IPv4 Multicast:
+       VRF default IPv4 Unicast:
+           2.2.2.2/32 ip4:100.13.13.200 valid, registered:yes, state:2
+                      ip4:100.13.13.100 valid, registered:yes, state:2
+       VRF default IPv4 Multicast:
 
 
 This will install a multipath route via the specified next-hops if they are
