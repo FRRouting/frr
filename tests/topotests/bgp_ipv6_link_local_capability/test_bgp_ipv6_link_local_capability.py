@@ -25,10 +25,15 @@ pytestmark = [pytest.mark.bgpd]
 def build_topo(tgen):
     tgen.add_router("r1")
     tgen.add_router("r2")
+    tgen.add_router("r3")
 
     switch = tgen.add_switch("s1")
     switch.add_link(tgen.gears["r1"])
     switch.add_link(tgen.gears["r2"])
+
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r3"])
 
 
 def setup_module(mod):
@@ -55,6 +60,7 @@ def test_bgp_ipv6_link_local_capability():
         pytest.skip(tgen.errors)
 
     r2 = tgen.gears["r2"]
+    r3 = tgen.gears["r3"]
 
     def _bgp_converge():
         output = json.loads(r2.vtysh_cmd("show bgp neighbor json"))
@@ -74,8 +80,8 @@ def test_bgp_ipv6_link_local_capability():
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Can't converge initially"
 
-    def _bgp_check_received_nexthops():
-        output = json.loads(r2.vtysh_cmd("show bgp 2001:db8::1/128 json"))
+    def _bgp_check_received_nexthops(router):
+        output = json.loads(router.vtysh_cmd("show bgp 2001:db8::1/128 json"))
         expected = {
             "paths": [
                 {
@@ -92,7 +98,6 @@ def test_bgp_ipv6_link_local_capability():
                     "peer": {
                         "routerId": "10.0.0.1",
                         "hostname": "r1",
-                        "interface": "r2-eth0",
                         "type": "external",
                     },
                 }
@@ -100,7 +105,11 @@ def test_bgp_ipv6_link_local_capability():
         }
         return topotest.json_cmp(output, expected)
 
-    test_func = functools.partial(_bgp_check_received_nexthops)
+    test_func = functools.partial(_bgp_check_received_nexthops, r2)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Can't see 2001:db8::1/128"
+
+    test_func = functools.partial(_bgp_check_received_nexthops, r3)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Can't see 2001:db8::1/128"
 
