@@ -1960,7 +1960,8 @@ Configuring Peers
    are utilized. This capability standardizes the operation of BGP over a
    point-to-point links using link-local IPv6 addressing only.
 
-   Enabled by default for the ``datacenter`` profile.
+   Enabled by default for the ``datacenter`` profile. Also implicitly enabled
+   for unnumbered peers.
 
 .. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> accept-own
 
