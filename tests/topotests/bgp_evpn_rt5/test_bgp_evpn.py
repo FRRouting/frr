@@ -162,7 +162,8 @@ def setup_module(mod):
     for rname, router in tgen.routers().items():
         logger.info("Loading router %s" % rname)
         if rname == "r1":
-            router.use_netns_vrf()
+            router.load_config(TopoRouter.RD_MGMTD, None, "--vrfwnetns")
+            router.load_config(TopoRouter.RD_ZEBRA, None, "--vrfwnetns")
             router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
         else:
             router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
