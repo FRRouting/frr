@@ -2450,8 +2450,7 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 			if (!peer->nexthop.ifp) {
 				zlog_warn("%s sent a v6 global attribute but address is a V6 LL and there's no peer interface information. Hence, withdrawing",
 					  peer->host);
-				if (CHECK_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_ADV) &&
-				    CHECK_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_RCV))
+				if (PEER_HAS_LINK_LOCAL_CAPABILITY(peer))
 					bgp_notify_send(peer->connection, BGP_NOTIFY_UPDATE_ERR,
 							BGP_NOTIFY_UPDATE_UNREACH_NEXT_HOP);
 				return BGP_ATTR_PARSE_WITHDRAW;
@@ -4215,8 +4214,7 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 					   IPV6_MAX_BYTELEN);
 			} else {
 				stream_putc(s, IPV6_MAX_BYTELEN);
-				if (CHECK_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_ADV) &&
-				    CHECK_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_RCV))
+				if (PEER_HAS_LINK_LOCAL_CAPABILITY(peer))
 					stream_put(s, &attr->mp_nexthop_local, IPV6_MAX_BYTELEN);
 				else
 					stream_put(s, &attr->mp_nexthop_global, IPV6_MAX_BYTELEN);
