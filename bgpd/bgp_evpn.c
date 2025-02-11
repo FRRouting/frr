@@ -2062,8 +2062,7 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 		bgp_path_info_add(dest, tmp_pi);
 	} else {
 		tmp_pi = local_pi;
-		if (attrhash_cmp(tmp_pi->attr, attr)
-		    && !CHECK_FLAG(tmp_pi->flags, BGP_PATH_REMOVED))
+		if (!CHECK_FLAG(tmp_pi->flags, BGP_PATH_REMOVED) && attrhash_cmp(tmp_pi->attr, attr))
 			route_change = 0;
 		else {
 			/*
@@ -3154,8 +3153,7 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 		pi = bgp_create_evpn_bgp_path_info(parent_pi, dest, &attr);
 		new_pi = true;
 	} else {
-		if (attrhash_cmp(pi->attr, &attr)
-		    && !CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)) {
+		if (!CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) && attrhash_cmp(pi->attr, &attr)) {
 			bgp_dest_unlock_node(dest);
 			return 0;
 		}
@@ -3278,8 +3276,8 @@ static int install_evpn_route_entry_in_vni_common(
 		 * install_evpn_route_entry_in_vni_mac() or
 		 * install_evpn_route_entry_in_vni_ip()
 		 */
-		if (attrhash_cmp(pi->attr, parent_pi->attr) &&
-		    !CHECK_FLAG(pi->flags, BGP_PATH_REMOVED))
+		if (!CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) &&
+		    attrhash_cmp(pi->attr, parent_pi->attr))
 			return 0;
 		/* The attribute has changed. */
 		/* Add (or update) attribute to hash. */

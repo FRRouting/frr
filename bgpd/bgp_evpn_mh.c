@@ -212,8 +212,8 @@ static int bgp_evpn_es_route_install(struct bgp *bgp,
 		bgp_dest_lock_node((struct bgp_dest *)parent_pi->net);
 		bgp_path_info_add(dest, pi);
 	} else {
-		if (attrhash_cmp(pi->attr, parent_pi->attr)
-				&& !CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)) {
+		if (!CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) &&
+		    attrhash_cmp(pi->attr, parent_pi->attr)) {
 			bgp_dest_unlock_node(dest);
 			return 0;
 		}
@@ -421,8 +421,7 @@ int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 		bgp_path_info_add(dest, tmp_pi);
 	} else {
 		tmp_pi = local_pi;
-		if (attrhash_cmp(tmp_pi->attr, attr)
-				&& !CHECK_FLAG(tmp_pi->flags, BGP_PATH_REMOVED))
+		if (!CHECK_FLAG(tmp_pi->flags, BGP_PATH_REMOVED) && attrhash_cmp(tmp_pi->attr, attr))
 			*route_changed = 0;
 		else {
 			/* The attribute has changed.

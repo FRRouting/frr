@@ -946,8 +946,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 			}
 		}
 
-		if (attrhash_cmp(bpi->attr, new_attr)
-		    && !CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED)) {
+		if (!CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED) && attrhash_cmp(bpi->attr, new_attr)) {
 			bgp_attr_unintern(&new_attr);
 			bgp_dest_unlock_node(bn);
 
