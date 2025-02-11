@@ -2512,8 +2512,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			 * length of the Next Hop field to 16 and include only the IPv6 link-local
 			 * address in the Next Hop field.
 			 */
-			if (!(CHECK_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_ADV) &&
-			      CHECK_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_RCV)))
+			if (!PEER_HAS_LINK_LOCAL_CAPABILITY(peer))
 				global_and_ll = true;
 		}
 
@@ -9728,8 +9727,7 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 		bgp_nexthop_hostname(path->peer, path->nexthop);
 	char esi_buf[ESI_STR_LEN];
 	bool ll_nexthop_only = attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL &&
-			       !!CHECK_FLAG(path->peer->cap, PEER_CAP_LINK_LOCAL_ADV) &&
-			       !!CHECK_FLAG(path->peer->cap, PEER_CAP_LINK_LOCAL_RCV);
+			       PEER_HAS_LINK_LOCAL_CAPABILITY(path->peer);
 
 	if (json_paths)
 		json_path = json_object_new_object();
@@ -10842,8 +10840,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		bgp_get_imported_bpi_ultimate(path);
 	struct bgp_route_evpn *bre = bgp_attr_get_evpn_overlay(attr);
 	bool ll_nexthop_only = attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL &&
-			       !!CHECK_FLAG(path->peer->cap, PEER_CAP_LINK_LOCAL_ADV) &&
-			       !!CHECK_FLAG(path->peer->cap, PEER_CAP_LINK_LOCAL_RCV);
+			       PEER_HAS_LINK_LOCAL_CAPABILITY(path->peer);
 
 	if (json_paths) {
 		json_path = json_object_new_object();
