@@ -1052,6 +1052,7 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 	struct bgp_path_info *bpi_ultimate;
 	struct bgp *bgp_nexthop;
 	struct bgp_table *table;
+	struct interface *ifp;
 	bool nh_valid;
 
 	bpi_ultimate = bgp_get_imported_bpi_ultimate(source_bpi);
@@ -1061,6 +1062,15 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 		bgp_nexthop = bpi->extra->vrfleak->bgp_orig;
 	else
 		bgp_nexthop = bgp_orig;
+
+	/* The nexthop is invalid if its VRF does not exist */
+	if (bgp_nexthop->vrf_id == VRF_UNKNOWN)
+		return false;
+
+	/* The nexthop is invalid if its VRF interface is down*/
+	ifp = if_get_vrf_loopback(bgp_nexthop->vrf_id);
+	if (ifp && !if_is_up(ifp))
+		return false;
 
 	/*
 	 * No nexthop tracking for redistributed routes, for
@@ -1126,8 +1136,8 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 	struct bgp_path_info *bpi;
 	struct bgp_path_info *new;
 	struct bgp_path_info_extra *extra;
-	struct bgp_path_info *parent = source_bpi;
 	struct bgp_labels bgp_labels = {};
+	struct bgp *bgp_nexthop;
 	bool labelssame;
 	uint8_t i;
 
@@ -1159,8 +1169,7 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 	 * match parent
 	 */
 	for (bpi = bgp_dest_get_bgp_path_info(bn); bpi; bpi = bpi->next) {
-		if (bpi->extra && bpi->extra->vrfleak &&
-		    bpi->extra->vrfleak->parent == parent)
+		if (bpi->extra && bpi->extra->vrfleak && bpi->extra->vrfleak->parent == source_bpi)
 			break;
 	}
 
@@ -1174,6 +1183,16 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 		labelssame = bgp_path_info_labels_same(bpi, bgp_labels.label,
 						       bgp_labels.num_labels);
 
+		bgp_nexthop = bpi->extra->vrfleak->bgp_orig ?: bgp_orig;
+		if (bgp_nexthop->vrf_id == VRF_UNKNOWN) {
+			if (debug) {
+				zlog_debug("%s: ->%s(s_flags: 0x%x b_flags: 0x%x): %pFX: Found route, origin VRF does not exist, not leaking",
+					   __func__, to_bgp->name_pretty, source_bpi->flags,
+					   bpi->flags, p);
+			}
+			return NULL;
+		}
+
 		if (CHECK_FLAG(source_bpi->flags, BGP_PATH_REMOVED)
 		    && CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED)) {
 			if (debug) {
@@ -1185,9 +1204,11 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 			return NULL;
 		}
 
-		if (attrhash_cmp(bpi->attr, new_attr) && labelssame
-		    && !CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED)) {
-
+		if (attrhash_cmp(bpi->attr, new_attr) && labelssame &&
+		    !CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED) &&
+		    leak_update_nexthop_valid(to_bgp, bn, new_attr, afi, safi, source_bpi, bpi,
+					      bgp_orig, p,
+					      debug) == !!CHECK_FLAG(bpi->flags, BGP_PATH_VALID)) {
 			bgp_attr_unintern(&new_attr);
 			if (debug)
 				zlog_debug(
@@ -1274,6 +1295,14 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 		return NULL;
 	}
 
+	if (bgp_orig->vrf_id == VRF_UNKNOWN) {
+		if (debug) {
+			zlog_debug("%s: ->%s(s_flags: 0x%x): %pFX: New route, origin VRF does not exist, not leaking",
+				   __func__, to_bgp->name_pretty, source_bpi->flags, p);
+		}
+		return NULL;
+	}
+
 	new = info_make(ZEBRA_ROUTE_BGP, BGP_ROUTE_IMPORTED, 0,
 			to_bgp->peer_self, new_attr, bn);
 
@@ -1297,9 +1326,8 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 	if (bgp_labels.num_labels)
 		new->extra->labels = bgp_labels_intern(&bgp_labels);
 
-	new->extra->vrfleak->parent = bgp_path_info_lock(parent);
-	bgp_dest_lock_node(
-		(struct bgp_dest *)parent->net);
+	new->extra->vrfleak->parent = bgp_path_info_lock(source_bpi);
+	bgp_dest_lock_node((struct bgp_dest *)source_bpi->net);
 
 	new->extra->vrfleak->bgp_orig = bgp_lock(bgp_orig);
 
