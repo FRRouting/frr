@@ -18,10 +18,10 @@
             "path":"102",
             "origin":"incomplete",
             "nexthops":[{
-                "ip":"2001:db8:1::2",
                 "hostname":"r2",
                 "afi":"ipv6",
-                "scope":"global"
+                "scope":"link-local",
+                "length":16
             },{
                 "interface":"r1-eth0",
                 "hostname":"r2",
