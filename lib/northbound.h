@@ -386,6 +386,11 @@ struct nb_callbacks {
 	int (*destroy)(struct nb_cb_destroy_args *args);
 
 	/*
+	 * Flags to control the how northbound callbacks are invoked.
+	 */
+	uint flags;
+
+	/*
 	 * Configuration callback.
 	 *
 	 * A list entry or leaf-list entry has been moved. Only applicable when
@@ -621,6 +626,12 @@ struct nb_callbacks {
 	 */
 	void (*cli_show_end)(struct vty *vty, const struct lyd_node *dnode);
 };
+
+/*
+ * Flag indicating the northbound should recurse destroy the children of this
+ * node when it is destroyed.
+ */
+#define F_NB_CB_DESTROY_RECURSE 0x01
 
 struct nb_dependency_callbacks {
 	void (*get_dependant_xpath)(const struct lyd_node *dnode, char *xpath);
