@@ -587,9 +587,9 @@ static int key_chains_key_chain_key_crypto_algorithm_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	name = yang_dnode_get_string(args->dnode, "../../../name");
+	name = yang_dnode_get_string(args->dnode, "../../name");
 	keychain = keychain_lookup(name);
-	index = (uint32_t)yang_dnode_get_uint64(args->dnode, "../../key-id");
+	index = (uint32_t)yang_dnode_get_uint64(args->dnode, "../key-id");
 	key = key_lookup(keychain, index);
 	key->hash_algo = KEYCHAIN_ALGO_NULL;
 	keychain_touch(keychain);
