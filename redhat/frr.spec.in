@@ -333,6 +333,16 @@ Requires: %{name} = %{version}-%{release}
 Adds GRPC support to the individual FRR daemons.
 %endif
 
+
+%package test-tools
+Summary: Testing Tools for FRR daemons
+Group: System Environment/Daemons
+Requires: %{name} = %{version}-%{release}
+
+%description test-tools
+Adds FRR test tools, used in testing FRR.
+
+
 %prep
 %setup -q -n frr-%{frrversion}
 
@@ -355,9 +365,7 @@ Adds GRPC support to the individual FRR daemons.
     --localstatedir=%{_localstatedir} \
     --disable-static \
     --disable-werror \
-%if %{with_mgmtd_test_be_client}
     --enable-mgmtd-test-be-client \
-%endif
 %if %{with_multipath}
     --enable-multipath=%{with_multipath} \
 %endif
@@ -461,8 +469,10 @@ Adds GRPC support to the individual FRR daemons.
 %endif
 %if %{with_grpc}
     --enable-grpc \
+    --enable-protobuf \
 %else
     --disable-grpc \
+    --disable-protobuf \
 %endif
     --enable-snmp \
     --enable-pcre2posix \
@@ -721,11 +731,7 @@ fi
 %{_sbindir}/ripd
 %{_sbindir}/bgpd
 %{_sbindir}/mgmtd
-%if %{with_mgmtd_test_be_client}
-    %{_sbindir}/mgmtd_testc
-%endif
 %exclude %{_sbindir}/ssd
-%exclude %{_sbindir}/fpm_listener
 %if %{with_watchfrr}
     %{_sbindir}/watchfrr
 %endif
@@ -835,9 +841,19 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 %endif
 
 
+%files test-tools
+%{_sbindir}/mgmtd_testc
+%{_sbindir}/fpm_listener
+
+
 %changelog
 
-* Thu Oct 10  2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+* Tue Feb 11 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+
+* Tue Feb 11 2025 Martin Winter <mwinter@opensourcerouting.org> 10.4-dev
+- Added new test-tools subpackage
+-   Moved mgmtd_testc to test-tools subpackage to make consistent with debian
+-   Added fpm_listener to test-tools package
 
 * Thu Oct 10 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.3-dev
 - FRR 10.3 Development
