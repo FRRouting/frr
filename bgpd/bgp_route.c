@@ -9943,6 +9943,8 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 	/* IPv6 Next Hop */
 	else if (p->family == AF_INET6 || BGP_ATTR_MP_NEXTHOP_LEN_IP6(attr)) {
 		if (json_paths) {
+			bool ll_nexthop = IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_global);
+
 			json_nexthop_global = json_object_new_object();
 			json_object_string_addf(json_nexthop_global, "ip",
 						"%pI6",
@@ -9956,7 +9958,9 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 			json_object_string_add(json_nexthop_global, "afi",
 					       "ipv6");
 			json_object_string_add(json_nexthop_global, "scope",
-					       ll_nexthop_only ? "link-local" : "global");
+					       ll_nexthop ? "link-local" : "global");
+			json_object_boolean_add(json_nexthop_global, "linkLocalOnly",
+						ll_nexthop_only);
 			json_object_int_add(json_nexthop_global, "length", attr->mp_nexthop_len);
 
 			/* We display both LL & GL if both have been
