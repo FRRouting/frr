@@ -571,6 +571,11 @@ struct event_loop *event_master_create(const char *name)
 	rv->spin = true;
 	rv->handle_signals = true;
 
+	/* tardy event warnings */
+	monotime(&rv->last_tardy_warning);
+	rv->last_tardy_warning.tv_sec -= (TARDY_WARNING_INTERVAL + TIMER_SECOND_MICRO - 1) /
+					 TIMER_SECOND_MICRO;
+
 	/* Set pthread owner, should be updated by actual owner */
 	rv->owner = pthread_self();
 	rv->cancel_req = list_new();
@@ -770,13 +775,13 @@ static struct event *thread_get(struct event_loop *m, uint8_t type,
 	thread->master = m;
 	thread->arg = arg;
 	thread->yield = EVENT_YIELD_TIME_SLOT; /* default */
+	thread->tardy_threshold = 0;
 	/* thread->ref is zeroed either by XCALLOC above or by memset before
 	 * being put on the "unuse" list by thread_add_unuse().
 	 * Setting it here again makes coverity complain about a missing
 	 * lock :(
 	 */
 	/* thread->ref = NULL; */
-	thread->ignore_timer_late = false;
 
 	/*
 	 * So if the passed in funcname is not what we have
@@ -1023,6 +1028,8 @@ static void _event_add_timer_timeval(const struct xref_eventsched *xref,
 			return;
 
 		thread = thread_get(m, EVENT_TIMER, func, arg, xref);
+		/* default lateness warning: 4s */
+		thread->tardy_threshold = TARDY_DEFAULT_THRESHOLD;
 
 		frr_with_mutex (&thread->mtx) {
 			thread->u.sands = t;
@@ -1685,34 +1692,12 @@ static void thread_process_io(struct event_loop *m, unsigned int num)
 static unsigned int thread_process_timers(struct event_loop *m,
 					  struct timeval *timenow)
 {
-	struct timeval prev = *timenow;
-	bool displayed = false;
 	struct event *thread;
 	unsigned int ready = 0;
 
 	while ((thread = event_timer_list_first(&m->timer))) {
 		if (timercmp(timenow, &thread->u.sands, <))
 			break;
-		prev = thread->u.sands;
-		prev.tv_sec += 4;
-		/*
-		 * If the timer would have popped 4 seconds in the
-		 * past then we are in a situation where we are
-		 * really getting behind on handling of events.
-		 * Let's log it and do the right thing with it.
-		 */
-		if (timercmp(timenow, &prev, >)) {
-			atomic_fetch_add_explicit(
-				&thread->hist->total_starv_warn, 1,
-				memory_order_seq_cst);
-			if (!displayed && !thread->ignore_timer_late) {
-				flog_warn(
-					EC_LIB_STARVE_THREAD,
-					"Thread Starvation: %pTHD was scheduled to pop greater than 4s ago",
-					thread);
-				displayed = true;
-			}
-		}
 
 		event_timer_list_pop(&m->timer);
 		thread->type = EVENT_READY;
@@ -1946,6 +1931,29 @@ void event_getrusage(RUSAGE_T *r)
 #endif
 }
 
+static void event_tardy_warn(struct event *thread, unsigned long since_us)
+{
+	char buf[64];
+	struct fbuf fb = { .buf = buf, .pos = buf, .len = sizeof(buf) };
+	double loadavg[3];
+	int rv;
+
+	rv = getloadavg(loadavg, array_size(loadavg));
+	if (rv < 0)
+		bprintfrr(&fb, "not available");
+	else {
+		for (int i = 0; i < rv; i++) {
+			bprintfrr(&fb, "%.2f", loadavg[i]);
+			if (i < rv - 1)
+				bputs(&fb, ", ");
+		}
+	}
+
+	flog_warn(EC_LIB_STARVE_THREAD,
+		  "CPU starvation: %pTHD getting executed %lums late, warning threshold %lums. System load: %pFB",
+		  thread, (since_us + 999) / 1000, (thread->tardy_threshold + 999) / 1000, &fb);
+}
+
 /*
  * Call a thread.
  *
@@ -1961,6 +1969,33 @@ void event_call(struct event *thread)
 {
 	RUSAGE_T before, after;
 	bool suppress_warnings = EVENT_ARG(thread);
+
+	if (thread->tardy_threshold) {
+		int64_t timer_late_us = monotime_since(&thread->u.sands, NULL);
+
+		/* Timers have a tardiness warning defaulting to 4s.
+		 * It can be customized with event_set_tardy_threshold()
+		 * (bfdd does that since the protocol has really short timers)
+		 *
+		 * If we are more than that threshold late, print a warning
+		 * since we're running behind in calling timers (probably due
+		 * to high system load.)
+		 */
+		if (timer_late_us > (int64_t)thread->tardy_threshold) {
+			int64_t since_last_warning;
+			struct timeval *tw;
+
+			atomic_fetch_add_explicit(&thread->hist->total_starv_warn, 1,
+						  memory_order_seq_cst);
+
+			tw = &thread->master->last_tardy_warning;
+			since_last_warning = monotime_since(tw, NULL);
+			if (since_last_warning > TARDY_WARNING_INTERVAL) {
+				event_tardy_warn(thread, timer_late_us);
+				monotime(tw);
+			}
+		}
+	}
 
 	/* if the thread being called is the CLI, it may change cputime_enabled
 	 * ("service cputime-stats" command), which can result in nonsensical
