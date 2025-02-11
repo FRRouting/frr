@@ -90,7 +90,7 @@ def test_bgp_ipv6_link_local_capability():
                         {
                             "hostname": "r1",
                             "afi": "ipv6",
-                            "scope": "global",
+                            "scope": "link-local",
                             "length": 16,
                             "accessible": True,
                         }
