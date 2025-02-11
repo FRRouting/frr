@@ -107,6 +107,7 @@ void sbfd_init_xmttimer_update(struct bfd_session *bs, uint64_t jitter)
 	tv_normalize(&tv);
 
 	event_add_timer_tv(master, sbfd_init_xmt_cb, bs, &tv, &bs->xmttimer_ev);
+	event_set_tardy_threshold(bs->xmttimer_ev, bs->xmt_TO / 2);
 }
 
 void sbfd_echo_xmttimer_update(struct bfd_session *bs, uint64_t jitter)
@@ -123,6 +124,7 @@ void sbfd_echo_xmttimer_update(struct bfd_session *bs, uint64_t jitter)
 	tv_normalize(&tv);
 
 	event_add_timer_tv(master, sbfd_echo_xmt_cb, bs, &tv, &bs->echo_xmttimer_ev);
+	event_set_tardy_threshold(bs->echo_xmttimer_ev, bs->echo_xmt_TO / 2);
 }
 
 void bfd_xmttimer_update(struct bfd_session *bs, uint64_t jitter)
@@ -140,6 +142,7 @@ void bfd_xmttimer_update(struct bfd_session *bs, uint64_t jitter)
 	tv_normalize(&tv);
 
 	event_add_timer_tv(master, bfd_xmt_cb, bs, &tv, &bs->xmttimer_ev);
+	event_set_tardy_threshold(bs->xmttimer_ev, bs->xmt_TO / 2);
 }
 
 void bfd_echo_xmttimer_update(struct bfd_session *bs, uint64_t jitter)
@@ -158,6 +161,7 @@ void bfd_echo_xmttimer_update(struct bfd_session *bs, uint64_t jitter)
 
 	event_add_timer_tv(master, bfd_echo_xmt_cb, bs, &tv,
 			   &bs->echo_xmttimer_ev);
+	event_set_tardy_threshold(bs->echo_xmttimer_ev, bs->echo_xmt_TO / 2);
 }
 
 void bfd_recvtimer_delete(struct bfd_session *bs)
