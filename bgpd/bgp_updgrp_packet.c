@@ -447,6 +447,8 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 		int gnh_modified, lnh_modified;
 		size_t offset_nhglobal = vec->offset + 1;
 		size_t offset_nhlocal = vec->offset + 1;
+		bool ll_nexthop_only = !!CHECK_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_ADV) &&
+				       !!CHECK_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_RCV);
 
 		gnh_modified = lnh_modified = 0;
 		mod_v6nhg = &v6nhglobal;
@@ -535,8 +537,9 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			gnh_modified = 1;
 		}
 
-		if (nhlen == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL
-		    || nhlen == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL) {
+		if (nhlen == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL ||
+		    nhlen == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL ||
+		    (nhlen == BGP_ATTR_NHLEN_IPV6_GLOBAL && ll_nexthop_only)) {
 			stream_get_from(&v6nhlocal, s, offset_nhlocal,
 					IPV6_MAX_BYTELEN);
 			if (IN6_IS_ADDR_UNSPECIFIED(&v6nhlocal)) {
@@ -545,14 +548,19 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			}
 		}
 
-		if (gnh_modified)
-			stream_put_in6_addr_at(s, offset_nhglobal, mod_v6nhg);
-		if (lnh_modified)
+		if (lnh_modified && ll_nexthop_only) {
 			stream_put_in6_addr_at(s, offset_nhlocal, mod_v6nhl);
+		} else {
+			if (gnh_modified)
+				stream_put_in6_addr_at(s, offset_nhglobal, mod_v6nhg);
+			if (lnh_modified)
+				stream_put_in6_addr_at(s, offset_nhlocal, mod_v6nhl);
+		}
 
 		if (bgp_debug_update(peer, NULL, NULL, 0)) {
-			if (nhlen == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL
-			    || nhlen == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL)
+			if (nhlen == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL ||
+			    nhlen == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL ||
+			    (nhlen == BGP_ATTR_NHLEN_IPV6_GLOBAL && ll_nexthop_only))
 				zlog_debug(
 					"u%" PRIu64 ":s%" PRIu64
 					" %s send UPDATE w/ mp_nexthops %pI6, %pI6%s",

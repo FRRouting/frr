@@ -4215,8 +4215,11 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 					   IPV6_MAX_BYTELEN);
 			} else {
 				stream_putc(s, IPV6_MAX_BYTELEN);
-				stream_put(s, &attr->mp_nexthop_global,
-					   IPV6_MAX_BYTELEN);
+				if (CHECK_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_ADV) &&
+				    CHECK_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_RCV))
+					stream_put(s, &attr->mp_nexthop_local, IPV6_MAX_BYTELEN);
+				else
+					stream_put(s, &attr->mp_nexthop_global, IPV6_MAX_BYTELEN);
 			}
 		} break;
 		case SAFI_MPLS_VPN: {
