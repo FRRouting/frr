@@ -17,13 +17,14 @@
                     {
                         "hostname": "ce1",
                         "afi": "ipv6",
-                        "scope": "global",
-                        "used": true
+                        "scope": "link-local",
+                        "length":16
                     },
                     {
                         "hostname": "ce1",
                         "afi": "ipv6",
-                        "scope": "link-local"
+                        "scope": "link-local",
+                        "used": true
                     }
                 ]
             }
