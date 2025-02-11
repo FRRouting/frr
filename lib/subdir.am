@@ -556,6 +556,7 @@ EXTRA_DIST += \
 	lib/gitversion.pl \
 	lib/route_types.pl \
 	lib/route_types.txt \
+	lib/mgmt.proto \
 	# end
 
 BUILT_SOURCES += \
