@@ -766,7 +766,7 @@ static void bgp_evpn_show_routes_mac_ip_es(struct vty *vty, esi_t *esi,
 			if (detail)
 				route_vty_out_detail(vty, bgp, bd, bgp_dest_get_prefix(bd), pi,
 						     AFI_L2VPN, SAFI_EVPN, RPKI_NOT_BEING_USED,
-						     json_path, NULL);
+						     json_path, NULL, 0);
 			else
 				route_vty_out(vty, &bd->rn->p, pi, 0, SAFI_EVPN,
 					      json_path, false);
@@ -893,7 +893,7 @@ static void show_vni_routes(struct bgp *bgp, struct bgpevpn *vpn,
 			if (detail)
 				route_vty_out_detail(vty, bgp, dest, &tmp_p, pi, AFI_L2VPN,
 						     SAFI_EVPN, RPKI_NOT_BEING_USED, json_path,
-						     NULL);
+						     NULL, 0);
 
 			else
 				route_vty_out(vty, &tmp_p, pi, 0, SAFI_EVPN,
@@ -2569,7 +2569,7 @@ static void evpn_show_route_vni_multicast(struct vty *vty, struct bgp *bgp,
 			json_path = json_object_new_array();
 
 		route_vty_out_detail(vty, bgp, dest, bgp_dest_get_prefix(dest), pi, afi, safi,
-				     RPKI_NOT_BEING_USED, json_path, NULL);
+				     RPKI_NOT_BEING_USED, json_path, NULL, 0);
 
 		if (json)
 			json_object_array_add(json_paths, json_path);
@@ -2697,7 +2697,7 @@ static void evpn_show_route_vni_macip(struct vty *vty, struct bgp *bgp,
 		}
 
 		route_vty_out_detail(vty, bgp, dest, (struct prefix *)&tmp_p, pi, afi, safi,
-				     RPKI_NOT_BEING_USED, json_path, NULL);
+				     RPKI_NOT_BEING_USED, json_path, NULL, 0);
 
 		if (json)
 			json_object_array_add(json_paths, json_path);
@@ -2807,7 +2807,7 @@ static void evpn_show_route_rd_macip(struct vty *vty, struct bgp *bgp,
 			json_path = json_object_new_array();
 
 		route_vty_out_detail(vty, bgp, dest, bgp_dest_get_prefix(dest), pi, afi, safi,
-				     RPKI_NOT_BEING_USED, json_path, NULL);
+				     RPKI_NOT_BEING_USED, json_path, NULL, 0);
 
 		if (json)
 			json_object_array_add(json_paths, json_path);
@@ -2919,7 +2919,7 @@ static void evpn_show_route_rd(struct vty *vty, struct bgp *bgp,
 				json_path = json_object_new_array();
 
 			route_vty_out_detail(vty, bgp, dest, bgp_dest_get_prefix(dest), pi, afi,
-					     safi, RPKI_NOT_BEING_USED, json_path, NULL);
+					     safi, RPKI_NOT_BEING_USED, json_path, NULL, 0);
 
 			if (json)
 				json_object_array_add(json_paths, json_path);
@@ -3055,7 +3055,7 @@ static void evpn_show_route_rd_all_macip(struct vty *vty, struct bgp *bgp,
 				json_path = json_object_new_array();
 
 			route_vty_out_detail(vty, bgp, dest, p, pi, AFI_L2VPN, SAFI_EVPN,
-					     RPKI_NOT_BEING_USED, json_path, NULL);
+					     RPKI_NOT_BEING_USED, json_path, NULL, 0);
 
 			if (json)
 				json_object_array_add(json_paths, json_path);
@@ -3227,7 +3227,8 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 					route_vty_out_detail(vty, bgp, dest,
 							     bgp_dest_get_prefix(dest), pi,
 							     AFI_L2VPN, SAFI_EVPN,
-							     RPKI_NOT_BEING_USED, json_path, NULL);
+							     RPKI_NOT_BEING_USED, json_path, NULL,
+							     0);
 				} else
 					route_vty_out(vty, p, pi, 0, SAFI_EVPN,
 						      json_path, false);
