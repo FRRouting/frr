@@ -2180,9 +2180,9 @@ static ssize_t printfrr_thread_dbg(struct fbuf *buf, struct printfrr_eargs *ea,
 	char info[16] = "";
 
 	if (!thread)
-		return bputs(buf, "{(thread *)NULL}");
+		return bputs(buf, "{(event *)NULL}");
 
-	rv += bprintfrr(buf, "{(thread *)%p arg=%p", thread, thread->arg);
+	rv += bprintfrr(buf, "{(event *)%p arg=%p", thread, thread->arg);
 
 	if (thread->type < array_size(types) && types[thread->type])
 		rv += bprintfrr(buf, " %-6s", types[thread->type]);
