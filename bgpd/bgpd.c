@@ -3462,6 +3462,8 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 
 peer_init:
 	bgp->as = *as;
+	if (hidden)
+		XFREE(MTYPE_BGP_NAME, bgp->as_pretty);
 	if (as_pretty)
 		bgp->as_pretty = XSTRDUP(MTYPE_BGP_NAME, as_pretty);
 	else
