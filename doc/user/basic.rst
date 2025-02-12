@@ -355,7 +355,15 @@ Line VTY Commands
 
 .. clicmd:: no vty login
 
+<<<<<<< HEAD
    Do not allow any operator to connect to FRR via the VTY interface.
+=======
+   Allow peering via loopback addresses (127.0.0.0/8). This is necessary in case
+   of multiple FRR instances (or FRR + any other daemon) peering via loopback
+   interfaces running on the same router.
+
+   Default: off.
+>>>>>>> 1951e713d (doc: Update description of 'allow-reserved-ranges')
 
 .. _sample-config-file:
 
