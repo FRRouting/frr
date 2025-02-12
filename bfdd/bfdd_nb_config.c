@@ -220,7 +220,7 @@ static int bfd_session_create(struct nb_cb_create_args *args, bool mhop, uint32_
 	case NB_EV_PREPARE:
 		if (bfd_mode == BFD_MODE_TYPE_BFD) {
 			bfd_session_get_key(mhop, args->dnode, &bk);
-			bs = bfd_key_lookup(bk);
+			bs = bfd_key_lookup(&bk);
 
 			/* This session was already configured by another daemon. */
 			if (bs != NULL) {
@@ -249,7 +249,7 @@ static int bfd_session_create(struct nb_cb_create_args *args, bool mhop, uint32_
 		} else if (bfd_mode == BFD_MODE_TYPE_SBFD_ECHO ||
 			   bfd_mode == BFD_MODE_TYPE_SBFD_INIT) {
 			sbfd_session_get_key(mhop, args->dnode, &bk);
-			bs = bfd_key_lookup(bk);
+			bs = bfd_key_lookup(&bk);
 
 			/* This session was already configured by another daemon. */
 			if (bs != NULL) {
@@ -369,7 +369,7 @@ static int bfd_session_destroy(enum nb_event event, const struct lyd_node *dnode
 		else
 			sbfd_session_get_key(mhop, dnode, &bk);
 
-		if (bfd_key_lookup(bk) == NULL)
+		if (bfd_key_lookup(&bk) == NULL)
 			return NB_ERR_INCONSISTENCY;
 		break;
 
