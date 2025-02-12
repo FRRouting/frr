@@ -61,19 +61,19 @@ module frr-pim-rp {
      (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
-  revision 2017-03-09 {
-    description
-      "Initial revision.";
-    reference
-      "RFC XXXX: A YANG Data Model for PIM RP";
-  }
-
   revision 2024-09-26 {
     description
       "Add support for embedded RP.";
     reference
       "RFC 3956: Embedding the Rendezvous Point (RP) Address in an IPv6
        Multicast Address";
+  }
+
+  revision 2017-03-09 {
+    description
+      "Initial revision.";
+    reference
+      "RFC XXXX: A YANG Data Model for PIM RP";
   }
 
   typedef plist-ref {
