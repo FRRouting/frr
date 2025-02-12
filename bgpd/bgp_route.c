@@ -12436,10 +12436,9 @@ int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 
 			memcpy(&prd, dest_p, sizeof(struct prefix_rd));
 			prefix_rd2str(&prd, rd, sizeof(rd), bgp->asnotation);
-			bgp_show_table(vty, bgp, afi, safi, itable, type, output_arg,
-				       rd, next == NULL, &output_cum,
-				       &total_cum, &json_header_depth,
-				       show_flags, RPKI_NOT_BEING_USED);
+			bgp_show_table(vty, bgp, afi, safi, itable, type, output_arg, rd,
+				       !bgp_dest_get_bgp_table_info(next), &output_cum, &total_cum,
+				       &json_header_depth, show_flags, RPKI_NOT_BEING_USED);
 			if (next == NULL)
 				show_msg = false;
 		}
