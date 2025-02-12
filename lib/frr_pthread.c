@@ -20,6 +20,7 @@
 #include "zlog.h"
 #include "libfrr.h"
 #include "libfrr_trace.h"
+#include "sigevent.h"
 
 DEFINE_MTYPE_STATIC(LIB, FRR_PTHREAD, "FRR POSIX Thread");
 DEFINE_MTYPE_STATIC(LIB, PTHREAD_PRIM, "POSIX sync primitives");
@@ -185,10 +186,9 @@ int frr_pthread_run(struct frr_pthread *fpt, const pthread_attr_t *attr)
 
 	assert(frr_is_after_fork || !"trying to start thread before fork()");
 
-	/* Ensure we never handle signals on a background thread by blocking
-	 * everything here (new thread inherits signal mask)
-	 */
-	sigfillset(&blocksigs);
+	sigemptyset(&blocksigs);
+	frr_sigset_add_mainonly(&blocksigs);
+	/* new thread inherits mask */
 	pthread_sigmask(SIG_BLOCK, &blocksigs, &oldsigs);
 
 	frrtrace(1, frr_libfrr, frr_pthread_run, fpt->name);
