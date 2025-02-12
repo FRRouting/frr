@@ -353,7 +353,7 @@ int bfd_session_enable(struct bfd_session *bs)
 	 */
 	if (bs->bfd_mode == BFD_MODE_TYPE_SBFD_ECHO || bs->bfd_mode == BFD_MODE_TYPE_SBFD_INIT) {
 		psock = bp_peer_srh_socketv6(bs);
-		if (psock <= 0) {
+		if (psock < 0) {
 			zlog_err("bp_peer_srh_socketv6 error");
 			return 0;
 		}
