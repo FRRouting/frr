@@ -3569,7 +3569,7 @@ peer_init:
 	/* printable name we can use in debug messages */
 	if (inst_type == BGP_INSTANCE_TYPE_DEFAULT && !hidden) {
 		bgp->name_pretty = XSTRDUP(MTYPE_BGP_NAME, "VRF default");
-	} else {
+	} else if (!hidden) {
 		const char *n;
 		int len;
 
