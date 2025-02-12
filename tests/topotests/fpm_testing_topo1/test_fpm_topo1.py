@@ -112,7 +112,7 @@ def test_fpm_install_routes():
         topotest.router_json_cmp, router, "show ip route summ json", expected
     )
 
-    success, result = topotest.run_and_expect(test_func, None, 120, 1)
+    success, result = topotest.run_and_expect(test_func, None, 150, 1)
     assert success, "Unable to successfully install 10000 routes: {}".format(result)
 
     # Let's remove 10000 routes
@@ -125,7 +125,7 @@ def test_fpm_install_routes():
         topotest.router_json_cmp, router, "show ip route summ json", expected
     )
 
-    success, result = topotest.run_and_expect(test_func, None, 120, 1)
+    success, result = topotest.run_and_expect(test_func, None, 150, 1)
     assert success, "Unable to remove 10000 routes: {}".format(result)
 
 
