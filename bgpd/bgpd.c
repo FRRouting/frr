@@ -4071,8 +4071,18 @@ int bgp_delete(struct bgp *bgp)
 		vpn_leak_zebra_vrf_sid_withdraw(bgp, afi);
 	}
 
+	/* release auto vpn labels */
 	bgp_vpn_release_label(bgp, AFI_IP, true);
 	bgp_vpn_release_label(bgp, AFI_IP6, true);
+
+	/* release manual vpn labels */
+	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+		if (!CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_LABEL_MANUAL_REG))
+			continue;
+		bgp_zebra_release_label_range(bgp->vpn_policy[afi].tovpn_label,
+					      bgp->vpn_policy[afi].tovpn_label);
+		UNSET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_LABEL_MANUAL_REG);
+	}
 
 	hook_call(bgp_inst_delete, bgp);
 
