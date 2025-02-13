@@ -82,7 +82,8 @@ bool bnc_existing_for_prefix(struct bgp_nexthop_cache *bnc)
 	frr_each (bgp_nexthop_cache, bnc->tree, bnc_tmp) {
 		if (bnc_tmp == bnc)
 			continue;
-		if (prefix_cmp(&bnc->prefix, &bnc_tmp->prefix) == 0)
+		if (prefix_cmp(&bnc->prefix, &bnc_tmp->prefix) == 0
+			&& (bnc->srte_color == bnc_tmp->srte_color))
 			return true;
 	}
 	return false;
@@ -125,6 +126,7 @@ static void bgp_nexthop_cache_reset(struct bgp_nexthop_cache_head *tree)
 			bgp_mplsvpn_path_nh_label_bind_unlink(path);
 
 			path_nh_map(path, bnc, false);
+			path_tenh_map(path, bnc, false);
 		}
 
 		bnc_free(bnc);
@@ -797,45 +799,86 @@ static void bgp_show_nexthop_paths(struct vty *vty, struct bgp *bgp,
 		paths = json_object_new_array();
 	else
 		vty_out(vty, "  Paths:\n");
-	LIST_FOREACH (path, &(bnc->paths), nh_thread) {
-		dest = path->net;
-		assert(dest && bgp_dest_table(dest));
-		afi = family2afi(bgp_dest_get_prefix(dest)->family);
-		table = bgp_dest_table(dest);
-		safi = table->safi;
-		bgp_path = table->bgp;
+	if (bnc->srte_color) {
+		LIST_FOREACH (path, &(bnc->paths), te_nh_thread) {
+			dest = path->net;
+			assert(dest && bgp_dest_table(dest));
+			afi = family2afi(bgp_dest_get_prefix(dest)->family);
+			table = bgp_dest_table(dest);
+			safi = table->safi;
+			bgp_path = table->bgp;
 
-
-		if (json) {
-			json_path = json_object_new_object();
-			json_object_string_add(json_path, "afi", afi2str(afi));
-			json_object_string_add(json_path, "safi",
-					       safi2str(safi));
-			json_object_string_addf(json_path, "prefix", "%pBD",
-						dest);
-			if (dest->pdest)
-				json_object_string_addf(
-					json_path, "rd",
-					BGP_RD_AS_FORMAT(bgp->asnotation),
+			if (json) {
+				json_path = json_object_new_object();
+				json_object_string_add(json_path, "afi", afi2str(afi));
+				json_object_string_add(json_path, "safi",
+							safi2str(safi));
+				json_object_string_addf(json_path, "prefix", "%pBD",
+							dest);
+				if (dest->pdest)
+					json_object_string_addf(
+						json_path, "rd",
+						BGP_RD_AS_FORMAT(bgp->asnotation),
+						(struct prefix_rd *)bgp_dest_get_prefix(
+							dest->pdest));
+				json_object_string_add(
+					json_path, "vrf",
+					vrf_id_to_name(bgp_path->vrf_id));
+				bgp_show_bgp_path_info_flags(path->flags, json_path);
+				json_object_array_add(paths, json_path);
+				continue;
+			}
+			if (dest->pdest) {
+				vty_out(vty, "    %d/%d %pBD RD ", afi, safi, dest);
+				vty_out(vty, BGP_RD_AS_FORMAT(bgp->asnotation),
 					(struct prefix_rd *)bgp_dest_get_prefix(
 						dest->pdest));
-			json_object_string_add(
-				json_path, "vrf",
-				vrf_id_to_name(bgp_path->vrf_id));
-			bgp_show_bgp_path_info_flags(path->flags, json_path);
-			json_object_array_add(paths, json_path);
-			continue;
+				vty_out(vty, " %s flags 0x%x\n", bgp_path->name_pretty,
+					path->flags);
+			} else
+				vty_out(vty, "    %d/%d %pBD %s flags 0x%x\n",
+					afi, safi, dest, bgp_path->name_pretty, path->flags);
 		}
-		if (dest->pdest) {
-			vty_out(vty, "    %d/%d %pBD RD ", afi, safi, dest);
-			vty_out(vty, BGP_RD_AS_FORMAT(bgp->asnotation),
-				(struct prefix_rd *)bgp_dest_get_prefix(
-					dest->pdest));
-			vty_out(vty, " %s flags 0x%x\n", bgp_path->name_pretty,
-				path->flags);
-		} else
-			vty_out(vty, "    %d/%d %pBD %s flags 0x%x\n",
-				afi, safi, dest, bgp_path->name_pretty, path->flags);
+	} else {
+		LIST_FOREACH (path, &(bnc->paths), nh_thread) {
+			dest = path->net;
+			assert(dest && bgp_dest_table(dest));
+			afi = family2afi(bgp_dest_get_prefix(dest)->family);
+			table = bgp_dest_table(dest);
+			safi = table->safi;
+			bgp_path = table->bgp;
+
+			if (json) {
+				json_path = json_object_new_object();
+				json_object_string_add(json_path, "afi", afi2str(afi));
+				json_object_string_add(json_path, "safi",
+							safi2str(safi));
+				json_object_string_addf(json_path, "prefix", "%pBD",
+							dest);
+				if (dest->pdest)
+					json_object_string_addf(
+						json_path, "rd",
+						BGP_RD_AS_FORMAT(bgp->asnotation),
+						(struct prefix_rd *)bgp_dest_get_prefix(
+							dest->pdest));
+				json_object_string_add(
+					json_path, "vrf",
+					vrf_id_to_name(bgp_path->vrf_id));
+				bgp_show_bgp_path_info_flags(path->flags, json_path);
+				json_object_array_add(paths, json_path);
+				continue;
+			}
+			if (dest->pdest) {
+				vty_out(vty, "    %d/%d %pBD RD ", afi, safi, dest);
+				vty_out(vty, BGP_RD_AS_FORMAT(bgp->asnotation),
+					(struct prefix_rd *)bgp_dest_get_prefix(
+						dest->pdest));
+				vty_out(vty, " %s flags 0x%x\n", bgp_path->name_pretty,
+					path->flags);
+			} else
+				vty_out(vty, "    %d/%d %pBD %s flags 0x%x\n",
+					afi, safi, dest, bgp_path->name_pretty, path->flags);
+		}
 	}
 	if (json)
 		json_object_object_add(json, "paths", paths);
@@ -1368,7 +1411,7 @@ char *bgp_nexthop_dump_bnc_flags(struct bgp_nexthop_cache *bnc, char *buf,
 		return buf;
 	}
 
-	snprintfrr(buf, len, "%s%s%s%s%s%s%s",
+	snprintfrr(buf, len, "%s%s%s%s%s%s%s%s",
 		   CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID) ? "Valid " : "",
 		   CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED) ? "Reg " : "",
 		   CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED) ? "Conn " : "",
@@ -1380,6 +1423,9 @@ char *bgp_nexthop_dump_bnc_flags(struct bgp_nexthop_cache *bnc, char *buf,
 			   : "",
 		   CHECK_FLAG(bnc->flags, BGP_NEXTHOP_LABELED_VALID)
 			   ? "Label Valid "
+			   : "",
+		   CHECK_FLAG(bnc->flags, BGP_NEXTHOP_SRV6TE_VALID)
+			   ? "SRv6 TE Valid "
 			   : "");
 
 	return buf;

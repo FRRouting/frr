@@ -101,12 +101,19 @@ static void path_zebra_connected(struct zclient *zclient)
 		candidate = policy->best_candidate;
 		if (!candidate)
 			continue;
+		if (policy->type == SRTE_POLICY_TYPE_MPLS) {
+			segment_list = candidate->lsp->segment_list;
+			if (!segment_list)
+				continue;
 
-		segment_list = candidate->lsp->segment_list;
-		if (!segment_list)
-			continue;
+			path_zebra_add_sr_policy(policy, segment_list);
+		} else if (policy->type == SRTE_POLICY_TYPE_SRV6) {
+			segment_list = candidate->segment_list;
+			if (!segment_list)
+				continue;
 
-		path_zebra_add_sr_policy(policy, segment_list);
+			path_zebra_add_srv6_policy(policy, segment_list);
+		}
 	}
 }
 
@@ -210,6 +217,45 @@ void path_zebra_delete_sr_policy(struct srte_policy *policy)
 	policy->status = SRTE_POLICY_STATUS_DOWN;
 
 	(void)zebra_send_sr_policy(zclient, ZEBRA_SR_POLICY_DELETE, &zp);
+}
+
+/**
+ * Adds a segment routing policy to Zebra.
+ *
+ * @param policy The policy to add
+ * @param segment_list The segment list for the policy
+ */
+void path_zebra_add_srv6_policy(struct srte_policy *policy,
+			      struct srte_segment_list *segment_list)
+{
+	struct zapi_sr_policy zp = {};
+	struct srte_segment_entry *segment;
+
+	zp.color = policy->color;
+	zp.endpoint = policy->endpoint;
+	strlcpy(zp.name, policy->name, sizeof(zp.name));
+	zp.segment_list_v6.seg_num = 0;
+	RB_FOREACH (segment, srte_segment_entry_head, &segment_list->segments) {
+		memcpy(&zp.segment_list_v6.segs[zp.segment_list_v6.seg_num],
+			&segment->srv6_sid_value, sizeof(struct ipaddr));
+		zp.segment_list_v6.seg_num++;
+	}
+	policy->status = SRTE_POLICY_STATUS_UP;
+
+	(void)zebra_send_sr_policy(zclient, ZEBRA_SRV6_POLICY_SET, &zp);
+}
+
+void path_zebra_delete_srv6_policy(struct srte_policy *policy)
+{
+	struct zapi_sr_policy zp = {};
+
+	zp.color = policy->color;
+	zp.endpoint = policy->endpoint;
+	strlcpy(zp.name, policy->name, sizeof(zp.name));
+	zp.segment_list_v6.seg_num = 0;
+	policy->status = SRTE_POLICY_STATUS_DOWN;
+
+	(void)zebra_send_sr_policy(zclient, ZEBRA_SRV6_POLICY_DELETE, &zp);
 }
 
 /**

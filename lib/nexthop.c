@@ -670,6 +670,37 @@ void nexthop_add_srv6_seg6(struct nexthop *nexthop, const struct in6_addr *segs,
 		       sizeof(struct in6_addr));
 }
 
+void nexthop_add_srv6_seg6_ipaddr(struct nexthop *nexthop, const struct ipaddr *segs,
+			int num_segs)
+{
+	int i;
+
+	if (!segs)
+		return;
+
+	if (!nexthop->nh_srv6)
+		nexthop->nh_srv6 = XCALLOC(MTYPE_NH_SRV6,
+					   sizeof(struct nexthop_srv6));
+
+	/* Enforce limit on srv6 seg stack size */
+	if (num_segs > SRV6_MAX_SIDS)
+		num_segs = SRV6_MAX_SIDS;
+
+	if (!nexthop->nh_srv6->seg6_segs) {
+		nexthop->nh_srv6->seg6_segs =
+			XCALLOC(MTYPE_NH_SRV6,
+				sizeof(struct seg6_seg_stack) +
+					num_segs * sizeof(struct in6_addr));
+	}
+
+	nexthop->nh_srv6->seg6_segs->num_segs = num_segs;
+
+	for (i = 0; i < num_segs; i++)
+		memcpy(&nexthop->nh_srv6->seg6_segs->seg[i],
+			&segs[i].ipaddr_v6,
+			sizeof(struct in6_addr));
+}
+
 void nexthop_del_srv6_seg6(struct nexthop *nexthop)
 {
 	if (!nexthop->nh_srv6)

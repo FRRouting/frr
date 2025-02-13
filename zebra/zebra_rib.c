@@ -4133,7 +4133,7 @@ void route_entry_dump_nh(const struct route_entry *re, const char *straddr,
 	if (nexthop->weight)
 		snprintf(wgt_str, sizeof(wgt_str), "wgt %d,", nexthop->weight);
 
-	zlog_debug("%s(%s): %s %s[%u] %svrf %s(%u) %s%s with flags %s%s%s%s%s%s%s%s%s",
+	zlog_debug("%s(%s): %s %s[%u] %svrf %s(%u) %s%s with flags %s%s%s%s%s%s%s%s%s%s",
 		   straddr, VRF_LOGNAME(re_vrf),
 		   (nexthop->rparent ? "  NH" : "NH"), nhname, nexthop->ifindex,
 		   label_str, vrf ? vrf->name : "Unknown", nexthop->vrf_id,
@@ -4156,6 +4156,8 @@ void route_entry_dump_nh(const struct route_entry *re, const char *straddr,
 			    ? "BACKUP "
 			    : ""),
 		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_SRTE) ? "SRTE "
+								  : ""),
+		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_SRV6TE) ? "SRv6TE "
 								  : ""),
 		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_EVPN) ? "EVPN "
 								  : ""));

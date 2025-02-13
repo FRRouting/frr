@@ -1267,10 +1267,14 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 
 		if (leak_update_nexthop_valid(to_bgp, bn, new_attr, afi, safi,
 					      source_bpi, bpi, bgp_orig, p,
-					      debug))
+					      debug)) {
 			bgp_path_info_set_flag(bn, bpi, BGP_PATH_VALID);
-		else
+			if (CHECK_FLAG(bpi->flags, BGP_PATH_SRV6_TE))
+				SET_FLAG(bpi->flags, BGP_PATH_SRV6_TE_VALID);
+		} else {
 			bgp_path_info_unset_flag(bn, bpi, BGP_PATH_VALID);
+			UNSET_FLAG(bpi->flags, BGP_PATH_SRV6_TE_VALID);
+		}
 
 		/* Process change. */
 		bgp_aggregate_increment(to_bgp, p, bpi, afi, safi);
@@ -1335,10 +1339,14 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 		new->extra->vrfleak->nexthop_orig = *nexthop_orig;
 
 	if (leak_update_nexthop_valid(to_bgp, bn, new_attr, afi, safi,
-				      source_bpi, new, bgp_orig, p, debug))
+				      source_bpi, new, bgp_orig, p, debug)) {
 		bgp_path_info_set_flag(bn, new, BGP_PATH_VALID);
-	else
+		if (CHECK_FLAG(new->flags, BGP_PATH_SRV6_TE))
+			SET_FLAG(new->flags, BGP_PATH_SRV6_TE_VALID);
+	} else {
 		bgp_path_info_unset_flag(bn, new, BGP_PATH_VALID);
+		UNSET_FLAG(new->flags, BGP_PATH_SRV6_TE_VALID);
+	}
 
 	bgp_path_info_add(bn, new);
 	bgp_aggregate_increment(to_bgp, p, new, afi, safi);
@@ -2724,6 +2732,7 @@ void vpn_leak_no_retain(struct bgp *to_bgp, struct bgp *vpn_from, afi_t afi)
 					continue;
 
 				bgp_unlink_nexthop(bpi);
+				bgp_unlink_te_nexthop(bpi);
 				bgp_rib_remove(bn, bpi, bpi->peer, afi, safi);
 			}
 		}

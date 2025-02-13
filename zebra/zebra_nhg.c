@@ -1868,7 +1868,7 @@ static struct nexthop *nexthop_set_resolved(afi_t afi,
 		SET_FLAG(resolved_hop->flags, NEXTHOP_FLAG_ONLINK);
 
 	/* Copy labels of the resolved route and the parent resolving to it */
-	if (policy) {
+	if (policy && policy->type == ZEBRA_SR_POLICY_TYPE_MPLS) {
 		int label_num = 0;
 
 		/*
@@ -1935,7 +1935,12 @@ static struct nexthop *nexthop_set_resolved(afi_t afi,
 					      nexthop->nh_srv6->seg6_segs
 						      ->num_segs);
 	}
-
+	if (policy && policy->type == ZEBRA_SR_POLICY_TYPE_SRV6) {
+		SET_FLAG(resolved_hop->flags, NEXTHOP_FLAG_SRV6_TUNNEL);
+		nexthop_add_srv6_seg6_ipaddr(resolved_hop,
+			&policy->segment_list_v6.segs[0],
+			policy->segment_list_v6.seg_num);
+	}
 	resolved_hop->rparent = nexthop;
 	_nexthop_add(&nexthop->resolved, resolved_hop);
 
@@ -2224,6 +2229,7 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 	struct in_addr local_ipv4;
 	struct in_addr *ipv4;
 	afi_t afi = AFI_IP;
+	struct zebra_sr_policy *policy = NULL;
 
 	/* Reset some nexthop attributes that we'll recompute if necessary */
 	if ((nexthop->type == NEXTHOP_TYPE_IPV4)
@@ -2316,7 +2322,6 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 	 */
 	if (nexthop->srte_color) {
 		struct ipaddr endpoint = {0};
-		struct zebra_sr_policy *policy;
 
 		switch (afi) {
 		case AFI_IP:
@@ -2339,18 +2344,20 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 		policy = zebra_sr_policy_find(nexthop->srte_color, &endpoint);
 		if (policy && policy->status == ZEBRA_SR_POLICY_UP) {
 			resolved = 0;
-			frr_each_safe (nhlfe_list, &policy->lsp->nhlfe_list,
-				       nhlfe) {
-				if (!CHECK_FLAG(nhlfe->flags,
-						NHLFE_FLAG_SELECTED)
-				    || CHECK_FLAG(nhlfe->flags,
-						  NHLFE_FLAG_DELETED))
-					continue;
-				SET_FLAG(nexthop->flags,
-					 NEXTHOP_FLAG_RECURSIVE);
-				nexthop_set_resolved(afi, nhlfe->nexthop,
-						     nexthop, policy);
-				resolved = 1;
+			if (policy->type == ZEBRA_SR_POLICY_TYPE_MPLS) {
+				frr_each_safe (nhlfe_list, &policy->lsp->nhlfe_list,
+						nhlfe) {
+					if (!CHECK_FLAG(nhlfe->flags,
+							NHLFE_FLAG_SELECTED)
+						|| CHECK_FLAG(nhlfe->flags,
+							NHLFE_FLAG_DELETED))
+						continue;
+					SET_FLAG(nexthop->flags,
+						NEXTHOP_FLAG_RECURSIVE);
+					nexthop_set_resolved(afi, nhlfe->nexthop,
+								nexthop, policy);
+					resolved = 1;
+				}
 			}
 			if (resolved)
 				return 1;
@@ -2523,10 +2530,24 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 						__func__, match, match->nhe,
 						newhop);
 
-				SET_FLAG(nexthop->flags,
-					 NEXTHOP_FLAG_RECURSIVE);
-				resolver = nexthop_set_resolved(afi, newhop,
+				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
+
+				if (policy && policy->status == ZEBRA_SR_POLICY_UP) {
+					if (policy->type == ZEBRA_SR_POLICY_TYPE_SRV6) {
+						SET_FLAG(nexthop->flags, NEXTHOP_FLAG_SRV6_TUNNEL);
+						resolver = nexthop_set_resolved(afi, newhop,
+								nexthop, policy);
+					} else {
+						UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_SRV6_TUNNEL);
+						resolver = nexthop_set_resolved(afi, newhop,
 								nexthop, NULL);
+					}
+				} else {
+					UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_SRV6_TUNNEL);
+					resolver = nexthop_set_resolved(afi, newhop,
+									nexthop, NULL);
+				}
+
 				resolved = 1;
 
 				/* If there are backup nexthops, capture

@@ -880,17 +880,15 @@ static void zclient_connect(struct event *t)
 }
 
 enum zclient_send_status zclient_send_rnh(struct zclient *zclient, int command,
-					  const struct prefix *p, safi_t safi,
-					  bool connected, bool resolve_via_def,
-					  vrf_id_t vrf_id)
+					  const struct prefix *p, safi_t safi, uint8_t flags,
+					  vrf_id_t vrf_id, uint32_t srte_color)
 {
 	struct stream *s;
 
 	s = zclient->obuf;
 	stream_reset(s);
 	zclient_create_header(s, command, vrf_id);
-	stream_putc(s, (connected) ? 1 : 0);
-	stream_putc(s, (resolve_via_def) ? 1 : 0);
+	stream_putl(s, flags);
 	stream_putw(s, safi);
 	stream_putw(s, PREFIX_FAMILY(p));
 	stream_putc(s, p->prefixlen);
@@ -904,6 +902,10 @@ enum zclient_send_status zclient_send_rnh(struct zclient *zclient, int command,
 	default:
 		break;
 	}
+
+	if (CHECK_FLAG(flags, NEXTHOP_REGISTER_FLAG_COLOR))
+		stream_putl(s, srte_color);
+
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	return zclient_send_message(zclient);
@@ -2517,7 +2519,7 @@ static bool zapi_nexthop_update_decode(struct stream *s, struct prefix *match,
 	STREAM_GETW(s, nhr->nexthop_num);
 
 	for (i = 0; i < nhr->nexthop_num; i++) {
-		if (zapi_nexthop_decode(s, &(nhr->nexthops[i]), 0, 0) != 0)
+		if (zapi_nexthop_decode(s, &(nhr->nexthops[i]), 0, nhr->message) != 0)
 			return false;
 	}
 
@@ -3987,8 +3989,14 @@ int tm_release_table_chunk(struct zclient *zclient, uint32_t start,
 enum zclient_send_status zebra_send_sr_policy(struct zclient *zclient, int cmd,
 					      struct zapi_sr_policy *zp)
 {
-	if (zapi_sr_policy_encode(zclient->obuf, cmd, zp) < 0)
-		return ZCLIENT_SEND_FAILURE;
+	if (cmd == ZEBRA_SR_POLICY_SET || cmd == ZEBRA_SR_POLICY_DELETE) {
+		if (zapi_sr_policy_encode(zclient->obuf, cmd, zp) < 0)
+			return ZCLIENT_SEND_FAILURE;
+	} else if (cmd == ZEBRA_SRV6_POLICY_SET || cmd == ZEBRA_SRV6_POLICY_DELETE) {
+		if (zapi_srv6_policy_encode(zclient->obuf, cmd, zp) < 0)
+			return ZCLIENT_SEND_FAILURE;
+	}
+
 	return zclient_send_message(zclient);
 }
 
@@ -4053,6 +4061,65 @@ int zapi_sr_policy_decode(struct stream *s, struct zapi_sr_policy *zp)
 stream_failure:
 	return -1;
 }
+
+int zapi_srv6_policy_encode(struct stream *s, int cmd, struct zapi_sr_policy *zp)
+{
+	struct zapi_srv6te_tunnel *zt = &zp->segment_list_v6;
+
+	stream_reset(s);
+
+	zclient_create_header(s, cmd, VRF_DEFAULT);
+	stream_putl(s, zp->color);
+	stream_put_ipaddr(s, &zp->endpoint);
+	stream_write(s, &zp->name, SRTE_POLICY_NAME_MAX_LENGTH);
+
+	if (zt->seg_num > SRV6_MAX_SEGS) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "%s: seg: can't encode %u segs (maximum is %u)",
+			 __func__,  zt->seg_num, SRV6_MAX_SEGS);
+		return -1;
+	}
+
+	stream_putw(s, zt->seg_num);
+
+	for (int i = 0; i < zt->seg_num; i++)
+		stream_put_ipaddr(s, &zt->segs[i]);
+
+	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return 0;
+}
+
+int zapi_srv6_policy_decode(struct stream *s, struct zapi_sr_policy *zp)
+{
+	memset(zp, 0, sizeof(*zp));
+
+	struct zapi_srv6te_tunnel *zt = &zp->segment_list_v6;
+
+	STREAM_GETL(s, zp->color);
+	STREAM_GET_IPADDR(s, &zp->endpoint);
+	STREAM_GET(&zp->name, s, SRTE_POLICY_NAME_MAX_LENGTH);
+
+	/* segment list of active candidate path */
+	STREAM_GETW(s, zt->seg_num);
+
+	if (zt->seg_num > SRV6_MAX_SEGS) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "%s: seg: can't decode %u segs (maximum is %u)",
+			 __func__,  zt->seg_num, SRV6_MAX_SEGS);
+		return -1;
+	}
+
+	for (int i = 0; i < zt->seg_num; i++)
+		STREAM_GET_IPADDR(s, &zt->segs[i]);
+
+	return 0;
+
+stream_failure:
+	return -1;
+}
+
 
 int zapi_sr_policy_notify_status_decode(struct stream *s,
 					struct zapi_sr_policy *zp)

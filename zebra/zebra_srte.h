@@ -21,13 +21,21 @@ enum zebra_sr_policy_update_label_mode {
 	ZEBRA_SR_POLICY_LABEL_REMOVED = 3,
 };
 
+enum zebra_sr_policy_type {
+	ZEBRA_SR_POLICY_TYPE_UNDEFINED = 0,
+	ZEBRA_SR_POLICY_TYPE_MPLS = 1,
+	ZEBRA_SR_POLICY_TYPE_SRV6 = 2,
+};
+
 struct zebra_sr_policy {
 	RB_ENTRY(zebra_sr_policy) entry;
 	uint32_t color;
 	struct ipaddr endpoint;
 	char name[SRTE_POLICY_NAME_MAX_LENGTH];
 	enum zebra_sr_policy_status status;
+	enum zebra_sr_policy_type type;
 	struct zapi_srte_tunnel segment_list;
+	struct zapi_srv6te_tunnel segment_list_v6;
 	struct zebra_lsp *lsp;
 	struct zebra_vrf *zvrf;
 	int sock;
@@ -46,13 +54,16 @@ struct zebra_sr_policy *zebra_sr_policy_find(uint32_t color,
 struct zebra_sr_policy *zebra_sr_policy_find_by_name(char *name);
 int zebra_sr_policy_validate(struct zebra_sr_policy *policy,
 			     struct zapi_srte_tunnel *new_tunnel);
+int zebra_srv6_policy_validate(struct zebra_sr_policy *policy,
+			     struct zapi_srv6te_tunnel *new_tunnel);
 int zebra_sr_policy_bsid_install(struct zebra_sr_policy *policy);
 void zebra_sr_policy_bsid_uninstall(struct zebra_sr_policy *policy,
 				    mpls_label_t old_bsid);
 void zebra_srte_init(void);
 int zebra_sr_policy_label_update(mpls_label_t label,
 				 enum zebra_sr_policy_update_label_mode mode);
-
+extern void zebra_sr_policy_notify_update(struct zebra_sr_policy *policy);
+extern int zebra_sr_policy_notify_unknown(struct rnh *rnh, struct zserv *client);
 #ifdef __cplusplus
 }
 #endif
