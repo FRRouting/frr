@@ -32,6 +32,7 @@
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_rd.h"
 #include "bgpd/bgp_mplsvpn.h"
+#include "bgpd/bgp_bfd.h"
 
 DEFINE_MTYPE_STATIC(BGPD, MARTIAN_STRING, "BGP Martian Addr Intf String");
 
@@ -409,17 +410,6 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 			bgp_dest_set_bgp_connected_ref_info(dest, bc);
 		}
 
-		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			if (peer->conf_if &&
-			    (strcmp(peer->conf_if, ifc->ifp->name) == 0) &&
-			    !peer_established(peer->connection) &&
-			    !CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY)) {
-				connection = peer->connection;
-				if (peer_active(peer))
-					BGP_EVENT_ADD(connection, BGP_Stop);
-				BGP_EVENT_ADD(connection, BGP_Start);
-			}
-		}
 	} else if (addr->family == AF_INET6) {
 		apply_mask_ipv6((struct prefix_ipv6 *)&p);
 
@@ -441,6 +431,22 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 				     sizeof(struct bgp_connected_ref));
 			bc->refcnt = 1;
 			bgp_dest_set_bgp_connected_ref_info(dest, bc);
+		}
+	}
+
+	/*
+	 * Iterate over all the peers and attempt to set the bfd session
+	 * data and if it's a bgp unnumbered get her flowing if necessary
+	 */
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+		bgp_peer_bfd_update_source(peer);
+		if (peer->conf_if && (strcmp(peer->conf_if, ifc->ifp->name) == 0) &&
+		    !peer_established(peer->connection) &&
+		    !CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY)) {
+			connection = peer->connection;
+			if (peer_active(peer))
+				BGP_EVENT_ADD(connection, BGP_Stop);
+			BGP_EVENT_ADD(connection, BGP_Start);
 		}
 	}
 }
