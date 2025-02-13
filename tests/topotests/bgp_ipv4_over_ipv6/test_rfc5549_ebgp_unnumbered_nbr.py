@@ -688,6 +688,9 @@ def test_configure_gua_on_unnumbered_intf(request):
         interface r1-r2-eth5
         ipv6 address 5001:dead:beef::1/126
         !
+        router bgp
+        ! Disable link-local capability to test if we can send GUA addresses also
+        no neighbor r1-r2-eth5 capability link-local
         """
     )
 

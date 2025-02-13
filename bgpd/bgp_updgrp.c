@@ -444,6 +444,14 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	 */
 	key = jhash_1word(peer->local_role, key);
 
+	/* If the peer has disabled Link-Local Next Hop capability, but we
+	 * send it, it's not taken into consideration and we always merge both
+	 * peers into a single update-group. Make sure peer has its own update-group
+	 * if it has disabled (received) Link-Local Next Hop capability.
+	 */
+	key = jhash_2words(!!CHECK_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_RCV),
+			   !!CHECK_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_ADV), key);
+
 	/* Neighbors configured with the AIGP attribute are put in a separate
 	 * update group from other neighbors.
 	 */
@@ -480,6 +488,9 @@ static unsigned int updgrp_hash_key_make(const void *p)
 		zlog_debug("%pBP Update Group Hash: addpath paths-limit: (send %u, receive %u)",
 			   peer, peer->addpath_paths_limit[afi][safi].send,
 			   peer->addpath_paths_limit[afi][safi].receive);
+		zlog_debug("%pBP Update Group Hash: Link-Local Next Hop capability:%s%s", peer,
+			   CHECK_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_RCV) ? " received" : "",
+			   CHECK_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_ADV) ? " advertised" : "");
 		zlog_debug(
 			"%pBP Update Group Hash: max packet size: %u pmax_out: %u Peer Group: %s rmap out: %s",
 			peer, peer->max_packet_size, peer->pmax_out[afi][safi],

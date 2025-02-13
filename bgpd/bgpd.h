@@ -2921,4 +2921,9 @@ extern void bgp_session_reset_safe(struct peer *peer, struct listnode **nnode);
 	 !(_afi == AFI_IP && _safi == SAFI_MPLS_VPN) &&                        \
 	 !(_afi == AFI_IP6 && _safi == SAFI_MPLS_VPN))
 
+#define PEER_HAS_LINK_LOCAL_CAPABILITY(_peer)                                                      \
+	(CHECK_FLAG(_peer->flags, PEER_FLAG_CAPABILITY_LINK_LOCAL) &&                              \
+	 CHECK_FLAG(_peer->cap, PEER_CAP_LINK_LOCAL_ADV) &&                                        \
+	 CHECK_FLAG(_peer->cap, PEER_CAP_LINK_LOCAL_RCV))
+
 #endif /* _QUAGGA_BGPD_H */

@@ -1102,8 +1102,7 @@ static bool make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 				/* If we receive MP_REACH with GUA as LL, we should
 				 * check if we have Link-Local Next Hop capability also.
 				 */
-				if (!(CHECK_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_ADV) &&
-				      CHECK_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_RCV))) {
+				if (!PEER_HAS_LINK_LOCAL_CAPABILITY(peer)) {
 					zlog_warn("%s: received IPv6 global next-hop as Link-Local, but no capability exchanged",
 						  __func__);
 					p->u.prefix6 = attr->mp_nexthop_global;

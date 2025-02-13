@@ -5139,6 +5139,11 @@ static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
 		SET_FLAG(peer->flags_override, PEER_FLAG_CAPABILITY_ENHE);
 	}
 
+	/* For unnumbered peers enable Link-Local Next Hop
+	 * capability implicitly.
+	 */
+	peer_flag_set(peer, PEER_FLAG_CAPABILITY_LINK_LOCAL);
+
 	if (peer_group_name) {
 		group = peer_group_lookup(bgp, peer_group_name);
 		if (!group) {
@@ -18995,8 +19000,11 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 		if (!peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_LINK_LOCAL))
 			vty_out(vty, " no neighbor %s capability link-local\n", addr);
 	} else {
-		if (peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_LINK_LOCAL))
+		if (!peer->conf_if && peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_LINK_LOCAL))
 			vty_out(vty, " neighbor %s capability link-local\n", addr);
+		else if (peer->conf_if &&
+			 !peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_LINK_LOCAL))
+			vty_out(vty, " no neighbor %s capability link-local\n", addr);
 	}
 
 	/* dont-capability-negotiation */
