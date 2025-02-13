@@ -23,6 +23,8 @@ from lib.common_config import (
     shutdown_bringup_interface,
     retry,
 )
+from lib.checkping import check_ping
+
 
 """
 test_nhrp_redundancy.py: Test NHS redundancy for NHRP
@@ -230,71 +232,21 @@ def test_protocols_convergence():
         assert result is None, assertmsg
 
     # Test connectivity from 1 NHRP server to all clients
-    nhs1 = tgen.gears["nhs1"]
     logger.info("Check Ping IPv4 from  nhs1 to nhc1 = 172.16.1.4)")
-    output = nhs1.run("ping 172.16.1.4 -f -c 1000")
-    logger.info(output)
-    if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = "expected ping IPv4 from nhs1 to nhc1 should be ok"
-        assert 0, assertmsg
-    else:
-        logger.info("Check Ping IPv4 from nhs1 to nhc1 OK")
+    check_ping("nhs1", "172.16.1.4", True, 10, 0.5)
 
     logger.info("Check Ping IPv4 from  nhs1 to nhc2 = 172.16.1.5)")
-    output = nhs1.run("ping 172.16.1.5 -f -c 1000")
-    logger.info(output)
-    if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = "expected ping IPv4 from nhs1 to nhc2 should be ok"
-        assert 0, assertmsg
-    else:
-        logger.info("Check Ping IPv4 from nhs1 to nhc2 OK")
+    check_ping("nhs1", "172.16.1.5", True, 10, 0.5)
 
     # Test connectivity from 1 NHRP client to all servers
-    nhc1 = tgen.gears["nhc1"]
     logger.info("Check Ping IPv4 from  nhc1 to nhs1 = 172.16.1.1)")
-    output = nhc1.run("ping 172.16.1.1 -f -c 1000")
-    logger.info(output)
-    if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = "expected ping IPv4 from nhc1 to nhs1 should be ok"
-        assert 0, assertmsg
-    else:
-        logger.info("Check Ping IPv4 from nhc1 to nhs1 OK")
+    check_ping("nhc1", "172.16.1.1", True, 10, 0.5)
 
     logger.info("Check Ping IPv4 from  nhc1 to nhs2 = 172.16.1.2)")
-    output = nhc1.run("ping 172.16.1.2 -f -c 1000")
-    logger.info(output)
-    if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = "expected ping IPv4 from nhc1 to nhs2 should be ok"
-        assert 0, assertmsg
-    else:
-        logger.info("Check Ping IPv4 from nhc1 to nhs2 OK")
+    check_ping("nhc1", "172.16.1.2", True, 10, 0.5)
 
     logger.info("Check Ping IPv4 from  nhc1 to nhs3 = 172.16.1.3)")
-    output = nhc1.run("ping 172.16.1.3 -f -c 1000")
-    logger.info(output)
-    if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = "expected ping IPv4 from nhc1 to nhs3 should be ok"
-        assert 0, assertmsg
-    else:
-        logger.info("Check Ping IPv4 from nhc1 to nhs3 OK")
-
-
-@retry(retry_timeout=30, initial_wait=5)
-def verify_shortcut_path():
-    """
-    Verifying that traffic flows through shortcut path
-    """
-    tgen = get_topogen()
-    host = tgen.gears["host"]
-    logger.info("Check Ping IPv4 from  host to nhc2 = 10.5.5.5")
-
-    output = host.run("ping 10.5.5.5 -f -c 1000")
-    logger.info(output)
-    if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = "expected ping IPv4 from host to nhc2 should be ok"
-        assert 0, assertmsg
-    else:
-        logger.info("Check Ping IPv4 from host to nhc2 OK")
+    check_ping("nhc1", "172.16.1.3", True, 10, 0.5)
 
 
 def test_redundancy_shortcut():
@@ -329,18 +281,11 @@ def test_redundancy_shortcut():
     assert result is None, assertmsg
 
     # Initiate shortcut by pinging between clients
-    host = tgen.gears["host"]
     logger.info("Check Ping IPv4 from  host to nhc2 via shortcut = 10.5.5.5")
-
-    output = host.run("ping 10.5.5.5 -f -c 1000")
-    logger.info(output)
-    if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = "expected ping IPv4 from host to nhc2 via shortcut should be ok"
-        assert 0, assertmsg
-    else:
-        logger.info("Check Ping IPv4 from host to nhc2 via shortcut OK")
+    check_ping("host", "10.5.5.5", True, 10, 0.5)
 
     # Now check that NHRP shortcut route installed
+    logger.info("Check that NHRP shortcut route installed")
     json_file = "{}/{}/nhrp_route_shortcut.json".format(CWD, nhc1.name)
     assertmsg = "No nhrp_route file found"
     assert os.path.isfile(json_file), assertmsg
@@ -357,6 +302,7 @@ def test_redundancy_shortcut():
     assertmsg = '"{}" JSON output mismatches'.format(nhc1.name)
     assert result is None, assertmsg
 
+    logger.info("Check the shortcut")
     json_file = "{}/{}/nhrp_shortcut_present.json".format(CWD, nhc1.name)
     expected = json.loads(open(json_file).read())
     test_func = partial(
@@ -370,6 +316,22 @@ def test_redundancy_shortcut():
     assertmsg = '"{}" JSON output mismatches'.format(nhc1.name)
     assert result is None, assertmsg
 
+
+def test_redundancy_shortcut_nhc2_down():
+    """
+    Check that the traffic disappears after nhc2 is shutdown
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    nhc1 = tgen.gears["nhc1"]
+    router_list = tgen.routers()
+
+    logger.info("Bringing down nhc2.")
+    shutdown_bringup_interface(tgen, "nhc2", "nhc2-gre0", False)
+
+    logger.info("Check the shortcut disappears")
     # check the shortcut disappears because of no traffic
     json_file = "{}/{}/nhrp_shortcut_absent.json".format(CWD, nhc1.name)
     expected = json.loads(open(json_file).read())
@@ -385,7 +347,7 @@ def test_redundancy_shortcut():
     assert result is None, assertmsg
 
 
-def test_redundancy_shortcut_backup():
+def test_redundancy_shortcut_nhs1_down():
     """
     Stop traffic and verify next time traffic started, shortcut is initiated by backup NHS
     """
@@ -402,8 +364,10 @@ def test_redundancy_shortcut_backup():
     # Bring down primary GRE interface and verify shortcut is not disturbed
     logger.info("Bringing down nhs1, primary NHRP server.")
     shutdown_bringup_interface(tgen, "nhs1", "nhs1-gre0", False)
+    logger.info("Bringing up nhc2.")
+    shutdown_bringup_interface(tgen, "nhc2", "nhc2-gre0", True)
 
-    # Check NHRP cache on servers and clients
+    logger.info("Check NHRP cache on servers and clients")
     for rname, router in router_list.items():
         if "nh" not in rname:
             continue
@@ -444,19 +408,10 @@ def test_redundancy_shortcut_backup():
         assertmsg = '"{}" JSON output mismatches'.format(router.name)
         assert result is None, assertmsg
 
-    # Verify shortcut is still active
-    host = tgen.gears["host"]
     logger.info("Check Ping IPv4 from  host to nhc2 via shortcut = 10.5.5.5")
+    check_ping("host", "10.5.5.5", True, 10, 0.5)
 
-    output = host.run("ping 10.5.5.5 -f -c 1000")
-    logger.info(output)
-    if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = "expected ping IPv4 from host to nhc2 via shortcut should be ok"
-        assert 0, assertmsg
-    else:
-        logger.info("Check Ping IPv4 from host to nhc2 via shortcut OK")
-
-    # Verify shortcut is present in routing table
+    logger.info("Check that shortcut is present in routing table")
     json_file = "{}/{}/nhrp_route_shortcut_nhs1_down.json".format(CWD, nhc1.name)
     assertmsg = "No nhrp_route file found"
     assert os.path.isfile(json_file), assertmsg
@@ -483,7 +438,28 @@ def test_redundancy_shortcut_backup():
     assertmsg = '"{}" JSON output mismatches'.format(nhc1.name)
     assert result is None, assertmsg
 
-    # Now verify shortcut is purged with lack of traffic
+
+def test_redundancy_shortcut_del_arp():
+    """
+    Stop traffic and verify next time traffic started, shortcut is initiated by backup NHS
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    if not _verify_iptables():
+        pytest.skip("iptables not installed")
+
+    nhc1 = tgen.gears["nhc1"]
+    router_list = tgen.routers()
+
+    logger.info("Remove ARP on nhc1 to nhc2")
+    nhc1.cmd("ip neigh del 10.5.5.5 dev nhc1-gre0")
+    nhc1.cmd("ip neigh del 172.16.1.5 dev nhc1-gre0")
+
+    logger.info(
+        "Check that shortcut is purged with lack of traffic and neighbor entries"
+    )
     json_file = "{}/{}/nhrp_route_nhs1_down.json".format(CWD, nhc1.name)
     assertmsg = "No nhrp_route file found"
     assert os.path.isfile(json_file), assertmsg
