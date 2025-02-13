@@ -207,17 +207,18 @@ SRv6 Static SIDs Commands
    Move from srv6 node to static-sids node. In this static-sids node, user can
    configure static SRv6 SIDs.
 
-.. clicmd:: sid X:X::X:X/M locator NAME behavior <uN|uDT4|uDT6|uDT46> [vrf VRF]
+.. clicmd:: sid X:X::X:X/M locator NAME behavior <uN|uA|uDT4|uDT6|uDT46> [vrf VRF] [interface IFNAME [nexthop X:X::X:X]]
 
    Specify the locator sid manually. Configuring a local sid in a purely static mode
    by specifying the sid value would generate a unique SID.
    This feature will support the configuration of static SRv6 decapsulation on the system.
 
-   It supports four parameter options, corresponding to the following functions:
-   uN, uDT4, uDT6, uDT46
+   It supports the following behaviors: uN, uA, uDT4, uDT6, uDT46.
 
    When configuring the local sid, if the action is set to 'uN', no vrf should be set.
-   While for any other action, it is necessary to specify a specific vrf.
+   For uDT4, uDT6 and uDT46, it is necessary to specify a specific vrf.
+   The uA behavior requires the outgoing interface and optionally the IPv6 address of the Layer 3 adjacency
+   to which the packet should be forwarded.
 
 ::
 
@@ -228,6 +229,7 @@ SRv6 Static SIDs Commands
    router(config-srv6-sids)# sid fcbb:bbbb:1:fe01::/64 locator LOC1 behavior uDT6 vrf Vrf1
    router(config-srv6-sids)# sid fcbb:bbbb:1:fe02::/64 locator LOC1 behavior uDT4 vrf Vrf1
    router(config-srv6-sids)# sid fcbb:bbbb:1:fe03::/64 locator LOC1 behavior uDT46 vrf Vrf2
+   router(config-srv6-sids)# sid fcbb:bbbb:1:fe04::/64 locator LOC1 behavior uA interface eth0 nexthop 2001::2
 
    router(config-srv6-locator)# show run
    ...
@@ -237,5 +239,6 @@ SRv6 Static SIDs Commands
       sid    fcbb:bbbb:1:fe01::/64 locator LOC1 behavior uDT6 vrf Vrf1
       sid    fcbb:bbbb:1:fe02::/64 locator LOC1 behavior uDT4 vrf Vrf1
       sid    fcbb:bbbb:1:fe03::/64 locator LOC1 behavior uDT46 vrf Vrf2
+      sid    fcbb:bbbb:1:fe04::/64 locator LOC1 behavior uA interface eth0 nexthop 2001::2
        !
    ...
