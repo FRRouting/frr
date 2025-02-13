@@ -894,6 +894,7 @@ extern void static_zebra_request_srv6_sid(struct static_srv6_sid *sid)
 	struct srv6_sid_ctx ctx = {};
 	int ret = 0;
 	struct vrf *vrf;
+	struct interface *ifp;
 
 	if (!sid)
 		return;
@@ -945,12 +946,22 @@ extern void static_zebra_request_srv6_sid(struct static_srv6_sid *sid)
 		}
 
 		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID:
+		ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_X;
+		ctx.nh6 = sid->attributes.nh6;
+		ifp = if_lookup_by_name(sid->attributes.ifname, VRF_DEFAULT);
+		if (!ifp) {
+			zlog_warn("Failed to request SRv6 SID %pFX: interface %s does not exist",
+				  &sid->addr, sid->attributes.ifname);
+			return;
+		}
+		ctx.ifindex = ifp->ifindex;
+		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_PSP_USD:
 	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP_USD:
 	case SRV6_ENDPOINT_BEHAVIOR_END_X:
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_PSP:
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_PSP_USD:
-	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID:
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID_PSP:
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID_PSP_USD:
 	case SRV6_ENDPOINT_BEHAVIOR_OPAQUE:
@@ -1243,6 +1254,9 @@ static int static_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 				 srv6_sid_ctx2str(buf, sizeof(buf), &ctx));
 			return 0;
 		}
+
+		if (!IPV6_ADDR_SAME(&ctx.nh6, &in6addr_any))
+			sid->attributes.nh6 = ctx.nh6;
 
 		SET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID);
 
