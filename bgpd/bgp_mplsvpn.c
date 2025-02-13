@@ -1478,7 +1478,7 @@ _vpn_leak_from_vrf_get_per_nexthop_label(struct bgp_path_info *pi,
 		/* request a label to zebra for this nexthop
 		 * the response from zebra will trigger the callback
 		 */
-		bgp_lp_get(LP_TYPE_NEXTHOP, blnc,
+		bgp_lp_get(LP_TYPE_NEXTHOP, blnc, from_bgp->vrf_id,
 			   bgp_mplsvpn_get_label_per_nexthop_cb);
 	}
 
@@ -1518,7 +1518,8 @@ static mpls_label_t bgp_mplsvpn_get_vpn_label(struct vpn_policy *bgp_policy)
 {
 	if (bgp_policy->tovpn_label == MPLS_LABEL_NONE &&
 	    CHECK_FLAG(bgp_policy->flags, BGP_VPN_POLICY_TOVPN_LABEL_AUTO)) {
-		bgp_lp_get(LP_TYPE_VRF, bgp_policy, vpn_leak_label_callback);
+		bgp_lp_get(LP_TYPE_VRF, bgp_policy, bgp_policy->bgp->vrf_id,
+			   vpn_leak_label_callback);
 		return MPLS_INVALID_LABEL;
 	}
 	return bgp_policy->tovpn_label;
@@ -4415,7 +4416,7 @@ void bgp_mplsvpn_nh_label_bind_register_local_label(struct bgp *bgp,
 						     label);
 		bmnc->bgp_vpn = bgp;
 		bmnc->allocation_in_progress = true;
-		bgp_lp_get(LP_TYPE_BGP_L3VPN_BIND, bmnc,
+		bgp_lp_get(LP_TYPE_BGP_L3VPN_BIND, bmnc, bgp->vrf_id,
 			   bgp_mplsvpn_nh_label_bind_get_local_label_cb);
 	}
 
