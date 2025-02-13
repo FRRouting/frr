@@ -104,6 +104,10 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routi
 	struct nb_cb_modify_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_local_sids_sid_paths_interface_destroy(
 	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_local_sids_sid_paths_next_hop_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_local_sids_sid_paths_next_hop_destroy(
+	struct nb_cb_destroy_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_local_sids_sid_locator_name_modify(
 	struct nb_cb_modify_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_local_sids_sid_locator_name_destroy(
@@ -193,7 +197,7 @@ int routing_control_plane_protocols_name_validate(
 
 #define FRR_STATIC_SRV6_SID_INTERFACE_XPATH "/paths[path-index=%u]/interface"
 
-#define FRR_STATIC_SRV6_SID_NEXTHOP_XPATH "/next-hop"
+#define FRR_STATIC_SRV6_SID_NEXTHOP_XPATH "/paths[path-index=%u]/next-hop"
 
 #ifdef __cplusplus
 }
