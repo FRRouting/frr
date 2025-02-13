@@ -1231,6 +1231,61 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routi
 
 /*
  * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/locators/locator/static-sids/sid/paths
+ */
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_local_sids_sid_paths_create(
+	struct nb_cb_create_args *args)
+{
+	/* Actual setting is done in apply_finish */
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_local_sids_sid_paths_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/locators/locator/static-sids/sid/paths/interface
+ */
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_local_sids_sid_paths_interface_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct static_srv6_sid *sid;
+	const char *ifname;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	sid = nb_running_get_entry(args->dnode, NULL, true);
+
+	/* Release and uninstall existing SID, if any, before requesting the new one */
+	if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID)) {
+		static_zebra_release_srv6_sid(sid);
+		UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID);
+	}
+
+	if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA)) {
+		static_zebra_srv6_sid_uninstall(sid);
+		UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
+	}
+
+	ifname = yang_dnode_get_string(args->dnode, "../interface");
+	snprintf(sid->attributes.ifname, sizeof(sid->attributes.ifname), "%s", ifname);
+
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_local_sids_sid_paths_interface_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	return NB_OK;
+}
+
+/*
+ * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/locators/locator/static-sids/sid/vrf-name
  */
 int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_local_sids_sid_locator_name_modify(
