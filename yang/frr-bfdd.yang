@@ -520,7 +520,6 @@ module frr-bfdd {
 
           leaf bfd-name {
             type string;
-            default "";
             description "Bfd session name.";
           }
 
@@ -582,7 +581,6 @@ module frr-bfdd {
 
           leaf bfd-name {
             type string;
-            default "";
             description "Bfd session name.";
           }
 
