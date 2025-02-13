@@ -3462,6 +3462,8 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 
 peer_init:
 	bgp->as = *as;
+	if (hidden)
+		XFREE(MTYPE_BGP_NAME, bgp->as_pretty);
 	if (as_pretty)
 		bgp->as_pretty = XSTRDUP(MTYPE_BGP_NAME, as_pretty);
 	else
@@ -3569,7 +3571,7 @@ peer_init:
 	/* printable name we can use in debug messages */
 	if (inst_type == BGP_INSTANCE_TYPE_DEFAULT && !hidden) {
 		bgp->name_pretty = XSTRDUP(MTYPE_BGP_NAME, "VRF default");
-	} else {
+	} else if (!hidden) {
 		const char *n;
 		int len;
 
@@ -4265,12 +4267,11 @@ int bgp_delete(struct bgp *bgp)
 			bgp_set_evpn(bgp_get_default());
 	}
 
-	if (bgp->process_queue)
-		work_queue_free_and_null(&bgp->process_queue);
-
-	if (!IS_BGP_INSTANCE_HIDDEN(bgp))
+	if (!IS_BGP_INSTANCE_HIDDEN(bgp)) {
+		if (bgp->process_queue)
+			work_queue_free_and_null(&bgp->process_queue);
 		bgp_unlock(bgp); /* initial reference */
-	else {
+	} else {
 		for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 			enum vpn_policy_direction dir;
 
