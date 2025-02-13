@@ -186,6 +186,14 @@ module frr-gmp {
       }
     }
 
+    leaf immediate-leave {
+      type boolean;
+      default "false";
+      description
+        "Immediately drop group memberships on receiving IGMPv2/MLDv1 Leave.
+         Has no effect when IGMPv3/MLDv2 is in use.";
+    }
+
     list static-group {
       key "group-addr source-addr";
       description

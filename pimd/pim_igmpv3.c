@@ -728,8 +728,24 @@ static void toin_incl(struct gm_group *group, int num_sources,
 static void toin_excl(struct gm_group *group, int num_sources,
 		      struct in_addr *sources)
 {
+	struct listnode *src_node, *src_next;
+	struct pim_interface *pim_ifp = group->interface->info;
 	int num_sources_tosend;
 	int i;
+
+	if (group->igmp_version == 2 && pim_ifp->gmp_immediate_leave) {
+		struct gm_source *src;
+
+		if (PIM_DEBUG_GM_TRACE)
+			zlog_debug("IGMP(v2) Immediate-leave group %pI4 on %s", &group->group_addr,
+				   group->interface->name);
+
+		igmp_group_timer_on(group, 0, group->interface->name);
+
+		for (ALL_LIST_ELEMENTS(group->group_source_list, src_node, src_next, src))
+			igmp_source_delete(src);
+		return;
+	}
 
 	/* Set SEND flag for X (sources with timer > 0) */
 	num_sources_tosend = source_mark_send_flag_by_timer(group);
@@ -1496,7 +1512,9 @@ void igmp_group_timer_lower_to_lmqt(struct gm_group *group)
 	pim_ifp = ifp->info;
 	ifname = ifp->name;
 
-	lmqi_dsec = pim_ifp->gm_specific_query_max_response_time_dsec;
+	lmqi_dsec = pim_ifp->gmp_immediate_leave
+			    ? 0
+			    : pim_ifp->gm_specific_query_max_response_time_dsec;
 	lmqc = pim_ifp->gm_last_member_query_count;
 	lmqt_msec = PIM_IGMP_LMQT_MSEC(
 		lmqi_dsec, lmqc); /* lmqt_msec = (100 * lmqi_dsec) * lmqc */
@@ -1531,7 +1549,9 @@ void igmp_source_timer_lower_to_lmqt(struct gm_source *source)
 	pim_ifp = ifp->info;
 	ifname = ifp->name;
 
-	lmqi_dsec = pim_ifp->gm_specific_query_max_response_time_dsec;
+	lmqi_dsec = pim_ifp->gmp_immediate_leave
+			    ? 0
+			    : pim_ifp->gm_specific_query_max_response_time_dsec;
 	lmqc = pim_ifp->gm_last_member_query_count;
 	lmqt_msec = PIM_IGMP_LMQT_MSEC(
 		lmqi_dsec, lmqc); /* lmqt_msec = (100 * lmqi_dsec) * lmqc */

@@ -245,6 +245,10 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
 
    Join multicast group or source-group on an interface.
 
+.. clicmd:: ipv6 mld immediate-leave
+
+   Immediately leaves a MLD group when receiving a MLDv1 Done packet.
+
 .. clicmd:: ipv6 mld query-interval (1-65535)
 
    Set the MLD query interval that PIM will use.
