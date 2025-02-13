@@ -135,9 +135,11 @@ static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 	enum zapi_route_notify_owner note;
 	uint32_t table_id;
 
-	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table_id, &note,
-				      NULL, NULL))
+	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table_id, &note, NULL, NULL)) {
+		DEBUGD(&pbr_dbg_zebra, "%s: Received Notification for which PBR could not decode",
+		       __func__);
 		return -1;
+	}
 
 	switch (note) {
 	case ZAPI_ROUTE_FAIL_INSTALL:
@@ -236,8 +238,6 @@ static void route_add_helper(struct zapi_route *api, struct nexthop_group nhg,
 
 	api->prefix.family = install_afi;
 
-	DEBUGD(&pbr_dbg_zebra, "    Encoding %pFX", &api->prefix);
-
 	i = 0;
 	for (ALL_NEXTHOPS(nhg, nhop)) {
 		api_nh = &api->nexthops[i];
@@ -284,9 +284,9 @@ void route_add(struct pbr_nexthop_group_cache *pnhgc, struct nexthop_group nhg,
 {
 	struct zapi_route api;
 
-	DEBUGD(&pbr_dbg_zebra, "%s for Table: %d", __func__, pnhgc->table_id);
-
 	memset(&api, 0, sizeof(api));
+
+	DEBUGD(&pbr_dbg_zebra, "%s %pFX for Table: %d", __func__, &api.prefix, pnhgc->table_id);
 
 	api.vrf_id = VRF_DEFAULT;
 	api.type = ZEBRA_ROUTE_PBR;
