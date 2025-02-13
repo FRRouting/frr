@@ -168,5 +168,6 @@ extern void bgp_remove_aspath_from_aggregate_hash(
 						struct aspath *aspath);
 
 extern void bgp_aggr_aspath_remove(void *arg);
+extern struct aspath *aspath_delete_as_set_seq(struct aspath *aspath);
 
 #endif /* _QUAGGA_BGP_ASPATH_H */
