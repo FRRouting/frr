@@ -312,7 +312,7 @@ DEFUN (no_ip_ospf_bfd,
 
 void ospf_bfd_init(struct event_loop *tm)
 {
-	bfd_protocol_integration_init(zclient, tm);
+	bfd_protocol_integration_init(ospf_zclient, tm);
 
 	/* Install BFD command */
 	install_element(INTERFACE_NODE, &ip_ospf_bfd_cmd);

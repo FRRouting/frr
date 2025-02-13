@@ -1899,7 +1899,7 @@ static void ospf6_redistribute_default_set(struct ospf6 *ospf6, int originate)
 		break;
 	case DEFAULT_ORIGINATE_ZEBRA:
 		zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_DELETE,
-					     zclient, AFI_IP6, ospf6->vrf_id);
+					     ospf6_zclient, AFI_IP6, ospf6->vrf_id);
 		ospf6_asbr_redistribute_remove(DEFAULT_ROUTE, 0,
 					       (struct prefix *)&p, ospf6);
 
@@ -1915,7 +1915,7 @@ static void ospf6_redistribute_default_set(struct ospf6 *ospf6, int originate)
 		break;
 	case DEFAULT_ORIGINATE_ZEBRA:
 		zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_ADD,
-					     zclient, AFI_IP6, ospf6->vrf_id);
+					     ospf6_zclient, AFI_IP6, ospf6->vrf_id);
 
 		break;
 	case DEFAULT_ORIGINATE_ALWAYS:
