@@ -1295,7 +1295,7 @@ DEFPY_YANG(srv6_sid, srv6_sid_cmd,
 }
 
 DEFPY_YANG(no_srv6_sid, no_srv6_sid_cmd,
-      "no sid X:X::X:X/M [locator NAME$locator_name] [behavior <uN | uDT6 vrf VIEWVRFNAME | uDT4 vrf VIEWVRFNAME | uDT46 vrf VIEWVRFNAME>]",
+      "no sid X:X::X:X/M [locator NAME$locator_name] [behavior <uN | uA interface INTERFACE$interface [nexthop X:X::X:X$nh6] | uDT6 vrf VIEWVRFNAME | uDT4 vrf VIEWVRFNAME | uDT46 vrf VIEWVRFNAME>]",
       NO_STR
 	  "Configure SRv6 SID\n"
       "Specify SRv6 SID\n"
@@ -1303,6 +1303,11 @@ DEFPY_YANG(no_srv6_sid, no_srv6_sid_cmd,
       "Specify Locator name\n"
       "Specify SRv6 SID behavior\n"
       "Apply the code to a uN SID\n"
+      "Behavior uA\n"
+      "Configure the interface\n"
+      "Interface name\n"
+      "Configure the nexthop\n"
+      "IPv6 address of the nexthop\n"
       "Apply the code to an uDT6 SID\n"
       "Configure VRF name\n"
       "Specify VRF name\n"
