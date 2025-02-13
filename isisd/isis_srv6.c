@@ -142,6 +142,7 @@ bool isis_srv6_locator_unset(struct isis_area *area)
 		 */
 		ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_X;
 		ctx.nh6 = sra->nexthop;
+		ctx.ifindex = sra->adj->circuit->interface->ifindex;
 		isis_zebra_release_srv6_sid(&ctx);
 
 		srv6_endx_sid_del(sra);
