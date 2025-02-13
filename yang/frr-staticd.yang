@@ -12,6 +12,10 @@ module frr-staticd {
     prefix frr-nexthop;
   }
 
+  import frr-interface {
+    prefix frr-interface;
+  }
+
   import ietf-inet-types {
     prefix inet;
   }
@@ -239,6 +243,24 @@ module frr-staticd {
                 type frr-vrf:vrf-ref;
                 description
                   "The VRF name.";
+              }
+              list paths {
+                key "path-index";
+                leaf path-index {
+                  type uint8;
+                  description
+                    "Path index";
+                }
+                leaf interface {
+                  type frr-interface:interface-ref;
+                  description
+                    "Interface name.";
+                }
+                leaf next-hop {
+                  type inet:ip-address;
+                  description
+                    "Nexthop IP address.";
+                }
               }
             }
           }
