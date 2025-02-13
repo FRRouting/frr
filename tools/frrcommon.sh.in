@@ -175,7 +175,12 @@ daemon_start() {
 	instopt="${inst:+-n $inst}"
 	eval args="\$${daemon}_options"
 
-	cmd="$all_wrap $wrap $bin $nsopt -d $frr_global_options $instopt $args"
+	if [ "$daemon" = "watchfrr" ]; then
+		cmd="$all_wrap $wrap $bin $nsopt -d $instopt $args"
+	else
+		cmd="$all_wrap $wrap $bin $nsopt -d $frr_global_options $instopt $args"
+	fi
+
 	log_success_msg "Starting $daemon with command: '$cmd'"
 	if eval "$cmd"; then
 		log_success_msg "Started $dmninst"
