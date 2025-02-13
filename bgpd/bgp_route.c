@@ -6682,8 +6682,7 @@ bool bgp_inbound_policy_exists(struct peer *peer, struct bgp_filter *filter)
 	return false;
 }
 
-static void bgp_cleanup_table(struct bgp *bgp, struct bgp_table *table,
-			      afi_t afi, safi_t safi)
+static void bgp_cleanup_table(struct bgp *bgp, struct bgp_table *table, safi_t safi)
 {
 	struct bgp_dest *dest;
 	struct bgp_path_info *pi;
@@ -6725,7 +6724,7 @@ void bgp_cleanup_routes(struct bgp *bgp)
 
 	FOREACH_AFI_SAFI (afi, safi) {
 		if (safi != SAFI_MPLS_VPN && safi != SAFI_ENCAP && safi != SAFI_EVPN) {
-			bgp_cleanup_table(bgp, bgp->rib[afi][safi], afi, safi);
+			bgp_cleanup_table(bgp, bgp->rib[afi][safi], safi);
 			continue;
 		}
 
@@ -6739,7 +6738,7 @@ void bgp_cleanup_routes(struct bgp *bgp)
 			table = bgp_dest_get_bgp_table_info(dest);
 			if (!table)
 				continue;
-			bgp_cleanup_table(bgp, table, afi, safi);
+			bgp_cleanup_table(bgp, table, safi);
 			bgp_table_finish(&table);
 			bgp_dest_set_bgp_table_info(dest, NULL);
 			dest = bgp_dest_unlock_node(dest);
