@@ -725,6 +725,18 @@ const struct frr_yang_module_info frr_gmp_info = {
 				.destroy = lib_interface_gmp_address_family_join_group_destroy,
 			}
 		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-gmp:gmp/address-family/max-sources",
+			.cbs = {
+				.modify = lib_interface_gm_max_sources_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-gmp:gmp/address-family/max-groups",
+			.cbs = {
+				.modify = lib_interface_gm_max_groups_modify,
+			}
+		},
 				{
 			.xpath = "/frr-interface:lib/interface/frr-gmp:gmp/address-family/proxy",
 			.cbs = {
