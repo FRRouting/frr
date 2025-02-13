@@ -846,12 +846,20 @@ void static_zebra_srv6_sid_uninstall(struct static_srv6_sid *sid)
 			return;
 		}
 		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID:
+		ctx.nh6 = sid->attributes.nh6;
+		ifp = if_lookup_by_name(sid->attributes.ifname, VRF_DEFAULT);
+		if (!ifp) {
+			zlog_warn("Failed to install SID %pFX: failed to get interface %s",
+				  &sid->addr, sid->attributes.ifname);
+			return;
+		}
+		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_PSP_USD:
 	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP_USD:
 	case SRV6_ENDPOINT_BEHAVIOR_END_X:
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_PSP:
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_PSP_USD:
-	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID:
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID_PSP:
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID_PSP_USD:
 	case SRV6_ENDPOINT_BEHAVIOR_OPAQUE:
