@@ -22,6 +22,7 @@
 #include "zebra/ge_netlink.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/kernel_netlink.h"
+#include "zebra/interface.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -1800,6 +1801,13 @@ int get_srv6_sid(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx,
 	int ret = -1;
 	struct srv6_locator *locator;
 	char buf[256];
+	struct nhg_connected *rb_node_dep = NULL;
+	struct listnode *node;
+	struct nexthop *nexthop;
+	struct nbr_connected *nc;
+	bool found = false;
+	struct interface *ifp;
+	struct zebra_if *zebra_if;
 
 	enum srv6_sid_alloc_mode alloc_mode =
 		(sid_value) ? SRV6_SID_ALLOC_MODE_EXPLICIT
@@ -1809,6 +1817,44 @@ int get_srv6_sid(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx,
 		zlog_debug("%s: received SRv6 SID alloc request: SID ctx %s (%pI6), mode=%s",
 			   __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx),
 			   sid_value, srv6_sid_alloc_mode2str(alloc_mode));
+
+	if (ctx->ifindex != 0 && IPV6_ADDR_SAME(&ctx->nh6, &in6addr_any)) {
+		ifp = if_lookup_by_index(ctx->ifindex, VRF_DEFAULT);
+		if (!ifp) {
+			zlog_err("%s: interface %u does not exist", __func__, ctx->ifindex);
+			return -1;
+		}
+
+		for (ALL_LIST_ELEMENTS_RO(ifp->nbr_connected, node, nc))
+			if (nc->address && nc->address->family == AF_INET6 &&
+			    IN6_IS_ADDR_LINKLOCAL(&nc->address->u.prefix6)) {
+				ctx->nh6 = nc->address->u.prefix6;
+				found = true;
+				break;
+			}
+
+		if (!found) {
+			zebra_if = ifp->info;
+
+			frr_each (nhg_connected_tree, &zebra_if->nhg_dependents, rb_node_dep) {
+				for (ALL_NEXTHOPS(rb_node_dep->nhe->nhg, nexthop)) {
+					/* skip non link-local addresses */
+					if (!IPV6_ADDR_SAME(&nexthop->gate.ipv6, &in6addr_any)) {
+						ctx->nh6 = nexthop->gate.ipv6;
+						found = true;
+						break;
+					}
+				}
+				if (found)
+					break;
+			}
+			if (!found) {
+				zlog_err("%s: cannot get SID, interface (ifindex %u) not found",
+					 __func__, ctx->ifindex);
+				return -1;
+			}
+		}
+	}
 
 	if (alloc_mode == SRV6_SID_ALLOC_MODE_EXPLICIT) {
 		/*
