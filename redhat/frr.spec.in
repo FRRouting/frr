@@ -523,6 +523,11 @@ mkdir -p %{buildroot}%{_initddir}
 ln -s %{_sbindir}/frrinit.sh %{buildroot}%{_initddir}/frr
 %endif
 
+# install proto files
+%if %{with_grpc}
+    mv %{buildroot}%{_libdir}/frr/*.proto %{buildroot}/usr/lib/frr/
+%endif
+
 install %{zeb_src}/tools/etc/frr/daemons %{buildroot}%{_sysconfdir}/frr
 install %{zeb_src}/tools/etc/frr/frr.conf %{buildroot}%{_sysconfdir}/frr/frr.conf.template
 install -m644 %{zeb_rh_src}/frr.pam %{buildroot}%{_sysconfdir}/pam.d/frr
@@ -772,7 +777,15 @@ fi
 %{_libdir}/libfrr*.so*
 %{_libdir}/frr/modules/*.so
 %{_libdir}/libmgmt_be_nb.so*
+%exclude %{_sbindir}/*.proto
 %{_bindir}/*
+%if %{with_grpc}
+    %exclude %{_libdir}/libfrrgrpc_pb.so*
+    %exclude %{_libdir}/frr/modules/grpc.so
+    %exclude %{_libdir}/libfrr_pb.so*
+    %exclude %{_libdir}/libfrrfpm_pb.so*
+%endif
+%exclude %{_libdir}/frr/*.proto
 %config(noreplace) %{configdir}/[!v]*.conf*
 %config(noreplace) %attr(750,%{frr_user},%{frr_user}) %{configdir}/daemons
 %if "%{initsystem}" == "systemd"
@@ -844,6 +857,16 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 %files test-tools
 %{_sbindir}/mgmtd_testc
 %{_sbindir}/fpm_listener
+
+
+%if %{with_grpc}
+%files grpc
+%{_libdir}/libfrrgrpc_pb.so*
+%{_libdir}/frr/modules/grpc.so
+%{_libdir}/libfrr_pb.so*
+%{_libdir}/libfrrfpm_pb.so*
+%{_sbindir}/*.proto
+%endif
 
 
 %changelog
