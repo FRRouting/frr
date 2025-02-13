@@ -516,20 +516,33 @@ void nb_config_diff_created(const struct lyd_node *dnode, uint32_t *seq,
 static void nb_config_diff_deleted(const struct lyd_node *dnode, uint32_t *seq,
 				   struct nb_config_cbs *changes)
 {
+	struct nb_node *nb_node = dnode->schema->priv;
+	struct lyd_node *child;
+	bool recursed = false;
+
 	/* Ignore unimplemented nodes. */
-	if (!dnode->schema->priv)
+	if (!nb_node)
 		return;
+
+	/*
+	 * If the CB structure indicates it (recurse flag set), call the destroy
+	 * callbacks for the children of a containment node.
+	 */
+	if (CHECK_FLAG(dnode->schema->nodetype, LYS_CONTAINER | LYS_LIST) &&
+	    CHECK_FLAG(nb_node->cbs.flags, F_NB_CB_DESTROY_RECURSE)) {
+		recursed = true;
+		LY_LIST_FOR (lyd_child(dnode), child) {
+			nb_config_diff_deleted(child, seq, changes);
+		}
+	}
 
 	if (nb_cb_operation_is_valid(NB_CB_DESTROY, dnode->schema))
 		nb_config_diff_add_change(changes, NB_CB_DESTROY, seq, dnode);
-	else if (CHECK_FLAG(dnode->schema->nodetype, LYS_CONTAINER)) {
-		struct lyd_node *child;
-
+	else if (CHECK_FLAG(dnode->schema->nodetype, LYS_CONTAINER) && !recursed) {
 		/*
-		 * Non-presence containers need special handling since they
-		 * don't have "destroy" callbacks. In this case, what we need to
-		 * do is to call the "destroy" callbacks of their child nodes
-		 * when applicable (i.e. optional nodes).
+		 * If we didn't already above, call destroy on the children of
+		 * this container (it's an NP container) as NP containers have
+		 * no destroy CB themselves.
 		 */
 		LY_LIST_FOR (lyd_child(dnode), child) {
 			nb_config_diff_deleted(child, seq, changes);
