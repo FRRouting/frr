@@ -1125,7 +1125,6 @@ static void gm_handle_v1_leave(struct gm_if *gm_ifp,
 				gm_sg_update(grp, false);
 
 			/* TODO "need S,G PRUNE => NO_INFO transition here" */
-
 		}
 	}
 
