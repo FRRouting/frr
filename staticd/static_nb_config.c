@@ -1286,6 +1286,58 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routi
 
 /*
  * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/locators/locator/static-sids/sid/paths/next-hop
+ */
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_local_sids_sid_paths_next_hop_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct static_srv6_sid *sid;
+	struct ipaddr nexthop;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		zlog_info("validating nexthop %pI6", &nexthop.ipaddr_v6);
+		yang_dnode_get_ip(&nexthop, args->dnode, "../next-hop");
+		if (!IS_IPADDR_V6(&nexthop)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "%% Nexthop must be an IPv6 address");
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_ABORT:
+	case NB_EV_PREPARE:
+		break;
+	case NB_EV_APPLY:
+		sid = nb_running_get_entry(args->dnode, NULL, true);
+
+		/* Release and uninstall existing SID, if any, before requesting the new one */
+		if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID)) {
+			static_zebra_release_srv6_sid(sid);
+			UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID);
+		}
+
+		if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA)) {
+			static_zebra_srv6_sid_uninstall(sid);
+			UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
+		}
+
+		yang_dnode_get_ip(&nexthop, args->dnode, "../next-hop");
+		sid->attributes.nh6 = nexthop.ipaddr_v6;
+
+		break;
+	}
+
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_local_sids_sid_paths_next_hop_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	return NB_OK;
+}
+
+/*
+ * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/locators/locator/static-sids/sid/vrf-name
  */
 int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_local_sids_sid_locator_name_modify(
