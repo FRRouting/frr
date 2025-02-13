@@ -620,11 +620,9 @@ int zsend_redistribute_route(int cmd, struct zserv *client, const struct route_n
 	}
 
 	if (IS_ZEBRA_DEBUG_SEND)
-		zlog_debug("%s: %s to client %s: type %s, vrf_id %d, p %pFX",
-			   __func__, zserv_command_string(cmd),
-			   zebra_route_string(client->proto),
-			   zebra_route_string(api.type), api.vrf_id,
-			   &api.prefix);
+		zlog_debug("%s: %s to client %s: type %s, vrf_id %d, table %u, p %pFX", __func__,
+			   zserv_command_string(cmd), zebra_route_string(client->proto),
+			   zebra_route_string(api.type), api.vrf_id, api.tableid, &api.prefix);
 	return zserv_send_message(client, s);
 }
 
@@ -758,9 +756,8 @@ static int route_notify_internal(const struct route_node *rn, int type,
 	}
 
 	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug(
-			"Notifying Owner: %s about prefix %pRN(%u) %d vrf: %u",
-			zebra_route_string(type), rn, table_id, note, vrf_id);
+		zlog_debug("Notifying Owner: %s about prefix %pRN(%u) %d vrf: %u Table: %u",
+			   zebra_route_string(type), rn, table_id, note, vrf_id, table_id);
 
 	/* We're just allocating a small-ish buffer here, since we only
 	 * encode a small amount of data.
@@ -2163,11 +2160,10 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	if (!CHECK_FLAG(api.message, ZAPI_MESSAGE_NHG)
 	    && (!CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP)
 		|| api.nexthop_num == 0)) {
-		flog_warn(
-			EC_ZEBRA_RX_ROUTE_NO_NEXTHOPS,
-			"%s: received a route without nexthops for prefix %pFX from client %s",
-			__func__, &api.prefix,
-			zebra_route_string(client->proto));
+		flog_warn(EC_ZEBRA_RX_ROUTE_NO_NEXTHOPS,
+			  "%s: received a route without nexthops for prefix (%s:%u)%pFX from client %s",
+			  __func__, zvrf_name(zvrf), api.tableid, &api.prefix,
+			  zebra_route_string(client->proto));
 
 		zebra_rib_route_entry_free(re);
 		return;
@@ -2177,10 +2173,9 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_BACKUP_NEXTHOPS)
 	    && api.backup_nexthop_num == 0) {
 		if (IS_ZEBRA_DEBUG_RECV || IS_ZEBRA_DEBUG_EVENT)
-			zlog_debug(
-				"%s: client %s: BACKUP flag set but no backup nexthops, prefix %pFX",
-				__func__, zebra_route_string(client->proto),
-				&api.prefix);
+			zlog_debug("%s: client %s: BACKUP flag set but no backup nexthops, prefix %pFX(%s:%u)",
+				   __func__, zebra_route_string(client->proto), &api.prefix,
+				   zvrf_name(zvrf), api.tableid);
 	}
 
 	if (!re->nhe_id
