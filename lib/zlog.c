@@ -447,8 +447,9 @@ static void vzlog_notls(const struct xref_logmsg *xref, int prio,
 	}
 	rcu_read_unlock();
 
-	va_end(msg->args);
-	if (msg->text && msg->text != stackbuf)
+	if (msg && msg->args)
+		va_end(msg->args);
+	if (msg && msg->text && msg->text != stackbuf)
 		XFREE(MTYPE_LOG_MESSAGE, msg->text);
 }
 
@@ -830,8 +831,8 @@ const char *zlog_msg_text(struct zlog_msg *msg, size_t *textlen)
 		fb.outpos = msg->argpos;
 		fb.outpos_n = array_size(msg->argpos);
 		fb.outpos_i = 0;
-
-		va_copy(args, msg->args);
+		if (msg->args)
+			va_copy(args, msg->args);
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"
 		/* format-string checking is done further up the chain */
