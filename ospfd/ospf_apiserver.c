@@ -234,26 +234,6 @@ static struct ospf_apiserver *lookup_apiserver_by_lsa(struct ospf_lsa *lsa)
 	return found;
 }
 
-/* -----------------------------------------------------------
- * Following are functions to manage client connections.
- * -----------------------------------------------------------
- */
-static int ospf_apiserver_new_lsa_hook(struct ospf_lsa *lsa)
-{
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("API: Put LSA(%p)[%s] into reserve, total=%ld",
-			   (void *)lsa, dump_lsa_key(lsa), lsa->lsdb->total);
-	return 0;
-}
-
-static int ospf_apiserver_del_lsa_hook(struct ospf_lsa *lsa)
-{
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("API: Get LSA(%p)[%s] from reserve, total=%ld",
-			   (void *)lsa, dump_lsa_key(lsa), lsa->lsdb->total);
-	return 0;
-}
-
 /* Allocate new connection structure. */
 struct ospf_apiserver *ospf_apiserver_new(int fd_sync, int fd_async)
 {
@@ -270,11 +250,10 @@ struct ospf_apiserver *ospf_apiserver_new(int fd_sync, int fd_async)
 	new->opaque_types = list_new();
 
 	/* Initialize temporary strage for LSA instances to be refreshed. */
+	if (IS_DEBUG_OSPF_CLIENT_API)
+		zlog_debug("API: Initiallize the reserve LSDB");
 	memset(&new->reserve, 0, sizeof(struct ospf_lsdb));
 	ospf_lsdb_init(&new->reserve);
-
-	new->reserve.new_lsa_hook = ospf_apiserver_new_lsa_hook; /* debug */
-	new->reserve.del_lsa_hook = ospf_apiserver_del_lsa_hook; /* debug */
 
 	new->out_sync_fifo = msg_fifo_new();
 	new->out_async_fifo = msg_fifo_new();
@@ -363,6 +342,9 @@ void ospf_apiserver_free(struct ospf_apiserver *apiserv)
 	msg_fifo_free(apiserv->out_async_fifo);
 
 	/* Clear temporary strage for LSA instances to be refreshed. */
+	if (IS_DEBUG_OSPF_CLIENT_API)
+		zlog_debug("API: Delete all LSAs from reserve LSDB, total=%ld",
+			   apiserv->reserve.total);
 	ospf_lsdb_delete_all(&apiserv->reserve);
 	ospf_lsdb_cleanup(&apiserv->reserve);
 
@@ -371,7 +353,7 @@ void ospf_apiserver_free(struct ospf_apiserver *apiserv)
 
 	XFREE(MTYPE_APISERVER_MSGFILTER, apiserv->filter);
 
-	if (IS_DEBUG_OSPF_EVENT)
+	if (IS_DEBUG_OSPF_CLIENT_API)
 		zlog_debug("API: Delete apiserv(%p), total#(%d)",
 			   (void *)apiserv, apiserver_list->count);
 
@@ -393,7 +375,7 @@ void ospf_apiserver_read(struct event *thread)
 		event = OSPF_APISERVER_SYNC_READ;
 		apiserv->t_sync_read = NULL;
 
-		if (IS_DEBUG_OSPF_EVENT)
+		if (IS_DEBUG_OSPF_CLIENT_API)
 			zlog_debug("API: %s: Peer: %pI4/%u", __func__,
 				   &apiserv->peer_sync.sin_addr,
 				   ntohs(apiserv->peer_sync.sin_port));
@@ -403,7 +385,7 @@ void ospf_apiserver_read(struct event *thread)
 		event = OSPF_APISERVER_ASYNC_READ;
 		apiserv->t_async_read = NULL;
 
-		if (IS_DEBUG_OSPF_EVENT)
+		if (IS_DEBUG_OSPF_CLIENT_API)
 			zlog_debug("API: %s: Peer: %pI4/%u", __func__,
 				   &apiserv->peer_async.sin_addr,
 				   ntohs(apiserv->peer_async.sin_port));
@@ -426,7 +408,7 @@ void ospf_apiserver_read(struct event *thread)
 		return;
 	}
 
-	if (IS_DEBUG_OSPF_EVENT)
+	if (IS_DEBUG_OSPF_CLIENT_API)
 		msg_print(msg);
 
 	/* Dispatch to corresponding message handler. */
@@ -457,7 +439,7 @@ void ospf_apiserver_sync_write(struct event *thread)
 		goto out;
 	}
 
-	if (IS_DEBUG_OSPF_EVENT)
+	if (IS_DEBUG_OSPF_CLIENT_API)
 		zlog_debug("API: %s: Peer: %pI4/%u", __func__,
 			   &apiserv->peer_sync.sin_addr,
 			   ntohs(apiserv->peer_sync.sin_port));
@@ -469,7 +451,7 @@ void ospf_apiserver_sync_write(struct event *thread)
 		return;
 	}
 
-	if (IS_DEBUG_OSPF_EVENT)
+	if (IS_DEBUG_OSPF_CLIENT_API)
 		msg_print(msg);
 
 	rc = msg_write(fd, msg);
@@ -517,7 +499,7 @@ void ospf_apiserver_async_write(struct event *thread)
 		goto out;
 	}
 
-	if (IS_DEBUG_OSPF_EVENT)
+	if (IS_DEBUG_OSPF_CLIENT_API)
 		zlog_debug("API: %s: Peer: %pI4/%u", __func__,
 			   &apiserv->peer_async.sin_addr,
 			   ntohs(apiserv->peer_async.sin_port));
@@ -529,7 +511,7 @@ void ospf_apiserver_async_write(struct event *thread)
 		return;
 	}
 
-	if (IS_DEBUG_OSPF_EVENT)
+	if (IS_DEBUG_OSPF_CLIENT_API)
 		msg_print(msg);
 
 	rc = msg_write(fd, msg);
@@ -639,7 +621,7 @@ void ospf_apiserver_accept(struct event *thread)
 		return;
 	}
 
-	if (IS_DEBUG_OSPF_EVENT)
+	if (IS_DEBUG_OSPF_CLIENT_API)
 		zlog_debug("API: %s: New peer: %pI4/%u", __func__,
 			   &peer_sync.sin_addr, ntohs(peer_sync.sin_port));
 
@@ -701,7 +683,7 @@ void ospf_apiserver_accept(struct event *thread)
 			     apiserv);
 #endif /* USE_ASYNC_READ */
 
-	if (IS_DEBUG_OSPF_EVENT)
+	if (IS_DEBUG_OSPF_CLIENT_API)
 		zlog_debug("API: New apiserv(%p), total#(%d)", (void *)apiserv,
 			   apiserver_list->count);
 }
@@ -888,7 +870,7 @@ int ospf_apiserver_register_opaque_type(struct ospf_apiserver *apiserv,
 	/* Add to list of registered opaque types */
 	listnode_add(apiserv->opaque_types, regtype);
 
-	if (IS_DEBUG_OSPF_EVENT)
+	if (IS_DEBUG_OSPF_CLIENT_API)
 		zlog_debug(
 			"API: Add LSA-type(%d)/Opaque-type(%d) into apiserv(%p), total#(%d)",
 			lsa_type, opaque_type, (void *)apiserv,
@@ -919,7 +901,7 @@ int ospf_apiserver_unregister_opaque_type(struct ospf_apiserver *apiserv,
 			listnode_delete(apiserv->opaque_types, regtype);
 
 			XFREE(MTYPE_APISERVER, regtype);
-			if (IS_DEBUG_OSPF_EVENT)
+			if (IS_DEBUG_OSPF_CLIENT_API)
 				zlog_debug(
 					"API: Del LSA-type(%d)/Opaque-type(%d) from apiserv(%p), total#(%d)",
 					lsa_type, opaque_type, (void *)apiserv,
@@ -1553,7 +1535,7 @@ struct ospf_lsa *ospf_apiserver_opaque_lsa_new(struct ospf_area *area,
 
 	options |= OSPF_OPTION_O; /* Don't forget to set option bit */
 
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
+	if (IS_DEBUG_OSPF_CLIENT_API) {
 		zlog_debug("LSA[Type%d:%pI4]: Creating an Opaque-LSA instance",
 			   protolsa->type, &protolsa->id);
 	}
@@ -1716,6 +1698,9 @@ int ospf_apiserver_handle_originate_request(struct ospf_apiserver *apiserv,
 		 */
 		new->lsdb = &apiserv->reserve;
 		ospf_lsdb_add(&apiserv->reserve, new);
+		if (IS_DEBUG_OSPF_CLIENT_API)
+			zlog_debug("API: Add LSA(%p)[%s] into reserve LSDB, total=%ld", (void *)new,
+				   dump_lsa_key(new), new->lsdb->total);
 
 		/* Kick the scheduler function. */
 		ospf_opaque_lsa_refresh_schedule(old);
@@ -1878,7 +1863,7 @@ struct ospf_lsa *ospf_apiserver_lsa_refresher(struct ospf_lsa *lsa)
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 	assert(ospf);
 
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
+	if (IS_DEBUG_OSPF_CLIENT_API) {
 		zlog_debug("LSA[Type%d:%pI4]: OSPF API Server LSA Refresher",
 			   lsa->data->type, &lsa->data->id);
 	}
@@ -1909,6 +1894,9 @@ struct ospf_lsa *ospf_apiserver_lsa_refresher(struct ospf_lsa *lsa)
 		}
 	} else {
 		/* This is a forcible refresh, requested by OSPF-API client. */
+		if (IS_DEBUG_OSPF_CLIENT_API)
+			zlog_debug("API: Delete LSA(%p)[%s] from reserve LSDB, total=%ld",
+				   (void *)new, dump_lsa_key(new), new->lsdb->total);
 		ospf_lsdb_delete(&apiserv->reserve, new);
 		new->lsdb = NULL;
 	}
@@ -2597,18 +2585,23 @@ static int apiserver_clients_lsa_change_notify(uint8_t msgtype,
 
 int ospf_apiserver_lsa_update(struct ospf_lsa *lsa)
 {
+	if (IS_DEBUG_OSPF_CLIENT_API)
+		zlog_debug("API: LSA Update Hook Type-%u Opaque-LSA: [opaque-type=%u, opaque-id=%x] Seq: 0x%x %s",
+			   lsa->data->type, GET_OPAQUE_TYPE(ntohl(lsa->data->id.s_addr)),
+			   GET_OPAQUE_ID(ntohl(lsa->data->id.s_addr)), ntohl(lsa->data->ls_seqnum),
+			   IS_LSA_MAXAGE(lsa) ? "MaxAged " : "");
 
-	/* Only notify this update if the LSA's age is smaller than
-	   MAXAGE. Otherwise clients would see LSA updates with max age just
-	   before they are deleted from the LSDB. LSA delete messages have
-	   MAXAGE too but should not be filtered. */
-	if (IS_LSA_MAXAGE(lsa))
-		return 0;
 	return apiserver_clients_lsa_change_notify(MSG_LSA_UPDATE_NOTIFY, lsa);
 }
 
 int ospf_apiserver_lsa_delete(struct ospf_lsa *lsa)
 {
+	if (IS_DEBUG_OSPF_CLIENT_API)
+		zlog_debug("API: LSA Delete Hook Type-%u Opaque-LSA: [opaque-type=%u, opaque-id=%x] Seq: 0x%x %s",
+			   lsa->data->type, GET_OPAQUE_TYPE(ntohl(lsa->data->id.s_addr)),
+			   GET_OPAQUE_ID(ntohl(lsa->data->id.s_addr)), ntohl(lsa->data->ls_seqnum),
+			   IS_LSA_MAXAGE(lsa) ? "MaxAged " : "");
+
 	return apiserver_clients_lsa_change_notify(MSG_LSA_DELETE_NOTIFY, lsa);
 }
 
