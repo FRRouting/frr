@@ -820,7 +820,7 @@ identity set-extcommunity-color {
         "Match BGP updates when the list of communities count is less than the configured limit.";
       leaf community-limit {
         type uint16 {
-          range "1..1024";
+          range "0..1024";
         }
       }
     }
