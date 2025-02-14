@@ -166,6 +166,12 @@ module frr-bgp-route-map {
       "Match BGP extcommunity list";
   }
 
+  identity match-extcommunity-limit {
+    base frr-route-map:rmap-match-type;
+    description
+      "Match BGP extcommunity limit count";
+  }
+
   identity as-path-list {
     base frr-route-map:rmap-match-type;
     description
@@ -815,6 +821,17 @@ identity set-extcommunity-color {
       leaf community-limit {
         type uint16 {
           range "1..1024";
+        }
+      }
+    }
+
+    case extcommunity-limit {
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:match-extcommunity-limit')";
+      description
+        "Match BGP updates when the list of extended communities count is less than the configured limit.";
+      leaf extcommunity-limit {
+        type uint16 {
+          range "0..1024";
         }
       }
     }
