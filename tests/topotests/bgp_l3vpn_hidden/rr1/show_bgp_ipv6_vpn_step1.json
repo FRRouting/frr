@@ -1,0 +1,12 @@
+{
+  "vrfName": "default",
+  "routerId": "192.168.0.101",
+  "localAS": 65000,
+  "routes": {
+    "routeDistinguishers": {
+      "65000:100": {}
+    }
+  },
+  "totalRoutes": 0,
+  "totalPaths": 0
+}
