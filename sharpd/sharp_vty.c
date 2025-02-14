@@ -1443,6 +1443,48 @@ DEFPY (tc_filter_rate,
 	return CMD_SUCCESS;
 }
 
+/* for testing builtin crash handler & backtrace */
+DEFPY(crashme_segv,
+      crashme_segv_cmd,
+      "sharp crashtest segv",
+      SHARP_STR
+      "crashtest functions\n"
+      "*(int *)1 = 1\n")
+{
+#if defined(__COVERITY__) || defined(__clang_analyzer__)
+	vty_out(vty, "static analysis build, this should not happen?!\n");
+#else
+	/* GCC is too clever, complains if it knows the pointer is just "1" */
+	intptr_t one = atoi("1");
+
+	*(int *)one = 1;
+#endif
+	return CMD_SUCCESS;
+}
+
+/* for testing ASAN & Valgrind warnings */
+DEFPY(crashme_uaf,
+      crashme_uaf_cmd,
+      "sharp crashtest use-after-free",
+      SHARP_STR
+      "crashtest functions\n"
+      "free(p); vty_out(p)\n")
+{
+#if defined(__COVERITY__) || defined(__clang_analyzer__)
+	vty_out(vty, "static analysis build, this should not happen?!\n");
+#else
+	int *p, *f;
+
+	p = f = XCALLOC(MTYPE_TMP, sizeof(*p));
+	*p = 12345;
+	XFREE(MTYPE_TMP, p);
+
+	vty_out(vty, "use-after-free: %d\n", *f);
+#endif
+	return CMD_SUCCESS;
+}
+
+
 void sharp_vty_init(void)
 {
 	install_element(ENABLE_NODE, &install_routes_data_dump_cmd);
@@ -1482,5 +1524,7 @@ void sharp_vty_init(void)
 
 	install_element(ENABLE_NODE, &tc_filter_rate_cmd);
 
+	install_element(ENABLE_NODE, &crashme_segv_cmd);
+	install_element(ENABLE_NODE, &crashme_uaf_cmd);
 	return;
 }
