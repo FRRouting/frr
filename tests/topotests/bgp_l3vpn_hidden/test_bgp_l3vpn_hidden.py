@@ -31,8 +31,12 @@ def build_topo(tgen):
     """
     +---+   +---+   +---+
     |ce1|---|pe1|---|rr1|
+<<<<<<< HEAD
     +---+   +---+   +---+
 """
+=======
+    +---+   +---+   +---+"""
+>>>>>>> 118afe469 (tests: add bgp_l3vpn_hidden topotest)
 
     def connect_routers(tgen, left, right):
         for rname in [left, right]:
@@ -105,6 +109,7 @@ def teardown_module(mod):
 
 def check_bgp_convergence(step=None):
     """
+<<<<<<< HEAD
     out was generated using
 
 FRRGIT=/path/git/frr
@@ -116,6 +121,19 @@ vtysh -c 'show bgp ipv6 vpn json' | jq . | egrep -v 'selectionReason|pathFrom|pr
 
 vtysh -c 'show bgp ipv4 unicast json' | jq . | egrep -v 'selectionReason|pathFrom|prefix|locPrf|ersion|weight|origin|vrfId|afi|defaultLocPrf|network|nhVrfId|announceNexthopSelf|metric|multipath|linkLocalOnly|length' | jq .   >$FRRGIT/tests/topotests/bgp_l3vpn_hidden/$HOSTNAME/show_bgp_ipv4_unicast.json
 vtysh -c 'show bgp ipv6 unicast json' | jq . | egrep -v 'selectionReason|pathFrom|prefix|locPrf|ersion|weight|origin|vrfId|afi|defaultLocPrf|network|fe80|nhVrfId|announceNexthopSelf|metric|multipath|linkLocalOnly|length' | jq .   >$FRRGIT/tests/topotests/bgp_l3vpn_hidden/$HOSTNAME/show_bgp_ipv6_unicast.json
+=======
+        out was generated using
+
+    FRRGIT=/path/git/frr
+
+    vtysh -c 'show bgp vrf all summary json' | jq . | egrep -v 'ersion|idType|connections|peerState|pfx|outq|inq|msg|As|rib|Count|Memory|Uptime|vrf|\"as|failedPeers|displayedPeers|dynamicPeers' | awk '/      "bestPath": {/ {c=3; next} c-- > 0 {next} 1' | sed -E 's|"totalPeers": (.+),|"totalPeers": \1|g;s|"Established",|"Established"|g' | jq . >$FRRGIT/tests/topotests/bgp_l3vpn_hidden/$HOSTNAME/show_bgp_summary.json
+
+    vtysh -c 'show bgp ipv4 vpn json' | jq . | egrep -v 'selectionReason|pathFrom|prefix|locPrf|ersion|weight|origin|vrfId|afi|defaultLocPrf|network|nhVrfId|announceNexthopSelf|metric|multipath|linkLocalOnly|length' | jq .   >$FRRGIT/tests/topotests/bgp_l3vpn_hidden/$HOSTNAME/show_bgp_ipv4_vpn_step1.json
+    vtysh -c 'show bgp ipv6 vpn json' | jq . | egrep -v 'selectionReason|pathFrom|prefix|locPrf|ersion|weight|origin|vrfId|afi|defaultLocPrf|network|fe80|nhVrfId|announceNexthopSelf|metric|multipath|linkLocalOnly|length' | jq .   >$FRRGIT/tests/topotests/bgp_l3vpn_hidden/$HOSTNAME/show_bgp_ipv6_vpn_step1.json
+
+    vtysh -c 'show bgp ipv4 unicast json' | jq . | egrep -v 'selectionReason|pathFrom|prefix|locPrf|ersion|weight|origin|vrfId|afi|defaultLocPrf|network|nhVrfId|announceNexthopSelf|metric|multipath|linkLocalOnly|length' | jq .   >$FRRGIT/tests/topotests/bgp_l3vpn_hidden/$HOSTNAME/show_bgp_ipv4_unicast.json
+    vtysh -c 'show bgp ipv6 unicast json' | jq . | egrep -v 'selectionReason|pathFrom|prefix|locPrf|ersion|weight|origin|vrfId|afi|defaultLocPrf|network|fe80|nhVrfId|announceNexthopSelf|metric|multipath|linkLocalOnly|length' | jq .   >$FRRGIT/tests/topotests/bgp_l3vpn_hidden/$HOSTNAME/show_bgp_ipv6_unicast.json
+>>>>>>> 118afe469 (tests: add bgp_l3vpn_hidden topotest)
     """
     tgen = get_topogen()
 
@@ -247,7 +265,10 @@ def test_bgp_l3vpn_hidden_step2():
     check_bgp_convergence(step=None)
 
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 118afe469 (tests: add bgp_l3vpn_hidden topotest)
 def test_bgp_l3vpn_hidden_step3():
     """
     Remove pe1 router bgp blocks
