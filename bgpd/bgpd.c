@@ -3409,10 +3409,15 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	else
 		bgp = XCALLOC(MTYPE_BGP, sizeof(struct bgp));
 
+<<<<<<< HEAD
 	bgp->as = *as;
 
 	if (bgp->as_pretty)
 		XFREE(MTYPE_BGP_NAME, bgp->as_pretty);
+=======
+	bgp = XCALLOC(MTYPE_BGP, sizeof(struct bgp));
+	bgp->as = *as;
+>>>>>>> 339206341 (Revert "bgpd: fix bgp vrf instance creation from implicit")
 	if (as_pretty)
 		bgp->as_pretty = XSTRDUP(MTYPE_BGP_NAME, as_pretty);
 	else
@@ -3423,9 +3428,12 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 		SET_FLAG(bgp->config, BGP_CONFIG_ASNOTATION);
 	} else
 		asn_str2asn_notation(bgp->as_pretty, NULL, &bgp->asnotation);
+<<<<<<< HEAD
 
 	if (hidden)
 		goto peer_init;
+=======
+>>>>>>> 339206341 (Revert "bgpd: fix bgp vrf instance creation from implicit")
 
 	if (BGP_DEBUG(zebra, ZEBRA)) {
 		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
