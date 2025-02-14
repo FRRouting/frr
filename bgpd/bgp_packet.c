@@ -2383,6 +2383,8 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 							"%pBP rcvd Remove-All pfxlist ORF request",
 							peer);
 					prefix_bgp_orf_remove_all(afi, name);
+					peer->orf_plist[afi][safi] = prefix_bgp_orf_lookup(afi,
+											   name);
 					break;
 				}
 
