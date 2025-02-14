@@ -715,6 +715,10 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 			yang_dnode_get_string(
 				dnode,
 				"./rmap-match-condition/frr-bgp-route-map:rpki"));
+	} else if (IS_MATCH_EXTCOMMUNITY_LIMIT(condition)) {
+		vty_out(vty, " match extcommunity-limit %s\n",
+			yang_dnode_get_string(dnode,
+					      "./rmap-match-condition/frr-bgp-route-map:extcommunity-limit"));
 	} else if (IS_MATCH_RPKI_EXTCOMMUNITY(condition)) {
 		vty_out(vty, " match rpki-extcommunity %s\n",
 			yang_dnode_get_string(

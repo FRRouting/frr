@@ -1667,6 +1667,57 @@ int lib_route_map_entry_set_action_rmap_set_action_distance_destroy(
 }
 
 /*
+ * XPath: /frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:extcommunity-limit
+ */
+int lib_route_map_entry_match_condition_rmap_match_condition_extcommunity_limit_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct routemap_hook_context *rhc;
+	const char *limit;
+	enum rmap_compile_rets ret;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		/* Add configuration. */
+		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		limit = yang_dnode_get_string(args->dnode, NULL);
+
+		rhc->rhc_mhook = bgp_route_match_delete;
+		rhc->rhc_rule = "extcommunity-limit";
+		rhc->rhc_event = RMAP_EVENT_MATCH_DELETED;
+
+		ret = bgp_route_match_add(rhc->rhc_rmi, "extcommunity-limit", limit,
+					  RMAP_EVENT_MATCH_ADDED, args->errmsg, args->errmsg_len);
+
+		if (ret != RMAP_COMPILE_SUCCESS) {
+			rhc->rhc_mhook = NULL;
+			return NB_ERR_INCONSISTENCY;
+		}
+	}
+
+	return NB_OK;
+}
+
+int lib_route_map_entry_match_condition_rmap_match_condition_extcommunity_limit_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		return lib_route_map_entry_match_destroy(args);
+	}
+
+	return NB_OK;
+}
+
+/*
  * XPath:
  * /frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:extcommunity-rt
  */
