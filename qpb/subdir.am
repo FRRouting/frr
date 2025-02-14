@@ -28,4 +28,6 @@ CLEANFILES += \
 	qpb/qpb.pb-c.h \
 	# end
 
-EXTRA_DIST += qpb/qpb.proto
+dist_proto_DATA += \
+        qpb/qpb.proto \
+        # end

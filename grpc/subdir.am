@@ -23,7 +23,9 @@ CLEANFILES += \
 	grpc/frr-northbound.grpc.pb.h \
 	# end
 
-EXTRA_DIST += grpc/frr-northbound.proto
+dist_proto_DATA += \
+        grpc/frr-northbound.proto \
+        # end
 
 AM_V_PROTOC = $(am__v_PROTOC_$(V))
 am__v_PROTOC_ = $(am__v_PROTOC_$(AM_DEFAULT_VERBOSITY))

@@ -25,4 +25,6 @@ CLEANFILES += \
 	fpm/fpm.pb-c.h \
 	# end
 
-EXTRA_DIST += fpm/fpm.proto
+dist_proto_DATA += \
+        fpm/fpm.proto \
+        # end
