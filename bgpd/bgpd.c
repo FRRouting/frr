@@ -3776,7 +3776,7 @@ int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as, const char *as_pr
 		/* Handle AS number change */
 		if (bgp->as != *as) {
 			if (hidden || CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO)) {
-				if (force_config == false && hidden) {
+				if (hidden) {
 					bgp_create(as, name, inst_type,
 						   as_pretty, asnotation, bgp,
 						   hidden);
