@@ -64,6 +64,16 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
+def test_router_bgp_as_pretty():
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    output = tgen.gears["r1"].vtysh_cmd("show run")
+    assert "router bgp 99\n" in output, "router bgp 99 not found in show run"
+
+
 def test_vrf_route_leak_donna():
     logger.info("Ensure that routes are leaked back and forth")
     tgen = get_topogen()
