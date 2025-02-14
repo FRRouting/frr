@@ -2907,7 +2907,13 @@ Extended Community Lists
    Note that all extended community lists shares a single name space, so it's
    not necessary to specify their type when creating or destroying them.
 
-.. clicmd:: show bgp extcommunity-list [NAME detail]
+.. clicmd:: match community-limit (0-65535)
+
+   This command matches BGP updates that use community list, and with a community
+   list count less or equal than the defined limit. Setting community-limit to 0
+   will only match BGP updates with no community.
+
+   .. clicmd:: show bgp extcommunity-list [NAME detail]
 
    This command displays current extcommunity-list information. When `name` is
    specified the community list's information is shown.
@@ -2919,6 +2925,13 @@ BGP Extended Communities in Route Map
 """""""""""""""""""""""""""""""""""""
 
 .. clicmd:: match extcommunity WORD
+
+.. clicmd:: match extcommunity-limit (0-65535)
+
+   This command matches BGP updates that use extended community list, and with an
+   extended community list count less or equal than the defined limit. Setting
+   extended community-limit to 0 will only match BGP updates with no extended
+   community.
 
 .. clicmd:: set extcommunity none
 
