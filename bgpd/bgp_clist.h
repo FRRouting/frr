@@ -158,6 +158,7 @@ extern bool lcommunity_list_match(struct lcommunity *lcom,
 				  struct community_list *list);
 extern bool community_list_exact_match(struct community *com,
 				       struct community_list *list);
+extern bool ecommunity_list_exact_match(struct ecommunity *com, struct community_list *list);
 extern bool lcommunity_list_exact_match(struct lcommunity *lcom,
 					struct community_list *list);
 extern bool community_list_any_match(struct community *com,
@@ -166,6 +167,7 @@ extern struct community *
 community_list_match_delete(struct community *com, struct community_list *list);
 extern bool lcommunity_list_any_match(struct lcommunity *lcom,
 				      struct community_list *list);
+extern bool ecommunity_list_any_match(struct ecommunity *ecom, struct community_list *list);
 extern struct lcommunity *
 lcommunity_list_match_delete(struct lcommunity *lcom,
 			     struct community_list *list);

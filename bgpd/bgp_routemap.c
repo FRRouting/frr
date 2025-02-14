@@ -1908,8 +1908,18 @@ route_match_ecommunity(void *rule, const struct prefix *prefix, void *object)
 	if (!list)
 		return RMAP_NOMATCH;
 
-	if (ecommunity_list_match(bgp_attr_get_ecommunity(path->attr), list))
-		return RMAP_MATCH;
+	if (rcom->exact) {
+		if (ecommunity_list_exact_match(bgp_attr_get_ecommunity(path->attr), list))
+			return RMAP_MATCH;
+	} else if (rcom->any) {
+		if (!bgp_attr_get_ecommunity(path->attr))
+			return RMAP_OKAY;
+		if (ecommunity_list_any_match(bgp_attr_get_ecommunity(path->attr), list))
+			return RMAP_MATCH;
+	} else {
+		if (ecommunity_list_match(bgp_attr_get_ecommunity(path->attr), list))
+			return RMAP_MATCH;
+	}
 
 	return RMAP_NOMATCH;
 }
@@ -1918,11 +1928,28 @@ route_match_ecommunity(void *rule, const struct prefix *prefix, void *object)
 static void *route_match_ecommunity_compile(const char *arg)
 {
 	struct rmap_community *rcom;
+	int len;
+	char *p;
 
 	rcom = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct rmap_community));
-	rcom->name = XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
-	rcom->name_hash = bgp_clist_hash_key(rcom->name);
 
+	p = strchr(arg, ' ');
+	if (p) {
+		len = p - arg;
+		rcom->name = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, len + 1);
+		memcpy(rcom->name, arg, len);
+		p++;
+		if (*p == 'e')
+			rcom->exact = true;
+		else
+			rcom->any = true;
+	} else {
+		rcom->name = XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
+		rcom->exact = false;
+		rcom->any = false;
+	}
+
+	rcom->name_hash = bgp_clist_hash_key(rcom->name);
 	return rcom;
 }
 
@@ -5916,16 +5943,19 @@ DEFUN_YANG(
 
 DEFPY_YANG (match_ecommunity,
 	    match_ecommunity_cmd,
-            "match extcommunity <(1-99)|(100-500)|EXTCOMMUNITY_LIST_NAME>",
+            "match extcommunity <(1-99)|(100-500)|EXTCOMMUNITY_LIST_NAME> [<exact-match$exact|any$any>]",
 	    MATCH_STR
 	    "Match BGP/VPN extended community list\n"
 	    "Extended community-list number (standard)\n"
 	    "Extended community-list number (expanded)\n"
-	    "Extended community-list name\n")
+	    "Extended community-list name\n"
+	    "Do exact matching of communities\n"
+	    "Do matching of any community\n")
 {
 	const char *xpath =
 		"./match-condition[condition='frr-bgp-route-map:match-extcommunity']";
 	char xpath_value[XPATH_MAXLEN];
+	char xpath_match[XPATH_MAXLEN];
 	int idx_comm_list = 2;
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
@@ -5935,6 +5965,21 @@ DEFPY_YANG (match_ecommunity,
 		"%s/rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name",
 		xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[idx_comm_list]->arg);
+
+	snprintf(xpath_match, sizeof(xpath_match),
+		 "%s/rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-exact-match",
+		 xpath);
+	if (exact)
+		nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY, "true");
+	else
+		nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY, "false");
+
+	snprintf(xpath_match, sizeof(xpath_match),
+		 "%s/rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-any", xpath);
+	if (any)
+		nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY, "true");
+	else
+		nb_cli_enqueue_change(vty, xpath_match, NB_OP_MODIFY, "false");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -5963,13 +6008,15 @@ DEFPY_YANG(
 
 DEFUN_YANG (no_match_ecommunity,
 	    no_match_ecommunity_cmd,
-	    "no match extcommunity [<(1-99)|(100-500)|EXTCOMMUNITY_LIST_NAME>]",
+	    "no match extcommunity [<(1-99)|(100-500)|EXTCOMMUNITY_LIST_NAME> [<exact-match$exact|any$any>]]",
 	    NO_STR
 	    MATCH_STR
 	    "Match BGP/VPN extended community list\n"
 	    "Extended community-list number (standard)\n"
 	    "Extended community-list number (expanded)\n"
-	    "Extended community-list name\n")
+	    "Extended community-list name\n"
+	    "Do exact matching of communities\n"
+	    "Do matching of any community\n")
 {
 	const char *xpath =
 		"./match-condition[condition='frr-bgp-route-map:match-extcommunity']";
