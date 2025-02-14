@@ -2920,6 +2920,13 @@ BGP Extended Communities in Route Map
 
 .. clicmd:: match extcommunity WORD
 
+.. clicmd:: match extcommunity-limit (0-65535)
+
+   This command matches BGP updates that use extended community list and IPv6
+   extended community list, and with an extended community list count less or
+   equal than the defined limit. Setting extended community-limit to 0 will
+   only match BGP updates with no extended community.
+
 .. clicmd:: set extcommunity none
 
    This command resets the extended community value in BGP updates. If the attribute is
