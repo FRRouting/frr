@@ -1,0 +1,29 @@
+{
+  "vrfName": "default",
+  "routerId": "192.168.0.1",
+  "localAS": 65000,
+  "routes": {
+    "routeDistinguishers": {
+      "65000:100": {
+        "172.20.1.0/24": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "peerId": "(unspec)",
+            "path": "65501",
+            "nhVrfName": "RED",
+            "nexthops": [
+              {
+                "ip": "172.16.1.254",
+                "hostname": "pe1",
+                "used": true
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "totalRoutes": 1,
+  "totalPaths": 1
+}
