@@ -1716,6 +1716,7 @@ static void srv6_sid_cli_show(struct vty *vty, const struct lyd_node *sid, bool 
 {
 	enum srv6_endpoint_behavior_codepoint srv6_behavior;
 	struct prefix_ipv6 sid_value;
+	struct ipaddr nexthop;
 
 	yang_dnode_get_ipv6p(&sid_value, sid, "sid");
 
@@ -1786,6 +1787,16 @@ static void srv6_sid_cli_show(struct vty *vty, const struct lyd_node *sid, bool 
 
 	if (yang_dnode_exists(sid, "vrf-name"))
 		vty_out(vty, " vrf %s", yang_dnode_get_string(sid, "vrf-name"));
+
+	if (yang_dnode_exists(sid, "paths[path-index=0]/interface")) {
+		vty_out(vty, " interface %s",
+			yang_dnode_get_string(sid, "paths[path-index=0]/interface"));
+
+		if (yang_dnode_exists(sid, "paths[path-index=0]/next-hop")) {
+			yang_dnode_get_ip(&nexthop, sid, "paths[path-index=0]/next-hop");
+			vty_out(vty, " nexthop %pI6", &nexthop.ipaddr_v6);
+		}
+	}
 
 	vty_out(vty, "\n");
 }
