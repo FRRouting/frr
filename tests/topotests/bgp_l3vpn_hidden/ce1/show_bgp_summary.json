@@ -1,0 +1,24 @@
+{
+  "default": {
+    "ipv4Unicast": {
+      "routerId": "172.16.1.254",
+      "peers": {
+        "172.16.1.1": {
+          "hostname": "pe1",
+          "state": "Established"
+        }
+      },
+      "totalPeers": 1
+    },
+    "ipv6Unicast": {
+      "routerId": "172.16.1.254",
+      "peers": {
+        "3fff:1::1": {
+          "hostname": "pe1",
+          "state": "Established"
+        }
+      },
+      "totalPeers": 1
+    }
+  }
+}

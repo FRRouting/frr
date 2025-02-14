@@ -1,0 +1,24 @@
+{
+  "default": {
+    "ipv4Vpn": {
+      "routerId": "192.168.0.101",
+      "peers": {
+        "192.168.0.1": {
+          "hostname": "pe1",
+          "state": "Established"
+        }
+      },
+      "totalPeers": 1
+    },
+    "ipv6Vpn": {
+      "routerId": "192.168.0.101",
+      "peers": {
+        "3fff::192:168:0:1": {
+          "hostname": "pe1",
+          "state": "Established"
+        }
+      },
+      "totalPeers": 1
+    }
+  }
+}
