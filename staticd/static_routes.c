@@ -53,6 +53,11 @@ void zebra_stable_node_cleanup(struct route_table *table,
 /* Install static path into rib. */
 void static_install_path(struct static_path *pn)
 {
+	struct static_nexthop *nh;
+
+	frr_each (static_nexthop_list, &pn->nexthop_list, nh)
+		static_zebra_nht_register(nh, true);
+
 	if (static_nexthop_list_count(&pn->nexthop_list))
 		static_zebra_route_add(pn, true);
 }
