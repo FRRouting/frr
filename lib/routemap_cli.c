@@ -847,10 +847,18 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 			vty_out(vty, " any");
 		vty_out(vty, "\n");
 	} else if (IS_MATCH_EXTCOMMUNITY(condition)) {
-		vty_out(vty, " match extcommunity %s\n",
+		vty_out(vty, " match extcommunity %s",
 			yang_dnode_get_string(
 				dnode,
 				"./rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name"));
+		if (yang_dnode_get_bool(
+			    dnode,
+			    "./rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-exact-match"))
+			vty_out(vty, " exact-match");
+		if (yang_dnode_get_bool(dnode,
+					"./rmap-match-condition/frr-bgp-route-map:comm-list/comm-list-name-any"))
+			vty_out(vty, " any");
+		vty_out(vty, "\n");
 	} else if (IS_MATCH_IPV4_NH(condition)) {
 		vty_out(vty, " match ip next-hop address %s\n",
 			yang_dnode_get_string(

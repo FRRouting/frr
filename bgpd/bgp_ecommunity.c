@@ -1145,8 +1145,10 @@ bool ecommunity_has_route_target(struct ecommunity *ecom)
  *
  * Filter is added to display only ECOMMUNITY_ROUTE_TARGET in some cases.
  * 0 value displays all.
+ * Index is a unsigned integer value, and stands for the extended community list entry
+ * to display when value is not -1.
  */
-char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
+static char *_ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter, int index)
 {
 	uint32_t i;
 	uint8_t *pnt;
@@ -1168,8 +1170,10 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 		bool unk_ecom = false;
 		memset(encbuf, 0x00, sizeof(encbuf));
 
+		if (index != -1 && (uint32_t)index != i)
+			continue;
 		/* Space between each value.  */
-		if (i > 0)
+		if (index == -1 && i > 0)
 			strlcat(str_buf, " ", str_size);
 
 		/* Retrieve value field */
@@ -1494,6 +1498,29 @@ unknown:
 	}
 
 	return str_buf;
+}
+
+char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
+{
+	return _ecommunity_ecom2str(ecom, format, filter, -1);
+}
+
+char *ecommunity_ecom2str_one(struct ecommunity *ecom, int format, int number)
+{
+	return _ecommunity_ecom2str(ecom, format, 0, number);
+}
+
+bool ecommunity_include_one(struct ecommunity *ecom, uint8_t *ptr)
+{
+	uint32_t i;
+	uint8_t *ecom_ptr;
+
+	for (i = 0; i < ecom->size; i++) {
+		ecom_ptr = ecom->val + (i * ecom->unit_size);
+		if (memcmp(ptr, ecom_ptr, ecom->unit_size) == 0)
+			return true;
+	}
+	return false;
 }
 
 bool ecommunity_include(struct ecommunity *e1, struct ecommunity *e2)
