@@ -469,11 +469,10 @@ Adds FRR test tools, used in testing FRR.
 %endif
 %if %{with_grpc}
     --enable-grpc \
-    --enable-protobuf \
 %else
     --disable-grpc \
-    --disable-protobuf \
 %endif
+    --enable-protobuf \
     --enable-snmp \
     --enable-pcre2posix \
     # end
@@ -782,8 +781,6 @@ fi
 %if %{with_grpc}
     %exclude %{_libdir}/libfrrgrpc_pb.so*
     %exclude %{_libdir}/frr/modules/grpc.so
-    %exclude %{_libdir}/libfrr_pb.so*
-    %exclude %{_libdir}/libfrrfpm_pb.so*
 %endif
 %exclude %{_libdir}/frr/*.proto
 %config(noreplace) %{configdir}/[!v]*.conf*
@@ -863,8 +860,6 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 %files grpc
 %{_libdir}/libfrrgrpc_pb.so*
 %{_libdir}/frr/modules/grpc.so
-%{_libdir}/libfrr_pb.so*
-%{_libdir}/libfrrfpm_pb.so*
 %{_sbindir}/*.proto
 %endif
 
