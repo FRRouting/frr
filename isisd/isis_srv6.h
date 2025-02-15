@@ -155,6 +155,8 @@ isis_srv6_sid_alloc(struct isis_area *area, struct srv6_locator *locator,
 		    struct in6_addr *sid_value);
 extern void isis_srv6_sid_free(struct isis_srv6_sid *sid);
 
+void isis_srv6_locators_request(void);
+
 extern void isis_srv6_area_init(struct isis_area *area);
 extern void isis_srv6_area_term(struct isis_area *area);
 
