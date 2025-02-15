@@ -112,11 +112,18 @@ struct zebra_mlag_info {
 	struct event *t_write;
 };
 
+#define RTADV_TIMER_WHEEL_PERIOD_MS 1000
+#define RTADV_TIMER_WHEEL_SLOTS_NO  100
+#define ICMPV6_JOIN_TIMER_EXP_MS    100
+
 struct zebra_router {
 	atomic_bool in_shutdown;
 
 	/* Thread master */
 	struct event_loop *master;
+
+	/* Wheel to process V6 RA update */
+	struct timer_wheel *ra_wheel;
 
 	/* Lists of clients who have connected to us */
 	struct list *client_list;
