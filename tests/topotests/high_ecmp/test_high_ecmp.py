@@ -43,7 +43,6 @@ from lib.topolog import logger
 
 
 def build_topo(tgen):
-
     tgen.add_router("r1")
     tgen.add_router("r2")
 
