@@ -658,6 +658,27 @@ int isis_srv6_ifp_up_notify(struct interface *ifp)
 }
 
 /**
+ * Request SRv6 locator info from the SID Manager for all IS-IS areas where SRv6
+ * is enabled and a locator has been configured.
+ * This function is called as soon as the connection with Zebra is established
+ * to get information about all configured locators.
+ */
+void isis_srv6_locators_request(void)
+{
+	struct isis *isis = isis_lookup_by_vrfid(VRF_DEFAULT);
+	struct listnode *node;
+	struct isis_area *area;
+
+	if (!isis)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
+		if (area->srv6db.config.enabled &&
+		    area->srv6db.config.srv6_locator_name[0] != '\0' && !area->srv6db.srv6_locator)
+			isis_zebra_srv6_manager_get_locator(area->srv6db.config.srv6_locator_name);
+}
+
+/**
  * IS-IS SRv6 initialization for given area.
  *
  * @param area	IS-IS area
