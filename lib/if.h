@@ -542,6 +542,15 @@ extern struct interface *if_lookup_prefix(const struct prefix *prefix,
 size_t if_lookup_by_hwaddr(const uint8_t *hw_addr, size_t addrsz,
 			   struct interface ***result, vrf_id_t vrf_id);
 
+#define PRIME 2654435761U  // Large prime number for hashing
+
+static inline unsigned int interface_hash_key(const void *arg)
+{
+	const struct interface *ifp = arg;
+
+	return (ifp->ifindex ^ (ifp->ifindex >> 16)) * PRIME;
+}
+			   
 static inline bool if_address_is_local(const void *matchaddr, int family,
 				       vrf_id_t vrf_id)
 {
