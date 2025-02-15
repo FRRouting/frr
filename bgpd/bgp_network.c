@@ -483,6 +483,7 @@ static void bgp_accept(struct event *thread)
 			connection1 = peer1->connection;
 			/* Dynamic neighbor has been created, let it proceed */
 			connection1->fd = bgp_sock;
+			connection1->dir = CONNECTION_INCOMING;
 
 			connection1->su_local = sockunion_getsockname(connection1->fd);
 			connection1->su_remote = sockunion_dup(&su);
@@ -636,6 +637,7 @@ static void bgp_accept(struct event *thread)
 	peer1->doppelganger = peer;
 
 	connection->fd = bgp_sock;
+	connection->dir = CONNECTION_INCOMING;
 	connection->su_local = sockunion_getsockname(connection->fd);
 	connection->su_remote = sockunion_dup(&su);
 
@@ -801,6 +803,7 @@ enum connect_result bgp_connect(struct peer_connection *connection)
 		connection->fd =
 			vrf_sockunion_socket(&connection->su, peer->bgp->vrf_id,
 					     bgp_get_bound_name(connection));
+		connection->dir = CONNECTION_OUTGOING;
 	}
 	if (connection->fd < 0) {
 		peer->last_reset = PEER_DOWN_SOCKET_ERROR;
