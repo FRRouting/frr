@@ -112,11 +112,30 @@ struct zebra_mlag_info {
 	struct event *t_write;
 };
 
+#define RTADV_REGULAR_TIMER_WHEEL_PERIOD_MS 100000
+#define RTADV_REGULAR_TIMER_WHEEL_SLOTS_NO 100
+#define RTADV_FAST_TIMER_WHEEL_PERIOD_MS 1000
+#define RTADV_FAST_TIMER_WHEEL_SLOTS_NO 100  
+#define ICMPV6_JOIN_TIMER_EXP_MS 10000
+#define MX_ENTRIES_PER_ICMPV6_JOIN_TIMER_EXP 10
+
 struct zebra_router {
 	atomic_bool in_shutdown;
 
 	/* Thread master */
 	struct event_loop *master;
+
+	/* Wheel to process V6 RA update in seconds */
+	struct timer_wheel * seconds_wheel;
+
+	/* Wheel to process V6 RA update in mili seconds */
+	struct timer_wheel * mlseconds_wheel;
+
+	/* Linked list for interfaces for which ICMPv6 join will be sent */
+	struct list * icmpv6_join_inf_list;
+
+	/* Event timer to batch  ICMPv6 join requests */
+	struct event *icmpv6_join_timer;
 
 	/* Lists of clients who have connected to us */
 	struct list *client_list;

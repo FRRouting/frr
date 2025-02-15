@@ -27,6 +27,7 @@
 #include "routing_nb.h"
 #include "mgmt_be_client.h"
 #include "libagentx.h"
+#include "wheel.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_errors.h"
@@ -458,6 +459,17 @@ int main(int argc, char **argv)
 	}
 
 	zrouter.master = frr_init();
+	
+	/*Init V6 RA batching stuffs*/
+	zrouter.seconds_wheel = wheel_init(zrouter.master, RTADV_REGULAR_TIMER_WHEEL_PERIOD_MS,
+                            RTADV_REGULAR_TIMER_WHEEL_SLOTS_NO, interface_hash_key,
+                            process_rtadv_regular, NULL);
+
+	zrouter.mlseconds_wheel = wheel_init(zrouter.master, RTADV_FAST_TIMER_WHEEL_PERIOD_MS,
+                            RTADV_FAST_TIMER_WHEEL_SLOTS_NO, interface_hash_key,
+                            process_rtadv_faster, NULL);
+
+	zrouter.icmpv6_join_inf_list = list_new();
 
 	/* Zebra related initialize. */
 	libagentx_init();

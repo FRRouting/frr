@@ -462,6 +462,74 @@ no_more_opts:
 		zif->ra_sent++;
 }
 
+static void start_icmpv6_join_timer(struct event *thread)
+{
+	int iteration = MX_ENTRIES_PER_ICMPV6_JOIN_TIMER_EXP;
+
+	while (zrouter.icmpv6_join_inf_list->count && iteration) {
+		struct interface *ifp =
+			(struct interface *)listnode_head(zrouter.icmpv6_join_inf_list);
+		struct zebra_vrf *zvrf = rtadv_interface_get_zvrf(ifp);
+		if_join_all_router(zvrf->rtadv.sock, ifp);
+		listnode_delete(zrouter.icmpv6_join_inf_list, ifp);
+
+		if (IS_ZEBRA_DEBUG_EVENT) {
+			zlog_debug("Processed ICMPv6 join for %s(%s:%u), entries left: %d", ifp->name,
+				   ifp->vrf->name, ifp->ifindex, zrouter.icmpv6_join_inf_list->count);
+		}
+
+		//Schedule for next run only if the list is non empty
+		if (zrouter.icmpv6_join_inf_list->count) {
+			event_add_timer_msec(zrouter.master, start_icmpv6_join_timer, NULL,
+					     ICMPV6_JOIN_TIMER_EXP_MS, &zrouter.icmpv6_join_timer);
+		}
+
+		iteration--;
+	}
+}
+
+void process_rtadv_regular(void *arg)
+{
+	struct interface *ifp = arg;
+	struct zebra_if *zif = ifp->info;
+	struct zebra_vrf *zvrf = rtadv_interface_get_zvrf(ifp);
+
+	zif->rtadv.AdvIntervalTimer -=
+		(RTADV_REGULAR_TIMER_WHEEL_PERIOD_MS /
+		 RTADV_REGULAR_TIMER_WHEEL_SLOTS_NO);
+
+	if (zif->rtadv.AdvIntervalTimer <= 0) {
+		zif->rtadv.AdvIntervalTimer = zif->rtadv.MaxRtrAdvInterval;
+		if (IS_ZEBRA_DEBUG_SEND) {
+			zlog_debug("Doing regular RA Rexmit on interface %s(%s:%u)", ifp->name,
+				   ifp->vrf->name, ifp->ifindex);
+		}
+
+		rtadv_send_packet(zvrf->rtadv.sock, ifp, RA_ENABLE);
+	}
+}
+
+void process_rtadv_faster(void *arg)
+{
+	struct interface *ifp = arg;
+	struct zebra_if *zif = ifp->info;
+	struct zebra_vrf *zvrf = rtadv_interface_get_zvrf(ifp);
+
+	if (zif->rtadv.inFastRexmit && zif->rtadv.UseFastRexmit) {
+		if (--zif->rtadv.NumFastReXmitsRemain <= 0) {
+			zif->rtadv.inFastRexmit = 0;
+		}
+
+		wheel_remove_item(zrouter.mlseconds_wheel, ifp);
+		wheel_add_item(zrouter.seconds_wheel, ifp);
+		if (IS_ZEBRA_DEBUG_SEND)
+			zlog_debug("Doing fast RA Rexmit on interface %s(%s:%u)", ifp->name,
+				   ifp->vrf->name, ifp->ifindex);
+
+		rtadv_send_packet(zvrf->rtadv.sock, ifp, RA_ENABLE);
+	}
+}
+
 static void rtadv_timer(struct event *thread)
 {
 	struct zebra_vrf *zvrf = EVENT_ARG(thread);
@@ -1261,7 +1329,9 @@ static void rtadv_start_interface_events(struct zebra_vrf *zvrf,
 	if (adv_if != NULL)
 		return; /* Already added */
 
-	if_join_all_router(zvrf->rtadv.sock, zif->ifp);
+	listnode_add(zrouter.icmpv6_join_inf_list, zif->ifp);
+	event_add_timer_msec(zrouter.master, start_icmpv6_join_timer, NULL,
+					 	ICMPV6_JOIN_TIMER_EXP_MS, &zrouter.icmpv6_join_timer);
 
 	if (adv_if_list_count(&zvrf->rtadv.adv_if) == 1)
 		rtadv_event(zvrf, RTADV_START, 0);
@@ -1281,6 +1351,12 @@ void ipv6_nd_suppress_ra_set(struct interface *ifp,
 	if (status == RA_SUPPRESS) {
 		/* RA is currently enabled */
 		if (zif->rtadv.AdvSendAdvertisements) {
+
+			/*Try to delete from both wheels, as we don't know in which
+			wheel currently it is scheduled*/
+			wheel_remove_item(zrouter.mlseconds_wheel, ifp);
+			wheel_remove_item(zrouter.seconds_wheel, ifp);
+			listnode_delete(zrouter.icmpv6_join_inf_list, ifp);
 			rtadv_send_packet(zvrf->rtadv.sock, ifp, RA_SUPPRESS);
 			zif->rtadv.AdvSendAdvertisements = 0;
 			zif->rtadv.AdvIntervalTimer = 0;
@@ -1309,6 +1385,10 @@ void ipv6_nd_suppress_ra_set(struct interface *ifp,
 				zif->rtadv.inFastRexmit = 1;
 				zif->rtadv.NumFastReXmitsRemain =
 					RTADV_NUM_FAST_REXMITS;
+
+				wheel_add_item(zrouter.mlseconds_wheel, ifp);
+			} else {
+				wheel_add_item(zrouter.seconds_wheel, ifp);
 			}
 
 			rtadv_start_interface_events(zvrf, zif);
@@ -1435,6 +1515,12 @@ void rtadv_stop_ra(struct interface *ifp)
 	struct zebra_if *zif;
 	struct zebra_vrf *zvrf;
 
+	/*Try to delete from both wheels, as we don't know in which
+	wheel currently it is scheduled*/
+	wheel_remove_item(zrouter.mlseconds_wheel, ifp);
+	wheel_remove_item(zrouter.seconds_wheel, ifp);
+	listnode_delete(zrouter.icmpv6_join_inf_list, ifp);
+	
 	zif = ifp->info;
 	zvrf = rtadv_interface_get_zvrf(ifp);
 
@@ -1730,8 +1816,7 @@ static void rtadv_event(struct zebra_vrf *zvrf, enum rtadv_event event, int val)
 	case RTADV_START:
 		event_add_read(zrouter.master, rtadv_read, zvrf, rtadv->sock,
 			       &rtadv->ra_read);
-		event_add_event(zrouter.master, rtadv_timer, zvrf, 0,
-				&rtadv->ra_timer);
+
 		break;
 	case RTADV_STOP:
 		EVENT_OFF(rtadv->ra_timer);
