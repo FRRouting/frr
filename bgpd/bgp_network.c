@@ -397,7 +397,7 @@ static void bgp_accept(struct event *thread)
 	union sockunion su;
 	struct bgp_listener *listener = EVENT_ARG(thread);
 	struct peer *peer, *peer1;
-	struct peer_connection *connection1, *incoming;
+	struct peer_connection *connection, *incoming;
 	char buf[SU_ADDRSTRLEN];
 	struct bgp *bgp = NULL;
 
@@ -530,7 +530,7 @@ static void bgp_accept(struct event *thread)
 		return;
 	}
 
-	connection1 = peer1->connection;
+	connection = peer1->connection;
 	if (CHECK_FLAG(peer1->flags, PEER_FLAG_SHUTDOWN)
 	    || CHECK_FLAG(peer1->bgp->flags, BGP_FLAG_SHUTDOWN)) {
 		if (bgp_debug_neighbor_events(peer1))
@@ -548,17 +548,17 @@ static void bgp_accept(struct event *thread)
 	 * Established and then the Clearing_Completed event is generated. Also,
 	 * block incoming connection in Deleted state.
 	 */
-	if (connection1->status == Clearing || connection1->status == Deleted) {
+	if (connection->status == Clearing || connection->status == Deleted) {
 		if (bgp_debug_neighbor_events(peer1))
 			zlog_debug("[Event] Closing incoming conn for %s (%p) state %d",
 				   peer1->host, peer1,
-				   peer1->connection->status);
+				   connection->status);
 		close(bgp_sock);
 		return;
 	}
 
 	/* Check that at least one AF is activated for the peer. */
-	if (!peer_active(connection1)) {
+	if (!peer_active(connection)) {
 		if (bgp_debug_neighbor_events(peer1))
 			zlog_debug(
 				"%s - incoming conn rejected - no AF activated for peer",
@@ -596,8 +596,7 @@ static void bgp_accept(struct event *thread)
 
 	if (bgp_debug_neighbor_events(peer1))
 		zlog_debug("[Event] connection from %s fd %d, active peer status %d fd %d",
-			   inet_sutop(&su, buf), bgp_sock, connection1->status,
-			   connection1->fd);
+			   inet_sutop(&su, buf), bgp_sock, connection->status, connection->fd);
 
 	if (peer1->doppelganger) {
 		/* We have an existing connection. Kill the existing one and run
@@ -652,7 +651,7 @@ static void bgp_accept(struct event *thread)
 
 	SET_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER);
 	/* Make dummy peer until read Open packet. */
-	if (peer_established(connection1) &&
+	if (peer_established(connection) &&
 	    CHECK_FLAG(peer1->sflags, PEER_STATUS_NSF_MODE)) {
 		/* If we have an existing established connection with graceful
 		 * restart
@@ -667,7 +666,7 @@ static void bgp_accept(struct event *thread)
 				  PEER_FLAG_GRACEFUL_RESTART_HELPER))
 			SET_FLAG(peer1->sflags, PEER_STATUS_NSF_WAIT);
 
-		bgp_event_update(connection1, TCP_connection_closed);
+		bgp_event_update(connection, TCP_connection_closed);
 	}
 
 	if (peer_active(incoming)) {
