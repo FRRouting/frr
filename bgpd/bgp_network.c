@@ -397,7 +397,7 @@ static void bgp_accept(struct event *thread)
 	union sockunion su;
 	struct bgp_listener *listener = EVENT_ARG(thread);
 	struct peer *peer, *peer1;
-	struct peer_connection *connection, *connection1;
+	struct peer_connection *connection1, *incoming;
 	char buf[SU_ADDRSTRLEN];
 	struct bgp *bgp = NULL;
 
@@ -480,8 +480,6 @@ static void bgp_accept(struct event *thread)
 	if (!peer1) {
 		peer1 = peer_lookup_dynamic_neighbor(bgp, &su);
 		if (peer1) {
-			struct peer_connection *incoming;
-
 			incoming = peer1->connection;
 			/* Dynamic neighbor has been created, let it proceed */
 			incoming->fd = bgp_sock;
@@ -615,7 +613,7 @@ static void bgp_accept(struct event *thread)
 	peer = peer_create(&su, peer1->conf_if, peer1->bgp, peer1->local_as,
 			   peer1->as, peer1->as_type, NULL, false, NULL);
 
-	connection = peer->connection;
+	incoming = peer->connection;
 
 	peer_xfer_config(peer, peer1);
 	bgp_peer_gr_flags_update(peer);
@@ -635,23 +633,22 @@ static void bgp_accept(struct event *thread)
 	peer->doppelganger = peer1;
 	peer1->doppelganger = peer;
 
-	connection->fd = bgp_sock;
-	connection->dir = CONNECTION_INCOMING;
-	connection->su_local = sockunion_getsockname(connection->fd);
-	connection->su_remote = sockunion_dup(&su);
+	incoming->fd = bgp_sock;
+	incoming->dir = CONNECTION_INCOMING;
+	incoming->su_local = sockunion_getsockname(incoming->fd);
+	incoming->su_remote = sockunion_dup(&su);
 
-	if (bgp_set_socket_ttl(connection) < 0)
+	if (bgp_set_socket_ttl(incoming) < 0)
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("[Event] Unable to set min/max TTL on peer %s, Continuing",
 				   peer->host);
 
 	frr_with_privs(&bgpd_privs) {
-		vrf_bind(peer->bgp->vrf_id, bgp_sock,
-			 bgp_get_bound_name(peer->connection));
+		vrf_bind(peer->bgp->vrf_id, bgp_sock, bgp_get_bound_name(incoming));
 	}
 	bgp_peer_reg_with_nht(peer);
-	bgp_fsm_change_status(connection, Active);
-	EVENT_OFF(connection->t_start); /* created in peer_create() */
+	bgp_fsm_change_status(incoming, Active);
+	EVENT_OFF(incoming->t_start); /* created in peer_create() */
 
 	SET_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER);
 	/* Make dummy peer until read Open packet. */
@@ -673,11 +670,11 @@ static void bgp_accept(struct event *thread)
 		bgp_event_update(connection1, TCP_connection_closed);
 	}
 
-	if (peer_active(peer->connection)) {
+	if (peer_active(incoming)) {
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER_DELAYOPEN))
-			BGP_EVENT_ADD(connection, TCP_connection_open_w_delay);
+			BGP_EVENT_ADD(incoming, TCP_connection_open_w_delay);
 		else
-			BGP_EVENT_ADD(connection, TCP_connection_open);
+			BGP_EVENT_ADD(incoming, TCP_connection_open);
 	}
 
 	/*
