@@ -396,7 +396,7 @@ static void bgp_accept(struct event *thread)
 	int accept_sock;
 	union sockunion su;
 	struct bgp_listener *listener = EVENT_ARG(thread);
-	struct peer *peer, *peer1;
+	struct peer *doppelganger, *peer1;
 	struct peer_connection *connection, *incoming;
 	char buf[SU_ADDRSTRLEN];
 	struct bgp *bgp = NULL;
@@ -609,28 +609,27 @@ static void bgp_accept(struct event *thread)
 		peer_delete(peer1->doppelganger);
 	}
 
-	peer = peer_create(&su, peer1->conf_if, peer1->bgp, peer1->local_as,
-			   peer1->as, peer1->as_type, NULL, false, NULL);
+	doppelganger = peer_create(&su, peer1->conf_if, peer1->bgp, peer1->local_as, peer1->as,
+				   peer1->as_type, NULL, false, NULL);
 
-	incoming = peer->connection;
+	incoming = doppelganger->connection;
 
-	peer_xfer_config(peer, peer1);
-	bgp_peer_gr_flags_update(peer);
+	peer_xfer_config(doppelganger, peer1);
+	bgp_peer_gr_flags_update(doppelganger);
 
-	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(peer->bgp,
-							  peer->bgp->peer);
+	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(doppelganger->bgp,
+							  doppelganger->bgp->peer);
 
-	if (bgp_peer_gr_mode_get(peer) == PEER_DISABLE) {
+	if (bgp_peer_gr_mode_get(doppelganger) == PEER_DISABLE) {
+		UNSET_FLAG(doppelganger->sflags, PEER_STATUS_NSF_MODE);
 
-		UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
-
-		if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT)) {
-			peer_nsf_stop(peer);
+		if (CHECK_FLAG(doppelganger->sflags, PEER_STATUS_NSF_WAIT)) {
+			peer_nsf_stop(doppelganger);
 		}
 	}
 
-	peer->doppelganger = peer1;
-	peer1->doppelganger = peer;
+	doppelganger->doppelganger = peer1;
+	peer1->doppelganger = doppelganger;
 
 	incoming->fd = bgp_sock;
 	incoming->dir = CONNECTION_INCOMING;
@@ -638,18 +637,18 @@ static void bgp_accept(struct event *thread)
 	incoming->su_remote = sockunion_dup(&su);
 
 	if (bgp_set_socket_ttl(incoming) < 0)
-		if (bgp_debug_neighbor_events(peer))
+		if (bgp_debug_neighbor_events(doppelganger))
 			zlog_debug("[Event] Unable to set min/max TTL on peer %s, Continuing",
-				   peer->host);
+				   doppelganger->host);
 
 	frr_with_privs(&bgpd_privs) {
-		vrf_bind(peer->bgp->vrf_id, bgp_sock, bgp_get_bound_name(incoming));
+		vrf_bind(doppelganger->bgp->vrf_id, bgp_sock, bgp_get_bound_name(incoming));
 	}
-	bgp_peer_reg_with_nht(peer);
+	bgp_peer_reg_with_nht(doppelganger);
 	bgp_fsm_change_status(incoming, Active);
 	EVENT_OFF(incoming->t_start); /* created in peer_create() */
 
-	SET_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER);
+	SET_FLAG(doppelganger->sflags, PEER_STATUS_ACCEPT_PEER);
 	/* Make dummy peer until read Open packet. */
 	if (peer_established(connection) &&
 	    CHECK_FLAG(peer1->sflags, PEER_STATUS_NSF_MODE)) {
@@ -670,7 +669,7 @@ static void bgp_accept(struct event *thread)
 	}
 
 	if (peer_active(incoming)) {
-		if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER_DELAYOPEN))
+		if (CHECK_FLAG(doppelganger->flags, PEER_FLAG_TIMER_DELAYOPEN))
 			BGP_EVENT_ADD(incoming, TCP_connection_open_w_delay);
 		else
 			BGP_EVENT_ADD(incoming, TCP_connection_open);
@@ -680,7 +679,7 @@ static void bgp_accept(struct event *thread)
 	 * If we are doing nht for a peer that is v6 LL based
 	 * massage the event system to make things happy
 	 */
-	bgp_nht_interface_events(peer);
+	bgp_nht_interface_events(doppelganger);
 }
 
 /* BGP socket bind. */
