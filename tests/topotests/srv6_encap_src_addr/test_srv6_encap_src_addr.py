@@ -49,9 +49,6 @@ def setup_module(mod):
         router.load_config(
             TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
         )
-        router.load_config(
-            TopoRouter.RD_SHARP, os.path.join(CWD, "{}/sharpd.conf".format(rname))
-        )
     tgen.start_router()
 
 
