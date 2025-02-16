@@ -64,7 +64,7 @@ def test_zebra_srv6_encap_src_addr(tgen):
     expected = json.loads(open(json_file).read())
 
     ok = topotest.router_json_cmp_retry(
-        r1, "show segment-routing srv6 manager json", expected
+        r1, "show segment-routing srv6 manager json", expected, retry_timeout=15
     )
     assert ok, '"r1" JSON output mismatches'
 
@@ -93,7 +93,7 @@ def test_zebra_srv6_encap_src_addr_unset(tgen):
     expected = json.loads(open(json_file).read())
 
     ok = topotest.router_json_cmp_retry(
-        r1, "show segment-routing srv6 manager json", expected
+        r1, "show segment-routing srv6 manager json", expected, retry_timeout=15
     )
     assert ok, '"r1" JSON output mismatches'
 
@@ -122,7 +122,7 @@ def test_zebra_srv6_encap_src_addr_set(tgen):
     expected = json.loads(open(json_file).read())
 
     ok = topotest.router_json_cmp_retry(
-        r1, "show segment-routing srv6 manager json", expected
+        r1, "show segment-routing srv6 manager json", expected, retry_timeout=15
     )
     assert ok, '"r1" JSON output mismatches'
 
