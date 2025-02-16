@@ -480,15 +480,17 @@ static void bgp_accept(struct event *thread)
 	if (!peer1) {
 		peer1 = peer_lookup_dynamic_neighbor(bgp, &su);
 		if (peer1) {
-			connection1 = peer1->connection;
+			struct peer_connection *incoming;
+
+			incoming = peer1->connection;
 			/* Dynamic neighbor has been created, let it proceed */
-			connection1->fd = bgp_sock;
-			connection1->dir = CONNECTION_INCOMING;
+			incoming->fd = bgp_sock;
+			incoming->dir = CONNECTION_INCOMING;
 
-			connection1->su_local = sockunion_getsockname(connection1->fd);
-			connection1->su_remote = sockunion_dup(&su);
+			incoming->su_local = sockunion_getsockname(incoming->fd);
+			incoming->su_remote = sockunion_dup(&su);
 
-			if (bgp_set_socket_ttl(connection1) < 0) {
+			if (bgp_set_socket_ttl(incoming) < 0) {
 				peer1->last_reset = PEER_DOWN_SOCKET_ERROR;
 				zlog_err("%s: Unable to set min/max TTL on peer %s (dynamic), error received: %s(%d)",
 					 __func__, peer1->host,
@@ -501,21 +503,18 @@ static void bgp_accept(struct event *thread)
 				sockopt_tcp_mss_set(bgp_sock, peer1->tcp_mss);
 
 			frr_with_privs (&bgpd_privs) {
-				vrf_bind(peer1->bgp->vrf_id, bgp_sock,
-					 bgp_get_bound_name(connection1));
+				vrf_bind(peer1->bgp->vrf_id, bgp_sock, bgp_get_bound_name(incoming));
 			}
 			bgp_peer_reg_with_nht(peer1);
-			bgp_fsm_change_status(connection1, Active);
-			EVENT_OFF(connection1->t_start);
+			bgp_fsm_change_status(incoming, Active);
+			EVENT_OFF(incoming->t_start);
 
-			if (peer_active(peer1->connection)) {
+			if (peer_active(incoming)) {
 				if (CHECK_FLAG(peer1->flags,
 					       PEER_FLAG_TIMER_DELAYOPEN))
-					BGP_EVENT_ADD(connection1,
-						      TCP_connection_open_w_delay);
+					BGP_EVENT_ADD(incoming, TCP_connection_open_w_delay);
 				else
-					BGP_EVENT_ADD(connection1,
-						      TCP_connection_open);
+					BGP_EVENT_ADD(incoming, TCP_connection_open);
 			}
 
 			return;
