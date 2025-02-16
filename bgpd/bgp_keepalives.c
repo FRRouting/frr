@@ -108,7 +108,7 @@ static void peer_process(struct hash_bucket *hb, void *arg)
 			zlog_debug("%s [FSM] Timer (keepalive timer expire)",
 				   pkat->peer->host);
 
-		bgp_keepalive_send(pkat->peer);
+		bgp_keepalive_send(pkat->peer->connection);
 		monotime(&pkat->last);
 		memset(&elapsed, 0, sizeof(elapsed));
 		diff = ka;
