@@ -613,7 +613,7 @@ void bgp_generate_updgrp_packets(struct event *thread)
 /*
  * Creates a BGP Keepalive packet and appends it to the peer's output queue.
  */
-void bgp_keepalive_send(struct peer *peer)
+void bgp_keepalive_send(struct peer_connection *connection)
 {
 	struct stream *s;
 
@@ -628,13 +628,13 @@ void bgp_keepalive_send(struct peer *peer)
 	/* Dump packet if debug option is set. */
 	/* bgp_packet_dump (s); */
 
-	if (bgp_debug_keepalive(peer))
-		zlog_debug("%s sending KEEPALIVE", peer->host);
+	if (bgp_debug_keepalive(connection->peer))
+		zlog_debug("%s sending KEEPALIVE", connection->peer->host);
 
 	/* Add packet to the peer. */
-	bgp_packet_add(peer->connection, peer, s);
+	bgp_packet_add(connection, connection->peer, s);
 
-	bgp_writes_on(peer->connection);
+	bgp_writes_on(connection);
 }
 
 struct stream *bgp_open_make(struct peer *peer, uint16_t send_holdtime, as_t local_as,
