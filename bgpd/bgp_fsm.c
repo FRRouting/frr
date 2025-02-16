@@ -1974,14 +1974,12 @@ bgp_reconnect(struct peer_connection *connection)
 static enum bgp_fsm_state_progress
 bgp_fsm_open(struct peer_connection *connection)
 {
-	struct peer *peer = connection->peer;
-
 	/* If DelayOpen is active, we may still need to send an open message */
 	if ((connection->status == Connect) || (connection->status == Active))
 		bgp_open_send(connection);
 
 	/* Send keepalive and make keepalive timer */
-	bgp_keepalive_send(peer);
+	bgp_keepalive_send(connection);
 
 	return BGP_FSM_SUCCESS;
 }
