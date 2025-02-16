@@ -396,7 +396,7 @@ static void bgp_accept(struct event *thread)
 	int accept_sock;
 	union sockunion su;
 	struct bgp_listener *listener = EVENT_ARG(thread);
-	struct peer *doppelganger, *peer1;
+	struct peer *doppelganger, *peer;
 	struct peer_connection *connection, *incoming;
 	char buf[SU_ADDRSTRLEN];
 	struct bgp *bgp = NULL;
@@ -475,9 +475,9 @@ static void bgp_accept(struct event *thread)
 	bgp_update_setsockopt_tcp_keepalive(bgp, bgp_sock);
 
 	/* Check remote IP address */
-	peer1 = peer_lookup(bgp, &su);
+	peer = peer_lookup(bgp, &su);
 
-	if (!peer1) {
+	if (!peer) {
 		struct peer *dynamic_peer = peer_lookup_dynamic_neighbor(bgp, &su);
 
 		if (dynamic_peer) {
@@ -519,7 +519,7 @@ static void bgp_accept(struct event *thread)
 		}
 	}
 
-	if (!peer1) {
+	if (!peer) {
 		if (bgp_debug_neighbor_events(NULL)) {
 			zlog_debug(
 				"[Event] %s connection rejected(%s:%u:%s) - not configured and not valid for dynamic",
@@ -530,10 +530,12 @@ static void bgp_accept(struct event *thread)
 		return;
 	}
 
-	connection = peer1->connection;
-	if (CHECK_FLAG(peer1->flags, PEER_FLAG_SHUTDOWN)
-	    || CHECK_FLAG(peer1->bgp->flags, BGP_FLAG_SHUTDOWN)) {
-		if (bgp_debug_neighbor_events(peer1))
+	/* bgp pointer may be null, but since we have a peer data structure we know we have it */
+	bgp = peer->bgp;
+	connection = peer->connection;
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN) ||
+	    CHECK_FLAG(peer->bgp->flags, BGP_FLAG_SHUTDOWN)) {
+		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
 				"[Event] connection from %s rejected(%s:%u:%s) due to admin shutdown",
 				inet_sutop(&su, buf), bgp->name_pretty, bgp->as,
@@ -549,20 +551,18 @@ static void bgp_accept(struct event *thread)
 	 * block incoming connection in Deleted state.
 	 */
 	if (connection->status == Clearing || connection->status == Deleted) {
-		if (bgp_debug_neighbor_events(peer1))
-			zlog_debug("[Event] Closing incoming conn for %s (%p) state %d",
-				   peer1->host, peer1,
-				   connection->status);
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("[Event] Closing incoming conn for %s (%p) state %d", peer->host,
+				   peer, connection->status);
 		close(bgp_sock);
 		return;
 	}
 
 	/* Check that at least one AF is activated for the peer. */
 	if (!peer_active(connection)) {
-		if (bgp_debug_neighbor_events(peer1))
-			zlog_debug(
-				"%s - incoming conn rejected - no AF activated for peer",
-				peer1->host);
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%s - incoming conn rejected - no AF activated for peer",
+				   peer->host);
 		close(bgp_sock);
 		return;
 	}
@@ -571,54 +571,50 @@ static void bgp_accept(struct event *thread)
 	 * prefixes, restart timer is still running or the peer
 	 * is shutdown, or BGP identifier is not set (0.0.0.0).
 	 */
-	if (BGP_PEER_START_SUPPRESSED(peer1)) {
-		if (bgp_debug_neighbor_events(peer1)) {
-			if (peer1->shut_during_cfg)
-				zlog_debug(
-					"[Event] Incoming BGP connection rejected from %s due to configuration being currently read in",
-					peer1->host);
+	if (BGP_PEER_START_SUPPRESSED(peer)) {
+		if (bgp_debug_neighbor_events(peer)) {
+			if (peer->shut_during_cfg)
+				zlog_debug("[Event] Incoming BGP connection rejected from %s due to configuration being currently read in",
+					   peer->host);
 			else
-				zlog_debug(
-					"[Event] Incoming BGP connection rejected from %s due to maximum-prefix or shutdown",
-					peer1->host);
+				zlog_debug("[Event] Incoming BGP connection rejected from %s due to maximum-prefix or shutdown",
+					   peer->host);
 		}
 		close(bgp_sock);
 		return;
 	}
 
-	if (peer1->bgp->router_id.s_addr == INADDR_ANY) {
+	if (peer->bgp->router_id.s_addr == INADDR_ANY) {
 		zlog_warn("[Event] Incoming BGP connection rejected from %s due missing BGP identifier, set it with `bgp router-id`",
-			  peer1->host);
-		peer1->last_reset = PEER_DOWN_ROUTER_ID_ZERO;
+			  peer->host);
+		peer->last_reset = PEER_DOWN_ROUTER_ID_ZERO;
 		close(bgp_sock);
 		return;
 	}
 
-	if (bgp_debug_neighbor_events(peer1))
+	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("[Event] connection from %s fd %d, active peer status %d fd %d",
 			   inet_sutop(&su, buf), bgp_sock, connection->status, connection->fd);
 
-	if (peer1->doppelganger) {
+	if (peer->doppelganger) {
 		/* We have an existing connection. Kill the existing one and run
 		   with this one.
 		*/
-		if (bgp_debug_neighbor_events(peer1))
-			zlog_debug(
-				"[Event] New active connection from peer %s, Killing previous active connection",
-				peer1->host);
-		peer_delete(peer1->doppelganger);
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("[Event] New active connection from peer %s, Killing previous active connection",
+				   peer->host);
+		peer_delete(peer->doppelganger);
 	}
 
-	doppelganger = peer_create(&su, peer1->conf_if, peer1->bgp, peer1->local_as, peer1->as,
-				   peer1->as_type, NULL, false, NULL);
+	doppelganger = peer_create(&su, peer->conf_if, bgp, peer->local_as, peer->as, peer->as_type,
+				   NULL, false, NULL);
 
 	incoming = doppelganger->connection;
 
-	peer_xfer_config(doppelganger, peer1);
+	peer_xfer_config(doppelganger, peer);
 	bgp_peer_gr_flags_update(doppelganger);
 
-	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(doppelganger->bgp,
-							  doppelganger->bgp->peer);
+	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(bgp, bgp->peer);
 
 	if (bgp_peer_gr_mode_get(doppelganger) == PEER_DISABLE) {
 		UNSET_FLAG(doppelganger->sflags, PEER_STATUS_NSF_MODE);
@@ -628,8 +624,8 @@ static void bgp_accept(struct event *thread)
 		}
 	}
 
-	doppelganger->doppelganger = peer1;
-	peer1->doppelganger = doppelganger;
+	doppelganger->doppelganger = peer;
+	peer->doppelganger = doppelganger;
 
 	incoming->fd = bgp_sock;
 	incoming->dir = CONNECTION_INCOMING;
@@ -642,7 +638,7 @@ static void bgp_accept(struct event *thread)
 				   doppelganger->host);
 
 	frr_with_privs(&bgpd_privs) {
-		vrf_bind(doppelganger->bgp->vrf_id, bgp_sock, bgp_get_bound_name(incoming));
+		vrf_bind(bgp->vrf_id, bgp_sock, bgp_get_bound_name(incoming));
 	}
 	bgp_peer_reg_with_nht(doppelganger);
 	bgp_fsm_change_status(incoming, Active);
@@ -650,20 +646,18 @@ static void bgp_accept(struct event *thread)
 
 	SET_FLAG(doppelganger->sflags, PEER_STATUS_ACCEPT_PEER);
 	/* Make dummy peer until read Open packet. */
-	if (peer_established(connection) &&
-	    CHECK_FLAG(peer1->sflags, PEER_STATUS_NSF_MODE)) {
+	if (peer_established(connection) && CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE)) {
 		/* If we have an existing established connection with graceful
 		 * restart
 		 * capability announced with one or more address families, then
 		 * drop
 		 * existing established connection and move state to connect.
 		 */
-		peer1->last_reset = PEER_DOWN_NSF_CLOSE_SESSION;
+		peer->last_reset = PEER_DOWN_NSF_CLOSE_SESSION;
 
-		if (CHECK_FLAG(peer1->flags, PEER_FLAG_GRACEFUL_RESTART)
-		    || CHECK_FLAG(peer1->flags,
-				  PEER_FLAG_GRACEFUL_RESTART_HELPER))
-			SET_FLAG(peer1->sflags, PEER_STATUS_NSF_WAIT);
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART) ||
+		    CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART_HELPER))
+			SET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
 
 		bgp_event_update(connection, TCP_connection_closed);
 	}
