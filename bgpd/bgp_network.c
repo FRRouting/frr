@@ -478,9 +478,10 @@ static void bgp_accept(struct event *thread)
 	peer1 = peer_lookup(bgp, &su);
 
 	if (!peer1) {
-		peer1 = peer_lookup_dynamic_neighbor(bgp, &su);
-		if (peer1) {
-			incoming = peer1->connection;
+		struct peer *dynamic_peer = peer_lookup_dynamic_neighbor(bgp, &su);
+
+		if (dynamic_peer) {
+			incoming = dynamic_peer->connection;
 			/* Dynamic neighbor has been created, let it proceed */
 			incoming->fd = bgp_sock;
 			incoming->dir = CONNECTION_INCOMING;
@@ -489,27 +490,26 @@ static void bgp_accept(struct event *thread)
 			incoming->su_remote = sockunion_dup(&su);
 
 			if (bgp_set_socket_ttl(incoming) < 0) {
-				peer1->last_reset = PEER_DOWN_SOCKET_ERROR;
+				dynamic_peer->last_reset = PEER_DOWN_SOCKET_ERROR;
 				zlog_err("%s: Unable to set min/max TTL on peer %s (dynamic), error received: %s(%d)",
-					 __func__, peer1->host,
-					 safe_strerror(errno), errno);
+					 __func__, dynamic_peer->host, safe_strerror(errno), errno);
 				return;
 			}
 
 			/* Set the user configured MSS to TCP socket */
-			if (CHECK_FLAG(peer1->flags, PEER_FLAG_TCP_MSS))
-				sockopt_tcp_mss_set(bgp_sock, peer1->tcp_mss);
+			if (CHECK_FLAG(dynamic_peer->flags, PEER_FLAG_TCP_MSS))
+				sockopt_tcp_mss_set(bgp_sock, dynamic_peer->tcp_mss);
 
 			frr_with_privs (&bgpd_privs) {
-				vrf_bind(peer1->bgp->vrf_id, bgp_sock, bgp_get_bound_name(incoming));
+				vrf_bind(dynamic_peer->bgp->vrf_id, bgp_sock,
+					 bgp_get_bound_name(incoming));
 			}
-			bgp_peer_reg_with_nht(peer1);
+			bgp_peer_reg_with_nht(dynamic_peer);
 			bgp_fsm_change_status(incoming, Active);
 			EVENT_OFF(incoming->t_start);
 
 			if (peer_active(incoming)) {
-				if (CHECK_FLAG(peer1->flags,
-					       PEER_FLAG_TIMER_DELAYOPEN))
+				if (CHECK_FLAG(dynamic_peer->flags, PEER_FLAG_TIMER_DELAYOPEN))
 					BGP_EVENT_ADD(incoming, TCP_connection_open_w_delay);
 				else
 					BGP_EVENT_ADD(incoming, TCP_connection_open);
