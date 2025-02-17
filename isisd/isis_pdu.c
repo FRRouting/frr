@@ -1938,6 +1938,11 @@ int send_hello(struct isis_circuit *circuit, int level)
 	size_t len_pointer;
 	int retval;
 
+	if (!circuit) {
+		zlog_warn("circuit not found");
+		return ISIS_WARNING;
+	}
+
 	if (circuit->is_passive)
 		return ISIS_OK;
 
