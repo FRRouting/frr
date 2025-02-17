@@ -31,7 +31,7 @@ static enum zclient_send_status path_ted_link_state_sync(void);
 static void path_ted_timer_handler_sync(struct event *thread);
 static void path_ted_timer_handler_refresh(struct event *thread);
 
-extern struct zclient *zclient;
+extern struct zclient *pathd_zclient;
 
 struct ted_state ted_state_g = { .dbg = { .conf = "debug pathd mpls-te",
 					  .desc = "Pathd TED" } };
@@ -40,9 +40,9 @@ struct ted_state ted_state_g = { .dbg = { .conf = "debug pathd mpls-te",
  * path_path_ted public API function implementations
  */
 
-void path_ted_init(struct event_loop *master)
+void path_ted_init(struct event_loop *loop)
 {
-	ted_state_g.main = master;
+	ted_state_g.main = loop;
 	ted_state_g.link_state_delay_interval = TIMER_RETRY_DELAY;
 	ted_state_g.segment_list_refresh_interval = TIMER_RETRY_DELAY;
 	path_ted_register_vty();
@@ -82,7 +82,7 @@ uint32_t path_ted_start_importing_igp(const char *daemon_str)
 		return 1;
 	}
 
-	if (ls_register(zclient, false /*client*/) != 0) {
+	if (ls_register(pathd_zclient, false /*client*/) != 0) {
 		PATH_TED_ERROR("%s: PATHD-TED: Unable to register Link State",
 			       __func__);
 		ted_state_g.import = IMPORT_UNKNOWN;
@@ -113,7 +113,7 @@ uint32_t path_ted_stop_importing_igp(void)
 	uint32_t status = 0;
 
 	if (ted_state_g.import != IMPORT_UNKNOWN) {
-		if (ls_unregister(zclient, false /*client*/) != 0) {
+		if (ls_unregister(pathd_zclient, false /*client*/) != 0) {
 			PATH_TED_ERROR(
 				"%s: PATHD-TED: Unable to unregister Link State",
 				__func__);
@@ -382,7 +382,7 @@ DEFUN (no_path_ted,
 	ted_state_g.enabled = false;
 	PATH_TED_DEBUG("%s: PATHD-TED: ON -> OFF", __func__);
 	ted_state_g.import = IMPORT_UNKNOWN;
-	if (ls_unregister(zclient, false /*client*/) != 0) {
+	if (ls_unregister(pathd_zclient, false /*client*/) != 0) {
 		vty_out(vty, "Unable to unregister Link State\n");
 		return CMD_WARNING;
 	}
@@ -538,7 +538,7 @@ enum zclient_send_status path_ted_link_state_sync(void)
 {
 	enum zclient_send_status status;
 
-	status = ls_request_sync(zclient);
+	status = ls_request_sync(pathd_zclient);
 	if (status == -1) {
 		PATH_TED_ERROR(
 			"%s: PATHD-TED: Opaque error asking for TED sync ",

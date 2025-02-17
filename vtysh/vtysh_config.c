@@ -558,19 +558,19 @@ static void configvec_dump(vector vec, bool nested)
 					continue;
 				}
 
-				vty_out(vty, "%s\n", config->name);
+				vty_out(gvty, "%s\n", config->name);
 
 				for (ALL_LIST_ELEMENTS(config->line, mnode,
 						       mnnode, line))
-					vty_out(vty, "%s\n", line);
+					vty_out(gvty, "%s\n", line);
 
 				configvec_dump(config->nested, true);
 
 				if (config->exit)
-					vty_out(vty, "%s\n", config->exit);
+					vty_out(gvty, "%s\n", config->exit);
 
 				if (!NO_DELIMITER(i))
-					vty_out(vty, "!\n");
+					vty_out(gvty, "!\n");
 
 				config_del(config);
 			}
@@ -579,7 +579,7 @@ static void configvec_dump(vector vec, bool nested)
 			XFREE(MTYPE_VTYSH_CONFIG, configuration);
 			vector_slot(vec, i) = NULL;
 			if (!nested && NO_DELIMITER(i))
-				vty_out(vty, "!\n");
+				vty_out(gvty, "!\n");
 		}
 }
 
@@ -589,11 +589,11 @@ void vtysh_config_dump(void)
 	char *line;
 
 	for (ALL_LIST_ELEMENTS(config_top, node, nnode, line))
-		vty_out(vty, "%s\n", line);
+		vty_out(gvty, "%s\n", line);
 
 	list_delete_all_node(config_top);
 
-	vty_out(vty, "!\n");
+	vty_out(gvty, "!\n");
 
 	configvec_dump(configvec, false);
 }
@@ -601,13 +601,13 @@ void vtysh_config_dump(void)
 /* Read up configuration file from file_name. */
 static int vtysh_read_file(FILE *confp, bool dry_run)
 {
-	struct vty *vty;
+	struct vty *lvty;
 	int ret;
 
-	vty = vty_new();
-	vty->wfd = STDERR_FILENO;
-	vty->type = VTY_TERM;
-	vty->node = CONFIG_NODE;
+	lvty = vty_new();
+	lvty->wfd = STDERR_FILENO;
+	lvty->type = VTY_TERM;
+	lvty->node = CONFIG_NODE;
 
 	vtysh_execute_no_pager("enable");
 	/*
@@ -622,7 +622,7 @@ static int vtysh_read_file(FILE *confp, bool dry_run)
 		vtysh_execute_no_pager("XFRR_start_configuration");
 
 	/* Execute configuration file. */
-	ret = vtysh_config_from_file(vty, confp);
+	ret = vtysh_config_from_file(lvty, confp);
 
 	if (!dry_run)
 		vtysh_execute_no_pager("XFRR_end_configuration");
@@ -630,7 +630,7 @@ static int vtysh_read_file(FILE *confp, bool dry_run)
 	vtysh_execute_no_pager("end");
 	vtysh_execute_no_pager("disable");
 
-	vty_close(vty);
+	vty_close(lvty);
 
 	return (ret);
 }
