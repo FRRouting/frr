@@ -46,6 +46,7 @@ static const bool fabricd = false;
 #define PROTO_TYPE ZEBRA_ROUTE_ISIS
 #define PROTO_NAME "isis"
 #define PROTO_HELP "IS-IS routing protocol\n"
+#define PROTO_HELP_REDIST     "Intermediate System to Intermediate System (IS-IS)\n"
 #define PROTO_REDIST_STR FRR_REDIST_STR_ISISD
 #define PROTO_IP_REDIST_STR FRR_IP_REDIST_STR_ISISD
 #define PROTO_IP6_REDIST_STR FRR_IP6_REDIST_STR_ISISD
@@ -255,6 +256,9 @@ struct isis_area {
 	uint64_t auth_failures[2];
 	uint64_t id_len_mismatches[2];
 	uint64_t lsp_error_counter[2];
+
+	struct list *levels_redist_sett;
+	struct list *levels_redist_list[2];
 
 	QOBJ_FIELDS;
 };
