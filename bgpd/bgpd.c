@@ -3412,12 +3412,28 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	afi_t afi;
 	safi_t safi;
 
-	if (hidden) {
+	if (hidden)
 		bgp = bgp_old;
-		goto peer_init;
-	}
+	else
+		bgp = XCALLOC(MTYPE_BGP, sizeof(struct bgp));
 
-	bgp = XCALLOC(MTYPE_BGP, sizeof(struct bgp));
+	bgp->as = *as;
+
+	if (bgp->as_pretty)
+		XFREE(MTYPE_BGP_NAME, bgp->as_pretty);
+	if (as_pretty)
+		bgp->as_pretty = XSTRDUP(MTYPE_BGP_NAME, as_pretty);
+	else
+		bgp->as_pretty = XSTRDUP(MTYPE_BGP_NAME, asn_asn2asplain(*as));
+
+	if (asnotation != ASNOTATION_UNDEFINED) {
+		bgp->asnotation = asnotation;
+		SET_FLAG(bgp->config, BGP_CONFIG_ASNOTATION);
+	} else
+		asn_str2asn_notation(bgp->as_pretty, NULL, &bgp->asnotation);
+
+	if (hidden)
+		goto peer_init;
 
 	if (BGP_DEBUG(zebra, ZEBRA)) {
 		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
@@ -3461,18 +3477,6 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp->peer = list_new();
 
 peer_init:
-	bgp->as = *as;
-	if (as_pretty)
-		bgp->as_pretty = XSTRDUP(MTYPE_BGP_NAME, as_pretty);
-	else
-		bgp->as_pretty = XSTRDUP(MTYPE_BGP_NAME, asn_asn2asplain(*as));
-
-	if (asnotation != ASNOTATION_UNDEFINED) {
-		bgp->asnotation = asnotation;
-		SET_FLAG(bgp->config, BGP_CONFIG_ASNOTATION);
-	} else
-		asn_str2asn_notation(bgp->as_pretty, NULL, &bgp->asnotation);
-
 	bgp->peer->cmp = (int (*)(void *, void *))peer_cmp;
 	bgp->peerhash = hash_create(peer_hash_key_make, peer_hash_same,
 				    "BGP Peer Hash");
@@ -3569,7 +3573,7 @@ peer_init:
 	/* printable name we can use in debug messages */
 	if (inst_type == BGP_INSTANCE_TYPE_DEFAULT && !hidden) {
 		bgp->name_pretty = XSTRDUP(MTYPE_BGP_NAME, "VRF default");
-	} else {
+	} else if (!hidden) {
 		const char *n;
 		int len;
 
@@ -3772,7 +3776,7 @@ int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as, const char *as_pr
 		/* Handle AS number change */
 		if (bgp->as != *as) {
 			if (hidden || CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO)) {
-				if (force_config == false && hidden) {
+				if (hidden) {
 					bgp_create(as, name, inst_type,
 						   as_pretty, asnotation, bgp,
 						   hidden);
@@ -4265,12 +4269,11 @@ int bgp_delete(struct bgp *bgp)
 			bgp_set_evpn(bgp_get_default());
 	}
 
-	if (bgp->process_queue)
-		work_queue_free_and_null(&bgp->process_queue);
-
-	if (!IS_BGP_INSTANCE_HIDDEN(bgp))
+	if (!IS_BGP_INSTANCE_HIDDEN(bgp)) {
+		if (bgp->process_queue)
+			work_queue_free_and_null(&bgp->process_queue);
 		bgp_unlock(bgp); /* initial reference */
-	else {
+	} else {
 		for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 			enum vpn_policy_direction dir;
 
