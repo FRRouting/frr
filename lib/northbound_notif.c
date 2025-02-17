@@ -323,6 +323,11 @@ static void nb_notif_delete(const char *path)
 	__op_change_add_del(path, &nb_notif_dels, &nb_notif_adds);
 }
 
+
+/* ---------------------------------------------- */
+/* User functions to update and delete oper state */
+/* ---------------------------------------------- */
+
 struct lyd_node *nb_op_update(struct lyd_node *tree, const char *path, const char *value)
 {
 	struct lyd_node *dnode;
