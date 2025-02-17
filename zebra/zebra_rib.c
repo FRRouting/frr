@@ -391,11 +391,10 @@ int zebra_check_addr(const struct prefix *p)
 	if (p->family == AF_INET) {
 		uint32_t addr;
 
-		addr = p->u.prefix4.s_addr;
-		addr = ntohl(addr);
+		addr = ntohl(p->u.prefix4.s_addr);
 
-		if (IPV4_NET127(addr) || IN_CLASSD(addr)
-		    || IPV4_LINKLOCAL(addr))
+		if (IPV4_NET127(addr) || IN_CLASSD(addr) ||
+		    (IPV4_LINKLOCAL(addr) && !IPV4_CLASS_E(addr)))
 			return 0;
 	}
 	if (p->family == AF_INET6) {
