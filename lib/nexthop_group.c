@@ -341,6 +341,67 @@ void nexthop_group_add_sorted(struct nexthop_group *nhg,
 	_nexthop_add_sorted(&nhg->nexthop, nexthop);
 }
 
+/* Add nexthop to sorted list of nexthops.
+ * The difference with _nexthop_add_sorted is that it filters out duplicate nexthops.
+ */
+static bool _nexthop_add_no_dup(struct nexthop **head, struct nexthop *nexthop)
+{
+	struct nexthop *position, *prev;
+	int ret = 0;
+
+	assert(!nexthop->next);
+
+	for (position = *head, prev = NULL; position; prev = position, position = position->next) {
+		ret = nexthop_cmp(position, nexthop);
+		if (ret == 0)
+			return false;
+		else if (nexthop_cmp(position, nexthop) > 0) {
+			nexthop->next = position;
+			nexthop->prev = prev;
+
+			if (nexthop->prev)
+				nexthop->prev->next = nexthop;
+			else
+				*head = nexthop;
+
+			position->prev = nexthop;
+			return true;
+		}
+	}
+
+	nexthop->prev = prev;
+	if (prev)
+		prev->next = nexthop;
+	else
+		*head = nexthop;
+	return true;
+}
+
+bool nexthop_group_add_sorted_nodup(struct nexthop_group *nhg, struct nexthop *nexthop)
+{
+	struct nexthop *tail;
+	int ret = 0;
+
+	assert(!nexthop->next);
+
+	/* Try to just append to the end first;
+	 * trust the list is already sorted
+	 */
+	tail = nexthop_group_tail(nhg);
+	if (tail) {
+		ret = nexthop_cmp(tail, nexthop);
+		if (ret == 0)
+			return false;
+		if (ret < 0) {
+			tail->next = nexthop;
+			nexthop->prev = tail;
+			return true;
+		}
+	}
+
+	return _nexthop_add_no_dup(&nhg->nexthop, nexthop);
+}
+
 /* Delete nexthop from a nexthop list.  */
 void _nexthop_del(struct nexthop_group *nhg, struct nexthop *nh)
 {
@@ -426,6 +487,18 @@ void copy_nexthops(struct nexthop **tnh, const struct nexthop *nh,
 
 	for (nh1 = nh; nh1; nh1 = nh1->next) {
 		nexthop = nexthop_dup(nh1, rparent);
+		_nexthop_add(tnh, nexthop);
+	}
+}
+
+/* Copy a list of nexthops, filtered the part of context. */
+void copy_nexthops_nocontext(struct nexthop **tnh, const struct nexthop *nh, struct nexthop *rparent)
+{
+	struct nexthop *nexthop;
+	const struct nexthop *nh1;
+
+	for (nh1 = nh; nh1; nh1 = nh1->next) {
+		nexthop = nexthop_dup_no_context(nh1, rparent);
 		_nexthop_add(tnh, nexthop);
 	}
 }
