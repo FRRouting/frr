@@ -25,7 +25,7 @@
 #include "network.h"
 #include "command.h"
 #include "stream.h"
-#include "log.h"
+#include "zlog.h"
 #include "keychain.h"
 #include "vrf.h"
 
@@ -44,26 +44,22 @@
 #include "eigrpd/eigrp_metric.h"
 
 DEFINE_MTYPE_STATIC(EIGRPD, EIGRP_IF, "EIGRP interface");
+DEFINE_MTYPE(EIGRPD, EIGRP_IF_STRING, "EIGRP Interface String");
 
-struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
-				     struct prefix *p)
+static void eigrp_passive_interface_apply(struct interface *ifp);
+
+int eigrp_if_new_hook(struct interface *ifp)
 {
 	struct eigrp_interface *ei = ifp->info;
 	int i;
 
-	if (ei)
-		return ei;
-
 	ei = XCALLOC(MTYPE_EIGRP_IF, sizeof(struct eigrp_interface));
+	ifp->info = ei;
 
 	/* Set zebra interface pointer. */
 	ei->ifp = ifp;
-	prefix_copy(&ei->address, p);
-
-	ifp->info = ei;
-	listnode_add(eigrp->eiflist, ei);
-
 	ei->type = EIGRP_IFTYPE_BROADCAST;
+	ei->initialized = false;
 
 	/* Initialize neighbor list. */
 	ei->nbrs = list_new();
@@ -77,8 +73,6 @@ struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
 		ei->routemap[i] = NULL;
 	}
 
-	ei->eigrp = eigrp;
-
 	ei->params.v_hello = EIGRP_HELLO_INTERVAL_DEFAULT;
 	ei->params.v_wait = EIGRP_HOLD_INTERVAL_DEFAULT;
 	ei->params.bandwidth = EIGRP_BANDWIDTH_DEFAULT;
@@ -91,7 +85,7 @@ struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
 	ei->curr_bandwidth = ifp->bandwidth;
 	ei->curr_mtu = ifp->mtu;
 
-	return ei;
+	return 0;
 }
 
 int eigrp_if_delete_hook(struct interface *ifp)
@@ -123,6 +117,7 @@ static int eigrp_ifp_create(struct interface *ifp)
 
 	ei->params.type = eigrp_default_iftype(ifp);
 
+	eigrp_passive_interface_apply(ifp);
 	eigrp_if_update(ifp);
 
 	return 0;
@@ -136,7 +131,7 @@ static int eigrp_ifp_up(struct interface *ifp)
 		zlog_debug("Zebra: Interface[%s] state change to up.",
 			   ifp->name);
 
-	if (!ei)
+	if (!ei || !ei->eigrp)
 		return 0;
 
 	if (ei->curr_bandwidth != ifp->bandwidth) {
@@ -163,6 +158,7 @@ static int eigrp_ifp_up(struct interface *ifp)
 		return 0;
 	}
 
+	eigrp_passive_interface_apply(ifp);
 	eigrp_if_up(ifp->info);
 
 	return 0;
@@ -207,7 +203,7 @@ void eigrp_if_init(void)
 	hook_register_prio(if_down, 0, eigrp_ifp_down);
 	hook_register_prio(if_unreal, 0, eigrp_ifp_destroy);
 	/* Initialize Zebra interface data structure. */
-	// hook_register_prio(if_add, 0, eigrp_if_new);
+	hook_register_prio(if_add, 0, eigrp_if_new_hook);
 	hook_register_prio(if_del, 0, eigrp_if_delete_hook);
 }
 
@@ -377,6 +373,110 @@ bool eigrp_if_is_passive(struct eigrp_interface *ei)
 	return true;
 }
 
+
+/* Utility function for looking up passive interface settings. */
+static int eigrp_passive_nondefault_lookup(struct eigrp *eigrp, const char *ifname)
+{
+	unsigned int i;
+	char *str;
+
+	for (i = 1; i < vector_active(eigrp->passive_nondefault); i++) {
+		str = vector_slot(eigrp->passive_nondefault, i);
+		if (str && strmatch(str, ifname))
+			return i;
+	}
+	return 0;
+}
+
+static void eigrp_passive_interface_apply(struct interface *ifp)
+{
+	struct eigrp_interface *ei = ifp->info;
+	struct eigrp *eigrp;
+	int ifidx;
+
+	if (!ei || !ei->eigrp)
+		return;
+
+	eigrp = ei->eigrp;
+	ifidx = (eigrp_passive_nondefault_lookup(eigrp, ifp->name));
+	ei->params.passive_interface =
+		(ifidx == 0) ? eigrp->passive_interface_default
+			     : !eigrp->passive_interface_default;
+	if (IS_DEBUG_EIGRP(zebra, ZEBRA_INTERFACE))
+		zlog_debug("interface %s: passive = %d", ifp->name,
+			   ei->params.passive_interface);
+
+}
+
+static void eigrp_passive_interface_apply_all(struct eigrp *eigrp)
+{
+	struct interface *ifp;
+	struct vrf *vrf;
+
+	vrf = vrf_lookup_by_id(eigrp->vrf_id);
+	FOR_ALL_INTERFACES (vrf, ifp)
+		eigrp_passive_interface_apply(ifp);
+}
+
+
+/* Passive interface. */
+int eigrp_passive_nondefault_set(struct eigrp *eigrp, const char *ifname)
+{
+	if (eigrp_passive_nondefault_lookup(eigrp, ifname) > 0)
+		/*
+		 * Don't return an error, this can happen after changing
+		 * 'passive-default'.
+		 */
+		return NB_OK;
+
+	vector_set(eigrp->passive_nondefault,
+		   XSTRDUP(MTYPE_EIGRP_IF_STRING, ifname));
+
+	eigrp_passive_interface_apply_all(eigrp);
+
+	return NB_OK;
+}
+
+int eigrp_passive_nondefault_unset(struct eigrp *eigrp, const char *ifname)
+{
+	int i;
+	char *str;
+
+	i = eigrp_passive_nondefault_lookup(eigrp, ifname);
+	if (i == 0)
+		/*
+		 * Don't return an error, this can happen after changing
+		 * 'passive-default'.
+		 */
+		return NB_OK;
+
+	str = vector_slot(eigrp->passive_nondefault, i);
+	XFREE(MTYPE_EIGRP_IF_STRING, str);
+	vector_unset(eigrp->passive_nondefault, i);
+
+	eigrp_passive_interface_apply_all(eigrp);
+
+	return NB_OK;
+}
+
+
+/* Free all configured eigrp passive-interface settings. */
+void eigrp_passive_nondefault_clean(struct eigrp *eigrp)
+{
+	unsigned int i;
+	char *str;
+
+	for (i = 1; i < vector_active(eigrp->passive_nondefault); i++) {
+		str = vector_slot(eigrp->passive_nondefault, i);
+		if (str) {
+			XFREE(MTYPE_EIGRP_IF_STRING, str);
+			vector_slot(eigrp->passive_nondefault, i) = NULL;
+		}
+	}
+	eigrp_passive_interface_apply_all(eigrp);
+}
+
+
 void eigrp_if_set_multicast(struct eigrp_interface *ei)
 {
 	if (!eigrp_if_is_passive(ei)) {
@@ -446,7 +546,7 @@ void eigrp_if_reset(struct interface *ifp)
 {
 	struct eigrp_interface *ei = ifp->info;
 
-	if (!ei)
+	if (!ei || !ei->eigrp)
 		return;
 
 	eigrp_if_down(ei);
