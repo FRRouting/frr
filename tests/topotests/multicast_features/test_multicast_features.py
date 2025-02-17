@@ -147,10 +147,14 @@ def test_pim_convergence():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    def expect_pim_peer(router, iptype, interface, peer):
+    def expect_pim_peer(router, iptype, interface, peer, missing=False):
         "Wait until peer is present."
-        logger.info(f"waiting peer {peer} in {router}")
-        expected = {interface: {peer: {"upTime": "*"}}}
+        if missing:
+            logger.info(f"waiting peer {peer} in {router} to disappear")
+            expected = {interface: {peer: None}}
+        else:
+            logger.info(f"waiting peer {peer} in {router}")
+            expected = {interface: {peer: {"upTime": "*"}}}
 
         test_func = partial(
             topotest.router_json_cmp,
@@ -164,7 +168,15 @@ def test_pim_convergence():
 
     expect_pim_peer("r1", "ip", "r1-eth0", "192.168.1.2")
     expect_pim_peer("r2", "ip", "r2-eth0", "192.168.1.1")
-    expect_pim_peer("r1", "ip", "r1-eth1", "192.168.2.2")
+
+    # This neighbor is denied by default
+    expect_pim_peer("r1", "ip", "r1-eth1", "192.168.2.2", missing=True)
+    # Lets configure the prefix list so the above neighbor gets accepted:
+    tgen.gears["r1"].vtysh_cmd("""
+        configure terminal
+        ip prefix-list pim-eth0-neighbors permit 192.168.2.0/24
+    """)
+    expect_pim_peer("r1", "ip", "r1-eth1", "192.168.2.2", missing=False)
 
     #
     # IPv6 part
@@ -180,7 +192,14 @@ def test_pim_convergence():
 
     expect_pim_peer("r1", "ipv6", "r1-eth0", r2_link_address)
     expect_pim_peer("r2", "ipv6", "r2-eth0", r1_r2_link_address)
-    expect_pim_peer("r1", "ipv6", "r1-eth1", r3_link_address)
+    expect_pim_peer("r1", "ipv6", "r1-eth1", r3_link_address, missing=True)
+
+    tgen.gears["r1"].vtysh_cmd(f"""
+        configure terminal
+        ipv6 prefix-list pimv6-eth0-neighbors permit {r3_link_address}/64
+    """)
+
+    expect_pim_peer("r1", "ipv6", "r1-eth1", r3_link_address, missing=False)
 
 
 def test_igmp_group_limit():

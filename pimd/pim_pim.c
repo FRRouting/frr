@@ -149,6 +149,9 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 	uint32_t pim_msg_len = 0;
 	uint16_t pim_checksum; /* received checksum */
 	uint16_t checksum;     /* computed checksum */
+	struct pim_interface *pim_ifp = ifp->info;
+	struct prefix src_prefix;
+	struct prefix_list *nbr_plist = NULL;
 	struct pim_neighbor *neigh;
 	struct pim_msg_header *header;
 	bool   no_fwd;
@@ -202,6 +205,41 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 			zlog_debug(
 				"Ignoring PIM pkt from %s with unsupported version: %d",
 				ifp->name, header->ver);
+		return -1;
+	}
+
+	switch (header->type) {
+	case PIM_MSG_TYPE_HELLO:
+	case PIM_MSG_TYPE_JOIN_PRUNE:
+	case PIM_MSG_TYPE_ASSERT:
+		if (pim_ifp == NULL || pim_ifp->nbr_plist == NULL)
+			break;
+
+		nbr_plist = prefix_list_lookup(PIM_AFI, pim_ifp->nbr_plist);
+
+#if PIM_IPV == 4
+		src_prefix.family = AF_INET;
+		src_prefix.prefixlen = IPV4_MAX_BITLEN;
+		src_prefix.u.prefix4 = sg.src;
+#else
+		src_prefix.family = AF_INET6;
+		src_prefix.prefixlen = IPV6_MAX_BITLEN;
+		src_prefix.u.prefix6 = sg.src;
+#endif
+
+		if (nbr_plist &&
+		    prefix_list_apply_ext(nbr_plist, NULL, &src_prefix, true) == PREFIX_PERMIT)
+			break;
+
+#if PIM_IPV == 4
+		if (PIM_DEBUG_PIM_PACKETS)
+			zlog_debug("neighbor filter rejects packet %pI4 -> %pI4 on %s",
+				   &ip_hdr->ip_src, &ip_hdr->ip_dst, ifp->name);
+#else
+		if (PIM_DEBUG_PIM_PACKETS)
+			zlog_debug("neighbor filter rejects packet %pI6 -> %pI6 on %s", &sg.src,
+				   &sg.grp, ifp->name);
+#endif
 		return -1;
 	}
 

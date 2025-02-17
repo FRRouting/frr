@@ -516,6 +516,12 @@ module frr-pim {
         "Hello holdtime";
     }
 
+    leaf neighbor-filter-prefix-list {
+      type plist-ref;
+      description
+        "Prefix-List to filter allowed PIM neighbors.";
+    }
+
     container bfd {
       presence
         "Enable BFD support on the interface.";
