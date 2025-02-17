@@ -87,7 +87,7 @@ find_route_slot(const unsigned char *prefix, unsigned char plen,
 
 struct babel_route *
 find_route(const unsigned char *prefix, unsigned char plen,
-           struct neighbour *neigh, const unsigned char *nexthop)
+           struct neighbour *neigh)
 {
     struct babel_route *route;
     int i = find_route_slot(prefix, plen, NULL);
@@ -98,7 +98,7 @@ find_route(const unsigned char *prefix, unsigned char plen,
     route = routes[i];
 
     while(route) {
-        if(route->neigh == neigh && memcmp(route->nexthop, nexthop, 16) == 0)
+        if(route->neigh == neigh)
             return route;
         route = route->next;
     }
@@ -777,12 +777,16 @@ update_route(const unsigned char *router_id,
     int add_metric;
     int hold_time = MAX((4 * interval) / 100 + interval / 50, 15);
 
-    if(memcmp(router_id, myid, 8) == 0)
+    if(!router_id){
+        if(refmetric < 0xFFFF)
+            return NULL;
+    }  
+    else if(memcmp(router_id, myid, 8) == 0)
         return NULL;
 
     if(martian_prefix(prefix, plen)) {
         flog_err(EC_BABEL_ROUTE, "Rejecting martian route to %s through %s.",
-                 format_prefix(prefix, plen), format_address(nexthop));
+                 format_prefix(prefix, plen), nexthop ? format_address(nexthop) : "(unknown)");
         return NULL;
     }
 
@@ -791,7 +795,14 @@ update_route(const unsigned char *router_id,
     if(add_metric >= INFINITY)
         return NULL;
 
-    route = find_route(prefix, plen, neigh, nexthop);
+    route = find_route(prefix, plen, neigh);
+
+    if(refmetric >= INFINITY && !route) {
+        return NULL;
+    } else if(!router_id) {
+        router_id = route->src->id;
+    }
+
 
     if(route && memcmp(route->src->id, router_id, 8) == 0)
         /* Avoid scanning the source table. */
