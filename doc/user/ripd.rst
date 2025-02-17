@@ -149,12 +149,12 @@ RIP Configuration
 
    The default is to be passive on all interfaces.
 
-.. clicmd:: ip split-horizon [poisoned-reverse]
+.. clicmd:: ip rip split-horizon [poisoned-reverse]
 
 
-   Control split-horizon on the interface. Default is `ip split-horizon`. If
+   Control split-horizon on the interface. Default is `ip rip split-horizon`. If
    you don't perform split-horizon on the interface, please specify `no ip
-   split-horizon`.
+   rip split-horizon`.
 
    If `poisoned-reverse` is also set, the router sends the poisoned routes
    with highest metric back to the sending router.
