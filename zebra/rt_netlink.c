@@ -1939,7 +1939,7 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 						   SEG6_LOCAL_ACTION_END_DT6))
 					return false;
 				if (!nl_attr_put32(nlmsg, req_size,
-						   SEG6_LOCAL_TABLE,
+						   SEG6_LOCAL_VRFTABLE,
 						   ctx->table))
 					return false;
 				break;
@@ -3222,7 +3222,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 							return 0;
 						if (!nl_attr_put32(
 						    &req->n, buflen,
-						    SEG6_LOCAL_TABLE,
+						    SEG6_LOCAL_VRFTABLE,
 						    ctx->table))
 							return 0;
 						break;
