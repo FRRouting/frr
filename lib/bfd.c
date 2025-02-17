@@ -824,6 +824,7 @@ void bfd_sess_show(struct vty *vty, struct json_object *json,
 {
 	json_object *json_bfd = NULL;
 	char time_buf[64];
+	time_t epoch_tbuf;
 
 	if (!bsp)
 		return;
@@ -855,10 +856,14 @@ void bfd_sess_show(struct vty *vty, struct json_object *json,
 	}
 
 	bfd_last_update(bsp->bss.last_event, time_buf, sizeof(time_buf));
+	epoch_tbuf = time(NULL) - (monotime(NULL) - bsp->bss.last_event);
 	if (json) {
 		json_object_string_add(json_bfd, "status",
 				       bfd_get_status_str(bsp->bss.state));
 		json_object_string_add(json_bfd, "lastUpdate", time_buf);
+		json_object_int_add(json_bfd, "bfdLastUpdateEpoch", epoch_tbuf);
+		json_object_string_add(json_bfd, "bfdLastUpdateEpochStr",
+				       ctime(&epoch_tbuf));
 	} else
 		vty_out(vty, "  Status: %s, Last update: %s\n",
 			bfd_get_status_str(bsp->bss.state), time_buf);
