@@ -20,6 +20,8 @@
 extern "C" {
 #endif
 
+struct frr_yang_module_info;
+
 /* Maximum XPath length. */
 #define XPATH_MAXLEN 1024
 
@@ -45,6 +47,7 @@ struct yang_module {
 	RB_ENTRY(yang_module) entry;
 	const char *name;
 	const struct lys_module *info;
+	const struct frr_yang_module_info *frr_info;
 #ifdef HAVE_SYSREPO
 	sr_subscription_ctx_t *sr_subscription;
 	struct event *sr_thread;
@@ -879,7 +882,7 @@ bool yang_is_last_level_dnode(const struct lyd_node *dnode);
 
 /* Create a YANG predicate string based on the keys */
 extern int yang_get_key_preds(char *s, const struct lysc_node *snode,
-			      struct yang_list_keys *keys, ssize_t space);
+			      const struct yang_list_keys *keys, ssize_t space);
 
 /* Get YANG keys from an existing dnode */
 extern int yang_get_node_keys(struct lyd_node *node, struct yang_list_keys *keys);

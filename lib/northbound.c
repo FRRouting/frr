@@ -127,6 +127,8 @@ static int nb_node_new_cb(const struct lysc_node *snode, void *arg)
 
 	if (module && module->ignore_cfg_cbs)
 		SET_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS);
+	if (module && module->get_tree_locked)
+		SET_FLAG(nb_node->flags, F_NB_NODE_HAS_GET_TREE);
 
 	return YANG_ITER_CONTINUE;
 }
@@ -256,6 +258,7 @@ static unsigned int nb_node_validate_cbs(const struct nb_node *nb_node)
 
 {
 	unsigned int error = 0;
+	bool state_optional = CHECK_FLAG(nb_node->flags, F_NB_NODE_HAS_GET_TREE);
 
 	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS))
 		return error;
@@ -273,15 +276,15 @@ static unsigned int nb_node_validate_cbs(const struct nb_node *nb_node)
 	error += nb_node_validate_cb(nb_node, NB_CB_APPLY_FINISH,
 				     !!nb_node->cbs.apply_finish, true);
 	error += nb_node_validate_cb(nb_node, NB_CB_GET_ELEM,
-				     (nb_node->cbs.get_elem || nb_node->cbs.get), false);
+				     (nb_node->cbs.get_elem || nb_node->cbs.get), state_optional);
 	error += nb_node_validate_cb(nb_node, NB_CB_GET_NEXT,
 				     (nb_node->cbs.get_next ||
 				      (nb_node->snode->nodetype == LYS_LEAFLIST && nb_node->cbs.get)),
-				     false);
-	error += nb_node_validate_cb(nb_node, NB_CB_GET_KEYS,
-				     !!nb_node->cbs.get_keys, false);
-	error += nb_node_validate_cb(nb_node, NB_CB_LOOKUP_ENTRY,
-				     !!nb_node->cbs.lookup_entry, false);
+				     state_optional);
+	error += nb_node_validate_cb(nb_node, NB_CB_GET_KEYS, !!nb_node->cbs.get_keys,
+				     state_optional);
+	error += nb_node_validate_cb(nb_node, NB_CB_LOOKUP_ENTRY, !!nb_node->cbs.lookup_entry,
+				     state_optional);
 	error += nb_node_validate_cb(nb_node, NB_CB_RPC, !!nb_node->cbs.rpc,
 				     false);
 	error += nb_node_validate_cb(nb_node, NB_CB_NOTIFY,
@@ -2730,7 +2733,7 @@ void nb_init(struct event_loop *tm,
 	     const struct frr_yang_module_info *const modules[],
 	     size_t nmodules, bool db_enabled, bool load_library)
 {
-	struct yang_module *loaded[nmodules], **loadedp = loaded;
+	struct yang_module *loaded[nmodules];
 
 	/*
 	 * Currently using this explicit compile feature in libyang2 leads to
@@ -2750,8 +2753,8 @@ void nb_init(struct event_loop *tm,
 	for (size_t i = 0; i < nmodules; i++) {
 		DEBUGD(&nb_dbg_events, "northbound: loading %s.yang",
 		       modules[i]->name);
-		*loadedp++ = yang_module_load(modules[i]->name,
-					      modules[i]->features);
+		loaded[i] = yang_module_load(modules[i]->name, modules[i]->features);
+		loaded[i]->frr_info = modules[i];
 	}
 
 	if (explicit_compile)
