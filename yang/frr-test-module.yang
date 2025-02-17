@@ -139,5 +139,23 @@ module frr-test-module {
         }
       }
     }
+    choice bchoice {
+      description "a choice statement";
+      case case3 {
+        leaf c3value {
+          type uint8;
+          description "A uint8 value for case 3";
+        }
+      }
+      case case4 {
+        container c4cont {
+          description "case 2 container";
+          leaf c4value {
+            type uint32;
+            description "A uint32 value for case 4";
+          }
+        }
+      }
+    }
   }
 }

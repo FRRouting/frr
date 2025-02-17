@@ -125,10 +125,10 @@ test# show yang operational-data /frr-test-module:frr-test-module
         }
       ]
     },
-    "c1value": 21,
     "c2cont": {
       "c2value": 2868969987
-    }
+    },
+    "c3value": 21
   }
 }
 test# show yang operational-data /frr-test-module:frr-test-module/vrfs/vrf[name='vrf0']/routes/route[2]
@@ -174,10 +174,10 @@ test# show yang operational-data /frr-test-module:frr-test-module/vrfs/vrf[name=
 }
 test# show yang operational-data /frr-test-module:frr-test-module/vrfs/vrf[name='vrf0']/routes/route[10]
 {}
-test# show yang operational-data /frr-test-module:frr-test-module/c1value
+test# show yang operational-data /frr-test-module:frr-test-module/c3value
 {
   "frr-test-module:frr-test-module": {
-    "c1value": 21
+    "c3value": 21
   }
 }
 test# show yang operational-data /frr-test-module:frr-test-module/c2cont
