@@ -76,6 +76,10 @@ int lib_route_map_entry_match_condition_rmap_match_condition_community_limit_mod
 	struct nb_cb_modify_args *args);
 int lib_route_map_entry_match_condition_rmap_match_condition_community_limit_destroy(
 	struct nb_cb_destroy_args *args);
+int lib_route_map_entry_match_condition_rmap_match_condition_extcommunity_limit_modify(
+	struct nb_cb_modify_args *args);
+int lib_route_map_entry_match_condition_rmap_match_condition_extcommunity_limit_destroy(
+	struct nb_cb_destroy_args *args);
 int lib_route_map_entry_match_condition_rmap_match_condition_comm_list_create(
 	struct nb_cb_create_args *args);
 int lib_route_map_entry_match_condition_rmap_match_condition_comm_list_destroy(
