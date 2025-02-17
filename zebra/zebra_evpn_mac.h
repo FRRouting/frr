@@ -18,6 +18,7 @@ struct host_rb_entry {
 	RB_ENTRY(host_rb_entry) hl_entry;
 
 	struct prefix p;
+	uint32_t pathcnt;
 };
 
 RB_HEAD(host_rb_tree_entry, host_rb_entry);

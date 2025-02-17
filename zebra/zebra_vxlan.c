@@ -355,6 +355,7 @@ static void zl3vni_print_nh(struct zebra_neigh *n, struct vty *vty,
 	char buf1[ETHER_ADDR_STRLEN];
 	char buf2[INET6_ADDRSTRLEN];
 	json_object *json_hosts = NULL;
+	json_object *json_prefix = NULL;
 	struct host_rb_entry *hle;
 
 	if (!json) {
@@ -370,7 +371,7 @@ static void zl3vni_print_nh(struct zebra_neigh *n, struct vty *vty,
 				rb_host_count(&n->host_rb));
 			vty_out(vty, "  Prefixes:\n");
 			RB_FOREACH (hle, host_rb_tree_entry, &n->host_rb)
-				vty_out(vty, "    %pFX\n", &hle->p);
+				vty_out(vty, "    %pFX (paths: %d)\n", &hle->p, hle->pathcnt);
 		}
 	} else {
 		json_hosts = json_object_new_array();
@@ -385,11 +386,13 @@ static void zl3vni_print_nh(struct zebra_neigh *n, struct vty *vty,
 		else {
 			json_object_int_add(json, "refCount",
 					    rb_host_count(&n->host_rb));
-			RB_FOREACH (hle, host_rb_tree_entry, &n->host_rb)
-				json_object_array_add(
-					json_hosts,
-					json_object_new_string(prefix2str(
-						&hle->p, buf2, sizeof(buf2))));
+			RB_FOREACH (hle, host_rb_tree_entry, &n->host_rb) {
+				json_prefix = json_object_new_object();
+				json_object_string_add(json_prefix, "prefix",
+						       prefix2str(&hle->p, buf2, sizeof(buf2)));
+				json_object_int_add(json_prefix, "pathCount", hle->pathcnt);
+				json_object_array_add(json_hosts, json_prefix);
+			}
 			json_object_object_add(json, "prefixList", json_hosts);
 		}
 	}
@@ -1143,11 +1146,23 @@ static void rb_find_or_add_host(struct host_rb_tree_entry *hrbe,
 	memcpy(&lookup.p, host, sizeof(*host));
 
 	hle = RB_FIND(host_rb_tree_entry, hrbe, &lookup);
-	if (hle)
+	if (hle) {
+		/* never pathcount evpn A-D / MH routes because zebra is not aware
+		 * of specific paths. ADD operations are considered to be upsert
+		 * leading to path count increasing without ever decreasing. A single
+		 * DEL operation should fully remove the prefix from the next-hop.
+		 */
+		if (host->family == AF_EVPN &&
+		    ((const struct prefix_evpn *)host)->prefix.route_type == BGP_EVPN_AD_ROUTE)
+			return;
+
+		hle->pathcnt++;
 		return;
+	}
 
 	hle = XCALLOC(MTYPE_HOST_PREFIX, sizeof(struct host_rb_entry));
 	memcpy(hle, &lookup, sizeof(lookup));
+	hle->pathcnt = 1;
 
 	RB_INSERT(host_rb_tree_entry, hrbe, hle);
 }
@@ -1162,8 +1177,11 @@ static void rb_delete_host(struct host_rb_tree_entry *hrbe, struct prefix *host)
 
 	hle = RB_FIND(host_rb_tree_entry, hrbe, &lookup);
 	if (hle) {
-		RB_REMOVE(host_rb_tree_entry, hrbe, hle);
-		XFREE(MTYPE_HOST_PREFIX, hle);
+		hle->pathcnt--;
+		if (hle->pathcnt == 0) {
+			RB_REMOVE(host_rb_tree_entry, hrbe, hle);
+			XFREE(MTYPE_HOST_PREFIX, hle);
+		}
 	}
 
 	return;
