@@ -2355,12 +2355,32 @@ DEFPY_YANG (vni_mapping,
        "VNI-ID\n"
        "prefix-routes-only\n")
 {
-	if (!no)
+	const struct lyd_node *dnode;
+	const char *vrf;
+
+	if (!no) {
 		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/l3vni-id", NB_OP_MODIFY,
 			      vni_str);
-	else
-		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/l3vni-id", NB_OP_DESTROY,
-			      NULL);
+	} else {
+		if (vty->node == CONFIG_NODE) {
+			if (yang_dnode_existsf(vty->candidate_config->dnode,
+					       "/frr-vrf:lib/vrf[name='%s']/frr-zebra:zebra[l3vni-id='%lu']",
+					       VRF_DEFAULT_NAME, vni))
+				nb_cli_enqueue_change(vty, "./frr-zebra:zebra/l3vni-id",
+						      NB_OP_DESTROY, NULL);
+		} else {
+			dnode = yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
+			if (dnode) {
+				vrf = yang_dnode_get_string(dnode, "name");
+
+				if (yang_dnode_existsf(vty->candidate_config->dnode,
+						       "/frr-vrf:lib/vrf[name='%s']/frr-zebra:zebra[l3vni-id='%lu']",
+						       vrf, vni))
+					nb_cli_enqueue_change(vty, "./frr-zebra:zebra/l3vni-id",
+							      NB_OP_DESTROY, NULL);
+			}
+		}
+	}
 
 	if (filter)
 		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/prefix-only",
