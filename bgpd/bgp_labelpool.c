@@ -77,6 +77,7 @@ struct lp_lcb {
 	mpls_label_t	label;		/* MPLS_LABEL_NONE = not allocated */
 	int		type;
 	void		*labelid;	/* unique ID */
+	vrf_id_t	vrf_id;
 	/*
 	 * callback for label allocation and loss
 	 *
@@ -97,6 +98,7 @@ struct lp_cbq_item {
 	int		type;
 	mpls_label_t	label;
 	void		*labelid;
+	vrf_id_t	vrf_id;
 	bool		allocated;	/* false = lost */
 };
 
@@ -105,6 +107,7 @@ static wq_item_status lp_cbq_docallback(struct work_queue *wq, void *data)
 	struct lp_cbq_item *lcbq = data;
 	int rc;
 	int debug = BGP_DEBUG(labelpool, LABELPOOL);
+	struct bgp *bgp = bgp_lookup_by_vrf_id(lcbq->vrf_id);
 
 	if (debug)
 		zlog_debug("%s: calling callback with labelid=%p label=%u allocated=%d",
@@ -116,6 +119,9 @@ static wq_item_status lp_cbq_docallback(struct work_queue *wq, void *data)
 			 __func__);
 		return WQ_SUCCESS;
 	}
+
+	if (!bgp)
+		return WQ_SUCCESS;
 
 	rc = (*(lcbq->cbfunc))(lcbq->label, lcbq->labelid, lcbq->allocated);
 
@@ -320,10 +326,8 @@ static mpls_label_t get_label_from_pool(void *labelid)
 /*
  * Success indicated by value of "label" field in returned LCB
  */
-static struct lp_lcb *lcb_alloc(
-	int	type,
-	void	*labelid,
-	int	(*cbfunc)(mpls_label_t label, void *labelid, bool allocated))
+static struct lp_lcb *lcb_alloc(int type, void *labelid, vrf_id_t vrf_id,
+				int (*cbfunc)(mpls_label_t label, void *labelid, bool allocated))
 {
 	/*
 	 * Set up label control block
@@ -334,6 +338,7 @@ static struct lp_lcb *lcb_alloc(
 	new->label = get_label_from_pool(labelid);
 	new->type = type;
 	new->labelid = labelid;
+	new->vrf_id = vrf_id;
 	new->cbfunc = cbfunc;
 
 	return new;
@@ -365,10 +370,8 @@ static struct lp_lcb *lcb_alloc(
  * Prior requests for a given labelid are detected so that requests and
  * assignments are not duplicated.
  */
-void bgp_lp_get(
-	int	type,
-	void	*labelid,
-	int	(*cbfunc)(mpls_label_t label, void *labelid, bool allocated))
+void bgp_lp_get(int type, void *labelid, vrf_id_t vrf_id,
+		int (*cbfunc)(mpls_label_t label, void *labelid, bool allocated))
 {
 	struct lp_lcb *lcb;
 	int requested = 0;
@@ -383,7 +386,7 @@ void bgp_lp_get(
 	if (!skiplist_search(lp->ledger, labelid, (void **)&lcb)) {
 		requested = 1;
 	} else {
-		lcb = lcb_alloc(type, labelid, cbfunc);
+		lcb = lcb_alloc(type, labelid, vrf_id, cbfunc);
 		if (debug)
 			zlog_debug("%s: inserting lcb=%p label=%u",
 				__func__, lcb, lcb->label);
@@ -413,6 +416,7 @@ void bgp_lp_get(
 		q->type = lcb->type;
 		q->label = lcb->label;
 		q->labelid = lcb->labelid;
+		q->vrf_id = lcb->vrf_id;
 		q->allocated = true;
 
 		/* if this is a LU request, lock node before queueing */
@@ -580,6 +584,7 @@ static void bgp_sync_label_manager(struct event *e)
 		q->type = lcb->type;
 		q->label = lcb->label;
 		q->labelid = lcb->labelid;
+		q->vrf_id = lcb->vrf_id;
 		q->allocated = true;
 
 		if (debug)
@@ -693,6 +698,7 @@ void bgp_lp_event_zebra_up(void)
 				q->type = lcb->type;
 				q->label = lcb->label;
 				q->labelid = lcb->labelid;
+				q->vrf_id = lcb->vrf_id;
 				q->allocated = false;
 				check_bgp_lu_cb_lock(lcb);
 				work_queue_add(lp->callback_q, q);
