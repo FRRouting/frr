@@ -3959,37 +3959,6 @@ int bgp_delete(struct bgp *bgp)
 
 	bgp_vpn_leak_unimport(bgp);
 
-<<<<<<< HEAD
-=======
-	/*
-	 * Release SRv6 SIDs, like it's done in `vpn_leak_postchange()`
-	 * and bgp_sid_vpn_export_cmd/af_sid_vpn_export_cmd commands.
-	 */
-	bgp->tovpn_sid_index = 0;
-	UNSET_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO);
-	delete_vrf_tovpn_sid_per_vrf(bgp_default, bgp);
-	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-		bgp->vpn_policy[afi].tovpn_sid_index = 0;
-		UNSET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO);
-		delete_vrf_tovpn_sid_per_af(bgp_default, bgp, afi);
-
-		vpn_leak_zebra_vrf_sid_withdraw(bgp, afi);
-	}
-
-	/* release auto vpn labels */
-	bgp_vpn_release_label(bgp, AFI_IP, true);
-	bgp_vpn_release_label(bgp, AFI_IP6, true);
-
-	/* release manual vpn labels */
-	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-		if (!CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_LABEL_MANUAL_REG))
-			continue;
-		bgp_zebra_release_label_range(bgp->vpn_policy[afi].tovpn_label,
-					      bgp->vpn_policy[afi].tovpn_label);
-		UNSET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_LABEL_MANUAL_REG);
-	}
-
->>>>>>> d6363625c (bgpd: release manual vpn label on instance deletion)
 	hook_call(bgp_inst_delete, bgp);
 
 	FOREACH_AFI_SAFI (afi, safi)
