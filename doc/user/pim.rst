@@ -424,6 +424,10 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    interfaces on this interface. Join-groups on other interfaces will
    also be proxied. The default version is v3.
 
+.. clicmd:: ip igmp immediate-leave
+
+   Immediately leaves an IGMP group when receiving a IGMPv2 Leave packet.
+
 .. clicmd:: ip igmp query-interval (1-65535)
 
    Set the IGMP query interval that PIM will use.

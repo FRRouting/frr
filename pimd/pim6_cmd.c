@@ -1649,6 +1649,19 @@ ALIAS_YANG(interface_ipv6_mld_limits,
            "Limit number of MLDv2 sources to track\n"
            "Limit number of MLD group memberships to track\n")
 
+DEFPY_YANG(interface_ipv6_mld_immediate_leave,
+           interface_ipv6_mld_immediate_leave_cmd,
+           "[no] ipv6 mld immediate-leave",
+           NO_STR
+           IPV6_STR
+           IFACE_MLD_STR
+           "Immediately drop group memberships on receiving Leave (MLDv1 only)\n")
+{
+	nb_cli_enqueue_change(vty, "./immediate-leave", NB_OP_MODIFY, no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
+}
+
 DEFPY (interface_ipv6_mld_query_interval,
        interface_ipv6_mld_query_interval_cmd,
        "ipv6 mld query-interval (1-65535)$q_interval",
@@ -2944,6 +2957,7 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_static_group_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_version_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ipv6_mld_version_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_mld_immediate_leave_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_query_interval_cmd);
 	install_element(INTERFACE_NODE,
 			&interface_no_ipv6_mld_query_interval_cmd);

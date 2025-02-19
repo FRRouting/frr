@@ -289,6 +289,7 @@ int lib_interface_gmp_address_family_static_group_destroy(
 		struct nb_cb_destroy_args *args);
 int lib_interface_gm_max_sources_modify(struct nb_cb_modify_args *args);
 int lib_interface_gm_max_groups_modify(struct nb_cb_modify_args *args);
+int lib_interface_gmp_immediate_leave_modify(struct nb_cb_modify_args *args);
 
 /*
  * Callback registered with routing_nb lib to validate only

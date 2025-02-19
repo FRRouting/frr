@@ -69,8 +69,10 @@ def build_topo(tgen):
     # R1 interface eth2
     switch = tgen.add_switch("s3")
     tgen.add_host("h1", "192.168.100.100/24", "via 192.168.100.1")
+    tgen.add_host("h3", "192.168.100.101/24", "via 192.168.100.1")
     switch.add_link(tgen.gears["r1"])
     switch.add_link(tgen.gears["h1"])
+    switch.add_link(tgen.gears["h3"])
 
     # R2 interface eth1
     switch = tgen.add_switch("s4")
@@ -170,13 +172,13 @@ def test_pim_convergence():
     # IPv6 part
     #
     out = tgen.gears["r1"].vtysh_cmd("show interface r1-eth0 json", True)
-    r1_r2_link_address = out["r1-eth0"]["ipAddresses"][1]["address"].split('/')[0]
+    r1_r2_link_address = out["r1-eth0"]["ipAddresses"][1]["address"].split("/")[0]
     out = tgen.gears["r1"].vtysh_cmd("show interface r1-eth1 json", True)
-    r1_r3_link_address = out["r1-eth1"]["ipAddresses"][1]["address"].split('/')[0]
+    r1_r3_link_address = out["r1-eth1"]["ipAddresses"][1]["address"].split("/")[0]
     out = tgen.gears["r2"].vtysh_cmd("show interface r2-eth0 json", True)
-    r2_link_address = out["r2-eth0"]["ipAddresses"][1]["address"].split('/')[0]
+    r2_link_address = out["r2-eth0"]["ipAddresses"][1]["address"].split("/")[0]
     out = tgen.gears["r3"].vtysh_cmd("show interface r3-eth0 json", True)
-    r3_link_address = out["r3-eth0"]["ipAddresses"][1]["address"].split('/')[0]
+    r3_link_address = out["r3-eth0"]["ipAddresses"][1]["address"].split("/")[0]
 
     expect_pim_peer("r1", "ipv6", "r1-eth0", r2_link_address)
     expect_pim_peer("r2", "ipv6", "r2-eth0", r1_r2_link_address)
@@ -189,11 +191,13 @@ def test_igmp_group_limit():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    tgen.gears["r1"].vtysh_cmd("""
+    tgen.gears["r1"].vtysh_cmd(
+        """
         configure terminal
         interface r1-eth2
          ip igmp max-groups 4
-    """)
+    """
+    )
     app_helper.run("h1", ["224.0.100.1", "h1-eth0"])
     app_helper.run("h1", ["224.0.100.2", "h1-eth0"])
     app_helper.run("h1", ["224.0.100.3", "h1-eth0"])
@@ -202,7 +206,9 @@ def test_igmp_group_limit():
     app_helper.run("h1", ["224.0.100.6", "h1-eth0"])
 
     def expect_igmp_group_count():
-        igmp_groups = tgen.gears["r1"].vtysh_cmd("show ip igmp groups json", isjson=True)
+        igmp_groups = tgen.gears["r1"].vtysh_cmd(
+            "show ip igmp groups json", isjson=True
+        )
         try:
             return len(igmp_groups["r1-eth2"]["groups"])
         except KeyError:
@@ -212,13 +218,15 @@ def test_igmp_group_limit():
 
     # Cleanup
     app_helper.stop_host("h1")
-    tgen.gears["r1"].vtysh_cmd("""
+    tgen.gears["r1"].vtysh_cmd(
+        """
         configure terminal
         interface r1-eth2
          no ip igmp max-groups 4
         exit
         clear ip igmp interfaces
-    """)
+    """
+    )
 
 
 def test_igmp_group_source_limit():
@@ -227,12 +235,14 @@ def test_igmp_group_source_limit():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    tgen.gears["r1"].vtysh_cmd("""
+    tgen.gears["r1"].vtysh_cmd(
+        """
         configure terminal
         interface r1-eth2
          ip igmp max-sources 4
         exit
-    """)
+    """
+    )
 
     app_helper.run("h1", ["--source=192.168.100.10", "232.0.101.10", "h1-eth0"])
     app_helper.run("h1", ["--source=192.168.100.11", "232.0.101.10", "h1-eth0"])
@@ -243,7 +253,9 @@ def test_igmp_group_source_limit():
     app_helper.run("h1", ["--source=192.168.100.16", "232.0.101.10", "h1-eth0"])
 
     def expect_igmp_group_source_count():
-        igmp_sources = tgen.gears["r1"].vtysh_cmd("show ip igmp sources json", isjson=True)
+        igmp_sources = tgen.gears["r1"].vtysh_cmd(
+            "show ip igmp sources json", isjson=True
+        )
         try:
             return len(igmp_sources["r1-eth2"]["232.0.101.10"]["sources"])
         except KeyError:
@@ -252,13 +264,15 @@ def test_igmp_group_source_limit():
     topotest.run_and_expect(expect_igmp_group_source_count, 4, count=10, wait=2)
 
     # Cleanup
-    tgen.gears["r1"].vtysh_cmd("""
+    tgen.gears["r1"].vtysh_cmd(
+        """
         configure terminal
         interface r1-eth2
          no ip igmp max-sources 4
         exit
         clear ip igmp interfaces
-    """)
+    """
+    )
     app_helper.stop_host("h1")
 
 
@@ -268,11 +282,13 @@ def test_mld_group_limit():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    tgen.gears["r1"].vtysh_cmd("""
+    tgen.gears["r1"].vtysh_cmd(
+        """
         configure terminal
         interface r1-eth2
          ipv6 mld max-groups 14
-    """)
+    """
+    )
     app_helper.run("h1", ["FF05::100", "h1-eth0"])
     app_helper.run("h1", ["FF05::101", "h1-eth0"])
     app_helper.run("h1", ["FF05::102", "h1-eth0"])
@@ -291,25 +307,27 @@ def test_mld_group_limit():
     app_helper.run("h1", ["FF05::115", "h1-eth0"])
 
     def expect_mld_group_count():
-        mld_groups = tgen.gears["r1"].vtysh_cmd("show ipv6 mld groups json", isjson=True)
+        mld_groups = tgen.gears["r1"].vtysh_cmd(
+            "show ipv6 mld groups json", isjson=True
+        )
         try:
             return len(mld_groups["r1-eth2"]["groups"])
         except KeyError:
             return 0
 
-
     topotest.run_and_expect(expect_mld_group_count, 14, count=10, wait=2)
-
 
     # Cleanup
     app_helper.stop_host("h1")
-    tgen.gears["r1"].vtysh_cmd("""
+    tgen.gears["r1"].vtysh_cmd(
+        """
         configure terminal
         interface r1-eth2
          no ipv6 mld max-groups 4
         exit
         clear ipv6 mld interfaces
-    """)
+    """
+    )
 
 
 def test_mld_group_source_limit():
@@ -318,12 +336,14 @@ def test_mld_group_source_limit():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    tgen.gears["r1"].vtysh_cmd("""
+    tgen.gears["r1"].vtysh_cmd(
+        """
         configure terminal
         interface r1-eth2
          ipv6 mld max-sources 4
         exit
-    """)
+    """
+    )
 
     app_helper.run("h1", ["--source=2001:db8:1::100", "FF35::100", "h1-eth0"])
     app_helper.run("h1", ["--source=2001:db8:1::101", "FF35::100", "h1-eth0"])
@@ -334,7 +354,9 @@ def test_mld_group_source_limit():
     app_helper.run("h1", ["--source=2001:db8:1::106", "FF35::100", "h1-eth0"])
 
     def expect_mld_source_group_count():
-        mld_sources = tgen.gears["r1"].vtysh_cmd("show ipv6 mld joins json", isjson=True)
+        mld_sources = tgen.gears["r1"].vtysh_cmd(
+            "show ipv6 mld joins json", isjson=True
+        )
         try:
             return len(mld_sources["default"]["r1-eth2"]["ff35::100"].keys())
         except KeyError:
@@ -343,14 +365,122 @@ def test_mld_group_source_limit():
     topotest.run_and_expect(expect_mld_source_group_count, 4, count=10, wait=2)
 
     # Cleanup
-    tgen.gears["r1"].vtysh_cmd("""
+    tgen.gears["r1"].vtysh_cmd(
+        """
         configure terminal
         interface r1-eth2
          no ipv6 mld max-sources 4
         exit
         clear ipv6 mld interfaces
-    """)
+    """
+    )
     app_helper.stop_host("h1")
+
+
+def test_igmp_immediate_leave():
+    "Test IGMPv2 immediate leave feature."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    topotest.sysctl_assure(
+        tgen.gears["h1"], "net.ipv4.conf.h1-eth0.force_igmp_version", "2"
+    )
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        interface r1-eth2
+         ip igmp immediate-leave
+    """
+    )
+
+    app_helper.run("h1", ["224.0.110.1", "h1-eth0"])
+    app_helper.run("h3", ["224.0.110.1", "h3-eth0"])
+
+    def expect_igmp_group():
+        igmp_groups = tgen.gears["r1"].vtysh_cmd(
+            "show ip igmp groups json", isjson=True
+        )
+        try:
+            for group in igmp_groups["r1-eth2"]["groups"]:
+                if group["group"] == "224.0.110.1":
+                    return True
+
+            return False
+        except KeyError:
+            return False
+
+    topotest.run_and_expect(expect_igmp_group, True, count=10, wait=2)
+
+    # Send leave and expect immediate leave
+    app_helper.stop_host("h1")
+    topotest.run_and_expect(expect_igmp_group, False, count=10, wait=2)
+
+    # Clean up
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        interface r1-eth2
+         no ip igmp immediate-leave
+    """
+    )
+    topotest.sysctl_assure(
+        tgen.gears["h1"], "net.ipv4.conf.h1-eth0.force_igmp_version", "0"
+    )
+    app_helper.stop_host("h3")
+
+
+def test_mldv1_immediate_leave():
+    "Test MLDv1 immediate leave feature."
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    topotest.sysctl_assure(
+        tgen.gears["h1"], "net.ipv6.conf.h1-eth0.force_mld_version", "1"
+    )
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        interface r1-eth2
+         ipv6 mld immediate-leave
+    """
+    )
+
+    app_helper.run("h1", ["ff05::2000", "h1-eth0"])
+    app_helper.run("h3", ["ff05::2000", "h3-eth0"])
+
+    def expect_mld_group():
+        igmp_groups = tgen.gears["r1"].vtysh_cmd(
+            "show ipv6 mld groups json", isjson=True
+        )
+        try:
+            for group in igmp_groups["r1-eth2"]["groups"]:
+                if group["group"] == "ff05::2000":
+                    return True
+
+            return False
+        except KeyError:
+            return False
+
+    topotest.run_and_expect(expect_mld_group, True, count=10, wait=2)
+
+    # Send leave and expect immediate leave
+    app_helper.stop_host("h1")
+    topotest.run_and_expect(expect_mld_group, False, count=10, wait=2)
+
+    # Clean up
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        interface r1-eth2
+         no ipv6 mld immediate-leave
+    """
+    )
+    topotest.sysctl_assure(
+        tgen.gears["h1"], "net.ipv6.conf.h1-eth0.force_mld_version", "0"
+    )
+    app_helper.stop_host("h3")
 
 
 def test_memory_leak():
