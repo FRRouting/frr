@@ -2842,6 +2842,14 @@ static int bgp_route_refresh_receive(struct peer_connection *connection,
 					prefix_bgp_orf_remove_all(afi, name);
 					peer->orf_plist[afi][safi] = prefix_bgp_orf_lookup(afi,
 											   name);
+
+					paf = peer_af_find(peer, afi, safi);
+					if (paf && paf->subgroup) {
+						updgrp = PAF_UPDGRP(paf);
+						updgrp_peer = UPDGRP_PEER(updgrp);
+						updgrp_peer->orf_plist[afi][safi] =
+							peer->orf_plist[afi][safi];
+					}
 					break;
 				}
 
