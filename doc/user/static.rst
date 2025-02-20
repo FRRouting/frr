@@ -176,3 +176,23 @@ multiple segments instructions.
   router# show ipv6 route
   [..]
   S>* 2005::/64 [1/0] is directly connected, ens3, seg6 2001:db8:aaaa::7,2002::4,2002::3,2002::2, weight 1, 00:00:06
+
+
+  Optionally, the user can specify the SRv6 Headend Behavior to be used for encapsulation. Currently, STATIC supports the following behaviors:
+
+  * H.Encaps
+  * H.Encaps.Red
+
+  When the behavior is not specified, STATIC defaults to using H.Encaps.
+
+.. clicmd:: ipv6 route X:X::X:X <X:X::X:X|nexthop> segments U:U::U:U/Y:Y::Y:Y/Z:Z::Z:Z [encap-behavior BEHAVIOR]
+
+::
+
+  router(config)# ipv6 route 2001:db8:1:1::1/128 sr0 segments fcbb:bbbb:1:2:3:fe00:: encap-behavior H.Encaps
+  router(config)# ipv6 route 2001:db8:1:1::2/128 sr0 segments fcbb:bbbb:1:2:3:fe00:: encap-behavior H.Encaps.Red
+
+  router# show ipv6 route
+  [..]
+  S>* 2001:db8:1:1::1/128 [1/0] is directly connected, ens3, seg6 fcbb:bbbb:1:2:3:fe00:: encap behavior H.Encaps, weight 1, 00:00:06
+  S>* 2001:db8:1:1::2/128 [1/0] is directly connected, ens3, seg6 fcbb:bbbb:1:2:3:fe00:: encap behavior H.Encaps.Red, weight 1, 00:00:06
