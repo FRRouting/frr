@@ -477,6 +477,8 @@ static inline const char *srv6_sid_ctx2str(char *str, size_t size,
 	return str;
 }
 
+extern const struct frr_yang_module_info ietf_srv6_types_info;
+
 int snprintf_seg6_segs(char *str,
 		size_t size, const struct seg6_segs *segs);
 
