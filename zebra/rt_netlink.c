@@ -1790,7 +1790,32 @@ static ssize_t fill_seg6ipt_encap(char *buffer, size_t buflen,
 	memset(buffer, 0, buflen);
 
 	ipt = (struct seg6_iptunnel_encap *)buffer;
-	ipt->mode = SEG6_IPTUN_MODE_ENCAP;
+
+	/*
+	 * Note: even if Zebra is capable of programming all the SRv6
+	 * Headend Behaviors defined in RFC 8986, FRR daemons support
+	 * only a subset of them.
+	 * Currently, STATIC currently supports H.Encaps and H.Encaps.Red.
+	 * BGP supports only H.Encaps.
+	 * Daemons need to be extended to support other behaviors.
+	 */
+	switch (segs->encap_behavior) {
+	case SRV6_HEADEND_BEHAVIOR_H_INSERT:
+		ipt->mode = SEG6_IPTUN_MODE_INLINE;
+		break;
+	case SRV6_HEADEND_BEHAVIOR_H_ENCAPS:
+		ipt->mode = SEG6_IPTUN_MODE_ENCAP;
+		break;
+	case SRV6_HEADEND_BEHAVIOR_H_ENCAPS_RED:
+		ipt->mode = SEG6_IPTUN_MODE_ENCAP_RED;
+		break;
+	case SRV6_HEADEND_BEHAVIOR_H_ENCAPS_L2:
+		ipt->mode = SEG6_IPTUN_MODE_L2ENCAP;
+		break;
+	case SRV6_HEADEND_BEHAVIOR_H_ENCAPS_L2_RED:
+		ipt->mode = SEG6_IPTUN_MODE_L2ENCAP_RED;
+		break;
+	}
 
 	srh = (struct ipv6_sr_hdr *)&ipt->srh;
 	srh->hdrlen = (srhlen >> 3) - 1;
