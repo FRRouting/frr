@@ -1348,6 +1348,9 @@ void nexthop_json_helper(json_object *json_nexthop,
 						&nexthop->nh_srv6->seg6_segs
 							 ->seg[0]);
 			json_object_object_add(json_nexthop, "seg6", json_seg6);
+			json_object_string_add(json_nexthop, "srv6EncapBehavior",
+					       srv6_headend_behavior2str(
+						       nexthop->nh_srv6->seg6_segs->encap_behavior));
 		} else {
 			if (nexthop->nh_srv6->seg6_segs) {
 				json_segs = json_object_new_array();
@@ -1364,6 +1367,10 @@ void nexthop_json_helper(json_object *json_nexthop,
 								 ->seg[seg_idx]));
 				json_object_object_add(json_nexthop, "seg6",
 						       json_segs);
+				json_object_string_add(json_nexthop, "srv6EncapBehavior",
+						       srv6_headend_behavior2str(
+							       nexthop->nh_srv6->seg6_segs
+								       ->encap_behavior));
 			}
 		}
 	}
