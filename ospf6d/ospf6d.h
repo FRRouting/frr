@@ -18,22 +18,6 @@ extern struct event_loop *master;
 /* OSPF config processing timer thread */
 extern struct event *t_ospf6_cfg;
 
-/* Historical for KAME.  */
-#ifndef IPV6_JOIN_GROUP
-#ifdef IPV6_ADD_MEMBERSHIP
-#define IPV6_JOIN_GROUP IPV6_ADD_MEMBERSHIP
-#endif /* IPV6_ADD_MEMBERSHIP. */
-#ifdef IPV6_JOIN_MEMBERSHIP
-#define IPV6_JOIN_GROUP  IPV6_JOIN_MEMBERSHIP
-#endif /* IPV6_JOIN_MEMBERSHIP. */
-#endif /* ! IPV6_JOIN_GROUP*/
-
-#ifndef IPV6_LEAVE_GROUP
-#ifdef IPV6_DROP_MEMBERSHIP
-#define IPV6_LEAVE_GROUP IPV6_DROP_MEMBERSHIP
-#endif /* IPV6_DROP_MEMBERSHIP */
-#endif /* ! IPV6_LEAVE_GROUP */
-
 #define MSG_OK    0
 #define MSG_NG    1
 
