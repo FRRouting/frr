@@ -20,6 +20,7 @@
 #include "routing_nb.h"
 #include "affinitymap.h"
 #include "zebra/zebra_cli.h"
+#include "srv6.h"
 
 /* mgmt options, we use GNU getopt library. */
 static const struct option longopts[] = {
@@ -195,6 +196,7 @@ static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 	&zebra_route_map_info,
 	&ietf_key_chain_cli_info,
 	&ietf_key_chain_deviation_info,
+	&ietf_srv6_types_info,
 
 #ifdef HAVE_RIPD
 	&frr_ripd_cli_info,
