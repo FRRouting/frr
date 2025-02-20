@@ -534,6 +534,8 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 				memcpy(&api_nh->seg6_segs[i],
 				       &nh->snh_seg.seg[i],
 				       sizeof(struct in6_addr));
+
+			api_nh->srv6_encap_behavior = nh->snh_seg.encap_behavior;
 		}
 		nh_num++;
 	}
