@@ -1518,6 +1518,8 @@ static void nexthop_cli_show(struct vty *vty, const struct lyd_node *route,
 	uint8_t distance;
 	struct mpls_label_iter iter;
 	struct srv6_seg_iter seg_iter;
+	enum srv6_headend_behavior srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
+	const char *srv6_encap_behavior_str;
 	const char *nexthop_vrf;
 	uint32_t table_id;
 	struct prefix src_prefix;
@@ -1599,6 +1601,19 @@ static void nexthop_cli_show(struct vty *vty, const struct lyd_node *route,
 	seg_iter.first = true;
 	yang_dnode_iterate(srv6_seg_iter_cb, &seg_iter, nexthop,
 			   "./srv6-segs-stack/entry");
+
+	if (yang_dnode_exists(nexthop, "./srv6-segs-stack/encap-behavior")) {
+		srv6_encap_behavior_str = yang_dnode_get_string(nexthop,
+								"./srv6-segs-stack/encap-behavior");
+		if (strmatch(srv6_encap_behavior_str, "ietf-srv6-types:H.Encaps"))
+			srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
+		else if (strmatch(srv6_encap_behavior_str, "ietf-srv6-types:H.Encaps.Red"))
+			srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS_RED;
+
+		if (srv6_encap_behavior != SRV6_HEADEND_BEHAVIOR_H_ENCAPS || show_defaults)
+			vty_out(vty, " encap-behavior %s",
+				srv6_headend_behavior2str(srv6_encap_behavior));
+	}
 
 	nexthop_vrf = yang_dnode_get_string(nexthop, "vrf");
 	if (strcmp(vrf, nexthop_vrf))
