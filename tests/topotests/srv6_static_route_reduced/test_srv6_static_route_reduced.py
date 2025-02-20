@@ -63,6 +63,17 @@ def test_srv6_static_route():
         pytest.skip(tgen.errors)
     router = tgen.gears["r1"]
 
+    def _check_rib(router, expected_route_file):
+        logger.info("checking Zebra RIB")
+        output = json.loads(router.vtysh_cmd("show ip route static json"))
+        expected = open_json_file("{}/{}".format(CWD, expected_route_file))
+        return topotest.json_cmp(output, expected)
+
+    def check_rib(router, expected_file):
+        func = functools.partial(_check_rib, router, expected_file)
+        _, result = topotest.run_and_expect(func, None, count=20, wait=3)
+        assert result is None, "Failed"
+
     def _check_rib_v6(router, expected_route_file):
         logger.info("checking Zebra RIB")
         output = json.loads(router.vtysh_cmd("show ipv6 route static json"))
@@ -79,6 +90,7 @@ def test_srv6_static_route():
     # please use tgen.mininet_cli() to start it.
 
     logger.info("Test for SRv6 route configuration")
+    check_rib(router, "r1/show_ip_route.json")
     check_rib_v6(router, "r1/show_ipv6_route.json")
 
 
