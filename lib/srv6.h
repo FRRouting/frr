@@ -345,6 +345,24 @@ struct srv6_sid_ctx {
 	ifindex_t ifindex;
 };
 
+static inline const char *srv6_headend_behavior2str(enum srv6_headend_behavior behavior)
+{
+	switch (behavior) {
+	case SRV6_HEADEND_BEHAVIOR_H_INSERT:
+		return "H.Insert";
+	case SRV6_HEADEND_BEHAVIOR_H_ENCAPS:
+		return "H.Encaps";
+	case SRV6_HEADEND_BEHAVIOR_H_ENCAPS_RED:
+		return "H.Encaps.Red";
+	case SRV6_HEADEND_BEHAVIOR_H_ENCAPS_L2:
+		return "H.Encaps.L2";
+	case SRV6_HEADEND_BEHAVIOR_H_ENCAPS_L2_RED:
+		return "H.Encaps.L2.Red";
+	}
+
+	return "unknown";
+}
+
 static inline const char *seg6_mode2str(enum seg6_mode_t mode)
 {
 	switch (mode) {
