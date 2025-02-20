@@ -47,14 +47,6 @@ DEFINE_MTYPE_STATIC(ZEBRA, ADV_IF, "Advertised Interface");
 #include <netinet/icmp6.h>
 #endif
 
-/* If RFC2133 definition is used. */
-#ifndef IPV6_JOIN_GROUP
-#define IPV6_JOIN_GROUP  IPV6_ADD_MEMBERSHIP
-#endif
-#ifndef IPV6_LEAVE_GROUP
-#define IPV6_LEAVE_GROUP IPV6_DROP_MEMBERSHIP
-#endif
-
 #define ALLNODE   "ff02::1"
 #define ALLROUTER "ff02::2"
 

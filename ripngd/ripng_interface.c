@@ -26,14 +26,6 @@
 #include "ripngd/ripngd.h"
 #include "ripngd/ripng_debug.h"
 
-/* If RFC2133 definition is used. */
-#ifndef IPV6_JOIN_GROUP
-#define IPV6_JOIN_GROUP  IPV6_ADD_MEMBERSHIP
-#endif
-#ifndef IPV6_LEAVE_GROUP
-#define IPV6_LEAVE_GROUP IPV6_DROP_MEMBERSHIP
-#endif
-
 DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_IF, "ripng interface");
 
 /* Static utility function. */
