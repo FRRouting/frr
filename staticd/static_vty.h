@@ -70,6 +70,8 @@ struct static_route_args {
 	/* Store installed data */
 	struct static_nexthop *nh;
 #endif /* !HAVE_STATICD_NB */
+
+	const char *srv6_encap_behavior;
 };
 
 #ifndef HAVE_STATICD_NB
