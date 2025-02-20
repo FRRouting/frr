@@ -111,6 +111,7 @@ struct frr_signal_t static_signals[] = {
 	},
 };
 
+/* clang-format off */
 static const struct frr_yang_module_info *const staticd_yang_modules[] = {
 	&frr_backend_info,
 	&frr_interface_info,
@@ -118,6 +119,7 @@ static const struct frr_yang_module_info *const staticd_yang_modules[] = {
 	&frr_routing_info,
 	&frr_staticd_info,
 };
+/* clang-format on */
 
 /*
  * NOTE: .flags == FRR_NO_SPLIT_CONFIG to avoid reading split config, mgmtd will
