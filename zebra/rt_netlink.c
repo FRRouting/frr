@@ -1784,7 +1784,24 @@ static ssize_t fill_seg6ipt_encap(char *buffer, size_t buflen,
 	memset(buffer, 0, buflen);
 
 	ipt = (struct seg6_iptunnel_encap *)buffer;
-	ipt->mode = SEG6_IPTUN_MODE_ENCAP;
+
+	switch (segs->encap_behavior) {
+	case SRV6_HEADEND_BEHAVIOR_H_INSERT:
+		ipt->mode = SEG6_IPTUN_MODE_INLINE;
+		break;
+	case SRV6_HEADEND_BEHAVIOR_H_ENCAPS:
+		ipt->mode = SEG6_IPTUN_MODE_ENCAP;
+		break;
+	case SRV6_HEADEND_BEHAVIOR_H_ENCAPS_RED:
+		ipt->mode = SEG6_IPTUN_MODE_ENCAP_RED;
+		break;
+	case SRV6_HEADEND_BEHAVIOR_H_ENCAPS_L2:
+		ipt->mode = SEG6_IPTUN_MODE_L2ENCAP;
+		break;
+	case SRV6_HEADEND_BEHAVIOR_H_ENCAPS_L2_RED:
+		ipt->mode = SEG6_IPTUN_MODE_L2ENCAP_RED;
+		break;
+	}
 
 	srh = (struct ipv6_sr_hdr *)&ipt->srh;
 	srh->hdrlen = (srhlen >> 3) - 1;
