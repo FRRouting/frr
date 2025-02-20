@@ -3211,21 +3211,6 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 
 			bgp_path_info_unset_flag(dest, look_thru,
 						 BGP_PATH_DMED_CHECK);
-			if (CHECK_FLAG(bgp->flags, BGP_FLAG_DETERMINISTIC_MED) &&
-			    (!CHECK_FLAG(look_thru->flags,
-					 BGP_PATH_DMED_SELECTED))) {
-				bgp_path_info_unset_flag(dest, look_thru,
-							 BGP_PATH_DMED_CHECK);
-				if (debug)
-					zlog_debug("%s: %pBD(%s) pi %s dmed",
-						   __func__, dest,
-						   bgp->name_pretty,
-						   look_thru->peer->host);
-
-				worse = look_thru;
-				continue;
-			}
-
 			reason = dest->reason;
 			any_comparisons = true;
 			if (bgp_path_info_cmp(bgp, first, look_thru, &paths_eq,
