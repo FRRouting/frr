@@ -118,6 +118,7 @@ static const struct frr_yang_module_info *const staticd_yang_modules[] = {
 	&frr_vrf_info,
 	&frr_routing_info,
 	&frr_staticd_info,
+	&ietf_srv6_types_info,
 };
 /* clang-format on */
 
