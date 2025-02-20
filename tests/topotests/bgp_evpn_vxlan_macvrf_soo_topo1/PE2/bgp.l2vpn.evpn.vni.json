@@ -1,0 +1,19 @@
+{
+  "vni":101,
+  "type":"L2",
+  "inKernel":"True",
+  "rd":"10.30.30.30:101",
+  "originatorIp":"10.30.30.30",
+  "mcastGroup":"0.0.0.0",
+  "siteOfOrigin":"65000:0",
+  "advertiseGatewayMacip":"Disabled",
+  "advertiseSviMacIp":"Active",
+  "sviInterface":"br101",
+  "importRts":[
+    "65000:101"
+  ],
+  "exportRts":[
+    "65000:101"
+  ]
+}
+

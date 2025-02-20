@@ -32,11 +32,8 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 
 from lib.common_config import (
     kill_router_daemons,
-    start_router_daemons,
     step,
 )
-
-pytestmark = [pytest.mark.bgpd]
 
 
 def build_topo(tgen):
@@ -67,7 +64,7 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
-    for i, (rname, router) in enumerate(router_list.items(), 1):
+    for _, (rname, router) in enumerate(router_list.items(), 1):
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )

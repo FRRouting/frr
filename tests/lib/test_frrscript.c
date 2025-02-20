@@ -32,7 +32,7 @@ int main(int argc, char **argv)
 	assert(result == 0);
 	result = frrscript_call(fs, "bar", ("a", &a), ("b", &b));
 	assert(result == 0);
-	long long *cptr = frrscript_get_result(fs, "bar", "c", lua_tointegerp);
+	long long *cptr = frrscript_get_result(fs, "bar", "c", lua_tolonglongp);
 
 	/* a should not occur in the returned table in script */
 	assert(a == 100);
@@ -47,17 +47,18 @@ int main(int argc, char **argv)
 	result = frrscript_call(fs, "fact", ("n", &n));
 	assert(result == 0);
 	long long *ansptr =
-		frrscript_get_result(fs, "fact", "ans", lua_tointegerp);
+		frrscript_get_result(fs, "fact", "ans", lua_tolonglongp);
 	assert(*ansptr == 120);
+	XFREE(MTYPE_SCRIPT_RES, ansptr);
 
 	/* check consecutive call + get_result without re-loading */
 	n = 4;
 	result = frrscript_call(fs, "fact", ("n", &n));
 	assert(result == 0);
-	ansptr = frrscript_get_result(fs, "fact", "ans", lua_tointegerp);
-	assert(*ansptr == 24);
+	int *ansptr_c = frrscript_get_result(fs, "fact", "ans", lua_tointegerp);
 
-	XFREE(MTYPE_SCRIPT_RES, ansptr);
+	assert(*ansptr_c == 24);
+	XFREE(MTYPE_SCRIPT_RES, ansptr_c);
 
 	/* Negative testing */
 
@@ -70,9 +71,9 @@ int main(int argc, char **argv)
 	assert(result == 1);
 
 	/* Get result from a function that was not loaded */
-	long long *llptr =
-		frrscript_get_result(fs, "does_not_exist", "c", lua_tointegerp);
-	assert(llptr == NULL);
+	int *intptr = frrscript_get_result(fs, "does_not_exist", "c", lua_tointegerp);
+
+	assert(intptr == NULL);
 
 	/* Function returns void */
 	result = frrscript_call(fs, "bad_return1");
@@ -85,9 +86,9 @@ int main(int argc, char **argv)
 	/* Get non-existent result from a function */
 	result = frrscript_call(fs, "bad_return3");
 	assert(result == 1);
-	long long *cllptr =
-		frrscript_get_result(fs, "bad_return3", "c", lua_tointegerp);
-	assert(cllptr == NULL);
+	intptr = frrscript_get_result(fs, "bad_return3", "c", lua_tointegerp);
+	assert(intptr == NULL);
+	XFREE(MTYPE_SCRIPT_RES, intptr);
 
 	/* Function throws exception */
 	result = frrscript_call(fs, "bad_return4");

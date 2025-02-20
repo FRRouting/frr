@@ -1,0 +1,13 @@
+{
+  "frr-zebra:evpn-mh": {
+    "df-preference": 32767,
+    "bypass": false,
+    "@bypass": {
+      "ietf-netconf-with-defaults:default": true
+    },
+    "uplink": false,
+    "@uplink": {
+      "ietf-netconf-with-defaults:default": true
+    }
+  }
+}

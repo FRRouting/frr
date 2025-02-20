@@ -1,5 +1,5 @@
 # ===========================================================================
-#          http://www.gnu.org/software/autoconf-archive/ax_lua.html
+#          https://www.gnu.org/software/autoconf-archive/ax_lua.html
 # ===========================================================================
 #
 # SYNOPSIS
@@ -19,7 +19,7 @@
 #   header is checked to match the Lua interpreter version exactly. When
 #   searching for Lua libraries, the version number is used as a suffix.
 #   This is done with the goal of supporting multiple Lua installs (5.1,
-#   5.2, and 5.3 side-by-side).
+#   5.2, 5.3, and 5.4 side-by-side).
 #
 #   A note on compatibility with previous versions: This file has been
 #   mostly rewritten for serial 18. Most developers should be able to use
@@ -48,6 +48,14 @@
 #   paths. Adds precious variable LUA, which may contain the path of the Lua
 #   interpreter. If LUA is blank, the user's path is searched for an
 #   suitable interpreter.
+#
+#   Optionally a LUAJIT option may be set ahead of time to look for and
+#   validate a LuaJIT install instead of PUC Lua. Usage might look like:
+#
+#     AC_ARG_WITH(luajit, [AS_HELP_STRING([--with-luajit],
+#         [Prefer LuaJIT over PUC Lua, even if the latter is newer. Default: no])
+#     ])
+#     AM_CONDITIONAL([LUAJIT], [test "x$with_luajit" != 'xno'])
 #
 #   If MINIMUM-VERSION is supplied, then only Lua interpreters with a
 #   version number greater or equal to MINIMUM-VERSION will be accepted. If
@@ -82,7 +90,7 @@
 #   appropriate Automake primary, e.g. lua_SCRIPS or luaexec_LIBRARIES.
 #
 #   If an acceptable Lua interpreter is found, then ACTION-IF-FOUND is
-#   performed, otherwise ACTION-IF-NOT-FOUND is preformed. If ACTION-IF-NOT-
+#   performed, otherwise ACTION-IF-NOT-FOUND is performed. If ACTION-IF-NOT-
 #   FOUND is blank, then it will default to printing an error. To prevent
 #   the default behavior, give ':' as an action.
 #
@@ -152,6 +160,7 @@
 #
 # LICENSE
 #
+#   Copyright (c) 2023 Caleb Maclennan <caleb@alerque.com>
 #   Copyright (c) 2015 Reuben Thomas <rrt@sc3d.org>
 #   Copyright (c) 2014 Tim Perkins <tprk77@gmail.com>
 #
@@ -166,7 +175,7 @@
 #   Public License for more details.
 #
 #   You should have received a copy of the GNU General Public License along
-#   with this program. If not, see <http://www.gnu.org/licenses/>.
+#   with this program. If not, see <https://www.gnu.org/licenses/>.
 #
 #   As a special exception, the respective Autoconf Macro's copyright owner
 #   gives unlimited permission to copy, distribute and modify the configure
@@ -181,7 +190,7 @@
 #   modified version of the Autoconf Macro, you may extend this special
 #   exception to the GPL to apply to your modified version as well.
 
-#serial 39
+#serial 47
 
 dnl =========================================================================
 dnl AX_PROG_LUA([MINIMUM-VERSION], [TOO-BIG-VERSION],
@@ -197,13 +206,13 @@ AC_DEFUN([AX_PROG_LUA],
   AC_ARG_VAR([LUA], [The Lua interpreter, e.g. /usr/bin/lua5.1])
 
   dnl Find a Lua interpreter.
-  m4_define_default([_AX_LUA_INTERPRETER_LIST],
-    [lua lua5.3 lua53 lua5.2 lua52 lua5.1 lua51 lua50])
+  m4_define_default([_ax_lua_interpreter_list],
+    [lua lua5.4 lua54 lua5.3 lua53 lua5.2 lua52 lua5.1 lua51 lua50])
 
   m4_if([$1], [],
   [ dnl No version check is needed. Find any Lua interpreter.
     AS_IF([test "x$LUA" = 'x'],
-      [AC_PATH_PROGS([LUA], [_AX_LUA_INTERPRETER_LIST], [:])])
+      [AC_PATH_PROGS([LUA], [_ax_lua_interpreter_list], [:])])
     ax_display_LUA='lua'
 
     AS_IF([test "x$LUA" != 'x:'],
@@ -242,7 +251,7 @@ AC_DEFUN([AX_PROG_LUA],
         [_ax_check_text="for a Lua interpreter with version >= $1, < $2"])
       AC_CACHE_CHECK([$_ax_check_text],
         [ax_cv_pathless_LUA],
-        [ for ax_cv_pathless_LUA in _AX_LUA_INTERPRETER_LIST none; do
+        [ for ax_cv_pathless_LUA in _ax_lua_interpreter_list none; do
             test "x$ax_cv_pathless_LUA" = 'xnone' && break
             _AX_LUA_CHK_IS_INTRP([$ax_cv_pathless_LUA], [], [continue])
             _AX_LUA_CHK_VER([$ax_cv_pathless_LUA], [$1], [$2], [break])
@@ -268,7 +277,7 @@ AC_DEFUN([AX_PROG_LUA],
         ax_cv_lua_version=[`$LUA -e '
           -- return a version number in X.Y format
           local _, _, ver = string.find(_VERSION, "^Lua (%d+%.%d+)")
-          print(ver)'`]
+          print(ver or "")'`]
       ])
     AS_IF([test "x$ax_cv_lua_version" = 'x'],
       [AC_MSG_ERROR([invalid Lua version number])])
@@ -469,7 +478,7 @@ AC_DEFUN([AX_LUA_HEADERS],
 
   dnl Some default directories to search.
   LUA_SHORT_VERSION=`echo "$LUA_VERSION" | $SED 's|\.||'`
-  m4_define_default([_AX_LUA_INCLUDE_LIST],
+  m4_define_default([_ax_lua_include_list],
     [ /usr/include/lua$LUA_VERSION \
       /usr/include/lua-$LUA_VERSION \
       /usr/include/lua/$LUA_VERSION \
@@ -488,9 +497,11 @@ AC_DEFUN([AX_LUA_HEADERS],
 
   dnl Try some other directories if LUA_INCLUDE was not set.
   AS_IF([test "x$LUA_INCLUDE" = 'x' &&
-         test "x$ac_cv_header_lua_h" != 'xyes'],
+         test "x$ac_cv_header_lua_h" != 'xyes' ||
+         test "x$with_luajit" != 'xno' &&
+         test "x$ac_cv_header_luajit_h" != 'xyes'],
     [ dnl Try some common include paths.
-      for _ax_include_path in _AX_LUA_INCLUDE_LIST; do
+      for _ax_include_path in _ax_lua_include_list; do
         test ! -d "$_ax_include_path" && continue
 
         AC_MSG_CHECKING([for Lua headers in])
@@ -500,6 +511,7 @@ AC_DEFUN([AX_LUA_HEADERS],
         AS_UNSET([ac_cv_header_lualib_h])
         AS_UNSET([ac_cv_header_lauxlib_h])
         AS_UNSET([ac_cv_header_luaconf_h])
+        AS_UNSET([ac_cv_header_luajit_h])
 
         _ax_lua_saved_cppflags=$CPPFLAGS
         CPPFLAGS="$CPPFLAGS -I$_ax_include_path"
@@ -514,24 +526,42 @@ AC_DEFUN([AX_LUA_HEADERS],
     ])
 
   AS_IF([test "x$ac_cv_header_lua_h" = 'xyes'],
-    [ AC_CACHE_CHECK([for Lua header version],
-        [ax_cv_lua_header_version],
-        [
-          ax_cv_lua_header_version=`echo LUA_VERSION | \
-            $CC -P -E $LUA_INCLUDE -imacros lua.h - | \
-                $SED -e 's%"@<:@@<:@:space:@:>@@:>@*"%%g' -e 's%^@<:@@<:@:space:@:>@@:>@*%%' | \
-                tr -d '"\n' | \
-                    $SED -n "s|^Lua \(@<:@0-9@:>@\{1,\}\.@<:@0-9@:>@\{1,\}\).\{0,\}|\1|p"`
-        ])
+    [ dnl Make a program to print LUA_VERSION defined in the header.
+      dnl TODO It would be really nice if we could do this without compiling a
+      dnl program, then it would work when cross compiling. But I'm not sure how
+      dnl to do this reliably. For now, assume versions match when cross compiling.
 
-      dnl Compare this to the previously found LUA_VERSION.
-      AC_MSG_CHECKING([if Lua header version matches $LUA_VERSION])
-      AS_IF([test "x$ax_cv_lua_header_version" = "x$LUA_VERSION"],
-        [ AC_MSG_RESULT([yes])
-          ax_header_version_match='yes'
+      AS_IF([test "x$cross_compiling" != 'xyes'],
+        [ AC_CACHE_CHECK([for Lua header version],
+            [ax_cv_lua_header_version],
+            [ _ax_lua_saved_cppflags=$CPPFLAGS
+              CPPFLAGS="$CPPFLAGS $LUA_INCLUDE"
+              AC_COMPUTE_INT(ax_cv_lua_header_version_major,[LUA_VERSION_NUM/100],[AC_INCLUDES_DEFAULT
+#include <lua.h>
+],[ax_cv_lua_header_version_major=unknown])
+              AC_COMPUTE_INT(ax_cv_lua_header_version_minor,[LUA_VERSION_NUM%100],[AC_INCLUDES_DEFAULT
+#include <lua.h>
+],[ax_cv_lua_header_version_minor=unknown])
+              AS_IF([test "x$ax_cv_lua_header_version_major" = xunknown || test "x$ax_cv_lua_header_version_minor" = xunknown],[
+                ax_cv_lua_header_version=unknown
+              ],[
+                ax_cv_lua_header_version="$ax_cv_lua_header_version_major.$ax_cv_lua_header_version_minor"
+              ])
+              CPPFLAGS=$_ax_lua_saved_cppflags
+            ])
+
+          dnl Compare this to the previously found LUA_VERSION.
+          AC_MSG_CHECKING([if Lua header version matches $LUA_VERSION])
+          AS_IF([test "x$ax_cv_lua_header_version" = "x$LUA_VERSION"],
+            [ AC_MSG_RESULT([yes])
+              ax_header_version_match='yes'
+            ],
+            [ AC_MSG_RESULT([no])
+              ax_header_version_match='no'
+            ])
         ],
-        [ AC_MSG_RESULT([no])
-          ax_header_version_match='no'
+        [ AC_MSG_WARN([cross compiling so assuming header version number matches])
+          ax_header_version_match='yes'
         ])
     ])
 
@@ -612,7 +642,7 @@ AC_DEFUN([AX_LUA_LIBS],
       ],
       [_ax_found_lua_libs='yes'],
       [_ax_found_lua_libs='no'],
-      [$_ax_lua_extra_libs])
+        [$_ax_lua_extra_libs])])
     LIBS=$_ax_lua_saved_libs
 
     AS_IF([test "x$ac_cv_search_lua_load" != 'xno' &&

@@ -260,24 +260,6 @@ isis_route_info_new(struct prefix *prefix, struct prefix_ipv6 *src_p,
 			       ISIS_CIRCUIT_FLAPPED_AFTER_SPF))
 			SET_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ZEBRA_RESYNC);
 
-		/* update neighbor router address */
-		switch (prefix->family) {
-		case AF_INET:
-			if (depth == 2 && prefix->prefixlen == IPV4_MAX_BITLEN)
-				adj->router_address = prefix->u.prefix4;
-			break;
-		case AF_INET6:
-			if (depth == 2 && prefix->prefixlen == IPV6_MAX_BITLEN
-			    && (!src_p || !src_p->prefixlen)) {
-				adj->router_address6 = prefix->u.prefix6;
-			}
-			break;
-		default:
-			flog_err(EC_LIB_DEVELOPMENT,
-				 "%s: unknown address family [%d]", __func__,
-				 prefix->family);
-			exit(1);
-		}
 		adjinfo2nexthop(prefix->family, rinfo->nexthops, adj, sr,
 				label_stack);
 		if (!allow_ecmp)

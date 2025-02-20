@@ -1,5 +1,8 @@
 version: 1
 formatters:
+  result_color:
+    class: munet.mulog.ResultColorFormatter
+    format: '%(levelname)5s: %(message)s'
   brief:
     format: '%(levelname)5s: %(message)s'
   operfmt:
@@ -22,7 +25,7 @@ handlers:
   info_console:
     level: INFO
     class: logging.StreamHandler
-    formatter: brief
+    formatter: result_color
     stream: ext://sys.stderr
   oper_console:
     level: DEBUG

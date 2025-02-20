@@ -1,0 +1,382 @@
+module ietf-key-chain {
+  yang-version 1.1;
+  namespace "urn:ietf:params:xml:ns:yang:ietf-key-chain";
+  prefix key-chain;
+
+  import ietf-yang-types {
+    prefix yang;
+  }
+  import ietf-netconf-acm {
+    prefix nacm;
+  }
+
+  organization
+    "IETF RTGWG - Routing Area Working Group";
+  contact
+    "WG Web:   <https://datatracker.ietf.org/group/rtgwg>
+     WG List:  <mailto:rtgwg@ietf.org>
+
+     Editor: Acee Lindem
+             <mailto:acee@cisco.com>
+             Yingzhen Qu
+             <mailto:yingzhen.qu@huawei.com>
+             Derek Yeung
+             <mailto:derek@arrcus.com>
+             Ing-Wher Chen
+             <mailto:Ing-Wher_Chen@jabail.com>
+             Jeffrey Zhang
+             <mailto:zzhang@juniper.net>";
+
+  description
+    "This YANG module defines the generic configuration
+     data for key chains.  It is intended that the module
+     will be extended by vendors to define vendor-specific
+     key chain configuration parameters.
+
+     Copyright (c) 2017 IETF Trust and the persons identified as
+     authors of the code.  All rights reserved.
+
+     Redistribution and use in source and binary forms, with or
+     without modification, is permitted pursuant to, and subject
+     to the license terms contained in, the Simplified BSD License
+     set forth in Section 4.c of the IETF Trust's Legal Provisions
+     Relating to IETF Documents
+     (http://trustee.ietf.org/license-info).
+
+     This version of this YANG module is part of RFC 8177;
+     see the RFC itself for full legal notices.";
+
+  reference "RFC 8177";
+
+  revision 2017-06-15 {
+    description
+      "Initial RFC Revision";
+    reference "RFC 8177: YANG Data Model for Key Chains";
+  }
+
+  feature hex-key-string {
+    description
+      "Support hexadecimal key string.";
+  }
+
+  feature accept-tolerance {
+    description
+      "Support the tolerance or acceptance limit.";
+  }
+
+  feature independent-send-accept-lifetime {
+    description
+      "Support for independent send and accept key lifetimes.";
+  }
+
+  feature crypto-hmac-sha-1-12 {
+    description
+      "Support for TCP HMAC-SHA-1 12-byte digest hack.";
+  }
+
+  feature cleartext {
+    description
+      "Support for cleartext algorithm.  Usage is
+       NOT RECOMMENDED.";
+  }
+
+  feature aes-cmac-prf-128 {
+    description
+      "Support for AES Cipher-based Message Authentication
+       Code Pseudorandom Function.";
+  }
+
+  feature aes-key-wrap {
+    description
+      "Support for Advanced Encryption Standard (AES) Key Wrap.";
+  }
+
+  feature replay-protection-only {
+    description
+      "Provide replay protection without any authentication
+       as required by protocols such as Bidirectional
+       Forwarding Detection (BFD).";
+  }
+  identity crypto-algorithm {
+    description
+      "Base identity of cryptographic algorithm options.";
+  }
+
+  identity hmac-sha-1-12 {
+    base crypto-algorithm;
+    if-feature "crypto-hmac-sha-1-12";
+    description
+      "The HMAC-SHA1-12 algorithm.";
+  }
+
+  identity aes-cmac-prf-128 {
+    base crypto-algorithm;
+    if-feature "aes-cmac-prf-128";
+    description
+      "The AES-CMAC-PRF-128 algorithm - required by
+       RFC 5926 for TCP-AO key derivation functions.";
+  }
+
+  identity md5 {
+    base crypto-algorithm;
+    description
+      "The MD5 algorithm.";
+  }
+
+  identity sha-1 {
+    base crypto-algorithm;
+    description
+      "The SHA-1 algorithm.";
+  }
+
+  identity hmac-sha-1 {
+    base crypto-algorithm;
+    description
+      "HMAC-SHA-1 authentication algorithm.";
+  }
+
+  identity hmac-sha-256 {
+    base crypto-algorithm;
+    description
+      "HMAC-SHA-256 authentication algorithm.";
+  }
+
+  identity hmac-sha-384 {
+    base crypto-algorithm;
+    description
+      "HMAC-SHA-384 authentication algorithm.";
+  }
+
+  identity hmac-sha-512 {
+    base crypto-algorithm;
+    description
+      "HMAC-SHA-512 authentication algorithm.";
+  }
+
+  identity cleartext {
+    base crypto-algorithm;
+    if-feature "cleartext";
+    description
+      "cleartext.";
+  }
+
+  identity replay-protection-only {
+    base crypto-algorithm;
+    if-feature "replay-protection-only";
+    description
+      "Provide replay protection without any authentication as
+       required by protocols such as Bidirectional Forwarding
+       Detection (BFD).";
+  }
+
+  typedef key-chain-ref {
+    type leafref {
+      path
+      "/key-chain:key-chains/key-chain:key-chain/key-chain:name";
+    }
+    description
+      "This type is used by data models that need to reference
+       configured key chains.";
+  }
+
+  grouping lifetime {
+    description
+      "Key lifetime specification.";
+    choice lifetime {
+      default "always";
+      description
+        "Options for specifying key accept or send lifetimes";
+      case always {
+        leaf always {
+          type empty;
+          description
+            "Indicates key lifetime is always valid.";
+        }
+      }
+      case start-end-time {
+        leaf start-date-time {
+          type yang:date-and-time;
+          description
+            "Start time.";
+        }
+        choice end-time {
+          default "infinite";
+          description
+            "End-time setting.";
+          case infinite {
+            leaf no-end-time {
+              type empty;
+              description
+                "Indicates key lifetime end-time is infinite.";
+            }
+          }
+          case duration {
+            leaf duration {
+              type uint32 {
+                range "1..2147483646";
+              }
+              units "seconds";
+              description
+                "Key lifetime duration, in seconds";
+            }
+          }
+          case end-date-time {
+            leaf end-date-time {
+              type yang:date-and-time;
+              description
+                "End time.";
+            }
+          }
+        }
+      }
+    }
+  }
+
+  container key-chains {
+    description
+      "All configured key-chains on the device.";
+    list key-chain {
+      key "name";
+      description
+        "List of key-chains.";
+      leaf name {
+        type string;
+        description
+          "Name of the key-chain.";
+      }
+      leaf description {
+        type string;
+        description
+          "A description of the key-chain";
+      }
+      container accept-tolerance {
+        if-feature "accept-tolerance";
+        description
+          "Tolerance for key lifetime acceptance (seconds).";
+        leaf duration {
+          type uint32;
+          units "seconds";
+          default "0";
+          description
+            "Tolerance range, in seconds.";
+        }
+      }
+      leaf last-modified-timestamp {
+        type yang:date-and-time;
+        config false;
+        description
+          "Timestamp of the most recent update to the key-chain";
+      }
+      list key {
+        key "key-id";
+        description
+          "Single key in key chain.";
+        leaf key-id {
+          type uint64;
+          description
+            "Numeric value uniquely identifying the key";
+        }
+        container lifetime {
+          description
+            "Specify a key's lifetime.";
+          choice lifetime {
+            description
+              "Options for specification of send and accept
+               lifetimes.";
+            case send-and-accept-lifetime {
+              description
+                "Send and accept key have the same lifetime.";
+              container send-accept-lifetime {
+                description
+                  "Single lifetime specification for both
+                   send and accept lifetimes.";
+                uses lifetime;
+              }
+            }
+            case independent-send-accept-lifetime {
+              if-feature "independent-send-accept-lifetime";
+              description
+                "Independent send and accept key lifetimes.";
+              container send-lifetime {
+                description
+                  "Separate lifetime specification for send
+                   lifetime.";
+                uses lifetime;
+              }
+              container accept-lifetime {
+                description
+                  "Separate lifetime specification for accept
+                   lifetime.";
+                uses lifetime;
+              }
+            }
+          }
+        }
+        leaf crypto-algorithm {
+          type identityref {
+            base crypto-algorithm;
+          }
+          mandatory true;
+          description
+            "Cryptographic algorithm associated with key.";
+        }
+        container key-string {
+          description
+            "The key string.";
+          nacm:default-deny-all;
+          choice key-string-style {
+            description
+              "Key string styles";
+             case keystring {
+               leaf keystring {
+                type string;
+                description
+                  "Key string in ASCII format.";
+              }
+            }
+            case hexadecimal {
+              if-feature "hex-key-string";
+              leaf hexadecimal-string {
+                type yang:hex-string;
+                description
+                  "Key in hexadecimal string format.  When compared
+                   to ASCII, specification in hexadecimal affords
+                   greater key entropy with the same number of
+                   internal key-string octets.  Additionally, it
+                   discourages usage of well-known words or
+                   numbers.";
+              }
+            }
+          }
+        }
+        leaf send-lifetime-active {
+          type boolean;
+          config false;
+          description
+            "Indicates if the send lifetime of the
+             key-chain key is currently active.";
+           }
+        leaf accept-lifetime-active {
+          type boolean;
+          config false;
+          description
+            "Indicates if the accept lifetime of the
+             key-chain key is currently active.";
+        }
+      }
+    }
+    container aes-key-wrap {
+      if-feature "aes-key-wrap";
+      description
+        "AES Key Wrap encryption for key-chain key-strings.  The
+         encrypted key-strings are encoded as hexadecimal key
+         strings using the hex-key-string leaf.";
+      leaf enable {
+        type boolean;
+        default "false";
+        description
+          "Enable AES Key Wrap encryption.";
+      }
+    }
+  }
+}

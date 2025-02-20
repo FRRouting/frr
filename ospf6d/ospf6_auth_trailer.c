@@ -4,6 +4,13 @@
  */
 
 #include "zebra.h"
+#include <sys/stat.h>
+
+#ifdef CRYPTO_OPENSSL
+#include <openssl/evp.h>
+#include <openssl/hmac.h>
+#endif
+
 #include "config.h"
 #include "memory.h"
 #include "ospf6d.h"
@@ -23,8 +30,12 @@
 #include "ospf6_zebra.h"
 #include "lib/keychain.h"
 
+#define OSPF6D_COMPAT_AUTHSEQ_NAME "%s/ospf6d-at-seq-no.dat", frr_runstatedir
+
 unsigned char conf_debug_ospf6_auth[2];
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_AUTH_HASH_XOR, "OSPF6 auth hash xor");
+
+static void ospf6_auth_seqno_nvm_update(struct ospf6 *ospf6);
 
 /*Apad is the hexadecimal value 0x878FE1F3. */
 const uint8_t ospf6_hash_apad_max[KEYCHAIN_MAX_HASH_SIZE] = {
@@ -506,6 +517,15 @@ int ospf6_auth_check_digest(struct ospf6_header *oh, struct ospf6_interface *oi,
 		}
 	} else if (CHECK_FLAG(oi->at_data.flags,
 			      OSPF6_AUTH_TRAILER_MANUAL_KEY)) {
+		if (oi->at_data.key_id != ntohs(ospf6_auth->id)) {
+			if (IS_OSPF6_DEBUG_AUTH_RX)
+				zlog_err("RECV[%s]: Auth SA ID mismatch for %s, received %u vs configured %u",
+					 oi->interface->name,
+					 ospf6_message_type(oh->type),
+					 ntohs(ospf6_auth->id),
+					 oi->at_data.key_id);
+			return OSPF6_AUTH_VALIDATE_FAILURE;
+		}
 		auth_str = oi->at_data.auth_key;
 		hash_algo = oi->at_data.hash_algo;
 	}
@@ -604,20 +624,19 @@ void ospf6_auth_digest_send(struct in6_addr *src, struct ospf6_interface *oi,
 	else
 		return;
 
-	ospf6->seqnum_l++;
 	if (ospf6->seqnum_l == 0xFFFFFFFF) {
-		ospf6->seqnum_h++;
-		ospf6->seqnum_l = 0;
+		if (ospf6->seqnum_h == 0xFFFFFFFF) {
+			/* Key must be reset, which is not handled as of now. */
+			zlog_err("Sequence number wrapped; key must be reset.");
+			ospf6->seqnum_h = 0;
+		} else {
+			ospf6->seqnum_h++;
+		}
 		ospf6_auth_seqno_nvm_update(ospf6);
-	}
 
-	/* Key must be reset. which is not handled as of now. */
-	if ((ospf6->seqnum_l == 0xFFFFFFFF)
-	    && (ospf6->seqnum_h == 0xFFFFFFFF)) {
 		ospf6->seqnum_l = 0;
-		ospf6->seqnum_h = 0;
-		zlog_err(
-			"Both Higher and Lower sequence number has wrapped. Need to reset the key");
+	} else {
+		ospf6->seqnum_l++;
 	}
 
 	memset(apad, 0, sizeof(apad));
@@ -665,7 +684,7 @@ void ospf6_auth_update_digest(struct ospf6_interface *oi,
 			      struct ospf6_auth_hdr *ospf6_auth, char *auth_str,
 			      uint32_t pkt_len, enum keychain_hash_algo algo)
 {
-	static const uint16_t cpid = 1;
+	const uint16_t cpid = htons(OSPFV3_CRYPTO_PROTO_ID);
 	uint32_t hash_len = keychain_get_hash_len(algo);
 	uint32_t block_s = keychain_get_block_size(algo);
 	uint32_t k_len = strlen(auth_str);
@@ -856,23 +875,11 @@ void install_element_ospf6_clear_intf_auth(void)
 	install_element(ENABLE_NODE, &clear_ipv6_ospf6_intf_auth_cmd);
 }
 
-enum ospf6_auth_err ospf6_auth_nvm_file_exist(void)
-{
-	struct stat buffer;
-	int exist;
-
-	exist = stat(OSPF6_AUTH_SEQ_NUM_FILE, &buffer);
-	if (exist == 0)
-		return OSPF6_AUTH_FILE_EXIST;
-	else
-		return OSPF6_AUTH_FILE_DO_NOT_EXIST;
-}
-
 /*
  * Record in non-volatile memory the given ospf6 process,
  * authentication trailer higher order sequence number.
  */
-void ospf6_auth_seqno_nvm_update(struct ospf6 *ospf6)
+static void ospf6_auth_seqno_nvm_update(struct ospf6 *ospf6)
 {
 	const char *inst_name;
 	json_object *json;
@@ -884,9 +891,7 @@ void ospf6_auth_seqno_nvm_update(struct ospf6 *ospf6)
 
 	inst_name = ospf6->name ? ospf6->name : VRF_DEFAULT_NAME;
 
-	json = json_object_from_file((char *)OSPF6_AUTH_SEQ_NUM_FILE);
-	if (json == NULL)
-		json = json_object_new_object();
+	json = frr_daemon_state_load();
 
 	json_object_object_get_ex(json, "instances", &json_instances);
 	if (!json_instances) {
@@ -906,49 +911,82 @@ void ospf6_auth_seqno_nvm_update(struct ospf6 *ospf6)
 	 */
 	json_object_int_add(json_instance, "sequence_number", ospf6->seqnum_h);
 
-	json_object_to_file_ext((char *)OSPF6_AUTH_SEQ_NUM_FILE, json,
-				JSON_C_TO_STRING_PRETTY);
-	json_object_free(json);
+	frr_daemon_state_save(&json);
 }
 
 /*
  * Delete authentication sequence number for a given OSPF6 process
  * from non-volatile memory.
  */
-void ospf6_auth_seqno_nvm_delete(struct ospf6 *ospf6)
+__attribute__((unused)) static void
+ospf6_auth_seqno_nvm_delete(struct ospf6 *ospf6)
 {
 	const char *inst_name;
 	json_object *json;
 	json_object *json_instances;
+	json_object *json_instance;
 
 	zlog_err("Higher order sequence number delete for %s process",
 		 ospf6->name);
 
 	inst_name = ospf6->name ? ospf6->name : VRF_DEFAULT_NAME;
 
-	json = json_object_from_file((char *)OSPF6_AUTH_SEQ_NUM_FILE);
-	if (json == NULL)
-		json = json_object_new_object();
+	json = frr_daemon_state_load();
 
 	json_object_object_get_ex(json, "instances", &json_instances);
 	if (!json_instances) {
-		json_instances = json_object_new_object();
-		json_object_object_add(json, "instances", json_instances);
+		json_object_put(json);
+		return;
 	}
 
-	json_object_object_del(json_instances, inst_name);
+	json_object_object_get_ex(json_instances, inst_name, &json_instance);
+	if (json_instance) {
+		json_object_put(json);
+		return;
+	}
 
-	json_object_to_file_ext((char *)OSPF6_AUTH_SEQ_NUM_FILE, json,
-				JSON_C_TO_STRING_PRETTY);
-	json_object_free(json);
+	json_object_object_del(json_instance, "sequence_number");
+
+	frr_daemon_state_save(&json);
 }
 
+
+static struct json_object *ospf6_auth_seqno_compat_read(const char *inst_name)
+{
+	/* try legacy location */
+	char compat_path[512];
+	json_object *json;
+	json_object *json_instances = NULL;
+	json_object *json_instance = NULL;
+	json_object *json_seqnum = NULL;
+
+	snprintf(compat_path, sizeof(compat_path), OSPF6D_COMPAT_AUTHSEQ_NAME);
+	json = json_object_from_file(compat_path);
+
+	if (json)
+		json_object_object_get_ex(json, "instances", &json_instances);
+	if (json_instances)
+		json_object_object_get_ex(json_instances, inst_name,
+					  &json_instance);
+	if (json_instance)
+		json_object_object_get_ex(json_instance, "sequence_number",
+					  &json_seqnum);
+	if (json_seqnum)
+		/* => free the file-level object and still return this */
+		json_seqnum = json_object_get(json_seqnum);
+
+	if (json) {
+		json_object_free(json);
+		unlink(compat_path);
+	}
+	return json_seqnum;
+}
 
 /*
  * Fetch from non-volatile memory the stored ospf6 process
  * authentication sequence number.
  */
-void ospf6_auth_seqno_nvm_read(struct ospf6 *ospf6)
+static void ospf6_auth_seqno_nvm_read(struct ospf6 *ospf6)
 {
 	const char *inst_name;
 	json_object *json;
@@ -958,9 +996,7 @@ void ospf6_auth_seqno_nvm_read(struct ospf6 *ospf6)
 
 	inst_name = ospf6->name ? ospf6->name : VRF_DEFAULT_NAME;
 
-	json = json_object_from_file((char *)OSPF6_AUTH_SEQ_NUM_FILE);
-	if (json == NULL)
-		json = json_object_new_object();
+	json = frr_daemon_state_load();
 
 	json_object_object_get_ex(json, "instances", &json_instances);
 	if (!json_instances) {
@@ -977,13 +1013,34 @@ void ospf6_auth_seqno_nvm_read(struct ospf6 *ospf6)
 
 	json_object_object_get_ex(json_instance, "sequence_number",
 				  &json_seqnum);
-	ospf6->seqnum_h = json_object_get_int(json_seqnum);
+
+	if (json_seqnum)
+		/* cf. reference taken in compat_read above */
+		json_seqnum = json_object_get(json_seqnum);
+	else
+		json_seqnum = ospf6_auth_seqno_compat_read(inst_name);
+
+	ospf6->seqnum_l = 0;
+	if (json_seqnum) {
+		ospf6->seqnum_h = json_object_get_int(json_seqnum);
+		ospf6->seqnum_h += 1;
+	} else {
+		ospf6->seqnum_h = 0;
+	}
+
+	if (json_seqnum)
+		json_object_put(json_seqnum);
 
 	zlog_err("Higher order sequence number %d read for %s process %s",
 		 ospf6->seqnum_h, ospf6->name, strerror(errno));
 
-	json_object_object_del(json_instances, inst_name);
-	json_object_to_file_ext((char *)OSPF6_AUTH_SEQ_NUM_FILE, json,
-				JSON_C_TO_STRING_PRETTY);
-	json_object_free(json);
+	json_object_object_del(json_instance, "sequence_number");
+
+	frr_daemon_state_save(&json);
+}
+
+void ospf6_auth_init(struct ospf6 *o)
+{
+	ospf6_auth_seqno_nvm_read(o);
+	ospf6_auth_seqno_nvm_update(o);
 }

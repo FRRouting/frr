@@ -82,11 +82,11 @@ int main(int argc, char **argv)
 	assert(seqlock_held(&sqlo));
 
 	assert(seqlock_cur(&sqlo) == 1);
-	assert(seqlock_bump(&sqlo) == 1);
-	assert(seqlock_cur(&sqlo) == 5);
 	assert(seqlock_bump(&sqlo) == 5);
+	assert(seqlock_cur(&sqlo) == 5);
 	assert(seqlock_bump(&sqlo) == 9);
 	assert(seqlock_bump(&sqlo) == 13);
+	assert(seqlock_bump(&sqlo) == 17);
 	assert(seqlock_cur(&sqlo) == 17);
 
 	assert(seqlock_held(&sqlo));
@@ -111,4 +111,5 @@ int main(int argc, char **argv)
 	writestr("main @release\n");
 	seqlock_release(&sqlo);
 	sleep(1);
+	pthread_join(thr1, NULL);
 }

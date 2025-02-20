@@ -28,7 +28,6 @@ ldpd_libldp_a_SOURCES = \
 	ldpd/ldp_vty_exec.c \
 	ldpd/ldp_zebra.c \
 	ldpd/ldpe.c \
-	ldpd/log.c \
 	ldpd/logmsg.c \
 	ldpd/neighbor.c \
 	ldpd/notification.c \

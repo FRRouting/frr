@@ -58,7 +58,7 @@ static void sighup(void)
 static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
-	zlog_notice("Unregisterfrom opaque,etc ");
+	zlog_notice("Unregister from opaque,etc ");
 	pathd_shutdown();
 
 	exit(0);
@@ -95,17 +95,20 @@ static const struct frr_yang_module_info *pathd_yang_modules[] = {
 	&frr_pathd_info,
 };
 
-#define PATH_VTY_PORT 2621
+/* clang-format off */
+FRR_DAEMON_INFO(pathd, PATH,
+	.vty_port = PATH_VTY_PORT,
+	.proghelp = "Implementation of PATH.",
 
-FRR_DAEMON_INFO(pathd, PATH, .vty_port = PATH_VTY_PORT,
+	.signals = path_signals,
+	.n_signals = array_size(path_signals),
 
-		.proghelp = "Implementation of PATH.",
+	.privs = &pathd_privs,
 
-		.signals = path_signals, .n_signals = array_size(path_signals),
-
-		.privs = &pathd_privs, .yang_modules = pathd_yang_modules,
-		.n_yang_modules = array_size(pathd_yang_modules),
+	.yang_modules = pathd_yang_modules,
+	.n_yang_modules = array_size(pathd_yang_modules),
 );
+/* clang-format on */
 
 int main(int argc, char **argv, char **envp)
 {

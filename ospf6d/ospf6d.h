@@ -15,6 +15,9 @@ DECLARE_MGROUP(OSPF6D);
 /* global variables */
 extern struct event_loop *master;
 
+/* OSPF config processing timer thread */
+extern struct event *t_ospf6_cfg;
+
 /* Historical for KAME.  */
 #ifndef IPV6_JOIN_GROUP
 #ifdef IPV6_ADD_MEMBERSHIP
@@ -104,6 +107,12 @@ extern struct event_loop *master;
 #define OSPF6_INVALID -1
 
 extern struct zebra_privs_t ospf6d_privs;
+
+/* Event Debug option */
+extern unsigned char conf_debug_ospf6_event;
+#define OSPF6_DEBUG_EVENT_ON() (conf_debug_ospf6_event = 1)
+#define OSPF6_DEBUG_EVENT_OFF() (conf_debug_ospf6_event = 0)
+#define IS_OSPF6_DEBUG_EVENT (conf_debug_ospf6_event)
 
 /* Function Prototypes */
 extern struct route_node *route_prev(struct route_node *node);

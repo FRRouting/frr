@@ -233,13 +233,11 @@ static void eigrp_network_run_interface(struct eigrp *eigrp, struct prefix *p,
 					struct interface *ifp)
 {
 	struct eigrp_interface *ei;
-	struct listnode *cnode;
 	struct connected *co;
 
 	/* if interface prefix is match specified prefix,
 	   then create socket and join multicast group. */
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, co)) {
-
+	frr_each (if_connected, ifp->connected, co) {
 		if (CHECK_FLAG(co->flags, ZEBRA_IFA_SECONDARY))
 			continue;
 

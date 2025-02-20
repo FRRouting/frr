@@ -159,7 +159,8 @@ int ospf_if_ipmulticast(int fd, struct prefix *p, ifindex_t ifindex)
  * Helper to open and set up a socket; returns the new fd on success,
  * -1 on error.
  */
-static int sock_init_common(vrf_id_t vrf_id, const char *name, int *pfd)
+static int sock_init_common(vrf_id_t vrf_id, const char *name, int proto,
+			    int *pfd)
 {
 	int ospf_sock;
 	int ret, hincl = 1;
@@ -170,8 +171,7 @@ static int sock_init_common(vrf_id_t vrf_id, const char *name, int *pfd)
 	}
 
 	frr_with_privs(&ospfd_privs) {
-		ospf_sock = vrf_socket(AF_INET, SOCK_RAW, IPPROTO_OSPFIGP,
-				       vrf_id, name);
+		ospf_sock = vrf_socket(AF_INET, SOCK_RAW, proto, vrf_id, name);
 		if (ospf_sock < 0) {
 			flog_err(EC_LIB_SOCKET, "%s: socket: %s", __func__,
 				 safe_strerror(errno));
@@ -244,7 +244,8 @@ int ospf_sock_init(struct ospf *ospf)
 	if (ospf->fd > 0)
 		return -1;
 
-	ret = sock_init_common(ospf->vrf_id, ospf->name, &(ospf->fd));
+	ret = sock_init_common(ospf->vrf_id, ospf->name, IPPROTO_OSPFIGP,
+			       &(ospf->fd));
 
 	if (ret >= 0) /* Update socket buffer sizes */
 		ospf_sock_bufsize_update(ospf, ospf->fd, OSPF_SOCK_BOTH);
@@ -258,8 +259,8 @@ int ospf_sock_init(struct ospf *ospf)
 int ospf_ifp_sock_init(struct interface *ifp)
 {
 	struct ospf_if_info *oii;
-	struct ospf_interface *oi;
-	struct ospf *ospf;
+	struct ospf_interface *oi = NULL;
+	struct ospf *ospf = NULL;
 	struct route_node *rn;
 	int ret;
 
@@ -270,17 +271,26 @@ int ospf_ifp_sock_init(struct interface *ifp)
 	if (oii->oii_fd > 0)
 		return 0;
 
-	rn = route_top(IF_OIFS(ifp));
-	if (rn && rn->info) {
-		oi = rn->info;
-		ospf = oi->ospf;
-	} else
+	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+		if (rn && rn->info) {
+			oi = rn->info;
+			ospf = oi->ospf;
+			break;
+		}
+	}
+
+	if (ospf == NULL)
 		return -1;
 
-	ret = sock_init_common(ifp->vrf->vrf_id, ifp->name, &oii->oii_fd);
+	ret = sock_init_common(ifp->vrf->vrf_id, ifp->name, IPPROTO_OSPFIGP,
+			       &oii->oii_fd);
 
-	if (ret >= 0) /* Update socket buffer sizes */
-		ospf_sock_bufsize_update(ospf, oii->oii_fd, OSPF_SOCK_BOTH);
+	if (ret >= 0) { /* Update socket buffer sizes */
+		/* Write-only, so no recv buf */
+		setsockopt_so_recvbuf(oii->oii_fd, 0);
+
+		ospf_sock_bufsize_update(ospf, oii->oii_fd, OSPF_SOCK_SEND);
+	}
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: ifp %s, oii %p, fd %d", __func__, ifp->name,

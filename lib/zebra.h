@@ -17,17 +17,9 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <ctype.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <string.h>
-#include <pwd.h>
-#include <grp.h>
 #ifdef HAVE_STROPTS_H
 #include <stropts.h>
 #endif /* HAVE_STROPTS_H */
-#include <sys/select.h>
-#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/param.h>
 #ifdef HAVE_SYS_SYSCTL_H
@@ -37,22 +29,15 @@
 #include <sys/sysctl.h>
 #endif
 #endif /* HAVE_SYS_SYSCTL_H */
-#include <sys/ioctl.h>
 #ifdef HAVE_SYS_CONF_H
 #include <sys/conf.h>
 #endif /* HAVE_SYS_CONF_H */
 #ifdef HAVE_SYS_KSYM_H
 #include <sys/ksym.h>
 #endif /* HAVE_SYS_KSYM_H */
-#include <syslog.h>
 #include <sys/time.h>
 #include <time.h>
-#include <sys/uio.h>
-#include <sys/utsname.h>
-#include <sys/resource.h>
-#include <limits.h>
 #include <inttypes.h>
-#include <stdbool.h>
 #ifdef HAVE_SYS_ENDIAN_H
 #include <sys/endian.h>
 #endif
@@ -63,11 +48,6 @@
 /* misc include group */
 #include <stdarg.h>
 
-#ifdef HAVE_LCAPS
-#include <sys/capability.h>
-#include <sys/prctl.h>
-#endif /* HAVE_LCAPS */
-
 /* network include group */
 
 #include <sys/socket.h>
@@ -76,10 +56,6 @@
 #include <sys/sockio.h>
 #endif /* HAVE_SYS_SOCKIO_H */
 
-#ifdef __APPLE__
-#define __APPLE_USE_RFC_3542
-#endif
-
 #ifndef HAVE_LIBCRYPT
 #ifdef HAVE_LIBCRYPTO
 #include <openssl/des.h>
@@ -87,15 +63,9 @@
 #endif
 #endif
 
-#ifdef CRYPTO_OPENSSL
-#include <openssl/evp.h>
-#include <openssl/hmac.h>
-#endif
-
 #include "openbsd-tree.h"
 
 #include <netinet/in.h>
-#include <netinet/in_systm.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
 
@@ -113,14 +83,9 @@
 #include <net/if_var.h>
 #endif /* HAVE_NET_IF_VAR_H */
 
-#include <net/route.h>
-
-#ifdef HAVE_NETLINK
-#include <linux/netlink.h>
-#include <linux/rtnetlink.h>
-#include <linux/filter.h>
-#else
+#ifndef HAVE_NETLINK
 #define RT_TABLE_MAIN		0
+#define RT_TABLE_LOCAL		RT_TABLE_MAIN
 #endif /* HAVE_NETLINK */
 
 #include <netdb.h>
@@ -146,36 +111,13 @@
 #include <netinet6/in.h>
 #endif /* HAVE_NETINET6_IN_H */
 
-
 #ifdef HAVE_NETINET6_IP6_H
 #include <netinet6/ip6.h>
 #endif /* HAVE_NETINET6_IP6_H */
 
-#include <netinet/icmp6.h>
-
 #ifdef HAVE_NETINET6_ND6_H
 #include <netinet6/nd6.h>
 #endif /* HAVE_NETINET6_ND6_H */
-
-/* Some systems do not define UINT32_MAX, etc.. from inttypes.h
- * e.g. this makes life easier for FBSD 4.11 users.
- */
-#ifndef INT16_MAX
-#define INT16_MAX	(32767)
-#endif
-#ifndef INT32_MAX
-#define INT32_MAX	(2147483647)
-#endif
-#ifndef UINT16_MAX
-#define UINT16_MAX	(65535U)
-#endif
-#ifndef UINT32_MAX
-#define UINT32_MAX	(4294967295U)
-#endif
-
-#ifdef HAVE_GLIBC_BACKTRACE
-#include <execinfo.h>
-#endif /* HAVE_GLIBC_BACKTRACE */
 
 /* Local includes: */
 #if !defined(__GNUC__)
@@ -208,26 +150,6 @@ size_t strlcpy(char *__restrict dest,
 
 #ifndef HAVE_EXPLICIT_BZERO
 void explicit_bzero(void *buf, size_t len);
-#endif
-
-#if !defined(HAVE_STRUCT_MMSGHDR_MSG_HDR) || !defined(HAVE_SENDMMSG)
-/* avoid conflicts in case we have partial support */
-#define mmsghdr frr_mmsghdr
-#define sendmmsg frr_sendmmsg
-
-struct mmsghdr {
-	struct msghdr msg_hdr;
-	unsigned int msg_len;
-};
-
-/* just go 1 at a time here, the loop this is used in will handle the rest */
-static inline int sendmmsg(int fd, struct mmsghdr *mmh, unsigned int len,
-			   int flags)
-{
-	int rv = sendmsg(fd, &mmh->msg_hdr, 0);
-
-	return rv > 0 ? 1 : rv;
-}
 #endif
 
 /*
@@ -283,10 +205,9 @@ struct in_pktinfo {
  * OpenBSD: network byte order, apart from older versions which are as per
  *          *BSD
  */
-#if defined(__NetBSD__)                                                        \
-	|| (defined(__FreeBSD__) && (__FreeBSD_version < 1100030))             \
-	|| (defined(__OpenBSD__) && (OpenBSD < 200311))                        \
-	|| (defined(__APPLE__))
+#if defined(__NetBSD__) ||                                                     \
+	(defined(__FreeBSD__) && (__FreeBSD_version < 1100030)) ||             \
+	(defined(__OpenBSD__) && (OpenBSD < 200311))
 #define HAVE_IP_HDRINCL_BSD_ORDER
 #endif
 
@@ -299,15 +220,6 @@ struct in_pktinfo {
 #ifndef IN6_ARE_ADDR_EQUAL
 #define IN6_ARE_ADDR_EQUAL IN6_IS_ADDR_EQUAL
 #endif /* IN6_ARE_ADDR_EQUAL */
-
-/* default zebra TCP port for zclient */
-#define ZEBRA_PORT			2600
-
-/*
- * The compiler.h header is used for anyone using the CPP_NOTICE
- * since this is universally needed, let's add it to zebra.h
- */
-#include "compiler.h"
 
 /* Zebra route's types are defined in route_types.h */
 #include "lib/route_types.h"
@@ -357,27 +269,6 @@ typedef enum {
 #define FOREACH_AFI_SAFI_NSF(afi, safi)                                        \
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)                               \
 		for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++)
-
-/* Default Administrative Distance of each protocol. */
-#define ZEBRA_KERNEL_DISTANCE_DEFAULT       0
-#define ZEBRA_CONNECT_DISTANCE_DEFAULT      0
-#define ZEBRA_STATIC_DISTANCE_DEFAULT       1
-#define ZEBRA_RIP_DISTANCE_DEFAULT        120
-#define ZEBRA_RIPNG_DISTANCE_DEFAULT      120
-#define ZEBRA_OSPF_DISTANCE_DEFAULT       110
-#define ZEBRA_OSPF6_DISTANCE_DEFAULT      110
-#define ZEBRA_ISIS_DISTANCE_DEFAULT       115
-#define ZEBRA_IBGP_DISTANCE_DEFAULT       200
-#define ZEBRA_EBGP_DISTANCE_DEFAULT        20
-#define ZEBRA_TABLE_DISTANCE_DEFAULT       15
-#define ZEBRA_EIGRP_DISTANCE_DEFAULT       90
-#define ZEBRA_NHRP_DISTANCE_DEFAULT        10
-#define ZEBRA_LDP_DISTANCE_DEFAULT        150
-#define ZEBRA_BABEL_DISTANCE_DEFAULT      100
-#define ZEBRA_SHARP_DISTANCE_DEFAULT      150
-#define ZEBRA_PBR_DISTANCE_DEFAULT        200
-#define ZEBRA_OPENFABRIC_DISTANCE_DEFAULT 115
-#define ZEBRA_MAX_DISTANCE_DEFAULT        255
 
 /* Flag manipulation macros. */
 #define CHECK_FLAG(V,F)      ((V) & (F))

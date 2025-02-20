@@ -73,7 +73,7 @@ def test_bgp_aggregator_zero():
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_bgp_converge)
-    success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
 
     assert result is None, 'Failed bgp convergence in "{}"'.format(tgen.gears["r1"])
 
@@ -99,7 +99,7 @@ def test_bgp_aggregator_zero():
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_bgp_has_correct_aggregator_route_with_good_asn)
-    success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
 
     assert result is None, 'Aggregator AS attribute not found in "{}"'.format(
         tgen.gears["r1"]

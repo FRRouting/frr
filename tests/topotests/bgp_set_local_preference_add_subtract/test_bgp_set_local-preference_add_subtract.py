@@ -47,7 +47,7 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
-    for i, (rname, router) in enumerate(router_list.items(), 1):
+    for _, (rname, router) in enumerate(router_list.items(), 1):
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -100,12 +100,12 @@ def test_bgp_set_local_preference():
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_bgp_converge, router)
-    success, result = topotest.run_and_expect(test_func, None, count=15, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=15, wait=0.5)
 
     assert result is None, 'Failed to see BGP convergence in "{}"'.format(router)
 
     test_func = functools.partial(_bgp_check_local_preference, router)
-    success, result = topotest.run_and_expect(test_func, None, count=15, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=15, wait=0.5)
 
     assert result is None, 'Failed to see applied BGP local-preference in "{}"'.format(
         router

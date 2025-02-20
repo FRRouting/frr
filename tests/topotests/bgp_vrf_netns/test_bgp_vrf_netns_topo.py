@@ -94,10 +94,9 @@ def setup_module(module):
     router.net.set_intf_netns("r1-eth0", ns, up=True)
 
     # run daemons
+    router.use_netns_vrf()
     router.load_config(
-        TopoRouter.RD_ZEBRA,
-        os.path.join(CWD, "{}/zebra.conf".format("r1")),
-        "--vrfwnetns",
+        TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format("r1"))
     )
     router.load_config(
         TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format("r1"))
@@ -205,7 +204,6 @@ def test_bgp_vrf_netns():
 
 
 if __name__ == "__main__":
-
     args = ["-s"] + sys.argv[1:]
     ret = pytest.main(args)
 

@@ -788,6 +788,18 @@ static struct log_ref ferr_zebra_err[] = {
 			"Wait for Zebra to reattempt update.",
 	},
 	{
+		.code = EC_ZEBRA_SM_CANNOT_ASSIGN_SID,
+		.title = "SRv6 manager unable to assign SID",
+		.description = "Zebra's SRv6 manager was unable to assign a SID to client.",
+		.suggestion = "Ensure that Zebra has a sufficient SID range available.",
+	},
+	{
+		.code = EC_ZEBRA_SM_DAEMON_MISMATCH,
+		.title = "Daemon mismatch when releasing SRV6 SIDs",
+		.description = "Zebra noticed a mismatch between a SRv6 SID and a protocol daemon number or instance when releasing unused SRv6 SIDs.",
+		.suggestion = "Ignore this error.",
+	},
+	{
 		.code = END_FERR,
 	}
 };

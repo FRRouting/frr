@@ -17,6 +17,7 @@
 #include "jhash.h"
 #include "wheel.h"
 #include "network.h"
+#include "frrdistance.h"
 
 #include "pimd.h"
 #include "pim_pim.h"
@@ -177,11 +178,13 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 {
 	struct listnode *node, *nnode;
 	struct pim_ifchannel *ch;
+#if PIM_IPV == 4
 	bool notify_msdp = false;
+#endif /* PIM_IPV == 4 */
 
 	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug(
-			"%s(%s): Delete %s[%s] ref count: %d , flags: %d c_oil ref count %d (Pre decrement)",
+			"%s(%s): Delete %s[%s] ref count: %d, flags: %d c_oil ref count %d (Pre decrement)",
 			__func__, name, up->sg_str, pim->vrf->name,
 			up->ref_count, up->flags,
 			up->channel_oil->oil_ref_count);
@@ -205,12 +208,14 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 	if (up->join_state == PIM_UPSTREAM_JOINED) {
 		pim_jp_agg_single_upstream_send(&up->rpf, up, 0);
 
+#if PIM_IPV == 4
 		if (pim_addr_is_any(up->sg.src)) {
 			/* if a (*, G) entry in the joined state is being
 			 * deleted we
 			 * need to notify MSDP */
 			notify_msdp = true;
 		}
+#endif /* PIM_IPV == 4 */
 	}
 
 	join_timer_stop(up);
@@ -220,7 +225,9 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 	if (!pim_addr_is_any(up->sg.src)) {
 		if (pim->upstream_sg_wheel)
 			wheel_remove_item(pim->upstream_sg_wheel, up);
+#if PIM_IPV == 4
 		notify_msdp = true;
+#endif /* PIM_IPV == 4 */
 	}
 
 	pim_mroute_del(up->channel_oil, __func__);
@@ -240,9 +247,11 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 
 	rb_pim_upstream_del(&pim->upstream_head, up);
 
+#if PIM_IPV == 4
 	if (notify_msdp) {
 		pim_msdp_up_del(pim, &up->sg);
 	}
+#endif /* PIM_IPV == 4 */
 
 	/* When RP gets deleted, pim_rp_del() deregister addr with Zebra NHT
 	 * and assign up->upstream_addr as INADDR_ANY.
@@ -256,7 +265,7 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 			zlog_debug(
 				"%s: Deregister upstream %s addr %pPA with Zebra NHT",
 				__func__, up->sg_str, &up->upstream_addr);
-		pim_delete_tracked_nexthop(pim, up->upstream_addr, up, NULL);
+		pim_nht_delete_tracked(pim, up->upstream_addr, up, NULL);
 	}
 
 	XFREE(MTYPE_PIM_UPSTREAM, up);
@@ -303,7 +312,7 @@ static void on_join_timer(struct event *t)
 	}
 
 	/*
-	 * In the case of a HFR we will not ahve anyone to send this to.
+	 * In the case of a FHR we will not ahve anyone to send this to.
 	 */
 	if (PIM_UPSTREAM_FLAG_TEST_FHR(up->flags))
 		return;
@@ -634,6 +643,12 @@ void pim_upstream_update_use_rpt(struct pim_upstream *up,
 	if (pim_addr_is_any(up->sg.src))
 		return;
 
+	/* Ignore RP mapping when the upsteam state
+	 * is NOT Joined on a FHR
+	 */
+	if (up->join_state == PIM_UPSTREAM_NOTJOINED && PIM_UPSTREAM_FLAG_TEST_FHR(up->flags))
+		return;
+
 	old_use_rpt = !!PIM_UPSTREAM_FLAG_TEST_USE_RPT(up->flags);
 
 	/* We will use the SPT (IIF=RPF_interface(S) if -
@@ -662,10 +677,9 @@ void pim_upstream_update_use_rpt(struct pim_upstream *up,
 	new_use_rpt = !!PIM_UPSTREAM_FLAG_TEST_USE_RPT(up->flags);
 	if (old_use_rpt != new_use_rpt) {
 		if (PIM_DEBUG_PIM_EVENTS)
-			zlog_debug("%s switched from %s to %s",
-					up->sg_str,
-					old_use_rpt?"RPT":"SPT",
-					new_use_rpt?"RPT":"SPT");
+			zlog_debug("%s switched from %s to %s", up->sg_str,
+				   old_use_rpt ? "RPT" : "SPT",
+				   new_use_rpt ? "RPT" : "SPT");
 		if (update_mroute)
 			pim_upstream_mroute_add(up->channel_oil, __func__);
 	}
@@ -723,7 +737,9 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 		if (old_state != PIM_UPSTREAM_JOINED) {
 			int old_fhr = PIM_UPSTREAM_FLAG_TEST_FHR(up->flags);
 
+#if PIM_IPV == 4
 			pim_msdp_up_join_state_changed(pim, up);
+#endif /* PIM_IPV == 4 */
 			if (pim_upstream_could_register(up)) {
 				PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
 				if (!old_fhr
@@ -753,8 +769,10 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 		if (!pim_addr_is_any(up->sg.src))
 			up->sptbit = PIM_UPSTREAM_SPTBIT_FALSE;
 
+#if PIM_IPV == 4
 		if (old_state == PIM_UPSTREAM_JOINED)
 			pim_msdp_up_join_state_changed(pim, up);
+#endif /* PIM_IPV == 4 */
 
 		if (old_state != new_state) {
 			old_use_rpt =
@@ -904,14 +922,21 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 				false /*update_mroute*/);
 		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
 
-		if (PIM_UPSTREAM_FLAG_TEST_SRC_NOCACHE(up->flags))
+		if (PIM_UPSTREAM_FLAG_TEST_SRC_NOCACHE(up->flags)) {
+			/*
+			 * Set the right RPF so that future changes will
+			 * be right
+			 */
+			(void)pim_rpf_update(pim, up, NULL, __func__);
 			pim_upstream_keep_alive_timer_start(
 				up, pim->keep_alive_time);
+		}
 	} else if (!pim_addr_is_any(up->upstream_addr)) {
 		pim_upstream_update_use_rpt(up,
 				false /*update_mroute*/);
 		rpf_result = pim_rpf_update(pim, up, NULL, __func__);
 		if (rpf_result == PIM_RPF_FAILURE) {
+			up->channel_oil->oil_inherited_rescan = 1;
 			if (PIM_DEBUG_PIM_TRACE)
 				zlog_debug(
 					"%s: Attempting to create upstream(%s), Unable to RPF for source",
@@ -1417,8 +1442,10 @@ struct pim_upstream *pim_upstream_keep_alive_timer_proc(
 		 */
 	}
 
+#if PIM_IPV == 4
 	/* source is no longer active - pull the SA from MSDP's cache */
 	pim_msdp_sa_local_del(pim, &up->sg);
+#endif /* PIM_IPV == 4 */
 
 	/* JoinDesired can change when KAT is started or stopped */
 	pim_upstream_update_join_desired(pim, up);
@@ -1486,30 +1513,13 @@ void pim_upstream_keep_alive_timer_start(struct pim_upstream *up, uint32_t time)
 	event_add_timer(router->master, pim_upstream_keep_alive_timer, up, time,
 			&up->t_ka_timer);
 
+#if PIM_IPV == 4
 	/* any time keepalive is started against a SG we will have to
 	 * re-evaluate our active source database */
 	pim_msdp_sa_local_update(up);
+#endif /* PIM_IPV == 4 */
 	/* JoinDesired can change when KAT is started or stopped */
 	pim_upstream_update_join_desired(up->pim, up);
-}
-
-/* MSDP on RP needs to know if a source is registerable to this RP */
-static void pim_upstream_msdp_reg_timer(struct event *t)
-{
-	struct pim_upstream *up = EVENT_ARG(t);
-	struct pim_instance *pim = up->channel_oil->pim;
-
-	/* source is no longer active - pull the SA from MSDP's cache */
-	pim_msdp_sa_local_del(pim, &up->sg);
-}
-
-void pim_upstream_msdp_reg_timer_start(struct pim_upstream *up)
-{
-	EVENT_OFF(up->t_msdp_reg_timer);
-	event_add_timer(router->master, pim_upstream_msdp_reg_timer, up,
-			PIM_MSDP_REG_RXED_PERIOD, &up->t_msdp_reg_timer);
-
-	pim_msdp_sa_local_update(up);
 }
 
 /*
@@ -1680,6 +1690,8 @@ const char *pim_reg_state2str(enum pim_reg_state reg_state, char *state_str,
 	return state_str;
 }
 
+static void pim_upstream_start_register_stop_timer(struct pim_upstream *up);
+
 static void pim_upstream_register_stop_timer(struct event *t)
 {
 	struct pim_interface *pim_ifp;
@@ -1713,6 +1725,7 @@ static void pim_upstream_register_stop_timer(struct event *t)
 				zlog_debug("%s: up %s RPF is not present",
 					   __func__, up->sg_str);
 			up->reg_state = PIM_REG_NOINFO;
+			PIM_UPSTREAM_FLAG_UNSET_FHR(up->flags);
 			return;
 		}
 
@@ -1726,7 +1739,7 @@ static void pim_upstream_register_stop_timer(struct event *t)
 			return;
 		}
 		up->reg_state = PIM_REG_JOIN_PENDING;
-		pim_upstream_start_register_stop_timer(up, 1);
+		pim_upstream_start_register_stop_timer(up);
 
 		if (((up->channel_oil->cc.lastused / 100)
 		     > pim->keep_alive_time)
@@ -1744,31 +1757,56 @@ static void pim_upstream_register_stop_timer(struct event *t)
 	}
 }
 
-void pim_upstream_start_register_stop_timer(struct pim_upstream *up,
-					    int null_register)
+static void pim_upstream_start_register_stop_timer(struct pim_upstream *up)
 {
 	uint32_t time;
 
 	EVENT_OFF(up->t_rs_timer);
 
-	if (!null_register) {
-		uint32_t lower = (0.5 * router->register_suppress_time);
-		uint32_t upper = (1.5 * router->register_suppress_time);
-		time = lower + (frr_weak_random() % (upper - lower + 1));
-		/* Make sure we don't wrap around */
-		if (time >= router->register_probe_time)
-			time -= router->register_probe_time;
-		else
-			time = 0;
-	} else
-		time = router->register_probe_time;
+	time = router->register_probe_time;
 
-	if (PIM_DEBUG_PIM_TRACE) {
-		zlog_debug(
-			"%s: (S,G)=%s Starting upstream register stop timer %d",
-			__func__, up->sg_str, time);
-	}
+	if (PIM_DEBUG_PIM_TRACE)
+		zlog_debug("%s: (S,G)=%s Starting upstream register stop timer %d",
+			   __func__, up->sg_str, time);
 	event_add_timer(router->master, pim_upstream_register_stop_timer, up,
+			time, &up->t_rs_timer);
+}
+
+static void pim_upstream_register_probe_timer(struct event *t)
+{
+	struct pim_upstream *up = EVENT_ARG(t);
+
+	if (!up->rpf.source_nexthop.interface ||
+	    !up->rpf.source_nexthop.interface->info) {
+		if (PIM_DEBUG_PIM_REG)
+			zlog_debug("cannot send Null register for %pSG, no path to RP",
+				   &up->sg);
+	} else
+		pim_null_register_send(up);
+
+	pim_upstream_start_register_stop_timer(up);
+}
+
+void pim_upstream_start_register_probe_timer(struct pim_upstream *up)
+{
+	uint32_t time;
+
+	EVENT_OFF(up->t_rs_timer);
+
+	uint32_t lower = (0.5 * router->register_suppress_time);
+	uint32_t upper = (1.5 * router->register_suppress_time);
+	time = lower + (frr_weak_random() % (upper - lower + 1));
+	/* Make sure we don't wrap around */
+	if (time >= router->register_probe_time)
+		time -= router->register_probe_time;
+	else
+		time = 0;
+
+	if (PIM_DEBUG_PIM_TRACE)
+		zlog_debug("%s: (S,G)=%s Starting upstream register stop null probe timer %d",
+			   __func__, up->sg_str, time);
+
+	event_add_timer(router->master, pim_upstream_register_probe_timer, up,
 			time, &up->t_rs_timer);
 }
 
@@ -1936,6 +1974,40 @@ void pim_upstream_terminate(struct pim_instance *pim)
 		wheel_delete(pim->upstream_sg_wheel);
 	pim->upstream_sg_wheel = NULL;
 }
+bool pim_sg_is_reevaluate_oil_req(struct pim_instance *pim,
+				  struct pim_upstream *up)
+{
+	struct pim_interface *pim_ifp = NULL;
+
+	/*
+	 * Attempt to retrieve the PIM interface information if the RPF
+	 * interface is present
+	 */
+	if (up->rpf.source_nexthop.interface) {
+		pim_ifp = up->rpf.source_nexthop.interface->info;
+	} else {
+		if (PIM_DEBUG_PIM_TRACE) {
+			zlog_debug("%s: up %s RPF is not present", __func__,
+				   up->sg_str);
+		}
+	}
+
+	/*
+	 * Determine if a reevaluation of the outgoing interface list (OIL) is
+	 * required. This may be necessary in scenarios such as MSDP where the
+	 * RP role for a group changes from secondary to primary. In such cases,
+	 * SGRpt may receive a prune, resulting in an S,G entry with a NULL OIL.
+	 * The S,G upstream should then inherit the OIL from *,G, which is
+	 * particularly important for VXLAN setups.
+	 */
+	if (up->channel_oil->oil_inherited_rescan ||
+	    (pim_ifp && I_am_RP(pim_ifp->pim, up->sg.grp)) ||
+	    pim_upstream_empty_inherited_olist(up)) {
+		return true;
+	}
+
+	return false;
+}
 
 bool pim_upstream_equal(const void *arg1, const void *arg2)
 {
@@ -1964,6 +2036,7 @@ static bool pim_upstream_kat_start_ok(struct pim_upstream *up)
 	struct channel_oil *c_oil = up->channel_oil;
 	struct interface *ifp = up->rpf.source_nexthop.interface;
 	struct pim_interface *pim_ifp;
+	struct pim_instance *pim = up->channel_oil->pim;
 
 	/* "iif == RPF_interface(S)" check is not easy to do as the info
 	 * we get from the kernel/ASIC is really a "lookup/key hit".
@@ -1974,7 +2047,7 @@ static bool pim_upstream_kat_start_ok(struct pim_upstream *up)
 		return false;
 
 	pim_ifp = ifp->info;
-	if (pim_ifp->mroute_vif_index != *oil_parent(c_oil))
+	if (pim_ifp->mroute_vif_index != *oil_incoming_vif(c_oil))
 		return false;
 
 	if (pim_if_connected_to_source(up->rpf.source_nexthop.interface,
@@ -1983,8 +2056,9 @@ static bool pim_upstream_kat_start_ok(struct pim_upstream *up)
 	}
 
 	if ((up->join_state == PIM_UPSTREAM_JOINED)
-			&& !pim_upstream_empty_inherited_olist(up)) {
-		return true;
+	    && !pim_upstream_empty_inherited_olist(up)) {
+		if (I_am_RP(pim, up->sg.grp))
+			return true;
 	}
 
 	return false;
@@ -2056,7 +2130,7 @@ static void pim_upstream_sg_running(void *arg)
 	// No packet can have arrived here if this is the case
 	if (!up->channel_oil->installed) {
 		if (PIM_DEBUG_TRACE)
-			zlog_debug("%s: %s%s is not installed in mroute",
+			zlog_debug("%s: %s[%s] is not installed in mroute",
 				   __func__, up->sg_str, pim->vrf->name);
 		return;
 	}
@@ -2069,7 +2143,7 @@ static void pim_upstream_sg_running(void *arg)
 	 * only doing this at this point in time
 	 * to get us up and working for the moment
 	 */
-	if (up->channel_oil->oil_inherited_rescan) {
+	if (pim_sg_is_reevaluate_oil_req(pim, up)) {
 		if (PIM_DEBUG_TRACE)
 			zlog_debug(
 				"%s: Handling unscanned inherited_olist for %s[%s]",

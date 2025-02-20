@@ -7,6 +7,8 @@
 #ifndef __STATIC_ZEBRA_H__
 #define __STATIC_ZEBRA_H__
 
+#include "static_srv6.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -21,6 +23,14 @@ extern void static_zebra_init(void);
 extern void static_zebra_stop(void);
 extern void static_zebra_vrf_register(struct vrf *vrf);
 extern void static_zebra_vrf_unregister(struct vrf *vrf);
+
+extern int static_zebra_srv6_manager_get_locator(const char *name);
+
+extern void static_zebra_request_srv6_sid(struct static_srv6_sid *sid);
+extern void static_zebra_release_srv6_sid(struct static_srv6_sid *sid);
+
+extern void static_zebra_srv6_sid_install(struct static_srv6_sid *sid);
+extern void static_zebra_srv6_sid_uninstall(struct static_srv6_sid *sid);
 
 #ifdef __cplusplus
 }

@@ -166,11 +166,16 @@ extern void ospf_gr_helper_supported_gracetime_set(struct ospf *ospf,
 						   uint32_t interval);
 extern void ospf_gr_helper_set_supported_planned_only_restart(struct ospf *ospf,
 							     bool planned_only);
-
+extern void ospf_gr_iface_send_grace_lsa(struct event *thread);
+extern void ospf_gr_restart_enter(struct ospf *ospf,
+				  enum ospf_gr_restart_reason reason,
+				  time_t timestamp);
 extern void ospf_gr_check_lsdb_consistency(struct ospf *ospf,
 						  struct ospf_area *area);
 extern void ospf_gr_check_adjs(struct ospf *ospf);
 extern void ospf_gr_nvm_read(struct ospf *ospf);
+extern void ospf_gr_nvm_delete(struct ospf *ospf);
+extern void ospf_gr_unplanned_start_interface(struct ospf_interface *oi);
 extern void ospf_gr_init(void);
 
 #endif /* _ZEBRA_OSPF_GR_H */

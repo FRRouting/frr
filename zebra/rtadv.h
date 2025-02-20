@@ -385,6 +385,30 @@ extern void rtadv_if_fini(struct zebra_if *zif);
 extern void rtadv_add_prefix(struct zebra_if *zif, const struct prefix_ipv6 *p);
 extern void rtadv_delete_prefix(struct zebra_if *zif, const struct prefix *p);
 
+/* returns created prefix */
+struct rtadv_prefix *rtadv_add_prefix_manual(struct zebra_if *zif,
+					     struct rtadv_prefix *rp);
+/* rprefix must be the one returned by rtadv_add_prefix_manual */
+void rtadv_delete_prefix_manual(struct zebra_if *zif,
+				struct rtadv_prefix *rprefix);
+
+/* returns created address */
+struct rtadv_rdnss *rtadv_rdnss_set(struct zebra_if *zif,
+				    struct rtadv_rdnss *rdnss);
+/* p must be the one returned by rtadv_rdnss_set */
+void rtadv_rdnss_reset(struct zebra_if *zif, struct rtadv_rdnss *p);
+
+/* returns created domain */
+struct rtadv_dnssl *rtadv_dnssl_set(struct zebra_if *zif,
+				    struct rtadv_dnssl *dnssl);
+/* p must be the one returned by rtadv_dnssl_set */
+void rtadv_dnssl_reset(struct zebra_if *zif, struct rtadv_dnssl *p);
+int rtadv_dnssl_encode(uint8_t *out, const char *in);
+
+void ipv6_nd_suppress_ra_set(struct interface *ifp,
+			     enum ipv6_nd_suppress_ra_status status);
+void ipv6_nd_interval_set(struct interface *ifp, uint32_t interval);
+
 #else /* !HAVE_RTADV */
 struct rtadv {
 	/* empty structs aren't valid ISO C */
@@ -435,6 +459,7 @@ extern void zebra_interface_radv_enable(ZAPI_HANDLER_ARGS);
 
 extern uint32_t rtadv_get_interfaces_configured_from_bgp(void);
 extern bool rtadv_compiled_in(void);
+extern void rtadv_init(void);
 
 #ifdef __cplusplus
 }

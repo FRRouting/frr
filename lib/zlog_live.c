@@ -5,6 +5,8 @@
 
 #include "zebra.h"
 
+#include "frrsendmmsg.h"
+
 #include "zlog_live.h"
 
 #include "memory.h"

@@ -19,9 +19,10 @@ static int verbose;
 static void str_append(char **buf, const char *repr)
 {
 	if (*buf) {
-		*buf = realloc(*buf, strlen(*buf) + strlen(repr) + 1);
+		size_t new_size = strlen(*buf) + strlen(repr) + 1;
+		*buf = realloc(*buf, new_size);
 		assert(*buf);
-		strncpy((*buf) + strlen(*buf), repr, strlen(repr) + 1);
+		(void)strlcat(*buf, repr, new_size);
 	} else {
 		*buf = strdup(repr);
 		assert(*buf);
@@ -61,7 +62,7 @@ static struct nexthop_chain *nexthop_chain_new(void)
 {
 	struct nexthop_chain *rv;
 
-	rv = calloc(sizeof(*rv), 1);
+	rv = calloc(1, sizeof(*rv));
 	assert(rv);
 	return rv;
 }
@@ -70,7 +71,7 @@ static void nexthop_chain_add_top(struct nexthop_chain *nc)
 {
 	struct nexthop *nh;
 
-	nh = calloc(sizeof(*nh), 1);
+	nh = calloc(1, sizeof(*nh));
 	assert(nh);
 
 	if (nc->head.nexthop) {
@@ -108,7 +109,7 @@ static void nexthop_chain_add_recursive(struct nexthop_chain *nc)
 {
 	struct nexthop *nh;
 
-	nh = calloc(sizeof(*nh), 1);
+	nh = calloc(1, sizeof(*nh));
 	assert(nh);
 
 	assert(nc->current_top);
@@ -127,7 +128,7 @@ static void nexthop_chain_add_recursive_level(struct nexthop_chain *nc)
 {
 	struct nexthop *nh;
 
-	nh = calloc(sizeof(*nh), 1);
+	nh = calloc(1, sizeof(*nh));
 	assert(nh);
 
 	assert(nc->current_top);

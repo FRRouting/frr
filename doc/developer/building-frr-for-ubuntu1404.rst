@@ -14,16 +14,11 @@ Installing Dependencies
       git autoconf automake libtool make libreadline-dev texinfo \
       pkg-config libpam0g-dev libjson-c-dev bison flex python3-pytest \
       libc-ares-dev python3-dev python3-sphinx install-info build-essential \
+      protobuf-c-compiler libprotobuf-c-dev \
       libsnmp-dev perl libcap-dev libelf-dev
 
 .. include:: building-libyang.rst
 
-Protobuf
-^^^^^^^^
-
-.. code-block:: console
-
-   sudo apt-get install protobuf-c-compiler libprotobuf-c-dev
 
 Building & Installing FRR
 -------------------------

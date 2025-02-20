@@ -1,7 +1,7 @@
 {
   "vni":101,
   "type":"L2",
-  "vrf":"default",
+  "tenantVrf":"default",
   "vxlanInterface":"vxlan0",
   "vtepIp":"10.10.10.10",
   "mcastGroup":"0.0.0.0",

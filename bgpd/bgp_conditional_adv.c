@@ -30,8 +30,8 @@ bgp_check_rmap_prefixes_in_bgp_table(struct bgp_table *table,
 			dummy_attr = *pi->attr;
 
 			/* Fill temp path_info */
-			prep_for_rmap_apply(&path, &path_extra, dest, pi,
-					    pi->peer, &dummy_attr);
+			prep_for_rmap_apply(&path, &path_extra, dest, pi, pi->peer, NULL,
+					    &dummy_attr);
 
 			RESET_FLAG(dummy_attr.rmap_change_flags);
 
@@ -90,6 +90,7 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 
 	addpath_capable = bgp_addpath_encode_tx(peer, afi, safi);
 
+	SET_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES);
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
 		dest_p = bgp_dest_get_prefix(dest);
 		assert(dest_p);
@@ -98,8 +99,8 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 			advmap_attr = *pi->attr;
 
 			/* Fill temp path_info */
-			prep_for_rmap_apply(&path, &path_extra, dest, pi,
-					    pi->peer, &advmap_attr);
+			prep_for_rmap_apply(&path, &path_extra, dest, pi, pi->peer, NULL,
+					    &advmap_attr);
 
 			RESET_FLAG(advmap_attr.rmap_change_flags);
 
@@ -121,8 +122,9 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 			if (update_type == UPDATE_TYPE_ADVERTISE &&
 			    subgroup_announce_check(dest, pi, subgrp, dest_p,
 						    &attr, &advmap_attr)) {
-				bgp_adj_out_set_subgroup(dest, subgrp, &attr,
-							 pi);
+				if (!bgp_adj_out_set_subgroup(dest, subgrp,
+							      &attr, pi))
+					bgp_attr_flush(&attr);
 			} else {
 				/* If default originate is enabled for
 				 * the peer, do not send explicit
@@ -140,8 +142,9 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 					bgp_addpath_id_for_peer(
 						peer, afi, safi,
 						&pi->tx_addpath));
+
+				bgp_attr_flush(&advmap_attr);
 			}
-			bgp_attr_flush(&advmap_attr);
 		}
 	}
 	UNSET_FLAG(subgrp->sflags, SUBGRP_STATUS_TABLE_REPARSING);
@@ -194,7 +197,7 @@ static void bgp_conditional_adv_timer(struct event *t)
 		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
 			continue;
 
-		if (!peer_established(peer))
+		if (!peer_established(peer->connection))
 			continue;
 
 		FOREACH_AFI_SAFI (afi, safi) {

@@ -214,4 +214,5 @@ void nhrp_vc_terminate(void)
 {
 	nhrp_vc_reset();
 	hash_clean(nhrp_vc_hash, nhrp_vc_free);
+	hash_free(nhrp_vc_hash);
 }

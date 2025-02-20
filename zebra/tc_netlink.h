@@ -50,8 +50,6 @@ netlink_put_tc_filter_update_msg(struct nl_batch *bth,
  */
 
 extern int netlink_qdisc_read(struct zebra_ns *zns);
-extern int netlink_tfilter_read_for_interface(struct zebra_ns *zns,
-					      ifindex_t ifindex);
 
 extern int netlink_tfilter_change(struct nlmsghdr *h, ns_id_t ns_id,
 				  int startup);

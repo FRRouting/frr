@@ -355,7 +355,7 @@ reswitch:	switch (ch) {
 			goto rflag;
 		case 'C':
 			flags |= LONGINT;
-			/*FALLTHROUGH*/
+			fallthrough;
 		case 'c':
 			error = addtype(&types,
 					(flags & LONGINT) ? T_WINT : T_INT);
@@ -364,7 +364,7 @@ reswitch:	switch (ch) {
 			break;
 		case 'D':
 			flags |= LONGINT;
-			/*FALLTHROUGH*/
+			fallthrough;
 		case 'd':
 		case 'i':
 			if ((error = addsarg(&types, flags)))
@@ -408,7 +408,7 @@ reswitch:	switch (ch) {
 #endif
 		case 'O':
 			flags |= LONGINT;
-			/*FALLTHROUGH*/
+			fallthrough;
 		case 'o':
 			if ((error = adduarg(&types, flags)))
 				goto error;
@@ -419,7 +419,7 @@ reswitch:	switch (ch) {
 			break;
 		case 'S':
 			flags |= LONGINT;
-			/*FALLTHROUGH*/
+			fallthrough;
 		case 's':
 			error = addtype(&types,
 					(flags & LONGINT) ? TP_WCHAR : TP_CHAR);
@@ -428,7 +428,7 @@ reswitch:	switch (ch) {
 			break;
 		case 'U':
 			flags |= LONGINT;
-			/*FALLTHROUGH*/
+			fallthrough;
 		case 'u':
 		case 'X':
 		case 'x':
@@ -549,7 +549,7 @@ reswitch:	switch (ch) {
 			goto rflag;
 		case 'C':
 			flags |= LONGINT;
-			/*FALLTHROUGH*/
+			fallthrough;
 		case 'c':
 			error = addtype(&types,
 					(flags & LONGINT) ? T_WINT : T_INT);
@@ -558,7 +558,7 @@ reswitch:	switch (ch) {
 			break;
 		case 'D':
 			flags |= LONGINT;
-			/*FALLTHROUGH*/
+			fallthrough;
 		case 'd':
 		case 'i':
 			if ((error = addsarg(&types, flags)))
@@ -602,7 +602,7 @@ reswitch:	switch (ch) {
 #endif
 		case 'O':
 			flags |= LONGINT;
-			/*FALLTHROUGH*/
+			fallthrough;
 		case 'o':
 			if ((error = adduarg(&types, flags)))
 				goto error;
@@ -613,7 +613,7 @@ reswitch:	switch (ch) {
 			break;
 		case 'S':
 			flags |= LONGINT;
-			/*FALLTHROUGH*/
+			fallthrough;
 		case 's':
 			error = addtype(&types,
 			    (flags & LONGINT) ? TP_WCHAR : TP_CHAR);
@@ -622,7 +622,7 @@ reswitch:	switch (ch) {
 			break;
 		case 'U':
 			flags |= LONGINT;
-			/*FALLTHROUGH*/
+			fallthrough;
 		case 'u':
 		case 'X':
 		case 'x':

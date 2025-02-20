@@ -22,7 +22,7 @@ import argparse
 
 from clippy.uidhash import uidhash
 from clippy.elf import *
-from clippy import frr_top_src, CmdAttr
+from clippy import frr_top_src, CmdAttr, elf_notes
 from tiabwarfo import FieldApplicator
 from xref2vtysh import CommandEntry
 
@@ -327,6 +327,7 @@ class Xrelfo(dict):
             }
         )
         self._xrefs = []
+        self.note_warn = False
 
     def load_file(self, filename):
         orig_filename = filename
@@ -395,6 +396,15 @@ class Xrelfo(dict):
             ptrs = edf.iter_data(XrefPtr, slice(start, end))
 
         else:
+            if elf_notes:
+                self.note_warn = True
+                sys.stderr.write(
+                    """%s: warning: binary has no FRRouting.XREF note
+%s-   one of FRR_MODULE_SETUP, FRR_DAEMON_INFO or XREF_SETUP must be used
+"""
+                    % (orig_filename, orig_filename)
+                )
+
             xrefarray = edf.get_section("xref_array")
             if xrefarray is None:
                 raise ValueError("file has neither xref note nor xref_array section")
@@ -437,7 +447,9 @@ def main():
     argp = argparse.ArgumentParser(description="FRR xref ELF extractor")
     argp.add_argument("-o", dest="output", type=str, help="write JSON output")
     argp.add_argument("--out-by-file", type=str, help="write by-file JSON output")
-    argp.add_argument("-c", dest="vtysh_cmds", type=str, help="write vtysh_cmd.c")
+    argp.add_argument(
+        "-c", dest="vtysh_cmds", type=str, help="write vtysh_cmd.c", nargs="*"
+    )
     argp.add_argument("-Wlog-format", action="store_const", const=True)
     argp.add_argument("-Wlog-args", action="store_const", const=True)
     argp.add_argument("-Werror", action="store_const", const=True)
@@ -470,6 +482,9 @@ def _main(args):
             errors += 1
             sys.stderr.write("while processing %s:\n" % (fn))
             traceback.print_exc()
+
+    if xrelfo.note_warn and args.Werror:
+        errors += 1
 
     for option in dir(args):
         if option.startswith("W") and option != "Werror":
@@ -515,9 +530,17 @@ def _main(args):
         os.rename(args.out_by_file + ".tmp", args.out_by_file)
 
     if args.vtysh_cmds:
-        with open(args.vtysh_cmds + ".tmp", "w") as fd:
-            CommandEntry.run(out, fd)
-        os.rename(args.vtysh_cmds + ".tmp", args.vtysh_cmds)
+        fds = []
+        for filename in args.vtysh_cmds:
+            fds.append(open(filename + ".tmp", "w"))
+
+        CommandEntry.run(out, fds)
+
+        while fds:
+            fds.pop(0).close()
+        for filename in args.vtysh_cmds:
+            os.rename(filename + ".tmp", filename)
+
         if args.Werror and CommandEntry.warn_counter:
             sys.exit(1)
 

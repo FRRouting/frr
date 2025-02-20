@@ -697,8 +697,8 @@ static uint8_t *ospfv3GeneralGroup(struct variable *v, oid *name,
 	case OSPFv3REFERENCEBANDWIDTH:
 		if (ospf6)
 			return SNMP_INTEGER(ospf6->ref_bandwidth);
-	/* Otherwise, like for "not implemented". */
-	/* fallthru */
+		/* Otherwise, like for "not implemented". */
+		return NULL;
 	case OSPFv3RESTARTSUPPORT:
 	case OSPFv3RESTARTINTERVAL:
 	case OSPFv3RESTARTSTRICTLSACHECKING:
@@ -748,8 +748,6 @@ static uint8_t *ospfv3AreaEntry(struct variable *v, oid *name, size_t *length,
 		area_id = htonl(name[v->namelen]);
 
 	inet_ntop(AF_INET, &area_id, a, sizeof(a));
-	zlog_debug("SNMP access by area: %s, exact=%d len=%d length=%lu", a,
-		   exact, len, (unsigned long)*length);
 
 	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, node, oa)) {
 		if (area == NULL) {
@@ -769,8 +767,6 @@ static uint8_t *ospfv3AreaEntry(struct variable *v, oid *name, size_t *length,
 	name[v->namelen] = ntohl(area->area_id);
 
 	inet_ntop(AF_INET, &area->area_id, a, sizeof(a));
-	zlog_debug("SNMP found area: %s, exact=%d len=%d length=%lu", a, exact,
-		   len, (unsigned long)*length);
 
 	switch (v->magic) {
 	case OSPFv3IMPORTASEXTERN:
@@ -1017,7 +1013,7 @@ static uint8_t *ospfv3WwLsdbEntry(struct variable *v, oid *name, size_t *length,
 	case OSPFv3WWLSDBCHECKSUM:
 		return SNMP_INTEGER(ntohs(lsa->header->checksum));
 	case OSPFv3WWLSDBADVERTISEMENT:
-		*var_len = ntohs(lsa->header->length);
+		*var_len = ospf6_lsa_size(lsa->header);
 		return (uint8_t *)lsa->header;
 	case OSPFv3WWLSDBTYPEKNOWN:
 		return SNMP_INTEGER(OSPF6_LSA_IS_KNOWN(lsa->header->type)
@@ -1126,6 +1122,8 @@ static uint8_t *ospfv3IfEntry(struct variable *v, oid *name, size_t *length,
 			return SNMP_INTEGER(1);
 		else if (oi->type == OSPF_IFTYPE_POINTOPOINT)
 			return SNMP_INTEGER(3);
+		else if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT)
+			return SNMP_INTEGER(5);
 		else
 			break; /* Unknown, don't put anything */
 	case OSPFv3IFADMINSTATUS:
@@ -1367,6 +1365,7 @@ static int ospf6TrapIfStateChange(struct ospf6_interface *oi, int next_state,
 
 	/* Terminal state or regression */
 	if ((next_state != OSPF6_INTERFACE_POINTTOPOINT)
+	    && (next_state != OSPF6_INTERFACE_POINTTOMULTIPOINT)
 	    && (next_state != OSPF6_INTERFACE_DROTHER)
 	    && (next_state != OSPF6_INTERFACE_BDR)
 	    && (next_state != OSPF6_INTERFACE_DR) && (next_state >= prev_state))

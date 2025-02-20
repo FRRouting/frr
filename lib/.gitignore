@@ -1,3 +1,4 @@
+/config_paths.h
 /version.c
 /version.h
 /gitversion.h
@@ -11,3 +12,4 @@
 /grammar_sandbox
 /clippy
 /defun_lex.c
+vtysh_daemons.h

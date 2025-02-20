@@ -57,8 +57,6 @@ struct rfapi_import_table {
 
 extern uint8_t rfapiRfpCost(struct attr *attr);
 
-extern void rfapiDebugBacktrace(void);
-
 extern void rfapiCheckRouteCount(void);
 
 /*

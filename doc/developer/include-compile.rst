@@ -14,10 +14,9 @@ obtained by running ``./configure -h``. The options shown below are examples.
        --sbindir=\${prefix}/lib/frr \
        --libdir=\${prefix}/lib/frr \
        --libexecdir=\${prefix}/lib/frr \
-       --localstatedir=/var/run/frr \
-       --sysconfdir=/etc/frr \
+       --sysconfdir=/etc \
+       --localstatedir=/var \
        --with-moduledir=\${prefix}/lib/frr/modules \
-       --with-libyang-pluginsdir=\${prefix}/lib/frr/libyang_plugins \
        --enable-configfile-mask=0640 \
        --enable-logfile-mask=0640 \
        --enable-snmp=agentx \

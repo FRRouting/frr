@@ -13,11 +13,10 @@ import datetime
 import ipaddress
 import math
 import os
-import sys
 import re
 
 import pytest
-from lib.topogen import TopoRouter, Topogen, get_topogen
+from lib.topogen import TopoRouter, Topogen
 from lib.topolog import logger
 from lib.common_config import retry, step
 
@@ -40,6 +39,8 @@ def tgen(request):
         router.net.add_loop("lo-red")
         router.net.attach_iface_to_l3vrf("lo-red", "red")
         router.net.attach_iface_to_l3vrf(rname + "-eth1", "red")
+        #
+        # router.load_frr_config("frr.conf")
         # and select daemons to run
         router.load_config(TopoRouter.RD_ZEBRA, "zebra.conf")
         router.load_config(TopoRouter.RD_MGMTD)
@@ -60,6 +61,15 @@ def get_ip_networks(super_prefix, count):
     return tuple(network.subnets(count_log2))[0:count]
 
 
+def get_src_networks(src_prefix, count, default=""):
+    if src_prefix is not None:
+        for net in get_ip_networks(src_prefix, count):
+            yield " from {}".format(net)
+    else:
+        for i in range(0, count):
+            yield default
+
+
 def enable_debug(router):
     router.vtysh_cmd("debug northbound callbacks configuration")
 
@@ -68,8 +78,8 @@ def disable_debug(router):
     router.vtysh_cmd("no debug northbound callbacks configuration")
 
 
-@retry(retry_timeout=3, initial_wait=0.1)
-def check_kernel(r1, super_prefix, count, add, is_blackhole, vrf, matchvia):
+@retry(retry_timeout=30, initial_wait=0.1)
+def check_kernel(r1, super_prefix, src_prefix, count, add, is_blackhole, vrf, matchvia):
     network = ipaddress.ip_network(super_prefix)
     vrfstr = f" vrf {vrf}" if vrf else ""
     if network.version == 6:
@@ -78,26 +88,30 @@ def check_kernel(r1, super_prefix, count, add, is_blackhole, vrf, matchvia):
         kernel = r1.run(f"ip -4 route show{vrfstr}")
 
     logger.debug("checking kernel routing table%s:\n%s", vrfstr, kernel)
-    for i, net in enumerate(get_ip_networks(super_prefix, count)):
+    for net, srcnet in zip(
+        get_ip_networks(super_prefix, count), get_src_networks(src_prefix, count)
+    ):
+        netfull = str(net) + srcnet
         if not add:
-            assert str(net) not in kernel
+            assert netfull + " nhid" not in kernel
+            assert netfull + " via" not in kernel
             continue
 
         if is_blackhole:
-            route = f"blackhole {str(net)} proto (static|196) metric 20"
+            route = f"blackhole {netfull}(?: dev lo)? proto (static|196) metric 20"
         else:
             route = (
-                f"{str(net)}(?: nhid [0-9]+)? {matchvia} "
-                "proto (static|196) metric 20"
+                f"{netfull}(?: nhid [0-9]+)? {matchvia} proto (static|196) metric 20"
             )
         assert re.search(route, kernel), f"Failed to find \n'{route}'\n in \n'{kernel}'"
 
 
-def do_config(
+def do_config_inner(
     r1,
     count,
     add=True,
     do_ipv6=False,
+    do_sadr=False,
     via=None,
     vrf=None,
     use_cli=False,
@@ -108,13 +122,19 @@ def do_config(
     #
     # Set the route details
     #
-
-    if vrf:
-        super_prefix = "2002::/48" if do_ipv6 else "20.0.0.0/8"
+    src_prefs = [None, None]
+    if do_ipv6 and do_sadr:
+        # intentionally using overlapping prefix
+        super_prefs = ["2001::/48", "2002::/48"]
+        src_prefs = ["2001:db8:1111::/48", "2001:db8:2222::/48"]
+    elif do_ipv6:
+        super_prefs = ["2001::/48", "2002::/48"]
     else:
-        super_prefix = "2001::/48" if do_ipv6 else "10.0.0.0/8"
+        super_prefs = ["10.0.0.0/8", "20.0.0.0/8"]
 
-    matchtype = ""
+    super_prefix = super_prefs[1 if vrf else 0]
+    src_prefix = src_prefs[1 if vrf else 0]
+
     matchvia = ""
     if via == "blackhole":
         pass
@@ -144,11 +164,13 @@ def do_config(
         if vrf:
             f.write("vrf {}\n".format(vrf))
 
-        for i, net in enumerate(get_ip_networks(super_prefix, count)):
+        for net, srcnet in zip(
+            get_ip_networks(super_prefix, count), get_src_networks(src_prefix, count)
+        ):
             if add:
-                f.write("ip route {} {}\n".format(net, via))
+                f.write("ip route {}{} {}\n".format(net, srcnet, via))
             else:
-                f.write("no ip route {} {}\n".format(net, via))
+                f.write("no ip route {}{} {}\n".format(net, srcnet, via))
 
     #
     # Load config file.
@@ -165,7 +187,9 @@ def do_config(
     #
     # Verify the results are in the kernel
     #
-    check_kernel(r1, super_prefix, count, add, via == "blackhole", vrf, matchvia)
+    check_kernel(
+        r1, super_prefix, src_prefix, count, add, via == "blackhole", vrf, matchvia
+    )
 
     optyped = "added" if add else "removed"
     logger.debug(
@@ -175,27 +199,34 @@ def do_config(
     )
 
 
+def do_config(*args, **kwargs):
+    do_config_inner(*args, do_ipv6=False, do_sadr=False, **kwargs)
+    do_config_inner(*args, do_ipv6=True, do_sadr=False, **kwargs)
+    do_config_inner(*args, do_ipv6=True, do_sadr=True, **kwargs)
+
+
 def guts(tgen, vrf, use_cli):
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
     r1 = tgen.routers()["r1"]
 
-    step("add via gateway", reset=True)
-    do_config(r1, 1, True, False, vrf=vrf, use_cli=use_cli)
-    step("remove via gateway")
-    do_config(r1, 1, False, False, vrf=vrf, use_cli=use_cli)
+    count = 10
+    step(f"add {count} via gateway", reset=True)
+    do_config(r1, count, True, vrf=vrf, use_cli=use_cli)
+    step(f"remove {count} via gateway")
+    do_config(r1, count, False, vrf=vrf, use_cli=use_cli)
 
     via = f"lo-{vrf}" if vrf else "lo"
     step("add via loopback")
-    do_config(r1, 1, True, False, via=via, vrf=vrf, use_cli=use_cli)
+    do_config(r1, 1, True, via=via, vrf=vrf, use_cli=use_cli)
     step("remove via loopback")
-    do_config(r1, 1, False, False, via=via, vrf=vrf, use_cli=use_cli)
+    do_config(r1, 1, False, via=via, vrf=vrf, use_cli=use_cli)
 
     step("add via blackhole")
-    do_config(r1, 1, True, False, via="blackhole", vrf=vrf, use_cli=use_cli)
+    do_config(r1, 1, True, via="blackhole", vrf=vrf, use_cli=use_cli)
     step("remove via blackhole")
-    do_config(r1, 1, False, False, via="blackhole", vrf=vrf, use_cli=use_cli)
+    do_config(r1, 1, False, via="blackhole", vrf=vrf, use_cli=use_cli)
 
 
 def test_static_cli(tgen):

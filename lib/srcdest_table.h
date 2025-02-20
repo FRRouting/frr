@@ -87,8 +87,6 @@ static inline void *srcdest_rnode_table_info(struct route_node *rn)
 	return route_table_get_info(srcdest_rnode_table(rn));
 }
 
-extern struct route_table *srcdest_srcnode_table(struct route_node *rn);
-
 #ifdef __cplusplus
 }
 #endif

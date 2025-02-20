@@ -458,7 +458,16 @@ class ELFSubset(object):
         - `this[123:str]` - extract until null byte.  The slice stop value is
             the `str` type (or, technically, `unicode`.)
         """
-        return self._obj[k]
+        if k.start < getattr(self._obj, "len", float("+Inf")):
+            return self._obj[k]
+
+        real_sect = self._elffile.get_section_addr(self._obj.sh_addr + k.start)
+        offs = self._obj.sh_addr - real_sect.sh_addr
+        if k.stop is str:
+            new_k = slice(k.start + offs, str)
+        else:
+            new_k = slice(k.start + offs, k.stop + offs)
+        return real_sect[new_k]
 
     def getreloc(self, offset):
         """

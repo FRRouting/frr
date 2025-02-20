@@ -306,12 +306,59 @@ define mq_walk
      end
      set $mg = $mg->next
   end
+end
 
-document mg_walk
+document mq_walk
 Walk the memory data structures to show what is holding memory.
 
 Arguments:
 1st: A (struct memgroup *) where to start the walk.  If you are not
      sure where to start pass it mg_first, which is a global DS for
      all memory allocated in FRR
+end
+
+define __darr_meta
+  set $_ = ((struct darr_metadata *)$arg0) - 1
+end
+document __darr_meta
+Store a pointer to the struct darr_metadata in $_ for the given dynamic array.
+
+Argument: a pointer to a darr dynamic array.
+Returns: pointer to the struct darr_metadata in $_.
+end
+
+define darr_meta
+  __darr_meta $arg0
+  p *$_
+end
+document darr_meta
+Print the struct darr_metadata for the given dynamic array. Store the value
+in $_ as well.
+
+Argument: a pointer to a darr dynamic array.
+Returns: pointer to the struct darr_metadata in $_.
+end
+
+define darr_len
+  __darr_meta $arg0
+  set $_ = $_->len
+  p $_
+end
+document darr_len
+Print the length of the given dynamic array, and store in $_.
+
+Argument: a pointer to a darr dynamic array.
+Returns: length of the array.
+end
+
+define darr_cap
+  __darr_meta $arg0
+  set $_ = $_->cap
+  p $_
+end
+document darr_len
+Print the capacity of the given dynamic array, and store in $_.
+
+Argument: a pointer to a darr dynamic array.
+Returns: capacity of the array.
 end

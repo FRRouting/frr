@@ -32,49 +32,5 @@
             }
         ]
     }
-  ],
-  "2001:db8:6::/64": [{
-        "distance": 20,
-        "protocol": "bgp",
-        "metric": 0,
-        "selected": true,
-        "destSelected": true,
-        "prefix": "2001:db8:6::/64",
-        "nexthops": [{
-                "ip":"2001:db8:4::1",
-                "active": true,
-                "afi": "ipv6",
-                "recursive":true
-            },
-            {
-                "fib":true,
-                "ip":"2001:db8:1::2",
-                "afi": "ipv6",
-                "interfaceName": "r1-eth0"
-            }
-        ]
-    }
-  ],
-  "2001:db8:7::/64": [{
-        "distance": 20,
-        "protocol": "bgp",
-        "metric": 0,
-        "selected": true,
-        "destSelected": true,
-        "prefix": "2001:db8:7::/64",
-        "nexthops": [{
-                "ip":"2001:db8:4::1",
-                "active": true,
-                "afi": "ipv6",
-                "recursive": true
-            },
-            {
-                "fib":true,
-                "ip":"2001:db8:1::2",
-                "afi": "ipv6",
-                "interfaceName":"r1-eth0"
-            }
-        ]
-    }
   ]
 }

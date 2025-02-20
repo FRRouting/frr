@@ -61,5 +61,20 @@
       "protocol": "connected",
       "selected": true
     }
+  ],
+  "192.0.2.6/32": [
+    {
+      "nexthops": [
+        {
+          "active": true,
+          "fib": true,
+          "ip": "10.0.11.1",
+          "interfaceName": "r4-eth1"
+        }
+      ],
+      "prefix": "192.0.2.6/32",
+      "protocol": "isis",
+      "selected": true
+    }
   ]
 }

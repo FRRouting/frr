@@ -24,5 +24,5 @@ RUN chown -R frr:frr /etc/frr /var/run/frr
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
 # Default CMD starts watchfrr
-COPY docker-start /usr/lib/frr/docker-start
+COPY --chmod=0755 docker-start /usr/lib/frr/docker-start
 CMD ["/usr/lib/frr/docker-start"]

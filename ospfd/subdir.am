@@ -56,6 +56,7 @@ ospfd_libfrrospf_a_SOURCES = \
 	ospfd/ospf_zebra.c \
 	ospfd/ospfd.c \
 	ospfd/ospf_gr_helper.c \
+	ospfd/ospf_auth.c \
 	# end
 
 if OSPFD
@@ -106,6 +107,7 @@ noinst_HEADERS += \
 	ospfd/ospf_te.h \
 	ospfd/ospf_vty.h \
 	ospfd/ospf_zebra.h \
+	ospfd/ospf_auth.h \
 	# end
 
 ospfd_ospfd_LDADD = ospfd/libfrrospf.a ospfd/libfrrospfclient.a lib/libfrr.la $(LIBCAP) $(LIBM)

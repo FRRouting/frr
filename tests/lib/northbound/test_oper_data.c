@@ -5,7 +5,9 @@
  */
 
 #include <zebra.h>
+#include <sys/stat.h>
 
+#include "debug.h"
 #include "frrevent.h"
 #include "vty.h"
 #include "command.h"
@@ -13,6 +15,7 @@
 #include "lib_vty.h"
 #include "log.h"
 #include "northbound.h"
+#include "northbound_cli.h"
 
 static struct event_loop *master;
 
@@ -117,6 +120,26 @@ static const void *frr_test_module_vrfs_vrf_interfaces_interface_get_next(
 }
 
 /*
+ * XPath: /frr-test-module:frr-test-module/vrfs/vrf/interfaces/interface-new
+ */
+static enum nb_error frr_test_module_vrfs_vrf_interfaces_interface_new_get(
+	const struct nb_node *nb_node, const void *parent_list_entry, struct lyd_node *parent)
+{
+	const struct lysc_node *snode = nb_node->snode;
+	const struct tvrf *vrf;
+	struct listnode *node;
+	const char *interface;
+	LY_ERR err;
+
+	vrf = listgetdata((struct listnode *)parent_list_entry);
+	for (ALL_LIST_ELEMENTS_RO(vrf->interfaces, node, interface)) {
+		err = lyd_new_term(parent, snode->module, snode->name, interface, false, NULL);
+		assert(err == LY_SUCCESS);
+	}
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-test-module:frr-test-module/vrfs/vrf/routes/route
  */
 static const void *
@@ -199,6 +222,47 @@ static struct yang_data *frr_test_module_vrfs_vrf_routes_route_active_get_elem(
 	return NULL;
 }
 
+/*
+ * XPath: /frr-test-module:frr-test-module/vrfs/vrf/ping
+ */
+static int frr_test_module_vrfs_vrf_ping(struct nb_cb_rpc_args *args)
+{
+	const char *vrf = yang_dnode_get_string(args->input, "../name");
+	const char *data = yang_dnode_get_string(args->input, "data");
+
+	yang_dnode_rpc_output_add(args->output, "vrf", vrf);
+	yang_dnode_rpc_output_add(args->output, "data-out", data);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-test-module:frr-test-module/c1value
+ */
+static struct yang_data *
+frr_test_module_c1value_get_elem(struct nb_cb_get_elem_args *args)
+{
+	return yang_data_new_uint8(args->xpath, 21);
+}
+
+/*
+ * XPath: /frr-test-module:frr-test-module/c2cont/c2value
+ */
+static enum nb_error frr_test_module_c2cont_c2value_get(const struct nb_node *nb_node,
+							const void *parent_list_entry,
+							struct lyd_node *parent)
+{
+	const struct lysc_node *snode = nb_node->snode;
+	uint32_t value = 0xAB010203;
+	LY_ERR err;
+
+	err = lyd_new_term_bin(parent, snode->module, snode->name, &value, sizeof(value),
+			       LYD_NEW_PATH_UPDATE, NULL);
+	assert(err == LY_SUCCESS);
+
+	return NB_OK;
+}
+
 /* clang-format off */
 const struct frr_yang_module_info frr_test_module_info = {
 	.name = "frr-test-module",
@@ -217,6 +281,10 @@ const struct frr_yang_module_info frr_test_module_info = {
 			.xpath = "/frr-test-module:frr-test-module/vrfs/vrf/interfaces/interface",
 			.cbs.get_elem = frr_test_module_vrfs_vrf_interfaces_interface_get_elem,
 			.cbs.get_next = frr_test_module_vrfs_vrf_interfaces_interface_get_next,
+		},
+		{
+			.xpath = "/frr-test-module:frr-test-module/vrfs/vrf/interfaces/interface-new",
+			.cbs.get = frr_test_module_vrfs_vrf_interfaces_interface_new_get,
 		},
 		{
 			.xpath = "/frr-test-module:frr-test-module/vrfs/vrf/routes/route",
@@ -243,11 +311,50 @@ const struct frr_yang_module_info frr_test_module_info = {
 			.cbs.get_elem = frr_test_module_vrfs_vrf_routes_route_active_get_elem,
 		},
 		{
+			.xpath = "/frr-test-module:frr-test-module/vrfs/vrf/ping",
+			.cbs.rpc = frr_test_module_vrfs_vrf_ping,
+		},
+		{
+			.xpath = "/frr-test-module:frr-test-module/c1value",
+			.cbs.get_elem = frr_test_module_c1value_get_elem,
+		},
+		{
+			.xpath = "/frr-test-module:frr-test-module/c2cont/c2value",
+			.cbs.get = frr_test_module_c2cont_c2value_get,
+		},
+		{
 			.xpath = NULL,
 		},
 	}
 };
 /* clang-format on */
+
+DEFUN(test_rpc, test_rpc_cmd, "test rpc",
+      "Test\n"
+      "RPC\n")
+{
+	struct lyd_node *output = NULL;
+	char xpath[XPATH_MAXLEN];
+	int ret;
+
+	snprintf(xpath, sizeof(xpath),
+		 "/frr-test-module:frr-test-module/vrfs/vrf[name='testname']/ping");
+
+	nb_cli_rpc_enqueue(vty, "data", "testdata");
+
+	ret = nb_cli_rpc(vty, xpath, &output);
+	if (ret != CMD_SUCCESS) {
+		vty_out(vty, "RPC failed\n");
+		return ret;
+	}
+
+	vty_out(vty, "vrf %s data %s\n", yang_dnode_get_string(output, "vrf"),
+		yang_dnode_get_string(output, "data-out"));
+
+	yang_dnode_free(output);
+
+	return CMD_SUCCESS;
+}
 
 static const struct frr_yang_module_info *const modules[] = {
 	&frr_test_module_info,
@@ -353,7 +460,7 @@ static void vty_do_exit(int isexit)
 	yang_terminate();
 	event_master_free(master);
 
-	log_memstats(stderr, "test-nb-oper-data");
+	log_memstats(NULL, true);
 	if (!isexit)
 		exit(0);
 }
@@ -386,7 +493,10 @@ int main(int argc, char **argv)
 	cmd_hostname_set("test");
 	vty_init(master, false);
 	lib_cmd_init();
-	nb_init(master, modules, array_size(modules), false);
+	debug_init();
+	nb_init(master, modules, array_size(modules), false, false);
+
+	install_element(ENABLE_NODE, &test_rpc_cmd);
 
 	/* Create artificial data. */
 	create_data(num_vrfs, num_interfaces, num_routes);

@@ -74,12 +74,10 @@ struct isis_adjacency {
 	struct nlpids nlpids; /* protocols spoken ... */
 	struct in_addr *ipv4_addresses;
 	unsigned int ipv4_address_count;
-	struct in_addr router_address;
 	struct in6_addr *ll_ipv6_addrs; /* Link local IPv6 neighbor address */
 	unsigned int ll_ipv6_count;
 	struct in6_addr *global_ipv6_addrs; /* Global IPv6 neighbor address */
 	unsigned int global_ipv6_count;
-	struct in6_addr router_address6;
 	uint8_t prio[ISIS_LEVELS];      /* priorityOfNeighbour for DIS */
 	int circuit_t;			/* from hello PDU hdr */
 	int level;			/* level (1 or 2) */
@@ -98,6 +96,8 @@ struct isis_adjacency {
 	struct list *adj_sids; /* Segment Routing Adj-SIDs. */
 	uint32_t snmp_idx;
 	struct listnode *snmp_list_node;
+
+	struct list *srv6_endx_sids; /* SRv6 End.X SIDs. */
 };
 
 struct isis_threeway_adj;
@@ -111,7 +111,7 @@ struct isis_adjacency *isis_adj_find(const struct isis_area *area, int level,
 struct isis_adjacency *isis_new_adj(const uint8_t *id, const uint8_t *snpa,
 				    int level, struct isis_circuit *circuit);
 void isis_delete_adj(void *adj);
-void isis_adj_process_threeway(struct isis_adjacency *adj,
+void isis_adj_process_threeway(struct isis_adjacency **padj,
 			       struct isis_threeway_adj *tw_adj,
 			       enum isis_adj_usage adj_usage);
 DECLARE_HOOK(isis_adj_state_change_hook, (struct isis_adjacency *adj), (adj));

@@ -1,0 +1,22 @@
+{
+  "routerId": "192.0.2.2",
+  "defaultLocPrf": 100,
+  "localAS": 65002,
+  "routes": {
+    "10.0.0.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "selectionReason": "First path received",
+        "pathFrom": "external",
+        "prefix": "10.0.0.0",
+        "prefixLen": 24,
+        "network": "10.0.0.0/24",
+        "metric": 0,
+        "weight": 0,
+        "path": "65530",
+        "origin": "IGP"
+      }
+    ]
+  }
+}

@@ -38,7 +38,7 @@ module frr-ospf6-route-map {
 
   augment "/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:rmap-set-action/frr-route-map:set-action" {
     case ipv6-address {
-      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'forwarding-address')";
+      when "derived-from-or-self(../frr-route-map:action, 'forwarding-address')";
       leaf ipv6-address {
         type inet:ipv6-address;
       }

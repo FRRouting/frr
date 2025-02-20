@@ -1,0 +1,186 @@
+{
+     "vrfName": "vrf1",
+     "localAS": 65500,
+     "routes":
+         {
+            "10:200::/64": [
+                {
+                    "valid": true,
+                    "bestpath": true,
+                    "prefix": "10:200::",
+                    "prefixLen": 64,
+                    "network": "10:200::/64",
+                    "nexthops": [
+                        {
+                            "ip": "192:168::2",
+                            "afi": "ipv6",
+                            "used": true
+                        }
+                    ]
+                }
+            ],
+             "172:31::11/128": [
+                 {
+                     "valid":true,
+                     "bestpath":true,
+                     "prefix":"172:31::11",
+                     "prefixLen":128,
+                     "network":"172:31::11/128",
+                     "peerId":"192:2::100",
+                     "nexthops":[
+                         {
+                             "ip":"192:2::11",
+                             "afi":"ipv6",
+                             "scope":"global"
+                         }
+                     ]
+                 }
+             ],
+             "172:31::12/128": [
+                 {
+                     "valid":true,
+                     "bestpath":true,
+                     "prefix":"172:31::12",
+                     "prefixLen":128,
+                     "network":"172:31::12/128",
+                     "peerId":"192:2::100",
+                     "nexthops":[
+                         {
+                             "ip":"192:2::12",
+                             "afi":"ipv6",
+                             "scope":"global",
+                             "used":true
+                         },
+                         {
+                             "scope": "link-local"
+                         }
+                     ]
+                 }
+             ],
+             "172:31::13/128": [
+                 {
+                     "valid":true,
+                     "bestpath":true,
+                     "prefix":"172:31::13",
+                     "prefixLen":128,
+                     "network":"172:31::13/128",
+                     "peerId":"192:168::255:13",
+                     "nexthops":[
+                         {
+                             "ip":"192:168::255:13",
+                             "afi":"ipv6",
+                             "scope": "global",
+                             "used":true
+                         },
+                         {
+                             "scope": "link-local"
+                         }
+                     ]
+                 }
+             ],
+             "172:31::14/128": [
+                 {
+                     "valid":true,
+                     "bestpath":true,
+                     "prefix":"172:31::14",
+                     "prefixLen":128,
+                     "network":"172:31::14/128",
+                     "peerId":"(unspec)",
+                     "nexthops":[
+                         {
+                             "ip":"192:2::14",
+                             "afi":"ipv6",
+                             "used":true
+                         }
+                     ]
+                 }
+             ],
+             "172:31::15/128": [
+                 {
+                     "valid":true,
+                     "bestpath":true,
+                     "prefix":"172:31::15",
+                     "prefixLen":128,
+                     "network":"172:31::15/128",
+                     "peerId":"(unspec)",
+                     "nexthops":[
+                         {
+                             "ip":"192:2::12",
+                             "afi":"ipv6",
+                             "used":true
+                         }
+                     ]
+                 }
+             ],
+             "172:31::20/128": [
+                 {
+                     "valid":true,
+                     "bestpath":true,
+                     "prefix":"172:31::20",
+                     "prefixLen":128,
+                     "network":"172:31::20/128",
+                     "peerId":"192:2::100",
+                     "nexthops":[
+                         {
+                             "ip":"192:2::11",
+                             "afi":"ipv6",
+                             "scope":"global",
+                             "used":true
+                         }
+                     ]
+                 }
+             ],
+             "172:31::111/128": [
+                 {
+                     "valid":true,
+                     "bestpath":true,
+                     "prefix":"172:31::111",
+                     "prefixLen":128,
+                     "network":"172:31::111/128",
+                     "peerId":"192:2::100",
+                     "nexthops":[
+                         {
+                             "ip":"192:2::11",
+                             "afi":"ipv6",
+                             "scope":"global",
+                             "used":true
+                         }
+                     ]
+                 }
+             ],
+             "192:2::/64": [
+                 {
+                     "valid":true,
+                     "bestpath":true,
+                     "prefix":"192:2::",
+                     "prefixLen":64,
+                     "network":"192:2::/64",
+                     "peerId":"(unspec)",
+                     "nexthops":[
+                         {
+                             "ip":"::",
+                             "afi":"ipv6",
+                             "used":true
+                         }
+                     ]
+                 }
+             ],
+             "192:168::255:0/112": [
+                 {
+                     "valid":true,
+                     "bestpath":true,
+                     "prefix":"192:168::255:0",
+                     "prefixLen":112,
+                     "network":"192:168::255:0/112",
+                     "peerId":"(unspec)",
+                     "nexthops":[
+                         {
+                             "ip":"::",
+                             "afi":"ipv6",
+                             "used":true
+                         }
+                     ]
+                 }
+             ]
+         }
+}

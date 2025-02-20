@@ -48,7 +48,7 @@ static void connected_withdraw(struct connected *ifc)
 	UNSET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
 
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED)) {
-		listnode_delete(ifc->ifp->connected, ifc);
+		if_connected_del(ifc->ifp->connected, ifc);
 		connected_free(&ifc);
 	}
 }
@@ -65,7 +65,7 @@ static void connected_announce(struct interface *ifp, struct connected *ifc)
 			UNSET_FLAG(ifc->flags, ZEBRA_IFA_UNNUMBERED);
 	}
 
-	listnode_add(ifp->connected, ifc);
+	if_connected_add_tail(ifp->connected, ifc);
 
 	/* Update interface address information to protocol daemon. */
 	if (ifc->address->family == AF_INET)
@@ -84,9 +84,8 @@ struct connected *connected_check(struct interface *ifp,
 {
 	const struct prefix *p = pu.p;
 	struct connected *ifc;
-	struct listnode *node;
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc))
+	frr_each (if_connected, ifp->connected, ifc)
 		if (prefix_same(ifc->address, p))
 			return ifc;
 
@@ -101,9 +100,8 @@ struct connected *connected_check_ptp(struct interface *ifp,
 	const struct prefix *p = pu.p;
 	const struct prefix *d = du.p;
 	struct connected *ifc;
-	struct listnode *node;
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
+	frr_each (if_connected, ifp->connected, ifc) {
 		if (!prefix_same(ifc->address, p))
 			continue;
 		if (!CONNECTED_PEER(ifc) && !d)
@@ -178,22 +176,60 @@ static void connected_update(struct interface *ifp, struct connected *ifc)
 		connected_announce(ifp, ifc);
 }
 
+/*
+ * This function goes through and handles the deletion of a kernel route that happened
+ * to be the exact same as the connected route, so that the connected route wins.
+ * This can happen during processing if we happen to receive events in a slightly
+ * unexpected order.  This is similiar to code in the other direction where if we
+ * have a kernel route don't install it if it perfectly matches a connected route.
+ */
+static void connected_remove_kernel_for_connected(afi_t afi, safi_t safi, struct zebra_vrf *zvrf,
+						  struct prefix *p, struct nexthop *nh)
+{
+	struct route_node *rn;
+	struct route_entry *re;
+	rib_dest_t *dest;
+	struct route_table *table = zebra_vrf_table(afi, SAFI_UNICAST, zvrf->vrf->vrf_id);
+
+	if (!table)
+		return;
+
+	rn = route_node_match(table, p);
+	if (!rn)
+		return;
+
+	if (!prefix_same(&rn->p, p))
+		return;
+
+	dest = rib_dest_from_rnode(rn);
+	if (!dest || !dest->selected_fib)
+		return;
+
+	re = dest->selected_fib;
+	if (re->type != ZEBRA_ROUTE_KERNEL)
+		return;
+
+	rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_KERNEL, 0, 0, p, NULL, nh, 0,
+		   zvrf->table_id, 0, 0, false);
+}
+
 /* Called from if_up(). */
 void connected_up(struct interface *ifp, struct connected *ifc)
 {
 	afi_t afi;
-	struct prefix p;
+	struct prefix p, plocal;
 	struct nexthop nh = {
 		.type = NEXTHOP_TYPE_IFINDEX,
 		.ifindex = ifp->ifindex,
 		.vrf_id = ifp->vrf->vrf_id,
+		.weight = 1,
 	};
 	struct zebra_vrf *zvrf;
 	uint32_t metric;
 	uint32_t flags = 0;
 	uint32_t count = 0;
-	struct listnode *cnode;
 	struct connected *c;
+	bool install_local = true;
 
 	zvrf = ifp->vrf->info;
 	if (!zvrf) {
@@ -210,6 +246,7 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	UNSET_FLAG(ifc->conf, ZEBRA_IFC_DOWN);
 
 	prefix_copy(&p, CONNECTED_PREFIX(ifc));
+	prefix_copy(&plocal, ifc->address);
 
 	/* Apply mask to the network. */
 	apply_mask(&p);
@@ -224,6 +261,8 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 		 */
 		if (prefix_ipv4_any((struct prefix_ipv4 *)&p))
 			return;
+
+		plocal.prefixlen = IPV4_MAX_BITLEN;
 		break;
 	case AFI_IP6:
 #ifndef GNU_LINUX
@@ -231,6 +270,11 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 		if (IN6_IS_ADDR_UNSPECIFIED(&p.u.prefix6))
 			return;
 #endif
+
+		if (IN6_IS_ADDR_LINKLOCAL(&plocal.u.prefix6))
+			install_local = false;
+
+		plocal.prefixlen = IPV6_MAX_BITLEN;
 		break;
 	case AFI_UNSPEC:
 	case AFI_L2VPN:
@@ -262,7 +306,7 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	 * for all the addresses on an interface that
 	 * resolve to the same network and mask
 	 */
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
+	frr_each (if_connected, ifp->connected, c) {
 		struct prefix cp;
 
 		prefix_copy(&cp, CONNECTED_PREFIX(c));
@@ -276,13 +320,27 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 			return;
 	}
 
-	rib_add(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT, 0,
-		flags, &p, NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0,
-		false);
+	if (!CHECK_FLAG(ifc->flags, ZEBRA_IFA_NOPREFIXROUTE)) {
+		connected_remove_kernel_for_connected(afi, SAFI_UNICAST, zvrf, &p, &nh);
 
-	rib_add(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT, 0,
-		flags, &p, NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0,
-		false);
+		rib_add(afi, SAFI_UNICAST, zvrf->vrf->vrf_id,
+			ZEBRA_ROUTE_CONNECT, 0, flags, &p, NULL, &nh, 0,
+			zvrf->table_id, metric, 0, 0, 0, false);
+
+		connected_remove_kernel_for_connected(afi, SAFI_MULTICAST, zvrf, &p, &nh);
+		rib_add(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id,
+			ZEBRA_ROUTE_CONNECT, 0, flags, &p, NULL, &nh, 0,
+			zvrf->table_id, metric, 0, 0, 0, false);
+	}
+
+	if (install_local) {
+		rib_add(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_LOCAL,
+			0, flags, &plocal, NULL, &nh, 0, zvrf->table_id, 0, 0,
+			0, 0, false);
+		rib_add(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id,
+			ZEBRA_ROUTE_LOCAL, 0, flags, &plocal, NULL, &nh, 0,
+			zvrf->table_id, 0, 0, 0, 0, false);
+	}
 
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
 	if (zvrf->vrf->vrf_id == VRF_DEFAULT) {
@@ -368,7 +426,7 @@ void connected_add_ipv4(struct interface *ifp, int flags,
 void connected_down(struct interface *ifp, struct connected *ifc)
 {
 	afi_t afi;
-	struct prefix p;
+	struct prefix p, plocal;
 	struct nexthop nh = {
 		.type = NEXTHOP_TYPE_IFINDEX,
 		.ifindex = ifp->ifindex,
@@ -376,8 +434,8 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	};
 	struct zebra_vrf *zvrf;
 	uint32_t count = 0;
-	struct listnode *cnode;
 	struct connected *c;
+	bool remove_local = true;
 
 	zvrf = ifp->vrf->info;
 	if (!zvrf) {
@@ -403,6 +461,7 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	}
 
 	prefix_copy(&p, CONNECTED_PREFIX(ifc));
+	prefix_copy(&plocal, ifc->address);
 
 	/* Apply mask to the network. */
 	apply_mask(&p);
@@ -417,10 +476,18 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 		 */
 		if (prefix_ipv4_any((struct prefix_ipv4 *)&p))
 			return;
+
+		plocal.prefixlen = IPV4_MAX_BITLEN;
 		break;
 	case AFI_IP6:
 		if (IN6_IS_ADDR_UNSPECIFIED(&p.u.prefix6))
 			return;
+
+		plocal.prefixlen = IPV6_MAX_BITLEN;
+
+		if (IN6_IS_ADDR_LINKLOCAL(&plocal.u.prefix6))
+			remove_local = false;
+
 		break;
 	case AFI_UNSPEC:
 	case AFI_L2VPN:
@@ -439,7 +506,7 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	 * allow the deletion when are removing the last
 	 * one.
 	 */
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
+	frr_each (if_connected, ifp->connected, c) {
 		struct prefix cp;
 
 		prefix_copy(&cp, CONNECTED_PREFIX(c));
@@ -457,11 +524,25 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	 * Same logic as for connected_up(): push the changes into the
 	 * head.
 	 */
-	rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT, 0,
-		   0, &p, NULL, &nh, 0, zvrf->table_id, 0, 0, false);
+	if (!CHECK_FLAG(ifc->flags, ZEBRA_IFA_NOPREFIXROUTE)) {
+		rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id,
+			   ZEBRA_ROUTE_CONNECT, 0, 0, &p, NULL, &nh, 0,
+			   zvrf->table_id, 0, 0, false);
 
-	rib_delete(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT,
-		   0, 0, &p, NULL, &nh, 0, zvrf->table_id, 0, 0, false);
+		rib_delete(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id,
+			   ZEBRA_ROUTE_CONNECT, 0, 0, &p, NULL, &nh, 0,
+			   zvrf->table_id, 0, 0, false);
+	}
+
+	if (remove_local) {
+		rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id,
+			   ZEBRA_ROUTE_LOCAL, 0, 0, &plocal, NULL, &nh, 0,
+			   zvrf->table_id, 0, 0, false);
+
+		rib_delete(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id,
+			   ZEBRA_ROUTE_LOCAL, 0, 0, &plocal, NULL, &nh, 0,
+			   zvrf->table_id, 0, 0, false);
+	}
 
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
 	if (zvrf->vrf->vrf_id == VRF_DEFAULT) {
@@ -616,9 +697,8 @@ void connected_delete_ipv6(struct interface *ifp,
 int connected_is_unnumbered(struct interface *ifp)
 {
 	struct connected *connected;
-	struct listnode *node;
 
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected)) {
+	frr_each (if_connected, ifp->connected, connected) {
 		if (CHECK_FLAG(connected->conf, ZEBRA_IFC_REAL)
 		    && connected->address->family == AF_INET)
 			return CHECK_FLAG(connected->flags,

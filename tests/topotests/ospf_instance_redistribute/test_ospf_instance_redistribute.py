@@ -15,7 +15,6 @@ test_ospf_instance_redistribute
 """
 
 import os
-import re
 import sys
 import pytest
 import json
@@ -64,16 +63,7 @@ def setup_module(module):
 
     # This is a sample of configuration loading.
     r1 = tgen.gears["r1"]
-    r1.load_config(
-        TopoRouter.RD_ZEBRA, os.path.join(CWD, "r1/zebra.conf")
-    )
-    r1.load_config(
-        TopoRouter.RD_OSPF, os.path.join(CWD, "r1/ospfd-3.conf"),
-        "-n 3"
-    )
-    r1.load_config(
-        TopoRouter.RD_SHARP, os.path.join(CWD, "r1/sharpd.conf")
-    )
+    r1.load_frr_config(os.path.join(CWD, "r1/frr.conf"))
 
     tgen.start_router()
 
@@ -92,6 +82,37 @@ def test_install_sharp_instance_routes():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+    r1 = tgen.gears["r1"]
+    logger.info("Ensure that connected routes are actually installed")
+    expected = {
+        "192.168.100.0/24": [
+            {
+                "prefix": "192.168.100.0/24",
+                "prefixLen": 24,
+                "protocol": "connected",
+                "vrfName": "default",
+                "selected": True,
+                "destSelected": True,
+                "installed": True,
+                "nexthops": [
+                    {
+                        "fib": True,
+                        "directlyConnected": True,
+                        "interfaceName": "lo",
+                        "active": True,
+                        "weight": 1,
+                    }
+                ],
+            }
+        ]
+    }
+
+    test_func = partial(
+        topotest.router_json_cmp, r1, "show ip route connected json", expected
+    )
+
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+
     logger.info("Installing sharp routes")
     r1 = tgen.gears["r1"]
     r1.vtysh_cmd("sharp install route 4.5.6.7 nexthop 192.168.100.2 1")
@@ -103,12 +124,14 @@ def test_install_sharp_instance_routes():
     expected = json.loads(open(json_file).read())
 
     test_func = partial(
-        topotest.router_json_cmp, r1, "show ip route summ json", expected)
+        topotest.router_json_cmp, r1, "show ip route summ json", expected
+    )
 
     logger.info("Ensuring that they exist in the rib/fib")
     _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
     assertmsg = '"r1" sharp routes are not installed'
     assert result is None, assertmsg
+
 
 def test_ospf_instance_redistribute():
     tgen = get_topogen()
@@ -124,7 +147,8 @@ def test_ospf_instance_redistribute():
     expected = json.loads(open(json_file).read())
 
     test_func = partial(
-        topotest.router_json_cmp, r1, "show ip ospf 3 data json", expected)
+        topotest.router_json_cmp, r1, "show ip ospf 3 data json", expected
+    )
 
     _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
     assertmsg = '"r1" ospf instance 3 does not have the proper redistributed routes'
@@ -139,7 +163,8 @@ def test_ospf_instance_redistribute():
     expected = json.loads(open(json_file).read())
 
     test_func = partial(
-        topotest.router_json_cmp, r1, "show ip ospf 3 data json", expected)
+        topotest.router_json_cmp, r1, "show ip ospf 3 data json", expected
+    )
 
     _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
     assertmsg = '"r1" ospf instance 3 does not have the proper redistributed routes'
@@ -161,15 +186,14 @@ def test_ospf_instance_default_information():
     expected = json.loads(open(json_file).read())
 
     test_func = partial(
-        topotest.router_json_cmp, r1, "show ip ospf 3 data json", expected)
+        topotest.router_json_cmp, r1, "show ip ospf 3 data json", expected
+    )
 
     _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
     assertmsg = '"r1" ospf instance 3 does not properly redistribute the default route'
     assert result is None, assertmsg
 
 
-
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
-

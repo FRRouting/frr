@@ -45,7 +45,7 @@ void *isis_flex_algo_data_alloc(void *voidarg)
 	struct isis_flex_algo_alloc_arg *arg = voidarg;
 	struct isis_flex_algo_data *data;
 
-	data = XCALLOC(MTYPE_FLEX_ALGO, sizeof(*data));
+	data = XCALLOC(MTYPE_FLEX_ALGO, sizeof(struct isis_flex_algo_data));
 
 	for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
 		for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
@@ -70,6 +70,7 @@ void isis_flex_algo_data_free(void *voiddata)
 			if (data->spftree[tree][level - 1])
 				isis_spftree_del(
 					data->spftree[tree][level - 1]);
+	XFREE(MTYPE_FLEX_ALGO, data);
 }
 
 static struct isis_router_cap_fad *
@@ -126,10 +127,7 @@ _isis_flex_algo_elected(int algorithm, const struct isis_area *area,
 	 * Perform FAD comparison. First, compare the priority, and if they are
 	 * the same, compare the sys-id.
 	 */
-	/* clang-format off */
-	frr_each_const(lspdb, &area->lspdb[ISIS_LEVEL1 - 1], lsp) {
-		/* clang-format on */
-
+	frr_each (lspdb_const, &area->lspdb[ISIS_LEVEL1 - 1], lsp) {
 		if (!lsp->tlvs || !lsp->tlvs->router_cap)
 			continue;
 

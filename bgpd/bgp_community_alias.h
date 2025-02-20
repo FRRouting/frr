@@ -17,6 +17,7 @@ struct community_alias {
 	char alias[BUFSIZ];
 };
 
+extern struct hash *bgp_ca_alias_hash;
 extern void bgp_community_alias_init(void);
 extern void bgp_community_alias_finish(void);
 extern struct community_alias *bgp_ca_alias_lookup(struct community_alias *ca);

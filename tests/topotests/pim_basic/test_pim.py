@@ -18,7 +18,7 @@ import pytest
 import json
 from functools import partial
 
-pytestmark = pytest.mark.pimd
+pytestmark = [pytest.mark.pimd]
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
@@ -27,9 +27,6 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-
-
-pytestmark = [pytest.mark.pimd]
 
 
 def build_topo(tgen):
@@ -91,7 +88,7 @@ def setup_module(mod):
     # tgen.mininet_cli()
 
 
-def teardown_module(mod):
+def teardown_module():
     "Teardown the pytest environment"
     tgen = get_topogen()
 
@@ -135,14 +132,14 @@ def test_pim_send_mcast_stream():
     # Let's establish a S,G stream from r2 -> r1
     CWD = os.path.dirname(os.path.realpath(__file__))
     r2.run(
-        "{}/mcast-tx.py --ttl 5 --count 40 --interval 2 229.1.1.1 r2-eth0 > /tmp/bar".format(
-            CWD
+        "{}/mcast-tx.py --ttl 5 --count 40 --interval 2 229.1.1.1 r2-eth0 > {}/r2/mcast_tx_output".format(
+            CWD, tgen.logdir
         )
     )
     # And from r3 -> r1
     r3.run(
-        "{}/mcast-tx.py --ttl 5 --count 40 --interval 2 229.1.1.1 r3-eth0 > /tmp/bar".format(
-            CWD
+        "{}/mcast-tx.py --ttl 5 --count 40 --interval 2 229.1.1.1 r3-eth0 > {}/r3/mcast_tx_output".format(
+            CWD, tgen.logdir
         )
     )
 

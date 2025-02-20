@@ -4,8 +4,8 @@
 ##### if running frr as root:
 # Only allow root (and possibly wheel) to use this because enable access
 # is unrestricted.
-auth       sufficient   pam_rootok.so
-account    sufficient   pam_rootok.so
+auth	sufficient	pam_permit.so
+account	sufficient	pam_permit.so
 
 # Uncomment the following line to implicitly trust users in the "wheel" group.
 #auth       sufficient   pam_wheel.so trust use_uid

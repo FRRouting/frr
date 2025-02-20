@@ -24,6 +24,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.snmptest import SnmpTester
 from lib import topotest
+from lib.topolog import logger
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.snmp]
 
@@ -31,10 +32,14 @@ pytestmark = [pytest.mark.bgpd, pytest.mark.snmp]
 def build_topo(tgen):
     tgen.add_router("r1")
     tgen.add_router("r2")
+    tgen.add_router("r3")
+    tgen.add_router("rr")
 
     switch = tgen.add_switch("s1")
     switch.add_link(tgen.gears["r1"])
     switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r3"])
+    switch.add_link(tgen.gears["rr"])
 
 
 def setup_module(mod):
@@ -55,11 +60,18 @@ def setup_module(mod):
             os.path.join(CWD, "{}/bgpd.conf".format(rname)),
             "-M snmp",
         )
-        router.load_config(
-            TopoRouter.RD_SNMP,
-            os.path.join(CWD, "{}/snmpd.conf".format(rname)),
-            "-Le -Ivacm_conf,usmConf,iquery -V -DAgentX",
-        )
+
+    r2 = tgen.gears["r2"]
+    r2.load_config(
+        TopoRouter.RD_SNMP,
+        os.path.join(CWD, "{}/snmpd.conf".format(r2.name)),
+        "-Le -Ivacm_conf,usmConf,iquery -V -DAgentX",
+    )
+    r2.load_config(
+        TopoRouter.RD_TRAP,
+        os.path.join(CWD, "{}/snmptrapd.conf".format(r2.name)),
+        " -On -OQ ",
+    )
 
     tgen.start_router()
 
@@ -72,28 +84,31 @@ def teardown_module(mod):
 def test_bgp_snmp_bgp4v2():
     tgen = get_topogen()
 
+    r1 = tgen.gears["r1"]
     r2 = tgen.gears["r2"]
+    rr = tgen.gears["rr"]
 
     def _bgp_converge_summary():
         output = json.loads(r2.vtysh_cmd("show bgp summary json"))
         expected = {
             "ipv4Unicast": {
                 "peers": {
-                    "192.168.12.1": {
+                    "192.168.12.4": {
                         "state": "Established",
-                        "pfxRcd": 2,
+                        "pfxRcd": 6,
                     }
                 }
             },
             "ipv6Unicast": {
                 "peers": {
-                    "2001:db8::12:1": {
+                    "2001:db8::12:4": {
                         "state": "Established",
-                        "pfxRcd": 2,
+                        "pfxRcd": 4,
                     }
                 }
             },
         }
+        # tgen.mininet_cli()
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_bgp_converge_summary)
@@ -136,6 +151,7 @@ def test_bgp_snmp_bgp4v2():
                 }
             },
         }
+        # tgen.mininet_cli()
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_bgp_converge_prefixes)
@@ -146,11 +162,12 @@ def test_bgp_snmp_bgp4v2():
 
     def _snmpwalk_remote_addr():
         expected = {
-            "1.3.6.1.3.5.1.1.2.1.5.1.4.192.168.12.1": "C0 A8 0C 01",
-            "1.3.6.1.3.5.1.1.2.1.5.2.16.32.1.13.184.0.0.0.0.0.0.0.0.0.18.0.1": "20 01 0D B8 00 00 00 00 00 00 00 00 00 12 00 01",
+            "1.3.6.1.3.5.1.1.2.1.5.1.1.192.168.12.4": "C0 A8 0C 04",
+            "1.3.6.1.3.5.1.1.2.1.5.1.2.32.1.13.184.0.0.0.0.0.0.0.0.0.18.0.4": "20 01 0D B8 00 00 00 00 00 00 00 00 00 12 00 04",
         }
 
         # bgp4V2PeerRemoteAddr
+        # tgen.mininet_cli()
         output, _ = snmp.walk(".1.3.6.1.3.5.1.1.2.1.5")
         return output == expected
 
@@ -160,8 +177,8 @@ def test_bgp_snmp_bgp4v2():
 
     def _snmpwalk_peer_state():
         expected = {
-            "1.3.6.1.3.5.1.1.2.1.13.1.4.192.168.12.1": "6",
-            "1.3.6.1.3.5.1.1.2.1.13.2.16.32.1.13.184.0.0.0.0.0.0.0.0.0.18.0.1": "6",
+            "1.3.6.1.3.5.1.1.2.1.13.1.1.192.168.12.4": "6",
+            "1.3.6.1.3.5.1.1.2.1.13.1.2.32.1.13.184.0.0.0.0.0.0.0.0.0.18.0.4": "6",
         }
 
         # bgp4V2PeerState
@@ -174,8 +191,8 @@ def test_bgp_snmp_bgp4v2():
 
     def _snmpwalk_peer_last_error_code_received():
         expected = {
-            "1.3.6.1.3.5.1.1.3.1.1.1.4.192.168.12.1": "0",
-            "1.3.6.1.3.5.1.1.3.1.1.2.16.32.1.13.184.0.0.0.0.0.0.0.0.0.18.0.1": "0",
+            "1.3.6.1.3.5.1.1.3.1.1.1.1.192.168.12.4": "0",
+            "1.3.6.1.3.5.1.1.3.1.1.1.2.32.1.13.184.0.0.0.0.0.0.0.0.0.18.0.4": "0",
         }
 
         # bgp4V2PeerLastErrorCodeReceived
@@ -190,10 +207,16 @@ def test_bgp_snmp_bgp4v2():
 
     def _snmpwalk_origin():
         expected = {
-            "1.3.6.1.3.5.1.1.9.1.9.1.4.10.0.0.0.31.192.168.12.1": "1",
-            "1.3.6.1.3.5.1.1.9.1.9.1.4.10.0.0.2.32.192.168.12.1": "3",
-            "1.3.6.1.3.5.1.1.9.1.9.2.16.32.1.13.184.0.0.0.0.0.0.0.0.0.0.0.1.128.32.1.13.184.0.0.0.0.0.0.0.0.0.18.0.1": "1",
-            "1.3.6.1.3.5.1.1.9.1.9.2.16.32.1.13.184.0.1.0.0.0.0.0.0.0.0.0.0.56.32.1.13.184.0.0.0.0.0.0.0.0.0.18.0.1": "3",
+            "1.3.6.1.3.5.1.1.9.1.9.1.1.1.1.10.10.10.10.32.1.192.168.12.4.1": "1",
+            "1.3.6.1.3.5.1.1.9.1.9.1.1.1.1.10.10.10.10.32.1.192.168.12.4.2": "1",
+            "1.3.6.1.3.5.1.1.9.1.9.1.1.1.1.10.0.0.0.31.1.192.168.12.4.1": "1",
+            "1.3.6.1.3.5.1.1.9.1.9.1.1.1.1.10.0.0.0.31.1.192.168.12.4.2": "1",
+            "1.3.6.1.3.5.1.1.9.1.9.1.1.1.1.10.0.0.2.32.1.192.168.12.4.1": "3",
+            "1.3.6.1.3.5.1.1.9.1.9.1.1.1.1.10.0.0.2.32.1.192.168.12.4.2": "3",
+            "1.3.6.1.3.5.1.1.9.1.9.1.2.1.2.32.1.13.184.0.0.0.0.0.0.0.0.0.0.0.1.128.2.32.1.13.184.0.0.0.0.0.0.0.0.0.18.0.4.1": "1",
+            "1.3.6.1.3.5.1.1.9.1.9.1.2.1.2.32.1.13.184.0.0.0.0.0.0.0.0.0.0.0.1.128.2.32.1.13.184.0.0.0.0.0.0.0.0.0.18.0.4.2": "1",
+            "1.3.6.1.3.5.1.1.9.1.9.1.2.1.2.32.1.13.184.0.1.0.0.0.0.0.0.0.0.0.0.56.2.32.1.13.184.0.0.0.0.0.0.0.0.0.18.0.4.1": "3",
+            "1.3.6.1.3.5.1.1.9.1.9.1.2.1.2.32.1.13.184.0.1.0.0.0.0.0.0.0.0.0.0.56.2.32.1.13.184.0.0.0.0.0.0.0.0.0.18.0.4.2": "3",
         }
 
         # bgp4V2NlriOrigin
@@ -206,18 +229,87 @@ def test_bgp_snmp_bgp4v2():
 
     def _snmpwalk_med():
         expected = {
-            "1.3.6.1.3.5.1.1.9.1.17.1.4.10.0.0.0.31.192.168.12.1": "1",
-            "1.3.6.1.3.5.1.1.9.1.17.1.4.10.0.0.2.32.192.168.12.1": "2",
-            "1.3.6.1.3.5.1.1.9.1.17.2.16.32.1.13.184.0.0.0.0.0.0.0.0.0.0.0.1.128.32.1.13.184.0.0.0.0.0.0.0.0.0.18.0.1": "1",
-            "1.3.6.1.3.5.1.1.9.1.17.2.16.32.1.13.184.0.1.0.0.0.0.0.0.0.0.0.0.56.32.1.13.184.0.0.0.0.0.0.0.0.0.18.0.1": "2",
+            "1.3.6.1.3.5.1.1.9.1.17.1.1.1.1.10.10.10.10.32.1.192.168.12.4.1": "0",
+            "1.3.6.1.3.5.1.1.9.1.17.1.1.1.1.10.10.10.10.32.1.192.168.12.4.2": "0",
+            "1.3.6.1.3.5.1.1.9.1.17.1.1.1.1.10.0.0.0.31.1.192.168.12.4.1": "1",
+            "1.3.6.1.3.5.1.1.9.1.17.1.1.1.1.10.0.0.0.31.1.192.168.12.4.2": "0",
+            "1.3.6.1.3.5.1.1.9.1.17.1.1.1.1.10.0.0.2.32.1.192.168.12.4.1": "2",
+            "1.3.6.1.3.5.1.1.9.1.17.1.1.1.1.10.0.0.2.32.1.192.168.12.4.2": "0",
+            "1.3.6.1.3.5.1.1.9.1.17.1.2.1.2.32.1.13.184.0.0.0.0.0.0.0.0.0.0.0.1.128.2.32.1.13.184.0.0.0.0.0.0.0.0.0.18.0.4.1": "1",
+            "1.3.6.1.3.5.1.1.9.1.17.1.2.1.2.32.1.13.184.0.0.0.0.0.0.0.0.0.0.0.1.128.2.32.1.13.184.0.0.0.0.0.0.0.0.0.18.0.4.2": "0",
+            "1.3.6.1.3.5.1.1.9.1.17.1.2.1.2.32.1.13.184.0.1.0.0.0.0.0.0.0.0.0.0.56.2.32.1.13.184.0.0.0.0.0.0.0.0.0.18.0.4.1": "2",
+            "1.3.6.1.3.5.1.1.9.1.17.1.2.1.2.32.1.13.184.0.1.0.0.0.0.0.0.0.0.0.0.56.2.32.1.13.184.0.0.0.0.0.0.0.0.0.18.0.4.2": "0",
         }
 
         # bgp4V2NlriMed
         output, _ = snmp.walk(".1.3.6.1.3.5.1.1.9.1.17")
+        # tgen.mininet_cli()
         return output == expected
 
     _, result = topotest.run_and_expect(_snmpwalk_med, True, count=10, wait=1)
     assertmsg = "Can't fetch SNMP for bgp4V2NlriMed"
+    assert result, assertmsg
+
+    #
+    # traps
+    #
+
+    #
+    # bgp4 traps
+    #
+    def _snmptrap_ipv4():
+        def __get_notif_bgp4_in_trap_file(router):
+            snmptrapfile = "{}/{}/snmptrapd.log".format(router.logdir, router.name)
+            outputfile = open(snmptrapfile).read()
+            output = snmp.get_notif_bgp4(outputfile)
+
+            return output
+
+        output = __get_notif_bgp4_in_trap_file(r2)
+        logger.info("output bgp4")
+        logger.info(output)
+        return snmp.is_notif_bgp4_valid(output, "192.168.12.4")
+
+    # skip tests is SNMP not installed
+    if not os.path.isfile("/usr/sbin/snmptrapd"):
+        error_msg = "SNMP not installed - skipping"
+        pytest.skip(error_msg)
+
+    rr.vtysh_cmd("clear bgp *")
+    _, result = topotest.run_and_expect(_snmptrap_ipv4, True, count=30, wait=1)
+    assertmsg = "Can't fetch SNMP trap for ipv4"
+    assert result, assertmsg
+
+    #
+    # bgp4v2 traps
+    #
+    def _snmptrap_ipv6():
+        def __get_notif_bgp4v2_in_trap_file(router):
+            snmptrapfile = "{}/{}/snmptrapd.log".format(router.logdir, router.name)
+            outputfile = open(snmptrapfile).read()
+            output = snmp.get_notif_bgp4v2(outputfile)
+
+            return output
+
+        # tgen.mininet_cli()
+        output = __get_notif_bgp4v2_in_trap_file(r2)
+        logger.info("output bgp4v2")
+        logger.info(output)
+        p_ipv4_addr = "1.192.168.12.4"
+        p_ipv6_addr = "2.32.1.13.184.0.0.0.0.0.0.0.0.0.18.0.4"
+        return (
+            snmp.is_notif_bgp4v2_valid(output, p_ipv4_addr, "Estab")
+            and snmp.is_notif_bgp4v2_valid(output, p_ipv6_addr, "Estab")
+            and snmp.is_notif_bgp4v2_valid(output, p_ipv4_addr, "Backward")
+            and snmp.is_notif_bgp4v2_valid(output, p_ipv6_addr, "Backward")
+        )
+
+    sleep(10)
+    r2.vtysh_cmd("conf\nbgp snmp traps bgp4-mibv2")
+    r2.vtysh_cmd("conf\nno bgp snmp traps rfc4273")
+    rr.vtysh_cmd("clear bgp *")
+    _, result = topotest.run_and_expect(_snmptrap_ipv6, True, count=60, wait=1)
+    assertmsg = "Can't fetch SNMP trap for ipv6"
     assert result, assertmsg
 
 

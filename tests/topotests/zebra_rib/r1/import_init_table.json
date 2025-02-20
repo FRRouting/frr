@@ -1,0 +1,110 @@
+{
+    "10.0.0.0/24": [
+        {
+            "prefix": "10.0.0.0/24",
+            "prefixLen": 24,
+            "protocol": "connected",
+            "vrfId": 0,
+            "vrfName": "default",
+            "selected": true,
+            "destSelected": true,
+            "distance": 0,
+            "metric": 0,
+            "installed": true,
+            "table": 254,
+            "internalStatus": 16,
+            "internalFlags": 8,
+            "nexthops": [
+                {
+                    "flags": 3,
+                    "fib": true,
+                    "directlyConnected": true,
+                    "interfaceName": "r1-eth0",
+                    "active": true,
+                    "weight": 1
+                }
+            ]
+        }
+    ],
+    "10.0.0.1/32": [
+        {
+            "prefix": "10.0.0.1/32",
+            "prefixLen": 32,
+            "protocol": "local",
+            "vrfId": 0,
+            "vrfName": "default",
+            "selected": true,
+            "destSelected": true,
+            "distance": 0,
+            "metric": 0,
+            "installed": true,
+            "table": 254,
+            "internalStatus": 16,
+            "internalFlags": 8,
+            "nexthops": [
+                {
+                    "flags": 3,
+                    "fib": true,
+                    "directlyConnected": true,
+                    "interfaceName": "r1-eth0",
+                    "active": true,
+                    "weight": 1
+                }
+            ]
+        }
+    ],
+    "10.10.0.0/24": [
+        {
+            "prefix": "10.10.0.0/24",
+            "prefixLen": 24,
+            "protocol": "connected",
+            "vrfId": 0,
+            "vrfName": "default",
+            "selected": true,
+            "destSelected": true,
+            "distance": 0,
+            "metric": 0,
+            "installed": true,
+            "table": 254,
+            "internalStatus": 16,
+            "internalFlags": 8,
+            "nexthops": [
+                {
+                    "flags": 3,
+                    "fib": true,
+                    "directlyConnected": true,
+                    "interfaceName": "r1-eth1",
+                    "active": true,
+                    "weight": 1
+                }
+            ]
+        }
+    ],
+    "10.10.0.1/32": [
+        {
+            "prefix": "10.10.0.1/32",
+            "prefixLen": 32,
+            "protocol": "local",
+            "vrfId": 0,
+            "vrfName": "default",
+            "selected": true,
+            "destSelected": true,
+            "distance": 0,
+            "metric": 0,
+            "installed": true,
+            "table": 254,
+            "internalStatus": 16,
+            "internalFlags": 8,
+            "nexthops": [
+                {
+                    "flags": 3,
+                    "fib": true,
+                    "directlyConnected": true,
+                    "interfaceName": "r1-eth1",
+                    "active": true,
+                    "weight": 1
+                }
+            ]
+        }
+    ]
+}

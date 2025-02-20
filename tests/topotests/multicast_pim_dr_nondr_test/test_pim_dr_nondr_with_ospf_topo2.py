@@ -20,10 +20,7 @@ Following tests are covered:
 
 import os
 import sys
-import json
 import time
-import datetime
-from time import sleep
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -43,14 +40,9 @@ from lib.common_config import (
     write_test_footer,
     step,
     reset_config_on_routers,
-    shutdown_bringup_interface,
     apply_raw_config,
     add_interfaces_to_vlan,
-    kill_router_daemons,
-    start_router_daemons,
-    create_static_routes,
     check_router_status,
-    topo_daemons,
     required_linux_kernel_version,
 )
 from lib.pim import (
@@ -59,9 +51,6 @@ from lib.pim import (
     verify_mroutes,
     clear_mroute,
     clear_pim_interface_traffic,
-    verify_pim_config,
-    verify_upstream_iif,
-    verify_multicast_traffic,
     verify_multicast_flag_state,
     verify_igmp_groups,
     McastTesterHelper,

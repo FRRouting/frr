@@ -47,6 +47,9 @@ extern uint8_t ospf_distance_apply(struct ospf *ospf, struct prefix_ipv4 *,
 				   struct ospf_route *);
 extern struct ospf_external *ospf_external_lookup(struct ospf *, uint8_t,
 						  unsigned short);
+
+extern struct external_info *ospf_external_info_default_lookup(struct ospf *ospf);
+
 extern struct ospf_external *ospf_external_add(struct ospf *, uint8_t,
 					       unsigned short);
 

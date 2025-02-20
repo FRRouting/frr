@@ -12,6 +12,7 @@ systems, all tests must be marked with at least one of the following markers:
 * eigrpd
 * isisd
 * ldpd
+* mgmtd
 * nhrpd
 * ospf6d
 * ospfd
@@ -64,12 +65,12 @@ Adding a single marker:
 
     import pytest
     ...
-    
+
     # add after imports, before defining classes or functions:
     pytestmark = pytest.mark.bfdd
-    
+
     ...
-    
+
     def test_using_bfdd():
 
 
@@ -79,16 +80,16 @@ Adding multiple markers:
 
     import pytest
     ...
-    
+
     # add after imports, before defining classes or functions:
     pytestmark = [
         pytest.mark.bgpd,
         pytest.mark.ospfd,
         pytest.mark.ospf6d
     ]
-    
+
     ...
-    
+
     def test_using_bgpd_ospfd_ospf6d():
 
 

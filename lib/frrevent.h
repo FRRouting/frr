@@ -6,6 +6,7 @@
 #ifndef _ZEBRA_THREAD_H
 #define _ZEBRA_THREAD_H
 
+#include <signal.h>
 #include <zebra.h>
 #include <pthread.h>
 #include <poll.h>
@@ -17,6 +18,8 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#define CONSUMED_TIME_CHECK 5000000
 
 extern bool cputime_enabled;
 extern unsigned long cputime_threshold;
@@ -65,6 +68,8 @@ struct xref_eventsched {
 	uint32_t event_type;
 };
 
+PREDECL_HASH(cpu_records);
+
 /* Master of the theads. */
 struct event_loop {
 	char *name;
@@ -76,19 +81,21 @@ struct event_loop {
 	struct list *cancel_req;
 	bool canceled;
 	pthread_cond_t cancel_cond;
-	struct hash *cpu_record;
+	struct cpu_records_head cpu_records[1];
 	int io_pipe[2];
 	int fd_limit;
 	struct fd_handler handler;
-	unsigned long alloc;
 	long selectpoll_timeout;
 	bool spin;
 	bool handle_signals;
 	pthread_mutex_t mtx;
 	pthread_t owner;
 
+	nfds_t last_read;
+
 	bool ready_run_loop;
 	RUSAGE_T last_getrusage;
+	struct timeval last_tardy_warning;
 };
 
 /* Event types. */
@@ -120,17 +127,29 @@ struct event {
 	struct timeval real;
 	struct cpu_event_history *hist;	    /* cache pointer to cpu_history */
 	unsigned long yield;		    /* yield time in microseconds */
+	/* lateness warning threshold, usec.  0 if it's not a timer. */
+	unsigned long tardy_threshold;
 	const struct xref_eventsched *xref; /* origin location */
 	pthread_mutex_t mtx;		    /* mutex for thread.c functions */
-	bool ignore_timer_late;
 };
+
+/* rate limit late timer warnings */
+#define TARDY_WARNING_INTERVAL 10 * TIMER_SECOND_MICRO
+/* default threshold for late timer warning */
+#define TARDY_DEFAULT_THRESHOLD 4 * TIMER_SECOND_MICRO
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pTH"(struct event *)
 #endif
 
 struct cpu_event_history {
+	struct cpu_records_item item;
+
 	void (*func)(struct event *e);
+
+	/* fields between the pair of these two are nulled on "clear event cpu" */
+	char _clear_begin[0];
+
 	atomic_size_t total_cpu_warn;
 	atomic_size_t total_wall_warn;
 	atomic_size_t total_starv_warn;
@@ -141,11 +160,21 @@ struct cpu_event_history {
 	} real;
 	struct time_stats cpu;
 	atomic_uint_fast32_t types;
+
+	/* end of cleared region */
+	char _clear_end[0];
+
 	const char *funcname;
 };
 
 /* Struct timeval's tv_usec one second value.  */
 #define TIMER_SECOND_MICRO 1000000L
+
+static inline unsigned long timeval_elapsed(struct timeval a, struct timeval b)
+{
+	return (((a.tv_sec - b.tv_sec) * TIMER_SECOND_MICRO)
+		+ (a.tv_usec - b.tv_usec));
+}
 
 /* Event yield time.  */
 #define EVENT_YIELD_TIME_SLOT 10 * 1000L /* 10ms */
@@ -195,7 +224,7 @@ struct cpu_event_history {
 	_xref_t_a(timer_tv, TIMER, m, f, a, v, t)
 #define event_add_event(m, f, a, v, t) _xref_t_a(event, EVENT, m, f, a, v, t)
 
-#define event_execute(m, f, a, v)                                              \
+#define event_execute(m, f, a, v, p)                                           \
 	({                                                                     \
 		static const struct xref_eventsched _xref __attribute__(       \
 			(used)) = {                                            \
@@ -205,14 +234,13 @@ struct cpu_event_history {
 			.event_type = EVENT_EXECUTE,                           \
 		};                                                             \
 		XREF_LINK(_xref.xref);                                         \
-		_event_execute(&_xref, m, f, a, v);                            \
+		_event_execute(&_xref, m, f, a, v, p);                         \
 	}) /* end */
 
 /* Prototypes. */
 extern struct event_loop *event_master_create(const char *name);
 void event_master_set_name(struct event_loop *master, const char *name);
 extern void event_master_free(struct event_loop *m);
-extern void event_master_free_unused(struct event_loop *m);
 
 extern void _event_add_read_write(const struct xref_eventsched *xref,
 				  struct event_loop *master,
@@ -241,7 +269,8 @@ extern void _event_add_event(const struct xref_eventsched *xref,
 
 extern void _event_execute(const struct xref_eventsched *xref,
 			   struct event_loop *master,
-			   void (*fn)(struct event *), void *arg, int val);
+			   void (*fn)(struct event *), void *arg, int val,
+			   struct event **eref);
 
 extern void event_cancel(struct event **event);
 extern void event_cancel_async(struct event_loop *m, struct event **eptr,
@@ -283,9 +312,17 @@ static inline bool event_is_scheduled(struct event *thread)
 /* Debug signal mask */
 void debug_signals(const sigset_t *sigs);
 
+/* getting called more than given microseconds late will print a warning.
+ * Default if not called: 4s.  Don't call this on non-timers.
+ */
+static inline void event_set_tardy_threshold(struct event *event, unsigned long thres)
+{
+	event->tardy_threshold = thres;
+}
+
 static inline void event_ignore_late_timer(struct event *event)
 {
-	event->ignore_timer_late = true;
+	event->tardy_threshold = 0;
 }
 
 #ifdef __cplusplus

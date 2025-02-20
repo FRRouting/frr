@@ -17,8 +17,10 @@ adduser \
 usermod -a -G frrvty frr
 
 mkdir -m 0755 -p /var/log/frr
+mkdir -m 0700 -p /var/lib/frr
 mkdir -p /etc/frr
 
+chown frr: /var/lib/frr
 
 # only change ownership of files when they were previously owned by root or
 # quagga; this is to ensure we don't trample over some custom user setup.

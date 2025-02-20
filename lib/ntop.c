@@ -116,7 +116,18 @@ inet4:
 			best = i - curlen;
 			bestlen = curlen;
 		}
-		/* do we want ::ffff:A.B.C.D? */
+		if (best == 0 && bestlen == 5 && b[10] == 0xff && b[11] == 0xff) {
+			/* ::ffff:A.B.C.D */
+			*o++ = ':';
+			*o++ = ':';
+			*o++ = 'f';
+			*o++ = 'f';
+			*o++ = 'f';
+			*o++ = 'f';
+			*o++ = ':';
+			b += 12;
+			goto inet4;
+		}
 		if (best == 0 && bestlen == 6) {
 			*o++ = ':';
 			*o++ = ':';
@@ -158,7 +169,7 @@ inet4:
 	return dst;
 }
 
-#if !defined(INET_NTOP_NO_OVERRIDE) && !defined(__APPLE__)
+#if !defined(INET_NTOP_NO_OVERRIDE)
 /* we want to override libc inet_ntop, but make sure it shows up in backtraces
  * as frr_inet_ntop (to avoid confusion while debugging)
  */

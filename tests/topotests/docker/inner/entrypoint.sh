@@ -20,6 +20,11 @@ cd "${FRR_BUILD_DIR}/tests/topotests"
 log_info "Setting permissions on /tmp so we can generate logs"
 chmod 1777 /tmp
 
+# This is a MUST, otherwise we have:
+# AddressSanitizer:DEADLYSIGNAL
+# Segmentation fault
+sysctl -w vm.mmap_rnd_bits=28
+
 if [ $# -eq 0 ] || ([[ "$1" != /* ]] && [[ "$1" != ./* ]]); then
 	export TOPOTESTS_CHECK_MEMLEAK=/tmp/memleak_
 	export TOPOTESTS_CHECK_STDERR=Yes

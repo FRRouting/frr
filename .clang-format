@@ -1,92 +1,231 @@
+# SPDX-License-Identifier: GPL-2.0
+# clang-format configuration file. Intended for clang-format >= 11.
+# If the version is changed also check that CI tool frrbot is updated.
+#
+# For more information, see:
+#
+#   Documentation/process/clang-format.rst
+#   https://clang.llvm.org/docs/ClangFormat.html
+#   https://clang.llvm.org/docs/ClangFormatStyleOptions.html
+#
 ---
-BasedOnStyle: LLVM
-Language: Cpp
-IndentWidth: 8
-UseTab: Always
-BreakBeforeBraces: Linux
-AlwaysBreakBeforeMultilineStrings: true
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+# FRR: Right
+AlignEscapedNewlines: Right
+AlignOperands: Align
+# FRR: true
+AlignTrailingComments: true
+# FRR: true
+AlignConsecutiveMacros: true
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowShortBlocksOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
 AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
-AllowShortFunctionsOnASingleLine: false
-IndentCaseLabels: false
-AlignEscapedNewlinesLeft: false
-AlignTrailingComments: true
-AllowAllParametersOfDeclarationOnNextLine: false
-AlignAfterOpenBracket: true
-SpaceAfterCStyleCast: false
-MaxEmptyLinesToKeep: 2
-BreakBeforeBinaryOperators: None
+AlwaysBreakAfterDefinitionReturnType: None
+AlwaysBreakAfterReturnType: None
+AlwaysBreakBeforeMultilineStrings: false
+AlwaysBreakTemplateDeclarations: false
+BinPackArguments: true
+BinPackParameters: true
+BraceWrapping:
+  AfterClass: false
+  AfterControlStatement: false
+  AfterEnum: false
+  AfterFunction: true
+  AfterNamespace: true
+  AfterObjCDeclaration: false
+  AfterStruct: false
+  AfterUnion: false
+  AfterExternBlock: false
+  BeforeCatch: false
+  BeforeElse: false
+  IndentBraces: false
+  SplitEmptyFunction: true
+  SplitEmptyRecord: true
+  SplitEmptyNamespace: true
+BreakBeforeBinaryOperators: false
+BreakBeforeBraces: Custom
+BreakBeforeInheritanceComma: false
+BreakBeforeTernaryOperators: true
+BreakConstructorInitializersBeforeComma: false
+BreakConstructorInitializers: BeforeComma
+BreakAfterJavaFieldAnnotations: false
 BreakStringLiterals: false
-SortIncludes:    false
+ColumnLimit: 100
+# Linux: CommentPragmas: '^ IWYU pragma:'
+CommentPragmas: '\$(FRR|clippy)'
+CompactNamespaces: false
+ConstructorInitializerAllOnOneLineOrOnePerLine: false
+ConstructorInitializerIndentWidth: 8
+ContinuationIndentWidth: 8
+Cpp11BracedListStyle: false
+DerivePointerAlignment: false
+DisableFormat: false
+ExperimentalAutoDetectBinPacking: false
+FixNamespaceComments: false
+# Some taken from:
+#   git grep -h '^#define [^[:space:]]*frr_(each|with)[^[:space:]]*(' ./ \
+#   | sed "s,^#define \([^[:space:]]*frr_(each|with)[^[:space:]]*\)(.*$,  - '\1'," \
+#   | LC_ALL=C sort -u
+# and
+#   git grep -h '^#define [^[:space:]]*FOREACH[^[:space:]]*(' ./
+#   | sed "s,^#define \([^[:space:]]*FOREACH[^)]*\)(.*,  - '\1',"
+#   | LC_ALL=C sort -u
+ForEachMacros:
+  # lib: outliers:
+  - 'FOR_ALL_INTERFACES'
+  # libyang outliers:
+  - 'LY_FOR_KEYS'
+  - 'LY_LIST_FOR'
+  - 'LYD_LIST_FOR_INST'
+  - 'LYD_LIST_FOR_INST_SAFE'
+  - 'LY_TREE_FOR'
+  - 'LY_TREE_DFS_BEGIN'
+  - 'LYD_TREE_DFS_BEGIN'
+  # ospfd outliers:
+  - 'LSDB_LOOP'
+  # first git grep
+  - 'darr_foreach_p'
+  - 'darr_foreach_i'
+  - 'frr_each'
+  - 'frr_each_safe'
+  - 'frr_each_from'
+  - 'frr_rev_each'
+  - 'frr_rev_each_safe'
+  - 'frr_rev_each_from'
+  - 'frr_with_mutex'
+  - 'frr_with_privs'
+  # second git grep
+  - 'AF_FOREACH'
+  - 'FOREACH_ADAPTER_IN_LIST'
+  - 'FOREACH_AFI_SAFI'
+  - 'FOREACH_AFI_SAFI_NSF'
+  - 'FOREACH_BE_APPLY_BATCH_IN_LIST'
+  - 'FOREACH_BE_CLIENT_BITS'
+  - 'FOREACH_BE_TXN_BATCH_IN_LIST'
+  - 'FOREACH_BE_TXN_IN_LIST'
+  - 'FOREACH_CMT_REC'
+  - 'FOREACH_MGMTD_BE_CLIENT_ID'
+  - 'FOREACH_MGMTD_DS_ID'
+  - 'FOREACH_SAFI'
+  - 'FOREACH_SESSION_IN_LIST'
+  - 'FOREACH_TXN_CFG_BATCH_IN_LIST'
+  - 'FOREACH_TXN_IN_LIST'
+  - 'FOREACH_TXN_REQ_IN_LIST'
+  - 'JSON_FOREACH'
+  - 'LIST_FOREACH'
+  - 'LIST_FOREACH_SAFE'
+  - 'RB_FOREACH'
+  - 'RB_FOREACH_REVERSE'
+  - 'RB_FOREACH_REVERSE_SAFE'
+  - 'RB_FOREACH_SAFE'
+  - 'RE_DEST_FOREACH_ROUTE'
+  - 'RE_DEST_FOREACH_ROUTE_SAFE'
+  - 'RNODE_FOREACH_RE'
+  - 'RNODE_FOREACH_RE_SAFE'
+  - 'SIMPLEQ_FOREACH'
+  - 'SIMPLEQ_FOREACH_SAFE'
+  - 'SLIST_FOREACH'
+  - 'SLIST_FOREACH_PREVPTR'
+  - 'SLIST_FOREACH_SAFE'
+  - 'SPLAY_FOREACH'
+  - 'STAILQ_FOREACH'
+  - 'STAILQ_FOREACH_SAFE'
+  - 'SUBGRP_FOREACH_ADJ'
+  - 'SUBGRP_FOREACH_ADJ_SAFE'
+  - 'SUBGRP_FOREACH_PEER'
+  - 'SUBGRP_FOREACH_PEER_SAFE'
+  - 'TAILQ_FOREACH'
+  - 'TAILQ_FOREACH_REVERSE'
+  - 'TAILQ_FOREACH_REVERSE_SAFE'
+  - 'TAILQ_FOREACH_SAFE'
+  - 'UPDGRP_FOREACH_SUBGRP'
+  - 'UPDGRP_FOREACH_SUBGRP_SAFE'
+  - 'XSIMPLEQ_FOREACH'
+  - 'XSIMPLEQ_FOREACH_SAFE'
+IncludeBlocks: Preserve
 IncludeCategories:
   - Regex:           '^(<|lib)'
     Priority:        0
-CommentPragmas: '\$(FRR|clippy)'
-ContinuationIndentWidth: 8
-ForEachMacros:
-  # lib
-  - frr_each
-  - frr_each_safe
-  - frr_each_from
-  - frr_rev_each
-  - frr_rev_each_safe
-  - frr_rev_each_from
-  - frr_with_mutex
-  - frr_with_privs
-  - LIST_FOREACH
-  - LIST_FOREACH_SAFE
-  - SLIST_FOREACH
-  - SLIST_FOREACH_SAFE
-  - SLIST_FOREACH_PREVPTR
-  - STAILQ_FOREACH
-  - STAILQ_FOREACH_SAFE
-  - TAILQ_FOREACH
-  - TAILQ_FOREACH_SAFE
-  - TAILQ_FOREACH_REVERSE
-  - TAILQ_FOREACH_REVERSE_SAFE
-  - RB_FOREACH
-  - RB_FOREACH_SAFE
-  - RB_FOREACH_REVERSE
-  - RB_FOREACH_REVERSE_SAFE
-  - SPLAY_FOREACH
-  - FOR_ALL_INTERFACES
-  - FOR_ALL_INTERFACES_ADDRESSES
-  - JSON_FOREACH
-  - FOREACH_BE_TXN_BATCH_IN_LIST
-  - FOREACH_BE_APPLY_BATCH_IN_LIST
-  - FOREACH_BE_TXN_IN_LIST
-  - FOREACH_SESSION_IN_LIST
-  - FOREACH_MGMTD_BE_CLIENT_ID
-  # libyang
-  - LY_FOR_KEYS
-  - LY_LIST_FOR
-  - LY_TREE_FOR
-  - LY_TREE_DFS_BEGIN
-  - LYD_TREE_DFS_BEGIN
-  # zebra
-  - RE_DEST_FOREACH_ROUTE
-  - RE_DEST_FOREACH_ROUTE_SAFE
-  - RNODE_FOREACH_RE
-  - RNODE_FOREACH_RE_SAFE
-  # bgpd
-  - UPDGRP_FOREACH_SUBGRP
-  - UPDGRP_FOREACH_SUBGRP_SAFE
-  - SUBGRP_FOREACH_PEER
-  - SUBGRP_FOREACH_PEER_SAFE
-  - SUBGRP_FOREACH_ADJ
-  - SUBGRP_FOREACH_ADJ_SAFE
-  - AF_FOREACH
-  - FOREACH_AFI_SAFI
-  - FOREACH_AFI_SAFI_NSF
-  - FOREACH_SAFI
-  # ospfd
-  - LSDB_LOOP
-  # mgmtd
-  - FOREACH_CMT_REC
-  - FOREACH_TXN_CFG_BATCH_IN_LIST
-  - FOREACH_TXN_REQ_IN_LIST
-  - FOREACH_TXN_IN_LIST
-  - FOREACH_MGMTD_DB_ID
-  - FOREACH_ADAPTER_IN_LIST
-  - FOREACH_SESSION_IN_LIST
-  - FOREACH_SESSION_IN_LIST_SAFE
+## New: XXX whats it mean?
+IncludeIsMainRegex: '(Test)?$'
+IndentCaseLabels: false
+IndentGotoLabels: false
+IndentPPDirectives: None
+IndentWidth: 8
+IndentWrappedFunctionNames: false
+JavaScriptQuotes: Leave
+JavaScriptWrapImports: true
+KeepEmptyLinesAtTheStartOfBlocks: false
+MacroBlockBegin: ''
+MacroBlockEnd: ''
+## Linux: MaxEmptyLinesToKeep: 1
+MaxEmptyLinesToKeep: 2
+NamespaceIndentation: None
+ObjCBinPackProtocolList: Auto
+ObjCBlockIndentWidth: 8
+ObjCSpaceAfterProperty: true
+ObjCSpaceBeforeProtocolList: true
+
+## Lowest Penalty Value wins. Values are used by clang-format to influence
+## the brak decisions, it's a bit of voodoo magic though.
+## Originally from linux which was "Taken from git's rules"
+PenaltyBreakAssignment: 30
+PenaltyBreakComment: 10
+PenaltyBreakFirstLessLess: 0
+# Don't break a string into multi-string-fragments
+PenaltyBreakString: 1000
+# Allow going past the ColumnLimit to keep function arguments aligned
+# with the open parenthesis.
+PenaltyBreakBeforeFirstCallParameter: 1000
+# Try and stay under ColumnLimit, but not at the cost of incomprehensible code.
+PenaltyExcessCharacter: 30
+PenaltyReturnTypeOnItsOwnLine: 60
+
+PointerAlignment: Right
+ReflowComments: false
+SortIncludes: false
+SortUsingDeclarations: false
+SpaceAfterCStyleCast: false
+SpaceAfterTemplateKeyword: true
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeCtorInitializerColon: true
+SpaceBeforeInheritanceColon: true
+SpaceBeforeParens: ControlStatements
+SpaceBeforeRangeBasedForLoopColon: true
+SpaceInEmptyParentheses: false
+SpacesBeforeTrailingComments: 1
+SpacesInAngles: false
+SpacesInContainerLiterals: false
+SpacesInCStyleCastParentheses: false
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+Standard: Cpp03
+TabWidth: 8
+UseTab: Always
+WhitespaceSensitiveMacros:
+  - "DEFPY"
+  - "DEFPY_HIDDEN"
+  - "DEFPY_NOSH"
+  - "DEFPY_YANG"
+  - "DEFPY_YANG_HIDDEN"
+  - "DEFPY_YANG_NOSH"
+  - "DEFSH"
+  - "DEFSH_HIDDEN"
+  - "DEFUN"
+  - "DEFUN_HIDDEN"
+  - "DEFUN_NOSH"
+  - "DEFUN_YANG"
+  - "DEFUN_YANG_HIDDEN"
+  - "DEFUN_YANG_NOSH"
+  - "DEFUNSH"
+  - "DEFUNSH_HIDDEN"
+  - "ALIAS"
+  - "ALIAS_HIDDEN"
+  - "ALIAS_YANG"
+  - "ALIAS_DEPRECATED"
+...

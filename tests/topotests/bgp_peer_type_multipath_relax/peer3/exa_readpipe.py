@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 "Helper script to read api commands from a pipe and feed them to ExaBGP"
 
 import sys

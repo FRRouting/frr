@@ -14,9 +14,7 @@ import sys
 import time
 import pytest
 from time import sleep
-from copy import deepcopy
 import json
-from lib.topotest import frr_unicode
 
 pytestmark = pytest.mark.ospf6d
 
@@ -39,11 +37,8 @@ from lib.common_config import (
     shutdown_bringup_interface,
 )
 from lib.topolog import logger
-from lib.topojson import build_topo_from_json, build_config_from_json
-from lib.ospf import verify_ospf6_neighbor, config_ospf6_interface, clear_ospf
-from ipaddress import IPv4Address
-
-# Global variables
+from lib.topojson import build_config_from_json
+from lib.ospf import verify_ospf6_neighbor, config_ospf6_interface
 topo = None
 # Reading the data from JSON File for topology creation
 jsonFile = "{}/ospfv3_authentication.json".format(CWD)
@@ -118,7 +113,7 @@ def setup_module(mod):
     logger.info("Running setup_module() done")
 
 
-def teardown_module(mod):
+def teardown_module():
     """
     Teardown the pytest environment.
     * `mod`: module name
@@ -175,7 +170,7 @@ def test_ospf6_auth_trailer_tc1_md5(request):
     result = config_ospf6_interface(tgen, topo, r1_ospf6_auth)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
-    step("Verify that the neighbour is not FULL between R1 and R2.")
+    step("Verify that the neighbor is not FULL between R1 and R2.")
     # wait for dead time expiry.
     sleep(6)
     dut = "r1"
@@ -208,7 +203,7 @@ def test_ospf6_auth_trailer_tc1_md5(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step(
-        "Verify that the neighbour is FULL between R1 and R2  "
+        "Verify that the neighbor is FULL between R1 and R2  "
         "using show ipv6 ospf6 neighbor cmd."
     )
 
@@ -266,7 +261,7 @@ def test_ospf6_auth_trailer_tc1_md5(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step(
-        "Verify that the neighbour is FULL between R1 and R2 using"
+        "Verify that the neighbor is FULL between R1 and R2 using"
         " show ip ospf6 neighbor cmd."
     )
 
@@ -283,7 +278,7 @@ def test_ospf6_auth_trailer_tc1_md5(request):
 
     dut = "r2"
     step(
-        "Verify that the neighbour is not FULL between R1 and R2 using "
+        "Verify that the neighbor is not FULL between R1 and R2 using "
         "show ip ospf6 neighbor cmd."
     )
     ospf6_covergence = verify_ospf6_neighbor(tgen, topo, dut=dut, expected=False)
@@ -295,7 +290,7 @@ def test_ospf6_auth_trailer_tc1_md5(request):
     shutdown_bringup_interface(tgen, dut, intf, True)
 
     step(
-        "Verify that the neighbour is FULL between R1 and R2 using "
+        "Verify that the neighbor is FULL between R1 and R2 using "
         "show ip ospf6 neighbor cmd."
     )
 
@@ -341,7 +336,7 @@ def test_ospf6_auth_trailer_tc2_sha256(request):
     result = config_ospf6_interface(tgen, topo, r1_ospf6_auth)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
-    step("Verify that the neighbour is not FULL between R1 and R2.")
+    step("Verify that the neighbor is not FULL between R1 and R2.")
     # wait for dead time expiry.
     sleep(6)
     dut = "r1"
@@ -374,7 +369,7 @@ def test_ospf6_auth_trailer_tc2_sha256(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step(
-        "Verify that the neighbour is FULL between R1 and R2  "
+        "Verify that the neighbor is FULL between R1 and R2  "
         "using show ipv6 ospf6 neighbor cmd."
     )
 
@@ -432,7 +427,7 @@ def test_ospf6_auth_trailer_tc2_sha256(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step(
-        "Verify that the neighbour is FULL between R1 and R2 using"
+        "Verify that the neighbor is FULL between R1 and R2 using"
         " show ip ospf6 neighbor cmd."
     )
 
@@ -449,7 +444,7 @@ def test_ospf6_auth_trailer_tc2_sha256(request):
 
     dut = "r2"
     step(
-        "Verify that the neighbour is not FULL between R1 and R2 using "
+        "Verify that the neighbor is not FULL between R1 and R2 using "
         "show ip ospf6 neighbor cmd."
     )
     ospf6_covergence = verify_ospf6_neighbor(tgen, topo, dut=dut, expected=False)
@@ -461,7 +456,66 @@ def test_ospf6_auth_trailer_tc2_sha256(request):
     shutdown_bringup_interface(tgen, dut, intf, True)
 
     step(
-        "Verify that the neighbour is FULL between R1 and R2 using "
+        "Verify that the neighbor is FULL between R1 and R2 using "
+        "show ip ospf6 neighbor cmd."
+    )
+
+    dut = "r2"
+    ospf6_covergence = verify_ospf6_neighbor(tgen, topo, dut=dut)
+    assert ospf6_covergence is True, "Testcase {} :Failed \n Error:  {}".format(
+        tc_name, ospf6_covergence
+    )
+
+    step("Change the key ID on R2 to not match R1")
+    r2_ospf6_auth = {
+        "r2": {
+            "links": {
+                "r1": {
+                    "ospf6": {
+                        "hash-algo": "hmac-sha-256",
+                        "key": "ospf6",
+                        "key-id": "30",
+                    }
+                }
+            }
+        }
+    }
+    result = config_ospf6_interface(tgen, topo, r2_ospf6_auth)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    step(
+        "Verify on R1 that R2 nbr is deleted due to key-id mismatch "
+        "after dead interval expiry"
+    )
+    #  wait till the dead timer expiry
+    sleep(6)
+    dut = "r2"
+    ospf6_covergence = verify_ospf6_neighbor(
+        tgen, topo, dut=dut, expected=False, retry_timeout=5
+    )
+    assert ospf6_covergence is not True, "Testcase {} :Failed \n Error:  {}".format(
+        tc_name, ospf6_covergence
+    )
+
+    step("Correct the key ID on R2 so that it matches R1")
+    r2_ospf6_auth = {
+        "r2": {
+            "links": {
+                "r1": {
+                    "ospf6": {
+                        "hash-algo": "hmac-sha-256",
+                        "key": "ospf6",
+                        "key-id": "10",
+                    }
+                }
+            }
+        }
+    }
+    result = config_ospf6_interface(tgen, topo, r2_ospf6_auth)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    step(
+        "Verify that the neighbor is FULL between R1 and R2 using "
         "show ip ospf6 neighbor cmd."
     )
 
@@ -524,7 +578,7 @@ def test_ospf6_auth_trailer_tc3_keychain_md5(request):
     result = config_ospf6_interface(tgen, topo, r1_ospf6_auth)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
-    step("Verify that the neighbour is not FULL between R1 and R2.")
+    step("Verify that the neighbor is not FULL between R1 and R2.")
     # wait for dead time expiry.
     sleep(6)
     dut = "r1"
@@ -555,7 +609,7 @@ def test_ospf6_auth_trailer_tc3_keychain_md5(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step(
-        "Verify that the neighbour is FULL between R1 and R2  "
+        "Verify that the neighbor is FULL between R1 and R2  "
         "using show ipv6 ospf6 neighbor cmd."
     )
 
@@ -600,7 +654,7 @@ def test_ospf6_auth_trailer_tc3_keychain_md5(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step(
-        "Verify that the neighbour is FULL between R1 and R2 using"
+        "Verify that the neighbor is FULL between R1 and R2 using"
         " show ip ospf6 neighbor cmd."
     )
 
@@ -617,7 +671,7 @@ def test_ospf6_auth_trailer_tc3_keychain_md5(request):
 
     dut = "r2"
     step(
-        "Verify that the neighbour is not FULL between R1 and R2 using "
+        "Verify that the neighbor is not FULL between R1 and R2 using "
         "show ip ospf6 neighbor cmd."
     )
     ospf6_covergence = verify_ospf6_neighbor(tgen, topo, dut=dut, expected=False)
@@ -629,7 +683,7 @@ def test_ospf6_auth_trailer_tc3_keychain_md5(request):
     shutdown_bringup_interface(tgen, dut, intf, True)
 
     step(
-        "Verify that the neighbour is FULL between R1 and R2 using "
+        "Verify that the neighbor is FULL between R1 and R2 using "
         "show ip ospf6 neighbor cmd."
     )
 
@@ -692,7 +746,7 @@ def test_ospf6_auth_trailer_tc4_keychain_sha256(request):
     result = config_ospf6_interface(tgen, topo, r1_ospf6_auth)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
-    step("Verify that the neighbour is not FULL between R1 and R2.")
+    step("Verify that the neighbor is not FULL between R1 and R2.")
     # wait for dead time expiry.
     sleep(6)
     dut = "r1"
@@ -723,7 +777,7 @@ def test_ospf6_auth_trailer_tc4_keychain_sha256(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step(
-        "Verify that the neighbour is FULL between R1 and R2  "
+        "Verify that the neighbor is FULL between R1 and R2  "
         "using show ipv6 ospf6 neighbor cmd."
     )
 
@@ -768,7 +822,7 @@ def test_ospf6_auth_trailer_tc4_keychain_sha256(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step(
-        "Verify that the neighbour is FULL between R1 and R2 using"
+        "Verify that the neighbor is FULL between R1 and R2 using"
         " show ip ospf6 neighbor cmd."
     )
 
@@ -785,7 +839,7 @@ def test_ospf6_auth_trailer_tc4_keychain_sha256(request):
 
     dut = "r2"
     step(
-        "Verify that the neighbour is not FULL between R1 and R2 using "
+        "Verify that the neighbor is not FULL between R1 and R2 using "
         "show ip ospf6 neighbor cmd."
     )
     ospf6_covergence = verify_ospf6_neighbor(tgen, topo, dut=dut, expected=False)
@@ -797,7 +851,7 @@ def test_ospf6_auth_trailer_tc4_keychain_sha256(request):
     shutdown_bringup_interface(tgen, dut, intf, True)
 
     step(
-        "Verify that the neighbour is FULL between R1 and R2 using "
+        "Verify that the neighbor is FULL between R1 and R2 using "
         "show ip ospf6 neighbor cmd."
     )
 
@@ -843,7 +897,7 @@ def test_ospf6_auth_trailer_tc5_md5_keymissmatch(request):
     result = config_ospf6_interface(tgen, topo, r1_ospf6_auth)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
-    step("Verify that the neighbour is not FULL between R1 and R2.")
+    step("Verify that the neighbor is not FULL between R1 and R2.")
     # wait for dead time expiry.
     sleep(6)
     dut = "r1"
@@ -876,11 +930,11 @@ def test_ospf6_auth_trailer_tc5_md5_keymissmatch(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step(
-        "Verify that the neighbour is not FULL between R1 and R2  "
+        "Verify that the neighbor is not FULL between R1 and R2  "
         "using show ipv6 ospf6 neighbor cmd."
     )
 
-    step("Verify that the neighbour is FULL between R1 and R2.")
+    step("Verify that the neighbor is FULL between R1 and R2.")
     # wait for dead time expiry.
     sleep(6)
     dut = "r2"
@@ -913,7 +967,7 @@ def test_ospf6_auth_trailer_tc5_md5_keymissmatch(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step(
-        "Verify that the neighbour is FULL between R1 and R2  "
+        "Verify that the neighbor is FULL between R1 and R2  "
         "using show ipv6 ospf6 neighbor cmd."
     )
 
@@ -959,7 +1013,7 @@ def test_ospf6_auth_trailer_tc6_sha256_mismatch(request):
     result = config_ospf6_interface(tgen, topo, r1_ospf6_auth)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
-    step("Verify that the neighbour is not FULL between R1 and R2.")
+    step("Verify that the neighbor is not FULL between R1 and R2.")
     # wait for dead time expiry.
     sleep(6)
     dut = "r1"
@@ -991,7 +1045,7 @@ def test_ospf6_auth_trailer_tc6_sha256_mismatch(request):
     result = config_ospf6_interface(tgen, topo, r2_ospf6_auth)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
-    step("Verify that the neighbour is not FULL between R1 and R2.")
+    step("Verify that the neighbor is not FULL between R1 and R2.")
     # wait for dead time expiry.
     sleep(6)
     dut = "r2"
@@ -1024,7 +1078,7 @@ def test_ospf6_auth_trailer_tc6_sha256_mismatch(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step(
-        "Verify that the neighbour is FULL between R1 and R2  "
+        "Verify that the neighbor is FULL between R1 and R2  "
         "using show ipv6 ospf6 neighbor cmd."
     )
 
@@ -1095,7 +1149,7 @@ def test_ospf6_auth_trailer_tc7_keychain_md5_missmatch(request):
     result = config_ospf6_interface(tgen, topo, r1_ospf6_auth)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
-    step("Verify that the neighbour is not FULL between R1 and R2.")
+    step("Verify that the neighbor is not FULL between R1 and R2.")
     # wait for dead time expiry.
     sleep(6)
     dut = "r1"
@@ -1125,7 +1179,7 @@ def test_ospf6_auth_trailer_tc7_keychain_md5_missmatch(request):
     result = config_ospf6_interface(tgen, topo, r2_ospf6_auth)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
-    step("Verify that the neighbour is not FULL between R1 and R2.")
+    step("Verify that the neighbor is not FULL between R1 and R2.")
     # wait for dead time expiry.
     sleep(6)
     dut = "r2"
@@ -1156,7 +1210,7 @@ def test_ospf6_auth_trailer_tc7_keychain_md5_missmatch(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step(
-        "Verify that the neighbour is FULL between R1 and R2  "
+        "Verify that the neighbor is FULL between R1 and R2  "
         "using show ipv6 ospf6 neighbor cmd."
     )
 
@@ -1227,7 +1281,7 @@ def test_ospf6_auth_trailer_tc8_keychain_sha256_missmatch(request):
     result = config_ospf6_interface(tgen, topo, r1_ospf6_auth)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
-    step("Verify that the neighbour is not FULL between R1 and R2.")
+    step("Verify that the neighbor is not FULL between R1 and R2.")
     # wait for dead time expiry.
     sleep(6)
     dut = "r1"
@@ -1257,7 +1311,7 @@ def test_ospf6_auth_trailer_tc8_keychain_sha256_missmatch(request):
     result = config_ospf6_interface(tgen, topo, r2_ospf6_auth)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
-    step("Verify that the neighbour is not FULL between R1 and R2.")
+    step("Verify that the neighbor is not FULL between R1 and R2.")
     # wait for dead time expiry.
     sleep(6)
     dut = "r2"
@@ -1288,7 +1342,7 @@ def test_ospf6_auth_trailer_tc8_keychain_sha256_missmatch(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step(
-        "Verify that the neighbour is FULL between R1 and R2  "
+        "Verify that the neighbor is FULL between R1 and R2  "
         "using show ipv6 ospf6 neighbor cmd."
     )
 
@@ -1335,7 +1389,7 @@ def test_ospf6_auth_trailer_tc9_keychain_not_configured(request):
     result = config_ospf6_interface(tgen, topo, r1_ospf6_auth)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
-    step("Verify that the neighbour is not FULL between R1 and R2.")
+    step("Verify that the neighbor is not FULL between R1 and R2.")
     # wait for dead time expiry.
     sleep(6)
     dut = "r1"
@@ -1365,7 +1419,7 @@ def test_ospf6_auth_trailer_tc9_keychain_not_configured(request):
     result = config_ospf6_interface(tgen, topo, r2_ospf6_auth)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
-    step("Verify that the neighbour is not FULL between R1 and R2.")
+    step("Verify that the neighbor is not FULL between R1 and R2.")
     # wait for dead time expiry.
     sleep(6)
     dut = "r2"
@@ -1396,7 +1450,7 @@ def test_ospf6_auth_trailer_tc10_no_auth_trailer(request):
     router2 = tgen.gears["r2"]
 
     step(
-        "Verify that the neighbour is FULL between R1 and R2  "
+        "Verify that the neighbor is FULL between R1 and R2  "
         "using show ipv6 ospf6 neighbor cmd."
     )
 

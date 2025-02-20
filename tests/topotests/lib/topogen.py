@@ -81,20 +81,22 @@ def is_string(value):
 
 
 def get_exabgp_cmd(commander=None):
-    """Return the command to use for ExaBGP version < 4."""
+    """Return the command to use for ExaBGP version >= 4.2.11"""
 
     if commander is None:
-        commander = Commander("topogen")
+        commander = Commander("exabgp", logger=logging.getLogger("exabgp"))
 
     def exacmd_version_ok(exacmd):
-        logger.debug("checking %s for exabgp < version 4", exacmd)
+        logger.debug("checking %s for exabgp version >= 4.2.11", exacmd)
         _, stdout, _ = commander.cmd_status(exacmd + " -v", warn=False)
         m = re.search(r"ExaBGP\s*:\s*((\d+)\.(\d+)(?:\.(\d+))?)", stdout)
         if not m:
             return False
         version = m.group(1)
-        if topotest.version_cmp(version, "4") >= 0:
-            logging.debug("found exabgp version >= 4 in %s will keep looking", exacmd)
+        if topotest.version_cmp(version, "4.2.11") < 0:
+            logging.debug(
+                "found exabgp version < 4.2.11 in %s will keep looking", exacmd
+            )
             return False
         logger.info("Using ExaBGP version %s in %s", version, exacmd)
         return True
@@ -102,14 +104,14 @@ def get_exabgp_cmd(commander=None):
     exacmd = commander.get_exec_path("exabgp")
     if exacmd and exacmd_version_ok(exacmd):
         return exacmd
-    py2_path = commander.get_exec_path("python2")
-    if py2_path:
-        exacmd = py2_path + " -m exabgp"
+    py3_path = commander.get_exec_path("python3")
+    if py3_path:
+        exacmd = py3_path + " -m exabgp"
         if exacmd_version_ok(exacmd):
             return exacmd
-    py2_path = commander.get_exec_path("python")
-    if py2_path:
-        exacmd = py2_path + " -m exabgp"
+    py3_path = commander.get_exec_path("python")
+    if py3_path:
+        exacmd = py3_path + " -m exabgp"
         if exacmd_version_ok(exacmd):
             return exacmd
     return None
@@ -209,7 +211,11 @@ class Topogen(object):
         # Mininet(Micronet) to build the actual topology.
         assert not inspect.isclass(topodef)
 
-        self.net = Mininet(rundir=self.logdir, pytestconfig=topotest.g_pytest_config)
+        self.net = Mininet(
+            rundir=self.logdir,
+            pytestconfig=topotest.g_pytest_config,
+            logger=topolog.get_logger("mu", log_level="debug"),
+        )
 
         # Adjust the parent namespace
         topotest.fix_netns_limits(self.net)
@@ -236,7 +242,6 @@ class Topogen(object):
                 self.add_topology_from_dict(topodef)
 
     def add_topology_from_dict(self, topodef):
-
         keylist = (
             topodef.keys()
             if isinstance(topodef, OrderedDict)
@@ -360,6 +365,15 @@ class Topogen(object):
         self.peern += 1
         return self.gears[name]
 
+    def add_bmp_server(self, name, ip, defaultRoute, port=1789):
+        """Add the bmp collector gear"""
+        if name in self.gears:
+            raise KeyError("The bmp server already exists")
+
+        self.gears[name] = TopoBMPCollector(
+            self, name, ip=ip, defaultRoute=defaultRoute, port=port
+        )
+
     def add_link(self, node1, node2, ifname1=None, ifname2=None):
         """
         Creates a connection between node1 and node2. The nodes can be the
@@ -422,6 +436,13 @@ class Topogen(object):
         """
         return self.get_gears(TopoExaBGP)
 
+    def get_bmp_servers(self):
+        """
+        Retruns the bmp servers dictionnary (the key is the bmp server the
+        value is the bmp server object itself).
+        """
+        return self.get_gears(TopoBMPCollector)
+
     def start_topology(self):
         """Starts the topology class."""
         logger.info("starting topology: {}".format(self.modname))
@@ -471,7 +492,16 @@ class Topogen(object):
                 "Errors found post shutdown - details follow: {}".format(errors)
             )
 
-        self.net.stop()
+        try:
+            self.net.stop()
+
+        except OSError as error:
+            # OSError exception is raised when mininet tries to stop switch
+            # though switch is stopped once but mininet tries to stop same
+            # switch again, where it ended up with exception
+
+            logger.info(error)
+            logger.info("Exception ignored: switch is already stopped")
 
     def get_exabgp_cmd(self):
         if not self.exabgp_cmd:
@@ -700,6 +730,7 @@ class TopoRouter(TopoGear):
         "/etc/frr",
         "/etc/snmp",
         "/var/run/frr",
+        "/var/lib/frr",
         "/var/log",
     ]
 
@@ -725,6 +756,8 @@ class TopoRouter(TopoGear):
     RD_SNMP = 18
     RD_PIM6 = 19
     RD_MGMTD = 20
+    RD_TRAP = 21
+    RD_FPM_LISTENER = 22
     RD = {
         RD_FRR: "frr",
         RD_ZEBRA: "zebra",
@@ -747,6 +780,8 @@ class TopoRouter(TopoGear):
         RD_PATH: "pathd",
         RD_SNMP: "snmpd",
         RD_MGMTD: "mgmtd",
+        RD_TRAP: "snmptrapd",
+        RD_FPM_LISTENER: "fpm_listener",
     }
 
     def __init__(self, tgen, cls, name, **params):
@@ -784,6 +819,12 @@ class TopoRouter(TopoGear):
         gear += " TopoRouter<>"
         return gear
 
+    def use_netns_vrf(self):
+        """
+        Use netns as VRF backend.
+        """
+        self.net.useNetnsVRF()
+
     def check_capability(self, daemon, param):
         """
         Checks a capability daemon against an argument option
@@ -798,32 +839,47 @@ class TopoRouter(TopoGear):
         Loads the unified configuration file source
         Start the daemons in the list
         If daemons is None, try to infer daemons from the config file
+        `daemons` is a tuple (daemon, param) of daemons to start, e.g.:
+        (TopoRouter.RD_ZEBRA, "-s 90000000").
         """
-        self.load_config(self.RD_FRR, source)
+        source_path = self.load_config(self.RD_FRR, source)
         if not daemons:
             # Always add zebra
-            self.load_config(self.RD_ZEBRA)
+            self.load_config(self.RD_ZEBRA, "")
             for daemon in self.RD:
                 # This will not work for all daemons
                 daemonstr = self.RD.get(daemon).rstrip("d")
-                if daemonstr == "pim":
-                    grep_cmd = "grep 'ip {}' {}".format(daemonstr, source)
+                if daemonstr == "path":
+                    grep_cmd = "grep 'candidate-path' {}".format(source_path)
                 else:
-                    grep_cmd = "grep 'router {}' {}".format(daemonstr, source)
+                    grep_cmd = "grep -w '{}' {}".format(daemonstr, source_path)
                 result = self.run(grep_cmd, warn=False).strip()
                 if result:
-                    self.load_config(daemon)
-        else:
-            for daemon in daemons:
-                self.load_config(daemon)
+                    self.load_config(daemon, "")
+                    if daemonstr == "ospf":
+                        grep_cmd = "grep -E 'router ospf ([0-9]+*)' {} | grep -o -E '([0-9]*)'".format(
+                            source_path
+                        )
+                        result = self.run(grep_cmd, warn=False)
+                        if result:  # instances
+                            instances = result.split("\n")
+                            for inst in instances:
+                                if inst != "":
+                                    self.load_config(daemon, "", None, inst)
 
-    def load_config(self, daemon, source=None, param=None):
+        else:
+            for item in daemons:
+                daemon, param = item
+                self.load_config(daemon, "", param)
+
+    def load_config(self, daemon, source=None, param=None, instance=None):
         """Loads daemon configuration from the specified source
         Possible daemon values are: TopoRouter.RD_ZEBRA, TopoRouter.RD_RIP,
         TopoRouter.RD_RIPNG, TopoRouter.RD_OSPF, TopoRouter.RD_OSPF6,
         TopoRouter.RD_ISIS, TopoRouter.RD_BGP, TopoRouter.RD_LDP,
         TopoRouter.RD_PIM, TopoRouter.RD_PIM6, TopoRouter.RD_PBR,
-        TopoRouter.RD_SNMP, TopoRouter.RD_MGMTD.
+        TopoRouter.RD_SNMP, TopoRouter.RD_MGMTD, TopoRouter.RD_TRAP,
+        TopoRouter.RD_FPM_LISTENER.
 
         Possible `source` values are `None` for an empty config file, a path name which is
         used directly, or a file name with no path components which is first looked for
@@ -834,7 +890,7 @@ class TopoRouter(TopoGear):
         """
         daemonstr = self.RD.get(daemon)
         self.logger.debug('loading "{}" configuration: {}'.format(daemonstr, source))
-        self.net.loadConf(daemonstr, source, param)
+        return self.net.loadConf(daemonstr, source, param, instance)
 
     def check_router_running(self):
         """
@@ -861,7 +917,12 @@ class TopoRouter(TopoGear):
         # Enable all daemon command logging, logging files
         # and set them to the start dir.
         for daemon, enabled in nrouter.daemons.items():
-            if enabled and daemon != "snmpd":
+            if (
+                enabled
+                and daemon != "snmpd"
+                and daemon != "snmptrapd"
+                and daemon != "fpm_listener"
+            ):
                 self.vtysh_cmd(
                     "\n".join(
                         [
@@ -869,7 +930,7 @@ class TopoRouter(TopoGear):
                             "conf t",
                             "log file {}.log debug".format(daemon),
                             "log commands",
-                            "log timestamp precision 3",
+                            "log timestamp precision 6",
                         ]
                     ),
                     daemon=daemon,
@@ -911,7 +972,7 @@ class TopoRouter(TopoGear):
         # and set them to the start dir.
         for daemon in daemons:
             enabled = nrouter.daemons[daemon]
-            if enabled and daemon != "snmpd":
+            if enabled and daemon != "snmpd" and daemon != "fpm_listener":
                 self.vtysh_cmd(
                     "\n".join(
                         [
@@ -919,7 +980,7 @@ class TopoRouter(TopoGear):
                             "conf t",
                             "log file {}.log debug".format(daemon),
                             "log commands",
-                            "log timestamp precision 3",
+                            "log timestamp precision 6",
                         ]
                     ),
                     daemon=daemon,
@@ -1091,8 +1152,9 @@ class TopoSwitch(TopoGear):
     # pylint: disable=too-few-public-methods
 
     def __init__(self, tgen, name, **params):
+        logger = topolog.get_logger(name, log_level="debug")
         super(TopoSwitch, self).__init__(tgen, name, **params)
-        tgen.net.add_switch(name)
+        tgen.net.add_switch(name, logger=logger)
 
     def __str__(self):
         gear = super(TopoSwitch, self).__str__()
@@ -1176,7 +1238,7 @@ class TopoExaBGP(TopoHost):
         * Run ExaBGP with env file `env_file` and configuration peer*/exabgp.cfg
         """
         exacmd = self.tgen.get_exabgp_cmd()
-        assert exacmd, "Can't find a usabel ExaBGP (must be < version 4)"
+        assert exacmd, "Can't find a usable ExaBGP (must be version >= 4.2.11)"
 
         self.run("mkdir -p /etc/exabgp")
         self.run("chmod 755 /etc/exabgp")
@@ -1187,8 +1249,22 @@ class TopoExaBGP(TopoHost):
         self.run("chmod 644 /etc/exabgp/*")
         self.run("chmod a+x /etc/exabgp/*.py")
         self.run("chown -R exabgp:exabgp /etc/exabgp")
+        self.run("[ -p /var/run/exabgp.in ] || mkfifo /var/run/exabgp.in")
+        self.run("[ -p /var/run/exabgp.out ] || mkfifo /var/run/exabgp.out")
+        self.run("chown exabgp:exabgp /var/run/exabgp.{in,out}")
+        self.run("chmod 600 /var/run/exabgp.{in,out}")
 
-        output = self.run(exacmd + " -e /etc/exabgp/exabgp.env /etc/exabgp/exabgp.cfg")
+        log_dir = os.path.join(self.logdir, self.name)
+        self.run("chmod 777 {}".format(log_dir))
+
+        log_file = os.path.join(log_dir, "exabgp.log")
+
+        env_cmd = "env exabgp.log.level=INFO "
+        env_cmd += "exabgp.log.destination={} ".format(log_file)
+
+        output = self.run(
+            env_cmd + exacmd + " -e /etc/exabgp/exabgp.env /etc/exabgp/exabgp.cfg "
+        )
         if output is None or len(output) == 0:
             output = "<none>"
 
@@ -1200,9 +1276,49 @@ class TopoExaBGP(TopoHost):
         return ""
 
 
+class TopoBMPCollector(TopoHost):
+    PRIVATE_DIRS = [
+        "/var/log",
+    ]
+
+    def __init__(self, tgen, name, **params):
+        params["private_mounts"] = self.PRIVATE_DIRS
+        self.port = params["port"]
+        self.ip = params["ip"]
+        super(TopoBMPCollector, self).__init__(tgen, name, **params)
+
+    def __str__(self):
+        gear = super(TopoBMPCollector, self).__str__()
+        gear += " TopoBMPCollector<>".format()
+        return gear
+
+    def start(self, log_file=None):
+        log_dir = os.path.join(self.logdir, self.name)
+        self.run("chmod 777 {}".format(log_dir))
+
+        log_err = os.path.join(log_dir, "bmpserver.log")
+
+        log_arg = "-l {}".format(log_file) if log_file else ""
+        self.pid_file = os.path.join(log_dir, "bmpserver.pid")
+
+        with open(log_err, "w") as err:
+            self.run(
+                "{}/bmp_collector/bmpserver.py -a {} -p {} -r {} {}&".format(
+                    CWD, self.ip, self.port, self.pid_file, log_arg
+                ),
+                stdout=None,
+                stderr=err,
+            )
+
+    def stop(self):
+        self.run(f"kill $(cat {self.pid_file}")
+        return ""
+
+
 #
 # Diagnostic function
 #
+
 
 # Disable linter branch warning. It is expected to have these here.
 # pylint: disable=R0912
@@ -1321,7 +1437,7 @@ def diagnose_env_linux(rundir):
         logger.info("LDPd tests will not run (missing mpls-iptunnel kernel module)")
 
     if not get_exabgp_cmd():
-        logger.warning("Failed to find exabgp < 4")
+        logger.warning("Failed to find exabgp >= 4.2.11")
 
     logger.removeHandler(fhandler)
     fhandler.close()

@@ -112,9 +112,6 @@ from lib.common_config import (
     reset_config_on_routers,
     step,
     shutdown_bringup_interface,
-    kill_router_daemons,
-    start_router_daemons,
-    create_static_routes,
 )
 from lib.pim import (
     create_pim_config,
@@ -123,9 +120,7 @@ from lib.pim import (
     verify_join_state_and_timer,
     verify_mroutes,
     verify_pim_neighbors,
-    get_pim_interface_traffic,
     verify_pim_rp_info,
-    verify_pim_state,
     clear_pim_interface_traffic,
     clear_igmp_interfaces,
     clear_pim_interfaces,

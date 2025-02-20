@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Create a basic stage set up to build APKs
-FROM alpine:3.17 as alpine-builder
+FROM alpine:3.20 as alpine-builder
 RUN apk add \
 		--update-cache \
 		abuild \
@@ -12,22 +12,28 @@ RUN apk add \
 	&& echo 'builder ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 RUN adduser -D -G abuild builder && su builder -c 'abuild-keygen -a -n'
 
-# This stage builds a dist tarball from the source
-FROM alpine:3.17 as source-builder
+# This stage builds an APK for libyang
+FROM alpine-builder as alpine-apk-builder-libyang
+RUN mkdir -p /src/libyang
+COPY docker/alpine/libyang/APKBUILD /src/libyang
+RUN chown -R builder /pkgs /src
+USER builder
+RUN cd /src/libyang \
+	&& abuild checksum \
+	&& git init \
+	&& abuild -r -P /pkgs/apk
 
-RUN mkdir -p /src/alpine
+# This stage builds a dist tarball from the source
+FROM alpine:3.20 as source-builder
+RUN mkdir -p /src/alpine /pkgs/apk
 COPY alpine/APKBUILD.in /src/alpine
+COPY --from=alpine-apk-builder-libyang /pkgs/apk/src /pkgs/apk
+RUN cd /pkgs/apk && apk add --allow-untrusted */*.apk
 RUN source /src/alpine/APKBUILD.in \
 	&& apk add \
 		--no-cache \
 		--update-cache \
-		$makedepends \
-		gzip \
-		py-pip \
-		rtrlib \
-		protobuf-c-dev \
-	&& pip install pytest
-RUN mkdir -p /pkgs/apk
+		$makedepends
 COPY . /src
 ARG PKGVER
 RUN cd /src \
@@ -40,6 +46,8 @@ RUN cd /src \
 # This stage builds an APK from the dist tarball
 FROM alpine-builder as alpine-apk-builder
 COPY --from=source-builder /src/frr-*.tar.gz /src/alpine/* /dist/
+COPY --from=alpine-apk-builder-libyang /pkgs/apk/src /pkgs/apk
+RUN cd /pkgs/apk && apk add --allow-untrusted */*.apk
 RUN find /pkgs/apk -type f -name APKINDEX.tar.gz -delete
 RUN chown -R builder /dist /pkgs
 USER builder
@@ -49,7 +57,7 @@ RUN cd /dist \
 	&& abuild -r -P /pkgs/apk
 
 # This stage installs frr from the apk
-FROM alpine:3.17
+FROM alpine:3.20
 RUN mkdir -p /pkgs/apk
 COPY --from=alpine-apk-builder /pkgs/apk/ /pkgs/apk/
 RUN apk add \

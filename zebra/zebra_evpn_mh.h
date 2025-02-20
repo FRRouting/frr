@@ -17,8 +17,7 @@
 #include "zebra_vxlan.h"
 #include "zebra_vxlan_private.h"
 #include "zebra_nhg.h"
-
-#define EVPN_MH_VTY_STR "Multihoming\n"
+#include "zebra_nb.h"
 
 /* Ethernet Segment entry -
  * - Local and remote ESs are maintained in a global RB tree,
@@ -155,7 +154,7 @@ struct zebra_evpn_es_vtep {
 
 	/* Parameters for DF election */
 	uint8_t df_alg;
-	uint32_t df_pref;
+	uint16_t df_pref;
 
 	/* XXX - maintain a backpointer to struct zebra_vtep */
 };
@@ -336,14 +335,14 @@ extern bool zebra_evpn_es_mac_ref_entry(struct zebra_mac *mac,
 					struct zebra_evpn_es *es);
 extern bool zebra_evpn_es_mac_ref(struct zebra_mac *mac, const esi_t *esi);
 extern struct zebra_evpn_es *zebra_evpn_es_find(const esi_t *esi);
-extern void zebra_evpn_interface_init(void);
-extern int zebra_evpn_mh_if_write(struct vty *vty, struct interface *ifp);
 extern void zebra_evpn_acc_vl_show(struct vty *vty, bool uj);
 extern void zebra_evpn_acc_vl_show_detail(struct vty *vty, bool uj);
 extern void zebra_evpn_if_es_print(struct vty *vty, json_object *json,
 				   struct zebra_if *zif);
 extern struct zebra_evpn_access_bd *
 zebra_evpn_acc_vl_find(vlanid_t vid, struct interface *br_if);
+struct zebra_evpn_access_bd *
+zebra_evpn_acc_vl_find_index(vlanid_t vid, ifindex_t bridge_ifindex);
 extern void zebra_evpn_acc_vl_show_vid(struct vty *vty, bool uj, vlanid_t vid,
 				       struct interface *br_if);
 extern void zebra_evpn_es_cleanup(void);
@@ -379,5 +378,18 @@ extern void zebra_evpn_es_bypass_update(struct zebra_evpn_es *es,
 extern void zebra_evpn_proc_remote_nh(ZAPI_HANDLER_ARGS);
 extern struct zebra_evpn_es_evi *
 zebra_evpn_es_evi_find(struct zebra_evpn_es *es, struct zebra_evpn *zevpn);
+extern int zebra_evpn_vl_vxl_bridge_lookup(uint16_t vid,
+					   struct zebra_if *vxlan_zif);
+void zebra_build_type3_esi(uint32_t lid, struct ethaddr *mac, esi_t *esi);
+
+void zebra_evpn_es_sys_mac_update(struct zebra_if *zif, struct ethaddr *sysmac);
+void zebra_evpn_es_lid_update(struct zebra_if *zif, uint32_t lid);
+void zebra_evpn_es_type0_esi_update(struct zebra_if *zif, esi_t *esi);
+
+void zebra_evpn_es_df_pref_update(struct zebra_if *zif, uint16_t df_pref);
+void zebra_evpn_es_bypass_cfg_update(struct zebra_if *zif, bool bypass);
+void zebra_evpn_mh_uplink_cfg_update(struct zebra_if *zif, bool set);
+
+void zebra_evpn_mh_if_init(struct zebra_if *zif);
 
 #endif /* _ZEBRA_EVPN_MH_H */

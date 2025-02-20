@@ -5,6 +5,7 @@ FRRouting Developer's Guide
    :maxdepth: 2
 
    workflow
+   checkpatch
    building
    packaging
    process-architecture
@@ -12,6 +13,7 @@ FRRouting Developer's Guide
    fuzzing
    tracing
    testing
+   mgmtd-dev
    bgpd
    fpm
    grpc
@@ -21,3 +23,4 @@ FRRouting Developer's Guide
    path
    pceplib
    link-state
+   northbound/northbound

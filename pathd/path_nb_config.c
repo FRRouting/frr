@@ -31,7 +31,7 @@ int pathd_srte_segment_list_create(struct nb_cb_create_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	name = yang_dnode_get_string(args->dnode, "./name");
+	name = yang_dnode_get_string(args->dnode, "name");
 	segment_list = srte_segment_list_add(name);
 	nb_running_set_entry(args->dnode, segment_list);
 	SET_FLAG(segment_list->flags, F_SEGMENT_LIST_NEW);
@@ -104,7 +104,7 @@ int pathd_srte_segment_list_segment_create(struct nb_cb_create_args *args)
 		return NB_OK;
 
 	segment_list = nb_running_get_entry(args->dnode, NULL, true);
-	index = yang_dnode_get_uint32(args->dnode, "./index");
+	index = yang_dnode_get_uint32(args->dnode, "index");
 	segment = srte_segment_entry_add(segment_list, index);
 	nb_running_set_entry(args->dnode, segment);
 	SET_FLAG(segment_list->flags, F_SEGMENT_LIST_MODIFIED);
@@ -191,9 +191,9 @@ void pathd_srte_segment_list_segment_nai_apply_finish(
 	const char *algo_buf, *local_prefix_len_buf;
 
 	segment = nb_running_get_entry(args->dnode, NULL, true);
-	type = yang_dnode_get_enum(args->dnode, "./type");
+	type = yang_dnode_get_enum(args->dnode, "type");
 
-	yang_dnode_get_ip(&local_addr, args->dnode, "./local-address");
+	yang_dnode_get_ip(&local_addr, args->dnode, "local-address");
 
 	switch (type) {
 	case SRTE_SEGMENT_NAI_TYPE_IPV4_NODE:
@@ -208,12 +208,12 @@ void pathd_srte_segment_list_segment_nai_apply_finish(
 		yang_dnode_get_ip(&remote_addr, args->dnode,
 				  "./remote-address");
 		local_iface =
-			yang_dnode_get_uint32(args->dnode, "./local-interface");
+			yang_dnode_get_uint32(args->dnode, "local-interface");
 		remote_iface = yang_dnode_get_uint32(args->dnode,
 						     "./remote-interface");
 		break;
 	case SRTE_SEGMENT_NAI_TYPE_IPV4_ALGORITHM:
-		algo_buf = yang_dnode_get_string(args->dnode, "./algorithm");
+		algo_buf = yang_dnode_get_string(args->dnode, "algorithm");
 		algo = atoi(algo_buf);
 		local_prefix_len_buf = yang_dnode_get_string(
 			args->dnode, "./local-prefix-len");
@@ -221,7 +221,7 @@ void pathd_srte_segment_list_segment_nai_apply_finish(
 		break;
 	case SRTE_SEGMENT_NAI_TYPE_IPV4_LOCAL_IFACE:
 		local_iface =
-			yang_dnode_get_uint32(args->dnode, "./local-interface");
+			yang_dnode_get_uint32(args->dnode, "local-interface");
 		local_prefix_len_buf = yang_dnode_get_string(
 			args->dnode, "./local-prefix-len");
 		local_prefix_len = atoi(local_prefix_len_buf);
@@ -254,8 +254,8 @@ int pathd_srte_policy_create(struct nb_cb_create_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	color = yang_dnode_get_uint32(args->dnode, "./color");
-	yang_dnode_get_ip(&endpoint, args->dnode, "./endpoint");
+	color = yang_dnode_get_uint32(args->dnode, "color");
+	yang_dnode_get_ip(&endpoint, args->dnode, "endpoint");
 	policy = srte_policy_add(color, &endpoint, SRTE_ORIGIN_LOCAL, NULL);
 
 	nb_running_set_entry(args->dnode, policy);
@@ -377,7 +377,7 @@ int pathd_srte_policy_candidate_path_create(struct nb_cb_create_args *args)
 		return NB_OK;
 
 	policy = nb_running_get_entry(args->dnode, NULL, true);
-	preference = yang_dnode_get_uint32(args->dnode, "./preference");
+	preference = yang_dnode_get_uint32(args->dnode, "preference");
 	candidate =
 		srte_candidate_add(policy, preference, SRTE_ORIGIN_LOCAL, NULL);
 	nb_running_set_entry(args->dnode, candidate);
@@ -539,7 +539,7 @@ int pathd_srte_policy_candidate_path_metrics_destroy(
 	assert(args->context != NULL);
 	candidate = nb_running_get_entry(args->dnode, NULL, true);
 
-	type = yang_dnode_get_enum(args->dnode, "./type");
+	type = yang_dnode_get_enum(args->dnode, "type");
 	srte_candidate_unset_metric(candidate, type);
 
 	return NB_OK;
@@ -557,13 +557,13 @@ void pathd_srte_policy_candidate_path_metrics_apply_finish(
 
 	candidate = nb_running_get_entry(args->dnode, NULL, true);
 
-	type = yang_dnode_get_enum(args->dnode, "./type");
-	value = (float)yang_dnode_get_dec64(args->dnode, "./value");
-	required = yang_dnode_get_bool(args->dnode, "./required");
-	if (yang_dnode_exists(args->dnode, "./is-bound"))
-		is_bound = yang_dnode_get_bool(args->dnode, "./is-bound");
-	if (yang_dnode_exists(args->dnode, "./is-computed"))
-		is_computed = yang_dnode_get_bool(args->dnode, "./is-computed");
+	type = yang_dnode_get_enum(args->dnode, "type");
+	value = (float)yang_dnode_get_dec64(args->dnode, "value");
+	required = yang_dnode_get_bool(args->dnode, "required");
+	if (yang_dnode_exists(args->dnode, "is-bound"))
+		is_bound = yang_dnode_get_bool(args->dnode, "is-bound");
+	if (yang_dnode_exists(args->dnode, "is-computed"))
+		is_computed = yang_dnode_get_bool(args->dnode, "is-computed");
 
 	srte_candidate_set_metric(candidate, type, value, required, is_bound,
 				  is_computed);
@@ -597,8 +597,8 @@ void pathd_srte_policy_candidate_path_objfun_apply_finish(
 	bool required;
 
 	candidate = nb_running_get_entry(args->dnode, NULL, true);
-	required = yang_dnode_get_bool(args->dnode, "./required");
-	type = yang_dnode_get_enum(args->dnode, "./type");
+	required = yang_dnode_get_bool(args->dnode, "required");
+	type = yang_dnode_get_enum(args->dnode, "type");
 	srte_candidate_set_objfun(candidate, required, type);
 }
 
@@ -739,8 +739,8 @@ void pathd_srte_policy_candidate_path_bandwidth_apply_finish(
 	assert(args->context != NULL);
 
 	candidate = nb_running_get_entry(args->dnode, NULL, true);
-	value = (float)yang_dnode_get_dec64(args->dnode, "./value");
-	required = yang_dnode_get_bool(args->dnode, "./required");
+	value = (float)yang_dnode_get_dec64(args->dnode, "value");
+	required = yang_dnode_get_bool(args->dnode, "required");
 	srte_candidate_set_bandwidth(candidate, value, required);
 }
 

@@ -23,7 +23,6 @@ DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_RT_TABLE, "Zebra VRF table");
 
 struct zebra_router zrouter = {
 	.multipath_num = MULTIPATH_NUM,
-	.ipv4_multicast_mode = MCAST_NO_CONFIG,
 };
 
 static inline int
@@ -66,6 +65,26 @@ struct zebra_router_table *zebra_router_find_zrt(struct zebra_vrf *zvrf,
 	finder.tableid = tableid;
 	finder.ns_id = zvrf->zns->ns_id;
 	zrt = RB_FIND(zebra_router_table_head, &zrouter.tables, &finder);
+
+	return zrt;
+}
+
+struct zebra_router_table *zebra_router_find_next_zrt(struct zebra_vrf *zvrf,
+						      uint32_t tableid,
+						      afi_t afi, safi_t safi)
+{
+	struct zebra_router_table finder;
+	struct zebra_router_table *zrt;
+
+	memset(&finder, 0, sizeof(finder));
+	finder.afi = afi;
+	finder.safi = safi;
+	finder.tableid = tableid;
+	finder.ns_id = zvrf->zns->ns_id;
+	zrt = RB_NFIND(zebra_router_table_head, &zrouter.tables, &finder);
+	if (zrt->afi == afi && zrt->safi == safi && zrt->tableid == tableid &&
+	    zrt->ns_id == finder.ns_id)
+		zrt = RB_NEXT(zebra_router_table_head, zrt);
 
 	return zrt;
 }
@@ -201,24 +220,11 @@ uint32_t zebra_router_get_next_sequence(void)
 					   memory_order_relaxed);
 }
 
-void multicast_mode_ipv4_set(enum multicast_mode mode)
-{
-	if (IS_ZEBRA_DEBUG_RIB)
-		zlog_debug("%s: multicast lookup mode set (%d)", __func__,
-			   mode);
-	zrouter.ipv4_multicast_mode = mode;
-}
-
-enum multicast_mode multicast_mode_ipv4_get(void)
-{
-	return zrouter.ipv4_multicast_mode;
-}
-
 void zebra_router_terminate(void)
 {
 	struct zebra_router_table *zrt, *tmp;
 
-	EVENT_OFF(zrouter.sweeper);
+	EVENT_OFF(zrouter.t_rib_sweep);
 
 	RB_FOREACH_SAFE (zrt, zebra_router_table_head, &zrouter.tables, tmp)
 		zebra_router_free_table(zrt);
@@ -241,11 +247,15 @@ void zebra_router_terminate(void)
 			    zebra_pbr_ipset_entry_free);
 	hash_clean_and_free(&zrouter.ipset_hash, zebra_pbr_ipset_free);
 	hash_clean_and_free(&zrouter.iptable_hash, zebra_pbr_iptable_free);
+	hash_clean_and_free(&zrouter.filter_hash, (void (*)(void *)) zebra_tc_filter_free);
+	hash_clean_and_free(&zrouter.qdisc_hash, (void (*)(void *)) zebra_tc_qdisc_free);
+	hash_clean_and_free(&zrouter.class_hash, (void (*)(void *)) zebra_tc_class_free);
 
 #ifdef HAVE_SCRIPTING
 	zebra_script_destroy();
 #endif
 
+	zebra_vxlan_terminate();
 	/* OS-specific deinit */
 	kernel_router_terminate();
 }
@@ -255,9 +265,12 @@ bool zebra_router_notify_on_ack(void)
 	return !zrouter.asic_offloaded || zrouter.notify_on_ack;
 }
 
-void zebra_router_init(bool asic_offload, bool notify_on_ack)
+void zebra_router_init(bool asic_offload, bool notify_on_ack,
+		       bool v6_with_v4_nexthop)
 {
 	zrouter.sequence_num = 0;
+
+	zrouter.protodown_r_bit = FRR_PROTODOWN_REASON_DEFAULT_BIT;
 
 	zrouter.allow_delete = false;
 
@@ -292,10 +305,6 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack)
 		hash_create_size(8, zebra_nhg_id_key, zebra_nhg_hash_id_equal,
 				 "Zebra Router Nexthop Groups ID index");
 
-	zrouter.rules_hash =
-		hash_create_size(8, zebra_pbr_rules_hash_key,
-				 zebra_pbr_rules_hash_equal, "Rules Hash");
-
 	zrouter.qdisc_hash =
 		hash_create_size(8, zebra_tc_qdisc_hash_key,
 				 zebra_tc_qdisc_hash_equal, "TC (qdisc) Hash");
@@ -308,7 +317,7 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack)
 
 	zrouter.asic_offloaded = asic_offload;
 	zrouter.notify_on_ack = notify_on_ack;
-
+	zrouter.v6_with_v4_nexthop = v6_with_v4_nexthop;
 	/*
 	 * If you start using asic_notification_nexthop_control
 	 * come talk to the FRR community about what you are doing
@@ -319,6 +328,8 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack)
 		"Remove zrouter.asic_notification_nexthop_control as that it's not being maintained or used");
 #endif
 	zrouter.asic_notification_nexthop_control = false;
+
+	zrouter.nexthop_weight_scale_value = 254;
 
 #ifdef HAVE_SCRIPTING
 	zebra_script_init();

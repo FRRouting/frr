@@ -18,7 +18,7 @@
       {
         "sequenceNumber":10,
         "vrfUnchanged":false,
-        "installed":true,
+        "installed":false,
         "installedReason":"Invalid Src or Dst",
         "nexthopGroup":{
           "name":"C",
@@ -98,7 +98,7 @@
       {
         "sequenceNumber":5,
         "vrfUnchanged":false,
-        "installed":false,
+        "installed":true,
         "installedReason":"Invalid NH-group",
         "nexthopGroup":{
           "name":"B",
@@ -111,7 +111,7 @@
       {
         "sequenceNumber":10,
         "vrfUnchanged":true,
-        "installed":false,
+        "installed":true,
         "installedReason":"Valid",
         "matchSrc":"1.2.0.0\/16",
         "matchDst":"3.4.5.0\/24"

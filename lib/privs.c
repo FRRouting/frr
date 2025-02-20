@@ -6,6 +6,15 @@
  * Copyright (c) 2005, 2011, Oracle and/or its affiliates. All rights reserved.
  */
 #include <zebra.h>
+
+#include <pwd.h>
+#include <grp.h>
+
+#ifdef HAVE_LCAPS
+#include <sys/capability.h>
+#include <sys/prctl.h>
+#endif /* HAVE_LCAPS */
+
 #include "log.h"
 #include "privs.h"
 #include "memory.h"
@@ -170,7 +179,7 @@ static pset_t *zcaps2sys(zebra_capabilities_t *zcaps, int num)
 	for (i = 0; i < num; i++)
 		count += cap_map[zcaps[i]].num;
 
-	if ((syscaps = XCALLOC(MTYPE_PRIVS, (sizeof(pset_t) * num))) == NULL) {
+	if ((syscaps = XCALLOC(MTYPE_PRIVS, sizeof(pset_t))) == NULL) {
 		fprintf(stderr, "%s: could not allocate syscaps!", __func__);
 		return NULL;
 	}
@@ -201,10 +210,11 @@ int zprivs_change_caps(zebra_privs_ops_t op)
 {
 	cap_flag_value_t cflag;
 
-	/* should be no possibility of being called without valid caps */
-	assert(zprivs_state.syscaps_p && zprivs_state.caps);
-	if (!(zprivs_state.syscaps_p && zprivs_state.caps))
-		exit(1);
+	/* Called without valid caps - just return. Not every daemon needs
+	 * privs.
+	 */
+	if (zprivs_state.syscaps_p == NULL || zprivs_state.caps == NULL)
+		return 0;
 
 	if (op == ZPRIVS_RAISE)
 		cflag = CAP_SET;

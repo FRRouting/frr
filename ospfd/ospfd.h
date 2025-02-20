@@ -22,9 +22,6 @@
 
 #define OSPF_VERSION            2
 
-/* VTY port number. */
-#define OSPF_VTY_PORT          2604
-
 /* IP TTL for OSPF protocol. */
 #define OSPF_IP_TTL             1
 #define OSPF_VL_IP_TTL          100
@@ -69,6 +66,9 @@
 
 /* Default socket buffer size */
 #define OSPF_DEFAULT_SOCK_BUFSIZE   (8 * 1024 * 1024)
+
+/* OSPF config processing timer thread */
+extern struct event *t_ospf_cfg;
 
 struct ospf_external {
 	unsigned short instance;
@@ -148,6 +148,8 @@ struct ospf_gr_info {
 	bool prepare_in_progress;
 	bool finishing_restart;
 	uint32_t grace_period;
+	int reason;
+	char *exit_reason;
 	struct event *t_grace_period;
 };
 
@@ -263,8 +265,8 @@ struct ospf {
 	struct event *t_abr_task;		 /* ABR task timer. */
 	struct event *t_abr_fr;			 /* ABR FR timer. */
 	struct event *t_asbr_check;		 /* ASBR check timer. */
-	struct event *t_asbr_nssa_redist_update; /* ASBR NSSA redistribution
-						     update timer. */
+	struct event *t_asbr_redist_update; /* ASBR redistribution update
+					       timer. */
 	struct event *t_distribute_update; /* Distirbute list update timer. */
 	struct event *t_spf_calc;	   /* SPF calculation timer. */
 	struct event *t_ase_calc;	   /* ASE calculation timer. */

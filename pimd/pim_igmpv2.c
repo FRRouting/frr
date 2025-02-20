@@ -134,6 +134,9 @@ int igmp_v2_recv_report(struct gm_sock *igmp, struct in_addr from,
 			   ifp->name, group_str);
 	}
 
+	if (pim_is_group_filtered(pim_ifp, &group_addr, NULL))
+		return -1;
+
 	/*
 	 * RFC 4604
 	 * section 2.2.1

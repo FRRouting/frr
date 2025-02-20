@@ -51,7 +51,6 @@ from lib.common_config import (
     create_static_routes,
     step,
     topo_daemons,
-    shutdown_bringup_interface,
     check_router_status,
     start_topology,
     write_test_header,
@@ -65,8 +64,6 @@ from lib.common_config import (
     write_test_header,
     write_test_footer,
     reset_config_on_routers,
-    stop_router,
-    start_router,
     step,
     create_static_routes,
     kill_router_daemons,
@@ -163,7 +160,7 @@ def setup_module(mod):
     logger.info("Running setup_module() done")
 
 
-def teardown_module(mod):
+def teardown_module():
     """
     Teardown the pytest environment.
 
@@ -181,7 +178,6 @@ def teardown_module(mod):
         "Testsuite end time: {}".format(time.asctime(time.localtime(time.time())))
     )
     logger.info("=" * 40)
-
 
 
 def red_static(dut, config=True):
@@ -367,7 +363,13 @@ def test_ospf_flood_red_tc1_p0(request):
         },
     }
     result = verify_ospf_database(
-        tgen, topo, dut, input_dict_db, lsatype="router", rid="100.1.1.0", expected=False
+        tgen,
+        topo,
+        dut,
+        input_dict_db,
+        lsatype="router",
+        rid="100.1.1.0",
+        expected=False,
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
@@ -573,7 +575,9 @@ def test_ospf_flood_red_tc2_p0(request):
         result = verify_ospf_database(
             tgen, topo, dut, input_dict_db, lsatype="router", rid=lsid
         )
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     step("Wait for 120 secs and verify that LSA's are not refreshed. ")
     # get LSA age
@@ -636,7 +640,13 @@ def test_ospf_flood_red_tc2_p0(request):
         },
     }
     result = verify_ospf_database(
-        tgen, topo, dut, input_dict_db, lsatype="router", rid="100.1.1.0", expected=False
+        tgen,
+        topo,
+        dut,
+        input_dict_db,
+        lsatype="router",
+        rid="100.1.1.0",
+        expected=False,
     )
     assert result is not True, (
         "Testcase {} : Failed \n "
@@ -815,7 +825,9 @@ def test_ospf_flood_red_tc3_p0(request):
         result = verify_ospf_database(
             tgen, topo, dut, input_dict_db, lsatype="router", rid=lsid
         )
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     step("Wait for 120 secs and verify that LSA's are not refreshed. ")
     # get LSA age
@@ -1022,7 +1034,13 @@ def test_ospf_flood_red_tc3_p0(request):
         },
     }
     result = verify_ospf_database(
-        tgen, topo, dut, input_dict_db, lsatype="router", rid="100.1.1.0", expected=False
+        tgen,
+        topo,
+        dut,
+        input_dict_db,
+        lsatype="router",
+        rid="100.1.1.0",
+        expected=False,
     )
 
     assert result is not True, (

@@ -13,11 +13,6 @@ import os
 import sys
 import time
 import pytest
-import json
-from copy import deepcopy
-from ipaddress import IPv4Address
-from lib.topotest import frr_unicode
-import ipaddress
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -37,9 +32,6 @@ from lib.common_config import (
     verify_rib,
     create_static_routes,
     step,
-    create_route_maps,
-    shutdown_bringup_interface,
-    create_interfaces_cfg,
     get_frr_ipv6_linklocal,
 )
 from lib.topolog import logger
@@ -47,16 +39,11 @@ from lib.topojson import build_config_from_json
 
 from lib.ospf import (
     verify_ospf6_neighbor,
-    config_ospf_interface,
     clear_ospf,
     verify_ospf6_rib,
     create_router_ospf,
-    verify_ospf6_interface,
-    verify_ospf6_database,
-    config_ospf6_interface,
 )
 
-from ipaddress import IPv6Address
 
 pytestmark = [pytest.mark.ospfd, pytest.mark.staticd]
 
@@ -137,7 +124,7 @@ def setup_module(mod):
     logger.info("Running setup_module() done")
 
 
-def teardown_module(mod):
+def teardown_module():
     """
     Teardown the pytest environment.
 

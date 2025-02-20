@@ -7,7 +7,6 @@
 #define __BGP_SCRIPT__
 
 #include <zebra.h>
-#include "bgpd.h"
 
 #ifdef HAVE_SCRIPTING
 
@@ -17,6 +16,10 @@
  * Initialize scripting stuff.
  */
 void bgp_script_init(void);
+
+/* Forward references */
+struct peer;
+struct attr;
 
 void lua_pushpeer(lua_State *L, const struct peer *peer);
 

@@ -37,8 +37,6 @@ from lib import topotest
 # Required to instantiate the topology builder class.
 from lib.topogen import Topogen, TopoRouter, get_topogen
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.pimd]
-
 #####################################################
 ##
 ##   Network Topology Definition
@@ -58,6 +56,8 @@ def build_topo(tgen):
 
     tgen.add_router("spine1")
     tgen.add_router("spine2")
+    tgen.add_router("leaf1")
+    tgen.add_router("leaf2")
     tgen.add_router("torm11")
     tgen.add_router("torm12")
     tgen.add_router("torm21")
@@ -71,88 +71,109 @@ def build_topo(tgen):
     # First switch is for a dummy interface (for local network)
 
     ##################### spine1 ########################
-    # spine1-eth0 is connected to torm11-eth0
+    # spine1-eth0 is connected to leaf1-eth0
     switch = tgen.add_switch("sw1")
     switch.add_link(tgen.gears["spine1"])
-    switch.add_link(tgen.gears["torm11"])
+    switch.add_link(tgen.gears["leaf1"])
 
-    # spine1-eth1 is connected to torm12-eth0
+    # spine1-eth1 is connected to leaf2-eth0
     switch = tgen.add_switch("sw2")
     switch.add_link(tgen.gears["spine1"])
-    switch.add_link(tgen.gears["torm12"])
+    switch.add_link(tgen.gears["leaf2"])
 
-    # spine1-eth2 is connected to torm21-eth0
+    # spine2-eth0 is connected to leaf1-eth1
     switch = tgen.add_switch("sw3")
-    switch.add_link(tgen.gears["spine1"])
-    switch.add_link(tgen.gears["torm21"])
-
-    # spine1-eth3 is connected to torm22-eth0
-    switch = tgen.add_switch("sw4")
-    switch.add_link(tgen.gears["spine1"])
-    switch.add_link(tgen.gears["torm22"])
-
-    ##################### spine2 ########################
-    # spine2-eth0 is connected to torm11-eth1
-    switch = tgen.add_switch("sw5")
     switch.add_link(tgen.gears["spine2"])
+    switch.add_link(tgen.gears["leaf1"])
+
+    # spine2-eth1 is connected to leaf2-eth1
+    switch = tgen.add_switch("sw4")
+    switch.add_link(tgen.gears["spine2"])
+    switch.add_link(tgen.gears["leaf2"])
+
+    ################## leaf1 ##########################
+    # leaf1-eth2 is connected to torm11-eth0
+    switch = tgen.add_switch("sw5")
+    switch.add_link(tgen.gears["leaf1"])
     switch.add_link(tgen.gears["torm11"])
 
-    # spine2-eth1 is connected to torm12-eth1
+    # leaf1-eth3 is connected to torm12-eth0
     switch = tgen.add_switch("sw6")
-    switch.add_link(tgen.gears["spine2"])
+    switch.add_link(tgen.gears["leaf1"])
     switch.add_link(tgen.gears["torm12"])
 
-    # spine2-eth2 is connected to torm21-eth1
+    # leaf1-eth4 is connected to torm21-eth0
     switch = tgen.add_switch("sw7")
-    switch.add_link(tgen.gears["spine2"])
+    switch.add_link(tgen.gears["leaf1"])
     switch.add_link(tgen.gears["torm21"])
 
-    # spine2-eth3 is connected to torm22-eth1
+    # leaf1-eth5 is connected to torm22-eth0
     switch = tgen.add_switch("sw8")
-    switch.add_link(tgen.gears["spine2"])
+    switch.add_link(tgen.gears["leaf1"])
+    switch.add_link(tgen.gears["torm22"])
+
+    ##################### leaf2 ########################
+    # leaf2-eth2 is connected to torm11-eth1
+    switch = tgen.add_switch("sw9")
+    switch.add_link(tgen.gears["leaf2"])
+    switch.add_link(tgen.gears["torm11"])
+
+    # leaf2-eth3 is connected to torm12-eth1
+    switch = tgen.add_switch("sw10")
+    switch.add_link(tgen.gears["leaf2"])
+    switch.add_link(tgen.gears["torm12"])
+
+    # leaf2-eth4 is connected to torm21-eth1
+    switch = tgen.add_switch("sw11")
+    switch.add_link(tgen.gears["leaf2"])
+    switch.add_link(tgen.gears["torm21"])
+
+    # leaf2-eth5 is connected to torm22-eth1
+    switch = tgen.add_switch("sw12")
+    switch.add_link(tgen.gears["leaf2"])
     switch.add_link(tgen.gears["torm22"])
 
     ##################### torm11 ########################
     # torm11-eth2 is connected to hostd11-eth0
-    switch = tgen.add_switch("sw9")
+    switch = tgen.add_switch("sw13")
     switch.add_link(tgen.gears["torm11"])
     switch.add_link(tgen.gears["hostd11"])
 
     # torm11-eth3 is connected to hostd12-eth0
-    switch = tgen.add_switch("sw10")
+    switch = tgen.add_switch("sw14")
     switch.add_link(tgen.gears["torm11"])
     switch.add_link(tgen.gears["hostd12"])
 
     ##################### torm12 ########################
     # torm12-eth2 is connected to hostd11-eth1
-    switch = tgen.add_switch("sw11")
+    switch = tgen.add_switch("sw15")
     switch.add_link(tgen.gears["torm12"])
     switch.add_link(tgen.gears["hostd11"])
 
     # torm12-eth3 is connected to hostd12-eth1
-    switch = tgen.add_switch("sw12")
+    switch = tgen.add_switch("sw16")
     switch.add_link(tgen.gears["torm12"])
     switch.add_link(tgen.gears["hostd12"])
 
     ##################### torm21 ########################
     # torm21-eth2 is connected to hostd21-eth0
-    switch = tgen.add_switch("sw13")
+    switch = tgen.add_switch("sw17")
     switch.add_link(tgen.gears["torm21"])
     switch.add_link(tgen.gears["hostd21"])
 
     # torm21-eth3 is connected to hostd22-eth0
-    switch = tgen.add_switch("sw14")
+    switch = tgen.add_switch("sw18")
     switch.add_link(tgen.gears["torm21"])
     switch.add_link(tgen.gears["hostd22"])
 
     ##################### torm22 ########################
     # torm22-eth2 is connected to hostd21-eth1
-    switch = tgen.add_switch("sw15")
+    switch = tgen.add_switch("sw19")
     switch.add_link(tgen.gears["torm22"])
     switch.add_link(tgen.gears["hostd21"])
 
     # torm22-eth3 is connected to hostd22-eth1
-    switch = tgen.add_switch("sw16")
+    switch = tgen.add_switch("sw20")
     switch.add_link(tgen.gears["torm22"])
     switch.add_link(tgen.gears["hostd22"])
 
@@ -241,7 +262,7 @@ def config_bridge(node):
     node.run("ip link set dev bridge type bridge mcast_snooping 0")
     node.run("ip link set dev bridge type bridge vlan_stats_enabled 1")
     node.run("ip link set dev bridge up")
-    node.run("/sbin/bridge vlan add vid 1000 dev bridge")
+    node.run("/sbin/bridge vlan add vid 1000 dev bridge self")
 
 
 def config_vxlan(node, node_ip):
@@ -366,13 +387,6 @@ def setup_module(module):
     tors.append("torm22")
     config_tors(tgen, tors)
 
-    hosts = []
-    hosts.append("hostd11")
-    hosts.append("hostd12")
-    hosts.append("hostd21")
-    hosts.append("hostd22")
-    config_hosts(tgen, hosts)
-
     # tgen.mininet_cli()
     # This is a sample of configuration loading.
     router_list = tgen.routers()
@@ -387,6 +401,13 @@ def setup_module(module):
             TopoRouter.RD_BGP, os.path.join(CWD, "{}/evpn.conf".format(rname))
         )
     tgen.start_router()
+
+    hosts = []
+    hosts.append("hostd11")
+    hosts.append("hostd12")
+    hosts.append("hostd21")
+    hosts.append("hostd22")
+    config_hosts(tgen, hosts)
     # tgen.mininet_cli()
 
 
@@ -434,7 +455,7 @@ def check_remote_es(esi, vtep_ips, dut_name, down_vteps):
     else:
         tor_ips_rack = tor_ips_rack_1
 
-    for tor_name, tor_ip in tor_ips_rack.items():
+    for _, tor_ip in tor_ips_rack.items():
         remote_ips.append(tor_ip)
 
     # remove down VTEPs from the remote check list
@@ -591,7 +612,7 @@ def ping_anycast_gw(tgen):
         "--interface=" + intf,
         'Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst="{}")'.format(ipaddr),
     ]
-    for name in ("hostd11", "hostd21"):
+    for name in ("hostd11", "hostd21", "hostd12", "hostd22"):
         host = tgen.net.hosts[name]
         _, stdout, _ = host.cmd_status(ping_cmd, warn=False, stderr=subprocess.STDOUT)
         stdout = stdout.strip()
@@ -611,6 +632,7 @@ def check_mac(dut, vni, mac, m_type, esi, intf, ping_gw=False, tgen=None):
 
     out = dut.vtysh_cmd("show evpn mac vni %d mac %s json" % (vni, mac))
 
+    tmp_esi = None
     mac_js = json.loads(out)
     for mac, info in mac_js.items():
         tmp_esi = info.get("esi", "")
@@ -619,7 +641,15 @@ def check_mac(dut, vni, mac, m_type, esi, intf, ping_gw=False, tgen=None):
         if tmp_esi == esi and tmp_m_type == m_type and intf == intf:
             return None
 
-    return "invalid vni %d mac %s out %s" % (vni, mac, mac_js)
+    return "invalid vni %d mac %s expected esi %s, %s m_type %s and intf %s out %s" % (
+        vni,
+        mac,
+        tmp_esi,
+        esi,
+        m_type,
+        intf,
+        mac_js,
+    )
 
 
 def test_evpn_mac():

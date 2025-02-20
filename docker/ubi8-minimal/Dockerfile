@@ -10,6 +10,7 @@ ADD docker/ubi8-minimal/almalinux.repo /etc/yum.repos.d/almalinux.repo
 # and later reinstall it again: https://bugzilla.redhat.com/show_bug.cgi?id=1668185
 RUN rpm --quiet -e --nodeps tzdata >/dev/null 2>&1
 
+# Keep the list of dependencies alphabetically sorted for easier maintenance
 RUN microdnf --disableplugin=subscription-manager --setopt=install_weak_deps=0 install \
     autoconf \
     automake \
@@ -29,6 +30,7 @@ RUN microdnf --disableplugin=subscription-manager --setopt=install_weak_deps=0 i
     pcre-devel \
     pkgconfig \
     platform-python-devel \
+    protobuf-c-devel \
     python3-devel \
     python3-pytest \
     python3-sphinx \
@@ -39,11 +41,11 @@ RUN microdnf --disableplugin=subscription-manager --setopt=install_weak_deps=0 i
     tzdata \
     && microdnf --disableplugin=subscription-manager clean all
 
-RUN curl -sSL -o /tmp/libyang2.rpm https://ci1.netdef.org/artifact/LIBYANG-LIBYANGV2/shared/build-12/RedHat-8-x86_64-Packages/libyang2-2.0.7-1.el8.x86_64.rpm \
+RUN curl -sSL -o /tmp/libyang2.rpm https://ci1.netdef.org/artifact/LIBYANG-LIBYANG2/shared/build-181/RedHat-8-x86_64-Packages/libyang-2.1.80-1.el8.x86_64.rpm \
     && rpm -i /tmp/libyang2.rpm \
     && rm -f /tmp/libyang2.rpm
 
-RUN curl -sSL -o /tmp/libyang2-devel.rpm https://ci1.netdef.org/artifact/LIBYANG-LIBYANGV2/shared/build-12/RedHat-8-x86_64-Packages/libyang2-devel-2.0.7-1.el8.x86_64.rpm \
+RUN curl -sSL -o /tmp/libyang2-devel.rpm https://ci1.netdef.org/artifact/LIBYANG-LIBYANG2/shared/build-181/RedHat-8-x86_64-Packages/libyang-devel-2.1.80-1.el8.x86_64.rpm \
     && rpm -i /tmp/libyang2-devel.rpm \
     && rm -f /tmp/libyang2-devel.rpm
 
@@ -91,18 +93,20 @@ ADD docker/ubi8-minimal/almalinux.repo /etc/yum.repos.d/almalinux.repo
 
 RUN rpm --import https://repo.almalinux.org/almalinux/RPM-GPG-KEY-AlmaLinux-8
 
+# Keep the list of dependencies alphabetically sorted for easier maintenance
 RUN microdnf --disableplugin=subscription-manager --setopt=install_weak_deps=0 install \
     c-ares \
     initscripts \
     net-snmp-agent-libs \
     net-snmp-libs \
     openssl \
+    protobuf-c \
     python3 \
     shadow-utils \
     systemd \
     && microdnf --disableplugin=subscription-manager clean all
 
-RUN curl -sSL -o /tmp/libyang2.rpm https://ci1.netdef.org/artifact/LIBYANG-LIBYANGV2/shared/build-12/RedHat-8-x86_64-Packages/libyang2-2.0.7-1.el8.x86_64.rpm \
+RUN curl -sSL -o /tmp/libyang2.rpm https://ci1.netdef.org/artifact/LIBYANG-LIBYANG2/shared/build-181/RedHat-8-x86_64-Packages/libyang-2.1.80-1.el8.x86_64.rpm \
     && rpm -i /tmp/libyang2.rpm \
     && rm -f /tmp/libyang2.rpm
 

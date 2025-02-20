@@ -9,8 +9,13 @@ described in :rfc:`2740`.
 
 .. _ospf6-router:
 
-OSPF6 router
-============
+Configuring OSPF6
+*****************
+
+.. include:: config-include.rst
+
+Configuration Commands
+======================
 
 .. clicmd:: router ospf6 [vrf NAME]
 
@@ -287,6 +292,19 @@ OSPF6 interface
 
    Sets interface's Router Dead Interval. Default value is 40.
 
+.. clicmd:: ipv6 ospf6 graceful-restart hello-delay HELLODELAYINTERVAL
+
+   Set the length of time during which Grace-LSAs are sent at 1-second intervals
+   while coming back up after an unplanned outage. During this time, no hello
+   packets are sent.
+
+   A higher hello delay will increase the chance that all neighbors are notified
+   about the ongoing graceful restart before receiving a hello packet (which is
+   crucial for the graceful restart to succeed). The hello delay shouldn't be set
+   too high, however, otherwise the adjacencies might time out. As a best practice,
+   it's recommended to set the hello delay and hello interval with the same values.
+   The default value is 10 seconds.
+
 .. clicmd:: ipv6 ospf6 retransmit-interval RETRANSMITINTERVAL
 
    Sets interface's Rxmt Interval. Default value is 5.
@@ -299,9 +317,134 @@ OSPF6 interface
 
    Sets interface's Inf-Trans-Delay. Default value is 1.
 
-.. clicmd:: ipv6 ospf6 network (broadcast|point-to-point)
+.. clicmd:: ipv6 ospf6 network (broadcast|point-to-point|point-to-multipoint)
 
    Set explicitly network type for specified interface.
+
+   The only functional difference between ``point-to-point`` (PtP) and
+   ``point-to-multipoint`` (PtMP) mode is the packet addressing for database
+   flooding and updates.  PtP will use multicast packets while PtMP will
+   unicast them.  Apart from this,
+   :clicmd:`ipv6 ospf6 p2p-p2mp connected-prefixes <include|exclude>` has a
+   different default for PtP and PtMP.  There are no other differences, in
+   particular FRR does not impose a limit of one neighbor in PtP mode.
+
+   FRR does not support NBMA mode for IPv6 and likely never will, as NBMA is
+   considered deprecated for IPv6.  Refer to `this IETF OSPF working group
+   discussion
+   <https://mailarchive.ietf.org/arch/msg/ospf/8GAbr4qSMMt5J7SvAcZQ1H7ARhk/>`_
+   for context.
+
+OSPF6 point-to-point and point-to-multipoint operation
+======================================================
+
+OSPFv3, by default, operates in broadcast mode where it elects a DR and BDR
+for each network segment.  This can be changed to point-to-point (PtP) /
+point-to-multipoint (PtMP) mode by configuration.  The actual physical
+interface characteristics do not matter for this setting, all interfaces can
+be configured for all modes.  However, routers must be configured for the same
+mode to form adjacencies.
+
+The main advantages of PtP/PtMP mode are:
+
+- no DR/BDR election
+- adjacencies can be suppressed in a pairwise manner for any two routers, e.g.
+  to represent the underlying topology if it isn't a true full mesh
+- distinct costs can be set for each pair of routers and direction
+
+The main downside is less efficient flooding on networks with a large number
+of OSPFv3 routers.
+
+.. warning::
+
+   All options in this section should be considered "advanced" configuration
+   options.  Inconsistent or nonsensical combinations can easily result in a
+   non-functional setup.
+
+.. clicmd:: ipv6 ospf6 p2p-p2mp disable-multicast-hello
+
+   Disables sending normal multicast hellos when in PtP/PtMP mode.  Some
+   vendors do this automatically for PtMP mode while others have a separate
+   ``no-broadcast`` option matching this.
+
+   If this setting is used, you must issue
+   :clicmd:`ipv6 ospf6 neighbor X:X::X:X poll-interval (1-65535)` for each
+   neighbor to send unicast hello packets.
+
+.. clicmd:: ipv6 ospf6 p2p-p2mp config-neighbors-only
+
+   Only form adjacencies with neighbors that are explicitly configured with
+   the :clicmd:`ipv6 ospf6 neighbor X:X::X:X` command.  Hellos from other
+   routers are ignored.
+
+   .. warning::
+
+      This setting is not intended to provide any security benefit.  Do not
+      run OSPFv3 over untrusted links without additional security measures
+      (e.g. IPsec.)
+
+.. clicmd:: ipv6 ospf6 p2p-p2mp connected-prefixes <include|exclude>
+
+   For global/ULA prefixes configured on this interfaces, do (not) advertise
+   the full prefix to the area.  Regardless of this setting, the router's own
+   address, as a /128 host route with the "LA" (Local Address) bit set, will
+   always be advertised.
+
+   The default is to include connected prefixes for PtP mode and exclude them
+   for PtMP mode.  Since these prefixes will cover other router's addresses,
+   these addresses can become unreachable if the link is partitioned if the
+   other router does not advertise the address as a /128.  However, conversely,
+   if all routers have this flag set, the overall prefix will not be advertised
+   anywhere.  End hosts on this link will therefore be unreachable (and
+   blackholing best-practices for non-existing prefixes apply.)  It may be
+   preferable to have only one router announce the connected prefix.
+
+   The Link LSA (which is not propagated into the area) always includes all
+   prefixes on the interface.  This setting only affects the Router LSA that
+   is visible to all routers in the area.
+
+   .. note::
+
+      Before interacting with this setting, consider either not configuring
+      any global/ULA IPv6 address on the interface, or directly configuring a
+      /128 if needed.  OSPFv3 relies exclusively on link-local addresses to do
+      its signaling and there is absolutely no reason to configure global/ULA
+      addresses as far as OSPFv3 is concerned.
+
+.. clicmd:: ipv6 ospf6 neighbor X:X::X:X
+
+   Explicitly configure a neighbor by its link-local address on this interface.
+   This statement has no effect other than allowing an adjacency when
+   :clicmd:`ipv6 ospf6 p2p-p2mp config-neighbors-only` is set.  This command
+   does **not** cause unicast hellos to be sent.
+
+   Only link-local addresses can be used to establish explicit neighbors.
+   When using this command, you should probably assign static IPv6 link-local
+   addresses to all routers on this link.  It would technically be possible to
+   use the neighbor's Router ID (IPv4 address) here to ease working with
+   changing link-local addresses but this is not planned as a feature at the
+   time of writing.  Global/ULA IPv6 addresses cannot be supported here due to
+   the way OSPFv3 works.
+
+.. clicmd:: ipv6 ospf6 neighbor X:X::X:X poll-interval (1-65535)
+
+   Send unicast hellos to this neighbor at the specified interval (in seconds.)
+   The interval is only used while there is no adjacency with this neighbor.
+   As soon as an adjacency is formed, the interface's
+   :clicmd:`ipv6 ospf6 hello-interval HELLOINTERVAL` value is used.
+   (``hello-interval`` must be the same on all routers on this link.)
+
+   :rfc:`2328` recommends a "much larger" value than ``hello-interval`` for
+   this setting, but this is a legacy of ATM and X.25 networks and nowadays you
+   should probably just use the same value as for ``hello-interval``.
+
+.. clicmd:: ipv6 ospf6 neighbor X:X::X:X cost (1-65535)
+
+   Use a distinct cost for paths traversing this neighbor.  The default is
+   to use the interface's cost value (which may be automatically calculated
+   based on link bandwidth.)  Note that costs are directional in OSPF and the
+   reverse direction must be set on the other router.
+
 
 OSPF6 route-map
 ===============
@@ -343,15 +486,19 @@ Graceful Restart
    To perform a graceful shutdown, the "graceful-restart prepare ipv6 ospf"
    EXEC-level command needs to be issued before restarting the ospf6d daemon.
 
+   When Graceful Restart is enabled and the ospf6d daemon crashes or is killed
+   abruptely (e.g. SIGKILL), it will attempt an unplanned Graceful Restart once
+   it restarts.
+
 .. clicmd:: graceful-restart helper enable [A.B.C.D]
 
 
    Configure Graceful Restart (RFC 5187) helper support.
-   By default, helper support is disabled for all neighbours.
+   By default, helper support is disabled for all neighbors.
    This config enables/disables helper support on this router
-   for all neighbours.
+   for all neighbors.
    To enable/disable helper support for a specific
-   neighbour, the router-id (A.B.C.D) has to be specified.
+   neighbor, the router-id (A.B.C.D) has to be specified.
 
 .. clicmd:: graceful-restart helper strict-lsa-checking
 

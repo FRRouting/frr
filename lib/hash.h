@@ -13,6 +13,18 @@
 extern "C" {
 #endif
 
+/*
+ * NOTICE:
+ *
+ * If you are reading this file in an effort to add a new hash structure
+ * this is the wrong place to be using it.  Please see the typesafe
+ * data structures, or ask one of the other developers.
+ *
+ * If you are reading this file as a way to update an existing usage
+ * of this data structure, please consider just converting the data
+ * structure to one of the typesafe data structures instead.
+ */
+
 /* Default hash table size.  */
 #define HASH_INITIAL_SIZE 256
 /* Expansion threshold */
@@ -28,11 +40,11 @@ struct hash_bucket {
 	 */
 	int len;
 
-	/* Linked list.  */
-	struct hash_bucket *next;
-
 	/* Hash key. */
 	unsigned int key;
+
+	/* Linked list.  */
+	struct hash_bucket *next;
 
 	/* Data.  */
 	void *data;

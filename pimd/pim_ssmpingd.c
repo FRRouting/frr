@@ -185,7 +185,6 @@ static int ssmpingd_socket(pim_addr addr, int port, int mttl)
 	ret = ssmpingd_setsockopt(fd, addr, mttl);
 	if (ret) {
 		zlog_warn("ssmpingd_setsockopt failed");
-		close(fd);
 		return -1;
 	}
 

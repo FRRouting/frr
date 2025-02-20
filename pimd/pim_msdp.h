@@ -89,6 +89,11 @@ enum pim_msdp_peer_flags {
 	PIM_MSDP_PEERF_IN_GROUP = (1 << 2),
 };
 
+enum msdp_auth_type {
+	MSDP_AUTH_NONE = 0,
+	MSDP_AUTH_MD5 = 1,
+};
+
 struct pim_msdp_peer {
 	struct pim_instance *pim;
 
@@ -98,13 +103,17 @@ struct pim_msdp_peer {
 	char *mesh_group_name;
 	char key_str[INET_ADDRSTRLEN];
 
+	/* Authentication data. */
+	enum msdp_auth_type auth_type;
+	char *auth_key;
+
+	int auth_listen_sock;
+	struct event *auth_listen_ev;
+
 	/* state */
 	enum pim_msdp_peer_state state;
 	enum pim_msdp_peer_flags flags;
 
-	/* TCP socket info */
-	union sockunion su_local;
-	union sockunion su_peer;
 	int fd;
 
 /* protocol timers */
@@ -138,6 +147,14 @@ struct pim_msdp_peer {
 
 	/* timestamps */
 	int64_t uptime;
+
+	/** SA input access list name. */
+	char *acl_in;
+	/** SA output access list name. */
+	char *acl_out;
+
+	/** SA maximum amount. */
+	uint32_t sa_limit;
 };
 
 struct pim_msdp_mg_mbr {
@@ -151,6 +168,7 @@ struct pim_msdp_mg {
 	struct in_addr src_ip;
 	uint32_t mbr_cnt;
 	struct list *mbr_list;
+	struct pim_instance *pim;
 
 	/** Belongs to PIM instance list. */
 	SLIST_ENTRY(pim_msdp_mg) mg_entry;
@@ -201,6 +219,9 @@ struct pim_msdp {
 	uint32_t keep_alive;
 	/** MSDP global connection retry period. */
 	uint32_t connection_retry;
+
+	/** MSDP operation state. */
+	bool shutdown;
 };
 
 #define PIM_MSDP_PEER_READ_ON(mp)                                              \
@@ -214,24 +235,19 @@ struct pim_msdp {
 #define PIM_MSDP_PEER_READ_OFF(mp) event_cancel(&mp->t_read)
 #define PIM_MSDP_PEER_WRITE_OFF(mp) event_cancel(&mp->t_write)
 
-#if PIM_IPV != 6
-// struct pim_msdp *msdp;
 struct pim_instance;
 void pim_msdp_init(struct pim_instance *pim, struct event_loop *master);
 void pim_msdp_exit(struct pim_instance *pim);
 char *pim_msdp_state_dump(enum pim_msdp_peer_state state, char *buf,
 			  int buf_size);
-struct pim_msdp_peer *pim_msdp_peer_find(struct pim_instance *pim,
-					 struct in_addr peer_addr);
+struct pim_msdp_peer *pim_msdp_peer_find(const struct pim_instance *pim, struct in_addr peer_addr);
 void pim_msdp_peer_established(struct pim_msdp_peer *mp);
 void pim_msdp_peer_pkt_rxed(struct pim_msdp_peer *mp);
 void pim_msdp_peer_stop_tcp_conn(struct pim_msdp_peer *mp, bool chg_state);
 void pim_msdp_peer_reset_tcp_conn(struct pim_msdp_peer *mp, const char *rc_str);
 void pim_msdp_write(struct event *thread);
-int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty,
-			  const char *spaces);
-bool pim_msdp_peer_config_write(struct vty *vty, struct pim_instance *pim,
-				const char *spaces);
+int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty);
+bool pim_msdp_peer_config_write(struct vty *vty, struct pim_instance *pim);
 void pim_msdp_peer_pkt_txed(struct pim_msdp_peer *mp);
 void pim_msdp_sa_ref(struct pim_instance *pim, struct pim_msdp_peer *mp,
 		     pim_sgaddr *sg, struct in_addr rp);
@@ -244,6 +260,8 @@ void pim_msdp_up_join_state_changed(struct pim_instance *pim,
 void pim_msdp_up_del(struct pim_instance *pim, pim_sgaddr *sg);
 enum pim_msdp_err pim_msdp_mg_del(struct pim_instance *pim,
 				  const char *mesh_group_name);
+
+extern void pim_upstream_msdp_reg_timer_start(struct pim_upstream *up);
 
 /**
  * Allocates a new mesh group data structure under PIM instance.
@@ -306,50 +324,34 @@ void pim_msdp_peer_del(struct pim_msdp_peer **mp);
 void pim_msdp_peer_change_source(struct pim_msdp_peer *mp,
 				 const struct in_addr *addr);
 
-#else /* PIM_IPV == 6 */
-static inline void pim_msdp_init(struct pim_instance *pim,
-				 struct event_loop *master)
-{
-}
+/**
+ * Restart peer's connection.
+ *
+ * This is used internally in MSDP and should be used by northbound
+ * when wanting to immediately apply connections settings such as
+ * authentication.
+ */
+void pim_msdp_peer_restart(struct pim_msdp_peer *mp);
 
-static inline void pim_msdp_exit(struct pim_instance *pim)
-{
-}
+/**
+ * Toggle MSDP functionality administrative state.
+ *
+ * \param pim PIM instance we want to shutdown.
+ * \param state shutdown state.
+ */
+void pim_msdp_shutdown(struct pim_instance *pim, bool state);
 
-static inline void pim_msdp_i_am_rp_changed(struct pim_instance *pim)
-{
-}
+/**
+ * Get the configured originator ID for the SA RP field or the RP for the group.
+ *
+ * \param[in] pim PIM instance that MSDP connection belongs to.
+ * \param[in] group Multicast group.
+ * \param[out] originator_id Originator output value.
+ */
+void pim_msdp_originator_id(struct pim_instance *pim, const struct prefix *group,
+			    struct in_addr *originator_id);
 
-static inline void pim_msdp_up_join_state_changed(struct pim_instance *pim,
-						  struct pim_upstream *xg_up)
-{
-}
-
-static inline void pim_msdp_up_del(struct pim_instance *pim, pim_sgaddr *sg)
-{
-}
-
-static inline void pim_msdp_sa_local_update(struct pim_upstream *up)
-{
-}
-
-static inline void pim_msdp_sa_local_del(struct pim_instance *pim,
-					 pim_sgaddr *sg)
-{
-}
-
-static inline int pim_msdp_config_write(struct pim_instance *pim,
-					struct vty *vty, const char *spaces)
-{
-	return 0;
-}
-
-static inline bool pim_msdp_peer_config_write(struct vty *vty,
-					      struct pim_instance *pim,
-					      const char *spaces)
-{
-	return false;
-}
-#endif /* PIM_IPV == 6 */
+extern bool pim_msdp_log_neighbor_events(const struct pim_instance *pim);
+extern bool pim_msdp_log_sa_events(const struct pim_instance *pim);
 
 #endif

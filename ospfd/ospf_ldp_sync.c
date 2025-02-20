@@ -637,6 +637,9 @@ static int show_ip_ospf_mpls_ldp_interface_common(struct vty *vty,
 			     rn = route_next(rn)) {
 				oi = rn->info;
 
+				if (oi == NULL)
+					continue;
+
 				if (use_json) {
 					json_interface_sub =
 						json_object_new_object();
@@ -671,6 +674,9 @@ static int show_ip_ospf_mpls_ldp_interface_common(struct vty *vty,
 			for (rn = route_top(IF_OIFS(ifp)); rn;
 			     rn = route_next(rn)) {
 				oi = rn->info;
+
+				if (oi == NULL)
+					continue;
 
 				if (use_json)
 					json_interface_sub =
@@ -768,7 +774,7 @@ DEFPY (no_ospf_mpls_ldp_sync,
        "Disable MPLS LDP-IGP Sync\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	ospf_ldp_sync_gbl_exit(ospf, false);
+	ospf_ldp_sync_gbl_exit(ospf, true);
 	return CMD_SUCCESS;
 }
 
@@ -895,7 +901,7 @@ DEFPY (no_mpls_ldp_sync,
 	 *  stop holddown timer if running
 	 *  restore ospf cost
 	 */
-	SET_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG);
+	UNSET_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG);
 	ldp_sync_info->enabled = LDP_IGP_SYNC_DEFAULT;
 	ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
 	EVENT_OFF(ldp_sync_info->t_holddown);

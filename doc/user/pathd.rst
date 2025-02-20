@@ -327,7 +327,7 @@ Configuration Commands
    Delete or specify a bandwidth constraint for a dynamic candidate path.
 
 
-.. clicmd:: metric [bound] METRIC VALUE [required]
+.. clicmd:: metric [bound] METRIC VALUE [required] [computed]
 
    Delete or specify a metric constraint for a dynamic candidate path.
 
@@ -475,6 +475,9 @@ Configuration Commands
 
    Specify the maximum SID depth in a PCC definition.
 
+.. clicmd:: no msd [(1-32)]
+
+   Default the maximum SID depth to 4.
 
 .. clicmd:: peer WORD [precedence (1-255)]
 
@@ -531,7 +534,7 @@ retrieved via PCEP a random number based name is generated.
    Display PCC information.
 
 
-.. clicmd:: show sr-te pcep session [NAME]
+.. clicmd:: show sr-te pcep session [NAME] [json]
 
    Display the information of a PCEP session, if not name is specified all the
    sessions will be displayed.

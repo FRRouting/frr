@@ -123,4 +123,6 @@ void pbr_vrf_terminate(void)
 		FOR_ALL_INTERFACES (vrf, ifp)
 			pbr_if_del(ifp);
 	}
+
+	vrf_terminate();
 }

@@ -1,0 +1,1 @@
+{"10.0.10.1\/32":{"routeType":"N","transit":false,"cost":20,"area":"0.0.0.0"},"10.0.20.1\/32":{"routeType":"N","transit":false,"cost":20,"area":"0.0.0.0"},"10.0.30.0\/24":{"routeType":"N","transit":false,"cost":10,"area":"0.0.0.0"}}

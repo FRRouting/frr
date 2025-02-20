@@ -3,6 +3,7 @@
  * FRR string processing utilities.
  * Copyright (C) 2018  Cumulus Networks, Inc.
  *                     Quentin Young
+ * Copyright (c) 2023, LabN Consulting, L.L.C.
  */
 
 #ifndef _FRRSTR_H_
@@ -165,6 +166,19 @@ int all_digit(const char *str);
  *    Pointer to buffer containing resulting hexadecimal representation.
  */
 char *frrstr_hex(char *buff, size_t bufsiz, const uint8_t *str, size_t num);
+
+/*
+ * Advance past a given char `skipc` in a string, while honoring quoting and
+ * backslash escapes (i.e., ignore `skipc` which occur in quoted sections).
+ */
+const char *frrstr_skip_over_char(const char *s, int skipc);
+
+/*
+ * Advance back from end to a given char `toc` in a string, while honoring
+ * quoting and backslash escapes. `toc` chars inside quote or escaped are
+ * ignored.
+ */
+const char *frrstr_back_to_char(const char *s, int toc);
 
 #ifdef __cplusplus
 }

@@ -134,6 +134,27 @@ def test_bgp_path_attribute_treat_as_withdraw():
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Failed to withdraw prefixes with atomic-aggregate attribute"
 
+    def _bgp_check_attributes_withdrawn_stats():
+        output = json.loads(r2.vtysh_cmd("show bgp neighbor json"))
+        expected = {
+            "10.0.0.1": {
+                "prefixStats": {
+                    "inboundFiltered": 0,
+                    "aspathLoop": 0,
+                    "originatorLoop": 0,
+                    "clusterLoop": 0,
+                    "invalidNextHop": 0,
+                    "withdrawn": 1,
+                    "attributesDiscarded": 0,
+                }
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_bgp_check_attributes_withdrawn_stats)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    assert result is None, "Withdrawn prefix count is not as expected"
+
 
 def test_memory_leak():
     "Run the memory leak test and report results."

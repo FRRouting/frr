@@ -83,7 +83,7 @@ zebra_neigh_new(ifindex_t ifindex, struct ipaddr *ip, struct ethaddr *mac)
 	n->ifindex = ifindex;
 	if (mac) {
 		memcpy(&n->mac, mac, sizeof(*mac));
-		n->flags |= ZEBRA_NEIGH_ENT_ACTIVE;
+		SET_FLAG(n->flags, ZEBRA_NEIGH_ENT_ACTIVE);
 	}
 
 	/* Add to rb_tree */
@@ -118,10 +118,8 @@ static void zebra_neigh_free(struct zebra_neigh_ent *n)
 		/* if rules are still using the neigh mark it as inactive and
 		 * update the dataplane
 		 */
-		if (n->flags & ZEBRA_NEIGH_ENT_ACTIVE) {
-			n->flags &= ~ZEBRA_NEIGH_ENT_ACTIVE;
-			memset(&n->mac, 0, sizeof(n->mac));
-		}
+		UNSET_FLAG(n->flags, ZEBRA_NEIGH_ENT_ACTIVE);
+		memset(&n->mac, 0, sizeof(n->mac));
 		zebra_neigh_pbr_rules_update(n);
 		return;
 	}
@@ -152,6 +150,19 @@ void zebra_neigh_del(struct interface *ifp, struct ipaddr *ip)
 	zebra_neigh_free(n);
 }
 
+/* kernel neigh delete all for a given interface */
+void zebra_neigh_del_all(struct interface *ifp)
+{
+	struct zebra_neigh_ent *n, *nn;
+
+	if (IS_ZEBRA_DEBUG_NEIGH)
+		zlog_debug("zebra neigh delete all for interface %s/%d",
+			   ifp->name, ifp->ifindex);
+
+	RB_FOREACH_SAFE (n, zebra_neigh_rb_head, &zneigh_info->neigh_rb_tree, nn)
+		zebra_neigh_del(ifp, &n->ip);
+}
+
 /* kernel neigh add */
 void zebra_neigh_add(struct interface *ifp, struct ipaddr *ip,
 		     struct ethaddr *mac)
@@ -168,7 +179,7 @@ void zebra_neigh_add(struct interface *ifp, struct ipaddr *ip,
 			return;
 
 		memcpy(&n->mac, mac, sizeof(*mac));
-		n->flags |= ZEBRA_NEIGH_ENT_ACTIVE;
+		SET_FLAG(n->flags, ZEBRA_NEIGH_ENT_ACTIVE);
 
 		/* update rules linked to the neigh */
 		zebra_neigh_pbr_rules_update(n);
@@ -188,7 +199,7 @@ void zebra_neigh_deref(struct zebra_pbr_rule *rule)
 	rule->action.neigh = NULL;
 	/* remove rule from the list and free if it is inactive */
 	list_delete_node(n->pbr_rule_list, &rule->action.neigh_listnode);
-	if (!(n->flags & ZEBRA_NEIGH_ENT_ACTIVE))
+	if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_ENT_ACTIVE))
 		zebra_neigh_free(n);
 }
 

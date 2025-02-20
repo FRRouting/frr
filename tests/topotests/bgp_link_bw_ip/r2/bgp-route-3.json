@@ -4,7 +4,7 @@
     {
       "valid":true,
       "multipath":true,
-      "extendedCommunity":{
+      "extendedIpv6Community":{
         "string":"LB:65302:125000 (1.000 Mbps)"
       },
       "nexthops":[

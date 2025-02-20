@@ -20,4 +20,6 @@ extern void zd_dpdk_port_show(struct vty *vty, uint16_t port_id, bool uj,
 extern void zd_dpdk_stat_show(struct vty *vty);
 extern void zd_dpdk_vty_init(void);
 
+extern struct zebra_privs_t zserv_privs;
+
 #endif

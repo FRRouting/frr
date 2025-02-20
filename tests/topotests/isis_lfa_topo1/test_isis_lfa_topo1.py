@@ -42,7 +42,6 @@ import os
 import sys
 import pytest
 import json
-import time
 import tempfile
 from functools import partial
 
@@ -169,7 +168,7 @@ def setup_module(mod):
     tgen.start_router()
 
 
-def teardown_module(mod):
+def teardown_module():
     "Teardown the pytest environment"
     tgen = get_topogen()
 
@@ -832,7 +831,7 @@ def test_rib_ipv6_step18():
     rname = "rt1"
     router = tgen.gears[rname]
     test_func = partial(_rt2_neigh_down, router)
-    success, result = topotest.run_and_expect(test_func, None, count=200, wait=0.05)
+    _, result = topotest.run_and_expect(test_func, None, count=200, wait=0.05)
     assert result is None, 'rt2 neighbor is still present on "{}"'.format(router)
 
     router_compare_json_output(
@@ -1034,7 +1033,7 @@ def test_rib_ipv6_step24():
     rname = "rt1"
     router = tgen.gears[rname]
     test_func = partial(_bfd_down, router)
-    success, result = topotest.run_and_expect(test_func, None, count=30, wait=0.3)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.3)
     assert result is None, 'BFD session is still up on "{}"'.format(router)
 
     router_compare_json_output(

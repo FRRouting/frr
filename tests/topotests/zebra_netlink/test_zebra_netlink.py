@@ -13,15 +13,12 @@ test_zebra_netlink.py: Test some basic interactions with kernel using Netlink
 """
 # pylint: disable=C0413
 import ipaddress
-import json
 import sys
-from functools import partial
 
 import pytest
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter
 from lib.topolog import logger
-
 
 pytestmark = [pytest.mark.sharpd]
 
@@ -43,7 +40,7 @@ def tgen(request):
 
     # Initialize all routers.
     router_list = tgen.routers()
-    for rname, router in router_list.items():
+    for _, router in router_list.items():
         router.load_config(TopoRouter.RD_ZEBRA, "zebra.conf")
         router.load_config(TopoRouter.RD_SHARP)
 
@@ -68,6 +65,10 @@ def test_zebra_netlink_batching(tgen):
     # Reduce the size of the buffer to hit the limit.
     r1.vtysh_cmd("conf t\nzebra kernel netlink batch-tx-buf 256 256")
 
+    entry = {"r1-eth0": {"addresses": ["192.168.1.1/24"]}}
+    ok = topotest.router_json_cmp_retry(r1, "show int brief json", entry, False, 30)
+    assert ok, '"r1" Address not installed yet'
+
     count = 100
     r1.vtysh_cmd("sharp install routes 2.1.3.7 nexthop 192.168.1.1 " + str(count))
 
@@ -91,7 +92,7 @@ def test_zebra_netlink_batching(tgen):
     }
 
     match = {}
-    base = int(ipaddress.ip_address(u"2.1.3.7"))
+    base = int(ipaddress.ip_address("2.1.3.7"))
     for i in range(base, base + count):
         pfx = str(ipaddress.ip_network((i, 32)))
         match[pfx] = [dict(entry, prefix=pfx)]

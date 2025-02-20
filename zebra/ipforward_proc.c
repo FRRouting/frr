@@ -17,10 +17,15 @@ extern struct zebra_privs_t zserv_privs;
 
 static const char proc_net_snmp[] = "/proc/net/snmp";
 
-static void dropline(FILE *fp)
+static bool dropline(FILE *fp)
 {
-	while (getc(fp) != '\n')
-		;
+	int ch;
+
+	do {
+		ch = getc(fp);
+	} while (ch != EOF && ch != '\n');
+
+	return ch != EOF;
 }
 
 int ipforward(void)
@@ -36,7 +41,10 @@ int ipforward(void)
 		return -1;
 
 	/* We don't care about the first line. */
-	dropline(fp);
+	if (!dropline(fp)) {
+		fclose(fp);
+		return 0;
+	}
 
 	/* Get ip_statistics.IpForwarding :
 	   1 => ip forwarding enabled

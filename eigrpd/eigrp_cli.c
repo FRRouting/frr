@@ -69,8 +69,8 @@ DEFPY_YANG(
 void eigrp_cli_show_header(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults)
 {
-	const char *asn = yang_dnode_get_string(dnode, "./asn");
-	const char *vrf = yang_dnode_get_string(dnode, "./vrf");
+	const char *asn = yang_dnode_get_string(dnode, "asn");
+	const char *vrf = yang_dnode_get_string(dnode, "vrf");
 
 	vty_out(vty, "router eigrp %s", asn);
 	if (strcmp(vrf, VRF_DEFAULT_NAME))
@@ -131,12 +131,14 @@ DEFPY_YANG(
 	"Suppress routing updates on an interface\n"
 	"Interface to suppress on\n")
 {
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./passive-interface[.='%s']", ifname);
+
 	if (no)
-		nb_cli_enqueue_change(vty, "./passive-interface",
-				      NB_OP_DESTROY, ifname);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 	else
-		nb_cli_enqueue_change(vty, "./passive-interface",
-				      NB_OP_CREATE, ifname);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -323,18 +325,18 @@ void eigrp_cli_show_metrics(struct vty *vty, const struct lyd_node *dnode,
 {
 	const char *k1, *k2, *k3, *k4, *k5, *k6;
 
-	k1 = yang_dnode_exists(dnode, "./K1") ?
-		yang_dnode_get_string(dnode, "./K1") : "0";
-	k2 = yang_dnode_exists(dnode, "./K2") ?
-		yang_dnode_get_string(dnode, "./K2") : "0";
-	k3 = yang_dnode_exists(dnode, "./K3") ?
-		yang_dnode_get_string(dnode, "./K3") : "0";
-	k4 = yang_dnode_exists(dnode, "./K4") ?
-		yang_dnode_get_string(dnode, "./K4") : "0";
-	k5 = yang_dnode_exists(dnode, "./K5") ?
-		yang_dnode_get_string(dnode, "./K5") : "0";
-	k6 = yang_dnode_exists(dnode, "./K6") ?
-		yang_dnode_get_string(dnode, "./K6") : "0";
+	k1 = yang_dnode_exists(dnode, "K1") ?
+		yang_dnode_get_string(dnode, "K1") : "0";
+	k2 = yang_dnode_exists(dnode, "K2") ?
+		yang_dnode_get_string(dnode, "K2") : "0";
+	k3 = yang_dnode_exists(dnode, "K3") ?
+		yang_dnode_get_string(dnode, "K3") : "0";
+	k4 = yang_dnode_exists(dnode, "K4") ?
+		yang_dnode_get_string(dnode, "K4") : "0";
+	k5 = yang_dnode_exists(dnode, "K5") ?
+		yang_dnode_get_string(dnode, "K5") : "0";
+	k6 = yang_dnode_exists(dnode, "K6") ?
+		yang_dnode_get_string(dnode, "K6") : "0";
 
 	vty_out(vty, " metric weights %s %s %s %s %s",
 		k1, k2, k3, k4, k5);
@@ -354,12 +356,14 @@ DEFPY_YANG(
 	"Enable routing on an IP network\n"
 	"EIGRP network prefix\n")
 {
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./network[.='%s']", prefix_str);
+
 	if (no)
-		nb_cli_enqueue_change(vty, "./network", NB_OP_DESTROY,
-				      prefix_str);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 	else
-		nb_cli_enqueue_change(vty, "./network", NB_OP_CREATE,
-				      prefix_str);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -383,12 +387,14 @@ DEFPY_YANG(
 	"Specify a neighbor router\n"
 	"Neighbor address\n")
 {
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./neighbor[.='%s']", addr_str);
+
 	if (no)
-		nb_cli_enqueue_change(vty, "./neighbor", NB_OP_DESTROY,
-				      addr_str);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 	else
-		nb_cli_enqueue_change(vty, "./neighbor", NB_OP_CREATE,
-				      addr_str);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -399,6 +405,117 @@ void eigrp_cli_show_neighbor(struct vty *vty, const struct lyd_node *dnode,
 	const char *prefix = yang_dnode_get_string(dnode, NULL);
 
 	vty_out(vty, " neighbor %s\n", prefix);
+}
+
+/*
+ * XPath: /frr-eigrpd:eigrpd/instance/distribute-list
+ */
+DEFPY_YANG (eigrp_distribute_list,
+       eigrp_distribute_list_cmd,
+       "distribute-list ACCESSLIST4_NAME$name <in|out>$dir [WORD$ifname]",
+       "Filter networks in routing updates\n"
+       "Access-list name\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n"
+       "Interface name\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath),
+		 "./distribute-list[interface='%s']/%s/access-list",
+		 ifname ? ifname : "", dir);
+	/* nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL); */
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, name);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG (eigrp_distribute_list_prefix,
+       eigrp_distribute_list_prefix_cmd,
+       "distribute-list prefix PREFIXLIST4_NAME$name <in|out>$dir [WORD$ifname]",
+       "Filter networks in routing updates\n"
+       "Specify a prefix list\n"
+       "Prefix-list name\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n"
+       "Interface name\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath),
+		 "./distribute-list[interface='%s']/%s/prefix-list",
+		 ifname ? ifname : "", dir);
+	/* nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL); */
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, name);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG (eigrp_no_distribute_list,
+       eigrp_no_distribute_list_cmd,
+       "no distribute-list [ACCESSLIST4_NAME$name] <in|out>$dir [WORD$ifname]",
+       NO_STR
+       "Filter networks in routing updates\n"
+       "Access-list name\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n"
+       "Interface name\n")
+{
+	const struct lyd_node *value_node;
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath),
+		 "./distribute-list[interface='%s']/%s/access-list",
+		 ifname ? ifname : "", dir);
+	/*
+	 * See if the user has specified specific list so check it exists.
+	 *
+	 * NOTE: Other FRR CLI commands do not do this sort of verification and
+	 * there may be an official decision not to.
+	 */
+	if (name) {
+		value_node = yang_dnode_getf(vty->candidate_config->dnode, "%s/%s",
+					     VTY_CURR_XPATH, xpath);
+		if (!value_node || strcmp(name, lyd_get_value(value_node))) {
+			vty_out(vty, "distribute list doesn't exist\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG (eigrp_no_distribute_list_prefix,
+       eigrp_no_distribute_list_prefix_cmd,
+       "no distribute-list prefix [PREFIXLIST4_NAME$name] <in|out>$dir [WORD$ifname]",
+       NO_STR
+       "Filter networks in routing updates\n"
+       "Specify a prefix list\n"
+       "Prefix-list name\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n"
+       "Interface name\n")
+{
+	const struct lyd_node *value_node;
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath),
+		 "./distribute-list[interface='%s']/%s/prefix-list",
+		 ifname ? ifname : "", dir);
+	/*
+	 * See if the user has specified specific list so check it exists.
+	 *
+	 * NOTE: Other FRR CLI commands do not do this sort of verification and
+	 * there may be an official decision not to.
+	 */
+	if (name) {
+		value_node = yang_dnode_getf(vty->candidate_config->dnode, "%s/%s",
+					     VTY_CURR_XPATH, xpath);
+		if (!value_node || strcmp(name, lyd_get_value(value_node))) {
+			vty_out(vty, "distribute list doesn't exist\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 /*
@@ -456,19 +573,19 @@ DEFPY_YANG(
 void eigrp_cli_show_redistribute(struct vty *vty, const struct lyd_node *dnode,
 				 bool show_defaults)
 {
-	const char *proto = yang_dnode_get_string(dnode, "./protocol");
+	const char *proto = yang_dnode_get_string(dnode, "protocol");
 	const char *bw, *delay, *load, *mtu, *rlbt;
 
-	bw = yang_dnode_exists(dnode, "./metrics/bandwidth") ?
-		yang_dnode_get_string(dnode, "./metrics/bandwidth") : NULL;
-	delay = yang_dnode_exists(dnode, "./metrics/delay") ?
-		yang_dnode_get_string(dnode, "./metrics/delay") : NULL;
-	rlbt = yang_dnode_exists(dnode, "./metrics/reliability") ?
-		yang_dnode_get_string(dnode, "./metrics/reliability") : NULL;
-	load = yang_dnode_exists(dnode, "./metrics/load") ?
-		yang_dnode_get_string(dnode, "./metrics/load") : NULL;
-	mtu = yang_dnode_exists(dnode, "./metrics/mtu") ?
-		yang_dnode_get_string(dnode, "./metrics/mtu") : NULL;
+	bw = yang_dnode_exists(dnode, "metrics/bandwidth") ?
+		yang_dnode_get_string(dnode, "metrics/bandwidth") : NULL;
+	delay = yang_dnode_exists(dnode, "metrics/delay") ?
+		yang_dnode_get_string(dnode, "metrics/delay") : NULL;
+	rlbt = yang_dnode_exists(dnode, "metrics/reliability") ?
+		yang_dnode_get_string(dnode, "metrics/reliability") : NULL;
+	load = yang_dnode_exists(dnode, "metrics/load") ?
+		yang_dnode_get_string(dnode, "metrics/load") : NULL;
+	mtu = yang_dnode_exists(dnode, "metrics/mtu") ?
+		yang_dnode_get_string(dnode, "metrics/mtu") : NULL;
 
 	vty_out(vty, " redistribute %s", proto);
 	if (bw || rlbt || delay || load || mtu)
@@ -658,8 +775,9 @@ DEFPY_YANG(
 		 as_str);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
-	snprintf(xpath_auth, sizeof(xpath_auth), "%s/summarize-addresses", xpath);
-	nb_cli_enqueue_change(vty, xpath_auth, NB_OP_CREATE, prefix_str);
+	snprintf(xpath_auth, sizeof(xpath_auth),
+		 "%s/summarize-addresses[.='%s']", xpath, prefix_str);
+	nb_cli_enqueue_change(vty, xpath_auth, NB_OP_CREATE, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -681,8 +799,9 @@ DEFPY_YANG(
 		 as_str);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
-	snprintf(xpath_auth, sizeof(xpath_auth), "%s/summarize-addresses", xpath);
-	nb_cli_enqueue_change(vty, xpath_auth, NB_OP_DESTROY, prefix_str);
+	snprintf(xpath_auth, sizeof(xpath_auth),
+		 "%s/summarize-addresses[.='%s']", xpath, prefix_str);
+	nb_cli_enqueue_change(vty, xpath_auth, NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -693,7 +812,7 @@ void eigrp_cli_show_summarize_address(struct vty *vty,
 {
 	const struct lyd_node *instance =
 		yang_dnode_get_parent(dnode, "instance");
-	uint16_t asn = yang_dnode_get_uint16(instance, "./asn");
+	uint16_t asn = yang_dnode_get_uint16(instance, "asn");
 	const char *summarize_address = yang_dnode_get_string(dnode, NULL);
 
 	vty_out(vty, " ip summary-address eigrp %d %s\n", asn,
@@ -759,7 +878,7 @@ void eigrp_cli_show_authentication(struct vty *vty,
 {
 	const struct lyd_node *instance =
 		yang_dnode_get_parent(dnode, "instance");
-	uint16_t asn = yang_dnode_get_uint16(instance, "./asn");
+	uint16_t asn = yang_dnode_get_uint16(instance, "asn");
 	const char *crypt = yang_dnode_get_string(dnode, NULL);
 
 	vty_out(vty, " ip authentication mode eigrp %d %s\n", asn, crypt);
@@ -819,7 +938,7 @@ void eigrp_cli_show_keychain(struct vty *vty, const struct lyd_node *dnode,
 {
 	const struct lyd_node *instance =
 		yang_dnode_get_parent(dnode, "instance");
-	uint16_t asn = yang_dnode_get_uint16(instance, "./asn");
+	uint16_t asn = yang_dnode_get_uint16(instance, "asn");
 	const char *keychain = yang_dnode_get_string(dnode, NULL);
 
 	vty_out(vty, " ip authentication key-chain eigrp %d %s\n", asn,
@@ -875,6 +994,10 @@ eigrp_cli_init(void)
 	install_element(EIGRP_NODE, &no_eigrp_metric_weights_cmd);
 	install_element(EIGRP_NODE, &eigrp_network_cmd);
 	install_element(EIGRP_NODE, &eigrp_neighbor_cmd);
+	install_element(EIGRP_NODE, &eigrp_distribute_list_cmd);
+	install_element(EIGRP_NODE, &eigrp_distribute_list_prefix_cmd);
+	install_element(EIGRP_NODE, &eigrp_no_distribute_list_cmd);
+	install_element(EIGRP_NODE, &eigrp_no_distribute_list_prefix_cmd);
 	install_element(EIGRP_NODE, &eigrp_redistribute_source_metric_cmd);
 
 	vrf_cmd_init(NULL);

@@ -5,6 +5,7 @@
  */
 
 #include <zebra.h>
+#include <sys/resource.h>
 
 #include "vty.h"
 #include "command.h"
