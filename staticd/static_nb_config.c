@@ -307,6 +307,62 @@ static int static_nexthop_srv6_segs_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
+static int static_nexthop_srv6_encap_behavior_modify(struct nb_cb_modify_args *args)
+{
+	struct static_nexthop *nh;
+	enum srv6_headend_behavior old_encap_behavior;
+	const char *encap_behavior_str;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		encap_behavior_str = yang_dnode_get_string(args->dnode, NULL);
+		if (!strmatch(encap_behavior_str, "ietf-srv6-types:H.Encaps") &&
+		    !strmatch(encap_behavior_str, "ietf-srv6-types:H.Encaps.Red")) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "%% Unsupported encap behavior: %s", encap_behavior_str);
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		nh = nb_running_get_entry(args->dnode, NULL, true);
+		old_encap_behavior = nh->snh_seg.encap_behavior;
+		encap_behavior_str = yang_dnode_get_string(args->dnode, NULL);
+		if (strmatch(encap_behavior_str, "ietf-srv6-types:H.Encaps"))
+			nh->snh_seg.encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
+		else if (strmatch(encap_behavior_str, "ietf-srv6-types:H.Encaps.Red"))
+			nh->snh_seg.encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS_RED;
+		else {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "%% Unsupported encap behavior: %s", encap_behavior_str);
+			return NB_ERR;
+		}
+
+		if (old_encap_behavior != nh->snh_seg.encap_behavior)
+			nh->state = STATIC_START;
+		break;
+	}
+
+	return NB_OK;
+}
+
+static int static_nexthop_srv6_encap_behavior_destroy(struct nb_cb_destroy_args *args)
+{
+	struct static_nexthop *nh;
+	enum srv6_headend_behavior old_encap_behavior;
+
+	nh = nb_running_get_entry(args->dnode, NULL, true);
+	old_encap_behavior = nh->snh_seg.encap_behavior;
+	nh->snh_seg.encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
+
+	if (old_encap_behavior != nh->snh_seg.encap_behavior)
+		nh->state = STATIC_START;
+
+	return NB_OK;
+}
+
 static int nexthop_mpls_label_stack_entry_create(struct nb_cb_create_args *args)
 {
 	struct static_nexthop *nh;
@@ -807,6 +863,42 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
+		break;
+	}
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/frr-nexthops/nexthop/srv6-segs-stack/encap-behavior
+ */
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_srv6_segs_stack_encap_behavior_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		if (static_nexthop_srv6_encap_behavior_modify(args) != NB_OK)
+			return NB_ERR;
+		break;
+	}
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_srv6_segs_stack_encap_behavior_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		if (static_nexthop_srv6_encap_behavior_destroy(args) != NB_OK)
+			return NB_ERR;
 		break;
 	}
 	return NB_OK;
