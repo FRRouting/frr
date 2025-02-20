@@ -1,0 +1,102 @@
+{
+	"fcbb:bbbb:1::/48": [
+		{
+			"prefix": "fcbb:bbbb:1::/48",
+			"prefixLen": 48,
+			"protocol": "static",
+			"selected": true,
+			"destSelected": true,
+			"distance": 1,
+			"metric": 0,
+			"installed": true,
+			"nexthops": [
+				{
+					"directlyConnected": true,
+					"active": true,
+					"weight": 1
+				}
+			]
+		}
+	],
+	"2001:db8:1:1::1/128": [
+		{
+			"prefix": "2001:db8:1:1::1/128",
+			"prefixLen": 128,
+			"protocol": "static",
+			"selected": true,
+			"destSelected": true,
+			"distance": 1,
+			"metric": 0,
+			"installed": true,
+			"nexthops": [
+				{
+					"directlyConnected": true,
+					"active": true,
+					"weight": 1,
+					"seg6local": {
+						"action": "unspec"
+					},
+					"seg6": [
+						"fcbb:bbbb:1:2:3:4:5:6",
+						"fcbb:bbbb:7:8:fe00::"
+					],
+					"srv6EncapBehavior": "H.Encaps"
+				}
+			]
+		}
+	],
+	"2001:db8:1:1::2/128": [
+		{
+			"prefix": "2001:db8:1:1::2/128",
+			"prefixLen": 128,
+			"protocol": "static",
+			"selected": true,
+			"destSelected": true,
+			"distance": 1,
+			"metric": 0,
+			"installed": true,
+			"nexthops": [
+				{
+					"directlyConnected": true,
+					"active": true,
+					"weight": 1,
+					"seg6local": {
+						"action": "unspec"
+					},
+					"seg6": [
+						"fcbb:bbbb:1:2:3:4:5:6",
+						"fcbb:bbbb:7:8:fe00::"
+					],
+					"srv6EncapBehavior": "H.Encaps"
+				}
+			]
+		}
+	],
+	"2001:db8:1:1::3/128": [
+		{
+			"prefix": "2001:db8:1:1::3/128",
+			"prefixLen": 128,
+			"protocol": "static",
+			"selected": true,
+			"destSelected": true,
+			"distance": 1,
+			"metric": 0,
+			"installed": true,
+			"nexthops": [
+				{
+					"directlyConnected": true,
+					"active": true,
+					"weight": 1,
+					"seg6local": {
+						"action": "unspec"
+					},
+					"seg6": [
+						"fcbb:bbbb:1:2:3:4:5:6",
+						"fcbb:bbbb:7:8:fe00::"
+					],
+					"srv6EncapBehavior": "H.Encaps.Red"
+				}
+			]
+		}
+	]
+}
