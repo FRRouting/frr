@@ -1268,7 +1268,7 @@ DEFPY_YANG(ip_route_address_interface,
 	  |color (1-4294967295)                        \
 	  |bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|auto-hop$bfdauto|profile BFDPROF$bfd_profile}] \
 	  |pm$pm                                       \
-	  |segments WORD \
+	  |segments WORD [encap-behavior <H_Encaps|H_Encaps_Red>$encap_behavior] \
           }]",
       NO_STR IP_STR
       "Establish static routes\n"
@@ -1298,7 +1298,10 @@ DEFPY_YANG(ip_route_address_interface,
       BFD_PROFILE_NAME_STR
       "Enables Path Monitoring support\n"
       "Steer this route over an SRv6 SID list\n"
-      "SRv6 SID list\n")
+      "SRv6 SID list\n"
+	  "Configure SRv6 encap mode\n"
+	  "H.Encaps\n"
+	  "H.Encaps.Red\n")
 {
 	struct static_route_args args = {
 		.is_delete = !!no,
@@ -1323,6 +1326,7 @@ DEFPY_YANG(ip_route_address_interface,
 		.bfd_profile = bfd_profile,
 		.pm = !!pm,
 		.segs = segments,
+		.srv6_encap_behavior = encap_behavior,
 	};
 
 	return static_route_configure(vty, &args);
@@ -1344,7 +1348,7 @@ DEFPY_YANG(ip_route_address_interface_vrf,
 	  |color (1-4294967295)                        \
 	  |bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|auto-hop$bfdauto|profile BFDPROF$bfd_profile}] \
 	  |pm$pm                                       \
-	  |segments WORD \
+	  |segments WORD [encap-behavior <H_Encaps|H_Encaps_Red>$encap_behavior] \
 	  }]",
       NO_STR IP_STR
       "Establish static routes\n"
@@ -1373,7 +1377,10 @@ DEFPY_YANG(ip_route_address_interface_vrf,
       BFD_PROFILE_NAME_STR
       "Enables Path Monitoring support\n"
       "Steer this route over an SRv6 SID list\n"
-      "SRv6 SID list\n")
+      "SRv6 SID list\n"
+	  "Configure SRv6 encap mode\n"
+	  "H.Encaps\n"
+	  "H.Encaps.Red\n")
 {
 #ifndef HAVE_STATICD_NB
 	VTY_DECLVAR_CONTEXT(vrf, vrf);
@@ -1405,6 +1412,7 @@ DEFPY_YANG(ip_route_address_interface_vrf,
 		.bfd_profile = bfd_profile,
 		.pm = !!pm,
 		.segs = segments,
+		.srv6_encap_behavior = encap_behavior,
 	};
 
 	return static_route_configure(vty, &args);
@@ -1425,7 +1433,7 @@ DEFPY_YANG(ip_route,
 	  |color (1-4294967295)                        \
 	  |bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|auto-hop$bfdauto|profile BFDPROF$bfd_profile}] \
 	  |pm$pm                                       \
-	  |segments WORD \
+	  |segments WORD [encap-behavior <H_Encaps|H_Encaps_Red>$encap_behavior] \
           }]",
       NO_STR IP_STR
       "Establish static routes\n"
@@ -1454,7 +1462,10 @@ DEFPY_YANG(ip_route,
       BFD_PROFILE_NAME_STR
       "Enables Path Monitoring support\n"
       "Steer this route over an SRv6 SID list\n"
-      "SRv6 SID list\n")
+      "SRv6 SID list\n"
+	  "Configure SRv6 encap mode\n"
+	  "H.Encaps\n"
+	  "H.Encaps.Red\n")
 {
 	struct static_route_args args = {
 		.is_delete = !!no,
@@ -1478,6 +1489,7 @@ DEFPY_YANG(ip_route,
 		.bfd_profile = bfd_profile,
 		.pm = !!pm,
 		.segs = segments,
+		.srv6_encap_behavior = encap_behavior,
 	};
 
 	return static_route_configure(vty, &args);
@@ -1497,7 +1509,7 @@ DEFPY_YANG(ip_route_vrf,
 	  |color (1-4294967295)                        \
 	  |bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|auto-hop$bfdauto|profile BFDPROF$bfd_profile}] \
 	  |pm$pm                                       \
-	  |segments WORD \
+	  |segments WORD [encap-behavior <H_Encaps|H_Encaps_Red>$encap_behavior] \
           }]",
       NO_STR IP_STR
       "Establish static routes\n"
@@ -1525,7 +1537,10 @@ DEFPY_YANG(ip_route_vrf,
       BFD_PROFILE_NAME_STR
       "Enables Path Monitoring support\n"
       "Steer this route over an SRv6 SID list\n"
-      "SRv6 SID list\n")
+      "SRv6 SID list\n"
+	  "Configure SRv6 encap mode\n"
+	  "H.Encaps\n"
+	  "H.Encaps.Red\n")
 {
 #ifndef HAVE_STATICD_NB
 	VTY_DECLVAR_CONTEXT(vrf, vrf);
@@ -1556,6 +1571,7 @@ DEFPY_YANG(ip_route_vrf,
 		.bfd_profile = bfd_profile,
 		.pm = !!pm,
 		.segs = segments,
+		.srv6_encap_behavior = encap_behavior,
 	};
 
 	return static_route_configure(vty, &args);
