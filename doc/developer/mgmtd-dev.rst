@@ -39,17 +39,18 @@ Conversion Status
 Fully Converted To MGMTD
 """"""""""""""""""""""""
 
+- lib/affinitymap
 - lib/distribute
 - lib/filter
-- lib/if_rmap
-- lib/routemap
-- lib/affinitymap
 - lib/if
+- lib/if_rmap
+- lib/keychain
+- lib/routemap
 - lib/vrf
 - ripd
 - ripngd
 - staticd
-- zebra (* - partial)
+- zebra
 
 Converted To Northbound
 """""""""""""""""""""""
@@ -69,7 +70,6 @@ Unconverted
 - bgpd
 - ldpd
 - lib/event
-- lib/keychain
 - lib/log_vty
 - lib/nexthop_group
 - lib/zlog_5424_cli
