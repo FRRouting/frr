@@ -108,6 +108,7 @@ struct seg6local_flavors_info {
 };
 
 struct seg6_seg_stack {
+	enum srv6_headend_behavior encap_behavior;
 	uint8_t num_segs;
 	struct in6_addr seg[0]; /* 1 or more segs */
 };
