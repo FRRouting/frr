@@ -211,6 +211,7 @@ typedef enum {
 	ZEBRA_SRV6_MANAGER_GET_LOCATOR,
 	ZEBRA_SRV6_MANAGER_GET_SRV6_SID,
 	ZEBRA_SRV6_MANAGER_RELEASE_SRV6_SID,
+	ZEBRA_SRV6_MANAGER_GET_LOCATOR_STATIC_SIDS,
 	ZEBRA_ERROR,
 	ZEBRA_CLIENT_CAPABILITIES,
 	ZEBRA_OPAQUE_MESSAGE,
@@ -1120,6 +1121,8 @@ extern int srv6_manager_release_locator_chunk(struct zclient *zclient,
 					      const char *locator_name);
 extern int srv6_manager_get_locator(struct zclient *zclient,
 				    const char *locator_name);
+extern int srv6_manager_get_locator_static_sids(struct zclient *zclient,
+				    const char *locator_name);
 extern int srv6_manager_get_sid(struct zclient *zclient,
 				const struct srv6_sid_ctx *ctx,
 				struct in6_addr *sid_value,
@@ -1146,6 +1149,10 @@ extern int zapi_labels_decode(struct stream *s, struct zapi_labels *zl);
 extern int zapi_srv6_locator_encode(struct stream *s,
 				    const struct srv6_locator *l);
 extern int zapi_srv6_locator_decode(struct stream *s, struct srv6_locator *l);
+extern int zapi_srv6_locator_static_sids_encode(struct stream *s, struct srv6_locator *loc,
+					  struct list *static_sids_list);
+extern int zapi_srv6_locator_static_sids_decode(struct stream *s, struct srv6_locator *loc,
+					  struct list *static_sids_list);
 extern int zapi_srv6_locator_chunk_encode(struct stream *s,
 					  const struct srv6_locator_chunk *c);
 extern int zapi_srv6_locator_chunk_decode(struct stream *s,

@@ -60,6 +60,13 @@ DEFINE_HOOK(srv6_manager_release_chunk,
 	     const char *locator_name,
 	     vrf_id_t vrf_id),
 	    (client, locator_name, vrf_id));
+DEFINE_HOOK(srv6_manager_get_locator_static_sids,
+		(struct srv6_locator **loc,
+		 struct list *static_sids_list,
+		 struct zserv *client,
+		 const char *locator_name,
+		 vrf_id_t vrf_id),
+		(loc, static_sids_list, client, locator_name, vrf_id));
 
 DEFINE_HOOK(srv6_manager_get_sid,
 	    (struct zebra_srv6_sid **sid, struct zserv *client,
@@ -88,6 +95,15 @@ void srv6_manager_get_locator_chunk_call(struct srv6_locator **loc,
 					 vrf_id_t vrf_id)
 {
 	hook_call(srv6_manager_get_chunk, loc, client, locator_name, vrf_id);
+}
+
+void srv6_manager_get_locator_static_sids_call(struct srv6_locator **loc,
+					 struct list *static_sids_list,
+					 struct zserv *client,
+					 const char *locator_name,
+					 vrf_id_t vrf_id)
+{
+	hook_call(srv6_manager_get_locator_static_sids, loc, static_sids_list, client, locator_name, vrf_id);
 }
 
 void srv6_manager_release_locator_chunk_call(struct zserv *client,
@@ -812,6 +828,40 @@ static int zebra_srv6_manager_get_locator_chunk(struct srv6_locator **loc,
 								    vrf_id,
 								    *loc);
 	return ret;
+}
+
+/**
+ * Handle a get SRv6 Locator and static SIDs list request receiced from a client.
+ *
+ * It looks up the requested locator and send it with the static SIDs list
+ * back to the client.
+ *
+ * @param loc SRv6 locator returned by this function
+ * @param static_sids_list Static SIDs list returned by this function
+ * @param client The client that sent the Get SRv6 Locator and static SIDs request
+ * @param locator_name Name of the locator to look up
+ * @param vrf_id Request info from client
+ *
+ * @return 0 on success, -1 otherwise
+ */
+static int srv6_manager_get_locator_static_sids_internal(struct srv6_locator **loc,
+					   struct list *static_sids_list,
+					   struct zserv *client,
+					   const char *locator_name,
+					   vrf_id_t vrf_id)
+{
+	*loc = zebra_srv6_locator_lookup(locator_name);
+	if (!*loc) {
+		zlog_err("Unable to find the requested locator %s to %s instance %u",
+			 locator_name, zebra_route_string(client->proto), client->instance);
+		return -1;
+	}
+	else if (IS_ZEBRA_DEBUG_PACKET)
+		zlog_info("Find request locator %s to %s instance %u",
+			 locator_name, zebra_route_string(client->proto), client->instance);
+
+	return zsend_srv6_manager_get_locator_static_sids_response(*loc, static_sids_list,
+									client, vrf_id);
 }
 
 /**
@@ -2516,6 +2566,8 @@ void zebra_srv6_init(void)
 		      srv6_manager_release_sid_internal);
 	hook_register(srv6_manager_get_locator,
 		      srv6_manager_get_srv6_locator_internal);
+	hook_register(srv6_manager_get_locator_static_sids,
+			  srv6_manager_get_locator_static_sids_internal);
 }
 
 bool zebra_srv6_is_enable(void)

@@ -1264,6 +1264,111 @@ stream_failure:
 	return -1;
 }
 
+/**
+ * Encode the SRv6 Locator and static SIDs info in stream
+ *
+ * @param s The stream containing the packet
+ * @param loc SRv6 locator encoded in stream by this function
+ * @param static_sids_list Static SIDs list encoded in stream by this function
+ */
+int zapi_srv6_locator_static_sids_encode(struct stream *s,
+				 struct srv6_locator *loc,
+				 struct list *static_sids_list)
+{
+	struct srv6_sid *static_sid = NULL;
+	struct listnode *node = NULL;
+	//struct vrf *vrf = NULL;
+
+	stream_putw(s, strlen(loc->name));
+	stream_put(s, loc->name, strlen(loc->name));
+
+	stream_putw(s, loc->prefix.prefixlen);
+	stream_put(s, &loc->prefix.prefix, sizeof(loc->prefix.prefix));
+	stream_putc(s, loc->block_bits_length);
+	stream_putc(s, loc->node_bits_length);
+	stream_putc(s, loc->function_bits_length);
+	stream_putc(s, loc->argument_bits_length);
+	stream_putc(s, loc->flags);
+
+	stream_putl(s, static_sids_list->count);
+	for (ALL_LIST_ELEMENTS_RO(static_sids_list, node, static_sid)) {
+		/* sid value */
+		stream_put(s, &static_sid->value, sizeof(struct in6_addr));
+		/* locator name*/
+		stream_putw(s, strlen(static_sid->locator->name));
+		stream_put(s, static_sid->locator->name, strlen(static_sid->locator->name));
+		/* behavior */
+		stream_putl(s, static_sid->behavior);
+		/* vrf id */
+		stream_putl(s, static_sid->vrf_id);
+	}
+
+	/* Free the static_sids_list */
+	list_delete(&static_sids_list);
+
+	return 0;
+}
+
+/**
+ * Decode the SRv6 Locator and static SIDs info in stream
+ *
+ * @param s The stream containing the packet
+ * @param loc SRv6 locator decoded in stream by this function
+ * @param static_sids_list Static SIDs list decoded in stream by this function
+ */
+int zapi_srv6_locator_static_sids_decode(struct stream *s,
+				 struct srv6_locator *loc,
+				 struct list *static_sids_list)
+{
+	struct srv6_sid *static_sid = NULL;
+	uint16_t len = 0;
+	uint16_t sid_loc_len = 0;
+	unsigned int sid_count;
+
+	/* decode the locator */
+	STREAM_GETW(s, len);
+	if (len > SRV6_LOCNAME_SIZE)
+		goto stream_failure;
+
+	STREAM_GET(loc->name, s, len);
+	STREAM_GETW(s, loc->prefix.prefixlen);
+	STREAM_GET(&loc->prefix.prefix, s, sizeof(loc->prefix.prefix));
+	loc->prefix.family = AF_INET6;
+	STREAM_GETC(s, loc->block_bits_length);
+	STREAM_GETC(s, loc->node_bits_length);
+	STREAM_GETC(s, loc->function_bits_length);
+	STREAM_GETC(s, loc->argument_bits_length);
+	STREAM_GETC(s, loc->flags);
+
+	/* decode static sids list*/
+	STREAM_GETL(s, sid_count);
+	while (sid_count > 0) {
+		/* alloc a new srv6_sid node to store the sid info from stream */
+		static_sid = malloc(sizeof(struct srv6_sid));
+
+		/* sid value */
+		STREAM_GET(static_sid, s, sizeof(static_sid->value));
+		/* locator name */
+		static_sid->locator = malloc(sizeof(struct srv6_locator));
+		STREAM_GETW(s, sid_loc_len);
+		STREAM_GET(static_sid->locator->name, s, sid_loc_len);
+		static_sid->locator->name[sid_loc_len] = '\0';
+		/* behavior */
+		STREAM_GETL(s, static_sid->behavior);
+		/* vrf id */
+		STREAM_GETL(s, static_sid->vrf_id);
+
+		/* Add the current static sid into static_sids_list */
+		listnode_add(static_sids_list, static_sid);
+		sid_count--;
+	}
+
+	return 0;
+
+stream_failure:
+	return -1;
+}
+
 static int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 {
 	int i;
@@ -3459,6 +3564,50 @@ int srv6_manager_release_locator_chunk(struct zclient *zclient,
 	stream_put(s, locator_name, len);
 
 	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zclient_send_message(zclient);
+}
+/**
+ * Function to request a specific locator and existing static sids in a asynchronous way
+ *
+ * @param zclient The zclient used to connect to SRv6 Manager (zebra)
+ * @param locator_name Name of SRv6 locator
+ * @return 0 on success, -1 otherwise
+ */
+int srv6_manager_get_locator_static_sids(struct zclient *zclient, const char *locator_name)
+{
+	/**
+	 * Here to create a new header using new API
+	 */
+	struct stream *s;
+	size_t len;
+
+	if (!locator_name)
+		return -1;
+
+	if (zclient->sock < 0) {
+		flog_err(EC_LIB_ZAPI_SOCKET, "%s: invalid zclient socket",
+			 __func__);
+		return -1;
+	}
+
+	if (zclient_debug)
+		zlog_debug("Requesting srv6 locator %s and static-sids", locator_name);
+
+	len = strlen(locator_name);
+
+	/* send request */
+	s = zclient->obuf;
+	stream_reset(s);
+	zclient_create_header(s, ZEBRA_SRV6_MANAGER_GET_LOCATOR_STATIC_SIDS,
+				  VRF_DEFAULT);
+
+	/* locator name */
+	stream_putw(s, len);
+	stream_put(s, locator_name, len);
+
+	/* Put length at the first point of the stream */
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	return zclient_send_message(zclient);

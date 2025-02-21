@@ -115,6 +115,8 @@ extern int zsend_srv6_manager_get_locator_chunk_response(struct zserv *client,
 
 extern int zsend_srv6_manager_get_locator_response(struct zserv *client,
 						   struct srv6_locator *locator);
+extern int zsend_srv6_manager_get_locator_static_sids_response(struct srv6_locator *loc,
+						   struct list *static_sids_list, struct zserv *client, vrf_id_t vrf_id);
 
 #ifdef __cplusplus
 }
