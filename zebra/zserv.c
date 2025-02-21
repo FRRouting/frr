@@ -739,6 +739,11 @@ void zserv_close_client(struct zserv *client)
 			free_p = false;
 		}
 	}
+	if (client->proto == ZEBRA_ROUTE_BGP)
+		/* in case BGP daemon is requested to stop earlier than expected
+		 * some services enabled by BGP should be reset like radvd
+		 */
+		zebra_rtadv_stop_bgp();
 
 	/* delete client */
 	if (free_p)
