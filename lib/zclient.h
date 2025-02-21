@@ -470,6 +470,7 @@ struct zapi_nexthop {
 	/* SRv6 Headend-behaviour */
 	int seg_num;
 	struct in6_addr seg6_segs[SRV6_MAX_SEGS];
+	enum srv6_headend_behavior srv6_encap_behavior;
 };
 
 /*
