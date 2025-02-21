@@ -1496,6 +1496,19 @@ int bgp_peer_gr_init(struct peer *peer)
 	return BGP_GR_SUCCESS;
 }
 
+static void srv6_static_sid_free(void *data)
+{
+	struct srv6_sid *static_sid = data;
+	if (!static_sid)
+		return;
+
+	if (static_sid->locator) {
+		srv6_locator_free(static_sid->locator);
+		static_sid->locator = NULL;
+	}
+	free(static_sid);
+}
+
 static void bgp_srv6_init(struct bgp *bgp)
 {
 	bgp->srv6_enabled = false;
@@ -1504,6 +1517,8 @@ static void bgp_srv6_init(struct bgp *bgp)
 	bgp->srv6_locator_chunks->del = srv6_locator_chunk_list_free;
 	bgp->srv6_functions = list_new();
 	bgp->srv6_functions->del = (void (*)(void *))srv6_function_free;
+	bgp->srv6_static_sids = list_new();
+	bgp->srv6_static_sids->del = srv6_static_sid_free;
 }
 
 static void bgp_srv6_cleanup(struct bgp *bgp)
@@ -1539,6 +1554,8 @@ static void bgp_srv6_cleanup(struct bgp *bgp)
 		list_delete(&bgp->srv6_locator_chunks);
 	if (bgp->srv6_functions)
 		list_delete(&bgp->srv6_functions);
+	if (bgp->srv6_static_sids)
+		list_delete(&bgp->srv6_static_sids);
 
 	srv6_locator_free(bgp->srv6_locator);
 	bgp->srv6_locator = NULL;

@@ -3483,6 +3483,91 @@ static int bgp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+static void bgp_static_sid_del(void *data)
+{
+	struct srv6_sid *static_sid = data;
+	if (!static_sid)
+		return;
+
+	if (static_sid->locator) {
+		srv6_locator_free(static_sid->locator);
+		static_sid->locator = NULL;
+	}
+	free(static_sid);
+}
+
+/**
+ * Internal function to process an SRv6 locator and static SIDs list
+ *
+ * @param locator The locator to be processed
+ * @param static_sids_list The static SIDs list to be processed
+ */
+static int bgp_zebra_process_srv6_locator_static_sids_internal(struct srv6_locator *locator,
+							       struct list *static_sids_list)
+{
+	struct bgp *bgp = bgp_get_default();
+
+	if (!bgp || !bgp->srv6_enabled || !locator)
+		return -1;
+
+	/**
+	 * Check if the main BGP instance is configured to use the received locator
+	 */
+	if (strcmp(bgp->srv6_locator_name, locator->name) != 0) {
+		zlog_err("%s: SRv6 Locator name unmatch %s: %s", __func__, bgp->srv6_locator_name,
+			 locator->name);
+		return 0;
+	}
+
+	zlog_info("%s: Received SRv6 locator %s %pFX, loc-block-len=%u, loc-node-len=%u func-len=%u, arg-len=%u",
+		  __func__, locator->name, &locator->prefix, locator->block_bits_length,
+		  locator->node_bits_length, locator->function_bits_length,
+		  locator->argument_bits_length);
+
+	/* Store the locator in the main BGP instance */
+	bgp->srv6_locator = srv6_locator_alloc(locator->name);
+	srv6_locator_copy(bgp->srv6_locator, locator);
+
+	/**
+	 * Grant the static SIDs list to the main BGP instance.
+	 * If bgp has a srv6_static_sids already,
+	 * free the old list then grant the new one.
+	 */
+	if (bgp->srv6_static_sids)
+		list_delete(&bgp->srv6_static_sids);
+	bgp->srv6_static_sids = static_sids_list;
+
+	/*
+	 * Process VPN-to-VRF and VRF-to-VPN leaks to advertise new locator
+	 * and SIDs.
+	 */
+	vpn_leak_postchange_all();
+
+	return 0;
+}
+
+
+/**
+ * Process the SRv6 locator and static SIDs list received from zebra
+ */
+static int bgp_zebra_process_srv6_locator_static_sids(ZAPI_CALLBACK_ARGS)
+{
+	struct bgp *bgp = bgp_get_default();
+	struct srv6_locator loc = {};
+	struct list *static_sids_list = list_new();
+	static_sids_list->del = bgp_static_sid_del;
+
+	if (!bgp || !bgp->srv6_enabled)
+		return 0;
+
+	if (zapi_srv6_locator_static_sids_decode(zclient->ibuf, &loc, static_sids_list) < 0) {
+		list_delete(&static_sids_list);
+		return -1;
+	}
+
+	return bgp_zebra_process_srv6_locator_static_sids_internal(&loc, static_sids_list);
+}
+
 /**
  * Internal function to process an SRv6 locator
  *
@@ -3936,6 +4021,7 @@ static zclient_handler *const bgp_handlers[] = {
 	[ZEBRA_SRV6_LOCATOR_DELETE] = bgp_zebra_process_srv6_locator_delete,
 	[ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK] =
 		bgp_zebra_process_srv6_locator_chunk,
+	[ZEBRA_SRV6_MANAGER_GET_LOCATOR_STATIC_SIDS] = bgp_zebra_process_srv6_locator_static_sids,
 	[ZEBRA_SRV6_SID_NOTIFY] = bgp_zebra_srv6_sid_notify,
 };
 
@@ -4555,6 +4641,24 @@ void bgp_zebra_release_srv6_sid(const struct srv6_sid_ctx *ctx)
 		zlog_warn("%s: error releasing SRv6 SID!", __func__);
 		return;
 	}
+}
+
+/**
+ * Ask the SRv6 Manager (zebra) about a specific locator and all static SIDs
+ *
+ * @param name Locator name
+ * @return 0 on success, -1 otherwise
+ */
+int bgp_zebra_srv6_manager_get_locator_static_sids(const char *name)
+{
+	if (!name)
+		return -1;
+
+	/**
+	 * Send the Get Locator and static SIDs request to the SRv6 Manager
+	 * and return the result
+	 */
+	return srv6_manager_get_locator_static_sids(bgp_zclient, name);
 }
 
 void bgp_zebra_send_nexthop_label(int cmd, mpls_label_t label,

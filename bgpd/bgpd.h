@@ -959,6 +959,7 @@ struct bgp {
 	struct srv6_locator *srv6_locator;
 	struct list *srv6_locator_chunks;
 	struct list *srv6_functions;
+	struct list *srv6_static_sids;
 	uint32_t tovpn_sid_index; /* unset => set to 0 */
 	struct in6_addr *tovpn_sid;
 	struct srv6_locator *tovpn_sid_locator;
