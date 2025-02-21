@@ -183,6 +183,10 @@ static int pim_vrf_enable(struct vrf *vrf)
 
 	pim_mroute_socket_enable(pim);
 
+#if PIM_IPV == 4
+	pim_autorp_enable(pim);
+#endif
+
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		if (!ifp->info)
 			continue;

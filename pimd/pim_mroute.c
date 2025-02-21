@@ -876,17 +876,11 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 				pim->vrf->name);
 #endif
 
-#ifdef SO_BINDTODEVICE
-		if (pim->vrf->vrf_id != VRF_DEFAULT
-		    && setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE,
-				  pim->vrf->name, strlen(pim->vrf->name))) {
-			zlog_warn("Could not setsockopt SO_BINDTODEVICE: %s",
-				  safe_strerror(errno));
+		if (vrf_bind(pim->vrf->vrf_id, fd, NULL)) {
+			zlog_warn("Could not bind to vrf: %s", safe_strerror(errno));
 			close(fd);
 			return -3;
 		}
-#endif
-
 	}
 
 	pim->mroute_socket = fd;
