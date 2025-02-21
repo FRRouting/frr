@@ -181,6 +181,9 @@ static int pim_vrf_enable(struct vrf *vrf)
 
 	zlog_debug("%s: for %s %u", __func__, vrf->name, vrf->vrf_id);
 
+	if (vrf_bind(vrf->vrf_id, pim->reg_sock, NULL) < 0)
+		zlog_warn("Failed to bind register socket to VRF %s", vrf->name);
+
 	pim_mroute_socket_enable(pim);
 
 #if PIM_IPV == 4
