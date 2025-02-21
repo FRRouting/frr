@@ -10934,8 +10934,10 @@ DEFPY (bgp_srv6_locator,
 
 	snprintf(bgp->srv6_locator_name,
 		 sizeof(bgp->srv6_locator_name), "%s", name);
-
-	ret = bgp_zebra_srv6_manager_get_locator(name);
+	/*
+	 * Request locator and static sids from zebra.
+	 */
+	ret = bgp_zebra_srv6_manager_get_locator_static_sids(name);
 	if (ret < 0)
 		return CMD_WARNING_CONFIG_FAILED;
 
@@ -10977,9 +10979,11 @@ DEFPY (show_bgp_srv6,
        "BGP Segment Routing SRv6\n")
 {
 	struct bgp *bgp;
-	struct listnode *node;
+	struct listnode *node, *sid_node;
 	struct srv6_locator_chunk *chunk;
 	struct bgp_srv6_function *func;
+	struct srv6_sid *static_sid = NULL;
+	struct vrf *vrf = NULL;
 
 	bgp = bgp_get_default();
 	if (!bgp)
@@ -11011,6 +11015,18 @@ DEFPY (show_bgp_srv6,
 	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_functions, node, func)) {
 		vty_out(vty, "- sid: %pI6\n", &func->sid);
 		vty_out(vty, "  locator: %s\n", func->locator_name);
+	}
+
+	vty_out(vty, "static_sids:\n");
+	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_static_sids, sid_node, static_sid)) {
+		vty_out(vty, "- sid: %pI6\n", &static_sid->value);
+		vty_out(vty, "  locator: %s\n", static_sid->locator->name);
+		vty_out(vty, "  behavior: %s\n", seg6local_action2str(static_sid->behavior));
+		vrf = vrf_lookup_by_id(static_sid->vrf_id);
+		if (vrf)
+			vty_out(vty, "  vrf: %s\n", vrf->name);
+		else
+			vty_out(vty, "  vrf: not found by vrf_id\n");
 	}
 
 	vty_out(vty, "bgps:\n");
