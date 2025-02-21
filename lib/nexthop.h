@@ -207,8 +207,8 @@ void nexthop_change_labels(struct nexthop *nexthop, struct mpls_label_stack *new
 void nexthop_add_srv6_seg6local(struct nexthop *nexthop, uint32_t action,
 				const struct seg6local_context *ctx);
 void nexthop_del_srv6_seg6local(struct nexthop *nexthop);
-void nexthop_add_srv6_seg6(struct nexthop *nexthop, const struct in6_addr *seg,
-			   int num_segs);
+void nexthop_add_srv6_seg6(struct nexthop *nexthop, const struct in6_addr *seg, int num_segs,
+			   enum srv6_headend_behavior encap_behavior);
 void nexthop_del_srv6_seg6(struct nexthop *nexthop);
 
 /*
