@@ -100,6 +100,12 @@ static int _nexthop_srv6_cmp(const struct nexthop *nh1,
 			break;
 	}
 
+	if (nh1->nh_srv6->seg6_segs->encap_behavior > nh2->nh_srv6->seg6_segs->encap_behavior)
+		return 1;
+
+	if (nh1->nh_srv6->seg6_segs->encap_behavior < nh2->nh_srv6->seg6_segs->encap_behavior)
+		return -1;
+
 	return ret;
 }
 
@@ -823,6 +829,7 @@ uint32_t nexthop_hash(const struct nexthop *nexthop)
 					segs_num -= 1;
 					i += 1;
 				}
+				key = jhash_1word(nexthop->nh_srv6->seg6_segs->encap_behavior, key);
 			}
 		}
 	}
