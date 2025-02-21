@@ -612,7 +612,7 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 		nexthop_add_srv6_seg6local(&nh, seg6l_act, &seg6l_ctx);
 
 	if (num_segs)
-		nexthop_add_srv6_seg6(&nh, segs, num_segs);
+		nexthop_add_srv6_seg6(&nh, segs, num_segs, srv6_encap_behavior);
 
 	return nh;
 }
@@ -729,7 +729,7 @@ static uint16_t parse_multipath_nexthops_unicast(ns_id_t ns_id, struct nexthop_g
 							   &seg6l_ctx);
 
 			if (num_segs)
-				nexthop_add_srv6_seg6(nh, segs, num_segs);
+				nexthop_add_srv6_seg6(nh, segs, num_segs, srv6_encap_behavior);
 
 			if (rtnh->rtnh_flags & RTNH_F_ONLINK)
 				SET_FLAG(nh->flags, NEXTHOP_FLAG_ONLINK);

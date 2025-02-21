@@ -1965,10 +1965,9 @@ static struct nexthop *nexthop_set_resolved(afi_t afi,
 						   &nexthop->nh_srv6
 							    ->seg6local_ctx);
 		if (nexthop->nh_srv6->seg6_segs)
-			nexthop_add_srv6_seg6(resolved_hop,
-					      &nexthop->nh_srv6->seg6_segs->seg[0],
-					      nexthop->nh_srv6->seg6_segs
-						      ->num_segs);
+			nexthop_add_srv6_seg6(resolved_hop, &nexthop->nh_srv6->seg6_segs->seg[0],
+					      nexthop->nh_srv6->seg6_segs->num_segs,
+					      nexthop->nh_srv6->seg6_segs->encap_behavior);
 	}
 
 	resolved_hop->rparent = nexthop;
