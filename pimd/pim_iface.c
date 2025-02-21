@@ -1901,9 +1901,7 @@ static int pim_ifp_up(struct interface *ifp)
 	}
 
 #if PIM_IPV == 4
-	if (pim->autorp && pim->autorp->do_discovery && pim_ifp &&
-	    pim_ifp->pim_enable)
-		pim_autorp_add_ifp(ifp);
+	pim_autorp_add_ifp(ifp);
 #endif
 
 	pim_cand_addrs_changed();
@@ -2020,8 +2018,7 @@ void pim_pim_interface_delete(struct interface *ifp)
 		return;
 
 #if PIM_IPV == 4
-	if (pim_ifp->pim_enable)
-		pim_autorp_rm_ifp(ifp);
+	pim_autorp_rm_ifp(ifp);
 #endif
 
 	pim_ifp->pim_enable = false;
