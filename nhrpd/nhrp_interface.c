@@ -269,6 +269,9 @@ static void nhrp_interface_update_address(struct interface *ifp, afi_t afi,
 	frr_each (if_connected, ifp->connected, c) {
 		if (PREFIX_FAMILY(c->address) != family)
 			continue;
+		/* On NHRP interfaces a host prefix is required */
+		if (if_ad->configured && c->address->prefixlen != 8 * prefix_blen(c->address))
+			continue;
 		if (best == NULL) {
 			best = c;
 			continue;
@@ -287,14 +290,6 @@ static void nhrp_interface_update_address(struct interface *ifp, afi_t afi,
 		}
 		if (best->address->prefixlen < c->address->prefixlen)
 			continue;
-	}
-
-	/* On NHRP interfaces a host prefix is required */
-	if (best && if_ad->configured
-	    && best->address->prefixlen != 8 * prefix_blen(best->address)) {
-		zlog_notice("%s: %pFX is not a host prefix", ifp->name,
-			    best->address);
-		best = NULL;
 	}
 
 	/* Update address if it changed */
