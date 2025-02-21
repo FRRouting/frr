@@ -961,6 +961,12 @@ static int zapi_nexthop_srv6_cmp(const struct zapi_nexthop *next1,
 	if (ret != 0)
 		return ret;
 
+	if (next1->srv6_encap_behavior > next2->srv6_encap_behavior)
+		return 1;
+
+	if (next1->srv6_encap_behavior < next2->srv6_encap_behavior)
+		return -1;
+
 	if (next1->seg6local_action > next2->seg6local_action)
 		return 1;
 
@@ -1182,6 +1188,7 @@ int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 		stream_putc(s, api_nh->seg_num);
 		stream_put(s, &api_nh->seg6_segs[0],
 			   api_nh->seg_num * sizeof(struct in6_addr));
+		stream_putl(s, api_nh->srv6_encap_behavior);
 	}
 done:
 	return ret;
@@ -1576,6 +1583,8 @@ int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 
 		STREAM_GET(&api_nh->seg6_segs[0], s,
 			   api_nh->seg_num * sizeof(struct in6_addr));
+
+		STREAM_GETL(s, api_nh->srv6_encap_behavior);
 	}
 
 	/* Success */
@@ -2419,6 +2428,7 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 				memcpy(&znh->seg6_segs[i],
 				       &nh->nh_srv6->seg6_segs->seg[i],
 				       sizeof(struct in6_addr));
+			znh->srv6_encap_behavior = nh->nh_srv6->seg6_segs->encap_behavior;
 		}
 	}
 
