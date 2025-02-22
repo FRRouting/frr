@@ -140,6 +140,11 @@ nb_op_create_yield_state(const char *xpath, struct yang_translator *translator,
 
 	ys = XCALLOC(MTYPE_NB_YIELD_STATE, sizeof(*ys));
 	ys->xpath = darr_strdup_cap(xpath, (size_t)XPATH_MAXLEN);
+	/* remove trailing '/'s */
+	while (darr_len(ys->xpath) > 1 && ys->xpath[darr_len(ys->xpath) - 2] == '/') {
+		darr_setlen(ys->xpath, darr_len(ys->xpath) - 1);
+		*darr_last(ys->xpath) = 0;
+	}
 	ys->xpath_orig = darr_strdup(xpath);
 	ys->translator = translator;
 	ys->flags = flags;
@@ -417,8 +422,7 @@ static enum nb_error nb_op_ys_finalize_node_info(struct nb_op_yield_state *ys,
 	/* Assert that we are walking the rightmost branch */
 	assert(!inner->parent || inner == inner->parent->child->prev);
 
-	if (CHECK_FLAG(inner->schema->nodetype,
-		       LYS_CASE | LYS_CHOICE | LYS_CONTAINER)) {
+	if (CHECK_FLAG(inner->schema->nodetype, LYS_CONTAINER)) {
 		/* containers have only zero or one child on a branch of a tree */
 		inner = ((struct lyd_node_inner *)inner)->child;
 		assert(!inner || inner->prev == inner);
@@ -568,7 +572,8 @@ static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 	inner = node;
 	prevlen = 0;
 	xplen = strlen(xpath);
-	darr_free(xpath);
+	darr_free(ys->xpath);
+	ys->xpath = xpath;
 	for (i = len; i > 0; i--, inner = &inner->parent->node) {
 		ni = &ys->node_infos[i - 1];
 		ni->inner = inner;
@@ -897,8 +902,7 @@ static const struct lysc_node *nb_op_sib_first(struct nb_op_yield_state *ys,
 	 * base of the user query, return the next schema node from the query
 	 * string (schema_path).
 	 */
-	if (last != NULL &&
-	    !CHECK_FLAG(last->schema->nodetype, LYS_CASE | LYS_CHOICE))
+	if (last != NULL)
 		assert(last->schema == parent);
 	if (darr_lasti(ys->node_infos) < ys->query_base_level)
 		return ys->schema_path[darr_lasti(ys->node_infos) + 1];
@@ -975,7 +979,8 @@ static enum nb_error __walk(struct nb_op_yield_state *ys, bool is_resume)
 	if (!walk_stem_tip)
 		return NB_ERR_NOT_FOUND;
 
-	if (ys->schema_path[0]->nodetype == LYS_CHOICE) {
+	if (ys->schema_path[0]->parent &&
+	    CHECK_FLAG(ys->schema_path[0]->parent->nodetype, LYS_CHOICE|LYS_CASE)) {
 		flog_err(EC_LIB_NB_OPERATIONAL_DATA,
 			 "%s: unable to walk root level choice node from module: %s",
 			 __func__, ys->schema_path[0]->module->name);
@@ -1082,8 +1087,12 @@ static enum nb_error __walk(struct nb_op_yield_state *ys, bool is_resume)
 			       LYS_LEAF | LYS_LEAFLIST | LYS_CONTAINER))
 			xpath_child = nb_op_get_child_path(ys->xpath, sib,
 							   xpath_child);
-		else if (CHECK_FLAG(sib->nodetype, LYS_CASE | LYS_CHOICE))
+		else if (CHECK_FLAG(sib->nodetype, LYS_CASE | LYS_CHOICE)) {
 			darr_in_strdup(xpath_child, ys->xpath);
+			len = darr_last(ys->node_infos)->xpath_len;
+			darr_setlen(xpath_child, len + 1);
+			xpath_child[len] = 0;
+		}
 
 		nn = sib->priv;
 
@@ -1703,22 +1712,22 @@ static enum nb_error nb_op_ys_init_schema_path(struct nb_op_yield_state *ys,
 	 * NOTE: appears to be a bug in nb_node linkage where parent can be NULL,
 	 * or I'm misunderstanding the code, in any case we use the libyang
 	 * linkage to walk which works fine.
-	 *
-	 * XXX: we don't actually support choice/case yet, they are container
-	 * types in the libyang schema, but won't be in data so our length
-	 * checking gets messed up.
 	 */
-	for (sn = nblast->snode, count = 0; sn; count++, sn = sn->parent)
+	for (sn = nblast->snode, count = 0; sn; sn = sn->parent) {
 		if (sn != nblast->snode)
 			assert(CHECK_FLAG(sn->nodetype,
-					  LYS_CONTAINER | LYS_LIST |
-						  LYS_CHOICE | LYS_CASE));
+					  LYS_CONTAINER | LYS_LIST | LYS_CHOICE | LYS_CASE));
+		if (!CHECK_FLAG(sn->nodetype, LYS_CHOICE | LYS_CASE))
+			count++;
+	}
 	/* create our arrays */
 	darr_append_n(ys->schema_path, count);
 	darr_append_n(ys->query_tokens, count);
 	darr_append_nz(ys->non_specific_predicate, count);
-	for (sn = nblast->snode; sn; sn = sn->parent)
-		ys->schema_path[--count] = sn;
+	for (sn = nblast->snode; sn; sn = sn->parent) {
+		if (!CHECK_FLAG(sn->nodetype, LYS_CHOICE | LYS_CASE))
+			ys->schema_path[--count] = sn;
+	}
 
 	/*
 	 * Now tokenize the query string and get pointers to each token
@@ -1737,50 +1746,42 @@ static enum nb_error nb_op_ys_init_schema_path(struct nb_op_yield_state *ys,
 		int nlen = strlen(name);
 		int mnlen = 0;
 
-		/*
-		 * Technically the query_token for choice/case should probably be pointing at
-		 * the child (leaf) rather than the parent (container), however,
-		 * we only use these for processing list nodes so KISS.
-		 */
-		if (CHECK_FLAG(ys->schema_path[i]->nodetype,
-			       LYS_CASE | LYS_CHOICE)) {
-			ys->query_tokens[i] = ys->query_tokens[i - 1];
-			continue;
-		}
-
+		s2 = s;
 		while (true) {
-			s2 = strstr(s, name);
+			/* skip past any module name prefix */
+			s2 = strstr(s2, name);
 			if (!s2)
 				goto error;
 
-			if (s2[-1] == ':') {
+			if (s2 > s && s2[-1] == ':') {
 				mnlen = strlen(modname) + 1;
-				if (ys->query_tokstr > s2 - mnlen ||
-				    strncmp(s2 - mnlen, modname, mnlen - 1))
-					goto error;
+				if (s2 - s < mnlen || strncmp(s2 - mnlen, modname, mnlen - 1)) {
+					/* No match of module prefix, advance and try again */
+					s2 += strlen(name);
+					continue;
+				}
 				s2 -= mnlen;
 				nlen += mnlen;
 			}
 
-			s = s2;
-			if ((i == 0 || s[-1] == '/') &&
-			    (s[nlen] == 0 || s[nlen] == '[' || s[nlen] == '/'))
+			if ((i == 0 || s2[-1] == '/') &&
+			    (s2[nlen] == 0 || s2[nlen] == '[' || s2[nlen] == '/')) {
+				s = s2;
 				break;
-			/*
-			 * Advance past the incorrect match, must have been
-			 * part of previous predicate.
-			 */
-			s += nlen;
+			}
+			/* No exact match at end, advance and try again */
+			s2 += strlen(name);
 		}
 
 		/* NUL terminate previous token and save this one */
-		if (i > 0)
+		if (i > 0) {
+			assert(s[-1] == '/');
 			s[-1] = 0;
+		}
 		ys->query_tokens[i] = s;
 		s += nlen;
 	}
 
-	/* NOTE: need to subtract choice/case nodes when these are supported */
 	ys->query_base_level = darr_lasti(ys->schema_path);
 
 	return NB_OK;
