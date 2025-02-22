@@ -2,4 +2,8 @@ show yang operational-data /frr-test-module:frr-test-module
 show yang operational-data /frr-test-module:frr-test-module/vrfs/vrf[name='vrf0']/routes/route[2]
 show yang operational-data /frr-test-module:frr-test-module/vrfs/vrf[name='vrf0']/routes/route[3]/interface
 show yang operational-data /frr-test-module:frr-test-module/vrfs/vrf[name='vrf0']/routes/route[10]
+show yang operational-data /frr-test-module:frr-test-module/c1value
+show yang operational-data /frr-test-module:frr-test-module/c2cont
+show yang operational-data /frr-test-module:frr-test-module/c2cont/
+show yang operational-data /frr-test-module:frr-test-module/c2cont/c2value
 test rpc
