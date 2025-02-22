@@ -119,6 +119,82 @@ test# show yang operational-data /frr-test-module:frr-test-module
     }
   }
 }
+<<<<<<< HEAD
+=======
+test# show yang operational-data /frr-test-module:frr-test-module/vrfs/vrf[name='vrf0']/routes/route[2]
+{
+  "frr-test-module:frr-test-module": {
+    "vrfs": {
+      "vrf": [
+        {
+          "name": "vrf0",
+          "routes": {
+            "route": [
+              {
+                "prefix": "10.0.0.1/32",
+                "next-hop": "172.16.0.1",
+                "interface": "eth1",
+                "metric": 1
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
+test# show yang operational-data /frr-test-module:frr-test-module/vrfs/vrf[name='vrf0']/routes/route[3]/interface
+{
+  "frr-test-module:frr-test-module": {
+    "vrfs": {
+      "vrf": [
+        {
+          "name": "vrf0",
+          "routes": {
+            "route": [
+              {
+                "interface": "eth2"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
+test# show yang operational-data /frr-test-module:frr-test-module/vrfs/vrf[name='vrf0']/routes/route[10]
+{}
+test# show yang operational-data /frr-test-module:frr-test-module/c1value
+{
+  "frr-test-module:frr-test-module": {
+    "c1value": 21
+  }
+}
+test# show yang operational-data /frr-test-module:frr-test-module/c2cont
+{
+  "frr-test-module:frr-test-module": {
+    "c2cont": {
+      "c2value": 2868969987
+    }
+  }
+}
+test# show yang operational-data /frr-test-module:frr-test-module/c2cont/
+{
+  "frr-test-module:frr-test-module": {
+    "c2cont": {
+      "c2value": 2868969987
+    }
+  }
+}
+test# show yang operational-data /frr-test-module:frr-test-module/c2cont/c2value
+{
+  "frr-test-module:frr-test-module": {
+    "c2cont": {
+      "c2value": 2868969987
+    }
+  }
+}
+>>>>>>> 73df7da40 (tests: add unit-test for choice/case node queries)
 test# test rpc
 vrf testname data testdata
 test# 
