@@ -2842,6 +2842,17 @@ module frr-zebra {
   container zebra {
     description
       "Data model for the Zebra daemon.";
+    leaf max-multipath {
+      config false;
+      type uint16 {
+        range "1..65535";
+      }
+      description
+        "The maximum number of nexthops for a route.  At this point it
+         is unlikely that a multipath number will ever get larger then
+         1024 but to allow for future expansions, the yang returns a
+         16 bit number";
+    }
     leaf ip-forwarding {
       type boolean;
       description

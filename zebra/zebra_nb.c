@@ -26,6 +26,12 @@ const struct frr_yang_module_info frr_zebra_info = {
 	.features = features,
 	.nodes = {
 		{
+			.xpath = "/frr-zebra:zebra/max-multipath",
+			.cbs = {
+				.get_elem = zebra_max_multipath_get_elem,
+			}
+		},
+		{
 			.xpath = "/frr-zebra:zebra/ip-forwarding",
 			.cbs = {
 				.modify = zebra_ip_forwarding_modify,
