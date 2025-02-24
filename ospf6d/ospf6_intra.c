@@ -2194,9 +2194,15 @@ void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
 				zlog_info("%s: brouter %s appears via area %s",
 					  __func__, brouter_name, oa->name);
 
+			ospf6_route_lock(brouter);
 			/* newly added */
 			if (hook_add)
 				(*hook_add)(brouter);
+			if (CHECK_FLAG(brouter->flag, OSPF6_ROUTE_WAS_REMOVED)) {
+				ospf6_route_unlock(brouter);
+				brouter = NULL;
+			} else
+				ospf6_route_unlock(brouter);
 		} else {
 			if (IS_OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER_ID(
 				    brouter_id)
