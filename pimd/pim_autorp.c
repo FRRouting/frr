@@ -981,6 +981,13 @@ static bool pim_autorp_socket_enable(struct pim_autorp *autorp)
 			return false;
 		}
 
+		if (vrf_bind(autorp->pim->vrf->vrf_id, fd, NULL)) {
+			zlog_warn("Could not bind autorp socket to vrf fd=%d: vrf_id=%d: errno=%d: %s",
+				  fd, autorp->pim->vrf->vrf_id, errno, safe_strerror(errno));
+			close(fd);
+			return false;
+		}
+
 		if (!pim_autorp_setup(fd)) {
 			zlog_warn("Could not setup autorp socket fd=%d: errno=%d: %s", fd, errno,
 				  safe_strerror(errno));
@@ -1550,7 +1557,10 @@ void pim_autorp_init(struct pim_instance *pim)
 
 	if (PIM_DEBUG_AUTORP)
 		zlog_debug("%s: AutoRP Initialized", __func__);
+}
 
+void pim_autorp_enable(struct pim_instance *pim)
+{
 	/* Start AutoRP discovery by default on startup */
 	pim_autorp_start_discovery(pim);
 }
