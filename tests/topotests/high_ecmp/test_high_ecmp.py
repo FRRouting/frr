@@ -50,7 +50,7 @@ def build_topo(tgen):
     r2 = tgen.gears["r2"]
 
     # Let's create 257 interfaces between the two switches
-    for switch in range(1, 257):
+    for switch in range(1, 516):
         switch = tgen.add_switch("sw{}".format(switch))
         switch.add_link(r1)
         switch.add_link(r2)
