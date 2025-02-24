@@ -6210,8 +6210,7 @@ int dplane_show_provs_helper(struct vty *vty, bool detailed)
 
 		in_max = atomic_load_explicit(&prov->dp_in_max,
 					      memory_order_relaxed);
-		out = atomic_load_explicit(&prov->dp_out_counter,
-					   memory_order_relaxed);
+		out = dplane_provider_out_ctx_queue_len(prov);
 
 		out_max = atomic_load_explicit(&prov->dp_out_max,
 					       memory_order_relaxed);
