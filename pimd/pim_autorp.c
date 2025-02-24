@@ -967,6 +967,7 @@ err:
 static bool pim_autorp_socket_enable(struct pim_autorp *autorp)
 {
 	int fd;
+	struct interface *ifp;
 
 	/* Return early if socket is already enabled */
 	if (autorp->sock != -1)
@@ -990,6 +991,11 @@ static bool pim_autorp_socket_enable(struct pim_autorp *autorp)
 
 	autorp->sock = fd;
 
+	/* Join autorp groups on all pim enabled interfaces in the VRF */
+	FOR_ALL_INTERFACES (autorp->pim->vrf, ifp) {
+		pim_autorp_add_ifp(ifp);
+	}
+
 	if (PIM_DEBUG_AUTORP)
 		zlog_debug("%s: AutoRP socket enabled (fd=%u)", __func__, fd);
 
@@ -1002,6 +1008,7 @@ static bool pim_autorp_socket_disable(struct pim_autorp *autorp)
 	if (autorp->sock == -1)
 		return true;
 
+	/* No need to leave the autorp groups explicitly, they are left when the socket is closed */
 	if (close(autorp->sock)) {
 		zlog_warn("Failure closing autorp socket: fd=%d errno=%d: %s", autorp->sock, errno,
 			  safe_strerror(errno));
@@ -1428,10 +1435,10 @@ void pim_autorp_add_ifp(struct interface *ifp)
 {
 	/* Add a new interface for autorp
 	 *   When autorp is enabled, we must join the autorp groups on all
-	 *   pim/multicast interfaces. When autorp first starts, if finds all
-	 *   current multicast interfaces and joins on them. If a new interface
-	 *   comes up or is configured for multicast after autorp is running, then
-	 *   this method will add it for autorp->
+	 *   pim/multicast interfaces. When autorp becomes enabled, it finds all
+	 *   current pim enabled interfaces and joins the autorp groups on them.
+	 *   Any new interfaces added after autorp is enabled will use this function
+	 *   to join the autorp groups
 	 * This is called even when adding a new pim interface that is not yet
 	 * active, so make sure the check, it'll call in again once the interface is up.
 	 */
@@ -1441,7 +1448,8 @@ void pim_autorp_add_ifp(struct interface *ifp)
 	pim_ifp = ifp->info;
 	if (CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE) && pim_ifp && pim_ifp->pim_enable) {
 		pim = pim_ifp->pim;
-		if (pim && pim->autorp && pim->autorp->do_discovery) {
+		if (pim && pim->autorp &&
+		    (pim->autorp->do_discovery || pim->autorp->send_rp_discovery)) {
 			if (PIM_DEBUG_AUTORP)
 				zlog_debug("%s: Adding interface %s to AutoRP, joining AutoRP groups",
 					   __func__, ifp->name);
@@ -1477,8 +1485,12 @@ void pim_autorp_rm_ifp(struct interface *ifp)
 
 void pim_autorp_start_discovery(struct pim_instance *pim)
 {
-	struct interface *ifp;
 	struct pim_autorp *autorp = pim->autorp;
+
+	if (autorp->do_discovery)
+		return;
+
+	autorp->do_discovery = true;
 
 	/* Make sure the socket is open and ready */
 	if (!pim_autorp_socket_enable(autorp)) {
@@ -1486,35 +1498,24 @@ void pim_autorp_start_discovery(struct pim_instance *pim)
 		return;
 	}
 
-	if (!autorp->do_discovery) {
-		autorp->do_discovery = true;
-		autorp_read_on(autorp);
+	autorp_read_on(autorp);
 
-		FOR_ALL_INTERFACES (autorp->pim->vrf, ifp) {
-			pim_autorp_add_ifp(ifp);
-		}
-
-		if (PIM_DEBUG_AUTORP)
-			zlog_debug("%s: AutoRP Discovery started", __func__);
-	}
+	if (PIM_DEBUG_AUTORP)
+		zlog_debug("%s: AutoRP Discovery started", __func__);
 }
 
 void pim_autorp_stop_discovery(struct pim_instance *pim)
 {
-	struct interface *ifp;
 	struct pim_autorp *autorp = pim->autorp;
 
-	if (autorp->do_discovery) {
-		FOR_ALL_INTERFACES (autorp->pim->vrf, ifp) {
-			pim_autorp_rm_ifp(ifp);
-		}
+	if (!autorp->do_discovery)
+		return;
 
-		autorp->do_discovery = false;
-		autorp_read_off(autorp);
+	autorp->do_discovery = false;
+	autorp_read_off(autorp);
 
-		if (PIM_DEBUG_AUTORP)
-			zlog_debug("%s: AutoRP Discovery stopped", __func__);
-	}
+	if (PIM_DEBUG_AUTORP)
+		zlog_debug("%s: AutoRP Discovery stopped", __func__);
 
 	/* Close the socket if we need to */
 	if (pim_autorp_should_close(autorp) && !pim_autorp_socket_disable(autorp))
