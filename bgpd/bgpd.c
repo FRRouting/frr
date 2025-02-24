@@ -4257,11 +4257,12 @@ int bgp_delete(struct bgp *bgp)
 			bgp_set_evpn(bgp_get_default());
 	}
 
-	if (!IS_BGP_INSTANCE_HIDDEN(bgp)) {
-		if (bgp->process_queue)
-			work_queue_free_and_null(&bgp->process_queue);
+	if (bgp->process_queue)
+		work_queue_free_and_null(&bgp->process_queue);
+
+	if (!IS_BGP_INSTANCE_HIDDEN(bgp))
 		bgp_unlock(bgp); /* initial reference */
-	} else {
+	else {
 		for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 			enum vpn_policy_direction dir;
 
