@@ -52,6 +52,12 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+			.xpath = "/frr-zebra:zebra/state/ipv6-forwarding",
+			.cbs = {
+				.get_elem = zebra_ipv6_forwarding_get_elem,
+			}
+		},
+		{
 			.xpath = "/frr-zebra:zebra/workqueue-hold-timer",
 			.cbs = {
 				.modify = zebra_workqueue_hold_timer_modify,

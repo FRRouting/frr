@@ -1179,3 +1179,13 @@ struct yang_data *zebra_ip_forwarding_get_elem(struct nb_cb_get_elem_args *args)
 {
 	return yang_data_new_bool(args->xpath, ipforward());
 }
+
+
+/*
+ * XPath:
+ *  /frr-zebra:zebra/ipv6_forwarding
+ */
+struct yang_data *zebra_ipv6_forwarding_get_elem(struct nb_cb_get_elem_args *args)
+{
+	return yang_data_new_bool(args->xpath, ipforward_ipv6());
+}
