@@ -32,6 +32,7 @@ int get_debugs_rpc(struct nb_cb_rpc_args *args);
 int zebra_mcast_rpf_lookup_modify(struct nb_cb_modify_args *args);
 int zebra_ip_forwarding_modify(struct nb_cb_modify_args *args);
 int zebra_ip_forwarding_destroy(struct nb_cb_destroy_args *args);
+struct yang_data *zebra_ip_forwarding_get_elem(struct nb_cb_get_elem_args *args);
 int zebra_ipv6_forwarding_modify(struct nb_cb_modify_args *args);
 int zebra_ipv6_forwarding_destroy(struct nb_cb_destroy_args *args);
 int zebra_workqueue_hold_timer_modify(struct nb_cb_modify_args *args);

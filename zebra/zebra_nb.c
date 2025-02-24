@@ -34,8 +34,9 @@ const struct frr_yang_module_info frr_zebra_info = {
 		{
 			.xpath = "/frr-zebra:zebra/ip-forwarding",
 			.cbs = {
-				.modify = zebra_ip_forwarding_modify,
-				.destroy = zebra_ip_forwarding_destroy,
+				//.modify = zebra_ip_forwarding_modify,
+				//.destroy = zebra_ip_forwarding_destroy,
+				.get_elem = zebra_ip_forwarding_get_elem,
 			}
 		},
 		{

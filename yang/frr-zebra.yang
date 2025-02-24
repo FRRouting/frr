@@ -2854,6 +2854,7 @@ module frr-zebra {
          16 bit number";
     }
     leaf ip-forwarding {
+      config false;
       type boolean;
       description
         "IP forwarding status.";
