@@ -3404,15 +3404,13 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	afi_t afi;
 	safi_t safi;
 
-	if (hidden)
+	if (hidden) {
 		bgp = bgp_old;
-	else
-		bgp = XCALLOC(MTYPE_BGP, sizeof(struct bgp));
+		goto peer_init;
+	}
 
+	bgp = XCALLOC(MTYPE_BGP, sizeof(struct bgp));
 	bgp->as = *as;
-
-	if (bgp->as_pretty)
-		XFREE(MTYPE_BGP_NAME, bgp->as_pretty);
 	if (as_pretty)
 		bgp->as_pretty = XSTRDUP(MTYPE_BGP_NAME, as_pretty);
 	else
@@ -3423,9 +3421,6 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 		SET_FLAG(bgp->config, BGP_CONFIG_ASNOTATION);
 	} else
 		asn_str2asn_notation(bgp->as_pretty, NULL, &bgp->asnotation);
-
-	if (hidden)
-		goto peer_init;
 
 	if (BGP_DEBUG(zebra, ZEBRA)) {
 		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
