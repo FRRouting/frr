@@ -14,6 +14,7 @@ extern "C" {
 extern const struct frr_yang_module_info frr_zebra_info;
 
 /* prototypes */
+struct yang_data *zebra_max_multipath_get_elem(struct nb_cb_get_elem_args *args);
 int get_route_information_rpc(struct nb_cb_rpc_args *args);
 int get_v6_mroute_info_rpc(struct nb_cb_rpc_args *args);
 int get_vrf_info_rpc(struct nb_cb_rpc_args *args);
