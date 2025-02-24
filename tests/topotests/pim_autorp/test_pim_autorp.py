@@ -132,6 +132,90 @@ def test_pim_autorp_discovery_single_rp(request):
     result = verify_pim_rp_info_is_empty(tgen, "r2")
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
+def test_pim_autorp_disable_enable(request):
+    "Test PIM AutoRP disable and re-enable works properly"
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    step("Ensure AutoRP groups are joined on all routers")
+    for rtr in ["r1", "r2"]:
+        expected = {
+            f"{rtr}-eth0": {
+                "name": f"{rtr}-eth0",
+                "224.0.1.40": "*",
+            },
+        }
+
+        test_func = partial(
+            topotest.router_json_cmp,
+            tgen.gears[rtr],
+            "show ip igmp sources json",
+            expected,
+        )
+        _, result = topotest.run_and_expect(test_func, None)
+        assert result is None, "{} does not have correct autorp groups joined".format(
+            rtr
+        )
+
+    step("Disable AutoRP on all routers")
+    for rtr in ["r1", "r2"]:
+        tgen.routers()[rtr].vtysh_cmd(
+            """
+            conf
+            router pim
+              no autorp discovery
+            """
+        )
+
+    step("Ensure AutoRP groups are no longer joined on all routers")
+    for rtr in ["r1", "r2"]:
+        expected = {f"{rtr}-eth0": None}
+
+        test_func = partial(
+            topotest.router_json_cmp,
+            tgen.gears[rtr],
+            "show ip igmp sources json",
+            expected,
+        )
+        _, result = topotest.run_and_expect(test_func, None)
+        assert result is None, "{} does not have correct autorp groups joined".format(
+            rtr
+        )
+
+    step("Re-enable AutoRP on all routers")
+    for rtr in ["r1", "r2"]:
+        tgen.routers()[rtr].vtysh_cmd(
+            """
+            conf
+            router pim
+              autorp discovery
+            """
+        )
+
+    step("Ensure AutoRP groups are re-joined on all routers")
+    for rtr in ["r1", "r2"]:
+        expected = {
+            f"{rtr}-eth0": {
+                "name": f"{rtr}-eth0",
+                "224.0.1.40": "*",
+            },
+        }
+
+        test_func = partial(
+            topotest.router_json_cmp,
+            tgen.gears[rtr],
+            "show ip igmp sources json",
+            expected,
+        )
+        _, result = topotest.run_and_expect(test_func, None)
+        assert result is None, "{} does not have correct autorp groups joined".format(
+            rtr
+        )
+
 
 def test_pim_autorp_discovery_multiple_rp(request):
     "Test PIM AutoRP Discovery with multiple RP's"
