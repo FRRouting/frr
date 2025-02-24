@@ -177,6 +177,30 @@ def test_bgp_administrative_reset_gr():
         }
         return topotest.json_cmp(output, expected)
 
+    def _bgp_check_gr_notification_stale_kernel():
+        output = json.loads(r1.vtysh_cmd("show ip route 172.16.255.2/32 json"))
+        expected = {
+            "172.16.255.2/32": [
+                {
+                    "protocol": "bgp",
+                    "selected": True,
+                    "distance": 20,
+                    "metric": 0,
+                    "installed": True,
+                    "nexthops": [
+                        {
+                            "fib": True,
+                            "ip": "192.168.255.2",
+                            "afi": "ipv4",
+                            "interfaceName": "r1-eth0",
+                            "active": True,
+                        }
+                    ],
+                }
+            ]
+        }
+        return topotest.json_cmp(output, expected)
+
     def _bgp_clear_r1_and_shutdown():
         r2.vtysh_cmd(
             """
@@ -209,6 +233,11 @@ def test_bgp_administrative_reset_gr():
     test_func = functools.partial(_bgp_check_gr_notification_stale)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Failed to see retained stale routes on R1"
+
+    step("Check if stale routes are retained in the kernel on R1")
+    test_func = functools.partial(_bgp_check_gr_notification_stale_kernel)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to see retained stale routes in the kernel on R1"
 
     step("Check if Hard Reset notification wasn't sent from R2")
     test_func = functools.partial(_bgp_check_hard_reset)
