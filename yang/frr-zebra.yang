@@ -2859,24 +2859,8 @@ module frr-zebra {
         "IP forwarding status.";
     }
     leaf ipv6-forwarding {
-      type enumeration {
-        enum unknown {
-          value -1;
-          description
-            "Unknown state.";
-        }
-        enum off {
-          value 0;
-          description
-            "IPv6 forwarding disabled.";
-        }
-        enum on {
-          value 1;
-          description
-            "IPv6 forwarding enabled.";
-        }
-      }
-      description
+      type boolean;
+       description
         "IPv6 forwarding status.";
     }
     leaf workqueue-hold-timer {
@@ -2973,6 +2957,11 @@ module frr-zebra {
         description
           "IP forwarding status.";
       }
+      leaf ipv6-forwarding {
+        type boolean;
+        description
+          "IPv6 forwarding status.";
+      }   
     }
     // End of operational / state container
   }
