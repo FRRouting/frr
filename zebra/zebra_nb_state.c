@@ -14,6 +14,7 @@
 #include "printfrr.h"
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_vxlan_if.h"
+#include "zebra/ipforward.h"
 
 /*
  * XPath: /frr-interface:lib/interface/frr-zebra:zebra/state/up-count
@@ -1168,4 +1169,13 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_weight_get_elem(
 struct yang_data *zebra_max_multipath_get_elem(struct nb_cb_get_elem_args *args)
 {
 	return yang_data_new_uint16(args->xpath, zrouter.multipath_num);
+}
+
+/*
+ * XPath:
+ * /frr-zebra:zebra/ip_forwarding
+ */
+struct yang_data *zebra_ip_forwarding_get_elem(struct nb_cb_get_elem_args *args)
+{
+	return yang_data_new_bool(args->xpath, ipforward());
 }

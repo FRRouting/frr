@@ -2968,6 +2968,11 @@ module frr-zebra {
       config false;
       description
         "Operational data.";
+      leaf ip-forwarding {
+        type boolean;
+        description
+          "IP forwarding status.";
+      }
     }
     // End of operational / state container
   }
