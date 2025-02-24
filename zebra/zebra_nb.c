@@ -39,6 +39,12 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+			.xpath = "/frr-zebra:zebra/state/ip-forwarding",
+			.cbs = {
+				.get_elem = zebra_ip_forwarding_get_elem,
+			}
+		},
+		{
 			.xpath = "/frr-zebra:zebra/ipv6-forwarding",
 			.cbs = {
 				.modify = zebra_ipv6_forwarding_modify,
