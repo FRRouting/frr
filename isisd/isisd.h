@@ -74,7 +74,9 @@ struct isis_master {
 	struct list *isis;
 	/* ISIS thread master. */
 	struct event_loop *master;
+	/* Various global options */
 	uint8_t options;
+#define ISIS_OPT_DUMMY_AS_LOOPBACK (1 << 0)
 };
 #define F_ISIS_UNIT_TEST 0x01
 
@@ -269,6 +271,8 @@ DECLARE_HOOK(isis_area_overload_bit_update, (struct isis_area * area), (area));
 void isis_terminate(void);
 void isis_master_init(struct event_loop *master);
 void isis_master_terminate(void);
+int isis_option_set(int flag);
+int isis_option_check(int flag);
 void isis_vrf_link(struct isis *isis, struct vrf *vrf);
 void isis_vrf_unlink(struct isis *isis, struct vrf *vrf);
 struct isis *isis_lookup_by_vrfid(vrf_id_t vrf_id);

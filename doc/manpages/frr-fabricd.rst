@@ -21,6 +21,10 @@ OPTIONS available for the |DAEMON| command:
 
 .. include:: common-options.rst
 
+.. option:: --dummy_as_loopback
+
+   Treat dummy interfaces as loopback interfaces.
+
 FILES
 =====
 
