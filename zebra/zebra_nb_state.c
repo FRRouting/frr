@@ -87,6 +87,9 @@ lib_interface_zebra_state_zif_type_get_elem(struct nb_cb_get_elem_args *args)
 	case ZEBRA_IF_GRE:
 		type = "frr-zebra:zif-gre";
 		break;
+	case ZEBRA_IF_DUMMY:
+		type = "frr-zebra:zif-dummy";
+		break;
 	}
 
 	if (!type)
