@@ -323,6 +323,10 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 
 	if (!static_zebra_nht_get_prefix(nh, &lookup.nh))
 		return;
+
+	if (nh->nh_vrf_id == VRF_UNKNOWN)
+		return;
+
 	lookup.nh_vrf_id = nh->nh_vrf_id;
 	lookup.safi = si->safi;
 
