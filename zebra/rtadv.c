@@ -1254,9 +1254,6 @@ static void rtadv_start_interface_events(struct zebra_vrf *zvrf,
 		return; /* Already added */
 
 	if_join_all_router(zvrf->rtadv.sock, zif->ifp);
-
-	if (adv_if_list_count(&zvrf->rtadv.adv_if) == 1)
-		rtadv_event(zvrf, RTADV_START, 0);
 }
 
 void ipv6_nd_suppress_ra_set(struct interface *ifp,
@@ -1284,9 +1281,6 @@ void ipv6_nd_suppress_ra_set(struct interface *ifp,
 			adv_if_free(adv_if);
 
 			if_leave_all_router(zvrf->rtadv.sock, ifp);
-
-			if (adv_if_list_count(&zvrf->rtadv.adv_if) == 0)
-				rtadv_event(zvrf, RTADV_STOP, 0);
 		}
 	} else {
 		if (!zif->rtadv.AdvSendAdvertisements) {
@@ -1828,6 +1822,9 @@ void rtadv_vrf_init(struct zebra_vrf *zvrf)
 		return;
 
 	zvrf->rtadv.sock = rtadv_make_socket(zvrf->zns->ns_id);
+
+	/* Always receive RS, no matter RA is disabled or not */
+	rtadv_event(zvrf, RTADV_START, 0);
 }
 
 void rtadv_vrf_terminate(struct zebra_vrf *zvrf)
