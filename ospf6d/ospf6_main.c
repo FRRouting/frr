@@ -104,9 +104,9 @@ static void __attribute__((noreturn)) ospf6_exit(int status)
 
 	vrf_terminate();
 
-	if (zclient) {
-		zclient_stop(zclient);
-		zclient_free(zclient);
+	if (ospf6_zclient) {
+		zclient_stop(ospf6_zclient);
+		zclient_free(ospf6_zclient);
 	}
 
 	ospf6_master_delete();
