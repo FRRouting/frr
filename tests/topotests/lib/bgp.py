@@ -11,7 +11,7 @@ import traceback
 from copy import deepcopy
 from time import sleep
 
-# Import common_config to use commomnly used APIs
+# Import common_config to use commonly used APIs
 from lib.common_config import (
     create_common_configurations,
     FRRCFG_FILE,
@@ -63,29 +63,29 @@ def create_router_bgp(tgen, topo=None, input_dict=None, build=False, load_config
                 "address_family": {
                     "ipv4": {
                         "unicast": {
-                            "default_originate":{
-                                "neighbor":"R2",
-                                "add_type":"lo"
-                                "route_map":"rm"
-
+                            "default_originate": {
+                                "neighbor": "R2",
+                                "add_type": "lo",
+                                "route_map": "rm",
                             },
-                            "redistribute": [{
-                                "redist_type": "static",
+                            "redistribute": [
+                                {
+                                    "redist_type": "static",
                                     "attribute": {
-                                        "metric" : 123
-                                    }
+                                        "metric": 123,
+                                    },
                                 },
-                                {"redist_type": "connected"}
+                                {"redist_type": "connected"},
                             ],
                             "advertise_networks": [
                                 {
                                     "network": "20.0.0.0/32",
-                                    "no_of_network": 10
+                                    "no_of_network": 10,
                                 },
                                 {
                                     "network": "30.0.0.0/32",
-                                    "no_of_network": 10
-                                }
+                                    "no_of_network": 10,
+                                },
                             ],
                             "neighbor": {
                                 "r3": {
@@ -94,31 +94,32 @@ def create_router_bgp(tgen, topo=None, input_dict=None, build=False, load_config
                                     "dest_link": {
                                         "r4": {
                                             "allowas-in": {
-                                                    "number_occurences": 2
+                                                "number_occurences": 2,
                                             },
                                             "prefix_lists": [
                                                 {
                                                     "name": "pf_list_1",
-                                                    "direction": "in"
-                                                }
+                                                    "direction": "in",
+                                                },
                                             ],
-                                            "route_maps": [{
-                                                "name": "RMAP_MED_R3",
-                                                 "direction": "in"
-                                            }],
-                                            "next_hop_self": True
+                                            "route_maps": [
+                                                {
+                                                    "name": "RMAP_MED_R3",
+                                                    "direction": "in",
+                                                },
+                                            ],
+                                            "next_hop_self": True,
                                         },
-                                        "r1": {"graceful-restart-helper": True}
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+                                        "r1": {"graceful-restart-helper": True},
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
     }
-
 
     Returns
     -------
