@@ -173,6 +173,7 @@ void pim_autorp_rm_ifp(struct interface *ifp);
 void pim_autorp_start_discovery(struct pim_instance *pim);
 void pim_autorp_stop_discovery(struct pim_instance *pim);
 void pim_autorp_init(struct pim_instance *pim);
+void pim_autorp_enable(struct pim_instance *pim);
 void pim_autorp_finish(struct pim_instance *pim);
 int pim_autorp_config_write(struct pim_instance *pim, struct vty *vty);
 void pim_autorp_show_autorp(struct vty *vty, struct pim_instance *pim, const char *component,
