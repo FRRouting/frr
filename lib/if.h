@@ -242,6 +242,7 @@ struct interface {
 #define ZEBRA_INTERFACE_SUB        (1 << 1)
 #define ZEBRA_INTERFACE_LINKDETECTION (1 << 2)
 #define ZEBRA_INTERFACE_VRF_LOOPBACK (1 << 3)
+#define ZEBRA_INTERFACE_DUMMY (1 << 4)
 
 	/* Interface flags. */
 	uint64_t flags;
