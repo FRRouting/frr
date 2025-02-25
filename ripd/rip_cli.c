@@ -681,9 +681,9 @@ DEFPY_YANG (ip_rip_split_horizon,
 {
 	const char *value;
 
-	if (no)
+	if (no && poisoned_reverse == NULL)
 		value = "disabled";
-	else if (poisoned_reverse)
+	else if (poisoned_reverse && no == NULL)
 		value = "poison-reverse";
 	else
 		value = "simple";
