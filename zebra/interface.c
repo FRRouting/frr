@@ -548,6 +548,9 @@ void if_add_update(struct interface *ifp)
 
 	zebra_interface_add_update(ifp);
 
+	if (IS_ZEBRA_IF_DUMMY(ifp))
+		SET_FLAG(ifp->status, ZEBRA_INTERFACE_DUMMY);
+
 	if (!CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
 		SET_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE);
 
@@ -1616,6 +1619,7 @@ static void interface_update_l2info(struct zebra_dplane_ctx *ctx,
 	case ZEBRA_IF_MACVLAN:
 	case ZEBRA_IF_VETH:
 	case ZEBRA_IF_BOND:
+	case ZEBRA_IF_DUMMY:
 		break;
 	}
 }
@@ -2368,6 +2372,9 @@ static const char *zebra_ziftype_2str(enum zebra_iftype zif_type)
 
 	case ZEBRA_IF_GRE:
 		return "GRE";
+
+	case ZEBRA_IF_DUMMY:
+		return "dummy";
 
 	default:
 		return "Unknown";

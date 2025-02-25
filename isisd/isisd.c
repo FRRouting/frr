@@ -116,6 +116,25 @@ int show_isis_neighbor_common(struct vty *, struct json_object *json,
 int clear_isis_neighbor_common(struct vty *, const char *id,
 			       const char *vrf_name, bool all_vrf);
 
+
+/* ISIS global flag manipulation.  */
+int isis_option_set(int flag)
+{
+	switch (flag) {
+	case ISIS_OPT_DUMMY_AS_LOOPBACK:
+		SET_FLAG(im->options, flag);
+		break;
+	default:
+		return -1;
+	}
+	return 0;
+}
+
+int isis_option_check(int flag)
+{
+	return CHECK_FLAG(im->options, flag);
+}
+
 /* Link ISIS instance to VRF. */
 void isis_vrf_link(struct isis *isis, struct vrf *vrf)
 {

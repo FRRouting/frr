@@ -491,16 +491,17 @@ void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp)
 {
 	struct connected *conn;
 
-	if (if_is_broadcast(ifp)) {
+	if (if_is_loopback(ifp) || (isis_option_check(ISIS_OPT_DUMMY_AS_LOOPBACK) &&
+				    CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_DUMMY))) {
+		circuit->circ_type = CIRCUIT_T_LOOPBACK;
+		circuit->is_passive = 1;
+	} else if (if_is_broadcast(ifp)) {
 		if (fabricd || circuit->circ_type_config == CIRCUIT_T_P2P)
 			circuit->circ_type = CIRCUIT_T_P2P;
 		else
 			circuit->circ_type = CIRCUIT_T_BROADCAST;
 	} else if (if_is_pointopoint(ifp)) {
 		circuit->circ_type = CIRCUIT_T_P2P;
-	} else if (if_is_loopback(ifp)) {
-		circuit->circ_type = CIRCUIT_T_LOOPBACK;
-		circuit->is_passive = 1;
 	} else {
 		/* It's normal in case of loopback etc. */
 		if (IS_DEBUG_EVENTS)
