@@ -86,6 +86,12 @@
 %token <string> IPV4_PREFIX
 %token <string> IPV6
 %token <string> IPV6_PREFIX
+%token <string> RTC_AS2
+%token <string> RTC_AS2_PREFIX
+%token <string> RTC_AS4
+%token <string> RTC_AS4_PREFIX
+%token <string> RTC_IP
+%token <string> RTC_IP_PREFIX
 %token <string> VARIABLE
 %token <string> RANGE
 %token <string> MAC
@@ -284,6 +290,36 @@ placeholder_token_real:
 | MAC_PREFIX
 {
   $$ = new_token_node (ctx, MAC_PREFIX_TKN, $1, doc_next(ctx));
+  XFREE (MTYPE_LEX, $1);
+}
+| RTC_AS2
+{
+  $$ = new_token_node (ctx, RTC_AS2_TKN, $1, doc_next(ctx));
+  XFREE (MTYPE_LEX, $1);
+}
+|  RTC_AS2_PREFIX
+{
+  $$ = new_token_node (ctx,  RTC_AS2_PREFIX_TKN, $1, doc_next(ctx));
+  XFREE (MTYPE_LEX, $1);
+}
+| RTC_AS4
+{
+  $$ = new_token_node (ctx, RTC_AS4_TKN, $1, doc_next(ctx));
+  XFREE (MTYPE_LEX, $1);
+}
+|  RTC_AS4_PREFIX
+{
+  $$ = new_token_node (ctx,  RTC_AS4_PREFIX_TKN, $1, doc_next(ctx));
+  XFREE (MTYPE_LEX, $1);
+}
+| RTC_IP
+{
+  $$ = new_token_node (ctx, RTC_IP_TKN, $1, doc_next(ctx));
+  XFREE (MTYPE_LEX, $1);
+}
+|  RTC_IP_PREFIX
+{
+  $$ = new_token_node (ctx,  RTC_IP_PREFIX_TKN, $1, doc_next(ctx));
   XFREE (MTYPE_LEX, $1);
 }
 | ASNUM
