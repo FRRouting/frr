@@ -13642,6 +13642,66 @@ DEFUN (show_ip_bgp_route,
 			      path_type, RPKI_NOT_BEING_USED, uj);
 }
 
+DEFUN (show_ip_bgp_route_rtc,
+       show_ip_bgp_route_rtc_cmd,
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ipv4 rtfilter <ASN:0:2:EF:OPQR|ASN:2:2:GHJK:MN|ASN:1:2:A.B.C.D:MN|ASN:0:2:EF:OPQR/M|ASN:2:2:GHJK:MN/M|ASN:1:2:A.B.C.D:MN/M> [<bestpath|multipath>] [json]",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       BGP_INSTANCE_HELP_STR
+       BGP_AF_STR
+       BGP_AF_MODIFIER_STR
+       "RTC AS 2-bytes address\n"
+       "RTC AS 4-bytes address\n"
+       "RTC IP address\n"
+       "RTC AS 2-bytes prefix\n"
+       "RTC AS 4-bytes prefix\n"
+       "RTC IP prefix\n"
+       "Display only the bestpath\n"
+       "Display only multipaths\n"
+       JSON_STR)
+{
+	int prefix_check = 0;
+	afi_t afi = AFI_IP6;
+	safi_t safi = SAFI_UNICAST;
+	char *prefix = NULL;
+	struct bgp *bgp = NULL;
+	enum bgp_path_type path_type;
+	bool uj = use_json(argc, argv);
+	int idx = 0;
+
+	bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi, &bgp, uj);
+	if (!idx)
+		return CMD_WARNING;
+
+	if (!bgp) {
+		vty_out(vty,
+			"Specified 'all' vrf's but this command currently only works per view/vrf\n");
+		return CMD_WARNING;
+	}
+
+	if (argv_find(argv, argc, "A.B.C.D:MN", &idx) || argv_find(argv, argc, "EF:OPQR", &idx) ||
+	    argv_find(argv, argc, "GHJK:MN", &idx))
+		prefix_check = 0;
+	else if (argv_find(argv, argc, "A.B.C.D:MN/X", &idx) ||
+		 argv_find(argv, argc, "EF:OPQR/X", &idx) ||
+		 argv_find(argv, argc, "GHJK:MN/X", &idx))
+		prefix_check = 1;
+
+	prefix = argv[idx]->arg;
+
+	/* [<bestpath|multipath>] */
+	if (argv_find(argv, argc, "bestpath", &idx))
+		path_type = BGP_PATH_SHOW_BESTPATH;
+	else if (argv_find(argv, argc, "multipath", &idx))
+		path_type = BGP_PATH_SHOW_MULTIPATH;
+	else
+		path_type = BGP_PATH_SHOW_ALL;
+
+	return bgp_show_route(vty, bgp, prefix, afi, safi, NULL, prefix_check, path_type,
+			      RPKI_NOT_BEING_USED, uj);
+}
+
 DEFUN (show_ip_bgp_regexp,
        show_ip_bgp_regexp_cmd,
        "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_WITH_LS_CMD_STR" ["BGP_SAFI_WITH_LABEL_LS_CMD_STR"]] regexp REGEX [json]",
@@ -15136,7 +15196,7 @@ DEFPY (show_ip_bgp_instance_neighbor_bestpath_route,
 
 DEFPY(show_ip_bgp_instance_neighbor_advertised_route,
       show_ip_bgp_instance_neighbor_advertised_route_cmd,
-      "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_WITH_LS_CMD_STR " [" BGP_SAFI_NO_EVPN_CMD_STR "]] [all$all] neighbors <A.B.C.D|X:X::X:X|WORD> <advertised-routes|received-routes|filtered-routes> [route-map RMAP_NAME$route_map] [<A.B.C.D/M|X:X::X:X/M>$prefix | detail$detail] [json$uj | wide$wide]",
+      "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_WITH_LS_CMD_STR " [" BGP_SAFI_NO_EVPN_CMD_STR "]] [all$all] neighbors <A.B.C.D|X:X::X:X|WORD> <advertised-routes|received-routes|filtered-routes> [route-map RMAP_NAME$route_map] [<A.B.C.D/M|X:X::X:X/M|ASN:0:2:EF:OPQR/M|ASN:2:2:GHJK:MN/M|ASN:1:2:A.B.C.D:MN/M>$prefix | detail$detail] [json$uj | wide$wide]",
       SHOW_STR
       IP_STR
       BGP_STR
@@ -15155,6 +15215,9 @@ DEFPY(show_ip_bgp_instance_neighbor_advertised_route,
       "Name of the route map\n"
       "IPv4 prefix\n"
       "IPv6 prefix\n"
+      "RTC AS 2-bytes prefix\n"
+      "RTC AS 4-bytes prefix\n"
+      "RTC IP prefix\n"
       "Display detailed version of routes\n"
       JSON_STR
       "Increase table width for longer prefixes\n")
@@ -16427,6 +16490,7 @@ void bgp_route_init(void)
 	install_element(VIEW_NODE, &show_ip_bgp_link_state_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_rtc_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_route_cmd);
+	install_element(VIEW_NODE, &show_ip_bgp_route_rtc_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_regexp_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_statistics_all_cmd);
 
