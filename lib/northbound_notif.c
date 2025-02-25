@@ -58,6 +58,9 @@ RB_HEAD(op_changes, op_change);
 RB_PROTOTYPE(op_changes, op_change, link, op_change_cmp)
 RB_GENERATE(op_changes, op_change, link, op_change_cmp)
 
+pthread_mutex_t _nb_notif_lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t *nb_notif_lock;
+
 struct op_changes nb_notif_adds = RB_INITIALIZER(&nb_notif_adds);
 struct op_changes nb_notif_dels = RB_INITIALIZER(&nb_notif_dels);
 struct event_loop *nb_notif_master;
@@ -158,12 +161,14 @@ static void op_change_free(struct op_change *note)
 }
 
 /**
- * op_changes_group_push() - Save the current set of changes on the queue.
+ * __op_changes_group_push() - Save the current set of changes on the queue.
  *
  * This function will save the current set of changes on the queue and
  * initialize a new set of changes.
+ *
+ * The lock must be held during this call.
  */
-static void op_changes_group_push(void)
+static void __op_changes_group_push(void)
 {
 	struct op_changes_group *changes;
 
@@ -312,15 +317,27 @@ static void __op_change_add_del(const char *path, struct op_changes *this_head,
 	nb_notif_set_walk_timer();
 }
 
-static void nb_notif_add(const char *path)
+void nb_notif_add(const char *path)
 {
+	if (nb_notif_lock)
+		pthread_mutex_lock(nb_notif_lock);
+
 	__op_change_add_del(path, &nb_notif_adds, &nb_notif_dels);
+
+	if (nb_notif_lock)
+		pthread_mutex_unlock(nb_notif_lock);
 }
 
 
-static void nb_notif_delete(const char *path)
+void nb_notif_delete(const char *path)
 {
+	if (nb_notif_lock)
+		pthread_mutex_lock(nb_notif_lock);
+
 	__op_change_add_del(path, &nb_notif_dels, &nb_notif_adds);
+
+	if (nb_notif_lock)
+		pthread_mutex_unlock(nb_notif_lock);
 }
 
 
@@ -464,13 +481,21 @@ static struct op_changes_group *op_changes_group_next(void)
 {
 	struct op_changes_group *group;
 
+	if (nb_notif_lock)
+		pthread_mutex_lock(nb_notif_lock);
+
 	group = op_changes_queue_pop(&op_changes_queue);
 	if (!group) {
-		op_changes_group_push();
+		__op_changes_group_push();
 		group = op_changes_queue_pop(&op_changes_queue);
 	}
+
+	if (nb_notif_lock)
+		pthread_mutex_unlock(nb_notif_lock);
+
 	if (!group)
 		return NULL;
+
 	group->cur_changes = &group->dels;
 	group->cur_change = RB_MIN(op_changes, group->cur_changes);
 	if (!group->cur_change) {
@@ -677,6 +702,11 @@ void nb_notif_set_filters(const char **selectors, bool replace)
 	darr_foreach_p (selectors, csp)
 		*darr_append(nb_notif_filters) = *csp;
 	darr_free(selectors);
+}
+
+void nb_notif_enable_multi_thread(void)
+{
+	nb_notif_lock = &_nb_notif_lock;
 }
 
 void nb_notif_init(struct event_loop *tm)
