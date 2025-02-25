@@ -2918,7 +2918,20 @@ Extended Community Lists
 BGP Extended Communities in Route Map
 """""""""""""""""""""""""""""""""""""
 
-.. clicmd:: match extcommunity WORD
+.. clicmd:: match extcommunity WORD [exact-match]
+
+   This command perform match to BGP updates using extended community list WORD.
+   When the one of BGP extended communities value match to the one of the extended
+   communities value in community list, it is match. When `exact-match` keyword is
+   specified, match happen only when BGP updates have completely same extended
+   communities value specified in the extended community list.
+
+ .. clicmd:: match extcommunity-limit (0-65535)
+
+   This command matches BGP updates that use extended community list and IPv6
+   extended community list, and with an extended community list count less or
+   equal than the defined limit. Setting extended community-limit to 0 will
+   only match BGP updates with no extended community.
 
 .. clicmd:: set extcommunity none
 
