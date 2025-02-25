@@ -1175,7 +1175,7 @@ DEFUN_NOSH (static_srv6, static_srv6_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUN_YANG_NOSH (no_static_srv6, no_static_srv6_cmd,
+DEFUN_YANG (no_static_srv6, no_static_srv6_cmd,
       "no srv6",
       NO_STR
       "Segment Routing SRv6\n")
