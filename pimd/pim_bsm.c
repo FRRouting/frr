@@ -1802,7 +1802,7 @@ bool cand_addrsel_update(struct cand_addrsel *asel, struct vrf *vrf)
 
 	case CAND_ADDR_ANY:
 		is_any = true;
-		/* fallthru */
+		fallthrough;
 	case CAND_ADDR_LO:
 		FOR_ALL_INTERFACES (vrf, ifp) {
 			if (!if_is_up(ifp))
