@@ -291,6 +291,12 @@ static int gm_config_write(struct vty *vty, int writes,
 		++writes;
 	}
 
+	/* IF ip igmp require-router-alert */
+	if (pim_ifp->gmp_require_ra) {
+		vty_out(vty, " ip igmp require-router-alert\n");
+		++writes;
+	}
+
 	if (pim_ifp->gm_proxy) {
 		vty_out(vty, " ip igmp proxy\n");
 		++writes;
@@ -377,6 +383,12 @@ static int gm_config_write(struct vty *vty, int writes,
 	/* IF ipv6 mld */
 	if (pim_ifp->gm_enable) {
 		vty_out(vty, " ipv6 mld\n");
+		++writes;
+	}
+
+	/* IF ip igmp require-router-alert */
+	if (pim_ifp->gmp_require_ra) {
+		vty_out(vty, " ipv6 mld require-router-alert\n");
 		++writes;
 	}
 
