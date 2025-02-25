@@ -327,6 +327,12 @@ static PyObject *graph_to_pyobj_idx(struct wrap_graph *wgraph, size_t i)
 			item(IPV6_PREFIX_TKN); // IPV6 network prefixes
 			item(MAC_TKN);	       // MAC address
 			item(MAC_PREFIX_TKN);  // MAC address with mask
+			item(RTC_AS2_TKN);     // RTC with 2-bytes AS address
+			item(RTC_AS2_PREFIX_TKN); // RTC with 2-bytes AS address with mask
+			item(RTC_AS4_TKN);	  // RTC with 4-bytes AS address
+			item(RTC_AS4_PREFIX_TKN); // RTC with 4-bytes AS address with mask
+			item(RTC_IP_TKN);	  // RTC with IP address
+			item(RTC_IP_PREFIX_TKN);  // RTC with IP address with mask
 			item(ASNUM_TKN);       // ASNUM
 
 			/* plumbing types */
