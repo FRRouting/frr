@@ -708,15 +708,16 @@ struct frr_yang_module_info {
 	 * this function should return that tree (locked if multi-threading).
 	 * If this function is provided then the state callback functions
 	 * (get_elem, get_keys, get_next, lookup_entry) need not be set for a
-	 * module.
+	 * module. The unlock_tree function if non-NULL will be called with
+	 * the returned tree and the *user_lock value.
 	 */
-	const struct lyd_node *(*get_tree_locked)(const char *xpath);
+	const struct lyd_node *(*get_tree_locked)(const char *xpath, void **user_lock);
 
 	/*
 	 * This function will be called following a call to get_tree_locked() in
 	 * order to unlock the tree if locking was required.
 	 */
-	void (*unlock_tree)(const struct lyd_node *tree);
+	void (*unlock_tree)(const struct lyd_node *tree, void *user_lock);
 
 	/* Northbound callbacks. */
 	const struct {
@@ -1853,6 +1854,18 @@ extern struct lyd_node *nb_op_updatef(struct lyd_node *tree, const char *path, c
 
 extern struct lyd_node *nb_op_vupdatef(struct lyd_node *tree, const char *path, const char *val_fmt,
 				       va_list ap);
+/**
+ * nb_notif_add() - Notice that the value at `path` has changed.
+ * @path - Absolute path in the state tree that has changed (either added or
+ *	   updated).
+ */
+void nb_notif_add(const char *path);
+
+/**
+ * nb_notif_delete() - Notice that the value at `path` has been deleted.
+ * @path - Absolute path in the state tree that has been deleted.
+ */
+void nb_notif_delete(const char *path);
 
 /**
  * nb_notif_set_filters() - add or replace notification filters
@@ -1862,6 +1875,15 @@ extern struct lyd_node *nb_op_vupdatef(struct lyd_node *tree, const char *path, 
  * @replace: true to replace existing set otherwise append.
  */
 extern void nb_notif_set_filters(const char **selectors, bool replace);
+
+/**
+ * nb_notif_enable_multi_thread() - enable use of multiple threads with nb_notif
+ *
+ * If the nb_notif_XXX calls will be made from multiple threads then locking is
+ * required. Call this function to enable that functionality, prior to using the
+ * nb_notif_XXX API.
+ */
+extern void nb_notif_enable_multi_thread(void);
 
 extern void nb_notif_init(struct event_loop *loop);
 extern void nb_notif_terminate(void);

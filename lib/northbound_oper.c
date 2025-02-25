@@ -48,8 +48,8 @@ DEFINE_MTYPE_STATIC(LIB, NB_NODE_INFOS, "NB Node Infos");
 /* ---------- */
 PREDECL_LIST(nb_op_walks);
 
-typedef const struct lyd_node *(*get_tree_locked_cb)(const char *xpath);
-typedef void (*unlock_tree_cb)(const struct lyd_node *tree);
+typedef const struct lyd_node *(*get_tree_locked_cb)(const char *xpath, void **user_tree_lock);
+typedef void (*unlock_tree_cb)(const struct lyd_node *tree, void *user_tree_lock);
 
 /*
  * This is our information about a node on the branch we are looking at
@@ -102,6 +102,7 @@ struct nb_op_yield_state {
 
 	/* For now we support a single use of this. */
 	const struct lyd_node *user_tree;
+	void *user_tree_lock;
 	unlock_tree_cb user_tree_unlock;
 
 	/* Yielding state */
@@ -177,7 +178,7 @@ static inline void nb_op_free_yield_state(struct nb_op_yield_state *ys,
 {
 	if (ys) {
 		if (ys->user_tree && ys->user_tree_unlock)
-			ys->user_tree_unlock(ys->user_tree);
+			ys->user_tree_unlock(ys->user_tree, ys->user_tree_lock);
 		EVENT_OFF(ys->walk_ev);
 		nb_op_walks_del(&nb_op_walks, ys);
 		/* if we have a branch then free up it's libyang tree */
@@ -674,7 +675,7 @@ static const struct lyd_node *__get_tree(struct nb_op_yield_state *ys,
 	get_tree_cb = __get_get_tree_funcs(__module_name(nb_node), &ys->user_tree_unlock);
 	assert(get_tree_cb);
 
-	ys->user_tree = get_tree_cb(xpath);
+	ys->user_tree = get_tree_cb(xpath, &ys->user_tree_lock);
 	return ys->user_tree;
 }
 
