@@ -1358,8 +1358,8 @@ uint32_t yang_get_list_elements_count(const struct lyd_node *node)
 	return count;
 }
 
-int yang_get_key_preds(char *s, const struct lysc_node *snode,
-		       struct yang_list_keys *keys, ssize_t space)
+int yang_get_key_preds(char *s, const struct lysc_node *snode, const struct yang_list_keys *keys,
+		       ssize_t space)
 {
 	const struct lysc_node_leaf *skey;
 	ssize_t len2, len = 0;

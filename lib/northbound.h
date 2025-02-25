@@ -674,6 +674,8 @@ struct nb_node {
 #define F_NB_NODE_KEYLESS_LIST 0x02
 /* Ignore config callbacks for this node */
 #define F_NB_NODE_IGNORE_CFG_CBS 0x04
+/* Ignore state callbacks for this node */
+#define F_NB_NODE_HAS_GET_TREE 0x08
 
 /*
  * HACK: old gcc versions (< 5.x) have a bug that prevents C99 flexible arrays
@@ -700,6 +702,21 @@ struct frr_yang_module_info {
 	 * Use NULL to disable all features.
 	 */
 	const char **features;
+
+	/*
+	 * If the module keeps its oper-state in a libyang tree
+	 * this function should return that tree (locked if multi-threading).
+	 * If this function is provided then the state callback functions
+	 * (get_elem, get_keys, get_next, lookup_entry) need not be set for a
+	 * module.
+	 */
+	const struct lyd_node *(*get_tree_locked)(const char *xpath);
+
+	/*
+	 * This function will be called following a call to get_tree_locked() in
+	 * order to unlock the tree if locking was required.
+	 */
+	void (*unlock_tree)(const struct lyd_node *tree);
 
 	/* Northbound callbacks. */
 	const struct {
