@@ -1044,7 +1044,7 @@ static const void *lib_vrf_lookup_next(struct nb_cb_lookup_entry_args *args)
 }
 
 /*
- * XPath: /frr-vrf:lib/vrf/id
+ * XPath: /frr-vrf:lib/vrf/state/id
  */
 static struct yang_data *
 lib_vrf_state_id_get_elem(struct nb_cb_get_elem_args *args)
@@ -1055,17 +1055,14 @@ lib_vrf_state_id_get_elem(struct nb_cb_get_elem_args *args)
 }
 
 /*
- * XPath: /frr-vrf:lib/vrf/active
+ * XPath: /frr-vrf:lib/vrf/state/active
  */
 static struct yang_data *
 lib_vrf_state_active_get_elem(struct nb_cb_get_elem_args *args)
 {
 	struct vrf *vrfp = (struct vrf *)args->list_entry;
 
-	if (vrfp->status == VRF_ACTIVE)
-		return yang_data_new_bool(args->xpath, true);
-
-	return NULL;
+	return yang_data_new_bool(args->xpath, vrfp->status == VRF_ACTIVE ? true : false);
 }
 
 /* clang-format off */
