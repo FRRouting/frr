@@ -1357,9 +1357,21 @@ uint32_t yang_get_list_elements_count(const struct lyd_node *node)
 	} while (node);
 	return count;
 }
+int yang_get_key_pred_strlen(const struct lysc_node *snode, const struct yang_list_keys *keys)
+{
+	const struct lysc_node_leaf *skey;
+	size_t len = 0;
+	size_t i = 0;
 
-int yang_get_key_preds(char *s, const struct lysc_node *snode, const struct yang_list_keys *keys,
-		       ssize_t space)
+	LY_FOR_KEYS (snode, skey) {
+		/* [%s='%s'] */
+		len += 5 + strlen(skey->name) + strlen(keys->key[i]);
+		i++;
+	}
+	return len;
+}
+
+int yang_get_key_preds(char *s, const struct lysc_node *snode, const struct yang_list_keys *keys, ssize_t space)
 {
 	const struct lysc_node_leaf *skey;
 	ssize_t len2, len = 0;
