@@ -719,6 +719,248 @@ done:
 	return ret;
 }
 
+/* When string format is invalid return 0. */
+static int str2prefix_rtc_common(char *cp, char **rt_global_adm, char **rt_local_adm, uint8_t *plen,
+				 uint32_t *origin_as)
+{
+	char *rt_pnt, *rt_colon_pnt;
+	char *slash_pnt;
+	char *endptr;
+	unsigned long i;
+
+	/* Locate prefix length inside string. */
+	slash_pnt = strchr(cp, '/');
+	if (slash_pnt) {
+		i = strtoul(slash_pnt + 1, &endptr, 10);
+
+		/* If endptr == slash_pnt, no digits were found;
+		 * Check for leftover chars;
+		 * Check prefix length.
+		 */
+		if (endptr == slash_pnt || *endptr != '\0' || errno == ERANGE ||
+		    (i > 0 && i != 32 && i < 48) || i > RTC_MAX_BITLEN)
+			return 0;
+
+		*plen = i;
+	}
+
+	if (slash_pnt)
+		*slash_pnt = '\0';
+
+	rt_pnt = strstr(cp, ":RT:");
+	if (!rt_pnt)
+		rt_pnt = strstr(cp, ":rt:");
+	if (!rt_pnt)
+		return 0;
+
+	*rt_pnt = '\0';
+	*rt_global_adm = rt_pnt + strlen(":RT:");
+
+	/* extract origin AS */
+	errno = 0;
+	i = strtoul(cp, &endptr, 10);
+	if (endptr == cp || *endptr != '\0' || errno == ERANGE || i > UINT32_MAX)
+		return 0;
+
+	*origin_as = i;
+
+	if (*plen == 0 || *plen == 32)
+		/* do not decode extended community route-target */
+		return 1;
+
+	rt_colon_pnt = strchr(*rt_global_adm, ':');
+	if (!rt_colon_pnt)
+		return 0;
+
+	*rt_colon_pnt = '\0';
+	*rt_local_adm = rt_colon_pnt + 1;
+
+	return 1;
+}
+
+/* When string format is invalid return 0. */
+int str2prefix_rtc_as2(const char *str, struct prefix_rtc *p)
+{
+	char *rt_global_adm = NULL, *rt_local_adm = NULL;
+	int ret = 0;
+	uint8_t plen = RTC_MAX_BITLEN;
+	char *cp = NULL;
+	char *endptr;
+	unsigned long i;
+	uint32_t origin_as = 0;
+	uint16_t rt_as = 0;
+	uint32_t local_adm = 0;
+	uint16_t *pnt16;
+	uint32_t *pnt32;
+
+
+	cp = XSTRDUP(MTYPE_TMP, str);
+
+	ret = str2prefix_rtc_common(cp, &rt_global_adm, &rt_local_adm, &plen, &origin_as);
+	if (!ret) {
+		XFREE(MTYPE_TMP, cp);
+		return 0;
+	}
+
+	if (plen > 32) {
+		/* match RT AS 2-bytes*/
+		errno = 0;
+		i = strtoul(rt_global_adm, &endptr, 10);
+		if (endptr == rt_global_adm || *endptr != '\0' || errno == ERANGE ||
+		    i > UINT16_MAX) {
+			XFREE(MTYPE_TMP, cp);
+			return 0;
+		}
+		rt_as = i;
+
+		/* match 4-bytes local administrator */
+		errno = 0;
+		i = strtoul(rt_local_adm, &endptr, 10);
+		if (endptr == rt_local_adm || *endptr != '\0' || errno == ERANGE || i > UINT32_MAX) {
+			XFREE(MTYPE_TMP, cp);
+			return 0;
+		}
+		local_adm = i;
+	}
+
+	p->prefixlen = plen;
+	p->family = AF_RTC;
+	p->prefix.origin_as = origin_as;
+	/* Two-Octet AS Extended Community type */
+	p->prefix.route_target[0] = 0;
+	/* ES-Import Route Target Extended Community sub-type */
+	p->prefix.route_target[1] = 0x02;
+
+	pnt16 = (uint16_t *)&p->prefix.route_target[2];
+	*pnt16 = htons(rt_as);
+	pnt32 = (uint32_t *)&p->prefix.route_target[4];
+	*pnt32 = htonl(local_adm);
+
+	XFREE(MTYPE_TMP, cp);
+
+	return 1;
+}
+
+/* When string format is invalid return 0. */
+int str2prefix_rtc_as4(const char *str, struct prefix_rtc *p)
+{
+	char *rt_global_adm = NULL, *rt_local_adm = NULL;
+	int ret = 0;
+	uint8_t plen = RTC_MAX_BITLEN;
+	char *cp = NULL;
+	char *endptr;
+	unsigned long i;
+	uint32_t origin_as = 0;
+	uint32_t rt_as = 0;
+	uint16_t local_adm = 0;
+	uint16_t *pnt16;
+	uint32_t *pnt32;
+
+
+	cp = XSTRDUP(MTYPE_TMP, str);
+
+	ret = str2prefix_rtc_common(cp, &rt_global_adm, &rt_local_adm, &plen, &origin_as);
+	if (!ret) {
+		XFREE(MTYPE_TMP, cp);
+		return 0;
+	}
+
+	if (plen > 32) {
+		/* match RT AS 4-bytes*/
+		errno = 0;
+		i = strtoul(rt_global_adm, &endptr, 10);
+		if (endptr == rt_global_adm || *endptr != '\0' || errno == ERANGE ||
+		    i > UINT32_MAX) {
+			XFREE(MTYPE_TMP, cp);
+			return 0;
+		}
+		rt_as = i;
+
+		/* match 2-bytes local administrator */
+		errno = 0;
+		i = strtoul(rt_local_adm, &endptr, 10);
+		if (endptr == rt_local_adm || *endptr != '\0' || errno == ERANGE || i > UINT16_MAX) {
+			XFREE(MTYPE_TMP, cp);
+			return 0;
+		}
+		local_adm = i;
+	}
+
+	p->prefixlen = plen;
+	p->family = AF_RTC;
+	p->prefix.origin_as = origin_as;
+	/* Four-Octet AS Extended Community type */
+	p->prefix.route_target[0] = 0x02;
+	/* ES-Import Route Target Extended Community sub-type */
+	p->prefix.route_target[1] = 0x02;
+
+	pnt32 = (uint32_t *)&p->prefix.route_target[2];
+	*pnt32 = htonl(rt_as);
+	pnt16 = (uint16_t *)&p->prefix.route_target[6];
+	*pnt16 = htons(local_adm);
+
+	XFREE(MTYPE_TMP, cp);
+
+	return 1;
+}
+
+/* When string format is invalid return 0. */
+int str2prefix_rtc_ip(const char *str, struct prefix_rtc *p)
+{
+	char *rt_global_adm = NULL, *rt_local_adm = NULL;
+	int ret = 0;
+	uint8_t plen = RTC_MAX_BITLEN;
+	char *cp = NULL;
+	char *endptr;
+	unsigned long i;
+	uint32_t origin_as = 0;
+	uint16_t local_adm = 0;
+	uint16_t *pnt16;
+	uint32_t *pnt32;
+	struct in_addr ipv4 = {};
+
+	cp = XSTRDUP(MTYPE_TMP, str);
+
+	ret = str2prefix_rtc_common(cp, &rt_global_adm, &rt_local_adm, &plen, &origin_as);
+	if (!ret) {
+		XFREE(MTYPE_TMP, cp);
+		return 0;
+	}
+
+	if (plen > 32) {
+		/* match RT IPv4 */
+		if (inet_pton(AF_INET, rt_global_adm, &ipv4) != 1)
+			/* invalid format */
+			return 0;
+
+		/* match 2-bytes local administrator */
+		errno = 0;
+		i = strtoul(rt_local_adm, &endptr, 10);
+		if (endptr == rt_local_adm || *endptr != '\0' || errno == ERANGE || i > UINT16_MAX) {
+			XFREE(MTYPE_TMP, cp);
+			return 0;
+		}
+		local_adm = i;
+	}
+
+	p->prefixlen = plen;
+	p->family = AF_RTC;
+	p->prefix.origin_as = origin_as;
+	/* Four-octet IPv4 Address AS Extended Community type */
+	p->prefix.route_target[0] = 0x01;
+	/* ES-Import Route Target Extended Community sub-type */
+	p->prefix.route_target[1] = 0x02;
+
+	pnt32 = (uint32_t *)&p->prefix.route_target[2];
+	*pnt32 = htonl(ipv4.s_addr);
+	pnt16 = (uint16_t *)&p->prefix.route_target[6];
+	*pnt16 = htons(local_adm);
+
+	XFREE(MTYPE_TMP, cp);
+
+	return 1;
+}
+
 /* Convert masklen into IP address's netmask (network byte order). */
 void masklen2ip(const int masklen, struct in_addr *netmask)
 {
@@ -995,6 +1237,21 @@ int str2prefix(const char *str, struct prefix *p)
 
 	/* Next we try to convert string to struct prefix_eth. */
 	ret = str2prefix_eth(str, (struct prefix_eth *)p);
+	if (ret)
+		return ret;
+
+	/* Next we try to convert string to struct prefix_rtc. */
+	ret = str2prefix_rtc_as2(str, (struct prefix_rtc *)p);
+	if (ret)
+		return ret;
+
+	/* Next we try to convert string to struct prefix_rtc. */
+	ret = str2prefix_rtc_as4(str, (struct prefix_rtc *)p);
+	if (ret)
+		return ret;
+
+	/* Next we try to convert string to struct prefix_rtc. */
+	ret = str2prefix_rtc_ip(str, (struct prefix_rtc *)p);
 	if (ret)
 		return ret;
 

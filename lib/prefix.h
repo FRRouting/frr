@@ -480,6 +480,10 @@ extern void prefix2sockunion(const struct prefix *p, union sockunion *su);
 
 extern int str2prefix_eth(const char *string, struct prefix_eth *p);
 
+extern int str2prefix_rtc_as2(const char *str, struct prefix_rtc *p);
+extern int str2prefix_rtc_as4(const char *str, struct prefix_rtc *p);
+extern int str2prefix_rtc_ip(const char *str, struct prefix_rtc *p);
+
 extern struct prefix_ipv4 *prefix_ipv4_new(void);
 extern void prefix_ipv4_free(struct prefix_ipv4 **p);
 extern int str2prefix_ipv4(const char *string, struct prefix_ipv4 *p);
