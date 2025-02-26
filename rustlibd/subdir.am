@@ -1,0 +1,74 @@
+#
+# rustlibd -- RUSTLIBD Daemon
+#
+
+if RUSTLIBD
+noinst_LIBRARIES += rustlibd/librustlibd.a
+sbin_PROGRAMS += rustlibd/rustlibd
+# vtysh_daeons += rustlibd
+
+
+#
+# Files for copying as template:
+#
+# - xxx_lib.c :: Main rust functions for the daemon - replace these with your own
+# - xxx_nb.c :: Create from `tools/gen_northbound_calllbacks` function/struct defines
+# - xxx_nb.h :: Create from `tools/gen_northbound_calllbacks` prototype declares
+# - xxx_nb_{config,state}.rs :: Use `define_nb_*_shim()` rust macros to bridge
+#       your rust northbound callbacks from the C prototypes created by
+#       gen_northbound_calllbacks - remove the C versions of these functions
+#       from xxx_nb.c
+#
+# - build.rs :: Build script the rust daemon, only modify if you have build
+#       issues with C symbols.
+# - c_shim.rs :: no modify needed - exports FRR/C bindings and calls your rust
+#	functions.
+# - restonf_main.c :: C main(), requires minimal modifications (name, yang modules)
+# - wrapper.h.in :: Include C header files to create bindings under c_shim for your
+#       rust use, add/remove as needed.
+
+#
+# C build rules
+#
+rustlibd_rustlibd_SOURCES = rustlibd/rustlib_main.c # rustlibd/rustlib_nb.c
+rustlibd_rustlibd_LDADD = rustlibd/librustlibd.a lib/libfrr.la $(LIBCAP) -lm
+# noinst_HEADERS += rustlibd/rustlib_nb.h
+
+# Add any used YANG modules here to embed.
+# nodist_restconfd_restconfd_SOURCES = \
+#       yang/frr-rustlib.yang.c
+
+# clippy_scan += rustlibd/rustlib_cli.c
+
+#
+# rustlibd rust library build rules
+#
+EXTRA_DIST += rustlibd/Cargo.toml
+rustlibd_librustlibd_a_SOURCES = rustlibd/c_shim.rs \
+	lib/frrutil.rs \
+	rustlibd/rustlib_lib.rs
+
+if DEV_BUILD
+RUSTLIBD_BUILD_FLAG =
+RUSTLIBD_TARGET_DIR = debug
+else
+RUSTLIBD_BUILD_FLAG = --release
+RUSTLIBD_TARGET_DIR = release
+endif
+
+rustlibd/Cargo.lock: rustlibd/Cargo.toml
+	(cd rustlibd && cargo update $(RUSTLIBD_BUILD_FLAG))
+
+rustlibd/librustlibd.a: rustlibd/target/$(RUSTLIBD_TARGET_DIR)/librustlibd.a
+	@printf "  CP       rustlib/librustlibd.a\n"
+	@cp $< $@
+
+rustlibd/target/$(RUSTLIBD_TARGET_DIR)/librustlibd.a: $(rustlibd_librustlibd_a_SOURCES) rustlibd/Cargo.toml
+	@printf "  CARGO    $@\n"
+	(cd rustlibd && cargo +stable -q build --lib $(RUSTLIBD_BUILD_FLAG))
+
+clean-rustlibd:
+	(cd rustlibd && cargo clean)
+else
+clean-rustlibd:
+endif

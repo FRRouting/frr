@@ -732,6 +732,8 @@ AC_ARG_ENABLE([mgmtd_local_validations],
   AS_HELP_STRING([--enable-mgmtd-local-validations], [dev: unimplemented local validation]))
 AC_ARG_ENABLE([mgmtd_test_be_client],
   AS_HELP_STRING([--enable-mgmtd-test-be-client], [build test backend client]))
+AC_ARG_ENABLE([rustlibd],
+  AS_HELP_STRING([--enable-rustlibd], [enable rust library based daemon template]))
 AC_ARG_ENABLE([fpm_listener],
   AS_HELP_STRING([--enable-fpm-listener], [build fpm listener test program]))
 AC_ARG_ENABLE([ripd],
@@ -1872,6 +1874,10 @@ AS_IF([test "$enable_ripngd" != "no"], [
   AC_DEFINE([HAVE_RIPNGD], [1], [ripngd])
 ])
 
+AS_IF([test "$enable_rustlibd" != "no"], [
+  AC_DEFINE([HAVE_RUSTLIBD], [1], [rustlibd])
+])
+
 AS_IF([test "$enable_ospfd" != "no"], [
   AC_DEFINE([HAVE_OSPFD], [1], [ospfd])
 ])
@@ -2111,6 +2117,40 @@ if test "$enable_config_rollbacks" = "yes"; then
   ], [
     AC_MSG_ERROR([--enable-config-rollbacks given but sqlite3 was not found on your system.])
   ])
+fi
+
+dnl ------------------------------------------------------
+dnl rust general (add to conditional any new rust daemons)
+dnl ------------------------------------------------------
+if test "$enable_rustlibd" = "yes"; then
+  AC_PATH_PROG([CARGO], [cargo], [notfound])
+  AS_IF([test "$CARGO" = "notfound"], [AC_MSG_ERROR([cargo is required])])
+
+  AC_PATH_PROG([RUSTC], [rustc], [notfound])
+  AS_IF([test "$RUSTC" = "notfound"], [AC_MSG_ERROR([rustc is required])])
+
+  if test "$enable_dev_build" = "yes"; then
+    CARGO_TARGET_DIR=debug
+  else
+    CARGO_TARGET_DIR=release
+  fi
+  AC_SUBST(CARGO_TARGET_DIR)
+fi
+
+dnl ---------------
+dnl rustlibd
+dnl ---------------
+if test "$enable_rustlibd" = "yes"; then
+  AC_CONFIG_FILES([rustlibd/build.rs rustlibd/wrapper.h rustlibd/Cargo.toml])
+
+  AC_CONFIG_COMMANDS([gen-dot-cargo-config], [
+    if test "$ac_abs_top_builddir" != "$ac_abs_top_srcdir"; then
+      mkdir -p ${srcdir}/rustlibd/.cargo
+      if ! test -e "${srcdir}/rustlibd/.cargo/config.toml"; then
+        printf '[[build]]\ntarget-dir = "%s"\n' "${ac_abs_top_builddir}/rustlibd/target" > "${srcdir}/rustlibd/.cargo/config.toml"
+      fi
+    fi]
+  )
 fi
 
 dnl ---------------
@@ -2782,6 +2822,7 @@ AM_CONDITIONAL([ENABLE_BGP_VNC], [test "$enable_bgp_vnc" != "no"])
 AM_CONDITIONAL([BGP_BMP], [$bgpd_bmp])
 dnl northbound
 AM_CONDITIONAL([SQLITE3], [$SQLITE3])
+AM_CONDITIONAL([RUSTLIBD], [test "$enable_rustlibd" = "yes"])
 AM_CONDITIONAL([SYSREPO], [test "$enable_sysrepo" = "yes"])
 AM_CONDITIONAL([GRPC], [test "$enable_grpc" = "yes"])
 AM_CONDITIONAL([ZEROMQ], [test "$ZEROMQ" = "true"])

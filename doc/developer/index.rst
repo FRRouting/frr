@@ -23,4 +23,5 @@ FRRouting Developer's Guide
    path
    pceplib
    link-state
+   rust-dev
    northbound/northbound

@@ -185,6 +185,7 @@ include grpc/subdir.am
 include tools/subdir.am
 
 include mgmtd/subdir.am
+include rustlibd/subdir.am
 
 include bgpd/subdir.am
 include bgpd/rfp-example/librfp/subdir.am
@@ -285,6 +286,7 @@ EXTRA_DIST += \
 	qpb/Makefile \
 	ripd/Makefile \
 	ripngd/Makefile \
+	rustlibd/Makefile \
 	staticd/Makefile \
 	tests/Makefile \
 	tools/Makefile \

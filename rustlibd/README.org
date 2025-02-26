@@ -1,0 +1,21 @@
+* Rust Library Based Daemon Skeleton
+
+This is the skeleton for a rust library based FRR daemon.
+
+** Development
+*** Editor/LSP support
+
+In order for LSP support to work you will likely need to do a couple things if
+you use a build directory.
+
+- Create 2 symlinks from the generated files in ~BUILDDIR/rustlibd~ for
+   `build.rs` and `wrapper.h` e.g. if your build dir is in `frr/build`, and
+  create a `Cargo.toml` in the source directory that points to itself. Example
+  follows:
+
+  #+begin_src bash
+    cd frr/rustlibd
+    ln -s ../build/rustlibd/build.rs .
+    ln -s ../build/rustlibd/wrapper.h .
+    sed -e 's,@srcdir@/,,g' < Cargo.toml.in > Cargo.toml
+  #+end_src
