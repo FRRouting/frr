@@ -398,6 +398,16 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    If you enter a value smaller than 60 seconds be aware that this can and
    will affect convergence at scale.
 
+.. clicmd:: ip pim assert-interval (1000-86400000)
+
+   Modify the PIM assert interval in milliseconds on this interface
+   (defaults to 18000).
+
+.. clicmd:: ip pim assert-override-interval (1000-86400000)
+
+   Modify the PIM assert override interval in milliseconds on this
+   interface (defaults to 3000).
+
 .. clicmd:: ip pim [sm | dm | sm-dm]
 
    Enable pim on this interface. pim will use this interface to form pim neighbors,
