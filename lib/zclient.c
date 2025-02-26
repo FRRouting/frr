@@ -3664,7 +3664,7 @@ int lm_get_label_chunk(struct zclient *zclient, uint8_t keep, uint32_t base,
 	if (zclient_debug)
 		zlog_debug("Getting Label Chunk");
 
-	if (zclient->sock < 0)
+	if (!zclient || zclient->sock < 0)
 		return -1;
 
 	/* send request */
