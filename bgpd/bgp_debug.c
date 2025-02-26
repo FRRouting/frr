@@ -1083,12 +1083,15 @@ DEFUN (no_debug_bgp_keepalive_peer,
 /* debug bgp bestpath */
 DEFPY (debug_bgp_bestpath_prefix,
        debug_bgp_bestpath_prefix_cmd,
-       "debug bgp bestpath <A.B.C.D/M|X:X::X:X/M>$prefix",
+       "debug bgp bestpath <A.B.C.D/M|X:X::X:X/M|ASN:0:2:EF:OPQR/M|ASN:2:2:GHJK:MN/M|ASN:1:2:A.B.C.D:MN/M>$prefix",
        DEBUG_STR
        BGP_STR
        "BGP bestpath\n"
        "IPv4 prefix\n"
-       "IPv6 prefix\n")
+       "IPv6 prefix\n"
+       "RTC AS 2-bytes prefix\n"
+       "RTC AS 4-bytes prefix\n"
+       "RTC IP prefix\n")
 {
 	if (!bgp_debug_bestpath_prefixes)
 		bgp_debug_bestpath_prefixes = list_new();
@@ -1117,13 +1120,16 @@ DEFPY (debug_bgp_bestpath_prefix,
 
 DEFPY (no_debug_bgp_bestpath_prefix,
        no_debug_bgp_bestpath_prefix_cmd,
-       "no debug bgp bestpath <A.B.C.D/M|X:X::X:X/M>$prefix",
+       "no debug bgp bestpath <A.B.C.D/M|X:X::X:X/M|ASN:0:2:EF:OPQR/M|ASN:2:2:GHJK:MN/M|ASN:1:2:A.B.C.D:MN/M>$prefix",
        NO_STR
        DEBUG_STR
        BGP_STR
        "BGP bestpath\n"
        "IPv4 prefix\n"
-       "IPv6 prefix\n")
+       "IPv6 prefix\n"
+       "RTC AS 2-bytes prefix\n"
+       "RTC AS 4-bytes prefix\n"
+       "RTC IP prefix\n")
 {
 	bool found_prefix = false;
 
@@ -1608,13 +1614,16 @@ DEFPY (no_debug_bgp_update_prefix_afi_safi,
 
 DEFPY (debug_bgp_update_prefix,
        debug_bgp_update_prefix_cmd,
-       "debug bgp updates prefix <A.B.C.D/M|X:X::X:X/M>$prefix",
+       "debug bgp updates prefix <A.B.C.D/M|X:X::X:X/M|ASN:0:2:EF:OPQR/M|ASN:2:2:GHJK:MN/M|ASN:1:2:A.B.C.D:MN/M>$prefix",
        DEBUG_STR
        BGP_STR
        "BGP updates\n"
        "Specify a prefix to debug\n"
        "IPv4 prefix\n"
-       "IPv6 prefix\n")
+       "IPv6 prefix\n"
+       "RTC AS 2-bytes prefix\n"
+       "RTC AS 4-bytes prefix\n"
+       "RTC IP prefix\n")
 {
 	if (!bgp_debug_update_prefixes)
 		bgp_debug_update_prefixes = list_new();
@@ -1642,14 +1651,17 @@ DEFPY (debug_bgp_update_prefix,
 
 DEFPY (no_debug_bgp_update_prefix,
        no_debug_bgp_update_prefix_cmd,
-       "no debug bgp updates prefix <A.B.C.D/M|X:X::X:X/M>$prefix",
+       "no debug bgp updates prefix <A.B.C.D/M|X:X::X:X/M|ASN:0:2:EF:OPQR/M|ASN:2:2:GHJK:MN/M|ASN:1:2:A.B.C.D:MN/M>$prefix",
        NO_STR
        DEBUG_STR
        BGP_STR
        "BGP updates\n"
        "Specify a prefix to debug\n"
        "IPv4 prefix\n"
-       "IPv6 prefix\n")
+       "IPv6 prefix\n"
+       "RTC AS 2-bytes prefix\n"
+       "RTC AS 4-bytes prefix\n"
+       "RTC IP prefix\n")
 {
 	bool found_prefix = false;
 
