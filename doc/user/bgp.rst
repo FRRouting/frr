@@ -4159,13 +4159,17 @@ Debugging
    Enable or disable debugging for BGP updates. Optionally, you can specify
    a prefix-list to filter the updates for an arbitrary neighbor.
 
+.. clicmd:: debug bgp updates prefix <A.B.C.D/M|X:X::X:X/M|ASN:rt:EF:OPQR/M|ASN:rt:GHJK:MN/M|ASN:rt:A.B.C.D:MN/M>
+
+   Enable or disable debugging for BGP updates on the specified prefix.
+
 .. clicmd:: debug bgp keepalives
 
    Enable or disable debugging for BGP keepalives. This provides information on
    BGP KEEPALIVE messages transmitted and received between local and remote
    instances.
 
-.. clicmd:: debug bgp bestpath <A.B.C.D/M|X:X::X:X/M>
+.. clicmd:: debug bgp bestpath <A.B.C.D/M|X:X::X:X/M|ASN:rt:EF:OPQR/M|ASN:rt:GHJK:MN/M|ASN:rt:A.B.C.D:MN/M>
 
    Enable or disable debugging for bestpath selection on the specified prefix.
 
