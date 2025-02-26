@@ -1190,7 +1190,7 @@ DEFUN_YANG_NOSH (no_static_srv6, no_static_srv6_cmd,
 	return nb_cli_apply_changes(vty, "%s", xpath);
 }
 
-DEFUN_NOSH (static_srv6_sids, static_srv6_sids_cmd,
+DEFPY_NOSH (static_srv6_sids, static_srv6_sids_cmd,
       "static-sids",
       "Segment Routing SRv6 SIDs\n")
 {
