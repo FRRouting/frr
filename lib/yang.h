@@ -800,7 +800,11 @@ bool yang_is_last_level_dnode(const struct lyd_node *dnode);
 
 /* Create a YANG predicate string based on the keys */
 extern int yang_get_key_preds(char *s, const struct lysc_node *snode,
-			      struct yang_list_keys *keys, ssize_t space);
+			      const struct yang_list_keys *keys, ssize_t space);
+
+/* Get the length of the predicate string based on the keys */
+extern int yang_get_key_pred_strlen(const struct lysc_node *snode,
+				    const struct yang_list_keys *keys);
 
 /* Get YANG keys from an existing dnode */
 extern int yang_get_node_keys(struct lyd_node *node, struct yang_list_keys *keys);
