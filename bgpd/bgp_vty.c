@@ -355,6 +355,10 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 		/* refresh per-vrf tovpn_sid_locator */
 		srv6_locator_free(bgp_vrf->tovpn_sid_locator);
 		bgp_vrf->tovpn_sid_locator = NULL;
+
+		/* refresh per-vrf tovpn_sid_locator_explicit */
+		srv6_locator_free(bgp_vrf->tovpn_sid_locator_explicit);
+		bgp_vrf->tovpn_sid_locator_explicit = NULL;
 	}
 
 	/* clear locator name */
@@ -10105,8 +10109,8 @@ DEFPY (af_sid_vpn_export,
 		return CMD_SUCCESS;
 	}
 
-	if (bgp->tovpn_sid_index != 0 ||
-	    CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO)) {
+	if (bgp->tovpn_sid_index != 0 || CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO) ||
+	    CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT)) {
 		vty_out(vty,
 			"per-vrf sid and per-af sid are mutually exclusive\n"
 			"Failed: per-vrf sid is configured. Remove per-vrf sid before configuring per-af sid\n");
@@ -10156,14 +10160,15 @@ DEFPY (af_sid_vpn_export,
 
 DEFPY (bgp_sid_vpn_export,
        bgp_sid_vpn_export_cmd,
-       "[no] sid vpn per-vrf export <(1-1048575)$sid_idx|auto$sid_auto>",
+       "[no] sid vpn per-vrf export <(1-1048575)$sid_idx|auto$sid_auto|explicit$sid_explicit>",
        NO_STR
        "sid value for VRF\n"
        "Between current vrf and vpn\n"
        "sid per-VRF (both IPv4 and IPv6 address families)\n"
        "For routes leaked from current vrf to vpn\n"
        "Sid allocation index\n"
-       "Automatically assign a label\n")
+       "Automatically assign a label\n"
+       "Use explicit sids\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int debug;
@@ -10174,13 +10179,16 @@ DEFPY (bgp_sid_vpn_export,
 	if (no) {
 		/* when per-VRF SID is not set, do nothing */
 		if (bgp->tovpn_sid_index == 0 &&
-		    !CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO))
+		    !CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO) &&
+		    !CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT))
 			return CMD_SUCCESS;
 
 		sid_idx = 0;
 		sid_auto = false;
+		sid_explicit = false;
 		bgp->tovpn_sid_index = 0;
 		UNSET_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO);
+		UNSET_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT);
 	}
 
 	if (bgp->vpn_policy[AFI_IP].tovpn_sid_index != 0 ||
@@ -10197,7 +10205,8 @@ DEFPY (bgp_sid_vpn_export,
 
 	/* skip when it's already configured */
 	if ((sid_idx != 0 && bgp->tovpn_sid_index != 0) ||
-	    (sid_auto && CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO)))
+	    (sid_auto && CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO)) ||
+	    (sid_explicit && CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT)))
 		return CMD_SUCCESS;
 
 	/*
@@ -10205,10 +10214,19 @@ DEFPY (bgp_sid_vpn_export,
 	 * user must negate sid vpn export when they want to change the mode
 	 */
 	if ((sid_auto && bgp->tovpn_sid_index != 0) ||
-	    (sid_idx != 0 &&
-	     CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO))) {
-		vty_out(vty, "it's already configured as %s.\n",
-			sid_auto ? "auto-mode" : "idx-mode");
+	    (sid_auto && CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT)) ||
+	    (sid_idx != 0 && CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO)) ||
+	    (sid_idx != 0 && CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT)) ||
+	    (sid_explicit && bgp->tovpn_sid_index != 0) ||
+	    (sid_explicit && CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO))) {
+		vty_out(vty, "it's already configured as ");
+		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO))
+			vty_out(vty, "auto-mode.\n");
+		else if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT))
+			vty_out(vty, "explicit-mode.\n");
+		else if (sid_idx != 0)
+			vty_out(vty, "idx-mode.\n");
+
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -10229,6 +10247,11 @@ DEFPY (bgp_sid_vpn_export,
 			zlog_debug("%s: idx %ld per-vrf sid alloc.", __func__,
 				   sid_idx);
 		bgp->tovpn_sid_index = sid_idx;
+	} else if (sid_explicit) {
+		/* SID allocation explicit-mode */
+		if (debug)
+			zlog_debug("%s: explicit per-vrf sid alloc.", __func__);
+		SET_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT);
 	}
 
 	/* post-change */
@@ -20043,6 +20066,8 @@ int bgp_config_write(struct vty *vty)
 		tovpn_sid_index = bgp->tovpn_sid_index;
 		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO)) {
 			vty_out(vty, " sid vpn per-vrf export auto\n");
+		} else if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT)) {
+			vty_out(vty, " sid vpn per-vrf export explicit\n");
 		} else if (tovpn_sid_index != 0) {
 			vty_out(vty, " sid vpn per-vrf export %d\n",
 				tovpn_sid_index);
