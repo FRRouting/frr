@@ -1723,8 +1723,9 @@ static enum nb_error __walk(struct nb_op_yield_state *ys, bool is_resume)
 			 */
 			len = darr_strlen(ys->xpath);
 			if (ni->keys.num) {
-				yang_get_key_preds(ys->xpath + len, sib,
-						   &ni->keys,
+				darr_ensure_avail(ys->xpath,
+						  yang_get_key_pred_strlen(sib, &ni->keys) + 1);
+				yang_get_key_preds(ys->xpath + len, sib, &ni->keys,
 						   darr_cap(ys->xpath) - len);
 			} else {
 				/* add a position predicate (1s based?) */
