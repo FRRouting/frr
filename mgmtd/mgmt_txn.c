@@ -22,7 +22,7 @@
 #define __log_err(fmt, ...) zlog_err("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)
 
 #define MGMTD_TXN_LOCK(txn)   mgmt_txn_lock(txn, __FILE__, __LINE__)
-#define MGMTD_TXN_UNLOCK(txn) mgmt_txn_unlock(txn, __FILE__, __LINE__)
+#define MGMTD_TXN_UNLOCK(txn, in_hash_free) mgmt_txn_unlock(txn, in_hash_free, __FILE__, __LINE__)
 
 enum mgmt_txn_event {
 	MGMTD_TXN_PROC_SETCFG = 1,
@@ -295,7 +295,7 @@ static inline const char *mgmt_txn_commit_phase_str(struct mgmt_txn_ctx *txn)
 }
 
 static void mgmt_txn_lock(struct mgmt_txn_ctx *txn, const char *file, int line);
-static void mgmt_txn_unlock(struct mgmt_txn_ctx **txn, const char *file,
+static void mgmt_txn_unlock(struct mgmt_txn_ctx **txn, bool in_hash_free, const char *file,
 			    int line);
 static int mgmt_txn_send_be_txn_delete(struct mgmt_txn_ctx *txn,
 				       struct mgmt_be_client_adapter *adapter);
@@ -357,7 +357,7 @@ static void mgmt_txn_cfg_batch_free(struct mgmt_txn_be_cfg_batch **batch)
 		}
 	}
 
-	MGMTD_TXN_UNLOCK(&(*batch)->txn);
+	MGMTD_TXN_UNLOCK(&(*batch)->txn, false);
 
 	XFREE(MTYPE_MGMTD_TXN_CFG_BATCH, *batch);
 	*batch = NULL;
@@ -552,7 +552,7 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 		      (*txn_req)->req_id, mgmt_txn_reqs_count(req_list));
 	}
 
-	MGMTD_TXN_UNLOCK(&(*txn_req)->txn);
+	MGMTD_TXN_UNLOCK(&(*txn_req)->txn, false);
 	XFREE(MTYPE_MGMTD_TXN_REQ, (*txn_req));
 	*txn_req = NULL;
 }
@@ -1836,9 +1836,9 @@ static struct mgmt_txn_ctx *mgmt_txn_create_new(uint64_t session_id,
 	return txn;
 }
 
-static void mgmt_txn_delete(struct mgmt_txn_ctx **txn)
+static void mgmt_txn_delete(struct mgmt_txn_ctx **txn, bool in_hash_free)
 {
-	MGMTD_TXN_UNLOCK(txn);
+	MGMTD_TXN_UNLOCK(txn, in_hash_free);
 }
 
 static unsigned int mgmt_txn_hash_key(const void *data)
@@ -1861,7 +1861,7 @@ static void mgmt_txn_hash_free(void *data)
 {
 	struct mgmt_txn_ctx *txn = data;
 
-	mgmt_txn_delete(&txn);
+	mgmt_txn_delete(&txn, true);
 }
 
 static void mgmt_txn_hash_init(void)
@@ -1911,8 +1911,7 @@ static void mgmt_txn_lock(struct mgmt_txn_ctx *txn, const char *file, int line)
 	      mgmt_txn_type2str(txn->type), txn->txn_id, txn->refcount);
 }
 
-static void mgmt_txn_unlock(struct mgmt_txn_ctx **txn, const char *file,
-			    int line)
+static void mgmt_txn_unlock(struct mgmt_txn_ctx **txn, bool in_hash_free, const char *file, int line)
 {
 	assert(*txn && (*txn)->refcount);
 
@@ -1928,7 +1927,9 @@ static void mgmt_txn_unlock(struct mgmt_txn_ctx **txn, const char *file,
 		EVENT_OFF((*txn)->proc_comm_cfg);
 		EVENT_OFF((*txn)->comm_cfg_timeout);
 		EVENT_OFF((*txn)->get_tree_timeout);
-		hash_release(mgmt_txn_mm->txn_hash, *txn);
+		if (!in_hash_free)
+			hash_release(mgmt_txn_mm->txn_hash, *txn);
+
 		mgmt_txns_del(&mgmt_txn_mm->txn_list, *txn);
 
 		__dbg("Deleted %s txn-id: %" PRIu64 " session-id: %" PRIu64,
@@ -1945,7 +1946,7 @@ static void mgmt_txn_cleanup_txn(struct mgmt_txn_ctx **txn)
 {
 	/* TODO: Any other cleanup applicable */
 
-	mgmt_txn_delete(txn);
+	mgmt_txn_delete(txn, false);
 }
 
 static void mgmt_txn_cleanup_all_txns(void)
@@ -2037,7 +2038,7 @@ void mgmt_destroy_txn(uint64_t *txn_id)
 	if (!txn)
 		return;
 
-	mgmt_txn_delete(&txn);
+	mgmt_txn_delete(&txn, false);
 	*txn_id = MGMTD_TXN_ID_NONE;
 }
 
