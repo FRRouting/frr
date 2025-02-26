@@ -1190,10 +1190,22 @@ DEFUN_YANG_NOSH (no_static_srv6, no_static_srv6_cmd,
 	return nb_cli_apply_changes(vty, "%s", xpath);
 }
 
-DEFPY_NOSH (static_srv6_sids, static_srv6_sids_cmd,
-      "static-sids",
+DEFPY_YANG_NOSH (static_srv6_sids, static_srv6_sids_cmd,
+      "[no] static-sids",
+	  NO_STR
       "Segment Routing SRv6 SIDs\n")
 {
+	char xpath[XPATH_MAXLEN];
+
+	if (no) {
+		snprintf(xpath, sizeof(xpath), FRR_STATIC_SRV6_STATIC_SIDS_XPATH,
+			 "frr-staticd:staticd", "staticd", VRF_DEFAULT_NAME);
+
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+		return nb_cli_apply_changes(vty, "%s", xpath);
+	}
+
 	VTY_PUSH_CONTEXT_NULL(SRV6_SIDS_NODE);
 	return CMD_SUCCESS;
 }
