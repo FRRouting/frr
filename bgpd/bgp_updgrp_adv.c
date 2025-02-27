@@ -275,6 +275,21 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 					subgrp, ctx->pi, ctx->dest, afi, safi,
 					bgp_addpath_id_for_peer(peer, afi, safi,
 								&ctx->pi->tx_addpath));
+
+				/* Remove paths from Adj-RIB-Out if it's not a best path.
+				 * Why should we keep Adj-RIB-Out with stale paths?
+				 */
+				RB_FOREACH_SAFE (adj, bgp_adj_out_rb, &ctx->dest->adj_out,
+						 adj_next) {
+					if (adj->subgroup != subgrp)
+						continue;
+
+					if (!adj->adv)
+						subgroup_process_announce_selected(subgrp, NULL,
+										   ctx->dest, afi,
+										   safi,
+										   adj->addpath_tx_id);
+				}
 			} else {
 				RB_FOREACH_SAFE (adj, bgp_adj_out_rb, &ctx->dest->adj_out,
 						 adj_next) {
