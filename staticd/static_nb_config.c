@@ -1296,7 +1296,6 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routi
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		zlog_info("validating nexthop %pI6", &nexthop.ipaddr_v6);
 		yang_dnode_get_ip(&nexthop, args->dnode, "../next-hop");
 		if (!IS_IPADDR_V6(&nexthop)) {
 			snprintf(args->errmsg, args->errmsg_len,
