@@ -2663,6 +2663,7 @@ static inline int peer_afi_active_nego(const struct peer *peer, afi_t afi)
 	    || peer->afc_nego[afi][SAFI_ENCAP]
 	    || peer->afc_nego[afi][SAFI_FLOWSPEC]
 	    || peer->afc_nego[afi][SAFI_EVPN]
+	    || peer->afc_nego[afi][SAFI_RTC]
 	    || peer->afc_nego[afi][SAFI_LINKSTATE]
 	    || peer->afc_nego[afi][SAFI_LINKSTATE_VPN])
 		return 1;
@@ -2685,6 +2686,7 @@ static inline int peer_group_af_configured(struct peer_group *group)
 	    || peer->afc[AFI_IP6][SAFI_ENCAP]
 	    || peer->afc[AFI_IP6][SAFI_FLOWSPEC]
 	    || peer->afc[AFI_L2VPN][SAFI_EVPN]
+	    || peer->afc[AFI_IP][SAFI_RTC]
 	    || peer->afc[AFI_LINKSTATE][SAFI_LINKSTATE]
 	    || peer->afc[AFI_LINKSTATE][SAFI_LINKSTATE_VPN])
 		return 1;
