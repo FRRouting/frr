@@ -1708,6 +1708,14 @@ DEFUNSH(VTYSH_MGMTD, srv6_sids, srv6_sids_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFUNSH(VTYSH_MGMTD, no_srv6_sids, no_srv6_sids_cmd,
+	"no static-sids",
+	NO_STR
+	"Segment-Routing SRv6 SIDs configuration\n")
+{
+	return CMD_SUCCESS;
+}
+
 DEFUNSH(VTYSH_ZEBRA, srv6_locators, srv6_locators_cmd,
 	"locators",
 	"Segment-Routing SRv6 locators configuration\n")
@@ -5543,6 +5551,7 @@ void vtysh_init_vty(void)
 	install_element(SRV6_NODE, &vtysh_end_all_cmd);
 	install_element(SRV6_NODE, &srv6_encap_cmd);
 	install_element(SRV6_NODE, &srv6_sids_cmd);
+	install_element(SRV6_NODE, &no_srv6_sids_cmd);
 
 	install_element(SRV6_SIDS_NODE, &exit_srv6_sids_config_cmd);
 	install_element(SRV6_SIDS_NODE, &vtysh_end_all_cmd);
