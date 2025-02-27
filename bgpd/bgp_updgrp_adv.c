@@ -593,6 +593,18 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 				   attr_str);
 		}
 
+		/* Duplicate update received, ignoring it. If the prefix
+		 * changes too quickly before we process the withdraw,
+		 * the update is dropped and the route is lost. Checking if
+		 * a withdraw is already scheduled for this adj.
+		 * If so, the withdraw is dropped.
+		 */
+		if (adj->adv && !adj->adv->baa) {
+			bgp_adv_fifo_del(&subgrp->sync->withdraw, adj->adv);
+			bgp_advertise_free(adj->adv);
+			adj->adv = NULL;
+		}
+
 		/*
 		 * If BGP is skipping sending this value to it's peers
 		 * the version number should be updated just like it
