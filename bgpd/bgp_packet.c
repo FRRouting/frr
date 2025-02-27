@@ -2211,6 +2211,7 @@ static int bgp_open_receive(struct peer_connection *connection, bgp_size_t size)
 			peer->afc[AFI_IP][SAFI_LABELED_UNICAST];
 		peer->afc_nego[AFI_IP][SAFI_FLOWSPEC] =
 			peer->afc[AFI_IP][SAFI_FLOWSPEC];
+		peer->afc_nego[AFI_IP][SAFI_RTC] = peer->afc[AFI_IP][SAFI_RTC];
 		peer->afc_nego[AFI_IP6][SAFI_UNICAST] =
 			peer->afc[AFI_IP6][SAFI_UNICAST];
 		peer->afc_nego[AFI_IP6][SAFI_MULTICAST] =

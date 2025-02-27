@@ -3163,6 +3163,7 @@ static inline int peer_afi_active_nego(const struct peer *peer, afi_t afi)
 	if (peer->afc_nego[afi][SAFI_UNICAST] || peer->afc_nego[afi][SAFI_MULTICAST] ||
 	    peer->afc_nego[afi][SAFI_LABELED_UNICAST] || peer->afc_nego[afi][SAFI_MPLS_VPN] ||
 	    peer->afc_nego[afi][SAFI_ENCAP] || peer->afc_nego[afi][SAFI_FLOWSPEC] ||
+	    peer->afc_nego[afi][SAFI_RTC] ||
 	    peer->afc_nego[afi][SAFI_UNREACH] || peer->afc_nego[afi][SAFI_EVPN])
 		return 1;
 	return 0;
@@ -3186,6 +3187,7 @@ static inline int peer_group_af_configured(struct peer_group *group)
 	    || peer->afc[AFI_IP6][SAFI_FLOWSPEC]
 	    || peer->afc[AFI_IP6][SAFI_UNREACH]
 	    || peer->afc[AFI_L2VPN][SAFI_EVPN]
+	    || peer->afc[AFI_IP][SAFI_RTC]
 	    || peer->afc[AFI_BGP_LS][SAFI_BGP_LS])
 		return 1;
 	return 0;
