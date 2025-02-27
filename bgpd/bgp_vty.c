@@ -114,6 +114,10 @@ FRR_CFG_DEFAULT_BOOL(BGP_SUPPRESS_DUPLICATES,
 	{ .val_bool = false, .match_version = "< 7.6", },
 	{ .val_bool = true },
 );
+FRR_CFG_DEFAULT_BOOL(BGP_SUPPRESS_FLAPPED_WITHDRAW,
+	{ .val_bool = false, .match_version = "< 7.6", },
+	{ .val_bool = true },
+);
 FRR_CFG_DEFAULT_BOOL(BGP_GRACEFUL_NOTIFICATION,
 	{ .val_bool = false, .match_version = "< 8.3", },
 	{ .val_bool = true },
@@ -697,6 +701,8 @@ int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
 			SET_FLAG((*bgp)->flags, BGP_FLAG_EBGP_REQUIRES_POLICY);
 		if (DFLT_BGP_SUPPRESS_DUPLICATES)
 			SET_FLAG((*bgp)->flags, BGP_FLAG_SUPPRESS_DUPLICATES);
+		if (DFLT_BGP_SUPPRESS_FLAPPED_WITHDRAW)
+			SET_FLAG((*bgp)->flags, BGP_FLAG_SUPPRESS_FLAPPED_WITHDRAW);
 		if (DFLT_BGP_GRACEFUL_NOTIFICATION)
 			SET_FLAG((*bgp)->flags, BGP_FLAG_GRACEFUL_NOTIFICATION);
 		if (DFLT_BGP_HARD_ADMIN_RESET)
@@ -2961,6 +2967,24 @@ DEFPY(bgp_enforce_first_as,
 		SET_FLAG(bgp->flags, BGP_FLAG_ENFORCE_FIRST_AS);
 
 	return CMD_SUCCESS;
+}
+
+DEFPY(bgp_suppress_flapped_withdraw,
+      bgp_suppress_flapped_withdraw_cmd,
+      "[no] bgp suppress-flapped-withdraw",
+      NO_STR
+      BGP_STR
+      "Suppress withdraw if the flapped update is a duplicate\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (no)
+		UNSET_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FLAPPED_WITHDRAW);
+	else
+		SET_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FLAPPED_WITHDRAW);
+
+	return CMD_SUCCESS;
+
 }
 
 DEFUN(bgp_suppress_duplicates, bgp_suppress_duplicates_cmd,
@@ -19159,6 +19183,9 @@ int bgp_config_write(struct vty *vty)
 		if (bgp->reject_as_sets)
 			vty_out(vty, " bgp reject-as-sets\n");
 
+		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FLAPPED_WITHDRAW))
+			vty_out(vty, " no bgp suppress-flapped-withdraw\n");
+
 		/* Suppress duplicate updates if the route actually not changed
 		 */
 		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES)
@@ -20164,6 +20191,9 @@ void bgp_vty_init(void)
 
 	/* bgp enforce-first-as */
 	install_element(BGP_NODE, &bgp_enforce_first_as_cmd);
+
+	/* bgp suppress-flapped-withraw */
+	install_element(BGP_NODE, &bgp_suppress_flapped_withdraw_cmd);
 
 	/* bgp suppress-duplicates */
 	install_element(BGP_NODE, &bgp_suppress_duplicates_cmd);
