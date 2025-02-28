@@ -184,6 +184,10 @@ int routing_control_plane_protocols_name_validate(
 	"frr-staticd:staticd/segment-routing/srv6"
 
 /* srv6/static-sids */
+#define FRR_STATIC_SRV6_STATIC_SIDS_XPATH                                                          \
+	FRR_STATIC_SRV6_INFO_KEY_XPATH                                                             \
+	"/static-sids"
+
 #define FRR_STATIC_SRV6_SID_KEY_XPATH                                                              \
 	FRR_STATIC_SRV6_INFO_KEY_XPATH                                                             \
 	"/static-sids/"                                                                            \
