@@ -25,14 +25,14 @@ static void pim_sighup(void)
 	zlog_info("SIGHUP received, ignoring");
 }
 
-static void pim_sigint(void)
+static __attribute__((__noreturn__)) void pim_sigint(void)
 {
 	zlog_notice("Terminating on signal SIGINT");
 	pim_terminate();
 	exit(1);
 }
 
-static void pim_sigterm(void)
+static __attribute__((__noreturn__)) void pim_sigterm(void)
 {
 	zlog_notice("Terminating on signal SIGTERM");
 	pim_terminate();
