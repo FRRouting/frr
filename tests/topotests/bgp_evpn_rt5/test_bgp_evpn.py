@@ -377,8 +377,8 @@ def test_evpn_disable_routemap():
         configure terminal\n
         router bgp 65000 vrf r2-vrf-101\n
         address-family l2vpn evpn\n
-        advertise ipv4 unicast\n
-        advertise ipv6 unicast\n
+        no l3-advertise ipv4 unicast route-map rmap4\n
+        no l3-advertise ipv6 unicast route-map rmap6\n
         """
     )
     router = tgen.gears["r1"]
