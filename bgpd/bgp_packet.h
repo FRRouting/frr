@@ -48,7 +48,7 @@ DECLARE_HOOK(bgp_packet_send,
 	} while (0)
 
 /* Packet send and receive function prototypes. */
-extern void bgp_keepalive_send(struct peer *peer);
+extern void bgp_keepalive_send(struct peer_connection *connection);
 extern struct stream *bgp_open_make(struct peer *peer, uint16_t send_holdtime, as_t local_as,
 				    struct in_addr *id);
 extern void bgp_open_send(struct peer_connection *connection);

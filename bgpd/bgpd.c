@@ -1180,6 +1180,22 @@ void bgp_peer_connection_free(struct peer_connection **connection)
 	connection = NULL;
 }
 
+const char *bgp_peer_get_connection_direction(struct peer_connection *connection)
+{
+	switch (connection->dir) {
+	case UNKNOWN:
+		return "Unknown";
+	case CONNECTION_INCOMING:
+		return "Incoming";
+	case CONNECTION_OUTGOING:
+		return "Outgoing";
+	case ESTABLISHED:
+		return "Established";
+	}
+
+	assert(!"DEV Escape: Expected switch to take care of this state");
+}
+
 struct peer_connection *bgp_peer_connection_new(struct peer *peer)
 {
 	struct peer_connection *connection;
@@ -1527,6 +1543,7 @@ struct peer *peer_new(struct bgp *bgp)
 
 	/* Create buffers. */
 	peer->connection = bgp_peer_connection_new(peer);
+	peer->connection->dir = CONNECTION_OUTGOING;
 
 	/* Set default value. */
 	peer->v_start = BGP_INIT_START_TIMER;
