@@ -1212,7 +1212,8 @@ static bool alloc_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
 								  .func_allocated,
 							  node,
 							  sid_wide_func_ptr))
-					if (*sid_wide_func_ptr == sid_wide_func)
+					if (sid_wide_func_ptr
+						&& *sid_wide_func_ptr == sid_wide_func)
 						break;
 
 				if (sid_wide_func_ptr) {
