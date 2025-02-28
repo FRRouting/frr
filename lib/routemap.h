@@ -317,6 +317,7 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(C, "frr-bgp-route-map:match-large-community"))
 #define IS_MATCH_EXTCOMMUNITY(C)                                               \
 	(strmatch(C, "frr-bgp-route-map:match-extcommunity"))
+#define IS_MATCH_EXTCOMMUNITY_LIMIT(C) (strmatch(C, "frr-bgp-route-map:match-extcommunity-limit"))
 #define IS_MATCH_IPV4_NH(C)                                                    \
 	(strmatch(C, "frr-bgp-route-map:ipv4-nexthop"))
 #define IS_MATCH_IPV6_NH(C)                                                    \
