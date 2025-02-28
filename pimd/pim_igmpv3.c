@@ -843,7 +843,7 @@ static void toex_incl(struct gm_group *group, int num_sources,
 
 		/* Lookup reported source (B) */
 		source = igmp_get_source_by_addr(group, *src_addr, &new);
-		if (!new) {
+		if (!new && source != NULL) {
 			/* If found, clear deletion flag: (A*B) */
 			IGMP_SOURCE_DONT_DELETE(source->source_flags);
 			/* and set SEND flag (A*B) */
