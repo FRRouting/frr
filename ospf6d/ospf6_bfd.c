@@ -27,8 +27,6 @@
 #include "ospf6_zebra.h"
 #include "ospf6_bfd.h"
 
-extern struct zclient *zclient;
-
 /*
  * ospf6_bfd_trigger_event - Neighbor is registered/deregistered with BFD when
  *                           neighbor state is changed to/from 2way.
@@ -280,7 +278,7 @@ DEFUN (no_ipv6_ospf6_bfd,
 
 void ospf6_bfd_init(void)
 {
-	bfd_protocol_integration_init(zclient, master);
+	bfd_protocol_integration_init(ospf6_zclient, master);
 
 	/* Install BFD command */
 	install_element(INTERFACE_NODE, &ipv6_ospf6_bfd_cmd);

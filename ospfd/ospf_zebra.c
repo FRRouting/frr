@@ -45,7 +45,7 @@ DEFINE_MTYPE_STATIC(OSPFD, OSPF_REDISTRIBUTE, "OSPF Redistriute");
 
 
 /* Zebra structure to hold current status. */
-struct zclient *zclient = NULL;
+struct zclient *ospf_zclient;
 /* and for the Synchronous connection to the Label Manager */
 struct zclient *zclient_sync;
 
@@ -342,7 +342,7 @@ void ospf_zebra_add(struct ospf *ospf, struct prefix_ipv4 *p,
 	if (CHECK_FLAG(ospf->config, OSPF_SEND_EXTRA_DATA_TO_ZEBRA))
 		ospf_zebra_append_opaque_attr(or, &api);
 
-	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
+	zclient_route_send(ZEBRA_ROUTE_ADD, ospf_zclient, &api);
 }
 
 void ospf_zebra_delete(struct ospf *ospf, struct prefix_ipv4 *p,
@@ -368,7 +368,7 @@ void ospf_zebra_delete(struct ospf *ospf, struct prefix_ipv4 *p,
 		zlog_debug("Zebra: Route delete %pFX(%s)", p,
 			   ospf_vrf_id_to_name(ospf->vrf_id));
 
-	zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
+	zclient_route_send(ZEBRA_ROUTE_DELETE, ospf_zclient, &api);
 }
 
 void ospf_zebra_add_discard(struct ospf *ospf, struct prefix_ipv4 *p)
@@ -390,7 +390,7 @@ void ospf_zebra_add_discard(struct ospf *ospf, struct prefix_ipv4 *p)
 	memcpy(&api.prefix, p, sizeof(*p));
 	zapi_route_set_blackhole(&api, BLACKHOLE_NULL);
 
-	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
+	zclient_route_send(ZEBRA_ROUTE_ADD, ospf_zclient, &api);
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
 		zlog_debug("Zebra: Route add discard %pFX(%s)", p,
@@ -416,7 +416,7 @@ void ospf_zebra_delete_discard(struct ospf *ospf, struct prefix_ipv4 *p)
 	memcpy(&api.prefix, p, sizeof(*p));
 	zapi_route_set_blackhole(&api, BLACKHOLE_NULL);
 
-	zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
+	zclient_route_send(ZEBRA_ROUTE_DELETE, ospf_zclient, &api);
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
 		zlog_debug("Zebra: Route delete discard %pFX(%s)", p,
@@ -695,7 +695,7 @@ void ospf_zebra_update_prefix_sid(const struct sr_prefix *srp)
 	}
 
 	/* Finally, send message to zebra. */
-	(void)zebra_send_mpls_labels(zclient, ZEBRA_MPLS_LABELS_REPLACE, &zl);
+	(void)zebra_send_mpls_labels(ospf_zclient, ZEBRA_MPLS_LABELS_REPLACE, &zl);
 }
 
 /* Remove NHLFE for Prefix-SID */
@@ -722,7 +722,7 @@ void ospf_zebra_delete_prefix_sid(const struct sr_prefix *srp)
 	}
 
 	/* Send message to zebra. */
-	(void)zebra_send_mpls_labels(zclient, ZEBRA_MPLS_LABELS_DELETE, &zl);
+	(void)zebra_send_mpls_labels(ospf_zclient, ZEBRA_MPLS_LABELS_DELETE, &zl);
 }
 
 /* Send MPLS Label entry to Zebra for installation or deletion */
@@ -746,7 +746,7 @@ void ospf_zebra_send_adjacency_sid(int cmd, struct sr_nhlfe nhlfe)
 	znh->label_num = 1;
 	znh->labels[0] = nhlfe.label_out;
 
-	(void)zebra_send_mpls_labels(zclient, cmd, &zl);
+	(void)zebra_send_mpls_labels(ospf_zclient, cmd, &zl);
 }
 
 struct ospf_redist *ospf_redist_lookup(struct ospf *ospf, uint8_t type,
@@ -815,14 +815,14 @@ int ospf_is_type_redistributed(struct ospf *ospf, int type,
 {
 	return (DEFAULT_ROUTE_TYPE(type)
 			? vrf_bitmap_check(
-				  &zclient->default_information[AFI_IP],
+				  &ospf_zclient->default_information[AFI_IP],
 				  ospf->vrf_id)
 			: ((instance &&
 			    redist_check_instance(
-				    &zclient->mi_redist[AFI_IP][type],
+				    &ospf_zclient->mi_redist[AFI_IP][type],
 				    instance)) ||
 			   (!instance &&
-			    vrf_bitmap_check(&zclient->redist[AFI_IP][type],
+			    vrf_bitmap_check(&ospf_zclient->redist[AFI_IP][type],
 					     ospf->vrf_id))));
 }
 
@@ -861,7 +861,7 @@ int ospf_redistribute_set(struct ospf *ospf, struct ospf_redist *red, int type,
 
 	ospf_external_add(ospf, type, instance);
 
-	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP, type,
+	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, ospf_zclient, AFI_IP, type,
 			     instance, ospf->vrf_id);
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
@@ -879,10 +879,10 @@ int ospf_redistribute_set(struct ospf *ospf, struct ospf_redist *red, int type,
 int ospf_redistribute_unset(struct ospf *ospf, int type,
 			    unsigned short instance)
 {
-	if (type == zclient->redist_default && instance == zclient->instance)
+	if (type == ospf_zclient->redist_default && instance == ospf_zclient->instance)
 		return CMD_SUCCESS;
 
-	zclient_redistribute(ZEBRA_REDISTRIBUTE_DELETE, zclient, AFI_IP, type,
+	zclient_redistribute(ZEBRA_REDISTRIBUTE_DELETE, ospf_zclient, AFI_IP, type,
 			     instance, ospf->vrf_id);
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
@@ -933,7 +933,7 @@ int ospf_redistribute_default_set(struct ospf *ospf, int originate, int mtype,
 		break;
 	case DEFAULT_ORIGINATE_ZEBRA:
 		zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_DELETE,
-				 zclient, AFI_IP, ospf->vrf_id);
+					     ospf_zclient, AFI_IP, ospf->vrf_id);
 		ospf->redistribute--;
 		break;
 	case DEFAULT_ORIGINATE_ALWAYS:
@@ -951,7 +951,7 @@ int ospf_redistribute_default_set(struct ospf *ospf, int originate, int mtype,
 		type_str = "normal";
 		ospf->redistribute++;
 		zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_ADD,
-					     zclient, AFI_IP, ospf->vrf_id);
+					     ospf_zclient, AFI_IP, ospf->vrf_id);
 		break;
 	case DEFAULT_ORIGINATE_ALWAYS:
 		type_str = "always";
@@ -1242,7 +1242,7 @@ static int ospf_zebra_gr_update(struct ospf *ospf, int command,
 {
 	struct zapi_cap api;
 
-	if (!zclient || zclient->sock < 0 || !ospf)
+	if (!ospf_zclient || ospf_zclient->sock < 0 || !ospf)
 		return 1;
 
 	memset(&api, 0, sizeof(api));
@@ -1250,7 +1250,7 @@ static int ospf_zebra_gr_update(struct ospf *ospf, int command,
 	api.stale_removal_time = stale_time;
 	api.vrf_id = ospf->vrf_id;
 
-	(void)zclient_capabilities_send(ZEBRA_CLIENT_CAPABILITIES, zclient,
+	(void)zclient_capabilities_send(ZEBRA_CLIENT_CAPABILITIES, ospf_zclient,
 					&api);
 
 	return 0;
@@ -1495,7 +1495,7 @@ void ospf_zebra_import_default_route(struct ospf *ospf, bool unreg)
 	struct prefix prefix = {};
 	int command;
 
-	if (zclient->sock < 0) {
+	if (ospf_zclient->sock < 0) {
 		if (IS_DEBUG_OSPF(zebra, ZEBRA))
 			zlog_debug("  Not connected to Zebra vrf: %s",
 				   ospf_vrf_id_to_name(ospf->vrf_id));
@@ -1515,7 +1515,7 @@ void ospf_zebra_import_default_route(struct ospf *ospf, bool unreg)
 			   zserv_command_string(command), &prefix,
 			   ospf_vrf_id_to_name(ospf->vrf_id));
 
-	if (zclient_send_rnh(zclient, command, &prefix, SAFI_UNICAST, false,
+	if (zclient_send_rnh(ospf_zclient, command, &prefix, SAFI_UNICAST, false,
 			     true, ospf->vrf_id) == ZCLIENT_SEND_FAILURE)
 		flog_err(EC_LIB_ZAPI_SOCKET, "%s(%s): zclient_send_rnh() failed",
 			 __func__, ospf_vrf_id_to_name(ospf->vrf_id));
@@ -2011,7 +2011,7 @@ uint8_t ospf_distance_apply(struct ospf *ospf, struct prefix_ipv4 *p,
 
 void ospf_zebra_vrf_register(struct ospf *ospf)
 {
-	if (!zclient || zclient->sock < 0 || !ospf)
+	if (!ospf_zclient || ospf_zclient->sock < 0 || !ospf)
 		return;
 
 	if (ospf->vrf_id != VRF_UNKNOWN) {
@@ -2019,13 +2019,13 @@ void ospf_zebra_vrf_register(struct ospf *ospf)
 			zlog_debug("%s: Register VRF %s id %u", __func__,
 				   ospf_vrf_id_to_name(ospf->vrf_id),
 				   ospf->vrf_id);
-		zclient_send_reg_requests(zclient, ospf->vrf_id);
+		zclient_send_reg_requests(ospf_zclient, ospf->vrf_id);
 	}
 }
 
 void ospf_zebra_vrf_deregister(struct ospf *ospf)
 {
-	if (!zclient || zclient->sock < 0 || !ospf)
+	if (!ospf_zclient || ospf_zclient->sock < 0 || !ospf)
 		return;
 
 	if (ospf->vrf_id != VRF_DEFAULT && ospf->vrf_id != VRF_UNKNOWN) {
@@ -2035,7 +2035,7 @@ void ospf_zebra_vrf_deregister(struct ospf *ospf)
 				   ospf->vrf_id);
 		/* Deregister for router-id, interfaces,
 		 * redistributed routes. */
-		zclient_send_dereg_requests(zclient, ospf->vrf_id);
+		zclient_send_dereg_requests(ospf_zclient, ospf->vrf_id);
 	}
 }
 
@@ -2230,17 +2230,17 @@ static zclient_handler *const ospf_handlers[] = {
 	[ZEBRA_CLIENT_CLOSE_NOTIFY] = ospf_zebra_client_close_notify,
 };
 
-void ospf_zebra_init(struct event_loop *master, unsigned short instance)
+void ospf_zebra_init(struct event_loop *mst, unsigned short instance)
 {
 	/* Allocate zebra structure. */
-	zclient = zclient_new(master, &zclient_options_default, ospf_handlers,
-			      array_size(ospf_handlers));
-	zclient_init(zclient, ZEBRA_ROUTE_OSPF, instance, &ospfd_privs);
-	zclient->zebra_connected = ospf_zebra_connected;
-	zclient->nexthop_update = ospf_zebra_import_check_update;
+	ospf_zclient = zclient_new(mst, &zclient_options_default, ospf_handlers,
+				   array_size(ospf_handlers));
+	zclient_init(ospf_zclient, ZEBRA_ROUTE_OSPF, instance, &ospfd_privs);
+	ospf_zclient->zebra_connected = ospf_zebra_connected;
+	ospf_zclient->nexthop_update = ospf_zebra_import_check_update;
 
 	/* Initialize special zclient for synchronous message exchanges. */
-	zclient_sync = zclient_new(master, &zclient_options_sync, NULL, 0);
+	zclient_sync = zclient_new(mst, &zclient_options_sync, NULL, 0);
 	zclient_sync->sock = -1;
 	zclient_sync->redist_default = ZEBRA_ROUTE_OSPF;
 	zclient_sync->instance = instance;
@@ -2259,5 +2259,5 @@ void ospf_zebra_init(struct event_loop *master, unsigned short instance)
 
 void ospf_zebra_send_arp(const struct interface *ifp, const struct prefix *p)
 {
-	zclient_send_neigh_discovery_req(zclient, ifp, p);
+	zclient_send_neigh_discovery_req(ospf_zclient, ifp, p);
 }

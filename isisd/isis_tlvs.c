@@ -518,7 +518,7 @@ static void format_item_asla_subtlvs(struct isis_asla_subtlvs *asla,
 			  asla->max_rsv_bw);
 	if (IS_SUBTLV(asla, EXT_UNRSV_BW)) {
 		sbuf_push(buf, indent + 2, "Unreserved Bandwidth:\n");
-		for (int j = 0; j < MAX_CLASS_TYPE; j += 2) {
+		for (j = 0; j < MAX_CLASS_TYPE; j += 2) {
 			sbuf_push(
 				buf, indent + 2,
 				"[%d]: %g (Bytes/sec),\t[%d]: %g (Bytes/sec)\n",
@@ -3209,7 +3209,7 @@ static struct isis_item *copy_item_lsp_entry(struct isis_item *i)
 }
 
 static void format_item_lsp_entry(uint16_t mtid, struct isis_item *i,
-				  struct sbuf *buf, struct json_object *json,
+				  struct sbuf *sbuf, struct json_object *json,
 				  int indent)
 {
 	struct isis_lsp_entry *e = (struct isis_lsp_entry *)i;
@@ -3229,10 +3229,9 @@ static void format_item_lsp_entry(uint16_t mtid, struct isis_item *i,
 		json_object_string_add(lsp_json, "chksum", buf);
 		json_object_int_add(lsp_json, "lifetime", e->checksum);
 	} else
-		sbuf_push(
-			buf, indent,
-			"LSP Entry: %s, seq 0x%08x, cksum 0x%04hx, lifetime %hus\n",
-			sys_id, e->seqno, e->checksum, e->rem_lifetime);
+		sbuf_push(sbuf, indent,
+			  "LSP Entry: %s, seq 0x%08x, cksum 0x%04hx, lifetime %hus\n",
+			  sys_id, e->seqno, e->checksum, e->rem_lifetime);
 }
 
 static void free_item_lsp_entry(struct isis_item *i)
@@ -3553,7 +3552,7 @@ static void copy_tlv_protocols_supported(struct isis_protocols_supported *src,
 }
 
 static void format_tlv_protocols_supported(struct isis_protocols_supported *p,
-					   struct sbuf *buf,
+					   struct sbuf *sbuf,
 					   struct json_object *json, int indent)
 {
 	if (!p || !p->count || !p->protocols)
@@ -3572,12 +3571,12 @@ static void format_tlv_protocols_supported(struct isis_protocols_supported *p,
 					       nlpid2str(p->protocols[i]));
 		}
 	} else {
-		sbuf_push(buf, indent, "Protocols Supported: ");
+		sbuf_push(sbuf, indent, "Protocols Supported: ");
 		for (uint8_t i = 0; i < p->count; i++) {
-			sbuf_push(buf, 0, "%s%s", nlpid2str(p->protocols[i]),
+			sbuf_push(sbuf, 0, "%s%s", nlpid2str(p->protocols[i]),
 				  (i + 1 < p->count) ? ", " : "");
 		}
-		sbuf_push(buf, 0, "\n");
+		sbuf_push(sbuf, 0, "\n");
 	}
 }
 
@@ -5275,9 +5274,9 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 	/* Flex Algo Definitions */
 	for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
 		struct isis_router_cap_fad *fad;
-		size_t subtlv_len;
 		struct admin_group *ag;
 		uint32_t admin_group_length;
+		size_t j;
 
 		fad = router_cap->fads[i];
 		if (!fad)
@@ -5315,8 +5314,8 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 		if (admin_group_length) {
 			stream_putc(s, ISIS_SUBTLV_FAD_SUBSUBTLV_EXCAG);
 			stream_putc(s, sizeof(uint32_t) * admin_group_length);
-			for (size_t i = 0; i < admin_group_length; i++)
-				stream_putl(s, admin_group_get_offset(ag, i));
+			for (j = 0; j < admin_group_length; j++)
+				stream_putl(s, admin_group_get_offset(ag, j));
 		}
 
 		ag = &fad->fad.admin_group_include_any;
@@ -5324,8 +5323,8 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 		if (admin_group_length) {
 			stream_putc(s, ISIS_SUBTLV_FAD_SUBSUBTLV_INCANYAG);
 			stream_putc(s, sizeof(uint32_t) * admin_group_length);
-			for (size_t i = 0; i < admin_group_length; i++)
-				stream_putl(s, admin_group_get_offset(ag, i));
+			for (j = 0; j < admin_group_length; j++)
+				stream_putl(s, admin_group_get_offset(ag, j));
 		}
 
 		ag = &fad->fad.admin_group_include_all;
@@ -5333,8 +5332,8 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 		if (admin_group_length) {
 			stream_putc(s, ISIS_SUBTLV_FAD_SUBSUBTLV_INCALLAG);
 			stream_putc(s, sizeof(uint32_t) * admin_group_length);
-			for (size_t i = 0; i < admin_group_length; i++)
-				stream_putl(s, admin_group_get_offset(ag, i));
+			for (j = 0; j < admin_group_length; j++)
+				stream_putl(s, admin_group_get_offset(ag, j));
 		}
 
 		if (fad->fad.flags != 0) {

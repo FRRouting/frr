@@ -11,7 +11,7 @@
 
 #include "isisd.h"
 
-extern struct zclient *zclient;
+extern struct zclient *isis_zclient;
 
 struct label_chunk {
 	uint32_t start;
