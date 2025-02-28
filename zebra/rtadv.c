@@ -1214,6 +1214,18 @@ void rtadv_delete_prefix_manual(struct zebra_if *zif,
 	rtadv_prefix_reset(zif, &rp, rprefix);
 }
 
+static void zebra_rtadv_zif_stop_bgp(struct zebra_if *zif)
+{
+	if (CHECK_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED))
+		interfaces_configured_for_ra_from_bgp--;
+
+	UNSET_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED);
+	if (!CHECK_FLAG(zif->rtadv.ra_configured, VTY_RA_INTERVAL_CONFIGURED))
+		zif->rtadv.MaxRtrAdvInterval = RTADV_MAX_RTR_ADV_INTERVAL;
+	if (!CHECK_FLAG(zif->rtadv.ra_configured, VTY_RA_CONFIGURED))
+		ipv6_nd_suppress_ra_set(zif->ifp, RA_SUPPRESS);
+}
+
 /* Add IPv6 prefixes learned from the kernel to the RA prefix list */
 void rtadv_add_prefix(struct zebra_if *zif, const struct prefix_ipv6 *p)
 {
@@ -1257,6 +1269,21 @@ static void rtadv_start_interface_events(struct zebra_vrf *zvrf,
 
 	if (adv_if_list_count(&zvrf->rtadv.adv_if) == 1)
 		rtadv_event(zvrf, RTADV_START, 0);
+}
+
+void zebra_rtadv_stop_bgp(void)
+{
+	struct vrf *vrf;
+	struct interface *ifp;
+	struct zebra_if *zif;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			zif = ifp->info;
+			if (!CHECK_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED))
+				continue;
+			zebra_rtadv_zif_stop_bgp(zif);
+		}
 }
 
 void ipv6_nd_suppress_ra_set(struct interface *ifp,
@@ -1401,18 +1428,8 @@ static void zebra_interface_radv_set(ZAPI_HANDLER_ARGS, int enable)
 		    && !CHECK_FLAG(zif->rtadv.ra_configured,
 				   VTY_RA_INTERVAL_CONFIGURED))
 			zif->rtadv.MaxRtrAdvInterval = ra_interval * 1000;
-	} else {
-		if (CHECK_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED))
-			interfaces_configured_for_ra_from_bgp--;
-
-		UNSET_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED);
-		if (!CHECK_FLAG(zif->rtadv.ra_configured,
-				VTY_RA_INTERVAL_CONFIGURED))
-			zif->rtadv.MaxRtrAdvInterval =
-				RTADV_MAX_RTR_ADV_INTERVAL;
-		if (!CHECK_FLAG(zif->rtadv.ra_configured, VTY_RA_CONFIGURED))
-			ipv6_nd_suppress_ra_set(ifp, RA_SUPPRESS);
-	}
+	} else
+		zebra_rtadv_zif_stop_bgp(zif);
 stream_failure:
 	return;
 }
