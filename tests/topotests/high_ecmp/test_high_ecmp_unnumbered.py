@@ -8,6 +8,7 @@
 # Nvidia Corporation
 # Donald Sharp
 #
+# Copyright (c) 2025 by Soumya Roy, <souroy@nvidia.com>
 
 """
 test_high_ecmp.py: Testing two routers with 256 interfaces and BGP setup
@@ -79,9 +80,11 @@ def setup_module(module):
                 (TopoRouter.RD_SHARP, None),
             ],
         )
-
+ 
     tgen.start_router()
-
+    
+    for rname, router in router_list.items():
+       router.cmd("vtysh -f {}/{}/frr_unnumbered_bgp.conf".format(CWD, rname))
 
 def teardown_module(_mod):
     "Teardown the pytest environment"
@@ -93,7 +96,6 @@ def teardown_module(_mod):
 
 def test_nothing():
     "Do Nothing"
-
     tgen = get_topogen()
     # Don't run this test if we have any failure.
     if tgen.routers_have_failure():
