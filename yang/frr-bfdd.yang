@@ -24,7 +24,7 @@ module frr-bfdd {
   description
     "This module defines a model for managing FRR bfdd daemon.
 
-     Copyright 2020 FRRouting
+     Copyright 2025 FRRouting
 
      Redistribution and use in source and binary forms, with or without
      modification, are permitted provided that the following conditions
@@ -58,6 +58,14 @@ module frr-bfdd {
        RFC 5883: Bidirectional Forwarding Detection (BFD) for Multihop Paths.";
   }
 
+  revision 2025-03-03 {
+    description "Add log-sessio-changes leaf";
+    reference
+      "RFC 5880: Bidirectional Forwarding Detection (BFD).
+       RFC 5881: Bidirectional Forwarding Detection (BFD)
+                 for IPv4 and IPv6 (Single Hop).
+       RFC 5883: Bidirectional Forwarding Detection (BFD) for Multihop Paths.";
+  }
 
   /*
    * BFD types declaration.
@@ -197,6 +205,13 @@ module frr-bfdd {
       description
         "Don't attempt to start session establishment.";
     }
+
+    leaf log-session-changes {
+      type boolean;
+      default false;
+      description "Log session changes from/to Up state to/from Down state";
+    }
+
   }
 
   grouping session-echo {
