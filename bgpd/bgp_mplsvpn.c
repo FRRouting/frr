@@ -1696,6 +1696,14 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 		return;
 	}
 
+	/* Aggregate-address suppress check. */
+	if (bgp_path_suppressed(path_vrf)) {
+		if (debug)
+			zlog_debug("%s: %s skipping: suppressed path will not be exported",
+				   __func__, from_bgp->name);
+		return;
+	}
+
 	/* shallow copy */
 	static_attr = *path_vrf->attr;
 
