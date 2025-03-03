@@ -86,6 +86,13 @@ const struct frr_yang_module_info frr_bfdd_info = {
 				.cli_show = bfd_cli_show_passive,
                         }
                 },
+                {
+                        .xpath = "/frr-bfdd:bfdd/bfd/profile/log-session-changes",
+                        .cbs = {
+                                .modify = bfdd_bfd_profile_log_session_changes_modify,
+				.cli_show = bfd_cli_show_log_session_changes,
+                        }
+                },
 		{
 			.xpath = "/frr-bfdd:bfdd/bfd/profile/minimum-ttl",
 			.cbs = {
@@ -182,6 +189,13 @@ const struct frr_yang_module_info frr_bfdd_info = {
 			.cbs = {
 				.modify = bfdd_bfd_sessions_single_hop_passive_mode_modify,
 				.cli_show = bfd_cli_show_passive,
+			}
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/log-session-changes",
+			.cbs = {
+				.modify = bfdd_bfd_sessions_single_hop_log_session_changes_modify,
+				.cli_show = bfd_cli_show_log_session_changes,
 			}
 		},
 		{
@@ -394,6 +408,13 @@ const struct frr_yang_module_info frr_bfdd_info = {
 			.cbs = {
 				.modify = bfdd_bfd_sessions_single_hop_passive_mode_modify,
 				.cli_show = bfd_cli_show_passive,
+			}
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/log-session-changes",
+			.cbs = {
+				.modify = bfdd_bfd_sessions_single_hop_log_session_changes_modify,
+				.cli_show = bfd_cli_show_log_session_changes,
 			}
 		},
 		{
@@ -629,6 +650,13 @@ const struct frr_yang_module_info frr_bfdd_info = {
 			}
 		},
 		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-echo/log-session-changes",
+			.cbs = {
+				.modify = bfdd_bfd_sessions_single_hop_log_session_changes_modify,
+				.cli_show = bfd_cli_show_log_session_changes,
+			}
+		},
+		{
 			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-echo/bfd-mode",
 			.cbs = {
 				.modify = bfdd_bfd_sessions_bfd_mode_modify,
@@ -858,6 +886,13 @@ const struct frr_yang_module_info frr_bfdd_info = {
 			.cbs = {
 				.modify = bfdd_bfd_sessions_single_hop_passive_mode_modify,
 				.cli_show = bfd_cli_show_passive,
+			}
+		},
+		{
+			.xpath = "/frr-bfdd:bfdd/bfd/sessions/sbfd-init/log-session-changes",
+			.cbs = {
+				.modify = bfdd_bfd_sessions_single_hop_log_session_changes_modify,
+				.cli_show = bfd_cli_show_log_session_changes,
 			}
 		},
 		{
