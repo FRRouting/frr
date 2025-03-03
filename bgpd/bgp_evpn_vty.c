@@ -4086,6 +4086,8 @@ DEFUN_HIDDEN (no_bgp_evpn_advertise_vni_subnet,
 	return CMD_SUCCESS;
 }
 
+#if 0
+
 DEFUN (bgp_evpn_advertise_type5,
        bgp_evpn_advertise_type5_cmd,
        "advertise " BGP_AFI_CMD_STR "" BGP_SAFI_CMD_STR " [gateway-ip] [route-map RMAP_NAME]",
@@ -4368,6 +4370,239 @@ DEFUN (no_bgp_evpn_advertise_type5,
 	if (bgp_vrf->adv_cmd_rmap[afi][safi].name) {
 		XFREE(MTYPE_ROUTE_MAP_NAME,
 		      bgp_vrf->adv_cmd_rmap[afi][safi].name);
+		bgp_vrf->adv_cmd_rmap[afi][safi].name = NULL;
+		bgp_vrf->adv_cmd_rmap[afi][safi].map = NULL;
+	}
+
+	return CMD_SUCCESS;
+}
+
+#endif
+
+DEFUN (bgp_evpn_advertise_type5_old,
+       bgp_evpn_advertise_type5_old_cmd,
+       "advertise " BGP_AFI_CMD_STR "" BGP_SAFI_CMD_STR " [gateway-ip] [route-map RMAP_NAME]",
+       "Advertise prefix routes\n"
+       BGP_AFI_HELP_STR
+       BGP_SAFI_HELP_STR
+       "advertise gateway IP overlay index\n"
+       "route-map for filtering specific routes\n"
+       "Name of the route map\n")
+{
+	struct bgp *bgp_vrf = VTY_GET_CONTEXT(bgp); /* bgp vrf instance */
+	int idx_afi = 0;
+	int idx_safi = 0;
+	int idx_rmap = 0;
+	afi_t afi = 0;
+	safi_t safi = 0;
+	int ret = 0;
+	int rmap_changed = 0;
+	enum overlay_index_type oly = OVERLAY_INDEX_TYPE_NONE;
+	int idx_oly = 0;
+	bool adv_flag_changed = false;
+
+	argv_find_and_parse_afi(argv, argc, &idx_afi, &afi);
+	argv_find_and_parse_safi(argv, argc, &idx_safi, &safi);
+	argv_find_and_parse_oly_idx(argv, argc, &idx_oly, &oly);
+
+	ret = argv_find(argv, argc, "route-map", &idx_rmap);
+	if (ret) {
+		if (!bgp_vrf->adv_cmd_rmap[afi][safi].name)
+			rmap_changed = 1;
+		else if (strcmp(argv[idx_rmap + 1]->arg, bgp_vrf->adv_cmd_rmap[afi][safi].name) != 0)
+			rmap_changed = 1;
+	} else if (bgp_vrf->adv_cmd_rmap[afi][safi].name) {
+		rmap_changed = 1;
+	}
+
+	if (!(afi == AFI_IP || afi == AFI_IP6)) {
+		vty_out(vty, "%% Only ipv4 or ipv6 address families are supported\n");
+		return CMD_WARNING;
+	}
+
+	if (safi != SAFI_UNICAST) {
+		vty_out(vty, "%% Only ipv4 unicast or ipv6 unicast are supported\n");
+		return CMD_WARNING;
+	}
+
+	if ((oly != OVERLAY_INDEX_TYPE_NONE) && (oly != OVERLAY_INDEX_GATEWAY_IP)) {
+		vty_out(vty, "%% Unknown overlay-index type specified\n");
+		return CMD_WARNING;
+	}
+
+	if (afi == AFI_IP) {
+		if (!CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+				BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_ENABLE)) {
+			adv_flag_changed = true;
+			SET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+				 BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_ENABLE);
+		}
+
+		if (oly == OVERLAY_INDEX_GATEWAY_IP &&
+		    !CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+				BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_GW_IP)) {
+			/*
+			 * This is modify case from no overlay index
+			 * to gateway-ip
+			 */
+			adv_flag_changed = true;
+			SET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+				 BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_GW_IP);
+		} else if ((oly == OVERLAY_INDEX_TYPE_NONE) &&
+			   (CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+				       BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_GW_IP))) {
+			/*
+			 * This is modify case from gateway-ip
+			 * to no overlay index
+			 */
+			adv_flag_changed = true;
+			UNSET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+				   BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_GW_IP);
+		} else {
+			/*
+			 * Command is issued with the same option
+			 * (no overlay index or gateway-ip) which was
+			 * already configured. So nothing to do.
+			 * However, route-map may have been modified.
+			 * check if route-map has been modified.
+			 * If not, return an error
+			 */
+			if (!rmap_changed)
+				return CMD_WARNING;
+		}
+	} else {
+		if (!CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+				BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_ENABLE)) {
+			adv_flag_changed = true;
+			SET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+				 BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_ENABLE);
+		}
+
+		if (oly == OVERLAY_INDEX_GATEWAY_IP &&
+		    !CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+				BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_GW_IP)) {
+			/*
+			 * This is modify case from no overlay index
+			 * to gateway-ip
+			 */
+			adv_flag_changed = true;
+			SET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+				 BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_GW_IP);
+		} else if ((oly == OVERLAY_INDEX_TYPE_NONE) &&
+			   (CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+				       BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_GW_IP))) {
+			/*
+			 * This is modify case from gateway-ip
+			 * to no overlay index
+			 */
+			adv_flag_changed = true;
+			UNSET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+				   BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_GW_IP);
+		} else {
+			/*
+			 * Command is issued with the same option
+			 * (no overlay index or gateway-ip) which was
+			 * already configured. So nothing to do.
+			 * However, route-map may have been modified.
+			 * check if route-map has been modified.
+			 * If not, return an error
+			 */
+			if (!rmap_changed)
+				return CMD_WARNING;
+		}
+	}
+
+	if ((rmap_changed) || (adv_flag_changed)) {
+		/* If either of these are changed, then FRR needs to
+		 * withdraw already advertised type5 routes.
+		 */
+		bgp_evpn_withdraw_type5_routes(bgp_vrf, afi, safi);
+		if (rmap_changed) {
+			if (bgp_vrf->adv_cmd_rmap[afi][safi].name) {
+				XFREE(MTYPE_ROUTE_MAP_NAME, bgp_vrf->adv_cmd_rmap[afi][safi].name);
+				route_map_counter_decrement(bgp_vrf->adv_cmd_rmap[afi][safi].map);
+				bgp_vrf->adv_cmd_rmap[afi][safi].name = NULL;
+				bgp_vrf->adv_cmd_rmap[afi][safi].map = NULL;
+			}
+		}
+	}
+
+	/* set the route-map for advertise command */
+	if (ret && argv[idx_rmap + 1]->arg) {
+		bgp_vrf->adv_cmd_rmap[afi][safi].name = XSTRDUP(MTYPE_ROUTE_MAP_NAME,
+								argv[idx_rmap + 1]->arg);
+		bgp_vrf->adv_cmd_rmap[afi][safi].map =
+			route_map_lookup_by_name(argv[idx_rmap + 1]->arg);
+		route_map_counter_increment(bgp_vrf->adv_cmd_rmap[afi][safi].map);
+	}
+
+	/* advertise type-5 routes */
+	if (advertise_type5_routes(bgp_vrf, afi))
+		bgp_evpn_advertise_type5_routes(bgp_vrf, afi, safi);
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_bgp_evpn_advertise_type5_old,
+       no_bgp_evpn_advertise_type5_old_cmd,
+       "no advertise " BGP_AFI_CMD_STR "" BGP_SAFI_CMD_STR " [route-map WORD]",
+       NO_STR
+       "Advertise prefix routes\n"
+       BGP_AFI_HELP_STR
+       BGP_SAFI_HELP_STR
+       "route-map for filtering specific routes\n"
+       "Name of the route map\n")
+{
+	struct bgp *bgp_vrf = VTY_GET_CONTEXT(bgp); /* bgp vrf instance */
+	int idx_afi = 0;
+	int idx_safi = 0;
+	afi_t afi = 0;
+	safi_t safi = 0;
+
+	if (!bgp_vrf)
+		return CMD_WARNING;
+
+	argv_find_and_parse_afi(argv, argc, &idx_afi, &afi);
+	argv_find_and_parse_safi(argv, argc, &idx_safi, &safi);
+
+	if (!(afi == AFI_IP || afi == AFI_IP6)) {
+		vty_out(vty, "%% Only ipv4 or ipv6 address families are supported\n");
+		return CMD_WARNING;
+	}
+
+	if (safi != SAFI_UNICAST) {
+		vty_out(vty, "%% Only ipv4 unicast or ipv6 unicast are supported\n");
+		return CMD_WARNING;
+	}
+
+	if (afi == AFI_IP) {
+		/* if we are not advertising ipv4 prefix as type-5
+		 * nothing to do
+		 */
+		if ((CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+				BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_ENABLE))) {
+			bgp_evpn_withdraw_type5_routes(bgp_vrf, afi, safi);
+			UNSET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+				   BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_ENABLE);
+			UNSET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+				   BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_GW_IP);
+		}
+	} else {
+		/* if we are not advertising ipv6 prefix as type-5
+		 * nothing to do
+		 */
+		if ((CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+				BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_ENABLE))) {
+			bgp_evpn_withdraw_type5_routes(bgp_vrf, afi, safi);
+			UNSET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+				   BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_ENABLE);
+			UNSET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+				   BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_GW_IP);
+		}
+	}
+
+	/* clear the route-map information for advertise ipv4/ipv6 unicast */
+	if (bgp_vrf->adv_cmd_rmap[afi][safi].name) {
+		XFREE(MTYPE_ROUTE_MAP_NAME, bgp_vrf->adv_cmd_rmap[afi][safi].name);
 		bgp_vrf->adv_cmd_rmap[afi][safi].name = NULL;
 		bgp_vrf->adv_cmd_rmap[afi][safi].map = NULL;
 	}
@@ -7363,22 +7598,20 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 	if (bgp->vxlan_flood_ctrl == VXLAN_FLOOD_DISABLED)
 		vty_out(vty, "  flooding disable\n");
 
-	if (CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
-		       BGP_L2VPN_EVPN_ADV_IPV4_UNICAST)) {
-		if (bgp->adv_cmd_rmap[AFI_IP][SAFI_UNICAST].name)
-			vty_out(vty, "  advertise ipv4 unicast route-map %s\n",
-				bgp->adv_cmd_rmap[AFI_IP][SAFI_UNICAST].name);
-		else
-			vty_out(vty,
-				"  advertise ipv4 unicast\n");
-	} else if (CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
-		   BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_GW_IP)) {
+	if (CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN], BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_GW_IP)) {
 		if (bgp->adv_cmd_rmap[AFI_IP][SAFI_UNICAST].name)
 			vty_out(vty,
 				"  advertise ipv4 unicast gateway-ip route-map %s\n",
 				bgp->adv_cmd_rmap[AFI_IP][SAFI_UNICAST].name);
 		else
 			vty_out(vty, "  advertise ipv4 unicast gateway-ip\n");
+	} else if (CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
+			      BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_ENABLE)) {
+		if (bgp->adv_cmd_rmap[AFI_IP][SAFI_UNICAST].name)
+			vty_out(vty, "  advertise ipv4 unicast route-map %s\n",
+				bgp->adv_cmd_rmap[AFI_IP][SAFI_UNICAST].name);
+		else
+			vty_out(vty, "  advertise ipv4 unicast\n");
 	}
 
 	/* EAD ES export route-target */
@@ -7398,23 +7631,19 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 		}
 	}
 
-	if (CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
-		       BGP_L2VPN_EVPN_ADV_IPV6_UNICAST)) {
+	if (CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN], BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_GW_IP)) {
 		if (bgp->adv_cmd_rmap[AFI_IP6][SAFI_UNICAST].name)
-			vty_out(vty,
-				"  advertise ipv6 unicast route-map %s\n",
-				bgp->adv_cmd_rmap[AFI_IP6][SAFI_UNICAST].name);
-		else
-			vty_out(vty,
-				"  advertise ipv6 unicast\n");
-	} else if (CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
-			      BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_GW_IP)) {
-		if (bgp->adv_cmd_rmap[AFI_IP6][SAFI_UNICAST].name)
-			vty_out(vty,
-				"  advertise ipv6 unicast gateway-ip route-map %s\n",
+			vty_out(vty, "  advertise ipv6 unicast gateway-ip route-map %s\n",
 				bgp->adv_cmd_rmap[AFI_IP6][SAFI_UNICAST].name);
 		else
 			vty_out(vty, "  advertise ipv6 unicast gateway-ip\n");
+	} else if (CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
+			      BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_ENABLE)) {
+		if (bgp->adv_cmd_rmap[AFI_IP6][SAFI_UNICAST].name)
+			vty_out(vty, "  advertise ipv6 unicast route-map %s\n",
+				bgp->adv_cmd_rmap[AFI_IP6][SAFI_UNICAST].name);
+		else
+			vty_out(vty, "  advertise ipv6 unicast\n");
 	}
 
 	if (CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
@@ -7545,8 +7774,8 @@ void bgp_ethernetvpn_init(void)
 	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_svi_ip_cmd);
 	install_element(BGP_EVPN_NODE, &macvrf_soo_global_cmd);
 	install_element(BGP_EVPN_NODE, &no_macvrf_soo_global_cmd);
-	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_type5_cmd);
-	install_element(BGP_EVPN_NODE, &no_bgp_evpn_advertise_type5_cmd);
+	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_type5_old_cmd);
+	install_element(BGP_EVPN_NODE, &no_bgp_evpn_advertise_type5_old_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_default_originate_cmd);
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_default_originate_cmd);
 	install_element(BGP_EVPN_NODE, &dup_addr_detection_cmd);
