@@ -215,6 +215,11 @@ BFD peers and profiles share the same BFD session configuration commands.
    The default value is 254 (which means we only expect one hop between
    this system and the peer).
 
+.. clicmd:: log-session-changes
+
+   Enables or disables logging of session state transitions into Up
+   state or when the session transitions from Up state to Down state.
+
 
 BFD Peer Specific Commands
 --------------------------
