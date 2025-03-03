@@ -164,9 +164,10 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs)
 		vty_out(vty, "\t\tPassive mode\n");
 	else
 		vty_out(vty, "\t\tActive mode\n");
+	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_LOG_SESSION_CHANGES))
+		vty_out(vty, "\t\tLog session changes\n");
 	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH))
 		vty_out(vty, "\t\tMinimum TTL: %d\n", bs->mh_ttl);
-
 	vty_out(vty, "\t\tStatus: ");
 	switch (bs->ses_state) {
 	case PTM_BFD_ADM_DOWN:
@@ -289,6 +290,8 @@ static struct json_object *__display_peer_json(struct bfd_session *bs)
 	json_object_int_add(jo, "remote-id", bs->discrs.remote_discr);
 	json_object_boolean_add(jo, "passive-mode",
 				CHECK_FLAG(bs->flags, BFD_SESS_FLAG_PASSIVE));
+	json_object_boolean_add(jo, "log-session-changes",
+				CHECK_FLAG(bs->flags, BFD_SESS_FLAG_LOG_SESSION_CHANGES));
 	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH))
 		json_object_int_add(jo, "minimum-ttl", bs->mh_ttl);
 
@@ -1194,6 +1197,7 @@ static int bfd_configure_peer(struct bfd_peer_cfg *bpc, bool mhop,
 
 	/* Defaults */
 	bpc->bpc_shutdown = false;
+	bpc->bpc_log_session_changes = false;
 	bpc->bpc_detectmultiplier = BPC_DEF_DETECTMULTIPLIER;
 	bpc->bpc_recvinterval = BPC_DEF_RECEIVEINTERVAL;
 	bpc->bpc_txinterval = BPC_DEF_TRANSMITINTERVAL;

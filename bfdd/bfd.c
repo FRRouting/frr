@@ -79,6 +79,7 @@ static void bfd_profile_set_default(struct bfd_profile *bp)
 	bp->detection_multiplier = BFD_DEFDETECTMULT;
 	bp->echo_mode = false;
 	bp->passive = false;
+	bp->log_session_changes = false;
 	bp->minimum_ttl = BFD_DEF_MHOP_TTL;
 	bp->min_echo_rx = BFD_DEF_REQ_MIN_ECHO_RX;
 	bp->min_echo_tx = BFD_DEF_DES_MIN_ECHO_TX;
@@ -209,6 +210,12 @@ void bfd_session_apply(struct bfd_session *bs)
 		bfd_set_shutdown(bs, bp->admin_shutdown);
 	else
 		bfd_set_shutdown(bs, bs->peer_profile.admin_shutdown);
+
+	/* Toggle 'no log-session-changes' if default value. */
+	if (bs->peer_profile.log_session_changes == false)
+		bfd_set_log_session_changes(bs, bp->log_session_changes);
+	else
+		bfd_set_log_session_changes(bs, bs->peer_profile.log_session_changes);
 
 	/* If session interval changed negotiate new timers. */
 	if (bs->ses_state == PTM_BFD_UP
@@ -574,6 +581,9 @@ void ptm_bfd_sess_up(struct bfd_session *bfd)
 			zlog_debug("state-change: [%s] %s -> %s",
 				   bs_to_string(bfd), state_list[old_state].str,
 				   state_list[bfd->ses_state].str);
+		if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_LOG_SESSION_CHANGES))
+			zlog_notice("Session-Change: [%s] %s -> %s", bs_to_string(bfd),
+				    state_list[old_state].str, state_list[bfd->ses_state].str);
 	}
 }
 
@@ -621,6 +631,11 @@ void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag)
 				   bs_to_string(bfd), state_list[old_state].str,
 				   state_list[bfd->ses_state].str,
 				   get_diag_str(bfd->local_diag));
+		if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_LOG_SESSION_CHANGES) &&
+		    old_state == PTM_BFD_UP)
+			zlog_notice("Session-Change: [%s] %s -> %s reason:%s", bs_to_string(bfd),
+				    state_list[old_state].str, state_list[bfd->ses_state].str,
+				    get_diag_str(bfd->local_diag));
 	}
 
 	/* clear peer's mac address */
@@ -651,6 +666,9 @@ void ptm_sbfd_sess_up(struct bfd_session *bfd)
 		if (bglobal.debug_peer_event)
 			zlog_info("state-change: [%s] %s -> %s", bs_to_string(bfd),
 				  state_list[old_state].str, state_list[bfd->ses_state].str);
+		if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_LOG_SESSION_CHANGES))
+			zlog_notice("Session-Change: [%s] %s -> %s", bs_to_string(bfd),
+				    state_list[old_state].str, state_list[bfd->ses_state].str);
 	}
 }
 
@@ -693,6 +711,11 @@ void ptm_sbfd_init_sess_dn(struct bfd_session *bfd, uint8_t diag)
 			zlog_debug("state-change: [%s] %s -> %s reason:%s", bs_to_string(bfd),
 				   state_list[old_state].str, state_list[bfd->ses_state].str,
 				   get_diag_str(bfd->local_diag));
+		if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_LOG_SESSION_CHANGES) &&
+		    old_state == PTM_BFD_UP)
+			zlog_notice("Session-Change: [%s] %s -> %s reason:%s", bs_to_string(bfd),
+				    state_list[old_state].str, state_list[bfd->ses_state].str,
+				    get_diag_str(bfd->local_diag));
 	}
 	/* reset local address ,it might has been be changed after bfd is up*/
 	//memset(&bfd->local_address, 0, sizeof(bfd->local_address));
@@ -721,6 +744,11 @@ void ptm_sbfd_echo_sess_dn(struct bfd_session *bfd, uint8_t diag)
 			zlog_warn("state-change: [%s] %s -> %s reason:%s", bs_to_string(bfd),
 				  state_list[old_state].str, state_list[bfd->ses_state].str,
 				  get_diag_str(bfd->local_diag));
+		if (CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_LOG_SESSION_CHANGES) &&
+		    old_state == PTM_BFD_UP)
+			zlog_notice("Session-Change: [%s] %s -> %s reason:%s", bs_to_string(bfd),
+				    state_list[old_state].str, state_list[bfd->ses_state].str,
+				    get_diag_str(bfd->local_diag));
 	}
 }
 
@@ -943,6 +971,11 @@ static void _bfd_session_update(struct bfd_session *bs,
 
 	bs->peer_profile.echo_mode = bpc->bpc_echo;
 	bfd_set_echo(bs, bpc->bpc_echo);
+
+	if (bpc->bpc_log_session_changes)
+		SET_FLAG(bs->flags, BFD_SESS_FLAG_LOG_SESSION_CHANGES);
+	else
+		UNSET_FLAG(bs->flags, BFD_SESS_FLAG_LOG_SESSION_CHANGES);
 
 	/*
 	 * Shutdown needs to be the last in order to avoid timers enable when
@@ -1606,6 +1639,14 @@ void bfd_set_passive_mode(struct bfd_session *bs, bool passive)
 		bfd_xmttimer_update(bs, bs->xmt_TO);
 		bfd_recvtimer_update(bs);
 	}
+}
+
+void bfd_set_log_session_changes(struct bfd_session *bs, bool log_session_changes)
+{
+	if (log_session_changes)
+		SET_FLAG(bs->flags, BFD_SESS_FLAG_LOG_SESSION_CHANGES);
+	else
+		UNSET_FLAG(bs->flags, BFD_SESS_FLAG_LOG_SESSION_CHANGES);
 }
 
 /*
