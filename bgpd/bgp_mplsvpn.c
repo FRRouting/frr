@@ -1097,6 +1097,9 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 			 * then mark the nexthop as valid.
 			 */
 			nh_valid = true;
+	} else if (bpi_ultimate->type == ZEBRA_ROUTE_BGP &&
+		   bpi_ultimate->sub_type == BGP_ROUTE_AGGREGATE) {
+		nh_valid = true;
 	} else
 		/*
 		 * TBD do we need to do anything about the
