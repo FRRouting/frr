@@ -574,6 +574,40 @@ def test_aggregated_exported_route_on_r1():
     assert result is None, assertmsg
 
 
+def test_aggregated_suppress_aggregate_r1():
+    """
+    Check that only the suppressed networks are exported
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r1.vtysh_cmd(
+        """
+        configure terminal
+        router bgp 65500 vrf vrf1
+        address-family ipv4 unicast
+        no aggregate-address 172.31.1.0/24
+        """
+    )
+
+    r1 = tgen.gears["r1"]
+    logger.info("Checking 172.31.1.0/24 VPN prefix is hot present on R1")
+
+    expected = {}
+    test_func = partial(
+        topotest.router_json_cmp,
+        r1,
+        "show bgp ipv4 vpn 172.31.1.0/24 json",
+        expected,
+        exact=True,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assertmsg = '"{}" JSON output mismatches'.format(r1.name)
+    assert result is None, assertmsg
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
