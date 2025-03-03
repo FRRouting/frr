@@ -410,7 +410,13 @@ static enum nb_error nb_op_ys_finalize_node_info(struct nb_op_yield_state *ys,
 	ni->lookup_next_ok = yield_ok && ni->has_lookup_next &&
 			     (index == 0 || ni[-1].lookup_next_ok);
 
+<<<<<<< HEAD
 	nb_op_get_keys((struct lyd_node_inner *)inner, &ni->keys);
+=======
+	if (CHECK_FLAG(nn->flags, F_NB_NODE_KEYLESS_LIST)) {
+		const void *parent_list_entry;
+		uint i;
+>>>>>>> 37893e442 (lib: nb: fix bug with keyless list specific index lookup)
 
 	/* A list entry cannot be present in a tree w/o it's keys */
 	assert(ni->keys.num == yang_snode_num_keys(inner->schema));
@@ -419,12 +425,20 @@ static enum nb_error nb_op_ys_finalize_node_info(struct nb_op_yield_state *ys,
 	 * Get this nodes opaque list_entry object
 	 */
 
+<<<<<<< HEAD
 	if (!nn->cbs.lookup_entry) {
 		flog_warn(EC_LIB_NB_OPERATIONAL_DATA,
 			  "%s: data path doesn't support iteration over operational data: %s",
 			  __func__, ys->xpath);
 		return NB_ERR_NOT_FOUND;
 	}
+=======
+		/* ni->list_entry starts as the parent entry of this node */
+		parent_list_entry = ni->list_entry;
+		ni->list_entry = nb_callback_get_next(nn, parent_list_entry, NULL);
+		for (i = 1; i < ni->position && ni->list_entry; i++)
+			ni->list_entry = nb_callback_get_next(nn, parent_list_entry, ni->list_entry);
+>>>>>>> 37893e442 (lib: nb: fix bug with keyless list specific index lookup)
 
 	/* ni->list_entry starts as the parent entry of this node */
 	ni->list_entry = nb_callback_lookup_entry(nn, ni->list_entry, &ni->keys);
