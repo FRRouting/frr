@@ -437,6 +437,7 @@ static enum nb_error nb_op_ys_finalize_node_info(struct nb_op_yield_state *ys,
 			     (index == 0 || ni[-1].lookup_next_ok);
 
 	if (CHECK_FLAG(nn->flags, F_NB_NODE_KEYLESS_LIST)) {
+		const void *parent_list_entry;
 		uint i;
 
 		ni->position = nb_op_get_position_predicate(ys, ni);
@@ -452,9 +453,10 @@ static enum nb_error nb_op_ys_finalize_node_info(struct nb_op_yield_state *ys,
 		 */
 
 		/* ni->list_entry starts as the parent entry of this node */
-		ni->list_entry = nb_callback_get_next(nn, ni->list_entry, NULL);
+		parent_list_entry = ni->list_entry;
+		ni->list_entry = nb_callback_get_next(nn, parent_list_entry, NULL);
 		for (i = 1; i < ni->position && ni->list_entry; i++)
-			ni->list_entry = nb_callback_get_next(nn, ni->list_entry, ni->list_entry);
+			ni->list_entry = nb_callback_get_next(nn, parent_list_entry, ni->list_entry);
 
 		if (i != ni->position || !ni->list_entry) {
 			flog_warn(EC_LIB_NB_OPERATIONAL_DATA,
