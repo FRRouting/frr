@@ -27,18 +27,12 @@ static inline int advertise_type5_routes(struct bgp *bgp_vrf,
 	if (!bgp_vrf->l3vni)
 		return 0;
 
-	if ((afi == AFI_IP)
-	    && ((CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
-			    BGP_L2VPN_EVPN_ADV_IPV4_UNICAST))
-		|| (CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
-			       BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_GW_IP))))
+	if ((afi == AFI_IP) && CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+					  BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_ENABLE))
 		return 1;
 
-	if ((afi == AFI_IP6)
-	    && ((CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
-			    BGP_L2VPN_EVPN_ADV_IPV6_UNICAST))
-		|| (CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
-			       BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_GW_IP))))
+	if ((afi == AFI_IP6) && CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+					   BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_ENABLE))
 		return 1;
 
 	return 0;
