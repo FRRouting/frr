@@ -7503,6 +7503,9 @@ static void bgp_aggregate_install(
 		bgp_process(bgp, dest, afi, safi);
 		if (debug)
 			zlog_debug("  aggregate %pFX: installed", p);
+		if (SAFI_UNICAST == safi && (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ||
+					     bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT))
+			vpn_leak_from_vrf_update(bgp_get_default(), bgp, new);
 	} else {
 	uninstall_aggregate_route:
 			/* Withdraw the aggregate route from routing table. */
@@ -7511,6 +7514,11 @@ static void bgp_aggregate_install(
 				bgp_process(bgp, dest, afi, safi);
 				if (debug)
 					zlog_debug("  aggregate %pFX: uninstall", p);
+				if (SAFI_UNICAST == safi &&
+				    (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ||
+				     bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)) {
+					vpn_leak_from_vrf_withdraw(bgp_get_default(), bgp, pi);
+				}
 			}
 	}
 
