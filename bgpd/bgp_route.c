@@ -7624,14 +7624,25 @@ void bgp_aggregate_toggle_suppressed(struct bgp_aggregate *aggregate,
 			/* We are toggling suppression back. */
 			if (suppress) {
 				/* Suppress route if not suppressed already. */
-				if (aggr_suppress_path(aggregate, pi))
-					toggle_suppression = true;
+				if (aggr_suppress_path(aggregate, pi)) {
+					bgp_process(bgp, dest, afi, safi);
+					if (SAFI_UNICAST == safi &&
+					    (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ||
+					     bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT))
+						vpn_leak_from_vrf_withdraw(bgp_get_default(), bgp,
+									   pi);
+				}
 				continue;
 			}
 
 			/* Install route if there is no more suppression. */
-			if (aggr_unsuppress_path(aggregate, pi))
-				toggle_suppression = true;
+			if (aggr_unsuppress_path(aggregate, pi)) {
+				bgp_process(bgp, dest, afi, safi);
+				if (SAFI_UNICAST == safi &&
+				    (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ||
+				     bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT))
+					vpn_leak_from_vrf_update(bgp_get_default(), bgp, pi);
+			}
 		}
 
 		if (toggle_suppression)
@@ -7694,7 +7705,6 @@ bool bgp_aggregate_route(struct bgp *bgp, const struct prefix *p, afi_t afi,
 	struct ecommunity *ecommunity = NULL;
 	struct lcommunity *lcommunity = NULL;
 	struct bgp_path_info *pi;
-	unsigned long match = 0;
 	uint8_t atomic_aggregate = 0;
 
 	/* If the bgp instance is being deleted or self peer is deleted
@@ -7744,8 +7754,6 @@ bool bgp_aggregate_route(struct bgp *bgp, const struct prefix *p, afi_t afi,
 		if (!bgp_check_advertise(bgp, dest, safi))
 			continue;
 
-		match = 0;
-
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
 			if (BGP_PATH_HOLDDOWN(pi))
 				continue;
@@ -7768,8 +7776,14 @@ bool bgp_aggregate_route(struct bgp *bgp, const struct prefix *p, afi_t afi,
 			 */
 			if (aggregate->summary_only
 			    && AGGREGATE_MED_VALID(aggregate)) {
-				if (aggr_suppress_path(aggregate, pi))
-					match++;
+				if (aggr_suppress_path(aggregate, pi)) {
+					bgp_process(bgp, dest, afi, safi);
+					if (SAFI_UNICAST == safi &&
+					    (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ||
+					     bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT))
+						vpn_leak_from_vrf_withdraw(bgp_get_default(), bgp,
+									   pi);
+				}
 			}
 
 			/*
@@ -7784,8 +7798,14 @@ bool bgp_aggregate_route(struct bgp *bgp, const struct prefix *p, afi_t afi,
 			if (aggregate->suppress_map_name
 			    && AGGREGATE_MED_VALID(aggregate)
 			    && aggr_suppress_map_test(bgp, aggregate, pi)) {
-				if (aggr_suppress_path(aggregate, pi))
-					match++;
+				if (aggr_suppress_path(aggregate, pi)) {
+					bgp_process(bgp, dest, afi, safi);
+					if (SAFI_UNICAST == safi &&
+					    (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ||
+					     bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT))
+						vpn_leak_from_vrf_withdraw(bgp_get_default(), bgp,
+									   pi);
+				}
 			}
 
 			aggregate->count++;
@@ -7846,8 +7866,6 @@ bool bgp_aggregate_route(struct bgp *bgp, const struct prefix *p, afi_t afi,
 					aggregate,
 					bgp_attr_get_lcommunity(pi->attr));
 		}
-		if (match)
-			bgp_process(bgp, dest, afi, safi);
 	}
 	if (aggregate->as_set) {
 		bgp_compute_aggregate_aspath_val(aggregate);
@@ -7907,7 +7925,6 @@ void bgp_aggregate_delete(struct bgp *bgp, const struct prefix *p, afi_t afi,
 	struct bgp_dest *top;
 	struct bgp_dest *dest;
 	struct bgp_path_info *pi;
-	unsigned long match;
 
 	table = bgp->rib[afi][safi];
 
@@ -7919,7 +7936,6 @@ void bgp_aggregate_delete(struct bgp *bgp, const struct prefix *p, afi_t afi,
 
 		if (dest_p->prefixlen <= p->prefixlen)
 			continue;
-		match = 0;
 
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
 			if (BGP_PATH_HOLDDOWN(pi))
@@ -7936,8 +7952,13 @@ void bgp_aggregate_delete(struct bgp *bgp, const struct prefix *p, afi_t afi,
 			 */
 			if (pi->extra && pi->extra->aggr_suppressors &&
 			    listcount(pi->extra->aggr_suppressors)) {
-				if (aggr_unsuppress_path(aggregate, pi))
-					match++;
+				if (aggr_unsuppress_path(aggregate, pi)) {
+					bgp_process(bgp, dest, afi, safi);
+					if (SAFI_UNICAST == safi &&
+					    (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ||
+					     bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT))
+						vpn_leak_from_vrf_update(bgp_get_default(), bgp, pi);
+				}
 			}
 
 			aggregate->count--;
@@ -7979,10 +8000,6 @@ void bgp_aggregate_delete(struct bgp *bgp, const struct prefix *p, afi_t afi,
 							pi->attr));
 			}
 		}
-
-		/* If this node was suppressed, process the change. */
-		if (match)
-			bgp_process(bgp, dest, afi, safi);
 	}
 	if (aggregate->as_set) {
 		aspath_free(aggregate->aspath);
@@ -8131,7 +8148,6 @@ static void bgp_remove_route_from_aggregate(struct bgp *bgp, afi_t afi,
 	struct community *community = NULL;
 	struct ecommunity *ecommunity = NULL;
 	struct lcommunity *lcommunity = NULL;
-	unsigned long match = 0;
 
 	/* If the bgp instance is being deleted or self peer is deleted
 	 * then do not create aggregate route
@@ -8147,13 +8163,21 @@ static void bgp_remove_route_from_aggregate(struct bgp *bgp, afi_t afi,
 		return;
 
 	if (aggregate->summary_only && AGGREGATE_MED_VALID(aggregate))
-		if (aggr_unsuppress_path(aggregate, pi))
-			match++;
+		if (aggr_unsuppress_path(aggregate, pi)) {
+			bgp_process(bgp, pi->net, afi, safi);
+			if (SAFI_UNICAST == safi && (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ||
+						     bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT))
+				vpn_leak_from_vrf_update(bgp_get_default(), bgp, pi);
+		}
 
 	if (aggregate->suppress_map_name && AGGREGATE_MED_VALID(aggregate)
 	    && aggr_suppress_map_test(bgp, aggregate, pi))
-		if (aggr_unsuppress_path(aggregate, pi))
-			match++;
+		if (aggr_unsuppress_path(aggregate, pi)) {
+			bgp_process(bgp, pi->net, afi, safi);
+			if (SAFI_UNICAST == safi && (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ||
+						     bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT))
+				vpn_leak_from_vrf_update(bgp_get_default(), bgp, pi);
+		}
 
 	/*
 	 * This must be called after `summary`, `suppress-map` check to avoid
@@ -8194,10 +8218,6 @@ static void bgp_remove_route_from_aggregate(struct bgp *bgp, afi_t afi,
 			bgp_remove_lcommunity_from_aggregate(
 				aggregate, bgp_attr_get_lcommunity(pi->attr));
 	}
-
-	/* If this node was suppressed, process the change. */
-	if (match)
-		bgp_process(bgp, pi->net, afi, safi);
 
 	origin = BGP_ORIGIN_IGP;
 	if (aggregate->incomplete_origin_count > 0)
