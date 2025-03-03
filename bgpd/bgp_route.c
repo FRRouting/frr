@@ -8152,14 +8152,25 @@ void bgp_aggregate_toggle_suppressed(struct bgp_aggregate *aggregate,
 			/* We are toggling suppression back. */
 			if (suppress) {
 				/* Suppress route if not suppressed already. */
-				if (aggr_suppress_path(aggregate, pi))
+				if (aggr_suppress_path(aggregate, pi)) {
 					bgp_process(bgp, dest, pi, afi, safi);
+					if (SAFI_UNICAST == safi &&
+					    (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ||
+					     bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT))
+						vpn_leak_from_vrf_withdraw(bgp_get_default(), bgp,
+									   pi);
+				}
 				continue;
 			}
 
 			/* Install route if there is no more suppression. */
-			if (aggr_unsuppress_path(aggregate, pi))
+			if (aggr_unsuppress_path(aggregate, pi)) {
 				bgp_process(bgp, dest, pi, afi, safi);
+				if (SAFI_UNICAST == safi &&
+				    (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ||
+				     bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT))
+					vpn_leak_from_vrf_update(bgp_get_default(), bgp, pi);
+			}
 		}
 	}
 	bgp_dest_unlock_node(top);
@@ -8290,8 +8301,14 @@ bool bgp_aggregate_route(struct bgp *bgp, const struct prefix *p, afi_t afi,
 			 */
 			if (aggregate->summary_only
 			    && AGGREGATE_MED_VALID(aggregate)) {
-				if (aggr_suppress_path(aggregate, pi))
+				if (aggr_suppress_path(aggregate, pi)) {
 					bgp_process(bgp, dest, pi, afi, safi);
+					if (SAFI_UNICAST == safi &&
+					    (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ||
+					     bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT))
+						vpn_leak_from_vrf_withdraw(bgp_get_default(), bgp,
+									   pi);
+				}
 			}
 
 			/*
@@ -8306,8 +8323,14 @@ bool bgp_aggregate_route(struct bgp *bgp, const struct prefix *p, afi_t afi,
 			if (aggregate->suppress_map_name
 			    && AGGREGATE_MED_VALID(aggregate)
 			    && aggr_suppress_map_test(bgp, aggregate, pi)) {
-				if (aggr_suppress_path(aggregate, pi))
+				if (aggr_suppress_path(aggregate, pi)) {
 					bgp_process(bgp, dest, pi, afi, safi);
+					if (SAFI_UNICAST == safi &&
+					    (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ||
+					     bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT))
+						vpn_leak_from_vrf_withdraw(bgp_get_default(), bgp,
+									   pi);
+				}
 			}
 
 			aggregate->count++;
@@ -8455,8 +8478,13 @@ void bgp_aggregate_delete(struct bgp *bgp, const struct prefix *p, afi_t afi,
 			 */
 			if (pi->extra && pi->extra->aggr_suppressors &&
 			    listcount(pi->extra->aggr_suppressors)) {
-				if (aggr_unsuppress_path(aggregate, pi))
+				if (aggr_unsuppress_path(aggregate, pi)) {
 					bgp_process(bgp, dest, pi, afi, safi);
+					if (SAFI_UNICAST == safi &&
+					    (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ||
+					     bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT))
+						vpn_leak_from_vrf_update(bgp_get_default(), bgp, pi);
+				}
 			}
 
 			if (aggregate->count > 0)
@@ -8662,13 +8690,21 @@ static void bgp_remove_route_from_aggregate(struct bgp *bgp, afi_t afi,
 		return;
 
 	if (aggregate->summary_only && AGGREGATE_MED_VALID(aggregate))
-		if (aggr_unsuppress_path(aggregate, pi))
+		if (aggr_unsuppress_path(aggregate, pi)) {
 			bgp_process(bgp, pi->net, pi, afi, safi);
+			if (SAFI_UNICAST == safi && (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ||
+						     bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT))
+				vpn_leak_from_vrf_update(bgp_get_default(), bgp, pi);
+		}
 
 	if (aggregate->suppress_map_name && AGGREGATE_MED_VALID(aggregate)
 	    && aggr_suppress_map_test(bgp, aggregate, pi))
-		if (aggr_unsuppress_path(aggregate, pi))
+		if (aggr_unsuppress_path(aggregate, pi)) {
 			bgp_process(bgp, pi->net, pi, afi, safi);
+			if (SAFI_UNICAST == safi && (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ||
+						     bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT))
+				vpn_leak_from_vrf_update(bgp_get_default(), bgp, pi);
+		}
 
 	/*
 	 * This must be called after `summary`, `suppress-map` check to avoid
