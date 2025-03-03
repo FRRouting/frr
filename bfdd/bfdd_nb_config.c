@@ -596,6 +596,23 @@ int bfdd_bfd_profile_passive_mode_modify(struct nb_cb_modify_args *args)
 }
 
 /*
+ * XPath: /frr-bfdd:bfdd/bfd/profile/log-session-changes
+ */
+int bfdd_bfd_profile_log_session_changes_modify(struct nb_cb_modify_args *args)
+{
+	struct bfd_profile *bp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	bp = nb_running_get_entry(args->dnode, NULL, true);
+	bp->log_session_changes = yang_dnode_get_bool(args->dnode, NULL);
+	bfd_profile_update(bp);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-bfdd:bfdd/bfd/profile/minimum-ttl
  */
 int bfdd_bfd_profile_minimum_ttl_modify(struct nb_cb_modify_args *args)
@@ -898,6 +915,38 @@ int bfdd_bfd_sessions_single_hop_passive_mode_modify(
 
 	bs = nb_running_get_entry(args->dnode, NULL, true);
 	bs->peer_profile.passive = passive;
+	bfd_session_apply(bs);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-bfdd:bfdd/bfd/sessions/single-hop/log-session-changes
+ *        /frr-bfdd:bfdd/bfd/sessions/multi-hop/log-session-changes
+ *        /frr-bfdd:bfdd/bfd/sessions/sbfd_echo/log-session-changes
+ *        /frr-bfdd:bfdd/bfd/sessions/sbfd_init/log-session-changes
+ */
+int bfdd_bfd_sessions_single_hop_log_session_changes_modify(struct nb_cb_modify_args *args)
+{
+	struct bfd_session *bs;
+	bool log_session_changes;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+		return NB_OK;
+
+	case NB_EV_APPLY:
+		break;
+
+	case NB_EV_ABORT:
+		return NB_OK;
+	}
+
+	log_session_changes = yang_dnode_get_bool(args->dnode, NULL);
+
+	bs = nb_running_get_entry(args->dnode, NULL, true);
+	bs->peer_profile.log_session_changes = log_session_changes;
 	bfd_session_apply(bs);
 
 	return NB_OK;

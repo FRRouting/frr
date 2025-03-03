@@ -384,10 +384,15 @@ bfd_dplane_session_state_change(struct bfd_dplane_ctx *bdc,
 		break;
 	}
 
-	if (bglobal.debug_peer_event)
+	if (bglobal.debug_peer_event) {
 		zlog_debug("state-change: [data plane: %s] %s -> %s",
 			   bs_to_string(bs), state_list[old_state].str,
 			   state_list[bs->ses_state].str);
+		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_LOG_SESSION_CHANGES) &&
+		    old_state != bs->ses_state)
+			zlog_notice("Session-Change: [data plane: %s] %s -> %s", bs_to_string(bs),
+				    state_list[old_state].str, state_list[bs->ses_state].str);
+	}
 }
 
 /**
