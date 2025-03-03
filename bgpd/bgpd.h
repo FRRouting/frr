@@ -1289,6 +1289,21 @@ extern struct peer_connection *bgp_peer_connection_new(struct peer *peer);
 extern void bgp_peer_connection_free(struct peer_connection **connection);
 extern void bgp_peer_connection_buffers_free(struct peer_connection *connection);
 
+/* RTC per-peer outbound filtering */
+PREDECL_RBTREE_UNIQ(rtc_filter);
+
+/* Wrapper struct for RTC filter entries */
+struct peer_rtc_entry {
+	struct prefix_rtc p;
+	int flags;
+	struct rtc_filter_item rblink;
+};
+
+/* Flags for the rtc filter entry */
+#define PEER_RTC_ENTRY_FLAGS_DEFAULT 0
+/* Prefix matching, not exact matching, for outbound RT filtering */
+#define PEER_RTC_ENTRY_FLAG_PREFIX (1 << 0)
+
 /* BGP neighbor structure. */
 struct peer {
 	/* BGP structure.  */
@@ -1949,6 +1964,9 @@ struct peer {
 
 	bool shut_during_cfg;
 
+	/* RTC outbound filter */
+	struct rtc_filter_head rtc_filter;
+
 #define BGP_ATTR_MAX 255
 	/* Path attributes discard */
 	bool discard_attrs[BGP_ATTR_MAX + 1];
@@ -2262,7 +2280,10 @@ enum bgp_create_error_code {
 
 	/*BGP Open Policy ERRORS */
 	BGP_ERR_INVALID_ROLE_NAME = -35,
-	BGP_ERR_INVALID_INTERNAL_ROLE = -36
+	BGP_ERR_INVALID_INTERNAL_ROLE = -36,
+
+	/* RTC SAFI config error */
+	BGP_ERR_INVALID_RTC_INSTANCE = -37,
 };
 
 /*
@@ -2349,7 +2370,7 @@ extern enum bgp_peer_sort peer_sort(struct peer *peer);
 extern enum bgp_peer_sort peer_sort_lookup(struct peer *peer);
 
 extern bool peer_active(struct peer_connection *connection);
-extern bool peer_active_nego(struct peer *);
+extern bool peer_active_nego(const struct peer *);
 extern bool peer_afc_received(struct peer *peer);
 extern bool peer_afc_advertised(struct peer *peer);
 extern void bgp_recalculate_all_bestpaths(struct bgp *bgp);

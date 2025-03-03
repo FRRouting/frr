@@ -233,7 +233,7 @@ static unsigned int import_rt_hash_key_make(const void *p)
 	const struct irt_node *irt = p;
 	const uint8_t *pnt = irt->rt.val;
 
-	return jhash(pnt, 8, 0xdeadbeef);
+	return jhash(pnt, ECOMMUNITY_SIZE, 0xdeadbeef);
 }
 
 /*
@@ -488,8 +488,11 @@ static void map_vrf_to_rt(struct bgp *bgp_vrf, struct vrf_route_target *l3rt)
 		if (irt && is_vrf_present_in_irt_vrfs(irt->vrfs, bgp_vrf))
 			return; /* Already mapped. */
 
-		if (!irt)
+		if (!irt) {
 			irt = vrf_import_rt_new(&eval_tmp);
+			/* Check for BGP RTC */
+			bgp_rtc_import_change(bgp_vrf, &eval_tmp, true /*Add*/);
+		}
 
 		/* Add VRF to the list for this RT. */
 		listnode_add(irt->vrfs, bgp_vrf);
@@ -521,8 +524,13 @@ static void unmap_vrf_from_rt(struct bgp *bgp_vrf,
 		/* Delete VRF from list for this RT. */
 		listnode_delete(irt->vrfs, bgp_vrf);
 
-		if (!listnode_head(irt->vrfs))
+		if (!listnode_head(irt->vrfs)) {
+			/* Check for BGP RTC */
+			bgp_rtc_import_change(bgp_vrf, &eval_tmp,
+					      false /*Del*/);
+
 			vrf_import_rt_free(irt);
+		}
 	}
 }
 
@@ -549,8 +557,12 @@ static void map_vni_to_rt(struct bgp *bgp, struct bgpevpn *vpn,
 			/* Already mapped. */
 			return;
 
-	if (!irt)
+	if (!irt) {
+		/* Check for BGP RTC */
+		bgp_rtc_import_change(bgp, &eval_tmp, true /*Add*/);
+
 		irt = import_rt_new(bgp, &eval_tmp);
+	}
 
 	/* Add VNI to the hash list for this RT. */
 	listnode_add(irt->vnis, vpn);
@@ -566,6 +578,9 @@ static void unmap_vni_from_rt(struct bgp *bgp, struct bgpevpn *vpn,
 	/* Delete VNI from hash list for this RT. */
 	listnode_delete(irt->vnis, vpn);
 	if (!listnode_head(irt->vnis)) {
+		/* Check for BGP RTC */
+		bgp_rtc_import_change(bgp, &(irt->rt), false /*Del*/);
+
 		import_rt_free(bgp, irt);
 	}
 }

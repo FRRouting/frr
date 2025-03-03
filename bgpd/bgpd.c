@@ -2052,6 +2052,9 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 		bgp_timer_set(peer->connection);
 	}
 
+	/* Init peer RTC data */
+	bgp_rtc_peer_init(peer);
+
 	bgp_peer_gr_flags_update(peer);
 	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(bgp, bgp->peer);
 
@@ -2440,6 +2443,10 @@ static int peer_activate_af(struct peer *peer, afi_t afi, safi_t safi)
 	if (peer->afc[afi][safi])
 		return 0;
 
+	/* Handle RTC safi, may require looking at RTs. */
+	if (safi == SAFI_RTC)
+		bgp_rtc_peer_update(peer, afi, safi, true);
+
 	if (peer_af_create(peer, afi, safi) == NULL)
 		return 1;
 
@@ -2504,14 +2511,10 @@ int peer_activate(struct peer *peer, afi_t afi, safi_t safi)
 
 	bgp = peer->bgp;
 
-	/* Handle RTC safi, only allowed in default instance;
-	 * may require looking at RTs.
-	 */
+	/* Handle RTC safi, only allowed in default instance. */
 	if (safi == SAFI_RTC) {
-		if (bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT) {
+		if (bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT)
 			return BGP_ERR_INVALID_VALUE;
-		}
-		bgp_rtc_peer_update(peer, afi, safi, true);
 	}
 
 	/* This is a peer-group so activate all of the members of the
@@ -2574,6 +2577,10 @@ static bool non_peergroup_deactivate_af(struct peer *peer, afi_t afi,
 	/* Nothing to do if we've already deactivated this peer */
 	if (!peer->afc[afi][safi])
 		return false;
+
+	/* Handle RTC safi, may require looking at RTs. */
+	if (safi == SAFI_RTC)
+		bgp_rtc_peer_update(peer, afi, safi, false);
 
 	/* De-activate the address family configuration. */
 	peer->afc[afi][safi] = 0;
@@ -2728,6 +2735,9 @@ int peer_delete(struct peer *peer)
 		peer_nsf_stop(peer);
 
 	SET_FLAG(peer->flags, PEER_FLAG_DELETE);
+
+	/* Clear peer RTC feature data */
+	bgp_rtc_peer_delete(peer);
 
 	/* Remove BFD settings. */
 	if (peer->bfd_config)
@@ -4749,7 +4759,7 @@ bool peer_active(struct peer_connection *connection)
 }
 
 /* If peer is negotiated at least one address family return 1. */
-bool peer_active_nego(struct peer *peer)
+bool peer_active_nego(const struct peer *peer)
 {
 	if (peer->afc_nego[AFI_IP][SAFI_UNICAST] ||
 	    peer->afc_nego[AFI_IP][SAFI_MULTICAST] ||
