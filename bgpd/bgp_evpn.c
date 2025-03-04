@@ -42,6 +42,7 @@
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_packet.h"
+#include "bgpd/bgp_rtc.h"
 
 /*
  * Definitions and external declarations.
