@@ -1770,18 +1770,6 @@ static void gm_t_recv(struct event *t)
 		goto out_free;
 	}
 
-	struct interface *ifp;
-
-	ifp = if_lookup_by_index(pkt_src->sin6_scope_id, pim->vrf->vrf_id);
-	if (!ifp || !ifp->info)
-		goto out_free;
-
-	struct pim_interface *pim_ifp = ifp->info;
-	struct gm_if *gm_ifp = pim_ifp->mld;
-
-	if (!gm_ifp)
-		goto out_free;
-
 	for (cmsg = CMSG_FIRSTHDR(mh); cmsg; cmsg = CMSG_NXTHDR(mh, cmsg)) {
 		if (cmsg->cmsg_level != SOL_IPV6)
 			continue;
@@ -1799,6 +1787,21 @@ static void gm_t_recv(struct event *t)
 			break;
 		}
 	}
+
+	/* Prefer pktinfo as that also works in case of VRF */
+	ifindex_t ifindex = pktinfo ? pktinfo->ipi6_ifindex
+	                            : pkt_src->sin6_scope_id;
+	struct interface *ifp;
+
+	ifp = if_lookup_by_index(ifindex, pim->vrf->vrf_id);
+	if (!ifp || !ifp->info)
+		goto out_free;
+
+	struct pim_interface *pim_ifp = ifp->info;
+	struct gm_if *gm_ifp = pim_ifp->mld;
+
+	if (!gm_ifp)
+		goto out_free;
 
 	if (!pktinfo || !hoplimit) {
 		zlog_err(log_ifp(
