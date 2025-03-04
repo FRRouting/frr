@@ -30,19 +30,28 @@
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/table_manager.h"
+#include "zebra/ipforward.h"
 
 /*
  * XPath: /frr-zebra:zebra/ip-forwarding
  */
 int zebra_ip_forwarding_modify(struct nb_cb_modify_args *args)
 {
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
+	bool forwarding;
+	int ret;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	forwarding = yang_dnode_get_bool(args->dnode, NULL);
+
+	ret = ipforward();
+	if (ret == 0) {
+		if (forwarding)
+			ipforward_on();
+	} else {
+		if (!forwarding)
+			ipforward_off();
 	}
 
 	return NB_OK;
