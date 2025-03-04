@@ -84,6 +84,7 @@ struct bfd_peer_cfg {
 
 	bool bpc_cbit;
 	bool bpc_passive;
+	bool bpc_log_session_changes;
 
 	bool bpc_has_profile;
 	char bpc_profile[64];
@@ -224,21 +225,22 @@ enum bfd_diagnosticis {
 /* BFD session flags */
 enum bfd_session_flags {
 	BFD_SESS_FLAG_NONE = 0,
-	BFD_SESS_FLAG_ECHO = 1 << 0,	/* BFD Echo functionality */
-	BFD_SESS_FLAG_ECHO_ACTIVE = 1 << 1, /* BFD Echo Packets are being sent
+	BFD_SESS_FLAG_ECHO = 1 << 0,		     /* BFD Echo functionality */
+	BFD_SESS_FLAG_ECHO_ACTIVE = 1 << 1,	     /* BFD Echo Packets are being sent
 					     * actively
 					     */
-	BFD_SESS_FLAG_MH = 1 << 2,	  /* BFD Multi-hop session */
-	BFD_SESS_FLAG_IPV6 = 1 << 4,	/* BFD IPv6 session */
-	BFD_SESS_FLAG_SEND_EVT_ACTIVE = 1 << 5, /* send event timer active */
-	BFD_SESS_FLAG_SEND_EVT_IGNORE = 1 << 6, /* ignore send event when timer
+	BFD_SESS_FLAG_MH = 1 << 2,		     /* BFD Multi-hop session */
+	BFD_SESS_FLAG_IPV6 = 1 << 4,		     /* BFD IPv6 session */
+	BFD_SESS_FLAG_SEND_EVT_ACTIVE = 1 << 5,	     /* send event timer active */
+	BFD_SESS_FLAG_SEND_EVT_IGNORE = 1 << 6,	     /* ignore send event when timer
 						 * expires
 						 */
-	BFD_SESS_FLAG_SHUTDOWN = 1 << 7,	/* disable BGP peer function */
-	BFD_SESS_FLAG_CONFIG = 1 << 8, /* Session configured with bfd NB API */
-	BFD_SESS_FLAG_CBIT = 1 << 9,   /* CBIT is set */
-	BFD_SESS_FLAG_PASSIVE = 1 << 10, /* Passive mode */
-	BFD_SESS_FLAG_MAC_SET = 1 << 11, /* MAC of peer known */
+	BFD_SESS_FLAG_SHUTDOWN = 1 << 7,	     /* disable BGP peer function */
+	BFD_SESS_FLAG_CONFIG = 1 << 8,		     /* Session configured with bfd NB API */
+	BFD_SESS_FLAG_CBIT = 1 << 9,		     /* CBIT is set */
+	BFD_SESS_FLAG_PASSIVE = 1 << 10,	     /* Passive mode */
+	BFD_SESS_FLAG_MAC_SET = 1 << 11,	     /* MAC of peer known */
+	BFD_SESS_FLAG_LOG_SESSION_CHANGES = 1 << 12, /* Log session changes */
 };
 
 enum bfd_mode_type {
@@ -297,6 +299,8 @@ struct bfd_profile {
 	bool admin_shutdown;
 	/** Passive mode. */
 	bool passive;
+	/** Log session changes. */
+	bool log_session_changes;
 	/** Minimum expected TTL value. */
 	uint8_t minimum_ttl;
 
@@ -681,6 +685,14 @@ void bfd_set_shutdown(struct bfd_session *bs, bool shutdown);
  * \param passive the passive mode.
  */
 void bfd_set_passive_mode(struct bfd_session *bs, bool passive);
+
+/**
+ * Set the BFD session to log or not log session changes.
+ *
+ * \param bs the BFD session.
+ * \param log_session indicates whether or not to log session changes.
+ */
+void bfd_set_log_session_changes(struct bfd_session *bs, bool log_session);
 
 /**
  * Picks the BFD session configuration from the appropriated source:
