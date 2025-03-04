@@ -2621,15 +2621,32 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	bgp_peer_remove_private_as(bgp, afi, safi, peer, attr);
 	bgp_peer_as_override(bgp, afi, safi, peer, attr);
 
-	/* draft-ietf-idr-deprecate-as-set-confed-set
-	 * Filter routes having AS_SET or AS_CONFED_SET in the path.
-	 * Eventually, This document (if approved) updates RFC 4271
-	 * and RFC 5065 by eliminating AS_SET and AS_CONFED_SET types,
-	 * and obsoletes RFC 6472.
-	 */
-	if (peer->bgp->reject_as_sets)
-		if (aspath_check_as_sets(attr->aspath))
+	/* draft-ietf-idr-deprecate-as-set-confed-set-16 */
+	if (peer->bgp->reject_as_sets && aspath_check_as_sets(attr->aspath)) {
+		struct aspath *aspath_new;
+
+		/* An aggregate prefix MUST NOT be announced to the contributing ASes */
+		if (pi->sub_type == BGP_ROUTE_AGGREGATE &&
+		    aspath_loop_check(attr->aspath, peer->as)) {
+			zlog_warn("%pBP [Update:SEND] %pFX is filtered by `bgp reject-as-sets`",
+				  peer, p);
 			return false;
+		}
+
+		/* When aggregating prefixes, network operators MUST use consistent brief
+		 * aggregation as described in Section 5.2. In consistent brief aggregation,
+		 * the AGGREGATOR and ATOMIC_AGGREGATE Path Attributes are included, but the
+		 * AS_PATH does not have AS_SET or AS_CONFED_SET path segment types.
+		 * The ATOMIC_AGGREGATE Path Attribute is subsequently attached to the BGP
+		 * route, if AS_SETs are dropped.
+		 */
+		if (attr->aspath->refcnt)
+			aspath_new = aspath_dup(attr->aspath);
+		else
+			aspath_new = attr->aspath;
+
+		attr->aspath = aspath_delete_as_set_seq(aspath_new);
+	}
 
 	/* If neighbor soo is configured, then check if the route has
 	 * SoO extended community and validate against the configured
@@ -8902,7 +8919,6 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 	struct prefix p;
 	struct bgp_dest *dest;
 	struct bgp_aggregate *aggregate;
-	uint8_t as_set_new = as_set;
 
 	if (suppress_map && summary_only) {
 		vty_out(vty,
@@ -8960,7 +8976,6 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 	 */
 	if (bgp->reject_as_sets) {
 		if (as_set == AGGREGATE_AS_SET) {
-			as_set_new = AGGREGATE_AS_UNSET;
 			zlog_warn(
 				"%s: Ignoring as-set because `bgp reject-as-sets` is enabled.",
 				__func__);
@@ -8969,7 +8984,7 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 		}
 	}
 
-	aggregate->as_set = as_set_new;
+	aggregate->as_set = as_set;
 
 	/* Override ORIGIN attribute if defined.
 	 * E.g.: Cisco and Juniper set ORIGIN for aggregated address

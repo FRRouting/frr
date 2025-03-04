@@ -424,8 +424,12 @@ static unsigned int aspath_count_hops_internal(const struct aspath *aspath)
 /* Check if aspath has AS_SET or AS_CONFED_SET */
 bool aspath_check_as_sets(struct aspath *aspath)
 {
-	struct assegment *seg = aspath->segments;
+	struct assegment *seg;
 
+	if (!aspath || !aspath->segments)
+		return false;
+
+	seg = aspath->segments;
 	while (seg) {
 		if (seg->type == AS_SET || seg->type == AS_CONFED_SET)
 			return true;
@@ -2512,3 +2516,39 @@ void bgp_remove_aspath_from_aggregate_hash(struct bgp_aggregate *aggregate,
 	}
 }
 
+struct aspath *aspath_delete_as_set_seq(struct aspath *aspath)
+{
+	struct assegment *seg, *prev, *next;
+	bool removed = false;
+
+	if (!(aspath && aspath->segments))
+		return aspath;
+
+	seg = aspath->segments;
+	next = NULL;
+	prev = NULL;
+
+	while (seg) {
+		next = seg->next;
+
+		if (seg->type == AS_SET || seg->type == AS_CONFED_SET) {
+			if (aspath->segments == seg)
+				aspath->segments = seg->next;
+			else
+				prev->next = seg->next;
+
+			assegment_free(seg);
+			removed = true;
+		} else
+			prev = seg;
+
+		seg = next;
+	}
+
+	if (removed) {
+		aspath_str_update(aspath, false);
+		aspath->count = aspath_count_hops_internal(aspath);
+	}
+
+	return aspath;
+}
