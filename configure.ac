@@ -2046,7 +2046,7 @@ if test "$enable_snmp" != "" -a "$enable_snmp" != "no"; then
    # net-snmp lists all of its own dependencies.  we absolutely do not want that
    # among other things we avoid a GPL vs. OpenSSL license conflict here
    for removelib in crypto ssl sensors pci wrap; do
-     SNMP_LIBS="`echo $SNMP_LIBS | sed -e 's/\(^\|\s\)-l'$removelib'\b/ /g' -e 's/\(^\|\s\)\([^\s]*\/\)\?lib'$removelib'\.[^\s]\+\b/ /g'`"
+     SNMP_LIBS="`echo $SNMP_LIBS | sed -e 's/-l'$removelib'/ /g'`"
    done
    AC_MSG_CHECKING([whether we can link to Net-SNMP])
    AC_LINK_IFELSE_FLAGS([$SNMP_CFLAGS], [$SNMP_LIBS], [AC_LANG_PROGRAM([
