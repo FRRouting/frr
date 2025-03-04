@@ -187,6 +187,8 @@ static void zebra_connected(struct zclient *zclient)
 	 * in.
 	 */
 	static_install_nexthops_on_startup();
+
+	static_zebra_request_srv6_sids();
 }
 
 /* API to check whether the configured nexthop address is
