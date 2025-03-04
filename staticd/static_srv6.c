@@ -153,6 +153,15 @@ void delete_static_srv6_sid(void *val)
 	static_srv6_sid_free((struct static_srv6_sid *)val);
 }
 
+void static_zebra_request_srv6_sids()
+{
+	struct static_srv6_sid *sid;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(srv6_sids, node, sid))
+		static_zebra_request_srv6_sid(sid);
+}
+
 /*
  * Initialize SRv6 data structures.
  */
