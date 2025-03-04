@@ -4338,6 +4338,10 @@ DEFUN (no_bgp_evpn_advertise_type5,
 	return CMD_SUCCESS;
 }
 
+#if CONFDATE > 20260403
+CPP_NOTICE("Use of [no] advertise ipv4-unicast command is deprecated, please use [no] l3-advertise ipv4-unicast enable command")
+CPP_NOTICE("Use of [no] advertise ipv6-unicast command is deprecated, please use [no] l3-advertise ipv6-unicast enable command")
+#else
 DEFUN (bgp_evpn_advertise_type5_old,
        bgp_evpn_advertise_type5_old_cmd,
        "advertise " BGP_AFI_CMD_STR "" BGP_SAFI_CMD_STR " [gateway-ip] [route-map RMAP_NAME]",
@@ -4578,6 +4582,7 @@ DEFPY (bgp_evpn_use_es_l3nhg,
 	bgp_mh_info->host_routes_use_l3nhg = no ? false :true;
 	return CMD_SUCCESS;
 }
+#endif
 
 DEFPY (bgp_evpn_ead_evi_rx_disable,
        bgp_evpn_ead_evi_rx_disable_cmd,
@@ -7722,8 +7727,13 @@ void bgp_ethernetvpn_init(void)
 	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_svi_ip_cmd);
 	install_element(BGP_EVPN_NODE, &macvrf_soo_global_cmd);
 	install_element(BGP_EVPN_NODE, &no_macvrf_soo_global_cmd);
+#if CONFDATE > 20260403
+CPP_NOTICE("Use of [no] advertise ipv4-unicast command is deprecated, please use [no] l3-advertise ipv4-unicast enable command")
+CPP_NOTICE("Use of [no] advertise ipv6-unicast command is deprecated, please use [no] l3-advertise ipv6-unicast enable command")
+#else
 	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_type5_old_cmd);
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_advertise_type5_old_cmd);
+#endif
 	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_type5_cmd);
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_advertise_type5_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_default_originate_cmd);
