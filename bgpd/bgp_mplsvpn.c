@@ -1097,6 +1097,9 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 			 * then mark the nexthop as valid.
 			 */
 			nh_valid = true;
+	} else if (bpi_ultimate->type == ZEBRA_ROUTE_BGP &&
+		   bpi_ultimate->sub_type == BGP_ROUTE_AGGREGATE) {
+		nh_valid = true;
 	} else
 		/*
 		 * TBD do we need to do anything about the
@@ -1690,6 +1693,14 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 		if (debug)
 			zlog_debug("%s: %s skipping: %s", __func__,
 				   from_bgp->name, debugmsg);
+		return;
+	}
+
+	/* Aggregate-address suppress check. */
+	if (bgp_path_suppressed(path_vrf)) {
+		if (debug)
+			zlog_debug("%s: %s skipping: suppressed path will not be exported",
+				   __func__, from_bgp->name);
 		return;
 	}
 
