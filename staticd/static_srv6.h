@@ -101,6 +101,8 @@ struct static_srv6_locator *static_srv6_locator_lookup(const char *name);
 void delete_static_srv6_sid(void *val);
 void delete_static_srv6_locator(void *val);
 
+void static_zebra_request_srv6_sids(void);
+
 #ifdef __cplusplus
 }
 #endif
