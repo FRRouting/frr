@@ -181,6 +181,8 @@ static void zebra_connected(struct zclient *zclient)
 	vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	assert(vrf);
 	static_fixup_vrf_ids(vrf);
+
+	static_zebra_request_srv6_sids();
 }
 
 /* API to check whether the configured nexthop address is
