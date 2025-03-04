@@ -966,7 +966,8 @@ static int lib_interface_eigrp_delay_modify(struct nb_cb_modify_args *args)
 			return NB_ERR_INCONSISTENCY;
 
 		ei->params.delay = yang_dnode_get_uint32(args->dnode, NULL);
-		eigrp_if_reset(ifp);
+		if (ei->eigrp != NULL)
+			eigrp_if_reset(ifp);
 		break;
 	}
 
@@ -1007,7 +1008,8 @@ static int lib_interface_eigrp_bandwidth_modify(struct nb_cb_modify_args *args)
 			return NB_ERR_INCONSISTENCY;
 
 		ei->params.bandwidth = yang_dnode_get_uint32(args->dnode, NULL);
-		eigrp_if_reset(ifp);
+		if (ei->eigrp != NULL)
+			eigrp_if_reset(ifp);
 		break;
 	}
 

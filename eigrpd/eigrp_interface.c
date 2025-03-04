@@ -45,8 +45,7 @@
 
 DEFINE_MTYPE_STATIC(EIGRPD, EIGRP_IF, "EIGRP interface");
 
-struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
-				     struct prefix *p)
+struct eigrp_interface *eigrp_if_new(struct interface *ifp)
 {
 	struct eigrp_interface *ei = ifp->info;
 	int i;
@@ -58,10 +57,10 @@ struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
 
 	/* Set zebra interface pointer. */
 	ei->ifp = ifp;
-	prefix_copy(&ei->address, p);
-
+	
 	ifp->info = ei;
-	listnode_add(eigrp->eiflist, ei);
+
+	ei->eigrp = NULL;
 
 	ei->type = EIGRP_IFTYPE_BROADCAST;
 
@@ -77,8 +76,6 @@ struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
 		ei->routemap[i] = NULL;
 	}
 
-	ei->eigrp = eigrp;
-
 	ei->params.v_hello = EIGRP_HELLO_INTERVAL_DEFAULT;
 	ei->params.v_wait = EIGRP_HOLD_INTERVAL_DEFAULT;
 	ei->params.bandwidth = EIGRP_BANDWIDTH_DEFAULT;
@@ -92,6 +89,18 @@ struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
 	ei->curr_mtu = ifp->mtu;
 
 	return ei;
+}
+
+int eigrp_if_new_hook(struct interface *ifp)
+{
+	struct eigrp_interface *ei = ifp->info;
+
+	if (ei)
+		return 0;
+	
+	eigrp_if_new(ifp);
+
+	return 0;
 }
 
 int eigrp_if_delete_hook(struct interface *ifp)
@@ -207,7 +216,7 @@ void eigrp_if_init(void)
 	hook_register_prio(if_down, 0, eigrp_ifp_down);
 	hook_register_prio(if_unreal, 0, eigrp_ifp_destroy);
 	/* Initialize Zebra interface data structure. */
-	// hook_register_prio(if_add, 0, eigrp_if_new);
+	hook_register_prio(if_add, 0, eigrp_if_new_hook);
 	hook_register_prio(if_del, 0, eigrp_if_delete_hook);
 }
 
