@@ -323,7 +323,7 @@ def _test_vrf_pimreg_interfaces():
 
     r1 = tgen.gears["r1"]
     r1.vtysh_cmd("conf\ninterface blue\nip pim")
-    r1.vtysh_cmd("conf\nvrf blue\nip pim rp 192.168.0.11 239.100.0.1/32\nexit-vrf")
+    r1.vtysh_cmd("conf\nrouter pim vrf blue\nrp 192.168.0.11 239.100.0.1/32")
 
     # Check pimreg11 interface on R1, VRF blue
     reffile = os.path.join(CWD, "r1/pim_blue_pimreg11.json")
@@ -339,7 +339,7 @@ def _test_vrf_pimreg_interfaces():
     assert res is None, assertmsg
 
     r1.vtysh_cmd("conf\ninterface red\nip pim")
-    r1.vtysh_cmd("conf\nvrf red\nip pim rp 192.168.0.12 239.100.0.1/32\nexit-vrf")
+    r1.vtysh_cmd("conf\nrouter pim vrf red\nrp 192.168.0.12 239.100.0.1/32")
 
     # Check pimreg12 interface on R1, VRF red
     reffile = os.path.join(CWD, "r1/pim_red_pimreg12.json")
