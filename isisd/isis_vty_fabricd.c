@@ -879,8 +879,16 @@ DEFUN (isis_hello_interval,
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
 
+	uint32_t old_interval_l1 = circuit->hello_interval[0];
+	uint32_t old_interval_l2 = circuit->hello_interval[1];
+
 	circuit->hello_interval[0] = interval;
 	circuit->hello_interval[1] = interval;
+
+	/* if interval changed, reset hello timer */
+	if (old_interval_l1 != interval || old_interval_l2 != interval) {
+		isis_reset_hello_timer(circuit);
+	}
 
 	return CMD_SUCCESS;
 }

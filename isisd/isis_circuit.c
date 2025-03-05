@@ -1661,6 +1661,47 @@ static int isis_ifp_destroy(struct interface *ifp)
 	return 0;
 }
 
+/* Reset IS hello timer after interval change */
+void isis_reset_hello_timer(struct isis_circuit *circuit)
+{
+	/* First send an immediate hello to prevent adjacency loss 
+     * during longer hello interval transitions 
+     */
+	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
+		/* For broadcast circuits - need to handle both levels */
+		if (circuit->is_type & IS_LEVEL_1) {
+			/* send hello immediately */
+			send_hello(circuit, IS_LEVEL_1);
+
+			/* reset level-1 hello timer */
+			EVENT_OFF(circuit->u.bc.t_send_lan_hello[0]);
+			if (circuit->area && (circuit->area->is_type & IS_LEVEL_1))
+				send_hello_sched(circuit, IS_LEVEL_1,
+						 isis_jitter(circuit->hello_interval[0],
+							     IIH_JITTER));
+		}
+
+		if (circuit->is_type & IS_LEVEL_2) {
+			/* send hello immediately */
+			send_hello(circuit, IS_LEVEL_2);
+
+			/* reset level-2 hello timer */
+			EVENT_OFF(circuit->u.bc.t_send_lan_hello[1]);
+			if (circuit->area && (circuit->area->is_type & IS_LEVEL_2))
+				send_hello_sched(circuit, IS_LEVEL_2,
+						 isis_jitter(circuit->hello_interval[1],
+							     IIH_JITTER));
+		}
+	} else if (circuit->circ_type == CIRCUIT_T_P2P) {
+		/* For point-to-point circuits */
+		send_hello(circuit, IS_LEVEL_1);
+
+		/* reset hello timer */
+		EVENT_OFF(circuit->u.p2p.t_send_p2p_hello);
+		send_hello_sched(circuit, 0, isis_jitter(circuit->hello_interval[0], IIH_JITTER));
+	}
+}
+
 void isis_circuit_init(void)
 {
 	/* Initialize Zebra interface data structure */
