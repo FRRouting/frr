@@ -84,9 +84,9 @@ endif
 #
 
 .PHONY: info html pdf
-info: $(USERBUILD)/texinfo/frr.info
-html: $(USERBUILD)/html/.buildinfo
-pdf:  $(USERBUILD)/latexpdf
+info-local: $(USERBUILD)/texinfo/frr.info
+html-local: $(USERBUILD)/html/.buildinfo
+pdf-local:  $(USERBUILD)/latexpdf
 
 #
 # hook-ins for clean / install / doc
@@ -100,7 +100,7 @@ clean-userdocs:
 # INSTALL_INFO=install-info
 .PHONY: install-info uninstall-info install-html uninstall-html
 
-install-info: $(USERBUILD)/texinfo/frr.info
+install-info-local: $(USERBUILD)/texinfo/frr.info
 	$(MKDIR_P) "$(DESTDIR)$(infodir)"
 	$(INSTALL_DATA) "$<" "$(DESTDIR)$(infodir)"
 	[ -z "${DESTDIR}" ] && $(INSTALL_INFO) --info-dir="$(DESTDIR)$(infodir)" "$<" || true
@@ -108,7 +108,7 @@ uninstall-info: $(USERBUILD)/texinfo/frr.info
 	-rm -f "$(DESTDIR)$(infodir)/$<"
 	[ -z "${DESTDIR}" ] && $(INSTALL_INFO) --delete --info-dir="$(DESTDIR)$(infodir)" "$<" || true
 
-install-html: $(USERBUILD)/html/.buildinfo
+install-html-local: $(USERBUILD)/html/.buildinfo
 	$(MKDIR_P) "$(DESTDIR)$(htmldir)"
 	cp -r "$(USERBUILD)/html" "$(DESTDIR)$(htmldir)"
 uninstall-html:
