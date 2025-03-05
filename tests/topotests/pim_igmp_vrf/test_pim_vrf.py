@@ -58,13 +58,13 @@ TOPOLOGY = """
                                                +----------+
                                                  .2 |
 +---------+                  +------------+         |        +---------+
-| Host H1 | 192.168.100.0/24 |            | .1      |    .11 | Host H2 |
+| Host H1 | 192.168.100.0/24 |            | .1      |    .11 | R11     |
 | receive |------------------|  VRF Blue  |---------+--------| PIM RP  |
 |IGMP JOIN| .10           .1 |            | 192.168.101.0/24 |         |
 +---------+                  |            |                  +---------+
                             =| = = R1 = = |=
 +---------+                  |            |                  +---------+
-| Host H3 | 192.168.100.0/24 |            | 192.168.101.0/24 | Host H4 |
+| Host H3 | 192.168.100.0/24 |            | 192.168.101.0/24 | R12     |
 | receive |------------------|  VRF Red   |---------+--------| PIM RP  |
 |IGMP JOIN| .20           .1 |            | .1      |    .12 |         |
 +---------+                  +------------+         |        +---------+
@@ -354,6 +354,7 @@ def _test_vrf_pimreg_interfaces():
     assertmsg = "PIM router R1, VRF red (table 12) pimreg12 interface missing or incorrect status"
     assert res is None, assertmsg
 
+
 def test_vrf_pimreg_interfaces():
     tgen = get_topogen()
     r1 = tgen.gears["r1"]
@@ -364,6 +365,7 @@ def test_vrf_pimreg_interfaces():
         output = r1.net.cmd_nostatus("ip -o link")
         logging.error("ip link info after failure: %s", output)
         raise
+
 
 ##################################
 ###  Test PIM / IGMP with VRF
@@ -423,6 +425,7 @@ def test_mcast_vrf_blue():
         pytest.skip(tgen.errors)
 
     check_mcast_entry("239.100.0.1", "r11", "h1", "h2", "blue")
+
 
 
 def test_mcast_vrf_red():
