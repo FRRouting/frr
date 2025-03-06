@@ -4199,6 +4199,10 @@ int bgp_delete(struct bgp *bgp)
 
 	while (listcount(bgp->peer)) {
 		peer = listnode_head(bgp->peer);
+		if (peer->ifp || CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE))
+			bgp_zebra_terminate_radv(peer->bgp, peer);
+
+		peer_notify_unconfig(peer->connection);
 		peer_delete(peer);
 	}
 
