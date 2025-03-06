@@ -40,8 +40,8 @@ DEFINE_MTYPE_STATIC(ZEBRA, ZINFO, "Zebra Interface Information");
 
 #define ZEBRA_PTM_SUPPORT
 
-DEFINE_HOOK(zebra_if_extra_info, (struct vty * vty, struct interface *ifp),
-	    (vty, ifp));
+DEFINE_HOOK(zebra_if_extra_info, (struct vty * vty, json_object *json_if, struct interface *ifp),
+	    (vty, json_if, ifp));
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZIF_DESC, "Intf desc");
 
@@ -2846,7 +2846,7 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 				&iflp->rmt_ip, iflp->rmt_as);
 	}
 
-	hook_call(zebra_if_extra_info, vty, ifp);
+	hook_call(zebra_if_extra_info, vty, NULL, ifp);
 
 	if (listhead(ifp->nbr_connected))
 		vty_out(vty, "  Neighbor address(s):\n");
@@ -3251,6 +3251,8 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 						"%pI4", &iflp->rmt_ip);
 		json_object_int_add(json_te, "neighborAsbrAs", iflp->rmt_as);
 	}
+
+	hook_call(zebra_if_extra_info, vty, json_if, ifp);
 
 	if (listhead(ifp->nbr_connected)) {
 		json_object *json_nbr_addrs;
