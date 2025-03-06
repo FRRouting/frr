@@ -322,7 +322,7 @@ def _test_vrf_pimreg_interfaces():
         pytest.skip(tgen.errors)
 
     r1 = tgen.gears["r1"]
-    r1.vtysh_cmd("conf\ninterface blue\nip pim")
+    r1.vtysh_cmd("conf\ninterface blue\nip pim passive")
     r1.vtysh_cmd("conf\nrouter pim vrf blue\nrp 192.168.0.11 239.100.0.1/32")
 
     # Check pimreg11 interface on R1, VRF blue
@@ -338,7 +338,7 @@ def _test_vrf_pimreg_interfaces():
     assertmsg = "PIM router R1, VRF blue (table 11) pimreg11 interface missing or incorrect status"
     assert res is None, assertmsg
 
-    r1.vtysh_cmd("conf\ninterface red\nip pim")
+    r1.vtysh_cmd("conf\ninterface red\nip pim passive")
     r1.vtysh_cmd("conf\nrouter pim vrf red\nrp 192.168.0.12 239.100.0.1/32")
 
     # Check pimreg12 interface on R1, VRF red
