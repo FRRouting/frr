@@ -17,6 +17,7 @@
 #include "lib_errors.h"
 #include "printfrr.h"
 #include "vxlan.h"
+#include "lib/stream.h"
 
 DEFINE_MTYPE_STATIC(LIB, PREFIX, "Prefix");
 DEFINE_MTYPE_STATIC(LIB, PREFIX_FLOWSPEC, "Prefix Flowspec");
@@ -1680,6 +1681,11 @@ static ssize_t printfrr_psg(struct fbuf *buf, struct printfrr_eargs *ea,
 const char *prefix_rtc2str(const struct prefix_rtc *rtc, char *buf, int size)
 {
 	char sbuf[PREFIX_STRLEN];
+	int type;
+	const uint8_t *ptr;
+	in_addr_t ipval;
+	uint16_t ival;
+	uint32_t lval;
 
 	if (rtc->prefixlen == 0) {
 		strlcpy(buf, "*:*", size);
@@ -1690,23 +1696,46 @@ const char *prefix_rtc2str(const struct prefix_rtc *rtc, char *buf, int size)
 			snprintf(buf, size, "*:");
 
 		if (rtc->prefixlen > 32) {
-			/* Format RT type and subtype bytes */
+			/* Format RT type and subtype bytes. Don't love having
+			 * this here and in bgpd, but there it is.
+			 */
+			type = rtc->prefix.route_target[0];
+
 			snprintf(sbuf, sizeof(sbuf),
 				 "%d:%d:", rtc->prefix.route_target[0],
 				 rtc->prefix.route_target[1]);
 			strlcat(buf, sbuf, size);
 
-			/* Format RT data bytes. This isn't really detailed -
-			 * the RT/RD details are in bgp code, so...
-			 */
-			snprintf(sbuf, sizeof(sbuf),
-				 "%02x:%02x:%02x:%02x:%02x:%02x",
-				 rtc->prefix.route_target[2],
-				 rtc->prefix.route_target[3],
-				 rtc->prefix.route_target[4],
-				 rtc->prefix.route_target[5],
-				 rtc->prefix.route_target[6],
-				 rtc->prefix.route_target[7]);
+			ptr = &(rtc->prefix.route_target[2]);
+
+			/* Format RT data bytes, using well-known types */
+			if (type == 0) {
+				ptr = ptr_get_be16(ptr, &ival);
+				ptr_get_be32(ptr, &lval);
+
+				snprintf(sbuf, sizeof(sbuf), "%d:%u", ival,
+					 lval);
+			} else if (type == 1) {
+				ptr = ptr_get_be16(ptr, &ival);
+				memcpy(&ipval, ptr, 4);
+				snprintf(sbuf, sizeof(sbuf), "%d:%pI4", ival,
+					 &ipval);
+			} else if (type == 2) {
+				ptr = ptr_get_be32(ptr, &lval);
+				ptr_get_be16(ptr, &ival);
+				snprintf(sbuf, sizeof(sbuf), "%u:%d", lval,
+					 ival);
+			} else {
+				snprintf(sbuf, sizeof(sbuf),
+					 "%02x:%02x:%02x:%02x:%02x:%02x",
+					 rtc->prefix.route_target[2],
+					 rtc->prefix.route_target[3],
+					 rtc->prefix.route_target[4],
+					 rtc->prefix.route_target[5],
+					 rtc->prefix.route_target[6],
+					 rtc->prefix.route_target[7]);
+			}
+
 			strlcat(buf, sbuf, size);
 		} else {
 			strlcpy(sbuf, "*", sizeof(sbuf));
