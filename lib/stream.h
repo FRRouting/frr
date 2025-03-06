@@ -390,7 +390,7 @@ static inline const uint8_t *ptr_get_be32(const uint8_t *ptr, uint32_t *out)
 	return ptr + 4;
 }
 
-static inline uint8_t *ptr_get_be16(uint8_t *ptr, uint16_t *out)
+static inline const uint8_t *ptr_get_be16(const uint8_t *ptr, uint16_t *out)
 {
 	uint16_t tmp;
 
