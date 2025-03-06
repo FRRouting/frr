@@ -3281,11 +3281,8 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 			if (worse->prev)
 				worse->prev->next = first;
 			first->next = worse;
-			if (worse) {
-				first->prev = worse->prev;
-				worse->prev = first;
-			} else
-				first->prev = NULL;
+			first->prev = worse->prev;
+			worse->prev = first;
 
 			if (dest->info == worse) {
 				bgp_dest_set_bgp_path_info(dest, first);
