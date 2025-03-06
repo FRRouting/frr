@@ -21,6 +21,8 @@
 #include "vrf.h"
 #include "ns.h"
 #include "lib_errors.h"
+#include "wheel.h"
+#include "network.h"
 
 #include "zebra/interface.h"
 #include "zebra/rtadv.h"
@@ -36,6 +38,19 @@ extern struct zebra_privs_t zserv_privs;
 static uint32_t interfaces_configured_for_ra_from_bgp;
 #define RTADV_ADATA_SIZE 1024
 
+#define PROC_IGMP6 "/proc/net/igmp6"
+
+/* 32 hex chars 
+ * say for 2001:db8:85a3::8a2e:370:7334
+ * hex string is 20010db885a3000000008a2e03707334, 
+ * which is 32 chars long
+*/
+#define MAX_V6ADDR_LEN 32
+
+#define MAX_INTERFACE_NAME_LEN 25
+
+#define MAX_CHARS_PER_LINE 1024
+
 #if defined(HAVE_RTADV)
 
 #include "zebra/rtadv_clippy.c"
@@ -49,6 +64,12 @@ DEFINE_MTYPE_STATIC(ZEBRA, ADV_IF, "Advertised Interface");
 
 #define ALLNODE   "ff02::1"
 #define ALLROUTER "ff02::2"
+
+static bool is_interface_in_group(const char *ifname_in, const char *mcast_addr_in);
+
+#ifdef __linux__
+static bool v6_addr_hex_str_to_in6_addr(const char *hex_str, struct in6_addr *addr);
+#endif
 
 /* adv list node */
 struct adv_if {
@@ -452,6 +473,60 @@ no_more_opts:
 			     safe_strerror(errno));
 	} else
 		zif->ra_sent++;
+}
+
+static void start_icmpv6_join_timer(struct event *thread)
+{
+	struct interface *ifp = EVENT_ARG(thread);
+	struct zebra_if *zif = ifp->info;
+	struct zebra_vrf *zvrf = rtadv_interface_get_zvrf(ifp);
+
+	if (if_join_all_router(zvrf->rtadv.sock, ifp)) {
+		/*Wait random amount of time between 1 ms to ICMPV6_JOIN_TIMER_EXP_MS ms*/
+		int random_ms = (frr_weak_random() % ICMPV6_JOIN_TIMER_EXP_MS) + 1;
+		event_add_timer_msec(zrouter.master, start_icmpv6_join_timer, ifp, random_ms,
+				     &zif->icmpv6_join_timer);
+	}
+
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_debug("Processing ICMPv6 join on interface %s(%s:%u)", ifp->name,
+			   ifp->vrf->name, ifp->ifindex);
+}
+
+void process_rtadv(void *arg)
+{
+	struct interface *ifp = arg;
+	struct zebra_if *zif = ifp->info;
+	struct zebra_vrf *zvrf = rtadv_interface_get_zvrf(ifp);
+
+	if (zif->rtadv.inFastRexmit && zif->rtadv.UseFastRexmit) {
+		if (--zif->rtadv.NumFastReXmitsRemain <= 0)
+			zif->rtadv.inFastRexmit = 0;
+
+		if (IS_ZEBRA_DEBUG_SEND)
+			zlog_debug("Doing fast RA Rexmit on interface %s(%s:%u)", ifp->name,
+				   ifp->vrf->name, ifp->ifindex);
+
+		rtadv_send_packet(zvrf->rtadv.sock, ifp, RA_ENABLE);
+	} else {
+		zif->rtadv.AdvIntervalTimer -= RTADV_TIMER_WHEEL_PERIOD_MS;
+		/* Wait atleast AdvIntervalTimer time before sending next RA
+		 * AdvIntervalTimer can go negative, when ra_wheel timer expiry
+		 * interval is not a multiple of AdvIntervalTimer. Say ra_wheel
+		 * expiry time is 10 ms and, AdvIntervalTimer == 1005 ms. Allowing 
+		 * AdvIntervalTimer to go negative and checking, gurantees that
+		 * we have waited Wait atleast AdvIntervalTimer, so RA can be 
+		 * sent now.
+		*/
+		if (zif->rtadv.AdvIntervalTimer <= 0) {
+			zif->rtadv.AdvIntervalTimer = zif->rtadv.MaxRtrAdvInterval;
+			if (IS_ZEBRA_DEBUG_SEND)
+				zlog_debug("Doing regular RA Rexmit on interface %s(%s:%u)",
+					   ifp->name, ifp->vrf->name, ifp->ifindex);
+
+			rtadv_send_packet(zvrf->rtadv.sock, ifp, RA_ENABLE);
+		}
+	}
 }
 
 static void rtadv_timer(struct event *thread)
@@ -1253,7 +1328,13 @@ static void rtadv_start_interface_events(struct zebra_vrf *zvrf,
 	if (adv_if != NULL)
 		return; /* Already added */
 
-	if_join_all_router(zvrf->rtadv.sock, zif->ifp);
+	if (if_join_all_router(zvrf->rtadv.sock, zif->ifp)) {
+		/*Failed to join on 1st attempt, wait random amount of time between 1 ms 
+		 to ICMPV6_JOIN_TIMER_EXP_MS ms*/
+		int random_ms = (frr_weak_random() % ICMPV6_JOIN_TIMER_EXP_MS) + 1;
+		event_add_timer_msec(zrouter.master, start_icmpv6_join_timer, zif->ifp, random_ms,
+				     &zif->icmpv6_join_timer);
+	}
 
 	if (adv_if_list_count(&zvrf->rtadv.adv_if) == 1)
 		rtadv_event(zvrf, RTADV_START, 0);
@@ -1273,6 +1354,8 @@ void ipv6_nd_suppress_ra_set(struct interface *ifp,
 	if (status == RA_SUPPRESS) {
 		/* RA is currently enabled */
 		if (zif->rtadv.AdvSendAdvertisements) {
+			/* Try to delete from the ra wheel */
+			wheel_remove_item(zrouter.ra_wheel, ifp);
 			rtadv_send_packet(zvrf->rtadv.sock, ifp, RA_SUPPRESS);
 			zif->rtadv.AdvSendAdvertisements = 0;
 			zif->rtadv.AdvIntervalTimer = 0;
@@ -1303,6 +1386,7 @@ void ipv6_nd_suppress_ra_set(struct interface *ifp,
 					RTADV_NUM_FAST_REXMITS;
 			}
 
+			wheel_add_item(zrouter.ra_wheel, ifp);
 			rtadv_start_interface_events(zvrf, zif);
 		}
 	}
@@ -1429,6 +1513,12 @@ void rtadv_stop_ra(struct interface *ifp)
 
 	zif = ifp->info;
 	zvrf = rtadv_interface_get_zvrf(ifp);
+
+	/*Try to delete from ra wheels */
+	wheel_remove_item(zrouter.ra_wheel, ifp);
+
+	/*Turn off event for ICMPv6 join*/
+	EVENT_OFF(zif->icmpv6_join_timer);
 
 	if (zif->rtadv.AdvSendAdvertisements)
 		rtadv_send_packet(zvrf->rtadv.sock, ifp, RA_SUPPRESS);
@@ -1722,8 +1812,7 @@ static void rtadv_event(struct zebra_vrf *zvrf, enum rtadv_event event, int val)
 	case RTADV_START:
 		event_add_read(zrouter.master, rtadv_read, zvrf, rtadv->sock,
 			       &rtadv->ra_read);
-		event_add_event(zrouter.master, rtadv_timer, zvrf, 0,
-				&rtadv->ra_timer);
+
 		break;
 	case RTADV_STOP:
 		EVENT_OFF(rtadv->ra_timer);
@@ -1854,11 +1943,97 @@ void rtadv_cmd_init(void)
 	install_element(VIEW_NODE, &show_ipv6_nd_ra_if_cmd);
 }
 
+#ifdef __linux__
+static bool v6_addr_hex_str_to_in6_addr(const char *hex_str, struct in6_addr *addr)
+{
+	size_t str_len = strlen(hex_str);
+
+	if (str_len != MAX_V6ADDR_LEN) {
+		flog_err_sys(EC_LIB_SYSTEM_CALL, "Invalid V6 addr hex len %zu", str_len);
+		return false;
+	}
+
+	for (int i = 0; i < 16; i++) {
+		char byte_str[3] = { hex_str[i * 2], hex_str[i * 2 + 1], '\0' };
+		addr->s6_addr[i] = (uint8_t)strtol(byte_str, NULL, 16);
+	}
+
+	return true;
+}
+#endif
+
+/* Checks if an interface is part of a multicast group, no null check for input strings */
+static bool is_interface_in_group(const char *ifname_in, const char *mcast_addr_in)
+{
+#ifdef __linux__
+	char line[MAX_CHARS_PER_LINE];
+	char ifname_found[MAX_INTERFACE_NAME_LEN];
+	char mcast_addr_found_hex_str[MAX_V6ADDR_LEN + 5];
+	struct in6_addr mcast_addr_in_bin;
+	struct in6_addr mcast_addr_found_bin;
+	int if_index = -1;
+	int ifname_in_len = 0;
+	int ifname_found_len = 0;
+
+	FILE *fp = fopen(PROC_IGMP6, "r");
+
+	if (!fp) {
+		flog_err_sys(EC_LIB_SYSTEM_CALL, "Failed to open %s", PROC_IGMP6);
+		return false;
+	}
+
+	/* Convert input IPv6 address to binary */
+	if (inet_pton(AF_INET6, mcast_addr_in, &mcast_addr_in_bin) != 1) {
+		flog_err_sys(EC_LIB_SYSTEM_CALL, "Invalid IPv6 address format %s", mcast_addr_in);
+		fclose(fp);
+		return false;
+	}
+
+	/* Convert binary to hex format */
+	while (fgets(line, sizeof(line), fp)) {
+		sscanf(line, "%d %s %s", &if_index, ifname_found, mcast_addr_found_hex_str);
+
+		ifname_in_len = strlen(ifname_in);
+		ifname_found_len = strlen(ifname_found);
+		if (ifname_in_len != ifname_found_len)
+			continue;
+
+		/* Locate 'x' if "0x" is present or not, if present go past that */
+		const char *clean_mcast_addr_hex_str = strchr(mcast_addr_found_hex_str, 'x');
+		if (clean_mcast_addr_hex_str) {
+			clean_mcast_addr_hex_str++;
+		} else {
+			clean_mcast_addr_hex_str = mcast_addr_found_hex_str;
+		}
+
+		if (!v6_addr_hex_str_to_in6_addr(clean_mcast_addr_hex_str, &mcast_addr_found_bin))
+			continue;
+
+		if ((!strncmp(ifname_in, ifname_found, ifname_in_len)) &&
+		    (!IPV6_ADDR_CMP(&mcast_addr_in_bin, &mcast_addr_found_bin))) {
+			fclose(fp);
+			/* Already joined */
+			return true;
+		}
+	}
+
+	fclose(fp);
+
+#endif
+
+	/* Not joined */
+	return false;
+}
+
 static int if_join_all_router(int sock, struct interface *ifp)
 {
 	int ret;
 
 	struct ipv6_mreq mreq;
+
+	if (is_interface_in_group(ifp->name, ALLROUTER))
+		/* Interface is already part of the group, so return sucess */
+		return 0;
 
 	memset(&mreq, 0, sizeof(mreq));
 	inet_pton(AF_INET6, ALLROUTER, &mreq.ipv6mr_multiaddr);
@@ -1866,11 +2041,15 @@ static int if_join_all_router(int sock, struct interface *ifp)
 
 	ret = setsockopt(sock, IPPROTO_IPV6, IPV6_JOIN_GROUP, (char *)&mreq,
 			 sizeof(mreq));
-	if (ret < 0)
+
+	if (ret < 0) {
 		flog_err_sys(EC_LIB_SOCKET,
 			     "%s(%u): Failed to join group, socket %u error %s",
 			     ifp->name, ifp->ifindex, sock,
 			     safe_strerror(errno));
+
+		return ret;
+	}
 
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug(
