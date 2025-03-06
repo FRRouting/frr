@@ -143,6 +143,7 @@ static const struct optspec os_always = {
 	"      --scriptdir    Override scripts directory\n"
 	"      --log          Set Logging to stdout, syslog, or file:<name>\n"
 	"      --log-level    Set Logging Level to use, debug, info, warn, etc\n"
+	"      --command-log-always Always log every command, cannot be turned off\n"
 	"      --limit-fds    Limit number of fds supported\n",
 	lo_always
 };
