@@ -42,11 +42,15 @@ test_pim_vrf.py: Test PIM with VRFs.
 #     H2 and join from Host H1 on vrf blue
 #     Verify PIM JOIN status on R1 and R11
 #     Stop multicast after verification
+#     Check (interface statistics) whether PIM Register messages were
+#     generated towards RP and answered by Register-Stop
 # - test_mcast_vrf_red()
 #     Start multicast stream for group 239.100.0.1 from Host
 #     H4 and join from Host H3 on vrf blue
 #     Verify PIM JOIN status on R1 and R12
 #     Stop multicast after verification
+#     Check (interface statistics) whether PIM Register messages were
+#     generated towards RP and answered by Register-Stop
 # - teardown_module(module)
 #     shutdown topology
 #
@@ -372,8 +376,12 @@ def test_vrf_pimreg_interfaces():
 ##################################
 
 
-def check_mcast_entry(mcastaddr, pimrp, receiver, sender, vrf):
-    "Helper function to check RP"
+def router_json_check(router, cmd, checkfn):
+    return checkfn(router.vtysh_cmd(cmd, isjson=True))
+
+
+def check_mcast_entry(mcastaddr, pimrp, receiver, sender, vrf, r1iface):
+    "Helper function to check IPv4 RP"
     tgen = get_topogen()
 
     logger.info("Testing PIM for VRF {} entry using {}".format(vrf, mcastaddr))
@@ -415,6 +423,29 @@ def check_mcast_entry(mcastaddr, pimrp, receiver, sender, vrf):
         )
         assert res is None, assertmsg
 
+        logger.info("verifying pim register/register stop on r1 on VRF {}".format(vrf))
+        router = tgen.gears["r1"]
+
+        test_func = functools.partial(
+            router_json_check,
+            router,
+            "show ip pim vrf {} interface traffic json".format(vrf),
+            lambda stats: stats[r1iface]["registerTx"] > 0,
+        )
+        _, res = topotest.run_and_expect(test_func, True, count=10, wait=2)
+        assertmsg = "R1 IPv4 VRF {}: No PIM Register sent towards RP".format(vrf)
+        assert res is True, assertmsg
+
+        test_func = functools.partial(
+            router_json_check,
+            router,
+            "show ip pim vrf {} interface traffic json".format(vrf),
+            lambda stats: stats[r1iface]["registerStopRx"] > 0,
+        )
+        _, res = topotest.run_and_expect(test_func, True, count=10, wait=2)
+        assertmsg = "R1 IPv4 VRF {}: No PIM Register-Stop received from RP".format(vrf)
+        assert res is True, assertmsg
+
 
 def test_mcast_vrf_blue():
     "Test vrf blue with 239.100.0.1"
@@ -424,8 +455,7 @@ def test_mcast_vrf_blue():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_mcast_entry("239.100.0.1", "r11", "h1", "h2", "blue")
-
+    check_mcast_entry("239.100.0.1", "r11", "h1", "h2", "blue", "r1-eth1")
 
 
 def test_mcast_vrf_red():
@@ -436,7 +466,8 @@ def test_mcast_vrf_red():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_mcast_entry("239.100.0.1", "r12", "h3", "h4", "red")
+    check_mcast_entry("239.100.0.1", "r12", "h3", "h4", "red", "r1-eth3")
+
 
 
 if __name__ == "__main__":
