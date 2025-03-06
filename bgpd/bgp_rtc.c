@@ -26,6 +26,9 @@ static void rtc_prefix_from_rt(struct prefix *p, uint32_t as_num,
 			       const uint8_t *rtval, int prefixlen);
 /* Helper to create static advertisement for RTC prefix */
 static void rtc_advertise_static(struct bgp *bgp, const struct prefix *p);
+/* Populate 'p' with RT ecomm value for lookup/comparison */
+static void rtc_prefix_from_eval(struct prefix_rtc *p,
+				 const struct ecommunity_val *eval);
 
 /*
  * Helper to form RTC prefix from RT data
@@ -362,8 +365,7 @@ int bgp_rtc_peer_update(struct peer *peer, afi_t afi, safi_t safi, bool active)
 			zlog_debug("%pBP: Last deactivated in RTC SAFI", peer);
 
 		/* TODO -- if the SAFI is being unconfigured, with no peers,
-		 * we need to have a way to "force" removal of RTC prefixes,
-		 * even though the RTs will still be present: probably need
+		 * we need to force removal of RTC prefixes; need
 		 * to iterate through the static entries in SAFI_RTC.
 		 */
 		rtc_safi_remove_all(bgp);
@@ -438,6 +440,19 @@ done:
  */
 
 /*
+ * Helper that creates a v6 prefix from an RTC prefix for comparison
+ */
+static void rtc_prefix_to_v6(struct prefix_ipv6 *p6,
+			     const struct prefix_rtc *prtc)
+{
+	memset(p6, 0, sizeof(struct prefix_ipv6));
+	p6->family = AF_INET6;
+	if (prtc->prefixlen >= 32)
+		p6->prefixlen = prtc->prefixlen - 32;
+	memcpy(&(p6->prefix), prtc->prefix.route_target, ECOMMUNITY_SIZE);
+}
+
+/*
  * Comparison function for peer filter rbtree.
  * This is sort of complicated, because we use this rbtree for two purposes:
  *   1) it holds one entry for each RTC prefix from the peer
@@ -453,22 +468,14 @@ static int rtc_peer_entry_cmp(const struct peer_rtc_entry *e1,
 	struct prefix_ipv6 p1 = {}, p2 = {};
 
 	/* Note that we're not comparing the 'origin AS' part of the
-	 * RTC prefix here: for outbound filtering, we only want to test
-	 * the RT value.
+	 * RTC prefix here: for outbound filtering, we only test the RT value.
 	 */
 
 	/* Make fake v6 prefixes so we can use the prefix lib
 	 * and test the RT values in the RTC prefixes.
 	 */
-	p1.family = AF_INET6;
-	if (e1->p.prefixlen >= 32)
-		p1.prefixlen = e1->p.prefixlen - 32;
-	memcpy(&p1.prefix, e1->p.prefix.route_target, ECOMMUNITY_SIZE);
-
-	p2.family = AF_INET6;
-	if (e2->p.prefixlen >= 32)
-		p2.prefixlen = e2->p.prefixlen - 32;
-	memcpy(&p2.prefix, e2->p.prefix.route_target, ECOMMUNITY_SIZE);
+	rtc_prefix_to_v6(&p1, &(e1->p));
+	rtc_prefix_to_v6(&p2, &(e2->p));
 
 	/* Distinguish between exact match, say when managing a peer's
 	 * RTC SAFI "routes", and an RT match, where "prefix" matching applies;
@@ -503,10 +510,115 @@ static int rtc_peer_entry_cmp(const struct peer_rtc_entry *e1,
 }
 
 /*
+ * Helper for RTC prefix add: need to re-scan VPN routes and possibly
+ * advertise some that were excluded.
+ */
+static void rtc_handle_peer_filter_add(struct peer *peer,
+				       const struct peer_rtc_entry *rtc)
+{
+	/*
+	 * TODO -- it would be better to be able to do less work, say
+	 * by using a custom rib-walker and using a list of added RT
+	 * filters.
+	 */
+
+	/* This api does schedule an event, so it's partially async */
+	bgp_announce_route(peer, AFI_IP, SAFI_MPLS_VPN, false);
+	bgp_announce_route(peer, AFI_IP6, SAFI_MPLS_VPN, false);
+	bgp_announce_route(peer, AFI_L2VPN, SAFI_EVPN, false);
+}
+
+/*
+ * Helper for filter-del processing: process the adj_out for one AFI/SAFI
+ */
+static void rtc_del_check_afi_safi(struct peer *peer, afi_t afi, safi_t safi)
+{
+	bool debug_p = false;
+	struct update_subgroup *subgrp;
+	struct peer_af *paf;
+	struct bgp_adj_out *aout, *aout_tmp;
+	struct bgp_dest *dest;
+	struct attr *attr;
+	int afid;
+
+	afid = afindex(afi, safi);
+	if (afid >= BGP_AF_MAX)
+		return;
+	paf = peer->peer_af_array[afid];
+	if (paf == NULL)
+		return;
+
+	if (bgp_debug_update(peer, NULL, NULL, 1))
+		debug_p = true;
+
+	/* Examine the peer_af */
+	subgrp = paf->subgroup;
+	SUBGRP_FOREACH_ADJ_SAFE (subgrp, aout, aout_tmp) {
+		dest = aout->dest;
+
+		/* See if 'dest' would be filtered now that the RTC
+		 * filters have changed.
+		 */
+		attr = aout->attr;
+		if (attr == NULL)
+			continue;
+
+		if (!bgp_rtc_peer_filter_check(peer, attr, afi, safi)) {
+			if (debug_p)
+				zlog_debug("%s: %pBD filtered out", __func__,
+					   dest);
+
+			/* Withdraw */
+			bgp_adj_out_unset_subgroup(dest, subgrp, 1,
+						   aout->addpath_tx_id);
+		}
+	}
+}
+
+/*
+ * Adding an RT filter: if this was the first prefix
+ * for an RT, need to re-scan the rib-outs for this peer
+ * and possibly withdraw some routes in the VPN SAFIs.
+ */
+static void rtc_handle_peer_filter_del(struct peer *peer,
+				       const struct peer_rtc_entry *rtc)
+{
+	struct peer_rtc_entry lookup = {};
+	const struct peer_rtc_entry *p;
+	char buf[PREFIX_STRLEN] = "\0";
+
+	/* Prepare filter lookup */
+	lookup.p.family = AF_RTC;
+	lookup.p.prefixlen = rtc->p.prefixlen;
+	lookup.p.prefix = rtc->p.prefix;
+	/* Ask for 'prefix matching' */
+	SET_FLAG(lookup.flags, PEER_RTC_ENTRY_FLAG_PREFIX);
+
+	/* If this RT would still be permitted by some existing entry,
+	 * there's nothing to do.
+	 */
+	p = rtc_filter_find(&(peer->rtc_filter), &lookup);
+	if (p) {
+		if (bgp_debug_update(peer, NULL, NULL, 1)) {
+			prefix_rtc2str(&(p->p), buf, sizeof(buf));
+			zlog_debug("%s: ignoring: matched by: %s", __func__,
+				   buf);
+		}
+		return;
+	}
+
+	/* Check the VPN SAFIs... */
+	rtc_del_check_afi_safi(peer, AFI_IP, SAFI_MPLS_VPN);
+	rtc_del_check_afi_safi(peer, AFI_IP6, SAFI_MPLS_VPN);
+	rtc_del_check_afi_safi(peer, AFI_L2VPN, SAFI_EVPN);
+}
+
+/*
  * Handler for RTC SAFI prefix updates
  */
-int bgp_rtc_prefix_update(struct bgp_dest *dest, struct bgp_path_info *oldpi,
-			  struct bgp_path_info *newpi)
+int bgp_rtc_prefix_update(struct bgp_dest *dest,
+			  const struct bgp_path_info *oldpi,
+			  const struct bgp_path_info *newpi)
 {
 	int ret = 0;
 	struct peer_rtc_entry lookup = {};
@@ -525,18 +637,18 @@ int bgp_rtc_prefix_update(struct bgp_dest *dest, struct bgp_path_info *oldpi,
 	if ((oldpi == newpi) || (old_peer == new_peer))
 		goto done;
 
-	if ((old_peer && bgp_debug_update(old_peer, NULL, NULL, 1)) ||
-	    (new_peer && bgp_debug_update(new_peer, NULL, NULL, 1))) {
-		debug_p = true;
-		prefix_rtc2str(&(lookup.p), buf, sizeof(buf));
-	}
-
 	/* Prepare filter lookup */
 	p = bgp_dest_get_prefix(dest);
 
 	lookup.p.family = AF_RTC;
 	lookup.p.prefixlen = p->prefixlen;
 	lookup.p.prefix = p->u.prefix_rtc;
+
+	if ((old_peer && bgp_debug_update(old_peer, NULL, NULL, 1)) ||
+	    (new_peer && bgp_debug_update(new_peer, NULL, NULL, 1))) {
+		debug_p = true;
+		prefix_rtc2str(&(lookup.p), buf, sizeof(buf));
+	}
 
 	if (old_peer) {
 		/* Remove from peer's filters */
@@ -548,6 +660,13 @@ int bgp_rtc_prefix_update(struct bgp_dest *dest, struct bgp_path_info *oldpi,
 
 			rtc_filter_del(&old_peer->rtc_filter, rtc);
 			XFREE(MTYPE_BGP_RTC, rtc);
+
+			/* Removing an RT filter: if this was the only prefix
+			 * allowing an RT, need to re-scan the rib-out
+			 * for this peer and possibly withdraw some routes
+			 * in the VPN SAFIs.
+			 */
+			rtc_handle_peer_filter_del(old_peer, &lookup);
 		}
 	}
 
@@ -555,6 +674,10 @@ int bgp_rtc_prefix_update(struct bgp_dest *dest, struct bgp_path_info *oldpi,
 		/* Add to peer's filters */
 		rtc = rtc_filter_find(&new_peer->rtc_filter, &lookup);
 		if (rtc == NULL) {
+			/* Adding an RT filter: may need to re-scan
+			 * VPN routes and possibly advertise
+			 * some that were excluded.
+			 */
 			rtc = XCALLOC(MTYPE_BGP_RTC,
 				      sizeof(struct peer_rtc_entry));
 			rtc->p.family = AF_RTC;
@@ -566,6 +689,9 @@ int bgp_rtc_prefix_update(struct bgp_dest *dest, struct bgp_path_info *oldpi,
 					   new_peer, buf);
 
 			rtc_filter_add(&new_peer->rtc_filter, rtc);
+
+			/* Currently handling after the new filter exists */
+			rtc_handle_peer_filter_add(new_peer, &lookup);
 		}
 	}
 
@@ -616,6 +742,19 @@ int bgp_rtc_default_update(struct peer *peer, const struct prefix *p,
 	return ret;
 }
 
+/*
+ * Initialize RTC prefix from RT value
+ */
+static void rtc_prefix_from_eval(struct prefix_rtc *p,
+				 const struct ecommunity_val *eval)
+{
+	/* Lookup existing entry */
+	p->family = AF_RTC;
+	/* TODO -- using max prefix for now */
+	p->prefixlen = BGP_RTC_PREFIX_MAXLEN;
+	memcpy(p->prefix.route_target, eval->val, ECOMMUNITY_SIZE);
+}
+
 /* Check peer's filter for one RT value: return false to filter/reject the
  * ecommunity
  */
@@ -626,13 +765,10 @@ static bool rtc_filter_check_one(struct peer *peer,
 	struct peer_rtc_entry *rtc;
 
 	/* Lookup existing entry */
-	lookup.p.family = AF_RTC;
-	/* TODO -- using max prefix for now */
-	lookup.p.prefixlen = BGP_RTC_PREFIX_MAXLEN;
+	rtc_prefix_from_eval(&lookup.p, eval);
+
 	/* Ask for 'prefix matching' */
 	SET_FLAG(lookup.flags, PEER_RTC_ENTRY_FLAG_PREFIX);
-
-	memcpy(lookup.p.prefix.route_target, eval->val, ECOMMUNITY_SIZE);
 
 	rtc = rtc_filter_find(&peer->rtc_filter, &lookup);
 
