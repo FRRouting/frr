@@ -263,8 +263,7 @@ static inline bitfield_t bf_copy(bitfield_t src)
 
 	assert(bf_is_inited(src));
 	bf_init(dst, WORD_SIZE * (src.m - 1));
-	for (size_t i = 0; i < src.m; i++)
-		dst.data[i] = src.data[i];
+	memcpy(dst.data, src.data, src.m * sizeof(word_t));
 	dst.n = src.n;
 	return dst;
 }
