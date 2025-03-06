@@ -1726,7 +1726,7 @@ int rtadv_dnssl_encode(uint8_t *out, const char *in)
 }
 
 /* Dump interface ND information to vty. */
-static int nd_dump_vty(struct vty *vty, struct interface *ifp)
+static int nd_dump_vty(struct vty *vty, json_object *json_if, struct interface *ifp)
 {
 	struct zebra_if *zif;
 	struct rtadvconf *rtadv;
@@ -1735,7 +1735,7 @@ static int nd_dump_vty(struct vty *vty, struct interface *ifp)
 	zif = (struct zebra_if *)ifp->info;
 	rtadv = &zif->rtadv;
 
-	if (rtadv->AdvSendAdvertisements) {
+	if (!json_if && rtadv->AdvSendAdvertisements) {
 		vty_out(vty,
 			"  ND advertised reachable time is %d milliseconds\n",
 			rtadv->AdvReachableTime);
@@ -1792,6 +1792,63 @@ static int nd_dump_vty(struct vty *vty, struct interface *ifp)
 			vty_out(vty,
 				"  ND router advertisements with Adv. Interval option.\n");
 	}
+
+	if (json_if && rtadv->AdvSendAdvertisements) {
+		json_object_int_add(json_if, "ndAdvertisedReachableTimeMsecs",
+				    rtadv->AdvReachableTime);
+		json_object_int_add(json_if, "ndAdvertisedRetransmitIntervalMsecs",
+				    rtadv->AdvRetransTimer);
+		json_object_int_add(json_if, "ndAdvertisedHopCountLimitHops", rtadv->AdvCurHopLimit);
+		json_object_int_add(json_if, "ndRouterAdvertisementsSent", zif->ra_sent);
+		json_object_int_add(json_if, "ndRouterAdvertisementsRcvd", zif->ra_rcvd);
+
+		interval = rtadv->MaxRtrAdvInterval;
+		if (interval % 1000)
+			json_object_int_add(json_if, "ndRouterAdvertisementsIntervalMsecs",
+					    interval);
+		else
+			json_object_int_add(json_if, "ndRouterAdvertisementsIntervalSecs",
+					    interval / 1000);
+
+		json_object_boolean_add(json_if, "ndRouterAdvertisementsDoNotUseFastRetransmit",
+					!rtadv->UseFastRexmit);
+
+		if (rtadv->AdvDefaultLifetime != -1)
+			json_object_int_add(json_if, "ndRouterAdvertisementsLiveForSecs",
+					    rtadv->AdvDefaultLifetime);
+		else
+			json_object_boolean_add(json_if,
+						"ndRouterAdvertisementsLifetimeTracksRaInterval",
+						true);
+
+		json_object_string_add(json_if, "ndRouterAdvertisementDefaultRouterPreference",
+				       rtadv_pref_strs[rtadv->DefaultPreference]);
+
+		if (rtadv->AdvManagedFlag)
+			json_object_boolean_add(json_if, "hostsUseDhcpToObtainRoutableAddresses",
+						true);
+		else
+			json_object_boolean_add(json_if, "hostsUseStatelessAutoconfigForAddresses",
+						true);
+
+		if (rtadv->AdvHomeAgentFlag) {
+			json_object_boolean_add(json_if,
+						"ndRouterAdvertisementsWithHomeAgentFlagBit", true);
+			if (rtadv->HomeAgentLifetime != -1)
+				json_object_int_add(json_if, "homeAgentLifetimeSecs",
+						    rtadv->HomeAgentLifetime);
+			else
+				json_object_boolean_add(json_if,
+							"homeAgentLifetimeTracksRaLifetime", true);
+
+			json_object_int_add(json_if, "homeAgentPreference",
+					    rtadv->HomeAgentLifetime);
+		}
+		if (rtadv->AdvIntervalOption)
+			json_object_boolean_add(json_if,
+						"ndRouterAdvertisementsWithAdvIntervalOption", true);
+	}
+
 	return 0;
 }
 
