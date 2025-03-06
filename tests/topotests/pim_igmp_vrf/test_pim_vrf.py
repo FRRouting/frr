@@ -42,11 +42,15 @@ test_pim_vrf.py: Test PIM with VRFs.
 #     H2 and join from Host H1 on vrf blue
 #     Verify PIM JOIN status on R1 and R11
 #     Stop multicast after verification
+#     Check (interface statistics) whether PIM Register messages were
+#     generated towards RP and answered by Register-Stop
 # - test_mcast_vrf_red()
 #     Start multicast stream for group 239.100.0.1 from Host
 #     H4 and join from Host H3 on vrf blue
 #     Verify PIM JOIN status on R1 and R12
 #     Stop multicast after verification
+#     Check (interface statistics) whether PIM Register messages were
+#     generated towards RP and answered by Register-Stop
 # - teardown_module(module)
 #     shutdown topology
 #
@@ -426,6 +430,12 @@ def test_mcast_vrf_blue():
 
     check_mcast_entry("239.100.0.1", "r11", "h1", "h2", "blue")
 
+    router = tgen.gears["r1"]
+    stats = router.vtysh_cmd("show ip pim vrf blue interface traffic json", isjson=True)
+    assertmsg = "R1 VRF blue: No PIM Register sent towards RP"
+    assert stats["r1-eth1"]["registerTx"] > 0, assertmsg
+    assertmsg = "R1 VRF blue: No PIM Register-Stop received from RP"
+    assert stats["r1-eth1"]["registerStopRx"] > 0, assertmsg
 
 
 def test_mcast_vrf_red():
@@ -437,6 +447,13 @@ def test_mcast_vrf_red():
         pytest.skip(tgen.errors)
 
     check_mcast_entry("239.100.0.1", "r12", "h3", "h4", "red")
+
+    router = tgen.gears["r1"]
+    stats = router.vtysh_cmd("show ip pim vrf red interface traffic json", isjson=True)
+    assertmsg = "R1 VRF red: No PIM Register sent towards RP"
+    assert stats["r1-eth3"]["registerTx"] > 0, assertmsg
+    assertmsg = "R1 VRF red: No PIM Register-Stop received from RP"
+    assert stats["r1-eth3"]["registerStopRx"] > 0, assertmsg
 
 
 if __name__ == "__main__":
