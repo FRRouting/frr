@@ -465,6 +465,103 @@ def test_evpn_ping_again():
     _test_evpn_ping_router(tgen.gears["r1"], ipv4_only=True)
 
 
+def _test_wait_for_multipath_convergence(router):
+    """
+    Wait for multipath convergence on R2
+    """
+    expected = {
+        "192.168.102.21/32": [
+            {"nexthops": [{"ip": "192.168.100.21"}, {"ip": "192.168.100.21"}]}
+        ]
+    }
+    # Using router_json_cmp instead of verify_fib_routes, because we need to check for
+    # two next-hops with the same IP address.
+    test_func = partial(
+        topotest.router_json_cmp,
+        router,
+        "show ip route vrf r2-vrf-101 192.168.102.21/32 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert (
+        result is None
+    ), "R2 does not have two next-hops for 192.168.102.21/32 JSON output mismatches"
+
+
+def _test_rmac_present(router):
+    """
+    Check that the RMAC is present on R2
+    """
+    output = router.vtysh_cmd("show evpn rmac vni 101", isjson=False)
+    logger.info("==== result from show evpn rmac vni 101")
+    logger.info(output)
+
+    expected = {"numRmacs": 1}
+    test_func = partial(
+        topotest.router_json_cmp,
+        router,
+        "show evpn rmac vni 101 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, "evpn rmac is missing on router"
+
+
+def test_evpn_multipath():
+    """
+    Configure a second path between R1 and R2, then flap it a couple times.
+    As long as the route is present, the RMAC should be present at the same time.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    evpn_multipath = {
+        "r1": {
+            "raw_config": [
+                "interface r1-eth0",
+                "ip address 192.168.99.21/24",
+                "router bgp 65000",
+                "neighbor 192.168.99.41 remote-as 65000",
+                "neighbor 192.168.99.41 capability extended-nexthop",
+                "neighbor 192.168.99.41 update-source 192.168.99.21",
+                "address-family l2vpn evpn",
+                "neighbor 192.168.99.41 activate",
+                "neighbor 192.168.99.41 route-map rmap_r1 in",
+            ]
+        },
+        "r2": {
+            "raw_config": [
+                "interface r2-eth0",
+                "ip address 192.168.99.41/24",
+                "router bgp 65000",
+                "neighbor 192.168.99.21 remote-as 65000",
+                "neighbor 192.168.99.21 capability extended-nexthop",
+                "neighbor 192.168.99.21 update-source 192.168.99.41",
+                "address-family l2vpn evpn",
+                "neighbor 192.168.99.21 activate",
+            ]
+        },
+    }
+
+    logger.info("==== Configure second path between R1 and R2")
+    result = apply_raw_config(tgen, evpn_multipath)
+    assert (
+        result is True
+    ), "Failed to configure second path between R1 and R2, Error: {} ".format(result)
+
+    dut = tgen.gears["r2"]
+    dut_peer = tgen.gears["r1"]
+    _test_wait_for_multipath_convergence(dut)
+    _test_rmac_present(dut)
+
+    for i in range(4):
+        peer = "192.168.100.41" if i % 2 == 0 else "192.168.99.41"
+        dut_peer.vtysh_cmd("clear bgp {0}".format(peer))
+        _test_wait_for_multipath_convergence(dut)
+        _test_rmac_present(dut)
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
