@@ -2244,17 +2244,39 @@ class Router(Node):
                 else:
                     logger.debug("%s: %s %s started", self, self.routertype, daemon)
 
+        # Check if the daemons are running
+        def _check_daemons_running(check_daemon_files):
+            wait_time = 30 if (gdb_routers or gdb_daemons) else 10
+            timeout = Timeout(wait_time)
+            for remaining in timeout:
+                if not check_daemon_files:
+                    break
+                check = check_daemon_files[0]
+                if self.path_exists(check):
+                    check_daemon_files.pop(0)
+                    continue
+                self.logger.debug(
+                    "Waiting {}s for {} to appear".format(remaining, check)
+                )
+                time.sleep(0.5)
+
         # Start mgmtd first
         if "mgmtd" in daemons_list:
             start_daemon("mgmtd")
             while "mgmtd" in daemons_list:
                 daemons_list.remove("mgmtd")
+            # Wait till mgmtd is up and running to some
+            # very small extent before moving on
+            _check_daemons_running(check_daemon_files)
 
         # Start Zebra after mgmtd
         if "zebra" in daemons_list:
             start_daemon("zebra")
             while "zebra" in daemons_list:
                 daemons_list.remove("zebra")
+            # Wait till zebra is up and running to some
+            # very small extent before moving on
+            _check_daemons_running(check_daemon_files)
 
         # Start staticd next if required
         if "staticd" in daemons_list:
@@ -2290,17 +2312,7 @@ class Router(Node):
                 start_daemon(daemon)
 
         # Check if daemons are running.
-        wait_time = 30 if (gdb_routers or gdb_daemons) else 10
-        timeout = Timeout(wait_time)
-        for remaining in timeout:
-            if not check_daemon_files:
-                break
-            check = check_daemon_files[0]
-            if self.path_exists(check):
-                check_daemon_files.pop(0)
-                continue
-            self.logger.debug("Waiting {}s for {} to appear".format(remaining, check))
-            time.sleep(0.5)
+        _check_daemons_running(check_daemon_files)
 
         if check_daemon_files:
             assert False, "Timeout({}) waiting for {} to appear on {}".format(
