@@ -50,6 +50,7 @@
 #include "bgpd/bgp_keepalives.h"
 #include "bgpd/bgp_flowspec.h"
 #include "bgpd/bgp_trace.h"
+#include "bgpd/bgp_rtc.h"
 
 DEFINE_HOOK(bgp_packet_dump,
 		(struct peer *peer, uint8_t type, bgp_size_t size,
@@ -2615,6 +2616,10 @@ static int bgp_update_receive(struct peer_connection *connection,
 			/* NSF delete stale route */
 			if (peer->nsf[afi][safi])
 				bgp_clear_stale_route(peer, afi, safi);
+
+			/* Handle RTC feature EOR */
+			if (safi == SAFI_RTC)
+				bgp_rtc_handle_eor(peer, afi, safi);
 
 			zlog_info(
 				"%s: rcvd End-of-RIB for %s from %s in vrf %s",

@@ -2348,7 +2348,10 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			}
 		}
 
+		rtcpeer->rtc_n_tested++;
 		if (!bgp_rtc_peer_filter_check(rtcpeer, piattr, afi, safi)) {
+			rtcpeer->rtc_n_filtered++;
+
 			if (bgp_debug_update(rtcpeer, p, subgrp->update_group,
 					     0))
 				zlog_debug("%pBP [Update:SEND] %pFX filtered via RTC",
@@ -3452,10 +3455,18 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 	if (BGP_DEBUG(update, UPDATE_OUT))
 		zlog_debug("%s: p=%pFX, selected=%p", __func__, p, selected);
 
-	/* First update is deferred until ORF or ROUTE-REFRESH is received */
-	if (onlypeer && CHECK_FLAG(onlypeer->af_sflags[afi][safi],
-				   PEER_STATUS_ORF_WAIT_REFRESH))
-		return;
+	/* Special handling for some features, like ORF and RTC.
+	 * First update is deferred until ORF or ROUTE-REFRESH, or RTC SAFI,
+	 * is received
+	 */
+	if (onlypeer) {
+		if (CHECK_FLAG(onlypeer->af_sflags[afi][safi],
+			       PEER_STATUS_ORF_WAIT_REFRESH))
+			return;
+		if (CHECK_FLAG(onlypeer->af_sflags[afi][safi],
+			       PEER_STATUS_RTC_WAIT))
+			return;
+	}
 
 	memset(&attr, 0, sizeof(attr));
 	/* It's initialized in bgp_announce_check() */

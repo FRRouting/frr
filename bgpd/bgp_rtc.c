@@ -30,6 +30,18 @@ static void rtc_advertise_static(struct bgp *bgp, const struct prefix *p);
 static void rtc_prefix_from_eval(struct prefix_rtc *p,
 				 const struct ecommunity_val *eval);
 
+/* VPN afi/safis */
+static struct {
+	afi_t afi;
+	safi_t safi;
+} rtc_safis[] = {
+	{AFI_IP, SAFI_MPLS_VPN},
+	{AFI_IP6, SAFI_MPLS_VPN},
+	{AFI_L2VPN, SAFI_EVPN},
+	{AFI_UNSPEC, 0}
+};
+
+
 /*
  * Helper to form RTC prefix from RT data
  */
@@ -834,6 +846,9 @@ void bgp_rtc_peer_delete(struct peer *peer)
 
 	while ((rtc = rtc_filter_pop(&(peer->rtc_filter))) != NULL)
 		XFREE(MTYPE_BGP_RTC, rtc);
+
+	/* Stop "defer" timer */
+	event_cancel(&(peer->t_rtc_defer));
 }
 
 /*
@@ -881,5 +896,95 @@ void bgp_rtc_show_peer(const struct peer *peer, struct vty *vty,
 		json_object_object_add(jneigh, "rtcFilters", jlist);
 	} else {
 		vty_out(vty, "\n");
+	}
+}
+
+/*
+ * Helper to restart deferred VPN SAFI updates
+ */
+static void rtc_defer_complete(struct peer *peer)
+{
+	int i;
+
+	for (i = 0; rtc_safis[i].afi != AFI_UNSPEC; i++) {
+		if (CHECK_FLAG(peer->af_sflags[rtc_safis[i].afi]
+			       [rtc_safis[i].safi],
+			       PEER_STATUS_RTC_WAIT)) {
+			    UNSET_FLAG(peer->af_sflags[rtc_safis[i].afi]
+				       [rtc_safis[i].safi],
+				       PEER_STATUS_RTC_WAIT);
+
+			    /* Initiate processing */
+			    bgp_announce_route(peer, rtc_safis[i].afi,
+					       rtc_safis[i].safi, false);
+		}
+	}
+}
+
+/*
+ * Handler for expired 'defer' timer
+ */
+static void rtc_handle_defer_timer(struct event *e)
+{
+	struct peer *peer = e->arg;
+
+	/* Allow any deferred VPN safis to process updates */
+
+	if (bgp_debug_neighbor_events(peer))
+		zlog_debug("%pBP: RTC defer timer expired", peer);
+
+	rtc_defer_complete(peer);
+}
+
+/*
+ * Handle peer session establish event
+ */
+void bgp_rtc_handle_establish(struct peer *peer)
+{
+	int i;
+	bool defer_p = false;
+
+	/* If RTC feature was negotiated, defer VPN SAFIs until RTC SAFI is
+	 * announced.
+	 */
+	if (!(peer->afc_nego[AFI_IP][SAFI_RTC]))
+		return;
+
+	for (i = 0; rtc_safis[i].afi != AFI_UNSPEC; i++) {
+		if (peer->afc_nego[rtc_safis[i].afi][rtc_safis[i].safi]) {
+			defer_p = true;
+
+			SET_FLAG(peer->af_sflags[rtc_safis[i].afi]
+				 [rtc_safis[i].safi],
+				 PEER_STATUS_RTC_WAIT);
+
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%pBP: defer %s/%s for RTC", peer,
+					   afi2str(rtc_safis[i].afi),
+					   safi2str(rtc_safis[i].safi));
+		}
+	}
+
+	/* Set defer timer */
+	if (defer_p) {
+		event_add_timer(bm->master, rtc_handle_defer_timer, peer,
+				BGP_RTC_DEFER_DEFAULT_SECS, &peer->t_rtc_defer);
+	}
+}
+
+/*
+ * Handle EOR received in the RTC SAFI
+ */
+void bgp_rtc_handle_eor(struct peer *peer, afi_t afi, safi_t safi)
+{
+	if (afi == AFI_IP && safi == SAFI_RTC) {
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%pBP: RTC SAFI EOR: restart deferred updates",
+				   peer);
+
+		/* Stop "defer" timer */
+		event_cancel(&(peer->t_rtc_defer));
+		/* Restart any deferred VPN SAFIs */
+		rtc_defer_complete(peer);
 	}
 }

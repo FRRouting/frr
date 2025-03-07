@@ -1698,6 +1698,7 @@ struct peer {
 #define PEER_STATUS_LLGR_WAIT (1U << 11)
 #define PEER_STATUS_REFRESH_PENDING (1U << 12) /* refresh request from peer */
 #define PEER_STATUS_RTT_SHUTDOWN (1U << 13) /* In shutdown state due to RTT */
+#define PEER_STATUS_RTC_WAIT (1U << 14) /* Waiting for RTC SAFI */
 
 	/* Configured timer values. */
 	_Atomic uint32_t holdtime;
@@ -1719,6 +1720,7 @@ struct peer {
 	/* Threads. */
 	struct event *t_llgr_stale[AFI_MAX][SAFI_MAX];
 	struct event *t_refresh_stalepath;
+	struct event *t_rtc_defer;
 
 	/* Thread flags. */
 	_Atomic uint32_t thread_flags;
@@ -1964,8 +1966,10 @@ struct peer {
 
 	bool shut_during_cfg;
 
-	/* RTC outbound filter */
+	/* RTC outbound filtering */
 	struct rtc_filter_head rtc_filter;
+	uint64_t rtc_n_tested;
+	uint64_t rtc_n_filtered;
 
 #define BGP_ATTR_MAX 255
 	/* Path attributes discard */

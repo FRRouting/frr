@@ -846,14 +846,21 @@ void subgroup_announce_route(struct update_subgroup *subgrp)
 	}
 
 	/*
-	 * First update is deferred until ORF or ROUTE-REFRESH is received
+	 * Special handling for ORF, RTC features: first updates
+	 * are deferred until ORF or ROUTE-REFRESH, or RTC SAFI is received.
 	 */
 	onlypeer = ((SUBGRP_PCOUNT(subgrp) == 1) ? (SUBGRP_PFIRST(subgrp))->peer
 						 : NULL);
-	if (onlypeer && CHECK_FLAG(onlypeer->af_sflags[SUBGRP_AFI(subgrp)]
-						      [SUBGRP_SAFI(subgrp)],
-				   PEER_STATUS_ORF_WAIT_REFRESH))
-		return;
+	if (onlypeer) {
+		if (CHECK_FLAG(onlypeer->af_sflags[SUBGRP_AFI(subgrp)]
+			       [SUBGRP_SAFI(subgrp)],
+			       PEER_STATUS_ORF_WAIT_REFRESH))
+			return;
+		if (CHECK_FLAG(onlypeer->af_sflags[SUBGRP_AFI(subgrp)]
+			       [SUBGRP_SAFI(subgrp)],
+			       PEER_STATUS_RTC_WAIT))
+			return;
+	}
 
 	if (SUBGRP_SAFI(subgrp) != SAFI_MPLS_VPN
 	    && SUBGRP_SAFI(subgrp) != SAFI_ENCAP

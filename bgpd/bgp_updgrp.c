@@ -543,8 +543,9 @@ static unsigned int updgrp_hash_key_make(const void *p)
 			   (intmax_t)CHECK_FLAG(peer->af_flags[afi][safi],
 						PEER_FLAG_MAX_PREFIX_OUT));
 
-		zlog_debug("%pBP Update Group Hash: RTC: %u", peer,
-			   peer->afc[AFI_IP][SAFI_RTC]);
+		if (peer->afc[AFI_IP][SAFI_RTC])
+			zlog_debug("%pBP Update Group Hash: RTC: %u", peer,
+				   peer->afc[AFI_IP][SAFI_RTC]);
 
 		zlog_debug(
 			"%pBP Update Group Hash: local role: %u AIGP: %d SOO: %s",

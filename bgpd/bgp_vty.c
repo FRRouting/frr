@@ -13599,6 +13599,9 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 				json_addr, "orfFirstUpdate",
 				"deferredUntilORFOrRouteRefreshRecvd");
 
+		if (CHECK_FLAG(p->af_sflags[afi][safi], PEER_STATUS_RTC_WAIT))
+			json_object_boolean_true_add(json_addr, "rtcWait");
+
 		if (CHECK_FLAG(p->af_flags[afi][safi],
 			       PEER_FLAG_REFLECTOR_CLIENT))
 			json_object_boolean_true_add(json_addr,
@@ -13905,6 +13908,10 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 			       PEER_STATUS_ORF_WAIT_REFRESH))
 			vty_out(vty,
 				"  First update is deferred until ORF or ROUTE-REFRESH is received\n");
+
+		if (CHECK_FLAG(p->af_sflags[afi][safi], PEER_STATUS_RTC_WAIT))
+			vty_out(vty,
+				"  First update is deferred until RTC EOR is received\n");
 
 		if (CHECK_FLAG(p->af_flags[afi][safi],
 			       PEER_FLAG_REFLECTOR_CLIENT))
