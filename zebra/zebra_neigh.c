@@ -153,14 +153,18 @@ void zebra_neigh_del(struct interface *ifp, struct ipaddr *ip)
 /* kernel neigh delete all for a given interface */
 void zebra_neigh_del_all(struct interface *ifp)
 {
-	struct zebra_neigh_ent *n, *nn;
+	struct zebra_neigh_ent *n, *next;
 
 	if (IS_ZEBRA_DEBUG_NEIGH)
 		zlog_debug("zebra neigh delete all for interface %s/%d",
 			   ifp->name, ifp->ifindex);
 
-	RB_FOREACH_SAFE (n, zebra_neigh_rb_head, &zneigh_info->neigh_rb_tree, nn)
-		zebra_neigh_del(ifp, &n->ip);
+	RB_FOREACH_SAFE (n, zebra_neigh_rb_head, &zneigh_info->neigh_rb_tree, next) {
+		if (n->ifindex == ifp->ifindex) {
+			/* Free the neighbor directly instead of looking it up again */
+			zebra_neigh_free(n);
+		}
+	}
 }
 
 /* kernel neigh add */
