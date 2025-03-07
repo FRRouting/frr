@@ -54,6 +54,8 @@
 #include "zebra/zebra_evpn_vxlan.h"
 #include "zebra/zebra_router.h"
 
+DEFINE_MTYPE_STATIC(ZEBRA, L2_VNI, "L2 VNI");
+
 static unsigned int zebra_vxlan_vni_hash_keymake(const void *p)
 {
 	const struct zebra_vxlan_vni *vni;
@@ -605,7 +607,7 @@ void zebra_vxlan_vni_free(void *arg)
 
 	vni = (struct zebra_vxlan_vni *)arg;
 
-	XFREE(MTYPE_TMP, vni);
+	XFREE(MTYPE_L2_VNI, vni);
 }
 
 void *zebra_vxlan_vni_alloc(void *p)
@@ -614,7 +616,7 @@ void *zebra_vxlan_vni_alloc(void *p)
 	const struct zebra_vxlan_vni *vnip;
 
 	vnip = (const struct zebra_vxlan_vni *)p;
-	vni = XCALLOC(MTYPE_TMP, sizeof(*vni));
+	vni = XCALLOC(MTYPE_L2_VNI, sizeof(*vni));
 	vni->vni = vnip->vni;
 	vni->access_vlan = vnip->access_vlan;
 	vni->mcast_grp = vnip->mcast_grp;
