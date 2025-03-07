@@ -527,11 +527,7 @@ static int zebra_vxlan_if_add_update_vni(struct zebra_if *zif,
 				   old_vni->access_vlan, vni->vni,
 				   vni->access_vlan);
 
-		zebra_evpn_vl_vxl_deref(old_vni->access_vlan, old_vni->vni,
-					zif);
-		zebra_evpn_vl_vxl_ref(vni->access_vlan, vni->vni, zif);
-		zebra_vxlan_if_update_vni(zif->ifp, vni, ctx);
-		zebra_vxlan_vni_free(old_vni);
+
 	} else {
 		int ret;
 
@@ -544,18 +540,19 @@ static int zebra_vxlan_if_add_update_vni(struct zebra_if *zif,
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug("%s vxlan %s vni %u has error accessing bridge table.",
 					   __func__, zif->ifp->name, vni->vni);
+
+			return 0;
 		} else if (ret == 0) {
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug("%s vxlan %s vni (%u, %u) not present in bridge table",
-					   __func__, zif->ifp->name, vni->vni,
-					   vni->access_vlan);
-			zebra_evpn_vl_vxl_deref(old_vni->access_vlan,
-						old_vni->vni, zif);
-			zebra_evpn_vl_vxl_ref(vni->access_vlan, vni->vni, zif);
-			zebra_vxlan_if_update_vni(zif->ifp, vni, ctx);
-			zebra_vxlan_vni_free(old_vni);
+					   __func__, zif->ifp->name, vni->vni, vni->access_vlan);
 		}
 	}
+
+	zebra_evpn_vl_vxl_deref(old_vni->access_vlan, old_vni->vni, zif);
+	zebra_evpn_vl_vxl_ref(vni->access_vlan, vni->vni, zif);
+	zebra_vxlan_if_update_vni(zif->ifp, vni, ctx);
+	zebra_vxlan_vni_free(old_vni);
 
 	return 0;
 }
