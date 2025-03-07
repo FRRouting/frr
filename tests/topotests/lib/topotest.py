@@ -1960,7 +1960,13 @@ class Router(Node):
                 )
             else:
                 binary = os.path.join(self.daemondir, daemon)
-                check_daemon_files.extend([runbase + ".pid", runbase + ".vty"])
+                if daemon == "zebra":
+                    zapi_base = "/var/run/{}/zserv.api".format(self.routertype)
+                    check_daemon_files.extend(
+                        [runbase + ".pid", runbase + ".vty", zapi_base]
+                    )
+                else:
+                    check_daemon_files.extend([runbase + ".pid", runbase + ".vty"])
 
                 cmdenv = "ASAN_OPTIONS="
                 if asan_abort:
