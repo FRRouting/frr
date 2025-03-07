@@ -659,8 +659,6 @@ int zebra_vxlan_if_vni_table_create(struct zebra_if *zif)
 
 	vni_info = VNI_INFO_FROM_ZEBRA_IF(zif);
 	vni_info->vni_table = zebra_vxlan_vni_table_create();
-	if (!vni_info->vni_table)
-		return -ENOMEM;
 
 	return 0;
 }

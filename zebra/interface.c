@@ -1728,7 +1728,7 @@ interface_bridge_vxlan_vlan_vni_map_update(struct zebra_dplane_ctx *ctx,
 		dplane_ctx_get_ifp_vxlan_vni_array(ctx);
 	struct zebra_vxlan_vni vni_start, vni_end;
 	struct hash *vni_table = NULL;
-	struct zebra_vxlan_vni vni, *vnip;
+	struct zebra_vxlan_vni vni;
 	vni_t vni_id;
 	vlanid_t vid;
 	int i;
@@ -1762,11 +1762,8 @@ interface_bridge_vxlan_vlan_vni_map_update(struct zebra_dplane_ctx *ctx,
 				vni_start.vni, vni_end.vni, ifp->name,
 				ifp->ifindex);
 
-		if (!vni_table) {
+		if (!vni_table)
 			vni_table = zebra_vxlan_vni_table_create();
-			if (!vni_table)
-				return;
-		}
 
 		for (vid = vni_start.access_vlan, vni_id = vni_start.vni;
 		     vid <= vni_end.access_vlan; vid++, vni_id++) {
@@ -1774,9 +1771,7 @@ interface_bridge_vxlan_vlan_vni_map_update(struct zebra_dplane_ctx *ctx,
 			memset(&vni, 0, sizeof(vni));
 			vni.vni = vni_id;
 			vni.access_vlan = vid;
-			vnip = hash_get(vni_table, &vni, zebra_vxlan_vni_alloc);
-			if (!vnip)
-				return;
+			(void)hash_get(vni_table, &vni, zebra_vxlan_vni_alloc);
 		}
 
 		memset(&vni_start, 0, sizeof(vni_start));
