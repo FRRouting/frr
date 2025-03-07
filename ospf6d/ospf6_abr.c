@@ -180,21 +180,6 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 			   buf);
 	}
 
-	if (route->type == OSPF6_DEST_TYPE_ROUTER)
-		summary_table = area->summary_router;
-	else
-		summary_table = area->summary_prefix;
-
-	summary = ospf6_route_lookup(&route->prefix, summary_table);
-	if (summary) {
-		old = ospf6_lsdb_lookup(summary->path.origin.type,
-					summary->path.origin.id,
-					area->ospf6->router_id, area->lsdb);
-		/* Reset the OSPF6_LSA_UNAPPROVED flag */
-		if (old)
-			UNSET_FLAG(old->flag, OSPF6_LSA_UNAPPROVED);
-	}
-
 	/* Only destination type network, range or ASBR are considered */
 	if (route->type != OSPF6_DEST_TYPE_NETWORK
 	    && route->type != OSPF6_DEST_TYPE_RANGE
@@ -223,6 +208,20 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 				"%s: The route is in the area itself, ignore",
 				__func__);
 		return 0;
+	}
+
+	if (route->type == OSPF6_DEST_TYPE_ROUTER)
+		summary_table = area->summary_router;
+	else
+		summary_table = area->summary_prefix;
+
+	summary = ospf6_route_lookup(&route->prefix, summary_table);
+	if (summary) {
+		old = ospf6_lsdb_lookup(summary->path.origin.type, summary->path.origin.id,
+					area->ospf6->router_id, area->lsdb);
+		/* Reset the OSPF6_LSA_UNAPPROVED flag */
+		if (old)
+			UNSET_FLAG(old->flag, OSPF6_LSA_UNAPPROVED);
 	}
 
 	if (route->type == OSPF6_DEST_TYPE_NETWORK) {
