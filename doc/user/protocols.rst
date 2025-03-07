@@ -9,6 +9,7 @@ Protocols
 
    zebra
    bfd
+   sbfd
    bgp
    babeld
    fabricd
