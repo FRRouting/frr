@@ -187,6 +187,17 @@ To switch between compatible data structures, only these two lines need to be
 changes.  To switch to a data structure with a different API, some source
 changes are necessary.
 
+As a example to the developer here are some example commits that convert
+over to usage of the typesafe data structures:
+
++------------------------------------------------------+------------------------------------+
+| Commit Message                                       | SHA                                |
++======================================================+====================================+
+| bgpd: Convert the bgp_advertise_attr->adv to a fifo  | b2e0c12d723a6464f67491ceb9         |
++------------------------------------------------------+------------------------------------+
+| zebra: convert LSP nhlfe lists to use typesafe lists | ee70f629792b90f92ea7e6bece         |
++------------------------------------------------------+------------------------------------+
+
 Common iteration macros
 -----------------------
 
