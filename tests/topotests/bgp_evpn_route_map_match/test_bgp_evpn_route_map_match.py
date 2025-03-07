@@ -119,7 +119,7 @@ def test_bgp_evpn_route_map_match_route_type2():
 
     c2_mac = (
         tgen.gears["c2"]
-        .cmd("ip link show c2-eth0 | awk '/link\/ether/ {print $2}'")
+        .cmd(r"ip link show c2-eth0 | awk '/link\/ether/ {print $2}'")
         .rstrip()
     )
     tgen.gears["r1"].vtysh_cmd(
