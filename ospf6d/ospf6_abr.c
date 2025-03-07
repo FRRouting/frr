@@ -215,7 +215,24 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 	else
 		summary_table = area->summary_prefix;
 
+	/* Search for a possible previous summary LSA for this route with
+	 * matching prefix *and* path
+	 */
 	summary = ospf6_route_lookup(&route->prefix, summary_table);
+	for (; summary; summary = summary->next) {
+		if (!ospf6_route_is_same(route, summary)) {
+			/* reached different prefix, no match */
+			summary = NULL;
+			break;
+		}
+		/* Don't compare path.origin.id as we use that to store the
+		 * ID of the originated LSA
+		 */
+		if (route->type == summary->type && route->path.type == summary->path.type &&
+		    route->path.origin.adv_router == summary->path.origin.adv_router)
+			/* match */
+			break;
+	}
 	if (summary) {
 		old = ospf6_lsdb_lookup(summary->path.origin.type, summary->path.origin.id,
 					area->ospf6->router_id, area->lsdb);
