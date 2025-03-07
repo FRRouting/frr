@@ -31,7 +31,7 @@ DEFINE_MTYPE_STATIC(BGPD, BGP_MUTEX, "BGP Peer pthread Mutex");
  */
 struct pkat {
 	/* the peer to send keepalives to */
-	struct peer_connection *connection;
+	struct peer *peer;
 	/* absolute time of last keepalive sent */
 	struct timeval last;
 };
@@ -41,10 +41,10 @@ static pthread_mutex_t *peerhash_mtx;
 static pthread_cond_t *peerhash_cond;
 static struct hash *peerhash;
 
-static struct pkat *pkat_new(struct peer_connection *connection)
+static struct pkat *pkat_new(struct peer *peer)
 {
 	struct pkat *pkat = XMALLOC(MTYPE_BGP_PKAT, sizeof(struct pkat));
-	pkat->connection = connection;
+	pkat->peer = peer;
 	monotime(&pkat->last);
 	return pkat;
 }
@@ -53,6 +53,7 @@ static void pkat_del(void *pkat)
 {
 	XFREE(MTYPE_BGP_PKAT, pkat);
 }
+
 
 /*
  * Callback for hash_iterate. Determines if a peer needs a keepalive and if so,
@@ -76,7 +77,7 @@ static void pkat_del(void *pkat)
 static void peer_process(struct hash_bucket *hb, void *arg)
 {
 	struct pkat *pkat = hb->data;
-	struct peer *peer = pkat->connection->peer;
+
 	struct timeval *next_update = arg;
 
 	static struct timeval elapsed;  // elapsed time since keepalive
@@ -85,7 +86,8 @@ static void peer_process(struct hash_bucket *hb, void *arg)
 
 	static const struct timeval tolerance = {0, 100000};
 
-	uint32_t v_ka = atomic_load_explicit(&peer->v_keepalive, memory_order_relaxed);
+	uint32_t v_ka = atomic_load_explicit(&pkat->peer->v_keepalive,
+					     memory_order_relaxed);
 
 	/* 0 keepalive timer means no keepalives */
 	if (v_ka == 0)
@@ -102,10 +104,11 @@ static void peer_process(struct hash_bucket *hb, void *arg)
 		elapsed.tv_sec >= ka.tv_sec || timercmp(&diff, &tolerance, <);
 
 	if (send_keepalive) {
-		if (bgp_debug_keepalive(peer))
-			zlog_debug("%s [FSM] Timer (keepalive timer expire)", peer->host);
+		if (bgp_debug_keepalive(pkat->peer))
+			zlog_debug("%s [FSM] Timer (keepalive timer expire)",
+				   pkat->peer->host);
 
-		bgp_keepalive_send(pkat->connection);
+		bgp_keepalive_send(pkat->peer->connection);
 		monotime(&pkat->last);
 		memset(&elapsed, 0, sizeof(elapsed));
 		diff = ka;
@@ -121,13 +124,13 @@ static bool peer_hash_cmp(const void *f, const void *s)
 	const struct pkat *p1 = f;
 	const struct pkat *p2 = s;
 
-	return p1->connection == p2->connection;
+	return p1->peer == p2->peer;
 }
 
 static unsigned int peer_hash_key(const void *arg)
 {
 	const struct pkat *pkat = arg;
-	return (uintptr_t)pkat->connection;
+	return (uintptr_t)pkat->peer;
 }
 
 /* Cleanup handler / deinitializer. */
@@ -245,9 +248,9 @@ void bgp_keepalives_on(struct peer_connection *connection)
 	assert(peerhash_mtx);
 
 	frr_with_mutex (peerhash_mtx) {
-		holder.connection = connection;
+		holder.peer = peer;
 		if (!hash_lookup(peerhash, &holder)) {
-			struct pkat *pkat = pkat_new(connection);
+			struct pkat *pkat = pkat_new(peer);
 			(void)hash_get(peerhash, pkat, hash_alloc_intern);
 			peer_lock(peer);
 		}
@@ -276,7 +279,7 @@ void bgp_keepalives_off(struct peer_connection *connection)
 	assert(peerhash_mtx);
 
 	frr_with_mutex (peerhash_mtx) {
-		holder.connection = connection;
+		holder.peer = peer;
 		struct pkat *res = hash_release(peerhash, &holder);
 		if (res) {
 			pkat_del(res);
