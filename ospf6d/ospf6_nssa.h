@@ -45,6 +45,7 @@ extern struct ospf6_lsa *ospf6_translated_nssa_refresh(struct ospf6_area *oa,
 
 extern void ospf6_asbr_nssa_redist_task(struct ospf6 *ospf6);
 
+extern void ospf6_abr_task(struct ospf6 *ospf6);
 extern void ospf6_schedule_abr_task(struct ospf6 *ospf6);
 extern void ospf6_area_nssa_update(struct ospf6_area *area);
 void ospf6_asbr_prefix_readvertise(struct ospf6 *ospf6);
