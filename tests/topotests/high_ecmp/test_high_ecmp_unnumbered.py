@@ -8,6 +8,7 @@
 # Nvidia Corporation
 # Donald Sharp
 #
+# Copyright (c) 2025 by Soumya Roy, <souroy@nvidia.com>
 
 """
 test_high_ecmp.py: Testing two routers with 256 interfaces and BGP setup
@@ -43,7 +44,6 @@ from lib.topolog import logger
 
 
 def build_topo(tgen):
-
     tgen.add_router("r1")
     tgen.add_router("r2")
 
@@ -51,7 +51,7 @@ def build_topo(tgen):
     r2 = tgen.gears["r2"]
 
     # Let's create 257 interfaces between the two switches
-    for switch in range(1, 257):
+    for switch in range(1, 516):
         switch = tgen.add_switch("sw{}".format(switch))
         switch.add_link(r1)
         switch.add_link(r2)
@@ -80,9 +80,11 @@ def setup_module(module):
                 (TopoRouter.RD_SHARP, None),
             ],
         )
-
+ 
     tgen.start_router()
-
+    
+    for rname, router in router_list.items():
+       router.cmd("vtysh -f {}/{}/frr_unnumbered_bgp.conf".format(CWD, rname))
 
 def teardown_module(_mod):
     "Teardown the pytest environment"
@@ -94,7 +96,6 @@ def teardown_module(_mod):
 
 def test_nothing():
     "Do Nothing"
-
     tgen = get_topogen()
     # Don't run this test if we have any failure.
     if tgen.routers_have_failure():

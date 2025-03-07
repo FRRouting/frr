@@ -17,6 +17,7 @@
 #include "zebra/zebra_tc.h"
 #include "debug.h"
 #include "zebra_script.h"
+#include "wheel.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, RIB_TABLE_INFO, "RIB table info");
 DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_RT_TABLE, "Zebra VRF table");
@@ -220,9 +221,21 @@ uint32_t zebra_router_get_next_sequence(void)
 					   memory_order_relaxed);
 }
 
+static inline unsigned int interface_hash_key(const void *arg)
+{
+	const struct interface *ifp = arg;
+
+	return ifp->ifindex;
+}
+
 void zebra_router_terminate(void)
 {
 	struct zebra_router_table *zrt, *tmp;
+
+	if (zrouter.ra_wheel) {
+		wheel_delete(zrouter.ra_wheel);
+		zrouter.ra_wheel = NULL;
+	}
 
 	EVENT_OFF(zrouter.t_rib_sweep);
 
@@ -277,6 +290,11 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack,
 	zrouter.packets_to_process = ZEBRA_ZAPI_PACKETS_TO_PROCESS;
 
 	zrouter.nhg_keep = ZEBRA_DEFAULT_NHG_KEEP_TIMER;
+
+	/*Init V6 RA batching stuffs*/
+	zrouter.ra_wheel = wheel_init(zrouter.master, RTADV_TIMER_WHEEL_PERIOD_MS,
+				      RTADV_TIMER_WHEEL_SLOTS_NO, interface_hash_key, process_rtadv,
+				      NULL);
 
 	zebra_vxlan_init();
 	zebra_mlag_init();
