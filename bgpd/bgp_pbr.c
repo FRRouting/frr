@@ -1659,6 +1659,9 @@ static void bgp_pbr_flush_iprule(struct bgp *bgp, struct bgp_pbr_action *bpa,
 	bgp_pbr_bpa_remove(bpa);
 }
 
+/*
+ * This function frees the bpme that is passed in
+ */
 static void bgp_pbr_flush_entry(struct bgp *bgp, struct bgp_pbr_action *bpa,
 				struct bgp_pbr_match *bpm,
 				struct bgp_pbr_match_entry *bpme)
@@ -1704,6 +1707,8 @@ static void bgp_pbr_flush_entry(struct bgp *bgp, struct bgp_pbr_action *bpa,
 		 * note that drop does not need to call send_pbr_action
 		 */
 	}
+
+	bgp_pbr_match_entry_free(bpme);
 	bgp_pbr_bpa_remove(bpa);
 }
 
