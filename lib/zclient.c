@@ -934,9 +934,27 @@ enum zclient_send_status zclient_send_rnh(struct zclient *zclient, int command,
 enum zclient_send_status
 zclient_route_send(uint8_t cmd, struct zclient *zclient, struct zapi_route *api)
 {
+	enum zclient_send_status ret;
+	struct stream *old_obuf = zclient->obuf;
+
+	/* Allocate the stream based on the number of nexthops */
+	size_t stream_size = zapi_route_stream_size(api);
+	struct stream *s = stream_new(stream_size);
+	/* Make 'zclient->obuf' to point to the custom stream 's' that was
+         * allocated based on the number of nexthops being encoded in zapi.
+         * Once the zapi message is written, restore the zclient->obuf to original
+         */
+	zclient->obuf = s;
+
 	if (zapi_route_encode(cmd, zclient->obuf, api) < 0)
 		return ZCLIENT_SEND_FAILURE;
-	return zclient_send_message(zclient);
+	ret = zclient_send_message(zclient);
+
+	/* Restore the original obuf pointer */
+	zclient->obuf = old_obuf;
+	if (s)
+		stream_free(s);
+	return ret;
 }
 
 static int zapi_nexthop_labels_cmp(const struct zapi_nexthop *next1,
@@ -1326,8 +1344,8 @@ enum zclient_send_status zclient_nhg_send(struct zclient *zclient, int cmd,
 	return zclient_send_message(zclient);
 }
 
-/* size needed by a stream for redistributing a route */
-int zapi_redistribute_stream_size(struct zapi_route *api)
+/* size needed by a stream for a zapi_route encoding */
+int zapi_route_stream_size(struct zapi_route *api)
 {
 	size_t msg_size = 0;
 	size_t nh_size = sizeof(struct zapi_nexthop);
