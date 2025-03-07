@@ -33,7 +33,7 @@ struct static_route_args {
 #endif /* !HAVE_STATICD_NB */
 
 	/** "no" command? */
-	bool delete;
+	bool is_delete;
 	/** Is VRF obtained from XPath? */
 	bool xpath_vrf;
 

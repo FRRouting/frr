@@ -358,7 +358,7 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 		table_id = strtol(args->table, NULL, 10);
 
 	static_get_nh_type(type, buf_nh_type, sizeof(buf_nh_type));
-	if (!args->delete) {
+	if (!args->is_delete) {
 		if (args->source)
 			snprintf(ab_xpath, sizeof(ab_xpath),
 				 FRR_DEL_S_ROUTE_SRC_NH_KEY_NO_DISTANCE_XPATH,
@@ -1024,11 +1024,11 @@ static int static_route_configure(struct vty *vty, struct static_route_args *arg
 
 	run_args = static_args_find(svrf, args);
 
-	if (args->delete && !run_args)
+	if (args->is_delete && !run_args)
 		/* nothing to delete */
 		return CMD_SUCCESS;
 
-	if (args->delete) {
+	if (args->is_delete) {
 		/* delete the existing configuration */
 		static_route_args_uninstall(run_args);
 		static_route_args_del(run_args, svrf);
@@ -1085,7 +1085,7 @@ DEFPY_YANG (ip_mroute_dist,
        BFD_PROFILE_NAME_STR)
 {
 	struct static_route_args args = {
-		.delete = !!no,
+		.is_delete = !!no,
 		.afi = AFI_IP,
 		.safi = SAFI_MULTICAST,
 		.prefix = prefix_str,
@@ -1131,7 +1131,7 @@ DEFPY_YANG(ip_route_blackhole,
       "The table number to configure\n")
 {
 	struct static_route_args args = {
-		.delete = !!no,
+		.is_delete = !!no,
 		.afi = AFI_IP,
 		.safi = SAFI_UNICAST,
 		.prefix = prefix,
@@ -1176,7 +1176,7 @@ DEFPY_YANG(ip_route_blackhole_vrf,
 	VTY_DECLVAR_CONTEXT(vrf, vrf);
 #endif /* !HAVE_STATICD_NB */
 	struct static_route_args args = {
-		.delete = !!no,
+		.is_delete = !!no,
 		.afi = AFI_IP,
 		.safi = SAFI_UNICAST,
 		.prefix = prefix,
@@ -1250,7 +1250,7 @@ DEFPY_YANG(ip_route_address_interface,
       "Enables Path Monitoring support\n")
 {
 	struct static_route_args args = {
-		.delete = !!no,
+		.is_delete = !!no,
 		.afi = AFI_IP,
 		.safi = SAFI_UNICAST,
 		.prefix = prefix,
@@ -1324,7 +1324,7 @@ DEFPY_YANG(ip_route_address_interface_vrf,
 	VTY_DECLVAR_CONTEXT(vrf, vrf);
 #endif /* !HAVE_STATICD_NB */
 	struct static_route_args args = {
-		.delete = !!no,
+		.is_delete = !!no,
 		.afi = AFI_IP,
 		.safi = SAFI_UNICAST,
 		.prefix = prefix,
@@ -1398,7 +1398,7 @@ DEFPY_YANG(ip_route,
       "Enables Path Monitoring support\n")
 {
 	struct static_route_args args = {
-		.delete = !!no,
+		.is_delete = !!no,
 		.afi = AFI_IP,
 		.safi = SAFI_UNICAST,
 		.prefix = prefix,
@@ -1468,7 +1468,7 @@ DEFPY_YANG(ip_route_vrf,
 	VTY_DECLVAR_CONTEXT(vrf, vrf);
 #endif /* !HAVE_STATICD_NB */
 	struct static_route_args args = {
-		.delete = !!no,
+		.is_delete = !!no,
 		.afi = AFI_IP,
 		.safi = SAFI_UNICAST,
 		.prefix = prefix,
@@ -1525,7 +1525,7 @@ DEFPY_YANG(ipv6_route_blackhole,
       "The table number to configure\n")
 {
 	struct static_route_args args = {
-		.delete = !!no,
+		.is_delete = !!no,
 		.afi = AFI_IP6,
 		.safi = SAFI_UNICAST,
 		.prefix = prefix_str,
@@ -1570,7 +1570,7 @@ DEFPY_YANG(ipv6_route_blackhole_vrf,
 	VTY_DECLVAR_CONTEXT(vrf, vrf);
 #endif /* !HAVE_STATICD_NB */
 	struct static_route_args args = {
-		.delete = !!no,
+		.is_delete = !!no,
 		.afi = AFI_IP6,
 		.safi = SAFI_UNICAST,
 		.prefix = prefix_str,
@@ -1638,7 +1638,7 @@ DEFPY_YANG(ipv6_route_address_interface, ipv6_route_address_interface_cmd,
 	   "Segs (SIDs)\n")
 {
 	struct static_route_args args = {
-		.delete = !!no,
+		.is_delete = !!no,
 		.afi = AFI_IP6,
 		.safi = SAFI_UNICAST,
 		.prefix = prefix_str,
@@ -1709,7 +1709,7 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
 	VTY_DECLVAR_CONTEXT(vrf, vrf);
 #endif /* !HAVE_STATICD_NB */
 	struct static_route_args args = {
-		.delete = !!no,
+		.is_delete = !!no,
 		.afi = AFI_IP6,
 		.safi = SAFI_UNICAST,
 		.prefix = prefix_str,
@@ -1777,7 +1777,7 @@ DEFPY_YANG(ipv6_route, ipv6_route_cmd,
 	   "Segs (SIDs)\n")
 {
 	struct static_route_args args = {
-		.delete = !!no,
+		.is_delete = !!no,
 		.afi = AFI_IP6,
 		.safi = SAFI_UNICAST,
 		.prefix = prefix_str,
@@ -1842,7 +1842,7 @@ DEFPY_YANG(ipv6_route_vrf, ipv6_route_vrf_cmd,
 	VTY_DECLVAR_CONTEXT(vrf, vrf);
 #endif /* !HAVE_STATICD_NB */
 	struct static_route_args args = {
-		.delete = !!no,
+		.is_delete = !!no,
 		.afi = AFI_IP6,
 		.safi = SAFI_UNICAST,
 		.prefix = prefix_str,
