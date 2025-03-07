@@ -311,7 +311,7 @@ void ospf6_abr_remove_unapproved_summaries(struct ospf6 *ospf6)
  * This is the function taking care about ABR stuff, i.e.
  * summary-LSA origination and flooding.
  */
-static void ospf6_abr_task(struct ospf6 *ospf6)
+void ospf6_abr_task(struct ospf6 *ospf6)
 {
 	if (IS_OSPF6_DEBUG_ABR)
 		zlog_debug("%s : Start", __func__);
