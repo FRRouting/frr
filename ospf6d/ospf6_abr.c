@@ -530,17 +530,6 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 		monotime(&summary->changed);
 	}
 
-	summary->prefix_options = route->prefix_options;
-	summary->path.router_bits = route->path.router_bits;
-	summary->path.options[0] = route->path.options[0];
-	summary->path.options[1] = route->path.options[1];
-	summary->path.options[2] = route->path.options[2];
-	summary->path.area_id = area->area_id;
-	summary->path.type = OSPF6_PATH_TYPE_INTER;
-	summary->path.subtype = route->path.subtype;
-	summary->path.cost = route->path.cost;
-	/* summary->nexthop[0] = route->nexthop[0]; */
-
 	/* Reset the unapproved flag on the existing LSA (that one will be
 	 * retained instead of the new LSA if they're identical)
 	 */
