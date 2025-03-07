@@ -485,7 +485,6 @@ struct cmd_node {
 /* Graceful Restart cli help strings */
 #define GR_CMD "Global Graceful Restart command\n"
 #define NO_GR_CMD "Undo Global Graceful Restart command\n"
-#define GR "Global Graceful Restart - GR Mode\n"
 #define GR_DISABLE "Global Graceful Restart - Disable Mode\n"
 #define NO_GR_DISABLE "Undo Global Graceful Restart - Disable Mode\n"
 #define GR_DEBUG "Graceful Restart - Enable Debug Logs\n"
