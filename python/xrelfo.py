@@ -359,8 +359,32 @@ class DebugFlagPlain(ELFDissectStruct):
 
     def to_dict(self, xrelfo, jsobj):
         jsobj["cli_name"] = self.cli_name
-        jsobj["cli_cmd"] = self.cmd.string
-        jsobj["cli_help"] = self.cmd.doc
+        if self.cmd is not None:
+            jsobj["cli_cmd"] = self.cmd.string
+            jsobj["cli_help"] = self.cmd.doc
+
+
+class DebugFlagComboItem(ELFDissectStruct):
+    struct = "zlog_debugflag_comboitem"
+
+
+class DebugFlagComboItemArray(ELFDissectArrayPtr):
+    itemtype = DebugFlagComboItem
+    counter = "combo_size"
+
+
+class DebugFlagCombo(ELFDissectStruct):
+    struct = "zlog_debugflag_combo"
+    fieldoverride = {
+        "combo_arr": (DebugFlagComboItemArray, ),
+    }
+
+    @classmethod
+    def _contain(cls, debugflag):
+        return debugflag.container_of(cls, "common")
+
+    def to_dict(self, xrelfo, jsobj):
+        jsobj["items"] = [i.flag.common.code_name for i in self.combo_arr]
 
 
 class DebugFlag(ELFDissectStruct):
@@ -389,9 +413,11 @@ class DebugFlag(ELFDissectStruct):
 
 
 DebugFlag.containers[ZDF_PLAIN] = DebugFlagPlain
+DebugFlag.containers[ZDF_COMBO] = DebugFlagCombo
 
 # shove in field defs
 fieldapply = FieldApplicator(xrefstructs)
+fieldapply.clsmap["zlog_debugflag_combos_item"] = "L"
 fieldapply.add(Xref)
 fieldapply.add(Xrefdata)
 fieldapply.add(XrefLogmsg)
@@ -401,6 +427,8 @@ fieldapply.add(CmdElement)
 fieldapply.add(XrefInstallElement)
 fieldapply.add(DebugFlag)
 fieldapply.add(DebugFlagPlain)
+fieldapply.add(DebugFlagComboItem)
+fieldapply.add(DebugFlagCombo)
 fieldapply()
 
 

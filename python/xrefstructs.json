@@ -197,6 +197,46 @@
       }
     ]
   },
+  "zlog_debugflag_combo": {
+    "fields": [
+      {
+        "name": "common",
+        "type": "struct zlog_debugflag"
+      },
+      {
+        "name": "enable_counter",
+        "type": "unsigned int"
+      },
+      {
+        "name": "_pad0",
+        "type": "unsigned int"
+      },
+      {
+        "name": "combo_arr",
+        "type": "struct zlog_debugflag_comboitem *"
+      },
+      {
+        "name": "combo_size",
+        "type": "size_t"
+      }
+    ]
+  },
+  "zlog_debugflag_comboitem": {
+    "fields": [
+      {
+        "name": "flag",
+        "type": "struct zlog_debugflag_plain *"
+      },
+      {
+        "name": "combo",
+        "type": "struct zlog_debugflag_combo *"
+      },
+      {
+        "name": "item",
+        "type": "struct zlog_debugflag_combos_item"
+      }
+    ]
+  },
   "zlog_debugflag_plain": {
     "fields": [
       {

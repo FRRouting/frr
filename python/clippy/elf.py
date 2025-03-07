@@ -420,6 +420,56 @@ class ELFDissectUnion(ELFDissectData):
         return max([member.calcsize(elfclass) for name, member in cls.members])
 
 
+class ELFDissectArrayPtr(ELFDissectData):
+    def __init__(self, dataptr, parent=None):
+        self._dataptr = dataptr
+        self._parent = parent
+        self._arrayp = parent._elfsect.pointer(dataptr._dstoffs)
+
+    def __len__(self):
+        return getattr(self._parent, self.counter)
+
+    def __getitem__(self, idx):
+        if not isinstance(idx, int):
+            raise KeyError(f"need integer key, but got {idx!r}")
+        if idx >= len(self):
+            raise IndexError(f"index {idx} is beyond array size {len(self)}")
+
+        elfclass = self._parent.elfclass
+        itemsize = self.itemtype.calcsize(elfclass)
+
+        itemptr = self._arrayp.offset(idx * itemsize)
+        return self.itemtype(itemptr)
+
+    class Iter:
+        def __init__(self, array):
+            self._array = array
+            self._i = 0
+            self._len = len(array)
+
+        def __iter__(self):
+            return self
+
+        def __next__(self):
+            if self._i >= self._len:
+                raise StopIteration()
+            self._i += 1
+            return self._array[self._i - 1]
+
+    def __iter__(self):
+        return self.Iter(self)
+
+    def __repr__(self):
+        return "<%s[%d]>" % (
+            self.__class__.__name__,
+            len(self),
+        )
+
+    @classmethod
+    def calcsize(cls, elfclass):
+        return elfclass / 8
+
+
 #
 # wrappers for spans of ELF data
 #

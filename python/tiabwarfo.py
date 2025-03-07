@@ -22,6 +22,8 @@ structs = [
     "xrefdata_logdebug",
     "zlog_debugflag",
     "zlog_debugflag_plain",
+    "zlog_debugflag_combo",
+    "zlog_debugflag_comboitem",
 ]
 
 structs_terminate = {
@@ -186,6 +188,7 @@ class FieldApplicator(object):
         # offset = 0
 
         fieldrename = getattr(cls, "fieldrename", {})
+        fieldoverride = getattr(cls, "fieldoverride", {})
 
         def mkname(n):
             return (fieldrename.get(n, n),)
@@ -208,7 +211,9 @@ class FieldApplicator(object):
                 typs.pop(-1)
                 ptrlevel += 1
 
-            if ptrlevel > 0:
+            if field["name"] in fieldoverride:
+                packtype = fieldoverride[field["name"]]
+            elif ptrlevel > 0:
                 packtype = ("P", None)
                 if ptrlevel == 1:
                     if typs[0] == "char":
@@ -229,7 +234,7 @@ class FieldApplicator(object):
             else:
                 raise ValueError(
                     "cannot decode field %s in struct %s (%s)"
-                    % (cls.struct, field["name"], field["type"])
+                    % (field["name"], cls.struct, field["type"])
                 )
 
             if "array" in field and typs[0] == "char":
