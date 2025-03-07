@@ -19,6 +19,8 @@
 #include "asn.h"
 
 PREDECL_LIST(zebra_announce);
+PREDECL_LIST(zebra_l2_vni);
+PREDECL_LIST(zebra_l3_vni);
 
 /* For union sockunion.  */
 #include "queue.h"
@@ -56,10 +58,12 @@ struct bgp_pbr_config;
  * behavior
  * in the system.
  */
-enum { AS_UNSPECIFIED = 0,
-       AS_SPECIFIED,
-       AS_INTERNAL,
-       AS_EXTERNAL,
+enum peer_asn_type {
+	AS_UNSPECIFIED = 1,
+	AS_SPECIFIED = 2,
+	AS_INTERNAL = 4,
+	AS_EXTERNAL = 8,
+	AS_AUTO = 16,
 };
 
 /* Zebra Gracaful Restart states */
@@ -129,6 +133,7 @@ struct bgp_master {
 #define BGP_OPT_NO_ZEBRA                 (1 << 2)
 #define BGP_OPT_TRAPS_RFC4273            (1 << 3)
 #define BGP_OPT_TRAPS_BGP4MIBV2          (1 << 4)
+#define BGP_OPT_TRAPS_RFC4382		 (1 << 5)
 
 	uint64_t updgrp_idspace;
 	uint64_t subgrp_idspace;
@@ -163,6 +168,24 @@ struct bgp_master {
 	uint32_t flags;
 #define BM_FLAG_GRACEFUL_SHUTDOWN        (1 << 0)
 #define BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA (1 << 1)
+#define BM_FLAG_MAINTENANCE_MODE	 (1 << 2)
+#define BM_FLAG_GR_RESTARTER		 (1 << 3)
+#define BM_FLAG_GR_DISABLED		 (1 << 4)
+#define BM_FLAG_GR_PRESERVE_FWD		 (1 << 5)
+#define BM_FLAG_GRACEFUL_RESTART	 (1 << 6)
+#define BM_FLAG_GR_COMPLETE		 (1 << 7)
+#define BM_FLAG_IPV6_NO_AUTO_RA		 (1 << 8)
+
+#define BM_FLAG_GR_CONFIGURED (BM_FLAG_GR_RESTARTER | BM_FLAG_GR_DISABLED)
+
+	/* BGP-wide graceful restart config params */
+	uint32_t restart_time;
+	uint32_t stalepath_time;
+	uint32_t select_defer_time;
+	uint32_t rib_stale_time;
+
+	time_t startup_time;
+	time_t gr_completion_time;
 
 	bool terminating;	/* global flag that sigint terminate seen */
 
@@ -182,6 +205,14 @@ struct bgp_master {
 
 	/* To preserve ordering of installations into zebra across all Vrfs */
 	struct zebra_announce_head zebra_announce_head;
+
+	struct event *t_bgp_zebra_l2_vni;
+	/* To preserve ordering of processing of L2 VNIs in BGP */
+	struct zebra_l2_vni_head zebra_l2_vni_head;
+
+	struct event *t_bgp_zebra_l3_vni;
+	/* To preserve ordering of processing of BGP-VRFs for L3 VNIs */
+	struct zebra_l3_vni_head zebra_l3_vni_head;
 
 	QOBJ_FIELDS;
 };
@@ -250,7 +281,7 @@ struct vpn_policy {
 	 */
 	uint32_t tovpn_sid_index; /* unset => set to 0 */
 	struct in6_addr *tovpn_sid;
-	struct srv6_locator_chunk *tovpn_sid_locator;
+	struct srv6_locator *tovpn_sid_locator;
 	uint32_t tovpn_sid_transpose_label;
 	struct in6_addr *tovpn_zebra_vrf_sid_last_sent;
 };
@@ -293,9 +324,9 @@ struct graceful_restart_info {
 	/* Best route select */
 	struct event *t_route_select;
 	/* AFI, SAFI enabled */
-	bool af_enabled[AFI_MAX][SAFI_MAX];
+	bool af_enabled;
 	/* Route update completed */
-	bool route_sync[AFI_MAX][SAFI_MAX];
+	bool route_sync;
 };
 
 enum global_mode {
@@ -470,9 +501,7 @@ struct bgp {
 	uint32_t restarted_peers;
 	uint32_t implicit_eors;
 	uint32_t explicit_eors;
-#define BGP_UPDATE_DELAY_DEF              0
-#define BGP_UPDATE_DELAY_MIN              0
-#define BGP_UPDATE_DELAY_MAX              3600
+#define BGP_UPDATE_DELAY_DEFAULT 0
 
 	/* Reference bandwidth for BGP link-bandwidth. Used when
 	 * the LB value has to be computed based on some other
@@ -532,6 +561,12 @@ struct bgp {
 #define BGP_FLAG_ENFORCE_FIRST_AS (1ULL << 36)
 #define BGP_FLAG_DYNAMIC_CAPABILITY (1ULL << 37)
 #define BGP_FLAG_VNI_DOWN		 (1ULL << 38)
+#define BGP_FLAG_INSTANCE_HIDDEN	 (1ULL << 39)
+/* Prohibit BGP from enabling IPv6 RA on interfaces */
+#define BGP_FLAG_IPV6_NO_AUTO_RA (1ULL << 40)
+#define BGP_FLAG_L3VNI_SCHEDULE_FOR_INSTALL (1ULL << 41)
+#define BGP_FLAG_L3VNI_SCHEDULE_FOR_DELETE  (1ULL << 42)
+#define BGP_FLAG_LINK_LOCAL_CAPABILITY	    (1ULL << 43)
 
 	/* BGP default address-families.
 	 * New peers inherit enabled afi/safis from bgp instance.
@@ -546,6 +581,9 @@ struct bgp {
 	 * - ZEBRA_GR_ENABLE / ZEBRA_GR_DISABLE
 	 */
 	enum zebra_gr_mode present_zebra_gr_state;
+
+	/* Is deferred path selection still not complete? */
+	bool gr_route_sync_pending;
 
 	/* BGP Per AF flags */
 	uint16_t af_flags[AFI_MAX][SAFI_MAX];
@@ -805,6 +843,9 @@ struct bgp {
 	/* Process Queue for handling routes */
 	struct work_queue *process_queue;
 
+	/* Meta Queue Information */
+	struct meta_queue *mq;
+
 	bool fast_convergence;
 
 	/* BGP Conditional advertisement */
@@ -815,11 +856,12 @@ struct bgp {
 	/* BGP VPN SRv6 backend */
 	bool srv6_enabled;
 	char srv6_locator_name[SRV6_LOCNAME_SIZE];
+	struct srv6_locator *srv6_locator;
 	struct list *srv6_locator_chunks;
 	struct list *srv6_functions;
 	uint32_t tovpn_sid_index; /* unset => set to 0 */
 	struct in6_addr *tovpn_sid;
-	struct srv6_locator_chunk *tovpn_sid_locator;
+	struct srv6_locator *tovpn_sid_locator;
 	uint32_t tovpn_sid_transpose_label;
 	struct in6_addr *tovpn_zebra_vrf_sid_last_sent;
 
@@ -838,9 +880,17 @@ struct bgp {
 	/* BGP route flap dampening configuration */
 	struct bgp_damp_config damp[AFI_MAX][SAFI_MAX];
 
+	uint64_t bestpath_runs;
+	uint64_t node_already_on_queue;
+	uint64_t node_deferred_on_queue;
+
+	struct zebra_l3_vni_item zl3vni;
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(bgp);
+
+DECLARE_LIST(zebra_l3_vni, struct bgp, zl3vni);
 
 struct bgp_interface {
 #define BGP_INTERFACE_MPLS_BGP_FORWARDING (1 << 0)
@@ -857,6 +907,10 @@ DECLARE_HOOK(bgp_snmp_traps_config_write, (struct vty *vty), (vty));
 DECLARE_HOOK(bgp_config_end, (struct bgp *bgp), (bgp));
 DECLARE_HOOK(bgp_hook_vrf_update, (struct vrf *vrf, bool enabled),
 	     (vrf, enabled));
+DECLARE_HOOK(bgp_instance_state, (struct bgp *bgp), (bgp));
+DECLARE_HOOK(bgp_routerid_update, (struct bgp *bgp, bool withdraw), (bgp, withdraw));
+DECLARE_HOOK(bgp_route_distinguisher_update, (struct bgp *bgp, afi_t afi, bool preconfig),
+	     (bgp, afi, preconfig));
 
 /* Thread callback information */
 struct afi_safi_info {
@@ -1104,7 +1158,8 @@ enum bgp_fsm_rfc_codes {
 	BGP_FSM_NotifMsg = 25,
 	BGP_FSM_KeepAliveMsg = 26,
 	BGP_FSM_UpdateMsg = 27,
-	BGP_FSM_UpdateMsgErr = 28
+	BGP_FSM_UpdateMsgErr = 28,
+	BGP_FSM_SendHoldTimer_Expires = 29,
 };
 
 /*
@@ -1158,8 +1213,28 @@ struct addpath_paths_limit {
 	uint16_t receive;
 };
 
+/*
+ * The peer data structure has a incoming and outgoing peer connection
+ * variables.  In the early stage of the FSM, it is possible to have
+ * both a incoming and outgoing connection at the same time.  These
+ * connections both have events scheduled to happen that both produce
+ * logs.  It is very hard to tell these debugs apart when looking at
+ * the log files so the debugs are now adding direction strings to
+ * help figure out what is going on.  At a later stage in the FSM
+ * one of the connections will be closed and the other one kept.
+ * The one being kept is moved to the ESTABLISHED connection direction
+ * so that debugs can be figured out.
+ */
+enum connection_direction {
+	UNKNOWN,
+	CONNECTION_INCOMING,
+	CONNECTION_OUTGOING,
+	ESTABLISHED,
+};
+
 struct peer_connection {
 	struct peer *peer;
+	enum connection_direction dir;
 
 	/* Status of the peer connection. */
 	enum bgp_fsm_status status;
@@ -1199,10 +1274,16 @@ struct peer_connection {
 	struct event *t_process_packet;
 	struct event *t_process_packet_error;
 
+	struct event *t_stop_with_notify;
+
 	union sockunion su;
 #define BGP_CONNECTION_SU_UNSPEC(connection)                                   \
 	(connection->su.sa.sa_family == AF_UNSPEC)
+
+	union sockunion *su_local;  /* Sockunion of local address. */
+	union sockunion *su_remote; /* Sockunion of remote address. */
 };
+const char *bgp_peer_get_connection_direction(struct peer_connection *connection);
 extern struct peer_connection *bgp_peer_connection_new(struct peer *peer);
 extern void bgp_peer_connection_free(struct peer_connection **connection);
 extern void bgp_peer_connection_buffers_free(struct peer_connection *connection);
@@ -1226,7 +1307,7 @@ struct peer {
 	struct peer_af *peer_af_array[BGP_AF_MAX];
 
 	/* Peer's remote AS number. */
-	int as_type;
+	enum peer_asn_type as_type;
 	as_t as;
 	/* for vty as format */
 	char *as_pretty;
@@ -1294,9 +1375,7 @@ struct peer {
 	char *update_if;
 	union sockunion *update_source;
 
-	union sockunion *su_local;  /* Sockunion of local address.  */
-	union sockunion *su_remote; /* Sockunion of remote address.  */
-	int shared_network;	 /* Is this peer shared same network. */
+	bool shared_network;	    /* Is this peer shared same network. */
 	struct bgp_nexthop nexthop; /* Nexthop */
 
 	/* Roles in bgp session */
@@ -1353,6 +1432,8 @@ struct peer {
 #define PEER_CAP_SOFT_VERSION_RCV	    (1ULL << 28)
 #define PEER_CAP_PATHS_LIMIT_ADV (1U << 29)
 #define PEER_CAP_PATHS_LIMIT_RCV (1U << 30)
+#define PEER_CAP_LINK_LOCAL_ADV		    (1ULL << 31)
+#define PEER_CAP_LINK_LOCAL_RCV		    (1ULL << 32)
 
 	/* Capability flags (reset in bgp_stop) */
 	uint32_t af_cap[AFI_MAX][SAFI_MAX];
@@ -1485,6 +1566,8 @@ struct peer {
 #define PEER_FLAG_CAPABILITY_FQDN (1ULL << 37)  /* fqdn capability */
 #define PEER_FLAG_AS_LOOP_DETECTION (1ULL << 38) /* as path loop detection */
 #define PEER_FLAG_EXTENDED_LINK_BANDWIDTH (1ULL << 39)
+#define PEER_FLAG_DUAL_AS		  (1ULL << 40)
+#define PEER_FLAG_CAPABILITY_LINK_LOCAL	  (1ULL << 41)
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
@@ -1619,7 +1702,6 @@ struct peer {
 
 	/* Threads. */
 	struct event *t_llgr_stale[AFI_MAX][SAFI_MAX];
-	struct event *t_revalidate_all[AFI_MAX][SAFI_MAX];
 	struct event *t_refresh_stalepath;
 
 	/* Thread flags. */
@@ -1675,7 +1757,8 @@ struct peer {
 	uint32_t stat_pfx_cluster_loop;
 	uint32_t stat_pfx_nh_invalid;
 	uint32_t stat_pfx_dup_withdraw;
-	uint32_t stat_upd_7606;  /* RFC7606: treat-as-withdraw */
+	uint32_t stat_pfx_withdraw; /* RFC7606: treat-as-withdraw */
+	uint32_t stat_pfx_discard;  /* The number of prefixes with discarded attributes */
 	uint64_t stat_pfx_loc_rib; /* RFC7854 : Number of routes in Loc-RIB */
 	uint64_t stat_pfx_adj_rib_in; /* RFC7854 : Number of routes in Adj-RIBs-In */
 
@@ -1735,8 +1818,15 @@ struct peer {
 	/* Text description of last attribute rcvd */
 	char rcvd_attr_str[BUFSIZ];
 
-	/* Track if we printed the attribute in debugs */
-	int rcvd_attr_printed;
+	/*
+	 * Track if we printed the attribute in debugs
+	 *
+	 * These two rcvd_attr_str and rcvd_attr_printed are going to
+	 * be fun in the long term when we want to break up parsing
+	 * of data from the nlri in multiple pthreads or really
+	 * if we ever change order of things this will just break
+	 */
+	bool rcvd_attr_printed;
 
 	/* Accepted prefix count */
 	uint32_t pcount[AFI_MAX][SAFI_MAX];
@@ -1797,6 +1887,8 @@ struct peer {
 #define PEER_DOWN_SOCKET_ERROR          34U /* Some socket error happened */
 #define PEER_DOWN_RTT_SHUTDOWN          35U /* Automatically shutdown due to RTT */
 #define PEER_DOWN_SUPPRESS_FIB_PENDING	 36U /* Suppress fib pending changed */
+#define PEER_DOWN_PASSWORD_CHANGE	 37U /* neighbor password command */
+#define PEER_DOWN_ROUTER_ID_ZERO	 38U /* router-id is 0.0.0.0 */
 	/*
 	 * Remember to update peer_down_str in bgp_fsm.c when you add
 	 * a new value to the last_reset reason
@@ -1805,16 +1897,13 @@ struct peer {
 	struct stream *last_reset_cause;
 
 	/* The kind of route-map Flags.*/
-	uint16_t rmap_type;
+	uint8_t rmap_type;
 #define PEER_RMAP_TYPE_IN             (1U << 0) /* neighbor route-map in */
 #define PEER_RMAP_TYPE_OUT            (1U << 1) /* neighbor route-map out */
 #define PEER_RMAP_TYPE_NETWORK        (1U << 2) /* network route-map */
 #define PEER_RMAP_TYPE_REDISTRIBUTE   (1U << 3) /* redistribute route-map */
 #define PEER_RMAP_TYPE_DEFAULT        (1U << 4) /* default-originate route-map */
-#define PEER_RMAP_TYPE_NOSET          (1U << 5) /* not allow to set commands */
-#define PEER_RMAP_TYPE_IMPORT         (1U << 6) /* neighbor route-map import */
-#define PEER_RMAP_TYPE_EXPORT         (1U << 7) /* neighbor route-map export */
-#define PEER_RMAP_TYPE_AGGREGATE      (1U << 8) /* aggregate-address route-map */
+#define PEER_RMAP_TYPE_AGGREGATE      (1U << 5) /* aggregate-address route-map */
 
 	/** Peer overwrite configuration. */
 	struct bfd_session_config {
@@ -2036,6 +2125,7 @@ struct bgp_nlri {
 #define BGP_NOTIFY_UPDATE_OPT_ATTR_ERR           9
 #define BGP_NOTIFY_UPDATE_INVAL_NETWORK         10
 #define BGP_NOTIFY_UPDATE_MAL_AS_PATH           11
+#define BGP_NOTIFY_UPDATE_UNREACH_NEXT_HOP	 12 /* draft-white-linklocal-capability */
 
 /* BGP_NOTIFY_CEASE sub codes (RFC 4486).  */
 #define BGP_NOTIFY_CEASE_MAX_PREFIX              1
@@ -2065,7 +2155,8 @@ struct bgp_nlri {
  */
 #define BGP_DEFAULT_HOLDTIME                   180
 #define BGP_DEFAULT_KEEPALIVE                   60
-#define BGP_DEFAULT_CONNECT_RETRY              120
+#define BGP_DEFAULT_CONNECT_RETRY               30
+#define BGP_MAX_CONNECT_RETRY                  120
 
 #define BGP_DEFAULT_EBGP_ROUTEADV                0
 #define BGP_DEFAULT_IBGP_ROUTEADV                0
@@ -2132,6 +2223,7 @@ enum bgp_clear_type {
 enum bgp_create_error_code {
 	BGP_SUCCESS = 0,
 	BGP_CREATED = 1,
+	BGP_INSTANCE_EXISTS = 2,
 	BGP_ERR_INVALID_VALUE = -1,
 	BGP_ERR_INVALID_FLAG = -2,
 	BGP_ERR_INVALID_AS = -3,
@@ -2220,6 +2312,7 @@ extern void bgp_zclient_reset(void);
 extern struct bgp *bgp_get_default(void);
 extern struct bgp *bgp_lookup(as_t, const char *);
 extern struct bgp *bgp_lookup_by_name(const char *);
+extern struct bgp *bgp_lookup_by_name_filter(const char *name, bool filter_auto);
 extern struct bgp *bgp_lookup_by_vrf_id(vrf_id_t);
 extern struct bgp *bgp_get_evpn(void);
 extern void bgp_set_evpn(struct bgp *bgp);
@@ -2254,15 +2347,16 @@ extern struct peer *peer_unlock_with_caller(const char *, struct peer *);
 extern enum bgp_peer_sort peer_sort(struct peer *peer);
 extern enum bgp_peer_sort peer_sort_lookup(struct peer *peer);
 
-extern bool peer_active(struct peer *);
+extern bool peer_active(struct peer_connection *connection);
 extern bool peer_active_nego(struct peer *);
 extern bool peer_afc_received(struct peer *peer);
 extern bool peer_afc_advertised(struct peer *peer);
 extern void bgp_recalculate_all_bestpaths(struct bgp *bgp);
 extern struct peer *peer_create(union sockunion *su, const char *conf_if,
 				struct bgp *bgp, as_t local_as, as_t remote_as,
-				int as_type, struct peer_group *group,
-				bool config_node, const char *as_str);
+				enum peer_asn_type as_type,
+				struct peer_group *group, bool config_node,
+				const char *as_str);
 extern struct peer *peer_create_accept(struct bgp *);
 extern void peer_xfer_config(struct peer *dst, struct peer *src);
 extern char *peer_uptime(time_t uptime2, char *buf, size_t len, bool use_json,
@@ -2335,15 +2429,16 @@ extern void bgp_listen_limit_unset(struct bgp *bgp);
 extern bool bgp_update_delay_active(struct bgp *);
 extern bool bgp_update_delay_configured(struct bgp *);
 extern bool bgp_afi_safi_peer_exists(struct bgp *bgp, afi_t afi, safi_t safi);
-extern void peer_as_change(struct peer *peer, as_t as, int as_type,
-			   const char *as_str);
+extern void peer_as_change(struct peer *peer, as_t as,
+			   enum peer_asn_type as_type, const char *as_str);
 extern int peer_remote_as(struct bgp *bgp, union sockunion *su,
-			  const char *conf_if, as_t *as, int as_type,
-			  const char *as_str);
+			  const char *conf_if, as_t *as,
+			  enum peer_asn_type as_type, const char *as_str);
 extern int peer_group_remote_as(struct bgp *bgp, const char *peer_str, as_t *as,
-				int as_type, const char *as_str);
+				enum peer_asn_type as_type, const char *as_str);
 extern int peer_delete(struct peer *peer);
-extern void peer_notify_unconfig(struct peer *peer);
+extern void peer_notify_unconfig(struct peer_connection *connection);
+extern bool peer_notify_config_change(struct peer_connection *connection);
 extern int peer_group_delete(struct peer_group *);
 extern int peer_group_remote_as_delete(struct peer_group *);
 extern int peer_group_listen_range_add(struct peer_group *, struct prefix *);
@@ -2422,7 +2517,7 @@ extern int peer_allowas_in_set(struct peer *, afi_t, safi_t, int, int);
 extern int peer_allowas_in_unset(struct peer *, afi_t, safi_t);
 
 extern int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
-			     bool replace_as, const char *as_str);
+			     bool replace_as, bool dual_as, const char *as_str);
 extern int peer_local_as_unset(struct peer *);
 
 extern int peer_prefix_list_set(struct peer *, afi_t, safi_t, int,
@@ -2652,14 +2747,6 @@ static inline int peer_group_af_configured(struct peer_group *group)
 	return 0;
 }
 
-static inline char *timestamp_string(time_t ts, char *timebuf)
-{
-	time_t tbuf;
-
-	tbuf = time(NULL) - (monotime(NULL) - ts);
-	return ctime_r(&tbuf, timebuf);
-}
-
 static inline bool peer_established(struct peer_connection *connection)
 {
 	return connection->status == Established;
@@ -2742,14 +2829,67 @@ static inline bool bgp_in_graceful_shutdown(struct bgp *bgp)
 	        !!CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN));
 }
 
+static inline bool bgp_in_graceful_restart(void)
+{
+	/* True if BGP has (re)started gracefully (based on flags
+	 * noted at startup) and GR is not complete.
+	 */
+	return (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART) &&
+		!CHECK_FLAG(bm->flags, BM_FLAG_GR_COMPLETE));
+}
+
+static inline bool bgp_is_graceful_restart_complete(void)
+{
+	/* True if BGP has (re)started gracefully (based on flags
+	 * noted at startup) and GR is marked as complete.
+	 */
+	return (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART) &&
+		CHECK_FLAG(bm->flags, BM_FLAG_GR_COMPLETE));
+}
+
+static inline void bgp_update_gr_completion(void)
+{
+	struct listnode *node, *nnode;
+	struct bgp *bgp;
+
+	/*
+	 * Check and mark GR complete. This is done when deferred
+	 * path selection has been completed for all instances and
+	 * route-advertisement/EOR and route-sync with zebra has
+	 * been invoked.
+	 */
+	if (!CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART) ||
+	    CHECK_FLAG(bm->flags, BM_FLAG_GR_COMPLETE))
+		return;
+
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		if (bgp->gr_route_sync_pending)
+			return;
+	}
+
+	SET_FLAG(bm->flags, BM_FLAG_GR_COMPLETE);
+	bm->gr_completion_time = monotime(NULL);
+}
+
+static inline bool bgp_gr_is_forwarding_preserved(struct bgp *bgp)
+{
+	/*
+	 * Is forwarding state preserved? Based either on config
+	 * or if BGP restarted gracefully.
+	 * TBD: Additional AFI/SAFI based checks etc.
+	 */
+	return (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART) ||
+		CHECK_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD));
+}
+
 /* For benefit of rfapi */
 extern struct peer *peer_new(struct bgp *bgp);
 
 extern struct peer *peer_lookup_in_view(struct vty *vty, struct bgp *bgp,
 					const char *ip_str, bool use_json);
-extern int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as,
-				      const char *name,
-				      enum bgp_instance_type inst_type);
+extern int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as, const char *as_pretty,
+				      enum asnotation_mode asnotation, const char *name,
+				      enum bgp_instance_type inst_type, bool force_config);
 
 /* Hooks */
 DECLARE_HOOK(bgp_vrf_status_changed, (struct bgp *bgp, struct interface *ifp),
@@ -2781,10 +2921,30 @@ extern bool bgp_path_attribute_treat_as_withdraw(struct peer *peer, char *buf,
 
 extern void srv6_function_free(struct bgp_srv6_function *func);
 
+extern void bgp_session_reset_safe(struct peer *peer, struct listnode **nnode);
+
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 /* clang-format off */
 #pragma FRR printfrr_ext "%pBP" (struct peer *)
 /* clang-format on */
 #endif
+
+/* Macro to check if default bgp instance is hidden */
+#define IS_BGP_INSTANCE_HIDDEN(_bgp)                                           \
+	(CHECK_FLAG(_bgp->flags, BGP_FLAG_INSTANCE_HIDDEN) &&                  \
+	 (_bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT ||                      \
+	  _bgp->inst_type == BGP_INSTANCE_TYPE_VRF))
+
+/* Macro to check if bgp instance delete in-progress and !hidden */
+#define BGP_INSTANCE_HIDDEN_DELETE_IN_PROGRESS(_bgp, _afi, _safi)              \
+	(CHECK_FLAG(_bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS) &&               \
+	 !IS_BGP_INSTANCE_HIDDEN(_bgp) &&                                      \
+	 !(_afi == AFI_IP && _safi == SAFI_MPLS_VPN) &&                        \
+	 !(_afi == AFI_IP6 && _safi == SAFI_MPLS_VPN))
+
+#define PEER_HAS_LINK_LOCAL_CAPABILITY(_peer)                                                      \
+	(CHECK_FLAG(_peer->flags, PEER_FLAG_CAPABILITY_LINK_LOCAL) &&                              \
+	 CHECK_FLAG(_peer->cap, PEER_CAP_LINK_LOCAL_ADV) &&                                        \
+	 CHECK_FLAG(_peer->cap, PEER_CAP_LINK_LOCAL_RCV))
 
 #endif /* _QUAGGA_BGPD_H */

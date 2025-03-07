@@ -79,17 +79,6 @@ struct ospf6_external_aggr_rt {
 	struct hash *match_extnl_hash;
 };
 
-/* AS-External-LSA */
-#define OSPF6_AS_EXTERNAL_LSA_MIN_SIZE         4U /* w/o IPv6 prefix */
-struct ospf6_as_external_lsa {
-	uint32_t bits_metric;
-
-	struct ospf6_prefix prefix;
-	/* followed by none or one forwarding address */
-	/* followed by none or one external route tag */
-	/* followed by none or one referenced LS-ID */
-};
-
 #define OSPF6_ASBR_BIT_T  ntohl (0x01000000)
 #define OSPF6_ASBR_BIT_F  ntohl (0x02000000)
 #define OSPF6_ASBR_BIT_E  ntohl (0x04000000)

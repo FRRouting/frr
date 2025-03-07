@@ -267,6 +267,9 @@ static bool cmd_nodes_equal(struct graph_node *ga, struct graph_node *gb)
 	case NEG_ONLY_TKN:
 	case WORD_TKN:
 	case ASNUM_TKN:
+#ifdef BUILDING_CLIPPY
+	case CMD_ELEMENT_TKN:
+#endif
 		return true;
 	}
 

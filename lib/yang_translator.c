@@ -166,7 +166,7 @@ struct yang_translator *yang_translator_load(const char *path)
 	RB_INSERT(yang_translators, &yang_translators, translator);
 
 	/* Initialize the translator libyang context. */
-	translator->ly_ctx = yang_ctx_new_setup(false, false);
+	translator->ly_ctx = yang_ctx_new_setup(false, false, false);
 	if (!translator->ly_ctx) {
 		flog_warn(EC_LIB_LIBYANG, "%s: ly_ctx_new() failed", __func__);
 		goto error;
@@ -512,7 +512,7 @@ static unsigned int yang_module_nodes_count(const struct lys_module *module)
 
 void yang_translator_init(void)
 {
-	ly_translator_ctx = yang_ctx_new_setup(true, false);
+	ly_translator_ctx = yang_ctx_new_setup(true, false, false);
 	if (!ly_translator_ctx) {
 		flog_err(EC_LIB_LIBYANG, "%s: ly_ctx_new() failed", __func__);
 		exit(1);

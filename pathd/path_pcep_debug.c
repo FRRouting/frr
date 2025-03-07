@@ -1321,8 +1321,7 @@ void _format_pcep_event(int ps, pcep_event *event)
 		PATHD_FORMAT("\n");
 		PATHD_FORMAT("%*sevent_type: %s\n", ps2, "",
 			     pcep_event_type_name(event->event_type));
-		PATHD_FORMAT("%*sevent_time: %s", ps2, "",
-			     ctime_r(&event->event_time, buf));
+		PATHD_FORMAT("%*sevent_time: %s", ps2, "", time_to_string(event->event_time, buf));
 		if (event->session == NULL) {
 			PATHD_FORMAT("%*ssession: NULL\n", ps2, "");
 		} else {

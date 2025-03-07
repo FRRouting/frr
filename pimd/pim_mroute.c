@@ -35,6 +35,8 @@
 #include "pim_sock.h"
 #include "pim_vxlan.h"
 #include "pim_msg.h"
+#include "pim_util.h"
+#include "pim_nht.h"
 
 static void mroute_read_on(struct pim_instance *pim);
 static int pim_upstream_mroute_update(struct channel_oil *c_oil,
@@ -182,6 +184,14 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 		 * so the kernel doesn't keep nagging us.
 		 */
 		struct pim_rpf *rpg;
+#if PIM_IPV == 6
+		pim_addr embedded_rp;
+
+		if (pim_ifp->pim->embedded_rp.enable &&
+		    pim_embedded_rp_extract(&sg.grp, &embedded_rp) &&
+		    !pim_embedded_rp_filter_match(pim_ifp->pim, &sg.grp))
+			pim_embedded_rp_new(pim_ifp->pim, &sg.grp, &embedded_rp);
+#endif /* PIM_IPV == 6 */
 
 		rpg = RP(pim_ifp->pim, msg->msg_im_dst);
 		if (!rpg) {
@@ -263,7 +273,9 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 	    *oil_incoming_vif(up->channel_oil) >= MAXVIFS) {
 		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
 	}
-	pim_register_join(up);
+
+	if (!pim_is_group_filtered(pim_ifp, &sg.grp, &sg.src))
+		pim_register_join(up);
 	/* if we have receiver, inherit from parent */
 	pim_upstream_inherited_olist_decide(pim_ifp->pim, up);
 
@@ -555,8 +567,8 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
 			 * setting the SPTBIT to true
 			 */
 			if (!(pim_addr_is_any(up->upstream_register)) &&
-			    pim_nexthop_lookup(pim_ifp->pim, &source,
-					       up->upstream_register, 0)) {
+			    pim_nht_lookup(pim_ifp->pim, &source, up->upstream_register, up->sg.grp,
+					   false)) {
 				pim_register_stop_send(source.interface, &sg,
 						       pim_ifp->primary_address,
 						       up->upstream_register);
@@ -569,9 +581,8 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
 							__func__);
 		} else {
 			if (I_am_RP(pim_ifp->pim, up->sg.grp)) {
-				if (pim_nexthop_lookup(pim_ifp->pim, &source,
-						       up->upstream_register,
-						       0))
+				if (pim_nht_lookup(pim_ifp->pim, &source, up->upstream_register,
+						   up->sg.grp, false))
 					pim_register_stop_send(
 						source.interface, &sg,
 						pim_ifp->primary_address,
@@ -624,7 +635,8 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
 		pim_upstream_keep_alive_timer_start(
 			up, pim_ifp->pim->keep_alive_time);
 		up->channel_oil->cc.pktcnt++;
-		pim_register_join(up);
+		if (!pim_is_group_filtered(pim_ifp, &sg.grp, &sg.src))
+			pim_register_join(up);
 		pim_upstream_inherited_olist(pim_ifp->pim, up);
 		if (!up->channel_oil->installed)
 			pim_upstream_mroute_add(up->channel_oil, __func__);
@@ -864,17 +876,11 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 				pim->vrf->name);
 #endif
 
-#ifdef SO_BINDTODEVICE
-		if (pim->vrf->vrf_id != VRF_DEFAULT
-		    && setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE,
-				  pim->vrf->name, strlen(pim->vrf->name))) {
-			zlog_warn("Could not setsockopt SO_BINDTODEVICE: %s",
-				  safe_strerror(errno));
+		if (vrf_bind(pim->vrf->vrf_id, fd, NULL)) {
+			zlog_warn("Could not bind to vrf: %s", safe_strerror(errno));
 			close(fd);
 			return -3;
 		}
-#endif
-
 	}
 
 	pim->mroute_socket = fd;

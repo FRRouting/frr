@@ -16,5 +16,8 @@ extern bool tib_sg_gm_join(struct pim_instance *pim, pim_sgaddr sg,
 			   struct interface *oif, struct channel_oil **oilp);
 extern void tib_sg_gm_prune(struct pim_instance *pim, pim_sgaddr sg,
 			    struct interface *oif, struct channel_oil **oilp);
+extern void tib_sg_proxy_join_prune_check(struct pim_instance *pim,
+					  pim_sgaddr sg, struct interface *oif,
+					  bool join);
 
 #endif /* _FRR_PIM_GLUE_H */

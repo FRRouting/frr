@@ -350,6 +350,7 @@ int main(int argc, char **argv, char **env)
 	char pathspace[MAXPATHLEN] = "";
 	const char *histfile = NULL;
 	const char *histfile_env = getenv("VTYSH_HISTFILE");
+	const char *logpath = getenv("VTYSH_LOG");
 
 	/* SUID: drop down to calling user & go back up when needed */
 	elevuid = geteuid();
@@ -489,7 +490,6 @@ int main(int argc, char **argv, char **env)
 
 	/* Make vty structure and register commands. */
 	vtysh_init_vty();
-	vtysh_init_cmd();
 	vtysh_user_init();
 	vtysh_config_init();
 
@@ -644,9 +644,7 @@ int main(int argc, char **argv, char **env)
 		}
 	}
 
-	if (getenv("VTYSH_LOG")) {
-		const char *logpath = getenv("VTYSH_LOG");
-
+	if (logpath != NULL) {
 		logfile = fopen(logpath, "a");
 		if (!logfile) {
 			fprintf(stderr, "Failed to open logfile (%s): %s\n",

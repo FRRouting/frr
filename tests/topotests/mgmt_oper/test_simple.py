@@ -154,7 +154,11 @@ def test_oper_simple(tgen):
         ),
         (
             '/frr-interface:lib/interface[name="r1-eth0"]/frr-zebra:zebra/evpn-mh',
-            "simple-results/result-intf-eth0-wd-trim.json",
+            (
+                # Output is different between libyang2 and libyang3+
+                "simple-results/result-intf-eth0-wd-trim.json",
+                "simple-results/result-intf-eth0-wd-trim-empty-label.json",
+            ),
             "with-config exact with-defaults trim",
         ),
         (

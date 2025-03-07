@@ -11,6 +11,7 @@ r1-eth0 is up
     Hello due in XX.XXXs
   Neighbor Count is 0, Adjacent neighbor count is 0
   Graceful Restart hello delay: 10s
+  LSA retransmissions: 0
 r1-eth3 is up
   ifindex X, MTU 1500 bytes, BW XX Mbit <UP,LOWER_UP,BROADCAST,RUNNING,MULTICAST>
   Internet Address 192.168.3.1/26, Broadcast 192.168.3.63, Area 0.0.0.0
@@ -24,3 +25,4 @@ r1-eth3 is up
     Hello due in XX.XXXs
   Neighbor Count is 0, Adjacent neighbor count is 0
   Graceful Restart hello delay: 10s
+  LSA retransmissions: 0

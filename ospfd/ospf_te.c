@@ -3015,7 +3015,7 @@ static int ospf_te_delete_opaque_lsa(struct ls_ted *ted, struct ospf_lsa *lsa)
 
 /**
  * Update Traffic Engineering Database Elements that correspond to the received
- * OSPF LSA. If LSA age is equal to MAX_AGE, call deletion function instead.
+ * OSPF LSA.
  *
  * @param lsa	OSPF Link State Advertisement
  *
@@ -3037,34 +3037,18 @@ static int ospf_mpls_te_lsa_update(struct ospf_lsa *lsa)
 		return -1;
 	}
 
-	/* If LSA is MAX_AGE, remove corresponding Link State element */
-	if (IS_LSA_MAXAGE(lsa)) {
-		switch (lsa->data->type) {
-		case OSPF_ROUTER_LSA:
-			rc = ospf_te_delete_router_lsa(OspfMplsTE.ted, lsa);
-			break;
-		case OSPF_OPAQUE_AREA_LSA:
-		case OSPF_OPAQUE_AS_LSA:
-			rc = ospf_te_delete_opaque_lsa(OspfMplsTE.ted, lsa);
-			break;
-		default:
-			rc = 0;
-			break;
-		}
-	} else {
-		/* Parse LSA to Update corresponding Link State element */
-		switch (lsa->data->type) {
-		case OSPF_ROUTER_LSA:
-			rc = ospf_te_parse_router_lsa(OspfMplsTE.ted, lsa);
-			break;
-		case OSPF_OPAQUE_AREA_LSA:
-		case OSPF_OPAQUE_AS_LSA:
-			rc = ospf_te_parse_opaque_lsa(OspfMplsTE.ted, lsa);
-			break;
-		default:
-			rc = 0;
-			break;
-		}
+	/* Parse LSA to Update corresponding Link State element */
+	switch (lsa->data->type) {
+	case OSPF_ROUTER_LSA:
+		rc = ospf_te_parse_router_lsa(OspfMplsTE.ted, lsa);
+		break;
+	case OSPF_OPAQUE_AREA_LSA:
+	case OSPF_OPAQUE_AS_LSA:
+		rc = ospf_te_parse_opaque_lsa(OspfMplsTE.ted, lsa);
+		break;
+	default:
+		rc = 0;
+		break;
 	}
 
 	return rc;
@@ -3095,19 +3079,6 @@ static int ospf_mpls_te_lsa_delete(struct ospf_lsa *lsa)
 			  __func__);
 		return -1;
 	}
-
-	/*
-	 * Process only self LSAs that reach MAX_AGE. Indeed, when the router
-	 * need to update or refresh an LSA, it first removes the old LSA from
-	 * the LSDB and then insert the new one. Thus, to avoid removing
-	 * corresponding Link State element and loosing some parameters
-	 * instead of just updating it, only self LSAs that reach MAX_AGE are
-	 * processed here. Other LSAs are processed by ospf_mpls_te_lsa_update()
-	 * and eventually removed when LSA age is MAX_AGE i.e. LSA is flushed
-	 * by the originator.
-	 */
-	if (!IS_LSA_SELF(lsa) || !IS_LSA_MAXAGE(lsa))
-		return 0;
 
 	/* Parse Link State information */
 	switch (lsa->data->type) {

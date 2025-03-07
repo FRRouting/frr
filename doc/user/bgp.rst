@@ -83,7 +83,7 @@ be specified (:ref:`common-invocation-options`).
    be done to see if this is helping or not at the scale you are running
    at.
 
-.. option:: --v6-with-v4-nexthops
+.. option:: -x, --v6-with-v4-nexthops
 
    Allow BGP to peer in the V6 afi, when the interface only has v4 addresses.
    This allows bgp to install the v6 routes with a v6 nexthop that has the
@@ -91,6 +91,12 @@ be specified (:ref:`common-invocation-options`).
    overrides the bgp setting.  This setting is only really usable when
    the operator has turned off communication to zebra and is running bgpd
    as a complete standalone process.
+
+.. option:: -K, --graceful_restart
+
+   Bgpd will use this option to denote either a planned FRR graceful
+   restart or a bgpd-only graceful restart, and this will drive the BGP
+   GR restarting router procedures.
 
 LABEL MANAGER
 -------------
@@ -154,15 +160,15 @@ bottom until one of the factors can be used.
 
    Prefer higher local preference routes to lower.
 
+3. **Local route check**
+
+   Prefer local routes (statics, aggregates, redistributed) to received routes.
+
    If ``bgp bestpath aigp`` is enabled, and both paths that are compared have
    AIGP attribute, BGP uses AIGP tie-breaking unless both of the paths have the
    AIGP metric attribute. This means that the AIGP attribute is not evaluated
    during the best path selection process between two paths when one path does
    not have the AIGP attribute.
-
-3. **Local route check**
-
-   Prefer local routes (statics, aggregates, redistributed) to received routes.
 
 4. **AS path length check**
 
@@ -276,7 +282,9 @@ internal or external.
    interface and address information. In that case default router ID value is
    selected as the largest IP Address of the interfaces. When `router zebra` is
    not enabled *bgpd* can't get interface information so `router-id` is set to
-   0.0.0.0. So please set router-id by hand.
+   0.0.0.0, which is invalid and BGP session can't be established.
+
+   So please set router-id by manually.
 
 
 .. _bgp-multiple-autonomous-systems:
@@ -528,6 +536,13 @@ Reject routes with AS_SET or AS_CONFED_SET types
 .. clicmd:: bgp reject-as-sets
 
    This command enables rejection of incoming and outgoing routes having AS_SET or AS_CONFED_SET type.
+
+   The aggregated routes are not sent to the contributing neighbors.
+
+.. seealso::
+   https://datatracker.ietf.org/doc/html/draft-ietf-idr-deprecate-as-set-confed-set
+
+   Default: disabled.
 
 Enforce first AS
 ----------------
@@ -1080,6 +1095,52 @@ Default global mode is helper and default peer per mode is inherit from global.
 If per peer mode is configured, the GR mode of this particular peer will
 override the global mode.
 
+.. _bgp-GR-config-mode-cmd:
+
+BGP GR Config Mode Commands
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. clicmd:: bgp graceful-restart
+
+   This command will enable BGP graceful restart functionality for all BGP instances.
+
+.. clicmd:: bgp graceful-restart-disable
+
+   This command will disable both the functionality graceful restart and helper
+   mode for all BGP instances
+
+.. clicmd:: bgp graceful-restart select-defer-time (0-3600)
+
+   This is command, will set deferral time to value specified.
+
+.. clicmd:: bgp graceful-restart rib-stale-time (1-3600)
+
+   This is command, will set the time for which stale routes are kept in RIB.
+
+.. clicmd:: bgp graceful-restart restart-time (0-4095)
+
+   Set the time to wait to delete stale routes before a BGP open message
+   is received.
+
+   Using with Long-lived Graceful Restart capability, this is recommended
+   setting this timer to 0 and control stale routes with
+   ``bgp long-lived-graceful-restart stale-time``.
+
+   Default value is 120.
+
+.. clicmd:: bgp graceful-restart stalepath-time (1-4095)
+
+   This is command, will set the max time (in seconds) to hold onto
+   restarting peer's stale paths.
+
+   It also controls Enhanced Route-Refresh timer.
+
+   If this command is configured and the router does not receive a Route-Refresh EoRR
+   message, the router removes the stale routes from the BGP table after the timer
+   expires. The stale path timer is started when the router receives a Route-Refresh
+   BoRR message
+
+
 .. _bgp-GR-global-mode-cmd:
 
 BGP GR Global Mode Commands
@@ -1115,6 +1176,14 @@ BGP GR Peer Mode Commands
 
    This command will disable the entire BGP graceful restart functionality
    at the peer level.
+
+
+BGP GR Show Commands
+^^^^^^^^^^^^^^^^^^^^
+
+.. clicmd:: show bgp [<ipv4|ipv6>] [<view|vrf> VRF] neighbors [<A.B.C.D|X:X::X:X|WORD>] graceful-restart [json]
+
+   This command will display information about the neighbors graceful-restart status
 
 
 Long-lived Graceful Restart
@@ -1229,6 +1298,13 @@ IPv6 Support
    Using the ``bgp default ipv6-unicast`` configuration, IPv6 unicast
    address family is enabled by default for all new neighbors.
 
+
+.. clicmd:: bgp ipv6-auto-ra
+
+   By default, bgpd can ask Zebra to enable sending IPv6 router advertisement
+   messages on interfaces. For example, this happens for unnumbered peers
+   support or when extended-nexthop capability is used. The ``no`` form of this
+   command disables such behaviour.
 
 .. _bgp-route-aggregation:
 
@@ -1509,6 +1585,10 @@ Defining Peers
    peers ASN is the same as mine as specified under the :clicmd:`router bgp ASN`
    command the connection will be denied.
 
+.. clicmd:: neighbor PEER remote-as auto
+
+   The neighbor's ASN is detected automatically from the OPEN message.
+
 .. clicmd:: neighbor PEER oad
 
    Mark a peer belonging to the One Administrative Domain.
@@ -1647,7 +1727,7 @@ Configuring Peers
    IPv4 session addresses, see the ``neighbor PEER update-source`` command
    below.
 
-.. clicmd:: neighbor PEER interface remote-as <internal|external|ASN>
+.. clicmd:: neighbor PEER interface remote-as <internal|external|auto|ASN>
 
    Configure an unnumbered BGP peer. ``PEER`` should be an interface name. The
    session will be established via IPv6 link locals. Use ``internal`` for iBGP
@@ -1732,7 +1812,7 @@ Configuring Peers
    Send the extended RPKI communities to the peer. RPKI extended community
    can be send only to iBGP and eBGP-OAD peers.
 
-   Default: enabled.
+   Default: disabled.
 
 .. clicmd:: neighbor PEER weight WEIGHT
 
@@ -1762,7 +1842,7 @@ Configuring Peers
    Since sent prefix count is managed by update-groups, this option
    creates a separate update-group for outgoing updates.
 
-.. clicmd:: neighbor PEER local-as AS-NUMBER [no-prepend] [replace-as]
+.. clicmd:: neighbor PEER local-as AS-NUMBER [no-prepend [replace-as [dual-as]]]
 
    Specify an alternate AS for this BGP process when interacting with the
    specified peer. With no modifiers, the specified local-as is prepended to
@@ -1778,11 +1858,16 @@ Configuring Peers
 
    Note that replace-as can only be specified if no-prepend is.
 
+   The ``dual-as`` keyword is used to configure the neighbor to establish a peering
+   session using the real autonomous-system number (``router bgp ASN``) or by using
+   the autonomous system number configured with the ``local-as``.
+
    This command is only allowed for eBGP peers.
 
 .. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> as-override
 
-   Override AS number of the originating router with the local AS number.
+   Override any AS number in the AS path that matches the neighbor's AS number
+   with the local AS number.
 
    Usually this configuration is used in PEs (Provider Edge) to replace
    the incoming customer AS number so the connected CE (Customer Edge)
@@ -1875,6 +1960,16 @@ Configuring Peers
    are not supporting this capability or supporting BGP Capabilities
    Negotiation RFC 2842.
 
+.. clicmd:: neighbor PEER capability link-local
+
+   Send the Link-Local Next Hop capability in the BGP OPEN message to the neighbor.
+   This is useful in data center environments where point-to-point (unnumbered) links
+   are utilized. This capability standardizes the operation of BGP over a
+   point-to-point links using link-local IPv6 addressing only.
+
+   Enabled by default for the ``datacenter`` profile. Also implicitly enabled
+   for unnumbered peers.
+
 .. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> accept-own
 
    Enable handling of self-originated VPN routes containing ``accept-own`` community.
@@ -1916,11 +2011,13 @@ Configuring Peers
    and will not be displayed as part of a `show run`.  The no form
    of the command turns off this ability.
 
-.. clicmd:: bgp default-originate timer (0-3600)
+.. clicmd:: bgp default-originate timer (0-65535)
 
    Set the period to rerun the default-originate route-map scanner process. The
    default is 5 seconds. With a full routing table, it might be useful to increase
    this setting to avoid scanning the whole BGP table aggressively.
+
+   Setting to 0 turns off the scanning at all.
 
 .. clicmd:: bgp default ipv4-unicast
 
@@ -2135,8 +2232,7 @@ and will share updates.
 .. clicmd:: neighbor PEER solo
 
    This command is used to indicate that routes advertised by the peer
-   should not be reflected back to the peer.  This command only is only
-   meaningful when there is a single peer defined in the peer-group.
+   should not be reflected back to the peer.
 
 .. clicmd:: show [ip] bgp peer-group [json]
 
@@ -2426,7 +2522,7 @@ is 4 octet long. The following format is used to define the community value.
 ``blackhole``
    ``blackhole`` represents well-known communities value ``BLACKHOLE``
    ``0xFFFF029A`` ``65535:666``. :rfc:`7999` documents sending prefixes to
-   EBGP peers and upstream for the purpose of blackholing traffic.
+   peers and upstream for the purpose of blackholing traffic.
    Prefixes tagged with the this community should normally not be
    re-advertised from neighbors of the originating network. Upon receiving
    ``BLACKHOLE`` community from a BGP speaker, ``NO_ADVERTISE`` community
@@ -2615,6 +2711,12 @@ The following commands can be used in route maps:
    community list, it is match. When `exact-match` keyword is specified, match
    happen only when BGP updates have completely same communities value
    specified in the community list.
+
+.. clicmd:: match community-limit (0-65535)
+
+   This command matches BGP updates that use community list, and with a community
+   list count less or equal than the defined limit. Setting community-limit to 0
+   will only match BGP updates with no community.
 
 .. clicmd:: set community <none|COMMUNITY> additive
 
@@ -2823,7 +2925,22 @@ Extended Community Lists
 BGP Extended Communities in Route Map
 """""""""""""""""""""""""""""""""""""
 
-.. clicmd:: match extcommunity WORD
+.. clicmd:: match extcommunity WORD [exact-match|any]
+
+   This command perform match to BGP updates using extended community list WORD.
+   When the one of BGP extended communities value match to the one of the extended
+   communities value in community list, it is match. When ``exact-match`` keyword
+   is specified, match happens only when BGP updates have completely same extended
+   communities value specified in the extended community list. When ``any`` keyword
+   is set, match happens when any of the extended communities of the BGP updates
+   matches an extended community of the specified list.
+
+ .. clicmd:: match extcommunity-limit (0-65535)
+
+   This command matches BGP updates that use extended community list and IPv6
+   extended community list, and with an extended community list count less or
+   equal than the defined limit. Setting extended community-limit to 0 will
+   only match BGP updates with no extended community.
 
 .. clicmd:: set extcommunity none
 
@@ -2850,6 +2967,24 @@ BGP Extended Communities in Route Map
 .. clicmd:: set extcomumnity color EXTCOMMUNITY
 
    This command sets colors values.
+
+:rfc:`9256`.
+
+``CO:COLOR``
+   This is a format to define colors value. ``CO`` part is always 00 (default),
+   it can be used to support the requirements of Color-Only steering when using
+   a Null Endpoint in the SR-TE Policy as specified in Section 8.8 of [RFC9256].
+   The below shows in detail what the different combinations of ``CO`` bits can
+   match on to for the purpose of determining what type of SR-TE Policy Tunnel
+   a BGP route can resolve over, and it also shows the order for resolving the
+   BGP route if there are different tunnels.
+
+   - ``00`` Can match on a specific endpoint only which should be the nexthop
+     of the route(Default Setting).
+   - ``01`` Can match on a specific endpoint or a null endpoint.
+   - ``10`` Can match on a specific endpoint, null endpoint or any endpoint.
+   - ``11`` Reserved for future use and shuould not be used.
+
 
 .. clicmd:: set extcommunity bandwidth <(1-25600) | cumulative | num-multipaths> [non-transitive]
 
@@ -4054,6 +4189,11 @@ Debugging
 
    Enable or disable debugging of communications between *bgpd* and *zebra*.
 
+.. clicmd:: debug bgp aggregate [prefix <A.B.C.D/M|X:X::X:X/M>]
+
+   Enable or disable debugging of route aggregation, either for one or more
+   aggregate addresses or for all aggregate addresses.
+
 Dumping Messages and Routing Tables
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -4254,6 +4394,10 @@ displays IPv6 routing table.
 
    If ``detail`` option is specified after ``json``, more verbose JSON output
    will be displayed.
+
+.. clicmd:: show bgp router [json]
+
+   This command displays information related BGP router and Graceful Restart.
 
 Some other commands provide additional options for filtering the output.
 
@@ -4526,13 +4670,16 @@ incoming/outgoing directions.
 
    If ``json`` option is specified, output is displayed in JSON format.
 
-.. clicmd:: show [ip] bgp [afi] [safi] [all] detail-routes
+.. clicmd:: show [ip] bgp [afi] [safi] [all] detail-routes [internal]
 
    Display the detailed version of all routes. The same format as using
    ``show [ip] bgp [afi] [safi] PREFIX``, but for the whole BGP table.
 
    If ``all`` option is specified, ``ip`` keyword is ignored and,
    routes displayed for all AFIs and SAFIs.
+
+   ``internal`` option is used to display internal data additionally. JSON
+   output is not supported with this option.
 
    If ``afi`` is specified, with ``all`` option, routes will be displayed for
    each SAFI in the selected AFI.

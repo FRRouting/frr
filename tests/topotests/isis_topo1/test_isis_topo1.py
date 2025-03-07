@@ -12,6 +12,7 @@
 """
 test_isis_topo1.py: Test ISIS topology.
 """
+import time
 import datetime
 import functools
 import json
@@ -120,19 +121,13 @@ def test_isis_convergence():
         pytest.skip(tgen.errors)
 
     logger.info("waiting for ISIS protocol to converge")
-    # Code to generate the json files.
-    # for rname, router in tgen.routers().items():
-    #     open('/tmp/{}_topology.json'.format(rname), 'w').write(
-    #         json.dumps(show_isis_topology(router), indent=2, sort_keys=True)
-    #     )
-
     for rname, router in tgen.routers().items():
         filename = "{0}/{1}/{1}_topology.json".format(CWD, rname)
         expected = json.loads(open(filename).read())
 
         def compare_isis_topology(router, expected):
             "Helper function to test ISIS topology convergence."
-            actual = show_isis_topology(router)
+            actual = json.loads(router.vtysh_cmd("show isis topology json"))
             return topotest.json_cmp(actual, expected)
 
         test_func = functools.partial(compare_isis_topology, router, expected)
@@ -243,9 +238,9 @@ def test_isis_summary_json():
         assertmsg = "Test isis summary json failed in '{}' data '{}'".format(
             rname, json_output
         )
-        assert json_output["vrf"] == "default", assertmsg
-        assert json_output["areas"][0]["area"] == "1", assertmsg
-        assert json_output["areas"][0]["levels"][0]["id"] != "3", assertmsg
+        assert json_output["vrfs"][0]["vrf"] == "default", assertmsg
+        assert json_output["vrfs"][0]["areas"][0]["area"] == "1", assertmsg
+        assert json_output["vrfs"][0]["areas"][0]["levels"][0]["id"] != "3", assertmsg
 
 
 def test_isis_interface_json():
@@ -318,6 +313,107 @@ def test_isis_neighbor_json():
             json_output["areas"][0]["circuits"][0]["interface"]["name"]
             == rname + "-eth0"
         ), assertmsg
+
+
+def test_isis_neighbor_state():
+    "Check that the neighbor states remain normal when the ISIS type is switched."
+
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Checking 'show isis neighbor state on a p2p link'")
+
+    # Establish a P2P link
+    # When the IS-IS type of r3 is set to level-1-2 and the IS-IS type of r5 is set to level-1,
+    # it is expected that all neighbors exist and are in the Up state
+    r3 = tgen.gears["r3"]
+    r3.vtysh_cmd(
+        """
+        configure
+        router isis 1
+            no redistribute ipv4 connected level-1
+            no redistribute ipv4 connected level-2
+            no redistribute ipv6 connected level-1
+            no redistribute ipv6 connected level-2
+        interface r3-eth1
+            no isis circuit-type
+            isis network point-to-point
+        end
+        """
+    )
+    r5 = tgen.gears["r5"]
+    r5.vtysh_cmd(
+        """
+        configure
+        router isis 1
+            no redistribute ipv4 connected level-1
+            no redistribute ipv6 connected level-1
+            no redistribute ipv4 table 20 level-1
+        interface r5-eth0
+            no isis circuit-type
+            isis network point-to-point
+        end
+        """
+    )
+    result = _check_isis_neighbor_json("r3", "r5", True, "Up")
+    assert result is True, result
+    result = _check_isis_neighbor_json("r5", "r3", True, "Up")
+    assert result is True, result
+
+    # Remove the configuration that affects the switch of IS-IS type.
+    # Configure the IS-IS type of r3 to transition from level-1-2 to level-2-only,
+    # while maintaining the IS-IS type of r5 as level-1.
+    # In this scenario,
+    # the expectation is that some neighbors do not exist or are in the Initializing state
+    r3.vtysh_cmd(
+        """
+        configure
+        router isis 1
+            is-type level-2-only
+        end
+        """
+    )
+    result = _check_isis_neighbor_json("r3", "r5", False, "Initializing")
+    assert result is True, result
+    result = _check_isis_neighbor_json("r5", "r3", False, "Initializing")
+    assert result is True, result
+
+    # Restore to initial configuration
+    logger.info("Checking 'restore to initial configuration'")
+    r3.vtysh_cmd(
+        """
+        configure
+        interface r3-eth1
+            isis circuit-type level-1
+            no isis network point-to-point
+        router isis 1
+            no is-type
+            redistribute ipv4 connected level-1
+            redistribute ipv4 connected level-2
+            redistribute ipv6 connected level-1
+            redistribute ipv6 connected level-2
+        end
+        """
+    )
+    r5.vtysh_cmd(
+        """
+        configure
+        interface r5-eth0
+            isis circuit-type level-1
+            no isis network point-to-point
+        router isis 1
+            redistribute ipv4 connected level-1
+            redistribute ipv6 connected level-1
+            redistribute ipv4 table 20 level-1
+        end
+        """
+    )
+    result = _check_isis_neighbor_json("r3", "r5", True, "Up")
+    assert result is True, result
+    result = _check_isis_neighbor_json("r5", "r3", True, "Up")
+    assert result is True, result
 
 
 def test_isis_database_json():
@@ -629,7 +725,66 @@ def test_isis_hello_padding_during_adjacency_formation():
     assert result is True, result
 
 
+def _check_isis_neighbor_json(
+    self, neighbor, neighbor_expected, neighbor_state_expected
+):
+    tgen = get_topogen()
+    router = tgen.gears[self]
+    logger.info(
+        f"check_isis_neighbor_json {router} {neighbor} {neighbor_expected} {neighbor_state_expected}"
+    )
+
+    result = _check_isis_neighbor_exist(self, neighbor)
+    if result == True:
+        return _check_isis_neighbor_state(self, neighbor, neighbor_state_expected)
+    elif neighbor_expected == True:
+        return "{} with expected neighbor {} got none ".format(router.name, neighbor)
+    else:
+        return True
+
+
+@retry(retry_timeout=60)
+def _check_isis_neighbor_exist(self, neighbor):
+    tgen = get_topogen()
+    router = tgen.gears[self]
+    logger.info(f"check_isis_neighbor_exist {router} {neighbor}")
+    neighbor_json = router.vtysh_cmd("show isis neighbor json", isjson=True)
+
+    circuits = neighbor_json.get("areas", [])[0].get("circuits", [])
+    for circuit in circuits:
+        if "adj" in circuit and circuit["adj"] == neighbor:
+            return True
+
+    return "The neighbor {} of router {} has not been learned yet ".format(
+        neighbor, router.name
+    )
+
+
 @retry(retry_timeout=5)
+def _check_isis_neighbor_state(self, neighbor, neighbor_state_expected):
+    tgen = get_topogen()
+    router = tgen.gears[self]
+    logger.info(
+        f"check_isis_neighbor_state {router} {neighbor} {neighbor_state_expected}"
+    )
+    neighbor_json = router.vtysh_cmd(
+        "show isis neighbor {} json".format(neighbor), isjson=True
+    )
+
+    circuits = neighbor_json.get("areas", [])[0].get("circuits", [])
+    for circuit in circuits:
+        interface = circuit.get("interface", {})
+        if "state" in interface:
+            neighbor_state = interface["state"]
+            if neighbor_state == neighbor_state_expected:
+                return True
+
+    return "{} peer with expected neighbor_state {} got {} ".format(
+        router.name, neighbor_state_expected, neighbor_state
+    )
+
+
+@retry(retry_timeout=10)
 def check_last_iih_packet_for_padding(router, expect_padding):
     logfilename = "{}/{}".format(router.gearlogdir, "isisd.log")
     last_hello_packet_line = None
@@ -685,6 +840,9 @@ def _check_lsp_overload_bit(router, overloaded_router_lsp, att_p_ol_expected):
     )
 
     database_json = json.loads(isis_database_output)
+    if "lsps" not in database_json["areas"][0]["levels"][1]:
+        return "The LSP of {} has not been synchronized yet ".format(router.name)
+
     att_p_ol = database_json["areas"][0]["levels"][1]["lsps"][0]["attPOl"]
     if att_p_ol == att_p_ol_expected:
         return True
@@ -845,52 +1003,3 @@ def parse_topology(lines, level):
             continue
 
     return areas
-
-
-def show_isis_topology(router):
-    """
-    Get the ISIS topology in a dictionary format.
-
-    Sample:
-    {
-      'area-name': {
-        'level-1': [
-          {
-            'vertex': 'r1'
-          }
-        ],
-        'level-2': [
-          {
-            'vertex': '10.0.0.1/24',
-            'type': 'IP',
-            'parent': '0',
-            'metric': 'internal'
-          }
-        ]
-      },
-      'area-name-2': {
-        'level-2': [
-          {
-            "interface": "rX-ethY",
-            "metric": "Z",
-            "next-hop": "rA",
-            "parent": "rC(B)",
-            "type": "TE-IS",
-            "vertex": "rD"
-          }
-        ]
-      }
-    }
-    """
-    l1out = topotest.normalize_text(
-        router.vtysh_cmd("show isis topology level-1")
-    ).splitlines()
-    l2out = topotest.normalize_text(
-        router.vtysh_cmd("show isis topology level-2")
-    ).splitlines()
-
-    l1 = parse_topology(l1out, "level-1")
-    l2 = parse_topology(l2out, "level-2")
-
-    dict_merge(l1, l2)
-    return l1

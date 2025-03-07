@@ -17,6 +17,8 @@
 #include "pim_oil.h"
 #include "pim_upstream.h"
 #include "pim_mroute.h"
+#include "pim_autorp.h"
+#include "pim_nht.h"
 
 enum pim_spt_switchover {
 	PIM_SPT_IMMEDIATE,
@@ -114,7 +116,8 @@ struct pim_instance {
 	/* The name of the register-accept prefix-list */
 	char *register_plist;
 
-	struct hash *rpf_hash;
+	struct hash *nht_hash;
+	struct pim_lookup_mode_head rpf_mode;
 
 	void *ssm_info; /* per-vrf SSM configuration */
 
@@ -149,8 +152,12 @@ struct pim_instance {
 
 	struct rb_pim_oil_head channel_oil_head;
 
+#if PIM_IPV == 4
 	struct pim_msdp msdp;
+#endif /* PIM_IPV == 4 */
 	struct pim_vxlan_instance vxlan;
+
+	struct pim_autorp *autorp;
 
 	struct list *ssmpingd_list;
 	pim_addr ssmpingd_group_addr;
@@ -188,6 +195,31 @@ struct pim_instance {
 	int64_t last_route_change_time;
 
 	uint64_t gm_rx_drop_sys;
+
+	/** Log information flags. */
+	uint32_t log_flags;
+/** Log neighbor event messages. */
+#define PIM_MSDP_LOG_NEIGHBOR_EVENTS 0x01
+/** Log SA event messages. */
+#define PIM_MSDP_LOG_SA_EVENTS 0x02
+
+	bool stopping;
+
+#if PIM_IPV == 6
+	struct {
+		/** Embedded RP enable state. */
+		bool enable;
+		/** Embedded RP group prefix list. */
+		char *group_list;
+		/** Maximum allowed number of embedded RPs at a time. */
+		uint32_t maximum_rps;
+
+		/** Embedded RP routing table */
+		struct route_table *table;
+		/** Embedded RPs count */
+		size_t rp_count;
+	} embedded_rp;
+#endif /* PIM_IPV == 6 */
 };
 
 void pim_vrf_init(void);

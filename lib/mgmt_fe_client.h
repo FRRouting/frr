@@ -179,11 +179,6 @@ mgmt_fe_client_create(const char *client_name, struct mgmt_fe_client_cbs *cbs,
 extern void mgmt_fe_client_lib_vty_init(void);
 
 /*
- * Print enabled debugging commands.
- */
-extern void mgmt_debug_fe_client_show_debug(struct vty *vty);
-
-/*
  * Create a new Session for a Frontend Client connection.
  *
  * lib_hndl

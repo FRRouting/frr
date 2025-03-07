@@ -674,6 +674,7 @@ static int log_5424_config_write(struct vty *vty)
 
 		vty_out(vty, "log extended %s\n", cfg->name);
 
+		(void)fmt_str; /* clang-SA */
 		switch (cfg->cfg.fmt) {
 		case ZLOG_FMT_5424:
 			fmt_str = " format rfc5424";

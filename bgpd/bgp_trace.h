@@ -135,12 +135,13 @@ TRACEPOINT_LOGLEVEL(frr_bgp, bmp_mirror_packet, TRACE_INFO)
 TRACEPOINT_EVENT(
 	frr_bgp,
 	bmp_eor,
-	TP_ARGS(afi_t, afi, safi_t, safi, uint8_t, flags, uint8_t, peer_type_flag),
+	TP_ARGS(afi_t, afi, safi_t, safi, uint8_t, flags, uint8_t, peer_type_flag, bgp),
 	TP_FIELDS(
 		ctf_integer(afi_t, afi, afi)
 		ctf_integer(safi_t, safi, safi)
 		ctf_integer(uint8_t, flags, flags)
 		ctf_integer(uint8_t, peer_type_flag, peer_type_flag)
+		ctf_string(bgp, bgp->name_pretty)
 	)
 )
 
@@ -209,6 +210,24 @@ TRACEPOINT_EVENT(
 )
 
 TRACEPOINT_LOGLEVEL(frr_bgp, bmp_process, TRACE_DEBUG)
+
+/*
+ * BMP is hooked for a nexthop tracking event
+ */
+TRACEPOINT_EVENT(
+	frr_bgp,
+	bmp_nht_path_valid,
+	TP_ARGS(struct bgp *, bgp, char *, pfx, struct bgp_path_info *,
+		path, bool, valid),
+	TP_FIELDS(
+		ctf_string(bgp, bgp->name_pretty)
+		ctf_string(prefix, pfx)
+		ctf_string(path, PEER_HOSTNAME(path->peer))
+		ctf_integer(bool, valid, valid)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_bgp, bmp_nht_path_valid, TRACE_DEBUG)
 
 /*
  * bgp_dest_lock/bgp_dest_unlock

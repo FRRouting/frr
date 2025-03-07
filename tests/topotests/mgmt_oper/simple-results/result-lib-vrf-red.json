@@ -38,7 +38,8 @@
                               "gateway": "",
                               "interface": "r1-eth1",
                               "active": [null],
-                              "fib": [null]
+                              "fib": [null],
+                              "weight": 1
                             }
                           ]
                         }
@@ -66,7 +67,8 @@
                               "gateway": "",
                               "interface": "r1-eth1",
                               "active": [null],
-                              "fib": [null]
+                              "fib": [null],
+                              "weight": 1
                             }
                           ]
                         }
@@ -90,7 +92,9 @@
                         "distance": 0,
                         "metric": 0,
                         "selected": [null],
+                        "installed": [null],
                         "internal-flags": 8,
+                        "internal-status": 16,
                         "uptime": "rubout",
                         "nexthop-group": {
                           "id": "rubout",
@@ -101,7 +105,8 @@
                               "gateway": "",
                               "interface": "r1-eth1",
                               "active": [null],
-                              "fib": [null]
+                              "fib": [null],
+                              "weight": 1
                             }
                           ]
                         }
@@ -116,7 +121,9 @@
                         "distance": 0,
                         "metric": 0,
                         "selected": [null],
+                        "installed": [null],
                         "internal-flags": 8,
+                        "internal-status": 16,
                         "uptime": "rubout",
                         "nexthop-group": {
                           "id": "rubout",
@@ -127,7 +134,8 @@
                               "gateway": "",
                               "interface": "r1-eth1",
                               "active": [null],
-                              "fib": [null]
+                              "fib": [null],
+                              "weight": 1
                             }
                           ]
                         }

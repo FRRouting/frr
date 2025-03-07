@@ -94,6 +94,7 @@ struct frr_signal_t pim6d_signals[] = {
 	},
 };
 
+/* clang-format off */
 static const struct frr_yang_module_info *const pim6d_yang_modules[] = {
 	&frr_filter_info,
 	&frr_interface_info,
@@ -102,10 +103,10 @@ static const struct frr_yang_module_info *const pim6d_yang_modules[] = {
 	&frr_routing_info,
 	&frr_pim_info,
 	&frr_pim_rp_info,
+	&frr_pim_candidate_info,
 	&frr_gmp_info,
 };
 
-/* clang-format off */
 FRR_DAEMON_INFO(pim6d, PIM6,
 	.vty_port = PIM6D_VTY_PORT,
 	.proghelp = "Protocol Independent Multicast (RFC7761) for IPv6",

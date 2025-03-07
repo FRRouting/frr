@@ -208,6 +208,12 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 		zlog_debug("%s: ifchannel entry %s(%s) is deleted ", __func__,
 			   ch->sg_str, ch->interface->name);
 
+#if PIM_IPV == 6
+	/* Embedded RPs learned via PIM join/connected source are freed here */
+	if (pim_embedded_rp_is_embedded(&ch->sg.grp))
+		pim_embedded_rp_delete(pim_ifp->pim, &ch->sg.grp);
+#endif /* PIM_IPV == 6 */
+
 	XFREE(MTYPE_PIM_IFCHANNEL, ch);
 
 	if (up)
@@ -233,10 +239,16 @@ void pim_ifchannel_delete_all(struct interface *ifp)
 
 void delete_on_noinfo(struct pim_ifchannel *ch)
 {
-	if (ch->local_ifmembership == PIM_IFMEMBERSHIP_NOINFO
-	    && ch->ifjoin_state == PIM_IFJOIN_NOINFO
-	    && ch->t_ifjoin_expiry_timer == NULL)
+	struct pim_upstream *up = ch->upstream;
+	/*
+	 * (S,G) with no active traffic, KAT expires, PPT expries,
+	 * channel state is NoInfo
+	 */
+	if (ch->local_ifmembership == PIM_IFMEMBERSHIP_NOINFO &&
+	    ch->ifjoin_state == PIM_IFJOIN_NOINFO &&
+	    (ch->t_ifjoin_expiry_timer == NULL || (up && !pim_upstream_is_kat_running(up)))) {
 		pim_ifchannel_delete(ch);
+	}
 }
 
 void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,

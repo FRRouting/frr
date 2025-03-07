@@ -10,9 +10,10 @@ kinds:
       /usr/lib/frr/frrinit.sh stop
     volumes:
       - "./%NAME%:/etc/frr"
+      - "%RUNDIR%/var.lib.frr:/var/lib/frr"
       - "%RUNDIR%/var.log.frr:/var/log/frr"
       - "%RUNDIR%/var.run.frr:/var/run/frr"
-      - "%RUNDIR%/var.lib.frr:/var/lib/frr"
+      - "%RUNDIR%/var.tmp.frr:/var/tmp/frr"
     cap-add:
       - SYS_ADMIN
       - AUDIT_WRITE

@@ -249,7 +249,7 @@ apps:
             - network-bind
             - network-control
     bfdd-debug:
-        command: sbin/bfdd -f $SNAP_DATA/bfdd.conf --pid_file $SNAP_DATA/bfdd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA --bfdctl $SNAP_DATA/bfdd.sock
+        command: sbin/bfdd -f $SNAP_DATA/bfdd.conf --pid_file $SNAP_DATA/bfdd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
         plugs:
             - network
             - network-bind

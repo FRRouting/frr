@@ -409,7 +409,6 @@ domainname test.domain
 !
 !
 !
-!
 end
 test# conf t
 test(config)# hostname foohost
@@ -422,7 +421,6 @@ frr defaults @DFLT_NAME@
 !
 hostname foohost
 domainname test.domain
-!
 !
 !
 !

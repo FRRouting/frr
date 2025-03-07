@@ -98,6 +98,14 @@ static int zebra_vrf_new(struct vrf *vrf)
 	zvrf = zebra_vrf_alloc(vrf);
 	if (!vrf_is_backend_netns())
 		zvrf->zns = zebra_ns_lookup(NS_DEFAULT);
+	else if (vrf->vrf_id == VRF_DEFAULT) {
+		struct ns *ns;
+
+		strlcpy(vrf->data.l.netns_name, VRF_DEFAULT_NAME, NS_NAMSIZ);
+		ns = ns_lookup(NS_DEFAULT);
+		ns->vrf_ctxt = vrf;
+		vrf->ns_ctxt = ns;
+	}
 
 	otable_init(&zvrf->other_tables);
 
@@ -398,6 +406,7 @@ vrf_id_t zebra_vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id)
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
 		zvrf = vrf->info;
+
 		if (zvrf == NULL)
 			continue;
 		/* case vrf with netns : match the netnsid */
@@ -408,11 +417,31 @@ vrf_id_t zebra_vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id)
 			/* VRF is VRF_BACKEND_VRF_LITE */
 			if (zvrf->table_id != table_id)
 				continue;
+
 			return zvrf_id(zvrf);
 		}
 	}
 
 	return VRF_DEFAULT;
+}
+
+/*
+ * Lookup tableid by vrfid; handle vrf-lite and vrf-netns cases
+ */
+int zebra_vrf_lookup_tableid(vrf_id_t vrf_id, ns_id_t ns_id)
+{
+	struct zebra_vrf *zvrf;
+
+	/* Handle vrf-lite and vrf-netns */
+	if (vrf_is_backend_netns())
+		zvrf = vrf_info_lookup(ns_id);
+	else
+		zvrf = vrf_info_lookup(vrf_id);
+
+	if (zvrf)
+		return zvrf->table_id;
+	else
+		return ZEBRA_ROUTE_TABLE_UNKNOWN;
 }
 
 /* Lookup VRF by identifier.  */

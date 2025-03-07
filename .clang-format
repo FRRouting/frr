@@ -55,7 +55,7 @@ BreakConstructorInitializersBeforeComma: false
 BreakConstructorInitializers: BeforeComma
 BreakAfterJavaFieldAnnotations: false
 BreakStringLiterals: false
-ColumnLimit: 80
+ColumnLimit: 100
 # Linux: CommentPragmas: '^ IWYU pragma:'
 CommentPragmas: '\$(FRR|clippy)'
 CompactNamespaces: false
@@ -224,4 +224,8 @@ WhitespaceSensitiveMacros:
   - "DEFUN_YANG_NOSH"
   - "DEFUNSH"
   - "DEFUNSH_HIDDEN"
+  - "ALIAS"
+  - "ALIAS_HIDDEN"
+  - "ALIAS_YANG"
+  - "ALIAS_DEPRECATED"
 ...

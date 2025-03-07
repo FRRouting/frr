@@ -15,7 +15,6 @@ import sys
 import json
 import pytest
 from functools import partial
-from time import sleep
 from lib.topolog import logger
 
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -141,7 +140,7 @@ def test_bgp_better_admin_won():
         topotest.router_json_cmp, r3, "show ip route 40.0.0.0 json", expected
     )
 
-    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assertmsg = '"r3" route to 40.0.0.0 should have been lost'
     assert result is None, assertmsg
 
@@ -156,7 +155,7 @@ def test_bgp_better_admin_won():
         "show ip route 40.0.0.0 json",
         expected,
     )
-    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assertmsg = '"r3" route to 40.0.0.0 did not come back'
     assert result is None, assertmsg
 
@@ -197,7 +196,7 @@ def test_bgp_allow_as_in():
         expected,
     )
 
-    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assertmsg = '"r1" 192.168.1.1/32 route should have arrived'
     assert result is None, assertmsg
 
@@ -213,7 +212,7 @@ def test_bgp_allow_as_in():
         expected,
     )
 
-    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assertmsg = '"r2" 192.168.1.1/32 route should be gone'
     assert result is None, assertmsg
 
@@ -231,6 +230,20 @@ def test_local_vs_non_local():
     for i in range(len(paths)):
         if "fibPending" in paths[i]:
             assert False, "Route 60.0.0.0/24 should not have fibPending"
+
+
+def test_ip_protocol_any_fib_filter():
+    #    "Filtered route of source protocol any should not get installed in fib"
+
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r2 = tgen.gears["r2"]
+    r2.vtysh_cmd("conf\nno ip protocol bgp")
+    r2.vtysh_cmd("conf\nip protocol any route-map LIMIT")
+    test_bgp_route()
 
 
 if __name__ == "__main__":

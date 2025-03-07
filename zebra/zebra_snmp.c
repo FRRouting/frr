@@ -229,6 +229,8 @@ static int proto_trans(int type)
 		return 3; /* static route */
 	case ZEBRA_ROUTE_RIP:
 		return 8; /* rip */
+	case ZEBRA_ROUTE_ISIS:
+		return 9;
 	case ZEBRA_ROUTE_RIPNG:
 		return 1; /* shouldn't happen */
 	case ZEBRA_ROUTE_OSPF:
@@ -237,6 +239,8 @@ static int proto_trans(int type)
 		return 1; /* shouldn't happen */
 	case ZEBRA_ROUTE_BGP:
 		return 14; /* bgp */
+	case ZEBRA_ROUTE_EIGRP:
+		return 16;
 	default:
 		return 1; /* other */
 	}
@@ -253,9 +257,11 @@ static void check_replace(struct route_node *np2, struct route_entry *re2,
 		return;
 	}
 
-	if (prefix_cmp(&(*np)->p, &np2->p) < 0)
+	if (in_addr_cmp((uint8_t *)&(*np)->p.u.prefix4,
+			(uint8_t *)&np2->p.u.prefix4) < 0)
 		return;
-	if (prefix_cmp(&(*np)->p, &np2->p) > 0) {
+	if (in_addr_cmp((uint8_t *)&(*np)->p.u.prefix4,
+			(uint8_t *)&np2->p.u.prefix4) > 0) {
 		*np = np2;
 		*re = re2;
 		return;
@@ -298,14 +304,8 @@ static void get_fwtable_route_node(struct variable *v, oid objid[],
 	int i;
 
 	/* Init index variables */
-
-	pnt = (uint8_t *)&dest;
-	for (i = 0; i < 4; i++)
-		*pnt++ = 0;
-
-	pnt = (uint8_t *)&nexthop;
-	for (i = 0; i < 4; i++)
-		*pnt++ = 0;
+	memset(&dest, 0, sizeof(dest));
+	memset(&nexthop, 0, sizeof(nexthop));
 
 	proto = 0;
 	policy = 0;
@@ -497,23 +497,23 @@ static uint8_t *ipFwTable(struct variable *v, oid objid[], size_t *objid_len,
 		*val_len = sizeof(int);
 		return (uint8_t *)&result;
 	case IPFORWARDMETRIC1:
-		result = 0;
+		result = re->metric;
 		*val_len = sizeof(int);
 		return (uint8_t *)&result;
 	case IPFORWARDMETRIC2:
-		result = 0;
+		result = -1;
 		*val_len = sizeof(int);
 		return (uint8_t *)&result;
 	case IPFORWARDMETRIC3:
-		result = 0;
+		result = -1;
 		*val_len = sizeof(int);
 		return (uint8_t *)&result;
 	case IPFORWARDMETRIC4:
-		result = 0;
+		result = -1;
 		*val_len = sizeof(int);
 		return (uint8_t *)&result;
 	case IPFORWARDMETRIC5:
-		result = 0;
+		result = -1;
 		*val_len = sizeof(int);
 		return (uint8_t *)&result;
 	default:

@@ -352,7 +352,7 @@ route_stream_done(struct route_stream *stream)
 static int
 metric_to_kernel(int metric)
 {
-    return metric < INFINITY ? kernel_metric : KERNEL_INFINITY;
+	return metric < INFINITY ? metric : KERNEL_INFINITY;
 }
 
 /* This is used to maintain the invariant that the installed route is at

@@ -168,6 +168,38 @@ void ospf_external_info_delete(struct ospf *ospf, uint8_t type,
 	}
 }
 
+/*
+ * ospf_external_info_delete_multi_instance
+ *
+ * Delete instances of the external route information for a given route type.
+ * The preserve_instance parameter may be used to prevent the current instance
+ * from being deleted.
+ */
+void ospf_external_info_delete_multi_instance(struct ospf *ospf, uint8_t type, struct prefix_ipv4 p,
+					      unsigned long preserve_instance)
+{
+	struct route_node *rn;
+	struct ospf_external *ext;
+	struct list *ext_list;
+	struct listnode *node;
+
+	ext_list = ospf->external[type];
+	if (!ext_list)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(ext_list, node, ext)) {
+		if (ext->instance != preserve_instance) {
+			rn = route_node_lookup(EXTERNAL_INFO(ext), (struct prefix *)&p);
+			if (rn) {
+				ospf_external_info_free(rn->info);
+				rn->info = NULL;
+				route_unlock_node(rn);
+				route_unlock_node(rn);
+			}
+		}
+	}
+}
+
 struct external_info *ospf_external_info_lookup(struct ospf *ospf, uint8_t type,
 						unsigned short instance,
 						struct prefix_ipv4 *p)
@@ -184,6 +216,44 @@ struct external_info *ospf_external_info_lookup(struct ospf *ospf, uint8_t type,
 		route_unlock_node(rn);
 		if (rn->info)
 			return rn->info;
+	}
+
+	return NULL;
+}
+
+/*
+ * ospf_external_info_default_lookup
+ *
+ * For default information criteria, we really don't care about the
+ * source of the route and there only should be one.
+ */
+struct external_info *ospf_external_info_default_lookup(struct ospf *ospf)
+{
+	struct ospf_external *ext;
+	struct external_info *ei;
+	struct list *ext_list;
+	struct listnode *node;
+	struct route_node *rn;
+	struct prefix_ipv4 p = {
+		.family = AF_INET,
+		.prefixlen = 0,
+		.prefix.s_addr = INADDR_ANY,
+	};
+
+	ext_list = ospf->external[DEFAULT_ROUTE];
+	if (!ext_list)
+		return (NULL);
+
+	for (ALL_LIST_ELEMENTS_RO(ext_list, node, ext)) {
+		rn = route_node_lookup(EXTERNAL_INFO(ext), (struct prefix *)&p);
+		if (rn) {
+			route_unlock_node(rn);
+			if (rn->info) {
+				ei = rn->info;
+				if (ei->type != ZEBRA_ROUTE_OSPF || ei->instance != ospf->instance)
+					return ei;
+			}
+		}
 	}
 
 	return NULL;
@@ -422,7 +492,7 @@ static void ospf_aggr_handle_external_info(void *data)
 	ei->to_be_processed = true;
 
 	if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
-		zlog_debug("%s: Handle extrenal route(%pI4/%d)", __func__,
+		zlog_debug("%s: Handle external route(%pI4/%d)", __func__,
 			   &ei->p.prefix, ei->p.prefixlen);
 
 	assert(ospf);
@@ -501,7 +571,7 @@ static void ospf_external_aggr_delete(struct ospf *ospf, struct route_node *rn)
 }
 
 struct ospf_external_aggr_rt *
-ospf_extrenal_aggregator_lookup(struct ospf *ospf, struct prefix_ipv4 *p)
+ospf_external_aggregator_lookup(struct ospf *ospf, struct prefix_ipv4 *p)
 {
 	struct route_node *rn;
 	struct ospf_external_aggr_rt *summary_rt = NULL;
@@ -547,7 +617,7 @@ void ospf_unlink_ei_from_aggr(struct ospf *ospf,
 {
 	if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
 		zlog_debug(
-			"%s: Unlinking extrenal route(%pI4/%d) from aggregator(%pI4/%d), external route count:%ld",
+			"%s: Unlinking external route(%pI4/%d) from aggregator(%pI4/%d), external route count:%ld",
 			__func__, &ei->p.prefix, ei->p.prefixlen,
 			&aggr->p.prefix, aggr->p.prefixlen,
 			OSPF_EXTERNAL_RT_COUNT(aggr));
@@ -578,7 +648,7 @@ static void ospf_link_ei_to_aggr(struct ospf_external_aggr_rt *aggr,
 {
 	if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
 		zlog_debug(
-			"%s: Linking extrenal route(%pI4/%d) to aggregator(%pI4/%d)",
+			"%s: Linking external route(%pI4/%d) to aggregator(%pI4/%d)",
 			__func__, &ei->p.prefix, ei->p.prefixlen,
 			&aggr->p.prefix, aggr->p.prefixlen);
 	(void)hash_get(aggr->match_extnl_hash, ei, hash_alloc_intern);
@@ -633,7 +703,7 @@ struct ospf_lsa *ospf_originate_summary_lsa(struct ospf *ospf,
 		return NULL;
 	}
 
-	/* Prepare the extrenal_info for aggregator */
+	/* Prepare the external_info for aggregator */
 	memset(&ei_aggr, 0, sizeof(ei_aggr));
 	ei_aggr.p = aggr->p;
 	ei_aggr.tag = aggr->tag;
@@ -993,7 +1063,7 @@ static void ospf_handle_external_aggr_update(struct ospf *ospf)
 
 			aggr->action = OSPF_ROUTE_AGGR_NONE;
 
-			/* Prepare the extrenal_info for aggregator */
+			/* Prepare the external_info for aggregator */
 			memset(&ei_aggr, 0, sizeof(ei_aggr));
 			ei_aggr.p = aggr->p;
 			ei_aggr.tag = aggr->tag;
@@ -1075,12 +1145,10 @@ static void ospf_external_aggr_timer(struct ospf *ospf,
 	aggr->action = operation;
 
 	if (ospf->t_external_aggr) {
-		if (ospf->aggr_action == OSPF_ROUTE_AGGR_ADD) {
-
+		if (ospf->aggr_action == OSPF_ROUTE_AGGR_ADD || operation != OSPF_ROUTE_AGGR_ADD) {
 			if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
-				zlog_debug(
-					"%s: Not required to retsart timer,set is already added.",
-					__func__);
+				zlog_debug("%s: Not required to restart timer,set is already added.",
+					   __func__);
 			return;
 		}
 
@@ -1107,7 +1175,7 @@ int ospf_asbr_external_aggregator_set(struct ospf *ospf, struct prefix_ipv4 *p,
 {
 	struct ospf_external_aggr_rt *aggregator;
 
-	aggregator = ospf_extrenal_aggregator_lookup(ospf, p);
+	aggregator = ospf_external_aggregator_lookup(ospf, p);
 
 	if (aggregator) {
 		if (CHECK_FLAG(aggregator->flags,
@@ -1167,7 +1235,7 @@ int ospf_asbr_external_rt_no_advertise(struct ospf *ospf, struct prefix_ipv4 *p)
 	struct ospf_external_aggr_rt *aggr;
 	route_tag_t tag = 0;
 
-	aggr = ospf_extrenal_aggregator_lookup(ospf, p);
+	aggr = ospf_external_aggregator_lookup(ospf, p);
 	if (aggr) {
 		if (CHECK_FLAG(aggr->flags, OSPF_EXTERNAL_AGGRT_NO_ADVERTISE))
 			return OSPF_SUCCESS;

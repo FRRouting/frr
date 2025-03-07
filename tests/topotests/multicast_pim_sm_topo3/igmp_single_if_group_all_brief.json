@@ -1,5 +1,4 @@
 {
-  "totalGroups":5,
   "watermarkLimit":0,
   "l1-i1-eth1":{
     "name":"l1-i1-eth1",
@@ -48,4 +47,3 @@
     ]
   }
 }
-

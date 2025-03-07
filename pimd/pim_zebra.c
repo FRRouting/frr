@@ -97,7 +97,10 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug("%s: %s(%s) connected IP address %pFX flags %u %s",
-			   __func__, c->ifp->name, VRF_LOGNAME(pim_ifp->pim->vrf), p, c->flags,
+			   __func__, c->ifp->name,
+			   (pim_ifp ? VRF_LOGNAME(pim_ifp->pim->vrf)
+				    : "Unknown"),
+			   p, c->flags,
 			   CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)
 				   ? "secondary"
 				   : "primary");
@@ -154,6 +157,8 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 				pim_if_addr_add_all(ifp);
 		}
 	}
+
+	pim_cand_addrs_changed();
 	return 0;
 }
 
@@ -202,6 +207,8 @@ static int pim_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 	}
 
 	connected_free(&c);
+
+	pim_cand_addrs_changed();
 	return 0;
 }
 
@@ -419,7 +426,6 @@ static void pim_zebra_connected(struct zclient *zclient)
 
 static void pim_zebra_capabilities(struct zclient_capabilities *cap)
 {
-	router->mlag_role = cap->role;
 	router->multipath = cap->ecmp;
 }
 

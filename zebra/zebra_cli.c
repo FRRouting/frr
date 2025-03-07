@@ -1983,6 +1983,10 @@ static void lib_vrf_zebra_ipv6_router_id_cli_write(struct vty *vty,
 	vty_out(vty, "ipv6 router-id %s\n", id);
 }
 
+/*
+ * Both the v4 and v6 version of this command are now limiting the
+ * usage of System route types from being considered here at all
+ */
 DEFPY_YANG (ip_protocol,
        ip_protocol_cmd,
        "[no] ip protocol " FRR_IP_PROTOCOL_MAP_STR_ZEBRA
@@ -2221,6 +2225,40 @@ static void lib_vrf_zebra_ipv6_resolve_via_default_cli_write(
 	}
 }
 
+DEFPY_YANG (mpls_fec_nexthop_resolution, mpls_fec_nexthop_resolution_cmd,
+      "[no$no] mpls fec nexthop-resolution",
+      NO_STR
+      MPLS_STR
+      "MPLS FEC table\n"
+      "Authorise nexthop resolution over all labeled routes.\n")
+{
+	nb_cli_enqueue_change(vty,
+			      "./frr-zebra:zebra/mpls/fec-nexthop-resolution",
+			      NB_OP_MODIFY, no ? "false" : "true");
+
+	if (vty->node == CONFIG_NODE)
+		return nb_cli_apply_changes(vty, "/frr-vrf:lib/vrf[name='%s']",
+					    VRF_DEFAULT_NAME);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+static void lib_vrf_mpls_fec_nexthop_resolution_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	bool fec_nexthop_resolution = yang_dnode_get_bool(dnode, NULL);
+
+	if (fec_nexthop_resolution || show_defaults) {
+		zebra_vrf_indent_cli_write(vty, dnode);
+
+		vty_out(vty, "%smpls fec nexthop-resolution\n",
+			fec_nexthop_resolution ? "" : "no ");
+	}
+}
+
+#if CONFDATE > 20251207
+CPP_NOTICE("Remove no-op netns command")
+#endif
 DEFPY_YANG (vrf_netns,
        vrf_netns_cmd,
        "[no] netns ![NAME$netns_name]",
@@ -2317,12 +2355,32 @@ DEFPY_YANG (vni_mapping,
        "VNI-ID\n"
        "prefix-routes-only\n")
 {
-	if (!no)
+	const struct lyd_node *dnode;
+	const char *vrf;
+
+	if (!no) {
 		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/l3vni-id", NB_OP_MODIFY,
 			      vni_str);
-	else
-		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/l3vni-id", NB_OP_DESTROY,
-			      NULL);
+	} else {
+		if (vty->node == CONFIG_NODE) {
+			if (yang_dnode_existsf(vty->candidate_config->dnode,
+					       "/frr-vrf:lib/vrf[name='%s']/frr-zebra:zebra[l3vni-id='%lu']",
+					       VRF_DEFAULT_NAME, vni))
+				nb_cli_enqueue_change(vty, "./frr-zebra:zebra/l3vni-id",
+						      NB_OP_DESTROY, NULL);
+		} else {
+			dnode = yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
+			if (dnode) {
+				vrf = yang_dnode_get_string(dnode, "name");
+
+				if (yang_dnode_existsf(vty->candidate_config->dnode,
+						       "/frr-vrf:lib/vrf[name='%s']/frr-zebra:zebra[l3vni-id='%lu']",
+						       vrf, vni))
+					nb_cli_enqueue_change(vty, "./frr-zebra:zebra/l3vni-id",
+							      NB_OP_DESTROY, NULL);
+			}
+		}
+	}
 
 	if (filter)
 		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/prefix-only",
@@ -2852,6 +2910,10 @@ const struct frr_yang_module_info frr_zebra_cli_info = {
 			.cbs.cli_show = lib_vrf_zebra_netns_table_range_cli_write,
 		},
 		{
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/mpls/fec-nexthop-resolution",
+			.cbs.cli_show = lib_vrf_mpls_fec_nexthop_resolution_cli_write,
+		},
+		{
 			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/l3vni-id",
 			.cbs.cli_show = lib_vrf_zebra_l3vni_id_cli_write,
 		},
@@ -2956,6 +3018,9 @@ void zebra_cli_init(void)
 	install_element(CONFIG_NODE, &ipv6_nht_default_route_cmd);
 	install_element(VRF_NODE, &ip_nht_default_route_cmd);
 	install_element(VRF_NODE, &ipv6_nht_default_route_cmd);
+
+	install_element(CONFIG_NODE, &mpls_fec_nexthop_resolution_cmd);
+	install_element(VRF_NODE, &mpls_fec_nexthop_resolution_cmd);
 
 	install_element(CONFIG_NODE, &vni_mapping_cmd);
 	install_element(VRF_NODE, &vni_mapping_cmd);

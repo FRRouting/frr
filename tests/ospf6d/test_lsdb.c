@@ -12,6 +12,7 @@
 #include "vector.h"
 #include "vty.h"
 
+#include "ospf6d/ospf6_proto.h" /* for struct ospf6_prefix */
 #include "ospf6d/ospf6_lsa.h"
 #include "ospf6d/ospf6_lsdb.h"
 

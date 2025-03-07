@@ -87,11 +87,9 @@ def setup_module(mod):
         router.net.set_intf_netns(rname + "-eth0", ns, up=True)
         router.net.set_intf_netns(rname + "-eth1", ns, up=True)
 
-        router.load_config(TopoRouter.RD_MGMTD, None, "--vrfwnetns")
+        router.use_netns_vrf()
         router.load_config(
-            TopoRouter.RD_ZEBRA,
-            os.path.join(CWD, "{}/zebra.conf".format(rname)),
-            "--vrfwnetns",
+            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
         router.load_config(
             TopoRouter.RD_OSPF, os.path.join(CWD, "{}/ospfd.conf".format(rname))
@@ -234,7 +232,7 @@ def test_ospf_json():
             "show ip ospf vrf {0}-ospf-cust1 json".format(rname),
             expected,
         )
-        _, diff = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+        _, diff = topotest.run_and_expect(test_func, None, count=30, wait=1)
         assertmsg = '"{}" JSON output mismatches'.format(rname)
         assert diff is None, assertmsg
 

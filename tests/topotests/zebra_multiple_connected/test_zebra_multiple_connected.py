@@ -19,6 +19,9 @@ import sys
 import pytest
 import json
 from functools import partial
+from lib.topolog import logger
+
+pytestmark = pytest.mark.random_order(disabled=True)
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -61,6 +64,9 @@ def build_topo(tgen):
     switch = tgen.add_switch("sw3")
     switch.add_link(tgen.gears["r2"])
     switch.add_link(tgen.gears["r3"])
+
+    # Create a p2p connection between r1 and r2
+    tgen.add_link(tgen.gears["r1"], tgen.gears["r2"])
 
 
 #####################################################
@@ -158,6 +164,111 @@ def test_zebra_noprefix_connected():
     result, _ = topotest.run_and_expect(test_func, "", count=20, wait=1)
     assert result, "Connected Route should not have been added"
 
+
+def test_zebra_noprefix_connected_add():
+    "Test that a noprefixroute created with a manual route works as expected, this is for NetworkManager"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+    router.run("ip route add 192.168.44.0/24 dev r1-eth1")
+
+    connected = "{}/{}/ip_route_connected.json".format(CWD, router.name)
+    expected = json.loads(open(connected).read())
+
+    test_func = partial(
+        topotest.router_json_cmp, router, "show ip route 192.168.44.0/24 json", expected
+    )
+    result, _ = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result, "Connected Route should have been added\n{}".format(_)
+
+
+def test_zebra_kernel_route_add():
+    "Test that a random kernel route is properly handled as expected"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+    router.run("ip route add 4.5.6.7/32 dev r1-eth1")
+
+    kernel = "{}/{}/ip_route_kernel.json".format(CWD, router.name)
+    expected = json.loads(open(kernel).read())
+
+    test_func = partial(
+        topotest.router_json_cmp, router, "show ip route 4.5.6.7/32 json", expected
+    )
+    result, _ = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result, "Connected Route should have been added\n{}".format(_)
+
+
+def test_zebra_kernel_route_blackhole_add():
+    "Test that a blackhole route is not affected by interface's link change"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+    router.run("ip route add blackhole default")
+    router.run("ip link set dev r1-eth1 down")
+
+    kernel = "{}/{}/ip_route_kernel_blackhole.json".format(CWD, router.name)
+    expected = json.loads(open(kernel).read())
+
+    test_func = partial(
+        topotest.router_json_cmp, router, "show ip route 0.0.0.0/0 json", expected
+    )
+    result, _ = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result, "Blackhole Route should have not been removed\n{}".format(_)
+
+def test_zebra_kernel_route_interface_linkdown():
+    "Test that a kernel routes should be affected by interface change"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+    router.run("ip route add 5.5.6.7/32 via 10.0.1.66 dev r1-eth2")
+
+    kernel = "{}/{}/ip_route_kernel_interface_up.json".format(CWD, router.name)
+    expected = json.loads(open(kernel).read())
+
+    test_func = partial(
+            topotest.router_json_cmp, router, "show ip route 5.5.6.7/32 json", expected
+            )
+    result, _ = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result, "Kernel Route should be selected:\n{}".format(_)
+
+    # link down
+    router2 = tgen.gears["r2"]
+    router2.run("ip link set dev r2-eth2 down")
+
+    kernel = "{}/{}/ip_route_kernel_interface_down.json".format(CWD, router.name)
+    expected = json.loads(open(kernel).read())
+
+    test_func = partial(
+        topotest.router_json_cmp, router, "show ip route 5.5.6.7/32 json", expected
+    )
+    result, _ = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result, "Kernel Route should not be selected:\n{}".format(_)
+
+    # link up
+    router2 = tgen.gears["r2"]
+    router2.run("ip link set dev r2-eth2 up")
+
+    kernel = "{}/{}/ip_route_kernel_interface_up.json".format(CWD, router.name)
+    expected = json.loads(open(kernel).read())
+
+    test_func = partial(
+            topotest.router_json_cmp, router, "show ip route 5.5.6.7/32 json", expected
+            )
+    result, _ = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result, "Kernel Route should be selected:\n{}".format(_)
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]

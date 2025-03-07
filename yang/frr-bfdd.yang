@@ -16,9 +16,6 @@ module frr-bfdd {
   import frr-vrf {
     prefix frr-vrf;
   }
-  import frr-route-types {
-    prefix frr-route-types;
-  }
 
   organization "FRRouting";
   contact
@@ -27,7 +24,7 @@ module frr-bfdd {
   description
     "This module defines a model for managing FRR bfdd daemon.
 
-     Copyright 2020 FRRouting
+     Copyright 2025 FRRouting
 
      Redistribution and use in source and binary forms, with or without
      modification, are permitted provided that the following conditions
@@ -61,6 +58,14 @@ module frr-bfdd {
        RFC 5883: Bidirectional Forwarding Detection (BFD) for Multihop Paths.";
   }
 
+  revision 2025-03-03 {
+    description "Add log-sessio-changes leaf";
+    reference
+      "RFC 5880: Bidirectional Forwarding Detection (BFD).
+       RFC 5881: Bidirectional Forwarding Detection (BFD)
+                 for IPv4 and IPv6 (Single Hop).
+       RFC 5883: Bidirectional Forwarding Detection (BFD) for Multihop Paths.";
+  }
 
   /*
    * BFD types declaration.
@@ -68,7 +73,7 @@ module frr-bfdd {
   typedef multiplier {
     description "Detection multiplier";
     type uint8 {
-      range "2..255";
+      range "1..255";
     }
   }
 
@@ -172,7 +177,7 @@ module frr-bfdd {
 
     leaf desired-transmission-interval {
       type uint32 {
-          range "10000..60000000";
+          range "10000..max";
       }
       units microseconds;
       default 300000;
@@ -181,7 +186,7 @@ module frr-bfdd {
 
     leaf required-receive-interval {
       type uint32 {
-          range "10000..60000000";
+          range "10000..max";
       }
       units microseconds;
       default 300000;
@@ -200,6 +205,13 @@ module frr-bfdd {
       description
         "Don't attempt to start session establishment.";
     }
+
+    leaf log-session-changes {
+      type boolean;
+      default false;
+      description "Log session changes from/to Up state to/from Down state";
+    }
+
   }
 
   grouping session-echo {
@@ -213,7 +225,7 @@ module frr-bfdd {
 
     leaf desired-echo-transmission-interval {
       type uint32 {
-          range "10000..60000000";
+          range "10000..max";
       }
       units microseconds;
       default 50000;
@@ -222,7 +234,7 @@ module frr-bfdd {
 
     leaf required-echo-receive-interval {
       type uint32 {
-          range "0 | 10000..60000000";
+          range "0 | 10000..max";
       }
       units microseconds;
       default 50000;
@@ -496,6 +508,134 @@ module frr-bfdd {
           leaf profile {
             type profile-ref;
             description "Override defaults with profile.";
+          }
+
+          uses session-common;
+          uses session-multi-hop;
+
+          container stats {
+            uses session-states;
+            config false;
+          }
+        }
+
+        list sbfd-echo {
+          key "source-addr bfd-name vrf";
+          description "support a special echo SBFD session in RFC7880, and enhanced with SRv6 encapsulation";
+
+          leaf source-addr {
+            type inet:ip-address;
+            description "Local IP address";
+          }
+
+          leaf dest-addr {
+            type inet:ip-address;
+            description "IP address of the peer";
+          }
+
+          leaf bfd-name {
+            type string;
+            description "Bfd session name.";
+          }
+
+          leaf vrf {
+            type frr-vrf:vrf-ref;
+            description "Virtual Routing Domain name";
+          }
+
+          leaf profile {
+            type profile-ref;
+            description "Override defaults with profile.";
+          }
+
+          leaf-list srv6-encap-data {
+            type inet:ipv6-address;
+            max-elements 6;
+
+            description "segment list ipv6 addresses for srv6 encapsulation";
+          }
+
+          leaf srv6-source-ipv6 {
+            type inet:ipv6-address;
+            description "source ipv6 address for srv6 encapsulation";
+          }
+
+          leaf bfd-mode {
+            type uint32;
+            description "Bfd session mode.";
+          }
+
+          leaf multi-hop {
+            type boolean;
+            description "Use multi hop session instead of single hop.";
+          }
+
+          uses session-common;
+          uses session-multi-hop;
+          uses session-echo;
+
+          container stats {
+            uses session-states;
+            config false;
+          }
+        }
+
+        list sbfd-init {
+          key "source-addr dest-addr bfd-name vrf";
+          description "support SBFD session in RFC7880, and optional with SRv6 encapsulation";
+
+          leaf source-addr {
+            type inet:ip-address;
+            description "Local IP address";
+          }
+
+          leaf dest-addr {
+            type inet:ip-address;
+            description "IP address of the peer";
+          }
+
+          leaf bfd-name {
+            type string;
+            description "Bfd session name.";
+          }
+
+          leaf vrf {
+            type frr-vrf:vrf-ref;
+            description "Virtual Routing Domain name";
+          }
+
+          leaf profile {
+            type profile-ref;
+            description "Override defaults with profile.";
+          }
+
+          leaf-list srv6-encap-data {
+            type inet:ipv6-address;
+            max-elements 6;
+
+            description "segment list ipv6 addresses for srv6 encapsulation";
+          }
+
+          leaf srv6-source-ipv6 {
+            type inet:ip-address;
+            description "source ipv6 address for srv6 encapsulation";
+          }
+
+          leaf remote-discr {
+            type uint32;
+            default 0;
+            description
+              "Remote session identifier";
+          }
+
+          leaf bfd-mode {
+            type uint32;
+            description "Bfd session mode.";
+          }
+
+          leaf multi-hop {
+            type boolean;
+            description "Use multi hop session instead of single hop.";
           }
 
           uses session-common;

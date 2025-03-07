@@ -10,6 +10,7 @@
 #include <zebra.h>
 
 #include "if.h"
+#include "pim_instance.h"
 
 #define PIM_PIM_BUFSIZE_READ  (20000)
 #define PIM_PIM_BUFSIZE_WRITE (20000)
@@ -42,10 +43,12 @@ void pim_hello_restart_now(struct interface *ifp);
 void pim_hello_restart_triggered(struct interface *ifp);
 
 int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
-		   pim_sgaddr sg);
+		   pim_sgaddr sg, bool is_mcast);
 
 int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 		 int pim_msg_size, struct interface *ifp);
 
 int pim_hello_send(struct interface *ifp, uint16_t holdtime);
+
+int pim_sock_read_helper(int fd, struct pim_instance *pim, bool is_mcast);
 #endif /* PIM_PIM_H */

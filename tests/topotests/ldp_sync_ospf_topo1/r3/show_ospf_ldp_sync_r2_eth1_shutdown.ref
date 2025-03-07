@@ -1,8 +1,8 @@
 {
   "r3-eth1":{
-    "ldpIgpSyncEnabled":false,
+    "ldpIgpSyncEnabled":true,
     "holdDownTimeInSec":50,
-    "ldpIgpSyncState":"Sync not required"
+    "ldpIgpSyncState":"Sync achieved"
   },
   "r3-eth2":{
     "ldpIgpSyncEnabled":true,

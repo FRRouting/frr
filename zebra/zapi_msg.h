@@ -51,10 +51,8 @@ extern void nbr_connected_delete_ipv6(struct interface *ifp,
 				      struct in6_addr *address);
 extern int zsend_interface_update(int cmd, struct zserv *client,
 				  struct interface *ifp);
-extern int zsend_redistribute_route(int cmd, struct zserv *zclient,
-				    const struct route_node *rn,
-				    const struct route_entry *re,
-				    bool is_table_direct);
+extern int zsend_redistribute_route(int cmd, struct zserv *zclient, const struct route_node *rn,
+				    const struct route_entry *re, vrf_id_t *to_vrf);
 
 extern int zsend_router_id_update(struct zserv *zclient, afi_t afi,
 				  struct prefix *p, vrf_id_t vrf_id);
@@ -106,7 +104,7 @@ extern int zsend_client_close_notify(struct zserv *client,
 int zsend_nhg_notify(uint16_t type, uint16_t instance, uint32_t session_id,
 		     uint32_t id, enum zapi_nhg_notify_owner note);
 
-extern void zapi_re_opaque_free(struct re_opaque *opaque);
+extern void zapi_re_opaque_free(struct route_entry *re);
 
 extern int zsend_zebra_srv6_locator_add(struct zserv *client,
 					struct srv6_locator *loc);

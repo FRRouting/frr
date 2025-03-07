@@ -109,6 +109,10 @@ ospf_external_info_add(struct ospf *, uint8_t, unsigned short,
 		       route_tag_t, uint32_t metric);
 extern void ospf_external_info_delete(struct ospf *, uint8_t, unsigned short,
 				      struct prefix_ipv4);
+extern void ospf_external_info_delete_multi_instance(struct ospf *ospf, uint8_t type,
+						     struct prefix_ipv4 p,
+						     unsigned long preserve_instance);
+#define OSPF_DELETE_ANY_INSTANCE 0xffffffff
 extern struct external_info *ospf_external_info_lookup(struct ospf *, uint8_t,
 						       unsigned short,
 						       struct prefix_ipv4 *);
@@ -140,7 +144,7 @@ extern int ospf_external_aggregator_timer_set(struct ospf *ospf,
 extern void ospf_external_aggrigator_free(struct ospf_external_aggr_rt *aggr);
 
 extern struct ospf_external_aggr_rt *
-ospf_extrenal_aggregator_lookup(struct ospf *ospf, struct prefix_ipv4 *p);
+ospf_external_aggregator_lookup(struct ospf *ospf, struct prefix_ipv4 *p);
 
 void ospf_unset_all_aggr_flag(struct ospf *ospf);
 

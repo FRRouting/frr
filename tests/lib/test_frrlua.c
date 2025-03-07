@@ -13,6 +13,8 @@ static void test_encode_decode(void)
 {
 	lua_State *L = luaL_newstate();
 
+	luaL_openlibs(L);
+
 	int a = 123;
 	int b = a;
 
@@ -88,7 +90,7 @@ static void test_encode_decode(void)
 
 	lua_pushin6addr(L, &in6addr_a);
 	lua_decode_in6addr(L, -1, &in6addr_a);
-	assert(in6addr_cmp(&in6addr_a, &in6addr_b) == 0);
+	assert(memcmp(&in6addr_a, &in6addr_b, sizeof(struct in6_addr)) == 0);
 	assert(lua_gettop(L) == 0);
 
 	union sockunion su_a, su_b;
@@ -99,6 +101,20 @@ static void test_encode_decode(void)
 	lua_decode_sockunion(L, -1, &su_a);
 	assert(sockunion_cmp(&su_a, &su_b) == 0);
 	assert(lua_gettop(L) == 0);
+
+	/* Test if built-in functions (string() in this case) are working */
+	const char *result;
+
+	lua_getglobal(L, "string");
+	lua_getfield(L, -1, "upper");
+	lua_pushstring(L, "testas");
+	lua_pcall(L, 1, 1, 0);
+
+	result = lua_tostring(L, -1);
+	assert(strmatch(result, "TESTAS"));
+	lua_pop(L, 1);
+	lua_close(L);
+	/* End of built-in functions test */
 }
 
 int main(int argc, char **argv)

@@ -292,6 +292,36 @@ int pim_socket_join(int fd, pim_addr group, pim_addr ifaddr, ifindex_t ifindex,
 	return ret;
 }
 
+int pim_socket_leave(int fd, pim_addr group, pim_addr ifaddr, ifindex_t ifindex,
+		     struct pim_interface *pim_ifp)
+{
+	int ret;
+
+#if PIM_IPV == 4
+	ret = setsockopt_ipv4_multicast(fd, IP_DROP_MEMBERSHIP, ifaddr,
+					group.s_addr, ifindex);
+#else
+	struct ipv6_mreq opt;
+
+	memcpy(&opt.ipv6mr_multiaddr, &group, 16);
+	opt.ipv6mr_interface = ifindex;
+	ret = setsockopt(fd, IPPROTO_IPV6, IPV6_LEAVE_GROUP, &opt, sizeof(opt));
+#endif
+
+	if (ret) {
+		flog_err(EC_LIB_SOCKET,
+			 "Failure socket leaving fd=%d group %pPAs on interface address %pPAs: %m",
+			 fd, &group, &ifaddr);
+		pim_ifp->igmp_ifstat_joins_failed++;
+		return ret;
+	}
+
+	if (PIM_DEBUG_TRACE)
+		zlog_debug("Socket fd=%d left group %pPAs on interface address %pPAs",
+			   fd, &group, &ifaddr);
+	return ret;
+}
+
 #if PIM_IPV == 4
 static void cmsg_getdstaddr(struct msghdr *mh, struct sockaddr_storage *dst,
 			    ifindex_t *ifindex)

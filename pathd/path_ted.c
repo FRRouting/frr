@@ -30,12 +30,11 @@ static uint32_t path_ted_stop_importing_igp(void);
 static enum zclient_send_status path_ted_link_state_sync(void);
 static void path_ted_timer_handler_sync(struct event *thread);
 static void path_ted_timer_handler_refresh(struct event *thread);
-static int path_ted_cli_debug_config_write(struct vty *vty);
-static int path_ted_cli_debug_set_all(uint32_t flags, bool set);
 
 extern struct zclient *zclient;
 
-struct ted_state ted_state_g = {};
+struct ted_state ted_state_g = { .dbg = { .conf = "debug pathd mpls-te",
+					  .desc = "Pathd TED" } };
 
 /*
  * path_path_ted public API function implementations
@@ -335,10 +334,8 @@ DEFPY (debug_path_ted,
        "ted debugging\n")
 {
 	uint32_t mode = DEBUG_NODE2MODE(vty->node);
-	bool no_debug = (no != NULL);
 
 	DEBUG_MODE_SET(&ted_state_g.dbg, mode, !no);
-	DEBUG_FLAGS_SET(&ted_state_g.dbg, PATH_TED_DEBUG_BASIC, !no_debug);
 	return CMD_SUCCESS;
 }
 
@@ -466,37 +463,6 @@ DEFPY (show_pathd_ted_db,
 	return CMD_SUCCESS;
 }
 
-/*
- * Config Write functions
- */
-
-int path_ted_cli_debug_config_write(struct vty *vty)
-{
-	if (DEBUG_MODE_CHECK(&ted_state_g.dbg, DEBUG_MODE_CONF)) {
-		if (DEBUG_FLAGS_CHECK(&ted_state_g.dbg, PATH_TED_DEBUG_BASIC))
-			vty_out(vty, "debug pathd mpls-te\n");
-		return 1;
-	}
-	return 0;
-}
-
-void path_ted_show_debugging(struct vty *vty)
-{
-	if (DEBUG_FLAGS_CHECK(&ted_state_g.dbg, PATH_TED_DEBUG_BASIC))
-		vty_out(vty, "  Path TED debugging is on\n");
-}
-
-int path_ted_cli_debug_set_all(uint32_t flags, bool set)
-{
-	DEBUG_FLAGS_SET(&ted_state_g.dbg, flags, set);
-
-	/* If all modes have been turned off, don't preserve options. */
-	if (!DEBUG_MODE_CHECK(&ted_state_g.dbg, DEBUG_MODE_ALL))
-		DEBUG_CLEAR(&ted_state_g.dbg);
-
-	return 0;
-}
-
 /**
  * Help fn to show ted related configuration
  *
@@ -543,9 +509,7 @@ static void path_ted_register_vty(void)
 	install_element(CONFIG_NODE, &debug_path_ted_cmd);
 	install_element(ENABLE_NODE, &debug_path_ted_cmd);
 
-	hook_register(nb_client_debug_config_write,
-		      path_ted_cli_debug_config_write);
-	hook_register(nb_client_debug_set_all, path_ted_cli_debug_set_all);
+	debug_install(&ted_state_g.dbg);
 }
 
 /**

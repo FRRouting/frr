@@ -19,7 +19,6 @@ import os
 import sys
 import time
 import pytest
-from copy import deepcopy
 from lib.topolog import logger
 
 # pylint: disable=C0413

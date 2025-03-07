@@ -456,8 +456,43 @@ int group_distribute_list_create_helper(
  * XPath: /frr-ripd:ripd/instance/distribute-lists/distribute-list/{in,out}/{access,prefix}-list
  */
 
+static int distribute_list_leaf_update(const struct lyd_node *dnode,
+				       int ip_version, bool no);
+
 int group_distribute_list_destroy(struct nb_cb_destroy_args *args)
 {
+	struct lyd_node *dnode;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	/*
+	 * We don't keep the IP version of distribute-list anywhere, so we're
+	 * trying to remove both. If one doesn't exist, it's simply skipped by
+	 * the remove function.
+	 */
+
+	dnode = yang_dnode_get(args->dnode, "in/access-list");
+	if (dnode) {
+		distribute_list_leaf_update(dnode, 4, true);
+		distribute_list_leaf_update(dnode, 6, true);
+	}
+	dnode = yang_dnode_get(args->dnode, "in/prefix-list");
+	if (dnode) {
+		distribute_list_leaf_update(dnode, 4, true);
+		distribute_list_leaf_update(dnode, 6, true);
+	}
+	dnode = yang_dnode_get(args->dnode, "out/access-list");
+	if (dnode) {
+		distribute_list_leaf_update(dnode, 4, true);
+		distribute_list_leaf_update(dnode, 6, true);
+	}
+	dnode = yang_dnode_get(args->dnode, "out/prefix-list");
+	if (dnode) {
+		distribute_list_leaf_update(dnode, 4, true);
+		distribute_list_leaf_update(dnode, 6, true);
+	}
+
 	nb_running_unset_entry(args->dnode);
 	return NB_OK;
 }

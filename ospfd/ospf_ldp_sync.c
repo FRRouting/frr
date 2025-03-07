@@ -901,7 +901,7 @@ DEFPY (no_mpls_ldp_sync,
 	 *  stop holddown timer if running
 	 *  restore ospf cost
 	 */
-	SET_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG);
+	UNSET_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG);
 	ldp_sync_info->enabled = LDP_IGP_SYNC_DEFAULT;
 	ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
 	EVENT_OFF(ldp_sync_info->t_holddown);

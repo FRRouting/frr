@@ -354,7 +354,7 @@ bfd_dplane_session_state_change(struct bfd_dplane_ctx *bdc,
 	bs->remote_timers.required_min_echo = ntohl(state->required_echo_rx);
 
 	/* Notify and update counters. */
-	control_notify(bs, bs->ses_state);
+	ptm_bfd_notify(bs, bs->ses_state);
 
 	/* No state change. */
 	if (old_state == bs->ses_state)
@@ -384,10 +384,15 @@ bfd_dplane_session_state_change(struct bfd_dplane_ctx *bdc,
 		break;
 	}
 
-	if (bglobal.debug_peer_event)
+	if (bglobal.debug_peer_event) {
 		zlog_debug("state-change: [data plane: %s] %s -> %s",
 			   bs_to_string(bs), state_list[old_state].str,
 			   state_list[bs->ses_state].str);
+		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_LOG_SESSION_CHANGES) &&
+		    old_state != bs->ses_state)
+			zlog_notice("Session-Change: [data plane: %s] %s -> %s", bs_to_string(bs),
+				    state_list[old_state].str, state_list[bs->ses_state].str);
+	}
 }
 
 /**
@@ -947,6 +952,9 @@ static void bfd_dplane_client_connect(struct event *t)
 		/* Otherwise just start accepting data. */
 		_bfd_dplane_client_bootstrap(bdc);
 	}
+
+	/* Continue with the connection */
+	return;
 
 reschedule_connect:
 	EVENT_OFF(bdc->inbufev);

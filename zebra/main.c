@@ -54,6 +54,8 @@
 
 #define ZEBRA_PTM_SUPPORT
 
+char *zserv_path;
+
 /* process id. */
 pid_t pid;
 
@@ -64,8 +66,6 @@ struct mgmt_be_client *mgmt_be_client;
 
 /* Route retain mode flag. */
 int retain_mode = 0;
-
-int graceful_restart;
 
 /* Receive buffer size for kernel control sockets */
 #define RCVBUFSIZE_MIN 4194304
@@ -88,7 +88,6 @@ const struct option longopts[] = {
 	{ "socket", required_argument, NULL, 'z' },
 	{ "ecmp", required_argument, NULL, 'e' },
 	{ "retain", no_argument, NULL, 'r' },
-	{ "graceful_restart", required_argument, NULL, 'K' },
 	{ "asic-offload", optional_argument, NULL, OPTION_ASIC_OFFLOAD },
 	{ "v6-with-v4-nexthops", no_argument, NULL, OPTION_V6_WITH_V4_NEXTHOP },
 #ifdef HAVE_NETLINK
@@ -96,7 +95,7 @@ const struct option longopts[] = {
 	{ "nl-bufsize", required_argument, NULL, 's' },
 	{ "v6-rr-semantics", no_argument, NULL, OPTION_V6_RR_SEMANTICS },
 #endif /* HAVE_NETLINK */
-	{"routing-table", optional_argument, NULL, 'R'},
+	{ "routing-table", optional_argument, NULL, 'R' },
 	{ 0 }
 };
 
@@ -241,7 +240,7 @@ void zebra_finalize(struct event *dummy)
 	zebra_ns_notify_close();
 
 	/* Final shutdown of ns resources */
-	ns_walk_func(zebra_ns_final_shutdown, NULL, NULL);
+	ns_walk_func(zebra_ns_kernel_shutdown, NULL, NULL);
 
 	zebra_rib_terminate();
 	zebra_router_terminate();
@@ -253,6 +252,8 @@ void zebra_finalize(struct event *dummy)
 	zebra_srv6_terminate();
 
 	label_manager_terminate();
+
+	ns_walk_func(zebra_ns_final_shutdown, NULL, NULL);
 
 	ns_terminate();
 	frr_fini();
@@ -286,6 +287,7 @@ struct frr_signal_t zebra_signals[] = {
 
 /* clang-format off */
 static const struct frr_yang_module_info *const zebra_yang_modules[] = {
+	&frr_backend_info,
 	&frr_filter_info,
 	&frr_interface_info,
 	&frr_route_map_info,
@@ -315,19 +317,48 @@ FRR_DAEMON_INFO(zebra, ZEBRA,
 );
 /* clang-format on */
 
+void zebra_main_router_started(void)
+{
+	/*
+	 * Clean up zebra-originated routes. The requests will be sent to OS
+	 * immediately, so originating PID in notifications from kernel
+	 * will be equal to the current getpid(). To know about such routes,
+	 * we have to have route_read() called before.
+	 * If FRR is gracefully restarting, we either wait for clients
+	 * (e.g., BGP) to signal GR is complete else we wait for specified
+	 * duration.
+	 */
+	zrouter.startup_time = monotime(NULL);
+	zrouter.rib_sweep_time = 0;
+	zrouter.graceful_restart = zebra_di.graceful_restart;
+	if (!zrouter.graceful_restart)
+		event_add_timer(zrouter.master, rib_sweep_route, NULL, 0, NULL);
+	else {
+		int gr_cleanup_time;
+
+		gr_cleanup_time = zebra_di.gr_cleanup_time ? zebra_di.gr_cleanup_time
+							   : ZEBRA_GR_DEFAULT_RIB_SWEEP_TIME;
+		event_add_timer(zrouter.master, rib_sweep_route, NULL, gr_cleanup_time,
+				&zrouter.t_rib_sweep);
+	}
+
+	zserv_start(zserv_path);
+}
+
 /* Main startup routine. */
 int main(int argc, char **argv)
 {
 	// int batch_mode = 0;
-	char *zserv_path = NULL;
 	struct sockaddr_storage dummy;
 	socklen_t dummylen;
 	bool asic_offload = false;
 	bool v6_with_v4_nexthop = false;
 	bool notify_on_ack = true;
 
-	graceful_restart = 0;
-	vrf_configure_backend(VRF_BACKEND_VRF_LITE);
+	zserv_path = NULL;
+
+	if_notify_oper_changes = true;
+	vrf_notify_oper_changes = true;
 
 	frr_preinit(&zebra_di, argc, argv);
 
@@ -342,18 +373,16 @@ int main(int argc, char **argv)
 		    "  -z, --socket              Set path of zebra socket\n"
 		    "  -e, --ecmp                Specify ECMP to use.\n"
 		    "  -r, --retain              When program terminates, retain added route by zebra.\n"
-		    "  -K, --graceful_restart    Graceful restart at the kernel level, timer in seconds for expiration\n"
 		    "  -A, --asic-offload        FRR is interacting with an asic underneath the linux kernel\n"
-		    "      --v6-with-v4-nexthops Underlying dataplane supports v6 routes with v4 nexthops"
+		    "      --v6-with-v4-nexthops Underlying dataplane supports v6 routes with v4 nexthops\n"
 #ifdef HAVE_NETLINK
 		    "  -s, --nl-bufsize          Set netlink receive buffer size\n"
-		    "  -n, --vrfwnetns           Use NetNS as VRF backend\n"
+		    "  -n, --vrfwnetns           Use NetNS as VRF backend (deprecated, use -w)\n"
 		    "      --v6-rr-semantics     Use v6 RR semantics\n"
 #else
 		    "  -s,                       Set kernel socket receive buffer size\n"
 #endif /* HAVE_NETLINK */
-		    "  -R, --routing-table       Set kernel routing table\n"
-	);
+		    "  -R, --routing-table       Set kernel routing table\n");
 
 	while (1) {
 		int opt = frr_getopt(argc, argv, NULL);
@@ -397,9 +426,6 @@ int main(int argc, char **argv)
 		case 'r':
 			retain_mode = 1;
 			break;
-		case 'K':
-			graceful_restart = atoi(optarg);
-			break;
 		case 's':
 			rcvbufsize = atoi(optarg);
 			if (rcvbufsize < RCVBUFSIZE_MIN)
@@ -412,6 +438,8 @@ int main(int argc, char **argv)
 			break;
 #ifdef HAVE_NETLINK
 		case 'n':
+			fprintf(stderr,
+				"The -n option is deprecated, please use global -w option instead.\n");
 			vrf_configure_backend(VRF_BACKEND_NETNS);
 			break;
 		case OPTION_V6_RR_SEMANTICS:
@@ -442,6 +470,9 @@ int main(int argc, char **argv)
 	zebra_rib_init();
 	zebra_if_init();
 	zebra_debug_init();
+
+	/* Open Zebra API server socket */
+	zserv_open(zserv_path);
 
 	/*
 	 * Initialize NS( and implicitly the VRF module), and make kernel
@@ -482,17 +513,11 @@ int main(int argc, char **argv)
 	*/
 	frr_config_fork();
 
-	/* After we have successfully acquired the pidfile, we can be sure
-	*  about being the only copy of zebra process, which is submitting
-	*  changes to the FIB.
-	*  Clean up zebra-originated routes. The requests will be sent to OS
-	*  immediately, so originating PID in notifications from kernel
-	*  will be equal to the current getpid(). To know about such routes,
-	* we have to have route_read() called before.
-	*/
-	zrouter.startup_time = monotime(NULL);
-	event_add_timer(zrouter.master, rib_sweep_route, NULL, graceful_restart,
-			&zrouter.sweeper);
+	/*
+	 * After we have successfully acquired the pidfile, we can be sure
+	 * about being the only copy of zebra process, which is submitting
+	 * changes to the FIB.
+	 */
 
 	/* Needed for BSD routing socket. */
 	pid = getpid();
@@ -502,9 +527,6 @@ int main(int argc, char **argv)
 
 	/* Start the ted module, before zserv */
 	zebra_opaque_start();
-
-	/* Start Zebra API server */
-	zserv_start(zserv_path);
 
 	/* Init label manager */
 	label_manager_init();

@@ -103,6 +103,7 @@ struct isis_te_args {
 	struct ls_ted *ted;
 	struct ls_vertex *vertex;
 	bool export;
+	bool srv6_locator;
 };
 
 enum lsp_event { LSP_UNKNOWN, LSP_ADD, LSP_UPD, LSP_DEL, LSP_INC, LSP_TICK };
@@ -112,6 +113,8 @@ void isis_mpls_te_init(void);
 void isis_mpls_te_create(struct isis_area *area);
 void isis_mpls_te_disable(struct isis_area *area);
 void isis_mpls_te_term(struct isis_area *area);
+void isis_link_params_update_asla(struct isis_circuit *circuit,
+				  struct interface *ifp);
 void isis_link_params_update(struct isis_circuit *, struct interface *);
 int isis_mpls_te_update(struct interface *);
 void isis_te_lsp_event(struct isis_lsp *lsp, enum lsp_event event);

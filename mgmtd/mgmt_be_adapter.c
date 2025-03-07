@@ -77,13 +77,21 @@ static const char *const zebra_config_xpaths[] = {
 };
 
 static const char *const zebra_oper_xpaths[] = {
+	"/frr-backend:clients",
 	"/frr-interface:lib/interface",
 	"/frr-vrf:lib/vrf/frr-zebra:zebra",
 	"/frr-zebra:zebra",
 	NULL,
 };
 
-#if HAVE_RIPD
+#ifdef HAVE_MGMTD_TESTC
+static const char *const mgmtd_testc_oper_xpaths[] = {
+	"/frr-backend:clients",
+	NULL,
+};
+#endif
+
+#ifdef HAVE_RIPD
 static const char *const ripd_config_xpaths[] = {
 	"/frr-filter:lib",
 	"/frr-interface:lib/interface",
@@ -94,6 +102,7 @@ static const char *const ripd_config_xpaths[] = {
 	NULL,
 };
 static const char *const ripd_oper_xpaths[] = {
+	"/frr-backend:clients",
 	"/frr-ripd:ripd",
 	"/ietf-key-chain:key-chains",
 	NULL,
@@ -104,7 +113,7 @@ static const char *const ripd_rpc_xpaths[] = {
 };
 #endif
 
-#if HAVE_RIPNGD
+#ifdef HAVE_RIPNGD
 static const char *const ripngd_config_xpaths[] = {
 	"/frr-filter:lib",
 	"/frr-interface:lib/interface",
@@ -114,6 +123,7 @@ static const char *const ripngd_config_xpaths[] = {
 	NULL,
 };
 static const char *const ripngd_oper_xpaths[] = {
+	"/frr-backend:clients",
 	"/frr-ripngd:ripngd",
 	NULL,
 };
@@ -123,11 +133,16 @@ static const char *const ripngd_rpc_xpaths[] = {
 };
 #endif
 
-#if HAVE_STATICD
+#ifdef HAVE_STATICD
 static const char *const staticd_config_xpaths[] = {
 	"/frr-vrf:lib",
 	"/frr-interface:lib",
 	"/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd",
+	NULL,
+};
+
+static const char *const staticd_oper_xpaths[] = {
+	"/frr-backend:clients",
 	NULL,
 };
 #endif
@@ -146,11 +161,17 @@ static const char *const *be_client_config_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
 };
 
 static const char *const *be_client_oper_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
+#ifdef HAVE_MGMTD_TESTC
+	[MGMTD_BE_CLIENT_ID_TESTC] = mgmtd_testc_oper_xpaths,
+#endif
 #ifdef HAVE_RIPD
 	[MGMTD_BE_CLIENT_ID_RIPD] = ripd_oper_xpaths,
 #endif
 #ifdef HAVE_RIPNGD
 	[MGMTD_BE_CLIENT_ID_RIPNGD] = ripngd_oper_xpaths,
+#endif
+#ifdef HAVE_STATICD
+	[MGMTD_BE_CLIENT_ID_STATICD] = staticd_oper_xpaths,
 #endif
 	[MGMTD_BE_CLIENT_ID_ZEBRA] = zebra_oper_xpaths,
 };
@@ -249,6 +270,8 @@ static void mgmt_register_client_xpath(enum mgmt_be_client_id id,
 {
 	struct mgmt_be_xpath_map **maps, *map;
 
+	maps = NULL;
+
 	switch (type) {
 	case MGMT_BE_XPATH_SUBSCR_TYPE_CFG:
 		maps = &be_cfg_xpath_map;
@@ -318,7 +341,7 @@ static void mgmt_be_xpath_map_init(void)
 
 	__dbg("Total Cfg XPath Maps: %u", darr_len(be_cfg_xpath_map));
 	__dbg("Total Oper XPath Maps: %u", darr_len(be_oper_xpath_map));
-	__dbg("Total Noitf XPath Maps: %u", darr_len(be_notif_xpath_map));
+	__dbg("Total Notif XPath Maps: %u", darr_len(be_notif_xpath_map));
 	__dbg("Total RPC XPath Maps: %u", darr_len(be_rpc_xpath_map));
 }
 
@@ -438,7 +461,7 @@ static int mgmt_be_send_subscr_reply(struct mgmt_be_client_adapter *adapter,
 	be_msg.message_case = MGMTD__BE_MESSAGE__MESSAGE_SUBSCR_REPLY;
 	be_msg.subscr_reply = &reply;
 
-	__dbg("Sending SUBSCR_REPLY client: %s sucess: %u", adapter->name,
+	__dbg("Sending SUBSCR_REPLY client: %s success: %u", adapter->name,
 	      success);
 
 	return mgmt_be_adapter_send_msg(adapter, &be_msg);
@@ -649,13 +672,17 @@ int mgmt_be_send_native(enum mgmt_be_client_id id, void *msg)
 	return mgmt_msg_native_send_msg(adapter->conn, msg, false);
 }
 
+/*
+ * Send notification to back-ends that subscribed for them.
+ */
 static void mgmt_be_adapter_send_notify(struct mgmt_msg_notify_data *msg,
 					size_t msglen)
 {
 	struct mgmt_be_client_adapter *adapter;
 	struct mgmt_be_xpath_map *map;
-	struct nb_node *nb_node;
+	struct nb_node *nb_node = NULL;
 	const char *notif;
+	bool is_root;
 	uint id, len;
 
 	if (!darr_len(be_notif_xpath_map))
@@ -667,27 +694,33 @@ static void mgmt_be_adapter_send_notify(struct mgmt_msg_notify_data *msg,
 		return;
 	}
 
-	nb_node = nb_node_find(notif);
-	if (!nb_node) {
-		__log_err("No schema found for notification: %s", notif);
-		return;
+	is_root = !strcmp(notif, "/");
+	if (!is_root) {
+		nb_node = nb_node_find(notif);
+		if (!nb_node) {
+			__log_err("No schema found for notification: %s", notif);
+			return;
+		}
 	}
 
 	darr_foreach_p (be_notif_xpath_map, map) {
-		len = strlen(map->xpath_prefix);
-		if (strncmp(map->xpath_prefix, nb_node->xpath, len) &&
-		    strncmp(map->xpath_prefix, notif, len))
-			continue;
-
+		if (!is_root) {
+			len = strlen(map->xpath_prefix);
+			if (strncmp(map->xpath_prefix, nb_node->xpath, len) &&
+			    strncmp(map->xpath_prefix, notif, len))
+				continue;
+		}
 		FOREACH_BE_CLIENT_BITS (id, map->clients) {
 			adapter = mgmt_be_get_adapter_by_id(id);
 			if (!adapter)
 				continue;
+
 			msg_conn_send_msg(adapter->conn, MGMT_MSG_VERSION_NATIVE,
 					  msg, msglen, NULL, false);
 		}
 	}
 }
+
 
 /*
  * Handle a native encoded message
@@ -733,6 +766,9 @@ static void be_adapter_handle_native_msg(struct mgmt_be_client_adapter *adapter,
 		mgmt_txn_notify_rpc_reply(adapter, rpc_msg, msg_len);
 		break;
 	case MGMT_MSG_CODE_NOTIFY:
+		/*
+		 * Handle notify message from a back-end client
+		 */
 		notify_msg = (typeof(notify_msg))msg;
 		__dbg("Got NOTIFY from '%s'", adapter->name);
 		mgmt_be_adapter_send_notify(notify_msg, msg_len);

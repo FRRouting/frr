@@ -7,7 +7,7 @@
       "metric":0,
       "nexthops":[
         {
-          "flags":1,
+          "flags":3,
           "directlyConnected":true,
           "interfaceName":"lo",
           "active":true,
@@ -86,7 +86,7 @@
       "metric":10,
       "nexthops":[
         {
-          "flags":1,
+          "flags":3,
           "directlyConnected":true,
           "interfaceName":"r1-eth1",
           "active":true,
@@ -152,7 +152,7 @@
       "metric":10,
       "nexthops":[
         {
-          "flags":1,
+          "flags":3,
           "directlyConnected":true,
           "interfaceName":"r1-eth2",
           "active":true,
@@ -187,7 +187,7 @@
       "metric":10,
       "nexthops":[
         {
-          "flags":1,
+          "flags":3,
           "directlyConnected":true,
           "interfaceName":"r1-eth0",
           "active":true,

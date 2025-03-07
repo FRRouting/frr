@@ -28,6 +28,7 @@ dev_RSTFILES = \
 	doc/developer/building-frr-for-ubuntu1804.rst \
 	doc/developer/building-frr-for-ubuntu2004.rst \
 	doc/developer/building-frr-for-ubuntu2204.rst \
+	doc/developer/building-doc.rst \
 	doc/developer/building-libunwind-note.rst \
 	doc/developer/building-libyang.rst \
 	doc/developer/building.rst \
@@ -82,6 +83,7 @@ dev_RSTFILES = \
 	doc/developer/northbound/transactional-cli.rst \
 	doc/developer/northbound/yang-module-translator.rst \
 	doc/developer/northbound/yang-tools.rst \
+	doc/developer/sbfd.rst \
 	# end
 
 EXTRA_DIST += \

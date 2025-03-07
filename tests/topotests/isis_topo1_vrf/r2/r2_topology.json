@@ -1,80 +1,82 @@
-{
-  "1": {
-    "level-1": {
-      "ipv4": [
-        {
-          "vertex": "r2"
+[
+    {
+        "area": "1",
+        "algorithm": 0,
+        "level-1":  {
+            "ipv4-paths": [
+                {
+                    "vertex": "r2"
+                }
+            ],
+            "ipv6-paths": [
+                {
+                    "vertex": "r2"
+                }
+            ]
+        },
+        "level-2": {
+            "ipv4-paths": [
+                {
+                    "vertex": "r2"
+                },
+                {
+                    "metric": 0,
+                    "parent": "r2(4)",
+                    "type": "IP internal",
+                    "vertex": "10.0.21.0/24"
+                },
+                {
+                    "interface": "r2-eth0",
+                    "metric": 10,
+                    "nextHop": "r4",
+                    "parent": "r2(4)",
+                    "type": "TE-IS",
+                    "vertex": "r4"
+                },
+                {
+                    "interface": "r2-eth0",
+                    "metric": 10,
+                    "nextHop": "r4",
+                    "parent": "r4(4)",
+                    "type": "IP TE",
+                    "vertex": "10.0.11.0/24"
+                },
+                {
+                    "interface": "r2-eth0",
+                    "metric": 10,
+                    "nextHop": "r4",
+                    "parent": "r4(4)",
+                    "type": "IP TE",
+                    "vertex": "10.0.21.0/24"
+                }
+            ],
+            "ipv6-paths": [
+                {
+                    "vertex": "r2"
+                },
+                {
+                    "metric": 0,
+                    "parent": "r2(4)",
+                    "type": "IP6 internal",
+                    "vertex": "2001:db8:1:2::/64"
+                },
+                {
+                    "interface": "r2-eth0",
+                    "metric": 10,
+                    "nextHop": "r4",
+                    "parent": "r2(4)",
+                    "type": "TE-IS",
+                    "vertex": "r4"
+                },
+                {
+                    "metric": 10,
+                    "interface": "r2-eth0",
+                    "nextHop": "r4",
+                    "parent": "r4(4)",
+                    "type": "IP6 internal",
+                    "vertex": "2001:db8:2:2::/64"
+                }
+            ]
         }
-      ],
-      "ipv6": [
-        {
-          "vertex": "r2"
-        }
-      ]
-    },
-    "level-2": {
-      "ipv4": [
-        {
-          "vertex": "r2"
-        },
-        {
-          "metric": "0",
-          "parent": "r2(4)",
-          "type": "IP internal",
-          "vertex": "10.0.21.0/24"
-        },
-        {
-          "interface": "r2-eth0",
-          "metric": "10",
-          "next-hop": "r4",
-          "parent": "r2(4)",
-          "type": "TE-IS",
-          "vertex": "r4"
-        },
-        {
-          "interface": "r2-eth0",
-          "metric": "10",
-          "next-hop": "r4",
-          "parent": "r4(4)",
-          "type": "IP TE",
-          "vertex": "10.0.21.0/24"
-        },
-        {
-          "interface": "r2-eth0",
-          "metric": "10",
-          "next-hop": "r4",
-          "parent": "r4(4)",
-          "type": "IP TE",
-          "vertex": "10.0.11.0/24"
-        }
-      ],
-      "ipv6": [
-        {
-          "vertex": "r2"
-        },
-        {
-          "metric": "0",
-          "parent": "r2(4)",
-          "type": "IP6 internal",
-          "vertex": "2001:db8:1:2::/64"
-        },
-        {
-          "interface": "r2-eth0",
-          "metric": "10",
-          "next-hop": "r4",
-          "parent": "r2(4)",
-          "type": "TE-IS",
-          "vertex": "r4"
-        },
-        {
-          "metric": "10",
-          "interface": "r2-eth0",
-          "next-hop": "r4",
-          "parent": "r4(4)",
-          "type": "IP6 internal",
-          "vertex": "2001:db8:2:2::/64"
-        }
-      ]
     }
-  }
-}
+]

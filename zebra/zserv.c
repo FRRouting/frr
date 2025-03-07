@@ -57,6 +57,7 @@ extern struct zebra_privs_t zserv_privs;
 
 /* The listener socket for clients connecting to us */
 static int zsock;
+static bool started_p;
 
 /* The lock that protects access to zapi client objects */
 static pthread_mutex_t client_mutex;
@@ -161,9 +162,11 @@ void zserv_log_message(const char *errmsg, struct stream *msg,
 	if (errmsg)
 		zlog_debug("%s", errmsg);
 	if (hdr) {
+		struct vrf *vrf = vrf_lookup_by_id(hdr->vrf_id);
+
 		zlog_debug(" Length: %d", hdr->length);
 		zlog_debug("Command: %s", zserv_command_string(hdr->command));
-		zlog_debug("    VRF: %u", hdr->vrf_id);
+		zlog_debug("    VRF: %s(%u)", VRF_LOGNAME(vrf), hdr->vrf_id);
 	}
 	stream_hexdump(msg);
 }
@@ -181,10 +184,9 @@ void zserv_log_message(const char *errmsg, struct stream *msg,
  */
 static void zserv_client_fail(struct zserv *client)
 {
-	flog_warn(
-		EC_ZEBRA_CLIENT_IO_ERROR,
-		"Client '%s' (session id %d) encountered an error and is shutting down.",
-		zebra_route_string(client->proto), client->session_id);
+	flog_warn(EC_ZEBRA_CLIENT_IO_ERROR,
+		  "Client %d '%s' (session id %d) encountered an error and is shutting down.",
+		  client->sock, zebra_route_string(client->proto), client->session_id);
 
 	atomic_store_explicit(&client->pthread->running, false,
 			      memory_order_relaxed);
@@ -425,11 +427,13 @@ static void zserv_read(struct event *thread)
 		}
 
 		/* Debug packet information. */
-		if (IS_ZEBRA_DEBUG_PACKET)
-			zlog_debug("zebra message[%s:%u:%u] comes from socket [%d]",
+		if (IS_ZEBRA_DEBUG_PACKET) {
+			struct vrf *vrf = vrf_lookup_by_id(hdr.vrf_id);
+
+			zlog_debug("zebra message[%s:%s:%u] comes from socket [%d]",
 				   zserv_command_string(hdr.command),
-				   hdr.vrf_id, hdr.length,
-				   sock);
+				   VRF_LOGNAME(vrf), hdr.length, sock);
+		}
 
 		stream_set_getp(client->ibuf_work, 0);
 		struct stream *msg = stream_dup(client->ibuf_work);
@@ -463,8 +467,8 @@ static void zserv_read(struct event *thread)
 	}
 
 	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug("Read %d packets from client: %s. Current ibuf fifo count: %zu. Conf P2p %d",
-			   p2p_avail - p2p, zebra_route_string(client->proto),
+		zlog_debug("Read %d packets from client: %s(%d). Current ibuf fifo count: %zu. Conf P2p %d",
+			   p2p_avail - p2p, zebra_route_string(client->proto), client->sock,
 			   client_ibuf_fifo_cnt, p2p_orig);
 
 	/* Reschedule ourselves since we have space in ibuf_fifo */
@@ -925,9 +929,20 @@ void zserv_close(void)
 
 	/* Free client list's mutex */
 	pthread_mutex_destroy(&client_mutex);
+
+	started_p = false;
 }
 
-void zserv_start(char *path)
+
+/*
+ * Open zebra's ZAPI listener socket. This is done early during startup,
+ * before zebra is ready to listen and accept client connections.
+ *
+ * This function should only ever be called from the startup pthread
+ * from main.c.  If it is called multiple times it will cause problems
+ * because it causes the zsock global variable to be setup.
+ */
+void zserv_open(const char *path)
 {
 	int ret;
 	mode_t old_mask;
@@ -969,6 +984,26 @@ void zserv_start(char *path)
 			     path, safe_strerror(errno));
 		close(zsock);
 		zsock = -1;
+	}
+
+	umask(old_mask);
+}
+
+/*
+ * Start listening for ZAPI client connections.
+ */
+void zserv_start(const char *path)
+{
+	int ret;
+
+	/* This may be called more than once during startup - potentially once
+	 * per netns - but only do this work once.
+	 */
+	if (started_p)
+		return;
+
+	if (zsock <= 0) {
+		flog_err_sys(EC_LIB_SOCKET, "Zserv socket open failed");
 		return;
 	}
 
@@ -982,7 +1017,7 @@ void zserv_start(char *path)
 		return;
 	}
 
-	umask(old_mask);
+	started_p = true;
 
 	zserv_event(NULL, ZSERV_ACCEPT);
 }
@@ -1031,6 +1066,7 @@ static char *zserv_time_buf(time_t *time1, char *buf, int buflen)
 /* Display client info details */
 static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 {
+	struct client_gr_info *info;
 	char cbuf[ZEBRA_TIME_BUF], rbuf[ZEBRA_TIME_BUF];
 	char wbuf[ZEBRA_TIME_BUF], nhbuf[ZEBRA_TIME_BUF], mbuf[ZEBRA_TIME_BUF];
 	time_t connect_time, last_read_time, last_write_time;
@@ -1125,6 +1161,45 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 	vty_out(vty, "ES-EVI      %-12u%-12u%-12u\n",
 		client->local_es_evi_add_cnt, 0, client->local_es_evi_del_cnt);
 	vty_out(vty, "Errors: %u\n", client->error_cnt);
+
+	TAILQ_FOREACH (info, &client->gr_info_queue, gr_info) {
+		afi_t afi;
+		bool route_sync_done = true;
+		char timebuf[MONOTIME_STRLEN];
+
+		vty_out(vty, "VRF : %s\n", vrf_id_to_name(info->vrf_id));
+		vty_out(vty, "Capabilities : ");
+		switch (info->capabilities) {
+		case ZEBRA_CLIENT_GR_CAPABILITIES:
+			vty_out(vty, "Graceful Restart\n");
+			break;
+		case ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE:
+		case ZEBRA_CLIENT_ROUTE_UPDATE_PENDING:
+		case ZEBRA_CLIENT_GR_DISABLE:
+		case ZEBRA_CLIENT_RIB_STALE_TIME:
+			vty_out(vty, "None\n");
+			break;
+		}
+		for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+			if (info->af_enabled[afi]) {
+				if (info->route_sync[afi])
+					vty_out(vty,
+						"AFI %d enabled, route sync DONE\n",
+						afi);
+				else {
+					vty_out(vty,
+						"AFI %d enabled, route sync NOT DONE\n",
+						afi);
+					route_sync_done = false;
+				}
+			}
+		}
+		if (route_sync_done) {
+			time_to_string(info->route_sync_done_time, timebuf);
+			vty_out(vty, "Route sync finished at %s", timebuf);
+		}
+	}
+
 	vty_out(vty, "Input Fifo: %zu:%zu Output Fifo: %zu:%zu\n",
 		client->ibuf_fifo->count, client->ibuf_fifo->max_count,
 		client->obuf_fifo->count, client->obuf_fifo->max_count);

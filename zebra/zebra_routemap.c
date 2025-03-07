@@ -29,7 +29,7 @@
 
 static uint32_t zebra_rmap_update_timer = ZEBRA_RMAP_DEFAULT_UPDATE_TIMER;
 static struct event *zebra_t_rmap_update = NULL;
-char *zebra_import_table_routemap[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
+char *zebra_import_table_routemap[AFI_MAX][SAFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
 
 struct zebra_rmap_obj {
 	struct nexthop *nexthop;
@@ -114,11 +114,6 @@ static void show_vrf_proto_rm(struct vty *vty, struct zebra_vrf *zvrf,
 			vty_out(vty, "%-24s  : none\n", zebra_route_string(i));
 	}
 
-	if (PROTO_RM_NAME(zvrf, af_type, i))
-		vty_out(vty, "%-24s  : %-10s\n", "any",
-			PROTO_RM_NAME(zvrf, af_type, i));
-	else
-		vty_out(vty, "%-24s  : none\n", "any");
 }
 
 static void show_vrf_nht_rm(struct vty *vty, struct zebra_vrf *zvrf,
@@ -650,9 +645,8 @@ route_match_address_prefix_list(void *rule, const struct prefix *prefix,
 	plist = prefix_list_lookup(afi, (char *)rule);
 	if (plist == NULL) {
 		if (unlikely(CHECK_FLAG(rmap_debug, DEBUG_ROUTEMAP_DETAIL)))
-			zlog_debug(
-				"%s: Prefix List %s specified does not exist defaulting to NO_MATCH",
-				__func__, (char *)rule);
+			zlog_debug("%s: Prefix List %s (%s) specified does not exist defaulting to NO_MATCH",
+				   __func__, (char *)rule, afi2str(afi));
 		return RMAP_NOMATCH;
 	}
 
@@ -965,10 +959,11 @@ route_set_src(void *rule, const struct prefix *prefix, void *object)
 /* set src compilation. */
 static void *route_set_src_compile(const char *arg)
 {
-	union g_addr src, *psrc;
+	union g_addr src = {}, *psrc;
 
-	if ((inet_pton(AF_INET6, arg, &src.ipv6) == 1)
-	    || (inet_pton(AF_INET, arg, &src.ipv4) == 1)) {
+	/* IPv4 first, to ensure no garbage in the 12 unused bytes */
+	if ((inet_pton(AF_INET, arg, &src.ipv4) == 1) ||
+	    (inet_pton(AF_INET6, arg, &src.ipv6) == 1)) {
 		psrc = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(union g_addr));
 		*psrc = src;
 		return psrc;
@@ -1223,8 +1218,8 @@ route_map_result_t zebra_route_map_check(afi_t family, struct route_entry *re,
 			return RMAP_DENYMATCH;
 	}
 	if (!rmap) {
-		rm_name = PROTO_RM_NAME(zvrf, family, ZEBRA_ROUTE_MAX);
-		rmap = PROTO_RM_MAP(zvrf, family, ZEBRA_ROUTE_MAX);
+		rm_name = PROTO_RM_NAME(zvrf, family, ZEBRA_ROUTE_ALL);
+		rmap = PROTO_RM_MAP(zvrf, family, ZEBRA_ROUTE_ALL);
 
 		if (rm_name && !rmap)
 			return RMAP_DENYMATCH;
@@ -1236,21 +1231,19 @@ route_map_result_t zebra_route_map_check(afi_t family, struct route_entry *re,
 	return (ret);
 }
 
-char *zebra_get_import_table_route_map(afi_t afi, uint32_t table)
+char *zebra_get_import_table_route_map(afi_t afi, safi_t safi, uint32_t table)
 {
-	return zebra_import_table_routemap[afi][table];
+	return zebra_import_table_routemap[afi][safi][table];
 }
 
-void zebra_add_import_table_route_map(afi_t afi, const char *rmap_name,
-				      uint32_t table)
+void zebra_add_import_table_route_map(afi_t afi, safi_t safi, const char *rmap_name, uint32_t table)
 {
-	zebra_import_table_routemap[afi][table] =
-		XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_name);
+	zebra_import_table_routemap[afi][safi][table] = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_name);
 }
 
-void zebra_del_import_table_route_map(afi_t afi, uint32_t table)
+void zebra_del_import_table_route_map(afi_t afi, safi_t safi, uint32_t table)
 {
-	XFREE(MTYPE_ROUTE_MAP_NAME, zebra_import_table_routemap[afi][table]);
+	XFREE(MTYPE_ROUTE_MAP_NAME, zebra_import_table_routemap[afi][safi][table]);
 }
 
 route_map_result_t zebra_import_table_route_map_check(int family,

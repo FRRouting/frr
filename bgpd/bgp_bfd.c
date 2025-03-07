@@ -26,6 +26,7 @@
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_packet.h"
+#include "bgpd/bgp_network.h"
 
 DEFINE_MTYPE_STATIC(BGPD, BFD_CONFIG, "BFD configuration data");
 
@@ -53,14 +54,23 @@ static void bfd_session_status_update(struct bfd_session_params *bsp,
 					peer->host);
 			return;
 		}
-		peer->last_reset = PEER_DOWN_BFD_DOWN;
 
-		/* rfc9384 */
-		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status))
-			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_BFD_DOWN);
+		/* Once the BFD session is UP, and later BGP session is UP,
+		 * BFD notices that peer->su_local changed, and BFD session goes down.
+		 * We should trigger BGP session reset if BFD session is UP
+		 * only when BGP session is UP already.
+		 * Otherwise, we end up resetting BGP session when BFD session is UP,
+		 * when the source address is changed, e.g. 0.0.0.0 -> 10.0.0.1.
+		 */
+		if (bss->last_event > peer->uptime) {
+			peer->last_reset = PEER_DOWN_BFD_DOWN;
+			/* rfc9384 */
+			if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status))
+				bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
+						BGP_NOTIFY_CEASE_BFD_DOWN);
 
-		BGP_EVENT_ADD(peer->connection, BGP_Stop);
+			BGP_EVENT_ADD(peer->connection, BGP_Stop);
+		}
 	}
 
 	if (bss->state == BSS_UP && bss->previous_state != BSS_UP &&
@@ -104,6 +114,10 @@ void bgp_peer_config_apply(struct peer *p, struct peer_group *pg)
 	 */
 	gconfig = pg->conf;
 
+	if (CHECK_FLAG(gconfig->flags, PEER_FLAG_UPDATE_SOURCE) ||
+	    CHECK_FLAG(p->flags_override, PEER_FLAG_UPDATE_SOURCE))
+		bgp_peer_bfd_update_source(p);
+
 	/*
 	 * If using default control plane independent configuration,
 	 * then prefer group's (e.g. it means it wasn't manually configured).
@@ -141,24 +155,45 @@ void bgp_peer_config_apply(struct peer *p, struct peer_group *pg)
 
 void bgp_peer_bfd_update_source(struct peer *p)
 {
-	struct bfd_session_params *session = p->bfd_config->session;
-	const union sockunion *source;
+	struct bfd_session_params *session;
+	const union sockunion *source = NULL;
 	bool changed = false;
 	int family;
 	union {
 		struct in_addr v4;
 		struct in6_addr v6;
 	} src, dst;
+	struct interface *ifp;
+	union sockunion addr;
 
+	if (!p->bfd_config)
+		return;
+
+	session = p->bfd_config->session;
 	/* Nothing to do for groups. */
 	if (CHECK_FLAG(p->sflags, PEER_STATUS_GROUP))
 		return;
 
 	/* Figure out the correct source to use. */
-	if (CHECK_FLAG(p->flags, PEER_FLAG_UPDATE_SOURCE) && p->update_source)
-		source = p->update_source;
-	else
-		source = p->su_local;
+	if (CHECK_FLAG(p->flags, PEER_FLAG_UPDATE_SOURCE)) {
+		if (p->update_source) {
+			source = p->update_source;
+		} else if (p->update_if) {
+			ifp = if_lookup_by_name(p->update_if, p->bgp->vrf_id);
+			if (ifp) {
+				sockunion_init(&addr);
+				if (bgp_update_address(ifp, &p->connection->su, &addr)) {
+					if (BGP_DEBUG(bfd, BFD_LIB))
+						zlog_debug("%s: can't find the source address for interface %s",
+							   __func__, p->update_if);
+				}
+
+				source = &addr;
+			}
+		}
+	} else {
+		source = p->connection->su_local;
+	}
 
 	/* Update peer's source/destination addresses. */
 	bfd_sess_addresses(session, &family, &src.v6, &dst.v6);
@@ -285,13 +320,14 @@ void bgp_peer_configure_bfd(struct peer *p, bool manual)
 	/* Configure session with basic BGP peer data. */
 	if (p->connection->su.sa.sa_family == AF_INET)
 		bfd_sess_set_ipv4_addrs(p->bfd_config->session,
-					p->su_local ? &p->su_local->sin.sin_addr
-						    : NULL,
+					p->connection->su_local
+						? &p->connection->su_local->sin.sin_addr
+						: NULL,
 					&p->connection->su.sin.sin_addr);
 	else
 		bfd_sess_set_ipv6_addrs(p->bfd_config->session,
-					p->su_local
-						? &p->su_local->sin6.sin6_addr
+					p->connection->su_local
+						? &p->connection->su_local->sin6.sin6_addr
 						: NULL,
 					&p->connection->su.sin6.sin6_addr);
 

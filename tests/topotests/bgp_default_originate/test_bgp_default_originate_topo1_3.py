@@ -16,6 +16,7 @@ import sys
 import time
 import pytest
 from lib.topolog import logger
+import json
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
@@ -54,6 +55,7 @@ from lib.common_config import (
     reset_config_on_routers,
     create_static_routes,
     check_router_status,
+    retry,
 )
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
@@ -657,7 +659,7 @@ def test_verify_default_originate_after_BGP_and_FRR_restart_p2(request):
     )
 
     step(
-        " Configure default originate with route-map RMv4 and RMv6 for IPv4 and IPv6 bgp neighbors on R1 ( R1-R2) "
+        "Configure default originate with route-map RMv4 and RMv6 for IPv4 and IPv6 bgp neighbors on R1 ( R1-R2) "
     )
     local_as = get_dut_as_number(tgen, dut="r1")
     default_originate_config = {
@@ -775,7 +777,7 @@ def test_verify_default_originate_after_BGP_and_FRR_restart_p2(request):
             tc_name, result
         )
 
-    step(" Configure default-originate on R3 for R3 to R2 IPv4 and IPv6 BGP neighbors ")
+    step("Configure default-originate on R3 for R3 to R2 IPv4 and IPv6 BGP neighbors ")
     local_as = get_dut_as_number(tgen, dut="r3")
     default_originate_config = {
         "r3": {
@@ -831,7 +833,7 @@ def test_verify_default_originate_after_BGP_and_FRR_restart_p2(request):
         dut="r2",
         routes=DEFAULT_ROUTES,
         expected_nexthop=DEFAULT_ROUTE_NXT_HOP_R1,
-        expected=False,
+        expected=True,
     )
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
@@ -890,7 +892,31 @@ def test_verify_default_originate_after_BGP_and_FRR_restart_p2(request):
             tc_name, result
         )
 
-    step(" BGP Daemon restart operation")
+    # Allow for verification of the table version
+    # as that restarting bgp on one router will cause
+    # r2's version number should go up as that r1
+    # is not directly connected to r2
+    # where?
+    @retry(retry_timeout=60)
+    def verify_version_upgrade(dut, version):
+        dut_new_ipv4_uni_json = json.loads(dut.vtysh_cmd("show bgp ipv4 uni json"))
+
+        logger.info(
+            "New version: {} comparing to old {}".format(
+                dut_new_ipv4_uni_json["tableVersion"], version
+            )
+        )
+        if version >= dut_new_ipv4_uni_json["tableVersion"]:
+            return False
+
+        return True
+
+    r2 = tgen.gears["r2"]
+
+    r2_bgp_ipv4_uni_json = json.loads(r2.vtysh_cmd("show bgp ipv4 uni json"))
+    curr_version = r2_bgp_ipv4_uni_json["tableVersion"]
+
+    step("BGP Daemon restart operation")
     routers = ["r1", "r2"]
     for dut in routers:
         step(
@@ -898,41 +924,86 @@ def test_verify_default_originate_after_BGP_and_FRR_restart_p2(request):
                 dut
             )
         )
+
         kill_router_daemons(tgen, dut, ["bgpd"])
+        # Let's ensure that r2's version has upgraded and then
+        # let's check that the default route goes through
+        # r3's connection.
+        if dut == "r1":
+            step("Ensure that r2 prefers r3's default route at this point in time")
+            verify_version_upgrade(r2, curr_version)
+            # write code to ensure r1 neighbor is down
+            DEFAULT_ROUTES = {"ipv4": "0.0.0.0/0", "ipv6": "0::0/0"}
+            result = verify_fib_default_route(
+                tgen,
+                topo,
+                dut="r2",
+                routes=DEFAULT_ROUTES,
+                expected_nexthop=DEFAULT_ROUTE_NXT_HOP_R3,
+                expected=True,
+            )
+            assert (
+                result is True
+            ), "Testcase {} : Failed \n IBGP default route should be prefeered over EBGP \n Error: {}".format(
+                tc_name, result
+            )
+
+            result = verify_rib_default_route(
+                tgen,
+                topo,
+                dut="r2",
+                routes=DEFAULT_ROUTES,
+                expected_nexthop=DEFAULT_ROUTE_NXT_HOP_R3,
+                expected=True,
+            )
+            assert result is True, "Testcase {} : Failed \n Error: {}".format(
+                tc_name, result
+            )
+
         start_router_daemons(tgen, dut, ["bgpd"])
 
-        step("After restarting the BGP daomon Verify the default originate ")
-        DEFAULT_ROUTES = {"ipv4": "0.0.0.0/0", "ipv6": "0::0/0"}
-        result = verify_fib_default_route(
-            tgen,
-            topo,
-            dut="r2",
-            routes=DEFAULT_ROUTES,
-            expected_nexthop=DEFAULT_ROUTE_NXT_HOP_R3,
-            expected=False,
-        )
-        assert (
-            result is not True
-        ), "Testcase {} : Failed \n IBGP default route should be prefeered over EBGP \n Error: {}".format(
-            tc_name, result
-        )
+        if dut == "r2":
 
-        result = verify_rib_default_route(
-            tgen,
-            topo,
-            dut="r2",
-            routes=DEFAULT_ROUTES,
-            expected_nexthop=DEFAULT_ROUTE_NXT_HOP_R3,
-            expected=True,
-        )
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
+            @retry(60)
+            def check_pfx_received_sent(dut):
+                output = json.loads(dut.vtysh_cmd("show bgp ipv4 uni summ json"))
 
+                logger.info(output)
+                if output["peerCount"] != 2:
+                    logger.info(output["peerCount"])
+                    logger.info("pc")
+                    return False
+
+                if output["peers"]["192.168.1.1"]["state"] != "Established":
+                    logger.info("Not Established 192.168.1.1")
+                    return False
+
+                if output["peers"]["192.168.2.2"]["state"] != "Established":
+                    logger.info("Not established 192.168.2.2")
+                    return False
+
+                if output["peers"]["192.168.1.1"]["pfxRcd"] != 6:
+                    logger.info("1.1 prxRcd")
+                    return False
+
+                if output["peers"]["192.168.1.1"]["pfxSnt"] != 3:
+                    logger.info("1.1 pfxsent")
+                    return False
+
+                if output["peers"]["192.168.2.2"]["pfxRcd"] != 4:
+                    logger.info("2.2 pfxRcd")
+                    return False
+
+                if output["peers"]["192.168.2.2"]["pfxSnt"] != 9:
+                    logger.info("2.2 pfxsnt")
+                    return False
+
+                return True
+
+            check_pfx_received_sent(r2)
         step(
             "Verify the default route from R1 is  is recieved both on RIB and FIB on R2"
         )
-
         DEFAULT_ROUTES = {"ipv4": "0.0.0.0/0", "ipv6": "0::0/0"}
         result = verify_fib_default_route(
             tgen,
@@ -940,7 +1011,7 @@ def test_verify_default_originate_after_BGP_and_FRR_restart_p2(request):
             dut="r2",
             routes=DEFAULT_ROUTES,
             expected_nexthop=DEFAULT_ROUTE_NXT_HOP_R1,
-            expected=False,
+            expected=True,
         )
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
             tc_name, result
@@ -1003,7 +1074,7 @@ def test_verify_default_originate_after_BGP_and_FRR_restart_p2(request):
                 tc_name, result
             )
 
-    step(" Restarting  FRR routers  operation")
+    step("Restarting  FRR routers  operation")
     """
     NOTE :  Verify that iBGP default route is preffered over eBGP default route
     """

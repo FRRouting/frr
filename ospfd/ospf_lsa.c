@@ -61,6 +61,12 @@ static struct ospf_lsa *
 ospf_exnl_lsa_prepare_and_flood(struct ospf *ospf, struct external_info *ei,
 				struct in_addr id);
 
+/*
+ * LSA Update and Delete Hook LSAs.
+ */
+DEFINE_HOOK(ospf_lsa_update, (struct ospf_lsa *lsa), (lsa));
+DEFINE_HOOK(ospf_lsa_delete, (struct ospf_lsa *lsa), (lsa));
+
 uint32_t get_metric(uint8_t *metric)
 {
 	uint32_t m;
@@ -81,16 +87,6 @@ bool ospf_check_dna_lsa(const struct ospf_lsa *lsa)
 			: false);
 }
 
-struct timeval int2tv(int a)
-{
-	struct timeval ret;
-
-	ret.tv_sec = a;
-	ret.tv_usec = 0;
-
-	return ret;
-}
-
 struct timeval msec2tv(int a)
 {
 	struct timeval ret;
@@ -101,26 +97,37 @@ struct timeval msec2tv(int a)
 	return ret;
 }
 
-int ospf_lsa_refresh_delay(struct ospf_lsa *lsa)
+int tv2msec(struct timeval tv)
+{
+	int msecs;
+
+	msecs = tv.tv_sec * 1000;
+	msecs += (tv.tv_usec + 1000) / 1000;
+
+	return msecs;
+}
+
+int ospf_lsa_refresh_delay(struct ospf *ospf, struct ospf_lsa *lsa)
 {
 	struct timeval delta;
 	int delay = 0;
 
-	if (monotime_since(&lsa->tv_orig, &delta)
-	    < OSPF_MIN_LS_INTERVAL * 1000LL) {
-		struct timeval minv = msec2tv(OSPF_MIN_LS_INTERVAL);
-		timersub(&minv, &delta, &minv);
+	if (monotime_since(&lsa->tv_orig, &delta) < ospf->min_ls_interval * 1000LL) {
+		struct timeval minv = msec2tv(ospf->min_ls_interval);
 
-		/* TBD: remove padding to full sec, return timeval instead */
-		delay = minv.tv_sec + !!minv.tv_usec;
+		timersub(&minv, &delta, &minv);
+		delay = tv2msec(minv);
 
 		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-			zlog_debug(
-				"LSA[Type%d:%pI4]: Refresh timer delay %d seconds",
-				lsa->data->type, &lsa->data->id,
-				delay);
+			zlog_debug("LSA[Type%d:%pI4]: Refresh timer delay %d milliseconds",
+				   lsa->data->type, &lsa->data->id, delay);
 
-		assert(delay > 0);
+		if (delay <= 0) {
+			zlog_warn("LSA[Type%d:%pI4]: Invalid refresh timer delay %d milliseconds Seq: 0x%x Age:%u",
+				  lsa->data->type, &lsa->data->id, delay,
+				  ntohl(lsa->data->ls_seqnum), ntohs(lsa->data->ls_age));
+			delay = 0;
+		}
 	}
 
 	return delay;
@@ -2396,15 +2403,10 @@ struct ospf_lsa *ospf_nssa_lsa_refresh(struct ospf_area *area,
 static struct external_info *ospf_default_external_info(struct ospf *ospf)
 {
 	int type;
-	struct prefix_ipv4 p;
 	struct external_info *default_ei;
 	int ret = 0;
 
-	p.family = AF_INET;
-	p.prefix.s_addr = 0;
-	p.prefixlen = 0;
-
-	default_ei = ospf_external_info_lookup(ospf, DEFAULT_ROUTE, 0, &p);
+	default_ei = ospf_external_info_default_lookup(ospf);
 	if (!default_ei)
 		return NULL;
 
@@ -2613,8 +2615,7 @@ void ospf_external_lsa_refresh_default(struct ospf *ospf)
 	}
 }
 
-void ospf_external_lsa_refresh_type(struct ospf *ospf, uint8_t type,
-				    unsigned short instance, int force)
+void ospf_external_lsa_refresh_type(struct ospf *ospf, uint8_t type, uint8_t instance, int force)
 {
 	struct route_node *rn;
 	struct external_info *ei;
@@ -3141,6 +3142,11 @@ struct ospf_lsa *ospf_lsa_install(struct ospf *ospf, struct ospf_interface *oi,
 			zlog_debug("LSA[%s]: Install LSA %p, MaxAge",
 				   dump_lsa_key(new), lsa);
 		ospf_lsa_maxage(ospf, lsa);
+	} else {
+		/*
+		 * Invoke the LSA update hook.
+		 */
+		hook_call(ospf_lsa_update, new);
 	}
 
 	return new;
@@ -3170,9 +3176,9 @@ int ospf_check_nbr_status(struct ospf *ospf)
 }
 
 
-void ospf_maxage_lsa_remover(struct event *thread)
+void ospf_maxage_lsa_remover(struct event *event)
 {
-	struct ospf *ospf = EVENT_ARG(thread);
+	struct ospf *ospf = EVENT_ARG(event);
 	struct ospf_lsa *lsa, *old;
 	struct route_node *rn;
 	int reschedule = 0;
@@ -3202,7 +3208,7 @@ void ospf_maxage_lsa_remover(struct event *thread)
 			}
 
 			/* TODO: maybe convert this function to a work-queue */
-			if (event_should_yield(thread)) {
+			if (event_should_yield(event)) {
 				OSPF_TIMER_ON(ospf->t_maxage,
 					      ospf_maxage_lsa_remover, 0);
 				route_unlock_node(
@@ -3359,6 +3365,11 @@ void ospf_lsa_maxage(struct ospf *ospf, struct ospf_lsa *lsa)
 		zlog_debug("LSA[%s]: MaxAge LSA remover scheduled.",
 			   dump_lsa_key(lsa));
 
+	/*
+	 * Invoke the LSA delete hook.
+	 */
+	hook_call(ospf_lsa_delete, lsa);
+
 	OSPF_TIMER_ON(ospf->t_maxage, ospf_maxage_lsa_remover,
 		      ospf->maxage_delay);
 }
@@ -3418,9 +3429,9 @@ static int ospf_lsa_maxage_walker_remover(struct ospf *ospf,
 }
 
 /* Periodical check of MaxAge LSA. */
-void ospf_lsa_maxage_walker(struct event *thread)
+void ospf_lsa_maxage_walker(struct event *event)
 {
-	struct ospf *ospf = EVENT_ARG(thread);
+	struct ospf *ospf = EVENT_ARG(event);
 	struct route_node *rn;
 	struct ospf_lsa *lsa;
 	struct ospf_area *area;
@@ -4059,7 +4070,7 @@ struct ospf_lsa *ospf_lsa_refresh(struct ospf *ospf, struct ospf_lsa *lsa)
 				ospf, lsa, ei, LSA_REFRESH_FORCE, false);
 		else {
 			aggr = (struct ospf_external_aggr_rt *)
-				ospf_extrenal_aggregator_lookup(ospf, &p);
+				ospf_external_aggregator_lookup(ospf, &p);
 			if (aggr) {
 				struct external_info ei_aggr;
 
@@ -4157,11 +4168,11 @@ void ospf_refresher_unregister_lsa(struct ospf *ospf, struct ospf_lsa *lsa)
 	}
 }
 
-void ospf_lsa_refresh_walker(struct event *t)
+void ospf_lsa_refresh_walker(struct event *e)
 {
 	struct list *refresh_list;
 	struct listnode *node, *nnode;
-	struct ospf *ospf = EVENT_ARG(t);
+	struct ospf *ospf = EVENT_ARG(e);
 	struct ospf_lsa *lsa;
 	int i;
 	struct list *lsa_to_refresh = list_new();

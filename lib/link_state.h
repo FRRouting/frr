@@ -243,6 +243,7 @@ struct ls_attributes {
 #define LS_PREF_EXTENDED_TAG	0x04
 #define LS_PREF_METRIC		0x08
 #define LS_PREF_SR		0x10
+#define LS_PREF_SRV6		0x20
 
 /* Link State Prefix */
 struct ls_prefix {
@@ -258,6 +259,11 @@ struct ls_prefix {
 		uint8_t sid_flag;	/* Segment Routing Flags */
 		uint8_t algo;		/* Algorithm for Segment Routing */
 	} sr;
+	struct ls_srv6_sid {
+		struct in6_addr sid; /* Segment Routing ID */
+		uint16_t behavior;   /* Endpoint behavior bound to the SID */
+		uint8_t flags;	     /* Flags */
+	} srv6;
 };
 
 /**

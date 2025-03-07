@@ -15,7 +15,6 @@ test_babel_topo1.py: Testing BABEL
 """
 
 import os
-import re
 import sys
 import pytest
 import json
@@ -130,7 +129,6 @@ def test_zebra_ipv4_routingTable():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    failures = 0
     router_list = tgen.routers().values()
     for router in router_list:
         assertmsg = "Zebra IPv4 Routing Table verification failed for router {}".format(

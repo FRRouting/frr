@@ -32,6 +32,13 @@
 #define BGP_EVPN_TYPE4_V4_PSIZE 23
 #define BGP_EVPN_TYPE4_V6_PSIZE 34
 
+static const struct message bgp_evpn_route_type_str[] = { { BGP_EVPN_AD_ROUTE, "AD" },
+							  { BGP_EVPN_MAC_IP_ROUTE, "MACIP" },
+							  { BGP_EVPN_IMET_ROUTE, "IMET" },
+							  { BGP_EVPN_ES_ROUTE, "ES" },
+							  { BGP_EVPN_IP_PREFIX_ROUTE, "IP-PREFIX" },
+							  { 0 } };
+
 RB_HEAD(bgp_es_evi_rb_head, bgp_evpn_es_evi);
 RB_PROTOTYPE(bgp_es_evi_rb_head, bgp_evpn_es_evi, rb_node,
 		bgp_es_evi_rb_cmp);
@@ -53,8 +60,9 @@ struct bgpevpn {
 #define VNI_FLAG_RD_CFGD           0x4  /* RD is user configured. */
 #define VNI_FLAG_IMPRT_CFGD        0x8  /* Import RT is user configured */
 #define VNI_FLAG_EXPRT_CFGD        0x10 /* Export RT is user configured */
-#define VNI_FLAG_USE_TWO_LABELS    0x20 /* Attach both L2-VNI and L3-VNI if
-					   needed for this VPN */
+/* Attach both L2-VNI and L3-VNI if needed for this VPN */
+#define VNI_FLAG_USE_TWO_LABELS 0x20
+#define VNI_FLAG_ADD		0x40 /* L2VNI Add */
 
 	struct bgp *bgp_vrf; /* back pointer to the vrf instance */
 
@@ -108,10 +116,14 @@ struct bgpevpn {
 	/* List of local ESs */
 	struct list *local_es_evi_list;
 
+	struct zebra_l2_vni_item zl2vni;
+
 	QOBJ_FIELDS;
 };
 
 DECLARE_QOBJ_TYPE(bgpevpn);
+
+DECLARE_LIST(zebra_l2_vni, struct bgpevpn, zl2vni);
 
 /* Mapping of Import RT to VNIs.
  * The Import RTs of all VNIs are maintained in a hash table with each
@@ -382,7 +394,7 @@ static inline void encode_mac_mobility_extcomm(int static_mac, uint32_t seq,
 }
 
 static inline void encode_na_flag_extcomm(struct ecommunity_val *eval,
-					  uint8_t na_flag, bool proxy)
+					  bool na_flag, bool proxy)
 {
 	memset(eval, 0, sizeof(*eval));
 	eval->val[0] = ECOMMUNITY_ENCODE_EVPN;

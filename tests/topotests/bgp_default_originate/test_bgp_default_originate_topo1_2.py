@@ -17,8 +17,6 @@ import os
 import sys
 import time
 import pytest
-from time import sleep
-from copy import deepcopy
 from lib.topolog import logger
 
 # pylint: disable=C0413
@@ -31,13 +29,8 @@ from lib.bgp import (
     verify_bgp_convergence,
     verify_graceful_restart,
     create_router_bgp,
-    verify_router_id,
     modify_as_number,
-    verify_as_numbers,
-    clear_bgp_and_verify,
-    clear_bgp,
     verify_bgp_rib,
-    get_prefix_count_route,
     get_dut_as_number,
     verify_rib_default_route,
     verify_fib_default_route,
@@ -45,16 +38,12 @@ from lib.bgp import (
     verify_bgp_received_routes_from_neighbor,
 )
 from lib.common_config import (
-    interface_status,
     verify_prefix_lists,
     verify_fib_routes,
     kill_router_daemons,
     start_router_daemons,
-    shutdown_bringup_interface,
     step,
     required_linux_kernel_version,
-    stop_router,
-    start_router,
     create_route_maps,
     create_prefix_lists,
     get_frr_ipv6_linklocal,
@@ -65,7 +54,6 @@ from lib.common_config import (
     reset_config_on_routers,
     create_static_routes,
     check_router_status,
-    delete_route_maps,
 )
 
 

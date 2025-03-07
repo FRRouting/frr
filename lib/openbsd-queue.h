@@ -17,6 +17,22 @@ extern "C" {
 #endif
 
 /*
+ * NOTICE:
+ *
+ * If you are reading this file in an effort to add a new queue structure
+ * this is the wrong place to be using it.  Please see the typesafe
+ * data structures, or ask one of the other developers.
+ *
+ * If you are reading this file as a way to update an existing usage
+ * of this data structure, please consider just converting the data
+ * structure to one of the typesafe data structures instead.  However,
+ * among converting datastrucutres, the the BSD ones are the lowest
+ * priority / should be converted last. They are already typesafe and
+ * use inline linking nodes, so the only gain is consistency. Please
+ * convert uses of linklist.h and hash.h first.
+ */
+
+/*
  * This file defines five types of data structures: singly-linked lists,
  * lists, simple queues, tail queues and XOR simple queues.
  *

@@ -3,9 +3,7 @@
  * Copyright (C) 2015 Cumulus Networks, Inc.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include <zebra.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -308,22 +306,18 @@ static int _ptm_lib_read_ptm_socket(int fd, char *buf, int len)
 	while (bytes_read != len) {
 		rc = recv(fd, (void *)(buf + bytes_read), (len - bytes_read),
 			  MSG_DONTWAIT);
-		if (rc <= 0) {
-			if (errno && (errno != EAGAIN)
-			    && (errno != EWOULDBLOCK)) {
-				ERRLOG("fatal recv error(%s), closing connection, rc %d\n",
-				       strerror(errno), rc);
-				return (rc);
-			} else {
-				if (retries++ < 2) {
-					usleep(10000);
-					continue;
-				}
-				DLOG("max retries - recv error(%d - %s) bytes read %d (%d)\n",
-				     errno, strerror(errno), bytes_read, len);
-				return (bytes_read);
+		if (rc < 0 && (errno != EAGAIN) && (errno != EWOULDBLOCK)) {
+			ERRLOG("fatal recv error(%s), closing connection, rc %d\n", strerror(errno),
+			       rc);
+			return (rc);
+		} else if (rc <= 0) {
+			if (retries++ < 2) {
+				usleep(10000);
+				continue;
 			}
-			break;
+			DLOG("max retries - recv error(%d - %s) bytes read %d (%d)\n", errno,
+			     strerror(errno), bytes_read, len);
+			return (bytes_read);
 		} else {
 			bytes_read += rc;
 		}
@@ -454,7 +448,7 @@ ptm_lib_handle_t *ptm_lib_register(char *client_name, ptm_cmd_cb cmd_cb,
 	hdl = calloc(1, sizeof(*hdl));
 
 	if (hdl) {
-		strncpy(hdl->client_name, client_name, PTMLIB_MAXNAMELEN - 1);
+		strlcpy(hdl->client_name, client_name, sizeof(hdl->client_name));
 		hdl->cmd_cb = cmd_cb;
 		hdl->notify_cb = notify_cb;
 		hdl->response_cb = response_cb;

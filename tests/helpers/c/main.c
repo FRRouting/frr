@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 
 #include <lib/version.h>
+#include "debug.h"
 #include "getopt.h"
 #include "frrevent.h"
 #include "vty.h"
@@ -141,7 +142,8 @@ int main(int argc, char **argv)
 	cmd_init(1);
 	vty_init(master, false);
 	lib_cmd_init();
-	nb_init(master, NULL, 0, false);
+	debug_init();
+	nb_init(master, NULL, 0, false, false);
 
 	/* OSPF vty inits. */
 	test_vty_init();

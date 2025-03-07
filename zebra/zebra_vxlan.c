@@ -172,8 +172,7 @@ static int host_rb_entry_compare(const struct host_rb_entry *hle1,
 
 		return 0;
 	} else {
-		zlog_debug("%s: Unexpected family type: %d", __func__,
-			   hle1->p.family);
+		assert(!"Received unexpected family type, dev escape");
 		return 0;
 	}
 }
@@ -859,39 +858,30 @@ static void zl3vni_print_hash_detail(struct hash_bucket *bucket, void *data)
 		vty_out(vty, "\n");
 }
 
-static int zvni_map_to_svi_ns(struct ns *ns,
-			      void *_in_param,
-			      void **_p_ifp)
+static int zvni_map_to_svi_ns(struct interface *tmp_if, void *_in_param)
 {
-	struct zebra_ns *zns = ns->info;
-	struct route_node *rn;
-	struct zebra_from_svi_param *in_param =
-		(struct zebra_from_svi_param *)_in_param;
+	struct zebra_from_svi_param *in_param = _in_param;
 	struct zebra_l2info_vlan *vl;
-	struct interface *tmp_if = NULL;
-	struct interface **p_ifp = (struct interface **)_p_ifp;
 	struct zebra_if *zif;
 
-	assert(in_param && p_ifp);
+	assert(in_param);
 
 	/* TODO: Optimize with a hash. */
-	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
-		tmp_if = (struct interface *)rn->info;
-		/* Check oper status of the SVI. */
-		if (!tmp_if || !if_is_operative(tmp_if))
-			continue;
-		zif = tmp_if->info;
-		if (!zif || zif->zif_type != ZEBRA_IF_VLAN
-		    || zif->link != in_param->br_if)
-			continue;
-		vl = (struct zebra_l2info_vlan *)&zif->l2info.vl;
 
-		if (vl->vid == in_param->vid) {
-			*p_ifp = tmp_if;
-			route_unlock_node(rn);
-			return NS_WALK_STOP;
-		}
+	/* Check oper status of the SVI. */
+	if (!tmp_if || !if_is_operative(tmp_if))
+		goto done;
+	zif = tmp_if->info;
+	if (!zif || zif->zif_type != ZEBRA_IF_VLAN || zif->link != in_param->br_if)
+		goto done;
+	vl = (struct zebra_l2info_vlan *)&zif->l2info.vl;
+
+	if (vl->vid == in_param->vid) {
+		in_param->ret_ifp = tmp_if;
+		return NS_WALK_STOP;
 	}
+
+done:
 	return NS_WALK_CONTINUE;
 }
 
@@ -904,10 +894,9 @@ static int zvni_map_to_svi_ns(struct ns *ns,
  */
 struct interface *zvni_map_to_svi(vlanid_t vid, struct interface *br_if)
 {
-	struct interface *tmp_if = NULL;
 	struct zebra_if *zif;
-	struct zebra_from_svi_param in_param;
-	struct interface **p_ifp;
+	struct zebra_from_svi_param in_param = {};
+
 	/* Defensive check, caller expected to invoke only with valid bridge. */
 	if (!br_if)
 		return NULL;
@@ -922,12 +911,11 @@ struct interface *zvni_map_to_svi(vlanid_t vid, struct interface *br_if)
 
 	in_param.vid = vid;
 	in_param.br_if = br_if;
-	in_param.zif = NULL;
-	p_ifp = &tmp_if;
+
 	/* Identify corresponding VLAN interface. */
-	ns_walk_func(zvni_map_to_svi_ns, (void *)&in_param,
-		     (void **)p_ifp);
-	return tmp_if;
+	zebra_ns_ifp_walk_all(zvni_map_to_svi_ns, &in_param);
+
+	return in_param.ret_ifp;
 }
 
 int zebra_evpn_vxlan_del(struct zebra_evpn *zevpn)
@@ -1007,9 +995,9 @@ static int zevpn_build_vni_hash_table(struct zebra_if *zif,
 		 */
 		zevpn = zebra_evpn_lookup(vni);
 		if (zevpn) {
-			zlog_debug(
-				"EVPN hash already present for IF %s(%u) L2-VNI %u",
-				ifp->name, ifp->ifindex, vni);
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug("EVPN hash already present for IF %s(%u) L2-VNI %u",
+					   ifp->name, ifp->ifindex, vni);
 
 			/*
 			 * Inform BGP if intf is up and mapped to
@@ -1026,9 +1014,9 @@ static int zevpn_build_vni_hash_table(struct zebra_if *zif,
 		} else {
 			zevpn = zebra_evpn_add(vni);
 			if (!zevpn) {
-				zlog_debug(
-					"Failed to add EVPN hash, IF %s(%u) L2-VNI %u",
-					ifp->name, ifp->ifindex, vni);
+				if (IS_ZEBRA_DEBUG_VXLAN)
+					zlog_debug("Failed to add EVPN hash, IF %s(%u) L2-VNI %u",
+						   ifp->name, ifp->ifindex, vni);
 				return 0;
 			}
 
@@ -1072,48 +1060,32 @@ static int zevpn_build_vni_hash_table(struct zebra_if *zif,
 	return 0;
 }
 
-static int zevpn_build_hash_table_zns(struct ns *ns,
-				     void *param_in __attribute__((unused)),
-				     void **param_out __attribute__((unused)))
+static int zevpn_build_hash_table_zns(struct interface *ifp, void *arg)
 {
-	struct zebra_ns *zns = ns->info;
-	struct route_node *rn;
-	struct interface *ifp;
-	struct zebra_vrf *zvrf;
+	struct zebra_vrf *zvrf = arg;
+	struct zebra_if *zif;
+	struct zebra_l2info_vxlan *vxl;
 
-	zvrf = zebra_vrf_get_evpn();
+	zif = ifp->info;
+	if (!zif || zif->zif_type != ZEBRA_IF_VXLAN)
+		goto done;
 
-	/* Walk VxLAN interfaces and create EVPN hash. */
-	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
-		struct zebra_if *zif;
-		struct zebra_l2info_vxlan *vxl;
-
-		ifp = (struct interface *)rn->info;
-		if (!ifp)
-			continue;
-		zif = ifp->info;
-		if (!zif || zif->zif_type != ZEBRA_IF_VXLAN)
-			continue;
-
-		vxl = &zif->l2info.vxl;
-		/* link of VXLAN interface should be in zebra_evpn_vrf */
-		if (zvrf->zns->ns_id != vxl->link_nsid) {
-			if (IS_ZEBRA_DEBUG_VXLAN)
-				zlog_debug(
-					"Intf %s(%u) link not in same "
-					"namespace than BGP EVPN core instance ",
-					ifp->name, ifp->ifindex);
-			continue;
-		}
-
+	vxl = &zif->l2info.vxl;
+	/* link of VXLAN interface should be in zebra_evpn_vrf */
+	if (zvrf->zns->ns_id != vxl->link_nsid) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug("Building vni table for %s-if %s",
-				   IS_ZEBRA_VXLAN_IF_VNI(zif) ? "vni" : "svd",
-				   ifp->name);
-
-		zebra_vxlan_if_vni_iterate(zif, zevpn_build_vni_hash_table,
-					   NULL);
+			zlog_debug("Intf %s(%u) link not in same namespace as BGP EVPN core instance",
+				   ifp->name, ifp->ifindex);
+		goto done;
 	}
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("Building vni table for %s-if %s",
+			   IS_ZEBRA_VXLAN_IF_VNI(zif) ? "vni" : "svd", ifp->name);
+
+	zebra_vxlan_if_vni_iterate(zif, zevpn_build_vni_hash_table, NULL);
+
+done:
 	return NS_WALK_CONTINUE;
 }
 
@@ -1124,7 +1096,13 @@ static int zevpn_build_hash_table_zns(struct ns *ns,
 
 static void zevpn_build_hash_table(void)
 {
-	ns_walk_func(zevpn_build_hash_table_zns, NULL, NULL);
+	struct zebra_vrf *zvrf;
+
+	zvrf = zebra_vrf_get_evpn();
+	if (zvrf == NULL)
+		return;
+
+	zebra_ns_ifp_walk_all(zevpn_build_hash_table_zns, zvrf);
 }
 
 /*
@@ -1356,6 +1334,18 @@ static int zl3vni_remote_rmac_add(struct zebra_l3vni *zl3vni,
 {
 	struct zebra_mac *zrmac = NULL;
 	struct ipaddr *vtep = NULL;
+	struct ipaddr ipv4_vtep;
+
+	/* vtep_ip may be v4 or v6-mapped-v4. But zrmac->fwd_info
+	 * can only contain v4 version. So convert if needed
+	 */
+	memset(&ipv4_vtep, 0, sizeof(ipv4_vtep));
+	ipv4_vtep.ipa_type = IPADDR_V4;
+	if (vtep_ip->ipa_type == IPADDR_V6)
+		ipv4_mapped_ipv6_to_ipv4(&vtep_ip->ipaddr_v6,
+					 &(ipv4_vtep.ipaddr_v4));
+	else
+		IPV4_ADDR_COPY(&(ipv4_vtep.ipaddr_v4), &vtep_ip->ipaddr_v4);
 
 	zrmac = zl3vni_rmac_lookup(zl3vni, rmac);
 	if (!zrmac) {
@@ -1363,13 +1353,13 @@ static int zl3vni_remote_rmac_add(struct zebra_l3vni *zl3vni,
 		 /* Create the RMAC entry, or update its vtep, if necessary. */
 		zrmac = zl3vni_rmac_add(zl3vni, rmac);
 		if (!zrmac) {
-			zlog_debug(
-				"Failed to add RMAC %pEA L3VNI %u Remote VTEP %pIA",
-				rmac, zl3vni->vni, vtep_ip);
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug("Failed to add RMAC %pEA L3VNI %u Remote VTEP %pIA",
+					   rmac, zl3vni->vni, vtep_ip);
 			return -1;
 		}
 		memset(&zrmac->fwd_info, 0, sizeof(zrmac->fwd_info));
-		zrmac->fwd_info.r_vtep_ip = vtep_ip->ipaddr_v4;
+		zrmac->fwd_info.r_vtep_ip = ipv4_vtep.ipaddr_v4;
 
 		vtep = XCALLOC(MTYPE_EVPN_VTEP, sizeof(struct ipaddr));
 		memcpy(vtep, vtep_ip, sizeof(struct ipaddr));
@@ -1383,14 +1373,14 @@ static int zl3vni_remote_rmac_add(struct zebra_l3vni *zl3vni,
 		/* install rmac in kernel */
 		zl3vni_rmac_install(zl3vni, zrmac);
 	} else if (!IPV4_ADDR_SAME(&zrmac->fwd_info.r_vtep_ip,
-				   &vtep_ip->ipaddr_v4)) {
+				   &(ipv4_vtep.ipaddr_v4))) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
 				"L3VNI %u Remote VTEP change(%pI4 -> %pIA) for RMAC %pEA",
 				zl3vni->vni, &zrmac->fwd_info.r_vtep_ip,
 				vtep_ip, rmac);
 
-		zrmac->fwd_info.r_vtep_ip = vtep_ip->ipaddr_v4;
+		zrmac->fwd_info.r_vtep_ip = ipv4_vtep.ipaddr_v4;
 
 		vtep = XCALLOC(MTYPE_EVPN_VTEP, sizeof(struct ipaddr));
 		memcpy(vtep, vtep_ip, sizeof(struct ipaddr));
@@ -1410,36 +1400,29 @@ static void zl3vni_remote_rmac_del(struct zebra_l3vni *zl3vni,
 				   struct zebra_mac *zrmac,
 				   struct ipaddr *vtep_ip)
 {
-	struct ipaddr ipv4_vtep;
-
 	if (!zl3vni_nh_lookup(zl3vni, vtep_ip)) {
-		memset(&ipv4_vtep, 0, sizeof(ipv4_vtep));
-		ipv4_vtep.ipa_type = IPADDR_V4;
-		if (vtep_ip->ipa_type == IPADDR_V6)
-			ipv4_mapped_ipv6_to_ipv4(&vtep_ip->ipaddr_v6,
-						 &ipv4_vtep.ipaddr_v4);
-		else
-			memcpy(&(ipv4_vtep.ipaddr_v4), &vtep_ip->ipaddr_v4,
-			       sizeof(struct in_addr));
-
 		/* remove nh from rmac's list */
-		l3vni_rmac_nh_list_nh_delete(zl3vni, zrmac, &ipv4_vtep);
-		/* delete nh is same as current selected, fall back to
-		 * one present in the list
-		 */
-		if (IPV4_ADDR_SAME(&zrmac->fwd_info.r_vtep_ip,
-				   &ipv4_vtep.ipaddr_v4) &&
-		    listcount(zrmac->nh_list)) {
+		l3vni_rmac_nh_list_nh_delete(zl3vni, zrmac, vtep_ip);
+		/* If there are remaining entries, use IPv4 from one */
+		if (listcount(zrmac->nh_list)) {
 			struct ipaddr *vtep;
+			struct ipaddr ipv4_vtep;
 
 			vtep = listgetdata(listhead(zrmac->nh_list));
-			zrmac->fwd_info.r_vtep_ip = vtep->ipaddr_v4;
+			memset(&ipv4_vtep, 0, sizeof(ipv4_vtep));
+			ipv4_vtep.ipa_type = IPADDR_V4;
+			if (vtep->ipa_type == IPADDR_V6)
+				ipv4_mapped_ipv6_to_ipv4(&vtep->ipaddr_v6,
+							 &(ipv4_vtep.ipaddr_v4));
+			else
+				IPV4_ADDR_COPY(&(ipv4_vtep.ipaddr_v4),
+					       &vtep->ipaddr_v4);
+			zrmac->fwd_info.r_vtep_ip = ipv4_vtep.ipaddr_v4;
 			if (IS_ZEBRA_DEBUG_VXLAN)
-				zlog_debug(
-					"L3VNI %u Remote VTEP nh change(%pIA -> %pI4) for RMAC %pEA",
-					zl3vni->vni, &ipv4_vtep,
-					&zrmac->fwd_info.r_vtep_ip,
-					&zrmac->macaddr);
+				zlog_debug("L3VNI %u Remote VTEP nh change(%pIA -> %pI4) for RMAC %pEA",
+					   zl3vni->vni, vtep_ip,
+					   &zrmac->fwd_info.r_vtep_ip,
+					   &zrmac->macaddr);
 
 			/* install rmac in kernel */
 			zl3vni_rmac_install(zl3vni, zrmac);
@@ -1601,7 +1584,7 @@ static void svd_nh_del_terminate(void *ptr)
 	struct zebra_neigh *n = ptr;
 
 	n->refcnt = 0;
-	svd_nh_del(n);
+	XFREE(MTYPE_L3NEIGH, n);
 }
 
 
@@ -1694,9 +1677,9 @@ static int zl3vni_remote_nh_add(struct zebra_l3vni *zl3vni,
 	if (!nh) {
 		nh = zl3vni_nh_add(zl3vni, vtep_ip, rmac);
 		if (!nh) {
-			zlog_debug(
-				"Failed to add NH %pIA as Neigh (RMAC %pEA L3-VNI %u prefix %pFX)",
-				vtep_ip, rmac, zl3vni->vni, host_prefix);
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug("Failed to add NH %pIA as Neigh (RMAC %pEA L3-VNI %u prefix %pFX)",
+					   vtep_ip, rmac, zl3vni->vni, host_prefix);
 			return -1;
 		}
 
@@ -1752,9 +1735,9 @@ static int svd_remote_nh_add(struct zebra_l3vni *zl3vni,
 	if (!nh) {
 		nh = svd_nh_add(vtep_ip, rmac);
 		if (!nh) {
-			zlog_debug(
-				"Failed to add NH %pIA as SVD Neigh (RMAC %pEA prefix %pFX)",
-				vtep_ip, rmac, host_prefix);
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug("Failed to add NH %pIA as SVD Neigh (RMAC %pEA prefix %pFX)",
+					   vtep_ip, rmac, host_prefix);
 			return -1;
 		}
 
@@ -1800,7 +1783,8 @@ static int svd_remote_nh_del(struct zebra_l3vni *zl3vni,
 
 	nh = svd_nh_lookup(vtep_ip);
 	if (!nh) {
-		zlog_debug("Failed to del NH %pIA as SVD Neigh", vtep_ip);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("Failed to del NH %pIA as SVD Neigh", vtep_ip);
 
 		return -1;
 	}
@@ -1963,70 +1947,63 @@ static int zl3vni_del(struct zebra_l3vni *zl3vni)
 	return 0;
 }
 
-static int zl3vni_map_to_vxlan_if_ns(struct ns *ns,
-				     void *_zl3vni,
-				     void **_pifp)
-{
-	struct zebra_ns *zns = ns->info;
-	struct zebra_l3vni *zl3vni = (struct zebra_l3vni *)_zl3vni;
-	struct route_node *rn = NULL;
-	struct interface *ifp = NULL;
+/* Context arg for zl3vni map iteration */
+struct zl3vni_map_arg {
 	struct zebra_vrf *zvrf;
+	struct zebra_l3vni *zl3vni;
+	struct interface *ret_ifp;
+};
 
-	zvrf = zebra_vrf_get_evpn();
+static int zl3vni_map_to_vxlan_if_ns(struct interface *ifp, void *arg)
+{
+	struct zl3vni_map_arg *ctx = arg;
+	struct zebra_l3vni *zl3vni = ctx->zl3vni;
+	struct zebra_vrf *zvrf = ctx->zvrf;
+	struct zebra_if *zif = NULL;
+	struct zebra_l2info_vxlan *vxl;
+	struct zebra_vxlan_vni *vni = NULL;
 
-	assert(_pifp);
+	/* look for vxlan-interface */
 
-	/* loop through all vxlan-interface */
-	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
+	zif = ifp->info;
+	if (!zif || zif->zif_type != ZEBRA_IF_VXLAN)
+		goto done;
 
-		struct zebra_if *zif = NULL;
-		struct zebra_l2info_vxlan *vxl;
-		struct zebra_vxlan_vni *vni = NULL;
+	vxl = &zif->l2info.vxl;
+	vni = zebra_vxlan_if_vni_find(zif, zl3vni->vni);
+	if (!vni || vni->vni != zl3vni->vni)
+		goto done;
 
-		ifp = (struct interface *)rn->info;
-		if (!ifp)
-			continue;
-
-		zif = ifp->info;
-		if (!zif || zif->zif_type != ZEBRA_IF_VXLAN)
-			continue;
-
-		vxl = &zif->l2info.vxl;
-		vni = zebra_vxlan_if_vni_find(zif, zl3vni->vni);
-		if (!vni || vni->vni != zl3vni->vni)
-			continue;
-
-		/* link of VXLAN interface should be in zebra_evpn_vrf */
-		if (zvrf->zns->ns_id != vxl->link_nsid) {
-			if (IS_ZEBRA_DEBUG_VXLAN)
-				zlog_debug(
-					"Intf %s(%u) VNI %u, link not in same "
-					"namespace than BGP EVPN core instance ",
-					ifp->name, ifp->ifindex, vni->vni);
-			continue;
-		}
-
-
-		zl3vni->local_vtep_ip = zif->l2info.vxl.vtep_ip;
-		*_pifp = (void *)ifp;
-		route_unlock_node(rn);
-		return NS_WALK_STOP;
+	/* link of VXLAN interface should be in zebra_evpn_vrf */
+	if (zvrf->zns->ns_id != vxl->link_nsid) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("Intf %s(%u) VNI %u, link not in same namespace as BGP EVPN core instance",
+				   ifp->name, ifp->ifindex, vni->vni);
+		goto done;
 	}
 
+	zl3vni->local_vtep_ip = zif->l2info.vxl.vtep_ip;
+	ctx->ret_ifp = ifp;
+
+	return NS_WALK_STOP;
+
+done:
 	return NS_WALK_CONTINUE;
 }
 
 struct interface *zl3vni_map_to_vxlan_if(struct zebra_l3vni *zl3vni)
 {
-	struct interface **p_ifp;
-	struct interface *ifp = NULL;
+	struct zl3vni_map_arg arg = {};
 
-	p_ifp = &ifp;
+	arg.zl3vni = zl3vni;
+	arg.zvrf = zebra_vrf_get_evpn();
 
-	ns_walk_func(zl3vni_map_to_vxlan_if_ns,
-		     (void *)zl3vni, (void **)p_ifp);
-	return ifp;
+	if (arg.zvrf == NULL)
+		return NULL;
+
+	zebra_ns_ifp_walk_all(zl3vni_map_to_vxlan_if_ns, &arg);
+
+	return arg.ret_ifp;
 }
 
 struct interface *zl3vni_map_to_svi_if(struct zebra_l3vni *zl3vni)
@@ -2081,57 +2058,35 @@ struct zebra_l3vni *zl3vni_from_vrf(vrf_id_t vrf_id)
 	return zl3vni_lookup(zvrf->l3vni);
 }
 
-static int zl3vni_from_svi_ns(struct ns *ns, void *_in_param, void **_p_zl3vni)
+/* loop through all vxlan-interface */
+static int zl3vni_from_svi_ns(struct interface *tmp_if, void *_in_param)
 {
 	int found = 0;
 	vni_t vni_id = 0;
-	struct zebra_ns *zns = ns->info;
-	struct zebra_l3vni **p_zl3vni = (struct zebra_l3vni **)_p_zl3vni;
-	struct zebra_from_svi_param *in_param =
-		(struct zebra_from_svi_param *)_in_param;
-	struct route_node *rn = NULL;
-	struct interface *tmp_if = NULL;
+	struct zebra_from_svi_param *in_param = _in_param;
 	struct zebra_if *zif = NULL;
-	struct zebra_if *br_zif = NULL;
 
-	assert(in_param && p_zl3vni);
+	assert(in_param);
 
-	br_zif = in_param->br_if->info;
-	assert(br_zif);
+	zif = tmp_if->info;
+	if (!zif || zif->zif_type != ZEBRA_IF_VXLAN)
+		goto done;
+	if (!if_is_operative(tmp_if))
+		goto done;
 
-	if (in_param->bridge_vlan_aware) {
-		vni_id = zebra_l2_bridge_if_vni_find(br_zif, in_param->vid);
-		if (vni_id)
-			found = 1;
-	} else {
-		/* loop through all vxlan-interface */
-		for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
-			tmp_if = (struct interface *)rn->info;
-			if (!tmp_if)
-				continue;
-			zif = tmp_if->info;
-			if (!zif || zif->zif_type != ZEBRA_IF_VXLAN)
-				continue;
-			if (!if_is_operative(tmp_if))
-				continue;
+	if (zif->brslave_info.br_if != in_param->br_if)
+		goto done;
 
-			if (zif->brslave_info.br_if != in_param->br_if)
-				continue;
-
-			vni_id = zebra_vxlan_if_access_vlan_vni_find(
-				zif, in_param->br_if);
-			if (vni_id) {
-				found = 1;
-				route_unlock_node(rn);
-				break;
-			}
-		}
+	vni_id = zebra_vxlan_if_access_vlan_vni_find(zif, in_param->br_if);
+	if (vni_id) {
+		in_param->zl3vni = zl3vni_lookup(vni_id);
+		found = 1;
 	}
 
+done:
 	if (!found)
 		return NS_WALK_CONTINUE;
 
-	*p_zl3vni = zl3vni_lookup(vni_id);
 	return NS_WALK_STOP;
 }
 
@@ -2142,10 +2097,11 @@ static int zl3vni_from_svi_ns(struct ns *ns, void *_in_param, void **_p_zl3vni)
 static struct zebra_l3vni *zl3vni_from_svi(struct interface *ifp,
 					   struct interface *br_if)
 {
-	struct zebra_l3vni *zl3vni = NULL;
 	struct zebra_if *zif = NULL;
+	vni_t vni_id = 0;
+	struct zebra_if *br_zif = NULL;
 	struct zebra_from_svi_param in_param = {};
-	struct zebra_l3vni **p_zl3vni;
+	struct zebra_l2info_vlan *vl;
 
 	if (!br_if)
 		return NULL;
@@ -2153,15 +2109,15 @@ static struct zebra_l3vni *zl3vni_from_svi(struct interface *ifp,
 	/* Make sure the linked interface is a bridge. */
 	if (!IS_ZEBRA_IF_BRIDGE(br_if))
 		return NULL;
+
 	in_param.br_if = br_if;
 
 	/* Determine if bridge is VLAN-aware or not */
-	zif = br_if->info;
-	assert(zif);
-	in_param.bridge_vlan_aware = IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(zif);
-	if (in_param.bridge_vlan_aware) {
-		struct zebra_l2info_vlan *vl;
+	br_zif = br_if->info;
+	assert(br_zif);
 
+	in_param.bridge_vlan_aware = IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif);
+	if (in_param.bridge_vlan_aware) {
 		if (!IS_ZEBRA_IF_VLAN(ifp))
 			return NULL;
 
@@ -2169,15 +2125,18 @@ static struct zebra_l3vni *zl3vni_from_svi(struct interface *ifp,
 		assert(zif);
 		vl = &zif->l2info.vl;
 		in_param.vid = vl->vid;
+
+		vni_id = zebra_l2_bridge_if_vni_find(br_zif, in_param.vid);
+		if (vni_id)
+			return zl3vni_lookup(vni_id);
 	}
 
 	/* See if this interface (or interface plus VLAN Id) maps to a VxLAN */
 	/* TODO: Optimize with a hash. */
 
-	p_zl3vni = &zl3vni;
+	zebra_ns_ifp_walk_all(zl3vni_from_svi_ns, &in_param);
 
-	ns_walk_func(zl3vni_from_svi_ns, (void *)&in_param, (void **)p_zl3vni);
-	return zl3vni;
+	return in_param.zl3vni;
 }
 
 vni_t vni_id_from_svi(struct interface *ifp, struct interface *br_if)
@@ -2244,7 +2203,7 @@ static int zl3vni_send_add_to_client(struct zebra_l3vni *zl3vni)
 		is_anycast_mac = false;
 	}
 
-	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+	s = stream_new(ZEBRA_SMALL_PACKET_SIZE);
 
 	/* The message is used for both vni add and/or update like
 	 * vrr mac is added for l3vni SVI.
@@ -2287,7 +2246,7 @@ static int zl3vni_send_del_to_client(struct zebra_l3vni *zl3vni)
 	if (!client)
 		return 0;
 
-	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+	s = stream_new(ZEBRA_SMALL_PACKET_SIZE);
 
 	zclient_create_header(s, ZEBRA_L3VNI_DEL, zl3vni_vrf_id(zl3vni));
 	stream_putl(s, zl3vni->vni);
@@ -2329,6 +2288,36 @@ static void zevpn_add_to_l3vni_list(struct hash_bucket *bucket, void *ctxt)
 
 	if (zevpn->vrf_id == zl3vni_vrf_id(zl3vni))
 		listnode_add_sort(zl3vni->l2vnis, zevpn);
+}
+
+/* Helper for vni transition iterator */
+
+struct vni_trans_ctx {
+	vni_t vni;
+	struct zebra_vxlan_vni *vnip;
+	struct interface *ret_ifp;
+};
+
+static int vni_trans_cb(struct interface *ifp, void *arg)
+{
+	struct vni_trans_ctx *ctx = arg;
+	struct zebra_if *zif;
+	struct zebra_vxlan_vni *vnip;
+
+	/* Find VxLAN interface for this VNI. */
+	zif = ifp->info;
+	if (!zif || zif->zif_type != ZEBRA_IF_VXLAN)
+		goto done;
+
+	vnip = zebra_vxlan_if_vni_find(zif, ctx->vni);
+	if (vnip) {
+		ctx->ret_ifp = ifp;
+		ctx->vnip = vnip;
+		return NS_WALK_STOP;
+	}
+
+done:
+	return NS_WALK_CONTINUE;
 }
 
 /*
@@ -2381,39 +2370,25 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 			return -1;
 		}
 	} else {
-		struct zebra_ns *zns;
-		struct route_node *rn;
-		struct interface *ifp;
-		struct zebra_if *zif;
 		struct zebra_vxlan_vni *vnip;
 		struct zebra_l2info_vxlan *vxl;
 		struct interface *vlan_if;
-		bool found = false;
+		struct zebra_if *zif;
+		struct zebra_ns *zns;
+		struct vni_trans_ctx ctx = {};
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("Adding L2-VNI %u - transition from L3-VNI",
 				   vni);
 
-		/* Find VxLAN interface for this VNI. */
 		zns = zebra_ns_lookup(NS_DEFAULT);
-		for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
-			ifp = (struct interface *)rn->info;
-			if (!ifp)
-				continue;
-			zif = ifp->info;
-			if (!zif || zif->zif_type != ZEBRA_IF_VXLAN)
-				continue;
 
-			vxl = &zif->l2info.vxl;
-			vnip = zebra_vxlan_if_vni_find(zif, vni);
-			if (vnip) {
-				found = true;
-				route_unlock_node(rn);
-				break;
-			}
-		}
+		ctx.vni = vni;
 
-		if (!found) {
+		/* Find VxLAN interface for this VNI. */
+		zebra_ns_ifp_walk(zns, vni_trans_cb, &ctx);
+
+		if (ctx.ret_ifp == NULL) {
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_err(
 					"Adding L2-VNI - Failed to find VxLAN interface for VNI %u",
@@ -2425,6 +2400,10 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 		zevpn = zebra_evpn_lookup(vni);
 		if (zevpn)
 			return 0;
+
+		zif = ctx.ret_ifp->info;
+		vnip = ctx.vnip;
+		vxl = &zif->l2info.vxl;
 
 		zevpn = zebra_evpn_add(vni);
 
@@ -2438,13 +2417,13 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 				listnode_add_sort_nodup(zl3vni->l2vnis, zevpn);
 		}
 
-		zevpn->vxlan_if = ifp;
+		zevpn->vxlan_if = ctx.ret_ifp;
 		zevpn->local_vtep_ip = vxl->vtep_ip;
 
 		/* Inform BGP if the VNI is up and mapped to a bridge. */
-		if (if_is_operative(ifp) && zif->brslave_info.br_if) {
+		if (if_is_operative(ctx.ret_ifp) && zif->brslave_info.br_if) {
 			zebra_evpn_send_add_to_client(zevpn);
-			zebra_evpn_read_mac_neigh(zevpn, ifp);
+			zebra_evpn_read_mac_neigh(zevpn, ctx.ret_ifp);
 		}
 	}
 
@@ -2531,7 +2510,6 @@ void zebra_vxlan_evpn_vrf_route_add(vrf_id_t vrf_id, const struct ethaddr *rmac,
 				    const struct prefix *host_prefix)
 {
 	struct zebra_l3vni *zl3vni = NULL;
-	struct ipaddr ipv4_vtep;
 
 	zl3vni = zl3vni_from_vrf(vrf_id);
 	if (!zl3vni || !is_l3vni_oper_up(zl3vni))
@@ -2547,24 +2525,10 @@ void zebra_vxlan_evpn_vrf_route_add(vrf_id_t vrf_id, const struct ethaddr *rmac,
 	svd_remote_nh_add(zl3vni, vtep_ip, rmac, host_prefix);
 
 	/*
-	 * if the remote vtep is a ipv4 mapped ipv6 address convert it to ipv4
-	 * address. Rmac is programmed against the ipv4 vtep because we only
-	 * support ipv4 tunnels in the h/w right now
-	 */
-	memset(&ipv4_vtep, 0, sizeof(ipv4_vtep));
-	ipv4_vtep.ipa_type = IPADDR_V4;
-	if (vtep_ip->ipa_type == IPADDR_V6)
-		ipv4_mapped_ipv6_to_ipv4(&vtep_ip->ipaddr_v6,
-					 &(ipv4_vtep.ipaddr_v4));
-	else
-		memcpy(&(ipv4_vtep.ipaddr_v4), &vtep_ip->ipaddr_v4,
-		       sizeof(struct in_addr));
-
-	/*
-	 * add the rmac - remote rmac to be installed is against the ipv4
+	 * add the rmac - remote rmac to be installed is against the
 	 * nexthop address
 	 */
-	zl3vni_remote_rmac_add(zl3vni, rmac, &ipv4_vtep);
+	zl3vni_remote_rmac_add(zl3vni, rmac, vtep_ip);
 }
 
 /* handle evpn vrf route delete */
@@ -4118,9 +4082,9 @@ int zebra_vxlan_handle_kernel_neigh_del(struct interface *ifp,
 	}
 
 	if (!zevpn->vxlan_if) {
-		zlog_debug(
-			"VNI %u hash %p doesn't have intf upon local neighbor DEL",
-			zevpn->vni, zevpn);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("VNI %u hash %p doesn't have intf upon local neighbor DEL",
+				   zevpn->vni, zevpn);
 		return -1;
 	}
 
@@ -4294,7 +4258,8 @@ void zebra_vxlan_remote_macip_add(ZAPI_HANDLER_ARGS)
 	char esi_buf[ESI_STR_LEN];
 
 	if (!EVPN_ENABLED(zvrf)) {
-		zlog_debug("EVPN not enabled, ignoring remote MACIP ADD");
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("EVPN not enabled, ignoring remote MACIP ADD");
 		return;
 	}
 
@@ -4438,6 +4403,7 @@ static int zebra_vxlan_check_del_local_mac(struct interface *ifp,
 		UNSET_FLAG(mac->flags, ZEBRA_MAC_ALL_LOCAL_FLAGS);
 		UNSET_FLAG(mac->flags, ZEBRA_MAC_STICKY);
 		SET_FLAG(mac->flags, ZEBRA_MAC_AUTO);
+		mac->rem_seq = 0;
 	}
 
 	return 0;
@@ -4566,9 +4532,9 @@ int zebra_vxlan_local_mac_del(struct interface *ifp, struct interface *br_if,
 	if (!zevpn)
 		return 0;
 	if (!zevpn->vxlan_if) {
-		zlog_debug(
-			"VNI %u hash %p doesn't have intf upon local MAC DEL",
-			zevpn->vni, zevpn);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("VNI %u hash %p doesn't have intf upon local MAC DEL",
+				   zevpn->vni, zevpn);
 		return -1;
 	}
 
@@ -4636,15 +4602,15 @@ void zebra_vxlan_remote_vtep_del_zapi(ZAPI_HANDLER_ARGS)
 	struct in_addr vtep_ip;
 
 	if (!is_evpn_enabled()) {
-		zlog_debug(
-			"%s: EVPN is not enabled yet we have received a VTEP DEL msg",
-			__func__);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("%s: EVPN is not enabled yet we have received a VTEP DEL msg",
+				   __func__);
 		return;
 	}
 
 	if (!EVPN_ENABLED(zvrf)) {
-		zlog_debug("Recv VTEP DEL zapi for non-EVPN VRF %u",
-			   zvrf_id(zvrf));
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("Recv VTEP DEL zapi for non-EVPN VRF %u", zvrf_id(zvrf));
 		return;
 	}
 
@@ -4689,8 +4655,8 @@ void zebra_vxlan_remote_vtep_del(vrf_id_t vrf_id, vni_t vni,
 	struct zebra_vrf *zvrf;
 
 	if (!is_evpn_enabled()) {
-		zlog_debug("%s: Can't process vtep del: EVPN is not enabled",
-			   __func__);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("%s: Can't process vtep del: EVPN is not enabled", __func__);
 		return;
 	}
 
@@ -4699,8 +4665,8 @@ void zebra_vxlan_remote_vtep_del(vrf_id_t vrf_id, vni_t vni,
 		return;
 
 	if (!EVPN_ENABLED(zvrf)) {
-		zlog_debug("Can't process VTEP DEL for non-EVPN VRF %u",
-			   zvrf_id(zvrf));
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("Can't process VTEP DEL for non-EVPN VRF %u", zvrf_id(zvrf));
 		return;
 	}
 
@@ -4716,9 +4682,9 @@ void zebra_vxlan_remote_vtep_del(vrf_id_t vrf_id, vni_t vni,
 
 	ifp = zevpn->vxlan_if;
 	if (!ifp) {
-		zlog_debug(
-			"VNI %u hash %p doesn't have intf upon remote VTEP DEL",
-			zevpn->vni, zevpn);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("VNI %u hash %p doesn't have intf upon remote VTEP DEL",
+				   zevpn->vni, zevpn);
 		return;
 	}
 	zif = ifp->info;
@@ -4753,8 +4719,8 @@ void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni,
 	struct zebra_vrf *zvrf;
 
 	if (!is_evpn_enabled()) {
-		zlog_debug("%s: EVPN not enabled: can't process a VTEP ADD",
-			   __func__);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("%s: EVPN not enabled: can't process a VTEP ADD", __func__);
 		return;
 	}
 
@@ -4763,8 +4729,8 @@ void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni,
 		return;
 
 	if (!EVPN_ENABLED(zvrf)) {
-		zlog_debug("Can't process VTEP ADD for non-EVPN VRF %u",
-			   zvrf_id(zvrf));
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("Can't process VTEP ADD for non-EVPN VRF %u", zvrf_id(zvrf));
 		return;
 	}
 
@@ -4790,8 +4756,13 @@ void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni,
 	zif = ifp->info;
 
 	/* If down or not mapped to a bridge, we're done. */
-	if (!if_is_operative(ifp) || !zif->brslave_info.br_if)
+	if (!if_is_operative(ifp) || !zif->brslave_info.br_if) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s VNI %u VTEP %pI4 ifp %s oper %u br_if %u skipping update",
+				   __func__, zevpn->vni, &vtep_ip, ifp->name, if_is_operative(ifp),
+				   !zif->brslave_info.br_if);
 		return;
+	}
 
 	zvtep = zebra_evpn_vtep_find(zevpn, &vtep_ip);
 	if (zvtep) {
@@ -4831,15 +4802,15 @@ void zebra_vxlan_remote_vtep_add_zapi(ZAPI_HANDLER_ARGS)
 	int flood_control;
 
 	if (!is_evpn_enabled()) {
-		zlog_debug(
-			"%s: EVPN not enabled yet we received a VTEP ADD zapi msg",
-			__func__);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("%s: EVPN not enabled yet we received a VTEP ADD zapi msg",
+				   __func__);
 		return;
 	}
 
 	if (!EVPN_ENABLED(zvrf)) {
-		zlog_debug("Recv VTEP ADD zapi for non-EVPN VRF %u",
-			   zvrf_id(zvrf));
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("Recv VTEP ADD zapi for non-EVPN VRF %u", zvrf_id(zvrf));
 		return;
 	}
 
@@ -4907,8 +4878,9 @@ int zebra_vxlan_add_del_gw_macip(struct interface *ifp, const struct prefix *p,
 		svi_if = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT),
 						   ifp_zif->link_ifindex);
 		if (!svi_if) {
-			zlog_debug("MACVLAN %s(%u) without link information",
-				   ifp->name, ifp->ifindex);
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug("MACVLAN %s(%u) without link information", ifp->name,
+					   ifp->ifindex);
 			return -1;
 		}
 
@@ -4956,8 +4928,9 @@ int zebra_vxlan_add_del_gw_macip(struct interface *ifp, const struct prefix *p,
 		return 0;
 
 	if (!zevpn->vxlan_if) {
-		zlog_debug("VNI %u hash %p doesn't have intf upon MACVLAN up",
-			   zevpn->vni, zevpn);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("VNI %u hash %p doesn't have intf upon MACVLAN up", zevpn->vni,
+				   zevpn);
 		return -1;
 	}
 
@@ -5074,9 +5047,9 @@ int zebra_vxlan_svi_up(struct interface *ifp, struct interface *link_if)
 			return 0;
 
 		if (!zevpn->vxlan_if) {
-			zlog_debug(
-				"VNI %u hash %p doesn't have intf upon SVI up",
-				zevpn->vni, zevpn);
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug("VNI %u hash %p doesn't have intf upon SVI up",
+					   zevpn->vni, zevpn);
 			return -1;
 		}
 
@@ -5386,8 +5359,8 @@ void zebra_vxlan_advertise_svi_macip(ZAPI_HANDLER_ARGS)
 	struct interface *ifp = NULL;
 
 	if (!EVPN_ENABLED(zvrf)) {
-		zlog_debug("EVPN SVI-MACIP Adv for non-EVPN VRF %u",
-			  zvrf_id(zvrf));
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("EVPN SVI-MACIP Adv for non-EVPN VRF %u", zvrf_id(zvrf));
 		return;
 	}
 
@@ -5494,8 +5467,8 @@ void zebra_vxlan_advertise_subnet(ZAPI_HANDLER_ARGS)
 	struct zebra_vxlan_vni *zl2_info_vni = NULL;
 
 	if (!EVPN_ENABLED(zvrf)) {
-		zlog_debug("EVPN GW-MACIP Adv for non-EVPN VRF %u",
-			  zvrf_id(zvrf));
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("EVPN GW-MACIP Adv for non-EVPN VRF %u", zvrf_id(zvrf));
 		return;
 	}
 
@@ -5559,8 +5532,8 @@ void zebra_vxlan_advertise_gw_macip(ZAPI_HANDLER_ARGS)
 	struct interface *ifp = NULL;
 
 	if (!EVPN_ENABLED(zvrf)) {
-		zlog_debug("EVPN GW-MACIP Adv for non-EVPN VRF %u",
-			   zvrf_id(zvrf));
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("EVPN GW-MACIP Adv for non-EVPN VRF %u", zvrf_id(zvrf));
 		return;
 	}
 
@@ -5888,7 +5861,7 @@ static int zebra_vxlan_sg_send(struct zebra_vrf *zvrf,
 	if (!CHECK_FLAG(zvrf->flags, ZEBRA_PIM_SEND_VXLAN_SG))
 		return 0;
 
-	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+	s = stream_new(ZEBRA_SMALL_PACKET_SIZE);
 
 	zclient_create_header(s, cmd, VRF_DEFAULT);
 	stream_putl(s, IPV4_MAX_BYTELEN);
@@ -6255,4 +6228,115 @@ bool zebra_vxlan_get_accept_bgp_seq(void)
 extern void zebra_evpn_init(void)
 {
 	hook_register(zserv_client_close, zebra_evpn_cfg_clean_up);
+}
+
+static const char *port_state2str(uint8_t state)
+{
+	switch (state) {
+	case ZEBRA_DPLANE_BR_STATE_DISABLED:
+		return "DISABLED";
+	case ZEBRA_DPLANE_BR_STATE_LISTENING:
+		return "LISTENING";
+	case ZEBRA_DPLANE_BR_STATE_LEARNING:
+		return "LEARNING";
+	case ZEBRA_DPLANE_BR_STATE_FORWARDING:
+		return "FORWARDING";
+	case ZEBRA_DPLANE_BR_STATE_BLOCKING:
+		return "BLOCKING";
+	}
+
+	return "UNKNOWN";
+}
+
+static void vxlan_vni_state_change(struct zebra_if *zif, uint16_t id,
+				   uint8_t state)
+{
+	struct zebra_vxlan_vni *vnip;
+
+	vnip = zebra_vxlan_if_vlanid_vni_find(zif, id);
+
+	if (!vnip) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("Cannot find VNI for VID (%u) IF %s for vlan state update",
+				   id, zif->ifp->name);
+
+		return;
+	}
+
+	switch (state) {
+	case ZEBRA_DPLANE_BR_STATE_FORWARDING:
+		zebra_vxlan_if_vni_up(zif->ifp, vnip);
+		break;
+	case ZEBRA_DPLANE_BR_STATE_BLOCKING:
+		zebra_vxlan_if_vni_down(zif->ifp, vnip);
+		break;
+	case ZEBRA_DPLANE_BR_STATE_DISABLED:
+	case ZEBRA_DPLANE_BR_STATE_LISTENING:
+	case ZEBRA_DPLANE_BR_STATE_LEARNING:
+	default:
+		/* Not used for anything at the moment */
+		break;
+	}
+}
+
+static void vlan_id_range_state_change(struct interface *ifp, uint16_t id_start,
+				       uint16_t id_end, uint8_t state)
+{
+	struct zebra_if *zif;
+
+	zif = (struct zebra_if *)ifp->info;
+
+	if (!zif)
+		return;
+
+	for (uint16_t i = id_start; i <= id_end; i++)
+		vxlan_vni_state_change(zif, i, state);
+}
+
+void zebra_vlan_dplane_result(struct zebra_dplane_ctx *ctx)
+{
+	int i;
+	struct interface *ifp = NULL;
+	ns_id_t ns_id = dplane_ctx_get_ns_id(ctx);
+	enum dplane_op_e op = dplane_ctx_get_op(ctx);
+	const struct zebra_vxlan_vlan_array *vlan_array =
+		dplane_ctx_get_vxlan_vlan_array(ctx);
+	ifindex_t ifindex = dplane_ctx_get_vlan_ifindex(ctx);
+
+	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(ns_id), ifindex);
+	if (!ifp) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("Cannot find bridge-vlan IF (%u) for vlan update", ifindex);
+		return;
+	}
+
+	if (!IS_ZEBRA_IF_VXLAN(ifp)) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("Ignoring non-vxlan IF (%s) for vlan update",
+				   ifp->name);
+
+		return;
+	}
+
+	if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("Dequeuing in zebra main..%s IF %s ifindex %u NS %u",
+			   dplane_op2str(op), ifp->name, ifindex, ns_id);
+
+	for (i = 0; i < vlan_array->count; i++) {
+		vlanid_t vid = vlan_array->vlans[i].vid;
+		uint8_t state = vlan_array->vlans[i].state;
+		uint32_t vrange = vlan_array->vlans[i].vrange;
+
+		if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_VXLAN) {
+			if (vrange)
+				zlog_debug("VLANDB_ENTRY: VID (%u-%u) state=%s",
+					   vid, vrange, port_state2str(state));
+			else
+				zlog_debug("VLANDB_ENTRY: VID (%u) state=%s",
+					   vid, port_state2str(state));
+		}
+
+		vlan_id_range_state_change(ifp, vid, (vrange ? vrange : vid),
+					   state);
+	}
 }

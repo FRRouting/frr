@@ -470,7 +470,7 @@ static void vnc_import_bgp_add_route_mode_resolve_nve_one_bi(
 	if (bgp_attr_get_ecommunity(bpi->attr))
 		ecommunity_merge(new_ecom, bgp_attr_get_ecommunity(bpi->attr));
 
-	if (bgp_path_info_num_labels(bpi))
+	if (BGP_PATH_INFO_NUM_LABELS(bpi))
 		label = decode_label(&bpi->extra->labels->label[0]);
 	else
 		label = MPLS_INVALID_LABEL;
@@ -1704,7 +1704,7 @@ static void vnc_import_bgp_exterior_add_route_it(
 				else
 					prd = NULL;
 
-				if (bgp_path_info_num_labels(bpi_interior))
+				if (BGP_PATH_INFO_NUM_LABELS(bpi_interior))
 					label = decode_label(
 						&bpi_interior->extra->labels
 							 ->label[0]);
@@ -1878,7 +1878,7 @@ void vnc_import_bgp_exterior_del_route(
 				else
 					prd = NULL;
 
-				if (bgp_path_info_num_labels(bpi_interior))
+				if (BGP_PATH_INFO_NUM_LABELS(bpi_interior))
 					label = decode_label(
 						&bpi_interior->extra->labels
 							 ->label[0]);
@@ -2030,7 +2030,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 			else
 				prd = NULL;
 
-			if (bgp_path_info_num_labels(bpi_interior))
+			if (BGP_PATH_INFO_NUM_LABELS(bpi_interior))
 				label = decode_label(
 					&bpi_interior->extra->labels->label[0]);
 			else
@@ -2147,7 +2147,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 					else
 						prd = NULL;
 
-					if (bgp_path_info_num_labels(bpi))
+					if (BGP_PATH_INFO_NUM_LABELS(bpi))
 						label = decode_label(
 							&bpi->extra->labels
 								 ->label[0]);
@@ -2174,7 +2174,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 				else
 					prd = NULL;
 
-				if (bgp_path_info_num_labels(bpi_interior))
+				if (BGP_PATH_INFO_NUM_LABELS(bpi_interior))
 					label = decode_label(
 						&bpi_interior->extra->labels
 							 ->label[0]);
@@ -2297,7 +2297,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 			else
 				prd = NULL;
 
-			if (bgp_path_info_num_labels(bpi_interior))
+			if (BGP_PATH_INFO_NUM_LABELS(bpi_interior))
 				label = decode_label(
 					&bpi_interior->extra->labels->label[0]);
 			else
@@ -2409,7 +2409,7 @@ void vnc_import_bgp_exterior_del_route_interior(
 		else
 			prd = NULL;
 
-		if (bgp_path_info_num_labels(bpi_interior))
+		if (BGP_PATH_INFO_NUM_LABELS(bpi_interior))
 			label = decode_label(
 				&bpi_interior->extra->labels->label[0]);
 		else
@@ -2491,7 +2491,7 @@ void vnc_import_bgp_exterior_del_route_interior(
 				else
 					prd = NULL;
 
-				if (bgp_path_info_num_labels(bpi))
+				if (BGP_PATH_INFO_NUM_LABELS(bpi))
 					label = decode_label(
 						&bpi->extra->labels->label[0]);
 				else

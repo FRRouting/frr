@@ -20,6 +20,8 @@
 extern "C" {
 #endif
 
+struct frr_yang_module_info;
+
 /* Maximum XPath length. */
 #define XPATH_MAXLEN 1024
 
@@ -45,6 +47,7 @@ struct yang_module {
 	RB_ENTRY(yang_module) entry;
 	const char *name;
 	const struct lys_module *info;
+	const struct frr_yang_module_info *frr_info;
 #ifdef HAVE_SYSREPO
 	sr_subscription_ctx_t *sr_subscription;
 	struct event *sr_thread;
@@ -535,6 +538,66 @@ extern struct lyd_node *yang_dnode_dup(const struct lyd_node *dnode);
  */
 extern void yang_dnode_free(struct lyd_node *dnode);
 
+/**
+ * yang_state_new() - Create new state data.
+ * @tree: subtree @path is relative to or NULL in which case @path must be
+ *	  absolute.
+ * @path: The path of the state node to create.
+ * @value: The canonical value of the state.
+ *
+ * Return: The new libyang node.
+ */
+extern struct lyd_node *yang_state_new(struct lyd_node *tree, const char *path, const char *value);
+
+/**
+ * yang_state_delete() - Delete state data.
+ * @tree: subtree @path is relative to or NULL in which case @path must be
+ *	  absolute.
+ * @path: The path of the state node to delete, or NULL if @tree should just be
+ *	  deleted.
+ */
+extern void yang_state_delete(struct lyd_node *tree, const char *path);
+
+/**
+ * yang_state_new_pathf() - Create new state data.
+ * @tree: subtree @path_fmt is relative to or NULL in which case @path_fmt must
+ *        be absolute.
+ * @path_fmt: The path format string of the state node to create.
+ * @value: The canonical value of the state.
+ * @...: The values to substitute into @path_fmt.
+ *
+ * Return: The new libyang node.
+ */
+extern struct lyd_node *yang_state_new_pathf(struct lyd_node *tree, const char *path_fmt,
+					     const char *value, ...) PRINTFRR(2, 4);
+extern struct lyd_node *yang_state_new_vpathf(struct lyd_node *tree, const char *path_fmt,
+					      const char *value, va_list ap);
+/**
+ * yang_state_delete_pathf() - Delete state data.
+ * @tree: subtree @path_fmt is relative to or NULL in which case @path_fmt must
+ *	  be absolute.
+ * @path: The path of the state node to delete.
+ * @...: The values to substitute into @path_fmt.
+ */
+extern void yang_state_delete_pathf(struct lyd_node *tree, const char *path_fmt, ...) PRINTFRR(2, 3);
+extern void yang_state_delete_vpathf(struct lyd_node *tree, const char *path_fmt, va_list ap);
+
+/**
+ * yang_state_newf() - Create new state data.
+ * @tree: subtree @path is relative to or NULL in which case @path must be
+ *	  absolute.
+ * @path: The path of the state node to create.
+ * @val_fmt: The value format string to set the canonical value of the state.
+ * @...: The values to substitute into @val_fmt.
+ *
+ * Return: The new libyang node.
+ */
+extern struct lyd_node *yang_state_newf(struct lyd_node *tree, const char *path,
+					const char *val_fmt, ...) PRINTFRR(3, 4);
+
+extern struct lyd_node *yang_state_vnewf(struct lyd_node *tree, const char *path,
+					 const char *val_fmt, va_list ap);
+
 /*
  * Add a libyang data node to an RPC/action output container.
  *
@@ -607,9 +670,11 @@ extern struct yang_data *yang_data_list_find(const struct list *list,
  * explicit_compile
  *    True if the caller will later call ly_ctx_compile to compile all loaded
  *    modules at once.
+ * load_library
+ *    Set this to have libyang to load/implement the ietf-yang-library.
  */
-extern struct ly_ctx *yang_ctx_new_setup(bool embedded_modules,
-					 bool explicit_compile);
+extern struct ly_ctx *yang_ctx_new_setup(bool embedded_modules, bool explicit_compile,
+					 bool load_library);
 
 /*
  * Enable or disable libyang verbose debugging.
@@ -618,6 +683,25 @@ extern struct ly_ctx *yang_ctx_new_setup(bool embedded_modules,
  *    When set to true, enable libyang verbose debugging, otherwise disable it.
  */
 extern void yang_debugging_set(bool enable);
+
+
+/*
+ * Parse YANG data.
+ *
+ * Args:
+ *	xpath: xpath of the data.
+ *	format: LYD_FORMAT of input data.
+ *	as_subtree: parse the data as starting at the subtree identified by xpath.
+ *	is_oper: parse as operational state allows for invalid (logs warning).
+ *	validate: validate the data (otherwise treat as non-final).
+ *	data: input data.
+ *	notif: pointer to the libyang data tree to store the parsed notification.
+ *	       If the notification is not on the top level of the yang model,
+ *	       the pointer to the notification node is still returned, but it's
+ *	       part of the full data tree with all its parents.
+ */
+LY_ERR yang_parse_data(const char *xpath, LYD_FORMAT format, bool as_subtree, bool is_oper,
+		       bool validate, const char *data, struct lyd_node **tree);
 
 /*
  * Parse a YANG notification.
@@ -727,8 +811,10 @@ extern const char *yang_print_errors(struct ly_ctx *ly_ctx, char *buf,
  *    Specify whether libyang should attempt to look for embedded YANG modules.
  * defer_compile
  *    Hold off on compiling modules until yang_init_loading_complete is called.
+ * load_library
+ *    Set this to have libyang to load/implement the ietf-yang-library.
  */
-extern void yang_init(bool embedded_modules, bool defer_compile);
+extern void yang_init(bool embedded_modules, bool defer_compile, bool load_library);
 
 /*
  * Should be called after yang_init and all yang_module_load()s have been done,
@@ -796,7 +882,11 @@ bool yang_is_last_level_dnode(const struct lyd_node *dnode);
 
 /* Create a YANG predicate string based on the keys */
 extern int yang_get_key_preds(char *s, const struct lysc_node *snode,
-			      struct yang_list_keys *keys, ssize_t space);
+			      const struct yang_list_keys *keys, ssize_t space);
+
+/* Get the length of the predicate string based on the keys */
+extern int yang_get_key_pred_strlen(const struct lysc_node *snode,
+				    const struct yang_list_keys *keys);
 
 /* Get YANG keys from an existing dnode */
 extern int yang_get_node_keys(struct lyd_node *node, struct yang_list_keys *keys);
@@ -827,7 +917,8 @@ extern int yang_xpath_pop_node(char *xpath);
  * Return: a libyang error or LY_SUCCESS.
  */
 extern LY_ERR yang_resolve_snode_xpath(struct ly_ctx *ly_ctx, const char *xpath,
-				       struct lysc_node ***snodes, bool *simple);
+				       const struct lysc_node ***snodes,
+				       bool *simple);
 
 /*
  * Libyang future functions

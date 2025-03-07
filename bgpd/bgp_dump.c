@@ -480,8 +480,8 @@ static void bgp_dump_common(struct stream *obuf, struct peer *peer,
 		stream_put(obuf, &peer->connection->su.sin.sin_addr,
 			   IPV4_MAX_BYTELEN);
 
-		if (peer->su_local)
-			stream_put(obuf, &peer->su_local->sin.sin_addr,
+		if (peer->connection->su_local)
+			stream_put(obuf, &peer->connection->su_local->sin.sin_addr,
 				   IPV4_MAX_BYTELEN);
 		else
 			stream_put(obuf, empty, IPV4_MAX_BYTELEN);
@@ -494,8 +494,8 @@ static void bgp_dump_common(struct stream *obuf, struct peer *peer,
 		stream_put(obuf, &peer->connection->su.sin6.sin6_addr,
 			   IPV6_MAX_BYTELEN);
 
-		if (peer->su_local)
-			stream_put(obuf, &peer->su_local->sin6.sin6_addr,
+		if (peer->connection->su_local)
+			stream_put(obuf, &peer->connection->su_local->sin6.sin6_addr,
 				   IPV6_MAX_BYTELEN);
 		else
 			stream_put(obuf, empty, IPV6_MAX_BYTELEN);

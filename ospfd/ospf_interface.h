@@ -13,6 +13,7 @@
 #include "keychain.h"
 #include "ospfd/ospf_packet.h"
 #include "ospfd/ospf_spf.h"
+#include <ospfd/ospf_flood.h>
 
 #define IF_OSPF_IF_INFO(I) ((struct ospf_if_info *)((I)->info))
 #define IF_DEF_PARAMS(I) (IF_OSPF_IF_INFO (I)->def_params)
@@ -47,6 +48,8 @@ struct ospf_if_params {
 			 output_cost_cmd); /* Command Interface Output Cost */
 	DECLARE_IF_PARAM(uint32_t,
 			 retransmit_interval); /* Retransmission Interval */
+	DECLARE_IF_PARAM(uint32_t,
+			 retransmit_window); /* Retransmission Window */
 	DECLARE_IF_PARAM(uint8_t, passive_interface); /* OSPF Interface is
 							passive: no sending or
 							receiving (no need to
@@ -263,20 +266,20 @@ struct ospf_interface {
 
 	struct route_table *ls_upd_queue;
 
-	struct list *ls_ack; /* Link State Acknowledgment list. */
-
-	struct {
-		struct list *ls_ack;
-		struct in_addr dst;
-	} ls_ack_direct;
+	/*
+	 * List of LSAs for delayed and direct link
+	 * state acknowledgment transmission.
+	 */
+	struct ospf_lsa_list_head ls_ack_delayed;
+	struct ospf_lsa_list_head ls_ack_direct;
 
 	/* Timer values. */
-	uint32_t v_ls_ack; /* Delayed Link State Acknowledgment */
+	uint32_t v_ls_ack_delayed; /* Delayed Link State Acknowledgment */
 
 	/* Threads. */
 	struct event *t_hello;		 /* timer */
 	struct event *t_wait;		 /* timer */
-	struct event *t_ls_ack;		 /* timer */
+	struct event *t_ls_ack_delayed;	 /* timer */
 	struct event *t_ls_ack_direct;	 /* event */
 	struct event *t_ls_upd_event;	 /* event */
 	struct event *t_opaque_lsa_self; /* Type-9 Opaque-LSAs */
@@ -296,6 +299,7 @@ struct ospf_interface {
 	uint32_t ls_ack_out;   /* LS Ack message output count. */
 	uint32_t discarded;    /* discarded input count by error. */
 	uint32_t state_change; /* Number of status change. */
+	uint32_t ls_rxmt_lsa;  /* Number of LSAs retransmitted. */
 
 	uint32_t full_nbrs;
 

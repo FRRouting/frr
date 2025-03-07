@@ -62,8 +62,8 @@ def disable_debug(router):
     router.vtysh_cmd("no debug northbound callbacks configuration")
 
 
-@retry(retry_timeout=30, initial_wait=1)
-def _do_oper_test(tgen, qr):
+@retry(retry_timeout=30, initial_wait=0.1)
+def _do_oper_test(tgen, qr, seconds_left=None):
     r1 = tgen.gears["r1"].net
 
     qcmd = (
@@ -77,8 +77,16 @@ def _do_oper_test(tgen, qr):
     # Don't use this for now.
     dd_json_cmp = None
 
-    expected = open(qr[1], encoding="ascii").read()
+    if isinstance(qr[1], str):
+        expected = open(qr[1], encoding="ascii").read()
+        expected_alt = None
+    else:
+        expected = open(qr[1][0], encoding="ascii").read()
+        expected_alt = open(qr[1][1], encoding="ascii").read()
+
     output = r1.cmd_nostatus(qcmd.format(qr[0], qr[2] if len(qr) > 2 else ""))
+
+    diag = logging.debug if seconds_left else logging.warning
 
     try:
         ojson = json.loads(output)
@@ -88,32 +96,42 @@ def _do_oper_test(tgen, qr):
 
     try:
         ejson = json.loads(expected)
+        ejson_alt = json.loads(expected_alt) if expected_alt is not None else None
     except json.decoder.JSONDecodeError as error:
         logging.error(
             "Error decoding json exp result: %s\noutput:\n%s", error, expected
         )
+        diag("FILE: {}".format(qr[1]))
         raise
 
     if dd_json_cmp:
         cmpout = json_cmp(ojson, ejson, exact_match=True)
+        if cmpout and ejson_alt is not None:
+            cmpout = json_cmp(ojson, ejson_alt, exact_match=True)
         if cmpout:
-            logging.warning(
+            diag(
                 "-------DIFF---------\n%s\n---------DIFF----------",
                 pprint.pformat(cmpout),
             )
+            cmpout = str(cmpout)
     else:
         cmpout = tt_json_cmp(ojson, ejson, exact=True)
+        if cmpout and ejson_alt is not None:
+            cmpout = tt_json_cmp(ojson, ejson_alt, exact=True)
         if cmpout:
-            logging.warning(
+            diag(
                 "-------EXPECT--------\n%s\n------END-EXPECT------",
                 json.dumps(ejson, indent=4),
             )
-            logging.warning(
+            diag(
                 "--------GOT----------\n%s\n-------END-GOT--------",
                 json.dumps(ojson, indent=4),
             )
-
-    assert cmpout is None
+            diag("----diff---\n{}".format(cmpout))
+            diag("Command: {}".format(qcmd.format(qr[0], qr[2] if len(qr) > 2 else "")))
+            diag("File: {}".format(qr[1]))
+            cmpout = str(cmpout)
+    return cmpout
 
 
 def do_oper_test(tgen, query_results):
@@ -122,7 +140,8 @@ def do_oper_test(tgen, query_results):
         step(f"Perform query '{qr[0]}'", reset=reset)
         if reset:
             reset = False
-        _do_oper_test(tgen, qr)
+        ret = _do_oper_test(tgen, qr)
+        assert ret is None, "Unexpected diff: " + str(ret)
 
 
 def get_ip_networks(super_prefix, count):
@@ -165,6 +184,20 @@ def addrgen(a, count, step=1):
     for _ in range(0, count, step):
         yield a
         a += step
+
+
+@retry(retry_timeout=30, initial_wait=0.1)
+def check_kernel_net(r1, net, vrf):
+    addr = ipaddress.ip_network(net)
+    vrfstr = f" vrf {vrf}" if vrf else ""
+    if addr.version == 6:
+        kernel = r1.cmd_raises(f"ip -6 route show{vrfstr}")
+    else:
+        kernel = r1.cmd_raises(f"ip -4 route show{vrfstr}")
+
+    nentries = len(re.findall("\n", kernel))
+    logging.info("checking kernel routing table%s: (%s entries)", vrfstr, nentries)
+    assert str(net) in kernel, f"Failed to find '{net}' in {nentries} entries"
 
 
 @retry(retry_timeout=30, initial_wait=0.1)

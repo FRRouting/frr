@@ -1,15 +1,15 @@
 VRF default:
  Resolve via default: on
 fc00::2
- resolved via connected
- is directly connected, r1-eth0 (vrf default)
+ resolved via connected, prefix fc00::/64
+ is directly connected, r1-eth0 (vrf default), weight 1
  Client list: static(fd XX)
 fc00:0:0:8::1000
- resolved via connected
- is directly connected, r1-eth8 (vrf default)
+ resolved via connected, prefix fc00:0:0:8::/64
+ is directly connected, r1-eth8 (vrf default), weight 1
  Client list: bgp(fd XX)
 fc00:0:0:8::2000(Connected)
- resolved via connected
- is directly connected, r1-eth8 (vrf default)
+ resolved via connected, prefix fc00:0:0:8::/64
+ is directly connected, r1-eth8 (vrf default), weight 1
  Client list: bgp(fd XX)
 

@@ -17,13 +17,13 @@
 #include "zebra/zebra_tc.h"
 #include "debug.h"
 #include "zebra_script.h"
+#include "wheel.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, RIB_TABLE_INFO, "RIB table info");
 DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_RT_TABLE, "Zebra VRF table");
 
 struct zebra_router zrouter = {
 	.multipath_num = MULTIPATH_NUM,
-	.ipv4_multicast_mode = MCAST_NO_CONFIG,
 };
 
 static inline int
@@ -221,24 +221,23 @@ uint32_t zebra_router_get_next_sequence(void)
 					   memory_order_relaxed);
 }
 
-void multicast_mode_ipv4_set(enum multicast_mode mode)
+static inline unsigned int interface_hash_key(const void *arg)
 {
-	if (IS_ZEBRA_DEBUG_RIB)
-		zlog_debug("%s: multicast lookup mode set (%d)", __func__,
-			   mode);
-	zrouter.ipv4_multicast_mode = mode;
-}
+	const struct interface *ifp = arg;
 
-enum multicast_mode multicast_mode_ipv4_get(void)
-{
-	return zrouter.ipv4_multicast_mode;
+	return ifp->ifindex;
 }
 
 void zebra_router_terminate(void)
 {
 	struct zebra_router_table *zrt, *tmp;
 
-	EVENT_OFF(zrouter.sweeper);
+	if (zrouter.ra_wheel) {
+		wheel_delete(zrouter.ra_wheel);
+		zrouter.ra_wheel = NULL;
+	}
+
+	EVENT_OFF(zrouter.t_rib_sweep);
 
 	RB_FOREACH_SAFE (zrt, zebra_router_table_head, &zrouter.tables, tmp)
 		zebra_router_free_table(zrt);
@@ -292,6 +291,11 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack,
 
 	zrouter.nhg_keep = ZEBRA_DEFAULT_NHG_KEEP_TIMER;
 
+	/*Init V6 RA batching stuffs*/
+	zrouter.ra_wheel = wheel_init(zrouter.master, RTADV_TIMER_WHEEL_PERIOD_MS,
+				      RTADV_TIMER_WHEEL_SLOTS_NO, interface_hash_key, process_rtadv,
+				      NULL);
+
 	zebra_vxlan_init();
 	zebra_mlag_init();
 	zebra_neigh_init();
@@ -343,7 +347,7 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack,
 #endif
 	zrouter.asic_notification_nexthop_control = false;
 
-	zrouter.nexthop_weight_scale_value = 255;
+	zrouter.nexthop_weight_scale_value = 254;
 
 #ifdef HAVE_SCRIPTING
 	zebra_script_init();

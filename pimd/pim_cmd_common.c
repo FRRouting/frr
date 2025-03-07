@@ -100,25 +100,13 @@ int pim_process_no_join_prune_cmd(struct vty *vty)
 
 int pim_process_spt_switchover_infinity_cmd(struct vty *vty)
 {
-	const char *vrfname;
-	char spt_plist_xpath[XPATH_MAXLEN];
-	char spt_action_xpath[XPATH_MAXLEN];
-
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
+	char spt_plist_xpath[XPATH_MAXLEN + 40];
+	char spt_action_xpath[XPATH_MAXLEN + 26];
 
 	snprintf(spt_plist_xpath, sizeof(spt_plist_xpath),
-		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 FRR_PIM_AF_XPATH_VAL);
-	strlcat(spt_plist_xpath, "/spt-switchover/spt-infinity-prefix-list",
-		sizeof(spt_plist_xpath));
-
+		 "%s/spt-switchover/spt-infinity-prefix-list", VTY_CURR_XPATH);
 	snprintf(spt_action_xpath, sizeof(spt_action_xpath),
-		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 FRR_PIM_AF_XPATH_VAL);
-	strlcat(spt_action_xpath, "/spt-switchover/spt-action",
-		sizeof(spt_action_xpath));
+		 "%s/spt-switchover/spt-action", VTY_CURR_XPATH);
 
 	if (yang_dnode_exists(vty->candidate_config->dnode, spt_plist_xpath))
 		nb_cli_enqueue_change(vty, spt_plist_xpath, NB_OP_DESTROY,
@@ -132,55 +120,30 @@ int pim_process_spt_switchover_infinity_cmd(struct vty *vty)
 int pim_process_spt_switchover_prefixlist_cmd(struct vty *vty,
 					      const char *plist)
 {
-	const char *vrfname;
 	char spt_plist_xpath[XPATH_MAXLEN];
 	char spt_action_xpath[XPATH_MAXLEN];
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
 	snprintf(spt_plist_xpath, sizeof(spt_plist_xpath),
-		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 FRR_PIM_AF_XPATH_VAL);
-	strlcat(spt_plist_xpath, "/spt-switchover/spt-infinity-prefix-list",
-		sizeof(spt_plist_xpath));
-
+		 "./spt-switchover/spt-infinity-prefix-list");
 	snprintf(spt_action_xpath, sizeof(spt_action_xpath),
-		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 FRR_PIM_AF_XPATH_VAL);
-	strlcat(spt_action_xpath, "/spt-switchover/spt-action",
-		sizeof(spt_action_xpath));
+		 "./spt-switchover/spt-action");
 
 	nb_cli_enqueue_change(vty, spt_action_xpath, NB_OP_MODIFY,
 			      "PIM_SPT_INFINITY");
-	nb_cli_enqueue_change(vty, spt_plist_xpath, NB_OP_MODIFY,
-			      plist);
+	nb_cli_enqueue_change(vty, spt_plist_xpath, NB_OP_MODIFY, plist);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
 int pim_process_no_spt_switchover_cmd(struct vty *vty)
 {
-	const char *vrfname;
 	char spt_plist_xpath[XPATH_MAXLEN];
 	char spt_action_xpath[XPATH_MAXLEN];
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
 	snprintf(spt_plist_xpath, sizeof(spt_plist_xpath),
-		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 FRR_PIM_AF_XPATH_VAL);
-	strlcat(spt_plist_xpath, "/spt-switchover/spt-infinity-prefix-list",
-		sizeof(spt_plist_xpath));
-
+		 "./spt-switchover/spt-infinity-prefix-list");
 	snprintf(spt_action_xpath, sizeof(spt_action_xpath),
-		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 FRR_PIM_AF_XPATH_VAL);
-	strlcat(spt_action_xpath, "/spt-switchover/spt-action",
-		sizeof(spt_action_xpath));
+		 "./spt-switchover/spt-action");
 
 	nb_cli_enqueue_change(vty, spt_plist_xpath, NB_OP_DESTROY, NULL);
 	nb_cli_enqueue_change(vty, spt_action_xpath, NB_OP_MODIFY,
@@ -217,35 +180,20 @@ int pim_process_no_pim_packet_cmd(struct vty *vty)
 
 int pim_process_keepalivetimer_cmd(struct vty *vty, const char *kat)
 {
-	const char *vrfname;
 	char ka_timer_xpath[XPATH_MAXLEN];
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
+	snprintf(ka_timer_xpath, sizeof(ka_timer_xpath), "./keep-alive-timer");
 
-	snprintf(ka_timer_xpath, sizeof(ka_timer_xpath), FRR_PIM_VRF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
-	strlcat(ka_timer_xpath, "/keep-alive-timer", sizeof(ka_timer_xpath));
-
-	nb_cli_enqueue_change(vty, ka_timer_xpath, NB_OP_MODIFY,
-			      kat);
+	nb_cli_enqueue_change(vty, ka_timer_xpath, NB_OP_MODIFY, kat);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
 int pim_process_no_keepalivetimer_cmd(struct vty *vty)
 {
-	const char *vrfname;
 	char ka_timer_xpath[XPATH_MAXLEN];
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(ka_timer_xpath, sizeof(ka_timer_xpath), FRR_PIM_VRF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
-	strlcat(ka_timer_xpath, "/keep-alive-timer", sizeof(ka_timer_xpath));
+	snprintf(ka_timer_xpath, sizeof(ka_timer_xpath), "./keep-alive-timer");
 
 	nb_cli_enqueue_change(vty, ka_timer_xpath, NB_OP_DESTROY, NULL);
 
@@ -254,35 +202,25 @@ int pim_process_no_keepalivetimer_cmd(struct vty *vty)
 
 int pim_process_rp_kat_cmd(struct vty *vty, const char *rpkat)
 {
-	const char *vrfname;
 	char rp_ka_timer_xpath[XPATH_MAXLEN];
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
 	snprintf(rp_ka_timer_xpath, sizeof(rp_ka_timer_xpath),
-		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 FRR_PIM_AF_XPATH_VAL);
-	strlcat(rp_ka_timer_xpath, "/rp-keep-alive-timer",
-		sizeof(rp_ka_timer_xpath));
+		 "./rp-keep-alive-timer");
 
-	nb_cli_enqueue_change(vty, rp_ka_timer_xpath, NB_OP_MODIFY,
-			      rpkat);
+	nb_cli_enqueue_change(vty, rp_ka_timer_xpath, NB_OP_MODIFY, rpkat);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
 int pim_process_no_rp_kat_cmd(struct vty *vty)
 {
-	const char *vrfname;
 	char rp_ka_timer[6];
 	char rp_ka_timer_xpath[XPATH_MAXLEN];
 	uint v;
 	char rs_timer_xpath[XPATH_MAXLEN];
 
-	snprintf(rs_timer_xpath, sizeof(rs_timer_xpath),
-		 FRR_PIM_ROUTER_XPATH, FRR_PIM_AF_XPATH_VAL);
+	snprintf(rs_timer_xpath, sizeof(rs_timer_xpath), FRR_PIM_ROUTER_XPATH,
+		 FRR_PIM_AF_XPATH_VAL);
 	strlcat(rs_timer_xpath, "/register-suppress-time",
 		sizeof(rs_timer_xpath));
 
@@ -301,18 +239,10 @@ int pim_process_no_rp_kat_cmd(struct vty *vty)
 		v = UINT16_MAX;
 	snprintf(rp_ka_timer, sizeof(rp_ka_timer), "%u", v);
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
 	snprintf(rp_ka_timer_xpath, sizeof(rp_ka_timer_xpath),
-		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 FRR_PIM_AF_XPATH_VAL);
-	strlcat(rp_ka_timer_xpath, "/rp-keep-alive-timer",
-		sizeof(rp_ka_timer_xpath));
+		 "./rp-keep-alive-timer");
 
-	nb_cli_enqueue_change(vty, rp_ka_timer_xpath, NB_OP_MODIFY,
-			      rp_ka_timer);
+	nb_cli_enqueue_change(vty, rp_ka_timer_xpath, NB_OP_MODIFY, rp_ka_timer);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -490,6 +420,17 @@ int pim_process_no_ip_pim_boundary_oil_cmd(struct vty *vty)
 				    FRR_PIM_AF_XPATH_VAL);
 }
 
+int pim_process_ip_gmp_proxy_cmd(struct vty *vty, bool enable)
+{
+	if (enable)
+		nb_cli_enqueue_change(vty, "./proxy", NB_OP_MODIFY, "true");
+	else
+		nb_cli_enqueue_change(vty, "./proxy", NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}
+
 int pim_process_ip_mroute_cmd(struct vty *vty, const char *interface,
 			      const char *group_str, const char *source_str)
 {
@@ -531,9 +472,7 @@ int pim_process_no_ip_mroute_cmd(struct vty *vty, const char *interface,
 int pim_process_rp_cmd(struct vty *vty, const char *rp_str,
 		       const char *group_str)
 {
-	const char *vrfname;
 	char group_xpath[XPATH_MAXLEN];
-	char rp_xpath[XPATH_MAXLEN];
 	int printed;
 	int result = 0;
 	struct prefix group;
@@ -575,14 +514,9 @@ int pim_process_rp_cmd(struct vty *vty, const char *rp_str,
 	}
 #endif
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(rp_xpath, sizeof(rp_xpath), FRR_PIM_STATIC_RP_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL, rp_str);
 	printed = snprintf(group_xpath, sizeof(group_xpath),
-			   "%s/group-list[.='%s']", rp_xpath, group_str);
+			   "./" FRR_PIM_STATIC_RP_XPATH "/group-list[.='%s']",
+			   rp_str, group_str);
 
 	if (printed >= (int)(sizeof(group_xpath))) {
 		vty_out(vty, "Xpath too long (%d > %u)", printed + 1,
@@ -599,17 +533,12 @@ int pim_process_no_rp_cmd(struct vty *vty, const char *rp_str,
 			  const char *group_str)
 {
 	char group_xpath[XPATH_MAXLEN];
-	char rp_xpath[XPATH_MAXLEN];
+	char rp_xpath[XPATH_MAXLEN + 47];
 	int printed;
-	const char *vrfname;
 	const struct lyd_node *group_dnode;
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(rp_xpath, sizeof(rp_xpath), FRR_PIM_STATIC_RP_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL, rp_str);
+	snprintf(rp_xpath, sizeof(rp_xpath), "%s/" FRR_PIM_STATIC_RP_XPATH,
+		 VTY_CURR_XPATH, rp_str);
 	printed = snprintf(group_xpath, sizeof(group_xpath),
 			   "%s/group-list[.='%s']", rp_xpath, group_str);
 
@@ -636,16 +565,10 @@ int pim_process_no_rp_cmd(struct vty *vty, const char *rp_str,
 int pim_process_rp_plist_cmd(struct vty *vty, const char *rp_str,
 			     const char *prefix_list)
 {
-	const char *vrfname;
 	char rp_plist_xpath[XPATH_MAXLEN];
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
 	snprintf(rp_plist_xpath, sizeof(rp_plist_xpath),
-		 FRR_PIM_STATIC_RP_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 FRR_PIM_AF_XPATH_VAL, rp_str);
+		 "./" FRR_PIM_STATIC_RP_XPATH, rp_str);
 	strlcat(rp_plist_xpath, "/prefix-list", sizeof(rp_plist_xpath));
 
 	nb_cli_enqueue_change(vty, rp_plist_xpath, NB_OP_MODIFY, prefix_list);
@@ -656,21 +579,14 @@ int pim_process_rp_plist_cmd(struct vty *vty, const char *rp_str,
 int pim_process_no_rp_plist_cmd(struct vty *vty, const char *rp_str,
 				const char *prefix_list)
 {
-	char rp_xpath[XPATH_MAXLEN];
-	char plist_xpath[XPATH_MAXLEN];
-	const char *vrfname;
+	char rp_xpath[XPATH_MAXLEN + 47];
+	char plist_xpath[XPATH_MAXLEN + 1070];
 	const struct lyd_node *plist_dnode;
 	const char *plist;
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(rp_xpath, sizeof(rp_xpath), FRR_PIM_STATIC_RP_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL, rp_str);
-
-	snprintf(plist_xpath, sizeof(plist_xpath), FRR_PIM_STATIC_RP_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL, rp_str);
+	snprintf(rp_xpath, sizeof(rp_xpath), "%s/" FRR_PIM_STATIC_RP_XPATH,
+		 VTY_CURR_XPATH, rp_str);
+	snprintf(plist_xpath, sizeof(plist_xpath), "%s", rp_xpath);
 	strlcat(plist_xpath, "/prefix-list", sizeof(plist_xpath));
 
 	plist_dnode = yang_dnode_get(vty->candidate_config->dnode, plist_xpath);
@@ -679,7 +595,7 @@ int pim_process_no_rp_plist_cmd(struct vty *vty, const char *rp_str,
 		return NB_OK;
 	}
 
-	plist = yang_dnode_get_string(plist_dnode, "%s", plist_xpath);
+	plist = yang_dnode_get_string(plist_dnode, NULL);
 	if (strcmp(prefix_list, plist)) {
 		vty_out(vty, "%% Unable to find specified RP\n");
 		return NB_OK;
@@ -688,6 +604,102 @@ int pim_process_no_rp_plist_cmd(struct vty *vty, const char *rp_str,
 	nb_cli_enqueue_change(vty, rp_xpath, NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+int pim_process_autorp_cmd(struct vty *vty)
+{
+	nb_cli_enqueue_change(vty, "./discovery-enabled", NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, "%s", FRR_PIM_AUTORP_XPATH);
+}
+
+int pim_process_no_autorp_cmd(struct vty *vty)
+{
+	nb_cli_enqueue_change(vty, "./discovery-enabled", NB_OP_MODIFY, "false");
+	return nb_cli_apply_changes(vty, "%s", FRR_PIM_AUTORP_XPATH);
+}
+
+int pim_process_autorp_candidate_rp_cmd(struct vty *vty, bool no, const char *rpaddr_str,
+					const char *grp, const char *plist)
+{
+	if (no) {
+		if (grp || plist) {
+			/* If any single values are set, only destroy those */
+			if (grp)
+				nb_cli_enqueue_change(vty, "./group", NB_OP_DESTROY, NULL);
+			if (plist)
+				nb_cli_enqueue_change(vty, "./prefix-list", NB_OP_DESTROY, NULL);
+		} else
+			/* No values set, remove the entire RP */
+			nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	} else {
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+		if (grp)
+			nb_cli_enqueue_change(vty, "./group", NB_OP_MODIFY, grp);
+		if (plist)
+			nb_cli_enqueue_change(vty, "./prefix-list", NB_OP_MODIFY, plist);
+	}
+
+	return nb_cli_apply_changes(vty, "%s/candidate-rp-list[rp-address='%s']",
+				    FRR_PIM_AUTORP_XPATH, rpaddr_str);
+}
+
+int pim_process_autorp_announce_scope_int_cmd(struct vty *vty, bool no, const char *scope,
+					      const char *interval, const char *holdtime)
+{
+	/* At least one value is required, so set/delete anything defined */
+	enum nb_operation op = (no ? NB_OP_DESTROY : NB_OP_MODIFY);
+
+	if (scope)
+		nb_cli_enqueue_change(vty, "./announce-scope", op, scope);
+	if (interval)
+		nb_cli_enqueue_change(vty, "./announce-interval", op, interval);
+	if (holdtime)
+		nb_cli_enqueue_change(vty, "./announce-holdtime", op, holdtime);
+
+	return nb_cli_apply_changes(vty, "%s", FRR_PIM_AUTORP_XPATH);
+}
+
+int pim_process_autorp_send_rp_discovery_cmd(struct vty *vty, bool no, bool any, bool loopback,
+					     const char *ifname, const char *addr)
+{
+	/* Just take any "no" version of this command as disable the mapping agent */
+	nb_cli_enqueue_change(vty, "./send-rp-discovery", NB_OP_MODIFY, (no ? "false" : "true"));
+	if (no) {
+		nb_cli_enqueue_change(vty, "./if-any", NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, "./interface", NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, "./address", NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, "./if-loopback", NB_OP_DESTROY, NULL);
+	} else {
+		/* Enabling mapping agent. Loopback is default, so any non-no for of the command will
+		 * enable the mapping agent.
+		 */
+		if (any)
+			nb_cli_enqueue_change(vty, "./if-any", NB_OP_CREATE, NULL);
+		else if (ifname)
+			nb_cli_enqueue_change(vty, "./interface", NB_OP_MODIFY, ifname);
+		else if (addr)
+			nb_cli_enqueue_change(vty, "./address", NB_OP_MODIFY, addr);
+		else
+			nb_cli_enqueue_change(vty, "./if-loopback", NB_OP_CREATE, NULL);
+	}
+
+	return nb_cli_apply_changes(vty, "%s/%s", FRR_PIM_AUTORP_XPATH, "mapping-agent");
+}
+
+int pim_process_autorp_send_rp_discovery_scope_int_cmd(struct vty *vty, bool no, const char *scope,
+						       const char *interval, const char *holdtime)
+{
+	/* At least one value is required, so only set/delete the values specified */
+	enum nb_operation op = (no ? NB_OP_DESTROY : NB_OP_MODIFY);
+
+	if (scope)
+		nb_cli_enqueue_change(vty, "./discovery-scope", op, scope);
+	if (interval)
+		nb_cli_enqueue_change(vty, "./discovery-interval", op, interval);
+	if (holdtime)
+		nb_cli_enqueue_change(vty, "./discovery-holdtime", op, holdtime);
+
+	return nb_cli_apply_changes(vty, "%s/%s", FRR_PIM_AUTORP_XPATH, "mapping-agent");
 }
 
 bool pim_sgaddr_match(pim_sgaddr item, pim_sgaddr match)
@@ -969,7 +981,7 @@ void pim_show_rpf(struct pim_instance *pim, struct vty *vty, json_object *json)
 	if (!json) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -1021,7 +1033,7 @@ void pim_show_neighbors_secondary(struct pim_instance *pim, struct vty *vty)
 	/* Dump the generated table. */
 	table = ttable_dump(tt, "\n");
 	vty_out(vty, "%s\n", table);
-	XFREE(MTYPE_TMP, table);
+	XFREE(MTYPE_TMP_TTABLE, table);
 	ttable_del(tt);
 }
 
@@ -1275,7 +1287,7 @@ void pim_show_state(struct pim_instance *pim, struct vty *vty,
 #else
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 #endif
 	}
@@ -1508,7 +1520,7 @@ void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 	if (!json) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -1585,7 +1597,7 @@ void pim_show_join_desired(struct pim_instance *pim, struct vty *vty, bool uj)
 		/* Dump the generated table. */
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -1664,7 +1676,7 @@ void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
 		/* Dump the generated table. */
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -1846,7 +1858,7 @@ void pim_show_join(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 	if (!json) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -1926,7 +1938,7 @@ void pim_show_jp_agg_list(struct pim_instance *pim, struct vty *vty)
 	/* Dump the generated table. */
 	table = ttable_dump(tt, "\n");
 	vty_out(vty, "%s\n", table);
-	XFREE(MTYPE_TMP, table);
+	XFREE(MTYPE_TMP_TTABLE, table);
 	ttable_del(tt);
 }
 
@@ -2069,7 +2081,7 @@ void pim_show_membership(struct pim_instance *pim, struct vty *vty, bool uj)
 		/* Dump the generated table. */
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -2174,7 +2186,7 @@ void pim_show_channel(struct pim_instance *pim, struct vty *vty, bool uj)
 		/* Dump the generated table. */
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -2357,7 +2369,7 @@ void pim_show_interfaces(struct pim_instance *pim, struct vty *vty, bool mlag,
 		/* Dump the generated table. */
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 
 		ttable_del(tt);
 	}
@@ -2801,90 +2813,100 @@ static int pim_print_vty_pnc_cache_walkcb(struct hash_bucket *bucket, void *arg)
 	struct vty *vty = cwd->vty;
 	struct pim_instance *pim = cwd->pim;
 	struct nexthop *nh_node = NULL;
-	ifindex_t first_ifindex;
 	struct interface *ifp = NULL;
 	struct ttable *tt = NULL;
 	char *table = NULL;
 
 	/* Prepare table. */
 	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
-	ttable_add_row(tt, "Address|Interface|Nexthop");
+	ttable_add_row(tt, "Address|Interface|Nexthop|Table");
 	tt->style.cell.rpad = 2;
 	tt->style.corner = '+';
 	ttable_restyle(tt);
 
-	for (nh_node = pnc->nexthop; nh_node; nh_node = nh_node->next) {
-		first_ifindex = nh_node->ifindex;
-
-		ifp = if_lookup_by_index(first_ifindex, pim->vrf->vrf_id);
-
+	for (nh_node = pnc->mrib.nexthop; nh_node; nh_node = nh_node->next) {
+		ifp = if_lookup_by_index(nh_node->ifindex, pim->vrf->vrf_id);
 #if PIM_IPV == 4
-		ttable_add_row(tt, "%pPA|%s|%pI4", &pnc->rpf.rpf_addr,
-			       ifp ? ifp->name : "NULL", &nh_node->gate.ipv4);
+		ttable_add_row(tt, "%pPA|%s|%pI4|%s", &pnc->addr, ifp ? ifp->name : "NULL",
+			       &nh_node->gate.ipv4, "MRIB");
 #else
-		ttable_add_row(tt, "%pPA|%s|%pI6", &pnc->rpf.rpf_addr,
-			       ifp ? ifp->name : "NULL", &nh_node->gate.ipv6);
+		ttable_add_row(tt, "%pPA|%s|%pI6|%s", &pnc->addr, ifp ? ifp->name : "NULL",
+			       &nh_node->gate.ipv6, "MRIB");
 #endif
 	}
+
+	for (nh_node = pnc->urib.nexthop; nh_node; nh_node = nh_node->next) {
+		ifp = if_lookup_by_index(nh_node->ifindex, pim->vrf->vrf_id);
+#if PIM_IPV == 4
+		ttable_add_row(tt, "%pPA|%s|%pI4|%s", &pnc->addr, ifp ? ifp->name : "NULL",
+			       &nh_node->gate.ipv4, "URIB");
+#else
+		ttable_add_row(tt, "%pPA|%s|%pI6|%s", &pnc->addr, ifp ? ifp->name : "NULL",
+			       &nh_node->gate.ipv6, "URIB");
+#endif
+	}
+
 	/* Dump the generated table. */
 	table = ttable_dump(tt, "\n");
 	vty_out(vty, "%s\n", table);
-	XFREE(MTYPE_TMP, table);
+	XFREE(MTYPE_TMP_TTABLE, table);
 	ttable_del(tt);
 
 	return CMD_SUCCESS;
 }
 
-static int pim_print_json_pnc_cache_walkcb(struct hash_bucket *backet,
-					   void *arg)
+static void pim_print_json_nexthop(json_object *json_obj, struct nexthop *nh_node,
+				   struct interface *ifp, char *addr_str, const char *type)
 {
-	struct pim_nexthop_cache *pnc = backet->data;
-	struct json_pnc_cache_walk_data *cwd = arg;
-	struct pim_instance *pim = cwd->pim;
-	struct nexthop *nh_node = NULL;
-	ifindex_t first_ifindex;
-	struct interface *ifp = NULL;
-	char addr_str[PIM_ADDRSTRLEN];
 	json_object *json_row = NULL;
 	json_object *json_ifp = NULL;
 	json_object *json_arr = NULL;
 	struct pim_interface *pim_ifp = NULL;
-	bool pim_enable = false;
 
-	for (nh_node = pnc->nexthop; nh_node; nh_node = nh_node->next) {
-		first_ifindex = nh_node->ifindex;
-		ifp = if_lookup_by_index(first_ifindex, pim->vrf->vrf_id);
-		snprintfrr(addr_str, sizeof(addr_str), "%pPA",
-			   &pnc->rpf.rpf_addr);
-		json_object_object_get_ex(cwd->json_obj, addr_str, &json_row);
-		if (!json_row) {
-			json_row = json_object_new_object();
-			json_object_string_addf(json_row, "address", "%pPA",
-						&pnc->rpf.rpf_addr);
-			json_object_object_addf(cwd->json_obj, json_row, "%pPA",
-						&pnc->rpf.rpf_addr);
-			json_arr = json_object_new_array();
-			json_object_object_add(json_row, "nexthops", json_arr);
-		}
-		json_ifp = json_object_new_object();
-		json_object_string_add(json_ifp, "interface",
-				       ifp ? ifp->name : "NULL");
+	if (ifp)
+		pim_ifp = ifp->info;
 
-		if (ifp)
-			pim_ifp = ifp->info;
+	json_object_object_get_ex(json_obj, addr_str, &json_row);
 
-		if (pim_ifp && pim_ifp->pim_enable)
-			pim_enable = true;
+	if (!json_row) {
+		json_row = json_object_new_object();
+		json_object_string_addf(json_row, "address", "%s", addr_str);
+		json_object_object_addf(json_obj, json_row, "%s", addr_str);
+		json_arr = json_object_new_array();
+		json_object_object_add(json_row, "nexthops", json_arr);
+	}
 
-		json_object_boolean_add(json_ifp, "pimEnabled", pim_enable);
+	json_ifp = json_object_new_object();
+	json_object_string_add(json_ifp, "interface", ifp ? ifp->name : "NULL");
+	json_object_boolean_add(json_ifp, "pimEnabled", (pim_ifp && pim_ifp->pim_enable));
 #if PIM_IPV == 4
-		json_object_string_addf(json_ifp, "nexthop", "%pI4",
-					&nh_node->gate.ipv4);
+	json_object_string_addf(json_ifp, "nexthop", "%pI4", &nh_node->gate.ipv4);
 #else
-		json_object_string_addf(json_ifp, "nexthop", "%pI6",
-					&nh_node->gate.ipv6);
+	json_object_string_addf(json_ifp, "nexthop", "%pI6", &nh_node->gate.ipv6);
 #endif
-		json_object_array_add(json_arr, json_ifp);
+	json_object_string_add(json_ifp, "table", type);
+	json_object_array_add(json_arr, json_ifp);
+}
+
+static int pim_print_json_pnc_cache_walkcb(struct hash_bucket *backet, void *arg)
+{
+	struct pim_nexthop_cache *pnc = backet->data;
+	struct json_pnc_cache_walk_data *cwd = arg;
+	json_object *json_obj = cwd->json_obj;
+	struct pim_instance *pim = cwd->pim;
+	char addr_str[PIM_ADDRSTRLEN];
+	struct nexthop *nh_node = NULL;
+	struct interface *ifp = NULL;
+
+	snprintfrr(addr_str, sizeof(addr_str), "%pPA", &pnc->addr);
+	for (nh_node = pnc->mrib.nexthop; nh_node; nh_node = nh_node->next) {
+		ifp = if_lookup_by_index(nh_node->ifindex, pim->vrf->vrf_id);
+		pim_print_json_nexthop(json_obj, nh_node, ifp, addr_str, "MRIB");
+	}
+
+	for (nh_node = pnc->urib.nexthop; nh_node; nh_node = nh_node->next) {
+		ifp = if_lookup_by_index(nh_node->ifindex, pim->vrf->vrf_id);
+		pim_print_json_nexthop(json_obj, nh_node, ifp, addr_str, "URIB");
 	}
 	return CMD_SUCCESS;
 }
@@ -2892,7 +2914,6 @@ static int pim_print_json_pnc_cache_walkcb(struct hash_bucket *backet,
 int pim_show_nexthop_lookup_cmd_helper(const char *vrf, struct vty *vty,
 				       pim_addr source, pim_addr group)
 {
-	int result = 0;
 	pim_addr vif_source;
 	struct prefix grp;
 	struct pim_nexthop nexthop;
@@ -2905,34 +2926,36 @@ int pim_show_nexthop_lookup_cmd_helper(const char *vrf, struct vty *vty,
 
 #if PIM_IPV == 4
 	if (pim_is_group_224_4(source)) {
-		vty_out(vty,
-			"Invalid argument. Expected Valid Source Address.\n");
+		vty_out(vty, "Invalid argument. Expected Valid Source Address.\n");
 		return CMD_WARNING;
 	}
-
-	if (!pim_is_group_224_4(group)) {
-		vty_out(vty,
-			"Invalid argument. Expected Valid Multicast Group Address.\n");
+	/* Only require group if source is not provided */
+	if (pim_addr_is_any(source) && !pim_is_group_224_4(group)) {
+		vty_out(vty, "Invalid argument. Expected Valid Multicast Group Address.\n");
 		return CMD_WARNING;
 	}
 #endif
 
-	if (!pim_rp_set_upstream_addr(v->info, &vif_source, source, group))
+	/* This call will set vif_source=source, if source is not ANY. Otherwise vif_source
+	 * will be set to the RP address according to the group address. If no RP is configured
+	 * for the group, then return 0 and set vif_source to ANY
+	 */
+	if (!pim_rp_set_upstream_addr(v->info, &vif_source, source, group)) {
+		vty_out(vty, "(%pPAs, %pPA) --- Nexthop Lookup failed, no RP.\n", &source, &group);
 		return CMD_SUCCESS;
+	}
+
 
 	pim_addr_to_prefix(&grp, group);
 	memset(&nexthop, 0, sizeof(nexthop));
 
-	result =
-		pim_ecmp_nexthop_lookup(v->info, &nexthop, vif_source, &grp, 0);
-
-	if (!result) {
-		vty_out(vty,
-			"Nexthop Lookup failed, no usable routes returned.\n");
+	if (!pim_nht_lookup_ecmp(v->info, &nexthop, vif_source, &grp, false)) {
+		vty_out(vty, "(%pPAs, %pPA) --- Nexthop Lookup failed, no usable routes returned.\n",
+			&source, &group);
 		return CMD_SUCCESS;
 	}
 
-	vty_out(vty, "Group %pFXh --- Nexthop %pPAs Interface %s\n", &grp,
+	vty_out(vty, "(%pPAs, %pPAs) --- Nexthop %pPAs Interface %s\n", &source, &group,
 		&nexthop.mrib_nexthop_addr, nexthop.interface->name);
 
 	return CMD_SUCCESS;
@@ -2961,19 +2984,16 @@ void pim_show_nexthop(struct pim_instance *pim, struct vty *vty, bool uj)
 	cwd.pim = pim;
 	jcwd.pim = pim;
 
-	if (uj) {
+	if (uj)
 		jcwd.json_obj = json_object_new_object();
-	} else {
-		vty_out(vty, "Number of registered addresses: %lu\n",
-			pim->rpf_hash->count);
-	}
+	else
+		vty_out(vty, "Number of registered addresses: %lu\n", pim->nht_hash->count);
 
 	if (uj) {
-		hash_walk(pim->rpf_hash, pim_print_json_pnc_cache_walkcb,
-			  &jcwd);
+		hash_walk(pim->nht_hash, pim_print_json_pnc_cache_walkcb, &jcwd);
 		vty_json(vty, jcwd.json_obj);
 	} else
-		hash_walk(pim->rpf_hash, pim_print_vty_pnc_cache_walkcb, &cwd);
+		hash_walk(pim->nht_hash, pim_print_vty_pnc_cache_walkcb, &cwd);
 }
 
 int pim_show_neighbors_cmd_helper(const char *vrf, struct vty *vty,
@@ -3309,7 +3329,7 @@ void pim_show_neighbors(struct pim_instance *pim, struct vty *vty,
 	if (!json) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -3408,21 +3428,11 @@ int gm_process_no_last_member_query_interval_cmd(struct vty *vty)
 int pim_process_ssmpingd_cmd(struct vty *vty, enum nb_operation operation,
 			     const char *src_str)
 {
-	const char *vrfname;
-	char ssmpingd_ip_xpath[XPATH_MAXLEN];
 	char ssmpingd_src_ip_xpath[XPATH_MAXLEN];
 	int printed;
 
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(ssmpingd_ip_xpath, sizeof(ssmpingd_ip_xpath),
-		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 FRR_PIM_AF_XPATH_VAL);
 	printed = snprintf(ssmpingd_src_ip_xpath, sizeof(ssmpingd_src_ip_xpath),
-			   "%s/ssm-pingd-source-ip[.='%s']", ssmpingd_ip_xpath,
-			   src_str);
+			   "./ssm-pingd-source-ip[.='%s']", src_str);
 	if (printed >= (int)sizeof(ssmpingd_src_ip_xpath)) {
 		vty_out(vty, "Xpath too long (%d > %u)", printed + 1,
 			XPATH_MAXLEN);
@@ -3492,6 +3502,55 @@ int pim_process_no_unicast_bsm_cmd(struct vty *vty)
 
 	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
 				    FRR_PIM_AF_XPATH_VAL);
+}
+
+/* helper for bsr/rp candidate commands*/
+int pim_process_bsr_candidate_cmd(struct vty *vty, const char *cand_str,
+				  bool no, bool is_rp, bool any,
+				  const char *ifname, const char *addr,
+				  const char *prio, const char *interval)
+{
+	if (no)
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	else {
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+
+		if (any)
+			nb_cli_enqueue_change(vty, "./if-any", NB_OP_CREATE,
+					      NULL);
+		else if (ifname)
+			nb_cli_enqueue_change(vty, "./interface", NB_OP_CREATE,
+					      ifname);
+		else if (addr)
+			nb_cli_enqueue_change(vty, "./address", NB_OP_CREATE,
+					      addr);
+		else
+			nb_cli_enqueue_change(vty, "./if-loopback",
+					      NB_OP_CREATE, NULL);
+
+		if (prio)
+			nb_cli_enqueue_change(vty,
+					      (is_rp ? "./rp-priority"
+						     : "./bsr-priority"),
+					      NB_OP_MODIFY, prio);
+
+		/* only valid for rp candidate case*/
+		if (is_rp && interval)
+			nb_cli_enqueue_change(vty, "./advertisement-interval",
+					      NB_OP_MODIFY, interval);
+	}
+
+	return nb_cli_apply_changes(vty, "%s", cand_str);
+}
+
+int pim_process_bsr_crp_grp_cmd(struct vty *vty, const char *grp, bool no)
+{
+	if (no)
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, grp);
+	else
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, grp);
+
+	return nb_cli_apply_changes(vty, "%s/group-list", FRR_PIM_CAND_RP_XPATH);
 }
 
 static void show_scan_oil_stats(struct pim_instance *pim, struct vty *vty,
@@ -3605,7 +3664,7 @@ void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 	if (!json) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -4044,7 +4103,7 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 	if (!json) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -4127,7 +4186,7 @@ void show_mroute_count(struct pim_instance *pim, struct vty *vty,
 	if (!json) {
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -4259,6 +4318,27 @@ struct vrf *pim_cmd_lookup(struct vty *vty, const char *name)
 
 	if (!vrf)
 		vty_out(vty, "Specified VRF: %s does not exist\n", name);
+
+	return vrf;
+}
+
+struct vrf *pim_cmd_lookup_vrf(struct vty *vty, struct cmd_token *argv[],
+			       const int argc, int *idx, bool uj)
+{
+	struct vrf *vrf;
+
+	if (argv_find(argv, argc, "NAME", idx))
+		vrf = vrf_lookup_by_name(argv[*idx]->arg);
+	else
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+
+	if (!vrf) {
+		if (uj)
+			vty_json_empty(vty, NULL);
+		else
+			vty_out(vty, "Specified VRF: %s does not exist\n",
+				argv[*idx]->arg);
+	}
 
 	return vrf;
 }
@@ -5293,6 +5373,12 @@ void pim_show_bsr(struct pim_instance *pim, struct vty *vty, bool uj)
 	case ACCEPT_PREFERRED:
 		strlcpy(bsr_state, "ACCEPT_PREFERRED", sizeof(bsr_state));
 		break;
+	case BSR_PENDING:
+		strlcpy(bsr_state, "BSR_PENDING", sizeof(bsr_state));
+		break;
+	case BSR_ELECTED:
+		strlcpy(bsr_state, "BSR_ELECTED", sizeof(bsr_state));
+		break;
 	default:
 		strlcpy(bsr_state, "", sizeof(bsr_state));
 	}
@@ -5312,7 +5398,7 @@ void pim_show_bsr(struct pim_instance *pim, struct vty *vty, bool uj)
 	}
 
 	else {
-		vty_out(vty, "PIMv2 Bootstrap information\n");
+		vty_out(vty, "PIMv2 Bootstrap Router information\n");
 		vty_out(vty, "Current preferred BSR address: %pPA\n",
 			&pim->global_scope.current_bsr);
 		vty_out(vty,
@@ -5430,7 +5516,7 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 
 			table = ttable_dump(tt, "\n");
 			vty_out(vty, "%s\n", table);
-			XFREE(MTYPE_TMP, table);
+			XFREE(MTYPE_TMP_TTABLE, table);
 			ttable_del(tt);
 			tt = NULL;
 		}
@@ -5484,7 +5570,7 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 
 			table = ttable_dump(tt, "\n");
 			vty_out(vty, "%s\n", table);
-			XFREE(MTYPE_TMP, table);
+			XFREE(MTYPE_TMP_TTABLE, table);
 			ttable_del(tt);
 		}
 		if (!bsm_rpinfos_count(bsgrp->partial_bsrp_list) && !uj)
@@ -5517,6 +5603,98 @@ int pim_show_group_rp_mappings_info_helper(const char *vrf, struct vty *vty,
 	}
 
 	pim_show_group_rp_mappings_info(v->info, vty, uj);
+
+	return CMD_SUCCESS;
+}
+
+int pim_show_bsr_cand_rp(const struct vrf *vrf, struct vty *vty, bool uj)
+{
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+	json_object *jsondata = NULL;
+
+	if (!vrf || !vrf->info)
+		return CMD_WARNING;
+
+	pim = (struct pim_instance *)vrf->info;
+	scope = &pim->global_scope;
+
+	if (!scope->cand_rp_addrsel.run) {
+		if (!!uj)
+			vty_out(vty, "{}\n");
+		else
+			vty_out(vty,
+				"This router is not currently operating as Candidate RP\n");
+		return CMD_SUCCESS;
+	}
+
+	if (!!uj) {
+		jsondata = json_object_new_object();
+		json_object_string_addf(jsondata, "address", "%pPA",
+					&scope->cand_rp_addrsel.run_addr);
+		json_object_int_add(jsondata, "priority", scope->cand_rp_prio);
+		json_object_int_add(jsondata, "nextAdvertisementMsec",
+				    event_timer_remain_msec(
+					    scope->cand_rp_adv_timer));
+
+		vty_json(vty, jsondata);
+		return CMD_SUCCESS;
+	}
+
+	vty_out(vty, "Candidate-RP\nAddress:   %pPA\nPriority:  %u\n\n",
+		&scope->cand_rp_addrsel.run_addr, scope->cand_rp_prio);
+	vty_out(vty, "Next adv.: %lu msec\n",
+		event_timer_remain_msec(scope->cand_rp_adv_timer));
+
+
+	return CMD_SUCCESS;
+}
+
+int pim_show_bsr_cand_bsr(const struct vrf *vrf, struct vty *vty, bool uj)
+{
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+	json_object *jsondata = NULL;
+
+	if (!vrf || !vrf->info)
+		return CMD_WARNING;
+
+	pim = (struct pim_instance *)vrf->info;
+	scope = &pim->global_scope;
+
+	if (!scope->bsr_addrsel.cfg_enable) {
+		if (!!uj)
+			vty_out(vty, "{}\n");
+		else
+			vty_out(vty,
+				"This router is not currently operating as Candidate BSR\n");
+		return CMD_SUCCESS;
+	}
+
+	if (uj) {
+		char buf[INET_ADDRSTRLEN];
+
+		jsondata = json_object_new_object();
+		inet_ntop(AF_INET, &scope->bsr_addrsel.run_addr, buf,
+			  sizeof(buf));
+		json_object_string_add(jsondata, "address", buf);
+		json_object_int_add(jsondata, "priority", scope->cand_bsr_prio);
+		json_object_boolean_add(jsondata, "elected",
+					pim->global_scope.state == BSR_ELECTED);
+
+		vty_json(vty, jsondata);
+		return CMD_SUCCESS;
+	}
+
+	vty_out(vty,
+		"Candidate-BSR\nAddress:   %pPA\nPriority:  %u\nElected: %s\n",
+		&scope->bsr_addrsel.run_addr, scope->cand_bsr_prio,
+		(pim->global_scope.state == BSR_ELECTED) ? "  Yes" : "  No");
+
+	if (!pim_addr_cmp(scope->bsr_addrsel.run_addr, PIMADDR_ANY))
+		vty_out(vty,
+			"\nThis router is not currently operating as Candidate BSR\n"
+			"Configure a BSR address to enable this feature\n\n");
 
 	return CMD_SUCCESS;
 }
@@ -5704,4 +5882,35 @@ int pim_show_bsm_db_helper(const char *vrf, struct vty *vty, bool uj)
 	pim_show_bsm_db(v->info, vty, uj);
 
 	return CMD_SUCCESS;
+}
+
+int pim_router_config_write(struct vty *vty)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	int writes = 0;
+	char framestr[64] = { 0 };
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		pim = vrf->info;
+
+		if (!pim)
+			continue;
+
+		snprintfrr(framestr, sizeof(framestr), "router %s",
+			   PIM_AF_ROUTER);
+		if (vrf->vrf_id != VRF_DEFAULT) {
+			strlcat(framestr, " vrf ", sizeof(framestr));
+			strlcat(framestr, vrf->name, sizeof(framestr));
+		}
+		vty_frame(vty, "%s\n", framestr);
+		++writes;
+
+		writes += pim_global_config_write_worker(pim, vty);
+
+		vty_endframe(vty, "exit\n");
+		++writes;
+	}
+
+	return writes;
 }

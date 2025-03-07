@@ -331,12 +331,9 @@ Basic Config Commands
 
 .. clicmd:: allow-reserved-ranges
 
-   Allow using IPv4 reserved (Class E) IP ranges for daemons. E.g.: setting
-   IPv4 addresses for interfaces or allowing reserved ranges in BGP next-hops.
-
-   If you need multiple FRR instances (or FRR + any other daemon) running in a
-   single router and peering via 127.0.0.0/8, it's also possible to use this
-   knob if turned on.
+   Allow peering via loopback addresses (127.0.0.0/8). This is necessary in case
+   of multiple FRR instances (or FRR + any other daemon) peering via loopback
+   interfaces running on the same router.
 
    Default: off.
 
@@ -753,6 +750,17 @@ These options apply to all |PACKAGE_NAME| daemons.
    Set the namespace that the daemon will run in.  A "/<namespace>" will
    be added to all files that use the statedir.  If you have "/var/run/frr"
    as the default statedir then it will become "/var/run/frr/<namespace>".
+
+.. option:: -w, --vrfwnetns
+
+   Enable namespace VRF backend. By default, the VRF backend relies on VRF-lite
+   support from the Linux kernel. This option permits discovering Linux named
+   network namespaces and mapping them to FRR VRF contexts. This option must be
+   the same for all running daemons. The easiest way to pass the same option to
+   all daemons is to use the ``frr_global_options`` variable in the
+   :ref:`Daemons Configuration File <daemons-configuration-file>`.
+
+   .. seealso:: :ref:`zebra-vrf`
 
 .. option:: -o, --vrfdefaultname <name>
 

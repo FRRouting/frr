@@ -258,7 +258,7 @@ static void ns_disable_internal(struct ns *ns)
 		if (ns_master.ns_disable_hook)
 			(*ns_master.ns_disable_hook)(ns);
 
-		if (have_netns())
+		if (have_netns() && ns->fd >= 0)
 			close(ns->fd);
 
 		ns->fd = -1;

@@ -143,7 +143,6 @@ const struct frr_yang_module_info frr_ripd_info = {
 			.cbs = {
 				.modify = group_distribute_list_ipv4_modify,
 				.destroy = group_distribute_list_ipv4_destroy,
-				.cli_show = group_distribute_list_ipv4_cli_show,
 			}
 		},
 		{
@@ -151,7 +150,6 @@ const struct frr_yang_module_info frr_ripd_info = {
 			.cbs = {
 				.modify = group_distribute_list_ipv4_modify,
 				.destroy = group_distribute_list_ipv4_destroy,
-				.cli_show = group_distribute_list_ipv4_cli_show,
 			}
 		},
 		{
@@ -159,7 +157,6 @@ const struct frr_yang_module_info frr_ripd_info = {
 			.cbs = {
 				.modify = group_distribute_list_ipv4_modify,
 				.destroy = group_distribute_list_ipv4_destroy,
-				.cli_show = group_distribute_list_ipv4_cli_show,
 			}
 		},
 		{
@@ -167,7 +164,6 @@ const struct frr_yang_module_info frr_ripd_info = {
 			.cbs = {
 				.modify = group_distribute_list_ipv4_modify,
 				.destroy = group_distribute_list_ipv4_destroy,
-				.cli_show = group_distribute_list_ipv4_cli_show,
 			}
 		},
 		{

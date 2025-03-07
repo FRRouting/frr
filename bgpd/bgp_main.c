@@ -63,18 +63,16 @@ DEFINE_HOOK(bgp_hook_vrf_update, (struct vrf *vrf, bool enabled),
 	    (vrf, enabled));
 
 /* bgpd options, we use GNU getopt library. */
-static const struct option longopts[] = {
-	{ "bgp_port", required_argument, NULL, 'p' },
-	{ "listenon", required_argument, NULL, 'l' },
-	{ "no_kernel", no_argument, NULL, 'n' },
-	{ "skip_runas", no_argument, NULL, 'S' },
-	{ "ecmp", required_argument, NULL, 'e' },
-	{ "int_num", required_argument, NULL, 'I' },
-	{ "no_zebra", no_argument, NULL, 'Z' },
-	{ "socket_size", required_argument, NULL, 's' },
-	{ "v6-with-v4-nexthops", no_argument, NULL, 'v' },
-	{ 0 }
-};
+static const struct option longopts[] = { { "bgp_port", required_argument, NULL, 'p' },
+					  { "listenon", required_argument, NULL, 'l' },
+					  { "no_kernel", no_argument, NULL, 'n' },
+					  { "skip_runas", no_argument, NULL, 'S' },
+					  { "ecmp", required_argument, NULL, 'e' },
+					  { "int_num", required_argument, NULL, 'I' },
+					  { "no_zebra", no_argument, NULL, 'Z' },
+					  { "socket_size", required_argument, NULL, 's' },
+					  { "v6-with-v4-nexthops", no_argument, NULL, 'x' },
+					  { 0 } };
 
 /* signal definitions */
 void sighup(void);
@@ -209,6 +207,8 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 	bgp_nhg_finish();
 
 	zebra_announce_fini(&bm->zebra_announce_head);
+	zebra_l2_vni_fini(&bm->zebra_l2_vni_head);
+	zebra_l3_vni_fini(&bm->zebra_l3_vni_head);
 
 	/* reverse bgp_dump_init */
 	bgp_dump_finish();
@@ -327,7 +327,7 @@ static int bgp_vrf_disable(struct vrf *vrf)
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("VRF disable %s id %d", vrf->name, vrf->vrf_id);
 
-	bgp = bgp_lookup_by_name(vrf->name);
+	bgp = bgp_lookup_by_name_filter(vrf->name, false);
 	if (bgp) {
 
 		vpn_leak_zebra_vrf_label_withdraw(bgp, AFI_IP);
@@ -424,11 +424,12 @@ int main(int argc, char **argv)
 	int buffer_size = BGP_SOCKET_SNDBUF_SIZE;
 	char *address;
 	struct listnode *node;
+	bool v6_with_v4_nexthops = false;
 
 	addresses->cmp = (int (*)(void *, void *))strcmp;
 
 	frr_preinit(&bgpd_di, argc, argv);
-	frr_opt_add("p:l:SnZe:I:s:" DEPRECATED_OPTIONS, longopts,
+	frr_opt_add("p:l:SnZe:I:s:x" DEPRECATED_OPTIONS, longopts,
 		    "  -p, --bgp_port           Set BGP listen port number (0 means do not listen).\n"
 		    "  -l, --listenon           Listen on specified address (implies -n)\n"
 		    "  -n, --no_kernel          Do not install route to kernel.\n"
@@ -437,7 +438,7 @@ int main(int argc, char **argv)
 		    "  -e, --ecmp               Specify ECMP to use.\n"
 		    "  -I, --int_num            Set instance number (label-manager)\n"
 		    "  -s, --socket_size        Set BGP peer socket send buffer size\n"
-		    "    , --v6-with-v4-nexthop Allow BGP to form v6 neighbors using v4 nexthops\n");
+		    "  -x, --v6-with-v4-nexthop Allow BGP to form v6 neighbors using v4 nexthops\n");
 
 	/* Command line argument treatment. */
 	while (1) {
@@ -499,8 +500,8 @@ int main(int argc, char **argv)
 		case 's':
 			buffer_size = atoi(optarg);
 			break;
-		case 'v':
-			bm->v6_with_v4_nexthops = true;
+		case 'x':
+			v6_with_v4_nexthops = true;
 			break;
 		default:
 			frr_help_exit(1);
@@ -511,13 +512,18 @@ int main(int argc, char **argv)
 
 	/* BGP master init. */
 	bgp_master_init(frr_init(), buffer_size, addresses);
+	bm->startup_time = monotime(NULL);
 	bm->port = bgp_port;
+	bm->v6_with_v4_nexthops = v6_with_v4_nexthops;
 	if (bgp_port == 0)
 		bgp_option_set(BGP_OPT_NO_LISTEN);
 	if (no_fib_flag || no_zebra_flag)
 		bgp_option_set(BGP_OPT_NO_FIB);
 	if (no_zebra_flag)
 		bgp_option_set(BGP_OPT_NO_ZEBRA);
+	if (bgpd_di.graceful_restart)
+		SET_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART);
+
 	bgp_error_init();
 	/* Initializations. */
 	libagentx_init();

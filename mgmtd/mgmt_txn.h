@@ -69,6 +69,34 @@ static inline const char *mgmt_txn_type2str(enum mgmt_txn_type type)
 	return "Unknown";
 }
 
+
+static inline int16_t errno_from_nb_error(enum nb_error ret)
+{
+	switch (ret) {
+	case NB_OK:
+		return 0;
+	case NB_ERR_NO_CHANGES:
+		return -EALREADY;
+	case NB_ERR_NOT_FOUND:
+		return -ENOENT;
+	case NB_ERR_EXISTS:
+		return -EEXIST;
+	case NB_ERR_LOCKED:
+		return -EWOULDBLOCK;
+	case NB_ERR_VALIDATION:
+		return -EINVAL;
+	case NB_ERR_RESOURCE:
+		return -ENOMEM;
+	case NB_ERR:
+	case NB_ERR_INCONSISTENCY:
+		return -EINVAL;
+	case NB_YIELD:
+	default:
+		return -EINVAL;
+	}
+}
+
+
 /* Initialise transaction module. */
 extern int mgmt_txn_init(struct mgmt_master *cm, struct event_loop *tm);
 
@@ -268,6 +296,16 @@ mgmt_txn_send_edit(uint64_t txn_id, uint64_t req_id, Mgmtd__DatastoreId ds_id,
 extern int mgmt_txn_send_rpc(uint64_t txn_id, uint64_t req_id, uint64_t clients,
 			     LYD_FORMAT result_type, const char *xpath,
 			     const char *data, size_t data_len);
+
+/**
+ * mgmt_txn_send_notify_selectors() - Send NOTIFY SELECT request.
+ * @req_id: FE client request identifier.
+ * @clients: Bitmask of clients to send RPC to.
+ * @selectors: Array of selectors or NULL to resend all selectors to BE clients.
+ *
+ * Returns 0 on success.
+ */
+extern int mgmt_txn_send_notify_selectors(uint64_t req_id, uint64_t clients, const char **selectors);
 
 /*
  * Notifiy backend adapter on connection.

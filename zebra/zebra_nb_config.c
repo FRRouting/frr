@@ -31,23 +31,6 @@
 #include "zebra/table_manager.h"
 
 /*
- * XPath: /frr-zebra:zebra/mcast-rpf-lookup
- */
-int zebra_mcast_rpf_lookup_modify(struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
  * XPath: /frr-zebra:zebra/ip-forwarding
  */
 int zebra_ip_forwarding_modify(struct nb_cb_modify_args *args)
@@ -3375,10 +3358,7 @@ int lib_vrf_zebra_filter_protocol_create(struct nb_cb_create_args *args)
 	const char *proto = yang_dnode_get_string(args->dnode, "protocol");
 	int rtype;
 
-	if (strcasecmp(proto, "any") == 0)
-		rtype = ZEBRA_ROUTE_MAX;
-	else
-		rtype = proto_name2num(proto);
+	rtype = proto_name2num(proto);
 
 	if (args->event == NB_EV_VALIDATE)
 		if (rtype < 0) {
@@ -3404,10 +3384,7 @@ int lib_vrf_zebra_filter_protocol_destroy(struct nb_cb_destroy_args *args)
 
 	yang_afi_safi_identity2value(afi_safi, &afi, &safi);
 
-	if (strcasecmp(proto, "any") == 0)
-		rtype = ZEBRA_ROUTE_MAX;
-	else
-		rtype = proto_name2num(proto);
+	rtype = proto_name2num(proto);
 
 	/* deleting an existing entry, it can't be invalid */
 	assert(rtype >= 0);
@@ -3435,10 +3412,7 @@ void lib_vrf_zebra_filter_protocol_apply_finish(
 
 	yang_afi_safi_identity2value(afi_safi, &afi, &safi);
 
-	if (strcasecmp(proto, "any") == 0)
-		rtype = ZEBRA_ROUTE_MAX;
-	else
-		rtype = proto_name2num(proto);
+	rtype = proto_name2num(proto);
 
 	/* finishing apply for a validated entry, it can't be invalid */
 	assert(rtype >= 0);
@@ -3776,6 +3750,59 @@ int lib_vrf_zebra_netns_table_range_end_modify(struct nb_cb_modify_args *args)
 	vrf = nb_running_get_entry(args->dnode, NULL, true);
 
 	table_manager_range(true, vrf->info, start, end);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-vrf:lib/vrf/frr-zebra:zebra/mpls/fec-nexthop-resolution
+ */
+int lib_vrf_zebra_mpls_fec_nexthop_resolution_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct vrf *vrf;
+	struct zebra_vrf *zvrf;
+	bool fec_nexthop_resolution;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	vrf = nb_running_get_entry(args->dnode, NULL, true);
+	zvrf = vrf->info;
+
+	fec_nexthop_resolution = yang_dnode_get_bool(args->dnode, NULL);
+
+	if (zvrf->zebra_mpls_fec_nexthop_resolution == fec_nexthop_resolution)
+		return NB_OK;
+
+	zvrf->zebra_mpls_fec_nexthop_resolution = fec_nexthop_resolution;
+
+	zebra_mpls_fec_nexthop_resolution_update(zvrf);
+
+	return NB_OK;
+}
+
+int lib_vrf_zebra_mpls_fec_nexthop_resolution_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct vrf *vrf;
+	struct zebra_vrf *zvrf;
+	bool fec_nexthop_resolution;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	vrf = nb_running_get_entry(args->dnode, NULL, true);
+	zvrf = vrf->info;
+
+	fec_nexthop_resolution = DFLT_ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT;
+
+	if (zvrf->zebra_mpls_fec_nexthop_resolution == fec_nexthop_resolution)
+		return NB_OK;
+
+	zvrf->zebra_mpls_fec_nexthop_resolution = fec_nexthop_resolution;
+
+	zebra_mpls_fec_nexthop_resolution_update(zvrf);
 
 	return NB_OK;
 }

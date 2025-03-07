@@ -82,7 +82,7 @@ DEFPY(watch_redistribute, watch_redistribute_cmd,
 }
 
 DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
-      "sharp watch [vrf NAME$vrf_name] <nexthop$n X:X::X:X$nhop|import$import X:X::X:X/M$inhop>  [connected$connected]",
+      "sharp watch [vrf NAME$vrf_name] <nexthop$n X:X::X:X$nhop|import$import X:X::X:X/M$inhop>  [connected$connected] [mrib$mrib]",
       "Sharp routing Protocol\n"
       "Watch for changes\n"
       "The vrf we would like to watch if non-default\n"
@@ -91,7 +91,8 @@ DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
       "The v6 nexthop to signal for watching\n"
       "Watch for import check changes\n"
       "The v6 prefix to signal for watching\n"
-      "Should the route be connected\n")
+      "Should the route be connected\n"
+      "In the Multicast rib\n")
 {
 	struct vrf *vrf;
 	struct prefix p;
@@ -119,14 +120,13 @@ DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
 	}
 
 	sharp_nh_tracker_get(&p);
-	sharp_zebra_nexthop_watch(&p, vrf->vrf_id, type_import,
-				  true, !!connected);
+	sharp_zebra_nexthop_watch(&p, vrf->vrf_id, type_import, true, !!connected, !!mrib);
 
 	return CMD_SUCCESS;
 }
 
 DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
-      "sharp watch [vrf NAME$vrf_name] <nexthop$n A.B.C.D$nhop|import$import A.B.C.D/M$inhop> [connected$connected]",
+      "sharp watch [vrf NAME$vrf_name] <nexthop$n A.B.C.D$nhop|import$import A.B.C.D/M$inhop> [connected$connected] [mrib$mrib]",
       "Sharp routing Protocol\n"
       "Watch for changes\n"
       "The vrf we would like to watch if non-default\n"
@@ -135,7 +135,8 @@ DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
       "The v4 address to signal for watching\n"
       "Watch for import check changes\n"
       "The v4 prefix for import check to watch\n"
-      "Should the route be connected\n")
+      "Should the route be connected\n"
+      "In the Multicast rib\n")
 {
 	struct vrf *vrf;
 	struct prefix p;
@@ -164,8 +165,7 @@ DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
 	}
 
 	sharp_nh_tracker_get(&p);
-	sharp_zebra_nexthop_watch(&p, vrf->vrf_id, type_import,
-				  true, !!connected);
+	sharp_zebra_nexthop_watch(&p, vrf->vrf_id, type_import, true, !!connected, !!mrib);
 
 	return CMD_SUCCESS;
 }
@@ -213,7 +213,7 @@ DEFPY (install_routes,
        "The vrf we would like to install into if non-default\n"
        "The NAME of the vrf\n"
        "v4 Address to start /32 generation at\n"
-       "v6 Address to start /32 generation at\n"
+       "v6 Address to start /128 generation at\n"
        "Nexthop to use(Can be an IPv4 or IPv6 address)\n"
        "V4 Nexthop address to use\n"
        "V6 Nexthop address to use\n"
@@ -372,7 +372,7 @@ DEFPY (install_seg6_routes,
        "The vrf we would like to install into if non-default\n"
        "The NAME of the vrf\n"
        "v4 Address to start /32 generation at\n"
-       "v6 Address to start /32 generation at\n"
+       "v6 Address to start /128 generation at\n"
        "Nexthop-seg6 to use\n"
        "V6 Nexthop address to use\n"
        "Encap mode\n"
@@ -458,7 +458,7 @@ DEFPY (install_seg6local_routes,
        "Routes to install\n"
        "The vrf we would like to install into if non-default\n"
        "The NAME of the vrf\n"
-       "v6 Address to start /32 generation at\n"
+       "v6 Address to start /128 generation at\n"
        "Nexthop-seg6local to use\n"
        "Output device to use\n"
        "SRv6 End function to use\n"
@@ -503,7 +503,7 @@ DEFPY (install_seg6local_routes,
 	sg.r.opaque[0] = '\0';
 	sg.r.inst = 0;
 	sg.r.orig_prefix.family = AF_INET6;
-	sg.r.orig_prefix.prefixlen = 128;
+	sg.r.orig_prefix.prefixlen = IPV6_MAX_BITLEN;
 	sg.r.orig_prefix.u.prefix6 = start6;
 
 	if (!vrf_name)
@@ -945,7 +945,7 @@ DEFPY (neigh_discover,
 		prefix.u.prefix4 = dst4;
 	} else {
 		prefix.family = AF_INET6;
-		prefix.prefixlen = 128;
+		prefix.prefixlen = IPV6_MAX_BITLEN;
 		prefix.u.prefix6 = dst6;
 	}
 
@@ -1443,6 +1443,48 @@ DEFPY (tc_filter_rate,
 	return CMD_SUCCESS;
 }
 
+/* for testing builtin crash handler & backtrace */
+DEFPY(crashme_segv,
+      crashme_segv_cmd,
+      "sharp crashtest segv",
+      SHARP_STR
+      "crashtest functions\n"
+      "*(int *)1 = 1\n")
+{
+#if defined(__COVERITY__) || defined(__clang_analyzer__)
+	vty_out(vty, "static analysis build, this should not happen?!\n");
+#else
+	/* GCC is too clever, complains if it knows the pointer is just "1" */
+	intptr_t one = atoi("1");
+
+	*(int *)one = 1;
+#endif
+	return CMD_SUCCESS;
+}
+
+/* for testing ASAN & Valgrind warnings */
+DEFPY(crashme_uaf,
+      crashme_uaf_cmd,
+      "sharp crashtest use-after-free",
+      SHARP_STR
+      "crashtest functions\n"
+      "free(p); vty_out(p)\n")
+{
+#if defined(__COVERITY__) || defined(__clang_analyzer__)
+	vty_out(vty, "static analysis build, this should not happen?!\n");
+#else
+	int *p, *f;
+
+	p = f = XCALLOC(MTYPE_TMP, sizeof(*p));
+	*p = 12345;
+	XFREE(MTYPE_TMP, p);
+
+	vty_out(vty, "use-after-free: %d\n", *f);
+#endif
+	return CMD_SUCCESS;
+}
+
+
 void sharp_vty_init(void)
 {
 	install_element(ENABLE_NODE, &install_routes_data_dump_cmd);
@@ -1482,5 +1524,7 @@ void sharp_vty_init(void)
 
 	install_element(ENABLE_NODE, &tc_filter_rate_cmd);
 
+	install_element(ENABLE_NODE, &crashme_segv_cmd);
+	install_element(ENABLE_NODE, &crashme_uaf_cmd);
 	return;
 }

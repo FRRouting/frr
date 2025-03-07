@@ -68,6 +68,8 @@ buster.)
      +----------------+-------------------+-----------------------------------------+
      | pkg.frr.pim6d  | pkg.frr.nopim6d   | builds pim6d (default enabled)          |
      +----------------+-------------------+-----------------------------------------+
+     | pkg.frr.grpc   | pkg.frr.nogrpc    | builds with grpc support (default: no)  |
+     +----------------+-------------------+-----------------------------------------+
 
    * the ``-uc -us`` options to disable signing the packages with your GPG key
 

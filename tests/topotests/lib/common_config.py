@@ -936,7 +936,7 @@ def generate_support_bundle():
 
     tgen = get_topogen()
     if tgen is None:
-        logger.warn(
+        logger.warning(
             "Support bundle attempted to be generated, but topogen is not being used"
         )
         return True
@@ -1847,7 +1847,13 @@ def retry(retry_timeout, initial_wait=0, expected=True, diag_pct=0.75):
             while True:
                 seconds_left = (retry_until - datetime.now()).total_seconds()
                 try:
-                    ret = func(*args, **kwargs)
+                    try:
+                        ret = func(*args, seconds_left=seconds_left, **kwargs)
+                    except TypeError as error:
+                        if "seconds_left" not in str(error):
+                            raise
+                        ret = func(*args, **kwargs)
+
                     logger.debug("Function returned %s", ret)
 
                     negative_result = ret is False or is_string(ret)
@@ -1868,7 +1874,7 @@ def retry(retry_timeout, initial_wait=0, expected=True, diag_pct=0.75):
                         return saved_failure
 
                 except Exception as error:
-                    logger.info("Function raised exception: %s", str(error))
+                    logger.info('Function raised exception: "%s"', repr(error))
                     ret = error
 
                 if seconds_left < 0 and saved_failure:
@@ -3365,7 +3371,7 @@ def verify_rib(
                                 found_hops = [
                                     rib_r["ip"]
                                     for rib_r in rib_routes_json[st_rt][0]["nexthops"]
-                                    if "ip" in rib_r
+                                    if "ip" in rib_r and "active" in rib_r
                                 ]
 
                                 # If somehow key "ip" is not found in nexthops JSON

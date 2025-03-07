@@ -19,8 +19,7 @@
 #include "lib/qobj.h"
 #include "lib/queue.h"
 #include "lib/vrf.h"
-
-#include "bfdctl.h"
+#include "lib/bfd.h"
 
 #ifdef BFD_DEBUG
 #define BFDD_JSON_CONV_OPTIONS (JSON_C_TO_STRING_PRETTY)
@@ -28,11 +27,72 @@
 #define BFDD_JSON_CONV_OPTIONS (0)
 #endif
 
-DECLARE_MGROUP(BFDD);
-DECLARE_MTYPE(BFDD_CONTROL);
-DECLARE_MTYPE(BFDD_NOTIFICATION);
+#ifndef MAXNAMELEN
+#define MAXNAMELEN 32
+#endif
 
-#define BFDD_SOCK_NAME "%s/bfdd.sock", frr_runstatedir
+#define BPC_DEF_DETECTMULTIPLIER     3
+#define BPC_DEF_RECEIVEINTERVAL	     300 /* milliseconds */
+#define BPC_DEF_TRANSMITINTERVAL     300 /* milliseconds */
+#define BPC_DEF_ECHORECEIVEINTERVAL  50	 /* milliseconds */
+#define BPC_DEF_ECHOTRANSMITINTERVAL 50	 /* milliseconds */
+
+DECLARE_MGROUP(BFDD);
+DECLARE_MTYPE(BFDD_CLIENT);
+DECLARE_MTYPE(BFDD_CLIENT_NOTIFICATION);
+
+struct sockaddr_any {
+	union {
+		struct sockaddr_in sa_sin;
+		struct sockaddr_in6 sa_sin6;
+	};
+};
+
+struct bfd_peer_cfg {
+	bool bpc_mhop;
+	bool bpc_ipv4;
+	struct sockaddr_any bpc_peer;
+	struct sockaddr_any bpc_local;
+
+	bool bpc_has_localif;
+	char bpc_localif[MAXNAMELEN + 1];
+
+	bool bpc_has_vrfname;
+	char bpc_vrfname[MAXNAMELEN + 1];
+
+	bool bpc_has_detectmultiplier;
+	uint8_t bpc_detectmultiplier;
+
+	bool bpc_has_recvinterval;
+	uint64_t bpc_recvinterval;
+
+	bool bpc_has_txinterval;
+	uint64_t bpc_txinterval;
+
+	bool bpc_has_echorecvinterval;
+	uint64_t bpc_echorecvinterval;
+
+	bool bpc_has_echotxinterval;
+	uint64_t bpc_echotxinterval;
+
+	bool bpc_has_minimum_ttl;
+	uint8_t bpc_minimum_ttl;
+
+	bool bpc_echo;
+	bool bpc_createonly;
+	bool bpc_shutdown;
+
+	bool bpc_cbit;
+	bool bpc_passive;
+	bool bpc_log_session_changes;
+
+	bool bpc_has_profile;
+	char bpc_profile[64];
+
+	vrf_id_t vrf_id;
+	char bfd_name[BFD_NAME_SIZE + 1];
+	uint8_t bfd_name_len;
+};
 
 /* bfd Authentication Type. */
 #define BFD_AUTH_NULL 0
@@ -93,12 +153,12 @@ struct bfd_echo_pkt {
 	uint64_t time_sent_usec;
 };
 
-
 /* Macros for manipulating control packets */
 #define BFD_VERMASK 0x07
 #define BFD_DIAGMASK 0x1F
-#define BFD_GETVER(diag) ((diag >> 5) & BFD_VERMASK)
-#define BFD_SETVER(diag, val) ((diag) |= (val & BFD_VERMASK) << 5)
+#define BFD_GETVER(diag) (CHECK_FLAG((diag >> 5), BFD_VERMASK))
+#define BFD_SETVER(diag, val)                                                  \
+	SET_FLAG((diag), CHECK_FLAG(val, BFD_VERMASK) << 5)
 #define BFD_VERSION 1
 #define BFD_PBIT 0x20
 #define BFD_FBIT 0x10
@@ -106,39 +166,41 @@ struct bfd_echo_pkt {
 #define BFD_ABIT 0x04
 #define BFD_DEMANDBIT 0x02
 #define BFD_MBIT	      0x01
-#define BFD_GETMBIT(flags)    (flags & BFD_MBIT)
+#define BFD_GETMBIT(flags)    (CHECK_FLAG(flags, BFD_MBIT))
 #define BFD_SETDEMANDBIT(flags, val)                                           \
 	{                                                                      \
 		if ((val))                                                     \
-			flags |= BFD_DEMANDBIT;                                \
+			SET_FLAG(flags, BFD_DEMANDBIT);                        \
 	}
 #define BFD_SETPBIT(flags, val)                                                \
 	{                                                                      \
 		if ((val))                                                     \
-			flags |= BFD_PBIT;                                     \
+			SET_FLAG(flags, BFD_PBIT);                             \
 	}
-#define BFD_GETPBIT(flags) (flags & BFD_PBIT)
+#define BFD_GETPBIT(flags) (CHECK_FLAG(flags, BFD_PBIT))
 #define BFD_SETFBIT(flags, val)                                                \
 	{                                                                      \
 		if ((val))                                                     \
-			flags |= BFD_FBIT;                                     \
+			SET_FLAG(flags, BFD_FBIT);                             \
 	}
-#define BFD_GETFBIT(flags) (flags & BFD_FBIT)
+#define BFD_GETFBIT(flags) (CHECK_FLAG(flags, BFD_FBIT))
 #define BFD_SETSTATE(flags, val)                                               \
 	{                                                                      \
 		if ((val))                                                     \
-			flags |= (val & 0x3) << 6;                             \
+			SET_FLAG(flags, (CHECK_FLAG(val, 0x3) << 6));          \
 	}
-#define BFD_GETSTATE(flags) ((flags >> 6) & 0x3)
+#define BFD_GETSTATE(flags) (CHECK_FLAG((flags >> 6), 0x3))
 #define BFD_SETCBIT(flags, val)                                                \
 	{                                                                      \
 		if ((val))                                                     \
-			flags |= val;                                          \
+			SET_FLAG(flags, val);                                  \
 	}
-#define BFD_GETCBIT(flags) (flags & BFD_CBIT)
+#define BFD_GETCBIT(flags) (CHECK_FLAG(flags, BFD_CBIT))
 #define BFD_ECHO_VERSION 1
 #define BFD_ECHO_PKT_LEN sizeof(struct bfd_echo_pkt)
 
+#define RTH_BASE_HEADER_LEN   8
+#define GET_RTH_HDR_LEN(size) (((size) >> 3) - 1)
 enum bfd_diagnosticis {
 	BD_OK = 0,
 	/* Control Detection Time Expired. */
@@ -163,21 +225,28 @@ enum bfd_diagnosticis {
 /* BFD session flags */
 enum bfd_session_flags {
 	BFD_SESS_FLAG_NONE = 0,
-	BFD_SESS_FLAG_ECHO = 1 << 0,	/* BFD Echo functionality */
-	BFD_SESS_FLAG_ECHO_ACTIVE = 1 << 1, /* BFD Echo Packets are being sent
+	BFD_SESS_FLAG_ECHO = 1 << 0,		     /* BFD Echo functionality */
+	BFD_SESS_FLAG_ECHO_ACTIVE = 1 << 1,	     /* BFD Echo Packets are being sent
 					     * actively
 					     */
-	BFD_SESS_FLAG_MH = 1 << 2,	  /* BFD Multi-hop session */
-	BFD_SESS_FLAG_IPV6 = 1 << 4,	/* BFD IPv6 session */
-	BFD_SESS_FLAG_SEND_EVT_ACTIVE = 1 << 5, /* send event timer active */
-	BFD_SESS_FLAG_SEND_EVT_IGNORE = 1 << 6, /* ignore send event when timer
+	BFD_SESS_FLAG_MH = 1 << 2,		     /* BFD Multi-hop session */
+	BFD_SESS_FLAG_IPV6 = 1 << 4,		     /* BFD IPv6 session */
+	BFD_SESS_FLAG_SEND_EVT_ACTIVE = 1 << 5,	     /* send event timer active */
+	BFD_SESS_FLAG_SEND_EVT_IGNORE = 1 << 6,	     /* ignore send event when timer
 						 * expires
 						 */
-	BFD_SESS_FLAG_SHUTDOWN = 1 << 7,	/* disable BGP peer function */
-	BFD_SESS_FLAG_CONFIG = 1 << 8, /* Session configured with bfd NB API */
-	BFD_SESS_FLAG_CBIT = 1 << 9,   /* CBIT is set */
-	BFD_SESS_FLAG_PASSIVE = 1 << 10, /* Passive mode */
-	BFD_SESS_FLAG_MAC_SET = 1 << 11, /* MAC of peer known */
+	BFD_SESS_FLAG_SHUTDOWN = 1 << 7,	     /* disable BGP peer function */
+	BFD_SESS_FLAG_CONFIG = 1 << 8,		     /* Session configured with bfd NB API */
+	BFD_SESS_FLAG_CBIT = 1 << 9,		     /* CBIT is set */
+	BFD_SESS_FLAG_PASSIVE = 1 << 10,	     /* Passive mode */
+	BFD_SESS_FLAG_MAC_SET = 1 << 11,	     /* MAC of peer known */
+	BFD_SESS_FLAG_LOG_SESSION_CHANGES = 1 << 12, /* Log session changes */
+};
+
+enum bfd_mode_type {
+	BFD_MODE_TYPE_BFD = 0,
+	BFD_MODE_TYPE_SBFD_ECHO = 1,
+	BFD_MODE_TYPE_SBFD_INIT = 2,
 };
 
 /*
@@ -199,6 +268,7 @@ struct bfd_key {
 	struct in6_addr local;
 	char ifname[IFNAMSIZ];
 	char vrfname[VRF_NAMSIZ];
+	char bfdname[BFD_NAME_SIZE + 1];
 } __attribute__((packed));
 
 struct bfd_session_stats {
@@ -209,6 +279,7 @@ struct bfd_session_stats {
 	uint64_t session_up;
 	uint64_t session_down;
 	uint64_t znotification;
+	uint64_t tx_fail_pkt;
 };
 
 /**
@@ -228,6 +299,8 @@ struct bfd_profile {
 	bool admin_shutdown;
 	/** Passive mode. */
 	bool passive;
+	/** Log session changes. */
+	bool log_session_changes;
 	/** Minimum expected TTL value. */
 	uint8_t minimum_ttl;
 
@@ -244,9 +317,6 @@ struct bfd_profile {
 
 /** Profile list type. */
 TAILQ_HEAD(bfdproflist, bfd_profile);
-
-/* bfd_session shortcut label forwarding. */
-struct peer_label;
 
 struct bfd_config_timers {
 	uint32_t desired_min_tx;
@@ -323,15 +393,13 @@ struct bfd_session {
 	uint8_t rtt_valid;	    /* number of valid samples */
 	uint8_t rtt_index;	    /* last index added */
 	uint64_t rtt[BFD_RTT_SAMPLE]; /* RRT in usec for echo to be looped */
-};
+	char bfd_name[BFD_NAME_SIZE + 1];
 
-struct peer_label {
-	TAILQ_ENTRY(peer_label) pl_entry;
-
-	struct bfd_session *pl_bs;
-	char pl_label[MAXNAMELEN];
+	uint32_t bfd_mode;
+	uint8_t segnum;
+	struct in6_addr out_sip6;
+	struct in6_addr seg_list[SRV6_MAX_SEGS];
 };
-TAILQ_HEAD(pllist, peer_label);
 
 struct bfd_diag_str_list {
 	const char *str;
@@ -352,6 +420,11 @@ struct bfd_session_observer {
 };
 TAILQ_HEAD(obslist, bfd_session_observer);
 
+/*sbfd reflector struct*/
+struct sbfd_reflector {
+	uint32_t discr;
+	struct in6_addr local;
+};
 
 /* States defined per 4.1 */
 #define PTM_BFD_ADM_DOWN 0
@@ -369,6 +442,7 @@ TAILQ_HEAD(obslist, bfd_session_observer);
 #define BFD_DEF_DES_MIN_ECHO_TX (50 * 1000) /* microseconds. */
 #define BFD_DEF_REQ_MIN_ECHO_RX (50 * 1000) /* microseconds. */
 #define BFD_DEF_SLOWTX (1000 * 1000) /* microseconds. */
+#define SBFD_ECHO_DEF_SLOWTX	(1000 * 1000) /* microseconds. */
 /** Minimum multi hop TTL. */
 #define BFD_DEF_MHOP_TTL 254
 #define BFD_PKT_LEN 24 /* Length of control packet */
@@ -383,65 +457,9 @@ TAILQ_HEAD(obslist, bfd_session_observer);
 #define BFD_DEFDESTPORT 3784
 #define BFD_DEF_ECHO_PORT 3785
 #define BFD_DEF_MHOP_DEST_PORT 4784
+#define BFD_DEF_SBFD_DEST_PORT 7784
 
-/*
- * control.c
- *
- * Daemon control code to speak with local consumers.
- */
-
-/* See 'bfdctrl.h' for client protocol definitions. */
-
-struct bfd_control_buffer {
-	size_t bcb_left;
-	size_t bcb_pos;
-	union {
-		struct bfd_control_msg *bcb_bcm;
-		uint8_t *bcb_buf;
-	};
-};
-
-struct bfd_control_queue {
-	TAILQ_ENTRY(bfd_control_queue) bcq_entry;
-
-	struct bfd_control_buffer bcq_bcb;
-};
-TAILQ_HEAD(bcqueue, bfd_control_queue);
-
-struct bfd_notify_peer {
-	TAILQ_ENTRY(bfd_notify_peer) bnp_entry;
-
-	struct bfd_session *bnp_bs;
-};
-TAILQ_HEAD(bnplist, bfd_notify_peer);
-
-struct bfd_control_socket {
-	TAILQ_ENTRY(bfd_control_socket) bcs_entry;
-
-	int bcs_sd;
-	struct event *bcs_ev;
-	struct event *bcs_outev;
-	struct bcqueue bcs_bcqueue;
-
-	/* Notification data */
-	uint64_t bcs_notify;
-	struct bnplist bcs_bnplist;
-
-	enum bc_msg_version bcs_version;
-	enum bc_msg_type bcs_type;
-
-	/* Message buffering */
-	struct bfd_control_buffer bcs_bin;
-	struct bfd_control_buffer *bcs_bout;
-};
-TAILQ_HEAD(bcslist, bfd_control_socket);
-
-int control_init(const char *path);
-void control_shutdown(void);
-int control_notify(struct bfd_session *bs, uint8_t notify_state);
-int control_notify_config(const char *op, struct bfd_session *bs);
-void control_accept(struct event *t);
-
+#define BFD_SBFD_INITIATOR_DEMAND 1
 
 /*
  * bfdd.c
@@ -455,9 +473,10 @@ struct bfd_vrf_global {
 	int bg_mhop6;
 	int bg_echo;
 	int bg_echov6;
+	int bg_initv6;
 	struct vrf *vrf;
 
-	struct event *bg_ev[6];
+	struct event *bg_ev[7];
 };
 
 /* Forward declaration of data plane context struct. */
@@ -467,9 +486,6 @@ TAILQ_HEAD(dplane_queue, bfd_dplane_ctx);
 struct bfd_global {
 	int bg_csock;
 	struct event *bg_csockev;
-	struct bcslist bg_bcslist;
-
-	struct pllist bg_pllist;
 
 	struct obslist bg_obslist;
 
@@ -516,27 +532,6 @@ void socket_close(int *s);
 
 
 /*
- * config.c
- *
- * Contains the code related with loading/reloading configuration.
- */
-int parse_config(const char *fname);
-int config_request_add(const char *jsonstr);
-int config_request_del(const char *jsonstr);
-char *config_response(const char *status, const char *error);
-char *config_notify(struct bfd_session *bs);
-char *config_notify_config(const char *op, struct bfd_session *bs);
-
-typedef int (*bpc_handle)(struct bfd_peer_cfg *, void *arg);
-int config_notify_request(struct bfd_control_socket *bcs, const char *jsonstr,
-			  bpc_handle bh);
-
-struct peer_label *pl_new(const char *label, struct bfd_session *bs);
-struct peer_label *pl_find(const char *label);
-void pl_free(struct peer_label *pl);
-
-
-/*
  * logging - alias to zebra log
  */
 #define zlog_fatal(msg, ...)                                                   \
@@ -557,6 +552,7 @@ int bp_set_ttl(int sd, uint8_t value);
 int bp_set_tosv6(int sd, uint8_t value);
 int bp_set_tos(int sd, uint8_t value);
 int bp_bind_dev(int sd, const char *dev);
+void bp_set_prio(int sd, int value);
 
 int bp_udp_shop(const struct vrf *vrf);
 int bp_udp_mhop(const struct vrf *vrf);
@@ -566,10 +562,15 @@ int bp_peer_socket(const struct bfd_session *bs);
 int bp_peer_socketv6(const struct bfd_session *bs);
 int bp_echo_socket(const struct vrf *vrf);
 int bp_echov6_socket(const struct vrf *vrf);
+int bp_peer_srh_socketv6(struct bfd_session *bs);
+int bp_sbfd_socket(const struct vrf *vrf);
+int bp_initv6_socket(const struct vrf *vrf);
 
 void ptm_bfd_snd(struct bfd_session *bfd, int fbit);
 void ptm_bfd_echo_snd(struct bfd_session *bfd);
 void ptm_bfd_echo_fp_snd(struct bfd_session *bfd);
+void ptm_sbfd_echo_snd(struct bfd_session *bfd);
+void ptm_sbfd_initiator_snd(struct bfd_session *bfd, int fbit);
 
 void bfd_recv_cb(struct event *t);
 
@@ -583,13 +584,21 @@ typedef void (*bfd_ev_cb)(struct event *t);
 
 void bfd_recvtimer_update(struct bfd_session *bs);
 void bfd_echo_recvtimer_update(struct bfd_session *bs);
+void sbfd_init_recvtimer_update(struct bfd_session *bs);
+void sbfd_echo_recvtimer_update(struct bfd_session *bs);
 void bfd_xmttimer_update(struct bfd_session *bs, uint64_t jitter);
 void bfd_echo_xmttimer_update(struct bfd_session *bs, uint64_t jitter);
+void sbfd_init_xmttimer_update(struct bfd_session *bs, uint64_t jitter);
+void sbfd_echo_xmttimer_update(struct bfd_session *bs, uint64_t jitter);
 
 void bfd_xmttimer_delete(struct bfd_session *bs);
 void bfd_echo_xmttimer_delete(struct bfd_session *bs);
+void sbfd_init_xmttimer_delete(struct bfd_session *bs);
+void sbfd_echo_xmttimer_delete(struct bfd_session *bs);
 void bfd_recvtimer_delete(struct bfd_session *bs);
 void bfd_echo_recvtimer_delete(struct bfd_session *bs);
+void sbfd_init_recvtimer_delete(struct bfd_session *bs);
+void sbfd_echo_recvtimer_delete(struct bfd_session *bs);
 
 void bfd_recvtimer_assign(struct bfd_session *bs, bfd_ev_cb cb, int sd);
 void bfd_echo_recvtimer_assign(struct bfd_session *bs, bfd_ev_cb cb, int sd);
@@ -612,6 +621,9 @@ void ptm_bfd_echo_stop(struct bfd_session *bfd);
 void ptm_bfd_echo_start(struct bfd_session *bfd);
 void ptm_bfd_xmt_TO(struct bfd_session *bfd, int fbit);
 void ptm_bfd_start_xmt_timer(struct bfd_session *bfd, bool is_echo);
+void ptm_sbfd_init_xmt_TO(struct bfd_session *bfd, int fbit);
+void ptm_sbfd_init_reset(struct bfd_session *bfd);
+void ptm_sbfd_echo_reset(struct bfd_session *bfd);
 struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp,
 				      struct sockaddr_any *peer,
 				      struct sockaddr_any *local,
@@ -620,7 +632,6 @@ struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp,
 				      bool is_mhop);
 
 struct bfd_session *bs_peer_find(struct bfd_peer_cfg *bpc);
-int bfd_session_update_label(struct bfd_session *bs, const char *nlabel);
 void bfd_set_polling(struct bfd_session *bs);
 void bs_state_handler(struct bfd_session *bs, int nstate);
 void bs_echo_timer_handler(struct bfd_session *bs);
@@ -637,17 +648,19 @@ void bs_observer_del(struct bfd_session_observer *bso);
 
 void bs_to_bpc(struct bfd_session *bs, struct bfd_peer_cfg *bpc);
 
-void gen_bfd_key(struct bfd_key *key, struct sockaddr_any *peer,
-		 struct sockaddr_any *local, bool mhop, const char *ifname,
-		 const char *vrfname);
-struct bfd_session *bfd_session_new(void);
+void gen_bfd_key(struct bfd_key *key, struct sockaddr_any *peer, struct sockaddr_any *local,
+		 bool mhop, const char *ifname, const char *vrfname, const char *bfdname);
+struct bfd_session *bfd_session_new(enum bfd_mode_type mode);
 struct bfd_session *bs_registrate(struct bfd_session *bs);
 void bfd_session_free(struct bfd_session *bs);
-const struct bfd_session *bfd_session_next(const struct bfd_session *bs,
-					   bool mhop);
+const struct bfd_session *bfd_session_next(const struct bfd_session *bs, bool mhop,
+					   uint32_t bfd_mode);
 void bfd_sessions_remove_manual(void);
 void bfd_profiles_remove(void);
+void bs_sbfd_echo_timer_handler(struct bfd_session *bs);
 void bfd_rtt_init(struct bfd_session *bfd);
+
+extern void bfd_vrf_toggle_echo(struct bfd_vrf_global *bfd_vrf);
 
 /**
  * Set the BFD session echo state.
@@ -674,6 +687,14 @@ void bfd_set_shutdown(struct bfd_session *bs, bool shutdown);
 void bfd_set_passive_mode(struct bfd_session *bs, bool passive);
 
 /**
+ * Set the BFD session to log or not log session changes.
+ *
+ * \param bs the BFD session.
+ * \param log_session indicates whether or not to log session changes.
+ */
+void bfd_set_log_session_changes(struct bfd_session *bs, bool log_session);
+
+/**
  * Picks the BFD session configuration from the appropriated source:
  * if using the default peer configuration prefer profile (if it exists),
  * otherwise use session.
@@ -689,19 +710,23 @@ void bfd_vrf_init(void);
 void bfd_vrf_terminate(void);
 struct bfd_vrf_global *bfd_vrf_look_by_session(struct bfd_session *bfd);
 struct bfd_session *bfd_id_lookup(uint32_t id);
-struct bfd_session *bfd_key_lookup(struct bfd_key key);
-
+struct bfd_session *bfd_key_lookup(struct bfd_key *key);
+struct sbfd_reflector *sbfd_discr_lookup(uint32_t discr);
 struct bfd_session *bfd_id_delete(uint32_t id);
-struct bfd_session *bfd_key_delete(struct bfd_key key);
+struct bfd_session *bfd_key_delete(struct bfd_key *key);
+struct sbfd_reflector *sbfd_discr_delete(uint32_t discr);
 
 bool bfd_id_insert(struct bfd_session *bs);
 bool bfd_key_insert(struct bfd_session *bs);
+bool sbfd_discr_insert(struct sbfd_reflector *sr);
 
 typedef void (*hash_iter_func)(struct hash_bucket *hb, void *arg);
 void bfd_id_iterate(hash_iter_func hif, void *arg);
 void bfd_key_iterate(hash_iter_func hif, void *arg);
+void sbfd_discr_iterate(hash_iter_func hif, void *arg);
 
 unsigned long bfd_get_session_count(void);
+unsigned long sbfd_discr_get_count(void);
 
 /* Export callback functions for `event.c`. */
 extern struct event_loop *master;
@@ -710,6 +735,11 @@ void bfd_recvtimer_cb(struct event *t);
 void bfd_echo_recvtimer_cb(struct event *t);
 void bfd_xmt_cb(struct event *t);
 void bfd_echo_xmt_cb(struct event *t);
+
+void sbfd_init_recvtimer_cb(struct event *t);
+void sbfd_echo_recvtimer_cb(struct event *t);
+void sbfd_init_xmt_cb(struct event *t);
+void sbfd_echo_xmt_cb(struct event *t);
 
 extern struct in6_addr zero_addr;
 
@@ -846,4 +876,17 @@ int bfd_dplane_update_session_counters(struct bfd_session *bs);
 
 void bfd_dplane_show_counters(struct vty *vty);
 
+/*sbfd relfector*/
+struct sbfd_reflector *sbfd_reflector_new(const uint32_t discr, struct in6_addr *sip);
+void sbfd_reflector_free(const uint32_t discr);
+void sbfd_reflector_flush(void);
+
+/*sbfd*/
+void ptm_sbfd_echo_sess_dn(struct bfd_session *bfd, uint8_t diag);
+void ptm_sbfd_init_sess_dn(struct bfd_session *bfd, uint8_t diag);
+void ptm_sbfd_sess_up(struct bfd_session *bfd);
+void sbfd_echo_state_handler(struct bfd_session *bs, int nstate);
+void sbfd_initiator_state_handler(struct bfd_session *bs, int nstate);
+
+struct bfd_session *bfd_session_get_by_name(const char *name);
 #endif /* _BFD_H_ */

@@ -39,7 +39,8 @@ enum zebra_iftype {
 	ZEBRA_IF_MACVLAN,   /* MAC VLAN interface*/
 	ZEBRA_IF_VETH,      /* VETH interface*/
 	ZEBRA_IF_BOND,	    /* Bond */
-	ZEBRA_IF_GRE,      /* GRE interface */
+	ZEBRA_IF_GRE,       /* GRE interface */
+	ZEBRA_IF_DUMMY,     /* Dummy interface */
 };
 
 /* Zebra "slave" interface type */
@@ -94,13 +95,13 @@ enum zebra_if_flags {
 #define ZEBRA_IF_IS_PROTODOWN_ONLY_EXTERNAL(zif)                               \
 	((zif)->protodown_rc == ZEBRA_PROTODOWN_EXTERNAL)
 
-/* Mem type for zif desc */
-DECLARE_MTYPE(ZIF_DESC);
-
 /* `zebra' daemon local interface structure. */
 struct zebra_if {
 	/* back pointer to the interface */
 	struct interface *ifp;
+
+	/* Event timer to batch  ICMPv6 join requests */
+	struct event *icmpv6_join_timer;
 
 	enum zebra_if_flags flags;
 
@@ -215,6 +216,9 @@ struct zebra_if {
 	char neigh_mac[6];
 	struct in6_addr v6_2_v4_ll_addr6;
 
+	/* Linkage for per-vrf/per-NS ifp container */
+	struct ifp_tree_link *ns_tree_link;
+
 	/* The description of the interface */
 	char *desc;
 };
@@ -246,6 +250,9 @@ DECLARE_HOOK(zebra_if_extra_info, (struct vty * vty, struct interface *ifp),
 #define IS_ZEBRA_IF_GRE(ifp)                                               \
 	(((struct zebra_if *)(ifp->info))->zif_type == ZEBRA_IF_GRE)
 
+#define IS_ZEBRA_IF_DUMMY(ifp)                                               \
+	(((struct zebra_if *)(ifp->info))->zif_type == ZEBRA_IF_DUMMY)
+
 #define IS_ZEBRA_IF_BRIDGE_SLAVE(ifp)					\
 	(((struct zebra_if *)(ifp->info))->zif_slave_type                      \
 	 == ZEBRA_IF_SLAVE_BRIDGE)
@@ -262,12 +269,10 @@ extern void zebra_if_init(void);
 extern struct interface *if_lookup_by_index_per_ns(struct zebra_ns *, uint32_t);
 extern struct interface *if_lookup_by_name_per_ns(struct zebra_ns *,
 						  const char *);
-extern struct interface *if_link_per_ns(struct zebra_ns *, struct interface *);
 extern struct interface *if_lookup_by_index_per_nsid(ns_id_t nsid,
 						     uint32_t ifindex);
 extern const char *ifindex2ifname_per_ns(struct zebra_ns *, unsigned int);
 
-extern void if_unlink_per_ns(struct interface *);
 extern void if_nbr_mac_to_ipv4ll_neigh_update(struct interface *fip,
 					      char mac[6],
 					      struct in6_addr *address,

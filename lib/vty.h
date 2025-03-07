@@ -149,6 +149,7 @@ struct vty {
 	struct nb_config *candidate_config_base;
 
 	/* Dynamic transaction information. */
+	size_t buffer_cmd_count;
 	bool pending_allowed;
 	bool pending_commit;
 	char *pending_cmds_buf;
@@ -236,6 +237,10 @@ struct vty {
 	uintptr_t mgmt_req_pending_data;
 	bool mgmt_locked_candidate_ds;
 	bool mgmt_locked_running_ds;
+	uint64_t vty_buf_size_accumulated;
+
+	int buf_size_set;
+	uint64_t buf_size_intermediate;
 };
 
 static inline void vty_push_context(struct vty *vty, int node, uint64_t id)
@@ -337,6 +342,12 @@ struct vty_arg {
 
 /* Vty read buffer size. */
 #define VTY_READ_BUFSIZ 512
+
+/* Vty max send buffer size */
+#define VTY_SEND_BUF_MAX 16777216
+
+/* Vty flush intermediate size */
+#define VTY_MAX_INTERMEDIATE_FLUSH 131072
 
 /* Directory separator. */
 #ifndef DIRECTORY_SEP

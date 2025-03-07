@@ -10,11 +10,13 @@ BMP main module:
     - XXX: more bmp messages types to dissect
     - XXX: complete bgp message dissection
 """
-import datetime
 import ipaddress
 import json
 import os
 import struct
+import sys
+
+from datetime import datetime
 
 from bgp.update import BGPUpdate
 from bgp.update.rd import RouteDistinguisher
@@ -46,6 +48,13 @@ def log2file(logs, log_file):
     """
     with open(log_file, "a") as f:
         f.write(json.dumps(logs) + "\n")
+
+
+def timestamp_print(message, file=sys.stderr):
+    """Helper function to timestamp_print messages with timestamps."""
+
+    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[{current_time}] {message}", file=file)
 
 
 # ------------------------------------------------------------------------------
@@ -196,13 +205,17 @@ class BMPMsg:
         data = data[msglen:]
 
         if version != BMPCodes.VERSION:
-            # XXX: log something
+            timestamp_print(
+                f"Expected BMP version {BMPCodes.VERSION} but got version {version}."
+            )
             return data
 
         msg_cls = cls.lookup_msg_type(msgtype)
         if msg_cls == cls.UNKNOWN_TYPE:
-            # XXX: log something
+            timestamp_print(f"Got unknown message type ")
             return data
+
+        timestamp_print(f"Got message type: {msg_cls}")
 
         msg_cls.MSG_LEN = msglen - cls.MIN_LEN
         logs = msg_cls.dissect(msg_data)
@@ -281,7 +294,7 @@ class BMPPerPeerMessage:
                 "peer_distinguisher": str(RouteDistinguisher(peer_distinguisher)),
                 "peer_asn": peer_asn,
                 "peer_bgp_id": peer_bgp_id,
-                "timestamp": str(datetime.datetime.fromtimestamp(timestamp)),
+                "timestamp": str(datetime.fromtimestamp(timestamp)),
             }
         )
 
@@ -316,7 +329,8 @@ class BMPStatisticsReport:
 
 
 # ------------------------------------------------------------------------------
-class BMPPeerDownNotification:
+@BMPMsg.register_msg_type(BMPCodes.BMP_MSG_TYPE_PEER_DOWN_NOTIFICATION)
+class BMPPeerDownNotification(BMPPerPeerMessage):
     """
     0 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8 1 2 3 4 5 6 7 8
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -326,7 +340,20 @@ class BMPPeerDownNotification:
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     """
 
-    pass
+    @classmethod
+    def dissect(cls, data):
+        data, peer_msg = super().dissect(data)
+
+        msg = {
+            **peer_msg,
+            **{
+                "bmp_log_type": "peer down",
+            },
+        }
+
+        # XXX: dissect the bgp open message
+
+        return msg
 
 
 # ------------------------------------------------------------------------------
@@ -360,6 +387,7 @@ class BMPPeerUpNotification(BMPPerPeerMessage):
         msg = {
             **peer_msg,
             **{
+                "bmp_log_type": "peer up",
                 "local_ip": bin2str_ipaddress(local_addr, peer_msg.get("ipv6")),
                 "local_port": int(local_port),
                 "remote_port": int(remote_port),

@@ -11,6 +11,7 @@ makedepends="bison cmake cmocka-dev flex pcre2-dev"
 checkdepends="expect grep shunit2"
 subpackages="$pkgname-dev $pkgname-doc"
 source="$pkgname-$pkgver.tar.gz::https://github.com/CESNET/libyang/archive/v$pkgver.tar.gz"
+options="!check"
 
 # secfixes:
 #   1.0.215-r1:
@@ -21,6 +22,7 @@ source="$pkgname-$pkgver.tar.gz::https://github.com/CESNET/libyang/archive/v$pkg
 #     - CVE-2021-28906
 
 build() {
+	export ABUILD_APK_INDEX_OPTS="--allow-untrusted"
 	if [ "$CBUILD" != "$CHOST" ]; then
 		CMAKE_CROSSOPTS="-DCMAKE_SYSTEM_NAME=Linux -DCMAKE_HOST_SYSTEM_NAME=Linux"
 	fi

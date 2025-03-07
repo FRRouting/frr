@@ -338,10 +338,6 @@ DEFUN_NOSH (srv6_locator,
 	}
 
 	locator = srv6_locator_alloc(argv[1]->arg);
-	if (!locator) {
-		vty_out(vty, "%% Alloc failed\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 	locator->status_up = true;
 
 	VTY_PUSH_CONTEXT(SRV6_LOC_NODE, locator);
@@ -969,7 +965,7 @@ static int zebra_sr_config(struct vty *vty)
 				&srv6->encap_src_addr);
 		}
 	}
-	if (zebra_srv6_is_enable()) {
+	if (srv6 && zebra_srv6_is_enable()) {
 		vty_out(vty, "  locators\n");
 		for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
 			inet_ntop(AF_INET6, &locator->prefix.prefix,

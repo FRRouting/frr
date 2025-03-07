@@ -17,6 +17,7 @@ pim_common = \
 	pimd/pim_assert.c \
 	pimd/pim_bfd.c \
 	pimd/pim_bsm.c \
+	pimd/pim_bsr_rpdb.c \
 	pimd/pim_cmd_common.c \
 	pimd/pim_errors.c \
 	pimd/pim_hello.c \
@@ -58,6 +59,7 @@ pim_common = \
 
 pimd_pimd_SOURCES = \
 	$(pim_common) \
+	pimd/pim_autorp.c \
 	pimd/pim_cmd.c \
 	pimd/pim_igmp.c \
 	pimd/pim_igmp_mtrace.c \
@@ -76,6 +78,7 @@ pimd_pimd_SOURCES = \
 nodist_pimd_pimd_SOURCES = \
 	yang/frr-pim.yang.c \
 	yang/frr-pim-rp.yang.c \
+	yang/frr-pim-candidate.yang.c \
 	yang/frr-gmp.yang.c \
 	# end
 
@@ -89,12 +92,14 @@ pimd_pim6d_SOURCES = \
 nodist_pimd_pim6d_SOURCES = \
 	yang/frr-pim.yang.c \
 	yang/frr-pim-rp.yang.c \
+	yang/frr-pim-candidate.yang.c \
 	yang/frr-gmp.yang.c \
 	# end
 
 noinst_HEADERS += \
 	pimd/pim_addr.h \
 	pimd/pim_assert.h \
+	pimd/pim_autorp.h \
 	pimd/pim_bfd.h \
 	pimd/pim_bsm.h \
 	pimd/pim_cmd.h \
@@ -160,12 +165,12 @@ clippy_scan += \
 	# end
 
 pimd_pimd_CFLAGS = $(AM_CFLAGS) -DPIM_IPV=4
-pimd_pimd_LDADD = lib/libfrr.la $(LIBCAP)
+pimd_pimd_LDADD = lib/libfrr.la $(LIBCAP) -lm
 
 if PIM6D
 sbin_PROGRAMS += pimd/pim6d
 pimd_pim6d_CFLAGS = $(AM_CFLAGS) -DPIM_IPV=6
-pimd_pim6d_LDADD = lib/libfrr.la $(LIBCAP)
+pimd_pim6d_LDADD = lib/libfrr.la $(LIBCAP) -lm
 endif
 
 pimd_test_igmpv3_join_CFLAGS = $(AM_CFLAGS) -DPIM_IPV=4

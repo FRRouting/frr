@@ -43,6 +43,7 @@
 #include "northbound_cli.h"
 #include "printfrr.h"
 #include "json.h"
+#include "sockopt.h"
 
 #include <arpa/telnet.h>
 #include <termios.h>
@@ -345,8 +346,17 @@ int vty_out(struct vty *vty, const char *format, ...)
 	case VTY_SHELL_SERV:
 	case VTY_FILE:
 	default:
+		vty->vty_buf_size_accumulated += strlen(filtered);
 		/* print without crlf replacement */
 		buffer_put(vty->obuf, (uint8_t *)filtered, strlen(filtered));
+		/* For every chunk of memory, we invoke vtysh_flush where we
+		 * put the data of collective vty->obuf Linked List items on the
+		 * socket and free the vty->obuf data.
+		 */
+		if (vty->vty_buf_size_accumulated >= vty->buf_size_intermediate) {
+			vty->vty_buf_size_accumulated = 0;
+			vtysh_flush(vty);
+		}
 		break;
 	}
 
@@ -2118,6 +2128,8 @@ static void vtysh_accept(struct event *thread)
 	int client_len;
 	struct sockaddr_un client;
 	struct vty *vty;
+	int ret = 0;
+	uint32_t sndbufsize = VTY_SEND_BUF_MAX;
 
 	vty_event_serv(VTYSH_SERV, vtyserv);
 
@@ -2141,6 +2153,20 @@ static void vtysh_accept(struct event *thread)
 		close(sock);
 		return;
 	}
+
+	/*
+	 * Increasing the SEND socket buffer size so that the socket can hold
+	 * before sending it to VTY shell.
+	 */
+	ret = setsockopt_so_sendbuf(sock, sndbufsize);
+	if (ret <= 0) {
+		flog_err(EC_LIB_SOCKET,
+			 "Cannot set socket %d send buffer size, %s", sock,
+			 safe_strerror(errno));
+		close(sock);
+		return;
+	}
+
 	set_cloexec(sock);
 
 #ifdef VTYSH_DEBUG
@@ -2148,6 +2174,13 @@ static void vtysh_accept(struct event *thread)
 #endif /* VTYSH_DEBUG */
 
 	vty = vty_new();
+
+	vty->buf_size_set = ret;
+	if (vty->buf_size_set < VTY_MAX_INTERMEDIATE_FLUSH)
+		vty->buf_size_intermediate = vty->buf_size_set / 2;
+	else
+		vty->buf_size_intermediate = VTY_MAX_INTERMEDIATE_FLUSH;
+
 	vty->fd = sock;
 	vty->wfd = sock;
 	vty->type = VTY_SHELL_SERV;
@@ -2227,6 +2260,7 @@ static int vtysh_flush(struct vty *vty)
 		vty_close(vty);
 		return -1;
 	case BUFFER_EMPTY:
+		vty->vty_buf_size_accumulated = 0;
 		break;
 	}
 	return 0;
@@ -3502,7 +3536,7 @@ static void vty_mgmt_server_connected(struct mgmt_fe_client *client,
 
 	/* Start or stop listening for vty connections */
 	if (connected)
-		frr_vty_serv_start();
+		frr_vty_serv_start(true);
 	else
 		frr_vty_serv_stop();
 }
@@ -3591,8 +3625,9 @@ static void vty_mgmt_set_config_result_notified(
 			vty_out(vty, "%s\n", errmsg_if_any);
 	} else {
 		debug_fe_client("SET_CONFIG request for client 0x%" PRIx64
-				" req-id %" PRIu64 " was successfull",
-				client_id, req_id);
+				" req-id %" PRIu64 " was successfull%s%s",
+				client_id, req_id, errmsg_if_any ? ": " : "",
+				errmsg_if_any ?: "");
 	}
 
 	if (implicit_commit) {
@@ -3624,8 +3659,9 @@ static void vty_mgmt_commit_config_result_notified(
 			vty_out(vty, "%s\n", errmsg_if_any);
 	} else {
 		debug_fe_client("COMMIT_CONFIG request for client 0x%" PRIx64
-				" req-id %" PRIu64 " was successfull",
-				client_id, req_id);
+				" req-id %" PRIu64 " was successfull%s%s",
+				client_id, req_id, errmsg_if_any ? ": " : "",
+				errmsg_if_any ?: "");
 		if (errmsg_if_any)
 			vty_out(vty, "MGMTD: %s\n", errmsg_if_any);
 	}
@@ -3656,8 +3692,9 @@ static int vty_mgmt_get_data_result_notified(
 	}
 
 	debug_fe_client("GET_DATA request succeeded, client 0x%" PRIx64
-			" req-id %" PRIu64,
-			client_id, req_id);
+			" req-id %" PRIu64 "%s%s",
+			client_id, req_id, errmsg_if_any ? ": " : "",
+			errmsg_if_any ?: "");
 
 	if (req_id != mgmt_last_req_id) {
 		mgmt_last_req_id = req_id;
@@ -3900,7 +3937,7 @@ static int vty_mgmt_error_notified(struct mgmt_fe_client *client,
 	const char *cname = mgmt_fe_client_name(client);
 
 	if (!vty->mgmt_req_pending_cmd) {
-		debug_fe_client("Erorr with no pending command: %d returned for client %s 0x%" PRIx64
+		debug_fe_client("Error with no pending command: %d returned for client %s 0x%" PRIx64
 				" session-id %" PRIu64 " req-id %" PRIu64
 				"error-str %s",
 				error, cname, client_id, session_id, req_id,
@@ -3911,7 +3948,7 @@ static int vty_mgmt_error_notified(struct mgmt_fe_client *client,
 		return CMD_WARNING;
 	}
 
-	debug_fe_client("Erorr %d returned for client %s 0x%" PRIx64
+	debug_fe_client("Error %d returned for client %s 0x%" PRIx64
 			" session-id %" PRIu64 " req-id %" PRIu64 "error-str %s",
 			error, cname, client_id, session_id, req_id, errstr);
 

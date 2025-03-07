@@ -34,6 +34,59 @@ void ospf_lsdb_init(struct ospf_lsdb *lsdb)
 		lsdb->type[i].db = route_table_init();
 }
 
+static struct route_node *
+ospf_lsdb_linked_node_create(route_table_delegate_t *delegate,
+			     struct route_table *table)
+{
+	struct ospf_lsdb_linked_node *node;
+
+	node = XCALLOC(MTYPE_OSPF_LSDB_NODE,
+		       sizeof(struct ospf_lsdb_linked_node));
+
+	return (struct route_node *)node;
+}
+
+static void ospf_lsdb_linked_node_destroy(route_table_delegate_t *delegate,
+					  struct route_table *table,
+					  struct route_node *node)
+{
+	struct ospf_lsdb_linked_node *lsdb_linked_node =
+		(struct ospf_lsdb_linked_node *)node;
+
+	XFREE(MTYPE_OSPF_LSDB_NODE, lsdb_linked_node);
+}
+
+static route_table_delegate_t ospf_lsdb_linked_table_delegate = {
+	.create_node = ospf_lsdb_linked_node_create,
+	.destroy_node = ospf_lsdb_linked_node_destroy,
+};
+
+void ospf_lsdb_linked_init(struct ospf_lsdb *lsdb)
+{
+	int i;
+
+	for (i = OSPF_MIN_LSA; i < OSPF_MAX_LSA; i++)
+		lsdb->type[i].db = route_table_init_with_delegate(
+			&ospf_lsdb_linked_table_delegate);
+}
+
+struct ospf_lsdb_linked_node *ospf_lsdb_linked_lookup(struct ospf_lsdb *lsdb,
+						      struct ospf_lsa *lsa)
+{
+	struct ospf_lsdb_linked_node *lsdb_linked_node;
+	struct route_table *table;
+	struct prefix_ls lp;
+
+	table = lsdb->type[lsa->data->type].db;
+	ls_prefix_set(&lp, lsa);
+	lsdb_linked_node = (struct ospf_lsdb_linked_node *)
+		route_node_lookup(table, (struct prefix *)&lp);
+	if (lsdb_linked_node)
+		route_unlock_node((struct route_node *)lsdb_linked_node);
+
+	return lsdb_linked_node;
+}
+
 void ospf_lsdb_free(struct ospf_lsdb *lsdb)
 {
 	ospf_lsdb_cleanup(lsdb);
@@ -94,10 +147,6 @@ static void ospf_lsdb_delete_entry(struct ospf_lsdb *lsdb,
 
 	rn->info = NULL;
 	route_unlock_node(rn);
-#ifdef MONITOR_LSDB_CHANGE
-	if (lsdb->del_lsa_hook != NULL)
-		(*lsdb->del_lsa_hook)(lsa);
-#endif			       /* MONITOR_LSDB_CHANGE */
 	ospf_lsa_unlock(&lsa); /* lsdb */
 	return;
 }
@@ -134,10 +183,6 @@ void ospf_lsdb_add(struct ospf_lsdb *lsdb, struct ospf_lsa *lsa)
 	    CHECK_FLAG(lsa->data->options, OSPF_OPTION_DC))
 		lsa->area->fr_info.router_lsas_recv_dc_bit++;
 
-#ifdef MONITOR_LSDB_CHANGE
-	if (lsdb->new_lsa_hook != NULL)
-		(*lsdb->new_lsa_hook)(lsa);
-#endif /* MONITOR_LSDB_CHANGE */
 	lsdb->type[lsa->data->type].checksum += ntohs(lsa->data->checksum);
 	rn->info = ospf_lsa_lock(lsa); /* lsdb */
 }

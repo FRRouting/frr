@@ -19,7 +19,6 @@ import sys
 import time
 import pytest
 import platform
-from time import sleep
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))

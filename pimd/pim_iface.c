@@ -37,10 +37,13 @@
 #include "pim_jp_agg.h"
 #include "pim_igmp_join.h"
 #include "pim_vxlan.h"
+#include "pim_tib.h"
+#include "pim_util.h"
 
 #include "pim6_mld.h"
 
 static void pim_if_gm_join_del_all(struct interface *ifp);
+static void pim_if_static_group_del_all(struct interface *ifp);
 
 static int gm_join_sock(const char *ifname, ifindex_t ifindex,
 			pim_addr group_addr, pim_addr source_addr,
@@ -125,6 +128,8 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool gm, bool pim,
 	pim_ifp->gm_specific_query_max_response_time_dsec =
 		GM_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC;
 	pim_ifp->gm_last_member_query_count = GM_DEFAULT_ROBUSTNESS_VARIABLE;
+	pim_ifp->gm_group_limit = UINT32_MAX;
+	pim_ifp->gm_source_limit = UINT32_MAX;
 
 	/* BSM config on interface: true by default */
 	pim_ifp->bsm_enable = true;
@@ -144,6 +149,7 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool gm, bool pim,
 	pim_ifp->gm_enable = gm;
 
 	pim_ifp->gm_join_list = NULL;
+	pim_ifp->static_group_list = NULL;
 	pim_ifp->pim_neighbor_list = NULL;
 	pim_ifp->upstream_switch_list = NULL;
 	pim_ifp->pim_generation_id = 0;
@@ -188,9 +194,11 @@ void pim_if_delete(struct interface *ifp)
 	assert(pim_ifp);
 
 	pim_ifp->pim->mcast_if_count--;
-	if (pim_ifp->gm_join_list) {
+	if (pim_ifp->gm_join_list)
 		pim_if_gm_join_del_all(ifp);
-	}
+
+	if (pim_ifp->static_group_list)
+		pim_if_static_group_del_all(ifp);
 
 	pim_ifchannel_delete_all(ifp);
 #if PIM_IPV == 4
@@ -210,7 +218,7 @@ void pim_if_delete(struct interface *ifp)
 	if (pim_ifp->bfd_config.profile)
 		XFREE(MTYPE_TMP, pim_ifp->bfd_config.profile);
 
-	XFREE(MTYPE_PIM_INTERFACE, pim_ifp->boundary_oil_plist);
+	XFREE(MTYPE_PIM_PLIST_NAME, pim_ifp->nbr_plist);
 	XFREE(MTYPE_PIM_INTERFACE, pim_ifp);
 
 	ifp->info = NULL;
@@ -522,77 +530,66 @@ void pim_if_addr_add(struct connected *ifc)
 
 	detect_address_change(ifp, 0, __func__);
 
-	// if (ifc->address->family != AF_INET)
-	//  return;
-
 #if PIM_IPV == 4
-	struct in_addr ifaddr = ifc->address->u.prefix4;
+	if (ifc->address->family == AF_INET) {
+		struct in_addr ifaddr = ifc->address->u.prefix4;
 
-	if (pim_ifp->gm_enable) {
-		struct gm_sock *igmp;
+		if (pim_ifp->gm_enable) {
+			struct gm_sock *igmp;
 
-		/* lookup IGMP socket */
-		igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->gm_socket_list,
-						   ifaddr);
-		if (!igmp) {
-			/* if addr new, add IGMP socket */
-			if (ifc->address->family == AF_INET)
+			/* lookup IGMP socket */
+			igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->gm_socket_list, ifaddr);
+			if (!igmp) {
+				/* if addr new, add IGMP socket */
 				pim_igmp_sock_add(pim_ifp->gm_socket_list,
 						  ifaddr, ifp, false);
-		} else if (igmp->mtrace_only) {
-			igmp_sock_delete(igmp);
-			pim_igmp_sock_add(pim_ifp->gm_socket_list, ifaddr, ifp,
-					  false);
-		}
-
-		/* Replay Static IGMP groups */
-		if (pim_ifp->gm_join_list) {
-			struct listnode *node;
-			struct listnode *nextnode;
-			struct gm_join *ij;
-			int join_fd;
-
-			for (ALL_LIST_ELEMENTS(pim_ifp->gm_join_list, node,
-					       nextnode, ij)) {
-				/* Close socket and reopen with Source and Group
-				 */
-				close(ij->sock_fd);
-				join_fd = gm_join_sock(
-					ifp->name, ifp->ifindex, ij->group_addr,
-					ij->source_addr, pim_ifp);
-				if (join_fd < 0) {
-					char group_str[INET_ADDRSTRLEN];
-					char source_str[INET_ADDRSTRLEN];
-					pim_inet4_dump("<grp?>", ij->group_addr,
-						       group_str,
-						       sizeof(group_str));
-					pim_inet4_dump(
-						"<src?>", ij->source_addr,
-						source_str, sizeof(source_str));
-					zlog_warn(
-						"%s: gm_join_sock() failure for IGMP group %s source %s on interface %s",
-						__func__, group_str, source_str,
-						ifp->name);
-					/* warning only */
-				} else
-					ij->sock_fd = join_fd;
+			} else if (igmp->mtrace_only) {
+				igmp_sock_delete(igmp);
+				pim_igmp_sock_add(pim_ifp->gm_socket_list, ifaddr, ifp, false);
 			}
-		}
-	} /* igmp */
-	else {
-		struct gm_sock *igmp;
 
-		/* lookup IGMP socket */
-		igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->gm_socket_list,
-						   ifaddr);
-		if (ifc->address->family == AF_INET) {
+			/* Replay Static IGMP groups */
+			if (pim_ifp->gm_join_list) {
+				struct listnode *node;
+				struct listnode *nextnode;
+				struct gm_join *ij;
+				int join_fd;
+
+				for (ALL_LIST_ELEMENTS(pim_ifp->gm_join_list, node, nextnode, ij)) {
+					/* Close socket and reopen with Source and Group
+					 */
+					close(ij->sock_fd);
+					join_fd = gm_join_sock(ifp->name, ifp->ifindex,
+							       ij->group_addr, ij->source_addr,
+							       pim_ifp);
+					if (join_fd < 0) {
+						char group_str[INET_ADDRSTRLEN];
+						char source_str[INET_ADDRSTRLEN];
+						pim_inet4_dump("<grp?>", ij->group_addr, group_str,
+							       sizeof(group_str));
+						pim_inet4_dump("<src?>", ij->source_addr,
+							       source_str, sizeof(source_str));
+						zlog_warn("%s: gm_join_sock() failure for IGMP group %s source %s on interface %s",
+							  __func__, group_str, source_str,
+							  ifp->name);
+						/* warning only */
+					} else
+						ij->sock_fd = join_fd;
+				}
+			}
+		} /* igmp */
+		else {
+			struct gm_sock *igmp;
+
+			/* lookup IGMP socket */
+			igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->gm_socket_list, ifaddr);
 			if (igmp)
 				igmp_sock_delete(igmp);
 			/* if addr new, add IGMP socket */
 			pim_igmp_sock_add(pim_ifp->gm_socket_list, ifaddr, ifp,
 					  true);
-		}
-	} /* igmp mtrace only */
+		} /* igmp mtrace only */
+	}
 #endif
 
 	if (pim_ifp->pim_enable) {
@@ -607,26 +604,13 @@ void pim_if_addr_add(struct connected *ifc)
 						ifp->name);
 				}
 			}
-			struct pim_nexthop_cache *pnc = NULL;
-			struct pim_rpf rpf;
-			struct zclient *zclient = NULL;
 
-			zclient = pim_zebra_zclient_get();
-			/* RP config might come prior to (local RP's interface)
-			   IF UP event.
-			   In this case, pnc would not have pim enabled
-			   nexthops.
-			   Once Interface is UP and pim info is available,
-			   reregister
-			   with RNH address to receive update and add the
-			   interface as nexthop. */
-			memset(&rpf, 0, sizeof(struct pim_rpf));
-			rpf.rpf_addr = pim_addr_from_prefix(ifc->address);
-			pnc = pim_nexthop_cache_find(pim_ifp->pim, &rpf);
-			if (pnc)
-				pim_sendmsg_zebra_rnh(pim_ifp->pim, zclient,
-						      pnc,
-						      ZEBRA_NEXTHOP_REGISTER);
+			/* RP config might come prior to local RP's interface IF UP event.
+			 * In this case, pnc would not have pim enabled nexthops. Once
+			 * Interface is UP and pim info is available, reregister with RNH
+			 * address to receive update and add the interface as nexthop.
+			 */
+			pim_nht_get(pim_ifp->pim, pim_addr_from_prefix(ifc->address));
 		}
 	} /* pim */
 
@@ -1218,6 +1202,11 @@ static void gm_join_free(struct gm_join *ij)
 	XFREE(MTYPE_PIM_IGMP_JOIN, ij);
 }
 
+static void static_group_free(struct static_group *stgrp)
+{
+	XFREE(MTYPE_PIM_STATIC_GROUP, stgrp);
+}
+
 static struct gm_join *gm_join_find(struct list *join_list, pim_addr group_addr,
 				    pim_addr source_addr)
 {
@@ -1232,7 +1221,25 @@ static struct gm_join *gm_join_find(struct list *join_list, pim_addr group_addr,
 			return ij;
 	}
 
-	return 0;
+	return NULL;
+}
+
+static struct static_group *static_group_find(struct list *static_group_list,
+					      pim_addr group_addr,
+					      pim_addr source_addr)
+{
+	struct listnode *node;
+	struct static_group *stgrp;
+
+	assert(static_group_list);
+
+	for (ALL_LIST_ELEMENTS_RO(static_group_list, node, stgrp)) {
+		if ((!pim_addr_cmp(group_addr, stgrp->group_addr)) &&
+		    (!pim_addr_cmp(source_addr, stgrp->source_addr)))
+			return stgrp;
+	}
+
+	return NULL;
 }
 
 static int gm_join_sock(const char *ifname, ifindex_t ifindex,
@@ -1240,6 +1247,14 @@ static int gm_join_sock(const char *ifname, ifindex_t ifindex,
 			struct pim_interface *pim_ifp)
 {
 	int join_fd;
+
+	if (pim_is_group_filtered(pim_ifp, &group_addr, &source_addr)) {
+		if (PIM_DEBUG_GM_EVENTS) {
+			zlog_debug("%s: join failed for (S,G)=(%pPAs,%pPAs) due to multicast boundary filtering",
+				   __func__, &source_addr, &group_addr);
+		}
+		return -1;
+	}
 
 	pim_ifp->igmp_ifstat_joins_sent++;
 
@@ -1266,7 +1281,8 @@ static int gm_join_sock(const char *ifname, ifindex_t ifindex,
 }
 
 static struct gm_join *gm_join_new(struct interface *ifp, pim_addr group_addr,
-				   pim_addr source_addr)
+				   pim_addr source_addr,
+				   enum gm_join_type join_type)
 {
 	struct pim_interface *pim_ifp;
 	struct gm_join *ij;
@@ -1289,6 +1305,7 @@ static struct gm_join *gm_join_new(struct interface *ifp, pim_addr group_addr,
 	ij->sock_fd = join_fd;
 	ij->group_addr = group_addr;
 	ij->source_addr = source_addr;
+	ij->join_type = join_type;
 	ij->sock_creation = pim_time_monotonic_sec();
 
 	listnode_add(pim_ifp->gm_join_list, ij);
@@ -1296,8 +1313,36 @@ static struct gm_join *gm_join_new(struct interface *ifp, pim_addr group_addr,
 	return ij;
 }
 
+static struct static_group *static_group_new(struct interface *ifp,
+					     pim_addr group_addr,
+					     pim_addr source_addr)
+{
+	struct pim_interface *pim_ifp;
+	struct static_group *stgrp;
+	pim_sgaddr sg;
+
+	pim_ifp = ifp->info;
+	assert(pim_ifp);
+
+	stgrp = XCALLOC(MTYPE_PIM_STATIC_GROUP, sizeof(*stgrp));
+
+	stgrp->group_addr = group_addr;
+	stgrp->source_addr = source_addr;
+	stgrp->oilp = NULL;
+
+	memset(&sg, 0, sizeof(sg));
+	sg.src = source_addr;
+	sg.grp = group_addr;
+
+	tib_sg_gm_join(pim_ifp->pim, sg, ifp, &(stgrp->oilp));
+
+	listnode_add(pim_ifp->static_group_list, stgrp);
+
+	return stgrp;
+}
+
 ferr_r pim_if_gm_join_add(struct interface *ifp, pim_addr group_addr,
-			  pim_addr source_addr)
+			  pim_addr source_addr, enum gm_join_type join_type)
 {
 	struct pim_interface *pim_ifp;
 	struct gm_join *ij;
@@ -1319,10 +1364,16 @@ ferr_r pim_if_gm_join_add(struct interface *ifp, pim_addr group_addr,
 	 * group
 	 */
 	if (ij) {
+		/* turn an existing join into a "both" join */
+		if (ij->join_type != join_type)
+			ij->join_type = GM_JOIN_BOTH;
 		return ferr_ok();
 	}
 
-	(void)gm_join_new(ifp, group_addr, source_addr);
+	if (!gm_join_new(ifp, group_addr, source_addr, join_type)) {
+		return ferr_cfg_invalid("can't join (%pPA,%pPA) on interface %s",
+					&source_addr, &group_addr, ifp->name);
+	}
 
 	if (PIM_DEBUG_GM_EVENTS) {
 		zlog_debug(
@@ -1335,7 +1386,7 @@ ferr_r pim_if_gm_join_add(struct interface *ifp, pim_addr group_addr,
 }
 
 int pim_if_gm_join_del(struct interface *ifp, pim_addr group_addr,
-		       pim_addr source_addr)
+		       pim_addr source_addr, enum gm_join_type join_type)
 {
 	struct pim_interface *pim_ifp;
 	struct gm_join *ij;
@@ -1361,6 +1412,20 @@ int pim_if_gm_join_del(struct interface *ifp, pim_addr group_addr,
 		return -3;
 	}
 
+	if (ij->join_type != join_type) {
+		if (ij->join_type != GM_JOIN_BOTH) {
+			zlog_warn("%s: wrong  " GM
+				  " gm_join_type %pPAs source %pPAs on interface %s",
+				  __func__, &group_addr, &source_addr,
+				  ifp->name);
+			return -4;
+		}
+		/* drop back to a single join type from current setting of GM_JOIN_BOTH */
+		ij->join_type = (join_type == GM_JOIN_STATIC ? GM_JOIN_PROXY
+							     : GM_JOIN_STATIC);
+		return 0;
+	}
+
 	if (close(ij->sock_fd)) {
 		zlog_warn(
 			"%s: failure closing sock_fd=%d for " GM
@@ -1379,7 +1444,6 @@ int pim_if_gm_join_del(struct interface *ifp, pim_addr group_addr,
 	return 0;
 }
 
-__attribute__((unused))
 static void pim_if_gm_join_del_all(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
@@ -1398,7 +1462,159 @@ static void pim_if_gm_join_del_all(struct interface *ifp)
 		return;
 
 	for (ALL_LIST_ELEMENTS(pim_ifp->gm_join_list, node, nextnode, ij))
-		pim_if_gm_join_del(ifp, ij->group_addr, ij->source_addr);
+		pim_if_gm_join_del(ifp, ij->group_addr, ij->source_addr, ij->join_type);
+}
+
+ferr_r pim_if_static_group_add(struct interface *ifp, pim_addr group_addr,
+			       pim_addr source_addr)
+{
+	struct pim_interface *pim_ifp;
+	struct static_group *stgrp;
+
+	pim_ifp = ifp->info;
+	if (!pim_ifp) {
+		return ferr_cfg_invalid("multicast not enabled on interface %s",
+					ifp->name);
+	}
+
+	if (!pim_ifp->static_group_list) {
+		pim_ifp->static_group_list = list_new();
+		pim_ifp->static_group_list->del =
+			(void (*)(void *))static_group_free;
+	}
+
+	stgrp = static_group_find(pim_ifp->static_group_list, group_addr,
+				  source_addr);
+
+	/* This interface has already been configured with this static group
+	 */
+	if (stgrp)
+		return ferr_ok();
+
+	(void)static_group_new(ifp, group_addr, source_addr);
+
+	if (PIM_DEBUG_GM_EVENTS) {
+		zlog_debug("%s: Added static group (S,G)=(%pPA,%pPA) on interface %s",
+			   __func__, &source_addr, &group_addr, ifp->name);
+	}
+
+	return ferr_ok();
+}
+
+int pim_if_static_group_del(struct interface *ifp, pim_addr group_addr,
+			    pim_addr source_addr)
+{
+	struct pim_interface *pim_ifp;
+	struct static_group *stgrp;
+	pim_sgaddr sg;
+
+	pim_ifp = ifp->info;
+	if (!pim_ifp) {
+		zlog_warn("%s: multicast not enabled on interface %s", __func__,
+			  ifp->name);
+		return -1;
+	}
+
+	if (!pim_ifp->static_group_list) {
+		zlog_warn("%s: no static groups on interface %s", __func__,
+			  ifp->name);
+		return -2;
+	}
+
+	stgrp = static_group_find(pim_ifp->static_group_list, group_addr,
+				  source_addr);
+	if (!stgrp) {
+		zlog_warn("%s: could not find static group %pPAs source %pPAs on interface %s",
+			  __func__, &group_addr, &source_addr, ifp->name);
+		return -3;
+	}
+
+	memset(&sg, 0, sizeof(sg));
+	sg.src = source_addr;
+	sg.grp = group_addr;
+
+	tib_sg_gm_prune(pim_ifp->pim, sg, ifp, &(stgrp->oilp));
+
+	listnode_delete(pim_ifp->static_group_list, stgrp);
+	static_group_free(stgrp);
+	if (listcount(pim_ifp->static_group_list) < 1) {
+		list_delete(&pim_ifp->static_group_list);
+		pim_ifp->static_group_list = 0;
+	}
+
+	return 0;
+}
+
+static void pim_if_static_group_del_all(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp;
+	struct listnode *node;
+	struct listnode *nextnode;
+	struct static_group *stgrp;
+
+	pim_ifp = ifp->info;
+	if (!pim_ifp) {
+		zlog_warn("%s: multicast not enabled on interface %s", __func__,
+			  ifp->name);
+		return;
+	}
+
+	if (!pim_ifp->static_group_list)
+		return;
+
+	for (ALL_LIST_ELEMENTS(pim_ifp->static_group_list, node, nextnode,
+			       stgrp))
+		pim_if_static_group_del(ifp, stgrp->group_addr,
+					stgrp->source_addr);
+}
+
+void pim_if_gm_proxy_init(struct pim_instance *pim, struct interface *oif)
+{
+	struct interface *ifp;
+
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		struct pim_interface *pim_ifp = ifp->info;
+		struct listnode *source_node, *group_node;
+		struct gm_group *group;
+		struct gm_source *src;
+
+		if (!pim_ifp)
+			continue;
+
+		if (ifp == oif) /* skip the source interface */
+			continue;
+
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_group_list, group_node,
+					  group)) {
+			for (ALL_LIST_ELEMENTS_RO(group->group_source_list,
+						  source_node, src)) {
+				pim_if_gm_join_add(oif, group->group_addr,
+						   src->source_addr,
+						   GM_JOIN_PROXY);
+			}
+		}
+	} /* scan interfaces */
+}
+
+void pim_if_gm_proxy_finis(struct pim_instance *pim, struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct listnode *join_node;
+	struct listnode *next_join_node;
+	struct gm_join *join;
+
+	if (!pim_ifp) {
+		zlog_warn("%s: multicast not enabled on interface %s", __func__,
+			  ifp->name);
+		return;
+	}
+
+	for (ALL_LIST_ELEMENTS(pim_ifp->gm_join_list, join_node, next_join_node,
+			       join)) {
+		if (join)
+			pim_if_gm_join_del(ifp, join->group_addr,
+					   join->source_addr, GM_JOIN_PROXY);
+	}
 }
 
 /*
@@ -1683,6 +1899,12 @@ static int pim_ifp_up(struct interface *ifp)
 			}
 		}
 	}
+
+#if PIM_IPV == 4
+	pim_autorp_add_ifp(ifp);
+#endif
+
+	pim_cand_addrs_changed();
 	return 0;
 }
 
@@ -1719,6 +1941,11 @@ static int pim_ifp_down(struct interface *ifp)
 		pim_ifstat_reset(ifp);
 	}
 
+#if PIM_IPV == 4
+	pim_autorp_rm_ifp(ifp);
+#endif
+
+	pim_cand_addrs_changed();
 	return 0;
 }
 
@@ -1790,6 +2017,10 @@ void pim_pim_interface_delete(struct interface *ifp)
 	if (!pim_ifp)
 		return;
 
+#if PIM_IPV == 4
+	pim_autorp_rm_ifp(ifp);
+#endif
+
 	pim_ifp->pim_enable = false;
 
 	pim_if_membership_clear(ifp);
@@ -1799,7 +2030,7 @@ void pim_pim_interface_delete(struct interface *ifp)
 	 * pim_ifp->pim_neighbor_list.
 	 */
 	pim_sock_delete(ifp, "pim unconfigured on interface");
-	pim_upstream_nh_if_update(pim_ifp->pim, ifp);
+	pim_nht_upstream_if_update(pim_ifp->pim, ifp);
 
 	if (!pim_ifp->gm_enable) {
 		pim_if_addr_del_all(ifp);

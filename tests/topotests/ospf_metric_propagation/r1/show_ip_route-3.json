@@ -2,32 +2,15 @@
   "10.0.94.0/24":[
     {
       "prefix":"10.0.94.0/24",
-      "prefixLen":24,
       "protocol":"bgp",
       "vrfName":"green",
-      "selected":true,
-      "destSelected":true,
-      "distance":20,
       "metric":1138,
       "installed":true,
-      "table":12,
-      "internalStatus":16,
-      "internalFlags":8,
-      "internalNextHopNum":1,
-      "internalNextHopActiveNum":1,
-      "nexthopGroupId":"*",
-      "installedNexthopGroupId":"*",
-      "uptime":"*",
       "nexthops":[
         {
-          "flags":3,
-          "fib":true,
           "ip":"10.0.1.2",
-          "afi":"ipv4",
           "interfaceName":"r1-eth0",
-          "vrf":"default",
-          "active":true,
-          "weight":1
+          "vrf":"default"
         }
       ]
     }

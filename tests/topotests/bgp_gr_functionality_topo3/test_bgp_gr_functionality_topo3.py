@@ -12,7 +12,6 @@ import time
 import pytest
 from time import sleep
 
-import traceback
 import ipaddress
 
 # Save the Current Working Directory to find configuration files.
@@ -34,37 +33,21 @@ from lib.bgp import (
     verify_bgp_rib,
     verify_graceful_restart,
     create_router_bgp,
-    verify_r_bit,
-    verify_eor,
-    verify_f_bit,
     verify_bgp_convergence,
-    verify_gr_address_family,
-    modify_bgp_config_when_bgpd_down,
-    verify_graceful_restart_timers,
     verify_bgp_convergence_from_running_config,
 )
 
 # Import common_config to use commomnly used APIs
 from lib.common_config import (
-    create_common_configuration,
-    InvalidCLIError,
-    retry,
     generate_ips,
-    FRRCFG_FILE,
-    find_interface_with_greater_ip,
     check_address_types,
     validate_ip_address,
     run_frr_cmd,
-    get_frr_ipv6_linklocal,
 )
 
 from lib.common_config import (
     write_test_header,
-    reset_config_on_routers,
     start_topology,
-    kill_router_daemons,
-    start_router_daemons,
-    verify_rib,
     check_address_types,
     write_test_footer,
     check_router_status,
@@ -154,9 +137,6 @@ def verify_stale_routes_list(tgen, addr_type, dut, input_dict):
     """
     logger.debug("Entering lib API: verify_stale_routes_list()")
     router_list = tgen.routers()
-    additional_nexthops_in_required_nhs = []
-    list1 = []
-    list2 = []
     found_hops = []
     for routerInput in input_dict.keys():
         for router, rnode in router_list.items():
@@ -266,7 +246,7 @@ def setup_module(mod):
     # Api call verify whether BGP is converged
     ADDR_TYPES = check_address_types()
 
-    for addr_type in ADDR_TYPES:
+    for _ in ADDR_TYPES:
         BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo)
         assert BGP_CONVERGENCE is True, "setup_module : Failed \n Error:" " {}".format(
             BGP_CONVERGENCE
@@ -442,7 +422,7 @@ def test_bgp_gr_stale_routes(request):
         )
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
-    for iteration in range(5):
+    for _ in range(5):
         step("graceful-restart-disable:True  at R3")
         input_dict = {
             "r3": {

@@ -61,7 +61,7 @@ void zebra_ipmr_route_stats(ZAPI_HANDLER_ARGS)
 	suc = kernel_get_ipmr_sg_stats(zvrf, &mroute);
 
 stream_failure:
-	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+	s = stream_new(ZEBRA_SMALL_PACKET_SIZE);
 
 	stream_reset(s);
 

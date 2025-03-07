@@ -219,6 +219,10 @@ int nhrp_route_read(ZAPI_CALLBACK_ARGS)
 	if (api.type == ZEBRA_ROUTE_NHRP)
 		return 0;
 
+	/* ignore local routes */
+	if (api.type == ZEBRA_ROUTE_LOCAL)
+		return 0;
+
 	sockunion_family(&nexthop_addr) = AF_UNSPEC;
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP)) {
 		api_nh = &api.nexthops[0];

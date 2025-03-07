@@ -28,14 +28,6 @@ extern struct debug vrrp_dbg_zebra;
 void vrrp_debug_init(void);
 
 /*
- * Print VRRP debugging configuration.
- *
- * vty
- *    VTY to print debugging configuration to.
- */
-int vrrp_config_write_debug(struct vty *vty);
-
-/*
  * Print VRRP debugging configuration, human readable form.
  *
  * vty

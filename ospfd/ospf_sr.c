@@ -1334,6 +1334,12 @@ static void update_out_nhlfe(struct hash_bucket *bucket, void *args)
 			continue;
 
 		for (ALL_LIST_ELEMENTS_RO(srp->route->paths, pnode, path)) {
+			/* Compute NHFLE if path has not been initialized */
+			if (!path->srni.nexthop) {
+				compute_prefix_nhlfe(srp);
+				continue;
+			}
+
 			/* Skip path that has not next SR-Node as nexthop */
 			if (path->srni.nexthop != srnext)
 				continue;
@@ -1459,7 +1465,8 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 	/* Update Algorithm, SRLB and MSD if present */
 	if (algo != NULL) {
 		int i;
-		for (i = 0; i < ntohs(algo->header.length); i++)
+		for (i = 0;
+		     i < ntohs(algo->header.length) && i < ALGORITHM_COUNT; i++)
 			srn->algo[i] = algo->value[0];
 		for (; i < ALGORITHM_COUNT; i++)
 			srn->algo[i] = SR_ALGORITHM_UNSET;

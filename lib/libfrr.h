@@ -46,6 +46,11 @@ extern "C" {
  * is responsible for calling frr_vty_serv() itself.
  */
 #define FRR_MANUAL_VTY_START (1 << 7)
+/* If FRR_LOAD_YANG_LIBRARY is set then libyang will be told to load and
+ * implement it's internal ietf-yang-library implementation. This should
+ * normally only be done from mgmtd.
+ */
+#define FRR_LOAD_YANG_LIBRARY (1 << 8)
 
 PREDECL_DLIST(log_args);
 struct log_arg {
@@ -118,6 +123,8 @@ struct frr_daemon_info {
 	bool dryrun;
 	bool daemon_mode;
 	bool terminal;
+	bool graceful_restart;
+	int gr_cleanup_time;
 	enum frr_cli_mode cli_mode;
 
 	struct event *read_in;
@@ -188,7 +195,7 @@ extern const char *frr_get_progname(void);
 extern enum frr_cli_mode frr_get_cli_mode(void);
 extern uint32_t frr_get_fd_limit(void);
 extern bool frr_is_startup_fd(int fd);
-
+extern bool frr_is_daemon(void);
 /* call order of these hooks is as ordered here */
 DECLARE_HOOK(frr_early_init, (struct event_loop * tm), (tm));
 DECLARE_HOOK(frr_late_init, (struct event_loop * tm), (tm));
@@ -200,7 +207,7 @@ extern void frr_config_fork(void);
 
 extern void frr_run(struct event_loop *master);
 extern void frr_detach(void);
-extern void frr_vty_serv_start(void);
+extern void frr_vty_serv_start(bool check_detach);
 extern void frr_vty_serv_stop(void);
 
 extern bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
@@ -220,10 +227,39 @@ extern void frr_fini(void);
 
 extern char config_default[512];
 extern char frr_zclientpath[512];
+
+/* refer to lib/config_paths.h (generated during ./configure) for build config
+ * values of the following:
+ */
+
+/* sysconfdir is generally /etc/frr/, some BSDs may use /usr/local/etc/frr/.
+ * Will NOT include "pathspace" (namespace) suffix from -N. (libfrr.c handles
+ * pathspace'ing config files.)  Has a slash at the end for "historical"
+ * reasons.
+ */
 extern const char frr_sysconfdir[];
+
+/* runstatedir is *ephemeral* across reboots.  It may either be a ramdisk,
+ * or be wiped during boot.  Use only for pid files, sockets, and the like,
+ * not state.  Commonly /run/frr or /var/run/frr.
+ * Will include "pathspace" (namespace) suffix from -N.
+ */
 extern char frr_runstatedir[256];
+
+/* libstatedir is *persistent*.  It's the place to put state like sequence
+ * numbers or databases.  Commonly /var/lib/frr.
+ * Will include "pathspace" (namespace) suffix from -N.
+ */
 extern char frr_libstatedir[256];
+
+/* moduledir is something along the lines of /usr/lib/frr/modules or
+ * /usr/lib/x86_64-linux-gnu/frr/modules.  It is not guaranteed to be a
+ * subdirectory of the directory that the daemon binaries reside in.  (e.g.
+ * the "x86_64-linux-gnu" component will be absent from daemon paths.)
+ */
 extern const char frr_moduledir[];
+
+/* scriptdir is for Lua scripts, generally ${frr_sysconfdir}/scripts */
 extern const char frr_scriptdir[];
 
 extern char frr_protoname[];

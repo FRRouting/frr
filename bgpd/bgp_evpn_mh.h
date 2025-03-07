@@ -459,5 +459,7 @@ extern void bgp_evpn_path_nh_add(struct bgp *bgp_vrf, struct bgp_path_info *pi);
 extern void bgp_evpn_path_nh_del(struct bgp *bgp_vrf, struct bgp_path_info *pi);
 extern void bgp_evpn_mh_config_ead_export_rt(struct bgp *bgp,
 					     struct ecommunity *ecom, bool del);
+extern void bgp_evpn_local_es_evi_unistall_local_routes_in_vrfs(struct bgp_evpn_es *es,
+								struct bgp_evpn_es_evi *es_evi);
 
 #endif /* _FRR_BGP_EVPN_MH_H */

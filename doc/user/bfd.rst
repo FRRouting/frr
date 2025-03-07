@@ -1,12 +1,19 @@
 .. _bfd:
 
-**********************************
-Bidirectional Forwarding Detection
-**********************************
+***
+BFD
+***
 
-:abbr:`BFD (Bidirectional Forwarding Detection)` stands for
-Bidirectional Forwarding Detection and it is described and extended by
-the following RFCs:
+:abbr:`BFD (Bidirectional Forwarding Detection)` is:
+
+  a protocol intended to detect faults in the bidirectional path between two
+  forwarding engines, including interfaces, data link(s), and to the extent
+  possible the forwarding engines themselves, with potentially very low
+  latency.
+
+  -- :rfc:`5880`
+
+It is described and extended by the following RFCs:
 
 * :rfc:`5880`
 * :rfc:`5881`
@@ -38,19 +45,6 @@ may also be specified (:ref:`common-invocation-options`).
 
 .. program:: bfdd
 
-.. option:: --bfdctl <unix-socket>
-
-   Set the BFD daemon control socket location. If using a non-default
-   socket location::
-
-      /usr/lib/frr/bfdd --bfdctl /tmp/bfdd.sock
-
-
-   The default UNIX socket location is |INSTALL_PREFIX_STATE|/bfdd.sock
-
-   This option overrides the location addition that the -N option provides
-   to the bfdd.sock
-
 .. option:: --dplaneaddr <type>:<address>[<:port>]
 
    Configure the distributed BFD data plane listening socket bind address.
@@ -72,7 +66,7 @@ may also be specified (:ref:`common-invocation-options`).
 
      --dplaneaddr ipv6:[::1]:50701
 
-   (if ommited the default port is ``50700``).
+   (if omitted the default port is ``50700``).
 
    It is also possible to operate in client mode (instead of listening for
    connections). To connect to a data plane server append the letter 'c' to
@@ -145,7 +139,7 @@ Peer / Profile Configuration
 
 BFD peers and profiles share the same BFD session configuration commands.
 
-.. clicmd:: detect-multiplier (2-255)
+.. clicmd:: detect-multiplier (1-255)
 
    Configures the detection multiplier to determine packet loss. The
    remote transmission interval will be multiplied by this value to
@@ -157,23 +151,23 @@ BFD peers and profiles share the same BFD session configuration commands.
    detect failures only after 900 milliseconds without receiving
    packets.
 
-.. clicmd:: receive-interval (10-60000)
+.. clicmd:: receive-interval (10-4294967)
 
    Configures the minimum interval that this system is capable of
    receiving control packets. The default value is 300 milliseconds.
 
-.. clicmd:: transmit-interval (10-60000)
+.. clicmd:: transmit-interval (10-4294967)
 
    The minimum transmission interval (less jitter) that this system
    wants to use to send BFD control packets. Defaults to 300ms.
 
-.. clicmd:: echo receive-interval <disabled|(10-60000)>
+.. clicmd:: echo receive-interval <disabled|(10-4294967)>
 
    Configures the minimum interval that this system is capable of
    receiving echo packets. Disabled means that this system doesn't want
    to receive echo packets. The default value is 50 milliseconds.
 
-.. clicmd:: echo transmit-interval (10-60000)
+.. clicmd:: echo transmit-interval (10-4294967)
 
    The minimum transmission interval (less jitter) that this system
    wants to use to send BFD echo packets. Defaults to 50ms.
@@ -220,6 +214,11 @@ BFD peers and profiles share the same BFD session configuration commands.
 
    The default value is 254 (which means we only expect one hop between
    this system and the peer).
+
+.. clicmd:: log-session-changes
+
+   Enables or disables logging of session state transitions into Up
+   state or when the session transitions from Up state to Down state.
 
 
 BFD Peer Specific Commands

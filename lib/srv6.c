@@ -71,6 +71,51 @@ int snprintf_seg6_segs(char *str,
 	return strlen(str);
 }
 
+void srv6_sid_structure2json(const struct seg6local_context *ctx, json_object *json)
+{
+	json_object_int_add(json, "blockLen", ctx->block_len);
+	json_object_int_add(json, "nodeLen", ctx->node_len);
+	json_object_int_add(json, "funcLen", ctx->function_len);
+	json_object_int_add(json, "argLen", ctx->argument_len);
+}
+
+void seg6local_context2json(const struct seg6local_context *ctx,
+			    uint32_t action, json_object *json)
+{
+	switch (action) {
+	case ZEBRA_SEG6_LOCAL_ACTION_END:
+		return;
+	case ZEBRA_SEG6_LOCAL_ACTION_END_X:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DX6:
+		json_object_string_addf(json, "nh6", "%pI6", &ctx->nh6);
+		return;
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DX4:
+		json_object_string_addf(json, "nh4", "%pI4", &ctx->nh4);
+		return;
+	case ZEBRA_SEG6_LOCAL_ACTION_END_T:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT6:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT4:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT46:
+		json_object_int_add(json, "table", ctx->table);
+		return;
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
+		json_object_boolean_add(json, "none", true);
+		return;
+	case ZEBRA_SEG6_LOCAL_ACTION_END_B6:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
+		json_object_string_addf(json, "nh6", "%pI6", &ctx->nh6);
+		return;
+	case ZEBRA_SEG6_LOCAL_ACTION_END_BM:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_S:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_AS:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_AM:
+	case ZEBRA_SEG6_LOCAL_ACTION_UNSPEC:
+	default:
+		json_object_boolean_add(json, "unknown", true);
+		return;
+	}
+}
+
 const char *seg6local_context2str(char *str, size_t size,
 				  const struct seg6local_context *ctx,
 				  uint32_t action)
@@ -78,7 +123,7 @@ const char *seg6local_context2str(char *str, size_t size,
 	switch (action) {
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END:
-		snprintf(str, size, "USP");
+		snprintf(str, size, "-");
 		return str;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_X:

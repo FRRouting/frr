@@ -7,7 +7,7 @@
 ##
 AC_PREREQ([2.69])
 
-AC_INIT([frr], [10.2-dev], [https://github.com/frrouting/frr/issues])
+AC_INIT([frr], [10.4-dev], [https://github.com/frrouting/frr/issues])
 PACKAGE_URL="https://frrouting.org/"
 AC_SUBST([PACKAGE_URL])
 PACKAGE_FULLNAME="FRRouting"
@@ -375,26 +375,45 @@ fi
 AM_CONDITIONAL([SCRIPTING], [test "$enable_scripting" = "yes"])
 
 if test "$enable_scripting" = "yes"; then
-   AX_PROG_LUA([5.3], [5.4], [], [
-     AC_MSG_ERROR([Lua 5.3 is required to build with Lua support. No other version is supported.])
+   AX_PROG_LUA([5.3], [], [], [
+     AC_MSG_ERROR([Lua >= 5.3 is required to build with Lua support. No other version is supported.])
    ])
    AX_LUA_HEADERS([], [
-     AC_MSG_ERROR([Lua 5.3 headers are required to build with Lua support. No other version is supported.])
+     AC_MSG_ERROR([Lua >= 5.3 headers are required to build with Lua support. No other version is supported.])
    ])
-   PKG_CHECK_MODULES([LUA], [lua5.3], [
-     AC_DEFINE([HAVE_SCRIPTING], [1], [Have support for scripting])
-     LIBS="$LIBS $LUA_LIBS"
-     SCRIPTING=true
-   ], [
-      AX_LUA_LIBS([
-        AC_DEFINE([HAVE_SCRIPTING], [1], [Have support for scripting])
-        LIBS="$LIBS $LUA_LIB"
-        SCRIPTING=true
-      ], [
-        SCRIPTING=false
-        AC_MSG_ERROR([Lua 5.3 libraries are required to build with Lua support. No other version is supported.])
-      ])
-    ])
+  
+   for version in 5.3 5.4; do
+     PKG_CHECK_MODULES([LUA], [lua >= $version], [
+       AC_DEFINE([HAVE_SCRIPTING], [1], [Have support for scripting])
+         LIBS="$LIBS $LUA_LIBS"
+         SCRIPTING=true
+         break
+     ], [
+       PKG_CHECK_MODULES([LUA], [lua$version], [
+         AC_DEFINE([HAVE_SCRIPTING], [1], [Have support for scripting])
+           LIBS="$LIBS $LUA_LIBS"
+           SCRIPTING=true
+           break
+       ], [
+         PKG_CHECK_MODULES([LUA], [lua-$version], [
+           AC_DEFINE([HAVE_SCRIPTING], [1], [Have support for scripting])
+             LIBS="$LIBS $LUA_LIBS"
+             SCRIPTING=true
+             break
+         ], [])
+       ])
+     ])
+   done
+
+   if [ "$SCRIPTING" != "true" ]; then
+     AX_LUA_LIBS([
+       AC_DEFINE([HAVE_SCRIPTING], [1], [Have support for scripting])
+         LIBS="$LIBS $LUA_LIB"
+         SCRIPTING=true
+     ], [
+       AC_MSG_ERROR([Lua >= 5.3 libraries are required to build with Lua support. No other version is supported.])
+     ])
+   fi
 fi
 
 dnl the following flags go in CFLAGS rather than AC_CFLAGS since they make
@@ -847,8 +866,11 @@ AC_ARG_WITH([crypto],
 AC_ARG_WITH([frr-format],
   AS_HELP_STRING([--with-frr-format[=<.../frr-format.so>]], [use frr-format GCC plugin]))
 
-AC_ARG_ENABLE([version-build-config],
+AC_ARG_ENABLE([version_build_config],
   AS_HELP_STRING([--disable-version-build-config], [do not include build configs in show version command]))
+
+AC_ARG_ENABLE([python_runtime],
+  AS_HELP_STRING([--disable-python-runtime], [do not install python scripts or have python runtime dependency]))
 
 #if openssl, else use the internal
 AS_IF([test "$with_crypto" = "openssl"], [
@@ -2024,7 +2046,7 @@ if test "$enable_snmp" != "" -a "$enable_snmp" != "no"; then
    # net-snmp lists all of its own dependencies.  we absolutely do not want that
    # among other things we avoid a GPL vs. OpenSSL license conflict here
    for removelib in crypto ssl sensors pci wrap; do
-     SNMP_LIBS="`echo $SNMP_LIBS | sed -e 's/\(^\|\s\)-l'$removelib'\b/ /g' -e 's/\(^\|\s\)\([^\s]*\/\)\?lib'$removelib'\.[^\s]\+\b/ /g'`"
+     SNMP_LIBS="`echo $SNMP_LIBS | sed -e 's/-l'$removelib'/ /g'`"
    done
    AC_MSG_CHECKING([whether we can link to Net-SNMP])
    AC_LINK_IFELSE_FLAGS([$SNMP_CFLAGS], [$SNMP_LIBS], [AC_LANG_PROGRAM([
@@ -2811,6 +2833,9 @@ AM_CONDITIONAL([PATHD], [test "$enable_pathd" != "no"])
 AM_CONDITIONAL([PATHD_PCEP], [test "$enable_pathd" != "no"])
 AM_CONDITIONAL([DP_DPDK], [test "$enable_dp_dpdk" = "yes"])
 
+
+AM_CONDITIONAL([PYTHON_RUNTIME_DEPENDENCY], [test "$enable_python_runtime" != "no"])
+
 AC_CONFIG_FILES([Makefile],[
 	test "$enable_dev_build" = "yes" && makefile_devbuild="--dev-build"
 	${PYTHON} "${ac_abs_top_srcdir}/python/makefile.py" ${makefile_devbuild} || exit 1
@@ -2913,7 +2938,8 @@ compiler                : ${CC}
 compiler flags          : ${CFLAGS} ${WERROR} ${AC_CFLAGS} ${SAN_FLAGS}
 make                    : ${MAKE-make}
 linker flags            : ${LDFLAGS} ${SAN_FLAGS} ${LIBS} ${LIBCAP} ${LIBREADLINE} ${LIBM}
-state file directory    : ${e_frr_runstatedir}
+local state file dir    : ${e_frr_libstatedir}
+run state file dir      : ${e_frr_runstatedir}
 config file directory   : ${e_frr_sysconfdir}
 module directory        : ${e_moduledir}
 script directory        : ${e_scriptdir}

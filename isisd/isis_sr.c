@@ -627,6 +627,50 @@ static int sr_local_block_release_label(struct sr_local_block *srlb,
 	return 0;
 }
 
+static bool sr_adj_same_subnet_ipv4(struct in_addr ipv4,
+				    struct isis_circuit *circuit)
+{
+	struct listnode *node;
+	struct prefix ipv4_adj;
+	struct prefix_ipv4 *ipv4_circuit;
+
+	ipv4_adj.family = AF_INET;
+	ipv4_adj.u.prefix4 = ipv4;
+
+	for (ALL_LIST_ELEMENTS_RO(circuit->ip_addrs, node, ipv4_circuit)) {
+		ipv4_adj.prefixlen = ipv4_circuit->prefixlen;
+		if (!prefix_cmp(&ipv4_adj, (struct prefix *)ipv4_circuit))
+			return true;
+	}
+
+	return false;
+}
+
+static bool sr_adj_same_subnet_ipv6(struct in6_addr *ipv6,
+				    struct isis_circuit *circuit)
+{
+	struct listnode *node;
+	struct prefix ipv6_adj;
+	struct prefix_ipv6 *ipv6_circuit;
+
+	ipv6_adj.family = AF_INET6;
+	IPV6_ADDR_COPY(&ipv6_adj.u.prefix6, ipv6);
+
+	for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_link, node, ipv6_circuit)) {
+		ipv6_adj.prefixlen = ipv6_circuit->prefixlen;
+		if (!prefix_cmp(&ipv6_adj, (struct prefix *)ipv6_circuit))
+			return true;
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_non_link, node, ipv6_circuit)) {
+		ipv6_adj.prefixlen = ipv6_circuit->prefixlen;
+		if (!prefix_cmp(&ipv6_adj, (struct prefix *)ipv6_circuit))
+			return true;
+	}
+
+	return false;
+}
+
 /* --- Segment Routing Adjacency-SID management functions ------------------- */
 
 /**
@@ -658,10 +702,16 @@ void sr_adj_sid_add_single(struct isis_adjacency *adj, int family, bool backup,
 		if (!circuit->ip_router || !adj->ipv4_address_count)
 			return;
 
+		if (!sr_adj_same_subnet_ipv4(adj->ipv4_addresses[0], circuit))
+			return;
+
 		nexthop.ipv4 = adj->ipv4_addresses[0];
 		break;
 	case AF_INET6:
 		if (!circuit->ipv6_router || !adj->ll_ipv6_count)
+			return;
+
+		if (!sr_adj_same_subnet_ipv6(&adj->ll_ipv6_addrs[0], circuit))
 			return;
 
 		nexthop.ipv6 = adj->ll_ipv6_addrs[0];
@@ -1064,7 +1114,7 @@ static void show_node(struct vty *vty, struct isis_area *area, int level,
 
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 	}
 	ttable_del(tt);
 }

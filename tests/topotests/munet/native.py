@@ -24,6 +24,13 @@ import time
 
 from pathlib import Path
 
+
+try:
+    # We only want to require yaml for the gen cloud image feature
+    import yaml
+except ImportError:
+    pass
+
 from . import cli
 from .base import BaseMunet
 from .base import Bridge
@@ -490,6 +497,10 @@ class NodeMixin:
                 gdbcmd += f" '-ex={cmd}'"
 
             self.run_in_window(gdbcmd, ns_only=True)
+
+            # We need somehow signal from the launched gdb that it has continued
+            # this is non-trivial so for now just wait a while. :/
+            time.sleep(5)
         elif should_gdb and use_emacs:
             gdbcmd = gdbcmd.replace("gdb ", "gdb -i=mi ")
             ecbin = self.get_exec_path("emacsclient")
@@ -745,9 +756,11 @@ class L3NodeMixin(NodeMixin):
             # Disable IPv6
             self.cmd_raises("sysctl -w net.ipv6.conf.all.autoconf=0")
             self.cmd_raises("sysctl -w net.ipv6.conf.all.disable_ipv6=1")
+            self.cmd_raises("sysctl -w net.ipv6.conf.all.forwarding=0")
         else:
             self.cmd_raises("sysctl -w net.ipv6.conf.all.autoconf=1")
             self.cmd_raises("sysctl -w net.ipv6.conf.all.disable_ipv6=0")
+            self.cmd_raises("sysctl -w net.ipv6.conf.all.forwarding=1")
 
         self.next_p2p_network = ipaddress.ip_network(f"10.254.{self.id}.0/31")
         self.next_p2p_network6 = ipaddress.ip_network(f"fcff:ffff:{self.id:02x}::/127")
@@ -2261,6 +2274,164 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
             tid = self.cpu_thread_map[i]
             self.cmd_raises_nsonly(f"taskset -cp {aff} {tid}")
 
+    def _gen_network_config(self):
+        intfs = sorted(self.intfs)
+        if not intfs:
+            return ""
+
+        self.logger.debug("Generating cloud-init interface config")
+        config = {}
+        config["version"] = 2
+        enets = config["ethernets"] = {}
+
+        for ifname in sorted(self.intfs):
+            self.logger.debug("Interface %s", ifname)
+            conn = find_with_kv(self.config["connections"], "name", ifname)
+
+            index = self.config["connections"].index(conn)
+            to = conn["to"]
+            switch = self.unet.switches.get(to)
+            mtu = conn.get("mtu")
+            if not mtu and switch:
+                mtu = switch.config.get("mtu")
+
+            devaddr = conn.get("physical", "")
+            # Eventually we should get the MAC from /sys
+            if not devaddr:
+                mac = self.tapmacs.get(ifname, f"02:aa:aa:aa:{index:02x}:{self.id:02x}")
+                nic = {
+                    "match": {"macaddress": str(mac)},
+                    "set-name": ifname,
+                }
+                if mtu:
+                    nic["mtu"] = str(mtu)
+                enets[f"nic-{ifname}"] = nic
+
+            ifaddr4 = self.get_intf_addr(ifname, ipv6=False)
+            ifaddr6 = self.get_intf_addr(ifname, ipv6=True)
+            if not ifaddr4 and not ifaddr6:
+                continue
+            net = {
+                "dhcp4": False,
+                "dhcp6": False,
+                "accept-ra": False,
+                "addresses": [],
+            }
+            if ifaddr4:
+                net["addresses"].append(str(ifaddr4))
+            if ifaddr6:
+                net["addresses"].append(str(ifaddr6))
+            if switch and hasattr(switch, "is_nat") and switch.is_nat:
+                net["nameservers"] = {"addresses": []}
+                nameservers = net["nameservers"]["addresses"]
+                if hasattr(switch, "ip6_address"):
+                    net["gateway6"] = str(switch.ip6_address)
+                    nameservers.append("2001:4860:4860::8888")
+                if switch.ip_address:
+                    net["gateway4"] = str(switch.ip_address)
+                    nameservers.append("8.8.8.8")
+            enets[ifname] = net
+
+        return yaml.safe_dump(config)
+
+    def _gen_cloud_init(self):
+        qc = self.qemu_config
+        cc = qc.get("console", {})
+        cipath = self.rundir.joinpath("cloud-init.img")
+
+        geniso = get_exec_path_host("genisoimage")
+        if not geniso:
+            mfbin = get_exec_path_host("mkfs.vfat")
+            mcbin = get_exec_path_host("mcopy")
+            assert (
+                mfbin and mcbin
+            ), "genisoimage or mkfs.vfat,mcopy needed to gen cloud-init disk"
+
+        #
+        # cloud-init: meta-data
+        #
+        mdata = f"""
+instance-id: "munet-{self.id}"
+local-hostname: "{self.name}"
+"""
+        #
+        # cloud-init: user-data
+        #
+        ssh_auth_s = ""
+        if bool(self.ssh_keyfile):
+            pubkey = commander.cmd_raises(f"ssh-keygen -y -f {self.ssh_keyfile}")
+            assert pubkey, f"Can't extract public key from {self.ssh_keyfile}"
+            pubkey = pubkey.strip()
+            ssh_auth_s = f'ssh_authorized_keys: ["{pubkey}"]'
+
+        user = cc.get("user", "root")
+        password = cc.get("password", "admin")
+        if user != "root":
+            root_password = "admin"
+        else:
+            root_password = password
+
+        udata = f"""#cloud-config
+disable_root: 0
+ssh_pwauth: 1
+hostname: {self.name}
+runcmd:
+  - systemctl enable serial-getty@ttyS1.service
+  - systemctl start serial-getty@ttyS1.service
+  - systemctl enable serial-getty@ttyS2.service
+  - systemctl start serial-getty@ttyS2.service
+  - systemctl enable serial-getty@hvc0.service
+  - systemctl start serial-getty@hvc0.service
+  - systemctl enable serial-getty@hvc1.service
+  - systemctl start serial-getty@hvc1.service
+users:
+  - name: root
+    lock_passwd: false
+    plain_text_passwd: "{root_password}"
+    {ssh_auth_s}
+"""
+        if user != "root":
+            udata += """
+  - name: {user}
+    lock_passwd: false
+    plain_text_passwd: "{password}"
+    {ssh_auth_s}
+"""
+        #
+        # cloud-init: network-config
+        #
+        ndata = self._gen_network_config()
+
+        #
+        # Generate cloud-init files
+        #
+        cidir = self.rundir.joinpath("ci-data")
+        commander.cmd_raises(f"mkdir -p {cidir}")
+
+        with open(cidir.joinpath("meta-data"), "w+", encoding="utf-8") as f:
+            f.write(mdata)
+        with open(cidir.joinpath("user-data"), "w+", encoding="utf-8") as f:
+            f.write(udata)
+        files = "meta-data user-data"
+        if ndata:
+            files += " network-config"
+            with open(cidir.joinpath("network-config"), "w+", encoding="utf-8") as f:
+                f.write(ndata)
+        if geniso:
+            commander.cmd_raises(
+                f"cd {cidir} && "
+                f'genisoimage -output "{cipath}" -volid cidata'
+                f" -joliet -rock {files}"
+            )
+        else:
+            commander.cmd_raises(f'cd {cidir} && mkfs.vfat -n cidata "{cipath}"')
+            commander.cmd_raises(f'cd {cidir} && mcopy -oi "{cipath}" {files}')
+
+        #
+        # Generate cloud-init disk
+        #
+        return cipath
+
     async def launch(self):
         """Launch qemu."""
         self.logger.info("%s: Launch Qemu", self)
@@ -2363,11 +2534,21 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
                 diskpath = os.path.join(self.unet.config_dirname, diskpath)
 
         if dtpl and (not disk or not os.path.exists(diskpath)):
+            basename = os.path.basename(dtpl)
+            confdir = self.unet.config_dirname
+            if re.match("(https|http|ftp|tftp):.*", dtpl):
+                await self.unet.async_cmd_raises_once(
+                    f"cd {confdir} && (test -e {basename} || curl -fLO {dtpl})"
+                )
+                dtplpath = os.path.join(confdir, basename)
+
             if not disk:
-                disk = qc["disk"] = f"{self.name}-{os.path.basename(dtpl)}"
+                disk = qc["disk"] = f"{self.name}-{basename}"
                 diskpath = os.path.join(self.rundir, disk)
+
             if self.path_exists(diskpath):
                 logging.debug("Disk '%s' file exists, using.", diskpath)
+
             else:
                 if dtplpath[0] != "/":
                     dtplpath = os.path.join(self.unet.config_dirname, dtpl)
@@ -2388,11 +2569,15 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
                 args.extend(["-device", "ahci,id=ahci"])
                 args.extend(["-device", "ide-hd,bus=ahci.0,drive=sata-disk0"])
 
-        cidiskpath = qc.get("cloud-init-disk")
-        if cidiskpath:
-            if cidiskpath[0] != "/":
-                cidiskpath = os.path.join(self.unet.config_dirname, cidiskpath)
-            args.extend(["-drive", f"file={cidiskpath},if=virtio,format=qcow2"])
+        if qc.get("cloud-init"):
+            cidiskpath = qc.get("cloud-init-disk")
+            if cidiskpath:
+                if cidiskpath[0] != "/":
+                    cidiskpath = os.path.join(self.unet.config_dirname, cidiskpath)
+            else:
+                cidiskpath = self._gen_cloud_init()
+            diskfmt = "qcow2" if str(cidiskpath).endswith("qcow2") else "raw"
+            args.extend(["-drive", f"file={cidiskpath},if=virtio,format={diskfmt}"])
 
         # args.extend(["-display", "vnc=0.0.0.0:40"])
 
@@ -2484,7 +2669,7 @@ class L3QemuVM(L3NodeMixin, LinuxNamespace):
         if use_cmdcon:
             confiles.append("_cmdcon")
 
-        password = cc.get("password", "")
+        password = cc.get("password", "admin")
         if self.disk_created:
             password = cc.get("initial-password", password)
 
@@ -2729,7 +2914,7 @@ ff02::2\tip6-allrouters
                     ),
                     "format": "stdout HOST [HOST ...]",
                     "help": "tail -f on the stdout of the qemu/cmd for this node",
-                    "new-window": True,
+                    "new-window": {"background": True, "ns_only": True},
                 },
                 {
                     "name": "stderr",
@@ -2739,7 +2924,7 @@ ff02::2\tip6-allrouters
                     ),
                     "format": "stderr HOST [HOST ...]",
                     "help": "tail -f on the stdout of the qemu/cmd for this node",
-                    "new-window": True,
+                    "new-window": {"background": True, "ns_only": True},
                 },
             ]
         }
@@ -2760,15 +2945,35 @@ ff02::2\tip6-allrouters
                 # Disable IPv6
                 self.cmd_raises("sysctl -w net.ipv6.conf.all.autoconf=0")
                 self.cmd_raises("sysctl -w net.ipv6.conf.all.disable_ipv6=1")
+                self.cmd_raises("sysctl -w net.ipv6.conf.all.forwarding=0")
             else:
                 self.cmd_raises("sysctl -w net.ipv6.conf.all.autoconf=1")
                 self.cmd_raises("sysctl -w net.ipv6.conf.all.disable_ipv6=0")
+                self.cmd_raises("sysctl -w net.ipv6.conf.all.forwarding=1")
 
         # we really need overlay, but overlay-layers (used by overlay-images)
         # counts on things being present in overlay so this temp stuff doesn't work.
         # if self.isolated:
         #     # Let's hide podman details
         #     self.tmpfs_mount("/var/lib/containers/storage/overlay-containers")
+
+        def run_init_cmds(unet, key, on_host):
+            cmds = unet.topoconf.get(key, "")
+            cmds = cmds.replace("%CONFIGDIR%", str(unet.config_dirname))
+            cmds = cmds.replace("%RUNDIR%", str(unet.rundir))
+            cmds = cmds.strip()
+            if not cmds:
+                return
+
+            cmds += "\n"
+            c = commander if on_host else unet
+            o = c.cmd_raises(cmds)
+            self.logger.debug(
+                "run_init_cmds (on-host: %s): %s", on_host, cmd_error(0, o, "")
+            )
+
+        run_init_cmds(self, "initial-setup-host-cmd", True)
+        run_init_cmds(self, "initial-setup-cmd", False)
 
         shellopt = self.cfgopt.getoption("--shell")
         shellopt = shellopt if shellopt else ""
@@ -3057,7 +3262,8 @@ done"""
             if not rc:
                 continue
             logging.info("Pulling missing image %s", image)
-            aw = self.rootcmd.async_cmd_raises(f"podman pull {image}")
+
+            aw = self.rootcmd.async_cmd_raises_once(f"podman pull {image}")
             tasks.append(asyncio.create_task(aw))
         if not tasks:
             return

@@ -266,25 +266,23 @@ static uint8_t *bgpPeerTable(struct variable *v, oid name[], size_t *length,
 	case BGPPEERNEGOTIATEDVERSION:
 		return SNMP_INTEGER(BGP_VERSION_4);
 	case BGPPEERLOCALADDR:
-		if (peer->su_local)
-			return SNMP_IPADDRESS(peer->su_local->sin.sin_addr);
+		if (peer->connection->su_local)
+			return SNMP_IPADDRESS(peer->connection->su_local->sin.sin_addr);
 		else
 			return SNMP_IPADDRESS(bgp_empty_addr);
 	case BGPPEERLOCALPORT:
-		if (peer->su_local)
-			return SNMP_INTEGER(
-				ntohs(peer->su_local->sin.sin_port));
+		if (peer->connection->su_local)
+			return SNMP_INTEGER(ntohs(peer->connection->su_local->sin.sin_port));
 		else
 			return SNMP_INTEGER(0);
 	case BGPPEERREMOTEADDR:
-		if (peer->su_remote)
-			return SNMP_IPADDRESS(peer->su_remote->sin.sin_addr);
+		if (peer->connection->su_remote)
+			return SNMP_IPADDRESS(peer->connection->su_remote->sin.sin_addr);
 		else
 			return SNMP_IPADDRESS(bgp_empty_addr);
 	case BGPPEERREMOTEPORT:
-		if (peer->su_remote)
-			return SNMP_INTEGER(
-				ntohs(peer->su_remote->sin.sin_port));
+		if (peer->connection->su_remote)
+			return SNMP_INTEGER(ntohs(peer->connection->su_remote->sin.sin_port));
 		else
 			return SNMP_INTEGER(0);
 	case BGPPEERREMOTEAS:

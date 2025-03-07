@@ -32,9 +32,7 @@
 #define ECOMMUNITY_EXTENDED_COMMUNITY_PART_3 0x82
 
 /* Non-transitive extended community types. */
-#define ECOMMUNITY_ENCODE_AS_NON_TRANS      0x40
 #define ECOMMUNITY_ENCODE_IP_NON_TRANS      0x41
-#define ECOMMUNITY_ENCODE_AS4_NON_TRANS     0x42
 #define ECOMMUNITY_ENCODE_OPAQUE_NON_TRANS  0x43
 
 /* Low-order octet of the Extended Communities type field.  */
@@ -70,11 +68,17 @@
 #define ECOMMUNITY_EVPN_SUBTYPE_ESI_LABEL    0x01
 #define ECOMMUNITY_EVPN_SUBTYPE_ES_IMPORT_RT 0x02
 #define ECOMMUNITY_EVPN_SUBTYPE_ROUTERMAC    0x03
+#define ECOMMUNITY_EVPN_SUBTYPE_LAYER2_ATTR  0x04
 #define ECOMMUNITY_EVPN_SUBTYPE_DF_ELECTION 0x06
 #define ECOMMUNITY_EVPN_SUBTYPE_DEF_GW       0x0d
 #define ECOMMUNITY_EVPN_SUBTYPE_ND           0x08
 
 #define ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY_FLAG_STICKY 0x01
+
+/* Layer2 Attributes: RFC8214 */
+#define ECOMMUNITY_EVPN_SUBTYPE_LAYER2_ATTR_PRIMARY_PE_FLAG   0x01
+#define ECOMMUNITY_EVPN_SUBTYPE_LAYER2_ATTR_BACKUP_PE_FLAG    0x02
+#define ECOMMUNITY_EVPN_SUBTYPE_LAYER2_ATTR_CONTROL_WORD_FLAG 0x04
 
 /* DF alg bits - only lower 5 bits are applicable */
 #define ECOMMUNITY_EVPN_SUBTYPE_DF_ALG_BITS 0x1f
@@ -87,6 +91,7 @@
 
 /* Low-order octet of the Extended Communities type field for OPAQUE types */
 #define ECOMMUNITY_OPAQUE_SUBTYPE_ENCAP     0x0c
+#define ECOMMUNITY_OPAQUE_SUBTYPE_COLOR	    0x0b
 
 /* Extended communities attribute string format.  */
 #define ECOMMUNITY_FORMAT_ROUTE_MAP            0
@@ -155,12 +160,12 @@ struct ecommunity_ip6 {
 
 /* Extended community value is eight octet.  */
 struct ecommunity_val {
-	char val[ECOMMUNITY_SIZE];
+	uint8_t val[ECOMMUNITY_SIZE];
 };
 
 /* IPv6 Extended community value is eight octet.  */
 struct ecommunity_val_ipv6 {
-	char val[IPV6_ECOMMUNITY_SIZE];
+	uint8_t val[IPV6_ECOMMUNITY_SIZE];
 };
 
 #define ecom_length_size(X, Y)    ((X)->size * (Y))
@@ -330,26 +335,25 @@ static inline void encode_node_target(struct in_addr *node_id,
 
 /*
  * Encode BGP Color extended community
- * is's a transitive opaque Extended community (RFC 9012 4.3)
+ * is's a transitive opaque Extended community (RFC 9256  8.8.1)
  * flag is set to 0
- * RFC 9012 14.10: No values have currently been registered.
- *            4.3: this field MUST be set to zero by the originator
- *                 and ignored by the receiver;
  *
  */
-static inline void encode_color(uint32_t color_id, struct ecommunity_val *eval)
+static inline void encode_color(uint32_t color_id, uint32_t flags, struct ecommunity_val *eval)
 {
 	/*
 	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-	 *  | 0x03         | Sub-Type(0x0b) |    Flags                      |
+	 *  | 0x03         | Sub-Type(0x0b) |CO |         Flags             |
 	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 	 *  |                          Color Value                          |
 	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 *  https://datatracker.ietf.org/doc/rfc9256/, Section 8.8.1
+	 *  The CO bits can have 4 different values: 00 01 10 11
 	 */
 	memset(eval, 0, sizeof(*eval));
 	eval->val[0] = ECOMMUNITY_ENCODE_OPAQUE;
 	eval->val[1] = ECOMMUNITY_COLOR;
-	eval->val[2] = 0x00;
+	eval->val[2] = (flags << 6) & 0xff;
 	eval->val[3] = 0x00;
 	eval->val[4] = (color_id >> 24) & 0xff;
 	eval->val[5] = (color_id >> 16) & 0xff;
@@ -375,9 +379,11 @@ extern unsigned int ecommunity_hash_make(const void *);
 extern struct ecommunity *ecommunity_str2com(const char *, int, int);
 extern struct ecommunity *ecommunity_str2com_ipv6(const char *str, int type,
 						  int keyword_included);
-extern char *ecommunity_ecom2str(struct ecommunity *, int, int);
+extern char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter);
+extern char *ecommunity_ecom2str_one(struct ecommunity *ecom, int format, int number);
 extern bool ecommunity_has_route_target(struct ecommunity *ecom);
 extern void ecommunity_strfree(char **s);
+extern bool ecommunity_include_one(struct ecommunity *ecom, uint8_t *ptr);
 extern bool ecommunity_include(struct ecommunity *e1, struct ecommunity *e2);
 extern bool ecommunity_match(const struct ecommunity *,
 			     const struct ecommunity *);
@@ -398,6 +404,7 @@ extern struct ecommunity *ecommunity_new(void);
 extern bool ecommunity_strip(struct ecommunity *ecom, uint8_t type,
 			     uint8_t subtype);
 extern struct ecommunity *ecommunity_new(void);
+extern bool ecommunity_strip_non_transitive(struct ecommunity *ecom);
 extern bool ecommunity_del_val(struct ecommunity *ecom,
 			       struct ecommunity_val *eval);
 struct bgp_pbr_entry_action;

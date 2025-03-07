@@ -30,6 +30,9 @@
 %{!?with_rtadv:         %global  with_rtadv         1 }
 %{!?with_watchfrr:      %global  with_watchfrr      1 }
 %{!?with_pathd:         %global  with_pathd         1 }
+%{!?with_grpc:          %global  with_grpc          0 }
+%{!?with_rpki:          %global  with_rpki          1 }
+%{!?with_docs:          %global  with_docs          1 }
 
 # user and group
 %{!?frr_user:           %global  frr_user           frr }
@@ -188,18 +191,34 @@ BuildRequires:  ncurses-devel
 BuildRequires:  readline-devel
 BuildRequires:  texinfo
 BuildRequires:  libyang-devel >= 2.1.128
+# Version requirement don't get reflected down from a BuildRequire
+# to Require, so need to require libyang version as both ways
+Requires: libyang >= 2.1.128
+BuildRequires:  pcre2-devel
 %if 0%{?rhel} && 0%{?rhel} < 7
 #python27-devel is available from ius community repo for RedHat/CentOS 6
 BuildRequires:  python27-devel
+%if %{with_docs}
 BuildRequires:  python27-sphinx
+%endif
 %else
 %if %{use_python2}
 BuildRequires:  python-devel >= 2.7
+%if %{with_docs}
 BuildRequires:  python-sphinx
+%endif
 %else
 BuildRequires:  python3-devel
+%if %{with_docs}
 BuildRequires:  python3-sphinx
 %endif
+%endif
+%endif
+%if %{with_grpc}
+BuildRequires:  grpc-devel >= 1.16.1
+BuildRequires:  protobuf-devel >= 3.6.1
+BuildRequires:  protobuf-compiler >= 3.6.1
+BuildRequires:  protobuf-c-devel
 %endif
 %if 0%{?rhel} > 7
 #platform-python-devel is needed for /usr/bin/pathfix.py
@@ -275,6 +294,7 @@ The frr-devel package contains the header and object files necessary for
 developing OSPF-API and frr applications.
 
 
+%if %{with_rpki}
 %package rpki-rtrlib
 Summary: BGP RPKI support (rtrlib)
 Group: System Environment/Daemons
@@ -287,6 +307,7 @@ against cryptographic information stored in WHOIS databases.  This is
 used to prevent hijacking of networks on the wider internet.  It is only
 relevant to internet service providers using their own autonomous system
 number.
+%endif
 
 
 %package snmp
@@ -300,6 +321,17 @@ Adds SNMP support to FRR's daemons by attaching to net-snmp's snmpd
 through the AgentX protocol.  Provides read-only access to current
 routing state through standard SNMP MIBs.
 
+
+%if %{with_grpc}
+%package grpc
+Summary: GRPC support for FRR daemons
+Group: System Environment/Daemons
+License: GPLv3+
+Requires: %{name} = %{version}-%{release}
+
+%description grpc
+Adds GRPC support to the individual FRR daemons.
+%endif
 
 %prep
 %setup -q -n frr-%{frrversion}
@@ -414,7 +446,9 @@ routing state through standard SNMP MIBs.
     --disable-bgp-vnc \
 %endif
     --enable-isisd \
+%if %{with_rpki}
     --enable-rpki \
+%endif
 %if %{with_bfdd}
     --enable-bfdd \
 %else
@@ -425,7 +459,13 @@ routing state through standard SNMP MIBs.
 %else
     --disable-pathd \
 %endif
-    --enable-snmp
+%if %{with_grpc}
+    --enable-grpc \
+%else
+    --disable-grpc \
+%endif
+    --enable-snmp \
+    --enable-pcre2posix \
     # end
 
 make %{?_smp_mflags} MAKEINFO="makeinfo --no-split"
@@ -440,9 +480,11 @@ sed -e '1c #!/usr/bin/python3' -i %{zeb_src}/tools/frr-reload.py
 sed -e '1c #!/usr/bin/python3' -i %{zeb_src}/tools/generate_support_bundle.py
 %endif
 
+%if %{with_docs}
 pushd doc
 make info
 popd
+%endif
 
 
 %install
@@ -580,7 +622,9 @@ zebra_spec_add_service fabricd	2618/tcp "Fabricd vty"
     %__sed -i 's|watchfrr_enable=no|watchfrr_enable=yes|g' %{configdir}/daemons 2> /dev/null || true
 %endif
 
+%if %{with_docs}
 /sbin/install-info %{_infodir}/frr.info.gz %{_infodir}/dir
+%endif
 
 # Create dummy config file if they don't exist so basic functions can be used.
 if [ ! -e %{configdir}/frr.conf ] && [ ! -e %{configdir}/zebra.conf ]; then
@@ -648,7 +692,9 @@ fi
         /sbin/chkconfig --del frr
     fi
 %endif
+%if %{with_docs}
 /sbin/install-info --delete %{_infodir}/frr.info.gz %{_infodir}/dir
+%endif
 
 
 %files
@@ -665,8 +711,10 @@ fi
     %dir %attr(755,root,root) %{_localstatedir}/log/frr
     %dir %attr(750,root,root) %{_runstatedir}/frr
 %endif
-%{_infodir}/frr.info.gz
-%{_mandir}/man*/*
+%if %{with_docs}
+    %{_infodir}/frr.info.gz
+    %{_mandir}/man*/*
+%endif
 %{_sbindir}/zebra
 %{_sbindir}/staticd
 %{_sbindir}/ospfd
@@ -714,19 +762,9 @@ fi
 %endif
 %if %{with_pathd}
     %{_sbindir}/pathd
-    %{_libdir}/frr/modules/pathd_pcep.so
 %endif
-%{_libdir}/libfrr.so*
-%{_libdir}/libfrrcares*
-%{_libdir}/libfrrospf*
-%if %{with_fpm}
-    %{_libdir}/frr/modules/zebra_fpm.so
-%endif
-%{_libdir}/frr/modules/zebra_cumulus_mlag.so
-%{_libdir}/frr/modules/dplane_fpm_nl.so
-%{_libdir}/frr/modules/bgpd_bmp.so
-%{_libdir}/libfrr_pb.so*
-%{_libdir}/libfrrfpm_pb.so*
+%{_libdir}/libfrr*.so*
+%{_libdir}/frr/modules/*.so
 %{_libdir}/libmgmt_be_nb.so*
 %{_bindir}/*
 %config(noreplace) %{configdir}/[!v]*.conf*
@@ -766,6 +804,7 @@ fi
 %endif
 
 
+%if %{with_rpki}
 %post rpki-rtrlib
 # add rpki module to daemons
 sed -i -e 's/^\(bgpd_options=\)\(.*\)\(".*\)/\1\2 -M rpki\3/' %{_sysconfdir}/frr/daemons
@@ -773,14 +812,7 @@ sed -i -e 's/^\(bgpd_options=\)\(.*\)\(".*\)/\1\2 -M rpki\3/' %{_sysconfdir}/frr
 %postun rpki-rtrlib
 # remove rpki module from daemons
 sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
-
-%files rpki-rtrlib
-%{_libdir}/frr/modules/bgpd_rpki.so
-
-
-%files snmp
-%{_libdir}/libfrrsnmp.so*
-%{_libdir}/frr/modules/*snmp.so
+%endif
 
 
 %files devel
@@ -805,7 +837,23 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Mon Mar 25 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+* Thu Oct 10  2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+
+* Thu Oct 10 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.3-dev
+- FRR 10.3 Development
+
+* Fri Jul 26 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.1
+- Breaking changes
+-   Enable BGP dynamic capability by default for datacenter profile
+-   Split BGP `rpki cache` command into separate per SSH/TCP
+-   Add deprecation cycle for OSPF `router-info X [A.B.C.D]` command
+- Major highlights:
+-   BGP dampening per-neighbor support
+-   BMP send-experimental stats
+-   Implement extended link-bandwidth for BGP
+-   Paths Limit for Multiple Paths in BGP
+-   New command for OSPFv2 `ip ospf neighbor-filter NAME [A.B.C.D]`
+-   Implement non-broadcast support for point-to-multipoint networks
 
 * Mon Mar 25 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.0
 - Major highlights:

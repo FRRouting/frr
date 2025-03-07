@@ -320,6 +320,19 @@ submodule frr-bgp-common {
          When set to 'false' BGP instance type is regular.";
     }
 
+    leaf as-notation {
+      type enumeration {
+        enum "plain" { value 0; }
+        enum "dot" { value 1; }
+        enum "dot+" { value 2; }
+      }
+      description
+        "The as-notation type:
+        - plain: use plain format for all AS values
+        - dot: use 'AA.BB' format for AS 4 byte values.
+        - dot+: use 'AA.BB' format for all AS values.";
+    }
+
     leaf ebgp-multihop-connected-route-check {
       type boolean;
       default "false";

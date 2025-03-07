@@ -148,6 +148,7 @@ struct pim_encoded_source_ipv6 {
 typedef struct pim_encoded_ipv4_unicast pim_encoded_unicast;
 typedef struct pim_encoded_group_ipv4   pim_encoded_group;
 typedef struct pim_encoded_source_ipv4  pim_encoded_source;
+#define PIM_MSG_ADDRESS_FAMILY		PIM_MSG_ADDRESS_FAMILY_IPV4
 typedef struct ip 			ipv_hdr;
 #define IPV_SRC(ip_hdr)			((ip_hdr))->ip_src
 #define IPV_DST(ip_hdr)			((ip_hdr))->ip_dst
@@ -156,6 +157,7 @@ typedef struct ip 			ipv_hdr;
 typedef struct pim_encoded_ipv6_unicast pim_encoded_unicast;
 typedef struct pim_encoded_group_ipv6   pim_encoded_group;
 typedef struct pim_encoded_source_ipv6  pim_encoded_source;
+#define PIM_MSG_ADDRESS_FAMILY		PIM_MSG_ADDRESS_FAMILY_IPV6
 typedef struct ip6_hdr 			ipv_hdr;
 #define IPV_SRC(ip_hdr)			((ip_hdr))->ip6_src
 #define IPV_DST(ip_hdr)			((ip_hdr))->ip6_dst

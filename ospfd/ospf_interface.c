@@ -186,10 +186,12 @@ static void ospf_if_default_variables(struct ospf_interface *oi)
 
 	oi->crypt_seqnum = 0;
 
-	/* This must be short, (less than RxmtInterval)
-	   - RFC 2328 Section 13.5 para 3.  Set to 1 second to avoid Acks being
-	     held back for too long - MAG */
-	oi->v_ls_ack = 1;
+	/*
+	 * The OSPF LS ACK Delay timer must be less than the LS Retransmision
+	 * timer. As per RFC 2328 Section 13.5 paragraph 3,  Set to 1 second
+	 * to avoid Acks being held back for too long
+	 */
+	oi->v_ls_ack_delayed = OSPF_ACK_DELAY_DEFAULT;
 }
 
 /* lookup oi for specified prefix/ifp */
@@ -272,9 +274,9 @@ struct ospf_interface *ospf_if_new(struct ospf *ospf, struct interface *ifp,
 	/* Initialize static neighbor list. */
 	oi->nbr_nbma = list_new();
 
-	/* Initialize Link State Acknowledgment list. */
-	oi->ls_ack = list_new();
-	oi->ls_ack_direct.ls_ack = list_new();
+	/* Initialize Link State Acknowledgment lists. */
+	ospf_lsa_list_init(&oi->ls_ack_delayed);
+	ospf_lsa_list_init(&oi->ls_ack_direct);
 
 	/* Set default values. */
 	ospf_if_default_variables(oi);
@@ -306,6 +308,22 @@ struct ospf_interface *ospf_if_new(struct ospf *ospf, struct interface *ifp,
 	return oi;
 }
 
+/*
+ * Cleanup Interface Ack List
+ */
+static void ospf_if_cleanup_ack_list(struct ospf_lsa_list_head *ls_ack_list)
+{
+	struct ospf_lsa_list_entry *ls_ack_list_entry;
+	struct ospf_lsa *lsa;
+
+	frr_each_safe (ospf_lsa_list, ls_ack_list, ls_ack_list_entry) {
+		lsa = ls_ack_list_entry->lsa;
+		ospf_lsa_list_del(ls_ack_list, ls_ack_list_entry);
+		XFREE(MTYPE_OSPF_LSA_LIST, ls_ack_list_entry);
+		ospf_lsa_unlock(&lsa);
+	}
+}
+
 /* Restore an interface to its pre UP state
    Used from ism_interface_down only */
 void ospf_if_cleanup(struct ospf_interface *oi)
@@ -314,7 +332,6 @@ void ospf_if_cleanup(struct ospf_interface *oi)
 	struct listnode *node, *nnode;
 	struct ospf_neighbor *nbr;
 	struct ospf_nbr_nbma *nbr_nbma;
-	struct ospf_lsa *lsa;
 
 	/* oi->nbrs and oi->nbr_nbma should be deleted on InterfaceDown event */
 	/* delete all static neighbors attached to this interface */
@@ -338,10 +355,9 @@ void ospf_if_cleanup(struct ospf_interface *oi)
 				OSPF_NSM_EVENT_EXECUTE(nbr, NSM_KillNbr);
 	}
 
-	/* Cleanup Link State Acknowlegdment list. */
-	for (ALL_LIST_ELEMENTS(oi->ls_ack, node, nnode, lsa))
-		ospf_lsa_unlock(&lsa); /* oi->ls_ack */
-	list_delete_all_node(oi->ls_ack);
+	/* Cleanup Link State Delayed Acknowlegdment list. */
+	ospf_if_cleanup_ack_list(&oi->ls_ack_delayed);
+	ospf_if_cleanup_ack_list(&oi->ls_ack_direct);
 
 	oi->crypt_seqnum = 0;
 
@@ -377,8 +393,8 @@ void ospf_if_free(struct ospf_interface *oi)
 	/* Free any lists that should be freed */
 	list_delete(&oi->nbr_nbma);
 
-	list_delete(&oi->ls_ack);
-	list_delete(&oi->ls_ack_direct.ls_ack);
+	ospf_if_cleanup_ack_list(&oi->ls_ack_delayed);
+	ospf_if_cleanup_ack_list(&oi->ls_ack_direct);
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: ospf interface %s vrf %s id %u deleted",
@@ -542,6 +558,7 @@ static struct ospf_if_params *ospf_new_if_params(void)
 	UNSET_IF_PARAM(oip, output_cost_cmd);
 	UNSET_IF_PARAM(oip, transmit_delay);
 	UNSET_IF_PARAM(oip, retransmit_interval);
+	UNSET_IF_PARAM(oip, retransmit_window);
 	UNSET_IF_PARAM(oip, passive_interface);
 	UNSET_IF_PARAM(oip, v_hello);
 	UNSET_IF_PARAM(oip, fast_hello);
@@ -599,6 +616,7 @@ void ospf_free_if_params(struct interface *ifp, struct in_addr addr)
 	if (!OSPF_IF_PARAM_CONFIGURED(oip, output_cost_cmd) &&
 	    !OSPF_IF_PARAM_CONFIGURED(oip, transmit_delay) &&
 	    !OSPF_IF_PARAM_CONFIGURED(oip, retransmit_interval) &&
+	    !OSPF_IF_PARAM_CONFIGURED(oip, retransmit_window) &&
 	    !OSPF_IF_PARAM_CONFIGURED(oip, passive_interface) &&
 	    !OSPF_IF_PARAM_CONFIGURED(oip, v_hello) &&
 	    !OSPF_IF_PARAM_CONFIGURED(oip, fast_hello) &&
@@ -694,6 +712,9 @@ int ospf_if_new_hook(struct interface *ifp)
 	SET_IF_PARAM(IF_DEF_PARAMS(ifp), retransmit_interval);
 	IF_DEF_PARAMS(ifp)->retransmit_interval =
 		OSPF_RETRANSMIT_INTERVAL_DEFAULT;
+
+	SET_IF_PARAM(IF_DEF_PARAMS(ifp), retransmit_window);
+	IF_DEF_PARAMS(ifp)->retransmit_window = OSPF_RETRANSMIT_WINDOW_DEFAULT;
 
 	SET_IF_PARAM(IF_DEF_PARAMS(ifp), priority);
 	IF_DEF_PARAMS(ifp)->priority = OSPF_ROUTER_PRIORITY_DEFAULT;

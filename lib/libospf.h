@@ -27,8 +27,9 @@ extern "C" {
 #else
 #define OSPF_LS_REFRESH_TIME                  1800
 #endif
-#define OSPF_MIN_LS_INTERVAL                  5000     /* msec */
-#define OSPF_MIN_LS_ARRIVAL                   1000     /* in milliseconds */
+#define OSPF_MIN_LS_INTERVAL			 5000	/* milliseconds */
+#define OSPF_MIN_LS_ARRIVAL			 1000	/* milliseconds */
+#define OSPF_MIN_LS_ARRIVAL_MAX			 5000	/* milliseconds */
 #define OSPF_LSA_INITIAL_AGE                     0	/* useful for debug */
 #define OSPF_LSA_MAXAGE                       3600
 #define OSPF_CHECK_AGE                         300
@@ -58,8 +59,10 @@ extern "C" {
 #define OSPF_HELLO_DELAY_DEFAULT           10
 #define OSPF_ROUTER_PRIORITY_DEFAULT        1
 #define OSPF_RETRANSMIT_INTERVAL_DEFAULT    5
+#define OSPF_RETRANSMIT_WINDOW_DEFAULT	    50 /* milliseconds */
 #define OSPF_TRANSMIT_DELAY_DEFAULT         1
 #define OSPF_DEFAULT_BANDWIDTH		 10000	/* Mbps */
+#define OSPF_ACK_DELAY_DEFAULT		    1
 
 #define OSPF_DEFAULT_REF_BANDWIDTH	100000  /* Kbps */
 

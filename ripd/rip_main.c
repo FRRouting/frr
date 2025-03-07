@@ -127,6 +127,7 @@ static struct frr_signal_t ripd_signals[] = {
 };
 
 static const struct frr_yang_module_info *const ripd_yang_modules[] = {
+	&frr_backend_info,
 	&frr_filter_info,
 	&frr_interface_info,
 	&frr_ripd_info,

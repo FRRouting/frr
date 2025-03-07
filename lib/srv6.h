@@ -22,6 +22,8 @@
 
 #define SRV6_SID_FORMAT_NAME_SIZE 512
 
+#define DEFAULT_SRV6_IFNAME "sr0"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -106,6 +108,10 @@ struct seg6local_context {
 	struct in6_addr nh6;
 	uint32_t table;
 	struct seg6local_flavors_info flv;
+	uint8_t block_len;
+	uint8_t node_len;
+	uint8_t function_len;
+	uint8_t argument_len;
 };
 
 struct srv6_locator {
@@ -170,17 +176,77 @@ struct srv6_locator_chunk {
 enum srv6_endpoint_behavior_codepoint {
 	SRV6_ENDPOINT_BEHAVIOR_RESERVED         = 0x0000,
 	SRV6_ENDPOINT_BEHAVIOR_END              = 0x0001,
+	SRV6_ENDPOINT_BEHAVIOR_END_PSP          = 0x0002,
 	SRV6_ENDPOINT_BEHAVIOR_END_X            = 0x0005,
+	SRV6_ENDPOINT_BEHAVIOR_END_X_PSP        = 0x0006,
 	SRV6_ENDPOINT_BEHAVIOR_END_DT6          = 0x0012,
 	SRV6_ENDPOINT_BEHAVIOR_END_DT4          = 0x0013,
 	SRV6_ENDPOINT_BEHAVIOR_END_DT46         = 0x0014,
+	SRV6_ENDPOINT_BEHAVIOR_END_PSP_USD      = 0x001D,
+	SRV6_ENDPOINT_BEHAVIOR_END_X_PSP_USD    = 0x0021,
 	SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID    = 0x002B,
-	SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID  = 0x002C,
+	SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID  = 0x0034,
+	SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP   = 0x002C,
+	SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP_USD   = 0x0030,
+	SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID_PSP = 0x0035,
+	SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID_PSP_USD = 0x0039,
 	SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID     = 0x003E,
 	SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID     = 0x003F,
 	SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID    = 0x0040,
 	SRV6_ENDPOINT_BEHAVIOR_OPAQUE           = 0xFFFF,
 };
+
+/*
+ * Convert SRv6 endpoint behavior codepoints to human-friendly string.
+ */
+static inline const char *
+srv6_endpoint_behavior_codepoint2str(enum srv6_endpoint_behavior_codepoint behavior)
+{
+	switch (behavior) {
+	case SRV6_ENDPOINT_BEHAVIOR_RESERVED:
+		return "Reserved";
+	case SRV6_ENDPOINT_BEHAVIOR_END:
+		return "End";
+	case SRV6_ENDPOINT_BEHAVIOR_END_PSP:
+		return "End PSP";
+	case SRV6_ENDPOINT_BEHAVIOR_END_PSP_USD:
+		return "End PSP/USD";
+	case SRV6_ENDPOINT_BEHAVIOR_END_X:
+		return "End.X";
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_PSP:
+		return "End.X PSP";
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_PSP_USD:
+		return "End.X PSP/USD";
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT6:
+		return "End.DT6";
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT4:
+		return "End.DT4";
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT46:
+		return "End.DT46";
+	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID:
+		return "uN";
+	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP:
+		return "uN PSP";
+	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP_USD:
+		return "uN PSP/USD";
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID:
+		return "uA";
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID_PSP:
+		return "uA PSP";
+	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID_PSP_USD:
+		return "uA PSP/USD";
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID:
+		return "uDT6";
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID:
+		return "uDT4";
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID:
+		return "uDT46";
+	case SRV6_ENDPOINT_BEHAVIOR_OPAQUE:
+		return "Opaque";
+	}
+
+	return "Unspec";
+}
 
 struct nexthop_srv6 {
 	/* SRv6 localsid info for Endpoint-behaviour */
@@ -255,6 +321,7 @@ struct srv6_sid_ctx {
 	struct in_addr nh4;
 	struct in6_addr nh6;
 	vrf_id_t vrf_id;
+	ifindex_t ifindex;
 };
 
 static inline const char *seg6_mode2str(enum seg6_mode_t mode)
@@ -319,6 +386,9 @@ seg6local_action2str(uint32_t action);
 const char *seg6local_context2str(char *str, size_t size,
 				  const struct seg6local_context *ctx,
 				  uint32_t action);
+void seg6local_context2json(const struct seg6local_context *ctx,
+			    uint32_t action, json_object *json);
+void srv6_sid_structure2json(const struct seg6local_context *ctx, json_object *json);
 
 static inline const char *srv6_sid_ctx2str(char *str, size_t size,
 					   const struct srv6_sid_ctx *ctx)
@@ -333,24 +403,23 @@ static inline const char *srv6_sid_ctx2str(char *str, size_t size,
 		break;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END:
-		len += snprintf(str + len, size - len, " USP");
+		snprintf(str + len, size - len, " USP");
 		break;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_X:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX6:
-		len += snprintfrr(str + len, size - len, " nh6 %pI6", &ctx->nh6);
+		snprintfrr(str + len, size - len, " nh6 %pI6", &ctx->nh6);
 		break;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX4:
-		len += snprintfrr(str + len, size - len, " nh4 %pI4", &ctx->nh4);
+		snprintfrr(str + len, size - len, " nh4 %pI4", &ctx->nh4);
 		break;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_T:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DT6:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DT4:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DT46:
-		len += snprintf(str + len, size - len, " vrf_id %u",
-				ctx->vrf_id);
+		snprintf(str + len, size - len, " vrf_id %u", ctx->vrf_id);
 		break;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
@@ -362,7 +431,7 @@ static inline const char *srv6_sid_ctx2str(char *str, size_t size,
 	case ZEBRA_SEG6_LOCAL_ACTION_END_AM:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_BPF:
 	default:
-		len += snprintf(str + len, size - len, " unknown(%s)", __func__);
+		snprintf(str + len, size - len, " unknown(%s)", __func__);
 	}
 
 	return str;

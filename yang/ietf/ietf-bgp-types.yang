@@ -333,7 +333,7 @@ module ietf-bgp-types {
     // TODO: needs more work to make this more precise given the
     // variability of extended community attribute specifications
     // 8-octet value:
-    //  <type> 2 octects
+    //  <type> 2 octets
     //  <value> 6 octets
 
     type union {

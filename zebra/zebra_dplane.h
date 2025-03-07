@@ -24,6 +24,8 @@
 extern "C" {
 #endif
 
+DECLARE_MTYPE(VLAN_CHANGE_ARR);
+
 /* Retrieve the dataplane API version number; see libfrr.h to decode major,
  * minor, sub version values.
  * Plugins should pay attention to the major version number, at least, to
@@ -204,12 +206,22 @@ enum dplane_op_e {
 	DPLANE_OP_TC_FILTER_DELETE,
 	DPLANE_OP_TC_FILTER_UPDATE,
 
+	/* VLAN update */
+	DPLANE_OP_VLAN_INSTALL,
+
 	/* Startup Control */
 	DPLANE_OP_STARTUP_STAGE,
 
 	/* Source address for SRv6 encapsulation */
 	DPLANE_OP_SRV6_ENCAP_SRCADDR_SET,
 };
+
+/* Operational status of Bridge Ports */
+#define ZEBRA_DPLANE_BR_STATE_DISABLED	 0x01
+#define ZEBRA_DPLANE_BR_STATE_LISTENING	 0x02
+#define ZEBRA_DPLANE_BR_STATE_LEARNING	 0x04
+#define ZEBRA_DPLANE_BR_STATE_FORWARDING 0x08
+#define ZEBRA_DPLANE_BR_STATE_BLOCKING	 0x10
 
 /*
  * The vxlan/evpn neighbor management code needs some values to use
@@ -512,11 +524,26 @@ uint32_t dplane_ctx_get_flags(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_flags(struct zebra_dplane_ctx *ctx, uint32_t flags);
 uint32_t dplane_ctx_get_metric(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_old_metric(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_route_metric(struct zebra_dplane_ctx *ctx, uint32_t metric);
+void dplane_ctx_set_route_mtu(struct zebra_dplane_ctx *ctx, uint32_t mtu);
 uint32_t dplane_ctx_get_mtu(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_nh_mtu(const struct zebra_dplane_ctx *ctx);
 uint8_t dplane_ctx_get_distance(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_distance(struct zebra_dplane_ctx *ctx, uint8_t distance);
 uint8_t dplane_ctx_get_old_distance(const struct zebra_dplane_ctx *ctx);
+/* Route blackhole type */
+enum blackhole_type dplane_ctx_get_route_bhtype(
+	const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_route_bhtype(struct zebra_dplane_ctx *ctx,
+				 enum blackhole_type bhtype);
+/* IPv4 'preferred source', at route-level */
+const struct ipaddr *dplane_ctx_get_route_prefsrc(
+	const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_route_prefsrc(struct zebra_dplane_ctx *ctx,
+				  const struct ipaddr *addr);
+/* Route 'gateway', at route-level */
+const struct ipaddr *dplane_ctx_get_route_gw(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_route_gw(struct zebra_dplane_ctx *ctx, const struct ipaddr *gw);
 
 /* Accessors for traffic control context */
 int dplane_ctx_tc_qdisc_get_kind(const struct zebra_dplane_ctx *ctx);
@@ -560,6 +587,7 @@ void dplane_ctx_set_nexthops(struct zebra_dplane_ctx *ctx, struct nexthop *nh);
 void dplane_ctx_set_backup_nhg(struct zebra_dplane_ctx *ctx,
 			       const struct nexthop_group *nhg);
 
+void dplane_ctx_set_nhg_id(struct zebra_dplane_ctx *ctx, uint32_t nhgid);
 uint32_t dplane_ctx_get_nhg_id(const struct zebra_dplane_ctx *ctx);
 const struct nexthop_group *dplane_ctx_get_ng(
 	const struct zebra_dplane_ctx *ctx);
@@ -597,7 +625,7 @@ const struct nexthop_group *
 dplane_ctx_get_nhe_ng(const struct zebra_dplane_ctx *ctx);
 const struct nh_grp *
 dplane_ctx_get_nhe_nh_grp(const struct zebra_dplane_ctx *ctx);
-uint8_t dplane_ctx_get_nhe_nh_grp_count(const struct zebra_dplane_ctx *ctx);
+uint16_t dplane_ctx_get_nhe_nh_grp_count(const struct zebra_dplane_ctx *ctx);
 
 /* Accessors for LSP information */
 
@@ -1078,6 +1106,26 @@ void dplane_set_in_queue_limit(uint32_t limit, bool set);
 /* Retrieve the current queue depth of incoming, unprocessed updates */
 uint32_t dplane_get_in_queue_len(void);
 
+void dplane_ctx_set_vlan_ifindex(struct zebra_dplane_ctx *ctx,
+				 ifindex_t ifindex);
+ifindex_t dplane_ctx_get_vlan_ifindex(struct zebra_dplane_ctx *ctx);
+struct zebra_vxlan_vlan_array;
+
+/*
+ * In netlink_vlan_change(), the memory allocated for vlan_array is freed
+ * in two cases
+ *  1) Inline free in netlink_vlan_change() when there are no new
+ *     vlans to process i.e. nothing is enqueued to main thread.
+ *  2) Dplane-ctx takes over the vlan memory which gets freed in
+ *     rib_process_dplane_results() after handling the vlan install
+ *
+ * Note: MTYPE of interest for this purpose is MTYPE_VLAN_CHANGE_ARR
+ */
+void dplane_ctx_set_vxlan_vlan_array(struct zebra_dplane_ctx *ctx,
+				     struct zebra_vxlan_vlan_array *vlan_array);
+const struct zebra_vxlan_vlan_array *
+dplane_ctx_get_vxlan_vlan_array(struct zebra_dplane_ctx *ctx);
+
 /*
  * Vty/cli apis
  */
@@ -1223,16 +1271,6 @@ void zebra_dplane_shutdown(void);
 
 void zebra_dplane_startup_stage(struct zebra_ns *zns,
 				enum zebra_dplane_startup_notifications spot);
-
-/*
- * decision point for sending a routing update through the old
- * straight to zebra master pthread or through the dplane to
- * the master pthread for handling
- */
-void dplane_rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
-			      struct prefix_ipv6 *src_p, struct route_entry *re,
-			      struct nexthop_group *ng, int startup,
-			      struct zebra_dplane_ctx *ctx);
 
 enum zebra_dplane_startup_notifications
 dplane_ctx_get_startup_spot(struct zebra_dplane_ctx *ctx);

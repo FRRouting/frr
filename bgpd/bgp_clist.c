@@ -11,7 +11,6 @@
 #include "queue.h"
 #include "filter.h"
 #include "stream.h"
-#include "jhash.h"
 #include "frrstr.h"
 
 #include "bgpd/bgpd.h"
@@ -182,7 +181,7 @@ community_list_insert(struct community_list_handler *ch, const char *name,
 	}
 
 	/* In case of name is all digit character */
-	if (i == strlen(name)) {
+	if (i == strlen(name) && number <= COMMUNITY_LIST_NUMBER_MAX) {
 		new->sort = COMMUNITY_LIST_NUMBER;
 
 		/* Set access_list to number list. */
@@ -496,8 +495,8 @@ static char *community_str_get(struct community *com, int i)
 		break;
 	default:
 		str = XSTRDUP(MTYPE_COMMUNITY_STR, "65536:65535");
-		as = (comval >> 16) & 0xFFFF;
-		val = comval & 0xFFFF;
+		as = CHECK_FLAG((comval >> 16), 0xFFFF);
+		val = CHECK_FLAG(comval, 0xFFFF);
 		snprintf(str, strlen(str), "%u:%d", as, val);
 		break;
 	}
@@ -534,22 +533,36 @@ static bool community_regexp_match(struct community *com, regex_t *reg)
 	const char *str;
 	char *regstr;
 	int rv;
+	bool translate_alias = !!bgp_ca_alias_hash->count;
 
 	/* When there is no communities attribute it is treated as empty
 	   string.  */
 	if (com == NULL || com->size == 0)
-		str = "";
-	else
-		str = community_str(com, false, true);
+		return false;
 
-	regstr = bgp_alias2community_str(str);
+	str = community_str(com, false, translate_alias);
+
+	/* If at least one community alias is configured, then let's
+	 * do the work, otherwise we don't need to spend time on splitting
+	 * stuff and creating a new string.
+	 */
+	regstr = translate_alias ? bgp_alias2community_str(str) : (char *)str;
 
 	/* Regular expression match.  */
 	rv = regexec(reg, regstr, 0, NULL, 0);
 
-	XFREE(MTYPE_TMP, regstr);
+	/* This is allocated by frrstr_join(), and needs to be freed
+	 * only if it was created.
+	 */
+	if (translate_alias)
+		XFREE(MTYPE_TMP, regstr);
 
 	return rv == 0;
+}
+
+static char *ecommunity_str_get(struct ecommunity *ecom, int i)
+{
+	return ecommunity_ecom2str_one(ecom, ECOMMUNITY_FORMAT_DISPLAY, i);
 }
 
 static char *lcommunity_str_get(struct lcommunity *lcom, int i)
@@ -603,25 +616,57 @@ static bool lcommunity_regexp_include(regex_t *reg, struct lcommunity *lcom,
 	return false;
 }
 
+/* Internal function to perform regular expression match for a single ecommunity. */
+static bool ecommunity_regexp_include(regex_t *reg, struct ecommunity *ecom, int i)
+{
+	char *str;
+
+	/* When there is no communities attribute it is treated as empty string.
+	 */
+	if (ecom == NULL || ecom->size == 0)
+		str = XSTRDUP(MTYPE_ECOMMUNITY_STR, "");
+	else
+		str = ecommunity_str_get(ecom, i);
+
+	/* Regular expression match.  */
+	if (regexec(reg, str, 0, NULL, 0) == 0) {
+		XFREE(MTYPE_ECOMMUNITY_STR, str);
+		return true;
+	}
+
+	XFREE(MTYPE_ECOMMUNITY_STR, str);
+	/* No match.  */
+	return false;
+}
+
 static bool lcommunity_regexp_match(struct lcommunity *com, regex_t *reg)
 {
 	const char *str;
 	char *regstr;
 	int rv;
+	bool translate_alias = !!bgp_ca_alias_hash->count;
 
 	/* When there is no communities attribute it is treated as empty
 	   string.  */
 	if (com == NULL || com->size == 0)
-		str = "";
-	else
-		str = lcommunity_str(com, false, true);
+		return false;
 
-	regstr = bgp_alias2community_str(str);
+	str = lcommunity_str(com, false, translate_alias);
+
+	/* If at least one community alias is configured, then let's
+	 * do the work, otherwise we don't need to spend time on splitting
+	 * stuff and creating a new string.
+	 */
+	regstr = translate_alias ? bgp_alias2community_str(str) : (char *)str;
 
 	/* Regular expression match.  */
 	rv = regexec(reg, regstr, 0, NULL, 0);
 
-	XFREE(MTYPE_TMP, regstr);
+	/* This is allocated by frrstr_join(), and needs to be freed
+	 * only if it was created.
+	 */
+	if (translate_alias)
+		XFREE(MTYPE_TMP, regstr);
 
 	return rv == 0;
 }
@@ -680,6 +725,24 @@ bool lcommunity_list_match(struct lcommunity *lcom, struct community_list *list)
 	return false;
 }
 
+/* Perform exact matching. In case of expanded extended-community-list, do
+ * same thing as ecommunity_list_match().
+ */
+bool ecommunity_list_exact_match(struct ecommunity *ecom, struct community_list *list)
+{
+	struct community_entry *entry;
+
+	for (entry = list->head; entry; entry = entry->next) {
+		if (entry->style == EXTCOMMUNITY_LIST_STANDARD) {
+			if (ecommunity_cmp(ecom, entry->u.lcom))
+				return entry->direct == COMMUNITY_PERMIT;
+		} else if (entry->style == EXTCOMMUNITY_LIST_EXPANDED) {
+			if (ecommunity_regexp_match(ecom, entry->reg))
+				return entry->direct == COMMUNITY_PERMIT;
+		}
+	}
+	return false;
+}
 
 /* Perform exact matching.  In case of expanded large-community-list, do
  * same thing as lcommunity_list_match().
@@ -958,6 +1021,27 @@ bool lcommunity_list_any_match(struct lcommunity *lcom,
 				return entry->direct == COMMUNITY_PERMIT;
 			if ((entry->style == LARGE_COMMUNITY_LIST_EXPANDED) &&
 			    lcommunity_regexp_include(entry->reg, lcom, i))
+				return entry->direct == COMMUNITY_PERMIT;
+		}
+	}
+	return false;
+}
+
+bool ecommunity_list_any_match(struct ecommunity *ecom, struct community_list *list)
+{
+	struct community_entry *entry;
+	uint8_t *ptr;
+	uint32_t i;
+
+	for (i = 0; i < ecom->size; i++) {
+		ptr = ecom->val + (i * ecom->unit_size);
+
+		for (entry = list->head; entry; entry = entry->next) {
+			if ((entry->style == EXTCOMMUNITY_LIST_STANDARD) &&
+			    ecommunity_include_one(entry->u.ecom, ptr))
+				return entry->direct == COMMUNITY_PERMIT;
+			if ((entry->style == EXTCOMMUNITY_LIST_EXPANDED) &&
+			    ecommunity_regexp_include(entry->reg, ecom, i))
 				return entry->direct == COMMUNITY_PERMIT;
 		}
 	}

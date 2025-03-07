@@ -1272,7 +1272,7 @@ rfapiRouteInfo2NextHopEntry(struct rfapi_ip_prefix *rprefix,
 
 		/* label comes from MP_REACH_NLRI label */
 		vo->v.l2addr.label =
-			bgp_path_info_num_labels(bpi)
+			BGP_PATH_INFO_NUM_LABELS(bpi)
 				? decode_label(&bpi->extra->labels->label[0])
 				: MPLS_INVALID_LABEL;
 
@@ -1931,8 +1931,8 @@ static void rfapiBgpInfoAttachSorted(struct agg_node *rn,
 	if (VNC_DEBUG(IMPORT_BI_ATTACH)) {
 		vnc_zlog_debug_verbose("%s: info_new->peer=%p", __func__,
 				       info_new->peer);
-		vnc_zlog_debug_verbose("%s: info_new->peer->su_remote=%p",
-				       __func__, info_new->peer->su_remote);
+		vnc_zlog_debug_verbose("%s: info_new->peer->su_remote=%p", __func__,
+				       info_new->peer->connection->su_remote);
 	}
 
 	for (prev = NULL, next = rn->info; next;
@@ -4067,9 +4067,15 @@ static void rfapiProcessPeerDownRt(struct peer *peer,
 						bpi, import_table, afi, -1);
 					import_table->holddown_count[afi] += 1;
 				}
-				rfapiBiStartWithdrawTimer(import_table, rn, bpi,
-							  afi, safi,
-							  timer_service_func);
+				if (bm->terminating) {
+					if (safi == SAFI_MPLS_VPN)
+						rfapiExpireVpnNow(import_table, rn, bpi, 1);
+					else
+						rfapiExpireEncapNow(import_table, rn, bpi);
+
+				} else
+					rfapiBiStartWithdrawTimer(import_table, rn, bpi, afi, safi,
+								  timer_service_func);
 			}
 		}
 	}
@@ -4167,7 +4173,7 @@ static void rfapiBgpTableFilteredImport(struct bgp *bgp,
 						       BGP_PATH_REMOVED))
 						continue;
 
-					if (bgp_path_info_num_labels(bpi))
+					if (BGP_PATH_INFO_NUM_LABELS(bpi))
 						label = decode_label(
 							&bpi->extra->labels
 								 ->label[0]);

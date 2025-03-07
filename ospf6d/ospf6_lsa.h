@@ -87,7 +87,13 @@ struct ospf6_lsa_header {
 	uint16_t length;     /* LSA length */
 };
 
+
 static inline char *ospf6_lsa_header_end(struct ospf6_lsa_header *header)
+{
+	return (char *)header + sizeof(struct ospf6_lsa_header);
+}
+
+static inline void *lsa_after_header(struct ospf6_lsa_header *header)
 {
 	return (char *)header + sizeof(struct ospf6_lsa_header);
 }
@@ -116,6 +122,94 @@ static inline uint16_t ospf6_lsa_size(struct ospf6_lsa_header *header)
 #define OSPF6_LSA_IS_CHANGED(L1, L2) ospf6_lsa_is_changed (L1, L2)
 #define OSPF6_LSA_IS_SEQWRAP(L) ((L)->header->seqnum == htonl(OSPF_MAX_SEQUENCE_NUMBER + 1))
 
+/* Router-LSA */
+#define OSPF6_ROUTER_LSA_MIN_SIZE 4U
+struct ospf6_router_lsa {
+	uint8_t bits;
+	uint8_t options[3];
+	/* followed by ospf6_router_lsdesc(s) */
+};
+
+/* Link State Description in Router-LSA */
+#define OSPF6_ROUTER_LSDESC_FIX_SIZE 16U
+struct ospf6_router_lsdesc {
+	uint8_t type;
+	uint8_t reserved;
+	uint16_t metric; /* output cost */
+	uint32_t interface_id;
+	uint32_t neighbor_interface_id;
+	in_addr_t neighbor_router_id;
+};
+
+#define OSPF6_ROUTER_LSDESC_POINTTOPOINT    1
+#define OSPF6_ROUTER_LSDESC_TRANSIT_NETWORK 2
+#define OSPF6_ROUTER_LSDESC_STUB_NETWORK    3
+#define OSPF6_ROUTER_LSDESC_VIRTUAL_LINK    4
+
+/* Network-LSA */
+#define OSPF6_NETWORK_LSA_MIN_SIZE 4U
+struct ospf6_network_lsa {
+	uint8_t reserved;
+	uint8_t options[3];
+	/* followed by ospf6_network_lsdesc(s) */
+};
+
+/* Link State Description in Network-LSA */
+#define OSPF6_NETWORK_LSDESC_FIX_SIZE 4U
+struct ospf6_network_lsdesc {
+	in_addr_t router_id;
+};
+#define NETWORK_LSDESC_GET_NBR_ROUTERID(x)                                     \
+	(((struct ospf6_network_lsdesc *)(x))->router_id)
+
+/* Inter-Area-Prefix-LSA */
+#define OSPF6_INTER_PREFIX_LSA_MIN_SIZE 4U /* w/o IPv6 prefix */
+struct ospf6_inter_prefix_lsa {
+	uint32_t metric;
+	struct ospf6_prefix prefix;
+};
+
+/* Inter-Area-Router-LSA */
+#define OSPF6_INTER_ROUTER_LSA_FIX_SIZE 12U
+struct ospf6_inter_router_lsa {
+	uint8_t mbz;
+	uint8_t options[3];
+	uint32_t metric;
+	uint32_t router_id;
+};
+
+/* AS-External-LSA */
+#define OSPF6_AS_EXTERNAL_LSA_MIN_SIZE 4U /* w/o IPv6 prefix */
+struct ospf6_as_external_lsa {
+	uint32_t bits_metric;
+
+	struct ospf6_prefix prefix;
+	/* followed by none or one forwarding address */
+	/* followed by none or one external route tag */
+	/* followed by none or one referenced LS-ID */
+};
+
+/* FIXME: move nssa lsa here. */
+
+/* Link-LSA */
+#define OSPF6_LINK_LSA_MIN_SIZE 24U /* w/o 1st IPv6 prefix */
+struct ospf6_link_lsa {
+	uint8_t priority;
+	uint8_t options[3];
+	struct in6_addr linklocal_addr;
+	uint32_t prefix_num;
+	/* followed by ospf6 prefix(es) */
+};
+
+/* Intra-Area-Prefix-LSA */
+#define OSPF6_INTRA_PREFIX_LSA_MIN_SIZE 12U /* w/o 1st IPv6 prefix */
+struct ospf6_intra_prefix_lsa {
+	uint16_t prefix_num;
+	uint16_t ref_type;
+	uint32_t ref_id;
+	in_addr_t ref_adv_router;
+	/* followed by ospf6 prefix(es) */
+};
 
 struct ospf6_lsa {
 	char name[64]; /* dump string */
@@ -145,6 +239,7 @@ struct ospf6_lsa {
 	/*For topo chg detection in HELPER role*/
 	bool tobe_acknowledged;
 };
+
 
 #define OSPF6_LSA_HEADERONLY 0x01
 #define OSPF6_LSA_FLOODBACK  0x02
@@ -274,4 +369,11 @@ extern void ospf6_flush_self_originated_lsas_now(struct ospf6 *ospf6);
 extern struct ospf6 *ospf6_get_by_lsdb(struct ospf6_lsa *lsa);
 struct ospf6_lsa *ospf6_find_external_lsa(struct ospf6 *ospf6,
 					  struct prefix *p);
+
+void *lsdesc_start_lsa_type(struct ospf6_lsa_header *header, int lsa_type);
+void *lsdesc_start(struct ospf6_lsa_header *header);
+
+void *nth_lsdesc(struct ospf6_lsa_header *header, int pos);
+void *nth_prefix(struct ospf6_lsa_header *header, int pos);
+
 #endif /* OSPF6_LSA_H */

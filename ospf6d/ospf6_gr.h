@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * OSPF6 Graceful Retsart helper functions.
+ * OSPF6 Graceful Restart helper functions.
+ * Ref RFC 5187
  *
  * Copyright (C) 2021-22 Vmware, Inc.
  * Rajesh Kumar Girada
@@ -60,58 +61,16 @@ enum ospf6_gr_helper_rejected_reason {
 	OSPF6_HELPER_RESTARTING,
 };
 
-#ifdef roundup
-#define ROUNDUP(val, gran) roundup(val, gran)
-#else /* roundup */
-#define ROUNDUP(val, gran) (((val)-1 | (gran)-1) + 1)
-#endif /* roundup */
 
-/*
- * Generic TLV (type, length, value) macros
- */
-struct tlv_header {
-	uint16_t type;   /* Type of Value */
-	uint16_t length; /* Length of Value portion only, in bytes */
-};
-
-#define TLV_HDR_SIZE (sizeof(struct tlv_header))
-
-#define TLV_BODY_SIZE(tlvh) (ROUNDUP(ntohs((tlvh)->length), sizeof(uint32_t)))
-
-#define TLV_SIZE(tlvh) (uint32_t)(TLV_HDR_SIZE + TLV_BODY_SIZE(tlvh))
-
-#define TLV_HDR_TOP(lsah)                                                      \
-	(struct tlv_header *)((char *)(lsah) + OSPF6_LSA_HEADER_SIZE)
-
-#define TLV_HDR_NEXT(tlvh)                                                     \
-	(struct tlv_header *)((char *)(tlvh) + TLV_SIZE(tlvh))
-
-/* Ref RFC5187 appendix-A */
-/* Grace period TLV */
-#define GRACE_PERIOD_TYPE 1
-#define GRACE_PERIOD_LENGTH 4
-struct grace_tlv_graceperiod {
-	struct tlv_header header;
-	uint32_t interval;
-};
-#define GRACE_PERIOD_TLV_SIZE sizeof(struct grace_tlv_graceperiod)
-
-/* Restart reason TLV */
-#define RESTART_REASON_TYPE 2
-#define RESTART_REASON_LENGTH 1
-struct grace_tlv_restart_reason {
-	struct tlv_header header;
-	uint8_t reason;
-	uint8_t reserved[3];
-};
-#define GRACE_RESTART_REASON_TLV_SIZE sizeof(struct grace_tlv_restart_reason)
+#define GRACE_PERIOD_TLV_SIZE	      sizeof(struct tlv_grace_period)
+#define GRACE_RESTART_REASON_TLV_SIZE sizeof(struct tlv_grace_restart_reason)
 
 #define OSPF6_GRACE_LSA_MIN_SIZE                                               \
 	GRACE_PERIOD_TLV_SIZE + GRACE_RESTART_REASON_TLV_SIZE
 
 struct ospf6_grace_lsa {
-	struct grace_tlv_graceperiod tlv_period;
-	struct grace_tlv_restart_reason tlv_reason;
+	struct tlv_grace_period tlv_period;
+	struct tlv_grace_restart_reason tlv_reason;
 };
 
 struct advRtr {

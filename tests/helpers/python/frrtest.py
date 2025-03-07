@@ -163,8 +163,8 @@ class TestRefMismatch(Exception):
             difflib.unified_diff(
                 self.reftext.splitlines(),
                 self.outtext.splitlines(),
-                "outtext",
                 "reftext",
+                "outtext",
                 lineterm="",
             )
         )

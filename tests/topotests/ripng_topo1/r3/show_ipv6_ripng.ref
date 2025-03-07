@@ -1,4 +1,7 @@
-Codes: R - RIPng, C - connected, S - Static, O - OSPF, B - BGP
+Codes: K - kernel route, C - connected, L - local, S - static,
+       R - RIPng, O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric, t - Table-Direct
 Sub-codes:
       (n) - normal, (s) - static, (d) - default, (r) - redistribute,
       (i) - interface, (a/S) - aggregated/Suppressed

@@ -363,7 +363,7 @@ char *ttable_dump(struct ttable *tt, const char *newline)
 		memcpy(&right[0], newline, nl_len);
 
 	/* allocate print buffer */
-	buf = XCALLOC(MTYPE_TMP, width * (nlines + 1) + 1);
+	buf = XCALLOC(MTYPE_TMP_TTABLE, width * (nlines + 1) + 1);
 	pos = 0;
 
 	if (tt->style.border.top_on) {

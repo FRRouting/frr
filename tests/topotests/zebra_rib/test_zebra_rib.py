@@ -153,7 +153,7 @@ def test_zebra_kernel_admin_distance():
     # metric.  That needs to be properly resolved.  Making a note for
     # coming back around later and fixing this.
     # tgen.mininet_cli()
-    for i in range(1, 2):
+    for i in range(1, 3):
         json_file = "{}/r1/v4_route_{}.json".format(CWD, i)
         expected = json.loads(open(json_file).read())
 
@@ -246,6 +246,7 @@ def test_route_map_usage():
 
     def check_static_map_correct_runs():
         actual = r1.vtysh_cmd("show route-map static")
+        actual = re.sub(r"\([0-9].* milli", "(X milli", actual)
         actual = ("\n".join(actual.splitlines()) + "\n").rstrip()
         return topotest.get_textdiff(
             actual,
@@ -266,6 +267,7 @@ def test_route_map_usage():
 
     def check_sharp_map_correct_runs():
         actual = r1.vtysh_cmd("show route-map sharp")
+        actual = re.sub(r"\([0-9].* milli", "(X milli", actual)
         actual = ("\n".join(actual.splitlines()) + "\n").rstrip()
         return topotest.get_textdiff(
             actual,

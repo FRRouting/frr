@@ -4668,6 +4668,7 @@ sub process {
 # check for new typedefs, only function parameters and sparse annotations
 # make sense.
 		if ($line =~ /\btypedef\s/ &&
+		    $line !~ /\btypedef.*\s(pim_[^\s]+|[^\s]+_pim)\s*;/ &&
 		    $line !~ /\btypedef\s+$Type\s*\(\s*\*?$Ident\s*\)\s*\(/ &&
 		    $line !~ /\btypedef\s+$Type\s+$Ident\s*\(/ &&
 		    $line !~ /\b$typeTypedefs\b/ &&
@@ -5149,7 +5150,7 @@ sub process {
 				# none after.  May be left adjacent to another
 				# unary operator, or a cast
 				} elsif ($op eq '!' || $op eq '~' ||
-					 $opv eq '*U' || $opv eq '-U' ||
+					 $opv eq '*U' || $opv eq '-U' || $opv eq '+U' ||
 					 $opv eq '&U' || $opv eq '&&U') {
 					if ($ctx !~ /[WEBC]x./ && $ca !~ /(?:\)|!|~|\*|-|\&|\||\+\+|\-\-|\{)$/) {
 						if (ERROR("SPACING",
@@ -6284,13 +6285,14 @@ sub process {
 		while ($line =~ /(?:^|")([X\t]*)(?:"|$)/g) {
 			my $string = substr($rawline, $-[1], $+[1] - $-[1]);
 			$string =~ s/%%/__/g;
-			# check for %L
-			if ($show_L && $string =~ /%[\*\d\.\$]*L([diouxX])/) {
-				WARN("PRINTF_L",
-				     "\%L$1 is non-standard C, use %ll$1\n" . $herecurr);
-				$show_L = 0;
-			}
-			# check for %Z
+                        # check for %L
+                        # OK in FRR
+                        # if ($show_L && $string =~ /%[\*\d\.\$]*L([diouxX])/) {
+                        #       WARN("PRINTF_L",
+                        #            "\%L$1 is non-standard C, use %ll$1\n" . $herecurr);
+                        #       $show_L = 0;
+                        # }
+                        # check for %Z
 			if ($show_Z && $string =~ /%[\*\d\.\$]*Z([diouxX])/) {
 				WARN("PRINTF_Z",
 				     "%Z$1 is non-standard C, use %z$1\n" . $herecurr);

@@ -14,6 +14,7 @@ extern "C" {
 extern const struct frr_yang_module_info frr_zebra_info;
 
 /* prototypes */
+struct yang_data *zebra_max_multipath_get_elem(struct nb_cb_get_elem_args *args);
 int get_route_information_rpc(struct nb_cb_rpc_args *args);
 int get_v6_mroute_info_rpc(struct nb_cb_rpc_args *args);
 int get_vrf_info_rpc(struct nb_cb_rpc_args *args);
@@ -31,9 +32,11 @@ int get_debugs_rpc(struct nb_cb_rpc_args *args);
 int zebra_mcast_rpf_lookup_modify(struct nb_cb_modify_args *args);
 int zebra_ip_forwarding_modify(struct nb_cb_modify_args *args);
 int zebra_ip_forwarding_destroy(struct nb_cb_destroy_args *args);
+struct yang_data *zebra_ip_forwarding_get_elem(struct nb_cb_get_elem_args *args);
 int zebra_ipv6_forwarding_modify(struct nb_cb_modify_args *args);
 int zebra_ipv6_forwarding_destroy(struct nb_cb_destroy_args *args);
 int zebra_workqueue_hold_timer_modify(struct nb_cb_modify_args *args);
+struct yang_data *zebra_ipv6_forwarding_get_elem(struct nb_cb_get_elem_args *args);
 int zebra_zapi_packets_modify(struct nb_cb_modify_args *args);
 int zebra_import_kernel_table_table_id_modify(struct nb_cb_modify_args *args);
 int zebra_import_kernel_table_table_id_destroy(struct nb_cb_destroy_args *args);
@@ -309,6 +312,10 @@ int lib_vrf_zebra_netns_table_range_create(struct nb_cb_create_args *args);
 int lib_vrf_zebra_netns_table_range_destroy(struct nb_cb_destroy_args *args);
 int lib_vrf_zebra_netns_table_range_start_modify(struct nb_cb_modify_args *args);
 int lib_vrf_zebra_netns_table_range_end_modify(struct nb_cb_modify_args *args);
+int lib_vrf_zebra_mpls_fec_nexthop_resolution_modify(
+	struct nb_cb_modify_args *args);
+int lib_vrf_zebra_mpls_fec_nexthop_resolution_destroy(
+	struct nb_cb_destroy_args *args);
 const void *lib_vrf_zebra_ribs_rib_get_next(struct nb_cb_get_next_args *args);
 int lib_vrf_zebra_ribs_rib_get_keys(struct nb_cb_get_keys_args *args);
 const void *

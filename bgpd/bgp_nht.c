@@ -38,8 +38,11 @@ extern struct zclient *zclient;
 
 static void register_zebra_rnh(struct bgp_nexthop_cache *bnc);
 static void unregister_zebra_rnh(struct bgp_nexthop_cache *bnc);
-static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p);
+static bool make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p);
 static void bgp_nht_ifp_initial(struct event *thread);
+
+DEFINE_HOOK(bgp_nht_path_update, (struct bgp *bgp, struct bgp_path_info *pi, bool valid),
+	    (bgp, pi, valid));
 
 static int bgp_isvalid_nexthop(struct bgp_nexthop_cache *bnc)
 {
@@ -320,9 +323,14 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 			afi = BGP_ATTR_MP_NEXTHOP_LEN_IP6(pi->attr) ? AFI_IP6
 								    : AFI_IP;
 
+		/* Validation for the ipv4 mapped ipv6 nexthop. */
+		if (IS_MAPPED_IPV6(&pi->attr->mp_nexthop_global)) {
+			afi = AFI_IP;
+		}
+
 		/* This will return true if the global IPv6 NH is a link local
 		 * addr */
-		if (make_prefix(afi, pi, &p) < 0)
+		if (!make_prefix(afi, pi, &p))
 			return 1;
 
 		/*
@@ -342,12 +350,11 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 				   &p.u.prefix6))
 			ifindex = pi->peer->connection->su.sin6.sin6_scope_id;
 
-		if (!is_bgp_static_route && orig_prefix
-		    && prefix_same(&p, orig_prefix)) {
+		if (!is_bgp_static_route && orig_prefix && prefix_same(&p, orig_prefix) &&
+		    CHECK_FLAG(bgp_route->flags, BGP_FLAG_IMPORT_CHECK)) {
 			if (BGP_DEBUG(nht, NHT)) {
-				zlog_debug(
-					"%s(%pFX): prefix loops through itself",
-					__func__, &p);
+				zlog_debug("%s(%pFX): prefix loops through itself (import-check enabled)",
+					   __func__, &p);
 			}
 			return 0;
 		}
@@ -400,12 +407,11 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 				   peer);
 	} else {
 		if (BGP_DEBUG(nht, NHT))
-			zlog_debug(
-				"Found existing bnc %pFX(%d)(%s) flags 0x%x ifindex %d #paths %d peer %p",
-				&bnc->prefix, bnc->ifindex_ipv6_ll,
-				bnc->bgp->name_pretty, bnc->flags,
-				bnc->ifindex_ipv6_ll, bnc->path_count,
-				bnc->nht_info);
+			zlog_debug("Found existing bnc %pFX(%d)(%s) flags 0x%x ifindex %d #paths %d peer %p, resolved prefix %pFX",
+				   &bnc->prefix, bnc->ifindex_ipv6_ll,
+				   bnc->bgp->name_pretty, bnc->flags,
+				   bnc->ifindex_ipv6_ll, bnc->path_count,
+				   bnc->nht_info, &bnc->resolved_prefix);
 	}
 
 	if (pi && is_route_parent_evpn(pi))
@@ -480,6 +486,8 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 				bnc->metric;
 		else if (bpi_ultimate->extra)
 			bpi_ultimate->extra->igpmetric = 0;
+
+		SET_FLAG(bnc->flags, BGP_NEXTHOP_ULTIMATE);
 	} else if (peer) {
 		/*
 		 * Let's not accidentally save the peer data for a peer
@@ -500,7 +508,11 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		return 1;
 	else if (safi == SAFI_UNICAST && pi &&
 		 pi->sub_type == BGP_ROUTE_IMPORTED &&
-		 bgp_path_info_num_labels(pi) && !bnc->is_evpn_gwip_nexthop)
+		 CHECK_FLAG(bnc->flags, BGP_NEXTHOP_ULTIMATE))
+		return bgp_isvalid_nexthop(bnc);
+	else if (safi == SAFI_UNICAST && pi &&
+		 pi->sub_type == BGP_ROUTE_IMPORTED &&
+		 BGP_PATH_INFO_NUM_LABELS(pi) && !bnc->is_evpn_gwip_nexthop)
 		return bgp_isvalid_nexthop_for_l3vpn(bnc, pi);
 	else if (safi == SAFI_MPLS_VPN && pi &&
 		 pi->sub_type != BGP_ROUTE_IMPORTED)
@@ -597,10 +609,10 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 	}
 
 	if (nhr->metric != bnc->metric)
-		bnc->change_flags |= BGP_NEXTHOP_METRIC_CHANGED;
+		SET_FLAG(bnc->change_flags, BGP_NEXTHOP_METRIC_CHANGED);
 
 	if (nhr->nexthop_num != bnc->nexthop_num)
-		bnc->change_flags |= BGP_NEXTHOP_CHANGED;
+		SET_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED);
 
 	if (import_check && (nhr->type == ZEBRA_ROUTE_BGP ||
 			     !prefix_same(&bnc->prefix, &nhr->prefix))) {
@@ -626,11 +638,12 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 			UNSET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED);
 
 		if (!bnc->is_evpn_gwip_nexthop)
-			bnc->flags |= BGP_NEXTHOP_VALID;
+			SET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
 		bnc->metric = nhr->metric;
 		bnc->nexthop_num = nhr->nexthop_num;
 
-		bnc->flags &= ~BGP_NEXTHOP_LABELED_VALID; /* check below */
+		UNSET_FLAG(bnc->flags,
+			   BGP_NEXTHOP_LABELED_VALID); /* check below */
 
 		for (i = 0; i < nhr->nexthop_num; i++) {
 			int num_labels = 0;
@@ -642,11 +655,12 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 			 * we receive from bgp.  This is to allow us
 			 * to work with v4 routing over v6 nexthops
 			 */
-			if (peer && !peer->ifp
-			    && CHECK_FLAG(peer->flags,
-					  PEER_FLAG_CAPABILITY_ENHE)
-			    && nhr->prefix.family == AF_INET6
-			    && nexthop->type != NEXTHOP_TYPE_BLACKHOLE) {
+			if (peer && !peer->ifp &&
+			    CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE) &&
+			    !CHECK_FLAG(bnc->bgp->flags,
+					BGP_FLAG_IPV6_NO_AUTO_RA) &&
+			    nhr->prefix.family == AF_INET6 &&
+			    nexthop->type != NEXTHOP_TYPE_BLACKHOLE) {
 				struct interface *ifp;
 
 				ifp = if_lookup_by_index(nexthop->ifindex,
@@ -660,8 +674,7 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 			/* There is at least one label-switched path */
 			if (nexthop->nh_label &&
 				nexthop->nh_label->num_labels) {
-
-				bnc->flags |= BGP_NEXTHOP_LABELED_VALID;
+				SET_FLAG(bnc->flags, BGP_NEXTHOP_LABELED_VALID);
 				num_labels = nexthop->nh_label->num_labels;
 			}
 
@@ -685,7 +698,7 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 			 * determined
 			 * that there has been a change.
 			 */
-			if (bnc->change_flags & BGP_NEXTHOP_CHANGED)
+			if (CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED))
 				continue;
 
 			for (oldnh = bnc->nexthop; oldnh; oldnh = oldnh->next)
@@ -693,7 +706,7 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 					break;
 
 			if (!oldnh)
-				bnc->change_flags |= BGP_NEXTHOP_CHANGED;
+				SET_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED);
 		}
 		bnc_nexthop_free(bnc);
 		bnc->nexthop = nhlist_head;
@@ -717,19 +730,22 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 						       : "failed"));
 
 			if (evpn_resolved) {
-				bnc->flags |= BGP_NEXTHOP_VALID;
-				bnc->flags &= ~BGP_NEXTHOP_EVPN_INCOMPLETE;
-				bnc->change_flags |= BGP_NEXTHOP_MACIP_CHANGED;
+				SET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
+				UNSET_FLAG(bnc->flags,
+					   BGP_NEXTHOP_EVPN_INCOMPLETE);
+				SET_FLAG(bnc->change_flags,
+					 BGP_NEXTHOP_MACIP_CHANGED);
 			} else {
-				bnc->flags |= BGP_NEXTHOP_EVPN_INCOMPLETE;
-				bnc->flags &= ~BGP_NEXTHOP_VALID;
+				SET_FLAG(bnc->flags,
+					 BGP_NEXTHOP_EVPN_INCOMPLETE);
+				UNSET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
 			}
 		}
 	} else {
 		memset(&bnc->resolved_prefix, 0, sizeof(bnc->resolved_prefix));
-		bnc->flags &= ~BGP_NEXTHOP_EVPN_INCOMPLETE;
-		bnc->flags &= ~BGP_NEXTHOP_VALID;
-		bnc->flags &= ~BGP_NEXTHOP_LABELED_VALID;
+		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_EVPN_INCOMPLETE);
+		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
+		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_LABELED_VALID);
 		bnc->nexthop_num = nhr->nexthop_num;
 
 		/* notify bgp fsm if nbr ip goes from valid->invalid */
@@ -748,7 +764,7 @@ static void bgp_nht_ifp_table_handle(struct bgp *bgp,
 {
 	struct bgp_nexthop_cache *bnc;
 	struct nexthop *nhop;
-	uint8_t other_nh_count;
+	uint16_t other_nh_count;
 	bool nhop_ll_found = false;
 	bool nhop_found = false;
 
@@ -1010,7 +1026,7 @@ void bgp_cleanup_nexthops(struct bgp *bgp)
  * make_prefix - make a prefix structure from the path (essentially
  * path's node.
  */
-static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
+static bool make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 {
 
 	int is_bgp_static = ((pi->type == ZEBRA_ROUTE_BGP)
@@ -1020,12 +1036,13 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 	struct bgp_dest *net = pi->net;
 	const struct prefix *p_orig = bgp_dest_get_prefix(net);
 	struct in_addr ipv4;
+	struct peer *peer = pi->peer;
+	struct attr *attr = pi->attr;
 
 	if (p_orig->family == AF_FLOWSPEC) {
-		if (!pi->peer)
-			return -1;
-		return bgp_flowspec_get_first_nh(pi->peer->bgp,
-						 pi, p, afi);
+		if (!peer)
+			return false;
+		return bgp_flowspec_get_first_nh(peer->bgp, pi, p, afi);
 	}
 	memset(p, 0, sizeof(struct prefix));
 	switch (afi) {
@@ -1035,19 +1052,32 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 			p->u.prefix4 = p_orig->u.prefix4;
 			p->prefixlen = p_orig->prefixlen;
 		} else {
-			if (p_orig->family == AF_EVPN)
-				p->u.prefix4 = pi->attr->mp_nexthop_global_in;
-			else
-				p->u.prefix4 = pi->attr->nexthop;
-			p->prefixlen = IPV4_MAX_BITLEN;
+			if (IS_MAPPED_IPV6(&attr->mp_nexthop_global)) {
+				ipv4_mapped_ipv6_to_ipv4(&attr->mp_nexthop_global, &ipv4);
+				p->u.prefix4 = ipv4;
+				p->prefixlen = IPV4_MAX_BITLEN;
+			} else {
+				if (p_orig->family == AF_EVPN)
+					p->u.prefix4 = attr->mp_nexthop_global_in;
+				else
+					p->u.prefix4 = attr->nexthop;
+				p->prefixlen = IPV4_MAX_BITLEN;
+			}
 		}
 		break;
 	case AFI_IP6:
 		p->family = AF_INET6;
-		if (pi->attr->srv6_l3vpn) {
-			IPV6_ADDR_COPY(&(p->u.prefix6),
-				       &(pi->attr->srv6_l3vpn->sid));
+		if (attr->srv6_l3vpn) {
 			p->prefixlen = IPV6_MAX_BITLEN;
+			if (attr->srv6_l3vpn->transposition_len != 0 &&
+			    BGP_PATH_INFO_NUM_LABELS(pi)) {
+				IPV6_ADDR_COPY(&p->u.prefix6, &attr->srv6_l3vpn->sid);
+				transpose_sid(&p->u.prefix6,
+					      decode_label(&pi->extra->labels->label[0]),
+					      attr->srv6_l3vpn->transposition_offset,
+					      attr->srv6_l3vpn->transposition_len);
+			} else
+				IPV6_ADDR_COPY(&(p->u.prefix6), &(attr->srv6_l3vpn->sid));
 		} else if (is_bgp_static) {
 			p->u.prefix6 = p_orig->u.prefix6;
 			p->prefixlen = p_orig->prefixlen;
@@ -1055,37 +1085,35 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 			/* If we receive MP_REACH nexthop with ::(LL)
 			 * or LL(LL), use LL address as nexthop cache.
 			 */
-			p->prefixlen = IPV6_MAX_BITLEN;
-			if (pi->attr &&
-			    pi->attr->mp_nexthop_len ==
-				    BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL &&
-			    (IN6_IS_ADDR_UNSPECIFIED(
-				     &pi->attr->mp_nexthop_global) ||
-			     IN6_IS_ADDR_LINKLOCAL(&pi->attr->mp_nexthop_global)))
-				p->u.prefix6 = pi->attr->mp_nexthop_local;
+			if (attr && attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL &&
+			    (IN6_IS_ADDR_UNSPECIFIED(&attr->mp_nexthop_global) ||
+			     IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_global)))
+				p->u.prefix6 = attr->mp_nexthop_local;
 			/* If we receive MR_REACH with (GA)::(LL)
 			 * then check for route-map to choose GA or LL
 			 */
-			else if (pi->attr &&
-				 pi->attr->mp_nexthop_len ==
-					 BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
-				if (CHECK_FLAG(pi->attr->nh_flags,
-					       BGP_ATTR_NH_MP_PREFER_GLOBAL)) {
-					if (IS_MAPPED_IPV6(
-						    &pi->attr->mp_nexthop_global)) {
-						ipv4_mapped_ipv6_to_ipv4(
-							&pi->attr->mp_nexthop_global,
-							&ipv4);
-						p->u.prefix4 = ipv4;
-						p->prefixlen = IPV4_MAX_BITLEN;
-					} else
-						p->u.prefix6 =
-							pi->attr->mp_nexthop_global;
-				} else
-					p->u.prefix6 =
-						pi->attr->mp_nexthop_local;
+			else if (attr && attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
+				if (CHECK_FLAG(attr->nh_flags, BGP_ATTR_NH_MP_PREFER_GLOBAL))
+					p->u.prefix6 = attr->mp_nexthop_global;
+				else
+					p->u.prefix6 = attr->mp_nexthop_local;
+			} else if (attr && attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL &&
+				   IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_global)) {
+				/* If we receive MP_REACH with GUA as LL, we should
+				 * check if we have Link-Local Next Hop capability also.
+				 */
+				if (!PEER_HAS_LINK_LOCAL_CAPABILITY(peer)) {
+					zlog_warn("%s: received IPv6 global next-hop as Link-Local, but no capability exchanged",
+						  __func__);
+					p->u.prefix6 = attr->mp_nexthop_global;
+				} else {
+					p->u.prefix6 = attr->mp_nexthop_global;
+					p->prefixlen = IPV6_MAX_BITLEN;
+					return false;
+				}
 			} else
-				p->u.prefix6 = pi->attr->mp_nexthop_global;
+				p->u.prefix6 = attr->mp_nexthop_global;
+			p->prefixlen = IPV6_MAX_BITLEN;
 		}
 		break;
 	default:
@@ -1096,7 +1124,7 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 		}
 		break;
 	}
-	return 0;
+	return true;
 }
 
 /**
@@ -1171,7 +1199,7 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 static void register_zebra_rnh(struct bgp_nexthop_cache *bnc)
 {
 	/* Check if we have already registered */
-	if (bnc->flags & BGP_NEXTHOP_REGISTERED)
+	if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED))
 		return;
 
 	if (bnc->ifindex_ipv6_ll) {
@@ -1255,6 +1283,25 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 	}
 
 	LIST_FOREACH (path, &(bnc->paths), nh_thread) {
+		/*
+		 * Currently when a peer goes down, bgp immediately
+		 * sees this via the interface events( if it is directly
+		 * connected).  And in this case it takes and puts on
+		 * a special peer queue all path info's associated with
+		 * but these items are not yet processed typically when
+		 * the nexthop is being handled here.  Thus we end
+		 * up in a situation where the process Queue for BGP
+		 * is being asked to look at the same path info multiple
+		 * times.  Let's just cut to the chase here and if
+		 * the bnc has a peer associated with it and the path info
+		 * being looked at uses that peer and the peer is no
+		 * longer established we know the path_info is being
+		 * handled elsewhere and we do not need to process
+		 * it here at all since the pathinfo is going away
+		 */
+		if (peer && path->peer == peer && !peer_established(peer->connection))
+			continue;
+
 		if (path->type == ZEBRA_ROUTE_BGP &&
 		    (path->sub_type == BGP_ROUTE_NORMAL ||
 		     path->sub_type == BGP_ROUTE_STATIC ||
@@ -1300,11 +1347,13 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 
 		bool bnc_is_valid_nexthop = false;
 		bool path_valid = false;
+		struct bgp_route_evpn *bre =
+			bgp_attr_get_evpn_overlay(path->attr);
 
 		if (safi == SAFI_UNICAST &&
 		    path->sub_type == BGP_ROUTE_IMPORTED &&
-		    bgp_path_info_num_labels(path) &&
-		    (path->attr->evpn_overlay.type != OVERLAY_INDEX_GATEWAY_IP)) {
+		    BGP_PATH_INFO_NUM_LABELS(path) &&
+		    !(bre && bre->type == OVERLAY_INDEX_GATEWAY_IP)) {
 			bnc_is_valid_nexthop =
 				bgp_isvalid_nexthop_for_l3vpn(bnc, path)
 					? true
@@ -1427,6 +1476,9 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 			}
 		}
 
+		if (path_valid != bnc_is_valid_nexthop)
+			hook_call(bgp_nht_path_update, bgp_path, path, bnc_is_valid_nexthop);
+
 		bgp_process(bgp_path, dest, path, afi, safi);
 	}
 
@@ -1515,6 +1567,10 @@ void bgp_nht_reg_enhe_cap_intfs(struct peer *peer)
 		return;
 
 	bgp = peer->bgp;
+
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_IPV6_NO_AUTO_RA))
+		return;
+
 	if (!sockunion2hostprefix(&peer->connection->su, &p)) {
 		zlog_warn("%s: Unable to convert sockunion to prefix for %s",
 			  __func__, peer->host);

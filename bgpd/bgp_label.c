@@ -38,7 +38,7 @@ static void *bgp_labels_hash_alloc(void *p)
 	struct bgp_labels *new;
 	uint8_t i;
 
-	new = XMALLOC(MTYPE_BGP_LABELS, sizeof(struct bgp_labels));
+	new = XCALLOC(MTYPE_BGP_LABELS, sizeof(struct bgp_labels));
 
 	new->num_labels = labels->num_labels;
 	for (i = 0; i < labels->num_labels; i++)
@@ -208,7 +208,7 @@ mpls_label_t bgp_adv_label(struct bgp_dest *dest, struct bgp_path_info *pi,
 	if (!dest || !pi || !to)
 		return MPLS_INVALID_LABEL;
 
-	remote_label = bgp_path_info_num_labels(pi)
+	remote_label = BGP_PATH_INFO_NUM_LABELS(pi)
 			       ? pi->extra->labels->label[0]
 			       : MPLS_INVALID_LABEL;
 	from = pi->peer;
@@ -387,6 +387,8 @@ void bgp_reg_dereg_for_label(struct bgp_dest *dest, struct bgp_path_info *pi,
 			 */
 			if (!have_label_to_reg) {
 				SET_FLAG(dest->flags, BGP_NODE_LABEL_REQUESTED);
+				struct bgp_table *table;
+
 				if (BGP_DEBUG(labelpool, LABELPOOL))
 					zlog_debug(
 						"%s: Requesting label from LP for %pFX",
@@ -396,7 +398,9 @@ void bgp_reg_dereg_for_label(struct bgp_dest *dest, struct bgp_path_info *pi,
 				 * the pool. This means we'll never register
 				 * FECs withoutvalid labels.
 				 */
-				bgp_lp_get(LP_TYPE_BGP_LU, dest,
+				table = bgp_dest_table(dest);
+
+				bgp_lp_get(LP_TYPE_BGP_LU, dest, table->bgp->vrf_id,
 					   bgp_reg_for_label_callback);
 				return;
 			}
@@ -576,7 +580,7 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 		} else {
 			bgp_withdraw(peer, &p, addpath_id, packet->afi,
 				     SAFI_UNICAST, ZEBRA_ROUTE_BGP,
-				     BGP_ROUTE_NORMAL, NULL, &label, 1, NULL);
+				     BGP_ROUTE_NORMAL, NULL, &label, 1);
 		}
 	}
 

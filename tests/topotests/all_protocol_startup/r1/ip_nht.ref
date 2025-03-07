@@ -1,35 +1,35 @@
 VRF default:
  Resolve via default: on
 1.1.1.1
- resolved via static
+ resolved via static, prefix 1.1.1.1/32
  is directly connected, r1-eth1 (vrf default), weight 1
  Client list: pbr(fd XX)
 1.1.1.2
- resolved via static
+ resolved via static, prefix 1.1.1.2/32
  is directly connected, r1-eth2 (vrf default), weight 1
  Client list: pbr(fd XX)
 1.1.1.3
- resolved via static
+ resolved via static, prefix 1.1.1.3/32
  is directly connected, r1-eth3 (vrf default), weight 1
  Client list: pbr(fd XX)
 1.1.1.4
- resolved via static
+ resolved via static, prefix 1.1.1.4/32
  is directly connected, r1-eth4 (vrf default), weight 1
  Client list: pbr(fd XX)
 1.1.1.5
- resolved via static
+ resolved via static, prefix 1.1.1.5/32
  is directly connected, r1-eth5 (vrf default), weight 1
  Client list: pbr(fd XX)
 1.1.1.6
- resolved via static
+ resolved via static, prefix 1.1.1.6/32
  is directly connected, r1-eth6 (vrf default), weight 1
  Client list: pbr(fd XX)
 1.1.1.7
- resolved via static
+ resolved via static, prefix 1.1.1.7/32
  is directly connected, r1-eth7 (vrf default), weight 1
  Client list: pbr(fd XX)
 1.1.1.8
- resolved via static
+ resolved via static, prefix 1.1.1.8/32
  is directly connected, r1-eth8 (vrf default), weight 1
  Client list: pbr(fd XX)
 2.2.2.1
@@ -54,20 +54,20 @@ VRF default:
  unresolved
  Client list: pbr(fd XX)
 192.168.0.2
- resolved via connected
- is directly connected, r1-eth0 (vrf default)
+ resolved via connected, prefix 192.168.0.0/24
+ is directly connected, r1-eth0 (vrf default), weight 1
  Client list: static(fd XX)
 192.168.0.4
- resolved via connected
- is directly connected, r1-eth0 (vrf default)
+ resolved via connected, prefix 192.168.0.0/24
+ is directly connected, r1-eth0 (vrf default), weight 1
  Client list: static(fd XX)
 192.168.7.10
- resolved via connected
- is directly connected, r1-eth7 (vrf default)
+ resolved via connected, prefix 192.168.7.0/26
+ is directly connected, r1-eth7 (vrf default), weight 1
  Client list: bgp(fd XX)
 192.168.7.20(Connected)
- resolved via connected
- is directly connected, r1-eth7 (vrf default)
+ resolved via connected, prefix 192.168.7.0/26
+ is directly connected, r1-eth7 (vrf default), weight 1
  Client list: bgp(fd XX)
 192.168.161.4
  unresolved

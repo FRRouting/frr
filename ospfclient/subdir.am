@@ -7,10 +7,13 @@ lib_LTLIBRARIES += ospfclient/libfrrospfapiclient.la
 noinst_PROGRAMS += ospfclient/ospfclient
 #man8 += $(MANBUILD)/frr-ospfclient.8
 
+if PYTHON_RUNTIME_DEPENDENCY
 sbin_SCRIPTS += \
 	ospfclient/ospfclient.py \
 	# end
 endif
+endif
+
 
 ospfclient_libfrrospfapiclient_la_LDFLAGS = $(LIB_LDFLAGS) -version-info 0:0:0
 ospfclient_libfrrospfapiclient_la_LIBADD = lib/libfrr.la

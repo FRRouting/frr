@@ -6,9 +6,9 @@ PIM
 
 PIM -- Protocol Independent Multicast
 
-*pimd* supports pim-sm as well as igmp v2 and v3. pim is
-vrf aware and can work within the context of vrf's in order to
-do S,G mrouting.  Additionally PIM can be used in the EVPN underlay
+*pimd* supports PIM-SM as well as IGMP v2 and v3. PIM is
+VRF aware and can work within the context of VRFs in order to
+do S,G mrouting. Additionally, PIM can be used in the EVPN underlay
 network for optimizing forwarding of overlay BUM traffic.
 
 .. note::
@@ -55,16 +55,48 @@ Certain signals have special meanings to *pimd*.
 *pimd* invocation options. Common options that can be specified
 (:ref:`common-invocation-options`).
 
-.. clicmd:: ip pim rp A.B.C.D A.B.C.D/M
+PIM Routers
+-----------
+
+.. clicmd:: router pim [vrf NAME]
+
+   Configure global PIM protocol
+
+.. clicmd:: rp A.B.C.D A.B.C.D/M
 
    In order to use pim, it is necessary to configure a RP for join messages to
    be sent to. Currently the only methodology to do this is via static rp
    commands. All routers in the pim network must agree on these values. The
    first ip address is the RP's address and the second value is the matching
    prefix of group ranges covered. This command is vrf aware, to configure for
-   a vrf, enter the vrf submode.
+   a vrf, specify the vrf in the router pim block.
 
-.. clicmd:: ip pim rp keep-alive-timer (1-65535)
+.. clicmd:: no autorp discovery
+
+   In order to use pim, it is necessary to configure a RP for join messages to
+   be sent to. FRR supports learning RP information dynamically via the AutoRP
+   protocol and performs discovery by default. This command will disable the
+   AutoRP discovery protocol.
+   All routers in the pim network must agree on the network RP information, so
+   all routers in the network should have AutoRP either enabled or disabled.
+   This command is vrf aware, to configure for a vrf, specify the vrf in the
+   router pim block.
+
+.. clicmd:: autorp announce A.B.C.D [A.B.C.D/M | group-list PREFIX_LIST]
+
+   Configure the router to advertise itself as a candidate PIM-SM RP via AutoRP.
+   The supported groups can be defined as a single group range, or multiple
+   group ranges can be defined via a prefix list.
+
+.. clicmd:: autorp announce {scope (1-255) | interval (1-65535) | holdtime (0-65535)}
+
+   Configure the AutoRP advertise messages. The scope defines the TTL value in the
+   messages to limit the scope, defaults to 31. Interval defines the number of
+   seconds elapsed between advertise messages sent, defaults to 60. Hold time defines
+   how long the AutoRP mapping agent will consider the information valid, setting to
+   0 will disable expiration of the candidate RP information, defaults to 3 * interval.
+
+.. clicmd:: rp keep-alive-timer (1-65535)
 
    Modify the time out value for a S,G flow from 1-65535 seconds at RP.
    The normal keepalive period for the KAT(S,G) defaults to 210 seconds.
@@ -74,41 +106,76 @@ Certain signals have special meanings to *pimd*.
    max(Keepalive_Period, RP_Keepalive_Period) when a Register-Stop is sent.
    If choosing a value below 31 seconds be aware that some hardware platforms
    cannot see data flowing in better than 30 second chunks. This command is
-   vrf aware, to configure for a vrf, enter the vrf submode.
+   vrf aware, to configure for a vrf, specify the vrf in the router pim block.
 
-.. clicmd:: ip pim register-accept-list PLIST
+.. clicmd:: bsr candidate-bsr [priority (0-255)] [source [address A.B.C.D] | [interface INTERFACE] | [loopback] | [any]]
+
+   Configure the router to advertise itself as a candidate PIM-SM BSR. The candidate
+   with the highest priority becomes the BSR for the domain (high wins). When priority is the
+   same for more than one candidate BSR, the candidate with the highest IP address
+   becomes the BSR of the domain. The address can be configured explicitly
+   via ``address``, or be selecting an interface name using ``interface``.
+   If ``any`` is configured the highest address from any interface will be selected.
+   By default, the highest loopback address is selected, which can also be
+   configured via ``loopback``
+
+.. clicmd:: bsr candidate-rp [interval]
+
+   Configure the router to advertise itself as a candidate PIM-SM RP at the
+   specified ``interval`` in seconds.
+
+
+.. clicmd:: bsr candidate-rp group A.B.C.D/M
+
+   Configure the multicast group prefix that this candidate RP advertises itself for.
+   This command can be repeated for all desired groups that need to be added to the
+   candidate RP advertisement.
+
+.. clicmd:: bsr candidate-rp [priority (0-255)] [source [address A.B.C.D] | [interface INTERFACE] | [loopback] | [any]]
+
+   Configure the router to advertise itself as a candidate PIM-SM RP. ``interval``
+   can be used to configure the interval in seconds to send these advertisements.
+   The candidate with the lowest priority becomes the RP for the domain (low wins).
+   When priority is the same for more than one candidate RP, the candidate with
+   the highest IP address becomes the BSR of the domain. The address can be
+   configured explicitly via ``address``, or be selecting an interface name
+   using ``interface``. If ``any`` is configured the highest address from any
+   interface will be selected.By default, the highest loopback address is
+   selected, which can also be configured via ``loopback``.
+
+.. clicmd:: register-accept-list PLIST
 
    When pim receives a register packet the source of the packet will be compared
    to the prefix-list specified, PLIST, and if a permit is received normal
    processing continues.  If a deny is returned for the source address of the
    register packet a register stop message is sent to the source.
 
-.. clicmd:: ip pim spt-switchover infinity-and-beyond [prefix-list PLIST]
+.. clicmd:: spt-switchover infinity-and-beyond [prefix-list PLIST]
 
    On the last hop router if it is desired to not switch over to the SPT tree
    configure this command. Optional parameter prefix-list can be use to control
    which groups to switch or not switch. If a group is PERMIT as per the
    PLIST, then the SPT switchover does not happen for it and if it is DENY,
    then the SPT switchover happens.
-   This command is vrf aware, to configure for a vrf,
-   enter the vrf submode.
+   This command is vrf aware, to configure for a vrf, specify the vrf in the
+   router pim block.
 
-.. clicmd:: ip pim ecmp
+.. clicmd:: ecmp
 
    If pim has the a choice of ECMP nexthops for a particular RPF, pim will
    cause S,G flows to be spread out amongst the nexthops. If this command is
    not specified then the first nexthop found will be used. This command is vrf
-   aware, to configure for a vrf, enter the vrf submode.
+   aware, to configure for a vrf, specify the vrf in the router pim block.
 
-.. clicmd:: ip pim ecmp rebalance
+.. clicmd:: ecmp rebalance
 
    If pim is using ECMP and an interface goes down, cause pim to rebalance all
    S,G flows across the remaining nexthops. If this command is not configured
    pim only modifies those S,G flows that were using the interface that went
-   down. This command is vrf aware, to configure for a vrf, enter the vrf
-   submode.
+   down. This command is vrf aware, to configure for a vrf, specify the vrf in
+   the router pim block.
 
-.. clicmd:: ip pim join-prune-interval (1-65535)
+.. clicmd:: join-prune-interval (1-65535)
 
    Modify the join/prune interval that pim uses to the new value. Time is
    specified in seconds. This command is vrf aware, to configure for a vrf,
@@ -116,60 +183,93 @@ Certain signals have special meanings to *pimd*.
    a value smaller than 60 seconds be aware that this can and will affect
    convergence at scale.
 
-.. clicmd:: ip pim keep-alive-timer (1-65535)
+.. clicmd:: keep-alive-timer (1-65535)
 
    Modify the time out value for a S,G flow from 1-65535 seconds. If choosing
    a value below 31 seconds be aware that some hardware platforms cannot see data
    flowing in better than 30 second chunks. This command is vrf aware, to
-   configure for a vrf, enter the vrf submode.
+   configure for a vrf, specify the vrf in the router pim block.
 
-.. clicmd:: ip pim packets (1-255)
+.. clicmd:: packets (1-255)
 
    When processing packets from a neighbor process the number of packets
    incoming at one time before moving on to the next task. The default value is
    3 packets.  This command is only useful at scale when you can possibly have
    a large number of pim control packets flowing. This command is vrf aware, to
-   configure for a vrf, enter the vrf submode.
+   configure for a vrf, specify the vrf in the router pim block.
 
-.. clicmd:: ip pim register-suppress-time (1-65535)
+.. clicmd:: register-suppress-time (1-65535)
 
    Modify the time that pim will register suppress a FHR will send register
    notifications to the kernel. This command is vrf aware, to configure for a
-   vrf, enter the vrf submode.
+   vrf, specify the vrf in the router pim block.
 
-.. clicmd:: ip pim send-v6-secondary
+.. clicmd:: send-v6-secondary
 
    When sending pim hello packets tell pim to send any v6 secondary addresses
    on the interface. This information is used to allow pim to use v6 nexthops
    in it's decision for RPF lookup. This command is vrf aware, to configure for
-   a vrf, enter the vrf submode.
+   a vrf, specify the vrf in the router pim block.
 
-.. clicmd:: ip pim ssm prefix-list WORD
+.. clicmd:: ssm prefix-list WORD
 
    Specify a range of group addresses via a prefix-list that forces pim to
-   never do SM over. This command is vrf aware, to configure for a vrf, enter
-   the vrf submode.
+   never do SM over. This command is vrf aware, to configure for a vrf, specify
+   the vrf in the router pim block.
 
-.. clicmd:: ip multicast rpf-lookup-mode WORD
+.. clicmd:: rpf-lookup-mode MODE [group-list PREFIX_LIST] [source-list PREFIX_LIST]
 
-   Modify how PIM does RPF lookups in the zebra routing table.  You can use
-   these choices:
-
-   longer-prefix
-      Lookup the RPF in both tables using the longer prefix as a match
-
-   lower-distance
-      Lookup the RPF in both tables using the lower distance as a match
-
-   mrib-only
-      Lookup in the Multicast RIB only
-
-   mrib-then-urib
-      Lookup in the Multicast RIB then the Unicast Rib, returning first found.
-      This is the default value for lookup if this command is not entered
+   MODE sets the method used to perform RPF lookups. Supported modes:
 
    urib-only
-      Lookup in the Unicast Rib only.
+      Performs the lookup on the Unicast RIB. The Multicast RIB is never used.
+
+   mrib-only
+      Performs the lookup on the Multicast RIB. The Unicast RIB is never used.
+
+   mrib-then-urib
+      Tries to perform the lookup on the Multicast RIB. If any route is found,
+      that route is used. Otherwise, the Unicast RIB is tried.
+
+   lower-distance
+      Performs a lookup on the Multicast RIB and Unicast RIB each. The result
+      with the lower administrative distance is used;  if they're equal, the
+      Multicast RIB takes precedence.
+
+   longer-prefix
+      Performs a lookup on the Multicast RIB and Unicast RIB each. The result
+      with the longer prefix length is used;  if they're equal, the
+      Multicast RIB takes precedence.
+
+      The ``mrib-then-urib`` setting is the default behavior if nothing is
+      configured. If this is the desired behavior, it should be explicitly
+      configured to make the configuration immune against possible changes in
+      what the default behavior is.
+
+   If a group and/or source prefix list is provided, then the RPF lookup mode
+   will only apply to source, group addresses that match the given prefix list(s).
+   Not all RPF lookups have a valid group address when performing a lookup, e.g. RPF
+   to an RP only does a lookup to the RP address and has no specific group.
+   Lookups that do not have a specific group will only use lookup modes that do not
+   specify a group-list.
+   A global rpf lookup mode that does not have a group or source list is always installed
+   and, as documented above, uses the ``mrib-then-urib`` mode by default.
+   This can be changed with an rpf-lookup-mode MODE that does not specify group or source lists.
+   There can be any number of rpf lookup modes, as long as the combination of group and source
+   list is unique.
+
+.. warning::
+
+   Unreachable routes do not receive special treatment and do not cause
+   fallback to a second lookup.
+
+.. _pim-global-configuration:
+
+Global Multicast
+================
+
+These commands are valid at the top-level of the configuration (or also per
+vrf where indicated), instead of under the 'router pim' submode.
 
 .. clicmd:: ip igmp generate-query-once [version (2-3)]
 
@@ -183,6 +283,70 @@ Certain signals have special meanings to *pimd*.
    warning once the configured group limit is reached while adding new groups.
    'no' form of the command disables the warning generation. This command is
    vrf aware. To configure per vrf, enter vrf submode.
+
+
+.. _pim-multicast-rib:
+
+Multicast RIB Commands
+----------------------
+
+The Multicast RIB provides a separate table of unicast destinations which
+is used for Multicast Reverse Path Forwarding decisions. It is used with
+a multicast source's IP address, hence contains not multicast group
+addresses but unicast addresses.
+
+This table is fully separate from the default unicast table. However,
+RPF lookup can include the unicast table.
+
+.. clicmd:: ip mroute PREFIX NEXTHOP [DISTANCE]
+
+   Adds a static route entry to the Multicast RIB. This performs exactly as the
+   ``ip route`` command, except that it inserts the route in the Multicast RIB
+   instead of the Unicast RIB.
+   These routes are only used for RPF lookup and will not be used by zebra for
+   insertion into the kernel *or* for normal rib processing. As such it is
+   possible to create weird states with these commands. Use with caution. Most
+   of the time this will not be necessary.
+
+.. clicmd:: show [ip|ipv6] rpf
+
+   Prints the entire Multicast RIB. Note that this is independent of the
+   configured RPF lookup mode, the Multicast RIB may be printed yet not
+   used at all.
+
+.. clicmd:: show [ip|ipv6] rpf ADDR
+
+   Performs a Multicast RPF lookup using the Multicast RIB only.
+   ADDR specifies the multicast source address to look up. Note that this is
+   independent of the configured RPF lookup mode.
+
+   ::
+
+      > show ip rpf 192.0.2.1
+      Routing entry for 192.0.2.0/24 using Multicast RIB
+      Known via "kernel", distance 0, metric 0, best
+      * 198.51.100.1, via eth0
+
+
+   Indicates that a multicast source lookup for 192.0.2.1 against the
+   Multicast RIB would use an entry for 192.0.2.0/24 with a gateway of
+   198.51.100.1.
+
+.. clicmd:: show ip pim [vrf NAME] nexthop-lookup ADDR [GROUP]
+
+   Performs a nexthop lookup according to the configured RPF lookup mode.
+   This performs the lookup for a given source address, and optionally with
+   a group address, which may effect the nexthop decision.
+
+   ::
+
+      > show ip pim nexthop-lookup 192.0.2.1
+      (192.0.2.1, *) --- Nexthop 198.10.10.1 Interface eth1
+
+
+   Indicates the a source lookup for 192.0.2.1 according to the configured RPF
+   lookup mode would use the gateway address 192.10.10.1 on interface eth1.
+
 
 .. _pim-interface-configuration:
 
@@ -227,6 +391,10 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    reports on the interface. Refer to the next `ip igmp` command for IGMP
    management.
 
+.. clicmd:: ip pim allowed-neighbors prefix-list PREFIX_LIST
+
+   Only establish sessions with PIM neighbors allowed by the prefix-list.
+
 .. clicmd:: ip pim use-source A.B.C.D
 
    If you have multiple addresses configured on a particular interface
@@ -242,9 +410,27 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    Tell pim to receive IGMP reports and Query on this interface. The default
    version is v3. This command is useful on a LHR.
 
-.. clicmd:: ip igmp join A.B.C.D [A.B.C.D]
+.. clicmd:: ip igmp join-group A.B.C.D [A.B.C.D]
 
-   Join multicast group or source-group on an interface.
+   Join multicast group or source-group on an interface. This will result in
+   an IGMP join happening through a local socket so that IGMP reports will be
+   sent on this interface. It may also have the side effect of the kernel
+   forwarding multicast traffic to the socket unnessarily.
+
+.. clicmd:: ip igmp static-group A.B.C.D [A.B.C.D]
+
+   Add a static multicast group or source-group on an interface. This will behave
+   as if there is a receiver on this interface without any IGMP reports.
+
+.. clicmd:: ip igmp proxy
+
+   Tell pim to send proxy IGMP reports for joins occuring on all other
+   interfaces on this interface. Join-groups on other interfaces will
+   also be proxied. The default version is v3.
+
+.. clicmd:: ip igmp immediate-leave
+
+   Immediately leaves an IGMP group when receiving a IGMPv2 Leave packet.
 
 .. clicmd:: ip igmp query-interval (1-65535)
 
@@ -259,11 +445,55 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
 
    Set the IGMP version used on this interface. The default value is 3.
 
+.. clicmd:: ip igmp max-groups (0-4294967295)
+
+   Set the maximum number of IGMP groups that the can be joined on an interface.
+
+.. clicmd:: ip igmp max-sources (0-4294967295)
+
+   Set the maximum number of IGMP sources to learn per group.
+
 .. clicmd:: ip multicast boundary oil WORD
 
-   Set a pim multicast boundary, based upon the WORD prefix-list. If a pim join
-   or IGMP report is received on this interface and the Group is denied by the
+   Set a PIM multicast boundary, based upon the WORD prefix-list. If a PIM join
+   or IGMP report is received on this interface and the group is denied by the
    prefix-list, PIM will ignore the join or report.
+
+   .. code-block:: frr
+
+      prefix-list multicast-acl seq 5 permit 232.1.1.1/32
+      prefix-list multicast-acl seq 10 deny 232.1.1.0/24
+      prefix-list multicast-acl seq 15 permit any
+      !
+      interface r1-eth0
+       ip pim
+       ip igmp
+       ip multicast boundary oil multicast-acl
+      exit
+
+.. clicmd:: ip multicast boundary ACCESS-LIST
+
+   Set a PIM multicast boundary, based upon the ACCESS-LIST. If a PIM join
+   or IGMP report is received on this interface and the (S,G) tuple is denied by the
+   access-list, PIM will ignore the join or report.
+
+   To filter on both source and group, the extended access-list syntax must be used.
+
+   If both a prefix-list and access-list are configured for multicast boundaries,
+   the prefix-list will be evaluated first (and must have a terminating "permit any"
+   in order to also evaluate against the access-list).
+
+   .. code-block:: frr
+
+      access-list multicast-acl seq 5 permit ip host 10.0.20.2 host 232.1.1.1
+      access-list multicast-acl seq 10 deny ip 10.0.20.0 0.0.0.255 232.1.1.0 0.0.0.255
+      access-list multicast-acl seq 15 permit ip any any
+      !
+      interface r1-eth0
+       ip pim
+       ip igmp
+       ip multicast boundary pim-acl
+      exit
 
 .. clicmd:: ip igmp last-member-query-count (1-255)
 
@@ -286,29 +516,6 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
 .. seealso::
 
    :ref:`bfd-pim-peer-config`
-
-
-.. _pim-multicast-rib:
-
-PIM Multicast RIB
-=================
-
-In order to influence Multicast RPF lookup, it is possible to insert
-into zebra routes for the Multicast RIB. These routes are only
-used for RPF lookup and will not be used by zebra for insertion
-into the kernel *or* for normal rib processing. As such it is
-possible to create weird states with these commands. Use with
-caution. Most of the time this will not be necessary.
-
-.. clicmd:: ip mroute A.B.C.D/M A.B.C.D (1-255)
-
-   Insert into the Multicast Rib Route A.B.C.D/M with specified nexthop. The
-   distance can be specified as well if desired.
-
-.. clicmd:: ip mroute A.B.C.D/M INTERFACE (1-255)
-
-   Insert into the Multicast Rib Route A.B.C.D/M using the specified INTERFACE.
-   The distance can be specified as well if desired.
 
 .. _msdp-configuration:
 
@@ -333,12 +540,16 @@ MSDP can be setup in different ways:
 
 .. note::
 
-   MSDP default peer and SA filtering is not implemented.
+   MSDP default peer is not implemented.
 
+Commands available for MSDP
+---------------------------
 
-Commands available for MSDP:
+.. note::
 
-.. clicmd:: ip msdp timers (1-65535) (1-65535) [(1-65535)]
+   MSDP configuration is available under 'router pim'.
+
+.. clicmd:: msdp timers (1-65535) (1-65535) [(1-65535)]
 
    Configure global MSDP timers.
 
@@ -354,18 +565,50 @@ Commands available for MSDP:
    configures the interval between connection attempts. The default value
    is 30 seconds.
 
-.. clicmd:: ip msdp mesh-group WORD member A.B.C.D
+.. clicmd:: msdp mesh-group WORD member A.B.C.D
 
    Create or update a mesh group to include the specified MSDP peer.
 
-.. clicmd:: ip msdp mesh-group WORD source A.B.C.D
+.. clicmd:: msdp mesh-group WORD source A.B.C.D
 
    Create or update a mesh group to set the source address used to connect to
    peers.
 
-.. clicmd:: ip msdp peer A.B.C.D source A.B.C.D
+.. clicmd:: msdp peer A.B.C.D source A.B.C.D
 
    Create a regular MSDP session with peer using the specified source address.
+
+.. clicmd:: msdp peer A.B.C.D sa-filter ACL_NAME <in|out>
+
+   Configure incoming or outgoing SA filtering rule.
+
+   .. note::
+
+      The filtering will only take effect starting from the command
+      application.
+
+.. clicmd:: msdp peer A.B.C.D sa-limit <AMOUNT>
+
+   Configure the maximum number of SAs to learn from peer.
+
+.. clicmd:: msdp peer A.B.C.D password WORD
+
+   Use MD5 authentication to connect with the remote peer.
+
+   .. note::
+
+      The authentication will only take effect when starting a new
+      connection.
+
+      To apply it immediately call `clear ip msdp peer A.B.C.D`.
+
+.. clicmd:: msdp originator-id A.B.C.D
+
+   Use the specified originator ID instead of the multicast RP group.
+
+.. clicmd:: msdp shutdown
+
+   Shutdown the MSDP sessions in this PIM instance.
 
 
 .. _show-pim-information:
@@ -385,21 +628,19 @@ cause great confusion.
 
 .. clicmd:: show ip igmp [vrf NAME] join [json]
 
-   Display IGMP static join information for a specific vrf.
-   
-.. index:: show ip igmp [vrf NAME$vrf_name] groups [INTERFACE$ifname [GROUP$grp_str]] [detail] [json$json]
-.. clicmd:: show ip igmp [vrf NAME$vrf_name] groups [INTERFACE$ifname [GROUP$grp_str]] [detail] [json$json]
+   Display IGMP static join information.
 
-   Display IGMP static join information for all the vrfs present.
-
-.. index:: show ip igmp vrf all groups [GROUP$grp_str] [detail$detail] [json$json]
-.. clicmd:: show ip igmp vrf all groups [GROUP$grp_str] [detail$detail] [json$json]
+.. clicmd:: show ip igmp [vrf NAME] groups [INTERFACE [GROUP]] [detail] [json]
 
    Display IGMP groups information.
 
 .. clicmd:: show ip igmp groups retransmissions
 
    Display IGMP group retransmission information.
+
+.. clicmd:: show ip igmp [vrf NAME] proxy [json]
+
+   Display IGMP proxy join information.
 
 .. clicmd:: show ip igmp [vrf NAME] sources [json]
 
@@ -532,6 +773,11 @@ cause great confusion.
       192.168.10.123   239.0.0.0/8         eth2              yes        Static   ASM
       192.168.10.123   239.4.0.0/24        eth2              yes        Static   SSM
 
+.. clicmd:: show ip pim [vrf NAME] autorp [json]
+
+   Display information about AutoRP. Including state of AutoRP Discovery parsing
+   and configured AutoRP candidate RP information.
+
 .. clicmd:: show ip pim rpf
 
    Display information about currently being used S,G's and their RPF lookup
@@ -572,15 +818,32 @@ cause great confusion.
    Display PIM MLAG (multi-chassis link aggregation) session status and
    control message statistics.
 
-.. clicmd:: show ip pim bsr
+.. clicmd:: show ip pim bsr [vrf NAME] [json]
 
    Display current bsr, its uptime and last received bsm age.
 
-.. clicmd:: show ip pim bsrp-info
+.. clicmd:: show ip pim bsr candidate-bsr [vrf NAME] [json]
+
+   Display information about the candidate BSR state on this router.
+
+.. clicmd:: show ip pim bsr candidate-rp [vrf NAME] [json]
+
+   Display information about the candidate RP state on this router.
+
+.. clicmd:: show ip pim bsr candidate-rp-database [vrf NAME] [json]
+
+   Display the current list of candidate RPs received by this router.
+
+.. clicmd:: show ip pim bsr groups [vrf NAME] [json]
+
+   Display the current list of multicast group mapping received by
+   this router from candidate RPs.
+
+.. clicmd:: show ip pim bsr rp-info [vrf NAME] [json]
 
    Display group-to-rp mappings received from E-BSR.
 
-.. clicmd:: show ip pim bsm-database
+.. clicmd:: show ip pim bsm-database [vrf NAME] [json]
 
    Display all fragments of stored bootstrap message in user readable format.
 
@@ -599,7 +862,7 @@ cause great confusion.
 
 .. seealso::
 
-   :ref:`multicast-rib-commands`
+   :ref:`pim-multicast-rib`
 
 
 PIM Debug Commands
@@ -660,6 +923,10 @@ the config was written out.
 
    This gathers data about events from zebra that come up through the ZAPI.
 
+.. clicmd:: debug pim autorp
+
+   This turns on debugging for PIM AutoRP protocol events.
+
 PIM Clear Commands
 ==================
 Clear commands reset various variables.
@@ -695,6 +962,13 @@ Clear commands reset various variables.
    This command will clear the BSM scope data struct. This command also
    removes the next hop tracking for the bsr and resets the upstreams
    for the dynamically learnt RPs.
+
+.. clicmd:: clear ip msdp peer A.B.C.D
+
+   Reset MSDP peer connection.
+
+   Use this command to set/unset MD5 authentication.
+
 
 PIM EVPN configuration
 ======================
@@ -734,8 +1008,9 @@ Sample configuration
    ! You may want to enable ssmpingd for troubleshooting
    ! See http://www.venaas.no/multicast/ssmping/
    !
-   ip ssmpingd 1.1.1.1
-   ip ssmpingd 2.2.2.2
+   router pim
+    ssmpingd 1.1.1.1
+    ssmpingd 2.2.2.2
 
    ! HINTS:
    !  - Enable "ip pim ssm" on the interface directly attached to the
@@ -750,4 +1025,3 @@ Sample configuration
    interface eth0
     ip pim ssm
     ip igmp
-

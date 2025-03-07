@@ -2826,6 +2826,13 @@ static int isis_snmp_init(struct event_loop *tm)
 	return 0;
 }
 
+static int isis_snmp_terminate(void)
+{
+	smux_terminate();
+
+	return 0;
+}
+
 /*
  * ISIS notification functions: we have one function per notification
  */
@@ -3448,6 +3455,7 @@ static int isis_snmp_module_init(void)
 	hook_register(isis_circuit_del_hook, isis_circuit_snmp_id_free);
 
 	hook_register(frr_late_init, isis_snmp_init);
+	hook_register(frr_fini, isis_snmp_terminate);
 	return 0;
 }
 

@@ -139,7 +139,7 @@ static int _nexthop_source_cmp(const struct nexthop *nh1,
 }
 
 static int _nexthop_cmp_no_labels(const struct nexthop *next1,
-				  const struct nexthop *next2)
+				  const struct nexthop *next2, bool use_weight)
 {
 	int ret = 0;
 
@@ -155,11 +155,13 @@ static int _nexthop_cmp_no_labels(const struct nexthop *next1,
 	if (next1->type > next2->type)
 		return 1;
 
-	if (next1->weight < next2->weight)
-		return -1;
+	if (use_weight) {
+		if (next1->weight < next2->weight)
+			return -1;
 
-	if (next1->weight > next2->weight)
-		return 1;
+		if (next1->weight > next2->weight)
+			return 1;
+	}
 
 	switch (next1->type) {
 	case NEXTHOP_TYPE_IPV4:
@@ -227,11 +229,12 @@ done:
 	return ret;
 }
 
-int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
+static int nexthop_cmp_internal(const struct nexthop *next1,
+				const struct nexthop *next2, bool use_weight)
 {
 	int ret = 0;
 
-	ret = _nexthop_cmp_no_labels(next1, next2);
+	ret = _nexthop_cmp_no_labels(next1, next2, use_weight);
 	if (ret != 0)
 		return ret;
 
@@ -242,6 +245,17 @@ int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
 	ret = _nexthop_srv6_cmp(next1, next2);
 
 	return ret;
+}
+
+int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
+{
+	return nexthop_cmp_internal(next1, next2, true);
+}
+
+int nexthop_cmp_no_weight(const struct nexthop *next1,
+			  const struct nexthop *next2)
+{
+	return nexthop_cmp_internal(next1, next2, false);
 }
 
 /*
@@ -441,7 +455,7 @@ bool nexthop_same_no_labels(const struct nexthop *nh1,
 	if (nh1 == nh2)
 		return true;
 
-	if (_nexthop_cmp_no_labels(nh1, nh2) != 0)
+	if (_nexthop_cmp_no_labels(nh1, nh2, true) != 0)
 		return false;
 
 	return true;
@@ -565,6 +579,32 @@ void nexthop_del_labels(struct nexthop *nexthop)
 {
 	XFREE(MTYPE_NH_LABEL, nexthop->nh_label);
 	nexthop->nh_label_type = ZEBRA_LSP_NONE;
+}
+
+void nexthop_change_labels(struct nexthop *nexthop, struct mpls_label_stack *new_stack)
+{
+	struct mpls_label_stack *nh_label_tmp;
+	uint32_t i;
+
+	/* Enforce limit on label stack size */
+	if (new_stack->num_labels > MPLS_MAX_LABELS)
+		new_stack->num_labels = MPLS_MAX_LABELS;
+
+	/* Resize the array to accommodate the new label stack */
+	if (new_stack->num_labels > nexthop->nh_label->num_labels) {
+		nh_label_tmp = XREALLOC(MTYPE_NH_LABEL, nexthop->nh_label,
+					sizeof(struct mpls_label_stack) +
+						new_stack->num_labels * sizeof(mpls_label_t));
+		if (nh_label_tmp) {
+			nexthop->nh_label = nh_label_tmp;
+			nexthop->nh_label->num_labels = new_stack->num_labels;
+		} else
+			new_stack->num_labels = nexthop->nh_label->num_labels;
+	}
+
+	/* Copy the label stack into the array */
+	for (i = 0; i < new_stack->num_labels; i++)
+		nexthop->nh_label->label[i] = new_stack->label[i];
 }
 
 void nexthop_add_srv6_seg6local(struct nexthop *nexthop, uint32_t action,
@@ -699,6 +739,15 @@ struct nexthop *nexthop_next(const struct nexthop *nexthop)
 	return NULL;
 }
 
+struct nexthop *nexthop_next_resolution(const struct nexthop *nexthop,
+					bool nexthop_resolution)
+{
+	if (nexthop_resolution)
+		return nexthop_next(nexthop);
+	/* no resolution attempt */
+	return nexthop->next;
+}
+
 /* Return the next nexthop in the tree that is resolved and active */
 struct nexthop *nexthop_next_active_resolved(const struct nexthop *nexthop)
 {
@@ -723,68 +772,30 @@ unsigned int nexthop_level(const struct nexthop *nexthop)
 	return rv;
 }
 
-/* Only hash word-sized things, let cmp do the rest. */
-uint32_t nexthop_hash_quick(const struct nexthop *nexthop)
+uint32_t nexthop_hash(const struct nexthop *nexthop)
 {
 	uint32_t key = 0x45afe398;
-	int i;
 
-	key = jhash_3words(nexthop->type, nexthop->vrf_id,
-			   nexthop->nh_label_type, key);
+	/* type, vrf, ifindex, ip addresses - see nexthop.h */
+	key = _nexthop_hash_bytes(nexthop, key);
+
+	key = jhash_1word(nexthop->flags & NEXTHOP_FLAGS_HASHED, key);
 
 	if (nexthop->nh_label) {
-		int labels = nexthop->nh_label->num_labels;
+		const struct mpls_label_stack *ls = nexthop->nh_label;
 
-		i = 0;
-
-		while (labels >= 3) {
-			key = jhash_3words(nexthop->nh_label->label[i],
-					   nexthop->nh_label->label[i + 1],
-					   nexthop->nh_label->label[i + 2],
-					   key);
-			labels -= 3;
-			i += 3;
-		}
-
-		if (labels >= 2) {
-			key = jhash_2words(nexthop->nh_label->label[i],
-					   nexthop->nh_label->label[i + 1],
-					   key);
-			labels -= 2;
-			i += 2;
-		}
-
-		if (labels >= 1)
-			key = jhash_1word(nexthop->nh_label->label[i], key);
+		/* num_labels itself isn't useful to hash, if the number of
+		 * labels is different, the hash value will change just due to
+		 * that already.
+		 */
+		key = jhash(ls->label, sizeof(ls->label[0]) * ls->num_labels, key);
 	}
-
-	key = jhash_2words(nexthop->ifindex,
-			   CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK),
-			   key);
 
 	/* Include backup nexthops, if present */
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
 		int backups = nexthop->backup_num;
 
-		i = 0;
-
-		while (backups >= 3) {
-			key = jhash_3words(nexthop->backup_idx[i],
-					   nexthop->backup_idx[i + 1],
-					   nexthop->backup_idx[i + 2], key);
-			backups -= 3;
-			i += 3;
-		}
-
-		while (backups >= 2) {
-			key = jhash_2words(nexthop->backup_idx[i],
-					   nexthop->backup_idx[i + 1], key);
-			backups -= 2;
-			i += 2;
-		}
-
-		if (backups >= 1)
-			key = jhash_1word(nexthop->backup_idx[i], key);
+		key = jhash(nexthop->backup_idx, sizeof(nexthop->backup_idx[0]) * backups, key);
 	}
 
 	if (nexthop->nh_srv6) {
@@ -815,31 +826,6 @@ uint32_t nexthop_hash_quick(const struct nexthop *nexthop)
 			}
 		}
 	}
-
-	return key;
-}
-
-
-#define GATE_SIZE 4 /* Number of uint32_t words in struct g_addr */
-
-/* For a more granular hash */
-uint32_t nexthop_hash(const struct nexthop *nexthop)
-{
-	uint32_t gate_src_rmap_raw[GATE_SIZE * 3] = {};
-	/* Get all the quick stuff */
-	uint32_t key = nexthop_hash_quick(nexthop);
-
-	assert(((sizeof(nexthop->gate) + sizeof(nexthop->src)
-		 + sizeof(nexthop->rmap_src))
-		/ 3)
-	       == (GATE_SIZE * sizeof(uint32_t)));
-
-	memcpy(gate_src_rmap_raw, &nexthop->gate, GATE_SIZE);
-	memcpy(gate_src_rmap_raw + GATE_SIZE, &nexthop->src, GATE_SIZE);
-	memcpy(gate_src_rmap_raw + (2 * GATE_SIZE), &nexthop->rmap_src,
-	       GATE_SIZE);
-
-	key = jhash2(gate_src_rmap_raw, (GATE_SIZE * 3), key);
 
 	return key;
 }
@@ -1166,6 +1152,8 @@ void nexthop_json_helper(json_object *json_nexthop,
 	json_object *json_labels = NULL;
 	json_object *json_backups = NULL;
 	json_object *json_seg6local = NULL;
+	json_object *json_seg6local_context = NULL;
+	json_object *json_srv6_sid_structure = NULL;
 	json_object *json_seg6 = NULL;
 	json_object *json_segs = NULL;
 	int i;
@@ -1331,8 +1319,20 @@ void nexthop_json_helper(json_object *json_nexthop,
 				       seg6local_action2str(
 					       nexthop->nh_srv6
 						       ->seg6local_action));
+		json_seg6local_context = json_object_new_object();
 		json_object_object_add(json_nexthop, "seg6local",
 				       json_seg6local);
+
+		seg6local_context2json(&nexthop->nh_srv6->seg6local_ctx,
+				       nexthop->nh_srv6->seg6local_action,
+				       json_seg6local_context);
+		json_object_object_add(json_nexthop, "seg6localContext",
+				       json_seg6local_context);
+
+		json_srv6_sid_structure = json_object_new_object();
+		srv6_sid_structure2json(&nexthop->nh_srv6->seg6local_ctx, json_srv6_sid_structure);
+		json_object_object_add(json_seg6local, "sidStructure", json_srv6_sid_structure);
+
 		if (nexthop->nh_srv6->seg6_segs &&
 		    nexthop->nh_srv6->seg6_segs->num_segs == 1) {
 			json_seg6 = json_object_new_object();

@@ -133,7 +133,7 @@ struct lfa_tiebreaker *isis_lfa_tiebreaker_add(struct isis_area *area,
 void isis_lfa_tiebreaker_delete(struct isis_area *area, int level,
 				struct lfa_tiebreaker *tie_b);
 void isis_lfa_excluded_ifaces_init(struct isis_circuit *circuit, int level);
-void isis_lfa_excluded_ifaces_clear(struct isis_circuit *circuit, int level);
+void isis_lfa_excluded_ifaces_delete(struct isis_circuit *circuit, int level);
 void isis_lfa_excluded_iface_add(struct isis_circuit *circuit, int level,
 				 const char *ifname);
 void isis_lfa_excluded_iface_delete(struct isis_circuit *circuit, int level,

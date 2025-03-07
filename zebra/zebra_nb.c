@@ -26,9 +26,9 @@ const struct frr_yang_module_info frr_zebra_info = {
 	.features = features,
 	.nodes = {
 		{
-			.xpath = "/frr-zebra:zebra/mcast-rpf-lookup",
+			.xpath = "/frr-zebra:zebra/max-multipath",
 			.cbs = {
-				.modify = zebra_mcast_rpf_lookup_modify,
+				.get_elem = zebra_max_multipath_get_elem,
 			}
 		},
 		{
@@ -39,10 +39,22 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+			.xpath = "/frr-zebra:zebra/state/ip-forwarding",
+			.cbs = {
+				.get_elem = zebra_ip_forwarding_get_elem,
+			}
+		},
+		{
 			.xpath = "/frr-zebra:zebra/ipv6-forwarding",
 			.cbs = {
 				.modify = zebra_ipv6_forwarding_modify,
 				.destroy = zebra_ipv6_forwarding_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:zebra/state/ipv6-forwarding",
+			.cbs = {
+				.get_elem = zebra_ipv6_forwarding_get_elem,
 			}
 		},
 		{
@@ -881,6 +893,13 @@ const struct frr_yang_module_info frr_zebra_info = {
 			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/netns/table-range/end",
 			.cbs = {
 				.modify = lib_vrf_zebra_netns_table_range_end_modify,
+			}
+		},
+		{
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/mpls/fec-nexthop-resolution",
+			.cbs = {
+				.modify = lib_vrf_zebra_mpls_fec_nexthop_resolution_modify,
+				.destroy = lib_vrf_zebra_mpls_fec_nexthop_resolution_destroy,
 			}
 		},
 		{

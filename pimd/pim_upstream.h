@@ -350,7 +350,6 @@ int pim_upstream_inherited_olist(struct pim_instance *pim,
 int pim_upstream_empty_inherited_olist(struct pim_upstream *up);
 
 void pim_upstream_find_new_rpf(struct pim_instance *pim);
-void pim_upstream_msdp_reg_timer_start(struct pim_upstream *up);
 
 void pim_upstream_init(struct pim_instance *pim);
 void pim_upstream_terminate(struct pim_instance *pim);

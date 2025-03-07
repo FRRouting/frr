@@ -32,7 +32,6 @@ All conditions are tested against an eBGP peer in a public ASN.
 import os
 import sys
 import json
-import time
 import pytest
 
 CWD = os.path.dirname(os.path.realpath(__file__))

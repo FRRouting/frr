@@ -21,7 +21,7 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.common_config import required_linux_kernel_version
-from lib.checkping import check_ping, check_ping
+from lib.checkping import check_ping
 
 pytestmark = [pytest.mark.bgpd]
 
@@ -53,7 +53,8 @@ def setup_module(mod):
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
     for rname, router in tgen.routers().items():
-        router.run("/bin/bash {}/{}/setup.sh".format(CWD, rname))
+        if os.path.exists("{}/{}/setup.sh".format(CWD, rname)):
+            router.run("/bin/bash {}/{}/setup.sh".format(CWD, rname))
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -94,7 +95,7 @@ def open_json_file(filename):
         assert False, "Could not read file {}".format(filename)
 
 
-def check_rib(name, cmd, expected_file):
+def check_rib(name, cmd, expected_file, count=30, wait=0.5):
     def _check(name, dest_addr, match):
         logger.info("polling")
         tgen = get_topogen()
@@ -106,12 +107,12 @@ def check_rib(name, cmd, expected_file):
     logger.info('[+] check {} "{}" {}'.format(name, cmd, expected_file))
     tgen = get_topogen()
     func = functools.partial(_check, name, cmd, expected_file)
-    _, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(func, None, count, wait)
     assert result is None, "Failed"
 
 
 def test_rib():
-    check_rib("r1", "show bgp ipv4 vpn json", "r1/vpnv4_rib.json")
+    check_rib("r1", "show bgp ipv4 vpn json", "r1/vpnv4_rib.json", 120, 1)
     check_rib("r2", "show bgp ipv4 vpn json", "r2/vpnv4_rib.json")
     check_rib("r1", "show ip route vrf vrf10 json", "r1/vrf10v4_rib.json")
     check_rib("r1", "show ip route vrf vrf20 json", "r1/vrf20v4_rib.json")

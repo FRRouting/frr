@@ -80,9 +80,12 @@ struct zebra_privs_t isisd_privs = {
 	.cap_num_p = array_size(_caps_p),
 	.cap_num_i = 0};
 
+#define OPTION_DUMMY_AS_LOOPBACK 2000
+
 /* isisd options */
 static const struct option longopts[] = {
 	{"int_num", required_argument, NULL, 'I'},
+	{"dummy_as_loopback", no_argument, NULL, OPTION_DUMMY_AS_LOOPBACK},
 	{0}};
 
 /* Master of threads. */
@@ -103,6 +106,12 @@ static __attribute__((__noreturn__)) void terminate(int i)
 	isis_sr_term();
 	isis_srv6_term();
 	isis_zebra_stop();
+
+	isis_master_terminate();
+	route_map_finish();
+	vrf_terminate();
+
+	frr_fini();
 	exit(i);
 }
 
@@ -263,15 +272,16 @@ int main(int argc, char **argv, char **envp)
 {
 	int opt;
 	int instance = 1;
+	bool dummy_as_loopback = false;
 
 #ifdef FABRICD
 	frr_preinit(&fabricd_di, argc, argv);
 #else
 	frr_preinit(&isisd_di, argc, argv);
 #endif
-	frr_opt_add(
-		"I:", longopts,
-		"  -I, --int_num      Set instance number (label-manager)\n");
+	frr_opt_add("I:", longopts,
+		"  -I, --int_num		Set instance number (label-manager).\n"
+		"      --dummy_as_loopback      Treat dummy interfaces like loopback interfaces.\n");
 
 	/* Command line argument treatment. */
 	while (1) {
@@ -289,6 +299,9 @@ int main(int argc, char **argv, char **envp)
 				zlog_err("Instance %i out of range (1..%u)",
 					 instance, (unsigned short)-1);
 			break;
+		case OPTION_DUMMY_AS_LOOPBACK:
+			dummy_as_loopback = true;
+			break;
 		default:
 			frr_help_exit(1);
 		}
@@ -305,6 +318,9 @@ int main(int argc, char **argv, char **envp)
 	/* thread master */
 	isis_master_init(frr_init());
 	master = im->master;
+	if (dummy_as_loopback)
+		isis_option_set(ISIS_OPT_DUMMY_AS_LOOPBACK);
+
 	/*
 	 *  initializations
 	 */

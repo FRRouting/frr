@@ -748,8 +748,6 @@ static uint8_t *ospfv3AreaEntry(struct variable *v, oid *name, size_t *length,
 		area_id = htonl(name[v->namelen]);
 
 	inet_ntop(AF_INET, &area_id, a, sizeof(a));
-	zlog_debug("SNMP access by area: %s, exact=%d len=%d length=%lu", a,
-		   exact, len, (unsigned long)*length);
 
 	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, node, oa)) {
 		if (area == NULL) {
@@ -769,8 +767,6 @@ static uint8_t *ospfv3AreaEntry(struct variable *v, oid *name, size_t *length,
 	name[v->namelen] = ntohl(area->area_id);
 
 	inet_ntop(AF_INET, &area->area_id, a, sizeof(a));
-	zlog_debug("SNMP found area: %s, exact=%d len=%d length=%lu", a, exact,
-		   len, (unsigned long)*length);
 
 	switch (v->magic) {
 	case OSPFv3IMPORTASEXTERN:

@@ -51,11 +51,20 @@
 		output |= *((ptr) + 1);                                        \
 	} while (0)
 
+enum gm_join_type { GM_JOIN_STATIC = 0, GM_JOIN_PROXY = 1, GM_JOIN_BOTH = 2 };
+
 struct gm_join {
 	pim_addr group_addr;
 	pim_addr source_addr;
 	int sock_fd;
+	enum gm_join_type join_type;
 	time_t sock_creation;
+};
+
+struct static_group {
+	pim_addr group_addr;
+	pim_addr source_addr;
+	struct channel_oil *oilp;
 };
 
 struct gm_sock {

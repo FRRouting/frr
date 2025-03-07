@@ -12,9 +12,6 @@
 extern "C" {
 #endif
 
-extern int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id,
-				  int startup);
-
 /*
  * Parse an incoming interface address change message, generate a dplane
  * context object for processing.

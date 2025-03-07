@@ -11,7 +11,7 @@ import traceback
 from copy import deepcopy
 from time import sleep
 
-# Import common_config to use commomnly used APIs
+# Import common_config to use commonly used APIs
 from lib.common_config import (
     create_common_configurations,
     FRRCFG_FILE,
@@ -63,29 +63,29 @@ def create_router_bgp(tgen, topo=None, input_dict=None, build=False, load_config
                 "address_family": {
                     "ipv4": {
                         "unicast": {
-                            "default_originate":{
-                                "neighbor":"R2",
-                                "add_type":"lo"
-                                "route_map":"rm"
-
+                            "default_originate": {
+                                "neighbor": "R2",
+                                "add_type": "lo",
+                                "route_map": "rm",
                             },
-                            "redistribute": [{
-                                "redist_type": "static",
+                            "redistribute": [
+                                {
+                                    "redist_type": "static",
                                     "attribute": {
-                                        "metric" : 123
-                                    }
+                                        "metric": 123,
+                                    },
                                 },
-                                {"redist_type": "connected"}
+                                {"redist_type": "connected"},
                             ],
                             "advertise_networks": [
                                 {
                                     "network": "20.0.0.0/32",
-                                    "no_of_network": 10
+                                    "no_of_network": 10,
                                 },
                                 {
                                     "network": "30.0.0.0/32",
-                                    "no_of_network": 10
-                                }
+                                    "no_of_network": 10,
+                                },
                             ],
                             "neighbor": {
                                 "r3": {
@@ -94,31 +94,32 @@ def create_router_bgp(tgen, topo=None, input_dict=None, build=False, load_config
                                     "dest_link": {
                                         "r4": {
                                             "allowas-in": {
-                                                    "number_occurences": 2
+                                                "number_occurences": 2,
                                             },
                                             "prefix_lists": [
                                                 {
                                                     "name": "pf_list_1",
-                                                    "direction": "in"
-                                                }
+                                                    "direction": "in",
+                                                },
                                             ],
-                                            "route_maps": [{
-                                                "name": "RMAP_MED_R3",
-                                                 "direction": "in"
-                                            }],
-                                            "next_hop_self": True
+                                            "route_maps": [
+                                                {
+                                                    "name": "RMAP_MED_R3",
+                                                    "direction": "in",
+                                                },
+                                            ],
+                                            "next_hop_self": True,
                                         },
-                                        "r1": {"graceful-restart-helper": True}
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+                                        "r1": {"graceful-restart-helper": True},
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
     }
-
 
     Returns
     -------
@@ -3266,27 +3267,43 @@ def verify_graceful_restart(
 
             lmode = None
             rmode = None
-            # Local GR mode
-            if "address_family" in input_dict[dut]["bgp"]:
-                bgp_neighbors = input_dict[dut]["bgp"]["address_family"][addr_type][
-                    "unicast"
-                ]["neighbor"][peer]["dest_link"]
 
-                for dest_link, data in bgp_neighbors.items():
-                    if (
-                        "graceful-restart-helper" in data
-                        and data["graceful-restart-helper"]
-                    ):
-                        lmode = "Helper"
-                    elif "graceful-restart" in data and data["graceful-restart"]:
-                        lmode = "Restart"
-                    elif (
-                        "graceful-restart-disable" in data
-                        and data["graceful-restart-disable"]
-                    ):
-                        lmode = "Disable"
-                    else:
-                        lmode = None
+            # Local GR mode
+            if "bgp" not in input_dict[dut] and "graceful-restart" in input_dict[dut]:
+                if (
+                    "graceful-restart" in input_dict[dut]["graceful-restart"]
+                    and input_dict[dut]["graceful-restart"]["graceful-restart"]
+                ):
+                    lmode = "Restart*"
+                elif (
+                    "graceful-restart-disable" in input_dict[dut]["graceful-restart"]
+                    and input_dict[dut]["graceful-restart"]["graceful-restart-disable"]
+                ):
+                    lmode = "Disable*"
+                else:
+                    lmode = "Helper*"
+
+            if lmode is None:
+                if "address_family" in input_dict[dut]["bgp"]:
+                    bgp_neighbors = input_dict[dut]["bgp"]["address_family"][addr_type][
+                        "unicast"
+                    ]["neighbor"][peer]["dest_link"]
+
+                    for dest_link, data in bgp_neighbors.items():
+                        if (
+                            "graceful-restart-helper" in data
+                            and data["graceful-restart-helper"]
+                        ):
+                            lmode = "Helper"
+                        elif "graceful-restart" in data and data["graceful-restart"]:
+                            lmode = "Restart"
+                        elif (
+                            "graceful-restart-disable" in data
+                            and data["graceful-restart-disable"]
+                        ):
+                            lmode = "Disable"
+                        else:
+                            lmode = None
 
             if lmode is None:
                 if "graceful-restart" in input_dict[dut]["bgp"]:
@@ -3314,7 +3331,11 @@ def verify_graceful_restart(
                 return True
 
             # Remote GR mode
-            if "address_family" in input_dict[peer]["bgp"]:
+
+            if (
+                "bgp" in input_dict[peer]
+                and "address_family" in input_dict[peer]["bgp"]
+            ):
                 bgp_neighbors = input_dict[peer]["bgp"]["address_family"][addr_type][
                     "unicast"
                 ]["neighbor"][dut]["dest_link"]
@@ -3336,7 +3357,10 @@ def verify_graceful_restart(
                         rmode = None
 
             if rmode is None:
-                if "graceful-restart" in input_dict[peer]["bgp"]:
+                if (
+                    "bgp" in input_dict[peer]
+                    and "graceful-restart" in input_dict[peer]["bgp"]
+                ):
                     if (
                         "graceful-restart"
                         in input_dict[peer]["bgp"]["graceful-restart"]
@@ -3349,6 +3373,27 @@ def verify_graceful_restart(
                         "graceful-restart-disable"
                         in input_dict[peer]["bgp"]["graceful-restart"]
                         and input_dict[peer]["bgp"]["graceful-restart"][
+                            "graceful-restart-disable"
+                        ]
+                    ):
+                        rmode = "Disable"
+                    else:
+                        rmode = "Helper"
+
+            if rmode is None:
+                if (
+                    "bgp" not in input_dict[peer]
+                    and "graceful-restart" in input_dict[peer]
+                ):
+                    if (
+                        "graceful-restart" in input_dict[peer]["graceful-restart"]
+                        and input_dict[peer]["graceful-restart"]["graceful-restart"]
+                    ):
+                        rmode = "Restart"
+                    elif (
+                        "graceful-restart-disable"
+                        in input_dict[peer]["graceful-restart"]
+                        and input_dict[peer]["graceful-restart"][
                             "graceful-restart-disable"
                         ]
                     ):
@@ -5594,3 +5639,22 @@ def configure_bgp_soft_configuration(tgen, dut, neighbor_dict, direction):
             )
         )
         return True
+
+
+def bgp_configure_prefixes(router, asn, safi, prefixes, vrf=None, update=True):
+    """
+    Configure the bgp prefixes.
+    """
+    withdraw = "no " if not update else ""
+    vrf = " vrf {}".format(vrf) if vrf else ""
+    for p in prefixes:
+        ip = ipaddress.ip_network(p)
+        cmd = [
+            "conf t\n",
+            f"router bgp {asn}{vrf}\n"
+            f"address-family ipv{ip.version} {safi}\n"
+            f"{withdraw}network {ip}\n".format(withdraw, ip),
+            "exit-address-family\n",
+        ]
+        logger.debug(f"setting prefix: ipv{ip.version} {safi} {ip}")
+        router.vtysh_cmd("".join(cmd))

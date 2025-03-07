@@ -317,12 +317,12 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 	frr_with_privs(&zserv_privs) {
 
 		if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_DELETE) {
-			if (!RSYSTEM_ROUTE(type))
+			if (!RSYSTEM_ROUTE(type) && dplane_ctx_get_safi(ctx) != SAFI_MULTICAST)
 				kernel_rtm(RTM_DELETE, dplane_ctx_get_dest(ctx),
 					   dplane_ctx_get_ng(ctx),
 					   dplane_ctx_get_metric(ctx));
 		} else if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_INSTALL) {
-			if (!RSYSTEM_ROUTE(type))
+			if (!RSYSTEM_ROUTE(type) && dplane_ctx_get_safi(ctx) != SAFI_MULTICAST)
 				kernel_rtm(RTM_ADD, dplane_ctx_get_dest(ctx),
 					   dplane_ctx_get_ng(ctx),
 					   dplane_ctx_get_metric(ctx));
@@ -330,12 +330,12 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 			/* Must do delete and add separately -
 			 * no update available
 			 */
-			if (!RSYSTEM_ROUTE(old_type))
+			if (!RSYSTEM_ROUTE(old_type) && dplane_ctx_get_safi(ctx) != SAFI_MULTICAST)
 				kernel_rtm(RTM_DELETE, dplane_ctx_get_dest(ctx),
 					   dplane_ctx_get_old_ng(ctx),
 					   dplane_ctx_get_old_metric(ctx));
 
-			if (!RSYSTEM_ROUTE(type))
+			if (!RSYSTEM_ROUTE(type) && dplane_ctx_get_safi(ctx) != SAFI_MULTICAST)
 				kernel_rtm(RTM_ADD, dplane_ctx_get_dest(ctx),
 					   dplane_ctx_get_ng(ctx),
 					   dplane_ctx_get_metric(ctx));

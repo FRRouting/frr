@@ -332,6 +332,10 @@ class Commander:  # pylint: disable=R0904
         self.last = None
         self.exec_paths = {}
 
+        # For running commands one time only (deals with asyncio)
+        self.cmd_once_done = {}
+        self.cmd_once_locks = {}
+
         if not logger:
             logname = f"munet.{self.__class__.__name__.lower()}.{name}"
             self.logger = logging.getLogger(logname)
@@ -1189,7 +1193,7 @@ class Commander:  # pylint: disable=R0904
         return stdout
 
     # Run a command in a new window (gnome-terminal, screen, tmux, xterm)
-    def run_in_window(
+    def run_in_window(  # pylint: disable=too-many-positional-arguments
         self,
         cmd,
         wait_for=False,
@@ -1205,7 +1209,7 @@ class Commander:  # pylint: disable=R0904
 
         Args:
             cmd: string to execute.
-            wait_for: True to wait for exit from command or `str` as channel neme to
+            wait_for: True to wait for exit from command or `str` as channel name to
                 signal on exit, otherwise False
             background: Do not change focus to new window.
             title: Title for new pane (tmux) or window (xterm).
@@ -1404,6 +1408,26 @@ class Commander:  # pylint: disable=R0904
             commander.cmd_status(cmd)
 
         return pane_info
+
+    async def async_cmd_raises_once(self, cmd, **kwargs):
+        if cmd in self.cmd_once_done:
+            return self.cmd_once_done[cmd]
+
+        if cmd not in self.cmd_once_locks:
+            self.cmd_once_locks[cmd] = asyncio.Lock()
+
+        async with self.cmd_once_locks[cmd]:
+            if cmd not in self.cmd_once_done:
+                self.logger.info("Running command once: %s", cmd)
+                self.cmd_once_done[cmd] = await commander.async_cmd_raises(
+                    cmd, **kwargs
+                )
+        return self.cmd_once_done[cmd]
+
+    def cmd_raises_once(self, cmd, **kwargs):
+        if cmd not in self.cmd_once_done:
+            self.cmd_once_done[cmd] = commander.cmd_raises(cmd, **kwargs)
+        return self.cmd_once_done[cmd]
 
     def delete(self):
         """Calls self.async_delete within an exec loop."""

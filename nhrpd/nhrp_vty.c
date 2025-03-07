@@ -295,10 +295,15 @@ DEFUN(tunnel_protection, tunnel_protection_cmd,
 }
 
 DEFUN(no_tunnel_protection, no_tunnel_protection_cmd,
-	"no tunnel protection",
+	"no tunnel protection [vici profile PROFILE [fallback-profile FALLBACK]]",
 	NO_STR
 	"NHRP/GRE integration\n"
-	"IPsec protection\n")
+	"IPsec protection\n"
+	"VICI (StrongSwan)\n"
+	"IPsec profile\n"
+	"IPsec profile name\n"
+	"Fallback IPsec profile\n"
+	"Fallback IPsec profile name\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 
@@ -462,7 +467,6 @@ DEFUN(if_no_nhrp_holdtime, if_no_nhrp_holdtime_cmd,
 	return CMD_SUCCESS;
 }
 
-#define NHRP_CISCO_PASS_LEN 8
 DEFPY(if_nhrp_authentication, if_nhrp_authentication_cmd,
       AFI_CMD "nhrp authentication PASSWORD$password",
       AFI_STR
@@ -481,8 +485,10 @@ DEFPY(if_nhrp_authentication, if_nhrp_authentication_cmd,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (nifp->auth_token)
+	if (nifp->auth_token) {
 		zbuf_free(nifp->auth_token);
+		nifp->auth_token = NULL;
+	}
 
 	nifp->auth_token = zbuf_alloc(pass_len + sizeof(uint32_t));
 	auth = (struct nhrp_cisco_authentication_extension *)
@@ -505,8 +511,10 @@ DEFPY(if_no_nhrp_authentication, if_no_nhrp_authentication_cmd,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct nhrp_interface *nifp = ifp->info;
 
-	if (nifp->auth_token)
+	if (nifp->auth_token) {
 		zbuf_free(nifp->auth_token);
+		nifp->auth_token = NULL;
+	}
 	return CMD_SUCCESS;
 }
 
@@ -878,7 +886,7 @@ static void show_ip_nhrp_shortcut(struct nhrp_shortcut *s, void *pctx)
 	char buf1[PREFIX_STRLEN], buf2[SU_ADDRSTRLEN];
 	struct json_object *json = NULL;
 
-	if (!ctx->count) {
+	if (!ctx->count && !ctx->json) {
 		vty_out(vty, "%-8s %-24s %-24s %s\n", "Type", "Prefix", "Via",
 			"Identity");
 	}
@@ -924,6 +932,10 @@ static void show_ip_opennhrp_cache(struct nhrp_cache *c, void *pctx)
 
 	if (ctx->afi != family2afi(sockunion_family(&c->remote_addr)))
 		return;
+
+	if (ctx->count && !ctx->json)
+		vty_out(ctx->vty, "\n");
+	ctx->count++;
 
 	sockunion2str(&c->remote_addr, buf[0], sizeof(buf[0]));
 	if (c->cur.peer)
@@ -977,8 +989,6 @@ static void show_ip_opennhrp_cache(struct nhrp_cache *c, void *pctx)
 
 	if (sockunion_family(&c->cur.remote_nbma_natoa) != AF_UNSPEC)
 		vty_out(ctx->vty, "NBMA-NAT-OA-Address: %s\n", buf[2]);
-
-	vty_out(ctx->vty, "\n\n");
 }
 
 DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
@@ -1022,7 +1032,6 @@ DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
 		else
 			json_object_string_add(json_vrf, "status", "ok");
 
-		ctx.count++;
 		FOR_ALL_INTERFACES (vrf, ifp)
 			nhrp_cache_foreach(ifp, show_ip_opennhrp_cache, &ctx);
 	}

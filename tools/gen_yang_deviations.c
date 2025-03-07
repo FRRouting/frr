@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
 	if (argc != 1)
 		usage(EXIT_FAILURE);
 
-	yang_init(false, false);
+	yang_init(false, false, false);
 
 	/* Load YANG module. */
 	module = yang_module_load(argv[0], NULL);

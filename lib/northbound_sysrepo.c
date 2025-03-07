@@ -19,7 +19,9 @@
 #include <sysrepo/values.h>
 #include <sysrepo/xpath.h>
 
-static struct debug nb_dbg_client_sysrepo = {0, "Northbound client: Sysrepo"};
+static struct debug nb_dbg_client_sysrepo = { 0,
+					      "debug northbound client sysrepo",
+					      "Northbound client: Sysrepo" };
 
 static struct event_loop *master;
 static sr_session_ctx_t *session;
@@ -553,29 +555,9 @@ DEFUN (debug_nb_sr,
 	return CMD_SUCCESS;
 }
 
-static int frr_sr_debug_config_write(struct vty *vty)
-{
-	if (DEBUG_MODE_CHECK(&nb_dbg_client_sysrepo, DEBUG_MODE_CONF))
-		vty_out(vty, "debug northbound client sysrepo\n");
-
-	return 0;
-}
-
-static int frr_sr_debug_set_all(uint32_t flags, bool set)
-{
-	DEBUG_FLAGS_SET(&nb_dbg_client_sysrepo, flags, set);
-
-	/* If all modes have been turned off, don't preserve options. */
-	if (!DEBUG_MODE_CHECK(&nb_dbg_client_sysrepo, DEBUG_MODE_ALL))
-		DEBUG_CLEAR(&nb_dbg_client_sysrepo);
-
-	return 0;
-}
-
 static void frr_sr_cli_init(void)
 {
-	hook_register(nb_client_debug_config_write, frr_sr_debug_config_write);
-	hook_register(nb_client_debug_set_all, frr_sr_debug_set_all);
+	debug_install(&nb_dbg_client_sysrepo);
 
 	install_element(ENABLE_NODE, &debug_nb_sr_cmd);
 	install_element(CONFIG_NODE, &debug_nb_sr_cmd);

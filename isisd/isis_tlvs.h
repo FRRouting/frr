@@ -717,6 +717,7 @@ struct isis_ext_subtlvs {
 #define ISIS_SABM_FLAG_X 0x10 /* Flex-Algorithm - RFC9350 */
 
 #define ASLA_APP_IDENTIFIER_BIT_LENGTH 1
+#define ASLA_APP_IDENTIFIER_BIT_MAX_LENGTH 8
 #define ASLA_LEGACY_FLAG 0x80
 #define ASLA_APPS_LENGTH_MASK 0x7f
 
@@ -775,12 +776,6 @@ struct list *isis_fragment_tlvs(struct isis_tlvs *tlvs, size_t size);
 #define ISIS_MT_OL_MASK        0x8000
 #define ISIS_MT_AT_MASK        0x4000
 #endif
-
-/* RFC 8919 */
-#define ISIS_SABM_FLAG_R 0x80 /* RSVP-TE */
-#define ISIS_SABM_FLAG_S 0x40 /* Segment Routing Policy */
-#define ISIS_SABM_FLAG_L 0x20 /* Loop-Free Alternate */
-#define ISIS_SABM_FLAG_X 0x10 /* Flex-Algorithm - RFC9350 */
 
 void isis_tlvs_add_auth(struct isis_tlvs *tlvs, struct isis_passwd *passwd);
 void isis_tlvs_add_area_addresses(struct isis_tlvs *tlvs,

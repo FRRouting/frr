@@ -12,8 +12,8 @@
 extern "C" {
 #endif
 
-extern void setsockopt_so_recvbuf(int sock, int size);
-extern void setsockopt_so_sendbuf(const int sock, int size);
+extern int setsockopt_so_recvbuf(int sock, int size);
+extern int setsockopt_so_sendbuf(const int sock, int size);
 extern int getsockopt_so_sendbuf(const int sock);
 extern int getsockopt_so_recvbuf(const int sock);
 
@@ -59,6 +59,16 @@ extern int setsockopt_ipv6_tclass(int, int);
 #define SOPT_SIZE_CMSG_IFINDEX(af)                                             \
   (((af) == AF_INET) : SOPT_SIZE_CMSG_IFINDEX_IPV4() \
                     ? SOPT_SIZE_CMSG_PKTINFO_IPV6())
+
+/*
+ * If not defined then define the value for `TCP_MD5SIG_MAXKEYLEN`. This seems
+ * to be unavailable for NetBSD 8, FreeBSD 11 and FreeBSD 12.
+ *
+ * The value below was copied from `linux/tcp.h` from the Linux kernel headers.
+ */
+#ifndef TCP_MD5SIG_MAXKEYLEN
+#define TCP_MD5SIG_MAXKEYLEN 80
+#endif
 
 extern int setsockopt_ipv4_multicast_if(int sock, struct in_addr if_addr,
 					ifindex_t ifindex);

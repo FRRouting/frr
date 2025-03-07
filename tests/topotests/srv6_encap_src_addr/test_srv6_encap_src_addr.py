@@ -18,6 +18,7 @@ import os
 import sys
 import json
 import pytest
+from functools import partial
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
@@ -27,7 +28,7 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.sharpd]
+pytestmark = [pytest.mark.sharpd]
 
 
 def open_json_file(filename):
@@ -46,18 +47,34 @@ def setup_module(mod):
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
-        router.load_config(
-            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_SHARP, os.path.join(CWD, "{}/sharpd.conf".format(rname))
-        )
     tgen.start_router()
 
 
 def teardown_module():
     tgen = get_topogen()
     tgen.stop_topology()
+
+
+def router_compare_json_output(rname, command, reference, count=120, wait=0.5):
+    "Compare router JSON output"
+
+    def _router_json_cmp(router, cmd, data, exact=False):
+        """
+        Runs `cmd` that returns JSON data and compare with `data` contents.
+        """
+        return topotest.json_cmp(json.loads(router.cmd(cmd)), data, exact)
+
+    logger.info('Comparing router "%s" "%s" output', rname, command)
+
+    tgen = get_topogen()
+    filename = "{}/{}/{}".format(CWD, rname, reference)
+    expected = json.loads(open(filename).read())
+
+    # Run test function until we get an result. Wait at most 60 seconds.
+    test_func = partial(_router_json_cmp, tgen.gears[rname], command, expected)
+    _, diff = topotest.run_and_expect(test_func, None, count=count, wait=wait)
+    assertmsg = '"{}" JSON output mismatches the expected result'.format(rname)
+    assert diff is None, assertmsg
 
 
 def test_zebra_srv6_encap_src_addr(tgen):
@@ -70,12 +87,11 @@ def test_zebra_srv6_encap_src_addr(tgen):
     expected = json.loads(open(json_file).read())
 
     ok = topotest.router_json_cmp_retry(
-        r1, "show segment-routing srv6 manager json", expected
+        r1, "show segment-routing srv6 manager json", expected, retry_timeout=15
     )
     assert ok, '"r1" JSON output mismatches'
 
-    output = r1.cmd("ip sr tunsrc show")
-    assert output == "tunsrc addr fc00:0:1::1\n"
+    router_compare_json_output("r1", "ip --json sr tunsrc show", "ip_tunsrc_show.json")
 
 
 def test_zebra_srv6_encap_src_addr_unset(tgen):
@@ -99,12 +115,13 @@ def test_zebra_srv6_encap_src_addr_unset(tgen):
     expected = json.loads(open(json_file).read())
 
     ok = topotest.router_json_cmp_retry(
-        r1, "show segment-routing srv6 manager json", expected
+        r1, "show segment-routing srv6 manager json", expected, retry_timeout=15
     )
     assert ok, '"r1" JSON output mismatches'
 
-    output = r1.cmd("ip sr tunsrc show")
-    assert output == "tunsrc addr ::\n"
+    router_compare_json_output(
+        "r1", "ip --json sr tunsrc show", "ip_tunsrc_show_unset.json"
+    )
 
 
 def test_zebra_srv6_encap_src_addr_set(tgen):
@@ -128,12 +145,13 @@ def test_zebra_srv6_encap_src_addr_set(tgen):
     expected = json.loads(open(json_file).read())
 
     ok = topotest.router_json_cmp_retry(
-        r1, "show segment-routing srv6 manager json", expected
+        r1, "show segment-routing srv6 manager json", expected, retry_timeout=15
     )
     assert ok, '"r1" JSON output mismatches'
 
-    output = r1.cmd("ip sr tunsrc show")
-    assert output == "tunsrc addr fc00:0:1::1\n"
+    router_compare_json_output(
+        "r1", "ip --json sr tunsrc show", "ip_tunsrc_show_set.json"
+    )
 
 
 if __name__ == "__main__":

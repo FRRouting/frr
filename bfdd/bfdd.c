@@ -28,8 +28,8 @@
  * FRR related code.
  */
 DEFINE_MGROUP(BFDD, "Bidirectional Forwarding Detection Daemon");
-DEFINE_MTYPE(BFDD, BFDD_CONTROL, "control socket memory");
-DEFINE_MTYPE(BFDD, BFDD_NOTIFICATION, "control notification data");
+DEFINE_MTYPE(BFDD, BFDD_CLIENT, "BFD client data");
+DEFINE_MTYPE(BFDD, BFDD_CLIENT_NOTIFICATION, "BFD client notification data");
 
 /* Master of threads. */
 struct event_loop *master;
@@ -66,9 +66,6 @@ static void sigterm_handler(void)
 
 	/* Stop receiving message from zebra. */
 	bfdd_zclient_stop();
-
-	/* Shutdown controller to avoid receiving anymore commands. */
-	control_shutdown();
 
 	/* Shutdown and free all protocol related memory. */
 	bfd_shutdown();
@@ -132,10 +129,8 @@ FRR_DAEMON_INFO(bfdd, BFD,
 );
 /* clang-format on */
 
-#define OPTION_CTLSOCK 1001
 #define OPTION_DPLANEADDR 2000
 static const struct option longopts[] = {
-	{"bfdctl", required_argument, NULL, OPTION_CTLSOCK},
 	{"dplaneaddr", required_argument, NULL, OPTION_DPLANEADDR},
 	{0}
 };
@@ -319,7 +314,6 @@ static void bg_init(void)
 		.cap_num_i = 0,
 	};
 
-	TAILQ_INIT(&bglobal.bg_bcslist);
 	TAILQ_INIT(&bglobal.bg_obslist);
 
 	memcpy(&bglobal.bfdd_privs, &bfdd_privs,
@@ -328,8 +322,7 @@ static void bg_init(void)
 
 int main(int argc, char *argv[])
 {
-	char ctl_path[512], dplane_addr[512];
-	bool ctlsockused = false;
+	char dplane_addr[512];
 	int opt;
 
 	bglobal.bg_use_dplane = false;
@@ -339,7 +332,6 @@ int main(int argc, char *argv[])
 
 	frr_preinit(&bfdd_di, argc, argv);
 	frr_opt_add("", longopts,
-		    "      --bfdctl       Specify bfdd control socket\n"
 		    "      --dplaneaddr   Specify BFD data plane address\n");
 
 	while (true) {
@@ -348,10 +340,6 @@ int main(int argc, char *argv[])
 			break;
 
 		switch (opt) {
-		case OPTION_CTLSOCK:
-			strlcpy(ctl_path, optarg, sizeof(ctl_path));
-			ctlsockused = true;
-			break;
 		case OPTION_DPLANEADDR:
 			strlcpy(dplane_addr, optarg, sizeof(dplane_addr));
 			bglobal.bg_use_dplane = true;
@@ -362,14 +350,8 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (!ctlsockused)
-		snprintf(ctl_path, sizeof(ctl_path), BFDD_SOCK_NAME);
-
 	/* Initialize FRR infrastructure. */
 	master = frr_init();
-
-	/* Initialize control socket. */
-	control_init(ctl_path);
 
 	/* Initialize BFD data structures. */
 	bfd_initialize();
@@ -380,9 +362,6 @@ int main(int argc, char *argv[])
 
 	/* Initialize zebra connection. */
 	bfdd_zclient_init(&bglobal.bfdd_privs);
-
-	event_add_read(master, control_accept, NULL, bglobal.bg_csock,
-		       &bglobal.bg_csockev);
 
 	/* Install commands. */
 	bfdd_vty_init();

@@ -7,6 +7,7 @@
 #include <zebra.h>
 #include <sys/stat.h>
 
+#include "debug.h"
 #include "frrevent.h"
 #include "vty.h"
 #include "command.h"
@@ -119,6 +120,26 @@ static const void *frr_test_module_vrfs_vrf_interfaces_interface_get_next(
 }
 
 /*
+ * XPath: /frr-test-module:frr-test-module/vrfs/vrf/interfaces/interface-new
+ */
+static enum nb_error frr_test_module_vrfs_vrf_interfaces_interface_new_get(
+	const struct nb_node *nb_node, const void *parent_list_entry, struct lyd_node *parent)
+{
+	const struct lysc_node *snode = nb_node->snode;
+	const struct tvrf *vrf;
+	struct listnode *node;
+	const char *interface;
+	LY_ERR err;
+
+	vrf = listgetdata((struct listnode *)parent_list_entry);
+	for (ALL_LIST_ELEMENTS_RO(vrf->interfaces, node, interface)) {
+		err = lyd_new_term(parent, snode->module, snode->name, interface, false, NULL);
+		assert(err == LY_SUCCESS);
+	}
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-test-module:frr-test-module/vrfs/vrf/routes/route
  */
 static const void *
@@ -215,22 +236,35 @@ static int frr_test_module_vrfs_vrf_ping(struct nb_cb_rpc_args *args)
 	return NB_OK;
 }
 
-/*
- * XPath: /frr-test-module:frr-test-module/c1value
- */
-static struct yang_data *
-frr_test_module_c1value_get_elem(struct nb_cb_get_elem_args *args)
+static struct yang_data *__return_null(struct nb_cb_get_elem_args *args)
 {
-	return yang_data_new_uint8(args->xpath, 21);
+	return NULL;
 }
 
 /*
  * XPath: /frr-test-module:frr-test-module/c2cont/c2value
  */
-static struct yang_data *
-frr_test_module_c2cont_c2value_get_elem(struct nb_cb_get_elem_args *args)
+static enum nb_error frr_test_module_c2cont_c2value_get(const struct nb_node *nb_node,
+							const void *parent_list_entry,
+							struct lyd_node *parent)
 {
-	return yang_data_new_uint32(args->xpath, 0xAB010203);
+	const struct lysc_node *snode = nb_node->snode;
+	uint32_t value = 0xAB010203;
+	LY_ERR err;
+
+	err = lyd_new_term_bin(parent, snode->module, snode->name, &value, sizeof(value),
+			       LYD_NEW_PATH_UPDATE, NULL);
+	assert(err == LY_SUCCESS);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-test-module:frr-test-module/c3value
+ */
+static struct yang_data *frr_test_module_c3value_get_elem(struct nb_cb_get_elem_args *args)
+{
+	return yang_data_new_uint8(args->xpath, 21);
 }
 
 /* clang-format off */
@@ -251,6 +285,10 @@ const struct frr_yang_module_info frr_test_module_info = {
 			.xpath = "/frr-test-module:frr-test-module/vrfs/vrf/interfaces/interface",
 			.cbs.get_elem = frr_test_module_vrfs_vrf_interfaces_interface_get_elem,
 			.cbs.get_next = frr_test_module_vrfs_vrf_interfaces_interface_get_next,
+		},
+		{
+			.xpath = "/frr-test-module:frr-test-module/vrfs/vrf/interfaces/interface-new",
+			.cbs.get = frr_test_module_vrfs_vrf_interfaces_interface_new_get,
 		},
 		{
 			.xpath = "/frr-test-module:frr-test-module/vrfs/vrf/routes/route",
@@ -282,11 +320,19 @@ const struct frr_yang_module_info frr_test_module_info = {
 		},
 		{
 			.xpath = "/frr-test-module:frr-test-module/c1value",
-			.cbs.get_elem = frr_test_module_c1value_get_elem,
+			.cbs.get_elem = __return_null,
 		},
 		{
 			.xpath = "/frr-test-module:frr-test-module/c2cont/c2value",
-			.cbs.get_elem = frr_test_module_c2cont_c2value_get_elem,
+			.cbs.get = frr_test_module_c2cont_c2value_get,
+		},
+		{
+			.xpath = "/frr-test-module:frr-test-module/c3value",
+			.cbs.get_elem = frr_test_module_c3value_get_elem,
+		},
+		{
+			.xpath = "/frr-test-module:frr-test-module/c4cont/c4value",
+			.cbs.get_elem = __return_null,
 		},
 		{
 			.xpath = NULL,
@@ -426,7 +472,7 @@ static void vty_do_exit(int isexit)
 	yang_terminate();
 	event_master_free(master);
 
-	log_memstats(stderr, "test-nb-oper-data");
+	log_memstats(NULL, true);
 	if (!isexit)
 		exit(0);
 }
@@ -459,7 +505,8 @@ int main(int argc, char **argv)
 	cmd_hostname_set("test");
 	vty_init(master, false);
 	lib_cmd_init();
-	nb_init(master, modules, array_size(modules), false);
+	debug_init();
+	nb_init(master, modules, array_size(modules), false, false);
 
 	install_element(ENABLE_NODE, &test_rpc_cmd);
 

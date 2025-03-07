@@ -189,7 +189,7 @@ read_fpm_msg(char *buf, size_t buf_len)
 			fprintf(stderr,
 				"Read %lu bytes but expected to read %lu bytes instead\n",
 				bytes_read, need_len);
-			return NULL;
+			continue;
 		}
 
 		if (reading_full_msg)
@@ -756,8 +756,10 @@ static void fpm_serve(void)
 	while (1) {
 
 		hdr = read_fpm_msg(buf, sizeof(buf));
-		if (!hdr)
+		if (!hdr) {
+			close(glob->sock);
 			return;
+		}
 
 		process_fpm_msg(hdr);
 	}
@@ -768,6 +770,8 @@ int main(int argc, char **argv)
 	pid_t daemon;
 	int r;
 	bool fork_daemon = false;
+
+	setbuf(stdout, NULL);
 
 	memset(glob, 0, sizeof(*glob));
 

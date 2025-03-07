@@ -13,7 +13,6 @@
 #include "network.h"
 
 #include "pimd.h"
-#include "pim_instance.h"
 #include "pim_pim.h"
 #include "pim_time.h"
 #include "pim_iface.h"
@@ -139,7 +138,7 @@ static bool pim_pkt_dst_addr_ok(enum pim_msg_type type, pim_addr addr)
 }
 
 int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
-		   pim_sgaddr sg)
+		   pim_sgaddr sg, bool is_mcast)
 {
 	struct iovec iov[2], *iovp = iov;
 #if PIM_IPV == 4
@@ -150,6 +149,9 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 	uint32_t pim_msg_len = 0;
 	uint16_t pim_checksum; /* received checksum */
 	uint16_t checksum;     /* computed checksum */
+	struct pim_interface *pim_ifp = ifp->info;
+	struct prefix src_prefix;
+	struct prefix_list *nbr_plist = NULL;
 	struct pim_neighbor *neigh;
 	struct pim_msg_header *header;
 	bool   no_fwd;
@@ -203,6 +205,41 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 			zlog_debug(
 				"Ignoring PIM pkt from %s with unsupported version: %d",
 				ifp->name, header->ver);
+		return -1;
+	}
+
+	switch (header->type) {
+	case PIM_MSG_TYPE_HELLO:
+	case PIM_MSG_TYPE_JOIN_PRUNE:
+	case PIM_MSG_TYPE_ASSERT:
+		if (pim_ifp == NULL || pim_ifp->nbr_plist == NULL)
+			break;
+
+		nbr_plist = prefix_list_lookup(PIM_AFI, pim_ifp->nbr_plist);
+
+#if PIM_IPV == 4
+		src_prefix.family = AF_INET;
+		src_prefix.prefixlen = IPV4_MAX_BITLEN;
+		src_prefix.u.prefix4 = sg.src;
+#else
+		src_prefix.family = AF_INET6;
+		src_prefix.prefixlen = IPV6_MAX_BITLEN;
+		src_prefix.u.prefix6 = sg.src;
+#endif
+
+		if (nbr_plist &&
+		    prefix_list_apply_ext(nbr_plist, NULL, &src_prefix, true) == PREFIX_PERMIT)
+			break;
+
+#if PIM_IPV == 4
+		if (PIM_DEBUG_PIM_PACKETS)
+			zlog_debug("neighbor filter rejects packet %pI4 -> %pI4 on %s",
+				   &ip_hdr->ip_src, &ip_hdr->ip_dst, ifp->name);
+#else
+		if (PIM_DEBUG_PIM_PACKETS)
+			zlog_debug("neighbor filter rejects packet %pI6 -> %pI6 on %s", &sg.src,
+				   &sg.grp, ifp->name);
+#endif
 		return -1;
 	}
 
@@ -274,6 +311,22 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 		return -1;
 	}
 
+	if (!is_mcast) {
+		if (header->type == PIM_MSG_TYPE_CANDIDATE) {
+			if (PIM_DEBUG_PIM_PACKETS)
+				zlog_debug("%s %s: Candidate RP PIM message from  %pPA on %s",
+					   __FILE__, __func__, &sg.src,
+					   ifp->name);
+
+			return pim_crp_process(ifp, &sg, pim_msg, pim_msg_len);
+		}
+
+		if (PIM_DEBUG_PIM_PACKETS)
+			zlog_debug(
+				"ignoring link traffic on BSR unicast socket");
+		return -1;
+	}
+
 	switch (header->type) {
 	case PIM_MSG_TYPE_HELLO:
 		return pim_hello_recv(ifp, sg.src, pim_msg + PIM_MSG_HEADER_LEN,
@@ -322,6 +375,13 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 		return pim_bsm_process(ifp, &sg, pim_msg, pim_msg_len, no_fwd);
 		break;
 
+	case PIM_MSG_TYPE_CANDIDATE:
+		/* return pim_crp_process(ifp, &sg, pim_msg, pim_msg_len); */
+		if (PIM_DEBUG_PIM_PACKETS)
+			zlog_debug(
+				"ignoring Candidate-RP packet on multicast socket");
+		return 0;
+
 	default:
 		if (PIM_DEBUG_PIM_PACKETS) {
 			zlog_debug(
@@ -332,13 +392,9 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 	}
 }
 
-static void pim_sock_read_on(struct interface *ifp);
-
-static void pim_sock_read(struct event *t)
+int pim_sock_read_helper(int fd, struct pim_instance *pim, bool is_mcast)
 {
-	struct interface *ifp, *orig_ifp;
-	struct pim_interface *pim_ifp;
-	int fd;
+	struct interface *ifp = NULL;
 	struct sockaddr_storage from;
 	struct sockaddr_storage to;
 	socklen_t fromlen = sizeof(from);
@@ -346,16 +402,9 @@ static void pim_sock_read(struct event *t)
 	uint8_t buf[PIM_PIM_BUFSIZE_READ];
 	int len;
 	ifindex_t ifindex = -1;
-	int result = -1; /* defaults to bad */
-	static long long count = 0;
-	int cont = 1;
+	int i;
 
-	orig_ifp = ifp = EVENT_ARG(t);
-	fd = EVENT_FD(t);
-
-	pim_ifp = ifp->info;
-
-	while (cont) {
+	for (i = 0; i < router->packet_process; i++) {
 		pim_sgaddr sg;
 
 		len = pim_socket_recvfromto(fd, buf, sizeof(buf), &from,
@@ -369,7 +418,7 @@ static void pim_sock_read(struct event *t)
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug("Received errno: %d %s", errno,
 					   safe_strerror(errno));
-			goto done;
+			return -1;
 		}
 
 		/*
@@ -378,14 +427,21 @@ static void pim_sock_read(struct event *t)
 		 * the right ifindex, so just use it.  We know
 		 * it's the right interface because we bind to it
 		 */
-		ifp = if_lookup_by_index(ifindex, pim_ifp->pim->vrf->vrf_id);
-		if (!ifp || !ifp->info) {
+		if (pim != NULL)
+			ifp = if_lookup_by_index(ifindex, pim->vrf->vrf_id);
+
+		/*
+		 * unicast BSM pkts (C-RP) may arrive on non pim interfaces
+		 * mcast pkts are only expected in pim interfaces
+		 */
+		if (!ifp || (is_mcast && !ifp->info)) {
 			if (PIM_DEBUG_PIM_PACKETS)
-				zlog_debug(
-					"%s: Received incoming pim packet on interface(%s:%d) not yet configured for pim",
-					__func__, ifp ? ifp->name : "Unknown",
-					ifindex);
-			goto done;
+				zlog_debug("%s: Received incoming pim packet on interface(%s:%d)%s",
+					   __func__,
+					   ifp ? ifp->name : "Unknown", ifindex,
+					   is_mcast ? " not yet configured for pim"
+						    : "");
+			return -1;
 		}
 #if PIM_IPV == 4
 		sg.src = ((struct sockaddr_in *)&from)->sin_addr;
@@ -395,27 +451,34 @@ static void pim_sock_read(struct event *t)
 		sg.grp = ((struct sockaddr_in6 *)&to)->sin6_addr;
 #endif
 
-		int fail = pim_pim_packet(ifp, buf, len, sg);
+		int fail = pim_pim_packet(ifp, buf, len, sg, is_mcast);
 		if (fail) {
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug("%s: pim_pim_packet() return=%d",
 					   __func__, fail);
-			goto done;
+			return -1;
 		}
-
-		count++;
-		if (count % router->packet_process == 0)
-			cont = 0;
 	}
+	return 0;
+}
 
-	result = 0; /* good */
+static void pim_sock_read_on(struct interface *ifp);
 
-done:
-	pim_sock_read_on(orig_ifp);
+static void pim_sock_read(struct event *t)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+	int fd;
 
-	if (result) {
+	ifp = EVENT_ARG(t);
+	fd = EVENT_FD(t);
+
+	pim_ifp = ifp->info;
+
+	if (pim_sock_read_helper(fd, pim_ifp->pim, true) == 0)
 		++pim_ifp->pim_ifstat_hello_recvfail;
-	}
+
+	pim_sock_read_on(ifp);
 }
 
 static void pim_sock_read_on(struct interface *ifp)
@@ -636,17 +699,15 @@ static int pim_msg_send_frame(pim_addr src, pim_addr dst, ifindex_t ifindex,
 int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 		 int pim_msg_size, struct interface *ifp)
 {
-	struct pim_interface *pim_ifp;
+	if (ifp) {
+		struct pim_interface *pim_ifp = ifp->info;
 
-
-	pim_ifp = ifp->info;
-
-	if (pim_ifp->pim_passive_enable) {
-		if (PIM_DEBUG_PIM_PACKETS)
-			zlog_debug(
-				"skip sending PIM message on passive interface %s",
-				ifp->name);
-		return 0;
+		if (pim_ifp->pim_passive_enable) {
+			if (PIM_DEBUG_PIM_PACKETS)
+				zlog_debug("skip sending PIM message on passive interface %s",
+					   ifp->name);
+			return 0;
+		}
 	}
 
 #if PIM_IPV == 4
@@ -710,7 +771,7 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 
 	if (PIM_DEBUG_PIM_PACKETS)
 		zlog_debug("%s: to %pPA on %s: msg_size=%d checksum=%x",
-			   __func__, &dst, ifp->name, pim_msg_size,
+			   __func__, &dst, ifp ? ifp->name : "*", pim_msg_size,
 			   header->checksum);
 
 	if (PIM_DEBUG_PIM_PACKETDUMP_SEND) {
@@ -718,7 +779,7 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 	}
 
 	pim_msg_send_frame(fd, (char *)buffer, sendlen, (struct sockaddr *)&to,
-			   tolen, ifp->name);
+			   tolen, ifp ? ifp->name : "*");
 	return 0;
 
 #else
@@ -727,7 +788,7 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 	iovector[0].iov_base = pim_msg;
 	iovector[0].iov_len = pim_msg_size;
 
-	pim_msg_send_frame(src, dst, ifp->ifindex, &iovector[0], fd);
+	pim_msg_send_frame(src, dst, ifp ? ifp->ifindex : 0, &iovector[0], fd);
 
 	return 0;
 #endif

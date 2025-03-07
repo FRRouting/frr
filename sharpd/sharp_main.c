@@ -65,9 +65,18 @@ static void sharp_global_init(void)
 	sg.srv6_locators = list_new();
 }
 
+static void sharp_srv6_locators_list_delete(void *item)
+{
+	struct sharp_srv6_locator *loc = item;
+
+	list_delete(&loc->chunks);
+}
+
 static void sharp_global_destroy(void)
 {
 	list_delete(&sg.nhs);
+
+	sg.srv6_locators->del = sharp_srv6_locators_list_delete;
 	list_delete(&sg.srv6_locators);
 }
 

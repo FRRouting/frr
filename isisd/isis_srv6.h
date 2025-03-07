@@ -16,8 +16,7 @@
 #define ISIS_DEFAULT_SRV6_MAX_SEG_LEFT_MSD        3
 #define ISIS_DEFAULT_SRV6_MAX_END_POP_MSD         3
 #define ISIS_DEFAULT_SRV6_MAX_H_ENCAPS_MSD        2
-#define ISIS_DEFAULT_SRV6_MAX_END_D_MSD           5
-#define ISIS_DEFAULT_SRV6_IFNAME                 "sr0"
+#define ISIS_DEFAULT_SRV6_MAX_END_D_MSD		  5
 
 /* SRv6 SID structure */
 struct isis_srv6_sid_structure {
@@ -44,7 +43,7 @@ struct isis_srv6_sid {
 	struct isis_srv6_sid_structure structure;
 
 	/* Parent SRv6 locator */
-	struct srv6_locator_chunk *locator;
+	struct srv6_locator *locator;
 
 	/* Backpointer to IS-IS area */
 	struct isis_area *area;
@@ -89,7 +88,7 @@ struct srv6_adjacency {
 	struct isis_srv6_sid_structure structure;
 
 	/* Parent SRv6 locator */
-	struct srv6_locator_chunk *locator;
+	struct srv6_locator *locator;
 
 	/* Adjacency-SID nexthop information */
 	struct in6_addr nexthop;
@@ -109,6 +108,8 @@ struct srv6_adjacency {
 
 /* Per-area IS-IS SRv6 Data Base (SRv6 DB) */
 struct isis_srv6_db {
+	/* List of SRv6 Locator */
+	struct srv6_locator *srv6_locator;
 
 	/* List of SRv6 Locator chunks */
 	struct list *srv6_locator_chunks;
@@ -149,10 +150,12 @@ bool isis_srv6_locator_unset(struct isis_area *area);
 void isis_srv6_interface_set(struct isis_area *area, const char *ifname);
 
 struct isis_srv6_sid *
-isis_srv6_sid_alloc(struct isis_area *area, struct srv6_locator_chunk *chunk,
+isis_srv6_sid_alloc(struct isis_area *area, struct srv6_locator *locator,
 		    enum srv6_endpoint_behavior_codepoint behavior,
-		    int sid_func);
+		    struct in6_addr *sid_value);
 extern void isis_srv6_sid_free(struct isis_srv6_sid *sid);
+
+void isis_srv6_locators_request(void);
 
 extern void isis_srv6_area_init(struct isis_area *area);
 extern void isis_srv6_area_term(struct isis_area *area);
@@ -169,8 +172,8 @@ void isis_srv6_locator2tlv(const struct isis_srv6_locator *loc,
 			   struct isis_srv6_locator_tlv *loc_tlv);
 
 void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup,
-			      struct list *nexthops);
-void srv6_endx_sid_add(struct isis_adjacency *adj);
+			      struct list *nexthops, struct in6_addr *sid_value);
+void srv6_endx_sid_add(struct isis_adjacency *adj, struct in6_addr *sid_value);
 void srv6_endx_sid_del(struct srv6_adjacency *sra);
 struct srv6_adjacency *isis_srv6_endx_sid_find(struct isis_adjacency *adj,
 					       enum srv6_adj_type type);

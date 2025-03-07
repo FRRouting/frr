@@ -140,8 +140,12 @@ def router_json_cmp_exact_filter(router, cmd, expected):
 
     # filter out tableVersion, version and nhVrfID
     json_output.pop("tableVersion")
+    if "totalRoutes" in json_output:
+        json_output.pop("totalRoutes")
+    if "totalPaths" in json_output:
+        json_output.pop("totalPaths")
     for rd, data in json_output["routes"]["routeDistinguishers"].items():
-        for prefix, attrs in data.items():
+        for _, attrs in data.items():
             for attr in attrs:
                 if "nhVrfId" in attr:
                     attr.pop("nhVrfId")
@@ -163,15 +167,21 @@ def router_vrf_json_cmp_exact_filter(router, cmd, expected):
 
     json_output = json.loads(output)
 
+    print(json_output)
+
     # filter out tableVersion, version, nhVrfId and vrfId
     for vrf, data in json_output.items():
         if "vrfId" in data:
             data.pop("vrfId")
         if "tableVersion" in data:
             data.pop("tableVersion")
+        if "totalRoutes" in data:
+            data.pop("totalRoutes")
+        if "totalPaths" in data:
+            data.pop("totalPaths")
         if "routes" not in data:
             continue
-        for route, attrs in data["routes"].items():
+        for _, attrs in data["routes"].items():
             for attr in attrs:
                 if "nhVrfId" in attr:
                     attr.pop("nhVrfId")
@@ -203,7 +213,30 @@ def check_show_bgp_ipv4_vpn(rname, json_file):
         "show bgp ipv4 vpn json",
         expected,
     )
-    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assertmsg = '"{}" JSON output mismatches'.format(router.name)
+    assert result is None, assertmsg
+
+
+def check_show_bgp_ipv4_vpn_peer_advertised_routes(rname, peer, json_file):
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears[rname]
+
+    logger.info(
+        "Checking VPNv4 advertised routes for on {} for peer {}".format(rname, peer)
+    )
+
+    json_file = "{}/{}/{}".format(CWD, router.name, json_file)
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp,
+        router,
+        "show bgp ipv4 vpn neighbors {} advertised-routes detail json".format(peer),
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assertmsg = '"{}" JSON output mismatches'.format(router.name)
     assert result is None, assertmsg
 
@@ -224,7 +257,7 @@ def check_show_bgp_vrf_ipv4(rname, json_file):
         "show bgp vrf all ipv4 unicast json",
         expected,
     )
-    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assertmsg = '"{}" JSON output mismatches'.format(router.name)
     assert result is None, assertmsg
 
@@ -248,7 +281,7 @@ def test_protocols_convergence_step0():
         "show bgp ipv4 vpn summary json",
         expected,
     )
-    _, result = topotest.run_and_expect(test_func, None, count=20, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assertmsg = '"{}" JSON output mismatches'.format(router.name)
     assert result is None, assertmsg
 
@@ -551,6 +584,21 @@ router bgp 65500
     check_show_bgp_ipv4_vpn("r2", "ipv4_vpn_routes_all.json")
 
     check_show_bgp_vrf_ipv4(rname, "ipv4_vrf_all_routes_init.json")
+
+
+def test_bgp_advertised_routes_step13():
+    """
+    Dump advertised routes from r1 to r2
+    Check that the localpref attribute is set on the show command
+    """
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    check_show_bgp_ipv4_vpn_peer_advertised_routes(
+        "r1", "10.125.0.2", "ipv4_vpn_routes_advertised_10_125_0_2.json"
+    )
 
 
 def test_memory_leak():

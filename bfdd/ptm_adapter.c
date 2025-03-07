@@ -70,10 +70,10 @@ static void bfdd_client_deregister(struct stream *msg);
 PRINTFRR(2, 3)
 static void debug_printbpc(const struct bfd_peer_cfg *bpc, const char *fmt, ...)
 {
-	char timers[3][128] = {};
+	char timers[3][160] = {};
 	char minttl_str[32] = {};
-	char addr[3][128] = {};
-	char profile[128] = {};
+	char addr[3][160] = {};
+	char profile[160] = {};
 	char cbit_str[32];
 	char msgbuf[512];
 	va_list vl;
@@ -134,7 +134,9 @@ static void _ptm_bfd_session_del(struct bfd_session *bs, uint8_t diag)
 	/* Change state and notify peer. */
 	bs->ses_state = PTM_BFD_DOWN;
 	bs->local_diag = diag;
-	ptm_bfd_snd(bs, 0);
+
+	if (bs->bfd_mode == BFD_MODE_TYPE_BFD)
+		ptm_bfd_snd(bs, 0);
 
 	/* Session reached refcount == 0, lets delete it. */
 	if (bs->refcount == 0) {
@@ -148,7 +150,6 @@ static void _ptm_bfd_session_del(struct bfd_session *bs, uint8_t diag)
 				"ptm-del-session: [%s] session refcount is zero but it was configured by CLI",
 				bs_to_string(bs));
 		} else {
-			control_notify_config(BCM_NOTIFY_CONFIG_DELETE, bs);
 			bfd_session_free(bs);
 		}
 	}
@@ -201,6 +202,8 @@ int ptm_bfd_notify(struct bfd_session *bs, uint8_t notify_state)
 	 *     - 16 bytes: ipv6
 	 *   - c: prefix length
 	 * - c: cbit
+	 * - c: bfd name len
+	 * - Xbytes: bfd name
 	 *
 	 * Commands: ZEBRA_BFD_DEST_REPLAY
 	 *
@@ -239,9 +242,12 @@ int ptm_bfd_notify(struct bfd_session *bs, uint8_t notify_state)
 
 	case PTM_BFD_DOWN:
 	case PTM_BFD_INIT:
-		stream_putl(msg, BFD_STATUS_DOWN);
-		break;
+		if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN))
+			stream_putl(msg, BFD_STATUS_ADMIN_DOWN);
+		else
+			stream_putl(msg, BFD_STATUS_DOWN);
 
+		break;
 	default:
 		stream_putl(msg, BFD_STATUS_UNKNOWN);
 		break;
@@ -251,6 +257,9 @@ int ptm_bfd_notify(struct bfd_session *bs, uint8_t notify_state)
 	_ptm_msg_address(msg, bs->key.family, &bs->key.local);
 
 	stream_putc(msg, bs->remote_cbit);
+
+	stream_putc(msg, strlen(bs->bfd_name));
+	stream_put(msg, bs->bfd_name, strlen(bs->bfd_name));
 
 	/* Write packet size. */
 	stream_putw_at(msg, 0, stream_get_endp(msg));
@@ -892,7 +901,7 @@ static struct ptm_client *pc_new(uint32_t pid)
 		return pc;
 
 	/* Allocate the client data and save it. */
-	pc = XCALLOC(MTYPE_BFDD_CONTROL, sizeof(*pc));
+	pc = XCALLOC(MTYPE_BFDD_CLIENT, sizeof(*pc));
 
 	pc->pc_pid = pid;
 	TAILQ_INSERT_HEAD(&pcqueue, pc, pc_entry);
@@ -910,7 +919,7 @@ static void pc_free(struct ptm_client *pc)
 		pcn_free(pcn);
 	}
 
-	XFREE(MTYPE_BFDD_CONTROL, pc);
+	XFREE(MTYPE_BFDD_CLIENT, pc);
 }
 
 static void pc_free_all(void)
@@ -934,7 +943,7 @@ static struct ptm_client_notification *pcn_new(struct ptm_client *pc,
 		return pcn;
 
 	/* Save the client notification data. */
-	pcn = XCALLOC(MTYPE_BFDD_NOTIFICATION, sizeof(*pcn));
+	pcn = XCALLOC(MTYPE_BFDD_CLIENT_NOTIFICATION, sizeof(*pcn));
 
 	TAILQ_INSERT_HEAD(&pc->pc_pcnqueue, pcn, pcn_entry);
 	pcn->pcn_pc = pc;
@@ -982,5 +991,5 @@ static void pcn_free(struct ptm_client_notification *pcn)
 	pcn->pcn_pc = NULL;
 	TAILQ_REMOVE(&pc->pc_pcnqueue, pcn, pcn_entry);
 
-	XFREE(MTYPE_BFDD_NOTIFICATION, pcn);
+	XFREE(MTYPE_BFDD_CLIENT_NOTIFICATION, pcn);
 }

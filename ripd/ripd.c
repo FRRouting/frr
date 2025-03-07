@@ -1051,7 +1051,7 @@ static size_t rip_auth_md5_ah_write(struct stream *s, struct rip_interface *ri,
 	/* RFC2080: The value used in the sequence number is
 	   arbitrary, but two suggestions are the time of the
 	   message's creation or a simple message counter. */
-	stream_putl(s, ++seq);
+	stream_putl(s, seq++);
 
 	/* Reserved field must be zero. */
 	stream_putl(s, 0);
@@ -1263,9 +1263,13 @@ static void rip_response_process(struct rip_packet *packet, int size,
 					       rip->vrf->vrf_id)) {
 				struct route_node *rn;
 				struct rip_info *rinfo;
+				struct prefix p = { 0 };
 
-				rn = route_node_match_ipv4(rip->table,
-							   &rte->nexthop);
+				p.family = AF_INET;
+				p.prefixlen = IPV4_MAX_BITLEN;
+				p.u.prefix4 = rte->nexthop;
+
+				rn = route_node_match(rip->table, &p);
 
 				if (rn) {
 					rinfo = rn->info;
@@ -3054,7 +3058,10 @@ DEFUN (show_ip_rip,
 	}
 
 	vty_out(vty,
-		"Codes: R - RIP, C - connected, S - Static, O - OSPF, B - BGP\n"
+		"Codes: K - kernel route, C - connected, L - local, S - static,\n"
+		"       R - RIP, O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,\n"
+		"       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,\n"
+		"       f - OpenFabric, t - Table-Direct\n"
 		"Sub-codes:\n"
 		"      (n) - normal, (s) - static, (d) - default, (r) - redistribute,\n"
 		"      (i) - interface\n\n"

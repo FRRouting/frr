@@ -31,7 +31,8 @@
                               "gateway": "",
                               "interface": "r1-eth0",
                               "active": [null],
-                              "fib": [null]
+                              "fib": [null],
+                              "weight":1
                             }
                           ]
                         }

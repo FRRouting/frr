@@ -147,15 +147,10 @@ void ospf_process_refresh_data(struct ospf *ospf, bool reset)
 
 	/* Select the router ID based on these priorities:
 	     1. Statically assigned router ID is always the first choice.
-	     2. If there is no statically assigned router ID, then try to stick
-		with the most recent value, since changing router ID's is very
-		disruptive.
-	     3. Last choice: just go with whatever the zebra daemon recommends.
+	     2. Just go with whatever the zebra daemon recommends.
 	*/
 	if (ospf->router_id_static.s_addr != INADDR_ANY)
 		router_id = ospf->router_id_static;
-	else if (ospf->router_id.s_addr != INADDR_ANY)
-		router_id = ospf->router_id;
 	else
 		router_id = ospf->router_id_zebra;
 
@@ -848,7 +843,7 @@ static void ospf_finish_final(struct ospf *ospf)
 	ospf_distance_reset(ospf);
 	route_table_finish(ospf->distance_table);
 
-	/* Release extrenal Aggregator table */
+	/* Release external Aggregator table */
 	for (rn = route_top(ospf->rt_aggr_tbl); rn; rn = route_next(rn)) {
 		struct ospf_external_aggr_rt *aggr;
 
@@ -1097,6 +1092,15 @@ struct ospf_interface *add_ospf_interface(struct connected *co,
 	oi->ptp_dmvpn = IF_DEF_PARAMS(co->ifp)->ptp_dmvpn;
 	oi->p2mp_delay_reflood = IF_DEF_PARAMS(co->ifp)->p2mp_delay_reflood;
 	oi->p2mp_non_broadcast = IF_DEF_PARAMS(co->ifp)->p2mp_non_broadcast;
+
+	/*
+	 * If a neighbor filter is configured, update the neighbor filter
+	 * for the interface.
+	 */
+	if (OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(co->ifp), nbr_filter_name))
+		oi->nbr_filter = prefix_list_lookup(AFI_IP,
+						    IF_DEF_PARAMS(co->ifp)
+							    ->nbr_filter_name);
 
 	/* Add pseudo neighbor. */
 	ospf_nbr_self_reset(oi, oi->ospf->router_id);

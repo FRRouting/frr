@@ -34,16 +34,17 @@ tib_sg_oil_setup(struct pim_instance *pim, pim_sgaddr sg, struct interface *oif)
 
 	up = pim_upstream_find(pim, &sg);
 	if (up) {
-		memcpy(&nexthop, &up->rpf.source_nexthop,
-		       sizeof(struct pim_nexthop));
-		(void)pim_ecmp_nexthop_lookup(pim, &nexthop, vif_source, &grp,
-					      0);
+		memcpy(&nexthop, &up->rpf.source_nexthop, sizeof(struct pim_nexthop));
+		if (!pim_nht_lookup_ecmp(pim, &nexthop, vif_source, &grp, false))
+			if (PIM_DEBUG_PIM_NHT_RP)
+				zlog_debug("%s: Nexthop Lookup failed vif_src:%pPA, sg.src:%pPA, sg.grp:%pPA",
+					   __func__, &vif_source, &sg.src, &sg.grp);
+
 		if (nexthop.interface)
 			input_iface_vif_index = pim_if_find_vifindex_by_ifindex(
 				pim, nexthop.interface->ifindex);
 	} else
-		input_iface_vif_index =
-			pim_ecmp_fib_lookup_if_vif_index(pim, vif_source, &grp);
+		input_iface_vif_index = pim_nht_lookup_ecmp_if_vif_index(pim, vif_source, &grp);
 
 	if (PIM_DEBUG_ZEBRA)
 		zlog_debug("%s: NHT %pSG vif_source %pPAs vif_index:%d",
@@ -78,6 +79,31 @@ tib_sg_oil_setup(struct pim_instance *pim, pim_sgaddr sg, struct interface *oif)
 	return pim_channel_oil_add(pim, &sg, __func__);
 }
 
+void tib_sg_proxy_join_prune_check(struct pim_instance *pim, pim_sgaddr sg,
+				   struct interface *oif, bool join)
+{
+	struct interface *ifp;
+
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		struct pim_interface *pim_ifp = ifp->info;
+
+		if (!pim_ifp)
+			continue;
+
+		if (ifp == oif) /* skip the source interface */
+			continue;
+
+		if (pim_ifp->gm_enable && pim_ifp->gm_proxy) {
+			if (join)
+				pim_if_gm_join_add(ifp, sg.grp, sg.src,
+						   GM_JOIN_PROXY);
+			else
+				pim_if_gm_join_del(ifp, sg.grp, sg.src,
+						   GM_JOIN_PROXY);
+		}
+	} /* scan interfaces */
+}
+
 bool tib_sg_gm_join(struct pim_instance *pim, pim_sgaddr sg,
 		    struct interface *oif, struct channel_oil **oilp)
 {
@@ -94,6 +120,8 @@ bool tib_sg_gm_join(struct pim_instance *pim, pim_sgaddr sg,
 		*oilp = tib_sg_oil_setup(pim, sg, oif);
 	if (!*oilp)
 		return false;
+
+	tib_sg_proxy_join_prune_check(pim, sg, oif, true);
 
 	if (PIM_I_am_DR(pim_oif) || PIM_I_am_DualActive(pim_oif)) {
 		int result;
@@ -137,6 +165,8 @@ void tib_sg_gm_prune(struct pim_instance *pim, pim_sgaddr sg,
 {
 	int result;
 
+	tib_sg_proxy_join_prune_check(pim, sg, oif, false);
+
 	/*
 	 It appears that in certain circumstances that
 	 igmp_source_forward_stop is called when IGMP forwarding
@@ -147,7 +177,14 @@ void tib_sg_gm_prune(struct pim_instance *pim, pim_sgaddr sg,
 	 Making the call to pim_channel_del_oif and ignoring the return code
 	 fixes the issue without ill effect, similar to
 	 pim_forward_stop below.
+
+	 Also on shutdown when the PIM upstream is removed the channel removal
+	 may have already happened, so just return here instead of trying to
+	 access an invalid pointer.
 	*/
+	if (pim->stopping)
+		return;
+
 	result = pim_channel_del_oif(*oilp, oif, PIM_OIF_FLAG_PROTO_GM,
 				     __func__);
 	if (result) {
@@ -164,5 +201,5 @@ void tib_sg_gm_prune(struct pim_instance *pim, pim_sgaddr sg,
 	 */
 	pim_ifchannel_local_membership_del(oif, &sg);
 
-	pim_channel_oil_del(*oilp, __func__);
+	*oilp = pim_channel_oil_del(*oilp, __func__);
 }

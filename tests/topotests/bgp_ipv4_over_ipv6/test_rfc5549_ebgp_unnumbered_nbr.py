@@ -23,7 +23,7 @@ sys.path.append(os.path.join(CWD, "../../"))
 
 
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 
 from lib.common_config import (
     write_test_header,
@@ -670,7 +670,7 @@ def test_configure_gua_on_unnumbered_intf(request):
                 {
                     "nexthops": [
                         {
-                            "ip": "::ffff:a00:501",
+                            "ip": "::ffff:10.0.5.1",
                             "hostname": "r1",
                             "afi": "ipv6",
                             "scope": "global",
@@ -688,6 +688,9 @@ def test_configure_gua_on_unnumbered_intf(request):
         interface r1-r2-eth5
         ipv6 address 5001:dead:beef::1/126
         !
+        router bgp
+        ! Disable link-local capability to test if we can send GUA addresses also
+        no neighbor r1-r2-eth5 capability link-local
         """
     )
 
@@ -754,7 +757,7 @@ def test_configure_gua_on_unnumbered_intf(request):
     assert (
         result is None
     ), "Testcase {} : Failed \n Error: Nexthop for prefix 11.0.20.1 \
-    is not ::ffff:a00:501".format(
+    is not ::ffff:10.0.5.1".format(
         tc_name
     )
 

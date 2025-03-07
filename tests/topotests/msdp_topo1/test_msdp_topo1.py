@@ -17,6 +17,7 @@ import os
 import sys
 import json
 from functools import partial
+import re
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -66,7 +67,9 @@ def build_topo(tgen):
 
     # Create a host connected and direct at r4:
     tgen.add_host("h1", "192.168.4.100/24", "via 192.168.4.1")
+    tgen.add_host("h3", "192.168.4.120/24", "via 192.168.4.1")
     switch.add_link(tgen.gears["h1"])
+    switch.add_link(tgen.gears["h3"])
 
     # Create a host connected and direct at r1:
     switch = tgen.add_switch("s6")
@@ -82,7 +85,6 @@ def setup_module(mod):
 
     router_list = tgen.routers()
     for rname, router in router_list.items():
-
         daemon_file = "{}/{}/zebra.conf".format(CWD, rname)
         if os.path.isfile(daemon_file):
             router.load_config(TopoRouter.RD_ZEBRA, daemon_file)
@@ -359,7 +361,7 @@ def test_msdp():
             "192.168.10.100": {
                 "source": "192.168.10.100",
                 "group": "229.1.2.3",
-                "rp": "192.168.1.1",
+                "rp": "10.254.254.1",
                 "local": "no",
                 "sptSetup": "no",
             }
@@ -394,7 +396,7 @@ def test_msdp():
             "192.168.10.100": {
                 "source": "192.168.10.100",
                 "group": "229.1.2.3",
-                "rp": "192.168.1.1",
+                "rp": "10.254.254.1",
                 "local": "no",
                 "sptSetup": "yes",
             }
@@ -424,6 +426,185 @@ def test_msdp():
             router[2],
         )
         logger.info("Waiting for {} msdp SA data".format(router[0]))
+        _, val = topotest.run_and_expect(test_func, None, count=30, wait=1)
+        assert val is None, "multicast route convergence failure"
+
+
+def test_msdp_sa_filter():
+    "Start a number of multicast streams and check if filtering works"
+
+    tgen = get_topogen()
+
+    # Flow from r1 -> r4
+    for multicast_address in ["229.2.1.1", "229.2.1.2", "229.2.2.1"]:
+        app_helper.run("h1", [multicast_address, "h1-eth0"])
+        app_helper.run("h2", ["--send=0.7", multicast_address, "h2-eth0"])
+
+    # Flow from r4 -> r1
+    for multicast_address in ["229.3.1.1", "229.3.1.2", "229.3.2.1"]:
+        app_helper.run("h1", ["--send=0.7", multicast_address, "h1-eth0"])
+        app_helper.run("h2", [multicast_address, "h2-eth0"])
+
+    # Flow from r4 -> r1 but with more sources
+    for multicast_address in ["229.10.1.1", "229.11.1.1"]:
+        app_helper.run("h1", ["--send=0.7", multicast_address, "h1-eth0"])
+        app_helper.run("h2", [multicast_address, "h2-eth0"])
+        app_helper.run("h3", ["--send=0.7", multicast_address, "h3-eth0"])
+
+    # Test that we don't learn any filtered multicast streams.
+    r4_sa_expected = {
+        "229.2.1.1": None,
+        "229.2.1.2": None,
+        "229.2.2.1": {
+            "192.168.10.100": {
+                "local": "no",
+                "sptSetup": "yes",
+            }
+        },
+    }
+    test_func = partial(
+        topotest.router_json_cmp,
+        tgen.gears["r4"],
+        "show ip msdp sa json",
+        r4_sa_expected,
+    )
+    logger.info("Waiting for r4 MDSP SA data")
+    _, val = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert val is None, "multicast route convergence failure"
+
+    # Test that we don't send any filtered multicast streams.
+    r1_sa_expected = {
+        "229.3.1.1": None,
+        "229.3.1.2": None,
+        "229.3.2.1": {
+            "192.168.4.100": {
+                "local": "no",
+                "sptSetup": "yes",
+            }
+        },
+        "229.10.1.1": {
+            "192.168.4.100": None,
+            "192.168.4.120": {
+                "local": "no",
+                "sptSetup": "yes",
+            },
+        },
+        "229.11.1.1": {
+            "192.168.4.100": {
+                "local": "no",
+                "sptSetup": "yes",
+            },
+            "192.168.4.120": {
+                "local": "no",
+                "sptSetup": "yes",
+            },
+        },
+    }
+    test_func = partial(
+        topotest.router_json_cmp,
+        tgen.gears["r1"],
+        "show ip msdp sa json",
+        r1_sa_expected,
+    )
+    logger.info("Waiting for r1 MDSP SA data")
+    _, val = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert val is None, "multicast route convergence failure"
+
+
+def test_msdp_sa_limit():
+    "Test MSDP SA limiting."
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tgen.gears["r4"].vtysh_cmd(
+        """
+    configure terminal
+    router pim
+     msdp log sa-events
+     msdp peer 192.168.2.1 sa-limit 4
+     msdp peer 192.168.3.1 sa-limit 4
+    """
+    )
+
+    # Flow from r1 -> r4
+    for multicast_address in [
+        "229.1.2.10",
+        "229.1.2.11",
+        "229.1.2.12",
+        "229.1.2.13",
+        "229.1.2.14",
+    ]:
+        app_helper.run("h1", [multicast_address, "h1-eth0"])
+        app_helper.run("h2", ["--send=0.7", multicast_address, "h2-eth0"])
+
+    def test_sa_limit_log():
+        r4_log = tgen.gears["r4"].net.getLog("log", "pimd")
+        return re.search(r"MSDP peer .+ reject SA (.+, .+): SA limit \d+ of 4", r4_log)
+
+    _, val = topotest.run_and_expect(test_sa_limit_log, None, count=30, wait=1)
+    assert val is None, "SA limit check failed"
+
+
+def test_msdp_log_events():
+    "Test that the enabled logs are working as expected."
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1_log = tgen.gears["r1"].net.getLog("log", "pimd")
+
+    # Look up for informational messages that should have been enabled.
+    match = re.search("MSDP peer 192.168.1.2 state changed to established", r1_log)
+    assert match is not None
+
+    match = re.search(r"MSDP SA \(192.168.10.100\,229.1.2.3\) created", r1_log)
+    assert match is not None
+
+
+def test_msdp_shutdown():
+    "Shutdown MSDP sessions between r1, r2, r3, then check the state."
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tgen.gears["r1"].vtysh_cmd(
+        """
+    configure terminal
+    router pim
+     msdp shutdown
+    """
+    )
+
+    r1_expect = {
+        "192.168.0.2": {
+            "state": "inactive",
+        },
+        "192.168.1.2": {
+            "state": "inactive",
+        },
+    }
+    r2_expect = {
+        "192.168.0.1": {
+            "state": "listen",
+        }
+    }
+    r3_expect = {
+        "192.168.1.1": {
+            "state": "listen",
+        }
+    }
+    for router in [("r1", r1_expect), ("r2", r2_expect), ("r3", r3_expect)]:
+        test_func = partial(
+            topotest.router_json_cmp,
+            tgen.gears[router[0]],
+            "show ip msdp peer json",
+            router[1],
+        )
+        logger.info("Waiting for {} msdp peer data".format(router[0]))
         _, val = topotest.run_and_expect(test_func, None, count=30, wait=1)
         assert val is None, "multicast route convergence failure"
 

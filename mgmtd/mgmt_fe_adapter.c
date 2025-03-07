@@ -9,6 +9,7 @@
 
 #include <zebra.h>
 #include "darr.h"
+#include "frrstr.h"
 #include "sockopt.h"
 #include "network.h"
 #include "libfrr.h"
@@ -30,6 +31,7 @@
 
 #define FOREACH_ADAPTER_IN_LIST(adapter)                                       \
 	frr_each_safe (mgmt_fe_adapters, &mgmt_fe_adapters, (adapter))
+
 
 enum mgmt_session_event {
 	MGMTD_FE_SESSION_CFG_TXN_CLNUP = 1,
@@ -55,6 +57,22 @@ DECLARE_LIST(mgmt_fe_sessions, struct mgmt_fe_session_ctx, list_linkage);
 #define FOREACH_SESSION_IN_LIST(adapter, session)                              \
 	frr_each_safe (mgmt_fe_sessions, &(adapter)->fe_sessions, (session))
 
+/*
+ * A tree for storing unique notify-select strings.
+ */
+PREDECL_RBTREE_UNIQ(ns_string);
+struct ns_string {
+	struct ns_string_item link;
+	struct list *sessions;
+	char s[];
+};
+static uint32_t ns_string_compare(const struct ns_string *ns1, const struct ns_string *ns2);
+DECLARE_RBTREE_UNIQ(ns_string, struct ns_string, link, ns_string_compare);
+
+/* ---------------- */
+/* Global variables */
+/* ---------------- */
+
 static struct event_loop *mgmt_loop;
 static struct msg_server mgmt_fe_server = {.fd = -1};
 
@@ -62,6 +80,89 @@ static struct mgmt_fe_adapters_head mgmt_fe_adapters;
 
 static struct hash *mgmt_fe_sessions;
 static uint64_t mgmt_fe_next_session_id;
+
+static struct ns_string_head mgmt_fe_ns_strings;
+
+/* ------------------------------ */
+/* Notify select string functions */
+/* ------------------------------ */
+
+static uint32_t ns_string_compare(const struct ns_string *ns1, const struct ns_string *ns2)
+{
+	return strcmp(ns1->s, ns2->s);
+}
+
+static void mgmt_fe_free_ns_string(struct ns_string *ns)
+{
+	list_delete(&ns->sessions);
+	XFREE(MTYPE_MGMTD_XPATH, ns);
+}
+
+static void mgmt_fe_free_ns_strings(struct ns_string_head *head)
+{
+	struct ns_string *ns;
+
+	while ((ns = ns_string_pop(head)))
+		mgmt_fe_free_ns_string(ns);
+	ns_string_fini(head);
+}
+
+static uint64_t mgmt_fe_ns_string_remove_session(struct ns_string_head *head,
+						 struct mgmt_fe_session_ctx *session)
+{
+	struct listnode *node;
+	struct ns_string *ns;
+	uint64_t clients = 0;
+
+	frr_each_safe (ns_string, head, ns) {
+		node = listnode_lookup(ns->sessions, session);
+		if (!node)
+			continue;
+		list_delete_node(ns->sessions, node);
+		clients |= mgmt_be_interested_clients(ns->s, MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
+		if (list_isempty(ns->sessions)) {
+			ns_string_del(head, ns);
+			mgmt_fe_free_ns_string(ns);
+		}
+	}
+
+	return clients;
+}
+
+static uint64_t mgmt_fe_add_ns_string(struct ns_string_head *head, const char *path, size_t plen,
+				      struct mgmt_fe_session_ctx *session)
+{
+	struct ns_string *e, *ns;
+	uint64_t clients = 0;
+
+	ns = XCALLOC(MTYPE_MGMTD_XPATH, sizeof(*ns) + plen + 1);
+	strlcpy(ns->s, path, plen + 1);
+
+	e = ns_string_add(head, ns);
+	if (!e) {
+		ns->sessions = list_new();
+		listnode_add(ns->sessions, session);
+		clients = mgmt_be_interested_clients(ns->s, MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
+	} else {
+		XFREE(MTYPE_MGMTD_XPATH, ns);
+		if (!listnode_lookup(e->sessions, session))
+			listnode_add(e->sessions, session);
+	}
+
+	return clients;
+}
+
+char **mgmt_fe_get_all_selectors(void)
+{
+	char **selectors = NULL;
+	struct ns_string *ns;
+
+	frr_each (ns_string, &mgmt_fe_ns_strings, ns)
+		*darr_append(selectors) = darr_strdup(ns->s);
+
+	return selectors;
+}
+
 
 /* Forward declarations */
 static void
@@ -190,7 +291,8 @@ static void mgmt_fe_cleanup_session(struct mgmt_fe_session_ctx **sessionp)
 		assert(session->adapter->refcount > 1);
 		mgmt_fe_adapter_unlock(&session->adapter);
 	}
-
+	mgmt_fe_ns_string_remove_session(&mgmt_fe_ns_strings, session);
+	darr_free_free(session->notify_xpaths);
 	hash_release(mgmt_fe_sessions, session);
 	XFREE(MTYPE_MGMTD_FE_SESSION, session);
 	*sessionp = NULL;
@@ -1164,7 +1266,9 @@ done:
 }
 
 static int fe_adapter_send_edit_reply(struct mgmt_fe_session_ctx *session,
-				      uint64_t req_id, const char *xpath)
+				      uint64_t req_id, bool changed,
+				      bool created, const char *xpath,
+				      const char *data)
 {
 	struct mgmt_msg_edit_reply *msg;
 	int ret;
@@ -1173,14 +1277,19 @@ static int fe_adapter_send_edit_reply(struct mgmt_fe_session_ctx *session,
 					MTYPE_MSG_NATIVE_EDIT_REPLY);
 	msg->refer_id = session->session_id;
 	msg->req_id = req_id;
+	msg->changed = changed;
+	msg->created = created;
 	msg->code = MGMT_MSG_CODE_EDIT_REPLY;
 
 	mgmt_msg_native_xpath_encode(msg, xpath);
 
+	if (data)
+		mgmt_msg_native_append(msg, data, strlen(data) + 1);
+
 	__dbg("Sending edit-reply from adapter %s to session-id %" PRIu64
-	      " req-id %" PRIu64 " len %u",
-	      session->adapter->name, session->session_id, req_id,
-	      mgmt_msg_native_get_msg_len(msg));
+	      " req-id %" PRIu64 " changed %u created %u len %u",
+	      session->adapter->name, session->session_id, req_id, changed,
+	      created, mgmt_msg_native_get_msg_len(msg));
 
 	ret = fe_adapter_send_native_msg(session->adapter, msg,
 					 mgmt_msg_native_get_msg_len(msg),
@@ -1230,8 +1339,8 @@ static void fe_adapter_handle_session_req(struct mgmt_fe_client_adapter *adapter
 	struct mgmt_fe_session_ctx *session;
 	uint64_t client_id;
 
-	__dbg("Got session-req creating: %u for refer-id %" PRIu64 " from '%s'",
-	      msg->refer_id == 0, msg->refer_id, adapter->name);
+	__dbg("Got session-req is create %u req-id %Lu for refer-id %Lu from '%s'",
+	      msg->refer_id == 0, msg->req_id, msg->refer_id, adapter->name);
 
 	if (msg->refer_id) {
 		uint64_t session_id = msg->refer_id;
@@ -1282,8 +1391,7 @@ static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session,
 				       void *__msg, size_t msg_len)
 {
 	struct mgmt_msg_get_data *msg = __msg;
-	struct lysc_node **snodes = NULL;
-	char *xpath_resolved = NULL;
+	const struct lysc_node **snodes = NULL;
 	uint64_t req_id = msg->req_id;
 	Mgmtd__DatastoreId ds_id;
 	uint64_t clients;
@@ -1328,6 +1436,31 @@ static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session,
 		fe_adapter_send_error(session, req_id, false, -EINVAL,
 				      "Invalid defaults value %u for session-id: %" PRIu64,
 				      msg->defaults, session->session_id);
+		goto done;
+	}
+
+	/* Check for yang-library shortcut */
+	if (nb_oper_is_yang_lib_query(msg->xpath)) {
+		struct lyd_node *ylib = NULL;
+		LY_ERR err;
+
+		err = ly_ctx_get_yanglib_data(ly_native_ctx, &ylib, "%u",
+					      ly_ctx_get_change_count(
+						      ly_native_ctx));
+		if (err) {
+			fe_adapter_send_error(session, req_id, false, err,
+					      "Error getting yang-library data, session-id: %" PRIu64
+					      " error: %s",
+					      session->session_id,
+					      ly_last_errmsg());
+		} else {
+			yang_lyd_trim_xpath(&ylib, msg->xpath);
+			(void)fe_adapter_send_tree_data(session, req_id, false,
+							msg->result_type,
+							wd_options, ylib, 0);
+		}
+		if (ylib)
+			lyd_free_all(ylib);
 		goto done;
 	}
 
@@ -1395,7 +1528,6 @@ static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session,
 	}
 done:
 	darr_free(snodes);
-	darr_free(xpath_resolved);
 }
 
 static void fe_adapter_handle_edit(struct mgmt_fe_session_ctx *session,
@@ -1408,7 +1540,12 @@ static void fe_adapter_handle_edit(struct mgmt_fe_session_ctx *session,
 	bool lock, commit;
 	int ret;
 
-	if (msg->datastore != MGMT_MSG_DATASTORE_CANDIDATE) {
+	lock = CHECK_FLAG(msg->flags, EDIT_FLAG_IMPLICIT_LOCK);
+	commit = CHECK_FLAG(msg->flags, EDIT_FLAG_IMPLICIT_COMMIT);
+
+	if (lock && commit && msg->datastore == MGMT_MSG_DATASTORE_RUNNING)
+		;
+	else if (msg->datastore != MGMT_MSG_DATASTORE_CANDIDATE) {
 		fe_adapter_send_error(session, msg->req_id, false, -EINVAL,
 				      "Unsupported datastore");
 		return;
@@ -1428,9 +1565,6 @@ static void fe_adapter_handle_edit(struct mgmt_fe_session_ctx *session,
 	rds_id = MGMTD_DS_RUNNING;
 	rds_ctx = mgmt_ds_get_ctx_by_id(mm, rds_id);
 	assert(rds_ctx);
-
-	lock = CHECK_FLAG(msg->flags, EDIT_FLAG_IMPLICIT_LOCK);
-	commit = CHECK_FLAG(msg->flags, EDIT_FLAG_IMPLICIT_COMMIT);
 
 	if (lock) {
 		if (mgmt_fe_session_write_lock_ds(ds_id, ds_ctx, session)) {
@@ -1510,33 +1644,83 @@ static void fe_adapter_handle_edit(struct mgmt_fe_session_ctx *session,
  * @__msg: the message data.
  * @msg_len: the length of the message data.
  */
-static void fe_adapter_handle_notify_select(struct mgmt_fe_session_ctx *session,
-					    void *__msg, size_t msg_len)
+static void fe_adapter_handle_notify_select(struct mgmt_fe_session_ctx *session, void *__msg,
+					    size_t msg_len)
 {
 	struct mgmt_msg_notify_select *msg = __msg;
 	uint64_t req_id = msg->req_id;
 	const char **selectors = NULL;
 	const char **new;
+	const char **sp;
+	char *selstr = NULL;
+	uint64_t clients = 0;
+	uint ret;
 
-	/* An empty message clears the selectors */
 	if (msg_len >= sizeof(*msg)) {
-		selectors = mgmt_msg_native_strings_decode(msg, msg_len,
-							   msg->selectors);
+		selectors = mgmt_msg_native_strings_decode(msg, msg_len, msg->selectors);
 		if (!selectors) {
-			fe_adapter_send_error(session, req_id, false, -EINVAL,
-					      "Invalid message");
+			fe_adapter_send_error(session, req_id, false, -EINVAL, "Invalid message");
 			return;
 		}
 	}
+	if (DEBUG_MODE_CHECK(&mgmt_debug_fe, DEBUG_MODE_ALL)) {
+		selstr = frrstr_join(selectors, darr_len(selectors), ", ");
+		if (!selstr)
+			selstr = XSTRDUP(MTYPE_TMP, "");
+	}
+
 	if (msg->replace) {
+		clients = mgmt_fe_ns_string_remove_session(&mgmt_fe_ns_strings, session);
+		// [ ] Keep a local tree to optimize sending selectors to BE?
+		// [*] Or just KISS and fanout the original message to BEs?
+		// mgmt_remove_add_notify_selectors(session->notify_xpaths, selectors);
 		darr_free_free(session->notify_xpaths);
 		session->notify_xpaths = selectors;
-	} else {
-		new = darr_append_nz(session->notify_xpaths,
-				     darr_len(selectors));
+	} else if (selectors) {
+		// [ ] Keep a local tree to optimize sending selectors to BE?
+		// [*] Or just KISS and fanout the original message to BEs?
+		// mgmt_remove_add_notify_selectors(session->notify_xpaths, selectors);
+		new = darr_append_nz(session->notify_xpaths, darr_len(selectors));
 		memcpy(new, selectors, darr_len(selectors) * sizeof(*selectors));
-		darr_free(selectors);
+	} else {
+		__log_err("Invalid msg from session-id: %Lu: no selectors present in non-replace msg",
+			  session->session_id);
+		darr_free_free(selectors);
+		selectors = NULL;
+		goto done;
 	}
+
+
+	if (session->notify_xpaths && DEBUG_MODE_CHECK(&mgmt_debug_fe, DEBUG_MODE_ALL)) {
+		const char **sel = session->notify_xpaths;
+		char *s = frrstr_join(sel, darr_len(sel), ", ");
+		__dbg("New NOTIF %d selectors '%s' (replace: %d) txn-id: %Lu for session-id: %Lu",
+		      darr_len(sel), s, msg->replace, session->cfg_txn_id, session->session_id);
+		XFREE(MTYPE_TMP, s);
+	}
+
+	/* Add the new selectors to the global tree */
+	darr_foreach_p (selectors, sp)
+		clients |= mgmt_fe_add_ns_string(&mgmt_fe_ns_strings, *sp, darr_strlen(*sp),
+						 session);
+
+	if (!clients) {
+		__dbg("No backends to newly notify for selectors: '%s' txn-id %Lu session-id: %Lu",
+		      selstr, session->txn_id, session->session_id);
+		goto done;
+	}
+
+	/* We don't use a transaction for this, just send the message */
+	ret = mgmt_txn_send_notify_selectors(req_id, clients, msg->replace ? NULL : selectors);
+	if (ret) {
+		fe_adapter_send_error(session, req_id, false, -EINPROGRESS,
+				      "Failed to create a NOTIFY_SELECT transaction");
+	}
+done:
+	if (session->notify_xpaths != selectors)
+		darr_free(selectors);
+	if (selstr)
+		XFREE(MTYPE_TMP, selstr);
 }
 
 /**
@@ -1727,10 +1911,11 @@ void mgmt_fe_adapter_send_notify(struct mgmt_msg_notify_data *msg, size_t msglen
 {
 	struct mgmt_fe_client_adapter *adapter;
 	struct mgmt_fe_session_ctx *session;
-	struct nb_node *nb_node;
-	const char **xpath_prefix;
+	struct nb_node *nb_node = NULL;
+	struct listnode *node;
+	struct ns_string *ns;
 	const char *notif;
-	bool sendit;
+	bool is_root;
 	uint len;
 
 	assert(msg->refer_id == 0);
@@ -1741,36 +1926,48 @@ void mgmt_fe_adapter_send_notify(struct mgmt_msg_notify_data *msg, size_t msglen
 		return;
 	}
 
-	/*
-	 * We need the nb_node to obtain a path which does not include any
-	 * specific list entry selectors
-	 */
-	nb_node = nb_node_find(notif);
-	if (!nb_node) {
-		__log_err("No schema found for notification: %s", notif);
-		return;
+	is_root = !strcmp(notif, "/");
+	if (!is_root) {
+		/*
+		 * We need the nb_node to obtain a path which does not include any
+		 * specific list entry selectors
+		 */
+		nb_node = nb_node_find(notif);
+		if (!nb_node) {
+			__log_err("No schema found for notification: %s", notif);
+			return;
+		}
 	}
 
-	FOREACH_ADAPTER_IN_LIST (adapter) {
-		FOREACH_SESSION_IN_LIST (adapter, session) {
-			/* If no selectors then always send */
-			sendit = !session->notify_xpaths;
-			darr_foreach_p (session->notify_xpaths, xpath_prefix) {
-				len = strlen(*xpath_prefix);
-				if (!strncmp(*xpath_prefix, notif, len) ||
-				    !strncmp(*xpath_prefix, nb_node->xpath,
-					     len)) {
-					sendit = true;
-					break;
-				}
-			}
-			if (sendit) {
+	frr_each (ns_string, &mgmt_fe_ns_strings, ns) {
+		if (!is_root) {
+			len = strlen(ns->s);
+			if (strncmp(ns->s, notif, len) && strncmp(ns->s, nb_node->xpath, len))
+				continue;
+		}
+		for (ALL_LIST_ELEMENTS_RO(ns->sessions, node, session)) {
+			msg->refer_id = session->session_id;
+			(void)fe_adapter_send_native_msg(session->adapter, msg, msglen, false);
+		}
+	}
+
+	/*
+	 * Send all YANG defined notifications to all sesisons with *no*
+	 * selectors as well (i.e., original NETCONF/RESTCONF notification
+	 * scheme).
+	 */
+	if (!is_root && CHECK_FLAG(nb_node->snode->nodetype, LYS_NOTIF)) {
+		FOREACH_ADAPTER_IN_LIST (adapter) {
+			FOREACH_SESSION_IN_LIST (adapter, session) {
+				if (session->notify_xpaths)
+					continue;
 				msg->refer_id = session->session_id;
 				(void)fe_adapter_send_native_msg(adapter, msg,
 								 msglen, false);
 			}
 		}
 	}
+
 	msg->refer_id = 0;
 }
 
@@ -1779,9 +1976,10 @@ void mgmt_fe_adapter_lock(struct mgmt_fe_client_adapter *adapter)
 	adapter->refcount++;
 }
 
-extern void mgmt_fe_adapter_unlock(struct mgmt_fe_client_adapter **adapter)
+void mgmt_fe_adapter_unlock(struct mgmt_fe_client_adapter **adapter)
 {
 	struct mgmt_fe_client_adapter *a = *adapter;
+
 	assert(a && a->refcount);
 
 	if (!--a->refcount) {
@@ -1808,6 +2006,8 @@ void mgmt_fe_adapter_init(struct event_loop *tm)
 	mgmt_fe_sessions =
 		hash_create(mgmt_fe_session_hash_key, mgmt_fe_session_hash_cmp,
 			    "MGMT Frontend Sessions");
+
+	ns_string_init(&mgmt_fe_ns_strings);
 
 	snprintf(server_path, sizeof(server_path), MGMTD_FE_SOCK_NAME);
 
@@ -1838,9 +2038,12 @@ void mgmt_fe_adapter_destroy(void)
 
 	msg_server_cleanup(&mgmt_fe_server);
 
+
 	/* Deleting the adapters will delete all the sessions */
 	FOREACH_ADAPTER_IN_LIST (adapter)
 		mgmt_fe_adapter_delete(adapter);
+
+	mgmt_fe_free_ns_strings(&mgmt_fe_ns_strings);
 
 	hash_clean_and_free(&mgmt_fe_sessions, mgmt_fe_abort_if_session);
 }
@@ -1854,8 +2057,7 @@ struct msg_conn *mgmt_fe_create_adapter(int conn_fd, union sockunion *from)
 
 	adapter = mgmt_fe_find_adapter_by_fd(conn_fd);
 	if (!adapter) {
-		adapter = XCALLOC(MTYPE_MGMTD_FE_ADPATER,
-				sizeof(struct mgmt_fe_client_adapter));
+		adapter = XCALLOC(MTYPE_MGMTD_FE_ADPATER, sizeof(struct mgmt_fe_client_adapter));
 		snprintf(adapter->name, sizeof(adapter->name), "Unknown-FD-%d",
 			 conn_fd);
 
@@ -1978,8 +2180,8 @@ int mgmt_fe_adapter_send_rpc_reply(uint64_t session_id, uint64_t txn_id,
 
 int mgmt_fe_adapter_send_edit_reply(uint64_t session_id, uint64_t txn_id,
 				    uint64_t req_id, bool unlock, bool commit,
-				    const char *xpath, int16_t error,
-				    const char *errstr)
+				    bool created, const char *xpath,
+				    int16_t error, const char *errstr)
 {
 	struct mgmt_fe_session_ctx *session;
 	Mgmtd__DatastoreId ds_id, rds_id;
@@ -2010,11 +2212,12 @@ int mgmt_fe_adapter_send_edit_reply(uint64_t session_id, uint64_t txn_id,
 		}
 	}
 
-	if (error)
+	if (error != 0 && error != -EALREADY)
 		ret = fe_adapter_send_error(session, req_id, false, error, "%s",
 					    errstr);
 	else
-		ret = fe_adapter_send_edit_reply(session, req_id, xpath);
+		ret = fe_adapter_send_edit_reply(session, req_id, created,
+						 !error, xpath, errstr);
 
 	if (session->cfg_txn_id != MGMTD_TXN_ID_NONE && !commit)
 		mgmt_destroy_txn(&session->cfg_txn_id);

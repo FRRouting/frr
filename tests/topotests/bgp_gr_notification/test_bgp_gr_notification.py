@@ -187,6 +187,16 @@ def test_bgp_administrative_reset_gr():
             """
         )
 
+    def _bgp_verify_show_bgp_router_json():
+        output = json.loads(r1.vtysh_cmd("show bgp router json"))
+        expected = {
+            "bgpStartedAt": "*",
+            "bgpStartedGracefully": False,
+            "bgpInMaintenanceMode": False,
+            "bgpInstanceCount": 1,
+        }
+        return topotest.json_cmp(output, expected)
+
     step("Initial BGP converge")
     test_func = functools.partial(_bgp_converge)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
@@ -195,15 +205,20 @@ def test_bgp_administrative_reset_gr():
     step("Reset and shutdown R1")
     _bgp_clear_r1_and_shutdown()
 
+    step("Check if stale routes are retained on R1")
+    test_func = functools.partial(_bgp_check_gr_notification_stale)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to see retained stale routes on R1"
+
     step("Check if Hard Reset notification wasn't sent from R2")
     test_func = functools.partial(_bgp_check_hard_reset)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Failed to send Administrative Reset notification from R2"
 
-    step("Check if stale routes are retained on R1")
-    test_func = functools.partial(_bgp_check_gr_notification_stale)
+    step("Check show bgp router json")
+    test_func = functools.partial(_bgp_verify_show_bgp_router_json)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
-    assert result is None, "Failed to see retained stale routes on R1"
+    assert result is None, "Invalid BGP router details"
 
 
 if __name__ == "__main__":

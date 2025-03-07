@@ -24,7 +24,6 @@ import sys
 import time
 import pytest
 import platform
-from time import sleep
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -46,18 +45,13 @@ from lib.common_config import (
     reset_config_on_routers,
     verify_rib,
     step,
-    create_route_maps,
     create_static_routes,
-    create_prefix_lists,
-    create_bgp_community_lists,
-    get_frr_ipv6_linklocal,
 )
 
 from lib.topolog import logger
 from lib.bgp import (
     verify_bgp_convergence,
     create_router_bgp,
-    verify_bgp_community,
     verify_bgp_rib,
 )
 from lib.topojson import build_config_from_json

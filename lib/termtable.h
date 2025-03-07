@@ -270,7 +270,7 @@ void ttable_rowseps(struct ttable *tt, unsigned int row,
  *
  * Caller must free this string after use with
  *
- *   XFREE (MTYPE_TMP, str);
+ *   XFREE (MTYPE_TMP_TTABLE, str);
  *
  * @param tt the table to dump
  * @param newline the desired newline sequence to use, null terminated.

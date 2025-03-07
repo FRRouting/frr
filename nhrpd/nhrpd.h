@@ -15,7 +15,8 @@
 DECLARE_MGROUP(NHRPD);
 
 #define NHRPD_DEFAULT_HOLDTIME	7200
-
+#define NHRPD_DEFAULT_PURGE_TIME 30
+#define NHRPD_PURGE_EXPIRE	 3000
 #define NHRP_DEFAULT_CONFIG	"nhrpd.conf"
 
 extern struct event_loop *master;
@@ -250,10 +251,12 @@ struct nhrp_shortcut {
 	union sockunion addr;
 
 	struct nhrp_reqid reqid;
-	struct event *t_timer;
+	struct event *t_shortcut_purge;
+	struct event *t_retry_resolution;
 
 	enum nhrp_cache_type type;
 	unsigned int holding_time;
+	unsigned int retry_interval;
 	unsigned route_installed : 1;
 	unsigned expiring : 1;
 
