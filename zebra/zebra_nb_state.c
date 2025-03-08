@@ -15,6 +15,7 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_vxlan_if.h"
 #include "zebra/ipforward.h"
+#include "zebra/zebra_mpls.h"
 
 /*
  * XPath: /frr-interface:lib/interface/frr-zebra:zebra/state/up-count
@@ -1188,4 +1189,12 @@ struct yang_data *zebra_ip_forwarding_get_elem(struct nb_cb_get_elem_args *args)
 struct yang_data *zebra_ipv6_forwarding_get_elem(struct nb_cb_get_elem_args *args)
 {
 	return yang_data_new_bool(args->xpath, ipforward_ipv6());
+}
+
+/*
+ * XPath: /frr-zebra:zebra/state/mpls-forwarding
+ */
+struct yang_data *zebra_state_mpls_forwarding_get_elem(struct nb_cb_get_elem_args *args)
+{
+	return yang_data_new_bool(args->xpath, mpls_enabled);
 }
