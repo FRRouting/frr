@@ -288,7 +288,8 @@ bool isis_redist_table_is_present(const struct vty *vty,
 /* Handle notification about route being added */
 void isis_redist_add(struct isis *isis, int type, struct prefix *p,
 		     struct prefix_ipv6 *src_p, uint8_t distance,
-		     uint32_t metric, const route_tag_t tag, uint16_t table)
+		     uint32_t metric, const route_tag_t tag, uint16_t table,
+		     struct zapi_nexthop *nexthops,uint16_t nexthop_num)
 {
 	int family = p->family;
 	struct route_table *ei_table = get_ext_info(isis, family);
@@ -298,6 +299,7 @@ void isis_redist_add(struct isis *isis, int type, struct prefix *p,
 	struct isis_area *area;
 	int level;
 	struct isis_redist *redist;
+	int i;
 
 	zlog_debug("%s: New route %pFX from %s: distance %d.", __func__, p,
 		   zebra_route_string(type), distance);
@@ -320,6 +322,11 @@ void isis_redist_add(struct isis *isis, int type, struct prefix *p,
 	info->distance = distance;
 	info->metric = metric;
 	info->tag = tag;
+	info->nexthop_num = nexthop_num;
+
+	for (i = 0; i < nexthop_num; i++) {
+		info->nexthop[i] = nexthop_from_zapi_nexthop(&nexthops[i]);
+	}
 
 	if (is_default_prefix(p)
 	    && (!src_p || !src_p->prefixlen)) {
@@ -339,7 +346,8 @@ void isis_redist_add(struct isis *isis, int type, struct prefix *p,
 }
 
 void isis_redist_delete(struct isis *isis, int type, struct prefix *p,
-			struct prefix_ipv6 *src_p, uint16_t table)
+			struct prefix_ipv6 *src_p, uint16_t table,
+			struct zapi_nexthop *nexthops,uint16_t nexthop_num)
 {
 	int family = p->family;
 	struct route_table *ei_table = get_ext_info(isis, family);
@@ -348,6 +356,8 @@ void isis_redist_delete(struct isis *isis, int type, struct prefix *p,
 	struct isis_area *area;
 	int level;
 	struct isis_redist *redist;
+	int i;
+	struct isis_ext_info *info;
 
 	zlog_debug("%s: Removing route %pFX from %s.", __func__, p,
 		   zebra_route_string(type));
@@ -359,7 +369,8 @@ void isis_redist_delete(struct isis *isis, int type, struct prefix *p,
 		 * "always" setting will ignore routes with origin
 		 * DEFAULT_ROUTE. */
 		isis_redist_add(isis, DEFAULT_ROUTE, p, NULL, 254,
-				MAX_WIDE_PATH_METRIC, 0, table);
+				MAX_WIDE_PATH_METRIC, 0, table,
+				nexthops,nexthop_num);
 		return;
 	}
 
@@ -390,6 +401,10 @@ void isis_redist_delete(struct isis *isis, int type, struct prefix *p,
 			isis_redist_uninstall(area, level, p, src_p);
 		}
 
+	info = ei_node->info;
+	for (i = 0; i < info->nexthop_num; i++) {
+		nexthop_free(info->nexthop[i]);
+	}
 	XFREE(MTYPE_ISIS_EXT_INFO, ei_node->info);
 	route_unlock_node(ei_node);
 }
