@@ -67,8 +67,8 @@ static const struct route_map_rule_cmd route_match_ip_address_cmd = {
 /* ------------------------------------------------------------*/
 
 
-static enum route_map_cmd_result_t
-route_match_interface(void *rule, const struct prefix *p, void *object)
+static enum route_map_cmd_result_t route_match_interface(void *rule, const struct prefix *p,
+							 void *object)
 {
 	struct interface *ifp;
 	struct isis_ext_info *info;
@@ -97,15 +97,10 @@ static void route_match_interface_free(void *rule)
 }
 
 
-static const struct route_map_rule_cmd route_match_interface_cmd = {
-	"interface",
-	route_match_interface,
-	route_match_interface_compile,
-	route_match_interface_free
-};
-
-
-
+static const struct route_map_rule_cmd route_match_interface_cmd = { "interface",
+								     route_match_interface,
+								     route_match_interface_compile,
+								     route_match_interface_free };
 
 
 /* ------------------------------------------------------------*/
@@ -293,20 +288,23 @@ static void isis_route_map_update(const char *name)
 			for (protocol = 0; protocol < REDIST_PROTOCOL_COUNT; protocol++)
 				for (type = 0; type < ZEBRA_ROUTE_MAX + 1; type++)
 					for (level = 0; level < ISIS_LEVELS; level++) {
-						if (area->redist_settings[protocol][type]
-									 [level] == NULL)
+						if (area->redist_settings[protocol][type][level] ==
+						    NULL)
 							continue;
 						for (ALL_LIST_ELEMENTS_RO(area->redist_settings
-										  [protocol]
-										  [type]
+										  [protocol][type]
 										  [level],
-									  lnode,
-									  redist)) {
+									  lnode, redist)) {
 							if (redist->redist == 0)
 								continue;
 
-							if (redist->map_name && strcmp(redist->map_name, name) == 0) {
-								isis_redist_update(area,level+1,afi_skt_for_redist_protocol(protocol),type,redist->table);
+							if (redist->map_name &&
+							    strcmp(redist->map_name, name) == 0) {
+								isis_redist_update(area, level + 1,
+										   afi_skt_for_redist_protocol(
+											   protocol),
+										   type,
+										   redist->table);
 							}
 						}
 					}

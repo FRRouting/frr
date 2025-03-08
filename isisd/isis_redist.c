@@ -297,10 +297,9 @@ bool isis_redist_table_is_present(const struct vty *vty,
 }
 
 /* Handle notification about route being added */
-void isis_redist_add(struct isis *isis, int type, struct prefix *p,
-		     struct prefix_ipv6 *src_p, uint8_t distance,
-		     uint32_t metric, const route_tag_t tag, uint16_t table,
-		     struct zapi_nexthop *nexthops,uint16_t nexthop_num)
+void isis_redist_add(struct isis *isis, int type, struct prefix *p, struct prefix_ipv6 *src_p,
+		     uint8_t distance, uint32_t metric, const route_tag_t tag, uint16_t table,
+		     struct zapi_nexthop *nexthops, uint16_t nexthop_num)
 {
 	int family = p->family;
 	struct route_table *ei_table = get_ext_info(isis, family);
@@ -356,9 +355,8 @@ void isis_redist_add(struct isis *isis, int type, struct prefix *p,
 		}
 }
 
-void isis_redist_delete(struct isis *isis, int type, struct prefix *p,
-			struct prefix_ipv6 *src_p, uint16_t table,
-			struct zapi_nexthop *nexthops,uint16_t nexthop_num)
+void isis_redist_delete(struct isis *isis, int type, struct prefix *p, struct prefix_ipv6 *src_p,
+			uint16_t table, struct zapi_nexthop *nexthops, uint16_t nexthop_num)
 {
 	int family = p->family;
 	struct route_table *ei_table = get_ext_info(isis, family);
@@ -379,9 +377,8 @@ void isis_redist_delete(struct isis *isis, int type, struct prefix *p,
 		 * by "default-information originate always". Areas without the
 		 * "always" setting will ignore routes with origin
 		 * DEFAULT_ROUTE. */
-		isis_redist_add(isis, DEFAULT_ROUTE, p, NULL, 254,
-				MAX_WIDE_PATH_METRIC, 0, table,
-				nexthops,nexthop_num);
+		isis_redist_add(isis, DEFAULT_ROUTE, p, NULL, 254, MAX_WIDE_PATH_METRIC, 0, table,
+				nexthops, nexthop_num);
 		return;
 	}
 
@@ -456,14 +453,14 @@ void isis_redist_free(struct isis *isis)
 	}
 }
 
-void isis_redist_update(struct isis_area *area, int level, int family, int type,uint16_t table)
+void isis_redist_update(struct isis_area *area, int level, int family, int type, uint16_t table)
 {
 	struct isis_redist *redist;
 	struct route_table *ei_table;
 	struct route_node *rn;
 	struct isis_ext_info *info;
 
-	redist= isis_redist_lookup(area, family, type, level, table);
+	redist = isis_redist_lookup(area, family, type, level, table);
 	if (!redist)
 		return;
 
@@ -478,18 +475,16 @@ void isis_redist_update(struct isis_area *area, int level, int family, int type,
 		srcdest_rnode_prefixes(rn, &p, &src_p);
 
 		if (type == DEFAULT_ROUTE) {
-			if (!is_default_prefix(p)
-			    || (src_p && src_p->prefixlen)) {
+			if (!is_default_prefix(p) || (src_p && src_p->prefixlen)) {
 				continue;
-			    }
+			}
 		} else {
 			if (info->origin != type)
 				continue;
 		}
 
 		isis_redist_update_ext_reach(area, level, redist, p,
-					     (const struct prefix_ipv6 *)src_p,
-					     info);
+					     (const struct prefix_ipv6 *)src_p, info);
 	}
 }
 
