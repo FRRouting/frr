@@ -46,6 +46,7 @@ struct prefix_ipv6;
 struct vty;
 struct zapi_nexthop;
 
+int afi_skt_for_redist_protocol(int protocol);
 afi_t afi_for_redist_protocol(int protocol);
 
 struct route_table *get_ext_reach(struct isis_area *area, int family,
@@ -65,6 +66,7 @@ void isis_redist_area_finish(struct isis_area *area);
 void isis_redist_set(struct isis_area *area, int level, int family, int type,
 		     uint32_t metric, const char *routemap, int originate_type,
 		     uint16_t table);
+void isis_redist_update(struct isis_area *area, int level, int family, int type,uint16_t table);
 void isis_redist_unset(struct isis_area *area, int level, int family, int type,
 		       uint16_t table);
 
