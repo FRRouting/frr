@@ -61,11 +61,45 @@ def test_zebra_operationalr(tgen):
     assert "ip-forwarding" in state.keys(), "IPv4 forwarding state not found"
     assert "ipv6-forwarding" in state.keys(), "IPv6 forwarding state not found"
     assert "mpls-forwarding" in state.keys(), "MPLS forwarding state not found"
-    
+
     # Verify the values are boolean
-    assert isinstance(state["ip-forwarding"], bool), "IPv4 forwarding state should be boolean"
-    assert isinstance(state["ipv6-forwarding"], bool), "IPv6 forwarding state should be boolean"
-    assert isinstance(state["mpls-forwarding"], bool), "MPLS forwarding state should be boolean"
+    assert isinstance(
+        state["ip-forwarding"], bool
+    ), "IPv4 forwarding state should be boolean"
+    assert isinstance(
+        state["ipv6-forwarding"], bool
+    ), "IPv6 forwarding state should be boolean"
+    assert isinstance(
+        state["mpls-forwarding"], bool
+    ), "MPLS forwarding state should be boolean"
+
+    # Test IPv6 forwarding state change
+    logger.info("Testing IPv6 forwarding state change")
+    # Store initial state
+    initial_ipv6_state = state["ipv6-forwarding"]
+
+    # Turn off IPv6 forwarding
+    r1.vtysh_cmd("configure terminal\nno ipv6 forwarding\nexit")
+
+    # Get updated state
+    output = json.loads(r1.vtysh_cmd("show mgmt get-data /frr-zebra:zebra"))
+    new_state = output["frr-zebra:zebra"]["state"]
+
+    # Verify IPv6 forwarding is now off
+    assert (
+        new_state["ipv6-forwarding"] is False
+    ), "IPv6 forwarding should be False after disabling"
+
+    # Restore original state if it was enabled
+    if initial_ipv6_state:
+        r1.vtysh_cmd("configure terminal\nipv6 forwarding\nexit")
+
+        # Verify state is restored
+        output = json.loads(r1.vtysh_cmd("show mgmt get-data /frr-zebra:zebra"))
+        final_state = output["frr-zebra:zebra"]["state"]
+        assert (
+            final_state["ipv6-forwarding"] is True
+        ), "IPv6 forwarding should be restored to True"
 
 
 if __name__ == "__main__":
