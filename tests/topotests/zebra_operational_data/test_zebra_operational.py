@@ -56,6 +56,17 @@ def test_zebra_operationalr(tgen):
     logger.info("Ensuring that the max-multipath value is returned")
     assert "max-multipath" in output["frr-zebra:zebra"].keys()
 
+    logger.info("Checking IP forwarding states")
+    state = output["frr-zebra:zebra"]["state"]
+    assert "ip-forwarding" in state.keys(), "IPv4 forwarding state not found"
+    assert "ipv6-forwarding" in state.keys(), "IPv6 forwarding state not found"
+    assert "mpls-forwarding" in state.keys(), "MPLS forwarding state not found"
+    
+    # Verify the values are boolean
+    assert isinstance(state["ip-forwarding"], bool), "IPv4 forwarding state should be boolean"
+    assert isinstance(state["ipv6-forwarding"], bool), "IPv6 forwarding state should be boolean"
+    assert isinstance(state["mpls-forwarding"], bool), "MPLS forwarding state should be boolean"
+
 
 if __name__ == "__main__":
     # To suppress tracebacks, either use the following pytest call or add "--tb=no" to cli
