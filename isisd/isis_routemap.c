@@ -336,7 +336,7 @@ void isis_route_map_init(void)
 	route_map_no_match_tag_hook(generic_match_delete);
 
 	route_map_match_interface_hook(generic_match_add);
-	route_map_no_match_interface_hook(generic_match_add);
+	route_map_no_match_interface_hook(generic_match_delete);
 
 
 	route_map_set_metric_hook(generic_set_add);
