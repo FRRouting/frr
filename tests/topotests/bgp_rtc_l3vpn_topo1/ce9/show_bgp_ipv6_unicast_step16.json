@@ -1,0 +1,25 @@
+{
+  "vrfName": "default",
+  "routerId": "172.16.9.254",
+  "localAS": 65509,
+  "routes": {
+    "2001:db8:9::/64": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "(unspec)",
+        "path": "",
+        "nexthops": [
+          {
+            "ip": "::",
+            "hostname": "ce9",
+            "scope": "global",
+            "used": true
+          }
+        ]
+      }
+    ]
+  },
+  "totalRoutes": 1,
+  "totalPaths": 1
+}

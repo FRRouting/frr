@@ -1725,6 +1725,10 @@ enum zclient_send_status bgp_zebra_withdraw_actual(struct bgp_dest *dest,
 	struct bgp_table *table = bgp_dest_table(dest);
 	const struct prefix *p = bgp_dest_get_prefix(dest);
 
+	if (table->safi == SAFI_RTC)
+		/* Route-Target Constraint (RTC) prefixes are not installed into zebra RIB */
+		return ZCLIENT_SEND_SUCCESS;
+
 	if (table->safi == SAFI_FLOWSPEC) {
 		peer = info->peer;
 		bgp_pbr_update_entry(peer->bgp, p, info, table->afi,
@@ -1900,6 +1904,10 @@ void bgp_zebra_route_install(struct bgp_dest *dest, struct bgp_path_info *info,
 	table = bgp_dest_table(dest);
 	if (table && table->afi == AFI_L2VPN && table->safi == SAFI_EVPN)
 		is_evpn = true;
+
+	if (table && table->safi == SAFI_RTC)
+		/* Route-Target Constraint (RTC) prefixes are not installed into zebra RIB */
+		return;
 
 	/*
 	 * BGP is installing this route and bgp has been configured

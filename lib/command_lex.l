@@ -34,6 +34,12 @@ IPV6            X:X::X:X
 IPV6_PREFIX     X:X::X:X\/M
 MAC             X:X:X:X:X:X
 MAC_PREFIX      X:X:X:X:X:X\/M
+RTC_AS2         ASN:rt:EF:OPQR
+RTC_AS2_PREFIX  ASN:rt:EF:OPQR\/M
+RTC_AS4         ASN:rt:GHJK:MN
+RTC_AS4_PREFIX  ASN:rt:GHJK:MN\/M
+RTC_IP          ASN:rt:A.B.C.D:MN
+RTC_IP_PREFIX   ASN:rt:A.B.C.D:MN\/M
 VARIABLE        [A-Z][-_A-Z:0-9]+
 WORD            (\-|\+)?[a-zA-Z0-9\*][-+_a-zA-Z0-9\*]*
 NUMBER          (\-|\+)?[0-9]{1,20}
@@ -65,6 +71,12 @@ ASNUM           ASNUM
 {IPV6_PREFIX}   {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return IPV6_PREFIX;}
 {MAC}           {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return MAC;}
 {MAC_PREFIX}    {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return MAC_PREFIX;}
+{RTC_AS2}       {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return RTC_AS2;}
+{RTC_AS2_PREFIX}  {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return RTC_AS2_PREFIX;}
+{RTC_AS4}       {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return RTC_AS4;}
+{RTC_AS4_PREFIX}  {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return RTC_AS4_PREFIX;}
+{RTC_IP}        {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return RTC_IP;}
+{RTC_IP_PREFIX}  {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return RTC_IP_PREFIX;}
 {VARIABLE}      {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return VARIABLE;}
 {WORD}          {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return WORD;}
 {RANGE}         {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return RANGE;}

@@ -1,0 +1,87 @@
+{
+  "vrfName": "default",
+  "routerId": "192.168.0.201",
+  "localAS": 65201,
+  "routes": {
+    "65000:RT:65000:100/96": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "10.0.5.101",
+        "path": "65000"
+      },
+      {
+        "valid": true,
+        "peerId": "10.0.6.102",
+        "path": "65000"
+      },
+      {
+        "valid": true,
+        "peerId": "10.0.9.202",
+        "path": "65000"
+      }
+    ],
+    "65001:RT:65000:100/96": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "10.0.9.202",
+        "path": "65204 65205 65001"
+      }
+    ],
+    "65000:RT:65000:101/96": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "10.0.5.101",
+        "path": "65000"
+      },
+      {
+        "valid": true,
+        "peerId": "10.0.6.102",
+        "path": "65000"
+      },
+      {
+        "valid": true,
+        "peerId": "10.0.9.202",
+        "path": "65000"
+      }
+    ],
+    "65001:RT:65000:101/96": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "10.0.9.202",
+        "path": "65204 65205 65001"
+      }
+    ],
+    "65000:RT:65000:102/96": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "10.0.5.101",
+        "path": "65000"
+      },
+      {
+        "valid": true,
+        "peerId": "10.0.6.102",
+        "path": "65000"
+      },
+      {
+        "valid": true,
+        "peerId": "10.0.9.202",
+        "path": "65000"
+      }
+    ],
+    "65001:RT:65000:103/96": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "peerId": "10.0.9.202",
+        "path": "65204 65205 65001"
+      }
+    ]
+  },
+  "totalRoutes": 6,
+  "totalPaths": 12
+}
