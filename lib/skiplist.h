@@ -72,41 +72,36 @@ skiplist_new(/* encouraged: set list.del callback on new lists */
 
 extern void skiplist_free(struct skiplist *);
 
-extern int skiplist_insert(register struct skiplist *l, register void *key,
-			   register void *value);
+extern int skiplist_insert(struct skiplist *l, void *key, void *value);
 
-extern int skiplist_delete(register struct skiplist *l, register void *key,
-			   register void *value);
+extern int skiplist_delete(struct skiplist *l, void *key, void *value);
 
-extern int skiplist_search(register struct skiplist *l, register void *key,
-			   void **valuePointer);
+extern int skiplist_search(struct skiplist *l, void *key, void **valuePointer);
 
-extern int skiplist_first_value(register struct skiplist *l, /* in */
-				register const void *key,    /* in */
-				void **valuePointer,	     /* in/out */
-				void **cursor);		     /* out */
+extern int skiplist_first_value(struct skiplist *l,  /* in */
+				const void *key,     /* in */
+				void **valuePointer, /* in/out */
+				void **cursor);	     /* out */
 
-extern int skiplist_next_value(register struct skiplist *l, /* in */
-			       register const void *key,	  /* in */
-			       void **valuePointer,	 /* in/out */
-			       void **cursor);		    /* in/out */
+extern int skiplist_next_value(struct skiplist *l,  /* in */
+			       const void *key,	    /* in */
+			       void **valuePointer, /* in/out */
+			       void **cursor);	    /* in/out */
 
-extern int skiplist_first(register struct skiplist *l, void **keyPointer,
-			  void **valuePointer);
+extern int skiplist_first(struct skiplist *l, void **keyPointer, void **valuePointer);
 
-extern int skiplist_last(register struct skiplist *l, void **keyPointer,
-			 void **valuePointer);
+extern int skiplist_last(struct skiplist *l, void **keyPointer, void **valuePointer);
 
-extern int skiplist_delete_first(register struct skiplist *l);
+extern int skiplist_delete_first(struct skiplist *l);
 
-extern int skiplist_next(register struct skiplist *l, /* in */
-			 void **keyPointer,	   /* out */
-			 void **valuePointer,	 /* out */
-			 void **cursor);	      /* in/out */
+extern int skiplist_next(struct skiplist *l,  /* in */
+			 void **keyPointer,   /* out */
+			 void **valuePointer, /* out */
+			 void **cursor);      /* in/out */
 
-extern int skiplist_empty(register struct skiplist *l); /* in */
+extern int skiplist_empty(struct skiplist *l); /* in */
 
-extern unsigned int skiplist_count(register struct skiplist *l); /* in */
+extern unsigned int skiplist_count(struct skiplist *l); /* in */
 
 struct vty;
 extern void skiplist_debug(struct vty *vty, struct skiplist *l);
