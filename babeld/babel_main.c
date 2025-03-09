@@ -207,8 +207,7 @@ main(int argc, char **argv)
     return 0;
 }
 
-static void
-babel_fail(void)
+static __attribute__((__noreturn__)) void babel_fail(void)
 {
     exit(1);
 }
@@ -296,8 +295,7 @@ fini:
     return ;
 }
 
-static void
-babel_exit_properly(void)
+static __attribute__((__noreturn__)) void babel_exit_properly(void)
 {
     debugf(BABEL_DEBUG_COMMON, "Exiting...");
     usleep(roughly(10000));
