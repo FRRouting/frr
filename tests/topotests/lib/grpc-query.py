@@ -32,7 +32,7 @@ try:
         commander.cmd_raises(
             "python3 -m grpc_tools.protoc"
             f" --python_out={tmpdir} --grpc_python_out={tmpdir}"
-            f" -I {CWD}/../../../grpc frr-northbound.proto"
+            f" -I {CWD}/../../../grpc -I /usr/lib/frr frr-northbound.proto"
         )
     except Exception as error:
         logging.error("can't create proto definition modules %s", error)
