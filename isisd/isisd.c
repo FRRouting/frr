@@ -187,12 +187,12 @@ struct isis *isis_lookup_by_sysid(const uint8_t *sysid)
 	return NULL;
 }
 
-void isis_master_init(struct event_loop *master)
+void isis_master_init(struct event_loop *mst)
 {
 	memset(&isis_master, 0, sizeof(isis_master));
 	im = &isis_master;
 	im->isis = list_new();
-	im->master = master;
+	im->master = mst;
 }
 
 void isis_master_terminate(void)
@@ -694,24 +694,24 @@ static void isis_set_redist_vrf_bitmaps(struct isis *isis, bool set)
 						if (type == DEFAULT_ROUTE) {
 							if (set)
 								vrf_bitmap_set(
-									&zclient->default_information
+									&isis_zclient->default_information
 										 [afi],
 									isis->vrf_id);
 							else
 								vrf_bitmap_unset(
-									&zclient->default_information
+									&isis_zclient->default_information
 										 [afi],
 									isis->vrf_id);
 						} else {
 							if (set)
 								vrf_bitmap_set(
-									&zclient->redist
+									&isis_zclient->redist
 										 [afi]
 										 [type],
 									isis->vrf_id);
 							else
 								vrf_bitmap_unset(
-									&zclient->redist
+									&isis_zclient->redist
 										 [afi]
 										 [type],
 									isis->vrf_id);
