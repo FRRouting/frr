@@ -726,18 +726,54 @@ bool pim_igmp_verify_header(struct ip *ip_hdr, size_t len, size_t *hlen)
 	return true;
 }
 
+static bool ip_check_hopopts_ra(const uint8_t *options, size_t options_len)
+{
+	if (options_len < 4)
+		return false;
+
+	/*
+	 * The values 148 and 4 were translated from the bits sequence
+	 * from RFC 2113 Section 2.1. Syntax.
+	 */
+	if (options[0] != 148)
+		return false;
+	if (options[1] != 4)
+		return false;
+	if (options[2] != 0 && options[3] != 0)
+		return false;
+
+	return true;
+}
+
 int pim_igmp_packet(struct gm_sock *igmp, char *buf, size_t len)
 {
+	const struct pim_interface *pim_interface = igmp->interface->info;
 	struct ip *ip_hdr = (struct ip *)buf;
 	size_t ip_hlen; /* ip header length in bytes */
 	char *igmp_msg;
 	int igmp_msg_len;
 	int msg_type;
+	bool router_alert;
 	char from_str[INET_ADDRSTRLEN];
 	char to_str[INET_ADDRSTRLEN];
 
 	if (!pim_igmp_verify_header(ip_hdr, len, &ip_hlen))
 		return -1;
+
+	if (ip_hlen > sizeof(struct ip)) {
+		const uint8_t *ip_options = (const uint8_t *)(ip_hdr + 1);
+		size_t ip_options_len = ip_hlen - sizeof(struct ip);
+
+		router_alert = ip_check_hopopts_ra(ip_options, ip_options_len);
+	} else
+		router_alert = false;
+
+	if (pim_interface->gmp_require_ra && !router_alert) {
+		if (PIM_DEBUG_GM_PACKETS)
+			zlog_debug("discarding IGMP packet from %pI4 on %s due to Router Alert option missing",
+				   &ip_hdr->ip_src, igmp->interface->name);
+		return -1;
+	}
 
 	igmp_msg = buf + ip_hlen;
 	igmp_msg_len = len - ip_hlen;
