@@ -598,6 +598,8 @@ DECLARE_HOOK(rib_shutdown, (struct route_node * rn), (rn));
  */
 static inline struct nexthop_group *rib_get_fib_nhg(struct route_entry *re)
 {
+	if (re == NULL)
+		return NULL;
 	/* If the fib set is a subset of the active rib set,
 	 * use the dedicated fib list.
 	 */

@@ -3735,10 +3735,6 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 			zlog_err("%pBP: Capability length error", peer);
 			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_SUBCODE_UNSPECIFIC);
-			/*
-			 * If we did not return then
-			 * pnt += length;
-			 */
 			return BGP_Stop;
 		}
 		action = *pnt;
@@ -3763,10 +3759,6 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 			zlog_err("%pBP: Capability length error", peer);
 			bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_SUBCODE_UNSPECIFIC);
-			/*
-			 * If we did not return then
-			 * pnt += length;
-			 */
 			return BGP_Stop;
 		}
 
