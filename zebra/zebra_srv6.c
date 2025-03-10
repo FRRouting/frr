@@ -1236,7 +1236,7 @@ static bool alloc_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
 				zlog_warn("%s: function %u is outside ELIB [%u/%u] and EWLIB alloc ranges [%u/%u]",
 					  __func__, sid_func, elib_start,
 					  elib_end, ewlib_start, ewlib_end);
-				return -1;
+				return false;
 			}
 		} else if (format->type == SRV6_SID_FORMAT_TYPE_UNCOMPRESSED) {
 			uint32_t explicit_start =
@@ -1395,7 +1395,7 @@ static bool alloc_srv6_sid_func_dynamic(struct zebra_srv6_sid_block *block,
 			    dynamic_end) {
 				zlog_warn("%s: SRv6: Warning, SRv6 SID Dynamic alloc space is depleted",
 					  __func__);
-				return NULL;
+				return false;
 			}
 
 			/*
