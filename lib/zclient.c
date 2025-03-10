@@ -1362,6 +1362,8 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 	stream_putc(s, api->type);
 
 	stream_putw(s, api->instance);
+	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_TABLEID))
+		SET_FLAG(api->flags, ZEBRA_FLAG_TABLEID);
 	stream_putl(s, api->flags);
 	stream_putl(s, api->message);
 
@@ -1421,6 +1423,8 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 				return -1;
 			}
 
+			if (CHECK_FLAG(api->message, ZAPI_MESSAGE_TABLEID))
+				SET_FLAG(api->flags, ZEBRA_FLAG_TABLEID);
 			if (zapi_nexthop_encode(s, api_nh, api->flags,
 						api->message)
 			    != 0)
@@ -1459,6 +1463,9 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 					api_nh->label_num, MPLS_MAX_LABELS);
 				return -1;
 			}
+
+			if (CHECK_FLAG(api->message, ZAPI_MESSAGE_TABLEID))
+				SET_FLAG(api->flags, ZEBRA_FLAG_TABLEID);
 
 			if (zapi_nexthop_encode(s, api_nh, api->flags,
 						api->message)
