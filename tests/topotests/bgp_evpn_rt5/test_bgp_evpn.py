@@ -129,6 +129,23 @@ def setup_module(mod):
         output = router.cmd_raises(cmd.format("r2", 101))
         logger.info("result: " + output)
 
+    # creation of r2-vrf-evpn vrf
+    cmds_bgpevpn = [
+        "ip link add {0}-vrf-evpn type vrf table {1}",
+        "ip ru add oif {0}-vrf-evpn table {1}",
+        "ip ru add iif {0}-vrf-evpn table {1}",
+        "ip link set dev {0}-vrf-evpn up",
+        "ip link add loopevpn type dummy",
+        "ip link set dev loopevpn master {0}-vrf-evpn",
+        "ip link set dev loopevpn up",
+        "ip link set dev {0}-eth0 master {0}-vrf-evpn",
+        "ip link set dev {0}-eth0 up",
+    ]
+    for cmd in cmds_bgpevpn:
+        logger.info("cmd to r2: " + cmd.format("r2", 105))
+        output = router.cmd_raises(cmd.format("r2", 105))
+        logger.info("result: " + output)
+
     for cmd in cmds_r2:
         logger.info("cmd to r2: " + cmd.format("r2"))
         output = router.cmd_raises(cmd.format("r2"))
