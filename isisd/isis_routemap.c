@@ -66,6 +66,45 @@ static const struct route_map_rule_cmd route_match_ip_address_cmd = {
 
 /* ------------------------------------------------------------*/
 
+
+static enum route_map_cmd_result_t route_match_interface(void *rule, const struct prefix *p,
+							 void *object)
+{
+	struct interface *ifp;
+	struct isis_ext_info *info;
+	struct nexthop *nexthop;
+	int i;
+
+	info = object;
+	for (i = 0; i < info->nexthop_num; ++i) {
+		nexthop = info->nexthop[i];
+		ifp = if_lookup_by_name((char *)rule, nexthop->vrf_id);
+
+		if (ifp != NULL && ifp->ifindex == nexthop->ifindex)
+			return RMAP_MATCH;
+	}
+	return RMAP_NOMATCH;
+}
+
+static void *route_match_interface_compile(const char *arg)
+{
+	return XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
+}
+
+static void route_match_interface_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+
+static const struct route_map_rule_cmd route_match_interface_cmd = { "interface",
+								     route_match_interface,
+								     route_match_interface_compile,
+								     route_match_interface_free };
+
+
+/* ------------------------------------------------------------*/
+
 static enum route_map_cmd_result_t
 route_match_ip_address_prefix_list(void *rule, const struct prefix *prefix,
 				   void *object)
@@ -234,9 +273,50 @@ static const struct route_map_rule_cmd route_set_metric_cmd = {
 	route_set_metric_free
 };
 
+static void isis_route_map_update(const char *name)
+{
+	struct isis *isis;
+	struct listnode *node, *lnode;
+	struct isis_area *area;
+	int type;
+	int level;
+	int protocol;
+	struct isis_redist *redist;
+
+	for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
+		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
+			for (protocol = 0; protocol < REDIST_PROTOCOL_COUNT; protocol++)
+				for (type = 0; type < ZEBRA_ROUTE_MAX + 1; type++)
+					for (level = 0; level < ISIS_LEVELS; level++) {
+						if (area->redist_settings[protocol][type][level] ==
+						    NULL)
+							continue;
+						for (ALL_LIST_ELEMENTS_RO(area->redist_settings
+										  [protocol][type]
+										  [level],
+									  lnode, redist)) {
+							if (redist->redist == 0)
+								continue;
+
+							if (redist->map_name &&
+							    strcmp(redist->map_name, name) == 0) {
+								isis_redist_update(area, level + 1,
+										   afi_skt_for_redist_protocol(
+											   protocol),
+										   type,
+										   redist->table);
+							}
+						}
+					}
+}
+
 void isis_route_map_init(void)
 {
 	route_map_init();
+
+	route_map_add_hook(isis_route_map_update);
+	route_map_delete_hook(isis_route_map_update);
+	route_map_event_hook(isis_route_map_update);
 
 	route_map_match_ip_address_hook(generic_match_add);
 	route_map_no_match_ip_address_hook(generic_match_delete);
@@ -253,13 +333,19 @@ void isis_route_map_init(void)
 	route_map_match_tag_hook(generic_match_add);
 	route_map_no_match_tag_hook(generic_match_delete);
 
+	route_map_match_interface_hook(generic_match_add);
+	route_map_no_match_interface_hook(generic_match_delete);
+
+
 	route_map_set_metric_hook(generic_set_add);
 	route_map_no_set_metric_hook(generic_set_delete);
+
 
 	route_map_install_match(&route_match_ip_address_cmd);
 	route_map_install_match(&route_match_ip_address_prefix_list_cmd);
 	route_map_install_match(&route_match_ipv6_address_cmd);
 	route_map_install_match(&route_match_ipv6_address_prefix_list_cmd);
 	route_map_install_match(&route_match_tag_cmd);
+	route_map_install_match(&route_match_interface_cmd);
 	route_map_install_set(&route_set_metric_cmd);
 }
