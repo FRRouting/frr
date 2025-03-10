@@ -120,9 +120,13 @@ static ssize_t netlink_rule_msg_encode(
 			return 0;
 	}
 
-	/* dsfield, if specified; mask off the ECN bits */
+	/* dscp, if specified; mask off the ECN bits */
 	if (filter_bm & PBR_FILTER_DSCP)
 		req->frh.tos = dsfield & PBR_DSFIELD_DSCP;
+
+	/* add ECN bits to tos if specified */
+	if (filter_bm & PBR_FILTER_ECN)
+		req->frh.tos = req->frh.tos | (dsfield & PBR_DSFIELD_ECN);
 
 	/* protocol to match on */
 	if (filter_bm & PBR_FILTER_IP_PROTOCOL)
@@ -336,6 +340,23 @@ int netlink_rule_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (tb[FRA_IP_PROTO])
 		ip_proto = *(uint8_t *)RTA_DATA(tb[FRA_IP_PROTO]);
 
+	/* Parse fwmark, if specified */
+	if (tb[FRA_FWMARK]) {
+		rule.rule.filter.fwmark = *(uint32_t *)RTA_DATA(tb[FRA_FWMARK]);
+		rule.rule.filter.filter_bm |= PBR_FILTER_FWMARK;
+	}
+
+	/* Parse TOS field (contains DSCP and ECN bits) */
+	if (frh->tos) {
+		rule.rule.filter.dsfield = frh->tos;
+		/* Check if DSCP bits are set (top 6 bits) */
+		if (frh->tos & PBR_DSFIELD_DSCP)
+			rule.rule.filter.filter_bm |= PBR_FILTER_DSCP;
+		/* Check if ECN bits are set (bottom 2 bits) */
+		if (frh->tos & PBR_DSFIELD_ECN)
+			rule.rule.filter.filter_bm |= PBR_FILTER_ECN;
+	}
+
 	ifname = (char *)RTA_DATA(tb[FRA_IFNAME]);
 	strlcpy(rule.ifname, ifname, sizeof(rule.ifname));
 
@@ -349,16 +370,14 @@ int netlink_rule_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 			ret = dplane_pbr_rule_delete(&rule);
 
-			zlog_debug(
-				"%s: %s leftover rule: family %s IF %s Pref %u Src %pFX Dst %pFX Table %u ip-proto: %u",
-				__func__,
-				((ret == ZEBRA_DPLANE_REQUEST_FAILURE)
-					 ? "Failed to remove"
-					 : "Removed"),
-				nl_family_to_str(frh->family), rule.ifname,
-				rule.rule.priority, &rule.rule.filter.src_ip,
-				&rule.rule.filter.dst_ip,
-				rule.rule.action.table, ip_proto);
+			zlog_debug("%s: %s leftover rule: family %s IF %s Pref %u Fwmark %u Src %pFX Dst %pFX Table %u ip-proto: %u TOS: 0x%x",
+				   __func__,
+				   ((ret == ZEBRA_DPLANE_REQUEST_FAILURE) ? "Failed to remove"
+									  : "Removed"),
+				   nl_family_to_str(frh->family), rule.ifname, rule.rule.priority,
+				   rule.rule.filter.fwmark, &rule.rule.filter.src_ip,
+				   &rule.rule.filter.dst_ip, rule.rule.action.table, ip_proto,
+				   frh->tos);
 		}
 
 		/* TBD */
@@ -372,13 +391,11 @@ int netlink_rule_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		return 0;
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug(
-			"Rx %s family %s IF %s Pref %u Src %pFX Dst %pFX Table %u ip-proto: %u",
-			nl_msg_type_to_str(h->nlmsg_type),
-			nl_family_to_str(frh->family), rule.ifname,
-			rule.rule.priority, &rule.rule.filter.src_ip,
-			&rule.rule.filter.dst_ip, rule.rule.action.table,
-			ip_proto);
+		zlog_debug("Rx %s family %s IF %s Pref %u Fwmark %u Src %pFX Dst %pFX Table %u ip-proto: %u TOS: 0x%x",
+			   nl_msg_type_to_str(h->nlmsg_type), nl_family_to_str(frh->family),
+			   rule.ifname, rule.rule.priority, rule.rule.filter.fwmark,
+			   &rule.rule.filter.src_ip, &rule.rule.filter.dst_ip,
+			   rule.rule.action.table, ip_proto, frh->tos);
 
 	return kernel_pbr_rule_del(&rule);
 }
