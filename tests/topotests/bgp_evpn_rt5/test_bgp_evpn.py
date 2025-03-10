@@ -43,6 +43,7 @@ def build_topo(tgen):
     tgen.add_router("r1")
     tgen.add_router("r2")
     tgen.add_router("r3")
+    tgen.add_router("r4")
 
     switch = tgen.add_switch("s1")
     switch.add_link(tgen.gears["r1"])
@@ -57,6 +58,14 @@ def build_topo(tgen):
 
     switch = tgen.add_switch("s4")
     switch.add_link(tgen.gears["r3"])
+
+    switch = tgen.add_switch("s5")
+    switch.add_link(tgen.gears["r4"])
+    switch.add_link(tgen.gears["r2"])
+
+    switch = tgen.add_switch("s6")
+    switch.add_link(tgen.gears["r4"])
+    switch.add_link(tgen.gears["r2"])
 
 
 def setup_module(mod):
@@ -149,6 +158,32 @@ def setup_module(mod):
     for cmd in cmds_r2:
         logger.info("cmd to r2: " + cmd.format("r2"))
         output = router.cmd_raises(cmd.format("r2"))
+        logger.info("result: " + output)
+
+    router = tgen.gears["r2"]
+    for cmd in cmds_vrflite:
+        logger.info("cmd to r2: " + cmd.format("r2", 141))
+        output = router.cmd_raises(cmd.format("r2", 141))
+        logger.info("result: " + output)
+
+    cmds_bgpl3vpn = [
+        "ip link set dev {0}-eth{1} master {0}-vrf-{2}",
+        "ip link set dev {0}-eth{1} up",
+    ]
+    for cmd in cmds_bgpl3vpn:
+        logger.info("cmd to r2: " + cmd.format("r2", 3, 141))
+        output = router.cmd_raises(cmd.format("r2", 3, 141))
+        logger.info("result: " + output)
+
+    router = tgen.gears["r4"]
+    for cmd in cmds_vrflite:
+        logger.info("cmd to r4: " + cmd.format("r4", 141))
+        output = router.cmd_raises(cmd.format("r4", 141))
+        logger.info("result: " + output)
+
+    for cmd in cmds_bgpl3vpn:
+        logger.info("cmd to r4: " + cmd.format("r4", 1, 141))
+        output = router.cmd_raises(cmd.format("r4", 1, 141))
         logger.info("result: " + output)
 
     router = tgen.gears["r3"]
@@ -480,6 +515,90 @@ def test_evpn_ping_again():
         pytest.skip(tgen.errors)
 
     _test_evpn_ping_router(tgen.gears["r1"], ipv4_only=True)
+
+
+def test_evpn_enable_l3vpn_importation():
+    """
+    Reconfigure IPv6 networks
+    Unshutdown BGP L3VPN neighbors
+    Ensure R1 receives 10 EVPN prefixes
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tgen.gears["r2"].vtysh_cmd(
+        """
+        configure terminal
+        router bgp 65000
+        no neighbor 192.168.105.61 shutdown
+        exit
+        router bgp 65000 vrf r2-vrf-141
+        no neighbor 192.168.106.61 shutdown
+        exit
+        """
+    )
+    router = tgen.gears["r1"]
+    json_file = "{}/{}/bgp_l2vpn_evpn_routes_source_vrf_all.json".format(
+        CWD, router.name
+    )
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp,
+        router,
+        "show bgp l2vpn evpn json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assertmsg = '"{}" JSON output mismatches'.format(router.name)
+    assert result is None, assertmsg
+
+
+def test_evpn_enable_routemap_with_source_vrf_filtering():
+    """
+    Reapply the route-map with source-vrf filtering applied:
+    - filtering r2-vrf-141 only for ipv4 network
+    - filtering default only for ipv6 network
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tgen.gears["r2"].vtysh_cmd(
+        """
+        configure terminal
+        route-map rmap4 permit 3
+        match source-vrf r2-vrf-141
+        exit
+        route-map rmap4 deny 4
+        match source-vrf default
+        exit
+        route-map rmap6 permit 3
+        match source-vrf default
+        exit
+        route-map rmap6 deny 4
+        match source-vrf r2-vrf-141
+        exit
+        router bgp 65000 vrf r2-vrf-101
+        address-family l2vpn evpn
+        advertise ipv4 unicast route-map rmap4
+        advertise ipv6 unicast route-map rmap6
+        """
+    )
+    router = tgen.gears["r1"]
+    json_file = "{}/{}/bgp_l2vpn_evpn_routes_source_vrf_filtering.json".format(
+        CWD, router.name
+    )
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp,
+        router,
+        "show bgp l2vpn evpn json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assertmsg = '"{}" JSON output mismatches'.format(router.name)
+    assert result is None, assertmsg
 
 
 def _test_wait_for_multipath_convergence(router):
