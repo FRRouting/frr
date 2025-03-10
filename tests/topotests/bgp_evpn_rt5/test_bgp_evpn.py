@@ -11,6 +11,8 @@
 """
 test_bgp_evpn.py: Test the FRR BGP daemon with BGP IPv6 interface
 with route advertisements on a separate netns.
+- R1 and R2 are EVPN vteps.
+- R3 stands for two IP endpoints which will be imported via R2 in EVPN L3.
 """
 
 import json
@@ -45,10 +47,12 @@ def build_topo(tgen):
 
     tgen.add_router("r1")
     tgen.add_router("r2")
+    tgen.add_router("r3")
 
     switch = tgen.add_switch("s1")
     switch.add_link(tgen.gears["r1"])
     switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r3"])
 
 
 def setup_module(mod):
@@ -127,6 +131,42 @@ ip link set vxlan-{0} up type bridge_slave learning off flood off mcast_flood of
                 vrf, _create_rmac(2, vrf)
             )
         )
+
+    tgen.gears["r2"].cmd(
+        """
+ip link add vrf-141 type vrf table 141
+ip link set dev vrf-141 up
+ip link add loop141 type dummy
+ip link set dev loop141 master vrf-141
+ip link set dev loop141 up
+ip link add vrf-142 type vrf table 142
+ip link set dev vrf-142 up
+ip link add loop142 type dummy
+ip link set dev loop142 master vrf-142
+ip link set dev loop142 up
+ip link add link r2-eth0 name r2-eth0.141 type vlan id 141
+ip link add link r2-eth0 name r2-eth0.142 type vlan id 142
+ip link set dev r2-eth0.141 master vrf-141
+ip link set dev r2-eth0.141-eth1 up
+ip link set dev r2-eth0.142 master vrf-142
+ip link set dev r2-eth0.142 up
+"""
+    )
+
+    tgen.gears["r3"].cmd(
+        """
+ip link add vrf-141 type vrf table 141
+ip link set dev vrf-141 up
+ip link add loop141 type dummy
+ip link set dev loop141 master vrf-141
+ip link set dev loop141 up
+ip link add link r3-eth0 name r3-eth0.141 type vlan id 141
+ip link set dev r3-eth0.141 master vrf-141
+ip link set dev r3-eth0.141 up
+ip link add link r3-eth0 name r3-eth0.142 type vlan id 142
+ip link set dev r3-eth0.142 up
+"""
+    )
 
     for rname, router in tgen.routers().items():
         logger.info("Loading router %s" % rname)
@@ -587,6 +627,119 @@ def test_evpn_restore_ipv4():
     _test_router_check_evpn_next_hop()
     _test_evpn_ping_router(tgen.gears["r1"], tgen.gears["r2"], 101, 101)
     _test_router_check_evpn_contexts(tgen.gears["r1"])
+
+
+def test_evpn_enable_l3vpn_importation():
+    """
+    Reconfigure IPv6 networks
+    Unshutdown BGP L3VPN neighbors
+    Ensure R1 receives 10 EVPN prefixes
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tgen.gears["r2"].vtysh_cmd(
+        """
+        configure terminal
+        router bgp 65000 vrf vrf-142
+        no neighbor 192.168.105.61 shutdown
+        exit
+        router bgp 65000 vrf vrf-141
+        no neighbor 192.168.106.61 shutdown
+        exit
+        """
+    )
+    router = tgen.gears["r1"]
+    json_file = "{}/{}/bgp_l2vpn_evpn_routes_source_vrf_all.json".format(
+        CWD, router.name
+    )
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp,
+        router,
+        "show bgp l2vpn evpn json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assertmsg = '"{}" JSON output mismatches'.format(router.name)
+    assert result is None, assertmsg
+
+
+def test_evpn_enable_routemap_with_source_vrf_filtering():
+    """
+    Reapply the route-map with source-vrf filtering applied:
+    - filtering vrf-141 only for ipv4 network
+    - filtering vrf-142 only for ipv6 network
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tgen.gears["r2"].vtysh_cmd(
+        """
+        configure terminal
+        route-map rmap4 permit 3
+        match source-vrf vrf-141
+        exit
+        route-map rmap4 deny 4
+        match source-vrf vrf-142
+        exit
+        route-map rmap6 permit 3
+        match source-vrf vrf-142
+        exit
+        route-map rmap6 deny 4
+        match source-vrf vrf-141
+        exit
+        router bgp 65000 vrf vrf-101
+        address-family l2vpn evpn
+        advertise ipv4 unicast route-map rmap4
+        advertise ipv6 unicast route-map rmap6
+        """
+    )
+    router = tgen.gears["r1"]
+    json_file = "{}/{}/bgp_l2vpn_evpn_routes_source_vrf_filtering.json".format(
+        CWD, router.name
+    )
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp,
+        router,
+        "show bgp l2vpn evpn json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assertmsg = '"{}" JSON output mismatches'.format(router.name)
+    assert result is None, assertmsg
+
+
+def test_evpn_disable_l3vpn_importation():
+    """
+    Reconfigure IPv6 networks
+    Unshutdown BGP L3VPN neighbors
+    Ensure R1 receives 10 EVPN prefixes
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tgen.gears["r2"].vtysh_cmd(
+        """
+        configure terminal
+        router bgp 65000 vrf vrf-142
+        neighbor 192.168.105.61 shutdown
+        exit
+        router bgp 65000 vrf vrf-141
+        neighbor 192.168.106.61 shutdown
+        exit
+        router bgp 65000 vrf vrf-101
+        address-family l2vpn evpn
+        no advertise ipv4 unicast route-map rmap4
+        no advertise ipv6 unicast route-map rmap6
+        advertise ipv4 unicast
+        advertise ipv6 unicast
+        """
+    )
 
 
 def _get_established_epoch(router, peer, vrf=None):
