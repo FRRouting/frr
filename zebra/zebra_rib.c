@@ -903,6 +903,11 @@ void zebra_rtable_node_cleanup(struct route_table *table,
 		rib_unlink(node, re);
 	}
 
+	zebra_node_info_cleanup(node);
+}
+
+void zebra_node_info_cleanup(struct route_node *node)
+{
 	if (node->info) {
 		rib_dest_t *dest = node->info;
 
@@ -4498,6 +4503,12 @@ rib_update_handle_kernel_route_down_possibility(struct route_node *rn,
 	bool alive = false;
 
 	for (ALL_NEXTHOPS(re->nhe->nhg, nexthop)) {
+		if (!nexthop->ifindex) {
+			/* blackhole nexthops have no interfaces */
+			alive = true;
+			break;
+		}
+
 		struct interface *ifp = if_lookup_by_index(nexthop->ifindex,
 							   nexthop->vrf_id);
 

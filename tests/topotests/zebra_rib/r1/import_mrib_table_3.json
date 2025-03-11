@@ -68,7 +68,7 @@
             "installed": true,
             "table": 254,
             "internalStatus": 16,
-            "internalFlags": 9,
+            "internalFlags": 2057,
             "nexthops": [
                 {
                     "flags": 3,
@@ -97,7 +97,7 @@
             "installed": true,
             "table": 254,
             "internalStatus": 16,
-            "internalFlags": 9,
+            "internalFlags": 2057,
             "nexthops": [
                 {
                     "flags": 3,
@@ -126,7 +126,7 @@
             "installed": true,
             "table": 254,
             "internalStatus": 16,
-            "internalFlags": 9,
+            "internalFlags": 2057,
             "nexthops": [
                 {
                     "flags": 3,
@@ -155,7 +155,7 @@
             "installed": true,
             "table": 254,
             "internalStatus": 16,
-            "internalFlags": 9,
+            "internalFlags": 2057,
             "nexthops": [
                 {
                     "flags": 3,
@@ -238,7 +238,7 @@
             "installed": true,
             "table": 254,
             "internalStatus": 16,
-            "internalFlags": 9,
+            "internalFlags": 2057,
             "nexthops": [
                 {
                     "flags": 3,
