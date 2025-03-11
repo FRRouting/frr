@@ -54,6 +54,8 @@
 #include "zebra/zebra_evpn_vxlan.h"
 #include "zebra/zebra_router.h"
 
+DEFINE_MTYPE_STATIC(ZEBRA, L2_VNI, "L2 VNI");
+
 static unsigned int zebra_vxlan_vni_hash_keymake(const void *p)
 {
 	const struct zebra_vxlan_vni *vni;
@@ -527,11 +529,7 @@ static int zebra_vxlan_if_add_update_vni(struct zebra_if *zif,
 				   old_vni->access_vlan, vni->vni,
 				   vni->access_vlan);
 
-		zebra_evpn_vl_vxl_deref(old_vni->access_vlan, old_vni->vni,
-					zif);
-		zebra_evpn_vl_vxl_ref(vni->access_vlan, vni->vni, zif);
-		zebra_vxlan_if_update_vni(zif->ifp, vni, ctx);
-		zebra_vxlan_vni_free(old_vni);
+
 	} else {
 		int ret;
 
@@ -544,18 +542,19 @@ static int zebra_vxlan_if_add_update_vni(struct zebra_if *zif,
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug("%s vxlan %s vni %u has error accessing bridge table.",
 					   __func__, zif->ifp->name, vni->vni);
+
+			return 0;
 		} else if (ret == 0) {
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug("%s vxlan %s vni (%u, %u) not present in bridge table",
-					   __func__, zif->ifp->name, vni->vni,
-					   vni->access_vlan);
-			zebra_evpn_vl_vxl_deref(old_vni->access_vlan,
-						old_vni->vni, zif);
-			zebra_evpn_vl_vxl_ref(vni->access_vlan, vni->vni, zif);
-			zebra_vxlan_if_update_vni(zif->ifp, vni, ctx);
-			zebra_vxlan_vni_free(old_vni);
+					   __func__, zif->ifp->name, vni->vni, vni->access_vlan);
 		}
 	}
+
+	zebra_evpn_vl_vxl_deref(old_vni->access_vlan, old_vni->vni, zif);
+	zebra_evpn_vl_vxl_ref(vni->access_vlan, vni->vni, zif);
+	zebra_vxlan_if_update_vni(zif->ifp, vni, ctx);
+	zebra_vxlan_vni_free(old_vni);
 
 	return 0;
 }
@@ -608,7 +607,7 @@ void zebra_vxlan_vni_free(void *arg)
 
 	vni = (struct zebra_vxlan_vni *)arg;
 
-	XFREE(MTYPE_TMP, vni);
+	XFREE(MTYPE_L2_VNI, vni);
 }
 
 void *zebra_vxlan_vni_alloc(void *p)
@@ -617,7 +616,7 @@ void *zebra_vxlan_vni_alloc(void *p)
 	const struct zebra_vxlan_vni *vnip;
 
 	vnip = (const struct zebra_vxlan_vni *)p;
-	vni = XCALLOC(MTYPE_TMP, sizeof(*vni));
+	vni = XCALLOC(MTYPE_L2_VNI, sizeof(*vni));
 	vni->vni = vnip->vni;
 	vni->access_vlan = vnip->access_vlan;
 	vni->mcast_grp = vnip->mcast_grp;
@@ -659,8 +658,6 @@ int zebra_vxlan_if_vni_table_create(struct zebra_if *zif)
 
 	vni_info = VNI_INFO_FROM_ZEBRA_IF(zif);
 	vni_info->vni_table = zebra_vxlan_vni_table_create();
-	if (!vni_info->vni_table)
-		return -ENOMEM;
 
 	return 0;
 }
