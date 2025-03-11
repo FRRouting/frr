@@ -1509,15 +1509,15 @@ DEFPY (debug_ospf_gr,
 
 	if (vty->node == CONFIG_NODE) {
 		if (no)
-			CONF_DEBUG_OFF(gr, GR);
+			DEBUG_OFF(gr, GR);
 		else
-			CONF_DEBUG_ON(gr, GR);
+			DEBUG_ON(gr, GR);
+	} else {
+		if (no)
+			TERM_DEBUG_OFF(gr, GR);
+		else
+			TERM_DEBUG_ON(gr, GR);
 	}
-
-	if (no)
-		TERM_DEBUG_OFF(gr, GR);
-	else
-		TERM_DEBUG_ON(gr, GR);
 
 	return CMD_SUCCESS;
 }
