@@ -103,6 +103,14 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
    the upper level daemons that can install v6 routes with v4
    nexthops.
 
+.. option:: -p , --pic
+
+   Enable the switch for creating zebra pic-type next hops.
+   After adding this parameter, a pic-type next hop containing only
+   gate information will be separately created for nexthop groups that
+   include context information such as srv6-sid, label, etc., to perform
+   fast switching actions.
+
 .. _interface-commands:
 
 Configuration Addresses behaviour
