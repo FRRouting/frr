@@ -652,6 +652,34 @@ def test_nexthop_groups():
         nhg_id
     )
 
+    ## Validate NHG's installed in kernel has same nexthops with Interface flaps
+    pre_out = net["r1"].cmd('ip route show | grep "5.5.5.1"')
+    pre_nhg = re.search(r"nhid\s+(\d+)", pre_out)
+    pre_nh_show = net["r1"].cmd("ip next show id {}".format(pre_nhg.group(1)))
+    pre_total_nhs = len((re.search(r"group ([\d/]+)", pre_nh_show)).group(1).split("/"))
+
+    net["r1"].cmd(
+        "ip link set r1-eth1 down;ip link set r1-eth2 down;ip link set r1-eth3 down;ip link set r1-eth4 down"
+    )
+    sleep(1)
+    net["r1"].cmd(
+        "ip link set r1-eth1 up;ip link set r1-eth2 up;ip link set r1-eth3 up;ip link set r1-eth4 up"
+    )
+    sleep(5)
+
+    post_out = net["r1"].cmd('ip route show | grep "5.5.5.1"')
+    post_nhg = re.search(r"nhid\s+(\d+)", post_out)
+    post_nh_show = net["r1"].cmd("ip next show id {}".format(post_nhg.group(1)))
+    post_total_nhs = len(
+        (re.search(r"group ([\d/]+)", post_nh_show)).group(1).split("/")
+    )
+
+    assert (
+        post_total_nhs == pre_total_nhs
+    ), "Expected same nexthops(pre-{}: post-{}) in NHG (pre-{}:post-{}) after few Interface flaps".format(
+        pre_total_nhs, post_total_nhs, pre_nhg.group(1), post_nhg.group(1)
+    )
+
     ## Remove all NHG routes
 
     net["r1"].cmd('vtysh -c "sharp remove routes 2.2.2.1 1"')
