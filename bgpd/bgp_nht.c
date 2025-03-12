@@ -763,10 +763,6 @@ static void bgp_nht_ifp_table_handle(struct bgp *bgp,
 				     struct interface *ifp, bool up)
 {
 	struct bgp_nexthop_cache *bnc;
-	struct nexthop *nhop;
-	uint16_t other_nh_count;
-	bool nhop_ll_found = false;
-	bool nhop_found = false;
 
 	if (ifp->ifindex == IFINDEX_INTERNAL) {
 		zlog_warn("%s: The interface %s ignored", __func__, ifp->name);
@@ -774,41 +770,8 @@ static void bgp_nht_ifp_table_handle(struct bgp *bgp,
 	}
 
 	frr_each (bgp_nexthop_cache, table, bnc) {
-		other_nh_count = 0;
-		nhop_ll_found = bnc->ifindex_ipv6_ll == ifp->ifindex;
-		for (nhop = bnc->nexthop; nhop; nhop = nhop->next) {
-			if (nhop->ifindex == bnc->ifindex_ipv6_ll)
-				continue;
-
-			if (nhop->ifindex != ifp->ifindex) {
-				other_nh_count++;
-				continue;
-			}
-			if (nhop->vrf_id != ifp->vrf->vrf_id) {
-				other_nh_count++;
-				continue;
-			}
-			nhop_found = true;
-		}
-
-		if (!nhop_found && !nhop_ll_found)
-			/* The event interface does not match the nexthop cache
-			 * entry */
+		if (bnc->ifindex_ipv6_ll != ifp->ifindex)
 			continue;
-
-		if (!up && other_nh_count > 0)
-			/* Down event ignored in case of multiple next-hop
-			 * interfaces. The other might interfaces might be still
-			 * up. The cases where all interfaces are down or a bnc
-			 * is invalid are processed by a separate zebra rnh
-			 * messages.
-			 */
-			continue;
-
-		if (!nhop_ll_found) {
-			evaluate_paths(bnc);
-			continue;
-		}
 
 		bnc->last_update = monotime(NULL);
 		bnc->change_flags = 0;
@@ -822,7 +785,6 @@ static void bgp_nht_ifp_table_handle(struct bgp *bgp,
 		if (up) {
 			SET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
 			SET_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED);
-			/* change nexthop number only for ll */
 			bnc->nexthop_num = 1;
 		} else {
 			UNSET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED);
