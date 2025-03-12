@@ -368,6 +368,36 @@ static void static_ifindex_update_nh(struct interface *ifp, bool up,
 	static_install_path(pn);
 }
 
+void static_install_nexthops_on_startup(void)
+{
+	struct route_table *stable;
+	struct route_node *rn;
+	struct static_nexthop *nh;
+	struct static_path *pn;
+	struct static_vrf *svrf;
+	struct static_route_info *si;
+	afi_t afi;
+	safi_t safi;
+
+	RB_FOREACH (svrf, svrf_name_head, &svrfs) {
+		FOREACH_AFI_SAFI (afi, safi) {
+			stable = static_vrf_static_table(afi, safi, svrf);
+			if (!stable)
+				continue;
+			for (rn = route_top(stable); rn; rn = srcdest_route_next(rn)) {
+				si = static_route_info_from_rnode(rn);
+				if (!si)
+					continue;
+				frr_each (static_path_list, &si->path_list, pn) {
+					frr_each (static_nexthop_list, &pn->nexthop_list, nh) {
+						static_zebra_nht_register(nh, true);
+					}
+				}
+			}
+		}
+	}
+}
+
 static void static_ifindex_update_af(struct interface *ifp, bool up, afi_t afi,
 				     safi_t safi)
 {
