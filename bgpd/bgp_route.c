@@ -3947,8 +3947,10 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 			 * we need to withdraw the route first to clear
 			 * the nh neigh and the RMAC entry.
 			 */
-			if (old_select &&
-			    is_route_parent_evpn(old_select))
+			if (old_select && is_route_parent_evpn(old_select) &&
+			    old_select->attr->nexthop.s_addr != new_select->attr->nexthop.s_addr &&
+			    !memcmp(&old_select->attr->rmac, &new_select->attr->rmac,
+				    sizeof(struct ethaddr)))
 				bgp_zebra_withdraw_actual(dest, old_select, bgp);
 
 			bgp_zebra_route_install(dest, new_select, bgp, true,
