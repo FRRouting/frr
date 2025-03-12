@@ -1260,8 +1260,11 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 	int ret = 0;
 	bool found = false;
 	struct peer *peer;
+	bool afi_safi_unspec = false;
 
 	VTY_BGP_GR_DEFINE_LOOP_VARIABLE;
+
+	afi_safi_unspec = ((afi == AFI_UNSPEC) && (safi == SAFI_UNSPEC));
 
 	/* Clear all neighbors. */
 	/*
@@ -1270,6 +1273,8 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 	 * doppelganger
 	 */
 	if (sort == clear_all) {
+		if (afi_safi_unspec)
+			bgp_clearing_batch_begin(bgp);
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 
 			bgp_peer_gr_flags_update(peer);
@@ -1296,6 +1301,8 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 		if (stype == BGP_CLEAR_SOFT_NONE)
 			bgp->update_delay_over = 0;
 
+		if (afi_safi_unspec)
+			bgp_clearing_batch_end_event_start(bgp);
 		return CMD_SUCCESS;
 	}
 
@@ -1351,6 +1358,8 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			return CMD_WARNING;
 		}
 
+		if (afi_safi_unspec)
+			bgp_clearing_batch_begin(bgp);
 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
 			ret = bgp_peer_clear(peer, afi, safi, &nnode, stype);
 
@@ -1359,6 +1368,8 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			else
 				found = true;
 		}
+		if (afi_safi_unspec)
+			bgp_clearing_batch_end_event_start(bgp);
 
 		if (!found)
 			vty_out(vty,
@@ -1370,6 +1381,8 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 
 	/* Clear all external (eBGP) neighbors. */
 	if (sort == clear_external) {
+		if (afi_safi_unspec)
+			bgp_clearing_batch_begin(bgp);
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 			if (peer->sort == BGP_PEER_IBGP)
 				continue;
@@ -1394,7 +1407,8 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			   && bgp->present_zebra_gr_state == ZEBRA_GR_ENABLE) {
 			bgp_zebra_send_capabilities(bgp, true);
 		}
-
+		if (afi_safi_unspec)
+			bgp_clearing_batch_end_event_start(bgp);
 		if (!found)
 			vty_out(vty,
 				"%% BGP: No external %s peer is configured\n",
@@ -1412,6 +1426,8 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			return CMD_WARNING;
 		}
 
+		if (afi_safi_unspec)
+			bgp_clearing_batch_begin(bgp);
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 			if (peer->as != as)
 				continue;
@@ -1437,6 +1453,8 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			bgp_zebra_send_capabilities(bgp, true);
 		}
 
+		if (afi_safi_unspec)
+			bgp_clearing_batch_end_event_start(bgp);
 		if (!found)
 			vty_out(vty,
 				"%% BGP: No %s peer is configured with AS %s\n",
