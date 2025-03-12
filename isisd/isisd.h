@@ -56,6 +56,7 @@ static const bool fabricd = false;
 extern void isis_cli_init(void);
 #endif
 
+
 #define ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf)             \
 	if (argv_find(argv, argc, "vrf", &idx_vrf)) {                          \
 		vrf_name = argv[idx_vrf + 1]->arg;                             \

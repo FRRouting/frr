@@ -234,9 +234,50 @@ static const struct route_map_rule_cmd route_set_metric_cmd = {
 	route_set_metric_free
 };
 
+static void isis_route_map_update(const char *name)
+{
+	struct isis *isis;
+	struct listnode *node, *lnode;
+	struct isis_area *area;
+	int type;
+	int level;
+	int protocol;
+	struct isis_redist *redist;
+
+	for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
+		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
+			for (protocol = 0; protocol < REDIST_PROTOCOL_COUNT; protocol++)
+				for (type = 0; type < ZEBRA_ROUTE_MAX + 1; type++)
+					for (level = 0; level < ISIS_LEVELS; level++) {
+						if (area->redist_settings[protocol][type][level] ==
+						    NULL)
+							continue;
+						for (ALL_LIST_ELEMENTS_RO(area->redist_settings
+										  [protocol][type]
+										  [level],
+									  lnode, redist)) {
+							if (redist->redist == 0)
+								continue;
+
+							if (redist->map_name &&
+							    strcmp(redist->map_name, name) == 0) {
+								isis_redist_update(area, level + 1,
+										   afi_skt_for_redist_protocol(
+											   protocol),
+										   type,
+										   redist->table);
+							}
+						}
+					}
+}
+
 void isis_route_map_init(void)
 {
 	route_map_init();
+
+	route_map_add_hook(isis_route_map_update);
+	route_map_delete_hook(isis_route_map_update);
+	route_map_event_hook(isis_route_map_update);
 
 	route_map_match_ip_address_hook(generic_match_add);
 	route_map_no_match_ip_address_hook(generic_match_delete);
