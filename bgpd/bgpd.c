@@ -4153,6 +4153,7 @@ int bgp_delete(struct bgp *bgp)
 	EVENT_OFF(bgp->t_maxmed_onstartup);
 	EVENT_OFF(bgp->t_update_delay);
 	EVENT_OFF(bgp->t_establish_wait);
+	EVENT_OFF(bgp->clearing_end);
 
 	/* Set flag indicating bgp instance delete in progress */
 	SET_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS);
@@ -9108,9 +9109,12 @@ static void bgp_clearing_peer_done(struct peer *peer)
 /*
  * Initialize a new batch struct for clearing peer(s) from the RIB
  */
-static void bgp_clearing_batch_begin(struct bgp *bgp)
+void bgp_clearing_batch_begin(struct bgp *bgp)
 {
 	struct bgp_clearing_info *cinfo;
+
+	if (event_is_scheduled(bgp->clearing_end))
+		return;
 
 	cinfo = XCALLOC(MTYPE_CLEARING_BATCH, sizeof(struct bgp_clearing_info));
 
@@ -9134,6 +9138,9 @@ static void bgp_clearing_batch_end(struct bgp *bgp)
 {
 	struct bgp_clearing_info *cinfo;
 
+	if (event_is_scheduled(bgp->clearing_end))
+		return;
+
 	cinfo = bgp_clearing_info_first(&bgp->clearing_list);
 
 	assert(cinfo != NULL);
@@ -9155,6 +9162,23 @@ static void bgp_clearing_batch_end(struct bgp *bgp)
 	 * to do.
 	 */
 	bgp_clear_route_batch(cinfo);
+}
+
+static void bgp_clearing_batch_end_event(struct event *event)
+{
+	struct bgp *bgp = EVENT_ARG(event);
+
+	bgp_clearing_batch_end(bgp);
+	bgp_unlock(bgp);
+}
+
+void bgp_clearing_batch_end_event_start(struct bgp *bgp)
+{
+	if (!event_is_scheduled(bgp->clearing_end))
+		bgp_lock(bgp);
+
+	EVENT_OFF(bgp->clearing_end);
+	event_add_timer_msec(bm->master, bgp_clearing_batch_end_event, bgp, 100, &bgp->clearing_end);
 }
 
 /* Check whether a dest's peer is relevant to a clearing batch */
