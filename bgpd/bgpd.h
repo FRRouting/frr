@@ -48,6 +48,11 @@ DECLARE_HOOK(bgp_hook_config_write_vrf, (struct vty *vty, struct vrf *vrf),
 /* Default interval for IPv6 RAs when triggered by BGP unnumbered neighbor. */
 #define BGP_UNNUM_DEFAULT_RA_INTERVAL 10
 
+/* Max number of peers to process without rescheduling */
+#define BGP_CONN_ERROR_DEQUEUE_MAX 10
+/* Limit the number of clearing dests we'll process per callback */
+#define BGP_CLEARING_BATCH_MAX_DESTS 100
+
 struct update_subgroup;
 struct bpacket;
 struct bgp_pbr_config;
@@ -213,6 +218,16 @@ struct bgp_master {
 	struct event *t_bgp_zebra_l3_vni;
 	/* To preserve ordering of processing of BGP-VRFs for L3 VNIs */
 	struct zebra_l3_vni_head zebra_l3_vni_head;
+
+	/* ID value for peer clearing batches */
+	uint32_t peer_clearing_batch_id;
+
+	/* Limits for batched peer clearing code:
+	 * Max number of errored peers to process without rescheduling
+	 */
+	uint32_t peer_conn_errs_dequeue_limit;
+	/* Limit the number of clearing dests we'll process per callback */
+	uint32_t peer_clearing_batch_max_dests;
 
 	QOBJ_FIELDS;
 };
@@ -414,6 +429,9 @@ struct bgp_clearing_info {
 	/* Hash of peers */
 	struct bgp_clearing_hash_head peers;
 
+	/* Batch ID, for debugging/logging */
+	uint32_t id;
+
 	/* Flags */
 	uint32_t flags;
 
@@ -423,9 +441,28 @@ struct bgp_clearing_info {
 	/* Event to schedule/reschedule processing */
 	struct event *t_sched;
 
-	/* TODO -- id, serial number, for debugging/logging? */
+	/* Info for rescheduling the RIB walk */
+	afi_t last_afi;
+	safi_t last_safi;
+	struct prefix last_pfx;
 
-	/* TODO -- info for rescheduling the RIB walk? future? */
+	/* For some afi/safi (vpn/evpn e.g.), bgp may do an inner walk
+	 * for a related table; the 'last' info represents the outer walk,
+	 * and this info represents the inner walk.
+	 */
+	afi_t inner_afi;
+	safi_t inner_safi;
+	struct prefix inner_pfx;
+
+	/* Map of afi/safi so we don't re-walk any tables */
+	uint8_t table_map[AFI_MAX][SAFI_MAX];
+
+	/* Counters: current iteration, overall total, and processed count. */
+	uint32_t curr_counter;
+	uint32_t total_counter;
+	uint32_t total_processed;
+
+	/* TODO -- id, serial number, for debugging/logging? */
 
 	/* Linkage for list of batches per bgp */
 	struct bgp_clearing_info_item link;
@@ -433,6 +470,10 @@ struct bgp_clearing_info {
 
 /* Batch is open, new peers can be added */
 #define BGP_CLEARING_INFO_FLAG_OPEN  (1 << 0)
+/* Batch is resuming iteration after yielding */
+#define BGP_CLEARING_INFO_FLAG_RESUME (1 << 1)
+/* Batch has 'inner' resume info set */
+#define BGP_CLEARING_INFO_FLAG_INNER (1 << 2)
 
 /* BGP instance structure.  */
 struct bgp {
