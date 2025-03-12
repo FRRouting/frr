@@ -181,6 +181,12 @@ static void zebra_connected(struct zclient *zclient)
 	vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	assert(vrf);
 	static_fixup_vrf_ids(vrf);
+
+	/*
+	 * It's possible that staticd connected after config was read
+	 * in.
+	 */
+	static_install_nexthops_on_startup();
 }
 
 /* API to check whether the configured nexthop address is
