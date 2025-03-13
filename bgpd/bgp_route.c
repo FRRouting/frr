@@ -7141,7 +7141,7 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 						&pi->extra->labels->label[0]);
 			}
 #endif
-			if (pi->extra && pi->extra->vrfleak->bgp_orig)
+			if (pi->extra && pi->extra->vrfleak && pi->extra->vrfleak->bgp_orig)
 				bgp_nexthop = pi->extra->vrfleak->bgp_orig;
 
 			bgp_nexthop_reachability_check(afi, safi, pi, p, dest,
