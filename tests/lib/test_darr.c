@@ -48,6 +48,7 @@
  * [x] - darr_strdup
  * [x] - darr_strdup_cap
  * [x] - darr_strlen
+ * [x] - darr_strlen_fixup
  * [x] - darr_strnul
  * [ ] - darr_vsprintf
  */
@@ -406,6 +407,9 @@ static void test_string(void)
 	assert(!strcmp(da1, "0123456789: DEADBEEF"));
 	assert(darr_strlen(da1) == 20);
 	assert(darr_cap(da1) == 128);
+
+	da1[5] = 0;
+	assert(darr_strlen_fixup(da1) == 5);
 	darr_free(da1);
 
 	da1 = darr_sprintf("0123456789: %08x", 0xDEADBEEF);
