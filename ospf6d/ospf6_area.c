@@ -366,6 +366,17 @@ void ospf6_area_delete(struct ospf6_area *oa)
 	XFREE(MTYPE_OSPF6_AREA, oa);
 }
 
+void ospf6_area_no_config_delete(struct ospf6_area *oa)
+{
+	if ((oa->if_list->count == 0) && (oa->range_table->count == 0) &&
+	    (oa->nssa_range_table->count == 0) && !IS_AREA_STUB(oa) && !IS_AREA_NSSA(oa) &&
+	    !PREFIX_NAME_IN(oa) && !PREFIX_NAME_OUT(oa) && !IMPORT_NAME(oa) && !EXPORT_NAME(oa)) {
+		if (CHECK_FLAG((oa)->flag, OSPF6_AREA_ENABLE))
+			ospf6_area_disable(oa);
+		ospf6_area_delete(oa);
+	}
+}
+
 struct ospf6_area *ospf6_area_lookup_by_area_id(uint32_t area_id)
 {
 	struct ospf6_area *oa;
@@ -646,6 +657,9 @@ DEFUN (no_area_range,
 	}
 	ospf6_route_remove(range, oa->range_table);
 
+	/* Delete area if no interfaces or configuration. */
+	ospf6_area_no_config_delete(oa);
+
 	return CMD_SUCCESS;
 }
 
@@ -814,6 +828,9 @@ DEFUN (no_area_filter_list,
 	if (ospf6_check_and_set_router_abr(area->ospf6))
 		ospf6_schedule_abr_task(ospf6);
 
+	/* Delete area if no interfaces or configuration. */
+	ospf6_area_no_config_delete(area);
+
 	return CMD_SUCCESS;
 }
 
@@ -939,6 +956,9 @@ DEFUN (no_area_import_list,
 	if (ospf6_check_and_set_router_abr(area->ospf6))
 		ospf6_schedule_abr_task(ospf6);
 
+	/* Delete area if no interfaces or configuration. */
+	ospf6_area_no_config_delete(area);
+
 	return CMD_SUCCESS;
 }
 
@@ -1001,6 +1021,9 @@ DEFUN (no_area_export_list,
 	EXPORT_NAME(area) = NULL;
 	if (ospf6_check_and_set_router_abr(area->ospf6))
 		ospf6_schedule_abr_task(ospf6);
+
+	/* Delete area if no interfaces or configuration. */
+	ospf6_area_no_config_delete(area);
 
 	return CMD_SUCCESS;
 }
@@ -1338,6 +1361,9 @@ DEFUN (no_ospf6_area_stub_no_summary,
 	ospf6_area_stub_unset(ospf6, area);
 	ospf6_area_no_summary_unset(ospf6, area);
 
+	/* Delete area if no interfaces or configuration. */
+	ospf6_area_no_config_delete(area);
+
 	return CMD_SUCCESS;
 }
 
@@ -1417,6 +1443,9 @@ DEFPY(no_ospf6_area_nssa, no_ospf6_area_nssa_cmd,
 	ospf6_area_nssa_unset(ospf6, area);
 	ospf6_area_no_summary_unset(ospf6, area);
 	ospf6_nssa_default_originate_unset(ospf6, area);
+
+	/* Delete area if no interfaces or configuration. */
+	ospf6_area_no_config_delete(area);
 
 	return CMD_SUCCESS;
 }
