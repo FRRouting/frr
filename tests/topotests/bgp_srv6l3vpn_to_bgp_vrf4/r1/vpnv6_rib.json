@@ -1,0 +1,63 @@
+{
+    "vrfId": 0,
+    "vrfName": "default",
+    "routerId": "1.1.1.1",
+    "defaultLocPrf": 100,
+    "localAS": 1,
+    "routes": {
+      "routeDistinguishers": {
+        "1:10": {
+          "2001:1::/64": [
+            {
+              "valid": true,
+              "bestpath": true,
+              "selectionReason": "First path received",
+              "pathFrom": "external",
+              "prefix": "2001:1::",
+              "prefixLen": 64,
+              "network": "2001:1::/64",
+              "metric": 0,
+              "weight": 0,
+              "peerId": "(unspec)",
+              "path": "65001",
+              "origin": "IGP",
+              "nhVrfName": "vrf10",
+              "nexthops": [
+                {
+                  "hostname": "r1",
+                  "afi": "ipv6",
+                  "used": true
+                }
+              ]
+            }
+          ]
+        },
+        "2:10": {
+          "2001:2::/64": [
+            {
+              "valid": true,
+              "bestpath": true,
+              "selectionReason": "First path received",
+              "pathFrom": "external",
+              "prefix": "2001:2::",
+              "prefixLen": 64,
+              "network": "2001:2::/64",
+              "metric": 0,
+              "weight": 0,
+              "peerId": "2001::2",
+              "path": "2 65002",
+              "origin": "IGP",
+              "nexthops": [
+                {
+                  "ip": "2001::2",
+                  "hostname": "r2",
+                  "afi": "ipv6",
+                  "used": true
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+}
