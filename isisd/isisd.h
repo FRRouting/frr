@@ -76,9 +76,9 @@ struct isis_master {
 	struct event_loop *master;
 	/* Various global options */
 	uint8_t options;
-#define ISIS_OPT_DUMMY_AS_LOOPBACK (1 << 0)
+#define F_ISIS_UNIT_TEST	   (1 << 0)
+#define ISIS_OPT_DUMMY_AS_LOOPBACK (1 << 1)
 };
-#define F_ISIS_UNIT_TEST 0x01
 
 #define ISIS_DEFAULT_MAX_AREA_ADDRESSES 3
 
