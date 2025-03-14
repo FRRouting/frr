@@ -92,14 +92,8 @@ def setup_module(mod):
     tgen.start_topology()
     router_list = tgen.routers()
     for rname, router in tgen.routers().items():
-        if os.path.exists("{}/{}/setup.sh".format(CWD, rname)):
-            router.run("/bin/bash {}/{}/setup.sh".format(CWD, rname))
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
-        )
+        logger.info("Loading router %s" % rname)
+        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
 
     tgen.gears["r1"].run("ip link add vrf10 type vrf table 10")
     tgen.gears["r1"].run("ip link set vrf10 up")
