@@ -212,7 +212,7 @@ def test_bgp_locator_unset():
     get_topogen().gears["r1"].vtysh_cmd(
         """
         configure terminal
-         router bgp 1
+         router bgp 65500
           segment-routing srv6
            no locator loc1
         """
@@ -227,7 +227,7 @@ def test_bgp_locator_reset():
     get_topogen().gears["r1"].vtysh_cmd(
         """
         configure terminal
-         router bgp 1
+         router bgp 65500
           segment-routing srv6
            locator loc1
         """
@@ -242,7 +242,7 @@ def test_bgp_srv6_unset():
     get_topogen().gears["r1"].vtysh_cmd(
         """
         configure terminal
-         router bgp 1
+         router bgp 65500
           no segment-routing srv6
         """
     )
@@ -256,7 +256,7 @@ def test_bgp_srv6_reset():
     get_topogen().gears["r1"].vtysh_cmd(
         """
         configure terminal
-         router bgp 1
+         router bgp 65500
           segment-routing srv6
            locator loc1
         """
