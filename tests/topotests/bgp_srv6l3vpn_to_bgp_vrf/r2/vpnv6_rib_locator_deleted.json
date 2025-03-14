@@ -3,7 +3,7 @@
   "vrfName": "default",
   "routerId": "2.2.2.2",
   "defaultLocPrf": 100,
-  "localAS": 2,
+  "localAS": 65501,
   "routes": {
     "routeDistinguishers": {
       "2:10": {
