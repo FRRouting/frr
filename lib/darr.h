@@ -62,6 +62,7 @@
  *  - darr_strdup
  *  - darr_strdup_cap
  *  - darr_strlen
+ *  - darr_strlen_fixup
  *  - darr_strnul
  *  - darr_sprintf, darr_vsprintf
  */
@@ -750,6 +751,22 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
 			__size -= 1;                                           \
 		assert(!(S) || ((char *)(S))[__size] == 0);                    \
 		__size;                                                        \
+	})
+
+/**
+ * Fixup darr_len (and thus darr_strlen) for `S` based on its strlen(S)
+ * (i.e., scan for NUL byte). The dynamic array length will be set to strlen(S) + 1.
+ *
+ * Args:
+ *	S: The dynamic array with a NUL terminated string, cannot be NULL.
+ *
+ * Return:
+ *      The calculated strlen() value.
+ */
+#define darr_strlen_fixup(S)                                                                       \
+	({                                                                                         \
+		_darr_len(S) = strlen(S) + 1;                                                      \
+		darr_strlen(S);                                                                    \
 	})
 
 /**

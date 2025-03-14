@@ -407,6 +407,7 @@ static enum nb_error nb_op_xpath_to_trunk(const char *xpath_in, char **xpath_out
 		ret = yang_xpath_pop_node(xpath);
 		if (ret != NB_OK)
 			break;
+		darr_strlen_fixup(xpath);
 	}
 	if (ret == NB_OK)
 		*xpath_out = xpath;
