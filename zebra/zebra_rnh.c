@@ -1150,7 +1150,7 @@ int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
 	re = rnh->state;
 
 	/* Get output stream. */
-	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+	s = stream_new_expandable(ZEBRA_MAX_PACKET_SIZ);
 
 	zclient_create_header(s, ZEBRA_NEXTHOP_UPDATE, vrf_id);
 
