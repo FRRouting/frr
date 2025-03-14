@@ -95,7 +95,8 @@ struct stream {
 	size_t getp;	       /* next get position */
 	size_t endp;	       /* last valid data position */
 	size_t size;	       /* size of data segment */
-	unsigned char data[];  /* data pointer */
+	bool allow_expansion;  /* whether stream can be expanded */
+	unsigned char *data;   /* data pointer */
 };
 
 /* First in first out queue structure. */
@@ -132,6 +133,7 @@ struct stream_fifo {
  * q: quad (four words)
  */
 extern struct stream *stream_new(size_t);
+extern struct stream *stream_new_expandable(size_t);
 extern void stream_free(struct stream *);
 /* Copy 'src' into 'dest', returns 'dest' */
 extern struct stream *stream_copy(struct stream *dest,
