@@ -394,10 +394,17 @@ static enum nb_error nb_op_xpath_to_trunk(const char *xpath_in, char **xpath_out
 					  struct lyd_node **trunk)
 {
 	char *xpath = NULL;
+	uint32_t llopts = 0;
 	enum nb_error ret = NB_OK;
 	LY_ERR err;
 
+	/*
+	 * Try to instantiate ever shortened paths until one succeeds, suppress
+	 * libyang logs for the expected errors along the way.
+	 */
 	darr_in_strdup(xpath, xpath_in);
+
+	ly_temp_log_options(&llopts);
 	for (;;) {
 		err = lyd_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0,
 				    LYD_NEW_PATH_UPDATE, NULL, trunk);
@@ -409,6 +416,8 @@ static enum nb_error nb_op_xpath_to_trunk(const char *xpath_in, char **xpath_out
 			break;
 		darr_strlen_fixup(xpath);
 	}
+	ly_temp_log_options(NULL);
+
 	if (ret == NB_OK)
 		*xpath_out = xpath;
 	else
