@@ -78,13 +78,18 @@ def setup_module(module):
                 (TopoRouter.RD_ZEBRA, "-s 180000000"),
                 (TopoRouter.RD_BGP, None),
                 (TopoRouter.RD_SHARP, None),
+                (TopoRouter.RD_STATIC, None),
+                (TopoRouter.RD_OSPF, None),
+                (TopoRouter.RD_OSPF6, None),
+                (TopoRouter.RD_PIM, None),
             ],
         )
- 
+
     tgen.start_router()
-    
+
     for rname, router in router_list.items():
-       router.cmd("vtysh -f {}/{}/frr_unnumbered_bgp.conf".format(CWD, rname))
+        router.cmd("vtysh -f {}/{}/frr_unnumbered_bgp.conf".format(CWD, rname))
+
 
 def teardown_module(_mod):
     "Teardown the pytest environment"
