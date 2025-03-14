@@ -3406,13 +3406,14 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 					safi_t safi, uint32_t addpath_tx_id)
 {
 	const struct prefix *p;
-	struct peer *onlypeer;
+	struct peer *onlypeer, *peer;
 	struct attr attr = { 0 }, *pattr = &attr;
 	struct bgp *bgp;
 	bool advertise;
 
 	p = bgp_dest_get_prefix(dest);
 	bgp = SUBGRP_INST(subgrp);
+	peer = SUBGRP_PEER(subgrp);
 	onlypeer = ((SUBGRP_PCOUNT(subgrp) == 1) ? (SUBGRP_PFIRST(subgrp))->peer
 						 : NULL);
 
@@ -3447,6 +3448,26 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 								      pattr,
 								      selected))
 						bgp_attr_flush(pattr);
+
+					/* Remove paths from Adj-RIB-Out if it's not a best (selected) path.
+					 * Why should we keep Adj-RIB-Out with stale paths?
+					 */
+					if (!bgp_addpath_encode_tx(peer, afi, safi)) {
+						struct bgp_adj_out *adj, *adj_next;
+
+						RB_FOREACH_SAFE (adj, bgp_adj_out_rb,
+								 &dest->adj_out, adj_next) {
+							if (adj->subgroup != subgrp)
+								continue;
+
+							if (!adj->adv &&
+							    adj->addpath_tx_id != addpath_tx_id) {
+								bgp_adj_out_unset_subgroup(dest,
+											   subgrp, 1,
+											   adj->addpath_tx_id);
+							}
+						}
+					}
 				} else {
 					bgp_adj_out_unset_subgroup(
 						dest, subgrp, 1, addpath_tx_id);
