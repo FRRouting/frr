@@ -2411,6 +2411,8 @@ static int srv6_manager_get_sid_internal(struct zebra_srv6_sid **sid,
 						      ? (*sid)->locator->name
 						      : NULL,
 					      ZAPI_SRV6_SID_ALLOCATED);
+		if ((*sid)->alloc_mode == SRV6_SID_ALLOC_MODE_EXPLICIT)
+			zsend_srv6_static_sid_update();
 	}
 
 	return ret;

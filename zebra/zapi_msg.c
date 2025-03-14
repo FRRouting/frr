@@ -1051,6 +1051,37 @@ void zsend_srv6_sid_notify(struct zserv *client, const struct srv6_sid_ctx *ctx,
 	zserv_send_message(client, s);
 }
 
+/**
+ * Send a signal to each deamon and implement the notification
+ * in function zsend_srv6_static_sid_update()
+ */
+void zsend_srv6_static_sid_update_internal(struct zserv *client)
+{
+	struct stream *s;
+	uint16_t cmd = ZEBRA_SRV6_STATIC_SID_UPDATE;
+
+	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	zclient_create_header(s, cmd, VRF_DEFAULT);
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	zserv_send_message(client, s);
+}
+
+/**
+ * Send a signal to all daemons that static sids in zebra are updated.
+ * If a daemon is using static sids,
+ * it would know it's time to get the updated ones.
+ */
+void zsend_srv6_static_sid_update()
+{
+	struct zserv *client;
+
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
+		zsend_srv6_static_sid_update_internal(client);
+	}
+}
+
 
 /* Router-id is updated. Send ZEBRA_ROUTER_ID_UPDATE to client. */
 int zsend_router_id_update(struct zserv *client, afi_t afi, struct prefix *p,
