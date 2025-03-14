@@ -1441,7 +1441,7 @@ route_set_evpn_gateway_ip(void *rule, const struct prefix *prefix, void *object)
 
 	/* Set gateway-ip value. */
 	bre->type = OVERLAY_INDEX_GATEWAY_IP;
-	memcpy(&bre->gw_ip, &gw_ip->ip.addr, IPADDRSZ(gw_ip));
+	bre->gw_ip = *gw_ip;
 	bgp_attr_set_evpn_overlay(path->attr, bre);
 
 	return RMAP_OKAY;
