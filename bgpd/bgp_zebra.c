@@ -3523,7 +3523,14 @@ static int bgp_zebra_process_srv6_locator_static_sids_internal(struct srv6_locat
 		  locator->node_bits_length, locator->function_bits_length,
 		  locator->argument_bits_length);
 
-	/* Store the locator in the main BGP instance */
+	/**
+	 * Store the locator in the main BGP instance, if bgp has already been pointing a locator,
+	 * then we free the old one and update it.
+	 */
+	if (bgp->srv6_locator) {
+		srv6_locator_free(bgp->srv6_locator);
+		bgp->srv6_locator = NULL;
+	}
 	bgp->srv6_locator = srv6_locator_alloc(locator->name);
 	srv6_locator_copy(bgp->srv6_locator, locator);
 
@@ -3835,6 +3842,46 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+/**
+ * This function handles the notification from zebra.
+ * It has two main missions. Firstly, it checks whether the bgp
+ * refers to a locator by configuring as 'locator NAME'.
+ * Then it triggers to update the bgp vrfs using new static sids
+ * if they are set.
+ */
+static int bgp_zebra_process_srv6_static_sid_update(ZAPI_CALLBACK_ARGS)
+{
+	struct bgp *bgp = bgp_get_default();
+	struct bgp *bgp_vrf;
+	struct listnode *node, *nnode;
+
+	if (!bgp)
+		return 0;
+
+	/* Trigger the locator NAME part and get the new static_sids list */
+	/* We use bgp->srv6_locator_name to check whether this is configured */
+	if (strlen(bgp->srv6_locator_name) > 0) {
+		bgp_zebra_srv6_manager_get_locator_static_sids(bgp->srv6_locator_name);
+
+		/**
+		 * If some vrf is using the sids in a explicit-mode,
+		 * let's find it and help it use the static sids.
+		 */
+		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp_vrf)) {
+			if (CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT)) {
+				/* Clear old sids used in vpn route*/
+				vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp, bgp_vrf);
+				vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp, bgp_vrf);
+				/* Update new sids */
+				vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp, bgp_vrf);
+				vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp, bgp_vrf);
+			}
+		}
+	}
+
+	return 0;
+}
+
 static int bgp_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
 {
 	struct srv6_locator loc = {};
@@ -4036,6 +4083,7 @@ static zclient_handler *const bgp_handlers[] = {
 		bgp_zebra_process_srv6_locator_chunk,
 	[ZEBRA_SRV6_MANAGER_GET_LOCATOR_STATIC_SIDS] = bgp_zebra_process_srv6_locator_static_sids,
 	[ZEBRA_SRV6_SID_NOTIFY] = bgp_zebra_srv6_sid_notify,
+	[ZEBRA_SRV6_STATIC_SID_UPDATE] = bgp_zebra_process_srv6_static_sid_update,
 };
 
 static int bgp_if_new_hook(struct interface *ifp)

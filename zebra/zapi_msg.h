@@ -98,6 +98,9 @@ extern void zsend_srv6_sid_notify(struct zserv *client,
 				  uint32_t wide_func, const char *locator_name,
 				  enum zapi_srv6_sid_notify note);
 
+extern void zsend_srv6_static_sid_update(void);
+void zsend_srv6_static_sid_update_internal(struct zserv *client);
+
 extern int zsend_client_close_notify(struct zserv *client,
 				     struct zserv *closed_client);
 
