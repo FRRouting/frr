@@ -52,6 +52,29 @@
               }
             ]
           }
+        ],
+        "2011:1::/64": [
+          {
+            "pathFrom": "external",
+            "prefix": "2011:1::",
+            "prefixLen": 64,
+            "network": "2011:1::/64",
+            "metric": 0,
+            "weight": 0,
+            "peerId": "(unspec)",
+            "path": "",
+            "origin": "IGP",
+            "announceNexthopSelf": true,
+            "nhVrfName": "vrf10",
+            "nexthops": [
+              {
+                "ip": "2001:1::2",
+                "hostname": "r1",
+                "afi": "ipv6",
+                "used": true
+              }
+            ]
+          }
         ]
       },
       "1:20": {
@@ -156,5 +179,7 @@
         ]
       }
     }
-  }
+  },
+  "totalRoutes": 7,
+  "totalPaths": 7
 }
