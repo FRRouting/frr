@@ -1252,9 +1252,15 @@ route_set_evpn_gateway_ip(void *rule, const struct prefix *prefix, void *object)
 	path = object;
 
 	/* Set gateway-ip value. */
+<<<<<<< HEAD
 	path->attr->evpn_overlay.type = OVERLAY_INDEX_GATEWAY_IP;
 	memcpy(&path->attr->evpn_overlay.gw_ip, &gw_ip->ip.addr,
 	       IPADDRSZ(gw_ip));
+=======
+	bre->type = OVERLAY_INDEX_GATEWAY_IP;
+	bre->gw_ip = *gw_ip;
+	bgp_attr_set_evpn_overlay(path->attr, bre);
+>>>>>>> 0b0e70159 (bgpd: fix `set evpn gateway-ip ipv[46]` route-map)
 
 	return RMAP_OKAY;
 }
