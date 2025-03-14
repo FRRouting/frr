@@ -73,65 +73,116 @@ submodule frr-bgp-common {
   revision 2019-12-03 {
     description
       "Initial revision.";
+    reference "FRRouting";
   }
 
   grouping rmap-policy-import {
+    description
+      "Grouping for route map policy import configuration";
+
     leaf rmap-import {
       type frr-route-map:route-map-ref;
+      description
+        "Reference to route map for import policy";
     }
   }
 
   grouping rmap-policy-export {
+    description
+      "Grouping for route map policy export configuration";
+
     leaf rmap-export {
       type frr-route-map:route-map-ref;
+      description
+        "Reference to route map for export policy";
     }
   }
 
   grouping unsuppress-map-policy-import {
+    description
+      "Grouping for unsuppress map policy import configuration";
+
     leaf unsuppress-map-import {
       type frr-route-map:route-map-ref;
+      description
+        "Reference to unsuppress map for import policy";
     }
   }
 
   grouping unsuppress-map-policy-export {
+    description
+      "Grouping for unsuppress map policy export configuration";
+
     leaf unsuppress-map-export {
       type frr-route-map:route-map-ref;
+      description
+        "Reference to unsuppress map for export policy";
     }
   }
 
   grouping plist-policy-import {
+    description
+      "Grouping for prefix list policy import configuration";
+
     leaf plist-import {
       type frr-bt:plist-ref;
+      description
+        "Reference to prefix list for import policy";
     }
   }
 
   grouping plist-policy-export {
+    description
+      "Grouping for prefix list policy export configuration";
+
     leaf plist-export {
       type frr-bt:plist-ref;
+      description
+        "Reference to prefix list for export policy";
     }
   }
 
   grouping access-list-policy-import {
+    description
+      "Grouping for access list policy import configuration";
+
     leaf access-list-import {
       type frr-bt:access-list-ref;
+      description
+        "Reference to access list for import policy";
     }
   }
 
   grouping access-list-policy-export {
+    description
+      "Grouping for access list policy export configuration";
+
     leaf access-list-export {
       type frr-bt:access-list-ref;
+      description
+        "Reference to access list for export policy";
     }
   }
 
   grouping as-path-filter-list-policy-import {
+    description
+      "Grouping for AS path filter list policy import configuration";
+
     leaf as-path-filter-list-import {
       type frr-bt:as-path-filter-ref;
+      description
+        "Reference to AS path filter list for import policy";
     }
   }
 
   grouping as-path-filter-list-policy-export {
+    description
+      "Grouping for AS path filter list policy export configuration";
+
     leaf as-path-filter-list-export {
       type frr-bt:as-path-filter-ref;
+      description
+        "Reference to AS path filter list for export policy";
     }
   }
 
@@ -227,6 +278,9 @@ submodule frr-bgp-common {
     description
       "Configuration relating to MED.";
     container med-config {
+      description
+        "Container for MED configuration";
+
       leaf enable-med-admin {
         type boolean;
         default "false";
@@ -312,6 +366,9 @@ submodule frr-bgp-common {
   }
 
   grouping global-bgp-config {
+    description
+      "Grouping for global BGP configuration";
+
     leaf instance-type-view {
       type boolean;
       default "false";
@@ -322,15 +379,21 @@ submodule frr-bgp-common {
 
     leaf as-notation {
       type enumeration {
-        enum "plain" { value 0; }
-        enum "dot" { value 1; }
-        enum "dot+" { value 2; }
+        enum "plain"   {
+            value 0;
+            description "Use plain format for all AS values";
+        }
+        enum "dot" {
+            value 1;
+            description "Use 'AA.BB' format for AS 4 byte values";
+        }
+        enum "dot+" {
+            value 2;
+            description "Use 'AA.BB' format for all AS values";
+        }
       }
       description
-        "The as-notation type:
-        - plain: use plain format for all AS values
-        - dot: use 'AA.BB' format for AS 4 byte values.
-        - dot+: use 'AA.BB' format for all AS values.";
+        "The as-notation type";
     }
 
     leaf ebgp-multihop-connected-route-check {
@@ -403,7 +466,13 @@ submodule frr-bgp-common {
   }
 
   grouping global-neighbor-config {
+    description
+      "Grouping for global neighbor configuration";
+
     container global-neighbor-config {
+      description
+        "Container for global neighbor configuration";
+
       leaf dynamic-neighbors-limit {
         type uint32 {
           range "1..65535";
@@ -421,6 +490,9 @@ submodule frr-bgp-common {
       }
 
       container packet-quanta-config {
+        description
+          "Container for packet quanta configuration";
+
         leaf wpkt-quanta {
           type uint32 {
             range "1..64";
@@ -443,7 +515,13 @@ submodule frr-bgp-common {
   }
 
   grouping global-update-group-config {
+    description
+      "Grouping for global update group configuration";
+
     container global-update-group-config {
+      description
+        "Container for global update group configuration";
+
       leaf subgroup-pkt-queue-size {
         type uint32 {
           range "20..100";
@@ -466,6 +544,9 @@ submodule frr-bgp-common {
   }
 
   grouping global-network-config {
+    description
+      "Grouping for global network configuration";
+
     leaf import-check {
       type boolean;
       default "true";
@@ -480,6 +561,9 @@ submodule frr-bgp-common {
   }
 
   grouping neighbor-timers {
+    description
+      "Grouping for neighbor timers configuration";
+
     leaf hold-time {
       type uint16 {
         range "0 | 3..65535";
@@ -539,7 +623,13 @@ submodule frr-bgp-common {
   }
 
   grouping global-config-timers {
+    description
+      "Grouping for global configuration timers.";
+
     container global-config-timers {
+      description
+        "Container for global configuration timers.";
+
       leaf rmap-delay-time {
         type uint16 {
           range "0..600";
@@ -590,6 +680,9 @@ submodule frr-bgp-common {
     description
       "Configuration parameters relating to BGP graceful restart.";
     choice mode {
+      description
+        "Choice for graceful restart mode.";
+
       case graceful-restart-mode {
         leaf enabled {
           type boolean;
@@ -732,6 +825,9 @@ submodule frr-bgp-common {
       "List of route redistribution per AFI.";
     list redistribution-list {
       key "route-type route-instance";
+      description
+        "List of route types to be redistributed.";
+
       leaf route-type {
         type frr-rt-type:frr-route-types;
         description
@@ -763,6 +859,9 @@ submodule frr-bgp-common {
   }
 
   grouping mp-afi-safi-network-config {
+    description
+      "Grouping for AFI/SAFI network configuration.";
+
     leaf label-index {
       type rt-types:mpls-label;
       description
@@ -778,6 +877,9 @@ submodule frr-bgp-common {
   }
 
   grouping mp-afi-safi-agg-route-config {
+    description
+      "Grouping for AFI/SAFI aggregate route configuration.";
+
     leaf as-set {
       type boolean;
       default "false";
@@ -847,6 +949,9 @@ submodule frr-bgp-common {
   }
 
   grouping admin-distance {
+    description
+      "Grouping for administrative distance configuration.";
+
     container admin-distance {
       description
         "Administrative distance (or preference) assigned to
@@ -885,6 +990,9 @@ submodule frr-bgp-common {
   }
 
   grouping distance-per-route-config {
+    description
+      "Grouping for administrative distance configuration per route.";
+
     leaf distance {
       type uint8 {
         range "1..255";
@@ -902,6 +1010,9 @@ submodule frr-bgp-common {
   }
 
   grouping route-flap-dampening {
+    description
+      "Grouping for route flap dampening configuration.";
+
     container route-flap-dampening {
       description
         "Dampening feature";
@@ -973,6 +1084,9 @@ submodule frr-bgp-common {
   }
 
   grouping flow-spec-config {
+    description
+      "Grouping for flow spec configuration.";
+
     container flow-spec-config {
       description
         "Flow spec feature.";
@@ -1027,6 +1141,9 @@ submodule frr-bgp-common {
     description
       "Label value for VRF.";
     choice label-allocation-mode {
+      description
+        "Choice for label allocation mode (manual or auto).";
+
       case manual {
         leaf label {
           type rt-types:mpls-label;
@@ -1082,6 +1199,9 @@ submodule frr-bgp-common {
     }
 
     choice rt-direction {
+        description
+          "Choice for route target direction (import, export, or both).";
+
       case import-export {
         uses rt-list;
       }
@@ -1132,7 +1252,13 @@ submodule frr-bgp-common {
   }
 
   grouping global-afi-safi-vpn-config {
+    description
+      "Grouping for global AFI/SAFI VPN configuration.";
+
     container vpn-config {
+      description
+        "VPN configuration container.";
+
       leaf rd {
         type string;
         description
@@ -1150,6 +1276,9 @@ submodule frr-bgp-common {
   }
 
   grouping global-afi-safi-vpn-network-config {
+    description
+      "Grouping for global AFI/SAFI VPN network configuration.";
+
     list network-config {
       key "rd";
       description
