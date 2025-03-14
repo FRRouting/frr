@@ -3,7 +3,7 @@
   "vrfName": "default",
   "routerId": "2.2.2.2",
   "defaultLocPrf": 100,
-  "localAS": 2,
+  "localAS": 65501,
   "routes": {
     "routeDistinguishers": {
       "1:10": {
@@ -19,7 +19,7 @@
             "metric": 0,
             "weight": 0,
             "peerId": "2001::1",
-            "path": "1",
+            "path": "65500",
             "origin": "incomplete",
             "nexthops": [
               {
@@ -43,7 +43,7 @@
             "metric": 0,
             "weight": 0,
             "peerId": "2001::1",
-            "path": "1",
+            "path": "65500",
             "origin": "incomplete",
             "nexthops": [
               {
@@ -69,7 +69,7 @@
             "metric": 0,
             "weight": 0,
             "peerId": "2001::1",
-            "path": "1",
+            "path": "65500",
             "origin": "incomplete",
             "nexthops": [
               {
