@@ -617,7 +617,7 @@ void isis_circuit_stream(struct isis_circuit *circuit, struct stream **stream)
 		*stream = stream_new(stream_size);
 	} else {
 		if (STREAM_SIZE(*stream) != stream_size)
-			stream_resize_inplace(stream, stream_size);
+			stream_resize_inplace(*stream, stream_size);
 		stream_reset(*stream);
 	}
 }

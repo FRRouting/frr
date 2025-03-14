@@ -16,6 +16,9 @@
 #include "frr_pthread.h"
 #include "lib_errors.h"
 
+#define MAX_STREAM_EXPANSION_SZ 4096
+#define MIN_STREAM_EXPANSION_SZ 512
+
 DEFINE_MTYPE_STATIC(LIB, STREAM, "Stream");
 DEFINE_MTYPE_STATIC(LIB, STREAM_FIFO, "Stream FIFO");
 
@@ -92,11 +95,20 @@ struct stream *stream_new(size_t size)
 
 	assert(size > 0);
 
-	s = XMALLOC(MTYPE_STREAM, sizeof(struct stream) + size);
+	s = XMALLOC(MTYPE_STREAM, sizeof(struct stream));
+	s->data = XMALLOC(MTYPE_STREAM, size);
 
 	s->getp = s->endp = 0;
 	s->next = NULL;
 	s->size = size;
+	s->allow_expansion = false;
+	return s;
+}
+
+struct stream *stream_new_expandable(size_t size)
+{
+	struct stream *s = stream_new(size);
+	s->allow_expansion = true;
 	return s;
 }
 
@@ -106,6 +118,8 @@ void stream_free(struct stream *s)
 	if (!s)
 		return;
 
+	XFREE(MTYPE_STREAM, s->data);
+	s->data = NULL;
 	XFREE(MTYPE_STREAM, s);
 }
 
@@ -115,7 +129,7 @@ struct stream *stream_copy(struct stream *dest, const struct stream *src)
 
 	assert(dest != NULL);
 	assert(STREAM_SIZE(dest) >= src->endp);
-
+	dest->allow_expansion = src->allow_expansion;
 	dest->endp = src->endp;
 	dest->getp = src->getp;
 
@@ -131,7 +145,7 @@ struct stream *stream_dup(const struct stream *s)
 	STREAM_VERIFY_SANE(s);
 
 	snew = stream_new(s->endp);
-
+	snew->allow_expansion = s->allow_expansion;
 	return (stream_copy(snew, s));
 }
 
@@ -143,9 +157,16 @@ struct stream *stream_dupcat(const struct stream *s1, const struct stream *s2,
 	STREAM_VERIFY_SANE(s1);
 	STREAM_VERIFY_SANE(s2);
 
+	if (offset > s1->endp) {
+		fprintf(stderr, "Error: Invalid offset %zu, exceeds s1->endp %zu\n", offset,
+			s1->endp);
+		return NULL;
+	}
+
 	if ((new = stream_new(s1->endp + s2->endp)) == NULL)
 		return NULL;
 
+	new->allow_expansion = s1->allow_expansion || s2->allow_expansion;
 	memcpy(new->data, s1->data, offset);
 	memcpy(new->data + offset, s2->data, s2->endp);
 	memcpy(new->data + offset + s2->endp, s1->data + offset,
@@ -154,25 +175,74 @@ struct stream *stream_dupcat(const struct stream *s1, const struct stream *s2,
 	return new;
 }
 
-size_t stream_resize_inplace(struct stream **sptr, size_t newsize)
+size_t stream_resize_inplace(struct stream *s, size_t newsize)
 {
-	struct stream *orig = *sptr;
+	STREAM_VERIFY_SANE(s);
 
-	STREAM_VERIFY_SANE(orig);
+	s->data = XREALLOC(MTYPE_STREAM, s->data, newsize);
+	s->size = newsize;
 
-	orig = XREALLOC(MTYPE_STREAM, orig, sizeof(struct stream) + newsize);
+	if (s->endp > s->size)
+		s->endp = s->size;
+	if (s->getp > s->endp)
+		s->getp = s->endp;
 
-	orig->size = newsize;
+	STREAM_VERIFY_SANE(s);
 
-	if (orig->endp > orig->size)
-		orig->endp = orig->size;
-	if (orig->getp > orig->endp)
-		orig->getp = orig->endp;
+	return s->size;
+}
 
-	STREAM_VERIFY_SANE(orig);
+/* Helper function to expand stream if needed and allowed */
+static bool stream_expand(struct stream *s, size_t needed_size)
+{
+	if (!s->allow_expansion)
+		return false;
 
-	*sptr = orig;
-	return orig->size;
+	if ((needed_size == 0) || (needed_size > MAX_STREAM_EXPANSION_SZ)) {
+		flog_warn(EC_LIB_STREAM, "Invalid stream expansion request size: %zu", needed_size);
+		return false;
+	}
+
+	/* 
+     * Growth strategy:
+     * For small expansions (<= min expansion bytes): grow by min size
+     * For medium expansions (<= max size): grow by max(needed*1.5, max size/2)
+     * For large expansions: grow by needed + max size
+     * Never grow more than double the current size
+     */
+	size_t expand_size;
+	if (needed_size <= MIN_STREAM_EXPANSION_SZ) {
+		expand_size = MIN_STREAM_EXPANSION_SZ;
+	} else if (needed_size <= MAX_STREAM_EXPANSION_SZ) {
+		expand_size = MAX((needed_size * 3) / 2, (MAX_STREAM_EXPANSION_SZ / 2));
+	} else {
+		expand_size = MAX_STREAM_EXPANSION_SZ;
+	}
+
+	/* Don't grow more than double the current size */
+	expand_size = MIN(expand_size, s->size);
+	/* Calculate new total size */
+	size_t new_size = s->size + expand_size;
+	/* Make multiple of 8 */
+	new_size = (new_size + (size_t)7) & ~(size_t)7;
+
+	/* Check for overflow */
+	if (new_size < s->size) {
+		flog_warn(EC_LIB_STREAM,
+			  "%s: stream expansion would overflow: current size: %zu, expand by: %zu",
+			  __func__, s->size, expand_size);
+		return false;
+	}
+
+	/* Reallocate the data buffer */
+	unsigned char *new_data = XREALLOC(MTYPE_STREAM, s->data, new_size);
+	if (!new_data)
+		return false;
+
+	/* Update the stream's data pointer and size */
+	s->data = new_data;
+	s->size = new_size;
+	return true;
 }
 
 size_t stream_get_getp(const struct stream *s)
@@ -691,8 +761,12 @@ void stream_put(struct stream *s, const void *src, size_t size)
 	STREAM_VERIFY_SANE(s);
 
 	if (STREAM_WRITEABLE(s) < size) {
-		STREAM_BOUND_WARN(s, "put");
-		return;
+		if (s->allow_expansion) {
+			stream_expand(s, EXPAND_SIZE(s, size));
+		} else {
+			STREAM_BOUND_WARN(s, "put");
+			return;
+		}
 	}
 
 	if (src)
@@ -709,8 +783,12 @@ int stream_putc(struct stream *s, uint8_t c)
 	STREAM_VERIFY_SANE(s);
 
 	if (STREAM_WRITEABLE(s) < sizeof(uint8_t)) {
-		STREAM_BOUND_WARN(s, "put");
-		return 0;
+		if (s->allow_expansion) {
+			stream_expand(s, EXPAND_SIZE(s, sizeof(uint8_t)));
+		} else {
+			STREAM_BOUND_WARN(s, "put");
+			return 0;
+		}
 	}
 
 	s->data[s->endp++] = c;
@@ -723,8 +801,12 @@ int stream_putw(struct stream *s, uint16_t w)
 	STREAM_VERIFY_SANE(s);
 
 	if (STREAM_WRITEABLE(s) < sizeof(uint16_t)) {
-		STREAM_BOUND_WARN(s, "put");
-		return 0;
+		if (s->allow_expansion) {
+			stream_expand(s, EXPAND_SIZE(s, sizeof(uint16_t)));
+		} else {
+			STREAM_BOUND_WARN(s, "put");
+			return 0;
+		}
 	}
 
 	s->data[s->endp++] = (uint8_t)(w >> 8);
@@ -739,8 +821,12 @@ int stream_put3(struct stream *s, uint32_t l)
 	STREAM_VERIFY_SANE(s);
 
 	if (STREAM_WRITEABLE(s) < 3) {
-		STREAM_BOUND_WARN(s, "put");
-		return 0;
+		if (s->allow_expansion) {
+			stream_expand(s, EXPAND_SIZE(s, 3));
+		} else {
+			STREAM_BOUND_WARN(s, "put");
+			return 0;
+		}
 	}
 
 	s->data[s->endp++] = (uint8_t)(l >> 16);
@@ -756,8 +842,12 @@ int stream_putl(struct stream *s, uint32_t l)
 	STREAM_VERIFY_SANE(s);
 
 	if (STREAM_WRITEABLE(s) < sizeof(uint32_t)) {
-		STREAM_BOUND_WARN(s, "put");
-		return 0;
+		if (s->allow_expansion) {
+			stream_expand(s, EXPAND_SIZE(s, sizeof(uint32_t)));
+		} else {
+			STREAM_BOUND_WARN(s, "put");
+			return 0;
+		}
 	}
 
 	s->data[s->endp++] = (uint8_t)(l >> 24);
@@ -774,8 +864,12 @@ int stream_putq(struct stream *s, uint64_t q)
 	STREAM_VERIFY_SANE(s);
 
 	if (STREAM_WRITEABLE(s) < sizeof(uint64_t)) {
-		STREAM_BOUND_WARN(s, "put quad");
-		return 0;
+		if (s->allow_expansion) {
+			stream_expand(s, EXPAND_SIZE(s, sizeof(uint64_t)));
+		} else {
+			STREAM_BOUND_WARN(s, "put");
+			return 0;
+		}
 	}
 
 	s->data[s->endp++] = (uint8_t)(q >> 56);
@@ -896,7 +990,13 @@ int stream_put_ipv4(struct stream *s, uint32_t l)
 	STREAM_VERIFY_SANE(s);
 
 	if (STREAM_WRITEABLE(s) < sizeof(uint32_t)) {
-		STREAM_BOUND_WARN(s, "put");
+		if (s->allow_expansion) {
+			stream_expand(s, EXPAND_SIZE(s, sizeof(uint32_t)));
+		} else {
+			STREAM_BOUND_WARN(s, "put");
+			return 0;
+		}
+
 		return 0;
 	}
 	memcpy(s->data + s->endp, &l, sizeof(uint32_t));
@@ -911,8 +1011,12 @@ int stream_put_in_addr(struct stream *s, const struct in_addr *addr)
 	STREAM_VERIFY_SANE(s);
 
 	if (STREAM_WRITEABLE(s) < sizeof(uint32_t)) {
-		STREAM_BOUND_WARN(s, "put");
-		return 0;
+		if (s->allow_expansion) {
+			stream_expand(s, EXPAND_SIZE(s, sizeof(uint32_t)));
+		} else {
+			STREAM_BOUND_WARN(s, "put");
+			return 0;
+		}
 	}
 
 	memcpy(s->data + s->endp, addr, sizeof(uint32_t));
@@ -989,8 +1093,12 @@ int stream_put_prefix_addpath(struct stream *s, const struct prefix *p,
 		psize_with_addpath = psize;
 
 	if (STREAM_WRITEABLE(s) < (psize_with_addpath + sizeof(uint8_t))) {
-		STREAM_BOUND_WARN(s, "put");
-		return 0;
+		if (s->allow_expansion) {
+			stream_expand(s, EXPAND_SIZE(s, psize_with_addpath + sizeof(uint8_t)));
+		} else {
+			STREAM_BOUND_WARN(s, "put");
+			return 0;
+		}
 	}
 
 	if (addpath_capable) {
@@ -1027,8 +1135,12 @@ int stream_put_labeled_prefix(struct stream *s, const struct prefix *p,
 	psize_with_addpath = psize + (addpath_capable ? 4 : 0);
 
 	if (STREAM_WRITEABLE(s) < (psize_with_addpath + 3)) {
-		STREAM_BOUND_WARN(s, "put");
-		return 0;
+		if (s->allow_expansion) {
+			stream_expand(s, EXPAND_SIZE(s, psize_with_addpath + 3));
+		} else {
+			STREAM_BOUND_WARN(s, "put");
+			return 0;
+		}
 	}
 
 	if (addpath_capable) {
@@ -1167,8 +1279,12 @@ size_t stream_write(struct stream *s, const void *ptr, size_t size)
 	STREAM_VERIFY_SANE(s);
 
 	if (STREAM_WRITEABLE(s) < size) {
-		STREAM_BOUND_WARN(s, "put");
-		return 0;
+		if (s->allow_expansion) {
+			stream_expand(s, EXPAND_SIZE(s, size));
+		} else {
+			STREAM_BOUND_WARN(s, "put");
+			return 0;
+		}
 	}
 
 	memcpy(s->data + s->endp, ptr, size);

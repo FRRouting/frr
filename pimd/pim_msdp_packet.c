@@ -820,7 +820,7 @@ void pim_msdp_read(struct event *thread)
 						"MSDP peer %s sent TLV with unexpected large length (%d bytes)",
 						mp->key_str, len);
 
-				stream_resize_inplace(&mp->ibuf, len);
+				stream_resize_inplace(mp->ibuf, len);
 			}
 		}
 

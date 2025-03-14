@@ -483,8 +483,7 @@ char link_info_set(struct stream **s, struct in_addr id, struct in_addr data,
 			 *
 			 * Simpler just to subtract OSPF_MAX_LSA_SIZE though.
 			 */
-			ret = stream_resize_inplace(
-				s, OSPF_MAX_PACKET_SIZE - OSPF_MAX_LSA_SIZE);
+			ret = stream_resize_inplace(*s, OSPF_MAX_PACKET_SIZE - OSPF_MAX_LSA_SIZE);
 		}
 
 		if (ret == OSPF_MAX_LSA_SIZE) {
