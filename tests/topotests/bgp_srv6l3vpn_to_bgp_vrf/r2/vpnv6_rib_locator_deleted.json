@@ -89,5 +89,7 @@
         ]
       }
     }
-  }
+  },
+  "totalRoutes": 6,
+  "totalPaths": 6
 }
