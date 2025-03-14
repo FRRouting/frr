@@ -658,17 +658,12 @@ struct stream *bgp_open_make(struct peer *peer, uint16_t send_holdtime, as_t loc
 		ext_opt_params = true;
 		(void)bgp_open_capability(s, peer, ext_opt_params);
 	} else {
-		struct stream *tmp = stream_new(STREAM_SIZE(s));
+		size_t endp = stream_get_endp(s);
 
-		stream_copy(tmp, s);
-		if (bgp_open_capability(tmp, peer, ext_opt_params) >
-		    BGP_OPEN_NON_EXT_OPT_LEN) {
-			stream_free(tmp);
+		if (bgp_open_capability(s, peer, ext_opt_params) > BGP_OPEN_NON_EXT_OPT_LEN) {
+			stream_set_endp(s, endp);
 			ext_opt_params = true;
 			(void)bgp_open_capability(s, peer, ext_opt_params);
-		} else {
-			stream_copy(s, tmp);
-			stream_free(tmp);
 		}
 	}
 
