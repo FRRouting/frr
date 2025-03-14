@@ -38,7 +38,8 @@ extern struct zclient *zclient;
 
 static void register_zebra_rnh(struct bgp_nexthop_cache *bnc);
 static void unregister_zebra_rnh(struct bgp_nexthop_cache *bnc);
-static bool make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p);
+static bool make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p,
+			struct bgp *bgp_nexthop);
 static void bgp_nht_ifp_initial(struct event *thread);
 
 DEFINE_HOOK(bgp_nht_path_update, (struct bgp *bgp, struct bgp_path_info *pi, bool valid),
@@ -330,7 +331,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 
 		/* This will return true if the global IPv6 NH is a link local
 		 * addr */
-		if (!make_prefix(afi, pi, &p))
+		if (!make_prefix(afi, pi, &p, bgp_nexthop))
 			return 1;
 
 		/*
@@ -994,7 +995,7 @@ void bgp_cleanup_nexthops(struct bgp *bgp)
  * make_prefix - make a prefix structure from the path (essentially
  * path's node.
  */
-static bool make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
+static bool make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p, struct bgp *bgp_nexthop)
 {
 
 	int is_bgp_static = ((pi->type == ZEBRA_ROUTE_BGP)
@@ -1006,6 +1007,9 @@ static bool make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 	struct in_addr ipv4;
 	struct peer *peer = pi->peer;
 	struct attr *attr = pi->attr;
+	bool local_sid = false;
+	struct bgp *bgp = bgp_get_default();
+	struct prefix_ipv6 tmp_prefix;
 
 	if (p_orig->family == AF_FLOWSPEC) {
 		if (!peer)
@@ -1035,7 +1039,20 @@ static bool make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 		break;
 	case AFI_IP6:
 		p->family = AF_INET6;
-		if (attr->srv6_l3vpn) {
+		if (bgp && bgp->srv6_locator && bgp->srv6_enabled && attr->srv6_l3vpn) {
+			tmp_prefix.family = AF_INET6;
+			tmp_prefix.prefixlen = IPV6_MAX_BITLEN;
+			tmp_prefix.prefix = attr->srv6_l3vpn->sid;
+			if (bgp_nexthop->vpn_policy[afi].tovpn_sid_locator &&
+			    bgp_nexthop->vpn_policy[afi].tovpn_sid)
+				local_sid = prefix_match(&bgp_nexthop->vpn_policy[afi]
+								  .tovpn_sid_locator->prefix,
+							 &tmp_prefix);
+			else if (bgp_nexthop->tovpn_sid_locator && bgp_nexthop->tovpn_sid)
+				local_sid = prefix_match(&bgp_nexthop->tovpn_sid_locator->prefix,
+							 &tmp_prefix);
+		}
+		if (local_sid == false && attr->srv6_l3vpn) {
 			p->prefixlen = IPV6_MAX_BITLEN;
 			if (attr->srv6_l3vpn->transposition_len != 0 &&
 			    BGP_PATH_INFO_NUM_LABELS(pi)) {
