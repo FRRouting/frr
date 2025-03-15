@@ -78,6 +78,10 @@ def setup_module(module):
                 (TopoRouter.RD_ZEBRA, "-s 180000000"),
                 (TopoRouter.RD_BGP, None),
                 (TopoRouter.RD_SHARP, None),
+                (TopoRouter.RD_STATIC, None),
+                (TopoRouter.RD_OSPF, None),
+                (TopoRouter.RD_OSPF6, None),
+                (TopoRouter.RD_PIM, None),
             ],
         )
  

@@ -95,7 +95,8 @@ struct stream {
 	size_t getp;	       /* next get position */
 	size_t endp;	       /* last valid data position */
 	size_t size;	       /* size of data segment */
-	unsigned char data[];  /* data pointer */
+	bool allow_expansion;  /* whether stream can be expanded */
+	unsigned char *data;   /* data pointer */
 };
 
 /* First in first out queue structure. */
@@ -115,6 +116,8 @@ struct stream_fifo {
 #define STREAM_SIZE(S)  ((S)->size)
 /* number of bytes which can still be written */
 #define STREAM_WRITEABLE(S) ((S)->size - (S)->endp)
+/* Extra size  needed for a stream in bytes, given new write size */
+#define EXPAND_SIZE(S, WSZ) ((WSZ)-STREAM_WRITEABLE(S))
 /* number of bytes still to be read */
 #define STREAM_READABLE(S) ((S)->endp - (S)->getp)
 
@@ -132,13 +135,14 @@ struct stream_fifo {
  * q: quad (four words)
  */
 extern struct stream *stream_new(size_t);
+extern struct stream *stream_new_expandable(size_t);
 extern void stream_free(struct stream *);
 /* Copy 'src' into 'dest', returns 'dest' */
 extern struct stream *stream_copy(struct stream *dest,
 				  const struct stream *src);
 extern struct stream *stream_dup(const struct stream *s);
 
-extern size_t stream_resize_inplace(struct stream **sptr, size_t newsize);
+extern size_t stream_resize_inplace(struct stream *sptr, size_t newsize);
 
 extern size_t stream_get_getp(const struct stream *s);
 extern size_t stream_get_endp(const struct stream *s);
