@@ -157,13 +157,15 @@ const char *data_json = "\n"
 	"}\n";
 
 
-static const struct lyd_node *test_oper_get_tree_locked(const char *xpath)
+static const struct lyd_node *test_oper_get_tree_locked(const char *xpath __attribute__((unused)),
+							void **lock __attribute__((unused)))
 {
 	++data_tree_lock;
 	return data_tree;
 }
 
-static void test_oper_unlock_tree(const struct lyd_node *tree __attribute__((unused)))
+static void test_oper_unlock_tree(const struct lyd_node *tree __attribute__((unused)),
+				  void *lock __attribute__((unused)))
 {
 	data_tree_lock--;
 }
