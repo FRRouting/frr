@@ -3,7 +3,7 @@
   "vrfName": "default",
   "routerId": "2.2.2.2",
   "defaultLocPrf": 100,
-  "localAS": 2,
+  "localAS": 65501,
   "routes": {
     "routeDistinguishers": {
       "1:10": {
@@ -19,7 +19,7 @@
             "metric": 0,
             "weight": 0,
             "peerId": "2001::1",
-            "path": "1",
+            "path": "65500",
             "origin": "incomplete",
             "nexthops": [
               {
@@ -43,8 +43,32 @@
             "metric": 0,
             "weight": 0,
             "peerId": "2001::1",
-            "path": "1",
+            "path": "65500",
             "origin": "incomplete",
+            "nexthops": [
+              {
+                "ip": "2001::1",
+                "hostname": "r1",
+                "afi": "ipv6",
+                "used": true
+              }
+            ]
+          }
+        ],
+        "2011:1::/64": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "selectionReason": "First path received",
+            "pathFrom": "external",
+            "prefix": "2011:1::",
+            "prefixLen": 64,
+            "network": "2011:1::/64",
+            "metric": 0,
+            "weight": 0,
+            "peerId": "2001::1",
+            "path": "65500",
+            "origin": "IGP",
             "nexthops": [
               {
                 "ip": "2001::1",
@@ -69,7 +93,7 @@
             "metric": 0,
             "weight": 0,
             "peerId": "2001::1",
-            "path": "1",
+            "path": "65500",
             "origin": "incomplete",
             "nexthops": [
               {
@@ -165,5 +189,7 @@
         ]
       }
     }
-  }
+  },
+  "totalRoutes": 7,
+  "totalPaths": 7
 }
