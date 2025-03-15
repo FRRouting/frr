@@ -29,6 +29,7 @@
 #include "routemap.h"
 #include "keychain.h"
 #include "libagentx.h"
+#include "mgmt_be_client.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -93,6 +94,8 @@ const struct option longopts[] = {
 /* Master of threads. */
 struct event_loop *master;
 
+struct mgmt_be_client *mgmt_be_client;
+
 /* SIGHUP handler. */
 static void sighup(void)
 {
@@ -104,6 +107,7 @@ static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 	bfd_protocol_integration_set_shutdown(true);
+	mgmt_be_client_destroy(mgmt_be_client);
 	ospf_terminate();
 
 	exit(0);
@@ -288,6 +292,8 @@ int main(int argc, char **argv)
 	ospf_vty_init();
 	ospf_vty_show_init();
 	ospf_vty_clear_init();
+
+	mgmt_be_client = mgmt_be_client_create("ospfd", NULL, 0, master);
 
 	/* OSPF BFD init */
 	ospf_bfd_init(master);
