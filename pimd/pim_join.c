@@ -490,7 +490,7 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 			pim_msg_addr_encode_ucast((uint8_t *)&msg->addr,
 						  rpf->rpf_addr);
 			msg->reserved = 0;
-			msg->holdtime = htons(PIM_JP_HOLDTIME);
+			msg->holdtime = htons(pim_if_jp_hold(pim_ifp));
 
 			new_packet = false;
 
@@ -533,7 +533,7 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 			pim_msg_addr_encode_ucast((uint8_t *)&msg->addr,
 						  rpf->rpf_addr);
 			msg->reserved = 0;
-			msg->holdtime = htons(PIM_JP_HOLDTIME);
+			msg->holdtime = htons(pim_if_jp_hold(pim_ifp));
 
 			new_packet = false;
 
