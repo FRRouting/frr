@@ -143,9 +143,11 @@ module_LTLIBRARIES =
 pkginclude_HEADERS =
 nodist_pkginclude_HEADERS =
 dist_yangmodels_DATA =
+dist_proto_DATA =
 man_MANS =
 vtysh_daemons =
 clippy_scan =
+protodir = $(pkglibdir)
 
 ## libtool, the self-made GNU scourge
 ## ... this should fix relinking

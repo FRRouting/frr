@@ -58,18 +58,19 @@ override_dh_auto_configure:
 		$(CONF_LUA) \
 		$(CONF_PIM6) \
 		$(CONF_GRPC) \
+		--with-protobuf \
 		--with-libpam \
 		--enable-doc \
 		--enable-doc-html \
 		--enable-snmp \
 		--enable-fpm \
-		--disable-protobuf \
 		--disable-zeromq \
 		--enable-ospfapi \
 		--enable-bgp-vnc \
 		--enable-multipath=256 \
 		--enable-pcre2posix \
-		\
+		--enable-mgmtd-test-be-client \
+		--enable-fpm-listener \
 		--enable-user=frr \
 		--enable-group=frr \
 		--enable-vty-group=frrvty \
@@ -96,6 +97,12 @@ override_dh_auto_install:
 	cp -r tools/etc/* debian/tmp/etc/
 	-rm debian/tmp/etc/frr/daemons.conf
 
+# install proto files to /usr/lib/frr
+#ifneq ($(filter pkg.frr.grpc,$(DEB_BUILD_PROFILES)),)
+#	cp usr/lib/x86_64-linux-gnu/frr/frr/mgmt.proto debian/tmp/usr/lib/frr/
+#	mv usr/lib/x86_64-linux-gnu/frr/frr/*.proto debian/tmp/usr/lib/frr/
+#endif
+	
 # drop dev-only files
 	find debian/tmp -name '*.la' -o -name '*.a' -o -name 'lib*.so' | xargs rm -f
 	rm -rf debian/tmp/usr/include
