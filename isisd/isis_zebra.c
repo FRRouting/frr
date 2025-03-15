@@ -504,11 +504,11 @@ static int isis_zebra_read(ZAPI_CALLBACK_ARGS)
 	}
 
 	if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD)
-		isis_redist_add(isis, api.type, &api.prefix, &api.src_prefix,
-				api.distance, api.metric, api.tag, api.instance);
+		isis_redist_add(isis, api.type, &api.prefix, &api.src_prefix, api.distance,
+				api.metric, api.tag, api.instance, api.nexthops, api.nexthop_num);
 	else
-		isis_redist_delete(isis, api.type, &api.prefix, &api.src_prefix,
-				   api.instance);
+		isis_redist_delete(isis, api.type, &api.prefix, &api.src_prefix, api.instance,
+				   api.nexthops, api.nexthop_num);
 
 	return 0;
 }
