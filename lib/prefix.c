@@ -32,6 +32,15 @@ static const uint8_t maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
 
 #define MASKBIT(offset)  ((0xff << (PNBBY - (offset))) & 0xff)
 
+char *(*prefix_rtc_display_hook)(char *buf, size_t buf_size, uint16_t prefixlen,
+				 const struct rtc_info *rtc_info) = NULL;
+
+void prefix_set_rtc_display_hook(char *(*func)(char *buf, size_t buf_size, uint16_t prefixlen,
+					       const struct rtc_info *rtc_info))
+{
+	prefix_rtc_display_hook = func;
+}
+
 int is_zero_mac(const struct ethaddr *mac)
 {
 	int i = 0;
@@ -174,6 +183,8 @@ const char *safi2str(safi_t safi)
 		return "labeled-unicast";
 	case SAFI_FLOWSPEC:
 		return "flowspec";
+	case SAFI_RTC:
+		return "rtc";
 	case SAFI_UNSPEC:
 	case SAFI_MAX:
 		return "unknown";
@@ -347,6 +358,8 @@ void prefix_copy(union prefixptr udest, union prefixconstptr usrc)
 		dest->u.prefix_flowspec.ptr = (uintptr_t)temp;
 		memcpy((void *)dest->u.prefix_flowspec.ptr,
 		       (void *)src->u.prefix_flowspec.ptr, len);
+	} else if (src->family == AF_RTC) {
+		memcpy(&dest->u.prefix_rtc, &src->u.prefix_rtc, sizeof(struct rtc_info));
 	} else {
 		flog_err(EC_LIB_DEVELOPMENT,
 			 "prefix_copy(): Unknown address family %d",
@@ -436,6 +449,9 @@ int prefix_same(union prefixconstptr up1, union prefixconstptr up2)
 				    p2->u.prefix_flowspec.prefixlen))
 				return 1;
 		}
+		if (p1->family == AF_RTC)
+			if (!memcmp(&p1->u.prefix_rtc, &p2->u.prefix_rtc, sizeof(struct rtc_info)))
+				return 1;
 	}
 	return 0;
 }
@@ -567,6 +583,8 @@ const char *prefix_family_str(union prefixconstptr pu)
 		return "ether";
 	if (p->family == AF_EVPN)
 		return "evpn";
+	if (p->family == AF_RTC)
+		return "rtc";
 	return "unspec";
 }
 
@@ -863,6 +881,27 @@ void apply_mask_ipv6(struct prefix_ipv6 *p)
 	}
 }
 
+void apply_mask_rtc(struct prefix_rtc *p)
+{
+	uint8_t mask;
+
+	if (p->prefixlen < 32) {
+		/* Except for the default route target, which is encoded as a zero-
+		 * length prefix, the minimum prefix length is 32 bits.  As the origin-
+		 * as field cannot be interpreted as a prefix.
+		 */
+		memset(p->prefix.route_target, 0, sizeof(p->prefix.route_target));
+		return;
+	}
+
+	mask = p->prefixlen % 8;
+	if (mask)
+		p->prefix.route_target[PSIZE(p->prefixlen) - 4 - 1] &= MASKBIT(mask);
+
+	memset(&p->prefix.route_target[PSIZE(p->prefixlen) - 4], 0,
+	       sizeof(p->prefix.route_target) - (PSIZE(p->prefixlen) - 4));
+}
+
 void apply_mask(union prefixptr pu)
 {
 	struct prefix *p = pu.p;
@@ -873,6 +912,9 @@ void apply_mask(union prefixptr pu)
 		break;
 	case AF_INET6:
 		apply_mask_ipv6(pu.p6);
+		break;
+	case AF_RTC:
+		apply_mask_rtc(pu.rtc);
 		break;
 	default:
 		break;
@@ -1116,6 +1158,18 @@ const char *prefix2str(union prefixconstptr pu, char *str, int size)
 		strlcpy(str, "FS prefix", size);
 		break;
 
+	case AF_RTC:
+		if (prefix_rtc_display_hook) {
+			snprintf(str, size, "%s/%d",
+				 prefix_rtc_display_hook(buf, sizeof(buf), p->prefixlen,
+							 &p->u.prefix_rtc),
+				 p->prefixlen);
+			break;
+		}
+
+		strlcpy(str, "RTC prefix", size);
+		break;
+
 	default:
 		strlcpy(str, "UNK prefix", size);
 		break;
@@ -1147,7 +1201,12 @@ static ssize_t prefixhost2str(struct fbuf *fbuf, union prefixconstptr pu)
 	case AF_ETHERNET:
 		prefix_mac2str(&p->u.prefix_eth, buf, sizeof(buf));
 		return bputs(fbuf, buf);
-
+	case AF_RTC:
+		if (prefix_rtc_display_hook)
+			prefix_rtc_display_hook(buf, sizeof(buf), p->prefixlen, &p->u.prefix_rtc);
+		else
+			snprintf(buf, sizeof(buf), "RTC prefix");
+		return bputs(fbuf, buf);
 	default:
 		return bprintfrr(fbuf, "{prefix.af=%dPF}", p->family);
 	}

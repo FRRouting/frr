@@ -1,0 +1,55 @@
+{
+  "default": {
+    "ipv4Vpn": {
+      "peers": {
+        "10.0.13.203": {
+          "hostname": "p3",
+          "state": "Established"
+        },
+        "10.0.14.205": {
+          "hostname": "p5",
+          "state": "Established"
+        },
+        "192.168.0.5": {
+          "hostname": "pe5",
+          "state": "Established"
+        }
+      },
+      "totalPeers": 3
+    },
+    "ipv4Rtc": {
+      "peers": {
+        "10.0.13.203": {
+          "hostname": "p3",
+          "state": "Established"
+        },
+        "10.0.14.205": {
+          "hostname": "p5",
+          "state": "Established"
+        },
+        "192.168.0.5": {
+          "hostname": "pe5",
+          "state": "Established"
+        }
+      },
+      "totalPeers": 3
+    },
+    "ipv6Vpn": {
+      "peers": {
+        "10.0.13.203": {
+          "hostname": "p3",
+          "state": "Established"
+        },
+        "10.0.14.205": {
+          "hostname": "p5",
+          "state": "Established"
+        },
+        "3fff::192:168:0:5": {
+          "hostname": "pe5",
+          "state": "Established"
+        }
+      },
+      "totalPeers": 3
+    }
+  }
+}

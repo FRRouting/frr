@@ -3346,14 +3346,6 @@ address-family:
    The CLI will disallow attempts to configure incompatible leaking
    modes.
 
-.. clicmd:: bgp retain route-target all
-
-It is possible to retain or not VPN prefixes that are not imported by local
-VRF configuration. This can be done via the following command in the context
-of the global VPNv4/VPNv6 family. This command defaults to on and is not
-displayed.
-The `no bgp retain route-target all` form of the command is displayed.
-
 .. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> soo EXTCOMMUNITY
 
 Without this command, SoO extended community attribute is configured using
@@ -5656,3 +5648,214 @@ is applied to all the neighbors configured in that bgp instance.
    address-family ipv6 unicast
     neighbor fd00::2 activate
    exit-address-family
+
+
+.. _bgp-optimizing-vpn-prefixes
+
+Optimizing RIB processing of VPNv4 and VPNv6 prefixes
+=====================================================
+
+When a router establishes BGP peering session within the IPv4 VPN or IPv6 VPN address family,
+it receives all prefixes associated with that family. However, on a Provider Edge (PE) router, only
+a limited subset of these prefixes are typically installed into the VRF Routing Information Bases
+(RIBs). The remaining VPN prefixes, though unused, occupy valuable memory resources and consumes
+CPU cycles when processed.
+
+PE should retain only the prefixes matching the VRF-imported Route Targets (RTs). This is precisely
+the function of the "BGP route-target no-retain" feature, which prevents unnecessary prefixes from
+being stored. If a new RT import is configured on a PE, it triggers a Route-Refresh to request the
+relevant additional prefixes from its peer.
+
+For even greater efficiency, the Route-Target Constraint (RTC) feature as specified in :rfc:4684
+allows PEs to avoid receiving irrelevant VPN prefixes altogether. By advertising the Route-Targets
+they are interested in through special RTC prefix announcements, PEs ensure that their peers send
+only the necessary VPN routes, optimizing memory usage. Compared to the "BGP route-target
+no-retain" feature, RTC not only prevents unnecessary prefixes from being stored on PEs but also
+reduces processing overhead across the network. By ensuring that both PEs and upstream routers never
+process unnecessary prefixes, RTC conserves CPU resources, improves overall efficiency, and reduces
+BGP convergence times.
+
+BGP route-target no-retain
+--------------------------
+
+.. clicmd:: bgp retain route-target all
+
+It is possible to retain or not VPN prefixes that are not imported by local
+VRF configuration. This can be done via the following command in the context
+of the global VPNv4/VPNv6 family. This command defaults to on and is not
+displayed.
+The `no bgp retain route-target all` form of the command is displayed.
+
+.. _bgp-l3vpn-route-target-constraint:
+
+BGP Route-Target Constraint (RTC) for VPNs
+------------------------------------------
+
+Configuring Route-Target Constraint (RTC), as standardized by :rfc:4684, on an existing BGP VPN
+network allows each Provider Edge (PE) router to receive only the VPN routes it actually needs.
+This optimization minimizes unnecessary route propagation, conserving memory on PE routers,
+reducing CPU usage across all routers, and significantly improving overall convergence times.
+
+Enabling RTC
+^^^^^^^^^^^^
+The RTC mechanism relies on the annoucements of RTC prefixes, which can be received by enabling
+the ``ipv4 rt-constraint`` address-family.
+
+.. code-block:: frr
+
+   router bgp 65000
+    bgp router-id 192.168.0.1
+    neighbor 192.168.0.101 remote-as 65000
+    !
+    address-family ipv4 rt-constraint
+     neighbor 192.168.0.101 activate
+    exit-address-family
+
+It is worth noting that :rfc:4684 introduces a new "rt-constraint" Sub-Address Family Indicator
+(SAFI), which is always associated with the IPv4 Address Family Indicator (AFI). The ipv4
+rt-constraint AFI/SAFI designation can be somewhat misleading, as the RFC specifies that it
+applies to both VPNv4 and VPNv6 prefixes. Allowing the RTC SAFI with an IPv6 AFI would have led to
+potential duplication of RTC prefixes in the IPv6 RIB.
+
+RTC Prefix Announcement
+^^^^^^^^^^^^^^^^^^^^^^^
+
+When a VPN route-target import is configured, an RTC prefix is automatically added to the RTC RIB.
+For example, the following configuration results in the announcement of the RTC prefix
+"65000:RT:192.168.0.1:100/96":
+
+.. code-block:: frr
+
+   router bgp 65000
+     address-family ipv4 vpn
+      neighbor 192.168.0.101 activate
+     exit-address-family
+   !
+   router bgp 65000 vrf RED
+    bgp router-id 192.168.0.1
+    !
+    address-family ipv4 unicast
+     label vpn export auto
+     rd vpn export 192.168.0.1:100
+     rt vpn import 192.168.0.1:100
+     import vpn
+    exit-address-family
+
+Verifying the RTC prefix on the peer:
+
+.. code-block:: frr
+
+   rr1# show bgp ipv4 rt-constraint
+   BGP table version is 49, local router ID is 192.168.0.1, vrf id 0
+   Default local pref 100, local AS 65000
+   Status codes:  s suppressed, d damped, h history, u unsorted, * valid, > best, = multipath,
+                  i internal, r RIB-failure, S Stale, R Removed
+   Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self
+  " Origin codes:  i - IGP, e - EGP, ? - incomplete
+   RPKI validation codes: V valid, I invalid, N Not found
+
+        Network          Next Hop            Metric LocPrf Weight Path
+    *>i 65000:RT:192.168.0.1:100/96
+                                0    100      0 i
+
+The RTC prefix "65000:RT:192.168.0.1:100/96" consists of:
+
+- Route-Target "RT:192.168.0.1:100":  means that the router requests VPN prefixes matching this
+  value.
+- The origin AS number "65000": represents the local AS number. Though it does not influence
+  route-target prefix annoucements, it helps distinguish identical RT values received from multiple
+  ASes.
+- The prefix length 96: indicates an exact match is required for the route-target as 96 is the
+  maximum value. Other lengths may be used to request subsets of RTs. 0 or 32 prefix lengths
+  indicate that all route-targets are requested.
+
+RTC Prefix-List on the Remote Peer
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+On the remote peer, the RTC prefix-list is set as follows:
+
+.. code-block:: frr
+
+   rr1# show bgp neighbors 192.168.0.1 rt-prefix-list
+   RTC prefix-list for peer router-ID 192.168.0.1: 1 entries
+      RT:192.168.0.1:100/96 from origin ASNs:
+         65000
+
+The RTC prefix-list is tied to the peer router-ID, meaning it applies to all BGP sessions with that
+peer. For instance, if ``192.168.0.101`` and ``fc00::1`` are neighbors towards the same peer, the
+RTC prefix-list applies to both, allowing simultaneous filtering of VPNv4 and VPNv6 announcements.
+In other words, activating ipv4 rt-constraint on multiple neighbors towards the same peer is
+unnecessary.
+
+.. code-block:: frr
+
+   router bgp 65000
+     address-family ipv4 vpn
+      neighbor 192.168.0.101 activate
+     exit-address-family
+   !
+     address-family ipv6 vpn
+      neighbor fc00::1 activate
+     exit-address-family
+   !
+    address-family ipv4 rt-constraint
+     neighbor 192.168.0.101 activate
+    exit-address-family
+   !
+   router bgp 65000 vrf RED
+    bgp router-id 192.168.0.1
+    !
+    address-family ipv4 unicast
+     label vpn export auto
+     rd vpn export 192.168.0.1:100
+     rt vpn import 192.168.0.1:100
+     import vpn
+    exit-address-family
+   !
+    address-family ipv6 unicast
+     label vpn export auto
+     rd vpn export 192.168.0.1:100
+     rt vpn import 192.168.0.1:100
+     import vpn
+    exit-address-family
+
+Dealing with non RTC peers
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When a non-RTC router participates in the VPNv4 or VPNv6 address family while RTC is activated on
+some other routers within the domain, it may not receive all the required prefixes. This occurs
+because RTC-enabled routers only advertise the prefixes they have received, and upstream routers
+may have already filtered out certain prefixes, assuming they were not needed.
+
+To prevent this issue, it is recommended to enable RTC across the entire VPN domain to ensure
+consistent prefix propagation. If full RTC deployment is not feasible, an alternative solution is
+to statically announce RTC prefixes from RTC-enabled routers. This forces them to subscribe to the
+reception of the missing VPN prefixes, ensuring that their announcements to non-RTC routers include
+all necessary routes.
+
+.. clicmd:: network [ASN:rt:]<EF:OPQR|GHJK:MN|A.B.C.D:MN>[/M]
+
+   This command allows the announcement of the specified Route-Target Constraint prefix (RFC4684).
+   If the AS number is unspecified, the local AS number is implicitly set.
+   If the mask is unspecified, the default maximum mask length of 96 is automatically set.
+   Note that the ``bgp network import-check`` command does not apply to RTC prefix.
+
+   .. code-block:: frr
+
+      router bgp 65000
+       address-family ipv4 rt-constraint
+        network 65000:rt:192.168.0.1:100/96
+       exit-address-family
+
+Optimizing RIB processing of EVPN prefixes
+==========================================
+
+Route-Target Constraint (RTC) as defined in :rfc:4684 was originally designed for BGP/MPLS IP VPNs.
+However, the same RTC procedures can be applied in an EVPN environment to filter EVPN prefixes
+based on route targets.
+
+In an EVPN deployment, a router advertises all its route targets derived from VNI values using RTC
+prefixes. These mechanisms operate similarly to RTC in MPLS IP VPNs, ensuring efficient prefix
+filtering and route propagation.
+
+.. seealso:: :ref:`bgp-l3vpn-route-target-constraint`

@@ -1,0 +1,34 @@
+{
+  "default": {
+    "ipv4Unicast": {
+      "routerId": "10.0.1.40",
+      "peers": {
+        "10.0.1.100": {
+          "hostname": "rr",
+          "state": "Established"
+        }
+      },
+      "totalPeers": 1
+    },
+    "ipv4Rtc": {
+      "routerId": "10.0.1.40",
+      "peers": {
+        "10.0.1.100": {
+          "hostname": "rr",
+          "state": "Established"
+        }
+      },
+      "totalPeers": 1
+    },
+    "l2VpnEvpn": {
+      "routerId": "10.0.1.40",
+      "peers": {
+        "10.0.1.100": {
+          "hostname": "rr",
+          "state": "Established"
+        }
+      },
+      "totalPeers": 1
+    }
+  }
+}

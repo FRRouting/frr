@@ -4167,6 +4167,7 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 	switch (nh_afi) {
 	case AFI_IP:
 		switch (safi) {
+		case SAFI_RTC:
 		case SAFI_UNICAST:
 		case SAFI_MULTICAST:
 		case SAFI_LABELED_UNICAST:
@@ -4200,6 +4201,7 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 		break;
 	case AFI_IP6:
 		switch (safi) {
+		case SAFI_RTC:
 		case SAFI_UNICAST:
 		case SAFI_MULTICAST:
 		case SAFI_LABELED_UNICAST:
@@ -4270,11 +4272,10 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 	return sizep;
 }
 
-void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
-			      const struct prefix *p,
-			      const struct prefix_rd *prd, mpls_label_t *label,
-			      uint8_t num_labels, bool addpath_capable,
-			      uint32_t addpath_tx_id, struct attr *attr)
+void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi, const struct prefix *p,
+			      const struct prefix_rd *prd, mpls_label_t *label, uint8_t num_labels,
+			      bool addpath_capable, uint32_t addpath_tx_id, struct attr *attr,
+			      struct bpacket_attr_vec_arr *vecarr)
 {
 	switch (safi) {
 	case SAFI_UNSPEC:
@@ -4286,6 +4287,8 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 			stream_putl(s, addpath_tx_id);
 		/* Label, RD, Prefix write. */
 		stream_putc(s, p->prefixlen + 88);
+		if (vecarr)
+			bpacket_attr_vec_arr_set_vec(vecarr, BGP_ATTR_VEC_MP_PREFIX_LABEL, s, NULL);
 		stream_put(s, label, BGP_LABEL_BYTES);
 		stream_put(s, prd->val, 8);
 		stream_put(s, &p->u.prefix, PSIZE(p->prefixlen));
@@ -4317,6 +4320,13 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 	case SAFI_ENCAP:
 		assert(!"Please add proper encoding of SAFI_ENCAP");
 		break;
+	case SAFI_RTC:
+		stream_putc(s, p->prefixlen);
+		if (p->prefixlen)
+			stream_putl(s, p->u.prefix_rtc.origin_as);
+		if (p->prefixlen > 32)
+			stream_put(s, &p->u.prefix_rtc.route_target, PSIZE(p->prefixlen) - 4);
+		break;
 	}
 }
 
@@ -4332,6 +4342,7 @@ size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
 		break;
 	case SAFI_UNICAST:
 	case SAFI_MULTICAST:
+	case SAFI_RTC:
 		break;
 	case SAFI_MPLS_VPN:
 		size += 88;
@@ -4527,9 +4538,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 
 		mpattrlen_pos = bgp_packet_mpattr_start(s, peer, afi, safi,
 							vecarr, attr);
-		bgp_packet_mpattr_prefix(s, afi, safi, p, prd, label,
-					 num_labels, addpath_capable,
-					 addpath_tx_id, attr);
+		bgp_packet_mpattr_prefix(s, afi, safi, p, prd, label, num_labels, addpath_capable,
+					 addpath_tx_id, attr, NULL);
 		bgp_packet_mpattr_end(s, mpattrlen_pos);
 	}
 
@@ -4807,6 +4817,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 			       ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES))) {
 			struct ecommunity *ecomm = bgp_attr_get_ecommunity(attr);
 
+			if (ecomm && ecomm->size)
+				bpacket_attr_vec_arr_set_vec(vecarr, BGP_ATTR_VEC_ECOM, s, NULL);
 			bgp_packet_ecommunity_attribute(s, peer, ecomm, BGP_ATTR_EXT_COMMUNITIES);
 		}
 
@@ -5033,8 +5045,8 @@ void bgp_packet_mpunreach_prefix(struct stream *s, const struct prefix *p,
 		num_labels = 1;
 	}
 
-	bgp_packet_mpattr_prefix(s, afi, safi, p, prd, label, num_labels,
-				 addpath_capable, addpath_tx_id, attr);
+	bgp_packet_mpattr_prefix(s, afi, safi, p, prd, label, num_labels, addpath_capable,
+				 addpath_tx_id, attr, NULL);
 }
 
 void bgp_packet_mpunreach_end(struct stream *s, size_t attrlen_pnt)

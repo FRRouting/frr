@@ -36,6 +36,7 @@
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_nht.h"
+#include "bgpd/bgp_rtc.h"
 #include "bgpd/bgp_bfd.h"
 #include "bgpd/bgp_memory.h"
 #include "bgpd/bgp_keepalives.h"
@@ -1551,6 +1552,13 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 				 peer->host, afi, safi);
 			prefix_bgp_orf_remove_all(afi, orf_name);
 		}
+	}
+
+	/* Reset the rtc-plist */
+	if (peer->rtc_plist) {
+		listnode_delete(peer->bgp->rtc_plists, peer->rtc_plist);
+		bgp_rtc_plist_free(peer->rtc_plist);
+		peer->rtc_plist = NULL;
 	}
 
 	/* Reset keepalive and holdtime */
