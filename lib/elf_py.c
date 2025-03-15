@@ -1306,8 +1306,8 @@ static PyObject *elffile_load(PyTypeObject *type, PyObject *args,
 		}
 	}
 #endif
-
-	w->sects = calloc(w->ehdr->e_shnum, sizeof(PyObject *));
+	if (w->ehdr->e_shnum > 0)
+		w->sects = calloc(w->ehdr->e_shnum, sizeof(PyObject *));
 	w->n_sect = w->ehdr->e_shnum;
 
 	return (PyObject *)w;
