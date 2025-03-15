@@ -42,11 +42,15 @@ test_pim_vrf.py: Test PIM with VRFs.
 #     H2 and join from Host H1 on vrf blue
 #     Verify PIM JOIN status on R1 and R11
 #     Stop multicast after verification
+#     Check (interface statistics) whether PIM Register messages were
+#     generated towards RP and answered by Register-Stop
 # - test_mcast_vrf_red()
 #     Start multicast stream for group 239.100.0.1 from Host
 #     H4 and join from Host H3 on vrf blue
 #     Verify PIM JOIN status on R1 and R12
 #     Stop multicast after verification
+#     Check (interface statistics) whether PIM Register messages were
+#     generated towards RP and answered by Register-Stop
 # - teardown_module(module)
 #     shutdown topology
 #
@@ -58,13 +62,13 @@ TOPOLOGY = """
                                                +----------+
                                                  .2 |
 +---------+                  +------------+         |        +---------+
-| Host H1 | 192.168.100.0/24 |            | .1      |    .11 | Host H2 |
+| Host H1 | 192.168.100.0/24 |            | .1      |    .11 | R11     |
 | receive |------------------|  VRF Blue  |---------+--------| PIM RP  |
 |IGMP JOIN| .10           .1 |            | 192.168.101.0/24 |         |
 +---------+                  |            |                  +---------+
                             =| = = R1 = = |=
 +---------+                  |            |                  +---------+
-| Host H3 | 192.168.100.0/24 |            | 192.168.101.0/24 | Host H4 |
+| Host H3 | 192.168.100.0/24 |            | 192.168.101.0/24 | R12     |
 | receive |------------------|  VRF Red   |---------+--------| PIM RP  |
 |IGMP JOIN| .20           .1 |            | .1      |    .12 |         |
 +---------+                  +------------+         |        +---------+
@@ -322,8 +326,8 @@ def _test_vrf_pimreg_interfaces():
         pytest.skip(tgen.errors)
 
     r1 = tgen.gears["r1"]
-    r1.vtysh_cmd("conf\ninterface blue\nip pim")
-    r1.vtysh_cmd("conf\nvrf blue\nip pim rp 192.168.0.11 239.100.0.1/32\nexit-vrf")
+    r1.vtysh_cmd("conf\ninterface blue\nip pim passive")
+    r1.vtysh_cmd("conf\nrouter pim vrf blue\nrp 192.168.0.11 239.100.0.1/32")
 
     # Check pimreg11 interface on R1, VRF blue
     reffile = os.path.join(CWD, "r1/pim_blue_pimreg11.json")
@@ -338,8 +342,8 @@ def _test_vrf_pimreg_interfaces():
     assertmsg = "PIM router R1, VRF blue (table 11) pimreg11 interface missing or incorrect status"
     assert res is None, assertmsg
 
-    r1.vtysh_cmd("conf\ninterface red\nip pim")
-    r1.vtysh_cmd("conf\nvrf red\nip pim rp 192.168.0.12 239.100.0.1/32\nexit-vrf")
+    r1.vtysh_cmd("conf\ninterface red\nip pim passive")
+    r1.vtysh_cmd("conf\nrouter pim vrf red\nrp 192.168.0.12 239.100.0.1/32")
 
     # Check pimreg12 interface on R1, VRF red
     reffile = os.path.join(CWD, "r1/pim_red_pimreg12.json")
@@ -354,6 +358,7 @@ def _test_vrf_pimreg_interfaces():
     assertmsg = "PIM router R1, VRF red (table 12) pimreg12 interface missing or incorrect status"
     assert res is None, assertmsg
 
+
 def test_vrf_pimreg_interfaces():
     tgen = get_topogen()
     r1 = tgen.gears["r1"]
@@ -364,6 +369,7 @@ def test_vrf_pimreg_interfaces():
         output = r1.net.cmd_nostatus("ip -o link")
         logging.error("ip link info after failure: %s", output)
         raise
+
 
 ##################################
 ###  Test PIM / IGMP with VRF
@@ -424,6 +430,13 @@ def test_mcast_vrf_blue():
 
     check_mcast_entry("239.100.0.1", "r11", "h1", "h2", "blue")
 
+    router = tgen.gears["r1"]
+    stats = router.vtysh_cmd("show ip pim vrf blue interface traffic json", isjson=True)
+    assertmsg = "R1 VRF blue: No PIM Register sent towards RP"
+    assert stats["r1-eth1"]["registerTx"] > 0, assertmsg
+    assertmsg = "R1 VRF blue: No PIM Register-Stop received from RP"
+    assert stats["r1-eth1"]["registerStopRx"] > 0, assertmsg
+
 
 def test_mcast_vrf_red():
     "Test vrf red with 239.100.0.1"
@@ -434,6 +447,13 @@ def test_mcast_vrf_red():
         pytest.skip(tgen.errors)
 
     check_mcast_entry("239.100.0.1", "r12", "h3", "h4", "red")
+
+    router = tgen.gears["r1"]
+    stats = router.vtysh_cmd("show ip pim vrf red interface traffic json", isjson=True)
+    assertmsg = "R1 VRF red: No PIM Register sent towards RP"
+    assert stats["r1-eth3"]["registerTx"] > 0, assertmsg
+    assertmsg = "R1 VRF red: No PIM Register-Stop received from RP"
+    assert stats["r1-eth3"]["registerStopRx"] > 0, assertmsg
 
 
 if __name__ == "__main__":
