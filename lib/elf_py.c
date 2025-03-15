@@ -518,12 +518,12 @@ static void elfsect_add_relocations(struct elfsect *w, Elf_Scn *rel,
 		relw->es = w;
 
 		if (relhdr->sh_type == SHT_REL) {
-			GElf_Rel _rel, *rel;
+			GElf_Rel _rel, *erel;
 
-			rel = gelf_getrel(reldata, i, &_rel);
+			erel = gelf_getrel(reldata, i, &_rel);
 			relw->rela = &relw->_rela;
-			relw->rela->r_offset = rel->r_offset;
-			relw->rela->r_info = rel->r_info;
+			relw->rela->r_offset = erel->r_offset;
+			relw->rela->r_info = erel->r_info;
 			relw->rela->r_addend = 0;
 			relw->relative = true;
 		} else
@@ -581,14 +581,14 @@ static PyObject *elfsect_wrap(struct elffile *ef, Elf_Scn *scn, size_t idx,
 	elfrelocs_init(&w->relocs);
 
 	for (i = 0; i < ef->ehdr->e_shnum; i++) {
-		Elf_Scn *scn = elf_getscn(ef->elf, i);
-		GElf_Shdr _shdr, *shdr = gelf_getshdr(scn, &_shdr);
+		Elf_Scn *escn = elf_getscn(ef->elf, i);
+		GElf_Shdr _shdr, *shdr = gelf_getshdr(escn, &_shdr);
 
 		if (shdr->sh_type != SHT_RELA && shdr->sh_type != SHT_REL)
 			continue;
 		if (shdr->sh_info && shdr->sh_info != idx)
 			continue;
-		elfsect_add_relocations(w, scn, shdr);
+		elfsect_add_relocations(w, escn, shdr);
 	}
 
 	return (PyObject *)w;
