@@ -1165,11 +1165,29 @@ static void zebra_nhg_handle_install(struct nhg_hash_entry *nhe, bool install)
 {
 	/* Update validity of groups depending on it */
 	struct nhg_connected *rb_node_dep;
+	struct nhg_connected *rb_node_indirect_dep = NULL;
 
 	frr_each_safe (nhg_connected_tree, &nhe->nhg_dependents, rb_node_dep) {
 		zebra_nhg_set_valid(rb_node_dep->nhe, true);
 		/* install dependent NHG into kernel */
 		if (install) {
+			if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED) &&
+			    CHECK_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_RECURSIVE)) {
+				frr_each_safe (nhg_connected_tree, &rb_node_dep->nhe->nhg_dependents,
+					       rb_node_indirect_dep) {
+					SET_FLAG(rb_node_indirect_dep->nhe->flags,
+						 NEXTHOP_GROUP_REINSTALL);
+					if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+						zlog_debug("%s nh id %u (flags 0x%x) associated dependents NHG %pNG (flags 0x%x) Re-install",
+							   __func__, rb_node_dep->nhe->id,
+							   rb_node_dep->nhe->flags,
+							   rb_node_indirect_dep->nhe,
+							   rb_node_indirect_dep->nhe->flags);
+					zebra_nhg_install_kernel(rb_node_indirect_dep->nhe,
+								 ZEBRA_ROUTE_MAX);
+				}
+			}
+
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 				zlog_debug(
 					"%s nh id %u (flags 0x%x) associated dependent NHG %pNG install",
