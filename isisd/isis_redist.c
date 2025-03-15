@@ -44,6 +44,17 @@ static int redist_protocol(int family)
 	return 0;
 }
 
+int afi_skt_for_redist_protocol(int protocol)
+{
+	if (protocol == 0)
+		return AF_INET;
+	if (protocol == 1)
+		return AF_INET6;
+
+	assert(!"Unknown redist protocol!");
+	return AF_INET;
+}
+
 afi_t afi_for_redist_protocol(int protocol)
 {
 	if (protocol == 0)
@@ -427,6 +438,41 @@ void isis_redist_free(struct isis *isis)
 
 		route_table_finish(isis->ext_info[i]);
 		isis->ext_info[i] = NULL;
+	}
+}
+
+void isis_redist_update(struct isis_area *area, int level, int family, int type, uint16_t table)
+{
+	struct isis_redist *redist;
+	struct route_table *ei_table;
+	struct route_node *rn;
+	struct isis_ext_info *info;
+
+	redist = isis_redist_lookup(area, family, type, level, table);
+	if (!redist)
+		return;
+
+	ei_table = get_ext_info(area->isis, family);
+	for (rn = route_top(ei_table); rn; rn = srcdest_route_next(rn)) {
+		if (!rn->info)
+			continue;
+		info = rn->info;
+
+		const struct prefix *p, *src_p;
+
+		srcdest_rnode_prefixes(rn, &p, &src_p);
+
+		if (type == DEFAULT_ROUTE) {
+			if (!is_default_prefix(p) || (src_p && src_p->prefixlen)) {
+				continue;
+			}
+		} else {
+			if (info->origin != type)
+				continue;
+		}
+
+		isis_redist_update_ext_reach(area, level, redist, p,
+					     (const struct prefix_ipv6 *)src_p, info);
 	}
 }
 
