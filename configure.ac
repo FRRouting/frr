@@ -1054,6 +1054,11 @@ AC_MSG_FAILURE([Please specify a number from 0-12 for log precision ARG])
 ;;
 esac
 with_log_timestamp_precision=${with_log_timestamp_precision:-0}
+if test "${with_log_timestamp_precision}" != 0; then
+AC_SUBST([LOG_TIMESTAMP_PRECISION_CLI], ["
+log timestamp precision ${with_log_timestamp_precision}"])
+AM_SUBST_NOTMAKE([LOG_TIMESTAMP_PRECISION_CLI])
+fi
 AC_DEFINE_UNQUOTED([LOG_TIMESTAMP_PRECISION], [${with_log_timestamp_precision}], [Startup zlog timestamp precision])
 
 AC_DEFINE_UNQUOTED([VTYSH_PAGER], ["$VTYSH_PAGER"], [What pager to use])
