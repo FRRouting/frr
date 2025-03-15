@@ -164,7 +164,7 @@ uint16_t bgp_attr_df_pref_from_ec(struct attr *attr, uint8_t *alg)
 		return 0;
 
 	for (i = 0; i < ecom->size; i++) {
-		uint8_t *pnt;
+		const uint8_t *pnt;
 		uint8_t type, sub_type;
 
 		pnt = (ecom->val + (i * ECOMMUNITY_SIZE));

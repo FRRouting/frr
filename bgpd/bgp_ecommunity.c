@@ -421,7 +421,7 @@ static const char *ecommunity_origin_validation_state2str(
 }
 
 static void ecommunity_origin_validation_state_str(char *buf, size_t bufsz,
-						   uint8_t *ptr)
+						   const uint8_t *ptr)
 {
 	/* Origin Validation State is encoded in the last octet
 	 *
@@ -1540,6 +1540,23 @@ bool ecommunity_include(struct ecommunity *e1, struct ecommunity *e2)
 	return false;
 }
 
+/*
+ * See whether 'e1' contains the value 'val'
+ */
+bool ecommunity_include_val(const struct ecommunity *e1, const uint8_t *val)
+{
+	uint32_t i;
+
+	if (!e1)
+		return false;
+	for (i = 0; i < e1->size; ++i) {
+		if (memcmp(e1->val + (i * e1->unit_size), val, e1->unit_size) ==
+		    0)
+			return true;
+	}
+	return false;
+}
+
 bool ecommunity_match(const struct ecommunity *ecom1,
 		      const struct ecommunity *ecom2)
 {
@@ -2106,4 +2123,24 @@ bool soo_in_ecom(struct ecommunity *ecom, struct ecommunity *soo)
 			return true;
 	}
 	return false;
+}
+
+/*
+ * Return data from ecom at index 'idx', or NULL
+ */
+const struct ecommunity_val *ecommunity_idx(const struct ecommunity *ecom,
+					    uint32_t idx)
+{
+	const uint8_t *ptr = NULL;
+
+	if (ecom == NULL || ecom->size == 0 || ecom->val == NULL)
+		goto done;
+
+	if (idx >= ecom->size)
+		goto done;
+
+	ptr = ecom->val + (ecom->unit_size * idx);
+
+done:
+	return (struct ecommunity_val *)ptr;
 }

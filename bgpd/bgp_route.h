@@ -827,6 +827,7 @@ extern void bgp_redistribute_delete(struct bgp *, struct prefix *, uint8_t,
 				    unsigned short);
 extern void bgp_redistribute_withdraw(struct bgp *, afi_t, int, unsigned short);
 
+struct bgp_static *bgp_static_new(void);
 extern void bgp_static_add(struct bgp *);
 extern void bgp_static_delete(struct bgp *);
 extern void bgp_address_family_distance_delete(void);
@@ -975,6 +976,9 @@ extern int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t
 			     struct bgp_table *table, struct prefix_rd *prd,
 			     enum bgp_show_type type, void *output_arg,
 			     uint16_t show_flags);
+int bgp_show_table_rtc(struct vty *vty, struct bgp *bgp, safi_t safi,
+		       struct bgp_table *table, enum bgp_show_type type,
+		       void *output_arg, uint16_t show_flags);
 extern void bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi);
 extern bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 				       uint8_t type, uint8_t stype,
@@ -1012,4 +1016,5 @@ extern int early_route_process(struct bgp *bgp, struct bgp_dest *dest);
 extern int other_route_process(struct bgp *bgp, struct bgp_dest *dest);
 extern int eoiu_marker_process(struct bgp *bgp, struct bgp_dest *dest);
 extern uint32_t bgp_med_value(struct attr *attr, struct bgp *bgp);
+
 #endif /* _QUAGGA_BGP_ROUTE_H */

@@ -17,6 +17,7 @@
 #include "lib_errors.h"
 #include "printfrr.h"
 #include "vxlan.h"
+#include "lib/stream.h"
 
 DEFINE_MTYPE_STATIC(LIB, PREFIX, "Prefix");
 DEFINE_MTYPE_STATIC(LIB, PREFIX_FLOWSPEC, "Prefix Flowspec");
@@ -174,6 +175,8 @@ const char *safi2str(safi_t safi)
 		return "labeled-unicast";
 	case SAFI_FLOWSPEC:
 		return "flowspec";
+	case SAFI_RTC:
+		return "rtfilter";
 	case SAFI_UNSPEC:
 	case SAFI_MAX:
 		return "unknown";
@@ -347,6 +350,9 @@ void prefix_copy(union prefixptr udest, union prefixconstptr usrc)
 		dest->u.prefix_flowspec.ptr = (uintptr_t)temp;
 		memcpy((void *)dest->u.prefix_flowspec.ptr,
 		       (void *)src->u.prefix_flowspec.ptr, len);
+	} else if (src->family == AF_RTC) {
+		memcpy(&dest->u.prefix_rtc, &src->u.prefix_rtc,
+		       sizeof(struct rtc_info));
 	} else {
 		flog_err(EC_LIB_DEVELOPMENT,
 			 "prefix_copy(): Unknown address family %d",
@@ -436,6 +442,10 @@ int prefix_same(union prefixconstptr up1, union prefixconstptr up2)
 				    p2->u.prefix_flowspec.prefixlen))
 				return 1;
 		}
+		if (p1->family == AF_RTC)
+			if (!memcmp(&p1->u.prefix_rtc, &p2->u.prefix_rtc,
+				    sizeof(struct rtc_info)))
+				return 1;
 	}
 	return 0;
 }
@@ -567,6 +577,8 @@ const char *prefix_family_str(union prefixconstptr pu)
 		return "ether";
 	if (p->family == AF_EVPN)
 		return "evpn";
+	if (p->family == AF_RTC)
+		return "rtc";
 	return "unspec";
 }
 
@@ -1116,6 +1128,10 @@ const char *prefix2str(union prefixconstptr pu, char *str, int size)
 		strlcpy(str, "FS prefix", size);
 		break;
 
+	case AF_RTC:
+		prefix_rtc2str((const struct prefix_rtc *)p, str, size);
+		break;
+
 	default:
 		strlcpy(str, "UNK prefix", size);
 		break;
@@ -1658,6 +1674,97 @@ static ssize_t printfrr_psg(struct fbuf *buf, struct printfrr_eargs *ea,
 		ret += bputs(buf, "*)");
 	else
 		ret += bprintfrr(buf, "%pI4)", &sg->grp);
+
+	return ret;
+}
+
+const char *prefix_rtc2str(const struct prefix_rtc *rtc, char *buf, int size)
+{
+	char sbuf[PREFIX_STRLEN];
+	int type;
+	const uint8_t *ptr;
+	in_addr_t ipval;
+	uint16_t ival;
+	uint32_t lval;
+
+	if (rtc->prefixlen == 0) {
+		strlcpy(buf, "*:*", size);
+	} else {
+		if (rtc->prefix.origin_as != 0)
+			snprintf(buf, size, "%u:", rtc->prefix.origin_as);
+		else
+			snprintf(buf, size, "*:");
+
+		if (rtc->prefixlen > 32) {
+			/* Format RT type and subtype bytes. Don't love having
+			 * this here and in bgpd, but there it is.
+			 */
+			type = rtc->prefix.route_target[0];
+
+			snprintf(sbuf, sizeof(sbuf),
+				 "%d:%d:", rtc->prefix.route_target[0],
+				 rtc->prefix.route_target[1]);
+			strlcat(buf, sbuf, size);
+
+			ptr = &(rtc->prefix.route_target[2]);
+
+			/* Format RT data bytes, using well-known types */
+			if (type == 0) {
+				ptr = ptr_get_be16(ptr, &ival);
+				ptr_get_be32(ptr, &lval);
+
+				snprintf(sbuf, sizeof(sbuf), "%d:%u", ival,
+					 lval);
+			} else if (type == 1) {
+				ptr = ptr_get_be16(ptr, &ival);
+				memcpy(&ipval, ptr, 4);
+				snprintf(sbuf, sizeof(sbuf), "%d:%pI4", ival,
+					 &ipval);
+			} else if (type == 2) {
+				ptr = ptr_get_be32(ptr, &lval);
+				ptr_get_be16(ptr, &ival);
+				snprintf(sbuf, sizeof(sbuf), "%u:%d", lval,
+					 ival);
+			} else {
+				snprintf(sbuf, sizeof(sbuf),
+					 "%02x:%02x:%02x:%02x:%02x:%02x",
+					 rtc->prefix.route_target[2],
+					 rtc->prefix.route_target[3],
+					 rtc->prefix.route_target[4],
+					 rtc->prefix.route_target[5],
+					 rtc->prefix.route_target[6],
+					 rtc->prefix.route_target[7]);
+			}
+
+			strlcat(buf, sbuf, size);
+		} else {
+			strlcpy(sbuf, "*", sizeof(sbuf));
+			strlcat(buf, sbuf, size);
+		}
+	}
+
+	/* Include prefix len */
+	snprintf(sbuf, sizeof(sbuf), "/%u", rtc->prefixlen);
+	strlcat(buf, sbuf, size);
+
+	return buf;
+}
+
+printfrr_ext_autoreg_p("RTC", printfrr_rtc);
+static ssize_t printfrr_rtc(struct fbuf *buf, struct printfrr_eargs *ea,
+			    const void *ptr)
+{
+	char tbuf[PREFIX_STRLEN];
+	const struct prefix_rtc *rtc = ptr;
+	ssize_t ret = 0;
+
+	if (!rtc)
+		return bputs(buf, "(null)");
+
+	tbuf[0] = '\0';
+	prefix_rtc2str(rtc, tbuf, sizeof(tbuf));
+
+	ret = bputs(buf, tbuf);
 
 	return ret;
 }
