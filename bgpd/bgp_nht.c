@@ -1333,9 +1333,23 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 					zlog_debug(
 						"%s: prefix %pBD (vrf %s), ignoring path due to martian or self-next-hop",
 						__func__, dest, bgp_path->name);
-			} else
+			} else {
 				bnc_is_valid_nexthop =
 					bgp_isvalid_nexthop(bnc) ? true : false;
+
+				/*
+				 * In the case of SRv6 VPN, the locally allocated SID (IPv6
+				 * address) will never exist in the BGP nexthop cache. If
+				 * the imported route is sourced locally and a SID is attached;
+				 * we base the route validity on the originating path and
+				 * assume our own SID is valid.
+				*/
+				if ((path->attr->srv6_l3vpn || path->attr->srv6_vpn) &&
+				    bgp_path->peer_self) {
+					bpi_ultimate = bgp_get_imported_bpi_ultimate(path);
+					bnc_is_valid_nexthop = bgp_isvalid_nexthop(bpi_ultimate->nexthop);
+				}
+			}
 		}
 
 		if (BGP_DEBUG(nht, NHT)) {

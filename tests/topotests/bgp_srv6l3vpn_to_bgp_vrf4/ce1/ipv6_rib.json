@@ -1,0 +1,59 @@
+{
+    "2001:1::/64": [
+      {
+        "prefix": "2001:1::/64",
+        "prefixLen": 64,
+        "protocol": "connected",
+        "vrfName": "default",
+        "selected": true,
+        "destSelected": true,
+        "distance": 0,
+        "metric": 0,
+        "installed": true,
+        "table": 254,
+        "internalStatus": 16,
+        "internalFlags": 8,
+        "internalNextHopNum": 1,
+        "internalNextHopActiveNum": 1,
+        "nexthops": [
+          {
+            "flags": 3,
+            "fib": true,
+            "directlyConnected": true,
+            "interfaceName": "dum0",
+            "active": true,
+            "weight": 1
+          }
+        ]
+      }
+    ],
+    "2001:2::/64": [
+      {
+        "prefix": "2001:2::/64",
+        "prefixLen": 64,
+        "protocol": "bgp",
+        "vrfName": "default",
+        "selected": true,
+        "destSelected": true,
+        "distance": 20,
+        "metric": 0,
+        "installed": true,
+        "table": 254,
+        "internalStatus": 16,
+        "internalFlags": 8,
+        "internalNextHopNum": 1,
+        "internalNextHopActiveNum": 1,
+        "nexthops": [
+          {
+            "flags": 3,
+            "fib": true,
+            "afi": "ipv6",
+            "interfaceName": "eth0",
+            "active": true,
+            "weight": 1
+          }
+        ],
+        "asPath": "1 2 65002"
+      }
+    ]
+}
