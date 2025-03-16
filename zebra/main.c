@@ -134,7 +134,6 @@ static void sigint(void)
 {
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
-	struct listnode *ln, *nn;
 	struct zserv *client;
 	static bool sigint_done;
 
@@ -167,11 +166,10 @@ static void sigint(void)
 	list_delete_all_node(zrouter.stale_client_list);
 
 	/* Clean up zapi clients and server module */
-	for (ALL_LIST_ELEMENTS(zrouter.client_list, ln, nn, client))
+	frr_each_safe (zserv_client_list, &zrouter.client_list, client)
 		zserv_close_client(client);
 
 	zserv_close();
-	list_delete_all_node(zrouter.client_list);
 
 	/* Once all the zclients are cleaned up, clean up the opaque module */
 	zebra_opaque_finish();
@@ -202,7 +200,6 @@ static void sigint(void)
 
 	rib_update_finish();
 
-	list_delete(&zrouter.client_list);
 	list_delete(&zrouter.stale_client_list);
 
 	/*
@@ -256,6 +253,9 @@ void zebra_finalize(struct event *dummy)
 	ns_walk_func(zebra_ns_final_shutdown, NULL, NULL);
 
 	ns_terminate();
+
+	zserv_client_list_fini(&zrouter.client_list);
+
 	frr_fini();
 	exit(0);
 }

@@ -70,6 +70,9 @@ struct client_gr_info {
 	TAILQ_ENTRY(client_gr_info) gr_info;
 };
 
+/* For managing client list */
+PREDECL_LIST(zserv_client_list);
+
 /* Client structure. */
 struct zserv {
 	/* Client pthread */
@@ -85,6 +88,9 @@ struct zserv {
 	 */
 	int busy_count;
 	bool is_closed;
+
+	/* For managing this node in the client list */
+	struct zserv_client_list_item client_list_entry;
 
 	/* Input/output buffer to the client. */
 	pthread_mutex_t ibuf_mtx;
@@ -229,6 +235,9 @@ struct zserv {
 	 */
 	TAILQ_HEAD(info_list, client_gr_info) gr_info_queue;
 };
+
+/* Declare the list operations */
+DECLARE_LIST(zserv_client_list, struct zserv, client_list_entry);
 
 #define ZAPI_HANDLER_ARGS                                                      \
 	struct zserv *client, struct zmsghdr *hdr, struct stream *msg,         \

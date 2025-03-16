@@ -603,7 +603,6 @@ void zebra_srv6_locator_add(struct srv6_locator *locator)
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
 	struct srv6_locator *tmp;
-	struct listnode *node;
 	struct zserv *client;
 
 	tmp = zebra_srv6_locator_lookup(locator->name);
@@ -623,13 +622,13 @@ void zebra_srv6_locator_add(struct srv6_locator *locator)
 	 * frequently than adding rib entries, so a broad to all zclients will
 	 * not degrade the overall performance of FRRouting.
 	 */
-	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client))
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
 		zsend_zebra_srv6_locator_add(client, locator);
+	}
 }
 
 void zebra_srv6_locator_delete(struct srv6_locator *locator)
 {
-	struct listnode *n;
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
 	struct zserv *client;
 
@@ -644,8 +643,9 @@ void zebra_srv6_locator_delete(struct srv6_locator *locator)
 	 * by ZEBRA_SRV6_LOCATOR_DELETE, and this notification is sent to the
 	 * owner of each chunk.
 	 */
-	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, n, client))
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
 		zsend_zebra_srv6_locator_delete(client, locator);
+	}
 
 	listnode_delete(srv6->locators, locator);
 	srv6_locator_free(locator);
@@ -665,7 +665,6 @@ struct srv6_locator *zebra_srv6_locator_lookup(const char *name)
 
 void zebra_notify_srv6_locator_add(struct srv6_locator *locator)
 {
-	struct listnode *node;
 	struct zserv *client;
 
 	/*
@@ -681,13 +680,13 @@ void zebra_notify_srv6_locator_add(struct srv6_locator *locator)
 	 * frequently than adding rib entries, so a broad to all zclients will
 	 * not degrade the overall performance of FRRouting.
 	 */
-	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client))
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
 		zsend_zebra_srv6_locator_add(client, locator);
+	}
 }
 
 void zebra_notify_srv6_locator_delete(struct srv6_locator *locator)
 {
-	struct listnode *n;
 	struct zserv *client;
 
 	/*
@@ -701,8 +700,9 @@ void zebra_notify_srv6_locator_delete(struct srv6_locator *locator)
 	 * by ZEBRA_SRV6_LOCATOR_DELETE, and this notification is sent to the
 	 * owner of each chunk.
 	 */
-	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, n, client))
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
 		zsend_zebra_srv6_locator_delete(client, locator);
+	}
 }
 
 struct zebra_srv6 srv6;
