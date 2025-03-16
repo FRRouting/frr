@@ -112,7 +112,6 @@ int router_id_get(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf)
 int router_id_set(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf)
 {
 	struct prefix after, before;
-	struct listnode *node;
 	struct zserv *client;
 
 	router_id_get(afi, &before, zvrf);
@@ -139,7 +138,7 @@ int router_id_set(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf)
 	if (prefix_same(&before, &after))
 		return 0;
 
-	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client))
+	frr_each (zserv_client_list, &zrouter.client_list, client)
 		zsend_router_id_update(client, afi, &after, zvrf->vrf->vrf_id);
 
 	return 0;
@@ -148,7 +147,6 @@ int router_id_set(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf)
 void router_id_add_address(struct connected *ifc)
 {
 	struct list *l = NULL;
-	struct listnode *node;
 	struct prefix before;
 	struct prefix after;
 	struct zserv *client;
@@ -187,7 +185,7 @@ void router_id_add_address(struct connected *ifc)
 	if (prefix_same(&before, &after))
 		return;
 
-	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client))
+	frr_each (zserv_client_list, &zrouter.client_list, client)
 		zsend_router_id_update(client, afi, &after, zvrf_id(zvrf));
 }
 
@@ -197,7 +195,6 @@ void router_id_del_address(struct connected *ifc)
 	struct list *l;
 	struct prefix after;
 	struct prefix before;
-	struct listnode *node;
 	struct zserv *client;
 	struct zebra_vrf *zvrf = ifc->ifp->vrf->info;
 	afi_t afi;
@@ -237,7 +234,7 @@ void router_id_del_address(struct connected *ifc)
 	if (prefix_same(&before, &after))
 		return;
 
-	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client))
+	frr_each (zserv_client_list, &zrouter.client_list, client)
 		zsend_router_id_update(client, afi, &after, zvrf_id(zvrf));
 }
 

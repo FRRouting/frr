@@ -56,10 +56,9 @@ static int zsend_interface_bfd_update(int cmd, struct zserv *client,
 void zebra_interface_bfd_update(struct interface *ifp, struct prefix *dp,
 				struct prefix *sp, int status, vrf_id_t vrf_id)
 {
-	struct listnode *node, *nnode;
 	struct zserv *client;
 
-	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
 		if (!IS_BFD_ENABLED_PROTOCOL(client->proto))
 			continue;
 
@@ -86,10 +85,9 @@ static int zsend_bfd_peer_replay(int cmd, struct zserv *client)
 
 void zebra_bfd_peer_replay_req(void)
 {
-	struct listnode *node, *nnode;
 	struct zserv *client;
 
-	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
 		if (!IS_BFD_ENABLED_PROTOCOL(client->proto))
 			continue;
 
