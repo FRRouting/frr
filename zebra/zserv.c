@@ -1412,7 +1412,7 @@ void zserv_init(void)
 {
 	/* Client list init. */
 	zserv_client_list_init(&zrouter.client_list);
-	zrouter.stale_client_list = list_new();
+	zserv_stale_client_list_init(&zrouter.stale_client_list);
 
 	/* Misc init. */
 	zsock = -1;

@@ -129,7 +129,7 @@ struct zebra_router {
 	struct zserv_client_list_head client_list;
 
 	/* List of clients in GR */
-	struct list *stale_client_list;
+	struct zserv_stale_client_list_head stale_client_list;
 
 	struct zebra_router_table_head tables;
 
