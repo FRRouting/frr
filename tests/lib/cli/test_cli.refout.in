@@ -405,7 +405,7 @@ frr version @PACKAGE_VERSION@
 frr defaults @DFLT_NAME@
 !
 hostname test
-domainname test.domain
+domainname test.domain@LOG_TIMESTAMP_PRECISION_CLI@
 !
 !
 !
@@ -420,7 +420,7 @@ frr version @PACKAGE_VERSION@
 frr defaults @DFLT_NAME@
 !
 hostname foohost
-domainname test.domain
+domainname test.domain@LOG_TIMESTAMP_PRECISION_CLI@
 !
 !
 !
