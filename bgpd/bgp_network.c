@@ -400,6 +400,23 @@ static void bgp_socket_set_buffer_size(const int fd)
 		setsockopt_so_recvbuf(fd, bm->socket_buffer);
 }
 
+static const char *bgp_peer_active2str(enum bgp_peer_active active)
+{
+	switch (active) {
+	case BGP_PEER_ACTIVE:
+		return "active";
+	case BGP_PEER_CONNECTION_UNSPECIFIED:
+		return "unspecified connection";
+	case BGP_PEER_BFD_DOWN:
+		return "BFD down";
+	case BGP_PEER_AF_UNCONFIGURED:
+		return "no AF activated";
+	}
+
+	assert(!"We should never get here this is a dev escape");
+	return "ERROR";
+}
+
 /* Accept bgp connection. */
 static void bgp_accept(struct event *thread)
 {
@@ -411,6 +428,7 @@ static void bgp_accept(struct event *thread)
 	struct peer_connection *connection, *connection1;
 	char buf[SU_ADDRSTRLEN];
 	struct bgp *bgp = NULL;
+	enum bgp_peer_active active;
 
 	sockunion_init(&su);
 
@@ -515,7 +533,7 @@ static void bgp_accept(struct event *thread)
 			bgp_fsm_change_status(connection1, Active);
 			EVENT_OFF(connection1->t_start);
 
-			if (peer_active(peer1)) {
+			if (peer_active(peer1) == BGP_PEER_ACTIVE) {
 				if (CHECK_FLAG(peer1->flags,
 					       PEER_FLAG_TIMER_DELAYOPEN))
 					BGP_EVENT_ADD(connection1,
@@ -568,11 +586,12 @@ static void bgp_accept(struct event *thread)
 	}
 
 	/* Check that at least one AF is activated for the peer. */
-	if (!peer_active(peer1)) {
+	active = peer_active(peer1);
+	if (active != BGP_PEER_ACTIVE) {
 		if (bgp_debug_neighbor_events(peer1))
 			zlog_debug(
-				"%s - incoming conn rejected - no AF activated for peer",
-				peer1->host);
+				"%s - incoming conn rejected - %s", peer1->host,
+				bgp_peer_active2str(active));
 		close(bgp_sock);
 		return;
 	}
@@ -677,7 +696,7 @@ static void bgp_accept(struct event *thread)
 		bgp_event_update(connection1, TCP_connection_closed);
 	}
 
-	if (peer_active(peer)) {
+	if (peer_active(peer) == BGP_PEER_ACTIVE) {
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_TIMER_DELAYOPEN))
 			BGP_EVENT_ADD(connection, TCP_connection_open_w_delay);
 		else
