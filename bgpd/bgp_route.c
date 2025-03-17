@@ -4754,9 +4754,17 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	 * attr->evpn_overlay with evpn directly. Instead memcpy
 	 * evpn to new_atr.evpn_overlay before it is interned.
 	 */
+<<<<<<< HEAD
 	if (soft_reconfig && (afi == AFI_L2VPN) && evpn)
 		memcpy(&new_attr.evpn_overlay, evpn,
 		       sizeof(struct bgp_route_evpn));
+=======
+	if (evpn && afi == AFI_L2VPN &&
+	    (soft_reconfig || !CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG))) {
+		bgp_attr_set_evpn_overlay(&new_attr, evpn);
+		p_evpn = NULL;
+	}
+>>>>>>> 7320659f7 (bgpd: fix evpn attributes being dropped on input)
 
 	/* Apply incoming route-map.
 	 * NB: new_attr may now contain newly allocated values from route-map
