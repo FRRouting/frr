@@ -69,7 +69,7 @@ static struct agentx_internal_stat internal_stat;
 
 static void agentx_events_update(struct event *t);
 static void agentx_send_ringbuf(void);
-static int agentx_stop(struct frr_pthread *fpt, void **result);
+static int agentx_stop(struct event *thread);
 static void smux_trap_multi_index_thd(struct event *thread);
 
 static void agentx_pthreads_init(void)
@@ -95,6 +95,9 @@ static void agentx_pthreads_run(void)
 
 static void agentx_timeout(struct event *t)
 {
+	if (!agentx_enabled)
+		return 0;
+
 	timeout_thr = NULL;
 	/*
 	 * in case of lock nothing is done and
@@ -124,6 +127,9 @@ static int agentx_read_now(int fd)
 	int flags, new_flags = 0;
 	int nonblock = false;
 	struct timeval timeout = {.tv_sec = 0, .tv_usec = 0};
+
+	if (!agentx_enabled)
+		return 0;
 
 	/* fix for non blocking socket */
 	flags = fcntl(fd, F_GETFL, 0);
@@ -188,7 +194,10 @@ static void agentx_read(struct event *t)
 
 	list_delete_node(events, ln);
 	XFREE(MTYPE_TMP, thr);
-
+	
+	if (!agentx_enabled)
+		return 0;
+	
 	res = agentx_read_now(EVENT_FD(t));
 	if (!res) {
 		agentx_send_without_read = 0;
@@ -211,6 +220,8 @@ static void agentx_events_update(struct event *t)
 	int fd, thr_fd;
 	int add_event_flag = 0;
 
+	if (!agentx_enabled)
+		return 0;
 	if (pthread_mutex_trylock(&ax_io_mtx) == 0) {
 		event_cancel_async(agentx_tm, &timeout_thr, NULL);
 		pthread_mutex_unlock(&ax_io_mtx);
@@ -393,7 +404,13 @@ static int smux_disable(void)
 {
 	agentx_enabled = false;
 	if (agentx_pth->running)
-		agentx_stop(agentx_pth, NULL);
+		event_add_event(agentx_tm, agentx_stop, NULL, 0, NULL);
+	if (pthread_mutex_trylock(&ax_io_mtx) != 0) {
+		zlog_err("%s agentx thread locked, termination delayed",
+			 __func__);
+		return 0;
+	}
+	pthread_mutex_unlock(&ax_io_mtx);
 	return 0;
 }
 
@@ -401,7 +418,6 @@ bool smux_enabled(void)
 {
 	return agentx_enabled;
 }
-
 void smux_init(struct event_loop *tm)
 {
 	main_pthread_tm = tm;
@@ -452,6 +468,9 @@ void smux_trap(struct variable *vp, size_t vp_len, const oid *ename,
 	       uint8_t sptrap)
 {
 	struct index_oid trap_index[1];
+
+	if (!agentx_enabled)
+		return;
 
 	/* copy the single index into the multi-index format */
 	oid_copy(trap_index[0].indexname, iname, inamelen);
@@ -596,6 +615,9 @@ static void agentx_send_ringbuf(void)
  */
 static void smux_trap_multi_index_thd(struct event *thread)
 {
+	if (!agentx_enabled)
+		return 0;
+
 	agentx_send_ringbuf();
 	event_add_event(main_pthread_tm, agentx_events_update, NULL, 0, NULL);
 	/* now we can call smux_trap_multi_index_thd via thread_add_event */
@@ -654,9 +676,9 @@ int smux_trap_multi_index(struct variable *vp, size_t vp_len, const oid *ename, 
 	return 1;
 }
 
-static int agentx_stop(struct frr_pthread *fpt, void **result)
+static int agentx_stop(struct event *thread)
 {
-	assert(fpt->running);
+	assert(agentx_pth->running);
 
 	ringbuf_del(ibuf_ax);
 	pthread_mutex_unlock(&ax_io_mtx);
