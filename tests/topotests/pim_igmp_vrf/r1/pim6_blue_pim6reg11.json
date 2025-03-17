@@ -1,0 +1,14 @@
+{
+  "pim6reg11":{
+    "name":"pim6reg11",
+    "state":"up",
+    "address":"::",
+    "flagAllMulticast":true,
+    "lanDelayEnabled":true,
+    "drAddress":"*",
+    "drPriority":1,
+    "drUptime":"--:--:--",
+    "drElections":0,
+    "drChanges":0
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "neighbors":[
+    {
+      "neighborId":"192.168.0.11",
+      "priority":10,
+      "state":"Full",
+      "interfaceName":"r1-eth1"
+    }
+  ]
+}
