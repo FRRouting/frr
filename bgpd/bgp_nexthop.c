@@ -444,7 +444,7 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 		    !peer_established(peer->connection) &&
 		    !CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY)) {
 			connection = peer->connection;
-			if (peer_active(connection))
+			if (peer_active(connection) == BGP_PEER_ACTIVE)
 				BGP_EVENT_ADD(connection, BGP_Stop);
 			BGP_EVENT_ADD(connection, BGP_Start);
 		}

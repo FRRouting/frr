@@ -325,7 +325,7 @@ void bgp_timer_set(struct peer_connection *connection)
 		/* First entry point of peer's finite state machine.  In Idle
 		   status start timer is on unless peer is shutdown or peer is
 		   inactive.  All other timer must be turned off */
-		if (BGP_PEER_START_SUPPRESSED(peer) || !peer_active(connection) ||
+		if (BGP_PEER_START_SUPPRESSED(peer) || peer_active(connection) != BGP_PEER_ACTIVE ||
 		    peer->bgp->vrf_id == VRF_UNKNOWN) {
 			EVENT_OFF(connection->t_start);
 		} else {
