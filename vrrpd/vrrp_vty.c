@@ -66,8 +66,7 @@ void cli_show_vrrp(struct vty *vty, const struct lyd_node *dnode, bool show_defa
 	const char *ver = yang_dnode_get_string(dnode, "version");
 
 	vty_out(vty, " vrrp %s", vrid);
-	if (show_defaults || !yang_dnode_is_default(dnode, "version"))
-		vty_out(vty, " version %s", ver);
+	vty_out(vty, " version %s", ver);
 	vty_out(vty, "\n");
 }
 
