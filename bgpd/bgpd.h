@@ -2299,6 +2299,14 @@ enum bgp_martian_type {
 	BGP_MARTIAN_SOO,    /* bgp->evpn_info->macvrf_soo */
 };
 
+/* Distinguish the reason why the peer is not active. */
+enum bgp_peer_active {
+	BGP_PEER_ACTIVE,
+	BGP_PEER_CONNECTION_UNSPECIFIED,
+	BGP_PEER_BFD_DOWN,
+	BGP_PEER_AF_UNCONFIGURED,
+};
+
 extern const struct message bgp_martian_type_str[];
 extern const char *bgp_martian_type2str(enum bgp_martian_type mt);
 
@@ -2347,7 +2355,7 @@ extern struct peer *peer_unlock_with_caller(const char *, struct peer *);
 extern enum bgp_peer_sort peer_sort(struct peer *peer);
 extern enum bgp_peer_sort peer_sort_lookup(struct peer *peer);
 
-extern bool peer_active(struct peer_connection *connection);
+extern enum bgp_peer_active peer_active(struct peer_connection *connection);
 extern bool peer_active_nego(struct peer *);
 extern bool peer_afc_received(struct peer *peer);
 extern bool peer_afc_advertised(struct peer *peer);
