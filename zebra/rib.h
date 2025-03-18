@@ -80,6 +80,9 @@ struct route_entry {
 	/* Link list. */
 	struct re_list_item next;
 
+	/* Back pointer to route node */
+	struct route_node *rn;
+
 	/* Nexthop group, shared/refcounted, based on the nexthop(s)
 	 * provided by the owner of the route
 	 */

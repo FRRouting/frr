@@ -4159,6 +4159,7 @@ static void rib_link(struct route_node *rn, struct route_entry *re, int process)
 			rnode_debug(rn, re->vrf_id, "rn %p adding dest", rn);
 	}
 
+	re->rn = rn;
 	re_list_add_head(&dest->routes, re);
 
 	afi = (rn->p.family == AF_INET)
@@ -4215,6 +4216,7 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 
 	dest = rib_dest_from_rnode(rn);
 
+	re->rn = NULL;
 	re_list_del(&dest->routes, re);
 
 	if (dest->selected_fib == re)
@@ -4488,6 +4490,7 @@ struct route_entry *zebra_rib_route_entry_new(vrf_id_t vrf_id, int type,
 	re->uptime = monotime(NULL);
 	re->tag = tag;
 	re->nhe_id = nhe_id;
+	re->rn = NULL;
 
 	return re;
 }
