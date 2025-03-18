@@ -248,180 +248,58 @@ def teardown_module():
     tgen.stop_topology()
 
 
-def test_ospf_convergence():
+def _test_ospf23_convergence(protoname, ipname, confname, vrf):
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info(
+        "Checking {} convergence on router r1 for VRF {}".format(protoname, vrf)
+    )
+
+    # Check for VRF neighbor
+    router = tgen.gears["r1"]
+    reffile = os.path.join(CWD, "r1/{}_{}_neighbor.json".format(confname, vrf))
+    expected = json.loads(open(reffile).read())
+
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        router,
+        "show {} {} vrf {} neighbor json".format(ipname, confname, vrf),
+        expected,
+    )
+    _, res = topotest.run_and_expect(test_func, None, count=60, wait=2)
+    assertmsg = "{} router R1 did not converge on VRF {} (nbr)".format(protoname, vrf)
+    assert res is None, assertmsg
+
+    # Check for VRF loopback route
+    router = tgen.gears["r1"]
+    reffile = os.path.join(CWD, "r1/{}_{}_route.json".format(confname, vrf))
+    expected = json.loads(open(reffile).read())
+
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        router,
+        "show {} {} vrf {} route json".format(ipname, confname, vrf),
+        expected,
+    )
+    _, res = topotest.run_and_expect(test_func, None, count=30, wait=2)
+    assertmsg = "{} router R1 did not converge on VRF {} (route)".format(protoname, vrf)
+    assert res is None, assertmsg
+
+
+def test_ospf2_convergence():
     "Test for OSPFv2 convergence"
-    tgen = get_topogen()
-
-    # Skip if previous fatal error condition is raised
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    logger.info("Checking OSPFv2 convergence on router r1 for VRF blue")
-
-    # Check for blue neighbor
-    router = tgen.gears["r1"]
-    reffile = os.path.join(CWD, "r1/ospf_blue_neighbor.json")
-    expected = json.loads(open(reffile).read())
-
-    test_func = functools.partial(
-        topotest.router_json_cmp,
-        router,
-        "show ip ospf vrf blue neighbor json",
-        expected,
-    )
-    _, res = topotest.run_and_expect(test_func, None, count=60, wait=2)
-    assertmsg = "OSPFv2 router R1 did not converge on VRF blue (nbr)"
-    assert res is None, assertmsg
-
-    # Check for blue loopback route
-    router = tgen.gears["r1"]
-    reffile = os.path.join(CWD, "r1/ospf_blue_route.json")
-    expected = json.loads(open(reffile).read())
-
-    test_func = functools.partial(
-        topotest.router_json_cmp,
-        router,
-        "show ip ospf vrf blue route json",
-        expected,
-    )
-    _, res = topotest.run_and_expect(test_func, None, count=30, wait=2)
-    assertmsg = "OSPF router R1 did not converge on VRF blue (route)"
-    assert res is None, assertmsg
-
-    logger.info("Checking OSPFv2 convergence on router r1 for VRF red")
-
-    router = tgen.gears["r1"]
-    reffile = os.path.join(CWD, "r1/ospf_red_neighbor.json")
-    expected = json.loads(open(reffile).read())
-
-    test_func = functools.partial(
-        topotest.router_json_cmp, router, "show ip ospf vrf red neighbor json", expected
-    )
-    _, res = topotest.run_and_expect(test_func, None, count=60, wait=2)
-    assertmsg = "OSPFv2 router R1 did not converge on VRF red (nbr)"
-    assert res is None, assertmsg
-
-    # Check for red loopback route
-    router = tgen.gears["r1"]
-    reffile = os.path.join(CWD, "r1/ospf_red_route.json")
-    expected = json.loads(open(reffile).read())
-
-    test_func = functools.partial(
-        topotest.router_json_cmp,
-        router,
-        "show ip ospf vrf red route json",
-        expected,
-    )
-    _, res = topotest.run_and_expect(test_func, None, count=30, wait=2)
-    assertmsg = "OSPFv2 router R1 did not converge on VRF red (route)"
-    assert res is None, assertmsg
+    _test_ospf23_convergence("OSPFv2", "ip", "ospf", "blue")
+    _test_ospf23_convergence("OSPFv2", "ip", "ospf", "red")
 
 
-def test_ospf6_convergence():
+def test_ospf3_convergence():
     "Test for OSPFv3 convergence"
-    tgen = get_topogen()
-
-    # Skip if previous fatal error condition is raised
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    logger.info("Checking OSPFv3 convergence on router r1 for VRF blue")
-
-    # Check for blue neighbor
-    router = tgen.gears["r1"]
-    reffile = os.path.join(CWD, "r1/ospf6_blue_neighbor.json")
-    expected = json.loads(open(reffile).read())
-
-    test_func = functools.partial(
-        topotest.router_json_cmp,
-        router,
-        "show ipv6 ospf6 vrf blue neighbor json",
-        expected,
-    )
-    _, res = topotest.run_and_expect(test_func, None, count=60, wait=2)
-    assertmsg = "OSPFv3 router R1 did not converge on VRF blue (nbr)"
-    assert res is None, assertmsg
-
-    # Check for blue loopback route
-    router = tgen.gears["r1"]
-    reffile = os.path.join(CWD, "r1/ospf6_blue_route.json")
-    expected = json.loads(open(reffile).read())
-
-    test_func = functools.partial(
-        topotest.router_json_cmp,
-        router,
-        "show ipv6 ospf6 vrf blue route json",
-        expected,
-    )
-    _, res = topotest.run_and_expect(test_func, None, count=30, wait=2)
-    assertmsg = "OSPFv3 router R1 did not converge on VRF blue (route)"
-    assert res is None, assertmsg
-
-    logger.info("Checking OSPFv3 convergence on router r1 for VRF red")
-
-    router = tgen.gears["r1"]
-    reffile = os.path.join(CWD, "r1/ospf6_red_neighbor.json")
-    expected = json.loads(open(reffile).read())
-
-    test_func = functools.partial(
-        topotest.router_json_cmp,
-        router,
-        "show ipv6 ospf6 vrf red neighbor json",
-        expected,
-    )
-    _, res = topotest.run_and_expect(test_func, None, count=60, wait=2)
-    assertmsg = "OSPFv3 router R1 did not converge on VRF red (nbr)"
-    assert res is None, assertmsg
-
-    # Check for red loopback route
-    router = tgen.gears["r1"]
-    reffile = os.path.join(CWD, "r1/ospf6_red_route.json")
-    expected = json.loads(open(reffile).read())
-
-    test_func = functools.partial(
-        topotest.router_json_cmp,
-        router,
-        "show ipv6 ospf6 vrf red route json",
-        expected,
-    )
-    _, res = topotest.run_and_expect(test_func, None, count=30, wait=2)
-    assertmsg = "OSPFv3 router R1 did not converge on VRF red (route)"
-    assert res is None, assertmsg
-
-
-def test_pim_convergence():
-    "Test for PIM IPv4 convergence"
-    tgen = get_topogen()
-
-    # Skip if previous fatal error condition is raised
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    logger.info("Checking PIM IPv4 convergence on router r1 for VRF red")
-
-    router = tgen.gears["r1"]
-    reffile = os.path.join(CWD, "r1/pim_red_neighbor.json")
-    expected = json.loads(open(reffile).read())
-
-    test_func = functools.partial(
-        topotest.router_json_cmp, router, "show ip pim vrf red neighbor json", expected
-    )
-    _, res = topotest.run_and_expect(test_func, None, count=30, wait=2)
-    assertmsg = "PIM IPv4 router R1 did not converge for VRF red"
-    assert res is None, assertmsg
-
-    logger.info("Checking PIM IPv4 convergence on router r1 for VRF blue")
-
-    router = tgen.gears["r1"]
-    reffile = os.path.join(CWD, "r1/pim_blue_neighbor.json")
-    expected = json.loads(open(reffile).read())
-
-    test_func = functools.partial(
-        topotest.router_json_cmp, router, "show ip pim vrf blue neighbor json", expected
-    )
-    _, res = topotest.run_and_expect(test_func, None, count=30, wait=2)
-    assertmsg = "PIM IPv4 router R1 did not converge for VRF blue"
-    assert res is None, assertmsg
+    _test_ospf23_convergence("OSPFv3", "ipv6", "ospf6", "blue")
+    _test_ospf23_convergence("OSPFv3", "ipv6", "ospf6", "red")
 
 
 def canonicalize_linklocals(obj):
@@ -441,85 +319,71 @@ def router_json_cmp_canonical_linklocals(router, cmd, data):
     return topotest.json_cmp(o, data)
 
 
-def test_pim6_convergence():
-    "Test for PIM IPv6 convergence"
+def _test_pim46_convergence(protoname, ipname, confname, vrf):
     tgen = get_topogen()
 
     # Skip if previous fatal error condition is raised
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info("Checking PIM IPv6 convergence on router r1 for VRF red")
+    logger.info(
+        "Checking {} convergence on router r1 for VRF {}".format(protoname, vrf)
+    )
 
     router = tgen.gears["r1"]
-    reffile = os.path.join(CWD, "r1/pim6_red_neighbor.json")
+    reffile = os.path.join(CWD, "r1/{}_{}_neighbor.json".format(confname, vrf))
     expected = json.loads(open(reffile).read())
 
     test_func = functools.partial(
         router_json_cmp_canonical_linklocals,
         router,
-        "show ipv6 pim vrf red neighbor json",
+        "show {} pim vrf {} neighbor json".format(ipname, vrf),
         expected,
     )
     _, res = topotest.run_and_expect(test_func, None, count=30, wait=2)
-    assertmsg = "PIM IPv6 router R1 did not converge for VRF red"
-    assert res is None, assertmsg
-
-    logger.info("Checking PIM IPv6 convergence on router r1 for VRF blue")
-
-    router = tgen.gears["r1"]
-    reffile = os.path.join(CWD, "r1/pim6_blue_neighbor.json")
-    expected = json.loads(open(reffile).read())
-
-    test_func = functools.partial(
-        router_json_cmp_canonical_linklocals,
-        router,
-        "show ipv6 pim vrf blue neighbor json",
-        expected,
-    )
-    _, res = topotest.run_and_expect(test_func, None, count=30, wait=2)
-    assertmsg = "PIM IPv6 router R1 did not converge for VRF blue"
+    assertmsg = "{} router R1 did not converge for VRF {}".format(protoname, vrf)
     assert res is None, assertmsg
 
 
-def _test_vrf_pimreg_interfaces():
-    "Adding PIM IPv4 RP in VRF information and verify pimreg interfaces"
+def test_pim4_convergence():
+    "Test for PIM IPv4 convergence"
+    _test_pim46_convergence("PIM IPv4", "ip", "pim", "red")
+    _test_pim46_convergence("PIM IPv4", "ip", "pim", "blue")
+
+
+def test_pim6_convergence():
+    "Test for PIM IPv6 convergence"
+    _test_pim46_convergence("PIM IPv6", "ipv6", "pim6", "red")
+    _test_pim46_convergence("PIM IPv6", "ipv6", "pim6", "blue")
+
+
+def _test_vrf_pim46reg_interfaces(
+    protoname, ipname, confname, vrf, pimregiface, rpaddr, mcprefix
+):
     tgen = get_topogen()
 
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
     r1 = tgen.gears["r1"]
-    r1.vtysh_cmd("conf\ninterface blue\nip pim passive")
-    r1.vtysh_cmd("conf\nrouter pim vrf blue\nrp 192.168.0.11 239.100.0.1/32")
+    r1.vtysh_cmd("conf\ninterface {}\n{} pim passive".format(vrf, ipname))
+    r1.vtysh_cmd(
+        "conf\nrouter {} vrf {}\nrp {} {}".format(confname, vrf, rpaddr, mcprefix)
+    )
 
-    # Check pimreg11 interface on R1, VRF blue
-    reffile = os.path.join(CWD, "r1/pim_blue_pimreg11.json")
+    # Check pim*reg* interface on R1 in VRF
+    reffile = os.path.join(CWD, "r1/{}_{}_{}.json".format(confname, vrf, pimregiface))
     expected = json.loads(open(reffile).read())
     test_func = functools.partial(
         topotest.router_json_cmp,
         r1,
-        "show ip pim vrf blue inter pimreg11 json",
+        "show {} pim vrf {} inter {} json".format(ipname, vrf, pimregiface),
         expected,
     )
     _, res = topotest.run_and_expect(test_func, None, count=15, wait=2)
-    assertmsg = "PIM IPv4 router R1, VRF blue (table 11) pimreg11 interface missing or incorrect status"
-    assert res is None, assertmsg
-
-    r1.vtysh_cmd("conf\ninterface red\nip pim passive")
-    r1.vtysh_cmd("conf\nrouter pim vrf red\nrp 192.168.0.12 239.100.0.1/32")
-
-    # Check pimreg12 interface on R1, VRF red
-    reffile = os.path.join(CWD, "r1/pim_red_pimreg12.json")
-    expected = json.loads(open(reffile).read())
-    test_func = functools.partial(
-        topotest.router_json_cmp,
-        r1,
-        "show ip pim vrf red inter pimreg12 json",
-        expected,
+    assertmsg = "{} router R1, VRF {} {} interface missing or incorrect status".format(
+        protoname, vrf, pimregiface
     )
-    _, res = topotest.run_and_expect(test_func, None, count=15, wait=2)
-    assertmsg = "PIM IPv4 router R1, VRF red (table 12) pimreg12 interface missing or incorrect status"
     assert res is None, assertmsg
 
 
@@ -528,7 +392,18 @@ def test_vrf_pimreg_interfaces():
     tgen = get_topogen()
     r1 = tgen.gears["r1"]
     try:
-        _test_vrf_pimreg_interfaces()
+        _test_vrf_pim46reg_interfaces(
+            "PIM IPv4",
+            "ip",
+            "pim",
+            "blue",
+            "pimreg11",
+            "192.168.0.11",
+            "239.100.0.1/32",
+        )
+        _test_vrf_pim46reg_interfaces(
+            "PIM IPv4", "ip", "pim", "red", "pimreg12", "192.168.0.12", "239.100.0.1/32"
+        )
     except Exception:
         # get some debug info.
         output = r1.net.cmd_nostatus("ip -o link")
@@ -536,53 +411,29 @@ def test_vrf_pimreg_interfaces():
         raise
 
 
-def _test_vrf_pim6reg_interfaces():
-    "Adding PIM IPv6 RP in VRF information and verify pim6reg interfaces"
-    tgen = get_topogen()
-
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    r1 = tgen.gears["r1"]
-    r1.vtysh_cmd("conf\ninterface blue\nipv6 pim passive")
-    r1.vtysh_cmd("conf\nrouter pim6 vrf blue\nrp 2001:db8:0::11 ff18:100::1/128")
-
-    # Check pim6reg11 interface on R1, VRF blue
-    reffile = os.path.join(CWD, "r1/pim6_blue_pim6reg11.json")
-    expected = json.loads(open(reffile).read())
-    test_func = functools.partial(
-        topotest.router_json_cmp,
-        r1,
-        "show ipv6 pim vrf blue inter pim6reg11 json",
-        expected,
-    )
-    _, res = topotest.run_and_expect(test_func, None, count=15, wait=2)
-    assertmsg = "PIM IPv6 router R1, VRF blue (table 11) pimreg11 interface missing or incorrect status"
-    assert res is None, assertmsg
-
-    r1.vtysh_cmd("conf\ninterface red\nipv6 pim passive")
-    r1.vtysh_cmd("conf\nrouter pim6 vrf red\nrp 2001:db8:0::12 ff18:100::1/128")
-
-    # Check pim6reg12 interface on R1, VRF red
-    reffile = os.path.join(CWD, "r1/pim6_red_pim6reg12.json")
-    expected = json.loads(open(reffile).read())
-    test_func = functools.partial(
-        topotest.router_json_cmp,
-        r1,
-        "show ipv6 pim vrf red inter pim6reg12 json",
-        expected,
-    )
-    _, res = topotest.run_and_expect(test_func, None, count=15, wait=2)
-    assertmsg = "PIM IPv6 router R1, VRF red (table 12) pimreg12 interface missing or incorrect status"
-    assert res is None, assertmsg
-
-
 def test_vrf_pim6reg_interfaces():
     "Adding PIM IPv6 RP in VRF information and verify pim6reg interfaces"
     tgen = get_topogen()
     r1 = tgen.gears["r1"]
     try:
-        _test_vrf_pim6reg_interfaces()
+        _test_vrf_pim46reg_interfaces(
+            "PIM IPv6",
+            "ipv6",
+            "pim6",
+            "blue",
+            "pim6reg11",
+            "2001:db8:0::11",
+            "ff18:100::1/128",
+        )
+        _test_vrf_pim46reg_interfaces(
+            "PIM IPv6",
+            "ipv6",
+            "pim6",
+            "red",
+            "pim6reg12",
+            "2001:db8:0::12",
+            "ff18:100::1/128",
+        )
     except Exception:
         # get some debug info.
         output = r1.net.cmd_nostatus("ip -o link")
@@ -599,11 +450,19 @@ def router_json_check(router, cmd, checkfn):
     return checkfn(router.vtysh_cmd(cmd, isjson=True))
 
 
-def check_mcast_entry(mcastaddr, pimrp, receiver, sender, vrf, r1iface):
-    "Helper function to check IPv4 RP"
+def check_mcast46_entry(
+    protoname, ipname, confname, vrf, r1iface, mcastaddr, pimrp, receiver, sender
+):
+    "Helper function to check IPv4/6 RP"
     tgen = get_topogen()
 
-    logger.info("Testing PIM IPv4 for VRF {} entry using {}".format(vrf, mcastaddr))
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info(
+        "Testing {} for VRF {} entry using {}".format(protoname, vrf, mcastaddr)
+    )
 
     with McastTesterHelper(tgen) as helper:
         helper.run(sender, ["--send=0.7", mcastaddr, str(sender) + "-eth0"])
@@ -612,33 +471,36 @@ def check_mcast_entry(mcastaddr, pimrp, receiver, sender, vrf, r1iface):
         logger.info("mcast join and source for {} started".format(mcastaddr))
 
         router = tgen.gears["r1"]
-        reffile = os.path.join(CWD, "r1/pim_{}_join.json".format(vrf))
+        reffile = os.path.join(CWD, "r1/{}_{}_join.json".format(confname, vrf))
         expected = json.loads(open(reffile).read())
 
         logger.info("verifying pim join on r1 for {} on VRF {}".format(mcastaddr, vrf))
         test_func = functools.partial(
-            topotest.router_json_cmp,
+            router_json_cmp_canonical_linklocals,
             router,
-            "show ip pim vrf {} join json".format(vrf),
+            "show {} pim vrf {} join json".format(ipname, vrf),
             expected,
         )
         _, res = topotest.run_and_expect(test_func, None, count=10, wait=2)
-        assertmsg = "PIM IPv4 router r1 did not show join status on VRF {}".format(vrf)
+        assertmsg = "{} router r1 did not show join status on VRF {}".format(
+            protoname, vrf
+        )
         assert res is None, assertmsg
 
         logger.info("verifying pim join on PIM RP {} for {}".format(pimrp, mcastaddr))
         router = tgen.gears[pimrp]
-        reffile = os.path.join(CWD, "{}/pim_{}_join.json".format(pimrp, vrf))
+        reffile = os.path.join(CWD, "{}/{}_{}_join.json".format(pimrp, confname, vrf))
         expected = json.loads(open(reffile).read())
 
         test_func = functools.partial(
-            topotest.router_json_cmp, router, "show ip pim join json", expected
+            router_json_cmp_canonical_linklocals,
+            router,
+            "show {} pim join json".format(ipname),
+            expected,
         )
         _, res = topotest.run_and_expect(test_func, None, count=10, wait=2)
-        assertmsg = (
-            "PIM IPv4 router {} did not get selected as the PIM RP for VRF {}".format(
-                pimrp, vrf
-            )
+        assertmsg = "{} router {} did not get selected as the PIM RP for VRF {}".format(
+            protoname, pimrp, vrf
         )
         assert res is None, assertmsg
 
@@ -648,136 +510,54 @@ def check_mcast_entry(mcastaddr, pimrp, receiver, sender, vrf, r1iface):
         test_func = functools.partial(
             router_json_check,
             router,
-            "show ip pim vrf {} interface traffic json".format(vrf),
+            "show {} pim vrf {} interface traffic json".format(ipname, vrf),
             lambda stats: stats[r1iface]["registerTx"] > 0,
         )
         _, res = topotest.run_and_expect(test_func, True, count=10, wait=2)
-        assertmsg = "R1 IPv4 VRF {}: No PIM Register sent towards RP".format(vrf)
+        assertmsg = "{} R1 VRF {}: No PIM Register sent towards RP".format(
+            protoname, vrf
+        )
         assert res is True, assertmsg
 
         test_func = functools.partial(
             router_json_check,
             router,
-            "show ip pim vrf {} interface traffic json".format(vrf),
+            "show {} pim vrf {} interface traffic json".format(ipname, vrf),
             lambda stats: stats[r1iface]["registerStopRx"] > 0,
         )
         _, res = topotest.run_and_expect(test_func, True, count=10, wait=2)
-        assertmsg = "R1 IPv4 VRF {}: No PIM Register-Stop received from RP".format(vrf)
+        assertmsg = "{} R1 VRF {}: No PIM Register-Stop received from RP".format(
+            protoname, vrf
+        )
         assert res is True, assertmsg
 
 
 def test_mcast_vrf_blue():
     "Test vrf blue with 239.100.0.1"
-    tgen = get_topogen()
-
-    # Skip if previous fatal error condition is raised
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    check_mcast_entry("239.100.0.1", "r11", "h1", "h2", "blue", "r1-eth1")
+    check_mcast46_entry(
+        "PIM IPv4", "ip", "pim", "blue", "r1-eth1", "239.100.0.1", "r11", "h1", "h2"
+    )
 
 
 def test_mcast_vrf_red():
     "Test vrf red with 239.100.0.1"
-    tgen = get_topogen()
-
-    # Skip if previous fatal error condition is raised
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    check_mcast_entry("239.100.0.1", "r12", "h3", "h4", "red", "r1-eth3")
-
-
-def check_ipv6_mcast_entry(mcastaddr, pimrp, receiver, sender, vrf, r1iface):
-    "Helper function to check IPv6 RP"
-    tgen = get_topogen()
-
-    logger.info("Testing PIM IPv6 for VRF {} entry using {}".format(vrf, mcastaddr))
-
-    with McastTesterHelper(tgen) as helper:
-        helper.run(sender, ["--send=0.7", mcastaddr, str(sender) + "-eth0"])
-        helper.run(receiver, [mcastaddr, str(receiver) + "-eth0"])
-
-        logger.info("mcast join and source for {} started".format(mcastaddr))
-
-        router = tgen.gears["r1"]
-        reffile = os.path.join(CWD, "r1/pim6_{}_join.json".format(vrf))
-        expected = json.loads(open(reffile).read())
-
-        logger.info("verifying pim join on r1 for {} on VRF {}".format(mcastaddr, vrf))
-        test_func = functools.partial(
-            router_json_cmp_canonical_linklocals,
-            router,
-            "show ipv6 pim vrf {} join json".format(vrf),
-            expected,
-        )
-        _, res = topotest.run_and_expect(test_func, None, count=10, wait=2)
-        assertmsg = "PIM IPv6 router r1 did not show join status on VRF {}".format(vrf)
-        assert res is None, assertmsg
-
-        logger.info("verifying pim join on PIM RP {} for {}".format(pimrp, mcastaddr))
-        router = tgen.gears[pimrp]
-        reffile = os.path.join(CWD, "{}/pim6_{}_join.json".format(pimrp, vrf))
-        expected = json.loads(open(reffile).read())
-
-        test_func = functools.partial(
-            router_json_cmp_canonical_linklocals,
-            router,
-            "show ipv6 pim join json",
-            expected,
-        )
-        _, res = topotest.run_and_expect(test_func, None, count=10, wait=2)
-        assertmsg = (
-            "PIM IPv6 router {} did not get selected as the PIM RP for VRF {}".format(
-                pimrp, vrf
-            )
-        )
-        assert res is None, assertmsg
-
-        logger.info("verifying pim register/register stop on r1 on VRF {}".format(vrf))
-        router = tgen.gears["r1"]
-
-        test_func = functools.partial(
-            router_json_check,
-            router,
-            "show ipv6 pim vrf {} interface traffic json".format(vrf),
-            lambda stats: stats[r1iface]["registerTx"] > 0,
-        )
-        _, res = topotest.run_and_expect(test_func, True, count=10, wait=2)
-        assertmsg = "R1 IPv6 VRF {}: No PIM Register sent towards RP".format(vrf)
-        assert res is True, assertmsg
-
-        test_func = functools.partial(
-            router_json_check,
-            router,
-            "show ipv6 pim vrf {} interface traffic json".format(vrf),
-            lambda stats: stats[r1iface]["registerStopRx"] > 0,
-        )
-        _, res = topotest.run_and_expect(test_func, True, count=10, wait=2)
-        assertmsg = "R1 IPv6 VRF {}: No PIM Register-Stop received from RP".format(vrf)
-        assert res is True, assertmsg
+    check_mcast46_entry(
+        "PIM IPv4", "ip", "pim", "red", "r1-eth3", "239.100.0.1", "r12", "h3", "h4"
+    )
 
 
 def test_ipv6_mcast_vrf_blue():
     "Test vrf blue with ff18:100::1"
-    tgen = get_topogen()
-
-    # Skip if previous fatal error condition is raised
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    check_ipv6_mcast_entry("ff18:100::1", "r11", "h1", "h2", "blue", "r1-eth1")
+    check_mcast46_entry(
+        "PIM IPv6", "ipv6", "pim6", "blue", "r1-eth1", "ff18:100::1", "r11", "h1", "h2"
+    )
 
 
 def test_ipv6_mcast_vrf_red():
     "Test vrf red with ff18:100::1"
-    tgen = get_topogen()
-
-    # Skip if previous fatal error condition is raised
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    check_ipv6_mcast_entry("ff18:100::1", "r12", "h3", "h4", "red", "r1-eth3")
+    check_mcast46_entry(
+        "PIM IPv6", "ipv6", "pim6", "red", "r1-eth3", "ff18:100::1", "r12", "h3", "h4"
+    )
 
 
 if __name__ == "__main__":
