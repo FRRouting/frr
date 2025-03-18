@@ -90,6 +90,9 @@ static void sigint(void)
 
 	route_map_finish();
 
+	access_list_reset();
+	prefix_list_reset();
+
 	frr_fini();
 	exit(0);
 }
