@@ -75,6 +75,7 @@
 #include "bgpd/bgp_flowspec.h"
 #include "bgpd/bgp_flowspec_util.h"
 #include "bgpd/bgp_pbr.h"
+#include "bgpd/bgp_rtc.h"
 
 #include "bgpd/bgp_route_clippy.c"
 
@@ -2158,6 +2159,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	struct peer *from;
 	struct peer *peer;
 	struct peer *onlypeer;
+	struct peer *rtcpeer;
 	struct bgp *bgp;
 	struct attr *piattr;
 	route_map_result_t ret;
@@ -2325,6 +2327,37 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 				"%pBP [Update:SEND] %pFX originator-id is same as remote router-id",
 				onlypeer, p);
 		return false;
+	}
+
+	/*
+	 * RTC SAFI processing: default prefix and outbound filter check
+	 * TODO -- currently, we expect only one peer in the subgroup, so
+	 * we examine that peer individually
+	 */
+	rtcpeer = SUBGRP_PFIRST(subgrp)->peer;
+	if (rtcpeer->afc_nego[AFI_IP][SAFI_RTC]) {
+		/* Don't re-advertise RTC default unless configured */
+		if (safi == SAFI_RTC && is_default_prefix(p)) {
+			if (!CHECK_FLAG(rtcpeer->af_flags[afi][safi],
+					PEER_FLAG_DEFAULT_ORIGINATE)) {
+				if (bgp_debug_update(rtcpeer, p,
+						     subgrp->update_group, 0))
+					zlog_debug("%pBP [Update:SEND] %pFX RTC default filtered",
+						   rtcpeer, p);
+				return false;
+			}
+		}
+
+		rtcpeer->rtc_n_tested++;
+		if (!bgp_rtc_peer_filter_check(rtcpeer, piattr, afi, safi)) {
+			rtcpeer->rtc_n_filtered++;
+
+			if (bgp_debug_update(rtcpeer, p, subgrp->update_group,
+					     0))
+				zlog_debug("%pBP [Update:SEND] %pFX filtered via RTC",
+					   rtcpeer, p);
+			return false;
+		}
 	}
 
 	/* ORF prefix-list filter check */
@@ -3420,10 +3453,18 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 	if (BGP_DEBUG(update, UPDATE_OUT))
 		zlog_debug("%s: p=%pFX, selected=%p", __func__, p, selected);
 
-	/* First update is deferred until ORF or ROUTE-REFRESH is received */
-	if (onlypeer && CHECK_FLAG(onlypeer->af_sflags[afi][safi],
-				   PEER_STATUS_ORF_WAIT_REFRESH))
-		return;
+	/* Special handling for some features, like ORF and RTC.
+	 * First update is deferred until ORF or ROUTE-REFRESH, or RTC SAFI,
+	 * is received
+	 */
+	if (onlypeer) {
+		if (CHECK_FLAG(onlypeer->af_sflags[afi][safi],
+			       PEER_STATUS_ORF_WAIT_REFRESH))
+			return;
+		if (CHECK_FLAG(onlypeer->af_sflags[afi][safi],
+			       PEER_STATUS_RTC_WAIT))
+			return;
+	}
 
 	memset(&attr, 0, sizeof(attr));
 	/* It's initialized in bgp_announce_check() */
@@ -3831,6 +3872,10 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 			"%s: p=%pBD(%s) afi=%s, safi=%s, old_select=%p, new_select=%p",
 			__func__, dest, bgp->name_pretty, afi2str(afi),
 			safi2str(safi), old_select, new_select);
+
+	/* Handle RTC prefix-filters for peers */
+	if (afi == AFI_IP && safi == SAFI_RTC)
+		bgp_rtc_prefix_update(dest, old_select, new_select);
 
 	/* If best route remains the same and this is not due to user-initiated
 	 * clear, see exactly what needs to be done.
@@ -5682,6 +5727,10 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 
 	hook_call(bgp_process, bgp, afi, safi, dest, peer, false);
 
+	/* RTC SAFI default prefix update for this peer */
+	if (afi == AFI_IP && safi == SAFI_RTC && p->prefixlen == 0)
+		bgp_rtc_default_update(peer, p, true);
+
 	/* Process change. */
 	bgp_process(bgp, dest, new, afi, safi);
 
@@ -5845,6 +5894,10 @@ void bgp_withdraw(struct peer *peer, const struct prefix *p,
 		zlog_debug("%pBP rcvd UPDATE about %s -- withdrawn", peer,
 			   pfx_buf);
 	}
+
+	/* RTC SAFI default prefix update for this peer */
+	if (afi == AFI_IP && safi == SAFI_RTC && p->prefixlen == 0)
+		bgp_rtc_default_update(peer, p, false);
 
 	/* Withdraw specified route from routing table. */
 	if (pi && !CHECK_FLAG(pi->flags, BGP_PATH_HISTORY)) {
@@ -6968,7 +7021,7 @@ static void bgp_nexthop_reachability_check(afi_t afi, safi_t safi,
 	}
 }
 
-static struct bgp_static *bgp_static_new(void)
+struct bgp_static *bgp_static_new(void)
 {
 	return XCALLOC(MTYPE_BGP_STATIC, sizeof(struct bgp_static));
 }
@@ -12449,6 +12502,78 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 	return CMD_SUCCESS;
 }
 
+/*
+ * Helper function for show commands
+ */
+int bgp_show_table_rtc(struct vty *vty, struct bgp *bgp, safi_t safi,
+		       struct bgp_table *table, enum bgp_show_type type,
+		       void *output_arg, uint16_t show_flags)
+{
+	struct bgp_dest *dest, *next;
+	uint32_t output_count = 0;
+	uint32_t total_count = 0;
+	struct bgp_path_info *pi;
+	bool show_msg;
+	bool use_json = !!CHECK_FLAG(show_flags, BGP_SHOW_OPT_JSON);
+
+	show_msg = (!use_json && type == bgp_show_type_normal);
+
+	for (dest = bgp_table_top(table); dest; dest = next) {
+		struct prefix local_p = {};
+		const struct prefix *dest_p = bgp_dest_get_prefix(dest);
+		struct ecommunity *ecom = NULL;
+		char *ecomstr = NULL;
+
+		next = bgp_route_next(dest);
+
+		/* Skip "inner" nodes, without paths */
+		pi = bgp_dest_get_bgp_path_info(dest);
+		if (pi == NULL)
+			continue;
+
+		local_p = *dest_p;
+		ecom = ecommunity_parse(local_p.u.prefix_rtc.route_target, 8,
+					true);
+		ecomstr =
+			ecommunity_ecom2str(ecom, ECOMMUNITY_FORMAT_DISPLAY, 0);
+
+		vty_out(vty, "Prefix:\n    Origin-as: %u\n    %s/%u\n",
+			local_p.u.prefix_rtc.origin_as, ecomstr,
+			local_p.prefixlen);
+
+		route_vty_out_detail_header(vty, bgp, dest, &local_p, NULL,
+					    AFI_IP, safi, NULL, false, false);
+
+		for (; pi != NULL; pi = pi->next) {
+
+			total_count++;
+
+			route_vty_out_detail(vty, bgp, dest, &local_p, pi,
+					     AFI_IP, safi, RPKI_NOT_BEING_USED,
+					     NULL, NULL, 0);
+			output_count++;
+		}
+
+		XFREE(MTYPE_ECOMMUNITY_STR, ecomstr);
+		ecommunity_unintern(&ecom);
+	}
+
+	if (show_msg) {
+		if (output_count == 0)
+			vty_out(vty, "No BGP prefixes displayed, %u exist\n",
+				total_count);
+		else
+			vty_out(vty,
+				"\nDisplayed  %u routes and %u total paths\n",
+				output_count, total_count);
+	} else {
+		if (use_json && output_count == 0)
+			vty_out(vty, "{}\n");
+	}
+
+	return CMD_SUCCESS;
+}
+
 int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 		      struct bgp_table *table, struct prefix_rd *prd_match,
 		      enum bgp_show_type type, void *output_arg,
@@ -12539,6 +12664,10 @@ static int bgp_show(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 
 	if (safi == SAFI_EVPN)
 		return bgp_evpn_show_all_routes(vty, bgp, type, use_json, 0);
+
+	if (afi == AFI_IP && safi == SAFI_RTC)
+		return bgp_show_table_rtc(vty, bgp, safi, table, type,
+					  output_arg, show_flags);
 
 	return bgp_show_table(vty, bgp, afi, safi, table, type, output_arg, NULL, 1,
 			      NULL, NULL, &json_header_depth, show_flags,
@@ -12903,6 +13032,7 @@ const struct prefix_rd *bgp_rd_from_dest(const struct bgp_dest *dest,
 	case SAFI_MULTICAST:
 	case SAFI_LABELED_UNICAST:
 	case SAFI_FLOWSPEC:
+	case SAFI_RTC:
 	case SAFI_MAX:
 		return NULL;
 	}
