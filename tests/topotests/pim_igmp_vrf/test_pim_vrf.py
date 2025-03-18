@@ -366,9 +366,16 @@ def _test_vrf_pim46reg_interfaces(
         pytest.skip(tgen.errors)
 
     r1 = tgen.gears["r1"]
-    r1.vtysh_cmd("conf\ninterface {}\n{} pim passive".format(vrf, ipname))
     r1.vtysh_cmd(
-        "conf\nrouter {} vrf {}\nrp {} {}".format(confname, vrf, rpaddr, mcprefix)
+        """
+        conf
+        interface {}
+          {} pim passive
+        router {} vrf {}
+          rp {} {}
+        """.format(
+            vrf, ipname, confname, vrf, rpaddr, mcprefix
+        )
     )
 
     # Check pim*reg* interface on R1 in VRF
