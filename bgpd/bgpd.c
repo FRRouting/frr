@@ -4199,7 +4199,18 @@ int bgp_delete(struct bgp *bgp)
 
 	while (listcount(bgp->peer)) {
 		peer = listnode_head(bgp->peer);
-		peer_delete(peer);
+		if (peer->ifp || CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE))
+			bgp_zebra_terminate_radv(peer->bgp, peer);
+
+		if (BGP_PEER_GRACEFUL_RESTART_CAPABLE(peer)) {
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%pBP configured Graceful-Restart, skipping unconfig notification",
+					   peer);
+			peer_delete(peer);
+		} else {
+			peer_notify_unconfig(peer->connection);
+			peer_delete(peer);
+		}
 	}
 
 	if (bgp->peer_self && !IS_BGP_INSTANCE_HIDDEN(bgp)) {
