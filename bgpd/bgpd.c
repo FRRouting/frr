@@ -3799,6 +3799,7 @@ int bgp_lookup_by_as_name_type(struct bgp **bgp_val, as_t *as, const char *as_pr
 						   hidden);
 					UNSET_FLAG(bgp->flags,
 						   BGP_FLAG_INSTANCE_HIDDEN);
+					UNSET_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS);
 				} else {
 					bgp->as = *as;
 					if (force_config == false)
