@@ -2961,6 +2961,11 @@ module frr-zebra {
         type boolean;
         description
           "IPv6 forwarding status.";
+      }
+      leaf mpls-forwarding {
+        type boolean;
+        description
+          "MPLS forwarding status.";
       }   
     }
     // End of operational / state container
