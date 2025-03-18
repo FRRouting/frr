@@ -78,6 +78,7 @@
 #include "bgpd/bgp_evpn_private.h"
 #include "bgpd/bgp_evpn_mh.h"
 #include "bgpd/bgp_mac.h"
+#include "bgpd/bgp_rtc.h"
 #include "bgp_trace.h"
 
 DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
@@ -2148,6 +2149,7 @@ void peer_as_change(struct peer *peer, as_t as, enum peer_asn_type as_type,
 			   PEER_FLAG_REFLECTOR_CLIENT);
 		UNSET_FLAG(peer->af_flags[AFI_IP][SAFI_FLOWSPEC],
 			   PEER_FLAG_REFLECTOR_CLIENT);
+		UNSET_FLAG(peer->af_flags[AFI_IP][SAFI_RTC], PEER_FLAG_REFLECTOR_CLIENT);
 		UNSET_FLAG(peer->af_flags[AFI_IP6][SAFI_UNICAST],
 			   PEER_FLAG_REFLECTOR_CLIENT);
 		UNSET_FLAG(peer->af_flags[AFI_IP6][SAFI_MULTICAST],
@@ -3425,7 +3427,8 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 			      enum asnotation_mode asnotation,
 			      struct bgp *bgp_old, bool hidden)
 {
-	struct bgp *bgp;
+	struct bgp *bgp, *bgp_iter;
+	struct listnode *node;
 	afi_t afi;
 	safi_t safi;
 
@@ -3503,6 +3506,9 @@ peer_init:
 		bgp->group = list_new();
 	bgp->group->cmp = (int (*)(void *, void *))peer_group_cmp;
 
+	bgp->rtc_plists = list_new();
+	bgp->rtc_plists->del = bgp_rtc_plist_free;
+
 	FOREACH_AFI_SAFI (afi, safi) {
 		if (!hidden) {
 			bgp->route[afi][safi] = bgp_table_init(bgp, afi, safi);
@@ -3578,6 +3584,28 @@ peer_init:
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
 		bgp_label_per_nexthop_cache_init(
 			&bgp->mpls_labels_per_nexthop[afi]);
+
+	if (inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
+		/* It is possible to configure VRF BGP instances before the default VRF
+		 * instance.
+		 * Set Route-Target Constraint prefixes from "rt vpn import"
+		 * of existing VRF BGP instances.
+		 */
+		for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_iter)) {
+			if (bgp == bgp_iter)
+				continue;
+			if (bgp_iter->vpn_policy[AFI_IP].rtlist[BGP_VPN_POLICY_DIR_FROMVPN])
+				bgp_rtc_update_vpn_policy_ecommunity_dynamic(
+					bgp, AFI_IP, NULL,
+					bgp_iter->vpn_policy[AFI_IP]
+						.rtlist[BGP_VPN_POLICY_DIR_FROMVPN]);
+			if (bgp_iter->vpn_policy[AFI_IP6].rtlist[BGP_VPN_POLICY_DIR_FROMVPN])
+				bgp_rtc_update_vpn_policy_ecommunity_dynamic(
+					bgp, AFI_IP6, NULL,
+					bgp_iter->vpn_policy[AFI_IP6]
+						.rtlist[BGP_VPN_POLICY_DIR_FROMVPN]);
+		}
+	}
 
 	bgp_mplsvpn_nh_label_bind_cache_init(&bgp->mplsvpn_nh_label_bind);
 
@@ -4286,6 +4314,8 @@ int bgp_delete(struct bgp *bgp)
 			bgp_set_evpn(bgp_get_default());
 	}
 
+	list_delete(&bgp->rtc_plists);
+
 	if (!IS_BGP_INSTANCE_HIDDEN(bgp)) {
 		if (bgp->process_queue)
 			work_queue_free_and_null(&bgp->process_queue);
@@ -4372,8 +4402,12 @@ void bgp_free(struct bgp *bgp)
 			list_delete(&bgp->vpn_policy[afi].export_vrf);
 
 		dir = BGP_VPN_POLICY_DIR_FROMVPN;
-		if (bgp->vpn_policy[afi].rtlist[dir])
+		if (bgp->vpn_policy[afi].rtlist[dir]) {
+			bgp_rtc_update_vpn_policy_ecommunity_dynamic(bgp, afi,
+								     bgp->vpn_policy[afi].rtlist[dir],
+								     NULL);
 			ecommunity_free(&bgp->vpn_policy[afi].rtlist[dir]);
+		}
 		dir = BGP_VPN_POLICY_DIR_TOVPN;
 		if (bgp->vpn_policy[afi].rtlist[dir])
 			ecommunity_free(&bgp->vpn_policy[afi].rtlist[dir]);
@@ -4721,17 +4755,13 @@ bool peer_active(struct peer_connection *connection)
 			return false;
 	}
 
-	if (peer->afc[AFI_IP][SAFI_UNICAST] || peer->afc[AFI_IP][SAFI_MULTICAST]
-	    || peer->afc[AFI_IP][SAFI_LABELED_UNICAST]
-	    || peer->afc[AFI_IP][SAFI_MPLS_VPN] || peer->afc[AFI_IP][SAFI_ENCAP]
-	    || peer->afc[AFI_IP][SAFI_FLOWSPEC]
-	    || peer->afc[AFI_IP6][SAFI_UNICAST]
-	    || peer->afc[AFI_IP6][SAFI_MULTICAST]
-	    || peer->afc[AFI_IP6][SAFI_LABELED_UNICAST]
-	    || peer->afc[AFI_IP6][SAFI_MPLS_VPN]
-	    || peer->afc[AFI_IP6][SAFI_ENCAP]
-	    || peer->afc[AFI_IP6][SAFI_FLOWSPEC]
-	    || peer->afc[AFI_L2VPN][SAFI_EVPN])
+	if (peer->afc[AFI_IP][SAFI_UNICAST] || peer->afc[AFI_IP][SAFI_MULTICAST] ||
+	    peer->afc[AFI_IP][SAFI_LABELED_UNICAST] || peer->afc[AFI_IP][SAFI_MPLS_VPN] ||
+	    peer->afc[AFI_IP][SAFI_ENCAP] || peer->afc[AFI_IP][SAFI_FLOWSPEC] ||
+	    peer->afc[AFI_IP][SAFI_RTC] || peer->afc[AFI_IP6][SAFI_UNICAST] ||
+	    peer->afc[AFI_IP6][SAFI_MULTICAST] || peer->afc[AFI_IP6][SAFI_LABELED_UNICAST] ||
+	    peer->afc[AFI_IP6][SAFI_MPLS_VPN] || peer->afc[AFI_IP6][SAFI_ENCAP] ||
+	    peer->afc[AFI_IP6][SAFI_FLOWSPEC] || peer->afc[AFI_L2VPN][SAFI_EVPN])
 		return true;
 	return false;
 }
@@ -4739,19 +4769,14 @@ bool peer_active(struct peer_connection *connection)
 /* If peer is negotiated at least one address family return 1. */
 bool peer_active_nego(struct peer *peer)
 {
-	if (peer->afc_nego[AFI_IP][SAFI_UNICAST]
-	    || peer->afc_nego[AFI_IP][SAFI_MULTICAST]
-	    || peer->afc_nego[AFI_IP][SAFI_LABELED_UNICAST]
-	    || peer->afc_nego[AFI_IP][SAFI_MPLS_VPN]
-	    || peer->afc_nego[AFI_IP][SAFI_ENCAP]
-	    || peer->afc_nego[AFI_IP][SAFI_FLOWSPEC]
-	    || peer->afc_nego[AFI_IP6][SAFI_UNICAST]
-	    || peer->afc_nego[AFI_IP6][SAFI_MULTICAST]
-	    || peer->afc_nego[AFI_IP6][SAFI_LABELED_UNICAST]
-	    || peer->afc_nego[AFI_IP6][SAFI_MPLS_VPN]
-	    || peer->afc_nego[AFI_IP6][SAFI_ENCAP]
-	    || peer->afc_nego[AFI_IP6][SAFI_FLOWSPEC]
-	    || peer->afc_nego[AFI_L2VPN][SAFI_EVPN])
+	if (peer->afc_nego[AFI_IP][SAFI_UNICAST] || peer->afc_nego[AFI_IP][SAFI_MULTICAST] ||
+	    peer->afc_nego[AFI_IP][SAFI_LABELED_UNICAST] || peer->afc_nego[AFI_IP][SAFI_MPLS_VPN] ||
+	    peer->afc_nego[AFI_IP][SAFI_ENCAP] || peer->afc_nego[AFI_IP][SAFI_FLOWSPEC] ||
+	    peer->afc_nego[AFI_IP][SAFI_RTC] || peer->afc_nego[AFI_IP6][SAFI_UNICAST] ||
+	    peer->afc_nego[AFI_IP6][SAFI_MULTICAST] ||
+	    peer->afc_nego[AFI_IP6][SAFI_LABELED_UNICAST] ||
+	    peer->afc_nego[AFI_IP6][SAFI_MPLS_VPN] || peer->afc_nego[AFI_IP6][SAFI_ENCAP] ||
+	    peer->afc_nego[AFI_IP6][SAFI_FLOWSPEC] || peer->afc_nego[AFI_L2VPN][SAFI_EVPN])
 		return true;
 	return false;
 }
@@ -8816,6 +8841,8 @@ void bgp_init(unsigned short instance)
 #endif
 	bgp_ethernetvpn_init();
 	bgp_flowspec_vty_init();
+
+	bgp_rtc_init();
 
 	/* Access list initialize. */
 	access_list_init();

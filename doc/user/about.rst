@@ -299,6 +299,8 @@ BGP
   :t:`Subcodes for BGP Cease Notification Message. E. Chen, V. Gillet. April 2006.`
 - :rfc:`4659`
   :t:`BGP-MPLS IP Virtual Private Network (VPN) Extension for IPv6 VPN. J. De Clercq, D. Ooms, M. Carugi, F. Le Faucheur. September 2006.`
+- :rfc:`4684`
+  :t:`Constrained Route Distribution for BGP/MPLS IP VPNs. P. Marques, R. Bonica, L. Fang, L. Martini, R. Raszuk, K. Patel, J. Guichard. November 2006.`
 - :rfc:`4724`
   :t:`Graceful Restart Mechanism for BGP. S. Sangli, E. Chen, R. Fernando, J. Scudder, Y. Rekhter. January 2007.`
 - :rfc:`4760`

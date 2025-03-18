@@ -91,6 +91,7 @@ enum bgp_af_index {
 	BGP_AF_IPV6_LBL_UNICAST,
 	BGP_AF_IPV4_FLOWSPEC,
 	BGP_AF_IPV6_FLOWSPEC,
+	BGP_AF_RTC,
 	BGP_AF_MAX
 };
 
@@ -567,6 +568,7 @@ struct bgp {
 #define BGP_FLAG_L3VNI_SCHEDULE_FOR_INSTALL (1ULL << 41)
 #define BGP_FLAG_L3VNI_SCHEDULE_FOR_DELETE  (1ULL << 42)
 #define BGP_FLAG_LINK_LOCAL_CAPABILITY	    (1ULL << 43)
+#define BGP_FLAG_RTC_EOR_MARKER		    (1ULL << 44)
 
 	/* BGP default address-families.
 	 * New peers inherit enabled afi/safis from bgp instance.
@@ -885,6 +887,9 @@ struct bgp {
 	uint64_t node_deferred_on_queue;
 
 	struct zebra_l3_vni_item zl3vni;
+
+	/* list if Route-Target Constraint prefix-list */
+	struct list *rtc_plists;
 
 	QOBJ_FIELDS;
 };
@@ -1568,6 +1573,7 @@ struct peer {
 #define PEER_FLAG_EXTENDED_LINK_BANDWIDTH (1ULL << 39)
 #define PEER_FLAG_DUAL_AS		  (1ULL << 40)
 #define PEER_FLAG_CAPABILITY_LINK_LOCAL	  (1ULL << 41)
+#define PEER_FLAG_RTC_UPDATE		  (1ULL << 42)
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
@@ -1814,6 +1820,9 @@ struct peer {
 
 	/* ORF Prefix-list */
 	struct prefix_list *orf_plist[AFI_MAX][SAFI_MAX];
+
+	/* Route Target Constrain list */
+	struct bgp_rtc_plist *rtc_plist;
 
 	/* Text description of last attribute rcvd */
 	char rcvd_attr_str[BUFSIZ];
@@ -2656,6 +2665,8 @@ static inline int afindex(afi_t afi, safi_t safi)
 			return BGP_AF_IPV4_ENCAP;
 		case SAFI_FLOWSPEC:
 			return BGP_AF_IPV4_FLOWSPEC;
+		case SAFI_RTC:
+			return BGP_AF_RTC;
 		case SAFI_EVPN:
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
@@ -2676,6 +2687,7 @@ static inline int afindex(afi_t afi, safi_t safi)
 			return BGP_AF_IPV6_ENCAP;
 		case SAFI_FLOWSPEC:
 			return BGP_AF_IPV6_FLOWSPEC;
+		case SAFI_RTC:
 		case SAFI_EVPN:
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
@@ -2693,6 +2705,7 @@ static inline int afindex(afi_t afi, safi_t safi)
 		case SAFI_ENCAP:
 		case SAFI_FLOWSPEC:
 		case SAFI_UNSPEC:
+		case SAFI_RTC:
 		case SAFI_MAX:
 			return BGP_AF_MAX;
 		}
@@ -2716,13 +2729,10 @@ static inline int peer_group_active(struct peer *peer)
 /* If peer is negotiated at least one address family return 1. */
 static inline int peer_afi_active_nego(const struct peer *peer, afi_t afi)
 {
-	if (peer->afc_nego[afi][SAFI_UNICAST]
-	    || peer->afc_nego[afi][SAFI_MULTICAST]
-	    || peer->afc_nego[afi][SAFI_LABELED_UNICAST]
-	    || peer->afc_nego[afi][SAFI_MPLS_VPN]
-	    || peer->afc_nego[afi][SAFI_ENCAP]
-	    || peer->afc_nego[afi][SAFI_FLOWSPEC]
-	    || peer->afc_nego[afi][SAFI_EVPN])
+	if (peer->afc_nego[afi][SAFI_UNICAST] || peer->afc_nego[afi][SAFI_MULTICAST] ||
+	    peer->afc_nego[afi][SAFI_LABELED_UNICAST] || peer->afc_nego[afi][SAFI_MPLS_VPN] ||
+	    peer->afc_nego[afi][SAFI_ENCAP] || peer->afc_nego[afi][SAFI_FLOWSPEC] ||
+	    peer->afc_nego[afi][SAFI_EVPN] || peer->afc_nego[afi][SAFI_RTC])
 		return 1;
 	return 0;
 }
@@ -2732,17 +2742,13 @@ static inline int peer_group_af_configured(struct peer_group *group)
 {
 	struct peer *peer = group->conf;
 
-	if (peer->afc[AFI_IP][SAFI_UNICAST] || peer->afc[AFI_IP][SAFI_MULTICAST]
-	    || peer->afc[AFI_IP][SAFI_LABELED_UNICAST]
-	    || peer->afc[AFI_IP][SAFI_FLOWSPEC]
-	    || peer->afc[AFI_IP][SAFI_MPLS_VPN] || peer->afc[AFI_IP][SAFI_ENCAP]
-	    || peer->afc[AFI_IP6][SAFI_UNICAST]
-	    || peer->afc[AFI_IP6][SAFI_MULTICAST]
-	    || peer->afc[AFI_IP6][SAFI_LABELED_UNICAST]
-	    || peer->afc[AFI_IP6][SAFI_MPLS_VPN]
-	    || peer->afc[AFI_IP6][SAFI_ENCAP]
-	    || peer->afc[AFI_IP6][SAFI_FLOWSPEC]
-	    || peer->afc[AFI_L2VPN][SAFI_EVPN])
+	if (peer->afc[AFI_IP][SAFI_UNICAST] || peer->afc[AFI_IP][SAFI_MULTICAST] ||
+	    peer->afc[AFI_IP][SAFI_LABELED_UNICAST] || peer->afc[AFI_IP][SAFI_FLOWSPEC] ||
+	    peer->afc[AFI_IP][SAFI_MPLS_VPN] || peer->afc[AFI_IP][SAFI_ENCAP] ||
+	    peer->afc[AFI_IP][SAFI_RTC] || peer->afc[AFI_IP6][SAFI_UNICAST] ||
+	    peer->afc[AFI_IP6][SAFI_MULTICAST] || peer->afc[AFI_IP6][SAFI_LABELED_UNICAST] ||
+	    peer->afc[AFI_IP6][SAFI_MPLS_VPN] || peer->afc[AFI_IP6][SAFI_ENCAP] ||
+	    peer->afc[AFI_IP6][SAFI_FLOWSPEC] || peer->afc[AFI_L2VPN][SAFI_EVPN])
 		return 1;
 	return 0;
 }

@@ -585,11 +585,8 @@ enum bgp_path_type {
 	BGP_PATH_SHOW_MULTIPATH
 };
 
-/* meta-queue structure:
- * sub-queue 0: soo routes
- * sub-queue 1: other routes
- */
-#define MQ_SIZE 3
+/* meta-queue structure size */
+#define MQ_SIZE 5
 
 /* For checking that an object has already queued in some sub-queue */
 #define MQ_BIT_MASK ((1 << MQ_SIZE) - 1)
@@ -612,10 +609,16 @@ struct bgp_eoiu_info {
 	struct bgp *bgp;
 };
 
+struct bgp_rtc_eor_info {
+	struct bgp *bgp;
+};
+
 /*
  * Meta Q's specific names
  */
 enum meta_queue_indexes {
+	META_QUEUE_RTC_ROUTE,
+	META_QUEUE_RTC_EOR_MARKER,
 	META_QUEUE_EARLY_ROUTE,
 	META_QUEUE_OTHER_ROUTE,
 	META_QUEUE_EOIU_MARKER,
@@ -673,6 +676,12 @@ static inline void prep_for_rmap_apply(struct bgp_path_info *dst_pi,
 		dst_pi->extra = dst_pie;
 	}
 }
+
+void bgp_nexthop_reachability_check(afi_t afi, safi_t safi, struct bgp_path_info *bpi,
+				    const struct prefix *p, struct bgp_dest *dest, struct bgp *bgp,
+				    struct bgp *bgp_nexthop);
+
+void aspath_unintern(struct aspath **aspath);
 
 static inline bool bgp_check_advertise(struct bgp *bgp, struct bgp_dest *dest,
 				       safi_t safi)
@@ -843,6 +852,8 @@ extern int bgp_static_set(struct vty *vty, bool negate, const char *ip_str,
 			  uint32_t label_index, int evpn_type, const char *esi,
 			  const char *gwip, const char *ethtag,
 			  const char *routermac);
+extern struct bgp_static *bgp_static_new(void);
+extern void bgp_static_free(struct bgp_static *bgp_static);
 
 /* this is primarily for MPLS-VPN */
 extern void bgp_update(struct peer *peer, const struct prefix *p,
@@ -875,6 +886,13 @@ extern void bgp_process_early(struct bgp *bgp, struct bgp_dest *dest,
  * queue element with NULL bgp node.
  */
 extern void bgp_add_eoiu_mark(struct bgp *);
+
+/*
+ * Add an RTC EoR marker to the process queue. This is just a
+ * queue element with NULL bgp node.
+ */
+extern void bgp_add_rtc_eor_mark(struct bgp *bgp);
+
 extern void bgp_config_write_table_map(struct vty *, struct bgp *, afi_t,
 				       safi_t);
 extern void bgp_config_write_network(struct vty *, struct bgp *, afi_t, safi_t);
@@ -1010,6 +1028,8 @@ extern int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 extern void bgp_meta_queue_free(struct meta_queue *mq);
 extern int early_route_process(struct bgp *bgp, struct bgp_dest *dest);
 extern int other_route_process(struct bgp *bgp, struct bgp_dest *dest);
+extern int rtc_route_process(struct bgp *bgp, struct bgp_dest *dest);
 extern int eoiu_marker_process(struct bgp *bgp, struct bgp_dest *dest);
+extern int rtc_eor_marker_process(struct bgp *bgp, struct bgp_dest *dest);
 extern uint32_t bgp_med_value(struct attr *attr, struct bgp *bgp);
 #endif /* _QUAGGA_BGP_ROUTE_H */

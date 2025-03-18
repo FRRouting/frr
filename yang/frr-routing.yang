@@ -172,6 +172,13 @@ module frr-routing {
   }
 
 
+  identity ipv4-rtc {
+    base afi-safi-type;
+    description
+      "This identity represents the ipv4-rtc address family.";
+  }
+
+
   identity control-plane-protocol {
     description
       "Base identity from which control-plane protocol identities are

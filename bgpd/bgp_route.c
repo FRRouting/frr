@@ -75,9 +75,11 @@
 #include "bgpd/bgp_flowspec.h"
 #include "bgpd/bgp_flowspec_util.h"
 #include "bgpd/bgp_pbr.h"
+#include "bgpd/bgp_rtc.h"
 
 #include "bgpd/bgp_route_clippy.c"
 
+DEFINE_MTYPE_STATIC(BGPD, BGP_RTC_EOR_MARKER_INFO, "BGP RTC EOR Marker info");
 DEFINE_MTYPE_STATIC(BGPD, BGP_EOIU_MARKER_INFO, "BGP EOIU Marker info");
 DEFINE_MTYPE_STATIC(BGPD, BGP_METAQ, "BGP MetaQ");
 
@@ -760,6 +762,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	bool new_origin, exist_origin;
 	struct bgp_path_info *bpi_ultimate;
 	struct peer *peer_new, *peer_exist;
+	bool new_intra_as_rr_client, exist_intra_as_rr_client;
 
 	bgp->bestpath_runs++;
 
@@ -989,7 +992,41 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		}
 	}
 
-	/* 1. Weight check. */
+	/* 1. Route-target constraint intra-AS prefix: Route-reflector client */
+	if (afi == AFI_IP && safi == SAFI_RTC) {
+		/* rfc4684 section-3.2 - Intra-AS VPN Route Distribution
+		 * ii.  When advertising an RT membership NLRI to a non-client peer, if
+		 *	the best path as selected by the path selection procedure
+		 *	described in Section 9.1 of the base BGP specification [4] is a
+		 *	route received from a non-client peer, and if there is an
+		 *	alternative path to the same destination from a client, the
+		 *	attributes of the client path are advertised to the peer.
+		 */
+		new_intra_as_rr_client = CHECK_FLAG(new->peer->af_flags[AFI_IP][SAFI_RTC],
+						    PEER_FLAG_REFLECTOR_CLIENT) &&
+					 aspath_count_hops(newattr->aspath) == 0;
+		exist_intra_as_rr_client = CHECK_FLAG(exist->peer->af_flags[AFI_IP][SAFI_RTC],
+						      PEER_FLAG_REFLECTOR_CLIENT) &&
+					   aspath_count_hops(existattr->aspath) == 0;
+
+		if (new_intra_as_rr_client && !exist_intra_as_rr_client) {
+			*reason = bgp_path_selection_rtc_rr_client;
+			if (debug)
+				zlog_debug("%s: %s wins over %s due to route-target constraint reflector client preference",
+					   pfx_buf, new_buf, exist_buf);
+			return 1;
+		}
+
+		if (!new_intra_as_rr_client && exist_intra_as_rr_client) {
+			*reason = bgp_path_selection_rtc_rr_client;
+			if (debug)
+				zlog_debug("%s: %s loses to %s due to route-target constraint reflector client preference",
+					   pfx_buf, new_buf, exist_buf);
+			return 0;
+		}
+	}
+
+	/* 2. Weight check. */
 	new_weight = newattr->weight;
 	exist_weight = existattr->weight;
 
@@ -1011,7 +1048,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		return 0;
 	}
 
-	/* 2. Local preference check. */
+	/* 3. Local preference check. */
 	new_pref = exist_pref = bgp->default_local_pref;
 
 	if (CHECK_FLAG(newattr->flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)))
@@ -1082,7 +1119,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		}
 	}
 
-	/* 3. Local route check. We prefer:
+	/* 4. Local route check. We prefer:
 	 *  - BGP_ROUTE_STATIC
 	 *  - BGP_ROUTE_AGGREGATE
 	 *  - BGP_ROUTE_REDISTRIBUTE
@@ -1107,7 +1144,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		return 0;
 	}
 
-	/* 3.5. Tie-breaker - AIGP (Metric TLV) attribute */
+	/* 4.5. Tie-breaker - AIGP (Metric TLV) attribute */
 	if (CHECK_FLAG(newattr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP)) &&
 	    CHECK_FLAG(existattr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP)) &&
 	    CHECK_FLAG(bgp->flags, BGP_FLAG_COMPARE_AIGP)) {
@@ -1145,7 +1182,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	newattr = new->attr;
 	existattr = exist->attr;
 
-	/* 4. AS path length check. */
+	/* 5. AS path length check. */
 	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_ASPATH_IGNORE)) {
 		int exist_hops = aspath_count_hops(existattr->aspath);
 
@@ -1202,7 +1239,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		}
 	}
 
-	/* 5. Origin check. */
+	/* 6. Origin check. */
 	if (newattr->origin < existattr->origin) {
 		*reason = bgp_path_selection_origin;
 		if (debug)
@@ -1223,7 +1260,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		return 0;
 	}
 
-	/* 6. MED check. */
+	/* 7. MED check. */
 	internal_as_route = (aspath_count_hops(newattr->aspath) == 0
 			     && aspath_count_hops(existattr->aspath) == 0);
 	confed_as_route = (aspath_count_confeds(newattr->aspath) > 0
@@ -1272,7 +1309,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	} else
 		peer_new = new->peer;
 
-	/* 7. Peer type check. */
+	/* 8. Peer type check. */
 	new_sort = peer_new->sort;
 	exist_sort = peer_exist->sort;
 	new_sub_sort = peer_new->sub_sort;
@@ -1308,7 +1345,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		peer_sort_ret = 0;
 	}
 
-	/* 8. IGP metric check. */
+	/* 9. IGP metric check. */
 	newm = existm = 0;
 
 	if (new->extra)
@@ -1332,7 +1369,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		igp_metric_ret = 0;
 	}
 
-	/* 9. Same IGP metric. Compare the cluster list length as
+	/* 10. Same IGP metric. Compare the cluster list length as
 	   representative of IGP hops metric. Rewrite the metric value
 	   pair (newm, existm) with the cluster list length. Prefer the
 	   path with smaller cluster list length.                       */
@@ -1363,7 +1400,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		}
 	}
 
-	/* 10. confed-external vs. confed-internal */
+	/* 11. confed-external vs. confed-internal */
 	if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION)) {
 		if (new_sort == BGP_PEER_CONFED
 		    && exist_sort == BGP_PEER_IBGP) {
@@ -1392,7 +1429,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		}
 	}
 
-	/* 11. Maximum path check. */
+	/* 12. Maximum path check. */
 	if (newm == existm) {
 		/* If one path has a label but the other does not, do not treat
 		 * them as equals for multipath
@@ -1485,7 +1522,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	if (peer_sort_ret >= 0)
 		return peer_sort_ret;
 
-	/* 12. If both paths are external, prefer the path that was received
+	/* 13. If both paths are external, prefer the path that was received
 	   first (the oldest one).  This step minimizes route-flap, since a
 	   newer path won't displace an older one, even if it was the
 	   preferred route based on the additional decision criteria below.  */
@@ -1510,7 +1547,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		}
 	}
 
-	/* 13. Router-ID comparison. */
+	/* 14. Router-ID comparison. */
 	/* If one of the paths is "stale", the corresponding peer router-id will
 	 * be 0 and would always win over the other path. If originator id is
 	 * used for the comparison, it will decide which path is better.
@@ -1542,7 +1579,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		return 0;
 	}
 
-	/* 14. Cluster length comparison. */
+	/* 15. Cluster length comparison. */
 	new_cluster = BGP_CLUSTER_LIST_LENGTH(new->attr);
 	exist_cluster = BGP_CLUSTER_LIST_LENGTH(exist->attr);
 
@@ -1566,7 +1603,7 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		return 0;
 	}
 
-	/* 15. Neighbor address comparison. */
+	/* 16. Neighbor address comparison. */
 	/* Do this only if neither path is "stale" as stale paths do not have
 	 * valid peer information (as the connection may or may not be up).
 	 */
@@ -3751,6 +3788,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	struct bgp_path_info *new_select;
 	struct bgp_path_info *old_select;
 	struct bgp_path_info_pair old_and_new;
+	const struct prefix *p = bgp_dest_get_prefix(dest);
 	int debug = 0;
 
 	/*
@@ -3786,10 +3824,6 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 		bgp_start_routeadv(bgp);
 		return;
 	}
-
-#ifdef ENABLE_BGP_VNC
-	const struct prefix *p = bgp_dest_get_prefix(dest);
-#endif
 
 	debug = bgp_debug_bestpath(dest);
 	if (debug)
@@ -3909,6 +3943,22 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 				&bgp->t_rmap_def_originate_eval);
 	}
 
+	if (safi == SAFI_RTC && old_select != new_select) {
+		/* Remove route-target constraint prefix from old_select in rtc prefix-list */
+		for (struct bgp_path_info *pi = old_select; pi; pi = pi->next) {
+			if (pi->peer->as != bgp->as && bgp->peer_self != pi->peer &&
+			    CHECK_FLAG(pi->flags, BGP_PATH_VALID) &&
+			    CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)) {
+				zlog_info("Removing prefix %pFX: dest %p has pi peer %pBP valid %u selected %u",
+					  p, dest, pi->peer, !!CHECK_FLAG(pi->flags, BGP_PATH_VALID),
+					  !!CHECK_FLAG(pi->flags, BGP_PATH_SELECTED));
+				if (bgp_rtc_plist_entry_set(pi->peer, (struct prefix *)p, false))
+					/* only set update flags if the peer prefix-list has changed */
+					SET_FLAG(pi->peer->flags, PEER_FLAG_RTC_UPDATE);
+			}
+		}
+	}
+
 	/* TODO BMP insert rib update hook */
 	if (old_select)
 		bgp_path_info_unset_flag(dest, old_select, BGP_PATH_SELECTED);
@@ -3937,6 +3987,21 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 			  new_select);
 	}
 
+	if (safi == SAFI_RTC && old_select != new_select) {
+		/* Add route-target constraint prefix from new_select in rtc prefix-list */
+		for (struct bgp_path_info *pi = new_select; pi; pi = pi->next) {
+			if (pi->peer->as != bgp->as && bgp->peer_self != pi->peer &&
+			    CHECK_FLAG(pi->flags, BGP_PATH_VALID) &&
+			    CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)) {
+				zlog_info("Adding prefix %pFX: dest %p has pi peer %pBP valid %u selected %u",
+					  p, dest, pi->peer, !!CHECK_FLAG(pi->flags, BGP_PATH_VALID),
+					  !!CHECK_FLAG(pi->flags, BGP_PATH_SELECTED));
+				if (bgp_rtc_plist_entry_set(pi->peer, (struct prefix *)p, true))
+					/* only set update flags if the peer prefix-list has changed */
+					SET_FLAG(pi->peer->flags, PEER_FLAG_RTC_UPDATE);
+			}
+		}
+	}
 
 #ifdef ENABLE_BGP_VNC
 	if ((afi == AFI_IP || afi == AFI_IP6) && (safi == SAFI_UNICAST)) {
@@ -4017,6 +4082,8 @@ void bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi)
 	int cnt = 0;
 	struct afi_safi_info *thread_info;
 	bool route_sync_pending = false;
+	struct listnode *node;
+	struct peer *peer;
 
 	if (bgp->gr_info[afi][safi].t_route_select) {
 		struct event *t = bgp->gr_info[afi][safi].t_route_select;
@@ -4051,6 +4118,20 @@ void bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi)
 	if (dest) {
 		bgp_dest_unlock_node(dest);
 		dest = NULL;
+	}
+
+	if (safi == SAFI_RTC) {
+		for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+			if (!CHECK_FLAG(peer->flags, PEER_FLAG_RTC_UPDATE))
+				continue;
+			if (!peer->rtc_plist)
+				/* Create an empty RTC prefix-list if no RTC prefix were received */
+				bgp_peer_init_rtc_plist(peer);
+			bgp_announce_peer_set_rtc_refresh(peer);
+			UNSET_FLAG(peer->flags, PEER_FLAG_RTC_UPDATE);
+		}
+		for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer))
+			bgp_announce_peer_rtc_refresh(peer);
 	}
 
 	/* Send EOR message when all routes are processed */
@@ -4098,8 +4179,12 @@ static const char *subqueue2str(enum meta_queue_indexes index)
 		return "Early Route";
 	case META_QUEUE_OTHER_ROUTE:
 		return "Other Route";
+	case META_QUEUE_RTC_ROUTE:
+		return "RTC Route";
 	case META_QUEUE_EOIU_MARKER:
 		return "EOIU Marker";
+	case META_QUEUE_RTC_EOR_MARKER:
+		return "RTC EOR Marker";
 	}
 
 	return "Unknown";
@@ -4140,6 +4225,23 @@ static void process_subq_other_route(struct bgp_dest *dest)
 }
 
 /*
+ * Process a node from the other subqueue.
+ */
+static void process_subq_rtc_route(struct bgp_dest *dest)
+{
+	struct bgp_table *table = bgp_dest_table(dest);
+
+	if (bgp_debug_bestpath(dest))
+		zlog_debug("%s dequeued from sub-queue %s", bgp_dest_get_prefix_str(dest),
+			   subqueue2str(META_QUEUE_RTC_ROUTE));
+
+	/* note, new DESTs may be added as part of processing */
+	bgp_process_main_one(table->bgp, dest, table->afi, table->safi);
+	bgp_dest_unlock_node(dest);
+	bgp_table_unlock(table);
+}
+
+/*
  * Process a node from the eoiu marker subqueue.
  */
 static void process_eoiu_marker(struct bgp_dest *dest)
@@ -4158,6 +4260,42 @@ static void process_eoiu_marker(struct bgp_dest *dest)
 	bgp_process_main_one(info->bgp, NULL, 0, 0);
 
 	XFREE(MTYPE_BGP_EOIU_MARKER_INFO, info);
+	XFREE(MTYPE_BGP_NODE, dest);
+}
+
+/*
+ * Process a node from the rtc_eor marker subqueue.
+ */
+static void process_rtc_eor_marker(struct bgp_dest *dest)
+{
+	struct bgp_rtc_eor_info *info = bgp_dest_get_bgp_rtc_eor_info(dest);
+	struct peer *peer = NULL;
+	struct listnode *node = NULL;
+
+	if (!info || !info->bgp) {
+		zlog_err("Unable to retrieve BGP instance, can't process RTC EOR marker");
+		return;
+	}
+
+	if (BGP_DEBUG(update, UPDATE_IN))
+		zlog_debug("RTC EOR Marker dequeued from sub-queue %s",
+			   subqueue2str(META_QUEUE_RTC_EOR_MARKER));
+
+	for (ALL_LIST_ELEMENTS_RO(info->bgp->peer, node, peer)) {
+		if (!CHECK_FLAG(peer->flags, PEER_FLAG_RTC_UPDATE))
+			continue;
+		if (!peer->rtc_plist)
+			/* Create an empty RTC prefix-list if no RTC prefix were received */
+			bgp_peer_init_rtc_plist(peer);
+		bgp_announce_peer_set_rtc_refresh(peer);
+		UNSET_FLAG(peer->flags, PEER_FLAG_RTC_UPDATE);
+	}
+	for (ALL_LIST_ELEMENTS_RO(info->bgp->peer, node, peer))
+		bgp_announce_peer_rtc_refresh(peer);
+
+	UNSET_FLAG(info->bgp->flags, BGP_FLAG_RTC_EOR_MARKER);
+
+	XFREE(MTYPE_BGP_RTC_EOR_MARKER_INFO, info);
 	XFREE(MTYPE_BGP_NODE, dest);
 }
 
@@ -4182,8 +4320,14 @@ static unsigned int process_subq(struct bgp_dest_queue *subq, enum meta_queue_in
 	case META_QUEUE_OTHER_ROUTE:
 		process_subq_other_route(dest);
 		break;
+	case META_QUEUE_RTC_ROUTE:
+		process_subq_rtc_route(dest);
+		break;
 	case META_QUEUE_EOIU_MARKER:
 		process_eoiu_marker(dest);
+		break;
+	case META_QUEUE_RTC_EOR_MARKER:
+		process_rtc_eor_marker(dest);
 	}
 
 	return 1;
@@ -4236,6 +4380,21 @@ static int other_route_meta_queue_add(struct meta_queue *mq, void *data)
 	return 0;
 }
 
+static int rtc_route_meta_queue_add(struct meta_queue *mq, void *data)
+{
+	uint8_t qindex = META_QUEUE_RTC_ROUTE;
+	struct bgp_dest *dest = data;
+
+	if (bgp_debug_bestpath(dest))
+		zlog_debug("%s queued into sub-queue %s", bgp_dest_get_prefix_str(dest),
+			   subqueue2str(qindex));
+
+	assert(STAILQ_NEXT(dest, pq) == NULL);
+	STAILQ_INSERT_TAIL(mq->subq[qindex], dest, pq);
+	mq->size++;
+	return 0;
+}
+
 static int eoiu_marker_meta_queue_add(struct meta_queue *mq, void *data)
 {
 	uint8_t qindex = META_QUEUE_EOIU_MARKER;
@@ -4243,6 +4402,20 @@ static int eoiu_marker_meta_queue_add(struct meta_queue *mq, void *data)
 
 	if (BGP_DEBUG(update, UPDATE_IN))
 		zlog_debug("EOIU Marker queued into sub-queue %s", subqueue2str(qindex));
+
+	assert(STAILQ_NEXT(dest, pq) == NULL);
+	STAILQ_INSERT_TAIL(mq->subq[qindex], dest, pq);
+	mq->size++;
+	return 0;
+}
+
+static int rtc_eor_marker_meta_queue_add(struct meta_queue *mq, void *data)
+{
+	uint8_t qindex = META_QUEUE_RTC_EOR_MARKER;
+	struct bgp_dest *dest = data;
+
+	if (BGP_DEBUG(update, UPDATE_IN))
+		zlog_debug("RTC EOR Marker queued into sub-queue %s", subqueue2str(qindex));
 
 	assert(STAILQ_NEXT(dest, pq) == NULL);
 	STAILQ_INSERT_TAIL(mq->subq[qindex], dest, pq);
@@ -4284,6 +4457,16 @@ int other_route_process(struct bgp *bgp, struct bgp_dest *dest)
 	return mq_add_handler(bgp, dest, other_route_meta_queue_add);
 }
 
+int rtc_route_process(struct bgp *bgp, struct bgp_dest *dest)
+{
+	if (!dest) {
+		zlog_err("%s: rtc route dest is NULL!", __func__);
+		return -1;
+	}
+
+	return mq_add_handler(bgp, dest, rtc_route_meta_queue_add);
+}
+
 int eoiu_marker_process(struct bgp *bgp, struct bgp_dest *dest)
 {
 	if (!dest) {
@@ -4292,6 +4475,16 @@ int eoiu_marker_process(struct bgp *bgp, struct bgp_dest *dest)
 	}
 
 	return mq_add_handler(bgp, dest, eoiu_marker_meta_queue_add);
+}
+
+int rtc_eor_marker_process(struct bgp *bgp, struct bgp_dest *dest)
+{
+	if (!dest) {
+		zlog_err("%s: rtc eor marker dest is NULL!", __func__);
+		return -1;
+	}
+
+	return mq_add_handler(bgp, dest, rtc_eor_marker_meta_queue_add);
 }
 
 /* Create new meta queue.
@@ -4339,6 +4532,19 @@ static void other_meta_queue_free(struct meta_queue *mq, struct bgp_dest_queue *
 	}
 }
 
+/* Clean up the other meta-queue list */
+static void rtc_meta_queue_free(struct meta_queue *mq, struct bgp_dest_queue *l)
+{
+	struct bgp_dest *dest;
+
+	while (!STAILQ_EMPTY(l)) {
+		dest = STAILQ_FIRST(l);
+		STAILQ_REMOVE_HEAD(l, pq);
+		STAILQ_NEXT(dest, pq) = NULL; /* complete unlink */
+		mq->size--;
+	}
+}
+
 /* Clean up the eoiu marker meta-queue list */
 static void eoiu_marker_queue_free(struct meta_queue *mq, struct bgp_dest_queue *l)
 {
@@ -4347,6 +4553,21 @@ static void eoiu_marker_queue_free(struct meta_queue *mq, struct bgp_dest_queue 
 	while (!STAILQ_EMPTY(l)) {
 		dest = STAILQ_FIRST(l);
 		XFREE(MTYPE_BGP_EOIU_MARKER_INFO, dest->info);
+		STAILQ_REMOVE_HEAD(l, pq);
+		STAILQ_NEXT(dest, pq) = NULL; /* complete unlink */
+		XFREE(MTYPE_BGP_NODE, dest);
+		mq->size--;
+	}
+}
+
+/* Clean up the rtc eor marker meta-queue list */
+static void rtc_eor_marker_queue_free(struct meta_queue *mq, struct bgp_dest_queue *l)
+{
+	struct bgp_dest *dest;
+
+	while (!STAILQ_EMPTY(l)) {
+		dest = STAILQ_FIRST(l);
+		XFREE(MTYPE_BGP_RTC_EOR_MARKER_INFO, dest->info);
 		STAILQ_REMOVE_HEAD(l, pq);
 		STAILQ_NEXT(dest, pq) = NULL; /* complete unlink */
 		XFREE(MTYPE_BGP_NODE, dest);
@@ -4366,8 +4587,14 @@ void bgp_meta_queue_free(struct meta_queue *mq)
 		case META_QUEUE_OTHER_ROUTE:
 			other_meta_queue_free(mq, mq->subq[i]);
 			break;
+		case META_QUEUE_RTC_ROUTE:
+			rtc_meta_queue_free(mq, mq->subq[i]);
+			break;
 		case META_QUEUE_EOIU_MARKER:
 			eoiu_marker_queue_free(mq, mq->subq[i]);
+			break;
+		case META_QUEUE_RTC_EOR_MARKER:
+			rtc_eor_marker_queue_free(mq, mq->subq[i]);
 			break;
 		}
 
@@ -4395,9 +4622,8 @@ void bgp_process_queue_init(struct bgp *bgp)
 	bgp->mq = meta_queue_new();
 }
 
-static void bgp_process_internal(struct bgp *bgp, struct bgp_dest *dest,
-				 struct bgp_path_info *pi, afi_t afi,
-				 safi_t safi, bool early_process)
+static void bgp_process_internal(struct bgp *bgp, struct bgp_dest *dest, struct bgp_path_info *pi,
+				 afi_t afi, safi_t safi, enum meta_queue_indexes qindex)
 {
 	/*
 	 * Indicate that *this* pi is in an unsorted
@@ -4454,24 +4680,33 @@ static void bgp_process_internal(struct bgp *bgp, struct bgp_dest *dest,
 	SET_FLAG(dest->flags, BGP_NODE_PROCESS_SCHEDULED);
 	bgp_dest_lock_node(dest);
 
-	if (early_process)
+	switch (qindex) {
+	case META_QUEUE_EARLY_ROUTE:
 		early_route_process(bgp, dest);
-	else
+		break;
+	case META_QUEUE_OTHER_ROUTE:
 		other_route_process(bgp, dest);
-
-	return;
+		break;
+	case META_QUEUE_RTC_ROUTE:
+		rtc_route_process(bgp, dest);
+		break;
+	case META_QUEUE_EOIU_MARKER:
+	case META_QUEUE_RTC_EOR_MARKER:
+		assert(!"Marker queues are not for real BGP dest");
+	}
 }
 
 void bgp_process(struct bgp *bgp, struct bgp_dest *dest,
 		 struct bgp_path_info *pi, afi_t afi, safi_t safi)
 {
-	bgp_process_internal(bgp, dest, pi, afi, safi, false);
+	bgp_process_internal(bgp, dest, pi, afi, safi,
+			     (safi == SAFI_RTC) ? META_QUEUE_RTC_ROUTE : META_QUEUE_OTHER_ROUTE);
 }
 
 void bgp_process_early(struct bgp *bgp, struct bgp_dest *dest,
 		       struct bgp_path_info *pi, afi_t afi, safi_t safi)
 {
-	bgp_process_internal(bgp, dest, pi, afi, safi, true);
+	bgp_process_internal(bgp, dest, pi, afi, safi, META_QUEUE_EARLY_ROUTE);
 }
 
 void bgp_add_eoiu_mark(struct bgp *bgp)
@@ -4488,6 +4723,27 @@ void bgp_add_eoiu_mark(struct bgp *bgp)
 
 	bgp_dest_set_bgp_eoiu_info(dummy_dest, eoiu_info);
 	eoiu_marker_process(bgp, dummy_dest);
+}
+
+void bgp_add_rtc_eor_mark(struct bgp *bgp)
+{
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_RTC_EOR_MARKER))
+		return;
+
+	/*
+	 * Create a dummy dest as the meta queue expects all its elements to be
+	 * dest's
+	 */
+	struct bgp_dest *dummy_dest = XCALLOC(MTYPE_BGP_NODE, sizeof(struct bgp_dest));
+
+	struct bgp_rtc_eor_info *rtc_eor_info = XCALLOC(MTYPE_BGP_RTC_EOR_MARKER_INFO,
+							sizeof(struct bgp_eoiu_info));
+	rtc_eor_info->bgp = bgp;
+
+	bgp_dest_set_bgp_rtc_eor_info(dummy_dest, rtc_eor_info);
+	rtc_eor_marker_process(bgp, dummy_dest);
+
+	SET_FLAG(bgp->flags, BGP_FLAG_RTC_EOR_MARKER);
 }
 
 static void bgp_maximum_prefix_restart_timer(struct event *thread)
@@ -6930,12 +7186,9 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 	return BGP_NLRI_PARSE_OK;
 }
 
-static void bgp_nexthop_reachability_check(afi_t afi, safi_t safi,
-					   struct bgp_path_info *bpi,
-					   const struct prefix *p,
-					   struct bgp_dest *dest,
-					   struct bgp *bgp,
-					   struct bgp *bgp_nexthop)
+void bgp_nexthop_reachability_check(afi_t afi, safi_t safi, struct bgp_path_info *bpi,
+				    const struct prefix *p, struct bgp_dest *dest, struct bgp *bgp,
+				    struct bgp *bgp_nexthop)
 {
 	/* Nexthop reachability check. */
 	if (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST) {
@@ -6965,15 +7218,19 @@ static void bgp_nexthop_reachability_check(afi_t afi, safi_t safi,
 
 			bgp_path_info_set_flag(dest, bpi, BGP_PATH_VALID);
 		}
+	} else if (safi == SAFI_RTC) {
+		/* always mark static RTC as valid */
+		bgp_unlink_nexthop(bpi);
+		bgp_path_info_set_flag(dest, bpi, BGP_PATH_VALID);
 	}
 }
 
-static struct bgp_static *bgp_static_new(void)
+struct bgp_static *bgp_static_new(void)
 {
 	return XCALLOC(MTYPE_BGP_STATIC, sizeof(struct bgp_static));
 }
 
-static void bgp_static_free(struct bgp_static *bgp_static)
+void bgp_static_free(struct bgp_static *bgp_static)
 {
 	XFREE(MTYPE_ROUTE_MAP_NAME, bgp_static->rmap.name);
 	route_map_counter_decrement(bgp_static->rmap.map);
@@ -9529,6 +9786,15 @@ static void route_vty_out_route(struct bgp_dest *dest, const struct prefix *p,
 			       json ?
 			       NLRI_STRING_FORMAT_JSON_SIMPLE :
 			       NLRI_STRING_FORMAT_MIN, json);
+	} else if (p->family == AF_RTC) {
+		if (!json) {
+			len = vty_out(vty, "%pFX", p);
+		} else {
+			json_object_string_addf(json, "prefix", "%pFXh", p);
+			json_object_int_add(json, "prefixLen", p->prefixlen);
+			json_object_string_addf(json, "network", "%pFX", p);
+			json_object_int_add(json, "version", dest->version);
+		}
 	} else {
 		if (!json)
 			len = vty_out(vty, "%pFX", p);
@@ -9609,6 +9875,8 @@ const char *bgp_path_selection_reason2str(enum bgp_path_selection_reason reason)
 		return "Locally configured route";
 	case bgp_path_selection_neighbor_ip:
 		return "Neighbor IP";
+	case bgp_path_selection_rtc_rr_client:
+		return "RTC Route-reflector client";
 	case bgp_path_selection_default:
 		return "Nothing left to compare";
 	}
@@ -12902,6 +13170,7 @@ const struct prefix_rd *bgp_rd_from_dest(const struct bgp_dest *dest,
 	case SAFI_UNICAST:
 	case SAFI_MULTICAST:
 	case SAFI_LABELED_UNICAST:
+	case SAFI_RTC:
 	case SAFI_FLOWSPEC:
 	case SAFI_MAX:
 		return NULL;
@@ -13349,11 +13618,11 @@ DEFUN (show_ip_bgp_l2vpn_evpn_statistics,
 /* BGP route print out function without JSON */
 DEFUN(show_ip_bgp_afi_safi_statistics, show_ip_bgp_afi_safi_statistics_cmd,
       "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_CMD_STR
-      " [" BGP_SAFI_WITH_LABEL_CMD_STR
+      " [" BGP_SAFI_NO_EVPN_CMD_STR
       "]]\
          statistics [json]",
       SHOW_STR IP_STR BGP_STR BGP_INSTANCE_HELP_STR BGP_AFI_HELP_STR
-	      BGP_SAFI_WITH_LABEL_HELP_STR
+      BGP_SAFI_NO_EVPN_HELP_STR
       "BGP RIB advertisement statistics\n" JSON_STR)
 {
 	afi_t afi = AFI_IP6;
@@ -13819,6 +14088,60 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 			vty_out(vty, "}\n");
 	}
 	return CMD_SUCCESS;
+}
+
+/* BGP route print out function */
+DEFPY (show_ip_bgp_rtc, show_ip_bgp_rtc_cmd,
+      "show [ip] bgp [<view|vrf> VIEWVRFNAME] ipv4 rt-constraint\
+          [all$all]\
+          [version (1-4294967295)\
+          |detail-routes$detail_routes\
+          ] [json$uj [detail$detail_json] | wide$wide]",
+      SHOW_STR IP_STR BGP_STR BGP_INSTANCE_HELP_STR
+	  BGP_AF_STR
+	  BGP_AF_MODIFIER_STR
+      "Display the entries for all address families\n"
+      "Display prefixes with matching version numbers\n"
+      "Version number and above\n"
+      "Display detailed version of all routes\n"
+      JSON_STR
+      "Display detailed version of JSON output\n"
+      "Increase table width for longer prefixes\n")
+{
+	afi_t afi = AFI_IP;
+	safi_t safi = SAFI_RTC;
+	enum bgp_show_type sh_type = bgp_show_type_normal;
+	void *output_arg = NULL;
+	struct bgp *bgp = NULL;
+	int idx = 0;
+	uint16_t show_flags = 0;
+	enum rpki_states rpki_target_state = RPKI_NOT_BEING_USED;
+
+	if (uj) {
+		argc--;
+		SET_FLAG(show_flags, BGP_SHOW_OPT_JSON);
+	}
+
+	if (detail_json)
+		SET_FLAG(show_flags, BGP_SHOW_OPT_JSON_DETAIL);
+
+	if (detail_routes)
+		SET_FLAG(show_flags, BGP_SHOW_OPT_ROUTES_DETAIL);
+
+	if (wide)
+		SET_FLAG(show_flags, BGP_SHOW_OPT_WIDE);
+
+	bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi, &bgp, uj);
+	if (!idx)
+		return CMD_WARNING;
+
+	/* Display prefixes with matching version numbers */
+	if (argv_find(argv, argc, "version", &idx)) {
+		sh_type = bgp_show_type_prefix_version;
+		output_arg = argv[idx + 1]->arg;
+	}
+
+	return bgp_show(vty, bgp, afi, safi, sh_type, output_arg, show_flags, rpki_target_state);
 }
 
 DEFUN (show_ip_bgp_route,
@@ -15100,6 +15423,8 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 				(*output_count)++;
 			}
 		} else if (type == bgp_show_adj_route_advertised) {
+			struct ecommunity *ecom;
+
 			RB_FOREACH (adj, bgp_adj_out_rb, &dest->adj_out)
 				SUBGRP_FOREACH_PEER (adj->subgroup, paf) {
 					if (paf->peer != peer || !adj->attr)
@@ -15118,6 +15443,14 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 								  rmap_name);
 
 					if (ret == RMAP_DENY) {
+						(*filtered_count)++;
+						bgp_attr_flush(&attr);
+						continue;
+					}
+
+					ecom = bgp_attr_get_ecommunity(&attr);
+					if (ecom &&
+					    bgp_rtc_filter(peer, ecom, NULL) == RTC_PREFIX_DENY) {
 						(*filtered_count)++;
 						bgp_attr_flush(&attr);
 						continue;
@@ -15405,13 +15738,13 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 
 DEFPY (show_ip_bgp_instance_neighbor_bestpath_route,
        show_ip_bgp_instance_neighbor_bestpath_route_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_CMD_STR " [" BGP_SAFI_WITH_LABEL_CMD_STR "]] neighbors <A.B.C.D|X:X::X:X|WORD> bestpath-routes [detail$detail] [json$uj | wide$wide]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_CMD_STR " [" BGP_SAFI_NO_EVPN_CMD_STR "]] neighbors <A.B.C.D|X:X::X:X|WORD> bestpath-routes [detail$detail] [json$uj | wide$wide]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        BGP_AFI_HELP_STR
-       BGP_SAFI_WITH_LABEL_HELP_STR
+       BGP_SAFI_NO_EVPN_HELP_STR
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
@@ -15459,13 +15792,13 @@ DEFPY (show_ip_bgp_instance_neighbor_bestpath_route,
 
 DEFPY(show_ip_bgp_instance_neighbor_advertised_route,
       show_ip_bgp_instance_neighbor_advertised_route_cmd,
-      "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_CMD_STR " [" BGP_SAFI_WITH_LABEL_CMD_STR "]] [all$all] neighbors <A.B.C.D|X:X::X:X|WORD> <advertised-routes|received-routes|filtered-routes> [route-map RMAP_NAME$route_map] [<A.B.C.D/M|X:X::X:X/M>$prefix | detail$detail] [json$uj | wide$wide]",
+      "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_CMD_STR " [" BGP_SAFI_NO_EVPN_CMD_STR "]] [all$all] neighbors <A.B.C.D|X:X::X:X|WORD> <advertised-routes|received-routes|filtered-routes> [route-map RMAP_NAME$route_map] [<A.B.C.D/M|X:X::X:X/M>$prefix | detail$detail] [json$uj | wide$wide]",
       SHOW_STR
       IP_STR
       BGP_STR
       BGP_INSTANCE_HELP_STR
       BGP_AFI_HELP_STR
-      BGP_SAFI_WITH_LABEL_HELP_STR
+      BGP_SAFI_NO_EVPN_HELP_STR
       "Display the entries for all address families\n"
       "Detailed information on TCP and BGP neighbor connections\n"
       "Neighbor to display information about\n"
@@ -15612,6 +15945,53 @@ DEFPY(show_ip_bgp_instance_neighbor_advertised_route,
 	return CMD_SUCCESS;
 }
 
+DEFUN (show_ip_bgp_neighbor_rt_constraint_plist,
+       show_ip_bgp_neighbor_rt_constraint_plist_cmd,
+       "show [ip] bgp [" BGP_AFI_ALL_CMD_STR" [" BGP_SAFI_ALL_CMD_STR"]] neighbors <A.B.C.D|X:X::X:X|WORD> rt-prefix-list [json]",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       BGP_AFI_ALL_HELP_STR
+       BGP_SAFI_ALL_HELP_STR
+       "Detailed information on TCP and BGP neighbor connections\n"
+       "Neighbor to display information about\n"
+       "Neighbor to display information about\n"
+       "Neighbor on BGP configured interface\n"
+       "Display the route-target prefix-list\n"
+       JSON_STR)
+{
+	char *peerstr = NULL;
+	struct peer *peer;
+	int idx = 0;
+	struct bgp *bgp = bgp_get_default();
+	bool uj = use_json(argc, argv);
+	struct bgp_rtc_plist *rtc_plist;
+
+	if (!bgp)
+		return CMD_WARNING;
+
+	if (uj)
+		argc--;
+
+	/* neighbors <A.B.C.D|X:X::X:X|WORD> */
+	argv_find(argv, argc, "neighbors", &idx);
+	peerstr = argv[++idx]->arg;
+
+	peer = peer_lookup_in_view(vty, bgp, peerstr, uj);
+	if (!peer)
+		return CMD_WARNING;
+
+	rtc_plist = bgp_peer_get_rtc_plist(peer);
+	if (rtc_plist)
+		bgp_show_rtc_plist(vty, rtc_plist, !!uj);
+	else if (uj)
+		vty_out(vty, "{}\n");
+	else
+		vty_out(vty, "No RTC prefix-list\n");
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_ip_bgp_neighbor_received_prefix_filter,
        show_ip_bgp_neighbor_received_prefix_filter_cmd,
        "show [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6> [unicast]] neighbors <A.B.C.D|X:X::X:X|WORD> received prefix-filter [json]",
@@ -15711,13 +16091,13 @@ static int bgp_show_neighbor_route(struct vty *vty, struct peer *peer,
  */
 DEFPY(show_ip_bgp_vrf_afi_safi_routes_detailed,
       show_ip_bgp_vrf_afi_safi_routes_detailed_cmd,
-      "show [ip] bgp [<view|vrf> VIEWVRFNAME$vrf_name] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] detail [json$uj]",
+      "show [ip] bgp [<view|vrf> VIEWVRFNAME$vrf_name] ["BGP_AFI_CMD_STR" ["BGP_SAFI_NO_EVPN_CMD_STR"]] detail [json$uj]",
       SHOW_STR
       IP_STR
       BGP_STR
       BGP_INSTANCE_HELP_STR
       BGP_AFI_HELP_STR
-      BGP_SAFI_WITH_LABEL_HELP_STR
+      BGP_SAFI_NO_EVPN_HELP_STR
       "Detailed information\n"
       JSON_STR)
 {
@@ -15747,13 +16127,13 @@ DEFPY(show_ip_bgp_vrf_afi_safi_routes_detailed,
 
 DEFUN (show_ip_bgp_neighbor_routes,
        show_ip_bgp_neighbor_routes_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] neighbors <A.B.C.D|X:X::X:X|WORD> <flap-statistics|dampened-routes|routes> [json]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_NO_EVPN_CMD_STR"]] neighbors <A.B.C.D|X:X::X:X|WORD> <flap-statistics|dampened-routes|routes> [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        BGP_AFI_HELP_STR
-       BGP_SAFI_WITH_LABEL_HELP_STR
+       BGP_SAFI_NO_EVPN_HELP_STR
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
@@ -16788,6 +17168,7 @@ void bgp_route_init(void)
 	install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_statistics_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_dampening_params_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_cmd);
+	install_element(VIEW_NODE, &show_ip_bgp_rtc_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_route_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_regexp_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_statistics_all_cmd);
@@ -16799,6 +17180,7 @@ void bgp_route_init(void)
 	install_element(VIEW_NODE, &show_ip_bgp_neighbor_routes_cmd);
 	install_element(VIEW_NODE,
 			&show_ip_bgp_neighbor_received_prefix_filter_cmd);
+	install_element(VIEW_NODE, &show_ip_bgp_neighbor_rt_constraint_plist_cmd);
 #ifdef KEEP_OLD_VPN_COMMANDS
 	install_element(VIEW_NODE, &show_ip_bgp_vpn_all_route_prefix_cmd);
 #endif /* KEEP_OLD_VPN_COMMANDS */

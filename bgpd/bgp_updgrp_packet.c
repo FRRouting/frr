@@ -42,6 +42,7 @@
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_label.h"
 #include "bgpd/bgp_addpath.h"
+#include "bgpd/bgp_rtc.h"
 
 /********************
  * PRIVATE FUNCTIONS
@@ -336,9 +337,100 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 	bpacket_attr_vec *vec;
 	struct peer *peer;
 	struct bgp_filter *filter;
+	uint8_t ecomflags;
+	uint16_t ecomlen;
+	size_t offset_ecom;
+	struct ecommunity ecom = {};
+	struct prefix p = {};
+	uint8_t prefixlen;
+	afi_t afi;
+	safi_t safi;
+	size_t attrlen_pos, mp_start, mplen_pos, total_attr_len, prefix_start, prefix_end;
+
+	peer = PAF_PEER(paf);
+	afi = paf->afi;
+	safi = paf->safi;
+
+	if ((((afi == AFI_IP || afi == AFI_IP6) && safi == SAFI_MPLS_VPN) ||
+	     (afi == AFI_L2VPN && safi == SAFI_EVPN)) &&
+	    CHECK_FLAG(pkt->arr.entries[BGP_ATTR_VEC_ECOM].flags, BPKT_ATTRVEC_FLAGS_UPDATED)) {
+		vec = &pkt->arr.entries[BGP_ATTR_VEC_ECOM];
+		ecomflags = stream_getc_from(pkt->buffer, vec->offset);
+		if (CHECK_FLAG(ecomflags, BGP_ATTR_FLAG_EXTLEN)) {
+			ecomlen = stream_getw_from(pkt->buffer, vec->offset + 2);
+			offset_ecom = vec->offset + 4;
+		} else {
+			ecomlen = stream_getc_from(pkt->buffer, vec->offset + 2);
+			offset_ecom = vec->offset + 3;
+		}
+		ecom.unit_size = ECOMMUNITY_SIZE;
+		ecom.size = ecomlen / ECOMMUNITY_SIZE;
+		ecom.val = (uint8_t *)(pkt->buffer->data + offset_ecom);
+
+#define VPN_PREFIXLEN_MIN_BYTES (3 + 8) /* label + RD */
+
+		if (BGP_DEBUG(update, UPDATE_OUT)) {
+			p.family = afi2family(afi);
+			if (safi == SAFI_MPLS_VPN) {
+				/* Decode prefix for debugging. Only for L3VPN.
+				 * Decoding EVPN is too complex because several prefixes
+				 * can be sent in a single UPDATE message.
+				 */
+				vec = &pkt->arr.entries[BGP_ATTR_VEC_MP_PREFIX_LABEL];
+				prefixlen = stream_getc_from(pkt->buffer, vec->offset - 1);
+				p.prefixlen = prefixlen - VPN_PREFIXLEN_MIN_BYTES * 8;
+				memcpy(&p.u.val, pkt->buffer->data + vec->offset + 11,
+				       PSIZE(prefixlen) - VPN_PREFIXLEN_MIN_BYTES);
+			}
+		}
+
+		if (bgp_rtc_filter(peer, &ecom, &p) == RTC_PREFIX_DENY) {
+			/* Convert MP_REACH_NLRI to MP_UNREACH_NLRI packet by building a
+			 * packet from scratch using data from the MP_REACH_NLRI message.
+			 */
+
+			s = stream_new(pkt->buffer->endp);
+
+			bgp_packet_set_marker(s, BGP_MSG_UPDATE);
+			stream_putw(s, 0); /* unfeasible routes length */
+
+			attrlen_pos = stream_get_endp(s);
+			/* total attr length = 0 for now. reevaluate later */
+			stream_putw(s, 0);
+			mp_start = stream_get_endp(s);
+			mplen_pos = bgp_packet_mpunreach_start(s, afi, safi);
+
+			vec = &pkt->arr.entries[BGP_ATTR_VEC_MP_PREFIX_START];
+			prefix_start = vec->offset;
+			vec = &pkt->arr.entries[BGP_ATTR_VEC_MP_PREFIX_END];
+			prefix_end = vec->offset;
+
+			memcpy(&s->data[s->endp], pkt->buffer->data + prefix_start,
+			       prefix_end - prefix_start);
+
+			if (CHECK_FLAG(pkt->arr.entries[BGP_ATTR_VEC_MP_PREFIX_LABEL].flags,
+				       BPKT_ATTRVEC_FLAGS_UPDATED)) {
+				vec = &pkt->arr.entries[BGP_ATTR_VEC_MP_PREFIX_LABEL];
+				memset(&s->data[s->endp + vec->offset - prefix_start], 0,
+				       BGP_LABEL_BYTES);
+			}
+
+			s->endp += prefix_end - prefix_start;
+
+			/* Set the mp_unreach attr's length */
+			bgp_packet_mpunreach_end(s, mplen_pos);
+
+			/* Set total path attribute length. */
+			total_attr_len = stream_get_endp(s) - mp_start;
+			stream_putw_at(s, attrlen_pos, total_attr_len);
+
+			bgp_packet_set_size(s);
+
+			return s;
+		}
+	}
 
 	s = stream_dup(pkt->buffer);
-	peer = PAF_PEER(paf);
 
 	vec = &pkt->arr.entries[BGP_ATTR_VEC_NH];
 
@@ -620,6 +712,20 @@ static void bpacket_attr_vec_arr_update(struct bpacket_attr_vec_arr *vecarr,
 		vecarr->entries[i].offset += pos;
 }
 
+static void bpacket_attr_vec_arr_merge(struct bpacket_attr_vec_arr *dst,
+				       struct bpacket_attr_vec_arr *src)
+{
+	int i;
+
+	for (i = 0; i < BGP_ATTR_VEC_MAX; i++) {
+		assert(!(src->entries[i].flags && dst->entries[i].flags));
+		if (!src->entries[i].flags)
+			continue;
+		dst->entries[i].flags = src->entries[i].flags;
+		dst->entries[i].offset = src->entries[i].offset;
+	}
+}
+
 /*
  * Return if there are packets to build for this subgroup.
  */
@@ -644,7 +750,7 @@ bool subgroup_packets_to_build(struct update_subgroup *subgrp)
 /* Make BGP update packet.  */
 struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 {
-	struct bpacket_attr_vec_arr vecarr;
+	struct bpacket_attr_vec_arr vecarr, mp_vecarr = {};
 	struct bpacket *pkt;
 	struct peer *peer;
 	struct stream *s;
@@ -826,14 +932,21 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 			}
 
 			if (stream_empty(snlri))
-				mpattrlen_pos = bgp_packet_mpattr_start(
-					snlri, peer, afi, safi, &vecarr,
-					adv->baa->attr);
+				mpattrlen_pos = bgp_packet_mpattr_start(snlri, peer, afi, safi,
+									&mp_vecarr, adv->baa->attr);
 
-			bgp_packet_mpattr_prefix(snlri, afi, safi, dest_p, prd,
-						 label_pnt, num_labels,
-						 addpath_capable, addpath_tx_id,
-						 adv->baa->attr);
+			if (!CHECK_FLAG(mp_vecarr.entries[BGP_ATTR_VEC_MP_PREFIX_START].flags,
+					BPKT_ATTRVEC_FLAGS_UPDATED))
+				bpacket_attr_vec_arr_set_vec(&mp_vecarr,
+							     BGP_ATTR_VEC_MP_PREFIX_START, snlri,
+							     NULL);
+
+			bgp_packet_mpattr_prefix(snlri, afi, safi, dest_p, prd, label_pnt,
+						 num_labels, addpath_capable, addpath_tx_id,
+						 adv->baa->attr, &mp_vecarr);
+
+			bpacket_attr_vec_arr_set_vec(&mp_vecarr, BGP_ATTR_VEC_MP_PREFIX_END, snlri,
+						     NULL);
 		}
 
 		num_pfx++;
@@ -895,7 +1008,9 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 
 		if (!stream_empty(snlri)) {
 			packet = stream_dupcat(s, snlri, mpattr_pos);
-			bpacket_attr_vec_arr_update(&vecarr, mpattr_pos);
+			bpacket_attr_vec_arr_update(&vecarr, snlri->endp);
+			bpacket_attr_vec_arr_update(&mp_vecarr, mpattr_pos);
+			bpacket_attr_vec_arr_merge(&vecarr, &mp_vecarr);
 		} else
 			packet = stream_dup(s);
 		bgp_packet_set_size(packet);
