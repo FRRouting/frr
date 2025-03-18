@@ -4642,10 +4642,12 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		 * will not be interned. In which case, it is ok to update the
 		 * attr->evpn_overlay, so that, this can be stored in adj_in.
 		 */
-		if ((afi == AFI_L2VPN) && evpn)
-			bgp_attr_set_evpn_overlay(attr, evpn);
-		else
-			evpn_overlay_free(evpn);
+		if (evpn) {
+			if (afi == AFI_L2VPN)
+				bgp_attr_set_evpn_overlay(attr, evpn);
+			else
+				evpn_overlay_free(evpn);
+		}
 		bgp_adj_in_set(dest, peer, attr, addpath_id, &bgp_labels);
 	}
 
@@ -4821,10 +4823,12 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	 * attr->evpn_overlay with evpn directly. Instead memcpy
 	 * evpn to new_atr.evpn_overlay before it is interned.
 	 */
-	if (soft_reconfig && (afi == AFI_L2VPN) && evpn)
-		bgp_attr_set_evpn_overlay(&new_attr, evpn);
-	else
-		evpn_overlay_free(evpn);
+	if (soft_reconfig && evpn) {
+		if (afi == AFI_L2VPN)
+			bgp_attr_set_evpn_overlay(&new_attr, evpn);
+		else
+			evpn_overlay_free(evpn);
+	}
 
 	/* Apply incoming route-map.
 	 * NB: new_attr may now contain newly allocated values from route-map
@@ -4889,7 +4893,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		goto filtered;
 	}
 
-	if (bgp_mac_entry_exists(p) || bgp_mac_exist(&attr->rmac)) {
+	if (safi == SAFI_EVPN && (bgp_mac_entry_exists(p) || bgp_mac_exist(&attr->rmac))) {
 		peer->stat_pfx_nh_invalid++;
 		reason = "self mac;";
 		bgp_attr_flush(&new_attr);
