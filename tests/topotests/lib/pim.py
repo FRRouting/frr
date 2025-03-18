@@ -53,20 +53,20 @@ def create_pim_config(tgen, topo, input_dict=None, build=False, load_config=True
             "pim": {
                 "join-prune-interval": "5",
                 "rp": [{
-                    "rp_addr" : "1.0.3.17".
-                    "keep-alive-timer": "100"
-                    "group_addr_range": ["224.1.1.0/24", "225.1.1.0/24"]
-                    "prefix-list": "pf_list_1"
+                    "rp_addr" : "1.0.3.17",
+                    "keep-alive-timer": "100",
+                    "group_addr_range": ["224.1.1.0/24", "225.1.1.0/24"],
+                    "prefix-list": "pf_list_1",
                     "delete": True
                 }]
             },
             "pim6": {
                 "disable" : ["l1-i1-eth1"],
                 "rp": [{
-                    "rp_addr" : "2001:db8:f::5:17".
-                    "keep-alive-timer": "100"
-                    "group_addr_range": ["FF00::/8"]
-                    "prefix-list": "pf_list_1"
+                    "rp_addr" : "2001:db8:f::5:17",
+                    "keep-alive-timer": "100",
+                    "group_addr_range": ["FF00::/8"],
+                    "prefix-list": "pf_list_1",
                     "delete": True
                 }]
             }
@@ -268,7 +268,7 @@ def create_igmp_config(tgen, topo, input_dict=None, build=False):
                     "r1-r0-eth0" :{
                         "igmp":{
                             "version":  "2",
-                            "delete": True
+                            "delete": True,
                             "query": {
                                 "query-interval" : 100,
                                 "query-max-response-time": 200
