@@ -773,6 +773,20 @@ Why is it ``PREDECL`` + ``DECLARE`` instead of ``DECLARE`` + ``DEFINE``?
    2 ``.c`` files, but only **if the macro arguments are identical.**  Maybe
    don't do that unless you really need it.
 
+COMMON PROBLEMS
+---------------
+
+The ``fini`` call of the various typesafe structures actually close the data
+structure off and attempts to use the data structure after that introduce
+intentional crashes.  This is leading to situations when converting from
+an older data structure to the new typesafe where, on shutdown, the older
+data structures would still be attempted to be accessed.  This access would
+just be ignored or result in benign code running.  With the new typesafe
+data structure crashes will occurr.  Be aware that when modifying the code
+base that this sort of change might end up with crashes on shutdown and
+work must be done to ensure that the newly changed does not use the data
+structure after the fini call.
+
 FRR lists
 ---------
 
