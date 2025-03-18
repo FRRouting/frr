@@ -310,7 +310,8 @@ DEFPY (babel_set_wired,
     babel_ifp = babel_get_if_nfo(ifp);
 
     assert (babel_ifp != NULL);
-    babel_set_wired_internal(babel_ifp, no ? 0 : 1);
+    if ((CHECK_FLAG(babel_ifp->flags, BABEL_IF_WIRED) ? 1 : 0) != (no ? 0 : 1))
+        babel_set_wired_internal(babel_ifp, no ? 0 : 1);
     return CMD_SUCCESS;
 }
 
@@ -328,7 +329,8 @@ DEFPY (babel_set_wireless,
     babel_ifp = babel_get_if_nfo(ifp);
 
     assert (babel_ifp != NULL);
-    babel_set_wired_internal(babel_ifp, no ? 1 : 0);
+    if ((CHECK_FLAG(babel_ifp->flags, BABEL_IF_WIRED) ? 1 : 0) != (no ? 1 : 0))
+        babel_set_wired_internal(babel_ifp, no ? 1 : 0);
     return CMD_SUCCESS;
 }
 
