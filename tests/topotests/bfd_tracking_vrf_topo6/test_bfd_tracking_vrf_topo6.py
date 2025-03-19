@@ -28,7 +28,7 @@ import os
 import sys
 import json
 import platform
-from functools import partial
+import functools
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -191,114 +191,68 @@ def teardown_module(_mod):
     tgen.stop_topology()
 
 
-def check_bfd_ip_nominal_state():
+def check_bfd_state(step=None):
     tgen = get_topogen()
-    # check pm entries
-    donna = tgen.gears["r1"].vtysh_cmd("show bfd vrf r1-cust1 peer 192.168.5.4 json")
-    donna = json.loads(donna)
-    assert donna["peer"] == "192.168.5.4", "r1, 192.168.5.4, bfd entry not present"
-    assert donna["status"] == "up", "r1, 192.168.5.4, bfd status not up"
-    assert donna["diagnostic"] == "ok", "r1, 192.168.5.4, bfd diagnostic not ok"
-    donna = tgen.gears["r1"].vtysh_cmd("show bfd vrf r1-cust1 peer 1005:1::4 json")
-    donna = json.loads(donna)
-    assert donna["peer"] == "1005:1::4", "r1, 1005:1::4, bfd entry not present"
-    assert donna["status"] == "up", "r1, 1005:1::4, bfd status not up"
-    assert donna["diagnostic"] == "ok", "r1, 1005:1::4, bfd diagnostic not ok"
-    donna = tgen.gears["r1"].vtysh_cmd("show bfd vrf r1-cust1 peer 192.168.0.2 json")
-    donna = json.loads(donna)
-    assert donna["peer"] == "192.168.0.2", "r1, 192.168.0.2, bfd entry not present"
-    assert donna["status"] == "up", "r1, 192.168.0.2, bfd status not up"
-    assert donna["diagnostic"] == "ok", "r1, 192.168.0.2, bfd diagnostic not ok"
-    donna = tgen.gears["r1"].vtysh_cmd("show bfd vrf r1-cust1 peer 1000:1::2 json")
-    donna = json.loads(donna)
-    assert donna["peer"] == "1000:1::2", "r1, 1000:1::2, bfd entry not present"
-    assert donna["status"] == "up", "r1, 1000:1::2, bfd status not up"
-    assert donna["diagnostic"] == "ok", "r1, 1000:1::2, bfd diagnostic not ok"
 
-    # check routing entries
-    donna = tgen.gears["r1"].vtysh_cmd("show ip route vrf r1-cust1 0.0.0.0/0 json")
-    donna = json.loads(donna)
-    if "0.0.0.0/0" not in donna.keys():
-        assert 0, "r1, route 0.0.0.0/0 not present"
-    routeid = donna["0.0.0.0/0"]
-    id_route = 0
-    if "selected" not in routeid[id_route].keys():
-        id_route = 1
-        if "selected" not in routeid[id_route].keys():
-            assert 0, "r1, route 0.0.0.0/0 found in BGP RIB is not selected"
-    assert routeid[id_route]["selected"] == True, "r1, route 0.0.0.0/0 not set to true"
-    if "nexthops" not in routeid[id_route].keys():
-        assert 0, "r1, route 0.0.0.0/0 does not have nexthops"
-    nhop = routeid[0]["nexthops"]
-    if nhop[0]["ip"] == "192.168.5.4":
-        assert (
-            nhop[0]["interfaceName"] == "r1-eth2"
-        ), "r1, nh 192.168.5.3 does not use r1-eth2"
-    donna = tgen.gears["r1"].vtysh_cmd("show ipv6 route vrf r1-cust1 ::/0 json")
-    donna = json.loads(donna)
-    if "::/0" not in donna.keys():
-        assert 0, "r1, route ::/0 not present"
-    routeid = donna["::/0"]
-    idx = 0
-    if "selected" not in routeid[0].keys():
-        if "selected" not in routeid[1].keys():
-            assert 0, "r1, route ::/0 found in BGP RIB is not selected"
-        else:
-            idx = 1
-    assert routeid[idx]["selected"] == True, "r1, route ::/0 not set to true"
-    if "nexthops" not in routeid[0].keys():
-        assert 0, "r1, route ::/0 does not have nexthops"
-    nhop = routeid[idx]["nexthops"]
-    if nhop[0]["ip"] == "1005:1::4":
-        assert (
-            nhop[0]["interfaceName"] == "r1-eth2"
-        ), "r1, nh 1005:1::4 does not use r1-eth2"
+    r1 = tgen.gears["r1"]
 
-    cmds_check_file = [
-        "cat /tmp/ipv4eth0_status.txt",
-        "cat /tmp/ipv6eth0_status.txt",
-        "cat /tmp/ipv4eth2_status.txt",
-        "cat /tmp/ipv6eth2_status.txt",
+    step_suffix = f"_step{step}" if step else ""
+
+    logger.info("Check BFD entries")
+    reffile = os.path.join(CWD, f"r1/show_bfd_peers{step_suffix}.json")
+    expected = json.loads(open(reffile).read())
+    cmd = "show bfd peers json"
+    test_func = functools.partial(topotest.router_json_cmp, r1, cmd, expected)
+    _, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assertmsg = f"BFD did not converge. Error on r1 {cmd}"
+    assert res is None, assertmsg
+
+    logger.info("Check IPv4 default route")
+    reffile = os.path.join(CWD, f"r1/show_ip_route{step_suffix}.json")
+    expected = json.loads(open(reffile).read())
+    cmd = "show ip route vrf r1-cust1 0.0.0.0/0 json"
+    test_func = functools.partial(topotest.router_json_cmp, r1, cmd, expected)
+    _, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assertmsg = f"BFD did not converge. Error on r1 {cmd}"
+    assert res is None, assertmsg
+
+    logger.info("Check IPv6 default route")
+    reffile = os.path.join(CWD, f"r1/show_ipv6_route{step_suffix}.json")
+    expected = json.loads(open(reffile).read())
+    cmd = "show ipv6 route vrf r1-cust1 ::/0 json"
+    test_func = functools.partial(topotest.router_json_cmp, r1, cmd, expected)
+    _, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assertmsg = f"BFD did not converge. Error on r1 {cmd}"
+    assert res is None, assertmsg
+
+    logger.info("Check tracker file")
+
+    files = [
+        "/tmp/ipv4eth0_status.txt",
+        "/tmp/ipv6eth0_status.txt",
+        "/tmp/ipv4eth2_status.txt",
+        "/tmp/ipv6eth2_status.txt",
     ]
-    for cmd in cmds_check_file:
-        output = tgen.net["r1"].cmd(cmd)
-        logger.info("dump for {0} is {1}".format(cmd, output))
-        assert output == "0", "r1, failure with notification to file"
+
+    for file in files:
+        output = tgen.net["r1"].cmd(f"cat {file}")
+        expected = "0" if not step or "eth0" in file else "1"
+        assert (
+            output == expected
+        ), "r1, tracker files {file} contains {output}. Expected {expected}"
 
 
-def test_bfd_connection():
+def test_bfd_convergence():
     "Assert that the BFD peers can find themselves."
+
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    topotest.sleep(5, "waiting that BFD initialises")
-    output = tgen.gears["r1"].vtysh_cmd("show running-config")
-    logger.info("==== result from show running-config")
-    logger.info(output)
-    output = tgen.gears["r1"].vtysh_cmd("show bfd vrf r1-cust1 peer 192.168.5.4")
-    logger.info("==== result from show bfd vrf r1-cust1 peer 192.168.5.4")
-    logger.info(output)
-    output = tgen.gears["r1"].vtysh_cmd("show bfd vrf r1-cust1 peer 1005:1::4")
-    logger.info("==== result from show bfd vrf r1-cust1 peer 1005:1::4")
-    logger.info(output)
-    output = tgen.gears["r1"].vtysh_cmd("show bfd vrf r1-cust1 peer 192.168.0.2")
-    logger.info("==== result from show bfd vrf r1-cust1 peer 192.168.0.2")
-    logger.info(output)
-    output = tgen.gears["r1"].vtysh_cmd("show bfd vrf r1-cust1 peer 1000:1::2")
-    logger.info("==== result from show bfd vrf r1-cust1 peer 1000:1::2")
-    logger.info(output)
-    logger.info(
-        "==== result from show ip route vrf r1-cust1 and show ipv6 route vrf r1-cust1"
-    )
-    output = tgen.gears["r1"].vtysh_cmd("show ip route vrf r1-cust1")
-    logger.info(output)
-    output = tgen.gears["r1"].vtysh_cmd("show ipv6 route vrf r1-cust1")
-    logger.info(output)
-    check_bfd_ip_nominal_state()
+    check_bfd_state()
 
 
-def test_bfd_fast_convergence():
+def test_bfd_tracking_step1():
     """
     Assert that BFD notices the link down after simulating network
     failure.
@@ -308,125 +262,27 @@ def test_bfd_fast_convergence():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info("=========== disabling r4 device")
-    logger.info("waiting for bfd sessions to go down")
-    #
-    # Disable r4-eth0 and r4-eth1 link.
-    tgen.gears["r4"].link_enable("r4-eth1", enabled=False)
+    logger.info("Set r4-eth0 and r4-eth1 down")
     tgen.gears["r4"].link_enable("r4-eth0", enabled=False)
-    topotest.sleep(5, "waiting that BFD event propagates")
-    output = tgen.gears["r1"].vtysh_cmd("show bfd vrf r1-cust1 peer 192.168.5.4")
-    logger.info("==== result from show bfd vrf r1-cust1 peer 192.168.5.4")
-    logger.info(output)
-    output = tgen.gears["r1"].vtysh_cmd("show bfd vrf r1-cust1 peer 1005:1::4")
-    logger.info("==== result from show bfd vrf r1-cust1 peer 1005:1::4")
-    logger.info(output)
-    output = tgen.gears["r1"].vtysh_cmd("show bfd vrf r1-cust1 peer 192.168.0.2")
-    logger.info("==== result from show bfd vrf r1-cust1 peer 192.168.0.2")
-    logger.info(output)
-    output = tgen.gears["r1"].vtysh_cmd("show bfd vrf r1-cust1 peer 1000:1::2")
-    logger.info("==== result from show bfd vrf r1-cust1 peer 1000:1::2")
-    logger.info(output)
-    logger.info(
-        "==== result from show ip route vrf r1-cust1 and show ipv6 route vrf r1-cust1"
-    )
-    output = tgen.gears["r1"].vtysh_cmd("show ip route vrf r1-cust1")
-    logger.info(output)
-    output = tgen.gears["r1"].vtysh_cmd("show ipv6 route vrf r1-cust1")
-    logger.info(output)
-    output = tgen.gears["r1"].vtysh_cmd("show bfd static route")
-    logger.info("==== result from show bfd static route")
-    logger.info(output)
-    # check bfd entries
-    donna = tgen.gears["r1"].vtysh_cmd("show bfd vrf r1-cust1 peer 192.168.5.4 json")
-    donna = json.loads(donna)
-    assert donna["peer"] == "192.168.5.4", "r1, 192.168.5.4, bfd entry not present"
-    assert donna["status"] == "down", "r1, 192.168.5.4, bfd status not down"
-    assert (
-        donna["diagnostic"] == "control detection time expired"
-    ), "r1, 192.168.5.4, bfd diagnostic not timeout"
-    donna = tgen.gears["r1"].vtysh_cmd("show bfd vrf r1-cust1 peer 1005:1::4 json")
-    donna = json.loads(donna)
-    assert donna["peer"] == "1005:1::4", "r1, 1005:1::4, bfd entry not present"
-    assert donna["status"] == "down", "r1, 1005:1::4, bfd status not down"
-    assert (
-        donna["diagnostic"] == "control detection time expired"
-    ), "r1, 1005:1::4, bfd diagnostic not timeout"
-    donna = tgen.gears["r1"].vtysh_cmd("show bfd vrf r1-cust1 peer 192.168.0.2 json")
-    donna = json.loads(donna)
-    assert donna["peer"] == "192.168.0.2", "r1, 192.168.0.2, bfd entry not present"
-    assert donna["status"] == "up", "r1, 192.168.0.2, bfd status not up"
-    assert donna["diagnostic"] == "ok", "r1, 192.168.0.2, bfd diagnostic not ok"
-    donna = tgen.gears["r1"].vtysh_cmd("show bfd vrf r1-cust1 peer 1000:1::2 json")
-    donna = json.loads(donna)
-    assert donna["peer"] == "1000:1::2", "r1, 1005:1::3, bfd entry not present"
-    assert donna["status"] == "up", "r1, 1000:1::2, bfd status not up"
-    assert donna["diagnostic"] == "ok", "r1, 1000:1::2, bfd diagnostic not ok"
+    tgen.gears["r4"].link_enable("r4-eth1", enabled=False)
 
-    # check routing entries
-    donna = tgen.gears["r1"].vtysh_cmd("show ip route vrf r1-cust1 0.0.0.0/0 json")
-    donna = json.loads(donna)
-    if "0.0.0.0/0" not in donna.keys():
-        assert 0, "r1, route 0.0.0.0/0 not present"
-    routeid = donna["0.0.0.0/0"]
-    if "selected" not in routeid[0].keys():
-        assert 0, "r1, route 0.0.0.0/0 found in BGP RIB is not selected"
-    assert routeid[0]["selected"] == True, "r1, route 0.0.0.0/0 not set to true"
-    if "nexthops" not in routeid[0].keys():
-        assert 0, "r1, route 0.0.0.0/0 does not have nexthops"
-    nhop = routeid[0]["nexthops"]
-    if nhop[0]["ip"] == "192.168.0.2":
-        assert (
-            nhop[0]["interfaceName"] == "r1-eth0"
-        ), "r1, nh 192.168.0.2 does not use r1-eth0"
-    donna = tgen.gears["r1"].vtysh_cmd("show ipv6 route vrf r1-cust1 ::/0 json")
-    donna = json.loads(donna)
-    if "::/0" not in donna.keys():
-        assert 0, "r1, route ::/0 not present"
-    routeid = donna["::/0"]
-    if "selected" not in routeid[0].keys():
-        assert 0, "r1, route ::/0 found in BGP RIB is not selected"
-    assert routeid[0]["selected"] == True, "r1, route ::/0 not set to true"
-    if "nexthops" not in routeid[0].keys():
-        assert 0, "r1, route ::/0 does not have nexthops"
-    nhop = routeid[0]["nexthops"]
-    if nhop[0]["ip"] == "1000:1::2":
-        assert nhop[0]["interfaceName"] == "r1-eth0", "r1, nh ::/0 does not use r1-eth0"
-    cmds_check_file_1 = ["cat /tmp/ipv4eth0_status.txt", "cat /tmp/ipv6eth0_status.txt"]
-    cmds_check_file_0 = ["cat /tmp/ipv4eth2_status.txt", "cat /tmp/ipv6eth2_status.txt"]
-    for cmd in cmds_check_file_1:
-        output = tgen.net["r1"].cmd(cmd)
-        logger.info("dump for {0} is {1}".format(cmd, output))
-        assert output == "0", "r1, failure with notification to file, expected 1"
-    for cmd in cmds_check_file_0:
-        output = tgen.net["r1"].cmd(cmd)
-        logger.info("dump for {0} is {1}".format(cmd, output))
-        assert output == "1", "r1, failure with notification to file, expected 0"
+    check_bfd_state(step=1)
 
-    # expected = 2 mhop sessions should use 192.168.0.2 as gateway
-    # as well as r1-eth0 interface
-    logger.info("=========== enabling r4 device")
-    logger.info("waiting for bfd peers to go up again")
+
+def test_bfd_tracking_step2():
+    """
+    Assert that BFD goes back to the nominal stater after links are back up.
+    """
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Set r4-eth0 and r4-eth1 up")
     tgen.gears["r4"].link_enable("r4-eth0", enabled=True)
     tgen.gears["r4"].link_enable("r4-eth1", enabled=True)
-    topotest.sleep(5, "waiting that BFD event propagates")
-    output = tgen.gears["r1"].vtysh_cmd("show bfd vrf r1-cust1 peer 192.168.5.4")
-    logger.info("==== result from show bfd vrf r1-cust1 peer 192.168.5.4")
-    logger.info(output)
-    output = tgen.gears["r1"].vtysh_cmd("show bfd vrf r1-cust1 peer 1005:1::4")
-    logger.info("==== result from show bfd vrf r1-cust1 peer 1005:1::4")
-    logger.info(output)
-    logger.info(
-        "==== result from show ip route vrf r1-cust1 and show ipv6 route vrf r1-cust1"
-    )
-    output = tgen.gears["r1"].vtysh_cmd("show ip route vrf r1-cust1")
-    logger.info(output)
-    output = tgen.gears["r1"].vtysh_cmd("show ipv6 route vrf r1-cust1")
-    logger.info(output)
-    output = tgen.gears["r1"].vtysh_cmd("show bfd static route")
-    logger.info("==== result from show bfd static route")
-    logger.info(output)
-    check_bfd_ip_nominal_state()
+
+    check_bfd_state()
 
 
 def test_memory_leak():
