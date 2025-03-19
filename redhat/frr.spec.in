@@ -471,6 +471,7 @@ Adds GRPC support to the individual FRR daemons.
     --disable-grpc \
 %endif
     --enable-snmp \
+    --disable-zeromq \
     --enable-pcre2posix \
     # end
 
