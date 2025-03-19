@@ -31,8 +31,6 @@
 %{!?with_watchfrr:      %global  with_watchfrr      1 }
 %{!?with_pathd:         %global  with_pathd         1 }
 %{!?with_grpc:          %global  with_grpc          0 }
-%{!?with_rpki:          %global  with_rpki          1 }
-%{!?with_docs:          %global  with_docs          1 }
 
 # user and group
 %{!?frr_user:           %global  frr_user           frr }
@@ -198,20 +196,14 @@ BuildRequires:  pcre2-devel
 %if 0%{?rhel} && 0%{?rhel} < 7
 #python27-devel is available from ius community repo for RedHat/CentOS 6
 BuildRequires:  python27-devel
-%if %{with_docs}
 BuildRequires:  python27-sphinx
-%endif
 %else
 %if %{use_python2}
 BuildRequires:  python-devel >= 2.7
-%if %{with_docs}
 BuildRequires:  python-sphinx
-%endif
 %else
 BuildRequires:  python3-devel
-%if %{with_docs}
 BuildRequires:  python3-sphinx
-%endif
 %endif
 %endif
 %if %{with_grpc}
@@ -294,7 +286,6 @@ The frr-devel package contains the header and object files necessary for
 developing OSPF-API and frr applications.
 
 
-%if %{with_rpki}
 %package rpki-rtrlib
 Summary: BGP RPKI support (rtrlib)
 Group: System Environment/Daemons
@@ -307,7 +298,6 @@ against cryptographic information stored in WHOIS databases.  This is
 used to prevent hijacking of networks on the wider internet.  It is only
 relevant to internet service providers using their own autonomous system
 number.
-%endif
 
 
 %package snmp
@@ -446,9 +436,7 @@ Adds GRPC support to the individual FRR daemons.
     --disable-bgp-vnc \
 %endif
     --enable-isisd \
-%if %{with_rpki}
     --enable-rpki \
-%endif
 %if %{with_bfdd}
     --enable-bfdd \
 %else
@@ -480,11 +468,9 @@ sed -e '1c #!/usr/bin/python3' -i %{zeb_src}/tools/frr-reload.py
 sed -e '1c #!/usr/bin/python3' -i %{zeb_src}/tools/generate_support_bundle.py
 %endif
 
-%if %{with_docs}
 pushd doc
 make info
 popd
-%endif
 
 
 %install
@@ -622,9 +608,7 @@ zebra_spec_add_service fabricd	2618/tcp "Fabricd vty"
     %__sed -i 's|watchfrr_enable=no|watchfrr_enable=yes|g' %{configdir}/daemons 2> /dev/null || true
 %endif
 
-%if %{with_docs}
 /sbin/install-info %{_infodir}/frr.info.gz %{_infodir}/dir
-%endif
 
 # Create dummy config file if they don't exist so basic functions can be used.
 if [ ! -e %{configdir}/frr.conf ] && [ ! -e %{configdir}/zebra.conf ]; then
@@ -692,9 +676,7 @@ fi
         /sbin/chkconfig --del frr
     fi
 %endif
-%if %{with_docs}
 /sbin/install-info --delete %{_infodir}/frr.info.gz %{_infodir}/dir
-%endif
 
 
 %files
@@ -711,10 +693,8 @@ fi
     %dir %attr(755,root,root) %{_localstatedir}/log/frr
     %dir %attr(750,root,root) %{_runstatedir}/frr
 %endif
-%if %{with_docs}
-    %{_infodir}/frr.info.gz
-    %{_mandir}/man*/*
-%endif
+%{_infodir}/frr.info.gz
+%{_mandir}/man*/*
 %{_sbindir}/zebra
 %{_sbindir}/staticd
 %{_sbindir}/ospfd
@@ -762,9 +742,19 @@ fi
 %endif
 %if %{with_pathd}
     %{_sbindir}/pathd
+    %{_libdir}/frr/modules/pathd_pcep.so
 %endif
-%{_libdir}/libfrr*.so*
-%{_libdir}/frr/modules/*.so
+%{_libdir}/libfrr.so*
+%{_libdir}/libfrrcares*
+%{_libdir}/libfrrospf*
+%if %{with_fpm}
+    %{_libdir}/frr/modules/zebra_fpm.so
+%endif
+%{_libdir}/frr/modules/zebra_cumulus_mlag.so
+%{_libdir}/frr/modules/dplane_fpm_nl.so
+%{_libdir}/frr/modules/bgpd_bmp.so
+%{_libdir}/libfrr_pb.so*
+%{_libdir}/libfrrfpm_pb.so*
 %{_libdir}/libmgmt_be_nb.so*
 %{_bindir}/*
 %config(noreplace) %{configdir}/[!v]*.conf*
@@ -804,7 +794,6 @@ fi
 %endif
 
 
-%if %{with_rpki}
 %post rpki-rtrlib
 # add rpki module to daemons
 sed -i -e 's/^\(bgpd_options=\)\(.*\)\(".*\)/\1\2 -M rpki\3/' %{_sysconfdir}/frr/daemons
@@ -812,8 +801,21 @@ sed -i -e 's/^\(bgpd_options=\)\(.*\)\(".*\)/\1\2 -M rpki\3/' %{_sysconfdir}/frr
 %postun rpki-rtrlib
 # remove rpki module from daemons
 sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
-%endif
 
+%files rpki-rtrlib
+%{_libdir}/frr/modules/bgpd_rpki.so
+
+
+%files snmp
+%{_libdir}/libfrrsnmp.so*
+%{_libdir}/frr/modules/*snmp.so
+
+
+%if %{with_grpc}
+%files grpc
+%{_libdir}/libfrrgrpc_pb.*
+%{_libdir}/frr/modules/grpc.so
+%endif
 
 %files devel
 %{_libdir}/lib*.so
