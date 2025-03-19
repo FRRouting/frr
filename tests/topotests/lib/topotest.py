@@ -2356,8 +2356,8 @@ class Router(Node):
         _check_daemons_running(check_daemon_files)
 
         if check_daemon_files:
-            assert False, "Timeout({}) waiting for {} to appear on {}".format(
-                wait_time, check_daemon_files[0], self.name
+            assert False, "Timeout waiting for {} to appear on {}".format(
+                check_daemon_files[0], self.name
             )
 
         # Update the permissions on the log files
