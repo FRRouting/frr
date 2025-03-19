@@ -14938,14 +14938,41 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 				       &filtered_count_per_rd);
 
 			/* Don't include an empty RD in the output! */
+<<<<<<< HEAD
 			if (json_routes && (output_count_per_rd > 0))
 				json_object_object_add(json_ar, rd_str,
 						       json_routes);
+=======
+			if (json_routes && (output_count_per_rd > 0) && use_json) {
+				if (type == bgp_show_adj_route_advertised ||
+				    type == bgp_show_adj_route_received) {
+					if (first) {
+						vty_out(vty, "{\"%s\":", rd_str);
+						first = false;
+					} else {
+						vty_out(vty, ",\"%s\":", rd_str);
+					}
+					vty_json_no_pretty(vty, json_routes);
+				} else {
+					json_object_object_add(json_ar, rd_str, json_routes);
+				}
+			} else if (json_routes)
+				json_object_free(json_routes);
+>>>>>>> 9651b159c (bgpd: Fix leaked memory when showing some bgp routes)
 
 			output_count += output_count_per_rd;
 			filtered_count += filtered_count_per_rd;
 		}
+<<<<<<< HEAD
 	} else
+=======
+		if (json_ar &&
+		    (type == bgp_show_adj_route_advertised || type == bgp_show_adj_route_received))
+			json_object_free(json_ar);
+		if (first == false && json_routes)
+			vty_out(vty, "}");
+	} else {
+>>>>>>> 9651b159c (bgpd: Fix leaked memory when showing some bgp routes)
 		show_adj_route(vty, peer, table, afi, safi, type, rmap_name,
 			       json, json_ar, show_flags, &header1, &header2,
 			       rd_str, match, &output_count, &filtered_count);
