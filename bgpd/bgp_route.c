@@ -14772,6 +14772,8 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 			if (json_routes && (output_count_per_rd > 0))
 				json_object_object_add(json_ar, rd_str,
 						       json_routes);
+			else if (json_routes)
+				json_object_free(json_routes);
 
 			output_count += output_count_per_rd;
 			filtered_count += filtered_count_per_rd;
