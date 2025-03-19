@@ -333,6 +333,16 @@ Requires: %{name} = %{version}-%{release}
 Adds GRPC support to the individual FRR daemons.
 %endif
 
+
+%package test-tools
+Summary: Testing Tools for FRR daemons
+Group: System Environment/Daemons
+Requires: %{name} = %{version}-%{release}
+
+%description test-tools
+Adds FRR test tools, used in testing FRR.
+
+
 %prep
 %setup -q -n frr-%{frrversion}
 
@@ -355,9 +365,7 @@ Adds GRPC support to the individual FRR daemons.
     --localstatedir=%{_localstatedir} \
     --disable-static \
     --disable-werror \
-%if %{with_mgmtd_test_be_client}
     --enable-mgmtd-test-be-client \
-%endif
 %if %{with_multipath}
     --enable-multipath=%{with_multipath} \
 %endif
@@ -464,6 +472,7 @@ Adds GRPC support to the individual FRR daemons.
 %else
     --disable-grpc \
 %endif
+    --enable-protobuf \
     --enable-snmp \
     --enable-pcre2posix \
     # end
@@ -511,6 +520,11 @@ install -m644 %{zeb_src}/tools/frr.service %{buildroot}%{_unitdir}/frr.service
 %else
 mkdir -p %{buildroot}%{_initddir}
 ln -s %{_sbindir}/frrinit.sh %{buildroot}%{_initddir}/frr
+%endif
+
+# install proto files
+%if %{with_grpc}
+    mv %{buildroot}%{_libdir}/frr/*.proto %{buildroot}/usr/lib/frr/
 %endif
 
 install %{zeb_src}/tools/etc/frr/daemons %{buildroot}%{_sysconfdir}/frr
@@ -721,11 +735,7 @@ fi
 %{_sbindir}/ripd
 %{_sbindir}/bgpd
 %{_sbindir}/mgmtd
-%if %{with_mgmtd_test_be_client}
-    %{_sbindir}/mgmtd_testc
-%endif
 %exclude %{_sbindir}/ssd
-%exclude %{_sbindir}/fpm_listener
 %if %{with_watchfrr}
     %{_sbindir}/watchfrr
 %endif
@@ -766,7 +776,13 @@ fi
 %{_libdir}/libfrr*.so*
 %{_libdir}/frr/modules/*.so
 %{_libdir}/libmgmt_be_nb.so*
+%exclude %{_sbindir}/*.proto
 %{_bindir}/*
+%if %{with_grpc}
+    %exclude %{_libdir}/libfrrgrpc_pb.so*
+    %exclude %{_libdir}/frr/modules/grpc.so
+%endif
+%exclude %{_libdir}/frr/*.proto
 %config(noreplace) %{configdir}/[!v]*.conf*
 %config(noreplace) %attr(750,%{frr_user},%{frr_user}) %{configdir}/daemons
 %if "%{initsystem}" == "systemd"
@@ -835,9 +851,27 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 %endif
 
 
+%files test-tools
+%{_sbindir}/mgmtd_testc
+%{_sbindir}/fpm_listener
+
+
+%if %{with_grpc}
+%files grpc
+%{_libdir}/libfrrgrpc_pb.so*
+%{_libdir}/frr/modules/grpc.so
+%{_sbindir}/*.proto
+%endif
+
+
 %changelog
 
-* Thu Oct 10  2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+* Tue Feb 11 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+
+* Tue Feb 11 2025 Martin Winter <mwinter@opensourcerouting.org> 10.4-dev
+- Added new test-tools subpackage
+-   Moved mgmtd_testc to test-tools subpackage to make consistent with debian
+-   Added fpm_listener to test-tools package
 
 * Thu Oct 10 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.3-dev
 - FRR 10.3 Development

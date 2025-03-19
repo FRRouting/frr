@@ -17,4 +17,6 @@ CLEANFILES += \
 	mlag/mlag.pb-c.h \
 	# end
 
-EXTRA_DIST += mlag/mlag.proto
+dist_proto_DATA += \
+        mlag/mlag.proto \
+        # end

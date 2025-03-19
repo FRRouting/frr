@@ -558,6 +558,10 @@ EXTRA_DIST += \
 	lib/route_types.txt \
 	# end
 
+dist_proto_DATA += \
+	lib/mgmt.proto \
+        # end
+
 BUILT_SOURCES += \
 	lib/gitversion.h \
 	lib/route_types.h \

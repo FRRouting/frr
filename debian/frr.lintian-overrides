@@ -7,3 +7,6 @@ manpage-without-executable
 
 # personal name
 spelling-error-in-copyright Ang And
+
+# Protobuf Lib not linked against libc
+frr: library-not-linked-against-libc
