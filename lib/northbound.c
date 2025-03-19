@@ -2679,6 +2679,8 @@ const char *nb_client_name(enum nb_client client)
 		return "MGMTD Server";
 	case NB_CLIENT_MGMTD_BE:
 		return "MGMT Backend";
+	case NB_CLIENT_HIREDIS:
+		return "Hiredis";
 	case NB_CLIENT_NONE:
 		return "None";
 	}

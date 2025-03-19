@@ -415,6 +415,18 @@ lib_libfrrzmq_la_SOURCES = \
 	#end
 
 #
+# Hiredis support
+#
+if HIREDIS
+module_LTLIBRARIES += lib/hiredis.la
+endif
+
+lib_hiredis_la_CFLAGS = $(AM_CFLAGS) $(HIREDIS_CFLAGS)
+lib_hiredis_la_LDFLAGS = $(MODULE_LDFLAGS)
+lib_hiredis_la_LIBADD = lib/libfrr.la $(HIREDIS_LIBS) $(UV_LIBS)
+lib_hiredis_la_SOURCES = lib/northbound_hiredis.c
+
+#
 # Sysrepo support
 #
 if SYSREPO

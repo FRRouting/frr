@@ -782,6 +782,10 @@ AC_ARG_ENABLE([config_rollbacks],
   AS_HELP_STRING([--enable-config-rollbacks], [enable configuration rollbacks (requires sqlite3)]))
 AC_ARG_ENABLE([sysrepo],
   AS_HELP_STRING([--enable-sysrepo], [enable sysrepo integration]))
+AC_ARG_ENABLE([hiredis],
+  AS_HELP_STRING([--enable-hiredis], [enable hiredis integration]))
+AC_ARG_ENABLE([uv],
+  AS_HELP_STRING([--enable-uv], [start uv for hiredis asyn call]))
 AC_ARG_ENABLE([grpc],
   AS_HELP_STRING([--enable-grpc], [enable the gRPC northbound plugin]))
 AC_ARG_ENABLE([zeromq],
@@ -2119,6 +2123,30 @@ if test "$enable_config_rollbacks" = "yes"; then
 fi
 
 dnl ---------------
+dnl hiredis
+dnl ---------------
+if test "$enable_hiredis" = "yes"; then
+	PKG_CHECK_MODULES([HIREDIS], [hiredis >= 1.2.0], [
+      AC_DEFINE([HAVE_HIREDIS], [1], [Enable hiredis integration])
+      HIREDIS=true],
+      [HIREDIS=false
+      AC_MSG_ERROR([hiredis was not found on your system.])]
+  )
+fi
+
+dnl ---------------
+dnl uv
+dnl ---------------
+if test "$enable_uv" = "yes"; then
+	PKG_CHECK_MODULES([UV], [libuv >= 1.5.0], [
+      AC_DEFINE([HAVE_UV], [1], [Support to hiredis asyn call])
+      UV=true],
+      [UV=false
+      AC_MSG_ERROR([libuv was not found on your system.])]
+  )
+fi
+
+dnl ---------------
 dnl sysrepo
 dnl ---------------
 if test "$enable_sysrepo" = "yes"; then
@@ -2787,6 +2815,7 @@ AM_CONDITIONAL([ENABLE_BGP_VNC], [test "$enable_bgp_vnc" != "no"])
 AM_CONDITIONAL([BGP_BMP], [$bgpd_bmp])
 dnl northbound
 AM_CONDITIONAL([SQLITE3], [$SQLITE3])
+AM_CONDITIONAL([HIREDIS], [test "$enable_hiredis" = "yes"])
 AM_CONDITIONAL([SYSREPO], [test "$enable_sysrepo" = "yes"])
 AM_CONDITIONAL([GRPC], [test "$enable_grpc" = "yes"])
 AM_CONDITIONAL([ZEROMQ], [test "$ZEROMQ" = "true"])

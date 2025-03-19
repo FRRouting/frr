@@ -751,6 +751,7 @@ enum nb_client {
 	NB_CLIENT_PCEP,
 	NB_CLIENT_MGMTD_SERVER,
 	NB_CLIENT_MGMTD_BE,
+	NB_CLIENT_HIREDIS,
 };
 
 /* Northbound context. */
