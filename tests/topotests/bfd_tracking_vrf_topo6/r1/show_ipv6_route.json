@@ -4,7 +4,7 @@
       "prefix": "::/0",
       "prefixLen": 0,
       "protocol": "static",
-      "vrfName": "r1-cust1",
+      "vrfName": "cust1",
       "selected": true,
       "destSelected": true,
       "distance": 1,
@@ -21,7 +21,7 @@
           "fib": true,
           "ip": "1005:1::4",
           "afi": "ipv6",
-          "interfaceName": "r1-eth2",
+          "interfaceName": "r1-eth1",
           "active": true,
           "weight": 1
         }
@@ -31,7 +31,7 @@
       "prefix": "::/0",
       "prefixLen": 0,
       "protocol": "static",
-      "vrfName": "r1-cust1",
+      "vrfName": "cust1",
       "selected": null,
       "destSelected": null,
       "distance": 10,

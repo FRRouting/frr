@@ -2,9 +2,9 @@
   {
     "multihop": false,
     "peer": "192.168.5.4",
-    "vrf": "r1-cust1",
-    "interface": "r1-eth2",
-    "notification-string": "/tmp/ipv4eth2_status.txt",
+    "vrf": "cust1",
+    "interface": "r1-eth1",
+    "notification-string": "/tmp/ipv4eth1_status.txt",
     "label": "tututtu",
     "passive-mode": false,
     "status": "up",
@@ -27,9 +27,9 @@
   {
     "multihop": false,
     "peer": "1005:1::4",
-    "vrf": "r1-cust1",
-    "interface": "r1-eth2",
-    "notification-string": "/tmp/ipv6eth2_status.txt",
+    "vrf": "cust1",
+    "interface": "r1-eth1",
+    "notification-string": "/tmp/ipv6eth1_status.txt",
     "label": "final",
     "passive-mode": false,
     "status": "up",
@@ -52,7 +52,7 @@
   {
     "multihop": false,
     "peer": "192.168.0.2",
-    "vrf": "r1-cust1",
+    "vrf": "cust1",
     "interface": "r1-eth0",
     "notification-string": "/tmp/ipv4eth0_status.txt",
     "label": "testera",
@@ -77,7 +77,7 @@
   {
     "multihop": false,
     "peer": "1000:1::2",
-    "vrf": "r1-cust1",
+    "vrf": "cust1",
     "interface": "r1-eth0",
     "notification-string": "/tmp/ipv6eth0_status.txt",
     "label": "totaaaa",

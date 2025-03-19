@@ -1,23 +1,11 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 
 #
 # test_bfd_tracking_vrf_topo6.py
+# Part of NetDEF Topology Tests
 #
 # Copyright 2019 6WIND S.A.
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND NETDEF DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL NETDEF BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 """
@@ -30,6 +18,8 @@ import json
 import platform
 import functools
 import pytest
+
+pytestmark = [pytest.mark.staticd, pytest.mark.bfdd]
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -46,7 +36,7 @@ def build_topo(tgen):
     "Build function"
 
     # Create 4 routers
-    for routern in range(1, 5):
+    for routern in range(1, 4):
         tgen.add_router("r{}".format(routern))
 
     switch = tgen.add_switch("s1")
@@ -54,22 +44,8 @@ def build_topo(tgen):
     switch.add_link(tgen.gears["r2"])
 
     switch = tgen.add_switch("s2")
-    switch.add_link(tgen.gears["r2"])
-    switch.add_link(tgen.gears["r3"])
-
-    switch = tgen.add_switch("s3")
-    switch.add_link(tgen.gears["r4"])
-    switch.add_link(tgen.gears["r3"])
-
-    switch = tgen.add_switch("s4")
-    switch.add_link(tgen.gears["r3"])
-
-    switch = tgen.add_switch("s5")
     switch.add_link(tgen.gears["r1"])
-
-    switch = tgen.add_switch("s6")
-    switch.add_link(tgen.gears["r1"])
-    switch.add_link(tgen.gears["r4"])
+    switch.add_link(tgen.gears["r3"])
 
 
 def setup_module(mod):
@@ -91,67 +67,28 @@ def setup_module(mod):
     if topotest.version_cmp(krel, "5.0") >= 0:
         l3mdev_accept = 1
 
-    # - ipv6 address are kept after link up / link down operations
-    cmds_rm = [
-        "rm /tmp/ipv4eth0_status.txt -rf",
-        "rm /tmp/ipv6eth0_status.txt -rf",
-        "rm /tmp/ipv4eth2_status.txt -rf",
-        "rm /tmp/ipv6eth2_status.txt -rf",
-    ]
-    for cmd in cmds_rm:
-        logger.info("suppressing {0}".format(cmd))
-        output = tgen.net["r1"].cmd(cmd)
-        logger.info("output: " + output)
-
-    logger.info("setting net.ipv4.tcp_l3mdev_accept={}".format(l3mdev_accept))
-    logger.info("setting net.ipv4.udp_l3mdev_accept={}".format(l3mdev_accept))
-    cmds = [
-        "sysctl -w net.ipv4.tcp_l3mdev_accept={}".format(l3mdev_accept),
-        "sysctl -w net.ipv4.udp_l3mdev_accept={}".format(l3mdev_accept),
-        "ip link add {0}-cust1 type vrf table 10",
-        "ip link set dev {0}-cust1 up",
-        "ip link set dev {0}-eth0 master {0}-cust1",
-        "ip link set dev {0}-eth1 master {0}-cust1",
-        "sysctl -w net.ipv6.conf.all.forwarding=1",
-        "sysctl net.ipv6.conf.{0}-eth0.keep_addr_on_down=1",
-        "sysctl net.ipv6.conf.{0}-eth1.keep_addr_on_down=1",
-    ]
-
-    cmds2 = [
-        "ip link set dev {0}-eth2 master {0}-cust1",
-        "sysctl net.ipv6.conf.{0}-eth2.keep_addr_on_down=1",
-    ]
-
-    cmds3 = [
-        "ip link add loop11 type dummy",
-        "ip link set dev loop11 master {0}-cust1",
-        "sysctl net.ipv6.conf.loop11.keep_addr_on_down=1",
-        "ip link add loop21 type dummy",
-        "ip link set dev loop21 master {0}-cust1",
-        "sysctl net.ipv6.conf.loop21.keep_addr_on_down=1",
-        "ip link add loop12 type dummy",
-        "ip link set dev loop12 master {0}-cust1",
-        "sysctl net.ipv6.conf.loop12.keep_addr_on_down=1",
-        "ip link add loop22 type dummy",
-        "ip link set dev loop22 master {0}-cust1",
-        "sysctl net.ipv6.conf.loop22.keep_addr_on_down=1",
-    ]
-
     for rname, router in router_list.items():
-        for cmd in cmds:
-            cmd = cmd.format(rname)
-            output = tgen.net[rname].cmd(cmd.format(rname))
-            logger.info("output: " + output)
-        if rname == "r1":
-            for cmd in cmds2:
-                cmd = cmd.format(rname)
-                output = tgen.net[rname].cmd(cmd.format(rname))
-                logger.info("output: " + output)
-        if rname == "r3":
-            for cmd in cmds3:
-                cmd = cmd.format(rname)
-                output = tgen.net[rname].cmd(cmd.format(rname))
-                logger.info("output: " + output)
+        tgen.net[rname].cmd(
+            f"""
+sysctl -w net.ipv4.tcp_l3mdev_accept={l3mdev_accept}
+sysctl -w net.ipv4.udp_l3mdev_accept={l3mdev_accept}
+ip link add cust1 type vrf table 10
+ip link set dev cust1 up
+ip link set dev {rname}-eth0 master cust1
+sysctl net.ipv6.conf.{rname}-eth0.keep_addr_on_down=1
+"""
+        )
+
+    tgen.net["r1"].cmd(
+        f"""
+rm /tmp/ipv4eth0_status.txt -rf
+rm /tmp/ipv6eth0_status.txt -rf
+rm /tmp/ipv4eth1_status.txt -rf
+rm /tmp/ipv6eth1_status.txt -rf
+ip link set dev r1-eth1 master cust1
+sysctl net.ipv6.conf.r1-eth1.keep_addr_on_down=1
+"""
+    )
 
     for rname, router in router_list.items():
         router.load_config(
@@ -173,20 +110,16 @@ def teardown_module(_mod):
 
     tgen = get_topogen()
 
-    cmds2 = ["ip link set {0}-eth2 nomaster"]
-    cmds = [
-        "ip link set dev {0}-eth1 nomaster",
-        "ip link set dev {0}-eth0 nomaster",
-        "ip link delete {0}-cust1",
-    ]
+    tgen.net["r1"].cmd("ip link set r1-eth1 nomaster")
 
     router_list = tgen.routers()
     for rname, router in router_list.items():
-        if rname == "r1":
-            for cmd in cmds2:
-                tgen.net[rname].cmd(cmd.format(rname))
-        for cmd in cmds:
-            tgen.net[rname].cmd(cmd.format(rname))
+        tgen.net[rname].cmd(
+            f"""
+ip link set dev {rname}-eth0 nomaster
+ip link delete cust1
+"""
+        )
 
     tgen.stop_topology()
 
@@ -210,7 +143,7 @@ def check_bfd_state(step=None):
     logger.info("Check IPv4 default route")
     reffile = os.path.join(CWD, f"r1/show_ip_route{step_suffix}.json")
     expected = json.loads(open(reffile).read())
-    cmd = "show ip route vrf r1-cust1 0.0.0.0/0 json"
+    cmd = "show ip route vrf cust1 0.0.0.0/0 json"
     test_func = functools.partial(topotest.router_json_cmp, r1, cmd, expected)
     _, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assertmsg = f"BFD did not converge. Error on r1 {cmd}"
@@ -219,7 +152,7 @@ def check_bfd_state(step=None):
     logger.info("Check IPv6 default route")
     reffile = os.path.join(CWD, f"r1/show_ipv6_route{step_suffix}.json")
     expected = json.loads(open(reffile).read())
-    cmd = "show ipv6 route vrf r1-cust1 ::/0 json"
+    cmd = "show ipv6 route vrf cust1 ::/0 json"
     test_func = functools.partial(topotest.router_json_cmp, r1, cmd, expected)
     _, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assertmsg = f"BFD did not converge. Error on r1 {cmd}"
@@ -230,8 +163,8 @@ def check_bfd_state(step=None):
     files = [
         "/tmp/ipv4eth0_status.txt",
         "/tmp/ipv6eth0_status.txt",
-        "/tmp/ipv4eth2_status.txt",
-        "/tmp/ipv6eth2_status.txt",
+        "/tmp/ipv4eth1_status.txt",
+        "/tmp/ipv6eth1_status.txt",
     ]
 
     for file in files:
@@ -262,9 +195,8 @@ def test_bfd_tracking_step1():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info("Set r4-eth0 and r4-eth1 down")
-    tgen.gears["r4"].link_enable("r4-eth0", enabled=False)
-    tgen.gears["r4"].link_enable("r4-eth1", enabled=False)
+    logger.info("Set r3-eth0 down")
+    tgen.gears["r3"].link_enable("r3-eth0", enabled=False)
 
     check_bfd_state(step=1)
 
@@ -278,9 +210,8 @@ def test_bfd_tracking_step2():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info("Set r4-eth0 and r4-eth1 up")
-    tgen.gears["r4"].link_enable("r4-eth0", enabled=True)
-    tgen.gears["r4"].link_enable("r4-eth1", enabled=True)
+    logger.info("Set r3-eth0 up")
+    tgen.gears["r3"].link_enable("r3-eth0", enabled=True)
 
     check_bfd_state()
 
