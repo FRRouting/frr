@@ -93,6 +93,20 @@ Generate skeleton instance data:
        -f sample-xml-skeleton --sample-xml-skeleton-defaults \
        module.yang [augmented-module1.yang ...] -o module.xml
 
+*  XPATH:
+
+.. code:: sh
+
+   $ git clone git@github.com:YangModels/yang.git
+   $ export YANG_MODPATH=$(pwd)/yang/standard:$(pwd)/yang/experimental/ietf-extracted-YANG-modules
+
+.. code:: sh
+
+   $ git clone git@github.com:NSO-developer/pyang-xpath.git
+   $ mkdir ~/.pyang/plugins
+   $ mv pyang-xpath/xpath.py ~/.pyang/plugins
+   $ pyang -f xpath --plugindir ~/.pyang/plugins frr-staticd.yang       
+
 *  JSON:
 
 .. code:: sh
