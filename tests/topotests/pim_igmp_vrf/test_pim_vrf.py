@@ -211,23 +211,7 @@ def setup_module(module):
 
     for rname, router in router_list.items():
         logger.info("Loading router %s" % rname)
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
-        if rname[0] != "h":
-            # Only load ospf on routers, not on end hosts
-            router.load_config(
-                TopoRouter.RD_OSPF, os.path.join(CWD, "{}/ospfd.conf".format(rname))
-            )
-            router.load_config(
-                TopoRouter.RD_OSPF6, os.path.join(CWD, "{}/ospf6d.conf".format(rname))
-            )
-            router.load_config(
-                TopoRouter.RD_PIM, os.path.join(CWD, "{}/pimd.conf".format(rname))
-            )
-            router.load_config(
-                TopoRouter.RD_PIM6, os.path.join(CWD, "{}/pim6d.conf".format(rname))
-            )
+        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
 
     tgen.start_router()
 
