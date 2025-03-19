@@ -47,7 +47,7 @@ int routing_control_plane_protocols_control_plane_protocol_create(
 		 */
 		if (nb_node_has_dependency(args->dnode->schema->priv)) {
 			vrfname = yang_dnode_get_string(args->dnode, "vrf");
-			vrf = vrf_lookup_by_name(vrfname);
+			vrf = vrf_get(VRF_UNKNOWN, vrfname);
 			assert(vrf);
 			nb_running_set_entry(args->dnode, vrf);
 		}
