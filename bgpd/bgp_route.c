@@ -15352,11 +15352,15 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 				} else {
 					json_object_object_add(json_ar, rd_str, json_routes);
 				}
-			}
+			} else if (json_routes)
+				json_object_free(json_routes);
 
 			output_count += output_count_per_rd;
 			filtered_count += filtered_count_per_rd;
 		}
+		if (json_ar &&
+		    (type == bgp_show_adj_route_advertised || type == bgp_show_adj_route_received))
+			json_object_free(json_ar);
 		if (first == false && json_routes)
 			vty_out(vty, "}");
 	} else {
