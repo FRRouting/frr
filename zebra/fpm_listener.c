@@ -43,6 +43,7 @@ struct glob {
 	int server_sock;
 	int sock;
 	bool reflect;
+	bool reflect_fail_all;
 	bool dump_hex;
 	FILE *output_file;
 };
@@ -711,10 +712,14 @@ static void parse_netlink_msg(char *buf, size_t buf_len, fpm_msg_hdr_t *fpm)
 
 			if (glob->reflect && hdr->nlmsg_type == RTM_NEWROUTE &&
 			    ctx->rtmsg->rtm_protocol > RTPROT_STATIC) {
-				fprintf(glob->output_file, "  Route %s(%u) reflecting back\n",
+				fprintf(glob->output_file, "  Route %s(%u) reflecting back as %s\n",
 					netlink_prot_to_s(ctx->rtmsg->rtm_protocol),
-					ctx->rtmsg->rtm_protocol);
-				ctx->rtmsg->rtm_flags |= RTM_F_OFFLOAD;
+					ctx->rtmsg->rtm_protocol,
+					glob->reflect_fail_all ? "Offload Failed" : "Offloaded");
+				if (glob->reflect_fail_all)
+					ctx->rtmsg->rtm_flags |= RTM_F_OFFLOAD_FAILED;
+				else
+					ctx->rtmsg->rtm_flags |= RTM_F_OFFLOAD;
 				write(glob->sock, fpm, fpm_msg_len(fpm));
 			}
 			break;
@@ -772,10 +777,13 @@ int main(int argc, char **argv)
 	memset(glob, 0, sizeof(*glob));
 	glob->output_file = stdout;
 
-	while ((r = getopt(argc, argv, "rdvo:")) != -1) {
+	while ((r = getopt(argc, argv, "rfdvo:")) != -1) {
 		switch (r) {
 		case 'r':
 			glob->reflect = true;
+			break;
+		case 'f':
+			glob->reflect_fail_all = true;
 			break;
 		case 'd':
 			fork_daemon = true;
