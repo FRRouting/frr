@@ -949,7 +949,7 @@ static void static_route_args_install(struct static_route_args *args, struct sta
 							   args->bfd_source ? &bfd_src_addr : NULL,
 							   args->bfd_profile, onlink,
 							   args->bfd_multi_hop, args->bfd_auto_hop,
-							   svrf->vrf);
+							   svrf);
 			update_nexthop = true;
 		}
 
@@ -974,7 +974,7 @@ static void static_route_args_install(struct static_route_args *args, struct sta
 	if (bfd)
 		static_next_hop_bfd_monitor_enable(args->nh, args->bfd_source ? &bfd_src_addr : NULL,
 						   args->bfd_profile, onlink, args->bfd_multi_hop,
-						   args->bfd_auto_hop, svrf->vrf);
+						   args->bfd_auto_hop, svrf);
 	static_install_nexthop(args->nh);
 }
 

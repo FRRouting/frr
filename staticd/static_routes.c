@@ -566,6 +566,15 @@ static void static_fixup_vrf(struct vrf *vrf, struct route_table *stable,
 						continue;
 				}
 
+#ifndef HAVE_STATICD_NB
+				if (nh->bsp) {
+					bfd_sess_set_vrf(nh->bsp,
+							 nh->nh_vrf_id);
+					bfd_sess_install(nh->bsp);
+					nh->path_down = (bfd_sess_status(nh->bsp) != BSS_UP);
+				}
+#endif /* !HAVE_STATICD_NB */
+
 				if (nh->pm)
 					static_next_hop_pm_update(nh);
 

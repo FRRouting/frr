@@ -262,7 +262,7 @@ extern void static_next_hop_bfd_monitor_enable(struct static_nexthop *sn,
 #else
 					       struct ipaddr *src_addr, const char *profile,
 					       bool onlink, bool mhop, bool autohop,
-					       struct vrf *vrf);
+					       struct static_vrf *svrf);
 #endif
 extern void static_next_hop_bfd_monitor_disable(struct static_nexthop *sn);
 extern void static_next_hop_bfd_profile(struct static_nexthop *sn,

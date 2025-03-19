@@ -134,7 +134,7 @@ void static_next_hop_bfd_monitor_enable(struct static_nexthop *sn,
 					const struct lyd_node *dnode)
 #else
 					struct ipaddr *src_addr, const char *profile, bool onlink,
-					bool mhop, bool autohop, struct vrf *vrf)
+					bool mhop, bool autohop, struct static_vrf *svrf)
 #endif
 {
 	struct prefix src_p = {};
@@ -147,8 +147,8 @@ void static_next_hop_bfd_monitor_enable(struct static_nexthop *sn,
 	bool onlink;
 	bool mhop;
 	bool autohop;
-	struct vrf *vrf = NULL;
 #endif /* HAVE_STATICD_NB */
+	struct vrf *vrf = NULL;
 	int family;
 
 #ifdef HAVE_STATICD_NB
@@ -161,7 +161,13 @@ void static_next_hop_bfd_monitor_enable(struct static_nexthop *sn,
 	vrf = vrf_lookup_by_name(yang_dnode_get_string(dnode, "../vrf"));
 	autohop = yang_dnode_exists(dnode, "auto-hop") &&
 		  yang_dnode_get_bool(dnode, "auto-hop");
-#endif /* HAVE_STATICD_NB */
+
+#else
+	if (!svrf->vrf)
+		svrf->vrf = vrf_lookup_by_name(svrf->name);
+
+	vrf = svrf->vrf;
+#endif /* !HAVE_STATICD_NB */
 
 	family = static_next_hop_type_to_family(sn);
 	if (family == AF_UNSPEC)
@@ -227,6 +233,12 @@ void static_next_hop_bfd_monitor_enable(struct static_nexthop *sn,
 		bfd_sess_set_auto_source(sn->bsp, false);
 	else
 		bfd_sess_set_auto_source(sn->bsp, !use_source);
+
+#ifndef HAVE_STATICD_NB
+	if (strncmp(svrf->name, VRF_DEFAULT_NAME, sizeof(svrf->name)) &&
+	    (!vrf || vrf->vrf_id == VRF_UNKNOWN))
+		return;
+#endif /* !HAVE_STATICD_NB */
 
 	/* Install or update the session. */
 	bfd_sess_install(sn->bsp);
