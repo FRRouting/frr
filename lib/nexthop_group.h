@@ -34,6 +34,10 @@ struct nexthop_group {
 	struct nexthop *nexthop;
 
 	struct nhg_resilience nhgr;
+
+	/* nexthop group flags */
+#define NEXTHOP_GROUP_ALLOW_RECURSION (1 << 0)
+	uint8_t flags;
 };
 
 struct nexthop_group *nexthop_group_new(void);

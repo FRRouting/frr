@@ -258,6 +258,7 @@ void nexthop_group_copy(struct nexthop_group *to,
 			const struct nexthop_group *from)
 {
 	to->nhgr = from->nhgr;
+	to->flags = from->flags;
 	/* Copy everything, including recursive info */
 	copy_nexthops(&to->nexthop, from->nexthop, NULL);
 }
@@ -642,6 +643,28 @@ DEFPY(nexthop_group_backup, nexthop_group_backup_cmd,
 	VTY_DECLVAR_CONTEXT(nexthop_group_cmd, nhgc);
 
 	strlcpy(nhgc->backup_list_name, name, sizeof(nhgc->backup_list_name));
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(nexthop_group_allow_recursion,
+      nexthop_group_allow_recursion_cmd,
+      "[no] allow-recursion",
+      NO_STR
+      "Allow recursion when the nexthop is not directly connected\n")
+{
+	VTY_DECLVAR_CONTEXT(nexthop_group_cmd, nhgc);
+
+	if (!!no == !CHECK_FLAG(nhgc->nhg.flags, NEXTHOP_GROUP_ALLOW_RECURSION))
+		return CMD_SUCCESS;
+
+	if (no)
+		UNSET_FLAG(nhgc->nhg.flags, NEXTHOP_GROUP_ALLOW_RECURSION);
+	else
+		SET_FLAG(nhgc->nhg.flags, NEXTHOP_GROUP_ALLOW_RECURSION);
+
+	if (nhg_hooks.modify)
+		nhg_hooks.modify(nhgc);
 
 	return CMD_SUCCESS;
 }
@@ -1169,6 +1192,9 @@ static int nexthop_group_write(struct vty *vty)
 
 		vty_out(vty, "nexthop-group %s\n", nhgc->name);
 
+		if (CHECK_FLAG(nhgc->nhg.flags, NEXTHOP_GROUP_ALLOW_RECURSION))
+			vty_out(vty, " allow-recursion\n");
+
 		if (nhgc->nhg.nhgr.buckets)
 			vty_out(vty,
 				" resilient buckets %u idle-timer %u unbalanced-timer %u\n",
@@ -1372,6 +1398,7 @@ void nexthop_group_init(void (*new)(const char *name),
 
 	install_element(NH_GROUP_NODE, &nexthop_group_resilience_cmd);
 	install_element(NH_GROUP_NODE, &no_nexthop_group_resilience_cmd);
+	install_element(NH_GROUP_NODE, &nexthop_group_allow_recursion_cmd);
 
 	memset(&nhg_hooks, 0, sizeof(nhg_hooks));
 

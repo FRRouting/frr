@@ -53,11 +53,19 @@ VRF default:
 6.6.6.4
  unresolved
  Client list: pbr(fd XX)
+192.0.2.200
+ resolved via static, prefix 192.0.2.0/24
+ via 192.168.0.208, r1-eth0 (vrf default), weight 1
+ Client list: pbr(fd XX)
 192.168.0.2
  resolved via connected, prefix 192.168.0.0/24
  is directly connected, r1-eth0 (vrf default), weight 1
  Client list: static(fd XX)
 192.168.0.4
+ resolved via connected, prefix 192.168.0.0/24
+ is directly connected, r1-eth0 (vrf default), weight 1
+ Client list: static(fd XX)
+192.168.0.208
  resolved via connected, prefix 192.168.0.0/24
  is directly connected, r1-eth0 (vrf default), weight 1
  Client list: static(fd XX)
