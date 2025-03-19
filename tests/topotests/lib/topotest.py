@@ -2266,6 +2266,19 @@ class Router(Node):
                 )
                 time.sleep(0.5)
 
+        def _check_connected_to_zebra(self, daemon):
+            # Drop the last 'd' from daemon name for checking connection
+            if daemon == "pathd":
+                daemon = "srte"
+            elif daemon == "pim6d":
+                daemon = "pim"
+            elif daemon == "snmptrapd":
+                return True
+            else:
+                daemon = daemon[:-1]
+            output = self.cmd("vtysh -c 'show zebra client summary'")
+            return daemon in output
+
         # Start mgmtd first
         if "mgmtd" in daemons_list:
             start_daemon("mgmtd")
@@ -2276,7 +2289,9 @@ class Router(Node):
             _check_daemons_running(check_daemon_files)
 
         # Start Zebra after mgmtd
+        zebra_started = False
         if "zebra" in daemons_list:
+            zebra_started = True
             start_daemon("zebra")
             while "zebra" in daemons_list:
                 daemons_list.remove("zebra")
@@ -2289,6 +2304,16 @@ class Router(Node):
             start_daemon("staticd")
             while "staticd" in daemons_list:
                 daemons_list.remove("staticd")
+
+            if zebra_started:
+                ok, _ = run_and_expect(
+                    lambda: _check_connected_to_zebra(self, daemon="staticd"),
+                    True,
+                    count=30,
+                    wait=1,
+                )
+                if not ok:
+                    assert False, "staticd failed to connect to zebra"
 
         if "snmpd" in daemons_list:
             # Give zerbra a chance to configure interface addresses that snmpd daemon
@@ -2316,6 +2341,16 @@ class Router(Node):
                     start_daemon(daemon, inst)
             else:
                 start_daemon(daemon)
+
+            if zebra_started:
+                ok, _ = run_and_expect(
+                    lambda: _check_connected_to_zebra(self, daemon=daemon),
+                    True,
+                    count=30,
+                    wait=1,
+                )
+                if not ok:
+                    assert False, f"{daemon} failed to connect to zebra"
 
         # Check if daemons are running.
         _check_daemons_running(check_daemon_files)
