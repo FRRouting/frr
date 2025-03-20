@@ -126,10 +126,10 @@ struct zebra_router {
 	struct timer_wheel *ra_wheel;
 
 	/* Lists of clients who have connected to us */
-	struct list *client_list;
+	struct zserv_client_list_head client_list;
 
 	/* List of clients in GR */
-	struct list *stale_client_list;
+	struct zserv_stale_client_list_head stale_client_list;
 
 	struct zebra_router_table_head tables;
 

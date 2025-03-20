@@ -296,7 +296,6 @@ static void zebra_mlag_post_data_from_main_thread(struct event *thread)
 {
 	struct stream *s = EVENT_ARG(thread);
 	struct stream *zebra_s = NULL;
-	struct listnode *node;
 	struct zserv *client;
 	uint32_t msg_type = 0;
 	uint32_t msg_len = 0;
@@ -311,7 +310,7 @@ static void zebra_mlag_post_data_from_main_thread(struct event *thread)
 			__func__, msg_type);
 
 	msg_len = s->endp - ZEBRA_MLAG_METADATA_LEN;
-	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
 		if (client->mlag_updates_interested == true) {
 			if (msg_type != ZEBRA_MLAG_MSG_BCAST
 			    && !CHECK_FLAG(client->mlag_reg_mask1,

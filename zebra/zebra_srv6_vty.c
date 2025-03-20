@@ -484,14 +484,10 @@ DEFPY (locator_prefix,
 
 			if (memcmp(&chunk->prefix.prefix, zero, 16) == 0) {
 				struct zserv *client;
-				struct listnode *client_node;
 
 				chunk->prefix = *prefix;
-				for (ALL_LIST_ELEMENTS_RO(zrouter.client_list,
-							  client_node,
-							  client)) {
+				frr_each (zserv_client_list, &zrouter.client_list, client) {
 					struct srv6_locator *tmp;
-
 					if (client->proto != chunk->proto)
 						continue;
 

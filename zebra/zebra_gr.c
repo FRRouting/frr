@@ -62,15 +62,13 @@ static void zebra_gr_delete_stale_route_table_afi(struct event *event);
  * function will also clean up all per instance
  * capabilities that are exchanged.
  */
-void zebra_gr_stale_client_cleanup(struct list *client_list)
+void zebra_gr_stale_client_cleanup(void)
 {
-	struct listnode *node, *nnode;
 	struct zserv *s_client = NULL;
 	struct client_gr_info *info, *ninfo;
 
 	/* Find the stale client */
-	for (ALL_LIST_ELEMENTS(client_list, node, nnode, s_client)) {
-
+	frr_each_safe (zserv_stale_client_list, &zrouter.stale_client_list, s_client) {
 		LOG_GR("%s: Stale client %s is being deleted", __func__,
 		       zebra_route_string(s_client->proto));
 
@@ -173,7 +171,7 @@ int32_t zebra_gr_client_disconnect(struct zserv *client)
 		}
 	}
 
-	listnode_add(zrouter.stale_client_list, client);
+	zserv_stale_client_list_add_tail(&zrouter.stale_client_list, client);
 
 	return 0;
 }
@@ -215,7 +213,7 @@ static void zebra_gr_delete_stale_client(struct client_gr_info *info)
 	       info->vrf_id);
 
 	TAILQ_INIT(&(s_client->gr_info_queue));
-	listnode_delete(zrouter.stale_client_list, s_client);
+	zserv_stale_client_list_del(&zrouter.stale_client_list, s_client);
 	if (info->stale_client)
 		zserv_client_delete(s_client);
 	XFREE(MTYPE_ZEBRA_GR, info);
@@ -226,12 +224,10 @@ static void zebra_gr_delete_stale_client(struct client_gr_info *info)
  */
 static struct zserv *zebra_gr_find_stale_client(struct zserv *client)
 {
-	struct listnode *node, *nnode;
 	struct zserv *stale_client;
 
 	/* Find the stale client */
-	for (ALL_LIST_ELEMENTS(zrouter.stale_client_list, node, nnode,
-			       stale_client)) {
+	frr_each (zserv_stale_client_list, &zrouter.stale_client_list, stale_client) {
 		if (client->proto == stale_client->proto
 		    && client->instance == stale_client->instance) {
 			return stale_client;
@@ -246,17 +242,11 @@ static struct zserv *zebra_gr_find_stale_client(struct zserv *client)
  */
 void zebra_gr_client_reconnect(struct zserv *client)
 {
-	struct listnode *node, *nnode;
 	struct zserv *old_client = NULL;
 	struct client_gr_info *info = NULL;
 
 	/* Find the stale client */
-	for (ALL_LIST_ELEMENTS(zrouter.stale_client_list, node, nnode,
-			       old_client)) {
-		if (client->proto == old_client->proto
-		    && client->instance == old_client->instance)
-			break;
-	}
+	old_client = zebra_gr_find_stale_client(client);
 
 	/* Copy the timers */
 	if (!old_client)
@@ -281,7 +271,7 @@ void zebra_gr_client_reconnect(struct zserv *client)
 	}
 
 	/* Delete the stale client */
-	listnode_delete(zrouter.stale_client_list, old_client);
+	zserv_stale_client_list_del(&zrouter.stale_client_list, old_client);
 	/* Delete old client */
 	zserv_client_delete(old_client);
 }

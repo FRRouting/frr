@@ -1224,7 +1224,6 @@ static void pp_free_all(void)
  */
 static void zebra_ptm_send_bfdd(struct stream *msg)
 {
-	struct listnode *node;
 	struct zserv *client;
 	struct stream *msgc;
 
@@ -1232,7 +1231,7 @@ static void zebra_ptm_send_bfdd(struct stream *msg)
 	msgc = stream_dup(msg);
 
 	/* Send message to all running BFDd daemons. */
-	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
 		if (client->proto != ZEBRA_ROUTE_BFD)
 			continue;
 
@@ -1248,7 +1247,6 @@ static void zebra_ptm_send_bfdd(struct stream *msg)
 
 static void zebra_ptm_send_clients(struct stream *msg)
 {
-	struct listnode *node;
 	struct zserv *client;
 	struct stream *msgc;
 
@@ -1256,7 +1254,7 @@ static void zebra_ptm_send_clients(struct stream *msg)
 	msgc = stream_dup(msg);
 
 	/* Send message to all running client daemons. */
-	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
 		if (!IS_BFD_ENABLED_PROTOCOL(client->proto))
 			continue;
 

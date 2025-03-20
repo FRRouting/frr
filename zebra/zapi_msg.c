@@ -353,7 +353,6 @@ static int zsend_interface_nbr_address(int cmd, struct zserv *client,
 static void zebra_interface_nbr_address_add_update(struct interface *ifp,
 						   struct nbr_connected *ifc)
 {
-	struct listnode *node, *nnode;
 	struct zserv *client;
 	struct prefix *p;
 
@@ -368,7 +367,7 @@ static void zebra_interface_nbr_address_add_update(struct interface *ifp,
 			p->prefixlen, ifc->ifp->name);
 	}
 
-	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
 		/* Do not send unsolicited messages to synchronous clients. */
 		if (client->synchronous)
 			continue;
@@ -382,7 +381,6 @@ static void zebra_interface_nbr_address_add_update(struct interface *ifp,
 static void zebra_interface_nbr_address_delete_update(struct interface *ifp,
 						      struct nbr_connected *ifc)
 {
-	struct listnode *node, *nnode;
 	struct zserv *client;
 	struct prefix *p;
 
@@ -397,7 +395,7 @@ static void zebra_interface_nbr_address_delete_update(struct interface *ifp,
 			p->prefixlen, ifc->ifp->name);
 	}
 
-	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
 		/* Do not send unsolicited messages to synchronous clients. */
 		if (client->synchronous)
 			continue;
@@ -836,7 +834,6 @@ stream_failure:
 void zsend_rule_notify_owner(const struct zebra_dplane_ctx *ctx,
 			     enum zapi_rule_notify_owner note)
 {
-	struct listnode *node;
 	struct zserv *client;
 	struct stream *s;
 
@@ -844,7 +841,7 @@ void zsend_rule_notify_owner(const struct zebra_dplane_ctx *ctx,
 		zlog_debug("%s: Notifying %u", __func__,
 			   dplane_ctx_rule_get_unique(ctx));
 
-	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
 		if (dplane_ctx_rule_get_sock(ctx) == client->sock)
 			break;
 	}
@@ -871,7 +868,6 @@ void zsend_rule_notify_owner(const struct zebra_dplane_ctx *ctx,
 void zsend_iptable_notify_owner(const struct zebra_dplane_ctx *ctx,
 				enum zapi_iptable_notify_owner note)
 {
-	struct listnode *node;
 	struct zserv *client;
 	struct stream *s;
 	struct zebra_pbr_iptable ipt;
@@ -898,7 +894,7 @@ void zsend_iptable_notify_owner(const struct zebra_dplane_ctx *ctx,
 		zlog_debug("%s: Notifying %s id %u note %u", __func__,
 			   zserv_command_string(cmd), ipt.unique, note);
 
-	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
 		if (ipt.sock == client->sock)
 			break;
 	}
@@ -920,7 +916,6 @@ void zsend_iptable_notify_owner(const struct zebra_dplane_ctx *ctx,
 void zsend_ipset_notify_owner(const struct zebra_dplane_ctx *ctx,
 			      enum zapi_ipset_notify_owner note)
 {
-	struct listnode *node;
 	struct zserv *client;
 	struct stream *s;
 	struct zebra_pbr_ipset ipset;
@@ -932,7 +927,7 @@ void zsend_ipset_notify_owner(const struct zebra_dplane_ctx *ctx,
 		zlog_debug("%s: Notifying %s id %u note %u", __func__,
 			   zserv_command_string(cmd), ipset.unique, note);
 
-	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
 		if (ipset.sock == client->sock)
 			break;
 	}
@@ -954,7 +949,6 @@ void zsend_ipset_notify_owner(const struct zebra_dplane_ctx *ctx,
 void zsend_ipset_entry_notify_owner(const struct zebra_dplane_ctx *ctx,
 				    enum zapi_ipset_entry_notify_owner note)
 {
-	struct listnode *node;
 	struct zserv *client;
 	struct stream *s;
 	struct zebra_pbr_ipset_entry ipent;
@@ -968,7 +962,7 @@ void zsend_ipset_entry_notify_owner(const struct zebra_dplane_ctx *ctx,
 		zlog_debug("%s: Notifying %s id %u note %u", __func__,
 			   zserv_command_string(cmd), ipent.unique, note);
 
-	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
 		if (ipent.sock == client->sock)
 			break;
 	}
@@ -992,7 +986,6 @@ void zsend_neighbor_notify(int cmd, struct interface *ifp,
 			   union sockunion *link_layer_ipv4, int ip_len)
 {
 	struct stream *s;
-	struct listnode *node, *nnode;
 	struct zserv *client;
 	afi_t afi;
 	union sockunion ip;
@@ -1005,7 +998,7 @@ void zsend_neighbor_notify(int cmd, struct interface *ifp,
 	memcpy((char *)sockunion_get_addr(&ip), &ipaddr->ip.addr,
 	       family2addrsize(sockunion_family(&ip)));
 
-	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
 		if (!vrf_bitmap_check(&client->neighinfo[afi],
 				      ifp->vrf->vrf_id))
 			continue;
@@ -2439,12 +2432,11 @@ static void zsend_capabilities(struct zserv *client, struct zebra_vrf *zvrf)
 
 void zsend_capabilities_all_clients(void)
 {
-	struct listnode *node, *nnode;
 	struct zebra_vrf *zvrf;
 	struct zserv *client;
 
 	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
-	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
 		/* Do not send unsolicited messages to synchronous clients. */
 		if (client->synchronous)
 			continue;
