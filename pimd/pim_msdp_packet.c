@@ -618,6 +618,21 @@ static void pim_msdp_pkt_sa_rx(struct pim_msdp_peer *mp, int len)
 	int entry_cnt;
 	int i;
 	struct in_addr rp; /* Last RP address associated with this SA */
+	struct pim_msdp_mg *mg;
+	struct pim_instance *pim = mp->pim;
+	bool is_mesh_group = false;
+
+	if (mp->flags & PIM_MSDP_PEERF_IN_GROUP) {
+		/* Check if source is also in the same mesh group */
+		SLIST_FOREACH (mg, &pim->msdp.mglist, mg_entry) {
+			if (strcmp(mg->mesh_group_name, mp->mesh_group_name) == 0) {
+				if (mg->src_ip.s_addr == mp->local.s_addr) {
+					is_mesh_group = true;
+					break;
+				}
+			}
+		}
+	}
 
 	mp->sa_rx_cnt++;
 
@@ -645,7 +660,7 @@ static void pim_msdp_pkt_sa_rx(struct pim_msdp_peer *mp, int len)
 
 	pim_msdp_peer_pkt_rxed(mp);
 
-	if (!pim_msdp_peer_rpf_check(mp, rp)) {
+	if (!is_mesh_group && !pim_msdp_peer_rpf_check(mp, rp)) {
 		/* if peer-RPF check fails don't process the packet any further
 		 */
 		if (PIM_DEBUG_MSDP_PACKETS) {
