@@ -7,9 +7,6 @@ module frr-eigrpd {
   import ietf-inet-types {
     prefix inet;
   }
-  import ietf-yang-types {
-    prefix yang;
-  }
   import frr-interface {
     prefix frr-interface;
   }
@@ -62,6 +59,8 @@ module frr-eigrpd {
     description
       "Changed interface references to use
       frr-interface:interface-ref typedef";
+    reference
+      "RFC 7868: Cisco's Enhanced Interior Gateway Routing Protocol (EIGRP).";
   }
   revision 2019-06-19 {
     description "Initial revision.";
@@ -73,89 +72,91 @@ module frr-eigrpd {
    * Types specification.
    */
   typedef autonomous-system {
-    description "Administrative domain identification for a network";
     type uint16 {
       range "1..65535";
     }
+    description "Administrative domain identification for a network";
   }
 
   typedef authentication-type {
-    description "Authentication types";
     type enumeration {
       enum none {
-        description "Don't authenticate";
         value 0;
+        description "Don't authenticate";
       }
 
       enum text {
-        description "User defined text";
         value 1;
+        description "User defined text";
       }
 
       enum md5 {
-        description "MD5 algorithm";
         value 2;
+        description "MD5 algorithm";
       }
 
       enum hmac-sha-256 {
-        description "HMAC SHA256 algorithm";
         value 3;
+        description "HMAC SHA256 algorithm";
       }
     }
+    description "Authentication types";
   }
 
   /*
    * EIGRP operational data.
    */
   container eigrpd {
+    description "EIGRP daemon configuration";
+
     list instance {
       key "asn vrf";
       description "EIGRP autonomous system instance";
 
       leaf asn {
-        description "Autonomous System Number";
         type autonomous-system;
+        description "Autonomous System Number";
       }
 
       leaf vrf {
-        description "Virtual Routing Domain name";
         type frr-vrf:vrf-ref;
+        description "Virtual Routing Domain name";
       }
 
       /*
        * Configurations.
        */
       leaf router-id {
-        description "Router identification";
         type inet:ipv4-address;
+        description "Router identification";
       }
 
       leaf-list passive-interface {
-        description "List of suppressed interfaces";
         type frr-interface:interface-ref;
+        description "List of suppressed interfaces";
       }
 
       leaf active-time {
-        description "ACTIVE time limit in seconds (0 disables limit)";
         type uint16 {
           range "0..65535";
         }
         units seconds;
         default 180;
+        description "ACTIVE time limit in seconds (0 disables limit)";
       }
 
       leaf variance {
-        description "Control load balance variance";
         type uint8 {
           range "1..128";
         }
+        description "Control load balance variance";
       }
 
       leaf maximum-paths {
-        description "Most number of paths to forward packets to";
         type uint8 {
           range "1..32";
         }
+        description "Most number of paths to forward packets to";
       }
 
       container metric-weights {
@@ -175,116 +176,116 @@ module frr-eigrpd {
            RFC 7868 Sections 5.5 and 5.6.2.5.";
 
         leaf K1 {
-          description "Bandwidth coefficient.";
           type uint8 {
             range "0..255";
           }
+          description "Bandwidth coefficient.";
         }
 
         leaf K2 {
-          description "Bandwidth on load coefficient.";
           type uint8 {
             range "0..255";
           }
+          description "Bandwidth on load coefficient.";
         }
 
         leaf K3 {
-          description "Delay or latency-based coefficient.";
           type uint8 {
             range "0..255";
           }
+          description "Delay or latency-based coefficient.";
         }
 
         leaf K4 {
-          description "Link quality coefficient.";
           type uint8 {
             range "0..255";
           }
+          description "Link quality coefficient.";
         }
 
         leaf K5 {
-          description "Packet loss coefficient.";
           type uint8 {
             range "0..255";
           }
+          description "Packet loss coefficient.";
         }
 
         leaf K6 {
-          description "Jitter coefficient.";
           type uint8 {
             range "0..255";
           }
+          description "Jitter coefficient.";
         }
       }
 
       leaf-list network {
-        description "Enable EIGRP on the specific network";
         type inet:ipv4-prefix;
+        description "Enable EIGRP on the specific network";
       }
 
       leaf-list neighbor {
-        description "Specific EIGRP neighbor";
         type inet:ipv4-address;
+        description "Specific EIGRP neighbor";
       }
 
       uses frr-filter:distribute-list-group;
 
       list redistribute {
-        description "Redistribute routes learned from other routing protocols";
-
         key "protocol";
 
+        description "Redistribute routes learned from other routing protocols";
+
         leaf protocol {
-          description "Routing protocol";
           type frr-route-types:frr-route-types-v4;
           must '. != "eigrp"';
+          description "Routing protocol";
         }
 
         leaf route-map {
+          type frr-route-map:route-map-ref;
           description
             "Applies the conditions of the specified route-map to
              routes that are redistributed into the EIGRP routing
              instance";
-          type frr-route-map:route-map-ref;
         }
 
         container metrics {
           description "Metric for the redistributed routes";
 
           leaf bandwidth {
-            description "Bandwidth metric in Kbits per second";
             type uint32 {
               range "1..4294967295";
             }
+            description "Bandwidth metric in Kbits per second";
           }
 
           leaf delay {
-            description "Delay metric";
-            units microseconds;
             type uint32 {
               range "0..4294967295";
             }
+            units microseconds;
+            description "Delay metric";
           }
 
           leaf reliability {
-            description "Reliability metric";
             type uint32 {
               range "0..255";
             }
+            description "Reliability metric";
           }
 
           leaf load {
-            description "Effective bandwidth usage";
             type uint32 {
               range "1..255";
             }
+            description "Effective bandwidth usage";
           }
 
           leaf mtu {
-            description "Path Maximum Transmission Unit";
             type uint32 {
               range "1..65535";
             }
+            description "Path Maximum Transmission Unit";
           }
         }
       }
@@ -295,76 +296,78 @@ module frr-eigrpd {
    * EIGRP interface configurations.
    */
    augment "/frr-interface:lib/frr-interface:interface" {
+     description "Augments interface configuration with EIGRP parameters";
+
      container eigrp {
        description "EIGRP interface parameters";
 
        leaf delay {
-         description "Throughput delay";
          type uint32 {
            range "1..16777215";
          }
          default 10;
+         description "Throughput delay";
        }
 
        leaf bandwidth {
-         description "Interface bandwidth value";
          type uint32 {
            range "1..10000000";
          }
          default 100000;
+         description "Interface bandwidth value";
        }
 
        leaf hello-interval {
-         description "Hello packet interval";
          type uint16 {
            range "1..65535";
          }
          units seconds;
          default 5;
+         description "Hello packet interval";
        }
 
        leaf hold-time {
-         description "Timeout amount to consider neighbor down";
          type uint16 {
            range "1..65535";
          }
          units seconds;
          default 15;
+         description "Timeout amount to consider neighbor down";
        }
 
        leaf split-horizon {
-         description "Perform split horizon loop preventing technique";
          type boolean;
          default true;
+         description "Perform split horizon loop preventing technique";
        }
 
        /*
         * Per AS configuration.
         */
        list instance {
-         description "Autonomous System specific configuration";
-
          key "asn";
 
+         description "Autonomous System specific configuration";
+
          leaf asn {
-           description "Autonomous System Number";
            type autonomous-system;
+           description "Autonomous System Number";
          }
 
          leaf-list summarize-addresses {
-           description "Peform address summarization";
            type inet:ipv4-prefix;
+           description "Peform address summarization";
          }
 
          leaf authentication {
-           description "Authentication digest algorithm";
            type authentication-type;
            default "none";
+           description "Authentication digest algorithm";
          }
 
          leaf keychain {
-           description "FRR key chain name to use with authentication";
            type string;
+           description "FRR key chain name to use with authentication";
          }
        }
      }
