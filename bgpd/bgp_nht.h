@@ -25,11 +25,10 @@ extern void bgp_nexthop_update(struct vrf *vrf, struct prefix *match,
  *   peer - The BGP peer associated with this NHT
  *   connected - True if NH MUST be a connected route
  */
-extern int bgp_find_or_add_nexthop(struct bgp *bgp_route,
-				   struct bgp *bgp_nexthop, afi_t a,
-				   safi_t safi, struct bgp_path_info *p,
-				   struct peer *peer, int connected,
-				   const struct prefix *orig_prefix);
+extern int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop, afi_t a,
+				   safi_t safi, struct bgp_path_info *p, struct peer *peer,
+				   int connected, const struct prefix *orig_prefix,
+				   struct bgp_path_info *source_pi);
 
 /**
  * bgp_unlink_nexthop() - Unlink the nexthop object from the path structure.

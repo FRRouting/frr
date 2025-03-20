@@ -1088,10 +1088,8 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 		/* the route is defined with the "network <prefix>" command */
 
 		if (CHECK_FLAG(bgp_nexthop->flags, BGP_FLAG_IMPORT_CHECK))
-			nh_valid = bgp_find_or_add_nexthop(to_bgp, bgp_nexthop,
-							   afi, SAFI_UNICAST,
-							   bpi_ultimate, NULL,
-							   0, p);
+			nh_valid = bgp_find_or_add_nexthop(to_bgp, bgp_nexthop, afi, SAFI_UNICAST,
+							   bpi_ultimate, NULL, 0, p, bpi_ultimate);
 		else
 			/* if "no bgp network import-check" is set,
 			 * then mark the nexthop as valid.
@@ -1105,8 +1103,12 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 		 * TBD do we need to do anything about the
 		 * 'connected' parameter?
 		 */
-		nh_valid = bgp_find_or_add_nexthop(to_bgp, bgp_nexthop, afi,
-						   safi, bpi, NULL, 0, p);
+		/* VPN paths: the new bpi may be altered like
+		 * with 'nexthop vpn export' command. Use the bpi_ultimate
+		 * to find the original nexthop
+		 */
+		nh_valid = bgp_find_or_add_nexthop(to_bgp, bgp_nexthop, afi, safi, bpi, NULL, 0, p,
+						   bpi_ultimate);
 
 	/*
 	 * If you are using SRv6 VPN instead of MPLS, it need to check
@@ -1594,8 +1596,8 @@ vpn_leak_from_vrf_get_per_nexthop_label(afi_t afi, struct bgp_path_info *pi,
 		bgp_nexthop = from_bgp;
 
 	nh_afi = BGP_ATTR_NH_AFI(afi, pi->attr);
-	nh_valid = bgp_find_or_add_nexthop(from_bgp, bgp_nexthop, nh_afi,
-					   SAFI_UNICAST, pi, NULL, 0, NULL);
+	nh_valid = bgp_find_or_add_nexthop(from_bgp, bgp_nexthop, nh_afi, SAFI_UNICAST, pi, NULL, 0,
+					   NULL, NULL);
 
 	if (!nh_valid && is_bgp_static_route &&
 	    !CHECK_FLAG(from_bgp->flags, BGP_FLAG_IMPORT_CHECK)) {

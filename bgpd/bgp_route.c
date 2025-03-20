@@ -4937,6 +4937,7 @@ bgp_update_nexthop_reachability_check(struct bgp *bgp, struct peer *peer, struct
 {
 	bool connected;
 	afi_t nh_afi;
+	struct bgp_path_info *bpi_ultimate = NULL;
 
 	if (((afi == AFI_IP || afi == AFI_IP6) &&
 	     (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST ||
@@ -4952,13 +4953,16 @@ bgp_update_nexthop_reachability_check(struct bgp *bgp, struct peer *peer, struct
 
 		struct bgp *bgp_nexthop = bgp;
 
-		if (pi->extra && pi->extra->vrfleak && pi->extra->vrfleak->bgp_orig)
+		if (pi->extra && pi->extra->vrfleak && pi->extra->vrfleak->bgp_orig) {
 			bgp_nexthop = pi->extra->vrfleak->bgp_orig;
+			if (pi->sub_type == BGP_ROUTE_IMPORTED)
+				bpi_ultimate = bgp_get_imported_bpi_ultimate(pi);
+		}
 
 		nh_afi = BGP_ATTR_NH_AFI(afi, pi->attr);
 
 		if (bgp_find_or_add_nexthop(bgp, bgp_nexthop, nh_afi, safi, pi, NULL, connected,
-					    bgp_nht_param_prefix) ||
+					    bgp_nht_param_prefix, bpi_ultimate) ||
 		    CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD)) {
 			if (accept_own)
 				bgp_path_info_set_flag(dest, pi, BGP_PATH_ACCEPT_OWN);
@@ -7332,8 +7336,8 @@ static void bgp_nexthop_reachability_check(afi_t afi, safi_t safi,
 	/* Nexthop reachability check. */
 	if (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST) {
 		if (CHECK_FLAG(bgp->flags, BGP_FLAG_IMPORT_CHECK)) {
-			if (bgp_find_or_add_nexthop(bgp, bgp_nexthop, afi, safi,
-						    bpi, NULL, 0, p))
+			if (bgp_find_or_add_nexthop(bgp, bgp_nexthop, afi, safi, bpi, NULL, 0, p,
+						    NULL))
 				bgp_path_info_set_flag(dest, bpi,
 						       BGP_PATH_VALID);
 			else {
