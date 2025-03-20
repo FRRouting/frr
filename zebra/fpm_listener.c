@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <time.h>
 
 #ifdef GNU_LINUX
 #include <stdint.h>
@@ -43,6 +44,7 @@ struct glob {
 	int server_sock;
 	int sock;
 	bool reflect;
+	bool reflect_fail_all;
 	bool dump_hex;
 	FILE *output_file;
 };
@@ -67,6 +69,24 @@ get_print_buf(size_t *buf_len)
 
 	*buf_len = 128;
 	return &print_bufs[counter][0];
+}
+
+/*
+ * get_timestamp
+ * Returns a timestamp string.
+ */
+static const char *get_timestamp(void)
+{
+	static char timestamp[64];
+	struct timespec ts;
+	struct tm tm;
+
+	clock_gettime(CLOCK_REALTIME, &ts);
+	localtime_r(&ts.tv_sec, &tm);
+	snprintf(timestamp, sizeof(timestamp), "%04d-%02d-%02d %02d:%02d:%02d.%09ld",
+		 tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec,
+		 ts.tv_nsec);
+	return timestamp;
 }
 
 /*
@@ -130,7 +150,7 @@ static int accept_conn(int listen_sock)
 			      &client_len);
 
 		if (sock >= 0) {
-			fprintf(glob->output_file, "Accepted client %s\n",
+			fprintf(glob->output_file, "[%s] Accepted client %s\n", get_timestamp(),
 				inet_ntop(AF_INET, &client_addr.sin_addr, buf, sizeof(buf)));
 			return sock;
 		}
@@ -584,12 +604,10 @@ static int netlink_msg_ctx_snprint(struct netlink_msg_ctx *ctx, char *buf,
 	cur = buf;
 	end = buf + buf_len;
 
-	cur += snprintf(cur, end - cur, "%s %s/%d, Prot: %s(%u)",
+	cur += snprintf(cur, end - cur, "[%s] %s %s/%d, Prot: %s(%u)", get_timestamp(),
 			netlink_msg_type_to_s(hdr->nlmsg_type),
-			addr_to_s(rtmsg->rtm_family, RTA_DATA(ctx->dest)),
-			rtmsg->rtm_dst_len,
-			netlink_prot_to_s(rtmsg->rtm_protocol),
-			rtmsg->rtm_protocol);
+			addr_to_s(rtmsg->rtm_family, RTA_DATA(ctx->dest)), rtmsg->rtm_dst_len,
+			netlink_prot_to_s(rtmsg->rtm_protocol), rtmsg->rtm_protocol);
 
 	if (ctx->metric)
 		cur += snprintf(cur, end - cur, ", Metric: %d", *ctx->metric);
@@ -711,17 +729,23 @@ static void parse_netlink_msg(char *buf, size_t buf_len, fpm_msg_hdr_t *fpm)
 
 			if (glob->reflect && hdr->nlmsg_type == RTM_NEWROUTE &&
 			    ctx->rtmsg->rtm_protocol > RTPROT_STATIC) {
-				fprintf(glob->output_file, "  Route %s(%u) reflecting back\n",
-					netlink_prot_to_s(ctx->rtmsg->rtm_protocol),
-					ctx->rtmsg->rtm_protocol);
-				ctx->rtmsg->rtm_flags |= RTM_F_OFFLOAD;
+				fprintf(glob->output_file,
+					"[%s] Route %s(%u) reflecting back as %s\n",
+					get_timestamp(), netlink_prot_to_s(ctx->rtmsg->rtm_protocol),
+					ctx->rtmsg->rtm_protocol,
+					glob->reflect_fail_all ? "Offload Failed" : "Offloaded");
+				if (glob->reflect_fail_all)
+					ctx->rtmsg->rtm_flags |= RTM_F_OFFLOAD_FAILED;
+				else
+					ctx->rtmsg->rtm_flags |= RTM_F_OFFLOAD;
 				write(glob->sock, fpm, fpm_msg_len(fpm));
 			}
 			break;
 
 		default:
-			fprintf(glob->output_file, "Ignoring netlink message - Type: %s(%d)\n",
-				netlink_msg_type_to_s(hdr->nlmsg_type), hdr->nlmsg_type);
+			fprintf(glob->output_file, "[%s] Ignoring netlink message - Type: %s(%d)\n",
+				get_timestamp(), netlink_msg_type_to_s(hdr->nlmsg_type),
+				hdr->nlmsg_type);
 		}
 	}
 }
@@ -731,8 +755,8 @@ static void parse_netlink_msg(char *buf, size_t buf_len, fpm_msg_hdr_t *fpm)
  */
 static void process_fpm_msg(fpm_msg_hdr_t *hdr)
 {
-	fprintf(glob->output_file, "FPM message - Type: %d, Length %d\n", hdr->msg_type,
-		ntohs(hdr->msg_len));
+	fprintf(glob->output_file, "[%s] FPM message - Type: %d, Length %d\n", get_timestamp(),
+		hdr->msg_type, ntohs(hdr->msg_len));
 
 	if (hdr->msg_type != FPM_MSG_TYPE_NETLINK) {
 		fprintf(stderr, "Unknown fpm message type %u\n", hdr->msg_type);
@@ -772,10 +796,13 @@ int main(int argc, char **argv)
 	memset(glob, 0, sizeof(*glob));
 	glob->output_file = stdout;
 
-	while ((r = getopt(argc, argv, "rdvo:")) != -1) {
+	while ((r = getopt(argc, argv, "rfdvo:")) != -1) {
 		switch (r) {
 		case 'r':
 			glob->reflect = true;
+			break;
+		case 'f':
+			glob->reflect_fail_all = true;
 			break;
 		case 'd':
 			fork_daemon = true;
