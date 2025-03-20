@@ -43,7 +43,7 @@ DEFINE_HOOK(bgp_hook_nht_update, (struct bgp_nexthop_cache * bnc, bool created),
 	    (bnc, created));
 
 static bool make_prefix(int afi, safi_t safi, struct bgp_path_info *pi, struct prefix *p,
-			struct bgp *bgp_nexthop);
+			struct bgp *bgp_nexthop, struct bgp_path_info *pi_source);
 static void bgp_nht_ifp_initial(struct event *thread);
 
 DEFINE_HOOK(bgp_nht_path_update, (struct bgp *bgp, struct bgp_path_info *pi, bool valid),
@@ -301,10 +301,9 @@ void bgp_unlink_nexthop_by_peer(struct peer *peer)
  * A route and its nexthop might belong to different VRFs. Therefore,
  * we need both the bgp_route and bgp_nexthop pointers.
  */
-int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
-			    afi_t afi, safi_t safi, struct bgp_path_info *pi,
-			    struct peer *peer, int connected,
-			    const struct prefix *orig_prefix)
+int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop, afi_t afi, safi_t safi,
+			    struct bgp_path_info *pi, struct peer *peer, int connected,
+			    const struct prefix *orig_prefix, struct bgp_path_info *source_pi)
 {
 	struct bgp_nexthop_cache_head *tree = NULL;
 	struct bgp_nexthop_cache *bnc;
@@ -329,7 +328,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 
 		/* This will return true if the global IPv6 NH is a link local
 		 * addr */
-		if (!make_prefix(afi, safi, pi, &p, bgp_nexthop))
+		if (!make_prefix(afi, safi, pi, &p, bgp_nexthop, source_pi))
 			return 1;
 
 		/*
@@ -1017,7 +1016,7 @@ void bgp_cleanup_nexthops(struct bgp *bgp)
  * path's node.
  */
 static bool make_prefix(int afi, safi_t safi, struct bgp_path_info *pi, struct prefix *p,
-			struct bgp *bgp_nexthop)
+			struct bgp *bgp_nexthop, struct bgp_path_info *source_pi)
 {
 	bool is_labeled_unicast, is_imported, has_labels;
 	int is_bgp_static = ((pi->type == ZEBRA_ROUTE_BGP)
@@ -1027,12 +1026,20 @@ static bool make_prefix(int afi, safi_t safi, struct bgp_path_info *pi, struct p
 	struct bgp_dest *net = pi->net;
 	const struct prefix *p_orig = bgp_dest_get_prefix(net);
 	struct in_addr ipv4;
-	struct peer *peer = pi->peer;
-	struct attr *attr = pi->attr;
+	struct peer *peer;
+	struct attr *attr;
 	const struct prefix *pi_prefix;
 	bool local_sid = false;
 	struct bgp *bgp = bgp_get_default();
 	struct prefix_ipv6 tmp_prefix;
+
+	if (source_pi) {
+		attr = source_pi->attr;
+		peer = source_pi->peer;
+	} else {
+		peer = pi->peer;
+		attr = pi->attr;
+	}
 
 	if (p_orig->family == AF_FLOWSPEC) {
 		if (!peer)
@@ -1057,10 +1064,10 @@ static bool make_prefix(int afi, safi_t safi, struct bgp_path_info *pi, struct p
 		break;
 	case AFI_IP6:
 		p->family = AF_INET6;
-		if (bgp && bgp->srv6_locator && bgp->srv6_enabled && attr->srv6_l3vpn) {
+		if (bgp && bgp->srv6_locator && bgp->srv6_enabled && pi->attr->srv6_l3vpn) {
 			tmp_prefix.family = AF_INET6;
 			tmp_prefix.prefixlen = IPV6_MAX_BITLEN;
-			tmp_prefix.prefix = attr->srv6_l3vpn->sid;
+			tmp_prefix.prefix = pi->attr->srv6_l3vpn->sid;
 			if (bgp_nexthop->vpn_policy[afi].tovpn_sid_locator &&
 			    bgp_nexthop->vpn_policy[afi].tovpn_sid)
 				local_sid = prefix_match(&bgp_nexthop->vpn_policy[afi]
@@ -1070,22 +1077,22 @@ static bool make_prefix(int afi, safi_t safi, struct bgp_path_info *pi, struct p
 				local_sid = prefix_match(&bgp_nexthop->tovpn_sid_locator->prefix,
 							 &tmp_prefix);
 		}
-		if (local_sid == false && attr->srv6_l3vpn) {
+		if (local_sid == false && pi->attr->srv6_l3vpn) {
 			p->prefixlen = IPV6_MAX_BITLEN;
-			if (attr->srv6_l3vpn->transposition_len != 0 &&
+			if (pi->attr->srv6_l3vpn->transposition_len != 0 &&
 			    bgp_path_info_has_valid_label(pi)) {
-				memcpy(&p->u.prefix6, &attr->srv6_l3vpn->sid,
+				memcpy(&p->u.prefix6, &pi->attr->srv6_l3vpn->sid,
 				       sizeof(struct in6_addr));
 				transpose_sid(&p->u.prefix6,
 					      decode_label(&pi->extra->labels
 								    ->label[0]),
-					      attr->srv6_l3vpn
+					      pi->attr->srv6_l3vpn
 						      ->transposition_offset,
-					      attr->srv6_l3vpn
+					      pi->attr->srv6_l3vpn
 						      ->transposition_len);
 			} else
 				IPV6_ADDR_COPY(&(p->u.prefix6),
-					       &(attr->srv6_l3vpn->sid));
+					       &(pi->attr->srv6_l3vpn->sid));
 		} else if (is_bgp_static) {
 			p->u.prefix6 = p_orig->u.prefix6;
 			p->prefixlen = p_orig->prefixlen;
