@@ -1112,11 +1112,11 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 	 * If you are using SRv6 VPN instead of MPLS, it need to check
 	 * the SID allocation. If the sid is not allocated, the rib
 	 * will be invalid.
+	 * If the SID per VRF is not available, also consider the rib as
+	 * invalid.
 	 */
-	if (to_bgp->srv6_enabled &&
-	    (!new_attr->srv6_l3vpn && !new_attr->srv6_vpn)) {
-		nh_valid = false;
-	}
+	if (to_bgp->srv6_enabled && nh_valid)
+		nh_valid = is_pi_srv6_valid(bpi, bgp_nexthop, afi, safi);
 
 	if (debug)
 		zlog_debug("%s: %pFX nexthop is %svalid (in %s)", __func__, p,
@@ -2337,8 +2337,8 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	/* to */
 			break;
 	}
 
-	if (bpi && leak_update_nexthop_valid(to_bgp, bn, &static_attr, afi, safi,
-					     path_vpn, bpi, src_vrf, p, debug))
+	if (bpi && leak_update_nexthop_valid(to_bgp, bn, &static_attr, afi, safi, path_vpn, bpi,
+					     src_vrf, p, debug))
 		SET_FLAG(static_attr.nh_flags, BGP_ATTR_NH_VALID);
 	else
 		UNSET_FLAG(static_attr.nh_flags, BGP_ATTR_NH_VALID);
