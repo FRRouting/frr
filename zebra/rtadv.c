@@ -493,7 +493,32 @@ static void start_icmpv6_join_timer(struct event *thread)
 			   ifp->vrf->name, ifp->ifindex);
 }
 
-void process_rtadv(void *arg)
+void process_rtadv_regular(void *arg)
+{
+	struct interface *ifp = arg;
+	struct zebra_if *zif = ifp->info;
+	struct zebra_vrf *zvrf = rtadv_interface_get_zvrf(ifp);
+
+	zif->rtadv.AdvIntervalTimer -= RTADV_TIMER_REGULAR_WHEEL_PERIOD_MS;
+	/* Wait atleast AdvIntervalTimer time before sending next RA
+	 * AdvIntervalTimer can go negative, when ra_wheel timer expiry
+	 * interval is not a multiple of AdvIntervalTimer. Say ra_wheel
+	 * expiry time is 10 ms and, AdvIntervalTimer == 1005 ms. Allowing
+	 * AdvIntervalTimer to go negative and checking, gurantees that
+	 * we have waited Wait atleast AdvIntervalTimer, so RA can be
+	 * sent now.
+	 */
+	if (zif->rtadv.AdvIntervalTimer <= 0) {
+		zif->rtadv.AdvIntervalTimer = zif->rtadv.MaxRtrAdvInterval;
+		if (IS_ZEBRA_DEBUG_SEND)
+			zlog_debug("Doing regular RA Rexmit on interface %s(%s:%u)", ifp->name,
+				   ifp->vrf->name, ifp->ifindex);
+
+		rtadv_send_packet(zvrf->rtadv.sock, ifp, RA_ENABLE);
+	}
+}
+
+void process_rtadv_faster(void *arg)
 {
 	struct interface *ifp = arg;
 	struct zebra_if *zif = ifp->info;
@@ -503,29 +528,13 @@ void process_rtadv(void *arg)
 		if (--zif->rtadv.NumFastReXmitsRemain <= 0)
 			zif->rtadv.inFastRexmit = 0;
 
+		wheel_remove_item(zrouter.ra_fast_wheel, ifp);
+		wheel_add_item(zrouter.ra_regular_wheel, ifp);
 		if (IS_ZEBRA_DEBUG_SEND)
 			zlog_debug("Doing fast RA Rexmit on interface %s(%s:%u)", ifp->name,
 				   ifp->vrf->name, ifp->ifindex);
 
 		rtadv_send_packet(zvrf->rtadv.sock, ifp, RA_ENABLE);
-	} else {
-		zif->rtadv.AdvIntervalTimer -= RTADV_TIMER_WHEEL_PERIOD_MS;
-		/* Wait atleast AdvIntervalTimer time before sending next RA
-		 * AdvIntervalTimer can go negative, when ra_wheel timer expiry
-		 * interval is not a multiple of AdvIntervalTimer. Say ra_wheel
-		 * expiry time is 10 ms and, AdvIntervalTimer == 1005 ms. Allowing 
-		 * AdvIntervalTimer to go negative and checking, gurantees that
-		 * we have waited Wait atleast AdvIntervalTimer, so RA can be 
-		 * sent now.
-		*/
-		if (zif->rtadv.AdvIntervalTimer <= 0) {
-			zif->rtadv.AdvIntervalTimer = zif->rtadv.MaxRtrAdvInterval;
-			if (IS_ZEBRA_DEBUG_SEND)
-				zlog_debug("Doing regular RA Rexmit on interface %s(%s:%u)",
-					   ifp->name, ifp->vrf->name, ifp->ifindex);
-
-			rtadv_send_packet(zvrf->rtadv.sock, ifp, RA_ENABLE);
-		}
 	}
 }
 
@@ -1092,21 +1101,22 @@ static struct adv_if *adv_if_del(struct zebra_vrf *zvrf, const char *name)
  * Add to list. On Success, return NULL, otherwise return already existing
  * adv_if.
  */
-static struct adv_if *adv_msec_if_add(struct zebra_vrf *zvrf, const char *name)
+static struct adv_if *adv_msec_if_add(struct zebra_vrf *zvrf, struct interface *ifp)
 {
 	struct adv_if *adv_if = NULL;
 
-	adv_if = adv_if_add_internal(&zvrf->rtadv.adv_msec_if, name);
-
+	adv_if = adv_if_add_internal(&zvrf->rtadv.adv_msec_if, ifp->name);
+	/* Try to remove from regular wheel to fast wheel */
+	wheel_remove_item(zrouter.ra_regular_wheel, ifp);
+	wheel_add_item(zrouter.ra_fast_wheel, ifp);
 	if (adv_if != NULL)
 		return adv_if;
 
 	if (IS_ZEBRA_DEBUG_EVENT) {
 		struct vrf *vrf = zvrf->vrf;
 
-		zlog_debug("%s: %s:%u IF %s count: %zu", __func__,
-			   VRF_LOGNAME(vrf), zvrf_id(zvrf), name,
-			   adv_if_list_count(&zvrf->rtadv.adv_msec_if));
+		zlog_debug("%s: %s:%u IF %s count: %zu", __func__, VRF_LOGNAME(vrf), zvrf_id(zvrf),
+			   ifp->name, adv_if_list_count(&zvrf->rtadv.adv_msec_if));
 	}
 
 	return NULL;
@@ -1324,6 +1334,11 @@ static void rtadv_start_interface_events(struct zebra_vrf *zvrf,
 		return;
 	}
 
+	if (zif->rtadv.inFastRexmit)
+		wheel_add_item(zrouter.ra_fast_wheel, zif->ifp);
+	else
+		wheel_add_item(zrouter.ra_regular_wheel, zif->ifp);
+
 	adv_if = adv_if_add(zvrf, zif->ifp->name);
 	if (adv_if != NULL)
 		return; /* Already added */
@@ -1354,8 +1369,12 @@ void ipv6_nd_suppress_ra_set(struct interface *ifp,
 	if (status == RA_SUPPRESS) {
 		/* RA is currently enabled */
 		if (zif->rtadv.AdvSendAdvertisements) {
-			/* Try to delete from the ra wheel */
-			wheel_remove_item(zrouter.ra_wheel, ifp);
+			/* Try to delete from the ra wheels */
+			if (zif->rtadv.inFastRexmit)
+				wheel_remove_item(zrouter.ra_fast_wheel, ifp);
+			else
+				wheel_remove_item(zrouter.ra_regular_wheel, ifp);
+
 			rtadv_send_packet(zvrf->rtadv.sock, ifp, RA_SUPPRESS);
 			zif->rtadv.AdvSendAdvertisements = 0;
 			zif->rtadv.AdvIntervalTimer = 0;
@@ -1382,11 +1401,9 @@ void ipv6_nd_suppress_ra_set(struct interface *ifp,
 				 * secs and Fast RA retransmit is enabled
 				 */
 				zif->rtadv.inFastRexmit = 1;
-				zif->rtadv.NumFastReXmitsRemain =
-					RTADV_NUM_FAST_REXMITS;
+				zif->rtadv.NumFastReXmitsRemain = RTADV_NUM_FAST_REXMITS;
 			}
 
-			wheel_add_item(zrouter.ra_wheel, ifp);
 			rtadv_start_interface_events(zvrf, zif);
 		}
 	}
@@ -1405,7 +1422,7 @@ void ipv6_nd_interval_set(struct interface *ifp, uint32_t interval)
 	}
 
 	if (interval % 1000)
-		(void)adv_msec_if_add(zvrf, ifp->name);
+		(void)adv_msec_if_add(zvrf, ifp);
 
 	zif->rtadv.MaxRtrAdvInterval = interval;
 	zif->rtadv.MinRtrAdvInterval = 0.33 * interval;
@@ -1515,7 +1532,10 @@ void rtadv_stop_ra(struct interface *ifp)
 	zvrf = rtadv_interface_get_zvrf(ifp);
 
 	/*Try to delete from ra wheels */
-	wheel_remove_item(zrouter.ra_wheel, ifp);
+	if (zif->rtadv.inFastRexmit)
+		wheel_remove_item(zrouter.ra_fast_wheel, ifp);
+	else
+		wheel_remove_item(zrouter.ra_regular_wheel, ifp);
 
 	/*Turn off event for ICMPv6 join*/
 	EVENT_OFF(zif->icmpv6_join_timer);
