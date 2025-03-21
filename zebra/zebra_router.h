@@ -112,8 +112,9 @@ struct zebra_mlag_info {
 	struct event *t_write;
 };
 
-#define RTADV_TIMER_WHEEL_PERIOD_MS 1000
-#define RTADV_TIMER_WHEEL_SLOTS_NO  100
+#define RTADV_TIMER_REGULAR_WHEEL_PERIOD_MS 1000
+#define RTADV_TIMER_WHEEL_SLOTS_NO	    10
+#define RTADV_TIMER_FAST_WHEEL_PERIOD_MS    10
 #define ICMPV6_JOIN_TIMER_EXP_MS    100
 
 struct zebra_router {
@@ -122,8 +123,11 @@ struct zebra_router {
 	/* Thread master */
 	struct event_loop *master;
 
-	/* Wheel to process V6 RA update */
-	struct timer_wheel *ra_wheel;
+	/* Wheel to process fast V6 RA update */
+	struct timer_wheel *ra_regular_wheel;
+
+	/* Wheel to process fast V6 RA update */
+	struct timer_wheel *ra_fast_wheel;
 
 	/* Lists of clients who have connected to us */
 	struct list *client_list;
