@@ -8683,6 +8683,10 @@ void bgp_master_init(struct event_loop *master, const int buffer_size,
 
 	bm = &bgp_master;
 
+	/* Initialize the peer connection FIFO list */
+	peer_connection_fifo_init(&bm->connection_fifo);
+	pthread_mutex_init(&bm->peer_connection_mtx, NULL);
+
 	zebra_announce_init(&bm->zebra_announce_head);
 	zebra_l2_vni_init(&bm->zebra_l2_vni_head);
 	zebra_l3_vni_init(&bm->zebra_l3_vni_head);

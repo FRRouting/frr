@@ -161,6 +161,14 @@ __attribute__((__noreturn__)) void sigint(void)
 
 	bgp_exit(0);
 
+	/*
+	 * This is being done after bgp_exit because items may be removed
+	 * from the connection_fifo
+	 */
+	peer_connection_fifo_fini(&bm->connection_fifo);
+	EVENT_OFF(bm->e_process_packet);
+	pthread_mutex_destroy(&bm->peer_connection_mtx);
+
 	exit(0);
 }
 
