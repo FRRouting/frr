@@ -17,7 +17,9 @@ struct timer_wheel {
 	long long curr_slot;
 	unsigned int period;
 	unsigned int nexttime;
-	unsigned int slots_to_skip;
+	int slots_to_skip;
+	int start_wait;
+	bool run_forever;
 
 	struct list **wheel_slot_lists;
 	struct event *timer;
@@ -38,9 +40,17 @@ struct timer_wheel {
  *          for items in each slot
  * slots  - The number of slots to have in this particular
  *          timer wheel
+ *
+ * start_wait - Initial start wait in ms, before the wheel timer
+ *              is started first time, if no wait, pass 0
+ *
  * slot_key - A hashing function of some sort that will allow
  *            the timer wheel to put items into individual slots
  * slot_run - The function to run over each item in a particular slot
+ *
+ * run_forever - If this wheel timer is supposed to run forever,
+ *               otherwise this flag will be used to pause the timer
+ *               if no item left in wheel slots.
  *
  * Creates a timer wheel that will wake up 'slots' times over the entire
  * wheel.  Each time the timer wheel wakes up it will iterate through
@@ -65,10 +75,9 @@ struct timer_wheel {
  * and cause significant amount of time handling thread events instead
  * of running your code.
  */
-struct timer_wheel *wheel_init(struct event_loop *master, int period,
-			       size_t slots,
-			       unsigned int (*slot_key)(const void *),
-			       void (*slot_run)(void *), const char *run_name);
+struct timer_wheel *wheel_init(struct event_loop *master, int period, size_t slots, int start_wait,
+			       unsigned int (*slot_key)(const void *), void (*slot_run)(void *),
+			       const char *run_name, bool run_forever);
 
 /*
  * Delete the specified timer wheel created
