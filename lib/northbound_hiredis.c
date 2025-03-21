@@ -1202,8 +1202,8 @@ static bool frr_daemon_sub_channel(const char *daemon_name)
 
 	i = 0;
 	while (hiredis_sub_channels[i][0]) {
-		
-		if (strncasecmp(daemon_name, hiredis_sub_channels[i][0], strlen(daemon_name)) == 0)
+		if (strncasecmp(daemon_name, hiredis_sub_channels[i][0],
+				strlen(hiredis_sub_channels[i][0])) == 0)
 			break;
 		i++;
 	}
