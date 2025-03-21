@@ -546,6 +546,140 @@ def test_ipv6_mcast_vrf_red():
     )
 
 
+def _test_pim46_interface_removal(protoname, ipname, gmname, ifnames, vrf):
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info(
+        "Testing {} VRF {} interface removal for interfaces {}".format(
+            protoname, vrf, " ".join(ifnames)
+        )
+    )
+
+    r1 = tgen.gears["r1"]
+    for ifname in ifnames:
+        r1.vtysh_cmd(
+            """
+            conf
+            interface {} vrf {}
+              no {} pim
+              no {} {}
+            """.format(
+                ifname, vrf, ipname, ipname, gmname
+            )
+        )
+
+    ifstatus = r1.vtysh_cmd(
+        "show {} pim vrf {} interface json".format(ipname, vrf), isjson=True
+    )
+    excess_ifnames = set(ifstatus.keys()) & set(ifnames)
+    assertmsg = "{} R1 VRF {}: Failed to remove all interfaces, remaining: {}".format(
+        protoname, vrf, list(excess_ifnames)
+    )
+    assert len(excess_ifnames) == 0, assertmsg
+
+
+def test_pim4_interface_removal():
+    "Test removing interfaces from VRF PIM IPv4 router"
+    _test_pim46_interface_removal(
+        "PIM IPv4", "ip", "igmp", ["blue", "r1-eth0", "r1-eth1"], "blue"
+    )
+    _test_pim46_interface_removal(
+        "PIM IPv4", "ip", "igmp", ["red", "r1-eth2", "r1-eth3"], "red"
+    )
+
+
+def test_pim6_interface_removal():
+    "Test removing interfaces from VRF PIM IPv6 router"
+    _test_pim46_interface_removal(
+        "PIM IPv6", "ipv6", "mld", ["blue", "r1-eth0", "r1-eth1"], "blue"
+    )
+    _test_pim46_interface_removal(
+        "PIM IPv6", "ipv6", "mld", ["red", "r1-eth2", "r1-eth3"], "red"
+    )
+
+
+def _test_pim46_router_removal(protoname, ipname, confname, vrf):
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Testing {} VRF {} router removal".format(protoname, vrf))
+
+    r1 = tgen.gears["r1"]
+    r1.vtysh_cmd(
+        """
+        conf
+        no router {} vrf {}
+        """.format(
+            confname, vrf
+        )
+    )
+
+    # Interfaces should be gone completely now, including pimg*reg*
+    ifstatus = r1.vtysh_cmd(
+        "show {} pim vrf {} interface json".format(ipname, vrf), isjson=True
+    )
+    assertmsg = (
+        "{} R1 VRF {}: Failed to remove router, remaining interfaces: {}".format(
+            protoname, vrf, list(ifstatus.keys())
+        )
+    )
+    assert len(ifstatus) == 0, assertmsg
+
+
+def test_pim4_router_removal():
+    "Test removing PIM IPv4 router"
+    _test_pim46_router_removal("PIM IPv4", "ip", "pim", "blue")
+    _test_pim46_router_removal("PIM IPv4", "ip", "pim", "red")
+
+
+def test_pim6_router_removal():
+    "Test removing PIM IPv6 router"
+    _test_pim46_router_removal("PIM IPv6", "ipv6", "pim6", "blue")
+    _test_pim46_router_removal("PIM IPv6", "ipv6", "pim6", "red")
+
+
+def _test_pim46_config_cleanup(protoname, ipname, confname):
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Testing {} config cleanup after router removal".format(protoname))
+
+    # Both interfaces and routers should be gone completely from config after preceding removals
+    r1 = tgen.gears["r1"]
+    runconf = r1.vtysh_cmd("show running-config")
+    leftover = re.findall(
+        r"^( *{} pim|router {} vrf [^ ]+)$".format(ipname, confname),
+        runconf,
+        re.MULTILINE,
+    )
+    assertmsg = (
+        "{} R1: Unclean config after router/interface removal, remaining:\n{}".format(
+            protoname, "\n".join(leftover)
+        )
+    )
+    assert len(leftover) == 0, assertmsg
+
+
+def test_pim4_config_cleanup():
+    "Test whether config is clean after PIM IPv4 router/interface removal"
+    _test_pim46_config_cleanup("PIM IPv4", "ip", "pim")
+
+
+def test_pim6_config_cleanup():
+    "Test whether config is clean after PIM IPv4 router/interface removal"
+    _test_pim46_config_cleanup("PIM IPv6", "ipv6", "pimv6")
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
