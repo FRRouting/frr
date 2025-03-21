@@ -1325,8 +1325,11 @@ static void rtadv_start_interface_events(struct zebra_vrf *zvrf,
 	}
 
 	adv_if = adv_if_add(zvrf, zif->ifp->name);
-	if (adv_if != NULL)
+	if (adv_if != NULL) {
+		rtadv_send_packet(zvrf->rtadv.sock, zif->ifp, RA_ENABLE);
+		wheel_add_item(zrouter.ra_wheel, zif->ifp);
 		return; /* Already added */
+	}
 
 	if (if_join_all_router(zvrf->rtadv.sock, zif->ifp)) {
 		/*Failed to join on 1st attempt, wait random amount of time between 1 ms 
@@ -1338,6 +1341,9 @@ static void rtadv_start_interface_events(struct zebra_vrf *zvrf,
 
 	if (adv_if_list_count(&zvrf->rtadv.adv_if) == 1)
 		rtadv_event(zvrf, RTADV_START, 0);
+
+	rtadv_send_packet(zvrf->rtadv.sock, zif->ifp, RA_ENABLE);
+	wheel_add_item(zrouter.ra_wheel, zif->ifp);
 }
 
 void ipv6_nd_suppress_ra_set(struct interface *ifp,
@@ -1386,7 +1392,6 @@ void ipv6_nd_suppress_ra_set(struct interface *ifp,
 					RTADV_NUM_FAST_REXMITS;
 			}
 
-			wheel_add_item(zrouter.ra_wheel, ifp);
 			rtadv_start_interface_events(zvrf, zif);
 		}
 	}
