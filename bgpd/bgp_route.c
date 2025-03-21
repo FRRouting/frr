@@ -12850,6 +12850,17 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 	return CMD_SUCCESS;
 }
 
+static struct bgp_dest *bgp_route_find_prd_match(struct bgp_dest *curr, struct prefix_rd *match)
+{
+	const struct prefix *curr_p = bgp_dest_get_prefix(curr);
+
+	while (curr && match && memcmp(curr_p->u.val, match->val, 8) != 0) {
+		curr = bgp_route_next(curr);
+		curr_p = bgp_dest_get_prefix(curr);
+	}
+	return curr;
+}
+
 int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 		      struct bgp_table *table, struct prefix_rd *prd_match,
 		      enum bgp_show_type type, void *output_arg,
@@ -12865,12 +12876,10 @@ int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 
 	show_msg = (!use_json && type == bgp_show_type_normal);
 
-	for (dest = bgp_table_top(table); dest; dest = next) {
+	for (dest = bgp_route_find_prd_match(bgp_table_top(table), prd_match); dest; dest = next) {
 		const struct prefix *dest_p = bgp_dest_get_prefix(dest);
 
-		next = bgp_route_next(dest);
-		if (prd_match && memcmp(dest_p->u.val, prd_match->val, 8) != 0)
-			continue;
+		next = bgp_route_find_prd_match(bgp_route_next(dest), prd_match);
 
 		itable = bgp_dest_get_bgp_table_info(dest);
 		if (itable != NULL) {
