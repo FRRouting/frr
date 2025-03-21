@@ -366,12 +366,19 @@ DEFPY (babel_set_hello_interval,
 {
     VTY_DECLVAR_CONTEXT(interface, ifp);
     babel_interface_nfo *babel_ifp;
+    unsigned int old_interval;
 
     babel_ifp = babel_get_if_nfo(ifp);
     assert (babel_ifp != NULL);
 
+    old_interval = babel_ifp->hello_interval;
     babel_ifp->hello_interval = no ?
         BABEL_DEFAULT_HELLO_INTERVAL : hello_interval;
+
+    if (old_interval != babel_ifp->hello_interval){
+        set_timeout(&babel_ifp->hello_timeout, babel_ifp->hello_interval);
+        send_hello(ifp);
+    }
     return CMD_SUCCESS;
 }
 
