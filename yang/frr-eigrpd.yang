@@ -130,9 +130,26 @@ module frr-eigrpd {
         type inet:ipv4-address;
       }
 
+      leaf passive-default {
+        type boolean;
+        default "false";
+        description
+          "Control whether interfaces are in the passive mode
+           by default or not.";
+      }
       leaf-list passive-interface {
-        description "List of suppressed interfaces";
+        when "../passive-default = 'false'";
         type frr-interface:interface-ref;
+        description
+          "A list of interfaces where the sending of EIGRP packets
+           is disabled.";
+      }
+      leaf-list non-passive-interface {
+        when "../passive-default = 'true'";
+        type frr-interface:interface-ref;
+        description
+          "A list of interfaces where the sending of EIGRP packets
+           is enabled.";
       }
 
       leaf active-time {
