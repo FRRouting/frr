@@ -208,49 +208,42 @@ static uint8_t *bgpv2PeerTable(struct variable *v, oid name[], size_t *length,
 	case BGP4V2_PEER_INSTANCE:
 		return SNMP_INTEGER(peer->bgp->vrf_id);
 	case BGP4V2_PEER_LOCAL_ADDR_TYPE:
-		if (peer->su_local)
-			return SNMP_INTEGER(peer->su_local->sa.sa_family ==
-							    AF_INET
+		if (peer->connection->su_local)
+			return SNMP_INTEGER(peer->connection->su_local->sa.sa_family == AF_INET
 						    ? AFI_IP
 						    : AFI_IP6);
 		else
 			return SNMP_INTEGER(0);
 	case BGP4V2_PEER_LOCAL_ADDR:
-		if (peer->su_local)
-			if (peer->su_local->sa.sa_family == AF_INET)
-				return SNMP_IPADDRESS(
-					peer->su_local->sin.sin_addr);
+		if (peer->connection->su_local)
+			if (peer->connection->su_local->sa.sa_family == AF_INET)
+				return SNMP_IPADDRESS(peer->connection->su_local->sin.sin_addr);
 			else
-				return SNMP_IP6ADDRESS(
-					peer->su_local->sin6.sin6_addr);
+				return SNMP_IP6ADDRESS(peer->connection->su_local->sin6.sin6_addr);
 		else
 			return SNMP_IPADDRESS(bgp_empty_addr);
 	case BGP4V2_PEER_REMOTE_ADDR_TYPE:
-		if (peer->su_remote)
-			return SNMP_INTEGER(peer->su_remote->sa.sa_family ==
-							    AF_INET
+		if (peer->connection->su_remote)
+			return SNMP_INTEGER(peer->connection->su_remote->sa.sa_family == AF_INET
 						    ? AFI_IP
 						    : AFI_IP6);
 		else
 			return SNMP_INTEGER(0);
 	case BGP4V2_PEER_REMOTE_ADDR:
-		if (peer->su_remote)
-			if (peer->su_remote->sa.sa_family == AF_INET)
-				return SNMP_IPADDRESS(
-					peer->su_remote->sin.sin_addr);
+		if (peer->connection->su_remote)
+			if (peer->connection->su_remote->sa.sa_family == AF_INET)
+				return SNMP_IPADDRESS(peer->connection->su_remote->sin.sin_addr);
 			else
-				return SNMP_IP6ADDRESS(
-					peer->su_remote->sin6.sin6_addr);
+				return SNMP_IP6ADDRESS(peer->connection->su_remote->sin6.sin6_addr);
 		else
 			return SNMP_IPADDRESS(bgp_empty_addr);
 	case BGP4V2_PEER_LOCAL_PORT:
-		if (peer->su_local)
-			if (peer->su_local->sa.sa_family == AF_INET)
-				return SNMP_INTEGER(
-					ntohs(peer->su_local->sin.sin_port));
+		if (peer->connection->su_local)
+			if (peer->connection->su_local->sa.sa_family == AF_INET)
+				return SNMP_INTEGER(ntohs(peer->connection->su_local->sin.sin_port));
 			else
 				return SNMP_INTEGER(
-					ntohs(peer->su_local->sin6.sin6_port));
+					ntohs(peer->connection->su_local->sin6.sin6_port));
 		else
 			return SNMP_INTEGER(0);
 	case BGP4V2_PEER_LOCAL_AS:
@@ -258,13 +251,13 @@ static uint8_t *bgpv2PeerTable(struct variable *v, oid name[], size_t *length,
 	case BGP4V2_PEER_LOCAL_IDENTIFIER:
 		return SNMP_IPADDRESS(peer->local_id);
 	case BGP4V2_PEER_REMOTE_PORT:
-		if (peer->su_remote)
-			if (peer->su_remote->sa.sa_family == AF_INET)
+		if (peer->connection->su_remote)
+			if (peer->connection->su_remote->sa.sa_family == AF_INET)
 				return SNMP_INTEGER(
-					ntohs(peer->su_remote->sin.sin_port));
+					ntohs(peer->connection->su_remote->sin.sin_port));
 			else
 				return SNMP_INTEGER(
-					ntohs(peer->su_remote->sin6.sin6_port));
+					ntohs(peer->connection->su_remote->sin6.sin6_port));
 		else
 			return SNMP_INTEGER(0);
 	case BGP4V2_PEER_REMOTE_AS:
@@ -933,7 +926,9 @@ static uint8_t *bgp4v2PathAttrTable(struct variable *v, oid name[],
 		else
 			return SNMP_IPADDRESS(bgp_empty_addr);
 	case BGP4V2_NLRI_AS_PATH_CALC_LENGTH:
-		return SNMP_INTEGER(path->attr->aspath->segments->length);
+		return SNMP_INTEGER((path->attr->aspath && path->attr->aspath->segments)
+					    ? path->attr->aspath->segments->length
+					    : 0);
 	case BGP4V2_NLRI_AS_PATH:
 		return aspath_snmp_pathseg(path->attr->aspath, var_len);
 	case BGP4V2_NLRI_PATH_ATTR_UNKNOWN:

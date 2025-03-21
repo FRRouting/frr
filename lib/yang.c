@@ -14,6 +14,7 @@
 #include <libyang/version.h>
 #include "northbound.h"
 #include "frrstr.h"
+#include "darr.h"
 
 #include "lib/config_paths.h"
 
@@ -680,6 +681,116 @@ void yang_dnode_rpc_output_add(struct lyd_node *output, const char *xpath,
 	assert(err == LY_SUCCESS);
 }
 
+struct lyd_node *yang_state_new(struct lyd_node *tree, const char *path, const char *value)
+{
+	struct lyd_node *dnode, *parent;
+	LY_ERR err;
+
+	err = lyd_new_path2(tree, ly_native_ctx, path, value, 0, 0, LYD_NEW_PATH_UPDATE, &parent,
+			    &dnode);
+	assert(err == LY_SUCCESS);
+
+	/*
+	 * If the node exists and isn't updated returned dnode will be NULL, so
+	 * we need to find it. But even if returned it can be the first newly
+	 * created node (could be container of path) not the actual path dnode.
+	 * So we always find.
+	 */
+	err = lyd_find_path(tree ?: parent, path, false, &dnode);
+	assert(err == LY_SUCCESS);
+
+	return dnode;
+}
+
+void yang_state_delete(struct lyd_node *tree, const char *path)
+{
+	LY_ERR err;
+
+	if (!tree)
+		return;
+
+	if (path) {
+		err = lyd_find_path(tree, path, false, &tree);
+		if (err != LY_SUCCESS) {
+			zlog_info("State %s has already been deleted", path);
+			return;
+		}
+	}
+	lyd_free_tree(tree);
+}
+
+PRINTFRR(2, 0)
+struct lyd_node *yang_state_new_vpathf(struct lyd_node *tree, const char *path_fmt,
+				       const char *value, va_list ap)
+{
+	struct lyd_node *dnode;
+	char *path;
+
+	path = darr_vsprintf(path_fmt, ap);
+	dnode = yang_state_new(tree, path, value);
+	darr_free(path);
+
+	return dnode;
+}
+
+struct lyd_node *yang_state_new_pathf(struct lyd_node *tree, const char *path_fmt,
+				      const char *value, ...)
+{
+	struct lyd_node *dnode;
+	va_list ap;
+
+	va_start(ap, value);
+	dnode = yang_state_new_vpathf(tree, path_fmt, value, ap);
+	va_end(ap);
+
+	return dnode;
+}
+
+PRINTFRR(2, 0)
+void yang_state_delete_vpathf(struct lyd_node *tree, const char *path_fmt, va_list ap)
+{
+	char *path;
+
+	path = darr_vsprintf(path_fmt, ap);
+	yang_state_delete(tree, path);
+	darr_free(path);
+}
+
+void yang_state_delete_pathf(struct lyd_node *tree, const char *path_fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, path_fmt);
+	yang_state_delete_vpathf(tree, path_fmt, ap);
+	va_end(ap);
+}
+
+PRINTFRR(3, 0)
+struct lyd_node *yang_state_vnewf(struct lyd_node *tree, const char *path, const char *val_fmt,
+				  va_list ap)
+{
+	struct lyd_node *dnode;
+	char *value;
+
+	value = darr_vsprintf(val_fmt, ap);
+	dnode = yang_state_new(tree, path, value);
+	darr_free(value);
+
+	return dnode;
+}
+
+struct lyd_node *yang_state_newf(struct lyd_node *tree, const char *path, const char *val_fmt, ...)
+{
+	struct lyd_node *dnode;
+	va_list ap;
+
+	va_start(ap, val_fmt);
+	dnode = yang_state_vnewf(tree, path, val_fmt, ap);
+	va_end(ap);
+
+	return dnode;
+}
+
 struct yang_data *yang_data_new(const char *xpath, const char *value)
 {
 	struct yang_data *data;
@@ -761,6 +872,60 @@ static void ly_zlog_cb(LY_LOG_LEVEL level, const char *msg, const char *data_pat
 #endif
 	else
 		zlog(priority, "libyang: %s", msg);
+}
+
+LY_ERR yang_parse_data(const char *xpath, LYD_FORMAT format, bool as_subtree, bool is_oper,
+		       bool validate, const char *data, struct lyd_node **tree)
+{
+	struct ly_in *in = NULL;
+	struct lyd_node *subtree = NULL;
+	uint32_t parse_options = LYD_PARSE_STRICT | LYD_PARSE_ONLY;
+	uint32_t validate_options = LYD_VALIDATE_PRESENT;
+	LY_ERR err;
+
+	err = ly_in_new_memory(data, &in);
+	if (err != LY_SUCCESS)
+		return err;
+
+	if (as_subtree) {
+		struct lyd_node *parent;
+
+		/*
+		 * Create the subtree branch from root using the xpath. This
+		 * will be used below to parse the data rooted at the subtree --
+		 * a common YANG JSON technique (vs XML which starts all
+		 * data trees from the root).
+		 */
+		err = lyd_new_path2(NULL, ly_native_ctx, xpath, NULL, 0, 0, 0, &parent, &subtree);
+		if (err != LY_SUCCESS)
+			goto done;
+		err = lyd_find_path(parent, xpath, false, &subtree);
+		if (err != LY_SUCCESS)
+			goto done;
+	}
+
+	if (is_oper)
+		validate_options |= LYD_VALIDATE_OPERATIONAL;
+
+#ifdef LYD_VALIDATE_NOT_FINAL
+	if (!validate)
+		validate_options |= LYD_VALIDATE_NOT_FINAL;
+#endif
+
+	err = lyd_parse_data(ly_native_ctx, subtree, in, format, parse_options, validate_options,
+			     tree);
+	if (err == LY_SUCCESS && subtree)
+		*tree = subtree;
+done:
+	ly_in_free(in, 0);
+	if (err != LY_SUCCESS) {
+		if (*tree)
+			lyd_free_all(*tree);
+		else if (subtree)
+			lyd_free_all(subtree);
+		*tree = NULL;
+	}
+	return err;
 }
 
 LY_ERR yang_parse_notification(const char *xpath, LYD_FORMAT format,
@@ -1192,9 +1357,21 @@ uint32_t yang_get_list_elements_count(const struct lyd_node *node)
 	} while (node);
 	return count;
 }
+int yang_get_key_pred_strlen(const struct lysc_node *snode, const struct yang_list_keys *keys)
+{
+	const struct lysc_node_leaf *skey;
+	size_t len = 0;
+	size_t i = 0;
 
-int yang_get_key_preds(char *s, const struct lysc_node *snode,
-		       struct yang_list_keys *keys, ssize_t space)
+	LY_FOR_KEYS (snode, skey) {
+		/* [%s='%s'] */
+		len += 5 + strlen(skey->name) + strlen(keys->key[i]);
+		i++;
+	}
+	return len;
+}
+
+int yang_get_key_preds(char *s, const struct lysc_node *snode, const struct yang_list_keys *keys, ssize_t space)
 {
 	const struct lysc_node_leaf *skey;
 	ssize_t len2, len = 0;

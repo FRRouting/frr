@@ -147,15 +147,10 @@ void ospf_process_refresh_data(struct ospf *ospf, bool reset)
 
 	/* Select the router ID based on these priorities:
 	     1. Statically assigned router ID is always the first choice.
-	     2. If there is no statically assigned router ID, then try to stick
-		with the most recent value, since changing router ID's is very
-		disruptive.
-	     3. Last choice: just go with whatever the zebra daemon recommends.
+	     2. Just go with whatever the zebra daemon recommends.
 	*/
 	if (ospf->router_id_static.s_addr != INADDR_ANY)
 		router_id = ospf->router_id_static;
-	else if (ospf->router_id.s_addr != INADDR_ANY)
-		router_id = ospf->router_id;
 	else
 		router_id = ospf->router_id_zebra;
 
@@ -848,7 +843,7 @@ static void ospf_finish_final(struct ospf *ospf)
 	ospf_distance_reset(ospf);
 	route_table_finish(ospf->distance_table);
 
-	/* Release extrenal Aggregator table */
+	/* Release external Aggregator table */
 	for (rn = route_top(ospf->rt_aggr_tbl); rn; rn = route_next(rn)) {
 		struct ospf_external_aggr_rt *aggr;
 
@@ -1730,8 +1725,6 @@ int ospf_area_nssa_unset(struct ospf *ospf, struct in_addr area_id)
 	area->no_summary = 0;
 	area->suppress_fa = 0;
 	area->NSSATranslatorRole = OSPF_NSSA_ROLE_CANDIDATE;
-	if (area->NSSATranslatorState == OSPF_NSSA_TRANSLATE_ENABLED)
-		ospf_asbr_status_update(ospf, --ospf->redistribute);
 	area->NSSATranslatorState = OSPF_NSSA_TRANSLATE_DISABLED;
 	area->NSSATranslatorStabilityInterval = OSPF_NSSA_TRANS_STABLE_DEFAULT;
 	ospf_area_type_set(area, OSPF_AREA_DEFAULT);

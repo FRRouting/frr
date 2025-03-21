@@ -39,17 +39,18 @@ Conversion Status
 Fully Converted To MGMTD
 """"""""""""""""""""""""
 
+- lib/affinitymap
 - lib/distribute
 - lib/filter
-- lib/if_rmap
-- lib/routemap
-- lib/affinitymap
 - lib/if
+- lib/if_rmap
+- lib/keychain
+- lib/routemap
 - lib/vrf
 - ripd
 - ripngd
 - staticd
-- zebra (* - partial)
+- zebra
 
 Converted To Northbound
 """""""""""""""""""""""
@@ -69,7 +70,6 @@ Unconverted
 - bgpd
 - ldpd
 - lib/event
-- lib/keychain
 - lib/log_vty
 - lib/nexthop_group
 - lib/zlog_5424_cli
@@ -160,13 +160,18 @@ Back-End Interface:
    should be destroyed with a call to `mgmt_be_client_destroy` and to be safe
    NULL out the global `mgmt_be_client` variable.
 
-#. In ``mgmtd/mgmt_be_adapter.c`` add xpath prefix mappings to a one or both
-   mapping arrays (``be_client_config_xpaths`` and ``be_client_oper_xpaths``) to
-   direct ``mgmtd`` to send config and oper-state requests to your daemon. NOTE:
-   make sure to include library supported xpaths prefixes as well (e.g.,
+#. In ``mgmtd/mgmt_be_adapter.c`` add xpath prefix mappings to a each of the
+   mapping arrays (``be_client_config_xpaths``, ``be_client_oper_xpaths``, and
+   ``be_client_rpc_xpaths``) to direct ``mgmtd`` to send config, oper-state, and
+   RPC requests to your daemon.
+
+   NOTE: make sure to include library supported xpaths prefixes as well (e.g.,
    "/frr-interface:lib"). A good way to figure these paths out are to look in
    each of the YANG modules that the daemon uses and include each of their paths
    in the array.
+
+#. In ``python/xref2vtysh.py`` add ``VTYSH_xxxD`` (for client xxx) to
+   ``lib/mgmt_be_client.c`` entry in the ``daemon_falgs`` dictionary.
 
 Add YANG and CLI into MGMTD
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

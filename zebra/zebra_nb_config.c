@@ -31,23 +31,6 @@
 #include "zebra/table_manager.h"
 
 /*
- * XPath: /frr-zebra:zebra/mcast-rpf-lookup
- */
-int zebra_mcast_rpf_lookup_modify(struct nb_cb_modify_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
  * XPath: /frr-zebra:zebra/ip-forwarding
  */
 int zebra_ip_forwarding_modify(struct nb_cb_modify_args *args)
@@ -3375,10 +3358,7 @@ int lib_vrf_zebra_filter_protocol_create(struct nb_cb_create_args *args)
 	const char *proto = yang_dnode_get_string(args->dnode, "protocol");
 	int rtype;
 
-	if (strcasecmp(proto, "any") == 0)
-		rtype = ZEBRA_ROUTE_MAX;
-	else
-		rtype = proto_name2num(proto);
+	rtype = proto_name2num(proto);
 
 	if (args->event == NB_EV_VALIDATE)
 		if (rtype < 0) {
@@ -3404,10 +3384,7 @@ int lib_vrf_zebra_filter_protocol_destroy(struct nb_cb_destroy_args *args)
 
 	yang_afi_safi_identity2value(afi_safi, &afi, &safi);
 
-	if (strcasecmp(proto, "any") == 0)
-		rtype = ZEBRA_ROUTE_MAX;
-	else
-		rtype = proto_name2num(proto);
+	rtype = proto_name2num(proto);
 
 	/* deleting an existing entry, it can't be invalid */
 	assert(rtype >= 0);
@@ -3435,10 +3412,7 @@ void lib_vrf_zebra_filter_protocol_apply_finish(
 
 	yang_afi_safi_identity2value(afi_safi, &afi, &safi);
 
-	if (strcasecmp(proto, "any") == 0)
-		rtype = ZEBRA_ROUTE_MAX;
-	else
-		rtype = proto_name2num(proto);
+	rtype = proto_name2num(proto);
 
 	/* finishing apply for a validated entry, it can't be invalid */
 	assert(rtype >= 0);

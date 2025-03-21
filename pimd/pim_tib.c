@@ -34,16 +34,17 @@ tib_sg_oil_setup(struct pim_instance *pim, pim_sgaddr sg, struct interface *oif)
 
 	up = pim_upstream_find(pim, &sg);
 	if (up) {
-		memcpy(&nexthop, &up->rpf.source_nexthop,
-		       sizeof(struct pim_nexthop));
-		(void)pim_ecmp_nexthop_lookup(pim, &nexthop, vif_source, &grp,
-					      0);
+		memcpy(&nexthop, &up->rpf.source_nexthop, sizeof(struct pim_nexthop));
+		if (!pim_nht_lookup_ecmp(pim, &nexthop, vif_source, &grp, false))
+			if (PIM_DEBUG_PIM_NHT_RP)
+				zlog_debug("%s: Nexthop Lookup failed vif_src:%pPA, sg.src:%pPA, sg.grp:%pPA",
+					   __func__, &vif_source, &sg.src, &sg.grp);
+
 		if (nexthop.interface)
 			input_iface_vif_index = pim_if_find_vifindex_by_ifindex(
 				pim, nexthop.interface->ifindex);
 	} else
-		input_iface_vif_index =
-			pim_ecmp_fib_lookup_if_vif_index(pim, vif_source, &grp);
+		input_iface_vif_index = pim_nht_lookup_ecmp_if_vif_index(pim, vif_source, &grp);
 
 	if (PIM_DEBUG_ZEBRA)
 		zlog_debug("%s: NHT %pSG vif_source %pPAs vif_index:%d",
@@ -176,7 +177,14 @@ void tib_sg_gm_prune(struct pim_instance *pim, pim_sgaddr sg,
 	 Making the call to pim_channel_del_oif and ignoring the return code
 	 fixes the issue without ill effect, similar to
 	 pim_forward_stop below.
+
+	 Also on shutdown when the PIM upstream is removed the channel removal
+	 may have already happened, so just return here instead of trying to
+	 access an invalid pointer.
 	*/
+	if (pim->stopping)
+		return;
+
 	result = pim_channel_del_oif(*oilp, oif, PIM_OIF_FLAG_PROTO_GM,
 				     __func__);
 	if (result) {

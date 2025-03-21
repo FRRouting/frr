@@ -578,7 +578,7 @@ static char *ospf6_link_lsa_get_prefix_str(struct ospf6_lsa *lsa, char *buf,
 	struct ospf6_prefix *prefix = nth_prefix(lsa->header, pos);
 	struct in6_addr in6 = { 0 };
 
-	if (!lsa || !prefix || !buf || buflen < (1 + INET6_ADDRSTRLEN))
+	if (!prefix || !buf || buflen < (1 + INET6_ADDRSTRLEN))
 		return NULL;
 
 	/* position zero is used for the lladdr in the body of the LSA */
@@ -772,7 +772,7 @@ static char *ospf6_intra_prefix_lsa_get_prefix_str(struct ospf6_lsa *lsa,
 	char tbuf[16];
 
 	/* ensure buflen >= INET6_ADDRSTRLEN + '/128\0' */
-	if (!lsa || !prefix || !buf || buflen < (5 + INET6_ADDRSTRLEN))
+	if (!prefix || !buf || buflen < (5 + INET6_ADDRSTRLEN))
 		return NULL;
 
 	memcpy(&in6, OSPF6_PREFIX_BODY(prefix),
@@ -2194,9 +2194,15 @@ void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
 				zlog_info("%s: brouter %s appears via area %s",
 					  __func__, brouter_name, oa->name);
 
+			ospf6_route_lock(brouter);
 			/* newly added */
 			if (hook_add)
 				(*hook_add)(brouter);
+			if (CHECK_FLAG(brouter->flag, OSPF6_ROUTE_WAS_REMOVED)) {
+				ospf6_route_unlock(brouter);
+				brouter = NULL;
+			} else
+				ospf6_route_unlock(brouter);
 		} else {
 			if (IS_OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER_ID(
 				    brouter_id)

@@ -1983,6 +1983,10 @@ static void lib_vrf_zebra_ipv6_router_id_cli_write(struct vty *vty,
 	vty_out(vty, "ipv6 router-id %s\n", id);
 }
 
+/*
+ * Both the v4 and v6 version of this command are now limiting the
+ * usage of System route types from being considered here at all
+ */
 DEFPY_YANG (ip_protocol,
        ip_protocol_cmd,
        "[no] ip protocol " FRR_IP_PROTOCOL_MAP_STR_ZEBRA
@@ -2252,6 +2256,9 @@ static void lib_vrf_mpls_fec_nexthop_resolution_cli_write(
 	}
 }
 
+#if CONFDATE > 20251207
+CPP_NOTICE("Remove no-op netns command")
+#endif
 DEFPY_YANG (vrf_netns,
        vrf_netns_cmd,
        "[no] netns ![NAME$netns_name]",
@@ -2348,12 +2355,32 @@ DEFPY_YANG (vni_mapping,
        "VNI-ID\n"
        "prefix-routes-only\n")
 {
-	if (!no)
+	const struct lyd_node *dnode;
+	const char *vrf;
+
+	if (!no) {
 		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/l3vni-id", NB_OP_MODIFY,
 			      vni_str);
-	else
-		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/l3vni-id", NB_OP_DESTROY,
-			      NULL);
+	} else {
+		if (vty->node == CONFIG_NODE) {
+			if (yang_dnode_existsf(vty->candidate_config->dnode,
+					       "/frr-vrf:lib/vrf[name='%s']/frr-zebra:zebra[l3vni-id='%lu']",
+					       VRF_DEFAULT_NAME, vni))
+				nb_cli_enqueue_change(vty, "./frr-zebra:zebra/l3vni-id",
+						      NB_OP_DESTROY, NULL);
+		} else {
+			dnode = yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
+			if (dnode) {
+				vrf = yang_dnode_get_string(dnode, "name");
+
+				if (yang_dnode_existsf(vty->candidate_config->dnode,
+						       "/frr-vrf:lib/vrf[name='%s']/frr-zebra:zebra[l3vni-id='%lu']",
+						       vrf, vni))
+					nb_cli_enqueue_change(vty, "./frr-zebra:zebra/l3vni-id",
+							      NB_OP_DESTROY, NULL);
+			}
+		}
+	}
 
 	if (filter)
 		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/prefix-only",

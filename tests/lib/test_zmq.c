@@ -285,7 +285,7 @@ static void run_server(int syncfd)
 	zmq_close(zmqsock);
 	frrzmq_finish();
 	event_master_free(master);
-	log_memstats_stderr("test");
+	log_memstats(NULL, true);
 }
 
 int main(void)

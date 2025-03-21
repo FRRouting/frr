@@ -99,12 +99,12 @@ struct mgmt_be_client {
 	struct nb_config *candidate_config;
 	struct nb_config *running_config;
 
-	unsigned long num_edit_nb_cfg;
-	unsigned long avg_edit_nb_cfg_tm;
-	unsigned long num_prep_nb_cfg;
-	unsigned long avg_prep_nb_cfg_tm;
-	unsigned long num_apply_nb_cfg;
-	unsigned long avg_apply_nb_cfg_tm;
+	uint64_t num_edit_nb_cfg;
+	uint64_t avg_edit_nb_cfg_tm;
+	uint64_t num_prep_nb_cfg;
+	uint64_t avg_prep_nb_cfg_tm;
+	uint64_t num_apply_nb_cfg;
+	uint64_t avg_apply_nb_cfg_tm;
 
 	struct mgmt_be_txns_head txn_head;
 
@@ -117,7 +117,7 @@ struct mgmt_be_client {
 
 struct debug mgmt_dbg_be_client = {
 	.conf = "debug mgmt client backend",
-	.desc = "Management backend client operations"
+	.desc = "Management backend client operations",
 };
 
 /* NOTE: only one client per proc for now. */
@@ -312,47 +312,100 @@ static int be_client_send_error(struct mgmt_be_client *client, uint64_t txn_id,
 	return ret;
 }
 
-static int mgmt_be_send_notification(void *__be_client, const char *xpath,
-				     const struct lyd_node *tree)
+static int __send_notification(struct mgmt_be_client *client, const char *xpath,
+			       const struct lyd_node *tree, uint8_t op)
 {
-	struct mgmt_be_client *client = __be_client;
 	struct mgmt_msg_notify_data *msg = NULL;
+	// LYD_FORMAT format = LYD_LYB;
 	LYD_FORMAT format = LYD_JSON;
 	uint8_t **darrp;
 	LY_ERR err;
 	int ret = 0;
 
-	assert(tree);
-
-	debug_be_client("%s: sending YANG notification: %s", __func__,
-			tree->schema->name);
+	assert(op != NOTIFY_OP_NOTIFICATION || xpath || tree);
+	debug_be_client("%s: sending %sYANG %snotification: %s", __func__,
+			op == NOTIFY_OP_DS_DELETE    ? "delete "
+			: op == NOTIFY_OP_DS_REPLACE ? "replace "
+			: op == NOTIFY_OP_DS_PATCH   ? "patch "
+						     : "",
+			op == NOTIFY_OP_NOTIFICATION ? "" : "DS ", xpath ?: tree->schema->name);
 	/*
 	 * Allocate a message and append the data to it using `format`
 	 */
-	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_notify_data, 0,
-					MTYPE_MSG_NATIVE_NOTIFY);
+	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_notify_data, 0, MTYPE_MSG_NATIVE_NOTIFY);
 	msg->code = MGMT_MSG_CODE_NOTIFY;
 	msg->result_type = format;
+	msg->op = op;
 
 	mgmt_msg_native_xpath_encode(msg, xpath);
 
-	darrp = mgmt_msg_native_get_darrp(msg);
-	err = yang_print_tree_append(darrp, tree, format,
-				     (LYD_PRINT_SHRINK | LYD_PRINT_WD_EXPLICIT |
-				      LYD_PRINT_WITHSIBLINGS));
-	if (err) {
-		flog_err(EC_LIB_LIBYANG,
-			 "%s: error creating notification data: %s", __func__,
-			 ly_strerrcode(err));
-		ret = 1;
-		goto done;
+	if (tree) {
+		darrp = mgmt_msg_native_get_darrp(msg);
+		err = yang_print_tree_append(darrp, tree, format,
+					     (LYD_PRINT_SHRINK | LYD_PRINT_WD_EXPLICIT |
+					      LYD_PRINT_WITHSIBLINGS));
+		if (err) {
+			flog_err(EC_LIB_LIBYANG, "%s: error creating notification data: %s",
+				 __func__, ly_strerrcode(err));
+			ret = 1;
+			goto done;
+		}
 	}
 
-	(void)be_client_send_native_msg(client, msg,
-					mgmt_msg_native_get_msg_len(msg), false);
+	ret = be_client_send_native_msg(client, msg, mgmt_msg_native_get_msg_len(msg), false);
 done:
 	mgmt_msg_native_free_msg(msg);
 	return ret;
+}
+
+/**
+ * mgmt_be_send_ds_delete_notification() - Send DS notification to mgmtd
+ */
+int mgmt_be_send_ds_delete_notification(const char *path)
+{
+	if (!__be_client) {
+		debug_be_client("%s: No mgmtd connection for DS delete notification: %s", __func__,
+				path);
+		return 1;
+	}
+	return __send_notification(__be_client, path, NULL, NOTIFY_OP_DS_DELETE);
+}
+
+/**
+ * mgmt_be_send_ds_patch_notification() - Send a YANG patch DS notification to mgmtd
+ */
+int mgmt_be_send_ds_patch_notification(const char *path, const struct lyd_node *patch)
+{
+	if (!__be_client) {
+		debug_be_client("%s: No mgmtd connection for DS delete notification: %s", __func__,
+				path);
+		return 1;
+	}
+	return __send_notification(__be_client, path, patch, NOTIFY_OP_DS_PATCH);
+}
+
+/**
+ * mgmt_be_send_ds_replace_notification() - Send a replace DS notification to mgmtd
+ */
+int mgmt_be_send_ds_replace_notification(const char *path, const struct lyd_node *tree)
+{
+	if (!__be_client) {
+		debug_be_client("%s: No mgmtd connection for DS delete notification: %s", __func__,
+				path);
+		return 1;
+	}
+	return __send_notification(__be_client, path, tree, NOTIFY_OP_DS_REPLACE);
+}
+
+/**
+ * mgmt_be_send_notification() - Send notification to mgmtd
+ *
+ * This function is attached to the northbound notification hook.
+ */
+static int mgmt_be_send_notification(void *__client, const char *path, const struct lyd_node *tree)
+{
+	__send_notification(__client, path, tree, NOTIFY_OP_NOTIFICATION);
+	return 0;
 }
 
 static int mgmt_be_send_txn_reply(struct mgmt_be_client *client_ctx,
@@ -568,7 +621,7 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
 	mgmt_be_send_cfgdata_create_reply(client_ctx, txn->txn_id,
 		error ? false : true, error ? err_buf : NULL);
 
-	debug_be_client("Avg-nb-edit-duration %lu uSec, nb-prep-duration %lu (avg: %lu) uSec, batch size %u",
+	debug_be_client("Avg-nb-edit-duration %Lu uSec, nb-prep-duration %lu (avg: %Lu) uSec, batch size %u",
 			client_ctx->avg_edit_nb_cfg_tm, prep_nb_cfg_tm,
 			client_ctx->avg_prep_nb_cfg_tm, (uint32_t)num_processed);
 
@@ -717,10 +770,9 @@ static int mgmt_be_txn_proc_cfgapply(struct mgmt_be_txn_ctx *txn)
 	gettimeofday(&apply_nb_cfg_end, NULL);
 
 	apply_nb_cfg_tm = timeval_elapsed(apply_nb_cfg_end, apply_nb_cfg_start);
-	client_ctx->avg_apply_nb_cfg_tm = ((client_ctx->avg_apply_nb_cfg_tm *
-					    client_ctx->num_apply_nb_cfg) +
-					   apply_nb_cfg_tm) /
-					  (client_ctx->num_apply_nb_cfg + 1);
+	client_ctx->avg_apply_nb_cfg_tm =
+		((client_ctx->avg_apply_nb_cfg_tm * client_ctx->num_apply_nb_cfg) + apply_nb_cfg_tm) /
+		(client_ctx->num_apply_nb_cfg + 1);
 	client_ctx->num_apply_nb_cfg++;
 	txn->nb_txn = NULL;
 
@@ -736,8 +788,8 @@ static int mgmt_be_txn_proc_cfgapply(struct mgmt_be_txn_ctx *txn)
 
 	mgmt_be_send_apply_reply(client_ctx, txn->txn_id, true, NULL);
 
-	debug_be_client("Nb-apply-duration %lu (avg: %lu) uSec",
-			apply_nb_cfg_tm, client_ctx->avg_apply_nb_cfg_tm);
+	debug_be_client("Nb-apply-duration %lu (avg: %Lu) uSec", apply_nb_cfg_tm,
+			client_ctx->avg_apply_nb_cfg_tm);
 
 	return 0;
 }
@@ -854,8 +906,15 @@ static enum nb_error be_client_send_tree_data_batch(const struct lyd_node *tree,
 		more = true;
 		ret = NB_OK;
 	}
-	if (ret != NB_OK)
+	if (ret != NB_OK) {
+		if (be_client_send_error(client, args->txn_id, args->req_id, false, -EINVAL,
+					 "BE client %s txn-id %Lu error fetching oper state %d",
+					 client->name, args->txn_id, ret))
+			ret = NB_ERR;
+		else
+			ret = NB_OK;
 		goto done;
+	}
 
 	tree_msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_tree_data, 0,
 					     MTYPE_MSG_NATIVE_TREE_DATA);
@@ -870,20 +929,15 @@ static enum nb_error be_client_send_tree_data_batch(const struct lyd_node *tree,
 				     (LYD_PRINT_SHRINK | LYD_PRINT_WD_EXPLICIT |
 				      LYD_PRINT_WITHSIBLINGS));
 	if (err) {
-		ret = NB_ERR;
-		goto done;
+		mgmt_msg_native_free_msg(tree_msg);
+		/* We will be called again to send the error */
+		return NB_ERR;
 	}
 	(void)be_client_send_native_msg(client, tree_msg,
 					mgmt_msg_native_get_msg_len(tree_msg),
 					false);
-done:
 	mgmt_msg_native_free_msg(tree_msg);
-	if (ret)
-		be_client_send_error(client, args->txn_id, args->req_id, false,
-				     -EINVAL,
-				     "BE client %s txn-id %" PRIu64
-				     " error fetching oper state %d",
-				     client->name, args->txn_id, ret);
+done:
 	if (ret != NB_OK || !more)
 		XFREE(MTYPE_MGMTD_BE_GT_CB_ARGS, args);
 	return ret;
@@ -1060,17 +1114,22 @@ static void be_client_handle_notify(struct mgmt_be_client *client, void *msgbuf,
 				    size_t msg_len)
 {
 	struct mgmt_msg_notify_data *notif_msg = msgbuf;
-	struct nb_node *nb_node;
-	struct lyd_node *dnode;
+	struct nb_node *nb_node, *nb_parent;
+	struct lyd_node *dnode = NULL;
 	const char *data = NULL;
 	const char *notif;
-	LY_ERR err;
+	bool is_yang_notify;
+	LY_ERR err = LY_SUCCESS;
 
 	debug_be_client("Received notification for client %s", client->name);
 
 	notif = mgmt_msg_native_xpath_data_decode(notif_msg, msg_len, data);
-	if (!notif || !data) {
+	if (!notif) {
 		log_err_be_client("Corrupt notify msg");
+		return;
+	}
+	if (!data && (notif_msg->op == NOTIFY_OP_DS_REPLACE || notif_msg->op == NOTIFY_OP_DS_PATCH)) {
+		log_err_be_client("Corrupt replace/patch notify msg: missing data");
 		return;
 	}
 
@@ -1080,22 +1139,59 @@ static void be_client_handle_notify(struct mgmt_be_client *client, void *msgbuf,
 		return;
 	}
 
-	if (!nb_node->cbs.notify) {
+	is_yang_notify = !!CHECK_FLAG(nb_node->snode->nodetype, LYS_NOTIF);
+
+	if (is_yang_notify && !nb_node->cbs.notify) {
 		debug_be_client("No notification callback for: %s", notif);
 		return;
 	}
 
-	err = yang_parse_notification(notif, notif_msg->result_type, data,
+	if (!nb_node->cbs.notify) {
+		/*
+		 * See if a parent has a callback, this is so backend's can
+		 * listen for changes on an entire datastore sub-tree.
+		 */
+		for (nb_parent = nb_node->parent; nb_parent; nb_parent = nb_node->parent)
+			if (nb_parent->cbs.notify)
+				break;
+		if (!nb_parent) {
+			debug_be_client("Including parents, no DS notification callback for: %s",
+					notif);
+			return;
+		}
+		nb_node = nb_parent;
+	}
+
+	if (data && is_yang_notify) {
+		err = yang_parse_notification(notif, notif_msg->result_type, data, &dnode);
+	} else if (data) {
+		err = yang_parse_data(notif, notif_msg->result_type, false, true, false, data,
 				      &dnode);
+	}
 	if (err) {
-		log_err_be_client("Can't parse notification data for: %s",
-				  notif);
+		log_err_be_client("Can't parse notification data for: %s", notif);
 		return;
 	}
 
-	nb_callback_notify(nb_node, notif, dnode);
+	nb_callback_notify(nb_node, notif_msg->op, notif, dnode);
 
 	lyd_free_all(dnode);
+}
+
+/*
+ * Process a notify select msg
+ */
+static void be_client_handle_notify_select(struct mgmt_be_client *client, void *msgbuf,
+					   size_t msg_len)
+{
+	struct mgmt_msg_notify_select *msg = msgbuf;
+	const char **selectors = NULL;
+
+	debug_be_client("Received notify-select for client %s", client->name);
+
+	if (msg_len >= sizeof(*msg))
+		selectors = mgmt_msg_native_strings_decode(msg, msg_len, msg->selectors);
+	nb_notif_set_filters(selectors, msg->replace);
 }
 
 /*
@@ -1118,6 +1214,9 @@ static void be_client_handle_native_msg(struct mgmt_be_client *client,
 		break;
 	case MGMT_MSG_CODE_NOTIFY:
 		be_client_handle_notify(client, msg, msg_len);
+		break;
+	case MGMT_MSG_CODE_NOTIFY_SELECT:
+		be_client_handle_notify_select(client, msg, msg_len);
 		break;
 	default:
 		log_err_be_client("unknown native message txn-id %" PRIu64
@@ -1258,6 +1357,190 @@ DEFPY(debug_mgmt_client_be, debug_mgmt_client_be_cmd,
 
 	return CMD_SUCCESS;
 }
+
+/*
+ * XPath: /frr-backend:clients/client
+ *
+ * We only implement a list of one entry (for the this backend client) the
+ * results will be merged inside mgmtd.
+ */
+static const void *clients_client_get_next(struct nb_cb_get_next_args *args)
+{
+	if (args->list_entry == NULL)
+		return __be_client;
+	return NULL;
+}
+
+static int clients_client_get_keys(struct nb_cb_get_keys_args *args)
+{
+	args->keys->num = 1;
+	strlcpy(args->keys->key[0], __be_client->name, sizeof(args->keys->key[0]));
+
+	return NB_OK;
+}
+
+static const void *clients_client_lookup_entry(struct nb_cb_lookup_entry_args *args)
+{
+	const char *name = args->keys->key[0];
+
+	if (!strcmp(name, __be_client->name))
+		return __be_client;
+
+	return NULL;
+}
+
+/*
+ * XPath: /frr-backend:clients/client/name
+ */
+static enum nb_error clients_client_name_get(const struct nb_node *nb_node,
+					     const void *parent_list_entry, struct lyd_node *parent)
+{
+	const struct lysc_node *snode = nb_node->snode;
+	LY_ERR err;
+
+	err = lyd_new_term(parent, snode->module, snode->name, __be_client->name, false, NULL);
+	if (err != LY_SUCCESS)
+		return NB_ERR_RESOURCE;
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-backend:clients/client/state/candidate-config-version
+ */
+static enum nb_error clients_client_state_candidate_config_version_get(
+	const struct nb_node *nb_node, const void *parent_list_entry, struct lyd_node *parent)
+{
+	const struct lysc_node *snode = nb_node->snode;
+	uint64_t value = __be_client->candidate_config->version;
+
+	if (lyd_new_term_bin(parent, snode->module, snode->name, &value, sizeof(value),
+			     LYD_NEW_PATH_UPDATE, NULL))
+		return NB_ERR_RESOURCE;
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-backend:clients/client/state/running-config-version
+ */
+static enum nb_error clients_client_state_running_config_version_get(const struct nb_node *nb_node,
+								     const void *parent_list_entry,
+								     struct lyd_node *parent)
+{
+	const struct lysc_node *snode = nb_node->snode;
+	uint64_t value = __be_client->running_config->version;
+
+	if (lyd_new_term_bin(parent, snode->module, snode->name, &value, sizeof(value),
+			     LYD_NEW_PATH_UPDATE, NULL))
+		return NB_ERR_RESOURCE;
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-backend:clients/client/state/notify-selectors
+ *
+ * Is this better in northbound_notif.c? Let's decide when we add more to this module.
+ */
+
+static enum nb_error clients_client_state_notify_selectors_get(const struct nb_node *nb_node,
+							       const void *parent_list_entry,
+							       struct lyd_node *parent)
+{
+	const struct lysc_node *snode = nb_node->snode;
+	const char **p;
+	LY_ERR err;
+
+	darr_foreach_p (nb_notif_filters, p) {
+		err = lyd_new_term(parent, snode->module, snode->name, *p, false, NULL);
+		if (err != LY_SUCCESS)
+			return NB_ERR_RESOURCE;
+	}
+
+	return NB_OK;
+}
+
+/* clang-format off */
+const struct frr_yang_module_info frr_backend_info = {
+	.name = "frr-backend",
+	.nodes = {
+		{
+			.xpath = "/frr-backend:clients/client",
+			.cbs = {
+				.get_next = clients_client_get_next,
+				.get_keys = clients_client_get_keys,
+				.lookup_entry = clients_client_lookup_entry,
+			}
+		},
+		{
+			.xpath = "/frr-backend:clients/client/name",
+			.cbs.get = clients_client_name_get,
+		},
+		{
+			.xpath = "/frr-backend:clients/client/state/candidate-config-version",
+			.cbs = {
+				.get = clients_client_state_candidate_config_version_get,
+			}
+		},
+		{
+			.xpath = "/frr-backend:clients/client/state/running-config-version",
+			.cbs = {
+				.get = clients_client_state_running_config_version_get,
+			}
+		},
+		{
+			.xpath = "/frr-backend:clients/client/state/edit-count",
+			.cbs = {
+				.get = nb_oper_uint64_get,
+				.get_elem = (void *)(intptr_t)offsetof(struct mgmt_be_client, num_edit_nb_cfg),
+			}
+		},
+		{
+			.xpath = "/frr-backend:clients/client/state/avg-edit-time",
+			.cbs = {
+				.get = nb_oper_uint64_get,
+				.get_elem = (void *)(intptr_t)offsetof(struct mgmt_be_client, avg_edit_nb_cfg_tm),
+			}
+		},
+		{
+			.xpath = "/frr-backend:clients/client/state/prep-count",
+			.cbs = {
+				.get = nb_oper_uint64_get,
+				.get_elem = (void *)(intptr_t)offsetof(struct mgmt_be_client, num_prep_nb_cfg),
+			}
+		},
+		{
+			.xpath = "/frr-backend:clients/client/state/avg-prep-time",
+			.cbs = {
+				.get = nb_oper_uint64_get,
+				.get_elem = (void *)(intptr_t)offsetof(struct mgmt_be_client, avg_prep_nb_cfg_tm),
+			}
+		},
+		{
+			.xpath = "/frr-backend:clients/client/state/apply-count",
+			.cbs = {
+				.get = nb_oper_uint64_get,
+				.get_elem = (void *)(intptr_t)offsetof(struct mgmt_be_client, num_apply_nb_cfg),
+			}
+		},
+		{
+			.xpath = "/frr-backend:clients/client/state/avg-apply-time",
+			.cbs = {
+				.get = nb_oper_uint64_get,
+				.get_elem = (void *)(intptr_t)offsetof(struct mgmt_be_client, avg_apply_nb_cfg_tm),
+			}
+		},
+		{
+			.xpath = "/frr-backend:clients/client/state/notify-selectors",
+			.cbs.get = clients_client_state_notify_selectors_get,
+		},
+		{
+			.xpath = NULL,
+		},
+	}
+};
+/* clang-format on */
 
 struct mgmt_be_client *mgmt_be_client_create(const char *client_name,
 					     struct mgmt_be_client_cbs *cbs,

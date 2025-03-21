@@ -447,6 +447,7 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 		int gnh_modified, lnh_modified;
 		size_t offset_nhglobal = vec->offset + 1;
 		size_t offset_nhlocal = vec->offset + 1;
+		bool ll_nexthop_only = PEER_HAS_LINK_LOCAL_CAPABILITY(peer);
 
 		gnh_modified = lnh_modified = 0;
 		mod_v6nhg = &v6nhglobal;
@@ -535,8 +536,8 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			gnh_modified = 1;
 		}
 
-		if (nhlen == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL
-		    || nhlen == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL) {
+		if (nhlen == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL ||
+		    nhlen == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL || ll_nexthop_only) {
 			stream_get_from(&v6nhlocal, s, offset_nhlocal,
 					IPV6_MAX_BYTELEN);
 			if (IN6_IS_ADDR_UNSPECIFIED(&v6nhlocal)) {
@@ -545,14 +546,18 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			}
 		}
 
-		if (gnh_modified)
-			stream_put_in6_addr_at(s, offset_nhglobal, mod_v6nhg);
-		if (lnh_modified)
+		if (lnh_modified && ll_nexthop_only) {
 			stream_put_in6_addr_at(s, offset_nhlocal, mod_v6nhl);
+		} else {
+			if (gnh_modified)
+				stream_put_in6_addr_at(s, offset_nhglobal, mod_v6nhg);
+			if (lnh_modified)
+				stream_put_in6_addr_at(s, offset_nhlocal, mod_v6nhl);
+		}
 
 		if (bgp_debug_update(peer, NULL, NULL, 0)) {
-			if (nhlen == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL
-			    || nhlen == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL)
+			if (nhlen == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL ||
+			    nhlen == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL || ll_nexthop_only)
 				zlog_debug(
 					"u%" PRIu64 ":s%" PRIu64
 					" %s send UPDATE w/ mp_nexthops %pI6, %pI6%s",
@@ -738,9 +743,9 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 
 			/* 5: Encode all the attributes, except MP_REACH_NLRI
 			 * attr. */
-			total_attr_len = bgp_packet_attribute(
-				NULL, peer, s, adv->baa->attr, &vecarr, NULL,
-				afi, safi, from, NULL, NULL, 0, 0, 0, path);
+			total_attr_len = bgp_packet_attribute(NULL, peer, s, adv->baa->attr,
+							      &vecarr, NULL, afi, safi, from, NULL,
+							      NULL, 0, 0, 0);
 
 			space_remaining =
 				STREAM_CONCAT_REMAIN(s, snlri, STREAM_SIZE(s))
@@ -1149,12 +1154,9 @@ void subgroup_default_update_packet(struct update_subgroup *subgrp,
 	/* Make place for total attribute length.  */
 	pos = stream_get_endp(s);
 	stream_putw(s, 0);
-	total_attr_len =
-		bgp_packet_attribute(NULL, peer, s, attr, &vecarr, &p, afi,
-				     safi, from, NULL, &label, num_labels,
-				     addpath_capable,
-				     BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE,
-				     NULL);
+	total_attr_len = bgp_packet_attribute(NULL, peer, s, attr, &vecarr, &p, afi, safi, from,
+					      NULL, &label, num_labels, addpath_capable,
+					      BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE);
 
 	/* Set Total Path Attribute Length. */
 	stream_putw_at(s, pos, total_attr_len);
@@ -1286,10 +1288,6 @@ bpacket_vec_arr_inherit_attr_flags(struct bpacket_attr_vec_arr *vecarr,
 		       BATTR_RMAP_NEXTHOP_PEER_ADDRESS))
 		SET_FLAG(vecarr->entries[BGP_ATTR_VEC_NH].flags,
 			 BPKT_ATTRVEC_FLAGS_RMAP_NH_PEER_ADDRESS);
-
-	if (CHECK_FLAG(attr->rmap_change_flags, BATTR_REFLECTED))
-		SET_FLAG(vecarr->entries[BGP_ATTR_VEC_NH].flags,
-			 BPKT_ATTRVEC_FLAGS_REFLECTED);
 
 	if (CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_NEXTHOP_UNCHANGED))
 		SET_FLAG(vecarr->entries[BGP_ATTR_VEC_NH].flags,

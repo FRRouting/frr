@@ -12,6 +12,8 @@
 #include "vty.h"
 #include "vrf.h"
 #include "plist.h"
+#include "plist_int.h"
+#include "filter.h"
 
 #include "pimd.h"
 #include "pim_vty.h"
@@ -27,6 +29,7 @@
 #include "pim_bfd.h"
 #include "pim_bsm.h"
 #include "pim_vxlan.h"
+#include "pim_nht.h"
 #include "pim6_mld.h"
 
 int pim_debug_config_write(struct vty *vty)
@@ -178,13 +181,32 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 	int writes = 0;
 	struct pim_ssm *ssm = pim->ssm_info;
 
+#if PIM_IPV == 4
 	writes += pim_msdp_peer_config_write(vty, pim);
 	writes += pim_msdp_config_write(pim, vty);
+#endif /* PIM_IPV == 4 */
 
 	if (!pim->send_v6_secondary) {
 		vty_out(vty, " no send-v6-secondary\n");
 		++writes;
 	}
+
+#if PIM_IPV == 6
+	if (pim->embedded_rp.enable) {
+		vty_out(vty, " embedded-rp\n");
+		writes++;
+	}
+
+	if (pim->embedded_rp.maximum_rps != PIM_EMBEDDED_RP_MAXIMUM) {
+		vty_out(vty, " embedded-rp limit %u\n", pim->embedded_rp.maximum_rps);
+		writes++;
+	}
+
+	if (pim->embedded_rp.group_list) {
+		vty_out(vty, " embedded-rp group-list %s\n", pim->embedded_rp.group_list);
+		writes++;
+	}
+#endif /* PIM_IPV == 6 */
 
 	writes += pim_rp_config_write(pim, vty);
 #if PIM_IPV == 4
@@ -254,16 +276,7 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 		}
 	}
 
-	if (pim->msdp.hold_time != PIM_MSDP_PEER_HOLD_TIME
-	    || pim->msdp.keep_alive != PIM_MSDP_PEER_KA_TIME
-	    || pim->msdp.connection_retry != PIM_MSDP_PEER_CONNECT_RETRY_TIME) {
-		vty_out(vty, " msdp timers %u %u", pim->msdp.hold_time,
-			pim->msdp.keep_alive);
-		if (pim->msdp.connection_retry
-		    != PIM_MSDP_PEER_CONNECT_RETRY_TIME)
-			vty_out(vty, " %u", pim->msdp.connection_retry);
-		vty_out(vty, "\n");
-	}
+	writes += pim_lookup_mode_write(pim, vty);
 
 	return writes;
 }
@@ -325,6 +338,9 @@ static int gm_config_write(struct vty *vty, int writes,
 		struct listnode *node;
 		struct gm_join *ij;
 		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_join_list, node, ij)) {
+			if (ij->join_type == GM_JOIN_PROXY)
+				continue;
+
 			if (pim_addr_is_any(ij->source_addr))
 				vty_out(vty, " ip igmp join-group %pPAs\n",
 					&ij->group_addr);
@@ -395,6 +411,9 @@ static int gm_config_write(struct vty *vty, int writes,
 		struct gm_join *ij;
 
 		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_join_list, node, ij)) {
+			if (ij->join_type == GM_JOIN_PROXY)
+				continue;
+
 			if (pim_addr_is_any(ij->source_addr))
 				vty_out(vty, " ipv6 mld join-group %pPAs\n",
 					&ij->group_addr);
@@ -438,6 +457,32 @@ int pim_config_write(struct vty *vty, int writes, struct interface *ifp,
 		++writes;
 	}
 
+	/* IF igmp/mld max-sources */
+	if (pim_ifp->gm_source_limit != UINT32_MAX) {
+		vty_out(vty, " " PIM_AF_NAME " " GM_AF_DBG " max-sources %u\n",
+			pim_ifp->gm_source_limit);
+		++writes;
+	}
+
+	/* IF igmp/mld max-groups */
+	if (pim_ifp->gm_group_limit != UINT32_MAX) {
+		vty_out(vty, " " PIM_AF_NAME " " GM_AF_DBG " max-groups %u\n",
+			pim_ifp->gm_group_limit);
+		++writes;
+	}
+
+	/* IF ip/ipv6 igmp/mld immediate-leave */
+	if (pim_ifp->gmp_immediate_leave) {
+		vty_out(vty, " " PIM_AF_NAME " " GM_AF_DBG " immediate-leave\n");
+		++writes;
+	}
+
+	if (pim_ifp->nbr_plist) {
+		vty_out(vty, " " PIM_AF_NAME " pim allowed-neighbors prefix-list %s\n",
+			pim_ifp->nbr_plist);
+		++writes;
+	}
+
 	/* IF ip pim drpriority */
 	if (pim_ifp->pim_dr_priority != PIM_DEFAULT_DR_PRIORITY) {
 		vty_out(vty, " " PIM_AF_NAME " pim drpriority %u\n",
@@ -469,7 +514,13 @@ int pim_config_write(struct vty *vty, int writes, struct interface *ifp,
 	/* boundary */
 	if (pim_ifp->boundary_oil_plist) {
 		vty_out(vty, " " PIM_AF_NAME " multicast boundary oil %s\n",
-			pim_ifp->boundary_oil_plist);
+			pim_ifp->boundary_oil_plist->name);
+		++writes;
+	}
+
+	if (pim_ifp->boundary_acl) {
+		vty_out(vty, " " PIM_AF_NAME " multicast boundary %s\n",
+			pim_ifp->boundary_acl->name);
 		++writes;
 	}
 

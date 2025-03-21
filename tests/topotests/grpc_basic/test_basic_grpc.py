@@ -108,7 +108,7 @@ def test_capabilities(tgen):
     logging.debug("grpc output: %s", output)
 
     modules = sorted(re.findall('name: "([^"]+)"', output))
-    expected = ["frr-interface", "frr-routing", "frr-staticd", "frr-vrf"]
+    expected = ["frr-backend", "frr-interface", "frr-routing", "frr-staticd", "frr-vrf"]
     assert modules == expected
 
     encodings = sorted(re.findall("supported_encodings: (.*)", output))
@@ -145,15 +145,10 @@ def test_get_config(tgen):
               "ip": "192.168.1.1",
               "prefix-length": 24
             }
-          ],
-          "evpn-mh": {},
-          "ipv6-router-advertisements": {}
+          ]
         }
       }
     ]
-  },
-  "frr-zebra:zebra": {
-    "import-kernel-table": {}
   }
 } """
     )

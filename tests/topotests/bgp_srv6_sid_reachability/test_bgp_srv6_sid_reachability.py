@@ -99,7 +99,7 @@ def teardown_module(mod):
 def test_ping():
     tgen = get_topogen()
 
-    check_ping("c11", "192.168.2.1", True, 10, 1)
+    check_ping("c11", "192.168.2.1", True, 120, 1)
     check_ping("c11", "192.168.3.1", True, 10, 1)
     check_ping("c12", "192.168.2.1", True, 10, 1)
     check_ping("c12", "192.168.3.1", True, 10, 1)
@@ -154,6 +154,36 @@ def test_sid_reachable_again_bgp_update():
         router bgp 65002 vrf vrf10
          address-family ipv4 unicast
           sid vpn export 1
+        """
+    )
+    check_ping("c11", "192.168.2.1", True, 10, 1)
+
+
+def test_sid_unreachable_no_router():
+    get_topogen().gears["r2"].vtysh_cmd(
+        """
+        configure terminal
+        no router bgp 65002 vrf vrf10
+        """
+    )
+    check_ping("c11", "192.168.2.1", False, 10, 1)
+
+
+def test_sid_reachable_again_no_router():
+    get_topogen().gears["r2"].vtysh_cmd(
+        """
+        configure terminal
+        router bgp 65002 vrf vrf10
+        bgp router-id 192.0.2.2
+        !
+         address-family ipv4 unicast
+          redistribute connected
+          sid vpn export 1
+          rd vpn export 65002:10
+          rt vpn both 0:10
+          import vpn
+          export vpn
+         exit-address-family
         """
     )
     check_ping("c11", "192.168.2.1", True, 10, 1)

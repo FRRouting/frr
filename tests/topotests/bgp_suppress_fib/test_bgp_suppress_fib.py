@@ -232,6 +232,20 @@ def test_local_vs_non_local():
             assert False, "Route 60.0.0.0/24 should not have fibPending"
 
 
+def test_ip_protocol_any_fib_filter():
+    #    "Filtered route of source protocol any should not get installed in fib"
+
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r2 = tgen.gears["r2"]
+    r2.vtysh_cmd("conf\nno ip protocol bgp")
+    r2.vtysh_cmd("conf\nip protocol any route-map LIMIT")
+    test_bgp_route()
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

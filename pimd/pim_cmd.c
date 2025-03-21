@@ -2822,65 +2822,49 @@ DEFPY (show_ip_pim_rp_vrf_all,
 
 DEFPY (show_ip_pim_autorp,
        show_ip_pim_autorp_cmd,
-       "show ip pim [vrf NAME] autorp [json$json]",
+       "show ip pim [vrf <NAME|all>] autorp [discovery|candidate|mapping-agent]$component [json$json]",
        SHOW_STR
        IP_STR
        PIM_STR
        VRF_CMD_HELP_STR
+       "All VRF's\n"
        "PIM AutoRP information\n"
+       "RP Discovery details\n"
+       "Candidate RP details\n"
+       "Mapping Agent details\n"
        JSON_STR)
 {
+	json_object *json_parent = NULL;
 	struct vrf *v;
-	json_object *json_parent = NULL;
-
-	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
-	if (!v || !v->info) {
-		if (!json)
-			vty_out(vty, "%% Unable to find pim instance\n");
-		return CMD_WARNING;
-	}
 
 	if (json)
 		json_parent = json_object_new_object();
 
-	pim_autorp_show_autorp(vty, v->info, json_parent);
+	if (vrf && strmatch(vrf, "all")) {
+		json_object *json_vrf = NULL;
 
-	if (json)
-		vty_json(vty, json_parent);
-
-	return CMD_SUCCESS;
-}
-
-DEFPY (show_ip_pim_autorp_vrf_all,
-       show_ip_pim_autorp_vrf_all_cmd,
-       "show ip pim vrf all autorp [json$json]",
-       SHOW_STR
-       IP_STR
-       PIM_STR
-       VRF_CMD_HELP_STR
-       "PIM AutoRP information\n"
-       JSON_STR)
-{
-	struct vrf *vrf;
-	json_object *json_parent = NULL;
-	json_object *json_vrf = NULL;
-
-	if (json)
-		json_parent = json_object_new_object();
-
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		if (vrf->info) {
-			if (!json)
-				vty_out(vty, "VRF: %s\n", vrf->name);
-			else
-				json_vrf = json_object_new_object();
-
-			pim_autorp_show_autorp(vty, vrf->info, json_vrf);
+		RB_FOREACH (v, vrf_name_head, &vrfs_by_name) {
+			if (!v || !v->info)
+				continue;
 
 			if (json)
-				json_object_object_add(json_parent, vrf->name,
-						       json_vrf);
+				json_vrf = json_object_new_object();
+			else
+				vty_out(vty, "VRF: %s\n", v->name);
+
+			pim_autorp_show_autorp(vty, v->info, component, json_vrf);
+
+			if (json)
+				json_object_object_add(json_parent, v->name, json_vrf);
 		}
+	} else {
+		v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+		if (!v || !v->info) {
+			if (!json)
+				vty_out(vty, "%% Unable to find pim instance\n");
+			return CMD_WARNING;
+		}
+		pim_autorp_show_autorp(vty, v->info, component, json_parent);
 	}
 
 	if (json)
@@ -2930,7 +2914,7 @@ DEFPY (show_ip_pim_nexthop,
 
 DEFPY (show_ip_pim_nexthop_lookup,
        show_ip_pim_nexthop_lookup_cmd,
-       "show ip pim [vrf NAME] nexthop-lookup A.B.C.D$source A.B.C.D$group",
+       "show ip pim [vrf NAME] nexthop-lookup A.B.C.D$source [A.B.C.D$group]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -2941,6 +2925,14 @@ DEFPY (show_ip_pim_nexthop_lookup,
 {
 	return pim_show_nexthop_lookup_cmd_helper(vrf, vty, source, group);
 }
+
+ALIAS_DEPRECATED (show_ip_pim_nexthop_lookup,
+                  show_ip_rpf_source_cmd,
+                  "show ip rpf A.B.C.D$source",
+                  SHOW_STR
+                  IP_STR
+                  "Display RPF information for multicast source\n"
+                  "Nexthop lookup for specific source address\n");
 
 DEFPY (show_ip_pim_interface_traffic,
        show_ip_pim_interface_traffic_cmd,
@@ -3304,7 +3296,7 @@ DEFUN (show_ip_rib,
 		return CMD_WARNING;
 	}
 
-	if (!pim_nexthop_lookup(vrf->info, &nexthop, addr, 0)) {
+	if (!pim_nht_lookup(vrf->info, &nexthop, addr, PIMADDR_ANY, false)) {
 		vty_out(vty,
 			"Failure querying RIB nexthop for unicast address %s\n",
 			addr_str);
@@ -4609,13 +4601,17 @@ DEFPY (pim_autorp_announce_rp,
        "Prefix list\n"
        "List name\n")
 {
-	return pim_process_autorp_candidate_rp_cmd(vty, no, rpaddr_str, (grp_str ? grp : NULL),
-						   plist);
+	if (grp_str && (!pim_addr_is_multicast(grp->prefix) || grp->prefixlen < 4)) {
+		vty_out(vty, "%% group prefix %pFX is not a valid multicast range\n", grp);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	return pim_process_autorp_candidate_rp_cmd(vty, no, rpaddr_str, grp_str, plist);
 }
 
 DEFPY (pim_autorp_announce_scope_int,
        pim_autorp_announce_scope_int_cmd,
-       "[no] autorp announce ![{scope (1-255) | interval (1-65535) | holdtime (0-65535)}]",
+       "[no] autorp announce {scope (1-255) | interval (1-65535) | holdtime (0-65535)}",
        NO_STR
        "AutoRP\n"
        "AutoRP Candidate RP announcement\n"
@@ -4626,9 +4622,42 @@ DEFPY (pim_autorp_announce_scope_int,
        "Announcement holdtime\n"
        "Time in seconds\n")
 {
-	return pim_process_autorp_announce_scope_int_cmd(vty, no, scope_str,
-							 interval_str,
+	return pim_process_autorp_announce_scope_int_cmd(vty, no, scope_str, interval_str,
 							 holdtime_str);
+}
+
+DEFPY (pim_autorp_send_rp_discovery,
+       pim_autorp_send_rp_discovery_cmd,
+       "[no] autorp send-rp-discovery [source <address A.B.C.D | interface IFNAME | loopback$loopback | any$any>]",
+       NO_STR
+       "AutoRP\n"
+       "Enable AutoRP mapping agent\n"
+       "Specify AutoRP discovery source\n"
+       "Local address\n"
+       IP_ADDR_STR
+       "Local Interface (uses highest address)\n"
+       IFNAME_STR
+       "Highest loopback address (default)\n"
+       "Highest address of any interface\n")
+{
+	return pim_process_autorp_send_rp_discovery_cmd(vty, no, any, loopback, ifname, address_str);
+}
+
+DEFPY (pim_autorp_send_rp_discovery_scope_int,
+       pim_autorp_send_rp_discovery_scope_int_cmd,
+       "[no] autorp send-rp-discovery {scope (0-255) | interval (1-65535) | holdtime (0-65535)}",
+       NO_STR
+       "AutoRP\n"
+       "Enable AutoRP mapping agent\n"
+       "Packet scope (TTL)\n"
+       "TTL value\n"
+       "Discovery TX interval\n"
+       "Time in seconds\n"
+       "Announcement holdtime\n"
+       "Time in seconds\n")
+{
+	return pim_process_autorp_send_rp_discovery_scope_int_cmd(vty, no, scope_str, interval_str,
+								  holdtime_str);
 }
 
 DEFPY (pim_bsr_candidate_bsr,
@@ -5627,6 +5656,56 @@ DEFUN (interface_no_ip_igmp_last_member_query_interval,
 	return gm_process_no_last_member_query_interval_cmd(vty);
 }
 
+DEFPY_YANG(interface_ip_igmp_limits,
+           interface_ip_igmp_limits_cmd,
+           "[no] ip igmp <max-sources$do_src (0-4294967295)$val"
+	     "|max-groups$do_grp (0-4294967295)$val>",
+           NO_STR
+           IP_STR
+           IFACE_IGMP_STR
+           "Limit number of IGMPv3 sources to track\n"
+           "Permitted number of sources\n"
+           "Limit number of IGMP group memberships to track\n"
+           "Permitted number of groups\n")
+{
+	const char *xpath;
+
+	assert(do_src || do_grp);
+	if (do_src)
+		xpath = "./max-sources";
+	else
+		xpath = "./max-groups";
+
+	if (no)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, val_str);
+
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
+}
+
+ALIAS_YANG(interface_ip_igmp_limits,
+           no_interface_ip_igmp_limits_cmd,
+           "no ip igmp <max-sources$do_src|max-groups$do_grp>",
+           NO_STR
+           IP_STR
+           IFACE_IGMP_STR
+           "Limit number of IGMPv3 sources to track\n"
+           "Limit number of IGMP group memberships to track\n")
+
+DEFPY_YANG(interface_ip_igmp_immediate_leave,
+           interface_ip_igmp_immediate_leave_cmd,
+           "[no] ip igmp immediate-leave",
+           NO_STR
+           IP_STR
+           IFACE_IGMP_STR
+           "Immediately drop group memberships on receiving Leave (IGMPv2 only)\n")
+{
+	nb_cli_enqueue_change(vty, "./immediate-leave", NB_OP_MODIFY, no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
+}
+
 DEFUN (interface_ip_pim_drprio,
        interface_ip_pim_drprio_cmd,
        "ip pim drpriority (0-4294967295)",
@@ -5850,6 +5929,21 @@ DEFUN(interface_no_ip_pim_boundary_oil,
 	return pim_process_no_ip_pim_boundary_oil_cmd(vty);
 }
 
+DEFPY_YANG(interface_ip_pim_boundary_acl,
+           interface_ip_pim_boundary_acl_cmd,
+           "[no] ip multicast boundary ACCESSLIST4_NAME$name",
+           NO_STR
+           IP_STR
+           "Generic multicast configuration options\n"
+           "Define multicast boundary\n"
+           "Access-list to filter OIL with by source and group\n")
+{
+	nb_cli_enqueue_change(vty, "./multicast-boundary-acl",
+			      (!!no ? NB_OP_DESTROY : NB_OP_MODIFY), name);
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
+}
+
 DEFUN (interface_ip_mroute,
        interface_ip_mroute_cmd,
        "ip mroute INTERFACE A.B.C.D [A.B.C.D]",
@@ -5940,6 +6034,34 @@ DEFPY (interface_ip_igmp_proxy,
 	return pim_process_ip_gmp_proxy_cmd(vty, !no);
 }
 
+
+DEFPY_YANG(interface_ip_pim_neighbor_prefix_list,
+           interface_ip_pim_neighbor_prefix_list_cmd,
+           "[no] ip pim allowed-neighbors prefix-list WORD",
+           NO_STR
+           IP_STR
+           "pim multicast routing\n"
+           "Restrict allowed PIM neighbors\n"
+           "Use prefix-list to filter neighbors\n"
+           "Name of a prefix-list\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./neighbor-filter-prefix-list", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./neighbor-filter-prefix-list", NB_OP_MODIFY,
+				      prefix_list);
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
+}
+
+ALIAS (interface_ip_pim_neighbor_prefix_list,
+       interface_no_ip_pim_neighbor_prefix_list_cmd,
+       "no ip pim allowed-neighbors [prefix-list]",
+       NO_STR
+       IP_STR
+       "pim multicast routing\n"
+       "Restrict allowed PIM neighbors\n"
+       "Use prefix-list to filter neighbors\n")
 
 DEFUN (debug_igmp,
        debug_igmp_cmd,
@@ -7539,6 +7661,65 @@ DEFPY_ATTR(no_ip_pim_msdp_mesh_group,
 	return ret;
 }
 
+DEFPY(msdp_shutdown,
+      msdp_shutdown_cmd,
+      "[no] msdp shutdown",
+      NO_STR
+      CFG_MSDP_STR
+      "Shutdown MSDP operation\n")
+{
+	char xpath_value[XPATH_MAXLEN];
+
+	snprintf(xpath_value, sizeof(xpath_value), "./msdp/shutdown");
+	if (no)
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(msdp_peer_sa_limit, msdp_peer_sa_limit_cmd,
+      "[no] msdp peer A.B.C.D$peer sa-limit ![(1-4294967294)$sa_limit]",
+      NO_STR
+      CFG_MSDP_STR
+      "Configure MSDP peer\n"
+      "MSDP peer address\n"
+      "Limit amount of SA\n"
+      "Maximum number of SA\n")
+{
+	const struct lyd_node *peer_node;
+	char xpath[XPATH_MAXLEN + 24];
+
+	snprintf(xpath, sizeof(xpath), "%s/msdp-peer[peer-ip='%s']", VTY_CURR_XPATH, peer_str);
+	peer_node = yang_dnode_get(vty->candidate_config->dnode, xpath);
+	if (peer_node == NULL) {
+		vty_out(vty, "%% MSDP peer %s not yet configured\n", peer_str);
+		return CMD_SUCCESS;
+	}
+
+	nb_cli_enqueue_change(vty, "./sa-limit", NB_OP_MODIFY, sa_limit_str);
+	return nb_cli_apply_changes(vty, "%s", xpath);
+}
+
+DEFPY(msdp_originator_id, msdp_originator_id_cmd,
+      "[no] msdp originator-id ![A.B.C.D$originator_id]",
+      NO_STR
+      CFG_MSDP_STR
+      "Configure MSDP RP originator\n"
+      "MSDP RP originator identifier\n")
+{
+	char xpath_value[XPATH_MAXLEN];
+
+	snprintf(xpath_value, sizeof(xpath_value), "./msdp/originator-id");
+	if (no)
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, originator_id_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 static void ip_msdp_show_mesh_group(struct vty *vty, struct pim_msdp_mg *mg,
 				    struct json_object *json)
 {
@@ -8267,6 +8448,37 @@ DEFUN (show_ip_msdp_sa_sg_vrf_all,
 	return CMD_SUCCESS;
 }
 
+DEFPY(msdp_log_neighbor_changes, msdp_log_neighbor_changes_cmd,
+      "[no] msdp log neighbor-events",
+      NO_STR
+      MSDP_STR
+      "MSDP log messages\n"
+      "MSDP log neighbor event messages\n")
+{
+	char xpath_value[XPATH_MAXLEN + 32];
+
+	snprintf(xpath_value, sizeof(xpath_value), "%s/msdp/log-neighbor-events", VTY_CURR_XPATH);
+	nb_cli_enqueue_change(vty, xpath_value, no ? NB_OP_DESTROY : NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(msdp_log_sa_changes, msdp_log_sa_changes_cmd,
+      "[no] msdp log sa-events",
+      NO_STR
+      MSDP_STR
+      "MSDP log messages\n"
+      "MSDP log SA event messages\n")
+{
+	char xpath_value[XPATH_MAXLEN + 32];
+
+	snprintf(xpath_value, sizeof(xpath_value), "%s/msdp/log-sa-events", VTY_CURR_XPATH);
+	nb_cli_enqueue_change(vty, xpath_value, no ? NB_OP_DESTROY : NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+
 struct pim_sg_cache_walk_data {
 	struct vty *vty;
 	json_object *json;
@@ -8743,6 +8955,34 @@ done:
 	return ret;
 }
 
+DEFPY_YANG(pim_rpf_lookup_mode, pim_rpf_lookup_mode_cmd,
+           "[no] rpf-lookup-mode\
+            ![urib-only|mrib-only|mrib-then-urib|lower-distance|longer-prefix]$mode\
+            [{group-list PREFIX_LIST$grp_list|source-list PREFIX_LIST$src_list}]",
+           NO_STR
+           "RPF lookup behavior\n"
+           "Lookup in unicast RIB only\n"
+           "Lookup in multicast RIB only\n"
+           "Try multicast RIB first, fall back to unicast RIB\n"
+           "Lookup both, use entry with lower distance\n"
+           "Lookup both, use entry with longer prefix\n"
+           "Set a specific mode matching group\n"
+           "Multicast group prefix list\n"
+           "Set a specific mode matching source address\n"
+           "Source address prefix list\n")
+{
+	if (no) {
+		nb_cli_enqueue_change(vty, "./mode", NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	} else {
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, "./mode", NB_OP_MODIFY, mode);
+	}
+
+	return nb_cli_apply_changes(vty, "./mcast-rpf-lookup[group-list='%s'][source-list='%s']",
+				    (grp_list ? grp_list : ""), (src_list ? src_list : ""));
+}
+
 struct cmd_node pim_node = {
 	.name = "pim",
 	.node = PIM_NODE,
@@ -8855,6 +9095,8 @@ void pim_cmd_init(void)
 	install_element(PIM_NODE, &pim_autorp_discovery_cmd);
 	install_element(PIM_NODE, &pim_autorp_announce_rp_cmd);
 	install_element(PIM_NODE, &pim_autorp_announce_scope_int_cmd);
+	install_element(PIM_NODE, &pim_autorp_send_rp_discovery_cmd);
+	install_element(PIM_NODE, &pim_autorp_send_rp_discovery_scope_int_cmd);
 	install_element(PIM_NODE, &no_pim_ssm_prefix_list_cmd);
 	install_element(PIM_NODE, &no_pim_ssm_prefix_list_name_cmd);
 	install_element(PIM_NODE, &pim_ssm_prefix_list_cmd);
@@ -8898,10 +9140,17 @@ void pim_cmd_init(void)
 	install_element(PIM_NODE, &pim_msdp_mesh_group_source_cmd);
 	install_element(PIM_NODE, &no_pim_msdp_mesh_group_source_cmd);
 	install_element(PIM_NODE, &no_pim_msdp_mesh_group_cmd);
+	install_element(PIM_NODE, &msdp_log_neighbor_changes_cmd);
+	install_element(PIM_NODE, &msdp_log_sa_changes_cmd);
+	install_element(PIM_NODE, &msdp_shutdown_cmd);
+	install_element(PIM_NODE, &msdp_peer_sa_limit_cmd);
+	install_element(PIM_NODE, &msdp_originator_id_cmd);
 
 	install_element(PIM_NODE, &pim_bsr_candidate_rp_cmd);
 	install_element(PIM_NODE, &pim_bsr_candidate_rp_group_cmd);
 	install_element(PIM_NODE, &pim_bsr_candidate_bsr_cmd);
+
+	install_element(PIM_NODE, &pim_rpf_lookup_mode_cmd);
 
 	install_element(INTERFACE_NODE, &interface_ip_igmp_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_igmp_cmd);
@@ -8930,6 +9179,9 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE,
 			&interface_no_ip_igmp_last_member_query_interval_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_igmp_proxy_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_igmp_limits_cmd);
+	install_element(INTERFACE_NODE, &no_interface_ip_igmp_limits_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_igmp_immediate_leave_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_activeactive_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_ssm_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_ssm_cmd);
@@ -8943,7 +9195,10 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_hello_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_boundary_oil_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_boundary_oil_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_pim_boundary_acl_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_igmp_query_generate_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_pim_neighbor_prefix_list_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ip_pim_neighbor_prefix_list_cmd);
 
 	// Static mroutes NEB
 	install_element(INTERFACE_NODE, &interface_ip_mroute_cmd);
@@ -9010,7 +9265,6 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_pim_rp_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_rp_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_autorp_cmd);
-	install_element(VIEW_NODE, &show_ip_pim_autorp_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_bsr_cmd);
 	install_element(VIEW_NODE, &show_ip_multicast_cmd);
 	install_element(VIEW_NODE, &show_ip_multicast_vrf_all_cmd);
@@ -9026,6 +9280,7 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_ssmpingd_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_nexthop_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_nexthop_lookup_cmd);
+	install_element(VIEW_NODE, &show_ip_rpf_source_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_bsrp_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_bsm_db_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_bsr_rpinfo_cmd);

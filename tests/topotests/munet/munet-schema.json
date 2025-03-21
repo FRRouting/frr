@@ -117,6 +117,12 @@
               "bios": {
                 "type": "string"
               },
+              "cloud-init": {
+                "type": "boolean"
+              },
+              "cloud-init-disk": {
+                "type": "string"
+              },
               "disk": {
                 "type": "string"
               },
@@ -129,7 +135,7 @@
               "initial-cmd": {
                 "type": "string"
               },
-              "kerenel": {
+              "kernel": {
                 "type": "string"
               },
               "initrd": {
@@ -373,6 +379,12 @@
         "networks-autonumber": {
           "type": "boolean"
         },
+        "initial-setup-cmd": {
+          "type": "string"
+        },
+        "initial-setup-host-cmd": {
+          "type": "string"
+        },
         "networks": {
           "type": "array",
           "items": {
@@ -452,6 +464,12 @@
                   "bios": {
                     "type": "string"
                   },
+                  "cloud-init": {
+                    "type": "boolean"
+                  },
+                  "cloud-init-disk": {
+                    "type": "string"
+                  },
                   "disk": {
                     "type": "string"
                   },
@@ -464,7 +482,7 @@
                   "initial-cmd": {
                     "type": "string"
                   },
-                  "kerenel": {
+                  "kernel": {
                     "type": "string"
                   },
                   "initrd": {

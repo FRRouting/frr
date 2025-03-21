@@ -15,6 +15,7 @@
 #include "pim_ssm.h"
 #include "pim_rpf.h"
 #include "pim_rp.h"
+#include "pim_nht.h"
 #include "pim_mroute.h"
 #include "pim_oil.h"
 #include "pim_static.h"
@@ -26,6 +27,8 @@
 
 static void pim_instance_terminate(struct pim_instance *pim)
 {
+	pim->stopping = true;
+
 	pim_vxlan_exit(pim);
 
 	if (pim->ssm_info) {
@@ -44,14 +47,15 @@ static void pim_instance_terminate(struct pim_instance *pim)
 
 	pim_bsm_proc_free(pim);
 
-	/* Traverse and cleanup rpf_hash */
-	hash_clean_and_free(&pim->rpf_hash, (void *)pim_rp_list_hash_clean);
+	pim_nht_terminate(pim);
 
 	pim_if_terminate(pim);
 
 	pim_oil_terminate(pim);
 
+#if PIM_IPV == 4
 	pim_msdp_exit(pim);
+#endif /* PIM_IPV == 4 */
 
 	close(pim->reg_sock);
 
@@ -71,7 +75,6 @@ static void pim_instance_terminate(struct pim_instance *pim)
 static struct pim_instance *pim_instance_init(struct vrf *vrf)
 {
 	struct pim_instance *pim;
-	char hash_name[64];
 
 	pim = XCALLOC(MTYPE_PIM_PIM_INSTANCE, sizeof(struct pim_instance));
 
@@ -89,15 +92,12 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 	pim->spt.switchover = PIM_SPT_IMMEDIATE;
 	pim->spt.plist = NULL;
 
+#if PIM_IPV == 4
 	pim_msdp_init(pim, router->master);
+#endif /* PIM_IPV == 4 */
 	pim_vxlan_init(pim);
 
-	snprintf(hash_name, sizeof(hash_name), "PIM %s RPF Hash", vrf->name);
-	pim->rpf_hash = hash_create_size(256, pim_rpf_hash_key, pim_rpf_equal,
-					 hash_name);
-
-	if (PIM_DEBUG_ZEBRA)
-		zlog_debug("%s: NHT rpf hash init ", __func__);
+	pim_nht_init(pim);
 
 	pim->ssm_info = pim_ssm_init();
 
@@ -123,11 +123,6 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 	pim->reg_sock = pim_reg_sock();
 	if (pim->reg_sock < 0)
 		assert(0);
-
-	/* MSDP global timer defaults. */
-	pim->msdp.hold_time = PIM_MSDP_PEER_HOLD_TIME;
-	pim->msdp.keep_alive = PIM_MSDP_PEER_KA_TIME;
-	pim->msdp.connection_retry = PIM_MSDP_PEER_CONNECT_RETRY_TIME;
 
 #if PIM_IPV == 4
 	pim_autorp_init(pim);
@@ -186,7 +181,14 @@ static int pim_vrf_enable(struct vrf *vrf)
 
 	zlog_debug("%s: for %s %u", __func__, vrf->name, vrf->vrf_id);
 
+	if (vrf_bind(vrf->vrf_id, pim->reg_sock, NULL) < 0)
+		zlog_warn("Failed to bind register socket to VRF %s", vrf->name);
+
 	pim_mroute_socket_enable(pim);
+
+#if PIM_IPV == 4
+	pim_autorp_enable(pim);
+#endif
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		if (!ifp->info)
@@ -269,4 +271,14 @@ void pim_vrf_terminate(void)
 	}
 
 	vrf_terminate();
+}
+
+bool pim_msdp_log_neighbor_events(const struct pim_instance *pim)
+{
+	return (pim->log_flags & PIM_MSDP_LOG_NEIGHBOR_EVENTS);
+}
+
+bool pim_msdp_log_sa_events(const struct pim_instance *pim)
+{
+	return (pim->log_flags & PIM_MSDP_LOG_SA_EVENTS);
 }

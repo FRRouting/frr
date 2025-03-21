@@ -323,7 +323,6 @@ struct attr {
 /* rmap_change_flags definition */
 #define BATTR_RMAP_IPV4_NHOP_CHANGED (1 << 0)
 #define BATTR_RMAP_NEXTHOP_PEER_ADDRESS (1 << 1)
-#define BATTR_REFLECTED (1 << 2)
 #define BATTR_RMAP_NEXTHOP_UNCHANGED (1 << 3)
 #define BATTR_RMAP_IPV6_GLOBAL_NHOP_CHANGED (1 << 4)
 #define BATTR_RMAP_IPV6_LL_NHOP_CHANGED (1 << 5)
@@ -387,12 +386,12 @@ extern struct attr *bgp_attr_aggregate_intern(
 	struct community *community, struct ecommunity *ecommunity,
 	struct lcommunity *lcommunity, struct bgp_aggregate *aggregate,
 	uint8_t atomic_aggregate, const struct prefix *p);
-extern bgp_size_t bgp_packet_attribute(
-	struct bgp *bgp, struct peer *peer, struct stream *s, struct attr *attr,
-	struct bpacket_attr_vec_arr *vecarr, struct prefix *p, afi_t afi,
-	safi_t safi, struct peer *from, struct prefix_rd *prd,
-	mpls_label_t *label, uint8_t num_labels, bool addpath_capable,
-	uint32_t addpath_tx_id, struct bgp_path_info *bpi);
+extern bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct stream *s,
+				       struct attr *attr, struct bpacket_attr_vec_arr *vecarr,
+				       struct prefix *p, afi_t afi, safi_t safi, struct peer *from,
+				       struct prefix_rd *prd, mpls_label_t *label,
+				       uint8_t num_labels, bool addpath_capable,
+				       uint32_t addpath_tx_id);
 extern void bgp_dump_routes_attr(struct stream *s, struct bgp_path_info *bpi,
 				 const struct prefix *p);
 extern bool attrhash_cmp(const void *arg1, const void *arg2);
@@ -515,7 +514,7 @@ static inline void bgp_attr_set_ecommunity(struct attr *attr,
 {
 	attr->ecommunity = ecomm;
 
-	if (ecomm)
+	if (ecomm && ecomm->size)
 		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
 	else
 		UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
@@ -566,7 +565,7 @@ static inline void bgp_attr_set_ipv6_ecommunity(struct attr *attr,
 {
 	attr->ipv6_ecommunity = ipv6_ecomm;
 
-	if (ipv6_ecomm)
+	if (ipv6_ecomm && ipv6_ecomm->size)
 		SET_FLAG(attr->flag,
 			 ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES));
 	else
@@ -585,6 +584,10 @@ static inline void bgp_attr_set_transit(struct attr *attr,
 	attr->transit = transit;
 }
 
+#define AIGP_TRANSMIT_ALLOWED(peer)                                                                \
+	(CHECK_FLAG((peer)->flags, PEER_FLAG_AIGP) || ((peer)->sub_sort == BGP_PEER_EBGP_OAD) ||   \
+	 ((peer)->sort != BGP_PEER_EBGP))
+
 static inline uint64_t bgp_attr_get_aigp_metric(const struct attr *attr)
 {
 	return attr->aigp_metric;
@@ -600,10 +603,11 @@ static inline uint64_t bgp_aigp_metric_total(struct bgp_path_info *bpi)
 {
 	uint64_t aigp = bgp_attr_get_aigp_metric(bpi->attr);
 
-	if (bpi->nexthop)
-		return aigp + bpi->nexthop->metric;
-	else
+	/* Don't increment if it's locally sourced */
+	if (bpi->peer == bpi->peer->bgp->peer_self)
 		return aigp;
+
+	return bpi->extra ? (aigp + bpi->extra->igpmetric) : aigp;
 }
 
 static inline void bgp_attr_set_med(struct attr *attr, uint32_t med)

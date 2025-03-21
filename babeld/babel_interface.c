@@ -310,7 +310,8 @@ DEFPY (babel_set_wired,
     babel_ifp = babel_get_if_nfo(ifp);
 
     assert (babel_ifp != NULL);
-    babel_set_wired_internal(babel_ifp, no ? 0 : 1);
+    if ((CHECK_FLAG(babel_ifp->flags, BABEL_IF_WIRED) ? 1 : 0) != (no ? 0 : 1))
+        babel_set_wired_internal(babel_ifp, no ? 0 : 1);
     return CMD_SUCCESS;
 }
 
@@ -328,7 +329,8 @@ DEFPY (babel_set_wireless,
     babel_ifp = babel_get_if_nfo(ifp);
 
     assert (babel_ifp != NULL);
-    babel_set_wired_internal(babel_ifp, no ? 1 : 0);
+    if ((CHECK_FLAG(babel_ifp->flags, BABEL_IF_WIRED) ? 1 : 0) != (no ? 1 : 0))
+        babel_set_wired_internal(babel_ifp, no ? 1 : 0);
     return CMD_SUCCESS;
 }
 
@@ -364,12 +366,19 @@ DEFPY (babel_set_hello_interval,
 {
     VTY_DECLVAR_CONTEXT(interface, ifp);
     babel_interface_nfo *babel_ifp;
+    unsigned int old_interval;
 
     babel_ifp = babel_get_if_nfo(ifp);
     assert (babel_ifp != NULL);
 
+    old_interval = babel_ifp->hello_interval;
     babel_ifp->hello_interval = no ?
         BABEL_DEFAULT_HELLO_INTERVAL : hello_interval;
+
+    if (old_interval != babel_ifp->hello_interval){
+        send_hello(ifp);
+        set_timeout(&babel_ifp->hello_timeout, babel_ifp->hello_interval);
+    }
     return CMD_SUCCESS;
 }
 
@@ -719,6 +728,7 @@ babel_interface_close_all(void)
 {
     struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
     struct interface *ifp = NULL;
+    int type;
 
     FOR_ALL_INTERFACES(vrf, ifp) {
         if(!if_up(ifp))
@@ -740,7 +750,13 @@ babel_interface_close_all(void)
         flushbuf(ifp);
         usleep(roughly(10000));
         gettime(&babel_now);
+        babel_enable_if_delete(ifp->name);
         interface_reset(ifp);
+    }
+    /* Disable babel redistribution */
+    for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
+        zclient_redistribute (ZEBRA_REDISTRIBUTE_DELETE, zclient, AFI_IP, type, 0, VRF_DEFAULT);
+        zclient_redistribute (ZEBRA_REDISTRIBUTE_DELETE, zclient, AFI_IP6, type, 0, VRF_DEFAULT);
     }
 }
 

@@ -467,7 +467,6 @@ DEFUN(if_no_nhrp_holdtime, if_no_nhrp_holdtime_cmd,
 	return CMD_SUCCESS;
 }
 
-#define NHRP_CISCO_PASS_LEN 8
 DEFPY(if_nhrp_authentication, if_nhrp_authentication_cmd,
       AFI_CMD "nhrp authentication PASSWORD$password",
       AFI_STR
@@ -934,6 +933,10 @@ static void show_ip_opennhrp_cache(struct nhrp_cache *c, void *pctx)
 	if (ctx->afi != family2afi(sockunion_family(&c->remote_addr)))
 		return;
 
+	if (ctx->count && !ctx->json)
+		vty_out(ctx->vty, "\n");
+	ctx->count++;
+
 	sockunion2str(&c->remote_addr, buf[0], sizeof(buf[0]));
 	if (c->cur.peer)
 		sockunion2str(&c->cur.peer->vc->remote.nbma, buf[1],
@@ -986,8 +989,6 @@ static void show_ip_opennhrp_cache(struct nhrp_cache *c, void *pctx)
 
 	if (sockunion_family(&c->cur.remote_nbma_natoa) != AF_UNSPEC)
 		vty_out(ctx->vty, "NBMA-NAT-OA-Address: %s\n", buf[2]);
-
-	vty_out(ctx->vty, "\n\n");
 }
 
 DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
@@ -1031,7 +1032,6 @@ DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
 		else
 			json_object_string_add(json_vrf, "status", "ok");
 
-		ctx.count++;
 		FOR_ALL_INTERFACES (vrf, ifp)
 			nhrp_cache_foreach(ifp, show_ip_opennhrp_cache, &ctx);
 	}

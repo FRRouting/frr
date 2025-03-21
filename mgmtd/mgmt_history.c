@@ -177,6 +177,7 @@ static bool mgmt_history_dump_cmt_record_index(void)
 		return false;
 	}
 
+	assert(cnt <= 10); /* silence bad CLANG SA warning */
 	ret = fwrite(&cmt_info_set, sizeof(struct mgmt_cmt_info_t), cnt, fp);
 	fclose(fp);
 	if (ret != cnt) {

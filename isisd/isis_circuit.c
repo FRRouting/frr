@@ -491,16 +491,17 @@ void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp)
 {
 	struct connected *conn;
 
-	if (if_is_broadcast(ifp)) {
+	if (if_is_loopback(ifp) || (isis_option_check(ISIS_OPT_DUMMY_AS_LOOPBACK) &&
+				    CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_DUMMY))) {
+		circuit->circ_type = CIRCUIT_T_LOOPBACK;
+		circuit->is_passive = 1;
+	} else if (if_is_broadcast(ifp)) {
 		if (fabricd || circuit->circ_type_config == CIRCUIT_T_P2P)
 			circuit->circ_type = CIRCUIT_T_P2P;
 		else
 			circuit->circ_type = CIRCUIT_T_BROADCAST;
 	} else if (if_is_pointopoint(ifp)) {
 		circuit->circ_type = CIRCUIT_T_P2P;
-	} else if (if_is_loopback(ifp)) {
-		circuit->circ_type = CIRCUIT_T_LOOPBACK;
-		circuit->is_passive = 1;
 	} else {
 		/* It's normal in case of loopback etc. */
 		if (IS_DEBUG_EVENTS)
@@ -840,22 +841,22 @@ void isis_circuit_down(struct isis_circuit *circuit)
 		if (circuit->u.bc.adjdb[0]) {
 			circuit->u.bc.adjdb[0]->del = isis_delete_adj;
 			list_delete(&circuit->u.bc.adjdb[0]);
-			circuit->u.bc.adjdb[0] = NULL;
 		}
 		if (circuit->u.bc.adjdb[1]) {
 			circuit->u.bc.adjdb[1]->del = isis_delete_adj;
 			list_delete(&circuit->u.bc.adjdb[1]);
-			circuit->u.bc.adjdb[1] = NULL;
 		}
 		if (circuit->u.bc.is_dr[0]) {
 			isis_dr_resign(circuit, 1);
 			circuit->u.bc.is_dr[0] = 0;
 		}
+		circuit->u.bc.run_dr_elect[0] = 0;
 		memset(circuit->u.bc.l1_desig_is, 0, ISIS_SYS_ID_LEN + 1);
 		if (circuit->u.bc.is_dr[1]) {
 			isis_dr_resign(circuit, 2);
 			circuit->u.bc.is_dr[1] = 0;
 		}
+		circuit->u.bc.run_dr_elect[1] = 0;
 		memset(circuit->u.bc.l2_desig_is, 0, ISIS_SYS_ID_LEN + 1);
 		memset(circuit->u.bc.snpa, 0, ETH_ALEN);
 
@@ -1006,45 +1007,40 @@ void isis_circuit_print_json(struct isis_circuit *circuit,
 					       circuit_t2string(level));
 			if (circuit->area->newmetric)
 				json_object_int_add(level_json, "metric",
-						    circuit->te_metric[0]);
+						    circuit->te_metric[level - 1]);
 			else
 				json_object_int_add(level_json, "metric",
-						    circuit->metric[0]);
+						    circuit->metric[level - 1]);
 			if (!circuit->is_passive) {
-				json_object_int_add(level_json,
-						    "active-neighbors",
-						    circuit->upadjcount[0]);
-				json_object_int_add(level_json,
-						    "hello-interval",
-						    circuit->hello_interval[0]);
+				json_object_int_add(level_json, "active-neighbors",
+						    circuit->upadjcount[level - 1]);
+				json_object_int_add(level_json, "hello-interval",
+						    circuit->hello_interval[level - 1]);
 				hold_json = json_object_new_object();
 				json_object_object_add(level_json, "holddown",
 						       hold_json);
-				json_object_int_add(
-					hold_json, "count",
-					circuit->hello_multiplier[0]);
+				json_object_int_add(hold_json, "count",
+						    circuit->hello_multiplier[level - 1]);
 				json_object_string_add(
 					hold_json, "pad",
 					isis_hello_padding2string(
 						circuit->pad_hellos));
 				json_object_int_add(level_json, "cnsp-interval",
-						    circuit->csnp_interval[0]);
+						    circuit->csnp_interval[level - 1]);
 				json_object_int_add(level_json, "psnp-interval",
-						    circuit->psnp_interval[0]);
+						    circuit->psnp_interval[level - 1]);
 				if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
 					lan_prio_json =
 						json_object_new_object();
 					json_object_object_add(level_json,
 							       "lan",
 							       lan_prio_json);
-					json_object_int_add(
-						lan_prio_json, "priority",
-						circuit->priority[0]);
-					json_object_string_add(
-						lan_prio_json, "is-dis",
-						(circuit->u.bc.is_dr[0]
-							 ? "yes"
-							 : "no"));
+					json_object_int_add(lan_prio_json, "priority",
+							    circuit->priority[level - 1]);
+					json_object_string_add(lan_prio_json, "is-dis",
+							       (circuit->u.bc.is_dr[level - 1]
+									? "yes"
+									: "no"));
 				}
 			}
 			json_object_array_add(levels_json, level_json);

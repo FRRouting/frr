@@ -131,6 +131,19 @@ EXTRA_DIST += \
 	# end
 
 
+check_PROGRAMS += tests/lib/northbound/test_oper_exists
+tests_lib_northbound_test_oper_exists_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_northbound_test_oper_exists_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_northbound_test_oper_exists_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_northbound_test_oper_exists_SOURCES = tests/lib/northbound/test_oper_exists.c
+nodist_tests_lib_northbound_test_oper_exists_SOURCES = yang/frr-test-module.yang.c
+EXTRA_DIST += \
+	tests/lib/northbound/test_oper_exists.in \
+	tests/lib/northbound/test_oper_exists.py \
+	tests/lib/northbound/test_oper_exists.refout \
+	# end
+
+
 check_PROGRAMS += tests/lib/test_assert
 tests_lib_test_assert_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_assert_CPPFLAGS = $(TESTS_CPPFLAGS)

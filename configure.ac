@@ -7,7 +7,7 @@
 ##
 AC_PREREQ([2.69])
 
-AC_INIT([frr], [10.3-dev], [https://github.com/frrouting/frr/issues])
+AC_INIT([frr], [10.4-dev], [https://github.com/frrouting/frr/issues])
 PACKAGE_URL="https://frrouting.org/"
 AC_SUBST([PACKAGE_URL])
 PACKAGE_FULLNAME="FRRouting"
@@ -375,26 +375,45 @@ fi
 AM_CONDITIONAL([SCRIPTING], [test "$enable_scripting" = "yes"])
 
 if test "$enable_scripting" = "yes"; then
-   AX_PROG_LUA([5.3], [5.4], [], [
-     AC_MSG_ERROR([Lua 5.3 is required to build with Lua support. No other version is supported.])
+   AX_PROG_LUA([5.3], [], [], [
+     AC_MSG_ERROR([Lua >= 5.3 is required to build with Lua support. No other version is supported.])
    ])
    AX_LUA_HEADERS([], [
-     AC_MSG_ERROR([Lua 5.3 headers are required to build with Lua support. No other version is supported.])
+     AC_MSG_ERROR([Lua >= 5.3 headers are required to build with Lua support. No other version is supported.])
    ])
-   PKG_CHECK_MODULES([LUA], [lua5.3], [
-     AC_DEFINE([HAVE_SCRIPTING], [1], [Have support for scripting])
-     LIBS="$LIBS $LUA_LIBS"
-     SCRIPTING=true
-   ], [
-      AX_LUA_LIBS([
-        AC_DEFINE([HAVE_SCRIPTING], [1], [Have support for scripting])
-        LIBS="$LIBS $LUA_LIB"
-        SCRIPTING=true
-      ], [
-        SCRIPTING=false
-        AC_MSG_ERROR([Lua 5.3 libraries are required to build with Lua support. No other version is supported.])
-      ])
-    ])
+  
+   for version in 5.3 5.4; do
+     PKG_CHECK_MODULES([LUA], [lua >= $version], [
+       AC_DEFINE([HAVE_SCRIPTING], [1], [Have support for scripting])
+         LIBS="$LIBS $LUA_LIBS"
+         SCRIPTING=true
+         break
+     ], [
+       PKG_CHECK_MODULES([LUA], [lua$version], [
+         AC_DEFINE([HAVE_SCRIPTING], [1], [Have support for scripting])
+           LIBS="$LIBS $LUA_LIBS"
+           SCRIPTING=true
+           break
+       ], [
+         PKG_CHECK_MODULES([LUA], [lua-$version], [
+           AC_DEFINE([HAVE_SCRIPTING], [1], [Have support for scripting])
+             LIBS="$LIBS $LUA_LIBS"
+             SCRIPTING=true
+             break
+         ], [])
+       ])
+     ])
+   done
+
+   if [ "$SCRIPTING" != "true" ]; then
+     AX_LUA_LIBS([
+       AC_DEFINE([HAVE_SCRIPTING], [1], [Have support for scripting])
+         LIBS="$LIBS $LUA_LIB"
+         SCRIPTING=true
+     ], [
+       AC_MSG_ERROR([Lua >= 5.3 libraries are required to build with Lua support. No other version is supported.])
+     ])
+   fi
 fi
 
 dnl the following flags go in CFLAGS rather than AC_CFLAGS since they make
@@ -1035,6 +1054,11 @@ AC_MSG_FAILURE([Please specify a number from 0-12 for log precision ARG])
 ;;
 esac
 with_log_timestamp_precision=${with_log_timestamp_precision:-0}
+if test "${with_log_timestamp_precision}" != 0; then
+AC_SUBST([LOG_TIMESTAMP_PRECISION_CLI], ["
+log timestamp precision ${with_log_timestamp_precision}"])
+AM_SUBST_NOTMAKE([LOG_TIMESTAMP_PRECISION_CLI])
+fi
 AC_DEFINE_UNQUOTED([LOG_TIMESTAMP_PRECISION], [${with_log_timestamp_precision}], [Startup zlog timestamp precision])
 
 AC_DEFINE_UNQUOTED([VTYSH_PAGER], ["$VTYSH_PAGER"], [What pager to use])
@@ -2027,7 +2051,7 @@ if test "$enable_snmp" != "" -a "$enable_snmp" != "no"; then
    # net-snmp lists all of its own dependencies.  we absolutely do not want that
    # among other things we avoid a GPL vs. OpenSSL license conflict here
    for removelib in crypto ssl sensors pci wrap; do
-     SNMP_LIBS="`echo $SNMP_LIBS | sed -e 's/\(^\|\s\)-l'$removelib'\b/ /g' -e 's/\(^\|\s\)\([^\s]*\/\)\?lib'$removelib'\.[^\s]\+\b/ /g'`"
+     SNMP_LIBS="`echo $SNMP_LIBS | sed -e 's/-l'$removelib'/ /g'`"
    done
    AC_MSG_CHECKING([whether we can link to Net-SNMP])
    AC_LINK_IFELSE_FLAGS([$SNMP_CFLAGS], [$SNMP_LIBS], [AC_LANG_PROGRAM([

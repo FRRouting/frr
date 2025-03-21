@@ -15,7 +15,7 @@ import math
 
 import pytest
 from lib.topogen import Topogen
-from oper import check_kernel_32, do_oper_test
+from oper import check_kernel_32, check_kernel_net, do_oper_test
 
 pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd]
 
@@ -85,10 +85,17 @@ def test_oper(tgen):
     ]
 
     r1 = tgen.gears["r1"].net
+
     check_kernel_32(r1, "11.11.11.11", 1, "")
     check_kernel_32(r1, "12.12.12.12", 1, "")
     check_kernel_32(r1, "13.13.13.13", 1, "red")
     check_kernel_32(r1, "14.14.14.14", 1, "red")
+
+    check_kernel_net(r1, "2001:1111::/64", "")
+    check_kernel_net(r1, "2002:2222::/64", "")
+    check_kernel_net(r1, "2003:333::/64", "red")
+    check_kernel_net(r1, "2004:4444::/64", "red")
+
     do_oper_test(tgen, query_results)
 
 
@@ -107,6 +114,7 @@ vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra/ri
 
 for f in ${resdir}/result-*; do
    sed -i -e 's/"uptime": ".*"/"uptime": "rubout"/;s/"id": [0-9][0-9]*/"id": "rubout"/' $f
+   sed -i -e 's/"phy-address": ".*"/"phy-address": "rubout"/' $f
    sed -i -e 's/"if-index": [0-9][0-9]*/"if-index": "rubout"/' $f
    sed -i -e 's,"vrf": "[0-9]*","vrf": "rubout",' $f
 done

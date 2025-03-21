@@ -68,6 +68,7 @@ override_dh_auto_configure:
 		--enable-ospfapi \
 		--enable-bgp-vnc \
 		--enable-multipath=256 \
+		--enable-pcre2posix \
 		\
 		--enable-user=frr \
 		--enable-group=frr \

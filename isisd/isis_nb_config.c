@@ -1763,26 +1763,6 @@ int isis_instance_fast_reroute_level_1_lfa_tiebreaker_destroy(
 }
 
 /*
- * XPath: /frr-isisd:isis/instance/fast-reroute/level-1/lfa/tiebreaker/type
- */
-int isis_instance_fast_reroute_level_1_lfa_tiebreaker_type_modify(
-	struct nb_cb_modify_args *args)
-{
-	struct lfa_tiebreaker *tie_b;
-	struct isis_area *area;
-
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	tie_b = nb_running_get_entry(args->dnode, NULL, true);
-	area = tie_b->area;
-	tie_b->type = yang_dnode_get_enum(args->dnode, NULL);
-	lsp_regenerate_schedule(area, area->is_type, 0);
-
-	return NB_OK;
-}
-
-/*
  * XPath: /frr-isisd:isis/instance/fast-reroute/level-1/remote-lfa/prefix-list
  */
 int isis_instance_fast_reroute_level_1_remote_lfa_prefix_list_modify(
@@ -1906,26 +1886,6 @@ int isis_instance_fast_reroute_level_2_lfa_tiebreaker_destroy(
 	tie_b = nb_running_unset_entry(args->dnode);
 	area = tie_b->area;
 	isis_lfa_tiebreaker_delete(area, ISIS_LEVEL2, tie_b);
-	lsp_regenerate_schedule(area, area->is_type, 0);
-
-	return NB_OK;
-}
-
-/*
- * XPath: /frr-isisd:isis/instance/fast-reroute/level-2/lfa/tiebreaker/type
- */
-int isis_instance_fast_reroute_level_2_lfa_tiebreaker_type_modify(
-	struct nb_cb_modify_args *args)
-{
-	struct lfa_tiebreaker *tie_b;
-	struct isis_area *area;
-
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	tie_b = nb_running_get_entry(args->dnode, NULL, true);
-	area = tie_b->area;
-	tie_b->type = yang_dnode_get_enum(args->dnode, NULL);
 	lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
@@ -2633,14 +2593,14 @@ int isis_instance_segment_routing_algorithm_prefix_sid_create(
 	struct isis_area *area;
 	struct prefix prefix;
 	struct sr_prefix_cfg *pcfg;
-	uint32_t algorithm;
+	uint8_t algorithm;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	area = nb_running_get_entry(args->dnode, NULL, true);
 	yang_dnode_get_prefix(&prefix, args->dnode, "prefix");
-	algorithm = yang_dnode_get_uint32(args->dnode, "algo");
+	algorithm = yang_dnode_get_uint8(args->dnode, "algo");
 
 	pcfg = isis_sr_cfg_prefix_add(area, &prefix, algorithm);
 	pcfg->algorithm = algorithm;

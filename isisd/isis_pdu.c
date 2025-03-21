@@ -231,7 +231,8 @@ static int process_p2p_hello(struct iih_info *iih)
 			return ISIS_OK;
 		}
 	}
-	if (!adj || adj->level != iih->calculated_type) {
+	if (!adj || adj->level != iih->calculated_type ||
+	    !(iih->circuit->is_type & iih->circ_type)) {
 		if (!adj) {
 			adj = isis_new_adj(iih->sys_id, NULL,
 					   iih->calculated_type, iih->circuit);

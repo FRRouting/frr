@@ -207,6 +207,8 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 	bgp_nhg_finish();
 
 	zebra_announce_fini(&bm->zebra_announce_head);
+	zebra_l2_vni_fini(&bm->zebra_l2_vni_head);
+	zebra_l3_vni_fini(&bm->zebra_l3_vni_head);
 
 	/* reverse bgp_dump_init */
 	bgp_dump_finish();
@@ -325,7 +327,7 @@ static int bgp_vrf_disable(struct vrf *vrf)
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("VRF disable %s id %d", vrf->name, vrf->vrf_id);
 
-	bgp = bgp_lookup_by_name(vrf->name);
+	bgp = bgp_lookup_by_name_filter(vrf->name, false);
 	if (bgp) {
 
 		vpn_leak_zebra_vrf_label_withdraw(bgp, AFI_IP);

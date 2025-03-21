@@ -178,7 +178,9 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 {
 	struct listnode *node, *nnode;
 	struct pim_ifchannel *ch;
+#if PIM_IPV == 4
 	bool notify_msdp = false;
+#endif /* PIM_IPV == 4 */
 
 	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug(
@@ -206,12 +208,14 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 	if (up->join_state == PIM_UPSTREAM_JOINED) {
 		pim_jp_agg_single_upstream_send(&up->rpf, up, 0);
 
+#if PIM_IPV == 4
 		if (pim_addr_is_any(up->sg.src)) {
 			/* if a (*, G) entry in the joined state is being
 			 * deleted we
 			 * need to notify MSDP */
 			notify_msdp = true;
 		}
+#endif /* PIM_IPV == 4 */
 	}
 
 	join_timer_stop(up);
@@ -221,7 +225,9 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 	if (!pim_addr_is_any(up->sg.src)) {
 		if (pim->upstream_sg_wheel)
 			wheel_remove_item(pim->upstream_sg_wheel, up);
+#if PIM_IPV == 4
 		notify_msdp = true;
+#endif /* PIM_IPV == 4 */
 	}
 
 	pim_mroute_del(up->channel_oil, __func__);
@@ -241,9 +247,11 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 
 	rb_pim_upstream_del(&pim->upstream_head, up);
 
+#if PIM_IPV == 4
 	if (notify_msdp) {
 		pim_msdp_up_del(pim, &up->sg);
 	}
+#endif /* PIM_IPV == 4 */
 
 	/* When RP gets deleted, pim_rp_del() deregister addr with Zebra NHT
 	 * and assign up->upstream_addr as INADDR_ANY.
@@ -257,7 +265,7 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 			zlog_debug(
 				"%s: Deregister upstream %s addr %pPA with Zebra NHT",
 				__func__, up->sg_str, &up->upstream_addr);
-		pim_delete_tracked_nexthop(pim, up->upstream_addr, up, NULL);
+		pim_nht_delete_tracked(pim, up->upstream_addr, up, NULL);
 	}
 
 	XFREE(MTYPE_PIM_UPSTREAM, up);
@@ -304,7 +312,7 @@ static void on_join_timer(struct event *t)
 	}
 
 	/*
-	 * In the case of a HFR we will not ahve anyone to send this to.
+	 * In the case of a FHR we will not ahve anyone to send this to.
 	 */
 	if (PIM_UPSTREAM_FLAG_TEST_FHR(up->flags))
 		return;
@@ -635,6 +643,12 @@ void pim_upstream_update_use_rpt(struct pim_upstream *up,
 	if (pim_addr_is_any(up->sg.src))
 		return;
 
+	/* Ignore RP mapping when the upsteam state
+	 * is NOT Joined on a FHR
+	 */
+	if (up->join_state == PIM_UPSTREAM_NOTJOINED && PIM_UPSTREAM_FLAG_TEST_FHR(up->flags))
+		return;
+
 	old_use_rpt = !!PIM_UPSTREAM_FLAG_TEST_USE_RPT(up->flags);
 
 	/* We will use the SPT (IIF=RPF_interface(S) if -
@@ -723,7 +737,9 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 		if (old_state != PIM_UPSTREAM_JOINED) {
 			int old_fhr = PIM_UPSTREAM_FLAG_TEST_FHR(up->flags);
 
+#if PIM_IPV == 4
 			pim_msdp_up_join_state_changed(pim, up);
+#endif /* PIM_IPV == 4 */
 			if (pim_upstream_could_register(up)) {
 				PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
 				if (!old_fhr
@@ -753,8 +769,10 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 		if (!pim_addr_is_any(up->sg.src))
 			up->sptbit = PIM_UPSTREAM_SPTBIT_FALSE;
 
+#if PIM_IPV == 4
 		if (old_state == PIM_UPSTREAM_JOINED)
 			pim_msdp_up_join_state_changed(pim, up);
+#endif /* PIM_IPV == 4 */
 
 		if (old_state != new_state) {
 			old_use_rpt =
@@ -1424,8 +1442,10 @@ struct pim_upstream *pim_upstream_keep_alive_timer_proc(
 		 */
 	}
 
+#if PIM_IPV == 4
 	/* source is no longer active - pull the SA from MSDP's cache */
 	pim_msdp_sa_local_del(pim, &up->sg);
+#endif /* PIM_IPV == 4 */
 
 	/* JoinDesired can change when KAT is started or stopped */
 	pim_upstream_update_join_desired(pim, up);
@@ -1493,30 +1513,13 @@ void pim_upstream_keep_alive_timer_start(struct pim_upstream *up, uint32_t time)
 	event_add_timer(router->master, pim_upstream_keep_alive_timer, up, time,
 			&up->t_ka_timer);
 
+#if PIM_IPV == 4
 	/* any time keepalive is started against a SG we will have to
 	 * re-evaluate our active source database */
 	pim_msdp_sa_local_update(up);
+#endif /* PIM_IPV == 4 */
 	/* JoinDesired can change when KAT is started or stopped */
 	pim_upstream_update_join_desired(up->pim, up);
-}
-
-/* MSDP on RP needs to know if a source is registerable to this RP */
-static void pim_upstream_msdp_reg_timer(struct event *t)
-{
-	struct pim_upstream *up = EVENT_ARG(t);
-	struct pim_instance *pim = up->channel_oil->pim;
-
-	/* source is no longer active - pull the SA from MSDP's cache */
-	pim_msdp_sa_local_del(pim, &up->sg);
-}
-
-void pim_upstream_msdp_reg_timer_start(struct pim_upstream *up)
-{
-	EVENT_OFF(up->t_msdp_reg_timer);
-	event_add_timer(router->master, pim_upstream_msdp_reg_timer, up,
-			PIM_MSDP_REG_RXED_PERIOD, &up->t_msdp_reg_timer);
-
-	pim_msdp_sa_local_update(up);
 }
 
 /*

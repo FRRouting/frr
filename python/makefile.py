@@ -52,7 +52,7 @@ if args.dev_build:
                 "grep",
                 "-l",
                 "-P",
-                "^#\s*include.*_clippy.c",
+                r"^#\s*include.*_clippy.c",
                 "--",
                 "**.c",
             ]

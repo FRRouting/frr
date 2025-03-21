@@ -1,8 +1,19 @@
 {
   "attr":{
-    "entriesCount":2
+    "entriesCount":3
   },
   "table":[
+    {
+      "interface":"r2-gre0",
+      "type":"dynamic",
+      "protocol":"10.255.255.4",
+      "nbma":"10.1.1.4",
+      "claimed_nbma":"10.1.1.4",
+      "used":false,
+      "timeout":true,
+      "auth":false,
+      "identity":""
+    },
     {
       "interface":"r2-gre0",
       "type":"local",

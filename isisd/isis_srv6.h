@@ -16,8 +16,7 @@
 #define ISIS_DEFAULT_SRV6_MAX_SEG_LEFT_MSD        3
 #define ISIS_DEFAULT_SRV6_MAX_END_POP_MSD         3
 #define ISIS_DEFAULT_SRV6_MAX_H_ENCAPS_MSD        2
-#define ISIS_DEFAULT_SRV6_MAX_END_D_MSD           5
-#define ISIS_DEFAULT_SRV6_IFNAME                 "sr0"
+#define ISIS_DEFAULT_SRV6_MAX_END_D_MSD		  5
 
 /* SRv6 SID structure */
 struct isis_srv6_sid_structure {
@@ -155,6 +154,8 @@ isis_srv6_sid_alloc(struct isis_area *area, struct srv6_locator *locator,
 		    enum srv6_endpoint_behavior_codepoint behavior,
 		    struct in6_addr *sid_value);
 extern void isis_srv6_sid_free(struct isis_srv6_sid *sid);
+
+void isis_srv6_locators_request(void);
 
 extern void isis_srv6_area_init(struct isis_area *area);
 extern void isis_srv6_area_term(struct isis_area *area);

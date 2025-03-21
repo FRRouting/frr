@@ -22,7 +22,7 @@
 #define __log_err(fmt, ...) zlog_err("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)
 
 #define MGMTD_TXN_LOCK(txn)   mgmt_txn_lock(txn, __FILE__, __LINE__)
-#define MGMTD_TXN_UNLOCK(txn) mgmt_txn_unlock(txn, __FILE__, __LINE__)
+#define MGMTD_TXN_UNLOCK(txn, in_hash_free) mgmt_txn_unlock(txn, in_hash_free, __FILE__, __LINE__)
 
 enum mgmt_txn_event {
 	MGMTD_TXN_PROC_SETCFG = 1,
@@ -237,6 +237,7 @@ struct mgmt_txn_ctx {
 	struct event *clnup;
 
 	/* List of backend adapters involved in this transaction */
+	/* XXX reap this */
 	struct mgmt_txn_badapters_head be_adapters;
 
 	int refcount;
@@ -294,7 +295,7 @@ static inline const char *mgmt_txn_commit_phase_str(struct mgmt_txn_ctx *txn)
 }
 
 static void mgmt_txn_lock(struct mgmt_txn_ctx *txn, const char *file, int line);
-static void mgmt_txn_unlock(struct mgmt_txn_ctx **txn, const char *file,
+static void mgmt_txn_unlock(struct mgmt_txn_ctx **txn, bool in_hash_free, const char *file,
 			    int line);
 static int mgmt_txn_send_be_txn_delete(struct mgmt_txn_ctx *txn,
 				       struct mgmt_be_client_adapter *adapter);
@@ -356,7 +357,7 @@ static void mgmt_txn_cfg_batch_free(struct mgmt_txn_be_cfg_batch **batch)
 		}
 	}
 
-	MGMTD_TXN_UNLOCK(&(*batch)->txn);
+	MGMTD_TXN_UNLOCK(&(*batch)->txn, false);
 
 	XFREE(MTYPE_MGMTD_TXN_CFG_BATCH, *batch);
 	*batch = NULL;
@@ -551,7 +552,7 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 		      (*txn_req)->req_id, mgmt_txn_reqs_count(req_list));
 	}
 
-	MGMTD_TXN_UNLOCK(&(*txn_req)->txn);
+	MGMTD_TXN_UNLOCK(&(*txn_req)->txn, false);
 	XFREE(MTYPE_MGMTD_TXN_REQ, (*txn_req));
 	*txn_req = NULL;
 }
@@ -1835,9 +1836,9 @@ static struct mgmt_txn_ctx *mgmt_txn_create_new(uint64_t session_id,
 	return txn;
 }
 
-static void mgmt_txn_delete(struct mgmt_txn_ctx **txn)
+static void mgmt_txn_delete(struct mgmt_txn_ctx **txn, bool in_hash_free)
 {
-	MGMTD_TXN_UNLOCK(txn);
+	MGMTD_TXN_UNLOCK(txn, in_hash_free);
 }
 
 static unsigned int mgmt_txn_hash_key(const void *data)
@@ -1860,7 +1861,7 @@ static void mgmt_txn_hash_free(void *data)
 {
 	struct mgmt_txn_ctx *txn = data;
 
-	mgmt_txn_delete(&txn);
+	mgmt_txn_delete(&txn, true);
 }
 
 static void mgmt_txn_hash_init(void)
@@ -1910,8 +1911,7 @@ static void mgmt_txn_lock(struct mgmt_txn_ctx *txn, const char *file, int line)
 	      mgmt_txn_type2str(txn->type), txn->txn_id, txn->refcount);
 }
 
-static void mgmt_txn_unlock(struct mgmt_txn_ctx **txn, const char *file,
-			    int line)
+static void mgmt_txn_unlock(struct mgmt_txn_ctx **txn, bool in_hash_free, const char *file, int line)
 {
 	assert(*txn && (*txn)->refcount);
 
@@ -1927,7 +1927,9 @@ static void mgmt_txn_unlock(struct mgmt_txn_ctx **txn, const char *file,
 		EVENT_OFF((*txn)->proc_comm_cfg);
 		EVENT_OFF((*txn)->comm_cfg_timeout);
 		EVENT_OFF((*txn)->get_tree_timeout);
-		hash_release(mgmt_txn_mm->txn_hash, *txn);
+		if (!in_hash_free)
+			hash_release(mgmt_txn_mm->txn_hash, *txn);
+
 		mgmt_txns_del(&mgmt_txn_mm->txn_list, *txn);
 
 		__dbg("Deleted %s txn-id: %" PRIu64 " session-id: %" PRIu64,
@@ -1944,7 +1946,7 @@ static void mgmt_txn_cleanup_txn(struct mgmt_txn_ctx **txn)
 {
 	/* TODO: Any other cleanup applicable */
 
-	mgmt_txn_delete(txn);
+	mgmt_txn_delete(txn, false);
 }
 
 static void mgmt_txn_cleanup_all_txns(void)
@@ -2036,7 +2038,7 @@ void mgmt_destroy_txn(uint64_t *txn_id)
 	if (!txn)
 		return;
 
-	mgmt_txn_delete(&txn);
+	mgmt_txn_delete(&txn, false);
 	*txn_id = MGMTD_TXN_ID_NONE;
 }
 
@@ -2647,6 +2649,52 @@ int mgmt_txn_send_rpc(uint64_t txn_id, uint64_t req_id, uint64_t clients,
 
 	event_add_timer(mgmt_txn_tm, txn_rpc_timeout, txn_req,
 			MGMTD_TXN_RPC_MAX_DELAY_SEC, &txn->rpc_timeout);
+
+	return 0;
+}
+
+int mgmt_txn_send_notify_selectors(uint64_t req_id, uint64_t clients, const char **selectors)
+{
+	struct mgmt_msg_notify_select *msg;
+	char **all_selectors = NULL;
+	uint64_t id;
+	int ret;
+	uint i;
+
+	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_notify_select, 0,
+					MTYPE_MSG_NATIVE_NOTIFY_SELECT);
+	msg->refer_id = MGMTD_TXN_ID_NONE;
+	msg->req_id = req_id;
+	msg->code = MGMT_MSG_CODE_NOTIFY_SELECT;
+	msg->replace = selectors == NULL;
+
+	if (selectors == NULL) {
+		/* Get selectors for all sessions */
+		all_selectors = mgmt_fe_get_all_selectors();
+		selectors = (const char **)all_selectors;
+	}
+
+	darr_foreach_i (selectors, i)
+		mgmt_msg_native_add_str(msg, selectors[i]);
+
+	assert(clients);
+	FOREACH_BE_CLIENT_BITS (id, clients) {
+		/* make sure the backend is running/connected */
+		if (!mgmt_be_get_adapter_by_id(id))
+			continue;
+		ret = mgmt_be_send_native(id, msg);
+		if (ret) {
+			__log_err("Could not send notify-select message to backend client %s",
+				  mgmt_be_client_id2name(id));
+			continue;
+		}
+
+		__dbg("Sent notify-select req to backend client %s", mgmt_be_client_id2name(id));
+	}
+	mgmt_msg_native_free_msg(msg);
+
+	if (all_selectors)
+		darr_free_free(all_selectors);
 
 	return 0;
 }

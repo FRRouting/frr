@@ -190,6 +190,25 @@ def test_all_links_up():
     assert result is None, assertmsg
 
 
+def test_static():
+    "Test static route at R1 leaked from VRF green"
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip("skipped because of router(s) failure")
+
+    r1 = tgen.gears["r1"]
+    json_file = "{}/r1/show_ip_route_static.json".format(CWD)
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp, r1, "show ip route 10.48.48.0/24 json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+
+    assertmsg = "r1 JSON output mismatches"
+    assert result is None, assertmsg
+
+
 def test_link_1_down():
     "Test path R1 -> R2 -> Ra -> Rb -> R4"
     tgen = get_topogen()

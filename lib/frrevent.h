@@ -85,7 +85,6 @@ struct event_loop {
 	int io_pipe[2];
 	int fd_limit;
 	struct fd_handler handler;
-	unsigned long alloc;
 	long selectpoll_timeout;
 	bool spin;
 	bool handle_signals;
@@ -96,6 +95,7 @@ struct event_loop {
 
 	bool ready_run_loop;
 	RUSAGE_T last_getrusage;
+	struct timeval last_tardy_warning;
 };
 
 /* Event types. */
@@ -127,10 +127,16 @@ struct event {
 	struct timeval real;
 	struct cpu_event_history *hist;	    /* cache pointer to cpu_history */
 	unsigned long yield;		    /* yield time in microseconds */
+	/* lateness warning threshold, usec.  0 if it's not a timer. */
+	unsigned long tardy_threshold;
 	const struct xref_eventsched *xref; /* origin location */
 	pthread_mutex_t mtx;		    /* mutex for thread.c functions */
-	bool ignore_timer_late;
 };
+
+/* rate limit late timer warnings */
+#define TARDY_WARNING_INTERVAL 10 * TIMER_SECOND_MICRO
+/* default threshold for late timer warning */
+#define TARDY_DEFAULT_THRESHOLD 4 * TIMER_SECOND_MICRO
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pTH"(struct event *)
@@ -140,6 +146,10 @@ struct cpu_event_history {
 	struct cpu_records_item item;
 
 	void (*func)(struct event *e);
+
+	/* fields between the pair of these two are nulled on "clear event cpu" */
+	char _clear_begin[0];
+
 	atomic_size_t total_cpu_warn;
 	atomic_size_t total_wall_warn;
 	atomic_size_t total_starv_warn;
@@ -150,6 +160,10 @@ struct cpu_event_history {
 	} real;
 	struct time_stats cpu;
 	atomic_uint_fast32_t types;
+
+	/* end of cleared region */
+	char _clear_end[0];
+
 	const char *funcname;
 };
 
@@ -227,7 +241,6 @@ static inline unsigned long timeval_elapsed(struct timeval a, struct timeval b)
 extern struct event_loop *event_master_create(const char *name);
 void event_master_set_name(struct event_loop *master, const char *name);
 extern void event_master_free(struct event_loop *m);
-extern void event_master_free_unused(struct event_loop *m);
 
 extern void _event_add_read_write(const struct xref_eventsched *xref,
 				  struct event_loop *master,
@@ -299,9 +312,17 @@ static inline bool event_is_scheduled(struct event *thread)
 /* Debug signal mask */
 void debug_signals(const sigset_t *sigs);
 
+/* getting called more than given microseconds late will print a warning.
+ * Default if not called: 4s.  Don't call this on non-timers.
+ */
+static inline void event_set_tardy_threshold(struct event *event, unsigned long thres)
+{
+	event->tardy_threshold = thres;
+}
+
 static inline void event_ignore_late_timer(struct event *event)
 {
-	event->ignore_timer_late = true;
+	event->tardy_threshold = 0;
 }
 
 #ifdef __cplusplus

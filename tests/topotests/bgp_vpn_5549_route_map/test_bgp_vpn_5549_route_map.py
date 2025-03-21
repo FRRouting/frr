@@ -165,6 +165,131 @@ def test_bgp_vpn_5549():
     assert result is None, "IPv6 nexthop is invalid"
 
 
+def check_show_interface_rtadv_params_found(router):
+    output = json.loads(router.vtysh_cmd("show interface json"))
+    expected = {
+        "pe1-eth1": {
+            "ndAdvertisedReachableTimeMsecs": 0,
+            "ndAdvertisedRetransmitIntervalMsecs": 0,
+            "ndAdvertisedHopCountLimitHops": 64,
+            "ndRouterAdvertisementsIntervalSecs": 10,
+            "ndRouterAdvertisementsDoNotUseFastRetransmit": False,
+            "ndRouterAdvertisementsLifetimeTracksRaInterval": True,
+            "ndRouterAdvertisementDefaultRouterPreference": "medium",
+            "hostsUseStatelessAutoconfigForAddresses": True,
+        }
+    }
+    return topotest.json_cmp(output, expected)
+
+
+def test_show_interface_rtadv_params_found():
+    tgen = get_topogen()
+
+    router = tgen.gears["pe1"]
+    test_func = functools.partial(check_show_interface_rtadv_params_found, router)
+    success, _ = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert success, "rtadv output is invalid"
+
+
+def check_show_interface_rtadv_params_not_found(router):
+    output = json.loads(router.vtysh_cmd("show interface json"))
+    expected = {
+        "pe1-eth1": {
+            "ndAdvertisedReachableTimeMsecs": 0,
+            "ndAdvertisedRetransmitIntervalMsecs": 0,
+        }
+    }
+
+    ret = topotest.json_cmp(output, expected)
+    if ret is None:
+        return "Unexpected: interface rtadv parameters found"
+    return None
+
+
+def test_show_interface_rtadv_params_not_found():
+    tgen = get_topogen()
+
+    router = tgen.gears["pe1"]
+    router.vtysh_cmd(
+        "configure \n \
+        router bgp 65001 \n \
+        no neighbor 2001:db8:1::2 \n \
+        exit \n \
+        exit"
+    )
+
+    test_func = functools.partial(check_show_interface_rtadv_params_not_found, router)
+    success, _ = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert success, "not good"
+
+
+def check_show_interface_rtadv_params_found_reapply(router):
+    output = json.loads(router.vtysh_cmd("show interface json"))
+    expected = {
+        "pe1-eth1": {
+            "ndAdvertisedReachableTimeMsecs": 0,
+            "ndAdvertisedRetransmitIntervalMsecs": 0,
+        }
+    }
+    return topotest.json_cmp(output, expected)
+
+
+def test_show_interface_rtadv_params_found_reapply():
+    tgen = get_topogen()
+
+    router = tgen.gears["pe1"]
+    router.vtysh_cmd(
+        "configure \n \
+            router bgp 65001 \n \
+            neighbor 2001:db8:1::2 remote-as internal \n \
+            neighbor 2001:db8:1::2 update-source 2001:db8:1::1 \n \
+            neighbor 2001:db8:1::2 timers 1 3 \n \
+            neighbor 2001:db8:1::2 timers connect 1 \n \
+            neighbor 2001:db8:1::2 capability extended-nexthop \n \
+            exit \n \
+            exit"
+    )
+
+    test_func = functools.partial(
+        check_show_interface_rtadv_params_found_reapply, router
+    )
+    success, _ = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert success, "rtadv output is invalid"
+
+
+def check_show_interface_rtadv_params_not_found_after_reapply(router):
+    output = json.loads(router.vtysh_cmd("show interface json"))
+
+    expected = {
+        "pe1-eth1": {
+            "ndAdvertisedReachableTimeMsecs": 0,
+            "ndAdvertisedRetransmitIntervalMsecs": 0,
+        }
+    }
+
+    ret = topotest.json_cmp(output, expected)
+    if ret is None:
+        return "Unexpected: interface rtadv parameters found"
+    return None
+
+
+def test_show_interface_rtadv_params_not_found_after_reapply():
+    tgen = get_topogen()
+
+    router = tgen.gears["pe1"]
+    router.vtysh_cmd(
+        "configure \n \
+            no router bgp 65001 vrf RED \n \
+            no router bgp 65001 \n \
+            exit"
+    )
+    test_func = functools.partial(
+        check_show_interface_rtadv_params_not_found_after_reapply, router
+    )
+    success, _ = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert success, "not good"
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

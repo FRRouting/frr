@@ -130,6 +130,31 @@ const struct frr_yang_module_info frr_pim_info = {
 			}
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp/log-neighbor-events",
+			.cbs = {
+				.modify = pim_msdp_log_neighbor_events_modify,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp/log-sa-events",
+			.cbs = {
+				.modify = pim_msdp_log_sa_events_modify,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp/originator-id",
+			.cbs = {
+				.modify = pim_msdp_originator_id_modify,
+				.destroy = pim_msdp_originator_id_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp/shutdown",
+			.cbs = {
+				.modify = pim_msdp_shutdown_modify,
+			}
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp-mesh-groups",
 			.cbs = {
 				.create = pim_msdp_mesh_group_create,
@@ -191,6 +216,13 @@ const struct frr_yang_module_info frr_pim_info = {
 			}
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp-peer/sa-limit",
+			.cbs = {
+				.modify = pim_msdp_peer_sa_limit_modify,
+				.destroy = pim_msdp_peer_sa_limit_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/mlag",
 			.cbs = {
 				.create = routing_control_plane_protocols_control_plane_protocol_pim_address_family_mlag_create,
@@ -232,6 +264,19 @@ const struct frr_yang_module_info frr_pim_info = {
 			}
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/mcast-rpf-lookup",
+			.cbs = {
+				.create = routing_control_plane_protocols_control_plane_protocol_pim_address_family_mcast_rpf_lookup_create,
+				.destroy = routing_control_plane_protocols_control_plane_protocol_pim_address_family_mcast_rpf_lookup_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/mcast-rpf-lookup/mode",
+			.cbs = {
+				.modify = routing_control_plane_protocols_control_plane_protocol_pim_address_family_mcast_rpf_lookup_mode_modify
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-pim:pim/address-family",
 			.cbs = {
 				.create = lib_interface_pim_address_family_create,
@@ -267,6 +312,13 @@ const struct frr_yang_module_info frr_pim_info = {
 			.cbs = {
 				.modify = lib_interface_pim_address_family_hello_holdtime_modify,
 				.destroy = lib_interface_pim_address_family_hello_holdtime_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-pim:pim/address-family/neighbor-filter-prefix-list",
+			.cbs = {
+				.modify = lib_interface_pim_address_family_nbr_plist_modify,
+				.destroy = lib_interface_pim_address_family_nbr_plist_destroy,
 			}
 		},
 		{
@@ -335,6 +387,13 @@ const struct frr_yang_module_info frr_pim_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-pim:pim/address-family/multicast-boundary-acl",
+			.cbs = {
+				.modify = lib_interface_pim_address_family_multicast_boundary_acl_modify,
+				.destroy = lib_interface_pim_address_family_multicast_boundary_acl_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-pim:pim/address-family/mroute",
 			.cbs = {
 				.create = lib_interface_pim_address_family_mroute_create,
@@ -377,6 +436,25 @@ const struct frr_yang_module_info frr_pim_rp_info = {
 			.cbs = {
 				.modify = routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_static_rp_rp_list_prefix_list_modify,
 				.destroy = routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_static_rp_rp_list_prefix_list_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-rp:rp/embedded-rp/enable",
+			.cbs = {
+				.modify = pim_embedded_rp_enable_modify,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-rp:rp/embedded-rp/group-list",
+			.cbs = {
+				.modify = pim_embedded_rp_group_list_modify,
+				.destroy = pim_embedded_rp_group_list_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-rp:rp/embedded-rp/maximum-rps",
+			.cbs = {
+				.modify = pim_embedded_rp_maximum_rps_modify,
 			}
 		},
 		{
@@ -426,6 +504,58 @@ const struct frr_yang_module_info frr_pim_rp_info = {
 			.cbs = {
 				.modify = routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_candidate_rp_list_prefix_list_modify,
 				.destroy = routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_candidate_rp_list_prefix_list_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-rp:rp/auto-rp/mapping-agent/send-rp-discovery",
+			.cbs = {
+				.modify = routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_mapping_agent_send_rp_discovery_modify,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-rp:rp/auto-rp/mapping-agent/discovery-scope",
+			.cbs = {
+				.modify = routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_mapping_agent_discovery_scope_modify,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-rp:rp/auto-rp/mapping-agent/discovery-interval",
+			.cbs = {
+				.modify = routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_mapping_agent_discovery_interval_modify,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-rp:rp/auto-rp/mapping-agent/discovery-holdtime",
+			.cbs = {
+				.modify = routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_mapping_agent_discovery_holdtime_modify,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-rp:rp/auto-rp/mapping-agent/address",
+			.cbs = {
+				.modify = routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_mapping_agent_addrsel_modify,
+				.destroy = routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_mapping_agent_addrsel_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-rp:rp/auto-rp/mapping-agent/interface",
+			.cbs = {
+				.modify = routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_mapping_agent_addrsel_modify,
+				.destroy = routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_mapping_agent_addrsel_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-rp:rp/auto-rp/mapping-agent/if-loopback",
+			.cbs = {
+				.create = routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_mapping_agent_addrsel_create,
+				.destroy = routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_mapping_agent_addrsel_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/frr-pim-rp:rp/auto-rp/mapping-agent/if-any",
+			.cbs = {
+				.create = routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_mapping_agent_addrsel_create,
+				.destroy = routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_auto_rp_mapping_agent_addrsel_destroy,
 			}
 		},
 		{
@@ -602,13 +732,31 @@ const struct frr_yang_module_info frr_gmp_info = {
 				.destroy = lib_interface_gmp_address_family_join_group_destroy,
 			}
 		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-gmp:gmp/address-family/max-sources",
+			.cbs = {
+				.modify = lib_interface_gm_max_sources_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-gmp:gmp/address-family/max-groups",
+			.cbs = {
+				.modify = lib_interface_gm_max_groups_modify,
+			}
+		},
 				{
 			.xpath = "/frr-interface:lib/interface/frr-gmp:gmp/address-family/proxy",
 			.cbs = {
 				.modify = lib_interface_gmp_address_family_proxy_modify,
 			}
 		},
-{
+		{
+			.xpath = "/frr-interface:lib/interface/frr-gmp:gmp/address-family/immediate-leave",
+			.cbs = {
+				.modify = lib_interface_gmp_immediate_leave_modify,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-gmp:gmp/address-family/static-group",
 			.cbs = {
 				.create = lib_interface_gmp_address_family_static_group_create,

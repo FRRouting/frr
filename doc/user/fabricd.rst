@@ -15,11 +15,18 @@ FRR implements OpenFabric in a daemon called *fabricd*
 Configuring fabricd
 ===================
 
-There are no *fabricd* specific options. Common options can be specified
-(:ref:`common-invocation-options`) to *fabricd*. *fabricd* needs to acquire
-interface information from *zebra* in order to function. Therefore *zebra* must
-be running before invoking *fabricd*. Also, if *zebra* is restarted then *fabricd*
-must be too.
+*fabricd* accepts all common invocations (:ref:`common-invocation-options`) and
+the following specific options.
+
+.. program:: fabricd
+
+.. option:: --dummy_as_loopback
+
+   Treat dummy interfaces as loopback interfaces.
+
+*fabricd* needs to acquire interface information from *zebra* in order to
+function. Therefore *zebra* must be running before invoking *fabricd*. Also, if
+*zebra* is restarted then *fabricd* must be too.
 
 Like other daemons, *fabricd* configuration is done in an OpenFabric specific
 configuration file :file:`fabricd.conf`.

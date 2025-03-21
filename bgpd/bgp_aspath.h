@@ -59,6 +59,7 @@ struct aspath {
 	   and AS path regular expression match.  */
 	char *str;
 	unsigned short str_len;
+	uint32_t count;
 
 	/* AS notation used by string expression of AS path */
 	enum asnotation_mode asnotation;
@@ -167,5 +168,6 @@ extern void bgp_remove_aspath_from_aggregate_hash(
 						struct aspath *aspath);
 
 extern void bgp_aggr_aspath_remove(void *arg);
+extern struct aspath *aspath_delete_as_set_seq(struct aspath *aspath);
 
 #endif /* _QUAGGA_BGP_ASPATH_H */

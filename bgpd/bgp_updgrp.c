@@ -444,6 +444,14 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	 */
 	key = jhash_1word(peer->local_role, key);
 
+	/* If the peer has disabled Link-Local Next Hop capability, but we
+	 * send it, it's not taken into consideration and we always merge both
+	 * peers into a single update-group. Make sure peer has its own update-group
+	 * if it has disabled (received) Link-Local Next Hop capability.
+	 */
+	key = jhash_2words(!!CHECK_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_RCV),
+			   !!CHECK_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_ADV), key);
+
 	/* Neighbors configured with the AIGP attribute are put in a separate
 	 * update group from other neighbors.
 	 */
@@ -480,6 +488,9 @@ static unsigned int updgrp_hash_key_make(const void *p)
 		zlog_debug("%pBP Update Group Hash: addpath paths-limit: (send %u, receive %u)",
 			   peer, peer->addpath_paths_limit[afi][safi].send,
 			   peer->addpath_paths_limit[afi][safi].receive);
+		zlog_debug("%pBP Update Group Hash: Link-Local Next Hop capability:%s%s", peer,
+			   CHECK_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_RCV) ? " received" : "",
+			   CHECK_FLAG(peer->cap, PEER_CAP_LINK_LOCAL_ADV) ? " advertised" : "");
 		zlog_debug(
 			"%pBP Update Group Hash: max packet size: %u pmax_out: %u Peer Group: %s rmap out: %s",
 			peer, peer->max_packet_size, peer->pmax_out[afi][safi],
@@ -757,7 +768,7 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 		json_time = json_object_new_object();
 		json_object_int_add(json_time, "epoch", epoch_tbuf);
 		json_object_string_add(json_time, "epochString",
-				       ctime_r(&epoch_tbuf, timebuf));
+				       time_to_string_json(updgrp->uptime, timebuf));
 		json_object_object_add(json_updgrp, "groupCreateTime",
 				       json_time);
 		json_object_string_add(json_updgrp, "afi",
@@ -766,8 +777,7 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 				       safi2str(updgrp->safi));
 	} else {
 		vty_out(vty, "Update-group %" PRIu64 ":\n", updgrp->id);
-		vty_out(vty, "  Created: %s",
-			timestamp_string(updgrp->uptime, timebuf));
+		vty_out(vty, "  Created: %s", time_to_string(updgrp->uptime, timebuf));
 	}
 
 	filter = &updgrp->conf->filter[updgrp->afi][updgrp->safi];
@@ -835,15 +845,14 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 			json_object_int_add(json_subgrp_time, "epoch",
 					    epoch_tbuf);
 			json_object_string_add(json_subgrp_time, "epochString",
-					       ctime_r(&epoch_tbuf, timebuf));
+					       time_to_string_json(subgrp->uptime, timebuf));
 			json_object_object_add(json_subgrp, "groupCreateTime",
 					       json_subgrp_time);
 		} else {
 			vty_out(vty, "\n");
 			vty_out(vty, "  Update-subgroup %" PRIu64 ":\n",
 				subgrp->id);
-			vty_out(vty, "    Created: %s",
-				timestamp_string(subgrp->uptime, timebuf));
+			vty_out(vty, "    Created: %s", time_to_string(subgrp->uptime, timebuf));
 		}
 
 		if (subgrp->split_from.update_group_id
@@ -2039,13 +2048,16 @@ int update_group_adjust_soloness(struct peer *peer, int set)
 	struct peer_group *group;
 	struct listnode *node, *nnode;
 
-	peer_flag_set(peer, PEER_FLAG_LONESOUL);
-
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		peer_lonesoul_or_not(peer, set);
 		if (peer_established(peer->connection))
 			bgp_announce_route_all(peer);
 	} else {
+		if (set)
+			peer_flag_set(peer, PEER_FLAG_LONESOUL);
+		else
+			peer_flag_unset(peer, PEER_FLAG_LONESOUL);
+
 		group = peer->group;
 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
 			peer_lonesoul_or_not(peer, set);

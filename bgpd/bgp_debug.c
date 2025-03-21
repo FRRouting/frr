@@ -60,6 +60,7 @@ unsigned long conf_bgp_debug_graceful_restart;
 unsigned long conf_bgp_debug_evpn_mh;
 unsigned long conf_bgp_debug_bfd;
 unsigned long conf_bgp_debug_cond_adv;
+unsigned long conf_bgp_debug_aggregate;
 
 unsigned long term_bgp_debug_as4;
 unsigned long term_bgp_debug_neighbor_events;
@@ -80,6 +81,7 @@ unsigned long term_bgp_debug_graceful_restart;
 unsigned long term_bgp_debug_evpn_mh;
 unsigned long term_bgp_debug_bfd;
 unsigned long term_bgp_debug_cond_adv;
+unsigned long term_bgp_debug_aggregate;
 
 struct list *bgp_debug_neighbor_events_peers = NULL;
 struct list *bgp_debug_keepalive_peers = NULL;
@@ -88,6 +90,7 @@ struct list *bgp_debug_update_in_peers = NULL;
 struct list *bgp_debug_update_prefixes = NULL;
 struct list *bgp_debug_bestpath_prefixes = NULL;
 struct list *bgp_debug_zebra_prefixes = NULL;
+struct list *bgp_debug_aggregate_prefixes;
 
 /* messages for BGP-4 status */
 const struct message bgp_status_msg[] = {{Idle, "Idle"},
@@ -146,6 +149,7 @@ static const struct message bgp_notify_update_msg[] = {
 	{BGP_NOTIFY_UPDATE_OPT_ATTR_ERR, "/Optional Attribute Error"},
 	{BGP_NOTIFY_UPDATE_INVAL_NETWORK, "/Invalid Network Field"},
 	{BGP_NOTIFY_UPDATE_MAL_AS_PATH, "/Malformed AS_PATH"},
+	{BGP_NOTIFY_UPDATE_UNREACH_NEXT_HOP, "/Unreachable Link-Local Address"},
 	{0}};
 
 static const struct message bgp_notify_cease_msg[] = {
@@ -448,6 +452,10 @@ bool bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 		snprintf(buf + strlen(buf), size - strlen(buf),
 			 ", extcommunity %s",
 			 ecommunity_str(bgp_attr_get_ecommunity(attr)));
+
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES)))
+		snprintf(buf + strlen(buf), size - strlen(buf), ", ipv6-extcommunity %s",
+			 ecommunity_str(bgp_attr_get_ipv6_ecommunity(attr)));
 
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE)))
 		snprintf(buf + strlen(buf), size - strlen(buf),
@@ -1808,6 +1816,107 @@ DEFPY (no_debug_bgp_zebra_prefix,
 	return CMD_SUCCESS;
 }
 
+/* debug bgp aggregate */
+DEFPY (debug_bgp_aggregate,
+       debug_bgp_aggregate_cmd,
+       "debug bgp aggregate",
+       DEBUG_STR
+       BGP_STR
+       "BGP aggregate\n")
+{
+	if (vty->node == CONFIG_NODE)
+		DEBUG_ON(aggregate, AGGREGATE);
+	else {
+		TERM_DEBUG_ON(aggregate, AGGREGATE);
+		vty_out(vty, "BGP aggregate debugging is on\n");
+	}
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_debug_bgp_aggregate,
+       no_debug_bgp_aggregate_cmd,
+       "no debug bgp aggregate",
+       NO_STR
+       DEBUG_STR
+       BGP_STR
+       "BGP aggregate\n")
+{
+	bgp_debug_list_free(bgp_debug_aggregate_prefixes);
+
+	if (vty->node == CONFIG_NODE)
+		DEBUG_OFF(aggregate, AGGREGATE);
+	else {
+		TERM_DEBUG_OFF(aggregate, AGGREGATE);
+		vty_out(vty, "BGP aggregate debugging is off\n");
+	}
+	return CMD_SUCCESS;
+}
+
+DEFPY (debug_bgp_aggregate_prefix,
+       debug_bgp_aggregate_prefix_cmd,
+       "debug bgp aggregate prefix <A.B.C.D/M|X:X::X:X/M>$prefix",
+       DEBUG_STR
+       BGP_STR
+       "BGP aggregate\n"
+       "Specify a prefix to debug\n"
+       "IPv4 prefix\n"
+       "IPv6 prefix\n")
+{
+	if (!bgp_debug_aggregate_prefixes)
+		bgp_debug_aggregate_prefixes = list_new();
+
+	if (bgp_debug_list_has_entry(bgp_debug_aggregate_prefixes, NULL, prefix, NULL)) {
+		vty_out(vty, "BGP aggregate debugging is already enabled for %s\n", prefix_str);
+		return CMD_SUCCESS;
+	}
+
+	bgp_debug_list_add_entry(bgp_debug_aggregate_prefixes, NULL, prefix, NULL);
+
+	if (vty->node == CONFIG_NODE)
+		DEBUG_ON(aggregate, AGGREGATE);
+	else {
+		TERM_DEBUG_ON(aggregate, AGGREGATE);
+		vty_out(vty, "BGP aggregate debugging is on for %s\n", prefix_str);
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_debug_bgp_aggregate_prefix,
+       no_debug_bgp_aggregate_prefix_cmd,
+       "no debug bgp aggregate prefix <A.B.C.D/M|X:X::X:X/M>$prefix",
+       NO_STR
+       DEBUG_STR
+       BGP_STR
+       "BGP aggregate\n"
+       "Specify a prefix to debug\n"
+       "IPv4 prefix\n"
+       "IPv6 prefix\n")
+{
+	bool found_prefix = false;
+
+	if (bgp_debug_aggregate_prefixes && !list_isempty(bgp_debug_aggregate_prefixes)) {
+		found_prefix = bgp_debug_list_remove_entry(bgp_debug_aggregate_prefixes, NULL,
+							   (struct prefix *)prefix);
+
+		if (list_isempty(bgp_debug_aggregate_prefixes)) {
+			if (vty->node == CONFIG_NODE)
+				DEBUG_OFF(aggregate, AGGREGATE);
+			else {
+				TERM_DEBUG_OFF(aggregate, AGGREGATE);
+				vty_out(vty, "BGP aggregate debugging is off\n");
+			}
+		}
+	}
+
+	if (found_prefix)
+		vty_out(vty, "BGP aggregate debugging is off for %s\n", prefix_str);
+	else
+		vty_out(vty, "BGP aggregate debugging was not enabled for %s\n", prefix_str);
+
+	return CMD_SUCCESS;
+}
+
 /* debug bgp update-groups */
 DEFUN (debug_bgp_update_groups,
        debug_bgp_update_groups_cmd,
@@ -2235,6 +2344,10 @@ DEFUN_NOSH (show_debugging_bgp,
 		bgp_debug_list_print(vty, "  BGP zebra debugging is on",
 				     bgp_debug_zebra_prefixes);
 
+	if (BGP_DEBUG(aggregate, AGGREGATE))
+		bgp_debug_list_print(vty, "  BGP aggregate debugging is on",
+				     bgp_debug_aggregate_prefixes);
+
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		vty_out(vty, "  BGP graceful-restart debugging is on\n");
 
@@ -2408,6 +2521,16 @@ static int bgp_config_write_debug(struct vty *vty)
 		write++;
 	}
 
+	if (CONF_BGP_DEBUG(aggregate, AGGREGATE)) {
+		if (!bgp_debug_aggregate_prefixes || list_isempty(bgp_debug_aggregate_prefixes)) {
+			vty_out(vty, "debug bgp aggregate\n");
+			write++;
+		} else {
+			write += bgp_debug_list_conf_print(vty, "debug bgp aggregate prefix",
+							   bgp_debug_aggregate_prefixes);
+		}
+	}
+
 	if (hook_call(bgp_hook_config_write_debug, vty, true))
 		write++;
 
@@ -2480,6 +2603,16 @@ void bgp_debug_init(void)
 	install_element(CONFIG_NODE, &debug_bgp_zebra_prefix_cmd);
 	install_element(ENABLE_NODE, &no_debug_bgp_zebra_prefix_cmd);
 	install_element(CONFIG_NODE, &no_debug_bgp_zebra_prefix_cmd);
+
+	/* debug bgp aggregate prefix A.B.C.D/M */
+	install_element(ENABLE_NODE, &debug_bgp_aggregate_cmd);
+	install_element(CONFIG_NODE, &debug_bgp_aggregate_cmd);
+	install_element(ENABLE_NODE, &no_debug_bgp_aggregate_cmd);
+	install_element(CONFIG_NODE, &no_debug_bgp_aggregate_cmd);
+	install_element(ENABLE_NODE, &debug_bgp_aggregate_prefix_cmd);
+	install_element(CONFIG_NODE, &debug_bgp_aggregate_prefix_cmd);
+	install_element(ENABLE_NODE, &no_debug_bgp_aggregate_prefix_cmd);
+	install_element(CONFIG_NODE, &no_debug_bgp_aggregate_prefix_cmd);
 
 	install_element(ENABLE_NODE, &no_debug_bgp_as4_cmd);
 	install_element(CONFIG_NODE, &no_debug_bgp_as4_cmd);
@@ -2704,6 +2837,17 @@ bool bgp_debug_zebra(const struct prefix *p)
 		if (bgp_debug_per_prefix(p, term_bgp_debug_zebra,
 					 BGP_DEBUG_ZEBRA,
 					 bgp_debug_zebra_prefixes))
+			return true;
+	}
+
+	return false;
+}
+
+bool bgp_debug_aggregate(const struct prefix *p)
+{
+	if (BGP_DEBUG(aggregate, AGGREGATE)) {
+		if (bgp_debug_per_prefix(p, term_bgp_debug_aggregate, BGP_DEBUG_AGGREGATE,
+					 bgp_debug_aggregate_prefixes))
 			return true;
 	}
 

@@ -1931,8 +1931,8 @@ static void rfapiBgpInfoAttachSorted(struct agg_node *rn,
 	if (VNC_DEBUG(IMPORT_BI_ATTACH)) {
 		vnc_zlog_debug_verbose("%s: info_new->peer=%p", __func__,
 				       info_new->peer);
-		vnc_zlog_debug_verbose("%s: info_new->peer->su_remote=%p",
-				       __func__, info_new->peer->su_remote);
+		vnc_zlog_debug_verbose("%s: info_new->peer->su_remote=%p", __func__,
+				       info_new->peer->connection->su_remote);
 	}
 
 	for (prev = NULL, next = rn->info; next;
@@ -4067,9 +4067,15 @@ static void rfapiProcessPeerDownRt(struct peer *peer,
 						bpi, import_table, afi, -1);
 					import_table->holddown_count[afi] += 1;
 				}
-				rfapiBiStartWithdrawTimer(import_table, rn, bpi,
-							  afi, safi,
-							  timer_service_func);
+				if (bm->terminating) {
+					if (safi == SAFI_MPLS_VPN)
+						rfapiExpireVpnNow(import_table, rn, bpi, 1);
+					else
+						rfapiExpireEncapNow(import_table, rn, bpi);
+
+				} else
+					rfapiBiStartWithdrawTimer(import_table, rn, bpi, afi, safi,
+								  timer_service_func);
 			}
 		}
 	}

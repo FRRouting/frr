@@ -1,6 +1,6 @@
 ZEBRA:
-route-map: static Invoked: 2 Optimization: enabled Processed Change: false
- permit, sequence 10 Invoked 2
+route-map: static Invoked: 2 (X milliseconds total) Optimization: enabled Processed Change: false
+ permit, sequence 10 Invoked 2 (X milliseconds total)
   Match clauses:
   Set clauses:
     src 192.168.215.1

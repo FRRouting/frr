@@ -819,6 +819,12 @@ class TopoRouter(TopoGear):
         gear += " TopoRouter<>"
         return gear
 
+    def use_netns_vrf(self):
+        """
+        Use netns as VRF backend.
+        """
+        self.net.useNetnsVRF()
+
     def check_capability(self, daemon, param):
         """
         Checks a capability daemon against an argument option
@@ -833,6 +839,8 @@ class TopoRouter(TopoGear):
         Loads the unified configuration file source
         Start the daemons in the list
         If daemons is None, try to infer daemons from the config file
+        `daemons` is a tuple (daemon, param) of daemons to start, e.g.:
+        (TopoRouter.RD_ZEBRA, "-s 90000000").
         """
         source_path = self.load_config(self.RD_FRR, source)
         if not daemons:
@@ -848,11 +856,23 @@ class TopoRouter(TopoGear):
                 result = self.run(grep_cmd, warn=False).strip()
                 if result:
                     self.load_config(daemon, "")
-        else:
-            for daemon in daemons:
-                self.load_config(daemon, "")
+                    if daemonstr == "ospf":
+                        grep_cmd = "grep -E 'router ospf ([0-9]+*)' {} | grep -o -E '([0-9]*)'".format(
+                            source_path
+                        )
+                        result = self.run(grep_cmd, warn=False)
+                        if result:  # instances
+                            instances = result.split("\n")
+                            for inst in instances:
+                                if inst != "":
+                                    self.load_config(daemon, "", None, inst)
 
-    def load_config(self, daemon, source=None, param=None):
+        else:
+            for item in daemons:
+                daemon, param = item
+                self.load_config(daemon, "", param)
+
+    def load_config(self, daemon, source=None, param=None, instance=None):
         """Loads daemon configuration from the specified source
         Possible daemon values are: TopoRouter.RD_ZEBRA, TopoRouter.RD_RIP,
         TopoRouter.RD_RIPNG, TopoRouter.RD_OSPF, TopoRouter.RD_OSPF6,
@@ -870,7 +890,7 @@ class TopoRouter(TopoGear):
         """
         daemonstr = self.RD.get(daemon)
         self.logger.debug('loading "{}" configuration: {}'.format(daemonstr, source))
-        return self.net.loadConf(daemonstr, source, param)
+        return self.net.loadConf(daemonstr, source, param, instance)
 
     def check_router_running(self):
         """
@@ -1273,16 +1293,25 @@ class TopoBMPCollector(TopoHost):
         return gear
 
     def start(self, log_file=None):
+        log_dir = os.path.join(self.logdir, self.name)
+        self.run("chmod 777 {}".format(log_dir))
+
+        log_err = os.path.join(log_dir, "bmpserver.log")
+
         log_arg = "-l {}".format(log_file) if log_file else ""
-        self.run(
-            "{}/bmp_collector/bmpserver -a {} -p {} {}&".format(
-                CWD, self.ip, self.port, log_arg
-            ),
-            stdout=None,
-        )
+        self.pid_file = os.path.join(log_dir, "bmpserver.pid")
+
+        with open(log_err, "w") as err:
+            self.run(
+                "{}/bmp_collector/bmpserver.py -a {} -p {} -r {} {}&".format(
+                    CWD, self.ip, self.port, self.pid_file, log_arg
+                ),
+                stdout=None,
+                stderr=err,
+            )
 
     def stop(self):
-        self.run("pkill -9 -f bmpserver")
+        self.run(f"kill $(cat {self.pid_file}")
         return ""
 
 

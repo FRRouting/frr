@@ -242,6 +242,7 @@ struct interface {
 #define ZEBRA_INTERFACE_SUB        (1 << 1)
 #define ZEBRA_INTERFACE_LINKDETECTION (1 << 2)
 #define ZEBRA_INTERFACE_VRF_LOOPBACK (1 << 3)
+#define ZEBRA_INTERFACE_DUMMY (1 << 4)
 
 	/* Interface flags. */
 	uint64_t flags;
@@ -295,9 +296,9 @@ struct interface {
 	struct if_data stats;
 #endif /* HAVE_NET_RT_IFLIST */
 
-	struct route_node *node;
-
 	struct vrf *vrf;
+
+	struct lyd_node *state;
 
 	/*
 	 * Has the end users entered `interface XXXX` from the cli in some
@@ -635,6 +636,14 @@ extern void if_up_via_zapi(struct interface *ifp);
 extern void if_down_via_zapi(struct interface *ifp);
 extern void if_destroy_via_zapi(struct interface *ifp);
 
+extern void if_update_state(struct interface *ifp);
+extern void if_update_state_metric(struct interface *ifp, uint32_t metric);
+extern void if_update_state_mtu(struct interface *ifp, uint mtu);
+extern void if_update_state_mtu6(struct interface *ifp, uint mtu);
+extern void if_update_state_hw_addr(struct interface *ifp, const uint8_t *hw_addr, uint len);
+extern void if_update_state_speed(struct interface *ifp, uint32_t speed);
+
+extern bool if_notify_oper_changes;
 extern const struct frr_yang_module_info frr_interface_info;
 extern const struct frr_yang_module_info frr_interface_cli_info;
 

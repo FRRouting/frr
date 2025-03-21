@@ -20,6 +20,7 @@ import sys
 import pytest
 import glob
 from time import sleep
+from lib.topolog import logger
 
 pytestmark = [
     pytest.mark.babeld,
@@ -37,6 +38,7 @@ from lib.topogen import Topogen, get_topogen
 from lib.common_config import (
     required_linux_kernel_version,
 )
+from lib.topolog import logger
 
 import json
 import functools
@@ -648,6 +650,34 @@ def test_nexthop_groups():
         len(dups) == 4
     ), "Route 6.6.6.1/32 with Nexthop Group ID={} has wrong number of resolved nexthops".format(
         nhg_id
+    )
+
+    ## Validate NHG's installed in kernel has same nexthops with Interface flaps
+    pre_out = net["r1"].cmd('ip route show | grep "5.5.5.1"')
+    pre_nhg = re.search(r"nhid\s+(\d+)", pre_out)
+    pre_nh_show = net["r1"].cmd("ip next show id {}".format(pre_nhg.group(1)))
+    pre_total_nhs = len((re.search(r"group ([\d/]+)", pre_nh_show)).group(1).split("/"))
+
+    net["r1"].cmd(
+        "ip link set r1-eth1 down;ip link set r1-eth2 down;ip link set r1-eth3 down;ip link set r1-eth4 down"
+    )
+    sleep(1)
+    net["r1"].cmd(
+        "ip link set r1-eth1 up;ip link set r1-eth2 up;ip link set r1-eth3 up;ip link set r1-eth4 up"
+    )
+    sleep(5)
+
+    post_out = net["r1"].cmd('ip route show | grep "5.5.5.1"')
+    post_nhg = re.search(r"nhid\s+(\d+)", post_out)
+    post_nh_show = net["r1"].cmd("ip next show id {}".format(post_nhg.group(1)))
+    post_total_nhs = len(
+        (re.search(r"group ([\d/]+)", post_nh_show)).group(1).split("/")
+    )
+
+    assert (
+        post_total_nhs == pre_total_nhs
+    ), "Expected same nexthops(pre-{}: post-{}) in NHG (pre-{}:post-{}) after few Interface flaps".format(
+        pre_total_nhs, post_total_nhs, pre_nhg.group(1), post_nhg.group(1)
     )
 
     ## Remove all NHG routes
@@ -1422,6 +1452,7 @@ def test_route_map():
                 .cmd('vtysh -c "show route-map" 2> /dev/null')
                 .rstrip()
             )
+            actual = re.sub(r"\([0-9].* milli", "(X milli", actual)
             actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
 
             diff = topotest.get_textdiff(
@@ -1711,6 +1742,77 @@ def test_resilient_nexthop_group():
 
     # Remove NHG
     net["r1"].cmd('vtysh -c "conf" -c "no nexthop-group resilience"')
+
+
+def test_interface_stuff():
+    global fatal_error
+    net = get_topogen().net
+
+    # Skip if previous fatal error condition is raised
+    if fatal_error != "":
+        pytest.skip(fatal_error)
+
+    print("\n\n** Verifying some interface code")
+    print("************************************\n")
+
+    net["r1"].cmd('vtysh -c "conf" -c "interface r1-eth0" -c "multicast enable"')
+
+    def _test_interface_multicast_on():
+        output = json.loads(net["r1"].cmd('vtysh -c "show int r1-eth0 json"'))
+        expected = {
+            "r1-eth0": {
+                "flags": "<UP,LOWER_UP,BROADCAST,RUNNING,MULTICAST>",
+                "multicastConfig": "Enabled by CLI",
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_test_interface_multicast_on)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Multicast bit was not set on r1-eth0"
+
+    net["r1"].cmd('vtysh -c "conf" -c "interface r1-eth0" -c "multicast disable"')
+
+    def _test_interface_multicast_off():
+        output = json.loads(
+            net["r1"].cmd('vtysh -c "show int r1-eth0 vrf default json"')
+        )
+        expected = {
+            "r1-eth0": {
+                "flags": "<UP,LOWER_UP,BROADCAST,RUNNING>",
+                "multicastConfig": "Disabled by CLI",
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_test_interface_multicast_off)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Multicast bit was not turned off on r1-eth0"
+
+    net["r1"].cmd('vtysh -c "conf" -c "interface r1-eth0" -c "no multicast disable"')
+
+    def _test_interface_multicast_disable():
+        output = json.loads(net["r1"].cmd('vtysh -c "show int r1-eth0 json"'))
+        expected = {
+            "r1-eth0": {
+                "flags": "<UP,LOWER_UP,BROADCAST,RUNNING>",
+                "multicastConfig": "Not specified by CLI",
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_test_interface_multicast_disable)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Multicast bit was set on r1-eth0"
+
+    logger.info("Ensure that these commands are still nominally working")
+    rc, o, e = net["r1"].cmd_status('vtysh -c "show interface description vrf all"')
+    logger.info(o)
+    assert rc == 0
+
+    rc, o, e = net["r1"].cmd_status('vtysh -c "show interface description vrf default"')
+    logger.info(o)
+    assert rc == 0
 
 
 def test_shutdown_check_stderr():

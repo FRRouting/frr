@@ -391,6 +391,16 @@ static inline void bgp_dest_set_bgp_path_info(struct bgp_dest *dest,
 	dest->info = bi;
 }
 
+static inline struct bgp_eoiu_info *bgp_dest_get_bgp_eoiu_info(struct bgp_dest *dest)
+{
+	return dest ? dest->info : NULL;
+}
+
+static inline void bgp_dest_set_bgp_eoiu_info(struct bgp_dest *dest, struct bgp_eoiu_info *eoiu_info)
+{
+	dest->info = eoiu_info;
+}
+
 static inline struct bgp_table *
 bgp_dest_get_bgp_table_info(struct bgp_dest *dest)
 {
@@ -419,7 +429,6 @@ static inline unsigned int bgp_dest_get_lock_count(const struct bgp_dest *dest)
 }
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
-#pragma FRR printfrr_ext "%pRN"  (struct bgp_node *)
 #pragma FRR printfrr_ext "%pBD"  (struct bgp_dest *)
 #endif
 

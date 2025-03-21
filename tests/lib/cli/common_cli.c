@@ -43,7 +43,7 @@ static void vty_do_exit(int isexit)
 	yang_terminate();
 	event_master_free(master);
 
-	log_memstats(stderr, "testcli");
+	log_memstats(NULL, true);
 	if (!isexit)
 		exit(0);
 }

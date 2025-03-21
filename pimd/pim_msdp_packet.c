@@ -367,53 +367,6 @@ static void pim_msdp_pkt_sa_fill_one(struct pim_msdp_sa *sa)
 	stream_put_ipv4(sa->pim->msdp.work_obuf, sa->sg.src.s_addr);
 }
 
-static bool msdp_cisco_match(const struct filter *filter,
-			     const struct in_addr *source,
-			     const struct in_addr *group)
-{
-	const struct filter_cisco *cfilter = &filter->u.cfilter;
-	uint32_t source_addr;
-	uint32_t group_addr;
-
-	group_addr = group->s_addr & ~cfilter->mask_mask.s_addr;
-
-	if (cfilter->extended) {
-		source_addr = source->s_addr & ~cfilter->addr_mask.s_addr;
-		if (group_addr == cfilter->mask.s_addr &&
-		    source_addr == cfilter->addr.s_addr)
-			return true;
-	} else if (group_addr == cfilter->addr.s_addr)
-		return true;
-
-	return false;
-}
-
-static enum filter_type msdp_access_list_apply(struct access_list *access,
-					       const struct in_addr *source,
-					       const struct in_addr *group)
-{
-	struct filter *filter;
-	struct prefix group_prefix;
-
-	if (access == NULL)
-		return FILTER_DENY;
-
-	for (filter = access->head; filter; filter = filter->next) {
-		if (filter->cisco) {
-			if (msdp_cisco_match(filter, source, group))
-				return filter->type;
-		} else {
-			group_prefix.family = AF_INET;
-			group_prefix.prefixlen = IPV4_MAX_BITLEN;
-			group_prefix.u.prefix4.s_addr = group->s_addr;
-			if (access_list_apply(access, &group_prefix))
-				return filter->type;
-		}
-	}
-
-	return FILTER_DENY;
-}
-
 bool msdp_peer_sa_filter(const struct pim_msdp_peer *mp,
 			 const struct pim_msdp_sa *sa)
 {
@@ -425,7 +378,7 @@ bool msdp_peer_sa_filter(const struct pim_msdp_peer *mp,
 
 	/* Find access list and test it. */
 	acl = access_list_lookup(AFI_IP, mp->acl_out);
-	if (msdp_access_list_apply(acl, &sa->sg.src, &sa->sg.grp) == FILTER_DENY)
+	if (pim_access_list_apply(acl, &sa->sg.src, &sa->sg.grp) == FILTER_DENY)
 		return true;
 
 	return false;
@@ -456,7 +409,6 @@ static void pim_msdp_pkt_sa_gen(struct pim_instance *pim,
 {
 	struct listnode *sanode;
 	struct pim_msdp_sa *sa;
-	struct rp_info *rp_info;
 	struct prefix group_all;
 	struct in_addr rp;
 	int sa_count;
@@ -467,14 +419,8 @@ static void pim_msdp_pkt_sa_gen(struct pim_instance *pim,
 		zlog_debug("  sa gen  %d", local_cnt);
 	}
 
-	rp = pim->msdp.originator_id;
-	if (pim_get_all_mcast_group(&group_all)) {
-	    rp_info = pim_rp_find_match_group(pim, &group_all);
-	    if (rp_info) {
-	        rp = rp_info->rp.rpf_addr;
-	    }
-	}
-
+	pim_get_all_mcast_group(&group_all);
+	pim_msdp_originator_id(pim, &group_all, &rp);
 	local_cnt = pim_msdp_pkt_sa_fill_hdr(pim, local_cnt, rp);
 
 	for (ALL_LIST_ELEMENTS_RO(pim->msdp.sa_list, sanode, sa)) {
@@ -487,9 +433,8 @@ static void pim_msdp_pkt_sa_gen(struct pim_instance *pim,
 		}
 
 		if (msdp_peer_sa_filter(mp, sa)) {
-			if (PIM_DEBUG_MSDP_EVENTS)
-				zlog_debug("MSDP peer %pI4 filter SA out %s",
-					   &mp->peer, sa->sg_str);
+			if (pim_msdp_log_sa_events(pim))
+				zlog_info("MSDP peer %pI4 filter SA out %s", &mp->peer, sa->sg_str);
 
 			continue;
 		}
@@ -505,8 +450,7 @@ static void pim_msdp_pkt_sa_gen(struct pim_instance *pim,
 				zlog_debug("  sa gen for remainder %d",
 					   local_cnt);
 			}
-			local_cnt = pim_msdp_pkt_sa_fill_hdr(
-				pim, local_cnt, rp);
+			local_cnt = pim_msdp_pkt_sa_fill_hdr(pim, local_cnt, rp);
 		}
 	}
 
@@ -551,9 +495,9 @@ void pim_msdp_pkt_sa_tx_one(struct pim_msdp_sa *sa)
 	pim_msdp_pkt_sa_fill_one(sa);
 	for (ALL_LIST_ELEMENTS_RO(sa->pim->msdp.peer_list, node, mp)) {
 		if (msdp_peer_sa_filter(mp, sa)) {
-			if (PIM_DEBUG_MSDP_EVENTS)
-				zlog_debug("MSDP peer %pI4 filter SA out %s",
-					   &mp->peer, sa->sg_str);
+			if (pim_msdp_log_sa_events(sa->pim))
+				zlog_info("MSDP peer %pI4 filter SA out %s", &mp->peer, sa->sg_str);
+
 			continue;
 		}
 
@@ -583,9 +527,10 @@ void pim_msdp_pkt_sa_tx_one_to_one_peer(struct pim_msdp_peer *mp,
 
 	/* Don't push it if filtered. */
 	if (msdp_peer_sa_filter(mp, &sa)) {
-		if (PIM_DEBUG_MSDP_EVENTS)
-			zlog_debug("MSDP peer %pI4 filter SA out (%pI4, %pI4)",
-				   &mp->peer, &sa.sg.src, &sa.sg.grp);
+		if (pim_msdp_log_sa_events(mp->pim))
+			zlog_info("MSDP peer %pI4 filter SA out (%pI4, %pI4)", &mp->peer,
+				  &sa.sg.src, &sa.sg.grp);
+
 		return;
 	}
 
@@ -641,11 +586,10 @@ static void pim_msdp_pkt_sa_rx_one(struct pim_msdp_peer *mp, struct in_addr rp)
 	/* Filter incoming SA with configured access list. */
 	if (mp->acl_in) {
 		acl = access_list_lookup(AFI_IP, mp->acl_in);
-		if (msdp_access_list_apply(acl, &sg.src, &sg.grp) ==
-		    FILTER_DENY) {
-			if (PIM_DEBUG_MSDP_EVENTS)
-				zlog_debug("MSDP peer %pI4 filter SA in (%pI4, %pI4)",
-					   &mp->peer, &sg.src, &sg.grp);
+		if (pim_access_list_apply(acl, &sg.src, &sg.grp) == FILTER_DENY) {
+			if (pim_msdp_log_sa_events(mp->pim))
+				zlog_info("MSDP peer %pI4 filter SA in (%pI4, %pI4)", &mp->peer,
+					  &sg.src, &sg.grp);
 			return;
 		}
 	}
@@ -674,6 +618,21 @@ static void pim_msdp_pkt_sa_rx(struct pim_msdp_peer *mp, int len)
 	int entry_cnt;
 	int i;
 	struct in_addr rp; /* Last RP address associated with this SA */
+	struct pim_msdp_mg *mg;
+	struct pim_instance *pim = mp->pim;
+	bool is_mesh_group = false;
+
+	if (mp->flags & PIM_MSDP_PEERF_IN_GROUP) {
+		/* Check if source is also in the same mesh group */
+		SLIST_FOREACH (mg, &pim->msdp.mglist, mg_entry) {
+			if (strcmp(mg->mesh_group_name, mp->mesh_group_name) == 0) {
+				if (mg->src_ip.s_addr == mp->local.s_addr) {
+					is_mesh_group = true;
+					break;
+				}
+			}
+		}
+	}
 
 	mp->sa_rx_cnt++;
 
@@ -701,7 +660,7 @@ static void pim_msdp_pkt_sa_rx(struct pim_msdp_peer *mp, int len)
 
 	pim_msdp_peer_pkt_rxed(mp);
 
-	if (!pim_msdp_peer_rpf_check(mp, rp)) {
+	if (!is_mesh_group && !pim_msdp_peer_rpf_check(mp, rp)) {
 		/* if peer-RPF check fails don't process the packet any further
 		 */
 		if (PIM_DEBUG_MSDP_PACKETS) {

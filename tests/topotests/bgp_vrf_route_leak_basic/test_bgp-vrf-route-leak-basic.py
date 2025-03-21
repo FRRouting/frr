@@ -64,6 +64,16 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
+def test_router_bgp_as_pretty():
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    output = tgen.gears["r1"].vtysh_cmd("show run")
+    assert "router bgp 99\n" in output, "router bgp 99 not found in show run"
+
+
 def test_vrf_route_leak_donna():
     logger.info("Ensure that routes are leaked back and forth")
     tgen = get_topogen()
@@ -123,20 +133,7 @@ def test_vrf_route_leak_donna():
                 ],
             },
         ],
-        "172.16.101.0/24": [
-            {
-                "protocol": "bgp",
-                "selected": None,
-                "nexthops": [
-                    {
-                        "fib": None,
-                        "interfaceName": "unknown",
-                        "vrf": "Unknown",
-                        "active": None,
-                    },
-                ],
-            },
-        ],
+        "172.16.101.0/24": None,
     }
 
     test_func = partial(
@@ -195,20 +192,7 @@ def test_vrf_route_leak_eva():
                 "protocol": "connected",
             }
         ],
-        "172.16.101.0/24": [
-            {
-                "protocol": "bgp",
-                "selected": None,
-                "nexthops": [
-                    {
-                        "fib": None,
-                        "interfaceName": "unknown",
-                        "vrf": "Unknown",
-                        "active": None,
-                    },
-                ],
-            },
-        ],
+        "172.16.101.0/24": None,
     }
 
     test_func = partial(
@@ -302,34 +286,8 @@ interface EVA
 
     # Test DONNA VRF.
     expect = {
-        "10.0.1.0/24": [
-            {
-                "protocol": "bgp",
-                "selected": None,
-                "nexthops": [
-                    {
-                        "fib": None,
-                        "interfaceName": "EVA",
-                        "vrf": "EVA",
-                        "active": None,
-                    },
-                ],
-            },
-        ],
-        "10.0.3.0/24": [
-            {
-                "protocol": "bgp",
-                "selected": None,
-                "nexthops": [
-                    {
-                        "fib": None,
-                        "interfaceName": "EVA",
-                        "vrf": "EVA",
-                        "active": None,
-                    },
-                ],
-            },
-        ],
+        "10.0.1.0/24": None,
+        "10.0.3.0/24": None,
     }
 
     test_func = partial(
@@ -421,20 +379,7 @@ def test_vrf_route_leak_donna_add_vrf_zita():
 
     # Test DONNA VRF.
     expect = {
-        "172.16.101.0/24": [
-            {
-                "protocol": "bgp",
-                "selected": None,
-                "nexthops": [
-                    {
-                        "fib": None,
-                        "interfaceName": "ZITA",
-                        "vrf": "ZITA",
-                        "active": None,
-                    },
-                ],
-            },
-        ],
+        "172.16.101.0/24": None,
     }
 
     test_func = partial(

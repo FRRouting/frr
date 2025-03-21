@@ -137,7 +137,7 @@ static void bgp_start_interface_nbrs(struct bgp *bgp, struct interface *ifp)
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 		if (peer->conf_if && (strcmp(peer->conf_if, ifp->name) == 0) &&
 		    !peer_established(peer->connection)) {
-			if (peer_active(peer))
+			if (peer_active(peer->connection) == BGP_PEER_ACTIVE)
 				BGP_EVENT_ADD(peer->connection, BGP_Stop);
 			BGP_EVENT_ADD(peer->connection, BGP_Start);
 		}
@@ -421,11 +421,10 @@ static int bgp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 			if (addr->family == AF_INET)
 				continue;
 
-			if (!IN6_IS_ADDR_LINKLOCAL(&addr->u.prefix6)
-			    && memcmp(&peer->nexthop.v6_global,
-				      &addr->u.prefix6, 16)
-				       == 0) {
-				memset(&peer->nexthop.v6_global, 0, 16);
+			if (!IN6_IS_ADDR_LINKLOCAL(&addr->u.prefix6) &&
+			    memcmp(&peer->nexthop.v6_global, &addr->u.prefix6, IPV6_MAX_BYTELEN) ==
+				    0) {
+				memset(&peer->nexthop.v6_global, 0, IPV6_MAX_BYTELEN);
 				FOREACH_AFI_SAFI (afi, safi)
 					bgp_announce_route(peer, afi, safi,
 							   true);
@@ -744,6 +743,7 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 	int ret = 0;
 	struct interface *ifp = NULL;
 	bool v6_ll_avail = true;
+	bool shared_network_original = peer->shared_network;
 
 	memset(nexthop, 0, sizeof(struct bgp_nexthop));
 
@@ -838,9 +838,9 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 		if (!v6_ll_avail && !peer->conf_if)
 			v6_ll_avail = true;
 		if (if_lookup_by_ipv4(&remote->sin.sin_addr, peer->bgp->vrf_id))
-			peer->shared_network = 1;
+			peer->shared_network = true;
 		else
-			peer->shared_network = 0;
+			peer->shared_network = false;
 	}
 
 	/* IPv6 connection, fetch and store IPv4 local address if any. */
@@ -903,10 +903,13 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 		    || if_lookup_by_ipv6(&remote->sin6.sin6_addr,
 					 remote->sin6.sin6_scope_id,
 					 peer->bgp->vrf_id))
-			peer->shared_network = 1;
+			peer->shared_network = true;
 		else
-			peer->shared_network = 0;
+			peer->shared_network = false;
 	}
+
+	if (shared_network_original != peer->shared_network)
+		bgp_peer_bfd_update_source(peer);
 
 /* KAME stack specific treatment.  */
 #ifdef KAME
@@ -950,13 +953,10 @@ bgp_path_info_to_ipv6_nexthop(struct bgp_path_info *path, ifindex_t *ifindex)
 				*ifindex = path->attr->nh_ifindex;
 		} else {
 			/* Workaround for Cisco's nexthop bug.  */
-			if (IN6_IS_ADDR_UNSPECIFIED(
-				    &path->attr->mp_nexthop_global)
-			    && path->peer->su_remote
-			    && path->peer->su_remote->sa.sa_family
-				       == AF_INET6) {
-				nexthop =
-					&path->peer->su_remote->sin6.sin6_addr;
+			if (IN6_IS_ADDR_UNSPECIFIED(&path->attr->mp_nexthop_global) &&
+			    path->peer->connection->su_remote &&
+			    path->peer->connection->su_remote->sa.sa_family == AF_INET6) {
+				nexthop = &path->peer->connection->su_remote->sin6.sin6_addr;
 				if (IN6_IS_ADDR_LINKLOCAL(nexthop))
 					*ifindex = path->peer->nexthop.ifp
 							   ->ifindex;
@@ -1187,9 +1187,10 @@ static bool update_ipv6nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
 					ifindex =
 						pi->peer->nexthop.ifp->ifindex;
 			if (!ifindex) {
-				if (pi->peer->conf_if)
-					ifindex = pi->peer->ifp->ifindex;
-				else if (pi->peer->ifname)
+				if (pi->peer->conf_if) {
+					if (pi->peer->ifp)
+						ifindex = pi->peer->ifp->ifindex;
+				} else if (pi->peer->ifname)
 					ifindex = ifname2ifindex(
 						pi->peer->ifname,
 						pi->peer->bgp->vrf_id);
@@ -1335,7 +1336,7 @@ static void bgp_zebra_announce_parse_nexthop(
 			 * overridden on 1st nexthop */
 			if (mpinfo == info) {
 				if (metric)
-					*metric = mpinfo_cp->attr->med;
+					*metric = bgp_med_value(mpinfo_cp->attr, bgp);
 				if (tag)
 					*tag = mpinfo_cp->attr->tag;
 			}
@@ -1673,11 +1674,23 @@ void bgp_zebra_announce_table(struct bgp *bgp, afi_t afi, safi_t safi)
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest))
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
 			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED) &&
-			    (pi->type == ZEBRA_ROUTE_BGP
-			     && (pi->sub_type == BGP_ROUTE_NORMAL
-				 || pi->sub_type == BGP_ROUTE_IMPORTED)))
-				bgp_zebra_route_install(dest, pi, bgp, true,
-							NULL, false);
+			    (pi->type == ZEBRA_ROUTE_BGP && (pi->sub_type == BGP_ROUTE_NORMAL ||
+							     pi->sub_type == BGP_ROUTE_IMPORTED))) {
+				bool is_add = true;
+
+				if (bgp->table_map[afi][safi].name) {
+					struct attr local_attr = *pi->attr;
+					struct bgp_path_info local_info = *pi;
+
+					local_info.attr = &local_attr;
+
+					is_add = bgp_table_map_apply(bgp->table_map[afi][safi].map,
+								     bgp_dest_get_prefix(dest),
+								     &local_info);
+				}
+
+				bgp_zebra_route_install(dest, pi, bgp, is_add, NULL, false);
+			}
 }
 
 /* Announce routes of any bgp subtype of a table to zebra */
@@ -2041,11 +2054,34 @@ int bgp_redistribute_set(struct bgp *bgp, afi_t afi, int type,
 
 	/* Return if already redistribute flag is set. */
 	if (instance) {
-		if (redist_check_instance(&zclient->mi_redist[afi][type],
-					  instance))
-			return CMD_WARNING;
+		if (type == ZEBRA_ROUTE_TABLE_DIRECT) {
+			/*
+			 * When redistribution type is `table-direct` the
+			 * instance means `table identification`.
+			 *
+			 * `table_id` support 32bit integers, however since
+			 * `instance` is being overloaded to `table_id` it
+			 * will only be possible to use the first 65535
+			 * entries.
+			 *
+			 * Also the ZAPI must also support `int`
+			 * (see `zebra_redistribute_add`).
+			 */
+			struct redist_table_direct table = {
+				.table_id = instance,
+				.vrf_id = bgp->vrf_id,
+			};
+			if (redist_lookup_table_direct(&zclient->mi_redist[afi][type], &table) !=
+			    NULL)
+				return CMD_WARNING;
 
-		redist_add_instance(&zclient->mi_redist[afi][type], instance);
+			redist_add_table_direct(&zclient->mi_redist[afi][type], &table);
+		} else {
+			if (redist_check_instance(&zclient->mi_redist[afi][type], instance))
+				return CMD_WARNING;
+
+			redist_add_instance(&zclient->mi_redist[afi][type], instance);
+		}
 	} else {
 		if (vrf_bitmap_check(&zclient->redist[afi][type], bgp->vrf_id))
 			return CMD_WARNING;
@@ -2173,10 +2209,22 @@ int bgp_redistribute_unreg(struct bgp *bgp, afi_t afi, int type,
 
 	/* Return if zebra connection is disabled. */
 	if (instance) {
-		if (!redist_check_instance(&zclient->mi_redist[afi][type],
-					   instance))
-			return CMD_WARNING;
-		redist_del_instance(&zclient->mi_redist[afi][type], instance);
+		if (type == ZEBRA_ROUTE_TABLE_DIRECT) {
+			struct redist_table_direct table = {
+				.table_id = instance,
+				.vrf_id = bgp->vrf_id,
+			};
+			if (redist_lookup_table_direct(&zclient->mi_redist[afi][type], &table) ==
+			    NULL)
+				return CMD_WARNING;
+
+			redist_del_table_direct(&zclient->mi_redist[afi][type], &table);
+		} else {
+			if (!redist_check_instance(&zclient->mi_redist[afi][type], instance))
+				return CMD_WARNING;
+
+			redist_del_instance(&zclient->mi_redist[afi][type], instance);
+		}
 	} else {
 		if (!vrf_bitmap_check(&zclient->redist[afi][type], bgp->vrf_id))
 			return CMD_WARNING;
@@ -2301,6 +2349,13 @@ void bgp_zebra_instance_register(struct bgp *bgp)
 		bgp_zebra_advertise_all_vni(bgp, 1);
 
 	bgp_nht_register_nexthops(bgp);
+
+	/*
+	 * Request SRv6 locator information from Zebra, if SRv6 is enabled
+	 * and a locator is configured for this BGP instance.
+	 */
+	if (bgp->srv6_enabled && bgp->srv6_locator_name[0] != '\0' && !bgp->srv6_locator)
+		bgp_zebra_srv6_manager_get_locator(bgp->srv6_locator_name);
 }
 
 /* Deregister this instance with Zebra. Invoked upon the instance
@@ -2326,6 +2381,9 @@ void bgp_zebra_instance_deregister(struct bgp *bgp)
 void bgp_zebra_initiate_radv(struct bgp *bgp, struct peer *peer)
 {
 	uint32_t ra_interval = BGP_UNNUM_DEFAULT_RA_INTERVAL;
+
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_IPV6_NO_AUTO_RA))
+		return;
 
 	/* Don't try to initiate if we're not connected to Zebra */
 	if (zclient->sock < 0)
@@ -3022,6 +3080,48 @@ static void bgp_zebra_connected(struct zclient *zclient)
 	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(bgp, bgp->peer);
 }
 
+void bgp_zebra_process_remote_routes_for_l2vni(struct event *e)
+{
+	/*
+	 * If we have learnt and retained remote routes (VTEPs, MACs)
+	 * for this VNI, install them.
+	 */
+	install_uninstall_routes_for_vni(NULL, NULL, true);
+
+	/*
+	 * If there are VNIs still pending to be processed, schedule them
+	 * after a small sleep so that CPU can be used for other purposes.
+	 */
+	if (zebra_l2_vni_count(&bm->zebra_l2_vni_head))
+		event_add_timer_msec(bm->master, bgp_zebra_process_remote_routes_for_l2vni, NULL,
+				     20, &bm->t_bgp_zebra_l2_vni);
+}
+
+void bgp_zebra_process_remote_routes_for_l3vrf(struct event *e)
+{
+	/*
+	 * Install/Uninstall all remote routes belonging to l3vni
+	 *
+	 * NOTE:
+	 *  - At this point it does not matter whether we call
+	 *    install_routes_for_vrf/uninstall_routes_for_vrf.
+	 *  - Since we pass struct bgp as NULL,
+	 *      * we iterate the bm FIFO list
+	 *      * the second variable (true) is ignored as well and
+	 *        calculated based on the BGP-VRFs flags for ADD/DELETE.
+	 */
+	install_uninstall_routes_for_vrf(NULL, true);
+
+	/*
+	 * If there are L3VNIs still pending to be processed, schedule them
+	 * after a small sleep so that CPU can be used for other purposes.
+	 */
+	if (zebra_l3_vni_count(&bm->zebra_l3_vni_head)) {
+		event_add_timer_msec(bm->master, bgp_zebra_process_remote_routes_for_l3vrf, NULL,
+				     20, &bm->t_bgp_zebra_l3_vni);
+	}
+}
+
 static int bgp_zebra_process_local_es_add(ZAPI_CALLBACK_ARGS)
 {
 	esi_t esi;
@@ -3329,11 +3429,14 @@ static int bgp_ifp_create(struct interface *ifp)
 		zlog_debug("Rx Intf add VRF %s IF %s", ifp->vrf->name,
 			   ifp->name);
 
+	/* We don't need to check for vrf->bgp link to add this local MAC
+	 * to the hash table as the tenant VRF might not have the BGP instance.
+	 */
+	bgp_mac_add_mac_entry(ifp);
+
 	bgp = ifp->vrf->info;
 	if (!bgp)
 		return 0;
-
-	bgp_mac_add_mac_entry(ifp);
 
 	bgp_update_interface_nbrs(bgp, ifp, ifp);
 	hook_call(bgp_vrf_status_changed, bgp, ifp);
@@ -3696,7 +3799,7 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 	// refresh functions
 	for (ALL_LIST_ELEMENTS(bgp->srv6_functions, node, nnode, func)) {
 		tmp_prefi.family = AF_INET6;
-		tmp_prefi.prefixlen = 128;
+		tmp_prefi.prefixlen = IPV6_MAX_BITLEN;
 		tmp_prefi.prefix = func->sid;
 		if (prefix_match((struct prefix *)&loc.prefix,
 				 (struct prefix *)&tmp_prefi)) {
@@ -3714,7 +3817,7 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 		tovpn_sid = bgp_vrf->vpn_policy[AFI_IP].tovpn_sid;
 		if (tovpn_sid) {
 			tmp_prefi.family = AF_INET6;
-			tmp_prefi.prefixlen = 128;
+			tmp_prefi.prefixlen = IPV6_MAX_BITLEN;
 			tmp_prefi.prefix = *tovpn_sid;
 			if (prefix_match((struct prefix *)&loc.prefix,
 					 (struct prefix *)&tmp_prefi))
@@ -3726,7 +3829,7 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 		tovpn_sid = bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid;
 		if (tovpn_sid) {
 			tmp_prefi.family = AF_INET6;
-			tmp_prefi.prefixlen = 128;
+			tmp_prefi.prefixlen = IPV6_MAX_BITLEN;
 			tmp_prefi.prefix = *tovpn_sid;
 			if (prefix_match((struct prefix *)&loc.prefix,
 					 (struct prefix *)&tmp_prefi))

@@ -64,7 +64,7 @@ enum cand_addr {
 	CAND_ADDR_EXPLICIT,
 };
 
-/* used separately for Cand-RP and Cand-BSR */
+/* used separately for Cand-RP, Cand-BSR, and AutoRP mapping agent */
 struct cand_addrsel {
 	bool cfg_enable;
 	enum cand_addr cfg_mode : 8;
@@ -368,6 +368,9 @@ void pim_cand_rp_apply(struct bsm_scope *scope);
 void pim_cand_rp_trigger(struct bsm_scope *scope);
 void pim_cand_rp_grp_add(struct bsm_scope *scope, const prefix_pim *p);
 void pim_cand_rp_grp_del(struct bsm_scope *scope, const prefix_pim *p);
+
+void cand_addrsel_clear(struct cand_addrsel *asel);
+bool cand_addrsel_update(struct cand_addrsel *asel, struct vrf *vrf);
 
 void pim_cand_addrs_changed(void);
 

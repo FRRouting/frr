@@ -84,6 +84,7 @@ lib_libfrr_la_SOURCES = \
 	lib/northbound.c \
 	lib/northbound_cli.c \
 	lib/northbound_db.c \
+	lib/northbound_notif.c \
 	lib/northbound_oper.c \
 	lib/ntop.c \
 	lib/openbsd-tree.c \
@@ -144,6 +145,7 @@ lib_libfrr_la_SOURCES = \
 
 nodist_lib_libfrr_la_SOURCES = \
 	yang/frr-affinity-map.yang.c \
+	yang/frr-backend.yang.c \
 	yang/frr-filter.yang.c \
 	yang/frr-if-rmap.yang.c \
 	yang/frr-interface.yang.c \

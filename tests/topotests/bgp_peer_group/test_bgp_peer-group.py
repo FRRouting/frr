@@ -2,12 +2,14 @@
 # SPDX-License-Identifier: ISC
 
 #
-# Copyright (c) 2021 by
+# Copyright (c) 2021-2024 by
 # Donatas Abraitis <donatas.abraitis@gmail.com>
+# Donatas Abraitis <donatas@opensourcerouting.org>
 #
 
 """
-Test if peer-group works for numbered and unnumbered configurations.
+Test if various random settings with peer-group works for
+numbered and unnumbered configurations.
 """
 
 import os
@@ -21,14 +23,14 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
 pytestmark = [pytest.mark.bgpd]
 
 
 def build_topo(tgen):
-    for routern in range(1, 4):
+    for routern in range(1, 5):
         tgen.add_router("r{}".format(routern))
 
     switch = tgen.add_switch("s1")
@@ -40,6 +42,10 @@ def build_topo(tgen):
     switch.add_link(tgen.gears["r1"])
     switch.add_link(tgen.gears["r2"])
 
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r4"])
+
 
 def setup_module(mod):
     tgen = Topogen(build_topo, mod.__name__)
@@ -48,12 +54,7 @@ def setup_module(mod):
     router_list = tgen.routers()
 
     for _, (rname, router) in enumerate(router_list.items(), 1):
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
-        )
+        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
 
     tgen.start_router()
 
@@ -72,14 +73,31 @@ def test_bgp_peer_group():
     def _bgp_peer_group_configured():
         output = json.loads(tgen.gears["r1"].vtysh_cmd("show ip bgp neighbor json"))
         expected = {
-            "r1-eth0": {"peerGroup": "PG", "bgpState": "Established"},
-            "192.168.255.3": {"peerGroup": "PG", "bgpState": "Established"},
-            "192.168.251.2": {"peerGroup": "PG1", "bgpState": "Established"},
+            "r1-eth0": {
+                "peerGroup": "PG",
+                "bgpState": "Established",
+                "neighborCapabilities": {"gracefulRestart": "advertisedAndReceived"},
+            },
+            "192.168.255.3": {
+                "peerGroup": "PG",
+                "bgpState": "Established",
+                "neighborCapabilities": {"gracefulRestart": "advertisedAndReceived"},
+            },
+            "192.168.251.2": {
+                "peerGroup": "PG1",
+                "bgpState": "Established",
+                "neighborCapabilities": {"gracefulRestart": "received"},
+            },
+            "192.168.252.2": {
+                "peerGroup": "PG2",
+                "bgpState": "Established",
+                "neighborCapabilities": {"gracefulRestart": "advertisedAndReceived"},
+            },
         }
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_bgp_peer_group_configured)
-    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Failed bgp convergence in r1"
 
     def _bgp_peer_group_check_advertised_routes():
@@ -97,8 +115,26 @@ def test_bgp_peer_group():
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_bgp_peer_group_check_advertised_routes)
-    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Failed checking advertised routes from r3"
+
+
+def test_show_running_remote_as_peer_group():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    output = (
+        tgen.gears["r1"]
+        .cmd(
+            'vtysh -c "show running bgpd" | grep "^ neighbor 192.168.252.2 remote-as 65004"'
+        )
+        .rstrip()
+    )
+    assert (
+        output == " neighbor 192.168.252.2 remote-as 65004"
+    ), "192.168.252.2 remote-as is flushed"
 
 
 def test_bgp_peer_group_remote_as_del_readd():
@@ -122,7 +158,7 @@ def test_bgp_peer_group_remote_as_del_readd():
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_bgp_peer_group_remoteas_del)
-    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Failed bgp convergence in r1"
 
     logger.info("Re-add bgp peer-group PG1 remote-as neighbor should be established")
@@ -139,7 +175,7 @@ def test_bgp_peer_group_remote_as_del_readd():
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_bgp_peer_group_remoteas_add)
-    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Failed bgp convergence in r1"
 
 

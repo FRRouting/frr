@@ -338,10 +338,6 @@ DEFUN_NOSH (srv6_locator,
 	}
 
 	locator = srv6_locator_alloc(argv[1]->arg);
-	if (!locator) {
-		vty_out(vty, "%% Alloc failed\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 	locator->status_up = true;
 
 	VTY_PUSH_CONTEXT(SRV6_LOC_NODE, locator);
@@ -488,14 +484,10 @@ DEFPY (locator_prefix,
 
 			if (memcmp(&chunk->prefix.prefix, zero, 16) == 0) {
 				struct zserv *client;
-				struct listnode *client_node;
 
 				chunk->prefix = *prefix;
-				for (ALL_LIST_ELEMENTS_RO(zrouter.client_list,
-							  client_node,
-							  client)) {
+				frr_each (zserv_client_list, &zrouter.client_list, client) {
 					struct srv6_locator *tmp;
-
 					if (client->proto != chunk->proto)
 						continue;
 

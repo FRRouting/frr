@@ -258,7 +258,8 @@ struct ospf6_lsa *ospf6_lsdb_lookup_next(uint16_t type, uint32_t id,
 	ospf6_lsdb_set_key(&key, &adv_router, sizeof(adv_router));
 	ospf6_lsdb_set_key(&key, &id, sizeof(id));
 
-	zlog_debug("lsdb_lookup_next: key: %pFX", &key);
+	if (OSPF6_LSA_DEBUG)
+		zlog_debug("lsdb_lookup_next: key: %pFX", &key);
 
 	node = route_table_get_next(lsdb->table, &key);
 
@@ -398,7 +399,9 @@ int ospf6_lsdb_maxage_remover(struct ospf6_lsdb *lsdb)
 			EVENT_OFF(lsa->refresh);
 			event_execute(master, ospf6_lsa_refresh, lsa, 0, NULL);
 		} else {
-			zlog_debug("calling ospf6_lsdb_remove %s", lsa->name);
+			if (IS_OSPF6_DEBUG_LSA_TYPE(lsa->header->type))
+				zlog_debug("calling ospf6_lsdb_remove %s", lsa->name);
+
 			ospf6_lsdb_remove(lsa, lsdb);
 		}
 	}

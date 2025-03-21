@@ -31,7 +31,7 @@ from lib import topolog, topotest
 
 try:
     # Used by munet native tests
-    from munet.testing.fixtures import unet  # pylint: disable=all # noqa
+    from munet.testing.fixtures import stepf, unet  # pylint: disable=all # noqa
 
     @pytest.fixture(scope="module")
     def rundir_module(pytestconfig):
@@ -522,9 +522,14 @@ def pytest_configure(config):
         is_xdist = True
         is_worker = True
 
-    resource.setrlimit(
-        resource.RLIMIT_CORE, (resource.RLIM_INFINITY, resource.RLIM_INFINITY)
-    )
+    try:
+        resource.setrlimit(
+            resource.RLIMIT_CORE, (resource.RLIM_INFINITY, resource.RLIM_INFINITY)
+        )
+    except ValueError:
+        # The hard limit cannot be raised. Raise the soft limit to previous hard limit
+        core_rlimits = resource.getrlimit(resource.RLIMIT_CORE)
+        resource.setrlimit(resource.RLIMIT_CORE, (core_rlimits[1], core_rlimits[1]))
     # -----------------------------------------------------
     # Set some defaults for the pytest.ini [pytest] section
     # ---------------------------------------------------

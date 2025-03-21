@@ -45,6 +45,7 @@ def build_topo(tgen):
     tgen.add_router("r1")
     tgen.add_router("r2")
     tgen.add_router("r3")
+    tgen.add_router("r100")
 
     switch = tgen.add_switch("s1")
     switch.add_link(tgen.gears["r1"])
@@ -53,6 +54,7 @@ def build_topo(tgen):
 
     switch = tgen.add_switch("s2")
     switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r100"])
 
     switch = tgen.add_switch("s3")
     switch.add_link(tgen.gears["r2"])
@@ -522,6 +524,122 @@ router bgp 65501
     _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assertmsg = '"{}" JSON output mismatches'.format(r2.name)
     assert result is None, assertmsg
+
+
+def test_aggregated_route_on_r100():
+    """
+    Check that only aggregated route on r100 is received
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r100 = tgen.gears["r100"]
+    logger.info("Checking prefixes list on R100")
+    json_file = "{}/{}/show_bgp_ipv4.json".format(CWD, r100.name)
+
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp,
+        r100,
+        "show bgp ipv4 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assertmsg = '"{}" JSON output mismatches'.format(r100.name)
+    assert result is None, assertmsg
+
+
+def test_aggregated_exported_route_on_r1():
+    """
+    Check that the aggregated route 172.31.1.0/24 is exported
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    logger.info("Checking 172.31.1.0/24 VPN prefix on R1")
+    json_file = "{}/{}/show_bgp_ipv4_172_31_1_0.json".format(CWD, r1.name)
+
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp,
+        r1,
+        "show bgp ipv4 vpn 172.31.1.0/24 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assertmsg = '"{}" JSON output mismatches'.format(r1.name)
+    assert result is None, assertmsg
+
+
+def test_aggregated_suppress_aggregate_r1():
+    """
+    Check that only the suppressed networks are exported
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r1.vtysh_cmd(
+        """
+        configure terminal
+        router bgp 65500 vrf vrf1
+        address-family ipv4 unicast
+        no aggregate-address 172.31.1.0/24
+        """
+    )
+
+    r1 = tgen.gears["r1"]
+    logger.info("Checking 172.31.1.0/24 VPN prefix is hot present on R1")
+
+    expected = {}
+    test_func = partial(
+        topotest.router_json_cmp,
+        r1,
+        "show bgp ipv4 vpn 172.31.1.0/24 json",
+        expected,
+        exact=True,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    assertmsg = '"{}" JSON output mismatches'.format(r1.name)
+    assert result is None, assertmsg
+
+
+def test_aggregated_suppressed_networks_not_exported_on_r1():
+    """
+    Check that the suppressed networks are not exported
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r1.vtysh_cmd(
+        """
+        configure terminal
+        router bgp 65500 vrf vrf1
+        address-family ipv4 unicast
+        aggregate-address 172.31.1.0/24 summary-only
+        """
+    )
+
+    for prefix in ("172.31.1.1/32", "172.31.1.2/32", "172.31.1.3/32"):
+        logger.info(f"Checking {prefix} VPN prefix is not on R1")
+
+        expected = {}
+        test_func = partial(
+            topotest.router_json_cmp,
+            r1,
+            f"show bgp ipv4 vpn {prefix} json",
+            expected,
+            exact=True,
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+        assertmsg = '"{}" JSON output mismatches'.format(r1.name)
+        assert result is None, assertmsg
 
 
 def test_memory_leak():

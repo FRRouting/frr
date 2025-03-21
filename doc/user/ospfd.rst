@@ -200,6 +200,44 @@ To start OSPF process you have to specify the OSPF router.
    This command supersedes the *timers spf* command in previous FRR
    releases.
 
+.. clicmd:: timers throttle lsa all (0-5000)
+
+   This command sets the minumum interval between originations of the
+   same LSA or the `minimum LSA refresh interval`. The time is specified
+   in milliseconds and the default is 5 seconds (5000 milliseconds) consistent
+   with the architectual constant MinLSInterval specified in Appendix D of
+   RFC 2328. When a self-originated LSA needs to be reoriginated, it may be
+   delayed for up to this interval.
+
+   .. code-block:: frr
+
+      router ospf
+       timers throttle lsa all 1000
+
+
+   In this example, the `mininum LSA refresh interval` is set to 1000ms. This
+   command reduces the delay between successive originations of a self-originated
+   LSA from 5000 milliseconds to 1000 milliseconds.
+
+.. clicmd:: timers lsa min-arrival (0-5000)
+
+   This command sets the minumum interval between receptions of instances of
+   the same LSA or the `minimum LSA arrival interval`. The time is specified in
+   milliseconds and the default is 1 second (1000 milliseconds) consistent with
+   the architectual constant MinLSArrival specified in Appendix D of RFC 2328. If a
+   newer instance of the same LSA is received in less than this interval, it is
+   ignored.
+
+   .. code-block:: frr
+
+      router ospf
+       timers lsa min-arrival 50
+
+
+   In this example, the `minimum LSA arrival interval` is set to 50ms. This
+   command reduces the minimum interval required between instances of the same
+   LSA from 1000 milliseconds to 50 milliseconds.
+
 .. clicmd:: max-metric router-lsa [on-startup (5-86400)|on-shutdown (5-100)]
 
 .. clicmd:: max-metric router-lsa administrative
@@ -1246,76 +1284,67 @@ Debugging OSPF
 
 .. clicmd:: debug ospf [(1-65535)] client-api
 
-   Show debug information for the OSPF opaque data client API.
+   Enable or disable debugging for the OSPF opaque data client API.
 
 .. clicmd:: debug ospf [(1-65535)] default-information
 
-   Show debug information of default information
+   Enable or disable debugging of default information origination
 
 .. clicmd:: debug ospf [(1-65535)] packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) [detail]
 
-
-   Dump Packet for debugging
+   Enable or disable debugging for received and transmitted OSPF packets
 
 .. clicmd:: debug ospf [(1-65535)] ism [status|events|timers]
 
-
-
-   Show debug information of Interface State Machine
+   Enable or disable debugging of Interface State Machine
 
 .. clicmd:: debug ospf [(1-65535)] nsm [status|events|timers]
 
-
-
-   Show debug information of Network State Machine
+   Enable or disable debugging of Neighbor State Machine transitions
 
 .. clicmd:: debug ospf [(1-65535)] event
 
-
-   Show debug information of OSPF event
+   Enable or disable debugging of OSPF events
 
 .. clicmd:: debug ospf [(1-65535)] nssa
 
-
-   Show debug information about Not So Stub Area
+   Enable or disable debugging about Not-So-Stubby-Areas (NSSAs)
 
 .. clicmd:: debug ospf [(1-65535)] ldp-sync
 
-   Show debug information about LDP-Sync
+   Enable or disable debugging about LDP-Sync
 
 .. clicmd:: debug ospf [(1-65535)] lsa [aggregate|flooding|generate|install|refresh]
 
-
-
-   Show debug detail of Link State messages
+   Enable or disable detail debuggin of Link State Advertisements (LSAs)
 
 .. clicmd:: debug ospf [(1-65535)] sr
 
-   Show debug information about Segment Routing
+   Enable or disable debugging about Segment Routing
 
 .. clicmd:: debug ospf [(1-65535)] te
 
-
-   Show debug information about Traffic Engineering LSA
+   Enable or disable debugging about MPLS Traffic Engineering LSA
 
 .. clicmd:: debug ospf [(1-65535)] ti-lfa
 
-   Show debug information about SR TI-LFA
+   Enable or disable debugging about SR TI-LFA
 
 .. clicmd:: debug ospf [(1-65535)] zebra [interface|redistribute]
 
-
-
-   Show debug information of ZEBRA API
+   Enable or disable debugging of ZEBRA API
 
 .. clicmd:: debug ospf [(1-65535)] graceful-restart
 
+   Enable or disable debugying for OSPF Graceful Restart Helper
 
-   Enable/disable debug information for OSPF Graceful Restart Helper
+.. clicmd:: debug ospf [(1-65535)] graceful-restart
+
+   Enable or disable debugging for OSPF Opaque LSA processing
 
 .. clicmd:: show debugging ospf
 
-
+   Show enabled OSPF debugging options
 
 Sample Configuration
 ====================

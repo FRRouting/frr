@@ -36,7 +36,7 @@ pytestmark = [pytest.mark.bgpd]
 
 
 def build_topo(tgen):
-    """
+    r"""
     All peers are FRR BGP peers except r3 that is a exabgp peer.
     rr is a route-reflector for AS 65000 iBGP peers.
     Exabgp does not send any IPv6 Link-Local nexthop
@@ -222,7 +222,6 @@ def test_bgp_ipv6_table_step1():
     link_local_cache = {}
     router_list = tgen.routers().values()
     for router in router_list:
-        # router.cmd("vtysh -c 'sh bgp ipv6 json' >/tmp/show_bgp_ipv6_%s.json" % router.name)
         ref_file = "{}/{}/show_bgp_ipv6_step1.json".format(CWD, router.name)
         expected = json.loads(open(ref_file).read())
         replace_link_local(expected, link_local_cache)
@@ -275,7 +274,6 @@ router bgp 65000
 
     router_list = tgen.routers().values()
     for router in router_list:
-        # router.cmd("vtysh -c 'sh bgp ipv6 json' >/tmp/show_bgp_ipv6_%s.json" % router.name)
         ref_file = "{}/{}/show_bgp_ipv6_step2.json".format(CWD, router.name)
         expected = json.loads(open(ref_file).read())
         replace_link_local(expected, link_local_cache)
@@ -327,7 +325,6 @@ router bgp 65000
 
     router_list = tgen.routers().values()
     for router in router_list:
-        # router.cmd("vtysh -c 'sh bgp ipv6 json' >/tmp/show_bgp_ipv6_%s.json" % router.name)
         ref_file = "{}/{}/show_bgp_ipv6_step1.json".format(CWD, router.name)
         expected = json.loads(open(ref_file).read())
         replace_link_local(expected, link_local_cache)

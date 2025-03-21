@@ -17,6 +17,7 @@
 #include "vrf.h"
 #include "lib_errors.h"
 #include "bfd.h"
+#include "filter.h"
 
 #include "pimd.h"
 #if PIM_IPV == 4
@@ -35,6 +36,7 @@
 #include "pim_zlookup.h"
 #include "pim_zebra.h"
 #include "pim_mlag.h"
+#include "pim_autorp.h"
 
 #if MAXVIFS > 256
 CPP_NOTICE("Work needs to be done to make this work properly via the pim mroute socket\n");
@@ -70,6 +72,9 @@ void pim_prefix_list_update(struct prefix_list *plist)
 		pim_rp_prefix_list_update(pim, plist);
 		pim_ssm_prefix_list_update(pim, plist);
 		pim_upstream_spt_prefix_list_update(pim, plist);
+#if PIM_IPV == 4
+		pim_autorp_prefix_list_update(pim, plist);
+#endif
 	}
 }
 
@@ -143,6 +148,7 @@ void pim_terminate(void)
 	prefix_list_add_hook(NULL);
 	prefix_list_delete_hook(NULL);
 	prefix_list_reset();
+	access_list_reset();
 
 	pim_vxlan_terminate();
 	pim_vrf_terminate();

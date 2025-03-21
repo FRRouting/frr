@@ -105,6 +105,11 @@ struct pim_interface {
 
 	struct gm_if *mld;
 
+	uint32_t gm_source_limit, gm_group_limit;
+
+	/* IGMPv2 only/MLDv1 only immediate leave */
+	bool gmp_immediate_leave;
+
 	int pim_sock_fd;		/* PIM socket file descriptor */
 	struct event *t_pim_sock_read;	/* thread for reading PIM socket */
 	int64_t pim_sock_creation;      /* timestamp of PIM socket creation */
@@ -116,6 +121,7 @@ struct pim_interface {
 	uint32_t pim_generation_id;
 	uint16_t pim_propagation_delay_msec; /* config */
 	uint16_t pim_override_interval_msec; /* config */
+	char *nbr_plist;
 	struct list *pim_neighbor_list;      /* list of struct pim_neighbor */
 	struct list *upstream_switch_list;
 	struct pim_ifchannel_rb ifchannel_rb;
@@ -133,8 +139,10 @@ struct pim_interface {
 	uint32_t pim_dr_priority;	  /* config */
 	int pim_dr_num_nondrpri_neighbors; /* neighbors without dr_pri */
 
-	/* boundary prefix-list */
-	char *boundary_oil_plist;
+	/* boundary prefix-list (group) */
+	struct prefix_list *boundary_oil_plist;
+	/* boundary access-list (source and group) */
+	struct access_list *boundary_acl;
 
 	/* Turn on Active-Active for this interface */
 	bool activeactive;

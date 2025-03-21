@@ -11,15 +11,17 @@
 
 #include <unistd.h>
 
+#include "darr.h"
 #include "yang.h"
 #include "northbound.h"
 
-static bool static_cbs;
+static bool f_static_cbs;
+static bool f_new_cbs;
 
 static void __attribute__((noreturn)) usage(int status)
 {
 	extern const char *__progname;
-	fprintf(stderr, "usage: %s [-h] [-s] [-p path] MODULE\n", __progname);
+	fprintf(stderr, "usage: %s [-h] [-n] [-s] [-p path]* MODULE\n", __progname);
 	exit(status);
 }
 
@@ -110,6 +112,14 @@ static struct nb_callback_info nb_config_write = {
 	.arguments = "struct vty *vty, const struct lyd_node *dnode, bool show_defaults",
 };
 
+static struct nb_callback_info nb_oper_get = {
+	.operation = NB_CB_GET_ELEM,
+	.return_type = "enum nb_error ",
+	.return_value = "NB_OK",
+	.arguments =
+		"const struct nb_node *nb_node, const void *parent_list_entry, struct lyd_node *parent",
+};
+
 static void replace_hyphens_by_underscores(char *str)
 {
 	char *p;
@@ -117,6 +127,14 @@ static void replace_hyphens_by_underscores(char *str)
 	p = str;
 	while ((p = strchr(p, '-')) != NULL)
 		*p++ = '_';
+}
+
+static const char *__operation_name(enum nb_cb_operation operation)
+{
+	if (f_new_cbs && operation == NB_CB_GET_ELEM)
+		return "get";
+	else
+		return nb_cb_operation_name(operation);
 }
 
 static void generate_callback_name(const struct lysc_node *snode,
@@ -142,7 +160,7 @@ static void generate_callback_name(const struct lysc_node *snode,
 		strlcat(buffer, snode->name, size);
 		strlcat(buffer, "_", size);
 	}
-	strlcat(buffer, nb_cb_operation_name(operation), size);
+	strlcat(buffer, __operation_name(operation), size);
 	list_delete(&snodes);
 
 	replace_hyphens_by_underscores(buffer);
@@ -207,17 +225,23 @@ static int generate_prototypes(const struct lysc_node *snode, void *arg)
 		return YANG_ITER_CONTINUE;
 	}
 
-	for (struct nb_callback_info *cb = &nb_callbacks[0];
-	     cb->operation != -1; cb++) {
+	for (struct nb_callback_info *cb = &nb_callbacks[0]; cb->operation != -1; cb++) {
 		char cb_name[BUFSIZ];
 
 		if (cb->optional
 		    || !nb_cb_operation_is_valid(cb->operation, snode))
 			continue;
 
+		if (f_new_cbs && cb->operation == NB_CB_GET_NEXT && snode->nodetype == LYS_LEAFLIST)
+			continue;
+
 		generate_callback_name(snode, cb->operation, cb_name,
 				       sizeof(cb_name));
-		generate_prototype(cb, cb_name);
+
+		if (cb->operation == NB_CB_GET_ELEM && f_new_cbs)
+			generate_prototype(&nb_oper_get, cb_name);
+		else
+			generate_prototype(cb, cb_name);
 
 		if (cb->need_config_write && need_config_write) {
 			generate_config_write_cb_name(snode, cb_name,
@@ -235,8 +259,8 @@ static int generate_prototypes(const struct lysc_node *snode, void *arg)
 static void generate_callback(const struct nb_callback_info *ncinfo,
 			      const char *cb_name)
 {
-	printf("%s%s%s(%s)\n{\n", static_cbs ? "static " : "",
-	       ncinfo->return_type, cb_name, ncinfo->arguments);
+	printf("%s%s%s(%s)\n{\n", f_static_cbs ? "static " : "", ncinfo->return_type, cb_name,
+	       ncinfo->arguments);
 
 	switch (ncinfo->operation) {
 	case NB_CB_CREATE:
@@ -265,8 +289,8 @@ static void generate_callback(const struct nb_callback_info *ncinfo,
 static void generate_config_write_callback(const struct nb_callback_info *ncinfo,
 					   const char *cb_name)
 {
-	printf("%s%s%s(%s)\n{\n", static_cbs ? "static " : "",
-	       ncinfo->return_type, cb_name, ncinfo->arguments);
+	printf("%s%s%s(%s)\n{\n", f_static_cbs ? "static " : "", ncinfo->return_type, cb_name,
+	       ncinfo->arguments);
 
 	/* Add a comment, since these callbacks may not all be needed. */
 	printf("\t/* TODO: this cli callback is optional; the cli output may not need to be done at each node. */\n");
@@ -312,9 +336,16 @@ static int generate_callbacks(const struct lysc_node *snode, void *arg)
 			first = false;
 		}
 
+		if (f_new_cbs && cb->operation == NB_CB_GET_NEXT && snode->nodetype == LYS_LEAFLIST)
+			continue;
+
 		generate_callback_name(snode, cb->operation, cb_name,
 				       sizeof(cb_name));
-		generate_callback(cb, cb_name);
+
+		if (cb->operation == NB_CB_GET_ELEM && f_new_cbs)
+			generate_callback(&nb_oper_get, cb_name);
+		else
+			generate_callback(cb, cb_name);
 
 		if (cb->need_config_write && need_config_write) {
 			generate_config_write_cb_name(snode, cb_name,
@@ -370,12 +401,13 @@ static int generate_nb_nodes(const struct lysc_node *snode, void *arg)
 				printf("\t\t\t.cbs = {\n");
 				first = false;
 			}
+			if (f_new_cbs && cb->operation == NB_CB_GET_NEXT &&
+			    snode->nodetype == LYS_LEAFLIST)
+				continue;
 
 			generate_callback_name(snode, cb->operation, cb_name,
 					       sizeof(cb_name));
-			printf("\t\t\t\t.%s = %s,\n",
-			       nb_cb_operation_name(cb->operation),
-			       cb_name);
+			printf("\t\t\t\t.%s = %s,\n", __operation_name(cb->operation), cb_name);
 		} else if (cb->need_config_write && need_config_write) {
 			if (first) {
 				yang_snode_get_path(snode,
@@ -408,18 +440,22 @@ static int generate_nb_nodes(const struct lysc_node *snode, void *arg)
 
 int main(int argc, char *argv[])
 {
-	const char *search_path = NULL;
+	char **search_paths = NULL;
+	char **iter = NULL;
 	struct yang_module *module;
 	char module_name_underscores[64];
 	struct stat st;
 	int opt;
 	bool config_pass;
 
-	while ((opt = getopt(argc, argv, "hp:s")) != -1) {
+	while ((opt = getopt(argc, argv, "hnp:s")) != -1) {
 		switch (opt) {
 		case 'h':
 			usage(EXIT_SUCCESS);
 			/* NOTREACHED */
+		case 'n':
+			f_new_cbs = true;
+			break;
 		case 'p':
 			if (stat(optarg, &st) == -1) {
 				fprintf(stderr,
@@ -433,10 +469,10 @@ int main(int argc, char *argv[])
 				exit(EXIT_FAILURE);
 			}
 
-			search_path = optarg;
+			*darr_append(search_paths) = darr_strdup(optarg);
 			break;
 		case 's':
-			static_cbs = true;
+			f_static_cbs = true;
 			break;
 		default:
 			usage(EXIT_FAILURE);
@@ -450,8 +486,11 @@ int main(int argc, char *argv[])
 
 	yang_init(false, true, false);
 
-	if (search_path)
-		ly_ctx_set_searchdir(ly_native_ctx, search_path);
+	darr_foreach_p (search_paths, iter) {
+		ly_ctx_set_searchdir(ly_native_ctx, *iter);
+		darr_free(*iter);
+	}
+	darr_free(search_paths);
 
 	/* Load all FRR native models to ensure all augmentations are loaded. */
 	yang_module_load_all();
@@ -472,7 +511,7 @@ int main(int argc, char *argv[])
 	printf("// SPDX-" "License-Identifier: GPL-2.0-or-later\n\n");
 
 	/* Generate callback prototypes. */
-	if (!static_cbs) {
+	if (!f_static_cbs) {
 		printf("/* prototypes */\n");
 		yang_snodes_iterate(module->info, generate_prototypes, 0, NULL);
 		printf("\n");

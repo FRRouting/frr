@@ -23,7 +23,6 @@
 #include "lib/buffer.h"           /* for BUFFER_EMPTY, BUFFER_ERROR, BUFFE... */
 #include "lib/command.h"          /* for vty, install_element, CMD_SUCCESS... */
 #include "lib/hook.h"             /* for DEFINE_HOOK, DEFINE_KOOH, hook_call */
-#include "lib/linklist.h"         /* for ALL_LIST_ELEMENTS_RO, ALL_LIST_EL... */
 #include "lib/libfrr.h"           /* for frr_zclient_addr */
 #include "lib/log.h"              /* for zlog_warn, zlog_debug, safe_strerror */
 #include "lib/memory.h"           /* for MTYPE_TMP, XCALLOC, XFREE */
@@ -57,6 +56,7 @@ extern struct zebra_privs_t zserv_privs;
 
 /* The listener socket for clients connecting to us */
 static int zsock;
+static bool started_p;
 
 /* The lock that protects access to zapi client objects */
 static pthread_mutex_t client_mutex;
@@ -183,10 +183,9 @@ void zserv_log_message(const char *errmsg, struct stream *msg,
  */
 static void zserv_client_fail(struct zserv *client)
 {
-	flog_warn(
-		EC_ZEBRA_CLIENT_IO_ERROR,
-		"Client '%s' (session id %d) encountered an error and is shutting down.",
-		zebra_route_string(client->proto), client->session_id);
+	flog_warn(EC_ZEBRA_CLIENT_IO_ERROR,
+		  "Client %d '%s' (session id %d) encountered an error and is shutting down.",
+		  client->sock, zebra_route_string(client->proto), client->session_id);
 
 	atomic_store_explicit(&client->pthread->running, false,
 			      memory_order_relaxed);
@@ -467,8 +466,8 @@ static void zserv_read(struct event *thread)
 	}
 
 	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug("Read %d packets from client: %s. Current ibuf fifo count: %zu. Conf P2p %d",
-			   p2p_avail - p2p, zebra_route_string(client->proto),
+		zlog_debug("Read %d packets from client: %s(%d). Current ibuf fifo count: %zu. Conf P2p %d",
+			   p2p_avail - p2p, zebra_route_string(client->proto), client->sock,
 			   client_ibuf_fifo_cnt, p2p_orig);
 
 	/* Reschedule ourselves since we have space in ibuf_fifo */
@@ -728,7 +727,7 @@ void zserv_close_client(struct zserv *client)
 	frr_with_mutex (&client_mutex) {
 		if (client->busy_count <= 0) {
 			/* remove from client list */
-			listnode_delete(zrouter.client_list, client);
+			zserv_client_list_del(&zrouter.client_list, client);
 		} else {
 			/*
 			 * The client session object may be in use, although
@@ -802,7 +801,7 @@ static struct zserv *zserv_client_create(int sock)
 
 	/* Add this client to linked list. */
 	frr_with_mutex (&client_mutex) {
-		listnode_add(zrouter.client_list, client);
+		zserv_client_list_add_tail(&zrouter.client_list, client);
 	}
 
 	struct frr_pthread_attr zclient_pthr_attrs = {
@@ -929,9 +928,20 @@ void zserv_close(void)
 
 	/* Free client list's mutex */
 	pthread_mutex_destroy(&client_mutex);
+
+	started_p = false;
 }
 
-void zserv_start(char *path)
+
+/*
+ * Open zebra's ZAPI listener socket. This is done early during startup,
+ * before zebra is ready to listen and accept client connections.
+ *
+ * This function should only ever be called from the startup pthread
+ * from main.c.  If it is called multiple times it will cause problems
+ * because it causes the zsock global variable to be setup.
+ */
+void zserv_open(const char *path)
 {
 	int ret;
 	mode_t old_mask;
@@ -973,6 +983,26 @@ void zserv_start(char *path)
 			     path, safe_strerror(errno));
 		close(zsock);
 		zsock = -1;
+	}
+
+	umask(old_mask);
+}
+
+/*
+ * Start listening for ZAPI client connections.
+ */
+void zserv_start(const char *path)
+{
+	int ret;
+
+	/* This may be called more than once during startup - potentially once
+	 * per netns - but only do this work once.
+	 */
+	if (started_p)
+		return;
+
+	if (zsock <= 0) {
+		flog_err_sys(EC_LIB_SOCKET, "Zserv socket open failed");
 		return;
 	}
 
@@ -986,7 +1016,7 @@ void zserv_start(char *path)
 		return;
 	}
 
-	umask(old_mask);
+	started_p = true;
 
 	zserv_event(NULL, ZSERV_ACCEPT);
 }
@@ -1280,10 +1310,9 @@ static struct zserv *find_client_internal(uint8_t proto,
 					  unsigned short instance,
 					  uint32_t session_id)
 {
-	struct listnode *node, *nnode;
 	struct zserv *client = NULL;
 
-	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
 		if (client->proto == proto && client->instance == instance &&
 		    client->session_id == session_id)
 			break;
@@ -1331,10 +1360,9 @@ DEFUN (show_zebra_client,
        ZEBRA_STR
        "Client information\n")
 {
-	struct listnode *node;
 	struct zserv *client;
 
-	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
 		zebra_show_client_detail(vty, client);
 		/* Show GR info if present */
 		zebra_show_stale_client_detail(vty, client);
@@ -1352,7 +1380,6 @@ DEFUN (show_zebra_client_summary,
        "Client information brief\n"
        "Brief Summary\n")
 {
-	struct listnode *node;
 	struct zserv *client;
 
 	vty_out(vty,
@@ -1360,7 +1387,7 @@ DEFUN (show_zebra_client_summary,
 	vty_out(vty,
 		"------------------------------------------------------------------------------------------\n");
 
-	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client))
+	frr_each (zserv_client_list, &zrouter.client_list, client)
 		zebra_show_client_brief(vty, client);
 
 	vty_out(vty, "Routes column shows (added+updated)/deleted\n");
@@ -1369,10 +1396,9 @@ DEFUN (show_zebra_client_summary,
 
 static int zserv_client_close_cb(struct zserv *closed_client)
 {
-	struct listnode *node, *nnode;
 	struct zserv *client = NULL;
 
-	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
 		if (client->proto == closed_client->proto)
 			continue;
 
@@ -1385,8 +1411,8 @@ static int zserv_client_close_cb(struct zserv *closed_client)
 void zserv_init(void)
 {
 	/* Client list init. */
-	zrouter.client_list = list_new();
-	zrouter.stale_client_list = list_new();
+	zserv_client_list_init(&zrouter.client_list);
+	zserv_stale_client_list_init(&zrouter.stale_client_list);
 
 	/* Misc init. */
 	zsock = -1;

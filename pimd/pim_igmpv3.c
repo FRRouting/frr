@@ -9,6 +9,8 @@
 #include "memory.h"
 #include "if.h"
 #include "lib_errors.h"
+#include "plist.h"
+#include "plist_int.h"
 
 #include "pimd.h"
 #include "pim_instance.h"
@@ -421,6 +423,7 @@ struct gm_source *igmp_find_source_by_addr(struct gm_group *group,
 struct gm_source *igmp_get_source_by_addr(struct gm_group *group,
 					  struct in_addr src_addr, bool *new)
 {
+	const struct pim_interface *pim_interface = group->interface->info;
 	struct gm_source *src;
 
 	if (new)
@@ -429,6 +432,14 @@ struct gm_source *igmp_get_source_by_addr(struct gm_group *group,
 	src = igmp_find_source_by_addr(group, src_addr);
 	if (src)
 		return src;
+
+	if (listcount(group->group_source_list) >= pim_interface->gm_source_limit) {
+		if (PIM_DEBUG_GM_TRACE)
+			zlog_debug("interface %s has reached source limit (%u), refusing to add source %pI4 (group %pI4)",
+				   group->interface->name, pim_interface->gm_source_limit,
+				   &src_addr, &group->group_addr);
+		return NULL;
+	}
 
 	if (PIM_DEBUG_GM_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
@@ -507,6 +518,8 @@ static void allow(struct gm_sock *igmp, struct in_addr from,
 		struct in_addr *src_addr;
 
 		src_addr = sources + i;
+		if (pim_is_group_filtered(igmp->interface->info, &group_addr, src_addr))
+			continue;
 
 		source = igmp_get_source_by_addr(group, *src_addr, NULL);
 		if (!source)
@@ -646,7 +659,7 @@ void igmpv3_report_isex(struct gm_sock *igmp, struct in_addr from,
 
 	on_trace(__func__, ifp, from, group_addr, num_sources, sources);
 
-	if (pim_is_group_filtered(ifp->info, &group_addr))
+	if (pim_is_group_filtered(ifp->info, &group_addr, NULL))
 		return;
 
 	/* non-existent group is created as INCLUDE {empty} */
@@ -715,8 +728,24 @@ static void toin_incl(struct gm_group *group, int num_sources,
 static void toin_excl(struct gm_group *group, int num_sources,
 		      struct in_addr *sources)
 {
+	struct listnode *src_node, *src_next;
+	struct pim_interface *pim_ifp = group->interface->info;
 	int num_sources_tosend;
 	int i;
+
+	if (group->igmp_version == 2 && pim_ifp->gmp_immediate_leave) {
+		struct gm_source *src;
+
+		if (PIM_DEBUG_GM_TRACE)
+			zlog_debug("IGMP(v2) Immediate-leave group %pI4 on %s", &group->group_addr,
+				   group->interface->name);
+
+		igmp_group_timer_on(group, 0, group->interface->name);
+
+		for (ALL_LIST_ELEMENTS(group->group_source_list, src_node, src_next, src))
+			igmp_source_delete(src);
+		return;
+	}
 
 	/* Set SEND flag for X (sources with timer > 0) */
 	num_sources_tosend = source_mark_send_flag_by_timer(group);
@@ -814,7 +843,7 @@ static void toex_incl(struct gm_group *group, int num_sources,
 
 		/* Lookup reported source (B) */
 		source = igmp_get_source_by_addr(group, *src_addr, &new);
-		if (!new) {
+		if (!new && source != NULL) {
 			/* If found, clear deletion flag: (A*B) */
 			IGMP_SOURCE_DONT_DELETE(source->source_flags);
 			/* and set SEND flag (A*B) */
@@ -1483,7 +1512,9 @@ void igmp_group_timer_lower_to_lmqt(struct gm_group *group)
 	pim_ifp = ifp->info;
 	ifname = ifp->name;
 
-	lmqi_dsec = pim_ifp->gm_specific_query_max_response_time_dsec;
+	lmqi_dsec = pim_ifp->gmp_immediate_leave
+			    ? 0
+			    : pim_ifp->gm_specific_query_max_response_time_dsec;
 	lmqc = pim_ifp->gm_last_member_query_count;
 	lmqt_msec = PIM_IGMP_LMQT_MSEC(
 		lmqi_dsec, lmqc); /* lmqt_msec = (100 * lmqi_dsec) * lmqc */
@@ -1518,7 +1549,9 @@ void igmp_source_timer_lower_to_lmqt(struct gm_source *source)
 	pim_ifp = ifp->info;
 	ifname = ifp->name;
 
-	lmqi_dsec = pim_ifp->gm_specific_query_max_response_time_dsec;
+	lmqi_dsec = pim_ifp->gmp_immediate_leave
+			    ? 0
+			    : pim_ifp->gm_specific_query_max_response_time_dsec;
 	lmqc = pim_ifp->gm_last_member_query_count;
 	lmqt_msec = PIM_IGMP_LMQT_MSEC(
 		lmqi_dsec, lmqc); /* lmqt_msec = (100 * lmqi_dsec) * lmqc */
@@ -1809,12 +1842,14 @@ static bool igmp_pkt_grp_addr_ok(struct interface *ifp, const char *from_str,
 	pim_ifp = ifp->info;
 
 	/* determine filtering status for group */
-	if (pim_is_group_filtered(pim_ifp, &grp)) {
+	if (pim_is_group_filtered(pim_ifp, &grp, NULL)) {
 		if (PIM_DEBUG_GM_PACKETS) {
-			zlog_debug(
-				"Filtering IGMPv3 group record %pI4 from %s on %s per prefix-list %s",
-				&grp.s_addr, from_str, ifp->name,
-				pim_ifp->boundary_oil_plist);
+			zlog_debug("Filtering IGMPv3 group record %pI4 from %s on %s per prefix-list %s or access-list %s",
+				   &grp.s_addr, from_str, ifp->name,
+				   (pim_ifp->boundary_oil_plist ? pim_ifp->boundary_oil_plist->name
+								: "(not found)"),
+				   (pim_ifp->boundary_acl ? pim_ifp->boundary_acl->name
+							  : "(not found)"));
 		}
 		return false;
 	}
@@ -1943,11 +1978,9 @@ int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from,
 		       sizeof(struct in_addr));
 
 		if (PIM_DEBUG_GM_PACKETS) {
-			zlog_debug(
-				"    Recv IGMP report v3 from %s on %s: record=%d type=%d auxdatalen=%d sources=%d group=%pI4",
-				from_str, ifp->name, i, rec_type,
-				rec_auxdatalen, rec_num_sources,
-				&rec_group);
+			zlog_debug("    Recv IGMP report v3 (type %d) from %s on %s: record=%d type=%d auxdatalen=%d sources=%d group=%pI4",
+				   rec_type, from_str, ifp->name, i, rec_type, rec_auxdatalen,
+				   rec_num_sources, &rec_group);
 		}
 
 		/* Scan sources */

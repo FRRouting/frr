@@ -666,7 +666,7 @@ static int igmp_v1_recv_report(struct gm_sock *igmp, struct in_addr from,
 
 	memcpy(&group_addr, igmp_msg + 4, sizeof(struct in_addr));
 
-	if (pim_is_group_filtered(ifp->info, &group_addr))
+	if (pim_is_group_filtered(ifp->info, &group_addr, NULL))
 		return -1;
 
 	/* non-existent group is created as INCLUDE {empty} */
@@ -1416,6 +1416,14 @@ struct gm_group *igmp_add_group_by_addr(struct gm_sock *igmp,
 				__func__, &group_addr);
 		return NULL;
 	}
+
+	if (listcount(pim_ifp->gm_group_list) >= pim_ifp->gm_group_limit) {
+		if (PIM_DEBUG_GM_TRACE)
+			zlog_debug("interface %s has reached group limit (%u), refusing to add group %pI4",
+				   igmp->interface->name, pim_ifp->gm_group_limit, &group_addr);
+		return NULL;
+	}
+
 	/*
 	  Non-existant group is created as INCLUDE {empty}:
 

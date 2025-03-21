@@ -354,24 +354,29 @@ static void pim_on_g2rp_timer(struct event *t)
 	bsrp = EVENT_ARG(t);
 	EVENT_OFF(bsrp->g2rp_timer);
 	bsgrp_node = bsrp->bsgrp_node;
-
-	/* elapse time is the hold time of expired node */
-	elapse = bsrp->rp_holdtime;
+	pim = bsgrp_node->scope->pim;
 	bsrp_addr = bsrp->rp_address;
 
-	/* update elapse for all bsrp nodes */
-	frr_each_safe (bsm_rpinfos, bsgrp_node->bsrp_list, bsrp_node) {
-		bsrp_node->elapse_time += elapse;
+	/*
+	 * Update elapse for all bsrp nodes except on the BSR itself.
+	 * The timer is meant to remove any bsr RPs learned from the BSR that
+	 * we don't hear from anymore. on the BSR itself, no need to do this.
+	 */
+	if (pim->global_scope.state != BSR_ELECTED) {
+		/* elapse time is the hold time of expired node */
+		elapse = bsrp->rp_holdtime;
+		frr_each_safe (bsm_rpinfos, bsgrp_node->bsrp_list, bsrp_node) {
+			bsrp_node->elapse_time += elapse;
 
-		if (is_hold_time_elapsed(bsrp_node)) {
-			bsm_rpinfos_del(bsgrp_node->bsrp_list, bsrp_node);
-			pim_bsm_rpinfo_free(bsrp_node);
+			if (is_hold_time_elapsed(bsrp_node)) {
+				bsm_rpinfos_del(bsgrp_node->bsrp_list, bsrp_node);
+				pim_bsm_rpinfo_free(bsrp_node);
+			}
 		}
 	}
 
 	/* Get the next elected rp node */
 	bsrp = bsm_rpinfos_first(bsgrp_node->bsrp_list);
-	pim = bsgrp_node->scope->pim;
 	rn = route_node_lookup(pim->rp_table, &bsgrp_node->group);
 
 	if (!rn) {
@@ -386,7 +391,7 @@ static void pim_on_g2rp_timer(struct event *t)
 		return;
 	}
 
-	if (rp_info->rp_src != RP_SRC_STATIC) {
+	if (rp_info->rp_src == RP_SRC_BSR) {
 		/* If new rp available, change it else delete the existing */
 		if (bsrp) {
 			pim_g2rp_timer_start(
@@ -480,9 +485,7 @@ static void pim_instate_pend_list(struct bsgrp_node *bsgrp_node)
 
 	pend = bsm_rpinfos_first(bsgrp_node->partial_bsrp_list);
 
-	if (!pim_get_all_mcast_group(&group_all))
-		return;
-
+	pim_get_all_mcast_group(&group_all);
 	rp_all = pim_rp_find_match_group(pim, &group_all);
 	rn = route_node_lookup(pim->rp_table, &bsgrp_node->group);
 
@@ -727,11 +730,9 @@ void pim_bsm_clear(struct pim_instance *pim)
 				   __func__, &nht_p);
 		}
 
-		pim_delete_tracked_nexthop(pim, nht_p, NULL, rp_info);
+		pim_nht_delete_tracked(pim, nht_p, NULL, rp_info);
 
-		if (!pim_get_all_mcast_group(&g_all))
-			return;
-
+		pim_get_all_mcast_group(&g_all);
 		rp_all = pim_rp_find_match_group(pim, &g_all);
 
 		if (rp_all == rp_info) {
@@ -1650,8 +1651,18 @@ static void pim_cand_bsr_pending_expire(struct event *t)
 	struct bsm_scope *scope = EVENT_ARG(t);
 
 	assertf(scope->state == BSR_PENDING, "state=%d", scope->state);
-	assertf(pim_addr_is_any(scope->current_bsr), "current_bsr=%pPA",
-		&scope->current_bsr);
+
+	if (!pim_addr_is_any(scope->current_bsr)) {
+		assertf(scope->cand_bsr_prio >= scope->current_bsr_prio,
+			"cand_bsr %pPA prio %u is less than current_bsr %pPA prio %u",
+			&scope->bsr_addrsel.run_addr, scope->current_bsr_prio, &scope->current_bsr,
+			scope->cand_bsr_prio);
+
+		if (scope->cand_bsr_prio == scope->current_bsr_prio)
+			assertf(pim_addr_cmp(scope->bsr_addrsel.run_addr, scope->current_bsr) > 0,
+				"cand_bsr %pPA  < current_bsr %pPA", &scope->bsr_addrsel.run_addr,
+				&scope->current_bsr);
+	}
 
 	if (PIM_DEBUG_BSM)
 		zlog_debug("Elected BSR, wait expired without preferable BSMs");
@@ -1759,14 +1770,14 @@ static inline pim_addr if_highest_addr(pim_addr cur, struct interface *ifp)
 	return cur;
 }
 
-static void cand_addrsel_clear(struct cand_addrsel *asel)
+void cand_addrsel_clear(struct cand_addrsel *asel)
 {
 	asel->run = false;
 	asel->run_addr = PIMADDR_ANY;
 }
 
 /* returns whether address or active changed */
-static bool cand_addrsel_update(struct cand_addrsel *asel, struct vrf *vrf)
+bool cand_addrsel_update(struct cand_addrsel *asel, struct vrf *vrf)
 {
 	bool is_any = false, prev_run = asel->run;
 	struct interface *ifp = NULL;
@@ -2159,6 +2170,7 @@ static void cand_addrsel_config_write(struct vty *vty,
 int pim_cand_config_write(struct pim_instance *pim, struct vty *vty)
 {
 	struct bsm_scope *scope = &pim->global_scope;
+	struct cand_rp_group *group;
 	int ret = 0;
 
 	if (scope->cand_rp_addrsel.cfg_enable) {
@@ -2170,14 +2182,11 @@ int pim_cand_config_write(struct pim_instance *pim, struct vty *vty)
 		cand_addrsel_config_write(vty, &scope->cand_rp_addrsel);
 		vty_out(vty, "\n");
 		ret++;
+	}
 
-		struct cand_rp_group *group;
-
-		frr_each (cand_rp_groups, scope->cand_rp_groups, group) {
-			vty_out(vty, " bsr candidate-rp group %pFX\n",
-				&group->p);
-			ret++;
-		}
+	frr_each (cand_rp_groups, scope->cand_rp_groups, group) {
+		vty_out(vty, " bsr candidate-rp group %pFX\n", &group->p);
+		ret++;
 	}
 
 	if (scope->bsr_addrsel.cfg_enable) {

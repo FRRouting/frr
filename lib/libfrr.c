@@ -108,6 +108,9 @@ static const struct option lo_always[] = {
 	{ "module", no_argument, NULL, 'M' },
 	{ "profile", required_argument, NULL, 'F' },
 	{ "pathspace", required_argument, NULL, 'N' },
+#ifdef HAVE_NETLINK
+	{ "vrfwnetns", no_argument, NULL, 'w' },
+#endif
 	{ "vrfdefaultname", required_argument, NULL, 'o' },
 	{ "graceful_restart", optional_argument, NULL, 'K' },
 	{ "vty_socket", required_argument, NULL, OPTION_VTYSOCK },
@@ -120,6 +123,9 @@ static const struct option lo_always[] = {
 	{ NULL }
 };
 static const struct optspec os_always = {
+#ifdef HAVE_NETLINK
+	"w"
+#endif
 	"hvdM:F:N:o:K::",
 	"  -h, --help         Display this help and exit\n"
 	"  -v, --version      Print program version\n"
@@ -127,6 +133,9 @@ static const struct optspec os_always = {
 	"  -M, --module       Load specified module\n"
 	"  -F, --profile      Use specified configuration profile\n"
 	"  -N, --pathspace    Insert prefix into config & socket paths\n"
+#ifdef HAVE_NETLINK
+	"  -w, --vrfwnetns    Use network namespaces for VRFs\n"
+#endif
 	"  -o, --vrfdefaultname     Set default VRF name.\n"
 	"  -K, --graceful_restart   FRR starting in Graceful Restart mode, with optional route-cleanup timer\n"
 	"      --vty_socket   Override vty socket path\n"
@@ -134,6 +143,7 @@ static const struct optspec os_always = {
 	"      --scriptdir    Override scripts directory\n"
 	"      --log          Set Logging to stdout, syslog, or file:<name>\n"
 	"      --log-level    Set Logging Level to use, debug, info, warn, etc\n"
+	"      --command-log-always Always log every command, cannot be turned off\n"
 	"      --limit-fds    Limit number of fds supported\n",
 	lo_always
 };
@@ -516,6 +526,11 @@ static int frr_opt(int opt)
 			snprintf(frr_zclientpath, sizeof(frr_zclientpath),
 				 ZAPI_SOCK_NAME);
 		break;
+#ifdef HAVE_NETLINK
+	case 'w':
+		vrf_configure_backend(VRF_BACKEND_NETNS);
+		break;
+#endif
 	case 'o':
 		vrf_set_default_name(optarg);
 		break;
@@ -1126,12 +1141,9 @@ static void frr_terminal_close(int isexit)
 		 * don't redirect when stdout is set with --log stdout
 		 */
 		for (fd = 2; fd >= 0; fd--)
-			if (logging_to_stdout && isatty(fd) &&
-			    fd == STDOUT_FILENO) {
-				/* Do nothing. */
-			} else {
+			if (isatty(fd) &&
+			    (fd != STDOUT_FILENO || !logging_to_stdout))
 				dup2(nullfd, fd);
-			}
 		close(nullfd);
 	}
 }
@@ -1217,12 +1229,9 @@ void frr_run(struct event_loop *master)
 			 * stdout
 			 */
 			for (fd = 2; fd >= 0; fd--)
-				if (logging_to_stdout && isatty(fd) &&
-				    fd == STDOUT_FILENO) {
-					/* Do nothing. */
-				} else {
+				if (isatty(fd) &&
+				    (fd != STDOUT_FILENO || !logging_to_stdout))
 					dup2(nullfd, fd);
-				}
 			close(nullfd);
 		}
 
@@ -1245,10 +1254,6 @@ void frr_early_fini(void)
 
 void frr_fini(void)
 {
-	FILE *fp;
-	char filename[128];
-	int have_leftovers = 0;
-
 	hook_call(frr_fini);
 
 	vty_terminate();
@@ -1269,32 +1274,27 @@ void frr_fini(void)
 	event_master_free(master);
 	master = NULL;
 	zlog_tls_buffer_fini();
-	zlog_fini();
+
+	if (0) {
+		/* this is intentionally disabled.  zlog remains running until
+		 * exit(), so even the very last item done during shutdown can
+		 * have its zlog() messages written out.
+		 *
+		 * Yes this causes memory leaks.  They are explicitly marked
+		 * with DEFINE_MGROUP_ACTIVEATEXIT, which is only used for
+		 * log target memory allocations, and excluded from leak
+		 * reporting at shutdown.  This is strongly preferable over
+		 * just discarding error messages at shutdown.
+		 */
+		zlog_fini();
+	}
+
 	/* frrmod_init -> nothing needed / hooks */
 	rcu_shutdown();
 
 	frrmod_terminate();
 
-	/* also log memstats to stderr when stderr goes to a file*/
-	if (debug_memstats_at_exit || !isatty(STDERR_FILENO))
-		have_leftovers = log_memstats(stderr, di->name);
-
-	/* in case we decide at runtime that we want exit-memstats for
-	 * a daemon
-	 * (only do this if we actually have something to print though)
-	 */
-	if (!debug_memstats_at_exit || !have_leftovers)
-		return;
-
-	snprintf(filename, sizeof(filename), "/tmp/frr-memstats-%s-%llu-%llu",
-		 di->name, (unsigned long long)getpid(),
-		 (unsigned long long)time(NULL));
-
-	fp = fopen(filename, "w");
-	if (fp) {
-		log_memstats(fp, di->name);
-		fclose(fp);
-	}
+	log_memstats(di->name, debug_memstats_at_exit);
 }
 
 struct json_object *frr_daemon_state_load(void)

@@ -133,6 +133,111 @@ def test_bgp_comm_list_match_any():
     assert result is None, "Failed to filter BGP UPDATES with community-list on R3"
 
 
+def test_bgp_comm_list_limit_match():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r3"]
+    router.vtysh_cmd(
+        """
+        configure terminal
+        route-map r1 permit 20
+        match community-limit 3
+        """
+    )
+
+    def _bgp_count():
+        output = json.loads(router.vtysh_cmd("show bgp ipv4 json"))
+        expected = {
+            "vrfName": "default",
+            "routerId": "192.168.1.3",
+            "localAS": 65003,
+            "routes": {
+                "172.16.255.2/32": [{"prefix": "172.16.255.2", "prefixLen": 32}],
+                "172.16.255.5/32": [{"prefix": "172.16.255.5", "prefixLen": 32}],
+                "192.168.0.0/24": [{"prefix": "192.168.0.0", "prefixLen": 24}],
+            },
+            "totalRoutes": 3,
+            "totalPaths": 3,
+        }
+        return topotest.json_cmp(output, expected)
+
+    step("Check that 3 routes have been received on R3")
+    test_func = functools.partial(_bgp_count)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to check that 3 routes have been received on R3"
+
+
+def test_bgp_comm_list_limit_match_no_community():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r3"]
+    router.vtysh_cmd(
+        """
+        configure terminal
+        route-map r1 permit 20
+        match community-limit 0
+        """
+    )
+
+    def _bgp_count():
+        output = json.loads(router.vtysh_cmd("show bgp ipv4 json"))
+        expected = {
+            "vrfName": "default",
+            "routerId": "192.168.1.3",
+            "localAS": 65003,
+            "routes": {
+                "172.16.255.2/32": [{"prefix": "172.16.255.2", "prefixLen": 32}],
+                "192.168.0.0/24": [{"prefix": "192.168.0.0", "prefixLen": 24}],
+            },
+            "totalRoutes": 2,
+            "totalPaths": 2,
+        }
+        return topotest.json_cmp(output, expected)
+
+    step("Check that 2 routes have been received on R3")
+    test_func = functools.partial(_bgp_count)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to check that 2 routes have been received on R3"
+
+
+def test_bgp_comm_list_reset_limit_match():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r3"]
+    router.vtysh_cmd(
+        """
+        configure terminal
+        route-map r1 permit 20
+        no match community-limit
+        """
+    )
+
+    def _bgp_count_two():
+        output = json.loads(router.vtysh_cmd("show bgp ipv4 json"))
+        expected = {
+            "vrfName": "default",
+            "routerId": "192.168.1.3",
+            "localAS": 65003,
+            "totalRoutes": 4,
+            "totalPaths": 4,
+        }
+        return topotest.json_cmp(output, expected)
+
+    step("Check that 4 routes have been received on R3")
+    test_func = functools.partial(_bgp_count_two)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to check that 4 routes have been received on R3"
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

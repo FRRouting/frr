@@ -54,6 +54,8 @@
 
 #define ZEBRA_PTM_SUPPORT
 
+char *zserv_path;
+
 /* process id. */
 pid_t pid;
 
@@ -132,7 +134,6 @@ static void sigint(void)
 {
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
-	struct listnode *ln, *nn;
 	struct zserv *client;
 	static bool sigint_done;
 
@@ -161,15 +162,13 @@ static void sigint(void)
 	zebra_dplane_pre_finish();
 
 	/* Clean up GR related info. */
-	zebra_gr_stale_client_cleanup(zrouter.stale_client_list);
-	list_delete_all_node(zrouter.stale_client_list);
+	zebra_gr_stale_client_cleanup();
 
 	/* Clean up zapi clients and server module */
-	for (ALL_LIST_ELEMENTS(zrouter.client_list, ln, nn, client))
+	frr_each_safe (zserv_client_list, &zrouter.client_list, client)
 		zserv_close_client(client);
 
 	zserv_close();
-	list_delete_all_node(zrouter.client_list);
 
 	/* Once all the zclients are cleaned up, clean up the opaque module */
 	zebra_opaque_finish();
@@ -199,9 +198,6 @@ static void sigint(void)
 	zebra_routemap_finish();
 
 	rib_update_finish();
-
-	list_delete(&zrouter.client_list);
-	list_delete(&zrouter.stale_client_list);
 
 	/*
 	 * Besides other clean-ups zebra's vrf_disable() also enqueues installed
@@ -254,6 +250,10 @@ void zebra_finalize(struct event *dummy)
 	ns_walk_func(zebra_ns_final_shutdown, NULL, NULL);
 
 	ns_terminate();
+
+	zserv_client_list_fini(&zrouter.client_list);
+	zserv_stale_client_list_fini(&zrouter.stale_client_list);
+
 	frr_fini();
 	exit(0);
 }
@@ -285,6 +285,7 @@ struct frr_signal_t zebra_signals[] = {
 
 /* clang-format off */
 static const struct frr_yang_module_info *const zebra_yang_modules[] = {
+	&frr_backend_info,
 	&frr_filter_info,
 	&frr_interface_info,
 	&frr_route_map_info,
@@ -314,18 +315,48 @@ FRR_DAEMON_INFO(zebra, ZEBRA,
 );
 /* clang-format on */
 
+void zebra_main_router_started(void)
+{
+	/*
+	 * Clean up zebra-originated routes. The requests will be sent to OS
+	 * immediately, so originating PID in notifications from kernel
+	 * will be equal to the current getpid(). To know about such routes,
+	 * we have to have route_read() called before.
+	 * If FRR is gracefully restarting, we either wait for clients
+	 * (e.g., BGP) to signal GR is complete else we wait for specified
+	 * duration.
+	 */
+	zrouter.startup_time = monotime(NULL);
+	zrouter.rib_sweep_time = 0;
+	zrouter.graceful_restart = zebra_di.graceful_restart;
+	if (!zrouter.graceful_restart)
+		event_add_timer(zrouter.master, rib_sweep_route, NULL, 0, NULL);
+	else {
+		int gr_cleanup_time;
+
+		gr_cleanup_time = zebra_di.gr_cleanup_time ? zebra_di.gr_cleanup_time
+							   : ZEBRA_GR_DEFAULT_RIB_SWEEP_TIME;
+		event_add_timer(zrouter.master, rib_sweep_route, NULL, gr_cleanup_time,
+				&zrouter.t_rib_sweep);
+	}
+
+	zserv_start(zserv_path);
+}
+
 /* Main startup routine. */
 int main(int argc, char **argv)
 {
 	// int batch_mode = 0;
-	char *zserv_path = NULL;
 	struct sockaddr_storage dummy;
 	socklen_t dummylen;
 	bool asic_offload = false;
 	bool v6_with_v4_nexthop = false;
 	bool notify_on_ack = true;
 
-	vrf_configure_backend(VRF_BACKEND_VRF_LITE);
+	zserv_path = NULL;
+
+	if_notify_oper_changes = true;
+	vrf_notify_oper_changes = true;
 
 	frr_preinit(&zebra_di, argc, argv);
 
@@ -341,10 +372,10 @@ int main(int argc, char **argv)
 		    "  -e, --ecmp                Specify ECMP to use.\n"
 		    "  -r, --retain              When program terminates, retain added route by zebra.\n"
 		    "  -A, --asic-offload        FRR is interacting with an asic underneath the linux kernel\n"
-		    "      --v6-with-v4-nexthops Underlying dataplane supports v6 routes with v4 nexthops"
+		    "      --v6-with-v4-nexthops Underlying dataplane supports v6 routes with v4 nexthops\n"
 #ifdef HAVE_NETLINK
 		    "  -s, --nl-bufsize          Set netlink receive buffer size\n"
-		    "  -n, --vrfwnetns           Use NetNS as VRF backend\n"
+		    "  -n, --vrfwnetns           Use NetNS as VRF backend (deprecated, use -w)\n"
 		    "      --v6-rr-semantics     Use v6 RR semantics\n"
 #else
 		    "  -s,                       Set kernel socket receive buffer size\n"
@@ -405,6 +436,8 @@ int main(int argc, char **argv)
 			break;
 #ifdef HAVE_NETLINK
 		case 'n':
+			fprintf(stderr,
+				"The -n option is deprecated, please use global -w option instead.\n");
 			vrf_configure_backend(VRF_BACKEND_NETNS);
 			break;
 		case OPTION_V6_RR_SEMANTICS:
@@ -435,6 +468,9 @@ int main(int argc, char **argv)
 	zebra_rib_init();
 	zebra_if_init();
 	zebra_debug_init();
+
+	/* Open Zebra API server socket */
+	zserv_open(zserv_path);
 
 	/*
 	 * Initialize NS( and implicitly the VRF module), and make kernel
@@ -475,31 +511,11 @@ int main(int argc, char **argv)
 	*/
 	frr_config_fork();
 
-	/* After we have successfully acquired the pidfile, we can be sure
-	*  about being the only copy of zebra process, which is submitting
-	*  changes to the FIB.
-	*  Clean up zebra-originated routes. The requests will be sent to OS
-	*  immediately, so originating PID in notifications from kernel
-	*  will be equal to the current getpid(). To know about such routes,
-	*  we have to have route_read() called before.
-	*  If FRR is gracefully restarting, we either wait for clients
-	*  (e.g., BGP) to signal GR is complete else we wait for specified
-	*  duration.
-	*/
-	zrouter.startup_time = monotime(NULL);
-	zrouter.rib_sweep_time = 0;
-	zrouter.graceful_restart = zebra_di.graceful_restart;
-	if (!zrouter.graceful_restart)
-		event_add_timer(zrouter.master, rib_sweep_route, NULL, 0, NULL);
-	else {
-		int gr_cleanup_time;
-
-		gr_cleanup_time = zebra_di.gr_cleanup_time
-					  ? zebra_di.gr_cleanup_time
-					  : ZEBRA_GR_DEFAULT_RIB_SWEEP_TIME;
-		event_add_timer(zrouter.master, rib_sweep_route, NULL,
-				gr_cleanup_time, &zrouter.t_rib_sweep);
-	}
+	/*
+	 * After we have successfully acquired the pidfile, we can be sure
+	 * about being the only copy of zebra process, which is submitting
+	 * changes to the FIB.
+	 */
 
 	/* Needed for BSD routing socket. */
 	pid = getpid();
@@ -509,9 +525,6 @@ int main(int argc, char **argv)
 
 	/* Start the ted module, before zserv */
 	zebra_opaque_start();
-
-	/* Start Zebra API server */
-	zserv_start(zserv_path);
 
 	/* Init label manager */
 	label_manager_init();

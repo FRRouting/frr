@@ -67,9 +67,8 @@ extern bool vpn_leak_to_vrf_no_retain_filter_check(struct bgp *from_bgp,
 						   struct attr *attr,
 						   afi_t afi);
 
-extern void vpn_leak_to_vrf_update(struct bgp *from_bgp,
-				   struct bgp_path_info *path_vpn,
-				   struct prefix_rd *prd);
+extern void vpn_leak_to_vrf_update(struct bgp *from_bgp, struct bgp_path_info *path_vpn,
+				   struct prefix_rd *prd, struct peer *peer);
 
 extern void vpn_leak_to_vrf_withdraw(struct bgp_path_info *path_vpn);
 
@@ -352,6 +351,7 @@ extern void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw,
 					bool is_config);
 extern void bgp_vpn_leak_unimport(struct bgp *from_bgp);
 extern void bgp_vpn_leak_export(struct bgp *from_bgp);
+extern void bgp_vpn_release_label(struct bgp *bgp, afi_t afi, bool reset);
 
 extern bool bgp_mplsvpn_path_uses_valid_mpls_label(struct bgp_path_info *pi);
 extern int

@@ -29,6 +29,17 @@ extern uint32_t rmap_debug;
 /* Route map's type. */
 enum route_map_type { RMAP_PERMIT, RMAP_DENY, RMAP_ANY };
 
+/* Route-map's action reason */
+enum route_map_action_reason {
+	route_map_action_none,
+	route_map_action_map_null,
+	route_map_action_no_index,
+	route_map_action_next_deny,
+	route_map_action_exit,
+	route_map_action_goto_null,
+	route_map_action_index_deny,
+};
+
 typedef enum {
 	RMAP_DENYMATCH,
 	RMAP_PERMITMATCH
@@ -176,6 +187,7 @@ struct route_map_index {
 	/* Keep track how many times we've try to apply */
 	uint64_t applied;
 	uint64_t applied_clear;
+	size_t cputime;
 
 	/* List of match/sets contexts. */
 	TAILQ_HEAD(, routemap_hook_context) rhclist;
@@ -210,6 +222,7 @@ struct route_map {
 	/* How many times have we applied this route-map */
 	uint64_t applied;
 	uint64_t applied_clear;
+	size_t cputime;
 
 	/* Counter to track active usage of this route-map */
 	uint16_t use_count;
@@ -297,12 +310,14 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(C, "frr-bgp-route-map:ip-route-source"))
 #define IS_MATCH_ROUTE_SRC_PL(C)                                               \
 	(strmatch(C, "frr-bgp-route-map:ip-route-source-prefix-list"))
+#define IS_MATCH_COMMUNITY_LIMIT(C) (strmatch(C, "frr-bgp-route-map:match-community-limit"))
 #define IS_MATCH_COMMUNITY(C)                                                  \
 	(strmatch(C, "frr-bgp-route-map:match-community"))
 #define IS_MATCH_LCOMMUNITY(C)                                                 \
 	(strmatch(C, "frr-bgp-route-map:match-large-community"))
 #define IS_MATCH_EXTCOMMUNITY(C)                                               \
 	(strmatch(C, "frr-bgp-route-map:match-extcommunity"))
+#define IS_MATCH_EXTCOMMUNITY_LIMIT(C) (strmatch(C, "frr-bgp-route-map:match-extcommunity-limit"))
 #define IS_MATCH_IPV4_NH(C)                                                    \
 	(strmatch(C, "frr-bgp-route-map:ipv4-nexthop"))
 #define IS_MATCH_IPV6_NH(C)                                                    \

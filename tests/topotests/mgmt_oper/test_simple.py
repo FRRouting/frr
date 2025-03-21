@@ -154,7 +154,11 @@ def test_oper_simple(tgen):
         ),
         (
             '/frr-interface:lib/interface[name="r1-eth0"]/frr-zebra:zebra/evpn-mh',
-            "simple-results/result-intf-eth0-wd-trim.json",
+            (
+                # Output is different between libyang2 and libyang3+
+                "simple-results/result-intf-eth0-wd-trim.json",
+                "simple-results/result-intf-eth0-wd-trim-empty-label.json",
+            ),
             "with-config exact with-defaults trim",
         ),
         (
@@ -181,7 +185,7 @@ vtysh -c 'show mgmt get-data /frr-vrf:lib'      > ${resdir}/result-lib.json
 vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf'  > ${resdir}/result-lib-vrf-nokey.json
 vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="default"]'  > ${resdir}/result-lib-vrf-default.json
 vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="red"]'      > ${resdir}/result-lib-vrf-red.json
-vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra'          > ${resdir}/result-lib-vrf-ebra.json
+vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra'          > ${resdir}/result-lib-vrf-zebra.json
 vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra/ribs'     > ${resdir}/result-lib-vrf-zebra-ribs.json
 vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra/ribs/rib' > ${resdir}/result-ribs-rib-nokeys.json
 vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra/ribs/rib[afi-safi-name="frr-routing:ipv4-unicast"][table-id="254"]' > ${resdir}/result-ribs-rib-ipv4-unicast.json

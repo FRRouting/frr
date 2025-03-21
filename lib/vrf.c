@@ -22,6 +22,9 @@
 #include "northbound.h"
 #include "northbound_cli.h"
 
+/* Set by the owner (zebra). */
+bool vrf_notify_oper_changes;
+
 /* default VRF name value used when VRF backend is not NETNS */
 #define VRF_DEFAULT_NAME_INTERNAL "default"
 
@@ -39,8 +42,7 @@ RB_GENERATE(vrf_name_head, vrf, name_entry, vrf_name_compare);
 struct vrf_id_head vrfs_by_id = RB_INITIALIZER(&vrfs_by_id);
 struct vrf_name_head vrfs_by_name = RB_INITIALIZER(&vrfs_by_name);
 
-static int vrf_backend;
-static int vrf_backend_configured;
+static int vrf_backend = VRF_BACKEND_VRF_LITE;
 static char vrf_default_name[VRF_NAMSIZ] = VRF_DEFAULT_NAME_INTERNAL;
 
 /*
@@ -105,6 +107,19 @@ int vrf_switchback_to_initial(void)
 	return ret;
 }
 
+static void vrf_update_state(struct vrf *vrf)
+{
+	if (!vrf->state || !vrf_notify_oper_changes)
+		return;
+
+	/*
+	 * Remove top level container update when we have patch support, for now
+	 * this keeps us from generating 2 separate REPLACE messages though.
+	 */
+	nb_op_updatef(vrf->state, "id", "%u", vrf->vrf_id);
+	nb_op_update(vrf->state, "active", CHECK_FLAG(vrf->status, VRF_ACTIVE) ? "true" : "false");
+}
+
 /* Get a VRF. If not found, create one.
  * Arg:
  *   name   - The name of the vrf.  May be NULL if unknown.
@@ -155,16 +170,32 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 
 	/* Set name */
 	if (name && vrf->name[0] != '\0' && strcmp(name, vrf->name)) {
-		/* update the vrf name */
+		/* vrf name has changed */
+		if (vrf_notify_oper_changes) {
+			nb_op_update_delete_pathf(NULL, "/frr-vrf:lib/vrf[name=\"%s\"]", vrf->name);
+			lyd_free_all(vrf->state);
+		}
 		RB_REMOVE(vrf_name_head, &vrfs_by_name, vrf);
-		strlcpy(vrf->data.l.netns_name,
-			name, NS_NAMSIZ);
+		strlcpy(vrf->data.l.netns_name, name, NS_NAMSIZ);
 		strlcpy(vrf->name, name, sizeof(vrf->name));
 		RB_INSERT(vrf_name_head, &vrfs_by_name, vrf);
+		/* New state with new name */
+		if (vrf_notify_oper_changes)
+			vrf->state = nb_op_update_pathf(NULL, "/frr-vrf:lib/vrf[name=\"%s\"]/state",
+							NULL, vrf->name);
 	} else if (name && vrf->name[0] == '\0') {
 		strlcpy(vrf->name, name, sizeof(vrf->name));
 		RB_INSERT(vrf_name_head, &vrfs_by_name, vrf);
+
+		/* We have a name now so we can have state */
+		if (vrf_notify_oper_changes)
+			vrf->state = nb_op_update_pathf(NULL, "/frr-vrf:lib/vrf[name=\"%s\"]/state",
+							NULL, vrf->name);
 	}
+	/* Update state before hook call */
+	if (vrf->state)
+		vrf_update_state(vrf);
+
 	if (new &&vrf_master.vrf_new_hook)
 		(*vrf_master.vrf_new_hook)(vrf);
 
@@ -208,6 +239,7 @@ struct vrf *vrf_update(vrf_id_t new_vrf_id, const char *name)
 		vrf->vrf_id = new_vrf_id;
 		RB_INSERT(vrf_id_head, &vrfs_by_id, vrf);
 
+		vrf_update_state(vrf);
 	} else {
 
 		/*
@@ -254,6 +286,11 @@ void vrf_delete(struct vrf *vrf)
 	if (vrf->name[0] != '\0')
 		RB_REMOVE(vrf_name_head, &vrfs_by_name, vrf);
 
+	if (vrf_notify_oper_changes) {
+		nb_op_update_delete_pathf(NULL, "/frr-vrf:lib/vrf[name=\"%s\"]", vrf->name);
+		lyd_free_all(vrf->state);
+	}
+
 	XFREE(MTYPE_VRF, vrf);
 }
 
@@ -282,6 +319,8 @@ int vrf_enable(struct vrf *vrf)
 
 	SET_FLAG(vrf->status, VRF_ACTIVE);
 
+	vrf_update_state(vrf);
+
 	if (vrf_master.vrf_enable_hook)
 		(*vrf_master.vrf_enable_hook)(vrf);
 
@@ -306,6 +345,8 @@ void vrf_disable(struct vrf *vrf)
 		return;
 
 	UNSET_FLAG(vrf->status, VRF_ACTIVE);
+
+	vrf_update_state(vrf);
 
 	if (debug_vrf)
 		zlog_debug("VRF %s(%u) is to be disabled.", vrf->name,
@@ -540,15 +581,6 @@ void vrf_init(int (*create)(struct vrf *), int (*enable)(struct vrf *),
 			 "vrf_init: failed to create the default VRF!");
 		exit(1);
 	}
-	if (vrf_is_backend_netns()) {
-		struct ns *ns;
-
-		strlcpy(default_vrf->data.l.netns_name,
-			VRF_DEFAULT_NAME, NS_NAMSIZ);
-		ns = ns_lookup(NS_DEFAULT);
-		ns->vrf_ctxt = default_vrf;
-		default_vrf->ns_ctxt = ns;
-	}
 
 	/* Enable the default VRF. */
 	if (!vrf_enable(default_vrf)) {
@@ -612,8 +644,6 @@ int vrf_is_backend_netns(void)
 
 int vrf_get_backend(void)
 {
-	if (!vrf_backend_configured)
-		return VRF_BACKEND_UNKNOWN;
 	return vrf_backend;
 }
 
@@ -621,7 +651,6 @@ int vrf_configure_backend(enum vrf_backend_type backend)
 {
 	/* Work around issue in old gcc */
 	switch (backend) {
-	case VRF_BACKEND_UNKNOWN:
 	case VRF_BACKEND_NETNS:
 	case VRF_BACKEND_VRF_LITE:
 		break;
@@ -630,7 +659,6 @@ int vrf_configure_backend(enum vrf_backend_type backend)
 	}
 
 	vrf_backend = backend;
-	vrf_backend_configured = 1;
 
 	return 0;
 }
@@ -1016,7 +1044,7 @@ static const void *lib_vrf_lookup_next(struct nb_cb_lookup_entry_args *args)
 }
 
 /*
- * XPath: /frr-vrf:lib/vrf/id
+ * XPath: /frr-vrf:lib/vrf/state/id
  */
 static struct yang_data *
 lib_vrf_state_id_get_elem(struct nb_cb_get_elem_args *args)
@@ -1027,17 +1055,14 @@ lib_vrf_state_id_get_elem(struct nb_cb_get_elem_args *args)
 }
 
 /*
- * XPath: /frr-vrf:lib/vrf/active
+ * XPath: /frr-vrf:lib/vrf/state/active
  */
 static struct yang_data *
 lib_vrf_state_active_get_elem(struct nb_cb_get_elem_args *args)
 {
 	struct vrf *vrfp = (struct vrf *)args->list_entry;
 
-	if (vrfp->status == VRF_ACTIVE)
-		return yang_data_new_bool(args->xpath, true);
-
-	return NULL;
+	return yang_data_new_bool(args->xpath, vrfp->status == VRF_ACTIVE ? true : false);
 }
 
 /* clang-format off */

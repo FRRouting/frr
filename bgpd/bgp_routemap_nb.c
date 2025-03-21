@@ -166,6 +166,13 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 			}
 		},
 		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:community-limit",
+			.cbs = {
+				.modify = lib_route_map_entry_match_condition_rmap_match_condition_community_limit_modify,
+				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_community_limit_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:comm-list",
 			.cbs = {
 				.create = lib_route_map_entry_match_condition_rmap_match_condition_comm_list_create,
@@ -212,6 +219,13 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 			.cbs = {
 				.modify = lib_route_map_entry_set_action_rmap_set_action_distance_modify,
 				.destroy = lib_route_map_entry_set_action_rmap_set_action_distance_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:extcommunity-limit",
+			.cbs = {
+				.modify = lib_route_map_entry_match_condition_rmap_match_condition_extcommunity_limit_modify,
+				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_extcommunity_limit_destroy,
 			}
 		},
 		{

@@ -131,7 +131,7 @@ typedef enum {
 	ZEBRA_BFD_CLIENT_DEREGISTER,
 	ZEBRA_INTERFACE_ENABLE_RADV,
 	ZEBRA_INTERFACE_DISABLE_RADV,
-	ZEBRA_NEXTHOP_LOOKUP_MRIB,
+	ZEBRA_NEXTHOP_LOOKUP,
 	ZEBRA_INTERFACE_LINK_PARAMS,
 	ZEBRA_MPLS_LABELS_ADD,
 	ZEBRA_MPLS_LABELS_DELETE,
@@ -266,6 +266,21 @@ static inline const char *zebra_error_type2str(enum zebra_error_types type)
 struct redist_proto {
 	uint8_t enabled;
 	struct list *instances;
+};
+
+/**
+ * Redistribute table direct instance data structure: keeps the VRF
+ * that subscribed to the table ID.
+ *
+ * **NOTE**
+ * `table_id` is an integer because that is what the netlink interface
+ * uses for route attribute RTA_TABLE (32bit int), however the whole
+ * zclient API uses `unsigned short` (and CLI commands) so it will be
+ * limited to the range 1 to 65535.
+ */
+struct redist_table_direct {
+	vrf_id_t vrf_id;
+	int table_id;
 };
 
 struct zclient_capabilities {
@@ -563,6 +578,12 @@ struct zapi_route {
  * kernel (NLM_F_APPEND at the very least )
  */
 #define ZEBRA_FLAG_OUTOFSYNC          0x400
+/*
+ * This flag lets us know that the route entry is
+ * associated to the table ID and must remain when the
+ * table ID is de-associated from a VRF.
+ */
+#define ZEBRA_FLAG_TABLEID 0x800
 
 	/* The older XXX_MESSAGE flags live here */
 	uint32_t message;
@@ -924,6 +945,15 @@ extern void redist_add_instance(struct redist_proto *, unsigned short);
 extern void redist_del_instance(struct redist_proto *, unsigned short);
 extern void redist_del_all_instances(struct redist_proto *red);
 
+extern struct redist_table_direct *
+redist_lookup_table_direct(const struct redist_proto *red, const struct redist_table_direct *table);
+extern bool redist_table_direct_has_id(const struct redist_proto *red, int table_id);
+extern void redist_add_table_direct(struct redist_proto *red,
+				    const struct redist_table_direct *table);
+extern void redist_del_table_direct(struct redist_proto *red,
+				    const struct redist_table_direct *table);
+
+
 /*
  * Send to zebra that the specified vrf is using label to resolve
  * itself for L3VPN's.  Repeated calls of this function with
@@ -1134,6 +1164,7 @@ zclient_send_rnh(struct zclient *zclient, int command, const struct prefix *p,
 		 vrf_id_t vrf_id);
 int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 			uint32_t api_flags, uint32_t api_message);
+extern int zapi_redistribute_stream_size(struct zapi_route *api);
 extern int zapi_route_encode(uint8_t, struct stream *, struct zapi_route *);
 extern int zapi_route_decode(struct stream *s, struct zapi_route *api);
 extern int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
@@ -1144,6 +1175,9 @@ bool zapi_route_notify_decode(struct stream *s, struct prefix *p,
 			      uint32_t *tableid,
 			      enum zapi_route_notify_owner *note,
 			      afi_t *afi, safi_t *safi);
+bool zapi_route_notify_decode_srcdest(struct stream *s, struct prefix *p, struct prefix *src_p,
+				      uint32_t *tableid, enum zapi_route_notify_owner *note,
+				      afi_t *afi, safi_t *safi);
 bool zapi_rule_notify_decode(struct stream *s, uint32_t *seqno,
 			     uint32_t *priority, uint32_t *unique, char *ifname,
 			     enum zapi_rule_notify_owner *note);

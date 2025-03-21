@@ -150,6 +150,11 @@ struct dplane_route_info {
 
 	/* Optional list of extra interface info */
 	struct dplane_intf_extra_list_head intf_extra_list;
+
+	/* Route-level info that aligns with some netlink route data */
+	enum blackhole_type zd_bh_type;
+	struct ipaddr zd_prefsrc;
+	struct ipaddr zd_gateway;
 };
 
 /*
@@ -1906,6 +1911,12 @@ void dplane_ctx_set_flags(struct zebra_dplane_ctx *ctx, uint32_t flags)
 	ctx->u.rinfo.zd_flags = flags;
 }
 
+void dplane_ctx_set_route_metric(struct zebra_dplane_ctx *ctx, uint32_t metric)
+{
+	DPLANE_CTX_VALID(ctx);
+	ctx->u.rinfo.zd_metric = metric;
+}
+
 uint32_t dplane_ctx_get_metric(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -1925,6 +1936,12 @@ uint32_t dplane_ctx_get_mtu(const struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->u.rinfo.zd_mtu;
+}
+
+void dplane_ctx_set_route_mtu(struct zebra_dplane_ctx *ctx, uint32_t mtu)
+{
+	DPLANE_CTX_VALID(ctx);
+	ctx->u.rinfo.zd_mtu = mtu;
 }
 
 uint32_t dplane_ctx_get_nh_mtu(const struct zebra_dplane_ctx *ctx)
@@ -1953,6 +1970,58 @@ uint8_t dplane_ctx_get_old_distance(const struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->u.rinfo.zd_old_distance;
+}
+
+/* Route blackhole type */
+enum blackhole_type dplane_ctx_get_route_bhtype(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.rinfo.zd_bh_type;
+}
+
+void dplane_ctx_set_route_bhtype(struct zebra_dplane_ctx *ctx,
+				 enum blackhole_type bhtype)
+{
+	DPLANE_CTX_VALID(ctx);
+	ctx->u.rinfo.zd_bh_type = bhtype;
+}
+
+/* IP 'preferred source', at route-level */
+const struct ipaddr *dplane_ctx_get_route_prefsrc(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	if (ctx->u.rinfo.zd_prefsrc.ipa_type != 0)
+		return &(ctx->u.rinfo.zd_prefsrc);
+	else
+		return NULL;
+}
+
+void dplane_ctx_set_route_prefsrc(struct zebra_dplane_ctx *ctx,
+				  const struct ipaddr *addr)
+{
+	DPLANE_CTX_VALID(ctx);
+	if (addr)
+		ctx->u.rinfo.zd_prefsrc = *addr;
+	else
+		memset(&ctx->u.rinfo.zd_prefsrc, 0,
+		       sizeof(ctx->u.rinfo.zd_prefsrc));
+}
+
+/* Route-level 'gateway' */
+const struct ipaddr *dplane_ctx_get_route_gw(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return &(ctx->u.rinfo.zd_gateway);
+}
+
+void dplane_ctx_set_route_gw(struct zebra_dplane_ctx *ctx, const struct ipaddr *gw)
+{
+	DPLANE_CTX_VALID(ctx);
+	if (gw)
+		ctx->u.rinfo.zd_gateway = *gw;
+	else
+		memset(&ctx->u.rinfo.zd_gateway, 0, sizeof(ctx->u.rinfo.zd_gateway));
 }
 
 int dplane_ctx_tc_qdisc_get_kind(const struct zebra_dplane_ctx *ctx)
@@ -2177,6 +2246,12 @@ uint32_t dplane_ctx_get_nhg_id(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 	return ctx->u.rinfo.zd_nhg_id;
+}
+
+void dplane_ctx_set_nhg_id(struct zebra_dplane_ctx *ctx, uint32_t nhgid)
+{
+	DPLANE_CTX_VALID(ctx);
+	ctx->u.rinfo.zd_nhg_id = nhgid;
 }
 
 const struct nexthop_group *dplane_ctx_get_ng(
@@ -6135,8 +6210,7 @@ int dplane_show_provs_helper(struct vty *vty, bool detailed)
 
 		in_max = atomic_load_explicit(&prov->dp_in_max,
 					      memory_order_relaxed);
-		out = atomic_load_explicit(&prov->dp_out_counter,
-					   memory_order_relaxed);
+		out = dplane_provider_out_ctx_queue_len(prov);
 
 		out_max = atomic_load_explicit(&prov->dp_out_max,
 					       memory_order_relaxed);
@@ -6923,20 +6997,6 @@ kernel_dplane_process_ipset_entry(struct zebra_dplane_provider *prov,
 	dplane_provider_enqueue_out_ctx(prov, ctx);
 }
 
-void dplane_rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
-			      struct prefix_ipv6 *src_p, struct route_entry *re,
-			      struct nexthop_group *ng, int startup,
-			      struct zebra_dplane_ctx *ctx)
-{
-	if (!ctx)
-		rib_add_multipath(afi, safi, p, src_p, re, ng, startup);
-	else {
-		dplane_ctx_route_init_basic(ctx, dplane_ctx_get_op(ctx), re, p,
-					    src_p, afi, safi);
-		dplane_provider_enqueue_to_zebra(ctx);
-	}
-}
-
 /*
  * Kernel provider callback
  */
@@ -7467,6 +7527,16 @@ static void dplane_thread_loop(struct event *event)
 		if (!zdplane_info.dg_run)
 			break;
 
+		/*
+		 * The yield should only happen after a bit of work has been
+		 * done but before we pull any new work off any provider
+		 * queue to continue looping.  This is a safe spot to
+		 * do so.
+		 */
+		if (event_should_yield(event)) {
+			reschedule = true;
+			break;
+		}
 		/* Locate next provider */
 		next_prov = dplane_prov_list_next(&zdplane_info.dg_providers,
 						  prov);
@@ -7530,11 +7600,6 @@ static void dplane_thread_loop(struct event *event)
 		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 			zlog_debug("dplane dequeues %d completed work from provider %s",
 				   counter, dplane_provider_get_name(prov));
-
-		if (event_should_yield(event)) {
-			reschedule = true;
-			break;
-		}
 
 		/* Locate next provider */
 		prov = next_prov;
@@ -7637,7 +7702,10 @@ static void zebra_dplane_init_internal(void)
 
 	dplane_prov_list_init(&zdplane_info.dg_providers);
 
-	dplane_ctx_list_init(&zdplane_info.dg_update_list);
+	frr_with_mutex (&zdplane_info.dg_mutex) {
+		dplane_ctx_list_init(&zdplane_info.dg_update_list);
+	}
+
 	zns_info_list_init(&zdplane_info.dg_zns_list);
 
 	zdplane_info.dg_updates_per_cycle = DPLANE_DEFAULT_NEW_WORK;

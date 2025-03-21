@@ -19,12 +19,6 @@ struct ospf_lsdb {
 		struct route_table *db;
 	} type[OSPF_MAX_LSA];
 	unsigned long total;
-#define MONITOR_LSDB_CHANGE 1 /* XXX */
-#ifdef MONITOR_LSDB_CHANGE
-	/* Hooks for callback functions to catch every add/del event. */
-	int (*new_lsa_hook)(struct ospf_lsa *);
-	int (*del_lsa_hook)(struct ospf_lsa *);
-#endif /* MONITOR_LSDB_CHANGE */
 };
 
 /* Macros. */

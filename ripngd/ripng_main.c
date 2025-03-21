@@ -90,6 +90,9 @@ static void sigint(void)
 
 	route_map_finish();
 
+	access_list_reset();
+	prefix_list_reset();
+
 	frr_fini();
 	exit(0);
 }
@@ -120,6 +123,7 @@ struct frr_signal_t ripng_signals[] = {
 };
 
 static const struct frr_yang_module_info *const ripngd_yang_modules[] = {
+	&frr_backend_info,
 	&frr_filter_info,
 	&frr_interface_info,
 	&frr_ripngd_info,

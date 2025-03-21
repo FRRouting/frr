@@ -85,6 +85,8 @@ struct mgmt_be_client_cbs {
 
 extern struct debug mgmt_dbg_be_client;
 
+extern const struct frr_yang_module_info frr_backend_info;
+
 /***************************************************************
  * API prototypes
  ***************************************************************/
@@ -111,6 +113,22 @@ extern struct debug mgmt_dbg_be_client;
 extern struct mgmt_be_client *
 mgmt_be_client_create(const char *name, struct mgmt_be_client_cbs *cbs,
 		      uintptr_t user_data, struct event_loop *event_loop);
+
+
+/**
+ * mgmt_be_send_ds_delete_notification() - Send a datastore delete notification.
+ */
+extern int mgmt_be_send_ds_delete_notification(const char *path);
+
+/**
+ * mgmt_be_send_ds_patch_notification() - Send a datastore YANG patch notification.
+ */
+extern int mgmt_be_send_ds_patch_notification(const char *path, const struct lyd_node *tree);
+
+/**
+ * mgmt_be_send_ds_replace_notification() - Send a datastore replace notification.
+ */
+extern int mgmt_be_send_ds_replace_notification(const char *path, const struct lyd_node *tree);
 
 /*
  * Initialize library vty (adds debug support).

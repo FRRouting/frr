@@ -154,6 +154,7 @@ enum node_type {
 	PCEP_PCE_NODE,		 /* PCE configuration node */
 	PCEP_PCC_NODE,		 /* PCC configuration node */
 	SRV6_NODE,		 /* SRv6 node */
+	SRV6_SIDS_NODE,		 /* SRv6 SIDs node */
 	SRV6_LOCS_NODE,		 /* SRv6 locators node */
 	SRV6_LOC_NODE,		 /* SRv6 locator node */
 	SRV6_ENCAP_NODE,		 /* SRv6 encapsulation node */
@@ -484,7 +485,6 @@ struct cmd_node {
 /* Graceful Restart cli help strings */
 #define GR_CMD "Global Graceful Restart command\n"
 #define NO_GR_CMD "Undo Global Graceful Restart command\n"
-#define GR "Global Graceful Restart - GR Mode\n"
 #define GR_DISABLE "Global Graceful Restart - Disable Mode\n"
 #define NO_GR_DISABLE "Undo Global Graceful Restart - Disable Mode\n"
 #define GR_DEBUG "Graceful Restart - Enable Debug Logs\n"

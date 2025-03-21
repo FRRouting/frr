@@ -12,12 +12,20 @@ module frr-staticd {
     prefix frr-nexthop;
   }
 
+  import frr-interface {
+    prefix frr-interface;
+  }
+
   import ietf-inet-types {
     prefix inet;
   }
 
   import frr-bfdd {
     prefix frr-bfdd;
+  }
+
+  import frr-vrf {
+    prefix frr-vrf;
   }
 
   organization
@@ -92,6 +100,64 @@ module frr-staticd {
     }
   }
 
+  typedef srv6-behavior-codepoint {
+    description
+      "SRv6 Endpoint Behaviors Codepoints as per
+      https://www.iana.org/assignments/segment-routing/segment-routing.xhtml.";
+    type enumeration {
+      enum End {
+        value 1;
+        description
+          "This enum indicates End endpoint behavior.";
+      }
+      enum End.X {
+        value 5;
+        description
+          "This enum indicates End.X endpoint behavior.";
+      }
+      enum End.DT6 {
+        value 18;
+        description
+          "This enum indicates End.DT6 endpoint behavior.";
+      }
+      enum End.DT4 {
+        value 19;
+        description
+          "This enum indicates End.DT4 endpoint behavior.";
+      }
+      enum End.DT46 {
+        value 20;
+        description
+          "This enum indicates End.DT46 endpoint behavior.";
+      }
+      enum uN {
+        value 43;
+        description
+          "This enum indicates End with NEXT-CSID endpoint behavior.";
+      }
+      enum uA {
+        value 52;
+        description
+          "This enum indicates End.X with NEXT-CSID endpoint behavior.";
+      }
+      enum uDT6 {
+        value 62;
+        description
+          "This enum indicates End.DT6 with NEXT-CSID endpoint behavior.";
+      }
+      enum uDT4 {
+        value 63;
+        description
+          "This enum indicates End.DT4 with NEXT-CSID endpoint behavior.";
+      }
+      enum uDT46 {
+        value 64;
+        description
+          "This enum indicates End.DT46 with NEXT-CSID endpoint behavior.";
+      }
+    }
+  }
+
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol" {
     container staticd {
       when "../frr-rt:type = 'frr-staticd:staticd'" {
@@ -103,13 +169,18 @@ module frr-staticd {
         "Support for a 'staticd' pseudo-protocol instance
          consists of a list of routes.";
       list route-list {
-        key "prefix afi-safi";
+        key "prefix src-prefix afi-safi";
         description
           "List of staticd IP routes.";
         leaf prefix {
           type inet:ip-prefix;
           description
             "IP prefix.";
+        }
+        leaf src-prefix {
+          type inet:ipv6-prefix;
+          description
+            "IPv6 source prefix for dst-src routes";
         }
         leaf afi-safi {
           type identityref {
@@ -118,6 +189,12 @@ module frr-staticd {
           description
             "AFI-SAFI type.";
         }
+        /* note dst-src routes are semantically invalid in MRIB */
+        must "afi-safi = 'frr-rt:ipv6-unicast'
+           or afi-safi = 'frr-rt:ipv6-labeled-unicast'
+           or afi-safi = 'frr-rt:l3vpn-ipv6-unicast'
+           or src-prefix = '::/0'
+        ";
 
         uses staticd-prefix-attributes {
           augment "path-list/frr-nexthops/nexthop" {
@@ -132,16 +209,61 @@ module frr-staticd {
             }
           }
         }
+      }
 
-        list src-list {
-          key "src-prefix";
-          leaf src-prefix {
-            type inet:ipv6-prefix;
+      container segment-routing {
+        description
+          "Segment Routing configuration.";
+        container srv6 {
+          description
+            "Segment Routing over IPv6 (SRv6) configuration.";
+          container static-sids {
             description
-              "IPv6 source prefix";
+              "This container lists the SRv6 Static SIDs instantiated on the local node.";
+            list sid {
+              description
+                "List of SRv6 Static SIDs.";
+              key "sid";
+              leaf sid {
+                type inet:ipv6-prefix;
+                description
+                  "Value of the SRv6 SID.";
+              }
+              leaf behavior {
+                type srv6-behavior-codepoint;
+                description
+                  "Behavior bound to the SRv6 SID.";
+              }
+              leaf locator-name {
+                type string;
+                description
+                  "SRv6 locator name.";
+              }
+              leaf vrf-name {
+                type frr-vrf:vrf-ref;
+                description
+                  "The VRF name.";
+              }
+              list paths {
+                key "path-index";
+                leaf path-index {
+                  type uint8;
+                  description
+                    "Path index";
+                }
+                leaf interface {
+                  type frr-interface:interface-ref;
+                  description
+                    "Interface name.";
+                }
+                leaf next-hop {
+                  type inet:ip-address;
+                  description
+                    "Nexthop IP address.";
+                }
+              }
+            }
           }
-
-          uses staticd-prefix-attributes;
         }
       }
     }

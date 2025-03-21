@@ -573,7 +573,7 @@ void csv_decode(csv_t *csv, char *inbuf)
 				log_error("field str malloc failed\n");
 				return;
 			}
-			strncpy(rec->record, buf, pos - buf + 1);
+			memcpy(rec->record, buf, MIN(pos - buf + 1, csv->buflen - 1));
 		}
 		rec->rec_len = pos - buf + 1;
 		/* decode record into fields */

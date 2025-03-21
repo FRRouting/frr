@@ -304,6 +304,27 @@ void ospf_zebra_add(struct ospf *ospf, struct prefix_ipv4 *p,
 		if (api.nexthop_num >= ospf->max_multipath)
 			break;
 
+		/*
+		 * Prune duplicate next-hops from the route that is
+		 * installed in the zebra IP route table. OSPF Intra-Area
+		 * routes never have duplicates.
+		 */
+		if (or->path_type != OSPF_PATH_INTRA_AREA) {
+			struct zapi_nexthop *api_nh = &api.nexthops[0];
+			unsigned int nh_index;
+			bool duplicate_next_hop = false;
+
+			for (nh_index = 0; nh_index < api.nexthop_num; api_nh++, nh_index++) {
+				if (IPV4_ADDR_SAME(&api_nh->gate.ipv4, &path->nexthop) &&
+				    (api_nh->ifindex == path->ifindex)) {
+					duplicate_next_hop = true;
+					break;
+				}
+			}
+			if (duplicate_next_hop)
+				continue;
+		}
+
 		ospf_zebra_add_nexthop(ospf, path, &api);
 
 		if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE)) {
@@ -1292,15 +1313,14 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 	 * originate)ZEBRA_ROUTE_MAX is used to delete the ex-info.
 	 * Resolved this inconsistency by maintaining same route type.
 	 */
-	if ((is_default_prefix(&pgen)) && (api.type != ZEBRA_ROUTE_OSPF))
+	if ((is_default_prefix(&pgen)) &&
+	    ((api.type != ZEBRA_ROUTE_OSPF) || (api.instance != ospf->instance)))
 		rt_type = DEFAULT_ROUTE;
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
-		zlog_debug("%s: cmd %s from client %s: vrf %s(%u), p %pFX, metric %d",
-			   __func__, zserv_command_string(cmd),
-			   zebra_route_string(api.type),
-			   ospf_vrf_id_to_name(vrf_id), vrf_id, &api.prefix,
-			   api.metric);
+		zlog_debug("%s: cmd %s from client %s-%d: vrf %s(%u), p %pFX, metric %d", __func__,
+			   zserv_command_string(cmd), zebra_route_string(api.type), api.instance,
+			   ospf_vrf_id_to_name(vrf_id), vrf_id, &api.prefix, api.metric);
 
 	if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD) {
 		/* XXX|HACK|TODO|FIXME:
@@ -1315,16 +1335,17 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 			api.tag = ospf->dtag[rt_type];
 
 		/*
-		 * Given zebra sends update for a prefix via ADD message, it
-		 * should
-		 * be considered as an implicit DEL for that prefix with other
-		 * source
-		 * types.
+		 * Given zebra sends an update for a prefix via an ADD message, it
+		 * will be considered as an impilict DELETE for that prefix for other
+		 * types and instances other than the type and instance associated with
+		 * the prefix.
 		 */
-		for (i = 0; i <= ZEBRA_ROUTE_MAX; i++)
-			if (i != rt_type)
-				ospf_external_info_delete(ospf, i, api.instance,
-							  p);
+		for (i = 0; i <= ZEBRA_ROUTE_MAX; i++) {
+			unsigned long preserve_instance;
+
+			preserve_instance = (i == rt_type) ? api.instance : OSPF_DELETE_ANY_INSTANCE;
+			ospf_external_info_delete_multi_instance(ospf, i, p, preserve_instance);
+		}
 
 		ei = ospf_external_info_add(ospf, rt_type, api.instance, p,
 					    ifindex, nexthop, api.tag,

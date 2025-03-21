@@ -149,6 +149,7 @@ struct vty {
 	struct nb_config *candidate_config_base;
 
 	/* Dynamic transaction information. */
+	size_t buffer_cmd_count;
 	bool pending_allowed;
 	bool pending_commit;
 	char *pending_cmds_buf;
@@ -237,6 +238,9 @@ struct vty {
 	bool mgmt_locked_candidate_ds;
 	bool mgmt_locked_running_ds;
 	uint64_t vty_buf_size_accumulated;
+
+	int buf_size_set;
+	uint64_t buf_size_intermediate;
 };
 
 static inline void vty_push_context(struct vty *vty, int node, uint64_t id)

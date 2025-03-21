@@ -1029,8 +1029,8 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 		rfapiPrintBi(NULL, new);
 	}
 
-	bgp_aggregate_increment(bgp, p, new, afi, safi);
 	bgp_path_info_add(bn, new);
+	bgp_aggregate_increment(bgp, p, new, afi, safi);
 
 	if (safi == SAFI_MPLS_VPN) {
 		struct bgp_dest *pdest = NULL;
