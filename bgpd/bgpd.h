@@ -107,6 +107,9 @@ enum bgp_af_index {
 extern struct frr_pthread *bgp_pth_io;
 extern struct frr_pthread *bgp_pth_ka;
 
+/* FIFO list for peer connections */
+PREDECL_LIST(peer_connection_fifo);
+
 /* BGP master for system wide configurations and variables.  */
 struct bgp_master {
 	/* BGP instance list.  */
@@ -120,6 +123,11 @@ struct bgp_master {
 
 	/* BGP port number.  */
 	uint16_t port;
+
+	/* FIFO list head for peer connections */
+	struct peer_connection_fifo_head connection_fifo;
+	struct event *e_process_packet;
+	pthread_mutex_t peer_connection_mtx;
 
 	/* Listener addresses */
 	struct list *addresses;
@@ -1378,7 +1386,6 @@ struct peer_connection {
 	struct event *t_pmax_restart;
 
 	struct event *t_routeadv;
-	struct event *t_process_packet;
 
 	struct event *t_stop_with_notify;
 
@@ -1394,7 +1401,14 @@ struct peer_connection {
 
 	union sockunion *su_local;  /* Sockunion of local address. */
 	union sockunion *su_remote; /* Sockunion of remote address. */
+
+	/* For FIFO list */
+	struct peer_connection_fifo_item fifo_item;
 };
+
+/* Declare the FIFO list implementation */
+DECLARE_LIST(peer_connection_fifo, struct peer_connection, fifo_item);
+
 const char *bgp_peer_get_connection_direction(struct peer_connection *connection);
 extern struct peer_connection *bgp_peer_connection_new(struct peer *peer);
 extern void bgp_peer_connection_free(struct peer_connection **connection);
