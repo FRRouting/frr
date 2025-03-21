@@ -113,7 +113,7 @@ struct zebra_mlag_info {
 };
 
 #define RTADV_TIMER_WHEEL_PERIOD_MS 1000
-#define RTADV_TIMER_WHEEL_SLOTS_NO  100
+#define RTADV_TIMER_WHEEL_SLOTS_NO  10
 #define ICMPV6_JOIN_TIMER_EXP_MS    100
 
 struct zebra_router {
