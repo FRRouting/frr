@@ -2465,6 +2465,7 @@ void cmd_show_lib_debugs(struct vty *vty)
 {
 	route_map_show_debug(vty);
 	debug_status_write(vty);
+	lib_if_show_debug(vty);
 }
 
 void install_default(enum node_type node)
