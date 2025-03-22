@@ -14,6 +14,8 @@
 #define DEFAULT_ORIGINATE 1
 #define DEFAULT_ORIGINATE_ALWAYS 2
 
+#include "isis_tlvs.h"
+
 struct isis_ext_info {
 	int origin;
 	uint32_t metric;
@@ -37,6 +39,24 @@ struct isis_redist_table_present_args {
 	bool rtda_found;
 };
 
+struct isis_levels_redist {
+	int redist;
+	int family;
+	int type;
+	int level_to;
+	int level_from;
+	uint32_t metric;
+	char *map_name;
+	struct route_map *map;
+	uint16_t table; 
+	bool up_down_flag;
+};
+
+struct levels_redist_match {
+	struct list *extended_ip_reach;
+	struct list *ipv6_reach;
+};
+
 struct isis;
 struct isis_area;
 struct prefix;
@@ -56,6 +76,8 @@ int isis_redist_config_write(struct vty *vty, struct isis_area *area,
 			     int family);
 void isis_redist_init(void);
 void isis_redist_area_finish(struct isis_area *area);
+int isis_leaking_config_write(struct vty *vty, struct isis_area *area,
+			      int family);
 
 void isis_redist_set(struct isis_area *area, int level, int family, int type,
 		     uint32_t metric, const char *routemap, int originate_type,
@@ -69,4 +91,11 @@ bool isis_redist_table_is_present(const struct vty *vty,
 				  struct isis_redist_table_present_args *rtda);
 uint16_t isis_redist_table_get_first(const struct vty *vty,
 				     struct isis_redist_table_present_args *rtda);
+
+void isis_iteration_in_lspdb(struct isis_area *area,
+			     struct isis_levels_redist *redist);
+void isis_levels_redist_set(struct isis_area *area, int level, int family,
+			    int type, uint32_t metric, const char *routemap,
+			    int originate_type, uint16_t table);
+void isis_leaking_unset(struct isis_area *area, const char *routemap);
 #endif
