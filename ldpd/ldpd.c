@@ -1604,6 +1604,7 @@ merge_iface_af(struct iface_af *ia, struct iface_af *xi)
 	}
 	ia->hello_holdtime = xi->hello_holdtime;
 	ia->hello_interval = xi->hello_interval;
+	ia->disable_establish_hello = xi->disable_establish_hello;
 }
 
 static void

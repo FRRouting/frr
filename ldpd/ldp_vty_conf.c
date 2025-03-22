@@ -119,6 +119,8 @@ ldp_af_iface_config_write(struct vty *vty, int af)
 		    ia->hello_interval != 0)
 			vty_out (vty, "   discovery hello interval %u\n",
 			    ia->hello_interval);
+		if (ia->disable_establish_hello)
+			vty_out (vty, "   disable-establish-hello\n");
 
 		vty_out (vty, "  exit\n");
 	}
@@ -627,6 +629,36 @@ ldp_vty_disc_interval(struct vty *vty, const char *negate,
 		break;
 	default:
 		fatalx("ldp_vty_disc_interval: unexpected node");
+	}
+
+	return (CMD_SUCCESS);
+}
+
+int
+ldp_vty_disable_establish_hello(struct vty *vty,
+	const char *negate)
+{
+	struct iface		*iface;
+	struct iface_af		*ia;
+	int			 af;
+
+	switch (vty->node) {
+	case LDP_IPV4_IFACE_NODE:
+	case LDP_IPV6_IFACE_NODE:
+		af = ldp_vty_get_af(vty);
+		iface = VTY_GET_CONTEXT(iface);
+		VTY_CHECK_CONTEXT(iface);
+
+		ia = iface_af_get(iface, af);
+		if (negate)
+			ia->disable_establish_hello = 0;
+		else
+			ia->disable_establish_hello = 1;
+
+		ldp_config_apply(vty, vty_conf);
+		break;
+	default:
+		fatalx("ldp_vty_disable_establish_hello: unexpected node");
 	}
 
 	return (CMD_SUCCESS);
