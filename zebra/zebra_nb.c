@@ -26,7 +26,7 @@ const struct frr_yang_module_info frr_zebra_info = {
 	.features = features,
 	.nodes = {
 		{
-			.xpath = "/frr-zebra:zebra/max-multipath",
+			.xpath = "/frr-zebra:zebra/state/max-multipath",
 			.cbs = {
 				.get_elem = zebra_max_multipath_get_elem,
 			}
