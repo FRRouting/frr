@@ -2113,12 +2113,17 @@ if __name__ == "__main__":
         help="Use logfmt as log format",
         default=False,
     )
+    parser.add_argument(
+        "--logfile",
+        help="logfile for frr-reload",
+        default="/var/log/frr/frr-reload.log",
+    )
 
     args = parser.parse_args()
 
     # Logging
     # For --test log to stdout
-    # For --reload log to /var/log/frr/frr-reload.log
+    # For --reload log to --logfile (default: "/var/log/frr/frr-reload.log")
     # If --logfmt, use the logfmt format
     formatter = logging.Formatter("%(asctime)s %(levelname)5s: %(message)s")
     handler = logging.StreamHandler()
@@ -2133,9 +2138,9 @@ if __name__ == "__main__":
             logging.WARNING, "\033[91m%s\033[0m" % logging.getLevelName(logging.WARNING)
         )
     if args.reload:
-        if not os.path.isdir("/var/log/frr/"):
-            os.makedirs("/var/log/frr/", mode=0o0755)
-        handler = logging.FileHandler("/var/log/frr/frr-reload.log")
+        if not os.path.isdir(os.path.dirname(args.logfile)):
+            os.makedirs(os.path.dirname(args.logfile), mode=0o0755)
+        handler = logging.FileHandler(args.logfile)
     if args.stdout:
         handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(formatter)
