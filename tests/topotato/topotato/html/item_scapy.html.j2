@@ -1,0 +1,7 @@
+{%- extends "item.html.j2" %}
+{%- macro nodesum(item) %}
+  <div class="e_always" onclick="raw_expand(this, event);">{{ item.result.outcome }} after {{ "%.2f"|format(item.result.duration) }}s, packet: <tt>{{ item.item._pkt.summary() }}</tt></div>
+  <div class="e_hide">
+    <pre>{{ item.item._pkt.show(dump=True) }}</pre>
+  </div>
+{%- endmacro %}
