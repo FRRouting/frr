@@ -82,8 +82,6 @@ extern void bgp_process_packet(struct event *event);
 
 extern void bgp_send_delayed_eor(struct bgp *bgp);
 
-/* Task callback to handle socket error encountered in the io pthread */
-void bgp_packet_process_error(struct event *thread);
 extern struct bgp_notify
 bgp_notify_decapsulate_hard_reset(struct bgp_notify *notify);
 extern bool bgp_has_graceful_restart_notification(struct peer *peer);
