@@ -1,0 +1,62 @@
+{
+    "192.168.1.0/24": [
+      {
+        "prefix": "192.168.1.0/24",
+        "prefixLen": 24,
+        "protocol": "bgp",
+        "vrfName": "vrf10",
+        "selected": true,
+        "destSelected": true,
+        "distance": 20,
+        "metric": 0,
+        "installed": true,
+        "table": 10,
+        "internalStatus": 16,
+        "internalFlags": 8,
+        "internalNextHopNum": 1,
+        "internalNextHopActiveNum": 1,
+        "nexthops": [
+          {
+            "flags": 3,
+            "fib": true,
+            "afi": "ipv6",
+            "interfaceName": "eth1",
+            "active": true
+          }
+        ],
+        "asPath": "65001"
+      }
+    ],
+    "192.168.2.0/24": [
+      {
+        "prefix": "192.168.2.0/24",
+        "prefixLen": 24,
+        "protocol": "bgp",
+        "vrfName": "vrf10",
+        "selected": true,
+        "destSelected": true,
+        "distance": 20,
+        "metric": 0,
+        "installed": true,
+        "table": 10,
+        "internalStatus": 16,
+        "internalFlags": 8,
+        "internalNextHopNum": 1,
+        "internalNextHopActiveNum": 1,
+        "nexthops": [
+          {
+            "flags": 3,
+            "fib": true,
+            "afi": "ipv6",
+            "interfaceName": "eth0",
+            "vrf": "default",
+            "active": true,
+            "seg6": {
+              "segs": "2001:db8:2:2:1::"
+            }
+          }
+        ],
+        "asPath": "2 65002"
+      }
+    ]
+}
