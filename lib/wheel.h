@@ -17,7 +17,7 @@ struct timer_wheel {
 	long long curr_slot;
 	unsigned int period;
 	unsigned int nexttime;
-	unsigned int slots_to_skip;
+	int slots_to_skip;
 
 	struct list **wheel_slot_lists;
 	struct event *timer;

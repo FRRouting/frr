@@ -500,8 +500,11 @@ void process_rtadv(void *arg)
 	struct zebra_vrf *zvrf = rtadv_interface_get_zvrf(ifp);
 
 	if (zif->rtadv.inFastRexmit && zif->rtadv.UseFastRexmit) {
-		if (--zif->rtadv.NumFastReXmitsRemain <= 0)
+		if (--zif->rtadv.NumFastReXmitsRemain <= 0) {
 			zif->rtadv.inFastRexmit = 0;
+			wheel_remove_item(zrouter.ra_fast_wheel, ifp);
+			wheel_add_item(zrouter.ra_regular_wheel, ifp);
+		}
 
 		if (IS_ZEBRA_DEBUG_SEND)
 			zlog_debug("Doing fast RA Rexmit on interface %s(%s:%u)", ifp->name,
@@ -509,7 +512,7 @@ void process_rtadv(void *arg)
 
 		rtadv_send_packet(zvrf->rtadv.sock, ifp, RA_ENABLE);
 	} else {
-		zif->rtadv.AdvIntervalTimer -= RTADV_TIMER_WHEEL_PERIOD_MS;
+		zif->rtadv.AdvIntervalTimer -= RTADV_TIMER_REGULAR_WHEEL_PERIOD_MS;
 		/* Wait atleast AdvIntervalTimer time before sending next RA
 		 * AdvIntervalTimer can go negative, when ra_wheel timer expiry
 		 * interval is not a multiple of AdvIntervalTimer. Say ra_wheel
@@ -1354,8 +1357,9 @@ void ipv6_nd_suppress_ra_set(struct interface *ifp,
 	if (status == RA_SUPPRESS) {
 		/* RA is currently enabled */
 		if (zif->rtadv.AdvSendAdvertisements) {
-			/* Try to delete from the ra wheel */
-			wheel_remove_item(zrouter.ra_wheel, ifp);
+			/* Try to delete from the ra wheels */
+			wheel_remove_item(zrouter.ra_regular_wheel, ifp);
+			wheel_remove_item(zrouter.ra_fast_wheel, ifp);
 			rtadv_send_packet(zvrf->rtadv.sock, ifp, RA_SUPPRESS);
 			zif->rtadv.AdvSendAdvertisements = 0;
 			zif->rtadv.AdvIntervalTimer = 0;
@@ -1382,11 +1386,13 @@ void ipv6_nd_suppress_ra_set(struct interface *ifp,
 				 * secs and Fast RA retransmit is enabled
 				 */
 				zif->rtadv.inFastRexmit = 1;
-				zif->rtadv.NumFastReXmitsRemain =
-					RTADV_NUM_FAST_REXMITS;
+				zif->rtadv.NumFastReXmitsRemain = RTADV_NUM_FAST_REXMITS;
+
+				wheel_add_item(zrouter.ra_fast_wheel, ifp);
+			} else {
+				wheel_add_item(zrouter.ra_regular_wheel, ifp);
 			}
 
-			wheel_add_item(zrouter.ra_wheel, ifp);
 			rtadv_start_interface_events(zvrf, zif);
 		}
 	}
@@ -1515,7 +1521,8 @@ void rtadv_stop_ra(struct interface *ifp)
 	zvrf = rtadv_interface_get_zvrf(ifp);
 
 	/*Try to delete from ra wheels */
-	wheel_remove_item(zrouter.ra_wheel, ifp);
+	wheel_remove_item(zrouter.ra_regular_wheel, ifp);
+	wheel_remove_item(zrouter.ra_fast_wheel, ifp);
 
 	/*Turn off event for ICMPv6 join*/
 	EVENT_OFF(zif->icmpv6_join_timer);
