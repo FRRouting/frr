@@ -1,0 +1,55 @@
+{
+  "0.0.0.0/0": [
+    {
+      "prefix": "0.0.0.0/0",
+      "prefixLen": 0,
+      "protocol": "static",
+      "vrfName": "cust1",
+      "selected": true,
+      "destSelected": true,
+      "distance": 1,
+      "metric": 0,
+      "installed": true,
+      "table": 10,
+      "internalStatus": 16,
+      "internalFlags": 73,
+      "internalNextHopNum": 1,
+      "internalNextHopActiveNum": 1,
+      "nexthops": [
+        {
+          "flags": 3,
+          "fib": true,
+          "ip": "192.168.5.4",
+          "afi": "ipv4",
+          "interfaceName": "r1-eth1",
+          "active": true,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "prefix": "0.0.0.0/0",
+      "prefixLen": 0,
+      "protocol": "static",
+      "vrfName": "cust1",
+      "selected": null,
+      "destSelected": null,
+      "distance": 10,
+      "metric": 0,
+      "table": 10,
+      "internalStatus": 0,
+      "internalFlags": 65,
+      "internalNextHopNum": 1,
+      "internalNextHopActiveNum": 1,
+      "nexthops": [
+        {
+          "ip": "192.168.0.2",
+          "afi": "ipv4",
+          "interfaceName": "r1-eth0",
+          "active": true,
+          "weight": 1
+        }
+      ]
+    }
+  ]
+}
