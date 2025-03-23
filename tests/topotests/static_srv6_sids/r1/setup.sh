@@ -10,4 +10,7 @@ ip link set Vrf20 up
 ip link add Vrf30 type vrf table 30
 ip link set Vrf30 up
 
+ip link add Vrf40 type vrf table 40
+ip link set Vrf40 up
+
 sysctl -w net.vrf.strict_mode=1
