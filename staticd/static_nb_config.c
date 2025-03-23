@@ -1112,6 +1112,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routi
 	yang_dnode_get_ipv6p(&sid_value, args->dnode, "sid");
 	sid = static_srv6_sid_alloc(&sid_value);
 	nb_running_set_entry(args->dnode, sid);
+	listnode_add(srv6_sids, sid);
 
 	return NB_OK;
 }
@@ -1145,13 +1146,11 @@ void routing_control_plane_protocols_control_plane_protocol_staticd_segment_rout
 		       "%s: Locator %s not found, trying to get locator information from zebra",
 		       __func__, sid->locator_name);
 		static_zebra_srv6_manager_get_locator(sid->locator_name);
-		listnode_add(srv6_sids, sid);
 		return;
 	}
 
 	sid->locator = locator;
 
-	listnode_add(srv6_sids, sid);
 	static_zebra_request_srv6_sid(sid);
 }
 
