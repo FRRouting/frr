@@ -1256,8 +1256,7 @@ route_set_evpn_gateway_ip(void *rule, const struct prefix *prefix, void *object)
 
 	/* Set gateway-ip value. */
 	path->attr->evpn_overlay.type = OVERLAY_INDEX_GATEWAY_IP;
-	memcpy(&path->attr->evpn_overlay.gw_ip, &gw_ip->ip.addr,
-	       IPADDRSZ(gw_ip));
+	path->attr->evpn_overlay.gw_ip = *gw_ip;
 
 	return RMAP_OKAY;
 }
