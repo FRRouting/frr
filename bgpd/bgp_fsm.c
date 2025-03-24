@@ -519,11 +519,20 @@ static void bgp_holdtime_timer(struct event *thread)
 	 * for systems where we are heavily loaded for one
 	 * reason or another.
 	 */
+<<<<<<< HEAD
 	inq_count = atomic_load_explicit(&connection->ibuf->count,
 					 memory_order_relaxed);
 	if (inq_count)
+=======
+	frr_with_mutex (&connection->io_mtx) {
+		inq_count = atomic_load_explicit(&connection->ibuf->count, memory_order_relaxed);
+	}
+	if (inq_count) {
+>>>>>>> 9a26a56c5 (bgpd: Fix holdtime not working properly when busy)
 		BGP_TIMER_ON(connection->t_holdtime, bgp_holdtime_timer,
 			     peer->v_holdtime);
+		return;
+	}
 
 	EVENT_VAL(thread) = Hold_Timer_expired;
 	bgp_event(thread); /* bgp_event unlocks peer */
