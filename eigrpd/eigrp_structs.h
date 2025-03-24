@@ -44,8 +44,10 @@ struct eigrp_extdata {
 };
 
 PREDECL_HASH(eigrp_interface_hash);
-
+PREDECL_HASH(eigrp_master_hash);
 struct eigrp {
+	struct eigrp_master_hash_item eigrp_item;
+
 	vrf_id_t vrf_id;
 
 	uint16_t AS;	 /* Autonomous system number */
