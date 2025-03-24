@@ -700,6 +700,10 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                 memcpy(src_prefix, zeroes, 16);
                 src_plen = 0;
             }
+            if(message[6] == 0) {
+                debugf(BABEL_DEBUG_COMMON, "Received seqno request with invalid hop count 0");
+                goto done;
+            }
             rc = parse_request_subtlv(message[2], message + 4 + rc,
                                       len - 2 - rc, src_prefix, &src_plen);
             if(rc < 0)
