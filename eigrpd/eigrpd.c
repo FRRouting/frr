@@ -241,6 +241,7 @@ void eigrp_terminate(void)
 
 	eigrp_zebra_stop();
 
+	vrf_terminate();
 	frr_fini();
 }
 
@@ -263,7 +264,7 @@ void eigrp_finish_final(struct eigrp *eigrp)
 			nbr = eigrp_nbr_hash_first(&ei->nbr_hash_head);
 			eigrp_nbr_delete(nbr);
 		}
-		eigrp_if_free(ei, INTERFACE_DOWN_BY_FINAL);
+		eigrp_if_delete_hook(ei->ifp);
 	}
 
 	EVENT_OFF(eigrp->t_write);

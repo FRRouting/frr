@@ -440,8 +440,6 @@ void eigrp_if_free(struct eigrp_interface *ei, int source)
 					       pe);
 
 	eigrp_if_down(ei);
-
-	eigrp_interface_hash_del(&ei->eigrp->eifs, ei);
 }
 
 /* Simulate down/up on the interface.  This is needed, for example, when
