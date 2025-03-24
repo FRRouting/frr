@@ -41,7 +41,7 @@
 uint32_t eigrp_query_send_all(struct eigrp *eigrp)
 {
 	struct eigrp_interface *iface;
-	struct listnode *node, *node2, *nnode2;
+	struct listnode *node2, *nnode2;
 	struct eigrp_prefix_descriptor *pe;
 	uint32_t counter;
 
@@ -51,7 +51,7 @@ uint32_t eigrp_query_send_all(struct eigrp *eigrp)
 	}
 
 	counter = 0;
-	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, iface)) {
+	frr_each (eigrp_interface_hash, &eigrp->eifs, iface) {
 		eigrp_send_query(iface);
 		counter++;
 	}

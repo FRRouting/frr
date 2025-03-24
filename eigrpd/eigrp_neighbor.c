@@ -150,11 +150,10 @@ struct eigrp_neighbor *eigrp_nbr_lookup_by_addr_process(struct eigrp *eigrp,
 							struct in_addr nbr_addr)
 {
 	struct eigrp_interface *ei;
-	struct listnode *node;
 	struct eigrp_neighbor lookup, *nbr;
 
 	/* iterate over all eigrp interfaces */
-	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, ei)) {
+	frr_each (eigrp_interface_hash, &eigrp->eifs, ei) {
 		/* iterate over all neighbors on eigrp interface */
 		lookup.src = nbr_addr;
 		nbr = eigrp_nbr_hash_find(&ei->nbr_hash_head, &lookup);
@@ -289,11 +288,10 @@ void eigrp_nbr_state_update(struct eigrp_neighbor *nbr)
 int eigrp_nbr_count_get(struct eigrp *eigrp)
 {
 	struct eigrp_interface *iface;
-	struct listnode *node;
 	uint32_t counter;
 
 	counter = 0;
-	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, iface))
+	frr_each (eigrp_interface_hash, &eigrp->eifs, iface)
 		counter += eigrp_nbr_hash_count(&iface->nbr_hash_head);
 
 	return counter;

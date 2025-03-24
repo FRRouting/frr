@@ -139,7 +139,7 @@ static struct eigrp *eigrp_new(uint16_t as, vrf_id_t vrf_id)
 	eigrp->k_values[5] = EIGRP_K6_DEFAULT;
 
 	/* init internal data structures */
-	eigrp->eiflist = list_new();
+	eigrp_interface_hash_init(&eigrp->eifs);
 	eigrp->passive_interface_default = EIGRP_IF_ACTIVE;
 	eigrp->networks = eigrp_topology_new();
 
@@ -252,9 +252,9 @@ void eigrp_finish_final(struct eigrp *eigrp)
 {
 	struct eigrp_interface *ei;
 	struct eigrp_neighbor *nbr;
-	struct listnode *node, *nnode;
 
-	for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode, ei)) {
+	while (eigrp_interface_hash_count(&eigrp->eifs)) {
+		ei = eigrp_interface_hash_first(&eigrp->eifs);
 		while (eigrp_nbr_hash_count(&ei->nbr_hash_head)) {
 			nbr = eigrp_nbr_hash_first(&ei->nbr_hash_head);
 			eigrp_nbr_delete(nbr);
@@ -266,7 +266,7 @@ void eigrp_finish_final(struct eigrp *eigrp)
 	EVENT_OFF(eigrp->t_read);
 	close(eigrp->fd);
 
-	list_delete(&eigrp->eiflist);
+	eigrp_interface_hash_fini(&eigrp->eifs);
 	list_delete(&eigrp->oi_write_q);
 
 	eigrp_topology_free(eigrp, eigrp->topology_table);

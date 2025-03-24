@@ -532,8 +532,8 @@ void eigrp_read(struct event *thread)
 		return;
 
 	/* Self-originated packet should be discarded silently. */
-	if (eigrp_if_lookup_by_local_addr(eigrp, NULL, iph->ip_src)
-	    || (IPV4_ADDR_SAME(&srcaddr, &ei->address.u.prefix4))) {
+	if (eigrp_if_lookup_by_local_addr(eigrp, ifp, iph->ip_src) ||
+	    (IPV4_ADDR_SAME(&srcaddr, &ei->address.u.prefix4))) {
 		if (IS_DEBUG_EIGRP_TRANSMIT(0, RECV))
 			zlog_debug(
 				"eigrp_read[%pI4]: Dropping self-originated packet",

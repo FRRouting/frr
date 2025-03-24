@@ -43,7 +43,6 @@ void eigrp_if_rmap_update(struct if_rmap *if_rmap)
 {
 	struct interface *ifp;
 	struct eigrp_interface *ei, *ei2;
-	struct listnode *node, *nnode;
 	struct route_map *rmap;
 	struct eigrp *e;
 
@@ -53,7 +52,7 @@ void eigrp_if_rmap_update(struct if_rmap *if_rmap)
 
 	ei = NULL;
 	e = eigrp_lookup();
-	for (ALL_LIST_ELEMENTS(e->eiflist, node, nnode, ei2)) {
+	frr_each (eigrp_interface_hash, &e->eifs, ei2) {
 		if (strcmp(ei2->ifp->name, ifp->name) == 0) {
 			ei = ei2;
 			break;

@@ -42,6 +42,7 @@
 #include "eigrpd/eigrp_const.h"
 #include "eigrpd/eigrp_filter.h"
 #include "eigrpd/eigrp_packet.h"
+#include "eigrpd/eigrp_interface.h"
 
 /*
  * Distribute-list update functions.
@@ -126,10 +127,9 @@ void eigrp_distribute_update(struct distribute_ctx *ctx,
 
 	/*struct eigrp_if_info * info = ifp->info;
 	ei = info->eigrp_interface;*/
-	struct listnode *node, *nnode;
 	struct eigrp_interface *ei2;
 	/* Find proper interface */
-	for (ALL_LIST_ELEMENTS(e->eiflist, node, nnode, ei2)) {
+	frr_each (eigrp_interface_hash, &e->eifs, ei2) {
 		if (strcmp(ei2->ifp->name, ifp->name) == 0) {
 			ei = ei2;
 			break;

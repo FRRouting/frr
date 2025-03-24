@@ -289,7 +289,6 @@ void eigrp_if_update(struct interface *ifp)
 int eigrp_network_unset(struct eigrp *eigrp, struct prefix *p)
 {
 	struct route_node *rn;
-	struct listnode *node, *nnode;
 	struct eigrp_interface *ei;
 	struct prefix *pref;
 
@@ -307,7 +306,7 @@ int eigrp_network_unset(struct eigrp *eigrp, struct prefix *p)
 	route_unlock_node(rn); /* initial reference */
 
 	/* Find interfaces that not configured already.  */
-	for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode, ei)) {
+	frr_each (eigrp_interface_hash, &eigrp->eifs, ei) {
 		bool found = false;
 
 		for (rn = route_top(eigrp->networks); rn; rn = route_next(rn)) {

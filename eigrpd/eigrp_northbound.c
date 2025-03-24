@@ -43,13 +43,11 @@ static void redistribute_get_metrics(const struct lyd_node *dnode,
 		em->reliability = yang_dnode_get_uint32(dnode, "reliability");
 }
 
-static struct eigrp_interface *eigrp_interface_lookup(const struct eigrp *eigrp,
-						      const char *ifname)
+static struct eigrp_interface *eigrp_interface_lookup(struct eigrp *eigrp, const char *ifname)
 {
 	struct eigrp_interface *eif;
-	struct listnode *ln;
 
-	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, ln, eif)) {
+	frr_each (eigrp_interface_hash, &eigrp->eifs, eif) {
 		if (strcmp(ifname, eif->ifp->name))
 			continue;
 

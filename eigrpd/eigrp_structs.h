@@ -43,6 +43,8 @@ struct eigrp_extdata {
 	uint8_t flags;
 };
 
+PREDECL_HASH(eigrp_interface_hash);
+
 struct eigrp {
 	vrf_id_t vrf_id;
 
@@ -59,7 +61,7 @@ struct eigrp {
 	struct in_addr router_id;	/* Configured automatically. */
 	struct in_addr router_id_static; /* Configured manually. */
 
-	struct list *eiflist;		  /* eigrp interfaces */
+	struct eigrp_interface_hash_head eifs;
 	uint8_t passive_interface_default; /* passive-interface default */
 
 	int fd;
@@ -137,6 +139,8 @@ PREDECL_HASH(eigrp_nbr_hash);
 
 /*EIGRP interface structure*/
 struct eigrp_interface {
+	struct eigrp_interface_hash_item eif_item;
+
 	struct eigrp_if_params params;
 
 	/*multicast group refcnts */
