@@ -55,6 +55,15 @@ struct eigrp_master *eigrp_om;
 extern struct zclient *zclient;
 extern struct in_addr router_id_zebra;
 
+int eigrp_master_hash_cmp(const struct eigrp *a, const struct eigrp *b)
+{
+	return a->vrf_id - b->vrf_id;
+}
+
+uint32_t eigrp_master_hash_hash(const struct eigrp *a)
+{
+	return a->vrf_id;
+}
 
 /*
  * void eigrp_router_id_update(struct eigrp *eigrp)
@@ -111,7 +120,7 @@ void eigrp_master_init(void)
 	memset(&eigrp_master, 0, sizeof(eigrp_master));
 
 	eigrp_om = &eigrp_master;
-	eigrp_om->eigrp = list_new();
+	eigrp_master_hash_init(&eigrp_om->eigrp);
 
 	monotime(&tv);
 	eigrp_om->start_time = tv.tv_sec;
@@ -206,7 +215,7 @@ struct eigrp *eigrp_get(uint16_t as, vrf_id_t vrf_id)
 	eigrp = eigrp_lookup(vrf_id);
 	if (eigrp == NULL) {
 		eigrp = eigrp_new(as, vrf_id);
-		listnode_add(eigrp_om->eigrp, eigrp);
+		eigrp_master_hash_add(&eigrp_om->eigrp, eigrp);
 	}
 
 	return eigrp;
@@ -216,7 +225,6 @@ struct eigrp *eigrp_get(uint16_t as, vrf_id_t vrf_id)
 void eigrp_terminate(void)
 {
 	struct eigrp *eigrp;
-	struct listnode *node, *nnode;
 
 	/* shutdown already in progress */
 	if (CHECK_FLAG(eigrp_om->options, EIGRP_MASTER_SHUTDOWN))
@@ -224,9 +232,10 @@ void eigrp_terminate(void)
 
 	SET_FLAG(eigrp_om->options, EIGRP_MASTER_SHUTDOWN);
 
-	for (ALL_LIST_ELEMENTS(eigrp_om->eigrp, node, nnode, eigrp))
+	frr_each (eigrp_master_hash, &eigrp_om->eigrp, eigrp)
 		eigrp_finish(eigrp);
 
+	eigrp_master_hash_fini(&eigrp_om->eigrp);
 	frr_fini();
 }
 
@@ -235,8 +244,8 @@ void eigrp_finish(struct eigrp *eigrp)
 	eigrp_finish_final(eigrp);
 
 	/* eigrp being shut-down? If so, was this the last eigrp instance? */
-	if (CHECK_FLAG(eigrp_om->options, EIGRP_MASTER_SHUTDOWN)
-	    && (listcount(eigrp_om->eigrp) == 0)) {
+	if (CHECK_FLAG(eigrp_om->options, EIGRP_MASTER_SHUTDOWN) &&
+	    (eigrp_master_hash_count(&eigrp_om->eigrp) == 0)) {
 		if (zclient) {
 			zclient_stop(zclient);
 			zclient_free(zclient);
@@ -276,7 +285,7 @@ void eigrp_finish_final(struct eigrp *eigrp)
 	list_delete(&eigrp->topology_changes_externalIPV4);
 	list_delete(&eigrp->topology_changes_internalIPV4);
 
-	listnode_delete(eigrp_om->eigrp, eigrp);
+	eigrp_master_hash_del(&eigrp_om->eigrp, eigrp);
 
 	stream_free(eigrp->ibuf);
 	distribute_list_delete(&eigrp->distribute_ctx);
@@ -286,12 +295,10 @@ void eigrp_finish_final(struct eigrp *eigrp)
 /*Look for existing eigrp process*/
 struct eigrp *eigrp_lookup(vrf_id_t vrf_id)
 {
-	struct eigrp *eigrp;
-	struct listnode *node, *nnode;
+	struct eigrp *eigrp, lookup;
 
-	for (ALL_LIST_ELEMENTS(eigrp_om->eigrp, node, nnode, eigrp))
-		if (eigrp->vrf_id == vrf_id)
-			return eigrp;
+	lookup.vrf_id = vrf_id;
+	eigrp = eigrp_master_hash_find(&eigrp_om->eigrp, &lookup);
 
-	return NULL;
+	return eigrp;
 }

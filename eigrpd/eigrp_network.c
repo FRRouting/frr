@@ -262,7 +262,6 @@ static void eigrp_network_run_interface(struct eigrp *eigrp, struct prefix *p,
 
 void eigrp_if_update(struct interface *ifp)
 {
-	struct listnode *node, *nnode;
 	struct route_node *rn;
 	struct eigrp *eigrp;
 
@@ -270,7 +269,7 @@ void eigrp_if_update(struct interface *ifp)
 	 * In the event there are multiple eigrp autonymnous systems running,
 	 * we need to check eac one and add the interface as approperate
 	 */
-	for (ALL_LIST_ELEMENTS(eigrp_om->eigrp, node, nnode, eigrp)) {
+	frr_each (eigrp_master_hash, &eigrp_om->eigrp, eigrp) {
 		if (ifp->vrf->vrf_id != eigrp->vrf_id)
 			continue;
 

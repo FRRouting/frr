@@ -30,9 +30,11 @@ DECLARE_MGROUP(EIGRPD);
 #define EIGRP_TLV_MTR_VERSION 3 /* MTR TLVs with 32bit metric *Not Supported */
 #define EIGRP_TLV_SAF_VERSION 4 /* SAF TLVs with 64bit metric *Not Supported */
 
+//PREDECL_HASH(eigrp_master_hash);
+
 struct eigrp_master {
 	/* EIGRP instance. */
-	struct list *eigrp;
+	struct eigrp_master_hash_head eigrp;
 
 	/* EIGRP thread master. */
 	struct event_loop *master;
@@ -63,5 +65,11 @@ extern void eigrp_finish(struct eigrp *eigrp);
 extern struct eigrp *eigrp_get(uint16_t as, vrf_id_t vrf_id);
 extern struct eigrp *eigrp_lookup(vrf_id_t vrf_id);
 extern void eigrp_router_id_update(struct eigrp *eigrp);
+
+extern int eigrp_master_hash_cmp(const struct eigrp *a, const struct eigrp *b);
+extern uint32_t eigrp_master_hash_hash(const struct eigrp *a);
+
+DECLARE_HASH(eigrp_master_hash, struct eigrp, eigrp_item, eigrp_master_hash_cmp,
+	     eigrp_master_hash_hash);
 
 #endif /* _ZEBRA_EIGRPD_H */
