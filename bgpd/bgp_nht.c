@@ -1074,23 +1074,23 @@ static bool make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p,
 		} else if (is_bgp_static) {
 			p->u.prefix6 = p_orig->u.prefix6;
 			p->prefixlen = p_orig->prefixlen;
-		} else {
+		} else if (attr) {
 			/* If we receive MP_REACH nexthop with ::(LL)
 			 * or LL(LL), use LL address as nexthop cache.
 			 */
-			if (attr && attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL &&
+			if (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL &&
 			    (IN6_IS_ADDR_UNSPECIFIED(&attr->mp_nexthop_global) ||
 			     IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_global)))
 				p->u.prefix6 = attr->mp_nexthop_local;
 			/* If we receive MR_REACH with (GA)::(LL)
 			 * then check for route-map to choose GA or LL
 			 */
-			else if (attr && attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
+			else if (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
 				if (CHECK_FLAG(attr->nh_flags, BGP_ATTR_NH_MP_PREFER_GLOBAL))
 					p->u.prefix6 = attr->mp_nexthop_global;
 				else
 					p->u.prefix6 = attr->mp_nexthop_local;
-			} else if (attr && attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL &&
+			} else if (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL &&
 				   IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_global)) {
 				/* If we receive MP_REACH with GUA as LL, we should
 				 * check if we have Link-Local Next Hop capability also.
