@@ -294,8 +294,7 @@ int eigrp_if_up(struct eigrp_interface *ei)
 	if (pe == NULL) {
 		pe = eigrp_prefix_descriptor_new();
 		pe->serno = eigrp->serno;
-		pe->destination = (struct prefix *)prefix_ipv4_new();
-		prefix_copy(pe->destination, &dest_addr);
+		prefix_copy(&pe->destination, &dest_addr);
 		pe->af = AF_INET;
 		pe->nt = EIGRP_TOPOLOGY_TYPE_CONNECTED;
 

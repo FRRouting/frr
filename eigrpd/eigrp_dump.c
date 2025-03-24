@@ -228,7 +228,7 @@ void show_ip_eigrp_prefix_descriptor(struct vty *vty,
 
 	vty_out(vty, "%-3c", (tn->state > 0) ? 'A' : 'P');
 
-	vty_out(vty, "%pFX, ", tn->destination);
+	vty_out(vty, "%pFX, ", &tn->destination);
 	vty_out(vty, "%u successors, ", (successors) ? successors->count : 0);
 	vty_out(vty, "FD is %u, serno: %" PRIu64 " \n", tn->fdistance,
 		tn->serno);

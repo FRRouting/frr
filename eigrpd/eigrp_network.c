@@ -219,6 +219,21 @@ int eigrp_network_set(struct eigrp *eigrp, struct prefix *p)
 	return 1;
 }
 
+static void eigrp_network_delete_all(struct eigrp *eigrp, struct route_table *table)
+{
+	struct route_node *rn;
+
+	for (rn = route_top(table); rn; rn = route_next(rn)) {
+		prefix_free((struct prefix **)&rn->info);
+	}
+}
+
+void eigrp_network_free(struct eigrp *eigrp, struct route_table *table)
+{
+	eigrp_network_delete_all(eigrp, table);
+	route_table_finish(table);
+}
+
 /* Check whether interface matches given network
  * returns: 1, true. 0, false
  */

@@ -105,6 +105,11 @@ void eigrp_zebra_init(void)
 	zclient->zebra_connected = eigrp_zebra_connected;
 }
 
+void eigrp_zebra_stop(void)
+{
+	zclient_stop(zclient);
+	zclient_free(zclient);
+}
 
 /* Zebra route add and delete treatment. */
 static int eigrp_zebra_read_route(ZAPI_CALLBACK_ARGS)

@@ -232,26 +232,21 @@ void eigrp_terminate(void)
 
 	SET_FLAG(eigrp_om->options, EIGRP_MASTER_SHUTDOWN);
 
-	frr_each (eigrp_master_hash, &eigrp_om->eigrp, eigrp)
+	while (eigrp_master_hash_count(&eigrp_om->eigrp)) {
+		eigrp = eigrp_master_hash_first(&eigrp_om->eigrp);
 		eigrp_finish(eigrp);
+	}
 
 	eigrp_master_hash_fini(&eigrp_om->eigrp);
+
+	eigrp_zebra_stop();
+
 	frr_fini();
 }
 
 void eigrp_finish(struct eigrp *eigrp)
 {
 	eigrp_finish_final(eigrp);
-
-	/* eigrp being shut-down? If so, was this the last eigrp instance? */
-	if (CHECK_FLAG(eigrp_om->options, EIGRP_MASTER_SHUTDOWN) &&
-	    (eigrp_master_hash_count(&eigrp_om->eigrp) == 0)) {
-		if (zclient) {
-			zclient_stop(zclient);
-			zclient_free(zclient);
-		}
-		exit(0);
-	}
 
 	return;
 }
@@ -279,6 +274,7 @@ void eigrp_finish_final(struct eigrp *eigrp)
 	list_delete(&eigrp->oi_write_q);
 
 	eigrp_topology_free(eigrp, eigrp->topology_table);
+	eigrp_network_free(eigrp, eigrp->networks);
 
 	eigrp_nbr_delete(eigrp->neighbor_self);
 
@@ -289,6 +285,9 @@ void eigrp_finish_final(struct eigrp *eigrp)
 
 	stream_free(eigrp->ibuf);
 	distribute_list_delete(&eigrp->distribute_ctx);
+
+	QOBJ_UNREG(eigrp);
+
 	XFREE(MTYPE_EIGRP_TOP, eigrp);
 }
 

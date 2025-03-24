@@ -128,8 +128,7 @@ static void eigrp_update_receive_GR_ask(struct eigrp *eigrp,
 
 	/* iterate over all prefixes which weren't advertised by neighbor */
 	for (ALL_LIST_ELEMENTS_RO(nbr_prefixes, node1, prefix)) {
-		zlog_debug("GR receive: Neighbor not advertised %pFX",
-			   prefix->destination);
+		zlog_debug("GR receive: Neighbor not advertised %pFX", &prefix->destination);
 
 		fsm_msg.metrics = prefix->reported_metric;
 		/* set delay to MAX */
@@ -320,9 +319,7 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 				/*Here comes topology information save*/
 				pe = eigrp_prefix_descriptor_new();
 				pe->serno = eigrp->serno;
-				pe->destination =
-					(struct prefix *)prefix_ipv4_new();
-				prefix_copy(pe->destination, &dest_addr);
+				prefix_copy(&pe->destination, &dest_addr);
 				pe->af = AF_INET;
 				pe->state = EIGRP_FSM_STATE_PASSIVE;
 				pe->nt = EIGRP_TOPOLOGY_TYPE_REMOTE;
@@ -566,7 +563,7 @@ void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 				}
 			}
 			/* Get destination address from prefix */
-			dest_addr = pe->destination;
+			dest_addr = &pe->destination;
 
 			/* Check if any list fits */
 			if (eigrp_update_prefix_apply(
@@ -650,7 +647,7 @@ void eigrp_update_send(struct eigrp_interface *ei)
 			has_tlv = 0;
 		}
 		/* Get destination address from prefix */
-		dest_addr = pe->destination;
+		dest_addr = &pe->destination;
 
 		if (eigrp_update_prefix_apply(eigrp, ei, EIGRP_FILTER_OUT,
 					      dest_addr)) {
@@ -798,7 +795,7 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 		/*
 		 * Filtering
 		 */
-		dest_addr = pe->destination;
+		dest_addr = &pe->destination;
 
 		if (eigrp_update_prefix_apply(eigrp, ei, EIGRP_FILTER_OUT,
 					      dest_addr)) {
