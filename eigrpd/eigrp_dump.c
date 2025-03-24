@@ -81,11 +81,11 @@ static int config_write_debug(struct vty *vty)
 static int eigrp_neighbor_packet_queue_sum(struct eigrp_interface *ei)
 {
 	struct eigrp_neighbor *nbr;
-	struct listnode *node, *nnode;
 	int sum;
+
 	sum = 0;
 
-	for (ALL_LIST_ELEMENTS(ei->nbrs, node, nnode, nbr)) {
+	frr_each (eigrp_nbr_hash, &ei->nbr_hash_head, nbr) {
 		sum += nbr->retrans_queue->count;
 	}
 
@@ -152,7 +152,7 @@ void show_ip_eigrp_interface_sub(struct vty *vty, struct eigrp *eigrp,
 	vty_out(vty, "%-16s ", IF_NAME(ei));
 	vty_out(vty, "%-11u", ei->params.bandwidth);
 	vty_out(vty, "%-11u", ei->params.delay);
-	vty_out(vty, "%-7u", ei->nbrs->count);
+	vty_out(vty, "%-7zu", eigrp_nbr_hash_count(&ei->nbr_hash_head));
 	vty_out(vty, "%u %c %-10u", 0, '/',
 		eigrp_neighbor_packet_queue_sum(ei));
 	vty_out(vty, "%-7u %-14u %-12u %-8u", 0, 0, 0, 0);
