@@ -447,7 +447,7 @@ struct eigrp_prefix_descriptor {
 	uint8_t af;	 // address family
 	uint8_t req_action; // required action
 
-	struct prefix *destination;
+	struct prefix destination;
 
 	// If network type is REMOTE_EXTERNAL, pointer will have reference to
 	// its external TLV

@@ -1129,7 +1129,7 @@ uint16_t eigrp_add_internalTLV_to_stream(struct stream *s,
 	uint16_t length;
 
 	stream_putw(s, EIGRP_TLV_IPv4_INT);
-	switch (pe->destination->prefixlen) {
+	switch (pe->destination.prefixlen) {
 	case 0:
 	case 1:
 	case 2:
@@ -1176,8 +1176,8 @@ uint16_t eigrp_add_internalTLV_to_stream(struct stream *s,
 		stream_putw(s, length);
 		break;
 	default:
-		flog_err(EC_LIB_DEVELOPMENT, "%s: Unexpected prefix length: %d",
-			 __func__, pe->destination->prefixlen);
+		flog_err(EC_LIB_DEVELOPMENT, "%s: Unexpected prefix length: %d", __func__,
+			 pe->destination.prefixlen);
 		return 0;
 	}
 	stream_putl(s, 0x00000000);
@@ -1194,15 +1194,15 @@ uint16_t eigrp_add_internalTLV_to_stream(struct stream *s,
 	stream_putc(s, pe->reported_metric.tag);
 	stream_putc(s, pe->reported_metric.flags);
 
-	stream_putc(s, pe->destination->prefixlen);
+	stream_putc(s, pe->destination.prefixlen);
 
-	stream_putc(s, (ntohl(pe->destination->u.prefix4.s_addr) >> 24) & 0xFF);
-	if (pe->destination->prefixlen > 8)
-		stream_putc(s, (ntohl(pe->destination->u.prefix4.s_addr) >> 16) & 0xFF);
-	if (pe->destination->prefixlen > 16)
-		stream_putc(s, (ntohl(pe->destination->u.prefix4.s_addr) >> 8) & 0xFF);
-	if (pe->destination->prefixlen > 24)
-		stream_putc(s, ntohl(pe->destination->u.prefix4.s_addr) & 0xFF);
+	stream_putc(s, (ntohl(pe->destination.u.prefix4.s_addr) >> 24) & 0xFF);
+	if (pe->destination.prefixlen > 8)
+		stream_putc(s, (ntohl(pe->destination.u.prefix4.s_addr) >> 16) & 0xFF);
+	if (pe->destination.prefixlen > 16)
+		stream_putc(s, (ntohl(pe->destination.u.prefix4.s_addr) >> 8) & 0xFF);
+	if (pe->destination.prefixlen > 24)
+		stream_putc(s, ntohl(pe->destination.u.prefix4.s_addr) & 0xFF);
 
 	return length;
 }

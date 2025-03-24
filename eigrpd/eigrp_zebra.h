@@ -17,6 +17,7 @@
 #include "vrf.h"
 
 extern void eigrp_zebra_init(void);
+extern void eigrp_zebra_stop(void);
 
 extern void eigrp_zebra_route_add(struct eigrp *eigrp, struct prefix *p,
 				  struct list *successors, uint32_t distance);
