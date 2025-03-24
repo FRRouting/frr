@@ -309,6 +309,8 @@ struct interface {
 	QOBJ_FIELDS;
 };
 
+extern int if_cmp_func(const struct interface *a, const struct interface *b);
+
 RB_HEAD(if_name_head, interface);
 RB_PROTOTYPE(if_name_head, interface, name_entry, if_cmp_func)
 RB_HEAD(if_index_head, interface);
