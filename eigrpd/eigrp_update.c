@@ -482,11 +482,10 @@ static void eigrp_update_place_on_nbr_queue(struct eigrp_neighbor *nbr,
 static void eigrp_update_send_to_all_nbrs(struct eigrp_interface *ei,
 					  struct eigrp_packet *ep)
 {
-	struct listnode *node, *nnode;
 	struct eigrp_neighbor *nbr;
 	bool packet_sent = false;
 
-	for (ALL_LIST_ELEMENTS(ei->nbrs, node, nnode, nbr)) {
+	frr_each (eigrp_nbr_hash, &ei->nbr_hash_head, nbr) {
 		struct eigrp_packet *ep_dup;
 
 		if (nbr->state != EIGRP_NEIGHBOR_UP)
@@ -595,7 +594,7 @@ void eigrp_update_send(struct eigrp_interface *ei)
 	uint32_t seq_no = eigrp->sequence_number;
 	uint16_t eigrp_mtu = EIGRP_PACKET_MTU(ei->ifp->mtu);
 
-	if (ei->nbrs->count == 0)
+	if (eigrp_nbr_hash_count(&ei->nbr_hash_head) == 0)
 		return;
 
 	uint16_t length = EIGRP_HEADER_LEN;
@@ -1001,11 +1000,10 @@ void eigrp_update_send_GR(struct eigrp_neighbor *nbr, enum GR_type gr_type,
 void eigrp_update_send_interface_GR(struct eigrp_interface *ei,
 				    enum GR_type gr_type, struct vty *vty)
 {
-	struct listnode *node;
 	struct eigrp_neighbor *nbr;
 
 	/* iterate over all neighbors on eigrp interface */
-	for (ALL_LIST_ELEMENTS_RO(ei->nbrs, node, nbr)) {
+	frr_each (eigrp_nbr_hash, &ei->nbr_hash_head, nbr) {
 		/* send GR to neighbor */
 		eigrp_update_send_GR(nbr, gr_type, vty);
 	}

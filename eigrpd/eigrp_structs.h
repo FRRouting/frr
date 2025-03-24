@@ -133,6 +133,8 @@ enum { MEMBER_ALLROUTERS = 0,
        MEMBER_MAX,
 };
 
+PREDECL_HASH(eigrp_nbr_hash);
+
 /*EIGRP interface structure*/
 struct eigrp_interface {
 	struct eigrp_if_params params;
@@ -162,7 +164,7 @@ struct eigrp_interface {
 	struct prefix address;      /* Interface prefix */
 
 	/* Neighbor information. */
-	struct list *nbrs; /* EIGRP Neighbor List */
+	struct eigrp_nbr_hash_head nbr_hash_head;
 
 	/* Threads. */
 	struct event *t_hello;	    /* timer */
@@ -208,6 +210,8 @@ enum Packet_part_type {
 
 /* Neighbor Data Structure */
 struct eigrp_neighbor {
+	struct eigrp_nbr_hash_item nbr_hash_item;
+
 	/* This neighbor's parent eigrp interface. */
 	struct eigrp_interface *ei;
 

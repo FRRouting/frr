@@ -252,11 +252,13 @@ void eigrp_finish_final(struct eigrp *eigrp)
 {
 	struct eigrp_interface *ei;
 	struct eigrp_neighbor *nbr;
-	struct listnode *node, *nnode, *node2, *nnode2;
+	struct listnode *node, *nnode;
 
 	for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode, ei)) {
-		for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr))
+		while (eigrp_nbr_hash_count(&ei->nbr_hash_head)) {
+			nbr = eigrp_nbr_hash_first(&ei->nbr_hash_head);
 			eigrp_nbr_delete(nbr);
+		}
 		eigrp_if_free(ei, INTERFACE_DOWN_BY_FINAL);
 	}
 

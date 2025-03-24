@@ -66,7 +66,7 @@ struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
 	ei->type = EIGRP_IFTYPE_BROADCAST;
 
 	/* Initialize neighbor list. */
-	ei->nbrs = list_new();
+	eigrp_nbr_hash_init(&ei->nbr_hash_head);
 
 	ei->crypt_seqnum = frr_sequence32_next();
 
@@ -102,7 +102,7 @@ int eigrp_if_delete_hook(struct interface *ifp)
 	if (!ei)
 		return 0;
 
-	list_delete(&ei->nbrs);
+	eigrp_nbr_hash_fini(&ei->nbr_hash_head);
 
 	eigrp = ei->eigrp;
 	listnode_delete(eigrp->eiflist, ei);
@@ -327,9 +327,6 @@ int eigrp_if_up(struct eigrp_interface *ei)
 
 int eigrp_if_down(struct eigrp_interface *ei)
 {
-	struct listnode *node, *nnode;
-	struct eigrp_neighbor *nbr;
-
 	if (ei == NULL)
 		return 0;
 
@@ -340,9 +337,9 @@ int eigrp_if_down(struct eigrp_interface *ei)
 
 	/*Set infinite metrics to routes learned by this interface and start
 	 * query process*/
-	for (ALL_LIST_ELEMENTS(ei->nbrs, node, nnode, nbr)) {
-		eigrp_nbr_delete(nbr);
-	}
+	while (eigrp_nbr_hash_count(&ei->nbr_hash_head) > 0)
+		eigrp_nbr_delete(eigrp_nbr_hash_first(&ei->nbr_hash_head));
+
 
 	return 1;
 }
