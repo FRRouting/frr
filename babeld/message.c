@@ -552,6 +552,13 @@ parse_packet(const unsigned char *from, struct interface *ifp,
         } else if(type == MESSAGE_NH) {
             unsigned char nh[16];
             int rc;
+            if(message[2] != 1 && message[2] != 3) {
+                debugf(BABEL_DEBUG_COMMON,"Received NH with incorrect AE %d.",
+                       message[2]);
+                have_v4_nh = 0;
+                have_v6_nh = 0;
+                goto fail;
+            }
             rc = network_address(message[2], message + 4, len - 2, nh);
             if(rc <= 0) {
                 have_v4_nh = 0;
