@@ -462,6 +462,8 @@ extern void meta_queue_free(struct meta_queue *mq, struct zebra_vrf *zvrf);
 extern int zebra_rib_labeled_unicast(struct route_entry *re);
 extern struct route_table *rib_table_ipv6;
 
+extern uint32_t zebra_rib_meta_queue_size(void);
+
 extern void rib_unlink(struct route_node *rn, struct route_entry *re);
 extern int rib_gc_dest(struct route_node *rn);
 extern struct route_table *rib_tables_iter_next(rib_tables_iter_t *iter);
