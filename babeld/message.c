@@ -706,6 +706,11 @@ parse_packet(const unsigned char *from, struct interface *ifp,
 			      "Received source-specific wildcard request.");
                     goto done;
                 }
+                if(message[3] != 0) {
+                    flog_err(EC_BABEL_PACKET,
+                             "Ignoring request with AE=0 and non-zero Plen");
+                    goto done;
+                }
                 /* If a neighbour is requesting a full route dump from us,
                    we might as well send it an IHU. */
                 send_ihu(neigh, NULL);
