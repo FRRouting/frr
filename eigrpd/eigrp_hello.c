@@ -496,7 +496,6 @@ static uint16_t eigrp_sequence_encode(struct eigrp *eigrp, struct stream *s)
 {
 	uint16_t length = EIGRP_TLV_SEQ_BASE_LEN;
 	struct eigrp_interface *ei;
-	struct listnode *node;
 	struct eigrp_neighbor *nbr;
 	size_t backup_end, size_end;
 	int found;
@@ -509,7 +508,7 @@ static uint16_t eigrp_sequence_encode(struct eigrp *eigrp, struct stream *s)
 	stream_putc(s, IPV4_MAX_BYTELEN);
 
 	found = 0;
-	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, ei)) {
+	frr_each (eigrp_interface_hash, &eigrp->eifs, ei) {
 		frr_each (eigrp_nbr_hash, &ei->nbr_hash_head, nbr) {
 			if (nbr->multicast_queue->count > 0) {
 				length += (uint16_t)stream_put_ipv4(

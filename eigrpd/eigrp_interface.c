@@ -45,6 +45,16 @@
 
 DEFINE_MTYPE_STATIC(EIGRPD, EIGRP_IF, "EIGRP interface");
 
+int eigrp_interface_cmp(const struct eigrp_interface *a, const struct eigrp_interface *b)
+{
+	return if_cmp_func(a->ifp, b->ifp);
+}
+
+uint32_t eigrp_interface_hash(const struct eigrp_interface *ei)
+{
+	return ei->ifp->ifindex;
+}
+
 struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
 				     struct prefix *p)
 {
@@ -61,7 +71,7 @@ struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
 	prefix_copy(&ei->address, p);
 
 	ifp->info = ei;
-	listnode_add(eigrp->eiflist, ei);
+	eigrp_interface_hash_add(&eigrp->eifs, ei);
 
 	ei->type = EIGRP_IFTYPE_BROADCAST;
 
@@ -105,7 +115,7 @@ int eigrp_if_delete_hook(struct interface *ifp)
 	eigrp_nbr_hash_fini(&ei->nbr_hash_head);
 
 	eigrp = ei->eigrp;
-	listnode_delete(eigrp->eiflist, ei);
+	eigrp_interface_hash_del(&eigrp->eifs, ei);
 
 	eigrp_fifo_free(ei->obuf);
 
@@ -238,7 +248,6 @@ int eigrp_if_up(struct eigrp_interface *ei)
 	struct eigrp_route_descriptor *ne;
 	struct eigrp_metrics metric;
 	struct eigrp_interface *ei2;
-	struct listnode *node, *nnode;
 	struct eigrp *eigrp;
 
 	if (ei == NULL)
@@ -300,9 +309,8 @@ int eigrp_if_up(struct eigrp_interface *ei)
 
 		eigrp_route_descriptor_add(eigrp, pe, ne);
 
-		for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode, ei2)) {
+		frr_each (eigrp_interface_hash, &eigrp->eifs, ei2)
 			eigrp_update_send(ei2);
-		}
 
 		pe->req_action &= ~EIGRP_FSM_NEED_UPDATE;
 		listnode_delete(eigrp->topology_changes_internalIPV4, pe);
@@ -434,7 +442,7 @@ void eigrp_if_free(struct eigrp_interface *ei, int source)
 
 	eigrp_if_down(ei);
 
-	listnode_delete(ei->eigrp->eiflist, ei);
+	eigrp_interface_hash_del(&ei->eigrp->eifs, ei);
 }
 
 /* Simulate down/up on the interface.  This is needed, for example, when
@@ -454,10 +462,9 @@ struct eigrp_interface *eigrp_if_lookup_by_local_addr(struct eigrp *eigrp,
 						      struct interface *ifp,
 						      struct in_addr address)
 {
-	struct listnode *node;
 	struct eigrp_interface *ei;
 
-	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, ei)) {
+	frr_each (eigrp_interface_hash, &eigrp->eifs, ei) {
 		if (ifp && ei->ifp != ifp)
 			continue;
 
@@ -483,10 +490,10 @@ struct eigrp_interface *eigrp_if_lookup_by_name(struct eigrp *eigrp,
 						const char *if_name)
 {
 	struct eigrp_interface *ei;
-	struct listnode *node;
 
 	/* iterate over all eigrp interfaces */
-	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, ei)) {
+	// XXX
+	frr_each (eigrp_interface_hash, &eigrp->eifs, ei) {
 		/* compare int name with eigrp interface's name */
 		if (strcmp(ei->ifp->name, if_name) == 0) {
 			return ei;

@@ -195,12 +195,11 @@ static void eigrp_interface_helper(struct vty *vty, struct eigrp *eigrp,
 				   const char *ifname, const char *detail)
 {
 	struct eigrp_interface *ei;
-	struct listnode *node;
 
 	if (!ifname)
 		show_ip_eigrp_interface_header(vty, eigrp);
 
-	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, ei)) {
+	frr_each (eigrp_interface_hash, &eigrp->eifs, ei) {
 		if (!ifname || strcmp(ei->ifp->name, ifname) == 0) {
 			show_ip_eigrp_interface_sub(vty, eigrp, ei);
 			if (detail)
@@ -252,12 +251,11 @@ static void eigrp_neighbors_helper(struct vty *vty, struct eigrp *eigrp,
 				   const char *ifname, const char *detail)
 {
 	struct eigrp_interface *ei;
-	struct listnode *node;
 	struct eigrp_neighbor *nbr;
 
 	show_ip_eigrp_neighbor_header(vty, eigrp);
 
-	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, ei)) {
+	frr_each (eigrp_interface_hash, &eigrp->eifs, ei) {
 		if (!ifname || strcmp(ei->ifp->name, ifname) == 0) {
 			frr_each (eigrp_nbr_hash, &ei->nbr_hash_head, nbr) {
 				if (detail || (nbr->state == EIGRP_NEIGHBOR_UP))
@@ -320,7 +318,6 @@ DEFPY (clear_ip_eigrp_neighbors,
 {
 	struct eigrp *eigrp;
 	struct eigrp_interface *ei;
-	struct listnode *node;
 	struct eigrp_neighbor *nbr;
 
 	/* Check if eigrp process is enabled */
@@ -331,7 +328,7 @@ DEFPY (clear_ip_eigrp_neighbors,
 	}
 
 	/* iterate over all eigrp interfaces */
-	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, ei)) {
+	frr_each (eigrp_interface_hash, &eigrp->eifs, ei) {
 		/* send Goodbye Hello */
 		eigrp_hello_send(ei, EIGRP_HELLO_GRACEFUL_SHUTDOWN, NULL);
 

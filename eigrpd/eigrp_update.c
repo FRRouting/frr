@@ -693,10 +693,10 @@ void eigrp_update_send_all(struct eigrp *eigrp,
 			   struct eigrp_interface *exception)
 {
 	struct eigrp_interface *iface;
-	struct listnode *node, *node2, *nnode2;
+	struct listnode *node2, *nnode2;
 	struct eigrp_prefix_descriptor *pe;
 
-	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, iface)) {
+	frr_each (eigrp_interface_hash, &eigrp->eifs, iface) {
 		if (iface != exception) {
 			eigrp_update_send(iface);
 		}
@@ -1025,11 +1025,10 @@ void eigrp_update_send_interface_GR(struct eigrp_interface *ei,
 void eigrp_update_send_process_GR(struct eigrp *eigrp, enum GR_type gr_type,
 				  struct vty *vty)
 {
-	struct listnode *node;
 	struct eigrp_interface *ei;
 
 	/* iterate over all eigrp interfaces */
-	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, ei)) {
+	frr_each (eigrp_interface_hash, &eigrp->eifs, ei) {
 		/* send GR to all neighbors on interface */
 		eigrp_update_send_interface_GR(ei, gr_type, vty);
 	}
