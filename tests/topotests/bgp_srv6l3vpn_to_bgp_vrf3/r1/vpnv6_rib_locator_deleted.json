@@ -131,7 +131,7 @@
           }
         ],
         "2001:6::/64": [
-          {
+             {
             "valid": true,
             "bestpath": true,
             "selectionReason": "First path received",
