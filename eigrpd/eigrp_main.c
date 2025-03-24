@@ -98,6 +98,7 @@ static void sigint(void)
 
 	keychain_terminate();
 
+	route_map_finish();
 	eigrp_terminate();
 
 	exit(0);
