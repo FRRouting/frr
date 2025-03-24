@@ -26,8 +26,6 @@ extern void eigrp_nbr_delete(struct eigrp_neighbor *neigh);
 
 extern void holddown_timer_expired(struct event *thread);
 
-extern int eigrp_neighborship_check(struct eigrp_neighbor *neigh,
-				    struct TLV_Parameter_Type *tlv);
 extern void eigrp_nbr_state_update(struct eigrp_neighbor *neigh);
 extern void eigrp_nbr_state_set(struct eigrp_neighbor *neigh, uint8_t state);
 extern uint8_t eigrp_nbr_state_get(struct eigrp_neighbor *neigh);
