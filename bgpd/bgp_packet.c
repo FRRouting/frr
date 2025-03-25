@@ -1038,6 +1038,13 @@ static void bgp_notify_send_internal(struct peer_connection *connection,
 	/* Add packet to peer's output queue */
 	stream_fifo_push(connection->obuf, s);
 
+	/* If Graceful-Restart N-bit (Notification) is exchanged,
+	 * and it's not a Hard Reset, let's retain the routes.
+	 */
+	if (bgp_has_graceful_restart_notification(peer) && !hard_reset &&
+	    CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE))
+		SET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
+
 	bgp_peer_gr_flags_update(peer);
 	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(peer->bgp,
 							  peer->bgp->peer);
