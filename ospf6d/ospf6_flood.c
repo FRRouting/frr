@@ -1061,6 +1061,7 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 						zlog_debug(
 							"%s, Not moving to HELPER role, So dicarding GraceLSA",
 							__func__);
+					ospf6_lsa_delete(new);
 					return;
 				}
 			}
