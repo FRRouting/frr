@@ -165,8 +165,8 @@ def test_bgp_administrative_reset_gr():
         }
         return topotest.json_cmp(output, expected)
 
-    def _bgp_check_gr_notification_stale():
-        output = json.loads(r1.vtysh_cmd("show bgp ipv4 unicast 172.16.255.2/32 json"))
+    def _bgp_check_gr_notification_stale(router, prefix):
+        output = json.loads(router.vtysh_cmd(f"show bgp ipv4 unicast {prefix} json"))
         expected = {
             "paths": [
                 {
@@ -176,16 +176,6 @@ def test_bgp_administrative_reset_gr():
             ]
         }
         return topotest.json_cmp(output, expected)
-
-    def _bgp_clear_r1_and_shutdown():
-        r2.vtysh_cmd(
-            """
-            clear ip bgp 192.168.255.1
-            configure terminal
-             router bgp
-              neighbor 192.168.255.1 shutdown
-            """
-        )
 
     def _bgp_verify_show_bgp_router_json():
         output = json.loads(r1.vtysh_cmd("show bgp router json"))
@@ -202,13 +192,36 @@ def test_bgp_administrative_reset_gr():
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Failed to see BGP convergence on R2"
 
-    step("Reset and shutdown R1")
-    _bgp_clear_r1_and_shutdown()
+    step("Reset and delay the session establishement for R1")
+    r1.vtysh_cmd(
+        """
+        configure terminal"
+        router bgp
+         neighbor 192.168.255.2 timers delayopen 60
+        """
+    )
+    r2.vtysh_cmd(
+        """
+        configure terminal"
+        router bgp
+         neighbor 192.168.255.1 timers delayopen 60
+        """
+    )
+    r2.vtysh_cmd("clear ip bgp 192.168.255.1")
 
     step("Check if stale routes are retained on R1")
-    test_func = functools.partial(_bgp_check_gr_notification_stale)
+    test_func = functools.partial(
+        _bgp_check_gr_notification_stale, r1, "172.16.255.2/32"
+    )
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Failed to see retained stale routes on R1"
+
+    step("Check if stale routes are retained on R2")
+    test_func = functools.partial(
+        _bgp_check_gr_notification_stale, r2, "172.16.255.1/32"
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to see retained stale routes on R2"
 
     step("Check if Hard Reset notification wasn't sent from R2")
     test_func = functools.partial(_bgp_check_hard_reset)
