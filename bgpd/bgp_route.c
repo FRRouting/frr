@@ -6533,24 +6533,24 @@ static void clearing_clear_one_pi(struct bgp_table *table, struct bgp_dest *dest
  */
 static void set_clearing_resume_info(struct bgp_clearing_info *cinfo,
 				     const struct bgp_table *table,
-				     const struct bgp_dest *dest, bool inner_p)
+				     const struct prefix *p, bool inner_p)
 {
 	if (bgp_debug_neighbor_events(NULL))
 		zlog_debug("%s: %sinfo for %s/%s %pFX", __func__,
 			   inner_p ? "inner " : "", afi2str(table->afi),
-			   safi2str(table->safi), &dest->rn->p);
+			   safi2str(table->safi), p);
 
 	SET_FLAG(cinfo->flags, BGP_CLEARING_INFO_FLAG_RESUME);
 
 	if (inner_p) {
 		cinfo->inner_afi = table->afi;
 		cinfo->inner_safi = table->safi;
-		cinfo->inner_pfx = dest->rn->p;
+		memcpy(&cinfo->inner_pfx, p, sizeof(struct prefix));
 		SET_FLAG(cinfo->flags, BGP_CLEARING_INFO_FLAG_INNER);
 	} else {
 		cinfo->last_afi = table->afi;
 		cinfo->last_safi = table->safi;
-		cinfo->last_pfx = dest->rn->p;
+		memcpy(&cinfo->last_pfx, p, sizeof(struct prefix));
 	}
 }
 
@@ -6625,6 +6625,7 @@ static int walk_batch_table_helper(struct bgp_clearing_info *cinfo,
 	struct bgp_dest *dest;
 	bool force = (cinfo->bgp->process_queue == NULL);
 	uint32_t examined = 0, processed = 0;
+	struct prefix pfx;
 
 	/* Locate starting dest, possibly using "resume" info */
 	dest = clearing_dest_helper(table, cinfo, inner_p);
@@ -6640,6 +6641,9 @@ static int walk_batch_table_helper(struct bgp_clearing_info *cinfo,
 
 		examined++;
 		cinfo->curr_counter++;
+
+		/* Save dest's prefix */
+		memcpy(&pfx, &dest->rn->p, sizeof(struct prefix));
 
 		ain = dest->adj_in;
 		while (ain) {
@@ -6671,14 +6675,13 @@ static int walk_batch_table_helper(struct bgp_clearing_info *cinfo,
 		if (cinfo->curr_counter >= bm->peer_clearing_batch_max_dests) {
 			/* Capture info about last dest seen and break */
 			if (bgp_debug_neighbor_events(NULL))
-				zlog_debug("%s: %s/%s: pfx %pFX reached limit %u",
-					   __func__, afi2str(table->afi),
-					   safi2str(table->safi), &dest->rn->p,
+				zlog_debug("%s: %s/%s: pfx %pFX reached limit %u", __func__,
+					   afi2str(table->afi), safi2str(table->safi), &pfx,
 					   cinfo->curr_counter);
 
 			/* Reset the counter */
 			cinfo->curr_counter = 0;
-			set_clearing_resume_info(cinfo, table, dest, inner_p);
+			set_clearing_resume_info(cinfo, table, &pfx, inner_p);
 			ret = -1;
 			break;
 		}
@@ -6706,6 +6709,7 @@ static int clear_batch_rib_helper(struct bgp_clearing_info *cinfo)
 	safi_t safi;
 	struct bgp_dest *dest;
 	struct bgp_table *table, *outer_table;
+	struct prefix pfx;
 
 	/* Maybe resume afi/safi iteration */
 	if (CHECK_FLAG(cinfo->flags, BGP_CLEARING_INFO_FLAG_RESUME)) {
@@ -6762,6 +6766,9 @@ static int clear_batch_rib_helper(struct bgp_clearing_info *cinfo)
 						continue;
 					}
 
+					/* Capture last prefix */
+					memcpy(&pfx, &dest->rn->p, sizeof(struct prefix));
+
 					/* This will resume the "inner" walk if necessary */
 					ret = walk_batch_table_helper(cinfo, table, true /*inner*/);
 					if (ret != 0) {
@@ -6769,7 +6776,7 @@ static int clear_batch_rib_helper(struct bgp_clearing_info *cinfo)
 						 * capture the resume info we need
 						 * from the outer afi/safi and dest
 						 */
-						set_clearing_resume_info(cinfo, outer_table, dest,
+						set_clearing_resume_info(cinfo, outer_table, &pfx,
 									 false);
 						break;
 					}
