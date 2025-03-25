@@ -141,6 +141,19 @@ LDP Configuration
    If GTSM is enabled, multi-hop neighbors should have either GTSM disabled
    individually or configured with an appropriate ttl-security hops distance.
 
+.. clicmd:: disable-establish-hello
+
+   Located under the MPLS address-family interface node. By default,
+   the ldpd service sends additional LDP multicast hello messages on TCP
+   session establishment. This should speed up the connection time, so
+   the "passive" service would receive the "hello" earlier and would "accept"
+   TCP without waiting for the UDP message on interval. This behaviour can
+   produce massive traffic with multicast packets if there are a lot of ldpd
+   services in one local network, essentially each "addition hello" may trigger
+   attempt for connection and sending "additional hello" from other ldpd
+   services. This option allows to disable that behaviour. LDP hello multicast
+   messages would be sent only by interval.
+
 .. clicmd:: neighbor A.B.C.D password PASSWORD
 
    The following command located under MPLS router node configures the router
