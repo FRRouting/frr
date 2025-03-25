@@ -4201,12 +4201,30 @@ static wq_item_status meta_queue_process(struct work_queue *dummy, void *data)
 {
 	struct meta_queue *mq = data;
 	uint32_t i;
+	uint32_t peers_on_fifo;
+	static uint32_t total_runs = 0;
+
+	total_runs++;
+
+	frr_with_mutex (&bm->peer_connection_mtx)
+		peers_on_fifo = peer_connection_fifo_count(&bm->connection_fifo);
+
+	/*
+	 * If the number of peers on the fifo is greater than 10
+	 * let's yield this run of the MetaQ  to allow the packet processing to make
+	 * progress against the incoming packets.  But we should also
+	 * attempt to allow this to run occassionally.  Let's run
+	 * something every 10 attempts to process the work queue.
+	 */
+	if (peers_on_fifo > 10 && total_runs % 10 != 0)
+		return WQ_QUEUE_BLOCKED;
 
 	for (i = 0; i < MQ_SIZE; i++)
 		if (process_subq(mq->subq[i], i)) {
 			mq->size--;
 			break;
 		}
+
 	return mq->size ? WQ_REQUEUE : WQ_SUCCESS;
 }
 
