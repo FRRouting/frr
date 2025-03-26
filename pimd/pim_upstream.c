@@ -1624,8 +1624,7 @@ void pim_upstream_set_sptbit(struct pim_upstream *up,
 	if (!starup
 	    || up->rpf.source_nexthop
 			       .interface != starup->rpf.source_nexthop.interface) {
-		struct pim_upstream *starup = up->parent;
-
+		starup = up->parent;
 		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug(
 				"%s: %s RPF_interface(S) != RPF_interface(RP(G))",

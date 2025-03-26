@@ -15,7 +15,7 @@
 #include "pim_upstream.h"
 #include "pim_vxlan.h"
 
-extern struct zclient *zclient;
+extern struct zclient *pim_zclient;
 
 #define PIM_MLAG_METADATA_LEN 4
 
@@ -925,7 +925,7 @@ static void pim_mlag_register_handler(struct event *thread)
 {
 	uint32_t bit_mask = 0;
 
-	if (!zclient)
+	if (!pim_zclient)
 		return;
 
 	SET_FLAG(bit_mask, (1 << MLAG_STATUS_UPDATE));
@@ -942,7 +942,7 @@ static void pim_mlag_register_handler(struct event *thread)
 		zlog_debug("%s: Posting Client Register to MLAG mask: 0x%x",
 			   __func__, bit_mask);
 
-	zclient_send_mlag_register(zclient, bit_mask);
+	zclient_send_mlag_register(pim_zclient, bit_mask);
 }
 
 void pim_mlag_register(void)
@@ -958,14 +958,14 @@ void pim_mlag_register(void)
 
 static void pim_mlag_deregister_handler(struct event *thread)
 {
-	if (!zclient)
+	if (!pim_zclient)
 		return;
 
 	if (PIM_DEBUG_MLAG)
 		zlog_debug("%s: Posting Client De-Register to MLAG from PIM",
 			   __func__);
 	router->connected_to_mlag = false;
-	zclient_send_mlag_deregister(zclient);
+	zclient_send_mlag_deregister(pim_zclient);
 }
 
 void pim_mlag_deregister(void)
