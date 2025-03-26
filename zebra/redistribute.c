@@ -109,7 +109,7 @@ static void redistribute_table_direct(struct zserv *client, int type, const stru
 	}
 }
 
-static void zebra_redistribute(struct zserv *client, int type,
+static void zebra_redistribute(int command, struct zserv *client, int type,
 			       unsigned short instance, struct zebra_vrf *zvrf,
 			       int afi)
 {
@@ -155,10 +155,10 @@ static void zebra_redistribute(struct zserv *client, int type,
 				continue;
 
 			if (is_table_direct)
-				redistribute_table_direct(client, ZEBRA_REDISTRIBUTE_ROUTE_ADD, rn,
+				redistribute_table_direct(client, command, rn,
 							  newre);
 			else
-				zsend_redistribute_route(ZEBRA_REDISTRIBUTE_ROUTE_ADD, client, rn,
+				zsend_redistribute_route(command, client, rn,
 							 newre, NULL);
 		}
 }
@@ -409,12 +409,12 @@ void zebra_redistribute_add(ZAPI_HANDLER_ARGS)
 			};
 			if (!redist_lookup_table_direct(&client->mi_redist[afi][type], &table)) {
 				redist_add_table_direct(&client->mi_redist[afi][type], &table);
-				zebra_redistribute(client, type, instance, zvrf, afi);
+				zebra_redistribute(ZEBRA_REDISTRIBUTE_ROUTE_ADD, client, type, instance, zvrf, afi);
 			}
 		} else if (!redist_check_instance(&client->mi_redist[afi][type], instance)) {
 			redist_add_instance(&client->mi_redist[afi][type],
 					    instance);
-			zebra_redistribute(client, type, instance, zvrf, afi);
+			zebra_redistribute(ZEBRA_REDISTRIBUTE_ROUTE_ADD, client, type, instance, zvrf, afi);
 		}
 	} else {
 		if (!vrf_bitmap_check(&client->redist[afi][type],
@@ -426,7 +426,7 @@ void zebra_redistribute_add(ZAPI_HANDLER_ARGS)
 					zvrf_id(zvrf));
 			vrf_bitmap_set(&client->redist[afi][type],
 				       zvrf_id(zvrf));
-			zebra_redistribute(client, type, 0, zvrf, afi);
+			zebra_redistribute(ZEBRA_REDISTRIBUTE_ROUTE_ADD, client, type, 0, zvrf, afi);
 		}
 	}
 
@@ -476,10 +476,15 @@ void zebra_redistribute_delete(ZAPI_HANDLER_ARGS)
 			.table_id = instance,
 		};
 		redist_del_table_direct(&client->mi_redist[afi][type], &table);
-	} else if (instance)
+		zebra_redistribute(ZEBRA_REDISTRIBUTE_ROUTE_DEL, client, type, instance, zvrf, afi);
+	} else if (instance) {
 		redist_del_instance(&client->mi_redist[afi][type], instance);
-	else
+		zebra_redistribute(ZEBRA_REDISTRIBUTE_ROUTE_DEL, client, type, instance, zvrf, afi);
+	}
+	else {
 		vrf_bitmap_unset(&client->redist[afi][type], zvrf_id(zvrf));
+		zebra_redistribute(ZEBRA_REDISTRIBUTE_ROUTE_DEL, client, type, 0, zvrf, afi);
+	}
 
 stream_failure:
 	return;
