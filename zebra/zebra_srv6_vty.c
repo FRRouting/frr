@@ -210,7 +210,7 @@ DEFUN (show_srv6_locator_detail,
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
-		struct listnode *node;
+		struct listnode *nnode;
 		struct srv6_locator_chunk *chunk;
 
 		if (strcmp(locator->name, locator_name) != 0)
@@ -247,8 +247,7 @@ DEFUN (show_srv6_locator_detail,
 		}
 
 		vty_out(vty, "Chunks:\n");
-		for (ALL_LIST_ELEMENTS_RO((struct list *)locator->chunks, node,
-					  chunk)) {
+		for (ALL_LIST_ELEMENTS_RO((struct list *)locator->chunks, nnode, chunk)) {
 			prefix2str(&chunk->prefix, str, sizeof(str));
 			vty_out(vty, "- prefix: %s, owner: %s\n", str,
 				zebra_route_string(chunk->proto));
