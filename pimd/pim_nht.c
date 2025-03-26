@@ -780,7 +780,6 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 		 */
 		struct pim_zlookup_nexthop nexthop_tab[router->multipath];
 		ifindex_t i;
-		struct interface *ifp = NULL;
 		int num_ifindex;
 
 		memset(nexthop_tab, 0, sizeof(nexthop_tab));
