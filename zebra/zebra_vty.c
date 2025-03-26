@@ -1490,8 +1490,6 @@ DEFPY(show_nexthop_group,
 		struct vrf *vrf;
 
 		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-			struct zebra_vrf *zvrf;
-
 			zvrf = vrf->info;
 			if (!zvrf)
 				continue;
