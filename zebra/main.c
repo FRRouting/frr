@@ -57,7 +57,7 @@
 char *zserv_path;
 
 /* process id. */
-pid_t pid;
+pid_t zebra_pid;
 
 /* Pacify zclient.o in libfrr, which expects this variable. */
 struct event_loop *master;
@@ -520,7 +520,7 @@ int main(int argc, char **argv)
 	 */
 
 	/* Needed for BSD routing socket. */
-	pid = getpid();
+	zebra_pid = getpid();
 
 	/* Start dataplane system */
 	zebra_dplane_start();

@@ -1054,7 +1054,7 @@ void rtm_read(struct rt_msghdr *rtm)
 	/*
 	 * Ignore our own messages.
 	 */
-	if (rtm->rtm_type != RTM_GET && rtm->rtm_pid == pid)
+	if (rtm->rtm_type != RTM_GET && rtm->rtm_pid == zebra_pid)
 		return;
 
 	if (dest.sa.sa_family == AF_INET) {

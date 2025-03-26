@@ -1602,8 +1602,6 @@ DEFPY(show_ipv6_nd_ra_if, show_ipv6_nd_ra_if_cmd,
 		struct vrf *vrf;
 
 		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-			struct zebra_vrf *zvrf;
-
 			zvrf = vrf->info;
 			if (!zvrf)
 				continue;

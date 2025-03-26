@@ -1919,8 +1919,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 		if (zif_type == ZEBRA_IF_VRF && !vrf_is_backend_netns())
 			interface_vrf_change(op, ifindex, name, tableid, ns_id);
 	} else {
-		ifindex_t master_ifindex, bridge_ifindex, bond_ifindex,
-			link_ifindex;
+		ifindex_t master_ifindex, bridge_ifindex, link_ifindex;
 		enum zebra_slave_iftype zif_slave_type;
 		uint8_t bypass;
 		uint64_t flags;
@@ -2730,14 +2729,14 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 		}
 		if (gre_info->ifindex_link &&
 		    (gre_info->link_nsid != NS_UNKNOWN)) {
-			struct interface *ifp;
+			struct interface *nifp;
 
-			ifp = if_lookup_by_index_per_ns(
-					zebra_ns_lookup(gre_info->link_nsid),
-					gre_info->ifindex_link);
+			nifp = if_lookup_by_index_per_ns(
+				zebra_ns_lookup(gre_info->link_nsid),
+				gre_info->ifindex_link);
 			vty_out(vty, "  Link Interface %s\n",
-				ifp == NULL ? "Unknown" :
-				ifp->name);
+				nifp == NULL ? "Unknown" :
+				nifp->name);
 		}
 	}
 
@@ -3116,14 +3115,13 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 		}
 		if (gre_info->ifindex_link
 		    && (gre_info->link_nsid != NS_UNKNOWN)) {
-			struct interface *ifp;
+			struct interface *nifp;
 
-			ifp = if_lookup_by_index_per_ns(
+			nifp = if_lookup_by_index_per_ns(
 				zebra_ns_lookup(gre_info->link_nsid),
 				gre_info->ifindex_link);
 			json_object_string_add(json_if, "linkInterface",
-					       ifp == NULL ? "Unknown"
-							   : ifp->name);
+					       nifp == NULL ? "Unknown" : nifp->name);
 		}
 	}
 
