@@ -29,6 +29,7 @@
 #include "ospf6_intra.h"
 #include "ospf6_asbr.h"
 #include "ospf6_abr.h"
+#include "ospf6_nssa.h"
 #include "ospf6_flood.h"
 #include "ospf6d.h"
 #include "ospf6_spf.h"
@@ -1965,11 +1966,15 @@ void ospf6_intra_route_calculation(struct ospf6_area *oa)
 				(*hook_add)(route);
 			route->flag = 0;
 		} else {
-			/* Redo the summaries as things might have changed */
+			/* Redo the summaries as things might have changed.
+			 * Note: Not strictly needed since we're called by
+			 * ospf6_spf_calculation_thread() which calls
+			 * ospf6_abr_task() anyway, but make it explicit.
+			 */
 			if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX))
-				zlog_debug("%s: Originate summary for route %s",
+				zlog_debug("%s: Schedule summary origination for route %s",
 					   __func__, buf);
-			ospf6_abr_originate_summary(route, oa->ospf6);
+			ospf6_schedule_abr_task(oa->ospf6);
 			route->flag = 0;
 		}
 	}
@@ -2211,8 +2216,12 @@ void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
 				zlog_debug(
 					"brouter %s still exists via area %s",
 					brouter_name, oa->name);
-			/* But re-originate summaries */
-			ospf6_abr_originate_summary(brouter, oa->ospf6);
+			/* But re-originate summaries via ospf6_abr_task().
+			 * Note: Not strictly needed since we're called by
+			 * ospf6_spf_calculation_thread() which calls
+			 * ospf6_abr_task() anyway, but make it explicit.
+			 */
+			ospf6_schedule_abr_task(oa->ospf6);
 		}
 
 		if (brouter) {
