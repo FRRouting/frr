@@ -310,8 +310,7 @@ DEFPY (babel_set_wired,
     babel_ifp = babel_get_if_nfo(ifp);
 
     assert (babel_ifp != NULL);
-    if ((CHECK_FLAG(babel_ifp->flags, BABEL_IF_WIRED) ? 1 : 0) != (no ? 0 : 1))
-        babel_set_wired_internal(babel_ifp, no ? 0 : 1);
+      babel_set_wired_internal(babel_ifp, no ? 0 : 1);
     return CMD_SUCCESS;
 }
 
@@ -329,8 +328,8 @@ DEFPY (babel_set_wireless,
     babel_ifp = babel_get_if_nfo(ifp);
 
     assert (babel_ifp != NULL);
-    if ((CHECK_FLAG(babel_ifp->flags, BABEL_IF_WIRED) ? 1 : 0) != (no ? 1 : 0))
-        babel_set_wired_internal(babel_ifp, no ? 1 : 0);
+    
+    babel_set_wired_internal(babel_ifp, no ? 1 : 0);
     return CMD_SUCCESS;
 }
 
@@ -587,6 +586,7 @@ interface_recalculate(struct interface *ifp)
     int mtu, rc;
     struct ipv6_mreq mreq;
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
+    struct connected *connected;
     assert (babel_ifp != NULL);
 
     if (!IS_ENABLE(ifp))
@@ -595,6 +595,14 @@ interface_recalculate(struct interface *ifp)
     if (!if_is_operative(ifp) || !CHECK_FLAG(ifp->flags, IFF_RUNNING)) {
         interface_reset(ifp);
         return -1;
+    }
+
+    babel_ifp->ipv4 = malloc(4);
+    frr_each (if_connected, ifp->connected, connected) {
+	    if (connected->address->family == AF_INET) {
+            memcpy(babel_ifp->ipv4, &connected->address->u.prefix4, 4);
+            break;
+        }
     }
 
     SET_FLAG(babel_ifp->flags, BABEL_IF_IS_UP);
