@@ -67,7 +67,11 @@ struct list {
 #define listcount(X) ((X)->count)
 #define list_isempty(X) ((X)->head == NULL && (X)->tail == NULL)
 /* return X->data only if X and X->data are not NULL */
-#define listgetdata(X) (assert(X), assert((X)->data != NULL), (X)->data)
+static inline void *listgetdata(const struct listnode *X)
+{
+	assert((X != NULL) && ((X)->data != NULL));
+	return X->data;
+}
 /* App is going to manage listnode memory */
 #define listset_app_node_mem(X) ((X)->flags |= LINKLIST_FLAG_NODE_MEM_BY_APP)
 #define listnode_init(X, val) ((X)->data = (val))
