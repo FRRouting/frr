@@ -139,6 +139,9 @@ static const void *nb_op_list_get_next(struct nb_op_yield_state *ys, struct nb_n
 static const void *nb_op_list_lookup_entry(struct nb_op_yield_state *ys, struct nb_node *nb_node,
 					   const struct nb_op_node_info *pni, struct lyd_node *node,
 					   const struct yang_list_keys *keys);
+static void nb_op_list_list_entry_done(struct nb_op_yield_state *ys, struct nb_node *nb_node,
+				       const struct nb_op_node_info *pni, const void *list_entry);
+static void ys_pop_inner(struct nb_op_yield_state *ys);
 
 /* -------------------- */
 /* Function Definitions */
@@ -189,6 +192,9 @@ static inline void nb_op_free_yield_state(struct nb_op_yield_state *ys,
 		darr_free(ys->non_specific_predicate);
 		darr_free(ys->query_tokstr);
 		darr_free(ys->schema_path);
+		/* need to cleanup resources, so pop these individually */
+		while (darr_len(ys->node_infos))
+			ys_pop_inner(ys);
 		darr_free(ys->node_infos);
 		darr_free(ys->xpath_orig);
 		darr_free(ys->xpath);
@@ -223,10 +229,20 @@ static void ys_trim_xpath(struct nb_op_yield_state *ys)
 
 static void ys_pop_inner(struct nb_op_yield_state *ys)
 {
-	uint len = darr_len(ys->node_infos);
+	struct nb_op_node_info *ni, *pni;
+	struct nb_node *nb_node;
+	int i = darr_lasti(ys->node_infos);
 
-	assert(len);
-	darr_setlen(ys->node_infos, len - 1);
+	pni = i > 0 ? &ys->node_infos[i - 1] : NULL;
+	ni = &ys->node_infos[i];
+
+	/* list_entry's propagate so only free the first occurance */
+	if (ni->list_entry && (!pni || pni->list_entry != ni->list_entry)) {
+		nb_node = ni->schema ? ni->schema->priv : NULL;
+		if (nb_node)
+			nb_op_list_list_entry_done(ys, nb_node, pni, ni->list_entry);
+	}
+	darr_setlen(ys->node_infos, i);
 	ys_trim_xpath(ys);
 }
 
@@ -873,6 +889,14 @@ static enum nb_error nb_op_list_get_keys(struct nb_op_yield_state *ys, struct nb
 	return 0;
 }
 
+static void nb_op_list_list_entry_done(struct nb_op_yield_state *ys, struct nb_node *nb_node,
+				       const struct nb_op_node_info *pni, const void *list_entry)
+{
+	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_HAS_GET_TREE))
+		return;
+
+	nb_callback_list_entry_done(nb_node, pni ? pni->list_entry : NULL, list_entry);
+}
 
 /**
  * nb_op_add_leaf() - Add leaf data to the get tree results
@@ -1154,8 +1178,8 @@ static const struct lysc_node *nb_op_sib_first(struct nb_op_yield_state *ys,
 	 *
 	 * If the schema path (original query) is longer than our current node
 	 * info stack (current xpath location), we are building back up to the
-	 * base of the user query, return the next schema node from the query
-	 * string (schema_path).
+	 * base of the walk at the end of the user query path, return the next
+	 * schema node from the query string (schema_path).
 	 */
 	if (last != NULL)
 		assert(last->schema == parent);
@@ -1526,6 +1550,18 @@ static enum nb_error __walk(struct nb_op_yield_state *ys, bool is_resume)
 				 */
 				assert(!list_start);
 				is_specific_node = true;
+
+				/*
+				 * Release the entry back to the daemon
+				 */
+				assert(ni->list_entry == list_entry);
+				nb_op_list_list_entry_done(ys, nn, pni, list_entry);
+				ni->list_entry = NULL;
+
+				/*
+				 * Continue on as we may reap the resulting node
+				 * if empty.
+				 */
 				list_entry = NULL;
 			}
 
@@ -1606,6 +1642,18 @@ static enum nb_error __walk(struct nb_op_yield_state *ys, bool is_resume)
 			}
 
 			/*
+			 * The walk API is that get/lookup_next returns NULL
+			 * when done, those callbacks are also is responsible
+			 * for releasing any state associated with previous
+			 * list_entry's (e.g., any locks) during the iteration.
+			 * Therefore we need to zero out the last top level
+			 * list_entry so we don't mistakenly call the
+			 * list_entry_done() callback on it.
+			 */
+			if (!is_specific_node && !list_start && !list_entry)
+				ni->list_entry = NULL;
+
+			/*
 			 * (FN:A) Reap empty list element? Check to see if we
 			 * should reap an empty list element. We do this if the
 			 * empty list element exists at or below the query base
@@ -1620,16 +1668,13 @@ static enum nb_error __walk(struct nb_op_yield_state *ys, bool is_resume)
 			 * have no non-key children, check for this condition
 			 * and do not reap if true.
 			 */
-			if (!list_start && ni->inner &&
-			    !lyd_child_no_keys(ni->inner) &&
+			if (!list_start && ni->inner && !lyd_child_no_keys(ni->inner) &&
 			    /* not the top element with a key match */
-			    !((darr_ilen(ys->node_infos) ==
-			       darr_ilen(ys->schema_path) - 1) &&
+			    !((darr_ilen(ys->node_infos) == darr_ilen(ys->schema_path) - 1) &&
 			      lysc_is_key((*darr_last(ys->schema_path)))) &&
-			    /* is this at or below the base? */
-			    darr_ilen(ys->node_infos) <= ys->query_base_level)
+			    /* is this list entry below the query base? */
+			    darr_ilen(ys->node_infos) - 1 < ys->query_base_level)
 				ys_free_inner(ys, ni);
-
 
 			if (!list_entry) {
 				/*
@@ -1725,12 +1770,15 @@ static enum nb_error __walk(struct nb_op_yield_state *ys, bool is_resume)
 				ni->xpath_len = len;
 			}
 
+			/* Save the new list_entry early so it can be cleaned up on error */
+			ni->list_entry = list_entry;
+			ni->schema = sib;
+
 			/* Need to get keys. */
 
 			if (!CHECK_FLAG(nn->flags, F_NB_NODE_KEYLESS_LIST)) {
 				ret = nb_op_list_get_keys(ys, nn, list_entry, &ni->keys);
 				if (ret) {
-					darr_pop(ys->node_infos);
 					ret = NB_ERR_RESOURCE;
 					goto done;
 				}
@@ -1765,7 +1813,6 @@ static enum nb_error __walk(struct nb_op_yield_state *ys, bool is_resume)
 									.inner,
 							sib, &ni->keys, &node);
 				if (err) {
-					darr_pop(ys->node_infos);
 					ret = NB_ERR_RESOURCE;
 					goto done;
 				}
@@ -1775,8 +1822,7 @@ static enum nb_error __walk(struct nb_op_yield_state *ys, bool is_resume)
 			 * Save the new list entry with the list node info
 			 */
 			ni->inner = node;
-			ni->schema = node->schema;
-			ni->list_entry = list_entry;
+			assert(ni->schema == node->schema);
 			ni->niters += 1;
 			ni->nents += 1;
 
