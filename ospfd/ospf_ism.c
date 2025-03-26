@@ -229,8 +229,8 @@ int ospf_dr_election(struct ospf_interface *oi)
 	list_delete(&el_list);
 
 	/* if DR or BDR changes, cause AdjOK? neighbor event. */
-	if (!IPV4_ADDR_SAME(&old_dr, &DR(oi))
-	    || !IPV4_ADDR_SAME(&old_bdr, &BDR(oi)))
+	if (!IPV4_ADDR_SAME(&old_dr, &DR(oi)) || !IPV4_ADDR_SAME(&old_bdr, &BDR(oi)) ||
+	    oi->ospf->gr_info.restart_in_progress)
 		ospf_dr_change(oi->ospf, oi->nbrs);
 
 	return new_state;
