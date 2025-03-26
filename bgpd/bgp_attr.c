@@ -5028,7 +5028,13 @@ void bgp_packet_mpunreach_prefix(struct stream *s, const struct prefix *p,
 {
 	uint8_t wlabel[4] = {0x80, 0x00, 0x00};
 
-	if (safi == SAFI_LABELED_UNICAST) {
+	/* [RFC3107] also made it possible to withdraw a binding without
+	 * specifying the label explicitly, by setting the Compatibility field
+	 * to 0x800000. However, some implementations set it to 0x000000. In
+	 * order to ensure backwards compatibility, it is RECOMMENDED by this
+	 * document that the Compatibility field be set to 0x800000.
+	 */
+	if (safi == SAFI_LABELED_UNICAST || safi == SAFI_MPLS_VPN) {
 		label = (mpls_label_t *)wlabel;
 		num_labels = 1;
 	}
