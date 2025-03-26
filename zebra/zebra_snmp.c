@@ -418,11 +418,11 @@ static void get_fwtable_route_node(struct variable *v, oid objid[],
 	objid[v->namelen + 5] = policy;
 
 	{
-		struct nexthop *nexthop;
+		struct nexthop *nh;
 
-		nexthop = (*re)->nhe->nhg.nexthop;
-		if (nexthop) {
-			pnt = (uint8_t *)&nexthop->gate.ipv4;
+		nh = (*re)->nhe->nhg.nexthop;
+		if (nh) {
+			pnt = (uint8_t *)&nh->gate.ipv4;
 			for (i = 0; i < 4; i++)
 				objid[i + v->namelen + 6] = *pnt++;
 		}

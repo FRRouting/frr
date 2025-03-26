@@ -3139,13 +3139,11 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 				if (nh->nh_srv6->seg6local_action !=
 				    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC) {
 					uint32_t action;
-					uint16_t encap;
-					struct rtattr *nest;
-					const struct seg6local_context *ctx;
+					const struct seg6local_context *ctx6;
 
 					req->nhm.nh_family = AF_INET6;
 					action = nh->nh_srv6->seg6local_action;
-					ctx = &nh->nh_srv6->seg6local_ctx;
+					ctx6 = &nh->nh_srv6->seg6local_ctx;
 					encap = LWTUNNEL_ENCAP_SEG6_LOCAL;
 					if (!nl_attr_put(&req->n, buflen,
 							 NHA_ENCAP_TYPE,
@@ -3174,7 +3172,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 							return 0;
 						if (!nl_attr_put(
 						    &req->n, buflen,
-						    SEG6_LOCAL_NH6, &ctx->nh6,
+						    SEG6_LOCAL_NH6, &ctx6->nh6,
 						    sizeof(struct in6_addr)))
 							return 0;
 						break;
@@ -3187,7 +3185,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 						if (!nl_attr_put32(
 						    &req->n, buflen,
 						    SEG6_LOCAL_TABLE,
-						    ctx->table))
+						    ctx6->table))
 							return 0;
 						break;
 					case SEG6_LOCAL_ACTION_END_DX4:
@@ -3198,7 +3196,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 							return 0;
 						if (!nl_attr_put(
 						    &req->n, buflen,
-						    SEG6_LOCAL_NH4, &ctx->nh4,
+						    SEG6_LOCAL_NH4, &ctx6->nh4,
 						    sizeof(struct in_addr)))
 							return 0;
 						break;
@@ -3210,7 +3208,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 							return 0;
 						if (!nl_attr_put(&req->n, buflen,
 								 SEG6_LOCAL_NH6,
-								 &ctx->nh6,
+								 &ctx6->nh6,
 								 sizeof(struct in6_addr)))
 							return 0;
 						break;
@@ -3223,7 +3221,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 						if (!nl_attr_put32(
 						    &req->n, buflen,
 						    SEG6_LOCAL_TABLE,
-						    ctx->table))
+						    ctx6->table))
 							return 0;
 						break;
 					case SEG6_LOCAL_ACTION_END_DT4:
@@ -3235,7 +3233,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 						if (!nl_attr_put32(
 							    &req->n, buflen,
 							    SEG6_LOCAL_VRFTABLE,
-							    ctx->table))
+							    ctx6->table))
 							return 0;
 						break;
 					case SEG6_LOCAL_ACTION_END_DT46:
@@ -3247,7 +3245,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 						if (!nl_attr_put32(
 							    &req->n, buflen,
 							    SEG6_LOCAL_VRFTABLE,
-							    ctx->table))
+							    ctx6->table))
 							return 0;
 						break;
 					default:
@@ -3268,7 +3266,6 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 				    !sid_zero(nh->nh_srv6->seg6_segs)) {
 					char tun_buf[4096];
 					ssize_t tun_len;
-					struct rtattr *nest;
 
 					if (!nl_attr_put16(&req->n, buflen,
 					    NHA_ENCAP_TYPE,

@@ -317,9 +317,9 @@ static ssize_t printfrr_zebra_node(struct fbuf *buf, struct printfrr_eargs *ea,
 
 #define rnode_debug(node, vrf_id, msg, ...)                                    \
 	do {                                                                   \
-		struct vrf *vrf = vrf_lookup_by_id(vrf_id);                    \
+		struct vrf *_vrf = vrf_lookup_by_id(vrf_id);                    \
 		zlog_debug("%s: (%s:%pZNt):%pZN: " msg, __func__,              \
-			   VRF_LOGNAME(vrf), node, node, ##__VA_ARGS__);       \
+			   VRF_LOGNAME(_vrf), node, node, ##__VA_ARGS__);       \
 	} while (0)
 
 #define rnode_info(node, vrf_id, msg, ...)                                     \
@@ -1225,10 +1225,10 @@ static void rib_process(struct route_node *rn)
 	 * will not iterate so we are ok.
 	 */
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
-		struct route_entry *re = re_list_first(&dest->routes);
+		struct route_entry *rent = re_list_first(&dest->routes);
 
 		zlog_debug("%s(%u:%u:%u):%pRN: Processing rn %p", VRF_LOGNAME(vrf), vrf_id,
-			   re->table, safi, rn, rn);
+			   rent->table, safi, rn, rn);
 	}
 
 	old_fib = dest->selected_fib;
