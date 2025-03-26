@@ -235,8 +235,9 @@ static int nb_node_validate_cb(const struct nb_node *nb_node,
 	 * depends on context (e.g. some daemons might augment "frr-interface"
 	 * while others don't).
 	 */
-	if (!valid && callback_implemented && operation != NB_CB_GET_NEXT
-	    && operation != NB_CB_GET_KEYS && operation != NB_CB_LOOKUP_ENTRY)
+	if (!valid && callback_implemented && operation != NB_CB_GET_NEXT &&
+	    operation != NB_CB_GET_KEYS && operation != NB_CB_LIST_ENTRY_DONE &&
+	    operation != NB_CB_LOOKUP_ENTRY)
 		flog_warn(EC_LIB_NB_CB_UNNEEDED,
 			  "unneeded '%s' callback for '%s'",
 			  nb_cb_operation_name(operation), nb_node->xpath);
@@ -283,6 +284,8 @@ static unsigned int nb_node_validate_cbs(const struct nb_node *nb_node)
 				     state_optional);
 	error += nb_node_validate_cb(nb_node, NB_CB_GET_KEYS, !!nb_node->cbs.get_keys,
 				     state_optional);
+	error += nb_node_validate_cb(nb_node, NB_CB_LIST_ENTRY_DONE, !!nb_node->cbs.list_entry_done,
+				     true);
 	error += nb_node_validate_cb(nb_node, NB_CB_LOOKUP_ENTRY, !!nb_node->cbs.lookup_entry,
 				     state_optional);
 	error += nb_node_validate_cb(nb_node, NB_CB_RPC, !!nb_node->cbs.rpc,
@@ -1806,6 +1809,19 @@ int nb_callback_get_keys(const struct nb_node *nb_node, const void *list_entry,
 	return nb_node->cbs.get_keys(&args);
 }
 
+void nb_callback_list_entry_done(const struct nb_node *nb_node, const void *parent_list_entry,
+				 const void *list_entry)
+{
+	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS) || !nb_node->cbs.list_entry_done)
+		return;
+
+	DEBUGD(&nb_dbg_cbs_state,
+	       "northbound callback (list_entry_done): node [%s] parent_list_entry [%p] list_entry [%p]",
+	       nb_node->xpath, parent_list_entry, list_entry);
+
+	nb_node->cbs.list_entry_done(parent_list_entry, list_entry);
+}
+
 const void *nb_callback_lookup_entry(const struct nb_node *nb_node,
 				     const void *parent_list_entry,
 				     const struct yang_list_keys *keys)
@@ -1943,6 +1959,7 @@ static int nb_callback_configuration(struct nb_context *context,
 	case NB_CB_GET_ELEM:
 	case NB_CB_GET_NEXT:
 	case NB_CB_GET_KEYS:
+	case NB_CB_LIST_ENTRY_DONE:
 	case NB_CB_LOOKUP_ENTRY:
 	case NB_CB_RPC:
 	case NB_CB_NOTIFY:
@@ -2322,6 +2339,7 @@ bool nb_cb_operation_is_valid(enum nb_cb_operation operation,
 		}
 		return true;
 	case NB_CB_GET_KEYS:
+	case NB_CB_LIST_ENTRY_DONE:
 	case NB_CB_LOOKUP_ENTRY:
 		switch (snode->nodetype) {
 		case LYS_LIST:
@@ -2625,6 +2643,8 @@ const char *nb_cb_operation_name(enum nb_cb_operation operation)
 		return "get_next";
 	case NB_CB_GET_KEYS:
 		return "get_keys";
+	case NB_CB_LIST_ENTRY_DONE:
+		return "list_entry_done";
 	case NB_CB_LOOKUP_ENTRY:
 		return "lookup_entry";
 	case NB_CB_RPC:
