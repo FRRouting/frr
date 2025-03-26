@@ -16,7 +16,7 @@
 
 DEFINE_MTYPE_STATIC(NHRPD, NHRP_ROUTE, "NHRP routing entry");
 
-static struct zclient *zclient;
+static struct zclient *nhrp_zclient;
 static struct route_table *zebra_rib[AFI_MAX];
 
 struct route_info {
@@ -95,7 +95,7 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type,
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
 
-	if (zclient->sock < 0)
+	if (nhrp_zclient->sock < 0)
 		return;
 
 	memset(&api, 0, sizeof(api));
@@ -196,7 +196,7 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type,
 			api.metric, api.nexthop_num, ifp ? ifp->name : "none");
 	}
 
-	zclient_route_send(add ? ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE, zclient,
+	zclient_route_send(add ? ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE, nhrp_zclient,
 			   &api);
 }
 
@@ -374,10 +374,10 @@ void nhrp_zebra_init(void)
 	zebra_rib[AFI_IP] = route_table_init();
 	zebra_rib[AFI_IP6] = route_table_init();
 
-	zclient = zclient_new(master, &zclient_options_default, nhrp_handlers,
-			      array_size(nhrp_handlers));
-	zclient->zebra_connected = nhrp_zebra_connected;
-	zclient_init(zclient, ZEBRA_ROUTE_NHRP, 0, &nhrpd_privs);
+	nhrp_zclient = zclient_new(master, &zclient_options_default, nhrp_handlers,
+				   array_size(nhrp_handlers));
+	nhrp_zclient->zebra_connected = nhrp_zebra_connected;
+	zclient_init(nhrp_zclient, ZEBRA_ROUTE_NHRP, 0, &nhrpd_privs);
 }
 
 static void nhrp_table_node_cleanup(struct route_table *table,
@@ -393,18 +393,18 @@ void nhrp_send_zebra_configure_arp(struct interface *ifp, int family)
 {
 	struct stream *s;
 
-	if (!zclient || zclient->sock < 0) {
+	if (!nhrp_zclient || nhrp_zclient->sock < 0) {
 		debugf(NHRP_DEBUG_COMMON, "%s() : zclient not ready",
 		       __func__);
 		return;
 	}
-	s = zclient->obuf;
+	s = nhrp_zclient->obuf;
 	stream_reset(s);
 	zclient_create_header(s, ZEBRA_CONFIGURE_ARP, ifp->vrf->vrf_id);
 	stream_putc(s, family);
 	stream_putl(s, ifp->ifindex);
 	stream_putw_at(s, 0, stream_get_endp(s));
-	zclient_send_message(zclient);
+	zclient_send_message(nhrp_zclient);
 }
 
 void nhrp_send_zebra_gre_source_set(struct interface *ifp,
@@ -413,7 +413,7 @@ void nhrp_send_zebra_gre_source_set(struct interface *ifp,
 {
 	struct stream *s;
 
-	if (!zclient || zclient->sock < 0) {
+	if (!nhrp_zclient || nhrp_zclient->sock < 0) {
 		zlog_err("%s : zclient not ready", __func__);
 		return;
 	}
@@ -421,7 +421,7 @@ void nhrp_send_zebra_gre_source_set(struct interface *ifp,
 		/* silently ignore */
 		return;
 	}
-	s = zclient->obuf;
+	s = nhrp_zclient->obuf;
 	stream_reset(s);
 	zclient_create_header(s, ZEBRA_GRE_SOURCE_SET, ifp->vrf->vrf_id);
 	stream_putl(s, ifp->ifindex);
@@ -429,7 +429,7 @@ void nhrp_send_zebra_gre_source_set(struct interface *ifp,
 	stream_putl(s, link_vrf_id);
 	stream_putl(s, 0); /* mtu provisioning */
 	stream_putw_at(s, 0, stream_get_endp(s));
-	zclient_send_message(zclient);
+	zclient_send_message(nhrp_zclient);
 }
 
 void nhrp_send_zebra_nbr(union sockunion *in,
@@ -438,9 +438,9 @@ void nhrp_send_zebra_nbr(union sockunion *in,
 {
 	struct stream *s;
 
-	if (!zclient || zclient->sock < 0)
+	if (!nhrp_zclient || nhrp_zclient->sock < 0)
 		return;
-	s = zclient->obuf;
+	s = nhrp_zclient->obuf;
 	stream_reset(s);
 	zclient_neigh_ip_encode(s, out ? ZEBRA_NEIGH_IP_ADD : ZEBRA_NEIGH_IP_DEL,
 				in, out, ifp,
@@ -448,26 +448,26 @@ void nhrp_send_zebra_nbr(union sockunion *in,
 				    : ZEBRA_NEIGH_STATE_FAILED,
 				0);
 	stream_putw_at(s, 0, stream_get_endp(s));
-	zclient_send_message(zclient);
+	zclient_send_message(nhrp_zclient);
 }
 
 int nhrp_send_zebra_gre_request(struct interface *ifp)
 {
-	return zclient_send_zebra_gre_request(zclient, ifp);
+	return zclient_send_zebra_gre_request(nhrp_zclient, ifp);
 }
 
 void nhrp_interface_update_arp(struct interface *ifp, bool arp_enable)
 {
-	zclient_interface_set_arp(zclient, ifp, arp_enable);
+	zclient_interface_set_arp(nhrp_zclient, ifp, arp_enable);
 }
 
 
 void nhrp_zebra_terminate(void)
 {
-	zclient_register_neigh(zclient, VRF_DEFAULT, AFI_IP, false);
-	zclient_register_neigh(zclient, VRF_DEFAULT, AFI_IP6, false);
-	zclient_stop(zclient);
-	zclient_free(zclient);
+	zclient_register_neigh(nhrp_zclient, VRF_DEFAULT, AFI_IP, false);
+	zclient_register_neigh(nhrp_zclient, VRF_DEFAULT, AFI_IP6, false);
+	zclient_stop(nhrp_zclient);
+	zclient_free(nhrp_zclient);
 
 	zebra_rib[AFI_IP]->cleanup = nhrp_table_node_cleanup;
 	zebra_rib[AFI_IP6]->cleanup = nhrp_table_node_cleanup;
