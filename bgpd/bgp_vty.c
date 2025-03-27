@@ -11504,7 +11504,7 @@ DEFPY (show_bgp_vrfs,
 		json_vrfs = json_object_new_object();
 
 	for (ALL_LIST_ELEMENTS_RO(inst, node, bgp)) {
-		const char *name;
+		const char *bname;
 
 		/* Skip Views. */
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
@@ -11523,18 +11523,18 @@ DEFPY (show_bgp_vrfs,
 			json_vrf = json_object_new_object();
 
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
-			name = VRF_DEFAULT_NAME;
+			bname = VRF_DEFAULT_NAME;
 			type = "DFLT";
 		} else {
-			name = bgp->name;
+			bname = bgp->name;
 			type = "VRF";
 		}
 
-		show_bgp_vrfs_detail_common(vty, bgp, json_vrf, name, type,
+		show_bgp_vrfs_detail_common(vty, bgp, json_vrf, bname, type,
 					    false);
 
 		if (uj)
-			json_object_object_add(json_vrfs, name, json_vrf);
+			json_object_object_add(json_vrfs, bname, json_vrf);
 	}
 
 	if (uj) {

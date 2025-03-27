@@ -967,10 +967,10 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 			if (ctx->uj) {
 				json_peers = json_object_new_array();
 				SUBGRP_FOREACH_PEER (subgrp, paf) {
-					json_object *peer =
+					json_object *jpeer =
 						json_object_new_string(
 							paf->peer->host);
-					json_object_array_add(json_peers, peer);
+					json_object_array_add(json_peers, jpeer);
 				}
 				json_object_object_add(json_subgrp, "peers",
 						       json_peers);

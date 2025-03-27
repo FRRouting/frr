@@ -442,7 +442,7 @@ static bool bgp_pbr_extract(struct bgp_pbr_match_val list[],
 			    struct bgp_pbr_range_port *range)
 {
 	int i = 0;
-	bool exact_match = false;
+	bool match_p = false;
 
 	if (range)
 		memset(range, 0, sizeof(struct bgp_pbr_range_port));
@@ -457,9 +457,9 @@ static bool bgp_pbr_extract(struct bgp_pbr_match_val list[],
 			       OPERATOR_COMPARE_EQUAL_TO)) {
 			if (range)
 				range->min_port = list[i].value;
-			exact_match = true;
+			match_p = true;
 		}
-		if (exact_match && i > 0)
+		if (match_p && i > 0)
 			return false;
 		if (list[i].compare_operator ==
 		    (OPERATOR_COMPARE_GREATER_THAN +

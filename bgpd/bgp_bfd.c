@@ -30,7 +30,7 @@
 
 DEFINE_MTYPE_STATIC(BGPD, BFD_CONFIG, "BFD configuration data");
 
-extern struct zclient *zclient;
+extern struct zclient *bgp_zclient;
 
 static void bfd_session_status_update(struct bfd_session_params *bsp,
 				      const struct bfd_session_status *bss,
@@ -651,7 +651,7 @@ DEFUN(no_neighbor_bfd_profile, no_neighbor_bfd_profile_cmd,
 void bgp_bfd_init(struct event_loop *tm)
 {
 	/* Initialize BFD client functions */
-	bfd_protocol_integration_init(zclient, tm);
+	bfd_protocol_integration_init(bgp_zclient, tm);
 
 	/* "neighbor bfd" commands. */
 	install_element(BGP_NODE, &neighbor_bfd_cmd);

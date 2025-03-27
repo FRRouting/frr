@@ -26,7 +26,7 @@
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_errors.h"
 
-extern struct zclient *zclient;
+extern struct zclient *bgp_zclient;
 
 
 /* MPLS Labels hash routines. */
@@ -157,7 +157,7 @@ int bgp_parse_fec_update(void)
 	afi_t afi;
 	safi_t safi;
 
-	s = zclient->ibuf;
+	s = bgp_zclient->ibuf;
 
 	memset(&p, 0, sizeof(p));
 	p.family = stream_getw(s);
@@ -249,7 +249,7 @@ static void bgp_send_fec_register_label_msg(struct bgp_dest *dest, bool reg,
 	p = bgp_dest_get_prefix(dest);
 
 	/* Check socket. */
-	if (!zclient || zclient->sock < 0)
+	if (!bgp_zclient || bgp_zclient->sock < 0)
 		return;
 
 	if (BGP_DEBUG(labelpool, LABELPOOL))
@@ -258,7 +258,7 @@ static void bgp_send_fec_register_label_msg(struct bgp_dest *dest, bool reg,
 	/* If the route node has a local_label assigned or the
 	 * path node has an MPLS SR label index allowing zebra to
 	 * derive the label, proceed with registration. */
-	s = zclient->obuf;
+	s = bgp_zclient->obuf;
 	stream_reset(s);
 	command = (reg) ? ZEBRA_FEC_REGISTER : ZEBRA_FEC_UNREGISTER;
 	zclient_create_header(s, command, VRF_DEFAULT);
@@ -288,7 +288,7 @@ static void bgp_send_fec_register_label_msg(struct bgp_dest *dest, bool reg,
 	if (reg)
 		stream_putw_at(s, flags_pos, flags);
 
-	zclient_send_message(zclient);
+	zclient_send_message(bgp_zclient);
 }
 
 /**

@@ -1352,11 +1352,11 @@ rfapiRouteInfo2NextHopEntry(struct rfapi_ip_prefix *rprefix,
 
 	bgp_attr_extcom_tunnel_type(bpi->attr, &tun_type);
 	if (tun_type == BGP_ENCAP_TYPE_MPLS) {
-		struct prefix p;
+		struct prefix pfx;
 		/* MPLS carries UN address in next hop */
-		rfapiNexthop2Prefix(bpi->attr, &p);
-		if (p.family != AF_UNSPEC) {
-			rfapiQprefix2Raddr(&p, &new->un_address);
+		rfapiNexthop2Prefix(bpi->attr, &pfx);
+		if (pfx.family != AF_UNSPEC) {
+			rfapiQprefix2Raddr(&pfx, &new->un_address);
 			have_vnc_tunnel_un = 1;
 		}
 	}
@@ -1773,7 +1773,7 @@ struct rfapi_next_hop_entry *rfapiRouteNode2NextHopList(
 	 * Add non-withdrawn routes from less-specific prefix
 	 */
 	if (parent) {
-		const struct prefix *p = agg_node_get_prefix(parent);
+		p = agg_node_get_prefix(parent);
 
 		rib_rn = rfd_rib_table ? agg_node_get(rfd_rib_table, p) : NULL;
 		rfapiQprefix2Rprefix(p, &rprefix);
@@ -3224,7 +3224,7 @@ static void rfapiBgpInfoFilteredImportEncap(
 				       __func__, rn);
 #endif
 		for (m = RFAPI_MONITOR_ENCAP(rn); m; m = m->next) {
-			const struct prefix *p;
+			const struct prefix *pfx;
 
 			/*
 			 * For each referenced bpi/route, copy the ENCAP route's
@@ -3252,9 +3252,9 @@ static void rfapiBgpInfoFilteredImportEncap(
 			 * list
 			 * per prefix.
 			 */
-			p = agg_node_get_prefix(m->node);
+			pfx = agg_node_get_prefix(m->node);
 			referenced_vpn_prefix =
-				agg_node_get(referenced_vpn_table, p);
+				agg_node_get(referenced_vpn_table, pfx);
 			assert(referenced_vpn_prefix);
 			for (mnext = referenced_vpn_prefix->info; mnext;
 			     mnext = mnext->next) {

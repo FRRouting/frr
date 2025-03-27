@@ -1460,14 +1460,14 @@ static struct bgp_path_info *bgpL3vpnRte_lookup(struct variable *v, oid name[],
 		pi = bgp_lookup_route_next(l3vpn_bgp, dest, &prefix, policy,
 					   &nexthop);
 		if (pi) {
-			uint8_t vrf_name_len =
-				strnlen((*l3vpn_bgp)->name, VRF_NAMSIZ);
 			const struct prefix *p = bgp_dest_get_prefix(*dest);
 			uint8_t oid_index;
 			bool v4 = (p->family == AF_INET);
 			uint8_t addr_len = v4 ? sizeof(struct in_addr)
 					      : sizeof(struct in6_addr);
 			struct attr *attr = pi->attr;
+
+			vrf_name_len = strnlen((*l3vpn_bgp)->name, VRF_NAMSIZ);
 
 			/* copy the index parameters */
 			oid_copy_str(&name[namelen], (*l3vpn_bgp)->name,

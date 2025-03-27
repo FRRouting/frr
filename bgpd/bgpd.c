@@ -121,7 +121,7 @@ unsigned int bgp_suppress_fib_count;
 static void bgp_if_finish(struct bgp *bgp);
 static void peer_drop_dynamic_neighbor(struct peer *peer);
 
-extern struct zclient *zclient;
+extern struct zclient *bgp_zclient;
 
 /* handle main socket creation or deletion */
 static int bgp_check_main_socket(bool create, struct bgp *bgp)
@@ -447,9 +447,9 @@ void bm_wait_for_fib_set(bool set)
 			send_msg = true;
 	}
 
-	if (send_msg && zclient)
+	if (send_msg && bgp_zclient)
 		zebra_route_notify_send(ZEBRA_ROUTE_NOTIFY_REQUEST,
-					zclient, set);
+					bgp_zclient, set);
 
 	/*
 	 * If this is configed at a time when peers are already set
@@ -507,9 +507,9 @@ void bgp_suppress_fib_pending_set(struct bgp *bgp, bool set)
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("Sending ZEBRA_ROUTE_NOTIFY_REQUEST");
 
-		if (zclient)
+		if (bgp_zclient)
 			zebra_route_notify_send(ZEBRA_ROUTE_NOTIFY_REQUEST,
-					zclient, set);
+					bgp_zclient, set);
 	}
 
 	/*
@@ -3929,16 +3929,16 @@ static void bgp_zclient_set_redist(afi_t afi, int type, unsigned short instance,
 {
 	if (instance) {
 		if (set)
-			redist_add_instance(&zclient->mi_redist[afi][type],
+			redist_add_instance(&bgp_zclient->mi_redist[afi][type],
 					    instance);
 		else
-			redist_del_instance(&zclient->mi_redist[afi][type],
+			redist_del_instance(&bgp_zclient->mi_redist[afi][type],
 					    instance);
 	} else {
 		if (set)
-			vrf_bitmap_set(&zclient->redist[afi][type], vrf_id);
+			vrf_bitmap_set(&bgp_zclient->redist[afi][type], vrf_id);
 		else
-			vrf_bitmap_unset(&zclient->redist[afi][type], vrf_id);
+			vrf_bitmap_unset(&bgp_zclient->redist[afi][type], vrf_id);
 	}
 }
 
@@ -4290,8 +4290,7 @@ int bgp_delete(struct bgp *bgp)
 	FOREACH_AFI_SAFI (afi, safi) {
 		struct bgp_aggregate *aggregate = NULL;
 
-		for (struct bgp_dest *dest =
-			     bgp_table_top(bgp->aggregate[afi][safi]);
+		for (dest = bgp_table_top(bgp->aggregate[afi][safi]);
 		     dest; dest = bgp_route_next(dest)) {
 			aggregate = bgp_dest_get_bgp_aggregate_info(dest);
 			if (aggregate == NULL)

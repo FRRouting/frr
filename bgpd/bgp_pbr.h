@@ -151,8 +151,6 @@ struct bgp_pbr_config {
 	bool pbr_interface_any_ipv6;
 };
 
-extern struct bgp_pbr_config *bgp_pbr_cfg;
-
 struct bgp_pbr_rule {
 	uint32_t flags;
 	struct prefix src;

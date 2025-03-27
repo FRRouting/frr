@@ -1444,11 +1444,11 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 	uint8_t *notify_datap = (length > 0 ? args->startp : NULL);
 
 	if (bgp_debug_update(peer, NULL, NULL, 1)) {
-		char attr_str[BUFSIZ] = {0};
+		char str[BUFSIZ] = { 0 };
 
-		bgp_dump_attr(attr, attr_str, sizeof(attr_str));
+		bgp_dump_attr(attr, str, sizeof(str));
 
-		zlog_debug("%s: attributes: %s", __func__, attr_str);
+		zlog_debug("%s: attributes: %s", __func__, str);
 	}
 
 	/* Only relax error handling for eBGP peers */
@@ -2043,11 +2043,11 @@ static int bgp_attr_aggregator(struct bgp_attr_parser_args *args)
 			 peer->host, aspath_print(attr->aspath));
 
 		if (bgp_debug_update(peer, NULL, NULL, 1)) {
-			char attr_str[BUFSIZ] = {0};
+			char str[BUFSIZ] = { 0 };
 
-			bgp_dump_attr(attr, attr_str, sizeof(attr_str));
+			bgp_dump_attr(attr, str, sizeof(str));
 
-			zlog_debug("%s: attributes: %s", __func__, attr_str);
+			zlog_debug("%s: attributes: %s", __func__, str);
 		}
 	} else {
 		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR));
@@ -2094,11 +2094,11 @@ bgp_attr_as4_aggregator(struct bgp_attr_parser_args *args,
 			 peer->host, aspath_print(attr->aspath));
 
 		if (bgp_debug_update(peer, NULL, NULL, 1)) {
-			char attr_str[BUFSIZ] = {0};
+			char str[BUFSIZ] = { 0 };
 
-			bgp_dump_attr(attr, attr_str, sizeof(attr_str));
+			bgp_dump_attr(attr, str, sizeof(str));
 
-			zlog_debug("%s: attributes: %s", __func__, attr_str);
+			zlog_debug("%s: attributes: %s", __func__, str);
 		}
 	} else {
 		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AS4_AGGREGATOR));
