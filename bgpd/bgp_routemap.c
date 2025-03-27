@@ -2600,7 +2600,6 @@ route_set_aspath_exclude(void *rule, const struct prefix *dummy, void *object)
 			aspath_filter_exclude(new_path, ase->aspath);
 	else if (ase->exclude_all)
 		path->attr->aspath = aspath_filter_exclude_all(new_path);
-
 	else if (ase->exclude_aspath_acl)
 		path->attr->aspath =
 			aspath_filter_exclude_acl(new_path,
