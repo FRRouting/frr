@@ -34,7 +34,7 @@
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_ecommunity.h"
 
-extern struct zclient *zclient;
+extern struct zclient *bgp_zclient;
 
 static void register_zebra_rnh(struct bgp_nexthop_cache *bnc);
 static void unregister_zebra_rnh(struct bgp_nexthop_cache *bnc);
@@ -667,7 +667,7 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 							 nexthop->vrf_id);
 				if (ifp)
 					zclient_send_interface_radv_req(
-						zclient, nexthop->vrf_id, ifp,
+						bgp_zclient, nexthop->vrf_id, ifp,
 						true,
 						BGP_UNNUM_DEFAULT_RA_INTERVAL);
 			}
@@ -1131,11 +1131,11 @@ static bool make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p,
  */
 static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 {
-	bool exact_match = false;
+	bool match_p = false;
 	bool resolve_via_default = false;
 	int ret;
 
-	if (!zclient)
+	if (!bgp_zclient)
 		return;
 
 	/* Don't try to register if Zebra doesn't know of this instance. */
@@ -1155,7 +1155,7 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 	}
 	if (command == ZEBRA_NEXTHOP_REGISTER) {
 		if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED))
-			exact_match = true;
+			match_p = true;
 		if (CHECK_FLAG(bnc->flags, BGP_STATIC_ROUTE_EXACT_MATCH))
 			resolve_via_default = true;
 	}
@@ -1165,8 +1165,8 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 			   zserv_command_string(command), &bnc->prefix,
 			   bnc->bgp->name_pretty);
 
-	ret = zclient_send_rnh(zclient, command, &bnc->prefix, SAFI_UNICAST,
-			       exact_match, resolve_via_default,
+	ret = zclient_send_rnh(bgp_zclient, command, &bnc->prefix, SAFI_UNICAST,
+			       match_p, resolve_via_default,
 			       bnc->bgp->vrf_id);
 	if (ret == ZCLIENT_SEND_FAILURE) {
 		flog_warn(EC_BGP_ZEBRA_SEND,
@@ -1593,7 +1593,7 @@ void bgp_nht_reg_enhe_cap_intfs(struct peer *peer)
 		if (!ifp)
 			continue;
 
-		zclient_send_interface_radv_req(zclient,
+		zclient_send_interface_radv_req(bgp_zclient,
 						nhop->vrf_id,
 						ifp, true,
 						BGP_UNNUM_DEFAULT_RA_INTERVAL);
@@ -1643,7 +1643,7 @@ void bgp_nht_dereg_enhe_cap_intfs(struct peer *peer)
 		if (!ifp)
 			continue;
 
-		zclient_send_interface_radv_req(zclient, nhop->vrf_id, ifp, 0,
+		zclient_send_interface_radv_req(bgp_zclient, nhop->vrf_id, ifp, 0,
 						0);
 	}
 }

@@ -3148,8 +3148,6 @@ static void bgp_dynamic_capability_paths_limit(uint8_t *pnt, int action,
 		SET_FLAG(peer->cap, PEER_CAP_PATHS_LIMIT_RCV);
 
 		while (data + CAPABILITY_CODE_PATHS_LIMIT_LEN <= end) {
-			afi_t afi;
-			safi_t safi;
 			iana_afi_t pkt_afi;
 			iana_safi_t pkt_safi;
 			uint16_t paths_limit = 0;
@@ -3508,8 +3506,6 @@ static void bgp_dynamic_capability_llgr(uint8_t *pnt, int action,
 		SET_FLAG(peer->cap, PEER_CAP_LLGR_RCV);
 
 		while (data + BGP_CAP_LLGR_MIN_PACKET_LEN <= end) {
-			afi_t afi;
-			safi_t safi;
 			iana_afi_t pkt_afi;
 			iana_safi_t pkt_safi;
 			struct graceful_restart_af graf;
@@ -3616,8 +3612,6 @@ static void bgp_dynamic_capability_graceful_restart(uint8_t *pnt, int action,
 
 		while (data + GRACEFUL_RESTART_CAPABILITY_PER_AFI_SAFI_SIZE <=
 		       end) {
-			afi_t afi;
-			safi_t safi;
 			iana_afi_t pkt_afi;
 			iana_safi_t pkt_safi;
 			struct graceful_restart_af graf;
