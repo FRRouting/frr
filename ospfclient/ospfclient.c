@@ -54,7 +54,7 @@ struct zebra_privs_t ospfd_privs = {.user = NULL,
 struct event_loop *master;
 
 /* Global variables */
-struct ospf_apiclient *oclient;
+struct ospf_apiclient *g_oclient;
 char **args;
 
 /* Our opaque LSAs have the following format. */
@@ -209,13 +209,13 @@ static void ready_callback(uint8_t lsa_type, uint8_t opaque_type,
 		 lsa_type, opaque_type, &addr);
 
 	/* Schedule opaque LSA originate in 5 secs */
-	event_add_timer(master, lsa_inject, oclient, 5, NULL);
+	event_add_timer(master, lsa_inject, g_oclient, 5, NULL);
 
 	/* Schedule opaque LSA update with new value */
-	event_add_timer(master, lsa_inject, oclient, 10, NULL);
+	event_add_timer(master, lsa_inject, g_oclient, 10, NULL);
 
 	/* Schedule delete */
-	event_add_timer(master, lsa_delete, oclient, 30, NULL);
+	event_add_timer(master, lsa_delete, g_oclient, 30, NULL);
 }
 
 static void new_if_callback(struct in_addr ifaddr, struct in_addr area_id)
@@ -296,27 +296,27 @@ int main(int argc, char *argv[])
 	master = event_master_create(NULL);
 
 	/* Open connection to OSPF daemon */
-	oclient = ospf_apiclient_connect(args[1], ASYNCPORT);
-	if (!oclient) {
+	g_oclient = ospf_apiclient_connect(args[1], ASYNCPORT);
+	if (!g_oclient) {
 		printf("Connecting to OSPF daemon on %s failed!\n", args[1]);
 		exit(1);
 	}
 
 	/* Register callback functions. */
 	ospf_apiclient_register_callback(
-		oclient, ready_callback, new_if_callback, del_if_callback,
+		g_oclient, ready_callback, new_if_callback, del_if_callback,
 		ism_change_callback, nsm_change_callback, lsa_update_callback,
 		lsa_delete_callback);
 
 	/* Register LSA type and opaque type. */
-	ospf_apiclient_register_opaque_type(oclient, atoi(args[2]),
+	ospf_apiclient_register_opaque_type(g_oclient, atoi(args[2]),
 					    atoi(args[3]));
 
 	/* Synchronize database with OSPF daemon. */
-	ospf_apiclient_sync_lsdb(oclient);
+	ospf_apiclient_sync_lsdb(g_oclient);
 
 	/* Schedule thread that handles asynchronous messages */
-	event_add_read(master, lsa_read, oclient, oclient->fd_async, NULL);
+	event_add_read(master, lsa_read, g_oclient, g_oclient->fd_async, NULL);
 
 	/* Now connection is established, run loop */
 	while (1) {

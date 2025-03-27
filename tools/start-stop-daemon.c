@@ -73,14 +73,14 @@ size_t strlcpy(char *__restrict dest,
 #endif
 
 static int testmode = 0;
-static int quietmode = 0;
+static int g_quietmode = 0;
 static int exitnodo = 1;
 static int start = 0;
 static int stop = 0;
 static int background = 0;
 static int mpidfile = 0;
-static int signal_nr = 15;
-static const char *signal_str = NULL;
+static int g_signal_nr = 15;
+static const char *g_signal_str = NULL;
 static int user_id = -1;
 static int runas_uid = -1;
 static int runas_gid = -1;
@@ -93,7 +93,7 @@ static char *execname = NULL;
 static char *startas = NULL;
 static const char *pidfile = NULL;
 static char what_stop[1024];
-static const char *schedule_str = NULL;
+static const char *g_schedule_str = NULL;
 static const char *progname = "";
 static int nicelevel = 0;
 
@@ -438,7 +438,7 @@ static void parse_schedule(const char *schedule_str)
 
 	if (count == 0) {
 		schedule[0].type = sched_signal;
-		schedule[0].value = signal_nr;
+		schedule[0].value = g_signal_nr;
 		parse_schedule_item(schedule_str, &schedule[1]);
 		if (schedule[1].type != sched_timeout) {
 			badusage(
@@ -528,10 +528,10 @@ static void parse_options(int argc, char *const *argv)
 			pidfile = optarg;
 			break;
 		case 'q': /* --quiet */
-			quietmode = 1;
+			g_quietmode = 1;
 			break;
 		case 's': /* --signal <signal> */
-			signal_str = optarg;
+			g_signal_str = optarg;
 			break;
 		case 't': /* --test */
 			testmode = 1;
@@ -540,7 +540,7 @@ static void parse_options(int argc, char *const *argv)
 			userspec = optarg;
 			break;
 		case 'v': /* --verbose */
-			quietmode = -1;
+			g_quietmode = -1;
 			break;
 		case 'x': /* --exec <executable> */
 			execname = optarg;
@@ -567,21 +567,21 @@ static void parse_options(int argc, char *const *argv)
 			mpidfile = 1;
 			break;
 		case 'R': /* --retry <schedule>|<timeout> */
-			schedule_str = optarg;
+			g_schedule_str = optarg;
 			break;
 		default:
 			badusage(NULL); /* message printed by getopt */
 		}
 	}
 
-	if (signal_str != NULL) {
-		if (parse_signal(signal_str, &signal_nr) != 0)
+	if (g_signal_str != NULL) {
+		if (parse_signal(g_signal_str, &g_signal_nr) != 0)
 			badusage(
 				"signal value must be numeric or name of signal (KILL, INTR, ...)");
 	}
 
-	if (schedule_str != NULL) {
-		parse_schedule(schedule_str);
+	if (g_schedule_str != NULL) {
+		parse_schedule(g_schedule_str);
 	}
 
 	if (start == stop)
@@ -787,8 +787,8 @@ static int run_stop_schedule(void)
 	n_killed = 0;
 
 	if (schedule == NULL) {
-		do_stop(signal_nr, quietmode, &n_killed, &n_notkilled, 0);
-		if (n_notkilled > 0 && quietmode <= 0)
+		do_stop(g_signal_nr, g_quietmode, &n_killed, &n_notkilled, 0);
+		if (n_notkilled > 0 && g_quietmode <= 0)
 			printf("%d pids were not killed\n", n_notkilled);
 		if (n_killed)
 			anykilled = 1;
@@ -806,7 +806,7 @@ static int run_stop_schedule(void)
 			continue;
 
 		case sched_signal:
-			do_stop(value, quietmode, &n_killed, &n_notkilled,
+			do_stop(value, g_quietmode, &n_killed, &n_notkilled,
 				retry_nr++);
 			if (!n_killed)
 				goto x_finished;
@@ -899,7 +899,7 @@ static int run_stop_schedule(void)
 		position++;
 	}
 
-	if (quietmode <= 0)
+	if (g_quietmode <= 0)
 		printf("Program %s, %d process(es), refused to die.\n",
 		       what_stop, n_killed);
 
@@ -907,7 +907,7 @@ static int run_stop_schedule(void)
 
 x_finished:
 	if (!anykilled) {
-		if (quietmode <= 0)
+		if (g_quietmode <= 0)
 			printf("No %s found running; none killed.\n",
 			       what_stop);
 		return exitnodo;
@@ -969,7 +969,7 @@ int main(int argc, char **argv)
 	do_findprocs();
 
 	if (found) {
-		if (quietmode <= 0)
+		if (g_quietmode <= 0)
 			printf("%s already running.\n", execname);
 		exit(exitnodo);
 	}
@@ -992,7 +992,7 @@ int main(int argc, char **argv)
 		printf(".\n");
 		exit(0);
 	}
-	if (quietmode < 0)
+	if (g_quietmode < 0)
 		printf("Starting %s...\n", startas);
 	*--argv = startas;
 	if (changeroot != NULL) {
@@ -1013,14 +1013,14 @@ int main(int argc, char **argv)
 
 	if (background) { /* ok, we need to detach this process */
 		int i, fd;
-		if (quietmode < 0)
+		if (g_quietmode < 0)
 			printf("Detaching to start %s...", startas);
 		i = fork();
 		if (i < 0) {
 			fatal("Unable to fork.\n");
 		}
 		if (i) { /* parent */
-			if (quietmode < 0)
+			if (g_quietmode < 0)
 				printf("done.\n");
 			exit(0);
 		}
