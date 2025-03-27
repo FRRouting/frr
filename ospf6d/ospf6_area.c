@@ -203,7 +203,7 @@ static void ospf6_area_no_summary_set(struct ospf6 *ospf6,
 		if (!area->no_summary) {
 			area->no_summary = 1;
 			ospf6_abr_range_reset_cost(ospf6);
-			ospf6_abr_prefix_resummarize(ospf6);
+			ospf6_schedule_abr_task(ospf6);
 		}
 	}
 }
@@ -215,7 +215,7 @@ static void ospf6_area_no_summary_unset(struct ospf6 *ospf6,
 		if (area->no_summary) {
 			area->no_summary = 0;
 			ospf6_abr_range_reset_cost(ospf6);
-			ospf6_abr_prefix_resummarize(ospf6);
+			ospf6_schedule_abr_task(ospf6);
 		}
 	}
 }
@@ -602,7 +602,7 @@ DEFUN (area_range,
 
 	if (ospf6_check_and_set_router_abr(ospf6)) {
 		/* Redo summaries if required */
-		ospf6_abr_prefix_resummarize(ospf6);
+		ospf6_schedule_abr_task(ospf6);
 	}
 
 	return CMD_SUCCESS;
@@ -1413,8 +1413,7 @@ DEFPY(ospf6_area_nssa, ospf6_area_nssa_cmd,
 		ospf6_area_no_summary_unset(ospf6, area);
 
 	if (ospf6_check_and_set_router_abr(ospf6)) {
-		ospf6_abr_defaults_to_stub(ospf6);
-		ospf6_abr_nssa_type_7_defaults(ospf6);
+		ospf6_schedule_abr_task(ospf6);
 	}
 
 	return CMD_SUCCESS;
