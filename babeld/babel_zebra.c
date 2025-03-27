@@ -59,6 +59,28 @@ babel_zebra_read_route (ZAPI_CALLBACK_ARGS)
     return 0;
 }
 
+static void babel_redistribute_withdraw(int afi, int type)
+{
+    struct xroute_stream *xroutes = NULL;
+    xroutes = xroute_stream();
+    if(xroutes) {
+        while(1) {
+            struct xroute *xroute = xroute_stream_next(xroutes);
+            if(xroute == NULL)
+                break;
+            if (xroute->proto != type) continue;
+            if (xroute->plen >= 96 && v4mapped(xroute->prefix)){
+                if (afi == AFI_IP)
+                    flush_xroute(xroute);
+            }else{
+                if (afi == AFI_IP6)
+                    flush_xroute(xroute);
+            }
+        }
+        xroute_stream_done(xroutes);
+    } 
+}
+
 /* [Babel Command] */
 DEFUN (babel_redistribute_type,
        babel_redistribute_type_cmd,
@@ -97,7 +119,8 @@ DEFUN (babel_redistribute_type,
         zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, afi, type, 0, VRF_DEFAULT);
     else {
         zclient_redistribute (ZEBRA_REDISTRIBUTE_DELETE, zclient, afi, type, 0, VRF_DEFAULT);
-        /* perhaps should we remove xroutes having the same type... */
+        /* remove xroutes having the same type... */
+        babel_redistribute_withdraw(afi, type);
     }
     return CMD_SUCCESS;
 }
