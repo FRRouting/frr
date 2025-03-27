@@ -670,7 +670,7 @@ static struct eigrp_packet *eigrp_hello_encode(struct eigrp_interface *ei,
 		// Set packet length
 		ep->length = length;
 
-		// set soruce address for the hello packet
+		/* set destination for the packet */
 		ep->dst.s_addr = addr;
 
 		if ((ei->params.auth_type == EIGRP_AUTH_TYPE_MD5)
