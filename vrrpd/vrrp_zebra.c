@@ -19,7 +19,7 @@
 
 #define VRRP_LOGPFX "[ZEBRA] "
 
-static struct zclient *zclient;
+static struct zclient *vrrp_zclient;
 
 static void vrrp_zebra_debug_if_state(struct interface *ifp, const char *func)
 {
@@ -161,7 +161,7 @@ void vrrp_zebra_radv_set(struct vrrp_router *r, bool enable)
 	       "Requesting Zebra to turn router advertisements %s for %s",
 	       r->vr->vrid, enable ? "on" : "off", r->mvl_ifp->name);
 
-	zclient_send_interface_radv_req(zclient, r->mvl_ifp->vrf->vrf_id,
+	zclient_send_interface_radv_req(vrrp_zclient, r->mvl_ifp->vrf->vrf_id,
 					r->mvl_ifp, enable, VRRP_RADV_INT);
 }
 
@@ -171,7 +171,7 @@ void vrrp_zclient_send_interface_protodown(struct interface *ifp, bool down)
 	       VRRP_LOGPFX "Requesting Zebra to set %s protodown %s", ifp->name,
 	       down ? "on" : "off");
 
-	zclient_send_interface_protodown(zclient, ifp->vrf->vrf_id, ifp, down);
+	zclient_send_interface_protodown(vrrp_zclient, ifp->vrf->vrf_id, ifp, down);
 }
 
 static zclient_handler *const vrrp_handlers[] = {
@@ -188,12 +188,12 @@ void vrrp_zebra_init(void)
 	hook_register_prio(if_unreal, 0, vrrp_ifp_destroy);
 
 	/* Socket for receiving updates from Zebra daemon */
-	zclient = zclient_new(master, &zclient_options_default, vrrp_handlers,
-			      array_size(vrrp_handlers));
+	vrrp_zclient = zclient_new(master, &zclient_options_default, vrrp_handlers,
+				   array_size(vrrp_handlers));
 
-	zclient->zebra_connected = vrrp_zebra_connected;
+	vrrp_zclient->zebra_connected = vrrp_zebra_connected;
 
-	zclient_init(zclient, ZEBRA_ROUTE_VRRP, 0, &vrrp_privs);
+	zclient_init(vrrp_zclient, ZEBRA_ROUTE_VRRP, 0, &vrrp_privs);
 
 	zlog_notice("%s: zclient socket initialized", __func__);
 }
