@@ -23,7 +23,7 @@
 #include "sharp_zebra.h"
 
 /* Zebra structure to hold current status. */
-struct zclient *zclient = NULL;
+struct zclient *g_zclient = NULL;
 
 /* For registering threads. */
 extern struct event_loop *master;
@@ -34,23 +34,23 @@ extern struct zebra_privs_t sharp_privs;
 DEFINE_MTYPE_STATIC(SHARPD, ZC, "Test zclients");
 
 /* Struct to hold list of test zclients */
-struct sharp_zclient {
-	struct sharp_zclient *prev;
-	struct sharp_zclient *next;
+struct sharp_zclient_entry {
+	struct sharp_zclient_entry *prev;
+	struct sharp_zclient_entry *next;
 	struct zclient *client;
 };
 
 /* Head of test zclient list */
-static struct sharp_zclient *sharp_clients_head;
+static struct sharp_zclient_entry *sharp_clients_head;
 
 static int sharp_opaque_handler(ZAPI_CALLBACK_ARGS);
 
 /* Utility to add a test zclient struct to the list */
 static void add_zclient(struct zclient *client)
 {
-	struct sharp_zclient *node;
+	struct sharp_zclient_entry *node;
 
-	node = XCALLOC(MTYPE_ZC, sizeof(struct sharp_zclient));
+	node = XCALLOC(MTYPE_ZC, sizeof(struct sharp_zclient_entry));
 
 	node->client = client;
 
@@ -198,7 +198,7 @@ int sharp_install_lsps_helper(bool install_p, bool update_p,
 		cmd = ZEBRA_MPLS_LABELS_DELETE;
 	}
 
-	if (zebra_send_mpls_labels(zclient, cmd, &zl) == ZCLIENT_SEND_FAILURE)
+	if (zebra_send_mpls_labels(g_zclient, cmd, &zl) == ZCLIENT_SEND_FAILURE)
 		return -1;
 
 	return 0;
@@ -291,7 +291,7 @@ static bool route_add(const struct prefix *p, vrf_id_t vrf_id, uint8_t instance,
 		memcpy(api.opaque.data, opaque, api.opaque.length);
 	}
 
-	if (zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api) ==
+	if (zclient_route_send(ZEBRA_ROUTE_ADD, g_zclient, &api) ==
 	    ZCLIENT_SEND_BUFFERED)
 		return true;
 	else
@@ -315,7 +315,7 @@ static bool route_delete(struct prefix *p, vrf_id_t vrf_id, uint8_t instance)
 	api.instance = instance;
 	memcpy(&api.prefix, p, sizeof(*p));
 
-	if (zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api) ==
+	if (zclient_route_send(ZEBRA_ROUTE_DELETE, g_zclient, &api) ==
 	    ZCLIENT_SEND_BUFFERED)
 		return true;
 	else
@@ -471,7 +471,7 @@ static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 	enum zapi_route_notify_owner note;
 	uint32_t table;
 
-	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table, &note, NULL,
+	if (!zapi_route_notify_decode(g_zclient->ibuf, &p, &table, &note, NULL,
 				      NULL))
 		return -1;
 
@@ -526,7 +526,7 @@ static void zebra_connected(struct zclient *zclient)
 
 void vrf_label_add(vrf_id_t vrf_id, afi_t afi, mpls_label_t label)
 {
-	zclient_send_vrf_label(zclient, vrf_id, afi, label, ZEBRA_LSP_SHARP);
+	zclient_send_vrf_label(g_zclient, vrf_id, afi, label, ZEBRA_LSP_SHARP);
 }
 
 void nhg_add(uint32_t id, const struct nexthop_group *nhg,
@@ -565,7 +565,7 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 		if (sharp_nhgroup_id_is_installed(id)) {
 			zlog_debug("%s: nhg %u: no nexthops, deleting nexthop group", __func__,
 				   id);
-			zclient_nhg_send(zclient, ZEBRA_NHG_DEL, &api_nhg);
+			zclient_nhg_send(g_zclient, ZEBRA_NHG_DEL, &api_nhg);
 			return;
 		}
 		zlog_debug("%s: nhg %u not sent: no valid nexthops", __func__,
@@ -606,7 +606,7 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 
 done:
 	if (is_valid)
-		zclient_nhg_send(zclient, ZEBRA_NHG_ADD, &api_nhg);
+		zclient_nhg_send(g_zclient, ZEBRA_NHG_ADD, &api_nhg);
 }
 
 void nhg_del(uint32_t id)
@@ -615,7 +615,7 @@ void nhg_del(uint32_t id)
 
 	api_nhg.id = id;
 
-	zclient_nhg_send(zclient, ZEBRA_NHG_DEL, &api_nhg);
+	zclient_nhg_send(g_zclient, ZEBRA_NHG_DEL, &api_nhg);
 }
 
 void sharp_zebra_nexthop_watch(struct prefix *p, vrf_id_t vrf_id, bool import, bool watch,
@@ -629,7 +629,7 @@ void sharp_zebra_nexthop_watch(struct prefix *p, vrf_id_t vrf_id, bool import, b
 	if (!watch)
 		command = ZEBRA_NEXTHOP_UNREGISTER;
 
-	if (zclient_send_rnh(zclient, command, p, safi, connected, false, vrf_id) ==
+	if (zclient_send_rnh(g_zclient, command, p, safi, connected, false, vrf_id) ==
 	    ZCLIENT_SEND_FAILURE)
 		zlog_warn("%s: Failure to send nexthop to zebra", __func__);
 }
@@ -709,7 +709,7 @@ void sharp_redistribute_vrf(struct vrf *vrf, int type, bool turn_on)
 {
 	zebra_redistribute_send(turn_on ? ZEBRA_REDISTRIBUTE_ADD
 					: ZEBRA_REDISTRIBUTE_DELETE,
-				zclient, AFI_IP, type, 0, vrf->vrf_id);
+				g_zclient, AFI_IP, type, 0, vrf->vrf_id);
 }
 
 static zclient_handler *const sharp_opaque_handlers[] = {
@@ -720,7 +720,7 @@ static zclient_handler *const sharp_opaque_handlers[] = {
 int sharp_zclient_create(uint32_t session_id)
 {
 	struct zclient *client;
-	struct sharp_zclient *node;
+	struct sharp_zclient_entry *node;
 
 	/* Check for duplicates */
 	for (node = sharp_clients_head; node != NULL; node = node->next) {
@@ -745,7 +745,7 @@ int sharp_zclient_create(uint32_t session_id)
 /* Delete one of the extra test zclients */
 int sharp_zclient_delete(uint32_t session_id)
 {
-	struct sharp_zclient *node;
+	struct sharp_zclient_entry *node;
 
 	/* Search for session */
 	for (node = sharp_clients_head; node != NULL; node = node->next) {
@@ -848,10 +848,10 @@ void sharp_opaque_send(uint32_t type, uint32_t proto, uint32_t instance,
 	/* Send some messages - broadcast and unicast are supported */
 	for (i = 0; i < count; i++) {
 		if (proto == 0)
-			ret = zclient_send_opaque(zclient, type, buf,
+			ret = zclient_send_opaque(g_zclient, type, buf,
 						  sizeof(buf));
 		else
-			ret = zclient_send_opaque_unicast(zclient, type, proto,
+			ret = zclient_send_opaque_unicast(g_zclient, type, proto,
 							  instance, session_id,
 							  buf, sizeof(buf));
 		if (ret == ZCLIENT_SEND_FAILURE) {
@@ -868,9 +868,9 @@ void sharp_opaque_send(uint32_t type, uint32_t proto, uint32_t instance,
 void sharp_zebra_opaque_notif_reg(bool is_reg, uint32_t type)
 {
 	if (is_reg)
-		zclient_opaque_request_notify(zclient, type);
+		zclient_opaque_request_notify(g_zclient, type);
 	else
-		zclient_opaque_drop_notify(zclient, type);
+		zclient_opaque_drop_notify(g_zclient, type);
 }
 
 /*
@@ -881,7 +881,7 @@ void sharp_opaque_reg_send(bool is_reg, uint32_t proto, uint32_t instance,
 {
 	struct stream *s;
 
-	s = zclient->obuf;
+	s = g_zclient->obuf;
 	stream_reset(s);
 
 	if (is_reg)
@@ -900,22 +900,22 @@ void sharp_opaque_reg_send(bool is_reg, uint32_t proto, uint32_t instance,
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
 
-	(void)zclient_send_message(zclient);
+	(void)zclient_send_message(g_zclient);
 }
 
 /* Link State registration */
 void sharp_zebra_register_te(void)
 {
 	/* First register to received Link State Update messages */
-	zclient_register_opaque(zclient, LINK_STATE_UPDATE);
+	zclient_register_opaque(g_zclient, LINK_STATE_UPDATE);
 
 	/* Then, request initial TED with SYNC message */
-	ls_request_sync(zclient);
+	ls_request_sync(g_zclient);
 }
 
 void sharp_zebra_send_arp(const struct interface *ifp, const struct prefix *p)
 {
-	zclient_send_neigh_discovery_req(zclient, ifp, p);
+	zclient_send_neigh_discovery_req(g_zclient, ifp, p);
 }
 
 static int nhg_notify_owner(ZAPI_CALLBACK_ARGS)
@@ -948,12 +948,12 @@ static int nhg_notify_owner(ZAPI_CALLBACK_ARGS)
 
 int sharp_zebra_srv6_manager_get_locator_chunk(const char *locator_name)
 {
-	return srv6_manager_get_locator_chunk(zclient, locator_name);
+	return srv6_manager_get_locator_chunk(g_zclient, locator_name);
 }
 
 int sharp_zebra_srv6_manager_release_locator_chunk(const char *locator_name)
 {
-	return srv6_manager_release_locator_chunk(zclient, locator_name);
+	return srv6_manager_release_locator_chunk(g_zclient, locator_name);
 }
 
 static int sharp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
@@ -1031,7 +1031,7 @@ int sharp_zebra_send_interface_protodown(struct interface *ifp, bool down)
 	zlog_debug("Sending zebra to set %s protodown %s", ifp->name,
 		   down ? "on" : "off");
 
-	if (zclient_send_interface_protodown(zclient, ifp->vrf->vrf_id, ifp,
+	if (zclient_send_interface_protodown(g_zclient, ifp->vrf->vrf_id, ifp,
 					     down) == ZCLIENT_SEND_FAILURE)
 		return -1;
 
@@ -1047,12 +1047,12 @@ int sharp_zebra_send_tc_filter_rate(struct interface *ifp,
 #define SHARPD_TC_HANDLE 0x0001
 	struct stream *s;
 
-	s = zclient->obuf;
+	s = g_zclient->obuf;
 
 	struct tc_qdisc q = {.ifindex = ifp->ifindex, .kind = TC_QDISC_HTB};
 
 	zapi_tc_qdisc_encode(ZEBRA_TC_QDISC_INSTALL, s, &q);
-	if (zclient_send_message(zclient) == ZCLIENT_SEND_FAILURE)
+	if (zclient_send_message(g_zclient) == ZCLIENT_SEND_FAILURE)
 		return -1;
 
 	struct tc_class c = {.ifindex = ifp->ifindex,
@@ -1062,7 +1062,7 @@ int sharp_zebra_send_tc_filter_rate(struct interface *ifp,
 			     .u.htb.rate = rate};
 
 	zapi_tc_class_encode(ZEBRA_TC_CLASS_ADD, s, &c);
-	if (zclient_send_message(zclient) == ZCLIENT_SEND_FAILURE)
+	if (zclient_send_message(g_zclient) == ZCLIENT_SEND_FAILURE)
 		return -1;
 
 	struct tc_filter f = {.ifindex = ifp->ifindex,
@@ -1090,7 +1090,7 @@ int sharp_zebra_send_tc_filter_rate(struct interface *ifp,
 	f.u.flower.classid = SHARPD_TC_HANDLE & 0xffff;
 
 	zapi_tc_filter_encode(ZEBRA_TC_FILTER_ADD, s, &f);
-	if (zclient_send_message(zclient) == ZCLIENT_SEND_FAILURE)
+	if (zclient_send_message(g_zclient) == ZCLIENT_SEND_FAILURE)
 		return -1;
 
 	return 0;
@@ -1098,7 +1098,7 @@ int sharp_zebra_send_tc_filter_rate(struct interface *ifp,
 
 void sharp_zebra_register_neigh(vrf_id_t vrf_id, afi_t afi, bool reg)
 {
-	zclient_register_neigh(zclient, vrf_id, afi, reg);
+	zclient_register_neigh(g_zclient, vrf_id, afi, reg);
 }
 
 
@@ -1124,18 +1124,18 @@ void sharp_zebra_init(void)
 	hook_register_prio(if_down, 0, sharp_ifp_down);
 	hook_register_prio(if_unreal, 0, sharp_ifp_destroy);
 
-	zclient = zclient_new(master, &zclient_options_default, sharp_handlers,
-			      array_size(sharp_handlers));
+	g_zclient = zclient_new(master, &zclient_options_default, sharp_handlers,
+				array_size(sharp_handlers));
 
-	zclient_init(zclient, ZEBRA_ROUTE_SHARP, 0, &sharp_privs);
-	zclient->zebra_connected = zebra_connected;
-	zclient->zebra_buffer_write_ready = sharp_zclient_buffer_ready;
-	zclient->nexthop_update = sharp_nexthop_update;
+	zclient_init(g_zclient, ZEBRA_ROUTE_SHARP, 0, &sharp_privs);
+	g_zclient->zebra_connected = zebra_connected;
+	g_zclient->zebra_buffer_write_ready = sharp_zclient_buffer_ready;
+	g_zclient->nexthop_update = sharp_nexthop_update;
 }
 
 void sharp_zebra_terminate(void)
 {
-	struct sharp_zclient *node = sharp_clients_head;
+	struct sharp_zclient_entry *node = sharp_clients_head;
 
 	while (node) {
 		sharp_zclient_delete(node->client->session_id);
@@ -1143,6 +1143,6 @@ void sharp_zebra_terminate(void)
 		node = sharp_clients_head;
 	}
 
-	zclient_stop(zclient);
-	zclient_free(zclient);
+	zclient_stop(g_zclient);
+	zclient_free(g_zclient);
 }
