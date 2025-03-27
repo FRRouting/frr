@@ -161,7 +161,7 @@ static int test(FILE *input, FILE *output)
 	struct listnode *node;
 	for (ALL_LIST_ELEMENTS_RO(fragments, node, tlvs)) {
 		stream_reset(s);
-		int rv = isis_pack_tlvs(tlvs, s, (size_t)-1, false, false);
+		rv = isis_pack_tlvs(tlvs, s, (size_t)-1, false, false);
 		if (rv) {
 			fprintf(output, "Could not pack fragment, too large.\n");
 			assert(0);
