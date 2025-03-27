@@ -817,6 +817,7 @@ void if_delete_update(struct interface **pifp)
 		memset(&zif->brslave_info, 0,
 		       sizeof(struct zebra_l2info_brslave));
 		zebra_evpn_mac_ifp_del(ifp);
+		mpls_auto_interface_data_off(ifp);
 	}
 
 	if (!ifp->configured) {
