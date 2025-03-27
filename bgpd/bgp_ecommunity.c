@@ -1441,14 +1441,14 @@ static char *_ecommunity_ecom2str(struct ecommunity *ecom, int format, int filte
 				snprintf(encbuf, sizeof(encbuf), "FS:action %s",
 					 action);
 			} else if (sub_type == ECOMMUNITY_TRAFFIC_RATE) {
-				union traffic_rate data;
+				union traffic_rate rate;
 
-				data.rate_byte[3] = *(pnt+2);
-				data.rate_byte[2] = *(pnt+3);
-				data.rate_byte[1] = *(pnt+4);
-				data.rate_byte[0] = *(pnt+5);
+				rate.rate_byte[3] = *(pnt + 2);
+				rate.rate_byte[2] = *(pnt + 3);
+				rate.rate_byte[1] = *(pnt + 4);
+				rate.rate_byte[0] = *(pnt + 5);
 				snprintf(encbuf, sizeof(encbuf), "FS:rate %f",
-					 data.rate_float);
+					 rate.rate_float);
 			} else if (sub_type == ECOMMUNITY_TRAFFIC_MARKING) {
 				snprintf(encbuf, sizeof(encbuf),
 					 "FS:marking %u", *(pnt + 5));
