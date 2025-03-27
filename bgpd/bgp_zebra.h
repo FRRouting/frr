@@ -8,6 +8,9 @@
 
 #include "vxlan.h"
 
+/* The global zapi session handle */
+extern struct zclient *bgp_zclient;
+
 /* Macro to update bgp_original based on bpg_path_info */
 #define BGP_ORIGINAL_UPDATE(_bgp_orig, _mpinfo, _bgp)                          \
 	((_mpinfo->extra && _mpinfo->extra->vrfleak &&                        \

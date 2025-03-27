@@ -1462,22 +1462,22 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 				output_count++;
 
 			if (use_json && json_array) {
-				const struct prefix *p =
+				const struct prefix *pfx =
 					bgp_dest_get_prefix(rm);
 
 				json_prefix_info = json_object_new_object();
 
 				json_object_string_addf(json_prefix_info,
-							"prefix", "%pFX", p);
+							"prefix", "%pFX", pfx);
 
 				json_object_int_add(json_prefix_info,
-						    "prefixLen", p->prefixlen);
+						    "prefixLen", pfx->prefixlen);
 
 				json_object_object_add(json_prefix_info,
 					"paths", json_array);
 				json_object_object_addf(json_nroute,
 							json_prefix_info,
-							"%pFX", p);
+							"%pFX", pfx);
 				json_array = NULL;
 			}
 		}
