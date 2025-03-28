@@ -441,6 +441,14 @@ parse_packet(const unsigned char *from, struct interface *ifp,
         return;
     }
 
+    if (v4mapped(from)) {
+        memcpy(v4_nh, from, 16);
+        have_v4_nh = 1;
+    } else {
+        memcpy(v6_nh, from, 16);
+        have_v6_nh = 1;
+    }
+
     i = 0;
     while(i < bodylen) {
         message = packet + 4 + i;
