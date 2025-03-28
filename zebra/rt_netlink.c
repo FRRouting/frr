@@ -116,6 +116,28 @@ static bool is_route_v4_over_v6(unsigned char rtm_family,
 	return false;
 }
 
+static bool add_v4_over_v6_rta_via_attr(struct nlmsghdr *nlmsg, size_t req_size,
+					const struct nexthop *nexthop)
+{
+	struct gw_family_t gw_fam = {
+		.family = AF_INET6,
+	};
+	uint addr_num_bytes;
+
+	if (nexthop->type == NEXTHOP_TYPE_IPV6 || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
+		gw_fam.family = AF_INET6;
+		memcpy(&gw_fam.gate.ipv6, &nexthop->gate.ipv6, sizeof(nexthop->gate.ipv6));
+		addr_num_bytes = sizeof(nexthop->gate.ipv6);
+	} else {
+		gw_fam.family = AF_INET;
+		memcpy(&gw_fam.gate.ipv4, &ipv4_ll, sizeof(nexthop->gate.ipv4));
+		addr_num_bytes = sizeof(nexthop->gate.ipv4);
+	}
+
+	return nl_attr_put(nlmsg, req_size, RTA_VIA, &gw_fam.family,
+			   addr_num_bytes + sizeof(gw_fam.family));
+}
+
 /* Helper to control use of kernel-level nexthop ids */
 static bool kernel_nexthops_supported(void)
 {
@@ -1683,7 +1705,7 @@ static bool _netlink_nexthop_encode_dvni_label(const struct nexthop *nexthop,
 				return false;
 
 		} else {
-			if (!nl_attr_put(nlmsg, buflen, LWTUNNEL_IP_DST,
+			if (!nl_attr_put(nlmsg, buflen, LWTUNNEL_IP6_DST,
 					 &nexthop->gate.ipv6, 16))
 				return false;
 		}
@@ -2076,7 +2098,7 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 
 	if (is_route_v4_over_v6(rtmsg->rtm_family, nexthop->type)) {
 		rtmsg->rtm_flags |= RTNH_F_ONLINK;
-		if (!nl_attr_put(nlmsg, req_size, RTA_GATEWAY, &ipv4_ll, 4))
+		if (!add_v4_over_v6_rta_via_attr(nlmsg, req_size, nexthop))
 			return false;
 		if (!nl_attr_put32(nlmsg, req_size, RTA_OIF, nexthop->ifindex))
 			return false;
@@ -2087,11 +2109,16 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 				return false;
 		}
 
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: 5549 (%s): %pFX nexthop via %s %s if %u vrf %u",
-				   __func__, routedesc, p, ipv4_ll_buf,
-				   label_buf, nexthop->ifindex,
+		if (IS_ZEBRA_DEBUG_KERNEL) {
+			inet_ntop(nexthop->type == NEXTHOP_TYPE_IPV6 ||
+						  nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX
+					  ? AF_INET6
+					  : AF_INET,
+				  &nexthop->gate, addrstr, sizeof(addrstr));
+			zlog_debug("%s: 5549 (%s): %pFX nexthop via %s %s if %u vrf %u", __func__,
+				   routedesc, p, addrstr, label_buf, nexthop->ifindex,
 				   nexthop->vrf_id);
+		}
 		return true;
 	}
 
@@ -2120,8 +2147,8 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 		}
 	}
 
-	if (nexthop->type == NEXTHOP_TYPE_IPV6
-	    || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
+	if (!is_route_v4_over_v6(rtmsg->rtm_family, nexthop->type) &&
+	    (nexthop->type == NEXTHOP_TYPE_IPV6 || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX)) {
 		if (!_netlink_route_add_gateway_info(rtmsg->rtm_family,
 						     AF_INET6, nlmsg, req_size,
 						     bytelen, nexthop))
@@ -2248,6 +2275,7 @@ static bool _netlink_route_build_multipath(const struct prefix *p,
 {
 	char label_buf[256];
 	struct rtnexthop *rtnh;
+	char addrstr[INET6_ADDRSTRLEN];
 
 	rtnh = nl_attr_rtnh(nlmsg, req_size);
 	if (rtnh == NULL)
@@ -2264,7 +2292,7 @@ static bool _netlink_route_build_multipath(const struct prefix *p,
 
 	if (is_route_v4_over_v6(rtmsg->rtm_family, nexthop->type)) {
 		rtnh->rtnh_flags |= RTNH_F_ONLINK;
-		if (!nl_attr_put(nlmsg, req_size, RTA_GATEWAY, &ipv4_ll, 4))
+		if (!add_v4_over_v6_rta_via_attr(nlmsg, req_size, nexthop))
 			return false;
 		rtnh->rtnh_ifindex = nexthop->ifindex;
 		if (nexthop->weight)
@@ -2275,11 +2303,16 @@ static bool _netlink_route_build_multipath(const struct prefix *p,
 		else if (nexthop->src.ipv4.s_addr != INADDR_ANY)
 			*src = &nexthop->src;
 
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug(
-				"%s: 5549 (%s): %pFX nexthop via %s %s if %u vrf %u",
-				__func__, routedesc, p, ipv4_ll_buf, label_buf,
-				nexthop->ifindex, nexthop->vrf_id);
+		if (IS_ZEBRA_DEBUG_KERNEL) {
+			inet_ntop(nexthop->type == NEXTHOP_TYPE_IPV6 ||
+						  nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX
+					  ? AF_INET6
+					  : AF_INET,
+				  &nexthop->gate, addrstr, sizeof(addrstr));
+			zlog_debug("%s: 5549 (%s): %pFX nexthop via %s %s if %u vrf %u", __func__,
+				   routedesc, p, addrstr, label_buf, nexthop->ifindex,
+				   nexthop->vrf_id);
+		}
 		nl_attr_rtnh_end(nlmsg, rtnh);
 		return true;
 	}
@@ -2301,8 +2334,9 @@ static bool _netlink_route_build_multipath(const struct prefix *p,
 				   __func__, routedesc, p, &nexthop->gate.ipv4,
 				   label_buf, nexthop->ifindex, nexthop->vrf_id);
 	}
-	if (nexthop->type == NEXTHOP_TYPE_IPV6
-	    || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
+
+	if (!is_route_v4_over_v6(rtmsg->rtm_family, nexthop->type) &&
+	    (nexthop->type == NEXTHOP_TYPE_IPV6 || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX)) {
 		if (!_netlink_route_add_gateway_info(rtmsg->rtm_family,
 						     AF_INET6, nlmsg, req_size,
 						     bytelen, nexthop))
@@ -3155,11 +3189,15 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 			const struct nexthop *nh =
 				dplane_ctx_get_nhe_ng(ctx)->nexthop;
 			afi_t afi = dplane_ctx_get_nhe_afi(ctx);
+			enum lwtunnel_encap_types nh_afi = LWTUNNEL_ENCAP_IP;
 
-			if (afi == AFI_IP)
+			if (afi == AFI_IP) {
 				req->nhm.nh_family = AF_INET;
-			else if (afi == AFI_IP6)
+				nh_afi = LWTUNNEL_ENCAP_IP;
+			} else if (afi == AFI_IP6) {
 				req->nhm.nh_family = AF_INET6;
+				nh_afi = LWTUNNEL_ENCAP_IP6;
+			}
 
 			switch (nh->type) {
 			case NEXTHOP_TYPE_IPV4:
@@ -3209,7 +3247,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 			if (num_labels && nh->nh_label_type == ZEBRA_LSP_EVPN) {
 				if (!nl_attr_put16(&req->n, buflen,
 						   NHA_ENCAP_TYPE,
-						   LWTUNNEL_ENCAP_IP))
+						   nh_afi))
 					return 0;
 
 				nest = nl_attr_nest(&req->n, buflen, NHA_ENCAP);

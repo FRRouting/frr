@@ -2818,12 +2818,20 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 			if (CHECK_FLAG(tmp_nh->flags, NEXTHOP_FLAG_EVPN)) {
 				struct ipaddr vtep_ip = {};
 
-				if (ere->afi == AFI_IP) {
+				switch (tmp_nh->type) {
+				case NEXTHOP_TYPE_IPV4_IFINDEX:
 					vtep_ip.ipa_type = IPADDR_V4;
 					vtep_ip.ipaddr_v4 = tmp_nh->gate.ipv4;
-				} else {
+					break;
+				case NEXTHOP_TYPE_IPV6_IFINDEX:
 					vtep_ip.ipa_type = IPADDR_V6;
 					vtep_ip.ipaddr_v6 = tmp_nh->gate.ipv6;
+					break;
+				case NEXTHOP_TYPE_IFINDEX:
+				case NEXTHOP_TYPE_IPV4:
+				case NEXTHOP_TYPE_IPV6:
+				case NEXTHOP_TYPE_BLACKHOLE:
+					continue;
 				}
 				zebra_rib_queue_evpn_route_add(tmp_nh->vrf_id, &tmp_nh->rmac,
 							       &vtep_ip, &ere->p);
