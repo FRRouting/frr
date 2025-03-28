@@ -260,7 +260,18 @@ parse_ihu_subtlv(const unsigned char *a, int alen,
             return -1;
         }
 
-        if(type == SUBTLV_PADN) {
+        if (type & SUBTLV_MANDATORY) {
+            /*
+             * RFC 8966 4.4
+             * If the mandatory bit is set, then the whole enclosing
+             * TLV MUST be silently ignored (except for updating the
+             * parser state by a Router-Id, Next Hop, or Update TLV, as
+             * described in the next section).
+             */
+            debugf(BABEL_DEBUG_COMMON,
+                   "Received subtlv with Mandatory bit, this version of FRR is not prepared to handle this currently");
+            return -2;
+        } else if(type == SUBTLV_PADN) {
             /* Nothing to do. */
         } else if(type == SUBTLV_TIMESTAMP) {
             if(len >= 8) {
@@ -540,9 +551,14 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                     /* Multiply by 3/2 to allow neighbours to expire. */
                     schedule_neighbours_check(interval * 45, 0);
                 /* RTT sub-TLV. */
-                if(len > 10 + rc)
-                    parse_ihu_subtlv(message + 8 + rc, len - 6 - rc,
+                if(len > 10 + rc) {
+                    int ret = parse_ihu_subtlv(message + 8 + rc, len - 6 - rc,
                                      &hello_send_us, &hello_rtt_receive_time);
+                    if (ret == -2)
+                        goto done;
+                    else if (ret == -1)
+                        goto fail;
+                }
             }
         } else if(type == MESSAGE_ROUTER_ID) {
             memcpy(router_id, message + 4, 8);
