@@ -530,6 +530,12 @@ static void zserv_process_messages(struct event *thread)
 	struct stream_fifo *cache = stream_fifo_new();
 	uint32_t p2p = zrouter.packets_to_process;
 	bool need_resched = false;
+	uint32_t meta_queue_size = zebra_rib_meta_queue_size();
+
+	if (meta_queue_size < p2p)
+		p2p = p2p - meta_queue_size;
+	else
+		p2p = 0;
 
 	frr_with_mutex (&client->ibuf_mtx) {
 		uint32_t i;
