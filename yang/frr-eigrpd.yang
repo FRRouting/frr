@@ -112,7 +112,7 @@ module frr-eigrpd {
     list instance {
       key "asn vrf";
       description "EIGRP autonomous system instance";
-
+      must "count(../instance[vrf =current()/vrf]) = 1";
       leaf asn {
         type autonomous-system;
         description "Autonomous System Number";
