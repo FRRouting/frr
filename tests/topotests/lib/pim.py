@@ -509,6 +509,7 @@ def _enable_disable_pim_config(tgen, topo, input_dict, router, build=False):
             cmd = "interface {}".format(interface_name)
             config_data.append(cmd)
             config_data.append("ip pim")
+            config_data.append("exit")
 
         if "pim" in input_dict[router]:
             if "disable" in input_dict[router]["pim"]:
