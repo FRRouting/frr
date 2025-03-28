@@ -119,9 +119,13 @@ static ssize_t netlink_rule_msg_encode(
 			return 0;
 	}
 
-	/* dsfield, if specified; mask off the ECN bits */
+	/* dscp, if specified; mask off the ECN bits */
 	if (filter_bm & PBR_FILTER_DSCP)
 		req->frh.tos = dsfield & PBR_DSFIELD_DSCP;
+
+	/* add ECN bits to tos if specified */
+	if (filter_bm & PBR_FILTER_ECN)
+		req->frh.tos = req->frh.tos | (dsfield & PBR_DSFIELD_ECN);
 
 	/* protocol to match on */
 	if (filter_bm & PBR_FILTER_IP_PROTOCOL)
