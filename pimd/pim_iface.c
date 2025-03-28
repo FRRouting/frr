@@ -2025,11 +2025,11 @@ void pim_pim_interface_delete(struct interface *ifp)
 	if (!pim_ifp)
 		return;
 
+	pim_ifp->pim_enable = false;
+
 #if PIM_IPV == 4
 	pim_autorp_rm_ifp(ifp);
 #endif
-
-	pim_ifp->pim_enable = false;
 
 	pim_if_membership_clear(ifp);
 

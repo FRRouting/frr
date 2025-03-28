@@ -3285,7 +3285,6 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 {
 	struct vrf *vrf;
 	struct pim_instance *pim;
-	bool enabled;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -3295,10 +3294,8 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_APPLY:
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
 		pim = vrf->info;
-		enabled = yang_dnode_get_bool(args->dnode, NULL);
 		/* Run AutoRP discovery by default */
-		if (!enabled)
-			pim_autorp_start_discovery(pim);
+		pim_autorp_start_discovery(pim);
 		break;
 	}
 
