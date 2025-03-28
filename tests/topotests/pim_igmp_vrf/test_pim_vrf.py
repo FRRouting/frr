@@ -46,29 +46,29 @@ test_pim_vrf.py: Test PIM with VRFs, both IPv4 and IPv6.
 #     Adding PIM (IPv6) RP in VRF information and verify pim6reg
 #     interfaces in VRF blue and red
 # - test_mcast_vrf_blue()
-#     Start multicast stream for group 239.100.0.1 from Host
-#     H2 and join from Host H1 on vrf blue
+#     Join MC group 239.100.0.1 from Host H1 on vrf blue
+#     Start MC stream from Host H2
 #     Verify PIM JOIN status on R1 and R11
 #     Stop multicast after verification
 #     Check (interface statistics) whether PIM Register messages were
 #     generated towards RP and answered by Register-Stop
 # - test_mcast_vrf_red()
-#     Start multicast stream for group 239.100.0.1 from Host
-#     H4 and join from Host H3 on vrf blue
+#     Join MC group 239.100.0.1 from Host H4 on vrf red
+#     Start MC stream from Host H4
 #     Verify PIM JOIN status on R1 and R12
 #     Stop multicast after verification
 #     Check (interface statistics) whether PIM Register messages were
 #     generated towards RP and answered by Register-Stop
 # - test_ipv6_mcast_vrf_blue()
-#     Start multicast stream for group ff18:100::1 from Host
-#     H2 and join from Host H1 on vrf blue
+#     Join MC group ff18:100::1 from Host H1 on vrf blue
+#     Start MC stream from Host H2
 #     Verify PIM JOIN status on R1 and R11
 #     Stop multicast after verification
 #     Check (interface statistics) whether PIM Register messages were
 #     generated towards RP and answered by Register-Stop
 # - test_ipv6_mcast_vrf_red()
-#     Start multicast stream for group ff18:100::1 from Host
-#     H4 and join from Host H3 on vrf blue
+#     Join MC group ff18:100::1 from Host H4 on vrf red
+#     Start MC stream from Host H4
 #     Verify PIM JOIN status on R1 and R12
 #     Stop multicast after verification
 #     Check (interface statistics) whether PIM Register messages were
@@ -456,8 +456,9 @@ def check_mcast46_entry(
     )
 
     with McastTesterHelper(tgen) as helper:
-        helper.run(sender, ["--send=0.7", mcastaddr, str(sender) + "-eth0"])
         helper.run(receiver, [mcastaddr, str(receiver) + "-eth0"])
+        topotest.sleep(1)
+        helper.run(sender, ["--send=0.7", mcastaddr, str(sender) + "-eth0"])
 
         logger.info("mcast join and source for {} started".format(mcastaddr))
 
