@@ -5,6 +5,7 @@
 # ("NetDEF") in this file.
 #
 
+import json
 import ipaddress
 import sys
 import traceback
@@ -5658,3 +5659,34 @@ def bgp_configure_prefixes(router, asn, safi, prefixes, vrf=None, update=True):
         ]
         logger.debug(f"setting prefix: ipv{ip.version} {safi} {ip}")
         router.vtysh_cmd("".join(cmd))
+
+
+# compare exact fields of 'show bgp ipv4 vpn' and related commands
+# after having removed some attributes that are not relevant.
+def bgp_vpn_router_json_cmp_exact_filter(router, cmd, expected):
+    output = router.vtysh_cmd(cmd)
+    logger.info("{}: {}\n{}".format(router.name, cmd, output))
+
+    json_output = json.loads(output)
+
+    # filter out tableVersion, version and nhVrfID
+    json_output.pop("tableVersion")
+    if "totalRoutes" in json_output:
+        json_output.pop("totalRoutes")
+    if "totalPaths" in json_output:
+        json_output.pop("totalPaths")
+    for rd, data in json_output["routes"]["routeDistinguishers"].items():
+        for _, attrs in data.items():
+            for attr in attrs:
+                if "nhVrfId" in attr:
+                    attr.pop("nhVrfId")
+                if "version" in attr:
+                    attr.pop("version")
+
+    # filter out RD with no data (e.g. "444:3": {})
+    json_tmp = deepcopy(json_output)
+    for rd, data in json_tmp["routes"]["routeDistinguishers"].items():
+        if len(data.keys()) == 0:
+            json_output["routes"]["routeDistinguishers"].pop(rd)
+
+    return topotest.json_cmp(json_output, expected, exact=True)
