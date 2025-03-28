@@ -333,7 +333,7 @@ DEFPY (clear_ip_eigrp_neighbors,
 		eigrp_hello_send(ei, EIGRP_HELLO_GRACEFUL_SHUTDOWN, NULL);
 
 		/* iterate over all neighbors on eigrp interface */
-		frr_each (eigrp_nbr_hash, &ei->nbr_hash_head, nbr) {
+		frr_each_safe (eigrp_nbr_hash, &ei->nbr_hash_head, nbr) {
 			if (nbr->state != EIGRP_NEIGHBOR_DOWN) {
 				zlog_debug(
 					"Neighbor %pI4 (%s) is down: manually cleared",
@@ -393,7 +393,7 @@ DEFPY (clear_ip_eigrp_neighbors_int,
 	eigrp_hello_send(ei, EIGRP_HELLO_GRACEFUL_SHUTDOWN, NULL);
 
 	/* iterate over all neighbors on eigrp interface */
-	frr_each (eigrp_nbr_hash, &ei->nbr_hash_head, nbr) {
+	frr_each_safe (eigrp_nbr_hash, &ei->nbr_hash_head, nbr) {
 		if (nbr->state != EIGRP_NEIGHBOR_DOWN) {
 			zlog_debug(
 				"Neighbor %pI4 (%s) is down: manually cleared",
