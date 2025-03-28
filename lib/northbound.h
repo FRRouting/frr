@@ -98,6 +98,7 @@ enum nb_cb_operation {
 	NB_CB_GET_ELEM,
 	NB_CB_GET_NEXT,
 	NB_CB_GET_KEYS,
+	NB_CB_LIST_ENTRY_DONE,
 	NB_CB_LOOKUP_ENTRY,
 	NB_CB_RPC,
 	NB_CB_NOTIFY,
@@ -518,6 +519,24 @@ struct nb_callbacks {
 	/*
 	 * Operational data callback for YANG lists.
 	 *
+	 * This callback function is called to cleanup any resources that may be
+	 * held by a backend opaque `list_entry` value (e.g., a lock). It is
+	 * called when the northbound code is done using a `list_entry` value it
+	 * obtained using the lookup_entry() callback. It is also called on the
+	 * `list_entry` returned from the get_next() or lookup_next() callbacks
+	 * if the iteration aborts before walking to the end of the list. The
+	 * intention is to allow any resources (e.g., a lock) to now be
+	 * released.
+	 *
+	 * args
+	 *    parent_list_entry - pointer to the parent list entry
+	 *    list_entry - value returned previously from `lookup_entry()`
+	 */
+	void (*list_entry_done)(const void *parent_list_entry, const void *list_entry);
+
+	/*
+	 * Operational data callback for YANG lists.
+	 *
 	 * The callback function should return a list entry based on the list
 	 * keys given as a parameter. Keyless lists don't need to implement this
 	 * callback.
@@ -883,6 +902,8 @@ extern int nb_callback_get_keys(const struct nb_node *nb_node,
 extern const void *nb_callback_lookup_entry(const struct nb_node *nb_node,
 					    const void *parent_list_entry,
 					    const struct yang_list_keys *keys);
+extern void nb_callback_list_entry_done(const struct nb_node *nb_node,
+					const void *parent_list_entry, const void *list_entry);
 extern const void *nb_callback_lookup_node_entry(struct lyd_node *node,
 						 const void *parent_list_entry);
 extern const void *nb_callback_lookup_next(const struct nb_node *nb_node,
