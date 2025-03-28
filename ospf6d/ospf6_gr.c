@@ -371,6 +371,7 @@ void ospf6_gr_check_lsdb_consistency(struct ospf6 *ospf6,
 			snprintfrr(reason, sizeof(reason),
 				   "detected inconsistent LSA %s [area %pI4]",
 				   lsa->name, &area->area_id);
+			ospf6_lsa_unlock(&lsa);
 			ospf6_gr_restart_exit(ospf6, reason);
 			return;
 		}

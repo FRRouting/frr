@@ -17,14 +17,14 @@ test_ospf6_gr_topo1.py:
              | 1.1.1.1 |
              +---------+
                   |eth-rt2
-                  |
+                  |area 1
                   |eth-rt1
              +---------+
              |   RT2   |
              | 2.2.2.2 |
              +---------+
                   |eth-rt3
-                  |
+                  |area 0
                   |eth-rt2
              +---------+
              |   RT3   |
@@ -33,14 +33,14 @@ test_ospf6_gr_topo1.py:
           eth-rt4|  |eth-rt6
                  |  |
        +---------+  +--------+
-       |                     |
+       |area 0               |area 0
        |eth-rt3              |eth-rt3
   +---------+           +---------+
   |   RT4   |           |   RT6   |
   | 4.4.4.4 |           | 6.6.6.6 |
   +---------+           +---------+
        |eth-rt5              |eth-rt7
-       |                     |
+       |area 2               |area 3
        |eth-rt4              |eth-rt6
   +---------+           +---------+
   |   RT5   |           |   RT7   |
@@ -153,7 +153,7 @@ def router_compare_json_output(rname, command, reference, tries):
     expected = json.loads(open(filename).read())
 
     test_func = partial(topotest.router_json_cmp, tgen.gears[rname], command, expected)
-    _, diff = topotest.run_and_expect(test_func, None, count=tries, wait=0.5)
+    _, diff = topotest.run_and_expect(test_func, None, count=tries, wait=1)
     assertmsg = '"{}" JSON output mismatches the expected result'.format(rname)
     assert diff is None, assertmsg
 
@@ -206,12 +206,12 @@ def check_routers(initial_convergence=False, exiting=None, restarting=None):
         # processing it.  Let's give it a few seconds to allow this to happen
         # under load.
         if initial_convergence == True:
-            tries = 240
+            tries = 120
         else:
             if restarting != None:
-                tries = 40
+                tries = 20
             else:
-                tries = 10
+                tries = 15
         router_compare_json_output(
             rname, "show ipv6 route ospf json", "show_ipv6_route.json", tries
         )
@@ -219,7 +219,7 @@ def check_routers(initial_convergence=False, exiting=None, restarting=None):
         # Check that all adjacencies are up and running (except when there's
         # an OSPF instance that is shutting down).
         if exiting == None:
-            tries = 240
+            tries = 120
             router_compare_json_output(
                 rname,
                 "show ipv6 ospf neighbor json",
@@ -231,9 +231,9 @@ def check_routers(initial_convergence=False, exiting=None, restarting=None):
         # In the restarting router, wait up to one minute for the LSDB to converge.
         if exiting != rname:
             if initial_convergence == True or restarting == rname:
-                tries = 240
+                tries = 120
             else:
-                tries = 10
+                tries = 15
             router_compare_json_output(
                 rname,
                 "show ipv6 ospf database json",
