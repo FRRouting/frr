@@ -108,6 +108,23 @@
       ]
     }
   ],
+  "2001:db8:9::/64": [
+    {
+      "internalNextHopActiveNum": 2,
+      "nexthops": [
+        {
+          "fib": true,
+          "interfaceName": "r1-eth2",
+          "active": true
+        },
+        {
+          "fib": true,
+          "interfaceName": "r1-eth1",
+          "active": true
+        }
+      ]
+    }
+  ],
   "2001:db8:8007::/64": [
     {
       "internalNextHopActiveNum": 3,
@@ -142,6 +159,23 @@
         {
           "fib": true,
           "interfaceName": "r1-eth0",
+          "active": true
+        },
+        {
+          "fib": true,
+          "interfaceName": "r1-eth1",
+          "active": true
+        }
+      ]
+    }
+  ],
+  "2001:db8:8009::/64": [
+    {
+      "internalNextHopActiveNum": 2,
+      "nexthops": [
+        {
+          "fib": true,
+          "interfaceName": "r1-eth2",
           "active": true
         },
         {
