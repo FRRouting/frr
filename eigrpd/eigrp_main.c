@@ -99,6 +99,8 @@ static void sigint(void)
 	keychain_terminate();
 
 	route_map_finish();
+	prefix_list_reset();
+
 	eigrp_terminate();
 
 	exit(0);
