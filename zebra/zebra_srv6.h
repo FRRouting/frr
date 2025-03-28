@@ -230,6 +230,13 @@ DECLARE_HOOK(srv6_manager_release_chunk,
 	      const char *locator_name,
 	      vrf_id_t vrf_id),
 	     (client, locator_name, vrf_id));
+DECLARE_HOOK(srv6_manager_get_locator_static_sids,
+		 (struct srv6_locator **loc,
+		  struct list *static_sids_list,
+		  struct zserv *client,
+		  const char *locator_name,
+		  vrf_id_t vrf_id),
+		 (loc, static_sids_list, client, locator_name, vrf_id));
 
 DECLARE_HOOK(srv6_manager_get_sid,
 	     (struct zebra_srv6_sid **sid, struct zserv *client,
@@ -308,6 +315,9 @@ extern void srv6_manager_release_sid_call(struct zserv *client,
 extern void srv6_manager_get_locator_call(struct srv6_locator **locator,
 					  struct zserv *client,
 					  const char *locator_name);
+extern void srv6_manager_get_locator_static_sids_call(struct srv6_locator **locator,
+					  struct list *static_sids_list, struct zserv *client,
+					  const char *locator_name, vrf_id_t vrf_id);
 
 extern int get_srv6_sid(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx,
 			struct in6_addr *sid_value, const char *locator_name);

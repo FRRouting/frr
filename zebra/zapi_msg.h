@@ -98,6 +98,9 @@ extern void zsend_srv6_sid_notify(struct zserv *client,
 				  uint32_t wide_func, const char *locator_name,
 				  enum zapi_srv6_sid_notify note);
 
+extern void zsend_srv6_static_sid_update(void);
+void zsend_srv6_static_sid_update_internal(struct zserv *client);
+
 extern int zsend_client_close_notify(struct zserv *client,
 				     struct zserv *closed_client);
 
@@ -115,6 +118,8 @@ extern int zsend_srv6_manager_get_locator_chunk_response(struct zserv *client,
 
 extern int zsend_srv6_manager_get_locator_response(struct zserv *client,
 						   struct srv6_locator *locator);
+extern int zsend_srv6_manager_get_locator_static_sids_response(struct srv6_locator *loc,
+						   struct list *static_sids_list, struct zserv *client, vrf_id_t vrf_id);
 
 #ifdef __cplusplus
 }

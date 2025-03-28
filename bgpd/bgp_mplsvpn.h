@@ -89,6 +89,8 @@ extern void delete_vrf_tovpn_sid_per_vrf(struct bgp *vpn, struct bgp *vrf);
 extern void ensure_vrf_tovpn_sid_per_af(struct bgp *vpn, struct bgp *vrf,
 					afi_t afi);
 extern void ensure_vrf_tovpn_sid_per_vrf(struct bgp *vpn, struct bgp *vrf);
+extern void ensure_vrf_tovpn_sid_explicit(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
+					afi_t afi);
 extern void transpose_sid(struct in6_addr *sid, uint32_t label, uint8_t offset,
 			  uint8_t size);
 extern void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
@@ -281,10 +283,12 @@ static inline void vpn_leak_postchange(enum vpn_policy_direction direction,
 		    !CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags,
 				BGP_VPN_POLICY_TOVPN_SID_AUTO) &&
 		    bgp_vrf->tovpn_sid_index == 0 &&
-		    !CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_TOVPN_SID_AUTO))
+		    !CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_TOVPN_SID_AUTO) &&
+		    !CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT))
 			delete_vrf_tovpn_sid(bgp_vpn, bgp_vrf, afi);
 
-		if (!bgp_vrf->vpn_policy[afi].tovpn_sid && !bgp_vrf->tovpn_sid)
+		if (CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT) ||
+			   (!bgp_vrf->vpn_policy[afi].tovpn_sid && !bgp_vrf->tovpn_sid))
 			ensure_vrf_tovpn_sid(bgp_vpn, bgp_vrf, afi);
 
 		if ((!bgp_vrf->vpn_policy[afi].tovpn_sid &&

@@ -3483,6 +3483,93 @@ static int bgp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 }
 
 /**
+ * Internal function to process an SRv6 locator and static SIDs list
+ *
+ * @param locator The locator to be processed
+ * @param static_sids_list The static SIDs list to be processed
+ */
+static int bgp_zebra_process_srv6_locator_static_sids_internal(struct srv6_locator *locator,
+				 struct list *static_sids_list)
+{
+	struct bgp *bgp = bgp_get_default();
+	struct listnode *sid_node, *sid_nnode = NULL;
+	struct srv6_sid *static_sid = NULL;
+
+	if (!bgp || !bgp->srv6_enabled || !locator)
+		return -1;
+
+	/**
+	 * Check if the main BGP instance is configured to use the received locator
+	 */
+	if (strcmp(bgp->srv6_locator_name, locator->name) != 0) {
+		zlog_err("%s: SRv6 Locator name unmatch %s: %s", __func__,
+			 bgp->srv6_locator_name, locator->name);
+		return 0;
+	}
+
+	zlog_info("%s: Received SRv6 locator %s %pFX, loc-block-len=%u, loc-node-len=%u func-len=%u, arg-len=%u",
+		  __func__, locator->name, &locator->prefix,
+		  locator->block_bits_length, locator->node_bits_length,
+		  locator->function_bits_length, locator->argument_bits_length);
+	
+	/**
+	 * Store the locator in the main BGP instance, if bgp has already been pointing a locator,
+	 * then we free the old one and update it.
+	 */
+	if (bgp->srv6_locator) {
+		srv6_locator_free(bgp->srv6_locator);
+		bgp->srv6_locator = NULL;
+	}
+	bgp->srv6_locator = srv6_locator_alloc(locator->name);
+	srv6_locator_copy(bgp->srv6_locator, locator);
+
+	/**
+	 * Grant the static SIDs list to the main BGP instance.
+	 * If bgp has a srv6_static_sids already,
+	 * free the old list then grant the new one.
+	 */
+	if (bgp->srv6_static_sids != NULL) {
+		for(ALL_LIST_ELEMENTS(bgp->srv6_static_sids, sid_node, sid_nnode, static_sid)) {
+			if (static_sid->locator) {
+				free(static_sid->locator);
+				static_sid->locator = NULL;
+			}
+		}
+		list_delete(&bgp->srv6_static_sids);
+	}
+	bgp->srv6_static_sids = static_sids_list;
+
+	/*
+	 * Process VPN-to-VRF and VRF-to-VPN leaks to advertise new locator
+	 * and SIDs.
+	 */
+	vpn_leak_postchange_all();
+
+	return 0;
+}
+
+
+/**
+ * Process the SRv6 locator and static SIDs list received from zebra
+ */
+static int bgp_zebra_process_srv6_locator_static_sids(ZAPI_CALLBACK_ARGS)
+{
+	struct bgp *bgp = bgp_get_default();
+	struct srv6_locator loc = {};
+	struct list *static_sids_list = list_new();
+
+	if (!bgp || !bgp->srv6_enabled)
+		return 0;
+
+	if (zapi_srv6_locator_static_sids_decode(zclient->ibuf, &loc, static_sids_list) < 0) {
+		list_delete(&static_sids_list);
+		return -1;
+	}
+
+	return bgp_zebra_process_srv6_locator_static_sids_internal(&loc, static_sids_list);
+}
+
+/**
  * Internal function to process an SRv6 locator
  *
  * @param locator The locator to be processed
@@ -3750,6 +3837,45 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+/**
+ * This function handles the notification from zebra.
+ * It has two main missions. Firstly, it checks whether the bgp
+ * refers to a locator by configuring as 'locator NAME'.
+ * Then it triggers to update the bgp vrfs using new static sids
+ * if they are set.
+ */
+static int bgp_zebra_process_srv6_static_sid_update(ZAPI_CALLBACK_ARGS)
+{
+	struct bgp *bgp = bgp_get_default();
+	struct bgp *bgp_vrf;
+	struct listnode *node, *nnode;
+
+	if (!bgp)
+		return 0;
+
+	/* Trigger the locator NAME part and get the new static_sids list */
+	/* We use bgp->srv6_locator_name to check whether this is configured */
+	if (strlen(bgp->srv6_locator_name) > 0)
+		bgp_zebra_srv6_manager_get_locator_static_sids(bgp->srv6_locator_name);
+
+	/**
+	 * If some vrf is using the sids in a explicit-mode,
+	 * let's find it and help it use the static sids.
+	 */
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp_vrf)) {
+		if (CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT)) {
+			/* Clear old sids used in vpn route*/
+			vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp, bgp_vrf);
+			vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp, bgp_vrf);
+			/* Update new sids */
+			vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp, bgp_vrf);
+			vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp, bgp_vrf);
+		}
+	}
+
+	return 0;
+}
+
 static int bgp_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
 {
 	struct srv6_locator loc = {};
@@ -3935,7 +4061,10 @@ static zclient_handler *const bgp_handlers[] = {
 	[ZEBRA_SRV6_LOCATOR_DELETE] = bgp_zebra_process_srv6_locator_delete,
 	[ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK] =
 		bgp_zebra_process_srv6_locator_chunk,
+	[ZEBRA_SRV6_MANAGER_GET_LOCATOR_STATIC_SIDS] =
+		bgp_zebra_process_srv6_locator_static_sids,
 	[ZEBRA_SRV6_SID_NOTIFY] = bgp_zebra_srv6_sid_notify,
+	[ZEBRA_SRV6_STATIC_SID_UPDATE] = bgp_zebra_process_srv6_static_sid_update,
 };
 
 static int bgp_if_new_hook(struct interface *ifp)
@@ -4554,6 +4683,24 @@ void bgp_zebra_release_srv6_sid(const struct srv6_sid_ctx *ctx)
 		zlog_warn("%s: error releasing SRv6 SID!", __func__);
 		return;
 	}
+}
+
+/**
+ * Ask the SRv6 Manager (zebra) about a specific locator and all static SIDs
+ *
+ * @param name Locator name
+ * @return 0 on success, -1 otherwise
+ */
+int bgp_zebra_srv6_manager_get_locator_static_sids(const char *name)
+{
+	if(!name)
+		return -1;
+
+	/**
+	 * Send the Get Locator and static SIDs request to the SRv6 Manager
+	 * and return the result
+	 */
+	return srv6_manager_get_locator_static_sids(zclient, name);
 }
 
 void bgp_zebra_send_nexthop_label(int cmd, mpls_label_t label,
