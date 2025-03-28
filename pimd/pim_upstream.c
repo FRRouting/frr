@@ -2231,9 +2231,8 @@ void pim_upstream_init(struct pim_instance *pim)
 	char name[64];
 
 	snprintf(name, sizeof(name), "PIM %s Timer Wheel", pim->vrf->name);
-	pim->upstream_sg_wheel =
-		wheel_init(router->master, 31000, 100, pim_upstream_hash_key,
-			   pim_upstream_sg_running, name);
+	pim->upstream_sg_wheel = wheel_init(router->master, 31000, 100, 0, pim_upstream_hash_key,
+					    pim_upstream_sg_running, name, true);
 
 	rb_pim_upstream_init(&pim->upstream_head);
 }

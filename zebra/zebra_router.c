@@ -232,9 +232,14 @@ void zebra_router_terminate(void)
 {
 	struct zebra_router_table *zrt, *tmp;
 
-	if (zrouter.ra_wheel) {
-		wheel_delete(zrouter.ra_wheel);
-		zrouter.ra_wheel = NULL;
+	if (zrouter.ra_regular_wheel) {
+		wheel_delete(zrouter.ra_regular_wheel);
+		zrouter.ra_regular_wheel = NULL;
+	}
+
+	if (zrouter.ra_fast_wheel) {
+		wheel_delete(zrouter.ra_fast_wheel);
+		zrouter.ra_fast_wheel = NULL;
 	}
 
 	EVENT_OFF(zrouter.t_rib_sweep);
@@ -292,9 +297,13 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack,
 	zrouter.nhg_keep = ZEBRA_DEFAULT_NHG_KEEP_TIMER;
 
 	/*Init V6 RA batching stuffs*/
-	zrouter.ra_wheel = wheel_init(zrouter.master, RTADV_TIMER_WHEEL_PERIOD_MS,
-				      RTADV_TIMER_WHEEL_SLOTS_NO, interface_hash_key, process_rtadv,
-				      NULL);
+	zrouter.ra_regular_wheel = wheel_init(zrouter.master, RTADV_TIMER_REGULAR_WHEEL_PERIOD_MS,
+					      RTADV_TIMER_WHEEL_SLOTS_NO, 0, interface_hash_key,
+					      process_rtadv_regular, NULL, true);
+
+	zrouter.ra_fast_wheel = wheel_init(zrouter.master, RTADV_TIMER_FAST_WHEEL_PERIOD_MS,
+					   RTADV_TIMER_WHEEL_SLOTS_NO, 10, interface_hash_key,
+					   process_rtadv_faster, NULL, false);
 
 	zebra_vxlan_init();
 	zebra_mlag_init();
