@@ -9,14 +9,13 @@ import sys
 import time
 import json
 import math
-import time
 from lib.topolog import logger
 from lib.topotest import json_cmp
 
 
 # L utility functions
 #
-# These functions are inteneted to provide support for CI testing within MiniNet
+# These functions are intended to provide support for CI testing within MiniNet
 # environments.
 
 
@@ -129,7 +128,6 @@ Total %-4d                                                           %-4d %d\n\
         words = string.split()
         if len(words) < 1 or words[0].startswith("#"):
             return a
-        words = string.split()
         for word in words:
             if len(end) == 0:
                 a.append(word)
