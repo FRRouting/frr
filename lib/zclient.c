@@ -3014,7 +3014,7 @@ size_t zebra_interface_link_params_write(struct stream *s,
 	size_t w, nb_ext_adm_grp;
 	struct if_link_params *iflp;
 	int i;
-
+	size_t j;
 
 	if (s == NULL || ifp == NULL)
 		return 0;
@@ -3045,8 +3045,8 @@ size_t zebra_interface_link_params_write(struct stream *s,
 	/* Extended Administrative Group */
 	nb_ext_adm_grp = admin_group_nb_words(&iflp->ext_admin_grp);
 	w += stream_putc(s, nb_ext_adm_grp);
-	for (size_t i = 0; i < nb_ext_adm_grp; i++)
-		stream_putl(s, admin_group_get_offset(&iflp->ext_admin_grp, i));
+	for (j = 0; j < nb_ext_adm_grp; j++)
+		stream_putl(s, admin_group_get_offset(&iflp->ext_admin_grp, j));
 
 	w += stream_putl(s, iflp->rmt_as);
 	w += stream_put_in_addr(s, &iflp->rmt_ip);

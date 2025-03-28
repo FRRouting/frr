@@ -21,7 +21,7 @@
 #include "ripd/rip_interface.h"
 
 /* All information about zebra. */
-struct zclient *zclient = NULL;
+struct zclient *ripd_zclient = NULL;
 
 /* Send ECMP routes to zebra. */
 static void rip_zebra_ipv4_send(struct rip *rip, struct route_node *rp,
@@ -72,7 +72,7 @@ static void rip_zebra_ipv4_send(struct rip *rip, struct route_node *rp,
 		api.tag = rinfo->tag;
 	}
 
-	zclient_route_send(cmd, zclient, &api);
+	zclient_route_send(cmd, ripd_zclient, &api);
 
 	if (IS_RIP_DEBUG_ZEBRA) {
 		if (rip->ecmp)
@@ -137,14 +137,14 @@ static int rip_zebra_read_route(ZAPI_CALLBACK_ARGS)
 
 void rip_redistribute_conf_update(struct rip *rip, int type)
 {
-	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP,
+	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, ripd_zclient, AFI_IP,
 				type, 0, rip->vrf->vrf_id);
 }
 
 void rip_redistribute_conf_delete(struct rip *rip, int type)
 {
-	if (zclient->sock > 0)
-		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE, zclient,
+	if (ripd_zclient->sock > 0)
+		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE, ripd_zclient,
 					AFI_IP, type, 0, rip->vrf->vrf_id);
 
 	/* Remove the routes from RIP table. */
@@ -162,7 +162,7 @@ void rip_redistribute_enable(struct rip *rip)
 		if (!rip_redistribute_check(rip, i))
 			continue;
 
-		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP,
+		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, ripd_zclient, AFI_IP,
 					i, 0, rip->vrf->vrf_id);
 	}
 }
@@ -173,7 +173,7 @@ void rip_redistribute_disable(struct rip *rip)
 		if (!rip_redistribute_check(rip, i))
 			continue;
 
-		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE, zclient,
+		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE, ripd_zclient,
 					AFI_IP, i, 0, rip->vrf->vrf_id);
 	}
 }
@@ -181,7 +181,7 @@ void rip_redistribute_disable(struct rip *rip)
 void rip_show_redistribute_config(struct vty *vty, struct rip *rip)
 {
 	for (int i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-		if (i == zclient->redist_default
+		if (i == ripd_zclient->redist_default
 		    || !rip_redistribute_check(rip, i))
 			continue;
 
@@ -198,8 +198,8 @@ void rip_zebra_vrf_register(struct vrf *vrf)
 		zlog_debug("%s: register VRF %s(%u) to zebra", __func__,
 			   vrf->name, vrf->vrf_id);
 
-	zclient_send_reg_requests(zclient, vrf->vrf_id);
-	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, vrf->vrf_id);
+	zclient_send_reg_requests(ripd_zclient, vrf->vrf_id);
+	bfd_client_sendmsg(ripd_zclient, ZEBRA_BFD_CLIENT_REGISTER, vrf->vrf_id);
 }
 
 void rip_zebra_vrf_deregister(struct vrf *vrf)
@@ -211,8 +211,8 @@ void rip_zebra_vrf_deregister(struct vrf *vrf)
 		zlog_debug("%s: deregister VRF %s(%u) from zebra.", __func__,
 			   vrf->name, vrf->vrf_id);
 
-	zclient_send_dereg_requests(zclient, vrf->vrf_id);
-	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_DEREGISTER, vrf->vrf_id);
+	zclient_send_dereg_requests(ripd_zclient, vrf->vrf_id);
+	bfd_client_sendmsg(ripd_zclient, ZEBRA_BFD_CLIENT_DEREGISTER, vrf->vrf_id);
 }
 
 static void rip_zebra_connected(struct zclient *zclient)
@@ -233,18 +233,18 @@ static void rip_zebra_capabilities(struct zclient_capabilities *cap)
 	zebra_ecmp_count = MIN(cap->ecmp, zebra_ecmp_count);
 }
 
-void rip_zclient_init(struct event_loop *master)
+void rip_zclient_init(struct event_loop *mst)
 {
 	/* Set default value to the zebra client structure. */
-	zclient = zclient_new(master, &zclient_options_default, rip_handlers,
-			      array_size(rip_handlers));
-	zclient_init(zclient, ZEBRA_ROUTE_RIP, 0, &ripd_privs);
-	zclient->zebra_connected = rip_zebra_connected;
-	zclient->zebra_capabilities = rip_zebra_capabilities;
+	ripd_zclient = zclient_new(mst, &zclient_options_default, rip_handlers,
+				   array_size(rip_handlers));
+	zclient_init(ripd_zclient, ZEBRA_ROUTE_RIP, 0, &ripd_privs);
+	ripd_zclient->zebra_connected = rip_zebra_connected;
+	ripd_zclient->zebra_capabilities = rip_zebra_capabilities;
 }
 
 void rip_zclient_stop(void)
 {
-	zclient_stop(zclient);
-	zclient_free(zclient);
+	zclient_stop(ripd_zclient);
+	zclient_free(ripd_zclient);
 }

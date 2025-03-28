@@ -107,7 +107,7 @@ static int printchk(const char *ref, const char *fmt, ...)
 		errors++;
 	}
 
-	for (size_t i = 0; i < fb.outpos_i; i++)
+	for (i = 0; i < fb.outpos_i; i++)
 		printf("\t[%zu: %u..%u] = \"%.*s\"\n", i,
 			outpos[i].off_start,
 			outpos[i].off_end,

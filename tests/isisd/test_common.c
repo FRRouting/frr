@@ -33,11 +33,11 @@ test_topology_find_node(const struct isis_topology *topology,
 }
 
 const struct isis_topology *
-test_topology_find(struct isis_topology *test_topologies, uint16_t number)
+test_topology_find(struct isis_topology *topologies, uint16_t number)
 {
-	for (size_t i = 0; test_topologies[i].number; i++)
-		if (test_topologies[i].number == number)
-			return &test_topologies[i];
+	for (size_t i = 0; topologies[i].number; i++)
+		if (topologies[i].number == number)
+			return &topologies[i];
 
 	return NULL;
 }

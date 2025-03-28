@@ -231,7 +231,6 @@ DECLARE_QOBJ_TYPE(ospf6);
 #define OSPF6_STUB_ROUTER 0x02
 
 /* global pointer for OSPF top data structure */
-extern struct ospf6 *ospf6;
 extern struct ospf6_master *om6;
 
 /* prototypes */

@@ -35,7 +35,7 @@
 DEFINE_MTYPE_STATIC(PBRD, PBR_INTERFACE, "PBR Interface");
 
 /* Zebra structure to hold current status. */
-struct zclient *zclient;
+struct zclient *pbr_zclient;
 
 struct pbr_interface *pbr_if_new(struct interface *ifp)
 {
@@ -272,7 +272,7 @@ static void route_add_helper(struct zapi_route *api, struct nexthop_group nhg,
 	}
 	api->nexthop_num = i;
 
-	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, api);
+	zclient_route_send(ZEBRA_ROUTE_ADD, pbr_zclient, api);
 }
 
 /*
@@ -342,17 +342,17 @@ void route_delete(struct pbr_nexthop_group_cache *pnhgc, afi_t afi)
 	switch (afi) {
 	case AFI_IP:
 		api.prefix.family = AF_INET;
-		zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
+		zclient_route_send(ZEBRA_ROUTE_DELETE, pbr_zclient, &api);
 		break;
 	case AFI_IP6:
 		api.prefix.family = AF_INET6;
-		zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
+		zclient_route_send(ZEBRA_ROUTE_DELETE, pbr_zclient, &api);
 		break;
 	case AFI_MAX:
 		api.prefix.family = AF_INET;
-		zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
+		zclient_route_send(ZEBRA_ROUTE_DELETE, pbr_zclient, &api);
 		api.prefix.family = AF_INET6;
-		zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
+		zclient_route_send(ZEBRA_ROUTE_DELETE, pbr_zclient, &api);
 		break;
 	case AFI_L2VPN:
 		DEBUGD(&pbr_dbg_zebra,
@@ -403,22 +403,22 @@ static zclient_handler *const pbr_handlers[] = {
 
 void pbr_zebra_init(void)
 {
-	zclient = zclient_new(master, &zclient_options_default, pbr_handlers,
-			      array_size(pbr_handlers));
+	pbr_zclient = zclient_new(master, &zclient_options_default, pbr_handlers,
+				  array_size(pbr_handlers));
 
-	zclient_init(zclient, ZEBRA_ROUTE_PBR, 0, &pbr_privs);
-	zclient->zebra_connected = zebra_connected;
-	zclient->nexthop_update = pbr_zebra_nexthop_update;
+	zclient_init(pbr_zclient, ZEBRA_ROUTE_PBR, 0, &pbr_privs);
+	pbr_zclient->zebra_connected = zebra_connected;
+	pbr_zclient->nexthop_update = pbr_zebra_nexthop_update;
 }
 
 void pbr_zebra_destroy(void)
 {
-	if (zclient == NULL)
+	if (pbr_zclient == NULL)
 		return;
 
-	zclient_stop(zclient);
-	zclient_free(zclient);
-	zclient = NULL;
+	zclient_stop(pbr_zclient);
+	zclient_free(pbr_zclient);
+	pbr_zclient = NULL;
 }
 
 void pbr_send_rnh(struct nexthop *nhop, bool reg)
@@ -454,7 +454,7 @@ void pbr_send_rnh(struct nexthop *nhop, bool reg)
 		break;
 	}
 
-	if (zclient_send_rnh(zclient, command, &p, SAFI_UNICAST, false, false,
+	if (zclient_send_rnh(pbr_zclient, command, &p, SAFI_UNICAST, false, false,
 			     nhop->vrf_id)
 	    == ZCLIENT_SEND_FAILURE) {
 		zlog_warn("%s: Failure to send nexthop to zebra", __func__);
@@ -608,7 +608,7 @@ bool pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
 	if (!install && !is_installed)
 		return false;
 
-	s = zclient->obuf;
+	s = pbr_zclient->obuf;
 	stream_reset(s);
 
 	zclient_create_header(s,
@@ -621,7 +621,7 @@ bool pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
 
 	if (pbr_encode_pbr_map_sequence(s, pbrms, pmi->ifp)) {
 		stream_putw_at(s, 0, stream_get_endp(s));
-		zclient_send_message(zclient);
+		zclient_send_message(pbr_zclient);
 	} else {
 		DEBUGD(&pbr_dbg_zebra, "%s: %s seq %u encode failed, skipped",
 		       __func__, pbrm->name, pbrms->seqno);
