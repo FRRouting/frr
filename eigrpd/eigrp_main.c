@@ -98,6 +98,8 @@ static void sigint(void)
 
 	keychain_terminate();
 
+	prefix_list_reset();
+
 	exit(0);
 }
 

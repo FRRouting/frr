@@ -108,6 +108,7 @@ static __attribute__((__noreturn__)) void terminate(int i)
 
 	isis_master_terminate();
 	route_map_finish();
+	prefix_list_reset();
 	vrf_terminate();
 
 	frr_fini();
