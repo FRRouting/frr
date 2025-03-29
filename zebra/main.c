@@ -247,6 +247,8 @@ void zebra_finalize(struct event *dummy)
 
 	label_manager_terminate();
 
+	affinity_map_terminate();
+
 	ns_walk_func(zebra_ns_final_shutdown, NULL, NULL);
 
 	ns_terminate();
