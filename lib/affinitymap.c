@@ -127,3 +127,12 @@ void affinity_map_set_update_hook(void (*func)(const char *affmap_name,
 {
 	affinity_map_master.update_hook = func;
 }
+
+void affinity_map_terminate(void)
+{
+	struct affinity_map *map;
+	struct listnode *node, *nnode;
+
+	for (ALL_LIST_ELEMENTS(affinity_map_master.maps, node, nnode, map))
+		affinity_map_free(map);
+}
