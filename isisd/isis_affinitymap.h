@@ -15,6 +15,7 @@ extern "C" {
 #endif
 
 extern void isis_affinity_map_init(void);
+extern void isis_affinity_map_terminate(void);
 
 #ifdef __cplusplus
 }
