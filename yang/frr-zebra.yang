@@ -79,6 +79,9 @@ module frr-zebra {
   revision 2019-06-01 {
     description
       "Initial revision.";
+
+    reference
+      "FRRouting";
   }
 
   feature ipv6-router-advertisements {
@@ -188,6 +191,8 @@ module frr-zebra {
           "Multicast PIM-SM.";
       }
     }
+    description
+      "Type for VTEP flood type.";
   }
 
   /*
@@ -317,7 +322,13 @@ module frr-zebra {
    */
 
   grouping vni-information {
+    description
+      "Grouping for VNI information.";
+
     choice type-choice {
+      description
+        "Choice between L2 and L3 VNI information.";
+
       case l2 {
         leaf is-layer2 {
           type empty;
@@ -383,6 +394,9 @@ module frr-zebra {
    */
 
   grouping vni-l2-detail {
+    description
+      "Grouping for VNI L2 details.";
+
     leaf if-index {
       type uint32;
       description
@@ -402,6 +416,9 @@ module frr-zebra {
     }
 
     list remote-vtep-list {
+      description
+        "List of remote VTEPs.";
+
       leaf remote-vtep {
         type inet:ipv4-address;
         description
@@ -410,6 +427,8 @@ module frr-zebra {
 
       leaf vtep-flood {
         type vni-vtep-flood-type;
+        description
+          "VTEP flood type.";
       }
     }
   }
@@ -419,6 +438,9 @@ module frr-zebra {
    */
 
   grouping vni-l3-detail {
+    description
+      "Grouping for VNI L3 details.";
+
     leaf svi-interface {
       type frr-interface:interface-ref;
       description
@@ -459,6 +481,9 @@ module frr-zebra {
    */
 
   grouping zebra-debugs {
+    description
+      "Grouping for Zebra debugging options.";
+
     leaf debug-events {
       type boolean;
       description
@@ -569,12 +594,19 @@ module frr-zebra {
   }
 
   grouping ribs {
+    description
+      "Grouping for RIBs supported by FRR.";
+
     container ribs {
       config false;
       description
         "RIBs supported by FRR.";
       list rib {
         key "afi-safi-name table-id";
+
+        description
+          "List of RIBs, each with a specific AFI/SAFI name and table ID.";
+
         leaf afi-safi-name {
           type identityref {
             base frr-rt:afi-safi-type;
@@ -585,13 +617,16 @@ module frr-zebra {
 
         leaf table-id {
           type uint32;
-	  default "254";
           description
             "Routing Table id (default id - 254).";
         }
 
         list route {
           key "prefix";
+          
+          description
+            "List of routes, each with a specific prefix.";
+
           leaf prefix {
             type inet:ip-prefix;
             description
@@ -600,6 +635,10 @@ module frr-zebra {
 
           list route-entry {
             key "protocol";
+
+            description
+              "List of route entries, each owned by a specific protocol.";
+
             leaf protocol {
               type frr-route-types:frr-route-types;
               description
@@ -647,6 +686,9 @@ module frr-zebra {
       "Retrieve IPv4 or IPv6 unicast routes.";
     input {
       choice ip-type {
+        description
+          "Choice between retrieving IPv4 routes and retrieving IPv6 routes.";
+
         case v4 {
           leaf ipv4 {
             type empty;
@@ -685,6 +727,10 @@ module frr-zebra {
       }
 
       choice vrf-choice {
+        description
+          "Choice between retrieving routes in a non-default VRF or |
+           retrieving routes from all VRFs.";
+
         case single {
           leaf vrf {
             type frr-vrf:vrf-ref;
@@ -732,6 +778,10 @@ module frr-zebra {
       }
 
       choice detail {
+        description
+          "Choice between including detailed information and |
+           including summary information only.";
+
         case det {
           leaf include-detail {
             type empty;
@@ -752,11 +802,17 @@ module frr-zebra {
     // End of input
     output {
       choice route-list {
+        description
+          "Choice between IPv4 route information and IPv6 route information.";
+
         case v4 {
           container routes-v4 {
             description
               "IPv4 route information.";
             list route {
+              description
+                "List of IPv4 routes.";
+
               uses ip4-route;
             }
           }
@@ -767,6 +823,9 @@ module frr-zebra {
             description
               "IPv6 route information.";
             list route {
+              description
+                "List of IPv6 routes.";
+
               uses ip6-route;
             }
           }
@@ -783,6 +842,10 @@ module frr-zebra {
       "Retrieve IPv6 multicast routes.";
     input {
       choice vrf-choice {
+        description
+          "Choice between retrieving routes in a non-default VRF or |
+           retrieving routes from all VRFs.";
+
         case single {
           leaf vrf {
             type frr-vrf:vrf-ref;
@@ -806,6 +869,9 @@ module frr-zebra {
         description
           "IPv6 mcast route information.";
         list route {
+          description
+            "List of IPv6 routes.";
+
           uses ip6-route;
         }
       }
@@ -820,6 +886,10 @@ module frr-zebra {
     // Note: no input clause.
     output {
       list vrf-list {
+        description
+          "List of VRF information including name, user configuration status, |
+           VRF ID, and VRF type.";
+
         leaf name {
           type frr-vrf:vrf-ref;
           description
@@ -839,6 +909,10 @@ module frr-zebra {
         }
 
         choice vrf-type {
+          description
+            "Choice between specifying the VRF as inactive, associated with a net namespace, |
+             or associated with a table ID.";
+
           case inactive {
             leaf is-inactive {
               type empty;
@@ -875,6 +949,10 @@ module frr-zebra {
     // Note: no input clause.
     output {
       list vrf-vni-list {
+        description
+          "List of VRF VNI information including VRF name, EVPN VNI, VxLAN interface name, |
+           SVI interface name, router MAC address, and state.";
+
         leaf vrf-name {
           type frr-vrf:vrf-ref;
           description
@@ -971,6 +1049,10 @@ module frr-zebra {
       }
 
       choice dad-freeze-choice {
+        description
+          "Choice between setting duplicate address detection |
+           freeze to permanent or specifying a timer.";
+
         case freeze-permanent {
           leaf dad-freeze-perm {
             type empty;
@@ -994,10 +1076,16 @@ module frr-zebra {
   // End get-evpn-info
 
   rpc get-vni-info {
+    description
+      "Retrieve information about EVPN VNIs.";
+
     // If no vni is specified, retrieve global list.
     input {
       choice vni-choice {
         default "all-vnis";
+        description
+          "Choice between retrieving information about all VNIs or a specific EVPN VNI.";
+
         case all-vnis {
           leaf all-vnis {
             type empty;
@@ -1029,6 +1117,9 @@ module frr-zebra {
         uses vni-information;
 
         choice detail-choice {
+          description
+            "Choice between detailed L2 or L3 information.";
+
           case l2 {
             description
               "Detailed L2 information.";
@@ -1053,6 +1144,10 @@ module frr-zebra {
     input {
       choice vni-choice {
         default "all-vnis";
+        description
+          "Choice between retrieving information about all VNIs or |
+           a specific EVPN VNI and a single RMAC address.";
+
         case all-vnis {
           leaf all-vnis {
             type empty;
@@ -1079,6 +1174,10 @@ module frr-zebra {
 
     output {
       list rmac-info-list {
+        description
+          "List of RMAC information including RMAC address, remote VTEP IP address, |
+           refcount, and associated IP prefixes.";
+
         leaf rmac {
           type yang:mac-address;
           description
@@ -1098,6 +1197,9 @@ module frr-zebra {
         }
 
         list prefix-list {
+          description
+            "List of IP prefixes associated with the RMAC.";
+
           leaf prefix-item {
             type inet:ip-prefix;
             description
@@ -1116,6 +1218,10 @@ module frr-zebra {
     input {
       choice vni-choice {
         default "all-vnis";
+        description
+          "Choice between retrieving information about all VNIs or |
+           a specific EVPN VNI and a single host IP address.";
+
         case all-vnis {
           leaf all-vnis {
             type empty;
@@ -1142,6 +1248,9 @@ module frr-zebra {
 
     output {
       list nh-info-list {
+        description
+          "List of nexthop information including IP address, MAC address, and refcount.";
+
         leaf ip-addr {
           type inet:ip-address;
           description
@@ -1161,6 +1270,9 @@ module frr-zebra {
         }
 
         list prefix-list {
+          description
+            "List of IP prefixes associated with the RMAC.";
+
           leaf prefix-item {
             type inet:ip-prefix;
             description
@@ -1178,6 +1290,11 @@ module frr-zebra {
       "Clear duplicate address detection state for one or all VNIs.";
     input {
       choice clear-dup-choice {
+        description
+          "Choice between clearing all VNIs or |
+           clearing state for a single EVPN VNI |
+           and a specific MAC or IP address.";
+
         case all-case {
           leaf all-vnis {
             type empty;
@@ -1225,6 +1342,11 @@ module frr-zebra {
     input {
       choice all-choice {
         default "all-vni";
+        description 
+	  "Choice between retrieving information for all VNIs or |
+           including detailed results, a single VTEP address, or |
+           showing duplicate addresses.";
+
         case all-vni {
           leaf all-vnis {
             type empty;
@@ -1233,6 +1355,10 @@ module frr-zebra {
           }
 
           choice all-choices {
+            description
+              "Choice between including detailed results, a single VTEP address, |
+               or showing duplicate addresses.";
+
             case detail-case {
               leaf all-detail {
                 type empty;
@@ -1267,6 +1393,10 @@ module frr-zebra {
           }
 
           choice single-choices {
+            description
+              "Choice between including detailed results, a specific MAC address, |
+               a single VTEP address, or showing duplicate addresses.";
+
             case detail-case {
               leaf single-detail {
                 type empty;
@@ -1305,6 +1435,9 @@ module frr-zebra {
     // End of input section
     output {
       list mac-list {
+        description
+          "List of MAC addresses.";
+
         leaf mac-addr {
           type yang:mac-address;
           description
@@ -1348,6 +1481,9 @@ module frr-zebra {
         }
 
         container dup-detect-started {
+          description
+            "Container for duplicate detection process start time and count.";
+
           leaf dup-detect-start {
             type unix-timestamp;
             description
@@ -1386,6 +1522,9 @@ module frr-zebra {
         }
 
         list neighbor-list {
+          description
+            "List of neighbor addresses.";
+
           leaf neighbor-addr {
             type inet:ip-address;
             description
@@ -1406,6 +1545,9 @@ module frr-zebra {
         }
 
         choice local-rem-choice {
+          description
+            "Choice between local interface and VLAN or remote VTEP IP address.";
+
           case local-case {
             leaf intf {
               type frr-interface:interface-ref;
@@ -1440,6 +1582,8 @@ module frr-zebra {
     input {
       choice all-choice {
         default "all-vni";
+        description
+          "Choice between retrieving information for all VNIs or including detailed results or showing duplicates.";
         case all-vni {
           leaf all-vnis {
             type empty;
@@ -1448,6 +1592,9 @@ module frr-zebra {
           }
 
           choice all-choices {
+            description
+              "Choice between including detailed results or showing duplicates.";
+
             case detail-case {
               leaf all-detail {
                 type empty;
@@ -1474,6 +1621,9 @@ module frr-zebra {
           }
 
           choice single-choices {
+            description
+              "Choice between single VTEP, neighbor address, or show duplicates.";
+
             case vtep-case {
               leaf single-vtep {
                 type inet:ipv4-address;
@@ -1504,6 +1654,9 @@ module frr-zebra {
     // End input section
     output {
       list vni-list {
+        description
+          "List of VNI containers.";
+
         container vni-container {
           description
             "Information for one VNI.";
@@ -1535,6 +1688,9 @@ module frr-zebra {
             }
 
             choice local-remote-choice {
+              description
+                "Choice between local and remote entries.";
+
               case local-case {
                 leaf is-local {
                   type empty;
@@ -1596,6 +1752,9 @@ module frr-zebra {
   // End get-evpn-arp-cache
 
   rpc get-pbr-ipset {
+    description
+      "RPC to retrieve PBR IP set.";
+
     input {
       leaf name {
         type string {
@@ -1608,6 +1767,9 @@ module frr-zebra {
 
     output {
       list ipset-list {
+        description
+          "List of IP sets.";
+
         leaf name {
           type string {
             length "1..32";
@@ -1621,24 +1783,26 @@ module frr-zebra {
             enum "net-net" {
               value 1;
               description
-                "";
+                "Network to network IP set type.";
             }
             enum "net-port-net" {
               value 2;
               description
-                "";
+                "Network to port to network IP set type.";
             }
             enum "net-port" {
               value 3;
               description
-                "";
+                "Network to port IP set type.";
             }
             enum "net" {
               value 4;
               description
-                "";
+                "Network IP set type.";
             }
           }
+          description
+            "Type of IP set.";
         }
 
         leaf src-prefix {
@@ -1714,6 +1878,9 @@ module frr-zebra {
         }
 
         container ipset-stats {
+          description
+            "Container for IP set statistics.";
+
           leaf is-unique {
             type empty;
             description
@@ -1739,6 +1906,9 @@ module frr-zebra {
   // End get-pbr-ipset
 
   rpc get-pbr-iptable {
+    description
+      "RPC to retrieve PBR iptables.";
+
     input {
       leaf name {
         type string {
@@ -1751,6 +1921,9 @@ module frr-zebra {
 
     output {
       list iptable-list {
+        description
+          "List of iptables entries.";
+
         leaf name {
           type string {
             length "1..32";
@@ -1828,6 +2001,9 @@ module frr-zebra {
         }
 
         container dscp-info {
+          description
+            "Container for dscp information.";
+
           leaf dscp-value {
             type uint32;
             description
@@ -1842,6 +2018,9 @@ module frr-zebra {
         }
 
         container fragment-info {
+          description
+            "Container for fragment information.";
+
           leaf fragment-val {
             type uint32;
             description
@@ -1856,16 +2035,19 @@ module frr-zebra {
         }
 
         container iptable-stats {
+          description
+            "Container for iptables statistics.";
+
           leaf packet-counter {
             type uint64;
             description
-              "";
+              "Number of packets processed by iptables.";
           }
 
           leaf bytes-counter {
             type uint64;
             description
-              "";
+              "Number of packets processed by iptables.";
           }
         }
 
@@ -1894,6 +2076,9 @@ module frr-zebra {
    */
 
   rpc get-debugs {
+    description
+      "RPC to retrieve debug information.";
+
     output {
       uses zebra-debugs;
     }
@@ -1905,6 +2090,9 @@ module frr-zebra {
     description
       "Extends interface model with Zebra-related parameters.";
     container zebra {
+      description
+        "Container for Zebra-related information.";
+
       list ipv4-addrs {
         key "ip prefix-length";
         description
@@ -2079,18 +2267,21 @@ module frr-zebra {
             description
               "Legacy mode. Only support standard admin-group (RFC3630/5305/5329)";
             leaf legacy-admin-group {
-              description "Admin-Group value";
               type uint32;
+              description "Admin-Group value";
             }
           }
           case affinity {
             container affinities {
+              description
+                "Container for affinity information.";
+
               leaf-list affinity {
                 type frr-affinity-map:affinity-map-ref;
-                max-elements "256";
                 must '../../affinity-mode != "standard" or /frr-affinity-map:lib/frr-affinity-map:affinity-maps/frr-affinity-map:affinity-map[frr-affinity-map:name=current()]/frr-affinity-map:value < 32' {
                   error-message "Affinity bit-position must be less than 32 when used with standard affinity mode";
                 }
+                max-elements "256";
                 description
                   "Array of Attribute Names";
               }
@@ -2098,9 +2289,6 @@ module frr-zebra {
           }
         }
         leaf affinity-mode {
-          description
-            "Affinity mode";
-          default "extended";
           type enumeration {
               enum extended {
               value 0;
@@ -2118,9 +2306,11 @@ module frr-zebra {
                 "Standard and extended Admin-Group";
             }
           }
+          default "extended";
+          description
+            "Affinity mode";
         }
         container neighbor {
-          description "Remote ASBR information (RFC 5316 & RFC 5392)";
           presence "Activates neighbor information on this interface.";
           leaf remote-as {
             type inet:as-number;
@@ -2134,6 +2324,8 @@ module frr-zebra {
             description
               "IPv4 Remote ASBR ID (RFC 5316 & RFC 5392)";
           }
+          description
+            "Remote ASBR information (RFC 5316 & RFC 5392)";
         }
         leaf delay {
           type uint32 {
@@ -2143,8 +2335,6 @@ module frr-zebra {
             "Average Unidirectional Link Delay";
         }
         container min-max-delay {
-          description
-            "Min/Max Unidirectional Link Delay";
           presence "Activates min/max delay.";
           leaf delay-min {
             type uint32 {
@@ -2168,6 +2358,8 @@ module frr-zebra {
             description
               "Max Delay";
           }
+          description
+            "Min/Max Unidirectional Link Delay";
         }
         leaf delay-variation {
           type uint32 {
@@ -2192,6 +2384,9 @@ module frr-zebra {
         choice esi-choice {
           description "ESI type";
           container type-0 {
+            description
+              "Container for type-0 information.";
+
             leaf esi {
               type yang:hex-string {
                 length "29";
@@ -2201,6 +2396,9 @@ module frr-zebra {
               }
           }
           container type-3 {
+            description
+              "Container for type-3 information.";
+
             leaf system-mac {
               type yang:mac-address;
               description
@@ -2680,6 +2878,8 @@ module frr-zebra {
 
         leaf vni-id {
           type vni-id-type;
+          description
+            "A VNI id.";
         }
 
         leaf remote-vtep {
@@ -2805,10 +3005,10 @@ module frr-zebra {
           }
           leaf end {
             type uint32;
-            mandatory true;
             must ". >= ../start" {
               error-message "End table must be greater than or equal to start table";
             }
+            mandatory true;
             description
               "The last table to use.";
           }
@@ -2832,6 +3032,9 @@ module frr-zebra {
   }
 
   augment "/frr-vrf:lib/frr-vrf:vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop" {
+    description
+      "Augments the nexthop with operational data.";
+
     uses frr-nh:frr-nexthop-operational;
   }
 
@@ -2843,10 +3046,10 @@ module frr-zebra {
     description
       "Data model for the Zebra daemon.";
     leaf max-multipath {
-      config false;
       type uint16 {
         range "1..65535";
       }
+      config false;
       description
         "The maximum number of nexthops for a route.  At this point it
          is unlikely that a multipath number will ever get larger then
@@ -2939,6 +3142,9 @@ module frr-zebra {
      * Debug options
      */
     container debugs {
+      description
+        "This container contains debug information for the zebra daemon.";
+
       uses zebra-debugs;
     }
     /* End of debugs */
