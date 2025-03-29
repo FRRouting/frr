@@ -2615,6 +2615,9 @@ route_set_aspath_exclude(void *rule, const struct prefix *dummy, void *object)
 		path->attr->aspath =
 			aspath_filter_exclude_acl(new_path,
 						  ase->exclude_aspath_acl);
+	else
+		aspath_free(new_path);
+
 	return RMAP_OKAY;
 }
 
