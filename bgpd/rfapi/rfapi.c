@@ -3546,6 +3546,8 @@ DEFUN (skiplist_debug_cli,
 
 void rfapi_init(void)
 {
+	rfapi_rib_init();
+	rfapi_import_init();
 	bgp_rfapi_cfg_init();
 	vnc_debug_init();
 
@@ -3574,6 +3576,12 @@ void rfapi_init(void)
 #endif
 
 	rfapi_vty_init();
+}
+
+void rfapi_terminate(void)
+{
+	rfapi_import_terminate();
+	rfapi_rib_terminate();
 }
 
 #ifdef DEBUG_RFAPI

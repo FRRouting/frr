@@ -18,6 +18,7 @@
 #include "lib/log.h"
 #include "lib/skiplist.h"
 #include "lib/workqueue.h"
+#include <typesafe.h>
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_route.h"
@@ -40,12 +41,11 @@
 #define DEBUG_PENDING_DELETE_ROUTE	0
 #define DEBUG_NHL			0
 #define DEBUG_RIB_SL_RD                 0
-#define DEBUG_CLEANUP 0
+#define DEBUG_CLEANUP			0
 
 /* forward decl */
 #if DEBUG_NHL
-static void rfapiRibShowRibSl(void *stream, struct prefix *pfx,
-			      struct skiplist *sl);
+static void rfapiRibShowRibSl(void *stream, const struct prefix *pfx, struct skiplist *sl);
 #endif
 
 /*
@@ -234,9 +234,45 @@ void rfapiFreeRfapiVnOptionChain(struct rfapi_vn_option *p)
 }
 
 
+/*
+ * Hash to keep track of outstanding timers so we can force them to
+ * expire at shutdown time, thus freeing their allocated memory.
+ */
+PREDECL_HASH(rrtcb);
+
+/*
+ * Timer control block for recently-deleted and expired routes
+ */
+struct rfapi_rib_tcb {
+	struct rrtcb_item tcbi;
+
+	struct rfapi_descriptor *rfd;
+	struct skiplist *sl;
+	struct rfapi_info *ri;
+	struct agg_node *rn;
+	int flags;
+#define RFAPI_RIB_TCB_FLAG_DELETED 0x00000001
+};
+
+static int _rrtcb_cmp(const struct rfapi_rib_tcb *t1, const struct rfapi_rib_tcb *t2)
+{
+	return (t1 != t2);
+}
+
+static uint32_t _rrtcb_hash(const struct rfapi_rib_tcb *t)
+{
+	return (uintptr_t)t & 0xffffffff;
+}
+
+DECLARE_HASH(rrtcb, struct rfapi_rib_tcb, tcbi, _rrtcb_cmp, _rrtcb_hash);
+static struct rrtcb_head _rrtcbhash;
+
 static void rfapi_info_free(struct rfapi_info *goner)
 {
 	if (goner) {
+#if DEBUG_CLEANUP
+		zlog_debug("%s: ri %p, timer %p", __func__, goner, goner->timer);
+#endif
 		if (goner->tea_options) {
 			rfapiFreeBgpTeaOptionChain(goner->tea_options);
 			goner->tea_options = NULL;
@@ -253,32 +289,19 @@ static void rfapi_info_free(struct rfapi_info *goner)
 			struct rfapi_rib_tcb *tcb;
 
 			tcb = EVENT_ARG(goner->timer);
+#if DEBUG_CLEANUP
+			zlog_debug("%s: ri %p, tcb %p", __func__, goner, tcb);
+#endif
 			EVENT_OFF(goner->timer);
+			rrtcb_del(&_rrtcbhash, tcb);
 			XFREE(MTYPE_RFAPI_RECENT_DELETE, tcb);
 		}
 		XFREE(MTYPE_RFAPI_INFO, goner);
 	}
 }
 
-/*
- * Timer control block for recently-deleted and expired routes
- */
-struct rfapi_rib_tcb {
-	struct rfapi_descriptor *rfd;
-	struct skiplist *sl;
-	struct rfapi_info *ri;
-	struct agg_node *rn;
-	int flags;
-#define RFAPI_RIB_TCB_FLAG_DELETED	0x00000001
-};
-
-/*
- * remove route from rib
- */
-static void rfapiRibExpireTimer(struct event *t)
+static void _rfapiRibExpireTimer(struct rfapi_rib_tcb *tcb)
 {
-	struct rfapi_rib_tcb *tcb = EVENT_ARG(t);
-
 	RFAPI_RIB_CHECK_COUNTS(1, 0);
 
 	/*
@@ -309,9 +332,20 @@ static void rfapiRibExpireTimer(struct event *t)
 		agg_unlock_node(tcb->rn);
 	}
 
+	rrtcb_del(&_rrtcbhash, tcb);
 	XFREE(MTYPE_RFAPI_RECENT_DELETE, tcb);
 
 	RFAPI_RIB_CHECK_COUNTS(1, 0);
+}
+
+/*
+ * remove route from rib
+ */
+static void rfapiRibExpireTimer(struct event *t)
+{
+	struct rfapi_rib_tcb *tcb = EVENT_ARG(t);
+
+	_rfapiRibExpireTimer(tcb);
 }
 
 static void rfapiRibStartTimer(struct rfapi_descriptor *rfd,
@@ -349,6 +383,8 @@ static void rfapiRibStartTimer(struct rfapi_descriptor *rfd,
 
 	event_add_timer(bm->master, rfapiRibExpireTimer, tcb, ri->lifetime,
 			&ri->timer);
+
+	rrtcb_add(&_rrtcbhash, tcb);
 }
 
 extern void rfapi_rib_key_init(struct prefix *prefix, /* may be NULL */
@@ -519,6 +555,7 @@ void rfapiRibClear(struct rfapi_descriptor *rfd)
 							tcb = EVENT_ARG(
 								ri->timer);
 							EVENT_OFF(ri->timer);
+							rrtcb_del(&_rrtcbhash, tcb);
 							XFREE(MTYPE_RFAPI_RECENT_DELETE,
 							      tcb);
 						}
@@ -852,11 +889,6 @@ static void process_pending_node(struct bgp *bgp, struct rfapi_descriptor *rfd,
 	int rib_node_started_nonempty = 0;
 	int sendingsomeroutes = 0;
 	const struct prefix *p;
-#if DEBUG_PROCESS_PENDING_NODE
-	unsigned int count_rib_initial = 0;
-	unsigned int count_pend_vn_initial = 0;
-	unsigned int count_pend_cost_initial = 0;
-#endif
 
 	assert(pn);
 	p = agg_node_get_prefix(pn);
@@ -885,19 +917,6 @@ static void process_pending_node(struct bgp *bgp, struct rfapi_descriptor *rfd,
 	slPendPt = (struct skiplist *)(pn->aggregate);
 	lPendCost = (struct list *)(pn->info);
 
-#if DEBUG_PROCESS_PENDING_NODE
-	/* debugging */
-	if (slRibPt)
-		count_rib_initial = skiplist_count(slRibPt);
-
-	if (slPendPt)
-		count_pend_vn_initial = skiplist_count(slPendPt);
-
-	if (lPendCost && lPendCost != (struct list *)1)
-		count_pend_cost_initial = lPendCost->count;
-#endif
-
-
 	/*
 	 * Handle special case: delete all routes at prefix
 	 */
@@ -920,6 +939,7 @@ static void process_pending_node(struct bgp *bgp, struct rfapi_descriptor *rfd,
 
 					tcb = EVENT_ARG(ri->timer);
 					EVENT_OFF(ri->timer);
+					rrtcb_del(&_rrtcbhash, tcb);
 					XFREE(MTYPE_RFAPI_RECENT_DELETE, tcb);
 				}
 
@@ -1005,6 +1025,7 @@ static void process_pending_node(struct bgp *bgp, struct rfapi_descriptor *rfd,
 
 					tcb = EVENT_ARG(ori->timer);
 					EVENT_OFF(ori->timer);
+					rrtcb_del(&_rrtcbhash, tcb);
 					XFREE(MTYPE_RFAPI_RECENT_DELETE, tcb);
 				}
 
@@ -1017,6 +1038,11 @@ static void process_pending_node(struct bgp *bgp, struct rfapi_descriptor *rfd,
 #endif
 
 			} else {
+#if DEBUG_PROCESS_PENDING_NODE
+				vnc_zlog_debug_verbose("%s:   slRibPt ri %p matched in pending list",
+						       __func__, ori);
+#endif
+
 				/*
 				 * Found in pending list. If same lifetime,
 				 * cost, options,
@@ -1040,14 +1066,10 @@ static void process_pending_node(struct bgp *bgp, struct rfapi_descriptor *rfd,
 						rfapi_info_free(
 							ri); /* grr... */
 					}
-				}
 #if DEBUG_PROCESS_PENDING_NODE
-				vnc_zlog_debug_verbose(
-					"%s:   slRibPt ri %p matched in pending list, %s",
-					__func__, ori,
-					(same ? "same info"
-					      : "different info"));
+					vnc_zlog_debug_verbose("%s: same info", __func__);
 #endif
+				}
 			}
 		}
 		/*
@@ -1339,6 +1361,7 @@ callback:
 
 					tcb = EVENT_ARG(ri->timer);
 					EVENT_OFF(ri->timer);
+					rrtcb_del(&_rrtcbhash, tcb);
 					XFREE(MTYPE_RFAPI_RECENT_DELETE, tcb);
 				}
 				RFAPI_RIB_CHECK_COUNTS(0, delete_list->count);
@@ -2285,8 +2308,7 @@ static int print_rib_sl(int (*fp)(void *, const char *, ...), struct vty *vty,
 /*
  * This one is for debugging (set stream to NULL to send output to log)
  */
-static void rfapiRibShowRibSl(void *stream, struct prefix *pfx,
-			      struct skiplist *sl)
+static void rfapiRibShowRibSl(void *stream, const struct prefix *pfx, struct skiplist *sl)
 {
 	int (*fp)(void *, const char *, ...);
 	struct vty *vty;
@@ -2424,5 +2446,27 @@ void rfapiRibShowResponses(void *stream, struct prefix *pfx_match,
 			fp(out, " with %u out of %u next hops", nhs_displayed,
 			   nhs_total);
 		fp(out, "\n");
+	}
+}
+
+void rfapi_rib_init(void)
+{
+	rrtcb_init(&_rrtcbhash);
+}
+
+void rfapi_rib_terminate(void)
+{
+	struct rfapi_rib_tcb *tcb;
+
+	vnc_zlog_debug_verbose("%s: cleaning up %zu pending timers", __func__,
+			       rrtcb_count(&_rrtcbhash));
+
+	/*
+	 * Clean up memory allocations stored in pending timers
+	 */
+	while ((tcb = rrtcb_pop(&_rrtcbhash))) {
+		assert(tcb == EVENT_ARG(tcb->ri->timer));
+		EVENT_OFF(tcb->ri->timer);
+		_rfapiRibExpireTimer(tcb); /* deletes hash entry, frees tcb */
 	}
 }
