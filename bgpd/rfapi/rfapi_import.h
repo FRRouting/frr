@@ -225,4 +225,7 @@ extern void rfapiCountAllItRoutes(int *pALRcount, /* active local routes */
  --------------------------------------------*/
 extern uint32_t rfapiGetHolddownFromLifetime(uint32_t lifetime);
 
+extern void rfapi_import_init(void);
+extern void rfapi_import_terminate(void);
+
 #endif /* QUAGGA_HGP_RFAPI_IMPORT_H */
