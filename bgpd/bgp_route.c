@@ -3669,6 +3669,15 @@ static wq_item_status bgp_process_wq(struct work_queue *wq, void *data)
 static void bgp_processq_del(struct work_queue *wq, void *data)
 {
 	struct bgp_process_queue *pqnode = data;
+	struct bgp_dest *dest;
+
+	while (!STAILQ_EMPTY(&pqnode->pqueue)) {
+		dest = STAILQ_FIRST(&pqnode->pqueue);
+		STAILQ_REMOVE_HEAD(&pqnode->pqueue, pq);
+		STAILQ_NEXT(dest, pq) = NULL;
+		bgp_dest_unlock_node(dest);
+		bgp_table_unlock(bgp_dest_table(dest));
+	}
 
 	bgp_unlock(pqnode->bgp);
 
