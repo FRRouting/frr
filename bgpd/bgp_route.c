@@ -7699,6 +7699,7 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 
 	if (safi == SAFI_EVPN || safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP) {
 		if (afi == AFI_IP) {
+			/* TODO -- no support for V6 nexthop yet */
 			attr.mp_nexthop_global_in = bgp_static->igpnexthop;
 			attr.mp_nexthop_len = IPV4_MAX_BYTELEN;
 		}
@@ -10594,12 +10595,29 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 				vty_out(vty, "%*s", len, " ");
 		}
 	} else if (safi == SAFI_EVPN) {
+		char buf[BUFSIZ];
+		char nexthop[128];
+		int af = NEXTHOP_FAMILY(attr->mp_nexthop_len);
+
+		switch (af) {
+		case AF_INET:
+			snprintf(nexthop, sizeof(nexthop), "%s",
+				 inet_ntop(af, &attr->mp_nexthop_global_in, buf,
+					   BUFSIZ));
+			break;
+		case AF_INET6:
+			snprintf(nexthop, sizeof(nexthop), "%s",
+				 inet_ntop(af, &attr->mp_nexthop_global, buf,
+					   BUFSIZ));
+			break;
+		default:
+			snprintf(nexthop, sizeof(nexthop), "?");
+			break;
+		}
 		if (json_paths) {
 			json_nexthop_global = json_object_new_object();
 
-			json_object_string_addf(json_nexthop_global, "ip",
-						"%pI4",
-						&attr->mp_nexthop_global_in);
+			json_object_string_add(json_nexthop_global, "ip", nexthop);
 
 			if (path->peer->hostname)
 				json_object_string_add(json_nexthop_global,
@@ -10607,17 +10625,17 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 						       path->peer->hostname);
 
 			json_object_string_add(json_nexthop_global, "afi",
-					       "ipv4");
+					       (af == AF_INET) ? "ipv4" : "ipv6");
 			json_object_boolean_true_add(json_nexthop_global,
 						     "used");
 		} else {
 			if (nexthop_hostname)
-				len = vty_out(vty, "%pI4(%s)%s",
-					      &attr->mp_nexthop_global_in,
+				len = vty_out(vty, "%s(%s)%s",
+					      nexthop,
 					      nexthop_hostname, vrf_id_str);
 			else
-				len = vty_out(vty, "%pI4%s",
-					      &attr->mp_nexthop_global_in,
+				len = vty_out(vty, "%s%s",
+					      nexthop,
 					      vrf_id_str);
 
 			len = wide ? (41 - len) : (16 - len);
