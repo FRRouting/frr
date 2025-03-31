@@ -19,6 +19,7 @@ Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
 #include "memory.h"
 #include "libfrr.h"
 #include "lib_errors.h"
+#include "plist.h"
 
 #include "babel_main.h"
 #include "babeld.h"
@@ -313,6 +314,7 @@ babel_exit_properly(void)
     debugf(BABEL_DEBUG_COMMON, "Done.");
 
     vrf_terminate();
+    prefix_list_reset();
     frr_fini();
 
     exit(0);

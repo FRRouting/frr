@@ -71,7 +71,7 @@ void affinity_map_set_update_hook(void (*func)(const char *affmap_name,
 					       uint16_t new_pos));
 
 void affinity_map_init(void);
-
+void affinity_map_terminate(void);
 
 #ifdef __cplusplus
 }

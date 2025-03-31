@@ -64,4 +64,8 @@ void isis_affinity_map_init(void)
 	affinity_map_set_update_hook(isis_affinity_map_update);
 }
 
+void isis_affinity_map_terminate(void)
+{
+	affinity_map_terminate();
+}
 #endif /* ifndef FABRICD */

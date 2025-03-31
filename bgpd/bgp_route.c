@@ -4323,9 +4323,14 @@ static void early_meta_queue_free(struct meta_queue *mq, struct bgp_dest_queue *
 	struct bgp_dest *dest;
 
 	while (!STAILQ_EMPTY(l)) {
+		struct bgp_table *table;
+
 		dest = STAILQ_FIRST(l);
 		STAILQ_REMOVE_HEAD(l, pq);
 		STAILQ_NEXT(dest, pq) = NULL; /* complete unlink */
+
+		table = bgp_dest_table(dest);
+		bgp_table_unlock(table);
 		mq->size--;
 	}
 }
@@ -4336,9 +4341,14 @@ static void other_meta_queue_free(struct meta_queue *mq, struct bgp_dest_queue *
 	struct bgp_dest *dest;
 
 	while (!STAILQ_EMPTY(l)) {
+		struct bgp_table *table;
+
 		dest = STAILQ_FIRST(l);
 		STAILQ_REMOVE_HEAD(l, pq);
 		STAILQ_NEXT(dest, pq) = NULL; /* complete unlink */
+
+		table = bgp_dest_table(dest);
+		bgp_table_unlock(table);
 		mq->size--;
 	}
 }

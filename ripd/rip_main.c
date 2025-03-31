@@ -94,6 +94,7 @@ static void sigint(void)
 	rip_zclient_stop();
 
 	route_map_finish();
+	prefix_list_reset();
 
 	keychain_terminate();
 	frr_fini();
