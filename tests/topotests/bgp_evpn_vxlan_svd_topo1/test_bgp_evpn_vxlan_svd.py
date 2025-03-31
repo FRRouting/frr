@@ -91,6 +91,10 @@ def setup_pe_router(tgen, pe_name, tunnel_local_ip, svi_ip, intf):
     pe.run("ip link add name bridge type bridge stp_state 0")
     pe.run("ip link set dev bridge type bridge vlan_filtering 1")
     pe.run("bridge vlan add vid 1 dev bridge self")
+    if pe_name == "PE1":
+        pe.run("ip link set dev bridge address 44:00:00:ff:ff:01")
+    if pe_name == "PE2":
+        pe.run("ip link set dev bridge address 44:20:00:ff:ff:01")
     pe.run("ip link set dev bridge up")
 
     # setup svi
@@ -113,6 +117,18 @@ def setup_pe_router(tgen, pe_name, tunnel_local_ip, svi_ip, intf):
     pe.run("bridge vlan add dev vxlan0 vid 1 tunnel_info id 101")
     pe.run("ip link set up dev vxlan0")
 
+    # VRF creation
+    pe.run("ip link add vrf-purple type vrf table 1003")
+    pe.run("ip link set dev vrf-purple up")
+    if pe_name == "PE1":
+        pe.run("ip link add vrf-blue type vrf table 1002")
+        pe.run("ip link set dev vrf-blue up")
+        pe.run("ip addr add 27.2.0.85/32 dev vrf-blue")
+        pe.run("ip addr add 27.3.0.85/32 dev vrf-purple")
+    if pe_name == "PE2":
+        pe.run("ip link add vrf-blue type vrf table 2400")
+        pe.run("ip link set dev vrf-blue up")
+
     # setup PE interface
     pe.run("ip link set dev {0}-{1} master bridge".format(pe_name, intf))
     pe.run("bridge vlan del vid 1 dev {0}-{1}".format(pe_name, intf))
@@ -120,7 +136,7 @@ def setup_pe_router(tgen, pe_name, tunnel_local_ip, svi_ip, intf):
     pe.run("bridge vlan add vid 1 dev {0}-{1}".format(pe_name, intf))
     pe.run("bridge vlan add vid 1 pvid untagged dev {0}-{1}".format(pe_name, intf))
 
-    # l3vni 100
+    # L3VNI 100
     pe.run("ip link add vrf-red type vrf table 1400")
     pe.run("ip link add link bridge name vlan100 type vlan id 100 protocol 802.1q")
     pe.run("ip link set dev vlan100 master vrf-blue")
@@ -129,9 +145,16 @@ def setup_pe_router(tgen, pe_name, tunnel_local_ip, svi_ip, intf):
     pe.run("bridge vlan add dev vxlan0 vid 100")
     pe.run("bridge vlan add dev vxlan0 vid 100 tunnel_info id 100")
 
+    # L3VNI 4000
+    pe.run("ip link add link bridge name vlan400 type vlan id 400 protocol 802.1q")
+    pe.run("ip link set dev vlan400 master vrf-purple")
+    pe.run("ip link set dev vlan400 up")
+    pe.run("bridge vlan add vid 400 dev bridge self")
+    pe.run("bridge vlan add dev vxlan0 vid 400")
+    pe.run("bridge vlan add dev vxlan0 vid 400 tunnel_info id 4000")
+
     # add a vrf for testing DVNI
     if pe_name == "PE2":
-        pe.run("ip link add vrf-blue type vrf table 2400")
         pe.run("ip link add link bridge name vlan300 type vlan id 300 protocol 802.1q")
         pe.run("ip link set dev vlan300 master vrf-blue")
         pe.run("ip link set dev vlan300 up")
@@ -195,6 +218,14 @@ def show_vni_json_elide_ifindex(pe, vni, expected):
 
     if "ifindex" in output_json:
         output_json.pop("ifindex")
+
+    return topotest.json_cmp(output_json, expected)
+
+
+def show_bgp_l2vpn_evpn_route_type_prefix_json(pe, expected):
+    output_json = pe.vtysh_cmd(
+        "show bgp l2vpn evpn route type prefix json", isjson=True
+    )
 
     return topotest.json_cmp(output_json, expected)
 
@@ -331,6 +362,7 @@ def mac_test_local_remote(local, remote):
     remote_output_json = json.loads(remote_output)
     local_output_vni_json = json.loads(local_output_vni)
 
+    # breakpoint()
     for vni in local_output_json:
         if vni not in remote_output_json:
             continue
@@ -540,6 +572,42 @@ def test_dvni():
     assertmsg = '"{}" DVNI route {} not found'.format(pe1.name, prefix)
     assert result is None, assertmsg
     # tgen.mininet_cli()
+
+
+def test_pe_advertise_aggr_evpn_route():
+    "BGP advertise aggregated Type-5 prefix route"
+
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Checking BGP EVPN route contains non-aggregate prefixes")
+    pe1 = tgen.gears["PE1"]
+    json_file = "{}/{}/bgp.evpn.route.prefix.before.json".format(CWD, pe1.name)
+    expected = json.loads(open(json_file).read())
+
+    test_func = partial(show_bgp_l2vpn_evpn_route_type_prefix_json, pe1, expected)
+    _, result = topotest.run_and_expect(test_func, None, count=45, wait=1)
+    assertmsg = '"{}" JSON output mismatches'.format(pe1.name)
+    assert result is None, assertmsg
+
+    logger.info("Configure BGP aggregate-address summary-only under ipv4-unicast")
+    pe1.cmd(
+        'vtysh -c "config t" -c "router bgp 65000 vrf vrf-purple" '
+        + ' -c "address-family ipv4 unicast" '
+        + ' -c "aggregate-address 10.27.0.0/16 summary-only" '
+    )
+
+    logger.info("Checking BGP EVPN route contains aggregated prefix")
+    pe1 = tgen.gears["PE1"]
+    json_file = "{}/{}/bgp.evpn.route.prefix.after.json".format(CWD, pe1.name)
+    expected = json.loads(open(json_file).read())
+
+    test_func = partial(show_bgp_l2vpn_evpn_route_type_prefix_json, pe1, expected)
+    _, result = topotest.run_and_expect(test_func, None, count=45, wait=1)
+    assertmsg = '"{}" JSON output mismatches'.format(pe1.name)
+    assert result is None, assertmsg
 
 
 def test_memory_leak():

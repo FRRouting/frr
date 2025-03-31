@@ -71,8 +71,8 @@ an example)
     export LDFLAGS="-L/usr/local/lib"
     export CPPFLAGS="-I/usr/local/include"
     ./configure \
-        --sysconfdir=/etc/frr \
-        --localstatedir=/var/frr \
+        --sysconfdir=/etc \
+        --localstatedir=/var \
         --enable-multipath=64 \
         --enable-user=_frr \
         --enable-group=_frr \

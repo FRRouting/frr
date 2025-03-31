@@ -1,0 +1,13 @@
+{
+  "neighbors":{
+    "10.0.23.2":[
+      {
+        "nbrPriority":1,
+        "converged":"Full",
+        "role":"DROther",
+        "ifaceAddress":"10.0.12.2",
+        "ifaceName":"r1-eth0:10.0.12.1"
+      }
+    ]
+  }
+}

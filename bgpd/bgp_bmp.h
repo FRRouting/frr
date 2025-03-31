@@ -92,7 +92,7 @@ struct bmp_mirrorq {
 	uint8_t data[0];
 };
 
-enum {
+enum bmp_afi_state {
 	BMP_AFI_INACTIVE = 0,
 	BMP_AFI_NEEDSYNC,
 	BMP_AFI_SYNC,
@@ -124,6 +124,7 @@ struct bmp {
 	 * ahead we need to make sure that refcount is decremented.  Also, on
 	 * disconnects we need to walk the queue and drop our reference.
 	 */
+	struct bmp_queue_entry *locrib_queuepos;
 	struct bmp_queue_entry *queuepos;
 	struct bmp_mirrorq *mirrorpos;
 	bool mirror_lost;
@@ -147,6 +148,7 @@ struct bmp {
 	uint64_t syncpeerid;
 	afi_t syncafi;
 	safi_t syncsafi;
+	struct bgp *sync_bgp;
 };
 
 /* config & state for an active outbound connection.  When the connection
@@ -194,6 +196,9 @@ struct bmp_listener {
 	int sock;
 };
 
+/* config for imported bgp instances */
+PREDECL_SORTLIST_UNIQ(bmp_imported_bgps);
+
 /* bmp_targets - plural since it may contain multiple bmp_listener &
  * bmp_active items.  If they have the same config, BMP session should be
  * put in the same targets since that's a bit more effective.
@@ -205,6 +210,7 @@ struct bmp_targets {
 
 	struct bmp_bgp *bmpbgp;
 	struct bgp *bgp;
+	bool bgp_request_sync[AFI_MAX][SAFI_MAX];
 	char *name;
 
 	struct bmp_listeners_head listeners;
@@ -215,12 +221,14 @@ struct bmp_targets {
 	int stat_msec;
 
 	/* only supporting:
-	 * - IPv4 / unicast & multicast
-	 * - IPv6 / unicast & multicast
+	 * - IPv4 / unicast & multicast & VPN
+	 * - IPv6 / unicast & multicast & VPN
 	 * - L2VPN / EVPN
 	 */
 #define BMP_MON_PREPOLICY	(1 << 0)
 #define BMP_MON_POSTPOLICY	(1 << 1)
+#define BMP_MON_LOC_RIB (1 << 2)
+
 	uint8_t afimon[AFI_MAX][SAFI_MAX];
 	bool mirror;
 
@@ -232,7 +240,14 @@ struct bmp_targets {
 	struct bmp_qhash_head updhash;
 	struct bmp_qlist_head updlist;
 
+	struct bmp_qhash_head locupdhash;
+	struct bmp_qlist_head locupdlist;
+
+	struct bmp_imported_bgps_head imported_bgps;
+
 	uint64_t cnt_accept, cnt_aclrefused;
+
+	bool stats_send_experimental;
 
 	QOBJ_FIELDS;
 };
@@ -260,10 +275,27 @@ PREDECL_HASH(bmp_bgph);
 
 #define BMP_PEER_DOWN_NO_RELEVANT_EVENT_CODE 0x00
 
+enum bmp_vrf_state {
+	vrf_state_down = -1,
+	vrf_state_unknown = 0,
+	vrf_state_up = 1,
+};
+
+struct bmp_imported_bgp {
+	struct bmp_imported_bgps_item bib;
+	struct bmp_targets *targets;
+	char *name;
+	enum bmp_vrf_state vrf_state;
+	bool bgp_request_sync[AFI_MAX][SAFI_MAX];
+};
+
 struct bmp_bgp {
 	struct bmp_bgph_item bbi;
 
 	struct bgp *bgp;
+
+	enum bmp_vrf_state vrf_state;
+
 	struct bmp_targets_head targets;
 
 	struct bmp_mirrorq_head mirrorq;
@@ -272,12 +304,18 @@ struct bmp_bgp {
 	size_t mirror_qsizelimit;
 };
 
+extern bool bmp_bgp_update_vrf_status(enum bmp_vrf_state *vrf_state, struct bgp *bgp,
+				      enum bmp_vrf_state force);
+
 enum {
-	BMP_PEERDOWN_LOCAL_NOTIFY       = 1,
-	BMP_PEERDOWN_LOCAL_FSM          = 2,
-	BMP_PEERDOWN_REMOTE_NOTIFY      = 3,
-	BMP_PEERDOWN_REMOTE_CLOSE       = 4,
-	BMP_PEERDOWN_ENDMONITOR         = 5,
+	/* RFC7854 - 10.8 */
+	BMP_PEERDOWN_LOCAL_NOTIFY = 1,
+	BMP_PEERDOWN_LOCAL_FSM = 2,
+	BMP_PEERDOWN_REMOTE_NOTIFY = 3,
+	BMP_PEERDOWN_REMOTE_CLOSE = 4,
+	BMP_PEERDOWN_ENDMONITOR = 5,
+	/* RFC9069 - 8.4 */
+	BMP_PEERDOWN_LOCAL_TLV = 6,
 };
 
 enum {

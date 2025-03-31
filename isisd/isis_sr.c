@@ -462,8 +462,7 @@ void isis_area_delete_backup_adj_sids(struct isis_area *area, int level)
 	struct listnode *node, *nnode;
 
 	for (ALL_LIST_ELEMENTS(area->srdb.adj_sids, node, nnode, sra))
-		if (sra->type == ISIS_SR_LAN_BACKUP
-		    && (sra->adj->level & level))
+		if (sra->type == ISIS_SR_ADJ_BACKUP && (sra->adj->level & level))
 			sr_adj_sid_del(sra);
 }
 
@@ -628,6 +627,50 @@ static int sr_local_block_release_label(struct sr_local_block *srlb,
 	return 0;
 }
 
+static bool sr_adj_same_subnet_ipv4(struct in_addr ipv4,
+				    struct isis_circuit *circuit)
+{
+	struct listnode *node;
+	struct prefix ipv4_adj;
+	struct prefix_ipv4 *ipv4_circuit;
+
+	ipv4_adj.family = AF_INET;
+	ipv4_adj.u.prefix4 = ipv4;
+
+	for (ALL_LIST_ELEMENTS_RO(circuit->ip_addrs, node, ipv4_circuit)) {
+		ipv4_adj.prefixlen = ipv4_circuit->prefixlen;
+		if (!prefix_cmp(&ipv4_adj, (struct prefix *)ipv4_circuit))
+			return true;
+	}
+
+	return false;
+}
+
+static bool sr_adj_same_subnet_ipv6(struct in6_addr *ipv6,
+				    struct isis_circuit *circuit)
+{
+	struct listnode *node;
+	struct prefix ipv6_adj;
+	struct prefix_ipv6 *ipv6_circuit;
+
+	ipv6_adj.family = AF_INET6;
+	IPV6_ADDR_COPY(&ipv6_adj.u.prefix6, ipv6);
+
+	for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_link, node, ipv6_circuit)) {
+		ipv6_adj.prefixlen = ipv6_circuit->prefixlen;
+		if (!prefix_cmp(&ipv6_adj, (struct prefix *)ipv6_circuit))
+			return true;
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_non_link, node, ipv6_circuit)) {
+		ipv6_adj.prefixlen = ipv6_circuit->prefixlen;
+		if (!prefix_cmp(&ipv6_adj, (struct prefix *)ipv6_circuit))
+			return true;
+	}
+
+	return false;
+}
+
 /* --- Segment Routing Adjacency-SID management functions ------------------- */
 
 /**
@@ -659,10 +702,16 @@ void sr_adj_sid_add_single(struct isis_adjacency *adj, int family, bool backup,
 		if (!circuit->ip_router || !adj->ipv4_address_count)
 			return;
 
+		if (!sr_adj_same_subnet_ipv4(adj->ipv4_addresses[0], circuit))
+			return;
+
 		nexthop.ipv4 = adj->ipv4_addresses[0];
 		break;
 	case AF_INET6:
 		if (!circuit->ipv6_router || !adj->ll_ipv6_count)
+			return;
+
+		if (!sr_adj_same_subnet_ipv6(&adj->ll_ipv6_addrs[0], circuit))
 			return;
 
 		nexthop.ipv6 = adj->ll_ipv6_addrs[0];
@@ -689,7 +738,7 @@ void sr_adj_sid_add_single(struct isis_adjacency *adj, int family, bool backup,
 		circuit->ext = isis_alloc_ext_subtlvs();
 
 	sra = XCALLOC(MTYPE_ISIS_SR_INFO, sizeof(*sra));
-	sra->type = backup ? ISIS_SR_LAN_BACKUP : ISIS_SR_ADJ_NORMAL;
+	sra->type = backup ? ISIS_SR_ADJ_BACKUP : ISIS_SR_ADJ_NORMAL;
 	sra->input_label = input_label;
 	sra->nexthop.family = family;
 	sra->nexthop.address = nexthop;
@@ -819,7 +868,7 @@ static void sr_adj_sid_del(struct sr_adjacency *sra)
 		exit(1);
 	}
 
-	if (sra->type == ISIS_SR_LAN_BACKUP && sra->backup_nexthops) {
+	if (sra->type == ISIS_SR_ADJ_BACKUP && sra->backup_nexthops) {
 		sra->backup_nexthops->del =
 			(void (*)(void *))isis_nexthop_delete;
 		list_delete(&sra->backup_nexthops);
@@ -923,19 +972,19 @@ static int sr_adj_ip_disabled(struct isis_adjacency *adj, int family,
 }
 
 /**
- * Activate local Prefix-SID when loopback interface goes up for IS-IS.
+ * Update the Node-SID flag of the configured Prefix-SID mappings in response
+ * to an address addition or removal event.
  *
- * @param ifp	Loopback Interface
+ * @param ifp	Interface
  *
  * @return	0
  */
-static int sr_if_new_hook(struct interface *ifp)
+int sr_if_addr_update(struct interface *ifp)
 {
 	struct sr_prefix_cfg *pcfgs[SR_ALGORITHM_COUNT] = {NULL};
 	struct isis_circuit *circuit;
 	struct isis_area *area;
 	struct connected *connected;
-	struct listnode *node;
 	bool need_lsp_regenerate = false;
 
 	/* Get corresponding circuit */
@@ -947,13 +996,7 @@ static int sr_if_new_hook(struct interface *ifp)
 	if (!area)
 		return 0;
 
-	/*
-	 * Update the Node-SID flag of the configured Prefix-SID mappings if
-	 * necessary. This needs to be done here since isisd reads the startup
-	 * configuration before receiving interface information from zebra.
-	 */
-	FOR_ALL_INTERFACES_ADDRESSES (ifp, connected, node) {
-
+	frr_each (if_connected, ifp->connected, connected) {
 		for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
 			pcfgs[i] = isis_sr_cfg_prefix_find(
 				area, connected->address, i);
@@ -1027,8 +1070,6 @@ static void show_node(struct vty *vty, struct isis_area *area, int level,
 	struct ttable *tt;
 	char buf[128];
 
-	vty_out(vty, " IS-IS %s SR-Nodes:\n\n", circuit_t2string(level));
-
 	/* Prepare table. */
 	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
 	ttable_add_row(tt, "System ID|SRGB|SRLB|Algorithm|MSD");
@@ -1069,9 +1110,11 @@ static void show_node(struct vty *vty, struct isis_area *area, int level,
 	if (tt->nrows > 1) {
 		char *table;
 
+		vty_out(vty, " IS-IS %s SR-Nodes:\n\n", circuit_t2string(level));
+
 		table = ttable_dump(tt, "\n");
 		vty_out(vty, "%s\n", table);
-		XFREE(MTYPE_TMP, table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 	}
 	ttable_del(tt);
 }
@@ -1080,7 +1123,7 @@ DEFUN(show_sr_node, show_sr_node_cmd,
       "show " PROTO_NAME
       " segment-routing node"
 #ifndef FABRICD
-      " [algorithm (128-255)]"
+      " [algorithm [(128-255)]]"
 #endif /* ifndef FABRICD */
       ,
       SHOW_STR PROTO_HELP
@@ -1094,13 +1137,18 @@ DEFUN(show_sr_node, show_sr_node_cmd,
 {
 	struct listnode *node, *inode;
 	struct isis_area *area;
-	uint8_t algorithm = SR_ALGORITHM_SPF;
+	uint16_t algorithm = SR_ALGORITHM_SPF;
+	bool all_algorithm = false;
 	struct isis *isis;
 #ifndef FABRICD
 	int idx = 0;
 
-	if (argv_find(argv, argc, "algorithm", &idx))
-		algorithm = (uint8_t)strtoul(argv[idx + 1]->arg, NULL, 10);
+	if (argv_find(argv, argc, "algorithm", &idx)) {
+		if (argv_find(argv, argc, "(128-255)", &idx))
+			algorithm = (uint16_t)strtoul(argv[idx]->arg, NULL, 10);
+		else
+			all_algorithm = true;
+	}
 #endif /* ifndef FABRICD */
 
 	for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
@@ -1112,8 +1160,17 @@ DEFUN(show_sr_node, show_sr_node_cmd,
 				continue;
 			}
 			for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS;
-			     level++)
-				show_node(vty, area, level, algorithm);
+			     level++) {
+				if (all_algorithm) {
+					for (algorithm = SR_ALGORITHM_FLEX_MIN;
+					     algorithm <= SR_ALGORITHM_FLEX_MAX;
+					     algorithm++)
+						show_node(vty, area, level,
+							  (uint8_t)algorithm);
+				} else
+					show_node(vty, area, level,
+						  (uint8_t)algorithm);
+			}
 		}
 	}
 
@@ -1313,7 +1370,6 @@ void isis_sr_init(void)
 	hook_register(isis_adj_state_change_hook, sr_adj_state_change);
 	hook_register(isis_adj_ip_enabled_hook, sr_adj_ip_enabled);
 	hook_register(isis_adj_ip_disabled_hook, sr_adj_ip_disabled);
-	hook_register(isis_if_new_hook, sr_if_new_hook);
 }
 
 /**
@@ -1325,5 +1381,4 @@ void isis_sr_term(void)
 	hook_unregister(isis_adj_state_change_hook, sr_adj_state_change);
 	hook_unregister(isis_adj_ip_enabled_hook, sr_adj_ip_enabled);
 	hook_unregister(isis_adj_ip_disabled_hook, sr_adj_ip_disabled);
-	hook_unregister(isis_if_new_hook, sr_if_new_hook);
 }

@@ -18,7 +18,6 @@ import functools
 import os
 import sys
 import pytest
-import re
 import time
 
 # Save the Current Working Directory to find configuration files.
@@ -176,6 +175,19 @@ def test_bgp_convergence():
     # tgen.mininet_cli()
 
 
+def get_shut_msg_count(tgen):
+    shuts = {}
+    for rtrNum in [2, 4]:
+        shutmsg = tgen.net["r{}".format(rtrNum)].cmd_nostatus(
+            'grep -c "NOTIFICATION.*Cease/Administrative Shutdown" bgpd.log', warn=False
+        )
+        try:
+            shuts[rtrNum] = int(shutmsg.strip())
+        except ValueError:
+            shuts[rtrNum] = 0
+    return shuts
+
+
 def test_bgp_shutdown():
     "Test BGP instance shutdown"
 
@@ -184,6 +196,8 @@ def test_bgp_shutdown():
     # Skip if previous fatal error condition is raised
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
+
+    shuts_before = get_shut_msg_count(tgen)
 
     tgen.net["r1"].cmd(
         'vtysh -c "conf t" -c "router bgp 65000" -c "bgp shutdown message ABCDabcd"'
@@ -208,6 +222,11 @@ def test_bgp_shutdown():
         )
         assert res is None, assertmsg
 
+    shuts_after = get_shut_msg_count(tgen)
+
+    for k in shuts_before:
+        assert shuts_before[k] + 1 == shuts_after[k]
+
 
 def test_bgp_shutdown_message():
     "Test BGP Peer Shutdown Message"
@@ -222,17 +241,10 @@ def test_bgp_shutdown_message():
         logger.info("Checking BGP shutdown received on router r{}".format(rtrNum))
 
         shut_message = tgen.net["r{}".format(rtrNum)].cmd(
-            'tail bgpd.log | grep "NOTIFICATION.*Cease/Administrative Shutdown"'
+            'grep -e "NOTIFICATION.*Cease/Administrative Shutdown.*ABCDabcd" bgpd.log'
         )
         assertmsg = "BGP shutdown message not received on router R{}".format(rtrNum)
         assert shut_message != "", assertmsg
-
-        assertmsg = "Incorrect BGP shutdown message received on router R{}".format(
-            rtrNum
-        )
-        assert "ABCDabcd" in shut_message, assertmsg
-
-    # tgen.mininet_cli()
 
 
 def test_bgp_no_shutdown():
@@ -1050,7 +1062,7 @@ def test_bgp_delayopen_dual():
 
     delay_stop = int(time.time())
     assertmsg = "BGP peering between r2 and r5 was established before DelayOpenTimer (30sec) on r2 could expire"
-    assert (delay_stop - delay_start) > 30, assertmsg
+    assert (delay_stop - delay_start) >= 30, assertmsg
 
     # 3.8 unset delayopen on R2 and R5
     logger.info("Disabling DelayOpenTimer for neighbor r5 on r2")

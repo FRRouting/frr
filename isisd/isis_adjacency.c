@@ -90,6 +90,7 @@ struct isis_adjacency *isis_new_adj(const uint8_t *id, const uint8_t *snpa,
 		}
 	}
 	adj->adj_sids = list_new();
+	adj->srv6_endx_sids = list_new();
 	listnode_add(circuit->area->adjacency_list, adj);
 
 	return adj;
@@ -160,6 +161,7 @@ void isis_delete_adj(void *arg)
 	XFREE(MTYPE_ISIS_ADJACENCY_INFO, adj->global_ipv6_addrs);
 	adj_mt_finish(adj);
 	list_delete(&adj->adj_sids);
+	list_delete(&adj->srv6_endx_sids);
 
 	listnode_delete(adj->circuit->area->adjacency_list, adj);
 	XFREE(MTYPE_ISIS_ADJACENCY, adj);
@@ -229,11 +231,12 @@ static void isis_adj_route_switchover(struct isis_adjacency *adj)
 	}
 }
 
-void isis_adj_process_threeway(struct isis_adjacency *adj,
+void isis_adj_process_threeway(struct isis_adjacency **padj,
 			       struct isis_threeway_adj *tw_adj,
 			       enum isis_adj_usage adj_usage)
 {
 	enum isis_threeway_state next_tw_state = ISIS_THREEWAY_DOWN;
+	struct isis_adjacency *adj = *padj;
 
 	if (tw_adj && !adj->circuit->disable_threeway_adj) {
 		if (tw_adj->state == ISIS_THREEWAY_DOWN) {
@@ -263,14 +266,13 @@ void isis_adj_process_threeway(struct isis_adjacency *adj,
 		fabricd_initial_sync_hello(adj->circuit);
 
 	if (next_tw_state == ISIS_THREEWAY_DOWN) {
-		isis_adj_state_change(&adj, ISIS_ADJ_DOWN,
-				      "Neighbor restarted");
+		isis_adj_state_change(padj, ISIS_ADJ_DOWN, "Neighbor restarted");
 		return;
 	}
 
 	if (next_tw_state == ISIS_THREEWAY_UP) {
 		if (adj->adj_state != ISIS_ADJ_UP) {
-			isis_adj_state_change(&adj, ISIS_ADJ_UP, NULL);
+			isis_adj_state_change(padj, ISIS_ADJ_UP, NULL);
 			adj->adj_usage = adj_usage;
 		}
 	}
@@ -291,7 +293,7 @@ const char *isis_adj_name(const struct isis_adjacency *adj)
 	struct isis_dynhn *dyn;
 
 	dyn = dynhn_find_by_id(adj->circuit->isis, adj->sysid);
-	if (dyn)
+	if (adj->circuit->area->dynhostname && dyn)
 		return dyn->hostname;
 
 	snprintfrr(buf, sizeof(buf), "%pSY", adj->sysid);
@@ -356,12 +358,15 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 				 * purposes */
 				adj->last_flap = time(NULL);
 				adj->flaps++;
-			} else if (old_state == ISIS_ADJ_UP) {
-				circuit->adj_state_changes++;
+			} else {
+				if (old_state == ISIS_ADJ_UP) {
+					circuit->adj_state_changes++;
 
-				circuit->upadjcount[level - 1]--;
-				if (circuit->upadjcount[level - 1] == 0)
-					isis_tx_queue_clean(circuit->tx_queue);
+					circuit->upadjcount[level - 1]--;
+					if (circuit->upadjcount[level - 1] == 0)
+						isis_tx_queue_clean(
+							circuit->tx_queue);
+				}
 
 				if (new_state == ISIS_ADJ_DOWN) {
 					listnode_delete(
@@ -407,10 +412,13 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 						master, send_l2_csnp, circuit,
 						0, &circuit->t_send_csnp[1]);
 				}
-			} else if (old_state == ISIS_ADJ_UP) {
-				circuit->upadjcount[level - 1]--;
-				if (circuit->upadjcount[level - 1] == 0)
-					isis_tx_queue_clean(circuit->tx_queue);
+			} else {
+				if (old_state == ISIS_ADJ_UP) {
+					circuit->upadjcount[level - 1]--;
+					if (circuit->upadjcount[level - 1] == 0)
+						isis_tx_queue_clean(
+							circuit->tx_queue);
+				}
 
 				if (new_state == ISIS_ADJ_DOWN) {
 					if (adj->circuit->u.p2p.neighbor == adj)
@@ -685,7 +693,7 @@ void isis_adj_print_json(struct isis_adjacency *adj, struct json_object *json,
 			default:
 				continue;
 			}
-			backup = (sra->type == ISIS_SR_LAN_BACKUP) ? " (backup)"
+			backup = (sra->type == ISIS_SR_ADJ_BACKUP) ? " (backup)"
 								   : "";
 
 			json_object_string_add(adj_sid_json, "nexthop",
@@ -724,13 +732,13 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 		now = time(NULL);
 		if (adj->last_upd) {
 			if (adj->last_upd + adj->hold_time < now)
-				vty_out(vty, " Expiring");
+				vty_out(vty, " Expiring ");
 			else
 				vty_out(vty, " %-9llu",
 					(unsigned long long)adj->last_upd
 						+ adj->hold_time - now);
 		} else
-			vty_out(vty, "-        ");
+			vty_out(vty, " -        ");
 		vty_out(vty, "%-10pSY", adj->snpa);
 		vty_out(vty, "\n");
 	}
@@ -860,7 +868,7 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 			default:
 				continue;
 			}
-			backup = (sra->type == ISIS_SR_LAN_BACKUP) ? " (backup)"
+			backup = (sra->type == ISIS_SR_ADJ_BACKUP) ? " (backup)"
 								   : "";
 
 			vty_out(vty, "    %s %s%s: %u\n",

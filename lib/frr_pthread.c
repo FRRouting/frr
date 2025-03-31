@@ -5,6 +5,9 @@
  */
 
 #include <zebra.h>
+
+#include <signal.h>
+
 #include <pthread.h>
 #ifdef HAVE_PTHREAD_NP_H
 #include <pthread_np.h>
@@ -17,6 +20,7 @@
 #include "zlog.h"
 #include "libfrr.h"
 #include "libfrr_trace.h"
+#include "sigevent.h"
 
 DEFINE_MTYPE_STATIC(LIB, FRR_PTHREAD, "FRR POSIX Thread");
 DEFINE_MTYPE_STATIC(LIB, PTHREAD_PRIM, "POSIX sync primitives");
@@ -89,8 +93,13 @@ struct frr_pthread *frr_pthread_new(const struct frr_pthread_attr *attr,
 		MTYPE_PTHREAD_PRIM, sizeof(pthread_mutex_t));
 	fpt->running_cond = XCALLOC(MTYPE_PTHREAD_PRIM,
 				    sizeof(pthread_cond_t));
+
 	pthread_mutex_init(fpt->running_cond_mtx, NULL);
 	pthread_cond_init(fpt->running_cond, NULL);
+
+	pthread_mutex_init(&fpt->startup_cond_mtx, NULL);
+	pthread_cond_init(&fpt->startup_cond, NULL);
+	fpt->started = false;
 
 	frr_with_mutex (&frr_pthread_list_mtx) {
 		listnode_add(frr_pthread_list, fpt);
@@ -105,6 +114,8 @@ static void frr_pthread_destroy_nolock(struct frr_pthread *fpt)
 	pthread_mutex_destroy(&fpt->mtx);
 	pthread_mutex_destroy(fpt->running_cond_mtx);
 	pthread_cond_destroy(fpt->running_cond);
+	pthread_mutex_destroy(&fpt->startup_cond_mtx);
+	pthread_cond_destroy(&fpt->startup_cond);
 	XFREE(MTYPE_FRR_PTHREAD, fpt->name);
 	XFREE(MTYPE_PTHREAD_PRIM, fpt->running_cond_mtx);
 	XFREE(MTYPE_PTHREAD_PRIM, fpt->running_cond);
@@ -137,11 +148,34 @@ int frr_pthread_set_name(struct frr_pthread *fpt)
 	return ret;
 }
 
+/* New pthread waits before running */
+static void frr_pthread_wait_startup(struct frr_pthread *fpt)
+{
+	frr_with_mutex (&fpt->startup_cond_mtx) {
+		while (!fpt->started)
+			pthread_cond_wait(&fpt->startup_cond,
+					  &fpt->startup_cond_mtx);
+	}
+}
+
+/* Parent pthread allows new pthread to start running */
+static void frr_pthread_notify_startup(struct frr_pthread *fpt)
+{
+	frr_with_mutex (&fpt->startup_cond_mtx) {
+		fpt->started = true;
+		pthread_cond_signal(&fpt->startup_cond);
+	}
+}
+
 static void *frr_pthread_inner(void *arg)
 {
 	struct frr_pthread *fpt = arg;
 
+	/* The new pthead waits until the parent allows it to continue. */
+	frr_pthread_wait_startup(fpt);
+
 	rcu_thread_start(fpt->rcu_thread);
+
 	return fpt->attr.start(fpt);
 }
 
@@ -152,10 +186,9 @@ int frr_pthread_run(struct frr_pthread *fpt, const pthread_attr_t *attr)
 
 	assert(frr_is_after_fork || !"trying to start thread before fork()");
 
-	/* Ensure we never handle signals on a background thread by blocking
-	 * everything here (new thread inherits signal mask)
-	 */
-	sigfillset(&blocksigs);
+	sigemptyset(&blocksigs);
+	frr_sigset_add_mainonly(&blocksigs);
+	/* new thread inherits mask */
 	pthread_sigmask(SIG_BLOCK, &blocksigs, &oldsigs);
 
 	frrtrace(1, frr_libfrr, frr_pthread_run, fpt->name);
@@ -165,6 +198,9 @@ int frr_pthread_run(struct frr_pthread *fpt, const pthread_attr_t *attr)
 
 	/* Restore caller's signals */
 	pthread_sigmask(SIG_SETMASK, &oldsigs, NULL);
+
+	/* Allow new child pthread to start */
+	frr_pthread_notify_startup(fpt);
 
 	/*
 	 * Per pthread_create(3), the contents of fpt->thread are undefined if
@@ -215,6 +251,43 @@ void frr_pthread_stop_all(void)
 				frr_pthread_stop(fpt, NULL);
 		}
 	}
+}
+
+static void *frr_pthread_attr_non_controlled_start(void *arg)
+{
+	struct frr_pthread *fpt = arg;
+
+	fpt->running = true;
+
+	return NULL;
+}
+
+/* Create a FRR pthread context from a non FRR pthread initialized from an
+ * external library in order to allow logging */
+int frr_pthread_non_controlled_startup(pthread_t thread, const char *name,
+				       const char *os_name)
+{
+	struct rcu_thread *rcu_thread = rcu_thread_new(NULL);
+
+	rcu_thread_start(rcu_thread);
+
+	struct frr_pthread_attr attr = {
+		.start = frr_pthread_attr_non_controlled_start,
+		.stop = frr_pthread_attr_default.stop,
+	};
+	struct frr_pthread *fpt;
+
+	fpt = frr_pthread_new(&attr, name, os_name);
+	if (!fpt)
+		return -1;
+
+	fpt->thread = thread;
+	fpt->rcu_thread = rcu_thread;
+	fpt->started = true;
+
+	frr_pthread_inner(fpt);
+
+	return 0;
 }
 
 /*

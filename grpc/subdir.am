@@ -10,6 +10,10 @@ nodist_grpc_libfrrgrpc_pb_la_SOURCES = \
 	grpc/frr-northbound.pb.cc \
 	grpc/frr-northbound.grpc.pb.cc \
 	# end
+
+grpc_libfrrgrpc_pb_la_SOURCES = \
+	grpc/frrgrpc_pb.c \
+	# end
 endif
 
 CLEANFILES += \

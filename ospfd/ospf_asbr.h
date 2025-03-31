@@ -95,7 +95,7 @@ struct ospf_external_aggr_rt {
 };
 
 #define OSPF_ASBR_CHECK_DELAY 30
-#define OSPF_ASBR_NSSA_REDIST_UPDATE_DELAY 9
+#define OSPF_ASBR_REDIST_UPDATE_DELAY 9
 
 extern void ospf_external_route_remove(struct ospf *, struct prefix_ipv4 *);
 extern struct external_info *ospf_external_info_new(struct ospf *, uint8_t,
@@ -109,11 +109,15 @@ ospf_external_info_add(struct ospf *, uint8_t, unsigned short,
 		       route_tag_t, uint32_t metric);
 extern void ospf_external_info_delete(struct ospf *, uint8_t, unsigned short,
 				      struct prefix_ipv4);
+extern void ospf_external_info_delete_multi_instance(struct ospf *ospf, uint8_t type,
+						     struct prefix_ipv4 p,
+						     unsigned long preserve_instance);
+#define OSPF_DELETE_ANY_INSTANCE 0xffffffff
 extern struct external_info *ospf_external_info_lookup(struct ospf *, uint8_t,
 						       unsigned short,
 						       struct prefix_ipv4 *);
 extern void ospf_asbr_status_update(struct ospf *, uint8_t);
-extern void ospf_schedule_asbr_nssa_redist_update(struct ospf *ospf);
+extern void ospf_schedule_asbr_redist_update(struct ospf *ospf);
 
 extern void ospf_redistribute_withdraw(struct ospf *, uint8_t, unsigned short);
 extern void ospf_asbr_check(void);
@@ -140,7 +144,7 @@ extern int ospf_external_aggregator_timer_set(struct ospf *ospf,
 extern void ospf_external_aggrigator_free(struct ospf_external_aggr_rt *aggr);
 
 extern struct ospf_external_aggr_rt *
-ospf_extrenal_aggregator_lookup(struct ospf *ospf, struct prefix_ipv4 *p);
+ospf_external_aggregator_lookup(struct ospf *ospf, struct prefix_ipv4 *p);
 
 void ospf_unset_all_aggr_flag(struct ospf *ospf);
 

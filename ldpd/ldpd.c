@@ -9,6 +9,9 @@
  */
 
 #include <zebra.h>
+
+#include <signal.h>
+#include <fcntl.h>
 #include <sys/wait.h>
 
 #include "ldpd.h"
@@ -32,9 +35,11 @@
 #include "qobj.h"
 #include "libfrr.h"
 #include "lib_errors.h"
+#include "zlog_recirculate.h"
+#include "libagentx.h"
 
 static void		 ldpd_shutdown(void);
-static pid_t		 start_child(enum ldpd_process, char *, int, int);
+static pid_t		 start_child(enum ldpd_process, char *, int, int, int);
 static void main_dispatch_ldpe(struct event *thread);
 static void main_dispatch_lde(struct event *thread);
 static int		 main_imsg_send_ipc_sockets(struct imsgbuf *,
@@ -65,6 +70,8 @@ DEFINE_QOBJ_TYPE(l2vpn_if);
 DEFINE_QOBJ_TYPE(l2vpn_pw);
 DEFINE_QOBJ_TYPE(l2vpn);
 DEFINE_QOBJ_TYPE(ldpd_conf);
+
+const char		*log_procname;
 
 struct ldpd_global	 global;
 struct ldpd_init	 init;
@@ -101,7 +108,6 @@ void ldp_agentx_enabled(void)
 enum ldpd_process ldpd_process;
 
 #define LDP_DEFAULT_CONFIG	"ldpd.conf"
-#define LDP_VTY_PORT		2612
 
 /* Master of threads. */
 struct event_loop *master;
@@ -194,6 +200,7 @@ static const struct frr_yang_module_info *const ldpd_yang_modules[] = {
 	&frr_vrf_info,
 };
 
+/* clang-format off */
 FRR_DAEMON_INFO(ldpd, LDP,
 	.vty_port = LDP_VTY_PORT,
 
@@ -207,6 +214,7 @@ FRR_DAEMON_INFO(ldpd, LDP,
 	.yang_modules = ldpd_yang_modules,
 	.n_yang_modules = array_size(ldpd_yang_modules),
 );
+/* clang-format on */
 
 static void ldp_config_fork_apply(struct event *t)
 {
@@ -227,13 +235,13 @@ main(int argc, char *argv[])
 {
 	char			*saved_argv0;
 	int			 lflag = 0, eflag = 0;
-	int			 pipe_parent2ldpe[2], pipe_parent2ldpe_sync[2];
-	int			 pipe_parent2lde[2], pipe_parent2lde_sync[2];
-	char			*ctl_sock_name;
+	int			 pipe_parent2ldpe[2];
+	int			 pipe_parent2ldpe_sync[2];
+	int			 pipe_ldpe_log[2];
+	int			 pipe_parent2lde[2];
+	int			 pipe_parent2lde_sync[2];
+	int			 pipe_lde_log[2];
 	bool                    ctl_sock_used = false;
-
-	snprintf(ctl_sock_path, sizeof(ctl_sock_path), LDPD_SOCKET,
-		 "", "");
 
 	ldpd_process = PROC_MAIN;
 	log_procname = log_procnames[ldpd_process];
@@ -260,21 +268,8 @@ main(int argc, char *argv[])
 			break;
 		case OPTION_CTLSOCK:
 			ctl_sock_used = true;
-			ctl_sock_name = strrchr(LDPD_SOCKET, '/');
-			if (ctl_sock_name)
-				/* skip '/' */
-				ctl_sock_name++;
-			else
-				/*
-				 * LDPD_SOCKET configured as relative path
-				 * during config? Should really never happen for
-				 * sensible config
-				 */
-				ctl_sock_name = (char *)LDPD_SOCKET;
-			strlcpy(ctl_sock_path, optarg, sizeof(ctl_sock_path));
-			strlcat(ctl_sock_path, "/", sizeof(ctl_sock_path));
-			strlcat(ctl_sock_path, ctl_sock_name,
-			    sizeof(ctl_sock_path));
+			snprintf(ctl_sock_path, sizeof(ctl_sock_path),
+				 "%s/" LDPD_SOCK_NAME, optarg);
 			break;
 		case 'n':
 			init.instance = atoi(optarg);
@@ -292,9 +287,9 @@ main(int argc, char *argv[])
 		}
 	}
 
-	if (ldpd_di.pathspace && !ctl_sock_used)
-		snprintf(ctl_sock_path, sizeof(ctl_sock_path), LDPD_SOCKET,
-			 "/", ldpd_di.pathspace);
+	if (!ctl_sock_used)
+		snprintf(ctl_sock_path, sizeof(ctl_sock_path),
+			 "%s/" LDPD_SOCK_NAME, frr_runstatedir);
 
 	strlcpy(init.user, ldpd_privs.user, sizeof(init.user));
 	strlcpy(init.group, ldpd_privs.group, sizeof(init.group));
@@ -313,15 +308,6 @@ main(int argc, char *argv[])
 		exit(1);
 	}
 
-	if (lflag || eflag) {
-		struct zprivs_ids_t ids;
-
-		zprivs_preinit(&ldpd_privs);
-		zprivs_get_ids(&ids);
-
-		zlog_init(ldpd_di.progname, "LDP", 0,
-			  ids.uid_normal, ids.gid_normal);
-	}
 	if (lflag)
 		lde();
 	else if (eflag)
@@ -334,11 +320,17 @@ main(int argc, char *argv[])
 	    pipe_parent2ldpe_sync) == -1)
 		fatal("socketpair");
 
+	if (socketpair(AF_UNIX, SOCK_DGRAM, PF_UNSPEC, pipe_ldpe_log) == -1)
+		fatal("socketpair");
+
 	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, pipe_parent2lde) == -1)
 		fatal("socketpair");
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC,
 	    pipe_parent2lde_sync) == -1)
+		fatal("socketpair");
+
+	if (socketpair(AF_UNIX, SOCK_DGRAM, PF_UNSPEC, pipe_lde_log) == -1)
 		fatal("socketpair");
 
 	sock_set_nonblock(pipe_parent2ldpe[0]);
@@ -348,6 +340,11 @@ main(int argc, char *argv[])
 	sock_set_nonblock(pipe_parent2ldpe_sync[0]);
 	sock_set_cloexec(pipe_parent2ldpe_sync[0]);
 	sock_set_cloexec(pipe_parent2ldpe_sync[1]);
+	sock_set_nonblock(pipe_ldpe_log[0]);
+	sock_set_cloexec(pipe_ldpe_log[0]);
+	sock_set_nonblock(pipe_ldpe_log[1]);
+	sock_set_cloexec(pipe_ldpe_log[1]);
+
 	sock_set_nonblock(pipe_parent2lde[0]);
 	sock_set_cloexec(pipe_parent2lde[0]);
 	sock_set_nonblock(pipe_parent2lde[1]);
@@ -355,15 +352,26 @@ main(int argc, char *argv[])
 	sock_set_nonblock(pipe_parent2lde_sync[0]);
 	sock_set_cloexec(pipe_parent2lde_sync[0]);
 	sock_set_cloexec(pipe_parent2lde_sync[1]);
+	sock_set_nonblock(pipe_lde_log[0]);
+	sock_set_cloexec(pipe_lde_log[0]);
+	sock_set_nonblock(pipe_lde_log[1]);
+	sock_set_cloexec(pipe_lde_log[1]);
 
 	/* start children */
 	lde_pid = start_child(PROC_LDE_ENGINE, saved_argv0,
-	    pipe_parent2lde[1], pipe_parent2lde_sync[1]);
+	    pipe_parent2lde[1], pipe_parent2lde_sync[1], pipe_lde_log[1]);
 	ldpe_pid = start_child(PROC_LDP_ENGINE, saved_argv0,
-	    pipe_parent2ldpe[1], pipe_parent2ldpe_sync[1]);
+	    pipe_parent2ldpe[1], pipe_parent2ldpe_sync[1], pipe_ldpe_log[1]);
 
 	master = frr_init();
+	/* The two child processes use the zlog_live backend to send their
+	 * messages here, where the actual logging config is then applied.
+	 * Look for zlog_live_open_fd() to find the other end of this.
+	 */
+	zlog_recirculate_subscribe(master, pipe_lde_log[0]);
+	zlog_recirculate_subscribe(master, pipe_ldpe_log[0]);
 
+	libagentx_init();
 	vrf_init(NULL, NULL, NULL, NULL);
 	access_list_init();
 	ldp_vty_init();
@@ -497,7 +505,8 @@ ldpd_shutdown(void)
 }
 
 static pid_t
-start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync)
+start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync,
+	    int fd_log)
 {
 	char	*argv[7];
 	int	 argc = 0, nullfd;
@@ -512,6 +521,7 @@ start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync)
 	default:
 		close(fd_async);
 		close(fd_sync);
+		close(fd_log);
 		return (pid);
 	}
 
@@ -532,6 +542,9 @@ start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync)
 
 	if (dup2(fd_sync, LDPD_FD_SYNC) == -1)
 		fatal("cannot setup imsg sync fd");
+
+	if (dup2(fd_log, LDPD_FD_LOG) == -1)
+		fatal("cannot setup zlog fd");
 
 	argv[argc++] = argv0;
 	switch (p) {
@@ -582,9 +595,6 @@ static void main_dispatch_ldpe(struct event *thread)
 			break;
 
 		switch (imsg.hdr.type) {
-		case IMSG_LOG:
-			logit(imsg.hdr.pid, "%s", (const char *)imsg.data);
-			break;
 		case IMSG_REQUEST_SOCKETS:
 			af = imsg.hdr.pid;
 			main_imsg_send_net_sockets(af);
@@ -650,9 +660,6 @@ static void main_dispatch_lde(struct event *thread)
 			break;
 
 		switch (imsg.hdr.type) {
-		case IMSG_LOG:
-			logit(imsg.hdr.pid, "%s", (const char *)imsg.data);
-			break;
 		case IMSG_KLABEL_CHANGE:
 			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
 			    sizeof(struct kroute))

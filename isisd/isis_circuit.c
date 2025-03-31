@@ -41,6 +41,7 @@
 #include "isisd/isisd.h"
 #include "isisd/isis_csm.h"
 #include "isisd/isis_events.h"
+#include "isisd/isis_srv6.h"
 #include "isisd/isis_te.h"
 #include "isisd/isis_mt.h"
 #include "isisd/isis_errors.h"
@@ -197,8 +198,8 @@ void isis_circuit_del(struct isis_circuit *circuit)
 	ldp_sync_info_free(&circuit->ldp_sync_info);
 
 	circuit_mt_finish(circuit);
-	isis_lfa_excluded_ifaces_clear(circuit, ISIS_LEVEL1);
-	isis_lfa_excluded_ifaces_clear(circuit, ISIS_LEVEL2);
+	isis_lfa_excluded_ifaces_delete(circuit, ISIS_LEVEL1);
+	isis_lfa_excluded_ifaces_delete(circuit, ISIS_LEVEL2);
 
 	list_delete(&circuit->ip_addrs);
 	list_delete(&circuit->ipv6_link);
@@ -488,19 +489,19 @@ static uint8_t isis_circuit_id_gen(struct isis *isis, struct interface *ifp)
 
 void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp)
 {
-	struct listnode *node, *nnode;
 	struct connected *conn;
 
-	if (if_is_broadcast(ifp)) {
+	if (if_is_loopback(ifp) || (isis_option_check(ISIS_OPT_DUMMY_AS_LOOPBACK) &&
+				    CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_DUMMY))) {
+		circuit->circ_type = CIRCUIT_T_LOOPBACK;
+		circuit->is_passive = 1;
+	} else if (if_is_broadcast(ifp)) {
 		if (fabricd || circuit->circ_type_config == CIRCUIT_T_P2P)
 			circuit->circ_type = CIRCUIT_T_P2P;
 		else
 			circuit->circ_type = CIRCUIT_T_BROADCAST;
 	} else if (if_is_pointopoint(ifp)) {
 		circuit->circ_type = CIRCUIT_T_P2P;
-	} else if (if_is_loopback(ifp)) {
-		circuit->circ_type = CIRCUIT_T_LOOPBACK;
-		circuit->is_passive = 1;
 	} else {
 		/* It's normal in case of loopback etc. */
 		if (IS_DEBUG_EVENTS)
@@ -508,20 +509,18 @@ void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp)
 		circuit->circ_type = CIRCUIT_T_UNKNOWN;
 	}
 
-	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, conn))
+	frr_each (if_connected, ifp->connected, conn)
 		isis_circuit_add_addr(circuit, conn);
-
 }
 
 void isis_circuit_if_del(struct isis_circuit *circuit, struct interface *ifp)
 {
-	struct listnode *node, *nnode;
 	struct connected *conn;
 
 	assert(circuit->interface == ifp);
 
 	/* destroy addresses */
-	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, conn))
+	frr_each_safe (if_connected, ifp->connected, conn)
 		isis_circuit_del_addr(circuit, conn);
 
 	circuit->circ_type = CIRCUIT_T_UNKNOWN;
@@ -842,22 +841,22 @@ void isis_circuit_down(struct isis_circuit *circuit)
 		if (circuit->u.bc.adjdb[0]) {
 			circuit->u.bc.adjdb[0]->del = isis_delete_adj;
 			list_delete(&circuit->u.bc.adjdb[0]);
-			circuit->u.bc.adjdb[0] = NULL;
 		}
 		if (circuit->u.bc.adjdb[1]) {
 			circuit->u.bc.adjdb[1]->del = isis_delete_adj;
 			list_delete(&circuit->u.bc.adjdb[1]);
-			circuit->u.bc.adjdb[1] = NULL;
 		}
 		if (circuit->u.bc.is_dr[0]) {
 			isis_dr_resign(circuit, 1);
 			circuit->u.bc.is_dr[0] = 0;
 		}
+		circuit->u.bc.run_dr_elect[0] = 0;
 		memset(circuit->u.bc.l1_desig_is, 0, ISIS_SYS_ID_LEN + 1);
 		if (circuit->u.bc.is_dr[1]) {
 			isis_dr_resign(circuit, 2);
 			circuit->u.bc.is_dr[1] = 0;
 		}
+		circuit->u.bc.run_dr_elect[1] = 0;
 		memset(circuit->u.bc.l2_desig_is, 0, ISIS_SYS_ID_LEN + 1);
 		memset(circuit->u.bc.snpa, 0, ETH_ALEN);
 
@@ -1008,45 +1007,40 @@ void isis_circuit_print_json(struct isis_circuit *circuit,
 					       circuit_t2string(level));
 			if (circuit->area->newmetric)
 				json_object_int_add(level_json, "metric",
-						    circuit->te_metric[0]);
+						    circuit->te_metric[level - 1]);
 			else
 				json_object_int_add(level_json, "metric",
-						    circuit->metric[0]);
+						    circuit->metric[level - 1]);
 			if (!circuit->is_passive) {
-				json_object_int_add(level_json,
-						    "active-neighbors",
-						    circuit->upadjcount[0]);
-				json_object_int_add(level_json,
-						    "hello-interval",
-						    circuit->hello_interval[0]);
+				json_object_int_add(level_json, "active-neighbors",
+						    circuit->upadjcount[level - 1]);
+				json_object_int_add(level_json, "hello-interval",
+						    circuit->hello_interval[level - 1]);
 				hold_json = json_object_new_object();
 				json_object_object_add(level_json, "holddown",
 						       hold_json);
-				json_object_int_add(
-					hold_json, "count",
-					circuit->hello_multiplier[0]);
+				json_object_int_add(hold_json, "count",
+						    circuit->hello_multiplier[level - 1]);
 				json_object_string_add(
 					hold_json, "pad",
 					isis_hello_padding2string(
 						circuit->pad_hellos));
 				json_object_int_add(level_json, "cnsp-interval",
-						    circuit->csnp_interval[0]);
+						    circuit->csnp_interval[level - 1]);
 				json_object_int_add(level_json, "psnp-interval",
-						    circuit->psnp_interval[0]);
+						    circuit->psnp_interval[level - 1]);
 				if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
 					lan_prio_json =
 						json_object_new_object();
 					json_object_object_add(level_json,
 							       "lan",
 							       lan_prio_json);
-					json_object_int_add(
-						lan_prio_json, "priority",
-						circuit->priority[0]);
-					json_object_string_add(
-						lan_prio_json, "is-dis",
-						(circuit->u.bc.is_dr[0]
-							 ? "yes"
-							 : "no"));
+					json_object_int_add(lan_prio_json, "priority",
+							    circuit->priority[level - 1]);
+					json_object_string_add(lan_prio_json, "is-dis",
+							       (circuit->u.bc.is_dr[level - 1]
+									? "yes"
+									: "no"));
 				}
 			}
 			json_object_array_add(levels_json, level_json);
@@ -1631,6 +1625,9 @@ static int isis_ifp_up(struct interface *ifp)
 		isis_csm_state_change(IF_UP_FROM_Z, circuit, ifp);
 	}
 
+	/* Notify SRv6 that the interface went up */
+	isis_srv6_ifp_up_notify(ifp);
+
 	return 0;
 }
 
@@ -1664,6 +1661,47 @@ static int isis_ifp_destroy(struct interface *ifp)
 	return 0;
 }
 
+/* Reset IS hello timer after interval change */
+void isis_reset_hello_timer(struct isis_circuit *circuit)
+{
+	/* First send an immediate hello to prevent adjacency loss 
+     * during longer hello interval transitions 
+     */
+	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
+		/* For broadcast circuits - need to handle both levels */
+		if (circuit->is_type & IS_LEVEL_1) {
+			/* send hello immediately */
+			send_hello(circuit, IS_LEVEL_1);
+
+			/* reset level-1 hello timer */
+			EVENT_OFF(circuit->u.bc.t_send_lan_hello[0]);
+			if (circuit->area && (circuit->area->is_type & IS_LEVEL_1))
+				send_hello_sched(circuit, IS_LEVEL_1,
+						 isis_jitter(circuit->hello_interval[0],
+							     IIH_JITTER));
+		}
+
+		if (circuit->is_type & IS_LEVEL_2) {
+			/* send hello immediately */
+			send_hello(circuit, IS_LEVEL_2);
+
+			/* reset level-2 hello timer */
+			EVENT_OFF(circuit->u.bc.t_send_lan_hello[1]);
+			if (circuit->area && (circuit->area->is_type & IS_LEVEL_2))
+				send_hello_sched(circuit, IS_LEVEL_2,
+						 isis_jitter(circuit->hello_interval[1],
+							     IIH_JITTER));
+		}
+	} else if (circuit->circ_type == CIRCUIT_T_P2P) {
+		/* For point-to-point circuits */
+		send_hello(circuit, IS_LEVEL_1);
+
+		/* reset hello timer */
+		EVENT_OFF(circuit->u.p2p.t_send_p2p_hello);
+		send_hello_sched(circuit, 0, isis_jitter(circuit->hello_interval[0], IIH_JITTER));
+	}
+}
+
 void isis_circuit_init(void)
 {
 	/* Initialize Zebra interface data structure */
@@ -1676,6 +1714,8 @@ void isis_circuit_init(void)
 #else
 	if_cmd_init_default();
 #endif
-	if_zapi_callbacks(isis_ifp_create, isis_ifp_up,
-			  isis_ifp_down, isis_ifp_destroy);
+	hook_register_prio(if_real, 0, isis_ifp_create);
+	hook_register_prio(if_up, 0, isis_ifp_up);
+	hook_register_prio(if_down, 0, isis_ifp_down);
+	hook_register_prio(if_unreal, 0, isis_ifp_destroy);
 }

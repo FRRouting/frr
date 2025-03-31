@@ -169,7 +169,7 @@ def setup_module(module):
     tgen.start_router()
 
 
-def teardown_module(module):
+def teardown_module():
     tgen = get_topogen()
     tgen.stop_topology()
 

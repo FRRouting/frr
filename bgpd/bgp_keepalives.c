@@ -108,7 +108,7 @@ static void peer_process(struct hash_bucket *hb, void *arg)
 			zlog_debug("%s [FSM] Timer (keepalive timer expire)",
 				   pkat->peer->host);
 
-		bgp_keepalive_send(pkat->peer);
+		bgp_keepalive_send(pkat->peer->connection);
 		monotime(&pkat->last);
 		memset(&elapsed, 0, sizeof(elapsed));
 		diff = ka;
@@ -229,8 +229,10 @@ void *bgp_keepalives_start(void *arg)
 
 /* --- thread external functions ------------------------------------------- */
 
-void bgp_keepalives_on(struct peer *peer)
+void bgp_keepalives_on(struct peer_connection *connection)
 {
+	struct peer *peer = connection->peer;
+
 	if (CHECK_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON))
 		return;
 
@@ -258,8 +260,10 @@ void bgp_keepalives_on(struct peer *peer)
 	}
 }
 
-void bgp_keepalives_off(struct peer *peer)
+void bgp_keepalives_off(struct peer_connection *connection)
 {
+	struct peer *peer = connection->peer;
+
 	if (!CHECK_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON))
 		return;
 

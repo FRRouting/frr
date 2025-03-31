@@ -1,0 +1,58 @@
+## Color coding:
+#########################
+##  Main FRR: #f08080  red
+##  Switches: #d0e0d0  gray
+##  RIP:      #19e3d9  Cyan
+##  RIPng:    #fcb314  dark yellow
+##  OSPFv2:   #32b835  Green
+##  OSPFv3:   #19e3d9  Cyan
+##  ISIS IPv4 #fcb314  dark yellow
+##  ISIS IPv6 #9a81ec  purple
+##  BGP IPv4  #eee3d3  beige
+##  BGP IPv6  #fdff00  yellow
+##### Colors (see http://www.color-hex.com/)
+
+graph template {
+	label="rip_bfd_topo1";
+
+	# Routers
+	r1 [
+		shape=doubleoctagon,
+		label="r1",
+		fillcolor="#f08080",
+		style=filled,
+	];
+	r2 [
+		shape=doubleoctagon
+		label="r2",
+		fillcolor="#f08080",
+		style=filled,
+	];
+	r3 [
+		shape=doubleoctagon
+		label="r3",
+		fillcolor="#f08080",
+		style=filled,
+	];
+
+	# Switches
+	s1 [
+		shape=oval,
+		label="s1\n192.168.0.0/24",
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+	s2 [
+		shape=oval,
+		label="s1\n192.168.1.0/24",
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+
+	# Connections
+	r1 -- s1 [label="r1-eth0\n.1"];
+	r2 -- s1 [label="r2-eth0\n.2"];
+
+	r1 -- s2 [label="r1-eth1\n.1"];
+	r3 -- s2 [label="r1-eth0\n.2"];
+}

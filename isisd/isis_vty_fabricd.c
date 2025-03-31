@@ -218,16 +218,8 @@ DEFUN (ip_router_isis,
 	if (!area)
 		isis_area_create(area_tag, VRF_DEFAULT_NAME);
 
-	if (!circuit) {
+	if (!circuit)
 		circuit = isis_circuit_new(ifp, area_tag);
-
-		if (circuit->state != C_STATE_CONF
-		    && circuit->state != C_STATE_UP) {
-			vty_out(vty,
-				"Couldn't bring up interface, please check log.\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	}
 
 	bool ip = circuit->ip_router, ipv6 = circuit->ipv6_router;
 	if (af[2] != '\0')
@@ -887,8 +879,16 @@ DEFUN (isis_hello_interval,
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
 
+	uint32_t old_interval_l1 = circuit->hello_interval[0];
+	uint32_t old_interval_l2 = circuit->hello_interval[1];
+
 	circuit->hello_interval[0] = interval;
 	circuit->hello_interval[1] = interval;
+
+	/* if interval changed, reset hello timer */
+	if (old_interval_l1 != interval || old_interval_l2 != interval) {
+		isis_reset_hello_timer(circuit);
+	}
 
 	return CMD_SUCCESS;
 }

@@ -6,6 +6,8 @@
 /* #define DEBUG */
 
 #include <zebra.h>
+
+#include <signal.h>
 #include <sys/resource.h>
 
 #include "frrevent.h"
@@ -55,11 +57,6 @@ static int event_timer_cmp(const struct event *a, const struct event *b)
 
 DECLARE_HEAP(event_timer_list, struct event, timeritem, event_timer_cmp);
 
-#if defined(__APPLE__)
-#include <mach/mach.h>
-#include <mach/mach_time.h>
-#endif
-
 #define AWAKEN(m)                                                              \
 	do {                                                                   \
 		const unsigned char wakebyte = 0x01;                           \
@@ -75,48 +72,53 @@ static struct list *masters;
 
 static void thread_free(struct event_loop *master, struct event *thread);
 
-#ifndef EXCLUDE_CPU_TIME
-#define EXCLUDE_CPU_TIME 0
-#endif
-#ifndef CONSUMED_TIME_CHECK
-#define CONSUMED_TIME_CHECK 0
-#endif
-
-bool cputime_enabled = !EXCLUDE_CPU_TIME;
+bool cputime_enabled = true;
 unsigned long cputime_threshold = CONSUMED_TIME_CHECK;
 unsigned long walltime_threshold = CONSUMED_TIME_CHECK;
 
 /* CLI start ---------------------------------------------------------------- */
 #include "lib/event_clippy.c"
 
-static unsigned int cpu_record_hash_key(const struct cpu_event_history *a)
+static uint32_t cpu_record_hash_key(const struct cpu_event_history *a)
 {
 	int size = sizeof(a->func);
 
 	return jhash(&a->func, size, 0);
 }
 
-static bool cpu_record_hash_cmp(const struct cpu_event_history *a,
-				const struct cpu_event_history *b)
+static int cpu_record_hash_cmp(const struct cpu_event_history *a,
+			       const struct cpu_event_history *b)
 {
-	return a->func == b->func;
+	return numcmp((uintptr_t)a->func, (uintptr_t)b->func);
 }
 
-static void *cpu_record_hash_alloc(struct cpu_event_history *a)
-{
-	struct cpu_event_history *new;
+DECLARE_HASH(cpu_records, struct cpu_event_history, item, cpu_record_hash_cmp,
+	     cpu_record_hash_key);
 
-	new = XCALLOC(MTYPE_EVENT_STATS, sizeof(struct cpu_event_history));
-	new->func = a->func;
-	new->funcname = a->funcname;
-	return new;
+static struct cpu_event_history *cpu_records_get(struct event_loop *loop,
+						 void (*func)(struct event *e),
+						 const char *funcname)
+{
+	struct cpu_event_history ref = { .func = func }, *res;
+
+	res = cpu_records_find(loop->cpu_records, &ref);
+	if (!res) {
+		res = XCALLOC(MTYPE_EVENT_STATS, sizeof(*res));
+		res->func = func;
+		res->funcname = funcname;
+		cpu_records_add(loop->cpu_records, res);
+	}
+	return res;
 }
 
-static void cpu_record_hash_free(void *a)
+static void cpu_records_clear(struct cpu_event_history *p)
 {
-	struct cpu_event_history *hist = a;
+	memset(p->_clear_begin, 0, p->_clear_end - p->_clear_begin);
+}
 
-	XFREE(MTYPE_EVENT_STATS, hist);
+static void cpu_records_free(struct cpu_event_history **p)
+{
+	XFREE(MTYPE_EVENT_STATS, *p);
 }
 
 static void vty_out_cpu_event_history(struct vty *vty,
@@ -136,14 +138,11 @@ static void vty_out_cpu_event_history(struct vty *vty,
 		a->types & (1 << EVENT_EXECUTE) ? 'X' : ' ', a->funcname);
 }
 
-static void cpu_record_hash_print(struct hash_bucket *bucket, void *args[])
+static void cpu_record_print_one(struct vty *vty, uint8_t filter,
+				 struct cpu_event_history *totals,
+				 const struct cpu_event_history *a)
 {
-	struct cpu_event_history *totals = args[0];
 	struct cpu_event_history copy;
-	struct vty *vty = args[1];
-	uint8_t *filter = args[2];
-
-	struct cpu_event_history *a = bucket->data;
 
 	copy.total_active =
 		atomic_load_explicit(&a->total_active, memory_order_seq_cst);
@@ -165,7 +164,7 @@ static void cpu_record_hash_print(struct hash_bucket *bucket, void *args[])
 	copy.types = atomic_load_explicit(&a->types, memory_order_seq_cst);
 	copy.funcname = a->funcname;
 
-	if (!(copy.types & *filter))
+	if (!(copy.types & filter))
 		return;
 
 	vty_out_cpu_event_history(vty, &copy);
@@ -185,7 +184,6 @@ static void cpu_record_hash_print(struct hash_bucket *bucket, void *args[])
 static void cpu_record_print(struct vty *vty, uint8_t filter)
 {
 	struct cpu_event_history tmp;
-	void *args[3] = {&tmp, vty, &filter};
 	struct event_loop *m;
 	struct listnode *ln;
 
@@ -220,15 +218,15 @@ static void cpu_record_print(struct vty *vty, uint8_t filter)
 				"Active   Runtime(ms)   Invoked Avg uSec Max uSecs");
 			vty_out(vty, " Avg uSec Max uSecs");
 			vty_out(vty,
-				"  CPU_Warn Wall_Warn Starv_Warn Type   Thread\n");
+				"  CPU_Warn Wall_Warn Starv_Warn   Type  Event\n");
 
-			if (m->cpu_record->count)
-				hash_iterate(
-					m->cpu_record,
-					(void (*)(struct hash_bucket *,
-						  void *))cpu_record_hash_print,
-					args);
-			else
+			if (cpu_records_count(m->cpu_records)) {
+				struct cpu_event_history *rec;
+
+				frr_each (cpu_records, m->cpu_records, rec)
+					cpu_record_print_one(vty, filter, &tmp,
+							     rec);
+			} else
 				vty_out(vty, "No data to display yet.\n");
 
 			vty_out(vty, "\n");
@@ -236,47 +234,36 @@ static void cpu_record_print(struct vty *vty, uint8_t filter)
 	}
 
 	vty_out(vty, "\n");
-	vty_out(vty, "Total thread statistics\n");
+	vty_out(vty, "Total Event statistics\n");
 	vty_out(vty, "-------------------------\n");
 	vty_out(vty, "%30s %18s %18s\n", "",
 		"CPU (user+system):", "Real (wall-clock):");
 	vty_out(vty, "Active   Runtime(ms)   Invoked Avg uSec Max uSecs");
-	vty_out(vty, " Avg uSec Max uSecs  CPU_Warn Wall_Warn");
-	vty_out(vty, "  Type  Thread\n");
+	vty_out(vty, " Avg uSec Max uSecs  CPU_Warn Wall_Warn Starv_Warn");
+	vty_out(vty, "   Type  Event\n");
 
 	if (tmp.total_calls > 0)
 		vty_out_cpu_event_history(vty, &tmp);
 }
 
-static void cpu_record_hash_clear(struct hash_bucket *bucket, void *args[])
-{
-	uint8_t *filter = args[0];
-	struct hash *cpu_record = args[1];
-
-	struct cpu_event_history *a = bucket->data;
-
-	if (!(a->types & *filter))
-		return;
-
-	hash_release(cpu_record, bucket->data);
-}
-
 static void cpu_record_clear(uint8_t filter)
 {
-	uint8_t *tmp = &filter;
 	struct event_loop *m;
 	struct listnode *ln;
 
 	frr_with_mutex (&masters_mtx) {
 		for (ALL_LIST_ELEMENTS_RO(masters, ln, m)) {
 			frr_with_mutex (&m->mtx) {
-				void *args[2] = {tmp, m->cpu_record};
+				struct cpu_event_history *item;
 
-				hash_iterate(
-					m->cpu_record,
-					(void (*)(struct hash_bucket *,
-						  void *))cpu_record_hash_clear,
-					args);
+				/* it isn't possible to free the memory here
+				 * because some of these will be in use (e.g.
+				 * the one we're currently running in!)
+				 */
+				frr_each (cpu_records, m->cpu_records, item) {
+					if (item->types & filter)
+						cpu_records_clear(item);
+				}
 			}
 		}
 	}
@@ -317,13 +304,13 @@ static uint8_t parse_filter(const char *filterstr)
 	return filter;
 }
 
-DEFUN_NOSH (show_thread_cpu,
-	    show_thread_cpu_cmd,
-	    "show thread cpu [FILTER]",
-	    SHOW_STR
-	    "Thread information\n"
-	    "Thread CPU usage\n"
-	    "Display filter (rwtex)\n")
+DEFUN_NOSH (show_event_cpu,
+            show_event_cpu_cmd,
+            "show event cpu [FILTER]",
+            SHOW_STR
+            "Event information\n"
+            "Event CPU usage\n"
+            "Display filter (rwtexb)\n")
 {
 	uint8_t filter = (uint8_t)-1U;
 	int idx = 0;
@@ -355,7 +342,7 @@ DEFPY (service_cputime_stats,
 
 DEFPY (service_cputime_warning,
        service_cputime_warning_cmd,
-       "[no] service cputime-warning (1-4294967295)",
+       "[no] service cputime-warning ![(1-4294967295)]",
        NO_STR
        "Set up miscellaneous service\n"
        "Warn for tasks exceeding CPU usage threshold\n"
@@ -368,16 +355,9 @@ DEFPY (service_cputime_warning,
 	return CMD_SUCCESS;
 }
 
-ALIAS (service_cputime_warning,
-       no_service_cputime_warning_cmd,
-       "no service cputime-warning",
-       NO_STR
-       "Set up miscellaneous service\n"
-       "Warn for tasks exceeding CPU usage threshold\n")
-
 DEFPY (service_walltime_warning,
        service_walltime_warning_cmd,
-       "[no] service walltime-warning (1-4294967295)",
+       "[no] service walltime-warning ![(1-4294967295)]",
        NO_STR
        "Set up miscellaneous service\n"
        "Warn for tasks exceeding total wallclock threshold\n"
@@ -390,14 +370,7 @@ DEFPY (service_walltime_warning,
 	return CMD_SUCCESS;
 }
 
-ALIAS (service_walltime_warning,
-       no_service_walltime_warning_cmd,
-       "no service walltime-warning",
-       NO_STR
-       "Set up miscellaneous service\n"
-       "Warn for tasks exceeding total wallclock threshold\n")
-
-static void show_thread_poll_helper(struct vty *vty, struct event_loop *m)
+static void show_event_poll_helper(struct vty *vty, struct event_loop *m)
 {
 	const char *name = m->name ? m->name : "main";
 	char underline[strlen(name) + 1];
@@ -438,31 +411,30 @@ static void show_thread_poll_helper(struct vty *vty, struct event_loop *m)
 	}
 }
 
-DEFUN_NOSH (show_thread_poll,
-	    show_thread_poll_cmd,
-	    "show thread poll",
-	    SHOW_STR
-	    "Thread information\n"
-	    "Show poll FD's and information\n")
+DEFUN_NOSH (show_event_poll,
+            show_event_poll_cmd,
+            "show event poll",
+            SHOW_STR
+            "Event information\n"
+            "Event Poll Information\n")
 {
 	struct listnode *node;
 	struct event_loop *m;
 
 	frr_with_mutex (&masters_mtx) {
 		for (ALL_LIST_ELEMENTS_RO(masters, node, m))
-			show_thread_poll_helper(vty, m);
+			show_event_poll_helper(vty, m);
 	}
 
 	return CMD_SUCCESS;
 }
 
-
-DEFUN (clear_thread_cpu,
-       clear_thread_cpu_cmd,
-       "clear thread cpu [FILTER]",
+DEFUN (clear_event_cpu,
+       clear_event_cpu_cmd,
+       "clear event cpu [FILTER]",
        "Clear stored data in all pthreads\n"
-       "Thread information\n"
-       "Thread CPU usage\n"
+       "Event information\n"
+       "Event CPU usage\n"
        "Display filter (rwtexb)\n")
 {
 	uint8_t filter = (uint8_t)-1U;
@@ -482,7 +454,7 @@ DEFUN (clear_thread_cpu,
 	return CMD_SUCCESS;
 }
 
-static void show_thread_timers_helper(struct vty *vty, struct event_loop *m)
+static void show_event_timers_helper(struct vty *vty, struct event_loop *m)
 {
 	const char *name = m->name ? m->name : "main";
 	char underline[strlen(name) + 1];
@@ -499,19 +471,19 @@ static void show_thread_timers_helper(struct vty *vty, struct event_loop *m)
 	}
 }
 
-DEFPY_NOSH (show_thread_timers,
-	    show_thread_timers_cmd,
-	    "show thread timers",
-	    SHOW_STR
-	    "Thread information\n"
-	    "Show all timers and how long they have in the system\n")
+DEFPY_NOSH (show_event_timers,
+            show_event_timers_cmd,
+            "show event timers",
+            SHOW_STR
+            "Event information\n"
+            "Show all timers and how long they have in the system\n")
 {
 	struct listnode *node;
 	struct event_loop *m;
 
 	frr_with_mutex (&masters_mtx) {
 		for (ALL_LIST_ELEMENTS_RO(masters, node, m))
-			show_thread_timers_helper(vty, m);
+			show_event_timers_helper(vty, m);
 	}
 
 	return CMD_SUCCESS;
@@ -519,17 +491,15 @@ DEFPY_NOSH (show_thread_timers,
 
 void event_cmd_init(void)
 {
-	install_element(VIEW_NODE, &show_thread_cpu_cmd);
-	install_element(VIEW_NODE, &show_thread_poll_cmd);
-	install_element(ENABLE_NODE, &clear_thread_cpu_cmd);
+	install_element(VIEW_NODE, &show_event_cpu_cmd);
+	install_element(VIEW_NODE, &show_event_poll_cmd);
+	install_element(ENABLE_NODE, &clear_event_cpu_cmd);
 
 	install_element(CONFIG_NODE, &service_cputime_stats_cmd);
 	install_element(CONFIG_NODE, &service_cputime_warning_cmd);
-	install_element(CONFIG_NODE, &no_service_cputime_warning_cmd);
 	install_element(CONFIG_NODE, &service_walltime_warning_cmd);
-	install_element(CONFIG_NODE, &no_service_walltime_warning_cmd);
 
-	install_element(VIEW_NODE, &show_thread_timers_cmd);
+	install_element(VIEW_NODE, &show_event_timers_cmd);
 }
 /* CLI end ------------------------------------------------------------------ */
 
@@ -545,6 +515,7 @@ static void initializer(void)
 	pthread_key_create(&thread_current, NULL);
 }
 
+#define STUPIDLY_LARGE_FD_SIZE 100000
 struct event_loop *event_master_create(const char *name)
 {
 	struct event_loop *rv;
@@ -571,6 +542,14 @@ struct event_loop *event_master_create(const char *name)
 		rv->fd_limit = (int)limit.rlim_cur;
 	}
 
+	if (rv->fd_limit > STUPIDLY_LARGE_FD_SIZE) {
+		if (frr_is_daemon())
+			zlog_warn("FD Limit set: %u is stupidly large.  Is this what you intended?  Consider using --limit-fds also limiting size to %u",
+				  rv->fd_limit, STUPIDLY_LARGE_FD_SIZE);
+
+		rv->fd_limit = STUPIDLY_LARGE_FD_SIZE;
+	}
+
 	rv->read = XCALLOC(MTYPE_EVENT_POLL,
 			   sizeof(struct event *) * rv->fd_limit);
 
@@ -581,10 +560,7 @@ struct event_loop *event_master_create(const char *name)
 
 	snprintf(tmhashname, sizeof(tmhashname), "%s - threadmaster event hash",
 		 name);
-	rv->cpu_record = hash_create_size(
-		8, (unsigned int (*)(const void *))cpu_record_hash_key,
-		(bool (*)(const void *, const void *))cpu_record_hash_cmp,
-		tmhashname);
+	cpu_records_init(rv->cpu_records);
 
 	event_list_init(&rv->event);
 	event_list_init(&rv->ready);
@@ -594,6 +570,11 @@ struct event_loop *event_master_create(const char *name)
 	/* Initialize event_fetch() settings */
 	rv->spin = true;
 	rv->handle_signals = true;
+
+	/* tardy event warnings */
+	monotime(&rv->last_tardy_warning);
+	rv->last_tardy_warning.tv_sec -= (TARDY_WARNING_INTERVAL + TIMER_SECOND_MICRO - 1) /
+					 TIMER_SECOND_MICRO;
 
 	/* Set pthread owner, should be updated by actual owner */
 	rv->owner = pthread_self();
@@ -681,27 +662,10 @@ static void thread_array_free(struct event_loop *m, struct event **thread_array)
 	XFREE(MTYPE_EVENT_POLL, thread_array);
 }
 
-/*
- * event_master_free_unused
- *
- * As threads are finished with they are put on the
- * unuse list for later reuse.
- * If we are shutting down, Free up unused threads
- * So we can see if we forget to shut anything off
- */
-void event_master_free_unused(struct event_loop *m)
-{
-	frr_with_mutex (&m->mtx) {
-		struct event *t;
-
-		while ((t = event_list_pop(&m->unuse)))
-			thread_free(m, t);
-	}
-}
-
 /* Stop thread scheduler. */
 void event_master_free(struct event_loop *m)
 {
+	struct cpu_event_history *record;
 	struct event *t;
 
 	frr_with_mutex (&masters_mtx) {
@@ -724,7 +688,9 @@ void event_master_free(struct event_loop *m)
 	list_delete(&m->cancel_req);
 	m->cancel_req = NULL;
 
-	hash_clean_and_free(&m->cpu_record, cpu_record_hash_free);
+	while ((record = cpu_records_pop(m->cpu_records)))
+		cpu_records_free(&record);
+	cpu_records_fini(m->cpu_records);
 
 	XFREE(MTYPE_EVENT_MASTER, m->name);
 	XFREE(MTYPE_EVENT_MASTER, m->handler.pfds);
@@ -797,13 +763,11 @@ static struct event *thread_get(struct event_loop *m, uint8_t type,
 				const struct xref_eventsched *xref)
 {
 	struct event *thread = event_list_pop(&m->unuse);
-	struct cpu_event_history tmp;
 
 	if (!thread) {
 		thread = XCALLOC(MTYPE_THREAD, sizeof(struct event));
 		/* mutex only needs to be initialized at struct creation. */
 		pthread_mutex_init(&thread->mtx, NULL);
-		m->alloc++;
 	}
 
 	thread->type = type;
@@ -811,8 +775,13 @@ static struct event *thread_get(struct event_loop *m, uint8_t type,
 	thread->master = m;
 	thread->arg = arg;
 	thread->yield = EVENT_YIELD_TIME_SLOT; /* default */
-	thread->ref = NULL;
-	thread->ignore_timer_late = false;
+	thread->tardy_threshold = 0;
+	/* thread->ref is zeroed either by XCALLOC above or by memset before
+	 * being put on the "unuse" list by thread_add_unuse().
+	 * Setting it here again makes coverity complain about a missing
+	 * lock :(
+	 */
+	/* thread->ref = NULL; */
 
 	/*
 	 * So if the passed in funcname is not what we have
@@ -825,13 +794,9 @@ static struct event *thread_get(struct event_loop *m, uint8_t type,
 	 * hash_get lookups.
 	 */
 	if ((thread->xref && thread->xref->funcname != xref->funcname)
-	    || thread->func != func) {
-		tmp.func = func;
-		tmp.funcname = xref->funcname;
-		thread->hist =
-			hash_get(m->cpu_record, &tmp,
-				 (void *(*)(void *))cpu_record_hash_alloc);
-	}
+	    || thread->func != func)
+		thread->hist = cpu_records_get(m, func, xref->funcname);
+
 	thread->hist->total_active++;
 	thread->func = func;
 	thread->xref = xref;
@@ -841,10 +806,6 @@ static struct event *thread_get(struct event_loop *m, uint8_t type,
 
 static void thread_free(struct event_loop *master, struct event *thread)
 {
-	/* Update statistics. */
-	assert(master->alloc > 0);
-	master->alloc--;
-
 	/* Free allocated resources. */
 	pthread_mutex_destroy(&thread->mtx);
 	XFREE(MTYPE_THREAD, thread);
@@ -988,7 +949,7 @@ void _event_add_read_write(const struct xref_eventsched *xref,
 		 * if we already have a pollfd for our file descriptor, find and
 		 * use it
 		 */
-		for (nfds_t i = 0; i < m->handler.pfdcount; i++)
+		for (nfds_t i = 0; i < m->handler.pfdcount; i++) {
 			if (m->handler.pfds[i].fd == fd) {
 				queuepos = i;
 
@@ -1002,6 +963,15 @@ void _event_add_read_write(const struct xref_eventsched *xref,
 #endif
 				break;
 			}
+			/*
+			 * We are setting the fd = -1 for the
+			 * case when a read/write event is going
+			 * away.  if we find a -1 we can stuff it
+			 * into that spot, so note it
+			 */
+			if (m->handler.pfds[i].fd == -1 && queuepos == m->handler.pfdcount)
+				queuepos = i;
+		}
 
 		/* make sure we have room for this fd + pipe poker fd */
 		assert(queuepos + 1 < m->handler.pfdsize);
@@ -1058,6 +1028,8 @@ static void _event_add_timer_timeval(const struct xref_eventsched *xref,
 			return;
 
 		thread = thread_get(m, EVENT_TIMER, func, arg, xref);
+		/* default lateness warning: 4s */
+		thread->tardy_threshold = TARDY_DEFAULT_THRESHOLD;
 
 		frr_with_mutex (&thread->mtx) {
 			thread->u.sands = t;
@@ -1278,6 +1250,14 @@ static void cancel_arg_helper(struct event_loop *master,
 	for (i = 0; i < master->handler.pfdcount;) {
 		pfd = master->handler.pfds + i;
 
+		/*
+		 * Skip this spot, nothing here to see
+		 */
+		if (pfd->fd == -1) {
+			i++;
+			continue;
+		}
+
 		if (pfd->events & POLLIN)
 			t = master->read[pfd->fd];
 		else
@@ -1491,9 +1471,9 @@ void event_cancel(struct event **thread)
 		cr->thread = *thread;
 		listnode_add(master->cancel_req, cr);
 		do_event_cancel(master);
-	}
 
-	*thread = NULL;
+		*thread = NULL;
+	}
 }
 
 /**
@@ -1599,6 +1579,12 @@ static int thread_process_io_helper(struct event_loop *m, struct event *thread,
 	 * we should.
 	 */
 	m->handler.pfds[pos].events &= ~(state);
+	/*
+	 * ppoll man page says that a fd of -1 causes the particular
+	 * array item to be skipped.  So let's skip it
+	 */
+	if (m->handler.pfds[pos].events == 0)
+		m->handler.pfds[pos].fd = -1;
 
 	if (!thread) {
 		if ((actual_state & (POLLHUP|POLLIN)) != POLLHUP)
@@ -1620,11 +1606,69 @@ static int thread_process_io_helper(struct event_loop *m, struct event *thread,
 	return 1;
 }
 
+static inline void thread_process_io_inner_loop(struct event_loop *m,
+						unsigned int num,
+						struct pollfd *pfds, nfds_t *i,
+						uint32_t *ready)
+{
+	/* no event for current fd? immediately continue */
+	if (pfds[*i].revents == 0)
+		return;
+
+	*ready = *ready + 1;
+
+	/*
+	 * Unless someone has called event_cancel from another
+	 * pthread, the only thing that could have changed in
+	 * m->handler.pfds while we were asleep is the .events
+	 * field in a given pollfd. Barring event_cancel() that
+	 * value should be a superset of the values we have in our
+	 * copy, so there's no need to update it. Similarily,
+	 * barring deletion, the fd should still be a valid index
+	 * into the master's pfds.
+	 *
+	 * We are including POLLERR here to do a READ event
+	 * this is because the read should fail and the
+	 * read function should handle it appropriately
+	 */
+	if (pfds[*i].revents & (POLLIN | POLLHUP | POLLERR)) {
+		thread_process_io_helper(m, m->read[pfds[*i].fd], POLLIN,
+					 pfds[*i].revents, *i);
+	}
+	if (pfds[*i].revents & POLLOUT)
+		thread_process_io_helper(m, m->write[pfds[*i].fd], POLLOUT,
+					 pfds[*i].revents, *i);
+
+	/*
+	 * if one of our file descriptors is garbage, remove the same
+	 * from both pfds + update sizes and index
+	 */
+	if (pfds[*i].revents & POLLNVAL) {
+		memmove(m->handler.pfds + *i, m->handler.pfds + *i + 1,
+			(m->handler.pfdcount - *i - 1) * sizeof(struct pollfd));
+		m->handler.pfdcount--;
+		m->handler.pfds[m->handler.pfdcount].fd = 0;
+		m->handler.pfds[m->handler.pfdcount].events = 0;
+
+		memmove(pfds + *i, pfds + *i + 1,
+			(m->handler.copycount - *i - 1) * sizeof(struct pollfd));
+		m->handler.copycount--;
+		m->handler.copy[m->handler.copycount].fd = 0;
+		m->handler.copy[m->handler.copycount].events = 0;
+
+		*i = *i - 1;
+	}
+}
+
 /**
  * Process I/O events.
  *
  * Walks through file descriptor array looking for those pollfds whose .revents
  * field has something interesting. Deletes any invalid file descriptors.
+ *
+ * Try to impart some impartiality to handling of io.  The event
+ * system will cycle through the fd's available for io
+ * giving each one a chance to go first.
  *
  * @param m the thread master
  * @param num the number of active file descriptors (return value of poll())
@@ -1633,92 +1677,27 @@ static void thread_process_io(struct event_loop *m, unsigned int num)
 {
 	unsigned int ready = 0;
 	struct pollfd *pfds = m->handler.copy;
+	nfds_t i, last_read = m->last_read % m->handler.copycount;
 
-	for (nfds_t i = 0; i < m->handler.copycount && ready < num; ++i) {
-		/* no event for current fd? immediately continue */
-		if (pfds[i].revents == 0)
-			continue;
+	for (i = last_read; i < m->handler.copycount && ready < num; ++i)
+		thread_process_io_inner_loop(m, num, pfds, &i, &ready);
 
-		ready++;
+	for (i = 0; i < last_read && ready < num; ++i)
+		thread_process_io_inner_loop(m, num, pfds, &i, &ready);
 
-		/*
-		 * Unless someone has called event_cancel from another
-		 * pthread, the only thing that could have changed in
-		 * m->handler.pfds while we were asleep is the .events
-		 * field in a given pollfd. Barring event_cancel() that
-		 * value should be a superset of the values we have in our
-		 * copy, so there's no need to update it. Similarily,
-		 * barring deletion, the fd should still be a valid index
-		 * into the master's pfds.
-		 *
-		 * We are including POLLERR here to do a READ event
-		 * this is because the read should fail and the
-		 * read function should handle it appropriately
-		 */
-		if (pfds[i].revents & (POLLIN | POLLHUP | POLLERR)) {
-			thread_process_io_helper(m, m->read[pfds[i].fd], POLLIN,
-						 pfds[i].revents, i);
-		}
-		if (pfds[i].revents & POLLOUT)
-			thread_process_io_helper(m, m->write[pfds[i].fd],
-						 POLLOUT, pfds[i].revents, i);
-
-		/*
-		 * if one of our file descriptors is garbage, remove the same
-		 * from both pfds + update sizes and index
-		 */
-		if (pfds[i].revents & POLLNVAL) {
-			memmove(m->handler.pfds + i, m->handler.pfds + i + 1,
-				(m->handler.pfdcount - i - 1)
-					* sizeof(struct pollfd));
-			m->handler.pfdcount--;
-			m->handler.pfds[m->handler.pfdcount].fd = 0;
-			m->handler.pfds[m->handler.pfdcount].events = 0;
-
-			memmove(pfds + i, pfds + i + 1,
-				(m->handler.copycount - i - 1)
-					* sizeof(struct pollfd));
-			m->handler.copycount--;
-			m->handler.copy[m->handler.copycount].fd = 0;
-			m->handler.copy[m->handler.copycount].events = 0;
-
-			i--;
-		}
-	}
+	m->last_read++;
 }
 
 /* Add all timers that have popped to the ready list. */
 static unsigned int thread_process_timers(struct event_loop *m,
 					  struct timeval *timenow)
 {
-	struct timeval prev = *timenow;
-	bool displayed = false;
 	struct event *thread;
 	unsigned int ready = 0;
 
 	while ((thread = event_timer_list_first(&m->timer))) {
 		if (timercmp(timenow, &thread->u.sands, <))
 			break;
-		prev = thread->u.sands;
-		prev.tv_sec += 4;
-		/*
-		 * If the timer would have popped 4 seconds in the
-		 * past then we are in a situation where we are
-		 * really getting behind on handling of events.
-		 * Let's log it and do the right thing with it.
-		 */
-		if (timercmp(timenow, &prev, >)) {
-			atomic_fetch_add_explicit(
-				&thread->hist->total_starv_warn, 1,
-				memory_order_seq_cst);
-			if (!displayed && !thread->ignore_timer_late) {
-				flog_warn(
-					EC_LIB_STARVE_THREAD,
-					"Thread Starvation: %pTHD was scheduled to pop greater than 4s ago",
-					thread);
-				displayed = true;
-			}
-		}
 
 		event_timer_list_pop(&m->timer);
 		thread->type = EVENT_READY;
@@ -1864,12 +1843,6 @@ struct event *event_fetch(struct event_loop *m, struct event *fetch)
 	return fetch;
 }
 
-static unsigned long timeval_elapsed(struct timeval a, struct timeval b)
-{
-	return (((a.tv_sec - b.tv_sec) * TIMER_SECOND_MICRO)
-		+ (a.tv_usec - b.tv_usec));
-}
-
 unsigned long event_consumed_time(RUSAGE_T *now, RUSAGE_T *start,
 				  unsigned long *cputime)
 {
@@ -1958,6 +1931,29 @@ void event_getrusage(RUSAGE_T *r)
 #endif
 }
 
+static void event_tardy_warn(struct event *thread, unsigned long since_us)
+{
+	char buf[64];
+	struct fbuf fb = { .buf = buf, .pos = buf, .len = sizeof(buf) };
+	double loadavg[3];
+	int rv;
+
+	rv = getloadavg(loadavg, array_size(loadavg));
+	if (rv < 0)
+		bprintfrr(&fb, "not available");
+	else {
+		for (int i = 0; i < rv; i++) {
+			bprintfrr(&fb, "%.2f", loadavg[i]);
+			if (i < rv - 1)
+				bputs(&fb, ", ");
+		}
+	}
+
+	flog_warn(EC_LIB_STARVE_THREAD,
+		  "CPU starvation: %pTHD getting executed %lums late, warning threshold %lums. System load: %pFB",
+		  thread, (since_us + 999) / 1000, (thread->tardy_threshold + 999) / 1000, &fb);
+}
+
 /*
  * Call a thread.
  *
@@ -1972,6 +1968,34 @@ void event_getrusage(RUSAGE_T *r)
 void event_call(struct event *thread)
 {
 	RUSAGE_T before, after;
+	bool suppress_warnings = EVENT_ARG(thread);
+
+	if (thread->tardy_threshold) {
+		int64_t timer_late_us = monotime_since(&thread->u.sands, NULL);
+
+		/* Timers have a tardiness warning defaulting to 4s.
+		 * It can be customized with event_set_tardy_threshold()
+		 * (bfdd does that since the protocol has really short timers)
+		 *
+		 * If we are more than that threshold late, print a warning
+		 * since we're running behind in calling timers (probably due
+		 * to high system load.)
+		 */
+		if (timer_late_us > (int64_t)thread->tardy_threshold) {
+			int64_t since_last_warning;
+			struct timeval *tw;
+
+			atomic_fetch_add_explicit(&thread->hist->total_starv_warn, 1,
+						  memory_order_seq_cst);
+
+			tw = &thread->master->last_tardy_warning;
+			since_last_warning = monotime_since(tw, NULL);
+			if (since_last_warning > TARDY_WARNING_INTERVAL) {
+				event_tardy_warn(thread, timer_late_us);
+				monotime(tw);
+			}
+		}
+	}
 
 	/* if the thread being called is the CLI, it may change cputime_enabled
 	 * ("service cputime-stats" command), which can result in nonsensical
@@ -2032,6 +2056,9 @@ void event_call(struct event *thread)
 	atomic_fetch_or_explicit(&thread->hist->types, 1 << thread->add_type,
 				 memory_order_seq_cst);
 
+	if (suppress_warnings)
+		return;
+
 	if (cputime_enabled_here && cputime_enabled && cputime_threshold
 	    && cputime > cputime_threshold) {
 		/*
@@ -2066,9 +2093,14 @@ void event_call(struct event *thread)
 
 /* Execute thread */
 void _event_execute(const struct xref_eventsched *xref, struct event_loop *m,
-		    void (*func)(struct event *), void *arg, int val)
+		    void (*func)(struct event *), void *arg, int val,
+		    struct event **eref)
 {
 	struct event *thread;
+
+	/* Cancel existing scheduled task TODO -- nice to do in 1 lock cycle */
+	if (eref)
+		event_cancel(eref);
 
 	/* Get or allocate new thread to execute. */
 	frr_with_mutex (&m->mtx) {
@@ -2148,9 +2180,9 @@ static ssize_t printfrr_thread_dbg(struct fbuf *buf, struct printfrr_eargs *ea,
 	char info[16] = "";
 
 	if (!thread)
-		return bputs(buf, "{(thread *)NULL}");
+		return bputs(buf, "{(event *)NULL}");
 
-	rv += bprintfrr(buf, "{(thread *)%p arg=%p", thread, thread->arg);
+	rv += bprintfrr(buf, "{(event *)%p arg=%p", thread, thread->arg);
 
 	if (thread->type < array_size(types) && types[thread->type])
 		rv += bprintfrr(buf, " %-6s", types[thread->type]);

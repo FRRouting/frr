@@ -146,7 +146,7 @@ int zebra_mpls_write_label_block_config(struct vty *vty, struct zebra_vrf *vrf);
 /*
  * Install dynamic LSP entry.
  */
-int zebra_mpls_lsp_install(struct zebra_vrf *zvrf, struct route_node *rn,
+void zebra_mpls_lsp_install(struct zebra_vrf *zvrf, struct route_node *rn,
 			   struct route_entry *re);
 
 /*
@@ -203,12 +203,13 @@ int zebra_mpls_fec_unregister(struct zebra_vrf *zvrf, struct prefix *p,
  * hash..
  */
 struct zebra_fec *zebra_mpls_fec_for_label(struct zebra_vrf *zvrf,
-					   mpls_label_t label);
+					   struct prefix *p, mpls_label_t label);
 
 /*
  * Inform if specified label is currently bound to a FEC or not.
  */
-int zebra_mpls_label_already_bound(struct zebra_vrf *zvrf, mpls_label_t label);
+int zebra_mpls_label_already_bound(struct zebra_vrf *zvrf, struct prefix *p,
+				   mpls_label_t label);
 
 /*
  * Add static FEC to label binding. If there are clients registered for this
@@ -254,6 +255,12 @@ void mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
 			      const struct zapi_labels *zl);
 void zebra_mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
 				    const struct zapi_labels *zl);
+
+/*
+ * Upon reconfiguring nexthop-resolution updates, update the
+ * lsp entries accordingly.
+ */
+void zebra_mpls_fec_nexthop_resolution_update(struct zebra_vrf *zvrf);
 
 /*
  * Uninstall all NHLFEs bound to a single FEC.
@@ -400,9 +407,10 @@ void zebra_mpls_init_tables(struct zebra_vrf *zvrf);
 void zebra_mpls_turned_on(void);
 
 /*
- * Global MPLS initialization.
+ * Global MPLS initialization/termination.
  */
 void zebra_mpls_init(void);
+void zebra_mpls_terminate(void);
 
 /*
  * MPLS VTY.

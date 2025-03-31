@@ -137,7 +137,7 @@ def setup_module(mod):
     tgen.start_router()
 
 
-def teardown_module(mod):
+def teardown_module():
     "Teardown the pytest environment"
     tgen = get_topogen()
 
@@ -987,7 +987,7 @@ def test_isis_adjacencies_step12():
         'vtysh -c "conf t" -c "interface eth-rt5" -c "isis network point-to-point"'
     )
     tgen.net["rt4"].cmd(
-        'vtysh -c "conf t" -c "interface eth-rt5" -c "isis hello-multiplier 3"'
+        'vtysh -c "conf t" -c "interface eth-rt5" -c "isis hello-interval 1" -c "isis hello-multiplier 10"'
     )
     tgen.net["rt6"].cmd(
         'vtysh -c "conf t" -c "router isis 1" -c "segment-routing global-block 16000 23999"'

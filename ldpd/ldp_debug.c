@@ -97,8 +97,7 @@ ldp_vty_debug(struct vty *vty, const char *negate, const char *type_str,
 			DEBUG_ON(zebra, LDP_DEBUG_ZEBRA);
 	}
 
-	main_imsg_compose_both(IMSG_DEBUG_UPDATE, &ldp_debug,
-	    sizeof(ldp_debug));
+	main_imsg_compose_both(IMSG_DEBUG_UPDATE, &ldp_debug, sizeof(ldp_debug));
 
 	return (CMD_SUCCESS);
 }
@@ -119,13 +118,11 @@ ldp_vty_show_debugging(struct vty *vty)
 	if (LDP_DEBUG(labels, LDP_DEBUG_LABELS))
 		vty_out (vty, "  LDP labels debugging is on\n");
 	if (LDP_DEBUG(msg, LDP_DEBUG_MSG_RECV_ALL))
-		vty_out (vty,
-			  "  LDP detailed messages debugging is on (inbound)\n");
+		vty_out (vty, "  LDP detailed messages debugging is on (inbound)\n");
 	else if (LDP_DEBUG(msg, LDP_DEBUG_MSG_RECV))
 		vty_out (vty,"  LDP messages debugging is on (inbound)\n");
 	if (LDP_DEBUG(msg, LDP_DEBUG_MSG_SEND_ALL))
-		vty_out (vty,
-			  "  LDP detailed messages debugging is on (outbound)\n");
+		vty_out (vty, "  LDP detailed messages debugging is on (outbound)\n");
 	else if (LDP_DEBUG(msg, LDP_DEBUG_MSG_SEND))
 		vty_out (vty,"  LDP messages debugging is on (outbound)\n");
 	if (LDP_DEBUG(sync, LDP_DEBUG_SYNC))

@@ -13,7 +13,7 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_community_alias.h"
 
-static struct hash *bgp_ca_alias_hash;
+struct hash *bgp_ca_alias_hash;
 static struct hash *bgp_ca_community_hash;
 
 static unsigned int bgp_ca_community_hash_key(const void *p)

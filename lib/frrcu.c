@@ -42,6 +42,7 @@
 #include "frrcu.h"
 #include "seqlock.h"
 #include "atomlist.h"
+#include "sigevent.h"
 
 DEFINE_MTYPE_STATIC(LIB, RCU_THREAD,    "RCU thread");
 DEFINE_MTYPE_STATIC(LIB, RCU_NEXT,      "RCU sequence barrier");
@@ -149,20 +150,9 @@ static struct rcu_thread *rcu_self(void)
 	return (struct rcu_thread *)pthread_getspecific(rcu_thread_key);
 }
 
-/*
- * thread management (for the non-main thread)
- */
-struct rcu_thread *rcu_thread_prepare(void)
+struct rcu_thread *rcu_thread_new(void *arg)
 {
-	struct rcu_thread *rt, *cur;
-
-	rcu_assert_read_locked();
-
-	if (!rcu_active)
-		rcu_start();
-
-	cur = rcu_self();
-	assert(cur->depth);
+	struct rcu_thread *rt, *cur = arg;
 
 	/* new thread always starts with rcu_read_lock held at depth 1, and
 	 * holding the same epoch as the parent (this makes it possible to
@@ -172,11 +162,30 @@ struct rcu_thread *rcu_thread_prepare(void)
 	rt->depth = 1;
 
 	seqlock_init(&rt->rcu);
-	seqlock_acquire(&rt->rcu, &cur->rcu);
+	if (cur)
+		seqlock_acquire(&rt->rcu, &cur->rcu);
 
 	rcu_threads_add_tail(&rcu_threads, rt);
 
 	return rt;
+}
+
+/*
+ * thread management (for the non-main thread)
+ */
+struct rcu_thread *rcu_thread_prepare(void)
+{
+	struct rcu_thread *cur;
+
+	rcu_assert_read_locked();
+
+	if (!rcu_active)
+		rcu_start();
+
+	cur = rcu_self();
+	assert(cur->depth);
+
+	return rcu_thread_new(cur);
 }
 
 void rcu_thread_start(struct rcu_thread *rt)
@@ -338,7 +347,19 @@ static void rcu_start(void)
 	 */
 	sigset_t oldsigs, blocksigs;
 
-	sigfillset(&blocksigs);
+	/* technically, the RCU thread is very poorly suited to run even just a
+	 * crashlog handler, since zlog_sigsafe() could deadlock on transiently
+	 * invalid (due to RCU) logging data structures
+	 *
+	 * but given that when we try to write a crashlog, we're already in
+	 * b0rked territory anyway - give the crashlog handler a chance.
+	 *
+	 * (also cf. the SIGALRM usage in writing crashlogs to avoid hung
+	 * processes on any kind of deadlock in crash handlers)
+	 */
+	sigemptyset(&blocksigs);
+	frr_sigset_add_mainonly(&blocksigs);
+	/* new thread inherits mask */
 	pthread_sigmask(SIG_BLOCK, &blocksigs, &oldsigs);
 
 	rcu_active = true;

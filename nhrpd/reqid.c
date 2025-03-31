@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 #include "zebra.h"
 #include "hash.h"
 #include "nhrpd.h"

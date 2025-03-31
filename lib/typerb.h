@@ -9,8 +9,10 @@
 #ifndef _FRR_TYPERB_H
 #define _FRR_TYPERB_H
 
+#ifndef _TYPESAFE_EXPAND_MACROS
 #include <string.h>
 #include "typesafe.h"
+#endif /* _TYPESAFE_EXPAND_MACROS */
 
 #ifdef __cplusplus
 extern "C" {

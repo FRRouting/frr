@@ -5,6 +5,12 @@
  */
 
 #include <zebra.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+#ifdef GNU_LINUX
+#include <linux/if_link.h>
+#endif
 
 #include "ns.h"
 #include "vrf.h"
@@ -36,7 +42,7 @@
 #define NETLINK_SOCKET_BUFFER_SIZE 512
 #define NETLINK_ALIGNTO             4
 #define NETLINK_ALIGN(len)                                                     \
-	(((len) + NETLINK_ALIGNTO - 1) & ~(NETLINK_ALIGNTO - 1))
+	CHECK_FLAG(((len) + NETLINK_ALIGNTO - 1), ~(NETLINK_ALIGNTO - 1))
 #define NETLINK_NLATTR_LEN(_a, _b)   (unsigned int)((char *)_a - (char *)_b)
 
 #endif /* defined(HAVE_NETLINK) */
@@ -60,7 +66,7 @@ static struct nlmsghdr *initiate_nlh(char *buf, unsigned int *seq, int type)
 	nlh->nlmsg_type = type;
 	nlh->nlmsg_flags = NLM_F_REQUEST;
 	if (type == RTM_NEWNSID)
-		nlh->nlmsg_flags |= NLM_F_ACK;
+		SET_FLAG(nlh->nlmsg_flags, NLM_F_ACK);
 	nlh->nlmsg_seq = *seq = frr_sequence32_next();
 	return nlh;
 }
@@ -153,6 +159,7 @@ ns_id_t zebra_ns_id_get(const char *netnspath, int fd_param)
 	int fd = -1, sock, ret;
 	unsigned int seq;
 	ns_id_t return_nsid = NS_UNKNOWN;
+	int nl_errno;
 
 	/* netns path check */
 	if (!netnspath && fd_param == -1)
@@ -225,32 +232,31 @@ ns_id_t zebra_ns_id_get(const char *netnspath, int fd_param)
 
 			ret = -1;
 			if (err->error < 0)
-				errno = -err->error;
+				nl_errno = -err->error;
 			else
-				errno = err->error;
-			if (errno == 0) {
+				nl_errno = err->error;
+			if (nl_errno == 0) {
 				/* request NEWNSID was successfull
 				 * return EEXIST error to get GETNSID
 				 */
-				errno = EEXIST;
+				nl_errno = EEXIST;
 			}
 		} else {
 			/* other errors ignored
 			 * attempt to get nsid
 			 */
 			ret = -1;
-			errno = EEXIST;
+			nl_errno = EEXIST;
 		}
 	}
 
-	if (errno != EEXIST && ret != 0) {
-		flog_err(EC_LIB_SOCKET,
-			 "netlink( %u) recvfrom() error 2 when reading: %s", fd,
-			 safe_strerror(errno));
+	if (ret != 0 && nl_errno != EEXIST) {
+		flog_err(EC_LIB_SOCKET, "netlink( %u) recvfrom() error 2 when reading: %s", fd,
+			 safe_strerror(nl_errno));
 		close(sock);
 		if (netnspath)
 			close(fd);
-		if (errno == ENOTSUP) {
+		if (nl_errno == ENOTSUP) {
 			zlog_debug("NEWNSID locally generated");
 			return zebra_ns_id_get_fallback(netnspath);
 		}

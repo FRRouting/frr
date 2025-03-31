@@ -31,7 +31,12 @@ DEFINE_MTYPE(PATHD, PCEP, "PCEP module");
 /*
  * Globals.
  */
-static struct pcep_glob pcep_glob_space = {.dbg = {0, "pathd module: pcep"}};
+static struct pcep_glob pcep_glob_space = {
+	.dbg_basic = { 0, "debug pathd pcep basic", "PCEP basic" },
+	.dbg_path = { 0, "debug pathd pcep path", "PCEP path" },
+	.dbg_msg = { 0, "debug pathd pcep message", "PCEP message" },
+	.dbg_lib = { 0, "debug pathd pcep pceplib", "PCEP lib" },
+};
 struct pcep_glob *pcep_g = &pcep_glob_space;
 
 /* Main Thread Even Handler */

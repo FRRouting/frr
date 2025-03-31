@@ -48,7 +48,7 @@ static int lm_get_chunk_pi(struct label_manager_chunk **lmc,
 			   uint32_t base, vrf_id_t vrf_id)
 {
 	if (base == 0)
-		*lmc = create_label_chunk(10, 55, 0, 1, 50, 50 + size);
+		*lmc = create_label_chunk(10, 55, 0, 1, 50, 50 + size, true);
 	else
 		*lmc = assign_label_chunk(10, 55, 0, 1, size, base);
 

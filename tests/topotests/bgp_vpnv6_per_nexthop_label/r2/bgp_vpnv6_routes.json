@@ -1,0 +1,187 @@
+{
+    "vrfName": "default",
+    "localAS": 65501,
+    "routes":
+    {
+        "routeDistinguishers":
+        {
+            "444:1":
+            {
+                "172:31::11/128": [
+                    {
+                        "valid": true,
+                        "bestpath": true,
+                        "prefix": "172:31::11",
+                        "prefixLen": 128,
+                        "network": "172:31::11/128",
+                        "peerId": "192:168::1",
+                        "nexthops": [
+                            {
+                                "ip": "192:168::1",
+                                "afi": "ipv6",
+                                "used": true
+                            }
+                        ]
+                    }
+                ],
+                "172:31::12/128": [
+                    {
+                        "valid": true,
+                        "bestpath": true,
+                        "prefix": "172:31::12",
+                        "prefixLen": 128,
+                        "network": "172:31::12/128",
+                        "peerId": "192:168::1",
+                        "nexthops": [
+                            {
+                                "ip": "192:168::1",
+                                "afi": "ipv6",
+                                "used": true
+                            }
+                        ]
+                    }
+                ],
+                "172:31::13/128": [
+                    {
+                        "valid": true,
+                        "bestpath": true,
+                        "prefix": "172:31::13",
+                        "prefixLen": 128,
+                        "network": "172:31::13/128",
+                        "peerId": "192:168::1",
+                        "nexthops": [
+                            {
+                                "ip": "192:168::1",
+                                "afi": "ipv6",
+                                "used": true
+                            }
+                        ]
+                    }
+                ],
+                "172:31::14/128": [
+                    {
+                        "valid": true,
+                        "bestpath": true,
+                        "prefix": "172:31::14",
+                        "prefixLen": 128,
+                        "network": "172:31::14/128",
+                        "peerId": "192:168::1",
+                        "nexthops": [
+                            {
+                                "ip": "192:168::1",
+                                "afi": "ipv6",
+                                "used": true
+                            }
+                        ]
+                    }
+                ],
+                "172:31::15/128": [
+                    {
+                        "valid": true,
+                        "bestpath": true,
+                        "prefix": "172:31::15",
+                        "prefixLen": 128,
+                        "network": "172:31::15/128",
+                        "peerId": "192:168::1",
+                        "nexthops": [
+                            {
+                                "ip": "192:168::1",
+                                "afi": "ipv6",
+                                "used": true
+                            }
+                        ]
+                    }
+                ],
+                "172:31::20/128": [
+                    {
+                        "valid": true,
+                        "bestpath": true,
+                        "prefix": "172:31::20",
+                        "prefixLen": 128,
+                        "network": "172:31::20/128",
+                        "peerId": "192:168::1",
+                        "nexthops": [
+                            {
+                                "ip": "192:168::1",
+                                "afi": "ipv6",
+                                "used": true
+                            }
+                        ]
+                    }
+                ],
+                "172:31::111/128": [
+                    {
+                        "valid": true,
+                        "bestpath": true,
+                        "prefix": "172:31::111",
+                        "prefixLen": 128,
+                        "network": "172:31::111/128",
+                        "peerId": "192:168::1",
+                        "nexthops": [
+                            {
+                                "ip": "192:168::1",
+                                "afi": "ipv6",
+                                "used": true
+                            }
+                        ]
+                    }
+                ],
+                "192:2::/64": [
+                    {
+                        "valid": true,
+                        "bestpath": true,
+                        "prefix": "192:2::",
+                        "prefixLen": 64,
+                        "network": "192:2::/64",
+                        "peerId": "192:168::1",
+                        "nexthops": [
+                            {
+                                "ip": "192:168::1",
+                                "afi": "ipv6",
+                                "used": true
+                            }
+                        ]
+                    }
+                ],
+                "192:168::255:0/112": [
+                    {
+                        "valid": true,
+                        "bestpath": true,
+                        "prefix": "192:168::255:0",
+                        "prefixLen": 112,
+                        "network": "192:168::255:0/112",
+                        "peerId": "192:168::1",
+                        "nexthops": [
+                            {
+                                "ip": "192:168::1",
+                                "afi": "ipv6",
+                                "used": true
+                            }
+                        ]
+                    }
+                ]
+            },
+            "444:2":
+            {
+                "10:200::/64": [
+                    {
+                        "valid": true,
+                        "bestpath": true,
+                        "prefix": "10:200::",
+                        "prefixLen": 64,
+                        "network": "10:200::/64",
+                        "peerId": "(unspec)",
+                        "nhVrfName": "vrf1",
+                        "nexthops": [
+                            {
+                                "ip": "::",
+                                "afi": "ipv6",
+                                "used": true
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    }
+}

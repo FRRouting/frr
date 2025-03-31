@@ -1,0 +1,43 @@
+{
+    "loc-rib": {
+        "update": {
+            "2001::1111/128": {
+                "afi": 2,
+                "as_path": "65501 65502",
+                "bmp_log_type": "update",
+                "ip_prefix": "2001::1111/128",
+                "is_filtered": false,
+                "label": 105,
+                "nxhp_ip": "192:168::2",
+                "nxhp_rd1": "0:0",
+                "nxhp_rd2": "0:0",
+                "origin": "IGP",
+                "peer_asn": 65501,
+                "peer_bgp_id": "192.168.0.1",
+                "peer_distinguisher": "0:0",
+                "peer_type": "loc-rib instance",
+                "policy": "loc-rib",
+                "rd": "555:2",
+                "safi": 128
+            },
+            "172.31.0.15/32": {
+                "afi": 1,
+                "as_path": "65501 65502",
+                "bmp_log_type": "update",
+                "ip_prefix": "172.31.0.15/32",
+                "is_filtered": false,
+                "label": 102,
+                "nxhp_ip": "192.168.0.2",
+                "nxhp_rd": "0:0",
+                "origin": "IGP",
+                "peer_asn": 65501,
+                "peer_bgp_id": "192.168.0.1",
+                "peer_distinguisher": "0:0",
+                "peer_type": "loc-rib instance",
+                "policy": "loc-rib",
+                "rd": "444:2",
+                "safi": 128
+            }
+        }
+    }
+}

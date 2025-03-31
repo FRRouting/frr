@@ -8,7 +8,7 @@
  * Chris Torek.
  *
  * Copyright (c) 2011 The FreeBSD Foundation
- * All rights reserved.
+ *
  * Portions of this software were developed by David Chisnall
  * under sponsorship from the FreeBSD Foundation.
  *
@@ -340,7 +340,7 @@ reswitch:	switch (ch) {
 			if (width >= 0)
 				goto rflag;
 			width = -width;
-			/* FALLTHROUGH */
+			fallthrough;
 		case '-':
 			flags |= LADJUST;
 			goto rflag;
@@ -416,12 +416,68 @@ reswitch:	switch (ch) {
 		case 't':
 			flags |= PTRDIFFT;
 			goto rflag;
+		case 'w':
+			/*
+			 * Fixed-width integer types.  On all platforms we
+			 * support, int8_t is equivalent to char, int16_t
+			 * is equivalent to short, int32_t is equivalent
+			 * to int, int64_t is equivalent to long long int.
+			 * Furthermore, int_fast8_t, int_fast16_t and
+			 * int_fast32_t are equivalent to int, and
+			 * int_fast64_t is equivalent to long long int.
+			 */
+			flags &= ~(CHARINT|SHORTINT|LONGINT|LLONGINT|INTMAXT);
+			if (fmt[0] == 'f') {
+				flags |= FASTINT;
+				fmt++;
+			} else {
+				flags &= ~FASTINT;
+			}
+			if (fmt[0] == '8') {
+				if (!(flags & FASTINT))
+					flags |= CHARINT;
+				else
+					(void) 0;	/* no flag set = 32 */
+				fmt += 1;
+			} else if (fmt[0] == '1' && fmt[1] == '6') {
+				if (!(flags & FASTINT))
+					flags |= SHORTINT;
+				else
+					(void) 0;	/* no flag set = 32 */
+				fmt += 2;
+			} else if (fmt[0] == '3' && fmt[1] == '2') {
+				/* no flag set = 32 */
+				fmt += 2;
+			} else if (fmt[0] == '6' && fmt[1] == '4') {
+				flags |= LLONGINT;
+				fmt += 2;
+			} else {
+				if (flags & FASTINT) {
+					flags &= ~FASTINT;
+					fmt--;
+				}
+				goto invalid;
+			}
+			goto rflag;
 		case 'z':
 			flags |= SIZET;
 			goto rflag;
+		case 'B':
+		case 'b':
+			if (flags & INTMAX_SIZE)
+				ujval = UJARG();
+			else
+				ulval = UARG();
+			base = 2;
+			/* leading 0b/B only if non-zero */
+			if (flags & ALT &&
+			    (flags & INTMAX_SIZE ? ujval != 0 : ulval != 0))
+				ox[1] = ch;
+			goto nosign;
+			break;
 		case 'C':
 			flags |= LONGINT;
-			/*FALLTHROUGH*/
+			fallthrough;
 		case 'c':
 #ifdef WCHAR_SUPPORT
 			if (flags & LONGINT) {
@@ -447,7 +503,7 @@ reswitch:	switch (ch) {
 			break;
 		case 'D':
 			flags |= LONGINT;
-			/*FALLTHROUGH*/
+			fallthrough;
 		case 'd':
 		case 'i':
 			if (flags & INTMAX_SIZE)
@@ -538,7 +594,7 @@ reswitch:	switch (ch) {
 			break;
 		case 'O':
 			flags |= LONGINT;
-			/*FALLTHROUGH*/
+			fallthrough;
 		case 'o':
 			if (flags & INTMAX_SIZE)
 				ujval = UJARG();
@@ -582,7 +638,7 @@ reswitch:	switch (ch) {
 			goto nosign;
 		case 'S':
 			flags |= LONGINT;
-			/*FALLTHROUGH*/
+			fallthrough;
 		case 's':
 #ifdef WCHAR_SUPPORT
 			if (flags & LONGINT) {
@@ -608,7 +664,7 @@ reswitch:	switch (ch) {
 			break;
 		case 'U':
 			flags |= LONGINT;
-			/*FALLTHROUGH*/
+			fallthrough;
 		case 'u':
 			if (flags & INTMAX_SIZE)
 				ujval = UJARG();
@@ -671,6 +727,7 @@ number:			if ((dprec = prec) >= 0)
 		default:	/* "%?" prints ?, unless ? is NUL */
 			if (ch == '\0')
 				goto done;
+invalid:
 			/* pretend it was %c with argument ch */
 			buf[0] = ch;
 			cp = buf;

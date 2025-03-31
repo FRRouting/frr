@@ -41,6 +41,7 @@ pytestmark = [
     # pytest.mark.vrrpd,
 ]
 
+
 # Function we pass to Topogen to create the topology
 def build_topo(tgen):
     "Build function"

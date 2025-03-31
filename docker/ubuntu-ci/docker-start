@@ -1,0 +1,5 @@
+#!/bin/bash
+if [ $(uname -a | grep -ci Ubuntu) -ge 1 ]; then
+    sudo modprobe mpls-router mpls-iptunnel vrf
+fi
+while true ; do sleep 365d ; done

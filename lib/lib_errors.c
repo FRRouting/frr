@@ -308,24 +308,6 @@ static struct log_ref ferr_lib_err[] = {
 		.suggestion = "Check if the FRR libyang plugins were installed correctly in the system",
 	},
 	{
-		.code = EC_LIB_CONFD_INIT,
-		.title = "ConfD initialization error",
-		.description = "Upon startup FRR failed to properly initialize and startup the ConfD northbound plugin",
-		.suggestion = "Check if ConfD is installed correctly in the system. Also, check if the confd daemon is running.",
-	},
-	{
-		.code = EC_LIB_CONFD_DATA_CONVERT,
-		.title = "ConfD data conversion error",
-		.description = "An error has occurred while converting a ConfD data value (binary) to a string",
-		.suggestion = "Open an Issue with all relevant log files and restart FRR"
-	},
-	{
-		.code = EC_LIB_LIBCONFD,
-		.title = "libconfd error",
-		.description = "The northbound subsystem has detected that the libconfd library returned an error",
-		.suggestion = "Open an Issue with all relevant log files and restart FRR"
-	},
-	{
 		.code = EC_LIB_SYSREPO_INIT,
 		.title = "Sysrepo initialization error",
 		.description = "Upon startup FRR failed to properly initialize and startup the Sysrepo northbound plugin",

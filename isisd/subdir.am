@@ -47,6 +47,7 @@ noinst_HEADERS += \
 	isisd/isis_spf_private.h \
 	isisd/isis_sr.h \
 	isisd/isis_flex_algo.h \
+	isisd/isis_srv6.h \
 	isisd/isis_te.h \
 	isisd/isis_tlvs.h \
 	isisd/isis_tx_queue.h \
@@ -80,6 +81,7 @@ LIBISIS_SOURCES = \
 	isisd/isis_spf.c \
 	isisd/isis_sr.c \
 	isisd/isis_flex_algo.c \
+	isisd/isis_srv6.c \
 	isisd/isis_te.c \
 	isisd/isis_tlvs.c \
 	isisd/isis_tx_queue.c \
@@ -96,7 +98,7 @@ ISIS_SOURCES = \
 	isisd/isis_pfpacket.c \
 	# end
 
-ISIS_LDADD_COMMON = lib/libfrr.la $(LIBCAP)
+ISIS_LDADD_COMMON = lib/libfrr.la $(LIBCAP) $(LIBYANG_LIBS)
 
 # Building isisd
 

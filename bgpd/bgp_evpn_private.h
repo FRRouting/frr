@@ -32,6 +32,13 @@
 #define BGP_EVPN_TYPE4_V4_PSIZE 23
 #define BGP_EVPN_TYPE4_V6_PSIZE 34
 
+static const struct message bgp_evpn_route_type_str[] = { { BGP_EVPN_AD_ROUTE, "AD" },
+							  { BGP_EVPN_MAC_IP_ROUTE, "MACIP" },
+							  { BGP_EVPN_IMET_ROUTE, "IMET" },
+							  { BGP_EVPN_ES_ROUTE, "ES" },
+							  { BGP_EVPN_IP_PREFIX_ROUTE, "IP-PREFIX" },
+							  { 0 } };
+
 RB_HEAD(bgp_es_evi_rb_head, bgp_evpn_es_evi);
 RB_PROTOTYPE(bgp_es_evi_rb_head, bgp_evpn_es_evi, rb_node,
 		bgp_es_evi_rb_cmp);
@@ -53,8 +60,9 @@ struct bgpevpn {
 #define VNI_FLAG_RD_CFGD           0x4  /* RD is user configured. */
 #define VNI_FLAG_IMPRT_CFGD        0x8  /* Import RT is user configured */
 #define VNI_FLAG_EXPRT_CFGD        0x10 /* Export RT is user configured */
-#define VNI_FLAG_USE_TWO_LABELS    0x20 /* Attach both L2-VNI and L3-VNI if
-					   needed for this VPN */
+/* Attach both L2-VNI and L3-VNI if needed for this VPN */
+#define VNI_FLAG_USE_TWO_LABELS 0x20
+#define VNI_FLAG_ADD		0x40 /* L2VNI Add */
 
 	struct bgp *bgp_vrf; /* back pointer to the vrf instance */
 
@@ -108,10 +116,14 @@ struct bgpevpn {
 	/* List of local ESs */
 	struct list *local_es_evi_list;
 
+	struct zebra_l2_vni_item zl2vni;
+
 	QOBJ_FIELDS;
 };
 
 DECLARE_QOBJ_TYPE(bgpevpn);
+
+DECLARE_LIST(zebra_l2_vni, struct bgpevpn, zl2vni);
 
 /* Mapping of Import RT to VNIs.
  * The Import RTs of all VNIs are maintained in a hash table with each
@@ -161,6 +173,13 @@ struct bgp_evpn_info {
 
 	/* EVPN enable - advertise svi macip routes */
 	int advertise_svi_macip;
+
+	/* MAC-VRF Site-of-Origin
+	 * - added to all routes exported from L2VNI
+	 * - Type-2/3 routes with matching SoO not imported into L2VNI
+	 * - Type-2/5 routes with matching SoO not imported into L3VNI
+	 */
+	struct ecommunity *soo;
 
 	/* PIP feature knob */
 	bool advertise_pip;
@@ -375,7 +394,7 @@ static inline void encode_mac_mobility_extcomm(int static_mac, uint32_t seq,
 }
 
 static inline void encode_na_flag_extcomm(struct ecommunity_val *eval,
-					  uint8_t na_flag, bool proxy)
+					  bool na_flag, bool proxy)
 {
 	memset(eval, 0, sizeof(*eval));
 	eval->val[0] = ECOMMUNITY_ENCODE_EVPN;
@@ -574,32 +593,32 @@ evpn_type2_prefix_vni_mac_copy(struct prefix_evpn *vni_p,
 static inline struct ethaddr *
 evpn_type2_path_info_get_mac(const struct bgp_path_info *local_pi)
 {
-	assert(local_pi->extra);
-	return &local_pi->extra->vni_info.mac;
+	assert(local_pi->extra && local_pi->extra->evpn);
+	return &local_pi->extra->evpn->vni_info.mac;
 }
 
 /* Get IP of path_info prefix */
 static inline struct ipaddr *
 evpn_type2_path_info_get_ip(const struct bgp_path_info *local_pi)
 {
-	assert(local_pi->extra);
-	return &local_pi->extra->vni_info.ip;
+	assert(local_pi->extra && local_pi->extra->evpn);
+	return &local_pi->extra->evpn->vni_info.ip;
 }
 
 /* Set MAC of path_info prefix */
 static inline void evpn_type2_path_info_set_mac(struct bgp_path_info *local_pi,
 						const struct ethaddr mac)
 {
-	assert(local_pi->extra);
-	local_pi->extra->vni_info.mac = mac;
+	assert(local_pi->extra && local_pi->extra->evpn);
+	local_pi->extra->evpn->vni_info.mac = mac;
 }
 
 /* Set IP of path_info prefix */
 static inline void evpn_type2_path_info_set_ip(struct bgp_path_info *local_pi,
 					       const struct ipaddr ip)
 {
-	assert(local_pi->extra);
-	local_pi->extra->vni_info.ip = ip;
+	assert(local_pi->extra && local_pi->extra->evpn);
+	local_pi->extra->evpn->vni_info.ip = ip;
 }
 
 /* Is the IP empty for the RT's dest? */
@@ -680,6 +699,8 @@ extern void bgp_evpn_handle_autort_change(struct bgp *bgp);
 extern void bgp_evpn_handle_vrf_rd_change(struct bgp *bgp_vrf, int withdraw);
 extern void bgp_evpn_handle_rd_change(struct bgp *bgp, struct bgpevpn *vpn,
 				      int withdraw);
+void bgp_evpn_handle_global_macvrf_soo_change(struct bgp *bgp,
+					      struct ecommunity *new_soo);
 extern int bgp_evpn_install_routes(struct bgp *bgp, struct bgpevpn *vpn);
 extern int bgp_evpn_uninstall_routes(struct bgp *bgp, struct bgpevpn *vpn);
 extern void bgp_evpn_map_vrf_to_its_rts(struct bgp *bgp_vrf);
@@ -707,7 +728,8 @@ extern void delete_evpn_route_entry(struct bgp *bgp, afi_t afi, safi_t safi,
 				    struct bgp_path_info **pi);
 int vni_list_cmp(void *p1, void *p2);
 extern int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
-				     struct bgp_dest *dest);
+				     struct bgp_dest *dest,
+				     struct bgp_path_info *pi);
 extern struct bgp_dest *
 bgp_evpn_global_node_get(struct bgp_table *table, afi_t afi, safi_t safi,
 			 const struct prefix_evpn *evp, struct prefix_rd *prd,
@@ -741,7 +763,7 @@ bgp_evpn_vni_node_lookup(const struct bgpevpn *vpn, const struct prefix_evpn *p,
 extern void bgp_evpn_import_route_in_vrfs(struct bgp_path_info *pi, int import);
 extern void bgp_evpn_update_type2_route_entry(struct bgp *bgp,
 					      struct bgpevpn *vpn,
-					      struct bgp_node *rn,
+					      struct bgp_dest *rn,
 					      struct bgp_path_info *local_pi,
 					      const char *caller);
 extern int bgp_evpn_route_entry_install_if_vrf_match(struct bgp *bgp_vrf,

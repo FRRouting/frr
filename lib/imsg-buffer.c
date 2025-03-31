@@ -6,6 +6,7 @@
  */
 
 #include <zebra.h>
+#include <sys/uio.h>
 
 #include "queue.h"
 #include "imsg.h"

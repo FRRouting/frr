@@ -12,7 +12,7 @@ OSPF Fundamentals
 :term:`distance-vector` protocols, such as :abbr:`RIP` or :abbr:`BGP`, where
 routers describe available `paths` (i.e. routes) to each other, in
 :term:`link-state` protocols routers instead describe the state of their links
-to their immediate neighbouring routers.
+to their immediate neighboring routers.
 
 .. index::
    single: Link State Announcement
@@ -127,7 +127,7 @@ LSA Flooding
 """"""""""""
 
 OSPF defines several related mechanisms, used to manage synchronisation of
-:abbr:`LSDB` s between neighbours as neighbours form adjacencies and the
+:abbr:`LSDB` s between neighbors as neighbors form adjacencies and the
 propagation, or `flooding` of new or updated :abbr:`LSA` s.
 
 
@@ -259,7 +259,7 @@ called `intra-area routes`.
      LSA is originated for such a link.
 
      Stub
-        A link with no adjacent neighbours, or a host route.
+        A link with no adjacent neighbors, or a host route.
 
   - Link ID and Data
 
@@ -339,8 +339,8 @@ The example below shows two :abbr:`LSA` s, both originated by the same router
 of different LSA types.
 
 The first LSA being the router LSA describing 192.168.0.49's links: 2 links
-to multi-access networks with fully-adjacent neighbours (i.e. Transit
-links) and 1 being a Stub link (no adjacent neighbours).
+to multi-access networks with fully-adjacent neighbors (i.e. Transit
+links) and 1 being a Stub link (no adjacent neighbors).
 
 The second LSA being a Network LSA, for which 192.168.0.49 is the
 :abbr:`DR`, listing the Router IDs of 4 routers on that network which

@@ -1,15 +1,23 @@
 .. _bfd:
 
-**********************************
-Bidirectional Forwarding Detection
-**********************************
+***
+BFD
+***
 
-:abbr:`BFD (Bidirectional Forwarding Detection)` stands for
-Bidirectional Forwarding Detection and it is described and extended by
-the following RFCs:
+:abbr:`BFD (Bidirectional Forwarding Detection)` is:
+
+  a protocol intended to detect faults in the bidirectional path between two
+  forwarding engines, including interfaces, data link(s), and to the extent
+  possible the forwarding engines themselves, with potentially very low
+  latency.
+
+  -- :rfc:`5880`
+
+It is described and extended by the following RFCs:
 
 * :rfc:`5880`
 * :rfc:`5881`
+* :rfc:`5882`
 * :rfc:`5883`
 
 Currently, there are two implementations of the BFD commands in FRR:
@@ -26,6 +34,8 @@ This document will focus on the later implementation: *bfdd*.
 Starting BFD
 ============
 
+.. include:: config-include.rst
+
 *bfdd* default configuration file is :file:`bfdd.conf`. *bfdd* searches
 the current directory first then |INSTALL_PREFIX_ETC|/bfdd.conf. All of
 *bfdd*'s command must be configured in :file:`bfdd.conf`.
@@ -34,21 +44,6 @@ the current directory first then |INSTALL_PREFIX_ETC|/bfdd.conf. All of
 may also be specified (:ref:`common-invocation-options`).
 
 .. program:: bfdd
-
-.. option:: --bfdctl <unix-socket>
-
-   Set the BFD daemon control socket location. If using a non-default
-   socket location::
-
-      /usr/lib/frr/bfdd --bfdctl /tmp/bfdd.sock
-
-
-   The default UNIX socket location is:
-
-      #define BFDD_CONTROL_SOCKET "|INSTALL_PREFIX_STATE|/bfdd.sock"
-
-   This option overrides the location addition that the -N option provides
-   to the bfdd.sock
 
 .. option:: --dplaneaddr <type>:<address>[<:port>]
 
@@ -71,7 +66,7 @@ may also be specified (:ref:`common-invocation-options`).
 
      --dplaneaddr ipv6:[::1]:50701
 
-   (if ommited the default port is ``50700``).
+   (if omitted the default port is ``50700``).
 
    It is also possible to operate in client mode (instead of listening for
    connections). To connect to a data plane server append the letter 'c' to
@@ -144,7 +139,7 @@ Peer / Profile Configuration
 
 BFD peers and profiles share the same BFD session configuration commands.
 
-.. clicmd:: detect-multiplier (2-255)
+.. clicmd:: detect-multiplier (1-255)
 
    Configures the detection multiplier to determine packet loss. The
    remote transmission interval will be multiplied by this value to
@@ -156,23 +151,23 @@ BFD peers and profiles share the same BFD session configuration commands.
    detect failures only after 900 milliseconds without receiving
    packets.
 
-.. clicmd:: receive-interval (10-60000)
+.. clicmd:: receive-interval (10-4294967)
 
    Configures the minimum interval that this system is capable of
    receiving control packets. The default value is 300 milliseconds.
 
-.. clicmd:: transmit-interval (10-60000)
+.. clicmd:: transmit-interval (10-4294967)
 
    The minimum transmission interval (less jitter) that this system
    wants to use to send BFD control packets. Defaults to 300ms.
 
-.. clicmd:: echo receive-interval <disabled|(10-60000)>
+.. clicmd:: echo receive-interval <disabled|(10-4294967)>
 
    Configures the minimum interval that this system is capable of
    receiving echo packets. Disabled means that this system doesn't want
    to receive echo packets. The default value is 50 milliseconds.
 
-.. clicmd:: echo transmit-interval (10-60000)
+.. clicmd:: echo transmit-interval (10-4294967)
 
    The minimum transmission interval (less jitter) that this system
    wants to use to send BFD echo packets. Defaults to 50ms.
@@ -220,15 +215,14 @@ BFD peers and profiles share the same BFD session configuration commands.
    The default value is 254 (which means we only expect one hop between
    this system and the peer).
 
+.. clicmd:: log-session-changes
+
+   Enables or disables logging of session state transitions into Up
+   state or when the session transitions from Up state to Down state.
+
 
 BFD Peer Specific Commands
 --------------------------
-
-.. clicmd:: label WORD
-
-   Labels a peer with the provided word. This word can be referenced
-   later on other daemons to refer to a specific peer.
-
 
 .. clicmd:: profile BFDPROF
 
@@ -353,6 +347,33 @@ The following commands are available inside the interface configuration node.
    that interface.
 
 
+.. _bfd-rip-peer-config:
+
+RIP BFD configuration
+---------------------
+
+The following commands are available inside the interface configuration node:
+
+.. clicmd:: ip rip bfd
+
+   Automatically create BFD session for each RIP peer discovered in this
+   interface. When the BFD session monitor signalize that the link is down
+   the RIP peer is removed and all the learned routes associated with that
+   peer are removed.
+
+
+.. clicmd:: ip rip bfd profile BFD_PROFILE_NAME
+
+   Selects a BFD profile for the BFD sessions created in this interface.
+
+
+The following command is available in the RIP router configuration node:
+
+.. clicmd:: bfd default-profile BFD_PROFILE_NAME
+
+   Selects a default BFD profile for all sessions without a profile specified.
+
+
 .. _bfd-static-peer-config:
 
 BFD Static Route Monitoring Configuration
@@ -415,7 +436,6 @@ Here is an example of BFD configuration:
 
     bfd
      peer 192.168.0.1
-       label home-peer
        no shutdown
      !
     !
@@ -429,7 +449,7 @@ Here is an example of BFD configuration:
     !
 
 Peers can be identified by its address (use ``multihop`` when you need
-to specify a multi hop peer) or can be specified manually by a label.
+to specify a multi hop peer).
 
 Here are the available peer configurations:
 
@@ -472,7 +492,6 @@ Here are the available peer configurations:
 
     ! configure a peer with every option possible
     peer 192.168.0.4
-     label peer-label
      detect-multiplier 50
      receive-interval 60000
      transmit-interval 3000
@@ -520,7 +539,6 @@ You can inspect the current BFD peer status with the following commands:
                            Echo receive interval: 50ms
 
            peer 192.168.1.1
-                   label: router3-peer
                    ID: 2
                    Remote ID: 2
                    Status: up
@@ -543,7 +561,6 @@ You can inspect the current BFD peer status with the following commands:
    frr# show bfd peer 192.168.1.1
    BFD Peer:
                peer 192.168.1.1
-                   label: router3-peer
                    ID: 2
                    Remote ID: 2
                    Status: up

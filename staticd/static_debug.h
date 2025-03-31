@@ -20,6 +20,7 @@ extern "C" {
 extern struct debug static_dbg_events;
 extern struct debug static_dbg_route;
 extern struct debug static_dbg_bfd;
+extern struct debug static_dbg_srv6;
 
 /*
  * Initialize staticd debugging.
@@ -27,22 +28,6 @@ extern struct debug static_dbg_bfd;
  * Installs VTY commands and registers callbacks.
  */
 void static_debug_init(void);
-
-/*
- * Print staticd debugging configuration.
- *
- * vty
- *    VTY to print debugging configuration to.
- */
-int static_config_write_debug(struct vty *vty);
-
-/*
- * Print staticd debugging configuration, human readable form.
- *
- * vty
- *    VTY to print debugging configuration to.
- */
-int static_debug_status_write(struct vty *vty);
 
 /*
  * Set debugging status.
@@ -57,8 +42,7 @@ int static_debug_status_write(struct vty *vty);
  *    Debug general internal events
  *
  */
-void static_debug_set(int vtynode, bool onoff, bool events, bool route,
-		      bool bfd);
+void static_debug_set(int vtynode, bool onoff, bool events, bool route, bool bfd, bool srv6);
 
 #ifdef __cplusplus
 }

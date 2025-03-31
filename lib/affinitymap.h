@@ -50,8 +50,6 @@ DECLARE_QOBJ_TYPE(affinity_map);
 struct affinity_maps {
 	struct list *maps;
 
-	bool (*check_use_hook)(const char *affmap_name);
-	bool (*check_update_hook)(const char *affmap_name, uint16_t new_pos);
 	void (*update_hook)(const char *affmap_name, uint16_t old_pos,
 			    uint16_t new_pos);
 
@@ -60,25 +58,17 @@ struct affinity_maps {
 DECLARE_QOBJ_TYPE(affinity_maps);
 
 extern const struct frr_yang_module_info frr_affinity_map_info;
+extern const struct frr_yang_module_info frr_affinity_map_cli_info;
 
 void affinity_map_set(const char *name, int pos);
 void affinity_map_unset(const char *name);
 struct affinity_map *affinity_map_get(const char *name);
-char *affinity_map_name_get(const int pos);
 
-bool affinity_map_check_use_hook(const char *affmap_name);
-bool affinity_map_check_update_hook(const char *affmap_name, uint16_t new_pos);
 void affinity_map_update_hook(const char *affmap_name, uint16_t new_pos);
 
-void affinity_map_set_check_use_hook(bool (*func)(const char *affmap_name));
-void affinity_map_set_check_update_hook(bool (*func)(const char *affmap_name,
-						     uint16_t new_pos));
 void affinity_map_set_update_hook(void (*func)(const char *affmap_name,
 					       uint16_t old_pos,
 					       uint16_t new_pos));
-
-void cli_show_affinity_map(struct vty *vty, const struct lyd_node *dnode,
-			   bool show_defaults);
 
 void affinity_map_init(void);
 

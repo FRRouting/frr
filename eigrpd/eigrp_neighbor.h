@@ -26,8 +26,6 @@ extern void eigrp_nbr_delete(struct eigrp_neighbor *neigh);
 
 extern void holddown_timer_expired(struct event *thread);
 
-extern int eigrp_neighborship_check(struct eigrp_neighbor *neigh,
-				    struct TLV_Parameter_Type *tlv);
 extern void eigrp_nbr_state_update(struct eigrp_neighbor *neigh);
 extern void eigrp_nbr_state_set(struct eigrp_neighbor *neigh, uint8_t state);
 extern uint8_t eigrp_nbr_state_get(struct eigrp_neighbor *neigh);
@@ -41,4 +39,9 @@ extern void eigrp_nbr_hard_restart(struct eigrp_neighbor *nbr, struct vty *vty);
 
 extern int eigrp_nbr_split_horizon_check(struct eigrp_route_descriptor *ne,
 					 struct eigrp_interface *ei);
+
+extern int eigrp_nbr_comp(const struct eigrp_neighbor *a, const struct eigrp_neighbor *b);
+extern uint32_t eigrp_nbr_hash(const struct eigrp_neighbor *a);
+
+DECLARE_HASH(eigrp_nbr_hash, struct eigrp_neighbor, nbr_hash_item, eigrp_nbr_comp, eigrp_nbr_hash);
 #endif /* _ZEBRA_EIGRP_NEIGHBOR_H */

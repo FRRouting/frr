@@ -45,8 +45,10 @@ bool rnh_get_hide_backups(void);
 
 void show_nexthop_json_helper(json_object *json_nexthop,
 			      const struct nexthop *nexthop,
+			      const struct route_node *rn,
 			      const struct route_entry *re);
-void show_route_nexthop_helper(struct vty *vty, const struct route_entry *re,
+void show_route_nexthop_helper(struct vty *vty, const struct route_node *rn,
+			       const struct route_entry *re,
 			       const struct nexthop *nexthop);
 
 #ifdef __cplusplus

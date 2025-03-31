@@ -1,0 +1,30 @@
+{
+  "frr-vrf:lib": {
+    "vrf": [
+      {
+        "name": "default",
+        "frr-zebra:zebra": {
+          "ribs": {
+            "rib": [
+              {
+                "afi-safi-name": "frr-routing:ipv4-unicast",
+                "table-id": 254,
+                "route": [
+                  {
+                    "prefix": "1.1.1.0/24",
+                    "route-entry": [
+                      {
+                        "protocol": "connected",
+                        "metric": 0
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

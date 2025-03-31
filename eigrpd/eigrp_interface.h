@@ -43,4 +43,10 @@ extern struct eigrp_interface *eigrp_if_lookup_by_name(struct eigrp *,
 /* Simulate down/up on the interface. */
 extern void eigrp_if_reset(struct interface *);
 
+extern int eigrp_interface_cmp(const struct eigrp_interface *a, const struct eigrp_interface *b);
+extern uint32_t eigrp_interface_hash(const struct eigrp_interface *ei);
+
+DECLARE_HASH(eigrp_interface_hash, struct eigrp_interface, eif_item, eigrp_interface_cmp,
+	     eigrp_interface_hash);
+
 #endif /* ZEBRA_EIGRP_INTERFACE_H_ */

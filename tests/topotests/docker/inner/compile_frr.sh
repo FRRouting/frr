@@ -58,17 +58,16 @@ if [ ! -e Makefile ]; then
 	fi
 
 	bash configure >&3 \
-		--enable-static-bin \
-		--enable-static \
-		--enable-shared \
 		--enable-dev-build \
 		--with-moduledir=/usr/lib/frr/modules \
 		--prefix=/usr \
-		--localstatedir=/var/run/frr \
+		--sysconfdir=/etc \
+		--localstatedir=/var \
 		--sbindir=/usr/lib/frr \
-		--sysconfdir=/etc/frr \
 		--enable-multipath=0 \
 		--enable-fpm \
+		--enable-grpc \
+		--enable-scripting \
 		--enable-sharpd \
 		$EXTRA_CONFIGURE \
 		--with-pkg-extra-version=-topotests \

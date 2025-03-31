@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+# -*- coding: utf-8 eval: (blacken-mode 1) -*-
 # SPDX-License-Identifier: ISC
 #
 # Copyright (c) 2023 by VMware, Inc. ("VMware")
@@ -20,52 +20,35 @@ Following tests are covered:
 5. Verify static MLD groups after removing and adding MLD config
 """
 
-import os
 import sys
 import time
+
 import pytest
-
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-sys.path.append(os.path.join(CWD, "../lib/"))
-
-# Required to instantiate the topology builder class.
-
-# pylint: disable=C0413
-# Import topogen and topotest helpers
-from lib.topogen import Topogen, get_topogen
-from re import search as re_search
-from re import findall as findall
-
 from lib.common_config import (
-    start_topology,
-    write_test_header,
-    write_test_footer,
-    step,
-    kill_router_daemons,
-    start_router_daemons,
     reset_config_on_routers,
-    do_countdown,
-    apply_raw_config,
-    socat_send_pim6_traffic,
+    start_topology,
+    step,
+    write_test_footer,
+    write_test_header,
+)
+from lib.pim import (
+    McastTesterHelper,
+    create_mld_config,
+    create_pim_config,
+    verify_local_mld_groups,
+    verify_mld_groups,
+    verify_mroutes,
+    verify_pim_neighbors,
+    verify_pim_rp_info,
+    verify_upstream_iif,
+)
+from lib.bgp import (
+    verify_bgp_convergence,
 )
 
-from lib.pim import (
-    create_pim_config,
-    verify_mroutes,
-    verify_upstream_iif,
-    verify_mld_groups,
-    clear_pim6_mroute,
-    McastTesterHelper,
-    verify_pim_neighbors,
-    create_mld_config,
-    verify_mld_groups,
-    verify_local_mld_groups,
-    verify_pim_rp_info,
-)
-from lib.topolog import logger
+from lib.topogen import Topogen, get_topogen
 from lib.topojson import build_config_from_json
+from lib.topolog import logger
 
 r1_r2_links = []
 r1_r3_links = []
@@ -131,7 +114,7 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    json_file = "{}/multicast_mld_local_join.json".format(CWD)
+    json_file = "multicast_mld_local_join.json"
     tgen = Topogen(json_file, mod.__name__)
     global topo
     topo = tgen.json_topo
@@ -147,9 +130,19 @@ def setup_module(mod):
 
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
+
+    # Verify BGP convergence
+    BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo, addr_type="ipv6")
+    assert BGP_CONVERGENCE is True, "setup_module : Failed \n Error:" " {}".format(
+        BGP_CONVERGENCE
+    )
+
     # Verify PIM neighbors
     result = verify_pim_neighbors(tgen, topo)
     assert result is True, " Verify PIM neighbor: Failed Error: {}".format(result)
+
+    global app_helper
+    app_helper = McastTesterHelper(tgen)
 
     logger.info("Running setup_module() done")
 
@@ -160,6 +153,8 @@ def teardown_module():
     logger.info("Running teardown_module to delete topology")
 
     tgen = get_topogen()
+
+    app_helper.cleanup()
 
     # Stop toplogy and Remove tmp files
     tgen.stop_topology()
@@ -192,6 +187,10 @@ def test_mld_local_joins_p0(request):
         pytest.skip(tgen.errors)
 
     reset_config_on_routers(tgen)
+
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo, addr_type="ipv6")
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("configure BGP on R1, R2, R3, R4 and enable redistribute static/connected")
     step("Enable the MLD on R11 interfac of R1 and configure local mld groups")
@@ -265,6 +264,12 @@ def test_mroute_with_mld_local_joins_p0(request):
 
     reset_config_on_routers(tgen)
 
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo, addr_type="ipv6")
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    app_helper.stop_all_hosts()
+
     step("Enable the PIM on all the interfaces of R1, R2, R3, R4")
     step("configure BGP on R1, R2, R3, R4 and enable redistribute static/connected")
     step("Enable the MLD on R11 interfac of R1 and configure local mld groups")
@@ -330,9 +335,7 @@ def test_mroute_with_mld_local_joins_p0(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("Send traffic from R4 to all the groups ( ffaa::1 to ffaa::5)")
-    intf_ip = topo["routers"]["i4"]["links"]["r4"]["ipv6"].split("/")[0]
-    intf = topo["routers"]["i4"]["links"]["r4"]["interface"]
-    result = socat_send_pim6_traffic(tgen, "i4", "UDP6-SEND", MLD_JOIN_RANGE_1, intf)
+    result = app_helper.run_traffic("i4", MLD_JOIN_RANGE_1, "r4")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step(
@@ -458,6 +461,12 @@ def test_remove_add_mld_local_joins_p1(request):
 
     reset_config_on_routers(tgen)
 
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo, addr_type="ipv6")
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    app_helper.stop_all_hosts()
+
     step("Enable the PIM on all the interfaces of R1, R2, R3, R4")
     step("configure BGP on R1, R2, R3, R4 and enable redistribute static/connected")
     step("Enable the MLD on R11 interfac of R1 and configure local mld groups")
@@ -517,9 +526,7 @@ def test_remove_add_mld_local_joins_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("Send traffic from R4 to all the groups ( ffaa::1 to ffaa::5)")
-    intf_ip = topo["routers"]["i4"]["links"]["r4"]["ipv6"].split("/")[0]
-    intf = topo["routers"]["i4"]["links"]["r4"]["interface"]
-    result = socat_send_pim6_traffic(tgen, "i4", "UDP6-SEND", MLD_JOIN_RANGE_1, intf)
+    result = app_helper.run_traffic("i4", MLD_JOIN_RANGE_1, "r4")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step(
@@ -710,6 +717,12 @@ def test_remove_add_mld_config_with_local_joins_p1(request):
 
     reset_config_on_routers(tgen)
 
+    # Verify BGP convergence
+    result = verify_bgp_convergence(tgen, topo, addr_type="ipv6")
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    app_helper.stop_all_hosts()
+
     step("Enable the PIM on all the interfaces of R1, R2, R3, R4")
     step("configure BGP on R1, R2, R3, R4 and enable redistribute static/connected")
     step("Enable the MLD on R11 interfac of R1 and configure local mld groups")
@@ -759,9 +772,7 @@ def test_remove_add_mld_config_with_local_joins_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("Send traffic from R4 to all the groups ( ffaa::1 to ffaa::5)")
-    intf_ip = topo["routers"]["i4"]["links"]["r4"]["ipv6"].split("/")[0]
-    intf = topo["routers"]["i4"]["links"]["r4"]["interface"]
-    result = socat_send_pim6_traffic(tgen, "i4", "UDP6-SEND", MLD_JOIN_RANGE_1, intf)
+    result = app_helper.run_traffic("i4", MLD_JOIN_RANGE_1, "r4")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step(

@@ -8,19 +8,28 @@
 
 #include <zebra.h>
 
+#include "affinitymap.h"
 #include "command.h"
+#include "filter.h"
 #include "json.h"
+#include "keychain.h"
+#include "network.h"
 #include "northbound_cli.h"
+#include "routemap.h"
 
 #include "mgmtd/mgmt.h"
-#include "mgmtd/mgmt_be_server.h"
 #include "mgmtd/mgmt_be_adapter.h"
-#include "mgmtd/mgmt_fe_server.h"
 #include "mgmtd/mgmt_fe_adapter.h"
 #include "mgmtd/mgmt_ds.h"
 #include "mgmtd/mgmt_history.h"
 
 #include "mgmtd/mgmt_vty_clippy.c"
+#include "ripd/rip_nb.h"
+#include "ripngd/ripng_nb.h"
+#include "staticd/static_vty.h"
+#include "zebra/zebra_cli.h"
+
+extern struct frr_daemon_info *mgmt_daemon_info;
 
 DEFPY(show_mgmt_be_adapter,
       show_mgmt_be_adapter_cmd,
@@ -143,6 +152,23 @@ DEFPY(mgmt_commit,
 	return CMD_SUCCESS;
 }
 
+DEFPY(mgmt_create_config_data, mgmt_create_config_data_cmd,
+      "mgmt create-config WORD$path VALUE",
+      MGMTD_STR
+      "Create configuration data\n"
+      "XPath expression specifying the YANG data path\n"
+      "Value of the data to create\n")
+{
+	strlcpy(vty->cfg_changes[0].xpath, path,
+		sizeof(vty->cfg_changes[0].xpath));
+	vty->cfg_changes[0].value = value;
+	vty->cfg_changes[0].operation = NB_OP_CREATE_EXCL;
+	vty->num_cfg_changes = 1;
+
+	vty_mgmt_send_config_data(vty, NULL, false);
+	return CMD_SUCCESS;
+}
+
 DEFPY(mgmt_set_config_data, mgmt_set_config_data_cmd,
       "mgmt set-config WORD$path VALUE",
       MGMTD_STR
@@ -153,12 +179,10 @@ DEFPY(mgmt_set_config_data, mgmt_set_config_data_cmd,
 	strlcpy(vty->cfg_changes[0].xpath, path,
 		sizeof(vty->cfg_changes[0].xpath));
 	vty->cfg_changes[0].value = value;
-	vty->cfg_changes[0].operation = NB_OP_CREATE;
+	vty->cfg_changes[0].operation = NB_OP_MODIFY;
 	vty->num_cfg_changes = 1;
 
-	vty->no_implicit_commit = true;
-	vty_mgmt_send_config_data(vty);
-	vty->no_implicit_commit = false;
+	vty_mgmt_send_config_data(vty, NULL, false);
 	return CMD_SUCCESS;
 }
 
@@ -172,12 +196,118 @@ DEFPY(mgmt_delete_config_data, mgmt_delete_config_data_cmd,
 	strlcpy(vty->cfg_changes[0].xpath, path,
 		sizeof(vty->cfg_changes[0].xpath));
 	vty->cfg_changes[0].value = NULL;
+	vty->cfg_changes[0].operation = NB_OP_DELETE;
+	vty->num_cfg_changes = 1;
+
+	vty_mgmt_send_config_data(vty, NULL, false);
+	return CMD_SUCCESS;
+}
+
+DEFPY(mgmt_remove_config_data, mgmt_remove_config_data_cmd,
+      "mgmt remove-config WORD$path",
+      MGMTD_STR
+      "Remove configuration data\n"
+      "XPath expression specifying the YANG data path\n")
+{
+
+	strlcpy(vty->cfg_changes[0].xpath, path,
+		sizeof(vty->cfg_changes[0].xpath));
+	vty->cfg_changes[0].value = NULL;
 	vty->cfg_changes[0].operation = NB_OP_DESTROY;
 	vty->num_cfg_changes = 1;
 
-	vty->no_implicit_commit = true;
-	vty_mgmt_send_config_data(vty);
-	vty->no_implicit_commit = false;
+	vty_mgmt_send_config_data(vty, NULL, false);
+	return CMD_SUCCESS;
+}
+
+DEFPY(mgmt_replace_config_data, mgmt_replace_config_data_cmd,
+      "mgmt replace-config WORD$path VALUE",
+      MGMTD_STR
+      "Replace configuration data\n"
+      "XPath expression specifying the YANG data path\n"
+      "Value of the data to set\n")
+{
+
+	strlcpy(vty->cfg_changes[0].xpath, path,
+		sizeof(vty->cfg_changes[0].xpath));
+	vty->cfg_changes[0].value = value;
+	vty->cfg_changes[0].operation = NB_OP_REPLACE;
+	vty->num_cfg_changes = 1;
+
+	vty_mgmt_send_config_data(vty, NULL, false);
+	return CMD_SUCCESS;
+}
+
+DEFPY(mgmt_edit, mgmt_edit_cmd,
+      "mgmt edit {create|delete|merge|replace|remove}$op XPATH [json|xml]$fmt [lock$lock] [commit$commit] [DATA]",
+      MGMTD_STR
+      "Edit configuration data\n"
+      "Create data\n"
+      "Delete data\n"
+      "Merge data\n"
+      "Replace data\n"
+      "Remove data\n"
+      "XPath expression specifying the YANG data path\n"
+      "JSON input format (default)\n"
+      "XML input format\n"
+      "Lock the datastores automatically\n"
+      "Commit the changes automatically\n"
+      "Data tree\n")
+{
+	LYD_FORMAT format = (fmt && fmt[0] == 'x') ? LYD_XML : LYD_JSON;
+	uint8_t operation;
+	uint8_t flags = 0;
+
+	switch (op[2]) {
+	case 'e':
+		operation = NB_OP_CREATE_EXCL;
+		break;
+	case 'l':
+		operation = NB_OP_DELETE;
+		break;
+	case 'r':
+		operation = NB_OP_MODIFY;
+		break;
+	case 'p':
+		operation = NB_OP_REPLACE;
+		break;
+	case 'm':
+		operation = NB_OP_DESTROY;
+		break;
+	default:
+		vty_out(vty, "Invalid operation!\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (!data && (operation == NB_OP_CREATE_EXCL ||
+		      operation == NB_OP_MODIFY || operation == NB_OP_REPLACE)) {
+		vty_out(vty, "Data tree is missing!\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (lock)
+		flags |= EDIT_FLAG_IMPLICIT_LOCK;
+
+	if (commit)
+		flags |= EDIT_FLAG_IMPLICIT_COMMIT;
+
+	vty_mgmt_send_edit_req(vty, MGMT_MSG_DATASTORE_CANDIDATE, format, flags,
+			       operation, xpath, data);
+	return CMD_SUCCESS;
+}
+
+DEFPY(mgmt_rpc, mgmt_rpc_cmd,
+      "mgmt rpc XPATH [json|xml]$fmt [DATA]",
+      MGMTD_STR
+      "Invoke RPC\n"
+      "XPath expression specifying the YANG data path\n"
+      "JSON input format (default)\n"
+      "XML input format\n"
+      "Input data tree\n")
+{
+	LYD_FORMAT format = (fmt && fmt[0] == 'x') ? LYD_XML : LYD_JSON;
+
+	vty_mgmt_send_rpc_req(vty, format, xpath, data);
 	return CMD_SUCCESS;
 }
 
@@ -197,27 +327,74 @@ DEFPY(show_mgmt_get_config, show_mgmt_get_config_cmd,
 		datastore = mgmt_ds_name2id(dsname);
 
 	xpath_list[0] = path;
-	vty_mgmt_send_get_config(vty, datastore, xpath_list, 1);
+	vty_mgmt_send_get_req(vty, true, datastore, xpath_list, 1);
 	return CMD_SUCCESS;
 }
 
 DEFPY(show_mgmt_get_data, show_mgmt_get_data_cmd,
-      "show mgmt get-data [candidate|operational|running]$dsname WORD$path",
-      SHOW_STR MGMTD_STR
-      "Get data from a specific datastore\n"
+      "show mgmt get-data WORD$path [datastore <candidate|running|operational>$ds] [with-config|only-config]$content [exact]$exact [with-defaults <trim|all-tag|all>$wd] [json|xml]$fmt",
+      SHOW_STR
+      MGMTD_STR
+      "Get a data from the operational datastore\n"
+      "XPath expression specifying the YANG data root\n"
+      "Specify datastore to get data from (operational by default)\n"
       "Candidate datastore\n"
-      "Operational datastore (default)\n"
       "Running datastore\n"
-      "XPath expression specifying the YANG data path\n")
+      "Operational datastore\n"
+      "Include \"config true\" data\n"
+      "Get only \"config true\" data\n"
+      "Get exact node instead of the whole data tree\n"
+      "Configure 'with-defaults' mode per RFC 6243 (\"explicit\" mode by default)\n"
+      "Use \"trim\" mode\n"
+      "Use \"report-all-tagged\" mode\n"
+      "Use \"report-all\" mode\n"
+      "JSON output format\n"
+      "XML output format\n")
 {
-	const char *xpath_list[VTY_MAXCFGCHANGES] = {0};
-	Mgmtd__DatastoreId datastore = MGMTD_DS_OPERATIONAL;
+	LYD_FORMAT format = (fmt && fmt[0] == 'x') ? LYD_XML : LYD_JSON;
+	int plen = strlen(path);
+	char *xpath = NULL;
+	uint8_t flags = content ? GET_DATA_FLAG_CONFIG : GET_DATA_FLAG_STATE;
+	uint8_t defaults = GET_DATA_DEFAULTS_EXPLICIT;
+	uint8_t datastore = MGMT_MSG_DATASTORE_OPERATIONAL;
 
-	if (dsname)
-		datastore = mgmt_ds_name2id(dsname);
+	if (content && content[0] == 'w')
+		flags |= GET_DATA_FLAG_STATE;
 
-	xpath_list[0] = path;
-	vty_mgmt_send_get_data(vty, datastore, xpath_list, 1);
+	if (exact)
+		flags |= GET_DATA_FLAG_EXACT;
+
+	if (wd) {
+		if (wd[0] == 't')
+			defaults = GET_DATA_DEFAULTS_TRIM;
+		else if (wd[3] == '-')
+			defaults = GET_DATA_DEFAULTS_ALL_ADD_TAG;
+		else
+			defaults = GET_DATA_DEFAULTS_ALL;
+	}
+
+	if (ds) {
+		if (ds[0] == 'c')
+			datastore = MGMT_MSG_DATASTORE_CANDIDATE;
+		else if (ds[0] == 'r')
+			datastore = MGMT_MSG_DATASTORE_RUNNING;
+	}
+
+	/* get rid of extraneous trailing slash-* or single '/' unless root */
+	if (plen > 2 && ((path[plen - 2] == '/' && path[plen - 1] == '*') ||
+			 (path[plen - 2] != '/' && path[plen - 1] == '/'))) {
+		plen = path[plen - 1] == '/' ? plen - 1 : plen - 2;
+		xpath = XSTRDUP(MTYPE_TMP, path);
+		xpath[plen] = 0;
+		path = xpath;
+	}
+
+	vty_mgmt_send_get_data_req(vty, datastore, format, flags, defaults,
+				   path);
+
+	if (xpath)
+		XFREE(MTYPE_TMP, xpath);
+
 	return CMD_SUCCESS;
 }
 
@@ -242,7 +419,7 @@ DEFPY(show_mgmt_dump_data,
 	LYD_FORMAT format = fmt[0] == 'j' ? LYD_JSON : LYD_XML;
 	FILE *f = NULL;
 
-	if (datastore)
+	if (dsname)
 		datastore = mgmt_ds_name2id(dsname);
 
 	ds_ctx = mgmt_ds_get_ctx_by_id(mm, datastore);
@@ -276,7 +453,7 @@ DEFPY(show_mgmt_map_xpath,
       "Get YANG Backend Subscription\n"
       "XPath expression specifying the YANG data path\n")
 {
-	mgmt_be_xpath_subscr_info_write(vty, path);
+	mgmt_be_show_xpath_registries(vty, path);
 	return CMD_SUCCESS;
 }
 
@@ -380,53 +557,10 @@ DEFPY(mgmt_rollback,
 	return CMD_SUCCESS;
 }
 
-static int config_write_mgmt_debug(struct vty *vty);
-static struct cmd_node debug_node = {
-	.name = "debug",
-	.node = DEBUG_NODE,
-	.prompt = "",
-	.config_write = config_write_mgmt_debug,
-};
-
-static int config_write_mgmt_debug_helper(struct vty *vty, bool config)
-{
-	int n = mgmt_debug_be + mgmt_debug_fe + mgmt_debug_ds + mgmt_debug_txn;
-
-	if (!n)
-		return 0;
-
-	if (config && mgmt_debug_be && mgmt_debug_fe && mgmt_debug_ds &&
-	    mgmt_debug_txn) {
-		vty_out(vty, "debug mgmt all\n");
-		return 0;
-	}
-
-	vty_out(vty, "debug mgmt");
-	if (mgmt_debug_be)
-		vty_out(vty, " backend");
-	if (mgmt_debug_ds)
-		vty_out(vty, " datastore");
-	if (mgmt_debug_fe)
-		vty_out(vty, " frontend");
-	if (mgmt_debug_txn)
-		vty_out(vty, " transaction");
-
-	vty_out(vty, "\n");
-
-	return 0;
-}
-
-static int config_write_mgmt_debug(struct vty *vty)
-{
-	return config_write_mgmt_debug_helper(vty, true);
-}
-
-DEFUN_NOSH(show_debugging_mgmt, show_debugging_mgmt_cmd,
+DEFPY_NOSH(show_debugging_mgmt, show_debugging_mgmt_cmd,
 	   "show debugging [mgmt]", SHOW_STR DEBUG_STR "MGMT Information\n")
 {
 	vty_out(vty, "MGMT debugging status:\n");
-
-	config_write_mgmt_debug_helper(vty, false);
 
 	cmd_show_lib_debugs(vty);
 
@@ -434,74 +568,94 @@ DEFUN_NOSH(show_debugging_mgmt, show_debugging_mgmt_cmd,
 }
 
 DEFPY(debug_mgmt, debug_mgmt_cmd,
-      "[no$no] debug mgmt <all$all|{backend$be|datastore$ds|frontend$fe|transaction$txn}>",
+      "[no$no] debug mgmt {backend$be|datastore$ds|frontend$fe|transaction$txn}",
       NO_STR DEBUG_STR MGMTD_STR
-      "All debug\n"
-      "Back-end debug\n"
+      "Backend debug\n"
       "Datastore debug\n"
-      "Front-end debug\n"
+      "Frontend debug\n"
       "Transaction debug\n")
 {
-	bool set = !no;
+	uint32_t mode = DEBUG_NODE2MODE(vty->node);
 
-	if (all)
-		be = fe = ds = txn = set ? all : NULL;
-
-	if (be)
-		mgmt_debug_be = set;
+	if (be) {
+		DEBUG_MODE_SET(&mgmt_debug_be, mode, !no);
+		mgmt_be_adapter_toggle_client_debug(
+			DEBUG_MODE_CHECK(&mgmt_debug_be, DEBUG_MODE_ALL));
+	}
 	if (ds)
-		mgmt_debug_ds = set;
-	if (fe)
-		mgmt_debug_fe = set;
+		DEBUG_MODE_SET(&mgmt_debug_ds, mode, !no);
+	if (fe) {
+		DEBUG_MODE_SET(&mgmt_debug_fe, mode, !no);
+		mgmt_fe_adapter_toggle_client_debug(
+			DEBUG_MODE_CHECK(&mgmt_debug_fe, DEBUG_MODE_ALL));
+	}
 	if (txn)
-		mgmt_debug_txn = set;
+		DEBUG_MODE_SET(&mgmt_debug_txn, mode, !no);
 
 	return CMD_SUCCESS;
 }
 
-/*
- * Analog of `frr_config_read_in()`, instead of our config file though we loop
- * over all daemons that have transitioned to mgmtd, loading their configs
- */
-static int mgmt_config_pre_hook(struct event_loop *loop)
+static void mgmt_config_read_in(struct event *event)
 {
-	FILE *confp;
-	char *p;
-
-	for (uint i = 0; i < mgmt_daemons_count; i++) {
-		p = asprintfrr(MTYPE_TMP, "%s/%s.conf", frr_sysconfdir,
-			       mgmt_daemons[i]);
-		confp = fopen(p, "r");
-		if (confp == NULL) {
-			if (errno != ENOENT)
-				zlog_err("%s: couldn't read config file %s: %s",
-					 __func__, p, safe_strerror(errno));
-		} else {
-			zlog_info("mgmtd: reading daemon config from %s", p);
-			vty_read_file(vty_shared_candidate_config, confp);
-			fclose(confp);
-		}
-		XFREE(MTYPE_TMP, p);
+	if (vty_mgmt_fe_enabled())
+		mgmt_vty_read_configs();
+	else {
+		zlog_warn("%s: no connection to front-end server, retry in 1s",
+			  __func__);
+		event_add_timer(mm->master, mgmt_config_read_in, NULL, 1,
+				&mgmt_daemon_info->read_in);
 	}
-	return 0;
 }
+
+static int mgmtd_config_write(struct vty *vty)
+{
+	struct lyd_node *root;
+
+	LY_LIST_FOR (running_config->dnode, root) {
+		nb_cli_show_dnode_cmds(vty, root, false);
+	}
+
+	return 1;
+}
+
+static struct cmd_node mgmtd_node = {
+	.name = "mgmtd",
+	.node = MGMTD_NODE,
+	.prompt = "",
+	.config_write = mgmtd_config_write,
+};
 
 void mgmt_vty_init(void)
 {
+	/*
+	 * Library based CLI handlers
+	 */
+	filter_cli_init();
+	route_map_cli_init();
+	affinity_map_init();
+	keychain_cli_init();
+
 	/*
 	 * Initialize command handling from VTYSH connection.
 	 * Call command initialization routines defined by
 	 * backend components that are moved to new MGMTD infra
 	 * here one by one.
 	 */
-#if HAVE_STATICD
-	extern void static_vty_init(void);
+	zebra_cli_init();
+#ifdef HAVE_RIPD
+	rip_cli_init();
+#endif
+#ifdef HAVE_RIPNGD
+	ripng_cli_init();
+#endif
+#ifdef HAVE_STATICD
 	static_vty_init();
 #endif
 
-	hook_register(frr_config_pre, mgmt_config_pre_hook);
+	event_add_event(mm->master, mgmt_config_read_in, NULL, 0,
+			&mgmt_daemon_info->read_in);
 
-	install_node(&debug_node);
+	install_node(&mgmtd_node);
 
 	install_element(VIEW_NODE, &show_mgmt_be_adapter_cmd);
 	install_element(VIEW_NODE, &show_mgmt_be_xpath_reg_cmd);
@@ -515,8 +669,13 @@ void mgmt_vty_init(void)
 	install_element(VIEW_NODE, &show_mgmt_cmt_hist_cmd);
 
 	install_element(CONFIG_NODE, &mgmt_commit_cmd);
+	install_element(CONFIG_NODE, &mgmt_create_config_data_cmd);
 	install_element(CONFIG_NODE, &mgmt_set_config_data_cmd);
 	install_element(CONFIG_NODE, &mgmt_delete_config_data_cmd);
+	install_element(CONFIG_NODE, &mgmt_remove_config_data_cmd);
+	install_element(CONFIG_NODE, &mgmt_replace_config_data_cmd);
+	install_element(CONFIG_NODE, &mgmt_edit_cmd);
+	install_element(CONFIG_NODE, &mgmt_rpc_cmd);
 	install_element(CONFIG_NODE, &mgmt_load_config_cmd);
 	install_element(CONFIG_NODE, &mgmt_save_config_cmd);
 	install_element(CONFIG_NODE, &mgmt_rollback_cmd);
@@ -530,6 +689,7 @@ void mgmt_vty_init(void)
 
 	install_element(ENABLE_NODE, &show_debugging_mgmt_cmd);
 
+	mgmt_fe_client_lib_vty_init();
 	/*
 	 * TODO: Register and handlers for auto-completion here.
 	 */

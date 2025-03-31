@@ -363,7 +363,7 @@ char *ttable_dump(struct ttable *tt, const char *newline)
 		memcpy(&right[0], newline, nl_len);
 
 	/* allocate print buffer */
-	buf = XCALLOC(MTYPE_TMP, width * (nlines + 1) + 1);
+	buf = XCALLOC(MTYPE_TMP_TTABLE, width * (nlines + 1) + 1);
 	pos = 0;
 
 	if (tt->style.border.top_on) {
@@ -496,7 +496,9 @@ char *ttable_dump(struct ttable *tt, const char *newline)
  *   l	int64
  *   s	string (default)
  */
-json_object *ttable_json(struct ttable *tt, const char *const formats)
+static json_object *ttable_json_internal(struct ttable *tt,
+					 const char *const formats,
+					 const char *row_text[])
 {
 	struct ttable_cell *row; /* iteration pointers */
 	json_object *json = NULL;
@@ -522,9 +524,55 @@ json_object *ttable_json(struct ttable *tt, const char *const formats)
 			default:
 				val = json_object_new_string(row[j].text);
 			}
-			json_object_object_add(jobj, tt->table[0][j].text, val);
+			if (row_text)
+				json_object_object_add(jobj, row_text[j], val);
+			else
+				json_object_object_add(jobj,
+						       tt->table[0][j].text,
+						       val);
 		}
 	}
 
+	return json;
+}
+
+json_object *ttable_json(struct ttable *tt, const char *const formats)
+{
+	return ttable_json_internal(tt, formats, NULL);
+}
+
+json_object *ttable_json_with_json_text(struct ttable *tt,
+					const char *const formats,
+					const char *json_override_text)
+{
+	char **row_name; /* iteration pointers */
+	char *res, *section, *orig;
+	int col = 0;
+	int ncols = 0, j;
+	json_object *json = NULL;
+
+	if (json_override_text) {
+		/* count how many columns we have */
+		for (j = 0; json_override_text[j]; j++)
+			ncols += !!(json_override_text[j] == '|');
+		ncols++;
+	}
+	if (json_override_text == NULL || ncols != tt->ncols)
+		return ttable_json_internal(tt, formats, NULL);
+
+	/* CALLOC a block of cells */
+	row_name = XCALLOC(MTYPE_TTABLE, ncols * sizeof(char *));
+	orig = XSTRDUP(MTYPE_TTABLE, json_override_text);
+	res = orig;
+	while (res && col < ncols) {
+		section = strsep(&res, "|");
+		row_name[col] = XSTRDUP(MTYPE_TTABLE, section);
+		col++;
+	}
+	json = ttable_json_internal(tt, formats, (const char **)row_name);
+	for (j = 0; j < col; j++)
+		XFREE(MTYPE_TTABLE, row_name[j]);
+	XFREE(MTYPE_TTABLE, row_name);
+	XFREE(MTYPE_TTABLE, orig);
 	return json;
 }

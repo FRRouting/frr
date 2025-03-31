@@ -370,18 +370,20 @@ const char *print_sys_hostname(const uint8_t *sysid)
 	struct isis_dynhn *dyn;
 	struct isis *isis = NULL;
 	struct listnode *node;
+	struct isis_area *area = NULL;
 
 	if (!sysid)
 		return "nullsysid";
 
 	/* For our system ID return our host name */
-	isis = isis_lookup_by_sysid(sysid);
-	if (isis && !CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
+	area = isis_area_lookup_by_sysid(sysid);
+	if (area && area->dynhostname && !CHECK_FLAG(im->options, F_ISIS_UNIT_TEST))
 		return cmd_hostname_get();
 
 	for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis)) {
+		area = isis_area_lookup_by_sysid(isis->sysid);
 		dyn = dynhn_find_by_id(isis, sysid);
-		if (dyn)
+		if (area && area->dynhostname && dyn)
 			return dyn->hostname;
 	}
 
@@ -474,20 +476,20 @@ void log_multiline(int priority, const char *prefix, const char *format, ...)
 
 char *log_uptime(time_t uptime, char *buf, size_t nbuf)
 {
-	struct tm *tm;
+	struct tm tm;
 	time_t difftime = time(NULL);
 	difftime -= uptime;
-	tm = gmtime(&difftime);
+	gmtime_r(&difftime, &tm);
 
 	if (difftime < ONE_DAY_SECOND)
-		snprintf(buf, nbuf, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min,
-			 tm->tm_sec);
+		snprintf(buf, nbuf, "%02d:%02d:%02d", tm.tm_hour, tm.tm_min,
+			 tm.tm_sec);
 	else if (difftime < ONE_WEEK_SECOND)
-		snprintf(buf, nbuf, "%dd%02dh%02dm", tm->tm_yday, tm->tm_hour,
-			 tm->tm_min);
+		snprintf(buf, nbuf, "%dd%02dh%02dm", tm.tm_yday, tm.tm_hour,
+			 tm.tm_min);
 	else
-		snprintf(buf, nbuf, "%02dw%dd%02dh", tm->tm_yday / 7,
-			 tm->tm_yday - ((tm->tm_yday / 7) * 7), tm->tm_hour);
+		snprintf(buf, nbuf, "%02dw%dd%02dh", tm.tm_yday / 7,
+			 tm.tm_yday - ((tm.tm_yday / 7) * 7), tm.tm_hour);
 
 	return buf;
 }

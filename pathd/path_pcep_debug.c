@@ -1312,6 +1312,8 @@ void _format_path_hop(int ps, struct path_hop *hop)
 
 void _format_pcep_event(int ps, pcep_event *event)
 {
+	char buf[32];
+
 	if (event == NULL) {
 		PATHD_FORMAT("NULL\n");
 	} else {
@@ -1319,8 +1321,7 @@ void _format_pcep_event(int ps, pcep_event *event)
 		PATHD_FORMAT("\n");
 		PATHD_FORMAT("%*sevent_type: %s\n", ps2, "",
 			     pcep_event_type_name(event->event_type));
-		PATHD_FORMAT("%*sevent_time: %s", ps2, "",
-			     ctime(&event->event_time));
+		PATHD_FORMAT("%*sevent_time: %s", ps2, "", time_to_string(event->event_time, buf));
 		if (event->session == NULL) {
 			PATHD_FORMAT("%*ssession: NULL\n", ps2, "");
 		} else {

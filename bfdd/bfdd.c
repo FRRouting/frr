@@ -28,8 +28,8 @@
  * FRR related code.
  */
 DEFINE_MGROUP(BFDD, "Bidirectional Forwarding Detection Daemon");
-DEFINE_MTYPE(BFDD, BFDD_CONTROL, "long-lived control socket memory");
-DEFINE_MTYPE(BFDD, BFDD_NOTIFICATION, "short-lived control notification data");
+DEFINE_MTYPE(BFDD, BFDD_CLIENT, "BFD client data");
+DEFINE_MTYPE(BFDD, BFDD_CLIENT_NOTIFICATION, "BFD client notification data");
 
 /* Master of threads. */
 struct event_loop *master;
@@ -67,13 +67,12 @@ static void sigterm_handler(void)
 	/* Stop receiving message from zebra. */
 	bfdd_zclient_stop();
 
-	/* Shutdown controller to avoid receiving anymore commands. */
-	control_shutdown();
-
 	/* Shutdown and free all protocol related memory. */
 	bfd_shutdown();
 
 	bfd_vrf_terminate();
+
+	bfdd_zclient_terminate();
 
 	/* Terminate and free() FRR related memory. */
 	frr_fini();
@@ -115,18 +114,23 @@ static const struct frr_yang_module_info *const bfdd_yang_modules[] = {
 	&frr_vrf_info,
 };
 
-FRR_DAEMON_INFO(bfdd, BFD, .vty_port = 2617,
-		.proghelp = "Implementation of the BFD protocol.",
-		.signals = bfd_signals, .n_signals = array_size(bfd_signals),
-		.privs = &bglobal.bfdd_privs,
-		.yang_modules = bfdd_yang_modules,
-		.n_yang_modules = array_size(bfdd_yang_modules),
-);
+/* clang-format off */
+FRR_DAEMON_INFO(bfdd, BFD,
+	.vty_port = BFDD_VTY_PORT,
+	.proghelp = "Implementation of the BFD protocol.",
 
-#define OPTION_CTLSOCK 1001
+	.signals = bfd_signals,
+	.n_signals = array_size(bfd_signals),
+
+	.privs = &bglobal.bfdd_privs,
+
+	.yang_modules = bfdd_yang_modules,
+	.n_yang_modules = array_size(bfdd_yang_modules),
+);
+/* clang-format on */
+
 #define OPTION_DPLANEADDR 2000
 static const struct option longopts[] = {
-	{"bfdctl", required_argument, NULL, OPTION_CTLSOCK},
 	{"dplaneaddr", required_argument, NULL, OPTION_DPLANEADDR},
 	{0}
 };
@@ -310,7 +314,6 @@ static void bg_init(void)
 		.cap_num_i = 0,
 	};
 
-	TAILQ_INIT(&bglobal.bg_bcslist);
 	TAILQ_INIT(&bglobal.bg_obslist);
 
 	memcpy(&bglobal.bfdd_privs, &bfdd_privs,
@@ -319,8 +322,7 @@ static void bg_init(void)
 
 int main(int argc, char *argv[])
 {
-	char ctl_path[512], dplane_addr[512];
-	bool ctlsockused = false;
+	char dplane_addr[512];
 	int opt;
 
 	bglobal.bg_use_dplane = false;
@@ -330,21 +332,14 @@ int main(int argc, char *argv[])
 
 	frr_preinit(&bfdd_di, argc, argv);
 	frr_opt_add("", longopts,
-		    "      --bfdctl       Specify bfdd control socket\n"
 		    "      --dplaneaddr   Specify BFD data plane address\n");
 
-	snprintf(ctl_path, sizeof(ctl_path), BFDD_CONTROL_SOCKET,
-		 "", "");
 	while (true) {
 		opt = frr_getopt(argc, argv, NULL);
 		if (opt == EOF)
 			break;
 
 		switch (opt) {
-		case OPTION_CTLSOCK:
-			strlcpy(ctl_path, optarg, sizeof(ctl_path));
-			ctlsockused = true;
-			break;
 		case OPTION_DPLANEADDR:
 			strlcpy(dplane_addr, optarg, sizeof(dplane_addr));
 			bglobal.bg_use_dplane = true;
@@ -355,15 +350,8 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (bfdd_di.pathspace && !ctlsockused)
-		snprintf(ctl_path, sizeof(ctl_path), BFDD_CONTROL_SOCKET,
-			 "/", bfdd_di.pathspace);
-
 	/* Initialize FRR infrastructure. */
 	master = frr_init();
-
-	/* Initialize control socket. */
-	control_init(ctl_path);
 
 	/* Initialize BFD data structures. */
 	bfd_initialize();
@@ -374,9 +362,6 @@ int main(int argc, char *argv[])
 
 	/* Initialize zebra connection. */
 	bfdd_zclient_init(&bglobal.bfdd_privs);
-
-	event_add_read(master, control_accept, NULL, bglobal.bg_csock,
-		       &bglobal.bg_csockev);
 
 	/* Install commands. */
 	bfdd_vty_init();

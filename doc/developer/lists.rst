@@ -187,6 +187,17 @@ To switch between compatible data structures, only these two lines need to be
 changes.  To switch to a data structure with a different API, some source
 changes are necessary.
 
+As a example to the developer here are some example commits that convert
+over to usage of the typesafe data structures:
+
++------------------------------------------------------+------------------------------------+
+| Commit Message                                       | SHA                                |
++======================================================+====================================+
+| bgpd: Convert the bgp_advertise_attr->adv to a fifo  | b2e0c12d723a6464f67491ceb9         |
++------------------------------------------------------+------------------------------------+
+| zebra: convert LSP nhlfe lists to use typesafe lists | ee70f629792b90f92ea7e6bece         |
++------------------------------------------------------+------------------------------------+
+
 Common iteration macros
 -----------------------
 
@@ -761,6 +772,20 @@ Why is it ``PREDECL`` + ``DECLARE`` instead of ``DECLARE`` + ``DEFINE``?
    file.  It is also perfectly fine to have the same ``DECLARE`` statement in
    2 ``.c`` files, but only **if the macro arguments are identical.**  Maybe
    don't do that unless you really need it.
+
+COMMON PROBLEMS
+---------------
+
+The ``fini`` call of the various typesafe structures actually close the data
+structure off and attempts to use the data structure after that introduce
+intentional crashes.  This is leading to situations when converting from
+an older data structure to the new typesafe where, on shutdown, the older
+data structures would still be attempted to be accessed.  This access would
+just be ignored or result in benign code running.  With the new typesafe
+data structure crashes will occurr.  Be aware that when modifying the code
+base that this sort of change might end up with crashes on shutdown and
+work must be done to ensure that the newly changed does not use the data
+structure after the fini call.
 
 FRR lists
 ---------

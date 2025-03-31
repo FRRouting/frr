@@ -7,6 +7,10 @@
 #include "config.h"
 #endif
 
+#ifdef GNU_LINUX
+#include <linux/rtnetlink.h>
+#endif
+
 #include <fcntl.h>
 #include <net/if.h>
 #include <net/ethernet.h>

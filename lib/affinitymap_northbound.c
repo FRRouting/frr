@@ -47,11 +47,6 @@ static int lib_affinity_map_destroy(struct nb_cb_destroy_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		if (!affinity_map_check_use_hook(name))
-			break;
-		snprintf(args->errmsg, args->errmsg_len,
-			 "affinity-map %s is used", name);
-		return NB_ERR_VALIDATION;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
@@ -68,7 +63,6 @@ static int lib_affinity_map_destroy(struct nb_cb_destroy_args *args)
 static int lib_affinity_map_value_modify(struct nb_cb_modify_args *args)
 {
 	const char *name;
-	char *map_name;
 	uint16_t pos;
 
 	name = yang_dnode_get_string(
@@ -79,20 +73,6 @@ static int lib_affinity_map_value_modify(struct nb_cb_modify_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		map_name = affinity_map_name_get(pos);
-		if (map_name &&
-		    strncmp(map_name, name, AFFINITY_NAME_SIZE) != 0) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "bit-position is used by %s.", map_name);
-			return NB_ERR_VALIDATION;
-		}
-		if (!affinity_map_check_update_hook(name, pos)) {
-			snprintf(
-				args->errmsg, args->errmsg_len,
-				"affinity-map new bit-position > 31 but is used with standard admin-groups");
-			return NB_ERR_VALIDATION;
-		}
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
@@ -105,11 +85,6 @@ static int lib_affinity_map_value_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
-static int lib_affinity_map_value_destroy(struct nb_cb_destroy_args *args)
-{
-	return NB_OK;
-}
-
 /* clang-format off */
 const struct frr_yang_module_info frr_affinity_map_info = {
 	.name = "frr-affinity-map",
@@ -119,14 +94,13 @@ const struct frr_yang_module_info frr_affinity_map_info = {
 			.cbs = {
 				.create = lib_affinity_map_create,
 				.destroy = lib_affinity_map_destroy,
-				.cli_show = cli_show_affinity_map,
-			}
+			},
+			.priority = NB_DFLT_PRIORITY - 1,
 		},
 		{
 			.xpath = "/frr-affinity-map:lib/affinity-maps/affinity-map/value",
 			.cbs = {
 				.modify = lib_affinity_map_value_modify,
-				.destroy = lib_affinity_map_value_destroy,
 			}
 		},
 		{

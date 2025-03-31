@@ -1,4 +1,4 @@
 # Any user may call vtysh but only those belonging to the group frrvty can
 # actually connect to the socket and use the program.
 auth	sufficient	pam_permit.so
-account	sufficient	pam_rootok.so
+account	sufficient	pam_permit.so

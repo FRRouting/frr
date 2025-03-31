@@ -3,7 +3,8 @@
 usage="./checkpatch.sh <patch> <tree>"
 patch=$1
 tree=$2
-checkpatch="$tree/tools/checkpatch.pl --no-tree -f"
+scriptdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd)"
+checkpatch="$scriptdir/checkpatch.pl --no-tree -f"
 ignore="ldpd\|babeld"
 cwd=${PWD##*/}
 dirty=0

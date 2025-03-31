@@ -34,16 +34,9 @@ for bgp instances
 
 import json
 import os
-import platform
-import sys
-from time import sleep
 
-from lib import common_config, topotest
-from lib.common_config import (
-    save_initial_config_on_routers,
-    reset_with_new_configs,
-)
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib import common_config
+from lib.topogen import get_topogen
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 

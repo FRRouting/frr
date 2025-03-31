@@ -119,7 +119,7 @@ def setup_module(mod):
     # Api call verify whether BGP is converged
     ADDR_TYPES = check_address_types()
 
-    for addr_type in ADDR_TYPES:
+    for _ in ADDR_TYPES:
         BGP_CONVERGENCE = verify_bgp_convergence(tgen, topo)
         assert BGP_CONVERGENCE is True, "setup_module :Failed \n Error:" " {}".format(
             BGP_CONVERGENCE
@@ -403,7 +403,6 @@ def test_route_summarisation_with_summary_only_p1(request):
         )
 
     for action, value in zip(["removed", "add"], [True, False]):
-
         step(
             "{} static routes as below: "
             "(no) ip route 10.1.1.0/24 and (no) ip route 10.1.2.0/24"
@@ -815,7 +814,11 @@ def test_route_summarisation_with_as_set_p1(request):
     )
 
     for addr_type in ADDR_TYPES:
-        for pfx, seq_id, network, in zip(
+        for (
+            pfx,
+            seq_id,
+            network,
+        ) in zip(
             [1, 2, 3, 4, 5],
             [10, 20, 30, 40, 50],
             [NETWORK_1_1, NETWORK_1_2, NETWORK_1_3, NETWORK_1_4, NETWORK_1_5],

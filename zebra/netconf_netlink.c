@@ -6,11 +6,14 @@
  *                     Donald Sharp
  */
 #include <zebra.h>
+#include <fcntl.h>
 
 #ifdef HAVE_NETLINK /* Netlink OSes only */
 
 #include <ns.h>
 
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
 #include "linux/netconf.h"
 
 #include "lib/lib_errors.h"

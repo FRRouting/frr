@@ -68,7 +68,6 @@ struct eigrp_prefix_descriptor *eigrp_prefix_descriptor_new(void)
 	new->rij = list_new();
 	new->entries->cmp = (int (*)(void *, void *))eigrp_route_descriptor_cmp;
 	new->distance = new->fdistance = new->rdistance = EIGRP_MAX_METRIC;
-	new->destination = NULL;
 
 	return new;
 }
@@ -120,12 +119,11 @@ void eigrp_prefix_descriptor_add(struct route_table *topology,
 {
 	struct route_node *rn;
 
-	rn = route_node_get(topology, pe->destination);
+	rn = route_node_get(topology, &pe->destination);
 	if (rn->info) {
 		if (IS_DEBUG_EIGRP_EVENT)
-			zlog_debug(
-				"%s: %pFX Should we have found this entry in the topo table?",
-				__func__, pe->destination);
+			zlog_debug("%s: %pFX Should we have found this entry in the topo table?",
+				   __func__, &pe->destination);
 		route_unlock_node(rn);
 	}
 
@@ -147,8 +145,7 @@ void eigrp_route_descriptor_add(struct eigrp *eigrp,
 		listnode_add_sort(node->entries, entry);
 		entry->prefix = node;
 
-		eigrp_zebra_route_add(eigrp, node->destination,
-				      l, node->fdistance);
+		eigrp_zebra_route_add(eigrp, &node->destination, l, node->fdistance);
 	}
 
 	list_delete(&l);
@@ -168,7 +165,7 @@ void eigrp_prefix_descriptor_delete(struct eigrp *eigrp,
 	if (!eigrp)
 		return;
 
-	rn = route_node_lookup(table, pe->destination);
+	rn = route_node_lookup(table, &pe->destination);
 	if (!rn)
 		return;
 
@@ -182,8 +179,7 @@ void eigrp_prefix_descriptor_delete(struct eigrp *eigrp,
 		eigrp_route_descriptor_delete(eigrp, pe, ne);
 	list_delete(&pe->entries);
 	list_delete(&pe->rij);
-	eigrp_zebra_route_delete(eigrp, pe->destination);
-	prefix_free(&pe->destination);
+	eigrp_zebra_route_delete(eigrp, &pe->destination);
 
 	rn->info = NULL;
 	route_unlock_node(rn); // Lookup above
@@ -200,7 +196,7 @@ void eigrp_route_descriptor_delete(struct eigrp *eigrp,
 {
 	if (listnode_lookup(node->entries, entry) != NULL) {
 		listnode_delete(node->entries, entry);
-		eigrp_zebra_route_delete(eigrp, node->destination);
+		eigrp_zebra_route_delete(eigrp, &node->destination);
 		XFREE(MTYPE_EIGRP_ROUTE_DESCRIPTOR, entry);
 	}
 }
@@ -462,14 +458,13 @@ void eigrp_update_routing_table(struct eigrp *eigrp,
 	successors = eigrp_topology_get_successor_max(prefix, eigrp->max_paths);
 
 	if (successors) {
-		eigrp_zebra_route_add(eigrp, prefix->destination, successors,
-				      prefix->fdistance);
+		eigrp_zebra_route_add(eigrp, &prefix->destination, successors, prefix->fdistance);
 		for (ALL_LIST_ELEMENTS_RO(successors, node, entry))
 			entry->flags |= EIGRP_ROUTE_DESCRIPTOR_INTABLE_FLAG;
 
 		list_delete(&successors);
 	} else {
-		eigrp_zebra_route_delete(eigrp, prefix->destination);
+		eigrp_zebra_route_delete(eigrp, &prefix->destination);
 		for (ALL_LIST_ELEMENTS_RO(prefix->entries, node, entry))
 			entry->flags &= ~EIGRP_ROUTE_DESCRIPTOR_INTABLE_FLAG;
 	}

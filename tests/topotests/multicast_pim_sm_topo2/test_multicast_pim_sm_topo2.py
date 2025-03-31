@@ -37,7 +37,7 @@ import sys
 import time
 import pytest
 
-pytestmark = pytest.mark.pimd
+pytestmark = [pytest.mark.pimd]
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -62,7 +62,6 @@ from lib.common_config import (
     start_router_daemons,
     stop_router,
     required_linux_kernel_version,
-    topo_daemons,
 )
 from lib.pim import (
     create_pim_config,
@@ -80,8 +79,6 @@ from lib.pim import (
 from lib.topolog import logger
 from lib.topojson import build_config_from_json
 
-
-pytestmark = [pytest.mark.pimd]
 
 TOPOLOGY = """
 
@@ -213,7 +210,7 @@ def verify_state_incremented(state_before, state_after):
     """
 
     for router, state_data in state_before.items():
-        for state, value in state_data.items():
+        for state, _ in state_data.items():
             if state_before[router][state] >= state_after[router][state]:
                 errormsg = (
                     "[DUT: %s]: state %s value has not"

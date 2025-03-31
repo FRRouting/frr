@@ -144,6 +144,7 @@ extern int ospf6_area_cmp(void *va, void *vb);
 extern struct ospf6_area *ospf6_area_create(uint32_t area_id,
 					    struct ospf6 *ospf6, int df);
 extern void ospf6_area_delete(struct ospf6_area *oa);
+extern void ospf6_area_no_config_delete(struct ospf6_area *oa);
 extern struct ospf6_area *ospf6_area_lookup(uint32_t area_id,
 					    struct ospf6 *ospf6);
 extern struct ospf6_area *ospf6_area_lookup_by_area_id(uint32_t area_id);

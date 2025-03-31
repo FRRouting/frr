@@ -14,6 +14,7 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_mac.h"
 #include "bgpd/bgp_memory.h"
+#include "bgpd/bgp_label.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_rd.h"
@@ -125,6 +126,8 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 {
 	struct bgp_dest *pdest, *dest;
 	struct bgp_path_info *pi;
+	uint8_t num_labels;
+	mpls_label_t *label_pnt;
 
 	for (pdest = bgp_table_top(table); pdest;
 	     pdest = bgp_route_next(pdest)) {
@@ -140,9 +143,6 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 			const struct prefix *p = bgp_dest_get_prefix(dest);
 			struct prefix_evpn *pevpn = (struct prefix_evpn *)dest;
 			struct prefix_rd prd;
-			uint32_t num_labels = 0;
-			mpls_label_t *label_pnt = NULL;
-			struct bgp_route_evpn *evpn;
 
 			if (pevpn->family == AF_EVPN
 			    && pevpn->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE
@@ -169,10 +169,9 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 			    && !dest_affected)
 				continue;
 
-			if (pi->extra)
-				num_labels = pi->extra->num_labels;
-			if (num_labels)
-				label_pnt = &pi->extra->label[0];
+			num_labels = BGP_PATH_INFO_NUM_LABELS(pi);
+			label_pnt = num_labels ? &pi->extra->labels->label[0]
+					       : NULL;
 
 			prd.family = AF_UNSPEC;
 			prd.prefixlen = 64;
@@ -195,12 +194,10 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 				continue;
 			}
 
-			memcpy(&evpn, bgp_attr_get_evpn_overlay(pi->attr),
-			       sizeof(evpn));
 			bgp_update(peer, p, pi->addpath_rx_id, pi->attr,
 				   AFI_L2VPN, SAFI_EVPN, ZEBRA_ROUTE_BGP,
-				   BGP_ROUTE_NORMAL, &prd, label_pnt,
-				   num_labels, 1, evpn);
+				   BGP_ROUTE_NORMAL, &prd, label_pnt, num_labels,
+				   1, bgp_attr_get_evpn_overlay(pi->attr));
 		}
 	}
 }
@@ -219,7 +216,7 @@ static void bgp_mac_rescan_evpn_table(struct bgp *bgp, struct ethaddr *macaddr)
 		if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
 			continue;
 
-		if (!peer_established(peer))
+		if (!peer_established(peer->connection))
 			continue;
 
 		if (bgp_debug_update(peer, NULL, NULL, 1))
@@ -279,15 +276,29 @@ static void bgp_mac_remove_ifp_internal(struct bgp_self_mac *bsm, char *ifname,
 	}
 }
 
+/* Add/Update entry of the 'bgp mac hash' table.
+ * A rescan of the EVPN tables is only needed if
+ * a new hash bucket is allocated.
+ * Learning an existing mac on a new interface (or
+ * having an existing mac move from one interface to
+ * another) does not result in changes to self mac
+ * state, so we shouldn't trigger a rescan.
+ */
 void bgp_mac_add_mac_entry(struct interface *ifp)
 {
 	struct bgp_self_mac lookup;
 	struct bgp_self_mac *bsm;
 	struct bgp_self_mac *old_bsm;
 	char *ifname;
+	bool mac_added = false;
 
 	memcpy(&lookup.macaddr, &ifp->hw_addr, ETH_ALEN);
-	bsm = hash_get(bm->self_mac_hash, &lookup, bgp_mac_hash_alloc);
+	bsm = hash_lookup(bm->self_mac_hash, &lookup);
+	if (!bsm) {
+		bsm = hash_get(bm->self_mac_hash, &lookup, bgp_mac_hash_alloc);
+		/* mac is new, rescan needs to be triggered */
+		mac_added = true;
+	}
 
 	/*
 	 * Does this happen to be a move
@@ -318,7 +329,8 @@ void bgp_mac_add_mac_entry(struct interface *ifp)
 		listnode_add(bsm->ifp_list, ifname);
 	}
 
-	bgp_mac_rescan_all_evpn_tables(&bsm->macaddr);
+	if (mac_added)
+		bgp_mac_rescan_all_evpn_tables(&bsm->macaddr);
 }
 
 void bgp_mac_del_mac_entry(struct interface *ifp)
@@ -360,7 +372,7 @@ bool bgp_mac_exist(const struct ethaddr *mac)
 	return true;
 }
 
-/* This API checks EVPN type-2 prefix and comapares
+/* This API checks EVPN type-2 prefix and compares
  * mac against any of local assigned (SVIs) MAC
  * address.
  */
@@ -375,8 +387,6 @@ bool bgp_mac_entry_exists(const struct prefix *p)
 		return false;
 
 	return bgp_mac_exist(&p->u.prefix_evpn.macip_addr.mac);
-
-	return true;
 }
 
 static void bgp_mac_show_mac_entry(struct hash_bucket *bucket, void *arg)

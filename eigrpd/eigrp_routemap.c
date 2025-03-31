@@ -43,7 +43,6 @@ void eigrp_if_rmap_update(struct if_rmap *if_rmap)
 {
 	struct interface *ifp;
 	struct eigrp_interface *ei, *ei2;
-	struct listnode *node, *nnode;
 	struct route_map *rmap;
 	struct eigrp *e;
 
@@ -53,7 +52,7 @@ void eigrp_if_rmap_update(struct if_rmap *if_rmap)
 
 	ei = NULL;
 	e = eigrp_lookup();
-	for (ALL_LIST_ELEMENTS(e->eiflist, node, nnode, ei2)) {
+	frr_each (eigrp_interface_hash, &e->eifs, ei2) {
 		if (strcmp(ei2->ifp->name, ifp->name) == 0) {
 			ei = ei2;
 			break;
@@ -1107,59 +1106,13 @@ ALIAS(no_set_tag, no_set_tag_val_cmd, "no set tag (0-65535)", NO_STR SET_STR
       "Tag value for routing protocol\n"
       "Tag value\n")
 
-DEFUN (eigrp_distribute_list,
-       eigrp_distribute_list_cmd,
-       "distribute-list [prefix] ACCESSLIST_NAME <in|out> [WORD]",
-       "Filter networks in routing updates\n"
-       "Specify a prefix\n"
-       "Access-list name\n"
-       "Filter incoming routing updates\n"
-       "Filter outgoing routing updates\n"
-       "Interface name\n")
-{
-	const char *ifname = NULL;
-	int prefix = (argv[1]->type == WORD_TKN) ? 1 : 0;
-
-	if (argv[argc - 1]->type == VARIABLE_TKN)
-		ifname = argv[argc - 1]->arg;
-
-	return distribute_list_parser(prefix, true, argv[2 + prefix]->text,
-				      argv[1 + prefix]->arg, ifname);
-}
-
-DEFUN (eigrp_no_distribute_list,
-       eigrp_no_distribute_list_cmd,
-       "no distribute-list [prefix] ACCESSLIST_NAME <in|out> [WORD]",
-       NO_STR
-       "Filter networks in routing updates\n"
-       "Specify a prefix\n"
-       "Access-list name\n"
-       "Filter incoming routing updates\n"
-       "Filter outgoing routing updates\n"
-       "Interface name\n")
-{
-	const char *ifname = NULL;
-	int prefix = (argv[2]->type == WORD_TKN) ? 1 : 0;
-
-	if (argv[argc - 1]->type == VARIABLE_TKN)
-		ifname = argv[argc - 1]->arg;
-
-	return distribute_list_no_parser(vty, prefix, true,
-					 argv[3 + prefix]->text,
-					 argv[2 + prefix]->arg, ifname);
-}
-
-
 /* Route-map init */
-void eigrp_route_map_init()
+void eigrp_route_map_init(void)
 {
 	route_map_init();
 	route_map_init_vty();
 	route_map_add_hook(eigrp_route_map_update);
 	route_map_delete_hook(eigrp_route_map_update);
-
-	install_element(EIGRP_NODE, &eigrp_distribute_list_cmd);
-	install_element(EIGRP_NODE, &eigrp_no_distribute_list_cmd);
 
 	/*route_map_install_match (&route_match_metric_cmd);
 	  route_map_install_match (&route_match_interface_cmd);*/

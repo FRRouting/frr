@@ -313,8 +313,8 @@ int iter_objfun_cb(const struct lyd_node *dnode, void *arg)
 
 	pref = &of_arg->prefs[of_arg->free_slot++];
 
-	pref->index = yang_dnode_get_uint32(dnode, "./index");
-	pref->type = yang_dnode_get_enum(dnode, "./type");
+	pref->index = yang_dnode_get_uint32(dnode, "index");
+	pref->type = yang_dnode_get_enum(dnode, "type");
 
 	/* Simplistic insertion sort */
 	p = &of_arg->first;

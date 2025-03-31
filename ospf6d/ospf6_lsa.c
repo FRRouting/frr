@@ -37,7 +37,84 @@ DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSA,         "OSPF6 LSA");
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSA_HEADER,  "OSPF6 LSA header");
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSA_SUMMARY, "OSPF6 LSA summary");
 
+const uint8_t ospf6_lsa_min_size[OSPF6_LSTYPE_SIZE] = {
+	[OSPF6_LSTYPE_UNKNOWN] = 0,
+	[0x00ff & OSPF6_LSTYPE_ROUTER] = OSPF6_ROUTER_LSA_MIN_SIZE,
+	[0x00ff & OSPF6_LSTYPE_NETWORK] = OSPF6_NETWORK_LSA_MIN_SIZE,
+	[0x00ff & OSPF6_LSTYPE_INTER_PREFIX] = OSPF6_INTER_PREFIX_LSA_MIN_SIZE,
+	[0x00ff & OSPF6_LSTYPE_INTER_ROUTER] = OSPF6_INTER_ROUTER_LSA_FIX_SIZE,
+	[0x00ff & OSPF6_LSTYPE_AS_EXTERNAL] = OSPF6_AS_EXTERNAL_LSA_MIN_SIZE,
+	[0x00ff & OSPF6_LSTYPE_GROUP_MEMBERSHIP] = 0, /* Unused */
+	[0x00ff & OSPF6_LSTYPE_TYPE_7] = OSPF6_AS_EXTERNAL_LSA_MIN_SIZE,
+	[0x00ff & OSPF6_LSTYPE_LINK] = OSPF6_LINK_LSA_MIN_SIZE,
+	[0x00ff & OSPF6_LSTYPE_INTRA_PREFIX] = OSPF6_INTRA_PREFIX_LSA_MIN_SIZE,
+	[0x00ff & OSPF6_LSTYPE_GRACE_LSA] = 0
+};
+
+void *lsdesc_start_lsa_type(struct ospf6_lsa_header *header, int lsa_type)
+{
+	uint8_t t = (0x00ff & lsa_type);
+
+	if (t == OSPF6_LSTYPE_UNKNOWN || t >= OSPF6_LSTYPE_SIZE) {
+		zlog_debug("Cannot get descriptor offset for unknown lsa type 0x%x",
+			   t);
+		return ospf6_lsa_end(header);
+	}
+	return (char *)lsa_after_header(header) + ospf6_lsa_min_size[t];
+}
+
+void *lsdesc_start(struct ospf6_lsa_header *header)
+{
+	return lsdesc_start_lsa_type(header, ntohs(header->type));
+}
+
 static struct ospf6_lsa_handler *lsa_handlers[OSPF6_LSTYPE_SIZE];
+
+void *nth_lsdesc(struct ospf6_lsa_header *header, int pos)
+{
+	char *lsdesc = lsdesc_start(header);
+	char *lsa_end = ospf6_lsa_end(header);
+	char *nth;
+	int lsdesc_size;
+
+	if (ntohs(header->type) == OSPF6_LSTYPE_ROUTER)
+		lsdesc_size = OSPF6_ROUTER_LSDESC_FIX_SIZE;
+	else if (ntohs(header->type) == OSPF6_LSTYPE_NETWORK)
+		lsdesc_size = OSPF6_NETWORK_LSDESC_FIX_SIZE;
+	else
+		return NULL;
+
+	nth = lsdesc + (pos * lsdesc_size);
+
+	if (nth + lsdesc_size <= lsa_end)
+		return nth;
+
+	return NULL;
+}
+
+void *nth_prefix(struct ospf6_lsa_header *header, int pos)
+{
+	struct ospf6_prefix *prefix = lsdesc_start(header);
+	char *end = ospf6_lsa_end(header);
+	int i = 0;
+
+	if (ntohs(header->type) != OSPF6_LSTYPE_LINK &&
+	    ntohs(header->type) != OSPF6_LSTYPE_INTRA_PREFIX)
+		return NULL;
+
+	if (pos == 0)
+		return prefix;
+
+	while ((char *)prefix < end &&
+	       (char *)prefix + OSPF6_PREFIX_SIZE(prefix) <= end) {
+		if (i == pos)
+			return prefix;
+		i++;
+		prefix = OSPF6_PREFIX_NEXT(prefix);
+	}
+
+	return NULL;
+}
 
 struct ospf6 *ospf6_get_by_lsdb(struct ospf6_lsa *lsa)
 {
@@ -63,10 +140,10 @@ struct ospf6 *ospf6_get_by_lsdb(struct ospf6_lsa *lsa)
 static int ospf6_unknown_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 				  json_object *json_obj, bool use_json)
 {
-	uint8_t *start, *end, *current;
+	char *start, *end, *current;
 
-	start = (uint8_t *)lsa->header + sizeof(struct ospf6_lsa_header);
-	end = (uint8_t *)lsa->header + ntohs(lsa->header->length);
+	start = lsa_after_header(lsa->header);
+	end = ospf6_lsa_end(lsa->header);
 
 	if (use_json) {
 		json_object_string_add(json_obj, "lsaType", "unknown");
@@ -201,10 +278,10 @@ int ospf6_lsa_is_differ(struct ospf6_lsa *lsa1, struct ospf6_lsa *lsa2)
 		return 1;
 
 	/* compare body */
-	if (ntohs(lsa1->header->length) != ntohs(lsa2->header->length))
+	if (ospf6_lsa_size(lsa1->header) != ospf6_lsa_size(lsa2->header))
 		return 1;
 
-	len = ntohs(lsa1->header->length) - sizeof(struct ospf6_lsa_header);
+	len = ospf6_lsa_size(lsa1->header) - sizeof(struct ospf6_lsa_header);
 	return memcmp(lsa1->header + 1, lsa2->header + 1, len);
 }
 
@@ -214,7 +291,7 @@ int ospf6_lsa_is_changed(struct ospf6_lsa *lsa1, struct ospf6_lsa *lsa2)
 
 	if (OSPF6_LSA_IS_MAXAGE(lsa1) ^ OSPF6_LSA_IS_MAXAGE(lsa2))
 		return 1;
-	if (ntohs(lsa1->header->length) != ntohs(lsa2->header->length))
+	if (ospf6_lsa_size(lsa1->header) != ospf6_lsa_size(lsa2->header))
 		return 1;
 	/* Going beyond LSA headers to compare the payload only makes sense,
 	 * when both LSAs aren't header-only. */
@@ -228,14 +305,14 @@ int ospf6_lsa_is_changed(struct ospf6_lsa *lsa1, struct ospf6_lsa *lsa2)
 	if (CHECK_FLAG(lsa1->flag, OSPF6_LSA_HEADERONLY))
 		return 0;
 
-	length = OSPF6_LSA_SIZE(lsa1->header) - sizeof(struct ospf6_lsa_header);
+	length = ospf6_lsa_size(lsa1->header) - sizeof(struct ospf6_lsa_header);
 	/* Once upper layer verifies LSAs received, length underrun should
 	 * become a warning. */
 	if (length <= 0)
 		return 0;
 
-	return memcmp(OSPF6_LSA_HEADER_END(lsa1->header),
-		      OSPF6_LSA_HEADER_END(lsa2->header), length);
+	return memcmp(lsa_after_header(lsa1->header),
+		      lsa_after_header(lsa2->header), length);
 }
 
 /* ospf6 age functions */
@@ -333,7 +410,7 @@ void ospf6_lsa_premature_aging(struct ospf6_lsa *lsa)
 	ospf6_flood_clear(lsa);
 
 	lsa->header->age = htons(OSPF_LSA_MAXAGE);
-	event_execute(master, ospf6_lsa_expire, lsa, 0);
+	event_execute(master, ospf6_lsa_expire, lsa, 0, NULL);
 }
 
 /* check which is more recent. if a is more recent, return -1;
@@ -548,7 +625,7 @@ void ospf6_lsa_show_dump(struct vty *vty, struct ospf6_lsa *lsa,
 	json_object *json = NULL;
 
 	start = (uint8_t *)lsa->header;
-	end = (uint8_t *)lsa->header + ntohs(lsa->header->length);
+	end = (uint8_t *)ospf6_lsa_end(lsa->header);
 
 	if (use_json) {
 		json = json_object_new_object();
@@ -613,7 +690,7 @@ void ospf6_lsa_show_internal(struct vty *vty, struct ospf6_lsa *lsa,
 		json_object_int_add(json_obj, "checksum",
 				    ntohs(lsa->header->checksum));
 		json_object_int_add(json_obj, "length",
-				    ntohs(lsa->header->length));
+				    ospf6_lsa_size(lsa->header));
 		json_object_int_add(json_obj, "flag", lsa->flag);
 		json_object_int_add(json_obj, "lock", lsa->lock);
 		json_object_int_add(json_obj, "reTxCount", lsa->retrans_count);
@@ -630,7 +707,7 @@ void ospf6_lsa_show_internal(struct vty *vty, struct ospf6_lsa *lsa,
 			(unsigned long)ntohl(lsa->header->seqnum));
 		vty_out(vty, "CheckSum: %#06hx Length: %hu\n",
 			ntohs(lsa->header->checksum),
-			ntohs(lsa->header->length));
+			ospf6_lsa_size(lsa->header));
 		vty_out(vty, "Flag: %x \n", lsa->flag);
 		vty_out(vty, "Lock: %d \n", lsa->lock);
 		vty_out(vty, "ReTx Count: %d\n", lsa->retrans_count);
@@ -720,7 +797,7 @@ struct ospf6_lsa *ospf6_lsa_create(struct ospf6_lsa_header *header)
 	uint16_t lsa_size = 0;
 
 	/* size of the entire LSA */
-	lsa_size = ntohs(header->length); /* XXX vulnerable */
+	lsa_size = ospf6_lsa_size(header); /* XXX vulnerable */
 
 	lsa = ospf6_lsa_alloc(lsa_size);
 
@@ -797,17 +874,17 @@ struct ospf6_lsa *ospf6_lsa_lock(struct ospf6_lsa *lsa)
 }
 
 /* decrement reference counter of struct ospf6_lsa */
-struct ospf6_lsa *ospf6_lsa_unlock(struct ospf6_lsa *lsa)
+void ospf6_lsa_unlock(struct ospf6_lsa **lsa)
 {
 	/* decrement reference counter */
-	assert(lsa->lock > 0);
-	lsa->lock--;
+	assert((*lsa)->lock > 0);
+	(*lsa)->lock--;
 
-	if (lsa->lock != 0)
-		return lsa;
+	if ((*lsa)->lock != 0)
+		return;
 
-	ospf6_lsa_delete(lsa);
-	return NULL;
+	ospf6_lsa_delete(*lsa);
+	*lsa = NULL;
 }
 
 
@@ -947,7 +1024,7 @@ unsigned short ospf6_lsa_checksum(struct ospf6_lsa_header *lsa_header)
 		buffer - (uint8_t *)&lsa_header->age; /* should be 2 */
 
 	/* Skip the AGE field */
-	uint16_t len = ntohs(lsa_header->length) - type_offset;
+	uint16_t len = ospf6_lsa_size(lsa_header) - type_offset;
 
 	/* Checksum offset starts from "type" field, not the beginning of the
 	   lsa_header struct. The offset is 14, rather than 16. */
@@ -963,7 +1040,7 @@ int ospf6_lsa_checksum_valid(struct ospf6_lsa_header *lsa_header)
 		buffer - (uint8_t *)&lsa_header->age; /* should be 2 */
 
 	/* Skip the AGE field */
-	uint16_t len = ntohs(lsa_header->length) - type_offset;
+	uint16_t len = ospf6_lsa_size(lsa_header) - type_offset;
 
 	return (fletcher_checksum(buffer, len, FLETCHER_CHECKSUM_VALIDATE)
 		== 0);

@@ -45,7 +45,7 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
-    for i, (rname, router) in enumerate(router_list.items(), 1):
+    for _, (rname, router) in enumerate(router_list.items(), 1):
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -88,13 +88,17 @@ def test_bgp_bfd_down_notification():
         expected = {
             "192.168.255.1": {
                 "lastNotificationReason": "Cease/BFD Down",
+                "lastNotificationHardReset": True,
+                "peerBfdInfo": {
+                    "status": "Up",
+                },
             }
         }
         return topotest.json_cmp(output, expected)
 
     step("Initial BGP converge")
     test_func = functools.partial(_bgp_converge)
-    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assert result is None, "Failed to see BGP convergence on R2"
 
     step("Kill bfdd on R2")
@@ -102,7 +106,7 @@ def test_bgp_bfd_down_notification():
 
     step("Check if we received Cease/BFD Down notification message")
     test_func = functools.partial(_bgp_bfd_down_notification)
-    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
     assert result is None, "Failed to see BGP Cease/BFD Down notification message on R2"
 
 

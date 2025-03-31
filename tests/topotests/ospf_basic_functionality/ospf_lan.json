@@ -18,7 +18,7 @@
                     "ospf": {
                         "area": "0.0.0.3",
                         "hello_interval": 1,
-                        "dead_interval": 4,
+                        "dead_interval": 10,
                         "priority": 98
                     }
                 },
@@ -27,7 +27,7 @@
                     "ospf": {
                         "area": "0.0.0.3",
                         "hello_interval": 1,
-                        "dead_interval": 4,
+                        "dead_interval": 10,
                         "priority": 99
                     }
                 },
@@ -36,7 +36,7 @@
                     "ospf": {
                         "area": "0.0.0.3",
                         "hello_interval": 1,
-                        "dead_interval": 4,
+                        "dead_interval": 10,
                         "priority": 0
                     }
                 },
@@ -45,7 +45,7 @@
                     "ospf": {
                         "area": "0.0.0.3",
                         "hello_interval": 1,
-                        "dead_interval": 4,
+                        "dead_interval": 10,
                         "priority": 0
                     }
                 }

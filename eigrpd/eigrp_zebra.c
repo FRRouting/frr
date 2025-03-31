@@ -98,15 +98,18 @@ static zclient_handler *const eigrp_handlers[] = {
 
 void eigrp_zebra_init(void)
 {
-	struct zclient_options opt = {.receive_notify = false};
-
-	zclient = zclient_new(master, &opt, eigrp_handlers,
+	zclient = zclient_new(master, &zclient_options_default, eigrp_handlers,
 			      array_size(eigrp_handlers));
 
 	zclient_init(zclient, ZEBRA_ROUTE_EIGRP, 0, &eigrpd_privs);
 	zclient->zebra_connected = eigrp_zebra_connected;
 }
 
+void eigrp_zebra_stop(void)
+{
+	zclient_stop(zclient);
+	zclient_free(zclient);
+}
 
 /* Zebra route add and delete treatment. */
 static int eigrp_zebra_read_route(ZAPI_CALLBACK_ARGS)
@@ -249,9 +252,9 @@ void eigrp_zebra_route_delete(struct eigrp *eigrp, struct prefix *p)
 static int eigrp_is_type_redistributed(int type, vrf_id_t vrf_id)
 {
 	return ((DEFAULT_ROUTE_TYPE(type))
-			? vrf_bitmap_check(zclient->default_information[AFI_IP],
-					   vrf_id)
-			: vrf_bitmap_check(zclient->redist[AFI_IP][type],
+			? vrf_bitmap_check(
+				  &zclient->default_information[AFI_IP], vrf_id)
+			: vrf_bitmap_check(&zclient->redist[AFI_IP][type],
 					   vrf_id));
 }
 

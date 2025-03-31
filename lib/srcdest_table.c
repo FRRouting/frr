@@ -309,13 +309,3 @@ static ssize_t printfrr_rn(struct fbuf *buf, struct printfrr_eargs *ea,
 		    cbuf, sizeof(cbuf));
 	return bputs(buf, cbuf);
 }
-
-struct route_table *srcdest_srcnode_table(struct route_node *rn)
-{
-	if (rnode_is_dstnode(rn)) {
-		struct srcdest_rnode *srn = srcdest_rnode_from_rnode(rn);
-
-		return srn->src_table;
-	}
-	return NULL;
-}

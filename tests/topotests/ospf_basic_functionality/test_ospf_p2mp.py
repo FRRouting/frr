@@ -105,7 +105,7 @@ def setup_module(mod):
     logger.info("Running setup_module() done")
 
 
-def teardown_module(mod):
+def teardown_module():
     """
     Teardown the pytest environment.
 
@@ -359,6 +359,185 @@ def test_ospf_p2mp_tc1_p0(request):
     }
     result = create_interfaces_cfg(tgen, input_dict)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    write_test_footer(tc_name)
+
+
+def test_ospf_p2mp_tc_delay_reflood(request):
+    """OSPF IFSM -Verify "delay-reflood" parameter in p2mp network."""
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+    r0 = tgen.gears["r0"]
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    global topo
+
+    step("Verify for interface with network type P2MP that delay-reflood is configured")
+    r0.vtysh_multicmd(
+        "conf t\ninterface r0-r1-eth0\nip ospf network point-to-multipoint delay-reflood"
+    )
+
+    dut = "r0"
+    input_dict = {
+        "r0": {
+            "links": {
+                "r1": {
+                    "ospf": {
+                        "mcastMemberOspfAllRouters": True,
+                        "ospfEnabled": True,
+                        "networkType": "POINTOMULTIPOINT",
+                        "p2mpDelayReflood": True,
+                    }
+                },
+                "r2": {
+                    "ospf": {
+                        "mcastMemberOspfAllRouters": True,
+                        "ospfEnabled": True,
+                        "networkType": "POINTOMULTIPOINT",
+                        "p2mpDelayReflood": False,
+                    }
+                },
+                "r3": {
+                    "ospf": {
+                        "mcastMemberOspfAllRouters": True,
+                        "ospfEnabled": True,
+                        "networkType": "POINTOMULTIPOINT",
+                        "p2mpDelayReflood": False,
+                    }
+                },
+            }
+        }
+    }
+    result = verify_ospf_interface(tgen, topo, dut=dut, input_dict=input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+    delay_reflood_cfg = (
+        tgen.net["r0"]
+        .cmd(
+            'vtysh -c "show running" | grep "^ ip ospf network point-to-multipoint delay-reflood"'
+        )
+        .rstrip()
+    )
+
+    assertmsg = "delay-reflood' configuration applied, but not present in configuration"
+    assert (
+        delay_reflood_cfg == " ip ospf network point-to-multipoint delay-reflood"
+    ), assertmsg
+
+    step("Verify for interface with network type P2MP that delay-reflood is removed")
+    r0.vtysh_multicmd(
+        "conf t\ninterface r0-r1-eth0\nip ospf network point-to-multipoint"
+    )
+
+    input_dict = {
+        "r0": {
+            "links": {
+                "r1": {
+                    "ospf": {
+                        "mcastMemberOspfAllRouters": True,
+                        "ospfEnabled": True,
+                        "networkType": "POINTOMULTIPOINT",
+                        "p2mpDelayReflood": False,
+                    }
+                },
+                "r2": {
+                    "ospf": {
+                        "mcastMemberOspfAllRouters": True,
+                        "ospfEnabled": True,
+                        "networkType": "POINTOMULTIPOINT",
+                        "p2mpDelayReflood": False,
+                    }
+                },
+                "r3": {
+                    "ospf": {
+                        "mcastMemberOspfAllRouters": True,
+                        "ospfEnabled": True,
+                        "networkType": "POINTOMULTIPOINT",
+                        "p2mpDelayReflood": False,
+                    }
+                },
+            }
+        }
+    }
+    result = verify_ospf_interface(tgen, topo, dut=dut, input_dict=input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    delay_reflood_cfg = (
+        tgen.net["r0"]
+        .cmd(
+            'vtysh -c "show running" | grep "^ ip ospf network point-to-multipoint delay-reflood"'
+        )
+        .rstrip()
+    )
+    assertmsg = (
+        "delay-reflood' configuration removed, but still present in configuration"
+    )
+    assert (
+        delay_reflood_cfg != " ip ospf network point-to-multipoint delay-reflood"
+    ), assertmsg
+
+    step(
+        "Verify for interface with network type P2MP that delay-reflood is removed with removal of network type"
+    )
+    r0.vtysh_multicmd(
+        "conf t\ninterface r0-r1-eth0\nip ospf network point-to-multipoint delay-reflood"
+    )
+    r0.vtysh_multicmd(
+        "conf t\ninterface r0-r1-eth0\nno ip ospf network point-to-multipoint"
+    )
+    r0.vtysh_multicmd(
+        "conf t\ninterface r0-r1-eth0\nip ospf network point-to-multipoint"
+    )
+
+    input_dict = {
+        "r0": {
+            "links": {
+                "r1": {
+                    "ospf": {
+                        "mcastMemberOspfAllRouters": True,
+                        "ospfEnabled": True,
+                        "networkType": "POINTOMULTIPOINT",
+                        "p2mpDelayReflood": False,
+                    }
+                },
+                "r2": {
+                    "ospf": {
+                        "mcastMemberOspfAllRouters": True,
+                        "ospfEnabled": True,
+                        "networkType": "POINTOMULTIPOINT",
+                        "p2mpDelayReflood": False,
+                    }
+                },
+                "r3": {
+                    "ospf": {
+                        "mcastMemberOspfAllRouters": True,
+                        "ospfEnabled": True,
+                        "networkType": "POINTOMULTIPOINT",
+                        "p2mpDelayReflood": False,
+                    }
+                },
+            }
+        }
+    }
+    result = verify_ospf_interface(tgen, topo, dut=dut, input_dict=input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    delay_reflood_cfg = (
+        tgen.net["r0"]
+        .cmd(
+            'vtysh -c "show running" | grep "^ ip ospf network point-to-multipoint delay-reflood"'
+        )
+        .rstrip()
+    )
+    assertmsg = (
+        "delay-reflood' configuration removed, but still present in configuration"
+    )
+    assert (
+        delay_reflood_cfg != " ip ospf network point-to-multipoint delay-reflood"
+    ), assertmsg
 
     write_test_footer(tc_name)
 

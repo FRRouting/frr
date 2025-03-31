@@ -28,6 +28,7 @@
 #include "libfrr.h"
 #include "routemap.h"
 #include "affinitymap.h"
+#include "libagentx.h"
 
 #include "isisd/isis_affinitymap.h"
 #include "isisd/isis_constants.h"
@@ -51,9 +52,16 @@
 
 /* Default configuration file name */
 #define ISISD_DEFAULT_CONFIG "isisd.conf"
-/* Default vty port */
-#define ISISD_VTY_PORT       2608
-#define FABRICD_VTY_PORT     2618
+
+#define FABRICD_STATE_NAME "%s/fabricd.json", frr_libstatedir
+#define ISISD_STATE_NAME   "%s/isisd.json", frr_libstatedir
+
+/* The typo was there before.  Do not fix it!  The point is to load mis-saved
+ * state files from older versions.
+ *
+ * Also fabricd was using the same file.  Sigh.
+ */
+#define ISISD_COMPAT_STATE_NAME "%s/isid-restart.json", frr_runstatedir
 
 /* isisd privileges */
 zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND, ZCAP_SYS_ADMIN};
@@ -72,9 +80,12 @@ struct zebra_privs_t isisd_privs = {
 	.cap_num_p = array_size(_caps_p),
 	.cap_num_i = 0};
 
+#define OPTION_DUMMY_AS_LOOPBACK 2000
+
 /* isisd options */
 static const struct option longopts[] = {
 	{"int_num", required_argument, NULL, 'I'},
+	{"dummy_as_loopback", no_argument, NULL, OPTION_DUMMY_AS_LOOPBACK},
 	{0}};
 
 /* Master of threads. */
@@ -93,7 +104,14 @@ static __attribute__((__noreturn__)) void terminate(int i)
 {
 	isis_terminate();
 	isis_sr_term();
+	isis_srv6_term();
 	isis_zebra_stop();
+
+	isis_master_terminate();
+	route_map_finish();
+	vrf_terminate();
+
+	frr_fini();
 	exit(i);
 }
 
@@ -170,6 +188,9 @@ static const struct frr_yang_module_info *const isisd_yang_modules[] = {
 /* clang-format on */
 
 
+/* Max wait time for config to load before generating LSPs */
+#define ISIS_PRE_CONFIG_MAX_WAIT_SECONDS 600
+
 static void isis_config_finish(struct event *t)
 {
 	struct listnode *node, *inode;
@@ -182,12 +203,17 @@ static void isis_config_finish(struct event *t)
 	}
 }
 
+static void isis_config_end_timeout(struct event *t)
+{
+	zlog_err("IS-IS configuration end timer expired after %d seconds.",
+		 ISIS_PRE_CONFIG_MAX_WAIT_SECONDS);
+	isis_config_finish(t);
+}
+
 static void isis_config_start(void)
 {
-	/* Max wait time for config to load before generating lsp */
-#define ISIS_PRE_CONFIG_MAX_WAIT_SECONDS 600
 	EVENT_OFF(t_isis_cfg);
-	event_add_timer(im->master, isis_config_finish, NULL,
+	event_add_timer(im->master, isis_config_end_timeout, NULL,
 			ISIS_PRE_CONFIG_MAX_WAIT_SECONDS, &t_isis_cfg);
 }
 
@@ -203,24 +229,41 @@ static void isis_config_end(void)
 	isis_config_finish(t_isis_cfg);
 }
 
+/* actual paths filled in main() */
+static char state_path[512];
+static char state_compat_path[512];
+static char *state_paths[] = {
+	state_path,
+	state_compat_path,
+	NULL,
+};
+
+/* clang-format off */
+FRR_DAEMON_INFO(
 #ifdef FABRICD
-FRR_DAEMON_INFO(fabricd, OPEN_FABRIC, .vty_port = FABRICD_VTY_PORT,
+		fabricd, OPEN_FABRIC,
 
-		.proghelp = "Implementation of the OpenFabric routing protocol.",
+	.vty_port = FABRICD_VTY_PORT,
+	.proghelp = "Implementation of the OpenFabric routing protocol.",
 #else
-FRR_DAEMON_INFO(isisd, ISIS, .vty_port = ISISD_VTY_PORT,
+		isisd, ISIS,
 
-		.proghelp = "Implementation of the IS-IS routing protocol.",
+	.vty_port = ISISD_VTY_PORT,
+	.proghelp = "Implementation of the IS-IS routing protocol.",
 #endif
-		.copyright =
-			"Copyright (c) 2001-2002 Sampo Saaristo, Ofer Wald and Hannes Gredler",
+	.copyright = "Copyright (c) 2001-2002 Sampo Saaristo, Ofer Wald and Hannes Gredler",
 
-		.signals = isisd_signals,
-		.n_signals = array_size(isisd_signals),
+	.signals = isisd_signals,
+	.n_signals = array_size(isisd_signals),
 
-		.privs = &isisd_privs, .yang_modules = isisd_yang_modules,
-		.n_yang_modules = array_size(isisd_yang_modules),
+	.privs = &isisd_privs,
+
+	.yang_modules = isisd_yang_modules,
+	.n_yang_modules = array_size(isisd_yang_modules),
+
+	.state_paths = state_paths,
 );
+/* clang-format on */
 
 /*
  * Main routine of isisd. Parse arguments and handle IS-IS state machine.
@@ -229,15 +272,16 @@ int main(int argc, char **argv, char **envp)
 {
 	int opt;
 	int instance = 1;
+	bool dummy_as_loopback = false;
 
 #ifdef FABRICD
 	frr_preinit(&fabricd_di, argc, argv);
 #else
 	frr_preinit(&isisd_di, argc, argv);
 #endif
-	frr_opt_add(
-		"I:", longopts,
-		"  -I, --int_num      Set instance number (label-manager)\n");
+	frr_opt_add("I:", longopts,
+		"  -I, --int_num		Set instance number (label-manager).\n"
+		"      --dummy_as_loopback      Treat dummy interfaces like loopback interfaces.\n");
 
 	/* Command line argument treatment. */
 	while (1) {
@@ -255,17 +299,32 @@ int main(int argc, char **argv, char **envp)
 				zlog_err("Instance %i out of range (1..%u)",
 					 instance, (unsigned short)-1);
 			break;
+		case OPTION_DUMMY_AS_LOOPBACK:
+			dummy_as_loopback = true;
+			break;
 		default:
 			frr_help_exit(1);
 		}
 	}
 
+#ifdef FABRICD
+	snprintf(state_path, sizeof(state_path), FABRICD_STATE_NAME);
+#else
+	snprintf(state_path, sizeof(state_path), ISISD_STATE_NAME);
+#endif
+	snprintf(state_compat_path, sizeof(state_compat_path),
+		 ISISD_COMPAT_STATE_NAME);
+
 	/* thread master */
 	isis_master_init(frr_init());
 	master = im->master;
+	if (dummy_as_loopback)
+		isis_option_set(ISIS_OPT_DUMMY_AS_LOOPBACK);
+
 	/*
 	 *  initializations
 	 */
+	libagentx_init();
 	cmd_init_config_callbacks(isis_config_start, isis_config_end);
 	isis_error_init();
 	access_list_init();
@@ -288,6 +347,7 @@ int main(int argc, char **argv, char **envp)
 	isis_route_map_init();
 	isis_mpls_te_init();
 	isis_sr_init();
+	isis_srv6_init();
 	lsp_init();
 	mt_init();
 

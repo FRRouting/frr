@@ -296,7 +296,6 @@ static void zebra_mlag_post_data_from_main_thread(struct event *thread)
 {
 	struct stream *s = EVENT_ARG(thread);
 	struct stream *zebra_s = NULL;
-	struct listnode *node;
 	struct zserv *client;
 	uint32_t msg_type = 0;
 	uint32_t msg_len = 0;
@@ -311,7 +310,7 @@ static void zebra_mlag_post_data_from_main_thread(struct event *thread)
 			__func__, msg_type);
 
 	msg_len = s->endp - ZEBRA_MLAG_METADATA_LEN;
-	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
 		if (client->mlag_updates_interested == true) {
 			if (msg_type != ZEBRA_MLAG_MSG_BCAST
 			    && !CHECK_FLAG(client->mlag_reg_mask1,
@@ -338,8 +337,6 @@ static void zebra_mlag_post_data_from_main_thread(struct event *thread)
 		}
 	}
 
-	stream_free(s);
-	return;
 stream_failure:
 	stream_free(s);
 	if (zebra_s)
@@ -629,6 +626,8 @@ void zebra_mlag_init(void)
 
 void zebra_mlag_terminate(void)
 {
+	stream_fifo_free(zrouter.mlag_info.mlag_fifo);
+	zrouter.mlag_info.mlag_fifo = NULL;
 }
 
 
@@ -985,8 +984,7 @@ int zebra_mlag_protobuf_decode_message(struct stream *s, uint8_t *data,
 			/* No Batching */
 			stream_putw(s, MLAG_MSG_NO_BATCH);
 			/* Actual Data */
-			zebra_fill_protobuf_msg(s, msg->peerlink,
-						INTERFACE_NAMSIZ);
+			zebra_fill_protobuf_msg(s, msg->peerlink, IFNAMSIZ);
 			stream_putl(s, msg->my_role);
 			stream_putl(s, msg->peer_state);
 			zebra_mlag_status_update__free_unpacked(msg, NULL);
@@ -1034,9 +1032,9 @@ int zebra_mlag_protobuf_decode_message(struct stream *s, uint8_t *data,
 			stream_putl(s, msg->vrf_id);
 			if (msg->owner_id == MLAG_OWNER_INTERFACE)
 				zebra_fill_protobuf_msg(s, msg->intf_name,
-							INTERFACE_NAMSIZ);
+							IFNAMSIZ);
 			else
-				stream_put(s, NULL, INTERFACE_NAMSIZ);
+				stream_put(s, NULL, IFNAMSIZ);
 			zebra_mlag_mroute_add__free_unpacked(msg, NULL);
 		} break;
 		case ZEBRA_MLAG__HEADER__MESSAGE_TYPE__ZEBRA_MLAG_MROUTE_DEL: {
@@ -1061,9 +1059,9 @@ int zebra_mlag_protobuf_decode_message(struct stream *s, uint8_t *data,
 			stream_putl(s, msg->vrf_id);
 			if (msg->owner_id == MLAG_OWNER_INTERFACE)
 				zebra_fill_protobuf_msg(s, msg->intf_name,
-							INTERFACE_NAMSIZ);
+							IFNAMSIZ);
 			else
-				stream_put(s, NULL, INTERFACE_NAMSIZ);
+				stream_put(s, NULL, IFNAMSIZ);
 			zebra_mlag_mroute_del__free_unpacked(msg, NULL);
 		} break;
 		case ZEBRA_MLAG__HEADER__MESSAGE_TYPE__ZEBRA_MLAG_MROUTE_ADD_BULK: {
@@ -1085,8 +1083,7 @@ int zebra_mlag_protobuf_decode_message(struct stream *s, uint8_t *data,
 
 			/* Actual Data */
 			for (i = 0; i < Bulk_msg->n_mroute_add; i++) {
-				if (STREAM_SIZE(s)
-				    < VRF_NAMSIZ + 22 + INTERFACE_NAMSIZ) {
+				if (STREAM_SIZE(s) < VRF_NAMSIZ + 22 + IFNAMSIZ) {
 					zlog_warn(
 						"We have received more messages than we can parse at this point in time: %zu",
 						Bulk_msg->n_mroute_add);
@@ -1105,11 +1102,11 @@ int zebra_mlag_protobuf_decode_message(struct stream *s, uint8_t *data,
 				stream_putc(s, msg->am_i_dual_active);
 				stream_putl(s, msg->vrf_id);
 				if (msg->owner_id == MLAG_OWNER_INTERFACE)
-					zebra_fill_protobuf_msg(
-						s, msg->intf_name,
-						INTERFACE_NAMSIZ);
+					zebra_fill_protobuf_msg(s,
+								msg->intf_name,
+								IFNAMSIZ);
 				else
-					stream_put(s, NULL, INTERFACE_NAMSIZ);
+					stream_put(s, NULL, IFNAMSIZ);
 			}
 
 			stream_putw_at(s, length_spot, i + 1);
@@ -1136,8 +1133,7 @@ int zebra_mlag_protobuf_decode_message(struct stream *s, uint8_t *data,
 
 			/* Actual Data */
 			for (i = 0; i < Bulk_msg->n_mroute_del; i++) {
-				if (STREAM_SIZE(s)
-				    < VRF_NAMSIZ + 16 + INTERFACE_NAMSIZ) {
+				if (STREAM_SIZE(s) < VRF_NAMSIZ + 16 + IFNAMSIZ) {
 					zlog_warn(
 						"We have received more messages than we can parse at this time");
 					break;
@@ -1152,11 +1148,11 @@ int zebra_mlag_protobuf_decode_message(struct stream *s, uint8_t *data,
 				stream_putl(s, msg->owner_id);
 				stream_putl(s, msg->vrf_id);
 				if (msg->owner_id == MLAG_OWNER_INTERFACE)
-					zebra_fill_protobuf_msg(
-						s, msg->intf_name,
-						INTERFACE_NAMSIZ);
+					zebra_fill_protobuf_msg(s,
+								msg->intf_name,
+								IFNAMSIZ);
 				else
-					stream_put(s, NULL, INTERFACE_NAMSIZ);
+					stream_put(s, NULL, IFNAMSIZ);
 			}
 
 			stream_putw_at(s, length_spot, i + 1);

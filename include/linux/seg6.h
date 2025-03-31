@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0+ WITH Linux-syscall-note */
+// SPDX-License-Identifier: GPL-2.0+ WITH Linux-syscall-note
 /*
  *  SR-IPv6 implementation
  *
@@ -30,7 +30,7 @@ struct ipv6_sr_hdr {
 	__u8	flags;
 	__u16	tag;
 
-	struct in6_addr segments[0];
+	struct in6_addr segments[];
 };
 
 #define SR6_FLAG1_PROTECTED	(1 << 6)

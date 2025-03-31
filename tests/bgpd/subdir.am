@@ -52,17 +52,6 @@ tests_bgpd_test_mp_attr_LDADD = $(BGP_TEST_LDADD)
 tests_bgpd_test_mp_attr_SOURCES = tests/bgpd/test_mp_attr.c
 EXTRA_DIST += tests/bgpd/test_mp_attr.py
 
-
-if BGPD
-check_PROGRAMS += tests/bgpd/test_mpath
-endif
-tests_bgpd_test_mpath_CFLAGS = $(TESTS_CFLAGS)
-tests_bgpd_test_mpath_CPPFLAGS = $(TESTS_CPPFLAGS)
-tests_bgpd_test_mpath_LDADD = $(BGP_TEST_LDADD)
-tests_bgpd_test_mpath_SOURCES = tests/bgpd/test_mpath.c
-EXTRA_DIST += tests/bgpd/test_mpath.py
-
-
 if BGPD
 check_PROGRAMS += tests/bgpd/test_packet
 endif

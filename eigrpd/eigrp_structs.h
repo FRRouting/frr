@@ -43,7 +43,11 @@ struct eigrp_extdata {
 	uint8_t flags;
 };
 
+PREDECL_HASH(eigrp_interface_hash);
+PREDECL_HASH(eigrp_master_hash);
 struct eigrp {
+	struct eigrp_master_hash_item eigrp_item;
+
 	vrf_id_t vrf_id;
 
 	uint16_t AS;	 /* Autonomous system number */
@@ -59,7 +63,7 @@ struct eigrp {
 	struct in_addr router_id;	/* Configured automatically. */
 	struct in_addr router_id_static; /* Configured manually. */
 
-	struct list *eiflist;		  /* eigrp interfaces */
+	struct eigrp_interface_hash_head eifs;
 	uint8_t passive_interface_default; /* passive-interface default */
 
 	int fd;
@@ -133,8 +137,12 @@ enum { MEMBER_ALLROUTERS = 0,
        MEMBER_MAX,
 };
 
+PREDECL_HASH(eigrp_nbr_hash);
+
 /*EIGRP interface structure*/
 struct eigrp_interface {
+	struct eigrp_interface_hash_item eif_item;
+
 	struct eigrp_if_params params;
 
 	/*multicast group refcnts */
@@ -162,7 +170,7 @@ struct eigrp_interface {
 	struct prefix address;      /* Interface prefix */
 
 	/* Neighbor information. */
-	struct list *nbrs; /* EIGRP Neighbor List */
+	struct eigrp_nbr_hash_head nbr_hash_head;
 
 	/* Threads. */
 	struct event *t_hello;	    /* timer */
@@ -208,6 +216,8 @@ enum Packet_part_type {
 
 /* Neighbor Data Structure */
 struct eigrp_neighbor {
+	struct eigrp_nbr_hash_item nbr_hash_item;
+
 	/* This neighbor's parent eigrp interface. */
 	struct eigrp_interface *ei;
 
@@ -437,7 +447,7 @@ struct eigrp_prefix_descriptor {
 	uint8_t af;	 // address family
 	uint8_t req_action; // required action
 
-	struct prefix *destination;
+	struct prefix destination;
 
 	// If network type is REMOTE_EXTERNAL, pointer will have reference to
 	// its external TLV

@@ -41,7 +41,7 @@
 uint32_t eigrp_query_send_all(struct eigrp *eigrp)
 {
 	struct eigrp_interface *iface;
-	struct listnode *node, *node2, *nnode2;
+	struct listnode *node2, *nnode2;
 	struct eigrp_prefix_descriptor *pe;
 	uint32_t counter;
 
@@ -51,7 +51,7 @@ uint32_t eigrp_query_send_all(struct eigrp *eigrp)
 	}
 
 	counter = 0;
-	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, iface)) {
+	frr_each (eigrp_interface_hash, &eigrp->eifs, iface) {
 		eigrp_send_query(iface);
 		counter++;
 	}
@@ -146,7 +146,7 @@ void eigrp_send_query(struct eigrp_interface *ei)
 {
 	struct eigrp_packet *ep = NULL;
 	uint16_t length = EIGRP_HEADER_LEN;
-	struct listnode *node, *nnode, *node2, *nnode2;
+	struct listnode *node, *nnode;
 	struct eigrp_neighbor *nbr;
 	struct eigrp_prefix_descriptor *pe;
 	bool has_tlv = false;
@@ -177,7 +177,7 @@ void eigrp_send_query(struct eigrp_interface *ei)
 
 		length += eigrp_add_internalTLV_to_stream(ep->s, pe);
 		has_tlv = true;
-		for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr)) {
+		frr_each (eigrp_nbr_hash, &ei->nbr_hash_head, nbr) {
 			if (nbr->state == EIGRP_NEIGHBOR_UP)
 				listnode_add(pe->rij, nbr);
 		}
@@ -197,7 +197,7 @@ void eigrp_send_query(struct eigrp_interface *ei)
 			ep->sequence_number = ei->eigrp->sequence_number;
 			ei->eigrp->sequence_number++;
 
-			for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr)) {
+			frr_each (eigrp_nbr_hash, &ei->nbr_hash_head, nbr) {
 				struct eigrp_packet *dup;
 
 				if (nbr->state != EIGRP_NEIGHBOR_UP)
@@ -237,7 +237,7 @@ void eigrp_send_query(struct eigrp_interface *ei)
 	ep->sequence_number = ei->eigrp->sequence_number;
 	ei->eigrp->sequence_number++;
 
-	for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr)) {
+	frr_each (eigrp_nbr_hash, &ei->nbr_hash_head, nbr) {
 		struct eigrp_packet *dup;
 
 		if (nbr->state != EIGRP_NEIGHBOR_UP)

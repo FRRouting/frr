@@ -8,6 +8,9 @@
  */
 
 #include <zebra.h>
+
+#include <fcntl.h>
+
 #if ISIS_METHOD == ISIS_METHOD_BPF
 #include <net/if.h>
 #include <netinet/if_ether.h>

@@ -95,7 +95,8 @@ struct stream {
 	size_t getp;	       /* next get position */
 	size_t endp;	       /* last valid data position */
 	size_t size;	       /* size of data segment */
-	unsigned char data[];  /* data pointer */
+	bool allow_expansion;  /* whether stream can be expanded */
+	unsigned char *data;   /* data pointer */
 };
 
 /* First in first out queue structure. */
@@ -105,9 +106,7 @@ struct stream_fifo {
 
 	/* number of streams in this fifo */
 	atomic_size_t count;
-#if defined DEV_BUILD
 	atomic_size_t max_count;
-#endif
 
 	struct stream *head;
 	struct stream *tail;
@@ -134,6 +133,7 @@ struct stream_fifo {
  * q: quad (four words)
  */
 extern struct stream *stream_new(size_t);
+extern struct stream *stream_new_expandable(size_t);
 extern void stream_free(struct stream *);
 /* Copy 'src' into 'dest', returns 'dest' */
 extern struct stream *stream_copy(struct stream *dest,
@@ -177,7 +177,7 @@ extern int stream_putq(struct stream *, uint64_t);
 extern int stream_putq_at(struct stream *, size_t, uint64_t);
 extern int stream_put_ipv4(struct stream *, uint32_t);
 extern int stream_put_in_addr(struct stream *s, const struct in_addr *addr);
-extern bool stream_put_ipaddr(struct stream *s, struct ipaddr *ip);
+extern bool stream_put_ipaddr(struct stream *s, const struct ipaddr *ip);
 extern int stream_put_in_addr_at(struct stream *s, size_t putp,
 				 const struct in_addr *addr);
 extern int stream_put_in6_addr_at(struct stream *s, size_t putp,

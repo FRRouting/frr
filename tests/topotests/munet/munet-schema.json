@@ -93,11 +93,23 @@
           "image": {
             "type": "string"
           },
+          "hostnet": {
+            "type": "boolean"
+          },
           "server": {
             "type": "string"
           },
           "server-port": {
             "type": "number"
+          },
+          "ssh-identity-file": {
+            "type": "string"
+          },
+          "ssh-user": {
+            "type": "string"
+          },
+          "ssh-password": {
+            "type": "string"
           },
           "qemu": {
             "type": "object",
@@ -105,10 +117,25 @@
               "bios": {
                 "type": "string"
               },
+              "cloud-init": {
+                "type": "boolean"
+              },
+              "cloud-init-disk": {
+                "type": "string"
+              },
               "disk": {
                 "type": "string"
               },
-              "kerenel": {
+              "disk-driver": {
+                "type": "string"
+              },
+              "disk-template": {
+                "type": "string"
+              },
+              "initial-cmd": {
+                "type": "string"
+              },
+              "kernel": {
                 "type": "string"
               },
               "initrd": {
@@ -139,6 +166,9 @@
                     "type": "string"
                   },
                   "password": {
+                    "type": "string"
+                  },
+                  "initial-password": {
                     "type": "string"
                   },
                   "expects": {
@@ -349,6 +379,12 @@
         "networks-autonumber": {
           "type": "boolean"
         },
+        "initial-setup-cmd": {
+          "type": "string"
+        },
+        "initial-setup-host-cmd": {
+          "type": "string"
+        },
         "networks": {
           "type": "array",
           "items": {
@@ -362,6 +398,9 @@
               },
               "ipv6": {
                 "type": "string"
+              },
+              "external": {
+                "type": "boolean"
               }
             }
           }
@@ -401,11 +440,23 @@
               "image": {
                 "type": "string"
               },
+              "hostnet": {
+                "type": "boolean"
+              },
               "server": {
                 "type": "string"
               },
               "server-port": {
                 "type": "number"
+              },
+              "ssh-identity-file": {
+                "type": "string"
+              },
+              "ssh-user": {
+                "type": "string"
+              },
+              "ssh-password": {
+                "type": "string"
               },
               "qemu": {
                 "type": "object",
@@ -413,10 +464,25 @@
                   "bios": {
                     "type": "string"
                   },
+                  "cloud-init": {
+                    "type": "boolean"
+                  },
+                  "cloud-init-disk": {
+                    "type": "string"
+                  },
                   "disk": {
                     "type": "string"
                   },
-                  "kerenel": {
+                  "disk-driver": {
+                    "type": "string"
+                  },
+                  "disk-template": {
+                    "type": "string"
+                  },
+                  "initial-cmd": {
+                    "type": "string"
+                  },
+                  "kernel": {
                     "type": "string"
                   },
                   "initrd": {
@@ -447,6 +513,9 @@
                         "type": "string"
                       },
                       "password": {
+                        "type": "string"
+                      },
+                      "initial-password": {
                         "type": "string"
                       },
                       "expects": {

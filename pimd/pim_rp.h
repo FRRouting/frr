@@ -19,7 +19,11 @@ struct pim_interface;
 enum rp_source {
 	RP_SRC_NONE = 0,
 	RP_SRC_STATIC,
-	RP_SRC_BSR
+	RP_SRC_BSR,
+	RP_SRC_AUTORP,
+#if PIM_IPV == 6
+	RP_SRC_EMBEDDED_RP,
+#endif /* PIM_IPV == 6*/
 };
 
 struct rp_info {
@@ -30,10 +34,13 @@ struct rp_info {
 	char *plist;
 };
 
+#if PIM_IPV == 6
+/** Default maximum simultaneous embedded RPs at one time. */
+#define PIM_EMBEDDED_RP_MAXIMUM 25
+#endif /* PIM_IPV == 6 */
+
 void pim_rp_init(struct pim_instance *pim);
 void pim_rp_free(struct pim_instance *pim);
-
-void pim_rp_list_hash_clean(void *data);
 
 int pim_rp_new(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 	       const char *plist, enum rp_source rp_src_flag);
@@ -46,8 +53,7 @@ int pim_rp_change(struct pim_instance *pim, pim_addr new_rp_addr,
 void pim_rp_prefix_list_update(struct pim_instance *pim,
 			       struct prefix_list *plist);
 
-int pim_rp_config_write(struct pim_instance *pim, struct vty *vty,
-			const char *spaces);
+int pim_rp_config_write(struct pim_instance *pim, struct vty *vty);
 
 void pim_rp_setup(struct pim_instance *pim);
 
@@ -74,4 +80,45 @@ struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 					const struct prefix *group);
 void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up);
 void pim_rp_refresh_group_to_rp_mapping(struct pim_instance *pim);
+
+#if PIM_IPV == 6
+/** Check if address has valid embedded RP value. */
+bool pim_embedded_rp_is_embedded(const pim_addr *group) __attribute__((nonnull(1)));
+
+/** Test address against embedded RP group list filter. */
+bool pim_embedded_rp_filter_match(const struct pim_instance *pim, const pim_addr *group)
+	__attribute__((nonnull(1, 2)));
+
+/**
+ * Extract embedded RP address from multicast group.
+ *
+ * Returns true if successful otherwise false.
+ */
+bool pim_embedded_rp_extract(const pim_addr *group, pim_addr *rp) __attribute__((nonnull(1, 2)));
+
+/** Allocate new embedded RP. */
+void pim_embedded_rp_new(struct pim_instance *pim, const pim_addr *group, const pim_addr *rp)
+	__attribute__((nonnull(1, 2, 3)));
+
+/** Remove and free allocated embedded RP. */
+void pim_embedded_rp_delete(struct pim_instance *pim, const pim_addr *group)
+	__attribute__((nonnull(1, 2)));
+
+/** Free memory allocated by embedded RP information. */
+extern void pim_embedded_rp_free(struct pim_instance *pim, struct rp_info *rp_info)
+	__attribute__((nonnull(1, 2)));
+
+/** Toggle embedded RP state. */
+extern void pim_embedded_rp_enable(struct pim_instance *pim, bool enable)
+	__attribute__((nonnull(1)));
+
+/** Configure embedded RP group prefix list. */
+extern void pim_embedded_rp_set_group_list(struct pim_instance *pim, const char *group_list)
+	__attribute__((nonnull(1)));
+
+/** Configure maximum number of embedded RPs to learn. */
+extern void pim_embedded_rp_set_maximum_rps(struct pim_instance *pim, uint32_t maximum)
+	__attribute__((nonnull(1)));
+#endif /* PIM_IPV == 6 */
+
 #endif

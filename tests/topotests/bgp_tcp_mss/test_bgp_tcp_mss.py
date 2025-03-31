@@ -36,14 +36,16 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
-pytestmark = [pytest.mark.bgpd]
-
 
 def build_topo(tgen):
     for routern in range(1, 3):
         tgen.add_router("r{}".format(routern))
 
     switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
+
+    switch = tgen.add_switch("s2")
     switch.add_link(tgen.gears["r1"])
     switch.add_link(tgen.gears["r2"])
 
@@ -54,7 +56,7 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
-    for i, (rname, router) in enumerate(router_list.items(), 1):
+    for _, (rname, router) in enumerate(router_list.items(), 1):
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -80,12 +82,16 @@ def test_bgp_tcp_mss():
     router2 = tgen.gears["r2"]
 
     def _bgp_converge(router):
-        output = json.loads(router.vtysh_cmd("show ip bgp neighbor 192.168.255.2 json"))
+        output = json.loads(router.vtysh_cmd("show ip bgp neighbor json"))
         expected = {
             "192.168.255.2": {
                 "bgpState": "Established",
                 "addressFamilyInfo": {"ipv4Unicast": {"acceptedPrefixCounter": 0}},
-            }
+            },
+            "192.168.254.2": {
+                "bgpState": "Established",
+                "addressFamilyInfo": {"ipv4Unicast": {"acceptedPrefixCounter": 0}},
+            },
         }
         return topotest.json_cmp(output, expected)
 
@@ -110,7 +116,7 @@ def test_bgp_tcp_mss():
 
     logger.info("Check if neighbor sessions are up in {}".format(router1.name))
     test_func = functools.partial(_bgp_converge, router1)
-    success, result = topotest.run_and_expect(test_func, None, count=15, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert result is None, 'Failed to see BGP convergence in "{}"'.format(router1.name)
 
     logger.info("BGP neighbor session is up in {}".format(router1.name))
@@ -119,19 +125,21 @@ def test_bgp_tcp_mss():
         "Configure tcp-mss 500 on {} and reset the session".format(router1.name)
     )
     _bgp_conf_tcp_mss(router1, "65000", "192.168.255.2")
+    _bgp_conf_tcp_mss(router1, "65000", "aaa")
     _bgp_clear_session(router1)
 
     logger.info(
         "Configure tcp-mss 500 on {} and reset the session".format(router2.name)
     )
     _bgp_conf_tcp_mss(router2, "65001", "192.168.255.1")
+    _bgp_conf_tcp_mss(router2, "65001", "aaa")
     _bgp_clear_session(router2)
 
     logger.info(
         "Check if neighbor session is up after reset in {}".format(router1.name)
     )
     test_func = functools.partial(_bgp_converge, router1)
-    success, result = topotest.run_and_expect(test_func, None, count=15, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert result is None, 'Failed to see BGP convergence after reset in "{}"'.format(
         router1.name
     )
@@ -140,7 +148,13 @@ def test_bgp_tcp_mss():
         "Verify if TCP MSS value is synced with neighbor in {}".format(router1.name)
     )
     test_func = functools.partial(_bgp_check_neighbor_tcp_mss, router1, "192.168.255.2")
-    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
+    assert (
+        result is None
+    ), 'Failed to sync TCP MSS value over BGP session in "{}"'.format(router1.name)
+
+    test_func = functools.partial(_bgp_check_neighbor_tcp_mss, router1, "192.168.254.2")
+    success, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert (
         result is None
     ), 'Failed to sync TCP MSS value over BGP session in "{}"'.format(router1.name)
@@ -150,7 +164,13 @@ def test_bgp_tcp_mss():
         "Verify if TCP MSS value is synced with neighbor in {}".format(router2.name)
     )
     test_func = functools.partial(_bgp_check_neighbor_tcp_mss, router2, "192.168.255.1")
-    success, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
+    assert (
+        result is None
+    ), 'Failed to sync TCP MSS value over BGP session in "{}"'.format(router2.name)
+
+    test_func = functools.partial(_bgp_check_neighbor_tcp_mss, router2, "192.168.254.1")
+    success, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert (
         result is None
     ), 'Failed to sync TCP MSS value over BGP session in "{}"'.format(router2.name)

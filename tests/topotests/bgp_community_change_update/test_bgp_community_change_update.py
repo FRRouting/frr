@@ -97,7 +97,7 @@ def setup_module(mod):
 
     router_list = tgen.routers()
 
-    for i, (rname, router) in enumerate(router_list.items(), 1):
+    for _, (rname, router) in enumerate(router_list.items(), 1):
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
@@ -133,7 +133,7 @@ def test_bgp_community_update_path_change():
 
     step("Check if an initial topology is converged")
     test_func = functools.partial(_bgp_converge_initial)
-    success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Failed to see bgp convergence in c1"
 
     step("Disable link between y1 and y2")
@@ -146,7 +146,7 @@ def test_bgp_community_update_path_change():
 
     step("Check if a topology is converged after a link down between y1 and y2")
     test_func = functools.partial(_bgp_converge_link_disabled)
-    success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Failed to see bgp convergence in y1"
 
     def _bgp_check_for_duplicate_updates():
@@ -193,7 +193,7 @@ def test_bgp_community_update_path_change():
 
     step("Check if a topology is converged after a link up between y1 and y2")
     test_func = functools.partial(_bgp_converge_link_enabled)
-    success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Failed to see bgp convergence in y1"
 
     step(

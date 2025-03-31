@@ -1,0 +1,25 @@
+{
+	"172.31.0.2/32": [
+		{
+			"prefix": "172.31.0.2/32",
+			"protocol": "bgp",
+			"vrfId": 0,
+			"vrfName": "default",
+			"selected": true,
+			"destSelected": true,
+			"distance": 20,
+			"metric": 0,
+			"installed": true,
+			"nexthops": [
+				{
+					"fib": true,
+					"ip": "192.168.0.2",
+					"afi": "ipv4",
+					"interfaceName": "r1-eth0",
+					"active": true,
+					"weight": 1
+				}
+			]
+		}
+	]
+}

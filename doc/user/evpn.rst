@@ -56,13 +56,13 @@ FRR learns about the system's Linux network interface configuration from the
 kernel via Netlink, however it does not manage network interfaces directly.
 The following sections will include examples of Linux interface configurations
 that are compatible with FRR's EVPN implementation. While there are multiple
-interface managers that can setup a proper kernel config (e.g. ifupdown2),
+interface managers that can set up a proper kernel config (e.g. ifupdown2),
 these examples will use iproute2 to add/configure the interfaces.
 
 All of the examples will follow the same basic setup but use different, yet
 compatible, interface configurations.
 
-In this example we will setup the following:
+In this example we will set up the following:
 
 * An IP-VRF named vrf1, associated with L3VNI 100
 * An IP-VRF named vrf2, associated with L3VNI 200
@@ -78,7 +78,7 @@ In this example we will setup the following:
 Sample Configuration
 --------------------
 This is a sample FRR configuration that implements the above EVPN environment.
-The first snippet will be the config in its entiretly, then each config element
+The first snippet will be the config in its entirety, then each config element
 will be explained individually later in the document.
 
 The following snippet will result in a functional EVPN control plane if the
@@ -484,7 +484,7 @@ VNI, The interface settings are the same for an L2VNI as they are for an L3VNI.
 
 Finally, to limit a traditional bridge's broadcast domain to traffic matching
 specific VLAN-IDs, ``vlan`` subinterfaces of a host/network port need to be
-setup. This example shows the creation of a VLAN subinterface of "eth0"
+set up. This example shows the creation of a VLAN subinterface of "eth0"
 matching VID 10 with the name "eth0.10". By enslaving "eth0.10" to "br10"
 (instead of "eth0") we ensure that only Ethernet frames ingressing "eth0"
 tagged with VID 10 will be associated with the "br10" broadcast domain.

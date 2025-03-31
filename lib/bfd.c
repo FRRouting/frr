@@ -18,6 +18,7 @@
 #include "table.h"
 #include "vty.h"
 #include "bfd.h"
+#include "bfdd/bfd.h"
 
 DEFINE_MTYPE_STATIC(LIB, BFD_INFO, "BFD info");
 DEFINE_MTYPE_STATIC(LIB, BFD_SOURCE, "BFD source cache");
@@ -32,6 +33,8 @@ enum bfd_session_event {
 	BSE_UNINSTALL,
 	/** Install the BFD session configuration. */
 	BSE_INSTALL,
+	/** We should install but it couldn't because of a error talking to zebra */
+	BSE_VALID_FOR_INSTALL,
 };
 
 /**
@@ -138,14 +141,15 @@ static void bfd_source_cache_put(struct bfd_session_params *session);
  * bfd_get_peer_info - Extract the Peer information for which the BFD session
  *                     went down from the message sent from Zebra to clients.
  */
-static struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp,
-					   struct prefix *sp, int *status,
-					   int *remote_cbit, vrf_id_t vrf_id)
+static struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp, struct prefix *sp,
+					   int *status, int *remote_cbit, vrf_id_t vrf_id,
+					   char *bfd_name)
 {
 	unsigned int ifindex;
 	struct interface *ifp = NULL;
 	int plen;
 	int local_remote_cbit;
+	uint8_t bfd_name_len = 0;
 
 	/*
 	 * If the ifindex lookup fails the
@@ -192,6 +196,13 @@ static struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp,
 	STREAM_GETC(s, local_remote_cbit);
 	if (remote_cbit)
 		*remote_cbit = local_remote_cbit;
+
+	STREAM_GETC(s, bfd_name_len);
+	if (bfd_name_len) {
+		STREAM_GET(bfd_name, s, bfd_name_len);
+		*(bfd_name + bfd_name_len) = 0;
+	}
+
 	return ifp;
 
 stream_failure:
@@ -527,6 +538,10 @@ static void _bfd_sess_send(struct event *t)
 			vrf_id_to_name(bsp->args.vrf_id), bsp->args.vrf_id,
 			bsp->lastev == BSE_INSTALL ? "installed"
 						   : "uninstalled");
+
+		bsp->installed = false;
+		if (bsp->lastev == BSE_INSTALL)
+			bsp->lastev = BSE_VALID_FOR_INSTALL;
 	}
 }
 
@@ -541,7 +556,7 @@ static void _bfd_sess_remove(struct bfd_session_params *bsp)
 
 	/* Send request to remove any session. */
 	bsp->lastev = BSE_UNINSTALL;
-	event_execute(bsglobal.tm, _bfd_sess_send, bsp, 0);
+	event_execute(bsglobal.tm, _bfd_sess_send, bsp, 0, NULL);
 }
 
 void bfd_sess_free(struct bfd_session_params **bsp)
@@ -883,7 +898,7 @@ int zclient_bfd_session_replay(ZAPI_CALLBACK_ARGS)
 	/* Replay all activated peers. */
 	TAILQ_FOREACH (bsp, &bsglobal.bsplist, entry) {
 		/* Skip not installed sessions. */
-		if (!bsp->installed)
+		if (!bsp->installed && bsp->lastev != BSE_VALID_FOR_INSTALL)
 			continue;
 
 		/* We are reconnecting, so we must send installation. */
@@ -894,7 +909,7 @@ int zclient_bfd_session_replay(ZAPI_CALLBACK_ARGS)
 
 		/* Ask for installation. */
 		bsp->lastev = BSE_INSTALL;
-		event_execute(bsglobal.tm, _bfd_sess_send, bsp, 0);
+		event_execute(bsglobal.tm, _bfd_sess_send, bsp, 0, NULL);
 	}
 
 	return 0;
@@ -912,6 +927,7 @@ int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
 	struct prefix dp;
 	struct prefix sp;
 	char ifstr[128], cbitstr[32];
+	char bfd_name[BFD_NAME_SIZE + 1] = { 0 };
 
 	if (!zclient->bfd_integration)
 		return 0;
@@ -920,8 +936,7 @@ int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
 	if (bsglobal.shutting_down)
 		return 0;
 
-	ifp = bfd_get_peer_info(zclient->ibuf, &dp, &sp, &state, &remote_cbit,
-				vrf_id);
+	ifp = bfd_get_peer_info(zclient->ibuf, &dp, &sp, &state, &remote_cbit, vrf_id, bfd_name);
 	/*
 	 * When interface lookup fails or an invalid stream is read, we must
 	 * not proceed otherwise it will trigger an assertion while checking
@@ -1282,7 +1297,6 @@ static bool bfd_source_cache_update(struct bfd_source_cache *source,
 		const struct zapi_nexthop *nh = &route->nexthops[nh_index];
 		const struct interface *interface;
 		const struct connected *connected;
-		const struct listnode *node;
 
 		interface = if_lookup_by_index(nh->ifindex, nh->vrf_id);
 		if (interface == NULL) {
@@ -1291,8 +1305,7 @@ static bool bfd_source_cache_update(struct bfd_source_cache *source,
 			continue;
 		}
 
-		for (ALL_LIST_ELEMENTS_RO(interface->connected, node,
-					  connected)) {
+		frr_each (if_connected_const, interface->connected, connected) {
 			if (source->address.family !=
 			    connected->address->family)
 				continue;
@@ -1335,4 +1348,10 @@ int bfd_nht_update(const struct prefix *match, const struct zapi_route *route)
 	}
 
 	return 0;
+}
+
+bool bfd_session_is_down(const struct bfd_session_params *session)
+{
+	return session->bss.state == BSS_DOWN ||
+	       session->bss.state == BSS_ADMIN_DOWN;
 }

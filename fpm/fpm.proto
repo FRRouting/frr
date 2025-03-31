@@ -6,6 +6,9 @@
 //
 // @author Avneesh Sachdev <avneesh@sproute.com>
 //
+// Portions:
+//   Copyright (C) 2024 Carmine Scarpitta (for SRv6)
+//
 // Permission to use, copy, modify, and/or distribute this software
 // for any purpose with or without fee is hereby granted, provided
 // that the above copyright notice and this permission notice appear
@@ -72,6 +75,141 @@ message AddRoute {
   required int32 metric = 8;
 
   repeated Nexthop nexthops = 9;
+
+  /* Source Address of outer encapsulating IPv6 header */
+  optional qpb.Ipv6Address srv6_encap_source_address = 10;
+  /* SRv6 SID for VPN use cases */
+  optional qpb.Ipv6Address srv6_vpn_sid = 11;
+}
+
+/* SID Format - as per RFC 8986 section #3.1 */
+message SRv6SIDFormat
+{
+	/* Locator block length */
+	required uint32 locator_block_length = 1;
+	/* Locator node length */
+	required uint32 locator_node_length = 2;
+	/* Function length */
+	required uint32 function_length = 3;
+	/* Argument length */
+	required uint32 argument_length = 4;
+}
+
+/* SRv6 Local SID */
+message SRv6LocalSID
+{
+	/* SRv6 SID value */
+	required qpb.Ipv6Address sid = 1;
+
+	/* SID Format - as per RFC 8986 section #3.1 */
+	optional SRv6SIDFormat sid_format = 2;
+
+	/* SRv6 Endpoint Behavior associated with the SID */
+	oneof end_behavior
+	{
+		/* Endpoint */
+		End end = 3;
+		/* Endpoint with L3 cross-connect */
+		EndX end_x = 4;
+		/* Endpoint with specific IPv6 table lookup */
+		EndT end_t = 5;
+		/* Endpoint with decapsulation and IPv6 cross-connect */
+		EndDX6 end_dx6 = 7;
+		/* Endpoint with decapsulation and IPv4 cross-connect */
+		EndDX4 end_dx4 = 8;
+		/* Endpoint with decapsulation and specific IPv6 table lookup */
+		EndDT6 end_dt6 = 9;
+		/* Endpoint with decapsulation and specific IPv4 table lookup */
+		EndDT4 end_dt4 = 10;
+		/* Endpoint with decapsulation and specific IP table lookup */
+		EndDT46 end_dt46 = 11;
+		/* Endpoint behavior with NEXT-CSID, PSP and USD flavors */
+		UN un = 12;
+		/* End.X behavior with NEXT-CSID, PSP and USD flavors */
+		UA ua = 13;
+		/* End.DT6 behavior with NEXT-CSID flavor */
+		UDT6 udt6 = 14;
+		/* End.DT4 behavior with NEXT-CSID flavor */
+		UDT4 udt4 = 15;
+		/* End.DT46 behavior with NEXT-CSID flavor */
+		UDT46 udt46 = 16;
+	}
+
+	/* Endpoint */
+	message End
+	{
+	}
+
+	/* Endpoint with L3 cross-connect */
+	message EndX
+	{
+		required Nexthop nexthop = 1;
+	}
+
+	/* Endpoint with specific IPv6 table lookup */
+	message EndT
+	{
+		required uint32 vrf_id = 1;
+	}
+
+	/* Endpoint with decapsulation and IPv6 cross-connect */
+	message EndDX6
+	{
+		required Nexthop nexthop = 1;
+	}
+
+	/* Endpoint with decapsulation and IPv4 cross-connect */
+	message EndDX4
+	{
+		required Nexthop nexthop = 1;
+	}
+
+	/* Endpoint with decapsulation and specific IPv6 table lookup */
+	message EndDT6
+	{
+		required uint32 vrf_id = 1;
+	}
+
+	/* Endpoint with decapsulation and specific IPv4 table lookup */
+	message EndDT4
+	{
+		required uint32 vrf_id = 1;
+	}
+
+	/* Endpoint with decapsulation and specific IP table lookup */
+	message EndDT46
+	{
+		required uint32 vrf_id = 1;
+	}
+
+	/* Endpoint behavior with NEXT-CSID, PSP and USD flavors */
+	message UN
+	{
+	}
+
+	/* End.X behavior with NEXT-CSID, PSP and USD flavors */
+	message UA
+	{
+		required Nexthop nexthop = 1;
+	}
+
+	/* End.DT6 behavior with NEXT-CSID flavor */
+	message UDT6
+	{
+		required uint32 vrf_id = 1;
+	}
+
+	/* End.DT4 behavior with NEXT-CSID flavor */
+	message UDT4
+	{
+		required uint32 vrf_id = 1;
+	}
+
+	/* End.DT46 behavior with NEXT-CSID flavor */
+	message UDT46
+	{
+		required uint32 vrf_id = 1;
+	}
 }
 
 //
@@ -82,10 +220,17 @@ message Message {
     UNKNOWN_MSG = 0;
     ADD_ROUTE = 1;
     DELETE_ROUTE = 2;
+    /* Install an SRv6 Local SID */
+    ADD_SRV6_LOCALSID = 3;
+    /* Remove an SRv6 Local SID */
+    DELETE_SRV6_LOCALSID = 4;
   };
 
   optional Type type = 1;
 
   optional AddRoute add_route = 2;
   optional DeleteRoute delete_route = 3;
+
+  /* SRv6 Local SID */
+  optional SRv6LocalSID srv6_localsid = 4;
 }

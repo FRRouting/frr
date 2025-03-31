@@ -107,23 +107,21 @@ static void nsm_timer_set(struct ospf_neighbor *nbr)
 	case NSM_Down:
 		EVENT_OFF(nbr->t_inactivity);
 		EVENT_OFF(nbr->t_hello_reply);
-	/* fallthru */
+		fallthrough;
 	case NSM_Attempt:
 	case NSM_Init:
 	case NSM_TwoWay:
 		EVENT_OFF(nbr->t_db_desc);
-		EVENT_OFF(nbr->t_ls_upd);
+		EVENT_OFF(nbr->t_ls_rxmt);
 		EVENT_OFF(nbr->t_ls_req);
 		break;
 	case NSM_ExStart:
 		OSPF_NSM_TIMER_ON(nbr->t_db_desc, ospf_db_desc_timer,
 				  nbr->v_db_desc);
-		EVENT_OFF(nbr->t_ls_upd);
+		EVENT_OFF(nbr->t_ls_rxmt);
 		EVENT_OFF(nbr->t_ls_req);
 		break;
 	case NSM_Exchange:
-		OSPF_NSM_TIMER_ON(nbr->t_ls_upd, ospf_ls_upd_timer,
-				  nbr->v_ls_upd);
 		if (!IS_SET_DD_MS(nbr->dd_flags))
 			EVENT_OFF(nbr->t_db_desc);
 		break;
@@ -166,7 +164,7 @@ static int nsm_hello_received(struct ospf_neighbor *nbr)
 	OSPF_NSM_TIMER_ON(nbr->t_inactivity, ospf_inactivity_timer,
 			  nbr->v_inactivity);
 
-	if (nbr->oi->type == OSPF_IFTYPE_NBMA && nbr->nbr_nbma)
+	if (OSPF_IF_NON_BROADCAST(nbr->oi) && nbr->nbr_nbma != NULL)
 		EVENT_OFF(nbr->nbr_nbma->t_poll);
 
 	/* Send proactive ARP requests */
@@ -219,7 +217,7 @@ static int ospf_db_summary_add(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 	case OSPF_OPAQUE_LINK_LSA:
 		/* Exclude type-9 LSAs that does not have the same "oi" with
 		 * "nbr". */
-		if (ospf_if_exists(lsa->oi) != nbr->oi)
+		if (lsa->oi != nbr->oi)
 			return 0;
 		break;
 	case OSPF_OPAQUE_AREA_LSA:
@@ -377,7 +375,7 @@ static int nsm_kill_nbr(struct ospf_neighbor *nbr)
 		return 0;
 	}
 
-	if (nbr->oi->type == OSPF_IFTYPE_NBMA && nbr->nbr_nbma != NULL) {
+	if (OSPF_IF_NON_BROADCAST(nbr->oi) && nbr->nbr_nbma != NULL) {
 		struct ospf_nbr_nbma *nbr_nbma = nbr->nbr_nbma;
 
 		nbr_nbma->nbr = NULL;

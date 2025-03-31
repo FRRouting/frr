@@ -9,14 +9,13 @@ import sys
 import time
 import json
 import math
-import time
 from lib.topolog import logger
 from lib.topotest import json_cmp
 
 
 # L utility functions
 #
-# These functions are inteneted to provide support for CI testing within MiniNet
+# These functions are intended to provide support for CI testing within MiniNet
 # environments.
 
 
@@ -129,7 +128,6 @@ Total %-4d                                                           %-4d %d\n\
         words = string.split()
         if len(words) < 1 or words[0].startswith("#"):
             return a
-        words = string.split()
         for word in words:
             if len(end) == 0:
                 a.append(word)
@@ -177,7 +175,17 @@ Total %-4d                                                           %-4d %d\n\
             self.log("unable to read: " + tstFile)
             sys.exit(1)
 
-    def command(self, target, command, regexp, op, result, returnJson, startt=None, force_result=False):
+    def command(
+        self,
+        target,
+        command,
+        regexp,
+        op,
+        result,
+        returnJson,
+        startt=None,
+        force_result=False,
+    ):
         global net
         if op == "jsoncmp_pass" or op == "jsoncmp_fail":
             returnJson = True
@@ -326,7 +334,9 @@ Total %-4d                                                           %-4d %d\n\
             if strict and (wait_count == 1):
                 force_result = True
 
-            found = self.command(target, command, regexp, op, result, returnJson, startt, force_result)
+            found = self.command(
+                target, command, regexp, op, result, returnJson, startt, force_result
+            )
             if found is not False:
                 break
 
@@ -341,6 +351,7 @@ Total %-4d                                                           %-4d %d\n\
 
 # initialized by luStart
 LUtil = None
+
 
 # entry calls
 def luStart(
@@ -454,6 +465,7 @@ def luShowFail():
     sf.close()
     if printed > 0:
         logger.error("See %s for details of errors" % LUtil.fout_name)
+
 
 #
 # Sets default wait type for luCommand(op="wait) (may be overridden by

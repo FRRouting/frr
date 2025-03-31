@@ -59,7 +59,7 @@ struct ldp_igp_sync_if_state {
 struct ldp_igp_sync_if_state_req {
 	int proto;
 	ifindex_t ifindex;
-	char name[INTERFACE_NAMSIZ];
+	char name[IFNAMSIZ];
 };
 
 #ifdef __cplusplus

@@ -17,14 +17,14 @@ test_ospf6_gr_topo1.py:
              | 1.1.1.1 |
              +---------+
                   |eth-rt2
-                  |
+                  |area 1
                   |eth-rt1
              +---------+
              |   RT2   |
              | 2.2.2.2 |
              +---------+
                   |eth-rt3
-                  |
+                  |area 0
                   |eth-rt2
              +---------+
              |   RT3   |
@@ -33,14 +33,14 @@ test_ospf6_gr_topo1.py:
           eth-rt4|  |eth-rt6
                  |  |
        +---------+  +--------+
-       |                     |
+       |area 0               |area 0
        |eth-rt3              |eth-rt3
   +---------+           +---------+
   |   RT4   |           |   RT6   |
   | 4.4.4.4 |           | 6.6.6.6 |
   +---------+           +---------+
        |eth-rt5              |eth-rt7
-       |                     |
+       |area 2               |area 3
        |eth-rt4              |eth-rt6
   +---------+           +---------+
   |   RT5   |           |   RT7   |
@@ -135,7 +135,7 @@ def setup_module(mod):
     tgen.start_router()
 
 
-def teardown_module(mod):
+def teardown_module():
     "Teardown the pytest environment"
     tgen = get_topogen()
 
@@ -153,7 +153,7 @@ def router_compare_json_output(rname, command, reference, tries):
     expected = json.loads(open(filename).read())
 
     test_func = partial(topotest.router_json_cmp, tgen.gears[rname], command, expected)
-    _, diff = topotest.run_and_expect(test_func, None, count=tries, wait=0.5)
+    _, diff = topotest.run_and_expect(test_func, None, count=tries, wait=1)
     assertmsg = '"{}" JSON output mismatches the expected result'.format(rname)
     assert diff is None, assertmsg
 
@@ -206,12 +206,12 @@ def check_routers(initial_convergence=False, exiting=None, restarting=None):
         # processing it.  Let's give it a few seconds to allow this to happen
         # under load.
         if initial_convergence == True:
-            tries = 240
+            tries = 120
         else:
             if restarting != None:
-                tries = 40
+                tries = 20
             else:
-                tries = 10
+                tries = 15
         router_compare_json_output(
             rname, "show ipv6 route ospf json", "show_ipv6_route.json", tries
         )
@@ -219,7 +219,7 @@ def check_routers(initial_convergence=False, exiting=None, restarting=None):
         # Check that all adjacencies are up and running (except when there's
         # an OSPF instance that is shutting down).
         if exiting == None:
-            tries = 240
+            tries = 120
             router_compare_json_output(
                 rname,
                 "show ipv6 ospf neighbor json",
@@ -231,9 +231,9 @@ def check_routers(initial_convergence=False, exiting=None, restarting=None):
         # In the restarting router, wait up to one minute for the LSDB to converge.
         if exiting != rname:
             if initial_convergence == True or restarting == rname:
-                tries = 240
+                tries = 120
             else:
-                tries = 10
+                tries = 15
             router_compare_json_output(
                 rname,
                 "show ipv6 ospf database json",
@@ -427,6 +427,144 @@ def test_gr_rt7():
     check_routers(exiting="rt7")
 
     start_router_daemons(tgen, "rt7", ["ospf6d"])
+    check_routers(restarting="rt7")
+
+
+#
+# Test rt1 performing an unplanned graceful restart
+#
+def test_unplanned_gr_rt1():
+    logger.info("Test: verify rt1 performing an unplanned graceful restart")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    kill_router_daemons(tgen, "rt1", ["ospf6d"], save_config=False)
+    start_router_daemons(tgen, "rt1", ["ospf6d"])
+
+    expect_grace_lsa(restarting="1.1.1.1", helper="rt2")
+    ensure_gr_is_in_zebra("rt1")
+    check_routers(restarting="rt1")
+
+
+#
+# Test rt2 performing an unplanned graceful restart
+#
+def test_unplanned_gr_rt2():
+    logger.info("Test: verify rt2 performing an unplanned graceful restart")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    kill_router_daemons(tgen, "rt2", ["ospf6d"], save_config=False)
+    start_router_daemons(tgen, "rt2", ["ospf6d"])
+
+    expect_grace_lsa(restarting="2.2.2.2", helper="rt1")
+    expect_grace_lsa(restarting="2.2.2.2", helper="rt3")
+    ensure_gr_is_in_zebra("rt2")
+    check_routers(restarting="rt2")
+
+
+#
+# Test rt3 performing an unplanned graceful restart
+#
+def test_unplanned_gr_rt3():
+    logger.info("Test: verify rt3 performing an unplanned graceful restart")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    kill_router_daemons(tgen, "rt3", ["ospf6d"], save_config=False)
+    start_router_daemons(tgen, "rt3", ["ospf6d"])
+
+    expect_grace_lsa(restarting="3.3.3.3", helper="rt2")
+    expect_grace_lsa(restarting="3.3.3.3", helper="rt4")
+    expect_grace_lsa(restarting="3.3.3.3", helper="rt6")
+    ensure_gr_is_in_zebra("rt3")
+    check_routers(restarting="rt3")
+
+
+#
+# Test rt4 performing an unplanned graceful restart
+#
+def test_unplanned_gr_rt4():
+    logger.info("Test: verify rt4 performing an unplanned graceful restart")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    kill_router_daemons(tgen, "rt4", ["ospf6d"], save_config=False)
+    start_router_daemons(tgen, "rt4", ["ospf6d"])
+
+    expect_grace_lsa(restarting="4.4.4.4", helper="rt3")
+    expect_grace_lsa(restarting="4.4.4.4", helper="rt5")
+    ensure_gr_is_in_zebra("rt4")
+    check_routers(restarting="rt4")
+
+
+#
+# Test rt5 performing an unplanned graceful restart
+#
+def test_unplanned_gr_rt5():
+    logger.info("Test: verify rt5 performing an unplanned graceful restart")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    kill_router_daemons(tgen, "rt5", ["ospf6d"], save_config=False)
+    start_router_daemons(tgen, "rt5", ["ospf6d"])
+
+    expect_grace_lsa(restarting="5.5.5.5", helper="rt4")
+    ensure_gr_is_in_zebra("rt5")
+    check_routers(restarting="rt5")
+
+
+#
+# Test rt6 performing an unplanned graceful restart
+#
+def test_unplanned_gr_rt6():
+    logger.info("Test: verify rt6 performing an unplanned graceful restart")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    kill_router_daemons(tgen, "rt6", ["ospf6d"], save_config=False)
+    start_router_daemons(tgen, "rt6", ["ospf6d"])
+
+    expect_grace_lsa(restarting="6.6.6.6", helper="rt3")
+    expect_grace_lsa(restarting="6.6.6.6", helper="rt7")
+    ensure_gr_is_in_zebra("rt6")
+    check_routers(restarting="rt6")
+
+
+#
+# Test rt7 performing an unplanned graceful restart
+#
+def test_unplanned_gr_rt7():
+    logger.info("Test: verify rt7 performing an unplanned graceful restart")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    kill_router_daemons(tgen, "rt7", ["ospf6d"], save_config=False)
+    start_router_daemons(tgen, "rt7", ["ospf6d"])
+
+    expect_grace_lsa(restarting="6.6.6.6", helper="rt6")
+    ensure_gr_is_in_zebra("rt7")
     check_routers(restarting="rt7")
 
 

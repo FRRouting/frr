@@ -27,8 +27,8 @@ static int lib_interface_vrrp_vrrp_group_create(struct nb_cb_create_args *args)
 	uint8_t version = 3;
 	struct vrrp_vrouter *vr;
 
-	vrid = yang_dnode_get_uint8(args->dnode, "./virtual-router-id");
-	version = yang_dnode_get_enum(args->dnode, "./version");
+	vrid = yang_dnode_get_uint8(args->dnode, "virtual-router-id");
+	version = yang_dnode_get_enum(args->dnode, "version");
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:

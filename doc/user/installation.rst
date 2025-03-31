@@ -3,22 +3,25 @@
    single: Installing FRR
    single: Building FRR
 
-.. _installation:
-
 Installation
 ============
 
-This section covers the basics of building, installing and setting up FRR.
+This section covers the basics of building, installing and setting up
+FRR.
 
+The official FRR website is located at |PACKAGE_URL| and contains further
+information, as well as links to additional resources.
 
 From Packages
 -------------
 
-The project publishes packages for Red Hat, Centos, Debian and Ubuntu on the
-`GitHub releases <https://github.com/FRRouting/frr/releases>`_. page. External
-contributors offer packages for many other platforms including \*BSD, Alpine,
-Gentoo, Docker, and others. There is currently no documentation on how to use
-those but we hope to add it soon.
+Up-to-date Debian & Redhat packages are available at
+https://deb.frrouting.org/ & https://rpm.frrouting.org/ respectively.
+
+Several distributions also provide packages for FRR. Check your
+distribution's repositories to find out if a suitable version is
+available.
+
 
 From Snapcraft
 --------------
@@ -29,12 +32,12 @@ universal Snap images, available at https://snapcraft.io/frr.
 From Source
 -----------
 
-Building FRR from source is the best way to ensure you have the latest features
-and bug fixes. Details for each supported platform, including dependency
-package listings, permissions, and other gotchas, are in the `developer's
-documentation
-<http://docs.frrouting.org/projects/dev-guide/en/latest/building.html>`_. This
-section provides a brief overview on the process.
+Building FRR from source is the best way to ensure you have the latest
+features and bug fixes. Details for each supported platform, including
+dependency package listings, permissions, and other gotchas, are in the
+`developer's documentation
+<http://docs.frrouting.org/projects/dev-guide/en/latest/building.html>`_.
+This section provides a brief overview on the process.
 
 
 Getting the Source
@@ -234,10 +237,9 @@ options from the list below.
    assigned to the realm. See the tc man page.  This option is currently not
    compatible with the usage of nexthop groups in the linux kernel itself.
 
-.. option:: --disable-irdp
+.. option:: --enable-irdp
 
-   Disable IRDP server support.  This is enabled by default if we have
-   both `struct in_pktinfo` and `struct icmphdr` available to us.
+   Enable IRDP server support. This is deprecated.
 
 .. option:: --disable-rtadv
 
@@ -275,6 +277,10 @@ options from the list below.
 
    Build with FPM module support.
 
+.. option:: --enable-fpm-listener
+
+   Build a small fpm listener for testing.
+
 .. option:: --with-service-timeout=X
 
    Set timeout value for FRR service. The time of restarting or reloading FRR
@@ -310,13 +316,6 @@ options from the list below.
    make these arrays at build time.  Additionally if this parameter is
    not passed in FRR will default to 16 ECMP.
 
-.. option:: --enable-shell-access
-
-   Turn on the ability of FRR to access some shell options( telnet/ssh/bash/etc. )
-   from vtysh itself.  This option is considered extremely unsecure and should only
-   be considered for usage if you really really know what you are doing.  This
-   option is deprecated and will be removed on Feb 1, 2024.
-
 .. option:: --enable-gcov
 
    Code coverage reports from gcov require adjustments to the C and LD flags.
@@ -329,11 +328,6 @@ options from the list below.
 .. option:: --enable-config-rollbacks
 
    Build with configuration rollback support. Requires SQLite3.
-
-.. option:: --enable-confd=<dir>
-
-   Build the ConfD northbound plugin. Look for the libconfd libs and headers
-   in `dir`.
 
 .. option:: --enable-sysrepo
 
@@ -350,20 +344,6 @@ options from the list below.
 .. option:: --with-libpam
 
    Use libpam for PAM support in vtysh.
-
-.. option:: --enable-time-check XXX
-
-   This option is deprecated as it was replaced by the
-   :clicmd:`service cputime-stats` CLI command, which may be adjusted at
-   runtime rather than being a compile-time setting.  See there for further
-   detail.
-
-.. option:: --disable-cpu-time
-
-   This option is deprecated as it was replaced by the
-   :clicmd:`service cputime-warning NNN` CLI command, which may be adjusted at
-   runtime rather than being a compile-time setting.  See there for further
-   detail.
 
 .. option:: --enable-pcreposix
 
@@ -390,19 +370,38 @@ and the configuration files in :file:`/usr/local/etc`. The :file:`/usr/local/`
 installation prefix and other directories may be changed using the following
 options to the configuration script.
 
+.. option:: --enable-ccls
+
+   Enable the creation of a :file:`.ccls` file in the top level source
+   directory.
+
+   Some development environments (e.g., LSP server within emacs, et al.) can
+   utilize :clicmd:`ccls` to provide highly sophisticated IDE features (e.g.,
+   semantically accurate jump-to definition/reference, and even code
+   refactoring). The `--enable-ccls` causes :file:`configure` to generate a
+   configuration for the :clicmd:`ccls` command, based on the configured
+   FRR build environment.
+
 .. option:: --prefix <prefix>
 
    Install architecture-independent files in `prefix` [/usr/local].
 
 .. option:: --sysconfdir <dir>
 
-   Look for configuration files in `dir` [`prefix`/etc]. Note that sample
-   configuration files will be installed here.
+   Look for configuration files in `dir`/frr [`prefix`/etc]. Note that sample
+   configuration files will be installed here.  Should be ``/etc`` unless
+   your platform splits package configuration locations.
 
 .. option:: --localstatedir <dir>
 
-   Configure zebra to use `dir` for local state files, such as pid files and
-   unix sockets.
+   Configure base directory for local state.  Indirectly controls
+   ``--runstatedir``.  Should be ``/var`` in most cases.
+
+.. option:: --runstatedir <dir>
+
+   Configure FRR to use `dir`/frr for local state files, such as pid files and
+   unix sockets.  Should be ``/var/run`` (default through ``--localstatedir``)
+   or ``/run`` in most cases.
 
 .. option:: --with-scriptdir <dir>
 
@@ -426,7 +425,12 @@ options to the configuration script.
 Python dependency, documentation and tests
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-FRR's documentation and basic unit tests heavily use code written in Python.
+FRR uses Python for these components:
+
+* configuration reloading (see :ref:`FRR-RELOAD <frr-reload>` for details),
+* documentation,
+* unit tests.
+
 Additionally, FRR ships Python extensions written in C which are used during
 its build process.
 
@@ -581,9 +585,9 @@ the options you chose:
 
    ./configure \
        --prefix=/usr \
-       --localstatedir=/var/run/frr \
+       --sysconfdir=/etc \
+       --localstatedir=/var \
        --sbindir=/usr/lib/frr \
-       --sysconfdir=/etc/frr \
        --enable-pimd \
        --enable-watchfrr \
        ...

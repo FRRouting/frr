@@ -480,7 +480,7 @@ static int ospf_ase_route_match_same(struct route_table *rt,
 
 	assert(or);
 
-	if (or->path_type != newor->path_type)
+	if (or->changed || (or->path_type != newor->path_type))
 		return 0;
 
 	switch (or->path_type) {
@@ -615,6 +615,7 @@ static void ospf_ase_calculate_timer(struct event *t)
 	 */
 	if (ospf->gr_info.finishing_restart) {
 		ospf_zebra_gr_disable(ospf);
+		ospf_zebra_gr_enable(ospf, ospf->gr_info.grace_period);
 		ospf->gr_info.finishing_restart = false;
 	}
 }

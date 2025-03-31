@@ -18,6 +18,7 @@ struct sharp_nh_tracker {
 };
 
 extern struct sharp_nh_tracker *sharp_nh_tracker_get(struct prefix *p);
+extern void sharp_nh_tracker_free(struct sharp_nh_tracker *nht);
 
 extern void sharp_nh_tracker_dump(struct vty *vty);
 

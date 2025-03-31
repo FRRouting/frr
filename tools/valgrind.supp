@@ -24,6 +24,15 @@
    fun:zprivs_caps_init
 }
 {
+   <zprivs_init leak in library code we do not control>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   ...
+   fun:getgrouplist
+   fun:zprivs_init
+   fun:frr_init
+}
+{
    <sqlite3 leak in a function we do not control>
    Memcheck:Leak
    fun:malloc

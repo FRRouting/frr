@@ -83,9 +83,8 @@ int ripng_offset_list_apply_in(struct ripng *ripng, struct prefix_ipv6 *p,
 		alist = access_list_lookup(AFI_IP6,
 					   OFFSET_LIST_IN_NAME(offset));
 
-		if (alist
-		    && access_list_apply(alist, (struct prefix *)p)
-			       == FILTER_PERMIT) {
+		if (alist && access_list_apply(alist, (struct prefix *)p) ==
+				     FILTER_PERMIT) {
 			*metric += OFFSET_LIST_IN_METRIC(offset);
 			return 1;
 		}
@@ -97,9 +96,8 @@ int ripng_offset_list_apply_in(struct ripng *ripng, struct prefix_ipv6 *p,
 		alist = access_list_lookup(AFI_IP6,
 					   OFFSET_LIST_IN_NAME(offset));
 
-		if (alist
-		    && access_list_apply(alist, (struct prefix *)p)
-			       == FILTER_PERMIT) {
+		if (alist && access_list_apply(alist, (struct prefix *)p) ==
+				     FILTER_PERMIT) {
 			*metric += OFFSET_LIST_IN_METRIC(offset);
 			return 1;
 		}
@@ -121,9 +119,8 @@ int ripng_offset_list_apply_out(struct ripng *ripng, struct prefix_ipv6 *p,
 		alist = access_list_lookup(AFI_IP6,
 					   OFFSET_LIST_OUT_NAME(offset));
 
-		if (alist
-		    && access_list_apply(alist, (struct prefix *)p)
-			       == FILTER_PERMIT) {
+		if (alist && access_list_apply(alist, (struct prefix *)p) ==
+				     FILTER_PERMIT) {
 			*metric += OFFSET_LIST_OUT_METRIC(offset);
 			return 1;
 		}
@@ -136,9 +133,8 @@ int ripng_offset_list_apply_out(struct ripng *ripng, struct prefix_ipv6 *p,
 		alist = access_list_lookup(AFI_IP6,
 					   OFFSET_LIST_OUT_NAME(offset));
 
-		if (alist
-		    && access_list_apply(alist, (struct prefix *)p)
-			       == FILTER_PERMIT) {
+		if (alist && access_list_apply(alist, (struct prefix *)p) ==
+				     FILTER_PERMIT) {
 			*metric += OFFSET_LIST_OUT_METRIC(offset);
 			return 1;
 		}

@@ -86,6 +86,23 @@ def scale_converge_protocols():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+    logger.info("Ensuring that Connected Routes are actually installed")
+    r1 = tgen.gears["r1"]
+    expected = {
+        "routes": [
+            {"fib": 32, "rib": 32, "type": "connected"},
+            {"fib": 32, "rib": 32, "type": "local"},
+        ],
+        "routesTotal": 64,
+        "routesTotalFib": 64,
+    }
+
+    test_func = partial(
+        topotest.router_json_cmp, r1, "show ip route summary json", expected
+    )
+    success, result = topotest.run_and_expect(test_func, None, 60, 1)
+    assert success, "Connected routes are not properly installed:\n{}".format(result)
+
 
 def run_one_setup(r1, s):
     "Run one ecmp config"
@@ -102,7 +119,11 @@ def run_one_setup(r1, s):
             count = d["rib"]
             break
 
-    logger.info("Testing {} routes X {} ecmp".format(count, s["ecmp"]))
+    logger.info(
+        "Testing {} routes X {} ecmp, waiting {} retries {}".format(
+            count, s["ecmp"], wait, retries
+        )
+    )
 
     r1.vtysh_cmd(
         "sharp install route 1.0.0.0 \
@@ -151,7 +172,7 @@ def route_install_helper(iter):
         logger.info(
             "Limited memory available: {}, skipping x32 testcase".format(total_mem)
         )
-        return;
+        return
 
     installed_file = "{}/r1/installed.routes.json".format(CWD)
     expected_installed = json.loads(open(installed_file).read())
@@ -165,7 +186,7 @@ def route_install_helper(iter):
 
     # Table of defaults, used for timeout values and 'expected' objects
     scale_defaults = dict(
-        zip(scale_keys, [None, None, 10, 50, expected_installed, expected_removed])
+        zip(scale_keys, [None, None, 10, 60, expected_installed, expected_removed])
     )
 
     # List of params for each step in the test; note extra time given
@@ -176,13 +197,12 @@ def route_install_helper(iter):
         [2, "two"],
         [4, "four"],
         [8, "eight"],
-        [16, "sixteen", 10, 40],
-        [32, "thirtytwo", 10, 40],
+        [16, "sixteen", 10, 80],
+        [32, "thirtytwo", 10, 80],
     ]
 
     # Build up a list of dicts with params for each step of the test;
     # use defaults where the step doesn't supply a value
-    scale_setups = []
     s = scale_steps[iter]
 
     d = dict(zip(scale_keys, s))

@@ -19,12 +19,6 @@
 #include "pim_iface.h"
 #include "pim_addr.h"
 
-#if PIM_IPV == 4
-#define PIM_MSG_ADDRESS_FAMILY PIM_MSG_ADDRESS_FAMILY_IPV4
-#else
-#define PIM_MSG_ADDRESS_FAMILY PIM_MSG_ADDRESS_FAMILY_IPV6
-#endif
-
 uint8_t *pim_tlv_append_uint16(uint8_t *buf, const uint8_t *buf_pastend,
 			       uint16_t option_type, uint16_t option_value)
 {
@@ -217,18 +211,17 @@ int pim_encode_addr_group(uint8_t *buf, afi_t afi, int bidir, int scope,
 uint8_t *pim_tlv_append_addrlist_ucast(uint8_t *buf, const uint8_t *buf_pastend,
 				       struct interface *ifp, int family)
 {
-	struct listnode *node;
 	uint16_t option_len = 0;
 	uint8_t *curr;
 	size_t uel;
-	struct list *ifconnected = ifp->connected;
+	struct connected *ifc;
 	struct pim_interface *pim_ifp = ifp->info;
 	pim_addr addr;
 
-	node = listhead(ifconnected);
+	ifc = if_connected_first(ifp->connected);
 
 	/* Empty address list ? */
-	if (!node) {
+	if (!ifc) {
 		return buf;
 	}
 
@@ -239,8 +232,7 @@ uint8_t *pim_tlv_append_addrlist_ucast(uint8_t *buf, const uint8_t *buf_pastend,
 
 	/* Scan secondary address list */
 	curr = buf + 4; /* skip T and L */
-	for (; node; node = listnextnode(node)) {
-		struct connected *ifc = listgetdata(node);
+	for (; ifc; ifc = if_connected_next(ifp->connected, ifc)) {
 		struct prefix *p = ifc->address;
 		int l_encode;
 

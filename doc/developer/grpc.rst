@@ -149,7 +149,6 @@ Below is how to compile and run the program, with the example output:
       ]
     },
     "frr-zebra:zebra": {
-      "mcast-rpf-lookup": "mrib-then-urib",
       "workqueue-hold-timer": 10,
       "zapi-packets": 1000,
       "import-kernel-table": {

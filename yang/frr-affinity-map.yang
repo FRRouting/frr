@@ -3,18 +3,6 @@ module frr-affinity-map {
   namespace "http://frrouting.org/yang/affinity-map";
   prefix frr-affinity-map;
 
-  import ietf-inet-types {
-    prefix inet;
-  }
-
-  import frr-filter {
-    prefix filter;
-  }
-
-  import frr-interface {
-    prefix frr-interface;
-  }
-
   organization
     "FRRouting";
   contact
@@ -51,14 +39,26 @@ module frr-affinity-map {
   revision 2022-11-03 {
     description
       "Initial revision";
+    reference "FRRouting";
+  }
+
+  typedef affinity-map-ref {
+    type leafref {
+      path "/frr-affinity-map:lib/frr-affinity-map:affinity-maps/frr-affinity-map:affinity-map/frr-affinity-map:name";
+      require-instance true;
+    }
+    description
+      "Reference to an affinity map";
   }
 
   container lib {
+    description "Affinity map library";
     container affinity-maps {
       description
         "Affinity Mapping Table";
       list affinity-map {
         key "name";
+        unique "value";
         description
           "Affinity Mapping configuration";
         leaf name {
@@ -72,6 +72,7 @@ module frr-affinity-map {
           type uint16 {
             range "0..1023";
           }
+          mandatory true;
           description
             "Bit position";
         }

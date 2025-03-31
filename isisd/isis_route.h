@@ -12,6 +12,7 @@
 #ifndef _ZEBRA_ISIS_ROUTE_H
 #define _ZEBRA_ISIS_ROUTE_H
 
+#include "lib/table.h"
 #include "lib/nexthop.h"
 
 struct isis_nexthop {

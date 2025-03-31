@@ -8,7 +8,7 @@
       "selected":true,
       "destSelected":true,
       "distance":110,
-      "metric":50,
+      "metric":40,
       "installed":true,
       "nexthops":[
         {
@@ -28,7 +28,7 @@
       "selected":true,
       "destSelected":true,
       "distance":110,
-      "metric":40,
+      "metric":30,
       "installed":true,
       "nexthops":[
         {
@@ -48,7 +48,7 @@
       "selected":true,
       "destSelected":true,
       "distance":110,
-      "metric":30,
+      "metric":20,
       "installed":true,
       "nexthops":[
         {
@@ -68,7 +68,7 @@
       "selected":true,
       "destSelected":true,
       "distance":110,
-      "metric":40,
+      "metric":30,
       "installed":true,
       "nexthops":[
         {
@@ -88,7 +88,7 @@
       "selected":true,
       "destSelected":true,
       "distance":110,
-      "metric":50,
+      "metric":40,
       "installed":true,
       "nexthops":[
         {
@@ -108,7 +108,7 @@
       "selected":true,
       "destSelected":true,
       "distance":110,
-      "metric":20,
+      "metric":10,
       "installed":true,
       "nexthops":[
         {
@@ -126,7 +126,7 @@
       "vrfId":0,
       "vrfName":"default",
       "distance":110,
-      "metric":10,
+      "metric":0,
       "nexthops":[
         {
           "directlyConnected":true,

@@ -19,6 +19,7 @@
 #include "isisd/isis_pdu_counter.h"
 #include "isisd/isis_circuit.h"
 #include "isisd/isis_sr.h"
+#include "isisd/isis_srv6.h"
 #include "isis_flags.h"
 #include "isis_lsp.h"
 #include "isis_lfa.h"
@@ -55,6 +56,7 @@ static const bool fabricd = false;
 extern void isis_cli_init(void);
 #endif
 
+
 #define ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf)             \
 	if (argv_find(argv, argc, "vrf", &idx_vrf)) {                          \
 		vrf_name = argv[idx_vrf + 1]->arg;                             \
@@ -73,9 +75,11 @@ struct isis_master {
 	struct list *isis;
 	/* ISIS thread master. */
 	struct event_loop *master;
+	/* Various global options */
 	uint8_t options;
+#define F_ISIS_UNIT_TEST	   (1 << 0)
+#define ISIS_OPT_DUMMY_AS_LOOPBACK (1 << 1)
 };
-#define F_ISIS_UNIT_TEST 0x01
 
 #define ISIS_DEFAULT_MAX_AREA_ADDRESSES 3
 
@@ -208,6 +212,8 @@ struct isis_area {
 	struct mpls_te_area *mta;
 	/* Segment Routing information */
 	struct isis_sr_db srdb;
+	/* Segment Routing over IPv6 (SRv6) information */
+	struct isis_srv6_db srv6db;
 	int ipv6_circuits;
 	bool purge_originator;
 	/* SPF prefix priorities. */
@@ -230,8 +236,8 @@ struct isis_area {
 #endif /* ifndef FABRICD */
 	/* Counters */
 	uint32_t circuit_state_changes;
-	struct isis_redist redist_settings[REDIST_PROTOCOL_COUNT]
-					  [ZEBRA_ROUTE_MAX + 1][ISIS_LEVELS];
+	struct list *redist_settings[REDIST_PROTOCOL_COUNT][ZEBRA_ROUTE_MAX + 1]
+				    [ISIS_LEVELS];
 	struct route_table *ext_reach[REDIST_PROTOCOL_COUNT][ISIS_LEVELS];
 
 	struct spf_backoff *spf_delay_ietf[ISIS_LEVELS]; /*Structure with IETF
@@ -265,6 +271,9 @@ DECLARE_HOOK(isis_area_overload_bit_update, (struct isis_area * area), (area));
 
 void isis_terminate(void);
 void isis_master_init(struct event_loop *master);
+void isis_master_terminate(void);
+int isis_option_set(int flag);
+int isis_option_check(int flag);
 void isis_vrf_link(struct isis *isis, struct vrf *vrf);
 void isis_vrf_unlink(struct isis *isis, struct vrf *vrf);
 struct isis *isis_lookup_by_vrfid(vrf_id_t vrf_id);
@@ -282,10 +291,12 @@ void isis_area_add_circuit(struct isis_area *area,
 void isis_area_del_circuit(struct isis_area *area,
 			   struct isis_circuit *circuit);
 
+void isis_area_address_delete(void *arg);
 struct isis_area *isis_area_create(const char *, const char *);
 struct isis_area *isis_area_lookup(const char *, vrf_id_t vrf_id);
 struct isis_area *isis_area_lookup_by_vrf(const char *area_tag,
 					  const char *vrf_name);
+struct isis_area *isis_area_lookup_by_sysid(const uint8_t *sysid);
 int isis_area_get(struct vty *vty, const char *area_tag);
 void isis_area_destroy(struct isis_area *area);
 void isis_filter_update(struct access_list *access);
@@ -339,6 +350,7 @@ void config_end_lsp_generate(struct isis_area *area);
 /* YANG paths */
 #define ISIS_INSTANCE	"/frr-isisd:isis/instance"
 #define ISIS_SR		"/frr-isisd:isis/instance/segment-routing"
+#define ISIS_SRV6	"/frr-isisd:isis/instance/segment-routing-srv6"
 
 /* Master of threads. */
 extern struct event_loop *master;

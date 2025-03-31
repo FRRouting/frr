@@ -67,6 +67,14 @@ enum ospf_apiserver_event {
 };
 
 /* -----------------------------------------------------------
+ * External definitions for OSPF API ospfd parameters.
+ * -----------------------------------------------------------
+ */
+
+extern int ospf_apiserver_enable;
+extern struct in_addr ospf_apiserver_addr;
+
+/* -----------------------------------------------------------
  * Following are functions to manage client connections.
  * -----------------------------------------------------------
  */

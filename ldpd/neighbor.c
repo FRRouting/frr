@@ -19,10 +19,8 @@ DEFINE_HOOK(ldp_nbr_state_change, (struct nbr * nbr, int old_state),
 	    (nbr, old_state));
 
 static __inline int	 nbr_id_compare(const struct nbr *, const struct nbr *);
-static __inline int	 nbr_addr_compare(const struct nbr *,
-			    const struct nbr *);
-static __inline int	 nbr_pid_compare(const struct nbr *,
-			    const struct nbr *);
+static __inline int	 nbr_addr_compare(const struct nbr *, const struct nbr *);
+static __inline int	 nbr_pid_compare(const struct nbr *, const struct nbr *);
 static void		 nbr_update_peerid(struct nbr *);
 static void nbr_ktimer(struct event *thread);
 static void		 nbr_start_ktimer(struct nbr *);
@@ -127,7 +125,7 @@ nbr_fsm(struct nbr *nbr, enum nbr_event event)
 
 	old_state = nbr->state;
 	for (i = 0; nbr_fsm_tbl[i].state != -1; i++)
-		if ((nbr_fsm_tbl[i].state & old_state) &&
+		if (CHECK_FLAG(nbr_fsm_tbl[i].state, old_state) &&
 		    (nbr_fsm_tbl[i].event == event)) {
 			new_state = nbr_fsm_tbl[i].new_state;
 			break;
@@ -196,8 +194,7 @@ nbr_fsm(struct nbr *nbr, enum nbr_event event)
 		send_keepalive(nbr);
 		break;
 	case NBR_ACT_CLOSE_SESSION:
-		ldpe_imsg_compose_lde(IMSG_NEIGHBOR_DOWN, nbr->peerid, 0,
-		    NULL, 0);
+		ldpe_imsg_compose_lde(IMSG_NEIGHBOR_DOWN, nbr->peerid, 0, NULL, 0);
 		session_close(nbr);
 		break;
 	case NBR_ACT_NOTHING:
@@ -508,21 +505,12 @@ nbr_start_idtimer(struct nbr *nbr)
 {
 	int	secs;
 
-	secs = INIT_DELAY_TMR;
-	switch(nbr->idtimer_cnt) {
-	default:
+	if (nbr->idtimer_cnt > 2) {
 		/* do not further increase the counter */
 		secs = MAX_DELAY_TMR;
-		break;
-	case 2:
-		secs *= 2;
-		/* FALLTHROUGH */
-	case 1:
-		secs *= 2;
-		/* FALLTHROUGH */
-	case 0:
+	} else {
+		secs = INIT_DELAY_TMR * (1 << nbr->idtimer_cnt);
 		nbr->idtimer_cnt++;
-		break;
 	}
 
 	EVENT_OFF(nbr->initdelay_timer);
@@ -606,8 +594,7 @@ nbr_establish_connection(struct nbr *nbr)
 			return (-1);
 		}
 #else
-		sock_set_md5sig(nbr->fd, nbr->af, &nbr->raddr,
-		    nbrp->auth.md5key);
+		sock_set_md5sig(nbr->fd, nbr->af, &nbr->raddr, nbrp->auth.md5key);
 #endif
 	}
 
@@ -646,8 +633,7 @@ nbr_establish_connection(struct nbr *nbr)
 		send_hello(adj->source.type, adj->source.link.ia,
 		    adj->source.target);
 
-	if (connect(nbr->fd, &remote_su.sa, sockaddr_len(&remote_su.sa))
-	    == -1) {
+	if (connect(nbr->fd, &remote_su.sa, sockaddr_len(&remote_su.sa)) == -1) {
 		if (errno == EINPROGRESS) {
 			event_add_write(master, nbr_connect_cb, nbr, nbr->fd,
 					&nbr->ev_connect);
@@ -674,14 +660,14 @@ nbr_gtsm_enabled(struct nbr *nbr, struct nbr_params *nbrp)
 	 * statically (e.g., via configuration) and/or dynamically override the
 	 * default behavior and enable/disable GTSM on a per-peer basis".
 	 */
-	if (nbrp && (nbrp->flags & F_NBRP_GTSM))
+	if (nbrp && CHECK_FLAG(nbrp->flags, F_NBRP_GTSM))
 		return (nbrp->gtsm_enabled);
 
-	if ((ldp_af_conf_get(leconf, nbr->af))->flags & F_LDPD_AF_NO_GTSM)
+	if (CHECK_FLAG((ldp_af_conf_get(leconf, nbr->af))->flags, F_LDPD_AF_NO_GTSM))
 		return (0);
 
 	/* By default, GTSM support has to be negotiated for LDPv4 */
-	if (nbr->af == AF_INET && !(nbr->flags & F_NBR_GTSM_NEGOTIATED))
+	if (nbr->af == AF_INET && !CHECK_FLAG(nbr->flags, F_NBR_GTSM_NEGOTIATED))
 		return (0);
 
 	return (1);
@@ -692,8 +678,20 @@ nbr_gtsm_setup(int fd, int af, struct nbr_params *nbrp)
 {
 	int	 ttl = 255;
 
-	if (nbrp && (nbrp->flags & F_NBRP_GTSM_HOPS))
+	if (nbrp && CHECK_FLAG(nbrp->flags, F_NBRP_GTSM_HOPS))
 		ttl = 256 - nbrp->gtsm_hops;
+
+	/*
+	 * In linux networking stack, the received mpls packets
+	 * will be processed by the host twice, one as mpls packet,
+	 * the other as ip packet, so its ttl will be decreased 1.
+	 * This behavior is based on the new kernel (5.10 and 6.1),
+	 * and older versions may behave differently.
+	 *
+	 * Here, decrease 1 for IP_MINTTL if GTSM is enabled.
+	 * And this workaround makes the GTSM mechanism a bit deviation.
+	 */
+	ttl -= 1;
 
 	switch (af) {
 	case AF_INET:
@@ -740,8 +738,7 @@ nbr_gtsm_check(int fd, struct nbr *nbr, struct nbr_params *nbrp)
 	}
 
 	if (nbr_gtsm_setup(fd, nbr->af, nbrp) == -1) {
-		log_warnx("%s: error enabling GTSM for lsr-id %pI4", __func__,
-		    &nbr->id);
+		log_warnx("%s: error enabling GTSM for lsr-id %pI4", __func__, &nbr->id);
 		return (-1);
 	}
 
@@ -772,8 +769,7 @@ nbr_act_session_operational(struct nbr *nbr)
 static void
 nbr_send_labelmappings(struct nbr *nbr)
 {
-	ldpe_imsg_compose_lde(IMSG_LABEL_MAPPING_FULL, nbr->peerid, 0,
-	    NULL, 0);
+	ldpe_imsg_compose_lde(IMSG_LABEL_MAPPING_FULL, nbr->peerid, 0, NULL, 0);
 }
 
 static __inline int
@@ -810,7 +806,7 @@ nbr_get_keepalive(int af, struct in_addr lsr_id)
 	struct nbr_params	*nbrp;
 
 	nbrp = nbr_params_find(leconf, lsr_id);
-	if (nbrp && (nbrp->flags & F_NBRP_KEEPALIVE))
+	if (nbrp && CHECK_FLAG(nbrp->flags, F_NBRP_KEEPALIVE))
 		return (nbrp->keepalive);
 
 	return ((ldp_af_conf_get(leconf, af))->keepalive);
@@ -834,8 +830,7 @@ nbr_to_ctl(struct nbr *nbr)
 	nctl.stats = nbr->stats;
 	nctl.flags = nbr->flags;
 	nctl.max_pdu_len = nbr->max_pdu_len;
-	nctl.hold_time_remaining =
-		event_timer_remain_second(nbr->keepalive_timer);
+	nctl.hold_time_remaining = event_timer_remain_second(nbr->keepalive_timer);
 
 	gettimeofday(&now, NULL);
 	if (nbr->state == NBR_STA_OPER) {

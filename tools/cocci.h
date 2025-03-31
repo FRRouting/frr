@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 /* some of this stuff doesn't seem to parse properly in coccinelle
  */
 

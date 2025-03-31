@@ -34,17 +34,6 @@ RB_HEAD(zebra_router_table_head, zebra_router_table);
 RB_PROTOTYPE(zebra_router_table_head, zebra_router_table,
 	     zebra_router_table_entry, zebra_router_table_entry_compare)
 
-/* RPF lookup behaviour */
-enum multicast_mode {
-	MCAST_NO_CONFIG = 0,  /* MIX_MRIB_FIRST, but no show in config write */
-	MCAST_MRIB_ONLY,      /* MRIB only */
-	MCAST_URIB_ONLY,      /* URIB only */
-	MCAST_MIX_MRIB_FIRST, /* MRIB, if nothing at all then URIB */
-	MCAST_MIX_DISTANCE,   /* MRIB & URIB, lower distance wins */
-	MCAST_MIX_PFXLEN,     /* MRIB & URIB, longer prefix wins */
-			      /* on equal value, MRIB wins for last 2 */
-};
-
 /* An interface can be error-disabled if a protocol (such as EVPN or
  * VRRP) detects a problem with keeping it operationally-up.
  * If any of the protodown bits are set protodown-on is programmed
@@ -123,17 +112,24 @@ struct zebra_mlag_info {
 	struct event *t_write;
 };
 
+#define RTADV_TIMER_WHEEL_PERIOD_MS 1000
+#define RTADV_TIMER_WHEEL_SLOTS_NO  100
+#define ICMPV6_JOIN_TIMER_EXP_MS    100
+
 struct zebra_router {
 	atomic_bool in_shutdown;
 
 	/* Thread master */
 	struct event_loop *master;
 
+	/* Wheel to process V6 RA update */
+	struct timer_wheel *ra_wheel;
+
 	/* Lists of clients who have connected to us */
-	struct list *client_list;
+	struct zserv_client_list_head client_list;
 
 	/* List of clients in GR */
-	struct list *stale_client_list;
+	struct zserv_stale_client_list_head stale_client_list;
 
 	struct zebra_router_table_head tables;
 
@@ -187,14 +183,17 @@ struct zebra_router {
 
 	uint32_t multipath_num;
 
-	/* RPF Lookup behavior */
-	enum multicast_mode ipv4_multicast_mode;
-
 	/*
-	 * Time for when we sweep the rib from old routes
+	 * zebra start time and time of sweeping RIB of old routes
 	 */
 	time_t startup_time;
-	struct event *sweeper;
+	time_t rib_sweep_time;
+
+	/* FRR fast/graceful restart info */
+	bool graceful_restart;
+	int gr_cleanup_time;
+#define ZEBRA_GR_DEFAULT_RIB_SWEEP_TIME 500
+	struct event *t_rib_sweep;
 
 	/*
 	 * The hash of nexthop groups associated with this router
@@ -207,6 +206,9 @@ struct zebra_router {
 	 */
 	bool asic_offloaded;
 	bool notify_on_ack;
+	bool v6_with_v4_nexthop;
+
+	bool v6_rr_semantics;
 
 	/*
 	 * If the asic is notifying us about successful nexthop
@@ -228,6 +230,10 @@ struct zebra_router {
 
 	/* Should we allow non FRR processes to delete our routes */
 	bool allow_delete;
+
+	uint8_t protodown_r_bit;
+
+	uint64_t nexthop_weight_scale_value;
 };
 
 #define GRACEFUL_RESTART_TIME 60
@@ -235,13 +241,17 @@ struct zebra_router {
 extern struct zebra_router zrouter;
 extern uint32_t rcvbufsize;
 
-extern void zebra_router_init(bool asic_offload, bool notify_on_ack);
+extern void zebra_router_init(bool asic_offload, bool notify_on_ack,
+			      bool v6_with_v4_nexthop);
 extern void zebra_router_cleanup(void);
 extern void zebra_router_terminate(void);
 
 extern struct zebra_router_table *zebra_router_find_zrt(struct zebra_vrf *zvrf,
 							uint32_t tableid,
 							afi_t afi, safi_t safi);
+extern struct zebra_router_table *
+zebra_router_find_next_zrt(struct zebra_vrf *zvrf, uint32_t tableid, afi_t afi,
+			   safi_t safi);
 extern struct route_table *zebra_router_find_table(struct zebra_vrf *zvrf,
 						   uint32_t tableid, afi_t afi,
 						   safi_t safi);
@@ -270,10 +280,6 @@ static inline struct zebra_vrf *zebra_vrf_get_evpn(void)
 			        : zebra_vrf_lookup_by_id(VRF_DEFAULT);
 }
 
-extern void multicast_mode_ipv4_set(enum multicast_mode mode);
-
-extern enum multicast_mode multicast_mode_ipv4_get(void);
-
 extern bool zebra_router_notify_on_ack(void);
 
 static inline void zebra_router_set_supports_nhgs(bool support)
@@ -285,6 +291,34 @@ static inline bool zebra_router_in_shutdown(void)
 {
 	return atomic_load_explicit(&zrouter.in_shutdown, memory_order_relaxed);
 }
+
+#define FRR_PROTODOWN_REASON_DEFAULT_BIT 7
+/* Protodown bit setter/getter
+ *
+ * Allow users to change the bit if it conflicts with another
+ * on their system.
+ */
+static inline void if_netlink_set_frr_protodown_r_bit(uint8_t bit)
+{
+	zrouter.protodown_r_bit = bit;
+}
+
+static inline void if_netlink_unset_frr_protodown_r_bit(void)
+{
+	zrouter.protodown_r_bit = FRR_PROTODOWN_REASON_DEFAULT_BIT;
+}
+
+static inline bool if_netlink_frr_protodown_r_bit_is_set(void)
+{
+	return (zrouter.protodown_r_bit != FRR_PROTODOWN_REASON_DEFAULT_BIT);
+}
+
+static inline uint8_t if_netlink_get_frr_protodown_r_bit(void)
+{
+	return zrouter.protodown_r_bit;
+}
+
+extern void zebra_main_router_started(void);
 
 /* zebra_northbound.c */
 extern const struct frr_yang_module_info frr_zebra_info;

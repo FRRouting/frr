@@ -7,7 +7,10 @@
 #ifndef _FRR_RIPNG_NB_H_
 #define _FRR_RIPNG_NB_H_
 
+#include "northbound.h"
+
 extern const struct frr_yang_module_info frr_ripngd_info;
+extern const struct frr_yang_module_info frr_ripngd_cli_info;
 
 /* Mandatory callbacks. */
 int ripngd_instance_create(struct nb_cb_create_args *args);
@@ -30,6 +33,8 @@ int ripngd_instance_offset_list_access_list_modify(
 int ripngd_instance_offset_list_metric_modify(struct nb_cb_modify_args *args);
 int ripngd_instance_passive_interface_create(struct nb_cb_create_args *args);
 int ripngd_instance_passive_interface_destroy(struct nb_cb_destroy_args *args);
+int ripngd_instance_distribute_list_create(struct nb_cb_create_args *args);
+int ripngd_instance_distribute_list_destroy(struct nb_cb_destroy_args *args);
 int ripngd_instance_redistribute_create(struct nb_cb_create_args *args);
 int ripngd_instance_redistribute_destroy(struct nb_cb_destroy_args *args);
 int ripngd_instance_redistribute_route_map_modify(
@@ -102,6 +107,7 @@ void ripngd_instance_timers_apply_finish(struct nb_cb_apply_finish_args *args);
 /* Optional 'cli_show' callbacks. */
 void cli_show_router_ripng(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults);
+void cli_show_end_router_ripng(struct vty *vty, const struct lyd_node *dnode);
 void cli_show_ripng_allow_ecmp(struct vty *vty, const struct lyd_node *dnode,
 			       bool show_defaults);
 void cli_show_ripng_default_information_originate(struct vty *vty,
@@ -133,5 +139,7 @@ void cli_show_ripng_timers(struct vty *vty, const struct lyd_node *dnode,
 void cli_show_ipv6_ripng_split_horizon(struct vty *vty,
 				       const struct lyd_node *dnode,
 				       bool show_defaults);
+
+extern void ripng_cli_init(void);
 
 #endif /* _FRR_RIPNG_NB_H_ */

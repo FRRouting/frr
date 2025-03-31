@@ -15,7 +15,6 @@
 #include "linklist.h"
 #include "skiplist.h"
 #include "workqueue.h"
-#include "zclient.h"
 #include "mpls.h"
 
 #include "bgpd/bgpd.h"
@@ -23,21 +22,21 @@
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_errors.h"
 #include "bgpd/bgp_route.h"
+#include "bgpd/bgp_zebra.h"
+#include "bgpd/bgp_vty.h"
+#include "bgpd/bgp_rd.h"
 
 #define BGP_LABELPOOL_ENABLE_TESTS 0
 
 #include "bgpd/bgp_labelpool_clippy.c"
 
 
-/*
- * Definitions and external declarations.
- */
-extern struct zclient *zclient;
-
 #if BGP_LABELPOOL_ENABLE_TESTS
 static void lptest_init(void);
 static void lptest_finish(void);
 #endif
+
+static void bgp_sync_label_manager(struct event *e);
 
 /*
  * Remember where pool data are kept
@@ -78,6 +77,7 @@ struct lp_lcb {
 	mpls_label_t	label;		/* MPLS_LABEL_NONE = not allocated */
 	int		type;
 	void		*labelid;	/* unique ID */
+	vrf_id_t	vrf_id;
 	/*
 	 * callback for label allocation and loss
 	 *
@@ -98,6 +98,7 @@ struct lp_cbq_item {
 	int		type;
 	mpls_label_t	label;
 	void		*labelid;
+	vrf_id_t	vrf_id;
 	bool		allocated;	/* false = lost */
 };
 
@@ -106,6 +107,7 @@ static wq_item_status lp_cbq_docallback(struct work_queue *wq, void *data)
 	struct lp_cbq_item *lcbq = data;
 	int rc;
 	int debug = BGP_DEBUG(labelpool, LABELPOOL);
+	struct bgp *bgp = bgp_lookup_by_vrf_id(lcbq->vrf_id);
 
 	if (debug)
 		zlog_debug("%s: calling callback with labelid=%p label=%u allocated=%d",
@@ -117,6 +119,9 @@ static wq_item_status lp_cbq_docallback(struct work_queue *wq, void *data)
 			 __func__);
 		return WQ_SUCCESS;
 	}
+
+	if (!bgp)
+		return WQ_SUCCESS;
 
 	rc = (*(lcbq->cbfunc))(lcbq->label, lcbq->labelid, lcbq->allocated);
 
@@ -220,6 +225,8 @@ void bgp_lp_finish(void)
 {
 	struct lp_fifo *lf;
 	struct work_queue_item *item, *titem;
+	struct listnode *node;
+	struct lp_chunk *chunk;
 
 #if BGP_LABELPOOL_ENABLE_TESTS
 	lptest_finish();
@@ -232,6 +239,9 @@ void bgp_lp_finish(void)
 
 	skiplist_free(lp->inuse);
 	lp->inuse = NULL;
+
+	for (ALL_LIST_ELEMENTS_RO(lp->chunks, node, chunk))
+		bgp_zebra_release_label_range(chunk->first, chunk->last);
 
 	list_delete(&lp->chunks);
 
@@ -316,10 +326,8 @@ static mpls_label_t get_label_from_pool(void *labelid)
 /*
  * Success indicated by value of "label" field in returned LCB
  */
-static struct lp_lcb *lcb_alloc(
-	int	type,
-	void	*labelid,
-	int	(*cbfunc)(mpls_label_t label, void *labelid, bool allocated))
+static struct lp_lcb *lcb_alloc(int type, void *labelid, vrf_id_t vrf_id,
+				int (*cbfunc)(mpls_label_t label, void *labelid, bool allocated))
 {
 	/*
 	 * Set up label control block
@@ -330,6 +338,7 @@ static struct lp_lcb *lcb_alloc(
 	new->label = get_label_from_pool(labelid);
 	new->type = type;
 	new->labelid = labelid;
+	new->vrf_id = vrf_id;
 	new->cbfunc = cbfunc;
 
 	return new;
@@ -361,10 +370,8 @@ static struct lp_lcb *lcb_alloc(
  * Prior requests for a given labelid are detected so that requests and
  * assignments are not duplicated.
  */
-void bgp_lp_get(
-	int	type,
-	void	*labelid,
-	int	(*cbfunc)(mpls_label_t label, void *labelid, bool allocated))
+void bgp_lp_get(int type, void *labelid, vrf_id_t vrf_id,
+		int (*cbfunc)(mpls_label_t label, void *labelid, bool allocated))
 {
 	struct lp_lcb *lcb;
 	int requested = 0;
@@ -379,7 +386,7 @@ void bgp_lp_get(
 	if (!skiplist_search(lp->ledger, labelid, (void **)&lcb)) {
 		requested = 1;
 	} else {
-		lcb = lcb_alloc(type, labelid, cbfunc);
+		lcb = lcb_alloc(type, labelid, vrf_id, cbfunc);
 		if (debug)
 			zlog_debug("%s: inserting lcb=%p label=%u",
 				__func__, lcb, lcb->label);
@@ -409,6 +416,7 @@ void bgp_lp_get(
 		q->type = lcb->type;
 		q->label = lcb->label;
 		q->labelid = lcb->labelid;
+		q->vrf_id = lcb->vrf_id;
 		q->allocated = true;
 
 		/* if this is a LU request, lock node before queueing */
@@ -445,16 +453,17 @@ void bgp_lp_get(
 	lp_fifo_add_tail(&lp->requests, lf);
 
 	if (lp_fifo_count(&lp->requests) > lp->pending_count) {
-		if (!zclient || zclient->sock < 0)
+		if (!bgp_zebra_request_label_range(MPLS_LABEL_BASE_ANY,
+						   lp->next_chunksize, true))
 			return;
-		if (zclient_send_get_label_chunk(zclient, 0, lp->next_chunksize,
-						 MPLS_LABEL_BASE_ANY) !=
-		    ZCLIENT_SEND_FAILURE) {
-			lp->pending_count += lp->next_chunksize;
-			if ((lp->next_chunksize << 1) <= LP_CHUNK_SIZE_MAX)
-				lp->next_chunksize <<= 1;
-		}
+
+		lp->pending_count += lp->next_chunksize;
+		if ((lp->next_chunksize << 1) <= LP_CHUNK_SIZE_MAX)
+			lp->next_chunksize <<= 1;
 	}
+
+	event_add_timer(bm->master, bgp_sync_label_manager, NULL, 1,
+			&bm->t_bgp_sync_label_manager);
 }
 
 void bgp_lp_release(
@@ -494,20 +503,104 @@ void bgp_lp_release(
 				bf_release_index(chunk->allocated_map, index);
 				chunk->nfree += 1;
 				deallocated = true;
+				break;
 			}
 			assert(deallocated);
+			if (deallocated &&
+			    chunk->nfree == chunk->last - chunk->first + 1 &&
+			    lp_fifo_count(&lp->requests) == 0) {
+				bgp_zebra_release_label_range(chunk->first,
+							      chunk->last);
+				list_delete_node(lp->chunks, node);
+				lp_chunk_free(chunk);
+				lp->next_chunksize = LP_CHUNK_SIZE_MIN;
+			}
 		}
 	}
 }
 
-/*
- * zebra response giving us a chunk of labels
- */
-void bgp_lp_event_chunk(uint8_t keep, uint32_t first, uint32_t last)
+static void bgp_sync_label_manager(struct event *e)
 {
-	struct lp_chunk *chunk;
 	int debug = BGP_DEBUG(labelpool, LABELPOOL);
 	struct lp_fifo *lf;
+
+	while ((lf = lp_fifo_pop(&lp->requests))) {
+		struct lp_lcb *lcb;
+		void *labelid = lf->lcb.labelid;
+
+		if (skiplist_search(lp->ledger, labelid, (void **)&lcb)) {
+			/* request no longer in effect */
+
+			if (debug) {
+				zlog_debug("%s: labelid %p: request no longer in effect",
+					   __func__, labelid);
+			}
+			/* if this was a BGP_LU request, unlock node
+			 */
+			check_bgp_lu_cb_unlock(lcb);
+			goto finishedrequest;
+		}
+
+		/* have LCB */
+		if (lcb->label != MPLS_LABEL_NONE) {
+			/* request already has a label */
+			if (debug) {
+				zlog_debug("%s: labelid %p: request already has a label: %u=0x%x, lcb=%p",
+					   __func__, labelid, lcb->label,
+					   lcb->label, lcb);
+			}
+			/* if this was a BGP_LU request, unlock node
+			 */
+			check_bgp_lu_cb_unlock(lcb);
+
+			goto finishedrequest;
+		}
+
+		lcb->label = get_label_from_pool(lcb->labelid);
+
+		if (lcb->label == MPLS_LABEL_NONE) {
+			/*
+			 * Out of labels in local pool, await next chunk
+			 */
+			if (debug) {
+				zlog_debug("%s: out of labels, await more",
+					   __func__);
+			}
+
+			lp_fifo_add_tail(&lp->requests, lf);
+			event_add_timer(bm->master, bgp_sync_label_manager,
+					NULL, 1, &bm->t_bgp_sync_label_manager);
+			break;
+		}
+
+		/*
+		 * we filled the request from local pool.
+		 * Enqueue response work item with new label.
+		 */
+		struct lp_cbq_item *q = XCALLOC(MTYPE_BGP_LABEL_CBQ,
+						sizeof(struct lp_cbq_item));
+
+		q->cbfunc = lcb->cbfunc;
+		q->type = lcb->type;
+		q->label = lcb->label;
+		q->labelid = lcb->labelid;
+		q->vrf_id = lcb->vrf_id;
+		q->allocated = true;
+
+		if (debug)
+			zlog_debug("%s: assigning label %u to labelid %p",
+				   __func__, q->label, q->labelid);
+
+		work_queue_add(lp->callback_q, q);
+
+finishedrequest:
+		XFREE(MTYPE_BGP_LABEL_FIFO, lf);
+	}
+}
+
+void bgp_lp_event_chunk(uint32_t first, uint32_t last)
+{
+	struct lp_chunk *chunk;
 	uint32_t labelcount;
 
 	if (last < first) {
@@ -533,83 +626,6 @@ void bgp_lp_event_chunk(uint8_t keep, uint32_t first, uint32_t last)
 	listnode_add_head(lp->chunks, chunk);
 
 	lp->pending_count -= labelcount;
-
-	if (debug) {
-		zlog_debug("%s: %zu pending requests", __func__,
-			lp_fifo_count(&lp->requests));
-	}
-
-	while (labelcount && (lf = lp_fifo_first(&lp->requests))) {
-
-		struct lp_lcb *lcb;
-		void *labelid = lf->lcb.labelid;
-
-		if (skiplist_search(lp->ledger, labelid, (void **)&lcb)) {
-			/* request no longer in effect */
-
-			if (debug) {
-				zlog_debug("%s: labelid %p: request no longer in effect",
-						__func__, labelid);
-			}
-			/* if this was a BGP_LU request, unlock node
-			 */
-			check_bgp_lu_cb_unlock(lcb);
-			goto finishedrequest;
-		}
-
-		/* have LCB */
-		if (lcb->label != MPLS_LABEL_NONE) {
-			/* request already has a label */
-			if (debug) {
-				zlog_debug("%s: labelid %p: request already has a label: %u=0x%x, lcb=%p",
-						__func__, labelid,
-						lcb->label, lcb->label, lcb);
-			}
-			/* if this was a BGP_LU request, unlock node
-			 */
-			check_bgp_lu_cb_unlock(lcb);
-
-			goto finishedrequest;
-		}
-
-		lcb->label = get_label_from_pool(lcb->labelid);
-
-		if (lcb->label == MPLS_LABEL_NONE) {
-			/*
-			 * Out of labels in local pool, await next chunk
-			 */
-			if (debug) {
-				zlog_debug("%s: out of labels, await more",
-						__func__);
-			}
-			break;
-		}
-
-		labelcount -= 1;
-
-		/*
-		 * we filled the request from local pool.
-		 * Enqueue response work item with new label.
-		 */
-		struct lp_cbq_item *q = XCALLOC(MTYPE_BGP_LABEL_CBQ,
-			sizeof(struct lp_cbq_item));
-
-		q->cbfunc = lcb->cbfunc;
-		q->type = lcb->type;
-		q->label = lcb->label;
-		q->labelid = lcb->labelid;
-		q->allocated = true;
-
-		if (debug)
-			zlog_debug("%s: assigning label %u to labelid %p",
-				__func__, q->label, q->labelid);
-
-		work_queue_add(lp->callback_q, q);
-
-finishedrequest:
-		lp_fifo_del(&lp->requests, lf);
-		XFREE(MTYPE_BGP_LABEL_FIFO, lf);
-	}
 }
 
 /*
@@ -631,7 +647,6 @@ void bgp_lp_event_zebra_up(void)
 	unsigned int chunks_needed;
 	void *labelid;
 	struct lp_lcb *lcb;
-	int lm_init_ok;
 
 	lp->reconnect_count++;
 	/*
@@ -648,24 +663,18 @@ void bgp_lp_event_zebra_up(void)
 	}
 
 	/* round up */
-	chunks_needed = (labels_needed / lp->next_chunksize) + 1;
+	chunks_needed = (labels_needed + lp->next_chunksize - 1) / lp->next_chunksize;
 	labels_needed = chunks_needed * lp->next_chunksize;
-
-	lm_init_ok = lm_label_manager_connect(zclient, 1) == 0;
-
-	if (!lm_init_ok) {
-		zlog_err("%s: label manager connection error", __func__);
-		return;
-	}
-
-	zclient_send_get_label_chunk(zclient, 0, labels_needed,
-				     MPLS_LABEL_BASE_ANY);
-	lp->pending_count = labels_needed;
 
 	/*
 	 * Invalidate current list of chunks
 	 */
 	list_delete_all_node(lp->chunks);
+
+	if (labels_needed && !bgp_zebra_request_label_range(MPLS_LABEL_BASE_ANY,
+							    labels_needed, true))
+		return;
+	lp->pending_count += labels_needed;
 
 	/*
 	 * Invalidate any existing labels and requeue them as requests
@@ -689,6 +698,7 @@ void bgp_lp_event_zebra_up(void)
 				q->type = lcb->type;
 				q->label = lcb->label;
 				q->labelid = lcb->labelid;
+				q->vrf_id = lcb->vrf_id;
 				q->allocated = false;
 				check_bgp_lu_cb_lock(lcb);
 				work_queue_add(lp->callback_q, q);
@@ -709,6 +719,9 @@ void bgp_lp_event_zebra_up(void)
 
 		skiplist_delete_first(lp->inuse);
 	}
+
+	event_add_timer(bm->master, bgp_sync_label_manager, NULL, 1,
+			&bm->t_bgp_sync_label_manager);
 }
 
 DEFUN(show_bgp_labelpool_summary, show_bgp_labelpool_summary_cmd,
@@ -830,6 +843,26 @@ DEFUN(show_bgp_labelpool_ledger, show_bgp_labelpool_ledger_cmd,
 					lcb->label);
 
 			break;
+		case LP_TYPE_NEXTHOP:
+			if (uj) {
+				json_object_string_add(json_elem, "prefix",
+						       "nexthop");
+				json_object_int_add(json_elem, "label",
+						    lcb->label);
+			} else
+				vty_out(vty, "%-18s         %u\n", "nexthop",
+					lcb->label);
+			break;
+		case LP_TYPE_BGP_L3VPN_BIND:
+			if (uj) {
+				json_object_string_add(json_elem, "prefix",
+						       "l3vpn-bind");
+				json_object_int_add(json_elem, "label",
+						    lcb->label);
+			} else
+				vty_out(vty, "%-18s         %u\n", "l3vpn-bind",
+					lcb->label);
+			break;
 		}
 	}
 	if (uj)
@@ -919,6 +952,24 @@ DEFUN(show_bgp_labelpool_inuse, show_bgp_labelpool_inuse_cmd,
 				vty_out(vty, "%-18s         %u\n", "VRF",
 					label);
 			break;
+		case LP_TYPE_NEXTHOP:
+			if (uj) {
+				json_object_string_add(json_elem, "prefix",
+						       "nexthop");
+				json_object_int_add(json_elem, "label", label);
+			} else
+				vty_out(vty, "%-18s         %u\n", "nexthop",
+					label);
+			break;
+		case LP_TYPE_BGP_L3VPN_BIND:
+			if (uj) {
+				json_object_string_add(json_elem, "prefix",
+						       "l3vpn-bind");
+				json_object_int_add(json_elem, "label", label);
+			} else
+				vty_out(vty, "%-18s         %u\n", "l3vpn-bind",
+					label);
+			break;
 		}
 	}
 	if (uj)
@@ -991,6 +1042,20 @@ DEFUN(show_bgp_labelpool_requests, show_bgp_labelpool_requests_cmd,
 			else
 				vty_out(vty, "VRF\n");
 			break;
+		case LP_TYPE_NEXTHOP:
+			if (uj)
+				json_object_string_add(json_elem, "prefix",
+						       "nexthop");
+			else
+				vty_out(vty, "Nexthop\n");
+			break;
+		case LP_TYPE_BGP_L3VPN_BIND:
+			if (uj)
+				json_object_string_add(json_elem, "prefix",
+						       "l3vpn-bind");
+			else
+				vty_out(vty, "L3VPN-BIND\n");
+			break;
 		}
 	}
 	if (uj)
@@ -1050,6 +1115,98 @@ DEFUN(show_bgp_labelpool_chunks, show_bgp_labelpool_chunks_cmd,
 	}
 	if (uj)
 		vty_json(vty, json);
+	return CMD_SUCCESS;
+}
+
+static void show_bgp_nexthop_label_afi(struct vty *vty, afi_t afi,
+				       struct bgp *bgp, bool detail)
+{
+	struct bgp_label_per_nexthop_cache_head *tree;
+	struct bgp_label_per_nexthop_cache *iter;
+	safi_t safi;
+	void *src;
+	char buf[PREFIX2STR_BUFFER];
+	char labelstr[MPLS_LABEL_STRLEN];
+	struct bgp_dest *dest;
+	struct bgp_path_info *path;
+	struct bgp *bgp_path;
+	struct bgp_table *table;
+
+	vty_out(vty, "Current BGP label nexthop cache for %s, VRF %s\n",
+		afi2str(afi), bgp->name_pretty);
+
+	tree = &bgp->mpls_labels_per_nexthop[afi];
+	frr_each (bgp_label_per_nexthop_cache, tree, iter) {
+		if (afi2family(afi) == AF_INET)
+			src = (void *)&iter->nexthop.u.prefix4;
+		else
+			src = (void *)&iter->nexthop.u.prefix6;
+
+		vty_out(vty, " %s, label %s #paths %u\n",
+			inet_ntop(afi2family(afi), src, buf, sizeof(buf)),
+			mpls_label2str(1, &iter->label, labelstr,
+				       sizeof(labelstr), 0, true),
+			iter->path_count);
+		if (iter->nh)
+			vty_out(vty, "  if %s\n",
+				ifindex2ifname(iter->nh->ifindex,
+					       iter->nh->vrf_id));
+		vty_out(vty, "  Last update: %s", time_to_string(iter->last_update, buf));
+		if (!detail)
+			continue;
+		vty_out(vty, "  Paths:\n");
+		LIST_FOREACH (path, &(iter->paths),
+			      mplsvpn.blnc.label_nh_thread) {
+			dest = path->net;
+			table = bgp_dest_table(dest);
+			assert(dest && table);
+			afi = family2afi(bgp_dest_get_prefix(dest)->family);
+			safi = table->safi;
+			bgp_path = table->bgp;
+
+			if (dest->pdest) {
+				vty_out(vty, "    %d/%d %pBD RD ", afi, safi,
+					dest);
+
+				vty_out(vty, BGP_RD_AS_FORMAT(bgp->asnotation),
+					(struct prefix_rd *)bgp_dest_get_prefix(
+						dest->pdest));
+				vty_out(vty, " %s flags 0x%x\n",
+					bgp_path->name_pretty, path->flags);
+			} else
+				vty_out(vty, "    %d/%d %pBD %s flags 0x%x\n",
+					afi, safi, dest, bgp_path->name_pretty,
+					path->flags);
+		}
+	}
+}
+
+DEFPY(show_bgp_nexthop_label, show_bgp_nexthop_label_cmd,
+      "show bgp [<view|vrf> VIEWVRFNAME] label-nexthop [detail]",
+      SHOW_STR BGP_STR BGP_INSTANCE_HELP_STR
+      "BGP label per-nexthop table\n"
+      "Show detailed information\n")
+{
+	int idx = 0;
+	char *vrf = NULL;
+	struct bgp *bgp;
+	bool detail = false;
+	int afi;
+
+	if (argv_find(argv, argc, "vrf", &idx)) {
+		vrf = argv[++idx]->arg;
+		bgp = bgp_lookup_by_name(vrf);
+	} else
+		bgp = bgp_get_default();
+
+	if (!bgp)
+		return CMD_SUCCESS;
+
+	if (argv_find(argv, argc, "detail", &idx))
+		detail = true;
+
+	for (afi = AFI_IP; afi <= AFI_IP6; afi++)
+		show_bgp_nexthop_label_afi(vty, afi, bgp, detail);
 	return CMD_SUCCESS;
 }
 
@@ -1531,4 +1688,67 @@ void bgp_lp_vty_init(void)
 	install_element(ENABLE_NODE, &release_labelpool_perf_test_cmd);
 	install_element(ENABLE_NODE, &clear_labelpool_perf_test_cmd);
 #endif /* BGP_LABELPOOL_ENABLE_TESTS */
+}
+
+DEFINE_MTYPE_STATIC(BGPD, LABEL_PER_NEXTHOP_CACHE,
+		    "BGP Label Per Nexthop entry");
+
+/* The nexthops values are compared to
+ * find in the tree the appropriate cache entry
+ */
+int bgp_label_per_nexthop_cache_cmp(const struct bgp_label_per_nexthop_cache *a,
+				    const struct bgp_label_per_nexthop_cache *b)
+{
+	return prefix_cmp(&a->nexthop, &b->nexthop);
+}
+
+struct bgp_label_per_nexthop_cache *
+bgp_label_per_nexthop_new(struct bgp_label_per_nexthop_cache_head *tree,
+			  struct prefix *nexthop)
+{
+	struct bgp_label_per_nexthop_cache *blnc;
+
+	blnc = XCALLOC(MTYPE_LABEL_PER_NEXTHOP_CACHE,
+		       sizeof(struct bgp_label_per_nexthop_cache));
+	blnc->tree = tree;
+	blnc->label = MPLS_INVALID_LABEL;
+	prefix_copy(&blnc->nexthop, nexthop);
+	LIST_INIT(&(blnc->paths));
+	bgp_label_per_nexthop_cache_add(tree, blnc);
+
+	return blnc;
+}
+
+struct bgp_label_per_nexthop_cache *
+bgp_label_per_nexthop_find(struct bgp_label_per_nexthop_cache_head *tree,
+			   struct prefix *nexthop)
+{
+	struct bgp_label_per_nexthop_cache blnc = {};
+
+	if (!tree)
+		return NULL;
+
+	memcpy(&blnc.nexthop, nexthop, sizeof(struct prefix));
+	return bgp_label_per_nexthop_cache_find(tree, &blnc);
+}
+
+void bgp_label_per_nexthop_free(struct bgp_label_per_nexthop_cache *blnc)
+{
+	if (blnc->label != MPLS_INVALID_LABEL) {
+		bgp_zebra_send_nexthop_label(ZEBRA_MPLS_LABELS_DELETE,
+					     blnc->label, blnc->nh->ifindex,
+					     blnc->nh->vrf_id, ZEBRA_LSP_BGP,
+					     &blnc->nexthop, 0, NULL);
+		bgp_lp_release(LP_TYPE_NEXTHOP, blnc, blnc->label);
+	}
+	bgp_label_per_nexthop_cache_del(blnc->tree, blnc);
+	if (blnc->nh)
+		nexthop_free(blnc->nh);
+	blnc->nh = NULL;
+	XFREE(MTYPE_LABEL_PER_NEXTHOP_CACHE, blnc);
+}
+
+void bgp_label_per_nexthop_init(void)
+{
+	install_element(VIEW_NODE, &show_bgp_nexthop_label_cmd);
 }

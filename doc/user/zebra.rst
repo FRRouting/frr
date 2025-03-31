@@ -50,7 +50,10 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
    When *Zebra* starts with this option, the VRF backend is based on Linux
    network namespaces. That implies that all network namespaces discovered by
    ZEBRA will create an associated VRF. The other daemons will operate on the VRF
-   VRF defined by *Zebra*, as usual.
+   VRF defined by *Zebra*, as usual. If this option is specified when running
+   *Zebra*, one must also specify the same option for *mgmtd*.
+
+   This options is deprecated. Please use the global -w option instead.
 
    .. seealso:: :ref:`zebra-vrf`
 
@@ -67,6 +70,12 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
    kernel that supports this functionality then run *Zebra* with this
    option and we will use Route Replace Semantics instead of delete
    than add.
+
+.. option:: --routing-table <tableno>
+
+   Specify which kernel routing table *Zebra* should communicate with.
+   If this option is not specified the default table (RT_TABLE_MAIN) is
+   used.
 
 .. option:: --asic-offload=[notify_on_offload|notify_on_ack]
 
@@ -86,6 +95,13 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
 
    Allow zebra to modify the default receive buffer size to SIZE
    in bytes.  Under \*BSD only the -s option is available.
+
+.. option:: --v6-with-v4-nexthops
+
+   Signal to zebra that v6 routes with v4 nexthops are accepted
+   by the underlying dataplane.  This will be communicated to
+   the upper level daemons that can install v6 routes with v4
+   nexthops.
 
 .. _interface-commands:
 
@@ -156,23 +172,23 @@ Standard Commands
    Set description for the interface.
 
 
-.. clicmd:: mpls enable
+.. clicmd:: mpls <enable|disable>
 
-   Enable or disable mpls kernel processing on the interface, for linux.  Interfaces
+   Choose mpls kernel processing value on the interface, for linux. Interfaces
    configured with mpls will not automatically turn on if mpls kernel modules do not
-   happen to be loaded.  This command will fail on 3.X linux kernels and does not
-   work on non-linux systems at all.
+   happen to be loaded. This command will fail on 3.X linux kernels and does not
+   work on non-linux systems at all. 'enable' and 'disable' will respectively turn
+   on and off mpls on the given interface.
 
-.. clicmd:: multicast
+.. clicmd:: multicast <enable|disable>
 
 
    Enable or disable multicast flag for the interface.
 
 
-.. clicmd:: bandwidth (1-10000000)
+.. clicmd:: bandwidth (1-1000000)
 
-
-   Set bandwidth value of the interface in kilobits/sec. This is for
+   Set bandwidth value of the interface in Megabits/sec. This is for
    calculating OSPF cost. This command does not affect the actual device
    configuration.
 
@@ -199,20 +215,14 @@ Link Parameters Commands
 
 .. clicmd:: link-params
 
+   Enter into the link parameters sub node. This command activates the link
+   parameters and allows to configure routing information that could be used
+   as part of Traffic Engineering on this interface. MPLS-TE must be enabled at
+   the OSPF (:ref:`ospf-traffic-engineering`) or ISIS
+   (:ref:`isis-traffic-engineering`) router level in complement to this. To
+   disable link parameters, use the ``no`` version of this command.
 
-   Enter into the link parameters sub node. At least 'enable' must be
-   set to activate the link parameters, and consequently routing
-   information that could be used as part of Traffic Engineering on
-   this interface. MPLS-TE must be enable at the OSPF
-   (:ref:`ospf-traffic-engineering`) or ISIS
-   (:ref:`isis-traffic-engineering`) router level in complement to
-   this.
-
-   Under link parameter statement, the following commands set the different TE values:
-
-.. clicmd:: enable
-
-   Enable link parameters for this interface.
+Under link parameter statement, the following commands set the different TE values:
 
 .. clicmd:: metric (0-4294967295)
 
@@ -238,7 +248,7 @@ Link Parameters Commands
    as specified in RFC3630 (OSPF) or RFC5305 (ISIS). Admin-group is also known
    as Resource Class/Color in the OSPF protocol.
 
-.. clicmd:: [no] affinity AFFINITY-MAP-NAME
+.. clicmd:: affinity AFFINITY-MAP-NAME
 
    This commands configures the Traffic Engineering Admin-Group of the
    interface using the affinity-map definitions (:ref:`affinity-map`).
@@ -249,7 +259,7 @@ Link Parameters Commands
    ``admin-grp`` and ``affinity`` commands provide two ways of setting
    admin-groups. They cannot be both set on the same interface.
 
-.. clicmd:: [no] affinity-mode [extended|standard|both]
+.. clicmd:: affinity-mode [extended|standard|both]
 
    This commands configures which admin-group format is set by the affinity
    command. ``extended`` Admin-Group is the default and uses the RFC7308 format.
@@ -320,10 +330,14 @@ the default route.
    Allow IPv4 nexthop tracking to resolve via the default route. This parameter
    is configured per-VRF, so the command is also available in the VRF subnode.
 
+   This is enabled by default for a traditional profile.
+
 .. clicmd:: ipv6 nht resolve-via-default
 
    Allow IPv6 nexthop tracking to resolve via the default route. This parameter
    is configured per-VRF, so the command is also available in the VRF subnode.
+
+   This is enabled by default for a traditional profile.
 
 .. clicmd:: show ip nht [vrf NAME] [A.B.C.D|X:X::X:X] [mrib] [json]
 
@@ -355,6 +369,8 @@ outgoing interface
 .. clicmd:: pbr nexthop-resolve
 
    Resolve PBR nexthop via ip neigh tracking
+
+.. _administrative-distance:
 
 Administrative Distance
 =======================
@@ -402,15 +418,33 @@ the same distances that other routing suites have chosen.
 +------------+-----------+
 
 An admin distance of 255 indicates to Zebra that the route should not be
-installed into the Data Plane.  Additionally routes with an admin distance
+installed into the Data Plane. Additionally routes with an admin distance
 of 255 will not be redistributed.
 
 Zebra does treat Kernel routes as special case for the purposes of Admin
-Distance.  Upon learning about a route that is not originated by FRR
-we read the metric value as a uint32_t.  The top byte of the value
+Distance. Upon learning about a route that is not originated by FRR
+we read the metric value as a uint32_t. The top byte of the value
 is interpreted as the Administrative Distance and the low three bytes
-are read in as the metric.  This special case is to facilitate VRF
+are read in as the metric. This special case is to facilitate VRF
 default routes.
+
+.. code-block:: shell
+
+   $ # Set administrative distance to 255 for Zebra
+   $ ip route add 192.0.2.0/24 metric $(( 2**32 - 2**24 )) dev lo
+   $ vtysh -c 'show ip route 192.0.2.0/24 json' | jq '."192.0.2.0/24"[] | (.distance, .metric)'
+   255
+   0
+   $ # Set administrative distance to 192 for Zebra
+   $ ip route add 192.0.2.0/24 metric $(( 2**31 + 2**30 )) dev lo
+   $ vtysh -c 'show ip route 192.0.2.0/24 json' | jq '."192.0.2.0/24"[] | (.distance, .metric)'
+   192
+   0
+   $ # Set administrative distance to 128, and metric 100 for Zebra
+   $ ip route add 192.0.2.0/24 metric $(( 2**31 + 100 )) dev lo
+   $ vtysh -c 'show ip route 192.0.2.0/24 json' | jq '."192.0.2.0/24"[] | (.distance, .metric)'
+   128
+   100
 
 Route Replace Semantics
 =======================
@@ -493,16 +527,6 @@ commands in relationship to VRF. Here is an extract of some of those commands:
    both VRFs. It is to be noted that *Zebra* does not create Linux VRF.
    The network administrator can however decide to provision this command in
    configuration file to provide more clarity about the intended configuration.
-
-.. clicmd:: netns NAMESPACE
-
-   This command is based on VRF configuration mode. This command is available
-   when *Zebra* is run in :option:`-n` mode. This command reflects which *Linux
-   network namespace* is to be mapped with *Zebra* VRF. It is to be noted that
-   *Zebra* creates and detects added/suppressed VRFs from the Linux environment
-   (in fact, those managed with iproute2). The network administrator can however
-   decide to provision this command in configuration file to provide more clarity
-   about the intended configuration.
 
 .. clicmd:: show ip route vrf VRF
 
@@ -745,6 +769,54 @@ presence of the entry.
    21     Static       10.125.0.2  IPv4 Explicit Null
 
 
+MPLS label chunks
+-----------------
+
+MPLS label chunks are handled in the zebra label manager service,
+which ensures a same label value or label chunk can not be used by
+multiple CP routing daemons at the same time.
+
+Label requests originate from CP routing daemons, and are resolved
+over the default MPLS range (16-1048575). There are two kind of
+requests:
+- Static label requests request an exact label value or range. For
+instance, segment routing label blocks requests originating from
+IS-IS are part of it.
+- Dynamic label requests only need a range of label values. The
+'bgp l3vpn export auto' command uses such requests.
+
+Allocated label chunks table can be dumped using the command
+
+.. clicmd:: show debugging label-table [json]
+
+::
+
+   zebra# show debugging label-table
+   Proto ospf: [300/350]
+   Proto srte: [500/500]
+   Proto isis: [1200/1300]
+   Proto ospf: [20000/21000]
+   Proto isis: [22000/23000]
+
+.. clicmd:: mpls label dynamic-block (16-1048575) (16-1048575)
+
+   Define a range of labels where dynamic label requests will
+   allocate label chunks from. This command guarantees that
+   static label values outside that range will not conflict
+   with the dynamic label requests. When the dynamic-block
+   range is configured, static label requests that match that
+   range are not accepted.
+
+FEC nexthop entry resolution over MPLS networks
+-----------------------------------------------
+
+The LSP associated with a BGP labeled route is normally restricted to
+directly-connected nexthops. If connected nexthops are not available,
+the LSP entry will not be installed. This command permits the use of
+recursive resolution for LSPs, similar to that available for IP routes.
+
+.. clicmd:: mpls fec nexthop-resolution
+
 .. _zebra-srv6:
 
 Segment-Routing IPv6
@@ -761,6 +833,35 @@ In that case, user must configure initial srv6 setting on
 FRR's cli or frr.conf or zebra.conf. This section shows how
 to configure SRv6 on FRR. Of course SRv6 can be used as standalone,
 and this section also helps that case.
+
+.. clicmd:: show segment-routing srv6 manager [json]
+
+   This command dumps the SRv6 information configured on zebra, including
+   the encapsulation parameters (e.g., the IPv6 source address used for
+   the encapsulated packets).
+
+   Example::
+
+      router# sh segment-routing srv6 manager
+      Parameters:
+      Encapsulation:
+         Source Address:
+            Configured: fc00:0:1::1
+
+
+   To get the same information in json format, you can use the ``json`` keyword::
+
+      rose-srv6# sh segment-routing srv6 manager json
+      {
+        "parameters":{
+          "encapsulation":{
+            "sourceAddress":{
+              "configured":"fc00:0:1::1"
+            }
+          }
+        }
+      }
+
 
 .. clicmd:: show segment-routing srv6 locator [json]
 
@@ -827,7 +928,7 @@ and this section also helps that case.
    Create a new locator. If the name of an existing locator is specified,
    move to specified locator's configuration node to change the settings it.
 
-.. clicmd:: prefix X:X::X:X/M [func-bits (0-64)] [block-len 40] [node-len 24]
+.. clicmd:: prefix X:X::X:X/M [block-len (16-64)] [node-len (16-64)] [func-bits (0-64)]
 
    Set the ipv6 prefix block of the locator. SRv6 locator is defined by
    RFC8986. The actual routing protocol specifies the locator and allocates a
@@ -876,7 +977,7 @@ and this section also helps that case.
 ::
 
    router# configure terminal
-   router(config)# segment-routinig
+   router(config)# segment-routing
    router(config-sr)# srv6
    router(config-srv6)# locators
    router(config-srv6-locs)# locator loc1
@@ -904,7 +1005,7 @@ and this section also helps that case.
 ::
 
    router# configure terminal
-   router(config)# segment-routinig
+   router(config)# segment-routing
    router(config-sr)# srv6
    router(config-srv6)# locators
    router(config-srv6-locators)# locator loc1
@@ -922,87 +1023,97 @@ and this section also helps that case.
       !
    ...
 
-.. _multicast-rib-commands:
+.. clicmd:: format NAME
 
-Multicast RIB Commands
-======================
+   Specify the SID allocation schema for the SIDs allocated from this locator. Currently,
+   FRR supports supports the following allocation schemas:
 
-The Multicast RIB provides a separate table of unicast destinations which
-is used for Multicast Reverse Path Forwarding decisions. It is used with
-a multicast source's IP address, hence contains not multicast group
-addresses but unicast addresses.
+   - `usid-f3216`
+   - `uncompressed`
 
-This table is fully separate from the default unicast table. However,
-RPF lookup can include the unicast table.
+::
 
-WARNING: RPF lookup results are non-responsive in this version of FRR,
-i.e. multicast routing does not actively react to changes in underlying
-unicast topology!
+   router# configure terminal
+   router(config)# segment-routing
+   router(config-sr)# srv6
+   router(config-srv6)# locators
+   router(config-srv6-locators)# locator loc1
+   router(config-srv6-locator)# prefix fc00:0:1::/48
+   router(config-srv6-locator)# format usid-f3216
 
-.. clicmd:: ip multicast rpf-lookup-mode MODE
+   router(config-srv6-locator)# show run
+   ...
+   segment-routing
+    srv6
+     locators
+      locator loc1
+       prefix fc00:0:1::/48
+       format usid-f3216
+      !
+   ...
 
+.. clicmd:: encapsulation
 
-   MODE sets the method used to perform RPF lookups. Supported modes:
+   Configure parameters for SRv6 encapsulation.
 
-   urib-only
-      Performs the lookup on the Unicast RIB. The Multicast RIB is never used.
+.. clicmd:: source-address X:X::X:X
 
-   mrib-only
-      Performs the lookup on the Multicast RIB. The Unicast RIB is never used.
+   Configure the source address of the outer encapsulating IPv6 header.
 
-   mrib-then-urib
-      Tries to perform the lookup on the Multicast RIB. If any route is found,
-      that route is used. Otherwise, the Unicast RIB is tried.
+.. clicmd:: formats
 
-   lower-distance
-      Performs a lookup on the Multicast RIB and Unicast RIB each. The result
-      with the lower administrative distance is used;  if they're equal, the
-      Multicast RIB takes precedence.
+   Configure SRv6 SID formats.
 
-   longer-prefix
-      Performs a lookup on the Multicast RIB and Unicast RIB each. The result
-      with the longer prefix length is used;  if they're equal, the
-      Multicast RIB takes precedence.
+.. clicmd:: format NAME
 
-      The ``mrib-then-urib`` setting is the default behavior if nothing is
-      configured. If this is the desired behavior, it should be explicitly
-      configured to make the configuration immune against possible changes in
-      what the default behavior is.
+   Configure SRv6 SID format.
 
-.. warning::
+.. clicmd:: compressed usid
 
-   Unreachable routes do not receive special treatment and do not cause
-   fallback to a second lookup.
+   Enable SRv6 uSID compression and configure SRv6 uSID compression parameters.
 
-.. clicmd:: show [ip|ipv6] rpf ADDR
+.. clicmd:: local-id-block start START
 
-   Performs a Multicast RPF lookup, as configured with ``ip multicast
-   rpf-lookup-mode MODE``. ADDR specifies the multicast source address to look
-   up.
+   Configure the start value for the Local ID Block (LIB).
 
-   ::
+.. clicmd:: local-id-block explicit start START end END
 
-      > show ip rpf 192.0.2.1
-      Routing entry for 192.0.2.0/24 using Unicast RIB
-      Known via "kernel", distance 0, metric 0, best
-      * 198.51.100.1, via eth0
+   Configure the start/end values for the Explicit LIB (ELIB).
 
+.. clicmd:: wide-local-id-block start START end END
 
-   Indicates that a multicast source lookup for 192.0.2.1 would use an
-   Unicast RIB entry for 192.0.2.0/24 with a gateway of 198.51.100.1.
+   Configure the start/end values for the Wide LIB (W-LIB).
 
-.. clicmd:: show [ip|ipv6] rpf
+.. clicmd:: wide-local-id-block explicit start START
 
-   Prints the entire Multicast RIB. Note that this is independent of the
-   configured RPF lookup mode, the Multicast RIB may be printed yet not
-   used at all.
+   Configure the start value for the Explicit Wide LIB (EW-LIB).
 
-.. clicmd:: ip mroute PREFIX NEXTHOP [DISTANCE]
+::
 
+   router# configure terminal
+   router(config)# segment-routing
+   router(config-sr)# srv6
+   router(config-srv6)# formats
+   router(config-srv6-formats)# format usid-f3216
+   router(config-srv6-format)# compressed usid
+   router(config-srv6-format-usid)# local-id-block start 0xD000
+   router(config-srv6-format-usid)# local-id-block explicit start 0xF000 end 0xFDFF
+   router(config-srv6-format-usid)# wide-local-id-block start 0xFFF4 end 0xFFF5
+   router(config-srv6-format-usid)# wide-local-id-block explicit start 0xFFF4
 
-   Adds a static route entry to the Multicast RIB. This performs exactly as the
-   ``ip route`` command, except that it inserts the route in the Multicast RIB
-   instead of the Unicast RIB.
+   router(config-srv6-locator)# show run
+   ...
+   segment-routing
+    srv6
+     formats
+      format usid-f3216
+       compressed usid
+        local-id-block start 0xD000
+        local-id-block explicit start 0xF000 end 0xFDFF
+        wide-local-id-block start 0xFFF4 end 0xFFF5
+        wide-local-id-block explicit start 0xFFF4
+      !
+   ...
 
 .. _zebra-route-filtering:
 
@@ -1022,10 +1133,8 @@ kernel.
    - any,
    - babel,
    - bgp,
-   - connected,
    - eigrp,
    - isis,
-   - kernel,
    - nhrp,
    - openfabric,
    - ospf,
@@ -1085,6 +1194,25 @@ IPv6 example for OSPFv3.
 
    Set the delay before any route-maps are processed in zebra.  The
    default time for this is 5 seconds.
+
+
+.. _zebra-table-import:
+
+zebra Table Import
+==================
+
+Zebra supports importing an alternate routing table into the main unicast RIB (URIB).
+An imported table will continously sync all changes to the main URIB as routes are
+added or deleted from the alternate table.
+Zebra also supports importing into the main multicast RIB (MRIB) which can be used
+to affect how multicast RPF lookups are performed as described in :ref: `_pim-multicast-rib`.
+
+.. clicmd:: ip import-table (1-252) [mrib] [distance (1-255)] [route-map RMAP_NAME]
+
+   Import table, by given table id, into the main URIB (or MRIB). Optional distance can override
+   the default distance when importing routes from the alternate table. An optional route map
+   can be provided to filter routes that are imported into the main table.
+
 
 .. _zebra-fib-push-interface:
 
@@ -1220,6 +1348,12 @@ FPM Commands
    The ``no`` form uses the old known FPM behavior of including next hop
    information in the route (e.g. ``RTM_NEWROUTE``) messages.
 
+.. clicmd:: fpm use-route-replace
+
+   Use the netlink ``NLM_F_REPLACE`` flag for updating routes instead of
+   two different messages to update a route
+   (``RTM_DELROUTE`` + ``RTM_NEWROUTE``).
+
 .. clicmd:: show fpm counters [json]
 
    Show the FPM statistics (plain text or JSON formatted).
@@ -1243,6 +1377,9 @@ FPM Commands
            User FPM configurations: 1
          User FPM disable requests: 0
 
+.. clicmd:: show fpm status [json]
+
+   Show the FPM status.
 
 .. clicmd:: clear fpm counters
 
@@ -1337,28 +1474,40 @@ To program the PBR rules as rte_flows you additionally need to configure
 zebra Terminal Mode Commands
 ============================
 
-.. clicmd:: show ip route
+.. clicmd:: show [ip|ipv6] route
 
    Display current routes which zebra holds in its database.
 
 ::
 
     Router# show ip route
-    Codes: K - kernel route, C - connected, S - static, R - RIP,
-     B - BGP * - FIB route.
+    Codes: K - kernel route, C - connected, L - local, S - static,
+           R - RIP, O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+           T - Table, v - VNC, V - VNC-Direct, A - Babel, D - SHARP,
+           F - PBR, f - OpenFabric, t - Table-Direct,
+           > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+           t - trapped, o - offload failure
 
-    K* 0.0.0.0/0        203.181.89.241
-    S  0.0.0.0/0        203.181.89.1
-    C* 127.0.0.0/8      lo
-    C* 203.181.89.240/28      eth0
+    K>* 0.0.0.0/0 [0/100] via 192.168.119.1, enp13s0, 00:30:22
+    S>  4.5.6.7/32 [1/0] via 192.168.119.1 (recursive), weight 1, 00:30:22
+      *                    via 192.168.119.1, enp13s0, weight 1, 00:30:22
+    K>* 169.254.0.0/16 [0/1000] is directly connected, virbr2 linkdown, 00:30:22
+    L>* 192.168.119.205/32 is directly connected, enp13s0, 00:30:22
 
-
-.. clicmd:: show ipv6 route
 
 .. clicmd:: show [ip|ipv6] route [PREFIX] [nexthop-group]
 
    Display detailed information about a route. If [nexthop-group] is
    included, it will display the nexthop group ID the route is using as well.
+
+.. clicmd:: show [ip|ipv6] route summary
+
+   Display summary information about routes received from each protocol.
+   This command displays the entries received from each route and as such
+   this total can be more than the actual number of FIB routes.  Finally
+   due to the way that linux supports local and connected routes the FIB
+   total may not be exactly what is shown in the equivalent `ip route show`
+   command to see the state of the linux kernel.
 
 .. clicmd:: show interface [NAME] [{vrf VRF|brief}] [json]
 
@@ -1376,8 +1525,6 @@ zebra Terminal Mode Commands
    If the ``json`` option is specified, output is displayed in JSON format.
 
 .. clicmd:: show ip prefix-list [NAME]
-
-.. clicmd:: show route-map [NAME]
 
 .. clicmd:: show ip protocol
 
@@ -1427,7 +1574,11 @@ zebra Terminal Mode Commands
    option as that nexthop groups are per namespace in linux.
    If you specify singleton you would like to see the singleton
    nexthop groups that do have an afi. [type] allows you to filter those
-   only coming from a specific NHG type (protocol).
+   only coming from a specific NHG type (protocol).  A nexthop group
+   that has `Initial Delay`, means that this nexthop group entry
+   was not installed because no-one was using it at that point and
+   Zebra can delay installing this route until it is used by something
+   else.
 
 .. clicmd:: show <ip|ipv6> zebra route dump [<vrf> VRFNAME]
 
@@ -1639,6 +1790,10 @@ Debugging
 .. clicmd:: debug zebra nexthop [detail]
 
    Nexthop and nexthop-group events.
+
+.. clicmd:: debug zebra srv6
+
+   Segment Routing for IPv6 dataplane debugging.
 
 Scripting
 =========

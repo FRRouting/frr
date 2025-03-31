@@ -1,0 +1,21 @@
+{
+  "frr-interface:lib": {
+    "interface": [
+      {
+        "name": "lo"
+      },
+      {
+        "name": "r1-eth0"
+      },
+      {
+        "name": "lo-red"
+      },
+      {
+        "name": "r1-eth1"
+      },
+      {
+        "name": "red"
+      }
+    ]
+  }
+}

@@ -403,12 +403,10 @@ int eigrp_fsm_event(struct eigrp_fsm_action_message *msg)
 {
 	enum eigrp_fsm_events event = eigrp_get_fsm_event(msg);
 
-	zlog_info(
-		"EIGRP AS: %d State: %s Event: %s Network: %pI4 Packet Type: %s Reply RIJ Count: %d change: %s",
-		msg->eigrp->AS, prefix_state2str(msg->prefix->state),
-		fsm_state2str(event), &msg->prefix->destination->u.prefix4,
-		packet_type2str(msg->packet_type), msg->prefix->rij->count,
-		change2str(msg->change));
+	zlog_info("EIGRP AS: %d State: %s Event: %s Network: %pFX Packet Type: %s Reply RIJ Count: %d change: %s",
+		  msg->eigrp->AS, prefix_state2str(msg->prefix->state), fsm_state2str(event),
+		  &msg->prefix->destination, packet_type2str(msg->packet_type),
+		  msg->prefix->rij->count, change2str(msg->change));
 	(*(NSM[msg->prefix->state][event].func))(msg);
 
 	return 1;

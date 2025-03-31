@@ -58,6 +58,7 @@ noinst_HEADERS += \
 	ospf6d/ospf6_route.h \
 	ospf6d/ospf6_routemap_nb.h \
 	ospf6d/ospf6_spf.h \
+	ospf6d/ospf6_tlv.h \
 	ospf6d/ospf6_top.h \
 	ospf6d/ospf6_zebra.h \
 	ospf6d/ospf6d.h \
@@ -75,14 +76,18 @@ ospf6d_ospf6d_snmp_la_LDFLAGS = $(MODULE_LDFLAGS)
 ospf6d_ospf6d_snmp_la_LIBADD = lib/libfrrsnmp.la
 
 clippy_scan += \
+	ospf6d/ospf6d.c \
 	ospf6d/ospf6_top.c \
 	ospf6d/ospf6_area.c \
 	ospf6d/ospf6_asbr.c \
+	ospf6d/ospf6_interface.c \
 	ospf6d/ospf6_lsa.c \
 	ospf6d/ospf6_gr_helper.c \
 	ospf6d/ospf6_gr.c \
+	ospf6d/ospf6_interface.c \
 	ospf6d/ospf6_nssa.c \
 	ospf6d/ospf6_route.c \
+	ospf6d/ospf6_neighbor.c \
 	# end
 
 nodist_ospf6d_ospf6d_SOURCES = \

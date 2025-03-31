@@ -45,7 +45,7 @@ from time import sleep
 import json
 import functools
 
-pytestmark = pytest.mark.pimd
+pytestmark = [pytest.mark.pimd]
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -57,7 +57,7 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.common_config import (
     start_topology,
     write_test_header,
@@ -68,7 +68,6 @@ from lib.common_config import (
     apply_raw_config,
     check_router_status,
     required_linux_kernel_version,
-    topo_daemons,
 )
 from lib.pim import (
     create_pim_config,
@@ -91,7 +90,6 @@ from lib.topolog import logger
 from lib.topojson import build_config_from_json
 
 CWD = os.path.dirname(os.path.realpath(__file__))
-pytestmark = pytest.mark.pimd
 
 TOPOLOGY = """
 
@@ -265,11 +263,14 @@ def verify_state_incremented(state_before, state_after):
         for intf, v2 in v1.items():
             for state, value in v2.items():
                 if value >= state_after[ttype][intf][state]:
-                    errormsg = "[DUT: %s]: state %s value has not incremented, Initial value: %s, Current value: %s [FAILED!!]" % (
-                        intf,
-                        state,
-                        value,
-                        state_after[ttype][intf][state],
+                    errormsg = (
+                        "[DUT: %s]: state %s value has not incremented, Initial value: %s, Current value: %s [FAILED!!]"
+                        % (
+                            intf,
+                            state,
+                            value,
+                            state_after[ttype][intf][state],
+                        )
                     )
                     return errormsg
 
@@ -328,7 +329,6 @@ def find_tos_in_tcpdump(tgen, router, message, cap_file):
 
     filepath = os.path.join(tgen.logdir, router, cap_file)
     with open(filepath) as f:
-
         if len(re.findall(message, f.read())) < 1:
             errormsg = "[DUT: %s]: Verify Message: %s in tcpdump" " [FAILED!!]" % (
                 router,
@@ -353,7 +353,7 @@ def verify_pim_stats_increament(stats_before, stats_after):
     """
 
     for router, stats_data in stats_before.items():
-        for stats, value in stats_data.items():
+        for stats, _ in stats_data.items():
             if stats_before[router][stats] >= stats_after[router][stats]:
                 errormsg = (
                     "[DUT: %s]: state %s value has not"
