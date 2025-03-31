@@ -160,8 +160,8 @@ nb_op_create_yield_state(const char *xpath, struct yang_translator *translator,
 	/* remove trailing '/'s */
 	while (darr_len(ys->xpath) > 1 && ys->xpath[darr_len(ys->xpath) - 2] == '/') {
 		darr_setlen(ys->xpath, darr_len(ys->xpath) - 1);
-		if (darr_last(ys->xpath))
-			*darr_last(ys->xpath) = 0;
+		assert(darr_last(ys->xpath)); /* quiet clang-analyzer :( */
+		*darr_last(ys->xpath) = 0;
 	}
 	ys->xpath_orig = darr_strdup(xpath);
 	ys->translator = translator;
@@ -1670,7 +1670,8 @@ static enum nb_error __walk(struct nb_op_yield_state *ys, bool is_resume)
 			 */
 			if (!list_start && ni->inner && !lyd_child_no_keys(ni->inner) &&
 			    /* not the top element with a key match */
-			    !((darr_ilen(ys->node_infos) == darr_ilen(ys->schema_path) - 1) &&
+			    !(darr_ilen(ys->schema_path) && /* quiet clang-analyzer :( */
+			      (darr_ilen(ys->node_infos) == darr_ilen(ys->schema_path) - 1) &&
 			      lysc_is_key((*darr_last(ys->schema_path)))) &&
 			    /* is this list entry below the query base? */
 			    darr_ilen(ys->node_infos) - 1 < ys->query_base_level)
