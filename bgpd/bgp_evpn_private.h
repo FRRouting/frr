@@ -87,7 +87,7 @@ struct bgpevpn {
 	char *prd_pretty;
 
 	/* Route type 3 field */
-	struct in_addr originator_ip;
+	struct ipaddr originator_ip;
 
 	/* PIM-SM MDT group for BUM flooding */
 	struct in_addr mcast_grp;
@@ -499,14 +499,17 @@ build_type5_prefix_from_ip_prefix(struct prefix_evpn *evp,
 }
 
 static inline void build_evpn_type3_prefix(struct prefix_evpn *p,
-					   struct in_addr originator_ip)
+					   struct ipaddr *originator_ip)
 {
 	memset(p, 0, sizeof(struct prefix_evpn));
 	p->family = AF_EVPN;
 	p->prefixlen = EVPN_ROUTE_PREFIXLEN;
 	p->prefix.route_type = BGP_EVPN_IMET_ROUTE;
-	p->prefix.imet_addr.ip.ipa_type = IPADDR_V4;
-	p->prefix.imet_addr.ip.ipaddr_v4 = originator_ip;
+	if (IS_IPADDR_V4(originator_ip))
+		p->prefix.imet_addr.ip_prefix_length = IPV4_MAX_BITLEN;
+	else if (IS_IPADDR_V6(originator_ip))
+		p->prefix.imet_addr.ip_prefix_length = IPV6_MAX_BITLEN;
+	p->prefix.imet_addr.ip = *originator_ip;
 }
 
 static inline void build_evpn_type4_prefix(struct prefix_evpn *p,
@@ -716,7 +719,7 @@ extern void bgp_evpn_derive_auto_rd(struct bgp *bgp, struct bgpevpn *vpn);
 extern void bgp_evpn_derive_auto_rd_for_vrf(struct bgp *bgp);
 extern struct bgpevpn *bgp_evpn_lookup_vni(struct bgp *bgp, vni_t vni);
 extern struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
-		struct in_addr originator_ip,
+		struct ipaddr *originator_ip,
 		vrf_id_t tenant_vrf_id,
 		struct in_addr mcast_grp,
 		ifindex_t svi_ifindex);
