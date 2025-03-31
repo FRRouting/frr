@@ -290,7 +290,7 @@ parse_request_subtlv(int ae, const unsigned char *a, int alen,
     int have_src_prefix = 0;
 
     while(i < alen) {
-        type = a[0];
+        type = a[i];
         if(type == SUBTLV_PAD1) {
             i++;
             continue;
