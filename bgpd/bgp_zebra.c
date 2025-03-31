@@ -3261,7 +3261,7 @@ static int bgp_zebra_process_local_l3vni(ZAPI_CALLBACK_ARGS)
 	int filter = 0;
 	vni_t l3vni = 0;
 	struct ethaddr svi_rmac, vrr_rmac = {.octet = {0} };
-	struct in_addr originator_ip;
+	struct ipaddr originator_ip;
 	struct stream *s;
 	ifindex_t svi_ifindex;
 	bool is_anycast_mac = false;
@@ -3272,14 +3272,24 @@ static int bgp_zebra_process_local_l3vni(ZAPI_CALLBACK_ARGS)
 	l3vni = stream_getl(s);
 	if (cmd == ZEBRA_L3VNI_ADD) {
 		stream_get(&svi_rmac, s, sizeof(struct ethaddr));
-		originator_ip.s_addr = stream_get_ipv4(s);
+#if 1
+		originator_ip.ipaddr_v4.s_addr = stream_get_ipv4(s);
+		SET_IPADDR_V4(&originator_ip);
+#else
+		STREAM_GETW(s, originator_ip.ipa_type);
+		if (originator_ip.ipa_type == IPADDR_V4) {
+			STREAM_GET(&originator_ip.ipaddr_v4, s, IPV4_MAX_BYTELEN);
+		} else if (originator_ip.ipa_type == IPADDR_V6) {
+			STREAM_GET(&originator_ip.ipaddr_v6, s, IPV6_MAX_BYTELEN);
+		}
+#endif /* 1 */
 		stream_get(&filter, s, sizeof(int));
 		svi_ifindex = stream_getl(s);
 		stream_get(&vrr_rmac, s, sizeof(struct ethaddr));
 		is_anycast_mac = stream_getl(s);
 
 		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("Rx L3VNI ADD VRF %s VNI %u Originator-IP %pI4 RMAC svi-mac %pEA vrr-mac %pEA filter %s svi-if %u",
+			zlog_debug("Rx L3VNI ADD VRF %s VNI %u Originator-IP %pIA RMAC svi-mac %pEA vrr-mac %pEA filter %s svi-if %u",
 				   vrf_id_to_name(vrf_id), l3vni,
 				   &originator_ip, &svi_rmac, &vrr_rmac,
 				   filter ? "prefix-routes-only" : "none",
@@ -3290,7 +3300,7 @@ static int bgp_zebra_process_local_l3vni(ZAPI_CALLBACK_ARGS)
 			 svi_ifindex, is_anycast_mac);
 
 		bgp_evpn_local_l3vni_add(l3vni, vrf_id, &svi_rmac, &vrr_rmac,
-					 originator_ip, filter, svi_ifindex,
+					 &originator_ip, filter, svi_ifindex,
 					 is_anycast_mac);
 	} else {
 		if (BGP_DEBUG(zebra, ZEBRA))
@@ -3310,7 +3320,7 @@ static int bgp_zebra_process_local_vni(ZAPI_CALLBACK_ARGS)
 	struct stream *s;
 	vni_t vni;
 	struct bgp *bgp;
-	struct in_addr vtep_ip = {INADDR_ANY};
+	struct ipaddr vtep_ip = {0};
 	vrf_id_t tenant_vrf_id = VRF_DEFAULT;
 	struct in_addr mcast_grp = {INADDR_ANY};
 	ifindex_t svi_ifindex = 0;
@@ -3318,7 +3328,22 @@ static int bgp_zebra_process_local_vni(ZAPI_CALLBACK_ARGS)
 	s = zclient->ibuf;
 	vni = stream_getl(s);
 	if (cmd == ZEBRA_VNI_ADD) {
-		vtep_ip.s_addr = stream_get_ipv4(s);
+#if 1
+		SET_IPADDR_V4(&vtep_ip);
+		vtep_ip.ipaddr_v4.s_addr = stream_get_ipv4(s);
+#else
+		STREAM_GETW(s, vtep_ip.ipa_type);
+		if (vtep_ip.ipa_type == IPADDR_V4) {
+			STREAM_GET(&vtep_ip.ipaddr_v4, s, IPV4_MAX_BYTELEN);
+		} else if (vtep_ip.ipa_type == IPADDR_V6) {
+			STREAM_GET(&vtep_ip.ipaddr_v6, s, IPV6_MAX_BYTELEN);
+		} else {
+			if (BGP_DEBUG(zebra, ZEBRA))
+				zlog_err(
+					"Unexpected VTEP IP address type=%u", vtep_ip.ipa_type);
+			return 0;
+		}
+#endif /* 1 */
 		stream_get(&tenant_vrf_id, s, sizeof(vrf_id_t));
 		mcast_grp.s_addr = stream_get_ipv4(s);
 		stream_get(&svi_ifindex, s, sizeof(ifindex_t));
@@ -3335,13 +3360,18 @@ static int bgp_zebra_process_local_vni(ZAPI_CALLBACK_ARGS)
 			vrf_id_to_name(vrf_id), vni,
 			vrf_id_to_name(tenant_vrf_id), svi_ifindex);
 
+	if (ipaddr_is_zero(&vtep_ip)) {
+		SET_IPADDR_V4(&vtep_ip);
+		vtep_ip.ipaddr_v4 = bgp->router_id;
+	}
+
 	if (cmd == ZEBRA_VNI_ADD) {
 		frrtrace(4, frr_bgp, evpn_local_vni_add_zrecv, vni, vtep_ip,
 			 tenant_vrf_id, mcast_grp);
 
 		return bgp_evpn_local_vni_add(
 			bgp, vni,
-			vtep_ip.s_addr != INADDR_ANY ? vtep_ip : bgp->router_id,
+			&vtep_ip,
 			tenant_vrf_id, mcast_grp, svi_ifindex);
 	} else {
 		frrtrace(1, frr_bgp, evpn_local_vni_del_zrecv, vni);
