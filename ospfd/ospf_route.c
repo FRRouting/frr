@@ -2,6 +2,7 @@
 /*
  * OSPF routing table.
  * Copyright (C) 1999, 2000 Toshiaki Takada
+ * Copyright (C) 2025 The MITRE Corporation
  */
 
 #include <zebra.h>
@@ -307,40 +308,38 @@ static void ospf_route_delete_uniq(struct ospf *ospf, struct route_table *rt,
 }
 
 /* Install routes to table. */
-void ospf_route_install(struct ospf *ospf, struct route_table *rt)
+void ospf_route_install(struct ospf *ospf, struct route_table *rt, uint8_t mt_id)
 {
 	struct route_node *rn;
 	struct ospf_route * or ;
 
 	/* rt contains new routing table, new_table contains an old one.
 	   updating pointers */
-	if (ospf->old_table)
-		ospf_route_table_free(ospf->old_table);
+	if (ospf->old_table[mt_id])
+		ospf_route_table_free(ospf->old_table[mt_id]);
 
-	ospf->old_table = ospf->new_table;
-	ospf->new_table = rt;
+	ospf->old_table[mt_id] = ospf->new_table[mt_id];
+	ospf->new_table[mt_id] = rt;
 
 	/* Delete old routes. */
-	if (ospf->old_table)
-		ospf_route_delete_uniq(ospf, ospf->old_table, rt);
-	if (ospf->old_external_route)
-		ospf_route_delete_same_ext(ospf, ospf->old_external_route, rt);
+	if (ospf->old_table[mt_id])
+		ospf_route_delete_uniq(ospf, ospf->old_table[mt_id], rt);
+	if (ospf->old_external_route[mt_id])
+		ospf_route_delete_same_ext(ospf, ospf->old_external_route[mt_id], rt);
 
 	/* Install new routes. */
 	for (rn = route_top(rt); rn; rn = route_next(rn))
 		if ((or = rn->info) != NULL) {
 			if (or->type == OSPF_DESTINATION_NETWORK) {
-				if (!ospf_route_match_same(
-					    ospf->old_table,
-					    (struct prefix_ipv4 *)&rn->p, or))
+				if (!ospf_route_match_same(ospf->old_table[mt_id],
+							   (struct prefix_ipv4 *)&rn->p, or))
 					ospf_zebra_add(
 						ospf,
 						(struct prefix_ipv4 *)&rn->p,
 						or);
 			} else if (or->type == OSPF_DESTINATION_DISCARD)
-				if (!ospf_route_match_same(
-					    ospf->old_table,
-					    (struct prefix_ipv4 *)&rn->p, or))
+				if (!ospf_route_match_same(ospf->old_table[mt_id],
+							   (struct prefix_ipv4 *)&rn->p, or))
 					ospf_zebra_add_discard(
 						ospf,
 						(struct prefix_ipv4 *)&rn->p);
@@ -348,8 +347,8 @@ void ospf_route_install(struct ospf *ospf, struct route_table *rt)
 }
 
 /* RFC2328 16.1. (4). For "router". */
-void ospf_intra_add_router(struct route_table *rt, struct vertex *v,
-			   struct ospf_area *area, bool add_only)
+void ospf_intra_add_router(struct route_table *rt, struct vertex *v, struct ospf_area *area,
+			   bool add_only, uint8_t mt_id)
 {
 	struct route_node *rn;
 	struct ospf_route * or ;
@@ -358,14 +357,14 @@ void ospf_intra_add_router(struct route_table *rt, struct vertex *v,
 
 	if (IS_DEBUG_OSPF_EVENT) {
 		if (!add_only)
-			zlog_debug("%s: Start", __func__);
+			zlog_debug("%s: for mt-id %d: Start", __func__, mt_id);
 		else
-			zlog_debug("%s: REACHRUN: Start", __func__);
+			zlog_debug("%s: for mt-id %d REACHRUN: Start", __func__, mt_id);
 	}
 	lsa = (struct router_lsa *)v->lsa;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: LS ID: %pI4", __func__, &lsa->header.id);
+		zlog_debug("%s: for mt-id %d LS ID: %pI4", __func__, mt_id, &lsa->header.id);
 
 	if (!add_only) {
 		if (!OSPF_IS_AREA_BACKBONE(area))
@@ -380,9 +379,8 @@ void ospf_intra_add_router(struct route_table *rt, struct vertex *v,
 		if (!IS_ROUTER_LSA_BORDER(lsa) &&
 		    !IS_ROUTER_LSA_EXTERNAL(lsa)) {
 			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"%s: this router is neither ASBR nor ABR, skipping it",
-					__func__);
+				zlog_debug("%s: for mt-id %d this router is neither ASBR nor ABR, skipping it",
+					   __func__, mt_id);
 			return;
 		}
 
@@ -402,6 +400,10 @@ void ospf_intra_add_router(struct route_table *rt, struct vertex *v,
 	or->u.std.area_id = area->area_id;
 	or->u.std.external_routing = area->external_routing;
 	or->path_type = OSPF_PATH_INTRA_AREA;
+	or->mt_id = mt_id;
+	if ((mt_id == OSPF_MIN_MT_ID) && (area->default_exclusion == OSPF_DEFAULT_EXCLUSION_ENABLE)) {
+		or->mt_id = OSPF_NO_MT;
+	}
 	or->cost = v->distance;
 	or->type = OSPF_DESTINATION_ROUTER;
 	or->u.std.origin = (struct lsa_header *)lsa;
@@ -425,7 +427,7 @@ void ospf_intra_add_router(struct route_table *rt, struct vertex *v,
 	apply_mask_ipv4(&p);
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: talking about %pFX", __func__, &p);
+		zlog_debug("%s: for mt-id %d talking about %pFX", __func__, mt_id, &p);
 
 	rn = route_node_get(rt, (struct prefix *)&p);
 
@@ -441,15 +443,15 @@ void ospf_intra_add_router(struct route_table *rt, struct vertex *v,
 
 	if (IS_DEBUG_OSPF_EVENT) {
 		if (!add_only)
-			zlog_debug("%s: Stop", __func__);
+			zlog_debug("%s: for mt-id %d Stop", __func__, mt_id);
 		else
-			zlog_debug("%s: REACHRUN: Stop", __func__);
+			zlog_debug("%s: REACHRUN: for mt-id %d Stop", __func__, mt_id);
 	}
 }
 
 /* RFC2328 16.1. (4).  For transit network. */
-void ospf_intra_add_transit(struct route_table *rt, struct vertex *v,
-			    struct ospf_area *area)
+void ospf_intra_add_transit(struct route_table *rt, struct vertex *v, struct ospf_area *area,
+			    uint8_t mt_id)
 {
 	struct route_node *rn;
 	struct ospf_route * or ;
@@ -504,6 +506,10 @@ void ospf_intra_add_transit(struct route_table *rt, struct vertex *v,
 	or->u.std.area_id = area->area_id;
 	or->u.std.external_routing = area->external_routing;
 	or->path_type = OSPF_PATH_INTRA_AREA;
+	or->mt_id = mt_id;
+	if ((mt_id == OSPF_MIN_MT_ID) && (area->default_exclusion == OSPF_DEFAULT_EXCLUSION_ENABLE)) {
+		or->mt_id = OSPF_NO_MT;
+	}
 	or->cost = v->distance;
 	or->type = OSPF_DESTINATION_NETWORK;
 	or->u.std.origin = (struct lsa_header *)lsa;
@@ -515,9 +521,8 @@ void ospf_intra_add_transit(struct route_table *rt, struct vertex *v,
 }
 
 /* RFC2328 16.1. second stage. */
-void ospf_intra_add_stub(struct route_table *rt, struct router_lsa_link *link,
-			 struct vertex *v, struct ospf_area *area,
-			 int parent_is_root, int lsa_pos)
+void ospf_intra_add_stub(struct route_table *rt, struct router_lsa_link *link, struct vertex *v,
+			 struct ospf_area *area, int parent_is_root, int lsa_pos, uint8_t mt_id)
 {
 	uint32_t cost;
 	struct route_node *rn;
@@ -538,17 +543,17 @@ void ospf_intra_add_stub(struct route_table *rt, struct router_lsa_link *link,
 	apply_mask_ipv4(&p);
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: processing route to %pFX", __func__, &p);
+		zlog_debug("%s: processing mt-id %d route to %pFX", __func__, mt_id, &p);
 
 	/* (1) Calculate the distance D of stub network from the root.  D is
 	   equal to the distance from the root to the router vertex
 	   (calculated in stage 1), plus the stub network link's advertised
 	   cost. */
-	cost = v->distance + ntohs(link->m[0].metric);
+	cost = v->distance + ospf_lsa_link_mtid_metric(area, link, mt_id);
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: calculated cost is %d + %d = %d", __func__,
-			   v->distance, ntohs(link->m[0].metric), cost);
+		zlog_debug("%s: calculated cost is %d + %d = %d", __func__, v->distance,
+			   ospf_lsa_link_mtid_metric(area, link, mt_id), cost);
 
 	/* PtP links with /32 masks adds host routes to remote, directly
 	 * connected hosts, see RFC 2328, 12.4.1.1, Option 1.
@@ -648,12 +653,13 @@ void ospf_intra_add_stub(struct route_table *rt, struct router_lsa_link *link,
 	or->u.std.area_id = area->area_id;
 	or->u.std.external_routing = area->external_routing;
 	or->path_type = OSPF_PATH_INTRA_AREA;
+	or->mt_id = mt_id;
 	or->cost = cost;
 	or->type = OSPF_DESTINATION_NETWORK;
 	or->u.std.origin = (struct lsa_header *)lsa;
 
 	/* Nexthop is depend on connection type. */
-	if (v != area->spf) {
+	if (v != area->spf[mt_id]) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug("%s: this network is on remote router",
 				   __func__);

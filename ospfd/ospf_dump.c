@@ -2,6 +2,7 @@
 /*
  * OSPFd dump routine.
  * Copyright (C) 1999, 2000 Toshiaki Takada
+ * Copyright (C) 2025 The MITRE Corporation
  */
 
 #include <zebra.h>
@@ -296,6 +297,8 @@ static void ospf_router_lsa_dump(struct stream *s, uint16_t length)
 	struct router_lsa *rl;
 	struct router_link *rlnk;
 	int i, len, sum;
+	int j, link_len;
+	struct router_lsa_link *rll;
 
 	rl = (struct router_lsa *)stream_pnt(s);
 
@@ -307,12 +310,19 @@ static void ospf_router_lsa_dump(struct stream *s, uint16_t length)
 	len = length - OSPF_LSA_HEADER_SIZE - 4;
 	rlnk = &rl->link[0];
 	sum = 0;
-	for (i = 0; sum < len && rlnk; sum += 12, rlnk = &rl->link[++i]) {
+	for (i = 0; sum < len && rlnk; sum += link_len, rlnk = &rl->link[++i]) {
 		zlog_debug("    Link ID %pI4", &rlnk->link_id);
 		zlog_debug("    Link Data %pI4", &rlnk->link_data);
 		zlog_debug("    Type %d", (uint8_t)rlnk->type);
 		zlog_debug("    TOS %d", (uint8_t)rlnk->tos);
 		zlog_debug("    metric %d", ntohs(rlnk->metric));
+
+		rll = (struct router_lsa_link *)(rlnk);
+		for (j = 0; j < rll->m[0].tos_count; j++) {
+			zlog_debug("    MT-ID %d Metric: %d", rll->m[j + 1].type,
+				   ntohs(rll->m[j + 1].metric));
+		}
+		link_len = 12 + 4 * rll->m[0].tos_count;
 	}
 }
 

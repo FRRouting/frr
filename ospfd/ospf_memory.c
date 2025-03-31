@@ -2,6 +2,7 @@
 /* ospfd memory type definitions
  *
  * Copyright (C) 2015  David Lamparter
+ * Copyright (C) 2025 The MITRE Corporation
  */
 
 #ifdef HAVE_CONFIG_H
@@ -45,5 +46,6 @@ DEFINE_MTYPE(OSPFD, OSPF_GR_HELPER, "OSPF Graceful Restart Helper");
 DEFINE_MTYPE(OSPFD, OSPF_EXTERNAL_RT_AGGR, "OSPF External Route Summarisation");
 DEFINE_MTYPE(OSPFD, OSPF_P_SPACE, "OSPF TI-LFA P-Space");
 DEFINE_MTYPE(OSPFD, OSPF_Q_SPACE, "OSPF TI-LFA Q-Space");
+DEFINE_MTYPE(OSPFD, OSPF_MULTI_TOPOLOGY, "OSPF Multi-Topology");
 DEFINE_MTYPE(OSPFD, OSPF_LSA_LIST, "OSPF LSA List");
 DEFINE_MTYPE(OSPFD, OSPF_LSDB_NODE, "OSPF LSDB Linked Node");

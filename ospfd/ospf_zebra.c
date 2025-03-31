@@ -2,6 +2,7 @@
 /*
  * Zebra connect library for OSPFd
  * Copyright (C) 1997, 98, 99, 2000 Kunihiro Ishiguro, Toshiaki Takada
+ * Copyright (C) 2025 The MITRE Corporation
  */
 
 #include <zebra.h>
@@ -300,6 +301,10 @@ void ospf_zebra_add(struct ospf *ospf, struct prefix_ipv4 *p,
 		api.distance = distance;
 	}
 
+	/* Set MT-ID */
+	SET_FLAG(api.message, ZAPI_MESSAGE_TABLEID);
+	api.tableid = or->mt_id;
+
 	for (ALL_LIST_ELEMENTS_RO(or->paths, node, path)) {
 		if (api.nexthop_num >= ospf->max_multipath)
 			break;
@@ -363,10 +368,12 @@ void ospf_zebra_delete(struct ospf *ospf, struct prefix_ipv4 *p,
 	api.instance = ospf->instance;
 	api.safi = SAFI_UNICAST;
 	memcpy(&api.prefix, p, sizeof(*p));
+	/* Set MT-ID */
+	SET_FLAG(api.message, ZAPI_MESSAGE_TABLEID);
+	api.tableid = or->mt_id;
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
-		zlog_debug("Zebra: Route delete %pFX(%s)", p,
-			   ospf_vrf_id_to_name(ospf->vrf_id));
+		zlog_debug("Zebra: Route delete mt-id %d %pFX", api.tableid, p);
 
 	zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
 }

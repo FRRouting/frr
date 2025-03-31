@@ -1,0 +1,103 @@
+{
+
+	"ipv4base": "10.0.0.0",
+	"ipv4mask": 24,
+	"link_ip_start": {
+		"ipv4": "10.0.0.0",
+		"v4mask": 24
+	},
+	"lo_prefix": {
+		"ipv4": "1.0.",
+		"v4mask": 32
+	},
+	"routers": {
+		"r0": {
+			"links": {
+				"lo": {
+					"ipv4": "auto",
+					"type": "loopback"
+				},
+				"r1": {
+					"ipv4": "auto"
+				},
+				"r2": {
+					"ipv4": "auto"
+				},
+				"r3": {
+					"ipv4": "auto"
+				}
+			},
+			"ospf": {
+				"router_id": "100.1.1.0"
+			}
+		},
+		"r1": {
+			"links": {
+				"lo": {
+					"ipv4": "auto",
+					"type": "loopback"
+				},
+				"r0": {
+					"ipv4": "auto"
+				},
+				"r2": {
+					"ipv4": "auto"
+				},
+				"r3": {
+					"ipv4": "auto"
+				},
+				"r3-link0": {
+					"ipv4": "auto",
+					"description": "DummyIntftoR3"
+				}
+			},
+			"ospf": {
+				"router_id": "100.1.1.1"
+			}
+		},
+		"r2": {
+			"links": {
+				"lo": {
+					"ipv4": "auto",
+					"type": "loopback"
+				},
+				"r0": {
+					"ipv4": "auto"
+				},
+				"r1": {
+					"ipv4": "auto"
+				},
+				"r3": {
+					"ipv4": "auto"
+				}
+			},
+			"ospf": {
+				"router_id": "100.1.1.2"
+			}
+		},
+		"r3": {
+			"links": {
+				"lo": {
+					"ipv4": "auto",
+					"type": "loopback"
+				},
+				"r0": {
+					"ipv4": "auto"
+				},
+				"r1": {
+					"ipv4": "auto"
+				},
+				"r2": {
+					"ipv4": "auto"
+				},
+				"r1-link0": {
+					"ipv4": "auto",
+					"description": "DummyIntftoR1"
+				}
+			},
+			"ospf": {
+				"router_id": "100.1.1.3"
+			}
+		}
+	}
+}

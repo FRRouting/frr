@@ -3,6 +3,7 @@
  * Server side of OSPF API.
  * Copyright (C) 2001, 2002 Ralph Keller
  * Copyright (c) 2022, LabN Consulting, L.L.C.
+ * Copyright (C) 2025 The MITRE Corporation
  */
 
 #include <zebra.h>
@@ -1354,7 +1355,7 @@ int ospf_apiserver_handle_sync_reachable(struct ospf_apiserver *apiserv,
 					 struct msg *msg)
 {
 	struct ospf *ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-	struct route_table *rt = ospf->all_rtrs;
+	struct route_table *rt = ospf->all_rtrs[OSPF_MIN_MT_ID];
 	uint32_t seqnum = msg_get_seq(msg);
 	struct in_addr *a, *abuf;
 	struct msg_reachable_change *areach;

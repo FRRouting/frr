@@ -2,6 +2,7 @@
 /*
  * OSPF Interface functions.
  * Copyright (C) 1999, 2000 Toshiaki Takada
+ * Copyright (C) 2025 The MITRE Corporation
  */
 
 #include <zebra.h>
@@ -142,6 +143,8 @@ void ospf_if_recalculate_output_cost(struct interface *ifp)
 {
 	uint32_t newcost;
 	struct route_node *rn;
+	struct ospf_if_params *params;
+	uint8_t mt_id = OSPF_MULTICAST_MT_ID;
 
 	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
 		struct ospf_interface *oi;
@@ -154,9 +157,39 @@ void ospf_if_recalculate_output_cost(struct interface *ifp)
 		/* Is actual output cost changed? */
 		if (oi->output_cost != newcost) {
 			oi->output_cost = newcost;
+
+			/* Handle route replication configuration */
+			if (oi->area->route_replication == OSPF_ROUTE_REPLICATION_ENABLE) {
+				params = IF_DEF_PARAMS(oi->ifp);
+				if (params) {
+					if (!(OSPF_IF_MT_MAP_IS_SET(params->mt_map, mt_id))) {
+						/* Only replicate if multi-topology cost is not
+                         * explicitly configured
+                         */
+						SET_IF_MT_MAP(params->mt_map_replicate, mt_id);
+						/* indicate that at least one MT ID is configured */
+						SET_IF_PARAM(params, mt_map);
+						params->mt_metric[mt_id] = oi->output_cost;
+					}
+				}
+			}
 			ospf_router_lsa_update_area(oi->area);
 		}
 	}
+}
+
+/* Returns true if there is multi-topology cost configured or replicated.
+ */
+bool ospf_if_mt_is_configured(struct ospf_if_params *p)
+{
+	int mt_map_index = 0;
+	uint32_t if_mt_configured = 0;
+
+	for (; mt_map_index < OSPF_UINT32_SIZE_MT_BIT_VECTOR; mt_map_index++) {
+		if_mt_configured += p->mt_map[mt_map_index];
+		if_mt_configured += p->mt_map_replicate[mt_map_index];
+	}
+	return (if_mt_configured > 0);
 }
 
 /* Simulate down/up on the interface.  This is needed, for example, when
@@ -570,6 +603,7 @@ static struct ospf_if_params *ospf_new_if_params(void)
 	UNSET_IF_PARAM(oip, auth_crypt);
 	UNSET_IF_PARAM(oip, auth_type);
 	UNSET_IF_PARAM(oip, if_area);
+	UNSET_IF_PARAM(oip, mt_base_disable);
 	UNSET_IF_PARAM(oip, opaque_capable);
 	UNSET_IF_PARAM(oip, keychain_name);
 	UNSET_IF_PARAM(oip, nbr_filter_name);
@@ -938,11 +972,11 @@ int ospf_if_down(struct ospf_interface *oi)
 	/* Shutdown packet reception and sending */
 	ospf_if_stream_unset(oi);
 
-	if (ospf->new_table)
-		ospf_if_down_mark_routes_changed(ospf->new_table, oi);
+	if (ospf->new_table[OSPF_MIN_MT_ID])
+		ospf_if_down_mark_routes_changed(ospf->new_table[OSPF_MIN_MT_ID], oi);
 
-	if (ospf->new_external_route)
-		ospf_if_down_mark_routes_changed(ospf->new_external_route, oi);
+	if (ospf->new_external_route[OSPF_MIN_MT_ID])
+		ospf_if_down_mark_routes_changed(ospf->new_external_route[OSPF_MIN_MT_ID], oi);
 
 	return 1;
 }

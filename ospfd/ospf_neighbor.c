@@ -2,6 +2,7 @@
 /*
  * OSPF Neighbor functions.
  * Copyright (C) 1999, 2000 Toshiaki Takada
+ * Copyright (C) 2025 The MITRE Corporation
  */
 
 #include <zebra.h>
@@ -260,6 +261,12 @@ void ospf_nbr_add_self(struct ospf_interface *oi, struct in_addr router_id)
 		UNSET_FLAG(oi->nbr_self->options, OSPF_OPTION_E);
 		SET_FLAG(oi->nbr_self->options, OSPF_OPTION_NP);
 		break;
+	}
+
+	if (oi->area->default_exclusion == OSPF_DEFAULT_EXCLUSION_ENABLE) {
+		SET_FLAG(oi->nbr_self->options, OSPF_OPTION_MT);
+	} else {
+		UNSET_FLAG(oi->nbr_self->options, OSPF_OPTION_MT);
 	}
 
 	/* Add nbr_self to nbrs table */

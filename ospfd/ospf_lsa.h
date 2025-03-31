@@ -2,6 +2,7 @@
 /*
  * OSPF Link State Advertisement
  * Copyright (C) 1999, 2000 Toshiaki Takada
+ * Copyright (C) 2025 The MITRE Corporation
  */
 
 #ifndef _ZEBRA_OSPF_LSA_H
@@ -37,6 +38,8 @@
 #define OSPF_ROUTER_LSA_LINK_SIZE    12U
 #define OSPF_ROUTER_LSA_TOS_SIZE      4U
 #define OSPF_MAX_LSA_SIZE	   1500U
+#define OSPF_ROUTER_LSA_MTID_SIZE     4U
+
 
 /* AS-external-LSA refresh method. */
 #define LSA_REFRESH_IF_CHANGED	0
@@ -184,6 +187,11 @@ struct summary_lsa {
 	uint8_t metric[3];
 };
 
+struct summary_mt {
+	u_char id;
+	u_char metric[3];
+};
+
 /* OSPF AS-external-LSAs structure. */
 #define OSPF_AS_EXTERNAL_LSA_MIN_SIZE             16U /* w/1 TOS forwarding block */
 struct as_external_lsa {
@@ -326,9 +334,8 @@ extern void ospf_discard_from_db(struct ospf *ospf, struct ospf_lsdb *lsdb, stru
 extern int metric_type(struct ospf *ospf, uint8_t src, unsigned short instance);
 extern int metric_value(struct ospf *ospf, uint8_t src, unsigned short instance);
 
-extern char link_info_set(struct stream **s, struct in_addr id,
-			  struct in_addr data, uint8_t type, uint8_t tos,
-			  uint16_t cost);
+extern char link_info_set(struct stream **s, struct ospf_interface *oi, struct in_addr id,
+			  struct in_addr data, uint8_t type, uint8_t tos, uint16_t cost);
 
 extern struct in_addr ospf_get_nssa_ip(struct ospf_area *area);
 extern struct ospf_lsa *ospf_translated_nssa_refresh(struct ospf *ospf,
@@ -362,6 +369,10 @@ static inline bool ospf_check_indication_lsa(struct ospf_lsa *lsa)
 
 	return false;
 }
+
+extern uint16_t ospf_lsa_link_mtid_metric(struct ospf_area *, struct router_lsa_link *, uint8_t);
+extern int ospf_lsa_link_mtid_exists(struct ospf_area *, struct router_lsa_link *, uint8_t);
+extern int ospf_lsa_contains_mtid(struct ospf_area *, struct ospf_lsa *, uint8_t);
 
 /*
  * LSA Update and Delete Hook LSAs.

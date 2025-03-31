@@ -2,6 +2,7 @@
 /*
  * OSPF Interface functions.
  * Copyright (C) 1999 Toshiaki Takada
+ * Copyright (C) 2025 The MITRE Corporation
  */
 
 #ifndef _ZEBRA_OSPF_INTERFACE_H
@@ -40,6 +41,13 @@
 	uint8_t P##__config : 1
 #define UNSET_IF_PARAM(S, P) ((S)->P##__config) = 0
 #define SET_IF_PARAM(S, P) ((S)->P##__config) = 1
+
+#define SET_IF_MT_MAP(M, N)                                                                        \
+	((M)[(N) / OSPF_NUM_MT_MAP_ENTRIES] |= 1 << (N) % OSPF_NUM_MT_MAP_ENTRIES)
+#define UNSET_IF_MT_MAP(M, N)                                                                      \
+	((M)[(N) / OSPF_NUM_MT_MAP_ENTRIES] &= ~(1 << (N) % OSPF_NUM_MT_MAP_ENTRIES))
+#define OSPF_IF_MT_MAP_IS_SET(M, N)                                                                \
+	((M)[(N) / OSPF_NUM_MT_MAP_ENTRIES] & (1 << (N) % OSPF_NUM_MT_MAP_ENTRIES))
 
 struct ospf_if_params {
 	DECLARE_IF_PARAM(uint32_t,
@@ -119,6 +127,14 @@ struct ospf_if_params {
 
 	/* point-to-point DMVPN configuration */
 	uint8_t ptp_dmvpn;
+
+	/* Multi-Topology Routing */
+#define OSPF_NUM_MT_MAP_ENTRIES (sizeof(uint32_t) * 8)
+	uint32_t mt_map[OSPF_UINT32_SIZE_MT_BIT_VECTOR];	   /* list of configured MT_IDs */
+	uint32_t mt_map_replicate[OSPF_UINT32_SIZE_MT_BIT_VECTOR]; /* list of replicated MT_IDs */
+	uint16_t mt_metric[OSPF_MAX_NUM_MT_IDS];		   /* mt associated metric */
+	u_char mt_map__config : 1;
+	DECLARE_IF_PARAM(bool, mt_base_disable);
 
 	/* point-to-multipoint delayed reflooding configuration */
 	bool p2mp_delay_reflood;
@@ -350,6 +366,7 @@ extern void ospf_if_stream_unset(struct ospf_interface *oi);
 extern int ospf_if_is_enable(struct ospf_interface *oi);
 extern int ospf_if_get_output_cost(struct ospf_interface *oi);
 extern void ospf_if_recalculate_output_cost(struct interface *ifp);
+extern bool ospf_if_mt_is_configured(struct ospf_if_params *p);
 
 /* Simulate down/up on the interface. */
 extern void ospf_if_reset(struct interface *ifp);

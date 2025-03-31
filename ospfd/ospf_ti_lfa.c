@@ -3,6 +3,7 @@
  * OSPF TI-LFA
  * Copyright (C) 2020  NetDEF, Inc.
  *                     Sascha Kattelmann
+ * Copyright (C) 2025 The MITRE Corporation
  */
 
 #include <zebra.h>
@@ -306,7 +307,7 @@ static void ospf_ti_lfa_generate_inner_label_stack(
 	new_table = route_table_init();
 
 	/* Copy the current state ... */
-	spf_orig = area->spf;
+	spf_orig = area->spf[OSPF_MIN_MT_ID];
 	vertex_list_orig = area->spf_vertex_list;
 	p_spaces_orig = area->p_spaces;
 
@@ -314,8 +315,8 @@ static void ospf_ti_lfa_generate_inner_label_stack(
 		XCALLOC(MTYPE_OSPF_P_SPACE, sizeof(struct p_spaces_head));
 
 	/* dry run true, root node false */
-	ospf_spf_calculate(area, start_vertex->lsa_p, new_table, NULL, NULL,
-			   true, false);
+	ospf_spf_calculate(area, start_vertex->lsa_p, new_table, NULL, NULL, true, false,
+			   OSPF_MIN_MT_ID);
 
 	q_node = ospf_spf_vertex_find(end_vertex->id, area->spf_vertex_list);
 
@@ -366,10 +367,10 @@ static void ospf_ti_lfa_generate_inner_label_stack(
 
 	/* Cleanup */
 	ospf_ti_lfa_free_p_spaces(area);
-	ospf_spf_cleanup(area->spf, area->spf_vertex_list);
+	ospf_spf_cleanup(area->spf[OSPF_MIN_MT_ID], area->spf_vertex_list);
 
 	/* ... and copy the current state back. */
-	area->spf = spf_orig;
+	area->spf[OSPF_MIN_MT_ID] = spf_orig;
 	area->spf_vertex_list = vertex_list_orig;
 	area->p_spaces = p_spaces_orig;
 }
@@ -670,13 +671,12 @@ static void ospf_ti_lfa_generate_q_spaces(struct ospf_area *area,
 	 * dry run true, root node false
 	 */
 	area->spf_reversed = true;
-	ospf_spf_calculate(area, dest->lsa_p, new_table, NULL, NULL, true,
-			   false);
+	ospf_spf_calculate(area, dest->lsa_p, new_table, NULL, NULL, true, false, OSPF_MIN_MT_ID);
 
 	/* Reset the flag for reverse SPF */
 	area->spf_reversed = false;
 
-	q_space->root = area->spf;
+	q_space->root = area->spf[OSPF_MIN_MT_ID];
 	q_space->vertex_list = area->spf_vertex_list;
 	q_space->label_stack = NULL;
 
@@ -762,10 +762,10 @@ static void ospf_ti_lfa_generate_post_convergence_spf(struct ospf_area *area,
 	 * endeavour (because LSAs are stored as a 'raw' stream), so we go with
 	 * this rather hacky way for now.
 	 */
-	ospf_spf_calculate(area, area->router_lsa_self, new_table, NULL, NULL,
-			   true, false);
+	ospf_spf_calculate(area, area->router_lsa_self, new_table, NULL, NULL, true, false,
+			   OSPF_MIN_MT_ID);
 
-	p_space->pc_spf = area->spf;
+	p_space->pc_spf = area->spf[OSPF_MIN_MT_ID];
 	p_space->pc_vertex_list = area->spf_vertex_list;
 
 	area->spf_protected_resource = NULL;
@@ -784,7 +784,7 @@ ospf_ti_lfa_generate_p_space(struct ospf_area *area, struct vertex *child,
 	vertex_list = list_new();
 
 	/* The P-space will get its own SPF tree, so copy the old one */
-	ospf_spf_copy(area->spf, vertex_list);
+	ospf_spf_copy(area->spf[OSPF_MIN_MT_ID], vertex_list);
 	p_space->root = listnode_head(vertex_list);
 	p_space->vertex_list = vertex_list;
 	p_space->protected_resource = protected_resource;
@@ -802,7 +802,7 @@ ospf_ti_lfa_generate_p_space(struct ospf_area *area, struct vertex *child,
 	 * Since we are going to calculate more SPF trees for Q spaces, keep the
 	 * 'original' one here temporarily
 	 */
-	spf_orig = area->spf;
+	spf_orig = area->spf[OSPF_MIN_MT_ID];
 	vertex_list_orig = area->spf_vertex_list;
 
 	/* Generate the post convergence SPF as a blueprint for backup paths */
@@ -812,7 +812,7 @@ ospf_ti_lfa_generate_p_space(struct ospf_area *area, struct vertex *child,
 	ospf_ti_lfa_generate_q_spaces(area, p_space, child, recursive, pc_path);
 
 	/* Put the 'original' SPF tree back in place */
-	area->spf = spf_orig;
+	area->spf[OSPF_MIN_MT_ID] = spf_orig;
 	area->spf_vertex_list = vertex_list_orig;
 
 	/* We are finished, store the new P space */
@@ -834,7 +834,7 @@ void ospf_ti_lfa_generate_p_spaces(struct ospf_area *area,
 		XCALLOC(MTYPE_OSPF_P_SPACE, sizeof(struct p_spaces_head));
 	p_spaces_init(area->p_spaces);
 
-	root = area->spf;
+	root = area->spf[OSPF_MIN_MT_ID];
 
 	/* Root or its router LSA was not created yet? */
 	if (!root || !root->lsa)
@@ -948,7 +948,7 @@ static struct p_space *ospf_ti_lfa_get_p_space_by_path(struct ospf_area *area,
 		}
 
 		if (type == OSPF_TI_LFA_NODE_PROTECTION) {
-			child = ospf_spf_vertex_by_nexthop(area->spf,
+			child = ospf_spf_vertex_by_nexthop(area->spf[OSPF_MIN_MT_ID],
 							   &path->nexthop);
 			if (child
 			    && p_space->protected_resource->router_id.s_addr

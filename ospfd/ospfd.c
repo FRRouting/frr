@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /* OSPF version 2 daemon program.
  * Copyright (C) 1999, 2000 Toshiaki Takada
+ * Copyright (C) 2025 The MITRE Corporation
  */
 
 #include <zebra.h>
@@ -353,9 +354,11 @@ struct ospf *ospf_new_alloc(unsigned short instance, const char *name)
 	new->default_originate = DEFAULT_ORIGINATE_NONE;
 
 	new->passive_interface_default = OSPF_IF_ACTIVE;
-
-	new->new_external_route = route_table_init();
-	new->old_external_route = route_table_init();
+	for (i = 0; i < OSPF_MAX_NUM_MT_IDS; i++) {
+		new->new_external_route[i] = route_table_init();
+		new->old_external_route[i] = route_table_init();
+	}
+	new->mt_multicast = NULL;
 	new->external_lsas = route_table_init();
 
 	new->stub_router_startup_time = OSPF_STUB_ROUTER_UNCONFIGURED;
@@ -786,30 +789,35 @@ static void ospf_finish_final(struct ospf *ospf)
 	}
 	route_table_finish(ospf->maxage_lsa);
 
-	if (ospf->old_table)
-		ospf_route_table_free(ospf->old_table);
-	if (ospf->new_table) {
-		if (!ospf->gr_info.prepare_in_progress)
-			ospf_route_delete(ospf, ospf->new_table);
-		ospf_route_table_free(ospf->new_table);
+	for (i = 0; i < OSPF_MAX_NUM_MT_IDS; i++) {
+		if (ospf->old_table[i])
+			ospf_route_table_free(ospf->old_table[i]);
+		if (ospf->new_table[i]) {
+			if (!ospf->gr_info.prepare_in_progress)
+				ospf_route_delete(ospf, ospf->new_table[i]);
+			ospf_route_table_free(ospf->new_table[i]);
+		}
+		if (ospf->oall_rtrs[i])
+			ospf_rtrs_free(ospf->oall_rtrs[i]);
+		if (ospf->all_rtrs[i])
+			ospf_rtrs_free(ospf->all_rtrs[i]);
+		if (ospf->old_rtrs[i])
+			ospf_route_table_free(ospf->old_rtrs[i]);
+		if (ospf->new_rtrs[i])
+			ospf_route_table_free(ospf->new_rtrs[i]);
+		if (ospf->new_external_route[i]) {
+			if (!ospf->gr_info.prepare_in_progress)
+				ospf_route_delete(ospf, ospf->new_external_route[i]);
+			ospf_route_table_free(ospf->new_external_route[i]);
+		}
+		if (ospf->old_external_route[i]) {
+			if (!ospf->gr_info.prepare_in_progress)
+				ospf_route_delete(ospf, ospf->old_external_route[i]);
+			ospf_route_table_free(ospf->old_external_route[i]);
+		}
 	}
-	if (ospf->oall_rtrs)
-		ospf_rtrs_free(ospf->oall_rtrs);
-	if (ospf->all_rtrs)
-		ospf_rtrs_free(ospf->all_rtrs);
-	if (ospf->old_rtrs)
-		ospf_rtrs_free(ospf->old_rtrs);
-	if (ospf->new_rtrs)
-		ospf_rtrs_free(ospf->new_rtrs);
-	if (ospf->new_external_route) {
-		if (!ospf->gr_info.prepare_in_progress)
-			ospf_route_delete(ospf, ospf->new_external_route);
-		ospf_route_table_free(ospf->new_external_route);
-	}
-	if (ospf->old_external_route) {
-		if (!ospf->gr_info.prepare_in_progress)
-			ospf_route_delete(ospf, ospf->old_external_route);
-		ospf_route_table_free(ospf->old_external_route);
+	if (ospf->mt_multicast) {
+		ospf_mt_multicast_disable(ospf);
 	}
 	if (ospf->external_lsas) {
 		ospf_ase_external_lsas_finish(ospf->external_lsas);
@@ -825,13 +833,11 @@ static void ospf_finish_final(struct ospf *ospf)
 
 		for (ALL_LIST_ELEMENTS(ext_list, node, nnode, ext)) {
 			if (ext->external_info)
-				for (rn = route_top(ext->external_info); rn;
-				     rn = route_next(rn)) {
+				for (rn = route_top(ext->external_info); rn; rn = route_next(rn)) {
 					if (rn->info == NULL)
 						continue;
 
-					XFREE(MTYPE_OSPF_EXTERNAL_INFO,
-					      rn->info);
+					XFREE(MTYPE_OSPF_EXTERNAL_INFO, rn->info);
 					rn->info = NULL;
 					route_unlock_node(rn);
 				}
@@ -897,6 +903,27 @@ static void ospf_finish_final(struct ospf *ospf)
 
 	XFREE(MTYPE_OSPF_TOP, ospf->name);
 	XFREE(MTYPE_OSPF_TOP, ospf);
+}
+
+/* Enable multicast topology */
+void ospf_mt_multicast_enable(struct ospf *ospf)
+{
+	if (!ospf->mt_multicast) {
+		ospf->mt_multicast = XCALLOC(MTYPE_OSPF_MULTI_TOPOLOGY,
+					     sizeof(struct ospf_mt_config));
+		ospf->mt_multicast->mt_name = XSTRDUP(MTYPE_OSPF_TOP, "multicast");
+		ospf->mt_multicast->mt_id = OSPF_MULTICAST_MT_ID;
+	}
+}
+
+/* Disable multicast topology */
+void ospf_mt_multicast_disable(struct ospf *ospf)
+{
+	if (ospf->mt_multicast) {
+		XFREE(MTYPE_OSPF_TOP, ospf->mt_multicast->mt_name);
+		XFREE(MTYPE_OSPF_MULTI_TOPOLOGY, ospf->mt_multicast);
+		ospf->mt_multicast = NULL;
+	}
 }
 
 static void ospf_range_table_node_destroy(route_table_delegate_t *delegate,

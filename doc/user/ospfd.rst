@@ -1273,6 +1273,39 @@ TI-LFA requires a proper Segment Routing configuration.
 
 .. _debugging-ospf:
 
+Multi-Topology Routing (MTR)
+============================
+
+Multi-Topology Routing (MTR) based on RFC 4915 within a single area, without
+redistribution, is supported.  Currently only the default topology and the
+multicast topology is supported.
+
+.. clicmd:: ip ospf topology multicast cost (Cost)
+
+    Configured in interface level.  Assigns the interface cost in the topology
+    named multicast, where
+        Cost is in the range of 1-65535
+
+.. clicmd:: topology multicast tid 1
+    Configured on the router level.  Enables a topology named multicast and
+    assigns the topology a topology ID (tid) of 1.
+
+.. clicmd:: area (Area ID) mt-default-exclusion
+
+    Configured on the router level.  Enables the link exclusion capability.
+    As defined in RFC 4915 Secion 4.1, the link excluions capability requires
+    routers to ignore TOS 0 metrics in Router-LSAs in the default topology and
+    to alternately use the MT-ID#0 metric to advertise the metric associated
+    with the default topology.
+
+.. clicmd:: area (Area ID) route-replicate topology base to topology multicast
+    
+    Configured on the router level.  Replicates the interface cost from the
+    default/base topology to the multicast topology if the interface cost in
+    the multicast topology is not configure.  If the interface cost in the
+    multicast topology is already configured or is later configured, then the
+    interface cost configured in the multicast topology is used.
+
 Debugging OSPF
 ==============
 
@@ -1521,4 +1554,17 @@ A router information example with PCE advertisement:
     pce neighbor as 65500
     pce neighbor as 65200
     pce scope 0x80
+   !
+
+A Multi-Topology Routing (MTR) example:
+
+.. code-block:: frr
+
+   interface eth0
+    ip ospf cost 30
+    ip ospf topology multicast cost 45 
+   !
+   router ospf
+    topology multicast tid 1
+    area 1.1.1.1 mt-default-exclusion
    !

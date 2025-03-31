@@ -2,6 +2,7 @@
 /*
  * OSPF AS Boundary Router functions.
  * Copyright (C) 1999, 2000 Kunihiro Ishiguro, Toshiaki Takada
+ * Copyright (C) 2025 The MITRE Corporation
  */
 
 #ifndef _ZEBRA_OSPF_ASBR_H
@@ -97,7 +98,6 @@ struct ospf_external_aggr_rt {
 #define OSPF_ASBR_CHECK_DELAY 30
 #define OSPF_ASBR_REDIST_UPDATE_DELAY 9
 
-extern void ospf_external_route_remove(struct ospf *, struct prefix_ipv4 *);
 extern struct external_info *ospf_external_info_new(struct ospf *, uint8_t,
 						    unsigned short);
 extern void ospf_reset_route_map_set_values(struct route_map_set_values *);

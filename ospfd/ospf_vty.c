@@ -2,6 +2,7 @@
 /* OSPF VTY interface.
  * Copyright (C) 2005 6WIND <alain.ritoux@6wind.com>
  * Copyright (C) 2000 Toshiaki Takada
+ * Copyright (C) 2025 The MITRE Corporation
  */
 
 #include <zebra.h>
@@ -43,6 +44,7 @@
 #include "ospfd/ospf_ldp_sync.h"
 #include "ospfd/ospf_network.h"
 #include "ospfd/ospf_memory.h"
+#include "ospfd/ospf_lsa.h"
 
 FRR_CFG_DEFAULT_BOOL(OSPF_LOG_ADJACENCY_CHANGES,
 	{ .val_bool = true, .match_profile = "datacenter", },
@@ -125,6 +127,11 @@ int ospf_oi_count(struct interface *ifp)
 	if (argv_find(argv, argc, "vrf", &idx_vrf)) {                          \
 		vrf_name = argv[idx_vrf + 1]->arg;                             \
 		all_vrf = strmatch(vrf_name, "all");                           \
+	}
+
+#define OSPF_FIND_MT_ARGS(argv, argc, idx_mt, mt_name)                                             \
+	if (argv_find(argv, argc, "topology", &idx_mt)) {                                          \
+		mt_name = argv[idx_mt + 1]->arg;                                                   \
 	}
 
 static int ospf_router_cmd_parse(struct vty *vty, struct cmd_token *argv[],
@@ -1793,6 +1800,296 @@ DEFUN (no_ospf_area_default_cost,
 	return CMD_SUCCESS;
 }
 
+DEFUN (ospf_area_mt_default_exclusion,
+       ospf_area_mt_default_exclusion_cmd,
+       "area <A.B.C.D|(0-4294967295)> mt-default-exclusion",
+       "OSPF area parameters\n"
+       "OSPF area ID in IP address format\n"
+       "OSPF area ID as a decimal value\n"
+       "Configure multi-topology routing default exclusion capability\n" )
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	int idx_ipv4_number = 1;
+	struct ospf_area *area;
+	struct in_addr area_id;
+	struct listnode *node, *nnode;
+	struct ospf_interface *oi;
+	struct ospf_if_params *params;
+	int format;
+
+	VTY_GET_OSPF_AREA_ID_NO_BB("mt-default-exclusion", area_id, format,
+				   argv[idx_ipv4_number]->arg);
+	area = ospf_area_get(ospf, area_id);
+	if (area == NULL)
+		return CMD_SUCCESS;
+
+	/* Verify that default topology is not disabled on interfaces in the
+     * area */
+	for (ALL_LIST_ELEMENTS(area->oiflist, node, nnode, oi)) {
+		params = IF_DEF_PARAMS(oi->ifp);
+		if (OSPF_IF_PARAM_CONFIGURED(params, mt_base_disable)) {
+			vty_out(vty,
+				"Default topology on interface %s must be enabled "
+				"first\n",
+				oi->ifp->name);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	ospf_area_display_format_set(ospf, area, format);
+	/* if DefaultExclusionCapability is not already enabled */
+	if (area->default_exclusion != OSPF_DEFAULT_EXCLUSION_ENABLE) {
+		area->default_exclusion = OSPF_DEFAULT_EXCLUSION_ENABLE;
+		if (IS_DEBUG_OSPF_EVENT) {
+			zlog_debug("Area[%pI4]: Configured with mt-default-exclusion "
+				   "enabled",
+				   &area->area_id);
+		}
+		for (node = listhead(area->oiflist); node; node = listnextnode(node)) {
+			if ((oi = listgetdata(node)) != NULL) {
+				if (oi->nbr_self != NULL) {
+					SET_FLAG(oi->nbr_self->options, OSPF_OPTION_MT);
+				}
+			}
+		}
+		ospf_router_lsa_update_area(area);
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_ospf_area_mt_default_exclusion,
+       no_ospf_area_mt_default_exclusion_cmd,
+       "no area <A.B.C.D|(0-4294967295)> mt-default-exclusion",
+       NO_STR
+       "OSPF area parameters\n"
+       "OSPF area ID in IP address format\n"
+       "OSPF area ID as a decimal value\n"
+       "Configure multi-topology routing default exclusion capability\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	int idx_ipv4_number = 2;
+	struct ospf_area *area;
+	struct in_addr area_id;
+	struct listnode *node, *nnode;
+	struct ospf_interface *oi;
+	struct ospf_if_params *params;
+	int format;
+
+	VTY_GET_OSPF_AREA_ID_NO_BB("mt-default-exclusion", area_id, format,
+				   argv[idx_ipv4_number]->arg);
+	area = ospf_area_get(ospf, area_id);
+	if (area == NULL)
+		return CMD_SUCCESS;
+
+	/* Verify that default topology is not disabled on interfaces in the
+     * area */
+	for (ALL_LIST_ELEMENTS(area->oiflist, node, nnode, oi)) {
+		params = IF_DEF_PARAMS(oi->ifp);
+		if (OSPF_IF_PARAM_CONFIGURED(params, mt_base_disable)) {
+			vty_out(vty,
+				"Default (base) topology on interface %s must be "
+				"enabled first\n",
+				oi->ifp->name);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	/* ospf_area_mt_default_exclusion_unset(ospf, area); */
+	/* if DefaultExclusion capability is not already disabled */
+	if (area->default_exclusion != OSPF_DEFAULT_EXCLUSION_DISABLE) {
+		area->default_exclusion = OSPF_DEFAULT_EXCLUSION_DISABLE;
+		if (IS_DEBUG_OSPF_EVENT) {
+			zlog_debug("Area[%pI4]: Configured with mt-default-exclusion "
+				   "disabled",
+				   &area->area_id);
+		}
+		for (node = listhead(area->oiflist); node; node = listnextnode(node)) {
+			if ((oi = listgetdata(node)) != NULL) {
+				if (oi->nbr_self != NULL) {
+					UNSET_FLAG(oi->nbr_self->options, OSPF_OPTION_MT);
+				}
+			}
+		}
+		ospf_router_lsa_update_area(area);
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (ospf_area_mt_route_replicate,
+       ospf_area_mt_route_replicate_cmd,
+       "area <A.B.C.D|(0-4294967295)> route-replicate topology <base> to topology <multicast>",
+       "OSPF area parameters\n"
+       "OSPF area ID in IP address format\n"
+       "OSPF area ID as a decimal value\n"
+       "Configure multi-topology routing route replication capability\n"
+       "Copy from source topology\n"
+       "Source topology name\n"
+       "Copy to destination topology\n"
+       "Multi-topology identifier\n"
+       "Destination topology name\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	int idx_ipv4_number = 1;
+	struct ospf_area *area;
+	struct in_addr area_id;
+	int format;
+	const uint8_t dst_mt_id = OSPF_MULTICAST_MT_ID;
+	struct listnode *node;
+	struct ospf_interface *oi;
+	struct ospf_if_params *params;
+	bool update_lsa = false;
+
+
+	VTY_GET_OSPF_AREA_ID(area_id, format, argv[idx_ipv4_number]->arg);
+	area = ospf_area_get(ospf, area_id);
+	if (area == NULL) {
+		vty_out(vty, "OSPF area ID is invalid\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ospf_area_display_format_set(ospf, area, format);
+
+	if (IS_DEBUG_OSPF_EVENT) {
+		zlog_debug("Area[%pI4]: Configure MT route replication "
+			   "to multicast topology",
+			   &area->area_id);
+	}
+
+	if (area->route_replication == OSPF_ROUTE_REPLICATION_ENABLE) {
+		vty_out(vty,
+			"Area[%pI4]: MT route replication is already "
+			"configured\n",
+			&area->area_id);
+		return CMD_SUCCESS;
+	}
+
+	/* Ensure that multicast topology is configured */
+	if (!ospf->mt_multicast) {
+		vty_out(vty, "Multicast topology must be configured "
+			     "prior to enabling route "
+			     "replication\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	area->route_replication = OSPF_ROUTE_REPLICATION_ENABLE;
+
+	if (IS_DEBUG_OSPF_EVENT) {
+		zlog_debug("Area[%pI4]: Replicate base topology route", &area->area_id);
+	}
+
+	for (node = listhead(area->oiflist); node; node = listnextnode(node)) {
+		if ((oi = listgetdata(node)) != NULL) {
+			params = IF_DEF_PARAMS(oi->ifp);
+			if (params) {
+				if (!OSPF_IF_MT_MAP_IS_SET(params->mt_map, dst_mt_id)) {
+					SET_IF_MT_MAP(params->mt_map_replicate, dst_mt_id);
+					/* indicate that at least one MT ID is configured */
+					SET_IF_PARAM(params, mt_map);
+					if (params->mt_metric[dst_mt_id] != oi->output_cost) {
+						params->mt_metric[dst_mt_id] = oi->output_cost;
+						update_lsa = true;
+					}
+				}
+			}
+		}
+	}
+
+	if (update_lsa) {
+		/* update Router LSA */
+		ospf_router_lsa_update_area(area);
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_ospf_area_mt_route_replicate,
+       no_ospf_area_mt_route_replicate_cmd,
+       "no area <A.B.C.D|(0-4294967295)> route-replicate topology <base> to topology <multicast>",
+       NO_STR
+       "OSPF area parameters\n"
+       "OSPF area ID in IP address format\n"
+       "OSPF area ID as a decimal value\n"
+       "Configure multi-topology routing route replication capability\n"
+       "Copy from source topology\n"
+       "Source topology name\n"
+       "Copy to destination topology\n"
+       "Multi-topology identifier\n"
+       "Destination topology name\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	int idx_ipv4_number = 2;
+	struct ospf_area *area;
+	struct in_addr area_id;
+	int format;
+	const uint8_t dst_mt_id = OSPF_MULTICAST_MT_ID;
+	struct listnode *node;
+	struct ospf_interface *oi;
+	struct ospf_if_params *params;
+	bool update_lsa = false;
+
+	VTY_GET_OSPF_AREA_ID(area_id, format, argv[idx_ipv4_number]->arg);
+	area = ospf_area_get(ospf, area_id);
+	if (area == NULL) {
+		vty_out(vty, "OSPF area ID is invalid\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ospf_area_display_format_set(ospf, area, format);
+
+	if (IS_DEBUG_OSPF_EVENT) {
+		zlog_debug("Area[%pI4]: Unconfigure MT route replication "
+			   "to multicast topology",
+			   &area->area_id);
+	}
+
+	if (area->route_replication == OSPF_ROUTE_REPLICATION_DISABLE) {
+		vty_out(vty,
+			"Area[%pI4]: MT route replication is already "
+			"configured\n",
+			&area->area_id);
+		return CMD_SUCCESS;
+	}
+
+	area->route_replication = OSPF_ROUTE_REPLICATION_DISABLE;
+	if (IS_DEBUG_OSPF_EVENT) {
+		zlog_debug("Area[%pI4]: Disable route-replication ", &area->area_id);
+	}
+
+	for (node = listhead(area->oiflist); node; node = listnextnode(node)) {
+		if ((oi = listgetdata(node)) != NULL) {
+			params = IF_DEF_PARAMS(oi->ifp);
+			if (params) {
+				if (!OSPF_IF_PARAM_CONFIGURED(params, mt_map)) {
+					if (IS_DEBUG_OSPF_EVENT) {
+						zlog_warn("Area[%pI4]: Expect MT-ID %d to be "
+							  "configured prior to disabling route "
+							  "replication",
+							  &area->area_id, dst_mt_id);
+					}
+					continue;
+				}
+				if (OSPF_IF_MT_MAP_IS_SET(params->mt_map_replicate, dst_mt_id)) {
+					params->mt_metric[dst_mt_id] = 0;
+					UNSET_IF_MT_MAP(params->mt_map_replicate, dst_mt_id);
+					update_lsa = true;
+				}
+				if (!ospf_if_mt_is_configured(params)) {
+					/* indicate that no multi-topology costs are configured 
+                     * or replicated */
+					UNSET_IF_PARAM(params, mt_map);
+				}
+			}
+		}
+	}
+	if (update_lsa) {
+		/* update Router LSA */
+		ospf_router_lsa_update_area(area);
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (ospf_area_export_list,
        ospf_area_export_list_cmd,
        "area <A.B.C.D|(0-4294967295)> export-list ACCESSLIST4_NAME",
@@ -2272,8 +2569,12 @@ static void ospf_table_reinstall_routes(struct ospf *ospf,
 
 static void ospf_reinstall_routes(struct ospf *ospf)
 {
-	ospf_table_reinstall_routes(ospf, ospf->new_table);
-	ospf_table_reinstall_routes(ospf, ospf->new_external_route);
+	uint8_t i = 0;
+
+	for (i = 0; i < OSPF_MAX_NUM_MT_IDS; i++) {
+		ospf_table_reinstall_routes(ospf, ospf->new_table[i]);
+		ospf_table_reinstall_routes(ospf, ospf->new_external_route[i]);
+	}
 }
 
 DEFPY (ospf_send_extra_data,
@@ -2293,6 +2594,63 @@ DEFPY (ospf_send_extra_data,
 		SET_FLAG(ospf->config, OSPF_SEND_EXTRA_DATA_TO_ZEBRA);
 		ospf_reinstall_routes(ospf);
 	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (ospf_topology_multicast,
+       ospf_topology_multicast_cmd,
+       "topology multicast tid <1>",
+       "Multi-topology configuration\n"
+       "Multicast topology\n"
+       "Topology ID configuration\n"
+       "Topology ID\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	ospf_mt_multicast_enable(ospf);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_ospf_topology_multicast,
+       no_ospf_topology_multicast_cmd,
+       "no topology multicast",
+       NO_STR
+       "Multi-topology configuration\n"
+       "Multicast topology\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	struct listnode *node, *nnode;
+	struct ospf_interface *oi;
+	struct ospf_if_params *params;
+	struct ospf_area *oa;
+
+	/* Verify that multicast topology is not in use */
+	for (ALL_LIST_ELEMENTS(ospf->oiflist, node, nnode, oi)) {
+		params = IF_DEF_PARAMS(oi->ifp);
+		if (ospf_if_mt_is_configured(params)) {
+			vty_out(vty,
+				"Multicast topology on interface %s must be disabled "
+				"first\n",
+				oi->ifp->name);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	/* Verify that route replication is disabled */
+	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, oa)) {
+		if (oa->route_replication == OSPF_ROUTE_REPLICATION_ENABLE) {
+			vty_out(vty,
+				"Area ID: %pI4 route replication must be disabled "
+				"first\n",
+				&oa->area_id);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	ospf_mt_multicast_disable(ospf);
 
 	return CMD_SUCCESS;
 }
@@ -2877,7 +3235,12 @@ static void show_ip_ospf_area(struct vty *vty, struct ospf_area *area,
 			json_object_int_add(json_area,
 					    "virtualAdjacenciesPassingCounter",
 					    area->full_vls);
-
+		if (area->default_exclusion == OSPF_DEFAULT_EXCLUSION_ENABLE)
+			json_object_string_add(json_area, "RFC4915defaultExclusionCapability",
+					       "enabled");
+		else
+			json_object_string_add(json_area, "RFC4915defaultExclusionCapability",
+					       "disabled");
 		/* Show SPF calculation times. */
 		json_object_int_add(json_area, "spfExecutedCounter",
 				    area->spf_calculation);
@@ -2931,6 +3294,11 @@ static void show_ip_ospf_area(struct vty *vty, struct ospf_area *area,
 			vty_out(vty,
 				"   Number of full virtual adjacencies going through this area: %d\n",
 				area->full_vls);
+
+		if (area->default_exclusion == OSPF_DEFAULT_EXCLUSION_ENABLE)
+			vty_out(vty, "   RFC4915 DefaultExclusionCapability enabled\n");
+		else
+			vty_out(vty, "   RFC4915 DefaultExclusionCapability disabled\n");
 
 		/* Show SPF calculation times. */
 		vty_out(vty, "   SPF algorithm executed %d times\n",
@@ -6450,13 +6818,17 @@ static void show_ip_ospf_database_router_links(struct vty *vty,
 	json_object *json_link = NULL;
 	int metric = 0;
 	char buf[PREFIX_STRLEN];
+	int link_len;
+	unsigned short int j;
+	struct router_lsa_link *rll = (struct router_lsa_link *)(rl->link);
 
 	if (json)
 		json_links = json_object_new_object();
-
-	len = ntohs(rl->header.length) - 4;
-	for (i = 0; i < ntohs(rl->links) && len > 0; len -= 12, i++) {
-		type = rl->link[i].type;
+	len = ntohs(rl->header.length) - OSPF_LSA_HEADER_SIZE - 4;
+	for (i = link_len = 0; i < ntohs(rl->links) && len > 0; len -= link_len, i++) {
+		rll = (struct router_lsa_link *)(((char *)rll) + link_len);
+		type = rll->m[0].type;
+		metric = ntohs(rll->m[0].metric);
 
 		if (json) {
 			char link[16];
@@ -6465,35 +6837,31 @@ static void show_ip_ospf_database_router_links(struct vty *vty,
 			json_link = json_object_new_object();
 			json_object_string_add(json_link, "linkType",
 					       link_type_desc[type]);
-			json_object_string_add(json_link,
-					       link_id_desc_json[type],
-					       inet_ntop(AF_INET,
-							 &rl->link[i].link_id,
-							 buf, sizeof(buf)));
-			json_object_string_add(
-				json_link, link_data_desc_json[type],
-				inet_ntop(AF_INET, &rl->link[i].link_data,
-					  buf, sizeof(buf)));
-			json_object_int_add(json_link, "numOfTosMetrics",
-					    metric);
-			json_object_int_add(json_link, "tos0Metric",
-					    ntohs(rl->link[i].metric));
+			json_object_string_add(json_link, link_id_desc_json[type],
+					       inet_ntop(AF_INET, &rll->link_id, buf, sizeof(buf)));
+			json_object_string_add(json_link, link_data_desc_json[type],
+					       inet_ntop(AF_INET, &rll->link_data, buf,
+							 sizeof(buf)));
+			json_object_int_add(json_link, "numOfMtMetrics", rll->m[0].tos_count);
+			json_object_int_add(json_link, "tos0Metric", metric);
 			json_object_object_add(json_links, link, json_link);
 		} else {
-			vty_out(vty, "    Link connected to: %s\n",
-				link_type_desc[type]);
-			vty_out(vty, "     (Link ID) %s: %pI4\n",
-				link_id_desc[type],
-				&rl->link[i].link_id);
-			vty_out(vty, "     (Link Data) %s: %pI4\n",
-				link_data_desc[type],
-				&rl->link[i].link_data);
-			vty_out(vty, "      Number of TOS metrics: 0\n");
-			vty_out(vty, "       TOS 0 Metric: %d\n",
-				ntohs(rl->link[i].metric));
-			vty_out(vty, "\n");
+			vty_out(vty, "    Link connected to: %s\n", link_type_desc[type]);
+			vty_out(vty, "     (Link ID) %s: %pI4\n", link_id_desc[type], &rll->link_id);
+			vty_out(vty, "     (Link Data) %s: %pI4\n", link_data_desc[type],
+				&rll->link_data);
+			vty_out(vty, "      Number of MT metrics: %d Default metric: %d\n",
+				rll->m[0].tos_count, metric);
+			for (j = 0; j < rll->m[0].tos_count; j++) {
+				vty_out(vty, "       MT-ID %d Metric: %d", rll->m[j + 1].type,
+					ntohs(rll->m[j + 1].metric));
+			}
 		}
+		link_len = OSPF_ROUTER_LSA_LINK_SIZE +
+			   OSPF_ROUTER_LSA_MTID_SIZE * rll->m[0].tos_count;
+		vty_out(vty, "\n");
 	}
+
 	if (json)
 		json_object_object_add(json, "routerLinks", json_links);
 }
@@ -8371,6 +8739,220 @@ DEFUN_HIDDEN (no_ospf_hello_interval,
 	return no_ip_ospf_hello_interval(self, vty, argc, argv);
 }
 
+DEFUN (ip_ospf_mt_multicast,
+       ip_ospf_mt_multicast_cmd,
+       "ip ospf topology multicast [cost (1-65535)]",
+       IP_STR
+       "OSPF interface commands\n"
+       "Multi-topology\n"
+       "Multi-topology name\n"
+       "Multi-topology cost\n"
+       "Cost\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	int idx = 0;
+	uint8_t mt_id = OSPF_MULTICAST_MT_ID;
+	uint32_t cost;
+	uint16_t mt_metric = OSPF_OUTPUT_COST_DEFAULT;
+	struct ospf_if_params *params;
+	struct ospf_interface *oi = NULL;
+	struct route_node *rn;
+	int changed = 0;
+
+	params = IF_DEF_PARAMS(ifp);
+	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+		oi = rn->info;
+
+		if (!oi)
+			continue;
+	}
+
+	if (oi && !oi->area) {
+		vty_out(vty, "No such interface or area\n");
+		return CMD_WARNING;
+	}
+
+	if (!oi->ospf->mt_multicast) {
+		vty_out(vty, "multicast topology cost configuration is invalid while "
+			     "multicast topology is disabled\n");
+		return CMD_WARNING;
+	}
+	if (oi->area->route_replication == OSPF_ROUTE_REPLICATION_ENABLE) {
+		/* Unset replicated cost in multicast topology */
+		UNSET_IF_MT_MAP(params->mt_map_replicate, mt_id);
+	}
+
+	/* if a cost metric is supplied */
+	if (argc > 5) {
+		argv_find(argv, argc, "(1-65535)", &idx);
+		cost = strtol(argv[idx]->arg, NULL, 10);
+		if (cost < 1 || cost > 65535) {
+			vty_out(vty, "MT Cost is invalid\n");
+			return CMD_WARNING;
+		} else {
+			mt_metric = (uint16_t)cost;
+		}
+	}
+
+	if (params->mt_metric[mt_id] != mt_metric) {
+		changed = 1;
+	}
+	/* configure the given MT ID's metric and
+     * mark the MT ID in use (in the mt map).
+     */
+	params->mt_metric[mt_id] = mt_metric;
+	SET_IF_MT_MAP(params->mt_map, mt_id);
+
+	/* indicate that at least one MT ID is configured */
+	SET_IF_PARAM(params, mt_map);
+	if (changed) {
+		/* update Router LSA */
+		ospf_router_lsa_update_area(oi->area);
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_ip_ospf_mt_multicast,
+       no_ip_ospf_mt_multicast_cmd,
+       "no ip ospf topology multicast cost",
+       NO_STR
+       IP_STR
+       "OSPF interface commands\n"
+       "Multi-topology\n"
+       "Multi-topology name\n"
+       "Multi-topology cost\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	uint8_t mt_id = OSPF_MULTICAST_MT_ID;
+	struct ospf_if_params *params;
+	struct ospf_interface *oi = NULL;
+	struct route_node *rn;
+	bool changed = false;
+
+	params = IF_DEF_PARAMS(ifp);
+
+	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+		oi = rn->info;
+
+		if (!oi)
+			continue;
+	}
+	if (!oi || !oi->area) {
+		vty_out(vty, "No such interface or area\n");
+		return CMD_WARNING;
+	}
+	if (!oi->ospf->mt_multicast) {
+		vty_out(vty, "multicast topology cost configuration is invalid while "
+			     "multicast topology is disabled\n");
+		return CMD_WARNING;
+	}
+
+	if (oi->area->route_replication == OSPF_ROUTE_REPLICATION_ENABLE) {
+		/* Set the multicast topology interface cost to be replicated */
+		SET_IF_MT_MAP(params->mt_map_replicate, mt_id);
+		if (params->mt_metric[mt_id] != oi->output_cost) {
+			changed = true;
+		}
+		params->mt_metric[mt_id] = oi->output_cost;
+	} else {
+		/* Set the multicast topology interface cost to zero */
+		if (params->mt_metric[mt_id] != 0) {
+			changed = true;
+		}
+		params->mt_metric[mt_id] = 0;
+	}
+
+	/* indicate which MT ID is de-configured */
+	UNSET_IF_MT_MAP(params->mt_map, mt_id);
+
+	/* see if any MT_IDs remain configured */
+	if (!ospf_if_mt_is_configured(params)) {
+		UNSET_IF_PARAM(params, mt_map);
+	}
+
+	if (changed) {
+		/* update Router LSA */
+		ospf_router_lsa_update_area(oi->area);
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (ip_ospf_mt_base_disable,
+       ip_ospf_mt_base_disable_cmd,
+       "ip ospf topology base disable",
+       IP_STR
+       "OSPF interface commands\n"
+       "Multi-topology\n"
+       "Default topology name\n"
+       "Disable\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf_if_params *params;
+	struct ospf_interface *oi = NULL;
+	struct route_node *rn;
+
+	params = IF_DEF_PARAMS(ifp);
+	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+		oi = rn->info;
+
+		if (!oi)
+			continue;
+	}
+
+	if (oi && oi->area && oi->area->default_exclusion == OSPF_DEFAULT_EXCLUSION_DISABLE) {
+		vty_out(vty, "base topology disable configuration is invalid while "
+			     "default-exclusion is disabled\n");
+		return CMD_WARNING;
+	}
+	if (OSPF_IF_PARAM_CONFIGURED(params, mt_base_disable)) {
+		/* Base topology is already disabled */
+		return CMD_SUCCESS;
+	}
+	/* Disable base topology */
+	SET_IF_PARAM(params, mt_base_disable);
+	/* update Router LSA */
+	ospf_router_lsa_update_area(oi->area);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_ip_ospf_mt_base_disable,
+       no_ip_ospf_mt_base_disable_cmd,
+       "no ip ospf topology base disable",
+       NO_STR
+       IP_STR
+       "OSPF interface commands\n"
+       "Multi-topology\n"
+       "multi-topology name\n"
+       "Disable\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf_if_params *params;
+	struct ospf_interface *oi = NULL;
+	struct route_node *rn;
+
+	params = IF_DEF_PARAMS(ifp);
+
+	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+		oi = rn->info;
+
+		if (!oi)
+			continue;
+	}
+	if (oi && !OSPF_IF_PARAM_CONFIGURED(params, mt_base_disable)) {
+		vty_out(vty, "base topology is not disabled\n");
+		return CMD_WARNING;
+	}
+	/* Enable base topology */
+	UNSET_IF_PARAM(params, mt_base_disable);
+	/* update Router LSA */
+	ospf_router_lsa_update_area(oi->area);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN(ip_ospf_network, ip_ospf_network_cmd,
       "ip ospf network <broadcast|"
       "non-broadcast|"
@@ -9426,7 +10008,7 @@ DEFUN (no_ospf_redistribute_instance_source,
 
 DEFUN (ospf_distribute_list_out,
        ospf_distribute_list_out_cmd,
-       "distribute-list ACCESSLIST4_NAME out " FRR_REDIST_STR_OSPFD,
+       "distribute-list WORD out " FRR_REDIST_STR_OSPFD,
        "Filter networks in routing updates\n"
        "Access-list name\n"
        OUT_STR
@@ -10951,9 +11533,37 @@ static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
 		vty_out(vty, "\n");
 }
 
-static void show_ip_ospf_route_router(struct vty *vty, struct ospf *ospf,
-				      struct route_table *rtrs,
-				      json_object *json)
+static void show_ip_ospf_route_network_mt(struct vty *vty, struct ospf *ospf, json_object *json,
+					  char *mt_name, bool detail)
+{
+	uint8_t i;
+	uint8_t show_mt_id = 0;
+
+	if (strmatch(mt_name, "base")) {
+		show_mt_id = OSPF_BASE_MT_ID;
+	} else if (strmatch(mt_name, "multicast")) {
+		show_mt_id = OSPF_MULTICAST_MT_ID;
+	} else {
+		/* Assuming all topologies, remove topology name filter */
+		mt_name = NULL;
+	}
+
+	for (i = 0; i < OSPF_MAX_NUM_MT_IDS; i++) {
+		if (ospf->new_table[i] != NULL) {
+			if (!mt_name || (mt_name && (i == show_mt_id))) {
+				vty_out(vty, "============ Topology %s ============\n",
+					mt_name ? mt_name
+						: ((i == OSPF_BASE_MT_ID) ? "\"base\""
+									  : "\"multicast\""));
+				show_ip_ospf_route_network(vty, ospf, ospf->new_table[i], json,
+							   detail);
+			}
+		}
+	}
+}
+
+static void show_ip_ospf_route_router(struct vty *vty, struct ospf *ospf, struct route_table *rtrs,
+				      json_object *json, uint8_t mt_id)
 {
 	struct route_node *rn;
 	struct ospf_route * or ;
@@ -10966,8 +11576,7 @@ static void show_ip_ospf_route_router(struct vty *vty, struct ospf *ospf,
 
 	if (!json)
 		vty_out(vty, "============ OSPF %s table =============\n",
-			ospf->all_rtrs == rtrs ? "reachable routers"
-					       : "router routing");
+			ospf->all_rtrs[mt_id] == rtrs ? "reachable routers" : "router routing");
 
 	for (rn = route_top(rtrs); rn; rn = route_next(rn)) {
 		if (rn->info == NULL)
@@ -11092,6 +11701,33 @@ static void show_ip_ospf_route_router(struct vty *vty, struct ospf *ospf,
 	}
 	if (!json)
 		vty_out(vty, "\n");
+}
+
+static void show_ip_ospf_route_router_mt(struct vty *vty, struct ospf *ospf, json_object *json,
+					 char *mt_name)
+{
+	uint8_t i;
+	uint8_t show_mt_id = 0;
+
+	if (strmatch(mt_name, "base")) {
+		show_mt_id = OSPF_BASE_MT_ID;
+	} else if (strmatch(mt_name, "multicast")) {
+		show_mt_id = OSPF_MULTICAST_MT_ID;
+	} else {
+		/* Assuming all topologies, remove topology name filter */
+		mt_name = NULL;
+	}
+
+	for (i = 0; i < OSPF_MAX_NUM_MT_IDS; i++) {
+		if ((ospf->new_rtrs[i] != NULL) && (ospf->new_rtrs[i]->count > 0)) {
+			if (!mt_name || (mt_name && (i == show_mt_id))) {
+				vty_out(vty, "============ Topology %s ============\n",
+					mt_name ? mt_name
+						: ((i == OSPF_BASE_MT_ID) ? "base" : "multicast"));
+				show_ip_ospf_route_router(vty, ospf, ospf->new_rtrs[i], json, i);
+			}
+		}
+	}
 }
 
 static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
@@ -11226,6 +11862,21 @@ static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
 		vty_out(vty, "\n");
 }
 
+static void show_ip_ospf_route_external_mt(struct vty *vty, struct ospf *ospf, json_object *json,
+					   bool detail)
+{
+	uint8_t i;
+
+	for (i = 0; i < OSPF_MAX_NUM_MT_IDS; i++) {
+		if ((ospf->old_external_route[i] != NULL) &&
+		    (ospf->old_external_route[i]->count > 0)) {
+			vty_out(vty, "============ mt id %d ============\n", i);
+			show_ip_ospf_route_external(vty, ospf, ospf->old_external_route[i], json,
+						    detail);
+		}
+	}
+}
+
 static int show_ip_ospf_reachable_routers_common(struct vty *vty,
 						 struct ospf *ospf,
 						 uint8_t use_vrf)
@@ -11235,13 +11886,13 @@ static int show_ip_ospf_reachable_routers_common(struct vty *vty,
 
 	ospf_show_vrf_name(ospf, vty, NULL, use_vrf);
 
-	if (ospf->all_rtrs == NULL) {
+	if (ospf->all_rtrs[OSPF_MIN_MT_ID] == NULL) {
 		vty_out(vty, "No OSPF reachable router information exist\n");
 		return CMD_SUCCESS;
 	}
 
 	/* Show Router routes. */
-	show_ip_ospf_route_router(vty, ospf, ospf->all_rtrs, NULL);
+	show_ip_ospf_route_router(vty, ospf, ospf->all_rtrs[OSPF_MIN_MT_ID], NULL, OSPF_MIN_MT_ID);
 
 	vty_out(vty, "\n");
 
@@ -11360,7 +12011,7 @@ static int show_ip_ospf_border_routers_common(struct vty *vty,
 
 	ospf_show_vrf_name(ospf, vty, json_vrf, use_vrf);
 
-	if (ospf->new_table == NULL) {
+	if ((ospf->new_table[OSPF_MIN_MT_ID] == NULL) || (ospf->new_rtrs[OSPF_MIN_MT_ID] == NULL)) {
 		if (!json)
 			vty_out(vty, "No OSPF routing information exist\n");
 		else {
@@ -11375,7 +12026,8 @@ static int show_ip_ospf_border_routers_common(struct vty *vty,
 	show_ip_ospf_route_network (vty, ospf->new_table);   */
 
 	/* Show Router routes. */
-	show_ip_ospf_route_router(vty, ospf, ospf->new_rtrs, json_router);
+	show_ip_ospf_route_router(vty, ospf, ospf->new_rtrs[OSPF_MIN_MT_ID], json_vrf,
+				  OSPF_MIN_MT_ID);
 
 	if (json) {
 		json_object_object_add(json_vrf, "routers", json_router);
@@ -11503,9 +12155,8 @@ DEFUN (show_ip_ospf_instance_border_routers,
 	return show_ip_ospf_border_routers_common(vty, ospf, 0, NULL);
 }
 
-static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf,
-				     json_object *json, uint8_t use_vrf,
-				     bool detail)
+static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf, json_object *json,
+				     uint8_t use_vrf, bool show_mt, char *mt_name, bool detail)
 {
 	json_object *json_vrf = NULL;
 
@@ -11522,36 +12173,33 @@ static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf,
 
 	ospf_show_vrf_name(ospf, vty, json_vrf, use_vrf);
 
-	if (ospf->new_table == NULL) {
-		if (json) {
-			if (use_vrf)
-				json_object_free(json_vrf);
-		} else {
-			vty_out(vty, "No OSPF routing information exist\n");
-		}
-		return CMD_SUCCESS;
+	if (show_mt) {
+		/* Show all MTR topologies network routes */
+		show_ip_ospf_route_network_mt(vty, ospf, json_vrf, mt_name, detail);
+
+		/* Show Router routes. */
+		show_ip_ospf_route_router_mt(vty, ospf, json_vrf, mt_name);
+
+		/* Show AS External routes. */
+		show_ip_ospf_route_external_mt(vty, ospf, json_vrf, detail);
+	} else {
+		/* Show Network routes. */
+		show_ip_ospf_route_network(vty, ospf, ospf->new_table[OSPF_MIN_MT_ID], json_vrf,
+					   detail);
+
+		/* Show Router routes. */
+		show_ip_ospf_route_router(vty, ospf, ospf->new_rtrs[OSPF_MIN_MT_ID], json_vrf,
+					  OSPF_MIN_MT_ID);
+
+		/* Show Router routes. */
+		if (ospf->all_rtrs[OSPF_MIN_MT_ID])
+			show_ip_ospf_route_router(vty, ospf, ospf->all_rtrs[OSPF_MIN_MT_ID],
+						  json_vrf, OSPF_MIN_MT_ID);
+
+		/* Show AS External routes. */
+		show_ip_ospf_route_external(vty, ospf, ospf->old_external_route[OSPF_MIN_MT_ID],
+					    json_vrf, detail);
 	}
-
-	if (detail && json == NULL) {
-		vty_out(vty, "Codes: N  - network     T - transitive\n");
-		vty_out(vty, "       IA - inter-area  E - external route\n");
-		vty_out(vty, "       D  - destination R - router\n\n");
-	}
-
-	/* Show Network routes. */
-	show_ip_ospf_route_network(vty, ospf, ospf->new_table, json_vrf,
-				   detail);
-
-	/* Show Router routes. */
-	show_ip_ospf_route_router(vty, ospf, ospf->new_rtrs, json_vrf);
-
-	/* Show Router routes. */
-	if (ospf->all_rtrs)
-		show_ip_ospf_route_router(vty, ospf, ospf->all_rtrs, json_vrf);
-
-	/* Show AS External routes. */
-	show_ip_ospf_route_external(vty, ospf, ospf->old_external_route,
-				    json_vrf, detail);
 
 	if (json) {
 		if (use_vrf) {
@@ -11569,7 +12217,7 @@ static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf,
 
 DEFUN (show_ip_ospf_route,
        show_ip_ospf_route_cmd,
-	"show ip ospf [vrf <NAME|all>] route [detail] [json]",
+	"show ip ospf [vrf <NAME|all>] route [detail] [topology <base|multicast|all>] [json]",
 	SHOW_STR
 	IP_STR
 	"OSPF information\n"
@@ -11577,6 +12225,10 @@ DEFUN (show_ip_ospf_route,
 	"All VRFs\n"
 	"OSPF routing table\n"
 	"Detailed information\n"
+	"Filter for a topology\n"
+	"Base topology\n"
+	"Multicast topology\n"
+	"All topologies\n"
 	JSON_STR)
 {
 	struct ospf *ospf = NULL;
@@ -11588,6 +12240,8 @@ DEFUN (show_ip_ospf_route,
 	int idx = 0;
 	int idx_vrf = 0;
 	uint8_t use_vrf = 0;
+	int idx_mt = 0;
+	char *mt_name = NULL;
 	bool uj = use_json(argc, argv);
 	bool detail = false;
 	json_object *json = NULL;
@@ -11600,6 +12254,8 @@ DEFUN (show_ip_ospf_route,
 
 	OSPF_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
+	OSPF_FIND_MT_ARGS(argv, argc, idx_mt, mt_name);
+
 	/* vrf input is provided could be all or specific vrf*/
 	if (vrf_name) {
 		bool ospf_output = false;
@@ -11611,8 +12267,8 @@ DEFUN (show_ip_ospf_route,
 				if (!ospf->oi_running)
 					continue;
 				ospf_output = true;
-				ret = show_ip_ospf_route_common(
-					vty, ospf, json, use_vrf, detail);
+				ret = show_ip_ospf_route_common(vty, ospf, json, use_vrf,
+								(idx_mt > 0), mt_name, detail);
 			}
 
 			if (uj) {
@@ -11649,7 +12305,7 @@ DEFUN (show_ip_ospf_route,
 	}
 
 	if (ospf) {
-		ret = show_ip_ospf_route_common(vty, ospf, json, use_vrf,
+		ret = show_ip_ospf_route_common(vty, ospf, json, use_vrf, (idx_mt > 0), mt_name,
 						detail);
 		/* Keep Non-pretty format */
 		if (uj)
@@ -11666,18 +12322,24 @@ DEFUN (show_ip_ospf_route,
 
 DEFUN (show_ip_ospf_instance_route,
        show_ip_ospf_instance_route_cmd,
-       "show ip ospf (1-65535) route [detail]",
+       "show ip ospf (1-65535) route [topology <base|multicast|all>] [detail]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
        "Instance ID\n"
        "OSPF routing table\n"
+       "Filter for a topology\n"
+       "Base topology\n"
+       "Multicast topology\n"
+       "All topologies\n"
        "Detailed information\n")
 {
 	int idx_number = 3;
 	int idx = 0;
 	struct ospf *ospf;
 	unsigned short instance = 0;
+	int idx_mt = 0;
+	char *mt_name = NULL;
 	bool detail = false;
 
 	if (argv_find(argv, argc, "detail", &idx))
@@ -11691,7 +12353,9 @@ DEFUN (show_ip_ospf_instance_route,
 	if (!ospf || !ospf->oi_running)
 		return CMD_SUCCESS;
 
-	return show_ip_ospf_route_common(vty, ospf, NULL, 0, detail);
+	OSPF_FIND_MT_ARGS(argv, argc, idx_mt, mt_name);
+
+	return show_ip_ospf_route_common(vty, ospf, NULL, 0, (idx_mt > 0), mt_name, detail);
 }
 
 
@@ -12211,6 +12875,22 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 				vty_out(vty, "\n");
 			}
 
+			/* Muticast topology print */
+			if (OSPF_IF_PARAM_CONFIGURED(params, mt_map)) {
+				if (OSPF_IF_MT_MAP_IS_SET(params->mt_map, OSPF_MULTICAST_MT_ID)) {
+					/* Print cost even if it equals
+                         * OSPF_OUTPUT_COST_DEFAULT
+                         */
+					vty_out(vty, " ip ospf topology multicast cost %u\n",
+						params->mt_metric[OSPF_MULTICAST_MT_ID]);
+				}
+			}
+
+			/* Default/base topology print */
+			if (OSPF_IF_PARAM_CONFIGURED(params, mt_base_disable)) {
+				vty_out(vty, " ip ospf topology base disable\n");
+			}
+
 			/* Hello Interval print. */
 			if (OSPF_IF_PARAM_CONFIGURED(params, v_hello)
 			    && params->v_hello != OSPF_HELLO_INTERVAL_DEFAULT) {
@@ -12475,6 +13155,12 @@ static int config_write_ospf_area(struct vty *vty, struct ospf *ospf)
 					" area %s authentication message-digest\n",
 					buf);
 		}
+		if (area->default_exclusion == OSPF_DEFAULT_EXCLUSION_ENABLE)
+			vty_out(vty, " area %s mt-default-exclusion\n", buf);
+		if (area->route_replication == OSPF_ROUTE_REPLICATION_ENABLE)
+			vty_out(vty,
+				" area %s route-replicate topology base to topology multicast\n",
+				buf);
 
 		if (area->shortcut_configured != OSPF_SHORTCUT_DEFAULT)
 			vty_out(vty, " area %s shortcut %s\n", buf,
@@ -13012,6 +13698,11 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 			vty_out(vty, " fast-reroute ti-lfa\n");
 	}
 
+	/* Mutli-topology print. */
+	if (ospf->mt_multicast) {
+		vty_out(vty, " topology multicast tid 1\n");
+	}
+
 	/* Network area print. */
 	config_write_network_area(vty, ospf);
 
@@ -13183,6 +13874,12 @@ static void ospf_vty_if_init(void)
 	/* "ip ospf graceful-restart" commands. */
 	install_element(INTERFACE_NODE, &ip_ospf_gr_hdelay_cmd);
 	install_element(INTERFACE_NODE, &no_ip_ospf_gr_hdelay_cmd);
+
+	/* "ip ospf topology" commands. */
+	install_element(INTERFACE_NODE, &ip_ospf_mt_multicast_cmd);
+	install_element(INTERFACE_NODE, &no_ip_ospf_mt_multicast_cmd);
+	install_element(INTERFACE_NODE, &ip_ospf_mt_base_disable_cmd);
+	install_element(INTERFACE_NODE, &no_ip_ospf_mt_base_disable_cmd);
 
 	/* "ip ospf network" commands. */
 	install_element(INTERFACE_NODE, &ip_ospf_network_cmd);
@@ -13643,6 +14340,10 @@ void ospf_vty_init(void)
 	/* "ospf send-extra-data zebra" commands. */
 	install_element(OSPF_NODE, &ospf_send_extra_data_cmd);
 
+	/* "topology multicast tid 1" command. */
+	install_element(OSPF_NODE, &ospf_topology_multicast_cmd);
+	install_element(OSPF_NODE, &no_ospf_topology_multicast_cmd);
+
 	/* "network area" commands. */
 	install_element(OSPF_NODE, &ospf_network_area_cmd);
 	install_element(OSPF_NODE, &no_ospf_network_area_cmd);
@@ -13672,6 +14373,12 @@ void ospf_vty_init(void)
 	install_element(OSPF_NODE, &ospf_area_stub_cmd);
 	install_element(OSPF_NODE, &no_ospf_area_stub_no_summary_cmd);
 	install_element(OSPF_NODE, &no_ospf_area_stub_cmd);
+
+	/* "area mt" commands. */
+	install_element(OSPF_NODE, &ospf_area_mt_default_exclusion_cmd);
+	install_element(OSPF_NODE, &no_ospf_area_mt_default_exclusion_cmd);
+	install_element(OSPF_NODE, &ospf_area_mt_route_replicate_cmd);
+	install_element(OSPF_NODE, &no_ospf_area_mt_route_replicate_cmd);
 
 	/* "area nssa" commands. */
 	install_element(OSPF_NODE, &ospf_area_nssa_cmd);

@@ -2,6 +2,7 @@
 /*
  * OSPF ABR functions.
  * Copyright (C) 1999, 2000 Alex Zinin, Toshiaki Takada
+ * Copyright (C) 2025 The MITRE Corporation
  */
 
 
@@ -82,7 +83,7 @@ static void ospf_area_range_delete(struct ospf_area *area,
 
 	if (ospf_area_range_active(range) &&
 	    CHECK_FLAG(range->flags, OSPF_AREA_RANGE_ADVERTISE))
-		ospf_delete_discard_route(area->ospf, area->ospf->new_table,
+		ospf_delete_discard_route(area->ospf, area->ospf->new_table[OSPF_MIN_MT_ID],
 					  (struct prefix_ipv4 *)&rn->p, nssa);
 
 	ospf_area_range_free(range);
@@ -1979,13 +1980,11 @@ static void ospf_abr_manage_discard_routes(struct ospf *ospf, bool nssa)
 			if (ospf_area_range_active(range)
 			    && CHECK_FLAG(range->flags,
 					  OSPF_AREA_RANGE_ADVERTISE))
-				ospf_add_discard_route(
-					ospf, ospf->new_table, area,
-					(struct prefix_ipv4 *)&rn->p, nssa);
+				ospf_add_discard_route(ospf, ospf->new_table[OSPF_MIN_MT_ID], area,
+						       (struct prefix_ipv4 *)&rn->p, nssa);
 			else
-				ospf_delete_discard_route(
-					ospf, ospf->new_table,
-					(struct prefix_ipv4 *)&rn->p, nssa);
+				ospf_delete_discard_route(ospf, ospf->new_table[OSPF_MIN_MT_ID],
+							  (struct prefix_ipv4 *)&rn->p, nssa);
 		}
 	}
 }
@@ -2089,7 +2088,7 @@ void ospf_abr_task(struct ospf *ospf)
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: Start", __func__);
 
-	if (ospf->new_table == NULL || ospf->new_rtrs == NULL) {
+	if ((ospf->new_table[OSPF_MIN_MT_ID] == NULL) || (ospf->new_rtrs[OSPF_MIN_MT_ID] == NULL)) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug("%s: Routing tables are not yet ready",
 				   __func__);
@@ -2107,11 +2106,11 @@ void ospf_abr_task(struct ospf *ospf)
 	if (IS_OSPF_ABR(ospf)) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug("%s: process network RT", __func__);
-		ospf_abr_process_network_rt(ospf, ospf->new_table);
+		ospf_abr_process_network_rt(ospf, ospf->new_table[OSPF_MIN_MT_ID]);
 
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug("%s: process router RT", __func__);
-		ospf_abr_process_router_rt(ospf, ospf->new_rtrs);
+		ospf_abr_process_router_rt(ospf, ospf->new_rtrs[OSPF_MIN_MT_ID]);
 
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug("%s: announce aggregates", __func__);

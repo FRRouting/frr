@@ -2,6 +2,7 @@
 /*
  * OSPF AS external route calculation.
  * Copyright (C) 1999, 2000 Alex Zinin, Toshiaki Takada
+ * Copyright (C) 2025 The MITRE Corporation
  */
 
 #include <zebra.h>
@@ -141,9 +142,9 @@ static int ospf_ase_forward_address_check(struct ospf *ospf,
 	return 1;
 }
 
-static struct ospf_route *
-ospf_ase_calculate_new_route(struct ospf_lsa *lsa,
-			     struct ospf_route *asbr_route, uint32_t metric)
+static struct ospf_route *ospf_ase_calculate_new_route(struct ospf_lsa *lsa,
+						       struct ospf_route *asbr_route,
+						       uint32_t metric, uint8_t mt_id)
 {
 	struct as_external_lsa *al;
 	struct ospf_route *new;
@@ -176,6 +177,7 @@ ospf_ase_calculate_new_route(struct ospf_lsa *lsa,
 	new->u.ext.origin = lsa;
 	new->u.ext.tag = ntohl(al->e[0].route_tag);
 	new->u.ext.asbr = asbr_route;
+	new->mt_id = mt_id;
 
 	assert(new != asbr_route);
 
@@ -184,7 +186,7 @@ ospf_ase_calculate_new_route(struct ospf_lsa *lsa,
 
 #define OSPF_ASE_CALC_INTERVAL 1
 
-int ospf_ase_calculate_route(struct ospf *ospf, struct ospf_lsa *lsa)
+int ospf_ase_calculate_route(struct ospf *ospf, struct ospf_lsa *lsa, uint8_t mt_id)
 {
 	uint32_t metric;
 	struct as_external_lsa *al;
@@ -199,12 +201,12 @@ int ospf_ase_calculate_route(struct ospf *ospf, struct ospf_lsa *lsa)
 
 	if (lsa->data->type == OSPF_AS_NSSA_LSA)
 		if (IS_DEBUG_OSPF_NSSA)
-			zlog_debug("%s: Processing Type-7", __func__);
+			zlog_debug("ospf_ase_calc(): Processing Type-7");
 
 	/* Stay away from any Local Translated Type-7 LSAs */
 	if (CHECK_FLAG(lsa->flags, OSPF_LSA_LOCAL_XLT)) {
 		if (IS_DEBUG_OSPF_NSSA)
-			zlog_debug("%s: Rejecting Local Xlt'd", __func__);
+			zlog_debug("ospf_ase_calc(): Rejecting Local Xlt'd");
 		return 0;
 	}
 
@@ -253,7 +255,7 @@ int ospf_ase_calculate_route(struct ospf *ospf, struct ospf_lsa *lsa)
 	asbr.prefixlen = IPV4_MAX_BITLEN;
 	apply_mask_ipv4(&asbr);
 
-	asbr_route = ospf_find_asbr_route(ospf, ospf->new_rtrs, &asbr);
+	asbr_route = ospf_find_asbr_route(ospf, ospf->new_rtrs[mt_id], &asbr);
 	if (asbr_route == NULL) {
 		if (IS_DEBUG_OSPF(lsa, LSA))
 			zlog_debug(
@@ -316,7 +318,7 @@ int ospf_ase_calculate_route(struct ospf *ospf, struct ospf_lsa *lsa)
 		asbr.prefix = al->e[0].fwd_addr;
 		asbr.prefixlen = IPV4_MAX_BITLEN;
 
-		rn = route_node_match(ospf->new_table, (struct prefix *)&asbr);
+		rn = route_node_match(ospf->new_table[mt_id], (struct prefix *)&asbr);
 
 		if (rn == NULL || (asbr_route = rn->info) == NULL) {
 			if (IS_DEBUG_OSPF(lsa, LSA))
@@ -345,7 +347,7 @@ int ospf_ase_calculate_route(struct ospf *ospf, struct ospf_lsa *lsa)
 	       external metric type is 2, the path-type is set to type 2
 	       external, the link state component of the route's cost is X,
 	       and the type 2 cost is Y. */
-	new = ospf_ase_calculate_new_route(lsa, asbr_route, metric);
+	new = ospf_ase_calculate_new_route(lsa, asbr_route, metric, mt_id);
 
 	/* (6) Compare the AS external path described by the LSA with the
 	       existing paths in N's routing table entry, as follows. If
@@ -361,7 +363,7 @@ int ospf_ase_calculate_route(struct ospf *ospf, struct ospf_lsa *lsa)
 
 	/* if there is a Intra/Inter area route to the N
 	   do not install external route */
-	if ((rn = route_node_lookup(ospf->new_table, (struct prefix *)&p))) {
+	if ((rn = route_node_lookup(ospf->new_table[mt_id], (struct prefix *)&p))) {
 		route_unlock_node(rn);
 		if (rn->info == NULL)
 			zlog_info("Route[External]: rn->info NULL");
@@ -371,8 +373,7 @@ int ospf_ase_calculate_route(struct ospf *ospf, struct ospf_lsa *lsa)
 	}
 	/* Find a route to the same dest */
 	/* If there is no route, create new one. */
-	if ((rn = route_node_lookup(ospf->new_external_route,
-				    (struct prefix *)&p)))
+	if ((rn = route_node_lookup(ospf->new_external_route[mt_id], (struct prefix *)&p)))
 		route_unlock_node(rn);
 
 	if (!rn || (or = rn->info) == NULL) {
@@ -380,7 +381,7 @@ int ospf_ase_calculate_route(struct ospf *ospf, struct ospf_lsa *lsa)
 			zlog_debug("Route[External]: Adding a new route %pFX with paths %u",
 				   &p, listcount(asbr_route->paths));
 
-		ospf_route_add(ospf->new_external_route, &p, new, asbr_route);
+		ospf_route_add(ospf->new_external_route[mt_id], &p, new, asbr_route);
 
 		if (al->e[0].fwd_addr.s_addr != INADDR_ANY)
 			ospf_ase_complete_direct_routes(new, al->e[0].fwd_addr);
@@ -453,6 +454,18 @@ int ospf_ase_calculate_route(struct ospf *ospf, struct ospf_lsa *lsa)
 		ospf_route_free(new);
 
 	lsa->route = or ;
+	return 0;
+}
+
+/* For all topologies, compute the AS-External route.
+ */
+static int ospf_ase_calculate_route_mt(struct ospf *ospf, struct ospf_lsa *lsa)
+{
+	uint8_t mt_id = 0;
+
+	for (mt_id = 0; mt_id < OSPF_MAX_NUM_MT_IDS; mt_id++) {
+		ospf_ase_calculate_route(ospf, lsa, mt_id);
+	}
 	return 0;
 }
 
@@ -551,6 +564,26 @@ static int ospf_ase_compare_tables(struct ospf *ospf,
 	return 0;
 }
 
+/* For all topologies, compare old and new external routing table and install
+ * the difference info zebra/kernel
+ */
+static void ospf_ase_update_zebra_mt(struct ospf *ospf)
+{
+	uint8_t mt_id = 0;
+
+	for (mt_id = 0; mt_id < OSPF_MAX_NUM_MT_IDS; mt_id++) {
+		/* Compare old and new external routing table and install the
+		   difference info zebra/kernel */
+		ospf_ase_compare_tables(ospf, ospf->new_external_route[mt_id],
+					ospf->old_external_route[mt_id]);
+
+		/* Delete old external routing table */
+		ospf_route_table_free(ospf->old_external_route[mt_id]);
+		ospf->old_external_route[mt_id] = ospf->new_external_route[mt_id];
+		ospf->new_external_route[mt_id] = route_table_init();
+	}
+}
+
 static void ospf_ase_calculate_timer(struct event *t)
 {
 	struct ospf *ospf;
@@ -570,7 +603,7 @@ static void ospf_ase_calculate_timer(struct event *t)
 
 		/* Calculate external route for each AS-external-LSA */
 		LSDB_LOOP (EXTERNAL_LSDB(ospf), rn, lsa)
-			ospf_ase_calculate_route(ospf, lsa);
+			ospf_ase_calculate_route_mt(ospf, lsa);
 
 		/*  This version simple adds to the table all NSSA areas  */
 		if (ospf->anyNSSA)
@@ -581,22 +614,15 @@ static void ospf_ase_calculate_timer(struct event *t)
 
 				if (area->external_routing == OSPF_AREA_NSSA)
 					LSDB_LOOP (NSSA_LSDB(area), rn, lsa)
-						ospf_ase_calculate_route(ospf,
-									 lsa);
+						ospf_ase_calculate_route_mt(ospf, lsa);
 			}
 		/* kevinm: And add the NSSA routes in ospf_top */
 		LSDB_LOOP (NSSA_LSDB(ospf), rn, lsa)
-			ospf_ase_calculate_route(ospf, lsa);
+			ospf_ase_calculate_route_mt(ospf, lsa);
 
 		/* Compare old and new external routing table and install the
 		   difference info zebra/kernel */
-		ospf_ase_compare_tables(ospf, ospf->new_external_route,
-					ospf->old_external_route);
-
-		/* Delete old external routing table */
-		ospf_route_table_free(ospf->old_external_route);
-		ospf->old_external_route = ospf->new_external_route;
-		ospf->new_external_route = route_table_init();
+		ospf_ase_update_zebra_mt(ospf);
 
 		monotime(&stop_time);
 
@@ -706,13 +732,62 @@ void ospf_ase_external_lsas_finish(struct route_table *rt)
 	route_table_finish(rt);
 }
 
+static void ospf_ase_incremental_update_zebra_mt(struct ospf *ospf, struct prefix_ipv4 p)
+{
+	uint8_t mt_id = 0;
+	struct route_node *rn, *rn2;
+	struct route_table *tmp_old;
+
+	for (mt_id = 0; mt_id < OSPF_MAX_NUM_MT_IDS; mt_id++) {
+		/* prepare temporary old routing table for compare */
+		tmp_old = route_table_init();
+		rn = route_node_lookup(ospf->old_external_route[mt_id], (struct prefix *)&p);
+		if (rn && rn->info) {
+			rn2 = route_node_get(tmp_old, (struct prefix *)&p);
+			rn2->info = rn->info;
+			route_unlock_node(rn);
+		}
+
+		/* install changes to zebra */
+		ospf_ase_compare_tables(ospf, ospf->new_external_route[mt_id], tmp_old);
+
+		/* update ospf->old_external_route table */
+		if (rn && rn->info)
+			ospf_route_free((struct ospf_route *)rn->info);
+
+		rn2 = route_node_lookup(ospf->new_external_route[mt_id], (struct prefix *)&p);
+		/* if new route exists, install it to ospf->old_external_route */
+		if (rn2 && rn2->info) {
+			if (!rn)
+				rn = route_node_get(ospf->old_external_route[mt_id],
+						    (struct prefix *)&p);
+			rn->info = rn2->info;
+		} else {
+			/* remove route node from ospf->old_external_route */
+			if (rn) {
+				rn->info = NULL;
+				route_unlock_node(rn);
+			}
+		}
+
+		if (rn2) {
+			/* rn2->info is stored in route node of ospf->old_external_route
+             */
+			rn2->info = NULL;
+			route_unlock_node(rn2);
+			route_unlock_node(rn2);
+		}
+
+		route_table_finish(tmp_old);
+	}
+}
+
 void ospf_ase_incremental_update(struct ospf *ospf, struct ospf_lsa *lsa)
 {
 	struct list *lsas;
 	struct listnode *node;
-	struct route_node *rn, *rn2;
+	struct route_node *rn;
 	struct prefix_ipv4 p;
-	struct route_table *tmp_old;
 	struct as_external_lsa *al;
 
 	al = (struct as_external_lsa *)lsa->data;
@@ -723,14 +798,14 @@ void ospf_ase_incremental_update(struct ospf *ospf, struct ospf_lsa *lsa)
 
 	/* if new_table is NULL, there was no spf calculation, thus
 	   incremental update is unneeded */
-	if (!ospf->new_table)
+	if (!ospf->new_table[OSPF_MIN_MT_ID])
 		return;
 
 	/* If there is already an intra-area or inter-area route
 	   to the destination, no recalculation is necessary
 	   (internal routes take precedence). */
 
-	rn = route_node_lookup(ospf->new_table, (struct prefix *)&p);
+	rn = route_node_lookup(ospf->new_table[OSPF_MIN_MT_ID], (struct prefix *)&p);
 	if (rn) {
 		route_unlock_node(rn);
 		if (rn->info)
@@ -744,46 +819,8 @@ void ospf_ase_incremental_update(struct ospf *ospf, struct ospf_lsa *lsa)
 	route_unlock_node(rn);
 
 	for (ALL_LIST_ELEMENTS_RO(lsas, node, lsa))
-		ospf_ase_calculate_route(ospf, lsa);
+		ospf_ase_calculate_route_mt(ospf, lsa);
 
-	/* prepare temporary old routing table for compare */
-	tmp_old = route_table_init();
-	rn = route_node_lookup(ospf->old_external_route, (struct prefix *)&p);
-	if (rn && rn->info) {
-		rn2 = route_node_get(tmp_old, (struct prefix *)&p);
-		rn2->info = rn->info;
-		route_unlock_node(rn);
-	}
-
-	/* install changes to zebra */
-	ospf_ase_compare_tables(ospf, ospf->new_external_route, tmp_old);
-
-	/* update ospf->old_external_route table */
-	if (rn && rn->info)
-		ospf_route_free((struct ospf_route *)rn->info);
-
-	rn2 = route_node_lookup(ospf->new_external_route, (struct prefix *)&p);
-	/* if new route exists, install it to ospf->old_external_route */
-	if (rn2 && rn2->info) {
-		if (!rn)
-			rn = route_node_get(ospf->old_external_route,
-					    (struct prefix *)&p);
-		rn->info = rn2->info;
-	} else {
-		/* remove route node from ospf->old_external_route */
-		if (rn) {
-			rn->info = NULL;
-			route_unlock_node(rn);
-		}
-	}
-
-	if (rn2) {
-		/* rn2->info is stored in route node of ospf->old_external_route
-		 */
-		rn2->info = NULL;
-		route_unlock_node(rn2);
-		route_unlock_node(rn2);
-	}
-
-	route_table_finish(tmp_old);
+	/* Update zebra with incremental AS-External routes */
+	ospf_ase_incremental_update_zebra_mt(ospf, p);
 }

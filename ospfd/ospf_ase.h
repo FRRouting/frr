@@ -2,6 +2,7 @@
 /*
  * OSPF AS External route calculation.
  * Copyright (C) 1999, 2000 Alex Zinin, Toshiaki Takada
+ * Copyright (C) 2025 The MITRE Corporation
  */
 
 #ifndef _ZEBRA_OSPF_ASE_H
@@ -13,7 +14,7 @@ extern struct ospf_route *
 ospf_find_asbr_route_through_area(struct route_table *, struct prefix_ipv4 *,
 				  struct ospf_area *);
 
-extern int ospf_ase_calculate_route(struct ospf *, struct ospf_lsa *);
+extern int ospf_ase_calculate_route(struct ospf *, struct ospf_lsa *, uint8_t);
 extern void ospf_ase_calculate_schedule(struct ospf *);
 extern void ospf_ase_calculate_timer_add(struct ospf *);
 

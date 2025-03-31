@@ -2,6 +2,7 @@
 /*
  * OSPFd main header.
  * Copyright (C) 1998, 99, 2000 Kunihiro Ishiguro, Toshiaki Takada
+ * Copyright (C) 2025 The MITRE Corporation
  */
 
 #ifndef _ZEBRA_OSPFD_H
@@ -64,6 +65,15 @@
 #define OSPF_LS_REFRESH_SHIFT       (60 * 15)
 #define OSPF_LS_REFRESH_JITTER      60
 
+/* RFC 4915 (Multi-Topology Routing) constants */
+#define OSPF_MIN_MT_ID		       0
+#define OSPF_MAX_MT_ID		       1
+#define OSPF_MAX_NUM_MT_IDS	       2
+#define OSPF_BASE_MT_ID		       0
+#define OSPF_MULTICAST_MT_ID	       1
+#define OSPF_UINT32_SIZE_MT_BIT_VECTOR ((OSPF_MAX_NUM_MT_IDS + 31) / 32)
+#define OSPF_NO_MT		       255 /* Invalid value */
+
 /* Default socket buffer size */
 #define OSPF_DEFAULT_SOCK_BUFSIZE   (8 * 1024 * 1024)
 
@@ -123,6 +133,12 @@ struct ospf_area_fr_info {
 	struct ospf_lsa *indication_lsa_self; /* Indication LSA generated
 					       * in the area.
 					       */
+};
+
+/* OSPF Multi-Topology configuration */
+struct ospf_mt_config {
+	char *mt_name; /* Multi-topology name */
+	uint8_t mt_id; /* Multi-topology ID, between 1 and OSPF_MAX_NUM_MT_IDS */
 };
 
 /* ospf->config */
@@ -239,17 +255,18 @@ struct ospf {
 	struct list *opaque_lsa_self; /* Type-11 Opaque-LSAs */
 
 	/* Routing tables. */
-	struct route_table *old_table; /* Old routing table. */
-	struct route_table *new_table; /* Current routing table. */
+	struct route_table *old_table[OSPF_MAX_NUM_MT_IDS]; /* Old routing table. */
+	struct route_table *new_table[OSPF_MAX_NUM_MT_IDS]; /* Current routing table. */
 
-	struct route_table *oall_rtrs; /* Old router RT. */
-	struct route_table *all_rtrs;  /* New routers RT. */
+	struct route_table *oall_rtrs[OSPF_MAX_NUM_MT_IDS]; /* Old router RT. */
+	struct route_table *all_rtrs[OSPF_MAX_NUM_MT_IDS];  /* New routers RT. */
 
-	struct route_table *old_rtrs; /* Old ABR/ASBR RT. */
-	struct route_table *new_rtrs; /* New ABR/ASBR RT. */
+	struct route_table *old_rtrs[OSPF_MAX_NUM_MT_IDS]; /* Old ABR/ASBR RT. */
+	struct route_table *new_rtrs[OSPF_MAX_NUM_MT_IDS]; /* New ABR/ASBR RT. */
 
-	struct route_table *new_external_route; /* New External Route. */
-	struct route_table *old_external_route; /* Old External Route. */
+	struct route_table *new_external_route[OSPF_MAX_NUM_MT_IDS]; /* New External Route. */
+	struct route_table *old_external_route[OSPF_MAX_NUM_MT_IDS]; /* Old External Route. */
+	struct ospf_mt_config *mt_multicast; /* Multicast topology configuration */
 
 	struct route_table *external_lsas; /* Database of external LSAs,
 					      prefix is LSA's adv. network*/
@@ -528,6 +545,13 @@ struct ospf_area {
 	int auth_type;		 /* Authentication type. */
 	int suppress_fa;	 /* Suppress forwarding address in NSSA ABR */
 
+	int default_exclusion; /* RFC4915 DefaultExclusionCapability */
+#define OSPF_DEFAULT_EXCLUSION_DISABLE 0
+#define OSPF_DEFAULT_EXCLUSION_ENABLE  1
+	int route_replication; /* Replicate default topology costs to MTID 1 */
+#define OSPF_ROUTE_REPLICATION_DISABLE 0
+#define OSPF_ROUTE_REPLICATION_ENABLE  1
+
 	uint8_t NSSATranslatorRole; /* NSSA configured role */
 #define OSPF_NSSA_ROLE_NEVER     0
 #define OSPF_NSSA_ROLE_CANDIDATE 1
@@ -594,7 +618,7 @@ struct ospf_area {
 	} nssa_default_originate;
 
 	/* Shortest Path Tree. */
-	struct vertex *spf;
+	struct vertex *spf[OSPF_MAX_NUM_MT_IDS];
 	struct list *spf_vertex_list;
 
 	bool spf_dry_run;   /* flag for checking if the SPF calculation is
@@ -715,6 +739,8 @@ extern void ospf_finish(struct ospf *ospf);
 extern void ospf_process_refresh_data(struct ospf *ospf, bool reset);
 extern void ospf_router_id_update(struct ospf *ospf);
 extern void ospf_process_reset(struct ospf *ospf);
+extern void ospf_mt_multicast_enable(struct ospf *ospf);
+extern void ospf_mt_multicast_disable(struct ospf *ospf);
 extern void ospf_neighbor_reset(struct ospf *ospf, struct in_addr nbr_id,
 				const char *nbr_str);
 extern int ospf_network_set(struct ospf *ospf, struct prefix_ipv4 *p,

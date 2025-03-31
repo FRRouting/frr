@@ -2,6 +2,7 @@
 /*
  * OSPF Link State Advertisement
  * Copyright (C) 1999, 2000 Toshiaki Takada
+ * Copyright (C) 2025 The MITRE Corporation
  */
 
 #include <zebra.h>
@@ -459,50 +460,124 @@ static uint16_t ospf_link_cost(struct ospf_interface *oi)
 }
 
 /* Set a link information. */
-char link_info_set(struct stream **s, struct in_addr id, struct in_addr data,
-		   uint8_t type, uint8_t tos, uint16_t cost)
+char link_info_set(struct stream **s, struct ospf_interface *oi, struct in_addr id,
+		   struct in_addr data, uint8_t type, uint8_t tos, uint16_t cost)
 {
+	unsigned long putp;
+	int mt_cnt = 0;
+	int mt_id = 0;
+	uint16_t mt_router_lsa_link_size = 0;
+	struct ospf_if_params *params = NULL;
+
+	if (oi) {
+		params = IF_DEF_PARAMS(oi->ifp);
+	}
+	/* for each configured mt_id */
+	for (mt_id = 0; mt_id <= OSPF_MAX_MT_ID; mt_id++) {
+		if (mt_id == 0) {
+			if ((oi->area->default_exclusion == OSPF_DEFAULT_EXCLUSION_DISABLE) ||
+			    OSPF_IF_PARAM_CONFIGURED(params, mt_base_disable)) {
+				/* 
+                 * If DefaultExclusionCapability is disabled, we communicate
+                 * the default topology information through the legacy TOS=0
+                 * field, so we should not add an entry for MT-ID = 0 below
+                 *
+                 * Alternatively, DefaultExclusionCapability is enabled but 
+                 * default topology is disabled, so we should not add an entry
+                 * for MT-ID = 0 below
+                 */
+				continue;
+			}
+			/* Otherwise, add an entry for MT-ID = 0 below */
+			mt_cnt++;
+		} else if (OSPF_IF_MT_MAP_IS_SET(params->mt_map, mt_id) ||
+			   OSPF_IF_MT_MAP_IS_SET(params->mt_map_replicate, mt_id)) {
+			mt_cnt++;
+		}
+	}
+	mt_router_lsa_link_size = OSPF_ROUTER_LSA_LINK_SIZE + OSPF_ROUTER_LSA_TOS_SIZE * mt_cnt;
+
 	/* LSA stream is initially allocated to OSPF_MAX_LSA_SIZE, suits
-	 * vast majority of cases. Some rare routers with lots of links need
-	 * more.
-	 * we try accommodate those here.
-	 */
-	if (STREAM_WRITEABLE(*s) < OSPF_ROUTER_LSA_LINK_SIZE) {
+     * vast majority of cases. Some rare routers with lots of links need
+     * more.
+     * we try accommodate those here.
+     */
+	if (STREAM_WRITEABLE(*s) < mt_router_lsa_link_size) {
 		size_t ret = OSPF_MAX_LSA_SIZE;
 
 		/* Can we enlarge the stream still? */
 		if (STREAM_SIZE(*s) == OSPF_MAX_LSA_SIZE) {
 			/* we futz the size here for simplicity, really we need
-			 * to account
-			 * for just:
-			 * IP Header - (sizeof(struct ip))
-			 * OSPF Header - OSPF_HEADER_SIZE
-			 * LSA Header - OSPF_LSA_HEADER_SIZE
-			 * MD5 auth data, if MD5 is configured -
-			 * OSPF_AUTH_MD5_SIZE.
-			 *
-			 * Simpler just to subtract OSPF_MAX_LSA_SIZE though.
-			 */
-			ret = stream_resize_inplace(
-				s, OSPF_MAX_PACKET_SIZE - OSPF_MAX_LSA_SIZE);
+             * to account
+             * for just:
+             * IP Header - (sizeof(struct ip))
+             * OSPF Header - OSPF_HEADER_SIZE
+             * LSA Header - OSPF_LSA_HEADER_SIZE
+             * MD5 auth data, if MD5 is configured -
+             * OSPF_AUTH_MD5_SIZE.
+             *
+             * Simpler just to subtract OSPF_MAX_LSA_SIZE though.
+             */
+			ret = stream_resize_inplace(s, OSPF_MAX_PACKET_SIZE - OSPF_MAX_LSA_SIZE);
 		}
 
 		if (ret == OSPF_MAX_LSA_SIZE) {
-			flog_warn(
-				EC_OSPF_LSA_SIZE,
-				"%s: Out of space in LSA stream, left %zd, size %zd",
-				__func__, STREAM_WRITEABLE(*s),
-				STREAM_SIZE(*s));
+			flog_warn(EC_OSPF_LSA_SIZE,
+				  "%s: Out of space in LSA stream, left %zd, size %zd", __func__,
+				  STREAM_WRITEABLE(*s), STREAM_SIZE(*s));
 			return 0;
 		}
 	}
 
-	/* TOS based routing is not supported. */
-	stream_put_ipv4(*s, id.s_addr);   /* Link ID. */
-	stream_put_ipv4(*s, data.s_addr); /* Link Data. */
-	stream_putc(*s, type);		  /* Link Type. */
-	stream_putc(*s, tos);		  /* TOS = 0. */
-	stream_putw(*s, cost);		  /* Link Cost. */
+	if (mt_cnt > 0) {
+		/* RFC 4915 support */
+		stream_put_ipv4(*s, id.s_addr);	  /* Link ID. */
+		stream_put_ipv4(*s, data.s_addr); /* Link Data. */
+		stream_putc(*s, type);		  /* Link Type. */
+		putp = stream_get_endp(*s);	  /* Keep pointer to # MT-ID field */
+		stream_putc(*s, 0);		  /* Forward char */
+		stream_putw(*s, cost);		  /* Link Cost. */
+						  /* for each configured mt_id */
+		for (mt_id = 0; mt_id <= OSPF_MAX_MT_ID; mt_id++) {
+			/* 
+             * RFC 4915 MT-ID (similar to legacy TOS routing) is configured.
+             * We need to find the DefaultExclusionCapability status for this
+             * link, but the status is stored in the aread dat structure.
+             */
+			if (mt_id == 0) {
+				if ((oi->area->default_exclusion == OSPF_DEFAULT_EXCLUSION_DISABLE) ||
+				    OSPF_IF_PARAM_CONFIGURED(params, mt_base_disable)) {
+					/* If DefaultExclusionCapability is disabled, we
+                     * communicate the default topology information through the 
+                     * legacy TOS=0 field, so we should not add an entry for 
+                     * MT-ID = 0
+                     *
+                     * Alternatively, DefaultExclusionCapability is enabled 
+                     * but default topology is disabled, so we should not add
+                     * an entry for MT-ID = 0
+                     */
+					continue;
+				}
+			}
+			/* Add an entry for this MT-ID */
+			stream_putc(*s, (u_char)mt_id); /* MT ID      */
+			stream_putc(*s, 0);
+			if (mt_id == 0) {
+				stream_putw(*s, cost); /* Base topology metric */
+			} else {
+				stream_putw(*s, params->mt_metric[mt_id]); /* MT metric  */
+			}
+		}
+		/* Set # MT-ID here. */
+		stream_putc_at(*s, putp, mt_cnt);
+	} else {
+		/* Multi-topology routing is not supported. */
+		stream_put_ipv4(*s, id.s_addr);	  /* Link ID. */
+		stream_put_ipv4(*s, data.s_addr); /* Link Data. */
+		stream_putc(*s, type);		  /* Link Type. */
+		stream_putc(*s, tos);		  /* TOS = 0. */
+		stream_putw(*s, cost);		  /* Link Cost. */
+	}
 
 	return 1;
 }
@@ -534,14 +609,11 @@ static int lsa_link_ptop_set(struct stream **s, struct ospf_interface *oi)
 				   should specify the interface's MIB-II ifIndex
 				   value. */
 				data.s_addr = htonl(oi->ifp->ifindex);
-				links += link_info_set(
-					s, nbr->router_id, data,
-					LSA_LINK_TYPE_POINTOPOINT, 0, cost);
+				links += link_info_set(s, oi, nbr->router_id, data,
+						       LSA_LINK_TYPE_POINTOPOINT, 0, cost);
 			} else {
-				links += link_info_set(
-					s, nbr->router_id,
-					oi->address->u.prefix4,
-					LSA_LINK_TYPE_POINTOPOINT, 0, cost);
+				links += link_info_set(s, oi, nbr->router_id, oi->address->u.prefix4,
+						       LSA_LINK_TYPE_POINTOPOINT, 0, cost);
 			}
 		}
 
@@ -560,8 +632,8 @@ static int lsa_link_ptop_set(struct stream **s, struct ospf_interface *oi)
 			id.s_addr =
 				CONNECTED_PREFIX(oi->connected)->u.prefix4.s_addr &
 				mask.s_addr;
-			links += link_info_set(s, id, mask, LSA_LINK_TYPE_STUB,
-					       0, oi->output_cost);
+			links += link_info_set(s, oi, id, mask, LSA_LINK_TYPE_STUB, 0,
+					       oi->output_cost);
 		}
 	}
 
@@ -588,8 +660,7 @@ static int lsa_link_broadcast_set(struct stream **s, struct ospf_interface *oi)
 				   oi->ifp->name);
 		masklen2ip(oi->address->prefixlen, &mask);
 		id.s_addr = oi->address->u.prefix4.s_addr & mask.s_addr;
-		return link_info_set(s, id, mask, LSA_LINK_TYPE_STUB, 0,
-				     oi->output_cost);
+		return link_info_set(s, oi, id, mask, LSA_LINK_TYPE_STUB, 0, oi->output_cost);
 	}
 
 	dr = ospf_nbr_lookup_by_addr(oi->nbrs, &DR(oi));
@@ -601,8 +672,8 @@ static int lsa_link_broadcast_set(struct stream **s, struct ospf_interface *oi)
 			zlog_debug(
 				"LSA[Type1]: Interface %s has a DR. Adding transit interface",
 				oi->ifp->name);
-		return link_info_set(s, DR(oi), oi->address->u.prefix4,
-				     LSA_LINK_TYPE_TRANSIT, 0, cost);
+		return link_info_set(s, oi, DR(oi), oi->address->u.prefix4, LSA_LINK_TYPE_TRANSIT,
+				     0, cost);
 	}
 	/* Describe type 3 link. */
 	else {
@@ -617,8 +688,7 @@ static int lsa_link_broadcast_set(struct stream **s, struct ospf_interface *oi)
 				   oi->ifp->name);
 		masklen2ip(oi->address->prefixlen, &mask);
 		id.s_addr = oi->address->u.prefix4.s_addr & mask.s_addr;
-		return link_info_set(s, id, mask, LSA_LINK_TYPE_STUB, 0,
-				     oi->output_cost);
+		return link_info_set(s, oi, id, mask, LSA_LINK_TYPE_STUB, 0, oi->output_cost);
 	}
 }
 
@@ -632,8 +702,7 @@ static int lsa_link_loopback_set(struct stream **s, struct ospf_interface *oi)
 
 	mask.s_addr = 0xffffffff;
 	id.s_addr = oi->address->u.prefix4.s_addr;
-	return link_info_set(s, id, mask, LSA_LINK_TYPE_STUB, 0,
-			     oi->output_cost);
+	return link_info_set(s, oi, id, mask, LSA_LINK_TYPE_STUB, 0, oi->output_cost);
 }
 
 /* Describe Virtual Link. */
@@ -646,10 +715,8 @@ static int lsa_link_virtuallink_set(struct stream **s,
 	if (oi->state == ISM_PointToPoint)
 		if ((nbr = ospf_nbr_lookup_ptop(oi)))
 			if (nbr->state == NSM_Full) {
-				return link_info_set(s, nbr->router_id,
-						     oi->address->u.prefix4,
-						     LSA_LINK_TYPE_VIRTUALLINK,
-						     0, cost);
+				return link_info_set(s, oi, nbr->router_id, oi->address->u.prefix4,
+						     LSA_LINK_TYPE_VIRTUALLINK, 0, cost);
 			}
 
 	return 0;
@@ -676,7 +743,7 @@ static int lsa_link_ptomp_set(struct stream **s, struct ospf_interface *oi)
 	} else {
 		mask.s_addr = 0xffffffff;
 		id.s_addr = oi->address->u.prefix4.s_addr;
-		links += link_info_set(s, id, mask, LSA_LINK_TYPE_STUB, 0, 0);
+		links += link_info_set(s, oi, id, mask, LSA_LINK_TYPE_STUB, 0, 0);
 	}
 
 	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
@@ -691,11 +758,9 @@ static int lsa_link_ptomp_set(struct stream **s, struct ospf_interface *oi)
 				if (nbr->state == NSM_Full)
 
 				{
-					links += link_info_set(
-						s, nbr->router_id,
-						oi->address->u.prefix4,
-						LSA_LINK_TYPE_POINTOPOINT, 0,
-						cost);
+					links += link_info_set(s, oi, nbr->router_id,
+							       oi->address->u.prefix4,
+							       LSA_LINK_TYPE_POINTOPOINT, 0, cost);
 					if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
 						zlog_debug(
 							"PointToMultipoint: set link to %pI4",
@@ -4280,4 +4345,106 @@ void ospf_flush_lsa_from_area(struct ospf *ospf, struct in_addr area_id,
 	default:
 		break;
 	}
+}
+
+
+/*
+ * Returns the encoded metric associated with given mt id or
+ * OSPF_OUTPUT_COST_INFINITE if the mt id is not found within the list.
+ *
+ * The so-called "TOS 0" (default) metric is controlled by the
+ * default exclusion capability mode in the area.
+ *
+ * metric is returned in host-byte order
+ */
+uint16_t ospf_lsa_link_mtid_metric(struct ospf_area *area, struct router_lsa_link *l, uint8_t mt_id)
+{
+	int i;
+	uint16_t metric = OSPF_OUTPUT_COST_INFINITE;
+
+	if ((area->default_exclusion == OSPF_DEFAULT_EXCLUSION_DISABLE) && (mt_id == 0)) {
+		return ntohs(l->m[0].metric);
+	}
+
+	for (i = 0; i < l->m[0].tos_count; i++) {
+		/* mt_id is stored in low-order 7 bits */
+		if ((l->m[i + 1].type & 0x7f) == mt_id) {
+			metric = ntohs(l->m[i + 1].metric);
+			break;
+		}
+	}
+	return metric;
+}
+
+/*
+ * Returns true if the given mt-id is defined on the link
+ */
+int ospf_lsa_link_mtid_exists(struct ospf_area *area, struct router_lsa_link *l, uint8_t mt_id)
+{
+	uint16_t metric = ospf_lsa_link_mtid_metric(area, l, mt_id);
+
+	if (metric >= OSPF_OUTPUT_COST_INFINITE)
+		return 0;
+	else
+		return 1;
+}
+
+/*
+ * return true if the lsa contains at least one link on the mt_id topology
+ */
+int ospf_lsa_contains_mtid(struct ospf_area *area, struct ospf_lsa *lsa, uint8_t mt_id)
+{
+	char *p;
+	char *lim;
+	int found = 0;
+	struct router_lsa_link *l;
+	struct summary_mt *m;
+	struct lsa_header *header = lsa->data;
+
+	switch (header->type) {
+	case OSPF_ROUTER_LSA:
+		p = ((char *)header) + OSPF_LSA_HEADER_SIZE + 4;
+		lim = ((char *)header) + ntohs(header->length);
+		/* iterate through the links contained within the router lsa */
+		while (p < lim) {
+			l = (struct router_lsa_link *)p;
+
+			p += (OSPF_ROUTER_LSA_LINK_SIZE +
+			      (l->m[0].tos_count * OSPF_ROUTER_LSA_MTID_SIZE));
+
+			/* if the mt_id is present, we are done searching */
+			if (ospf_lsa_link_mtid_exists(area, l, mt_id)) {
+				found = 1;
+				break;
+			}
+		}
+		break;
+	case OSPF_SUMMARY_LSA:
+		p = ((char *)header) + OSPF_LSA_HEADER_SIZE + 4;
+		lim = ((char *)header) + ntohs(header->length);
+		while (p < lim) {
+			m = (struct summary_mt *)p;
+			if (m->id == mt_id) {
+				found = 1;
+				break;
+			}
+			p += sizeof(struct summary_mt);
+		}
+		break;
+#if 0
+        case OSPF_AS_NSSA_LSA:
+        case OSPF_AS_EXTERNAL_LSA:
+            {
+                struct as_external_lsa *al = (struct as_external_lsa *)lsa;
+
+                if (ospf_as_external_lsa_mt_mtid_exists(al, mt_id)) {
+                    found = 1;
+                }
+            }
+            break;
+#endif
+	default:
+		break;
+	}
+	return found;
 }
