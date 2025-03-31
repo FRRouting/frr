@@ -758,6 +758,10 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                    format_prefix(prefix, plen),
                    format_address(from), ifp->name,
                    format_eui64(message + 8), seqno);
+            if(message[6] == 0) {
+                debugf(BABEL_DEBUG_COMMON, "Received request with invalid hop count 0");
+                goto done;
+            }
             handle_request(neigh, prefix, plen, message[6], seqno, message + 8);
         } else {
             debugf(BABEL_DEBUG_COMMON,"Received unknown packet type %d from %s on %s.",
