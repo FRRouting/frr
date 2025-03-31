@@ -10,6 +10,15 @@
  * Author: Anselme Sawadogo <anselmesawadogo@gmail.com>
  *
  * Copyright (C) 2016 - 2020 Orange Labs http://www.orange.com
+ *
+ * Copyright (C) 2025 The MITRE Corporation. Approved
+ * for Public * Release; Distribution Unlimited.
+ * Public Release Case Number 25-1167.  This
+ * software was produced for the U. S. Government
+ * under Basic Contract No. W56KGU-18-D-0004, and is
+ * subject to the Rights in Noncommercial Computer Software
+ * and Noncommercial Computer Software Documentation
+ * Clause 252.227-7014 (FEB 2014).
  */
 
 #ifdef HAVE_CONFIG_H
@@ -766,7 +775,7 @@ static struct ospf_route *get_nexthop_by_addr(struct ospf *top,
 	osr_debug("      |-  Search Nexthop for prefix %pFX",
 		  (struct prefix *)&p);
 
-	rn = route_node_lookup(top->new_table, (struct prefix *)&p);
+	rn = route_node_lookup(top->new_table[OSPF_MIN_MT_ID], (struct prefix *)&p);
 
 	/*
 	 * Check if we found an OSPF route. May be NULL if SPF has not

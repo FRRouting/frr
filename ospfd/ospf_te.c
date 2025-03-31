@@ -6,6 +6,15 @@
  *
  * Copyright (C) 2012 Orange Labs
  * http://www.orange.com
+ *
+ * Copyright (C) 2025 The MITRE Corporation. Approved
+ * for Public * Release; Distribution Unlimited.
+ * Public Release Case Number 25-1167.  This
+ * software was produced for the U. S. Government
+ * under Basic Contract No. W56KGU-18-D-0004, and is
+ * subject to the Rights in Noncommercial Computer Software
+ * and Noncommercial Computer Software Documentation
+ * Clause 252.227-7014 (FEB 2014).
  */
 
 /* Add support of RFC7471 */
@@ -1874,7 +1883,9 @@ static int ospf_te_parse_router_lsa(struct ls_ted *ted, struct ospf_lsa *lsa)
 	struct router_lsa *rl;
 	enum ls_node_type type;
 	struct ls_vertex *vertex;
-	int len, links;
+	int len, links, sum = 0, link_len = 0;
+	struct router_lsa_link *rll = NULL;
+	char *tmp_ptr = NULL;
 
 	/* Sanity Check */
 	if (!ted || !lsa || !lsa->data)
@@ -1919,9 +1930,12 @@ static int ospf_te_parse_router_lsa(struct ls_ted *ted, struct ospf_lsa *lsa)
 	/* Then, process Link Information */
 	len = lsa->size - OSPF_LSA_HEADER_SIZE - OSPF_ROUTER_LSA_MIN_SIZE;
 	links = ntohs(rl->links);
-	for (int i = 0; i < links && len > 0; len -= 12, i++) {
+	tmp_ptr = (char *)&(rl->link[0]);
+	for (int i = 0; sum < len && i < links; tmp_ptr += link_len, sum += link_len, i++) {
 		struct prefix p;
 		uint32_t metric;
+		rll = (struct router_lsa_link *)tmp_ptr;
+		link_len = 12 + 4 * rll->m[0].tos_count;
 
 		switch (rl->link[i].type) {
 		case LSA_LINK_TYPE_POINTOPOINT:

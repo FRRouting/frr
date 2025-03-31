@@ -2,6 +2,15 @@
 /*
  * OSPF Neighbor functions.
  * Copyright (C) 1999, 2000 Toshiaki Takada
+ *
+ * Copyright (C) 2025 The MITRE Corporation. Approved
+ * for Public Release; Distribution Unlimited.
+ * Public Release Case Number 25-1167.  This
+ * software was produced for the U. S. Government
+ * under Basic Contract No. W56KGU-18-D-0004, and is
+ * subject to the Rights in Noncommercial Computer Software
+ * and Noncommercial Computer Software Documentation
+ * Clause 252.227-7014 (FEB 2014).
  */
 
 #include <zebra.h>
@@ -260,6 +269,12 @@ void ospf_nbr_add_self(struct ospf_interface *oi, struct in_addr router_id)
 		UNSET_FLAG(oi->nbr_self->options, OSPF_OPTION_E);
 		SET_FLAG(oi->nbr_self->options, OSPF_OPTION_NP);
 		break;
+	}
+
+	if (oi->area->default_exclusion == OSPF_DEFAULT_EXCLUSION_ENABLE) {
+		SET_FLAG(oi->nbr_self->options, OSPF_OPTION_MT);
+	} else {
+		UNSET_FLAG(oi->nbr_self->options, OSPF_OPTION_MT);
 	}
 
 	/* Add nbr_self to nbrs table */

@@ -2,6 +2,15 @@
 /*
  * Zebra connect library for OSPFd
  * Copyright (C) 1997, 98, 99, 2000 Kunihiro Ishiguro, Toshiaki Takada
+ *
+ * Copyright (C) 2025 The MITRE Corporation. Approved
+ * for Public * Release; Distribution Unlimited.
+ * Public Release Case Number 25-1167.  This
+ * software was produced for the U. S. Government
+ * under Basic Contract No. W56KGU-18-D-0004, and is
+ * subject to the Rights in Noncommercial Computer Software
+ * and Noncommercial Computer Software Documentation
+ * Clause 252.227-7014 (FEB 2014).
  */
 
 #include <zebra.h>
@@ -300,6 +309,10 @@ void ospf_zebra_add(struct ospf *ospf, struct prefix_ipv4 *p,
 		api.distance = distance;
 	}
 
+	/* Set MT-ID */
+	SET_FLAG(api.message, ZAPI_MESSAGE_TABLEID);
+	api.tableid = or->mt_id;
+
 	for (ALL_LIST_ELEMENTS_RO(or->paths, node, path)) {
 		if (api.nexthop_num >= ospf->max_multipath)
 			break;
@@ -363,10 +376,12 @@ void ospf_zebra_delete(struct ospf *ospf, struct prefix_ipv4 *p,
 	api.instance = ospf->instance;
 	api.safi = SAFI_UNICAST;
 	memcpy(&api.prefix, p, sizeof(*p));
+	/* Set MT-ID */
+	SET_FLAG(api.message, ZAPI_MESSAGE_TABLEID);
+	api.tableid = or->mt_id;
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
-		zlog_debug("Zebra: Route delete %pFX(%s)", p,
-			   ospf_vrf_id_to_name(ospf->vrf_id));
+		zlog_debug("Zebra: Route delete mt-id %d %pFX", api.tableid, p);
 
 	zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
 }

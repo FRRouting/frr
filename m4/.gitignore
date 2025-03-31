@@ -9,7 +9,7 @@
 !ax_python.m4
 !ax_recursive_eval.m4
 !ax_sys_weak_alias.m4
-!ax_sys_weak_alias.m4
+!ax_lua.m4
 !pkg.m4
 
 /ac

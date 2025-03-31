@@ -2,6 +2,15 @@
 /* ospfd memory type declarations
  *
  * Copyright (C) 2015  David Lamparter
+ *
+ * Copyright (C) 2025 The MITRE Corporation. Approved
+ * for Public Release; Distribution Unlimited.
+ * Public Release Case Number 25-1167.  This
+ * software was produced for the U. S. Government
+ * under Basic Contract No. W56KGU-18-D-0004, and is
+ * subject to the Rights in Noncommercial Computer Software
+ * and Noncommercial Computer Software Documentation
+ * Clause 252.227-7014 (FEB 2014).
  */
 
 #ifndef _QUAGGA_OSPF_MEMORY_H
@@ -44,6 +53,7 @@ DECLARE_MTYPE(OSPF_GR_HELPER);
 DECLARE_MTYPE(OSPF_EXTERNAL_RT_AGGR);
 DECLARE_MTYPE(OSPF_P_SPACE);
 DECLARE_MTYPE(OSPF_Q_SPACE);
+DECLARE_MTYPE(OSPF_MULTI_TOPOLOGY);
 DECLARE_MTYPE(OSPF_LSA_LIST);
 DECLARE_MTYPE(OSPF_LSDB_NODE);
 

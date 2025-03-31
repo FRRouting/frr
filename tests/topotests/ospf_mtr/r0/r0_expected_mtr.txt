@@ -1,0 +1,27 @@
+============ Topology "base" ============
+============ OSPF network routing table ============
+N    10.0.0.0/24           [10] area: 0.0.0.0
+                           directly attached to r0-r1-eth0
+N    10.0.1.0/24           [10] area: 0.0.0.0
+                           directly attached to r0-r2-eth1
+N    10.0.2.0/24           [10] area: 0.0.0.0
+                           directly attached to r0-r3-eth2
+N    10.0.3.0/24           [20] area: 0.0.0.0
+                           via 10.0.0.2, r0-r1-eth0
+                           via 10.0.1.2, r0-r2-eth1
+N    10.0.4.0/24           [20] area: 0.0.0.0
+                           via 10.0.0.2, r0-r1-eth0
+                           via 10.0.2.2, r0-r3-eth2
+N    10.0.5.0/24           [20] area: 0.0.0.0
+                           via 10.0.2.2, r0-r3-eth2
+N    10.0.6.0/24           [20] area: 0.0.0.0
+                           via 10.0.1.2, r0-r2-eth1
+                           via 10.0.2.2, r0-r3-eth2
+
+============ Topology "multicast" ============
+============ OSPF network routing table ============
+N    10.0.2.0/24           [63] area: 0.0.0.0
+                           directly attached to r0-r3-eth2
+N    10.0.5.0/24           [127] area: 0.0.0.0
+                           via 10.0.2.2, r0-r3-eth2
+

@@ -2,6 +2,15 @@
 /*
  * OSPF routing table.
  * Copyright (C) 1999, 2000 Toshiaki Takada
+ *
+ * Copyright (C) 2025 The MITRE Corporation. Approved
+ * for Public * Release; Distribution Unlimited.
+ * Public Release Case Number 25-1167.  This
+ * software was produced for the U. S. Government
+ * under Basic Contract No. W56KGU-18-D-0004, and is
+ * subject to the Rights in Noncommercial Computer Software
+ * and Noncommercial Computer Software Documentation
+ * Clause 252.227-7014 (FEB 2014).
  */
 
 #ifndef _ZEBRA_OSPF_ROUTE_H
@@ -103,6 +112,9 @@ struct ospf_route {
 	/* List of Paths. */
 	struct list *paths;
 
+	/* RFC 4915 Multi-Topology ID. */
+	uint8_t mt_id;
+
 	/* Link State Cost. */
 	uint32_t cost; /* i.e. metric. */
 
@@ -124,19 +136,18 @@ extern void ospf_route_free(struct ospf_route *);
 extern void ospf_route_delete(struct ospf *, struct route_table *);
 extern void ospf_route_table_free(struct route_table *);
 
-extern void ospf_route_install(struct ospf *, struct route_table *);
+extern void ospf_route_install(struct ospf *, struct route_table *, uint8_t mt_id);
 extern void ospf_route_table_dump(struct route_table *);
 extern void ospf_router_route_table_dump(struct route_table *rt);
 
-extern void ospf_intra_add_router(struct route_table *rt, struct vertex *v,
-				  struct ospf_area *area, bool add_all);
+extern void ospf_intra_add_router(struct route_table *rt, struct vertex *v, struct ospf_area *area,
+				  bool add_all, uint8_t mt_id);
 
-extern void ospf_intra_add_transit(struct route_table *, struct vertex *,
-				   struct ospf_area *);
+extern void ospf_intra_add_transit(struct route_table *, struct vertex *, struct ospf_area *,
+				   uint8_t mt_id);
 
-extern void ospf_intra_add_stub(struct route_table *, struct router_lsa_link *,
-				struct vertex *, struct ospf_area *,
-				int parent_is_root, int);
+extern void ospf_intra_add_stub(struct route_table *, struct router_lsa_link *, struct vertex *,
+				struct ospf_area *, int parent_is_root, int, uint8_t mt_id);
 
 extern int ospf_route_cmp(struct ospf *, struct ospf_route *,
 			  struct ospf_route *);

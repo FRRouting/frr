@@ -2,6 +2,15 @@
 /*
  * OSPF calculation.
  * Copyright (C) 1999 Kunihiro Ishiguro
+ *
+ * Copyright (C) 2025 The MITRE Corporation. Approved
+ * for Public * Release; Distribution Unlimited.
+ * Public Release Case Number 25-1167.  This
+ * software was produced for the U. S. Government
+ * under Basic Contract No. W56KGU-18-D-0004, and is
+ * subject to the Rights in Noncommercial Computer Software
+ * and Noncommercial Computer Software Documentation
+ * Clause 252.227-7014 (FEB 2014).
  */
 
 #ifndef _QUAGGA_OSPF_SPF_H
@@ -58,20 +67,17 @@ typedef enum {
 } ospf_spf_reason_t;
 
 extern void ospf_spf_calculate_schedule(struct ospf *, ospf_spf_reason_t);
-extern void ospf_spf_calculate(struct ospf_area *area,
-			       struct ospf_lsa *root_lsa,
-			       struct route_table *new_table,
-			       struct route_table *all_rtrs,
-			       struct route_table *new_rtrs, bool is_dry_run,
-			       bool is_root_node);
+extern void ospf_spf_calculate(struct ospf_area *area, struct ospf_lsa *root_lsa,
+			       struct route_table *new_table, struct route_table *all_rtrs,
+			       struct route_table *new_rtrs, bool is_dry_run, bool is_root_node,
+			       uint8_t mt_id);
 extern void ospf_spf_calculate_area(struct ospf *ospf, struct ospf_area *area,
-				    struct route_table *new_table,
-				    struct route_table *all_rtrs,
-				    struct route_table *new_rtrs);
-extern void ospf_spf_calculate_areas(struct ospf *ospf,
-				     struct route_table *new_table,
-				     struct route_table *all_rtrs,
-				     struct route_table *new_rtrs);
+				    struct route_table *new_table, struct route_table *all_rtrs,
+				    struct route_table *new_rtrs, uint8_t mt_id);
+extern void ospf_spf_calculate_areas(struct ospf *ospf, struct route_table *new_table,
+				     struct route_table *all_rtrs, struct route_table *new_rtrs,
+				     uint8_t mt_id);
+
 extern void ospf_rtrs_free(struct route_table *);
 extern void ospf_spf_cleanup(struct vertex *spf, struct list *vertex_list);
 extern void ospf_spf_copy(struct vertex *vertex, struct list *vertex_list);

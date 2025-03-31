@@ -2,6 +2,15 @@
 /*
  * OSPF AS Boundary Router functions.
  * Copyright (C) 1999, 2000 Kunihiro Ishiguro, Toshiaki Takada
+ *
+ * Copyright (C) 2025 The MITRE Corporation. Approved
+ * for Public Release; Distribution Unlimited.
+ * Public Release Case Number 25-1167.  This
+ * software was produced for the U. S. Government
+ * under Basic Contract No. W56KGU-18-D-0004, and is
+ * subject to the Rights in Noncommercial Computer Software
+ * and Noncommercial Computer Software Documentation
+ * Clause 252.227-7014 (FEB 2014).
  */
 
 #include <zebra.h>
@@ -28,33 +37,6 @@
 #include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_errors.h"
-
-/* Remove external route. */
-void ospf_external_route_remove(struct ospf *ospf, struct prefix_ipv4 *p)
-{
-	struct route_node *rn;
-	struct ospf_route * or ;
-
-	rn = route_node_lookup(ospf->old_external_route, (struct prefix *)p);
-	if (rn)
-		if ((or = rn->info)) {
-			zlog_info("Route[%pFX]: external path deleted", p);
-
-			/* Remove route from zebra. */
-			if (or->type == OSPF_DESTINATION_NETWORK)
-				ospf_zebra_delete(
-					ospf, (struct prefix_ipv4 *)&rn->p, or);
-
-			ospf_route_free(or);
-			rn->info = NULL;
-
-			route_unlock_node(rn);
-			route_unlock_node(rn);
-			return;
-		}
-
-	zlog_info("Route[%pFX]: no such external path", p);
-}
 
 /* Add an External info for AS-external-LSA. */
 struct external_info *ospf_external_info_new(struct ospf *ospf, uint8_t type,
