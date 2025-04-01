@@ -2201,8 +2201,7 @@ static int zl3vni_send_add_to_client(struct zebra_l3vni *zl3vni)
 	zclient_create_header(s, ZEBRA_L3VNI_ADD, zl3vni_vrf_id(zl3vni));
 	stream_putl(s, zl3vni->vni);
 	stream_put(s, &svi_rmac, sizeof(struct ethaddr));
-	/* Temporary until BGP accepts IPv6 VTEPs */
-	stream_put_in_addr(s, &zl3vni->local_vtep_ip.ipaddr_v4);
+	stream_put_ipaddr(s, &zl3vni->local_vtep_ip);
 	stream_put(s, &zl3vni->filter, sizeof(int));
 	stream_putl(s, zl3vni->svi_if->ifindex);
 	stream_put(s, &vrr_rmac, sizeof(struct ethaddr));
@@ -4168,10 +4167,8 @@ static int32_t zebra_vxlan_remote_macip_helper(bool add, struct stream *s, vni_t
 	}
 	l += 4 + ETH_ALEN + 4 + *ipa_len;
 
-	/* Temporary until BGP supports IPv6 VTEPs */
-	SET_IPADDR_V4(vtep_ip);
-	STREAM_GET(&vtep_ip->ipaddr_v4, s, IPV4_MAX_BYTELEN);
-	l += IPV4_MAX_BYTELEN;
+	STREAM_GET_IPADDR(s, vtep_ip);
+	l += IPADDRSZ(vtep_ip);
 
 	if (add) {
 		STREAM_GETC(s, *flags);
@@ -4602,10 +4599,8 @@ void zebra_vxlan_remote_vtep_del_zapi(ZAPI_HANDLER_ARGS)
 		STREAM_GETL(s, vni);
 		l += 4;
 
-		/* Temporary until BGP supports IPv6 VTEPs */
-		SET_IPADDR_V4(&vtep_ip);
-		STREAM_GET(&vtep_ip.ipaddr_v4.s_addr, s, IPV4_MAX_BYTELEN);
-		l += IPV4_MAX_BYTELEN;
+		STREAM_GET_IPADDR(s, &vtep_ip);
+		l += 2 + IPADDRSZ(&vtep_ip);
 
 		/* Flood control is intentionally ignored right now */
 		STREAM_GETL(s, flood_control);
@@ -4809,11 +4804,11 @@ void zebra_vxlan_remote_vtep_add_zapi(ZAPI_HANDLER_ARGS)
 		STREAM_GETL(s, vni);
 		l += 4;
 
-		/* Temporary until BGP supports IPV6 VTEPs */
-		SET_IPADDR_V4(&vtep_ip);
-		STREAM_GET(&vtep_ip.ipaddr_v4.s_addr, s, IPV4_MAX_BYTELEN);
+		STREAM_GET_IPADDR(s, &vtep_ip);
+		l += 2 + IPADDRSZ(&vtep_ip);
+
 		STREAM_GETL(s, flood_control);
-		l += IPV4_MAX_BYTELEN + 4;
+		l += 4;
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("Recv VTEP ADD %pIA VNI %u flood %d from %s", &vtep_ip, vni,
