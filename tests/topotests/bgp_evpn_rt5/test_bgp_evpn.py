@@ -965,20 +965,39 @@ def _validate_evpn_rmacs(router, expected):
     and that VTEP IPs are unique for each VRF/VNI
     """
     data = router.vtysh_cmd("show evpn rmac vni all json", isjson=True)
-    cmp = topotest.json_cmp(data, expected, exact=False)
-    if cmp is not None:
-        return cmp
+
+    # Each object (vni) in expected should be in the output
+    for vni in expected.keys():
+        if vni not in data:
+            return "Failed to find expected VNI {}".format(vni)
+
+    # Each rmac in expected should be in output
+    # the VTEP in each expected rmac object should be in output - in v4 or v6 form
+    # Each VTEP should be in vni only once...
 
     for vni, details in data.items():
         vtep_ips = []
+        jvni = None
+
+        if vni in expected:
+            jvni = expected[vni]
+
         for key, detail in details.items():
             if key == "numRmacs":
                 continue
+
             vtep_ip = detail["vtepIp"]
+            rmac = detail["routerMac"]
+            if jvni != None:
+                if rmac in jvni:
+                    # Compare VTEP IPs - a forgiving comparison
+                    if detail["vtepIp"].find(jvni[rmac]["vtepIp"]) < 0:
+                        return "VTEP {} failed, not found in VNI {}".format(
+                            detail["vtepIp"], vni)
             if vtep_ip in vtep_ips:
                 # VTEP IP is occuring for more than one RMAC in the same VNI
                 return "Duplicate VTEP IP {} found in VNI {}".format(vtep_ip, vni)
-            vtep_ips.append(detail["vtepIp"])
+            vtep_ips.append(vtep_ip)
 
     return None
 
