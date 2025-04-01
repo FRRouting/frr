@@ -651,6 +651,10 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 		break;
 	case AFI_LINKSTATE:
 		switch (safi) {
+		case SAFI_LINKSTATE:
+			return "link-state";
+		case SAFI_LINKSTATE_VPN:
+			return "link-state-vpn";
 		case SAFI_EVPN:
 		case SAFI_UNICAST:
 		case SAFI_MULTICAST:
@@ -660,11 +664,6 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 		case SAFI_FLOWSPEC:
 		case SAFI_UNSPEC:
 		case SAFI_MAX:
-		case SAFI_LINKSTATE:
-			return "link-state";
-		case SAFI_LINKSTATE_VPN:
-			return "link-state-vpn";
-		default:
 			return "unknown-afi/safi";
 		}
 		break;
