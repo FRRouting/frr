@@ -119,8 +119,8 @@ static uint64_t mgmt_fe_ns_string_remove_session(struct ns_string_head *head,
 		if (!node)
 			continue;
 		list_delete_node(ns->sessions, node);
-		clients |= mgmt_be_interested_clients(ns->s, MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
 		if (list_isempty(ns->sessions)) {
+			clients |= mgmt_be_interested_clients(ns->s, MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
 			ns_string_del(head, ns);
 			mgmt_fe_free_ns_string(ns);
 		}
@@ -1642,6 +1642,7 @@ static void fe_adapter_handle_notify_select(struct mgmt_fe_session_ctx *session,
 {
 	struct mgmt_msg_notify_select *msg = __msg;
 	uint64_t req_id = msg->req_id;
+	struct nb_node **nb_nodes;
 	const char **selectors = NULL;
 	const char **new;
 	const char **sp;
@@ -1656,6 +1657,19 @@ static void fe_adapter_handle_notify_select(struct mgmt_fe_session_ctx *session,
 			return;
 		}
 	}
+
+	/* Validate all selectors, they need to resolve to actual northbound_nodes */
+	darr_foreach_p (selectors, sp) {
+		nb_nodes = nb_nodes_find(*sp);
+		if (!nb_nodes) {
+			fe_adapter_send_error(session, req_id, false, -EINVAL,
+					      "Selector doesn't resolve to a node: %s", *sp);
+			darr_free_free(selectors);
+			return;
+		}
+		darr_free(nb_nodes);
+	}
+
 	if (DEBUG_MODE_CHECK(&mgmt_debug_fe, DEBUG_MODE_ALL)) {
 		selstr = frrstr_join(selectors, darr_len(selectors), ", ");
 		if (!selstr)
@@ -1931,6 +1945,11 @@ void mgmt_fe_adapter_send_notify(struct mgmt_msg_notify_data *msg, size_t msglen
 			return;
 		}
 	}
+
+	/*
+	 * XXX if `is_root` should only send to each session one time, the code
+	 * below will send multiple times if a session has multiple selectors.
+	 */
 
 	frr_each (ns_string, &mgmt_fe_ns_strings, ns) {
 		if (!is_root) {
