@@ -38,7 +38,6 @@ from lib.topogen import Topogen, get_topogen
 from lib.common_config import (
     required_linux_kernel_version,
 )
-from lib.topolog import logger
 
 import json
 import functools
@@ -420,9 +419,9 @@ def route_get_nhg_id(route_str):
 
     test_func = functools.partial(get_func, route_str)
     _, nhg_id = topotest.run_and_expect_type(test_func, int, count=30, wait=1)
-    if nhg_id == None:
+    if nhg_id is None:
         fatal_error = "Nexthop Group ID not found for route {}".format(route_str)
-        assert nhg_id != None, fatal_error
+        assert nhg_id is not None, fatal_error
     else:
         return nhg_id
 
@@ -710,7 +709,8 @@ def test_rip_status():
         refTableFile = "{}/r{}/rip_status.ref".format(thisDir, i)
         if os.path.isfile(refTableFile):
             # Read expected result from file
-            expected = open(refTableFile).read().rstrip()
+            with open(refTableFile) as file:
+                expected = file.read().rstrip()
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
@@ -771,7 +771,8 @@ def test_ripng_status():
         refTableFile = "{}/r{}/ripng_status.ref".format(thisDir, i)
         if os.path.isfile(refTableFile):
             # Read expected result from file
-            expected = open(refTableFile).read().rstrip()
+            with open(refTableFile) as file:
+                expected = file.read().rstrip()
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
@@ -834,7 +835,8 @@ def test_ospfv2_interfaces():
         refTableFile = "{}/r{}/show_ip_ospf_interface.ref".format(thisDir, i)
         if os.path.isfile(refTableFile):
             # Read expected result from file
-            expected = open(refTableFile).read().rstrip()
+            with open(refTableFile) as file:
+                expected = file.read().rstrip()
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
@@ -916,7 +918,8 @@ def test_isis_interfaces():
         refTableFile = "{}/r{}/show_isis_interface_detail.ref".format(thisDir, i)
         if os.path.isfile(refTableFile):
             # Read expected result from file
-            expected = open(refTableFile).read().rstrip()
+            with open(refTableFile) as file:
+                expected = file.read().rstrip()
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
@@ -979,7 +982,8 @@ def test_bgp_summary():
         refTableFile = "{}/r{}/show_ip_bgp_summary.ref".format(thisDir, i)
         if os.path.isfile(refTableFile):
             # Read expected result from file
-            expected_original = open(refTableFile).read().rstrip()
+            with open(refTableFile) as file:
+                expected_original = file.read().rstrip()
 
             for arguments in [
                 "",
@@ -1152,7 +1156,8 @@ def test_bgp_ipv6_summary():
         refTableFile = "{}/r{}/show_bgp_ipv6_summary.ref".format(thisDir, i)
         if os.path.isfile(refTableFile):
             # Read expected result from file
-            expected = open(refTableFile).read().rstrip()
+            with open(refTableFile) as file:
+                expected = file.read().rstrip()
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
@@ -1244,7 +1249,8 @@ def test_nht():
 
     for i in range(1, 2):
         nhtFile = "{}/r{}/ip_nht.ref".format(thisDir, i)
-        expected = open(nhtFile).read().rstrip()
+        with open(nhtFile) as file:
+            expected = file.read().rstrip()
         expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
         actual = (
@@ -1266,7 +1272,8 @@ def test_nht():
             print("show ip nht is ok\n")
 
         nhtFile = "{}/r{}/ipv6_nht.ref".format(thisDir, i)
-        expected = open(nhtFile).read().rstrip()
+        with open(nhtFile) as file:
+            expected = file.read().rstrip()
         expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
         actual = (
@@ -1306,7 +1313,8 @@ def test_bgp_ipv4():
         for refTableFile in glob.glob("{}/r{}/show_bgp_ipv4*.ref".format(thisDir, i)):
             if os.path.isfile(refTableFile):
                 # Read expected result from file
-                expected = open(refTableFile).read().rstrip()
+                with open(refTableFile) as file:
+                    expected = file.read().rstrip()
                 # Fix newlines (make them all the same)
                 expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
@@ -1377,7 +1385,8 @@ def test_bgp_ipv6():
         for refTableFile in glob.glob("{}/r{}/show_bgp_ipv6*.ref".format(thisDir, i)):
             if os.path.isfile(refTableFile):
                 # Read expected result from file
-                expected = open(refTableFile).read().rstrip()
+                with open(refTableFile) as file:
+                    expected = file.read().rstrip()
                 # Fix newlines (make them all the same)
                 expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
@@ -1444,7 +1453,8 @@ def test_route_map():
     for i in range(1, 2):
         refroutemap = "{}/r{}/show_route_map.ref".format(thisDir, i)
         if os.path.isfile(refroutemap):
-            expected = open(refroutemap).read().rstrip()
+            with open(refroutemap) as file:
+                expected = file.read().rstrip()
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
             actual = (
@@ -1649,7 +1659,8 @@ def test_mpls_interfaces():
         refTableFile = "{}/r{}/show_mpls_ldp_interface.ref".format(thisDir, i)
         if os.path.isfile(refTableFile):
             # Read expected result from file
-            expected = open(refTableFile).read().rstrip()
+            with open(refTableFile) as file:
+                expected = file.read().rstrip()
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
