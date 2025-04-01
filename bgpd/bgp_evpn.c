@@ -972,18 +972,10 @@ static enum zclient_send_status bgp_zebra_send_remote_macip(
 	 */
 	if (bgp_evpn_is_esi_valid(esi)) {
 		esi_valid = true;
-#if 1
-		stream_put_in_addr(s, &zero_remote_vtep_ip.ipaddr_v4);
-#else
 		stream_put_ipaddr(s, &zero_remote_vtep_ip);
-#endif /* 1 */
 	} else {
 		esi_valid = false;
-#if 1
-		stream_put_in_addr(s, &remote_vtep_ip->ipaddr_v4);
-#else
-		stream_put_ipaddr(s, &remote_vtep_ip);
-#endif
+		stream_put_ipaddr(s, remote_vtep_ip);
 	}
 
 	/* TX flags - MAC sticky status and/or gateway mac */
@@ -1051,19 +1043,7 @@ bgp_zebra_send_remote_vtep(struct bgp *bgp, struct bgpevpn *vpn,
 		s, add ? ZEBRA_REMOTE_VTEP_ADD : ZEBRA_REMOTE_VTEP_DEL,
 		bgp->vrf_id);
 	stream_putl(s, vpn ? vpn->vni : 0);
-#if 1
-    if (is_evpn_prefix_ipaddr_v4(p))
-            stream_put_in_addr(s, &p->prefix.imet_addr.ip.ipaddr_v4);
-    else if (is_evpn_prefix_ipaddr_v6(p)) {
-            flog_err(
-                    EC_BGP_VTEP_INVALID,
-                    "Bad remote IP when trying to %s remote VTEP for VNI %u",
-                    add ? "ADD" : "DEL", (vpn ? vpn->vni : 0));
-            return ZCLIENT_SEND_FAILURE;
-    }
-#else
 	stream_put_ipaddr(s, &p->prefix.imet_addr.ip);
-#endif
 	stream_putl(s, flood_control);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
