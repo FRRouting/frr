@@ -1108,8 +1108,7 @@ int zebra_evpn_send_add_to_client(struct zebra_evpn *zevpn)
 
 	zclient_create_header(s, ZEBRA_VNI_ADD, zebra_vrf_get_evpn_id());
 	stream_putl(s, zevpn->vni);
-	/* Temporary until BGP supports IPv6 VTEPs */
-	stream_put_in_addr(s, (const struct in_addr *)&zevpn->local_vtep_ip.ipaddr_v4.s_addr);
+	stream_put_ipaddr(s, &zevpn->local_vtep_ip);
 	stream_put(s, &zevpn->vrf_id, sizeof(vrf_id_t)); /* tenant vrf */
 	stream_put_in_addr(s, &zevpn->mcast_grp);
 	stream_put(s, &svi_index, sizeof(ifindex_t));
