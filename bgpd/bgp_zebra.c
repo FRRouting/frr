@@ -3272,17 +3272,7 @@ static int bgp_zebra_process_local_l3vni(ZAPI_CALLBACK_ARGS)
 	l3vni = stream_getl(s);
 	if (cmd == ZEBRA_L3VNI_ADD) {
 		stream_get(&svi_rmac, s, sizeof(struct ethaddr));
-#if 1
-		originator_ip.ipaddr_v4.s_addr = stream_get_ipv4(s);
-		SET_IPADDR_V4(&originator_ip);
-#else
-		STREAM_GETW(s, originator_ip.ipa_type);
-		if (originator_ip.ipa_type == IPADDR_V4) {
-			STREAM_GET(&originator_ip.ipaddr_v4, s, IPV4_MAX_BYTELEN);
-		} else if (originator_ip.ipa_type == IPADDR_V6) {
-			STREAM_GET(&originator_ip.ipaddr_v6, s, IPV6_MAX_BYTELEN);
-		}
-#endif /* 1 */
+		stream_get_ipaddr(s, &originator_ip);
 		stream_get(&filter, s, sizeof(int));
 		svi_ifindex = stream_getl(s);
 		stream_get(&vrr_rmac, s, sizeof(struct ethaddr));
@@ -3328,22 +3318,11 @@ static int bgp_zebra_process_local_vni(ZAPI_CALLBACK_ARGS)
 	s = zclient->ibuf;
 	vni = stream_getl(s);
 	if (cmd == ZEBRA_VNI_ADD) {
-#if 1
-		SET_IPADDR_V4(&vtep_ip);
-		vtep_ip.ipaddr_v4.s_addr = stream_get_ipv4(s);
-#else
-		STREAM_GETW(s, vtep_ip.ipa_type);
-		if (vtep_ip.ipa_type == IPADDR_V4) {
-			STREAM_GET(&vtep_ip.ipaddr_v4, s, IPV4_MAX_BYTELEN);
-		} else if (vtep_ip.ipa_type == IPADDR_V6) {
-			STREAM_GET(&vtep_ip.ipaddr_v6, s, IPV6_MAX_BYTELEN);
-		} else {
+		if (!stream_get_ipaddr(s, &vtep_ip)) {
 			if (BGP_DEBUG(zebra, ZEBRA))
-				zlog_err(
-					"Unexpected VTEP IP address type=%u", vtep_ip.ipa_type);
+				zlog_err("Unable to read VTEP IP address from stream");
 			return 0;
 		}
-#endif /* 1 */
 		stream_get(&tenant_vrf_id, s, sizeof(vrf_id_t));
 		mcast_grp.s_addr = stream_get_ipv4(s);
 		stream_get(&svi_ifindex, s, sizeof(ifindex_t));
