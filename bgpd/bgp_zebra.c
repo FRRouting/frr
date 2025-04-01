@@ -1891,6 +1891,10 @@ void bgp_zebra_withdraw(const struct prefix *p, struct bgp_path_info *info,
 	if (!bgp_install_info_to_zebra(bgp))
 		return;
 
+	if (afi == AFI_LINKSTATE)
+		/* Nothing to uninstall */
+		return;
+
 	if (safi == SAFI_FLOWSPEC) {
 		peer = info->peer;
 		bgp_pbr_update_entry(peer->bgp, p, info, afi, safi, false);
