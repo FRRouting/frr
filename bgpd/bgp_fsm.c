@@ -184,7 +184,11 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	EVENT_OFF(keeper->t_delayopen);
 	EVENT_OFF(keeper->t_connect_check_r);
 	EVENT_OFF(keeper->t_connect_check_w);
-	EVENT_OFF(keeper->t_process_packet);
+
+	frr_with_mutex (&bm->peer_connection_mtx) {
+		if (peer_connection_fifo_member(&bm->connection_fifo, keeper))
+			peer_connection_fifo_del(&bm->connection_fifo, keeper);
+	}
 
 	/*
 	 * At this point in time, it is possible that there are packets pending
@@ -305,8 +309,13 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 
 	bgp_reads_on(keeper);
 	bgp_writes_on(keeper);
-	event_add_event(bm->master, bgp_process_packet, keeper, 0,
-			&keeper->t_process_packet);
+
+	frr_with_mutex (&bm->peer_connection_mtx) {
+		if (!peer_connection_fifo_member(&bm->connection_fifo, keeper)) {
+			peer_connection_fifo_add_tail(&bm->connection_fifo, keeper);
+		}
+	}
+	event_add_event(bm->master, bgp_process_packet, NULL, 0, &bm->e_process_packet);
 
 	return (peer);
 }
