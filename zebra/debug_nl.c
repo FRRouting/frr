@@ -1409,8 +1409,8 @@ next_rta:
 		}
 		break;
 	case NHA_ENCAP:
-		/* TODO: handle MPLS labels. */
-		zlog_debug("      unparsed MPLS labels");
+		/* TODO: handle MPLS labels or SRv6 SIDs. */
+		zlog_debug("      unparsed MPLS labels or SRv6 SIDs");
 		break;
 	case NHA_GROUPS:
 		/* TODO: handle this message. */
