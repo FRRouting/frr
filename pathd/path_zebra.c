@@ -869,7 +869,7 @@ static void path_zebra_nexthop_update(struct vrf *vrf, struct prefix *matched,
 	if (!nhtd)
 		zlog_err("Unable to find next-hop data for the given route.");
 	else if (path_zebra_srv6_nexthop_info_update(nhtd, nhr))
-		path_nht_srv6_update(&nhr->prefix, nhtd);
+		path_nht_srv6_update(matched, nhtd);
 }
 
 static int path_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
