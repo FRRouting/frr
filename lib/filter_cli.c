@@ -1400,10 +1400,14 @@ DEFPY_YANG(
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/prefix-list[type='ipv6'][name='%s']", name);
 	if (seq_str == NULL) {
-		/* Use XPath to find the next sequence number. */
-		sseq = acl_get_seq(vty, xpath, false);
-		if (sseq < 0)
-			return CMD_WARNING_CONFIG_FAILED;
+		if (plist_is_dup(vty->candidate_config->dnode, &pda))
+			sseq = pda.pda_seq;
+		else {
+			/* Use XPath to find the next sequence number. */
+			sseq = acl_get_seq(vty, xpath, false);
+			if (sseq < 0)
+				return CMD_WARNING_CONFIG_FAILED;
+		}
 
 		snprintfrr(xpath_entry, sizeof(xpath_entry),
 			   "%s/entry[sequence='%" PRId64 "']", xpath, sseq);
