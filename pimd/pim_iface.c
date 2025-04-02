@@ -147,6 +147,7 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool gm, bool pim,
 	pim_ifp->pim_enable = pim;
 	pim_ifp->pim_passive_enable = false;
 	pim_ifp->gm_enable = gm;
+	pim_ifp->gm_proxy = false;
 
 	pim_ifp->gm_join_list = NULL;
 	pim_ifp->static_group_list = NULL;
