@@ -7505,9 +7505,9 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 			break;
 
 	if (pi) {
-		if (attrhash_cmp(pi->attr, attr_new)
-		    && !CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)
-		    && !CHECK_FLAG(bgp->flags, BGP_FLAG_FORCE_STATIC_PROCESS)) {
+		if (!CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) &&
+		    !CHECK_FLAG(bgp->flags, BGP_FLAG_FORCE_STATIC_PROCESS) &&
+		    attrhash_cmp(pi->attr, attr_new)) {
 			bgp_dest_unlock_node(dest);
 			bgp_attr_unintern(&attr_new);
 			aspath_unintern(&attr.aspath);
@@ -9759,8 +9759,8 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 		if (bpi) {
 			/* Ensure the (source route) type is updated. */
 			bpi->type = type;
-			if (attrhash_cmp(bpi->attr, new_attr)
-			    && !CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED)) {
+			if (!CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED) &&
+			    attrhash_cmp(bpi->attr, new_attr)) {
 				bgp_attr_unintern(&new_attr);
 				aspath_unintern(&attr.aspath);
 				bgp_dest_unlock_node(bn);
