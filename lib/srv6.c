@@ -116,35 +116,65 @@ void seg6local_context2json(const struct seg6local_context *ctx,
 	}
 }
 
+static char *seg6local_flavors2str(char *str, size_t size,
+				   const struct seg6local_flavors_info *flv_info)
+{
+	size_t len = 0;
+	bool first = true;
+
+	if (!CHECK_SRV6_FLV_OP(flv_info->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_PSP |
+							  ZEBRA_SEG6_LOCAL_FLV_OP_USP |
+							  ZEBRA_SEG6_LOCAL_FLV_OP_USD))
+		return str;
+
+	len += snprintf(str + len, size - len, " (");
+	if (CHECK_SRV6_FLV_OP(flv_info->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_PSP)) {
+		len += snprintf(str + len, size - len, "%sPSP", first ? "" : "/");
+		first = false;
+	}
+	if (CHECK_SRV6_FLV_OP(flv_info->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_USP)) {
+		len += snprintf(str + len, size - len, "%sUSP", first ? "" : "/");
+		first = false;
+	}
+	if (CHECK_SRV6_FLV_OP(flv_info->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_USD))
+		len += snprintf(str + len, size - len, "%sUSD", first ? "" : "/");
+
+	snprintf(str + len, size - len, ")");
+
+	return str;
+}
 const char *seg6local_context2str(char *str, size_t size,
 				  const struct seg6local_context *ctx,
 				  uint32_t action)
 {
-	switch (action) {
+	char flavor[SRV6_FLAVORS_STRLEN], *p_flavor;
 
+	flavor[0] = '\0';
+	p_flavor = seg6local_flavors2str(flavor, sizeof(flavor), &ctx->flv);
+	switch (action) {
 	case ZEBRA_SEG6_LOCAL_ACTION_END:
-		snprintf(str, size, "-");
+		snprintf(str, size, "%s", p_flavor);
 		return str;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_X:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX6:
-		snprintfrr(str, size, "nh6 %pI6", &ctx->nh6);
+		snprintfrr(str, size, "nh6 %pI6%s", &ctx->nh6, p_flavor);
 		return str;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX4:
-		snprintfrr(str, size, "nh4 %pI4", &ctx->nh4);
+		snprintfrr(str, size, "nh4 %pI4%s", &ctx->nh4, p_flavor);
 		return str;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_T:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DT6:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DT4:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DT46:
-		snprintf(str, size, "table %u", ctx->table);
+		snprintf(str, size, "table %u%s", ctx->table, p_flavor);
 		return str;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_B6:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
-		snprintfrr(str, size, "nh6 %pI6", &ctx->nh6);
+		snprintfrr(str, size, "nh6 %pI6%s", &ctx->nh6, p_flavor);
 		return str;
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_BM:
