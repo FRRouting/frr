@@ -4657,7 +4657,7 @@ bool peer_active(struct peer *peer)
 		return false;
 
 	if (peer->bfd_config) {
-		if (bfd_session_is_down(peer->bfd_config->session))
+		if (peer_established(peer->connection) && bfd_session_is_down(peer->bfd_config->session))
 			return false;
 	}
 
