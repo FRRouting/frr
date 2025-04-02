@@ -3756,17 +3756,6 @@ static wq_item_status bgp_process_wq(struct work_queue *wq, void *data)
 static void bgp_processq_del(struct work_queue *wq, void *data)
 {
 	struct bgp_process_queue *pqnode = data;
-	struct bgp_table *table;
-	struct bgp_dest *dest;
-
-	while (!STAILQ_EMPTY(&pqnode->pqueue)) {
-		dest = STAILQ_FIRST(&pqnode->pqueue);
-		STAILQ_REMOVE_HEAD(&pqnode->pqueue, pq);
-		STAILQ_NEXT(dest, pq) = NULL;
-		table = bgp_dest_table(dest);
-		bgp_dest_unlock_node(dest);
-		bgp_table_unlock(table);
-	}
 
 	bgp_unlock(pqnode->bgp);
 
