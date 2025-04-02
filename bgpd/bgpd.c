@@ -4648,8 +4648,13 @@ bool peer_active(struct peer *peer)
 		return false;
 
 	if (peer->bfd_config) {
+<<<<<<< HEAD
 		if (bfd_session_is_down(peer->bfd_config->session))
 			return false;
+=======
+		if (peer_established(connection) && bfd_session_is_down(peer->bfd_config->session))
+			return BGP_PEER_BFD_DOWN;
+>>>>>>> da4a7b035 (bgpd: Treat the peer as not active due to BFD down only if established)
 	}
 
 	if (peer->afc[AFI_IP][SAFI_UNICAST] || peer->afc[AFI_IP][SAFI_MULTICAST]
