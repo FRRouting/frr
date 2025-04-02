@@ -97,6 +97,9 @@ struct seg6_segs {
 	struct in6_addr segs[256];
 };
 
+/* flavors psp, usd, usp, next-csid */
+#define SRV6_FLAVORS_STRLEN 50
+
 struct seg6local_flavors_info {
 	/* Flavor operations */
 	uint32_t flv_ops;
