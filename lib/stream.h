@@ -95,6 +95,7 @@ struct stream {
 	size_t getp;	       /* next get position */
 	size_t endp;	       /* last valid data position */
 	size_t size;	       /* size of data segment */
+	uint32_t type;	       /* mempool identifier */
 	unsigned char data[];  /* data pointer */
 };
 
@@ -133,7 +134,9 @@ struct stream_fifo {
  * l: long (two words)
  * q: quad (four words)
  */
+extern void stream_init(void);
 extern struct stream *stream_new(size_t);
+extern struct stream *stream_new_dist(size_t);
 extern void stream_free(struct stream *);
 /* Copy 'src' into 'dest', returns 'dest' */
 extern struct stream *stream_copy(struct stream *dest,

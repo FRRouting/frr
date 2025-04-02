@@ -36,6 +36,7 @@
 #include "defaults.h"
 #include "frrscript.h"
 #include "systemd.h"
+#include "stream.h"
 
 #include "lib/config_paths.h"
 
@@ -785,6 +786,8 @@ struct event_loop *frr_init(void)
 		di->db_file = dbfile_default;
 	db_init("%s", di->db_file);
 #endif
+
+	stream_init();
 
 	if (di->flags & FRR_LIMITED_CLI)
 		cmd_init(-1);

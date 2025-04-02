@@ -15,6 +15,8 @@
 #include "log.h"
 #include "frr_pthread.h"
 #include "lib_errors.h"
+#include "libfrr.h"
+#include "mempool.h"
 
 DEFINE_MTYPE_STATIC(LIB, STREAM, "Stream");
 DEFINE_MTYPE_STATIC(LIB, STREAM_FIFO, "Stream FIFO");
@@ -85,28 +87,68 @@ DEFINE_MTYPE_STATIC(LIB, STREAM_FIFO, "Stream FIFO");
 		}                                                              \
 	} while (0);
 
+static struct memptype *mem_pool_stream;
+pthread_mutex_t stream_mem_mtx;
+
+static int stream_destroy(void)
+{
+	if (mem_pool_stream)
+		mphead_delete(&mem_pool_stream);
+	pthread_mutex_destroy(&stream_mem_mtx);
+
+	return 1;
+}
+
+void stream_init(void)
+{
+	hook_register(frr_early_fini, stream_destroy);
+	pthread_mutex_init(&stream_mem_mtx, NULL);
+	mem_pool_stream = mphead_create(1024 * 1024);
+}
+
 /* Make stream buffer. */
 struct stream *stream_new(size_t size)
 {
 	struct stream *s;
 
 	assert(size > 0);
-
 	s = XMALLOC(MTYPE_STREAM, sizeof(struct stream) + size);
-
 	s->getp = s->endp = 0;
 	s->next = NULL;
 	s->size = size;
+	s->type = 0;
 	return s;
 }
+
+/* Make stream buffer. */
+struct stream *stream_new_dist(size_t size)
+{
+	struct stream *s;
+
+	assert(size > 0);
+	frr_with_mutex (&stream_mem_mtx) {
+		s = mpalloc(mem_pool_stream, sizeof(struct stream) + size);
+	}
+	memset(s, 0, sizeof(struct stream) + size);
+	s->getp = s->endp = 0;
+	s->next = NULL;
+	s->size = size;
+	s->type = 1;
+	return s;
+}
+
 
 /* Free it now. */
 void stream_free(struct stream *s)
 {
 	if (!s)
 		return;
-
-	XFREE(MTYPE_STREAM, s);
+	if (s->type == 1) {
+		frr_with_mutex (&stream_mem_mtx) {
+			mpfree(mem_pool_stream, s);
+		}
+	} else
+		XFREE(MTYPE_STREAM, s);
 }
 
 struct stream *stream_copy(struct stream *dest, const struct stream *src)
