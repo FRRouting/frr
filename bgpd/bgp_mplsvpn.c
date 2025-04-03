@@ -1088,10 +1088,8 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 		/* the route is defined with the "network <prefix>" command */
 
 		if (CHECK_FLAG(bgp_nexthop->flags, BGP_FLAG_IMPORT_CHECK))
-			nh_valid = bgp_find_or_add_nexthop(to_bgp, bgp_nexthop,
-							   afi, SAFI_UNICAST,
-							   bpi_ultimate, NULL,
-							   0, p);
+			nh_valid = bgp_find_or_add_nexthop(to_bgp, bgp_nexthop, afi, SAFI_UNICAST,
+							   bpi_ultimate, NULL, 0, p, bpi_ultimate);
 		else
 			/* if "no bgp network import-check" is set,
 			 * then mark the nexthop as valid.
@@ -1105,18 +1103,22 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 		 * TBD do we need to do anything about the
 		 * 'connected' parameter?
 		 */
-		nh_valid = bgp_find_or_add_nexthop(to_bgp, bgp_nexthop, afi,
-						   safi, bpi, NULL, 0, p);
+		/* VPN paths: the new bpi may be altered like
+		 * with 'nexthop vpn export' command. Use the bpi_ultimate
+		 * to find the original nexthop
+		 */
+		nh_valid = bgp_find_or_add_nexthop(to_bgp, bgp_nexthop, afi, safi, bpi, NULL, 0, p,
+						   bpi_ultimate);
 
 	/*
 	 * If you are using SRv6 VPN instead of MPLS, it need to check
 	 * the SID allocation. If the sid is not allocated, the rib
 	 * will be invalid.
+	 * If the SID per VRF is not available, also consider the rib as
+	 * invalid.
 	 */
-	if (to_bgp->srv6_enabled &&
-	    (!new_attr->srv6_l3vpn && !new_attr->srv6_vpn)) {
-		nh_valid = false;
-	}
+	if (to_bgp->srv6_enabled && nh_valid)
+		nh_valid = is_pi_srv6_valid(bpi, bgp_nexthop, afi, safi);
 
 	if (debug)
 		zlog_debug("%s: %pFX nexthop is %svalid (in %s)", __func__, p,
@@ -1594,8 +1596,8 @@ vpn_leak_from_vrf_get_per_nexthop_label(afi_t afi, struct bgp_path_info *pi,
 		bgp_nexthop = from_bgp;
 
 	nh_afi = BGP_ATTR_NH_AFI(afi, pi->attr);
-	nh_valid = bgp_find_or_add_nexthop(from_bgp, bgp_nexthop, nh_afi,
-					   SAFI_UNICAST, pi, NULL, 0, NULL);
+	nh_valid = bgp_find_or_add_nexthop(from_bgp, bgp_nexthop, nh_afi, SAFI_UNICAST, pi, NULL, 0,
+					   NULL, NULL);
 
 	if (!nh_valid && is_bgp_static_route &&
 	    !CHECK_FLAG(from_bgp->flags, BGP_FLAG_IMPORT_CHECK)) {
@@ -2337,8 +2339,8 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	/* to */
 			break;
 	}
 
-	if (bpi && leak_update_nexthop_valid(to_bgp, bn, &static_attr, afi, safi,
-					     path_vpn, bpi, src_vrf, p, debug))
+	if (bpi && leak_update_nexthop_valid(to_bgp, bn, &static_attr, afi, safi, path_vpn, bpi,
+					     src_vrf, p, debug))
 		SET_FLAG(static_attr.nh_flags, BGP_ATTR_NH_VALID);
 	else
 		UNSET_FLAG(static_attr.nh_flags, BGP_ATTR_NH_VALID);
