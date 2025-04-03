@@ -42,7 +42,7 @@ static void unregister_zebra_rnh(struct bgp_nexthop_cache *bnc);
 DEFINE_HOOK(bgp_hook_nht_update, (struct bgp_nexthop_cache * bnc, bool created),
 	    (bnc, created));
 
-static int make_prefix(int afi, safi_t safi, struct bgp_path_info *pi, struct prefix *p);
+static bool make_prefix(int afi, safi_t safi, struct bgp_path_info *pi, struct prefix *p);
 static void bgp_nht_ifp_initial(struct event *thread);
 
 DEFINE_HOOK(bgp_nht_path_update, (struct bgp *bgp, struct bgp_path_info *pi, bool valid),
@@ -328,7 +328,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 
 		/* This will return true if the global IPv6 NH is a link local
 		 * addr */
-		if (make_prefix(afi, safi, pi, &p) < 0)
+		if (!make_prefix(afi, safi, pi, &p))
 			return 1;
 
 		/*
@@ -1015,7 +1015,7 @@ void bgp_cleanup_nexthops(struct bgp *bgp)
  * make_prefix - make a prefix structure from the path (essentially
  * path's node.
  */
-static int make_prefix(int afi, safi_t safi, struct bgp_path_info *pi, struct prefix *p)
+static bool make_prefix(int afi, safi_t safi, struct bgp_path_info *pi, struct prefix *p)
 {
 	bool is_labeled_unicast, is_imported, has_labels;
 	int is_bgp_static = ((pi->type == ZEBRA_ROUTE_BGP)
@@ -1025,12 +1025,14 @@ static int make_prefix(int afi, safi_t safi, struct bgp_path_info *pi, struct pr
 	struct bgp_dest *net = pi->net;
 	const struct prefix *p_orig = bgp_dest_get_prefix(net);
 	struct in_addr ipv4;
+	struct peer *peer = pi->peer;
+	struct attr *attr = pi->attr;
 	const struct prefix *pi_prefix;
 
 	if (p_orig->family == AF_FLOWSPEC) {
-		if (!pi->peer)
-			return -1;
-		return bgp_flowspec_get_first_nh(pi->peer->bgp,
+		if (!peer)
+			return false;
+		return bgp_flowspec_get_first_nh(peer->bgp,
 						 pi, p, afi);
 	}
 	memset(p, 0, sizeof(struct prefix));
@@ -1042,30 +1044,30 @@ static int make_prefix(int afi, safi_t safi, struct bgp_path_info *pi, struct pr
 			p->prefixlen = p_orig->prefixlen;
 		} else {
 			if (p_orig->family == AF_EVPN)
-				p->u.prefix4 = pi->attr->mp_nexthop_global_in;
+				p->u.prefix4 = attr->mp_nexthop_global_in;
 			else
-				p->u.prefix4 = pi->attr->nexthop;
+				p->u.prefix4 = attr->nexthop;
 			p->prefixlen = IPV4_MAX_BITLEN;
 		}
 		break;
 	case AFI_IP6:
 		p->family = AF_INET6;
-		if (pi->attr->srv6_l3vpn) {
+		if (attr->srv6_l3vpn) {
 			p->prefixlen = IPV6_MAX_BITLEN;
-			if (pi->attr->srv6_l3vpn->transposition_len != 0 &&
+			if (attr->srv6_l3vpn->transposition_len != 0 &&
 			    bgp_path_info_has_valid_label(pi)) {
-				memcpy(&p->u.prefix6, &pi->attr->srv6_l3vpn->sid,
+				memcpy(&p->u.prefix6, &attr->srv6_l3vpn->sid,
 				       sizeof(struct in6_addr));
 				transpose_sid(&p->u.prefix6,
 					      decode_label(&pi->extra->labels
 								    ->label[0]),
-					      pi->attr->srv6_l3vpn
+					      attr->srv6_l3vpn
 						      ->transposition_offset,
-					      pi->attr->srv6_l3vpn
+					      attr->srv6_l3vpn
 						      ->transposition_len);
 			} else
 				IPV6_ADDR_COPY(&(p->u.prefix6),
-					       &(pi->attr->srv6_l3vpn->sid));
+					       &(attr->srv6_l3vpn->sid));
 		} else if (is_bgp_static) {
 			p->u.prefix6 = p_orig->u.prefix6;
 			p->prefixlen = p_orig->prefixlen;
@@ -1074,23 +1076,23 @@ static int make_prefix(int afi, safi_t safi, struct bgp_path_info *pi, struct pr
 			 * or LL(LL), use LL address as nexthop cache.
 			 */
 			p->prefixlen = IPV6_MAX_BITLEN;
-			if (pi->attr && pi->attr->mp_nexthop_len
+			if (attr && attr->mp_nexthop_len
 				    == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL
 			    && (IN6_IS_ADDR_UNSPECIFIED(
-					&pi->attr->mp_nexthop_global)
+					&attr->mp_nexthop_global)
 				|| IN6_IS_ADDR_LINKLOCAL(
-					&pi->attr->mp_nexthop_global)))
-				p->u.prefix6 = pi->attr->mp_nexthop_local;
+					&attr->mp_nexthop_global)))
+				p->u.prefix6 = attr->mp_nexthop_local;
 			/* If we receive MR_REACH with (GA)::(LL)
 			 * then check for route-map to choose GA or LL
 			 */
-			else if (pi->attr && pi->attr->mp_nexthop_len
+			else if (attr && attr->mp_nexthop_len
 				 == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
-				if (CHECK_FLAG(pi->attr->nh_flags, BGP_ATTR_NH_MP_PREFER_GLOBAL)) {
+				if (CHECK_FLAG(attr->nh_flags, BGP_ATTR_NH_MP_PREFER_GLOBAL)) {
 					is_labeled_unicast =
-						pi->peer && safi == SAFI_UNICAST &&
-						!pi->peer->afc[AFI_IP6][safi] &&
-						pi->peer->afc[AFI_IP6][SAFI_LABELED_UNICAST];
+						peer && safi == SAFI_UNICAST &&
+						!peer->afc[AFI_IP6][safi] &&
+						peer->afc[AFI_IP6][SAFI_LABELED_UNICAST];
 					is_imported = safi == SAFI_UNICAST &&
 						      pi->sub_type == BGP_ROUTE_IMPORTED;
 					has_labels = BGP_PATH_INFO_NUM_LABELS(pi) &&
@@ -1102,23 +1104,23 @@ static int make_prefix(int afi, safi_t safi, struct bgp_path_info *pi, struct pr
 					/* if safi is LABELED or L3VPN (6PE/6VPE case), then
                      * a bnc ipv6 will be created on the IPv4-mapped ipv6 address
                     */
-					if (IS_MAPPED_IPV6(&pi->attr->mp_nexthop_global) &&
+					if (IS_MAPPED_IPV6(&attr->mp_nexthop_global) &&
 					    !(pi_prefix->family == AF_INET6 && has_labels &&
 					      (is_labeled_unicast || is_imported))) {
-						ipv4_mapped_ipv6_to_ipv4(&pi->attr->mp_nexthop_global,
+						ipv4_mapped_ipv6_to_ipv4(&attr->mp_nexthop_global,
 									 &ipv4);
 						p->u.prefix4 = ipv4;
 						p->prefixlen = IPV4_MAX_BITLEN;
 						p->family = AF_INET;
 					} else
-						p->u.prefix6 = pi->attr->mp_nexthop_global;
+						p->u.prefix6 = attr->mp_nexthop_global;
 				} else
 					p->u.prefix6 =
-						pi->attr->mp_nexthop_local;
+						attr->mp_nexthop_local;
 			} else {
-				is_labeled_unicast = pi->peer && safi == SAFI_UNICAST &&
-						     !pi->peer->afc[AFI_IP6][safi] &&
-						     pi->peer->afc[AFI_IP6][SAFI_LABELED_UNICAST];
+				is_labeled_unicast = peer && safi == SAFI_UNICAST &&
+						     !peer->afc[AFI_IP6][safi] &&
+						     peer->afc[AFI_IP6][SAFI_LABELED_UNICAST];
 				is_imported = safi == SAFI_UNICAST &&
 					      pi->sub_type == BGP_ROUTE_IMPORTED;
 				has_labels = BGP_PATH_INFO_NUM_LABELS(pi) &&
@@ -1129,16 +1131,16 @@ static int make_prefix(int afi, safi_t safi, struct bgp_path_info *pi, struct pr
 				/* if safi is LABELED or L3VPN (6PE/6VPE case), then
 				 * a bnc ipv6 will be created on the IPv4-mapped ipv6 address
 				 */
-				if (IS_MAPPED_IPV6(&pi->attr->mp_nexthop_global) &&
+				if (IS_MAPPED_IPV6(&attr->mp_nexthop_global) &&
 				    !(pi_prefix->family == AF_INET6 && has_labels &&
 				      (is_labeled_unicast || is_imported))) {
-					ipv4_mapped_ipv6_to_ipv4(&pi->attr->mp_nexthop_global,
+					ipv4_mapped_ipv6_to_ipv4(&attr->mp_nexthop_global,
 								 &ipv4);
 					p->u.prefix4 = ipv4;
 					p->prefixlen = IPV4_MAX_BITLEN;
 					p->family = AF_INET;
 				} else
-					p->u.prefix6 = pi->attr->mp_nexthop_global;
+					p->u.prefix6 = attr->mp_nexthop_global;
 			}
 		}
 		break;
@@ -1150,7 +1152,7 @@ static int make_prefix(int afi, safi_t safi, struct bgp_path_info *pi, struct pr
 		}
 		break;
 	}
-	return 0;
+	return true;
 }
 
 /**
