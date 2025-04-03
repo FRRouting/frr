@@ -195,14 +195,14 @@ def test_bgp_administrative_reset_gr():
     step("Reset and delay the session establishement for R1")
     r1.vtysh_cmd(
         """
-        configure terminal"
+        configure terminal
         router bgp
          neighbor 192.168.255.2 timers delayopen 60
         """
     )
     r2.vtysh_cmd(
         """
-        configure terminal"
+        configure terminal
         router bgp
          neighbor 192.168.255.1 timers delayopen 60
         """
