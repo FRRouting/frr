@@ -2958,6 +2958,8 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 
 	SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
 	rib_addnode(rn, re, 1);
+	rib_update_route_count(re->vrf_id, re->type, ere->afi, ere->safi,
+			       re->table, true);
 
 	dest = rib_dest_from_rnode(rn);
 	/* Free implicit route.*/
@@ -2987,6 +2989,8 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 		}
 
 		rib_delnode(rn, same);
+		rib_update_route_count(re->vrf_id, re->type, ere->afi,
+				       ere->safi, re->table, false);
 	}
 
 	/* See if we can remove some RE entries that are queued for
@@ -3230,6 +3234,8 @@ static void process_subq_early_route_delete(struct zebra_early_route *ere)
 			dplane_sys_route_del(rn, same);
 
 		rib_delnode(rn, same);
+		rib_update_route_count(re->vrf_id, re->type, ere->afi,
+				       ere->safi, re->table, false);
 	}
 
 	route_unlock_node(rn);
@@ -5490,4 +5496,30 @@ struct route_table *rib_tables_iter_next(rib_tables_iter_t *iter)
 		iter->state = RIB_TABLES_ITER_S_DONE;
 
 	return table;
+}
+
+/* Rib route count stored in the vrf table *info struct to be updated
+ * on route adds and deletes, currently updating for PBR
+ */
+void rib_update_route_count(vrf_id_t vrf_id, int type, afi_t afi, safi_t safi,
+			    uint32_t tableid, bool add)
+{
+	if (type == ZEBRA_ROUTE_PBR) {
+		if (IS_ZEBRA_DEBUG_RIB)
+			zlog_debug("Table id %d afi %d safi %d vrf_id %d",
+				   tableid, afi, safi, vrf_id);
+		/* Route info count is kept agains the vrf table which needs to
+		 * be updated with a total PBR count from all tables
+		 */
+		struct route_table *vrf_table =
+			zebra_vrf_table(afi, safi, vrf_id);
+		struct rib_table_info *info = route_table_get_info(vrf_table);
+
+		if (info) {
+			if (add)
+				info->route_count[ZEBRA_ROUTE_PBR]++;
+			else if (info->route_count[ZEBRA_ROUTE_PBR] != 0)
+				info->route_count[ZEBRA_ROUTE_PBR]--;
+		}
+	}
 }

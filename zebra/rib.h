@@ -374,6 +374,9 @@ zebra_rib_route_entry_new(vrf_id_t vrf_id, int type, uint8_t instance,
 			  uint32_t metric, uint32_t mtu, uint8_t distance,
 			  route_tag_t tag);
 
+void rib_update_route_count(vrf_id_t vrf_id, int type, afi_t afi, safi_t safi,
+			    uint32_t tableid, bool add);
+
 #define ZEBRA_RIB_LOOKUP_ERROR -1
 #define ZEBRA_RIB_FOUND_EXACT 0
 #define ZEBRA_RIB_FOUND_NOGATE 1
