@@ -247,24 +247,39 @@ static bool path_zebra_segment_list_srv6(struct srte_segment_list *segment_list)
 	return false;
 }
 
-static bool path_zebra_nht_get_srv6_prefix(struct srte_segment_list *segment_list,
-					   struct prefix *nh)
+static bool _path_zebra_nht_get_srv6_prefix(struct srte_segment_list *segment_list,
+					    struct prefix *nh, bool previous)
 {
 	struct srte_segment_entry *segment;
 	bool found = false;
+	struct in6_addr *segment_srv6_sid;
 
 	if (!segment_list)
 		return false;
 
 	segment = RB_MIN(srte_segment_entry_head, &segment_list->segments);
-	if (segment && !IPV6_ADDR_SAME(&segment->srv6_sid_value, &in6addr_any)) {
+	if (previous)
+		segment_srv6_sid = &segment->srv6_sid_value_previous;
+	else
+		segment_srv6_sid = &segment->srv6_sid_value;
+	if (segment && !IPV6_ADDR_SAME(segment_srv6_sid, &in6addr_any)) {
 		nh->family = AF_INET6;
 		nh->prefixlen = IPV6_MAX_BITLEN;
-		memcpy(&nh->u.prefix6, &segment->srv6_sid_value,
-		       sizeof(struct in6_addr));
+		memcpy(&nh->u.prefix6, segment_srv6_sid, sizeof(struct in6_addr));
 		found = true;
 	}
 	return found;
+}
+
+static bool path_zebra_nht_get_srv6_prefix_previous(struct srte_segment_list *segment_list,
+						    struct prefix *nh)
+{
+	return _path_zebra_nht_get_srv6_prefix(segment_list, nh, true);
+}
+
+static bool path_zebra_nht_get_srv6_prefix(struct srte_segment_list *segment_list, struct prefix *nh)
+{
+	return _path_zebra_nht_get_srv6_prefix(segment_list, nh, false);
 }
 
 static void path_zebra_add_srv6_policy_internal(struct srte_policy *policy)
@@ -443,6 +458,9 @@ void path_nht_removed(struct srte_candidate *candidate)
 
 	/* nh->nh_registered means we own a reference on the nhtd */
 	nhtd = path_nht_hash_find(path_nht_hash, &lookup);
+	if (!nhtd && CHECK_FLAG(segment_list->flags, F_SEGMENT_LIST_MODIFIED) &&
+	    (path_zebra_nht_get_srv6_prefix_previous(segment_list, &lookup.nh)))
+		nhtd = path_nht_hash_find(path_nht_hash, &lookup);
 
 	assertf(nhtd, "BUG: NH %pFX registered but not in hashtable",
 		&lookup.nh);

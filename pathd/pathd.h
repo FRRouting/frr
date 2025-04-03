@@ -179,6 +179,7 @@ struct srte_segment_entry {
 
 	/* SRv6 SID. */
 	struct in6_addr srv6_sid_value;
+	struct in6_addr srv6_sid_value_previous;
 
 	/* NAI Type */
 	enum srte_segment_nai_type nai_type;

@@ -141,6 +141,7 @@ int pathd_srte_segment_list_segment_sid_value_modify(
 
 	segment = nb_running_get_entry(args->dnode, NULL, true);
 	sid_value = yang_dnode_get_uint32(args->dnode, NULL);
+
 	segment->sid_value = sid_value;
 	SET_FLAG(segment->segment_list->flags, F_SEGMENT_LIST_MODIFIED);
 
@@ -169,12 +170,20 @@ int pathd_srte_segment_list_segment_srv6_sid_value_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct srte_segment_entry *segment;
+	struct in6_addr srv6_sid_value = { 0 };
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	segment = nb_running_get_entry(args->dnode, NULL, true);
-	yang_dnode_get_ipv6(&segment->srv6_sid_value, args->dnode, NULL);
+	yang_dnode_get_ipv6(&srv6_sid_value, args->dnode, NULL);
+
+	if (memcmp(&srv6_sid_value, &segment->srv6_sid_value, sizeof(struct in6_addr)) &&
+	    CHECK_FLAG(segment->segment_list->flags, F_SEGMENT_LIST_NHT_REGISTERED) &&
+	    segment == RB_MIN(srte_segment_entry_head, &segment->segment_list->segments))
+		segment->srv6_sid_value_previous = segment->srv6_sid_value;
+
+	memcpy(&segment->srv6_sid_value, &srv6_sid_value, sizeof(struct in6_addr));
 	SET_FLAG(segment->segment_list->flags, F_SEGMENT_LIST_MODIFIED);
 
 	return NB_OK;

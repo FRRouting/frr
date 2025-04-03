@@ -733,6 +733,11 @@ void srte_policy_apply_changes(struct srte_policy *policy)
 				endpoint, policy->color,
 				new_best_candidate->name);
 
+			if (segment_list_changed &&
+			    CHECK_FLAG(new_best_candidate->lsp->segment_list->flags,
+				       F_SEGMENT_LIST_NHT_REGISTERED))
+				path_nht_removed(new_best_candidate);
+
 			path_zebra_add_sr_policy(
 				policy, new_best_candidate->lsp->segment_list);
 		}
