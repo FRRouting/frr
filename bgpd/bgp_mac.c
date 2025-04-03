@@ -219,6 +219,9 @@ static void bgp_mac_rescan_evpn_table(struct bgp *bgp, struct ethaddr *macaddr)
 		if (!peer_established(peer->connection))
 			continue;
 
+		if (!peer->afc[afi][safi])
+			continue;
+
 		if (bgp_debug_update(peer, NULL, NULL, 1))
 			zlog_debug(
 				"Processing EVPN MAC interface change on peer %s %s",
