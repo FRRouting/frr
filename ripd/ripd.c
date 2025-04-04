@@ -282,8 +282,14 @@ struct rip_info *rip_ecmp_replace(struct rip *rip, struct rip_info *rinfo_new)
  */
 struct rip_info *rip_ecmp_delete(struct rip *rip, struct rip_info *rinfo)
 {
-	struct route_node *rp = rinfo->rp;
-	struct list *list = (struct list *)rp->info;
+	struct route_node *rp;
+	struct list *list;
+
+	if (rinfo == NULL)
+		return NULL;
+
+	rp = rinfo->rp;
+	list = (struct list *)rp->info;
 
 	EVENT_OFF(rinfo->t_timeout);
 

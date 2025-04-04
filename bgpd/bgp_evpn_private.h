@@ -673,8 +673,6 @@ static inline bool bgp_evpn_is_path_local(struct bgp *bgp,
 			&& pi->sub_type == BGP_ROUTE_STATIC);
 }
 
-extern struct zclient *zclient;
-
 extern void bgp_evpn_install_uninstall_default_route(struct bgp *bgp_vrf,
 						     afi_t afi, safi_t safi,
 						     bool add);

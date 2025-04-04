@@ -12034,8 +12034,6 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	/* Line 7 display Originator, Cluster-id */
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID)) ||
 	    CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST))) {
-		char buf[BUFSIZ] = {0};
-
 		if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))) {
 			if (json_paths)
 				json_object_string_addf(json_path,
@@ -12047,9 +12045,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		}
 
 		if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST))) {
-			struct cluster_list *cluster =
-				bgp_attr_get_cluster(attr);
-			int i;
+			struct cluster_list *cluster = bgp_attr_get_cluster(attr);
 
 			if (json_paths) {
 				json_cluster_list = json_object_new_object();
@@ -13579,7 +13575,7 @@ DEFUN (show_ip_bgp_large_community_list,
 	afi_t afi = AFI_IP6;
 	safi_t safi = SAFI_UNICAST;
 	int idx = 0;
-	bool exact_match = 0;
+	bool match_p = 0;
 	struct bgp *bgp = NULL;
 	bool uj = use_json(argc, argv);
 
@@ -13596,10 +13592,10 @@ DEFUN (show_ip_bgp_large_community_list,
 	const char *clist_number_or_name = argv[++idx]->arg;
 
 	if (++idx < argc && strmatch(argv[idx]->text, "exact-match"))
-		exact_match = 1;
+		match_p = 1;
 
 	return bgp_show_lcommunity_list(vty, bgp, clist_number_or_name,
-					exact_match, afi, safi, uj);
+					match_p, afi, safi, uj);
 }
 DEFUN (show_ip_bgp_large_community,
        show_ip_bgp_large_community_cmd,
@@ -13618,7 +13614,7 @@ DEFUN (show_ip_bgp_large_community,
 	afi_t afi = AFI_IP6;
 	safi_t safi = SAFI_UNICAST;
 	int idx = 0;
-	bool exact_match = 0;
+	bool match_p = false;
 	struct bgp *bgp = NULL;
 	bool uj = use_json(argc, argv);
 	uint16_t show_flags = 0;
@@ -13636,10 +13632,10 @@ DEFUN (show_ip_bgp_large_community,
 	if (argv_find(argv, argc, "AA:BB:CC", &idx)) {
 		if (argv_find(argv, argc, "exact-match", &idx)) {
 			argc--;
-			exact_match = 1;
+			match_p = true;
 		}
 		return bgp_show_lcommunity(vty, bgp, argc, argv,
-					exact_match, afi, safi, uj);
+					   match_p, afi, safi, uj);
 	} else
 		return bgp_show(vty, bgp, afi, safi,
 				bgp_show_type_lcommunity_all, NULL, show_flags,
@@ -13910,7 +13906,7 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 	void *output_arg = NULL;
 	struct bgp *bgp = NULL;
 	int idx = 0;
-	int exact_match = 0;
+	int match_p = 0;
 	char *community = NULL;
 	bool first = true;
 	uint16_t show_flags = 0;
@@ -13975,7 +13971,7 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 			community = maybecomm;
 
 		if (argv_find(argv, argc, "exact-match", &idx))
-			exact_match = 1;
+			match_p = 1;
 
 		if (!community)
 			sh_type = bgp_show_type_community_all;
@@ -13986,7 +13982,7 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 		struct community_list *list;
 
 		if (argv_find(argv, argc, "exact-match", &idx))
-			exact_match = 1;
+			match_p = 1;
 
 		list = community_list_lookup(bgp_clist, clist_number_or_name, 0,
 					     COMMUNITY_LIST_MASTER);
@@ -13996,7 +13992,7 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 			return CMD_WARNING;
 		}
 
-		if (exact_match)
+		if (match_p)
 			sh_type = bgp_show_type_community_list_exact;
 		else
 			sh_type = bgp_show_type_community_list;
@@ -14106,7 +14102,7 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 		/* show bgp: AFI_IP6, show ip bgp: AFI_IP */
 		if (community)
 			return bgp_show_community(vty, bgp, community,
-						  exact_match, afi, safi,
+						  match_p, afi, safi,
 						  show_flags);
 		else
 			return bgp_show(vty, bgp, afi, safi, sh_type,
@@ -14151,7 +14147,7 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 					if (community)
 						bgp_show_community(
 							vty, abgp, community,
-							exact_match, afi, safi,
+							match_p, afi, safi,
 							show_flags);
 					else
 						bgp_show(vty, abgp, afi, safi,
@@ -14199,7 +14195,7 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 					if (community)
 						bgp_show_community(
 							vty, abgp, community,
-							exact_match, afi, safi,
+							match_p, afi, safi,
 							show_flags);
 					else
 						bgp_show(vty, abgp, afi, safi,
@@ -15469,15 +15465,15 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 						json_net =
 							json_object_new_object();
 
-					struct bgp_path_info bpi;
+					struct bgp_path_info pathi;
 					struct bgp_dest buildit = *dest;
 					struct bgp_dest *pass_in;
 
 					if (route_filtered ||
 					    ret == RMAP_DENY) {
-						bpi.attr = &attr;
-						bpi.peer = peer;
-						buildit.info = &bpi;
+						pathi.attr = &attr;
+						pathi.peer = peer;
+						buildit.info = &pathi;
 
 						pass_in = &buildit;
 					} else

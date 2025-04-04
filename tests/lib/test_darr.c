@@ -157,12 +157,17 @@ static void test_int(void)
 
 	assert(!memcmp(da2, a1, sizeof(a1)));
 
-	assert(darr_pop(da2) == 4);
-	assert(darr_pop(da2) == 3);
-	assert(darr_pop(da2) == 2);
+	i = darr_pop(da2);
+	assert(i == 4);
+	i = darr_pop(da2);
+	assert(i == 3);
+	i = darr_pop(da2);
+	assert(i == 2);
 	assert(darr_len(da2) == 2);
-	assert(darr_pop(da2) == 1);
-	assert(darr_pop(da2) == 0);
+	i = darr_pop(da2);
+	assert(i == 1);
+	i = darr_pop(da2);
+	assert(i == 0);
 	assert(darr_len(da2) == 0);
 
 	darr_free(da2);
@@ -323,38 +328,47 @@ static void test_string(void)
 	char *da2 = NULL;
 	const char **strings = NULL;
 	uint sum = 0;
+	uint i;
 
-	assert(darr_strlen(da1) == 0);
+	i = darr_strlen(da1);
+	assert(i == 0);
 
 	da1 = darr_strdup(src);
-	assert(darr_strlen(da1) == strlen(da1));
-	assert(darr_strlen(da1) == srclen);
+	i = darr_strlen(da1);
+	assert(i == strlen(da1));
+	i = darr_strlen(da1);
+	assert(i == srclen);
 	assert(darr_len(da1) == srclen + 1);
 	assert(darr_ilen(da1) == (int)srclen + 1);
 	assert(darr_cap(da1) >= 8);
 	assert(darr_last(da1) == darr_strnul(da1));
-	assert(darr_strnul(da1) == da1 + darr_strlen(da1));
+	i = darr_strlen(da1);
+	assert(darr_strnul(da1) == da1 + i);
 
 	da2 = da1;
 	darr_in_strdup(da1, src);
 	assert(da1 == da2);
-	assert(darr_strlen(da1) == strlen(da1));
-	assert(darr_strlen(da1) == srclen);
+	i = darr_strlen(da1);
+	assert(i == strlen(da1));
+	assert(i == srclen);
 	assert(darr_len(da1) == srclen + 1);
 	darr_free(da1);
 	assert(da1 == NULL);
 
 	da1 = darr_strdup_cap(src, 128);
-	assert(darr_strlen(da1) == srclen);
+	i = darr_strlen(da1);
+	assert(i == srclen);
 	assert(darr_cap(da1) >= 128);
 
 	darr_in_strdup_cap(da1, src, 256);
-	assert(darr_strlen(da1) == srclen);
+	i = darr_strlen(da1);
+	assert(i == srclen);
 	assert(darr_cap(da1) >= 256);
 	darr_free(da1);
 
 	da1 = darr_strdup_cap(add, 2);
-	assert(darr_strlen(da1) == addlen);
+	i = darr_strlen(da1);
+	assert(i == addlen);
 	assert(darr_cap(da1) >= 8);
 
 	darr_in_strdup(da1, "ab");
@@ -377,7 +391,8 @@ static void test_string(void)
 	da2 = darr_strdup(add);
 	darr_in_strcat_tail(da1, da2);
 	assert(!strcmp("abHIJ", da1));
-	assert(darr_strlen(da1) == 5);
+	i = darr_strlen(da1);
+	assert(i == 5);
 	assert(darr_len(da1) == 6);
 	darr_free(da1);
 	darr_free(da2);
@@ -386,14 +401,16 @@ static void test_string(void)
 	da2 = darr_strdup(add);
 	darr_in_strcat_tail(da1, da2);
 	assert(!strcmp("abcde", da1));
-	assert(darr_strlen(da1) == 5);
+	i = darr_strlen(da1);
+	assert(i == 5);
 	assert(darr_len(da1) == 6);
 	darr_free(da1);
 	darr_free(da2);
 
 	da1 = darr_sprintf("0123456789: %08X", 0xDEADBEEF);
 	assert(!strcmp(da1, "0123456789: DEADBEEF"));
-	assert(darr_strlen(da1) == 20);
+	i = darr_strlen(da1);
+	assert(i == 20);
 	assert(darr_cap(da1) == 128);
 	da2 = da1;
 	darr_in_sprintf(da1, "9876543210: %08x", 0x0BADF00D);
@@ -405,11 +422,13 @@ static void test_string(void)
 	da1 = NULL;
 	darr_in_sprintf(da1, "0123456789: %08X", 0xDEADBEEF);
 	assert(!strcmp(da1, "0123456789: DEADBEEF"));
-	assert(darr_strlen(da1) == 20);
+	i = darr_strlen(da1);
+	assert(i == 20);
 	assert(darr_cap(da1) == 128);
 
 	da1[5] = 0;
-	assert(darr_strlen_fixup(da1) == 5);
+	i = darr_strlen_fixup(da1);
+	assert(i == 5);
 	darr_free(da1);
 
 	da1 = darr_sprintf("0123456789: %08x", 0xDEADBEEF);
