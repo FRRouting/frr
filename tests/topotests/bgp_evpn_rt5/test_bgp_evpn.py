@@ -9,8 +9,8 @@
 #
 
 """
- test_bgp_evpn.py: Test the FRR BGP daemon with BGP IPv6 interface
- with route advertisements on a separate netns.
+test_bgp_evpn.py: Test the FRR BGP daemon with BGP IPv6 interface
+with route advertisements on a separate netns.
 """
 
 import json
@@ -19,6 +19,7 @@ import os
 import sys
 import pytest
 import platform
+import re
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -307,6 +308,40 @@ def test_router_check_ip():
     assert result is None, "ipv6 route check failed"
 
 
+def _test_router_check_evpn_next_hop(expected_paths=1):
+    dut = get_topogen().gears["r2"]
+
+    # Check IPv4
+    expected = {
+        "ip": "192.168.100.21",
+        "refCount": 1,
+        "prefixList": [{"prefix": "192.168.102.21/32", "pathCount": expected_paths}],
+    }
+    test_func = partial(
+        topotest.router_json_cmp,
+        dut,
+        "show evpn next-hops vni 101 ip 192.168.100.21 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, "evpn ipv4 next-hops check failed"
+
+    # Check IPv6
+    expected = {
+        "ip": "::ffff:192.168.100.21",
+        "refCount": 1,
+        "prefixList": [{"prefix": "fd00::1/128", "pathCount": expected_paths}],
+    }
+    test_func = partial(
+        topotest.router_json_cmp,
+        dut,
+        "show evpn next-hops vni 101 ip ::ffff:192.168.100.21 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, "evpn ipv6 next-hops check failed"
+
+
 def _test_router_check_evpn_contexts(router, ipv4_only=False):
     """
     Check EVPN nexthops and RMAC number  are correctly configured
@@ -351,6 +386,7 @@ def test_router_check_evpn_contexts():
         pytest.skip(tgen.errors)
 
     _test_router_check_evpn_contexts(tgen.gears["r1"])
+    _test_router_check_evpn_next_hop()
 
 
 def test_evpn_ping():
@@ -452,6 +488,7 @@ def test_router_check_evpn_contexts_again():
         pytest.skip(tgen.errors)
 
     _test_router_check_evpn_contexts(tgen.gears["r1"], ipv4_only=True)
+    _test_router_check_evpn_next_hop()
 
 
 def test_evpn_ping_again():
@@ -465,14 +502,12 @@ def test_evpn_ping_again():
     _test_evpn_ping_router(tgen.gears["r1"], ipv4_only=True)
 
 
-def _test_wait_for_multipath_convergence(router):
+def _test_wait_for_multipath_convergence(router, expected_paths=1):
     """
     Wait for multipath convergence on R2
     """
     expected = {
-        "192.168.102.21/32": [
-            {"nexthops": [{"ip": "192.168.100.21"}, {"ip": "192.168.100.21"}]}
-        ]
+        "192.168.102.21/32": [{"nexthops": [{"ip": "192.168.100.21"}] * expected_paths}]
     }
     # Using router_json_cmp instead of verify_fib_routes, because we need to check for
     # two next-hops with the same IP address.
@@ -485,7 +520,7 @@ def _test_wait_for_multipath_convergence(router):
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert (
         result is None
-    ), "R2 does not have two next-hops for 192.168.102.21/32 JSON output mismatches"
+    ), f"R2 does not have {expected_paths} next-hops for 192.168.102.21/32 JSON output mismatches"
 
 
 def _test_rmac_present(router):
@@ -552,14 +587,56 @@ def test_evpn_multipath():
 
     dut = tgen.gears["r2"]
     dut_peer = tgen.gears["r1"]
-    _test_wait_for_multipath_convergence(dut)
+    _test_wait_for_multipath_convergence(dut, expected_paths=2)
     _test_rmac_present(dut)
+
+    # Enable dataplane logs in FRR
+    dut.vtysh_cmd("configure terminal\nno debug zebra dplane detailed\n")
 
     for i in range(4):
         peer = "192.168.100.41" if i % 2 == 0 else "192.168.99.41"
         dut_peer.vtysh_cmd("clear bgp {0}".format(peer))
-        _test_wait_for_multipath_convergence(dut)
+        _test_wait_for_multipath_convergence(dut, expected_paths=2)
         _test_rmac_present(dut)
+        _test_router_check_evpn_next_hop(expected_paths=2)
+
+    # Check for MAC_DELETE or NEIGH_DELETE in zebra log
+    log = dut.net.getLog("log", "zebra")
+    if re.search(r"(MAC_DELETE|NEIGH_DELETE)", log):
+        assert False, "MAC_DELETE or NEIGH_DELETE found in zebra log"
+
+    dut.vtysh_cmd("configure terminal\nno debug zebra dplane detailed\n")
+
+
+def test_shutdown_multipath_check_next_hops():
+    """
+    Deconfigure a second path between R1 and R2, then check that pathCount decreases
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    shutdown_evpn_multipath = {
+        "r1": {
+            "raw_config": [
+                "router bgp 65000",
+                "neighbor 192.168.99.41 shutdown",
+            ]
+        },
+        "r2": {
+            "raw_config": [
+                "router bgp 65000",
+                "neighbor 192.168.99.21 shutdown",
+            ]
+        },
+    }
+    logger.info("==== Deconfigure second path between R1 and R2")
+    result = apply_raw_config(tgen, shutdown_evpn_multipath)
+    assert (
+        result is True
+    ), "Failed to deconfigure second path between R1 and R2, Error: {} ".format(result)
+    _test_wait_for_multipath_convergence(tgen.gears["r2"])
+    _test_router_check_evpn_next_hop()
 
 
 def test_memory_leak():
