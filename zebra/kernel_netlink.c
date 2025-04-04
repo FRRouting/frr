@@ -1654,6 +1654,10 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 
 	case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
 		return netlink_put_sr_tunsrc_set_msg(bth, ctx);
+	case DPLANE_OP_PIC_NH_INSTALL:
+	case DPLANE_OP_PIC_NH_UPDATE:
+	case DPLANE_OP_PIC_NH_DELETE:
+		return FRR_NETLINK_SUCCESS;
 	}
 
 	return FRR_NETLINK_ERROR;
