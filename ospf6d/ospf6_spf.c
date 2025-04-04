@@ -643,10 +643,8 @@ static void ospf6_spf_calculation_thread(struct event *t)
 	/* External LSA calculation */
 	ospf6_ase_calculate_timer_add(ospf6);
 
-	if (ospf6_check_and_set_router_abr(ospf6)) {
-		ospf6_abr_defaults_to_stub(ospf6);
-		ospf6_abr_nssa_type_7_defaults(ospf6);
-	}
+	if (ospf6_check_and_set_router_abr(ospf6))
+		ospf6_abr_task(ospf6);
 
 	monotime(&end);
 	timersub(&end, &start, &runtime);
