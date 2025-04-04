@@ -6590,6 +6590,14 @@ int dplane_provider_work_ready(void)
 }
 
 /*
+ * Enqueue a context list to zebra main.
+ */
+void dplane_provider_enqueue_ctx_list_to_zebra(struct dplane_ctx_list_head *batch_list)
+{
+	(zdplane_info.dg_results_cb)(batch_list);
+}
+
+/*
  * Enqueue a context directly to zebra main.
  */
 void dplane_provider_enqueue_to_zebra(struct zebra_dplane_ctx *ctx)
