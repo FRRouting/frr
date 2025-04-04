@@ -14090,8 +14090,12 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 					: "Withdraw");
 
 		/* Receive prefix count */
-		vty_out(vty, "  %u accepted prefixes\n",
-			p->pcount[afi][safi]);
+		vty_out(vty, "  %u accepted prefixes", p->pcount[afi][safi]);
+
+		paf = peer_af_find(p, afi, safi);
+		if (paf && PAF_SUBGRP(paf))
+			vty_out(vty, "%u sent prefixes", PAF_SUBGRP(paf)->scount);
+		vty_out(vty, "\n");
 
 		/* maximum-prefix-out */
 		if (CHECK_FLAG(p->af_flags[afi][safi],
