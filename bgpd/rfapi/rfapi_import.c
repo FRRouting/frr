@@ -203,9 +203,6 @@ void rfapiCheckRefcount(struct agg_node *rn, safi_t safi, int lockoffset)
 		++count_monitor; /* rfapi_it_extra */
 
 		switch (safi) {
-			void *cursor;
-			int rc;
-
 		case SAFI_ENCAP:
 			for (hme = RFAPI_MONITOR_ENCAP(rn); hme;
 			     hme = hme->next)
@@ -218,6 +215,9 @@ void rfapiCheckRefcount(struct agg_node *rn, safi_t safi, int lockoffset)
 				++count_monitor;
 
 			if (RFAPI_MONITOR_EXTERIOR(rn)->source) {
+				void *cursor;
+				int rc;
+
 				++count_monitor; /* sl */
 				cursor = NULL;
 				for (rc = skiplist_next(
