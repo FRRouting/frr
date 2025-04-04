@@ -711,6 +711,7 @@ static void netlink_bridge_vlan_update(struct zebra_dplane_ctx *ctx,
 static int netlink_bridge_interface(struct zebra_dplane_ctx *ctx,
 				    struct rtattr *af_spec, int startup)
 {
+	struct dplane_ctx_list_head temp_list;
 
 	netlink_bridge_vxlan_update(ctx, af_spec);
 
@@ -719,7 +720,11 @@ static int netlink_bridge_interface(struct zebra_dplane_ctx *ctx,
 	 */
 	netlink_bridge_vlan_update(ctx, af_spec);
 
-	dplane_provider_enqueue_to_zebra(ctx);
+	/* Zebra's api takes a list, so we need to use a temporary list */
+	dplane_ctx_q_init(&temp_list);
+	dplane_ctx_enqueue_tail(&temp_list, ctx);
+	dplane_provider_enqueue_to_zebra(&temp_list);
+
 	return 0;
 }
 
@@ -1054,6 +1059,7 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
 	uint32_t kernel_flags = 0;
 	struct zebra_dplane_ctx *ctx;
 	struct prefix p;
+	struct dplane_ctx_list_head temp_list;
 
 	ifa = NLMSG_DATA(h);
 
@@ -1241,8 +1247,12 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
 
 	dplane_ctx_set_intf_metric(ctx, metric);
 
+	/* Zebra's api takes a list, so we need to use a temporary list */
+	dplane_ctx_q_init(&temp_list);
+	dplane_ctx_enqueue_tail(&temp_list, ctx);
 	/* Enqueue ctx for main pthread to process */
-	dplane_provider_enqueue_to_zebra(ctx);
+	dplane_provider_enqueue_to_zebra(&temp_list);
+
 	return 0;
 }
 
@@ -1265,6 +1275,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	ifindex_t master_infindex = IFINDEX_INTERNAL;
 	uint8_t bypass = 0;
 	uint32_t txqlen = 0;
+	struct dplane_ctx_list_head temp_list;
 
 	frrtrace(3, frr_zebra, netlink_interface, h, ns_id, startup);
 
@@ -1446,7 +1457,10 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		dplane_ctx_set_ifp_bond_ifindex(ctx, bond_ifindex);
 	}
 
-	dplane_provider_enqueue_to_zebra(ctx);
+	/* Zebra's api takes a list, so we need to use a temporary list */
+	dplane_ctx_q_init(&temp_list);
+	dplane_ctx_enqueue_tail(&temp_list, ctx);
+	dplane_provider_enqueue_to_zebra(&temp_list);
 
 	return 0;
 }
@@ -1667,6 +1681,7 @@ int netlink_vlan_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	uint32_t count = 0;
 	struct zebra_dplane_ctx *ctx = NULL;
 	struct zebra_vxlan_vlan_array *vlan_array = NULL;
+	struct dplane_ctx_list_head temp_list;
 
 	/* We only care about state changes for now */
 	if (!(h->nlmsg_type == RTM_NEWVLAN))
@@ -1748,7 +1763,10 @@ int netlink_vlan_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			zlog_debug("RTM_NEWVLAN for ifindex %u NS %u, enqueuing for zebra main",
 				   bvm->ifindex, ns_id);
 
-		dplane_provider_enqueue_to_zebra(ctx);
+		/* Zebra's api takes a list, so we need to use a temporary list */
+		dplane_ctx_q_init(&temp_list);
+		dplane_ctx_enqueue_tail(&temp_list, ctx);
+		dplane_provider_enqueue_to_zebra(&temp_list);
 	} else
 		dplane_ctx_fini(&ctx);
 
