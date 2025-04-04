@@ -40,6 +40,7 @@ netlink_netconf_dplane_update(ns_id_t ns_id, afi_t afi, ifindex_t ifindex,
 			      enum dplane_netconf_status_e linkdown_on)
 {
 	struct zebra_dplane_ctx *ctx;
+	struct dplane_ctx_list_head temp_list;
 
 	ctx = dplane_ctx_alloc();
 	dplane_ctx_set_op(ctx, DPLANE_OP_INTF_NETCONFIG);
@@ -51,8 +52,11 @@ netlink_netconf_dplane_update(ns_id_t ns_id, afi_t afi, ifindex_t ifindex,
 	dplane_ctx_set_netconf_mcast(ctx, mcast_on);
 	dplane_ctx_set_netconf_linkdown(ctx, linkdown_on);
 
+	/* Zebra's api takes a list, so we need to use a temporary list */
+	dplane_ctx_q_init(&temp_list);
+	dplane_ctx_enqueue_tail(&temp_list, ctx);
 	/* Enqueue ctx for main pthread to process */
-	dplane_provider_enqueue_to_zebra(ctx);
+	dplane_provider_enqueue_to_zebra(&temp_list);
 
 	return 0;
 }
