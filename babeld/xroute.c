@@ -35,13 +35,13 @@ babel_route_add (struct zapi_route *api)
         inaddr_to_uchar(uchar_prefix, &api->prefix.u.prefix4);
         debugf(BABEL_DEBUG_ROUTE, "Adding new ipv4 route coming from Zebra.");
         xroute_add_new_route(uchar_prefix, api->prefix.prefixlen + 96,
-                             api->metric, api->nexthops[0].ifindex, 0, 1);
+                             api->metric, api->nexthops[0].ifindex, api->type, 1);
         break;
     case AF_INET6:
         in6addr_to_uchar(uchar_prefix, &api->prefix.u.prefix6);
         debugf(BABEL_DEBUG_ROUTE, "Adding new ipv6 route coming from Zebra.");
         xroute_add_new_route(uchar_prefix, api->prefix.prefixlen,
-                             api->metric, api->nexthops[0].ifindex, 0, 1);
+                             api->metric, api->nexthops[0].ifindex, api->type, 1);
         break;
     }
 
