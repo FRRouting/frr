@@ -3586,9 +3586,8 @@ peer_init:
 		bgp->vpn_policy[afi].bgp = bgp;
 		bgp->vpn_policy[afi].afi = afi;
 		bgp->vpn_policy[afi].tovpn_label = MPLS_LABEL_NONE;
-		bgp->vpn_policy[afi].tovpn_zebra_vrf_label_last_sent =
+		bgp->vpn_policy[afi].tovpn_zebra_vrf_label_to_send =
 			MPLS_LABEL_NONE;
-
 		bgp->vpn_policy[afi].import_vrf = list_new();
 		bgp->vpn_policy[afi].import_vrf->del =
 			bgp_vrf_string_name_delete;
