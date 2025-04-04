@@ -629,7 +629,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                 }
                 have_router_id = 1;
             }
-            if(!have_router_id && message[2] != 0) {
+            if(metric < 0xFFFF && !have_router_id && message[2] != 0) {
                 flog_err(EC_BABEL_PACKET,
 			  "Received prefix with no router id.");
                 goto fail;
@@ -649,7 +649,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                 retract_neighbour_routes(neigh);
                 goto done;
             } else if(message[2] == 1) {
-                if(!have_v4_nh)
+                if(!have_v4_nh && metric < 0xFFFF)
                     goto fail;
                 nh = v4_nh;
             } else if(have_v6_nh) {
