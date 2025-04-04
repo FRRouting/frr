@@ -1183,6 +1183,86 @@ int pim_rp_config_write(struct pim_instance *pim, struct vty *vty)
 	return count;
 }
 
+static void pim_rp_show_info_ssm_plist(struct vty *vty, struct ttable *tt, struct pim_ssm *ssm,
+				       json_object *json, struct prefix *range)
+{
+	struct prefix_list_entry *pentry;
+	struct prefix_list *plist;
+	struct prefix *p = NULL;
+	json_object *json_rp_rows = NULL;
+	json_object *json_row = NULL;
+#if PIM_IPV == 4
+	const char *no_rp = "0.0.0.0";
+#else
+	const char *no_rp = "::";
+#endif
+	const char *source = "Static";
+	const char *type = "SSM";
+	char buf[PREFIX_STRLEN];
+
+	if (ssm->plist_name) {
+		plist = prefix_list_lookup(PIM_AFI, ssm->plist_name);
+		if (!plist)
+			return;
+
+		for (pentry = plist->head; pentry; pentry = pentry->next) {
+			if (pentry->any)
+				continue;
+
+			p = &pentry->prefix;
+			prefix2str(p, buf, sizeof(buf));
+
+			if (range && !prefix_match(p, range))
+				continue;
+
+			if (!json)
+				ttable_add_row(tt, "%s|%s|%s|%s|%s|%s", no_rp, buf, "Unknown", "no",
+					       source, type);
+			else {
+				json_row = json_object_new_object();
+				if (!json_object_object_get_ex(json, no_rp, &json_rp_rows)) {
+					json_rp_rows = json_object_new_array();
+					json_object_object_add(json, no_rp, json_rp_rows);
+				}
+
+				json_object_string_add(json_row, "rpAddress", no_rp);
+				json_object_string_add(json_row, "outboundInterface", "Unknown");
+				json_object_boolean_false_add(json_row, "iAmRP");
+				json_object_string_add(json_row, "group", buf);
+				json_object_string_add(json_row, "source", source);
+				json_object_string_add(json_row, "groupType", type);
+				json_object_array_add(json_rp_rows, json_row);
+			}
+		}
+	} else {
+		struct prefix p_match;
+		(void)str2prefix(PIM_SSM_STANDARD_RANGE, &p_match);
+		apply_mask(&p_match);
+
+		if (range && !prefix_match(&p_match, range))
+			return;
+
+		if (!json)
+			ttable_add_row(tt, "%s|%s|%s|%s|%s|%s", no_rp, PIM_SSM_STANDARD_RANGE,
+				       "Unknown", "no", source, type);
+		else {
+			json_row = json_object_new_object();
+			if (!json_object_object_get_ex(json, no_rp, &json_rp_rows)) {
+				json_rp_rows = json_object_new_array();
+				json_object_object_add(json, no_rp, json_rp_rows);
+			}
+
+			json_object_string_add(json_row, "rpAddress", no_rp);
+			json_object_string_add(json_row, "outboundInterface", "Unknown");
+			json_object_boolean_false_add(json_row, "iAmRP");
+			json_object_string_add(json_row, "group", PIM_SSM_STANDARD_RANGE);
+			json_object_string_add(json_row, "source", source);
+			json_object_string_add(json_row, "groupType", type);
+			json_object_array_add(json_rp_rows, json_row);
+		}
+	}
+}
+
 void pim_rp_show_information(struct pim_instance *pim, struct prefix *range,
 			     struct vty *vty, json_object *json)
 {
@@ -1300,6 +1380,8 @@ void pim_rp_show_information(struct pim_instance *pim, struct prefix *range,
 		}
 		prev_rp_info = rp_info;
 	}
+
+	pim_rp_show_info_ssm_plist(vty, tt, (struct pim_ssm *)pim->ssm_info, json, range);
 
 	/* Dump the generated table. */
 	if (!json) {
