@@ -210,6 +210,36 @@ def test_srv6_static_sids_sid_modify():
     check_srv6_static_sids(router, "expected_srv6_sids_sid_modify.json")
 
 
+def test_srv6_static_sids_wrong_sid_block():
+    """
+    The purpose of this test is to verify how FRR behaves when the user
+    provides an invalid configuration.
+    Add a new static Sid with a mismatch in locator and sid block
+    to make sure no Sid is allocated by zebra (TBD: Strict verify once show cmd
+    commit is merged (#16836))
+    """
+    router = get_topogen().gears["r1"]
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator MAIN1
+             prefix fcbb:1234:1::/48 block-len 32 node-len 16 func-bits 16
+          srv6
+           static-sids
+            sid fcbb:bbbb:1:fe50::/64 locator MAIN1 behavior uA interface sr0 nexthop 2001::3
+        """
+    )
+
+    output = json.loads(router.vtysh_cmd("show ipv6 route static json"))
+    if "fcbb:bbbb:1:fe50::/64" in output:
+        assert (
+            False
+        ), "Failed. Expected no entry for fcbb:bbbb:1:fe50::/64 since loc and node block dont match"
+
+
 def test_srv6_static_sids_sid_delete_all():
     """
     Remove all static SIDs and verify they get removed
