@@ -587,6 +587,10 @@ static void fpm_read(struct event *t)
 	struct zebra_dplane_ctx *ctx;
 	size_t available_bytes;
 	size_t hdr_available_bytes;
+	struct dplane_ctx_list_head batch_list;
+
+	/* Initialize the batch list */
+	dplane_ctx_q_init(&batch_list);
 
 	/* Let's ignore the input at the moment. */
 	rv = stream_read_try(fnc->ibuf, fnc->socket,
@@ -627,7 +631,7 @@ static void fpm_read(struct event *t)
 	while (available_bytes) {
 		if (available_bytes < (ssize_t)FPM_MSG_HDR_LEN) {
 			stream_pulldown(fnc->ibuf);
-			return;
+			goto send_batch;
 		}
 
 		fpm.version = stream_getc(fnc->ibuf);
@@ -642,7 +646,7 @@ static void fpm_read(struct event *t)
 				__func__, fpm.version, fpm.msg_type);
 
 			FPM_RECONNECT(fnc);
-			return;
+			goto send_batch;
 		}
 
 		/*
@@ -654,7 +658,7 @@ static void fpm_read(struct event *t)
 				"%s: Received message length: %u that does not even fill the FPM header",
 				__func__, fpm.msg_len);
 			FPM_RECONNECT(fnc);
-			return;
+			goto send_batch;
 		}
 
 		/*
@@ -665,7 +669,7 @@ static void fpm_read(struct event *t)
 		if (fpm.msg_len > available_bytes) {
 			stream_rewind_getp(fnc->ibuf, FPM_MSG_HDR_LEN);
 			stream_pulldown(fnc->ibuf);
-			return;
+			goto send_batch;
 		}
 
 		available_bytes -= FPM_MSG_HDR_LEN;
@@ -715,8 +719,9 @@ static void fpm_read(struct event *t)
 				break;
 			}
 
-			/* Parse the route data into a dplane ctx, then
-			 * enqueue it to zebra for processing.
+			/*
+			 * Parse the route data into a dplane ctx, add to ctx list
+			 * and enqueue the batch of ctx to zebra for processing
 			 */
 			ctx = dplane_ctx_alloc();
 			dplane_ctx_route_init(ctx, DPLANE_OP_ROUTE_NOTIFY, NULL,
@@ -735,7 +740,8 @@ static void fpm_read(struct event *t)
 				 * tableid to 0 in order for this to work.
 				 */
 				dplane_ctx_set_vrf(ctx, VRF_UNKNOWN);
-				dplane_provider_enqueue_to_zebra(ctx);
+				/* Add to the list for batching */
+				dplane_ctx_enqueue_tail(&batch_list, ctx);
 			} else {
 				/*
 				 * Let's continue to read other messages
@@ -755,6 +761,15 @@ static void fpm_read(struct event *t)
 	}
 
 	stream_reset(fnc->ibuf);
+
+send_batch:
+	/* Send all contexts to zebra in a single batch if we have any */
+	if (dplane_ctx_queue_count(&batch_list) > 0) {
+		if (IS_ZEBRA_DEBUG_FPM)
+			zlog_debug("%s: Sending batch of %u contexts to zebra", __func__,
+				   dplane_ctx_queue_count(&batch_list));
+		dplane_provider_enqueue_ctx_list_to_zebra(&batch_list);
+	}
 }
 
 static void fpm_write(struct event *t)
