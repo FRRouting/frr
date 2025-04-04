@@ -196,7 +196,7 @@ def get_seq_id(obj_type, router, obj_name):
     return seq_id
 
 
-def set_seq_id(obj_type, router, id, obj_name):
+def set_seq_id(obj_type, router, sequence_id, obj_name):
     """
     Saves sequence number if not auto-generated and given by user
     Parameters
@@ -209,7 +209,7 @@ def set_seq_id(obj_type, router, id, obj_name):
     obj_data = router_data.setdefault(obj_name, {})
     seq_id = obj_data.setdefault("seq_id", 0)
 
-    seq_id = int(seq_id) + int(id)
+    seq_id = int(seq_id) + int(sequence_id)
     obj_data["seq_id"] = seq_id
 
 
@@ -2539,10 +2539,10 @@ def create_route_maps(tgen, input_dict, build=False):
                                 )
                                 return False
                         if large_comm_list:
-                            id = large_comm_list.setdefault("id", None)
+                            comm_id = large_comm_list.setdefault("id", None)
                             del_comm = large_comm_list.setdefault("delete", None)
-                            if id:
-                                cmd = "set large-comm-list {}".format(id)
+                            if comm_id:
+                                cmd = "set large-comm-list {}".format(comm_id)
                                 if del_comm:
                                     cmd = "{} delete".format(cmd)
 
@@ -4608,7 +4608,7 @@ class HostApplicationHelper(object):
         self.init()
         return self
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, exit_type, exit_value, exit_traceback):
         self.cleanup()
 
     def __str__(self):
