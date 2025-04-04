@@ -378,7 +378,7 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 		json_object_string_addf(json, "rd",
 					BGP_RD_AS_FORMAT(bgp_vrf->asnotation),
 					&bgp_vrf->vrf_prd);
-		json_object_string_addf(json, "originatorIp", "%pI4",
+		json_object_string_addf(json, "originatorIp", "%pIA",
 					&bgp_vrf->originator_ip);
 		if (bgp_evpn && bgp_evpn->evpn_info) {
 			ecom_str = ecommunity_ecom2str(
@@ -412,7 +412,7 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 		vty_out(vty, BGP_RD_AS_FORMAT(bgp_vrf->asnotation),
 			&bgp_vrf->vrf_prd);
 		vty_out(vty, "\n");
-		vty_out(vty, "  Originator IP: %pI4\n",
+		vty_out(vty, "  Originator IP: %pIA\n",
 			&bgp_vrf->originator_ip);
 		if (bgp_evpn && bgp_evpn->evpn_info) {
 			ecom_str = ecommunity_ecom2str(
@@ -496,7 +496,7 @@ static void display_vni(struct vty *vty, struct bgpevpn *vpn, json_object *json)
 				       is_vni_live(vpn) ? "True" : "False");
 		json_object_string_addf(
 			json, "rd", BGP_RD_AS_FORMAT(asnotation), &vpn->prd);
-		json_object_string_addf(json, "originatorIp", "%pI4",
+		json_object_string_addf(json, "originatorIp", "%pIA",
 					&vpn->originator_ip);
 		json_object_string_addf(json, "mcastGroup", "%pI4",
 					&vpn->mcast_grp);
@@ -547,7 +547,7 @@ static void display_vni(struct vty *vty, struct bgpevpn *vpn, json_object *json)
 		vty_out(vty, "  RD: ");
 		vty_out(vty, BGP_RD_AS_FORMAT(asnotation), &vpn->prd);
 		vty_out(vty, "\n");
-		vty_out(vty, "  Originator IP: %pI4\n", &vpn->originator_ip);
+		vty_out(vty, "  Originator IP: %pIA\n", &vpn->originator_ip);
 		vty_out(vty, "  Mcast group: %pI4\n", &vpn->mcast_grp);
 		if (bgp_evpn && bgp_evpn->evpn_info) {
 			ecom_str = ecommunity_ecom2str(
@@ -1033,7 +1033,7 @@ static void show_l3vni_entry(struct vty *vty, struct bgp *bgp,
 		json_object_int_add(json_vni, "vni", bgp->l3vni);
 		json_object_string_add(json_vni, "type", "L3");
 		json_object_string_add(json_vni, "inKernel", "True");
-		json_object_string_addf(json_vni, "originatorIp", "%pI4",
+		json_object_string_addf(json_vni, "originatorIp", "%pIA",
 					&bgp->originator_ip);
 		json_object_string_addf(json_vni, "rd",
 					BGP_RD_AS_FORMAT(bgp->asnotation),
@@ -1178,7 +1178,7 @@ static void show_vni_entry(struct hash_bucket *bucket, void *args[])
 		json_object_string_addf(json_vni, "rd",
 					BGP_RD_AS_FORMAT(asnotation),
 					&vpn->prd);
-		json_object_string_addf(json_vni, "originatorIp", "%pI4",
+		json_object_string_addf(json_vni, "originatorIp", "%pIA",
 					&vpn->originator_ip);
 		json_object_string_addf(json_vni, "mcastGroup", "%pI4",
 					&vpn->mcast_grp);
@@ -2374,6 +2374,7 @@ static struct bgpevpn *evpn_create_update_vni(struct bgp *bgp, vni_t vni)
 {
 	struct bgpevpn *vpn;
 	struct in_addr mcast_grp = {INADDR_ANY};
+	struct ipaddr orignator_ip;
 
 	vpn = bgp_evpn_lookup_vni(bgp, vni);
 	if (!vpn) {
@@ -2389,7 +2390,9 @@ static struct bgpevpn *evpn_create_update_vni(struct bgp *bgp, vni_t vni)
 		/* tenant vrf will be updated when we get local_vni_add from
 		 * zebra
 		 */
-		vpn = bgp_evpn_new(bgp, vni, bgp->router_id, 0, mcast_grp, 0);
+		SET_IPADDR_V4(&orignator_ip);
+		orignator_ip.ipaddr_v4 = bgp->router_id;
+		vpn = bgp_evpn_new(bgp, vni, &orignator_ip, 0, mcast_grp, 0);
 	}
 
 	/* Mark as configured. */
@@ -2519,7 +2522,7 @@ static void evpn_show_routes_vni_all_type_all(struct vty *vty, struct bgp *bgp,
  * Display EVPN routes for a VNI -- for specific type-3 route (vty handler).
  */
 static void evpn_show_route_vni_multicast(struct vty *vty, struct bgp *bgp,
-					  vni_t vni, struct in_addr orig_ip,
+					  vni_t vni, struct ipaddr *orig_ip,
 					  json_object *json)
 {
 	struct bgpevpn *vpn;
@@ -5323,7 +5326,7 @@ DEFUN(show_bgp_l2vpn_evpn_route_vni_multicast,
 	vni_t vni;
 	struct bgp *bgp;
 	int ret;
-	struct in_addr orig_ip;
+	struct ipaddr orig_ip;
 	int idx = 0;
 	bool uj = false;
 	json_object *json = NULL;
@@ -5344,13 +5347,14 @@ DEFUN(show_bgp_l2vpn_evpn_route_vni_multicast,
 	vni = strtoul(argv[idx + 3]->arg, NULL, 10);
 
 	/* get the ip */
-	ret = inet_aton(argv[idx + 5]->arg, &orig_ip);
+	ret = inet_aton(argv[idx + 5]->arg, &orig_ip.ipaddr_v4);
+	SET_IPADDR_V4(&orig_ip);
 	if (!ret) {
 		vty_out(vty, "%% Malformed Originating Router IP address\n");
 		return CMD_WARNING;
 	}
 
-	evpn_show_route_vni_multicast(vty, bgp, vni, orig_ip, json);
+	evpn_show_route_vni_multicast(vty, bgp, vni, &orig_ip, json);
 
 	if (uj)
 		vty_json(vty, json);
@@ -6540,7 +6544,7 @@ DEFUN (show_bgp_vrf_l3vni_info,
 
 	if (!json) {
 		vty_out(vty, "BGP VRF: %s\n", name);
-		vty_out(vty, "  Local-Ip: %pI4\n", &bgp->originator_ip);
+		vty_out(vty, "  Local-Ip: %pIA\n", &bgp->originator_ip);
 		vty_out(vty, "  L3-VNI: %u\n", bgp->l3vni);
 		vty_out(vty, "  Rmac: %s\n",
 			prefix_mac2str(&bgp->rmac, buf, sizeof(buf)));
@@ -6569,7 +6573,7 @@ DEFUN (show_bgp_vrf_l3vni_info,
 		vty_out(vty, "\n");
 	} else {
 		json_object_string_add(json, "vrf", name);
-		json_object_string_addf(json, "local-ip", "%pI4",
+		json_object_string_addf(json, "local-ip", "%pIA",
 					&bgp->originator_ip);
 		json_object_int_add(json, "l3vni", bgp->l3vni);
 		json_object_string_add(
