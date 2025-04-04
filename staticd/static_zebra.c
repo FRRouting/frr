@@ -625,8 +625,6 @@ void static_zebra_srv6_sid_install(struct static_srv6_sid *sid)
 	struct seg6local_context ctx = {};
 	struct interface *ifp = NULL;
 	struct vrf *vrf;
-	struct prefix_ipv6 sid_block = {};
-	struct prefix_ipv6 locator_block = {};
 	struct prefix_ipv6 sid_locator = {};
 
 	if (!sid)
@@ -738,22 +736,7 @@ void static_zebra_srv6_sid_install(struct static_srv6_sid *sid)
 		break;
 	}
 
-	sid_block = sid->addr;
-	sid_block.prefixlen = sid->locator->block_bits_length;
-	apply_mask(&sid_block);
-
-	locator_block = sid->locator->prefix;
-	locator_block.prefixlen = sid->locator->block_bits_length;
-	apply_mask(&locator_block);
-
-	if (prefix_same(&sid_block, &locator_block))
-		ctx.block_len = sid->locator->block_bits_length;
-	else {
-		zlog_warn("SID block %pFX does not match locator block %pFX", &sid_block,
-			  &locator_block);
-		return;
-	}
-
+	ctx.block_len = sid->locator->block_bits_length;
 	sid_locator = sid->addr;
 	sid_locator.prefixlen = sid->locator->block_bits_length + sid->locator->node_bits_length;
 	apply_mask(&sid_locator);
@@ -915,6 +898,30 @@ void static_zebra_srv6_sid_uninstall(struct static_srv6_sid *sid)
 	UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
 }
 
+/* Validate if the sid block and locator block are the same */
+static bool static_zebra_sid_locator_block_check(struct static_srv6_sid *sid)
+{
+	struct prefix_ipv6 sid_block = {};
+	struct prefix_ipv6 locator_block = {};
+
+	sid_block = sid->addr;
+	sid_block.prefixlen = sid->locator->block_bits_length;
+	apply_mask(&sid_block);
+
+	locator_block = sid->locator->prefix;
+	locator_block.prefixlen = sid->locator->block_bits_length;
+	apply_mask(&locator_block);
+
+	if (!prefix_same(&sid_block, &locator_block)) {
+		zlog_warn("SID block %pFX does not match locator block %pFX", &sid_block,
+			  &locator_block);
+
+		return false;
+	}
+
+	return true;
+}
+
 extern void static_zebra_request_srv6_sid(struct static_srv6_sid *sid)
 {
 	struct srv6_sid_ctx ctx = {};
@@ -922,7 +929,7 @@ extern void static_zebra_request_srv6_sid(struct static_srv6_sid *sid)
 	struct vrf *vrf;
 	struct interface *ifp;
 
-	if (!sid)
+	if (!sid || !static_zebra_sid_locator_block_check(sid))
 		return;
 
 	/* convert `srv6_endpoint_behavior_codepoint` to `seg6local_action_t` */
