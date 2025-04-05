@@ -212,7 +212,8 @@ static void babel_init_routing_process(struct event *thread)
     babel_main_loop(thread);/* this function self-add to the t_update thread */
 }
 
-/* fill "myid" with an unique id (only if myid != {0}). */
+/* fill "myid" with an unique id (only if myid != {0} and myid != {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}). */
 static void
 babel_get_myid(void)
 {
@@ -222,7 +223,7 @@ babel_get_myid(void)
     int i;
 
     /* if we already have an id (from state file), we return. */
-    if (memcmp(myid, zeroes, 8) != 0) {
+    if (memcmp(myid, zeroes, 8) != 0 && memcmp(myid, ones, 8) != 0) {
         return;
     }
 
