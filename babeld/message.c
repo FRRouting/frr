@@ -52,7 +52,7 @@ static const unsigned char tlv_min_length[MESSAGE_MAX + 1] =
 static bool
 known_ae(int ae)
 {
-    return ae <= 4;
+    return ae <= 3;
 }
 
 /* Parse a network prefix, encoded in the somewhat baroque compressed
