@@ -11110,9 +11110,8 @@ static void flap_route_vty_out(struct vty *vty, const struct prefix *p,
 	}
 }
 
-static void route_vty_out_advertised_to(struct vty *vty, struct peer *peer,
-					int *first, const char *header,
-					json_object *json_adv_to)
+static void route_vty_out_advertised_to(struct vty *vty, struct peer *peer, int *first,
+					const char *header, json_object *json_adv_to)
 {
 	json_object *json_peer = NULL;
 
@@ -13186,17 +13185,13 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 	 * though then we must display Advertised to on a path-by-path basis. */
 	if (!bgp_addpath_is_addpath_used(&bgp->tx_addpath, afi, safi)) {
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			if (peer->group)
-				continue;
-
 			if (bgp_adj_out_lookup(peer, dest, 0)) {
 				if (json && !json_adv_to)
 					json_adv_to = json_object_new_object();
 
-				route_vty_out_advertised_to(
-					vty, peer, &first,
-					"  Advertised to non peer-group peers:\n ",
-					json_adv_to);
+				route_vty_out_advertised_to(vty, peer, &first,
+							    "  Advertised to peers:\n ",
+							    json_adv_to);
 			}
 		}
 
