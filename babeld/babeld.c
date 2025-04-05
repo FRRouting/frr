@@ -183,6 +183,10 @@ static void babel_read_protocol(struct event *thread)
             flog_err_sys(EC_LIB_SOCKET, "recv: %s", safe_strerror(errno));
         }
     } else {
+        if(ntohs(sin6.sin6_port) != BABEL_PORT) {
+            return;
+        }
+
         FOR_ALL_INTERFACES(vrf, ifp) {
             if(!if_up(ifp))
                 continue;
