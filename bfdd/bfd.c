@@ -755,26 +755,7 @@ void ptm_sbfd_echo_sess_dn(struct bfd_session *bfd, uint8_t diag)
 static struct bfd_session *bfd_find_disc(struct sockaddr_any *sa,
 					 uint32_t ldisc)
 {
-	struct bfd_session *bs;
-
-	bs = bfd_id_lookup(ldisc);
-	if (bs == NULL)
-		return NULL;
-
-	switch (bs->key.family) {
-	case AF_INET:
-		if (memcmp(&sa->sa_sin.sin_addr, &bs->key.peer,
-			   sizeof(sa->sa_sin.sin_addr)))
-			return NULL;
-		break;
-	case AF_INET6:
-		if (memcmp(&sa->sa_sin6.sin6_addr, &bs->key.peer,
-			   sizeof(sa->sa_sin6.sin6_addr)))
-			return NULL;
-		break;
-	}
-
-	return bs;
+	return bfd_id_lookup(ldisc);
 }
 
 struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp,
