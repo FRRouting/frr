@@ -166,6 +166,14 @@ DEFINE_HOOK(bgp_process,
 	     struct peer *peer, bool withdraw),
 	    (bgp, afi, safi, bn, peer, withdraw));
 
+/* Struct to hold information for peer groups processing*/
+struct process_peer_group_info {
+	json_object *json;
+	json_object *json_adv_to;
+	struct vty *vty;
+	bool adv_peer_found;
+};
+
 /** Test if path is suppressed. */
 bool bgp_path_suppressed(struct bgp_path_info *pi)
 {
@@ -11105,9 +11113,8 @@ static void flap_route_vty_out(struct vty *vty, const struct prefix *p,
 	}
 }
 
-static void route_vty_out_advertised_to(struct vty *vty, struct peer *peer,
-					int *first, const char *header,
-					json_object *json_adv_to)
+static void route_vty_out_advertised_to(struct vty *vty, struct peer *peer, bool *first,
+					const char *header, json_object *json_adv_to)
 {
 	json_object *json_peer = NULL;
 
@@ -11133,7 +11140,7 @@ static void route_vty_out_advertised_to(struct vty *vty, struct peer *peer,
 	} else {
 		if (*first) {
 			vty_out(vty, "%s", header);
-			*first = 0;
+			*first = false;
 		}
 
 		if (peer->hostname
@@ -11248,7 +11255,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	json_object *json_peer = NULL;
 	json_object *json_string = NULL;
 	json_object *json_adv_to = NULL;
-	int first = 0;
+	bool first = false;
 	struct listnode *node, *nnode;
 	struct peer *peer;
 	bool addpath_capable;
@@ -12983,6 +12990,49 @@ static void bgp_show_all_instances_routes_vty(struct vty *vty, afi_t afi,
 		vty_out(vty, "%% BGP instance not found\n");
 }
 
+/* Helper function to process each hash bucket */
+static void process_peer_group(struct hash_bucket *bucket, void *data)
+{
+	struct peer_group *group = bucket->data;
+	struct process_peer_group_info *peer_group_info = data;
+	struct vty *vty = peer_group_info->vty;
+	json_object *json = peer_group_info->json;
+	struct peer *gpeer = NULL;
+	struct listnode *node;
+	bool first = true;
+	char header_buf[256];
+
+	snprintf(header_buf, sizeof(header_buf), "\n  Advertised to peer-group %s peers:\n ",
+		 group->name);
+	/* Use the first advertised peer in the group to show header */
+	for (ALL_LIST_ELEMENTS_RO(group->peer, node, gpeer)) {
+		if (json && !peer_group_info->json_adv_to)
+			peer_group_info->json_adv_to = json_object_new_object();
+
+		route_vty_out_advertised_to(vty, gpeer, &first, header_buf,
+					    peer_group_info->json_adv_to);
+	}
+
+	peer_group_info->adv_peer_found = !first;
+	if (!json)
+		vty_out(vty, "\n");
+}
+
+/* Hash function for peer groups */
+static unsigned int peer_group_hash_key(const void *p)
+{
+	const struct peer_group *group = p;
+	return string_hash_make(group->name);
+}
+
+/* Comparison function for peer groups hash */
+static bool peer_group_hash_cmp(const void *p1, const void *p2)
+{
+	const struct peer_group *g1 = p1;
+	const struct peer_group *g2 = p2;
+	return strcmp(g1->name, g2->name) == 0;
+}
+
 /* Header of detailed BGP route information */
 void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 				 struct bgp_dest *dest, const struct prefix *p,
@@ -13010,13 +13060,15 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 	int no_advertise = 0;
 	int local_as = 0;
 	int no_peer = 0;
-	int first = 1;
+	bool first = true;
 	int has_valid_label = 0;
 	mpls_label_t label = 0;
 	json_object *json_adv_to = NULL;
 	uint32_t ttl = 0;
 	uint32_t bos = 0;
 	uint32_t exp = 0;
+	struct hash *peer_groups = NULL;
+	struct process_peer_group_info peer_group_info = {};
 
 	mpls_lse_decode(dest->local_label, &label, &ttl, &exp, &bos);
 
@@ -13185,8 +13237,19 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 	 * though then we must display Advertised to on a path-by-path basis. */
 	if (!bgp_addpath_is_addpath_used(&bgp->tx_addpath, afi, safi)) {
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			if (peer->group)
+			if (peer->group) {
+				if (bgp_adj_out_lookup(peer, dest, 0)) {
+					/* Create a hash table to track peer groups */
+					if (!peer_groups)
+						peer_groups = hash_create(peer_group_hash_key,
+									  peer_group_hash_cmp,
+									  "BGP Peer Groups Hash");
+
+					hash_get(peer_groups, peer->group, hash_alloc_intern);
+				}
+
 				continue;
+			}
 
 			if (bgp_adj_out_lookup(peer, dest, 0)) {
 				if (json && !json_adv_to)
@@ -13199,6 +13262,21 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 			}
 		}
 
+		if (peer_groups) {
+			if (!first)
+				vty_out(vty, "\n");
+
+			peer_group_info.json = json;
+			peer_group_info.vty = vty;
+			peer_group_info.json_adv_to = json_adv_to;
+			/* Process all peer groups in the hash */
+			hash_iterate(peer_groups, process_peer_group, &peer_group_info);
+			if (peer_group_info.json_adv_to)
+				json_adv_to = peer_group_info.json_adv_to;
+			/* Clean up the hash */
+			hash_free(peer_groups);
+		}
+
 		if (json && json_adv_to) {
 			if (incremental_print) {
 				vty_out(vty, "\"advertisedTo\": ");
@@ -13208,7 +13286,7 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 				json_object_object_add(json, "advertisedTo",
 						       json_adv_to);
 		} else {
-			if (!json && first) {
+			if (!json && first && !peer_group_info.adv_peer_found) {
 				if (!local_table)
 					vty_out(vty,
 						"  Not advertised to any peer");
