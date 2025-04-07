@@ -367,11 +367,15 @@ enum bgp_instance_type {
 	((!bgp->gr_multihop_peer_exists && bgp->gr_info[afi][safi].select_defer_over) ||          \
 	 BGP_GR_MULTIHOP_SELECT_DEFER_DONE(bgp, afi, safi))
 
+/*
+ * Send eor if:
+ * If eor is enabled and
+ * 1. GR is NOT enabled
+ * OR
+ * 2. GR is enabled and complete
+ */
 #define BGP_SEND_EOR(bgp, afi, safi)                                                              \
-	(!CHECK_FLAG(bgp->flags, BGP_FLAG_GR_DISABLE_EOR) &&                                      \
-	 (!CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART) ||                                     \
-	  ((!bgp->gr_multihop_peer_exists && !bgp_in_graceful_restart()) ||                       \
-	   BGP_GR_MULTIHOP_SELECT_DEFER_DONE(bgp, afi, safi))))
+	(!CHECK_FLAG(bgp->flags, BGP_FLAG_GR_DISABLE_EOR) && !bgp_in_graceful_restart())
 
 /* BGP GR Global ds */
 
