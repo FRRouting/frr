@@ -1752,6 +1752,9 @@ static void srv6_sid_cli_show(struct vty *vty, const struct lyd_node *sid, bool 
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_PSP:
 		vty_out(vty, " behavior End.X PSP");
 		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS:
+		vty_out(vty, " behavior End.B6.Encaps");
+		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_PSP_USD:
 		vty_out(vty, " behavior End.X PSP/USD");
 		break;
@@ -1763,6 +1766,9 @@ static void srv6_sid_cli_show(struct vty *vty, const struct lyd_node *sid, bool 
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_DT46:
 		vty_out(vty, " behavior End.DT46");
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_RED:
+		vty_out(vty, " behavior End.B6.Encaps.Red");
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID:
 		vty_out(vty, " behavior uN");
@@ -1790,6 +1796,12 @@ static void srv6_sid_cli_show(struct vty *vty, const struct lyd_node *sid, bool 
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID:
 		vty_out(vty, " behavior uDT46");
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_NEXT_CSID:
+		vty_out(vty, " behavior uB6.Encaps");
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_RED_NEXT_CSID:
+		vty_out(vty, " behavior uB6.Encaps.Red");
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_RESERVED:
 	case SRV6_ENDPOINT_BEHAVIOR_OPAQUE:
