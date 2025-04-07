@@ -1355,6 +1355,11 @@ void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb)
 		}
 		break;
 	case NHRP_ROUTE_NBMA_NEXTHOP:
+		if (hdr->hop_count == 0) {
+			nhrp_packet_send_error(&pp, NHRP_ERROR_HOP_COUNT_EXCEEDED, 0);
+			info = "hop count exceeded";
+			goto drop;
+		}
 		nhrp_peer_forward(peer, &pp);
 		break;
 	case NHRP_ROUTE_BLACKHOLE:
