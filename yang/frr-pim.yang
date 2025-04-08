@@ -488,12 +488,32 @@ module frr-pim {
       description
         "Enable PIM flag on the interface.";
     }
-
-    leaf pim-passive-enable {
-      type boolean;
-      default "false";
+    leaf pim-mode {
+      type enumeration {
+        enum "SPARSE" {
+          value 0;
+          description
+            "Sparse mode only.";
+        }
+        enum "DENSE" {
+          value 1;
+          description
+            "Dense mode only.";
+        }
+        enum "SPARSE_DENSE" {
+          value 2;
+          description
+            "Sparse dense mode.";
+        }
+        enum "PASSIVE" {
+          value 3;
+          description
+            "Disable exchange of protocol packets.";
+        }
+      }
+      default "SPARSE";
       description
-        "Disable exchange of protocol packets.";
+        "PIM mode";
     }
 
     leaf hello-interval {
