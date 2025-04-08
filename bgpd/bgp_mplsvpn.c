@@ -397,6 +397,8 @@ void vpn_leak_zebra_vrf_sid_update_per_af(struct bgp *bgp, afi_t afi)
 		ctx.argument_len =
 			bgp->vpn_policy[afi]
 				.tovpn_sid_locator->argument_bits_length;
+		if (CHECK_FLAG(bgp->vpn_policy[afi].tovpn_sid_locator->flags, SRV6_LOCATOR_USID))
+			SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 	}
 	ctx.table = vrf->data.l.table_id;
 	act = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
@@ -454,6 +456,8 @@ void vpn_leak_zebra_vrf_sid_update_per_vrf(struct bgp *bgp)
 		ctx.node_len = bgp->tovpn_sid_locator->node_bits_length;
 		ctx.function_len = bgp->tovpn_sid_locator->function_bits_length;
 		ctx.argument_len = bgp->tovpn_sid_locator->argument_bits_length;
+		if (CHECK_FLAG(bgp->tovpn_sid_locator->flags, SRV6_LOCATOR_USID))
+			SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 	}
 	ctx.table = vrf->data.l.table_id;
 	act = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
