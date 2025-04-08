@@ -41,8 +41,10 @@
 #include "pim_ssm.h"
 #include "pim_vxlan.h"
 #include "pim_mlag.h"
+#include "pim_dm.h"
 
 static void join_timer_stop(struct pim_upstream *up);
+static void prune_timer_stop(struct pim_upstream *up);
 static void
 pim_upstream_update_assert_tracking_desired(struct pim_upstream *up);
 static bool pim_upstream_sg_running_proc(struct pim_upstream *up);
@@ -171,6 +173,7 @@ static void pim_upstream_timers_stop(struct pim_upstream *up)
 	event_cancel(&up->t_rs_timer);
 	event_cancel(&up->t_msdp_reg_timer);
 	event_cancel(&up->t_join_timer);
+	event_cancel(&up->t_prune_timer);
 }
 
 struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
@@ -218,6 +221,7 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 #endif /* PIM_IPV == 4 */
 	}
 
+	prune_timer_stop(up);
 	join_timer_stop(up);
 	pim_jp_agg_upstream_verification(up, false);
 	up->rpf.source_nexthop.interface = NULL;
@@ -326,6 +330,11 @@ static void on_join_timer(struct event *t)
 		pim_upstream_send_join(up);
 
 	join_timer_start(up);
+}
+
+static void prune_timer_stop(struct pim_upstream *up)
+{
+	event_cancel(&up->t_prune_timer);
 }
 
 static void join_timer_stop(struct pim_upstream *up)
@@ -741,13 +750,15 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 			pim_msdp_up_join_state_changed(pim, up);
 #endif /* PIM_IPV == 4 */
 			if (pim_upstream_could_register(up)) {
-				PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
+				if (!PIM_UPSTREAM_DM_TEST_INTERFACE(up->flags))
+					PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
 				if (!old_fhr
 				    && PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(
 					       up->flags)) {
 					pim_upstream_keep_alive_timer_start(
 						up, pim->keep_alive_time);
-					pim_register_join(up);
+					if (!PIM_UPSTREAM_DM_TEST_INTERFACE(up->flags))
+						pim_register_join(up);
 				}
 			} else {
 				pim_upstream_send_join(up);
@@ -880,6 +891,7 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	up->t_ka_timer = NULL;
 	up->t_rs_timer = NULL;
 	up->t_msdp_reg_timer = NULL;
+	up->t_prune_timer = NULL;
 	up->join_state = PIM_UPSTREAM_NOTJOINED;
 	up->reg_state = PIM_REG_NOINFO;
 	up->state_transition = pim_time_monotonic_sec();
@@ -1035,8 +1047,8 @@ void pim_upstream_ref(struct pim_upstream *up, int flags, const char *name)
 	/* when we go from non-FHR to FHR we need to re-eval traffic
 	 * forwarding path
 	 */
-	if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) &&
-			PIM_UPSTREAM_FLAG_TEST_FHR(flags)) {
+	if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) && PIM_UPSTREAM_FLAG_TEST_FHR(flags) &&
+	    !PIM_UPSTREAM_DM_TEST_INTERFACE(flags)) {
 		PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
 		pim_upstream_update_use_rpt(up, true /*update_mroute*/);
 	}
@@ -1044,8 +1056,8 @@ void pim_upstream_ref(struct pim_upstream *up, int flags, const char *name)
 	/* re-eval joinDesired; clearing peer-msdp-sa flag can
 	 * cause JD to change
 	 */
-	if (!PIM_UPSTREAM_FLAG_TEST_SRC_MSDP(up->flags) &&
-			PIM_UPSTREAM_FLAG_TEST_SRC_MSDP(flags)) {
+	if (!PIM_UPSTREAM_FLAG_TEST_SRC_MSDP(up->flags) && PIM_UPSTREAM_FLAG_TEST_SRC_MSDP(flags) &&
+	    !PIM_UPSTREAM_DM_TEST_INTERFACE(flags)) {
 		PIM_UPSTREAM_FLAG_SET_SRC_MSDP(up->flags);
 		pim_upstream_update_join_desired(up->pim, up);
 	}
@@ -1405,11 +1417,12 @@ static void pim_upstream_fhr_kat_start(struct pim_upstream *up)
 			zlog_debug(
 				"kat started on %s; set fhr reg state to joined",
 				up->sg_str);
-
-		PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
-		if (up->reg_state == PIM_REG_NOINFO)
+		if (!PIM_UPSTREAM_DM_TEST_INTERFACE(up->flags))
+			PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
+		if (up->reg_state == PIM_REG_NOINFO && !PIM_UPSTREAM_DM_TEST_INTERFACE(up->flags))
 			pim_register_join(up);
-		pim_upstream_update_use_rpt(up, true /*update_mroute*/);
+		if (!PIM_UPSTREAM_DM_TEST_INTERFACE(up->flags))
+			pim_upstream_update_use_rpt(up, true /*update_mroute*/);
 	}
 }
 
@@ -2035,7 +2048,7 @@ static bool pim_upstream_kat_start_ok(struct pim_upstream *up)
 	struct channel_oil *c_oil = up->channel_oil;
 	struct interface *ifp = up->rpf.source_nexthop.interface;
 	struct pim_interface *pim_ifp;
-	struct pim_instance *pim = up->channel_oil->pim;
+	// struct pim_instance *pim = up->channel_oil->pim;
 
 	/* "iif == RPF_interface(S)" check is not easy to do as the info
 	 * we get from the kernel/ASIC is really a "lookup/key hit".
@@ -2054,12 +2067,32 @@ static bool pim_upstream_kat_start_ok(struct pim_upstream *up)
 		return true;
 	}
 
-	if ((up->join_state == PIM_UPSTREAM_JOINED)
-	    && !pim_upstream_empty_inherited_olist(up)) {
-		if (I_am_RP(pim, up->sg.grp))
-			return true;
+	if ((up->join_state == PIM_UPSTREAM_JOINED) && !pim_upstream_empty_inherited_olist(up)) {
+		return true;
 	}
 
+	return false;
+}
+
+/* Check if any dense mode interface is in the OIL of this upstream
+ * or if any interface has an IGMP join for this upstream group
+ */
+bool pim_upstream_up_connected(struct pim_upstream *up)
+{
+	struct interface *ifp = NULL;
+	struct pim_interface *pim_ifp;
+
+	FOR_ALL_INTERFACES (up->pim->vrf, ifp) {
+		pim_ifp = ifp->info;
+
+		if (!pim_ifp || !pim_ifp->pim_enable)
+			continue;
+
+		if (HAVE_DENSE_MODE(pim_ifp->pim_mode) &&
+		    ifp->ifindex != up->rpf.source_nexthop.interface->ifindex &&
+		    oil_if_has(up->channel_oil, pim_ifp->mroute_vif_index))
+			return true;
+	}
 	return false;
 }
 

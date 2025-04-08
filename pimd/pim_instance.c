@@ -13,6 +13,8 @@
 #include "pimd.h"
 #include "pim_instance.h"
 #include "pim_ssm.h"
+#include "pim_iface.h"
+#include "pim_dm.h"
 #include "pim_rpf.h"
 #include "pim_rp.h"
 #include "pim_nht.h"
@@ -30,11 +32,6 @@ static void pim_instance_terminate(struct pim_instance *pim)
 	pim->stopping = true;
 
 	pim_vxlan_exit(pim);
-
-	if (pim->ssm_info) {
-		pim_ssm_terminate(pim->ssm_info);
-		pim->ssm_info = NULL;
-	}
 
 	if (pim->static_routes)
 		list_delete(&pim->static_routes);
@@ -61,6 +58,10 @@ static void pim_instance_terminate(struct pim_instance *pim)
 
 	pim_mroute_socket_disable(pim);
 
+	pim_ssm_terminate(pim);
+
+	pim_dm_terminate(pim);
+
 #if PIM_IPV == 4
 	pim_autorp_finish(pim);
 #endif
@@ -77,6 +78,9 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 	struct pim_instance *pim;
 
 	pim = XCALLOC(MTYPE_PIM_PIM_INSTANCE, sizeof(struct pim_instance));
+
+	pim_ssm_init(pim);
+	pim_dm_init(pim);
 
 	pim_if_init(pim);
 
@@ -98,8 +102,6 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 	pim_vxlan_init(pim);
 
 	pim_nht_init(pim);
-
-	pim->ssm_info = pim_ssm_init();
 
 	pim->static_routes = list_new();
 	pim->static_routes->del = (void (*)(void *))pim_static_route_free;
