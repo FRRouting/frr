@@ -1933,8 +1933,14 @@ handle_request(struct neighbour *neigh, const unsigned char *prefix,
         /* We were about to forward a request to its requestor.  Try to
            find a different neighbour to forward the request to. */
         struct babel_route *other_route;
+        /* First try feasible routes as required by RFC */
+        other_route = find_best_route(prefix, plen, 1, neigh);
 
-        other_route = find_best_route(prefix, plen, 0, neigh);
+        if(!other_route || route_metric(other_route) >= INFINITY) {
+            /* If no feasible route found, try non-feasible routes */
+            other_route = find_best_route(prefix, plen, 0, neigh);
+        }
+        
         if(other_route && route_metric(other_route) < INFINITY)
             successor = other_route->neigh;
     }
