@@ -43,6 +43,7 @@ pim_common = \
 	pimd/pim_sock.c \
 	pimd/pim_ssm.c \
 	pimd/pim_dm.c \
+	pimd/pim_state_refresh.c \
 	pimd/pim_ssmpingd.c \
 	pimd/pim_static.c \
 	pimd/pim_tib.c \
@@ -139,6 +140,7 @@ noinst_HEADERS += \
 	pimd/pim_sock.h \
 	pimd/pim_ssm.h \
 	pimd/pim_dm.h \
+	pimd/pim_state_refresh.h \
 	pimd/pim_ssmpingd.h \
 	pimd/pim_static.h \
 	pimd/pim_str.h \

@@ -38,6 +38,7 @@
 #include "pim_msg.h"
 #include "pim_pim.h"
 #include "pim_join.h"
+#include "pim_state_refresh.h"
 #include "pim_util.h"
 #include "pim_nht.h"
 
@@ -335,6 +336,12 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 			PIM_UPSTREAM_FLAG_UNSET_FHR(up->flags);
 
 			pim_upstream_mroute_update(up->channel_oil, __func__);
+			/* dm: if the router is an originator send state refresh */
+			if (pim_if_connected_to_source(ifp, msg->msg_im_src)) {
+				up->pim->staterefresh_counter = 0;
+				pim_send_staterefresh(up);
+				staterefresh_timer_start(up);
+			}
 		} else if (!endpoint_join) {
 			PIM_UPSTREAM_DM_SET_PRUNE(up->flags);
 			pim_dm_prune_send(up->rpf, up, 0);

@@ -41,6 +41,7 @@
 #include "pim_ssm.h"
 #include "pim_vxlan.h"
 #include "pim_mlag.h"
+#include "pim_state_refresh.h"
 #include "pim_dm.h"
 
 static void join_timer_stop(struct pim_upstream *up);
@@ -174,6 +175,7 @@ static void pim_upstream_timers_stop(struct pim_upstream *up)
 	event_cancel(&up->t_msdp_reg_timer);
 	event_cancel(&up->t_join_timer);
 	event_cancel(&up->t_prune_timer);
+	event_cancel(&up->t_staterefresh_timer);
 	event_cancel(&up->t_graft_timer);
 }
 
@@ -333,6 +335,38 @@ static void on_graft_timer(struct event *t)
 	graft_timer_start(up);
 }
 
+static void on_staterefresh_timer(struct event *t)
+{
+	struct pim_upstream *up;
+
+	up = EVENT_ARG(t);
+
+	if (!up)
+		return;
+
+	if (!up->rpf.source_nexthop.interface) {
+		if (PIM_DEBUG_PIM_TRACE)
+			zlog_debug("%s: up %s RPF is not present", __func__, up->sg_str);
+		return;
+	}
+
+	if (!up->channel_oil->installed)
+		return;
+
+	pim_mroute_update_counters(up->channel_oil);
+
+	/*
+	 * Don't send the message if the outgoing interface is a loopback
+	 * But since this might change leave the join timer running
+	 */
+	if (pim_if_connected_to_source(up->rpf.source_nexthop.interface, up->sg.src)) {
+		if (up->rpf.source_nexthop.interface &&
+		    !if_is_loopback(up->rpf.source_nexthop.interface))
+			pim_send_staterefresh(up);
+	}
+	staterefresh_timer_start(up);
+}
+
 
 static void on_prune_timer(struct event *t)
 {
@@ -458,6 +492,12 @@ void graft_timer_start(struct pim_upstream *up)
 	pim_jp_agg_upstream_verification(up, true);
 }
 
+void staterefresh_timer_start(struct pim_upstream *up)
+{
+	event_cancel(&up->t_staterefresh_timer);
+	event_add_timer(router->master, on_staterefresh_timer, up, up->pim->staterefresh_time,
+			&up->t_staterefresh_timer);
+}
 
 void join_timer_start(struct pim_upstream *up)
 {

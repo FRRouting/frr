@@ -171,6 +171,10 @@ struct pim_instance {
 	unsigned int gm_watermark_limit;
 	unsigned int keep_alive_time;
 	unsigned int rp_keep_alive_time;
+	unsigned int staterefresh_time;
+
+	uint8_t staterefresh_counter;
+
 
 	bool ecmp_enable;
 	bool ecmp_rebalance_enable;

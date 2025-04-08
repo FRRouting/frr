@@ -28,6 +28,7 @@
 #include "pim_register.h"
 #include "pim_errors.h"
 #include "pim_bsm.h"
+#include "pim_state_refresh.h"
 #include <lib/lib_errors.h>
 
 static void on_pim_hello_send(struct event *t);
@@ -349,7 +350,8 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 				      pim_msg_len - PIM_MSG_HEADER_LEN, PIM_MSG_TYPE_GRAFT_ACK);
 		break;
 	case PIM_MSG_TYPE_STATE_REFRESH:
-		return 0;
+		return pim_staterefresh_recv(ifp, sg.src, pim_msg + PIM_MSG_HEADER_LEN,
+					     pim_msg_len - PIM_MSG_HEADER_LEN);
 		break;
 	case PIM_MSG_TYPE_GRAFT:
 		neigh = pim_neighbor_find(ifp, sg.src, false);

@@ -249,6 +249,7 @@ struct pim_upstream {
 
 	struct event *t_join_timer;
 	struct event *t_prune_timer;
+	struct event *t_staterefresh_timer;
 	struct event *t_graft_timer;
 
 	/*
@@ -263,6 +264,7 @@ struct pim_upstream {
 	 */
 	struct event *t_ka_timer;
 #define PIM_KEEPALIVE_PERIOD  (210)
+#define PIM_STATEREFRESH_PERIOD (60)
 #define PIM_RP_KEEPALIVE_PERIOD                                                \
 	(3 * router->register_suppress_time + router->register_probe_time)
 
@@ -367,6 +369,7 @@ void pim_upstream_init(struct pim_instance *pim);
 void pim_upstream_terminate(struct pim_instance *pim);
 
 void join_timer_start(struct pim_upstream *up);
+void staterefresh_timer_start(struct pim_upstream *up);
 void graft_timer_start(struct pim_upstream *up);
 void prune_timer_start(struct pim_upstream *up);
 int pim_upstream_compare(const struct pim_upstream *up1,
