@@ -196,11 +196,11 @@ extern void mgmt_ds_unlock(struct mgmt_ds_ctx *ds_ctx);
 /*
  * Copy from source to destination datastore.
  *
- * src_ds
- *    Source datastore handle (ds to be copied from).
- *
- * dst_ds
+ * dst
  *    Destination datastore handle (ds to be copied to).
+ *
+ * src
+ *    Source datastore handle (ds to be copied from).
  *
  * update_cmd_rec
  *    TRUE if need to update commit record, FALSE otherwise.
@@ -208,9 +208,7 @@ extern void mgmt_ds_unlock(struct mgmt_ds_ctx *ds_ctx);
  * Returns:
  *    0 on success, -1 on failure.
  */
-extern int mgmt_ds_copy_dss(struct mgmt_ds_ctx *src_ds_ctx,
-			    struct mgmt_ds_ctx *dst_ds_ctx,
-			    bool update_cmt_rec);
+extern int mgmt_ds_copy_dss(struct mgmt_ds_ctx *dst, struct mgmt_ds_ctx *src, bool update_cmt_rec);
 
 /*
  * Fetch northbound configuration for a given datastore context.
