@@ -34,6 +34,8 @@ void pim_dm_recv_prune(struct interface *ifp, struct pim_neighbor *neigh, uint16
 void pim_dm_prune_iff_on_timer(struct event *t);
 void pim_dm_prefix_list_update(struct pim_instance *pim, struct prefix_list *plist);
 bool pim_is_grp_dm(struct pim_instance *pim, pim_addr group_addr);
+bool pim_is_dm_prefix_filter(struct pim_instance *pim, pim_addr group_addr);
+bool pim_iface_grp_dm(struct pim_interface *pim_ifp, pim_addr group_addr);
 int pim_dm_range_set(struct pim_instance *pim, const char *plist_name);
 void pim_dm_init(struct pim_instance *pim);
 void pim_dm_terminate(struct pim_instance *pim);
