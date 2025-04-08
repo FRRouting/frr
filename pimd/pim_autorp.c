@@ -1059,7 +1059,7 @@ static void autorp_send_announcement(struct event *evt)
 			 * and have a primary address set.
 			 */
 			if (CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE) && pim_ifp &&
-			    pim_ifp->pim_enable && !pim_ifp->pim_passive_enable &&
+			    pim_ifp->pim_enable && (pim_ifp->pim_mode != PIM_MODE_PASSIVE) &&
 			    !pim_addr_is_any(pim_ifp->primary_address)) {
 				if (setsockopt(autorp->sock, IPPROTO_IP, IP_MULTICAST_IF,
 					       &(pim_ifp->primary_address),

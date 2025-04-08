@@ -186,7 +186,7 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 	pastend = tlv_buf + tlv_buf_size;
 	pim_ifp = ifp->info;
 
-	if (pim_ifp->pim_passive_enable) {
+	if (pim_ifp->pim_mode == PIM_MODE_PASSIVE) {
 		if (PIM_DEBUG_PIM_PACKETS)
 			zlog_debug(
 				"skip receiving PIM message on passive interface %s",
@@ -558,7 +558,7 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 		packet_size += group_size;
 		pim_msg_build_jp_groups(grp, group, group_size);
 
-		if (!pim_ifp->pim_passive_enable) {
+		if (pim_ifp->pim_mode != PIM_MODE_PASSIVE) {
 			pim_ifp->pim_ifstat_join_send += ntohs(grp->joins);
 			pim_ifp->pim_ifstat_prune_send += ntohs(grp->prunes);
 		}

@@ -145,7 +145,7 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool gm, bool pim,
 	       pim_ifp->gm_default_query_interval);
 
 	pim_ifp->pim_enable = pim;
-	pim_ifp->pim_passive_enable = false;
+	pim_ifp->pim_mode = PIM_MODE_SPARSE;
 	pim_ifp->gm_enable = gm;
 	pim_ifp->gm_proxy = false;
 
@@ -2065,4 +2065,25 @@ void pim_gm_interface_delete(struct interface *ifp)
 
 	if (!pim_ifp->pim_enable)
 		pim_if_delete(ifp);
+}
+
+
+char *pim_mod_str(enum pim_iface_mode mode, char *buf, size_t size)
+{
+	switch (mode) {
+	case PIM_MODE_SPARSE:
+		snprintf(buf, size, "SPARSE");
+		break;
+	case PIM_MODE_DENSE:
+		snprintf(buf, size, "DENSE");
+		break;
+	case PIM_MODE_SPARSE_DENSE:
+		snprintf(buf, size, "SPARSE_DENSE");
+		break;
+	case PIM_MODE_PASSIVE:
+		snprintf(buf, size, "PASSIVE");
+		break;
+	}
+
+	return buf;
 }
