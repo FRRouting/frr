@@ -1078,17 +1078,26 @@ route_lost(struct source *src, unsigned oldmetric)
     new_route = find_best_route(src->prefix, src->plen, 1, NULL);
     if(new_route) {
         consider_route(new_route);
-    } else if(oldmetric < INFINITY) {
-        /* Avoid creating a blackhole. */
-        send_update_resend(NULL, src->prefix, src->plen);
-        /* If the route was usable enough, try to get an alternate one.
-           If it was not, we could be dealing with oscillations around
-           the value of INFINITY. */
-        if(oldmetric <= INFINITY / 2)
+    } else {
+        struct babel_route *unfeasible = find_best_route(src->prefix, src->plen, 0, NULL);
+
+        if(unfeasible && !route_expired(unfeasible)) {
+            /* MUST send seqno request when we have unexpired unfeasible routes */
             send_request_resend(NULL, src->prefix, src->plen,
-                                src->metric >= INFINITY ?
-                                src->seqno : seqno_plus(src->seqno, 1),
+                                seqno_plus(src->seqno, 1),
                                 src->id);
+        } else if(oldmetric < INFINITY) {
+            /* Avoid creating a blackhole. */
+            send_update_resend(NULL, src->prefix, src->plen);
+            /* If the route was usable enough, try to get an alternate one.
+            If it was not, we could be dealing with oscillations around
+            the value of INFINITY. */
+            if(oldmetric <= INFINITY / 2)
+                send_request_resend(NULL, src->prefix, src->plen,
+                                    src->metric >= INFINITY ?
+                                    src->seqno : seqno_plus(src->seqno, 1),
+                                    src->id);
+        }
     }
 }
 
