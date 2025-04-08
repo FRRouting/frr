@@ -145,6 +145,7 @@ def build_topo(tgen):
     tgen.add_link(tgen.gears["ce5"], tgen.gears["rt1"], "eth-rt1", "eth-ce5")
     tgen.add_link(tgen.gears["ce6"], tgen.gears["rt6"], "eth-rt6", "eth-ce6")
 
+    tgen.gears["rt1"].run("sysctl net.vrf.strict_mode=1")
     tgen.gears["rt1"].run("ip link add vrf10 type vrf table 10")
     tgen.gears["rt1"].run("ip link set vrf10 up")
     tgen.gears["rt1"].run("ip link add vrf20 type vrf table 20")
@@ -153,6 +154,7 @@ def build_topo(tgen):
     tgen.gears["rt1"].run("ip link set eth-ce3 master vrf10")
     tgen.gears["rt1"].run("ip link set eth-ce5 master vrf20")
 
+    tgen.gears["rt6"].run("sysctl net.vrf.strict_mode=1")
     tgen.gears["rt6"].run("ip link add vrf10 type vrf table 10")
     tgen.gears["rt6"].run("ip link set vrf10 up")
     tgen.gears["rt6"].run("ip link add vrf20 type vrf table 20")
