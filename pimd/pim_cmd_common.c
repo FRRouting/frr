@@ -3808,8 +3808,17 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 		snprintfrr(src_str, sizeof(src_str), "%pPAs",
 			   oil_origin(c_oil));
 
-		if (!pim_is_grp_dm(pim, *oil_mcastgrp(c_oil)))
-			strlcpy(state_str, "S", sizeof(state_str));
+		ifp_in = pim_if_find_by_vif_index(pim, *oil_incoming_vif(c_oil));
+
+		if (ifp_in) {
+			strlcpy(in_ifname, ifp_in->name, sizeof(in_ifname));
+			if (!pim_iface_grp_dm(ifp_in->info, *oil_mcastgrp(c_oil)))
+				strlcpy(state_str, "S", sizeof(state_str));
+		} else {
+			strlcpy(in_ifname, "<iif?>", sizeof(in_ifname));
+			if (!pim_is_grp_dm(pim, *oil_mcastgrp(c_oil)))
+				strlcpy(state_str, "S", sizeof(state_str));
+		}
 
 		/* When a non DR receives a igmp join, it creates a (*,G)
 		 * channel_oil without any upstream creation
@@ -3828,14 +3837,6 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 		}
 		if (pim_channel_oil_empty(c_oil))
 			strlcat(state_str, "P", sizeof(state_str));
-
-		ifp_in = pim_if_find_by_vif_index(pim, *oil_incoming_vif(c_oil));
-
-		if (ifp_in)
-			strlcpy(in_ifname, ifp_in->name, sizeof(in_ifname));
-		else
-			strlcpy(in_ifname, "<iif?>", sizeof(in_ifname));
-
 
 		pim_time_uptime(mroute_uptime, sizeof(mroute_uptime),
 				now - c_oil->mroute_creation);
