@@ -195,8 +195,17 @@ void pim_if_delete(struct interface *ifp)
 	assert(pim_ifp);
 
 	pim_ifp->pim->mcast_if_count--;
-	if (pim_ifp->gm_join_list)
+	if (pim_ifp->gm_join_list) {
 		pim_if_gm_join_del_all(ifp);
+		/*
+		 * Sometimes gm_join_del_all does not delete them all
+		 * and as such it's not actually freed.  Let's
+		 * just clean this up if it wasn't to prevent
+		 * the problem.
+		 */
+		if (pim_ifp->gm_join_list)
+			list_delete(&pim_ifp->gm_join_list);
+	}
 
 	if (pim_ifp->static_group_list)
 		pim_if_static_group_del_all(ifp);
@@ -1437,10 +1446,8 @@ int pim_if_gm_join_del(struct interface *ifp, pim_addr group_addr,
 	}
 	listnode_delete(pim_ifp->gm_join_list, ij);
 	gm_join_free(ij);
-	if (listcount(pim_ifp->gm_join_list) < 1) {
+	if (listcount(pim_ifp->gm_join_list) < 1)
 		list_delete(&pim_ifp->gm_join_list);
-		pim_ifp->gm_join_list = 0;
-	}
 
 	return 0;
 }
