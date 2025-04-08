@@ -429,3 +429,8 @@ The client and server sides of oper-state query
 
 .. figure:: ../figures/cli-oper-state.svg
    :align: center
+
+Config datastore cleanup for non-implict commits (i.e., file reads currently)
+
+.. figure:: ../figures/datastores.svg
+   :align: center
