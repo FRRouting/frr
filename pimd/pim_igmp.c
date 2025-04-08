@@ -27,6 +27,8 @@
 #include "pim_time.h"
 #include "pim_ssm.h"
 #include "pim_tib.h"
+#include "pim_pim.h"
+#include "pim_dm.h"
 
 static void group_timer_off(struct gm_group *group);
 static void pim_igmp_general_query(struct event *t);
@@ -1068,7 +1070,8 @@ void igmp_group_delete(struct gm_group *group)
 	struct listnode *src_node;
 	struct listnode *src_nextnode;
 	struct gm_source *src;
-	struct pim_interface *pim_ifp = group->interface->info;
+	struct interface *ifp = group->interface;
+	struct pim_interface *pim_ifp = ifp->info;
 
 	if (PIM_DEBUG_GM_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
@@ -1433,6 +1436,7 @@ struct gm_group *igmp_add_group_by_addr(struct gm_sock *igmp,
 {
 	struct gm_group *group;
 	struct pim_interface *pim_ifp = igmp->interface->info;
+	struct channel_oil *c_oil;
 
 	group = find_group_by_addr(igmp, group_addr);
 	if (group) {

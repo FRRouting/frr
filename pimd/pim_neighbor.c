@@ -30,6 +30,7 @@
 #include "pim_bfd.h"
 #include "pim_register.h"
 #include "pim_oil.h"
+#include "pim_dm.h"
 
 static void dr_election_by_addr(struct interface *ifp)
 {
@@ -275,6 +276,7 @@ pim_neighbor_new(struct interface *ifp, pim_addr source_addr,
 {
 	struct pim_interface *pim_ifp;
 	struct pim_neighbor *neigh;
+	struct channel_oil *c_oil;
 
 	assert(ifp);
 	pim_ifp = ifp->info;
@@ -342,6 +344,16 @@ pim_neighbor_new(struct interface *ifp, pim_addr source_addr,
 	// Register PIM Neighbor with BFD
 	pim_bfd_info_nbr_create(pim_ifp, neigh);
 
+	/* flood to the new neighor if needed */
+	if (HAVE_DENSE_MODE(pim_ifp->pim_mode)) {
+		frr_each (rb_pim_oil, &pim_ifp->pim->channel_oil_head, c_oil) {
+			if (pim_is_grp_dm(pim_ifp->pim, *oil_mcastgrp(c_oil)) && c_oil->installed &&
+			    !oil_if_has(c_oil, pim_ifp->mroute_vif_index)) {
+				oil_if_set(c_oil, pim_ifp->mroute_vif_index, 1);
+				pim_upstream_mroute_update(c_oil, __func__);
+			}
+		}
+	}
 	return neigh;
 }
 
