@@ -113,7 +113,7 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 
 		sg->src = PIMADDR_ANY;
 	}
-	if (pim_is_grp_dm(pim_ifp->pim, sg->grp)) {
+	if (pim_iface_grp_dm(pim_ifp, sg->grp)) {
 		zlog_warn("%s: Specified Group(%pPA) in join is now in DM, not allowed to create PIM state",
 			  __func__, &sg->grp);
 		return;
