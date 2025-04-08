@@ -217,12 +217,6 @@ static void
 mgmt_fe_session_cfg_txn_cleanup(struct mgmt_fe_session_ctx *session)
 {
 	/*
-	 * Ensure any uncommitted changes in Candidate DS
-	 * is discarded.
-	 */
-	mgmt_ds_copy_dss(mm->running_ds, mm->candidate_ds, false);
-
-	/*
 	 * Destroy the actual transaction created earlier.
 	 */
 	if (session->cfg_txn_id != MGMTD_TXN_ID_NONE)
