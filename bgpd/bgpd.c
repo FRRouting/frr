@@ -4292,7 +4292,8 @@ int bgp_delete(struct bgp *bgp)
 			bgp_set_evpn(bgp_get_default());
 	}
 
-	list_delete(&bgp->rtc_plists);
+	if (bgp->rtc_plists)
+		list_delete(&bgp->rtc_plists);
 
 	if (!IS_BGP_INSTANCE_HIDDEN(bgp)) {
 		if (bgp->process_queue)
