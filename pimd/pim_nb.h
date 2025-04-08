@@ -118,6 +118,7 @@ int lib_interface_pim_address_family_pim_enable_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_pim_address_family_pim_passive_enable_modify(
 	struct nb_cb_modify_args *args);
+int lib_interface_pim_address_family_pim_mode_modify(struct nb_cb_modify_args *args);
 int lib_interface_pim_address_family_hello_interval_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_pim_address_family_hello_holdtime_modify(
@@ -318,6 +319,8 @@ int routing_control_plane_protocols_name_validate(
 	"./frr-pim:pim/address-family[address-family='%s']"
 #define FRR_PIM_ENABLE_XPATH                                            \
 	"%s/frr-pim:pim/address-family[address-family='%s']/pim-enable"
+#define FRR_PIM_MODE_XPATH                                              \
+	"%s/frr-pim:pim/address-family[address-family='%s']/pim-mode"
 #define FRR_PIM_ROUTER_XPATH                                            \
 	"/frr-pim:pim/address-family[address-family='%s']"
 #define FRR_PIM_MROUTE_XPATH                                            \

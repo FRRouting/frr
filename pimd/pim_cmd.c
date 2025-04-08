@@ -5829,90 +5829,34 @@ DEFPY (interface_ip_pim_activeactive,
 	return pim_process_ip_pim_activeactive_cmd(vty, no);
 }
 
-DEFUN_HIDDEN (interface_ip_pim_ssm,
-	      interface_ip_pim_ssm_cmd,
-	      "ip pim ssm",
-	      IP_STR
-	      PIM_STR
-	      IFACE_PIM_STR)
+
+DEFPY (interface_ip_pim_passive,
+	interface_ip_pim_passive_cmd,
+	"[no] ip pim passive$passive",
+	NO_STR
+	IP_STR
+	PIM_STR
+	"Disable exchange of protocol packets\n")
 {
-	int ret;
-
-	ret = pim_process_ip_pim_cmd(vty);
-
-	if (ret != NB_OK)
-		return ret;
-
-	vty_out(vty,
-		"WARN: Enabled PIM SM on interface; configure PIM SSM range if needed\n");
-
-	return NB_OK;
+	return pim_process_ip_pim_passive_cmd(vty, !no);
 }
 
-DEFUN_HIDDEN (interface_ip_pim_sm,
-	      interface_ip_pim_sm_cmd,
-	      "ip pim sm",
-	      IP_STR
-	      PIM_STR
-	      IFACE_PIM_SM_STR)
-{
-	return pim_process_ip_pim_cmd(vty);
-}
 
 DEFPY (interface_ip_pim,
        interface_ip_pim_cmd,
-       "ip pim [passive$passive]",
-       IP_STR
-       PIM_STR
-       "Disable exchange of protocol packets\n")
-{
-	int ret;
-
-	ret = pim_process_ip_pim_cmd(vty);
-
-	if (ret != NB_OK)
-		return ret;
-
-	if (passive)
-		return pim_process_ip_pim_passive_cmd(vty, true);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN_HIDDEN (interface_no_ip_pim_ssm,
-	      interface_no_ip_pim_ssm_cmd,
-	      "no ip pim ssm",
-	      NO_STR
-	      IP_STR
-	      PIM_STR
-	      IFACE_PIM_STR)
-{
-	return pim_process_no_ip_pim_cmd(vty);
-}
-
-DEFUN_HIDDEN (interface_no_ip_pim_sm,
-	      interface_no_ip_pim_sm_cmd,
-	      "no ip pim sm",
-	      NO_STR
-	      IP_STR
-	      PIM_STR
-	      IFACE_PIM_SM_STR)
-{
-	return pim_process_no_ip_pim_cmd(vty);
-}
-
-DEFPY (interface_no_ip_pim,
-       interface_no_ip_pim_cmd,
-       "no ip pim [passive$passive]",
+       "[no] ip pim [sm|ssm$ssm|dm$dm|sm-dm$smdm]",
        NO_STR
        IP_STR
        PIM_STR
-       "Disable exchange of protocol packets\n")
+       IFACE_PIM_SM_STR
+       IFACE_PIM_STR
+       IFACE_PIM_DM_STR
+       IFACE_PIM_SMDM_STR)
 {
-	if (passive)
-		return pim_process_ip_pim_passive_cmd(vty, false);
+	if (no)
+		return pim_process_no_ip_pim_cmd(vty);
 
-	return pim_process_no_ip_pim_cmd(vty);
+	return pim_process_ip_pim_mode_cmd(vty, dm, smdm, ssm);
 }
 
 /* boundaries */
@@ -9196,12 +9140,8 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_ip_igmp_immediate_leave_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_igmp_require_ra_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_activeactive_cmd);
-	install_element(INTERFACE_NODE, &interface_ip_pim_ssm_cmd);
-	install_element(INTERFACE_NODE, &interface_no_ip_pim_ssm_cmd);
-	install_element(INTERFACE_NODE, &interface_ip_pim_sm_cmd);
-	install_element(INTERFACE_NODE, &interface_no_ip_pim_sm_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_pim_passive_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_cmd);
-	install_element(INTERFACE_NODE, &interface_no_ip_pim_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_drprio_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_drprio_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_hello_cmd);
