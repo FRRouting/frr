@@ -999,6 +999,20 @@ DEFPY (interface_no_ipv6_mroute,
 					    source_str);
 }
 
+DEFPY_YANG(interface_ipv6_pim_use_source,
+           interface_ipv6_pim_use_source_cmd,
+           "[no] ipv6 pim use-source X:X::X:X$source",
+           NO_STR
+           IPV6_STR
+           PIM_STR
+           "Configure primary IPv6 address\n"
+           "Source IPv6 address\n")
+{
+	nb_cli_enqueue_change(vty, "./use-source", NB_OP_MODIFY, no ? "::" : source_str);
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH, "frr-routing:ipv6");
+}
+
 DEFPY (pim6_rp,
        pim6_rp_cmd,
        "rp X:X::X:X$rp [X:X::X:X/M]$gp",
@@ -2971,6 +2985,8 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_no_ipv6_mroute_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_limits_cmd);
 	install_element(INTERFACE_NODE, &no_interface_ipv6_mld_limits_cmd);
+
+	install_element(INTERFACE_NODE, &interface_ipv6_pim_use_source_cmd);
 
 	/* Install BSM command */
 	install_element(INTERFACE_NODE, &ipv6_pim_bsm_cmd);
