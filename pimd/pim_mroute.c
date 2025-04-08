@@ -184,7 +184,7 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 
 	/* Check if the packet belongs to DM group
 	 */
-	if (HAVE_DENSE_MODE(pim_ifp->pim_mode) && pim_is_grp_dm(pim_ifp->pim, sg.grp))
+	if (pim_iface_grp_dm(pim_ifp, sg.grp))
 		pim_dm_enable = true;
 
 
@@ -571,7 +571,7 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
 	sg.src = IPV_SRC(ip_hdr);
 	sg.grp = IPV_DST(ip_hdr);
 
-	isdense = pim_is_grp_dm(pim, sg.grp);
+	isdense = pim_iface_grp_dm(pim_ifp, sg.grp);
 
 	/*
 	 * I believe the wrvifwhole message should also trigger PIM assert messaging
