@@ -87,6 +87,7 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 	pim->mcast_if_count = 0;
 	pim->keep_alive_time = PIM_KEEPALIVE_PERIOD;
 	pim->rp_keep_alive_time = PIM_RP_KEEPALIVE_PERIOD;
+	pim->staterefresh_time = PIM_STATEREFRESH_PERIOD;
 
 	pim->ecmp_enable = false;
 	pim->ecmp_rebalance_enable = false;
