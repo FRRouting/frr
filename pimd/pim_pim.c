@@ -702,7 +702,7 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 	if (ifp) {
 		struct pim_interface *pim_ifp = ifp->info;
 
-		if (pim_ifp->pim_passive_enable) {
+		if (pim_ifp->pim_mode == PIM_MODE_PASSIVE) {
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug("skip sending PIM message on passive interface %s",
 					   ifp->name);
@@ -863,7 +863,7 @@ int pim_hello_send(struct interface *ifp, uint16_t holdtime)
 		return -1;
 	}
 
-	if (!pim_ifp->pim_passive_enable) {
+	if (pim_ifp->pim_mode != PIM_MODE_PASSIVE) {
 		++pim_ifp->pim_ifstat_hello_sent;
 		PIM_IF_FLAG_SET_HELLO_SENT(pim_ifp->flags);
 	}

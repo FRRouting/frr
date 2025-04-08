@@ -31,11 +31,11 @@
 #include "pim_mroute.h"
 #include "pim_cmd.h"
 #include "pim6_cmd.h"
+#include "pim_iface.h"
 #include "pim_cmd_common.h"
 #include "pim_time.h"
 #include "pim_zebra.h"
 #include "pim_zlookup.h"
-#include "pim_iface.h"
 #include "pim_macro.h"
 #include "pim_neighbor.h"
 #include "pim_nht.h"
@@ -281,14 +281,9 @@ int pim_process_ip_pim_cmd(struct vty *vty)
 				    FRR_PIM_AF_XPATH_VAL);
 }
 
-int pim_process_ip_pim_passive_cmd(struct vty *vty, bool enable)
+int pim_process_ip_pim_mode_cmd(struct vty *vty, enum pim_iface_mode mode)
 {
-	if (enable)
-		nb_cli_enqueue_change(vty, "./pim-passive-enable", NB_OP_MODIFY,
-				      "true");
-	else
-		nb_cli_enqueue_change(vty, "./pim-passive-enable", NB_OP_MODIFY,
-				      "false");
+	nb_cli_enqueue_change(vty, "./pim-mode", NB_OP_MODIFY, pim_mod_str(mode));
 
 	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
 				    FRR_PIM_AF_XPATH_VAL);
@@ -2461,7 +2456,7 @@ void pim_show_interfaces_single(struct pim_instance *pim, struct vty *vty,
 						       sec_list);
 			}
 
-			if (pim_ifp->pim_passive_enable)
+			if (pim_ifp->pim_mode == PIM_MODE_PASSIVE)
 				json_object_boolean_true_add(json_row,
 							     "passive");
 
@@ -2632,10 +2627,8 @@ void pim_show_interfaces_single(struct pim_instance *pim, struct vty *vty,
 				vty_out(vty, "Address    : %pPAs\n", &ifaddr);
 			}
 
-			if (pim_ifp->pim_passive_enable)
-				vty_out(vty, "Passive    : %s\n",
-					(pim_ifp->pim_passive_enable) ? "yes"
-								      : "no");
+			if (pim_ifp->pim_mode == PIM_MODE_PASSIVE)
+				vty_out(vty, "Passive    : yes\n");
 
 			vty_out(vty, "\n");
 

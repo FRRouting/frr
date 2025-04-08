@@ -2063,10 +2063,9 @@ int lib_interface_pim_address_family_pim_enable_modify(struct nb_cb_modify_args 
 
 /*
  * XPath:
- * /frr-interface:lib/interface/frr-pim:pim/address-family/pim-passive-enable
+ * /frr-interface:lib/interface/frr-pim:pim/address-family/pim-mode
  */
-int lib_interface_pim_address_family_pim_passive_enable_modify(
-	struct nb_cb_modify_args *args)
+int lib_interface_pim_address_family_pim_mode_modify(struct nb_cb_modify_args *args)
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
@@ -2079,11 +2078,10 @@ int lib_interface_pim_address_family_pim_passive_enable_modify(
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		pim_ifp = ifp->info;
-		pim_ifp->pim_passive_enable =
-			yang_dnode_get_bool(args->dnode, NULL);
+		pim_ifp->pim_mode = yang_dnode_get_enum(args->dnode, NULL);
 
 		/* Trigger election in case it was never run before */
-		if (pim_ifp->pim_passive_enable && pim_addr_is_any(pim_ifp->pim_dr_addr))
+		if (pim_ifp->pim_mode == PIM_MODE_PASSIVE && pim_addr_is_any(pim_ifp->pim_dr_addr))
 			pim_if_dr_election(ifp);
 		break;
 	}
