@@ -4522,6 +4522,18 @@ DEFPY_ATTR(no_ip_pim_rp,
 	return ret;
 }
 
+DEFPY_YANG(pim_dm_prefix_list,
+      pim_dm_prefix_list_cmd,
+      "[no] dm prefix-list WORD$plist",
+      NO_STR
+      "PIM Dense Mode Multicast\n"
+      "Group range prefix-list filter\n"
+      "Name of a prefix-list\n")
+{
+	nb_cli_enqueue_change(vty, ".", NB_OP_MODIFY, no ? NULL : plist);
+	return nb_cli_apply_changes(vty, "./dm-prefix-list");
+}
+
 DEFPY (no_pim_rp_prefix_list,
        no_pim_rp_prefix_list_cmd,
        "no rp A.B.C.D$rp prefix-list PREFIXLIST4_NAME$plist",
@@ -9105,6 +9117,7 @@ void pim_cmd_init(void)
 	install_element(PIM_NODE, &pim_bsr_candidate_rp_cmd);
 	install_element(PIM_NODE, &pim_bsr_candidate_rp_group_cmd);
 	install_element(PIM_NODE, &pim_bsr_candidate_bsr_cmd);
+	install_element(PIM_NODE, &pim_dm_prefix_list_cmd);
 
 	install_element(PIM_NODE, &pim_rpf_lookup_mode_cmd);
 

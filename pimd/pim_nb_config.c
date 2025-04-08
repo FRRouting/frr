@@ -20,6 +20,7 @@
 #include "pimd/pim_rp.h"
 #include "pim_static.h"
 #include "pim_ssm.h"
+#include "pim_dm.h"
 #include "pim_ssmpingd.h"
 #include "pim_vxlan.h"
 #include "pim_util.h"
@@ -223,6 +224,26 @@ static int pim_cmd_spt_switchover(struct pim_instance *pim,
 
 	return NB_OK;
 }
+
+static int pim_dm_cmd_worker(struct pim_instance *pim, const char *plist, char *errmsg,
+			     size_t errmsg_len)
+{
+	int result = pim_dm_range_set(pim, plist);
+
+	if (result == PIM_DM_ERR_NONE)
+		return NB_OK;
+
+	switch (result) {
+	case PIM_DM_ERR_DUP:
+		snprintf(errmsg, errmsg_len, "Duplicate config");
+		break;
+	default:
+		snprintf(errmsg, errmsg_len, "DM range config failed");
+	}
+
+	return NB_ERR;
+}
+
 
 static int pim_ssm_cmd_worker(struct pim_instance *pim, const char *plist,
 		char *errmsg, size_t errmsg_len)
@@ -884,6 +905,61 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_sp
 		break;
 	}
 
+	return NB_OK;
+}
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/dm-prefix-list
+ */
+
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_dm_prefix_list_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	const char *plist_name;
+	int result;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		plist_name = yang_dnode_get_string(args->dnode, NULL);
+		result = pim_dm_cmd_worker(pim, plist_name, args->errmsg, args->errmsg_len);
+
+		if (result)
+			return NB_ERR_INCONSISTENCY;
+
+		break;
+	}
+	return NB_OK;
+}
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_dm_prefix_list_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	int result;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		result = pim_dm_cmd_worker(pim, NULL, args->errmsg, args->errmsg_len);
+
+		if (result)
+			return NB_ERR_INCONSISTENCY;
+
+		break;
+	}
 	return NB_OK;
 }
 
