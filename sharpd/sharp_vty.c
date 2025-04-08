@@ -460,6 +460,7 @@ DEFPY (install_seg6local_routes,
 	      uDT4$seg6l_micro_enddt4 (1-4294967295)$seg6l_micro_enddt4_table|\
 	      End_DT46$seg6l_enddt46 (1-4294967295)$seg6l_enddt46_table|\
 	      uDT46$seg6l_micro_enddt46 (1-4294967295)$seg6l_micro_enddt46_table>\
+	      [usid-block-length (1-128)$lcblen] [usid-function-length (1-128)$lcfunclen] \
 	  (1-1000000)$routes [repeat (2-1000)$rpt]",
        "Sharp routing Protocol\n"
        "install some routes\n"
@@ -499,6 +500,10 @@ DEFPY (install_seg6local_routes,
        "Redirect table id to use\n"
        "SRv6 uDT46 function to use\n"
        "Redirect table id to use\n"
+       "uSID locator block length\n"
+       "Value in bits\n"
+       "uSID node Function length\n"
+       "Value in bits\n"
        "How many to create\n"
        "Should we repeat this command\n"
        "How many times to repeat this command\n")
@@ -594,6 +599,12 @@ DEFPY (install_seg6local_routes,
 	} else
 		action = ZEBRA_SEG6_LOCAL_ACTION_END;
 
+	if (CHECK_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID)) {
+		if (lcblen)
+			ctx.flv.lcblock_len = lcblen;
+		if (lcfunclen)
+			ctx.flv.lcnode_func_len = lcfunclen;
+	}
 	sg.r.nhop.type = NEXTHOP_TYPE_IFINDEX;
 	sg.r.nhop.ifindex = ifname2ifindex(seg6l_oif, vrf->vrf_id);
 	sg.r.nhop.vrf_id = vrf->vrf_id;
