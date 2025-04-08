@@ -32,7 +32,8 @@ enum pim_msg_type {
 	PIM_MSG_TYPE_ASSERT,
 	PIM_MSG_TYPE_GRAFT,
 	PIM_MSG_TYPE_GRAFT_ACK,
-	PIM_MSG_TYPE_CANDIDATE
+	PIM_MSG_TYPE_CANDIDATE,
+	PIM_MSG_TYPE_State_Refresh
 };
 
 void pim_ifstat_reset(struct interface *ifp);

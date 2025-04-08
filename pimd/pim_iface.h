@@ -62,6 +62,9 @@ enum pim_iface_mode {
 	PIM_MODE_PASSIVE
 };
 
+#define HAVE_DENSE_MODE(_mode)	(_mode == PIM_MODE_DENSE || _mode == PIM_MODE_SPARSE_DENSE)
+#define HAVE_SPARSE_MODE(_mode) (_mode == PIM_MODE_SPARSE || _mode == PIM_MODE_SPARSE_DENSE)
+
 struct gm_if;
 
 struct pim_interface {
@@ -165,6 +168,7 @@ struct pim_interface {
 	uint32_t pim_ifstat_join_recv;
 	uint32_t pim_ifstat_join_send;
 	uint32_t pim_ifstat_prune_recv;
+	uint32_t pim_ifstat_graft_recv;
 	uint32_t pim_ifstat_prune_send;
 	uint32_t pim_ifstat_reg_recv;
 	uint32_t pim_ifstat_reg_send;
