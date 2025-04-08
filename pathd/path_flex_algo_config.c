@@ -323,7 +323,7 @@ DEFPY(debug_flex_algo_show_igp_defaults,
  * syntax might be needed.
  */
 #define _X_ID "/frr-pathd:pathd/frr-pathd:srte/frr-pathd-flexalgo:flex-algo/igp-defaults/"
-DEFPY(flex_algo_igp_defaults_isis,
+DEFPY_YANG(flex_algo_igp_defaults_isis,
       flex_algo_igp_defaults_isis_cmd,
       "[no] flex-algo igp-defaults protocol isis [instance (0-65535)$inst] [vrf VRF$vrf] area-tag AREA$area",
       NO_STR
@@ -358,7 +358,7 @@ DEFPY(flex_algo_igp_defaults_isis,
 	return nb_cli_apply_changes(vty, _X_ID);
 }
 
-DEFUN(no_flex_algo_igp_defaults_isis,
+DEFUN_YANG(no_flex_algo_igp_defaults_isis,
       no_flex_algo_igp_defaults_isis_cmd,
       "no flex-algo igp-defaults",
       NO_STR

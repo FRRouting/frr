@@ -266,7 +266,7 @@ DEFPY(show_srte_policy_template,
 /*
  * XPath: /frr-pathd:pathd/frr-pathd:srte/frr-pathd-triggered-srte:policy-template
  */
-DEFPY_NOSH(
+DEFPY_YANG_NOSH(
 	srte_policy_template,
 	srte_policy_template_cmd,
 	"policy-template color (0-4294967295)$num",
@@ -288,7 +288,7 @@ DEFPY_NOSH(
 	return ret;
 }
 
-DEFPY(srte_no_policy_template,
+DEFPY_YANG(srte_no_policy_template,
       srte_no_policy_template_cmd,
       "no policy-template color (0-4294967295)$num",
       NO_STR
@@ -321,7 +321,7 @@ void cli_show_srte_policy_template_name(struct vty *vty, const struct lyd_node *
 /*
  * XPath: /frr-pathd:pathd/frr-pathd:srte/frr-pathd-triggered-srte:policy-template/name
  */
-DEFPY(srte_policy_template_name,
+DEFPY_YANG(srte_policy_template_name,
       srte_policy_template_name_cmd,
       "name WORD$name",
       "Segment Routing Policy Template name\n"
@@ -332,7 +332,7 @@ DEFPY(srte_policy_template_name,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(srte_policy_template_no_name,
+DEFPY_YANG(srte_policy_template_no_name,
       srte_policy_template_no_name_cmd,
       "no name [WORD]",
       NO_STR
@@ -347,7 +347,7 @@ DEFPY(srte_policy_template_no_name,
 /*
  * XPath: /frr-pathd:pathd/frr-pathd:srte/frr-pathd-triggered-srte:policy-template/candidate-path
  */
-DEFPY(srte_policy_template_candidate_flexalgo,
+DEFPY_YANG(srte_policy_template_candidate_flexalgo,
       srte_policy_template_candidate_flexalgo_cmd,
       "candidate-path preference (0-4294967295)$preference name WORD$name flex-algo (128-255)$algorithm",
       "Segment Routing Policy Candidate Path\n"
@@ -369,7 +369,7 @@ DEFPY(srte_policy_template_candidate_flexalgo,
 			     preference_str);
 }
 
-DEFPY(srte_policy_template_no_candidate,
+DEFPY_YANG(srte_policy_template_no_candidate,
       srte_policy_template_no_candidate_cmd,
       "no candidate-path\
 	preference (0-4294967295)$preference\
@@ -452,7 +452,7 @@ static int path_template_cli_debug_set_all(uint32_t flags, bool set)
 /*
  * XPath: /frr-pathd:pathd/frr-pathd:srte/frr-pathd-triggered-srte:policy-label-blocks/template-label-block
  */
-DEFPY(srte_policy_label_blocks_template,
+DEFPY_YANG(srte_policy_label_blocks_template,
       srte_policy_label_blocks_template_cmd,
       "[no] policy-label-blocks template (16-1048575)$lower_bound (16-1048575)$upper_bound",
       NO_STR
