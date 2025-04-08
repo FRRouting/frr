@@ -49,8 +49,8 @@ module frr-bfdd {
      (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
-  revision 2019-05-09 {
-    description "Initial revision.";
+  revision 2025-03-03 {
+    description "Add log-session-changes leaf";
     reference
       "RFC 5880: Bidirectional Forwarding Detection (BFD).
        RFC 5881: Bidirectional Forwarding Detection (BFD)
@@ -58,8 +58,8 @@ module frr-bfdd {
        RFC 5883: Bidirectional Forwarding Detection (BFD) for Multihop Paths.";
   }
 
-  revision 2025-03-03 {
-    description "Add log-sessio-changes leaf";
+  revision 2019-05-09 {
+    description "Initial revision.";
     reference
       "RFC 5880: Bidirectional Forwarding Detection (BFD).
        RFC 5881: Bidirectional Forwarding Detection (BFD)
@@ -71,21 +71,20 @@ module frr-bfdd {
    * BFD types declaration.
    */
   typedef multiplier {
-    description "Detection multiplier";
     type uint8 {
       range "1..255";
     }
+    description "Detection multiplier";
   }
 
   typedef discriminator {
-    description "BFD session identification";
     type uint32 {
       range "1..4294967295";
     }
+    description "BFD session identification";
   }
 
   typedef state {
-    description "BFD session state";
     type enumeration {
       enum admin-down {
         value 0;
@@ -104,10 +103,10 @@ module frr-bfdd {
         description "Up";
       }
     }
+    description "BFD session state";
   }
 
   typedef diagnostic {
-    description "BFD session diagnostic";
     type enumeration {
       enum ok {
         value 0;
@@ -146,6 +145,7 @@ module frr-bfdd {
         description "Reverse concatenated path down";
       }
     }
+    description "BFD session diagnostic";
   }
 
   typedef profile-name {
@@ -272,23 +272,27 @@ module frr-bfdd {
     }
 
     leaf multi-hop {
-      description
-        "Use multi hop session instead of single hop.";
       type boolean;
       default false;
+      description
+        "Use multi hop session instead of single hop.";
     }
 
     leaf profile {
+      type frr-bfdd:profile-ref;
       description
         "BFD pre configured profile.";
-      type frr-bfdd:profile-ref;
     }
   }
 
   grouping session-states {
+    description
+      "This grouping defines the states of a BFD session.";
+
     /*
      * Local settings.
      */
+
     leaf local-discriminator {
       type discriminator;
       description "Local session identifier";
@@ -336,20 +340,18 @@ module frr-bfdd {
      * Negotiated settings.
      */
     leaf negotiated-transmission-interval {
-      description "Negotiated transmit interval";
       type uint32;
       units microseconds;
+      description "Negotiated transmit interval";
     }
 
     leaf negotiated-receive-interval {
-      description "Negotiated receive interval";
       type uint32;
       units microseconds;
+      description "Negotiated receive interval";
     }
 
     leaf detection-mode {
-      description "Detection mode";
-
       type enumeration {
         enum async-with-echo {
           value "1";
@@ -368,6 +370,7 @@ module frr-bfdd {
           description "Demand without echo";
         }
       }
+      description "Detection mode";
     }
 
     /*
@@ -430,6 +433,9 @@ module frr-bfdd {
    * BFD operational.
    */
   container bfdd {
+    description
+      "This container defines BFD daemon configuration.";
+
     container bfd {
       presence "Present if the BFD protocol is enabled";
 
@@ -448,6 +454,9 @@ module frr-bfdd {
       }
 
       container sessions {
+        description
+          "This container provides information about sessions.";
+
         list single-hop {
           key "dest-addr interface vrf";
           description "List of single hop sessions";
@@ -483,6 +492,8 @@ module frr-bfdd {
           container stats {
             uses session-states;
             config false;
+            description
+              "This container provides statistics for sessions.";
           }
         }
 
@@ -516,6 +527,8 @@ module frr-bfdd {
           container stats {
             uses session-states;
             config false;
+            description
+              "This container provides statistics for sessions.";
           }
         }
 
@@ -577,6 +590,8 @@ module frr-bfdd {
           container stats {
             uses session-states;
             config false;
+            description
+              "This container provides statistics for sessions.";
           }
         }
 
@@ -644,9 +659,13 @@ module frr-bfdd {
           container stats {
             uses session-states;
             config false;
+            description
+              "This container provides statistics for sessions.";
           }
         }
       }
+      description
+        "This container defines BFD protocol configuration.";
     }
   }
 }
