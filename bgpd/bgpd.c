@@ -3568,7 +3568,8 @@ peer_init:
 		bgp->vpn_policy[afi].tovpn_zebra_vrf_label_last_sent =
 			MPLS_LABEL_NONE;
 
-		bgp->vpn_policy[afi].import_vrf = list_new();
+		if (!bgp->vpn_policy[afi].import_vrf)
+			bgp->vpn_policy[afi].import_vrf = list_new();
 		bgp->vpn_policy[afi].import_vrf->del =
 			bgp_vrf_string_name_delete;
 		if (!hidden) {
@@ -3586,7 +3587,7 @@ peer_init:
 
 	bgp_mplsvpn_nh_label_bind_cache_init(&bgp->mplsvpn_nh_label_bind);
 
-	if (name)
+	if (name && !bgp->name)
 		bgp->name = XSTRDUP(MTYPE_BGP_NAME, name);
 
 	event_add_timer(bm->master, bgp_startup_timer_expire, bgp,
@@ -4143,7 +4144,7 @@ int bgp_delete(struct bgp *bgp)
 		peer_delete(peer);
 	}
 
-	if (bgp->peer_self && !IS_BGP_INSTANCE_HIDDEN(bgp)) {
+	if (bgp->peer_self && (!IS_BGP_INSTANCE_HIDDEN(bgp) || bm->terminating)) {
 		peer_delete(bgp->peer_self);
 		bgp->peer_self = NULL;
 	}
@@ -4153,7 +4154,7 @@ int bgp_delete(struct bgp *bgp)
 /* TODO - Other memory may need to be freed - e.g., NHT */
 
 #ifdef ENABLE_BGP_VNC
-	if (!IS_BGP_INSTANCE_HIDDEN(bgp))
+	if (!IS_BGP_INSTANCE_HIDDEN(bgp) || bm->terminating)
 		rfapi_delete(bgp);
 #endif
 
@@ -4204,7 +4205,7 @@ int bgp_delete(struct bgp *bgp)
 		bgp_zebra_instance_deregister(bgp);
 	}
 
-	if (!IS_BGP_INSTANCE_HIDDEN(bgp)) {
+	if (!IS_BGP_INSTANCE_HIDDEN(bgp) || bm->terminating) {
 		/* Remove visibility via the master list -
 		 * there may however still be routes to be processed
 		 * still referencing the struct bgp.
@@ -4216,7 +4217,7 @@ int bgp_delete(struct bgp *bgp)
 
 	vrf = bgp_vrf_lookup_by_instance_type(bgp);
 	bgp_handle_socket(bgp, vrf, VRF_UNKNOWN, false);
-	if (vrf && !IS_BGP_INSTANCE_HIDDEN(bgp))
+	if (vrf && (!IS_BGP_INSTANCE_HIDDEN(bgp) || bm->terminating))
 		bgp_vrf_unlink(bgp, vrf);
 
 	/* Update EVPN VRF pointer */
@@ -4227,12 +4228,18 @@ int bgp_delete(struct bgp *bgp)
 			bgp_set_evpn(bgp_get_default());
 	}
 
+<<<<<<< HEAD
 	if (bgp->process_queue)
 		work_queue_free_and_null(&bgp->process_queue);
 
 	event_master_free_unused(bm->master);
 
 	if (!IS_BGP_INSTANCE_HIDDEN(bgp))
+=======
+	if (!IS_BGP_INSTANCE_HIDDEN(bgp) || bm->terminating) {
+		if (bgp->process_queue)
+			work_queue_free_and_null(&bgp->process_queue);
+>>>>>>> b18c30901 (bgpd: On shutdown free up memory leak found by topotest)
 		bgp_unlock(bgp); /* initial reference */
 	else {
 		for (afi = AFI_IP; afi < AFI_MAX; afi++) {
