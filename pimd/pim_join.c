@@ -30,6 +30,7 @@
 #include "pim_jp_agg.h"
 #include "pim_util.h"
 #include "pim_ssm.h"
+#include "pim_dm.h"
 
 static void on_trace(const char *label, struct interface *ifp, pim_addr src)
 {
@@ -112,6 +113,11 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 
 		sg->src = PIMADDR_ANY;
 	}
+	if (pim_is_grp_dm(pim_ifp->pim, sg->grp)) {
+		zlog_warn("%s: Specified Group(%pPA) in join is now in DM, not allowed to create PIM state",
+			  __func__, &sg->grp);
+		return;
+	}
 
 	/* Restart join expiry timer */
 	pim_ifchannel_join_add(ifp, neigh->source_addr, upstream, sg,
@@ -135,6 +141,7 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 	assert(pim_ifp);
 
 	++pim_ifp->pim_ifstat_prune_recv;
+
 
 	if (CHECK_FLAG(source_flags, PIM_WILDCARD_BIT_MASK)) {
 		/* As per RFC 7761 Section 4.9.1:

@@ -81,9 +81,15 @@
  */
 #define PIM_UPSTREAM_FLAG_MASK_MLAG_INTERFACE          (1 << 21)
 
+#define PIM_UPSTREAM_DM_FLAG_MASK_INTERFACE            (1 << 22)
+
+#define PIM_UPSTREAM_DM_FLAG_MASK_PRUNE                (1 << 23)
+
 
 #define PIM_UPSTREAM_FLAG_ALL 0xFFFFFFFF
 
+#define PIM_UPSTREAM_DM_TEST_PRUNE(flags) ((flags) & PIM_UPSTREAM_DM_FLAG_MASK_PRUNE)
+#define PIM_UPSTREAM_DM_TEST_INTERFACE(flags) ((flags) & PIM_UPSTREAM_DM_FLAG_MASK_INTERFACE)
 #define PIM_UPSTREAM_FLAG_TEST_DR_JOIN_DESIRED(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED)
 #define PIM_UPSTREAM_FLAG_TEST_DR_JOIN_DESIRED_UPDATED(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED_UPDATED)
 #define PIM_UPSTREAM_FLAG_TEST_FHR(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_FHR)
@@ -109,6 +115,8 @@
 #define PIM_UPSTREAM_FLAG_TEST_CAN_BE_LHR(flags) ((flags) & (PIM_UPSTREAM_FLAG_MASK_SRC_IGMP | PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_TERM))
 #define PIM_UPSTREAM_FLAG_TEST_MLAG_INTERFACE(flags) ((flags)&PIM_UPSTREAM_FLAG_MASK_MLAG_INTERFACE)
 
+#define PIM_UPSTREAM_DM_SET_PRUNE(flags) ((flags) |= PIM_UPSTREAM_DM_FLAG_MASK_PRUNE)
+#define PIM_UPSTREAM_DM_SET_INTERFACE(flags) ((flags) |= PIM_UPSTREAM_DM_FLAG_MASK_INTERFACE)
 #define PIM_UPSTREAM_FLAG_SET_DR_JOIN_DESIRED(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED)
 #define PIM_UPSTREAM_FLAG_SET_DR_JOIN_DESIRED_UPDATED(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED_UPDATED)
 #define PIM_UPSTREAM_FLAG_SET_FHR(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_FHR)
@@ -130,6 +138,8 @@
 #define PIM_UPSTREAM_FLAG_SET_MLAG_PEER(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_MLAG_PEER)
 #define PIM_UPSTREAM_FLAG_SET_USE_RPT(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_USE_RPT)
 #define PIM_UPSTREAM_FLAG_SET_MLAG_INTERFACE(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_MLAG_INTERFACE)
+
+#define PIM_UPSTREAM_DM_UNSET_PRUNE(flags) ((flags) &= ~PIM_UPSTREAM_DM_FLAG_MASK_PRUNE)
 
 #define PIM_UPSTREAM_FLAG_UNSET_DR_JOIN_DESIRED(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED)
 #define PIM_UPSTREAM_FLAG_UNSET_DR_JOIN_DESIRED_UPDATED(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED_UPDATED)
@@ -238,6 +248,7 @@ struct pim_upstream {
 	struct pim_up_mlag mlag;
 
 	struct event *t_join_timer;
+	struct event *t_prune_timer;
 
 	/*
 	 * RST(S,G)
@@ -383,4 +394,5 @@ void pim_upstream_reeval_use_rpt(struct pim_instance *pim);
 int pim_upstream_could_register(struct pim_upstream *up);
 bool pim_sg_is_reevaluate_oil_req(struct pim_instance *pim,
 				  struct pim_upstream *up);
+bool pim_upstream_up_connected(struct pim_upstream *up);
 #endif /* PIM_UPSTREAM_H */

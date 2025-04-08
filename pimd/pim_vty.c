@@ -26,6 +26,7 @@
 #include "pim_rp.h"
 #include "pim_msdp.h"
 #include "pim_ssm.h"
+#include "pim_dm.h"
 #include "pim_bfd.h"
 #include "pim_bsm.h"
 #include "pim_vxlan.h"
@@ -180,6 +181,7 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 {
 	int writes = 0;
 	struct pim_ssm *ssm = pim->ssm_info;
+	struct pim_dm *dm = pim->dm_info;
 
 #if PIM_IPV == 4
 	writes += pim_msdp_peer_config_write(vty, pim);
@@ -243,6 +245,10 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 	}
 	if (ssm->plist_name) {
 		vty_out(vty, " ssm prefix-list %s\n", ssm->plist_name);
+		++writes;
+	}
+	if (dm->plist_name) {
+		vty_out(vty, " dm prefix-list %s\n", dm->plist_name);
 		++writes;
 	}
 	if (pim->register_plist) {

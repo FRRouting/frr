@@ -53,6 +53,8 @@ static const char *pim_pim_msgtype2str(enum pim_msg_type type)
 		return "GACK";
 	case PIM_MSG_TYPE_CANDIDATE:
 		return "CANDIDATE";
+	case PIM_MSG_TYPE_STATE_REFRESH:
+		return "STATE_REFRESH";
 	}
 
 	return "UNKNOWN";
@@ -152,7 +154,7 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 	struct pim_interface *pim_ifp = ifp->info;
 	struct prefix src_prefix;
 	struct prefix_list *nbr_plist = NULL;
-	struct pim_neighbor *neigh;
+	struct pim_neighbor *neigh = NULL;
 	struct pim_msg_header *header;
 	bool   no_fwd;
 
@@ -340,6 +342,15 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 	case PIM_MSG_TYPE_REG_STOP:
 		return pim_register_stop_recv(ifp, pim_msg + PIM_MSG_HEADER_LEN,
 					      pim_msg_len - PIM_MSG_HEADER_LEN);
+		break;
+	case PIM_MSG_TYPE_GRAFT_ACK:
+		return 0;
+		break;
+	case PIM_MSG_TYPE_STATE_REFRESH:
+		return 0;
+		break;
+	case PIM_MSG_TYPE_GRAFT:
+		return 0;
 		break;
 	case PIM_MSG_TYPE_JOIN_PRUNE:
 		neigh = pim_neighbor_find(ifp, sg.src, false);
@@ -538,6 +549,7 @@ void pim_ifstat_reset(struct interface *ifp)
 	pim_ifp->pim_ifstat_join_recv = 0;
 	pim_ifp->pim_ifstat_join_send = 0;
 	pim_ifp->pim_ifstat_prune_recv = 0;
+	pim_ifp->pim_ifstat_graft_recv = 0;
 	pim_ifp->pim_ifstat_prune_send = 0;
 	pim_ifp->pim_ifstat_reg_recv = 0;
 	pim_ifp->pim_ifstat_reg_send = 0;
@@ -732,12 +744,13 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 	case PIM_MSG_TYPE_JOIN_PRUNE:
 	case PIM_MSG_TYPE_BOOTSTRAP:
 	case PIM_MSG_TYPE_ASSERT:
+	case PIM_MSG_TYPE_GRAFT:
+	case PIM_MSG_TYPE_STATE_REFRESH:
+	case PIM_MSG_TYPE_GRAFT_ACK:
 		ttl = 1;
 		break;
 	case PIM_MSG_TYPE_REGISTER:
 	case PIM_MSG_TYPE_REG_STOP:
-	case PIM_MSG_TYPE_GRAFT:
-	case PIM_MSG_TYPE_GRAFT_ACK:
 	case PIM_MSG_TYPE_CANDIDATE:
 		ttl = IPDEFTTL;
 		break;

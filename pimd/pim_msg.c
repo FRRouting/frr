@@ -25,6 +25,7 @@
 #include "pim_register.h"
 #include "pim_jp_agg.h"
 #include "pim_oil.h"
+#include "pim_dm.h"
 
 void pim_msg_build_header(pim_addr src, pim_addr dst, uint8_t *pim_msg,
 			  size_t pim_msg_size, uint8_t pim_msg_type,
@@ -289,6 +290,9 @@ size_t pim_msg_build_jp_groups(struct pim_jp_groups *grp,
 			/* Only Send SGRpt in case of *,G Join */
 			if (source->is_join)
 				up = source->up;
+		} else if (pim_is_grp_dm(source->up->pim, source->up->sg.grp)) {
+			bits = 0; /* all bits should be set to 0 for DM (RFC3973 4.7.4) */
+			stosend = source->up->sg.src;
 		} else {
 			bits = PIM_ENCODE_SPARSE_BIT;
 			stosend = source->up->sg.src;

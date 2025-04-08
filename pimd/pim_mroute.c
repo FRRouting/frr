@@ -32,15 +32,16 @@
 #include "pim_ifchannel.h"
 #include "pim_zlookup.h"
 #include "pim_ssm.h"
+#include "pim_dm.h"
 #include "pim_sock.h"
 #include "pim_vxlan.h"
 #include "pim_msg.h"
+#include "pim_pim.h"
+#include "pim_join.h"
 #include "pim_util.h"
 #include "pim_nht.h"
 
 static void mroute_read_on(struct pim_instance *pim);
-static int pim_upstream_mroute_update(struct channel_oil *c_oil,
-				      const char *name);
 
 int pim_mroute_set(struct pim_instance *pim, int enable)
 {
@@ -151,18 +152,22 @@ int pim_mroute_set(struct pim_instance *pim, int enable)
 static const char *const gmmsgtype2str[GMMSG_WRVIFWHOLE + 1] = {
 	"<unknown_upcall?>", "NOCACHE", "WRONGVIF", "WHOLEPKT", "WRVIFWHOLE"};
 
-
 int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 {
 	struct pim_interface *pim_ifp = ifp->info;
 	struct pim_upstream *up;
 	pim_sgaddr sg;
 	bool desync = false;
+	bool pim_dm_enable = false;
+
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct interface *ifp2 = NULL;
+	struct pim_interface *pim_ifp2;
+	bool update_oil = false;
 
 	memset(&sg, 0, sizeof(sg));
 	sg.src = msg->msg_im_src;
 	sg.grp = msg->msg_im_dst;
-
 
 	if (!pim_ifp || !pim_ifp->pim_enable) {
 		if (PIM_DEBUG_MROUTE)
@@ -175,7 +180,13 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 		return 0;
 	}
 
-	if (!pim_is_grp_ssm(pim_ifp->pim, sg.grp)) {
+	/* Check if the packet belongs to DM group
+	 */
+	if (HAVE_DENSE_MODE(pim_ifp->pim_mode) && pim_is_grp_dm(pim_ifp->pim, sg.grp))
+		pim_dm_enable = true;
+
+
+	if (!pim_is_grp_ssm(pim_ifp->pim, sg.grp) && !pim_dm_enable) {
 		/* for ASM, check that we have enough information (i.e. path
 		 * to RP) to make a decision on what to do with this packet.
 		 *
@@ -212,7 +223,7 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 	 * If we've received a multicast packet that isn't connected to
 	 * us
 	 */
-	if (!pim_if_connected_to_source(ifp, msg->msg_im_src)) {
+	if (!pim_dm_enable && !pim_if_connected_to_source(ifp, msg->msg_im_src)) {
 		if (PIM_DEBUG_MROUTE)
 			zlog_debug(
 				"%s: incoming packet to %pSG from non-connected source",
@@ -220,7 +231,7 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 		return 0;
 	}
 
-	if (!(PIM_I_am_DR(pim_ifp))) {
+	if (!pim_dm_enable && !(PIM_I_am_DR(pim_ifp))) {
 		/* unlike the other debug messages, this one is further in the
 		 * "normal operation" category and thus under _DETAIL
 		 */
@@ -274,16 +285,53 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
 	}
 
-	if (!pim_is_group_filtered(pim_ifp, &sg.grp, &sg.src))
-		pim_register_join(up);
-	/* if we have receiver, inherit from parent */
+	if (!pim_dm_enable)
+		if (!pim_is_group_filtered(pim_ifp, &sg.grp, &sg.src))
+			pim_register_join(up);
+	/*
+	 * if we have receiver, inherit from parent.
+	 * install routes as needed for all cases (sm/dm)
+	 */
 	pim_upstream_inherited_olist_decide(pim_ifp->pim, up);
 
 	/* we just got NOCACHE from the kernel, so...  MFC is not in the
 	 * kernel for some reason or another.  Try installing again.
 	 */
-	if (desync)
+
+	if (!desync)
+		return 0;
+
+	/*
+	 * If we are in desync state:
+	 * if not in dm mode, update the route
+	 * if in dm mode, then do flooding
+	 */
+	if (!pim_dm_enable)
 		pim_upstream_mroute_update(up->channel_oil, __func__);
+	else {
+		FOR_ALL_INTERFACES (vrf, ifp2) {
+			pim_ifp2 = ifp2->info;
+
+			if (!pim_ifp2 || !pim_ifp2->pim_enable)
+				continue;
+
+			if (HAVE_DENSE_MODE(pim_ifp2->pim_mode) && ifp2->ifindex != ifp->ifindex &&
+			    pim_ifp2->pim_neighbor_list->count) {
+				oil_if_set(up->channel_oil, pim_ifp2->mroute_vif_index, 1);
+				update_oil = true;
+			}
+		}
+
+		if (update_oil) {
+			PIM_UPSTREAM_DM_SET_INTERFACE(up->flags);
+			PIM_UPSTREAM_FLAG_UNSET_DR_JOIN_DESIRED(up->flags);
+			PIM_UPSTREAM_FLAG_UNSET_USE_RPT(up->flags);
+			PIM_UPSTREAM_FLAG_UNSET_FHR(up->flags);
+
+			pim_upstream_mroute_update(up->channel_oil, __func__);
+		}
+	}
+
 	return 0;
 }
 
@@ -497,12 +545,30 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
 	struct pim_upstream *up;
 	pim_sgaddr star_g;
 	pim_sgaddr sg;
+	bool isdense = false;
 
 	pim_ifp = ifp->info;
+	pim = pim_ifp->pim;
 
 	memset(&sg, 0, sizeof(sg));
 	sg.src = IPV_SRC(ip_hdr);
 	sg.grp = IPV_DST(ip_hdr);
+
+	isdense = pim_is_grp_dm(pim, sg.grp);
+
+	/*
+	 * I believe the wrvifwhole message should also trigger PIM assert messaging
+	 * but I don't see any of that here, only in wrongvif.
+	 * If we need to add assert handling here, then dense mode will still need that.
+	 * Otherwise, right now it looks like this function only
+	 * handles register and register stops, so skip it if the group is in dense mode.
+	 */
+	if (isdense) {
+		if (PIM_DEBUG_MROUTE)
+			zlog_debug("WRVIFWHOLE (S,G)=%pSG dense mode group, skipping register handling",
+				   &sg);
+		return 0;
+	}
 
 	ch = pim_ifchannel_find(ifp, &sg);
 	if (ch) {
@@ -516,7 +582,6 @@ int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp, const char *buf,
 	star_g = sg;
 	star_g.src = PIMADDR_ANY;
 
-	pim = pim_ifp->pim;
 	/*
 	 * If the incoming interface is the pimreg, then
 	 * we know the callback is associated with a pim register
@@ -1165,8 +1230,7 @@ static int pim_upstream_get_mroute_iif(struct channel_oil *c_oil,
 	return iif;
 }
 
-static int pim_upstream_mroute_update(struct channel_oil *c_oil,
-		const char *name)
+int pim_upstream_mroute_update(struct channel_oil *c_oil, const char *name)
 {
 	char buf[1000];
 

@@ -29,6 +29,7 @@
 #include "pim6_mld.h"
 #include "pim_autorp.h"
 #include "pim_igmp.h"
+#include "pim_dm.h"
 
 #if PIM_IPV == 6
 #define pim6_msdp_err(funcname, argtype)                                       \
@@ -2097,6 +2098,7 @@ int lib_interface_pim_address_family_pim_mode_modify(struct nb_cb_modify_args *a
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
+	enum pim_iface_mode mode;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -2106,7 +2108,9 @@ int lib_interface_pim_address_family_pim_mode_modify(struct nb_cb_modify_args *a
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		pim_ifp = ifp->info;
-		pim_ifp->pim_mode = yang_dnode_get_enum(args->dnode, NULL);
+		mode = yang_dnode_get_enum(args->dnode, NULL);
+		pim_dm_change_iif_mode(ifp, mode);
+		pim_ifp->pim_mode = mode;
 		break;
 	}
 

@@ -310,6 +310,13 @@ module frr-pim {
           "Prefix-list used to define Source-Specific Multicast address range.";
     }
 
+    leaf dm-prefix-list {
+        type plist-ref;
+        description
+          "Prefix-list used to define Dennse Mode Multicast address range.";
+    }
+
+
     leaf-list ssm-pingd-source-ip {
       type inet:ip-address;
       description
