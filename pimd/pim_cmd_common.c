@@ -31,11 +31,11 @@
 #include "pim_mroute.h"
 #include "pim_cmd.h"
 #include "pim6_cmd.h"
+#include "pim_iface.h"
 #include "pim_cmd_common.h"
 #include "pim_time.h"
 #include "pim_zebra.h"
 #include "pim_zlookup.h"
-#include "pim_iface.h"
 #include "pim_macro.h"
 #include "pim_neighbor.h"
 #include "pim_nht.h"
@@ -273,7 +273,7 @@ int pim_process_no_register_suppress_cmd(struct vty *vty)
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-int pim_process_ip_pim_cmd(struct vty *vty)
+static int pim_process_ip_pim_cmd(struct vty *vty)
 {
 	nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY, "true");
 
@@ -283,15 +283,48 @@ int pim_process_ip_pim_cmd(struct vty *vty)
 
 int pim_process_ip_pim_passive_cmd(struct vty *vty, bool enable)
 {
-	if (enable)
+	int ret;
+
+	if (enable) {
+		ret = pim_process_ip_pim_cmd(vty);
+
+		if (ret != NB_OK)
+			return ret;
+
 		nb_cli_enqueue_change(vty, "./pim-passive-enable", NB_OP_MODIFY,
 				      "true");
-	else
+	} else
 		nb_cli_enqueue_change(vty, "./pim-passive-enable", NB_OP_MODIFY,
 				      "false");
 
 	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
 				    FRR_PIM_AF_XPATH_VAL);
+}
+
+int pim_process_ip_pim_mode_cmd(struct vty *vty, bool dm, bool smdm, bool ssm)
+{
+	int ret;
+	enum pim_iface_mode mode;
+
+	ret = pim_process_ip_pim_cmd(vty);
+
+	if (ret != NB_OK)
+		return ret;
+
+	if (dm)
+		mode = PIM_MODE_DENSE;
+	else if (smdm)
+		mode = PIM_MODE_SPARSE_DENSE;
+	else if (ssm) {
+		mode = PIM_MODE_SSM;
+		vty_out(vty,
+			"WARN: Enabled PIM SM on interface; configure PIM SSM range if needed\n");
+	} else
+		mode = PIM_MODE_SPARSE;
+
+	nb_cli_enqueue_change(vty, "./pim-mode", NB_OP_MODIFY, pim_mod_str(mode));
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
 }
 
 int pim_process_no_ip_pim_cmd(struct vty *vty)
@@ -2633,9 +2666,7 @@ void pim_show_interfaces_single(struct pim_instance *pim, struct vty *vty,
 			}
 
 			if (pim_ifp->pim_passive_enable)
-				vty_out(vty, "Passive    : %s\n",
-					(pim_ifp->pim_passive_enable) ? "yes"
-								      : "no");
+				vty_out(vty, "Passive    : yes\n");
 
 			vty_out(vty, "\n");
 

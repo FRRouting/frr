@@ -465,7 +465,12 @@ int pim_config_write(struct vty *vty, int writes, struct interface *ifp,
 	struct pim_interface *pim_ifp = ifp->info;
 
 	if (pim_ifp->pim_enable) {
-		vty_out(vty, " " PIM_AF_NAME " pim\n");
+		if (pim_ifp->pim_mode == PIM_MODE_DENSE)
+			vty_out(vty, " " PIM_AF_NAME " pim dm\n");
+		else if (pim_ifp->pim_mode == PIM_MODE_SPARSE_DENSE)
+			vty_out(vty, " " PIM_AF_NAME " pim sm-dm\n");
+		else
+			vty_out(vty, " " PIM_AF_NAME " pim\n");
 		++writes;
 	}
 

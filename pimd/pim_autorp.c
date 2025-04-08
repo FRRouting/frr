@@ -117,8 +117,8 @@ static bool autorp_is_pim_interface(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp = ifp->info;
 
-	return CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE) && pim_ifp && pim_ifp->pim_enable &&
-	       !pim_ifp->pim_passive_enable;
+	return (CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE) && pim_ifp && pim_ifp->pim_enable &&
+		(!pim_ifp->pim_passive_enable));
 }
 
 static bool pim_autorp_should_enable_socket(struct pim_autorp *autorp)
