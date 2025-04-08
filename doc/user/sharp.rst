@@ -198,14 +198,18 @@ keyword. At present, no sharp commands will be preserved in the config.
    router# sharp install seg6local-routes 1::4 nexthop-seg6local dum0 End_DX4 10.0.0.1 1
    router# sharp install seg6local-routes 1::5 nexthop-seg6local dum0 End_DT6 10 1
    router# sharp install seg6local-routes 1::6 nexthop-seg6local dum0 End_DT46 10 1
+   router# sharp install seg6local-routes 1::7 nexthop-seg6local dum0 uN 1
+   router# sharp install seg6local-routes 1::8 nexthop-seg6local dum0 uA 2001::1 1
 
    router# show ipv6 route
-   D>* 1::1/128 [150/0] is directly connected, dum0, seg6local End USP, weight 1, 00:00:05
+   D>* 1::1/128 [150/0] is directly connected, dum0, seg6local End -, weight 1, 00:00:05
    D>* 1::2/128 [150/0] is directly connected, dum0, seg6local End.X nh6 2001::1, weight 1, 00:00:05
    D>* 1::3/128 [150/0] is directly connected, dum0, seg6local End.T table 10, weight 1, 00:00:05
    D>* 1::4/128 [150/0] is directly connected, dum0, seg6local End.DX4 nh4 10.0.0.1, weight 1, 00:00:05
    D>* 1::5/128 [150/0] is directly connected, dum0, seg6local End.DT6 table 10, weight 1, 00:00:05
    D>* 1::6/128 [150/0] is directly connected, dum0, seg6local End.DT46 table 10, weight 1, 00:00:05
+   D>* 1::7/128 [150/0] is directly connected, dum0, seg6local End -, weight 1, 00:00:05
+   D>* 1::8/128 [150/0] is directly connected, dum0, seg6local End.X nh6 2001::1, weight 1, 00:01:17
 
    bash# ip -6 route
    1::1  encap seg6local action End dev dum0 proto 194 metric 20 pref medium
@@ -214,6 +218,9 @@ keyword. At present, no sharp commands will be preserved in the config.
    1::4  encap seg6local action End.DX4 nh4 10.0.0.1 dev dum0 proto 194 metric 20 pref medium
    1::5  encap seg6local action End.DT6 table 10 dev dum0 proto 194 metric 20 pref medium
    1::6  encap seg6local action End.DT46 table 10 dev dum0 proto 194 metric 20 pref medium
+   1::7  encap seg6local action End flavors next-csid lblen 32 nflen 16 dev dum0 proto 194 metric 20 pref medium
+   1::8  encap seg6local action End.X nh6 2001::1 flavors next-csid lblen 32 nflen 16 dev dum0 proto 194 metric 20 pref medium
+
 
 .. clicmd:: show sharp segment-routing srv6
 

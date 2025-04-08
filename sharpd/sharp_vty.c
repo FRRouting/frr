@@ -445,13 +445,21 @@ DEFPY (install_seg6local_routes,
 	  X:X::X:X$start6\
 	  nexthop-seg6local NAME$seg6l_oif\
 	     <End$seg6l_end|\
+	      uN$seg6l_micro_end|\
 	      End_X$seg6l_endx X:X::X:X$seg6l_endx_nh6|\
+	      uA$seg6l_micro_endx X:X::X:X$seg6l_micro_endx_nh6|\
 	      End_T$seg6l_endt (1-4294967295)$seg6l_endt_table|\
+	      uDT$seg6l_micro_endt (1-4294967295)$seg6l_micro_endt_table|\
 	      End_DX4$seg6l_enddx4 A.B.C.D$seg6l_enddx4_nh4|\
+	      uDX4$seg6l_micro_enddx4 A.B.C.D$seg6l_micro_enddx4_nh4|\
 	      End_DX6$seg6l_enddx6 X:X::X:X$seg6l_enddx6_nh6|\
+	      uDX6$seg6l_micro_enddx6 X:X::X:X$seg6l_micro_enddx6_nh6|\
 	      End_DT6$seg6l_enddt6 (1-4294967295)$seg6l_enddt6_table|\
+	      uDT6$seg6l_micro_enddt6 (1-4294967295)$seg6l_micro_enddt6_table|\
 	      End_DT4$seg6l_enddt4 (1-4294967295)$seg6l_enddt4_table|\
-	      End_DT46$seg6l_enddt46 (1-4294967295)$seg6l_enddt46_table>\
+	      uDT4$seg6l_micro_enddt4 (1-4294967295)$seg6l_micro_enddt4_table|\
+	      End_DT46$seg6l_enddt46 (1-4294967295)$seg6l_enddt46_table|\
+	      uDT46$seg6l_micro_enddt46 (1-4294967295)$seg6l_micro_enddt46_table>\
 	  (1-1000000)$routes [repeat (2-1000)$rpt]",
        "Sharp routing Protocol\n"
        "install some routes\n"
@@ -462,19 +470,34 @@ DEFPY (install_seg6local_routes,
        "Nexthop-seg6local to use\n"
        "Output device to use\n"
        "SRv6 End function to use\n"
+       "SRv6 uN function to use\n"
        "SRv6 End.X function to use\n"
+       "V6 Nexthop address to use\n"
+       "SRv6 uA function to use\n"
        "V6 Nexthop address to use\n"
        "SRv6 End.T function to use\n"
        "Redirect table id to use\n"
+       "SRv6 uDT function to use\n"
+       "Redirect table id to use\n"
        "SRv6 End.DX4 function to use\n"
+       "V4 Nexthop address to use\n"
+       "SRv6 uDX4 function to use\n"
        "V4 Nexthop address to use\n"
        "SRv6 End.DX6 function to use\n"
        "V6 Nexthop address to use\n"
+       "SRv6 uDX6 function to use\n"
+       "V6 Nexthop address to use\n"
        "SRv6 End.DT6 function to use\n"
+       "Redirect table id to use\n"
+       "SRv6 uDT6 function to use\n"
        "Redirect table id to use\n"
        "SRv6 End.DT4 function to use\n"
        "Redirect table id to use\n"
+       "SRv6 uDT4 function to use\n"
+       "Redirect table id to use\n"
        "SRv6 End.DT46 function to use\n"
+       "Redirect table id to use\n"
+       "SRv6 uDT46 function to use\n"
        "Redirect table id to use\n"
        "How many to create\n"
        "Should we repeat this command\n"
@@ -519,27 +542,57 @@ DEFPY (install_seg6local_routes,
 	if (seg6l_enddx4) {
 		action = ZEBRA_SEG6_LOCAL_ACTION_END_DX4;
 		ctx.nh4 = seg6l_enddx4_nh4;
+	} else if (seg6l_micro_enddx4) {
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_DX4;
+		ctx.nh4 = seg6l_micro_enddx4_nh4;
+		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 	} else if (seg6l_enddx6) {
 		action = ZEBRA_SEG6_LOCAL_ACTION_END_DX6;
 		ctx.nh6 = seg6l_enddx6_nh6;
+	} else if (seg6l_micro_enddx6) {
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_DX6;
+		ctx.nh6 = seg6l_enddx6_nh6;
+		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 	} else if (seg6l_endx) {
 		action = ZEBRA_SEG6_LOCAL_ACTION_END_X;
 		ctx.nh6 = seg6l_endx_nh6;
+	} else if (seg6l_micro_endx) {
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_X;
+		ctx.nh6 = seg6l_micro_endx_nh6;
+		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 	} else if (seg6l_endt) {
 		action = ZEBRA_SEG6_LOCAL_ACTION_END_T;
 		ctx.table = seg6l_endt_table;
+	} else if (seg6l_micro_endt) {
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_T;
+		ctx.table = seg6l_micro_endt_table;
+		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 	} else if (seg6l_enddt6) {
 		action = ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
 		ctx.table = seg6l_enddt6_table;
+	} else if (seg6l_micro_enddt6) {
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+		ctx.table = seg6l_micro_enddt6_table;
+		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 	} else if (seg6l_enddt4) {
 		action = ZEBRA_SEG6_LOCAL_ACTION_END_DT4;
 		ctx.table = seg6l_enddt4_table;
+	} else if (seg6l_micro_enddt4) {
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_DT4;
+		ctx.table = seg6l_micro_enddt4_table;
+		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 	} else if (seg6l_enddt46) {
 		action = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
 		ctx.table = seg6l_enddt46_table;
-	} else {
+	} else if (seg6l_micro_enddt46) {
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
+		ctx.table = seg6l_micro_enddt46_table;
+		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
+	} else if (seg6l_micro_end) {
 		action = ZEBRA_SEG6_LOCAL_ACTION_END;
-	}
+		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
+	} else
+		action = ZEBRA_SEG6_LOCAL_ACTION_END;
 
 	sg.r.nhop.type = NEXTHOP_TYPE_IFINDEX;
 	sg.r.nhop.ifindex = ifname2ifindex(seg6l_oif, vrf->vrf_id);
