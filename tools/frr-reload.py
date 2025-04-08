@@ -1698,6 +1698,7 @@ def ignore_unconfigurable_lines(lines_to_add, lines_to_del):
     those commands from lines_to_del.
     """
     lines_to_del_to_del = []
+    lines_to_del_to_add = []
 
     for ctx_keys, line in lines_to_del:
         # The integrated-vtysh-config one is technically "no"able but if we did
@@ -1719,9 +1720,30 @@ def ignore_unconfigurable_lines(lines_to_add, lines_to_del):
         ):
             log.info(f'"{ctx_keys[-1]}" cannot be removed')
             lines_to_del_to_del.append((ctx_keys, line))
+        # Handle segment-routing srv6 locators and formats commands
+        #  - Ignore "no formats" and "no locators" command
+        #  - replace "no prefix" under locator XYZ as "no locator XYZ"
+        elif (
+            len(ctx_keys) > 2
+            and ctx_keys[0].startswith("segment-routing")
+            and ctx_keys[1].startswith("srv6")
+            and ctx_keys[2] in {"locators", "formats"}
+        ):
+            is_top_level = len(ctx_keys) == 3 and not line
+            if ctx_keys[2] == "formats" and is_top_level:
+                lines_to_del_to_del.append((ctx_keys, line))
+            elif ctx_keys[2] == "locators":
+                if is_top_level:
+                    lines_to_del_to_del.append((ctx_keys, line))
+                elif len(ctx_keys) == 4 and line and line.startswith("prefix "):
+                    lines_to_del_to_del.append((ctx_keys, line))
+                    lines_to_del_to_add.append((ctx_keys[:-1] + (ctx_keys[-1],), None))
 
     for ctx_keys, line in lines_to_del_to_del:
         lines_to_del.remove((ctx_keys, line))
+
+    for ctx_keys, line in lines_to_del_to_add:
+        lines_to_del.append((ctx_keys, line))
 
     return (lines_to_add, lines_to_del)
 
