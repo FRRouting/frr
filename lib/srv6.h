@@ -169,6 +169,13 @@ struct srv6_locator_chunk {
 	uint8_t flags;
 };
 
+struct srv6_sid {
+	struct in6_addr value;
+	struct srv6_locator *locator;
+	enum seg6local_action_t behavior;
+	vrf_id_t vrf_id;
+};
+
 /*
  * SRv6 Endpoint Behavior codepoints, as defined by IANA in
  * https://www.iana.org/assignments/segment-routing/segment-routing.xhtml

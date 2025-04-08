@@ -1051,6 +1051,37 @@ void zsend_srv6_sid_notify(struct zserv *client, const struct srv6_sid_ctx *ctx,
 	zserv_send_message(client, s);
 }
 
+/**
+ * Send a signal to each deamon and implement the notification
+ * in function zsend_srv6_static_sid_update()
+ */
+void zsend_srv6_static_sid_update_internal(struct zserv *client)
+{
+	struct stream *s;
+	uint16_t cmd = ZEBRA_SRV6_STATIC_SID_UPDATE;
+
+	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	zclient_create_header(s, cmd, VRF_DEFAULT);
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	zserv_send_message(client, s);
+}
+
+/**
+ * Send a signal to all daemons that static sids in zebra are updated.
+ * If a daemon is using static sids,
+ * it would know it's time to get the updated ones.
+ */
+void zsend_srv6_static_sid_update(void)
+{
+	struct zserv *client;
+
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
+		zsend_srv6_static_sid_update_internal(client);
+	}
+}
+
 
 /* Router-id is updated. Send ZEBRA_ROUTER_ID_UPDATE to client. */
 int zsend_router_id_update(struct zserv *client, afi_t afi, struct prefix *p,
@@ -2768,6 +2799,63 @@ int zsend_client_close_notify(struct zserv *client, struct zserv *closed_client)
 	return zserv_send_message(client, s);
 }
 
+static void zebra_static_sid_del(void *data)
+{
+	struct srv6_sid *static_sid = data;
+
+	if (!static_sid)
+		return;
+
+	if (static_sid->locator) {
+		srv6_locator_free(static_sid->locator);
+		static_sid->locator = NULL;
+	}
+	free(static_sid);
+}
+
+/**
+ * Send SRv6 locator and static SIDs list requested from client back.
+ *
+ * @param loc SRv6 locator returned by this function
+ * @param static_sids_list Static SIDs list returned by this function
+ * @param client The client that sent the Get SRv6 Locator and static SIDs request
+ * @param vrf_id Request info from client
+ *
+ * @return 0 on success
+ */
+int zsend_srv6_manager_get_locator_static_sids_response(struct srv6_locator *loc,
+							struct list *static_sids_list,
+							struct zserv *client, vrf_id_t vrf_id)
+{
+	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+	struct srv6_locator locator = {};
+	struct srv6_sid_format *format = loc->sid_format;
+
+	/**
+	 * Copy the locator and fill locator block/node/fun/arg length from the format
+	 * before sending the locator to the zclient
+	 */
+	srv6_locator_copy(&locator, loc);
+	if (format) {
+		locator.block_bits_length = format->block_len;
+		locator.node_bits_length = format->node_len;
+		locator.function_bits_length = format->function_len;
+		locator.argument_bits_length = format->argument_len;
+		if (format->type == SRV6_SID_FORMAT_TYPE_USID)
+			SET_FLAG(locator.flags, SRV6_LOCATOR_USID);
+	}
+
+	zclient_create_header(s, ZEBRA_SRV6_MANAGER_GET_LOCATOR_STATIC_SIDS, vrf_id);
+	zapi_srv6_locator_static_sids_encode(s, &locator, static_sids_list);
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	/* Free the static_sids_list */
+	list_delete(&static_sids_list);
+
+	return zserv_send_message(client, s);
+}
+
+
 int zsend_srv6_manager_get_locator_chunk_response(struct zserv *client,
 						  vrf_id_t vrf_id,
 						  struct srv6_locator *loc)
@@ -3040,6 +3128,62 @@ static void zread_srv6_manager_release_locator_chunk(struct zserv *client,
 stream_failure:
 	return;
 }
+/**
+ * Get the locator and list of static sids from zebra
+ * and store them in lib data structure as such we can
+ * use them to encode a stream msg in lib
+ *
+ * @param client The client zapi session
+ * @param msg The request message
+ */
+static void zread_srv6_manager_get_locator_static_sids(struct zserv *client, struct stream *msg,
+						       vrf_id_t vrf_id)
+{
+	struct stream *s = msg;
+	uint16_t len;
+	char locator_name[SRV6_LOCNAME_SIZE] = { 0 };
+	struct srv6_locator *locator = NULL;
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	struct listnode *node = NULL;
+	struct zebra_srv6_sid_ctx *zctx = NULL;
+	struct srv6_sid *static_sid = NULL;
+	struct list *static_sids_list = list_new();
+	static_sids_list->del = zebra_static_sid_del;
+
+	/* Get data */
+	STREAM_GETW(s, len);
+	STREAM_GET(locator_name, s, len);
+
+	/* Go through the existing sids and pick out the static ones as static_sids_list */
+	for (ALL_LIST_ELEMENTS_RO(srv6->sids, node, zctx)) {
+		if (zctx->sid->alloc_mode == SRV6_SID_ALLOC_MODE_EXPLICIT) {
+			/* Allocate a static_sid for the following use */
+			static_sid = malloc(sizeof(struct srv6_sid));
+			if (static_sid == NULL) {
+				zlog_err("%s: static_sid allocation fail", __func__);
+				return;
+			}
+
+			/* Store the related info in srv6_sid */
+			static_sid->value = zctx->sid->value;
+			//static_sid->locator = zctx->sid->locator;
+			static_sid->locator = srv6_locator_alloc(zctx->sid->locator->name);
+			srv6_locator_copy(static_sid->locator, zctx->sid->locator);
+
+			static_sid->behavior = zctx->ctx.behavior;
+			static_sid->vrf_id = zctx->ctx.vrf_id;
+
+			listnode_add(static_sids_list, static_sid);
+		}
+	}
+
+	/* Call hook to get the locator and static sids info using wrapper */
+	srv6_manager_get_locator_static_sids_call(&locator, static_sids_list, client, locator_name,
+						  vrf_id);
+
+stream_failure:
+	return;
+}
 
 /**
  * Handle SRv6 SID request received from a client daemon protocol.
@@ -3141,6 +3285,9 @@ static void zread_srv6_manager_request(ZAPI_HANDLER_ARGS)
 	case ZEBRA_SRV6_MANAGER_RELEASE_LOCATOR_CHUNK:
 		zread_srv6_manager_release_locator_chunk(client, msg,
 							 zvrf_id(zvrf));
+		break;
+	case ZEBRA_SRV6_MANAGER_GET_LOCATOR_STATIC_SIDS:
+		zread_srv6_manager_get_locator_static_sids(client, msg, zvrf_id(zvrf));
 		break;
 	case ZEBRA_SRV6_MANAGER_GET_SRV6_SID:
 		zread_srv6_manager_get_srv6_sid(client, msg);
@@ -4097,6 +4244,7 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_MLAG_FORWARD_MSG] = zebra_mlag_forward_client_msg,
 	[ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK] = zread_srv6_manager_request,
 	[ZEBRA_SRV6_MANAGER_RELEASE_LOCATOR_CHUNK] = zread_srv6_manager_request,
+	[ZEBRA_SRV6_MANAGER_GET_LOCATOR_STATIC_SIDS] = zread_srv6_manager_request,
 	[ZEBRA_SRV6_MANAGER_GET_SRV6_SID] = zread_srv6_manager_request,
 	[ZEBRA_SRV6_MANAGER_RELEASE_SRV6_SID] = zread_srv6_manager_request,
 	[ZEBRA_SRV6_MANAGER_GET_LOCATOR] = zread_srv6_manager_request,
