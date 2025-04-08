@@ -452,6 +452,7 @@ DEFPY (install_seg6local_routes,
 	      End_DT6$seg6l_enddt6 (1-4294967295)$seg6l_enddt6_table|\
 	      End_DT4$seg6l_enddt4 (1-4294967295)$seg6l_enddt4_table|\
 	      End_DT46$seg6l_enddt46 (1-4294967295)$seg6l_enddt46_table>\
+	      [usid$usid] \
 	  (1-1000000)$routes [repeat (2-1000)$rpt]",
        "Sharp routing Protocol\n"
        "install some routes\n"
@@ -476,6 +477,7 @@ DEFPY (install_seg6local_routes,
        "Redirect table id to use\n"
        "SRv6 End.DT46 function to use\n"
        "Redirect table id to use\n"
+       "Use microSID instruction\n"
        "How many to create\n"
        "Should we repeat this command\n"
        "How many times to repeat this command\n")
@@ -516,6 +518,8 @@ DEFPY (install_seg6local_routes,
 		return CMD_WARNING;
 	}
 
+	if (usid)
+		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 	if (seg6l_enddx4) {
 		action = ZEBRA_SEG6_LOCAL_ACTION_END_DX4;
 		ctx.nh4 = seg6l_enddx4_nh4;
