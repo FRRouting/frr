@@ -176,9 +176,28 @@ static void if_down_nhg_dependents(const struct interface *ifp)
 {
 	struct nhg_connected *rb_node_dep = NULL;
 	struct zebra_if *zif = (struct zebra_if *)ifp->info;
+	struct route_entry *re = NULL;
 
-	frr_each(nhg_connected_tree, &zif->nhg_dependents, rb_node_dep)
+	frr_each (nhg_connected_tree, &zif->nhg_dependents, rb_node_dep) {
 		zebra_nhg_check_valid(rb_node_dep->nhe);
+
+		if (!CHECK_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_INSTALLED)) {
+			if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_NHG_DETAIL)
+				zlog_debug("%s Intf Event: intf %s (idx %d) is down. Unsetting all dependent re's INSTALLED flag for NHE %p (%pNG) flags (0x%x)",
+					   __func__, ifp->name, ifp->ifindex, rb_node_dep->nhe,
+					   rb_node_dep->nhe, rb_node_dep->nhe->flags);
+
+			frr_each (nhe_re_tree, &rb_node_dep->nhe->re_head, re)
+				UNSET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
+
+			struct nhg_connected *rb_node_nhg_dep = NULL;
+			frr_each (nhg_connected_tree, &rb_node_dep->nhe->nhg_dependents,
+				  rb_node_nhg_dep) {
+				frr_each (nhe_re_tree, &rb_node_nhg_dep->nhe->re_head, re)
+					UNSET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
+			}
+		}
+	}
 }
 
 static void if_nhg_dependents_release(const struct interface *ifp)
