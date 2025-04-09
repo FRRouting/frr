@@ -11,29 +11,29 @@ Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
 #include "source.h"
 
 enum babel_diversity {
-    DIVERSITY_NONE,
-    DIVERSITY_INTERFACE_1,
-    DIVERSITY_CHANNEL_1,
-    DIVERSITY_CHANNEL,
+	DIVERSITY_NONE,
+	DIVERSITY_INTERFACE_1,
+	DIVERSITY_CHANNEL_1,
+	DIVERSITY_CHANNEL,
 };
 
 #define DIVERSITY_HOPS 8
 
 struct babel_route {
-    struct source *src;
-    unsigned short refmetric;
-    unsigned short cost;
-    unsigned short add_metric;
-    unsigned short seqno;
-    struct neighbour *neigh;
-    unsigned char nexthop[16];
-    time_t time;
-    unsigned short hold_time;    /* in seconds */
-    unsigned short smoothed_metric; /* for route selection */
-    time_t smoothed_metric_time;
-    short installed;
-    unsigned char channels[DIVERSITY_HOPS];
-    struct babel_route *next;
+	struct source *src;
+	unsigned short refmetric;
+	unsigned short cost;
+	unsigned short add_metric;
+	unsigned short seqno;
+	struct neighbour *neigh;
+	unsigned char nexthop[16];
+	time_t time;
+	unsigned short hold_time;	/* in seconds */
+	unsigned short smoothed_metric; /* for route selection */
+	time_t smoothed_metric_time;
+	short installed;
+	unsigned char channels[DIVERSITY_HOPS];
+	struct babel_route *next;
 };
 
 struct route_stream;
@@ -44,28 +44,23 @@ extern int diversity_factor;
 extern int keep_unfeasible;
 extern int smoothing_half_life;
 
-static inline int
-route_metric(const struct babel_route *route)
+static inline int route_metric(const struct babel_route *route)
 {
-    int m = (int)route->refmetric + route->cost + route->add_metric;
-    return MIN(m, INFINITY);
+	int m = (int)route->refmetric + route->cost + route->add_metric;
+	return MIN(m, INFINITY);
 }
 
-static inline int
-route_metric_noninterfering(const struct babel_route *route)
+static inline int route_metric_noninterfering(const struct babel_route *route)
 {
-    int m =
-        (int)route->refmetric +
-        (diversity_factor * route->cost + 128) / 256 +
-        route->add_metric;
-    m = MAX(m, route->refmetric + 1);
-    return MIN(m, INFINITY);
+	int m = (int)route->refmetric + (diversity_factor * route->cost + 128) / 256 +
+		route->add_metric;
+	m = MAX(m, route->refmetric + 1);
+	return MIN(m, INFINITY);
 }
 
 struct babel_route *find_route(const unsigned char *prefix, unsigned char plen,
-                         struct neighbour *neigh, const unsigned char *nexthop);
-struct babel_route *find_installed_route(const unsigned char *prefix,
-                                   unsigned char plen);
+			       struct neighbour *neigh, const unsigned char *nexthop);
+struct babel_route *find_installed_route(const unsigned char *prefix, unsigned char plen);
 int installed_routes_estimate(void);
 void flush_route(struct babel_route *route);
 void flush_all_routes(void);
@@ -80,31 +75,25 @@ int route_feasible(struct babel_route *route);
 int route_old(struct babel_route *route);
 int route_expired(struct babel_route *route);
 int route_interferes(struct babel_route *route, struct interface *ifp);
-int update_feasible(struct source *src,
-                    unsigned short seqno, unsigned short refmetric);
+int update_feasible(struct source *src, unsigned short seqno, unsigned short refmetric);
 void change_smoothing_half_life(int half_life);
 int route_smoothed_metric(struct babel_route *route);
-struct babel_route *find_best_route(const unsigned char *prefix, unsigned char plen,
-                              int feasible, struct neighbour *exclude);
-struct babel_route *install_best_route(const unsigned char prefix[16],
-                                 unsigned char plen);
+struct babel_route *find_best_route(const unsigned char *prefix, unsigned char plen, int feasible,
+				    struct neighbour *exclude);
+struct babel_route *install_best_route(const unsigned char prefix[16], unsigned char plen);
 void update_neighbour_metric(struct neighbour *neigh, int change);
 void update_interface_metric(struct interface *ifp);
 void update_route_metric(struct babel_route *route);
-struct babel_route *update_route(const unsigned char *id,
-                           const unsigned char *prefix, unsigned char plen,
-                           unsigned short seqno, unsigned short refmetric,
-                           unsigned short interval, struct neighbour *neigh,
-                           const unsigned char *nexthop,
-                           const unsigned char *channels, int channels_len);
+struct babel_route *update_route(const unsigned char *id, const unsigned char *prefix,
+				 unsigned char plen, unsigned short seqno,
+				 unsigned short refmetric, unsigned short interval,
+				 struct neighbour *neigh, const unsigned char *nexthop,
+				 const unsigned char *channels, int channels_len);
 void retract_neighbour_routes(struct neighbour *neigh);
-void send_unfeasible_request(struct neighbour *neigh, int force,
-                             unsigned short seqno, unsigned short metric,
-                             struct source *src);
-void send_triggered_update(struct babel_route *route,
-                           struct source *oldsrc, unsigned oldmetric);
-void route_changed(struct babel_route *route,
-                   struct source *oldsrc, unsigned short oldmetric);
+void send_unfeasible_request(struct neighbour *neigh, int force, unsigned short seqno,
+			     unsigned short metric, struct source *src);
+void send_triggered_update(struct babel_route *route, struct source *oldsrc, unsigned oldmetric);
+void route_changed(struct babel_route *route, struct source *oldsrc, unsigned short oldmetric);
 void route_lost(struct source *src, unsigned oldmetric);
 void expire_routes(void);
 
