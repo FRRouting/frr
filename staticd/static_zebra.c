@@ -75,7 +75,7 @@ DECLARE_HASH(static_nht_hash, struct static_nht_data, itm, static_nht_data_cmp,
 static struct static_nht_hash_head static_nht_hash[1];
 
 /* Zebra structure to hold current status. */
-struct zclient *zclient;
+struct zclient *static_zclient;
 uint32_t zebra_ecmp_count = MULTIPATH_NUM;
 
 /* Interface addition message from zebra. */
@@ -211,7 +211,7 @@ static void static_zebra_nexthop_update(struct vrf *vrf, struct prefix *matched,
 	struct static_nht_data *nhtd, lookup;
 	afi_t afi = AFI_IP;
 
-	if (zclient->bfd_integration)
+	if (static_zclient->bfd_integration)
 		bfd_nht_update(matched, nhr);
 
 	if (matched->family == AF_INET6)
@@ -395,7 +395,7 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 		       "Unregistering nexthop(%pFX) for %pRN", &lookup.nh, rn);
 	}
 
-	if (zclient_send_rnh(zclient, cmd, &lookup.nh, si->safi, false, false,
+	if (zclient_send_rnh(static_zclient, cmd, &lookup.nh, si->safi, false, false,
 			     nh->nh_vrf_id) == ZCLIENT_SEND_FAILURE)
 		zlog_warn("%s: Failure to send nexthop %pFX for %pRN to zebra",
 			  __func__, &lookup.nh, rn);
@@ -549,7 +549,7 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 
 	zclient_route_send(install ?
 			   ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE,
-			   zclient, &api);
+			   static_zclient, &api);
 }
 
 /**
@@ -594,7 +594,7 @@ static void static_zebra_send_localsid(int cmd, const struct in6_addr *sid, uint
 	memcpy(&api.prefix, &p, sizeof(p));
 
 	if (cmd == ZEBRA_ROUTE_DELETE)
-		return (void)zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
+		return (void)zclient_route_send(ZEBRA_ROUTE_DELETE, static_zclient, &api);
 
 	SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
@@ -611,7 +611,7 @@ static void static_zebra_send_localsid(int cmd, const struct in6_addr *sid, uint
 
 	api.nexthop_num = 1;
 
-	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
+	zclient_route_send(ZEBRA_ROUTE_ADD, static_zclient, &api);
 }
 
 /**
@@ -1004,7 +1004,8 @@ extern void static_zebra_request_srv6_sid(struct static_srv6_sid *sid)
 	}
 
 	/* Request SRv6 SID from SID Manager */
-	ret = srv6_manager_get_sid(zclient, &ctx, &sid->addr.prefix, sid->locator->name, NULL);
+	ret = srv6_manager_get_sid(static_zclient, &ctx, &sid->addr.prefix, sid->locator->name,
+				   NULL);
 	if (ret < 0)
 		zlog_warn("%s: error getting SRv6 SID!", __func__);
 }
@@ -1091,7 +1092,7 @@ extern void static_zebra_release_srv6_sid(struct static_srv6_sid *sid)
 	}
 
 	/* remove the SRv6 SID from the zebra RIB */
-	ret = srv6_manager_release_sid(zclient, &ctx);
+	ret = srv6_manager_release_sid(static_zclient, &ctx);
 	if (ret == ZCLIENT_SEND_FAILURE)
 		flog_err(EC_LIB_ZAPI_SOCKET, "zclient_send_get_srv6_sid() delete failed: %s",
 			 safe_strerror(errno));
@@ -1112,7 +1113,7 @@ int static_zebra_srv6_manager_get_locator(const char *name)
 	 * Send the Get Locator request to the SRv6 Manager and return the
 	 * result
 	 */
-	return srv6_manager_get_locator(zclient, name);
+	return srv6_manager_get_locator(static_zclient, name);
 }
 
 static void request_srv6_sids(struct static_srv6_locator *locator)
@@ -1367,16 +1368,16 @@ void static_zebra_init(void)
 	hook_register_prio(if_down, 0, static_ifp_down);
 	hook_register_prio(if_unreal, 0, static_ifp_destroy);
 
-	zclient = zclient_new(master, &zclient_options_default, static_handlers,
-			      array_size(static_handlers));
+	static_zclient = zclient_new(master, &zclient_options_default, static_handlers,
+				     array_size(static_handlers));
 
-	zclient_init(zclient, ZEBRA_ROUTE_STATIC, 0, &static_privs);
-	zclient->zebra_capabilities = static_zebra_capabilities;
-	zclient->zebra_connected = zebra_connected;
-	zclient->nexthop_update = static_zebra_nexthop_update;
+	zclient_init(static_zclient, ZEBRA_ROUTE_STATIC, 0, &static_privs);
+	static_zclient->zebra_capabilities = static_zebra_capabilities;
+	static_zclient->zebra_connected = zebra_connected;
+	static_zclient->nexthop_update = static_zebra_nexthop_update;
 
 	static_nht_hash_init(static_nht_hash);
-	static_bfd_initialize(zclient, master);
+	static_bfd_initialize(static_zclient, master);
 }
 
 /* static_zebra_stop used by tests/lib/test_grpc.cpp */
@@ -1385,23 +1386,23 @@ void static_zebra_stop(void)
 	static_nht_hash_clear();
 	static_nht_hash_fini(static_nht_hash);
 
-	if (!zclient)
+	if (!static_zclient)
 		return;
-	zclient_stop(zclient);
-	zclient_free(zclient);
-	zclient = NULL;
+	zclient_stop(static_zclient);
+	zclient_free(static_zclient);
+	static_zclient = NULL;
 }
 
 void static_zebra_vrf_register(struct vrf *vrf)
 {
 	if (vrf->vrf_id == VRF_DEFAULT)
 		return;
-	zclient_send_reg_requests(zclient, vrf->vrf_id);
+	zclient_send_reg_requests(static_zclient, vrf->vrf_id);
 }
 
 void static_zebra_vrf_unregister(struct vrf *vrf)
 {
 	if (vrf->vrf_id == VRF_DEFAULT)
 		return;
-	zclient_send_dereg_requests(zclient, vrf->vrf_id);
+	zclient_send_dereg_requests(static_zclient, vrf->vrf_id);
 }

@@ -4055,11 +4055,11 @@ void ospf_ls_ack_send_direct(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 	 * ignored.
 	 */
 	if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT && !oi->p2mp_non_broadcast) {
-		struct ospf_lsa_list_entry *ls_ack_list_entry;
+		struct ospf_lsa_list_entry *ack_list_entry;
 		struct ospf_lsa *ack_queue_lsa;
 
-		frr_each (ospf_lsa_list, &oi->ls_ack_direct, ls_ack_list_entry) {
-			ack_queue_lsa = ls_ack_list_entry->lsa;
+		frr_each (ospf_lsa_list, &oi->ls_ack_direct, ack_list_entry) {
+			ack_queue_lsa = ack_list_entry->lsa;
 			if ((lsa == ack_queue_lsa) ||
 			    ((lsa->data->type == ack_queue_lsa->data->type) &&
 			     (lsa->data->id.s_addr ==

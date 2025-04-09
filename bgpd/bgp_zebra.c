@@ -56,8 +56,8 @@
 #include "bgpd/bgp_lcommunity.h"
 
 /* All information about zebra. */
-struct zclient *zclient = NULL;
-struct zclient *zclient_sync;
+struct zclient *bgp_zclient = NULL;
+struct zclient *bgp_zclient_sync;
 static bool bgp_zebra_label_manager_connect(void);
 
 /* hook to indicate vrf status change for SNMP */
@@ -69,7 +69,7 @@ DEFINE_MTYPE_STATIC(BGPD, BGP_IF_INFO, "BGP interface context");
 /* Can we install into zebra? */
 static inline bool bgp_install_info_to_zebra(struct bgp *bgp)
 {
-	if (zclient->sock <= 0)
+	if (bgp_zclient->sock <= 0)
 		return false;
 
 	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp)) {
@@ -1010,15 +1010,15 @@ struct bgp *bgp_tm_bgp;
 
 static void bgp_zebra_tm_connect(struct event *t)
 {
-	struct zclient *zclient;
+	struct zclient *zc;
 	int delay = 10, ret = 0;
 
-	zclient = EVENT_ARG(t);
-	if (bgp_tm_status_connected && zclient->sock > 0)
+	zc = EVENT_ARG(t);
+	if (bgp_tm_status_connected && zc->sock > 0)
 		delay = 60;
 	else {
 		bgp_tm_status_connected = false;
-		ret = tm_table_manager_connect(zclient);
+		ret = tm_table_manager_connect(zc);
 	}
 	if (ret < 0) {
 		zlog_err("Error connecting to table manager!");
@@ -1031,7 +1031,7 @@ static void bgp_zebra_tm_connect(struct event *t)
 		}
 		bgp_tm_status_connected = true;
 		if (!bgp_tm_chunk_obtained) {
-			if (bgp_zebra_get_table_range(zclient, bgp_tm_chunk_size,
+			if (bgp_zebra_get_table_range(zc, bgp_tm_chunk_size,
 						      &bgp_tm_min,
 						      &bgp_tm_max) >= 0) {
 				bgp_tm_chunk_obtained = true;
@@ -1040,7 +1040,7 @@ static void bgp_zebra_tm_connect(struct event *t)
 			}
 		}
 	}
-	event_add_timer(bm->master, bgp_zebra_tm_connect, zclient, delay,
+	event_add_timer(bm->master, bgp_zebra_tm_connect, zc, delay,
 			&bgp_tm_thread_connect);
 }
 
@@ -1071,7 +1071,7 @@ void bgp_zebra_init_tm_connect(struct bgp *bgp)
 	bgp_tm_min = bgp_tm_max = 0;
 	bgp_tm_chunk_size = BGP_FLOWSPEC_TABLE_CHUNK;
 	bgp_tm_bgp = bgp;
-	event_add_timer(bm->master, bgp_zebra_tm_connect, zclient_sync, delay,
+	event_add_timer(bm->master, bgp_zebra_tm_connect, bgp_zclient_sync, delay,
 			&bgp_tm_thread_connect);
 }
 
@@ -1650,7 +1650,7 @@ bgp_zebra_announce_actual(struct bgp_dest *dest, struct bgp_path_info *info,
 			   __func__, p, (allow_recursion ? "" : "NOT "));
 	}
 
-	return zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
+	return zclient_route_send(ZEBRA_ROUTE_ADD, bgp_zclient, &api);
 }
 
 
@@ -1747,7 +1747,7 @@ enum zclient_send_status bgp_zebra_withdraw_actual(struct bgp_dest *dest,
 		zlog_debug("Tx route delete %s (table id %u) %pFX",
 			   bgp->name_pretty, api.tableid, &api.prefix);
 
-	return zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
+	return zclient_route_send(ZEBRA_ROUTE_DELETE, bgp_zclient, &api);
 }
 
 /*
@@ -2071,19 +2071,19 @@ int bgp_redistribute_set(struct bgp *bgp, afi_t afi, int type,
 				.table_id = instance,
 				.vrf_id = bgp->vrf_id,
 			};
-			if (redist_lookup_table_direct(&zclient->mi_redist[afi][type], &table) !=
-			    NULL)
+			if (redist_lookup_table_direct(&bgp_zclient->mi_redist[afi][type],
+						       &table) != NULL)
 				return CMD_WARNING;
 
-			redist_add_table_direct(&zclient->mi_redist[afi][type], &table);
+			redist_add_table_direct(&bgp_zclient->mi_redist[afi][type], &table);
 		} else {
-			if (redist_check_instance(&zclient->mi_redist[afi][type], instance))
+			if (redist_check_instance(&bgp_zclient->mi_redist[afi][type], instance))
 				return CMD_WARNING;
 
-			redist_add_instance(&zclient->mi_redist[afi][type], instance);
+			redist_add_instance(&bgp_zclient->mi_redist[afi][type], instance);
 		}
 	} else {
-		if (vrf_bitmap_check(&zclient->redist[afi][type], bgp->vrf_id))
+		if (vrf_bitmap_check(&bgp_zclient->redist[afi][type], bgp->vrf_id))
 			return CMD_WARNING;
 
 #ifdef ENABLE_BGP_VNC
@@ -2093,7 +2093,7 @@ int bgp_redistribute_set(struct bgp *bgp, afi_t afi, int type,
 		}
 #endif
 
-		vrf_bitmap_set(&zclient->redist[afi][type], bgp->vrf_id);
+		vrf_bitmap_set(&bgp_zclient->redist[afi][type], bgp->vrf_id);
 	}
 
 	/*
@@ -2111,7 +2111,7 @@ int bgp_redistribute_set(struct bgp *bgp, afi_t afi, int type,
 			   instance);
 
 	/* Send distribute add message to zebra. */
-	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, afi, type,
+	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, bgp_zclient, afi, type,
 				instance, bgp->vrf_id);
 
 	return CMD_SUCCESS;
@@ -2132,9 +2132,9 @@ int bgp_redistribute_resend(struct bgp *bgp, afi_t afi, int type,
 			   instance);
 
 	/* Send distribute add message to zebra. */
-	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE, zclient, afi, type,
+	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE, bgp_zclient, afi, type,
 				instance, bgp->vrf_id);
-	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, afi, type,
+	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, bgp_zclient, afi, type,
 				instance, bgp->vrf_id);
 
 	return 0;
@@ -2214,21 +2214,21 @@ int bgp_redistribute_unreg(struct bgp *bgp, afi_t afi, int type,
 				.table_id = instance,
 				.vrf_id = bgp->vrf_id,
 			};
-			if (redist_lookup_table_direct(&zclient->mi_redist[afi][type], &table) ==
+			if (redist_lookup_table_direct(&bgp_zclient->mi_redist[afi][type], &table) ==
 			    NULL)
 				return CMD_WARNING;
 
-			redist_del_table_direct(&zclient->mi_redist[afi][type], &table);
+			redist_del_table_direct(&bgp_zclient->mi_redist[afi][type], &table);
 		} else {
-			if (!redist_check_instance(&zclient->mi_redist[afi][type], instance))
+			if (!redist_check_instance(&bgp_zclient->mi_redist[afi][type], instance))
 				return CMD_WARNING;
 
-			redist_del_instance(&zclient->mi_redist[afi][type], instance);
+			redist_del_instance(&bgp_zclient->mi_redist[afi][type], instance);
 		}
 	} else {
-		if (!vrf_bitmap_check(&zclient->redist[afi][type], bgp->vrf_id))
+		if (!vrf_bitmap_check(&bgp_zclient->redist[afi][type], bgp->vrf_id))
 			return CMD_WARNING;
-		vrf_bitmap_unset(&zclient->redist[afi][type], bgp->vrf_id);
+		vrf_bitmap_unset(&bgp_zclient->redist[afi][type], bgp->vrf_id);
 	}
 
 	if (bgp_install_info_to_zebra(bgp)) {
@@ -2237,7 +2237,7 @@ int bgp_redistribute_unreg(struct bgp *bgp, afi_t afi, int type,
 			zlog_debug("Tx redistribute del %s afi %d %s %d",
 				   bgp->name_pretty, afi,
 				   zebra_route_string(type), instance);
-		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE, zclient, afi,
+		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE, bgp_zclient, afi,
 					type, instance, bgp->vrf_id);
 	}
 
@@ -2325,7 +2325,7 @@ void bgp_redistribute_redo(struct bgp *bgp)
 
 void bgp_zclient_reset(void)
 {
-	zclient_reset(zclient);
+	zclient_reset(bgp_zclient);
 }
 
 /* Register this instance with Zebra. Invoked upon connect (for
@@ -2335,14 +2335,14 @@ void bgp_zclient_reset(void)
 void bgp_zebra_instance_register(struct bgp *bgp)
 {
 	/* Don't try to register if we're not connected to Zebra */
-	if (!zclient || zclient->sock < 0)
+	if (!bgp_zclient || bgp_zclient->sock < 0)
 		return;
 
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("Registering %s", bgp->name_pretty);
 
 	/* Register for router-id, interfaces, redistributed routes. */
-	zclient_send_reg_requests(zclient, bgp->vrf_id);
+	zclient_send_reg_requests(bgp_zclient, bgp->vrf_id);
 
 	/* For EVPN instance, register to learn about VNIs, if appropriate. */
 	if (bgp->advertise_all_vni)
@@ -2364,7 +2364,7 @@ void bgp_zebra_instance_register(struct bgp *bgp)
 void bgp_zebra_instance_deregister(struct bgp *bgp)
 {
 	/* Don't try to deregister if we're not connected to Zebra */
-	if (zclient->sock < 0)
+	if (bgp_zclient->sock < 0)
 		return;
 
 	if (BGP_DEBUG(zebra, ZEBRA))
@@ -2375,7 +2375,7 @@ void bgp_zebra_instance_deregister(struct bgp *bgp)
 		bgp_zebra_advertise_all_vni(bgp, 0);
 
 	/* Deregister for router-id, interfaces, redistributed routes. */
-	zclient_send_dereg_requests(zclient, bgp->vrf_id);
+	zclient_send_dereg_requests(bgp_zclient, bgp->vrf_id);
 }
 
 void bgp_zebra_initiate_radv(struct bgp *bgp, struct peer *peer)
@@ -2386,7 +2386,7 @@ void bgp_zebra_initiate_radv(struct bgp *bgp, struct peer *peer)
 		return;
 
 	/* Don't try to initiate if we're not connected to Zebra */
-	if (zclient->sock < 0)
+	if (bgp_zclient->sock < 0)
 		return;
 
 	if (BGP_DEBUG(zebra, ZEBRA))
@@ -2398,7 +2398,7 @@ void bgp_zebra_initiate_radv(struct bgp *bgp, struct peer *peer)
 	 * If we don't have an ifp pointer, call function to find the
 	 * ifps for a numbered enhe peer to turn RAs on.
 	 */
-	peer->ifp ? zclient_send_interface_radv_req(zclient, bgp->vrf_id,
+	peer->ifp ? zclient_send_interface_radv_req(bgp_zclient, bgp->vrf_id,
 						    peer->ifp, 1, ra_interval)
 		  : bgp_nht_reg_enhe_cap_intfs(peer);
 }
@@ -2406,7 +2406,7 @@ void bgp_zebra_initiate_radv(struct bgp *bgp, struct peer *peer)
 void bgp_zebra_terminate_radv(struct bgp *bgp, struct peer *peer)
 {
 	/* Don't try to terminate if we're not connected to Zebra */
-	if (zclient->sock < 0)
+	if (bgp_zclient->sock < 0)
 		return;
 
 	if (BGP_DEBUG(zebra, ZEBRA))
@@ -2418,7 +2418,7 @@ void bgp_zebra_terminate_radv(struct bgp *bgp, struct peer *peer)
 	 * If we don't have an ifp pointer, call function to find the
 	 * ifps for a numbered enhe peer to turn RAs off.
 	 */
-	peer->ifp ? zclient_send_interface_radv_req(zclient, bgp->vrf_id,
+	peer->ifp ? zclient_send_interface_radv_req(bgp_zclient, bgp->vrf_id,
 						    peer->ifp, 0, 0)
 		  : bgp_nht_dereg_enhe_cap_intfs(peer);
 }
@@ -2428,7 +2428,7 @@ int bgp_zebra_advertise_subnet(struct bgp *bgp, int advertise, vni_t vni)
 	struct stream *s = NULL;
 
 	/* Check socket. */
-	if (!zclient || zclient->sock < 0)
+	if (!bgp_zclient || bgp_zclient->sock < 0)
 		return 0;
 
 	/* Don't try to register if Zebra doesn't know of this instance. */
@@ -2440,7 +2440,7 @@ int bgp_zebra_advertise_subnet(struct bgp *bgp, int advertise, vni_t vni)
 		return 0;
 	}
 
-	s = zclient->obuf;
+	s = bgp_zclient->obuf;
 	stream_reset(s);
 
 	zclient_create_header(s, ZEBRA_ADVERTISE_SUBNET, bgp->vrf_id);
@@ -2448,7 +2448,7 @@ int bgp_zebra_advertise_subnet(struct bgp *bgp, int advertise, vni_t vni)
 	stream_put3(s, vni);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
-	return zclient_send_message(zclient);
+	return zclient_send_message(bgp_zclient);
 }
 
 int bgp_zebra_advertise_svi_macip(struct bgp *bgp, int advertise, vni_t vni)
@@ -2456,14 +2456,14 @@ int bgp_zebra_advertise_svi_macip(struct bgp *bgp, int advertise, vni_t vni)
 	struct stream *s = NULL;
 
 	/* Check socket. */
-	if (!zclient || zclient->sock < 0)
+	if (!bgp_zclient || bgp_zclient->sock < 0)
 		return 0;
 
 	/* Don't try to register if Zebra doesn't know of this instance. */
 	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
 		return 0;
 
-	s = zclient->obuf;
+	s = bgp_zclient->obuf;
 	stream_reset(s);
 
 	zclient_create_header(s, ZEBRA_ADVERTISE_SVI_MACIP, bgp->vrf_id);
@@ -2471,7 +2471,7 @@ int bgp_zebra_advertise_svi_macip(struct bgp *bgp, int advertise, vni_t vni)
 	stream_putl(s, vni);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
-	return zclient_send_message(zclient);
+	return zclient_send_message(bgp_zclient);
 }
 
 int bgp_zebra_advertise_gw_macip(struct bgp *bgp, int advertise, vni_t vni)
@@ -2479,7 +2479,7 @@ int bgp_zebra_advertise_gw_macip(struct bgp *bgp, int advertise, vni_t vni)
 	struct stream *s = NULL;
 
 	/* Check socket. */
-	if (!zclient || zclient->sock < 0)
+	if (!bgp_zclient || bgp_zclient->sock < 0)
 		return 0;
 
 	/* Don't try to register if Zebra doesn't know of this instance. */
@@ -2491,7 +2491,7 @@ int bgp_zebra_advertise_gw_macip(struct bgp *bgp, int advertise, vni_t vni)
 		return 0;
 	}
 
-	s = zclient->obuf;
+	s = bgp_zclient->obuf;
 	stream_reset(s);
 
 	zclient_create_header(s, ZEBRA_ADVERTISE_DEFAULT_GW, bgp->vrf_id);
@@ -2499,7 +2499,7 @@ int bgp_zebra_advertise_gw_macip(struct bgp *bgp, int advertise, vni_t vni)
 	stream_putl(s, vni);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
-	return zclient_send_message(zclient);
+	return zclient_send_message(bgp_zclient);
 }
 
 int bgp_zebra_vxlan_flood_control(struct bgp *bgp,
@@ -2508,7 +2508,7 @@ int bgp_zebra_vxlan_flood_control(struct bgp *bgp,
 	struct stream *s;
 
 	/* Check socket. */
-	if (!zclient || zclient->sock < 0)
+	if (!bgp_zclient || bgp_zclient->sock < 0)
 		return 0;
 
 	/* Don't try to register if Zebra doesn't know of this instance. */
@@ -2520,14 +2520,14 @@ int bgp_zebra_vxlan_flood_control(struct bgp *bgp,
 		return 0;
 	}
 
-	s = zclient->obuf;
+	s = bgp_zclient->obuf;
 	stream_reset(s);
 
 	zclient_create_header(s, ZEBRA_VXLAN_FLOOD_CONTROL, bgp->vrf_id);
 	stream_putc(s, flood_ctrl);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
-	return zclient_send_message(zclient);
+	return zclient_send_message(bgp_zclient);
 }
 
 int bgp_zebra_advertise_all_vni(struct bgp *bgp, int advertise)
@@ -2535,14 +2535,14 @@ int bgp_zebra_advertise_all_vni(struct bgp *bgp, int advertise)
 	struct stream *s;
 
 	/* Check socket. */
-	if (!zclient || zclient->sock < 0)
+	if (!bgp_zclient || bgp_zclient->sock < 0)
 		return 0;
 
 	/* Don't try to register if Zebra doesn't know of this instance. */
 	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
 		return 0;
 
-	s = zclient->obuf;
+	s = bgp_zclient->obuf;
 	stream_reset(s);
 
 	zclient_create_header(s, ZEBRA_ADVERTISE_ALL_VNI, bgp->vrf_id);
@@ -2553,7 +2553,7 @@ int bgp_zebra_advertise_all_vni(struct bgp *bgp, int advertise)
 	stream_putc(s, bgp->vxlan_flood_ctrl);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
-	return zclient_send_message(zclient);
+	return zclient_send_message(bgp_zclient);
 }
 
 int bgp_zebra_dup_addr_detection(struct bgp *bgp)
@@ -2561,7 +2561,7 @@ int bgp_zebra_dup_addr_detection(struct bgp *bgp)
 	struct stream *s;
 
 	/* Check socket. */
-	if (!zclient || zclient->sock < 0)
+	if (!bgp_zclient || bgp_zclient->sock < 0)
 		return 0;
 
 	/* Don't try to register if Zebra doesn't know of this instance. */
@@ -2578,7 +2578,7 @@ int bgp_zebra_dup_addr_detection(struct bgp *bgp)
 			   "enable" : "disable",
 			   bgp->evpn_info->dad_freeze_time);
 
-	s = zclient->obuf;
+	s = bgp_zclient->obuf;
 	stream_reset(s);
 	zclient_create_header(s, ZEBRA_DUPLICATE_ADDR_DETECTION,
 			      bgp->vrf_id);
@@ -2589,7 +2589,7 @@ int bgp_zebra_dup_addr_detection(struct bgp *bgp)
 	stream_putl(s, bgp->evpn_info->dad_freeze_time);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
-	return zclient_send_message(zclient);
+	return zclient_send_message(bgp_zclient);
 }
 
 static int rule_notify_owner(ZAPI_CALLBACK_ARGS)
@@ -3965,7 +3965,7 @@ void bgp_if_init(void)
 
 static bool bgp_zebra_label_manager_ready(void)
 {
-	return (zclient_sync->sock > 0);
+	return (bgp_zclient_sync->sock > 0);
 }
 
 static void bgp_start_label_manager(struct event *start)
@@ -3979,29 +3979,29 @@ static void bgp_start_label_manager(struct event *start)
 static bool bgp_zebra_label_manager_connect(void)
 {
 	/* Connect to label manager. */
-	if (zclient_socket_connect(zclient_sync) < 0) {
+	if (zclient_socket_connect(bgp_zclient_sync) < 0) {
 		zlog_warn("%s: failed connecting synchronous zclient!",
 			  __func__);
 		return false;
 	}
 	/* make socket non-blocking */
-	set_nonblocking(zclient_sync->sock);
+	set_nonblocking(bgp_zclient_sync->sock);
 
 	/* Send hello to notify zebra this is a synchronous client */
-	if (zclient_send_hello(zclient_sync) == ZCLIENT_SEND_FAILURE) {
+	if (zclient_send_hello(bgp_zclient_sync) == ZCLIENT_SEND_FAILURE) {
 		zlog_warn("%s: failed sending hello for synchronous zclient!",
 			  __func__);
-		close(zclient_sync->sock);
-		zclient_sync->sock = -1;
+		close(bgp_zclient_sync->sock);
+		bgp_zclient_sync->sock = -1;
 		return false;
 	}
 
 	/* Connect to label manager */
-	if (lm_label_manager_connect(zclient_sync, 0) != 0) {
+	if (lm_label_manager_connect(bgp_zclient_sync, 0) != 0) {
 		zlog_warn("%s: failed connecting to label manager!", __func__);
-		if (zclient_sync->sock > 0) {
-			close(zclient_sync->sock);
-			zclient_sync->sock = -1;
+		if (bgp_zclient_sync->sock > 0) {
+			close(bgp_zclient_sync->sock);
+			bgp_zclient_sync->sock = -1;
 		}
 		return false;
 	}
@@ -4030,22 +4030,22 @@ void bgp_zebra_init(struct event_loop *master, unsigned short instance)
 	hook_register_prio(if_unreal, 0, bgp_ifp_destroy);
 
 	/* Set default values. */
-	zclient = zclient_new(master, &zclient_options_default, bgp_handlers,
-			      array_size(bgp_handlers));
-	zclient_init(zclient, ZEBRA_ROUTE_BGP, 0, &bgpd_privs);
-	zclient->zebra_buffer_write_ready = bgp_zebra_buffer_write_ready;
-	zclient->zebra_connected = bgp_zebra_connected;
-	zclient->zebra_capabilities = bgp_zebra_capabilities;
-	zclient->nexthop_update = bgp_nexthop_update;
-	zclient->instance = instance;
+	bgp_zclient = zclient_new(master, &zclient_options_default, bgp_handlers,
+				  array_size(bgp_handlers));
+	zclient_init(bgp_zclient, ZEBRA_ROUTE_BGP, 0, &bgpd_privs);
+	bgp_zclient->zebra_buffer_write_ready = bgp_zebra_buffer_write_ready;
+	bgp_zclient->zebra_connected = bgp_zebra_connected;
+	bgp_zclient->zebra_capabilities = bgp_zebra_capabilities;
+	bgp_zclient->nexthop_update = bgp_nexthop_update;
+	bgp_zclient->instance = instance;
 
 	/* Initialize special zclient for synchronous message exchanges. */
-	zclient_sync = zclient_new(master, &zclient_options_sync, NULL, 0);
-	zclient_sync->sock = -1;
-	zclient_sync->redist_default = ZEBRA_ROUTE_BGP;
-	zclient_sync->instance = instance;
-	zclient_sync->session_id = 1;
-	zclient_sync->privs = &bgpd_privs;
+	bgp_zclient_sync = zclient_new(master, &zclient_options_sync, NULL, 0);
+	bgp_zclient_sync->sock = -1;
+	bgp_zclient_sync->redist_default = ZEBRA_ROUTE_BGP;
+	bgp_zclient_sync->instance = instance;
+	bgp_zclient_sync->session_id = 1;
+	bgp_zclient_sync->privs = &bgpd_privs;
 
 	if (!bgp_zebra_label_manager_ready())
 		event_add_timer(master, bgp_start_label_manager, NULL, 1,
@@ -4054,17 +4054,17 @@ void bgp_zebra_init(struct event_loop *master, unsigned short instance)
 
 void bgp_zebra_destroy(void)
 {
-	if (zclient == NULL)
+	if (bgp_zclient == NULL)
 		return;
-	zclient_stop(zclient);
-	zclient_free(zclient);
-	zclient = NULL;
+	zclient_stop(bgp_zclient);
+	zclient_free(bgp_zclient);
+	bgp_zclient = NULL;
 
-	if (zclient_sync == NULL)
+	if (bgp_zclient_sync == NULL)
 		return;
-	zclient_stop(zclient_sync);
-	zclient_free(zclient_sync);
-	zclient_sync = NULL;
+	zclient_stop(bgp_zclient_sync);
+	zclient_free(bgp_zclient_sync);
+	bgp_zclient_sync = NULL;
 }
 
 int bgp_zebra_num_connects(void)
@@ -4090,7 +4090,7 @@ void bgp_send_pbr_rule_action(struct bgp_pbr_action *pbra,
 			zlog_debug("%s: table %d fwmark %d %d", __func__,
 				   pbra->table_id, pbra->fwmark, install);
 	}
-	s = zclient->obuf;
+	s = bgp_zclient->obuf;
 	stream_reset(s);
 
 	zclient_create_header(s,
@@ -4099,7 +4099,7 @@ void bgp_send_pbr_rule_action(struct bgp_pbr_action *pbra,
 
 	bgp_encode_pbr_rule_action(s, pbra, pbr);
 
-	if ((zclient_send_message(zclient) != ZCLIENT_SEND_FAILURE)
+	if ((zclient_send_message(bgp_zclient) != ZCLIENT_SEND_FAILURE)
 	    && install) {
 		if (!pbr)
 			pbra->install_in_progress = true;
@@ -4118,7 +4118,7 @@ void bgp_send_pbr_ipset_match(struct bgp_pbr_match *pbrim, bool install)
 		zlog_debug("%s: name %s type %d %d, ID %u", __func__,
 			   pbrim->ipset_name, pbrim->type, install,
 			   pbrim->unique);
-	s = zclient->obuf;
+	s = bgp_zclient->obuf;
 	stream_reset(s);
 
 	zclient_create_header(s,
@@ -4131,7 +4131,7 @@ void bgp_send_pbr_ipset_match(struct bgp_pbr_match *pbrim, bool install)
 	bgp_encode_pbr_ipset_match(s, pbrim);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
-	if ((zclient_send_message(zclient) != ZCLIENT_SEND_FAILURE) && install)
+	if ((zclient_send_message(bgp_zclient) != ZCLIENT_SEND_FAILURE) && install)
 		pbrim->install_in_progress = true;
 }
 
@@ -4146,7 +4146,7 @@ void bgp_send_pbr_ipset_entry_match(struct bgp_pbr_match_entry *pbrime,
 		zlog_debug("%s: name %s %d %d, ID %u", __func__,
 			   pbrime->backpointer->ipset_name, pbrime->unique,
 			   install, pbrime->unique);
-	s = zclient->obuf;
+	s = bgp_zclient->obuf;
 	stream_reset(s);
 
 	zclient_create_header(s,
@@ -4159,7 +4159,7 @@ void bgp_send_pbr_ipset_entry_match(struct bgp_pbr_match_entry *pbrime,
 	bgp_encode_pbr_ipset_entry_match(s, pbrime);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
-	if ((zclient_send_message(zclient) != ZCLIENT_SEND_FAILURE) && install)
+	if ((zclient_send_message(bgp_zclient) != ZCLIENT_SEND_FAILURE) && install)
 		pbrime->install_in_progress = true;
 }
 
@@ -4218,7 +4218,7 @@ void bgp_send_pbr_iptable(struct bgp_pbr_action *pba,
 		zlog_debug("%s: name %s type %d mark %d %d, ID %u", __func__,
 			   pbm->ipset_name, pbm->type, pba->fwmark, install,
 			   pbm->unique2);
-	s = zclient->obuf;
+	s = bgp_zclient->obuf;
 	stream_reset(s);
 
 	zclient_create_header(s,
@@ -4232,7 +4232,7 @@ void bgp_send_pbr_iptable(struct bgp_pbr_action *pba,
 	if (nb_interface)
 		bgp_encode_pbr_interface_list(pba->bgp, s, pbm->family);
 	stream_putw_at(s, 0, stream_get_endp(s));
-	ret = zclient_send_message(zclient);
+	ret = zclient_send_message(bgp_zclient);
 	if (install) {
 		if (ret != ZCLIENT_SEND_FAILURE)
 			pba->refcnt++;
@@ -4319,7 +4319,7 @@ void bgp_zebra_announce_default(struct bgp *bgp, struct nexthop *nh,
 	}
 
 	zclient_route_send(announce ? ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE,
-			   zclient, &api);
+			   bgp_zclient, &api);
 }
 
 /* Send capabilities to RIB */
@@ -4332,7 +4332,7 @@ int bgp_zebra_send_capabilities(struct bgp *bgp, bool disable)
 		zlog_debug("%s: Sending %sable for %s", __func__,
 			   disable ? "dis" : "en", bgp->name_pretty);
 
-	if (zclient == NULL) {
+	if (bgp_zclient == NULL) {
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: %s zclient invalid", __func__,
 				   bgp->name_pretty);
@@ -4340,7 +4340,7 @@ int bgp_zebra_send_capabilities(struct bgp *bgp, bool disable)
 	}
 
 	/* Check if the client is connected */
-	if ((zclient->sock < 0) || (zclient->t_connect)) {
+	if ((bgp_zclient->sock < 0) || (bgp_zclient->t_connect)) {
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: %s client not connected", __func__,
 				   bgp->name_pretty);
@@ -4365,7 +4365,7 @@ int bgp_zebra_send_capabilities(struct bgp *bgp, bool disable)
 		api.vrf_id = bgp->vrf_id;
 	}
 
-	if (zclient_capabilities_send(ZEBRA_CLIENT_CAPABILITIES, zclient, &api)
+	if (zclient_capabilities_send(ZEBRA_CLIENT_CAPABILITIES, bgp_zclient, &api)
 	    == ZCLIENT_SEND_FAILURE) {
 		zlog_err("%s(%d): Error sending GR capability to zebra",
 			 bgp->name_pretty, bgp->vrf_id);
@@ -4394,7 +4394,7 @@ int bgp_zebra_update(struct bgp *bgp, afi_t afi, safi_t safi,
 			   bgp->name_pretty, afi, safi,
 			   zserv_gr_client_cap_string(type));
 
-	if (zclient == NULL) {
+	if (bgp_zclient == NULL) {
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: %s zclient == NULL, invalid", __func__,
 				   bgp->name_pretty);
@@ -4402,7 +4402,7 @@ int bgp_zebra_update(struct bgp *bgp, afi_t afi, safi_t safi,
 	}
 
 	/* Check if the client is connected */
-	if ((zclient->sock < 0) || (zclient->t_connect)) {
+	if ((bgp_zclient->sock < 0) || (bgp_zclient->t_connect)) {
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: %s client not connected", __func__,
 				   bgp->name_pretty);
@@ -4414,7 +4414,7 @@ int bgp_zebra_update(struct bgp *bgp, afi_t afi, safi_t safi,
 	api.vrf_id = bgp->vrf_id;
 	api.cap = type;
 
-	if (zclient_capabilities_send(ZEBRA_CLIENT_CAPABILITIES, zclient, &api)
+	if (zclient_capabilities_send(ZEBRA_CLIENT_CAPABILITIES, bgp_zclient, &api)
 	    == ZCLIENT_SEND_FAILURE) {
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: %s error sending capability", __func__,
@@ -4434,14 +4434,14 @@ int bgp_zebra_stale_timer_update(struct bgp *bgp)
 		zlog_debug("%s: %s Timer Update to %u", __func__,
 			   bgp->name_pretty, bgp->rib_stale_time);
 
-	if (zclient == NULL) {
+	if (bgp_zclient == NULL) {
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("zclient invalid");
 		return BGP_GR_FAILURE;
 	}
 
 	/* Check if the client is connected */
-	if ((zclient->sock < 0) || (zclient->t_connect)) {
+	if ((bgp_zclient->sock < 0) || (bgp_zclient->t_connect)) {
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: %s client not connected", __func__,
 				   bgp->name_pretty);
@@ -4452,7 +4452,7 @@ int bgp_zebra_stale_timer_update(struct bgp *bgp)
 	api.cap = ZEBRA_CLIENT_RIB_STALE_TIME;
 	api.stale_removal_time = bgp->rib_stale_time;
 	api.vrf_id = bgp->vrf_id;
-	if (zclient_capabilities_send(ZEBRA_CLIENT_CAPABILITIES, zclient, &api)
+	if (zclient_capabilities_send(ZEBRA_CLIENT_CAPABILITIES, bgp_zclient, &api)
 	    == ZCLIENT_SEND_FAILURE) {
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: %s error sending capability", __func__,
@@ -4465,12 +4465,12 @@ int bgp_zebra_stale_timer_update(struct bgp *bgp)
 
 int bgp_zebra_srv6_manager_get_locator_chunk(const char *name)
 {
-	return srv6_manager_get_locator_chunk(zclient, name);
+	return srv6_manager_get_locator_chunk(bgp_zclient, name);
 }
 
 int bgp_zebra_srv6_manager_release_locator_chunk(const char *name)
 {
-	return srv6_manager_release_locator_chunk(zclient, name);
+	return srv6_manager_release_locator_chunk(bgp_zclient, name);
 }
 
 /**
@@ -4488,7 +4488,7 @@ int bgp_zebra_srv6_manager_get_locator(const char *name)
 	 * Send the Get Locator request to the SRv6 Manager and return the
 	 * result
 	 */
-	return srv6_manager_get_locator(zclient, name);
+	return srv6_manager_get_locator(bgp_zclient, name);
 }
 
 /**
@@ -4520,7 +4520,7 @@ bool bgp_zebra_request_srv6_sid(const struct srv6_sid_ctx *ctx,
 	 * Send the Get SRv6 SID request to the SRv6 Manager and check the
 	 * result
 	 */
-	ret = srv6_manager_get_sid(zclient, ctx, sid_value, locator_name,
+	ret = srv6_manager_get_sid(bgp_zclient, ctx, sid_value, locator_name,
 				   sid_func);
 	if (ret < 0) {
 		zlog_warn("%s: error getting SRv6 SID!", __func__);
@@ -4549,7 +4549,7 @@ void bgp_zebra_release_srv6_sid(const struct srv6_sid_ctx *ctx)
 	 * Send the Release SRv6 SID request to the SRv6 Manager and check the
 	 * result
 	 */
-	ret = srv6_manager_release_sid(zclient, ctx);
+	ret = srv6_manager_release_sid(bgp_zclient, ctx);
 	if (ret < 0) {
 		zlog_warn("%s: error releasing SRv6 SID!", __func__);
 		return;
@@ -4592,7 +4592,7 @@ void bgp_zebra_send_nexthop_label(int cmd, mpls_label_t label,
 			znh->labels[i] = out_labels[i];
 	}
 	/* vrf_id is DEFAULT_VRF */
-	zebra_send_mpls_labels(zclient, cmd, &zl);
+	zebra_send_mpls_labels(bgp_zclient, cmd, &zl);
 }
 
 bool bgp_zebra_request_label_range(uint32_t base, uint32_t chunk_size,
@@ -4601,10 +4601,10 @@ bool bgp_zebra_request_label_range(uint32_t base, uint32_t chunk_size,
 	int ret;
 	uint32_t start, end;
 
-	if (!zclient_sync || !bgp_zebra_label_manager_ready())
+	if (!bgp_zclient_sync || !bgp_zebra_label_manager_ready())
 		return false;
 
-	ret = lm_get_label_chunk(zclient_sync, 0, base, chunk_size, &start,
+	ret = lm_get_label_chunk(bgp_zclient_sync, 0, base, chunk_size, &start,
 				 &end);
 	if (ret < 0) {
 		zlog_warn("%s: error getting label range!", __func__);
@@ -4633,10 +4633,10 @@ void bgp_zebra_release_label_range(uint32_t start, uint32_t end)
 {
 	int ret;
 
-	if (!zclient_sync || !bgp_zebra_label_manager_ready())
+	if (!bgp_zclient_sync || !bgp_zebra_label_manager_ready())
 		return;
 
-	ret = lm_release_label_chunk(zclient_sync, start, end);
+	ret = lm_release_label_chunk(bgp_zclient_sync, start, end);
 	if (ret < 0)
 		zlog_warn("%s: error releasing label range!", __func__);
 }

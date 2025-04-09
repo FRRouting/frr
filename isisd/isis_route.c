@@ -240,7 +240,7 @@ isis_route_info_new(struct prefix *prefix, struct prefix_ipv6 *src_p,
 	for (ALL_LIST_ELEMENTS_RO(adjacencies, node, vadj)) {
 		struct isis_spf_adj *sadj = vadj->sadj;
 		struct isis_adjacency *adj = sadj->adj;
-		struct isis_sr_psid_info *sr = &vadj->sr;
+		struct isis_sr_psid_info *vsr = &vadj->sr;
 		struct mpls_label_stack *label_stack = vadj->label_stack;
 
 		/*
@@ -248,7 +248,7 @@ isis_route_info_new(struct prefix *prefix, struct prefix_ipv6 *src_p,
 		 * environment.
 		 */
 		if (CHECK_FLAG(im->options, F_ISIS_UNIT_TEST)) {
-			isis_route_add_dummy_nexthops(rinfo, sadj->id, sr,
+			isis_route_add_dummy_nexthops(rinfo, sadj->id, vsr,
 						      label_stack);
 			if (!allow_ecmp)
 				break;
@@ -260,7 +260,7 @@ isis_route_info_new(struct prefix *prefix, struct prefix_ipv6 *src_p,
 			       ISIS_CIRCUIT_FLAPPED_AFTER_SPF))
 			SET_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ZEBRA_RESYNC);
 
-		adjinfo2nexthop(prefix->family, rinfo->nexthops, adj, sr,
+		adjinfo2nexthop(prefix->family, rinfo->nexthops, adj, vsr,
 				label_stack);
 		if (!allow_ecmp)
 			break;

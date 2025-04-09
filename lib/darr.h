@@ -511,11 +511,11 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
  */
 #define darr_pop(A)                                                            \
 	({                                                                     \
-		uint __len = _darr_len(A);                                     \
-		assert(__len);                                                 \
-		darr_remove(A, __len - 1);                                     \
+		uint __poplen = _darr_len(A);                                  \
+		assert(__poplen);                                              \
+		darr_remove(A, __poplen - 1);                                  \
 		/* count on fact that we don't resize */                       \
-		(A)[__len - 1];                                                \
+		(A)[__poplen - 1];                                             \
 	})
 
 /**

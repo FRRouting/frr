@@ -905,7 +905,7 @@ static enum zclient_send_status bgp_zebra_send_remote_macip(
 	bool esi_valid;
 
 	/* Check socket. */
-	if (!zclient || zclient->sock < 0) {
+	if (!bgp_zclient || bgp_zclient->sock < 0) {
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: No zclient or zclient->sock exists",
 				   __func__);
@@ -923,7 +923,7 @@ static enum zclient_send_status bgp_zebra_send_remote_macip(
 
 	if (!esi)
 		esi = zero_esi;
-	s = zclient->obuf;
+	s = bgp_zclient->obuf;
 	stream_reset(s);
 
 	zclient_create_header(
@@ -984,7 +984,7 @@ static enum zclient_send_status bgp_zebra_send_remote_macip(
 	frrtrace(5, frr_bgp, evpn_mac_ip_zsend, add, vpn, p, remote_vtep_ip,
 		 esi);
 
-	return zclient_send_message(zclient);
+	return zclient_send_message(bgp_zclient);
 }
 
 /*
@@ -998,7 +998,7 @@ bgp_zebra_send_remote_vtep(struct bgp *bgp, struct bgpevpn *vpn,
 	struct stream *s;
 
 	/* Check socket. */
-	if (!zclient || zclient->sock < 0) {
+	if (!bgp_zclient || bgp_zclient->sock < 0) {
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: No zclient or zclient->sock exists",
 				   __func__);
@@ -1014,7 +1014,7 @@ bgp_zebra_send_remote_vtep(struct bgp *bgp, struct bgpevpn *vpn,
 		return ZCLIENT_SEND_SUCCESS;
 	}
 
-	s = zclient->obuf;
+	s = bgp_zclient->obuf;
 	stream_reset(s);
 
 	zclient_create_header(
@@ -1041,7 +1041,7 @@ bgp_zebra_send_remote_vtep(struct bgp *bgp, struct bgpevpn *vpn,
 
 	frrtrace(3, frr_bgp, evpn_bum_vtep_zsend, add, vpn, p);
 
-	return zclient_send_message(zclient);
+	return zclient_send_message(bgp_zclient);
 }
 
 /*

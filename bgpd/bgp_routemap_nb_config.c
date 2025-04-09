@@ -1355,7 +1355,7 @@ lib_route_map_entry_match_condition_rmap_match_condition_comm_list_finish(
 {
 	struct routemap_hook_context *rhc;
 	const char *value;
-	bool exact_match = false;
+	bool match_p = false;
 	bool any = false;
 	char *argstr;
 	const char *condition;
@@ -1367,13 +1367,13 @@ lib_route_map_entry_match_condition_rmap_match_condition_comm_list_finish(
 	value = yang_dnode_get_string(args->dnode, "comm-list-name");
 
 	if (yang_dnode_exists(args->dnode, "comm-list-name-exact-match"))
-		exact_match = yang_dnode_get_bool(
+		match_p = yang_dnode_get_bool(
 			args->dnode, "./comm-list-name-exact-match");
 
 	if (yang_dnode_exists(args->dnode, "comm-list-name-any"))
 		any = yang_dnode_get_bool(args->dnode, "comm-list-name-any");
 
-	if (exact_match) {
+	if (match_p) {
 		argstr = XMALLOC(MTYPE_ROUTE_MAP_COMPILED,
 				 strlen(value) + strlen("exact-match") + 2);
 

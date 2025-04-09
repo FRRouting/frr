@@ -620,10 +620,10 @@ static uint8_t *ldpHelloAdjacencyTable(struct variable *v, oid name[], size_t *l
 		memcpy(name, v->name, v->namelen * sizeof(oid));
 
 		/* Append index */
-		struct in_addr entityLdpId = {.s_addr = 0};
+		entityLdpId.s_addr = 0;
 		entityLdpId.s_addr = ldp_rtr_id_get(leconf);
 
-		struct in_addr peerLdpId = ctl_adj->id;
+		peerLdpId = ctl_adj->id;
 
 		oid_copy_in_addr(name + v->namelen, &entityLdpId);
 		name[v->namelen + 4] = 0;

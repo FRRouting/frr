@@ -653,7 +653,6 @@ void isis_adj_print_json(struct isis_adjacency *adj, struct json_object *json,
 			json_object_object_add(iface_json, "ipv6-link-local",
 					       ipv6_link_json);
 			for (unsigned int i = 0; i < adj->ll_ipv6_count; i++) {
-				char buf[INET6_ADDRSTRLEN];
 				inet_ntop(AF_INET6, &adj->ll_ipv6_addrs[i], buf,
 					  sizeof(buf));
 				json_object_string_add(ipv6_link_json, "ipv6",
@@ -666,7 +665,6 @@ void isis_adj_print_json(struct isis_adjacency *adj, struct json_object *json,
 					       ipv6_non_link_json);
 			for (unsigned int i = 0; i < adj->global_ipv6_count;
 			     i++) {
-				char buf[INET6_ADDRSTRLEN];
 				inet_ntop(AF_INET6, &adj->global_ipv6_addrs[i],
 					  buf, sizeof(buf));
 				json_object_string_add(ipv6_non_link_json,

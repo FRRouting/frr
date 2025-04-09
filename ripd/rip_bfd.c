@@ -15,7 +15,7 @@
 
 DEFINE_MTYPE(RIPD, RIP_BFD_PROFILE, "RIP BFD profile name");
 
-extern struct zclient *zclient;
+extern struct zclient *ripd_zclient;
 
 static const char *rip_bfd_interface_profile(struct rip_interface *ri)
 {
@@ -117,5 +117,5 @@ void rip_bfd_instance_update(struct rip *rip)
 
 void rip_bfd_init(struct event_loop *tm)
 {
-	bfd_protocol_integration_init(zclient, tm);
+	bfd_protocol_integration_init(ripd_zclient, tm);
 }

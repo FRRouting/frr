@@ -157,7 +157,8 @@ nb_op_create_yield_state(const char *xpath, struct yang_translator *translator,
 	/* remove trailing '/'s */
 	while (darr_len(ys->xpath) > 1 && ys->xpath[darr_len(ys->xpath) - 2] == '/') {
 		darr_setlen(ys->xpath, darr_len(ys->xpath) - 1);
-		*darr_last(ys->xpath) = 0;
+		if (darr_last(ys->xpath))
+			*darr_last(ys->xpath) = 0;
 	}
 	ys->xpath_orig = darr_strdup(xpath);
 	ys->translator = translator;
