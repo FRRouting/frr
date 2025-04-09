@@ -71,6 +71,22 @@ int snprintf_seg6_segs(char *str,
 	return strlen(str);
 }
 
+static void seg6local_flavors2json(json_object *json, const struct seg6local_flavors_info *flv_info)
+{
+	json_object *json_flavors;
+	json_flavors = json_object_new_array();
+	json_object_object_add(json, "flavors", json_flavors);
+
+	if (CHECK_SRV6_FLV_OP(flv_info->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID))
+		json_array_string_add(json_flavors, "next-csid");
+	if (CHECK_SRV6_FLV_OP(flv_info->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_PSP))
+		json_array_string_add(json_flavors, "psp");
+	if (CHECK_SRV6_FLV_OP(flv_info->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_USP))
+		json_array_string_add(json_flavors, "usp");
+	if (CHECK_SRV6_FLV_OP(flv_info->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_USD))
+		json_array_string_add(json_flavors, "usd");
+}
+
 void srv6_sid_structure2json(const struct seg6local_context *ctx, json_object *json)
 {
 	json_object_int_add(json, "blockLen", ctx->block_len);
@@ -82,6 +98,7 @@ void srv6_sid_structure2json(const struct seg6local_context *ctx, json_object *j
 void seg6local_context2json(const struct seg6local_context *ctx,
 			    uint32_t action, json_object *json)
 {
+	seg6local_flavors2json(json, &ctx->flv);
 	switch (action) {
 	case ZEBRA_SEG6_LOCAL_ACTION_END:
 		return;
@@ -127,14 +144,22 @@ static char *seg6local_flavors2str(char *str, size_t size,
 		len += snprintf(str + len, size - len, "%s ", start_with_comma ? "," : "");
 	}
 
-	if (CHECK_SRV6_FLV_OP(flv_info->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID))
-		len += snprintf(str + len, size - len, "%snext-csid", first ? "flavors " : ", ");
-	if (CHECK_SRV6_FLV_OP(flv_info->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_PSP))
-		len += snprintf(str + len, size - len, "%spsp", first ? "flavors " : ", ");
-	if (CHECK_SRV6_FLV_OP(flv_info->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_USP))
-		len += snprintf(str + len, size - len, "%susp", first ? "flavors " : ", ");
-	if (CHECK_SRV6_FLV_OP(flv_info->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_USD))
-		len += snprintf(str + len, size - len, "%susd", first ? "flavors " : ", ");
+	if (CHECK_SRV6_FLV_OP(flv_info->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID)) {
+		len += snprintf(str + len, size - len, "%snext-csid", first ? "flavors " : " ");
+		first = false;
+	}
+        if (CHECK_SRV6_FLV_OP(flv_info->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_PSP)) {
+		len += snprintf(str + len, size - len, "%spsp", first ? "flavors " : " ");
+		first = false;
+	}
+	if (CHECK_SRV6_FLV_OP(flv_info->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_USP)) {
+		len += snprintf(str + len, size - len, "%susp", first ? "flavors " : " ");
+		first = false;
+	}
+	if (CHECK_SRV6_FLV_OP(flv_info->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_USD)) {
+		len += snprintf(str + len, size - len, "%susd", first ? "flavors " : " ");
+		first = false;
+	}
 
 	return str;
 }
