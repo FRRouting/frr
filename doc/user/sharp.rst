@@ -202,6 +202,7 @@ keyword. At present, no sharp commands will be preserved in the config.
    router# sharp install seg6local-routes 1::8 nexthop-seg6local dum0 uA 2001::1 1
    router# sharp install seg6local-routes 1::9 nexthop-seg6local dum0 uN usid-block-length 40 usid-function-length 8 1
    router# sharp install seg6local-routes 1::10 nexthop-seg6local dum0 uA 2001::1 usid-block-length 40 usid-function-length 8 1
+   router# sharp install seg6local-routes 1::11 nexthop-seg6local dum0 End_B6_Encap nexthop-seg6 2001::5 encap 2001:a::b:c 2001:a::d:e 1
 
    router# show ipv6 route
    D>* 1::1/128 [150/0] is directly connected, dum0, seg6local End -, weight 1, 00:00:05
@@ -214,6 +215,7 @@ keyword. At present, no sharp commands will be preserved in the config.
    D>* 1::8/128 [150/0] is directly connected, dum0, seg6local End.X nh6 2001::1, weight 1, 00:01:17
    D>* 1::9/128 [150/0] is directly connected, dum0, seg6local End -, weight 1, 00:00:12
    D>* 1::10/128 [150/0] is directly connected, dum0, seg6local End.X nh6 2001::1, weight 1, 00:00:05
+   D>* 1::11/128 [150/0] is directly connected, dum0, seg6local End.B6.Encap nh6 2001::5, seg6 2001:a::b:c,2001:a::d:e, weight 1, 00:00:04
 
    bash# ip -6 route
    1::1  encap seg6local action End dev dum0 proto 194 metric 20 pref medium
@@ -226,6 +228,7 @@ keyword. At present, no sharp commands will be preserved in the config.
    1::8  encap seg6local action End.X nh6 2001::1 flavors next-csid lblen 32 nflen 16 dev dum0 proto 194 metric 20 pref medium
    1::9  encap seg6local action End flavors next-csid lblen 40 nflen 8 dev dum0 proto 194 metric 20 pref medium
    1::10  encap seg6local action End.X nh6 2001::1 flavors next-csid lblen 40 nflen 8 dev dum0 proto 194 metric 20 pref medium
+   1::11  encap seg6local action End.B6.Encaps segs 2 [ 2001:a::b:c 2001:a::d:e ] via 2001::5 dev dum0 proto 194 metric 20 pref medium
 
 
 .. clicmd:: show sharp segment-routing srv6
