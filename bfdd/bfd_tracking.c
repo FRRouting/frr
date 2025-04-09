@@ -236,6 +236,9 @@ static int bfd_tracking_call_release_session(const struct bfd_session *bs)
 		bfd_tracking_notify_update_status(ctx->notify_path, 0);
 	hash_release(bfd_tracking_list, ctx);
 
+	if (ctx->label)
+		XFREE(MTYPE_BFD_LABEL, ctx->label);
+
 	XFREE(MTYPE_BFD_TRACKING, ctx);
 
 	return 1;
