@@ -357,8 +357,8 @@ DEFUN (agentx_enable,
 		init_snmp(FRR_SMUX_NAME);
 		events = list_new();
 		ibuf_ax = ringbuf_new(RINGBUF_NB_TRAP * sizeof(void *));
-		agentx_events_update(NULL);
 		agentx_enabled = true;
+		agentx_events_update(NULL);
 		hook_call(agentx_enabled);
 	}
 
@@ -450,8 +450,8 @@ void smux_agentx_enable(void)
 		init_snmp(FRR_SMUX_NAME);
 		events = list_new();
 		ibuf_ax = ringbuf_new(RINGBUF_NB_TRAP * sizeof(void *));
-		agentx_events_update(NULL);
 		agentx_enabled = true;
+		agentx_events_update(NULL);
 	}
 }
 
