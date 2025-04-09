@@ -764,17 +764,15 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 			 !txn->commit_cfg_req->req.commit_cfg.rollback);
 
 		/*
-		 * Successful commit: Merge Src DS into Dst DS if and only if
+		 * Successful commit: Copy Src DS to Dst DS if and only if
 		 * this was not a validate-only or abort request.
 		 */
 		if ((txn->session_id &&
 		     !txn->commit_cfg_req->req.commit_cfg.validate_only &&
 		     !txn->commit_cfg_req->req.commit_cfg.abort) ||
 		    txn->commit_cfg_req->req.commit_cfg.rollback) {
-			mgmt_ds_copy_dss(txn->commit_cfg_req->req.commit_cfg
-						 .src_ds_ctx,
-					 txn->commit_cfg_req->req.commit_cfg
-						 .dst_ds_ctx,
+			mgmt_ds_copy_dss(txn->commit_cfg_req->req.commit_cfg.dst_ds_ctx,
+					 txn->commit_cfg_req->req.commit_cfg.src_ds_ctx,
 					 create_cmt_info_rec);
 		}
 
@@ -783,22 +781,18 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 		 * request.
 		 */
 		if (txn->session_id && txn->commit_cfg_req->req.commit_cfg.abort)
-			mgmt_ds_copy_dss(txn->commit_cfg_req->req.commit_cfg
-						 .dst_ds_ctx,
-					 txn->commit_cfg_req->req.commit_cfg
-						 .src_ds_ctx,
-					 false);
+			mgmt_ds_copy_dss(txn->commit_cfg_req->req.commit_cfg.src_ds_ctx,
+					 txn->commit_cfg_req->req.commit_cfg.dst_ds_ctx, false);
 	} else {
 		/*
 		 * The commit has failied. For implicit commit requests restore
-		 * back the contents of the candidate DS.
+		 * back the contents of the candidate DS. For non-implicit
+		 * commit we want to allow the user to re-commit on the changes
+		 * (whether further modified or not).
 		 */
 		if (txn->commit_cfg_req->req.commit_cfg.implicit)
-			mgmt_ds_copy_dss(txn->commit_cfg_req->req.commit_cfg
-						 .dst_ds_ctx,
-					 txn->commit_cfg_req->req.commit_cfg
-						 .src_ds_ctx,
-					 false);
+			mgmt_ds_copy_dss(txn->commit_cfg_req->req.commit_cfg.src_ds_ctx,
+					 txn->commit_cfg_req->req.commit_cfg.dst_ds_ctx, false);
 	}
 
 	if (txn->commit_cfg_req->req.commit_cfg.rollback) {

@@ -74,8 +74,7 @@ static int mgmt_ds_dump_in_memory(struct mgmt_ds_ctx *ds_ctx,
 	return 0;
 }
 
-static int mgmt_ds_replace_dst_with_src_ds(struct mgmt_ds_ctx *src,
-					   struct mgmt_ds_ctx *dst)
+static int ds_copy(struct mgmt_ds_ctx *dst, struct mgmt_ds_ctx *src)
 {
 	if (!src || !dst)
 		return -1;
@@ -95,8 +94,7 @@ static int mgmt_ds_replace_dst_with_src_ds(struct mgmt_ds_ctx *src,
 	return 0;
 }
 
-static int mgmt_ds_merge_src_with_dst_ds(struct mgmt_ds_ctx *src,
-					 struct mgmt_ds_ctx *dst)
+static int ds_merge(struct mgmt_ds_ctx *dst, struct mgmt_ds_ctx *src)
 {
 	int ret;
 
@@ -250,14 +248,13 @@ void mgmt_ds_unlock(struct mgmt_ds_ctx *ds_ctx)
 	ds_ctx->locked = 0;
 }
 
-int mgmt_ds_copy_dss(struct mgmt_ds_ctx *src_ds_ctx,
-		     struct mgmt_ds_ctx *dst_ds_ctx, bool updt_cmt_rec)
+int mgmt_ds_copy_dss(struct mgmt_ds_ctx *dst, struct mgmt_ds_ctx *src, bool updt_cmt_rec)
 {
-	if (mgmt_ds_replace_dst_with_src_ds(src_ds_ctx, dst_ds_ctx) != 0)
+	if (ds_copy(dst, src) != 0)
 		return -1;
 
-	if (updt_cmt_rec && dst_ds_ctx->ds_id == MGMTD_DS_RUNNING)
-		mgmt_history_new_record(dst_ds_ctx);
+	if (updt_cmt_rec && dst->ds_id == MGMTD_DS_RUNNING)
+		mgmt_history_new_record(dst);
 
 	return 0;
 }
@@ -415,9 +412,9 @@ int mgmt_ds_load_config_from_file(struct mgmt_ds_ctx *dst,
 	parsed.ds_id = dst->ds_id;
 
 	if (merge)
-		mgmt_ds_merge_src_with_dst_ds(&parsed, dst);
+		ds_merge(dst, &parsed);
 	else
-		mgmt_ds_replace_dst_with_src_ds(&parsed, dst);
+		ds_copy(dst, &parsed);
 
 	nb_config_free(parsed.root.cfg_root);
 
