@@ -652,6 +652,9 @@ def test_nexthop_groups():
     )
 
     ## Validate NHG's installed in kernel has same nexthops with Interface flaps
+    logger.info(
+        "Validate NHG's installed in kernel has same nexthops with Interface flaps"
+    )
     pre_out = net["r1"].cmd('ip route show | grep "5.5.5.1"')
     pre_nhg = re.search(r"nhid\s+(\d+)", pre_out)
     pre_nh_show = net["r1"].cmd("ip next show id {}".format(pre_nhg.group(1)))
@@ -679,8 +682,65 @@ def test_nexthop_groups():
         pre_total_nhs, post_total_nhs, pre_nhg.group(1), post_nhg.group(1)
     )
 
-    ## Remove all NHG routes
+    ## TBD: This is a seperately tracked issue #18784
+    net["r1"].cmd('vtysh -c "c t" -c "no ip route 6.6.6.0/24 1.1.1.1"')
+    sleep(2)
 
+    ## Validate route re-install post ip nexthop flush
+    logger.info("Validate route re-install post ip nexthop flush")
+    pre_route = net["r1"].cmd("ip route show | wc -l")
+    pre_route6 = net["r1"].cmd("ip -6 route show | wc -l")
+
+    post_out = net["r1"].cmd("ip next flush")
+    sleep(5)
+
+    post_route = net["r1"].cmd("ip route show | wc -l")
+    post_route6 = net["r1"].cmd("ip -6 route show | wc -l")
+
+    assert (
+        post_route == pre_route and post_route6 == pre_route6
+    ), "Expected same ipv6 routes(pre-{}: post-{}) and ipv4 route count(pre-{}:post-{}) after nexthop flush".format(
+        pre_route6, post_route6, pre_route, post_route
+    )
+
+    ## Validate route re-install after quick interface flaps of rt1-eth(1-8)
+    logger.info("Validate route re-install after quick interface flaps of rt1-eth(1-8)")
+    pre_route = net["r1"].cmd("ip route show | wc -l")
+    pre_route6 = net["r1"].cmd("ip -6 route show | wc -l")
+
+    interfaces = range(1, 9)
+    cmds = [f"ip link set r1-eth{i} down; ip link set r1-eth{i} up" for i in interfaces]
+    net["r1"].cmd(" ; ".join(cmds))
+    sleep(5)
+
+    post_route = net["r1"].cmd("ip route show | wc -l")
+    post_route6 = net["r1"].cmd("ip -6 route show | wc -l")
+
+    assert (
+        post_route == pre_route and post_route6 == pre_route6
+    ), "Expected same ipv6 routes(pre-{}: post-{}) and route count(pre-{}:post-{}) after quick interface flaps of rt1-eth(1-8)".format(
+        pre_route6, post_route6, pre_route, post_route
+    )
+
+    ## Validate route re-install post nexthop delete an ID
+    logger.info("Validate route re-install post nexthop delete an ID")
+    nhg_id = route_get_nhg_id("6.6.6.1/32")
+    pre_output = net["r1"].cmd(
+        'vtysh -c "show nexthop-group rib {} routes"'.format(nhg_id)
+    )
+    post_out = net["r1"].cmd("ip nexthop del id {}".format(nhg_id))
+    sleep(3)
+    post_output = net["r1"].cmd(
+        'vtysh -c "show nexthop-group rib {} routes"'.format(nhg_id)
+    )
+
+    assert (
+        post_output == pre_output
+    ), "Expected same pre and post routes after nhg {} delete from kernel".format(
+        nhg_id
+    )
+
+    ## Remove all NHG routes
     net["r1"].cmd('vtysh -c "sharp remove routes 2.2.2.1 1"')
     net["r1"].cmd('vtysh -c "sharp remove routes 2.2.2.2 1"')
     net["r1"].cmd('vtysh -c "sharp remove routes 3.3.3.1 1"')
@@ -689,7 +749,6 @@ def test_nexthop_groups():
     net["r1"].cmd('vtysh -c "sharp remove routes 4.4.4.2 1"')
     net["r1"].cmd('vtysh -c "sharp remove routes 5.5.5.1 1"')
     net["r1"].cmd('vtysh -c "sharp remove routes 6.6.6.1 4"')
-    net["r1"].cmd('vtysh -c "c t" -c "no ip route 6.6.6.0/24 1.1.1.1"')
 
 
 def test_rip_status():
