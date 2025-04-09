@@ -21,6 +21,8 @@ Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
 #undef MAX
 #undef MIN
 
+#define BABEL_PORT 6696
+
 #define MAX(x,y) ((x)<=(y)?(y):(x))
 #define MIN(x,y) ((x)<=(y)?(x):(y))
 
