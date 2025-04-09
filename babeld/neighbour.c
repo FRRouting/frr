@@ -29,315 +29,309 @@ Copyright (c) 2007, 2008 by Juliusz Chroboczek
 
 struct neighbour *neighs = NULL;
 
-static struct neighbour *
-find_neighbour_nocreate(const unsigned char *address, struct interface *ifp)
+static struct neighbour *find_neighbour_nocreate(const unsigned char *address,
+						 struct interface *ifp)
 {
-    struct neighbour *neigh;
-    FOR_ALL_NEIGHBOURS(neigh) {
-        if(memcmp(address, neigh->address, 16) == 0 && neigh->ifp == ifp)
-            return neigh;
-    }
-    return NULL;
+	struct neighbour *neigh;
+	FOR_ALL_NEIGHBOURS(neigh)
+	{
+		if (memcmp(address, neigh->address, 16) == 0 && neigh->ifp == ifp)
+			return neigh;
+	}
+	return NULL;
 }
 
 void flush_neighbour(struct neighbour *neigh)
 {
-    debugf(BABEL_DEBUG_COMMON,"Flushing neighbour %s (reach 0x%04x)",
-           format_address(neigh->address), neigh->reach);
-    flush_neighbour_routes(neigh);
-    if(unicast_neighbour == neigh)
-        flush_unicast(1);
-    flush_resends(neigh);
+	debugf(BABEL_DEBUG_COMMON, "Flushing neighbour %s (reach 0x%04x)",
+	       format_address(neigh->address), neigh->reach);
+	flush_neighbour_routes(neigh);
+	if (unicast_neighbour == neigh)
+		flush_unicast(1);
+	flush_resends(neigh);
 
-    if(neighs == neigh) {
-        neighs = neigh->next;
-    } else {
-        struct neighbour *previous = neighs;
-        while(previous->next != neigh)
-            previous = previous->next;
-        previous->next = neigh->next;
-    }
-    free(neigh);
+	if (neighs == neigh) {
+		neighs = neigh->next;
+	} else {
+		struct neighbour *previous = neighs;
+		while (previous->next != neigh)
+			previous = previous->next;
+		previous->next = neigh->next;
+	}
+	free(neigh);
 }
 
-struct neighbour *
-find_neighbour(const unsigned char *address, struct interface *ifp)
+struct neighbour *find_neighbour(const unsigned char *address, struct interface *ifp)
 {
-    struct neighbour *neigh;
-    const struct timeval zero = {0, 0};
+	struct neighbour *neigh;
+	const struct timeval zero = { 0, 0 };
 
-    neigh = find_neighbour_nocreate(address, ifp);
-    if(neigh)
-        return neigh;
+	neigh = find_neighbour_nocreate(address, ifp);
+	if (neigh)
+		return neigh;
 
-    debugf(BABEL_DEBUG_COMMON,"Creating neighbour %s on %s.",
-           format_address(address), ifp->name);
+	debugf(BABEL_DEBUG_COMMON, "Creating neighbour %s on %s.", format_address(address),
+	       ifp->name);
 
-    neigh = malloc(sizeof(struct neighbour));
-    if(neigh == NULL) {
-        flog_err(EC_BABEL_MEMORY, "malloc(neighbour): %s",
-		  safe_strerror(errno));
-        return NULL;
-    }
+	neigh = malloc(sizeof(struct neighbour));
+	if (neigh == NULL) {
+		flog_err(EC_BABEL_MEMORY, "malloc(neighbour): %s", safe_strerror(errno));
+		return NULL;
+	}
 
-    neigh->hello_seqno = -1;
-    memcpy(neigh->address, address, 16);
-    neigh->reach = 0;
-    neigh->txcost = INFINITY;
-    neigh->ihu_time = babel_now;
-    neigh->hello_time = zero;
-    neigh->hello_interval = 0;
-    neigh->ihu_interval = 0;
-    neigh->hello_send_us = 0;
-    neigh->hello_rtt_receive_time = zero;
-    neigh->rtt = 0;
-    neigh->rtt_time = zero;
-    neigh->ifp = ifp;
-    neigh->next = neighs;
-    neighs = neigh;
-    send_hello(ifp);
-    return neigh;
+	neigh->hello_seqno = -1;
+	memcpy(neigh->address, address, 16);
+	neigh->reach = 0;
+	neigh->txcost = INFINITY;
+	neigh->ihu_time = babel_now;
+	neigh->hello_time = zero;
+	neigh->hello_interval = 0;
+	neigh->ihu_interval = 0;
+	neigh->hello_send_us = 0;
+	neigh->hello_rtt_receive_time = zero;
+	neigh->rtt = 0;
+	neigh->rtt_time = zero;
+	neigh->ifp = ifp;
+	neigh->next = neighs;
+	neighs = neigh;
+	send_hello(ifp);
+	return neigh;
 }
 
 /* Recompute a neighbour's rxcost.  Return true if anything changed. */
 int update_neighbour(struct neighbour *neigh, int hello, int hello_interval)
 {
-    int missed_hellos;
-    int rc = 0;
+	int missed_hellos;
+	int rc = 0;
 
-    if(hello < 0) {
-        if(neigh->hello_interval == 0)
-            return rc;
-        missed_hellos =
-            ((int)timeval_minus_msec(&babel_now, &neigh->hello_time) -
-             neigh->hello_interval * 7) /
-            (neigh->hello_interval * 10);
-        if(missed_hellos <= 0)
-            return rc;
-        timeval_add_msec(&neigh->hello_time, &neigh->hello_time,
-                          missed_hellos * neigh->hello_interval * 10);
-    } else {
-        if(neigh->hello_seqno >= 0 && neigh->reach > 0) {
-            missed_hellos = seqno_minus(hello, neigh->hello_seqno) - 1;
-            if(missed_hellos < -8) {
-                /* Probably a neighbour that rebooted and lost its seqno.
+	if (hello < 0) {
+		if (neigh->hello_interval == 0)
+			return rc;
+		missed_hellos = ((int)timeval_minus_msec(&babel_now, &neigh->hello_time) -
+				 neigh->hello_interval * 7) /
+				(neigh->hello_interval * 10);
+		if (missed_hellos <= 0)
+			return rc;
+		timeval_add_msec(&neigh->hello_time, &neigh->hello_time,
+				 missed_hellos * neigh->hello_interval * 10);
+	} else {
+		if (neigh->hello_seqno >= 0 && neigh->reach > 0) {
+			missed_hellos = seqno_minus(hello, neigh->hello_seqno) - 1;
+			if (missed_hellos < -8) {
+				/* Probably a neighbour that rebooted and lost its seqno.
                    Reboot the universe. */
-                neigh->reach = 0;
-                missed_hellos = 0;
-                rc = 1;
-            } else if(missed_hellos < 0) {
-                if(hello_interval > neigh->hello_interval) {
-                    /* This neighbour has increased its hello interval,
+				neigh->reach = 0;
+				missed_hellos = 0;
+				rc = 1;
+			} else if (missed_hellos < 0) {
+				if (hello_interval > neigh->hello_interval) {
+					/* This neighbour has increased its hello interval,
                        and we didn't notice. */
-                    neigh->reach <<= -missed_hellos;
-                    missed_hellos = 0;
-                } else {
-                    /* Late hello.  Probably due to the link layer buffering
+					neigh->reach <<= -missed_hellos;
+					missed_hellos = 0;
+				} else {
+					/* Late hello.  Probably due to the link layer buffering
                        packets during a link outage.  Ignore it, but reset
                        the expected seqno. */
-                    neigh->hello_seqno = hello;
-                    hello = -1;
-                    missed_hellos = 0;
-                }
-                rc = 1;
-            }
-        } else {
-            missed_hellos = 0;
-        }
-        neigh->hello_time = babel_now;
-        neigh->hello_interval = hello_interval;
-    }
+					neigh->hello_seqno = hello;
+					hello = -1;
+					missed_hellos = 0;
+				}
+				rc = 1;
+			}
+		} else {
+			missed_hellos = 0;
+		}
+		neigh->hello_time = babel_now;
+		neigh->hello_interval = hello_interval;
+	}
 
-    if(missed_hellos > 0) {
-        neigh->reach >>= missed_hellos;
-        neigh->hello_seqno = seqno_plus(neigh->hello_seqno, missed_hellos);
-        rc = 1;
-    }
+	if (missed_hellos > 0) {
+		neigh->reach >>= missed_hellos;
+		neigh->hello_seqno = seqno_plus(neigh->hello_seqno, missed_hellos);
+		rc = 1;
+	}
 
-    if(hello >= 0) {
-        neigh->hello_seqno = hello;
-        neigh->reach >>= 1;
-        SET_FLAG(neigh->reach, 0x8000);
-        if(CHECK_FLAG(neigh->reach, 0xFC00) != 0xFC00)
-            rc = 1;
-    }
+	if (hello >= 0) {
+		neigh->hello_seqno = hello;
+		neigh->reach >>= 1;
+		SET_FLAG(neigh->reach, 0x8000);
+		if (CHECK_FLAG(neigh->reach, 0xFC00) != 0xFC00)
+			rc = 1;
+	}
 
-    /* Make sure to give neighbours some feedback early after association */
-    if(CHECK_FLAG(neigh->reach, 0xBF00) == 0x8000) {
-        /* A new neighbour */
-        send_hello(neigh->ifp);
-    } else {
-        /* Don't send hellos, in order to avoid a positive feedback loop. */
-        int a = CHECK_FLAG(neigh->reach, 0xC000);
-        int b = CHECK_FLAG(neigh->reach, 0x3000);
-        if((a == 0xC000 && b == 0) || (a == 0 && b == 0x3000)) {
-            /* Reachability is either 1100 or 0011 */
-            send_self_update(neigh->ifp);
-        }
-    }
+	/* Make sure to give neighbours some feedback early after association */
+	if (CHECK_FLAG(neigh->reach, 0xBF00) == 0x8000) {
+		/* A new neighbour */
+		send_hello(neigh->ifp);
+	} else {
+		/* Don't send hellos, in order to avoid a positive feedback loop. */
+		int a = CHECK_FLAG(neigh->reach, 0xC000);
+		int b = CHECK_FLAG(neigh->reach, 0x3000);
+		if ((a == 0xC000 && b == 0) || (a == 0 && b == 0x3000)) {
+			/* Reachability is either 1100 or 0011 */
+			send_self_update(neigh->ifp);
+		}
+	}
 
-    if(CHECK_FLAG(neigh->reach, 0xFC00) == 0xC000) {
-        /* This is a newish neighbour, let's request a full route dump.
+	if (CHECK_FLAG(neigh->reach, 0xFC00) == 0xC000) {
+		/* This is a newish neighbour, let's request a full route dump.
            We ought to avoid this when the network is dense */
-        send_unicast_request(neigh, NULL, 0);
-        send_ihu(neigh, NULL);
-    }
-    return rc;
+		send_unicast_request(neigh, NULL, 0);
+		send_ihu(neigh, NULL);
+	}
+	return rc;
 }
 
 static int reset_txcost(struct neighbour *neigh)
 {
-    unsigned delay;
+	unsigned delay;
 
-    delay = timeval_minus_msec(&babel_now, &neigh->ihu_time);
+	delay = timeval_minus_msec(&babel_now, &neigh->ihu_time);
 
-    if(neigh->ihu_interval > 0 && delay < neigh->ihu_interval * 10U * 3U)
-        return 0;
+	if (neigh->ihu_interval > 0 && delay < neigh->ihu_interval * 10U * 3U)
+		return 0;
 
-    /* If we're losing a lot of packets, we probably lost an IHU too */
-    if (delay >= 180000 || CHECK_FLAG(neigh->reach, 0xFFF0) == 0 ||
-       (neigh->ihu_interval > 0 && delay >= neigh->ihu_interval * 10U * 10U)) {
-        neigh->txcost = INFINITY;
-        neigh->ihu_time = babel_now;
-        return 1;
-    }
+	/* If we're losing a lot of packets, we probably lost an IHU too */
+	if (delay >= 180000 || CHECK_FLAG(neigh->reach, 0xFFF0) == 0 ||
+	    (neigh->ihu_interval > 0 && delay >= neigh->ihu_interval * 10U * 10U)) {
+		neigh->txcost = INFINITY;
+		neigh->ihu_time = babel_now;
+		return 1;
+	}
 
-    return 0;
+	return 0;
 }
 
 unsigned neighbour_txcost(struct neighbour *neigh)
 {
-    return neigh->txcost;
+	return neigh->txcost;
 }
 
 unsigned check_neighbours(void)
 {
-    struct neighbour *neigh;
-    int changed, rc;
-    unsigned msecs = 50000;
+	struct neighbour *neigh;
+	int changed, rc;
+	unsigned msecs = 50000;
 
-    debugf(BABEL_DEBUG_COMMON,"Checking neighbours.");
+	debugf(BABEL_DEBUG_COMMON, "Checking neighbours.");
 
-    neigh = neighs;
-    while(neigh) {
-        changed = update_neighbour(neigh, -1, 0);
+	neigh = neighs;
+	while (neigh) {
+		changed = update_neighbour(neigh, -1, 0);
 
-        if(neigh->reach == 0 ||
-           neigh->hello_time.tv_sec > babel_now.tv_sec || /* clock stepped */
-           timeval_minus_msec(&babel_now, &neigh->hello_time) > 300000) {
-            struct neighbour *old = neigh;
-            neigh = neigh->next;
-            flush_neighbour(old);
-            continue;
-        }
+		if (neigh->reach == 0 ||
+		    neigh->hello_time.tv_sec > babel_now.tv_sec || /* clock stepped */
+		    timeval_minus_msec(&babel_now, &neigh->hello_time) > 300000) {
+			struct neighbour *old = neigh;
+			neigh = neigh->next;
+			flush_neighbour(old);
+			continue;
+		}
 
-        rc = reset_txcost(neigh);
-        changed = changed || rc;
+		rc = reset_txcost(neigh);
+		changed = changed || rc;
 
-        update_neighbour_metric(neigh, changed);
+		update_neighbour_metric(neigh, changed);
 
-        if(neigh->hello_interval > 0)
-            msecs = MIN(msecs, neigh->hello_interval * 10U);
-        if(neigh->ihu_interval > 0)
-            msecs = MIN(msecs, neigh->ihu_interval * 10U);
-        neigh = neigh->next;
-    }
+		if (neigh->hello_interval > 0)
+			msecs = MIN(msecs, neigh->hello_interval * 10U);
+		if (neigh->ihu_interval > 0)
+			msecs = MIN(msecs, neigh->ihu_interval * 10U);
+		neigh = neigh->next;
+	}
 
-    return msecs;
+	return msecs;
 }
 
 unsigned neighbour_rxcost(struct neighbour *neigh)
 {
-    unsigned delay;
-    unsigned short reach = neigh->reach;
+	unsigned delay;
+	unsigned short reach = neigh->reach;
 
-    delay = timeval_minus_msec(&babel_now, &neigh->hello_time);
+	delay = timeval_minus_msec(&babel_now, &neigh->hello_time);
 
-    if(CHECK_FLAG(reach, 0xFFF0) == 0 || delay >= 180000) {
-        return INFINITY;
-    } else if (CHECK_FLAG(babel_get_if_nfo(neigh->ifp)->flags, BABEL_IF_LQ)) {
-        int sreach =
-            (CHECK_FLAG(reach, 0x8000) >> 2) +
-            (CHECK_FLAG(reach, 0x4000) >> 1) +
-            CHECK_FLAG(reach, 0x3FFF);
-        /* 0 <= sreach <= 0x7FFF */
-        int cost = (0x8000 * babel_get_if_nfo(neigh->ifp)->cost) / (sreach + 1);
-        /* cost >= interface->cost */
-        if(delay >= 40000)
-            cost = (cost * (delay - 20000) + 10000) / 20000;
-        return MIN(cost, INFINITY);
-    } else {
-        /* To lose one hello is a misfortune, to lose two is carelessness. */
-        if (CHECK_FLAG(reach, 0xC000) == 0xC000)
-            return babel_get_if_nfo(neigh->ifp)->cost;
-        else if (CHECK_FLAG(reach, 0xC000) == 0)
-            return INFINITY;
-        else if (CHECK_FLAG(reach, 0x2000))
-            return babel_get_if_nfo(neigh->ifp)->cost;
-        else
-            return INFINITY;
-    }
+	if (CHECK_FLAG(reach, 0xFFF0) == 0 || delay >= 180000) {
+		return INFINITY;
+	} else if (CHECK_FLAG(babel_get_if_nfo(neigh->ifp)->flags, BABEL_IF_LQ)) {
+		int sreach = (CHECK_FLAG(reach, 0x8000) >> 2) + (CHECK_FLAG(reach, 0x4000) >> 1) +
+			     CHECK_FLAG(reach, 0x3FFF);
+		/* 0 <= sreach <= 0x7FFF */
+		int cost = (0x8000 * babel_get_if_nfo(neigh->ifp)->cost) / (sreach + 1);
+		/* cost >= interface->cost */
+		if (delay >= 40000)
+			cost = (cost * (delay - 20000) + 10000) / 20000;
+		return MIN(cost, INFINITY);
+	} else {
+		/* To lose one hello is a misfortune, to lose two is carelessness. */
+		if (CHECK_FLAG(reach, 0xC000) == 0xC000)
+			return babel_get_if_nfo(neigh->ifp)->cost;
+		else if (CHECK_FLAG(reach, 0xC000) == 0)
+			return INFINITY;
+		else if (CHECK_FLAG(reach, 0x2000))
+			return babel_get_if_nfo(neigh->ifp)->cost;
+		else
+			return INFINITY;
+	}
 }
 
 unsigned neighbour_rttcost(struct neighbour *neigh)
 {
-    struct interface *ifp = neigh->ifp;
-    babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
+	struct interface *ifp = neigh->ifp;
+	babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
 
-    if(!babel_ifp->max_rtt_penalty || !valid_rtt(neigh))
-        return 0;
+	if (!babel_ifp->max_rtt_penalty || !valid_rtt(neigh))
+		return 0;
 
-    /* Function: linear behaviour between rtt_min and rtt_max. */
-    if(neigh->rtt <= babel_ifp->rtt_min) {
-        return 0;
-    } else if(neigh->rtt <= babel_ifp->rtt_max) {
-        unsigned long long tmp =
-            (unsigned long long)babel_ifp->max_rtt_penalty *
-            (neigh->rtt - babel_ifp->rtt_min) /
-            (babel_ifp->rtt_max - babel_ifp->rtt_min);
-        assert(CHECK_FLAG(tmp, 0x7FFFFFFF) == tmp);
-        return tmp;
-    } else {
-        return babel_ifp->max_rtt_penalty;
-    }
+	/* Function: linear behaviour between rtt_min and rtt_max. */
+	if (neigh->rtt <= babel_ifp->rtt_min) {
+		return 0;
+	} else if (neigh->rtt <= babel_ifp->rtt_max) {
+		unsigned long long tmp = (unsigned long long)babel_ifp->max_rtt_penalty *
+					 (neigh->rtt - babel_ifp->rtt_min) /
+					 (babel_ifp->rtt_max - babel_ifp->rtt_min);
+		assert(CHECK_FLAG(tmp, 0x7FFFFFFF) == tmp);
+		return tmp;
+	} else {
+		return babel_ifp->max_rtt_penalty;
+	}
 }
 
 unsigned neighbour_cost(struct neighbour *neigh)
 {
-    unsigned a, b, cost;
+	unsigned a, b, cost;
 
-    if(!if_up(neigh->ifp))
-        return INFINITY;
+	if (!if_up(neigh->ifp))
+		return INFINITY;
 
-    a = neighbour_txcost(neigh);
+	a = neighbour_txcost(neigh);
 
-    if(a >= INFINITY)
-        return INFINITY;
+	if (a >= INFINITY)
+		return INFINITY;
 
-    b = neighbour_rxcost(neigh);
-    if(b >= INFINITY)
-        return INFINITY;
+	b = neighbour_rxcost(neigh);
+	if (b >= INFINITY)
+		return INFINITY;
 
-    if (!CHECK_FLAG(babel_get_if_nfo(neigh->ifp)->flags, BABEL_IF_LQ)
-       || (a < 256 && b < 256)) {
-        cost = a;
-    } else {
-        /* a = 256/alpha, b = 256/beta, where alpha and beta are the expected
+	if (!CHECK_FLAG(babel_get_if_nfo(neigh->ifp)->flags, BABEL_IF_LQ) || (a < 256 && b < 256)) {
+		cost = a;
+	} else {
+		/* a = 256/alpha, b = 256/beta, where alpha and beta are the expected
            probabilities of a packet getting through in the direct and reverse
            directions. */
-        a = MAX(a, 256);
-        b = MAX(b, 256);
-        /* 1/(alpha * beta), which is just plain ETX. */
-        /* Since a and b are capped to 16 bits, overflow is impossible. */
-        cost = (a * b + 128) >> 8;
-    }
+		a = MAX(a, 256);
+		b = MAX(b, 256);
+		/* 1/(alpha * beta), which is just plain ETX. */
+		/* Since a and b are capped to 16 bits, overflow is impossible. */
+		cost = (a * b + 128) >> 8;
+	}
 
-    cost += neighbour_rttcost(neigh);
+	cost += neighbour_rttcost(neigh);
 
-    return MIN(cost, INFINITY);
+	return MIN(cost, INFINITY);
 }
 
 int valid_rtt(struct neighbour *neigh)
 {
-    return (timeval_minus_msec(&babel_now, &neigh->rtt_time) < 180000) ? 1 : 0;
+	return (timeval_minus_msec(&babel_now, &neigh->rtt_time) < 180000) ? 1 : 0;
 }
