@@ -45,6 +45,8 @@ enum cmd_token_type {
 	IPV6_PREFIX_TKN, // IPV6 network prefixes
 	MAC_TKN,         // Ethernet address
 	MAC_PREFIX_TKN,  // Ethernet address w/ CIDR mask
+	RTC_WILDCARD_TKN,       // RTC wildcard address
+	RTC_WILDCARD_PREFIX_TKN, // RTC wildcard w/ CIDR mask
 	RTC_AS2_TKN,       // RTC with 2-bytes AS address
 	RTC_AS2_PREFIX_TKN, // RTC with 2-bytes AS w/ CIDR mask
 	RTC_AS4_TKN,       // RTC with 4-bytes AS address
