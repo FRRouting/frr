@@ -36,6 +36,7 @@ enum bgp_rtc_prefix_type {
 	BGP_RTC_PREFIX_AS2 = 0,
 	BGP_RTC_PREFIX_IPV4,
 	BGP_RTC_PREFIX_AS4,
+	BGP_RTC_PREFIX_WILDCARD,
 };
 
 char *(*prefix_rtc_display_hook)(char *buf, size_t buf_size, uint16_t prefixlen,
@@ -774,13 +775,34 @@ static int str2prefix_rtc_common(char *cp, char **rt_global_adm, char **rt_local
 	case BGP_RTC_PREFIX_AS4:
 		rt_pnt = strstr(cp, ":2:2:");
 		break;
+	case BGP_RTC_PREFIX_WILDCARD:
+		rt_pnt = strstr(cp, "*:*");
+		if (rt_pnt) {
+			if (slash_pnt && *plen != 0)
+				return 0;
+			*plen = 0;
+			break;
+		}
+
+		rt_pnt = strstr(cp, ":*");
+		if (rt_pnt) {
+			if (slash_pnt && *plen != 32)
+				return 0;
+			*plen = 32;
+		}
+		break;
 	}
 
 	if (!rt_pnt)
 		return 0;
 
+	if (*plen == 0) {
+		/* do not decode extended origin AS and community route-target */
+		*origin_as = 0;
+		return 1;
+	}
+
 	*rt_pnt = '\0';
-	*rt_global_adm = rt_pnt + strlen(":X:2:");
 
 	/* extract origin AS */
 	errno = 0;
@@ -790,16 +812,51 @@ static int str2prefix_rtc_common(char *cp, char **rt_global_adm, char **rt_local
 
 	*origin_as = i;
 
-	if (*plen == 0 || *plen == 32)
+	if (*plen == 32)
 		/* do not decode extended community route-target */
 		return 1;
 
+	*rt_global_adm = rt_pnt + strlen(":X:2:");
 	rt_colon_pnt = strchr(*rt_global_adm, ':');
 	if (!rt_colon_pnt)
 		return 0;
 
 	*rt_colon_pnt = '\0';
 	*rt_local_adm = rt_colon_pnt + 1;
+
+	return 1;
+}
+
+/* When string format is invalid return 0. */
+int str2prefix_rtc_wildcard(const char *str, struct prefix_rtc *p)
+{
+	char *rt_global_adm = NULL, *rt_local_adm = NULL;
+	int ret = 0;
+	uint8_t plen = RTC_MAX_BITLEN;
+	char *cp = NULL;
+	uint32_t origin_as = 0;
+
+	cp = XSTRDUP(MTYPE_TMP, str);
+
+	ret = str2prefix_rtc_common(cp, &rt_global_adm, &rt_local_adm, &plen, &origin_as,
+				    BGP_RTC_PREFIX_WILDCARD);
+	if (!ret) {
+		XFREE(MTYPE_TMP, cp);
+		return 0;
+	}
+
+	if (rt_global_adm || rt_local_adm) {
+		/* not a wildcard */
+		XFREE(MTYPE_TMP, cp);
+		return 0;
+	}
+
+	memset(p, 0, sizeof(struct prefix));
+	p->prefixlen = plen;
+	p->family = AF_RTC;
+	p->prefix.origin_as = origin_as;
+
+	XFREE(MTYPE_TMP, cp);
 
 	return 1;
 }
@@ -1283,6 +1340,11 @@ int str2prefix(const char *str, struct prefix *p)
 
 	/* Next we try to convert string to struct prefix_eth. */
 	ret = str2prefix_eth(str, (struct prefix_eth *)p);
+	if (ret)
+		return ret;
+
+	/* Next we try to convert string to struct prefix_rtc. */
+	ret = str2prefix_rtc_wildcard(str, (struct prefix_rtc *)p);
 	if (ret)
 		return ret;
 

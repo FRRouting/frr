@@ -457,6 +457,7 @@ extern void prefix2sockunion(const struct prefix *p, union sockunion *su);
 
 extern int str2prefix_eth(const char *string, struct prefix_eth *p);
 
+extern int str2prefix_rtc_wildcard(const char *str, struct prefix_rtc *p);
 extern int str2prefix_rtc_as2(const char *str, struct prefix_rtc *p);
 extern int str2prefix_rtc_as4(const char *str, struct prefix_rtc *p);
 extern int str2prefix_rtc_ip(const char *str, struct prefix_rtc *p);
