@@ -2806,7 +2806,7 @@ static int bgp_route_refresh_receive(struct peer_connection *connection,
 						orfp.p.prefixlen = *p_pnt++;
 
 					/* afi checked already */
-					orfp.p.family = afi2family(afi);
+					orfp.p.family = (safi == SAFI_RTC) ? AF_RTC : afi2family(afi);
 
 					/* 0 if not ok */
 					psize = PSIZE(orfp.p.prefixlen);
