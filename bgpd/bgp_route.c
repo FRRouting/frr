@@ -13877,16 +13877,18 @@ DEFUN (show_ip_bgp_route,
 
 DEFUN (show_ip_bgp_route_rtc,
        show_ip_bgp_route_rtc_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ipv4 rtfilter <ASN:0:2:EF:OPQR|ASN:2:2:GHJK:MN|ASN:1:2:A.B.C.D:MN|ASN:0:2:EF:OPQR/M|ASN:2:2:GHJK:MN/M|ASN:1:2:A.B.C.D:MN/M> [<bestpath|multipath>] [json]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ipv4 rtfilter <ASN:X|ASN:0:2:EF:OPQR|ASN:2:2:GHJK:MN|ASN:1:2:A.B.C.D:MN|ASN:X/M|ASN:0:2:EF:OPQR/M|ASN:2:2:GHJK:MN/M|ASN:1:2:A.B.C.D:MN/M> [<bestpath|multipath>] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        BGP_AF_STR
        BGP_AF_MODIFIER_STR
+       "RTC Wildcard address\n"
        "RTC AS 2-bytes address\n"
        "RTC AS 4-bytes address\n"
        "RTC IP address\n"
+       "RTC Wildcard prefix\n"
        "RTC AS 2-bytes prefix\n"
        "RTC AS 4-bytes prefix\n"
        "RTC IP prefix\n"
@@ -13914,11 +13916,12 @@ DEFUN (show_ip_bgp_route_rtc,
 	}
 
 	if (argv_find(argv, argc, "A.B.C.D:MN", &idx) || argv_find(argv, argc, "EF:OPQR", &idx) ||
-	    argv_find(argv, argc, "GHJK:MN", &idx))
+	    argv_find(argv, argc, "GHJK:MN", &idx) || argv_find(argv, argc, "ASN:X", &idx))
 		prefix_check = 0;
 	else if (argv_find(argv, argc, "A.B.C.D:MN/X", &idx) ||
 		 argv_find(argv, argc, "EF:OPQR/X", &idx) ||
-		 argv_find(argv, argc, "GHJK:MN/X", &idx))
+		 argv_find(argv, argc, "GHJK:MN/X", &idx) ||
+		 argv_find(argv, argc, "ASN:X/X", &idx))
 		prefix_check = 1;
 
 	prefix = argv[idx]->arg;
@@ -15439,7 +15442,7 @@ DEFPY (show_ip_bgp_instance_neighbor_bestpath_route,
 
 DEFPY(show_ip_bgp_instance_neighbor_advertised_route,
       show_ip_bgp_instance_neighbor_advertised_route_cmd,
-      "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_WITH_LS_CMD_STR " [" BGP_SAFI_NO_EVPN_CMD_STR "]] [all$all] neighbors <A.B.C.D|X:X::X:X|WORD> <advertised-routes|received-routes|filtered-routes> [route-map RMAP_NAME$route_map] [<A.B.C.D/M|X:X::X:X/M|ASN:0:2:EF:OPQR/M|ASN:2:2:GHJK:MN/M|ASN:1:2:A.B.C.D:MN/M>$prefix | detail$detail] [json$uj | wide$wide]",
+      "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_WITH_LS_CMD_STR " [" BGP_SAFI_NO_EVPN_CMD_STR "]] [all$all] neighbors <A.B.C.D|X:X::X:X|WORD> <advertised-routes|received-routes|filtered-routes> [route-map RMAP_NAME$route_map] [<A.B.C.D/M|X:X::X:X/M|ASN:X/M|ASN:0:2:EF:OPQR/M|ASN:2:2:GHJK:MN/M|ASN:1:2:A.B.C.D:MN/M>$prefix | detail$detail] [json$uj | wide$wide]",
       SHOW_STR
       IP_STR
       BGP_STR
@@ -15458,6 +15461,7 @@ DEFPY(show_ip_bgp_instance_neighbor_advertised_route,
       "Name of the route map\n"
       "IPv4 prefix\n"
       "IPv6 prefix\n"
+      "RTC Wildcard prefix\n"
       "RTC AS 2-bytes prefix\n"
       "RTC AS 4-bytes prefix\n"
       "RTC IP prefix\n"
