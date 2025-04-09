@@ -3835,7 +3835,8 @@ EVPN Multihoming
 
 All-Active Multihoming is used for redundancy and load sharing. Servers
 are attached to two or more PEs and the links are bonded (link-aggregation).
-This group of server links is referred to as an Ethernet Segment.
+This group of server links is referred to as an Ethernet Segment. Currently,
+IPv6 VTEP addresses are not supported with EVPN Multihoming.
 
 Ethernet Segments
 """""""""""""""""
