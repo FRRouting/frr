@@ -1683,7 +1683,7 @@ zebra Terminal Mode Commands
    total number of route nodes in the table.  Which will be higher than
    the actual number of routes that are held.
 
-.. clicmd:: show nexthop-group rib [ID] [vrf NAME] [singleton [ip|ip6]] [type] [json]
+.. clicmd:: show nexthop-group rib [ID [routes]] [vrf NAME] [singleton [ip|ip6]] [type] [json]
 
    Display nexthop groups created by zebra.  The [vrf NAME] option
    is only meaningful if you have started zebra with the --vrfwnetns
@@ -1694,7 +1694,9 @@ zebra Terminal Mode Commands
    that has `Initial Delay`, means that this nexthop group entry
    was not installed because no-one was using it at that point and
    Zebra can delay installing this route until it is used by something
-   else.
+   else. [``routes``] option after the NHG ID will show all the routes using
+   a particular NHG.
+
 
 .. clicmd:: show <ip|ipv6> zebra route dump [<vrf> VRFNAME]
 
