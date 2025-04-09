@@ -35,6 +35,8 @@ IPV6            X:X::X:X
 IPV6_PREFIX     X:X::X:X\/M
 MAC             X:X:X:X:X:X
 MAC_PREFIX      X:X:X:X:X:X\/M
+RTC_WILDCARD    ASN:X
+RTC_WILDCARD_PREFIX  ASN:X\/M
 RTC_AS2         ASN:0:2:EF:OPQR
 RTC_AS2_PREFIX  ASN:0:2:EF:OPQR\/M
 RTC_AS4         ASN:2:2:GHJK:MN
@@ -72,6 +74,8 @@ ASNUM           ASNUM
 {IPV6_PREFIX}   {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return IPV6_PREFIX;}
 {MAC}           {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return MAC;}
 {MAC_PREFIX}    {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return MAC_PREFIX;}
+{RTC_WILDCARD}  {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return RTC_WILDCARD;}
+{RTC_WILDCARD_PREFIX}  {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return RTC_WILDCARD_PREFIX;}
 {RTC_AS2}       {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return RTC_AS2;}
 {RTC_AS2_PREFIX}  {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return RTC_AS2_PREFIX;}
 {RTC_AS4}       {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return RTC_AS4;}

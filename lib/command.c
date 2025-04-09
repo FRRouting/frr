@@ -74,6 +74,8 @@ const struct message tokennames[] = {
 	item(IPV6_PREFIX_TKN),
 	item(MAC_TKN),
 	item(MAC_PREFIX_TKN),
+	item(RTC_WILDCARD_TKN),
+	item(RTC_WILDCARD_PREFIX_TKN),
 	item(RTC_AS2_TKN),
 	item(RTC_AS2_PREFIX_TKN),
 	item(RTC_AS4_TKN),

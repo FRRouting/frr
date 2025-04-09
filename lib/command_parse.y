@@ -86,6 +86,8 @@
 %token <string> IPV4_PREFIX
 %token <string> IPV6
 %token <string> IPV6_PREFIX
+%token <string> RTC_WILDCARD
+%token <string> RTC_WILDCARD_PREFIX
 %token <string> RTC_AS2
 %token <string> RTC_AS2_PREFIX
 %token <string> RTC_AS4
@@ -290,6 +292,16 @@ placeholder_token_real:
 | MAC_PREFIX
 {
   $$ = new_token_node (ctx, MAC_PREFIX_TKN, $1, doc_next(ctx));
+  XFREE (MTYPE_LEX, $1);
+}
+| RTC_WILDCARD
+{
+  $$ = new_token_node (ctx, RTC_WILDCARD_TKN, $1, doc_next(ctx));
+  XFREE (MTYPE_LEX, $1);
+}
+| RTC_WILDCARD_PREFIX
+{
+  $$ = new_token_node (ctx, RTC_WILDCARD_PREFIX_TKN, $1, doc_next(ctx));
   XFREE (MTYPE_LEX, $1);
 }
 | RTC_AS2

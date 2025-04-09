@@ -65,6 +65,7 @@ static enum match_type match_variable(struct cmd_token *, const char *);
 
 static enum match_type match_mac(const char *, bool);
 
+static enum match_type match_rtc_wildcard(const char *word, bool prefix);
 static enum match_type match_rtc_as2(const char *word, bool prefix);
 static enum match_type match_rtc_as4(const char *word, bool prefix);
 static enum match_type match_rtc_ip(const char *word, bool prefix);
@@ -541,6 +542,8 @@ static enum match_type min_match_level(enum cmd_token_type type)
 	case IPV6_PREFIX_TKN:
 	case MAC_TKN:
 	case MAC_PREFIX_TKN:
+	case RTC_WILDCARD_TKN:
+	case RTC_WILDCARD_PREFIX_TKN:
 	case RTC_AS2_TKN:
 	case RTC_AS2_PREFIX_TKN:
 	case RTC_AS4_TKN:
@@ -577,6 +580,8 @@ static int score_precedence(enum cmd_token_type type)
 	case IPV6_PREFIX_TKN:
 	case MAC_TKN:
 	case MAC_PREFIX_TKN:
+	case RTC_WILDCARD_TKN:
+	case RTC_WILDCARD_PREFIX_TKN:
 	case RTC_AS2_TKN:
 	case RTC_AS2_PREFIX_TKN:
 	case RTC_AS4_TKN:
@@ -719,6 +724,10 @@ static enum match_type match_token(struct cmd_token *token, char *input_token)
 		return match_mac(input_token, false);
 	case MAC_PREFIX_TKN:
 		return match_mac(input_token, true);
+	case RTC_WILDCARD_TKN:
+		return match_rtc_wildcard(input_token, false);
+	case RTC_WILDCARD_PREFIX_TKN:
+		return match_rtc_wildcard(input_token, true);
 	case RTC_AS2_TKN:
 		return match_rtc_as2(input_token, false);
 	case RTC_AS2_PREFIX_TKN:
@@ -1103,6 +1112,7 @@ static enum match_type match_mac(const char *word, bool prefix)
 }
 
 enum match_rtc_type {
+	MATCH_RTC_WILDCARD,
 	MATCH_RTC_AS2,
 	MATCH_RTC_AS4,
 	MATCH_RTC_IP,
@@ -1140,6 +1150,15 @@ static enum match_type match_rtc_common(const char *str, bool prefix, enum match
 		*slash_pnt = '\0';
 
 	switch (type) {
+	case MATCH_RTC_WILDCARD:
+		rt_pnt = strstr(cp, ":*");
+		if (strstr(cp, "*:*")) {
+			if (!slash_pnt || plen == 0)
+				ret = exact_match;
+			goto end;
+		} else if (slash_pnt && plen != 32)
+			goto end;
+		break;
 	case MATCH_RTC_AS2:
 		rt_pnt = strstr(cp, ":0:2:");
 		break;
@@ -1154,8 +1173,15 @@ static enum match_type match_rtc_common(const char *str, bool prefix, enum match
 	if (!rt_pnt)
 		goto end;
 
+	if (plen == 0) {
+		/* do not decode extended origin AS nor community route-target */
+		if (type == MATCH_RTC_WILDCARD)
+			/* only return exact_match. Otherwise, vty returns "ambiguous command" */
+			ret = exact_match;
+		goto end;
+	}
+
 	*rt_pnt = '\0';
-	rt_global_adm = rt_pnt + strlen(":X:2:");
 
 	/* match origin AS */
 	errno = 0;
@@ -1163,16 +1189,21 @@ static enum match_type match_rtc_common(const char *str, bool prefix, enum match
 	if (endptr == cp || *endptr != '\0' || errno == ERANGE || i > UINT32_MAX)
 		goto end;
 
-	if (plen == 0 || plen == 32) {
+	if (plen == 32) {
 		/* do not decode extended community route-target */
-		XFREE(MTYPE_TMP, cp);
-		if (type == MATCH_RTC_AS2)
+		if (type == MATCH_RTC_WILDCARD)
 			/* only return exact_match. Otherwise, vty returns "ambiguous command" */
 			ret = exact_match;
 		goto end;
 	}
 
+	if (type == MATCH_RTC_WILDCARD) {
+		ret = exact_match;
+		goto end;
+	}
+
 	/* match colon in route-target extended community */
+	rt_global_adm = rt_pnt + strlen(":X:2:");
 	rt_colon_pnt = strchr(rt_global_adm, ':');
 	if (!rt_colon_pnt)
 		goto end;
@@ -1200,6 +1231,8 @@ static enum match_type match_rtc_common(const char *str, bool prefix, enum match
 		if (match_ipv4(rt_global_adm) != exact_match)
 			goto end;
 		break;
+	case MATCH_RTC_WILDCARD:
+		assert(!"Should not reach here.");
 	}
 
 	/* match local administrator */
@@ -1220,6 +1253,11 @@ static enum match_type match_rtc_common(const char *str, bool prefix, enum match
 end:
 	XFREE(MTYPE_TMP, cp);
 	return ret;
+}
+
+static enum match_type match_rtc_wildcard(const char *word, bool prefix)
+{
+	return match_rtc_common(word, prefix, MATCH_RTC_WILDCARD);
 }
 
 static enum match_type match_rtc_as2(const char *word, bool prefix)
