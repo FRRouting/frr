@@ -10919,7 +10919,6 @@ static int bgp_clear_prefix(struct vty *vty, const char *view_name,
 		return CMD_WARNING;
 	}
 
-	match.family = afi2family(afi);
 	rib = bgp->rib[afi][safi];
 
 	if (safi == SAFI_MPLS_VPN) {

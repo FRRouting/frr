@@ -12807,8 +12807,6 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp,
 		return CMD_WARNING;
 	}
 
-	match.family = afi2family(afi);
-
 	if (use_json)
 		json = json_object_new_object();
 
@@ -16346,8 +16344,6 @@ static int bgp_clear_damp_route(struct vty *vty, const char *view_name,
 		vty_out(vty, "%% address is malformed\n");
 		return CMD_WARNING;
 	}
-
-	match.family = afi2family(afi);
 
 	if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP)
 	    || (safi == SAFI_EVPN)) {
