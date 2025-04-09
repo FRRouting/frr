@@ -217,11 +217,11 @@ void irdp_read_raw(struct event *r)
 	char buf[IRDP_RX_BUF];
 	int ret, ifindex = 0;
 
-	int irdp_sock = EVENT_FD(r);
-	event_add_read(zrouter.master, irdp_read_raw, NULL, irdp_sock,
+	int irdp_socket = EVENT_FD(r);
+	event_add_read(zrouter.master, irdp_read_raw, NULL, irdp_socket,
 		       &t_irdp_raw);
 
-	ret = irdp_recvmsg(irdp_sock, (uint8_t *)buf, IRDP_RX_BUF, &ifindex);
+	ret = irdp_recvmsg(irdp_socket, (uint8_t *)buf, IRDP_RX_BUF, &ifindex);
 
 	if (ret < 0)
 		flog_warn(EC_LIB_SOCKET, "IRDP: RX Error length = %d", ret);
