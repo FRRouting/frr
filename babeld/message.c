@@ -591,6 +591,20 @@ parse_packet(const unsigned char *from, struct interface *ifp,
             int rc, parsed_len;
             bool ignore_update = false;
 
+            // Basic sanity check on length
+            if (len < 10) {
+                if (len < 2 || (message[3] & 0x80)) {
+                    have_v4_prefix = have_v6_prefix = 0;
+                }
+                goto fail;
+            }
+
+            if(!known_ae(message[2])) {
+                debugf(BABEL_DEBUG_COMMON,"Received update with unknown AE %d. Ignoring.",
+                       message[2]);
+                goto done;
+            }
+
             DO_NTOHS(interval, message + 6);
             DO_NTOHS(seqno, message + 8);
             DO_NTOHS(metric, message + 10);
@@ -629,7 +643,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                 }
                 have_router_id = 1;
             }
-            if(!have_router_id && message[2] != 0) {
+            if(metric < INFINITY && !have_router_id && message[2] != 0) {
                 flog_err(EC_BABEL_PACKET,
 			  "Received prefix with no router id.");
                 goto fail;
@@ -641,9 +655,15 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                    format_address(from), ifp->name);
 
             if(message[2] == 0) {
-                if(metric < 0xFFFF) {
+                if(metric < INFINITY) {
                     flog_err(EC_BABEL_PACKET,
-			      "Received wildcard update with finite metric.");
+			     "Received wildcard update with finite metric.");
+                    goto done;
+                }
+                // Add check for Plen and Omitted
+                if(message[4] != 0 || message[5] != 0) {
+                    flog_err(EC_BABEL_PACKET,
+                             "Received wildcard retraction with non-zero Plen or Omitted.");
                     goto done;
                 }
                 retract_neighbour_routes(neigh);
