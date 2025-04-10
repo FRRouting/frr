@@ -143,6 +143,8 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 	++pim_ifp->pim_ifstat_prune_recv;
 
 
+	pim_dm_recv_prune(ifp, neigh, holdtime, upstream, sg, source_flags);
+
 	if (CHECK_FLAG(source_flags, PIM_WILDCARD_BIT_MASK)) {
 		/* As per RFC 7761 Section 4.9.1:
 		 * The RPT (or Rendezvous Point Tree) bit is a 1-bit value for
