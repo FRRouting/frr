@@ -164,6 +164,7 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 	struct interface *ifp2 = NULL;
 	struct pim_interface *pim_ifp2;
 	bool update_oil = false;
+	bool endpoint_join = false;
 
 	memset(&sg, 0, sizeof(sg));
 	sg.src = msg->msg_im_src;
@@ -321,6 +322,8 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 				oil_if_set(up->channel_oil, pim_ifp2->mroute_vif_index, 1);
 				update_oil = true;
 			}
+			if (pim_dm_check_prune(ifp2, sg.grp))
+				endpoint_join = true;
 		}
 
 		if (update_oil) {
@@ -330,6 +333,10 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 			PIM_UPSTREAM_FLAG_UNSET_FHR(up->flags);
 
 			pim_upstream_mroute_update(up->channel_oil, __func__);
+		} else if (!endpoint_join) {
+			PIM_UPSTREAM_DM_SET_PRUNE(up->flags);
+			pim_dm_prune_send(up->rpf, up, 0);
+			prune_timer_start(up);
 		}
 	}
 
