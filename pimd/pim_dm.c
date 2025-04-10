@@ -74,6 +74,8 @@ void pim_dm_change_iif_mode(struct interface *ifp, enum pim_iface_mode mode)
 						PIM_UPSTREAM_DM_UNSET_PRUNE(c_oil->up->flags);
 						if (c_oil->up->t_prune_timer)
 							event_cancel(&c_oil->up->t_prune_timer);
+						pim_dm_graft_send(c_oil->up->rpf, c_oil->up);
+						graft_timer_start(c_oil->up);
 					}
 				}
 			}
@@ -84,6 +86,8 @@ void pim_dm_change_iif_mode(struct interface *ifp, enum pim_iface_mode mode)
 				oil_if_set(c_oil, pim_ifp->mroute_vif_index, 0);
 				pim_upstream_mroute_update(c_oil, __func__);
 				if (!pim_upstream_up_connected(c_oil->up)) {
+					if (c_oil->up->t_graft_timer)
+						event_cancel(&c_oil->up->t_graft_timer);
 					PIM_UPSTREAM_DM_SET_PRUNE(c_oil->up->flags);
 					pim_dm_prune_send(c_oil->up->rpf, c_oil->up, 0);
 					prune_timer_start(c_oil->up);
@@ -93,6 +97,35 @@ void pim_dm_change_iif_mode(struct interface *ifp, enum pim_iface_mode mode)
 	}
 
 	pim_ifp->pim_mode = mode;
+}
+
+void pim_dm_graft_send(struct pim_rpf rpf, struct pim_upstream *up)
+{
+	struct list groups, sources;
+	struct pim_jp_agg_group jag;
+	struct pim_jp_sources js;
+
+	memset(&groups, 0, sizeof(groups));
+	memset(&sources, 0, sizeof(sources));
+	jag.sources = &sources;
+
+	listnode_add(&groups, &jag);
+	listnode_add(jag.sources, &js);
+
+	jag.group = up->sg.grp;
+	js.up = up;
+	js.is_join = true;
+
+	/*
+	 * dm: rpf.rpf_addr is set to zero (anyaddr)
+	 * set it to the address of the interface that send it!
+	 */
+	rpf.rpf_addr = rpf.source_nexthop.mrib_nexthop_addr;
+
+	pim_graft_send(&rpf, &groups);
+
+	list_delete_all_node(jag.sources);
+	list_delete_all_node(&groups);
 }
 
 void pim_dm_prune_send(struct pim_rpf rpf, struct pim_upstream *up, bool is_join)
@@ -161,6 +194,52 @@ bool pim_dm_check_prune(struct interface *ifp, pim_addr group_addr)
 
 	return false;
 }
+
+void pim_dm_recv_graft(struct interface *ifp, pim_sgaddr *sg)
+{
+	struct pim_upstream *up;
+	struct pim_interface *pim_ifp = ifp->info;
+	pim_addr group_addr = sg->grp;
+	struct pim_ifchannel *ch;
+
+	if (!pim_ifp || !pim_ifp->pim_enable)
+		return;
+
+	++pim_ifp->pim_ifstat_graft_recv;
+
+	if (!HAVE_DENSE_MODE(pim_ifp->pim_mode))
+		return;
+
+	up = pim_upstream_find(pim_ifp->pim, sg);
+
+	if (!up)
+		return;
+
+	if (pim_is_grp_dm(pim_ifp->pim, group_addr) &&
+	    !oil_if_has(up->channel_oil, pim_ifp->mroute_vif_index)) {
+		oil_if_set(up->channel_oil, pim_ifp->mroute_vif_index, 1);
+		pim_upstream_mroute_update(up->channel_oil, __func__);
+
+		ch = pim_ifchannel_find(ifp, sg);
+
+		if (ch) {
+			PIM_UPSTREAM_DM_UNSET_PRUNE(ch->flags);
+			if (ch->t_ifjoin_expiry_timer)
+				event_cancel(&ch->t_ifjoin_expiry_timer);
+			pim_ifchannel_delete(ch);
+		}
+
+		/* dm: forward graft message */
+		if (PIM_UPSTREAM_DM_TEST_PRUNE(up->flags)) {
+			PIM_UPSTREAM_DM_UNSET_PRUNE(up->flags);
+			if (up->t_prune_timer)
+				event_cancel(&up->t_prune_timer);
+			pim_dm_graft_send(up->rpf, up);
+			graft_timer_start(up);
+		}
+	}
+}
+
 
 void pim_dm_recv_prune(struct interface *ifp, struct pim_neighbor *neigh, uint16_t holdtime,
 		       pim_addr upstream, pim_sgaddr *sg, uint8_t source_flags)

@@ -16,6 +16,11 @@
 int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 		       pim_addr src_addr, uint8_t *tlv_buf, int tlv_buf_size);
 
+int pim_graft_recv(struct interface *ifp, struct pim_neighbor *neigh, pim_addr src_addr,
+		   uint8_t *tlv_buf, int tlv_buf_size, uint8_t pim_msg_type);
+
 int pim_joinprune_send(struct pim_rpf *nexthop, struct list *groups);
+
+int pim_graft_send(struct pim_rpf *nexthop, struct list *groups);
 
 #endif /* PIM_JOIN_H */

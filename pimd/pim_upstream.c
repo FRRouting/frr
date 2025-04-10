@@ -174,6 +174,7 @@ static void pim_upstream_timers_stop(struct pim_upstream *up)
 	event_cancel(&up->t_msdp_reg_timer);
 	event_cancel(&up->t_join_timer);
 	event_cancel(&up->t_prune_timer);
+	event_cancel(&up->t_graft_timer);
 }
 
 struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
@@ -302,6 +303,37 @@ void pim_upstream_send_join(struct pim_upstream *up)
 	pim_jp_agg_single_upstream_send(&up->rpf, up, 1 /* join */);
 }
 
+static void on_graft_timer(struct event *t)
+{
+	struct pim_upstream *up;
+
+	up = EVENT_ARG(t);
+
+	if (!up)
+		return;
+
+	if (!up->rpf.source_nexthop.interface) {
+		if (PIM_DEBUG_PIM_TRACE)
+			zlog_debug("%s: up %s RPF is not present", __func__, up->sg_str);
+		return;
+	}
+
+	if (!up->channel_oil->installed)
+		return;
+
+	pim_mroute_update_counters(up->channel_oil);
+
+	/*
+	 * Don't send the join if the outgoing interface is a loopback
+	 * But since this might change leave the join timer running
+	 */
+	if (up->rpf.source_nexthop.interface && !if_is_loopback(up->rpf.source_nexthop.interface))
+		pim_dm_graft_send(up->rpf, up);
+
+	graft_timer_start(up);
+}
+
+
 static void on_prune_timer(struct event *t)
 {
 	struct pim_upstream *up;
@@ -418,6 +450,14 @@ void prune_timer_start(struct pim_upstream *up)
 	}
 	pim_jp_agg_upstream_verification(up, true);
 }
+
+void graft_timer_start(struct pim_upstream *up)
+{
+	event_cancel(&up->t_graft_timer);
+	event_add_timer(router->master, on_graft_timer, up, router->t_periodic, &up->t_graft_timer);
+	pim_jp_agg_upstream_verification(up, true);
+}
+
 
 void join_timer_start(struct pim_upstream *up)
 {
@@ -957,6 +997,7 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	up->t_ka_timer = NULL;
 	up->t_rs_timer = NULL;
 	up->t_msdp_reg_timer = NULL;
+	up->t_graft_timer = NULL;
 	up->t_prune_timer = NULL;
 	up->join_state = PIM_UPSTREAM_NOTJOINED;
 	up->reg_state = PIM_REG_NOINFO;
