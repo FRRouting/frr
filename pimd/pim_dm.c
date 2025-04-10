@@ -69,6 +69,12 @@ void pim_dm_change_iif_mode(struct interface *ifp, enum pim_iface_mode mode)
 				    c_oil->installed) {
 					oil_if_set(c_oil, pim_ifp->mroute_vif_index, 1);
 					pim_upstream_mroute_update(c_oil, __func__);
+					if (pim_upstream_up_connected(c_oil->up) &&
+					    PIM_UPSTREAM_DM_TEST_PRUNE(c_oil->up->flags)) {
+						PIM_UPSTREAM_DM_UNSET_PRUNE(c_oil->up->flags);
+						if (c_oil->up->t_prune_timer)
+							event_cancel(&c_oil->up->t_prune_timer);
+					}
 				}
 			}
 		}
@@ -77,6 +83,11 @@ void pim_dm_change_iif_mode(struct interface *ifp, enum pim_iface_mode mode)
 			if (pim_is_grp_dm(pim_ifp->pim, *oil_mcastgrp(c_oil)) && c_oil->installed) {
 				oil_if_set(c_oil, pim_ifp->mroute_vif_index, 0);
 				pim_upstream_mroute_update(c_oil, __func__);
+				if (!pim_upstream_up_connected(c_oil->up)) {
+					PIM_UPSTREAM_DM_SET_PRUNE(c_oil->up->flags);
+					pim_dm_prune_send(c_oil->up->rpf, c_oil->up, 0);
+					prune_timer_start(c_oil->up);
+				}
 			}
 		}
 	}
@@ -84,6 +95,34 @@ void pim_dm_change_iif_mode(struct interface *ifp, enum pim_iface_mode mode)
 	pim_ifp->pim_mode = mode;
 }
 
+void pim_dm_prune_send(struct pim_rpf rpf, struct pim_upstream *up, bool is_join)
+{
+	struct list groups, sources;
+	struct pim_jp_agg_group jag;
+	struct pim_jp_sources js;
+
+	memset(&groups, 0, sizeof(groups));
+	memset(&sources, 0, sizeof(sources));
+	jag.sources = &sources;
+
+	listnode_add(&groups, &jag);
+	listnode_add(jag.sources, &js);
+
+	jag.group = up->sg.grp;
+	js.up = up;
+	js.is_join = is_join;
+
+	/*
+	 * dm:  rpf.rpf_addr is set to zero (anyaddr)
+	 * set it to the address of the interface that send it!
+	 */
+	rpf.rpf_addr = rpf.source_nexthop.mrib_nexthop_addr;
+
+	pim_joinprune_send(&rpf, &groups);
+
+	list_delete_all_node(jag.sources);
+	list_delete_all_node(&groups);
+}
 
 bool pim_dm_check_gm_group_list(struct interface *ifp)
 {
@@ -102,6 +141,121 @@ bool pim_dm_check_gm_group_list(struct interface *ifp)
 
 	return false;
 }
+
+/* Returns true if this interface has an IGMP for this group */
+bool pim_dm_check_prune(struct interface *ifp, pim_addr group_addr)
+{
+	struct listnode *node;
+	struct listnode *nextnode;
+	struct gm_group *ij;
+	struct pim_interface *pim_ifp;
+
+	pim_ifp = ifp->info;
+
+	if (!pim_ifp->gm_group_list)
+		return false;
+
+	for (ALL_LIST_ELEMENTS(pim_ifp->gm_group_list, node, nextnode, ij))
+		if (!pim_addr_cmp(group_addr, ij->group_addr))
+			return true;
+
+	return false;
+}
+
+void pim_dm_recv_prune(struct interface *ifp, struct pim_neighbor *neigh, uint16_t holdtime,
+		       pim_addr upstream, pim_sgaddr *sg, uint8_t source_flags)
+{
+	struct pim_upstream *up;
+	struct pim_interface *pim_ifp;
+	pim_addr group_addr = sg->grp;
+	struct pim_ifchannel *ch;
+
+	struct interface *ifp2 = NULL;
+	struct pim_interface *pim_ifp2;
+	bool sg_connected;
+	struct vrf *vrf;
+
+	pim_ifp = ifp->info;
+	if (!pim_ifp || !pim_ifp->pim_enable)
+		return;
+
+	if (!HAVE_DENSE_MODE(pim_ifp->pim_mode))
+		return;
+
+	up = pim_upstream_find(pim_ifp->pim, sg);
+
+	if (!up)
+		return;
+
+	sg_connected = false;
+	vrf = vrf_lookup_by_id(VRF_DEFAULT);
+
+	if (pim_is_grp_dm(pim_ifp->pim, group_addr) &&
+	    oil_if_has(up->channel_oil, pim_ifp->mroute_vif_index)) {
+		oil_if_set(up->channel_oil, pim_ifp->mroute_vif_index, 0);
+		pim_upstream_mroute_update(up->channel_oil, __func__);
+
+		/* dm: we need to forward the prune upstream if needed */
+		FOR_ALL_INTERFACES (vrf, ifp2) {
+			pim_ifp2 = ifp2->info;
+
+			if (!pim_ifp2)
+				continue;
+			if (HAVE_DENSE_MODE(pim_ifp->pim_mode) && ifp2->ifindex != ifp->ifindex &&
+			    oil_if_has(up->channel_oil, pim_ifp2->mroute_vif_index)) {
+				sg_connected = true;
+				break;
+			}
+			if (pim_dm_check_prune(ifp2, sg->grp)) {
+				sg_connected = true;
+				break;
+			}
+		}
+		if (!sg_connected) {
+			PIM_UPSTREAM_DM_SET_PRUNE(up->flags);
+			pim_dm_prune_send(up->rpf, up, 0);
+			prune_timer_start(up);
+		}
+
+		ch = pim_ifchannel_find(ifp, sg);
+		if (!ch)
+			ch = pim_ifchannel_add(ifp, sg, source_flags,
+					       PIM_UPSTREAM_DM_FLAG_MASK_PRUNE);
+		PIM_UPSTREAM_DM_SET_PRUNE(ch->flags);
+		ch->prune_holdtime = holdtime;
+		if (ch->t_ifjoin_expiry_timer)
+			event_cancel(&ch->t_ifjoin_expiry_timer);
+		event_add_timer(router->master, pim_dm_prune_iff_on_timer, ch, holdtime,
+				&ch->t_ifjoin_expiry_timer);
+	}
+}
+
+void pim_dm_prune_iff_on_timer(struct event *t)
+{
+	struct pim_ifchannel *ch;
+	struct pim_upstream *up;
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
+	ch = EVENT_ARG(t);
+
+	ifp = ch->interface;
+	pim_ifp = ifp->info;
+	up = pim_upstream_find(pim_ifp->pim, &ch->sg);
+
+	PIM_UPSTREAM_DM_UNSET_PRUNE(ch->flags);
+	if (ch->flags == 0)
+		pim_ifchannel_delete(ch);
+
+	if (!up)
+		return;
+	pim_upstream_keep_alive_timer_start(up, pim_ifp->pim->keep_alive_time);
+	if (up->channel_oil->installed) {
+		oil_if_set(up->channel_oil, pim_ifp->mroute_vif_index, 1);
+		pim_upstream_mroute_update(up->channel_oil, __func__);
+	}
+}
+
 
 void pim_dm_prefix_list_update(struct pim_instance *pim, struct prefix_list *plist)
 {

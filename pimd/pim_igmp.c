@@ -1072,6 +1072,8 @@ void igmp_group_delete(struct gm_group *group)
 	struct gm_source *src;
 	struct interface *ifp = group->interface;
 	struct pim_interface *pim_ifp = ifp->info;
+	struct channel_oil *c_oil;
+
 
 	if (PIM_DEBUG_GM_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
@@ -1094,6 +1096,17 @@ void igmp_group_delete(struct gm_group *group)
 	hash_release(pim_ifp->gm_group_hash, group);
 
 	igmp_group_free(group);
+	/* dm: check if we need to send a prune message */
+	if (pim_ifp->pim_neighbor_list->count == 0 && !pim_dm_check_gm_group_list(ifp)) {
+		frr_each (rb_pim_oil, &pim_ifp->pim->channel_oil_head, c_oil) {
+			if (pim_is_grp_dm(pim_ifp->pim, *oil_mcastgrp(c_oil)) && c_oil->installed &&
+			    !pim_upstream_up_connected(c_oil->up)) {
+				PIM_UPSTREAM_DM_SET_PRUNE(c_oil->up->flags);
+				pim_dm_prune_send(c_oil->up->rpf, c_oil->up, 0);
+				prune_timer_start(c_oil->up);
+			}
+		}
+	}
 }
 
 void igmp_group_delete_empty_include(struct gm_group *group)
@@ -1521,6 +1534,19 @@ struct gm_group *igmp_add_group_by_addr(struct gm_sock *igmp,
 
 	/* Any source (*,G) is forwarded only if mode is EXCLUDE {empty} */
 	igmp_anysource_forward_stop(group);
+
+	/* dm: check is we need to send a graft message */
+	if (pim_ifp->pim_neighbor_list->count > 0 ||
+	    pim_is_grp_dm(pim_ifp->pim, group->group_addr)) {
+		frr_each (rb_pim_oil, &pim_ifp->pim->channel_oil_head, c_oil) {
+			if (pim_is_grp_dm(pim_ifp->pim, *oil_mcastgrp(c_oil)) && c_oil->installed &&
+			    pim_upstream_up_connected(c_oil->up) &&
+			    PIM_UPSTREAM_DM_TEST_PRUNE(c_oil->up->flags)) {
+				PIM_UPSTREAM_DM_UNSET_PRUNE(c_oil->up->flags);
+				event_cancel(&c_oil->up->t_prune_timer);
+			}
+		}
+	}
 
 	return group;
 }
