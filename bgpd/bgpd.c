@@ -3531,12 +3531,13 @@ peer_init:
 				    "BGP Peer Hash");
 	bgp->peerhash->max_size = BGP_PEER_MAX_HASH_SIZE;
 
-	if (!hidden)
+	if (!hidden) {
+		bgp->rtc_plists = list_new();
+		bgp->rtc_plists->del = bgp_rtc_plist_free;
 		bgp->group = list_new();
-	bgp->group->cmp = (int (*)(void *, void *))peer_group_cmp;
+	}
 
-	bgp->rtc_plists = list_new();
-	bgp->rtc_plists->del = bgp_rtc_plist_free;
+	bgp->group->cmp = (int (*)(void *, void *))peer_group_cmp;
 
 	FOREACH_AFI_SAFI (afi, safi) {
 		if (!hidden) {
