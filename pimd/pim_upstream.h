@@ -249,6 +249,7 @@ struct pim_upstream {
 
 	struct event *t_join_timer;
 	struct event *t_prune_timer;
+	struct event *t_graft_timer;
 
 	/*
 	 * RST(S,G)
@@ -366,6 +367,7 @@ void pim_upstream_init(struct pim_instance *pim);
 void pim_upstream_terminate(struct pim_instance *pim);
 
 void join_timer_start(struct pim_upstream *up);
+void graft_timer_start(struct pim_upstream *up);
 void prune_timer_start(struct pim_upstream *up);
 int pim_upstream_compare(const struct pim_upstream *up1,
 			 const struct pim_upstream *up2);
