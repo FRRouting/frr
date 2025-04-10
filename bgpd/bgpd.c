@@ -4294,8 +4294,7 @@ int bgp_delete(struct bgp *bgp)
 			bgp_set_evpn(bgp_get_default());
 	}
 
-	if (bgp->rtc_plists)
-		list_delete(&bgp->rtc_plists);
+	list_delete_all_node(bgp->rtc_plists);
 
 	if (!IS_BGP_INSTANCE_HIDDEN(bgp) || bm->terminating) {
 		if (bgp->process_queue)
@@ -4330,6 +4329,7 @@ void bgp_free(struct bgp *bgp)
 
 	list_delete(&bgp->group);
 	list_delete(&bgp->peer);
+	list_delete(&bgp->rtc_plists);
 
 	if (bgp->peerhash) {
 		hash_free(bgp->peerhash);
