@@ -157,6 +157,7 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 	struct pim_neighbor *neigh = NULL;
 	struct pim_msg_header *header;
 	bool   no_fwd;
+	uint32_t rv;
 
 #if PIM_IPV == 4
 	if (len <= sizeof(*ip_hdr)) {
@@ -344,13 +345,33 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 					      pim_msg_len - PIM_MSG_HEADER_LEN);
 		break;
 	case PIM_MSG_TYPE_GRAFT_ACK:
-		return 0;
+		return pim_graft_recv(ifp, neigh, sg.src, pim_msg + PIM_MSG_HEADER_LEN,
+				      pim_msg_len - PIM_MSG_HEADER_LEN, PIM_MSG_TYPE_GRAFT_ACK);
 		break;
 	case PIM_MSG_TYPE_STATE_REFRESH:
 		return 0;
 		break;
 	case PIM_MSG_TYPE_GRAFT:
-		return 0;
+		neigh = pim_neighbor_find(ifp, sg.src, false);
+		if (!neigh) {
+			if (PIM_DEBUG_PIM_PACKETS)
+				zlog_debug("%s %s: non-hello PIM message type=%d from non-neighbor %pPA on %s",
+					   __FILE__, __func__, header->type, &sg.src, ifp->name);
+			return -1;
+		}
+		pim_neighbor_timer_reset(neigh, neigh->holdtime);
+		rv = pim_graft_recv(ifp, neigh, sg.src, pim_msg + PIM_MSG_HEADER_LEN,
+				    pim_msg_len - PIM_MSG_HEADER_LEN, PIM_MSG_TYPE_GRAFT);
+
+		/* dm: send ack */
+		pim_ifp = ifp->info;
+		if (!pim_ifp->pim_passive_enable) {
+			pim_msg_build_header(sg.src, qpim_all_pim_routers_addr, pim_msg,
+					     pim_msg_len, PIM_MSG_TYPE_GRAFT_ACK, false);
+			pim_msg_send(pim_ifp->pim_sock_fd, pim_ifp->primary_address,
+				     qpim_all_pim_routers_addr, pim_msg, pim_msg_len, ifp);
+		}
+		return rv;
 		break;
 	case PIM_MSG_TYPE_JOIN_PRUNE:
 		neigh = pim_neighbor_find(ifp, sg.src, false);
