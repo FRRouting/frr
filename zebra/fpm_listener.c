@@ -33,10 +33,12 @@
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <linux/if_link.h>
+#include <linux/nexthop.h>
 
 #include "rt_netlink.h"
 #include "fpm/fpm.h"
 #include "lib/libfrr.h"
+#include "zebra/kernel_netlink.h"
 
 XREF_SETUP();
 
@@ -573,6 +575,67 @@ static int parse_route_msg(struct netlink_msg_ctx *ctx)
 }
 
 /*
+ * parse_nexthop_msg
+ */
+static int parse_nexthop_msg(struct nlmsghdr *hdr)
+{
+	struct nhmsg *nhmsg;
+	struct rtattr *tb[NHA_MAX + 1] = {};
+	int len;
+	uint32_t nhgid = 0;
+	uint8_t nhg_count = 0;
+	const char *err_msg = NULL;
+	char protocol_str[32] = "Unknown";
+
+	nhmsg = NLMSG_DATA(hdr);
+	len = hdr->nlmsg_len - NLMSG_LENGTH(sizeof(*nhmsg));
+	if (len < 0) {
+		fprintf(stderr, "Bad nexthop message length\n");
+		return 0;
+	}
+
+	if (!parse_rtattrs_(RTM_NHA(nhmsg), len, tb, ARRAY_SIZE(tb), &err_msg)) {
+		fprintf(stderr, "Error parsing nexthop attributes: %s\n", err_msg);
+		return 0;
+	}
+
+	/* Get protocol string */
+	snprintf(protocol_str, sizeof(protocol_str), "%s(%u)",
+		 netlink_prot_to_s(nhmsg->nh_protocol), nhmsg->nh_protocol);
+
+	/* Get Nexthop Group ID */
+	if (tb[NHA_ID])
+		nhgid = *(uint32_t *)RTA_DATA(tb[NHA_ID]);
+
+	/* Count nexthops in the group */
+	if (tb[NHA_GROUP]) {
+		struct nexthop_grp *nhg = (struct nexthop_grp *)RTA_DATA(tb[NHA_GROUP]);
+		size_t count = (RTA_PAYLOAD(tb[NHA_GROUP]) / sizeof(*nhg));
+
+		if (count > 0 && (count * sizeof(*nhg)) == RTA_PAYLOAD(tb[NHA_GROUP]))
+			nhg_count = count;
+	} else if (tb[NHA_OIF] || tb[NHA_GATEWAY]) {
+		/* Single nexthop case */
+		nhg_count = 1;
+	}
+
+	/* Print blackhole status if applicable */
+	if (tb[NHA_BLACKHOLE]) {
+		fprintf(glob->output_file,
+			"[%s] %s Nexthop Group ID: %u, Protocol: %s, Type: BLACKHOLE, Family: %u\n",
+			get_timestamp(), hdr->nlmsg_type == RTM_NEWNEXTHOP ? "New" : "Del", nhgid,
+			protocol_str, nhmsg->nh_family);
+	} else {
+		fprintf(glob->output_file,
+			"[%s] %s Nexthop Group ID: %u, Protocol: %s, Contains %u nexthops, Family: %u, Scope: %u\n",
+			get_timestamp(), hdr->nlmsg_type == RTM_NEWNEXTHOP ? "New" : "Del", nhgid,
+			protocol_str, nhg_count, nhmsg->nh_family, nhmsg->nh_scope);
+	}
+
+	return 1;
+}
+
+/*
  * addr_to_s
  */
 static const char *
@@ -740,6 +803,11 @@ static void parse_netlink_msg(char *buf, size_t buf_len, fpm_msg_hdr_t *fpm)
 					ctx->rtmsg->rtm_flags |= RTM_F_OFFLOAD;
 				write(glob->sock, fpm, fpm_msg_len(fpm));
 			}
+			break;
+
+		case RTM_NEWNEXTHOP:
+		case RTM_DELNEXTHOP:
+			parse_nexthop_msg(hdr);
 			break;
 
 		default:
