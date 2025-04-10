@@ -6825,6 +6825,16 @@ static int clear_batch_rib_helper(struct bgp_clearing_info *cinfo)
 			 */
 			UNSET_FLAG(cinfo->flags, BGP_CLEARING_INFO_FLAG_RESUME);
 		}
+
+		/* Return immediately, otherwise the 'ret' state will be overwritten
+		 * by next afi/safi. Also resume state stored for current afi/safi
+		 * in walk_batch_table_helper, will be overwritten. This may cause to
+		 * skip the nets to be walked again, so they won't be marked for deletion
+		 * from BGP table
+		 */
+		if (ret != 0)
+			return ret;
+
 		safi = SAFI_UNICAST;
 	}
 	return ret;
