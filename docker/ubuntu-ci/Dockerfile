@@ -33,6 +33,7 @@ RUN apt update && apt upgrade -y && \
             screen \
             texinfo \
             tmux \
+            iptables \
     && \
     # Protobuf build requirements
     apt-get install -y \
