@@ -33,5 +33,6 @@ struct pim_vxlan_instance {
 
 extern void pim_vxlan_init(struct pim_instance *pim);
 extern void pim_vxlan_exit(struct pim_instance *pim);
+void pim_vxlan_work_list_delete(void);
 
 #endif /* PIM_VXLAN_INSTANCE_H */
