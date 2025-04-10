@@ -25,28 +25,46 @@ import time
 #
 def interface_name_to_index(name):
     "Gets the interface index using its name. Returns None on failure."
-    interfaces = json.loads(subprocess.check_output("ip -j link show", shell=True))
+    try:
+        interfaces = json.loads(subprocess.check_output("ip -j link show", shell=True))
+    except subprocess.CalledProcessError as err:
+        print(f"Error executing command: {err}")
+        return None
+    except json.JSONDecodeError as err:
+        print(f"Error decoding JSON: {err}")
+        return None
 
     for interface in interfaces:
-        if interface["ifname"] == name:
-            return interface["ifindex"]
+        if interface.get("ifname") == name:
+            return interface.get("ifindex")
 
     return None
 
 
 def interface_index_to_address(index, iptype="inet"):
     "Gets the interface main address using its name. Returns None on failure."
-    interfaces = json.loads(subprocess.check_output("ip -j addr show", shell=True))
+    try:
+        interfaces = json.loads(subprocess.check_output("ip -j addr show", shell=True))
+    except subprocess.CalledProcessError as err:
+        print(f"Error executing command: {err}")
+        return None
+    except json.JSONDecodeError as err:
+        print(f"Error decoding JSON: {err}")
+        return None
 
     for interface in interfaces:
-        if interface["ifindex"] == index:
+        if interface.get("ifindex") == index:
             break
+    else:
+        return None
 
-    for address in interface["addr_info"]:
-        if address["family"] == iptype:
+    for address in interface.get("addr_info"):
+        if address.get("family") == iptype:
             break
+    else:
+        return None
 
-    local_address = ipaddress.ip_address(address["local"])
+    local_address = ipaddress.ip_address(address.get("local"))
 
     return local_address.packed
 
