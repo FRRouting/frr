@@ -767,7 +767,7 @@ static void static_route_args_install(struct static_route_args *args, struct sta
 	bool pm = false;
 	bool onlink = false;
 	bool update_path = false, update_nexthop = false;
-	char *ostr, *nump;
+	char *ostr, *orig_label, *orig_seg, *nump;
 	struct static_path *pn;
 	struct route_node *rn;
 	struct ipaddr bfd_src_addr = {};
@@ -830,23 +830,23 @@ static void static_route_args_install(struct static_route_args *args, struct sta
 	case STATIC_IFNAME:
 		/* no break was deliberately set before these cases */
 		if (args->segs) {
-			ostr = XSTRDUP(MTYPE_TMP, args->segs);
+			orig_seg = ostr = XSTRDUP(MTYPE_TMP, args->segs);
 			for (segs_stack_id = 0;
 			     (nump = strsep(&ostr, "/")) && segs_stack_id < SRV6_MAX_SIDS;
 			     segs_stack_id++)
 				inet_pton(AF_INET6, nump, &snh_seg.seg[segs_stack_id]);
 			snh_seg.num_segs = segs_stack_id;
-			XFREE(MTYPE_TMP, ostr);
+			XFREE(MTYPE_TMP, orig_seg);
 		}
 
 		if (args->label) {
-			ostr = XSTRDUP(MTYPE_TMP, args->label);
+			orig_label = ostr = XSTRDUP(MTYPE_TMP, args->label);
 			for (label_stack_id = 0;
 			     (nump = strsep(&ostr, "/")) && label_stack_id < MPLS_MAX_LABELS;
 			     label_stack_id++)
 				snh_label.label[label_stack_id] = atoi(nump);
 			snh_label.num_labels = label_stack_id;
-			XFREE(MTYPE_TMP, ostr);
+			XFREE(MTYPE_TMP, orig_label);
 		}
 		if (args->bfd) {
 			bfd = true;
