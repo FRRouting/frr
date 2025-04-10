@@ -1249,9 +1249,14 @@ void pim_vxlan_exit(struct pim_instance *pim)
 {
 	hash_clean_and_free(&pim->vxlan.sg_hash,
 			    (void (*)(void *))pim_vxlan_sg_del_item);
+}
 
-	if (vxlan_info.work_list)
+void pim_vxlan_work_list_delete(void)
+{
+	if (vxlan_info.work_list) {
 		list_delete(&vxlan_info.work_list);
+		UNSET_FLAG(vxlan_info.flags, PIM_VXLANF_WORK_INITED);
+	}
 }
 
 void pim_vxlan_terminate(void)
