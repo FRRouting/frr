@@ -14088,9 +14088,14 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 					? "Advertise"
 					: "Withdraw");
 
-		/* Receive prefix count */
-		vty_out(vty, "  %u accepted prefixes\n",
-			p->pcount[afi][safi]);
+		/* Receive and sent prefix count, if available */
+		paf = peer_af_find(p, afi, safi);
+		if (paf && PAF_SUBGRP(paf))
+			vty_out(vty, "  %u accepted, %u sent prefixes\n",
+				p->pcount[afi][safi], PAF_SUBGRP(paf)->scount);
+		else
+			vty_out(vty, "  %u accepted prefixes\n",
+				p->pcount[afi][safi]);
 
 		/* maximum-prefix-out */
 		if (CHECK_FLAG(p->af_flags[afi][safi],
