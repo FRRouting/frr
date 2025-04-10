@@ -876,6 +876,12 @@ int str2prefix_rtc_wildcard(const char *str, struct prefix_rtc *p)
 		return 0;
 	}
 
+	if (rt_global_adm || rt_local_adm) {
+		/* not a wildcard */
+		XFREE(MTYPE_TMP, cp);
+		return 0;
+	}
+
 	memset(p, 0, sizeof(struct prefix));
 	p->prefixlen = plen;
 	p->family = AF_RTC;
