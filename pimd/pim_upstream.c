@@ -302,6 +302,49 @@ void pim_upstream_send_join(struct pim_upstream *up)
 	pim_jp_agg_single_upstream_send(&up->rpf, up, 1 /* join */);
 }
 
+static void on_prune_timer(struct event *t)
+{
+	struct pim_upstream *up;
+	struct pim_instance *pim;
+
+	up = EVENT_ARG(t);
+	pim = up->pim;
+
+	if (!up->rpf.source_nexthop.interface) {
+		if (PIM_DEBUG_PIM_TRACE)
+			zlog_debug("%s: up %s RPF is not present", __func__, up->sg_str);
+		return;
+	}
+
+	if (!up->channel_oil->installed)
+		return;
+
+	pim_mroute_update_counters(up->channel_oil);
+
+	/* Have we seen packets? */
+	if ((up->channel_oil->cc.oldpktcnt >= up->channel_oil->cc.pktcnt) &&
+	    (up->channel_oil->cc.lastused / 100 > 30)) {
+		if (PIM_DEBUG_PIM_TRACE) {
+			zlog_debug("%s[%s]: %s old packet count is equal or lastused is greater than 30, (%ld,%ld,%lld)",
+				   __func__, up->sg_str, pim->vrf->name,
+				   up->channel_oil->cc.oldpktcnt, up->channel_oil->cc.pktcnt,
+				   up->channel_oil->cc.lastused / 100);
+		}
+		prune_timer_start(up);
+		return;
+	}
+
+	/*
+	 * Don't send the join if the outgoing interface is a loopback
+	 * But since this might change leave the join timer running
+	 */
+	if (up->rpf.source_nexthop.interface && !if_is_loopback(up->rpf.source_nexthop.interface))
+		pim_dm_prune_send(up->rpf, up, 0);
+
+	prune_timer_start(up);
+}
+
+
 static void on_join_timer(struct event *t)
 {
 	struct pim_upstream *up;
@@ -351,6 +394,29 @@ static void join_timer_stop(struct pim_upstream *up)
 		pim_jp_agg_remove_group(nbr->upstream_jp_agg, up, nbr);
 
 	pim_jp_agg_upstream_verification(up, false);
+}
+
+void prune_timer_start(struct pim_upstream *up)
+{
+	struct pim_neighbor *nbr = NULL;
+
+	if (up->rpf.source_nexthop.interface) {
+		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface, up->rpf.rpf_addr, true);
+
+		if (PIM_DEBUG_PIM_EVENTS) {
+			zlog_debug("%s: starting %d sec timer for upstream (S,G)=%s", __func__,
+				   router->t_periodic, up->sg_str);
+		}
+	}
+
+	if (nbr)
+		pim_jp_agg_add_group(nbr->upstream_jp_agg, up, 1, nbr);
+	else {
+		event_cancel(&up->t_prune_timer);
+		event_add_timer(router->master, on_prune_timer, up, router->t_periodic,
+				&up->t_prune_timer);
+	}
+	pim_jp_agg_upstream_verification(up, true);
 }
 
 void join_timer_start(struct pim_upstream *up)
@@ -2091,6 +2157,8 @@ bool pim_upstream_up_connected(struct pim_upstream *up)
 		if (HAVE_DENSE_MODE(pim_ifp->pim_mode) &&
 		    ifp->ifindex != up->rpf.source_nexthop.interface->ifindex &&
 		    oil_if_has(up->channel_oil, pim_ifp->mroute_vif_index))
+			return true;
+		if (pim_dm_check_prune(ifp, up->sg.grp))
 			return true;
 	}
 	return false;
