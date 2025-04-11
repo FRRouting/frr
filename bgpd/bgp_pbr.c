@@ -1087,7 +1087,12 @@ static void *bgp_pbr_match_alloc_intern(void *arg)
 	return new;
 }
 
-static void bgp_pbr_rule_free(void *arg)
+static void bgp_pbr_rule_free(struct bgp_pbr_rule *pbr)
+{
+	XFREE(MTYPE_PBR_RULE, pbr);
+}
+
+static void bgp_pbr_rule_hash_free(void *arg)
 {
 	struct bgp_pbr_rule *bpr;
 
@@ -1100,7 +1105,7 @@ static void bgp_pbr_rule_free(void *arg)
 		bpr->action->refcnt--;
 		bpr->action = NULL;
 	}
-	XFREE(MTYPE_PBR_RULE, bpr);
+	bgp_pbr_rule_free(bpr);
 }
 
 static void *bgp_pbr_rule_alloc_intern(void *arg)
@@ -1443,7 +1448,7 @@ struct bgp_pbr_match *bgp_pbr_match_iptable_lookup(vrf_id_t vrf_id,
 void bgp_pbr_cleanup(struct bgp *bgp)
 {
 	hash_clean_and_free(&bgp->pbr_match_hash, bgp_pbr_match_hash_free);
-	hash_clean_and_free(&bgp->pbr_rule_hash, bgp_pbr_rule_free);
+	hash_clean_and_free(&bgp->pbr_rule_hash, bgp_pbr_rule_hash_free);
 	hash_clean_and_free(&bgp->pbr_action_hash, bgp_pbr_action_free);
 
 	if (bgp->bgp_pbr_cfg == NULL)
@@ -1729,6 +1734,8 @@ static void bgp_pbr_flush_iprule(struct bgp *bgp, struct bgp_pbr_action *bpa,
 		}
 	}
 	hash_release(bgp->pbr_rule_hash, bpr);
+	bgp_pbr_rule_free(bpr);
+
 	bgp_pbr_bpa_remove(bpa);
 }
 
