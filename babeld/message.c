@@ -27,6 +27,7 @@ int split_horizon = 1;
 unsigned short myseqno = 0;
 
 #define UNICAST_BUFSIZE 1024
+#define RESERVED 0
 static int unicast_buffered = 0;
 static unsigned char *unicast_buffer = NULL;
 struct neighbour *unicast_neighbour = NULL;
@@ -53,6 +54,16 @@ static bool
 known_ae(int ae)
 {
     return ae <= 3;
+}
+
+static inline bool
+is_all_zero(const unsigned char *data, int len) {
+    for (int j = 0; j < len; j++) {
+        if (data[j] != 0) {
+            return false;
+        }
+    }
+    return true;
 }
 
 /* Parse a network prefix, encoded in the somewhat baroque compressed
@@ -151,7 +162,11 @@ static bool parse_update_subtlv(const unsigned char *a, int alen,
 		       "Received Mandatory bit set but this FRR version is not prepared to handle it at this point");
 		return true;
 	} else if (type == SUBTLV_PADN) {
-		/* Nothing. */
+        if (!is_all_zero(a + i + 2, len)) {
+            debugf(BABEL_DEBUG_COMMON,
+                   "Received pad%d with non zero MBZ field.",
+                   len);
+        }
 	} else if (type == SUBTLV_DIVERSITY) {
 		if (len > DIVERSITY_HOPS) {
 			flog_err(
@@ -214,7 +229,11 @@ parse_hello_subtlv(const unsigned char *a, int alen,
 		       "Received subtlv with Mandatory bit, this version of FRR is not prepared to handle this currently");
 		return -2;
 	} else if (type == SUBTLV_PADN) {
-		/* Nothing to do. */
+        if (!is_all_zero(a + i + 2, len)) {
+            debugf(BABEL_DEBUG_COMMON,
+                   "Received pad%d with non zero MBZ field.",
+                   len);
+        }
 	} else if (type == SUBTLV_TIMESTAMP) {
 		if (len >= 4) {
 			DO_NTOHL(*hello_send_us, a + i + 2);
@@ -261,7 +280,11 @@ parse_ihu_subtlv(const unsigned char *a, int alen,
         }
 
         if(type == SUBTLV_PADN) {
-            /* Nothing to do. */
+            if (!is_all_zero(a + i + 2, len)) {
+                debugf(BABEL_DEBUG_COMMON,
+                    "Received pad%d with non zero MBZ field.",
+                    len);
+            }
         } else if(type == SUBTLV_TIMESTAMP) {
             if(len >= 8) {
                 DO_NTOHL(*hello_send_us, a + i + 2);
@@ -462,12 +485,23 @@ parse_packet(const unsigned char *from, struct interface *ifp,
         len = message[1];
 
         if(type == MESSAGE_PADN) {
+            if (!is_all_zero(message + 2, len)) {
+                debugf(BABEL_DEBUG_COMMON,
+                    "Received pad%d with non zero MBZ field.",
+                    len);
+            }
             debugf(BABEL_DEBUG_COMMON,"Received pad%d from %s on %s.",
                    len, format_address(from), ifp->name);
         } else if(type == MESSAGE_ACK_REQ) {
-            unsigned short nonce, interval;
+            unsigned short nonce, interval, Reserved;
+            DO_NTOHS(Reserved, message + 2);
             DO_NTOHS(nonce, message + 4);
             DO_NTOHS(interval, message + 6);
+            if (Reserved != RESERVED) {
+               debugf(BABEL_DEBUG_COMMON,"Received ack-req (%04X %d) with non zero Reserved from %s on %s.",
+                   nonce, interval, format_address(from), ifp->name);
+               goto done;
+            }
             debugf(BABEL_DEBUG_COMMON,"Received ack-req (%04X %d) from %s on %s.",
                    nonce, interval, format_address(from), ifp->name);
             send_ack(neigh, nonce, interval);
@@ -528,8 +562,15 @@ parse_packet(const unsigned char *from, struct interface *ifp,
 		}
         } else if(type == MESSAGE_IHU) {
             unsigned short txcost, interval;
+            unsigned char Reserved;
             unsigned char address[16];
             int rc;
+            Reserved = message[3];
+            if (Reserved != RESERVED) {
+               debugf(BABEL_DEBUG_COMMON,"Received ihu with non zero Reserved from %s on %s.",
+                   format_address(from), ifp->name);
+               goto done;
+            }
             DO_NTOHS(txcost, message + 4);
             DO_NTOHS(interval, message + 6);
             rc = network_address(message[2], message + 8, len - 6, address);
@@ -765,8 +806,14 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                 send_update(neigh->ifp, 0, prefix, plen);
             }
         } else if(type == MESSAGE_MH_REQUEST) {
-            unsigned char prefix[16], plen;
+            unsigned char prefix[16], plen, Reserved;
             unsigned short seqno;
+            Reserved = message[7];
+            if (Reserved != RESERVED) {
+               debugf(BABEL_DEBUG_COMMON,"Received request with non zero Reserved from %s on %s.",
+                   format_address(from), ifp->name);
+               goto done;
+            }
             int rc;
             DO_NTOHS(seqno, message + 4);
             rc = network_prefix(message[2], message[3], 0,
