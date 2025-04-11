@@ -2011,7 +2011,7 @@ void mgmt_fe_adapter_init(struct event_loop *tm)
 	}
 }
 
-static void mgmt_fe_abort_if_session(void *data)
+static __attribute__((__noreturn__)) void mgmt_fe_abort_if_session(void *data)
 {
 	struct mgmt_fe_session_ctx *session = data;
 
