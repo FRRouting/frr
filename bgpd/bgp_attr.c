@@ -975,6 +975,9 @@ unsigned int attrhash_key_make(const void *p)
 	MIX(bgp_attr_get_aigp_metric(attr));
 	if (attr->link_state)
 		MIX(link_state_hash_key_make(attr->link_state));
+	MIX3(attr->mm_seqnum, attr->df_alg, attr->df_pref);
+	MIX(attr->encap_tunneltype);
+	key = jhash(&attr->rmac, sizeof(attr->rmac), key);
 
 	return key;
 }
@@ -1029,6 +1032,7 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    overlay_index_same(attr1, attr2) &&
 		    !memcmp(&attr1->esi, &attr2->esi, sizeof(esi_t)) &&
 		    attr1->es_flags == attr2->es_flags &&
+		    attr1->mm_seqnum == attr2->mm_seqnum &&
 		    attr1->mm_sync_seqnum == attr2->mm_sync_seqnum &&
 		    attr1->df_pref == attr2->df_pref &&
 		    attr1->df_alg == attr2->df_alg &&
@@ -1042,6 +1046,7 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    attr1->nh_type == attr2->nh_type &&
 		    attr1->bh_type == attr2->bh_type &&
 		    attr1->otc == attr2->otc &&
+		    !memcmp(&attr1->rmac, &attr2->rmac, sizeof(struct ethaddr)) &&
 		    link_state_same(attr1->link_state, attr2->link_state))
 			return true;
 	}
