@@ -3872,12 +3872,13 @@ static inline void zebra_neigh_ip_del(ZAPI_HANDLER_ARGS)
 static inline void zread_iptable(ZAPI_HANDLER_ARGS)
 {
 	struct zebra_pbr_iptable *zpi =
-		XCALLOC(MTYPE_PBR_OBJ, sizeof(struct zebra_pbr_iptable));
+		XCALLOC(MTYPE_PBR_IPTABLE, sizeof(struct zebra_pbr_iptable));
 	struct stream *s;
 
 	s = msg;
 
 	zpi->interface_name_list = list_new();
+	zpi->interface_name_list->del = zebra_pbr_iptable_interface_name_list_free;
 	zpi->sock = client->sock;
 	zpi->vrf_id = zvrf->vrf->vrf_id;
 	STREAM_GETL(s, zpi->unique);
