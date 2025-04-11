@@ -165,6 +165,17 @@ def test_bgp_administrative_reset_gr():
         }
         return topotest.json_cmp(output, expected)
 
+    def _bgp_check_routes(router, prefix):
+        output = json.loads(router.vtysh_cmd(f"show bgp ipv4 unicast {prefix} json"))
+        expected = {
+            "paths": [
+                {
+                    "valid": True,
+                }
+            ]
+        }
+        return topotest.json_cmp(output, expected)
+
     def _bgp_check_gr_notification_stale(router, prefix):
         output = json.loads(router.vtysh_cmd(f"show bgp ipv4 unicast {prefix} json"))
         expected = {
@@ -193,6 +204,13 @@ def test_bgp_administrative_reset_gr():
     assert result is None, "Failed to see BGP convergence on R2"
 
     step("Reset and delay the session establishement for R1")
+
+    step("Check if the routes are on R1")
+    test_func = functools.partial(_bgp_check_routes, r1, "172.16.255.2/32")
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to see routes on R1"
+
+    step("Delay the session reestablishement for R1 and clear the sessions on R2")
     r1.vtysh_cmd(
         """
         configure terminal
