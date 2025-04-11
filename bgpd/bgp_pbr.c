@@ -965,7 +965,12 @@ int bgp_pbr_build_and_validate_entry(const struct prefix *p,
 	return 0;
 }
 
-static void bgp_pbr_match_entry_free(void *arg)
+static void bgp_pbr_match_entry_free(struct bgp_pbr_match_entry *bpme)
+{
+	XFREE(MTYPE_PBR_MATCH_ENTRY, bpme);
+}
+
+static void bgp_pbr_match_entry_hash_free(void *arg)
 {
 	struct bgp_pbr_match_entry *bpme;
 
@@ -976,7 +981,7 @@ static void bgp_pbr_match_entry_free(void *arg)
 		bpme->installed = false;
 		bpme->backpointer = NULL;
 	}
-	XFREE(MTYPE_PBR_MATCH_ENTRY, bpme);
+	bgp_pbr_match_entry_free(bpme);
 }
 
 static void bgp_pbr_match_free(void *arg)
@@ -985,7 +990,7 @@ static void bgp_pbr_match_free(void *arg)
 
 	bpm = (struct bgp_pbr_match *)arg;
 
-	hash_clean(bpm->entry_hash, bgp_pbr_match_entry_free);
+	hash_clean(bpm->entry_hash, bgp_pbr_match_entry_hash_free);
 
 	if (hashcount(bpm->entry_hash) == 0) {
 		/* delete iptable entry first */
@@ -1685,6 +1690,7 @@ static void bgp_pbr_flush_entry(struct bgp *bgp, struct bgp_pbr_action *bpa,
 		}
 	}
 	hash_release(bpm->entry_hash, bpme);
+	bgp_pbr_match_entry_free(bpme);
 	if (hashcount(bpm->entry_hash) == 0) {
 		/* delete iptable entry first */
 		/* then delete ipset match */
