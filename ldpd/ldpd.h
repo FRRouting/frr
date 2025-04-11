@@ -332,6 +332,7 @@ struct iface_af {
 	struct event *hello_timer;
 	uint16_t		 hello_holdtime;
 	uint16_t		 hello_interval;
+	int disable_establish_hello;
 };
 
 struct iface_ldp_sync {
