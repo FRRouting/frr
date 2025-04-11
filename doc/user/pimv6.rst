@@ -175,6 +175,12 @@ PIMv6 Router
    notifications to the kernel. This command is vrf aware, to configure for a
    vrf, specify the vrf in the router pim6 block.
 
+.. clicmd:: ssm prefix-list WORD
+
+   Specify a range of group addresses via a prefix-list that forces pim to
+   never do SM over. This command is vrf aware, to configure for a vrf, specify
+   the vrf in the router pim block.
+
 .. clicmd:: ssmpingd [X:X::X:X]
 
    Enable ipv6 ssmpingd configuration. A network level management tool

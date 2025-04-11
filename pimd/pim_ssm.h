@@ -6,7 +6,11 @@
 #ifndef PIM_SSM_H
 #define PIM_SSM_H
 
+#if PIM_IPV == 4
 #define PIM_SSM_STANDARD_RANGE "232.0.0.0/8"
+#else
+#define PIM_SSM_STANDARD_RANGE "FF30::/96"
+#endif
 
 struct pim_instance;
 
