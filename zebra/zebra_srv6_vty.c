@@ -246,6 +246,8 @@ DEFUN (show_srv6_locator_detail,
 			if (CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID))
 				vty_out(vty, "Behavior: uSID\n");
 		}
+		if (CHECK_FLAG(locator->flags, SRV6_LOCATOR_PSP))
+			vty_out(vty, "Flavor: PSP\n");
 
 		vty_out(vty, "Chunks:\n");
 		for (ALL_LIST_ELEMENTS_RO((struct list *)locator->chunks, nnode, chunk)) {
@@ -938,6 +940,38 @@ DEFPY (locator_behavior,
 	return CMD_SUCCESS;
 }
 
+DEFPY (locator_flavor_psp,
+       locator_flavor_psp_cmd,
+       "[no] flavor psp",
+       NO_STR
+       "Configure SRv6 flavors\n"
+       "Specify Penultimate Segment Popping flavor\n")
+{
+	VTY_DECLVAR_CONTEXT(srv6_locator, locator);
+
+	if (no && !CHECK_FLAG(locator->flags, SRV6_LOCATOR_PSP))
+		/* SRv6 locator PSP flag already unset, nothing to do */
+		return CMD_SUCCESS;
+
+	if (!no && CHECK_FLAG(locator->flags, SRV6_LOCATOR_PSP))
+		/* SRv6 locator PSP flag already set, nothing to do */
+		return CMD_SUCCESS;
+
+	/* Remove old locator from zclients */
+	zebra_notify_srv6_locator_delete(locator);
+
+	/* Set/Unset the SRV6_LOCATOR_USID */
+	if (no)
+		UNSET_FLAG(locator->flags, SRV6_LOCATOR_PSP);
+	else
+		SET_FLAG(locator->flags, SRV6_LOCATOR_PSP);
+
+	/* Notify the new locator to zclients */
+	zebra_srv6_locator_add(locator);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(locator_sid_format,
       locator_sid_format_cmd,
       "format <usid-f3216|uncompressed-f4024>$format",
@@ -1383,6 +1417,8 @@ static int zebra_sr_config(struct vty *vty)
 			vty_out(vty, "\n");
 			if (CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID))
 				vty_out(vty, "    behavior usid\n");
+			if (CHECK_FLAG(locator->flags, SRV6_LOCATOR_PSP))
+				vty_out(vty, "    flavor psp\n");
 			if (locator->sid_format) {
 				format = locator->sid_format;
 				vty_out(vty, "    format %s\n", format->name);
@@ -1486,6 +1522,7 @@ void zebra_srv6_vty_init(void)
 	/* Command for configuration */
 	install_element(SRV6_LOC_NODE, &locator_prefix_cmd);
 	install_element(SRV6_LOC_NODE, &locator_behavior_cmd);
+	install_element(SRV6_LOC_NODE, &locator_flavor_psp_cmd);
 	install_element(SRV6_LOC_NODE, &locator_sid_format_cmd);
 	install_element(SRV6_LOC_NODE, &no_locator_sid_format_cmd);
 	install_element(SRV6_ENCAP_NODE, &srv6_src_addr_cmd);
