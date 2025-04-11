@@ -30,6 +30,7 @@
 #include "printfrr.h"
 #include "frrscript.h"
 #include "frrdistance.h"
+#include "lib/termtable.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/connected.h"
@@ -271,6 +272,63 @@ static const char *subqueue2str(enum meta_queue_indexes index)
 	}
 
 	return "Unknown";
+}
+
+/* Handler for 'show zebra metaq' */
+int zebra_show_metaq_counter(struct vty *vty, bool uj)
+{
+	struct meta_queue *mq = zrouter.mq;
+	struct ttable *tt = NULL;
+	char *table = NULL;
+	json_object *json = NULL;
+	json_object *json_table = NULL;
+
+	if (!mq)
+		return CMD_WARNING;
+
+	/* Create a table for subqueue details */
+	tt = ttable_new(&ttable_styles[TTSTYLE_ASCII]);
+	ttable_add_row(tt, "SubQ|Current|Max Size|Total");
+
+	/* Add rows for each subqueue */
+	for (uint8_t i = 0; i < MQ_SIZE; i++) {
+		ttable_add_row(tt, "%s|%u|%u|%u", subqueue2str(i), mq->subq[i]->count,
+			       mq->max_subq[i], mq->total_subq[i]);
+	}
+
+	/* For a better formatting between the content and separator */
+	tt->style.cell.rpad = 2;
+	tt->style.cell.lpad = 1;
+	ttable_restyle(tt);
+
+	if (uj) {
+		json = json_object_new_object();
+		/* Add MetaQ summary to the JSON object */
+		json_object_int_add(json, "currentSize", mq->size);
+		json_object_int_add(json, "maxSize", mq->max_metaq);
+		json_object_int_add(json, "total", mq->total_metaq);
+
+		/* Convert the table to JSON and add it to the main JSON object */
+		/* n = name/string, u = unsigned int */
+		json_table = ttable_json(tt, "sddd");
+		json_object_object_add(json, "subqueues", json_table);
+		vty_json(vty, json);
+	} else {
+		vty_out(vty, "MetaQ Summary\n");
+		vty_out(vty, "Current Size\t: %u\n", mq->size);
+		vty_out(vty, "Max Size\t: %u\n", mq->max_metaq);
+		vty_out(vty, "Total\t\t: %u\n", mq->total_metaq);
+
+		/* Dump the table */
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP_TTABLE, table);
+	}
+
+	/* Clean up the table */
+	ttable_del(tt);
+
+	return CMD_SUCCESS;
 }
 
 printfrr_ext_autoreg_p("ZN", printfrr_zebra_node);
@@ -3257,6 +3315,7 @@ static int rib_meta_queue_add(struct meta_queue *mq, void *data)
 	struct route_node *rn = NULL;
 	struct route_entry *re = NULL, *curr_re = NULL;
 	uint8_t qindex = MQ_SIZE, curr_qindex = MQ_SIZE;
+	uint64_t curr, high;
 
 	rn = (struct route_node *)data;
 
@@ -3300,6 +3359,15 @@ static int rib_meta_queue_add(struct meta_queue *mq, void *data)
 	listnode_add(mq->subq[qindex], rn);
 	route_lock_node(rn);
 	mq->size++;
+	atomic_fetch_add_explicit(&mq->total_metaq, 1, memory_order_relaxed);
+	atomic_fetch_add_explicit(&mq->total_subq[qindex], 1, memory_order_relaxed);
+	curr = listcount(mq->subq[qindex]);
+	high = atomic_load_explicit(&mq->max_subq[qindex], memory_order_relaxed);
+	if (curr > high)
+		atomic_store_explicit(&mq->max_subq[qindex], curr, memory_order_relaxed);
+	high = atomic_load_explicit(&mq->max_metaq, memory_order_relaxed);
+	if (mq->size > high)
+		atomic_store_explicit(&mq->max_metaq, mq->size, memory_order_relaxed);
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		rnode_debug(rn, re->vrf_id, "queued rn %p into sub-queue %s mq size %u", (void *)rn,
@@ -3310,8 +3378,21 @@ static int rib_meta_queue_add(struct meta_queue *mq, void *data)
 
 static int early_label_meta_queue_add(struct meta_queue *mq, void *data)
 {
+	uint64_t curr, high;
+
 	listnode_add(mq->subq[META_QUEUE_EARLY_LABEL], data);
 	mq->size++;
+	atomic_fetch_add_explicit(&mq->total_metaq, 1, memory_order_relaxed);
+	atomic_fetch_add_explicit(&mq->total_subq[META_QUEUE_EARLY_LABEL], 1, memory_order_relaxed);
+	curr = listcount(mq->subq[META_QUEUE_EARLY_LABEL]);
+	high = atomic_load_explicit(&mq->max_subq[META_QUEUE_EARLY_LABEL], memory_order_relaxed);
+	if (curr > high)
+		atomic_store_explicit(&mq->max_subq[META_QUEUE_EARLY_LABEL], curr,
+				      memory_order_relaxed);
+	high = atomic_load_explicit(&mq->max_metaq, memory_order_relaxed);
+	if (mq->size > high)
+		atomic_store_explicit(&mq->max_metaq, mq->size, memory_order_relaxed);
+
 	return 0;
 }
 
@@ -3320,6 +3401,7 @@ static int rib_meta_queue_nhg_ctx_add(struct meta_queue *mq, void *data)
 	struct nhg_ctx *ctx = NULL;
 	uint8_t qindex = META_QUEUE_NHG;
 	struct wq_nhg_wrapper *w;
+	uint64_t curr, high;
 
 	ctx = (struct nhg_ctx *)data;
 
@@ -3333,6 +3415,15 @@ static int rib_meta_queue_nhg_ctx_add(struct meta_queue *mq, void *data)
 
 	listnode_add(mq->subq[qindex], w);
 	mq->size++;
+	atomic_fetch_add_explicit(&mq->total_metaq, 1, memory_order_relaxed);
+	atomic_fetch_add_explicit(&mq->total_subq[qindex], 1, memory_order_relaxed);
+	curr = listcount(mq->subq[qindex]);
+	high = atomic_load_explicit(&mq->max_subq[qindex], memory_order_relaxed);
+	if (curr > high)
+		atomic_store_explicit(&mq->max_subq[qindex], curr, memory_order_relaxed);
+	high = atomic_load_explicit(&mq->max_metaq, memory_order_relaxed);
+	if (mq->size > high)
+		atomic_store_explicit(&mq->max_metaq, mq->size, memory_order_relaxed);
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		zlog_debug("NHG Context id=%u queued into sub-queue %s mq size %u", ctx->id,
@@ -3347,6 +3438,7 @@ static int rib_meta_queue_nhg_process(struct meta_queue *mq, void *data,
 	struct nhg_hash_entry *nhe = NULL;
 	uint8_t qindex = META_QUEUE_NHG;
 	struct wq_nhg_wrapper *w;
+	uint64_t curr, high;
 
 	nhe = (struct nhg_hash_entry *)data;
 
@@ -3361,6 +3453,15 @@ static int rib_meta_queue_nhg_process(struct meta_queue *mq, void *data,
 
 	listnode_add(mq->subq[qindex], w);
 	mq->size++;
+	atomic_fetch_add_explicit(&mq->total_metaq, 1, memory_order_relaxed);
+	atomic_fetch_add_explicit(&mq->total_subq[qindex], 1, memory_order_relaxed);
+	curr = listcount(mq->subq[qindex]);
+	high = atomic_load_explicit(&mq->max_subq[qindex], memory_order_relaxed);
+	if (curr > high)
+		atomic_store_explicit(&mq->max_subq[qindex], curr, memory_order_relaxed);
+	high = atomic_load_explicit(&mq->max_metaq, memory_order_relaxed);
+	if (mq->size > high)
+		atomic_store_explicit(&mq->max_metaq, mq->size, memory_order_relaxed);
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		zlog_debug("NHG id=%u queued into sub-queue %s mq size %u", nhe->id,
@@ -3381,8 +3482,19 @@ static int rib_meta_queue_nhg_del(struct meta_queue *mq, void *data)
 
 static int rib_meta_queue_evpn_add(struct meta_queue *mq, void *data)
 {
+	uint64_t curr, high;
+
 	listnode_add(mq->subq[META_QUEUE_EVPN], data);
 	mq->size++;
+	atomic_fetch_add_explicit(&mq->total_metaq, 1, memory_order_relaxed);
+	atomic_fetch_add_explicit(&mq->total_subq[META_QUEUE_EVPN], 1, memory_order_relaxed);
+	curr = listcount(mq->subq[META_QUEUE_EVPN]);
+	high = atomic_load_explicit(&mq->max_subq[META_QUEUE_EVPN], memory_order_relaxed);
+	if (curr > high)
+		atomic_store_explicit(&mq->max_subq[META_QUEUE_EVPN], curr, memory_order_relaxed);
+	high = atomic_load_explicit(&mq->max_metaq, memory_order_relaxed);
+	if (mq->size > high)
+		atomic_store_explicit(&mq->max_metaq, mq->size, memory_order_relaxed);
 
 	return 0;
 }
@@ -4227,8 +4339,19 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 
 static int rib_meta_queue_gr_run_add(struct meta_queue *mq, void *data)
 {
+	uint64_t curr, high;
+
 	listnode_add(mq->subq[META_QUEUE_GR_RUN], data);
 	mq->size++;
+	atomic_fetch_add_explicit(&mq->total_metaq, 1, memory_order_relaxed);
+	atomic_fetch_add_explicit(&mq->total_subq[META_QUEUE_GR_RUN], 1, memory_order_relaxed);
+	curr = listcount(mq->subq[META_QUEUE_GR_RUN]);
+	high = atomic_load_explicit(&mq->max_subq[META_QUEUE_GR_RUN], memory_order_relaxed);
+	if (curr > high)
+		atomic_store_explicit(&mq->max_subq[META_QUEUE_GR_RUN], curr, memory_order_relaxed);
+	high = atomic_load_explicit(&mq->max_metaq, memory_order_relaxed);
+	if (mq->size > high)
+		atomic_store_explicit(&mq->max_metaq, mq->size, memory_order_relaxed);
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		zlog_debug("Graceful Run adding mq size %u", zrouter.mq->size);
@@ -4239,9 +4362,20 @@ static int rib_meta_queue_gr_run_add(struct meta_queue *mq, void *data)
 static int rib_meta_queue_early_route_add(struct meta_queue *mq, void *data)
 {
 	struct zebra_early_route *ere = data;
+	uint64_t curr, high;
 
 	listnode_add(mq->subq[META_QUEUE_EARLY_ROUTE], data);
 	mq->size++;
+	atomic_fetch_add_explicit(&mq->total_metaq, 1, memory_order_relaxed);
+	atomic_fetch_add_explicit(&mq->total_subq[META_QUEUE_EARLY_ROUTE], 1, memory_order_relaxed);
+	curr = listcount(mq->subq[META_QUEUE_EARLY_ROUTE]);
+	high = atomic_load_explicit(&mq->max_subq[META_QUEUE_EARLY_ROUTE], memory_order_relaxed);
+	if (curr > high)
+		atomic_store_explicit(&mq->max_subq[META_QUEUE_EARLY_ROUTE], curr,
+				      memory_order_relaxed);
+	high = atomic_load_explicit(&mq->max_metaq, memory_order_relaxed);
+	if (mq->size > high)
+		atomic_store_explicit(&mq->max_metaq, mq->size, memory_order_relaxed);
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 		struct vrf *vrf = vrf_lookup_by_id(ere->re->vrf_id);
