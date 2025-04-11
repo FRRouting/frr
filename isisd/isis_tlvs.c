@@ -129,6 +129,7 @@ static int unpack_tlvs(enum isis_tlv_context context, size_t avail_len,
 		       struct stream *stream, struct sbuf *log, void *dest,
 		       int indent, bool *unpacked_known_tlvs);
 static void isis_free_subsubtlvs(struct isis_subsubtlvs *subsubtlvs);
+static void isis_tlvs_del_asla_free(void *arg);
 
 /* For tests/isisd, TLV text requires ipv4-unicast instead of standard */
 static const char *isis_mtid2str_fake(uint16_t mtid)
@@ -147,6 +148,7 @@ struct isis_ext_subtlvs *isis_alloc_ext_subtlvs(void)
 	init_item_list(&ext->adj_sid);
 	init_item_list(&ext->lan_sid);
 	ext->aslas = list_new();
+	ext->aslas->del = isis_tlvs_del_asla_free;
 
 	init_item_list(&ext->srv6_endx_sid);
 	init_item_list(&ext->srv6_lan_endx_sid);
@@ -8136,12 +8138,19 @@ void isis_tlvs_del_srv6_lan_endx_sid(struct isis_ext_subtlvs *exts,
 		UNSET_SUBTLV(exts, EXT_SRV6_LAN_ENDX_SID);
 }
 
+static void isis_tlvs_del_asla_free(void *arg)
+{
+	struct isis_asla_subtlvs *asla = arg;
+
+	admin_group_term(&asla->ext_admin_group);
+	XFREE(MTYPE_ISIS_SUBTLV, asla);
+}
+
 void isis_tlvs_del_asla_flex_algo(struct isis_ext_subtlvs *ext,
 				  struct isis_asla_subtlvs *asla)
 {
-	admin_group_term(&asla->ext_admin_group);
 	listnode_delete(ext->aslas, asla);
-	XFREE(MTYPE_ISIS_SUBTLV, asla);
+	isis_tlvs_del_asla_free(asla);
 }
 
 struct isis_asla_subtlvs *
