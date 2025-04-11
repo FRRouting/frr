@@ -1545,6 +1545,7 @@ void bfd_set_shutdown(struct bfd_session *bs, bool shutdown)
 			return;
 
 		SET_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN);
+		bs->local_diag = BD_ADMIN_DOWN;
 
 		/* Handle data plane shutdown case. */
 		if (bs->bdc) {
