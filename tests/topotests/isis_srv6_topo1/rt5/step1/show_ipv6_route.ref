@@ -254,6 +254,9 @@
           "active":true,
           "seg6local":{
             "action":"uN"
+          },
+          "seg6localContext":{
+            "flavors":["psp"]
           }
         }
       ]
