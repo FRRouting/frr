@@ -839,12 +839,10 @@ static int zebra_wrap_script_ipset_entry_get_stat(
 	int ret = 0;
 
 	monotime(&tv);
-	if (!ipset_json) {
+	if (!ipset_json)
 		ipset_json = XCALLOC(MTYPE_SCRIPTCACHE,
 				     sizeof(struct zebra_wrap_ipset_json_cache));
-		if (!ipset_json)
-			return 0;
-	}
+
 	if (ipset_json->ipset_list) {
 		if (strncmp(zpi->ipset_name,
 			    ipset_json->ipset_name, ZEBRA_IPSET_NAME_SIZE)) {
@@ -1016,12 +1014,10 @@ static int zebra_wrap_script_iptable_get_stat(
 	int ret = 0;
 
 	monotime(&tv);
-	if (!iptable_json) {
+	if (!iptable_json)
 		iptable_json = XCALLOC(MTYPE_SCRIPTCACHE,
 				       sizeof(struct zebra_wrap_iptable_json_cache));
-		if (!iptable_json)
-			return 0;
-	}
+
 	if (iptable_json->iptable_list) {
 		if (tv.tv_sec - iptable_json->tv_sec > WRAP_REFRESH_TIME_SECOND) {
 			json_object_free(iptable_json->iptable_list);
