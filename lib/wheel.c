@@ -103,7 +103,11 @@ int wheel_add_item(struct timer_wheel *wheel, void *item)
 	if (debug_timer_wheel)
 		zlog_debug("%s: Inserting %p: %lld %lld", __func__, item, slot,
 			   slot % wheel->slots);
-	listnode_add(wheel->wheel_slot_lists[slot % wheel->slots], item);
+	/* Performance cost, but no other way to block duplicate entries,
+	 * alternate data structure/blanced tree can be explored later
+	 */
+	if (!listnode_lookup_nocheck(wheel->wheel_slot_lists[slot % wheel->slots], item))
+		listnode_add(wheel->wheel_slot_lists[slot % wheel->slots], item);
 
 	return 0;
 }
