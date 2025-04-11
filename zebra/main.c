@@ -220,7 +220,8 @@ void zebra_finalize(struct event *dummy)
 {
 	zlog_info("Zebra final shutdown");
 
-	vrf_terminate();
+	if (!vrf_is_backend_netns())
+		vrf_terminate();
 
 	/*
 	 * Stop dplane thread and finish any cleanup
