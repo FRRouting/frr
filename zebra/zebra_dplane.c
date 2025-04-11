@@ -6592,15 +6592,9 @@ int dplane_provider_work_ready(void)
 /*
  * Enqueue a context directly to zebra main.
  */
-void dplane_provider_enqueue_to_zebra(struct zebra_dplane_ctx *ctx)
+void dplane_provider_enqueue_to_zebra(struct dplane_ctx_list_head *batch_list)
 {
-	struct dplane_ctx_list_head temp_list;
-
-	/* Zebra's api takes a list, so we need to use a temporary list */
-	dplane_ctx_list_init(&temp_list);
-
-	dplane_ctx_list_add_tail(&temp_list, ctx);
-	(zdplane_info.dg_results_cb)(&temp_list);
+	(zdplane_info.dg_results_cb)(batch_list);
 }
 
 /*
@@ -7778,6 +7772,7 @@ dplane_ctx_get_startup_spot(struct zebra_dplane_ctx *ctx)
 void zebra_dplane_startup_stage(struct zebra_ns *zns,
 				enum zebra_dplane_startup_notifications spot)
 {
+	struct dplane_ctx_list_head temp_list;
 	struct zebra_dplane_ctx *ctx = dplane_ctx_alloc();
 
 	ctx->zd_op = DPLANE_OP_STARTUP_STAGE;
@@ -7786,7 +7781,10 @@ void zebra_dplane_startup_stage(struct zebra_ns *zns,
 	ctx->u.spot = spot;
 	dplane_ctx_set_ns_id(ctx, zns->ns_id);
 
-	dplane_provider_enqueue_to_zebra(ctx);
+	/* Zebra's api takes a list, so we need to use a temporary list */
+	dplane_ctx_q_init(&temp_list);
+	dplane_ctx_list_add_tail(&temp_list, ctx);
+	dplane_provider_enqueue_to_zebra(&temp_list);
 }
 /*
  * Initialize the dataplane module at startup; called by zebra rib_init()

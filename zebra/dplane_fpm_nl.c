@@ -585,176 +585,221 @@ static void fpm_read(struct event *t)
 	char buf[65535];
 	struct nlmsghdr *hdr;
 	struct zebra_dplane_ctx *ctx;
-	size_t available_bytes;
+	size_t already;
 	size_t hdr_available_bytes;
+	struct dplane_ctx_list_head batch_list;
+	uint32_t batch_size = 0;
+	const uint32_t MAX_BATCH_SIZE = 100;
+	int sock = fnc->socket;
 
-	/* Let's ignore the input at the moment. */
-	rv = stream_read_try(fnc->ibuf, fnc->socket,
-			     STREAM_WRITEABLE(fnc->ibuf));
-	if (rv == 0) {
-		atomic_fetch_add_explicit(&fnc->counters.connection_closes, 1,
-					  memory_order_relaxed);
+	/* batch_list for collecting contexts */
+	dplane_ctx_q_init(&batch_list);
 
-		if (IS_ZEBRA_DEBUG_FPM)
-			zlog_debug("%s: connection closed", __func__);
+	/* Process up to MAX_BATCH_SIZE messages */
+	while (batch_size < MAX_BATCH_SIZE) {
+		/* Check how many bytes we already have in the work buffer */
+		already = stream_get_endp(fnc->ibuf);
 
-		FPM_RECONNECT(fnc);
-		return;
-	}
-	if (rv == -1) {
-		atomic_fetch_add_explicit(&fnc->counters.connection_errors, 1,
-					  memory_order_relaxed);
-		zlog_warn("%s: connection failure: %s", __func__,
-			  strerror(errno));
-		FPM_RECONNECT(fnc);
-		return;
-	}
+		/* First, try to read the FPM header if we don't have it */
+		if (already < FPM_MSG_HDR_LEN) {
+			rv = stream_read_try(fnc->ibuf, sock, FPM_MSG_HDR_LEN - already);
 
-	/* Schedule the next read */
-	event_add_read(fnc->fthread->master, fpm_read, fnc, fnc->socket,
-		       &fnc->t_read);
+			if (rv == 0) {
+				atomic_fetch_add_explicit(&fnc->counters.connection_closes, 1,
+							  memory_order_relaxed);
+				if (IS_ZEBRA_DEBUG_FPM)
+					zlog_debug("%s: connection closed", __func__);
 
-	/* We've got an interruption. */
-	if (rv == -2)
-		return;
+				FPM_RECONNECT(fnc);
 
+				/* Send the batch processed so far to zebra main */
+				if (batch_size > 0)
+					dplane_provider_enqueue_to_zebra(&batch_list);
 
-	/* Account all bytes read. */
-	atomic_fetch_add_explicit(&fnc->counters.bytes_read, rv,
-				  memory_order_relaxed);
+				return;
+			}
 
-	available_bytes = STREAM_READABLE(fnc->ibuf);
-	while (available_bytes) {
-		if (available_bytes < (ssize_t)FPM_MSG_HDR_LEN) {
-			stream_pulldown(fnc->ibuf);
-			return;
+			if (rv == -1) {
+				atomic_fetch_add_explicit(&fnc->counters.connection_errors, 1,
+							  memory_order_relaxed);
+				zlog_warn("%s: connection failure: %s", __func__, strerror(errno));
+				FPM_RECONNECT(fnc);
+
+				/* Send the batch processed so far to zebra main */
+				if (batch_size > 0)
+					dplane_provider_enqueue_to_zebra(&batch_list);
+
+				return;
+			}
+
+			/* Interruption or incomplete read - break and try later */
+			if (rv == -2 || rv != (ssize_t)(FPM_MSG_HDR_LEN - already)) {
+				break;
+			}
+
+			/* Account all bytes read */
+			atomic_fetch_add_explicit(&fnc->counters.bytes_read, rv,
+						  memory_order_relaxed);
+
+			already = FPM_MSG_HDR_LEN;
 		}
 
+		/* Set the getp to make sure we always read from the beginning of the stream */
+		stream_set_getp(fnc->ibuf, 0);
 		fpm.version = stream_getc(fnc->ibuf);
 		fpm.msg_type = stream_getc(fnc->ibuf);
 		fpm.msg_len = stream_getw(fnc->ibuf);
 
-		if (fpm.version != FPM_PROTO_VERSION &&
-		    fpm.msg_type != FPM_MSG_TYPE_NETLINK) {
+		/* Validate FPM header */
+		if (fpm.version != FPM_PROTO_VERSION && fpm.msg_type != FPM_MSG_TYPE_NETLINK) {
 			stream_reset(fnc->ibuf);
-			zlog_warn(
-				"%s: Received version/msg_type %u/%u, expected 1/1",
-				__func__, fpm.version, fpm.msg_type);
+			zlog_warn("%s: Received version/msg_type %u/%u, expected 1/1", __func__,
+				  fpm.version, fpm.msg_type);
 
 			FPM_RECONNECT(fnc);
+
+			/* Clean up batch list if needed */
+			if (batch_size > 0)
+				dplane_provider_enqueue_to_zebra(&batch_list);
+
 			return;
 		}
 
-		/*
-		 * If the passed in length doesn't even fill in the header
-		 * something is wrong and reset.
-		 */
+		/* Check for valid message length */
 		if (fpm.msg_len < FPM_MSG_HDR_LEN) {
-			zlog_warn(
-				"%s: Received message length: %u that does not even fill the FPM header",
-				__func__, fpm.msg_len);
+			zlog_warn("%s: Received message length: %u that does not even fill the FPM header",
+				  __func__, fpm.msg_len);
 			FPM_RECONNECT(fnc);
+
+			if (batch_size > 0)
+				dplane_provider_enqueue_to_zebra(&batch_list);
+
 			return;
 		}
 
-		/*
-		 * If we have not received the whole payload, reset the stream
-		 * back to the beginning of the header and move it to the
-		 * top.
-		 */
-		if (fpm.msg_len > available_bytes) {
-			stream_rewind_getp(fnc->ibuf, FPM_MSG_HDR_LEN);
-			stream_pulldown(fnc->ibuf);
-			return;
-		}
+		/* Read the rest of the message */
+		if (already < fpm.msg_len) {
+			rv = stream_read_try(fnc->ibuf, sock, fpm.msg_len - already);
 
-		available_bytes -= FPM_MSG_HDR_LEN;
+			if (rv == 0) {
+				atomic_fetch_add_explicit(&fnc->counters.connection_closes, 1,
+							  memory_order_relaxed);
+				if (IS_ZEBRA_DEBUG_FPM)
+					zlog_debug("%s: connection closed while reading message body",
+						   __func__);
 
-		/*
-		 * Place the data from the stream into a buffer
-		 */
-		hdr = (struct nlmsghdr *)buf;
-		stream_get(buf, fnc->ibuf, fpm.msg_len - FPM_MSG_HDR_LEN);
-		hdr_available_bytes = fpm.msg_len - FPM_MSG_HDR_LEN;
-		available_bytes -= hdr_available_bytes;
+				FPM_RECONNECT(fnc);
 
-		if (hdr->nlmsg_len > fpm.msg_len) {
-			zlog_warn(
-				"%s: Received a inner header length of %u that is greater than the fpm total length of %u",
-				__func__, hdr->nlmsg_len, fpm.msg_len);
-			FPM_RECONNECT(fnc);
-		}
-		/* Not enough bytes available. */
-		if (hdr->nlmsg_len > hdr_available_bytes) {
-			zlog_warn(
-				"%s: [seq=%u] invalid message length %u (> %zu)",
-				__func__, hdr->nlmsg_seq, hdr->nlmsg_len,
-				available_bytes);
-			continue;
-		}
+				if (batch_size > 0)
+					dplane_provider_enqueue_to_zebra(&batch_list);
 
-		if (!(hdr->nlmsg_flags & NLM_F_REQUEST)) {
-			if (IS_ZEBRA_DEBUG_FPM)
-				zlog_debug(
-					"%s: [seq=%u] not a request, skipping",
-					__func__, hdr->nlmsg_seq);
+				return;
+			}
 
-			/*
-			 * This request is a bust, go to the next one
-			 */
-			continue;
-		}
+			if (rv == -1) {
+				atomic_fetch_add_explicit(&fnc->counters.connection_errors, 1,
+							  memory_order_relaxed);
+				zlog_warn("%s: connection failure while reading message body: %s",
+					  __func__, strerror(errno));
+				FPM_RECONNECT(fnc);
 
-		switch (hdr->nlmsg_type) {
-		case RTM_NEWROUTE:
-			/* Sanity check: need at least route msg header size. */
-			if (hdr->nlmsg_len < sizeof(struct rtmsg)) {
-				zlog_warn("%s: [seq=%u] invalid message length %u (< %zu)",
-					  __func__, hdr->nlmsg_seq,
-					  hdr->nlmsg_len, sizeof(struct rtmsg));
+				if (batch_size > 0)
+					dplane_provider_enqueue_to_zebra(&batch_list);
+
+				return;
+			}
+
+			/* Interruption (connection is still valid) or incomplete read - break and try later */
+			if (rv == -2 || rv != (ssize_t)(fpm.msg_len - already)) {
 				break;
 			}
 
-			/* Parse the route data into a dplane ctx, then
-			 * enqueue it to zebra for processing.
-			 */
+			/* Account all bytes read */
+			atomic_fetch_add_explicit(&fnc->counters.bytes_read, rv,
+						  memory_order_relaxed);
+		}
+
+		/* We now have a complete message, extract the payload into a temp buffer */
+		stream_set_getp(fnc->ibuf, FPM_MSG_HDR_LEN);
+		stream_get(buf, fnc->ibuf, fpm.msg_len - FPM_MSG_HDR_LEN);
+		hdr = (struct nlmsghdr *)buf;
+		hdr_available_bytes = fpm.msg_len - FPM_MSG_HDR_LEN;
+
+		/* Validate netlink header */
+		if (hdr->nlmsg_len > fpm.msg_len) {
+			zlog_warn("%s: Received an inner header length of %u that is greater than the fpm total length of %u",
+				  __func__, hdr->nlmsg_len, fpm.msg_len);
+			FPM_RECONNECT(fnc);
+
+			if (batch_size > 0)
+				dplane_provider_enqueue_to_zebra(&batch_list);
+
+			return;
+		}
+
+		/* Check for enough bytes */
+		if (hdr->nlmsg_len > hdr_available_bytes) {
+			zlog_warn("%s: [seq=%u] invalid message length %u (> %zu)", __func__,
+				  hdr->nlmsg_seq, hdr->nlmsg_len, hdr_available_bytes);
+			stream_reset(fnc->ibuf);
+			continue;
+		}
+
+		/* Check if it's a request */
+		if (!(hdr->nlmsg_flags & NLM_F_REQUEST)) {
+			if (IS_ZEBRA_DEBUG_FPM)
+				zlog_debug("%s: [seq=%u] not a request, skipping", __func__,
+					   hdr->nlmsg_seq);
+			stream_reset(fnc->ibuf);
+			continue;
+		}
+
+		/* Process by message type */
+		switch (hdr->nlmsg_type) {
+		case RTM_NEWROUTE:
+			/* Validate route message */
+			if (hdr->nlmsg_len < sizeof(struct rtmsg)) {
+				zlog_warn("%s: [seq=%u] invalid message length %u (< %zu)", __func__,
+					  hdr->nlmsg_seq, hdr->nlmsg_len, sizeof(struct rtmsg));
+				break;
+			}
+
+			/* Create dataplane context for route */
 			ctx = dplane_ctx_alloc();
-			dplane_ctx_route_init(ctx, DPLANE_OP_ROUTE_NOTIFY, NULL,
-					      NULL);
+			dplane_ctx_route_init(ctx, DPLANE_OP_ROUTE_NOTIFY, NULL, NULL);
 
 			if (netlink_route_notify_read_ctx(hdr, 0, ctx) >= 0) {
-				/*
-				 * Receiving back a netlink message from
-				 * the fpm.  Currently the netlink messages
-				 * do not have a way to specify the vrf
-				 * so it must be unknown.  I'm looking
-				 * at you sonic.  If you are reading this
-				 * and wondering why it's not working
-				 * you must extend your patch to translate
-				 * the tableid to the vrfid and set the
-				 * tableid to 0 in order for this to work.
-				 */
+				/* Set VRF and add to batch */
 				dplane_ctx_set_vrf(ctx, VRF_UNKNOWN);
-				dplane_provider_enqueue_to_zebra(ctx);
+				dplane_ctx_enqueue_tail(&batch_list, ctx);
+				batch_size++;
 			} else {
-				/*
-				 * Let's continue to read other messages
-				 * Even if we ignore this one.
-				 */
+				/* Failed to parse, clean up this context */
 				dplane_ctx_fini(&ctx);
-				stream_pulldown(fnc->ibuf);
 			}
 			break;
+
 		default:
 			if (IS_ZEBRA_DEBUG_FPM)
-				zlog_debug(
-					"%s: Received message type %u which is not currently handled",
-					__func__, hdr->nlmsg_type);
+				zlog_debug("%s: Received message type %u which is not currently handled",
+					   __func__, hdr->nlmsg_type);
 			break;
 		}
+
+		/* Reset the stream for the next message */
+		stream_reset(fnc->ibuf);
 	}
 
-	stream_reset(fnc->ibuf);
+	/* Send the batch to zebra main thread if we have any contexts */
+	if (batch_size > 0) {
+		if (IS_ZEBRA_DEBUG_FPM)
+			zlog_debug("%s: Sending batch of %u contexts to zebra main thread",
+				   __func__, batch_size);
+		dplane_provider_enqueue_to_zebra(&batch_list);
+	}
+
+	/* Schedule the next read */
+	event_add_read(fnc->fthread->master, fpm_read, fnc, fnc->socket, &fnc->t_read);
 }
 
 static void fpm_write(struct event *t)
