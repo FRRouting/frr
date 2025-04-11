@@ -214,6 +214,26 @@ enum srv6_endpoint_behavior_codepoint {
 	SRV6_ENDPOINT_BEHAVIOR_OPAQUE           = 0xFFFF,
 };
 
+macro_inline uint16_t srv6_behavior_codepoint_get(enum srv6_endpoint_behavior_codepoint _codepoint,
+						  uint8_t _flags)
+{
+	if (_codepoint == SRV6_ENDPOINT_BEHAVIOR_END) {
+		if (CHECK_FLAG(_flags, SRV6_LOCATOR_USID)) {
+			if (CHECK_FLAG(_flags, SRV6_LOCATOR_PSP))
+				return SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP;
+			else
+				return SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID;
+		}
+		if (CHECK_FLAG(_flags, SRV6_LOCATOR_PSP))
+			return SRV6_ENDPOINT_BEHAVIOR_END_PSP;
+		return SRV6_ENDPOINT_BEHAVIOR_END;
+	}
+	return _codepoint;
+}
+
+#define SRV6_BEHAVIOR_CODEPOINT(_codepoint, _flags)                                                \
+	srv6_behavior_codepoint_get((_codepoint), (_flags))
+
 /*
  * Return true if next-csid behavior is used, false otherwise
  */
