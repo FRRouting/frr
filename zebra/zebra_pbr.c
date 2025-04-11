@@ -1047,13 +1047,13 @@ void zebra_pbr_del_iptable(struct zebra_pbr_iptable *iptable)
 		char *name;
 
 		hash_release(zrouter.iptable_hash, lookup);
-		for (ALL_LIST_ELEMENTS(iptable->interface_name_list,
+		for (ALL_LIST_ELEMENTS(lookup->interface_name_list,
 				       node, nnode, name)) {
 			XFREE(MTYPE_PBR_IPTABLE_IFNAME, name);
-			list_delete_node(iptable->interface_name_list,
+			list_delete_node(lookup->interface_name_list,
 					 node);
 		}
-		list_delete(&iptable->interface_name_list);
+		list_delete(&lookup->interface_name_list);
 		XFREE(MTYPE_PBR_IPTABLE, lookup);
 	} else
 		zlog_debug("%s: IPTable being deleted we know nothing about",
