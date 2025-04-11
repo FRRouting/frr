@@ -1554,11 +1554,8 @@ static int isis_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 				}
 
 				/* Allocate new SRv6 End SID */
-				behavior =
-					(CHECK_FLAG(locator->flags,
-						    SRV6_LOCATOR_USID))
-						? SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID
-						: SRV6_ENDPOINT_BEHAVIOR_END;
+				behavior = SRV6_BEHAVIOR_CODEPOINT(SRV6_ENDPOINT_BEHAVIOR_END,
+								   locator->flags);
 				sid = isis_srv6_sid_alloc(area,
 							  area->srv6db
 								  .srv6_locator,
