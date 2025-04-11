@@ -981,12 +981,25 @@ void isis_zebra_srv6_sid_install(struct isis_area *area,
 		action = ZEBRA_SEG6_LOCAL_ACTION_END;
 		prefixlen = IPV6_MAX_BITLEN;
 		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_PSP:
+		action = ZEBRA_SEG6_LOCAL_ACTION_END;
+		prefixlen = IPV6_MAX_BITLEN;
+		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_PSP);
+		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID:
 		action = ZEBRA_SEG6_LOCAL_ACTION_END;
 		prefixlen = sid->locator->block_bits_length +
 			    sid->locator->node_bits_length;
 		SET_SRV6_FLV_OP(ctx.flv.flv_ops,
 				ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
+		ctx.flv.lcblock_len = sid->locator->block_bits_length;
+		ctx.flv.lcnode_func_len = sid->locator->node_bits_length;
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP:
+		action = ZEBRA_SEG6_LOCAL_ACTION_END;
+		prefixlen = sid->locator->block_bits_length + sid->locator->node_bits_length;
+		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
+		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_PSP);
 		ctx.flv.lcblock_len = sid->locator->block_bits_length;
 		ctx.flv.lcnode_func_len = sid->locator->node_bits_length;
 		break;
@@ -1000,9 +1013,7 @@ void isis_zebra_srv6_sid_install(struct isis_area *area,
 	case SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID:
 	case SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID:
 	case SRV6_ENDPOINT_BEHAVIOR_OPAQUE:
-	case SRV6_ENDPOINT_BEHAVIOR_END_PSP:
 	case SRV6_ENDPOINT_BEHAVIOR_END_PSP_USD:
-	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP:
 	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP_USD:
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_PSP:
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_PSP_USD:
@@ -1053,9 +1064,11 @@ void isis_zebra_srv6_sid_uninstall(struct isis_area *area,
 
 	switch (sid->behavior) {
 	case SRV6_ENDPOINT_BEHAVIOR_END:
+	case SRV6_ENDPOINT_BEHAVIOR_END_PSP:
 		prefixlen = IPV6_MAX_BITLEN;
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID:
+	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP:
 		prefixlen = sid->locator->block_bits_length +
 			    sid->locator->node_bits_length;
 		break;
@@ -1069,9 +1082,7 @@ void isis_zebra_srv6_sid_uninstall(struct isis_area *area,
 	case SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID:
 	case SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID:
 	case SRV6_ENDPOINT_BEHAVIOR_OPAQUE:
-	case SRV6_ENDPOINT_BEHAVIOR_END_PSP:
 	case SRV6_ENDPOINT_BEHAVIOR_END_PSP_USD:
-	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP:
 	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP_USD:
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_PSP:
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_PSP_USD:
