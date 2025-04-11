@@ -3403,42 +3403,65 @@ def verify_graceful_restart(
                         rmode = "Helper"
                 else:
                     rmode = "Helper"
-
-            if show_bgp_graceful_json_out["localGrMode"] == lmode:
+            if (
+                show_bgp_graceful_json_out["gracefulRestartInfo"]["localGrMode"]
+                == lmode
+            ):
                 logger.info(
                     "[DUT: {}]: localGrMode : {} ".format(
-                        dut, show_bgp_graceful_json_out["localGrMode"]
+                        dut,
+                        show_bgp_graceful_json_out["gracefulRestartInfo"][
+                            "localGrMode"
+                        ],
                     )
                 )
             else:
                 errormsg = (
                     "[DUT: {}]: localGrMode is not correct"
                     " Expected: {}, Found: {}".format(
-                        dut, lmode, show_bgp_graceful_json_out["localGrMode"]
+                        dut,
+                        lmode,
+                        show_bgp_graceful_json_out["gracefulRestartInfo"][
+                            "localGrMode"
+                        ],
                     )
                 )
                 return errormsg
 
-            if show_bgp_graceful_json_out["remoteGrMode"] == rmode:
+            if (
+                show_bgp_graceful_json_out["gracefulRestartInfo"]["remoteGrMode"]
+                == rmode
+            ):
                 logger.info(
                     "[DUT: {}]: remoteGrMode : {} ".format(
-                        dut, show_bgp_graceful_json_out["remoteGrMode"]
+                        dut,
+                        show_bgp_graceful_json_out["gracefulRestartInfo"][
+                            "remoteGrMode"
+                        ],
                     )
                 )
             elif (
-                show_bgp_graceful_json_out["remoteGrMode"] == "NotApplicable"
+                show_bgp_graceful_json_out["gracefulRestartInfo"]["remoteGrMode"]
+                == "NotApplicable"
                 and rmode == "Disable"
             ):
                 logger.info(
                     "[DUT: {}]: remoteGrMode : {} ".format(
-                        dut, show_bgp_graceful_json_out["remoteGrMode"]
+                        dut,
+                        show_bgp_graceful_json_out["gracefulRestartInfo"][
+                            "remoteGrMode"
+                        ],
                     )
                 )
             else:
                 errormsg = (
                     "[DUT: {}]: remoteGrMode is not correct"
                     " Expected: {}, Found: {}".format(
-                        dut, rmode, show_bgp_graceful_json_out["remoteGrMode"]
+                        dut,
+                        rmode,
+                        show_bgp_graceful_json_out["gracefulRestartInfo"][
+                            "remoteGrMode"
+                        ],
                     )
                 )
                 return errormsg
@@ -3556,8 +3579,8 @@ def verify_r_bit(tgen, topo, addr_type, input_dict, dut, peer, expected=True):
                 )
                 return errormsg
 
-            if "rBit" in show_bgp_graceful_json_out:
-                if show_bgp_graceful_json_out["rBit"]:
+            if "rBit" in show_bgp_graceful_json_out["gracefulRestartInfo"]:
+                if show_bgp_graceful_json_out["gracefulRestartInfo"]["rBit"]:
                     logger.info("[DUT: {}]: Rbit true {}".format(dut, neighbor_ip))
                 else:
                     errormsg = "[DUT: {}]: Rbit false {}".format(dut, neighbor_ip)
@@ -3682,7 +3705,9 @@ def verify_eor(tgen, topo, addr_type, input_dict, dut, peer, expected=True):
                 errormsg = "Address type %s is not supported" % (addr_type)
                 return errormsg
 
-            eor_json = show_bgp_graceful_json_out[afi]["endOfRibStatus"]
+            eor_json = show_bgp_graceful_json_out["gracefulRestartInfo"][afi][
+                "endOfRibStatus"
+            ]
             if "endOfRibSend" in eor_json:
                 if eor_json["endOfRibSend"]:
                     logger.info(
@@ -3827,9 +3852,9 @@ def verify_f_bit(tgen, topo, addr_type, input_dict, dut, peer, expected=True):
                 isjson=True,
             )
 
-            show_bgp_graceful_json_out = show_bgp_graceful_json[neighbor_ip]
+            show_bgp_graceful_nbr_json_out = show_bgp_graceful_json[neighbor_ip]
 
-            if show_bgp_graceful_json_out["neighborAddr"] == neighbor_ip:
+            if show_bgp_graceful_nbr_json_out["neighborAddr"] == neighbor_ip:
                 logger.info(
                     "[DUT: {}]: Neighbor ip matched  {}".format(dut, neighbor_ip)
                 )
@@ -3838,6 +3863,10 @@ def verify_f_bit(tgen, topo, addr_type, input_dict, dut, peer, expected=True):
                     dut, neighbor_ip
                 )
                 return errormsg
+
+            show_bgp_graceful_json_out = show_bgp_graceful_nbr_json_out[
+                "gracefulRestartInfo"
+            ]
 
             if "ipv4Unicast" in show_bgp_graceful_json_out:
                 if show_bgp_graceful_json_out["ipv4Unicast"]["fBit"]:
@@ -3975,9 +4004,9 @@ def verify_graceful_restart_timers(tgen, topo, addr_type, input_dict, dut, peer)
                         if rs_timer == "restart-time":
                             receivedTimer = value
                             if (
-                                show_bgp_graceful_json_out["timers"][
-                                    "receivedRestartTimer"
-                                ]
+                                show_bgp_graceful_json_out["gracefulRestartInfo"][
+                                    "timers"
+                                ]["receivedRestartTimer"]
                                 == receivedTimer
                             ):
                                 logger.info(
@@ -4071,7 +4100,7 @@ def verify_gr_address_family(
         return errormsg
 
     if addr_family == "ipv4Unicast":
-        if "ipv4Unicast" in show_bgp_graceful_json_out:
+        if "ipv4Unicast" in show_bgp_graceful_json_out["gracefulRestartInfo"]:
             logger.info("ipv4Unicast present for {} ".format(neighbor_ip))
             return True
         else:
@@ -4079,7 +4108,7 @@ def verify_gr_address_family(
             return errormsg
 
     elif addr_family == "ipv6Unicast":
-        if "ipv6Unicast" in show_bgp_graceful_json_out:
+        if "ipv6Unicast" in show_bgp_graceful_json_out["gracefulRestartInfo"]:
             logger.info("ipv6Unicast present for {} ".format(neighbor_ip))
             return True
         else:
