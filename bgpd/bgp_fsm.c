@@ -1718,6 +1718,19 @@ static enum bgp_fsm_state_progress bgp_connect_success(struct peer *peer)
 	 * massage the event system to make things happy
 	 */
 	bgp_nht_interface_events(peer);
+	int val = atomic_load(&peer->tcpusrto);
+
+        if (CHECK_FLAG(peer->flags, PEER_FLAG_TCP_USER_TIMEOUT) &&
+            atomic_load(&peer->tcpusrto) > 0) {
+                if (setsockopt(peer->fd, IPPROTO_TCP, TCP_USER_TIMEOUT,
+                               &val, sizeof(val)) < 0) {
+                        zlog_warn("Failed to set TCP_USER_TIMEOUT for peer %s: %s",
+                                  peer->host, safe_strerror(errno));
+                } else {
+                        zlog_debug("TCP_USER_TIMEOUT set for peer %s to %d ms",
+                                   peer->host, val);
+                }
+        }
 
 	bgp_reads_on(peer);
 

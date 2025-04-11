@@ -7238,6 +7238,71 @@ DEFUN (no_neighbor_timers,
 	return peer_timers_unset_vty(vty, argv[idx_peer]->arg);
 }
 
+static int peer_tcp_user_timeout_set_vty(struct vty *vty, const char *ip_str,
+                                         const char *timeout_str)
+{
+    struct peer *peer;
+    uint32_t timeout_sec;
+    uint32_t timeout_ms;
+    int ret;
+
+    peer = peer_and_group_lookup_vty(vty, ip_str);
+    if (!peer) {
+        return CMD_WARNING_CONFIG_FAILED;
+    }
+
+    timeout_sec = strtoul(timeout_str, NULL, 10);
+    if (timeout_sec > 65535) {
+        vty_out(vty, "%% Invalid timeout value. Must be 0-65535 seconds.\n");
+        return CMD_WARNING_CONFIG_FAILED;
+    }
+
+    timeout_ms = timeout_sec * 1000;
+
+
+    ret = peer_tcp_user_timeout_set(peer, timeout_ms);
+    return bgp_vty_return(vty, ret);
+}
+
+static int peer_tcp_user_timeout_unset_vty(struct vty *vty, const char *ip_str)
+{
+    struct peer *peer;
+    int ret;
+
+    peer = peer_and_group_lookup_vty(vty, ip_str);
+    if (!peer)
+        return CMD_WARNING_CONFIG_FAILED;
+
+
+    ret = peer_tcp_user_timeout_unset(peer);
+    return bgp_vty_return(vty, ret);
+}
+
+DEFUN (neighbor_tcp_user_timeout,
+       neighbor_tcp_user_timeout_cmd,
+       "neighbor <A.B.C.D|X:X::X:X|WORD> tcp-user-timeout (0-65535)",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Set TCP user timeout (in seconds)\n"
+       "TCP user timeout value\n")
+{
+    int idx_peer = 1;
+    int idx_val = 3;
+    return peer_tcp_user_timeout_set_vty(vty, argv[idx_peer]->arg,
+                                         argv[idx_val]->arg);
+}
+
+DEFUN (no_neighbor_tcp_user_timeout,
+       no_neighbor_tcp_user_timeout_cmd,
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> tcp-user-timeout",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Unset TCP user timeout")
+{
+    int idx_peer = 2;
+    return peer_tcp_user_timeout_unset_vty(vty, argv[idx_peer]->arg);
+}
 
 static int peer_timers_connect_set_vty(struct vty *vty, const char *ip_str,
 				       const char *time_str)
@@ -19724,6 +19789,8 @@ void bgp_vty_init(void)
 	/* "neighbor timers" commands. */
 	install_element(BGP_NODE, &neighbor_timers_cmd);
 	install_element(BGP_NODE, &no_neighbor_timers_cmd);
+	install_element(BGP_NODE, &neighbor_tcp_user_timeout_cmd);
+	install_element(BGP_NODE, &no_neighbor_tcp_user_timeout_cmd);
 
 	/* "neighbor timers connect" commands. */
 	install_element(BGP_NODE, &neighbor_timers_connect_cmd);
