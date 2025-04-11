@@ -1713,6 +1713,46 @@ bool ecommunity_strip_non_transitive(struct ecommunity *ecom)
 }
 
 /*
+ * Filter source Extended Communities Attribute. May return NULL if the result
+ * is empty, or the source ecommunity, if not modified.
+ */
+struct ecommunity *ecommunity_filter(struct ecommunity *ecom,
+				     bool (*filter)(uint8_t *, uint8_t, void *), void *arg)
+{
+	struct ecommunity *new;
+	uint8_t *new_val, *p, *q;
+	uint32_t c, new_size;
+
+	if (!ecom || !ecom->size)
+		return NULL;
+
+	new_val = XMALLOC(MTYPE_ECOMMUNITY_VAL, ecom->size * ecom->unit_size);
+	new_size = 0;
+	for (c = 0, p = ecom->val, q = new_val; c < ecom->size; c++, p += ecom->unit_size) {
+		if (filter(p, ecom->unit_size, arg)) {
+			memcpy(q, p, ecom->unit_size);
+			q += ecom->unit_size;
+			new_size++;
+		}
+	}
+	if (!new_size) {
+		XFREE(MTYPE_ECOMMUNITY_VAL, new_val);
+		return NULL;
+	}
+	if (new_size == ecom->size) {
+		XFREE(MTYPE_ECOMMUNITY_VAL, new_val);
+		return ecom;
+	}
+
+	new = XCALLOC(MTYPE_ECOMMUNITY, sizeof(struct ecommunity));
+	new->size = new_size;
+	new->unit_size = ecom->unit_size;
+	new->val = new_val;
+
+	return new;
+}
+
+/*
  * Remove specified extended community value from extended community.
  * Returns 1 if value was present (and hence, removed), 0 otherwise.
  */

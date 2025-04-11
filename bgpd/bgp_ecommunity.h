@@ -405,6 +405,9 @@ extern bool ecommunity_strip(struct ecommunity *ecom, uint8_t type,
 			     uint8_t subtype);
 extern struct ecommunity *ecommunity_new(void);
 extern bool ecommunity_strip_non_transitive(struct ecommunity *ecom);
+extern struct ecommunity *ecommunity_filter(struct ecommunity *ecom,
+					    bool (*filter)(uint8_t *val, uint8_t usize, void *arg),
+					    void *arg);
 extern bool ecommunity_del_val(struct ecommunity *ecom,
 			       struct ecommunity_val *eval);
 struct bgp_pbr_entry_action;
