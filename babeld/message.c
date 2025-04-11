@@ -515,6 +515,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
 		unsigned int timestamp = 0;
 
 #define BABEL_UNICAST_HELLO 0x8000
+#define BABEL_MULTICAST_HELLO 0x0000
 		DO_NTOHS(flags, message + 2);
 
 		/*
@@ -526,6 +527,13 @@ parse_packet(const unsigned char *from, struct interface *ifp,
 			debugf(BABEL_DEBUG_COMMON,
 			       "Received Unicast Hello from %s on %s that FRR is not prepared to understand yet",
 			       format_address(from), ifp->name);
+			goto done;
+		}
+
+        if (!CHECK_FLAG(flags, BABEL_MULTICAST_HELLO)) {
+			debugf(BABEL_DEBUG_COMMON,
+			       "Received Hello from %s on %s with Unknown Flags %d",
+			       format_address(from), ifp->name, flags);
 			goto done;
 		}
 
