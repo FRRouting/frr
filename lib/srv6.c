@@ -71,6 +71,21 @@ int snprintf_seg6_segs(char *str,
 	return strlen(str);
 }
 
+static void seg6local_flavors2json(json_object *json, const struct seg6local_flavors_info *flv_info)
+{
+	json_object *json_flavors;
+
+	json_flavors = json_object_new_array();
+	json_object_object_add(json, "flavors", json_flavors);
+
+	if (CHECK_SRV6_FLV_OP(flv_info->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_PSP))
+		json_array_string_add(json_flavors, "psp");
+	if (CHECK_SRV6_FLV_OP(flv_info->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_USP))
+		json_array_string_add(json_flavors, "usp");
+	if (CHECK_SRV6_FLV_OP(flv_info->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_USD))
+		json_array_string_add(json_flavors, "usd");
+}
+
 void srv6_sid_structure2json(const struct seg6local_context *ctx, json_object *json)
 {
 	json_object_int_add(json, "blockLen", ctx->block_len);
@@ -82,6 +97,7 @@ void srv6_sid_structure2json(const struct seg6local_context *ctx, json_object *j
 void seg6local_context2json(const struct seg6local_context *ctx,
 			    uint32_t action, json_object *json)
 {
+	seg6local_flavors2json(json, &ctx->flv);
 	switch (action) {
 	case ZEBRA_SEG6_LOCAL_ACTION_END:
 		return;
