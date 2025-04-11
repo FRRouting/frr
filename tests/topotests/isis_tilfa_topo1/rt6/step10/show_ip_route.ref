@@ -307,48 +307,5 @@
         }
       ]
     }
-  ],
-  "10.0.7.0\/24":[
-    {
-      "prefix":"10.0.7.0\/24",
-      "protocol":"isis",
-      "distance":115,
-      "metric":20,
-      "nexthops":[
-        {
-          "ip":"10.0.7.4",
-          "afi":"ipv4",
-          "interfaceName":"eth-rt4",
-          "backupIndex":[
-            0
-          ]
-        }
-      ],
-      "backupNexthops":[
-        {
-          "ip":"10.0.8.5",
-          "afi":"ipv4",
-          "interfaceName":"eth-rt5",
-          "active":true
-        }
-      ]
-    }
-  ],
-  "10.0.8.0\/24":[
-    {
-      "prefix":"10.0.8.0\/24",
-      "protocol":"isis",
-      "distance":115,
-      "metric":30,
-      "nexthops":[
-        {
-          "fib":true,
-          "ip":"10.0.7.4",
-          "afi":"ipv4",
-          "interfaceName":"eth-rt4",
-          "active":true
-        }
-      ]
-    }
   ]
 }
