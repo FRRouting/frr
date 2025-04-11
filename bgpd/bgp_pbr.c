@@ -984,7 +984,12 @@ static void bgp_pbr_match_entry_hash_free(void *arg)
 	bgp_pbr_match_entry_free(bpme);
 }
 
-static void bgp_pbr_match_free(void *arg)
+static void bgp_pbr_match_free(struct bgp_pbr_match *bpm)
+{
+	XFREE(MTYPE_PBR_MATCH, bpm);
+}
+
+static void bgp_pbr_match_hash_free(void *arg)
 {
 	struct bgp_pbr_match *bpm;
 
@@ -1009,7 +1014,7 @@ static void bgp_pbr_match_free(void *arg)
 	}
 	hash_clean_and_free(&bpm->entry_hash, NULL);
 
-	XFREE(MTYPE_PBR_MATCH, bpm);
+	bgp_pbr_match_free(bpm);
 }
 
 static void *bgp_pbr_match_alloc_intern(void *arg)
@@ -1377,7 +1382,7 @@ struct bgp_pbr_match *bgp_pbr_match_iptable_lookup(vrf_id_t vrf_id,
 
 void bgp_pbr_cleanup(struct bgp *bgp)
 {
-	hash_clean_and_free(&bgp->pbr_match_hash, bgp_pbr_match_free);
+	hash_clean_and_free(&bgp->pbr_match_hash, bgp_pbr_match_hash_free);
 	hash_clean_and_free(&bgp->pbr_rule_hash, bgp_pbr_rule_free);
 	hash_clean_and_free(&bgp->pbr_action_hash, bgp_pbr_action_free);
 
@@ -1706,6 +1711,7 @@ static void bgp_pbr_flush_entry(struct bgp *bgp, struct bgp_pbr_action *bpa,
 			bpm->action = NULL;
 		}
 		hash_release(bgp->pbr_match_hash, bpm);
+		bgp_pbr_match_free(bpm);
 		/* XXX release pbr_match_action if not used
 		 * note that drop does not need to call send_pbr_action
 		 */
