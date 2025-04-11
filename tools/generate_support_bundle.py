@@ -32,6 +32,9 @@ def main():
     parser.add_argument(
         "-l", "--log-dir", default="/var/log/frr", help="directory for logfiles"
     )
+    parser.add_argument(
+        "-N", "--pathspace", help="Insert prefix into config & socket paths"
+    )
     args = parser.parse_args()
 
     collecting = False  # file format has sentinels (seem superfluous)
@@ -69,13 +72,22 @@ def main():
     # Spawn a vtysh to fetch each set of commands
     procs = []
     for proc in proc_cmds:
-        ofn = os.path.join(args.log_dir, proc + "_support_bundle.log")
-        p = subprocess.Popen(
-            ["/usr/bin/env", "vtysh", "-t"],
-            stdin=proc_cmds[proc],
-            stdout=open_with_backup(ofn),
-            stderr=subprocess.STDOUT,
-        )
+        if args.pathspace:
+            ofn = os.path.join(args.log_dir, args.pathspace + "_" + proc + "_support_bundle.log")
+            p = subprocess.Popen(
+                ["/usr/bin/env", "vtysh", "-t", "-N", args.pathspace],
+                stdin=proc_cmds[proc],
+                stdout=open_with_backup(ofn),
+                stderr=subprocess.STDOUT,
+            )
+        else:
+            ofn = os.path.join(args.log_dir, proc + "_support_bundle.log")
+            p = subprocess.Popen(
+                ["/usr/bin/env", "vtysh", "-t"],
+                stdin=proc_cmds[proc],
+                stdout=open_with_backup(ofn),
+                stderr=subprocess.STDOUT,
+            )
         procs.append(p)
 
     for p in procs:
