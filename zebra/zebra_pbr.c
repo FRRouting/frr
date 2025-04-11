@@ -383,22 +383,15 @@ bool zebra_pbr_ipset_entry_hash_equal(const void *arg1, const void *arg2)
 static void _zebra_pbr_iptable_free_all(void *arg, bool all)
 {
 	struct zebra_pbr_iptable *iptable;
-	struct listnode *node, *nnode;
-	char *name;
 
 	iptable = (struct zebra_pbr_iptable *)arg;
 
 	if (all)
 		hook_call(zebra_pbr_iptable_update, 0, iptable);
 
-	if (iptable->interface_name_list) {
-		for (ALL_LIST_ELEMENTS(iptable->interface_name_list, node,
-				       nnode, name)) {
-			XFREE(MTYPE_PBR_IPTABLE_IFNAME, name);
-			list_delete_node(iptable->interface_name_list, node);
-		}
+	if (iptable->interface_name_list)
 		list_delete(&iptable->interface_name_list);
-	}
+
 	XFREE(MTYPE_PBR_IPTABLE, iptable);
 }
 
@@ -1003,6 +996,13 @@ void zebra_pbr_del_ipset_entry(struct zebra_pbr_ipset_entry *ipset)
 			   __func__);
 }
 
+void zebra_pbr_iptable_interface_name_list_free(void *arg)
+{
+	char *name = arg;
+
+	XFREE(MTYPE_PBR_IPTABLE_IFNAME, name);
+}
+
 static void *pbr_iptable_alloc_intern(void *arg)
 {
 	struct zebra_pbr_iptable *zpi;
@@ -1017,6 +1017,7 @@ static void *pbr_iptable_alloc_intern(void *arg)
 	/* Deep structure copy */
 	memcpy(new, zpi, sizeof(*zpi));
 	new->interface_name_list = list_new();
+	new->interface_name_list->del = zebra_pbr_iptable_interface_name_list_free;
 
 	if (zpi->interface_name_list) {
 		for (ALL_LIST_ELEMENTS_RO(zpi->interface_name_list, ln, ifname))
@@ -1043,16 +1044,7 @@ void zebra_pbr_del_iptable(struct zebra_pbr_iptable *iptable)
 	lookup = hash_lookup(zrouter.iptable_hash, iptable);
 	(void)dplane_pbr_iptable_delete(iptable);
 	if (lookup) {
-		struct listnode *node, *nnode;
-		char *name;
-
 		hash_release(zrouter.iptable_hash, lookup);
-		for (ALL_LIST_ELEMENTS(lookup->interface_name_list,
-				       node, nnode, name)) {
-			XFREE(MTYPE_PBR_IPTABLE_IFNAME, name);
-			list_delete_node(lookup->interface_name_list,
-					 node);
-		}
 		list_delete(&lookup->interface_name_list);
 		XFREE(MTYPE_PBR_IPTABLE, lookup);
 	} else

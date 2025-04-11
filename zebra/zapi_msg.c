@@ -3878,6 +3878,7 @@ static inline void zread_iptable(ZAPI_HANDLER_ARGS)
 	s = msg;
 
 	zpi->interface_name_list = list_new();
+	zpi->interface_name_list->del = zebra_pbr_iptable_interface_name_list_free;
 	zpi->sock = client->sock;
 	zpi->vrf_id = zvrf->vrf->vrf_id;
 	STREAM_GETL(s, zpi->unique);

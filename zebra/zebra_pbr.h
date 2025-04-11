@@ -196,6 +196,8 @@ struct zebra_pbr_ipset *zebra_pbr_lookup_ipset_pername(char *ipsetname);
 void zebra_pbr_add_ipset_entry(struct zebra_pbr_ipset_entry *ipset);
 void zebra_pbr_del_ipset_entry(struct zebra_pbr_ipset_entry *ipset);
 
+void zebra_pbr_iptable_interface_name_list_free(void *arg);
+
 void zebra_pbr_add_iptable(struct zebra_pbr_iptable *iptable);
 void zebra_pbr_del_iptable(struct zebra_pbr_iptable *iptable);
 void zebra_pbr_process_iptable(struct zebra_dplane_ctx *ctx);
