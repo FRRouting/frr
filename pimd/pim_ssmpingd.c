@@ -155,10 +155,13 @@ static inline int ssmpingd_setsockopt(int fd, pim_addr addr, int mttl)
 
 static int ssmpingd_socket(pim_addr addr, int port, int mttl)
 {
-	struct sockaddr_storage sockaddr;
+#if PIM_IPV == 4
+	struct sockaddr_in sockaddr;
+#else
+	struct sockaddr_in6 sockaddr;
+#endif
 	int fd;
 	int ret;
-	socklen_t len = sizeof(sockaddr);
 
 	fd = socket(PIM_AF, SOCK_DGRAM, IPPROTO_UDP);
 	if (fd < 0) {
@@ -167,8 +170,15 @@ static int ssmpingd_socket(pim_addr addr, int port, int mttl)
 			     __func__, errno, safe_strerror(errno));
 		return -1;
 	}
-
-	pim_socket_getsockname(fd, (struct sockaddr *)&sockaddr, &len);
+#if PIM_IPV == 4
+	sockaddr.sin_addr = addr;
+	sockaddr.sin_port = htons(port);
+	sockaddr.sin_family = PIM_AF;
+#else
+	sockaddr.sin6_addr = addr;
+	sockaddr.sin6_port = htons(port);
+	sockaddr.sin6_family = PIM_AF;
+#endif
 
 	if (bind(fd, (struct sockaddr *)&sockaddr, sizeof(sockaddr))) {
 		zlog_warn(
