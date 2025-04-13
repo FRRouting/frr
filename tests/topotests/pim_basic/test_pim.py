@@ -71,16 +71,15 @@ def setup_module(mod):
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
-    # For all registered routers, load the zebra configuration file
+    # For all registered routers, load the integrated configuration file
     for rname, router in tgen.routers().items():
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_PIM, os.path.join(CWD, "{}/pimd.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
+        router.load_frr_config(
+            os.path.join(CWD, "{}/frr.conf".format(rname)),
+            [
+                (TopoRouter.RD_ZEBRA, None),
+                (TopoRouter.RD_PIM, None),
+                (TopoRouter.RD_BGP, None),
+            ],
         )
 
     # After loading the configurations, this function loads configured daemons.
