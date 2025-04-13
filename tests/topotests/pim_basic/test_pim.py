@@ -217,6 +217,27 @@ def test_pim_igmp_report():
             p.wait()
 
 
+def test_pim_ssm_ping():
+    "Test SSM ping functionality between r1 and r2"
+    logger.info("Testing SSM ping from r1 to r2")
+
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+
+    r2.vtysh_cmd("conf\nip ssmpingd 10.0.20.2")
+
+    # Run ssmping from r1 to r2
+    output = r1.run("ssmping -I r1-eth0 10.0.20.2 -c 5")
+
+    # Check if we got successful responses
+    assert "5 packets received" in output, "SSM ping failed"
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
