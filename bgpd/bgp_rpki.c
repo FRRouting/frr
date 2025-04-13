@@ -529,7 +529,10 @@ static struct rtr_mgr_group *get_groups(struct list *cache_list)
 
 inline bool is_synchronized(struct rpki_vrf *rpki_vrf)
 {
-	return rpki_vrf->rtr_is_synced;
+	if (is_running(rpki_vrf))
+		return rpki_vrf->rtr_is_synced;
+	else
+		return false;
 }
 
 inline bool is_running(struct rpki_vrf *rpki_vrf)
