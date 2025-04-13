@@ -1704,6 +1704,7 @@ struct vty *vty_new(void)
 	new->buf = XCALLOC(MTYPE_VTY, VTY_BUFSIZ);
 	new->max = VTY_BUFSIZ;
 	new->pass_fd = -1;
+	new->pending_allowed = true;
 
 	if (mgmt_fe_client) {
 		if (!mgmt_client_id_next)
@@ -1715,6 +1716,7 @@ struct vty *vty_new(void)
 		/* we short-circuit create the session so it must be set now */
 		assertf(new->mgmt_session_id != 0,
 			"Failed to create client session for VTY");
+		new->pending_allowed = false;
 	}
 
 	return new;
