@@ -17,6 +17,7 @@
 #include "lib/route_types.h"
 #include "vrf.h"
 #include "frrstr.h"
+#include "northbound_cli.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/redistribute.h"
@@ -1350,6 +1351,252 @@ void zebra_routemap_vrf_delete(struct zebra_vrf *zvrf)
 	}
 }
 
+DEFPY_YANG(
+	match_ip_address_prefix_len, match_ip_address_prefix_len_cmd,
+	"match ip address prefix-len (0-32)$length",
+	MATCH_STR
+	IP_STR
+	"Match prefix length of IP address\n"
+	"Match prefix length of IP address\n"
+	"Prefix length\n")
+{
+	const char *xpath =
+		"./match-condition[condition='frr-zebra-route-map:ipv4-prefix-length']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(
+		xpath_value, sizeof(xpath_value),
+		"%s/rmap-match-condition/frr-zebra-route-map:ipv4-prefix-length",
+		xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, length_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(
+	no_match_ip_address_prefix_len, no_match_ip_address_prefix_len_cmd,
+	"no match ip address prefix-len [(0-32)]",
+	NO_STR
+	MATCH_STR
+	IP_STR
+	"Match prefix length of IP address\n"
+	"Match prefix length of IP address\n"
+	"Prefix length\n")
+{
+	const char *xpath =
+		"./match-condition[condition='frr-zebra-route-map:ipv4-prefix-length']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(
+	match_ipv6_address_prefix_len, match_ipv6_address_prefix_len_cmd,
+	"match ipv6 address prefix-len (0-128)$length",
+	MATCH_STR
+	IPV6_STR
+	"Match prefix length of IPv6 address\n"
+	"Match prefix length of IPv6 address\n"
+	"Prefix length\n")
+{
+	const char *xpath =
+		"./match-condition[condition='frr-zebra-route-map:ipv6-prefix-length']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(
+		xpath_value, sizeof(xpath_value),
+		"%s/rmap-match-condition/frr-zebra-route-map:ipv6-prefix-length",
+		xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, length_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(
+	no_match_ipv6_address_prefix_len, no_match_ipv6_address_prefix_len_cmd,
+	"no match ipv6 address prefix-len [(0-128)]",
+	NO_STR
+	MATCH_STR
+	IPV6_STR
+	"Match prefix length of IPv6 address\n"
+	"Match prefix length of IPv6 address\n"
+	"Prefix length\n")
+{
+	const char *xpath =
+		"./match-condition[condition='frr-zebra-route-map:ipv6-prefix-length']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(
+	match_ip_nexthop_prefix_len, match_ip_nexthop_prefix_len_cmd,
+	"match ip next-hop prefix-len (0-32)$length",
+	MATCH_STR
+	IP_STR
+	"Match prefixlen of nexthop IP address\n"
+	"Match prefixlen of given nexthop\n"
+	"Prefix length\n")
+{
+	const char *xpath =
+		"./match-condition[condition='frr-zebra-route-map:ipv4-next-hop-prefix-length']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(
+		xpath_value, sizeof(xpath_value),
+		"%s/rmap-match-condition/frr-zebra-route-map:ipv4-prefix-length",
+		xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, length_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(
+	no_match_ip_nexthop_prefix_len, no_match_ip_nexthop_prefix_len_cmd,
+	"no match ip next-hop prefix-len [(0-32)]",
+	NO_STR
+	MATCH_STR
+	IP_STR
+	"Match prefixlen of nexthop IP address\n"
+	"Match prefix length of nexthop\n"
+	"Prefix length\n")
+{
+	const char *xpath =
+		"./match-condition[condition='frr-zebra-route-map:ipv4-next-hop-prefix-length']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(
+	match_source_protocol, match_source_protocol_cmd,
+	"match source-protocol " FRR_REDIST_STR_ZEBRA "$proto",
+	MATCH_STR
+	"Match protocol via which the route was learnt\n"
+	FRR_REDIST_HELP_STR_ZEBRA)
+{
+	const char *xpath =
+		"./match-condition[condition='frr-zebra-route-map:source-protocol']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-zebra-route-map:source-protocol",
+		 xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, proto);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(
+	no_match_source_protocol, no_match_source_protocol_cmd,
+	"no match source-protocol [" FRR_REDIST_STR_ZEBRA "]",
+	NO_STR
+	MATCH_STR
+	"Match protocol via which the route was learnt\n"
+	FRR_REDIST_HELP_STR_ZEBRA)
+{
+	const char *xpath =
+		"./match-condition[condition='frr-zebra-route-map:source-protocol']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(
+	match_source_instance, match_source_instance_cmd,
+	"match source-instance (0-255)$instance",
+	MATCH_STR
+	"Match the protocol's instance number\n"
+	"The instance number\n")
+{
+	const char *xpath =
+		"./match-condition[condition='frr-zebra-route-map:source-instance']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-zebra-route-map:source-instance",
+		 xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, instance_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(
+	no_match_source_instance, no_match_source_instance_cmd,
+	"no match source-instance [(0-255)]",
+	NO_STR MATCH_STR
+	"Match the protocol's instance number\n"
+	"The instance number\n")
+{
+	const char *xpath =
+		"./match-condition[condition='frr-zebra-route-map:source-instance']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+/* set functions */
+
+DEFPY_YANG(
+	set_src, set_src_cmd,
+	"set src <A.B.C.D$addrv4|X:X::X:X$addrv6>",
+	SET_STR
+	"src address for route\n"
+	"IPv4 src address\n"
+	"IPv6 src address\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-zebra-route-map:src-address']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	if (addrv4_str) {
+		snprintf(
+			xpath_value, sizeof(xpath_value),
+			"%s/rmap-set-action/frr-zebra-route-map:ipv4-src-address",
+			xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+				      addrv4_str);
+	} else {
+		snprintf(
+			xpath_value, sizeof(xpath_value),
+			"%s/rmap-set-action/frr-zebra-route-map:ipv6-src-address",
+			xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+				      addrv6_str);
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(
+	no_set_src, no_set_src_cmd,
+	"no set src [<A.B.C.D|X:X::X:X>]",
+	NO_STR
+	SET_STR
+	"Source address for route\n"
+	"IPv4 address\n"
+	"IPv6 address\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-zebra-route-map:src-address']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+
 void zebra_route_map_init(void)
 {
 	install_element(VIEW_NODE, &show_ip_protocol_cmd);
@@ -1358,6 +1605,20 @@ void zebra_route_map_init(void)
 	install_element(VIEW_NODE, &show_ipv6_protocol_nht_cmd);
 
 	route_map_init_new(false);
+	/* zebra route-map commands */
+	install_element(RMAP_NODE, &match_ip_nexthop_prefix_len_cmd);
+	install_element(RMAP_NODE, &no_match_ip_nexthop_prefix_len_cmd);
+	install_element(RMAP_NODE, &match_ip_address_prefix_len_cmd);
+	install_element(RMAP_NODE, &match_ipv6_address_prefix_len_cmd);
+	install_element(RMAP_NODE, &no_match_ipv6_address_prefix_len_cmd);
+	install_element(RMAP_NODE, &no_match_ip_address_prefix_len_cmd);
+	install_element(RMAP_NODE, &match_source_protocol_cmd);
+	install_element(RMAP_NODE, &no_match_source_protocol_cmd);
+	install_element(RMAP_NODE, &match_source_instance_cmd);
+	install_element(RMAP_NODE, &no_match_source_instance_cmd);
+
+	install_element(RMAP_NODE, &set_src_cmd);
+	install_element(RMAP_NODE, &no_set_src_cmd);
 
 	route_map_add_hook(zebra_route_map_add);
 	route_map_delete_hook(zebra_route_map_delete);
