@@ -111,6 +111,7 @@ def do_config_inner(
     count,
     add=True,
     do_ipv6=False,
+    do_ipv6_nexthop=False,
     do_sadr=False,
     via=None,
     vrf=None,
@@ -129,6 +130,8 @@ def do_config_inner(
         src_prefs = ["2001:db8:1111::/48", "2001:db8:2222::/48"]
     elif do_ipv6:
         super_prefs = ["2001::/48", "2002::/48"]
+    elif do_ipv6_nexthop:
+        super_prefs = ["11.0.0.0/8", "21.0.0.0/8"]
     else:
         super_prefs = ["10.0.0.0/8", "20.0.0.0/8"]
 
@@ -142,11 +145,19 @@ def do_config_inner(
         matchvia = f"dev {via}"
     else:
         if vrf:
-            via = "2102::2" if do_ipv6 else "102.0.0.2"
-            matchvia = f"via {via} dev r1-eth1"
+            via = "2102::2" if do_ipv6 or do_ipv6_nexthop else "102.0.0.2"
+            matchvia = (
+                f"via inet6 {via} dev r1-eth1"
+                if not do_ipv6 and do_ipv6_nexthop
+                else f"via {via} dev r1-eth1"
+            )
         else:
-            via = "2101::2" if do_ipv6 else "101.0.0.2"
-            matchvia = f"via {via} dev r1-eth0"
+            via = "2101::2" if do_ipv6 or do_ipv6_nexthop else "101.0.0.2"
+            matchvia = (
+                f"via inet6 {via} dev r1-eth0"
+                if not do_ipv6 and do_ipv6_nexthop
+                else f"via {via} dev r1-eth0"
+            )
 
     vrfdbg = " in vrf {}".format(vrf) if vrf else ""
     logger.debug("{} {} static {} routes{}".format(optype, count, iptype, vrfdbg))
@@ -201,6 +212,7 @@ def do_config_inner(
 
 def do_config(*args, **kwargs):
     do_config_inner(*args, do_ipv6=False, do_sadr=False, **kwargs)
+    do_config_inner(*args, do_ipv6=False, do_ipv6_nexthop=True, **kwargs)
     do_config_inner(*args, do_ipv6=True, do_sadr=False, **kwargs)
     do_config_inner(*args, do_ipv6=True, do_sadr=True, **kwargs)
 
