@@ -223,21 +223,30 @@ struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 	const struct prefix_list_entry *entry;
 	struct route_node *rn;
 
+	/*
+	 * return early if we don't have an rp table (could happen during shutdown)
+	 */
+	if (!pim->rp_table)
+		return NULL;
+
 #if PIM_IPV == 6
 	/*
 	 * Embedded RP search. Always try to match against embedded RP first.
 	 */
-	rn = route_node_match(pim->embedded_rp.table, group);
-	if (rn != NULL) {
-		rp_info = rn->info ? rn->info : NULL;
+	if (pim->embedded_rp.table) {
+		rn = route_node_match(pim->embedded_rp.table, group);
+		if (rn != NULL) {
+			rp_info = rn->info ? rn->info : NULL;
 
-		if (rp_info && PIM_DEBUG_PIM_TRACE_DETAIL) {
-			zlog_debug("Lookedup(%pFX): rn %p found:%pFX", group, rn, &rp_info->group);
+			if (rp_info && PIM_DEBUG_PIM_TRACE_DETAIL) {
+				zlog_debug("Lookedup(%pFX): rn %p found:%pFX", group, rn,
+					   &rp_info->group);
+			}
+
+			route_unlock_node(rn);
+			if (rp_info)
+				return rp_info;
 		}
-
-		route_unlock_node(rn);
-		if (rp_info)
-			return rp_info;
 	}
 #endif /* PIM_IPV == 6 */
 
