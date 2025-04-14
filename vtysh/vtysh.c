@@ -647,6 +647,13 @@ static int vtysh_execute_func(const char *line, int pager)
 						break;
 					}
 				}
+
+				if (vty->node == RMAP_NODE &&
+					vtysh_client[i].flag & VTYSH_MGMTD &&
+					vty->type != VTY_FILE) {
+					continue;
+				}
+
 				cmd_stat = vtysh_client_execute(
 					&vtysh_client[i], line);
 				if (cmd_stat != CMD_SUCCESS)
