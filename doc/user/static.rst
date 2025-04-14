@@ -46,8 +46,8 @@ a static prefix and gateway, with several possible forms.
    NETWORK is destination prefix with a valid v4 or v6 network based upon
    initial form of the command.
    
-   GATEWAY is the IP address to use as next-hop for the prefix. Currently, it must match
-   the v4 or v6 route type specified at the start of the command.
+   GATEWAY is the IP address to use as next-hop for the prefix. Routes of type v4 can use v4 and v6 next-hops,
+   v6 routes only support v6 next-hops.
 
    IFNAME is the name of the interface to use as next-hop. If only IFNAME is specified
    (without GATEWAY), a connected route will be created.
