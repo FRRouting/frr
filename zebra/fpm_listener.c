@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
+#include <signal.h>
 
 #ifdef GNU_LINUX
 #include <stdint.h>
@@ -42,6 +43,35 @@
 
 XREF_SETUP();
 
+PREDECL_RBTREE_UNIQ(fpm_route);
+
+/* Route structure to store in RB tree */
+struct fpm_route {
+	struct prefix prefix;
+	uint32_t table_id;
+	uint32_t nhg_id;
+	struct fpm_route_item rb_item;
+};
+
+/* Comparison function for routes */
+static int fpm_route_cmp(const struct fpm_route *a, const struct fpm_route *b)
+{
+	int ret;
+
+	/* First compare table IDs */
+	if (a->table_id < b->table_id)
+		return -1;
+	if (a->table_id > b->table_id)
+		return 1;
+
+	/* Then compare prefixes */
+	ret = prefix_cmp(&a->prefix, &b->prefix);
+	return ret;
+}
+
+/* RB tree for storing routes */
+DECLARE_RBTREE_UNIQ(fpm_route, struct fpm_route, rb_item, fpm_route_cmp);
+
 struct glob {
 	int server_sock;
 	int sock;
@@ -49,6 +79,8 @@ struct glob {
 	bool reflect_fail_all;
 	bool dump_hex;
 	FILE *output_file;
+	const char *dump_file;
+	struct fpm_route_head route_tree;
 };
 
 struct glob glob_space;
@@ -758,6 +790,64 @@ static void fpm_listener_hexdump(const void *mem, size_t len)
 }
 
 /*
+ * handle_route_update
+ * Handles adding or removing a route from the route tree
+ */
+static void handle_route_update(struct netlink_msg_ctx *ctx, bool is_add)
+{
+	struct fpm_route *route;
+	struct fpm_route *existing;
+	struct fpm_route lookup = { 0 };
+
+	if (!ctx->dest || !ctx->rtmsg)
+		return;
+
+	/* Set up lookup key */
+	lookup.prefix.family = ctx->rtmsg->rtm_family;
+	lookup.prefix.prefixlen = ctx->rtmsg->rtm_dst_len;
+	memcpy(&lookup.prefix.u.prefix, RTA_DATA(ctx->dest),
+	       (ctx->rtmsg->rtm_family == AF_INET) ? 4 : 16);
+	lookup.table_id = ctx->rtmsg->rtm_table;
+	lookup.nhg_id = ctx->nhgid ? *ctx->nhgid : 0;
+	/* Look up existing route */
+	existing = fpm_route_find(&glob->route_tree, &lookup);
+
+	if (is_add) {
+		if (existing) {
+			/* Route exists, update it */
+			existing->prefix = lookup.prefix;
+			existing->table_id = lookup.table_id;
+			existing->nhg_id = lookup.nhg_id;
+		} else {
+			/* Create new route structure */
+			route = calloc(1, sizeof(struct fpm_route));
+			if (!route) {
+				fprintf(stderr, "Failed to allocate route structure\n");
+				return;
+			}
+
+			/* Copy prefix information */
+			route->prefix = lookup.prefix;
+			route->table_id = lookup.table_id;
+			route->nhg_id = lookup.nhg_id;
+
+			/* Add route to tree */
+			if (fpm_route_add(&glob->route_tree, route)) {
+				fprintf(stderr, "Failed to add route to tree\n");
+				free(route);
+			}
+		}
+	} else {
+		/* Remove route from tree */
+		if (existing) {
+			existing = fpm_route_del(&glob->route_tree, existing);
+			if (existing)
+				free(existing);
+		}
+	}
+}
+
+/*
  * parse_netlink_msg
  */
 static void parse_netlink_msg(char *buf, size_t buf_len, fpm_msg_hdr_t *fpm)
@@ -789,6 +879,7 @@ static void parse_netlink_msg(char *buf, size_t buf_len, fpm_msg_hdr_t *fpm)
 			}
 
 			print_netlink_msg_ctx(ctx);
+			handle_route_update(ctx, hdr->nlmsg_type == RTM_NEWROUTE);
 
 			if (glob->reflect && hdr->nlmsg_type == RTM_NEWROUTE &&
 			    ctx->rtmsg->rtm_protocol > RTPROT_STATIC) {
@@ -854,17 +945,62 @@ static void fpm_serve(void)
 	}
 }
 
+/* Signal handler for SIGUSR1 */
+static void sigusr1_handler(int signum)
+{
+	struct fpm_route *route;
+	char buf[PREFIX_STRLEN];
+	FILE *out = glob->output_file;
+	FILE *dump_fp = NULL;
+
+	if (glob->dump_file) {
+		dump_fp = fopen(glob->dump_file, "w");
+		if (dump_fp) {
+			out = dump_fp;
+			setbuf(dump_fp, NULL);
+		} else
+			out = glob->output_file;
+	}
+
+	fprintf(out, "\n=== Route Tree Dump ===\n");
+	fprintf(out, "Timestamp: %s\n", get_timestamp());
+	fprintf(out, "Total routes: %zu\n", fpm_route_count(&glob->route_tree));
+	fprintf(out, "Routes:\n");
+
+	frr_each (fpm_route, &glob->route_tree, route) {
+		prefix2str(&route->prefix, buf, sizeof(buf));
+		fprintf(out, "  Table %u, NHG %u: %s\n", route->table_id, route->nhg_id, buf);
+	}
+	fprintf(out, "=====================\n\n");
+	fflush(out);
+
+	if (dump_fp)
+		fclose(dump_fp);
+}
+
 int main(int argc, char **argv)
 {
 	pid_t daemon;
 	int r;
 	bool fork_daemon = false;
 	const char *output_file = NULL;
+	struct sigaction sa;
 
 	memset(glob, 0, sizeof(*glob));
 	glob->output_file = stdout;
+	fpm_route_init(&glob->route_tree);
 
-	while ((r = getopt(argc, argv, "rfdvo:")) != -1) {
+	/* Set up signal handler for SIGUSR1 */
+	memset(&sa, 0, sizeof(sa));
+	sa.sa_handler = sigusr1_handler;
+	sigemptyset(&sa.sa_mask);
+	sa.sa_flags = SA_RESTART;
+	if (sigaction(SIGUSR1, &sa, NULL) < 0) {
+		fprintf(stderr, "Failed to set up SIGUSR1 handler: %s\n", strerror(errno));
+		exit(1);
+	}
+
+	while ((r = getopt(argc, argv, "rfdvo:z:")) != -1) {
 		switch (r) {
 		case 'r':
 			glob->reflect = true;
@@ -880,6 +1016,9 @@ int main(int argc, char **argv)
 			break;
 		case 'o':
 			output_file = optarg;
+			break;
+		case 'z':
+			glob->dump_file = optarg;
 			break;
 		}
 	}
