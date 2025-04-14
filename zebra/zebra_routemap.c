@@ -1357,7 +1357,7 @@ void zebra_route_map_init(void)
 	install_element(VIEW_NODE, &show_ip_protocol_nht_cmd);
 	install_element(VIEW_NODE, &show_ipv6_protocol_nht_cmd);
 
-	route_map_init_new(true);
+	route_map_init_new(false);
 
 	route_map_add_hook(zebra_route_map_add);
 	route_map_delete_hook(zebra_route_map_delete);
