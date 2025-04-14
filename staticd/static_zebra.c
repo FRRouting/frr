@@ -209,13 +209,9 @@ static void static_zebra_nexthop_update(struct vrf *vrf, struct prefix *matched,
 					struct zapi_route *nhr)
 {
 	struct static_nht_data *nhtd, lookup;
-	afi_t afi = AFI_IP;
 
 	if (static_zclient->bfd_integration)
 		bfd_nht_update(matched, nhr);
-
-	if (matched->family == AF_INET6)
-		afi = AFI_IP6;
 
 	if (nhr->type == ZEBRA_ROUTE_CONNECT) {
 		if (static_nexthop_is_local(vrf->vrf_id, matched,
@@ -233,8 +229,12 @@ static void static_zebra_nexthop_update(struct vrf *vrf, struct prefix *matched,
 	if (nhtd) {
 		nhtd->nh_num = nhr->nexthop_num;
 
-		static_nht_reset_start(matched, afi, nhr->safi, nhtd->nh_vrf_id);
-		static_nht_update(NULL, NULL, matched, nhr->nexthop_num, afi, nhr->safi,
+		/* The tracked nexthop might be used by IPv4 and IPv6 routes */
+		static_nht_reset_start(matched, AFI_IP, nhr->safi, nhtd->nh_vrf_id);
+		static_nht_update(NULL, NULL, matched, nhr->nexthop_num, AFI_IP, nhr->safi,
+				  nhtd->nh_vrf_id);
+		static_nht_reset_start(matched, AFI_IP6, nhr->safi, nhtd->nh_vrf_id);
+		static_nht_update(NULL, NULL, matched, nhr->nexthop_num, AFI_IP6, nhr->safi,
 				  nhtd->nh_vrf_id);
 	} else
 		zlog_err("No nhtd?");
@@ -361,7 +361,7 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 	if (reg) {
 		if (nhtd->nh_num) {
 			/* refresh with existing data */
-			afi_t afi = prefix_afi(&lookup.nh);
+			afi_t afi = prefix_afi(&rn->p);
 
 			if (nh->state == STATIC_NOT_INSTALLED ||
 			    nh->state == STATIC_SENT_TO_ZEBRA)
