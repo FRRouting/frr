@@ -41,6 +41,20 @@
 /* Internal Use Macro */
 
 
+/*external vars */
+
+/* Internal vars */
+extern struct memgroup **mg_insert;
+
+struct memgroup mem_pool_grp = {
+	.name = "mempool",
+	.types = NULL,
+	.next = NULL,
+	.insert = NULL,
+	.ref = NULL
+};
+
+
 /*
  * get real size used for ptr (inlude chunk)
  * only valid for a in use pointer
@@ -53,6 +67,60 @@ static inline size_t mpalloc_usable_size(void *ptr)
 
 	return SZ(chunk->size);
 }
+
+
+static inline void mt_count_alloc(struct memtype *mt, size_t size, void *ptr)
+{
+	size_t current;
+	size_t oldsize;
+
+	current = 1 + atomic_fetch_add_explicit(&mt->n_alloc, 1,
+						memory_order_relaxed);
+
+	oldsize = atomic_load_explicit(&mt->n_max, memory_order_relaxed);
+	if (current > oldsize)
+		/* note that this may fail, but approximation is sufficient */
+		atomic_compare_exchange_weak_explicit(&mt->n_max, &oldsize,
+						      current,
+						      memory_order_relaxed,
+						      memory_order_relaxed);
+
+	oldsize = atomic_load_explicit(&mt->size, memory_order_relaxed);
+	if (oldsize == 0)
+		oldsize = atomic_exchange_explicit(&mt->size, size,
+						   memory_order_relaxed);
+	if (oldsize != 0 && oldsize != size && oldsize != SIZE_VAR)
+		atomic_store_explicit(&mt->size, SIZE_VAR,
+				      memory_order_relaxed);
+
+	size_t mallocsz = mpalloc_usable_size(ptr);
+
+	current = mallocsz + atomic_fetch_add_explicit(&mt->total, mallocsz,
+						       memory_order_relaxed);
+	oldsize = atomic_load_explicit(&mt->max_size, memory_order_relaxed);
+	if (current > oldsize)
+		/* note that this may fail, but approximation is sufficient */
+		atomic_compare_exchange_weak_explicit(&mt->max_size, &oldsize,
+						      current,
+						      memory_order_relaxed,
+						      memory_order_relaxed);
+}
+
+
+static inline void mt_count_free(struct memtype *mt, void *ptr)
+{
+
+	assert(mt->n_alloc);
+	atomic_fetch_sub_explicit(&mt->n_alloc, 1, memory_order_relaxed);
+
+	size_t mallocsz = mpalloc_usable_size(ptr);
+
+	atomic_fetch_sub_explicit(&mt->total, mallocsz, memory_order_relaxed);
+
+}
+
+
+
 
 
 /*
@@ -485,6 +553,16 @@ struct memptype *mphead_create(size_t default_size)
 	new_pool->totalmaxsize = SZ(default_size);
 	new_pool->n_blocks = 1;
 
+	/* stats see memory.h */
+	mem_pool_grp.ref = mg_insert;
+	*mg_insert =  &mem_pool_grp;
+	mg_insert = &mem_pool_grp.next;
+
+	mem_pool_grp.insert = &mem_pool_grp.types;
+	new_pool->stat.name = "redistribute stream";
+	new_pool->stat.ref = mem_pool_grp.insert;
+	*mem_pool_grp.insert =  &new_pool->stat;
+	mem_pool_grp.insert = &new_pool->stat.next;
 	return new_pool;
 }
 
@@ -503,6 +581,13 @@ void mphead_delete(struct memptype **mt)
 		mp_free_block(&cur_block);
 		cur_block = next_block;
 	}
+
+	/* stats see memory.h */
+	if (mem_pool_grp.next)
+		mem_pool_grp.next->ref = mem_pool_grp.ref;
+
+	*mem_pool_grp.ref = mem_pool_grp.next;
+
 	free(*mt);
 	*mt = NULL;
 }
@@ -521,7 +606,6 @@ void *mpalloc(struct memptype *mt, size_t size)
 	struct mpblock *new_block;
 	struct mpchunk *cur_chunk;
 	void *cur_ptr = NULL;
-	size_t used_size;
 	uint32_t i = 0;
 
 	/* search for a block with enough free size */
@@ -531,13 +615,8 @@ void *mpalloc(struct memptype *mt, size_t size)
 		if (cur_chunk) {
 			/* changes chunks in block */
 			cur_ptr = mpallocinblock(cur_block, cur_chunk, size);
-			/* updates counters */
-			used_size = mpalloc_usable_size(cur_ptr);
-			mt->n_alloc++;
-			mt->size += size;
-			mt->totalsize += used_size; /* to be confirmed */
+			mt_count_alloc(&mt->stat, size, cur_ptr);
 			return cur_ptr;
-
 		} else
 			cur_block = cur_block->next;
 		i++;
@@ -554,10 +633,8 @@ void *mpalloc(struct memptype *mt, size_t size)
 	cur_chunk = new_block->firstfreechunk->fd;
 	cur_ptr = mpallocinblock(new_block, cur_chunk, size);
 	/* updates counters */
-	used_size = mpalloc_usable_size(cur_ptr);
-	mt->n_alloc++;
-	mt->size += size;
-	mt->totalsize += used_size; /* to be confirmed */
+	mt_count_alloc(&mt->stat, size, cur_ptr);
+
 	return cur_ptr;
 }
 
@@ -572,7 +649,6 @@ void mpfree(struct memptype *mt, void *ptr)
 	struct mpblock *cur_block;
 	struct mpblock *prev_block = NULL;
 	struct mpchunk *chunk;
-	size_t used_size;
 
 
 	/* search the block */
@@ -586,7 +662,9 @@ void mpfree(struct memptype *mt, void *ptr)
 
 	assert(cur_block);
 
-	used_size = mpalloc_usable_size(ptr);
+	/* update  pool counters */
+	mt_count_free(&mt->stat, ptr);
+
 	chunk = (struct mpchunk *)((char *)ptr - CHUNK_HDR_SIZE);
 	assert(IS_IN_USE(chunk));
 	freempchunk(cur_block, chunk);
@@ -599,9 +677,6 @@ void mpfree(struct memptype *mt, void *ptr)
 		mt->totalmaxsize -= mt->default_block_size;
 	}
 
-	/* update  counter */
-	mt->totalsize -= used_size; /* to be confirmed */
-	mt->n_alloc--;
 }
 
 uint32_t mp_nb_blocks(struct memptype *mt)

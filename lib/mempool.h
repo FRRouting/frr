@@ -10,6 +10,7 @@
 #include <string.h>
 #include <assert.h>
 
+#include "memory.h"
 
 /* Structures */
 
@@ -65,8 +66,7 @@ struct mpblock {
  * All blocks are referenced in a singly linked list.
  */
 struct memptype {
-	size_t n_alloc;
-	size_t size;	     /* Reserved for future use */
+	struct memtype stat;
 	size_t totalsize;    /* Reserved for future use */
 	size_t totalmaxsize; /* Reserved for future use */
 
