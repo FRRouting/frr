@@ -556,6 +556,8 @@ static int zebra_wrap_script_column(const char *script,
 	int line_nb = 0;
 	int nb_entries = 0;
 	bool column_mode = true;
+	json_object *json_obj = NULL;
+	char separator[5];
 
 	if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND)
 		zlog_debug("SCRIPT : %s", script);
@@ -565,8 +567,10 @@ static int zebra_wrap_script_column(const char *script,
 		return -1;
 	}
 	do {
-		json_object *json_obj = NULL;
-		char separator[5];
+		if (json_obj) {
+			json_object_free(json_obj);
+			json_obj = NULL;
+		}
 
 		memset(separator, 0, sizeof(separator));
 		separator[0] = ':';
@@ -631,6 +635,10 @@ static int zebra_wrap_script_column(const char *script,
 			}
 		}
 	} while (current_str != NULL);
+
+	if (json_obj)
+		json_object_free(json_obj);
+
 	if (pclose(fp))
 		zlog_err("SCRIPT: error closing stream with %s", script);
 	return 0;
