@@ -707,14 +707,7 @@ def test_bgp_flowspec_step7():
         "Check Zebra PBR entry {0} for TCP Flags traffic from 1001::2 to 6001::232 counter. OK".format(
             output
         )
-    )
-    output = attacker.run("iperf -V -c 3003::3 -B 1001::2 -u -p 80 -b 50M -l 60 -i 5")
-    output = attacker.run("telnet -6 3003::3 80 -b 1001::2")
-    output = attacker.run("iperf -V -c 2002::2 -B 1001::2 -u -p 22 -b 50M -l 60 -i 6")
-    output = attacker.run("iperf -V -c 2002::2 -B 1001::2 -u -p 23 -b 50M -l 60 -i 3")
-    output = attacker.run("telnet -6 2002::2 22 -b 1001::2")
-    output = attacker.run("iperf -V -c 2002::2 -B 1001::2 -p 22")
-    output = attacker.run("iperf -V -c 2002::2 -B 1001::2 -p 23 ")
+
     logger.info("Check Ping from  R2(1001::1) to R3(2002::2) after FS discard")
     output = attacker.run("ping6 2002::2 -I 1001::2 -f -c 100")
     logger.info(output)
