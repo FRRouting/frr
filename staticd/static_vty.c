@@ -86,6 +86,7 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 	uint8_t segs_stack_id = 0;
 	char *orig_label = NULL, *orig_seg = NULL;
 	const char *buf_gate_str;
+	struct ipaddr gate_ip;
 	uint8_t distance = ZEBRA_STATIC_DISTANCE_DEFAULT;
 	route_tag_t tag = 0;
 	uint32_t table_id = 0;
@@ -149,22 +150,27 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 
 	if (src.prefixlen)
 		prefix2str(&src, buf_src_prefix, sizeof(buf_src_prefix));
-	if (args->gateway)
+
+	if (args->gateway) {
 		buf_gate_str = args->gateway;
-	else
+		if (str2ipaddr(args->gateway, &gate_ip) != 0) {
+			vty_out(vty, "%% Invalid gateway address %s\n", args->gateway);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else
 		buf_gate_str = "";
 
 	if (args->gateway == NULL && args->interface_name == NULL)
 		type = STATIC_BLACKHOLE;
 	else if (args->gateway && args->interface_name) {
-		if (args->afi == AFI_IP)
+		if (gate_ip.ipa_type == IPADDR_V4)
 			type = STATIC_IPV4_GATEWAY_IFNAME;
 		else
 			type = STATIC_IPV6_GATEWAY_IFNAME;
 	} else if (args->interface_name)
 		type = STATIC_IFNAME;
 	else {
-		if (args->afi == AFI_IP)
+		if (gate_ip.ipa_type == IPADDR_V4)
 			type = STATIC_IPV4_GATEWAY;
 		else
 			type = STATIC_IPV6_GATEWAY;
@@ -552,7 +558,7 @@ DEFPY_YANG(ip_route_address_interface,
       ip_route_address_interface_cmd,
       "[no] ip route\
 	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask> \
-	A.B.C.D$gate                                   \
+	<A.B.C.D|X:X::X:X>$gate                        \
 	<INTERFACE|Null0>$ifname                       \
 	[{                                             \
 	  tag (1-4294967295)                           \
@@ -571,7 +577,8 @@ DEFPY_YANG(ip_route_address_interface,
       "IP destination prefix (e.g. 10.0.0.0/8)\n"
       "IP destination prefix\n"
       "IP destination prefix mask\n"
-      "IP gateway address\n"
+      "IPv4 gateway address\n"
+      "IPv6 gateway address\n"
       "IP gateway interface name\n"
       "Null interface\n"
       "Set tag for this route\n"
@@ -624,7 +631,7 @@ DEFPY_YANG(ip_route_address_interface_vrf,
       ip_route_address_interface_vrf_cmd,
       "[no] ip route\
 	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask> \
-	A.B.C.D$gate                                   \
+	<A.B.C.D|X:X::X:X>$gate                        \
 	<INTERFACE|Null0>$ifname                       \
 	[{                                             \
 	  tag (1-4294967295)                           \
@@ -642,7 +649,8 @@ DEFPY_YANG(ip_route_address_interface_vrf,
       "IP destination prefix (e.g. 10.0.0.0/8)\n"
       "IP destination prefix\n"
       "IP destination prefix mask\n"
-      "IP gateway address\n"
+      "IPv4 gateway address\n"
+      "IPv6 gateway address\n"
       "IP gateway interface name\n"
       "Null interface\n"
       "Set tag for this route\n"
@@ -693,16 +701,16 @@ DEFPY_YANG(ip_route_address_interface_vrf,
 DEFPY_YANG(ip_route,
       ip_route_cmd,
       "[no] ip route\
-	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask> \
-	<A.B.C.D$gate|<INTERFACE|Null0>$ifname>        \
-	[{                                             \
-	  tag (1-4294967295)                           \
-	  |(1-255)$distance                            \
-	  |vrf NAME                                    \
-	  |label WORD                                  \
-	  |table (1-4294967295)                        \
-	  |nexthop-vrf NAME                            \
-	  |color (1-4294967295)                        \
+	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask>     \
+	<<A.B.C.D|X:X::X:X>$gate|<INTERFACE|Null0>$ifname> \
+	[{                                             	   \
+	  tag (1-4294967295)                               \
+	  |(1-255)$distance                                \
+	  |vrf NAME                                        \
+	  |label WORD                                      \
+	  |table (1-4294967295)                            \
+	  |nexthop-vrf NAME                                \
+	  |color (1-4294967295)                            \
 	  |bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|profile BFDPROF$bfd_profile}] \
 	  |segments WORD \
           }]",
@@ -711,7 +719,8 @@ DEFPY_YANG(ip_route,
       "IP destination prefix (e.g. 10.0.0.0/8)\n"
       "IP destination prefix\n"
       "IP destination prefix mask\n"
-      "IP gateway address\n"
+      "IPv4 gateway address\n"
+      "IPv6 gateway address\n"
       "IP gateway interface name\n"
       "Null interface\n"
       "Set tag for this route\n"
@@ -761,15 +770,15 @@ DEFPY_YANG(ip_route,
 DEFPY_YANG(ip_route_vrf,
       ip_route_vrf_cmd,
       "[no] ip route\
-	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask> \
-	<A.B.C.D$gate|<INTERFACE|Null0>$ifname>        \
-	[{                                             \
-	  tag (1-4294967295)                           \
-	  |(1-255)$distance                            \
-	  |label WORD                                  \
-	  |table (1-4294967295)                        \
-	  |nexthop-vrf NAME                            \
-	  |color (1-4294967295)                        \
+	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask>     \
+	<<A.B.C.D|X:X::X:X>$gate|<INTERFACE|Null0>$ifname> \
+	[{                                                 \
+	  tag (1-4294967295)                               \
+	  |(1-255)$distance                                \
+	  |label WORD                                      \
+	  |table (1-4294967295)                            \
+	  |nexthop-vrf NAME                                \
+	  |color (1-4294967295)                            \
 	  |bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|profile BFDPROF$bfd_profile}] \
 	  |segments WORD \
           }]",
@@ -778,7 +787,8 @@ DEFPY_YANG(ip_route_vrf,
       "IP destination prefix (e.g. 10.0.0.0/8)\n"
       "IP destination prefix\n"
       "IP destination prefix mask\n"
-      "IP gateway address\n"
+      "IPv4 gateway address\n"
+      "IPv6 gateway address\n"
       "IP gateway interface name\n"
       "Null interface\n"
       "Set tag for this route\n"
