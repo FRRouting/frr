@@ -677,9 +677,9 @@ def test_bgp_flowspec_step7():
     logger.info(
         "Check BGP FS entry for traffic TCP Flags from 1001::2 to 6001::232 with redirect IP. OK"
     )
-    attacker.run("telnet -6 6::232 -b 1001::2")
-    attacker.run("telnet -6 6::232 -b 1001::2")
-    attacker.run("telnet -6 6::232 -b 1001::2")
+    attacker.run("nc -w 3 -z -s 1001::2 6::232 23")
+    attacker.run("nc -w 3 -z -s 1001::2 6::232 23")
+    attacker.run("nc -w 3 -z -s 1001::2 6::232 23")
     topotest.sleep(5, "Waiting telnet trials")
     logger.info(
         "Check Zebra PBR entry {0} for TCP Flags traffic from 1001::2 to 6001::232 counter".format(
