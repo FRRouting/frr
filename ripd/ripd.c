@@ -3668,7 +3668,7 @@ void rip_init(void)
 	mgmt_be_client_lib_vty_init();
 
 	/* Access list install. */
-	access_list_init_new(true);
+	access_list_init_new(false);
 	access_list_add_hook(rip_distribute_update_all_wrapper);
 	access_list_delete_hook(rip_distribute_update_all_wrapper);
 
