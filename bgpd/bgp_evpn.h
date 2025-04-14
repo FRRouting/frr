@@ -102,13 +102,11 @@ static inline bool evpn_resolve_overlay_index(void)
 	return bgp ? bgp->resolve_overlay_index : false;
 }
 
-extern void bgp_evpn_advertise_type5_route(struct bgp *bgp_vrf,
-					   const struct prefix *p,
-					   struct attr *src_attr, afi_t afi,
-					   safi_t safi);
-extern void bgp_evpn_withdraw_type5_route(struct bgp *bgp_vrf,
-					  const struct prefix *p, afi_t afi,
-					  safi_t safi);
+extern void bgp_evpn_advertise_type5_route(struct bgp *bgp_vrf, const struct prefix *p,
+					   struct attr *src_attr, afi_t afi, safi_t safi,
+					   uint32_t addpath_id);
+extern void bgp_evpn_withdraw_type5_route(struct bgp *bgp_vrf, const struct prefix *p, afi_t afi,
+					  safi_t safi, uint32_t addpath_id);
 extern void bgp_evpn_withdraw_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 					   safi_t safi);
 extern void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,
@@ -131,6 +129,10 @@ extern int bgp_evpn_import_route(struct bgp *bgp, afi_t afi, safi_t safi,
 extern int bgp_evpn_unimport_route(struct bgp *bgp, afi_t afi, safi_t safi,
 				   const struct prefix *p,
 				   struct bgp_path_info *ri);
+extern void bgp_evpn_export_type5_route(struct bgp *bgp, struct bgp_dest *dest,
+					struct bgp_path_info *pi, afi_t afi, safi_t safi);
+extern void bgp_evpn_unexport_type5_route(struct bgp *bgp, const struct bgp_dest *dest,
+					  const struct bgp_path_info *pi, afi_t afi, safi_t safi);
 extern void
 bgp_reimport_evpn_routes_upon_macvrf_soo_change(struct bgp *bgp,
 						struct ecommunity *old_soo,
