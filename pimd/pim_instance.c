@@ -40,13 +40,13 @@ static void pim_instance_terminate(struct pim_instance *pim)
 
 	pim_upstream_terminate(pim);
 
-	pim_rp_free(pim);
-
 	pim_bsm_proc_free(pim);
 
 	pim_nht_terminate(pim);
 
 	pim_if_terminate(pim);
+
+	pim_rp_free(pim);
 
 	pim_oil_terminate(pim);
 
