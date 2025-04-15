@@ -24,11 +24,30 @@ struct pim_zlookup_nexthop {
 	uint16_t prefix_len;
 };
 
+/*
+ * Structure that holds all necessary arguments to call the zebra
+ * next hop lookup API.
+ */
+struct zclient_next_hop_args {
+	/* (Input) PIM instance doing the request */
+	struct pim_instance *pim;
+	/* (Input) (Optional) zebra client doing the lookup */
+	struct zclient *zlookup;
+	/* (Input) Address to lookup */
+	pim_addr address;
+	/* (Input) (Optional) Group to derive lookup mode
+	 *         (unicast, multicast or both)
+	 */
+	pim_addr group;
+
+	/* (Output) Next hop information */
+	struct pim_zlookup_nexthop next_hops[MULTIPATH_NUM];
+};
+
 void zclient_lookup_new(void);
 void zclient_lookup_free(void);
 
-int zclient_lookup_nexthop(struct pim_instance *pim, struct pim_zlookup_nexthop nexthop_tab[],
-			   const int tab_size, pim_addr addr, pim_addr group, int max_lookup);
+int zclient_lookup_nexthop(struct zclient_next_hop_args *args, int max_lookup);
 
 void pim_zlookup_show_ip_multicast(struct vty *vty);
 
