@@ -3,6 +3,7 @@
  */
 
 #include <zebra.h>
+#include <assert.h>
 #include <memory.h>
 
 DEFINE_MGROUP(TEST_MEMORY, "memory test");

@@ -62,6 +62,7 @@ frr_northbound*
 /lib/test_xref
 /lib/test_zlog
 /lib/test_zmq
+/lib/test_mempool
 /ospf6d/test_lsdb
 /ospf6d/test_lsdb_clippy.c
 /zebra/test_lm_plugin
