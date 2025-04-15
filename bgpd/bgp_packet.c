@@ -3995,7 +3995,7 @@ void bgp_process_packet(struct event *thread)
 	uint32_t processed = 0, curr_connection_processed = 0;
 	bool more_work = false;
 	size_t count;
-	uint32_t total_packets_to_process, total_processed = 0;
+	uint32_t total_packets_to_process;
 
 	frr_with_mutex (&bm->peer_connection_mtx)
 		connection = peer_connection_fifo_pop(&bm->connection_fifo);
@@ -4011,7 +4011,6 @@ void bgp_process_packet(struct event *thread)
 	fsm_update_result = 0;
 
 	while ((processed < total_packets_to_process) && connection) {
-		total_processed++;
 		/* Guard against scheduled events that occur after peer deletion. */
 		if (connection->status == Deleted || connection->status == Clearing) {
 			frr_with_mutex (&bm->peer_connection_mtx)
