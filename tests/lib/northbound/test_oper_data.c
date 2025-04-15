@@ -249,9 +249,10 @@ static enum nb_error frr_test_module_c2cont_c2value_get(const struct nb_node *nb
 							struct lyd_node *parent)
 {
 	const struct lysc_node *snode = nb_node->snode;
-	uint32_t value = 0xAB010203;
+	uint32_t value = htole32(0xAB010203);
 	LY_ERR err;
 
+	/* Note that this api expects 'value' to be in little-endian form */
 	err = lyd_new_term_bin(parent, snode->module, snode->name, &value, sizeof(value),
 			       LYD_NEW_PATH_UPDATE, NULL);
 	assert(err == LY_SUCCESS);
