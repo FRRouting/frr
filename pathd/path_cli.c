@@ -234,7 +234,7 @@ DEFPY_NOSH(
 /*
  * XPath: /frr-pathd:pathd/srte/segment-list
  */
-DEFPY_NOSH(
+DEFPY_YANG_NOSH(
       srte_segment_list,
       srte_segment_list_cmd,
       "segment-list WORD$name",
@@ -267,7 +267,7 @@ DEFPY_NOSH(
 	return ret;
 }
 
-DEFPY(srte_no_segment_list,
+DEFPY_YANG(srte_no_segment_list,
       srte_no_segment_list_cmd,
       "no segment-list WORD$name",
       NO_STR
@@ -463,7 +463,7 @@ int segment_list_has_prefix(
  * XPath: /frr-pathd:pathd/srte/segment-list/segment
  */
 /* clang-format off */
-DEFPY(srte_segment_list_segment, srte_segment_list_segment_cmd,
+DEFPY_YANG(srte_segment_list_segment, srte_segment_list_segment_cmd,
       "index (0-4294967295)$index <[mpls$has_mpls_label label (16-1048575)$label] "
       "|"
       "[nai$has_nai <"
@@ -527,7 +527,7 @@ DEFPY(srte_segment_list_segment, srte_segment_list_segment_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(srte_segment_list_no_segment,
+DEFPY_YANG(srte_segment_list_no_segment,
       srte_segment_list_no_segment_cmd,
       "no index (0-4294967295)$index",
       NO_STR
@@ -607,7 +607,7 @@ void cli_show_srte_segment_list_segment(struct vty *vty,
 /*
  * XPath: /frr-pathd:pathd/policy
  */
-DEFPY_NOSH(
+DEFPY_YANG_NOSH(
 	srte_policy,
 	srte_policy_cmd,
 	"policy color (0-4294967295)$num endpoint <A.B.C.D|X:X::X:X>$endpoint",
@@ -633,7 +633,7 @@ DEFPY_NOSH(
 	return ret;
 }
 
-DEFPY(srte_no_policy,
+DEFPY_YANG(srte_no_policy,
       srte_no_policy_cmd,
       "no policy color (0-4294967295)$num endpoint <A.B.C.D|X:X::X:X>$endpoint",
       NO_STR
@@ -670,7 +670,7 @@ void cli_show_srte_policy_end(struct vty *vty, const struct lyd_node *dnode)
 /*
  * XPath: /frr-pathd:pathd/srte/policy/name
  */
-DEFPY(srte_policy_name,
+DEFPY_YANG(srte_policy_name,
       srte_policy_name_cmd,
       "name WORD$name",
       "Segment Routing Policy name\n"
@@ -681,7 +681,7 @@ DEFPY(srte_policy_name,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(srte_policy_no_name,
+DEFPY_YANG(srte_policy_no_name,
       srte_policy_no_name_cmd,
       "no name [WORD]",
       NO_STR
@@ -703,7 +703,7 @@ void cli_show_srte_policy_name(struct vty *vty, const struct lyd_node *dnode,
 /*
  * XPath: /frr-pathd:pathd/srte/policy/binding-sid
  */
-DEFPY(srte_policy_binding_sid,
+DEFPY_YANG(srte_policy_binding_sid,
       srte_policy_binding_sid_cmd,
       "binding-sid (16-1048575)$label",
       "Segment Routing Policy Binding-SID\n"
@@ -714,7 +714,7 @@ DEFPY(srte_policy_binding_sid,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(srte_policy_no_binding_sid,
+DEFPY_YANG(srte_policy_no_binding_sid,
       srte_policy_no_binding_sid_cmd,
       "no binding-sid [(16-1048575)]",
       NO_STR
@@ -736,7 +736,7 @@ void cli_show_srte_policy_binding_sid(struct vty *vty,
 /*
  * XPath: /frr-pathd:pathd/srte/policy/candidate-path
  */
-DEFPY(srte_policy_candidate_exp,
+DEFPY_YANG(srte_policy_candidate_exp,
       srte_policy_candidate_exp_cmd,
       "candidate-path preference (0-4294967295)$preference name WORD$name \
 	 explicit segment-list WORD$list_name",
@@ -760,7 +760,7 @@ DEFPY(srte_policy_candidate_exp,
 				    preference_str);
 }
 
-DEFPY_NOSH(
+DEFPY_YANG_NOSH(
 	srte_policy_candidate_dyn,
 	srte_policy_candidate_dyn_cmd,
 	"candidate-path preference (0-4294967295)$preference name WORD$name dynamic",
@@ -791,7 +791,7 @@ DEFPY_NOSH(
 	return ret;
 }
 
-DEFPY(srte_candidate_bandwidth,
+DEFPY_YANG(srte_candidate_bandwidth,
       srte_candidate_bandwidth_cmd,
       "bandwidth BANDWIDTH$value [required$required]",
       "Define a bandwidth constraint\n"
@@ -805,7 +805,7 @@ DEFPY(srte_candidate_bandwidth,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(srte_candidate_no_bandwidth,
+DEFPY_YANG(srte_candidate_no_bandwidth,
       srte_candidate_no_bandwidth_cmd,
       "no bandwidth [BANDWIDTH$value] [required$required]",
       NO_STR
@@ -818,7 +818,7 @@ DEFPY(srte_candidate_no_bandwidth,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(srte_candidate_affinity_filter, srte_candidate_affinity_filter_cmd,
+DEFPY_YANG(srte_candidate_affinity_filter, srte_candidate_affinity_filter_cmd,
       "affinity <exclude-any|include-any|include-all>$type BITPATTERN$value",
       "Affinity constraint\n"
       "Exclude any matching link\n"
@@ -842,7 +842,7 @@ DEFPY(srte_candidate_affinity_filter, srte_candidate_affinity_filter_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(srte_candidate_no_affinity_filter, srte_candidate_no_affinity_filter_cmd,
+DEFPY_YANG(srte_candidate_no_affinity_filter, srte_candidate_no_affinity_filter_cmd,
       "no affinity <exclude-any|include-any|include-all>$type [BITPATTERN$value]",
       NO_STR
       "Affinity constraint\n"
@@ -858,7 +858,7 @@ DEFPY(srte_candidate_no_affinity_filter, srte_candidate_no_affinity_filter_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(srte_candidate_metric,
+DEFPY_YANG(srte_candidate_metric,
       srte_candidate_metric_cmd,
       "metric [bound$bound] <igp|te|hc|abc|lmll|cigp|cte|pigp|pte|phc|msd|pd|pdv|pl|ppd|ppdv|ppl|nap|nlp|dc|bnc>$type METRIC$value [required$required] [computed$computed]",
       "Define a metric constraint\n"
@@ -907,7 +907,7 @@ DEFPY(srte_candidate_metric,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(srte_candidate_no_metric,
+DEFPY_YANG(srte_candidate_no_metric,
       srte_candidate_no_metric_cmd,
       "no metric [bound] <igp|te|hc|abc|lmll|cigp|cte|pigp|pte|phc|msd|pd|pdv|pl|ppd|ppdv|ppl|nap|nlp|dc|bnc>$type [METRIC$value] [required$required] [computed$computed]",
       NO_STR
@@ -945,7 +945,7 @@ DEFPY(srte_candidate_no_metric,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(srte_policy_no_candidate,
+DEFPY_YANG(srte_policy_no_candidate,
       srte_policy_no_candidate_cmd,
       "no candidate-path\
 	preference (0-4294967295)$preference\
@@ -971,7 +971,7 @@ DEFPY(srte_policy_no_candidate,
 				    preference_str);
 }
 
-DEFPY(srte_candidate_objfun,
+DEFPY_YANG(srte_candidate_objfun,
       srte_candidate_objfun_cmd,
       "objective-function <mcp|mlp|mbp|mbc|mll|mcc|spt|mct|mplp|mup|mrup|mtd|mbn|mctd|msl|mss|msn>$type [required$required]",
       "Define an objective function constraint\n"
@@ -1006,7 +1006,7 @@ DEFPY(srte_candidate_objfun,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY(srte_candidate_no_objfun,
+DEFPY_YANG(srte_candidate_no_objfun,
       srte_candidate_no_objfun_cmd,
       "no objective-function [<mcp|mlp|mbp|mbc|mll|mcc|spt|mct|mplp|mup|mrup|mtd|mbn|mctd|msl|mss|msn>] [required$required]",
       NO_STR
