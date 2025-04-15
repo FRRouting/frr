@@ -27,7 +27,6 @@
 #include "ospf6_route.h"
 #include "ospf6_area.h"
 #include "ospf6_abr.h"
-#include "ospf6_nssa.h"
 #include "ospf6_interface.h"
 #include "ospf6_neighbor.h"
 #include "ospf6_intra.h"

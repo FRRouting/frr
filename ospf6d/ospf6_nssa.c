@@ -183,184 +183,6 @@ void ospf6_abr_nssa_check_status(struct ospf6 *ospf6)
 	}
 }
 
-/* Mark the summary LSA's as unapproved, when ABR status changes.*/
-static void ospf6_abr_unapprove_summaries(struct ospf6 *ospf6)
-{
-	struct listnode *node, *nnode;
-	struct ospf6_area *area;
-	struct ospf6_lsa *lsa;
-	uint16_t type;
-
-	if (IS_OSPF6_DEBUG_ABR)
-		zlog_debug("%s : Start", __func__);
-
-	for (ALL_LIST_ELEMENTS(ospf6->area_list, node, nnode, area)) {
-		if (IS_OSPF6_DEBUG_ABR)
-			zlog_debug("%s : considering area %pI4", __func__,
-				   &area->area_id);
-		/* Inter area router LSA */
-		type = htons(OSPF6_LSTYPE_INTER_ROUTER);
-		for (ALL_LSDB_TYPED_ADVRTR(area->lsdb, type, ospf6->router_id,
-					   lsa)) {
-			if (IS_OSPF6_DEBUG_ABR)
-				zlog_debug(
-					"%s : approved unset on summary link id %pI4",
-					__func__, &lsa->header->id);
-			SET_FLAG(lsa->flag, OSPF6_LSA_UNAPPROVED);
-		}
-		/* Inter area prefix LSA */
-		type = htons(OSPF6_LSTYPE_INTER_PREFIX);
-		for (ALL_LSDB_TYPED_ADVRTR(area->lsdb, type, ospf6->router_id,
-					   lsa)) {
-			if (IS_OSPF6_DEBUG_ABR)
-				zlog_debug(
-					"%s : approved unset on asbr-summary link id %pI4",
-					__func__, &lsa->header->id);
-			SET_FLAG(lsa->flag, OSPF6_LSA_UNAPPROVED);
-		}
-	}
-
-	if (IS_OSPF6_DEBUG_ABR)
-		zlog_debug("%s : Stop", __func__);
-}
-
-/* Re-advertise inter-area router LSA's */
-void ospf6_asbr_prefix_readvertise(struct ospf6 *ospf6)
-{
-	struct ospf6_route *brouter;
-	struct listnode *node, *nnode;
-	struct ospf6_area *oa;
-
-	if (IS_OSPF6_DEBUG_ABR)
-		zlog_debug("Re-examining Inter-Router prefixes");
-
-
-	for (ALL_LIST_ELEMENTS(ospf6->area_list, node, nnode, oa)) {
-		for (brouter = ospf6_route_head(oa->ospf6->brouter_table);
-		     brouter; brouter = ospf6_route_next(brouter))
-			ospf6_abr_originate_summary_to_area(brouter, oa);
-	}
-
-	if (IS_OSPF6_DEBUG_ABR)
-		zlog_debug("Finished re-examining Inter-Router prefixes");
-}
-
-/* Advertise prefixes configured using area <area-id> range command */
-static void ospf6_abr_announce_aggregates(struct ospf6 *ospf6)
-{
-	struct ospf6_area *area;
-	struct ospf6_route *range;
-	struct listnode *node;
-
-	if (IS_OSPF6_DEBUG_ABR)
-		zlog_debug("%s: Start", __func__);
-
-	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, node, area)) {
-		if (IS_OSPF6_DEBUG_ABR)
-			zlog_debug(
-				"ospf_abr_announce_aggregates(): looking at area %pI4",
-				&area->area_id);
-
-		for (range = ospf6_route_head(area->range_table); range;
-		     range = ospf6_route_next(range))
-			ospf6_abr_range_update(range, ospf6);
-	}
-
-	if (IS_OSPF6_DEBUG_ABR)
-		zlog_debug("%s: Stop", __func__);
-}
-
-/* Flush the summary LSA's which are not approved.*/
-void ospf6_abr_remove_unapproved_summaries(struct ospf6 *ospf6)
-{
-	struct listnode *node, *nnode;
-	struct ospf6_area *area;
-	struct ospf6_lsa *lsa;
-	uint16_t type;
-
-	if (IS_OSPF6_DEBUG_ABR)
-		zlog_debug("%s : Start", __func__);
-
-	for (ALL_LIST_ELEMENTS(ospf6->area_list, node, nnode, area)) {
-		if (IS_OSPF6_DEBUG_ABR)
-			zlog_debug("%s : looking at area %pI4", __func__,
-				   &area->area_id);
-
-		/* Inter area router LSA */
-		type = htons(OSPF6_LSTYPE_INTER_ROUTER);
-		for (ALL_LSDB_TYPED_ADVRTR(area->lsdb, type, ospf6->router_id,
-					   lsa)) {
-			if (CHECK_FLAG(lsa->flag, OSPF6_LSA_UNAPPROVED))
-				ospf6_lsa_premature_aging(lsa);
-		}
-
-		/* Inter area prefix LSA */
-		type = htons(OSPF6_LSTYPE_INTER_PREFIX);
-		for (ALL_LSDB_TYPED_ADVRTR(area->lsdb, type, ospf6->router_id,
-					   lsa)) {
-			if (CHECK_FLAG(lsa->flag, OSPF6_LSA_UNAPPROVED))
-				ospf6_lsa_premature_aging(lsa);
-		}
-	}
-
-	if (IS_OSPF6_DEBUG_ABR)
-		zlog_debug("%s : Stop", __func__);
-}
-
-/*
- * This is the function taking care about ABR stuff, i.e.
- * summary-LSA origination and flooding.
- */
-void ospf6_abr_task(struct ospf6 *ospf6)
-{
-	if (IS_OSPF6_DEBUG_ABR)
-		zlog_debug("%s : Start", __func__);
-
-	if (ospf6->route_table == NULL || ospf6->brouter_table == NULL) {
-		if (IS_OSPF6_DEBUG_ABR)
-			zlog_debug("%s : Routing tables are not yet ready",
-				   __func__);
-		return;
-	}
-
-	ospf6_abr_unapprove_summaries(ospf6);
-
-	if (IS_OSPF6_DEBUG_ABR)
-		zlog_debug("%s : prepare aggregates", __func__);
-
-	ospf6_abr_range_reset_cost(ospf6);
-
-	if (IS_OSPF6_ABR(ospf6)) {
-		if (IS_OSPF6_DEBUG_ABR)
-			zlog_debug("%s : process network RT", __func__);
-		ospf6_abr_prefix_resummarize(ospf6);
-
-		if (IS_OSPF6_DEBUG_ABR)
-			zlog_debug("%s : process router RT", __func__);
-		ospf6_asbr_prefix_readvertise(ospf6);
-
-		if (IS_OSPF6_DEBUG_ABR)
-			zlog_debug("%s : announce aggregates", __func__);
-		ospf6_abr_announce_aggregates(ospf6);
-
-		if (IS_OSPF6_DEBUG_ABR)
-			zlog_debug("%s : announce stub defaults", __func__);
-		ospf6_abr_defaults_to_stub(ospf6);
-
-		if (IS_OSPF6_DEBUG_ABR)
-			zlog_debug("%s : announce NSSA Type-7 defaults",
-				   __func__);
-		ospf6_abr_nssa_type_7_defaults(ospf6);
-	}
-
-	if (IS_OSPF6_DEBUG_ABR)
-		zlog_debug("%s : remove unapproved summaries", __func__);
-	ospf6_abr_remove_unapproved_summaries(ospf6);
-
-	if (IS_OSPF6_DEBUG_ABR)
-		zlog_debug("%s : Stop", __func__);
-}
-
 /* For NSSA Translations
  * Mark the translated LSA's as unapproved. */
 static void ospf6_abr_unapprove_translates(struct ospf6 *ospf6)
@@ -874,7 +696,7 @@ void ospf6_abr_nssa_type_7_defaults(struct ospf6 *ospf6)
 	}
 }
 
-static void ospf6_abr_nssa_task(struct ospf6 *ospf6)
+void ospf6_abr_nssa_task(struct ospf6 *ospf6)
 {
 	if (IS_OSPF6_DEBUG_NSSA)
 		zlog_debug("Check for NSSA-ABR Tasks():");
@@ -921,78 +743,6 @@ static void ospf6_abr_nssa_task(struct ospf6 *ospf6)
 
 	if (IS_OSPF6_DEBUG_NSSA)
 		zlog_debug("%s: Stop", __func__);
-}
-
-int ospf6_redistribute_check(struct ospf6 *ospf6, struct ospf6_route *route,
-			     int type)
-{
-	route_map_result_t ret;
-	struct prefix *prefix;
-	struct ospf6_redist *red;
-
-	if (!ospf6_zebra_is_redistribute(type, ospf6->vrf_id))
-		return 0;
-
-	prefix = &route->prefix;
-
-	red = ospf6_redist_lookup(ospf6, type, 0);
-	if (!red)
-		return 0;
-
-	/* Change to new redist structure */
-	if (ROUTEMAP_NAME(red)) {
-		if (ROUTEMAP(red) == NULL)
-			ospf6_asbr_routemap_update(NULL);
-		if (ROUTEMAP(red) == NULL) {
-			zlog_warn(
-				"route-map \"%s\" not found, suppress redistributing",
-				ROUTEMAP_NAME(red));
-			return 0;
-		}
-	}
-
-	/*  Change to new redist structure */
-	if (ROUTEMAP(red)) {
-		ret = route_map_apply(ROUTEMAP(red), prefix, route);
-		if (ret == RMAP_DENYMATCH) {
-			if (IS_OSPF6_DEBUG_ASBR)
-				zlog_debug("Denied by route-map \"%s\"",
-					   ROUTEMAP_NAME(red));
-			return 0;
-		}
-	}
-
-	return 1;
-}
-
-/* This function performs ABR related processing */
-static void ospf6_abr_task_timer(struct event *thread)
-{
-	struct ospf6 *ospf6 = EVENT_ARG(thread);
-
-	if (IS_OSPF6_DEBUG_ABR)
-		zlog_debug("Running ABR task on timer");
-
-	(void)ospf6_check_and_set_router_abr(ospf6);
-	ospf6_abr_nssa_check_status(ospf6);
-	ospf6_abr_task(ospf6);
-	/* if nssa-abr, then scan Type-7 LSDB */
-	ospf6_abr_nssa_task(ospf6);
-}
-
-void ospf6_schedule_abr_task(struct ospf6 *ospf6)
-{
-	if (event_is_scheduled(ospf6->t_abr_task)) {
-		if (IS_OSPF6_DEBUG_ABR)
-			zlog_debug("ABR task already scheduled");
-		return;
-	}
-
-	if (IS_OSPF6_DEBUG_ABR)
-		zlog_debug("Scheduling ABR task");
-
-	event_add_timer(master, ospf6_abr_task_timer, ospf6,
-			OSPF6_ABR_TASK_DELAY, &ospf6->t_abr_task);
 }
 
 /* Flush the NSSA LSAs from the area */
@@ -1424,7 +1174,7 @@ DEFPY (no_area_nssa_range,
 		SET_FLAG(range->flag, OSPF6_ROUTE_REMOVE);
 
 		/* Redo summaries if required */
-		event_execute(master, ospf6_abr_task_timer, ospf6, 0, NULL);
+		ospf6_execute_abr_task(ospf6);
 	}
 
 	ospf6_route_remove(range, oa->nssa_range_table);
