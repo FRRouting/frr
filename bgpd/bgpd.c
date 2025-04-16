@@ -8972,7 +8972,7 @@ void bgp_terminate(void)
 	EVENT_OFF(bm->t_bgp_zebra_l3_vni);
 
 	bgp_mac_finish();
-#if ENABLE_BGP_VNC
+#ifdef ENABLE_BGP_VNC
 	rfapi_terminate();
 #endif
 }
