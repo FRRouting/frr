@@ -128,7 +128,7 @@ static int eigrpd_instance_router_id_modify(struct nb_cb_modify_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		eigrp = nb_running_get_entry(args->dnode, NULL, true);
+		eigrp = nb_running_entry(args->dnode);
 		yang_dnode_get_ipv4(&eigrp->router_id_static, args->dnode,
 				    NULL);
 		break;
@@ -148,7 +148,7 @@ static int eigrpd_instance_router_id_destroy(struct nb_cb_destroy_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		eigrp = nb_running_get_entry(args->dnode, NULL, true);
+		eigrp = nb_running_entry(args->dnode);
 		eigrp->router_id_static.s_addr = INADDR_ANY;
 		break;
 	}
@@ -187,7 +187,7 @@ eigrpd_instance_passive_interface_create(struct nb_cb_create_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		eigrp = nb_running_get_entry(args->dnode, NULL, true);
+		eigrp = nb_running_entry(args->dnode);
 		ifname = yang_dnode_get_string(args->dnode, NULL);
 		eif = eigrp_interface_lookup(eigrp, ifname);
 		if (eif == NULL)
@@ -214,7 +214,7 @@ eigrpd_instance_passive_interface_destroy(struct nb_cb_destroy_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		eigrp = nb_running_get_entry(args->dnode, NULL, true);
+		eigrp = nb_running_entry(args->dnode);
 		ifname = yang_dnode_get_string(args->dnode, NULL);
 		eif = eigrp_interface_lookup(eigrp, ifname);
 		if (eif == NULL)
@@ -262,7 +262,7 @@ static int eigrpd_instance_variance_modify(struct nb_cb_modify_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		eigrp = nb_running_get_entry(args->dnode, NULL, true);
+		eigrp = nb_running_entry(args->dnode);
 		eigrp->variance = yang_dnode_get_uint8(args->dnode, NULL);
 		break;
 	}
@@ -281,7 +281,7 @@ static int eigrpd_instance_variance_destroy(struct nb_cb_destroy_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		eigrp = nb_running_get_entry(args->dnode, NULL, true);
+		eigrp = nb_running_entry(args->dnode);
 		eigrp->variance = EIGRP_VARIANCE_DEFAULT;
 		break;
 	}
@@ -303,7 +303,7 @@ static int eigrpd_instance_maximum_paths_modify(struct nb_cb_modify_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		eigrp = nb_running_get_entry(args->dnode, NULL, true);
+		eigrp = nb_running_entry(args->dnode);
 		eigrp->max_paths = yang_dnode_get_uint8(args->dnode, NULL);
 		break;
 	}
@@ -323,7 +323,7 @@ eigrpd_instance_maximum_paths_destroy(struct nb_cb_destroy_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		eigrp = nb_running_get_entry(args->dnode, NULL, true);
+		eigrp = nb_running_entry(args->dnode);
 		eigrp->max_paths = EIGRP_MAX_PATHS_DEFAULT;
 		break;
 	}
@@ -346,7 +346,7 @@ eigrpd_instance_metric_weights_K1_modify(struct nb_cb_modify_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		eigrp = nb_running_get_entry(args->dnode, NULL, true);
+		eigrp = nb_running_entry(args->dnode);
 		eigrp->k_values[0] = yang_dnode_get_uint8(args->dnode, NULL);
 		break;
 	}
@@ -366,7 +366,7 @@ eigrpd_instance_metric_weights_K1_destroy(struct nb_cb_destroy_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		eigrp = nb_running_get_entry(args->dnode, NULL, true);
+		eigrp = nb_running_entry(args->dnode);
 		eigrp->k_values[0] = EIGRP_K1_DEFAULT;
 		break;
 	}
@@ -389,7 +389,7 @@ eigrpd_instance_metric_weights_K2_modify(struct nb_cb_modify_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		eigrp = nb_running_get_entry(args->dnode, NULL, true);
+		eigrp = nb_running_entry(args->dnode);
 		eigrp->k_values[1] = yang_dnode_get_uint8(args->dnode, NULL);
 		break;
 	}
@@ -409,7 +409,7 @@ eigrpd_instance_metric_weights_K2_destroy(struct nb_cb_destroy_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		eigrp = nb_running_get_entry(args->dnode, NULL, true);
+		eigrp = nb_running_entry(args->dnode);
 		eigrp->k_values[1] = EIGRP_K2_DEFAULT;
 		break;
 	}
@@ -432,7 +432,7 @@ eigrpd_instance_metric_weights_K3_modify(struct nb_cb_modify_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		eigrp = nb_running_get_entry(args->dnode, NULL, true);
+		eigrp = nb_running_entry(args->dnode);
 		eigrp->k_values[2] = yang_dnode_get_uint8(args->dnode, NULL);
 		break;
 	}
@@ -452,7 +452,7 @@ eigrpd_instance_metric_weights_K3_destroy(struct nb_cb_destroy_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		eigrp = nb_running_get_entry(args->dnode, NULL, true);
+		eigrp = nb_running_entry(args->dnode);
 		eigrp->k_values[2] = EIGRP_K3_DEFAULT;
 		break;
 	}
@@ -475,7 +475,7 @@ eigrpd_instance_metric_weights_K4_modify(struct nb_cb_modify_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		eigrp = nb_running_get_entry(args->dnode, NULL, true);
+		eigrp = nb_running_entry(args->dnode);
 		eigrp->k_values[3] = yang_dnode_get_uint8(args->dnode, NULL);
 		break;
 	}
@@ -495,7 +495,7 @@ eigrpd_instance_metric_weights_K4_destroy(struct nb_cb_destroy_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		eigrp = nb_running_get_entry(args->dnode, NULL, true);
+		eigrp = nb_running_entry(args->dnode);
 		eigrp->k_values[3] = EIGRP_K4_DEFAULT;
 		break;
 	}
@@ -518,7 +518,7 @@ eigrpd_instance_metric_weights_K5_modify(struct nb_cb_modify_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		eigrp = nb_running_get_entry(args->dnode, NULL, true);
+		eigrp = nb_running_entry(args->dnode);
 		eigrp->k_values[4] = yang_dnode_get_uint8(args->dnode, NULL);
 		break;
 	}
@@ -538,7 +538,7 @@ eigrpd_instance_metric_weights_K5_destroy(struct nb_cb_destroy_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		eigrp = nb_running_get_entry(args->dnode, NULL, true);
+		eigrp = nb_running_entry(args->dnode);
 		eigrp->k_values[4] = EIGRP_K5_DEFAULT;
 		break;
 	}
@@ -561,7 +561,7 @@ eigrpd_instance_metric_weights_K6_modify(struct nb_cb_modify_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		eigrp = nb_running_get_entry(args->dnode, NULL, true);
+		eigrp = nb_running_entry(args->dnode);
 		eigrp->k_values[5] = yang_dnode_get_uint8(args->dnode, NULL);
 		break;
 	}
@@ -581,7 +581,7 @@ eigrpd_instance_metric_weights_K6_destroy(struct nb_cb_destroy_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		eigrp = nb_running_get_entry(args->dnode, NULL, true);
+		eigrp = nb_running_entry(args->dnode);
 		eigrp->k_values[5] = EIGRP_K6_DEFAULT;
 		break;
 	}
@@ -619,7 +619,7 @@ static int eigrpd_instance_network_create(struct nb_cb_create_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		eigrp = nb_running_get_entry(args->dnode, NULL, true);
+		eigrp = nb_running_entry(args->dnode);
 		if (eigrp_network_set(eigrp, &prefix) == 0)
 			return NB_ERR_INCONSISTENCY;
 		break;
@@ -655,7 +655,7 @@ static int eigrpd_instance_network_destroy(struct nb_cb_destroy_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		eigrp = nb_running_get_entry(args->dnode, NULL, true);
+		eigrp = nb_running_entry(args->dnode);
 		eigrp_network_unset(eigrp, &prefix);
 		break;
 	}
@@ -710,7 +710,7 @@ static int eigrpd_instance_distribute_list_create(struct nb_cb_create_args *args
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	eigrp = nb_running_get_entry(args->dnode, NULL, true);
+	eigrp = nb_running_entry(args->dnode);
 	group_distribute_list_create_helper(args, eigrp->distribute_ctx);
 
 	return NB_OK;
@@ -747,7 +747,7 @@ static int eigrpd_instance_redistribute_create(struct nb_cb_create_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		eigrp = nb_running_get_entry(args->dnode, NULL, true);
+		eigrp = nb_running_entry(args->dnode);
 		proto = yang_dnode_get_enum(args->dnode, "protocol");
 		redistribute_get_metrics(args->dnode, &metrics);
 		eigrp_redistribute_set(eigrp, proto, metrics);
@@ -769,7 +769,7 @@ static int eigrpd_instance_redistribute_destroy(struct nb_cb_destroy_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		eigrp = nb_running_get_entry(args->dnode, NULL, true);
+		eigrp = nb_running_entry(args->dnode);
 		proto = yang_dnode_get_enum(args->dnode, "protocol");
 		eigrp_redistribute_unset(eigrp, proto);
 		break;
@@ -836,7 +836,7 @@ static int eigrpd_instance_redistribute_metrics_bandwidth_modify(
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		eigrp = nb_running_get_entry(args->dnode, NULL, true);
+		eigrp = nb_running_entry(args->dnode);
 		proto = yang_dnode_get_enum(args->dnode, "../../protocol");
 		redistribute_get_metrics(args->dnode, &metrics);
 		eigrp_redistribute_set(eigrp, proto, metrics);
@@ -860,7 +860,7 @@ static int eigrpd_instance_redistribute_metrics_bandwidth_destroy(
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		eigrp = nb_running_get_entry(args->dnode, NULL, true);
+		eigrp = nb_running_entry(args->dnode);
 		proto = yang_dnode_get_enum(args->dnode, "../../protocol");
 		redistribute_get_metrics(args->dnode, &metrics);
 		eigrp_redistribute_set(eigrp, proto, metrics);
@@ -958,7 +958,7 @@ static int lib_interface_eigrp_delay_modify(struct nb_cb_modify_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		ei = ifp->info;
 		if (ei == NULL)
 			return NB_ERR_INCONSISTENCY;
@@ -999,7 +999,7 @@ static int lib_interface_eigrp_bandwidth_modify(struct nb_cb_modify_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		ei = ifp->info;
 		if (ei == NULL)
 			return NB_ERR_INCONSISTENCY;
@@ -1041,7 +1041,7 @@ lib_interface_eigrp_hello_interval_modify(struct nb_cb_modify_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		ei = ifp->info;
 		if (ei == NULL)
 			return NB_ERR_INCONSISTENCY;
@@ -1081,7 +1081,7 @@ static int lib_interface_eigrp_hold_time_modify(struct nb_cb_modify_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		ei = ifp->info;
 		if (ei == NULL)
 			return NB_ERR_INCONSISTENCY;
@@ -1146,7 +1146,7 @@ static int lib_interface_eigrp_instance_create(struct nb_cb_create_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		eigrp = eigrp_get(yang_dnode_get_uint16(args->dnode, "asn"),
 				  ifp->vrf->vrf_id);
 		eif = eigrp_interface_lookup(eigrp, ifp->name);
@@ -1232,7 +1232,7 @@ static int lib_interface_eigrp_instance_authentication_modify(
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		eif = nb_running_get_entry(args->dnode, NULL, true);
+		eif = nb_running_entry(args->dnode);
 		eif->params.auth_type = yang_dnode_get_enum(args->dnode, NULL);
 		break;
 	}
@@ -1267,7 +1267,7 @@ lib_interface_eigrp_instance_keychain_modify(struct nb_cb_modify_args *args)
 		args->resource->ptr = NULL;
 		break;
 	case NB_EV_APPLY:
-		eif = nb_running_get_entry(args->dnode, NULL, true);
+		eif = nb_running_entry(args->dnode);
 		if (eif->params.auth_keychain)
 			free(eif->params.auth_keychain);
 
@@ -1290,7 +1290,7 @@ lib_interface_eigrp_instance_keychain_destroy(struct nb_cb_destroy_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		eif = nb_running_get_entry(args->dnode, NULL, true);
+		eif = nb_running_entry(args->dnode);
 		if (eif->params.auth_keychain)
 			free(eif->params.auth_keychain);
 

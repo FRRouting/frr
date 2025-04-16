@@ -657,7 +657,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ec
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		pim->ecmp_enable = yang_dnode_get_bool(args->dnode, NULL);
 	}
@@ -680,7 +680,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ec
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		pim->ecmp_rebalance_enable =
 			yang_dnode_get_bool(args->dnode, NULL);
@@ -704,7 +704,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ke
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		pim->keep_alive_time = yang_dnode_get_uint16(args->dnode, NULL);
 		break;
@@ -728,7 +728,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		pim->rp_keep_alive_time = yang_dnode_get_uint16(args->dnode,
 				NULL);
@@ -784,7 +784,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_se
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		pim->send_v6_secondary = yang_dnode_get_bool(args->dnode, NULL);
 		break;
@@ -819,7 +819,7 @@ void routing_control_plane_protocols_control_plane_protocol_pim_address_family_s
 	int spt_switch_action;
 	const char *prefix_list = NULL;
 
-	vrf = nb_running_get_entry(args->dnode, NULL, true);
+	vrf = nb_running_entry(args->dnode);
 	pim = vrf->info;
 	spt_switch_action = yang_dnode_get_enum(args->dnode, "spt-action");
 
@@ -903,7 +903,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ss
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		plist_name = yang_dnode_get_string(args->dnode, NULL);
 		result = pim_ssm_cmd_worker(pim, plist_name, args->errmsg,
@@ -931,7 +931,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ss
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		result = pim_ssm_cmd_worker(pim, NULL, args->errmsg,
 				args->errmsg_len);
@@ -962,7 +962,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ss
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		yang_dnode_get_pimaddr(&source_addr, args->dnode, NULL);
 		result = pim_ssmpingd_start(pim, source_addr);
@@ -991,7 +991,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ss
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		yang_dnode_get_pimaddr(&source_addr, args->dnode, NULL);
 		result = pim_ssmpingd_stop(pim, source_addr);
@@ -1057,7 +1057,7 @@ int pim_msdp_hold_time_modify(struct nb_cb_modify_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		pim->msdp.hold_time = yang_dnode_get_uint16(args->dnode, NULL);
 		break;
@@ -1081,7 +1081,7 @@ int pim_msdp_keep_alive_modify(struct nb_cb_modify_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		pim->msdp.keep_alive = yang_dnode_get_uint16(args->dnode, NULL);
 		break;
@@ -1105,7 +1105,7 @@ int pim_msdp_connection_retry_modify(struct nb_cb_modify_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		pim->msdp.connection_retry =
 			yang_dnode_get_uint16(args->dnode, NULL);
@@ -1132,7 +1132,7 @@ int pim_msdp_log_neighbor_events_modify(struct nb_cb_modify_args *args)
 		break;
 
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		if (yang_dnode_get_bool(args->dnode, NULL))
 			SET_FLAG(pim->log_flags, PIM_MSDP_LOG_NEIGHBOR_EVENTS);
@@ -1161,7 +1161,7 @@ int pim_msdp_log_sa_events_modify(struct nb_cb_modify_args *args)
 		break;
 
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		if (yang_dnode_get_bool(args->dnode, NULL))
 			SET_FLAG(pim->log_flags, PIM_MSDP_LOG_SA_EVENTS);
@@ -1188,7 +1188,7 @@ int pim_msdp_originator_id_modify(struct nb_cb_modify_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		yang_dnode_get_ipv4(&pim->msdp.originator_id, args->dnode, NULL);
 		break;
@@ -1208,7 +1208,7 @@ int pim_msdp_originator_id_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		pim->msdp.originator_id.s_addr = INADDR_ANY;
 		break;
@@ -1234,7 +1234,7 @@ int pim_msdp_shutdown_modify(struct nb_cb_modify_args *args)
 		break;
 
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		pim_msdp_shutdown(pim, yang_dnode_get_bool(args->dnode, NULL));
 		break;
@@ -1258,7 +1258,7 @@ int pim_msdp_mesh_group_create(struct nb_cb_create_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		mg = pim_msdp_mg_new(vrf->info, yang_dnode_get_string(
 							args->dnode, "./name"));
 		nb_running_set_entry(args->dnode, mg);
@@ -1280,7 +1280,7 @@ int pim_msdp_mesh_group_destroy(struct nb_cb_destroy_args *args)
 		break;
 	case NB_EV_APPLY:
 		mg = nb_running_unset_entry(args->dnode);
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim_msdp_mg_free(vrf->info, &mg);
 		break;
 	}
@@ -1305,7 +1305,7 @@ int pim_msdp_mesh_group_source_modify(struct nb_cb_modify_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		mg = nb_running_get_entry(args->dnode, NULL, true);
+		mg = nb_running_entry(args->dnode);
 		vrf_dnode =
 			yang_dnode_get_parent(args->dnode, "address-family");
 		vrf = nb_running_get_entry(vrf_dnode, "../../", true);
@@ -1330,7 +1330,7 @@ int pim_msdp_mesh_group_source_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		mg = nb_running_get_entry(args->dnode, NULL, true);
+		mg = nb_running_entry(args->dnode);
 		vrf_dnode =
 			yang_dnode_get_parent(args->dnode, "address-family");
 		vrf = nb_running_get_entry(vrf_dnode, "../../", true);
@@ -1357,7 +1357,7 @@ int pim_msdp_peer_authentication_type_modify(struct nb_cb_modify_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		mp = nb_running_get_entry(args->dnode, NULL, true);
+		mp = nb_running_entry(args->dnode);
 		mp->auth_type = yang_dnode_get_enum(args->dnode, NULL);
 		break;
 	}
@@ -1385,7 +1385,7 @@ int pim_msdp_peer_authentication_key_modify(struct nb_cb_modify_args *args)
 		}
 		break;
 	case NB_EV_APPLY:
-		mp = nb_running_get_entry(args->dnode, NULL, true);
+		mp = nb_running_entry(args->dnode);
 		XFREE(MTYPE_PIM_MSDP_AUTH_KEY, mp->auth_key);
 		mp->auth_key = XSTRDUP(MTYPE_PIM_MSDP_AUTH_KEY,
 				       yang_dnode_get_string(args->dnode, NULL));
@@ -1410,7 +1410,7 @@ int pim_msdp_peer_authentication_key_destroy(struct nb_cb_destroy_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		mp = nb_running_get_entry(args->dnode, NULL, true);
+		mp = nb_running_entry(args->dnode);
 		XFREE(MTYPE_PIM_MSDP_AUTH_KEY, mp->auth_key);
 		break;
 	}
@@ -1436,7 +1436,7 @@ int pim_msdp_mesh_group_members_create(struct nb_cb_create_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		mg = nb_running_get_entry(args->dnode, NULL, true);
+		mg = nb_running_entry(args->dnode);
 		vrf_dnode =
 			yang_dnode_get_parent(args->dnode, "address-family");
 		vrf = nb_running_get_entry(vrf_dnode, "../../", true);
@@ -1462,10 +1462,10 @@ int pim_msdp_mesh_group_members_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		mbr = nb_running_get_entry(args->dnode, NULL, true);
+		mbr = nb_running_entry(args->dnode);
 		mg_dnode =
 			yang_dnode_get_parent(args->dnode, "msdp-mesh-groups");
-		mg = nb_running_get_entry(mg_dnode, NULL, true);
+		mg = nb_running_entry(mg_dnode);
 		pim_msdp_mg_mbr_del(mg, mbr);
 		nb_running_unset_entry(args->dnode);
 		break;
@@ -1492,7 +1492,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ms
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		yang_dnode_get_ip(&peer_ip, args->dnode, "peer-ip");
 		yang_dnode_get_ip(&source_ip, args->dnode, "source-ip");
@@ -1539,7 +1539,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ms
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		mp = nb_running_get_entry(args->dnode, NULL, true);
+		mp = nb_running_entry(args->dnode);
 		yang_dnode_get_ip(&source_ip, args->dnode, NULL);
 		pim_msdp_peer_change_source(mp, &source_ip.ipaddr_v4);
 		break;
@@ -1563,7 +1563,7 @@ int pim_msdp_peer_sa_filter_in_modify(struct nb_cb_modify_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		mp = nb_running_get_entry(args->dnode, NULL, true);
+		mp = nb_running_entry(args->dnode);
 		XFREE(MTYPE_PIM_MSDP_FILTER_NAME, mp->acl_in);
 		mp->acl_in = XSTRDUP(MTYPE_PIM_MSDP_FILTER_NAME,
 				     yang_dnode_get_string(args->dnode, NULL));
@@ -1584,7 +1584,7 @@ int pim_msdp_peer_sa_filter_in_destroy(struct nb_cb_destroy_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		mp = nb_running_get_entry(args->dnode, NULL, true);
+		mp = nb_running_entry(args->dnode);
 		XFREE(MTYPE_PIM_MSDP_FILTER_NAME, mp->acl_in);
 		break;
 	}
@@ -1607,7 +1607,7 @@ int pim_msdp_peer_sa_filter_out_modify(struct nb_cb_modify_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		mp = nb_running_get_entry(args->dnode, NULL, true);
+		mp = nb_running_entry(args->dnode);
 		XFREE(MTYPE_PIM_MSDP_FILTER_NAME, mp->acl_out);
 		mp->acl_out = XSTRDUP(MTYPE_PIM_MSDP_FILTER_NAME,
 				      yang_dnode_get_string(args->dnode, NULL));
@@ -1628,7 +1628,7 @@ int pim_msdp_peer_sa_filter_out_destroy(struct nb_cb_destroy_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		mp = nb_running_get_entry(args->dnode, NULL, true);
+		mp = nb_running_entry(args->dnode);
 		XFREE(MTYPE_PIM_MSDP_FILTER_NAME, mp->acl_out);
 		break;
 	}
@@ -1651,7 +1651,7 @@ int pim_msdp_peer_sa_limit_modify(struct nb_cb_modify_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		mp = nb_running_get_entry(args->dnode, NULL, true);
+		mp = nb_running_entry(args->dnode);
 		mp->sa_limit = yang_dnode_get_uint32(args->dnode, NULL);
 		break;
 	}
@@ -1670,7 +1670,7 @@ int pim_msdp_peer_sa_limit_destroy(struct nb_cb_destroy_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		mp = nb_running_get_entry(args->dnode, NULL, true);
+		mp = nb_running_entry(args->dnode);
 		mp->sa_limit = 0;
 		break;
 	}
@@ -1857,7 +1857,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_re
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		plist = yang_dnode_get_string(args->dnode, NULL);
 
@@ -1882,7 +1882,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_re
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 
 		XFREE(MTYPE_PIM_PLIST_NAME, pim->register_plist);
@@ -1921,7 +1921,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_mc
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		pim_nht_change_rpf_mode(pim, yang_dnode_get_string(args->dnode, "group-list"),
 					yang_dnode_get_string(args->dnode, "source-list"),
@@ -1949,7 +1949,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_mc
 		break;
 
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		mode = yang_dnode_get_enum(args->dnode, NULL);
 		pim_nht_change_rpf_mode(pim, yang_dnode_get_string(args->dnode, "../group-list"),
@@ -1973,7 +1973,7 @@ int lib_interface_pim_address_family_create(struct nb_cb_create_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_PREPARE:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		if (ifp->info)
 			return NB_OK;
 
@@ -1995,7 +1995,7 @@ int lib_interface_pim_address_family_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		pim_ifp = ifp->info;
 		if (!pim_ifp)
 			return NB_OK;
@@ -2034,7 +2034,7 @@ int lib_interface_pim_address_family_pim_enable_modify(struct nb_cb_modify_args 
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 
 		if (yang_dnode_get_bool(args->dnode, NULL)) {
 			if (!pim_cmd_interface_add(ifp)) {
@@ -2077,7 +2077,7 @@ int lib_interface_pim_address_family_pim_passive_enable_modify(
 	case NB_EV_PREPARE:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		pim_ifp = ifp->info;
 		pim_ifp->pim_passive_enable =
 			yang_dnode_get_bool(args->dnode, NULL);
@@ -2106,7 +2106,7 @@ int lib_interface_pim_address_family_hello_interval_modify(
 	case NB_EV_PREPARE:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		pim_ifp = ifp->info;
 		pim_ifp->pim_hello_period =
 			yang_dnode_get_uint16(args->dnode, NULL);
@@ -2132,7 +2132,7 @@ int lib_interface_pim_address_family_hello_holdtime_modify(
 	case NB_EV_PREPARE:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		pim_ifp = ifp->info;
 		pim_ifp->pim_default_holdtime =
 			yang_dnode_get_uint16(args->dnode, NULL);
@@ -2155,7 +2155,7 @@ int lib_interface_pim_address_family_hello_holdtime_destroy(
 	case NB_EV_PREPARE:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		pim_ifp = ifp->info;
 		pim_ifp->pim_default_holdtime = -1;
 		break;
@@ -2181,7 +2181,7 @@ int lib_interface_pim_address_family_nbr_plist_modify(struct nb_cb_modify_args *
 	case NB_EV_PREPARE:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		pim_ifp = ifp->info;
 
 		XFREE(MTYPE_PIM_PLIST_NAME, pim_ifp->nbr_plist);
@@ -2203,7 +2203,7 @@ int lib_interface_pim_address_family_nbr_plist_destroy(struct nb_cb_destroy_args
 	case NB_EV_PREPARE:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		pim_ifp = ifp->info;
 		XFREE(MTYPE_PIM_PLIST_NAME, pim_ifp->nbr_plist);
 		break;
@@ -2227,7 +2227,7 @@ int lib_interface_pim_address_family_bfd_create(struct nb_cb_create_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		pim_ifp = ifp->info;
 		pim_ifp->bfd_config.enabled = true;
 		break;
@@ -2256,7 +2256,7 @@ int lib_interface_pim_address_family_bfd_destroy(
 	case NB_EV_PREPARE:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		pim_ifp = ifp->info;
 		pim_ifp->bfd_config.enabled = false;
 		pim_bfd_reg_dereg_all_nbr(ifp);
@@ -2275,7 +2275,7 @@ void lib_interface_pim_address_family_bfd_apply_finish(
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	pim_ifp = ifp->info;
 
 	if (!pim_ifp) {
@@ -2360,7 +2360,7 @@ int lib_interface_pim_address_family_bfd_profile_modify(
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		pim_ifp = ifp->info;
 		XFREE(MTYPE_TMP, pim_ifp->bfd_config.profile);
 		pim_ifp->bfd_config.profile = XSTRDUP(
@@ -2384,7 +2384,7 @@ int lib_interface_pim_address_family_bfd_profile_destroy(
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		pim_ifp = ifp->info;
 		XFREE(MTYPE_TMP, pim_ifp->bfd_config.profile);
 		break;
@@ -2407,7 +2407,7 @@ int lib_interface_pim_address_family_bsm_modify(struct nb_cb_modify_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		pim_ifp = ifp->info;
 		if (!pim_ifp) {
 			pim_ifp = pim_if_new(ifp, false, true, false, false);
@@ -2436,7 +2436,7 @@ int lib_interface_pim_address_family_unicast_bsm_modify(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		pim_ifp = ifp->info;
 		if (!pim_ifp) {
 			pim_ifp = pim_if_new(ifp, false, true, false, false);
@@ -2466,7 +2466,7 @@ int lib_interface_pim_address_family_active_active_modify(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		pim_ifp = ifp->info;
 		if (yang_dnode_get_bool(args->dnode, NULL)) {
 			if (PIM_DEBUG_MLAG)
@@ -2513,7 +2513,7 @@ int lib_interface_pim_address_family_dr_priority_modify(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		pim_ifp = ifp->info;
 		old_dr_prio = pim_ifp->pim_dr_priority;
 		pim_ifp->pim_dr_priority = yang_dnode_get_uint32(args->dnode,
@@ -2553,7 +2553,7 @@ int lib_interface_pim_address_family_use_source_modify(
 	case NB_EV_PREPARE:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 #if PIM_IPV == 4
 		yang_dnode_get_ipv4(&source_addr, args->dnode, NULL);
 #else
@@ -2593,7 +2593,7 @@ int lib_interface_pim_address_family_use_source_destroy(
 	case NB_EV_PREPARE:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 
 		result = interface_pim_use_src_cmd_worker(ifp, PIMADDR_ANY,
 				args->errmsg,
@@ -2636,7 +2636,7 @@ int lib_interface_pim_address_family_multicast_boundary_oil_modify(
 	case NB_EV_PREPARE:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		pim_ifp = ifp->info;
 		pim_ifp->boundary_oil_plist =
 			prefix_list_lookup(AFI_IP, yang_dnode_get_string(args->dnode, NULL));
@@ -2667,7 +2667,7 @@ int lib_interface_pim_address_family_multicast_boundary_oil_destroy(
 	case NB_EV_PREPARE:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		pim_ifp = ifp->info;
 		pim_ifp->boundary_oil_plist = NULL;
 		break;
@@ -2703,7 +2703,7 @@ int lib_interface_pim_address_family_multicast_boundary_acl_modify(struct nb_cb_
 	case NB_EV_PREPARE:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		pim_ifp = ifp->info;
 		pim_ifp->boundary_acl =
 			access_list_lookup(AFI_IP, yang_dnode_get_string(args->dnode, NULL));
@@ -2732,7 +2732,7 @@ int lib_interface_pim_address_family_multicast_boundary_acl_destroy(struct nb_cb
 	case NB_EV_PREPARE:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		pim_ifp = ifp->info;
 		pim_ifp->boundary_acl = NULL;
 		break;
@@ -2783,7 +2783,7 @@ int lib_interface_pim_address_family_mroute_destroy(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		iif = nb_running_get_entry(args->dnode, NULL, true);
+		iif = nb_running_entry(args->dnode);
 		pim_iifp = iif->info;
 		pim = pim_iifp->pim;
 
@@ -2859,7 +2859,7 @@ int lib_interface_pim_address_family_mroute_oif_modify(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		iif = nb_running_get_entry(args->dnode, NULL, true);
+		iif = nb_running_entry(args->dnode);
 		pim_iifp = iif->info;
 		pim = pim_iifp->pim;
 
@@ -2934,7 +2934,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		yang_dnode_get_pimaddr(&rp_addr, args->dnode, "rp-address");
 
@@ -2981,7 +2981,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		yang_dnode_get_pimaddr(&rp_addr, args->dnode, "../rp-address");
 		yang_dnode_get_prefix(&group, args->dnode, NULL);
@@ -3007,7 +3007,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		yang_dnode_get_pimaddr(&rp_addr, args->dnode, "../rp-address");
 		yang_dnode_get_prefix(&group, args->dnode, NULL);
@@ -3038,7 +3038,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		plist = yang_dnode_get_string(args->dnode, NULL);
 		yang_dnode_get_pimaddr(&rp_addr, args->dnode, "../rp-address");
@@ -3065,7 +3065,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		yang_dnode_get_pimaddr(&rp_addr, args->dnode, "../rp-address");
 		plist = yang_dnode_get_string(args->dnode, NULL);
@@ -3090,7 +3090,7 @@ int pim_embedded_rp_enable_modify(struct nb_cb_modify_args *args)
 	switch (args->event) {
 	case NB_EV_APPLY:
 #if PIM_IPV == 6
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim_embedded_rp_enable(vrf->info, yang_dnode_get_bool(args->dnode, NULL));
 		return NB_OK;
 #else
@@ -3118,7 +3118,7 @@ int pim_embedded_rp_group_list_modify(struct nb_cb_modify_args *args)
 	switch (args->event) {
 	case NB_EV_APPLY:
 #if PIM_IPV == 6
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim_embedded_rp_set_group_list(vrf->info, yang_dnode_get_string(args->dnode, NULL));
 		return NB_OK;
 #else
@@ -3143,7 +3143,7 @@ int pim_embedded_rp_group_list_destroy(struct nb_cb_destroy_args *args)
 	switch (args->event) {
 	case NB_EV_APPLY:
 #if PIM_IPV == 6
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim_embedded_rp_set_group_list(vrf->info, NULL);
 		return NB_OK;
 #else
@@ -3171,7 +3171,7 @@ int pim_embedded_rp_maximum_rps_modify(struct nb_cb_modify_args *args)
 	switch (args->event) {
 	case NB_EV_APPLY:
 #if PIM_IPV == 6
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim_embedded_rp_set_maximum_rps(vrf->info, yang_dnode_get_uint32(args->dnode, NULL));
 		return NB_OK;
 #else
@@ -3268,7 +3268,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		enabled = yang_dnode_get_bool(args->dnode, NULL);
 		if (enabled)
@@ -3293,7 +3293,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		enabled = yang_dnode_get_bool(args->dnode, NULL);
 		/* Run AutoRP discovery by default */
@@ -3321,7 +3321,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		scope = yang_dnode_get_uint8(args->dnode, NULL);
 		pim_autorp_announce_scope(pim, scope);
@@ -3342,7 +3342,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		pim_autorp_announce_scope(pim, 0);
 		break;
@@ -3367,7 +3367,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		interval = yang_dnode_get_uint16(args->dnode, NULL);
 		pim_autorp_announce_interval(pim, interval);
@@ -3388,7 +3388,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		pim_autorp_announce_interval(pim, 0);
 		break;
@@ -3413,7 +3413,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		holdtime = yang_dnode_get_uint16(args->dnode, NULL);
 		pim_autorp_announce_holdtime(pim, holdtime);
@@ -3434,7 +3434,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		/* 0 is a valid value, so -1 indicates deleting (go back to default) */
 		pim_autorp_announce_holdtime(pim, -1);
@@ -3473,7 +3473,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		yang_dnode_get_pimaddr(&rp_addr, args->dnode, "rp-address");
 		if (!pim_autorp_rm_candidate_rp(pim, rp_addr))
@@ -3501,7 +3501,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		yang_dnode_get_pimaddr(&rp_addr, args->dnode, "../rp-address");
 		yang_dnode_get_prefix(&group, args->dnode, NULL);
@@ -3526,7 +3526,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		yang_dnode_get_pimaddr(&rp_addr, args->dnode, "../rp-address");
 		yang_dnode_get_prefix(&group, args->dnode, NULL);
@@ -3556,7 +3556,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		plist = yang_dnode_get_string(args->dnode, NULL);
 		yang_dnode_get_pimaddr(&rp_addr, args->dnode, "../rp-address");
@@ -3580,7 +3580,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		yang_dnode_get_pimaddr(&rp_addr, args->dnode, "../rp-address");
 		plist = yang_dnode_get_string(args->dnode, NULL);
@@ -3607,7 +3607,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		if (pim && pim->autorp) {
 			pim->autorp->send_rp_discovery = yang_dnode_get_bool(args->dnode, NULL);
@@ -3635,7 +3635,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		if (pim && pim->autorp)
 			pim->autorp->discovery_scope = yang_dnode_get_uint8(args->dnode, NULL);
@@ -3662,7 +3662,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		if (pim && pim->autorp)
 			pim->autorp->discovery_interval = yang_dnode_get_uint16(args->dnode, NULL);
@@ -3689,7 +3689,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		if (pim && pim->autorp)
 			pim->autorp->discovery_holdtime = yang_dnode_get_uint16(args->dnode, NULL);
@@ -3732,7 +3732,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 		break;
 	case NB_EV_APPLY:
 		mapping_agent_node = yang_dnode_get_parent(args->dnode, "mapping-agent");
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		if (pim && pim->autorp)
 			return pim_autorp_mapping_agent_addrsel(pim->autorp, mapping_agent_node,
@@ -3758,7 +3758,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 		break;
 	case NB_EV_APPLY:
 		mapping_agent_node = yang_dnode_get_parent(args->dnode, "mapping-agent");
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		if (pim && pim->autorp)
 			return pim_autorp_mapping_agent_addrsel(pim->autorp, mapping_agent_node,
@@ -3781,7 +3781,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		if (pim && pim->autorp)
 			pim->autorp->mapping_agent_addrsel.cfg_enable = false;
@@ -3815,7 +3815,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ca
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		scope = &pim->global_scope;
 
@@ -3843,7 +3843,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ca
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		scope = &pim->global_scope;
 
@@ -3869,7 +3869,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ca
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		scope = &pim->global_scope;
 
@@ -3899,7 +3899,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ca
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		scope = &pim->global_scope;
 
@@ -3924,7 +3924,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ca
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		scope = &pim->global_scope;
 
@@ -3961,7 +3961,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ca
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		scope = &pim->global_scope;
 
@@ -3992,7 +3992,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ca
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		scope = &pim->global_scope;
 
@@ -4018,7 +4018,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ca
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		scope = &pim->global_scope;
 
@@ -4044,7 +4044,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ca
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		scope = &pim->global_scope;
 
@@ -4078,7 +4078,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ca
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		scope = &pim->global_scope;
 
@@ -4103,7 +4103,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ca
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pim = vrf->info;
 		scope = &pim->global_scope;
 
@@ -4129,7 +4129,7 @@ static int candidate_rp_addrsel_common(enum nb_event event,
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(dnode, NULL, true);
+		vrf = nb_running_entry(dnode);
 		pim = vrf->info;
 		scope = &pim->global_scope;
 
@@ -4184,7 +4184,7 @@ int lib_interface_gmp_address_family_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		pim_gm_interface_delete(ifp);
 	}
 
@@ -4222,7 +4222,7 @@ int lib_interface_gmp_address_family_enable_modify(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		gm_enable = yang_dnode_get_bool(args->dnode, NULL);
 
 		if (gm_enable)
@@ -4250,7 +4250,7 @@ int lib_interface_gmp_address_family_igmp_version_modify(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		pim_ifp = ifp->info;
 
 		if (!pim_ifp)
@@ -4284,7 +4284,7 @@ int lib_interface_gmp_address_family_igmp_version_destroy(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		pim_ifp = ifp->info;
 		pim_ifp->igmp_version = IGMP_DEFAULT_VERSION;
 		break;
@@ -4308,7 +4308,7 @@ int lib_interface_gmp_address_family_mld_version_modify(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		pim_ifp = ifp->info;
 		if (!pim_ifp)
 			return NB_ERR_INCONSISTENCY;
@@ -4333,7 +4333,7 @@ int lib_interface_gmp_address_family_mld_version_destroy(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		pim_ifp = ifp->info;
 		if (!pim_ifp)
 			return NB_ERR_INCONSISTENCY;
@@ -4362,7 +4362,7 @@ int lib_interface_gmp_address_family_query_interval_modify(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		query_interval = yang_dnode_get_uint16(args->dnode, NULL);
 		change_query_interval(ifp->info, query_interval);
 	}
@@ -4375,7 +4375,7 @@ int lib_interface_gmp_address_family_query_interval_modify(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		pim_ifp = ifp->info;
 		if (!pim_ifp)
 			return NB_ERR_INCONSISTENCY;
@@ -4403,7 +4403,7 @@ int lib_interface_gmp_address_family_query_max_response_time_modify(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		query_max_response_time_dsec =
 			yang_dnode_get_uint16(args->dnode, NULL);
 		change_query_max_response_time(ifp,
@@ -4429,7 +4429,7 @@ int lib_interface_gmp_address_family_last_member_query_interval_modify(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		pim_ifp = ifp->info;
 		last_member_query_interval =
 			yang_dnode_get_uint16(args->dnode, NULL);
@@ -4469,7 +4469,7 @@ int lib_interface_gm_max_groups_modify(struct nb_cb_modify_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		pim_ifp = ifp->info;
 		pim_ifp->gm_group_limit = yang_dnode_get_uint32(args->dnode, NULL);
 		break;
@@ -4502,7 +4502,7 @@ int lib_interface_gm_max_sources_modify(struct nb_cb_modify_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		pim_ifp = ifp->info;
 		pim_ifp->gm_source_limit = yang_dnode_get_uint32(args->dnode, NULL);
 		break;
@@ -4527,7 +4527,7 @@ int lib_interface_gmp_address_family_robustness_variable_modify(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		pim_ifp = ifp->info;
 		last_member_query_count =
 			yang_dnode_get_uint8(args->dnode, NULL);
@@ -4555,7 +4555,7 @@ int lib_interface_gmp_immediate_leave_modify(struct nb_cb_modify_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		pim_ifp = ifp->info;
 		pim_ifp->gmp_immediate_leave = yang_dnode_get_bool(args->dnode, NULL);
 		break;
@@ -4578,7 +4578,7 @@ int lib_interface_gmp_address_family_proxy_modify(struct nb_cb_modify_args *args
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		pim_ifp = ifp->info;
 		if (pim_ifp) {
 			pim_ifp->gm_proxy = yang_dnode_get_bool(args->dnode,
@@ -4638,7 +4638,7 @@ int lib_interface_gmp_address_family_join_group_create(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		yang_dnode_get_pimaddr(&source_addr, args->dnode,
 				       "./source-addr");
 		yang_dnode_get_pimaddr(&group_addr, args->dnode,
@@ -4668,7 +4668,7 @@ int lib_interface_gmp_address_family_join_group_destroy(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		yang_dnode_get_pimaddr(&source_addr, args->dnode,
 				       "./source-addr");
 		yang_dnode_get_pimaddr(&group_addr, args->dnode,
@@ -4733,7 +4733,7 @@ int lib_interface_gmp_address_family_static_group_create(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		yang_dnode_get_pimaddr(&source_addr, args->dnode,
 				       "./source-addr");
 		yang_dnode_get_pimaddr(&group_addr, args->dnode, "./group-addr");
@@ -4761,7 +4761,7 @@ int lib_interface_gmp_address_family_static_group_destroy(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		yang_dnode_get_pimaddr(&source_addr, args->dnode,
 				       "./source-addr");
 		yang_dnode_get_pimaddr(&group_addr, args->dnode, "./group-addr");

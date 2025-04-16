@@ -129,7 +129,7 @@ static int lib_prefix_list_entry_prefix_length_greater_or_equal_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ple = nb_running_get_entry(args->dnode, NULL, true);
+	ple = nb_running_entry(args->dnode);
 
 	/* Start prefix entry update procedure. */
 	prefix_list_entry_update_start(ple);
@@ -147,7 +147,7 @@ static int lib_prefix_list_entry_prefix_length_lesser_or_equal_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ple = nb_running_get_entry(args->dnode, NULL, true);
+	ple = nb_running_entry(args->dnode);
 
 	/* Start prefix entry update procedure. */
 	prefix_list_entry_update_start(ple);
@@ -165,7 +165,7 @@ static int lib_prefix_list_entry_prefix_length_greater_or_equal_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ple = nb_running_get_entry(args->dnode, NULL, true);
+	ple = nb_running_entry(args->dnode);
 
 	/* Start prefix entry update procedure. */
 	prefix_list_entry_update_start(ple);
@@ -183,7 +183,7 @@ static int lib_prefix_list_entry_prefix_length_lesser_or_equal_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ple = nb_running_get_entry(args->dnode, NULL, true);
+	ple = nb_running_entry(args->dnode);
 
 	/* Start prefix entry update procedure. */
 	prefix_list_entry_update_start(ple);
@@ -483,7 +483,7 @@ static int lib_access_list_remark_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	acl = nb_running_get_entry(args->dnode, NULL, true);
+	acl = nb_running_entry(args->dnode);
 	if (acl->remark)
 		XFREE(MTYPE_TMP, acl->remark);
 
@@ -501,7 +501,7 @@ lib_access_list_remark_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	acl = nb_running_get_entry(args->dnode, NULL, true);
+	acl = nb_running_entry(args->dnode);
 	if (acl->remark)
 		XFREE(MTYPE_TMP, acl->remark);
 
@@ -523,7 +523,7 @@ static int lib_access_list_entry_create(struct nb_cb_create_args *args)
 	f = filter_new();
 	f->seq = yang_dnode_get_uint32(args->dnode, "sequence");
 
-	acl = nb_running_get_entry(args->dnode, NULL, true);
+	acl = nb_running_entry(args->dnode);
 	f->acl = acl;
 	access_list_filter_add(acl, f);
 	nb_running_set_entry(args->dnode, f);
@@ -551,7 +551,7 @@ lib_access_list_entry_apply_finish(struct nb_cb_apply_finish_args *args)
 {
 	struct filter *f;
 
-	f = nb_running_get_entry(args->dnode, NULL, true);
+	f = nb_running_entry(args->dnode);
 	access_list_filter_update(f->acl);
 }
 
@@ -567,7 +567,7 @@ lib_access_list_entry_action_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	f = nb_running_get_entry(args->dnode, NULL, true);
+	f = nb_running_entry(args->dnode);
 	filter_type = yang_dnode_get_string(args->dnode, NULL);
 	if (strcmp(filter_type, "permit") == 0)
 		f->type = FILTER_PERMIT;
@@ -602,7 +602,7 @@ lib_access_list_entry_ipv4_prefix_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	f = nb_running_get_entry(args->dnode, NULL, true);
+	f = nb_running_entry(args->dnode);
 	f->cisco = 0;
 	fz = &f->u.zfilter;
 	yang_dnode_get_prefix(&fz->prefix, args->dnode, NULL);
@@ -619,7 +619,7 @@ lib_access_list_entry_ipv4_prefix_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	f = nb_running_get_entry(args->dnode, NULL, true);
+	f = nb_running_entry(args->dnode);
 	fz = &f->u.zfilter;
 	memset(&fz->prefix, 0, sizeof(fz->prefix));
 
@@ -651,7 +651,7 @@ lib_access_list_entry_ipv4_exact_match_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	f = nb_running_get_entry(args->dnode, NULL, true);
+	f = nb_running_entry(args->dnode);
 	fz = &f->u.zfilter;
 	fz->exact = yang_dnode_get_bool(args->dnode, NULL);
 
@@ -667,7 +667,7 @@ lib_access_list_entry_ipv4_exact_match_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	f = nb_running_get_entry(args->dnode, NULL, true);
+	f = nb_running_entry(args->dnode);
 	fz = &f->u.zfilter;
 	fz->exact = 0;
 
@@ -697,7 +697,7 @@ lib_access_list_entry_host_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	f = nb_running_get_entry(args->dnode, NULL, true);
+	f = nb_running_entry(args->dnode);
 	f->cisco = 1;
 	fc = &f->u.cfilter;
 	yang_dnode_get_ipv4(&fc->addr, args->dnode, NULL);
@@ -715,7 +715,7 @@ lib_access_list_entry_host_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	f = nb_running_get_entry(args->dnode, NULL, true);
+	f = nb_running_entry(args->dnode);
 	fc = &f->u.cfilter;
 	cisco_unset_addr_mask(&fc->addr, &fc->addr_mask);
 
@@ -739,7 +739,7 @@ static int lib_access_list_entry_network_destroy(struct nb_cb_destroy_args *args
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	f = nb_running_get_entry(args->dnode, NULL, true);
+	f = nb_running_entry(args->dnode);
 	fc = &f->u.cfilter;
 	cisco_unset_addr_mask(&fc->addr, &fc->addr_mask);
 
@@ -769,7 +769,7 @@ lib_access_list_entry_network_address_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	f = nb_running_get_entry(args->dnode, NULL, true);
+	f = nb_running_entry(args->dnode);
 	f->cisco = 1;
 	fc = &f->u.cfilter;
 	yang_dnode_get_ipv4(&fc->addr, args->dnode, NULL);
@@ -800,7 +800,7 @@ lib_access_list_entry_network_mask_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	f = nb_running_get_entry(args->dnode, NULL, true);
+	f = nb_running_entry(args->dnode);
 	f->cisco = 1;
 	fc = &f->u.cfilter;
 	yang_dnode_get_ipv4(&fc->addr_mask, args->dnode, NULL);
@@ -831,7 +831,7 @@ lib_access_list_entry_source_any_create(struct nb_cb_create_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	f = nb_running_get_entry(args->dnode, NULL, true);
+	f = nb_running_entry(args->dnode);
 	f->cisco = 1;
 	fc = &f->u.cfilter;
 	fc->addr.s_addr = INADDR_ANY;
@@ -849,7 +849,7 @@ lib_access_list_entry_source_any_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	f = nb_running_get_entry(args->dnode, NULL, true);
+	f = nb_running_entry(args->dnode);
 	fc = &f->u.cfilter;
 	cisco_unset_addr_mask(&fc->addr, &fc->addr_mask);
 
@@ -879,7 +879,7 @@ static int lib_access_list_entry_destination_host_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	f = nb_running_get_entry(args->dnode, NULL, true);
+	f = nb_running_entry(args->dnode);
 	fc = &f->u.cfilter;
 	fc->extended = 1;
 	yang_dnode_get_ipv4(&fc->mask, args->dnode, NULL);
@@ -897,7 +897,7 @@ static int lib_access_list_entry_destination_host_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	f = nb_running_get_entry(args->dnode, NULL, true);
+	f = nb_running_entry(args->dnode);
 	fc = &f->u.cfilter;
 	fc->extended = 0;
 	cisco_unset_addr_mask(&fc->mask, &fc->mask_mask);
@@ -924,7 +924,7 @@ static int lib_access_list_entry_destination_network_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	f = nb_running_get_entry(args->dnode, NULL, true);
+	f = nb_running_entry(args->dnode);
 	fc = &f->u.cfilter;
 	fc->extended = 0;
 	cisco_unset_addr_mask(&fc->mask, &fc->mask_mask);
@@ -955,7 +955,7 @@ static int lib_access_list_entry_destination_network_address_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	f = nb_running_get_entry(args->dnode, NULL, true);
+	f = nb_running_entry(args->dnode);
 	fc = &f->u.cfilter;
 	fc->extended = 1;
 	yang_dnode_get_ipv4(&fc->mask, args->dnode, NULL);
@@ -986,7 +986,7 @@ static int lib_access_list_entry_destination_network_mask_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	f = nb_running_get_entry(args->dnode, NULL, true);
+	f = nb_running_entry(args->dnode);
 	fc = &f->u.cfilter;
 	fc->extended = 1;
 	yang_dnode_get_ipv4(&fc->mask_mask, args->dnode, NULL);
@@ -1017,7 +1017,7 @@ static int lib_access_list_entry_destination_any_create(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	f = nb_running_get_entry(args->dnode, NULL, true);
+	f = nb_running_entry(args->dnode);
 	fc = &f->u.cfilter;
 	fc->extended = 1;
 	fc->mask.s_addr = INADDR_ANY;
@@ -1035,7 +1035,7 @@ static int lib_access_list_entry_destination_any_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	f = nb_running_get_entry(args->dnode, NULL, true);
+	f = nb_running_entry(args->dnode);
 	fc = &f->u.cfilter;
 	fc->extended = 0;
 	cisco_unset_addr_mask(&fc->mask, &fc->mask_mask);
@@ -1068,7 +1068,7 @@ static int lib_access_list_entry_any_create(struct nb_cb_create_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	f = nb_running_get_entry(args->dnode, NULL, true);
+	f = nb_running_entry(args->dnode);
 	f->cisco = 0;
 	fz = &f->u.zfilter;
 	memset(&fz->prefix, 0, sizeof(fz->prefix));
@@ -1097,7 +1097,7 @@ static int lib_access_list_entry_any_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	f = nb_running_get_entry(args->dnode, NULL, true);
+	f = nb_running_entry(args->dnode);
 	fz = &f->u.zfilter;
 	fz->prefix.family = AF_UNSPEC;
 
@@ -1156,7 +1156,7 @@ static int lib_prefix_list_remark_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	pl = nb_running_get_entry(args->dnode, NULL, true);
+	pl = nb_running_entry(args->dnode);
 	if (pl->desc)
 		XFREE(MTYPE_TMP, pl->desc);
 
@@ -1173,7 +1173,7 @@ static int lib_prefix_list_remark_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	pl = nb_running_get_entry(args->dnode, NULL, true);
+	pl = nb_running_entry(args->dnode);
 	if (pl->desc)
 		XFREE(MTYPE_TMP, pl->desc);
 
@@ -1191,7 +1191,7 @@ static int lib_prefix_list_entry_create(struct nb_cb_create_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	pl = nb_running_get_entry(args->dnode, NULL, true);
+	pl = nb_running_entry(args->dnode);
 	ple = prefix_list_entry_new();
 	ple->pl = pl;
 	ple->seq = yang_dnode_get_uint32(args->dnode, "sequence");
@@ -1222,7 +1222,7 @@ lib_prefix_list_entry_apply_finish(struct nb_cb_apply_finish_args *args)
 {
 	struct prefix_list_entry *ple;
 
-	ple = nb_running_get_entry(args->dnode, NULL, true);
+	ple = nb_running_entry(args->dnode);
 
 	/*
 	 * Finish prefix entry update procedure. The procedure is started in
@@ -1244,7 +1244,7 @@ static int lib_prefix_list_entry_action_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ple = nb_running_get_entry(args->dnode, NULL, true);
+	ple = nb_running_entry(args->dnode);
 
 	/* Start prefix entry update procedure. */
 	prefix_list_entry_update_start(ple);
@@ -1266,7 +1266,7 @@ static int lib_prefix_list_entry_prefix_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ple = nb_running_get_entry(args->dnode, NULL, true);
+	ple = nb_running_entry(args->dnode);
 
 	/* Start prefix entry update procedure. */
 	prefix_list_entry_update_start(ple);
@@ -1292,7 +1292,7 @@ static int lib_prefix_list_entry_prefix_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ple = nb_running_get_entry(args->dnode, NULL, true);
+	ple = nb_running_entry(args->dnode);
 
 	/* Start prefix entry update procedure. */
 	prefix_list_entry_update_start(ple);
@@ -1522,7 +1522,7 @@ static int lib_prefix_list_entry_any_create(struct nb_cb_create_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ple = nb_running_get_entry(args->dnode, NULL, true);
+	ple = nb_running_entry(args->dnode);
 
 	/* Start prefix entry update procedure. */
 	prefix_list_entry_update_start(ple);
@@ -1556,7 +1556,7 @@ static int lib_prefix_list_entry_any_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ple = nb_running_get_entry(args->dnode, NULL, true);
+	ple = nb_running_entry(args->dnode);
 
 	/* Start prefix entry update procedure. */
 	prefix_list_entry_update_start(ple);
