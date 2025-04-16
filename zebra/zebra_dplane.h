@@ -1236,6 +1236,9 @@ void dplane_provider_enqueue_out_ctx(struct zebra_dplane_provider *prov,
 /* Enqueue a context directly to zebra main. */
 void dplane_provider_enqueue_to_zebra(struct zebra_dplane_ctx *ctx);
 
+/* Enqueue a context list to zebra main. */
+void dplane_provider_enqueue_ctx_list_to_zebra(struct dplane_ctx_list_head *batch_list);
+
 /* Enable collection of extra info about interfaces in route updates;
  * this allows a provider/plugin to see some extra info in route update
  * context objects.
