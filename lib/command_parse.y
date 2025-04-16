@@ -166,6 +166,14 @@
   ctx->docstr_start = ctx->docstr;
 }
 
+%{
+#ifdef __clang__
+# if __clang_major__ > 12
+#  pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+# endif
+#endif
+%}
+
 %%
 
 start:
