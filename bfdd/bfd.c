@@ -2860,7 +2860,7 @@ void sbfd_reflector_free(const uint32_t discr)
 	return;
 }
 
-void sbfd_reflector_flush()
+void sbfd_reflector_flush(void)
 {
 	sbfd_discr_iterate(_sbfd_reflector_free, NULL);
 	return;
