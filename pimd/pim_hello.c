@@ -112,7 +112,7 @@ int pim_hello_recv(struct interface *ifp, pim_addr src_addr, uint8_t *tlv_buf,
 	pim_ifp = ifp->info;
 	assert(pim_ifp);
 
-	if (pim_ifp->pim_passive_enable) {
+	if (pim_ifp->pim_mode == PIM_MODE_PASSIVE) {
 		if (PIM_DEBUG_PIM_PACKETS)
 			zlog_debug(
 				"skip receiving PIM message on passive interface %s",

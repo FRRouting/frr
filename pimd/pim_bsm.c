@@ -812,7 +812,7 @@ static bool pim_bsm_send_intf(uint8_t *buf, int len, struct interface *ifp,
 		return false;
 	}
 
-	if (!pim_ifp->pim_passive_enable)
+	if ((pim_ifp->pim_mode != PIM_MODE_PASSIVE))
 		pim_ifp->pim_ifstat_bsm_tx++;
 
 	pim_ifp->pim->bsm_sent++;
@@ -1404,7 +1404,7 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 		return -1;
 	}
 
-	if (pim_ifp->pim_passive_enable) {
+	if ((pim_ifp->pim_mode == PIM_MODE_PASSIVE)) {
 		if (PIM_DEBUG_PIM_PACKETS)
 			zlog_debug(
 				"skip receiving PIM message on passive interface %s",

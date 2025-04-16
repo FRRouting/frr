@@ -55,18 +55,28 @@ struct pim_secondary_addr {
 	enum pim_secondary_addr_flags flags;
 };
 
+enum pim_iface_mode {
+	PIM_MODE_SPARSE,
+	PIM_MODE_DENSE,
+	PIM_MODE_SPARSE_DENSE,
+	PIM_MODE_PASSIVE
+};
+
+#define HAVE_DENSE_MODE(_mode)	(_mode == PIM_MODE_DENSE || _mode == PIM_MODE_SPARSE_DENSE)
+#define HAVE_SPARSE_MODE(_mode) (_mode == PIM_MODE_SPARSE || _mode == PIM_MODE_SPARSE_DENSE)
+
 struct gm_if;
 
 struct pim_interface {
 	bool pim_enable : 1;
 	bool pim_can_disable_join_suppression : 1;
-	bool pim_passive_enable : 1;
 
 	bool gm_enable : 1;
 	bool gm_proxy : 1; /* proxy IGMP joins/prunes */
 
 	ifindex_t mroute_vif_index;
 	struct pim_instance *pim;
+	enum pim_iface_mode pim_mode;
 
 #if PIM_IPV == 6
 	/* link-locals: MLD uses lowest addr, PIM uses highest... */
@@ -158,6 +168,7 @@ struct pim_interface {
 	uint32_t pim_ifstat_join_recv;
 	uint32_t pim_ifstat_join_send;
 	uint32_t pim_ifstat_prune_recv;
+	uint32_t pim_ifstat_graft_recv;
 	uint32_t pim_ifstat_prune_send;
 	uint32_t pim_ifstat_reg_recv;
 	uint32_t pim_ifstat_reg_send;
@@ -262,5 +273,7 @@ int pim_if_ifchannel_count(struct pim_interface *pim_ifp);
 void pim_iface_init(void);
 void pim_pim_interface_delete(struct interface *ifp);
 void pim_gm_interface_delete(struct interface *ifp);
+
+char *pim_mod_str(enum pim_iface_mode mode, char *buf, size_t size);
 
 #endif /* PIM_IFACE_H */

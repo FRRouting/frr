@@ -20,6 +20,7 @@
 
 #include "pimd.h"
 #include "pim6_cmd.h"
+#include "pim_iface.h"
 #include "pim_cmd_common.h"
 #include "pim_vty.h"
 #include "lib/northbound_cli.h"
@@ -28,7 +29,6 @@
 #include "pim_addr.h"
 #include "pim_nht.h"
 #include "pim_bsm.h"
-#include "pim_iface.h"
 #include "pim_zebra.h"
 #include "pim_instance.h"
 
@@ -804,36 +804,46 @@ DEFPY_ATTR(no_ipv6_pim_register_suppress,
 
 DEFPY (interface_ipv6_pim,
        interface_ipv6_pim_cmd,
-       "ipv6 pim [passive$passive]",
+       "[no] ipv6 pim [sm|ssm$ssm|dm$dm|sm-dm$smdm|passive$passive]",
+       NO_STR
        IPV6_STR
        PIM_STR
+       IFACE_PIM_SM_STR
+       IFACE_PIM_STR
+       IFACE_PIM_DM_STR
+       IFACE_PIM_SMDM_STR
        "Disable exchange of protocol packets\n")
 {
 	int ret;
+	enum pim_iface_mode mode;
+
+	if (no) {
+		if (passive)
+			return pim_process_ip_pim_mode_cmd(vty, PIM_MODE_SPARSE);
+
+		return pim_process_no_ip_pim_cmd(vty);
+	}
 
 	ret = pim_process_ip_pim_cmd(vty);
 
 	if (ret != NB_OK)
 		return ret;
 
-	if (passive)
-		return pim_process_ip_pim_passive_cmd(vty, true);
+	if (dm)
+		mode = PIM_MODE_DENSE;
+	else if (smdm)
+		mode = PIM_MODE_SPARSE_DENSE;
+	else if (passive)
+		mode = PIM_MODE_PASSIVE;
+	else if (ssm) {
+		mode = PIM_MODE_PASSIVE;
+		vty_out(vty,
+			"WARN: Enabled PIM SM on interface; configure PIM SSM range if needed\n");
+	} else
+		mode = PIM_MODE_SPARSE;
 
-	return CMD_SUCCESS;
-}
 
-DEFPY (interface_no_ipv6_pim,
-       interface_no_ipv6_pim_cmd,
-       "no ipv6 pim [passive$passive]",
-       NO_STR
-       IPV6_STR
-       PIM_STR
-       "Disable exchange of protocol packets\n")
-{
-	if (passive)
-		return pim_process_ip_pim_passive_cmd(vty, false);
-
-	return pim_process_no_ip_pim_cmd(vty);
+	return pim_process_ip_pim_mode_cmd(vty, mode);
 }
 
 DEFPY (interface_ipv6_pim_drprio,
@@ -893,58 +903,6 @@ DEFPY (interface_ipv6_pim_activeactive,
        "Mark interface as Active-Active for MLAG operations\n")
 {
 	return pim_process_ip_pim_activeactive_cmd(vty, no);
-}
-
-DEFPY_HIDDEN (interface_ipv6_pim_ssm,
-              interface_ipv6_pim_ssm_cmd,
-              "ipv6 pim ssm",
-              IPV6_STR
-              PIM_STR
-              IFACE_PIM_STR)
-{
-	int ret;
-
-	ret = pim_process_ip_pim_cmd(vty);
-
-	if (ret != NB_OK)
-		return ret;
-
-	vty_out(vty,
-		"Enabled PIM SM on interface; configure PIM SSM range if needed\n");
-
-	return NB_OK;
-}
-
-DEFPY_HIDDEN (interface_no_ipv6_pim_ssm,
-              interface_no_ipv6_pim_ssm_cmd,
-              "no ipv6 pim ssm",
-              NO_STR
-              IPV6_STR
-              PIM_STR
-              IFACE_PIM_STR)
-{
-	return pim_process_no_ip_pim_cmd(vty);
-}
-
-DEFPY_HIDDEN (interface_ipv6_pim_sm,
-	      interface_ipv6_pim_sm_cmd,
-	      "ipv6 pim sm",
-	      IPV6_STR
-	      PIM_STR
-	      IFACE_PIM_SM_STR)
-{
-	return pim_process_ip_pim_cmd(vty);
-}
-
-DEFPY_HIDDEN (interface_no_ipv6_pim_sm,
-	      interface_no_ipv6_pim_sm_cmd,
-	      "no ipv6 pim sm",
-	      NO_STR
-	      IPV6_STR
-	      PIM_STR
-	      IFACE_PIM_SM_STR)
-{
-	return pim_process_no_ip_pim_cmd(vty);
 }
 
 /* boundaries */
@@ -2969,16 +2927,11 @@ void pim_cmd_init(void)
 	install_element(VRF_NODE, &no_ipv6_mld_group_watermark_cmd);
 
 	install_element(INTERFACE_NODE, &interface_ipv6_pim_cmd);
-	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_pim_drprio_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_drprio_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_pim_hello_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_hello_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_pim_activeactive_cmd);
-	install_element(INTERFACE_NODE, &interface_ipv6_pim_ssm_cmd);
-	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_ssm_cmd);
-	install_element(INTERFACE_NODE, &interface_ipv6_pim_sm_cmd);
-	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_sm_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_pim_boundary_oil_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_boundary_oil_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mroute_cmd);

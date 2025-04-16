@@ -291,7 +291,7 @@ int pim_assert_recv(struct interface *ifp, struct pim_neighbor *neigh,
 	pim_ifp = ifp->info;
 	assert(pim_ifp);
 
-	if (pim_ifp->pim_passive_enable) {
+	if (pim_ifp->pim_mode == PIM_MODE_PASSIVE) {
 		if (PIM_DEBUG_PIM_PACKETS)
 			zlog_debug(
 				"skip receiving PIM message on passive interface %s",
@@ -456,7 +456,7 @@ static int pim_assert_do(struct pim_ifchannel *ch,
 			   metric.metric_preference, metric.route_metric,
 			   PIM_FORCE_BOOLEAN(metric.rpt_bit_flag));
 	}
-	if (!pim_ifp->pim_passive_enable)
+	if (pim_ifp->pim_mode != PIM_MODE_PASSIVE)
 		++pim_ifp->pim_ifstat_assert_send;
 
 	if (pim_msg_send(pim_ifp->pim_sock_fd, pim_ifp->primary_address,
