@@ -168,20 +168,6 @@ eigrpd_instance_passive_interface_create(struct nb_cb_create_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		eigrp = nb_running_get_entry(args->dnode, NULL, false);
-		if (eigrp == NULL) {
-			/*
-			 * XXX: we can't verify if the interface exists
-			 * and is active until EIGRP is up.
-			 */
-			break;
-		}
-
-		ifname = yang_dnode_get_string(args->dnode, NULL);
-		eif = eigrp_interface_lookup(eigrp, ifname);
-		if (eif == NULL)
-			return NB_ERR_INCONSISTENCY;
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		/* NOTHING */
@@ -594,26 +580,13 @@ eigrpd_instance_metric_weights_K6_destroy(struct nb_cb_destroy_args *args)
  */
 static int eigrpd_instance_network_create(struct nb_cb_create_args *args)
 {
-	struct route_node *rnode;
 	struct prefix prefix;
 	struct eigrp *eigrp;
-	int exists;
 
 	yang_dnode_get_ipv4p(&prefix, args->dnode, NULL);
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		eigrp = nb_running_get_entry(args->dnode, NULL, false);
-		/* If entry doesn't exist it means the list is empty. */
-		if (eigrp == NULL)
-			break;
-
-		rnode = route_node_get(eigrp->networks, &prefix);
-		exists = (rnode->info != NULL);
-		route_unlock_node(rnode);
-		if (exists)
-			return NB_ERR_INCONSISTENCY;
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		/* NOTHING */
@@ -630,26 +603,13 @@ static int eigrpd_instance_network_create(struct nb_cb_create_args *args)
 
 static int eigrpd_instance_network_destroy(struct nb_cb_destroy_args *args)
 {
-	struct route_node *rnode;
 	struct prefix prefix;
 	struct eigrp *eigrp;
-	int exists = 0;
 
 	yang_dnode_get_ipv4p(&prefix, args->dnode, NULL);
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		eigrp = nb_running_get_entry(args->dnode, NULL, false);
-		/* If entry doesn't exist it means the list is empty. */
-		if (eigrp == NULL)
-			break;
-
-		rnode = route_node_get(eigrp->networks, &prefix);
-		exists = (rnode->info != NULL);
-		route_unlock_node(rnode);
-		if (exists == 0)
-			return NB_ERR_INCONSISTENCY;
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		/* NOTHING */
@@ -940,19 +900,6 @@ static int lib_interface_eigrp_delay_modify(struct nb_cb_modify_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		ifp = nb_running_get_entry(args->dnode, NULL, false);
-		if (ifp == NULL) {
-			/*
-			 * XXX: we can't verify if the interface exists
-			 * and is active until EIGRP is up.
-			 */
-			break;
-		}
-
-		ei = ifp->info;
-		if (ei == NULL)
-			return NB_ERR_INCONSISTENCY;
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		/* NOTHING */
@@ -981,19 +928,6 @@ static int lib_interface_eigrp_bandwidth_modify(struct nb_cb_modify_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		ifp = nb_running_get_entry(args->dnode, NULL, false);
-		if (ifp == NULL) {
-			/*
-			 * XXX: we can't verify if the interface exists
-			 * and is active until EIGRP is up.
-			 */
-			break;
-		}
-
-		ei = ifp->info;
-		if (ei == NULL)
-			return NB_ERR_INCONSISTENCY;
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		/* NOTHING */
@@ -1023,19 +957,6 @@ lib_interface_eigrp_hello_interval_modify(struct nb_cb_modify_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		ifp = nb_running_get_entry(args->dnode, NULL, false);
-		if (ifp == NULL) {
-			/*
-			 * XXX: we can't verify if the interface exists
-			 * and is active until EIGRP is up.
-			 */
-			break;
-		}
-
-		ei = ifp->info;
-		if (ei == NULL)
-			return NB_ERR_INCONSISTENCY;
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		/* NOTHING */
@@ -1063,19 +984,6 @@ static int lib_interface_eigrp_hold_time_modify(struct nb_cb_modify_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		ifp = nb_running_get_entry(args->dnode, NULL, false);
-		if (ifp == NULL) {
-			/*
-			 * XXX: we can't verify if the interface exists
-			 * and is active until EIGRP is up.
-			 */
-			break;
-		}
-
-		ei = ifp->info;
-		if (ei == NULL)
-			return NB_ERR_INCONSISTENCY;
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		/* NOTHING */
@@ -1126,21 +1034,6 @@ static int lib_interface_eigrp_instance_create(struct nb_cb_create_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		ifp = nb_running_get_entry(args->dnode, NULL, false);
-		if (ifp == NULL) {
-			/*
-			 * XXX: we can't verify if the interface exists
-			 * and is active until EIGRP is up.
-			 */
-			break;
-		}
-
-		eigrp = eigrp_get(yang_dnode_get_uint16(args->dnode, "asn"),
-				  ifp->vrf->vrf_id);
-		eif = eigrp_interface_lookup(eigrp, ifp->name);
-		if (eif == NULL)
-			return NB_ERR_INCONSISTENCY;
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		/* NOTHING */
