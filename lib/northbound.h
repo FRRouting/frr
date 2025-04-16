@@ -1719,6 +1719,18 @@ extern void *nb_running_unset_entry(const struct lyd_node *dnode);
 extern void *nb_running_get_entry(const struct lyd_node *dnode,
 				  const char *xpath, bool abort_if_not_found);
 
+/* Get user pointer (*running* config) for a configuration node.
+ *
+ * dnode
+ *    libyang data node (note the pointers are stored in a hash table with the
+ *    node's XPath as key).  Must be non-null.
+ *
+ * Returns:
+ *    User pointer.  Asserts if that would be NULL, i.e. never returns NULL.
+ */
+extern void *nb_running_entry(const struct lyd_node *dnode)
+	__attribute__((nonnull(1), returns_nonnull));
+
 /*
  * Same as 'nb_running_get_entry', but doesn't search within parent nodes
  * recursively if an user point is not found.
