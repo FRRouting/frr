@@ -3,6 +3,11 @@
 /* some of this stuff doesn't seem to parse properly in coccinelle
  */
 
+#define PRINTFRR(x, y)
+
+#define RB_ENTRY(x)	struct rb_entry
+#define TAILQ_ENTRY(x)	struct { struct x *tqe_next; struct x **tqe_prev; }
+
 #define DEFUN(funcname, cmdname, str, help)                                    \
 	static int funcname(const struct cmd_element *self, struct vty *vty,   \
 			    int argc, struct cmd_token *argv[])
