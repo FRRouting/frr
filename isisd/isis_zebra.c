@@ -1549,6 +1549,7 @@ static int isis_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 					isis_zebra_srv6_sid_uninstall(area, sid);
 					listnode_delete(area->srv6db.srv6_sids,
 							sid);
+					isis_srv6_sid_free(sid);
 				}
 
 				/* Allocate new SRv6 End SID */
