@@ -192,6 +192,12 @@ struct route_entry {
 struct meta_queue {
 	struct list *subq[MQ_SIZE];
 	uint32_t size; /* sum of lengths of all subqueues */
+	_Atomic uint32_t max_subq[MQ_SIZE];    /* Max size of individual sub queue */
+	_Atomic uint32_t max_metaq;	       /* Max size of the MetaQ */
+	_Atomic uint32_t total_subq[MQ_SIZE];  /* Total subq events */
+	_Atomic uint32_t total_metaq;	       /* Total MetaQ events */
+	_Atomic uint32_t re_subq[MQ_SIZE];     /* current RE count sub queue */
+	_Atomic uint32_t max_re_subq[MQ_SIZE]; /* Max RE in sub queue */
 };
 
 /*
@@ -474,6 +480,7 @@ extern void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq,
 					   bool rt_delete);
 
 extern void rib_update_handle_vrf_all(enum rib_update_event event, int rtype);
+int zebra_show_metaq_counter(struct vty *vty, bool uj);
 
 /*
  * rib_find_rn_from_ctx
