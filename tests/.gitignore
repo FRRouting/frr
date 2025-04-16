@@ -22,6 +22,7 @@ frr_northbound*
 /lib/cli/test_commands
 /lib/cli/test_commands_defun.c
 /lib/northbound/test_oper_data
+/lib/northbound/test_oper_exists
 /lib/cxxcompat
 /lib/fuzz_zlog
 /lib/test_assert
