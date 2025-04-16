@@ -105,6 +105,146 @@ def teardown_module(_mod):
     tgen.stop_topology()
 
 
+def test_v6_rtadv_():
+    tgen = get_topogen()
+
+    # Get the initial interface state and RA interval before making any changes
+    interface_output = tgen.gears["r1"].vtysh_cmd("show interface r1-eth200 json")
+    interface_data = json.loads(interface_output)
+
+    # Check if the interface exists and get its current state
+    interface_section = interface_data.get("r1-eth200", {})
+    if not interface_section:
+        logger.error("Interface r1-eth200 not found. Test cannot continue.")
+        return
+
+    # Get the RA interval
+    ra_interval = interface_section.get("ndRouterAdvertisementsIntervalSecs")
+    if ra_interval is None:
+        # If RA interval isn't found, log a message and exit the test
+        logger.error(
+            "Could not find RA interval (ndRouterAdvertisementsIntervalSecs) in interface configuration. Test cannot continue."
+        )
+        return
+
+    logger.info(f"Using RA interval of {ra_interval} seconds")
+
+    logger.info("Shutdown r1-eth200")
+    tgen.gears["r1"].vtysh_cmd(
+        """
+    configure terminal
+      interface r1-eth200
+        shutdown
+    """
+    )
+
+    # Verify interface is down before proceeding
+    def _check_interface_down():
+        output = tgen.gears["r1"].vtysh_cmd("show interface r1-eth200 json")
+        return True if '"administrativeStatus":"down"' in output else False
+
+    _, result = topotest.run_and_expect(_check_interface_down, True, count=10, wait=15)
+    assert result is True, "Interface r1-eth200 did not go down after shutdown command"
+
+    # Function to get current RA state
+    def _get_ra_state():
+        return tgen.gears["r1"].vtysh_cmd("show interface r1-eth200 json")
+
+    # Take snapshots for RA status when interface is down
+    rtadv_output1 = _get_ra_state()
+
+    # We need to wait for at least ra_interval + buffer time(1 sec) to avoid
+    # situation where any event was delayed or due to any processing delay, the
+    # RA state might get updated later, if we checked early, test
+    # may fail to catch a wrong state, it may indicate false PASS case.
+    logger.info(f"Waiting another {ra_interval + 1} seconds for RA timer...")
+    sleep(ra_interval + 1)
+    rtadv_output2 = _get_ra_state()
+
+    # Verify RA state didn't change when interface is down
+    assert (
+        rtadv_output1 == rtadv_output2
+    ), f"RA state should not have changed when interface is down: got {rtadv_output1}, expected {rtadv_output2}"
+
+    logger.info("Do no shutdown for r1-eth200")
+    tgen.gears["r1"].vtysh_cmd(
+        """
+    configure terminal
+      interface r1-eth200
+        no shutdown
+    """
+    )
+
+    # Verify interface is up before proceeding
+    def _check_interface_up():
+        output = tgen.gears["r1"].vtysh_cmd("show interface r1-eth200 json")
+        return True if '"administrativeStatus":"up"' in output else False
+
+    _, result = topotest.run_and_expect(_check_interface_up, True, count=10, wait=15)
+    assert result is True, "Interface r1-eth200 did not go up after no shutdown command"
+
+    # Take snapshots for RA status when interface is up
+    rtadv_output1 = _get_ra_state()
+
+    # We need to wait for at least ra_interval + buffer time(1 sec) to avoid
+    # situation where any event was delayed or due to any processing delay, the
+    # RA state might get updated later, if we checked early, test
+    # may fail to catch a wrong state, it may indicate false PASS case.
+    logger.info(f"Waiting another {ra_interval + 1} seconds for RA timer...")
+    sleep(ra_interval + 1)
+    rtadv_output2 = _get_ra_state()
+
+    # Verify RA state changed when interface is up
+    assert (
+        rtadv_output1 != rtadv_output2
+    ), f"RA state should have changed when interface is up: got {rtadv_output1}, remained same as {rtadv_output2}"
+
+    logger.info("Remove r1-eth200")
+    existing_config = tgen.gears["r1"].vtysh_cmd("show interface r1-eth200")
+    tgen.gears["r1"].cmd(
+        """
+    sudo ip link set dev r1-eth200 down
+    """
+    )
+
+    # Verify interface is down after ip link set down
+    _, result = topotest.run_and_expect(_check_interface_down, True, count=10, wait=15)
+    assert result is True, "Interface r1-eth200 did not go down after ip link set down"
+
+    # Get current interface state
+    interface_output = tgen.gears["r1"].vtysh_cmd("show interface r1-eth200 json")
+    rtadv_output1 = json.loads(interface_output)
+    sent_count1 = rtadv_output1.get("r1-eth200", {}).get("ndRouterAdvertisementsSent")
+
+    if sent_count1 is not None:
+        # Wait for the RA interval
+        logger.info(f"Waiting {ra_interval + 1} seconds for RA timer...")
+        sleep(ra_interval + 1)
+
+        # Get second output
+        interface_output = tgen.gears["r1"].vtysh_cmd("show interface r1-eth200 json")
+        rtadv_output2 = json.loads(interface_output)
+        sent_count2 = rtadv_output2.get("r1-eth200", {}).get(
+            "ndRouterAdvertisementsSent"
+        )
+
+        # Verify counts are the same
+        if sent_count1 is not None and sent_count2 is not None:
+            assert (
+                sent_count1 == sent_count2
+            ), f"RA count changed from {sent_count1} to {sent_count2} within {ra_interval + 1} seconds"
+
+    tgen.gears["r1"].cmd(
+        """
+    sudo ip link set dev r1-eth200 up
+    """
+    )
+
+    # Verify interface is up after ip link set up
+    _, result = topotest.run_and_expect(_check_interface_up, True, count=10, wait=15)
+    assert result is True, "Interface r1-eth200 did not go up after ip link set up"
+
+
 def test_bgp_route_cleanup():
     failures = 0
     net = get_topogen().net
