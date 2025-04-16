@@ -1562,8 +1562,7 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 		    (buf + PIM_BSM_HDR_LEN + PIM_MSG_HEADER_LEN),
 		    (buf_size - PIM_BSM_HDR_LEN - PIM_MSG_HEADER_LEN),
 		    frag_tag)) {
-		zlog_warn("BSM from %pPA failed to parse",
-			  (pim_addr *)&bshdr->bsr_addr.addr);
+		zlog_warn("BSM from %pPA failed to parse", &bsr_addr);
 		pim->bsm_dropped++;
 		return -1;
 	}
@@ -1802,7 +1801,7 @@ bool cand_addrsel_update(struct cand_addrsel *asel, struct vrf *vrf)
 
 	case CAND_ADDR_ANY:
 		is_any = true;
-		/* fallthru */
+		fallthrough;
 	case CAND_ADDR_LO:
 		FOR_ALL_INTERFACES (vrf, ifp) {
 			if (!if_is_up(ifp))
