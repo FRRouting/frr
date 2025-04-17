@@ -125,14 +125,14 @@ static void sighup(void)
 }
 
 /* SIGINT handler. */
-static void sigint(void)
+static __attribute__((__noreturn__)) void sigint(void)
 {
 	zlog_notice("Terminating on signal SIGINT");
 	ospf6_exit(0);
 }
 
 /* SIGTERM handler. */
-static void sigterm(void)
+static __attribute__((__noreturn__)) void sigterm(void)
 {
 	zlog_notice("Terminating on signal SIGTERM");
 	ospf6_exit(0);
