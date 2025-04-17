@@ -11110,8 +11110,9 @@ static void flap_route_vty_out(struct vty *vty, const struct prefix *p,
 	}
 }
 
-static void route_vty_out_advertised_to(struct vty *vty, struct peer *peer, int *first,
-					const char *header, json_object *json_adv_to)
+static void route_vty_out_advertised_to(struct vty *vty, struct peer *peer,
+					int *first, const char *header,
+					json_object *json_adv_to)
 {
 	json_object *json_peer = NULL;
 
@@ -11127,6 +11128,10 @@ static void route_vty_out_advertised_to(struct vty *vty, struct peer *peer, int 
 		if (peer->hostname)
 			json_object_string_add(json_peer, "hostname",
 					       peer->hostname);
+
+		/* Add peerGroup information when the peer belongs to a group */
+		if (peer->group)
+			json_object_string_add(json_peer, "peerGroup", peer->group->name);
 
 		if (peer->conf_if)
 			json_object_object_add(json_adv_to, peer->conf_if,
