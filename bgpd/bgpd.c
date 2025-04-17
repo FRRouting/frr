@@ -3443,14 +3443,6 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 	return 0;
 }
 
-static void bgp_startup_timer_expire(struct event *thread)
-{
-	struct bgp *bgp;
-
-	bgp = EVENT_ARG(thread);
-	bgp->t_startup = NULL;
-}
-
 /*
  * On shutdown we call the cleanup function which
  * does a free of the link list nodes,  free up
@@ -3626,9 +3618,6 @@ peer_init:
 
 	if (name && !bgp->name)
 		bgp->name = XSTRDUP(MTYPE_BGP_NAME, name);
-
-	event_add_timer(bm->master, bgp_startup_timer_expire, bgp,
-			bgp->restart_time, &bgp->t_startup);
 
 	/* printable name we can use in debug messages */
 	if (inst_type == BGP_INSTANCE_TYPE_DEFAULT && !hidden) {
@@ -4167,7 +4156,6 @@ int bgp_delete(struct bgp *bgp)
 		event_cancel(&bgp->t_revalidate[afi][safi]);
 
 	event_cancel(&bgp->t_condition_check);
-	event_cancel(&bgp->t_startup);
 	event_cancel(&bgp->t_maxmed_onstartup);
 	event_cancel(&bgp->t_update_delay);
 	event_cancel(&bgp->t_establish_wait);
@@ -5194,11 +5182,6 @@ void bgp_shutdown_disable(struct bgp *bgp)
 	/* informational log message */
 	zlog_info("Disabled administrative shutdown on BGP instance AS %u",
 		  bgp->as);
-
-	/* Reactive the startup timer so peers send R-bit. */
-	event_cancel(&bgp->t_startup);
-	event_add_timer(bm->master, bgp_startup_timer_expire, bgp, bgp->restart_time,
-			&bgp->t_startup);
 
 	/* clear the BGP instances shutdown flag */
 	UNSET_FLAG(bgp->flags, BGP_FLAG_SHUTDOWN);

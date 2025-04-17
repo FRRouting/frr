@@ -3567,6 +3567,45 @@ def verify_r_bit(tgen, topo, addr_type, input_dict, dut, peer, expected=True):
                 isjson=True,
             )
 
+            show_bgp_neighbor_1 = run_frr_cmd(
+                rnode,
+                "show bgp {} neighbor {}".format(
+                    addr_type, neighbor_ip
+                ),
+            )
+
+            show_bgp_rtr_r1 = run_frr_cmd(
+                rnode,
+                "show bgp router"
+            )
+
+            logger.info(
+                    "[DUT: {}]: show bgp router o/p"
+                " o/p  {}".format(dut,show_bgp_rtr_r1)
+            )
+
+            for router_peer, rpeer in tgen.routers().items():
+                if router_peer != peer:
+                    continue
+
+                show_bgp_rtr_rpeer = run_frr_cmd(rpeer,
+                "show bgp router")
+
+                logger.info(
+                    "[peer: {}]: show bgp router o/p"
+                " o/p  {}".format(peer,show_bgp_rtr_rpeer)
+                )
+
+            logger.info(
+                    "[DUT: {}]: show bgp {} neighbor {} o/p"
+                " o/p  {}".format(dut,addr_type, neighbor_ip, show_bgp_neighbor_1)
+            )
+
+            logger.info(
+                    "[DUT: {}]: show bgp {} neighbor {} graceful-restart json o/p"
+                " o/p  {}".format(dut,addr_type, neighbor_ip, show_bgp_graceful_json)
+            )
+
             show_bgp_graceful_json_out = show_bgp_graceful_json[neighbor_ip]
 
             if show_bgp_graceful_json_out["neighborAddr"] == neighbor_ip:
