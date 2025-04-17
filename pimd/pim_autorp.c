@@ -306,8 +306,8 @@ static bool autorp_recv_announcement(struct pim_autorp *autorp, uint8_t rpcnt, u
 		/* Ignore RP's limited to PIM version 1 or with an unknown version */
 		if (rp->pimver == AUTORP_PIM_V1 || rp->pimver == AUTORP_PIM_VUNKNOWN) {
 			if (PIM_DEBUG_AUTORP)
-				zlog_debug("%s: Ignoring unsupported PIM version (%u) in AutoRP Announcement for RP %pI4",
-					   __func__, rp->pimver, (in_addr_t *)&(rp->addr));
+				zlog_debug("%s: Ignoring unsupported PIM version (%u) in AutoRP Announcement for RP %pPA",
+					   __func__, rp->pimver, &rp_addr);
 			/* Update the offset to skip past the groups advertised for this RP */
 			offset += (AUTORP_GRPLEN * rp->grpcnt);
 			continue;
@@ -316,14 +316,14 @@ static bool autorp_recv_announcement(struct pim_autorp *autorp, uint8_t rpcnt, u
 		if (rp->grpcnt == 0) {
 			/* No groups?? */
 			if (PIM_DEBUG_AUTORP)
-				zlog_debug("%s: Announcement message has no groups for RP %pI4",
-					   __func__, (in_addr_t *)&(rp->addr));
+				zlog_debug("%s: Announcement message has no groups for RP %pPA",
+					   __func__, &rp_addr);
 			continue;
 		}
 
 		if ((buf_size - offset) < AUTORP_GRPLEN) {
-			zlog_warn("%s: Buffer underrun parsing groups for RP %pI4", __func__,
-				  (in_addr_t *)&(rp->addr));
+			zlog_warn("%s: Buffer underrun parsing groups for RP %pPA", __func__,
+				  &rp_addr);
 			return false;
 		}
 
@@ -794,14 +794,14 @@ static bool autorp_recv_discovery(struct pim_autorp *autorp, uint8_t rpcnt, uint
 		rp_addr.s_addr = rp->addr;
 
 		if (PIM_DEBUG_AUTORP)
-			zlog_debug("%s: Parsing RP %pI4 (grpcnt=%u)", __func__,
-				   (in_addr_t *)&rp->addr, rp->grpcnt);
+			zlog_debug("%s: Parsing RP %pPA (grpcnt=%u)", __func__, &rp_addr,
+				   rp->grpcnt);
 
 		/* Ignore RP's limited to PIM version 1 or with an unknown version */
 		if (rp->pimver == AUTORP_PIM_V1 || rp->pimver == AUTORP_PIM_VUNKNOWN) {
 			if (PIM_DEBUG_AUTORP)
 				zlog_debug("%s: Ignoring unsupported PIM version in AutoRP Discovery for RP %pI4",
-					   __func__, (in_addr_t *)&(rp->addr));
+					   __func__, &rp_addr);
 			/* Update the offset to skip past the groups advertised for this RP */
 			offset += (AUTORP_GRPLEN * rp->grpcnt);
 			continue;
@@ -810,17 +810,16 @@ static bool autorp_recv_discovery(struct pim_autorp *autorp, uint8_t rpcnt, uint
 		if (rp->grpcnt == 0) {
 			/* No groups?? */
 			if (PIM_DEBUG_AUTORP)
-				zlog_debug("%s: Discovery message has no groups for RP %pI4",
-					   __func__, (in_addr_t *)&(rp->addr));
+				zlog_debug("%s: Discovery message has no groups for RP %pPA",
+					   __func__, &rp_addr);
 			continue;
 		}
 
 		/* Make sure there is enough buffer to parse all the groups */
 		if ((buf_size - offset) < (AUTORP_GRPLEN * rp->grpcnt)) {
 			if (PIM_DEBUG_AUTORP)
-				zlog_debug("%s: Buffer underrun parsing groups for RP %pI4 (%u < %u)",
-					   __func__, (in_addr_t *)&(rp->addr),
-					   (uint32_t)(buf_size - offset),
+				zlog_debug("%s: Buffer underrun parsing groups for RP %pPA (%u < %u)",
+					   __func__, &rp_addr, (uint32_t)(buf_size - offset),
 					   (uint32_t)(AUTORP_GRPLEN * rp->grpcnt));
 			return false;
 		}
@@ -838,8 +837,7 @@ static bool autorp_recv_discovery(struct pim_autorp *autorp, uint8_t rpcnt, uint
 
 			if (PIM_DEBUG_AUTORP)
 				zlog_debug("%s: Parsing group %s%pFX for RP %pI4", __func__,
-					   (grp->negprefix ? "!" : ""), &grppfix,
-					   (in_addr_t *)&rp->addr);
+					   (grp->negprefix ? "!" : ""), &grppfix, &rp_addr);
 
 			if (!pim_autorp_add_rp(autorp, rp_addr, grppfix, NULL, holdtime))
 				success = false;
@@ -885,9 +883,9 @@ static bool autorp_recv_discovery(struct pim_autorp *autorp, uint8_t rpcnt, uint
 				prefix_list_entry_update_finish(ple);
 
 				if (PIM_DEBUG_AUTORP)
-					zlog_debug("%s: Parsing group %s%pFX for RP %pI4", __func__,
+					zlog_debug("%s: Parsing group %s%pFX for RP %pPA", __func__,
 						   (grp->negprefix ? "!" : ""), &ple->prefix,
-						   (in_addr_t *)&rp->addr);
+						   &rp_addr);
 			}
 
 			if (!pim_autorp_add_rp(autorp, rp_addr, grppfix, plname, holdtime))
