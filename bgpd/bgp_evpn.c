@@ -8156,10 +8156,12 @@ vni_t bgp_evpn_path_info_get_l3vni(const struct bgp_path_info *pi)
 	if (!pi->extra)
 		return 0;
 
-	return label2vni(
-		bgp_evpn_path_info_labels_get_l3vni(pi->extra->labels->label,
-						    pi->extra->labels
-							    ->num_labels));
+	mpls_label_t *label = bgp_evpn_path_info_labels_get_l3vni(pi->extra->labels->label,
+								  pi->extra->labels->num_labels);
+	if (!label)
+		return 0;
+
+	return label2vni(label);
 }
 
 /*
