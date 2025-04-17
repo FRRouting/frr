@@ -1390,23 +1390,22 @@ static int zl3vni_remote_rmac_add(struct zebra_l3vni *zl3vni,
 
 		/* install rmac in kernel */
 		zl3vni_rmac_install(zl3vni, zrmac);
-	} else if (!IPV4_ADDR_SAME(&zrmac->fwd_info.r_vtep_ip,
-				   &(ipv4_vtep.ipaddr_v4))) {
-		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug(
-				"L3VNI %u Remote VTEP change(%pI4 -> %pIA) for RMAC %pEA",
-				zl3vni->vni, &zrmac->fwd_info.r_vtep_ip,
-				vtep_ip, rmac);
+	} else {
+		if (!IPV4_ADDR_SAME(&zrmac->fwd_info.r_vtep_ip, &(ipv4_vtep.ipaddr_v4))) {
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug("L3VNI %u Remote VTEP change(%pI4 -> %pIA) for RMAC %pEA",
+					   zl3vni->vni, &zrmac->fwd_info.r_vtep_ip, vtep_ip, rmac);
 
-		zrmac->fwd_info.r_vtep_ip = ipv4_vtep.ipaddr_v4;
+			zrmac->fwd_info.r_vtep_ip = ipv4_vtep.ipaddr_v4;
+
+			/* install rmac in kernel */
+			zl3vni_rmac_install(zl3vni, zrmac);
+		}
 
 		vtep = XCALLOC(MTYPE_EVPN_VTEP, sizeof(struct ipaddr));
 		memcpy(vtep, vtep_ip, sizeof(struct ipaddr));
 		if (!listnode_add_sort_nodup(zrmac->nh_list, (void *)vtep))
 			XFREE(MTYPE_EVPN_VTEP, vtep);
-
-		/* install rmac in kernel */
-		zl3vni_rmac_install(zl3vni, zrmac);
 	}
 
 	return 0;
