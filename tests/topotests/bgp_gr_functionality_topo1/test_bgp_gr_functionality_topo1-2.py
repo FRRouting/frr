@@ -113,6 +113,7 @@ from lib.common_config import (
     start_topology,
     kill_router_daemons,
     start_router_daemons,
+    start_router_daemons_gr,
     verify_rib,
     check_address_types,
     write_test_footer,
@@ -359,7 +360,7 @@ def test_BGP_GR_TC_8_p1(request):
     kill_router_daemons(tgen, "r1", ["bgpd"])
 
     logger.info("[Phase 3] : R1 is about to come up now  ")
-    start_router_daemons(tgen, "r1", ["bgpd"])
+    start_router_daemons_gr(tgen, "r1", ["bgpd"])
 
     logger.info("[Phase 4] : R2 is UP now, so time to collect GR stats  ")
 
