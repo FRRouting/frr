@@ -707,6 +707,7 @@ def test_bgp_flowspec_step7():
         "Check Zebra PBR entry {0} for TCP Flags traffic from 1001::2 to 6001::232 counter. OK".format(
             output
         )
+    )
 
     logger.info("Check Ping from  R2(1001::1) to R3(2002::2) after FS discard")
     output = attacker.run("ping6 2002::2 -I 1001::2 -f -c 100")
