@@ -516,8 +516,10 @@ static inline void update_group_remove_peer_afs(struct peer *peer)
 
 	for (afidx = BGP_AF_START; afidx < BGP_AF_MAX; afidx++) {
 		paf = peer->peer_af_array[afidx];
-		if (paf != NULL)
+		if (paf != NULL) {
+			bgp_stop_announce_route_timer(paf);
 			update_subgroup_remove_peer(PAF_SUBGRP(paf), paf);
+		}
 	}
 }
 
