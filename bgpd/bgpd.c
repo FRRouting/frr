@@ -3420,14 +3420,6 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 	return 0;
 }
 
-static void bgp_startup_timer_expire(struct event *thread)
-{
-	struct bgp *bgp;
-
-	bgp = EVENT_ARG(thread);
-	bgp->t_startup = NULL;
-}
-
 /*
  * On shutdown we call the cleanup function which
  * does a free of the link list nodes,  free up
@@ -3605,9 +3597,6 @@ peer_init:
 
 	if (name && !bgp->name)
 		bgp->name = XSTRDUP(MTYPE_BGP_NAME, name);
-
-	event_add_timer(bm->master, bgp_startup_timer_expire, bgp,
-			bgp->restart_time, &bgp->t_startup);
 
 	/* printable name we can use in debug messages */
 	if (inst_type == BGP_INSTANCE_TYPE_DEFAULT && !hidden) {
@@ -4145,7 +4134,6 @@ int bgp_delete(struct bgp *bgp)
 		EVENT_OFF(bgp->t_revalidate[afi][safi]);
 
 	EVENT_OFF(bgp->t_condition_check);
-	EVENT_OFF(bgp->t_startup);
 	EVENT_OFF(bgp->t_maxmed_onstartup);
 	EVENT_OFF(bgp->t_update_delay);
 	EVENT_OFF(bgp->t_establish_wait);
