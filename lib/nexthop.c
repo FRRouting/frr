@@ -1492,6 +1492,11 @@ void nexthop_vty_helper(struct vty *vty, const struct nexthop *nexthop,
 				       sizeof(struct in6_addr));
 			snprintf_seg6_segs(seg_buf, SRV6_SEG_STRLEN, &segs);
 			vty_out(vty, ", seg6 %s", seg_buf);
+			if (nexthop->nh_srv6->seg6_segs->encap_behavior !=
+			    SRV6_HEADEND_BEHAVIOR_H_ENCAPS)
+				vty_out(vty, ", encap behavior %s",
+					srv6_headend_behavior2str(
+						nexthop->nh_srv6->seg6_segs->encap_behavior));
 		}
 	}
 
