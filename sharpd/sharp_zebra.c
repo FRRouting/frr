@@ -542,7 +542,7 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 	api_nhg.resilience = nhg->nhgr;
 
 	for (ALL_NEXTHOPS_PTR(nhg, nh)) {
-		if (api_nhg.nexthop_num >= MULTIPATH_NUM) {
+		if (api_nhg.nexthop_num > MULTIPATH_NUM) {
 			zlog_warn(
 				"%s: number of nexthops greater than max multipath size, truncating",
 				__func__);
@@ -576,7 +576,7 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 
 	if (backup_nhg) {
 		for (ALL_NEXTHOPS_PTR(backup_nhg, nh)) {
-			if (api_nhg.backup_nexthop_num >= MULTIPATH_NUM) {
+			if (api_nhg.backup_nexthop_num > MULTIPATH_NUM) {
 				zlog_warn(
 					"%s: number of backup nexthops greater than max multipath size, truncating",
 					__func__);
