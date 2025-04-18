@@ -1275,8 +1275,8 @@ static int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 		return -1;
 	}
 
-	if (api_nhg->nexthop_num >= MULTIPATH_NUM ||
-	    api_nhg->backup_nexthop_num >= MULTIPATH_NUM) {
+	if (api_nhg->nexthop_num > MULTIPATH_NUM ||
+	    api_nhg->backup_nexthop_num > MULTIPATH_NUM) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
 			 "%s: zapi NHG encode with invalid input", __func__);
 		return -1;
