@@ -332,7 +332,7 @@ void zebra_main_router_started(void)
 	zrouter.rib_sweep_time = 0;
 	zrouter.graceful_restart = zebra_di.graceful_restart;
 	if (!zrouter.graceful_restart)
-		event_add_timer(zrouter.master, rib_sweep_route, NULL, 0, NULL);
+		event_add_timer(zrouter.master, rib_sweep_route, NULL, 0, &zrouter.t_rib_sweep);
 	else {
 		int gr_cleanup_time;
 
