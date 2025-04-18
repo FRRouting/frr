@@ -50,6 +50,9 @@
  * [x] - darr_strlen
  * [x] - darr_strlen_fixup
  * [x] - darr_strnul
+ * [x] - darr_str_search
+ * [x] - darr_str_search_ceil
+ * [x] - darr_str_search_floor
  * [ ] - darr_vsprintf
  */
 
@@ -329,6 +332,8 @@ static void test_string(void)
 	const char **strings = NULL;
 	uint sum = 0;
 	uint i;
+	bool b;
+	int idx;
 
 	i = darr_strlen(da1);
 	assert(i == 0);
@@ -459,6 +464,126 @@ static void test_string(void)
 	*darr_append(strings) = darr_strdup("3");
 	darr_free_free(strings);
 	assert(strings == NULL);
+
+	darr_free_free(strings);
+	assert(strings == NULL);
+
+	add = darr_strdup("5");
+	i = darr_str_search_ceil(strings, add, &b);
+	assert(!b);
+	*darr_insert(strings, i) = add;
+
+	add = darr_strdup("2");
+	i = darr_str_search_ceil(strings, add, &b);
+	assert(!b);
+	*darr_insert(strings, i) = add;
+
+	add = darr_strdup("9");
+	i = darr_str_search_ceil(strings, add, &b);
+	assert(!b);
+	*darr_insert(strings, i) = add;
+
+	add = darr_strdup("3");
+	i = darr_str_search_ceil(strings, add, &b);
+	assert(!b);
+	*darr_insert(strings, i) = add;
+
+	i = darr_str_search_ceil(strings, "0", &b);
+	assert(!b);
+	assert(i == 0);
+	i = darr_str_search_ceil(strings, "1", &b);
+	assert(!b);
+	assert(i == 0);
+	i = darr_str_search_ceil(strings, "2", &b);
+	assert(b);
+	assert(i == 0);
+	i = darr_str_search_ceil(strings, "3", &b);
+	assert(b);
+	assert(i == 1);
+	i = darr_str_search_ceil(strings, "4", &b);
+	assert(!b);
+	assert(i == 2);
+	i = darr_str_search_ceil(strings, "5", &b);
+	assert(b);
+	assert(i == 2);
+	i = darr_str_search_ceil(strings, "6", &b);
+	assert(!b);
+	assert(i == 3);
+	i = darr_str_search_ceil(strings, "7", &b);
+	assert(!b);
+	assert(i == 3);
+	i = darr_str_search_ceil(strings, "8", &b);
+	assert(!b);
+	assert(i == 3);
+	i = darr_str_search_ceil(strings, "9", &b);
+	assert(b);
+	assert(i == 3);
+	i = darr_str_search_ceil(strings, "X", &b);
+	assert(!b);
+	assert(i == 4);
+
+	assert(!strcmp(strings[0], "2"));
+	assert(!strcmp(strings[1], "3"));
+	assert(!strcmp(strings[2], "5"));
+	assert(!strcmp(strings[3], "9"));
+
+	darr_free_free(strings);
+	assert(strings == NULL);
+
+	/* -------------------- */
+	/* Test sorted prefixes */
+	/* -------------------- */
+
+	add = darr_strdup("/foo");
+	i = darr_str_search_ceil(strings, add, &b);
+	assert(!b);
+	*darr_insert(strings, i) = add;
+
+	add = darr_strdup("/bar");
+	i = darr_str_search_ceil(strings, add, &b);
+	assert(!b);
+	*darr_insert(strings, i) = add;
+
+	add = darr_strdup("/abc");
+	i = darr_str_search_ceil(strings, add, &b);
+	assert(!b);
+	*darr_insert(strings, i) = add;
+
+	add = darr_strdup("/xyz/abc");
+	i = darr_str_search_ceil(strings, add, &b);
+	assert(!b);
+	*darr_insert(strings, i) = add;
+
+	add = darr_strdup("/foo/bar");
+	i = darr_str_search_ceil(strings, add, &b);
+	assert(!b);
+	*darr_insert(strings, i) = add;
+
+	i = darr_str_search_ceil(strings, "/abc", &b);
+	assert(i == 0 && b);
+	i = darr_str_search_ceil(strings, "/bar", &b);
+	assert(i == 1 && b);
+	i = darr_str_search_ceil(strings, "/foo", &b);
+	assert(i == 2 && b);
+	i = darr_str_search_ceil(strings, "/foo/bar", &b);
+	assert(i == 3 && b);
+	i = darr_str_search_ceil(strings, "/xyz/abc", &b);
+	assert(i == 4 && b);
+
+	idx = darr_str_search(strings, "/abc");
+	assert(idx == 0);
+	idx = darr_str_search(strings, "/abc/123");
+	assert(idx == -1);
+	idx = darr_str_search(strings, "/xyz");
+	assert(idx == -1);
+	idx = darr_str_search(strings, "/xyz/abc");
+	assert(idx == 4);
+
+	assert(!strcmp(strings[0], "/abc"));
+	assert(!strcmp(strings[1], "/bar"));
+	assert(!strcmp(strings[2], "/foo"));
+	assert(!strcmp(strings[3], "/foo/bar"));
+	assert(!strcmp(strings[4], "/xyz/abc"));
 
 	darr_free_free(strings);
 	assert(strings == NULL);
