@@ -64,6 +64,9 @@
  *  - darr_strlen
  *  - darr_strlen_fixup
  *  - darr_strnul
+ *  - darr_str_search
+ *  - darr_str_search_ceil
+ *  - darr_str_search_floor
  *  - darr_sprintf, darr_vsprintf
  */
 /*
@@ -787,6 +790,63 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
 		darr_in_vsprintf(d, F, A);                                     \
 		d;                                                             \
 	})
+
+/*
+ * darr_search_{floor,ceil}() functions - search for key in sorted arrays
+ */
+typedef int (*darr_search_cmpf)(const void *ep, const void *key);
+extern int darr_strings_cmp(const char **a, const char *key);
+extern int _darr_search(const void *a, size_t esize, const void *key, darr_search_cmpf cmpf);
+extern uint _darr_search_ceil(const void *a, size_t esize, const void *key, bool *equal,
+			      darr_search_cmpf cmpf);
+extern int _darr_search_floor(const void *a, size_t esize, const void *key, bool *equal,
+			      darr_search_cmpf cmpf);
+
+/**
+ * darr_str_search() - Find exact key in array of strings.
+ *
+ * Args:
+ *	A: array of string pointers
+ *	K: key string
+ *
+ * Return:
+ *	The index of the string which matches the key or -1 for no match.
+ */
+#define darr_str_search(A, K)                                                                      \
+	_darr_search((A), _darr_esize(A), (K), (darr_search_cmpf)darr_strings_cmp)
+
+/**
+ * darr_str_search_ceil() - Find least elm greater than or equal to the key
+ *
+ * Args:
+ *	A: array of string pointers
+ *	K: key string
+ *	E: Ptr to bool, set to true if element matching key is found
+ *
+ * Return:
+ *	The index of the least element that is greater than or equal to the @K
+ *	string. @E is set to true if equal otherwise false. The return value can
+ *	be passed directly to darr_insert().
+ */
+#define darr_str_search_ceil(A, K, E)                                                              \
+	_darr_search_ceil((A), _darr_esize(A), (K), (E), (darr_search_cmpf)darr_strings_cmp)
+
+/**
+ * darr_str_search_floor() - Find greatest elm less than or equal to the key
+ *
+ * Args:
+ *	A: array of string pointers
+ *	K: key string
+ *	E: Ptr to bool, set to true if element matching key is found
+ *
+ * Return:
+ *	The index of the greatest element that is less than or equal to the @K
+ *	string. @E is set to true if equal otherwise false. If used with
+ *	darr_insert() then the index should be passed +1 because darr_insert()
+ *	inserts *before* the given index.
+ */
+#define darr_str_search_floor(A, K, E)                                                             \
+	_darr_search_floor((A), _darr_esize(A), (K), (E), (darr_search_cmpf)darr_strings_cmp)
 
 /**
  * Iterate over array `A` using a pointer to each element in `P`.
