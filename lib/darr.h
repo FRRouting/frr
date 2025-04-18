@@ -340,10 +340,12 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
 	})
 #define darr_ensure_i(A, I) darr_ensure_i_mt(A, I, MTYPE_DARR)
 
-#define _darr_insert_n(A, I, N, Z, MT)                                         \
-	({                                                                     \
-		(A) = __darr_insert_n(A, I, N, _darr_esize(A), Z, MT);         \
-		&(A)[I];                                                       \
+#define _darr_insert_n(A, I, N, Z, MT)                                                             \
+	({                                                                                         \
+		uint _ins_i = (I);                                                                 \
+		uint _ins_n = (N);                                                                 \
+		(A) = __darr_insert_n(A, _ins_i, _ins_n, _darr_esize(A), Z, MT);                   \
+		&(A)[_ins_i];                                                                      \
 	})
 /**
  * Insert N uninitialized elements in the array at index `I`.
@@ -363,10 +365,10 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
  * Return:
  *      A pointer to the first inserted element in the array.
  */
-#define darr_insert_n(A, I, N)	   _darr_insert_n(A, I, N, false, MTYPE_DARR)
-#define darr_insert_n_mt(A, I, N)  _darr_insert_n(A, I, N, false, MT)
-#define darr_insert_nz(A, I, N)	   _darr_insert_n(A, I, N, true, MTYPE_DARR)
-#define darr_insert_nz_mt(A, I, N) _darr_insert_n(A, I, N, true, MT)
+#define darr_insert_n(A, I, N)	       _darr_insert_n(A, I, N, false, MTYPE_DARR)
+#define darr_insert_n_mt(A, I, N, MT)  _darr_insert_n(A, I, N, false, MT)
+#define darr_insert_nz(A, I, N)	       _darr_insert_n(A, I, N, true, MTYPE_DARR)
+#define darr_insert_nz_mt(A, I, N, MT) _darr_insert_n(A, I, N, true, MT)
 
 /**
  * Insert an uninitialized element in the array at index `I`.
@@ -386,10 +388,10 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
  * Return:
  *      A pointer to the element in the array.
  */
-#define darr_insert(A, I)     _darr_insert_n(A, I, 1, false, MTYPE_DARR)
-#define darr_insert_mt(A, I)  _darr_insert_n(A, I, 1, false, MT)
-#define darr_insertz(A, I)    _darr_insert_n(A, I, 1, true, MTYPE_DARR)
-#define darr_insertz_mt(A, I) _darr_insert_n(A, I, 1, true, MT)
+#define darr_insert(A, I)	  _darr_insert_n(A, I, 1, false, MTYPE_DARR)
+#define darr_insert_mt(A, I, MT)  _darr_insert_n(A, I, 1, false, MT)
+#define darr_insertz(A, I)	  _darr_insert_n(A, I, 1, true, MTYPE_DARR)
+#define darr_insertz_mt(A, I, MT) _darr_insert_n(A, I, 1, true, MT)
 
 /**
  * Remove `N` elements from the array starting at index `I`.
