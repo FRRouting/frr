@@ -655,12 +655,44 @@ DEFPY_YANG(no_if_ipv6_route_map, no_if_ipv6_route_map_cmd,
 }
 #endif
 
+#ifndef HAVE_MGMTD
+/* RIPng configuration write function. */
+static int ripng_config_write(struct vty *vty)
+{
+	struct ripng *ripng;
+	int write = 0;
+
+	RB_FOREACH(ripng, ripng_instance_head, &ripng_instances) {
+		char xpath[XPATH_MAXLEN];
+		struct lyd_node *dnode;
+
+		snprintf(xpath, sizeof(xpath),
+			 "/frr-ripngd:ripngd/instance[vrf='%s']",
+			 ripng->vrf_name);
+
+		dnode = yang_dnode_get(running_config->dnode, xpath);
+		assert(dnode);
+
+		nb_cli_show_dnode_cmds(vty, dnode, false);
+
+		vty_out(vty, "exit\n");
+
+		write = 1;
+	}
+
+	return write;
+}
+#endif
+
 /* RIPng node structure. */
 static struct cmd_node cmd_ripng_node = {
 	.name = "ripng",
 	.node = RIPNG_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
+#ifndef HAVE_MGMTD
+	.config_write = ripng_config_write,
+#endif
 };
 
 void ripng_cli_init(void)

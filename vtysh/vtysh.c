@@ -2096,8 +2096,13 @@ DEFUNSH(VTYSH_RIPD, router_rip, router_rip_cmd, "router rip [vrf NAME]",
 #endif /* HAVE_RIPD */
 
 #ifdef HAVE_RIPNGD
+#ifdef HAVE_MGMTD
 DEFUNSH(VTYSH_MGMTD, router_ripng, router_ripng_cmd, "router ripng [vrf NAME]",
 	ROUTER_STR "RIPng\n" VRF_CMD_HELP_STR)
+#else
+DEFUNSH(VTYSH_RIPNGD, router_ripng, router_ripng_cmd, "router ripng [vrf NAME]",
+	ROUTER_STR "RIPng\n" VRF_CMD_HELP_STR)
+#endif
 {
 	vty->node = RIPNG_NODE;
 	return CMD_SUCCESS;
@@ -2730,14 +2735,24 @@ DEFUNSH(VTYSH_RIPD, vtysh_quit_ripd, vtysh_quit_ripd_cmd, "quit",
 #endif /* HAVE_RIPD */
 
 #ifdef HAVE_RIPNGD
+#ifdef HAVE_MGMTD
 DEFUNSH(VTYSH_MGMTD, vtysh_exit_ripngd, vtysh_exit_ripngd_cmd, "exit",
 	"Exit current mode and down to previous mode\n")
+#else
+DEFUNSH(VTYSH_RIPNGD, vtysh_exit_ripngd, vtysh_exit_ripngd_cmd, "exit",
+	"Exit current mode and down to previous mode\n")
+#endif
 {
 	return vtysh_exit(vty);
 }
 
+#ifdef HAVE_MGMTD
 DEFUNSH(VTYSH_MGMTD, vtysh_quit_ripngd, vtysh_quit_ripngd_cmd, "quit",
 	"Exit current mode and down to previous mode\n")
+#else
+DEFUNSH(VTYSH_RIPNGD, vtysh_quit_ripngd, vtysh_quit_ripngd_cmd, "quit",
+	"Exit current mode and down to previous mode\n")
+#endif
 {
 	return vtysh_exit_ripngd(self, vty, argc, argv);
 }

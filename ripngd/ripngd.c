@@ -2667,6 +2667,9 @@ void ripng_vrf_init(void)
 {
 	vrf_init(ripng_vrf_new, ripng_vrf_enable, ripng_vrf_disable,
 		 ripng_vrf_delete);
+#ifndef HAVE_MGMTD
+	vrf_cmd_init(NULL, true);
+#endif
 }
 
 void ripng_vrf_terminate(void)
@@ -2682,14 +2685,17 @@ void ripng_init(void)
 	install_element(VIEW_NODE, &show_ipv6_ripng_status_cmd);
 	install_element(ENABLE_NODE, &clear_ipv6_rip_cmd);
 
-	ripng_if_init();
 	ripng_debug_init();
 
 	/* Enable mgmt be debug */
 	mgmt_be_client_lib_vty_init();
 
 	/* Access list install. */
+#ifdef HAVE_MGMTD
 	access_list_init_new(true);
+#else
+	access_list_init_new(false);
+#endif
 	access_list_add_hook(ripng_distribute_update_all_wrapper);
 	access_list_delete_hook(ripng_distribute_update_all_wrapper);
 

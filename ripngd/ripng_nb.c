@@ -25,24 +25,37 @@ const struct frr_yang_module_info frr_ripngd_info = {
 				.get_keys = ripngd_instance_get_keys,
 				.get_next = ripngd_instance_get_next,
 				.lookup_entry = ripngd_instance_lookup_entry,
+#ifndef HAVE_MGMTD
+				.cli_show = cli_show_router_ripng,
+				.cli_show_end = cli_show_end_router_ripng,
+#endif
 			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/allow-ecmp",
 			.cbs = {
 				.modify = ripngd_instance_allow_ecmp_modify,
+#ifndef HAVE_MGMTD
+				.cli_show = cli_show_ripng_allow_ecmp,
+#endif
 			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/default-information-originate",
 			.cbs = {
 				.modify = ripngd_instance_default_information_originate_modify,
+#ifndef HAVE_MGMTD
+				.cli_show = cli_show_ripng_default_information_originate,
+#endif
 			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/default-metric",
 			.cbs = {
 				.modify = ripngd_instance_default_metric_modify,
+#ifndef HAVE_MGMTD
+				.cli_show = cli_show_ripng_default_metric,
+#endif
 			},
 		},
 		{
@@ -50,6 +63,9 @@ const struct frr_yang_module_info frr_ripngd_info = {
 			.cbs = {
 				.create = ripngd_instance_network_create,
 				.destroy = ripngd_instance_network_destroy,
+#ifndef HAVE_MGMTD
+				.cli_show = cli_show_ripng_network_prefix,
+#endif
 			},
 		},
 		{
@@ -57,6 +73,9 @@ const struct frr_yang_module_info frr_ripngd_info = {
 			.cbs = {
 				.create = ripngd_instance_interface_create,
 				.destroy = ripngd_instance_interface_destroy,
+#ifndef HAVE_MGMTD
+				.cli_show = cli_show_ripng_network_interface,
+#endif
 			},
 		},
 		{
@@ -64,6 +83,9 @@ const struct frr_yang_module_info frr_ripngd_info = {
 			.cbs = {
 				.create = ripngd_instance_offset_list_create,
 				.destroy = ripngd_instance_offset_list_destroy,
+#ifndef HAVE_MGMTD
+				.cli_show = cli_show_ripng_offset_list,
+#endif
 			},
 		},
 		{
@@ -83,6 +105,9 @@ const struct frr_yang_module_info frr_ripngd_info = {
 			.cbs = {
 				.create = ripngd_instance_passive_interface_create,
 				.destroy = ripngd_instance_passive_interface_destroy,
+#ifndef HAVE_MGMTD
+				.cli_show = cli_show_ripng_passive_interface,
+#endif
 			},
 		},
 		{
@@ -97,6 +122,9 @@ const struct frr_yang_module_info frr_ripngd_info = {
 			.cbs = {
 				.modify = group_distribute_list_ipv6_modify,
 				.destroy = group_distribute_list_ipv6_destroy,
+#ifndef HAVE_MGMTD
+				.cli_show = group_distribute_list_ipv6_cli_show,
+#endif
 			}
 		},
 		{
@@ -104,6 +132,9 @@ const struct frr_yang_module_info frr_ripngd_info = {
 			.cbs = {
 				.modify = group_distribute_list_ipv6_modify,
 				.destroy = group_distribute_list_ipv6_destroy,
+#ifndef HAVE_MGMTD
+				.cli_show = group_distribute_list_ipv6_cli_show,
+#endif
 			}
 		},
 		{
@@ -111,6 +142,9 @@ const struct frr_yang_module_info frr_ripngd_info = {
 			.cbs = {
 				.modify = group_distribute_list_ipv6_modify,
 				.destroy = group_distribute_list_ipv6_destroy,
+#ifndef HAVE_MGMTD
+				.cli_show = group_distribute_list_ipv6_cli_show,
+#endif
 			}
 		},
 		{
@@ -118,6 +152,9 @@ const struct frr_yang_module_info frr_ripngd_info = {
 			.cbs = {
 				.modify = group_distribute_list_ipv6_modify,
 				.destroy = group_distribute_list_ipv6_destroy,
+#ifndef HAVE_MGMTD
+				.cli_show = group_distribute_list_ipv6_cli_show,
+#endif
 			}
 		},
 		{
@@ -126,6 +163,9 @@ const struct frr_yang_module_info frr_ripngd_info = {
 				.apply_finish = ripngd_instance_redistribute_apply_finish,
 				.create = ripngd_instance_redistribute_create,
 				.destroy = ripngd_instance_redistribute_destroy,
+#ifndef HAVE_MGMTD
+				.cli_show = cli_show_ripng_redistribute,
+#endif
 			},
 		},
 		{
@@ -147,6 +187,9 @@ const struct frr_yang_module_info frr_ripngd_info = {
 			.cbs = {
 				.create = ripngd_instance_if_route_maps_if_route_map_create,
 				.destroy = ripngd_instance_if_route_maps_if_route_map_destroy,
+#ifndef HAVE_MGMTD
+				.cli_show = cli_show_if_route_map,
+#endif
 			}
 		},
 		{
@@ -168,6 +211,9 @@ const struct frr_yang_module_info frr_ripngd_info = {
 			.cbs = {
 				.create = ripngd_instance_static_route_create,
 				.destroy = ripngd_instance_static_route_destroy,
+#ifndef HAVE_MGMTD
+				.cli_show = cli_show_ripng_route,
+#endif
 			},
 		},
 		{
@@ -175,12 +221,18 @@ const struct frr_yang_module_info frr_ripngd_info = {
 			.cbs = {
 				.create = ripngd_instance_aggregate_address_create,
 				.destroy = ripngd_instance_aggregate_address_destroy,
+#ifndef HAVE_MGMTD
+				.cli_show = cli_show_ripng_aggregate_address,
+#endif
 			},
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/timers",
 			.cbs = {
 				.apply_finish = ripngd_instance_timers_apply_finish,
+#ifndef HAVE_MGMTD
+				.cli_show = cli_show_ripng_timers,
+#endif
 			},
 		},
 		{
@@ -275,6 +327,9 @@ const struct frr_yang_module_info frr_ripngd_info = {
 			.xpath = "/frr-interface:lib/interface/frr-ripngd:ripng/split-horizon",
 			.cbs = {
 				.modify = lib_interface_ripng_split_horizon_modify,
+#ifndef HAVE_MGMTD
+				.cli_show = cli_show_ipv6_ripng_split_horizon,
+#endif
 			},
 		},
 		{

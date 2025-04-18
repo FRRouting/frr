@@ -386,7 +386,11 @@ static const struct route_map_rule_cmd route_set_tag_cmd = {
 
 void ripng_route_map_init(void)
 {
+#ifdef HAVE_MGMTD
 	route_map_init_new(true);
+#else
+	route_map_init_new(false);
+#endif
 
 	route_map_match_interface_hook(generic_match_add);
 	route_map_no_match_interface_hook(generic_match_delete);

@@ -25,6 +25,12 @@ ripngd_ripngd_SOURCES = \
 	ripngd/ripngd.c \
 	# end
 
+if !MGMTD
+ripngd_ripngd_SOURCES = \
+	ripngd/ripng_cli.c \
+	# end
+endif
+
 clippy_scan += \
 	ripngd/ripng_cli.c \
 	ripngd/ripngd.c \

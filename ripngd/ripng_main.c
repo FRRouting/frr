@@ -74,7 +74,9 @@ static void sigint(void)
 	zlog_notice("Terminating on signal");
 
 	nb_oper_cancel_all_walks();
+#ifdef HAVE_MGMTD
 	mgmt_be_client_destroy(mgmt_be_client);
+#endif
 	mgmt_be_client = NULL;
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
@@ -140,8 +142,10 @@ FRR_DAEMON_INFO(ripngd, RIPNG,
 	.yang_modules = ripngd_yang_modules,
 	.n_yang_modules = array_size(ripngd_yang_modules),
 
+#ifdef HAVE_MGMTD
 	/* mgmtd will load the per-daemon config file now */
 	.flags = FRR_NO_SPLIT_CONFIG,
+#endif
 );
 /* clang-format on */
 
@@ -183,9 +187,15 @@ int main(int argc, char **argv)
 	ripng_vrf_init();
 
 	/* RIPngd inits. */
+	ripng_if_init();
+#ifndef HAVE_MGMTD
+	ripng_cli_init();
+#endif
 	ripng_init();
 
+#ifdef HAVE_MGMTD
 	mgmt_be_client = mgmt_be_client_create("ripngd", NULL, 0, master);
+#endif
 
 	zebra_init(master);
 
