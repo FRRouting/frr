@@ -53,6 +53,9 @@
 #include "zebra/zebra_tracker_nb.h"
 #include "zebra/zebra_pm.h"
 #include "zebra/zebra_nhrp.h"
+#ifndef HAVE_MGMTD
+#include "zebra/zebra_cli.h"
+#endif
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -151,7 +154,9 @@ static void sigint(void)
 	zlog_notice("Terminating on signal");
 
 	nb_oper_cancel_all_walks();
+#ifdef HAVE_MGMTD
 	mgmt_be_client_destroy(mgmt_be_client);
+#endif
 	mgmt_be_client = NULL;
 
 	atomic_store_explicit(&zrouter.in_shutdown, true,
@@ -467,9 +472,14 @@ int main(int argc, char **argv)
 	zebra_ns_init();
 	router_id_cmd_init();
 	zebra_vty_init();
+#ifdef HAVE_MGMTD
 	mgmt_be_client = mgmt_be_client_create("zebra", NULL, 0,
 					       zrouter.master);
 	access_list_init_new(true);
+#else
+	zebra_cli_init();
+	access_list_init_new(false);
+#endif
 	prefix_list_init();
 
 	rtadv_init();

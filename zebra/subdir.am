@@ -124,6 +124,12 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_nhrp_netlink.c \
 	# end
 
+if !MGMTD
+zebra_zebra_SOURCES += \
+	zebra/zebra_cli.c \
+	#end
+endif
+
 clippy_scan += \
 	zebra/debug.c \
 	zebra/interface.c \

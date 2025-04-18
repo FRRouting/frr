@@ -17,6 +17,9 @@
 #include "srcdest_table.h"
 #include "vrf.h"
 #include "vty.h"
+#ifndef HAVE_MGMTD
+#include "northbound_cli.h"
+#endif
 
 #include "zebra/zebra_router.h"
 #include "zebra/rtadv.h"
@@ -34,6 +37,9 @@
 #include "zebra/zebra_vrf_clippy.c"
 #include "zebra/table_manager.h"
 #include "zebra/zebra_defaults.h"
+#ifndef HAVE_MGMTD
+#include "zebra/zebra_nb.h"
+#endif
 
 static void zebra_vrf_table_create(struct zebra_vrf *zvrf, afi_t afi,
 				   safi_t safi);
@@ -638,11 +644,36 @@ int zebra_vrf_netns_handler_create(struct vty *vty, struct vrf *vrf,
 	return CMD_SUCCESS;
 }
 
+#ifndef HAVE_MGMTD
+static int vrf_config_write_single(const struct lyd_node *dnode, void *arg)
+{
+	nb_cli_show_dnode_cmds(arg, dnode, false);
+
+	return YANG_ITER_CONTINUE;
+}
+
+static int vrf_config_write(struct vty *vty)
+{
+	const struct lyd_node *dnode;
+
+	yang_dnode_iterate(vrf_config_write_single, vty, running_config->dnode,
+			   "/frr-vrf:lib/vrf");
+	dnode = yang_dnode_get(running_config->dnode, "/frr-zebra:zebra");
+	if (dnode)
+		nb_cli_show_dnode_cmds(vty, dnode, false);
+
+	return 1;
+}
+#endif
+
 /* Zebra VRF initialization. */
 void zebra_vrf_init(void)
 {
 	vrf_init(zebra_vrf_new, zebra_vrf_enable, zebra_vrf_disable,
 		 zebra_vrf_delete);
 
+#ifndef HAVE_MGMTD
+	vrf_cmd_init(vrf_config_write, true);
+#endif
 	hook_register(zserv_client_close, release_daemon_table_chunks);
 }

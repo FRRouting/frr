@@ -35,7 +35,9 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_evpn_mh.h"
+#ifndef HAVE_MGMTD
 #include "zebra/zebra_cli.h"
+#endif
 #include "zebra/zebra_defaults.h"
 #include "zebra/zebra_nhrp.h"
 
@@ -4059,6 +4061,9 @@ void zebra_interface_mpls_set(ZAPI_HANDLER_ARGS)
 /* Allocate and initialize interface vector. */
 void zebra_if_init(void)
 {
+#ifndef HAVE_MGMTD
+	if_cmd_init_default();
+#endif
 	/* Initialize interface and new hook. */
 	hook_register_prio(if_add, 0, if_zebra_new_hook);
 	hook_register_prio(if_del, 0, if_zebra_delete_hook);

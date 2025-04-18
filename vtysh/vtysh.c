@@ -3192,39 +3192,64 @@ DEFUN (vtysh_show_work_queues_daemon,
 	return show_one_daemon(vty, argv, argc - 1, argv[argc - 1]->text);
 }
 
+#ifdef HAVE_MGMTD
 DEFUNSH(VTYSH_MGMTD, vtysh_link_params, vtysh_link_params_cmd, "link-params",
 	LINK_PARAMS_STR)
+#else
+DEFUNSH(VTYSH_ZEBRA, vtysh_link_params, vtysh_link_params_cmd, "link-params",
+	LINK_PARAMS_STR)
+#endif
 {
 	vty->node = LINK_PARAMS_NODE;
 	return CMD_SUCCESS;
 }
 
+#ifdef HAVE_MGMTD
 DEFUNSH_HIDDEN(VTYSH_MGMTD, no_link_params_enable, no_link_params_enable_cmd,
 	       "no enable", NO_STR "Disable link parameters on this interface\n")
+#else
+DEFUNSH_HIDDEN(VTYSH_ZEBRA, no_link_params_enable, no_link_params_enable_cmd,
+	       "no enable", NO_STR "Disable link parameters on this interface\n")
+#endif
 {
 	if (vty->node == LINK_PARAMS_NODE)
 		vty->node = INTERFACE_NODE;
 	return CMD_SUCCESS;
 }
 
+#ifdef HAVE_MGMTD
 DEFUNSH(VTYSH_MGMTD, exit_link_params, exit_link_params_cmd, "exit-link-params",
 	"Exit from Link Params configuration node\n")
+#else
+DEFUNSH(VTYSH_ZEBRA, exit_link_params, exit_link_params_cmd, "exit-link-params",
+	"Exit from Link Params configuration node\n")
+#endif
 {
 	if (vty->node == LINK_PARAMS_NODE)
 		vty->node = INTERFACE_NODE;
 	return CMD_SUCCESS;
 }
 
+#ifdef HAVE_MGMTD
 DEFUNSH(VTYSH_MGMTD, vtysh_exit_link_params, vtysh_exit_link_params_cmd, "exit",
 	"Exit current mode and down to previous mode\n")
+#else
+DEFUNSH(VTYSH_ZEBRA, vtysh_exit_link_params, vtysh_exit_link_params_cmd, "exit",
+	"Exit current mode and down to previous mode\n")
+#endif
 {
 	if (vty->node == LINK_PARAMS_NODE)
 		vty->node = INTERFACE_NODE;
 	return CMD_SUCCESS;
 }
 
+#ifdef HAVE_MGMTD
 DEFUNSH(VTYSH_MGMTD, vtysh_quit_link_params, vtysh_quit_link_params_cmd, "quit",
 	"Exit current mode and down to previous mode\n")
+#else
+DEFUNSH(VTYSH_ZEBRA, vtysh_quit_link_params, vtysh_quit_link_params_cmd, "quit",
+	"Exit current mode and down to previous mode\n")
+#endif
 {
 	return vtysh_exit_link_params(self, vty, argc, argv);
 }
