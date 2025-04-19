@@ -20,6 +20,10 @@ module frr-nexthop {
     prefix frr-vrf;
   }
 
+  import ietf-srv6-types {
+    prefix srv6-types;
+  }
+
   organization
     "FRRouting";
   contact
@@ -326,6 +330,13 @@ module frr-nexthop {
             leaf seg {
                 type inet:ipv6-address;
             }
+          }
+          leaf encap-behavior {
+            type identityref {
+              base srv6-types:srv6-headend-type;
+            }
+            description
+              "The SRv6 Headend Behavior for the encap.";
           }
       }
   }

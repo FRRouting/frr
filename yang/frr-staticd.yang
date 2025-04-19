@@ -28,6 +28,10 @@ module frr-staticd {
     prefix frr-vrf;
   }
 
+  import ietf-srv6-types {
+    prefix srv6-types;
+  }
+
   organization
     "FRRouting";
   contact

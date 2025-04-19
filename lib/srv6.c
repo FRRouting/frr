@@ -470,3 +470,11 @@ json_object *srv6_locator_detailed_json(const struct srv6_locator *loc)
 
 	return jo_root;
 }
+
+/* clang-format off */
+const struct frr_yang_module_info ietf_srv6_types_info = {
+	.name = "ietf-srv6-types",
+	.ignore_cfg_cbs = true,
+	.nodes = { { .xpath = NULL } },
+};
+/* clang-format on */

@@ -41,6 +41,15 @@ extern "C" {
 #define ZEBRA_DEFAULT_SEG6_LOCAL_FLV_LCBLOCK_LEN 32
 #define ZEBRA_DEFAULT_SEG6_LOCAL_FLV_LCNODE_FN_LEN 16
 
+/* SR Policy Headend Behaviors as per RFC 8986 section #5 */
+enum srv6_headend_behavior {
+	SRV6_HEADEND_BEHAVIOR_H_INSERT,
+	SRV6_HEADEND_BEHAVIOR_H_ENCAPS,
+	SRV6_HEADEND_BEHAVIOR_H_ENCAPS_RED,
+	SRV6_HEADEND_BEHAVIOR_H_ENCAPS_L2,
+	SRV6_HEADEND_BEHAVIOR_H_ENCAPS_L2_RED,
+};
+
 enum seg6_mode_t {
 	INLINE,
 	ENCAP,
@@ -99,6 +108,7 @@ struct seg6local_flavors_info {
 };
 
 struct seg6_seg_stack {
+	enum srv6_headend_behavior encap_behavior;
 	uint8_t num_segs;
 	struct in6_addr seg[0]; /* 1 or more segs */
 };
@@ -336,6 +346,24 @@ struct srv6_sid_ctx {
 	ifindex_t ifindex;
 };
 
+static inline const char *srv6_headend_behavior2str(enum srv6_headend_behavior behavior)
+{
+	switch (behavior) {
+	case SRV6_HEADEND_BEHAVIOR_H_INSERT:
+		return "H.Insert";
+	case SRV6_HEADEND_BEHAVIOR_H_ENCAPS:
+		return "H.Encaps";
+	case SRV6_HEADEND_BEHAVIOR_H_ENCAPS_RED:
+		return "H.Encaps.Red";
+	case SRV6_HEADEND_BEHAVIOR_H_ENCAPS_L2:
+		return "H.Encaps.L2";
+	case SRV6_HEADEND_BEHAVIOR_H_ENCAPS_L2_RED:
+		return "H.Encaps.L2.Red";
+	}
+
+	return "unknown";
+}
+
 static inline const char *seg6_mode2str(enum seg6_mode_t mode)
 {
 	switch (mode) {
@@ -448,6 +476,8 @@ static inline const char *srv6_sid_ctx2str(char *str, size_t size,
 
 	return str;
 }
+
+extern const struct frr_yang_module_info ietf_srv6_types_info;
 
 int snprintf_seg6_segs(char *str,
 		size_t size, const struct seg6_segs *segs);

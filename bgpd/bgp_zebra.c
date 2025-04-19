@@ -1425,6 +1425,7 @@ static void bgp_zebra_announce_parse_nexthop(
 
 			memcpy(&api_nh->seg6_segs[0], sid_tmp,
 			       sizeof(api_nh->seg6_segs[0]));
+			api_nh->srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
 
 			if (mpinfo->attr->srv6_l3vpn &&
 			    mpinfo->attr->srv6_l3vpn->transposition_len != 0) {
