@@ -175,6 +175,10 @@ int zsend_interface_add(struct zserv *client, struct interface *ifp)
 {
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_debug("MESSAGE: %s %s vrf %s(%u)", __func__, ifp->name,
+			   ifp->vrf->name, ifp->vrf->vrf_id);
+
 	zclient_create_header(s, ZEBRA_INTERFACE_ADD, ifp->vrf->vrf_id);
 	zserv_encode_interface(s, ifp);
 
@@ -187,6 +191,10 @@ int zsend_interface_delete(struct zserv *client, struct interface *ifp)
 {
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_debug("MESSAGE: %s %s vrf %s(%u)", __func__, ifp->name,
+			   ifp->vrf->name, ifp->vrf->vrf_id);
+
 	zclient_create_header(s, ZEBRA_INTERFACE_DELETE, ifp->vrf->vrf_id);
 	zserv_encode_interface(s, ifp);
 
@@ -197,6 +205,10 @@ int zsend_interface_delete(struct zserv *client, struct interface *ifp)
 int zsend_vrf_add(struct zserv *client, struct zebra_vrf *zvrf)
 {
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_debug("MESSAGE: %s vrf %s(%u)", __func__, zvrf->vrf->name,
+			   zvrf_id(zvrf));
 
 	zclient_create_header(s, ZEBRA_VRF_ADD, zvrf_id(zvrf));
 	zserv_encode_vrf(s, zvrf);
@@ -210,6 +222,10 @@ int zsend_vrf_delete(struct zserv *client, struct zebra_vrf *zvrf)
 
 {
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_debug("MESSAGE: %s vrf %s(%u)", __func__, zvrf->vrf->name,
+			   zvrf_id(zvrf));
 
 	zclient_create_header(s, ZEBRA_VRF_DELETE, zvrf_id(zvrf));
 	zserv_encode_vrf(s, zvrf);
