@@ -517,12 +517,14 @@ local VTEP endpoint, so add that address to the `lo` device.
 
    ip addr replace 100.64.0.1 dev lo
 
-Then create our root bridge and VXLAN device. These devices will service all VNIs,
-both L2VNIs and L3VNIs included.
+Then create our root bridge and VXLAN device. These devices will service all 
+VNIs, both L2VNIs and L3VNIs included. The bridge must be vlan aware, ie 
+`vlan_filtering 1`. It's best to set no default pvid to prevent accidentally
+bridging two unrelated networks.
 
 .. code-block:: shell
 
-   ip link add vxbr0 type bridge vlan_filtering 1
+   ip link add vxbr0 type bridge vlan_filtering 1 vlan_default_pvid 0
    # the key setting for SVD configuration is "external"
    # "vnifilter" isn't strictly necessary but is correct
    ip link add vx0 type vxlan dstport 4789 local 100.64.0.1 nolearning external vnifilter
