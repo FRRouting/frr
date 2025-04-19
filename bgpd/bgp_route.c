@@ -11117,9 +11117,8 @@ static void flap_route_vty_out(struct vty *vty, const struct prefix *p,
 	}
 }
 
-static void route_vty_out_advertised_to(struct vty *vty, struct peer *peer,
-					int *first, const char *header,
-					json_object *json_adv_to)
+static void route_vty_out_advertised_to(struct vty *vty, struct peer *peer, int *first,
+					const char *header, json_object *json_adv_to)
 {
 	json_object *json_peer = NULL;
 
@@ -11135,6 +11134,10 @@ static void route_vty_out_advertised_to(struct vty *vty, struct peer *peer,
 		if (peer->hostname)
 			json_object_string_add(json_peer, "hostname",
 					       peer->hostname);
+
+		/* Add peerGroup information when the peer belongs to a group */
+		if (peer->group)
+			json_object_string_add(json_peer, "peerGroup", peer->group->name);
 
 		if (peer->conf_if)
 			json_object_object_add(json_adv_to, peer->conf_if,
@@ -11162,6 +11165,10 @@ static void route_vty_out_advertised_to(struct vty *vty, struct peer *peer,
 			else
 				vty_out(vty, " %pSU", &peer->connection->su);
 		}
+
+		/* Display peer group info after the hostname */
+		if (peer->group)
+			vty_out(vty, "[Peer Group:%s]", peer->group->name);
 	}
 }
 
@@ -13193,17 +13200,13 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 	 * though then we must display Advertised to on a path-by-path basis. */
 	if (!bgp_addpath_is_addpath_used(&bgp->tx_addpath, afi, safi)) {
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			if (peer->group)
-				continue;
-
 			if (bgp_adj_out_lookup(peer, dest, 0)) {
 				if (json && !json_adv_to)
 					json_adv_to = json_object_new_object();
 
-				route_vty_out_advertised_to(
-					vty, peer, &first,
-					"  Advertised to non peer-group peers:\n ",
-					json_adv_to);
+				route_vty_out_advertised_to(vty, peer, &first,
+							    "  Advertised to peers:\n ",
+							    json_adv_to);
 			}
 		}
 
