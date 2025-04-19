@@ -18,6 +18,7 @@
 #include "log.h"
 #include "zclient.h"
 #include "vrf.h"
+#include "wheel.h"
 
 #include "zebra/rtadv.h"
 #include "zebra_ns.h"
@@ -990,6 +991,7 @@ void if_down(struct interface *ifp)
 	zif->down_count++;
 	frr_timestamp(2, zif->down_last, sizeof(zif->down_last));
 
+	wheel_remove_item(zrouter.ra_wheel, ifp);
 	if_down_nhg_dependents(ifp);
 
 	/* Handle interface down for specific types for EVPN. Non-VxLAN

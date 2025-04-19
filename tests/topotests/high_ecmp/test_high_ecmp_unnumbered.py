@@ -105,6 +105,73 @@ def teardown_module(_mod):
     tgen.stop_topology()
 
 
+def test_v6_rtadv_():
+    failures = 0
+    net = get_topogen().net
+    print("Shutdown r1-eth200")
+    net["r1"].cmd('vtysh -c "config t" -c "interface r1-eth200" ' ' -c "shutdown" ')
+
+    sleep(2)
+    rtadv_output1 = net["r1"].cmd("vtysh -c 'show interface r1-eth200 json'")
+    sleep(2)
+    rtadv_output2 = net["r1"].cmd("vtysh -c 'show interface r1-eth200 json'")
+    if rtadv_output1 != rtadv_output2:
+        sys.stderr.write(
+            f"RA state should not have changed: got {rtadv_output1}, expected {rtadv_output2}\n"
+        )
+        failures += 1
+    else:
+        print("RA state verified successfully for interface shut")
+
+    print("Do no shutdown for r1-eth200")
+    net["r1"].cmd('vtysh -c "config t" -c "interface r1-eth200" ' ' -c "no shutdown" ')
+
+    sleep(2)
+    rtadv_output1 = net["r1"].cmd("vtysh -c 'show interface r1-eth200 json'")
+    sleep(2)
+    rtadv_output2 = net["r1"].cmd("vtysh -c 'show interface r1-eth200 json'")
+    if rtadv_output1 == rtadv_output2:
+        sys.stderr.write(
+            f"RA state didn't change: got {rtadv_output1}, previous {rtadv_output2}\n"
+        )
+        failures += 1
+    else:
+        print("RA state verified successfully for interface unshut")
+
+    print("Remove r1-eth200")
+    existing_config = net["r1"].cmd("vtysh -c 'show interface r1-eth200'")
+    net["r1"].cmd("sudo ip link delete r1-eth200")
+    sleep(2)
+    rtadv_output1 = net["r1"].cmd("vtysh -c 'show interface r1-eth200 json'")
+    pattern1 = '"administrativeStatus":"down"'
+
+    if pattern1 in rtadv_output1:
+        print("Interface is down verified successfully")
+    else:
+        sys.stderr.write(f"Interface state not down yet:: got {rtadv_output1}\n")
+        failures += 1
+
+    pattern2 = '"ndRouterAdvertisementsSent"'
+    if pattern2 in rtadv_output1:
+        sys.stderr.write(f"RA state still present :: got {rtadv_output1}\n")
+        failures += 1
+    else:
+        print("RA state verified successfully")
+
+    net["r1"].cmd("sudo ip link add  r1-eth200 type veth")
+    sleep(1)
+    net["r1"].cmd("sudo ip link set dev r1-eth200 up")
+    sleep(2)
+    pattern1 = '"administrativeStatus":"up"'
+    rtadv_output1 = net["r1"].cmd("vtysh -c 'show interface r1-eth200 json'")
+    if pattern1 in rtadv_output1:
+        print("Interface is up verified successfully")
+    else:
+        sys.stderr.write(f"Interface state not up yet:: got {rtadv_output1}\n")
+        failures += 1
+    assert failures == 0, f"Test failed with {failures} failures"
+
+
 def test_bgp_route_cleanup():
     failures = 0
     net = get_topogen().net
