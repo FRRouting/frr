@@ -271,6 +271,8 @@ void pim_vrf_terminate(void)
 	}
 
 	vrf_terminate();
+	/* Delete the vxlan_info.work_list as all the VRFs are deleted*/
+	pim_vxlan_work_list_delete();
 }
 
 bool pim_msdp_log_neighbor_events(const struct pim_instance *pim)
