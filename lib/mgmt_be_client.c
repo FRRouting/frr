@@ -313,7 +313,7 @@ static int be_client_send_error(struct mgmt_be_client *client, uint64_t txn_id,
 }
 
 static int __send_notification(struct mgmt_be_client *client, const char *xpath,
-			       const struct lyd_node *tree, uint8_t op)
+			       const struct lyd_node *tree, uint8_t op, uint64_t refer_id)
 {
 	struct mgmt_msg_notify_data *msg = NULL;
 	// LYD_FORMAT format = LYD_LYB;
@@ -335,6 +335,7 @@ static int __send_notification(struct mgmt_be_client *client, const char *xpath,
 	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_notify_data, 0, MTYPE_MSG_NATIVE_NOTIFY);
 	msg->code = MGMT_MSG_CODE_NOTIFY;
 	msg->result_type = format;
+	msg->refer_id = refer_id;
 	msg->op = op;
 
 	mgmt_msg_native_xpath_encode(msg, xpath);
@@ -368,7 +369,7 @@ int mgmt_be_send_ds_delete_notification(const char *path)
 				path);
 		return 1;
 	}
-	return __send_notification(__be_client, path, NULL, NOTIFY_OP_DS_DELETE);
+	return __send_notification(__be_client, path, NULL, NOTIFY_OP_DS_DELETE, 0);
 }
 
 /**
@@ -381,7 +382,7 @@ int mgmt_be_send_ds_patch_notification(const char *path, const struct lyd_node *
 				path);
 		return 1;
 	}
-	return __send_notification(__be_client, path, patch, NOTIFY_OP_DS_PATCH);
+	return __send_notification(__be_client, path, patch, NOTIFY_OP_DS_PATCH, 0);
 }
 
 /**
@@ -394,7 +395,7 @@ int mgmt_be_send_ds_replace_notification(const char *path, const struct lyd_node
 				path);
 		return 1;
 	}
-	return __send_notification(__be_client, path, tree, NOTIFY_OP_DS_REPLACE);
+	return __send_notification(__be_client, path, tree, NOTIFY_OP_DS_REPLACE, 0);
 }
 
 /**
@@ -404,7 +405,7 @@ int mgmt_be_send_ds_replace_notification(const char *path, const struct lyd_node
  */
 static int mgmt_be_send_notification(void *__client, const char *path, const struct lyd_node *tree)
 {
-	__send_notification(__client, path, tree, NOTIFY_OP_NOTIFICATION);
+	__send_notification(__client, path, tree, NOTIFY_OP_NOTIFICATION, 0);
 	return 0;
 }
 
