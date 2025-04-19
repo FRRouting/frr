@@ -22,8 +22,8 @@
 #include "ospf6_route.h"
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
+#include "ospf6_abr.h"
 #include "ospf6_asbr.h"
-#include "ospf6_nssa.h"
 #include "ospf6_zebra.h"
 #include "ospf6d.h"
 #include "ospf6_area.h"
@@ -163,7 +163,7 @@ static void ospf6_zebra_import_check_update(struct vrf *vrf,
 		return;
 
 	ospf6->nssa_default_import_check.status = !!nhr->nexthop_num;
-	ospf6_abr_nssa_type_7_defaults(ospf6);
+	ospf6_schedule_abr_task(ospf6);
 }
 
 static int ospf6_zebra_if_address_update_add(ZAPI_CALLBACK_ARGS)
