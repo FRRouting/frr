@@ -14,6 +14,7 @@
 #include "libfrr.h"
 #include "lib/command.h"
 #include "lib/routemap.h"
+#include "zebra/rtadv.h"
 #include "zebra/zebra_nb.h"
 #include "zebra/rib.h"
 #include "zebra_nb.h"
@@ -3246,6 +3247,85 @@ int lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_lifetime_d
 
 	p->lifetime_set = 0;
 
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/pref64/pref64-prefix
+ */
+int lib_interface_zebra_ipv6_router_advertisements_pref64_pref64_prefix_create(
+	struct nb_cb_create_args *args)
+{
+	struct interface *ifp;
+	struct pref64_adv *entry;
+	struct prefix_ipv6 p;
+	uint32_t lifetime = PREF64_LIFETIME_AUTO;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+
+	yang_dnode_get_ipv6p(&p, args->dnode, "prefix");
+
+	if (yang_dnode_exists(args->dnode, "lifetime"))
+		lifetime = yang_dnode_get_uint16(args->dnode, "lifetime");
+
+	entry = rtadv_pref64_set(ifp->info, &p, lifetime);
+	nb_running_set_entry(args->dnode, entry);
+
+	return NB_OK;
+}
+
+int lib_interface_zebra_ipv6_router_advertisements_pref64_pref64_prefix_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	struct pref64_adv *entry;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	entry = nb_running_unset_entry(args->dnode);
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+
+	rtadv_pref64_reset(ifp->info, entry);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/rdnss/rdnss-address/lifetime
+ */
+int lib_interface_zebra_ipv6_router_advertisements_pref64_pref64_prefix_lifetime_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct pref64_adv *entry;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	entry = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_get_entry(lyd_parent(lyd_parent(args->dnode)), NULL, true);
+
+	rtadv_pref64_update(ifp->info, entry, yang_dnode_get_uint16(args->dnode, NULL));
+	return NB_OK;
+}
+
+int lib_interface_zebra_ipv6_router_advertisements_pref64_pref64_prefix_lifetime_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	struct pref64_adv *entry;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	entry = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_get_entry(lyd_parent(lyd_parent(args->dnode)), NULL, true);
+
+	rtadv_pref64_update(ifp->info, entry, PREF64_LIFETIME_AUTO);
 	return NB_OK;
 }
 #endif /* defined(HAVE_RTADV) */

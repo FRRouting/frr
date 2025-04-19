@@ -9,6 +9,7 @@
 #include "northbound_cli.h"
 #include "vrf.h"
 
+#include "zebra/rtadv.h"
 #include "zebra_cli.h"
 #include "zebra/zebra_cli_clippy.c"
 
@@ -1823,6 +1824,58 @@ lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_cli_write(
 
 	vty_out(vty, "\n");
 }
+
+DEFPY_YANG(
+      ipv6_nd_pref64,
+      ipv6_nd_pref64_cmd,
+      "[no] ipv6 nd nat64 [X:X::X:X/M]$prefix [lifetime <(0-65535)|auto>]",
+      NO_STR
+      "Interface IPv6 config commands\n"
+      "Neighbor discovery\n"
+      "NAT64 prefix advertisement (RFC8781)\n"
+      "NAT64 prefix to advertise (default: 64:ff9b::/96)\n"
+      "Specify validity lifetime\n"
+      "Valid lifetime in seconds\n"
+      "Calculate lifetime automatically\n")
+{
+	if (!prefix_str)
+		prefix_str = PREF64_DFLT_PREFIX;
+	else if (!rtadv_pref64_valid_prefix(prefix)) {
+		vty_out(vty,
+			"Invalid NAT64 prefix length - must be /96, /64, /56, /48, /40 or /32\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (!no) {
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+		if (lifetime_str && strcmp(lifetime_str, "auto")) {
+			nb_cli_enqueue_change(vty, "./lifetime", NB_OP_MODIFY, lifetime_str);
+		} else {
+			nb_cli_enqueue_change(vty, "./lifetime", NB_OP_DESTROY, NULL);
+		}
+	} else {
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	}
+	return nb_cli_apply_changes(vty,
+				    "./frr-zebra:zebra/ipv6-router-advertisements/pref64/pref64-prefix[prefix='%s']",
+				    prefix_str);
+}
+
+static void lib_interface_zebra_ipv6_router_advertisements_pref64_pref64_prefix_cli_write(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	const char *prefix = yang_dnode_get_string(dnode, "prefix");
+
+	vty_out(vty, " ipv6 nd nat64 %s", prefix);
+
+	if (yang_dnode_exists(dnode, "lifetime")) {
+		uint16_t lifetime = yang_dnode_get_uint16(dnode, "lifetime");
+
+		vty_out(vty, " %u", lifetime);
+	}
+
+	vty_out(vty, "\n");
+}
 #endif /* HAVE_RTADV */
 
 #if HAVE_BFDD == 0
@@ -2874,6 +2927,10 @@ const struct frr_yang_module_info frr_zebra_cli_info = {
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/rdnss/rdnss-address",
 			.cbs.cli_show = lib_interface_zebra_ipv6_router_advertisements_rdnss_rdnss_address_cli_write,
 		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/pref64/pref64-prefix",
+			.cbs.cli_show = lib_interface_zebra_ipv6_router_advertisements_pref64_pref64_prefix_cli_write,
+		},
 #endif /* defined(HAVE_RTADV) */
 #if HAVE_BFDD == 0
 		{
@@ -2989,6 +3046,7 @@ void zebra_cli_init(void)
 	install_element(INTERFACE_NODE, &ipv6_nd_mtu_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_rdnss_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_dnssl_cmd);
+	install_element(INTERFACE_NODE, &ipv6_nd_pref64_cmd);
 #endif
 #if HAVE_BFDD == 0
 	install_element(INTERFACE_NODE, &zebra_ptm_enable_if_cmd);
