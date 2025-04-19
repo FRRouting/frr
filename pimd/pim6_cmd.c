@@ -1479,6 +1479,26 @@ DEFPY_ATTR(no_ipv6_ssmpingd,
 	return ret;
 }
 
+DEFPY_YANG(ipv6_pim_ssm,
+           ipv6_pim_ssm_cmd,
+           "[no] ssm prefix-list PREFIXLIST6_NAME$plist",
+           NO_STR
+           "Source Specific Multicast\n"
+           "Group range prefix-list filter\n"
+           "Name of a prefix-list\n")
+{
+	char ssm_plist_xpath[XPATH_MAXLEN];
+
+	snprintf(ssm_plist_xpath, sizeof(ssm_plist_xpath), "./ssm-prefix-list");
+
+	if (no)
+		nb_cli_enqueue_change(vty, ssm_plist_xpath, NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, ssm_plist_xpath, NB_OP_MODIFY, plist);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFPY_YANG_HIDDEN (interface_ipv6_mld_join,
                    interface_ipv6_mld_join_cmd,
                    "[no] ipv6 mld join X:X::X:X$grp [X:X::X:X]$src",
@@ -2957,6 +2977,7 @@ void pim_cmd_init(void)
 	install_element(PIM6_NODE, &pim6_embedded_rp_group_list_cmd);
 	install_element(PIM6_NODE, &pim6_embedded_rp_limit_cmd);
 
+	install_element(PIM6_NODE, &ipv6_pim_ssm_cmd);
 	install_element(PIM6_NODE, &pim6_ssmpingd_cmd);
 	install_element(PIM6_NODE, &no_pim6_ssmpingd_cmd);
 	install_element(PIM6_NODE, &pim6_bsr_candidate_rp_cmd);
