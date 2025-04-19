@@ -71,6 +71,22 @@ int snprintf_seg6_segs(char *str,
 	return strlen(str);
 }
 
+static void seg6local_flavors2json(json_object *json, const struct seg6local_flavors_info *flv_info)
+{
+	json_object *json_flavors;
+	json_flavors = json_object_new_array();
+	json_object_object_add(json, "flavors", json_flavors);
+
+	if (CHECK_SRV6_FLV_OP(flv_info->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID))
+		json_array_string_add(json_flavors, "next-csid");
+	if (CHECK_SRV6_FLV_OP(flv_info->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_PSP))
+		json_array_string_add(json_flavors, "psp");
+	if (CHECK_SRV6_FLV_OP(flv_info->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_USP))
+		json_array_string_add(json_flavors, "usp");
+	if (CHECK_SRV6_FLV_OP(flv_info->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_USD))
+		json_array_string_add(json_flavors, "usd");
+}
+
 void srv6_sid_structure2json(const struct seg6local_context *ctx, json_object *json)
 {
 	json_object_int_add(json, "blockLen", ctx->block_len);
@@ -82,6 +98,7 @@ void srv6_sid_structure2json(const struct seg6local_context *ctx, json_object *j
 void seg6local_context2json(const struct seg6local_context *ctx,
 			    uint32_t action, json_object *json)
 {
+	seg6local_flavors2json(json, &ctx->flv);
 	switch (action) {
 	case ZEBRA_SEG6_LOCAL_ACTION_END:
 		return;
@@ -116,35 +133,66 @@ void seg6local_context2json(const struct seg6local_context *ctx,
 	}
 }
 
+static char *seg6local_flavors2str(char *str, size_t size,
+				   const struct seg6local_flavors_info *flv_info,
+				   bool start_with_comma)
+{
+	size_t len = 0;
+	bool first = true;
+
+	if (flv_info->flv_ops) {
+		len += snprintf(str + len, size - len, "%s ", start_with_comma ? "," : "");
+	}
+
+	if (CHECK_SRV6_FLV_OP(flv_info->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID)) {
+		len += snprintf(str + len, size - len, "%snext-csid", first ? "flavors " : " ");
+		first = false;
+	}
+        if (CHECK_SRV6_FLV_OP(flv_info->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_PSP)) {
+		len += snprintf(str + len, size - len, "%spsp", first ? "flavors " : " ");
+		first = false;
+	}
+	if (CHECK_SRV6_FLV_OP(flv_info->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_USP)) {
+		len += snprintf(str + len, size - len, "%susp", first ? "flavors " : " ");
+		first = false;
+	}
+	if (CHECK_SRV6_FLV_OP(flv_info->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_USD))
+		snprintf(str + len, size - len, "%susd", first ? "flavors " : " ");
+
+	return str;
+}
 const char *seg6local_context2str(char *str, size_t size,
 				  const struct seg6local_context *ctx,
 				  uint32_t action)
 {
-	switch (action) {
+	char flavor[SRV6_FLAVORS_STRLEN], *p_flavor;
 
+	flavor[0] = '\0';
+	p_flavor = seg6local_flavors2str(flavor, sizeof(flavor), &ctx->flv, true);
+	switch (action) {
 	case ZEBRA_SEG6_LOCAL_ACTION_END:
-		snprintf(str, size, "-");
+		snprintf(str, size, "-%s", p_flavor);
 		return str;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_X:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX6:
-		snprintfrr(str, size, "nh6 %pI6", &ctx->nh6);
+		snprintfrr(str, size, "nh6 %pI6%s", &ctx->nh6, p_flavor);
 		return str;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX4:
-		snprintfrr(str, size, "nh4 %pI4", &ctx->nh4);
+		snprintfrr(str, size, "nh4 %pI4%s", &ctx->nh4, p_flavor);
 		return str;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_T:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DT6:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DT4:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DT46:
-		snprintf(str, size, "table %u", ctx->table);
+		snprintf(str, size, "table %u%s", ctx->table, p_flavor);
 		return str;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_B6:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
-		snprintfrr(str, size, "nh6 %pI6", &ctx->nh6);
+		snprintfrr(str, size, "nh6 %pI6%s", &ctx->nh6, p_flavor);
 		return str;
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_BM:
