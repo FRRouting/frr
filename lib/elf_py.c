@@ -693,7 +693,8 @@ static PyObject *elffile_secbyidx(struct elffile *w, Elf_Scn *scn, size_t idx)
 	}
 
 	ret = w->sects[idx];
-	Py_INCREF(ret);
+	if (ret)
+		Py_INCREF(ret);
 	return ret;
 }
 
