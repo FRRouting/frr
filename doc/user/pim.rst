@@ -410,6 +410,10 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    Tell pim to receive IGMP reports and Query on this interface. The default
    version is v3. This command is useful on a LHR.
 
+.. clicmd:: ip igmp require-router-alert
+
+   Only accept IGMP reports with the router-alert IP option.
+
 .. clicmd:: ip igmp join-group A.B.C.D [A.B.C.D]
 
    Join multicast group or source-group on an interface. This will result in
