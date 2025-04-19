@@ -3707,6 +3707,81 @@ DEFUN (no_bgp_neighbor_graceful_restart_disable,
 	return bgp_vty_return(vty, ret);
 }
 
+/*
+ * Function to re-announce route to peer after applying graceful
+ * shutdown configuration on peer or peer-group
+ */
+static void bgp_peer_gshut_reannounce_route(struct peer *peer)
+{
+	afi_t afi;
+	safi_t safi;
+	struct peer_af *paf = NULL;
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (!peer->afc[afi][safi])
+			continue;
+		paf = peer_af_find(peer, afi, safi);
+		if (paf) {
+			update_group_adjust_peer(paf);
+			bgp_announce_route(peer, afi, safi, false);
+		}
+	}
+}
+
+/*
+ * Function to perform a soft reset of BGP neighborship to enable or
+ * disable graceful shutdown configuration on a peer or peer group
+ */
+static int bgp_peer_gshut_reset(struct vty *vty, const char *peer_str, enum clear_sort sort)
+{
+	struct peer *peer = NULL;
+	struct listnode *node, *nnode;
+	struct peer_group *group;
+
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	peer = peer_and_group_lookup_vty(vty, peer_str);
+	bgp_clear(vty, bgp, AFI_UNSPEC, SAFI_UNSPEC, sort, BGP_CLEAR_SOFT_IN, peer_str);
+
+	if (sort == clear_group) {
+		group = peer->group;
+		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer))
+			bgp_peer_gshut_reannounce_route(peer);
+	} else {
+		bgp_peer_gshut_reannounce_route(peer);
+	}
+	return CMD_SUCCESS;
+}
+
+/*
+ * Function to enable or disable graceful shutdown configuration
+ * on a peer or peer group
+ */
+static int bgp_peer_gshut_set_vty(struct vty *vty, const char *peer_str, bool set)
+{
+	struct peer *peer = NULL;
+	int ret = 0;
+
+	peer = peer_and_group_lookup_vty(vty, peer_str);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (!set)
+		ret = peer_flag_unset_vty(vty, peer_str, PEER_FLAG_GRACEFUL_SHUTDOWN);
+	else
+		ret = peer_flag_set_vty(vty, peer_str, PEER_FLAG_GRACEFUL_SHUTDOWN);
+
+	if (ret == 0) {
+		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
+			ret = bgp_peer_gshut_reset(vty, peer_str, clear_peer);
+		else
+			ret = bgp_peer_gshut_reset(vty, peer_str, clear_group);
+	}
+
+	return ret;
+}
+
+
 DEFPY (neighbor_graceful_shutdown,
        neighbor_graceful_shutdown_cmd,
        "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor graceful-shutdown",
@@ -3715,32 +3790,12 @@ DEFPY (neighbor_graceful_shutdown,
        NEIGHBOR_ADDR_STR2
        "Graceful shutdown\n")
 {
-	afi_t afi;
-	safi_t safi;
-	struct peer *peer;
 	int ret;
 
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	peer = peer_and_group_lookup_vty(vty, neighbor);
-	if (!peer)
-		return CMD_WARNING_CONFIG_FAILED;
-
 	if (no)
-		ret = peer_flag_unset_vty(vty, neighbor,
-					  PEER_FLAG_GRACEFUL_SHUTDOWN);
+		ret = bgp_peer_gshut_set_vty(vty, neighbor, false);
 	else
-		ret = peer_flag_set_vty(vty, neighbor,
-					PEER_FLAG_GRACEFUL_SHUTDOWN);
-
-	FOREACH_AFI_SAFI (afi, safi) {
-		if (!peer->afc[afi][safi])
-			continue;
-
-		bgp_clear(vty, bgp, afi, safi, clear_peer, BGP_CLEAR_SOFT_IN,
-			  neighbor);
-	}
-
+		ret = bgp_peer_gshut_set_vty(vty, neighbor, true);
 	return ret;
 }
 
