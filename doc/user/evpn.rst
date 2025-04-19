@@ -522,7 +522,7 @@ both L2VNIs and L3VNIs included.
 
 .. code-block:: shell
 
-   ip link add vxbr0 type bridge
+   ip link add vxbr0 type bridge vlan_filtering 1
    # the key setting for SVD configuration is "external"
    # "vnifilter" isn't strictly necessary but is correct
    ip link add vx0 type vxlan dstport 4789 local 100.64.0.1 nolearning external vnifilter
