@@ -657,7 +657,7 @@ def __create_l2vpn_evpn_address_family(
             for address_type, unicast_type in advertise_data.items():
                 if type(unicast_type) is dict:
                     for key, value in unicast_type.items():
-                        cmd = "advertise {} {}".format(address_type, key)
+                        cmd = "l3-advertise {} {} enable".format(address_type, key)
 
                         if value:
                             route_map = value.setdefault("route-map", {})
