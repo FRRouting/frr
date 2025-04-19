@@ -218,6 +218,9 @@
           "active":true,
           "seg6local":{
             "action":"End"
+          },
+          "seg6localContext":{
+            "flavors":["next-csid", "psp"]
           }
         }
       ]
