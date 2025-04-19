@@ -1606,7 +1606,7 @@ static int lib_interface_destroy(struct nb_cb_destroy_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		if (CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "only inactive interfaces can be deleted");
@@ -1703,7 +1703,7 @@ static int lib_interface_description_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	XFREE(MTYPE_IFDESC, ifp->desc);
 	description = yang_dnode_get_string(args->dnode, NULL);
 	ifp->desc = XSTRDUP(MTYPE_IFDESC, description);
@@ -1718,7 +1718,7 @@ static int lib_interface_description_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	XFREE(MTYPE_IFDESC, ifp->desc);
 
 	return NB_OK;

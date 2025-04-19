@@ -63,7 +63,7 @@ int pathd_srte_segment_list_protocol_origin_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	segment_list = nb_running_get_entry(args->dnode, NULL, true);
+	segment_list = nb_running_entry(args->dnode);
 	segment_list->protocol_origin = yang_dnode_get_enum(args->dnode, NULL);
 	SET_FLAG(segment_list->flags, F_SEGMENT_LIST_MODIFIED);
 
@@ -81,7 +81,7 @@ int pathd_srte_segment_list_originator_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	segment_list = nb_running_get_entry(args->dnode, NULL, true);
+	segment_list = nb_running_entry(args->dnode);
 	originator = yang_dnode_get_string(args->dnode, NULL);
 	strlcpy(segment_list->originator, originator,
 		sizeof(segment_list->originator));
@@ -103,7 +103,7 @@ int pathd_srte_segment_list_segment_create(struct nb_cb_create_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	segment_list = nb_running_get_entry(args->dnode, NULL, true);
+	segment_list = nb_running_entry(args->dnode);
 	index = yang_dnode_get_uint32(args->dnode, "index");
 	segment = srte_segment_entry_add(segment_list, index);
 	nb_running_set_entry(args->dnode, segment);
@@ -139,7 +139,7 @@ int pathd_srte_segment_list_segment_sid_value_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	segment = nb_running_get_entry(args->dnode, NULL, true);
+	segment = nb_running_entry(args->dnode);
 	sid_value = yang_dnode_get_uint32(args->dnode, NULL);
 	segment->sid_value = sid_value;
 	SET_FLAG(segment->segment_list->flags, F_SEGMENT_LIST_MODIFIED);
@@ -155,7 +155,7 @@ int pathd_srte_segment_list_segment_sid_value_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	segment = nb_running_get_entry(args->dnode, NULL, true);
+	segment = nb_running_entry(args->dnode);
 	segment->sid_value = MPLS_LABEL_NONE;
 	SET_FLAG(segment->segment_list->flags, F_SEGMENT_LIST_MODIFIED);
 
@@ -170,7 +170,7 @@ int pathd_srte_segment_list_segment_nai_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	segment = nb_running_get_entry(args->dnode, NULL, true);
+	segment = nb_running_entry(args->dnode);
 	segment->nai_type = SRTE_SEGMENT_NAI_TYPE_NONE;
 	segment->nai_local_addr.ipa_type = IPADDR_NONE;
 	segment->nai_local_iface = 0;
@@ -190,7 +190,7 @@ void pathd_srte_segment_list_segment_nai_apply_finish(
 	uint8_t algo = 0, local_prefix_len = 0;
 	const char *algo_buf, *local_prefix_len_buf;
 
-	segment = nb_running_get_entry(args->dnode, NULL, true);
+	segment = nb_running_entry(args->dnode);
 	type = yang_dnode_get_enum(args->dnode, "type");
 
 	yang_dnode_get_ip(&local_addr, args->dnode, "local-address");
@@ -288,7 +288,7 @@ int pathd_srte_policy_name_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY && args->event != NB_EV_VALIDATE)
 		return NB_OK;
 
-	policy = nb_running_get_entry(args->dnode, NULL, true);
+	policy = nb_running_entry(args->dnode);
 
 	if (args->event == NB_EV_VALIDATE) {
 		/* the policy name is fixed after setting it once */
@@ -314,7 +314,7 @@ int pathd_srte_policy_name_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	policy = nb_running_get_entry(args->dnode, NULL, true);
+	policy = nb_running_entry(args->dnode);
 	policy->name[0] = '\0';
 	SET_FLAG(policy->flags, F_POLICY_MODIFIED);
 
@@ -341,7 +341,7 @@ int pathd_srte_policy_binding_sid_modify(struct nb_cb_modify_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		policy = nb_running_get_entry(args->dnode, NULL, true);
+		policy = nb_running_entry(args->dnode);
 		srte_policy_update_binding_sid(policy, binding_sid);
 		SET_FLAG(policy->flags, F_POLICY_MODIFIED);
 		break;
@@ -357,7 +357,7 @@ int pathd_srte_policy_binding_sid_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	policy = nb_running_get_entry(args->dnode, NULL, true);
+	policy = nb_running_entry(args->dnode);
 	srte_policy_update_binding_sid(policy, MPLS_LABEL_NONE);
 	SET_FLAG(policy->flags, F_POLICY_MODIFIED);
 
@@ -376,7 +376,7 @@ int pathd_srte_policy_candidate_path_create(struct nb_cb_create_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	policy = nb_running_get_entry(args->dnode, NULL, true);
+	policy = nb_running_entry(args->dnode);
 	preference = yang_dnode_get_uint32(args->dnode, "preference");
 	candidate =
 		srte_candidate_add(policy, preference, SRTE_ORIGIN_LOCAL, NULL);
@@ -430,7 +430,7 @@ int pathd_srte_policy_candidate_path_name_modify(struct nb_cb_modify_args *args)
 			return NB_OK;
 	}
 
-	candidate = nb_running_get_entry(args->dnode, NULL, true);
+	candidate = nb_running_entry(args->dnode);
 
 	name = yang_dnode_get_string(args->dnode, NULL);
 	strlcpy(candidate->name, name, sizeof(candidate->name));
@@ -450,7 +450,7 @@ static int affinity_filter_modify(struct nb_cb_modify_args *args,
 		return NB_OK;
 
 	assert(args->context != NULL);
-	candidate = nb_running_get_entry(args->dnode, NULL, true);
+	candidate = nb_running_entry(args->dnode);
 	filter = yang_dnode_get_uint32(args->dnode, NULL);
 	srte_candidate_set_affinity_filter(candidate, type, filter);
 
@@ -466,7 +466,7 @@ static int affinity_filter_destroy(struct nb_cb_destroy_args *args,
 		return NB_OK;
 
 	assert(args->context != NULL);
-	candidate = nb_running_get_entry(args->dnode, NULL, true);
+	candidate = nb_running_entry(args->dnode);
 	srte_candidate_unset_affinity_filter(candidate, type);
 
 	return NB_OK;
@@ -537,7 +537,7 @@ int pathd_srte_policy_candidate_path_metrics_destroy(
 		return NB_OK;
 
 	assert(args->context != NULL);
-	candidate = nb_running_get_entry(args->dnode, NULL, true);
+	candidate = nb_running_entry(args->dnode);
 
 	type = yang_dnode_get_enum(args->dnode, "type");
 	srte_candidate_unset_metric(candidate, type);
@@ -555,7 +555,7 @@ void pathd_srte_policy_candidate_path_metrics_apply_finish(
 
 	assert(args->context != NULL);
 
-	candidate = nb_running_get_entry(args->dnode, NULL, true);
+	candidate = nb_running_entry(args->dnode);
 
 	type = yang_dnode_get_enum(args->dnode, "type");
 	value = (float)yang_dnode_get_dec64(args->dnode, "value");
@@ -583,7 +583,7 @@ int pathd_srte_policy_candidate_path_objfun_destroy(
 
 	assert(args->context != NULL);
 
-	candidate = nb_running_get_entry(args->dnode, NULL, true);
+	candidate = nb_running_entry(args->dnode);
 	srte_candidate_unset_objfun(candidate);
 
 	return NB_OK;
@@ -596,7 +596,7 @@ void pathd_srte_policy_candidate_path_objfun_apply_finish(
 	enum objfun_type type;
 	bool required;
 
-	candidate = nb_running_get_entry(args->dnode, NULL, true);
+	candidate = nb_running_entry(args->dnode);
 	required = yang_dnode_get_bool(args->dnode, "required");
 	type = yang_dnode_get_enum(args->dnode, "type");
 	srte_candidate_set_objfun(candidate, required, type);
@@ -614,7 +614,7 @@ int pathd_srte_policy_candidate_path_protocol_origin_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	candidate = nb_running_get_entry(args->dnode, NULL, true);
+	candidate = nb_running_entry(args->dnode);
 	protocol_origin = yang_dnode_get_enum(args->dnode, NULL);
 	candidate->protocol_origin = protocol_origin;
 	candidate->lsp->protocol_origin = protocol_origin;
@@ -635,7 +635,7 @@ int pathd_srte_policy_candidate_path_originator_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	candidate = nb_running_get_entry(args->dnode, NULL, true);
+	candidate = nb_running_entry(args->dnode);
 	originator = yang_dnode_get_string(args->dnode, NULL);
 	strlcpy(candidate->originator, originator,
 		sizeof(candidate->originator));
@@ -678,7 +678,7 @@ int pathd_srte_policy_candidate_path_type_modify(struct nb_cb_modify_args *args)
 			return NB_OK;
 	}
 
-	candidate = nb_running_get_entry(args->dnode, NULL, true);
+	candidate = nb_running_entry(args->dnode);
 
 	type = yang_dnode_get_enum(args->dnode, NULL);
 	candidate->type = type;
@@ -699,7 +699,7 @@ int pathd_srte_policy_candidate_path_segment_list_name_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	candidate = nb_running_get_entry(args->dnode, NULL, true);
+	candidate = nb_running_entry(args->dnode);
 	segment_list_name = yang_dnode_get_string(args->dnode, NULL);
 
 	candidate->segment_list = srte_segment_list_find(segment_list_name);
@@ -718,7 +718,7 @@ int pathd_srte_policy_candidate_path_segment_list_name_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	candidate = nb_running_get_entry(args->dnode, NULL, true);
+	candidate = nb_running_entry(args->dnode);
 	candidate->segment_list = NULL;
 	candidate->lsp->segment_list = NULL;
 	SET_FLAG(candidate->flags, F_CANDIDATE_MODIFIED);
@@ -738,7 +738,7 @@ void pathd_srte_policy_candidate_path_bandwidth_apply_finish(
 
 	assert(args->context != NULL);
 
-	candidate = nb_running_get_entry(args->dnode, NULL, true);
+	candidate = nb_running_entry(args->dnode);
 	value = (float)yang_dnode_get_dec64(args->dnode, "value");
 	required = yang_dnode_get_bool(args->dnode, "required");
 	srte_candidate_set_bandwidth(candidate, value, required);
@@ -753,7 +753,7 @@ int pathd_srte_policy_candidate_path_bandwidth_destroy(
 		return NB_OK;
 
 	assert(args->context != NULL);
-	candidate = nb_running_get_entry(args->dnode, NULL, true);
+	candidate = nb_running_entry(args->dnode);
 	srte_candidate_unset_bandwidth(candidate);
 	return NB_OK;
 }

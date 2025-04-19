@@ -51,7 +51,7 @@ static int lib_interface_vrrp_vrrp_group_create(struct nb_cb_create_args *args)
 		break;
 	}
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	vr = vrrp_vrouter_create(ifp, vrid, version);
 	nb_running_set_entry(args->dnode, vr);
 
@@ -136,7 +136,7 @@ lib_interface_vrrp_vrrp_group_version_modify(struct nb_cb_modify_args *args)
 	struct vrrp_vrouter *vr;
 	uint8_t version;
 
-	vr = nb_running_get_entry(args->dnode, NULL, true);
+	vr = nb_running_entry(args->dnode);
 	vrrp_event(vr->v4, VRRP_EVENT_SHUTDOWN);
 	vrrp_event(vr->v6, VRRP_EVENT_SHUTDOWN);
 	version = yang_dnode_get_enum(args->dnode, NULL);
@@ -156,7 +156,7 @@ static void vrrp_yang_add_del_virtual_address(const struct lyd_node *dnode,
 	struct vrrp_vrouter *vr;
 	struct ipaddr ip;
 
-	vr = nb_running_get_entry(dnode, NULL, true);
+	vr = nb_running_entry(dnode);
 	yang_dnode_get_ip(&ip, dnode, NULL);
 	if (add)
 		vrrp_add_ip(vr, &ip);
@@ -497,7 +497,7 @@ lib_interface_vrrp_vrrp_group_priority_modify(struct nb_cb_modify_args *args)
 	struct vrrp_vrouter *vr;
 	uint8_t priority;
 
-	vr = nb_running_get_entry(args->dnode, NULL, true);
+	vr = nb_running_entry(args->dnode);
 	priority = yang_dnode_get_uint8(args->dnode, NULL);
 	vrrp_set_priority(vr, priority);
 
@@ -516,7 +516,7 @@ lib_interface_vrrp_vrrp_group_preempt_modify(struct nb_cb_modify_args *args)
 	struct vrrp_vrouter *vr;
 	bool preempt;
 
-	vr = nb_running_get_entry(args->dnode, NULL, true);
+	vr = nb_running_entry(args->dnode);
 	preempt = yang_dnode_get_bool(args->dnode, NULL);
 	vr->preempt_mode = preempt;
 
@@ -535,7 +535,7 @@ lib_interface_vrrp_vrrp_group_accept_mode_modify(struct nb_cb_modify_args *args)
 	struct vrrp_vrouter *vr;
 	bool accept;
 
-	vr = nb_running_get_entry(args->dnode, NULL, true);
+	vr = nb_running_entry(args->dnode);
 	accept = yang_dnode_get_bool(args->dnode, NULL);
 	vr->accept_mode = accept;
 
@@ -555,7 +555,7 @@ static int lib_interface_vrrp_vrrp_group_advertisement_interval_modify(
 	struct vrrp_vrouter *vr;
 	uint16_t advert_int;
 
-	vr = nb_running_get_entry(args->dnode, NULL, true);
+	vr = nb_running_entry(args->dnode);
 	advert_int = yang_dnode_get_uint16(args->dnode, NULL);
 	vrrp_set_advertisement_interval(vr, advert_int);
 
@@ -574,7 +574,7 @@ lib_interface_vrrp_vrrp_group_shutdown_modify(struct nb_cb_modify_args *args)
 	struct vrrp_vrouter *vr;
 	bool shutdown;
 
-	vr = nb_running_get_entry(args->dnode, NULL, true);
+	vr = nb_running_entry(args->dnode);
 	shutdown = yang_dnode_get_bool(args->dnode, NULL);
 
 	vr->shutdown = shutdown;
@@ -602,7 +602,7 @@ static int lib_interface_vrrp_vrrp_group_checksum_with_ipv4_pseudoheader_modify(
 	struct vrrp_vrouter *vr;
 	bool checksum_with_ipv4_ph;
 
-	vr = nb_running_get_entry(args->dnode, NULL, true);
+	vr = nb_running_entry(args->dnode);
 	checksum_with_ipv4_ph = yang_dnode_get_bool(args->dnode, NULL);
 	vr->checksum_with_ipv4_pseudoheader = checksum_with_ipv4_ph;
 

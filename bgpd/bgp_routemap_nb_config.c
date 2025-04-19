@@ -109,7 +109,7 @@ lib_route_map_entry_match_condition_rmap_match_condition_local_preference_modify
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		local_pref = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -164,7 +164,7 @@ int lib_route_map_entry_match_condition_rmap_match_condition_alias_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		alias = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -220,7 +220,7 @@ lib_route_map_entry_match_condition_rmap_match_condition_script_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		script = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -275,7 +275,7 @@ lib_route_map_entry_match_condition_rmap_match_condition_origin_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		origin = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -330,7 +330,7 @@ lib_route_map_entry_match_condition_rmap_match_condition_rpki_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		rpki = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -385,7 +385,7 @@ int lib_route_map_entry_match_condition_rmap_match_condition_source_protocol_mod
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		proto = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -439,7 +439,7 @@ int lib_route_map_entry_match_condition_rmap_match_condition_rpki_extcommunity_m
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		rpki = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -493,7 +493,7 @@ lib_route_map_entry_match_condition_rmap_match_condition_probability_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		probability = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -548,7 +548,7 @@ lib_route_map_entry_match_condition_rmap_match_condition_source_vrf_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		vrf = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -603,7 +603,7 @@ lib_route_map_entry_match_condition_rmap_match_condition_peer_ipv4_address_modif
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		peer = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -658,7 +658,7 @@ lib_route_map_entry_match_condition_rmap_match_condition_peer_interface_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		peer = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -713,7 +713,7 @@ lib_route_map_entry_match_condition_rmap_match_condition_peer_ipv6_address_modif
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		peer = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -768,7 +768,7 @@ lib_route_map_entry_match_condition_rmap_match_condition_peer_local_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		value = yang_dnode_get_bool(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -825,7 +825,7 @@ int lib_route_map_entry_match_condition_rmap_match_condition_src_peer_ipv4_addre
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		peer = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -877,7 +877,7 @@ int lib_route_map_entry_match_condition_rmap_match_condition_src_peer_interface_
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		peer = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -929,7 +929,7 @@ int lib_route_map_entry_match_condition_rmap_match_condition_src_peer_ipv6_addre
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		peer = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -983,7 +983,7 @@ lib_route_map_entry_match_condition_rmap_match_condition_list_name_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		list_name = yang_dnode_get_string(args->dnode, NULL);
 		condition = yang_dnode_get_string(args->dnode,
 				"../../frr-route-map:condition");
@@ -1072,7 +1072,7 @@ lib_route_map_entry_match_condition_rmap_match_condition_evpn_default_route_crea
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 
 		/* Set destroy information. */
 		rhc->rhc_mhook = bgp_route_match_delete;
@@ -1126,7 +1126,7 @@ lib_route_map_entry_match_condition_rmap_match_condition_evpn_vni_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		vni = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -1181,7 +1181,7 @@ lib_route_map_entry_match_condition_rmap_match_condition_evpn_route_type_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		type = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -1237,7 +1237,7 @@ lib_route_map_entry_match_condition_rmap_match_condition_route_distinguisher_mod
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		rd = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -1291,7 +1291,7 @@ int lib_route_map_entry_match_condition_rmap_match_condition_community_limit_mod
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		limit = yang_dnode_get_string(args->dnode, NULL);
 
 		rhc->rhc_mhook = bgp_route_match_delete;
@@ -1363,7 +1363,7 @@ lib_route_map_entry_match_condition_rmap_match_condition_comm_list_finish(
 	int ret;
 
 	/* Add configuration. */
-	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	rhc = nb_running_entry(args->dnode);
 	value = yang_dnode_get_string(args->dnode, "comm-list-name");
 
 	if (yang_dnode_exists(args->dnode, "comm-list-name-exact-match"))
@@ -1522,7 +1522,7 @@ lib_route_map_entry_match_condition_rmap_match_condition_ipv4_address_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		peer = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -1577,7 +1577,7 @@ lib_route_map_entry_match_condition_rmap_match_condition_ipv6_address_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		peer = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -1632,7 +1632,7 @@ int lib_route_map_entry_set_action_rmap_set_action_distance_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		type = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -1683,7 +1683,7 @@ int lib_route_map_entry_match_condition_rmap_match_condition_extcommunity_limit_
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		limit = yang_dnode_get_string(args->dnode, NULL);
 
 		rhc->rhc_mhook = bgp_route_match_delete;
@@ -1736,7 +1736,7 @@ lib_route_map_entry_set_action_rmap_set_action_extcommunity_rt_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		type = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -1789,7 +1789,7 @@ int lib_route_map_entry_set_action_rmap_set_action_extcommunity_nt_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		str = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -1842,7 +1842,7 @@ lib_route_map_entry_set_action_rmap_set_action_extcommunity_soo_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		type = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -1896,7 +1896,7 @@ int lib_route_map_entry_set_action_rmap_set_action_ipv4_address_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		addr = yang_dnode_get_string(args->dnode, NULL);
 
 		rhc->rhc_shook = generic_set_delete;
@@ -1948,7 +1948,7 @@ int lib_route_map_entry_set_action_rmap_set_action_ipv4_nexthop_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		type = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -2017,7 +2017,7 @@ int lib_route_map_entry_set_action_rmap_set_action_ipv6_address_modify(
 	}
 
 	/* Add configuration. */
-	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	rhc = nb_running_entry(args->dnode);
 	addr = yang_dnode_get_string(args->dnode, NULL);
 
 	rhc->rhc_shook = generic_set_delete;
@@ -2074,7 +2074,7 @@ int lib_route_map_entry_set_action_rmap_set_action_preference_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		value = yang_dnode_get_bool(args->dnode, NULL);
 
 		rhc->rhc_shook = generic_set_delete;
@@ -2137,7 +2137,7 @@ int lib_route_map_entry_set_action_rmap_set_action_label_index_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		type = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -2189,7 +2189,7 @@ int lib_route_map_entry_set_action_rmap_set_action_local_pref_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		type = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -2242,7 +2242,7 @@ int lib_route_map_entry_set_action_rmap_set_action_weight_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		type = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -2294,7 +2294,7 @@ int lib_route_map_entry_set_action_rmap_set_action_origin_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		type = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -2347,7 +2347,7 @@ int lib_route_map_entry_set_action_rmap_set_action_originator_id_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		type = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -2399,7 +2399,7 @@ int lib_route_map_entry_set_action_rmap_set_action_table_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		type = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -2451,7 +2451,7 @@ lib_route_map_entry_set_action_rmap_set_action_atomic_aggregate_create(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 
 		/* Set destroy information. */
 		rhc->rhc_shook = generic_set_delete;
@@ -2503,7 +2503,7 @@ int lib_route_map_entry_set_action_rmap_set_action_aigp_metric_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		aigp = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -2556,7 +2556,7 @@ lib_route_map_entry_set_action_rmap_set_action_prepend_as_path_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		type = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -2611,7 +2611,7 @@ int lib_route_map_entry_set_action_rmap_set_action_last_as_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		value = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -2674,7 +2674,7 @@ lib_route_map_entry_set_action_rmap_set_action_exclude_as_path_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		type = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -2728,7 +2728,7 @@ int lib_route_map_entry_set_action_rmap_set_action_replace_as_path_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		type = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -2780,7 +2780,7 @@ int lib_route_map_entry_set_action_rmap_set_action_community_none_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		none = yang_dnode_get_bool(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -2840,7 +2840,7 @@ lib_route_map_entry_set_action_rmap_set_action_community_string_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		type = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -2894,7 +2894,7 @@ lib_route_map_entry_set_action_rmap_set_action_large_community_none_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		none = yang_dnode_get_bool(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -2955,7 +2955,7 @@ lib_route_map_entry_set_action_rmap_set_action_large_community_string_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		type = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -3026,7 +3026,7 @@ void lib_route_map_entry_set_action_rmap_set_action_aggregator_finish(
 	int ret;
 
 	/* Add configuration. */
-	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	rhc = nb_running_entry(args->dnode);
 	asn = yang_dnode_get_string(args->dnode, "aggregator-asn");
 	addr = yang_dnode_get_string(args->dnode, "aggregator-address");
 
@@ -3118,7 +3118,7 @@ int lib_route_map_entry_set_action_rmap_set_action_comm_list_name_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		value = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -3199,7 +3199,7 @@ lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_finish(
 	int ret;
 
 	/* Add configuration. */
-	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	rhc = nb_running_entry(args->dnode);
 	lb_type = yang_dnode_get_enum(args->dnode, "lb-type");
 
 	/* Set destroy information. */
@@ -3279,7 +3279,7 @@ int lib_route_map_entry_set_action_rmap_set_action_extcommunity_color_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		str = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -3342,7 +3342,7 @@ int lib_route_map_entry_set_action_rmap_set_action_extcommunity_none_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		none = yang_dnode_get_bool(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -3400,7 +3400,7 @@ int lib_route_map_entry_set_action_rmap_set_action_evpn_gateway_ip_ipv4_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		type = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -3452,7 +3452,7 @@ int lib_route_map_entry_set_action_rmap_set_action_evpn_gateway_ip_ipv6_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		type = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -3504,7 +3504,7 @@ int lib_route_map_entry_set_action_rmap_set_action_l3vpn_nexthop_encapsulation_m
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		type = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
