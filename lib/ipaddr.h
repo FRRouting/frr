@@ -86,14 +86,6 @@ static inline int str2ipaddr(const char *str, struct ipaddr *ip)
 	return -1;
 }
 
-static inline char *ipaddr2str(const struct ipaddr *ip, char *buf, int size)
-{
-	buf[0] = '\0';
-	if (ip)
-		inet_ntop(ip->ipa_type, &ip->ip.addr, buf, size);
-	return buf;
-}
-
 #define IS_MAPPED_IPV6(A)                                                      \
 	((A)->s6_addr32[0] == 0x00000000                                       \
 		 ? ((A)->s6_addr32[1] == 0x00000000                            \
@@ -125,6 +117,41 @@ static inline void ipv4_mapped_ipv6_to_ipv4(const struct in6_addr *in6,
 {
 	memset(in, 0, sizeof(struct in_addr));
 	memcpy(in, (char *)in6 + 12, sizeof(struct in_addr));
+}
+
+static inline char *ipaddr2str(const struct ipaddr *ip, char *buf, int size)
+{
+	buf[0] = '\0';
+	if (ip) {
+		if (IS_IPADDR_V6(ip) && IN6_IS_ADDR_V4MAPPED(&ip->ipaddr_v6)) {
+			/* Handle IPv4-mapped IPv6 addresses specially */
+			struct in_addr ipv4;
+			char ipv4str[INET_ADDRSTRLEN];
+
+			/*
+			 * Extract the IPv4 address from the mapped IPv6 address.
+			 * Per RFC 5952 section 5, it is RECOMMENDED to represent
+			 * IPv4-mapped IPv6 addresses using "mixed notation" with the
+			 * IPv4 part in dot-decimal format: ::ffff:192.0.2.1
+			 * instead of ::ffff:c000:0201
+			 */
+			ipv4_mapped_ipv6_to_ipv4(&ip->ipaddr_v6, &ipv4);
+
+			/* Format as IPv4-mapped IPv6 address (::ffff:a.b.c.d) */
+			inet_ntop(AF_INET, &ipv4, ipv4str, sizeof(ipv4str));
+
+			/*
+			 * 1. Copy prefix (7 chars for "::ffff:")
+			 * 2. Append IPv4 address safely with strlcat
+			 */
+			snprintf(buf, size, "::ffff:");
+			strlcat(buf, ipv4str, size);
+		} else {
+			/* Regular IP address formatting */
+			inet_ntop(ipaddr_family(ip), &ip->ip.addr, buf, size);
+		}
+	}
+	return buf;
 }
 
 /*
