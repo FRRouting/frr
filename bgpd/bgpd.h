@@ -2959,11 +2959,11 @@ static inline void bgp_vrf_link(struct bgp *bgp, struct vrf *vrf)
 /* Unlink BGP instance from VRF. */
 static inline void bgp_vrf_unlink(struct bgp *bgp, struct vrf *vrf)
 {
+	bgp->vrf_id = VRF_UNKNOWN;
 	if (vrf->info == (void *)bgp) {
 		vrf->info = NULL;
 		bgp_unlock(bgp);
 	}
-	bgp->vrf_id = VRF_UNKNOWN;
 }
 
 static inline bool bgp_in_graceful_shutdown(struct bgp *bgp)
