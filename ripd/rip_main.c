@@ -78,7 +78,9 @@ static void sigint(void)
 
 
 	nb_oper_cancel_all_walks();
+#ifdef HAVE_MGMTD
 	mgmt_be_client_destroy(mgmt_be_client);
+#endif
 	mgmt_be_client = NULL;
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
@@ -147,8 +149,10 @@ FRR_DAEMON_INFO(ripd, RIP,
 	.yang_modules = ripd_yang_modules,
 	.n_yang_modules = array_size(ripd_yang_modules),
 
+#ifdef HAVE_MGMTD
 	/* mgmtd will load the per-daemon config file now */
 	.flags = FRR_NO_SPLIT_CONFIG,
+#endif
 );
 /* clang-format on */
 
@@ -196,8 +200,13 @@ int main(int argc, char **argv)
 	/* RIP related initialization. */
 	rip_init();
 	rip_if_init();
+#ifndef HAVE_MGMTD
+	rip_cli_init();
+#endif
 
+#ifdef HAVE_MGMTD
 	mgmt_be_client = mgmt_be_client_create("ripd", NULL, 0, master);
+#endif
 
 	rip_zclient_init(master);
 	rip_bfd_init(master);

@@ -1104,6 +1104,10 @@ static int rip_interface_delete_hook(struct interface *ifp)
 /* Allocate and initialize interface vector. */
 void rip_if_init(void)
 {
+#ifndef HAVE_MGMTD
+	if_cmd_init_default();
+#endif
+
 	/* Default initial size of interface vector. */
 	hook_register_prio(if_add, 0, rip_interface_new_hook);
 	hook_register_prio(if_del, 0, rip_interface_delete_hook);

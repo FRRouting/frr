@@ -3641,6 +3641,10 @@ static int rip_vrf_disable(struct vrf *vrf)
 	if (rip->enabled)
 		rip_instance_disable(rip);
 
+#ifndef HAVE_MGMTD
+	vrf_cmd_init(NULL, true);
+#endif
+
 	return 0;
 }
 
@@ -3668,7 +3672,11 @@ void rip_init(void)
 	mgmt_be_client_lib_vty_init();
 
 	/* Access list install. */
+#ifdef HAVE_MGMTD
 	access_list_init_new(true);
+#else
+	access_list_init_new(false);
+#endif
 	access_list_add_hook(rip_distribute_update_all_wrapper);
 	access_list_delete_hook(rip_distribute_update_all_wrapper);
 

@@ -2082,8 +2082,13 @@ DEFUNSH(VTYSH_KEYS, key, key_cmd, "key (0-2147483647)",
 }
 
 #ifdef HAVE_RIPD
+#ifdef HAVE_MGMTD
 DEFUNSH(VTYSH_MGMTD, router_rip, router_rip_cmd, "router rip [vrf NAME]",
 	ROUTER_STR "RIP\n" VRF_CMD_HELP_STR)
+#else
+DEFUNSH(VTYSH_RIPD, router_rip, router_rip_cmd, "router rip [vrf NAME]",
+	ROUTER_STR "RIP\n" VRF_CMD_HELP_STR)
+#endif
 {
 	vty->node = RIP_NODE;
 	return CMD_SUCCESS;
@@ -2701,14 +2706,24 @@ DEFUNSH(VTYSH_ZEBRA, exit_srv6_sid_format, exit_srv6_sid_format_cmd,
 }
 
 #ifdef HAVE_RIPD
+#ifdef HAVE_MGMTD
 DEFUNSH(VTYSH_MGMTD, vtysh_exit_ripd, vtysh_exit_ripd_cmd, "exit",
 	"Exit current mode and down to previous mode\n")
+#else
+DEFUNSH(VTYSH_RIPD, vtysh_exit_ripd, vtysh_exit_ripd_cmd, "exit",
+	"Exit current mode and down to previous mode\n")
+#endif
 {
 	return vtysh_exit(vty);
 }
 
+#ifdef HAVE_MGMTD
 DEFUNSH(VTYSH_MGMTD, vtysh_quit_ripd, vtysh_quit_ripd_cmd, "quit",
 	"Exit current mode and down to previous mode\n")
+#else
+DEFUNSH(VTYSH_RIPD, vtysh_quit_ripd, vtysh_quit_ripd_cmd, "quit",
+	"Exit current mode and down to previous mode\n")
+#endif
 {
 	return vtysh_exit_ripd(self, vty, argc, argv);
 }

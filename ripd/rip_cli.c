@@ -1264,13 +1264,43 @@ DEFPY_YANG(no_if_ipv4_route_map, no_if_ipv4_route_map_cmd,
 }
 #endif
 
+#ifndef HAVE_MGMTD
+/* RIP configuration write function. */
+static int config_write_rip(struct vty *vty)
+{
+	struct rip *rip;
+	int write = 0;
+
+	RB_FOREACH(rip, rip_instance_head, &rip_instances) {
+		char xpath[XPATH_MAXLEN];
+		struct lyd_node *dnode;
+
+		snprintf(xpath, sizeof(xpath),
+			 "/frr-ripd:ripd/instance[vrf='%s']", rip->vrf_name);
+
+		dnode = yang_dnode_get(running_config->dnode, xpath);
+		assert(dnode);
+
+		nb_cli_show_dnode_cmds(vty, dnode, false);
+
+		vty_out(vty, "exit\n");
+
+		write = 1;
+	}
+
+	return write;
+}
+#endif
+
 /* RIP node structure. */
 static struct cmd_node rip_node = {
 	.name = "rip",
 	.node = RIP_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
-	// .config_write = config_write_rip,
+#ifndef HAVE_MGMTD
+	.config_write = config_write_rip,
+#endif
 };
 
 void rip_cli_init(void)
