@@ -138,9 +138,15 @@ static void if_rmap_unset(struct if_rmap_ctx *ctx, const char *ifname,
 	}
 }
 
+#ifdef HAVE_MGMTD
 static int if_route_map_handler(struct vty *vty, bool no, const char *dir,
 				const char *other_dir, const char *ifname,
 				const char *route_map)
+#else
+int if_route_map_handler(struct vty *vty, bool no, const char *dir,
+				const char *other_dir, const char *ifname,
+				const char *route_map)
+#endif
 {
 	enum nb_operation op = no ? NB_OP_DESTROY : NB_OP_MODIFY;
 	const struct lyd_node *dnode;
@@ -179,6 +185,7 @@ static int if_route_map_handler(struct vty *vty, bool no, const char *dir,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+#if HAVE_MGMTD
 DEFPY_YANG(if_ipv4_route_map, if_ipv4_route_map_cmd,
 	   "route-map ROUTE-MAP <in$in|out> IFNAME",
 	   "Route map set\n"
@@ -239,6 +246,7 @@ DEFPY_YANG(no_if_ipv6_route_map, no_if_ipv6_route_map_cmd,
 	return if_route_map_handler(vty, true, dir, other_dir, ifname,
 				    route_map);
 }
+#endif
 
 void cli_show_if_route_map(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults)
@@ -296,6 +304,7 @@ struct if_rmap_ctx *if_rmap_ctx_create(const char *name)
 	return ctx;
 }
 
+#if HAVE_MGMTD
 void if_rmap_init(int node)
 {
 	if (node == RIP_NODE) {
@@ -306,6 +315,7 @@ void if_rmap_init(int node)
 		install_element(RIPNG_NODE, &no_if_ipv6_route_map_cmd);
 	}
 }
+#endif
 
 void if_rmap_terminate(void)
 {

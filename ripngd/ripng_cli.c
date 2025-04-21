@@ -624,6 +624,37 @@ DEFPY_YANG(no_ripng_ipv6_distribute_list_prefix,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+#ifndef HAVE_MGMTD
+DEFPY_YANG(if_ipv6_route_map, if_ipv6_route_map_cmd,
+	   "route-map ROUTE-MAP <in$in|out> IFNAME",
+	   "Route map set\n"
+	   "Route map name\n"
+	   "Route map set for input filtering\n"
+	   "Route map set for output filtering\n" INTERFACE_STR)
+{
+	const char *dir = in ? "in" : "out";
+	const char *other_dir = in ? "out" : "in";
+
+	return if_route_map_handler(vty, false, dir, other_dir, ifname,
+				    route_map);
+}
+
+DEFPY_YANG(no_if_ipv6_route_map, no_if_ipv6_route_map_cmd,
+	   "no route-map [ROUTE-MAP] <in$in|out> IFNAME",
+	   NO_STR
+	   "Route map set\n"
+	   "Route map name\n"
+	   "Route map set for input filtering\n"
+	   "Route map set for output filtering\n" INTERFACE_STR)
+{
+	const char *dir = in ? "in" : "out";
+	const char *other_dir = in ? "out" : "in";
+
+	return if_route_map_handler(vty, true, dir, other_dir, ifname,
+				    route_map);
+}
+#endif
+
 /* RIPng node structure. */
 static struct cmd_node cmd_ripng_node = {
 	.name = "ripng",
@@ -663,7 +694,12 @@ void ripng_cli_init(void)
 
 	install_element(INTERFACE_NODE, &ipv6_ripng_split_horizon_cmd);
 
+#ifdef HAVE_MGMTD
 	if_rmap_init(RIPNG_NODE);
+#else
+	install_element(RIPNG_NODE, &if_ipv6_route_map_cmd);
+	install_element(RIPNG_NODE, &no_if_ipv6_route_map_cmd);
+#endif
 }
 
 /* clang-format off */
