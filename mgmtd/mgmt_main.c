@@ -183,6 +183,7 @@ static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 	 * YANG module info used by backend clients get added here.
 	 */
 
+#ifdef HAVE_MGMTD
 	&frr_zebra_cli_info,
 	&zebra_route_map_info,
 
@@ -191,6 +192,7 @@ static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 #endif
 #ifdef HAVE_RIPNGD
 	&frr_ripngd_cli_info,
+#endif
 #endif
 #if defined(HAVE_STATICD) && defined(HAVE_STATICD_MGMTD)
 	&frr_staticd_cli_info,

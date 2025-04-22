@@ -126,12 +126,14 @@ bool vty_log_commands;
 static bool vty_log_commands_perm;
 
 char const *const mgmt_daemons[] = {
+#ifdef HAVE_MGMTD
 	"zebra",
 #ifdef HAVE_RIPD
 	"ripd",
 #endif
 #ifdef HAVE_RIPNGD
 	"ripngd",
+#endif
 #endif
 #if defined(HAVE_STATICD) && defined(HAVE_STATICD_MGMTD)
 	"staticd",

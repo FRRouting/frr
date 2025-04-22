@@ -15,9 +15,11 @@ clippy_scan += \
 	# end
 
 lib_LTLIBRARIES += mgmtd/libmgmt_be_nb.la
+if MGMTD
 mgmtd_libmgmt_be_nb_la_SOURCES = \
 	zebra/zebra_cli.c \
 	# end
+endif
 nodist_mgmtd_libmgmt_be_nb_la_SOURCES = \
 	# end
 mgmtd_libmgmt_be_nb_la_CFLAGS = $(AM_CFLAGS) -DINCLUDE_MGMTD_CMDDEFS_ONLY
@@ -44,8 +46,13 @@ noinst_HEADERS += \
 	mgmtd/mgmt_history.h \
 	mgmtd/mgmt_memory.h \
 	mgmtd/mgmt_txn.h \
+	# end
+
+if MGMTD
+noinst_HEADERS += \
 	zebra/zebra_cli.h \
 	# end
+endif
 
 sbin_PROGRAMS += mgmtd/mgmtd
 
@@ -78,6 +85,7 @@ nodist_mgmtd_mgmtd_SOURCES += yang/frr-bfdd.yang.c
 endif
 endif
 
+if MGMTD
 if RIPD
 nodist_mgmtd_mgmtd_SOURCES += \
 	yang/frr-ripd.yang.c \
@@ -94,6 +102,7 @@ nodist_mgmtd_mgmtd_SOURCES += \
 mgmtd_libmgmt_be_nb_la_SOURCES += \
 	ripngd/ripng_cli.c \
 	# end
+endif
 endif
 
 if STATICD

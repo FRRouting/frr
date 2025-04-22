@@ -610,12 +610,14 @@ void mgmt_vty_init(void)
 	 * backend components that are moved to new MGMTD infra
 	 * here one by one.
 	 */
+#ifdef HAVE_MGMTD
 	zebra_cli_init();
 #ifdef HAVE_RIPD
 	rip_cli_init();
 #endif
 #ifdef HAVE_RIPNGD
 	ripng_cli_init();
+#endif
 #endif
 #if defined(HAVE_STATICD) && defined(HAVE_STATICD_MGMTD)
 	static_vty_init();
