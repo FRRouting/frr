@@ -180,34 +180,35 @@ def teardown_module(_mod):
     tgen.stop_topology()
 
 
-def _test_evpn_ping_router(pingrouter, ipv4_only=False):
+def _test_evpn_ping_router(pingrouter, ipv4_only=False, ipv6_only=False):
     """
     internal function to check ping between r1 and r2
     """
     # Check IPv4 and IPv6 connectivity between r1 and r2 ( routing vxlan evpn)
-    logger.info(
-        "Check Ping IPv4 from  R1(r1-vrf-101) to R2(r2-vrf-101 = 192.168.101.41)"
-    )
-    output = pingrouter.run("ip netns exec r1-vrf-101 ping 192.168.101.41 -f -c 1000")
-    logger.info(output)
-    if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = (
-            "expected ping IPv4 from R1(r1-vrf-101) to R2(192.168.101.41) should be ok"
+    if not ipv6_only:
+        logger.info(
+            "Check Ping IPv4 from  R1(r1-vrf-101) to R2(r2-vrf-101 = 192.168.101.41)"
         )
-        assert 0, assertmsg
-    else:
-        logger.info("Check Ping IPv4 from R1(r1-vrf-101) to R2(192.168.101.41) OK")
+        output = pingrouter.run(
+            "ip netns exec r1-vrf-101 ping 192.168.101.41 -f -c 1000"
+        )
+        logger.info(output)
+        if "1000 packets transmitted, 1000 received" not in output:
+            assertmsg = "expected ping IPv4 from R1(r1-vrf-101) to R2(192.168.101.41) should be ok"
+            assert 0, assertmsg
+        else:
+            logger.info("Check Ping IPv4 from R1(r1-vrf-101) to R2(192.168.101.41) OK")
 
-    if ipv4_only:
-        return
-
-    logger.info("Check Ping IPv6 from  R1(r1-vrf-101) to R2(r2-vrf-101 = fd00::2)")
-    output = pingrouter.run("ip netns exec r1-vrf-101 ping fd00::2 -f -c 1000")
-    logger.info(output)
-    if "1000 packets transmitted, 1000 received" not in output:
-        assert 0, "expected ping IPv6 from R1(r1-vrf-101) to R2(fd00::2) should be ok"
-    else:
-        logger.info("Check Ping IPv6 from R1(r1-vrf-101) to R2(fd00::2) OK")
+    if not ipv4_only:
+        logger.info("Check Ping IPv6 from  R1(r1-vrf-101) to R2(r2-vrf-101 = fd00::2)")
+        output = pingrouter.run("ip netns exec r1-vrf-101 ping fd00::2 -f -c 1000")
+        logger.info(output)
+        if "1000 packets transmitted, 1000 received" not in output:
+            assert (
+                0
+            ), "expected ping IPv6 from R1(r1-vrf-101) to R2(fd00::2) should be ok"
+        else:
+            logger.info("Check Ping IPv6 from R1(r1-vrf-101) to R2(fd00::2) OK")
 
 
 def test_protocols_convergence():
@@ -237,6 +238,16 @@ def test_protocols_convergence():
         _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
         assertmsg = '"{}" JSON output mismatches'.format(router.name)
         assert result is None, assertmsg
+
+
+def _print_evpn_nexthop_rmac(router):
+    tgen = get_topogen()
+    output = tgen.gears[router].vtysh_cmd("show evpn next-hops vni all", isjson=False)
+    logger.info("==== result from {} show evpn next-hops vni all".format(router))
+    logger.info(output)
+    output = tgen.gears[router].vtysh_cmd("show evpn rmac vni all", isjson=False)
+    logger.info("==== result from {}: show evpn rmac vni all".format(router))
+    logger.info(output)
 
 
 def test_protocols_dump_info():
@@ -273,12 +284,7 @@ def test_protocols_dump_info():
     output = tgen.gears["r1"].vtysh_cmd("show evpn vni detail", isjson=False)
     logger.info("==== result from show evpn vni detail")
     logger.info(output)
-    output = tgen.gears["r1"].vtysh_cmd("show evpn next-hops vni all", isjson=False)
-    logger.info("==== result from show evpn next-hops vni all")
-    logger.info(output)
-    output = tgen.gears["r1"].vtysh_cmd("show evpn rmac vni all", isjson=False)
-    logger.info("==== result from show evpn rmac vni all")
-    logger.info(output)
+    _print_evpn_nexthop_rmac("r1")
 
 
 def test_bgp_vrf_routes():
@@ -373,7 +379,7 @@ def _test_router_check_evpn_next_hop(expected_paths=1):
     assert result is None, "evpn ipv6 next-hops check failed"
 
 
-def _test_router_check_evpn_contexts(router, ipv4_only=False):
+def _test_router_check_evpn_contexts(router, ipv4_only=False, ipv6_only=False):
     """
     Check EVPN nexthops and RMAC number  are correctly configured
     """
@@ -383,6 +389,15 @@ def _test_router_check_evpn_contexts(router, ipv4_only=False):
                 "numNextHops": 1,
                 "192.168.100.41": {
                     "nexthopIp": "192.168.100.41",
+                },
+            }
+        }
+    elif ipv6_only:
+        expected = {
+            "101": {
+                "numNextHops": 1,
+                "::ffff:192.168.100.41": {
+                    "nexthopIp": "::ffff:192.168.100.41",
                 },
             }
         }
@@ -465,6 +480,26 @@ def test_evpn_disable_routemap():
     assert result is None, assertmsg
 
 
+def _check_evpn_routes(router, family, vrf, routes, expected=True):
+    tgen = get_topogen()
+    rib_routes = {
+        "r1": {
+            "static_routes": [
+                {
+                    "vrf": vrf,
+                    "network": routes,
+                }
+            ]
+        }
+    }
+    result = verify_bgp_rib(tgen, family, router, rib_routes, expected=expected)
+
+    if expected:
+        assert result is True, "expect routes {} present".format(routes)
+    else:
+        assert result is not True, "expect routes {} not present".format(routes)
+
+
 def test_evpn_remove_ip():
     """
     Check the removal of an EVPN route is correctly handled
@@ -489,25 +524,8 @@ def test_evpn_remove_ip():
     assert result is True, "Failed to remove IPv6 network on R2, Error: {} ".format(
         result
     )
-    ipv6_routes = {
-        "r1": {
-            "static_routes": [
-                {
-                    "vrf": "r1-vrf-101",
-                    "network": ["fd00::2/128"],
-                }
-            ]
-        }
-    }
-    result = verify_bgp_rib(tgen, "ipv6", "r1", ipv6_routes, expected=False)
-    assert result is not True, "expect IPv6 route fd00::2/128 withdrawn"
-
-    output = tgen.gears["r1"].vtysh_cmd("show evpn next-hops vni all", isjson=False)
-    logger.info("==== result from show evpn next-hops vni all")
-    logger.info(output)
-    output = tgen.gears["r1"].vtysh_cmd("show evpn rmac vni all", isjson=False)
-    logger.info("==== result from show evpn next-hops vni all")
-    logger.info(output)
+    _check_evpn_routes("r1", "ipv6", "r1-vrf-101", ["fd00::2/128"], expected=False)
+    _print_evpn_nexthop_rmac("r1")
 
 
 def test_router_check_evpn_contexts_again():
@@ -531,6 +549,75 @@ def test_evpn_ping_again():
         pytest.skip(tgen.errors)
 
     _test_evpn_ping_router(tgen.gears["r1"], ipv4_only=True)
+
+
+def test_evpn_other_address_family():
+    """
+    Check the removal of an EVPN route is correctly handled
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    config_add_ipv6 = {
+        "r2": {
+            "raw_config": [
+                "router bgp 65000 vrf r2-vrf-101",
+                "address-family ipv6 unicast",
+                "network fd00::3/128",
+                "network fd00::2/128",
+            ]
+        }
+    }
+
+    logger.info("==== Add IPv6 again network on R2")
+    result = apply_raw_config(tgen, config_add_ipv6)
+    assert result is True, "Failed to add IPv6 network on R2, Error: {} ".format(result)
+    _check_evpn_routes("r1", "ipv6", "r1-vrf-101", ["fd00::2/128"], expected=True)
+
+    config_no_ipv4 = {
+        "r2": {
+            "raw_config": [
+                "router bgp 65000 vrf r2-vrf-101",
+                "address-family ipv4 unicast",
+                "no network 192.168.101.41/32",
+                "no network 192.168.102.41/32",
+            ]
+        }
+    }
+
+    logger.info("==== Remove IPv4 network on R2")
+    result = apply_raw_config(tgen, config_no_ipv4)
+    assert result is True, "Failed to remove IPv4 network on R2, Error: {} ".format(
+        result
+    )
+
+    _check_evpn_routes(
+        "r1", "ipv4", "r1-vrf-101", ["192.168.101.41/32"], expected=False
+    )
+    _print_evpn_nexthop_rmac("r1")
+
+
+def test_router_check_evpn_contexts_again_other_address_family():
+    """
+    Check EVPN nexthops and RMAC number  are correctly configured
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    _test_router_check_evpn_contexts(tgen.gears["r1"], ipv6_only=True)
+
+
+def test_evpn_ping_again_other_address_family():
+    """
+    Check ping between R1 and R2 is ok
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    _test_evpn_ping_router(tgen.gears["r1"], ipv6_only=True)
 
 
 def _get_established_epoch(router, peer):
