@@ -692,15 +692,28 @@ static void nb_notif_set_walk_timer(void)
 
 void nb_notif_set_filters(const char **selectors, bool replace)
 {
+	// struct nb_node **np, **nb_nodes;
 	const char **csp;
+	bool exists;
+	int before;
 
-	if (replace) {
+	if (replace)
 		darr_free_free(nb_notif_filters);
-		nb_notif_filters = selectors;
-		return;
+
+	/* Add in sorted, eliminating duplicates */
+	darr_foreach_p (selectors, csp) {
+		if (!darr_len(nb_notif_filters)) {
+			*darr_append(nb_notif_filters) = *csp;
+			continue;
+		}
+		exists = false;
+		before = darr_str_search_ceil(nb_notif_filters, *csp, &exists);
+		if (exists)
+			darr_free(*csp);
+		else
+			*darr_insert(nb_notif_filters, before) = *csp;
 	}
-	darr_foreach_p (selectors, csp)
-		*darr_append(nb_notif_filters) = *csp;
+
 	darr_free(selectors);
 }
 

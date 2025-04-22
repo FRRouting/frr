@@ -64,6 +64,9 @@
  *  - darr_strlen
  *  - darr_strlen_fixup
  *  - darr_strnul
+ *  - darr_str_search
+ *  - darr_str_search_ceil
+ *  - darr_str_search_floor
  *  - darr_sprintf, darr_vsprintf
  */
 /*
@@ -340,10 +343,12 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
 	})
 #define darr_ensure_i(A, I) darr_ensure_i_mt(A, I, MTYPE_DARR)
 
-#define _darr_insert_n(A, I, N, Z, MT)                                         \
-	({                                                                     \
-		(A) = __darr_insert_n(A, I, N, _darr_esize(A), Z, MT);         \
-		&(A)[I];                                                       \
+#define _darr_insert_n(A, I, N, Z, MT)                                                             \
+	({                                                                                         \
+		uint _ins_i = (I);                                                                 \
+		uint _ins_n = (N);                                                                 \
+		(A) = __darr_insert_n(A, _ins_i, _ins_n, _darr_esize(A), Z, MT);                   \
+		&(A)[_ins_i];                                                                      \
 	})
 /**
  * Insert N uninitialized elements in the array at index `I`.
@@ -363,10 +368,10 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
  * Return:
  *      A pointer to the first inserted element in the array.
  */
-#define darr_insert_n(A, I, N)	   _darr_insert_n(A, I, N, false, MTYPE_DARR)
-#define darr_insert_n_mt(A, I, N)  _darr_insert_n(A, I, N, false, MT)
-#define darr_insert_nz(A, I, N)	   _darr_insert_n(A, I, N, true, MTYPE_DARR)
-#define darr_insert_nz_mt(A, I, N) _darr_insert_n(A, I, N, true, MT)
+#define darr_insert_n(A, I, N)	       _darr_insert_n(A, I, N, false, MTYPE_DARR)
+#define darr_insert_n_mt(A, I, N, MT)  _darr_insert_n(A, I, N, false, MT)
+#define darr_insert_nz(A, I, N)	       _darr_insert_n(A, I, N, true, MTYPE_DARR)
+#define darr_insert_nz_mt(A, I, N, MT) _darr_insert_n(A, I, N, true, MT)
 
 /**
  * Insert an uninitialized element in the array at index `I`.
@@ -386,10 +391,10 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
  * Return:
  *      A pointer to the element in the array.
  */
-#define darr_insert(A, I)     _darr_insert_n(A, I, 1, false, MTYPE_DARR)
-#define darr_insert_mt(A, I)  _darr_insert_n(A, I, 1, false, MT)
-#define darr_insertz(A, I)    _darr_insert_n(A, I, 1, true, MTYPE_DARR)
-#define darr_insertz_mt(A, I) _darr_insert_n(A, I, 1, true, MT)
+#define darr_insert(A, I)	  _darr_insert_n(A, I, 1, false, MTYPE_DARR)
+#define darr_insert_mt(A, I, MT)  _darr_insert_n(A, I, 1, false, MT)
+#define darr_insertz(A, I)	  _darr_insert_n(A, I, 1, true, MTYPE_DARR)
+#define darr_insertz_mt(A, I, MT) _darr_insert_n(A, I, 1, true, MT)
 
 /**
  * Remove `N` elements from the array starting at index `I`.
@@ -785,6 +790,63 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
 		darr_in_vsprintf(d, F, A);                                     \
 		d;                                                             \
 	})
+
+/*
+ * darr_search_{floor,ceil}() functions - search for key in sorted arrays
+ */
+typedef int (*darr_search_cmpf)(const void *ep, const void *key);
+extern int darr_strings_cmp(const char **a, const char *key);
+extern int _darr_search(const void *a, size_t esize, const void *key, darr_search_cmpf cmpf);
+extern uint _darr_search_ceil(const void *a, size_t esize, const void *key, bool *equal,
+			      darr_search_cmpf cmpf);
+extern int _darr_search_floor(const void *a, size_t esize, const void *key, bool *equal,
+			      darr_search_cmpf cmpf);
+
+/**
+ * darr_str_search() - Find exact key in array of strings.
+ *
+ * Args:
+ *	A: array of string pointers
+ *	K: key string
+ *
+ * Return:
+ *	The index of the string which matches the key or -1 for no match.
+ */
+#define darr_str_search(A, K)                                                                      \
+	_darr_search((A), _darr_esize(A), (K), (darr_search_cmpf)darr_strings_cmp)
+
+/**
+ * darr_str_search_ceil() - Find least elm greater than or equal to the key
+ *
+ * Args:
+ *	A: array of string pointers
+ *	K: key string
+ *	E: Ptr to bool, set to true if element matching key is found
+ *
+ * Return:
+ *	The index of the least element that is greater than or equal to the @K
+ *	string. @E is set to true if equal otherwise false. The return value can
+ *	be passed directly to darr_insert().
+ */
+#define darr_str_search_ceil(A, K, E)                                                              \
+	_darr_search_ceil((A), _darr_esize(A), (K), (E), (darr_search_cmpf)darr_strings_cmp)
+
+/**
+ * darr_str_search_floor() - Find greatest elm less than or equal to the key
+ *
+ * Args:
+ *	A: array of string pointers
+ *	K: key string
+ *	E: Ptr to bool, set to true if element matching key is found
+ *
+ * Return:
+ *	The index of the greatest element that is less than or equal to the @K
+ *	string. @E is set to true if equal otherwise false. If used with
+ *	darr_insert() then the index should be passed +1 because darr_insert()
+ *	inserts *before* the given index.
+ */
+#define darr_str_search_floor(A, K, E)                                                             \
+	_darr_search_floor((A), _darr_esize(A), (K), (E), (darr_search_cmpf)darr_strings_cmp)
 
 /**
  * Iterate over array `A` using a pointer to each element in `P`.

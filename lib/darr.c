@@ -158,3 +158,68 @@ void *__darr_insert_n(void *a, uint at, uint count, size_t esize, bool zero,
 	return a;
 #undef _a_at
 }
+
+int _darr_search_floor(const void *a, size_t esize, const void *key, bool *equal,
+		       darr_search_cmpf cmpf)
+{
+	struct darr_metadata *dm;
+
+	if (equal)
+		*equal = false;
+
+	if (!a)
+		return -1;
+
+	dm = (struct darr_metadata *)a - 1;
+
+	int len = dm->len;
+	int low = 0, high = len - 1;
+	int floor = -1;
+
+#define _a_at(i) ((void *)((char *)a + ((i)*esize)))
+	while (low <= high) {
+		int mid = low + (high - low) / 2;
+		int cmp = cmpf(_a_at(mid), key);
+
+		if (!cmp) {
+			if (equal)
+				*equal = true;
+			return mid;
+		} else if (cmp < 0) {
+			floor = mid;
+			low = mid + 1;
+		} else {
+			high = mid - 1;
+		}
+	}
+
+	return floor;
+#undef _a_at
+}
+
+int _darr_search(const void *a, size_t esize, const void *key, darr_search_cmpf cmpf)
+{
+	bool equal;
+	int i;
+
+	i = _darr_search_floor(a, esize, key, &equal, cmpf);
+	if (!equal)
+		return -1;
+	return i;
+}
+
+uint _darr_search_ceil(const void *a, size_t esize, const void *key, bool *equal,
+		       darr_search_cmpf cmpf)
+{
+	uint i;
+
+	i = _darr_search_floor(a, esize, key, equal, cmpf);
+	if (*equal)
+		return i;
+	return i + 1;
+}
+
+int darr_strings_cmp(const char **a, const char *key)
+{
+	return strcmp(*a, key);
+}
