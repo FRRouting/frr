@@ -42,6 +42,7 @@
 
 #include "vtysh/vtysh.h"
 #include "vtysh/vtysh_user.h"
+#include "vtysh/vtysh_extensions.h"
 
 /* VTY shell program name. */
 char *progname;
