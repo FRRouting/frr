@@ -153,6 +153,9 @@ static int zclient_read_nexthop(struct zclient_next_hop_args *args)
 	uint16_t prefix_len;
 	int nexthop_num;
 	int i, err;
+	uint32_t opaque_data_length;
+	long long first_asn;
+	char opaque_data[ZAPI_MESSAGE_OPAQUE_LENGTH];
 
 	if (PIM_DEBUG_PIM_NHT_DETAIL)
 		zlog_debug("%s: addr=%pPAs(%s)", __func__, &args->address, args->pim->vrf->name);
@@ -193,12 +196,42 @@ static int zclient_read_nexthop(struct zclient_next_hop_args *args)
 	distance = stream_getc(s);
 	metric = stream_getl(s);
 	prefix_len = stream_getw(s);
+
+	args->route_type = stream_getl(s);
+	opaque_data_length = stream_getl(s);
+	if (opaque_data_length > 0)
+		stream_get(opaque_data, s, opaque_data_length);
+
 	nexthop_num = stream_getw(s);
 
+	switch (args->route_type) {
+	case ZEBRA_ROUTE_BGP:
+		if (opaque_data_length == 0)
+			break;
+
+		errno = 0;
+		first_asn = strtoll(opaque_data, NULL, 10);
+		if (first_asn == LLONG_MIN || first_asn == LLONG_MAX) {
+			if (PIM_DEBUG_PIM_NHT)
+				zlog_debug("%s: AS number overflow/underflow %s", __func__,
+					   opaque_data);
+			break;
+		}
+		if (first_asn == 0 && errno != 0) {
+			if (PIM_DEBUG_PIM_NHT)
+				zlog_debug("%s: AS number conversion failed: %s", __func__,
+					   strerror(errno));
+			break;
+		}
+
+		args->asn = first_asn;
+		break;
+	}
+
 	if (PIM_DEBUG_PIM_NHT_DETAIL)
-		zlog_debug("%s: addr=%pPAs(%s), distance=%d, metric=%d, prefix_len=%d, nexthop_num=%d",
+		zlog_debug("%s: addr=%pPAs(%s), distance=%d, metric=%d, prefix_len=%d, nexthop_num=%d, route_type=%d, opaque_data_length=%d",
 			   __func__, &args->address, args->pim->vrf->name, distance, metric,
-			   prefix_len, nexthop_num);
+			   prefix_len, nexthop_num, args->route_type, opaque_data_length);
 
 	if (nexthop_num < 1 || nexthop_num > router->multipath) {
 		if (PIM_DEBUG_PIM_NHT_DETAIL)
