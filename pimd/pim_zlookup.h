@@ -40,6 +40,14 @@ struct zclient_next_hop_args {
 	 */
 	pim_addr group;
 
+	/* (Output) Next hop route type */
+	uint32_t route_type;
+	/*
+	 * (Output) When route type is BGP and opaque data is turned on
+	 *          this value represents the first AS number in the AS
+	 *          path
+	 */
+	uint32_t asn;
 	/* (Output) Next hop information */
 	struct pim_zlookup_nexthop next_hops[MULTIPATH_NUM];
 };
