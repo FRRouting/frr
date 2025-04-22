@@ -70,8 +70,7 @@ and the :clicmd:`terminal paginate` command:
    (particularly waiting at the end of output) tends to be annoying to the
    user.  Using ``less -EFX`` is recommended for a better user experience.
 
-   If this environment variable is unset, *vtysh* defaults to not using any
-   pager.
+   If this environment variable is unset, *vtysh* defaults to using *more*.
 
    This variable should be set by the user according to their preferences,
    in their :file:`~/.profile` file.
