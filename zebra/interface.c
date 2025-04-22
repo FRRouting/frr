@@ -1461,7 +1461,7 @@ static void interface_vrf_change(enum dplane_op_e op, ifindex_t ifindex,
 		 */
 		vrf_id_t exist_id = zebra_vrf_lookup_by_table(tableid, ns_id);
 
-		if (exist_id != VRF_DEFAULT) {
+		if (exist_id != VRF_DEFAULT || strmatch(name, VRF_DEFAULT_NAME)) {
 			vrf = vrf_lookup_by_id(exist_id);
 
 			if (!vrf_lookup_by_id((vrf_id_t)ifindex) && !vrf) {
