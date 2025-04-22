@@ -865,6 +865,8 @@ static int bmp_mirror_packet(struct peer *peer, uint8_t type, bgp_size_t size,
 					bmp->mirrorpos = qitem;
 				pullwr_bump(bmp->pullwr);
 			}
+			if (qitem->refcount == 0)
+				continue;
 			bmpbgp->mirror_qsize += sizeof(*qitem) + size;
 			bmp_mirrorq_add_tail(&bmpbgp->mirrorq, qitem);
 
