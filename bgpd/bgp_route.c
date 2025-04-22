@@ -10138,11 +10138,12 @@ static char *bgp_nexthop_hostname(struct peer *peer,
 
 /* called from terminal list command */
 void route_vty_out(struct vty *vty, const struct prefix *p,
-		   struct bgp_path_info *path, int display, safi_t safi,
+		   struct bgp_path_info *path, int display,
+		   struct attr *pattr, safi_t safi,
 		   json_object *json_paths, bool wide)
 {
 	int len;
-	struct attr *attr = path->attr;
+	struct attr *attr = pattr ? pattr : path->attr;
 	json_object *json_path = NULL;
 	json_object *json_nexthops = NULL;
 	json_object *json_nexthop_global = NULL;
@@ -12706,7 +12707,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 							     rpki_curr_state, json_paths, NULL,
 							     show_flags);
 				} else {
-					route_vty_out(vty, dest_p, pi, display,
+					route_vty_out(vty, dest_p, pi, display, NULL,
 						      safi, json_paths, wide);
 				}
 			}
@@ -15553,7 +15554,8 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 							for (bpi = bgp_dest_get_bgp_path_info(dest);
 							     bpi; bpi = bpi->next)
 								route_vty_out(vty, rn_p, bpi, 0,
-									      safi, NULL, wide);
+									      adj->attr, safi, NULL,
+									      wide);
 						}
 					}
 					(*output_count)++;
