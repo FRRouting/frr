@@ -298,10 +298,6 @@ Basic Config Commands
    Set system wide line configuration. This configuration command applies to
    all VTY interfaces.
 
-.. clicmd:: line vty
-
-   Enter vty configuration mode.
-
 .. clicmd:: banner motd default
 
    Set default motd string.
@@ -315,6 +311,29 @@ Basic Config Commands
 
    Set motd string from an input.
 
+.. clicmd:: allow-reserved-ranges
+
+   Allow peering via loopback addresses (127.0.0.0/8). This is necessary in case
+   of multiple FRR instances (or FRR + any other daemon) peering via loopback
+   interfaces running on the same router.
+
+   Default: off.
+
+Line VTY Commands
+------------------
+
+   These set of commands control VTY connections into FRR.  This set
+   of commands control directly connecting to a daemon via the VTY
+   interface, not vtysh.  This interface is deprecated and is going
+   away at some point in the future.  Having said this, these cli
+   commands can be pushed into the frr.conf file and will be read
+   appropriately by the individual daemons.
+
+.. clicmd:: line vty
+
+   Enter vty configuration mode.  All the following sub-commands
+   are under line vty.
+
 .. clicmd:: exec-timeout MINUTE [SECOND]
 
    Set VTY connection timeout value. When only one argument is specified
@@ -325,17 +344,13 @@ Basic Config Commands
    Not setting this, or setting the values to 0 0, means a timeout will not be
    enabled.
 
-.. clicmd:: access-class ACCESS-LIST
+.. clicmd:: [ipv6] access-class ACCESS-LIST
 
-   Restrict vty connections with an access list.
+   Restrict vty connections with an v4 or v6 access list.
 
-.. clicmd:: allow-reserved-ranges
+.. clicmd:: no vty login
 
-   Allow peering via loopback addresses (127.0.0.0/8). This is necessary in case
-   of multiple FRR instances (or FRR + any other daemon) peering via loopback
-   interfaces running on the same router.
-
-   Default: off.
+   Do not allow any operator to connect to FRR via the VTY interface.
 
 .. _sample-config-file:
 
