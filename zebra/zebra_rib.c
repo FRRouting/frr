@@ -2921,6 +2921,28 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 	if (same) {
 		if (dest && same == dest->selected_fib)
 			SET_FLAG(same->status, ROUTE_ENTRY_ROUTE_REPLACING);
+
+		struct nexthop *tmp_nh;
+
+		/* Free up the evpn nhs of the re to be replaced.*/
+		for (ALL_NEXTHOPS(same->nhe->nhg, tmp_nh)) {
+			struct ipaddr vtep_ip;
+
+			if (CHECK_FLAG(tmp_nh->flags, NEXTHOP_FLAG_EVPN)) {
+				memset(&vtep_ip, 0, sizeof(struct ipaddr));
+				if (ere->afi == AFI_IP) {
+					vtep_ip.ipa_type = IPADDR_V4;
+					memcpy(&(vtep_ip.ipaddr_v4), &(tmp_nh->gate.ipv4),
+					       sizeof(struct in_addr));
+				} else {
+					vtep_ip.ipa_type = IPADDR_V6;
+					memcpy(&(vtep_ip.ipaddr_v6), &(tmp_nh->gate.ipv6),
+					       sizeof(struct in6_addr));
+				}
+				zebra_rib_queue_evpn_route_del(same->vrf_id, &vtep_ip, &ere->p);
+			}
+		}
+
 		rib_delnode(rn, same);
 	}
 
