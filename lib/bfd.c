@@ -197,8 +197,11 @@ static struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp, 
 	if (remote_cbit)
 		*remote_cbit = local_remote_cbit;
 
-	STREAM_GETC(s, bfd_name_len);
-	if (bfd_name_len) {
+	/*
+	 * Avoid STREAM_GETC, because
+	 * an external bfd may be nameless
+	 */
+        if (stream_getc2(s, &bfd_name_len)) {
 		STREAM_GET(bfd_name, s, bfd_name_len);
 		*(bfd_name + bfd_name_len) = 0;
 	}
