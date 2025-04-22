@@ -42,15 +42,15 @@ class lUtil:
     fsum = ""
     net = ""
 
-    def log(self, str, level=6):
+    def log(self, log_str, level=6):
         if self.l_level > 0:
             if self.fout == "":
                 self.fout = open(self.fout_name, "w")
-            self.fout.write(str + "\n")
+            self.fout.write(log_str + "\n")
         if level <= self.l_level:
-            print(str)
+            print(log_str)
 
-    def summary(self, str):
+    def summary(self, summary_str):
         if self.fsum == "":
             self.fsum = open(self.fsum_name, "w")
             self.fsum.write(
@@ -65,9 +65,9 @@ Test Target Summary                                                  Pass Fail\n
                 "\
 ******************************************************************************\n"
             )
-        self.fsum.write(str + "\n")
+        self.fsum.write(summary_str + "\n")
 
-    def result(self, target, success, str, logstr=None):
+    def result(self, target, success, result_str, logstr=None):
         if success:
             p = 1
             f = 0
@@ -81,7 +81,7 @@ Test Target Summary                                                  Pass Fail\n
         self.l_total += 1
         if logstr != None:
             self.log("R:%d %s: %s" % (self.l_total, sstr, logstr))
-        res = "%-4d %-6s %-56s %-4d %d" % (self.l_total, target, str, p, f)
+        res = "%-4d %-6s %-56s %-4d %d" % (self.l_total, target, result_str, p, f)
         self.log("R:" + res)
         self.summary(res)
         if f == 1 and self.CallOnFail != False:
@@ -109,9 +109,9 @@ Total %-4d                                                           %-4d %d\n\
         return ret
 
     def setFilename(self, name):
-        str = "FILE: " + name
-        self.log(str)
-        self.summary(str)
+        log_str = "FILE: " + name
+        self.log(log_str)
+        self.summary(log_str)
         self.l_filename = name
         self.line = 0
 
@@ -442,8 +442,8 @@ def luNumPass():
     return LUtil.l_pass
 
 
-def luResult(target, success, str, logstr=None):
-    return LUtil.result(target, success, str, logstr)
+def luResult(target, success, result_str, logstr=None):
+    return LUtil.result(target, success, result_str, logstr)
 
 
 def luShowResults(prFunction):
