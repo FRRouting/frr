@@ -43,21 +43,16 @@ def build_topo(tgen):
 
     tgen.add_router("r1")
     tgen.add_router("r2")
-    tgen.add_router("r3")
 
     switch = tgen.add_switch("s1")
     switch.add_link(tgen.gears["r1"])
     switch.add_link(tgen.gears["r2"])
-    switch.add_link(tgen.gears["r3"])
 
     switch = tgen.add_switch("s2")
     switch.add_link(tgen.gears["r1"])
 
     switch = tgen.add_switch("s3")
     switch.add_link(tgen.gears["r2"])
-
-    switch = tgen.add_switch("s4")
-    switch.add_link(tgen.gears["r3"])
 
 
 def setup_module(mod):
@@ -77,7 +72,7 @@ def setup_module(mod):
         )
         return pytest.skip("Skipping BGP EVPN RT5 NETNS Test. Kernel not supported")
 
-    # create VRF vrf-101 on R1, R2, R3
+    # create VRF vrf-101 on R1, R2
     # create loop101
     cmds_vrflite = [
         "ip link add {0}-vrf-{1} type vrf table {1}",
@@ -98,25 +93,6 @@ def setup_module(mod):
         "ip link set vxlan-101 up type bridge_slave learning off flood off mcast_flood off",
     ]
 
-    cmds_r3 = [  # config routing 102
-        "ip link add name bridge-102 up type bridge stp_state 0",
-        "ip link set bridge-102 master {}-vrf-102",
-        "ip link set dev bridge-102 up",
-        "ip link add name vxlan-102 type vxlan id 102 dstport 4789 dev r3-eth0 local 192.168.100.61",
-        "ip link set dev vxlan-102 master bridge-102",
-        "ip link set vxlan-102 up type bridge_slave learning off flood off mcast_flood off",
-    ]
-
-    # cmds_r1_netns_method3 = [
-    #     "ip link add name vxlan-{1} type vxlan id {1} dstport 4789 dev {0}-eth0 local 192.168.100.21",
-    #     "ip link set dev vxlan-{1} netns {0}-vrf-{1}",
-    #     "ip netns exec {0}-vrf-{1} ip li set dev lo up",
-    #     "ip netns exec {0}-vrf-{1} ip link add name bridge-{1} up type bridge stp_state 0",
-    #     "ip netns exec {0}-vrf-{1} ip link set dev vxlan-{1} master bridge-{1}",
-    #     "ip netns exec {0}-vrf-{1} ip link set bridge-{1} up",
-    #     "ip netns exec {0}-vrf-{1} ip link set vxlan-{1} up",
-    # ]
-
     router = tgen.gears["r1"]
 
     ns = "r1-vrf-101"
@@ -133,17 +109,6 @@ def setup_module(mod):
     for cmd in cmds_r2:
         logger.info("cmd to r2: " + cmd.format("r2"))
         output = router.cmd_raises(cmd.format("r2"))
-        logger.info("result: " + output)
-
-    router = tgen.gears["r3"]
-    for cmd in cmds_vrflite:
-        logger.info("cmd to r3: " + cmd.format("r3", 102))
-        output = router.cmd_raises(cmd.format("r3", 102))
-        logger.info("result: " + output)
-
-    for cmd in cmds_r3:
-        logger.info("cmd to r3: " + cmd.format("r3"))
-        output = router.cmd_raises(cmd.format("r3"))
         logger.info("result: " + output)
 
     tgen.net["r1"].cmd_raises(
