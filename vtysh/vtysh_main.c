@@ -245,6 +245,7 @@ static FRR_NORETURN void usage(int status)
 		       "-H, --histfile           Override history file\n"
 		       "-t, --timestamp          Print a timestamp before going to shell or reading the configuration\n"
 		       "    --no-fork            Don't fork clients to handle daemons (slower for large configs)\n"
+		       "-T, --exec-timeout       Set an idle timeout for this vtysh session\n"
 		       "-h, --help               Display this help and exit\n\n"
 		       "Note that multiple commands may be executed from the command\n"
 		       "line by passing multiple -c args, or by embedding linefeed\n"
@@ -279,6 +280,7 @@ struct option longopts[] = {
 	{"user", no_argument, NULL, 'u'},
 	{"timestamp", no_argument, NULL, 't'},
 	{"no-fork", no_argument, NULL, OPTION_NOFORK},
+	{"exec-timeout", required_argument, NULL, 'T'},
 	{0}};
 
 bool vtysh_loop_exited;
@@ -420,6 +422,7 @@ int main(int argc, char **argv, char **env)
 	const char *histfile = NULL;
 	const char *histfile_env = getenv("VTYSH_HISTFILE");
 	const char *logpath = getenv("VTYSH_LOG");
+	int exec_timeout = 0;
 
 	/* SUID: drop down to calling user & go back up when needed */
 	elevuid = geteuid();
@@ -439,8 +442,7 @@ int main(int argc, char **argv, char **env)
 
 	/* Option handling. */
 	while (1) {
-		opt = getopt_long(argc, argv, "be:c:d:nf:H:mEhCwN:ut", longopts,
-				  0);
+		opt = getopt_long(argc, argv, "be:c:d:nf:H:mEhCwN:utT:", longopts, 0);
 
 		if (opt == EOF)
 			break;
@@ -516,6 +518,13 @@ int main(int argc, char **argv, char **env)
 		case 'H':
 			histfile = optarg;
 			break;
+		case 'T':
+			exec_timeout = atoi(optarg);
+			if (exec_timeout < 0 || exec_timeout > VTYSH_EXEC_TIMEOUT_MAX) {
+				fprintf(stderr, "Exec-timeout value invalid\n");
+				exit(1);
+			}
+			break;
 		default:
 			usage(1);
 			break;
@@ -583,6 +592,10 @@ int main(int argc, char **argv, char **env)
 		}
 		return (vtysh_mark_file(inputfile));
 	}
+
+	/* Allow command-line control of timeout */
+	if (exec_timeout > 0)
+		vtysh_exec_timeout_config(exec_timeout);
 
 	/* Start execution only if not in dry-run mode */
 	if (dryrun && !cmd) {
