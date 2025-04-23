@@ -66,6 +66,7 @@ RUN apt update && apt upgrade -y && \
         snmp \
         snmp-mibs-downloader \
         snmpd \
+        ssmping \
         sudo \
         time \
         tshark \
