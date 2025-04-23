@@ -100,7 +100,7 @@ struct zebra_vxlan_if_vlan_ctx {
 
 struct zebra_vxlan_if_update_ctx {
 	uint16_t chgflags;
-	struct in_addr old_vtep_ip;
+	struct ipaddr old_vtep_ip;
 	struct zebra_vxlan_vni old_vni;
 	struct hash *old_vni_table;
 };
@@ -127,7 +127,7 @@ struct zebra_vxlan_vni_info {
 /* zebra L2 interface information - VXLAN interface */
 struct zebra_l2info_vxlan {
 	struct zebra_vxlan_vni_info vni_info;
-	struct in_addr vtep_ip; /* Local tunnel IP */
+	struct ipaddr vtep_ip;	/* Local tunnel IP */
 	ifindex_t ifindex_link; /* Interface index of interface
 				 * linked with VXLAN
 				 */

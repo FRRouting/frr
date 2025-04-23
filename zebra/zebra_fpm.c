@@ -1616,7 +1616,7 @@ static int zfpm_trigger_rmac_update(struct zebra_mac *rmac,
 		fpm_mac = hash_get(zfpm_g->fpm_mac_info_table, &key,
 				   zfpm_mac_info_alloc);
 
-	fpm_mac->r_vtep_ip.s_addr = rmac->fwd_info.r_vtep_ip.s_addr;
+	fpm_mac->r_vtep_ip.s_addr = rmac->fwd_info.r_vtep_ip.ipaddr_v4.s_addr;
 	fpm_mac->zebra_flags = rmac->flags;
 	fpm_mac->vxlan_if = vxlan_if ? vxlan_if->ifindex : 0;
 	fpm_mac->svi_if = svi_if ? svi_if->ifindex : 0;
