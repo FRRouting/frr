@@ -5039,7 +5039,7 @@ static inline void zebra_rib_translate_ctx_from_dplane(struct zebra_dplane_ctx *
 	if (vrfid == VRF_UNKNOWN)
 		dplane_ctx_set_vrf(ctx, zebra_vrf_lookup_by_table(tableid, nsid));
 	else if ((op == DPLANE_OP_ROUTE_INSTALL || op == DPLANE_OP_ROUTE_UPDATE ||
-		  op == DPLANE_OP_ROUTE_DELETE) &&
+		  op == DPLANE_OP_ROUTE_DELETE || op == DPLANE_OP_ROUTE_NOTIFY) &&
 		 tableid == ZEBRA_ROUTE_TABLE_UNKNOWN)
 		dplane_ctx_set_table(ctx, zebra_vrf_lookup_tableid(vrfid, nsid));
 }
