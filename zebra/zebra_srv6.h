@@ -102,43 +102,6 @@ struct zebra_srv6_sid_block {
 	} u;
 };
 
-/**
- * The function part of an SRv6 SID can be allocated in one
- * of the following ways:
- *  - dynamic: allocate any available function
- *  - explicit: allocate a specific function
- */
-enum srv6_sid_alloc_mode {
-	SRV6_SID_ALLOC_MODE_UNSPEC = 0,
-	/* Dynamic SID allocation */
-	SRV6_SID_ALLOC_MODE_DYNAMIC = 1,
-	/* Explicit SID allocation */
-	SRV6_SID_ALLOC_MODE_EXPLICIT = 2,
-	SRV6_SID_ALLOC_MODE_MAX = 3,
-};
-
-/**
- * Convert SID allocation mode to string.
- *
- * @param alloc_mode SID allocation mode
- * @return String representing the allocation mode
- */
-static inline const char *
-srv6_sid_alloc_mode2str(enum srv6_sid_alloc_mode alloc_mode)
-{
-	switch (alloc_mode) {
-	case SRV6_SID_ALLOC_MODE_EXPLICIT:
-		return "explicit";
-	case SRV6_SID_ALLOC_MODE_DYNAMIC:
-		return "dynamic";
-	case SRV6_SID_ALLOC_MODE_UNSPEC:
-		return "unspec";
-	case SRV6_SID_ALLOC_MODE_MAX:
-	default:
-		return "unknown";
-	}
-}
-
 /* SRv6 SID instance. */
 struct zebra_srv6_sid {
 	/*
