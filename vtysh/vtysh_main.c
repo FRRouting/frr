@@ -71,11 +71,72 @@ struct event_loop *master;
 /* Command logging */
 FILE *logfile;
 
+static struct event *ev_exec_timeout;
+uint32_t vtysh_exec_timeout;
+
+static void handle_exec_timeout(struct event *event);
+
+/*
+ * Disable/disarm the exec timeout
+ */
+static void disable_exec_timeout(void)
+{
+	event_cancel(&ev_exec_timeout);
+}
+
+/*
+ * Enable/arm the exec timeout, if configured
+ */
+static void enable_exec_timeout(void)
+{
+	/* This may be called quite early; ensure the event-loop is running */
+	if (master != NULL && vtysh_exec_timeout > 0)
+		event_add_timer(master, handle_exec_timeout, NULL,
+				vtysh_exec_timeout, &ev_exec_timeout);
+}
+
+/*
+ * Handler for exec-timeout config changes; takes timeout in seconds, and zero
+ * means "no timeout"
+ */
+void vtysh_exec_timeout_config(uint32_t tsecs)
+{
+	vtysh_exec_timeout = tsecs;
+	disable_exec_timeout();
+
+	if (vtysh_exec_timeout > 0)
+		enable_exec_timeout();
+}
+
+/*
+ * Accessor for configured exec timeout
+ */
+uint32_t vtysh_get_exec_timeout(void)
+{
+	return vtysh_exec_timeout;
+}
+
+/*
+ * Handler for exec timeout timer
+ */
+static void handle_exec_timeout(struct event *event)
+{
+	rl_callback_handler_remove();
+
+	/* Execute "end" command. */
+	vtysh_execute("end");
+
+	vtysh_loop_exited = true;
+
+	printf("Vtysh timed-out, exiting\n");
+}
+
 static void vtysh_rl_callback(char *line_read)
 {
 	HIST_ENTRY *last;
 
 	rl_callback_handler_remove();
+	disable_exec_timeout();
 
 	if (!line_read) {
 		vtysh_loop_exited = true;
@@ -96,8 +157,10 @@ static void vtysh_rl_callback(char *line_read)
 
 	vtysh_execute(line_read);
 
-	if (!vtysh_loop_exited)
+	if (!vtysh_loop_exited) {
 		rl_callback_handler_install(vtysh_prompt(), vtysh_rl_callback);
+		enable_exec_timeout();
+	}
 
 	free(line_read);
 }
@@ -226,9 +289,13 @@ static void vtysh_rl_read(struct event *thread)
 {
 	bool *suppress_warnings = EVENT_ARG(thread);
 
+	disable_exec_timeout();
+
 	event_add_read(master, vtysh_rl_read, suppress_warnings, STDIN_FILENO,
 		       &vtysh_rl_read_thread);
 	rl_callback_read_char();
+
+	enable_exec_timeout();
 }
 
 /* Read a string, and return a pointer to it.  Returns NULL on EOF. */
@@ -242,6 +309,8 @@ static void vtysh_rl_run(void)
 	rl_callback_handler_install(vtysh_prompt(), vtysh_rl_callback);
 	event_add_read(master, vtysh_rl_read, &suppress_warnings, STDIN_FILENO,
 		       &vtysh_rl_read_thread);
+
+	enable_exec_timeout();
 
 	while (!vtysh_loop_exited && event_fetch(master, &thread))
 		event_call(&thread);
