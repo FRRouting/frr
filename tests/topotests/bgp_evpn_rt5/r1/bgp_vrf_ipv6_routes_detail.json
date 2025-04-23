@@ -1,9 +1,9 @@
 {
     "vrfName": "r1-vrf-101",
-    "routerId": "192.168.102.21",
+    "routerId": "10.0.101.1",
     "localAS": 65000,
     "routes": {
-        "fd00::2/128": [
+        "fd01::2/128": [
             {
                 "importedFrom": "65000:201",
                 "vni": "101",

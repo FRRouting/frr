@@ -152,28 +152,28 @@ def _test_evpn_ping_router(pingrouter, ipv4_only=False, ipv6_only=False):
     # Check IPv4 and IPv6 connectivity between r1 and r2 ( routing vxlan evpn)
     if not ipv6_only:
         logger.info(
-            "Check Ping IPv4 from  R1(r1-vrf-101) to R2(r2-vrf-101 = 192.168.101.41)"
+            "Check Ping IPv4 from  R1(r1-vrf-101) to R2(r2-vrf-101 = 10.0.101.2)"
         )
-        output = pingrouter.run(
-            "ip netns exec r1-vrf-101 ping 192.168.101.41 -f -c 1000"
-        )
+        output = pingrouter.run("ip netns exec r1-vrf-101 ping 10.0.101.2 -f -c 1000")
         logger.info(output)
         if "1000 packets transmitted, 1000 received" not in output:
-            assertmsg = "expected ping IPv4 from R1(r1-vrf-101) to R2(192.168.101.41) should be ok"
+            assertmsg = (
+                "expected ping IPv4 from R1(r1-vrf-101) to R2(10.0.101.2) should be ok"
+            )
             assert 0, assertmsg
         else:
-            logger.info("Check Ping IPv4 from R1(r1-vrf-101) to R2(192.168.101.41) OK")
+            logger.info("Check Ping IPv4 from R1(r1-vrf-101) to R2(10.0.101.2) OK")
 
     if not ipv4_only:
-        logger.info("Check Ping IPv6 from  R1(r1-vrf-101) to R2(r2-vrf-101 = fd00::2)")
-        output = pingrouter.run("ip netns exec r1-vrf-101 ping fd00::2 -f -c 1000")
+        logger.info("Check Ping IPv6 from  R1(r1-vrf-101) to R2(r2-vrf-101 = fd01::2)")
+        output = pingrouter.run("ip netns exec r1-vrf-101 ping fd01::2 -f -c 1000")
         logger.info(output)
         if "1000 packets transmitted, 1000 received" not in output:
             assert (
                 0
-            ), "expected ping IPv6 from R1(r1-vrf-101) to R2(fd00::2) should be ok"
+            ), "expected ping IPv6 from R1(r1-vrf-101) to R2(fd01::2) should be ok"
         else:
-            logger.info("Check Ping IPv6 from R1(r1-vrf-101) to R2(fd00::2) OK")
+            logger.info("Check Ping IPv6 from R1(r1-vrf-101) to R2(fd01::2) OK")
 
 
 def test_protocols_convergence():
@@ -292,9 +292,9 @@ def test_router_check_ip():
         pytest.skip(tgen.errors)
 
     expected = {
-        "fd00::2/128": [
+        "fd01::2/128": [
             {
-                "prefix": "fd00::2/128",
+                "prefix": "fd01::2/128",
                 "vrfName": "r1-vrf-101",
                 "nexthops": [
                     {
@@ -305,7 +305,7 @@ def test_router_check_ip():
         ]
     }
     result = topotest.router_json_cmp(
-        tgen.gears["r1"], "show ipv6 route vrf r1-vrf-101 fd00::2/128 json", expected
+        tgen.gears["r1"], "show ipv6 route vrf r1-vrf-101 fd01::2/128 json", expected
     )
     assert result is None, "ipv6 route check failed"
 
@@ -317,7 +317,7 @@ def _test_router_check_evpn_next_hop(expected_paths=1):
     expected = {
         "ip": "192.168.0.1",
         "refCount": 1,
-        "prefixList": [{"prefix": "192.168.102.21/32", "pathCount": expected_paths}],
+        "prefixList": [{"prefix": "10.0.101.1/32", "pathCount": expected_paths}],
     }
     test_func = partial(
         topotest.router_json_cmp,
@@ -332,7 +332,7 @@ def _test_router_check_evpn_next_hop(expected_paths=1):
     expected = {
         "ip": "::ffff:192.168.0.1",
         "refCount": 1,
-        "prefixList": [{"prefix": "fd00::1/128", "pathCount": expected_paths}],
+        "prefixList": [{"prefix": "fd01::1/128", "pathCount": expected_paths}],
     }
     test_func = partial(
         topotest.router_json_cmp,
@@ -478,8 +478,8 @@ def test_evpn_remove_ip():
             "raw_config": [
                 "router bgp 65000 vrf r2-vrf-101",
                 "address-family ipv6 unicast",
-                "no network fd00::3/128",
-                "no network fd00::2/128",
+                "no network fd01::12/128",
+                "no network fd01::2/128",
             ]
         }
     }
@@ -489,7 +489,7 @@ def test_evpn_remove_ip():
     assert result is True, "Failed to remove IPv6 network on R2, Error: {} ".format(
         result
     )
-    _check_evpn_routes("r1", "ipv6", "r1-vrf-101", ["fd00::2/128"], expected=False)
+    _check_evpn_routes("r1", "ipv6", "r1-vrf-101", ["fd01::2/128"], expected=False)
     _print_evpn_nexthop_rmac("r1")
 
 
@@ -529,8 +529,8 @@ def test_evpn_other_address_family():
             "raw_config": [
                 "router bgp 65000 vrf r2-vrf-101",
                 "address-family ipv6 unicast",
-                "network fd00::3/128",
-                "network fd00::2/128",
+                "network fd01::12/128",
+                "network fd01::2/128",
             ]
         }
     }
@@ -538,15 +538,15 @@ def test_evpn_other_address_family():
     logger.info("==== Add IPv6 again network on R2")
     result = apply_raw_config(tgen, config_add_ipv6)
     assert result is True, "Failed to add IPv6 network on R2, Error: {} ".format(result)
-    _check_evpn_routes("r1", "ipv6", "r1-vrf-101", ["fd00::2/128"], expected=True)
+    _check_evpn_routes("r1", "ipv6", "r1-vrf-101", ["fd01::2/128"], expected=True)
 
     config_no_ipv4 = {
         "r2": {
             "raw_config": [
                 "router bgp 65000 vrf r2-vrf-101",
                 "address-family ipv4 unicast",
-                "no network 192.168.101.41/32",
-                "no network 192.168.102.41/32",
+                "no network 10.0.101.2/32",
+                "no network 10.0.101.12/32",
             ]
         }
     }
@@ -557,9 +557,7 @@ def test_evpn_other_address_family():
         result
     )
 
-    _check_evpn_routes(
-        "r1", "ipv4", "r1-vrf-101", ["192.168.101.41/32"], expected=False
-    )
+    _check_evpn_routes("r1", "ipv4", "r1-vrf-101", ["10.0.101.2/32"], expected=False)
     _print_evpn_nexthop_rmac("r1")
 
 
@@ -639,20 +637,20 @@ def _test_wait_for_multipath_convergence(router, expected_paths=1):
     Wait for multipath convergence on R2
     """
     expected = {
-        "192.168.102.21/32": [{"nexthops": [{"ip": "192.168.0.1"}] * expected_paths}]
+        "10.0.101.1/32": [{"nexthops": [{"ip": "192.168.0.1"}] * expected_paths}]
     }
     # Using router_json_cmp instead of verify_fib_routes, because we need to check for
     # two next-hops with the same IP address.
     test_func = partial(
         topotest.router_json_cmp,
         router,
-        "show ip route vrf r2-vrf-101 192.168.102.21/32 json",
+        "show ip route vrf r2-vrf-101 10.0.101.1/32 json",
         expected,
     )
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert (
         result is None
-    ), f"R2 does not have {expected_paths} next-hops for 192.168.102.21/32 JSON output mismatches"
+    ), f"R2 does not have {expected_paths} next-hops for 10.0.101.1/32 JSON output mismatches"
 
 
 def _test_rmac_present(router):
