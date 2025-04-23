@@ -71,11 +71,72 @@ struct event_loop *master;
 /* Command logging */
 FILE *logfile;
 
+static struct event *ev_exec_timeout;
+uint32_t vtysh_exec_timeout;
+
+static void handle_exec_timeout(struct event *event);
+
+/*
+ * Disable/disarm the exec timeout
+ */
+static void disable_exec_timeout(void)
+{
+	event_cancel(&ev_exec_timeout);
+}
+
+/*
+ * Enable/arm the exec timeout, if configured
+ */
+static void enable_exec_timeout(void)
+{
+	/* This may be called quite early; ensure the event-loop is running */
+	if (master != NULL && vtysh_exec_timeout > 0)
+		event_add_timer(master, handle_exec_timeout, NULL,
+				vtysh_exec_timeout, &ev_exec_timeout);
+}
+
+/*
+ * Handler for exec-timeout config changes; takes timeout in seconds, and zero
+ * means "no timeout"
+ */
+void vtysh_exec_timeout_config(uint32_t tsecs)
+{
+	vtysh_exec_timeout = tsecs;
+	disable_exec_timeout();
+
+	if (vtysh_exec_timeout > 0)
+		enable_exec_timeout();
+}
+
+/*
+ * Accessor for configured exec timeout
+ */
+uint32_t vtysh_get_exec_timeout(void)
+{
+	return vtysh_exec_timeout;
+}
+
+/*
+ * Handler for exec timeout timer
+ */
+static void handle_exec_timeout(struct event *event)
+{
+	rl_callback_handler_remove();
+
+	/* Execute "end" command. */
+	vtysh_execute("end");
+
+	vtysh_loop_exited = true;
+
+	printf("Vtysh timed-out, exiting\n");
+}
+
 static void vtysh_rl_callback(char *line_read)
 {
 	HIST_ENTRY *last;
 
 	rl_callback_handler_remove();
+	disable_exec_timeout();
 
 	if (!line_read) {
 		vtysh_loop_exited = true;
@@ -96,8 +157,10 @@ static void vtysh_rl_callback(char *line_read)
 
 	vtysh_execute(line_read);
 
-	if (!vtysh_loop_exited)
+	if (!vtysh_loop_exited) {
 		rl_callback_handler_install(vtysh_prompt(), vtysh_rl_callback);
+		enable_exec_timeout();
+	}
 
 	free(line_read);
 }
@@ -182,6 +245,7 @@ static FRR_NORETURN void usage(int status)
 		       "-H, --histfile           Override history file\n"
 		       "-t, --timestamp          Print a timestamp before going to shell or reading the configuration\n"
 		       "    --no-fork            Don't fork clients to handle daemons (slower for large configs)\n"
+		       "    --exec-timeout       Set an idle timeout for this vtysh session\n"
 		       "-h, --help               Display this help and exit\n\n"
 		       "Note that multiple commands may be executed from the command\n"
 		       "line by passing multiple -c args, or by embedding linefeed\n"
@@ -196,6 +260,7 @@ static FRR_NORETURN void usage(int status)
 #define OPTION_VTYSOCK 1000
 #define OPTION_CONFDIR 1001
 #define OPTION_NOFORK 1002
+#define OPTION_TIMEOUT 1003
 struct option longopts[] = {
 	{"boot", no_argument, NULL, 'b'},
 	/* For compatibility with older zebra/quagga versions */
@@ -216,6 +281,7 @@ struct option longopts[] = {
 	{"user", no_argument, NULL, 'u'},
 	{"timestamp", no_argument, NULL, 't'},
 	{"no-fork", no_argument, NULL, OPTION_NOFORK},
+	{"exec-timeout", required_argument, NULL, OPTION_TIMEOUT},
 	{0}};
 
 bool vtysh_loop_exited;
@@ -226,9 +292,13 @@ static void vtysh_rl_read(struct event *thread)
 {
 	bool *suppress_warnings = EVENT_ARG(thread);
 
+	disable_exec_timeout();
+
 	event_add_read(master, vtysh_rl_read, suppress_warnings, STDIN_FILENO,
 		       &vtysh_rl_read_thread);
 	rl_callback_read_char();
+
+	enable_exec_timeout();
 }
 
 /* Read a string, and return a pointer to it.  Returns NULL on EOF. */
@@ -242,6 +312,8 @@ static void vtysh_rl_run(void)
 	rl_callback_handler_install(vtysh_prompt(), vtysh_rl_callback);
 	event_add_read(master, vtysh_rl_read, &suppress_warnings, STDIN_FILENO,
 		       &vtysh_rl_read_thread);
+
+	enable_exec_timeout();
 
 	while (!vtysh_loop_exited && event_fetch(master, &thread))
 		event_call(&thread);
@@ -351,6 +423,11 @@ int main(int argc, char **argv, char **env)
 	const char *histfile = NULL;
 	const char *histfile_env = getenv("VTYSH_HISTFILE");
 	const char *logpath = getenv("VTYSH_LOG");
+	const char *timeout_env = getenv("VTYSH_TIMEOUT");
+	int exec_timeout = 0;
+
+	if (timeout_env)
+		exec_timeout = atoi(timeout_env);
 
 	/* SUID: drop down to calling user & go back up when needed */
 	elevuid = geteuid();
@@ -447,6 +524,13 @@ int main(int argc, char **argv, char **env)
 		case 'H':
 			histfile = optarg;
 			break;
+		case OPTION_TIMEOUT:
+			exec_timeout = atoi(optarg);
+			if (exec_timeout < 0 || exec_timeout > VTYSH_EXEC_TIMEOUT_MAX) {
+				fprintf(stderr, "Exec-timeout value invalid\n");
+				exit(1);
+			}
+			break;
 		default:
 			usage(1);
 			break;
@@ -514,6 +598,10 @@ int main(int argc, char **argv, char **env)
 		}
 		return (vtysh_mark_file(inputfile));
 	}
+
+	/* Allow command-line control of timeout */
+	if (exec_timeout > 0)
+		vtysh_exec_timeout_config(exec_timeout);
 
 	/* Start execution only if not in dry-run mode */
 	if (dryrun && !cmd) {
