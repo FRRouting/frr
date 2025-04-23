@@ -174,6 +174,21 @@ static inline bool ipaddr_is_same(const struct ipaddr *ip1,
 	return ipaddr_cmp(ip1, ip2) == 0;
 }
 
+static inline bool ipaddr_is_mcast(const struct ipaddr *ip)
+{
+	switch (ip->ipa_type) {
+	case IPADDR_NONE:
+		return false;
+	case IPADDR_V4:
+		return IN_MULTICAST(ntohl(ip->ipaddr_v4.s_addr));
+	case IPADDR_V6:
+		/* Per https://www.rfc-editor.org/rfc/rfc3307.html */
+		return ip->ipaddr_v6.s6_addr[0] == 0xff;
+	}
+
+	return false;
+}
+
 /* clang-format off */
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pIA"  (struct ipaddr *)
