@@ -1507,8 +1507,59 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid,
 	for (ALL_LIST_ELEMENTS_RO(srv6->sids, node, s)) {
 		if (memcmp(&s->ctx, ctx, sizeof(struct srv6_sid_ctx)) == 0) {
 			/*
-			 * If the context is already associated with a SID that has the same SID value, then
-			 * return the existing SID
+			 * Case 1:
+			 *  - Condition: A daemon requested SID Manager to allocate any SID for the ctx
+			 *  - Action: We return the existing SID
+			 */
+			if (sid_same(sid_value, &in6addr_any)) {
+				if (IS_ZEBRA_DEBUG_SRV6)
+					zlog_debug("%s: returning existing SRv6 SID %pI6 ctx %s",
+						   __func__, &s->sid->value,
+						   srv6_sid_ctx2str(buf, sizeof(buf), ctx));
+				*sid = s->sid;
+				return 0;
+			}
+
+			/*
+			 * Case 2:
+			 *  - Condition:
+			 *     - The daemon requested SID Manager to allocate a specific SID for the ctx
+			 *     - and we don't have a SID for this ctx yet
+			 *  - Action:
+			 *     - Decompose and validate the provided SID
+			 *     - Associate the SID with the ctx
+			 *     - Return the SID
+			 */
+			if (sid_same(&s->sid->value, &in6addr_any)) {
+				if (!zebra_srv6_sid_decompose(sid_value, &block, &locator,
+							      &sid_func, &sid_func_wide)) {
+					zlog_err("%s: invalid SM request arguments: parent block/locator not found for SID %pI6",
+						 __func__, sid_value);
+					return -1;
+				}
+
+				s->sid->value = *sid_value;
+				s->sid->block = block;
+				s->sid->locator = locator;
+				s->sid->func = sid_func;
+				*sid = s->sid;
+
+				if (IS_ZEBRA_DEBUG_SRV6)
+					zlog_debug("%s: allocated explicit SRv6 SID %pI6 for context %s",
+						   __func__, &(*sid)->value,
+						   srv6_sid_ctx2str(buf, sizeof(buf), ctx));
+
+				return 1;
+			}
+
+			/*
+			 * Case 3:
+			 *  - Condition:
+			 *     - The daemon requested SID Manager to allocate a specific SID for the ctx
+			 *     - we already have a SID associated with this ctx
+			 *     - and the provided SID and the already associated SID are equal
+			 *  - Action:
+			 *     - Return the existing SID
 			 */
 			if (sid_same(&s->sid->value, sid_value)) {
 				if (IS_ZEBRA_DEBUG_SRV6)
@@ -1522,14 +1573,18 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid,
 			}
 
 			/*
-			 * It is not allowed to allocate an explicit SID for a given context if the context
-			 * is already associated with an explicit SID
+			 * Case 4:
+			 *  - Condition:
+			 *     - The daemon requested SID Manager to allocate a specific SID for the ctx
+			 *     - we already have a SID associated with this ctx
+			 *     - and the provided SID and the already associated SID are different
+			 *  - Action:
+			 *     - Return an error, because an explicit SID cannot override another explicit SID
 			 */
 			if (s->sid->alloc_mode == SRV6_SID_ALLOC_MODE_EXPLICIT) {
 				zlog_err("%s: cannot alloc SID %pI6 for ctx %s: ctx already associated with SID %pI6",
 					 __func__, sid_value,
-					 srv6_sid_ctx2str(buf, sizeof(buf),
-							  &s->ctx),
+					 srv6_sid_ctx2str(buf, sizeof(buf), &s->ctx),
 					 &s->sid->value);
 				return -1;
 			}
@@ -1540,12 +1595,13 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid,
 	}
 
 	/* Get parent locator and function of the provided SID */
-	if (!zebra_srv6_sid_decompose(sid_value, &block, &locator, &sid_func,
-				      &sid_func_wide)) {
-		zlog_err("%s: invalid SM request arguments: parent block/locator not found for SID %pI6",
-			 __func__, sid_value);
-		return -1;
-	}
+	if (!sid_same(sid_value, &in6addr_any))
+		if (!zebra_srv6_sid_decompose(sid_value, &block, &locator, &sid_func,
+					      &sid_func_wide)) {
+			zlog_err("%s: invalid SM request arguments: parent block/locator not found for SID %pI6",
+				 __func__, sid_value);
+			return -1;
+		}
 
 	if (ctx->behavior == ZEBRA_SEG6_LOCAL_ACTION_END) {
 		zctx = zebra_srv6_sid_ctx_alloc();
@@ -1571,11 +1627,12 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid,
 	}
 
 	/* Allocate an explicit SID function for the SID */
-	if (!alloc_srv6_sid_func_explicit(block, sid_func, sid_func_wide)) {
-		zlog_err("%s: invalid SM request arguments: failed to allocate SID function %u from block %pFX",
-			 __func__, sid_func, &block->prefix);
-		return -1;
-	}
+	if (!sid_same(sid_value, &in6addr_any))
+		if (!alloc_srv6_sid_func_explicit(block, sid_func, sid_func_wide)) {
+			zlog_err("%s: invalid SM request arguments: failed to allocate SID function %u from block %pFX",
+				 __func__, sid_func, &block->prefix);
+			return -1;
+		}
 
 	if (!zctx) {
 		/* If we don't have a zebra SID context for this context, allocate a new one */
@@ -1589,9 +1646,7 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid,
 		if (zctx->sid) {
 			if (IS_ZEBRA_DEBUG_SRV6)
 				zlog_debug("%s: ctx %s already associated with a dynamic SID %pI6, releasing dynamic SID",
-					   __func__,
-					   srv6_sid_ctx2str(buf, sizeof(buf),
-							    ctx),
+					   __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx),
 					   &zctx->sid->value);
 
 			release_srv6_sid_func_dynamic(block, zctx->sid->func);
@@ -1754,9 +1809,7 @@ int get_srv6_sid(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx,
 	struct interface *ifp;
 	struct zebra_if *zebra_if;
 
-	enum srv6_sid_alloc_mode alloc_mode =
-		(sid_value) ? SRV6_SID_ALLOC_MODE_EXPLICIT
-			    : SRV6_SID_ALLOC_MODE_DYNAMIC;
+	enum srv6_sid_alloc_mode alloc_mode = ctx->alloc_mode;
 
 	if (IS_ZEBRA_DEBUG_SRV6)
 		zlog_debug("%s: received SRv6 SID alloc request: SID ctx %s (%pI6), mode=%s",

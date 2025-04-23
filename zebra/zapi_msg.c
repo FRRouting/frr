@@ -3067,8 +3067,8 @@ static void zread_srv6_manager_get_srv6_sid(struct zserv *client,
 	STREAM_GETC(s, flags);
 	if (CHECK_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_SID_VALUE)) {
 		STREAM_GET(&sid_value, s, sizeof(struct in6_addr));
-		sid_value_ptr = &sid_value;
 	}
+	sid_value_ptr = &sid_value;
 	if (CHECK_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_LOCATOR)) {
 		STREAM_GETW(s, len);
 		STREAM_GET(locator, s, len);
