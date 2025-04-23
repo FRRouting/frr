@@ -11,8 +11,8 @@
                 "extendedCommunity": null,
                 "nexthops": [
                     {
-                        "ip": "192.168.0.2",
-                        "hostname": "r2",
+                        "ip": "192.168.2.2",
+                        "hostname": "rr",
                         "afi": "ipv4",
                         "used": true
                     }
@@ -27,8 +27,8 @@
                 "extendedCommunity": null,
                 "nexthops": [
                     {
-                        "ip": "192.168.0.2",
-                        "hostname": "r2",
+                        "ip": "192.168.2.2",
+                        "hostname": "rr",
                         "afi": "ipv4",
                         "used": true
                     }
