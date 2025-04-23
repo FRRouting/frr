@@ -66,66 +66,48 @@ def setup_module(mod):
         )
         return pytest.skip("Skipping BGP EVPN RT5 NETNS Test. Kernel not supported")
 
-    # create VRF vrf-101 on R1, R2
-    # create loop101
-    cmds_vrflite = [
-        "ip link add {0}-vrf-{1} type vrf table {1}",
-        "ip ru add oif {0}-vrf-{1} table {1}",
-        "ip ru add iif {0}-vrf-{1} table {1}",
-        "ip link set dev {0}-vrf-{1} up",
-        "ip link add loop{1} type dummy",
-        "ip link set dev loop{1} master {0}-vrf-{1}",
-        "ip link set dev loop{1} up",
-    ]
-
-    cmds_r2 = [  # config routing 101
-        "ip link add name bridge-101 up type bridge stp_state 0",
-        "ip link set bridge-101 master {}-vrf-101",
-        "ip link set dev bridge-101 up",
-        "ip link add name vxlan-101 type vxlan id 101 dstport 4789 dev r2-eth0 local 192.168.0.2",
-        "ip link set dev vxlan-101 master bridge-101",
-        "ip link set vxlan-101 up type bridge_slave learning off flood off mcast_flood off",
-    ]
-
-    router = tgen.gears["r1"]
-
+    r1 = tgen.net["r1"]
     ns = "r1-vrf-101"
-    tgen.net["r1"].add_netns(ns)
-    tgen.net["r1"].cmd_raises("ip link add loop101 type dummy")
-    tgen.net["r1"].set_intf_netns("loop101", ns, up=True)
-
-    router = tgen.gears["r2"]
-    for cmd in cmds_vrflite:
-        logger.info("cmd to r2: " + cmd.format("r2", 101))
-        output = router.cmd_raises(cmd.format("r2", 101))
-        logger.info("result: " + output)
-
-    for cmd in cmds_r2:
-        logger.info("cmd to r2: " + cmd.format("r2"))
-        output = router.cmd_raises(cmd.format("r2"))
-        logger.info("result: " + output)
-
-    tgen.net["r1"].cmd_raises(
-        "ip link add name vxlan-101 type vxlan id 101 dstport 4789 dev r1-eth0 local 192.168.0.1"
+    r1.add_netns(ns)
+    r1.cmd_raises(
+        """
+ip link add loop101 type dummy
+ip link add vxlan-101 type vxlan id 101 dstport 4789 dev r1-eth0 local 192.168.0.1
+"""
     )
-    tgen.net["r1"].set_intf_netns("vxlan-101", "r1-vrf-101", up=True)
-    tgen.net["r1"].cmd_raises("ip -n r1-vrf-101 link set lo up")
-    tgen.net["r1"].cmd_raises(
-        "ip -n r1-vrf-101 link add name bridge-101 up type bridge stp_state 0"
+    r1.set_intf_netns("loop101", ns, up=True)
+    r1.set_intf_netns("vxlan-101", ns, up=True)
+    r1.cmd_raises(
+        """
+ip -n r1-vrf-101 link set lo up
+ip -n r1-vrf-101 link add bridge-101 up type bridge stp_state 0
+ip -n r1-vrf-101 link set dev vxlan-101 master bridge-101
+ip -n r1-vrf-101 link set bridge-101 up
+ip -n r1-vrf-101 link set vxlan-101 up
+"""
     )
-    tgen.net["r1"].cmd_raises(
-        "ip -n r1-vrf-101 link set dev vxlan-101 master bridge-101"
+
+    tgen.gears["r2"].cmd(
+        """
+ip link add r2-vrf-101 type vrf table 101
+ip link set dev r2-vrf-101 up
+ip link add loop101 type dummy
+ip link set dev loop101 master r2-vrf-101
+ip link set dev loop101 up
+ip link add bridge-101 up type bridge stp_state 0
+ip link set bridge-101 master r2-vrf-101
+ip link set dev bridge-101 up
+ip link add vxlan-101 type vxlan id 101 dstport 4789 dev r2-eth0 local 192.168.0.2
+ip link set dev vxlan-101 master bridge-101
+ip link set vxlan-101 up type bridge_slave learning off flood off mcast_flood off
+"""
     )
-    tgen.net["r1"].cmd_raises("ip -n r1-vrf-101 link set bridge-101 up")
-    tgen.net["r1"].cmd_raises("ip -n r1-vrf-101 link set vxlan-101 up")
 
     for rname, router in tgen.routers().items():
         logger.info("Loading router %s" % rname)
         if rname == "r1":
             router.use_netns_vrf()
-            router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
-        else:
-            router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
+        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
 
     # Initialize all routers.
     tgen.start_router()
