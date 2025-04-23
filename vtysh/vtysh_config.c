@@ -762,6 +762,7 @@ void vtysh_config_write(void)
 {
 	const char *name;
 	char line[512];
+	uint32_t ival;
 
 	name = cmd_hostname_get();
 	if (name && name[0] != '\0') {
@@ -781,6 +782,12 @@ void vtysh_config_write(void)
 	if (vtysh_write_integrated == WRITE_INTEGRATED_YES)
 		vtysh_config_parse_line(NULL,
 					"service integrated-vtysh-config");
+
+	ival = vtysh_get_exec_timeout();
+	if (ival > 0) {
+		snprintf(line, sizeof(line), "exec-timeout %u", ival);
+		vtysh_config_parse_line(NULL, line);
+	}
 
 	user_config_write();
 }

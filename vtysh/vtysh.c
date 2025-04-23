@@ -4257,6 +4257,21 @@ DEFUN (vtysh_show_daemons,
 	return CMD_SUCCESS;
 }
 
+DEFPY (vtysh_exec_timeout,
+       vtysh_exec_timeout_cmd,
+       "[no$nono] exec-timeout ![(0-1000000)$tsecs]",
+       NO_STR
+       "Set the VTYSH EXEC timeout\n"
+       "Timeout in seconds\n")
+{
+	if (nono)
+		tsecs = 0;
+
+	vtysh_exec_timeout_config(tsecs);
+
+	return CMD_SUCCESS;
+}
+
 struct visual_prio {
 	/* 4 characters for nice alignment */
 	const char *label;
@@ -5673,4 +5688,5 @@ void vtysh_init_vty(void)
 	install_element(CONFIG_NODE, &no_vtysh_password_cmd);
 	install_element(CONFIG_NODE, &vtysh_enable_password_cmd);
 	install_element(CONFIG_NODE, &no_vtysh_enable_password_cmd);
+	install_element(CONFIG_NODE, &vtysh_exec_timeout_cmd);
 }
