@@ -67,7 +67,7 @@ def setup_module(mod):
         return pytest.skip("Skipping BGP EVPN RT5 NETNS Test. Kernel not supported")
 
     r1 = tgen.net["r1"]
-    ns = "r1-vrf-101"
+    ns = "vrf-101"
     r1.add_netns(ns)
     r1.cmd_raises(
         """
@@ -79,23 +79,23 @@ ip link add vxlan-101 type vxlan id 101 dstport 4789 dev r1-eth0 local 192.168.0
     r1.set_intf_netns("vxlan-101", ns, up=True)
     r1.cmd_raises(
         """
-ip -n r1-vrf-101 link set lo up
-ip -n r1-vrf-101 link add bridge-101 up type bridge stp_state 0
-ip -n r1-vrf-101 link set dev vxlan-101 master bridge-101
-ip -n r1-vrf-101 link set bridge-101 up
-ip -n r1-vrf-101 link set vxlan-101 up
+ip -n vrf-101 link set lo up
+ip -n vrf-101 link add bridge-101 up type bridge stp_state 0
+ip -n vrf-101 link set dev vxlan-101 master bridge-101
+ip -n vrf-101 link set bridge-101 up
+ip -n vrf-101 link set vxlan-101 up
 """
     )
 
     tgen.gears["r2"].cmd(
         """
-ip link add r2-vrf-101 type vrf table 101
-ip link set dev r2-vrf-101 up
+ip link add vrf-101 type vrf table 101
+ip link set dev vrf-101 up
 ip link add loop101 type dummy
-ip link set dev loop101 master r2-vrf-101
+ip link set dev loop101 master vrf-101
 ip link set dev loop101 up
 ip link add bridge-101 up type bridge stp_state 0
-ip link set bridge-101 master r2-vrf-101
+ip link set bridge-101 master vrf-101
 ip link set dev bridge-101 up
 ip link add vxlan-101 type vxlan id 101 dstport 4789 dev r2-eth0 local 192.168.0.2
 ip link set dev vxlan-101 master bridge-101
@@ -117,7 +117,7 @@ def teardown_module(_mod):
     "Teardown the pytest environment"
     tgen = get_topogen()
 
-    tgen.net["r1"].delete_netns("r1-vrf-101")
+    tgen.net["r1"].delete_netns("vrf-101")
     tgen.stop_topology()
 
 
@@ -127,29 +127,27 @@ def _test_evpn_ping_router(pingrouter, ipv4_only=False, ipv6_only=False):
     """
     # Check IPv4 and IPv6 connectivity between r1 and r2 ( routing vxlan evpn)
     if not ipv6_only:
-        logger.info(
-            "Check Ping IPv4 from  R1(r1-vrf-101) to R2(r2-vrf-101 = 10.0.101.2)"
-        )
-        output = pingrouter.run("ip netns exec r1-vrf-101 ping 10.0.101.2 -f -c 1000")
+        logger.info("Check Ping IPv4 from R1(vrf-101) to R2(vrf-101, 10.0.101.2)")
+        output = pingrouter.run("ip netns exec vrf-101 ping 10.0.101.2 -f -c 1000")
         logger.info(output)
         if "1000 packets transmitted, 1000 received" not in output:
-            assertmsg = (
-                "expected ping IPv4 from R1(r1-vrf-101) to R2(10.0.101.2) should be ok"
-            )
+            assertmsg = "expected ping IPv4 from R1(vrf-101) to R2(vrf-101, 10.0.101.2) should be ok"
             assert 0, assertmsg
         else:
-            logger.info("Check Ping IPv4 from R1(r1-vrf-101) to R2(10.0.101.2) OK")
+            logger.info(
+                "Check Ping IPv4 from R1(vrf-101) to R2(vrf-101, 10.0.101.2) OK"
+            )
 
     if not ipv4_only:
-        logger.info("Check Ping IPv6 from  R1(r1-vrf-101) to R2(r2-vrf-101 = fd01::2)")
-        output = pingrouter.run("ip netns exec r1-vrf-101 ping fd01::2 -f -c 1000")
+        logger.info("Check Ping IPv6 from  R1(vrf-101) to R2(vrf-101, fd01::2)")
+        output = pingrouter.run("ip netns exec vrf-101 ping fd01::2 -f -c 1000")
         logger.info(output)
         if "1000 packets transmitted, 1000 received" not in output:
             assert (
                 0
-            ), "expected ping IPv6 from R1(r1-vrf-101) to R2(fd01::2) should be ok"
+            ), "expected ping IPv6 from R1(vrf-101) to R2(vrf-101, fd01::2) should be ok"
         else:
-            logger.info("Check Ping IPv6 from R1(r1-vrf-101) to R2(fd01::2) OK")
+            logger.info("Check Ping IPv6 from R1(vrf-101) to R2(vrf-101, fd01::2) OK")
 
 
 def test_protocols_convergence():
@@ -204,20 +202,20 @@ def test_protocols_dump_info():
     )
     logger.info("==== result from show bgp l2vpn evpn route detail")
     logger.info(output)
-    output = tgen.gears["r1"].vtysh_cmd("show bgp vrf r1-vrf-101 ipv4", isjson=False)
-    logger.info("==== result from show bgp vrf r1-vrf-101 ipv4")
+    output = tgen.gears["r1"].vtysh_cmd("show bgp vrf vrf-101 ipv4", isjson=False)
+    logger.info("==== result from show bgp vrf vrf-101 ipv4")
     logger.info(output)
-    output = tgen.gears["r1"].vtysh_cmd("show bgp vrf r1-vrf-101 ipv6", isjson=False)
-    logger.info("==== result from show bgp vrf r1-vrf-101 ipv6")
+    output = tgen.gears["r1"].vtysh_cmd("show bgp vrf vrf-101 ipv6", isjson=False)
+    logger.info("==== result from show bgp vrf vrf-101 ipv6")
     logger.info(output)
-    output = tgen.gears["r1"].vtysh_cmd("show bgp vrf r1-vrf-101", isjson=False)
-    logger.info("==== result from show bgp vrf r1-vrf-101 ")
+    output = tgen.gears["r1"].vtysh_cmd("show bgp vrf vrf-101", isjson=False)
+    logger.info("==== result from show bgp vrf vrf-101 ")
     logger.info(output)
-    output = tgen.gears["r1"].vtysh_cmd("show ip route vrf r1-vrf-101", isjson=False)
-    logger.info("==== result from show ip route vrf r1-vrf-101")
+    output = tgen.gears["r1"].vtysh_cmd("show ip route vrf vrf-101", isjson=False)
+    logger.info("==== result from show ip route vrf vrf-101")
     logger.info(output)
-    output = tgen.gears["r1"].vtysh_cmd("show ipv6 route vrf r1-vrf-101", isjson=False)
-    logger.info("==== result from show ipv6 route vrf r1-vrf-101")
+    output = tgen.gears["r1"].vtysh_cmd("show ipv6 route vrf vrf-101", isjson=False)
+    logger.info("==== result from show ipv6 route vrf vrf-101")
     logger.info(output)
     output = tgen.gears["r1"].vtysh_cmd("show evpn vni detail", isjson=False)
     logger.info("==== result from show evpn vni detail")
@@ -243,9 +241,7 @@ def test_bgp_vrf_routes():
             test_func = partial(
                 topotest.router_json_cmp,
                 router,
-                "show bgp vrf {}-vrf-101 {} unicast detail json".format(
-                    router.name, af
-                ),
+                "show bgp vrf vrf-101 {} unicast detail json".format(af),
                 expected,
             )
             _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
@@ -265,7 +261,7 @@ def test_router_check_ip():
         "fd01::2/128": [
             {
                 "prefix": "fd01::2/128",
-                "vrfName": "r1-vrf-101",
+                "vrfName": "vrf-101",
                 "nexthops": [
                     {
                         "ip": "::ffff:192.168.0.2",
@@ -275,7 +271,7 @@ def test_router_check_ip():
         ]
     }
     result = topotest.router_json_cmp(
-        tgen.gears["r1"], "show ipv6 route vrf r1-vrf-101 fd01::2/128 json", expected
+        tgen.gears["r1"], "show ipv6 route vrf vrf-101 fd01::2/128 json", expected
     )
     assert result is None, "ipv6 route check failed"
 
@@ -392,7 +388,7 @@ def test_evpn_disable_routemap():
     tgen.gears["r2"].vtysh_cmd(
         """
         configure terminal\n
-        router bgp 65000 vrf r2-vrf-101\n
+        router bgp 65000 vrf vrf-101\n
         address-family l2vpn evpn\n
         advertise ipv4 unicast\n
         advertise ipv6 unicast\n
@@ -443,7 +439,7 @@ def test_evpn_remove_ip():
     config_no_ipv6 = {
         "r2": {
             "raw_config": [
-                "router bgp 65000 vrf r2-vrf-101",
+                "router bgp 65000 vrf vrf-101",
                 "address-family ipv6 unicast",
                 "no network fd01::12/128",
                 "no network fd01::2/128",
@@ -456,7 +452,7 @@ def test_evpn_remove_ip():
     assert result is True, "Failed to remove IPv6 network on R2, Error: {} ".format(
         result
     )
-    _check_evpn_routes("r1", "ipv6", "r1-vrf-101", ["fd01::2/128"], expected=False)
+    _check_evpn_routes("r1", "ipv6", "vrf-101", ["fd01::2/128"], expected=False)
     _print_evpn_nexthop_rmac("r1")
 
 
@@ -494,7 +490,7 @@ def test_evpn_other_address_family():
     config_add_ipv6 = {
         "r2": {
             "raw_config": [
-                "router bgp 65000 vrf r2-vrf-101",
+                "router bgp 65000 vrf vrf-101",
                 "address-family ipv6 unicast",
                 "network fd01::12/128",
                 "network fd01::2/128",
@@ -505,12 +501,12 @@ def test_evpn_other_address_family():
     logger.info("==== Add IPv6 again network on R2")
     result = apply_raw_config(tgen, config_add_ipv6)
     assert result is True, "Failed to add IPv6 network on R2, Error: {} ".format(result)
-    _check_evpn_routes("r1", "ipv6", "r1-vrf-101", ["fd01::2/128"], expected=True)
+    _check_evpn_routes("r1", "ipv6", "vrf-101", ["fd01::2/128"], expected=True)
 
     config_no_ipv4 = {
         "r2": {
             "raw_config": [
-                "router bgp 65000 vrf r2-vrf-101",
+                "router bgp 65000 vrf vrf-101",
                 "address-family ipv4 unicast",
                 "no network 10.0.101.2/32",
                 "no network 10.0.101.12/32",
@@ -524,7 +520,7 @@ def test_evpn_other_address_family():
         result
     )
 
-    _check_evpn_routes("r1", "ipv4", "r1-vrf-101", ["10.0.101.2/32"], expected=False)
+    _check_evpn_routes("r1", "ipv4", "vrf-101", ["10.0.101.2/32"], expected=False)
     _print_evpn_nexthop_rmac("r1")
 
 
@@ -611,7 +607,7 @@ def _test_wait_for_multipath_convergence(router, expected_paths=1):
     test_func = partial(
         topotest.router_json_cmp,
         router,
-        "show ip route vrf r2-vrf-101 10.0.101.1/32 json",
+        "show ip route vrf vrf-101 10.0.101.1/32 json",
         expected,
     )
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
