@@ -48,12 +48,6 @@ def build_topo(tgen):
     switch.add_link(tgen.gears["r1"])
     switch.add_link(tgen.gears["r2"])
 
-    switch = tgen.add_switch("s2")
-    switch.add_link(tgen.gears["r1"])
-
-    switch = tgen.add_switch("s3")
-    switch.add_link(tgen.gears["r2"])
-
 
 def setup_module(mod):
     "Sets up the pytest environment"
