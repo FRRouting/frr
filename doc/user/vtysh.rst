@@ -83,6 +83,18 @@ and the :clicmd:`terminal paginate` command:
    (likely ``more`` or ``/usr/bin/pager``) will be used.
 
 
+Idle Timeout
+============
+
+.. clicmd:: exec-timeout TIMEOUT
+
+   Enable an idle timeout for the vtysh session, in seconds. When
+   configured, the vtysh process will exit if the session is
+   idle. The timeout can be configured via ``vtysh.conf``, via a
+   ``-T, --exec-timeout`` command-line option, or in the configure
+   mode. A timeout of zero is equivalent to "no timeout".
+
+
 Permissions and setup requirements
 ==================================
 
