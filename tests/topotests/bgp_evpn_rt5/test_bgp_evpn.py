@@ -387,11 +387,11 @@ def test_evpn_disable_routemap():
 
     tgen.gears["r2"].vtysh_cmd(
         """
-        configure terminal\n
-        router bgp 65000 vrf vrf-101\n
-        address-family l2vpn evpn\n
-        advertise ipv4 unicast\n
-        advertise ipv6 unicast\n
+configure terminal
+ router bgp 65000 vrf vrf-101
+  address-family l2vpn evpn
+   advertise ipv4 unicast
+   advertise ipv6 unicast
         """
     )
     router = tgen.gears["r1"]
@@ -684,7 +684,12 @@ def test_evpn_multipath():
     _test_rmac_present(dut)
 
     # Enable dataplane logs in FRR
-    dut.vtysh_cmd("configure terminal\ndebug zebra dplane detailed\n")
+    dut.vtysh_cmd(
+        """
+configure terminal
+ debug zebra dplane detailed
+"""
+    )
 
     for i in range(4):
         peer = "192.168.0.2" if i % 2 == 0 else "192.168.99.2"
@@ -709,7 +714,12 @@ def test_evpn_multipath():
     if re.search(r"(MAC_DELETE|NEIGH_DELETE)", log):
         assert False, "MAC_DELETE or NEIGH_DELETE found in zebra log"
 
-    dut.vtysh_cmd("configure terminal\nno debug zebra dplane detailed\n")
+    dut.vtysh_cmd(
+        """
+configure terminal
+ no debug zebra dplane detailed
+"""
+    )
 
 
 def test_shutdown_multipath_check_next_hops():
