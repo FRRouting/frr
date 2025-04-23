@@ -11,7 +11,7 @@
                 "extendedCommunity": null,
                 "nexthops": [
                     {
-                        "ip": "::ffff:192.168.100.21",
+                        "ip": "::ffff:192.168.0.1",
                         "hostname": "r1",
                         "afi": "ipv6",
                         "scope": "global",

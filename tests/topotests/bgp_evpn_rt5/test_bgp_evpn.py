@@ -88,7 +88,7 @@ def setup_module(mod):
         "ip link add name bridge-101 up type bridge stp_state 0",
         "ip link set bridge-101 master {}-vrf-101",
         "ip link set dev bridge-101 up",
-        "ip link add name vxlan-101 type vxlan id 101 dstport 4789 dev r2-eth0 local 192.168.100.41",
+        "ip link add name vxlan-101 type vxlan id 101 dstport 4789 dev r2-eth0 local 192.168.0.2",
         "ip link set dev vxlan-101 master bridge-101",
         "ip link set vxlan-101 up type bridge_slave learning off flood off mcast_flood off",
     ]
@@ -112,7 +112,7 @@ def setup_module(mod):
         logger.info("result: " + output)
 
     tgen.net["r1"].cmd_raises(
-        "ip link add name vxlan-101 type vxlan id 101 dstport 4789 dev r1-eth0 local 192.168.100.21"
+        "ip link add name vxlan-101 type vxlan id 101 dstport 4789 dev r1-eth0 local 192.168.0.1"
     )
     tgen.net["r1"].set_intf_netns("vxlan-101", "r1-vrf-101", up=True)
     tgen.net["r1"].cmd_raises("ip -n r1-vrf-101 link set lo up")
@@ -298,7 +298,7 @@ def test_router_check_ip():
                 "vrfName": "r1-vrf-101",
                 "nexthops": [
                     {
-                        "ip": "::ffff:192.168.100.41",
+                        "ip": "::ffff:192.168.0.2",
                     }
                 ],
             }
@@ -315,14 +315,14 @@ def _test_router_check_evpn_next_hop(expected_paths=1):
 
     # Check IPv4
     expected = {
-        "ip": "192.168.100.21",
+        "ip": "192.168.0.1",
         "refCount": 1,
         "prefixList": [{"prefix": "192.168.102.21/32", "pathCount": expected_paths}],
     }
     test_func = partial(
         topotest.router_json_cmp,
         dut,
-        "show evpn next-hops vni 101 ip 192.168.100.21 json",
+        "show evpn next-hops vni 101 ip 192.168.0.1 json",
         expected,
     )
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
@@ -330,14 +330,14 @@ def _test_router_check_evpn_next_hop(expected_paths=1):
 
     # Check IPv6
     expected = {
-        "ip": "::ffff:192.168.100.21",
+        "ip": "::ffff:192.168.0.1",
         "refCount": 1,
         "prefixList": [{"prefix": "fd00::1/128", "pathCount": expected_paths}],
     }
     test_func = partial(
         topotest.router_json_cmp,
         dut,
-        "show evpn next-hops vni 101 ip ::ffff:192.168.100.21 json",
+        "show evpn next-hops vni 101 ip ::ffff:192.168.0.1 json",
         expected,
     )
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
@@ -352,8 +352,8 @@ def _test_router_check_evpn_contexts(router, ipv4_only=False, ipv6_only=False):
         expected = {
             "101": {
                 "numNextHops": 1,
-                "192.168.100.41": {
-                    "nexthopIp": "192.168.100.41",
+                "192.168.0.2": {
+                    "nexthopIp": "192.168.0.2",
                 },
             }
         }
@@ -361,8 +361,8 @@ def _test_router_check_evpn_contexts(router, ipv4_only=False, ipv6_only=False):
         expected = {
             "101": {
                 "numNextHops": 1,
-                "::ffff:192.168.100.41": {
-                    "nexthopIp": "::ffff:192.168.100.41",
+                "::ffff:192.168.0.2": {
+                    "nexthopIp": "::ffff:192.168.0.2",
                 },
             }
         }
@@ -370,11 +370,11 @@ def _test_router_check_evpn_contexts(router, ipv4_only=False, ipv6_only=False):
         expected = {
             "101": {
                 "numNextHops": 2,
-                "192.168.100.41": {
-                    "nexthopIp": "192.168.100.41",
+                "192.168.0.2": {
+                    "nexthopIp": "192.168.0.2",
                 },
-                "::ffff:192.168.100.41": {
-                    "nexthopIp": "::ffff:192.168.100.41",
+                "::ffff:192.168.0.2": {
+                    "nexthopIp": "::ffff:192.168.0.2",
                 },
             }
         }
@@ -639,7 +639,7 @@ def _test_wait_for_multipath_convergence(router, expected_paths=1):
     Wait for multipath convergence on R2
     """
     expected = {
-        "192.168.102.21/32": [{"nexthops": [{"ip": "192.168.100.21"}] * expected_paths}]
+        "192.168.102.21/32": [{"nexthops": [{"ip": "192.168.0.1"}] * expected_paths}]
     }
     # Using router_json_cmp instead of verify_fib_routes, because we need to check for
     # two next-hops with the same IP address.
@@ -687,26 +687,26 @@ def test_evpn_multipath():
         "r1": {
             "raw_config": [
                 "interface r1-eth0",
-                "ip address 192.168.99.21/24",
+                "ip address 192.168.99.1/24",
                 "router bgp 65000",
-                "neighbor 192.168.99.41 remote-as 65000",
-                "neighbor 192.168.99.41 capability extended-nexthop",
-                "neighbor 192.168.99.41 update-source 192.168.99.21",
+                "neighbor 192.168.99.2 remote-as 65000",
+                "neighbor 192.168.99.2 capability extended-nexthop",
+                "neighbor 192.168.99.2 update-source 192.168.99.1",
                 "address-family l2vpn evpn",
-                "neighbor 192.168.99.41 activate",
-                "neighbor 192.168.99.41 route-map rmap_r1 in",
+                "neighbor 192.168.99.2 activate",
+                "neighbor 192.168.99.2 route-map rmap_r1 in",
             ]
         },
         "r2": {
             "raw_config": [
                 "interface r2-eth0",
-                "ip address 192.168.99.41/24",
+                "ip address 192.168.99.2/24",
                 "router bgp 65000",
-                "neighbor 192.168.99.21 remote-as 65000",
-                "neighbor 192.168.99.21 capability extended-nexthop",
-                "neighbor 192.168.99.21 update-source 192.168.99.41",
+                "neighbor 192.168.99.1 remote-as 65000",
+                "neighbor 192.168.99.1 capability extended-nexthop",
+                "neighbor 192.168.99.1 update-source 192.168.99.2",
                 "address-family l2vpn evpn",
-                "neighbor 192.168.99.21 activate",
+                "neighbor 192.168.99.1 activate",
             ]
         },
     }
@@ -726,8 +726,8 @@ def test_evpn_multipath():
     dut.vtysh_cmd("configure terminal\ndebug zebra dplane detailed\n")
 
     for i in range(4):
-        peer = "192.168.100.41" if i % 2 == 0 else "192.168.99.41"
-        local_peer = "192.168.100.21" if i % 2 == 0 else "192.168.99.21"
+        peer = "192.168.0.2" if i % 2 == 0 else "192.168.99.2"
+        local_peer = "192.168.0.1" if i % 2 == 0 else "192.168.99.1"
 
         # Retrieving the last established epoch from the DUT to check against
         last_established_epoch = _get_established_epoch(dut, local_peer)
@@ -763,13 +763,13 @@ def test_shutdown_multipath_check_next_hops():
         "r1": {
             "raw_config": [
                 "router bgp 65000",
-                "neighbor 192.168.99.41 shutdown",
+                "neighbor 192.168.99.2 shutdown",
             ]
         },
         "r2": {
             "raw_config": [
                 "router bgp 65000",
-                "neighbor 192.168.99.21 shutdown",
+                "neighbor 192.168.99.1 shutdown",
             ]
         },
     }
