@@ -281,6 +281,37 @@ def test_protocols_dump_info():
     logger.info(output)
 
 
+def test_bgp_vrf_routes():
+    """
+    Check routes are correctly imported to VRF
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ("r1", "r2"):
+        router = tgen.gears[rname]
+        for af in ("ipv4", "ipv6"):
+            json_file = "{}/{}/bgp_vrf_{}_routes_detail.json".format(
+                CWD, router.name, af
+            )
+            if not os.path.isfile(json_file):
+                assert 0, "bgp vrf routes file not found"
+
+            expected = json.loads(open(json_file).read())
+            test_func = partial(
+                topotest.router_json_cmp,
+                router,
+                "show bgp vrf {}-vrf-101 {} unicast detail json".format(
+                    router.name, af
+                ),
+                expected,
+            )
+            _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+            assertmsg = '"{}" JSON output mismatches'.format(router.name)
+            assert result is None, assertmsg
+
+
 def test_router_check_ip():
     """
     Check routes are correctly installed

@@ -3051,6 +3051,33 @@ bgp_create_evpn_bgp_path_info(struct bgp_path_info *parent_pi,
 }
 
 /*
+ * According to draft-ietf-bess-evpn-ipvpn-interworking-13, strip the following
+ * extended communities for VRF routes imported from EVPN.
+ *
+ *   a. BGP Encapsulation extended communities.
+ *   b. Route Target extended communities.
+ *   c. All the extended communities of type EVPN.
+ */
+static bool bgp_evpn_filter_ecommunity(uint8_t *val, uint8_t size, void *arg)
+{
+	switch (val[0]) {
+	case ECOMMUNITY_ENCODE_AS:
+	case ECOMMUNITY_ENCODE_IP:
+	case ECOMMUNITY_ENCODE_AS4:
+		if (val[1] == ECOMMUNITY_ROUTE_TARGET)
+			return false;
+		break;
+	case ECOMMUNITY_ENCODE_OPAQUE:
+		if (val[1] == ECOMMUNITY_OPAQUE_SUBTYPE_ENCAP)
+			return false;
+		break;
+	case ECOMMUNITY_ENCODE_EVPN:
+		return false;
+	}
+	return true;
+}
+
+/*
  * Install route entry into the VRF routing table and invoke route selection.
  */
 static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
@@ -3071,6 +3098,7 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	bool is_l3nhg_active = false;
 	char buf1[INET6_ADDRSTRLEN];
 	struct bgp_route_evpn *bre;
+	struct ecommunity *ecom;
 
 	memset(pp, 0, sizeof(struct prefix));
 	ip_prefix_from_evpn_prefix(evp, pp);
@@ -3141,6 +3169,9 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 		SET_FLAG(attr.es_flags, ATTR_ES_L3_NHG_USE);
 	if (is_l3nhg_active)
 		SET_FLAG(attr.es_flags, ATTR_ES_L3_NHG_ACTIVE);
+
+	ecom = ecommunity_filter(bgp_attr_get_ecommunity(&attr), bgp_evpn_filter_ecommunity, NULL);
+	bgp_attr_set_ecommunity(&attr, ecom);
 
 	/* Check if route entry is already present. */
 	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
