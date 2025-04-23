@@ -405,6 +405,8 @@ extern void nexthop_vrf_update(struct route_node *rn, struct route_entry *re, vr
 extern int nexthop_active_update(struct route_node *rn, struct route_entry *re,
 				 struct route_entry *old_re);
 
+extern const char *zebra_nhg_afi2str(struct nhg_hash_entry *nhe);
+
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pNG" (const struct nhg_hash_entry *)
 #endif

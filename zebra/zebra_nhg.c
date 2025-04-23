@@ -66,6 +66,14 @@ static void depends_decrement_free(struct nhg_connected_tree_head *head);
 static struct nhg_backup_info *
 nhg_backup_copy(const struct nhg_backup_info *orig);
 
+const char *zebra_nhg_afi2str(struct nhg_hash_entry *nhe)
+{
+	if (nhe->afi == AFI_UNSPEC)
+		return "No AFI";
+
+	return afi2str(nhe->afi);
+}
+
 /* Helper function for getting the next allocatable ID */
 static uint32_t nhg_get_next_id(void)
 {
