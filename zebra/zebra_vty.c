@@ -3209,29 +3209,40 @@ DEFUN (show_evpn_mac_vni_all_detail, show_evpn_mac_vni_all_detail_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_evpn_mac_vni_all_vtep,
+DEFPY (show_evpn_mac_vni_all_vtep,
        show_evpn_mac_vni_all_vtep_cmd,
-       "show evpn mac vni all vtep A.B.C.D [json]",
+       "show evpn mac vni all vtep <A.B.C.D|X:X::X:X>$ip [json]",
        SHOW_STR
        "EVPN\n"
        "MAC addresses\n"
        "VxLAN Network Identifier\n"
        "All VNIs\n"
        "Remote VTEP\n"
-       "Remote VTEP IP address\n"
+       "Remote VTEP IPv4 address\n"
+       "Remote VTEP IPv6 address\n"
        JSON_STR)
 {
 	struct zebra_vrf *zvrf;
-	struct in_addr vtep_ip;
+	struct ipaddr vtep_ip = { .ipa_type = IPADDR_NONE };
 	bool uj = use_json(argc, argv);
 
-	if (!inet_aton(argv[6]->arg, &vtep_ip)) {
+	if (ip) {
+		if (sockunion_family(ip) == AF_INET) {
+			SET_IPADDR_V4(&vtep_ip);
+			vtep_ip.ipaddr_v4.s_addr = sockunion2ip(ip);
+		} else {
+			SET_IPADDR_V6(&vtep_ip);
+			memcpy(&vtep_ip.ipaddr_v6, &ip->sin6.sin6_addr, sizeof(struct in6_addr));
+		}
+	}
+
+	if (IS_IPADDR_NONE(&vtep_ip)) {
 		if (!uj)
 			vty_out(vty, "%% Malformed VTEP IP address\n");
 		return CMD_WARNING;
 	}
 	zvrf = zebra_vrf_get_evpn();
-	zebra_vxlan_print_macs_all_vni_vtep(vty, zvrf, vtep_ip, uj);
+	zebra_vxlan_print_macs_all_vni_vtep(vty, zvrf, &vtep_ip, uj);
 
 	return CMD_SUCCESS;
 }
@@ -3265,32 +3276,41 @@ DEFUN (show_evpn_mac_vni_mac,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_evpn_mac_vni_vtep,
+DEFPY (show_evpn_mac_vni_vtep,
        show_evpn_mac_vni_vtep_cmd,
-       "show evpn mac vni " CMD_VNI_RANGE " vtep A.B.C.D" "[json]",
+       "show evpn mac vni " CMD_VNI_RANGE " vtep <A.B.C.D|X:X::X:X>$ip" "[json]",
        SHOW_STR
        "EVPN\n"
        "MAC addresses\n"
        "VxLAN Network Identifier\n"
        "VNI number\n"
        "Remote VTEP\n"
-       "Remote VTEP IP address\n"
+       "Remote VTEP IPv4 address\n"
+       "Remote VTEP IPv6 address\n"
        JSON_STR)
 {
 	struct zebra_vrf *zvrf;
-	vni_t vni;
-	struct in_addr vtep_ip;
+	struct ipaddr vtep_ip = { .ipa_type = IPADDR_NONE };
 	bool uj = use_json(argc, argv);
 
-	vni = strtoul(argv[4]->arg, NULL, 10);
-	if (!inet_aton(argv[6]->arg, &vtep_ip)) {
+	if (ip) {
+		if (sockunion_family(ip) == AF_INET) {
+			SET_IPADDR_V4(&vtep_ip);
+			vtep_ip.ipaddr_v4.s_addr = sockunion2ip(ip);
+		} else {
+			SET_IPADDR_V6(&vtep_ip);
+			memcpy(&vtep_ip.ipaddr_v6, &ip->sin6.sin6_addr, sizeof(struct in6_addr));
+		}
+	}
+
+	if (IS_IPADDR_NONE(&vtep_ip)) {
 		if (!uj)
 			vty_out(vty, "%% Malformed VTEP IP address\n");
 		return CMD_WARNING;
 	}
 
 	zvrf = zebra_vrf_get_evpn();
-	zebra_vxlan_print_macs_vni_vtep(vty, zvrf, vni, vtep_ip, uj);
+	zebra_vxlan_print_macs_vni_vtep(vty, zvrf, vni, &vtep_ip, uj);
 	return CMD_SUCCESS;
 }
 
@@ -3457,32 +3477,43 @@ DEFUN (show_evpn_neigh_vni_neigh,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_evpn_neigh_vni_vtep,
+DEFPY (show_evpn_neigh_vni_vtep,
        show_evpn_neigh_vni_vtep_cmd,
-       "show evpn arp-cache vni " CMD_VNI_RANGE " vtep A.B.C.D [json]",
+       "show evpn arp-cache vni " CMD_VNI_RANGE " vtep <A.B.C.D|X:X::X:X>$ip [json]",
        SHOW_STR
        "EVPN\n"
        "ARP and ND cache\n"
        "VxLAN Network Identifier\n"
        "VNI number\n"
        "Remote VTEP\n"
-       "Remote VTEP IP address\n"
+       "Remote VTEP IPv4 address\n"
+       "Remote VTEP IPv6 address\n"
        JSON_STR)
 {
 	struct zebra_vrf *zvrf;
-	vni_t vni;
-	struct in_addr vtep_ip;
+	struct ipaddr vtep_ip;
 	bool uj = use_json(argc, argv);
 
-	vni = strtoul(argv[4]->arg, NULL, 10);
-	if (!inet_aton(argv[6]->arg, &vtep_ip)) {
+	if (ip) {
+		if (sockunion_family(ip) == AF_INET) {
+			SET_IPADDR_V4(&vtep_ip);
+			vtep_ip.ipaddr_v4.s_addr = sockunion2ip(ip);
+		} else {
+			SET_IPADDR_V6(&vtep_ip);
+			memcpy(&vtep_ip.ipaddr_v6, &ip->sin6.sin6_addr, sizeof(struct in6_addr));
+		}
+	} else {
+		SET_IPADDR_NONE(&vtep_ip);
+	}
+
+	if (IS_IPADDR_NONE(&vtep_ip)) {
 		if (!uj)
 			vty_out(vty, "%% Malformed VTEP IP address\n");
 		return CMD_WARNING;
 	}
 
 	zvrf = zebra_vrf_get_evpn();
-	zebra_vxlan_print_neigh_vni_vtep(vty, zvrf, vni, vtep_ip, uj);
+	zebra_vxlan_print_neigh_vni_vtep(vty, zvrf, vni, &vtep_ip, uj);
 	return CMD_SUCCESS;
 }
 
