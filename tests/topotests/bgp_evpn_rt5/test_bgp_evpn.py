@@ -277,7 +277,7 @@ def test_router_check_ip():
 
 
 def _test_router_check_evpn_next_hop(expected_paths=1):
-    dut = get_topogen().gears["r2"]
+    r2 = get_topogen().gears["r2"]
 
     # Check IPv4
     expected = {
@@ -287,7 +287,7 @@ def _test_router_check_evpn_next_hop(expected_paths=1):
     }
     test_func = partial(
         topotest.router_json_cmp,
-        dut,
+        r2,
         "show evpn next-hops vni 101 ip 192.168.0.1 json",
         expected,
     )
@@ -302,7 +302,7 @@ def _test_router_check_evpn_next_hop(expected_paths=1):
     }
     test_func = partial(
         topotest.router_json_cmp,
-        dut,
+        r2,
         "show evpn next-hops vni 101 ip ::ffff:192.168.0.1 json",
         expected,
     )
@@ -394,17 +394,18 @@ configure terminal
    advertise ipv6 unicast
         """
     )
-    router = tgen.gears["r1"]
-    json_file = "{}/{}/bgp_l2vpn_evpn_routes_all.json".format(CWD, router.name)
+
+    r1 = tgen.gears["r1"]
+    json_file = "{}/{}/bgp_l2vpn_evpn_routes_all.json".format(CWD, r1.name)
     expected = json.loads(open(json_file).read())
     test_func = partial(
         topotest.router_json_cmp,
-        router,
+        r1,
         "show bgp l2vpn evpn json",
         expected,
     )
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
-    assertmsg = '"{}" JSON output mismatches'.format(router.name)
+    assertmsg = '"{}" JSON output mismatches'.format(r1.name)
     assert result is None, assertmsg
 
 
@@ -678,13 +679,13 @@ def test_evpn_multipath():
         result is True
     ), "Failed to configure second path between R1 and R2, Error: {} ".format(result)
 
-    dut = tgen.gears["r2"]
-    dut_peer = tgen.gears["r1"]
-    _test_wait_for_multipath_convergence(dut, expected_paths=2)
-    _test_rmac_present(dut)
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+    _test_wait_for_multipath_convergence(r2, expected_paths=2)
+    _test_rmac_present(r2)
 
     # Enable dataplane logs in FRR
-    dut.vtysh_cmd(
+    r2.vtysh_cmd(
         """
 configure terminal
  debug zebra dplane detailed
@@ -695,26 +696,26 @@ configure terminal
         peer = "192.168.0.2" if i % 2 == 0 else "192.168.99.2"
         local_peer = "192.168.0.1" if i % 2 == 0 else "192.168.99.1"
 
-        # Retrieving the last established epoch from the DUT to check against
-        last_established_epoch = _get_established_epoch(dut, local_peer)
+        # Retrieving the last established epoch from the r2 to check against
+        last_established_epoch = _get_established_epoch(r2, local_peer)
         if last_established_epoch is None:
             assert False, "Failed to retrieve established epoch for peer {}".format(
                 peer
             )
 
-        dut_peer.vtysh_cmd("clear bgp {0}".format(peer))
+        r1.vtysh_cmd("clear bgp {0}".format(peer))
 
-        _test_epoch_after_clear(dut, local_peer, last_established_epoch)
-        _test_wait_for_multipath_convergence(dut, expected_paths=2)
-        _test_rmac_present(dut)
+        _test_epoch_after_clear(r2, local_peer, last_established_epoch)
+        _test_wait_for_multipath_convergence(r2, expected_paths=2)
+        _test_rmac_present(r2)
         _test_router_check_evpn_next_hop(expected_paths=2)
 
     # Check for MAC_DELETE or NEIGH_DELETE in zebra log
-    log = dut.net.getLog("log", "zebra")
+    log = r2.net.getLog("log", "zebra")
     if re.search(r"(MAC_DELETE|NEIGH_DELETE)", log):
         assert False, "MAC_DELETE or NEIGH_DELETE found in zebra log"
 
-    dut.vtysh_cmd(
+    r2.vtysh_cmd(
         """
 configure terminal
  no debug zebra dplane detailed
