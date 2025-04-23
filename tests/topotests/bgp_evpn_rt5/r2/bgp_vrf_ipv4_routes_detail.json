@@ -11,7 +11,7 @@
                 "extendedCommunity": null,
                 "nexthops": [
                     {
-                        "ip": "192.168.100.21",
+                        "ip": "192.168.0.1",
                         "hostname": "r1",
                         "afi": "ipv4",
                         "used": true
