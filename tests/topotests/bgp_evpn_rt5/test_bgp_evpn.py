@@ -166,9 +166,6 @@ def test_protocols_convergence():
     for rname in ("r1", "r2"):
         router = tgen.gears[rname]
         json_file = "{}/{}/bgp_l2vpn_evpn_routes.json".format(CWD, router.name)
-        if not os.path.isfile(json_file):
-            assert 0, "bgp_l2vpn_evpn_routes.json file not found"
-
         expected = json.loads(open(json_file).read())
         test_func = partial(
             topotest.router_json_cmp,
@@ -242,9 +239,6 @@ def test_bgp_vrf_routes():
             json_file = "{}/{}/bgp_vrf_{}_routes_detail.json".format(
                 CWD, router.name, af
             )
-            if not os.path.isfile(json_file):
-                assert 0, "bgp vrf routes file not found"
-
             expected = json.loads(open(json_file).read())
             test_func = partial(
                 topotest.router_json_cmp,
@@ -406,9 +400,6 @@ def test_evpn_disable_routemap():
     )
     router = tgen.gears["r1"]
     json_file = "{}/{}/bgp_l2vpn_evpn_routes_all.json".format(CWD, router.name)
-    if not os.path.isfile(json_file):
-        assert 0, "bgp_l2vpn_evpn_routes.json file not found"
-
     expected = json.loads(open(json_file).read())
     test_func = partial(
         topotest.router_json_cmp,
