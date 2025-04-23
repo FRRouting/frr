@@ -127,7 +127,7 @@ void zebra_evpn_print(struct zebra_evpn *zevpn, void **ctxt)
 			(zevpn->svi_if ? zevpn->svi_if->name : ""));
 		vty_out(vty, " SVI ifIndex: %u\n",
 			(zevpn->svi_if ? zevpn->svi_if->ifindex : 0));
-		vty_out(vty, " Local VTEP IP: %pI4\n", &zevpn->local_vtep_ip);
+		vty_out(vty, " Local VTEP IP: %pIA\n", &zevpn->local_vtep_ip);
 		vty_out(vty, " Mcast group: %pI4\n", &zevpn->mcast_grp);
 	} else {
 		json_object_string_add(json, "vxlanInterface", zevpn->vxlan_if->name);
@@ -136,7 +136,7 @@ void zebra_evpn_print(struct zebra_evpn *zevpn, void **ctxt)
 			json_object_string_add(json, "sviInterface", zevpn->svi_if->name);
 			json_object_int_add(json, "sviIfindex", zevpn->svi_if->ifindex);
 		}
-		json_object_string_addf(json, "vtepIp", "%pI4", &zevpn->local_vtep_ip);
+		json_object_string_addf(json, "vtepIp", "%pIA", &zevpn->local_vtep_ip);
 		json_object_string_addf(json, "mcastGroup", "%pI4", &zevpn->mcast_grp);
 		json_object_string_add(json, "advertiseGatewayMacip",
 				       zevpn->advertise_gw_macip ? "Yes" : "No");
@@ -160,10 +160,10 @@ void zebra_evpn_print(struct zebra_evpn *zevpn, void **ctxt)
 				zvtep_flood_str, zvtep->flood_control, VXLAN_FLOOD_STR_DEFAULT);
 
 			if (json == NULL) {
-				vty_out(vty, "  %pI4 flood: %s\n", &zvtep->vtep_ip, flood_str);
+				vty_out(vty, "  %pIA flood: %s\n", &zvtep->vtep_ip, flood_str);
 			} else {
 				json_vtep = json_object_new_object();
-				json_object_string_addf(json_vtep, "ip", "%pI4", &zvtep->vtep_ip);
+				json_object_string_addf(json_vtep, "ip", "%pIA", &zvtep->vtep_ip);
 				json_object_string_add(json_vtep, "flood", flood_str);
 				json_object_array_add(json_vtep_list, json_vtep);
 			}
@@ -242,7 +242,7 @@ void zebra_evpn_print_hash(struct hash_bucket *bucket, void *ctxt[])
 			json_vtep_list = json_object_new_array();
 			for (zvtep = zevpn->vteps; zvtep; zvtep = zvtep->next) {
 				json_ip_str = json_object_new_string(
-					inet_ntop(AF_INET, &zvtep->vtep_ip, buf, sizeof(buf)));
+					ipaddr2str(&zvtep->vtep_ip, buf, sizeof(buf)));
 				json_object_array_add(json_vtep_list, json_ip_str);
 			}
 			json_object_object_add(json_evpn, "remoteVteps", json_vtep_list);
@@ -1108,7 +1108,8 @@ int zebra_evpn_send_add_to_client(struct zebra_evpn *zevpn)
 
 	zclient_create_header(s, ZEBRA_VNI_ADD, zebra_vrf_get_evpn_id());
 	stream_putl(s, zevpn->vni);
-	stream_put_in_addr(s, &zevpn->local_vtep_ip);
+	/* Temporary until BGP supports IPv6 VTEPs */
+	stream_put_in_addr(s, (const struct in_addr *)&zevpn->local_vtep_ip.ipaddr_v4.s_addr);
 	stream_put(s, &zevpn->vrf_id, sizeof(vrf_id_t)); /* tenant vrf */
 	stream_put_in_addr(s, &zevpn->mcast_grp);
 	stream_put(s, &svi_index, sizeof(ifindex_t));
@@ -1117,12 +1118,10 @@ int zebra_evpn_send_add_to_client(struct zebra_evpn *zevpn)
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug(
-			"Send EVPN_ADD %u %pI4 tenant vrf %s(%u) SVI index %u to %s",
-			zevpn->vni, &zevpn->local_vtep_ip,
-			vrf_id_to_name(zevpn->vrf_id), zevpn->vrf_id,
-			(zevpn->svi_if ? zevpn->svi_if->ifindex : 0),
-			zebra_route_string(client->proto));
+		zlog_debug("Send EVPN_ADD %u %pIA tenant vrf %s(%u) SVI index %u to %s", zevpn->vni,
+			   &zevpn->local_vtep_ip, vrf_id_to_name(zevpn->vrf_id), zevpn->vrf_id,
+			   (zevpn->svi_if ? zevpn->svi_if->ifindex : 0),
+			   zebra_route_string(client->proto));
 
 	client->vniadd_cnt++;
 	rc = zserv_send_message(client, s);
@@ -1176,17 +1175,15 @@ int zebra_evpn_send_del_to_client(struct zebra_evpn *zevpn)
 /*
  * See if remote VTEP matches with prefix.
  */
-static int zebra_evpn_vtep_match(struct in_addr *vtep_ip,
-				 struct zebra_vtep *zvtep)
+static int zebra_evpn_vtep_match(struct ipaddr *vtep_ip, struct zebra_vtep *zvtep)
 {
-	return (IPV4_ADDR_SAME(vtep_ip, &zvtep->vtep_ip));
+	return ipaddr_is_same(vtep_ip, &zvtep->vtep_ip);
 }
 
 /*
  * Locate remote VTEP in EVPN hash table.
  */
-struct zebra_vtep *zebra_evpn_vtep_find(struct zebra_evpn *zevpn,
-					struct in_addr *vtep_ip)
+struct zebra_vtep *zebra_evpn_vtep_find(struct zebra_evpn *zevpn, struct ipaddr *vtep_ip)
 {
 	struct zebra_vtep *zvtep;
 
@@ -1204,8 +1201,7 @@ struct zebra_vtep *zebra_evpn_vtep_find(struct zebra_evpn *zevpn,
 /*
  * Add remote VTEP to EVPN hash table.
  */
-struct zebra_vtep *zebra_evpn_vtep_add(struct zebra_evpn *zevpn,
-				       struct in_addr *vtep_ip,
+struct zebra_vtep *zebra_evpn_vtep_add(struct zebra_evpn *zevpn, struct ipaddr *vtep_ip,
 				       int flood_control)
 
 {
@@ -1282,7 +1278,7 @@ int zebra_evpn_vtep_install(struct zebra_evpn *zevpn, struct zebra_vtep *zvtep)
 /*
  * Uninstall remote VTEP from the kernel.
  */
-int zebra_evpn_vtep_uninstall(struct zebra_evpn *zevpn, struct in_addr *vtep_ip)
+int zebra_evpn_vtep_uninstall(struct zebra_evpn *zevpn, struct ipaddr *vtep_ip)
 {
 	if (!zevpn->vxlan_if) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
@@ -1401,10 +1397,9 @@ static void zebra_evpn_process_sync_macip_add(struct zebra_evpn *zevpn,
 
 /************************** remote mac-ip handling **************************/
 /* Process a remote MACIP add from BGP. */
-void zebra_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
-			      uint16_t ipa_len, const struct ipaddr *ipaddr,
-			      uint8_t flags, uint32_t seq,
-			      struct in_addr vtep_ip, const esi_t *esi)
+void zebra_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr, uint16_t ipa_len,
+			      const struct ipaddr *ipaddr, uint8_t flags, uint32_t seq,
+			      struct ipaddr *vtep_ip, const esi_t *esi)
 {
 	struct zebra_evpn *zevpn;
 	struct zebra_vtep *zvtep;
@@ -1460,10 +1455,10 @@ void zebra_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
 	 * possible that when peering comes up, peer may advertise MACIP
 	 * routes before advertising type-3 routes.
 	 */
-	if (vtep_ip.s_addr) {
-		zvtep = zebra_evpn_vtep_find(zevpn, &vtep_ip);
+	if (!ipaddr_is_zero(vtep_ip)) {
+		zvtep = zebra_evpn_vtep_find(zevpn, vtep_ip);
 		if (!zvtep) {
-			zvtep = zebra_evpn_vtep_add(zevpn, &vtep_ip, VXLAN_FLOOD_DISABLED);
+			zvtep = zebra_evpn_vtep_add(zevpn, vtep_ip, VXLAN_FLOOD_DISABLED);
 			if (!zvtep) {
 				flog_err(
 					EC_ZEBRA_VTEP_ADD_FAILED,
@@ -1504,9 +1499,8 @@ void zebra_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
 }
 
 /* Process a remote MACIP delete from BGP. */
-void zebra_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr,
-			      uint16_t ipa_len, const struct ipaddr *ipaddr,
-			      struct in_addr vtep_ip)
+void zebra_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr, uint16_t ipa_len,
+			      const struct ipaddr *ipaddr, struct ipaddr *vtep_ip)
 {
 	struct zebra_evpn *zevpn;
 	struct zebra_mac *mac = NULL;
