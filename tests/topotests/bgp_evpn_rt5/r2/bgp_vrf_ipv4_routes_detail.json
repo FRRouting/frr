@@ -1,5 +1,5 @@
 {
-    "vrfName": "r2-vrf-101",
+    "vrfName": "vrf-101",
     "routerId": "10.0.101.2",
     "localAS": 65000,
     "routes": {
