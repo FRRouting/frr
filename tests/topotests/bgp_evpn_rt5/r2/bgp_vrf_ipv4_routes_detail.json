@@ -5,7 +5,7 @@
     "routes": {
         "10.0.101.1/32": [
             {
-                "importedFrom": "65000:101",
+                "importedFrom": "65000:1",
                 "vni": "101",
                 "valid": true,
                 "extendedCommunity": null,
