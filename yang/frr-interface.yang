@@ -52,14 +52,17 @@ module frr-interface {
   revision 2020-02-05 {
     description
       "Added operational data";
+    reference "FRRouting";
   }
   revision 2019-09-09 {
     description
       "Added interface-ref typedef";
+    reference "FRRouting";
   }
   revision 2018-03-28 {
     description
       "Initial revision.";
+    reference "FRRouting";
   }
 
   identity other {
@@ -229,9 +232,14 @@ module frr-interface {
           "IPv6 enabled.";
       }
     }
+    description
+      "Type definition for interface flags.";
   }
 
   grouping if-common-operational {
+    description
+      "Common operational data for interfaces.";
+
     leaf if-index {
       type int32 {
         range "0..2147483647";
@@ -289,6 +297,9 @@ module frr-interface {
   }
 
   container lib {
+    description
+      "Library container.";
+
     list interface {
       key "name";
       description
@@ -301,9 +312,9 @@ module frr-interface {
 
       leaf vrf {
         type frr-vrf:vrf-ref;
+        config false;
         description
           "VRF this interface is associated with.";
-        config false;
       }
 
       leaf description {
@@ -314,6 +325,8 @@ module frr-interface {
 
       container state {
         config false;
+        description
+          "State information for the interface.";
         uses if-common-operational;
       }
     }
