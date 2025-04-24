@@ -35,7 +35,8 @@ Installing Topotest Requirements
        iputils-ping \
        iptables \
        tshark \
-       valgrind
+       valgrind \
+       ssmping
    python3 -m pip install wheel
    python3 -m pip install 'pytest>=8.3.2' 'pytest-asyncio>=0.24.0' 'pytest-xdist>=3.6.1'
    python3 -m pip install 'scapy>=2.4.5'
