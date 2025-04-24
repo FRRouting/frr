@@ -3041,13 +3041,27 @@ static bool zebra_nhg_nexthop_compare(const struct nexthop *nhop,
 
 	while (nhop && old_nhop) {
 		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-			zlog_debug("%s: %pRN Comparing %pNHvv(%u) to old: %pNHvv(%u)",
-				   __func__, rn, nhop, nhop->flags, old_nhop,
-				   old_nhop->flags);
+			zlog_debug("%s: %pRN Comparing %pNHvv(%u) ACTIVE: %d to old: %pNHvv(%u) ACTIVE: %d nexthop same: %d",
+				   __func__, rn, nhop, nhop->flags,
+				   CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_ACTIVE), old_nhop,
+				   old_nhop->flags, CHECK_FLAG(old_nhop->flags, NEXTHOP_FLAG_ACTIVE),
+				   nexthop_same_no_ifindex(nhop, old_nhop));
 		if (!CHECK_FLAG(old_nhop->flags, NEXTHOP_FLAG_ACTIVE)) {
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 				zlog_debug("%s: %pRN Old is not active going to the next one",
 					   __func__, rn);
+
+			/*
+			 * If the new nexthop is not active and the old nexthop is also not active,
+			 * then we know that we can skip both the old and new nexthops.
+			 */
+			if (!CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_ACTIVE) &&
+			    nexthop_same_no_ifindex(nhop, old_nhop)) {
+				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+					zlog_debug("%s: %pRN new is not active going to the next one",
+						   __func__, rn);
+				nhop = nhop->next;
+			}
 			old_nhop = old_nhop->next;
 			continue;
 		}
