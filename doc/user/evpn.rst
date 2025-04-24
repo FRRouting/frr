@@ -119,8 +119,8 @@ corresponding Linux interface configuration is correct, compatible, and active:
     exit-address-family
     !
     address-family l2vpn evpn
-     advertise ipv4 unicast
-     advertise ipv6 unicast
+     l3-advertise ipv4 unicast enable
+     l3-advertise ipv6 unicast enable
     exit-address-family
    exit
    !
@@ -135,8 +135,8 @@ corresponding Linux interface configuration is correct, compatible, and active:
     exit-address-family
     !
     address-family l2vpn evpn
-     advertise ipv4 unicast
-     advertise ipv6 unicast
+     l3-advertise ipv4 unicast enable
+     l3-advertise ipv6 unicast enable
     exit-address-family
    exit
 
@@ -192,7 +192,7 @@ MAC/IP pairs associated with the local SVI interfaces.
    exit
 
 IPv4 and IPv6 BGP Prefixes from an IP-VRF are not exported to EVPN as Type-5
-routes until the respective ``advertise <afi> unicast`` command has been
+routes until the respective ``l3-advertise <afi> unicast enable`` command has been
 configured in the BGP instance of the VRF in question. All routes in the BGP
 RIB (locally originated, learned from a peer, or leaked from another VRF) will
 be eligible to be exported to EVPN so long as they are valid and selected in
@@ -202,7 +202,8 @@ In this example, the BGP instances for vrf1 and vrf2 will have their static
 routes redistributed into the BGP loc-rib for the ipv4 unicast and ipv6 unicast
 address-families via the ``redistribute static`` statements. These unicast
 prefixes will then be exported into EVPN as Type-5 routes as a result of the
-``advertise ipv4 unicast`` and ``advertise ipv6 unicast`` commands.
+``l3-advertise ipv4 unicast enable`` and ``l3-advertise ipv6 unicast enable``
+commands.
 
 .. code-block:: frr
 
@@ -217,8 +218,8 @@ prefixes will then be exported into EVPN as Type-5 routes as a result of the
     exit-address-family
     !
     address-family l2vpn evpn
-     advertise ipv4 unicast
-     advertise ipv6 unicast
+     l3-advertise ipv4 unicast enable
+     l3-advertise ipv6 unicast enable
     exit-address-family
    exit
    !
@@ -233,8 +234,8 @@ prefixes will then be exported into EVPN as Type-5 routes as a result of the
     exit-address-family
     !
     address-family l2vpn evpn
-     advertise ipv4 unicast
-     advertise ipv6 unicast
+     l3-advertise ipv4 unicast enable
+     l3-advertise ipv6 unicast enable
     exit-address-family
    exit
 
