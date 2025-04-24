@@ -754,6 +754,157 @@ def test_shutdown_multipath_check_next_hops():
     _test_router_check_evpn_next_hop()
 
 
+def test_rmap_match_evpn_vni_102():
+    """
+    change input route-map from r2.
+    match evpn vni value from 101 to 102
+    expecting all prefixes are denied
+    """
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    nb_prefix = 2
+    expected = {"numPrefix": nb_prefix, "totalPrefix": nb_prefix}
+    test_func = partial(
+        topotest.router_json_cmp,
+        r1,
+        "show bgp l2vpn evpn rd 65000:2 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, f"r1 was expecting {nb_prefix} from r2"
+
+    # change route-map and test
+    cfg = {
+        "r1": {
+            "raw_config": [
+                "route-map rmap_r1 permit 1",
+                "match evpn vni 102",
+            ]
+        },
+    }
+    assert apply_raw_config(tgen, cfg), "Configuration failed"
+
+    nb_prefix = 0
+    expected = {"numPrefix": nb_prefix, "totalPrefix": nb_prefix}
+    test_func = partial(
+        topotest.router_json_cmp,
+        r1,
+        "show bgp l2vpn evpn rd 65000:2 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, f"r1 was expecting {nb_prefix} from r2"
+
+
+def test_rmap_match_evpn_vni_101():
+    """
+    change input route-map from r2.
+    re-apply match evpn vni value 101
+    expecting all prefixes are received
+    """
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # change route-map and test
+    cfg = {
+        "r1": {
+            "raw_config": [
+                "route-map rmap_r1 permit 1",
+                "match evpn vni 101",
+            ]
+        },
+    }
+    assert apply_raw_config(tgen, cfg), "Configuration failed"
+
+    r1 = tgen.gears["r1"]
+    nb_prefix = 2
+    expected = {"numPrefix": nb_prefix, "totalPrefix": nb_prefix}
+    test_func = partial(
+        topotest.router_json_cmp,
+        r1,
+        "show bgp l2vpn evpn rd 65000:2 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, f"r1 was expecting {nb_prefix} from r2"
+
+
+def test_rmap_match_evpn_vni_101_deny():
+    """
+    change input route-map from r2.
+    set deny action to vni 101
+    expecting all prefixes are denied
+    """
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # change route-map and test
+    cfg = {
+        "r1": {
+            "raw_config": [
+                "route-map rmap_r1 deny 1",
+            ]
+        },
+    }
+    assert apply_raw_config(tgen, cfg), "Configuration failed"
+
+    r1 = tgen.gears["r1"]
+    nb_prefix = 0
+    expected = {"numPrefix": nb_prefix, "totalPrefix": nb_prefix}
+    test_func = partial(
+        topotest.router_json_cmp,
+        r1,
+        "show bgp l2vpn evpn rd 65000:2 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, f"r1 was expecting {nb_prefix} from r2"
+
+
+def test_no_rmap_match_evpn_vni():
+    """
+    un-apply input route-map from r2
+    expecting all prefixes are received
+    """
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # change route-map and test
+    cfg = {
+        "r1": {
+            "raw_config": [
+                "router bgp 65000",
+                " address-family l2vpn evpn",
+                "  no neighbor 192.168.0.2 route-map rmap_r1 in",
+                "  no neighbor 192.168.99.2 route-map rmap_r1 in",
+            ]
+        },
+    }
+    assert apply_raw_config(tgen, cfg), "Configuration failed"
+
+    r1 = tgen.gears["r1"]
+    nb_prefix = 2
+    expected = {"numPrefix": nb_prefix, "totalPrefix": nb_prefix}
+    test_func = partial(
+        topotest.router_json_cmp,
+        r1,
+        "show bgp l2vpn evpn rd 65000:2 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, f"r1 was expecting {nb_prefix} from r2"
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
