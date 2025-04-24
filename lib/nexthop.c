@@ -1324,9 +1324,10 @@ void nexthop_json_helper(json_object *json_nexthop,
 	if (nexthop->nh_srv6) {
 		json_seg6local = json_object_new_object();
 		json_object_string_add(json_seg6local, "action",
-				       seg6local_action2str(
-					       nexthop->nh_srv6
-						       ->seg6local_action));
+				       seg6local_action2str_with_next_csid(
+					       nexthop->nh_srv6->seg6local_action,
+					       seg6local_has_next_csid(
+						       &nexthop->nh_srv6->seg6local_ctx)));
 		json_seg6local_context = json_object_new_object();
 		json_object_object_add(json_nexthop, "seg6local",
 				       json_seg6local);
@@ -1486,8 +1487,10 @@ void nexthop_vty_helper(struct vty *vty, const struct nexthop *nexthop,
 		if (nexthop->nh_srv6->seg6local_action !=
 		    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
 			vty_out(vty, ", seg6local %s %s",
-				seg6local_action2str(
-					nexthop->nh_srv6->seg6local_action),
+				seg6local_action2str_with_next_csid(nexthop->nh_srv6->seg6local_action,
+								    seg6local_has_next_csid(
+									    &nexthop->nh_srv6
+										     ->seg6local_ctx)),
 				buf);
 		if (nexthop->nh_srv6->seg6_segs &&
 		    IPV6_ADDR_CMP(&nexthop->nh_srv6->seg6_segs->seg[0],

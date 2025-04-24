@@ -214,6 +214,16 @@ enum srv6_endpoint_behavior_codepoint {
 };
 
 /*
+ * Return true if next-csid behavior is used, false otherwise
+ */
+static inline bool seg6local_has_next_csid(const struct seg6local_context *ctx)
+{
+	const struct seg6local_flavors_info *flv_info = &ctx->flv;
+
+	return CHECK_SRV6_FLV_OP(flv_info->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
+}
+
+/*
  * Convert SRv6 endpoint behavior codepoints to human-friendly string.
  */
 static inline const char *
@@ -422,6 +432,8 @@ static inline void *sid_copy(struct in6_addr *dst,
 {
 	return memcpy(dst, src, sizeof(struct in6_addr));
 }
+
+const char *seg6local_action2str_with_next_csid(uint32_t action, bool has_next_csid);
 
 const char *
 seg6local_action2str(uint32_t action);
