@@ -16,31 +16,31 @@ DEFINE_MTYPE_STATIC(LIB, SRV6_LOCATOR_CHUNK, "SRV6 locator chunk");
 DEFINE_MTYPE_STATIC(LIB, SRV6_SID_FORMAT, "SRv6 SID format");
 DEFINE_MTYPE_STATIC(LIB, SRV6_SID_CTX, "SRv6 SID context");
 
-const char *seg6local_action2str(uint32_t action)
+const char *seg6local_action2str_with_next_csid(uint32_t action, bool has_next_csid)
 {
 	switch (action) {
 	case ZEBRA_SEG6_LOCAL_ACTION_END:
-		return "End";
+		return has_next_csid ? "uN" : "End";
 	case ZEBRA_SEG6_LOCAL_ACTION_END_X:
-		return "End.X";
+		return has_next_csid ? "uA" : "End.X";
 	case ZEBRA_SEG6_LOCAL_ACTION_END_T:
-		return "End.T";
+		return has_next_csid ? "uDT" : "End.T";
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
-		return "End.DX2";
+		return has_next_csid ? "uDX2" : "End.DX2";
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX6:
-		return "End.DX6";
+		return has_next_csid ? "uDX6" : "End.DX6";
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX4:
-		return "End.DX4";
+		return has_next_csid ? "uDX4" : "End.DX4";
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DT6:
-		return "End.DT6";
+		return has_next_csid ? "uDT6" : "End.DT6";
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DT4:
-		return "End.DT4";
+		return has_next_csid ? "uDT4" : "End.DT4";
 	case ZEBRA_SEG6_LOCAL_ACTION_END_B6:
-		return "End.B6";
+		return has_next_csid ? "uB6" : "End.B6";
 	case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
-		return "End.B6.Encap";
+		return has_next_csid ? "uB6.Encap" : "End.B6.Encap";
 	case ZEBRA_SEG6_LOCAL_ACTION_END_BM:
-		return "End.BM";
+		return has_next_csid ? "uBM" : "End.BM";
 	case ZEBRA_SEG6_LOCAL_ACTION_END_S:
 		return "End.S";
 	case ZEBRA_SEG6_LOCAL_ACTION_END_AS:
@@ -48,12 +48,17 @@ const char *seg6local_action2str(uint32_t action)
 	case ZEBRA_SEG6_LOCAL_ACTION_END_AM:
 		return "End.AM";
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DT46:
-		return "End.DT46";
+		return has_next_csid ? "uDT46" : "End.DT46";
 	case ZEBRA_SEG6_LOCAL_ACTION_UNSPEC:
 		return "unspec";
 	default:
 		return "unknown";
 	}
+}
+
+const char *seg6local_action2str(uint32_t action)
+{
+	return seg6local_action2str_with_next_csid(action, false);
 }
 
 int snprintf_seg6_segs(char *str,
