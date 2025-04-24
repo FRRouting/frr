@@ -940,19 +940,25 @@ def test_isis_invalid_config_step11():
 
     logger.info("Entering invalid Segment Routing configuration...")
     ret = tgen.net["rt1"].cmd(
-        'vtysh -c "conf t" -c "router isis 1" -c "segment-routing prefix 1.1.1.1/32 index 10000"'
+        'vtysh -c "conf t" -c "router isis 1" \
+        -c "segment-routing prefix 1.1.1.1/32 index 10000" \
+        -c "end"'
     )
     assert (
         re.search("Configuration failed", ret) is not None
     ), "Invalid SR configuration wasn't rejected"
     ret = tgen.net["rt1"].cmd(
-        'vtysh -c "conf t" -c "router isis 1" -c "segment-routing global-block 16000 14999"'
+        'vtysh -c "conf t" -c "router isis 1" \
+        -c "segment-routing global-block 16000 14999" \
+        -c "end"'
     )
     assert (
         re.search("Configuration failed", ret) is not None
     ), "Invalid SR configuration wasn't rejected"
     ret = tgen.net["rt1"].cmd(
-        'vtysh -c "conf t" -c "router isis 1" -c "segment-routing global-block 16000 16001"'
+        'vtysh -c "conf t" -c "router isis 1" \
+        -c "segment-routing global-block 16000 16001" \
+        -c "end"'
     )
     assert (
         re.search("Configuration failed", ret) is not None
