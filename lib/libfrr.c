@@ -868,7 +868,7 @@ static void rcv_signal(int signum)
 	/* poll() is interrupted by the signal; handled below */
 }
 
-static void frr_daemon_wait(int fd)
+static FRR_NORETURN void frr_daemon_wait(int fd)
 {
 	struct pollfd pfd[1];
 	int ret;

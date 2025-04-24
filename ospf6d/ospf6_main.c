@@ -125,14 +125,14 @@ static void sighup(void)
 }
 
 /* SIGINT handler. */
-static void sigint(void)
+static FRR_NORETURN void sigint(void)
 {
 	zlog_notice("Terminating on signal SIGINT");
 	ospf6_exit(0);
 }
 
 /* SIGTERM handler. */
-static void sigterm(void)
+static FRR_NORETURN void sigterm(void)
 {
 	zlog_notice("Terminating on signal SIGTERM");
 	ospf6_exit(0);

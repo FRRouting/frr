@@ -176,8 +176,7 @@ lde_init(struct ldpd_init *init)
 	zclient_sync_init();
 }
 
-static void
-lde_shutdown(void)
+static FRR_NORETURN void lde_shutdown(void)
 {
 	/* close pipes */
 	if (iev_ldpe) {
