@@ -410,8 +410,7 @@ static void bgp_path_info_mpath_attr_set(struct bgp_path_info *path,
 	mpath->mp_attr = attr;
 }
 
-void bgp_mpath_diff_insert(struct bgp_mpath_diff_head *diff,
-			   struct bgp_path_info *bpi, bool update)
+void bgp_mpath_diff_insert(struct bgp_mpath_diff_head *diff, struct bgp_path_info *bpi, bool update)
 {
 	if (!diff)
 		return;
@@ -420,8 +419,8 @@ void bgp_mpath_diff_insert(struct bgp_mpath_diff_head *diff,
 		return;
 	}
 
-	struct bgp_path_info_mpath_diff *item = XCALLOC(
-		MTYPE_BGP_MPATH_DIFF, sizeof(struct bgp_path_info_mpath_diff));
+	struct bgp_path_info_mpath_diff *item = XCALLOC(MTYPE_BGP_MPATH_DIFF,
+							sizeof(struct bgp_path_info_mpath_diff));
 	item->path = bpi;
 	item->update = update;
 

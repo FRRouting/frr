@@ -93,8 +93,7 @@ void pullwr_timeout(struct pullwr *pullwr, uint32_t timeout)
 	if (pullwr->writer)
 		return;
 
-	event_add_timer_msec(pullwr->tm, pullwr_run, pullwr, timeout,
-			     &pullwr->writer);
+	event_add_timer_msec(pullwr->tm, pullwr_run, pullwr, timeout, &pullwr->writer);
 }
 
 static size_t pullwr_iov(struct pullwr *pullwr, struct iovec *iov)

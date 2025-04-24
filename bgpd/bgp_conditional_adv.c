@@ -98,22 +98,18 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
 			advmap_attr = *pi->attr;
 
-			bool selected = bgp_check_selected(
-				pi, peer, addpath_capable, afi, safi);
+			bool selected = bgp_check_selected(pi, peer, addpath_capable, afi, safi);
 
 			if (selected) {
-				bgp_adj_out_updated(
-					subgrp, dest, pi,
-					!addpath_capable
-						? 0
-						: bgp_addpath_id_for_peer(peer,
-									  afi,
-									  safi,
-									  &pi->tx_addpath),
-					&attr, false,
-					update_type == UPDATE_TYPE_ADVERTISE
-						? false
-						: true);
+				bgp_adj_out_updated(subgrp, dest, pi,
+						    !addpath_capable
+							    ? 0
+							    : bgp_addpath_id_for_peer(peer, afi,
+										      safi,
+										      &pi->tx_addpath),
+						    &attr, false,
+						    update_type == UPDATE_TYPE_ADVERTISE ? false
+											 : true);
 			}
 
 
@@ -137,8 +133,8 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 			 * be advertised as expected.
 			 */
 			if (update_type == UPDATE_TYPE_ADVERTISE &&
-			    subgroup_announce_check(dest, pi, subgrp, dest_p,
-						    &attr, &advmap_attr, 0)) {
+			    subgroup_announce_check(dest, pi, subgrp, dest_p, &attr, &advmap_attr,
+						    0)) {
 				if (!bgp_adj_out_set_subgroup(dest, subgrp,
 							      &attr, pi))
 					bgp_attr_flush(&attr);

@@ -106,8 +106,7 @@ static int bgp_evpn_es_route_select_install(struct bgp *bgp,
 	SET_FLAG(pi->flags, BGP_PATH_UNSORTED);
 
 	/* Compute the best path. */
-	bgp_best_selection(bgp, dest, &bgp->maxpaths[afi][safi], &old_and_new,
-			   afi, safi, NULL);
+	bgp_best_selection(bgp, dest, &bgp->maxpaths[afi][safi], &old_and_new, afi, safi, NULL);
 	old_select = old_and_new.old;
 	new_select = old_and_new.new;
 
