@@ -443,8 +443,7 @@ main(int argc, char *argv[])
 	return (0);
 }
 
-static void
-ldpd_shutdown(void)
+static FRR_NORETURN void ldpd_shutdown(void)
 {
 	pid_t		 pid;
 	int		 status;

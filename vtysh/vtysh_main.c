@@ -156,7 +156,7 @@ static void vtysh_signal_init(void)
 }
 
 /* Help information display. */
-static void usage(int status)
+static FRR_NORETURN void usage(int status)
 {
 	if (status != 0)
 		fprintf(stderr, "Try `%s --help' for more information.\n",

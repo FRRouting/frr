@@ -1090,7 +1090,7 @@ void watchfrr_status(struct vty *vty)
 	}
 }
 
-static void sigint(void)
+static FRR_NORETURN void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 	systemd_send_stopping();
@@ -1268,7 +1268,7 @@ static void netns_setup(const char *nsname)
 
 #else /* !GNU_LINUX */
 
-static void netns_setup(const char *nsname)
+static FRR_NORETURN void netns_setup(const char *nsname)
 {
 	fprintf(stderr, "network namespaces are only available on Linux\n");
 	exit(1);
