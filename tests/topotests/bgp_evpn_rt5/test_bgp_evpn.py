@@ -344,6 +344,74 @@ def test_bgp_vrf_routes():
             _test_bgp_vrf_routes(router, vrf)
 
 
+def test_evpn_unconfigure_evpn():
+    """
+    Unconfigure R2 with advertise-all-vni on vrf-evpn instance
+    Ensure that local L2VPN EVPN entries are removed
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    logger.info("==== r2, unconfigure advertise-all-vni from BGP EVPN instance")
+    router = tgen.gears["r2"]
+    vrf_to_write = f" vrf {R2_VRF_UNDERLAY}" if R2_VRF_UNDERLAY else ""
+    router.vtysh_cmd(
+        f"""
+        configure terminal
+        router bgp 65000{vrf_to_write}
+        address-family l2vpn evpn
+        no advertise-all-vni
+        exit-address-family
+        exit
+        """
+    )
+    expected = {}
+    test_func = partial(
+        topotest.router_json_cmp,
+        router,
+        "show bgp l2vpn evpn json",
+        expected,
+        exact=True,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assertmsg = '"{}" JSON output mismatches'.format(router.name)
+    assert result is None, assertmsg
+
+
+def test_evpn_reconfigure_evpn():
+    """
+    reconfigure R2 with advertise-all-vni on vrf-evpn instance
+    Ensure that L2VPN EVPN entries are correctly learned
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    logger.info("==== r2, reconfigure advertise-all-vni from BGP EVPN instance")
+    router = tgen.gears["r2"]
+    vrf_to_write = f" vrf {R2_VRF_UNDERLAY}" if R2_VRF_UNDERLAY else ""
+    router.vtysh_cmd(
+        f"""
+        configure terminal
+        router bgp 65000{vrf_to_write}
+        address-family l2vpn evpn
+        advertise-all-vni
+        exit-address-family
+        exit
+        """
+    )
+    json_file = "{}/r2/bgp_l2vpn_evpn_routes.json".format(CWD)
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp,
+        router,
+        "show bgp l2vpn evpn json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assertmsg = '"{}" JSON output mismatches'.format(router.name)
+    assert result is None, assertmsg
+
+
 def test_router_check_ip():
     """
     Check routes are correctly installed
