@@ -217,7 +217,7 @@
           "interfaceName":"sr0",
           "active":true,
           "seg6local":{
-            "action":"End"
+            "action":"uN"
           }
         }
       ]
@@ -239,7 +239,7 @@
           "interfaceName":"eth-sw1",
           "active":true,
           "seg6local":{
-            "action":"End.X"
+            "action":"uA"
           }
         }
       ]
@@ -261,7 +261,7 @@
           "interfaceName":"eth-sw1",
           "active":true,
           "seg6local":{
-            "action":"End.X"
+            "action":"uA"
           }
         }
       ]
