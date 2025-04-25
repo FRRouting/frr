@@ -25,7 +25,7 @@
 					"active": true,
 					"weight": 1,
 					"seg6local": {
-						"action": "End",
+						"action": "uN",
 						"sidStructure": {
 							"blockLen": 32,
 							"nodeLen": 16,
@@ -66,7 +66,7 @@
 					"active": true,
 					"weight": 1,
 					"seg6local": {
-						"action": "End.DT4",
+						"action": "uDT4",
 						"sidStructure": {
 							"blockLen": 32,
 							"nodeLen": 16,
@@ -107,7 +107,7 @@
 					"active": true,
 					"weight": 1,
 					"seg6local": {
-						"action": "End.DT6",
+						"action": "uDT6",
 						"sidStructure": {
 							"blockLen": 32,
 							"nodeLen": 16,
@@ -148,7 +148,7 @@
 					"active": true,
 					"weight": 1,
 					"seg6local": {
-						"action": "End.DT46",
+						"action": "uDT46",
 						"sidStructure": {
 							"blockLen": 32,
 							"nodeLen": 16,
@@ -189,7 +189,7 @@
 					"active": true,
 					"weight": 1,
 					"seg6local": {
-						"action": "End.X"
+						"action": "uA"
 					},
 					"seg6localContext": {
 						"nh6": "2001::2"
