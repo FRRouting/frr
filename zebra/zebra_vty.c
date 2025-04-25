@@ -1091,7 +1091,7 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 		json_object_string_add(json, "uptime", up_str);
 		json_object_string_add(json, "vrf",
 				       vrf_id_to_name(nhe->vrf_id));
-		json_object_string_add(json, "afi", afi2str(nhe->afi));
+		json_object_string_add(json, "afi", zebra_nhg_afi2str(nhe));
 
 	} else {
 		vty_out(vty, "ID: %u (%s)\n", nhe->id,
@@ -1106,7 +1106,7 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 
 		vty_out(vty, "     Uptime: %s\n", up_str);
 		vty_out(vty, "     VRF: %s(%s)\n", vrf_id_to_name(nhe->vrf_id),
-			afi2str(nhe->afi));
+			zebra_nhg_afi2str(nhe));
 	}
 
 	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID)) {
