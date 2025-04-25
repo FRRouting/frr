@@ -1409,9 +1409,8 @@ DEFPY(ospf6_area_nssa, ospf6_area_nssa_cmd,
 	else
 		ospf6_area_no_summary_unset(ospf6, area);
 
-	if (ospf6_check_and_set_router_abr(ospf6)) {
+	if (ospf6_check_and_set_router_abr(ospf6))
 		ospf6_schedule_abr_task(ospf6);
-	}
 
 	return CMD_SUCCESS;
 }
