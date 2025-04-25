@@ -23,6 +23,7 @@ unsigned long zebra_debug_vxlan;
 unsigned long zebra_debug_pw;
 unsigned long zebra_debug_dplane;
 unsigned long zebra_debug_dplane_dpdk;
+unsigned long zebra_debug_dplane_grout;
 unsigned long zebra_debug_mlag;
 unsigned long zebra_debug_nexthop;
 unsigned long zebra_debug_evpn_mh;
@@ -100,6 +101,10 @@ DEFUN_NOSH (show_debugging_zebra,
 			"  Zebra detailed dpdk dataplane debugging is on\n");
 	else if (IS_ZEBRA_DEBUG_DPLANE_DPDK)
 		vty_out(vty, "  Zebra dataplane dpdk debugging is on\n");
+	if (IS_ZEBRA_DEBUG_DPLANE_GROUT_DETAIL)
+		vty_out(vty, "  Zebra detailed grout dataplane debugging is on\n");
+	else if (IS_ZEBRA_DEBUG_DPLANE_GROUT)
+		vty_out(vty, "  Zebra dataplane grout debugging is on\n");
 	if (IS_ZEBRA_DEBUG_MLAG)
 		vty_out(vty, "  Zebra mlag debugging is on\n");
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
@@ -333,6 +338,27 @@ DEFPY(debug_zebra_dplane_dpdk, debug_zebra_dplane_dpdk_cmd,
 		if (detail)
 			SET_FLAG(zebra_debug_dplane_dpdk,
 				 ZEBRA_DEBUG_DPLANE_DPDK_DETAIL);
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(debug_zebra_dplane_grout, debug_zebra_dplane_grout_cmd,
+      "[no$no] debug zebra dplane grout [detailed$detail]",
+      NO_STR DEBUG_STR
+      "Zebra configuration\n"
+      "Debug zebra dataplane events\n"
+      "Detailed debug information\n"
+      "\n")
+{
+	if (no) {
+		UNSET_FLAG(zebra_debug_dplane_grout, ZEBRA_DEBUG_DPLANE_GROUT);
+		UNSET_FLAG(zebra_debug_dplane_grout, ZEBRA_DEBUG_DPLANE_GROUT_DETAIL);
+	} else {
+		SET_FLAG(zebra_debug_dplane_grout, ZEBRA_DEBUG_DPLANE_GROUT);
+
+		if (detail)
+			SET_FLAG(zebra_debug_dplane_grout, ZEBRA_DEBUG_DPLANE_GROUT_DETAIL);
 	}
 
 	return CMD_SUCCESS;
@@ -755,6 +781,14 @@ static int config_write_debug(struct vty *vty)
 		write++;
 	}
 
+	if (CHECK_FLAG(zebra_debug_dplane_grout, ZEBRA_DEBUG_DPLANE_GROUT_DETAIL)) {
+		vty_out(vty, "debug zebra dplane grout detailed\n");
+		write++;
+	} else if (CHECK_FLAG(zebra_debug_dplane_grout, ZEBRA_DEBUG_DPLANE_GROUT)) {
+		vty_out(vty, "debug zebra dplane grout\n");
+		write++;
+	}
+
 	if (CHECK_FLAG(zebra_debug_nexthop, ZEBRA_DEBUG_NHG_DETAILED)) {
 		vty_out(vty, "debug zebra nexthop detail\n");
 		write++;
@@ -793,6 +827,7 @@ void zebra_debug_init(void)
 	zebra_debug_pw = 0;
 	zebra_debug_dplane = 0;
 	zebra_debug_dplane_dpdk = 0;
+	zebra_debug_dplane_grout = 0;
 	zebra_debug_mlag = 0;
 	zebra_debug_evpn_mh = 0;
 	zebra_debug_nht = 0;
@@ -824,6 +859,7 @@ void zebra_debug_init(void)
 	install_element(ENABLE_NODE, &debug_zebra_neigh_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_tc_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_dplane_dpdk_cmd);
+	install_element(ENABLE_NODE, &debug_zebra_dplane_grout_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_events_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_nht_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_mpls_cmd);
@@ -853,6 +889,7 @@ void zebra_debug_init(void)
 	install_element(CONFIG_NODE, &debug_zebra_fpm_cmd);
 	install_element(CONFIG_NODE, &debug_zebra_dplane_cmd);
 	install_element(CONFIG_NODE, &debug_zebra_dplane_dpdk_cmd);
+	install_element(CONFIG_NODE, &debug_zebra_dplane_grout_cmd);
 	install_element(CONFIG_NODE, &debug_zebra_nexthop_cmd);
 	install_element(CONFIG_NODE, &debug_zebra_pbr_cmd);
 	install_element(CONFIG_NODE, &debug_zebra_neigh_cmd);

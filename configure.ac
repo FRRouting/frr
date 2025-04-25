@@ -2163,6 +2163,18 @@ if test "$enable_dp_dpdk" = "yes"; then
   ])
 fi
 
+dnl ---------
+dnl GROUT
+dnl ---------
+if test "$enable_dp_grout" = "yes"; then
+  AC_CHECK_HEADER([gr_api.h], [
+    AC_DEFINE([HAVE_GROUT], [1], [Enable Grout backend])
+    GROUT=true
+  ], [
+    AC_MSG_ERROR([configuration specifies --enable-dp-grout but GROUT libs were not found])
+  ])
+fi
+
 dnl -----
 dnl LTTng
 dnl -----
@@ -2837,6 +2849,7 @@ AM_CONDITIONAL([VRRPD], [test "$enable_vrrpd" != "no"])
 AM_CONDITIONAL([PATHD], [test "$enable_pathd" != "no"])
 AM_CONDITIONAL([PATHD_PCEP], [test "$enable_pathd" != "no"])
 AM_CONDITIONAL([DP_DPDK], [test "$enable_dp_dpdk" = "yes"])
+AM_CONDITIONAL([DP_GROUT], [test "$enable_dp_grout" = "yes"])
 
 
 AM_CONDITIONAL([PYTHON_RUNTIME_DEPENDENCY], [test "$enable_python_runtime" != "no"])

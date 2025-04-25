@@ -266,3 +266,15 @@ zebra_zebra_dplane_dpdk_la_SOURCES = zebra/dpdk/zebra_dplane_dpdk.c zebra/dpdk/z
 zebra_zebra_dplane_dpdk_la_LDFLAGS = -avoid-version -module -shared -export-dynamic -L/usr/local/lib -v
 zebra_zebra_dplane_dpdk_la_CFLAGS = $(DPDK_CFLAGS)
 zebra_zebra_dplane_dpdk_la_LIBADD  = $(DPDK_LIBS)
+
+if DP_GROUT
+module_LTLIBRARIES += zebra/zebra_dplane_grout.la
+endif
+zebra_zebra_dplane_grout_la_SOURCES = \
+	zebra/grout/zebra_dplane_grout.c \
+	zebra/grout/rt_grout.c \
+	zebra/grout/if_grout.c \
+	# end
+zebra_zebra_dplane_grout_la_LDFLAGS = -avoid-version -module -shared -export-dynamic -L/usr/local/lib -v
+zebra_zebra_dplane_grout_la_CFLAGS = $(GROUT_CFLAGS) -I/usr/include/grout
+zebra_zebra_dplane_grout_la_LIBADD  = $(GROUT_LIBS)
