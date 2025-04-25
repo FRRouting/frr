@@ -4993,7 +4993,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	struct bgp_path_info *new = NULL;
 	const char *reason;
 	char pfx_buf[BGP_PRD_PATH_STRLEN];
-	bool force_evpn_import = false;
+	bool force_evpn_import = false, force_evpn_export = false;
 	safi_t orig_safi = safi;
 	struct bgp_labels bgp_labels = {};
 	struct bgp_route_evpn *p_evpn = evpn;
@@ -5481,9 +5481,11 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		}
 #endif
 
-		if (advertise_type5_routes(bgp, afi) && is_route_injectable_into_evpn(pi))
+		if (advertise_type5_routes(bgp, afi) && is_route_injectable_into_evpn(pi)) {
 			/* Implicit withdraw case */
 			bgp_evpn_unexport_type5_route(bgp, dest, pi, afi, safi);
+			force_evpn_export = true;
+		}
 
 		/* Special handling for EVPN update of an existing route. If the
 		 * extended community attribute has changed, we need to
@@ -5554,6 +5556,12 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			}
 		}
 #endif
+
+		if (advertise_type5_routes(bgp, afi) && is_route_injectable_into_evpn(pi)
+		    && force_evpn_export) {
+			/* Add back the route with its new attributes (e.g. local-pref). */
+			bgp_evpn_export_type5_route(bgp, dest, pi, afi, safi);
+		}
 
 		/* Update bgp route dampening information.  */
 		if (get_active_bdc_from_pi(pi, afi, safi) &&
@@ -5637,10 +5645,6 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		    && (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)) {
 			vpn_leak_to_vrf_update(bgp, pi, prd, peer);
 		}
-
-		if (advertise_type5_routes(bgp, afi) && is_route_injectable_into_evpn(pi))
-			/* Implicit withdraw case */
-			bgp_evpn_unexport_type5_route(bgp, dest, pi, afi, safi);
 
 #ifdef ENABLE_BGP_VNC
 		if (SAFI_MPLS_VPN == safi) {
