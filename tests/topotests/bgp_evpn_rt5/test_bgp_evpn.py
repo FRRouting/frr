@@ -43,21 +43,10 @@ def build_topo(tgen):
 
     tgen.add_router("r1")
     tgen.add_router("r2")
-    tgen.add_router("r3")
 
     switch = tgen.add_switch("s1")
     switch.add_link(tgen.gears["r1"])
     switch.add_link(tgen.gears["r2"])
-    switch.add_link(tgen.gears["r3"])
-
-    switch = tgen.add_switch("s2")
-    switch.add_link(tgen.gears["r1"])
-
-    switch = tgen.add_switch("s3")
-    switch.add_link(tgen.gears["r2"])
-
-    switch = tgen.add_switch("s4")
-    switch.add_link(tgen.gears["r3"])
 
 
 def setup_module(mod):
@@ -77,96 +66,48 @@ def setup_module(mod):
         )
         return pytest.skip("Skipping BGP EVPN RT5 NETNS Test. Kernel not supported")
 
-    # create VRF vrf-101 on R1, R2, R3
-    # create loop101
-    cmds_vrflite = [
-        "ip link add {0}-vrf-{1} type vrf table {1}",
-        "ip ru add oif {0}-vrf-{1} table {1}",
-        "ip ru add iif {0}-vrf-{1} table {1}",
-        "ip link set dev {0}-vrf-{1} up",
-        "ip link add loop{1} type dummy",
-        "ip link set dev loop{1} master {0}-vrf-{1}",
-        "ip link set dev loop{1} up",
-    ]
-
-    cmds_r2 = [  # config routing 101
-        "ip link add name bridge-101 up type bridge stp_state 0",
-        "ip link set bridge-101 master {}-vrf-101",
-        "ip link set dev bridge-101 up",
-        "ip link add name vxlan-101 type vxlan id 101 dstport 4789 dev r2-eth0 local 192.168.100.41",
-        "ip link set dev vxlan-101 master bridge-101",
-        "ip link set vxlan-101 up type bridge_slave learning off flood off mcast_flood off",
-    ]
-
-    cmds_r3 = [  # config routing 102
-        "ip link add name bridge-102 up type bridge stp_state 0",
-        "ip link set bridge-102 master {}-vrf-102",
-        "ip link set dev bridge-102 up",
-        "ip link add name vxlan-102 type vxlan id 102 dstport 4789 dev r3-eth0 local 192.168.100.61",
-        "ip link set dev vxlan-102 master bridge-102",
-        "ip link set vxlan-102 up type bridge_slave learning off flood off mcast_flood off",
-    ]
-
-    # cmds_r1_netns_method3 = [
-    #     "ip link add name vxlan-{1} type vxlan id {1} dstport 4789 dev {0}-eth0 local 192.168.100.21",
-    #     "ip link set dev vxlan-{1} netns {0}-vrf-{1}",
-    #     "ip netns exec {0}-vrf-{1} ip li set dev lo up",
-    #     "ip netns exec {0}-vrf-{1} ip link add name bridge-{1} up type bridge stp_state 0",
-    #     "ip netns exec {0}-vrf-{1} ip link set dev vxlan-{1} master bridge-{1}",
-    #     "ip netns exec {0}-vrf-{1} ip link set bridge-{1} up",
-    #     "ip netns exec {0}-vrf-{1} ip link set vxlan-{1} up",
-    # ]
-
-    router = tgen.gears["r1"]
-
-    ns = "r1-vrf-101"
-    tgen.net["r1"].add_netns(ns)
-    tgen.net["r1"].cmd_raises("ip link add loop101 type dummy")
-    tgen.net["r1"].set_intf_netns("loop101", ns, up=True)
-
-    router = tgen.gears["r2"]
-    for cmd in cmds_vrflite:
-        logger.info("cmd to r2: " + cmd.format("r2", 101))
-        output = router.cmd_raises(cmd.format("r2", 101))
-        logger.info("result: " + output)
-
-    for cmd in cmds_r2:
-        logger.info("cmd to r2: " + cmd.format("r2"))
-        output = router.cmd_raises(cmd.format("r2"))
-        logger.info("result: " + output)
-
-    router = tgen.gears["r3"]
-    for cmd in cmds_vrflite:
-        logger.info("cmd to r3: " + cmd.format("r3", 102))
-        output = router.cmd_raises(cmd.format("r3", 102))
-        logger.info("result: " + output)
-
-    for cmd in cmds_r3:
-        logger.info("cmd to r3: " + cmd.format("r3"))
-        output = router.cmd_raises(cmd.format("r3"))
-        logger.info("result: " + output)
-
-    tgen.net["r1"].cmd_raises(
-        "ip link add name vxlan-101 type vxlan id 101 dstport 4789 dev r1-eth0 local 192.168.100.21"
+    r1 = tgen.net["r1"]
+    ns = "vrf-101"
+    r1.add_netns(ns)
+    r1.cmd_raises(
+        """
+ip link add loop101 type dummy
+ip link add vxlan-101 type vxlan id 101 dstport 4789 dev r1-eth0 local 192.168.0.1
+"""
     )
-    tgen.net["r1"].set_intf_netns("vxlan-101", "r1-vrf-101", up=True)
-    tgen.net["r1"].cmd_raises("ip -n r1-vrf-101 link set lo up")
-    tgen.net["r1"].cmd_raises(
-        "ip -n r1-vrf-101 link add name bridge-101 up type bridge stp_state 0"
+    r1.set_intf_netns("loop101", ns, up=True)
+    r1.set_intf_netns("vxlan-101", ns, up=True)
+    r1.cmd_raises(
+        """
+ip -n vrf-101 link set lo up
+ip -n vrf-101 link add bridge-101 up type bridge stp_state 0
+ip -n vrf-101 link set dev vxlan-101 master bridge-101
+ip -n vrf-101 link set bridge-101 up
+ip -n vrf-101 link set vxlan-101 up
+"""
     )
-    tgen.net["r1"].cmd_raises(
-        "ip -n r1-vrf-101 link set dev vxlan-101 master bridge-101"
+
+    tgen.gears["r2"].cmd(
+        """
+ip link add vrf-101 type vrf table 101
+ip link set dev vrf-101 up
+ip link add loop101 type dummy
+ip link set dev loop101 master vrf-101
+ip link set dev loop101 up
+ip link add bridge-101 up type bridge stp_state 0
+ip link set bridge-101 master vrf-101
+ip link set dev bridge-101 up
+ip link add vxlan-101 type vxlan id 101 dstport 4789 dev r2-eth0 local 192.168.0.2
+ip link set dev vxlan-101 master bridge-101
+ip link set vxlan-101 up type bridge_slave learning off flood off mcast_flood off
+"""
     )
-    tgen.net["r1"].cmd_raises("ip -n r1-vrf-101 link set bridge-101 up")
-    tgen.net["r1"].cmd_raises("ip -n r1-vrf-101 link set vxlan-101 up")
 
     for rname, router in tgen.routers().items():
         logger.info("Loading router %s" % rname)
         if rname == "r1":
             router.use_netns_vrf()
-            router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
-        else:
-            router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
+        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
 
     # Initialize all routers.
     tgen.start_router()
@@ -176,7 +117,7 @@ def teardown_module(_mod):
     "Teardown the pytest environment"
     tgen = get_topogen()
 
-    tgen.net["r1"].delete_netns("r1-vrf-101")
+    tgen.net["r1"].delete_netns("vrf-101")
     tgen.stop_topology()
 
 
@@ -186,29 +127,27 @@ def _test_evpn_ping_router(pingrouter, ipv4_only=False, ipv6_only=False):
     """
     # Check IPv4 and IPv6 connectivity between r1 and r2 ( routing vxlan evpn)
     if not ipv6_only:
-        logger.info(
-            "Check Ping IPv4 from  R1(r1-vrf-101) to R2(r2-vrf-101 = 192.168.101.41)"
-        )
-        output = pingrouter.run(
-            "ip netns exec r1-vrf-101 ping 192.168.101.41 -f -c 1000"
-        )
+        logger.info("Check Ping IPv4 from R1(vrf-101) to R2(vrf-101, 10.0.101.2)")
+        output = pingrouter.run("ip netns exec vrf-101 ping 10.0.101.2 -f -c 1000")
         logger.info(output)
         if "1000 packets transmitted, 1000 received" not in output:
-            assertmsg = "expected ping IPv4 from R1(r1-vrf-101) to R2(192.168.101.41) should be ok"
+            assertmsg = "expected ping IPv4 from R1(vrf-101) to R2(vrf-101, 10.0.101.2) should be ok"
             assert 0, assertmsg
         else:
-            logger.info("Check Ping IPv4 from R1(r1-vrf-101) to R2(192.168.101.41) OK")
+            logger.info(
+                "Check Ping IPv4 from R1(vrf-101) to R2(vrf-101, 10.0.101.2) OK"
+            )
 
     if not ipv4_only:
-        logger.info("Check Ping IPv6 from  R1(r1-vrf-101) to R2(r2-vrf-101 = fd00::2)")
-        output = pingrouter.run("ip netns exec r1-vrf-101 ping fd00::2 -f -c 1000")
+        logger.info("Check Ping IPv6 from  R1(vrf-101) to R2(vrf-101, fd01::2)")
+        output = pingrouter.run("ip netns exec vrf-101 ping fd01::2 -f -c 1000")
         logger.info(output)
         if "1000 packets transmitted, 1000 received" not in output:
             assert (
                 0
-            ), "expected ping IPv6 from R1(r1-vrf-101) to R2(fd00::2) should be ok"
+            ), "expected ping IPv6 from R1(vrf-101) to R2(vrf-101, fd01::2) should be ok"
         else:
-            logger.info("Check Ping IPv6 from R1(r1-vrf-101) to R2(fd00::2) OK")
+            logger.info("Check Ping IPv6 from R1(vrf-101) to R2(vrf-101, fd01::2) OK")
 
 
 def test_protocols_convergence():
@@ -225,9 +164,6 @@ def test_protocols_convergence():
     for rname in ("r1", "r2"):
         router = tgen.gears[rname]
         json_file = "{}/{}/bgp_l2vpn_evpn_routes.json".format(CWD, router.name)
-        if not os.path.isfile(json_file):
-            assert 0, "bgp_l2vpn_evpn_routes.json file not found"
-
         expected = json.loads(open(json_file).read())
         test_func = partial(
             topotest.router_json_cmp,
@@ -266,20 +202,20 @@ def test_protocols_dump_info():
     )
     logger.info("==== result from show bgp l2vpn evpn route detail")
     logger.info(output)
-    output = tgen.gears["r1"].vtysh_cmd("show bgp vrf r1-vrf-101 ipv4", isjson=False)
-    logger.info("==== result from show bgp vrf r1-vrf-101 ipv4")
+    output = tgen.gears["r1"].vtysh_cmd("show bgp vrf vrf-101 ipv4", isjson=False)
+    logger.info("==== result from show bgp vrf vrf-101 ipv4")
     logger.info(output)
-    output = tgen.gears["r1"].vtysh_cmd("show bgp vrf r1-vrf-101 ipv6", isjson=False)
-    logger.info("==== result from show bgp vrf r1-vrf-101 ipv6")
+    output = tgen.gears["r1"].vtysh_cmd("show bgp vrf vrf-101 ipv6", isjson=False)
+    logger.info("==== result from show bgp vrf vrf-101 ipv6")
     logger.info(output)
-    output = tgen.gears["r1"].vtysh_cmd("show bgp vrf r1-vrf-101", isjson=False)
-    logger.info("==== result from show bgp vrf r1-vrf-101 ")
+    output = tgen.gears["r1"].vtysh_cmd("show bgp vrf vrf-101", isjson=False)
+    logger.info("==== result from show bgp vrf vrf-101 ")
     logger.info(output)
-    output = tgen.gears["r1"].vtysh_cmd("show ip route vrf r1-vrf-101", isjson=False)
-    logger.info("==== result from show ip route vrf r1-vrf-101")
+    output = tgen.gears["r1"].vtysh_cmd("show ip route vrf vrf-101", isjson=False)
+    logger.info("==== result from show ip route vrf vrf-101")
     logger.info(output)
-    output = tgen.gears["r1"].vtysh_cmd("show ipv6 route vrf r1-vrf-101", isjson=False)
-    logger.info("==== result from show ipv6 route vrf r1-vrf-101")
+    output = tgen.gears["r1"].vtysh_cmd("show ipv6 route vrf vrf-101", isjson=False)
+    logger.info("==== result from show ipv6 route vrf vrf-101")
     logger.info(output)
     output = tgen.gears["r1"].vtysh_cmd("show evpn vni detail", isjson=False)
     logger.info("==== result from show evpn vni detail")
@@ -301,16 +237,11 @@ def test_bgp_vrf_routes():
             json_file = "{}/{}/bgp_vrf_{}_routes_detail.json".format(
                 CWD, router.name, af
             )
-            if not os.path.isfile(json_file):
-                assert 0, "bgp vrf routes file not found"
-
             expected = json.loads(open(json_file).read())
             test_func = partial(
                 topotest.router_json_cmp,
                 router,
-                "show bgp vrf {}-vrf-101 {} unicast detail json".format(
-                    router.name, af
-                ),
+                "show bgp vrf vrf-101 {} unicast detail json".format(af),
                 expected,
             )
             _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
@@ -327,37 +258,37 @@ def test_router_check_ip():
         pytest.skip(tgen.errors)
 
     expected = {
-        "fd00::2/128": [
+        "fd01::2/128": [
             {
-                "prefix": "fd00::2/128",
-                "vrfName": "r1-vrf-101",
+                "prefix": "fd01::2/128",
+                "vrfName": "vrf-101",
                 "nexthops": [
                     {
-                        "ip": "::ffff:192.168.100.41",
+                        "ip": "::ffff:192.168.0.2",
                     }
                 ],
             }
         ]
     }
     result = topotest.router_json_cmp(
-        tgen.gears["r1"], "show ipv6 route vrf r1-vrf-101 fd00::2/128 json", expected
+        tgen.gears["r1"], "show ipv6 route vrf vrf-101 fd01::2/128 json", expected
     )
     assert result is None, "ipv6 route check failed"
 
 
 def _test_router_check_evpn_next_hop(expected_paths=1):
-    dut = get_topogen().gears["r2"]
+    r2 = get_topogen().gears["r2"]
 
     # Check IPv4
     expected = {
-        "ip": "192.168.100.21",
+        "ip": "192.168.0.1",
         "refCount": 1,
-        "prefixList": [{"prefix": "192.168.102.21/32", "pathCount": expected_paths}],
+        "prefixList": [{"prefix": "10.0.101.1/32", "pathCount": expected_paths}],
     }
     test_func = partial(
         topotest.router_json_cmp,
-        dut,
-        "show evpn next-hops vni 101 ip 192.168.100.21 json",
+        r2,
+        "show evpn next-hops vni 101 ip 192.168.0.1 json",
         expected,
     )
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
@@ -365,14 +296,14 @@ def _test_router_check_evpn_next_hop(expected_paths=1):
 
     # Check IPv6
     expected = {
-        "ip": "::ffff:192.168.100.21",
+        "ip": "::ffff:192.168.0.1",
         "refCount": 1,
-        "prefixList": [{"prefix": "fd00::1/128", "pathCount": expected_paths}],
+        "prefixList": [{"prefix": "fd01::1/128", "pathCount": expected_paths}],
     }
     test_func = partial(
         topotest.router_json_cmp,
-        dut,
-        "show evpn next-hops vni 101 ip ::ffff:192.168.100.21 json",
+        r2,
+        "show evpn next-hops vni 101 ip ::ffff:192.168.0.1 json",
         expected,
     )
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
@@ -387,8 +318,8 @@ def _test_router_check_evpn_contexts(router, ipv4_only=False, ipv6_only=False):
         expected = {
             "101": {
                 "numNextHops": 1,
-                "192.168.100.41": {
-                    "nexthopIp": "192.168.100.41",
+                "192.168.0.2": {
+                    "nexthopIp": "192.168.0.2",
                 },
             }
         }
@@ -396,8 +327,8 @@ def _test_router_check_evpn_contexts(router, ipv4_only=False, ipv6_only=False):
         expected = {
             "101": {
                 "numNextHops": 1,
-                "::ffff:192.168.100.41": {
-                    "nexthopIp": "::ffff:192.168.100.41",
+                "::ffff:192.168.0.2": {
+                    "nexthopIp": "::ffff:192.168.0.2",
                 },
             }
         }
@@ -405,11 +336,11 @@ def _test_router_check_evpn_contexts(router, ipv4_only=False, ipv6_only=False):
         expected = {
             "101": {
                 "numNextHops": 2,
-                "192.168.100.41": {
-                    "nexthopIp": "192.168.100.41",
+                "192.168.0.2": {
+                    "nexthopIp": "192.168.0.2",
                 },
-                "::ffff:192.168.100.41": {
-                    "nexthopIp": "::ffff:192.168.100.41",
+                "::ffff:192.168.0.2": {
+                    "nexthopIp": "::ffff:192.168.0.2",
                 },
             }
         }
@@ -456,27 +387,25 @@ def test_evpn_disable_routemap():
 
     tgen.gears["r2"].vtysh_cmd(
         """
-        configure terminal\n
-        router bgp 65000 vrf r2-vrf-101\n
-        address-family l2vpn evpn\n
-        advertise ipv4 unicast\n
-        advertise ipv6 unicast\n
+configure terminal
+ router bgp 65000 vrf vrf-101
+  address-family l2vpn evpn
+   advertise ipv4 unicast
+   advertise ipv6 unicast
         """
     )
-    router = tgen.gears["r1"]
-    json_file = "{}/{}/bgp_l2vpn_evpn_routes_all.json".format(CWD, router.name)
-    if not os.path.isfile(json_file):
-        assert 0, "bgp_l2vpn_evpn_routes.json file not found"
 
+    r1 = tgen.gears["r1"]
+    json_file = "{}/{}/bgp_l2vpn_evpn_routes_all.json".format(CWD, r1.name)
     expected = json.loads(open(json_file).read())
     test_func = partial(
         topotest.router_json_cmp,
-        router,
+        r1,
         "show bgp l2vpn evpn json",
         expected,
     )
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
-    assertmsg = '"{}" JSON output mismatches'.format(router.name)
+    assertmsg = '"{}" JSON output mismatches'.format(r1.name)
     assert result is None, assertmsg
 
 
@@ -511,10 +440,10 @@ def test_evpn_remove_ip():
     config_no_ipv6 = {
         "r2": {
             "raw_config": [
-                "router bgp 65000 vrf r2-vrf-101",
+                "router bgp 65000 vrf vrf-101",
                 "address-family ipv6 unicast",
-                "no network fd00::3/128",
-                "no network fd00::2/128",
+                "no network fd01::12/128",
+                "no network fd01::2/128",
             ]
         }
     }
@@ -524,7 +453,7 @@ def test_evpn_remove_ip():
     assert result is True, "Failed to remove IPv6 network on R2, Error: {} ".format(
         result
     )
-    _check_evpn_routes("r1", "ipv6", "r1-vrf-101", ["fd00::2/128"], expected=False)
+    _check_evpn_routes("r1", "ipv6", "vrf-101", ["fd01::2/128"], expected=False)
     _print_evpn_nexthop_rmac("r1")
 
 
@@ -562,10 +491,10 @@ def test_evpn_other_address_family():
     config_add_ipv6 = {
         "r2": {
             "raw_config": [
-                "router bgp 65000 vrf r2-vrf-101",
+                "router bgp 65000 vrf vrf-101",
                 "address-family ipv6 unicast",
-                "network fd00::3/128",
-                "network fd00::2/128",
+                "network fd01::12/128",
+                "network fd01::2/128",
             ]
         }
     }
@@ -573,15 +502,15 @@ def test_evpn_other_address_family():
     logger.info("==== Add IPv6 again network on R2")
     result = apply_raw_config(tgen, config_add_ipv6)
     assert result is True, "Failed to add IPv6 network on R2, Error: {} ".format(result)
-    _check_evpn_routes("r1", "ipv6", "r1-vrf-101", ["fd00::2/128"], expected=True)
+    _check_evpn_routes("r1", "ipv6", "vrf-101", ["fd01::2/128"], expected=True)
 
     config_no_ipv4 = {
         "r2": {
             "raw_config": [
-                "router bgp 65000 vrf r2-vrf-101",
+                "router bgp 65000 vrf vrf-101",
                 "address-family ipv4 unicast",
-                "no network 192.168.101.41/32",
-                "no network 192.168.102.41/32",
+                "no network 10.0.101.2/32",
+                "no network 10.0.101.12/32",
             ]
         }
     }
@@ -592,9 +521,7 @@ def test_evpn_other_address_family():
         result
     )
 
-    _check_evpn_routes(
-        "r1", "ipv4", "r1-vrf-101", ["192.168.101.41/32"], expected=False
-    )
+    _check_evpn_routes("r1", "ipv4", "vrf-101", ["10.0.101.2/32"], expected=False)
     _print_evpn_nexthop_rmac("r1")
 
 
@@ -674,20 +601,20 @@ def _test_wait_for_multipath_convergence(router, expected_paths=1):
     Wait for multipath convergence on R2
     """
     expected = {
-        "192.168.102.21/32": [{"nexthops": [{"ip": "192.168.100.21"}] * expected_paths}]
+        "10.0.101.1/32": [{"nexthops": [{"ip": "192.168.0.1"}] * expected_paths}]
     }
     # Using router_json_cmp instead of verify_fib_routes, because we need to check for
     # two next-hops with the same IP address.
     test_func = partial(
         topotest.router_json_cmp,
         router,
-        "show ip route vrf r2-vrf-101 192.168.102.21/32 json",
+        "show ip route vrf vrf-101 10.0.101.1/32 json",
         expected,
     )
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert (
         result is None
-    ), f"R2 does not have {expected_paths} next-hops for 192.168.102.21/32 JSON output mismatches"
+    ), f"R2 does not have {expected_paths} next-hops for 10.0.101.1/32 JSON output mismatches"
 
 
 def _test_rmac_present(router):
@@ -722,26 +649,26 @@ def test_evpn_multipath():
         "r1": {
             "raw_config": [
                 "interface r1-eth0",
-                "ip address 192.168.99.21/24",
+                "ip address 192.168.99.1/24",
                 "router bgp 65000",
-                "neighbor 192.168.99.41 remote-as 65000",
-                "neighbor 192.168.99.41 capability extended-nexthop",
-                "neighbor 192.168.99.41 update-source 192.168.99.21",
+                "neighbor 192.168.99.2 remote-as 65000",
+                "neighbor 192.168.99.2 capability extended-nexthop",
+                "neighbor 192.168.99.2 update-source 192.168.99.1",
                 "address-family l2vpn evpn",
-                "neighbor 192.168.99.41 activate",
-                "neighbor 192.168.99.41 route-map rmap_r1 in",
+                "neighbor 192.168.99.2 activate",
+                "neighbor 192.168.99.2 route-map rmap_r1 in",
             ]
         },
         "r2": {
             "raw_config": [
                 "interface r2-eth0",
-                "ip address 192.168.99.41/24",
+                "ip address 192.168.99.2/24",
                 "router bgp 65000",
-                "neighbor 192.168.99.21 remote-as 65000",
-                "neighbor 192.168.99.21 capability extended-nexthop",
-                "neighbor 192.168.99.21 update-source 192.168.99.41",
+                "neighbor 192.168.99.1 remote-as 65000",
+                "neighbor 192.168.99.1 capability extended-nexthop",
+                "neighbor 192.168.99.1 update-source 192.168.99.2",
                 "address-family l2vpn evpn",
-                "neighbor 192.168.99.21 activate",
+                "neighbor 192.168.99.1 activate",
             ]
         },
     }
@@ -752,38 +679,48 @@ def test_evpn_multipath():
         result is True
     ), "Failed to configure second path between R1 and R2, Error: {} ".format(result)
 
-    dut = tgen.gears["r2"]
-    dut_peer = tgen.gears["r1"]
-    _test_wait_for_multipath_convergence(dut, expected_paths=2)
-    _test_rmac_present(dut)
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+    _test_wait_for_multipath_convergence(r2, expected_paths=2)
+    _test_rmac_present(r2)
 
     # Enable dataplane logs in FRR
-    dut.vtysh_cmd("configure terminal\ndebug zebra dplane detailed\n")
+    r2.vtysh_cmd(
+        """
+configure terminal
+ debug zebra dplane detailed
+"""
+    )
 
     for i in range(4):
-        peer = "192.168.100.41" if i % 2 == 0 else "192.168.99.41"
-        local_peer = "192.168.100.21" if i % 2 == 0 else "192.168.99.21"
+        peer = "192.168.0.2" if i % 2 == 0 else "192.168.99.2"
+        local_peer = "192.168.0.1" if i % 2 == 0 else "192.168.99.1"
 
-        # Retrieving the last established epoch from the DUT to check against
-        last_established_epoch = _get_established_epoch(dut, local_peer)
+        # Retrieving the last established epoch from the r2 to check against
+        last_established_epoch = _get_established_epoch(r2, local_peer)
         if last_established_epoch is None:
             assert False, "Failed to retrieve established epoch for peer {}".format(
                 peer
             )
 
-        dut_peer.vtysh_cmd("clear bgp {0}".format(peer))
+        r1.vtysh_cmd("clear bgp {0}".format(peer))
 
-        _test_epoch_after_clear(dut, local_peer, last_established_epoch)
-        _test_wait_for_multipath_convergence(dut, expected_paths=2)
-        _test_rmac_present(dut)
+        _test_epoch_after_clear(r2, local_peer, last_established_epoch)
+        _test_wait_for_multipath_convergence(r2, expected_paths=2)
+        _test_rmac_present(r2)
         _test_router_check_evpn_next_hop(expected_paths=2)
 
     # Check for MAC_DELETE or NEIGH_DELETE in zebra log
-    log = dut.net.getLog("log", "zebra")
+    log = r2.net.getLog("log", "zebra")
     if re.search(r"(MAC_DELETE|NEIGH_DELETE)", log):
         assert False, "MAC_DELETE or NEIGH_DELETE found in zebra log"
 
-    dut.vtysh_cmd("configure terminal\nno debug zebra dplane detailed\n")
+    r2.vtysh_cmd(
+        """
+configure terminal
+ no debug zebra dplane detailed
+"""
+    )
 
 
 def test_shutdown_multipath_check_next_hops():
@@ -798,13 +735,13 @@ def test_shutdown_multipath_check_next_hops():
         "r1": {
             "raw_config": [
                 "router bgp 65000",
-                "neighbor 192.168.99.41 shutdown",
+                "neighbor 192.168.99.2 shutdown",
             ]
         },
         "r2": {
             "raw_config": [
                 "router bgp 65000",
-                "neighbor 192.168.99.21 shutdown",
+                "neighbor 192.168.99.1 shutdown",
             ]
         },
     }
@@ -815,6 +752,157 @@ def test_shutdown_multipath_check_next_hops():
     ), "Failed to deconfigure second path between R1 and R2, Error: {} ".format(result)
     _test_wait_for_multipath_convergence(tgen.gears["r2"])
     _test_router_check_evpn_next_hop()
+
+
+def test_rmap_match_evpn_vni_102():
+    """
+    change input route-map from r2.
+    match evpn vni value from 101 to 102
+    expecting all prefixes are denied
+    """
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    nb_prefix = 2
+    expected = {"numPrefix": nb_prefix, "totalPrefix": nb_prefix}
+    test_func = partial(
+        topotest.router_json_cmp,
+        r1,
+        "show bgp l2vpn evpn rd 65000:2 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, f"r1 was expecting {nb_prefix} from r2"
+
+    # change route-map and test
+    cfg = {
+        "r1": {
+            "raw_config": [
+                "route-map rmap_r1 permit 1",
+                "match evpn vni 102",
+            ]
+        },
+    }
+    assert apply_raw_config(tgen, cfg), "Configuration failed"
+
+    nb_prefix = 0
+    expected = {"numPrefix": nb_prefix, "totalPrefix": nb_prefix}
+    test_func = partial(
+        topotest.router_json_cmp,
+        r1,
+        "show bgp l2vpn evpn rd 65000:2 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, f"r1 was expecting {nb_prefix} from r2"
+
+
+def test_rmap_match_evpn_vni_101():
+    """
+    change input route-map from r2.
+    re-apply match evpn vni value 101
+    expecting all prefixes are received
+    """
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # change route-map and test
+    cfg = {
+        "r1": {
+            "raw_config": [
+                "route-map rmap_r1 permit 1",
+                "match evpn vni 101",
+            ]
+        },
+    }
+    assert apply_raw_config(tgen, cfg), "Configuration failed"
+
+    r1 = tgen.gears["r1"]
+    nb_prefix = 2
+    expected = {"numPrefix": nb_prefix, "totalPrefix": nb_prefix}
+    test_func = partial(
+        topotest.router_json_cmp,
+        r1,
+        "show bgp l2vpn evpn rd 65000:2 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, f"r1 was expecting {nb_prefix} from r2"
+
+
+def test_rmap_match_evpn_vni_101_deny():
+    """
+    change input route-map from r2.
+    set deny action to vni 101
+    expecting all prefixes are denied
+    """
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # change route-map and test
+    cfg = {
+        "r1": {
+            "raw_config": [
+                "route-map rmap_r1 deny 1",
+            ]
+        },
+    }
+    assert apply_raw_config(tgen, cfg), "Configuration failed"
+
+    r1 = tgen.gears["r1"]
+    nb_prefix = 0
+    expected = {"numPrefix": nb_prefix, "totalPrefix": nb_prefix}
+    test_func = partial(
+        topotest.router_json_cmp,
+        r1,
+        "show bgp l2vpn evpn rd 65000:2 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, f"r1 was expecting {nb_prefix} from r2"
+
+
+def test_no_rmap_match_evpn_vni():
+    """
+    un-apply input route-map from r2
+    expecting all prefixes are received
+    """
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # change route-map and test
+    cfg = {
+        "r1": {
+            "raw_config": [
+                "router bgp 65000",
+                " address-family l2vpn evpn",
+                "  no neighbor 192.168.0.2 route-map rmap_r1 in",
+                "  no neighbor 192.168.99.2 route-map rmap_r1 in",
+            ]
+        },
+    }
+    assert apply_raw_config(tgen, cfg), "Configuration failed"
+
+    r1 = tgen.gears["r1"]
+    nb_prefix = 2
+    expected = {"numPrefix": nb_prefix, "totalPrefix": nb_prefix}
+    test_func = partial(
+        topotest.router_json_cmp,
+        r1,
+        "show bgp l2vpn evpn rd 65000:2 json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, f"r1 was expecting {nb_prefix} from r2"
 
 
 def test_memory_leak():
