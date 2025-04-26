@@ -2789,9 +2789,8 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 					vtep_ip.ipa_type = IPADDR_V6;
 					vtep_ip.ipaddr_v6 = tmp_nh->gate.ipv6;
 				}
-				zebra_rib_queue_evpn_route_add(
-					re->vrf_id, &tmp_nh->rmac, &vtep_ip,
-					&ere->p);
+				zebra_rib_queue_evpn_route_add(tmp_nh->vrf_id, &tmp_nh->rmac,
+							       &vtep_ip, &ere->p);
 			}
 		}
 	}
@@ -2939,7 +2938,7 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 					memcpy(&(vtep_ip.ipaddr_v6), &(tmp_nh->gate.ipv6),
 					       sizeof(struct in6_addr));
 				}
-				zebra_rib_queue_evpn_route_del(same->vrf_id, &vtep_ip, &ere->p);
+				zebra_rib_queue_evpn_route_del(tmp_nh->vrf_id, &vtep_ip, &ere->p);
 			}
 		}
 
@@ -3183,8 +3182,7 @@ static void process_subq_early_route_delete(struct zebra_early_route *ere)
 					       &(tmp_nh->gate.ipv6),
 					       sizeof(struct in6_addr));
 				}
-				zebra_rib_queue_evpn_route_del(
-					re->vrf_id, &vtep_ip, &ere->p);
+				zebra_rib_queue_evpn_route_del(tmp_nh->vrf_id, &vtep_ip, &ere->p);
 			}
 		}
 
