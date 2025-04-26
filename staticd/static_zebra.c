@@ -1015,6 +1015,8 @@ extern void static_zebra_request_srv6_sid(struct static_srv6_sid *sid)
 		return;
 	}
 
+	ctx.alloc_mode = SRV6_SID_ALLOC_MODE_EXPLICIT;
+
 	/* Request SRv6 SID from SID Manager */
 	ret = srv6_manager_get_sid(static_zclient, &ctx, &sid->addr.prefix, sid->locator->name,
 				   NULL);
@@ -1106,6 +1108,8 @@ extern void static_zebra_release_srv6_sid(struct static_srv6_sid *sid)
 		zlog_warn("unsupported behavior: %u", sid->behavior);
 		return;
 	}
+
+	ctx.alloc_mode = SRV6_SID_ALLOC_MODE_EXPLICIT;
 
 	/* remove the SRv6 SID from the zebra RIB */
 	ret = srv6_manager_release_sid(static_zclient, &ctx);
