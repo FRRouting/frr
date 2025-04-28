@@ -13305,6 +13305,7 @@ const struct prefix_rd *bgp_rd_from_dest(const struct bgp_dest *dest,
 	}
 
 	assert(!"Reached end of function when we were not expecting it");
+	return NULL;
 }
 
 /* Display specified route of BGP table. */

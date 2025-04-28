@@ -547,6 +547,7 @@ static enum match_type min_match_level(enum cmd_token_type type)
 	}
 
 	assert(!"Reached end of function we should never hit");
+	return no_match;
 }
 
 /**
@@ -582,6 +583,7 @@ static int score_precedence(enum cmd_token_type type)
 	}
 
 	assert(!"Reached end of function we should never hit");
+	return -1;
 }
 
 /**
@@ -712,6 +714,7 @@ static enum match_type match_token(struct cmd_token *token, char *input_token)
 	}
 
 	assert(!"Reached end of function we should never hit");
+	return no_match;
 }
 
 #define IPV4_ADDR_STR   "0123456789."

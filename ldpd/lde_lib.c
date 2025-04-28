@@ -1008,6 +1008,8 @@ lde_wildcard_apply(struct map *wcard, struct fec *fec, struct lde_map *me)
 	default:
 		fatalx("lde_wildcard_apply: unexpected fec type");
 	}
+
+	return -1;
 }
 
 /* gabage collector timer: timer to remove dead entries from the LIB */

@@ -1077,6 +1077,7 @@ static const char *objfun_type_name(enum objfun_type type)
 	}
 
 	assert(!"Reached end of function we should never hit");
+	return "DEV ESCAPE";
 }
 
 DEFPY_NOSH(show_debugging_pathd, show_debugging_pathd_cmd,

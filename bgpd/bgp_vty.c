@@ -594,6 +594,7 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 	/* all AFIs are accounted for above, so this shouldn't happen */
 
 	assert(!"Reached end of function where we did not expect to");
+	return "DEV ESCAPE";
 }
 
 int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,

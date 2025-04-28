@@ -2379,6 +2379,7 @@ static const char *pdu_counter_index_to_name_json(enum pdu_counter_index index)
 	}
 
 	assert(!"Reached end of function where we are not expecting to");
+	return "DEV ESCAPE";
 }
 
 static void common_isis_summary_json(struct json_object *json,
