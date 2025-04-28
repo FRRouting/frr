@@ -895,19 +895,20 @@ void zserv_release_client(struct zserv *client)
  */
 static void zserv_accept(struct event *thread)
 {
-	int accept_sock;
 	int client_sock;
 	struct sockaddr_in client;
 	socklen_t len;
 
-	accept_sock = EVENT_FD(thread);
+	if (zsock < 0) {
+		/* Return if this event pops after zsock is closed. */
+		return;
+	}
 
 	/* Reregister myself. */
 	zserv_event(NULL, ZSERV_ACCEPT);
 
 	len = sizeof(struct sockaddr_in);
-	client_sock = accept(accept_sock, (struct sockaddr *)&client, &len);
-
+	client_sock = accept(zsock, (struct sockaddr *)&client, &len);
 	if (client_sock < 0) {
 		flog_err_sys(EC_LIB_SOCKET, "Can't accept zebra socket: %s",
 			     safe_strerror(errno));
