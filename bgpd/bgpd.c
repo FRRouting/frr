@@ -1210,6 +1210,7 @@ const char *bgp_peer_get_connection_direction(struct peer_connection *connection
 	}
 
 	assert(!"DEV Escape: Expected switch to take care of this state");
+	return "DEV ESCAPE";
 }
 
 struct peer_connection *bgp_peer_connection_new(struct peer *peer)

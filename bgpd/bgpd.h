@@ -2847,6 +2847,7 @@ static inline int afindex(afi_t afi, safi_t safi)
 	}
 
 	assert(!"Reached end of function we should never hit");
+	return BGP_AF_MAX;
 }
 
 /* If the peer is not a peer-group but is bound to a peer-group return 1 */
