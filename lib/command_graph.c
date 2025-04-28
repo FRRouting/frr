@@ -274,6 +274,7 @@ static bool cmd_nodes_equal(struct graph_node *ga, struct graph_node *gb)
 	}
 
 	assert(!"Reached end of function we should never hit");
+	return false;
 }
 
 static void cmd_fork_bump_attr(struct graph_node *gn, struct graph_node *join,

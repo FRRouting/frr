@@ -486,6 +486,7 @@ const char *isis_adj_yang_state(enum isis_adj_state state)
 	}
 
 	assert(!"Reached end of function where we are not expecting to");
+	return "DEV ESCAPE";
 }
 
 void isis_adj_expire(struct event *thread)
@@ -944,4 +945,5 @@ int isis_adj_usage2levels(enum isis_adj_usage usage)
 	}
 
 	assert(!"Reached end of function where we are not expecting to");
+	return -1;
 }

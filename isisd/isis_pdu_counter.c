@@ -69,6 +69,7 @@ static const char *pdu_counter_index_to_name(enum pdu_counter_index index)
 	}
 
 	assert(!"Reached end of function where we were not expecting to");
+	return "DEV ESCAPE";
 }
 
 void pdu_counter_count(pdu_counter_t counter, uint8_t pdu_type)

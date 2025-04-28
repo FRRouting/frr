@@ -1071,6 +1071,7 @@ const char *timer_type_name(enum pcep_ctrl_timer_type type)
 	}
 
 	assert(!"Reached end of function where we did not expect to");
+	return "DEV ESCAPE";
 }
 
 const char *timeout_type_name(enum pcep_ctrl_timeout_type type)
@@ -1085,4 +1086,5 @@ const char *timeout_type_name(enum pcep_ctrl_timeout_type type)
 	}
 
 	assert(!"Reached end of function where we did not expect to");
+	return "DEV ESCAPE";
 }

@@ -138,6 +138,7 @@ const char *afi2str_lower(afi_t afi)
 	}
 
 	assert(!"Reached end of function we should never reach");
+	return "DEV ESCAPE";
 }
 
 const char *afi2str(afi_t afi)
@@ -155,6 +156,7 @@ const char *afi2str(afi_t afi)
 	}
 
 	assert(!"Reached end of function we should never reach");
+	return "DEV ESCAPE";
 }
 
 const char *safi2str(safi_t safi)
@@ -180,6 +182,7 @@ const char *safi2str(safi_t safi)
 	}
 
 	assert(!"Reached end of function we should never reach");
+	return "DEV ESCAPE";
 }
 
 /* If n includes p prefix then return 1 else return 0. */
