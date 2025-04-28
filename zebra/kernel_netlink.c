@@ -1996,11 +1996,8 @@ void kernel_terminate(struct zebra_ns *zns, bool complete)
 	/* During zebra shutdown, we need to leave the dataplane socket
 	 * around until all work is done.
 	 */
-	if (complete) {
+	if (complete)
 		kernel_nlsock_fini(&zns->netlink_dplane_out);
-
-		XFREE(MTYPE_NL_BUF, nl_batch_tx_buf);
-	}
 }
 
 /*
@@ -2020,6 +2017,8 @@ void kernel_router_init(void)
  */
 void kernel_router_terminate(void)
 {
+	XFREE(MTYPE_NL_BUF, nl_batch_tx_buf);
+
 	pthread_mutex_destroy(&nlsock_mutex);
 
 	hash_free(nlsock_hash);
