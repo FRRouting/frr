@@ -619,13 +619,13 @@ def iproute2_is_json_capable():
     """
     if is_linux():
         try:
-            subp = subprocess.Popen(
+            with subprocess.Popen(
                 ["ip", "-json", "route", "show"],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 stdin=subprocess.PIPE,
-            )
-            iproute2_err = subp.communicate()[1].splitlines()[0].split()[0]
+            ) as subp:
+                iproute2_err = subp.communicate()[1].splitlines()[0].split()[0]
 
             if iproute2_err != "Error:":
                 return True
@@ -644,13 +644,13 @@ def iproute2_is_vrf_capable():
 
     if is_linux():
         try:
-            subp = subprocess.Popen(
+            with subprocess.Popen(
                 ["ip", "route", "show", "vrf"],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 stdin=subprocess.PIPE,
-            )
-            iproute2_err = subp.communicate()[1].splitlines()[0].split()[0]
+            ) as subp:
+                iproute2_err = subp.communicate()[1].splitlines()[0].split()[0]
 
             if iproute2_err != "Error:":
                 return True
@@ -669,13 +669,13 @@ def iproute2_is_fdb_get_capable():
 
     if is_linux():
         try:
-            subp = subprocess.Popen(
+            with subprocess.Popen(
                 ["bridge", "fdb", "get", "help"],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 stdin=subprocess.PIPE,
-            )
-            iproute2_out = subp.communicate()[1].splitlines()[0].split()[0]
+            ) as subp:
+                iproute2_out = subp.communicate()[1].splitlines()[0].split()[0]
 
             if "Usage" in str(iproute2_out):
                 return True
@@ -1472,7 +1472,8 @@ class Router(Node):
         self.ns_cmd = "sudo nsenter -a -t {} ".format(self.pid)
         try:
             # Allow escaping from running inside docker
-            cgroup = open("/proc/1/cgroup").read()
+            with open("/proc/1/cgroup") as file:
+                cgroup = file.read()
             m = re.search("[0-9]+:cpuset:/docker/([a-f0-9]+)", cgroup)
             if m:
                 self.ns_cmd = "docker exec -it {} ".format(m.group(1)) + self.ns_cmd
@@ -2076,7 +2077,8 @@ class Router(Node):
                         try:
                             fname = f"{valgrind_logbase}.{p.pid}"
                             logging.info("Checking %s for valgrind launch info", fname)
-                            o = open(fname, encoding="ascii").read()
+                            with open(fname, encoding="ascii") as file:
+                                o = file.read()
                         except FileNotFoundError:
                             logging.info("%s not present yet", fname)
                         else:
