@@ -69,7 +69,7 @@ static struct agentx_internal_stat internal_stat;
 
 static void agentx_events_update(struct event *t);
 static void agentx_send_ringbuf(void);
-static int agentx_stop(struct event *thread);
+static void agentx_stop(struct event *thread);
 static void smux_trap_multi_index_thd(struct event *thread);
 
 static void agentx_pthreads_init(void)
@@ -96,7 +96,7 @@ static void agentx_pthreads_run(void)
 static void agentx_timeout(struct event *t)
 {
 	if (!agentx_enabled)
-		return 0;
+		return;
 
 	timeout_thr = NULL;
 	/*
@@ -196,7 +196,7 @@ static void agentx_read(struct event *t)
 	XFREE(MTYPE_TMP, thr);
 	
 	if (!agentx_enabled)
-		return 0;
+		return;
 	
 	res = agentx_read_now(EVENT_FD(t));
 	if (!res) {
@@ -221,7 +221,7 @@ static void agentx_events_update(struct event *t)
 	int add_event_flag = 0;
 
 	if (!agentx_enabled)
-		return 0;
+		return;
 	if (pthread_mutex_trylock(&ax_io_mtx) == 0) {
 		event_cancel_async(agentx_tm, &timeout_thr, NULL);
 		pthread_mutex_unlock(&ax_io_mtx);
@@ -616,7 +616,7 @@ static void agentx_send_ringbuf(void)
 static void smux_trap_multi_index_thd(struct event *thread)
 {
 	if (!agentx_enabled)
-		return 0;
+		return;
 
 	agentx_send_ringbuf();
 	event_add_event(main_pthread_tm, agentx_events_update, NULL, 0, NULL);
@@ -676,7 +676,7 @@ int smux_trap_multi_index(struct variable *vp, size_t vp_len, const oid *ename, 
 	return 1;
 }
 
-static int agentx_stop(struct event *thread)
+static void agentx_stop(struct event *thread)
 {
 	assert(agentx_pth->running);
 
@@ -685,7 +685,7 @@ static int agentx_stop(struct event *thread)
 	pthread_mutex_destroy(&ax_io_mtx);
 	pthread_mutex_unlock(&ax_mtx);
 	pthread_mutex_destroy(&ax_mtx);
-	return 0;
+	return;
 }
 
 void smux_events_update(void)
