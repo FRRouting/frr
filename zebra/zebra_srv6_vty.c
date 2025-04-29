@@ -323,9 +323,17 @@ DEFPY (locator_prefix,
 	VTY_DECLVAR_CONTEXT(srv6_locator, locator);
 	struct srv6_locator_chunk *chunk = NULL;
 	struct listnode *node = NULL;
+<<<<<<< HEAD
+=======
+	uint8_t expected_prefixlen;
+	struct srv6_sid_format *format;
+	int idx = 0;
+>>>>>>> e7a7f6a52 (zebra: Fixes allowing SRv6 func-bits length 0)
 
 	locator->prefix = *prefix;
-	func_bit_len = func_bit_len ?: ZEBRA_SRV6_FUNCTION_LENGTH;
+	/* Only set default if func_bit_len was not provided in command */
+	if (func_bit_len == 0 && !argv_find(argv, argc, "func-bits", &idx))
+		func_bit_len = ZEBRA_SRV6_FUNCTION_LENGTH;
 
 	/* Resolve optional arguments */
 	if (block_bit_len == 0 && node_bit_len == 0) {
