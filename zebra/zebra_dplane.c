@@ -7331,8 +7331,8 @@ static void dplane_check_shutdown_status(struct event *event)
 		zns_info_list_del(&zdplane_info.dg_zns_list, zi);
 
 		if (zdplane_info.dg_master) {
-			EVENT_OFF(zi->t_read);
-			EVENT_OFF(zi->t_request);
+			event_cancel(&zi->t_read);
+			event_cancel(&zi->t_request);
 		}
 
 		XFREE(MTYPE_DP_NS, zi);

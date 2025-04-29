@@ -292,7 +292,7 @@ static void rfapi_info_free(struct rfapi_info *goner)
 #if DEBUG_CLEANUP
 			zlog_debug("%s: ri %p, tcb %p", __func__, goner, tcb);
 #endif
-			EVENT_OFF(goner->timer);
+			event_cancel(&goner->timer);
 			rrtcb_del(&_rrtcbhash, tcb);
 			XFREE(MTYPE_RFAPI_RECENT_DELETE, tcb);
 		}
@@ -357,7 +357,7 @@ static void rfapiRibStartTimer(struct rfapi_descriptor *rfd,
 
 	if (ri->timer) {
 		tcb = EVENT_ARG(ri->timer);
-		EVENT_OFF(ri->timer);
+		event_cancel(&ri->timer);
 	} else {
 		tcb = XCALLOC(MTYPE_RFAPI_RECENT_DELETE,
 			      sizeof(struct rfapi_rib_tcb));
@@ -554,7 +554,7 @@ void rfapiRibClear(struct rfapi_descriptor *rfd)
 
 							tcb = EVENT_ARG(
 								ri->timer);
-							EVENT_OFF(ri->timer);
+							event_cancel(&ri->timer);
 							rrtcb_del(&_rrtcbhash, tcb);
 							XFREE(MTYPE_RFAPI_RECENT_DELETE,
 							      tcb);
@@ -938,7 +938,7 @@ static void process_pending_node(struct bgp *bgp, struct rfapi_descriptor *rfd,
 					struct rfapi_rib_tcb *tcb;
 
 					tcb = EVENT_ARG(ri->timer);
-					EVENT_OFF(ri->timer);
+					event_cancel(&ri->timer);
 					rrtcb_del(&_rrtcbhash, tcb);
 					XFREE(MTYPE_RFAPI_RECENT_DELETE, tcb);
 				}
@@ -1024,7 +1024,7 @@ static void process_pending_node(struct bgp *bgp, struct rfapi_descriptor *rfd,
 					struct rfapi_rib_tcb *tcb;
 
 					tcb = EVENT_ARG(ori->timer);
-					EVENT_OFF(ori->timer);
+					event_cancel(&ori->timer);
 					rrtcb_del(&_rrtcbhash, tcb);
 					XFREE(MTYPE_RFAPI_RECENT_DELETE, tcb);
 				}
@@ -1360,7 +1360,7 @@ callback:
 					struct rfapi_rib_tcb *tcb;
 
 					tcb = EVENT_ARG(ri->timer);
-					EVENT_OFF(ri->timer);
+					event_cancel(&ri->timer);
 					rrtcb_del(&_rrtcbhash, tcb);
 					XFREE(MTYPE_RFAPI_RECENT_DELETE, tcb);
 				}
@@ -2466,7 +2466,7 @@ void rfapi_rib_terminate(void)
 	 */
 	while ((tcb = rrtcb_pop(&_rrtcbhash))) {
 		assert(tcb == EVENT_ARG(tcb->ri->timer));
-		EVENT_OFF(tcb->ri->timer);
+		event_cancel(&tcb->ri->timer);
 		_rfapiRibExpireTimer(tcb); /* deletes hash entry, frees tcb */
 	}
 }

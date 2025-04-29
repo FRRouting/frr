@@ -519,7 +519,7 @@ void bgp_damp_info_clean(struct bgp *bgp, struct bgp_damp_config *bdc,
 	XFREE(MTYPE_BGP_DAMP_ARRAY, bdc->reuse_list);
 	bdc->reuse_list_size = 0;
 
-	EVENT_OFF(bdc->t_reuse);
+	event_cancel(&bdc->t_reuse);
 }
 
 /* Disable route flap dampening for a bgp instance.
@@ -540,7 +540,7 @@ int bgp_damp_disable(struct bgp *bgp, afi_t afi, safi_t safi)
 		return 0;
 
 	/* Cancel reuse event. */
-	EVENT_OFF(bdc->t_reuse);
+	event_cancel(&bdc->t_reuse);
 
 	/* Clean BGP dampening information.  */
 	bgp_damp_info_clean(bgp, bdc, afi, safi);

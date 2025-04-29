@@ -190,8 +190,8 @@ static void zserv_client_fail(struct zserv *client)
 	atomic_store_explicit(&client->pthread->running, false,
 			      memory_order_relaxed);
 
-	EVENT_OFF(client->t_read);
-	EVENT_OFF(client->t_write);
+	event_cancel(&client->t_read);
+	event_cancel(&client->t_write);
 	zserv_event(client, ZSERV_HANDLE_CLIENT_FAIL);
 }
 
@@ -718,8 +718,8 @@ void zserv_close_client(struct zserv *client)
 				   zebra_route_string(client->proto));
 
 		event_cancel_event(zrouter.master, client);
-		EVENT_OFF(client->t_cleanup);
-		EVENT_OFF(client->t_process);
+		event_cancel(&client->t_cleanup);
+		event_cancel(&client->t_process);
 
 		/* destroy pthread */
 		frr_pthread_destroy(client->pthread);

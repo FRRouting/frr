@@ -850,7 +850,7 @@ static void rfapiBgpInfoChainFree(struct bgp_path_info *bpi)
 
 			rwcb_del(&_rwcbhash, wcb);
 			XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
-			EVENT_OFF(bpi->extra->vnc->vnc.import.timer);
+			event_cancel(&bpi->extra->vnc->vnc.import.timer);
 		}
 
 		next = bpi->next;
@@ -3088,7 +3088,7 @@ static void rfapiBgpInfoFilteredImportEncap(
 
 					rwcb_del(&_rwcbhash, wcb);
 					XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
-					EVENT_OFF(bpi->extra->vnc->vnc.import
+					event_cancel(&bpi->extra->vnc->vnc.import
 							  .timer);
 				}
 
@@ -3182,7 +3182,7 @@ static void rfapiBgpInfoFilteredImportEncap(
 
 			rwcb_del(&_rwcbhash, wcb);
 			XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
-			EVENT_OFF(bpi->extra->vnc->vnc.import.timer);
+			event_cancel(&bpi->extra->vnc->vnc.import.timer);
 		}
 		rfapiExpireEncapNow(import_table, rn, bpi);
 	}
@@ -3545,7 +3545,7 @@ void rfapiBgpInfoFilteredImportVPN(
 
 					rwcb_del(&_rwcbhash, wcb);
 					XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
-					EVENT_OFF(bpi->extra->vnc->vnc.import
+					event_cancel(&bpi->extra->vnc->vnc.import
 							  .timer);
 
 					import_table->holddown_count[afi] -= 1;
@@ -3765,7 +3765,7 @@ void rfapiBgpInfoFilteredImportVPN(
 
 			rwcb_del(&_rwcbhash, wcb);
 			XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
-			EVENT_OFF(bpi->extra->vnc->vnc.import.timer);
+			event_cancel(&bpi->extra->vnc->vnc.import.timer);
 		}
 		rfapiExpireVpnNow(import_table, rn, bpi, 0);
 	}
@@ -4519,7 +4519,7 @@ static void rfapiDeleteRemotePrefixesIt(
 						rwcb_del(&_rwcbhash, wcb);
 						XFREE(MTYPE_RFAPI_WITHDRAW,
 						      wcb);
-						EVENT_OFF(bpi->extra->vnc->vnc
+						event_cancel(&bpi->extra->vnc->vnc
 								  .import.timer);
 					}
 				} else {
@@ -4863,7 +4863,7 @@ void rfapi_import_terminate(void)
 	while ((wcb = rwcb_pop(&_rwcbhash))) {
 		bpi = wcb->info;
 		assert(wcb == EVENT_ARG(bpi->extra->vnc->vnc.import.timer));
-		EVENT_OFF(bpi->extra->vnc->vnc.import.timer);
+		event_cancel(&bpi->extra->vnc->vnc.import.timer);
 
 		timer_service_func = wcb->timer_service_func;
 		memset(&t, 0, sizeof(t));

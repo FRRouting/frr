@@ -237,7 +237,7 @@ void zebra_router_terminate(void)
 		zrouter.ra_wheel = NULL;
 	}
 
-	EVENT_OFF(zrouter.t_rib_sweep);
+	event_cancel(&zrouter.t_rib_sweep);
 
 	RB_FOREACH_SAFE (zrt, zebra_router_table_head, &zrouter.tables, tmp)
 		zebra_router_free_table(zrt);

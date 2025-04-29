@@ -461,7 +461,7 @@ static void bgp_accept(struct event *thread)
 				"[Error] accept() failed with error \"%s\" on BGP listener socket %d for BGP instance in VRF \"%s\"; refreshing socket",
 				safe_strerror(save_errno), accept_sock,
 				VRF_LOGNAME(vrf));
-			EVENT_OFF(listener->thread);
+			event_cancel(&listener->thread);
 		} else {
 			flog_err_sys(
 				EC_LIB_SOCKET,
@@ -524,7 +524,7 @@ static void bgp_accept(struct event *thread)
 			}
 			bgp_peer_reg_with_nht(dynamic_peer);
 			bgp_fsm_change_status(incoming, Active);
-			EVENT_OFF(incoming->t_start);
+			event_cancel(&incoming->t_start);
 
 			if (peer_active(incoming) == BGP_PEER_ACTIVE) {
 				if (CHECK_FLAG(dynamic_peer->flags, PEER_FLAG_TIMER_DELAYOPEN))
@@ -661,7 +661,7 @@ static void bgp_accept(struct event *thread)
 	}
 	bgp_peer_reg_with_nht(doppelganger);
 	bgp_fsm_change_status(incoming, Active);
-	EVENT_OFF(incoming->t_start); /* created in peer_create() */
+	event_cancel(&incoming->t_start); /* created in peer_create() */
 
 	SET_FLAG(doppelganger->sflags, PEER_STATUS_ACCEPT_PEER);
 	/* Make dummy peer until read Open packet. */
@@ -1074,7 +1074,7 @@ void bgp_close_vrf_socket(struct bgp *bgp)
 
 	for (ALL_LIST_ELEMENTS(bm->listen_sockets, node, next, listener)) {
 		if (listener->bgp == bgp) {
-			EVENT_OFF(listener->thread);
+			event_cancel(&listener->thread);
 			close(listener->fd);
 			listnode_delete(bm->listen_sockets, listener);
 			XFREE(MTYPE_BGP_LISTENER, listener->name);
@@ -1096,7 +1096,7 @@ void bgp_close(void)
 	for (ALL_LIST_ELEMENTS(bm->listen_sockets, node, next, listener)) {
 		if (listener->bgp)
 			continue;
-		EVENT_OFF(listener->thread);
+		event_cancel(&listener->thread);
 		close(listener->fd);
 		listnode_delete(bm->listen_sockets, listener);
 		XFREE(MTYPE_BGP_LISTENER, listener->name);

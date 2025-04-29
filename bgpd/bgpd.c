@@ -2673,16 +2673,16 @@ void peer_nsf_stop(struct peer *peer)
 
 	FOREACH_AFI_SAFI_NSF (afi, safi) {
 		peer->nsf[afi][safi] = 0;
-		EVENT_OFF(peer->t_llgr_stale[afi][safi]);
+		event_cancel(&peer->t_llgr_stale[afi][safi]);
 	}
 
 	if (peer->connection->t_gr_restart) {
-		EVENT_OFF(peer->connection->t_gr_restart);
+		event_cancel(&peer->connection->t_gr_restart);
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%pBP graceful restart timer stopped", peer);
 	}
 	if (peer->connection->t_gr_stale) {
-		EVENT_OFF(peer->connection->t_gr_stale);
+		event_cancel(&peer->connection->t_gr_stale);
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
 				"%pBP graceful restart stalepath timer stopped",
@@ -4010,7 +4010,7 @@ void bgp_instance_down(struct bgp *bgp)
 
 	/* Stop timers. */
 	if (bgp->t_rmap_def_originate_eval)
-		EVENT_OFF(bgp->t_rmap_def_originate_eval);
+		event_cancel(&bgp->t_rmap_def_originate_eval);
 
 	/* Bring down peers, so corresponding routes are purged. */
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, next, peer)) {
@@ -4148,14 +4148,14 @@ int bgp_delete(struct bgp *bgp)
 	hook_call(bgp_inst_delete, bgp);
 
 	FOREACH_AFI_SAFI (afi, safi)
-		EVENT_OFF(bgp->t_revalidate[afi][safi]);
+		event_cancel(&bgp->t_revalidate[afi][safi]);
 
-	EVENT_OFF(bgp->t_condition_check);
-	EVENT_OFF(bgp->t_startup);
-	EVENT_OFF(bgp->t_maxmed_onstartup);
-	EVENT_OFF(bgp->t_update_delay);
-	EVENT_OFF(bgp->t_establish_wait);
-	EVENT_OFF(bgp->clearing_end);
+	event_cancel(&bgp->t_condition_check);
+	event_cancel(&bgp->t_startup);
+	event_cancel(&bgp->t_maxmed_onstartup);
+	event_cancel(&bgp->t_update_delay);
+	event_cancel(&bgp->t_establish_wait);
+	event_cancel(&bgp->clearing_end);
 
 	/* Set flag indicating bgp instance delete in progress */
 	SET_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS);
@@ -4173,7 +4173,7 @@ int bgp_delete(struct bgp *bgp)
 
 			XFREE(MTYPE_TMP, info);
 		}
-		EVENT_OFF(gr_info->t_select_deferral);
+		event_cancel(&gr_info->t_select_deferral);
 
 		t = gr_info->t_route_select;
 		if (t) {
@@ -4181,7 +4181,7 @@ int bgp_delete(struct bgp *bgp)
 
 			XFREE(MTYPE_TMP, info);
 		}
-		EVENT_OFF(gr_info->t_route_select);
+		event_cancel(&gr_info->t_route_select);
 	}
 
 	/* Delete route flap dampening configuration */
@@ -4219,7 +4219,7 @@ int bgp_delete(struct bgp *bgp)
 
 	/* Stop timers. */
 	if (bgp->t_rmap_def_originate_eval)
-		EVENT_OFF(bgp->t_rmap_def_originate_eval);
+		event_cancel(&bgp->t_rmap_def_originate_eval);
 
 	/* Inform peers we're going down. */
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, next, peer))
@@ -4274,7 +4274,7 @@ int bgp_delete(struct bgp *bgp)
 	update_bgp_group_free(bgp);
 
 	/* Cancel peer connection errors event */
-	EVENT_OFF(bgp->t_conn_errors);
+	event_cancel(&bgp->t_conn_errors);
 
 	/* Cleanup for peer connection batching */
 	while ((cinfo = bgp_clearing_info_pop(&bgp->clearing_list)) != NULL)
@@ -5053,7 +5053,7 @@ static void peer_flag_modify_action(struct peer *peer, uint64_t flag)
 			UNSET_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
 
 			if (peer->connection->t_pmax_restart) {
-				EVENT_OFF(peer->connection->t_pmax_restart);
+				event_cancel(&peer->connection->t_pmax_restart);
 				if (bgp_debug_neighbor_events(peer))
 					zlog_debug(
 						"%pBP Maximum-prefix restart timer canceled",
@@ -8041,7 +8041,7 @@ static bool peer_maximum_prefix_clear_overflow(struct peer *peer)
 
 	UNSET_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
 	if (peer->connection->t_pmax_restart) {
-		EVENT_OFF(peer->connection->t_pmax_restart);
+		event_cancel(&peer->connection->t_pmax_restart);
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
 				"%pBP Maximum-prefix restart timer cancelled",
@@ -8965,12 +8965,12 @@ void bgp_terminate(void)
 	if (bm->listen_sockets)
 		list_delete(&bm->listen_sockets);
 
-	EVENT_OFF(bm->t_rmap_update);
-	EVENT_OFF(bm->t_bgp_sync_label_manager);
-	EVENT_OFF(bm->t_bgp_start_label_manager);
-	EVENT_OFF(bm->t_bgp_zebra_route);
-	EVENT_OFF(bm->t_bgp_zebra_l2_vni);
-	EVENT_OFF(bm->t_bgp_zebra_l3_vni);
+	event_cancel(&bm->t_rmap_update);
+	event_cancel(&bm->t_bgp_sync_label_manager);
+	event_cancel(&bm->t_bgp_start_label_manager);
+	event_cancel(&bm->t_bgp_zebra_route);
+	event_cancel(&bm->t_bgp_zebra_l2_vni);
+	event_cancel(&bm->t_bgp_zebra_l3_vni);
 
 	bgp_mac_finish();
 #ifdef ENABLE_BGP_VNC
@@ -9185,7 +9185,7 @@ void bgp_clearing_batch_end_event_start(struct bgp *bgp)
 	if (!event_is_scheduled(bgp->clearing_end))
 		bgp_lock(bgp);
 
-	EVENT_OFF(bgp->clearing_end);
+	event_cancel(&bgp->clearing_end);
 	event_add_timer_msec(bm->master, bgp_clearing_batch_end_event, bgp, 100, &bgp->clearing_end);
 }
 

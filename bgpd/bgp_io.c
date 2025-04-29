@@ -17,7 +17,7 @@
 #include "network.h"		// for ERRNO_IO_RETRY
 #include "stream.h"		// for stream_get_endp, stream_getw_from, str...
 #include "ringbuf.h"		// for ringbuf_remain, ringbuf_peek, ringbuf_...
-#include "frrevent.h"		// for EVENT_OFF, EVENT_ARG, thread...
+#include "frrevent.h"		// for event, EVENT_ARG, thread...
 
 #include "bgpd/bgp_io.h"
 #include "bgpd/bgp_debug.h"	// for bgp_debug_neighbor_events, bgp_type_str
@@ -68,7 +68,7 @@ void bgp_writes_off(struct peer_connection *connection)
 	assert(fpt->running);
 
 	event_cancel_async(fpt->master, &connection->t_write, NULL);
-	EVENT_OFF(connection->t_generate_updgrp_packets);
+	event_cancel(&connection->t_generate_updgrp_packets);
 
 	UNSET_FLAG(peer->connection->thread_flags, PEER_THREAD_WRITES_ON);
 }
