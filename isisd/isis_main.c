@@ -216,7 +216,7 @@ static void isis_config_end_timeout(struct event *t)
 
 static void isis_config_start(void)
 {
-	EVENT_OFF(t_isis_cfg);
+	event_cancel(&t_isis_cfg);
 	event_add_timer(im->master, isis_config_end_timeout, NULL,
 			ISIS_PRE_CONFIG_MAX_WAIT_SECONDS, &t_isis_cfg);
 }
@@ -229,7 +229,7 @@ static void isis_config_end(void)
 	if (!event_is_scheduled(t_isis_cfg))
 		return;
 
-	EVENT_OFF(t_isis_cfg);
+	event_cancel(&t_isis_cfg);
 	isis_config_finish(t_isis_cfg);
 }
 

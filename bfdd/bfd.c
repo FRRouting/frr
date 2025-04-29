@@ -2434,13 +2434,13 @@ static int bfd_vrf_disable(struct vrf *vrf)
 		zlog_debug("VRF disable %s id %d", vrf->name, vrf->vrf_id);
 
 	/* Disable read/write poll triggering. */
-	EVENT_OFF(bvrf->bg_ev[0]);
-	EVENT_OFF(bvrf->bg_ev[1]);
-	EVENT_OFF(bvrf->bg_ev[2]);
-	EVENT_OFF(bvrf->bg_ev[3]);
-	EVENT_OFF(bvrf->bg_ev[4]);
-	EVENT_OFF(bvrf->bg_ev[5]);
-	EVENT_OFF(bvrf->bg_ev[6]);
+	event_cancel(&bvrf->bg_ev[0]);
+	event_cancel(&bvrf->bg_ev[1]);
+	event_cancel(&bvrf->bg_ev[2]);
+	event_cancel(&bvrf->bg_ev[3]);
+	event_cancel(&bvrf->bg_ev[4]);
+	event_cancel(&bvrf->bg_ev[5]);
+	event_cancel(&bvrf->bg_ev[6]);
 
 	/* Close all descriptors. */
 	socket_close(&bvrf->bg_echo);

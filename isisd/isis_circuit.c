@@ -860,12 +860,12 @@ void isis_circuit_down(struct isis_circuit *circuit)
 		memset(circuit->u.bc.l2_desig_is, 0, ISIS_SYS_ID_LEN + 1);
 		memset(circuit->u.bc.snpa, 0, ETH_ALEN);
 
-		EVENT_OFF(circuit->u.bc.t_send_lan_hello[0]);
-		EVENT_OFF(circuit->u.bc.t_send_lan_hello[1]);
-		EVENT_OFF(circuit->u.bc.t_run_dr[0]);
-		EVENT_OFF(circuit->u.bc.t_run_dr[1]);
-		EVENT_OFF(circuit->u.bc.t_refresh_pseudo_lsp[0]);
-		EVENT_OFF(circuit->u.bc.t_refresh_pseudo_lsp[1]);
+		event_cancel(&circuit->u.bc.t_send_lan_hello[0]);
+		event_cancel(&circuit->u.bc.t_send_lan_hello[1]);
+		event_cancel(&circuit->u.bc.t_run_dr[0]);
+		event_cancel(&circuit->u.bc.t_run_dr[1]);
+		event_cancel(&circuit->u.bc.t_refresh_pseudo_lsp[0]);
+		event_cancel(&circuit->u.bc.t_refresh_pseudo_lsp[1]);
 		circuit->lsp_regenerate_pending[0] = 0;
 		circuit->lsp_regenerate_pending[1] = 0;
 
@@ -875,7 +875,7 @@ void isis_circuit_down(struct isis_circuit *circuit)
 	} else if (circuit->circ_type == CIRCUIT_T_P2P) {
 		isis_delete_adj(circuit->u.p2p.neighbor);
 		circuit->u.p2p.neighbor = NULL;
-		EVENT_OFF(circuit->u.p2p.t_send_p2p_hello);
+		event_cancel(&circuit->u.p2p.t_send_p2p_hello);
 	}
 
 	/*
@@ -888,11 +888,11 @@ void isis_circuit_down(struct isis_circuit *circuit)
 	circuit->snmp_adj_idx_gen = 0;
 
 	/* Cancel all active threads */
-	EVENT_OFF(circuit->t_send_csnp[0]);
-	EVENT_OFF(circuit->t_send_csnp[1]);
-	EVENT_OFF(circuit->t_send_psnp[0]);
-	EVENT_OFF(circuit->t_send_psnp[1]);
-	EVENT_OFF(circuit->t_read);
+	event_cancel(&circuit->t_send_csnp[0]);
+	event_cancel(&circuit->t_send_csnp[1]);
+	event_cancel(&circuit->t_send_psnp[0]);
+	event_cancel(&circuit->t_send_psnp[1]);
+	event_cancel(&circuit->t_read);
 
 	if (circuit->tx_queue) {
 		isis_tx_queue_free(circuit->tx_queue);
@@ -1674,7 +1674,7 @@ void isis_reset_hello_timer(struct isis_circuit *circuit)
 			send_hello(circuit, IS_LEVEL_1);
 
 			/* reset level-1 hello timer */
-			EVENT_OFF(circuit->u.bc.t_send_lan_hello[0]);
+			event_cancel(&circuit->u.bc.t_send_lan_hello[0]);
 			if (circuit->area && (circuit->area->is_type & IS_LEVEL_1))
 				send_hello_sched(circuit, IS_LEVEL_1,
 						 isis_jitter(circuit->hello_interval[0],
@@ -1686,7 +1686,7 @@ void isis_reset_hello_timer(struct isis_circuit *circuit)
 			send_hello(circuit, IS_LEVEL_2);
 
 			/* reset level-2 hello timer */
-			EVENT_OFF(circuit->u.bc.t_send_lan_hello[1]);
+			event_cancel(&circuit->u.bc.t_send_lan_hello[1]);
 			if (circuit->area && (circuit->area->is_type & IS_LEVEL_2))
 				send_hello_sched(circuit, IS_LEVEL_2,
 						 isis_jitter(circuit->hello_interval[1],
@@ -1697,7 +1697,7 @@ void isis_reset_hello_timer(struct isis_circuit *circuit)
 		send_hello(circuit, IS_LEVEL_1);
 
 		/* reset hello timer */
-		EVENT_OFF(circuit->u.p2p.t_send_p2p_hello);
+		event_cancel(&circuit->u.p2p.t_send_p2p_hello);
 		send_hello_sched(circuit, 0, isis_jitter(circuit->hello_interval[0], IIH_JITTER));
 	}
 }
