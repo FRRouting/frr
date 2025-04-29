@@ -28,6 +28,8 @@
 #include "pim_addr.h"
 #include "pim_nht.h"
 #include "pim_bsm.h"
+#include "pim_ssm.h"
+#include "pim_util.h"
 #include "pim_iface.h"
 #include "pim_zebra.h"
 #include "pim_instance.h"
@@ -2453,6 +2455,79 @@ DEFPY (show_ipv6_pim_bsrp,
 	return pim_show_group_rp_mappings_info_helper(vrf, vty, !!json);
 }
 
+DEFPY(show_ipv6_pim_ssm_range,
+      show_ipv6_pim_ssm_range_cmd,
+      "show ipv6 pim [vrf NAME$vrf_name] group-type [json$json]",
+      SHOW_STR
+      IPV6_STR
+      PIM_STR
+      VRF_CMD_HELP_STR
+      "PIM group type\n"
+      JSON_STR)
+{
+	struct pim_instance *pim;
+	const char *range_str;
+	struct pim_ssm *ssm;
+	struct vrf *vrf = NULL;
+
+	if (vrf_name)
+		vrf = vrf_lookup_by_name(vrf_name);
+	if (vrf == NULL)
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+
+	pim = vrf->info;
+	ssm = pim->ssm_info;
+	range_str = ssm->plist_name ? ssm->plist_name : PIM6_SSM_STANDARD_RANGE;
+	if (json) {
+		struct json_object *json_root;
+
+		json_root = json_object_new_object();
+		json_object_string_add(json_root, "ssmGroups", range_str);
+		vty_json(vty, json_root);
+	} else
+		vty_out(vty, "SSM group range : %s\n", range_str);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_ipv6_pim_group_type,
+      show_ipv6_pim_group_type_cmd,
+      "show ipv6 pim [vrf NAME$vrf_name] group-type X:X::X:X$group [json$json]",
+      SHOW_STR
+      IP_STR
+      PIM_STR
+      VRF_CMD_HELP_STR
+      "multicast group type\n"
+      "group address\n"
+      JSON_STR)
+{
+	struct pim_instance *pim;
+	const char *type_str;
+	struct vrf *vrf = NULL;
+
+	if (vrf_name)
+		vrf = vrf_lookup_by_name(vrf_name);
+	if (vrf == NULL)
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+
+	pim = vrf->info;
+	if (pim_is_group_ff00_8(group))
+		type_str = pim_is_grp_ssm(pim, group) ? "SSM" : "ASM";
+	else
+		type_str = "not-multicast";
+
+	if (json) {
+		struct json_object *json_root;
+
+		json_root = json_object_new_object();
+		json_object_string_add(json_root, "groupType", type_str);
+		vty_json(vty, json_root);
+	} else
+		vty_out(vty, "Group type : %s\n", type_str);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(clear_ipv6_mld_interfaces,
       clear_ipv6_mld_interfaces_cmd,
       "clear ipv6 mld [vrf NAME$vrf_name] interfaces",
@@ -3082,6 +3157,8 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ipv6_pim_bsr_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_bsm_db_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_bsrp_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_ssm_range_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_group_type_cmd);
 	install_element(ENABLE_NODE, &clear_ipv6_mld_interfaces_cmd);
 	install_element(ENABLE_NODE, &clear_ipv6_pim_statistics_cmd);
 	install_element(ENABLE_NODE, &clear_ipv6_mroute_cmd);
