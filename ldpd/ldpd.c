@@ -622,8 +622,8 @@ static void main_dispatch_ldpe(struct event *thread)
 		imsg_event_add(iev);
 	else {
 		/* this pipe is dead, so remove the event handlers and exit */
-		EVENT_OFF(iev->ev_read);
-		EVENT_OFF(iev->ev_write);
+		event_cancel(&iev->ev_read);
+		event_cancel(&iev->ev_write);
 		ldpe_pid = 0;
 
 		if (lde_pid == 0)
@@ -728,8 +728,8 @@ static void main_dispatch_lde(struct event *thread)
 		imsg_event_add(iev);
 	else {
 		/* this pipe is dead, so remove the event handlers and exit */
-		EVENT_OFF(iev->ev_read);
-		EVENT_OFF(iev->ev_write);
+		event_cancel(&iev->ev_read);
+		event_cancel(&iev->ev_write);
 		lde_pid = 0;
 		if (ldpe_pid == 0)
 			ldpd_shutdown();
@@ -751,8 +751,8 @@ void ldp_write_handler(struct event *thread)
 		fatal("msgbuf_write");
 	if (n == 0) {
 		/* this pipe is dead, so remove the event handlers */
-		EVENT_OFF(iev->ev_read);
-		EVENT_OFF(iev->ev_write);
+		event_cancel(&iev->ev_read);
+		event_cancel(&iev->ev_write);
 		return;
 	}
 
@@ -841,7 +841,7 @@ void evbuf_init(struct evbuf *eb, int fd, void (*handler)(struct event *),
 void
 evbuf_clear(struct evbuf *eb)
 {
-	EVENT_OFF(eb->ev);
+	event_cancel(&eb->ev);
 	msgbuf_clear(&eb->wbuf);
 	eb->wbuf.fd = -1;
 }
