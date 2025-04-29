@@ -80,7 +80,7 @@ static void pim_msdp_sa_adv_timer_cb(struct event *t)
 
 static void pim_msdp_sa_adv_timer_setup(struct pim_instance *pim, bool start)
 {
-	EVENT_OFF(pim->msdp.sa_adv_timer);
+	event_cancel(&pim->msdp.sa_adv_timer);
 	if (start) {
 		event_add_timer(pim->msdp.master, pim_msdp_sa_adv_timer_cb, pim,
 				PIM_MSDP_SA_ADVERTISMENT_TIME,
@@ -103,7 +103,7 @@ static void pim_msdp_sa_state_timer_cb(struct event *t)
 
 static void pim_msdp_sa_state_timer_setup(struct pim_msdp_sa *sa, bool start)
 {
-	EVENT_OFF(sa->sa_state_timer);
+	event_cancel(&sa->sa_state_timer);
 	if (start) {
 		event_add_timer(sa->pim->msdp.master,
 				pim_msdp_sa_state_timer_cb, sa,
@@ -897,7 +897,7 @@ static void pim_msdp_peer_hold_timer_cb(struct event *t)
 static void pim_msdp_peer_hold_timer_setup(struct pim_msdp_peer *mp, bool start)
 {
 	struct pim_instance *pim = mp->pim;
-	EVENT_OFF(mp->hold_timer);
+	event_cancel(&mp->hold_timer);
 	if (start) {
 		event_add_timer(pim->msdp.master, pim_msdp_peer_hold_timer_cb,
 				mp, pim->msdp.hold_time, &mp->hold_timer);
@@ -921,7 +921,7 @@ static void pim_msdp_peer_ka_timer_cb(struct event *t)
 
 static void pim_msdp_peer_ka_timer_setup(struct pim_msdp_peer *mp, bool start)
 {
-	EVENT_OFF(mp->ka_timer);
+	event_cancel(&mp->ka_timer);
 	if (start) {
 		event_add_timer(mp->pim->msdp.master, pim_msdp_peer_ka_timer_cb,
 				mp, mp->pim->msdp.keep_alive, &mp->ka_timer);
@@ -983,7 +983,7 @@ static void pim_msdp_peer_cr_timer_cb(struct event *t)
 
 static void pim_msdp_peer_cr_timer_setup(struct pim_msdp_peer *mp, bool start)
 {
-	EVENT_OFF(mp->cr_timer);
+	event_cancel(&mp->cr_timer);
 	if (start) {
 		event_add_timer(mp->pim->msdp.master, pim_msdp_peer_cr_timer_cb,
 				mp, mp->pim->msdp.connection_retry,
@@ -1500,7 +1500,7 @@ static void pim_upstream_msdp_reg_timer(struct event *t)
 
 void pim_upstream_msdp_reg_timer_start(struct pim_upstream *up)
 {
-	EVENT_OFF(up->t_msdp_reg_timer);
+	event_cancel(&up->t_msdp_reg_timer);
 	event_add_timer(router->master, pim_upstream_msdp_reg_timer, up, PIM_MSDP_REG_RXED_PERIOD,
 			&up->t_msdp_reg_timer);
 

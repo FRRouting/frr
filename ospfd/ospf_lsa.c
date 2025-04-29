@@ -3791,7 +3791,7 @@ void ospf_flush_self_originated_lsas_now(struct ospf *ospf)
 	 * without conflicting to other threads.
 	 */
 	if (ospf->t_maxage != NULL) {
-		EVENT_OFF(ospf->t_maxage);
+		event_cancel(&ospf->t_maxage);
 		event_execute(master, ospf_maxage_lsa_remover, ospf, 0, NULL);
 	}
 

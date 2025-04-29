@@ -188,7 +188,7 @@ void ospf_ldp_sync_if_complete(struct interface *ifp)
 	if (ldp_sync_info && ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED) {
 		if (ldp_sync_info->state == LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP)
 			ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_UP;
-		EVENT_OFF(ldp_sync_info->t_holddown);
+		event_cancel(&ldp_sync_info->t_holddown);
 		ospf_if_recalculate_output_cost(ifp);
 	}
 }
@@ -239,7 +239,7 @@ void ospf_ldp_sync_ldp_fail(struct interface *ifp)
 	if (ldp_sync_info &&
 	    ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED &&
 	    ldp_sync_info->state != LDP_IGP_SYNC_STATE_NOT_REQUIRED) {
-		EVENT_OFF(ldp_sync_info->t_holddown);
+		event_cancel(&ldp_sync_info->t_holddown);
 		ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
 		ospf_if_recalculate_output_cost(ifp);
 	}
@@ -303,7 +303,7 @@ void ospf_ldp_sync_if_remove(struct interface *ifp, bool remove)
 	 */
 	ols_debug("%s: Removed from if %s", __func__, ifp->name);
 
-	EVENT_OFF(ldp_sync_info->t_holddown);
+	event_cancel(&ldp_sync_info->t_holddown);
 
 	ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
 	ospf_if_recalculate_output_cost(ifp);
@@ -902,7 +902,7 @@ DEFPY (no_mpls_ldp_sync,
 	UNSET_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG);
 	ldp_sync_info->enabled = LDP_IGP_SYNC_DEFAULT;
 	ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
-	EVENT_OFF(ldp_sync_info->t_holddown);
+	event_cancel(&ldp_sync_info->t_holddown);
 	ospf_if_recalculate_output_cost(ifp);
 
 	return CMD_SUCCESS;

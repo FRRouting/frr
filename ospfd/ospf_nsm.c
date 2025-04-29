@@ -105,30 +105,30 @@ static void nsm_timer_set(struct ospf_neighbor *nbr)
 	switch (nbr->state) {
 	case NSM_Deleted:
 	case NSM_Down:
-		EVENT_OFF(nbr->t_inactivity);
-		EVENT_OFF(nbr->t_hello_reply);
+		event_cancel(&nbr->t_inactivity);
+		event_cancel(&nbr->t_hello_reply);
 		fallthrough;
 	case NSM_Attempt:
 	case NSM_Init:
 	case NSM_TwoWay:
-		EVENT_OFF(nbr->t_db_desc);
-		EVENT_OFF(nbr->t_ls_rxmt);
-		EVENT_OFF(nbr->t_ls_req);
+		event_cancel(&nbr->t_db_desc);
+		event_cancel(&nbr->t_ls_rxmt);
+		event_cancel(&nbr->t_ls_req);
 		break;
 	case NSM_ExStart:
 		OSPF_NSM_TIMER_ON(nbr->t_db_desc, ospf_db_desc_timer,
 				  nbr->v_db_desc);
-		EVENT_OFF(nbr->t_ls_rxmt);
-		EVENT_OFF(nbr->t_ls_req);
+		event_cancel(&nbr->t_ls_rxmt);
+		event_cancel(&nbr->t_ls_req);
 		break;
 	case NSM_Exchange:
 		if (!IS_SET_DD_MS(nbr->dd_flags))
-			EVENT_OFF(nbr->t_db_desc);
+			event_cancel(&nbr->t_db_desc);
 		break;
 	case NSM_Loading:
 	case NSM_Full:
 	default:
-		EVENT_OFF(nbr->t_db_desc);
+		event_cancel(&nbr->t_db_desc);
 		break;
 	}
 }
@@ -159,13 +159,13 @@ int nsm_should_adj(struct ospf_neighbor *nbr)
 static int nsm_hello_received(struct ospf_neighbor *nbr)
 {
 	/* Start or Restart Inactivity Timer. */
-	EVENT_OFF(nbr->t_inactivity);
+	event_cancel(&nbr->t_inactivity);
 
 	OSPF_NSM_TIMER_ON(nbr->t_inactivity, ospf_inactivity_timer,
 			  nbr->v_inactivity);
 
 	if (OSPF_IF_NON_BROADCAST(nbr->oi) && nbr->nbr_nbma != NULL)
-		EVENT_OFF(nbr->nbr_nbma->t_poll);
+		event_cancel(&nbr->nbr_nbma->t_poll);
 
 	/* Send proactive ARP requests */
 	if (nbr->state < NSM_Exchange)
@@ -177,9 +177,9 @@ static int nsm_hello_received(struct ospf_neighbor *nbr)
 static int nsm_start(struct ospf_neighbor *nbr)
 {
 	if (nbr->nbr_nbma)
-		EVENT_OFF(nbr->nbr_nbma->t_poll);
+		event_cancel(&nbr->nbr_nbma->t_poll);
 
-	EVENT_OFF(nbr->t_inactivity);
+	event_cancel(&nbr->t_inactivity);
 
 	OSPF_NSM_TIMER_ON(nbr->t_inactivity, ospf_inactivity_timer,
 			  nbr->v_inactivity);

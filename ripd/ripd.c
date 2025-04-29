@@ -137,7 +137,7 @@ static void rip_garbage_collect(struct event *t)
 	rinfo = EVENT_ARG(t);
 
 	/* Off timeout timer. */
-	EVENT_OFF(rinfo->t_timeout);
+	event_cancel(&rinfo->t_timeout);
 
 	/* Get route_node pointer. */
 	rp = rinfo->rp;
@@ -249,14 +249,14 @@ struct rip_info *rip_ecmp_replace(struct rip *rip, struct rip_info *rinfo_new)
 		if (tmp_rinfo == rinfo)
 			continue;
 
-		EVENT_OFF(tmp_rinfo->t_timeout);
-		EVENT_OFF(tmp_rinfo->t_garbage_collect);
+		event_cancel(&tmp_rinfo->t_timeout);
+		event_cancel(&tmp_rinfo->t_garbage_collect);
 		list_delete_node(list, node);
 		rip_info_free(tmp_rinfo);
 	}
 
-	EVENT_OFF(rinfo->t_timeout);
-	EVENT_OFF(rinfo->t_garbage_collect);
+	event_cancel(&rinfo->t_timeout);
+	event_cancel(&rinfo->t_garbage_collect);
 	memcpy(rinfo, rinfo_new, sizeof(struct rip_info));
 
 	if (rip_route_rte(rinfo)) {
@@ -291,12 +291,12 @@ struct rip_info *rip_ecmp_delete(struct rip *rip, struct rip_info *rinfo)
 	rp = rinfo->rp;
 	list = (struct list *)rp->info;
 
-	EVENT_OFF(rinfo->t_timeout);
+	event_cancel(&rinfo->t_timeout);
 
 	if (listcount(list) > 1) {
 		/* Some other ECMP entries still exist. Just delete this entry.
 		 */
-		EVENT_OFF(rinfo->t_garbage_collect);
+		event_cancel(&rinfo->t_garbage_collect);
 		listnode_delete(list, rinfo);
 		if (rip_route_rte(rinfo)
 		    && CHECK_FLAG(rinfo->flags, RIP_RTF_FIB))
@@ -342,7 +342,7 @@ static void rip_timeout(struct event *t)
 static void rip_timeout_update(struct rip *rip, struct rip_info *rinfo)
 {
 	if (rinfo->metric != RIP_METRIC_INFINITY) {
-		EVENT_OFF(rinfo->t_timeout);
+		event_cancel(&rinfo->t_timeout);
 		event_add_timer(master, rip_timeout, rinfo, rip->timeout_time,
 				&rinfo->t_timeout);
 	}
@@ -687,8 +687,8 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 					assert(newinfo.metric
 					       != RIP_METRIC_INFINITY);
 
-					EVENT_OFF(rinfo->t_timeout);
-					EVENT_OFF(rinfo->t_garbage_collect);
+					event_cancel(&rinfo->t_timeout);
+					event_cancel(&rinfo->t_garbage_collect);
 					memcpy(rinfo, &newinfo,
 					       sizeof(struct rip_info));
 					rip_timeout_update(rip, rinfo);
@@ -1651,7 +1651,7 @@ void rip_redistribute_delete(struct rip *rip, int type, int sub_type,
 				RIP_TIMER_ON(rinfo->t_garbage_collect,
 					     rip_garbage_collect,
 					     rip->garbage_time);
-				EVENT_OFF(rinfo->t_timeout);
+				event_cancel(&rinfo->t_timeout);
 				rinfo->flags |= RIP_RTF_CHANGED;
 
 				if (IS_RIP_DEBUG_EVENT)
@@ -2542,7 +2542,7 @@ static void rip_update(struct event *t)
 
 	/* Triggered updates may be suppressed if a regular update is due by
 	   the time the triggered update would be sent. */
-	EVENT_OFF(rip->t_triggered_interval);
+	event_cancel(&rip->t_triggered_interval);
 	rip->trigger = 0;
 
 	/* Register myself. */
@@ -2589,7 +2589,7 @@ static void rip_triggered_update(struct event *t)
 	int interval;
 
 	/* Cancel interval timer. */
-	EVENT_OFF(rip->t_triggered_interval);
+	event_cancel(&rip->t_triggered_interval);
 	rip->trigger = 0;
 
 	/* Logging triggered update. */
@@ -2639,7 +2639,7 @@ void rip_redistribute_withdraw(struct rip *rip, int type)
 		rinfo->metric = RIP_METRIC_INFINITY;
 		RIP_TIMER_ON(rinfo->t_garbage_collect, rip_garbage_collect,
 			     rip->garbage_time);
-		EVENT_OFF(rinfo->t_timeout);
+		event_cancel(&rinfo->t_timeout);
 		rinfo->flags |= RIP_RTF_CHANGED;
 
 		if (IS_RIP_DEBUG_EVENT) {
@@ -2850,7 +2850,7 @@ void rip_event(struct rip *rip, enum rip_event event, int sock)
 		event_add_read(master, rip_read, rip, sock, &rip->t_read);
 		break;
 	case RIP_UPDATE_EVENT:
-		EVENT_OFF(rip->t_update);
+		event_cancel(&rip->t_update);
 		jitter = rip_update_jitter(rip->update_time);
 		event_add_timer(master, rip_update, rip,
 				sock ? 2 : rip->update_time + jitter,
@@ -2975,8 +2975,8 @@ void rip_ecmp_disable(struct rip *rip)
 			if (tmp_rinfo == rinfo)
 				continue;
 
-			EVENT_OFF(tmp_rinfo->t_timeout);
-			EVENT_OFF(tmp_rinfo->t_garbage_collect);
+			event_cancel(&tmp_rinfo->t_timeout);
+			event_cancel(&tmp_rinfo->t_garbage_collect);
 			list_delete_node(list, node);
 			rip_info_free(tmp_rinfo);
 		}
@@ -3530,8 +3530,8 @@ static void rip_instance_disable(struct rip *rip)
 			rip_zebra_ipv4_delete(rip, rp);
 
 		for (ALL_LIST_ELEMENTS_RO(list, listnode, rinfo)) {
-			EVENT_OFF(rinfo->t_timeout);
-			EVENT_OFF(rinfo->t_garbage_collect);
+			event_cancel(&rinfo->t_timeout);
+			event_cancel(&rinfo->t_garbage_collect);
 			rip_info_free(rinfo);
 		}
 		list_delete(&list);
@@ -3543,12 +3543,12 @@ static void rip_instance_disable(struct rip *rip)
 	rip_redistribute_disable(rip);
 
 	/* Cancel RIP related timers. */
-	EVENT_OFF(rip->t_update);
-	EVENT_OFF(rip->t_triggered_update);
-	EVENT_OFF(rip->t_triggered_interval);
+	event_cancel(&rip->t_update);
+	event_cancel(&rip->t_triggered_update);
+	event_cancel(&rip->t_triggered_interval);
 
 	/* Cancel read thread. */
-	EVENT_OFF(rip->t_read);
+	event_cancel(&rip->t_read);
 
 	/* Close RIP socket. */
 	close(rip->sock);

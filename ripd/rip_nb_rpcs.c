@@ -51,8 +51,8 @@ static void clear_rip_route(struct rip *rip)
 		}
 
 		if (rinfo) {
-			EVENT_OFF(rinfo->t_timeout);
-			EVENT_OFF(rinfo->t_garbage_collect);
+			event_cancel(&rinfo->t_timeout);
+			event_cancel(&rinfo->t_garbage_collect);
 			listnode_delete(list, rinfo);
 			rip_info_free(rinfo);
 		}

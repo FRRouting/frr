@@ -565,7 +565,7 @@ static void ospf_sr_stop(void)
 	osr_debug("SR (%s): Stop Segment Routing", __func__);
 
 	/* Disable any re-attempt to connect to Label Manager */
-	EVENT_OFF(OspfSR.t_start_lm);
+	event_cancel(&OspfSR.t_start_lm);
 
 	/* Release SRGB if active */
 	sr_global_block_delete();
