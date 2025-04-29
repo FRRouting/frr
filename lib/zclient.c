@@ -257,9 +257,9 @@ void zclient_stop(struct zclient *zclient)
 		zlog_debug("zclient %p stopped", zclient);
 
 	/* Stop threads. */
-	EVENT_OFF(zclient->t_read);
-	EVENT_OFF(zclient->t_connect);
-	EVENT_OFF(zclient->t_write);
+	event_cancel(&zclient->t_read);
+	event_cancel(&zclient->t_connect);
+	event_cancel(&zclient->t_write);
 
 	/* Reset streams. */
 	stream_reset(zclient->ibuf);
@@ -393,7 +393,7 @@ enum zclient_send_status zclient_send_message(struct zclient *zclient)
 			 __func__, zclient->sock);
 		return zclient_failed(zclient);
 	case BUFFER_EMPTY:
-		EVENT_OFF(zclient->t_write);
+		event_cancel(&zclient->t_write);
 		return ZCLIENT_SEND_SUCCESS;
 	case BUFFER_PENDING:
 		event_add_write(zclient->master, zclient_flush_data, zclient,

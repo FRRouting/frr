@@ -183,7 +183,7 @@ static inline void nb_op_free_yield_state(struct nb_op_yield_state *ys,
 	if (ys) {
 		if (ys->user_tree && ys->user_tree_unlock)
 			ys->user_tree_unlock(ys->user_tree, ys->user_tree_lock);
-		EVENT_OFF(ys->walk_ev);
+		event_cancel(&ys->walk_ev);
 		nb_op_walks_del(&nb_op_walks, ys);
 		/* if we have a branch then free up it's libyang tree */
 		if (!nofree_tree && ys_root_node(ys))

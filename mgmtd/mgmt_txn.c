@@ -757,7 +757,7 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 	if (success) {
 		/* Stop the commit-timeout timer */
 		/* XXX why only on success? */
-		EVENT_OFF(txn->comm_cfg_timeout);
+		event_cancel(&txn->comm_cfg_timeout);
 
 		create_cmt_info_rec =
 			(result != MGMTD_NO_CFG_CHANGES &&
@@ -1299,7 +1299,7 @@ static int txn_get_tree_data_done(struct mgmt_txn_ctx *txn,
 	int ret = NB_OK;
 
 	/* cancel timer and send reply onward */
-	EVENT_OFF(txn->get_tree_timeout);
+	event_cancel(&txn->get_tree_timeout);
 
 	if (!get_tree->simple_xpath && get_tree->client_results) {
 		/*
@@ -1347,7 +1347,7 @@ static int txn_rpc_done(struct mgmt_txn_ctx *txn, struct mgmt_txn_req *txn_req)
 	uint64_t req_id = txn_req->req_id;
 
 	/* cancel timer and send reply onward */
-	EVENT_OFF(txn->rpc_timeout);
+	event_cancel(&txn->rpc_timeout);
 
 	if (rpc->errstr)
 		mgmt_fe_adapter_txn_error(txn->txn_id, req_id, false, -EINVAL,
@@ -1522,7 +1522,7 @@ static void mgmt_txn_process_commit_cfg(struct event *thread)
 		 * cleanup. Please see mgmt_fe_send_commit_cfg_reply() for
 		 * more details.
 		 */
-		EVENT_OFF(txn->comm_cfg_timeout);
+		event_cancel(&txn->comm_cfg_timeout);
 		mgmt_txn_send_commit_cfg_reply(txn, MGMTD_SUCCESS, NULL);
 		break;
 	case MGMTD_COMMIT_PHASE_MAX:
@@ -1916,11 +1916,11 @@ static void mgmt_txn_unlock(struct mgmt_txn_ctx **txn, bool in_hash_free, const 
 		if ((*txn)->type == MGMTD_TXN_TYPE_CONFIG)
 			if (mgmt_txn_mm->cfg_txn == *txn)
 				mgmt_txn_mm->cfg_txn = NULL;
-		EVENT_OFF((*txn)->proc_get_cfg);
-		EVENT_OFF((*txn)->proc_get_data);
-		EVENT_OFF((*txn)->proc_comm_cfg);
-		EVENT_OFF((*txn)->comm_cfg_timeout);
-		EVENT_OFF((*txn)->get_tree_timeout);
+		event_cancel(&(*txn)->proc_get_cfg);
+		event_cancel(&(*txn)->proc_get_data);
+		event_cancel(&(*txn)->proc_comm_cfg);
+		event_cancel(&(*txn)->comm_cfg_timeout);
+		event_cancel(&(*txn)->get_tree_timeout);
 		if (!in_hash_free)
 			hash_release(mgmt_txn_mm->txn_hash, *txn);
 
