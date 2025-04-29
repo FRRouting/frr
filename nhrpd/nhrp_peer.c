@@ -43,8 +43,8 @@ static void nhrp_peer_check_delete(struct nhrp_peer *p)
 	debugf(NHRP_DEBUG_COMMON, "Deleting peer ref:%d remote:%pSU local:%pSU",
 	       p->ref, &p->vc->remote.nbma, &p->vc->local.nbma);
 
-	EVENT_OFF(p->t_fallback);
-	EVENT_OFF(p->t_timer);
+	event_cancel(&p->t_fallback);
+	event_cancel(&p->t_timer);
 	if (nifp->peer_hash)
 		hash_release(nifp->peer_hash, p);
 	nhrp_interface_notify_del(p->ifp, &p->ifp_notifier);
@@ -77,7 +77,7 @@ static void __nhrp_peer_check(struct nhrp_peer *p)
 
 	online = nifp->enabled && (!nifp->ipsec_profile || vc->ipsec);
 	if (p->online != online) {
-		EVENT_OFF(p->t_fallback);
+		event_cancel(&p->t_fallback);
 		if (online && notifier_active(&p->notifier_list)) {
 			/* If we requested the IPsec connection, delay
 			 * the up notification a bit to allow things
@@ -279,7 +279,7 @@ static void nhrp_peer_defer_vici_request(struct event *t)
 	struct interface *ifp = p->ifp;
 	struct nhrp_interface *nifp = ifp->info;
 
-	EVENT_OFF(p->t_timer);
+	event_cancel(&p->t_timer);
 
 	if (p->online) {
 		debugf(NHRP_DEBUG_COMMON,

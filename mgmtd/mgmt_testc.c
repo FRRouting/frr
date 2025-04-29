@@ -157,7 +157,7 @@ static void sigusr1(void)
 
 static void quit(int exit_code)
 {
-	EVENT_OFF(event_timeout);
+	event_cancel(&event_timeout);
 	darr_free(__client_cbs.notif_xpaths);
 	darr_free(__client_cbs.rpc_xpaths);
 

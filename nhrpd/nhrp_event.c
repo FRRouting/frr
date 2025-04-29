@@ -31,8 +31,8 @@ static void evmgr_reconnect(struct event *t);
 
 static void evmgr_connection_error(struct event_manager *evmgr)
 {
-	EVENT_OFF(evmgr->t_read);
-	EVENT_OFF(evmgr->t_write);
+	event_cancel(&evmgr->t_read);
+	event_cancel(&evmgr->t_write);
 	zbuf_reset(&evmgr->ibuf);
 	zbufq_reset(&evmgr->obuf);
 

@@ -126,7 +126,7 @@ static void nhrp_shortcut_update_binding(struct nhrp_shortcut *s,
 		s->route_installed = 0;
 	}
 
-	EVENT_OFF(s->t_shortcut_purge);
+	event_cancel(&s->t_shortcut_purge);
 	if (holding_time) {
 		s->expiring = 0;
 		s->holding_time = holding_time;
@@ -141,8 +141,8 @@ static void nhrp_shortcut_delete(struct nhrp_shortcut *s,
 	struct route_node *rn;
 	afi_t afi = family2afi(PREFIX_FAMILY(s->p));
 
-	EVENT_OFF(s->t_shortcut_purge);
-	EVENT_OFF(s->t_retry_resolution);
+	event_cancel(&s->t_shortcut_purge);
+	event_cancel(&s->t_retry_resolution);
 	nhrp_reqid_free(&nhrp_packet_reqid, &s->reqid);
 
 	debugf(NHRP_DEBUG_ROUTE, "Shortcut %pFX purged", s->p);
@@ -163,7 +163,7 @@ static void nhrp_shortcut_do_purge(struct event *t)
 {
 	struct nhrp_shortcut *s = EVENT_ARG(t);
 	s->t_shortcut_purge = NULL;
-	EVENT_OFF(s->t_retry_resolution);
+	event_cancel(&s->t_retry_resolution);
 	nhrp_shortcut_delete(s, NULL);
 }
 
@@ -210,8 +210,8 @@ static void nhrp_shortcut_recv_resolution_rep(struct nhrp_reqid *reqid,
 	int holding_time = pp->if_ad->holdtime;
 
 	nhrp_reqid_free(&nhrp_packet_reqid, &s->reqid);
-	EVENT_OFF(s->t_shortcut_purge);
-	EVENT_OFF(s->t_retry_resolution);
+	event_cancel(&s->t_shortcut_purge);
+	event_cancel(&s->t_retry_resolution);
 	event_add_timer(master, nhrp_shortcut_do_purge, s, 1,
 			&s->t_shortcut_purge);
 
@@ -493,8 +493,8 @@ void nhrp_shortcut_initiate(union sockunion *addr)
 	s = nhrp_shortcut_get(&p);
 	if (s && s->type != NHRP_CACHE_INCOMPLETE) {
 		s->addr = *addr;
-		EVENT_OFF(s->t_shortcut_purge);
-		EVENT_OFF(s->t_retry_resolution);
+		event_cancel(&s->t_shortcut_purge);
+		event_cancel(&s->t_retry_resolution);
 
 		event_add_timer(master, nhrp_shortcut_do_purge, s,
 				NHRPD_DEFAULT_PURGE_TIME, &s->t_shortcut_purge);
@@ -506,7 +506,7 @@ static void nhrp_shortcut_retry_resolution_req(struct event *t)
 {
 	struct nhrp_shortcut *s = EVENT_ARG(t);
 
-	EVENT_OFF(s->t_retry_resolution);
+	event_cancel(&s->t_retry_resolution);
 	debugf(NHRP_DEBUG_COMMON, "Shortcut: Retrying Resolution Request");
 	nhrp_shortcut_send_resolution_req(s, true);
 }
@@ -552,8 +552,8 @@ struct purge_ctx {
 
 void nhrp_shortcut_purge(struct nhrp_shortcut *s, int force)
 {
-	EVENT_OFF(s->t_shortcut_purge);
-	EVENT_OFF(s->t_retry_resolution);
+	event_cancel(&s->t_shortcut_purge);
+	event_cancel(&s->t_retry_resolution);
 	nhrp_reqid_free(&nhrp_packet_reqid, &s->reqid);
 
 	if (force) {

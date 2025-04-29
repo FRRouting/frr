@@ -116,7 +116,7 @@ static void resolver_cb_socket_readable(struct event *t)
 	event_add_read(r->master, resolver_cb_socket_readable, resfd, resfd->fd,
 		       &resfd->t_read);
 	/* ^ ordering important:
-	 * ares_process_fd may transitively call EVENT_OFF(resfd->t_read)
+	 * ares_process_fd may transitively call event_cancel(&resfd->t_read)
 	 * combined with resolver_fd_drop_maybe, so resfd may be free'd after!
 	 */
 	ares_process_fd(r->channel, resfd->fd, ARES_SOCKET_BAD);
@@ -131,7 +131,7 @@ static void resolver_cb_socket_writable(struct event *t)
 	event_add_write(r->master, resolver_cb_socket_writable, resfd,
 			resfd->fd, &resfd->t_write);
 	/* ^ ordering important:
-	 * ares_process_fd may transitively call EVENT_OFF(resfd->t_write)
+	 * ares_process_fd may transitively call event_cancel(&resfd->t_write)
 	 * combined with resolver_fd_drop_maybe, so resfd may be free'd after!
 	 */
 	ares_process_fd(r->channel, ARES_SOCKET_BAD, resfd->fd);
@@ -142,7 +142,7 @@ static void resolver_update_timeouts(struct resolver_state *r)
 {
 	struct timeval *tv, tvbuf;
 
-	EVENT_OFF(r->timeout);
+	event_cancel(&r->timeout);
 	tv = ares_timeout(r->channel, NULL, &tvbuf);
 	if (tv) {
 		unsigned int timeoutms = tv->tv_sec * 1000 + tv->tv_usec / 1000;
@@ -165,13 +165,13 @@ static void ares_socket_cb(void *data, ares_socket_t fd, int readable,
 	assert(resfd->state == r);
 
 	if (!readable)
-		EVENT_OFF(resfd->t_read);
+		event_cancel(&resfd->t_read);
 	else if (!resfd->t_read)
 		event_add_read(r->master, resolver_cb_socket_readable, resfd,
 			       fd, &resfd->t_read);
 
 	if (!writable)
-		EVENT_OFF(resfd->t_write);
+		event_cancel(&resfd->t_write);
 	else if (!resfd->t_write)
 		event_add_write(r->master, resolver_cb_socket_writable, resfd,
 				fd, &resfd->t_write);

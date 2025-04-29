@@ -71,8 +71,8 @@ static void vici_connection_error(struct vici_conn *vici)
 {
 	nhrp_vc_reset();
 
-	EVENT_OFF(vici->t_read);
-	EVENT_OFF(vici->t_write);
+	event_cancel(&vici->t_read);
+	event_cancel(&vici->t_write);
 	zbuf_reset(&vici->ibuf);
 	zbufq_reset(&vici->obuf);
 

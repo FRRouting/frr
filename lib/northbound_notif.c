@@ -735,7 +735,7 @@ void nb_notif_terminate(void)
 
 	__dbg("terminating: timer: %p timer arg: %p walk %p", nb_notif_timer, args, nb_notif_walk);
 
-	EVENT_OFF(nb_notif_timer);
+	event_cancel(&nb_notif_timer);
 
 	if (nb_notif_walk) {
 		/* Grab walk args from walk if active. */

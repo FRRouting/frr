@@ -89,7 +89,7 @@ void wheel_delete(struct timer_wheel *wheel)
 		list_delete(&wheel->wheel_slot_lists[i]);
 	}
 
-	EVENT_OFF(wheel->timer);
+	event_cancel(&wheel->timer);
 	XFREE(MTYPE_TIMER_WHEEL_LIST, wheel->wheel_slot_lists);
 	XFREE(MTYPE_TIMER_WHEEL, wheel);
 }

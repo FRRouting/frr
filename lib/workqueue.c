@@ -96,7 +96,7 @@ void work_queue_free_and_null(struct work_queue **wqp)
 {
 	struct work_queue *wq = *wqp;
 
-	EVENT_OFF(wq->thread);
+	event_cancel(&wq->thread);
 
 	while (!work_queue_empty(wq)) {
 		struct work_queue_item *item = work_queue_last_item(wq);
@@ -213,7 +213,7 @@ void workqueue_cmd_init(void)
  */
 void work_queue_plug(struct work_queue *wq)
 {
-	EVENT_OFF(wq->thread);
+	event_cancel(&wq->thread);
 
 	UNSET_FLAG(wq->flags, WQ_UNPLUGGED);
 }
