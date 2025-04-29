@@ -187,15 +187,6 @@ static inline unsigned long timeval_elapsed(struct timeval a, struct timeval b)
 #define EVENT_VAL(X) ((X)->u.val)
 
 /*
- * Please consider this macro deprecated, and do not use it in new code.
- */
-#define EVENT_OFF(thread)                                                      \
-	do {                                                                   \
-		if ((thread))                                                  \
-			event_cancel(&(thread));                               \
-	} while (0)
-
-/*
  * Macro wrappers to generate xrefs for all thread add calls.  Includes
  * file/line/function info for debugging/tracing.
  */
