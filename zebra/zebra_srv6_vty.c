@@ -801,9 +801,12 @@ DEFPY (locator_prefix,
 	struct listnode *node = NULL;
 	uint8_t expected_prefixlen;
 	struct srv6_sid_format *format;
+	int idx = 0;
 
 	locator->prefix = *prefix;
-	func_bit_len = func_bit_len ?: ZEBRA_SRV6_FUNCTION_LENGTH;
+	/* Only set default if func_bit_len was not provided in command */
+	if (func_bit_len == 0 && !argv_find(argv, argc, "func-bits", &idx))
+		func_bit_len = ZEBRA_SRV6_FUNCTION_LENGTH;
 
 	expected_prefixlen = prefix->prefixlen;
 	format = locator->sid_format;
