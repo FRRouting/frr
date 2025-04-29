@@ -594,7 +594,7 @@ static void restart_done(struct daemon *dmn)
 			dmn->name, state_str[dmn->state]);
 		return;
 	}
-	EVENT_OFF(dmn->t_wakeup);
+	event_cancel(&dmn->t_wakeup);
 
 	if (try_connect(dmn) < 0)
 		SET_WAKEUP_DOWN(dmn);
@@ -622,9 +622,9 @@ static void daemon_down(struct daemon *dmn, const char *why)
 		close(dmn->fd);
 		dmn->fd = -1;
 	}
-	EVENT_OFF(dmn->t_read);
-	EVENT_OFF(dmn->t_write);
-	EVENT_OFF(dmn->t_wakeup);
+	event_cancel(&dmn->t_read);
+	event_cancel(&dmn->t_write);
+	event_cancel(&dmn->t_wakeup);
 	if (try_connect(dmn) < 0)
 		SET_WAKEUP_DOWN(dmn);
 
@@ -750,7 +750,7 @@ static void daemon_up(struct daemon *dmn, const char *why)
 	if (gs.numdown == 0) {
 		daemon_send_ready(0);
 
-		EVENT_OFF(gs.t_operational);
+		event_cancel(&gs.t_operational);
 
 		event_add_timer(master, daemon_restarting_operational, NULL,
 				gs.operational_timeout, &gs.t_operational);
@@ -948,7 +948,7 @@ static void phase_check(void)
 					gs.start_command, 1, 0);
 		}
 		gs.phase = PHASE_NONE;
-		EVENT_OFF(gs.t_phase_hanging);
+		event_cancel(&gs.t_phase_hanging);
 		zlog_notice("Phased global restart has completed.");
 		break;
 	}

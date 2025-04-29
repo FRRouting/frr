@@ -4400,7 +4400,7 @@ static void vtysh_log_read(struct event *thread)
 				"log monitor connection closed unexpectedly");
 		buf.hdr.textlen = strlen(buf.text);
 
-		EVENT_OFF(vclient->log_reader);
+		event_cancel(&vclient->log_reader);
 		close(vclient->log_fd);
 		vclient->log_fd = -1;
 
@@ -4522,7 +4522,7 @@ DEFPY (no_vtysh_terminal_monitor,
 			 * a close notification...
 			 */
 			if (vclient->log_fd != -1) {
-				EVENT_OFF(vclient->log_reader);
+				event_cancel(&vclient->log_reader);
 
 				close(vclient->log_fd);
 				vclient->log_fd = -1;
