@@ -63,11 +63,13 @@ if_new(const char *name)
 	iface->ipv4.af = AF_INET;
 	iface->ipv4.iface = iface;
 	iface->ipv4.enabled = 0;
+	iface->ipv4.disable_establish_hello = 0;
 
 	/* ipv6 */
 	iface->ipv6.af = AF_INET6;
 	iface->ipv6.iface = iface;
 	iface->ipv6.enabled = 0;
+	iface->ipv6.disable_establish_hello = 0;
 
 	return (iface);
 }

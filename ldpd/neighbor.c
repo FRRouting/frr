@@ -630,8 +630,9 @@ nbr_establish_connection(struct nbr *nbr)
 	 * an adjacency as well.
 	 */
 	RB_FOREACH(adj, nbr_adj_head, &nbr->adj_tree)
-		send_hello(adj->source.type, adj->source.link.ia,
-		    adj->source.target);
+		if (!(adj->source.type == HELLO_LINK && adj->source.link.ia->disable_establish_hello))
+			send_hello(adj->source.type, adj->source.link.ia,
+				adj->source.target);
 
 	if (connect(nbr->fd, &remote_su.sa, sockaddr_len(&remote_su.sa)) == -1) {
 		if (errno == EINPROGRESS) {
