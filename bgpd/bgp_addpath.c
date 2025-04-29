@@ -9,6 +9,7 @@
 #endif
 
 #include "bgp_addpath.h"
+#include "bgp_evpn.h"
 #include "bgp_route.h"
 
 static const struct bgp_addpath_strategy_names strat_names[BGP_ADDPATH_MAX] = {
@@ -340,6 +341,13 @@ void bgp_addpath_type_changed(struct bgp *bgp)
 				peer_count[afi][safi][type] += 1;
 				bgp->tx_addpath.total_peercount[afi][safi] += 1;
 			}
+		}
+	}
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (advertise_type5_routes_multipath(bgp, afi) && safi == SAFI_UNICAST) {
+			peer_count[afi][safi][BGP_ADDPATH_ALL] += 1;
+			bgp->tx_addpath.total_peercount[afi][safi] += 1;
 		}
 	}
 
