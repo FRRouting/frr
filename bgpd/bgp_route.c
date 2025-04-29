@@ -4019,7 +4019,7 @@ void bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi)
 
 		thread_info = EVENT_ARG(t);
 		XFREE(MTYPE_TMP, thread_info);
-		EVENT_OFF(bgp->gr_info[afi][safi].t_route_select);
+		event_cancel(&bgp->gr_info[afi][safi].t_route_select);
 	}
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART)) {
@@ -5914,7 +5914,7 @@ void bgp_stop_announce_route_timer(struct peer_af *paf)
 	if (!paf->t_announce_route)
 		return;
 
-	EVENT_OFF(paf->t_announce_route);
+	event_cancel(&paf->t_announce_route);
 }
 
 /*
@@ -6183,7 +6183,7 @@ void bgp_soft_reconfig_table_task_cancel(const struct bgp *bgp,
 
 		list_delete(&ntable->soft_reconfig_peers);
 		bgp_soft_reconfig_table_flag(ntable, false);
-		EVENT_OFF(ntable->soft_reconfig_thread);
+		event_cancel(&ntable->soft_reconfig_thread);
 	}
 }
 

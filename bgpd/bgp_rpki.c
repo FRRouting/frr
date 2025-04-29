@@ -924,7 +924,7 @@ static void stop(struct rpki_vrf *rpki_vrf)
 {
 	rpki_vrf->rtr_is_stopping = true;
 	if (is_running(rpki_vrf)) {
-		EVENT_OFF(rpki_vrf->t_rpki_sync);
+		event_cancel(&rpki_vrf->t_rpki_sync);
 		rtr_mgr_stop(rpki_vrf->rtr_config);
 		rtr_mgr_free(rpki_vrf->rtr_config);
 		rpki_vrf->rtr_is_running = false;

@@ -1593,7 +1593,7 @@ void rtadv_stop_ra(struct interface *ifp)
 	wheel_remove_item(zrouter.ra_wheel, ifp);
 
 	/*Turn off event for ICMPv6 join*/
-	EVENT_OFF(zif->icmpv6_join_timer);
+	event_cancel(&zif->icmpv6_join_timer);
 
 	if (zif->rtadv.AdvSendAdvertisements)
 		rtadv_send_packet(zvrf->rtadv.sock, ifp, RA_SUPPRESS);
@@ -1980,8 +1980,8 @@ static void rtadv_event(struct zebra_vrf *zvrf, enum rtadv_event event, int val)
 
 		break;
 	case RTADV_STOP:
-		EVENT_OFF(rtadv->ra_timer);
-		EVENT_OFF(rtadv->ra_read);
+		event_cancel(&rtadv->ra_timer);
+		event_cancel(&rtadv->ra_read);
 		break;
 	case RTADV_TIMER:
 		event_add_timer(zrouter.master, rtadv_timer, zvrf, val,

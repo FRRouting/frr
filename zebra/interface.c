@@ -233,7 +233,7 @@ static int if_zebra_delete_hook(struct interface *ifp)
 
 		XFREE(MTYPE_ZIF_DESC, zebra_if->desc);
 
-		EVENT_OFF(zebra_if->speed_update);
+		event_cancel(&zebra_if->speed_update);
 
 		XFREE(MTYPE_ZINFO, zebra_if);
 	}

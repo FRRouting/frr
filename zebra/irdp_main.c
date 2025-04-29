@@ -242,7 +242,7 @@ void irdp_advert_off(struct interface *ifp)
 	if (!irdp)
 		return;
 
-	EVENT_OFF(irdp->t_advertise);
+	event_cancel(&irdp->t_advertise);
 
 	frr_each (if_connected, ifp->connected, ifc) {
 		p = ifc->address;
@@ -279,7 +279,7 @@ void process_solicit(struct interface *ifp)
 		return;
 
 	irdp->flags |= IF_SOLICIT;
-	EVENT_OFF(irdp->t_advertise);
+	event_cancel(&irdp->t_advertise);
 
 	timer = (frr_weak_random() % MAX_RESPONSE_DELAY) + 1;
 
