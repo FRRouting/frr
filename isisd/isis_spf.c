@@ -2123,7 +2123,7 @@ static void isis_run_spf_cb(struct event *thread)
 	}
 
 	if (have_run)
-		area->spf_run_count[level]++;
+		area->spf_run_count[level - 1]++;
 
 	isis_area_verify_routes(area);
 
