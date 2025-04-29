@@ -1237,7 +1237,7 @@ void ospf_ls_retransmit_set_timer(struct ospf_neighbor *nbr)
 	struct ospf_lsa_list_entry *ls_rxmt_list_entry;
 
 	if (nbr->t_ls_rxmt)
-		EVENT_OFF(nbr->t_ls_rxmt);
+		event_cancel(&nbr->t_ls_rxmt);
 
 	ls_rxmt_list_entry = ospf_lsa_list_first(&nbr->ls_rxmt_list);
 	if (ls_rxmt_list_entry) {

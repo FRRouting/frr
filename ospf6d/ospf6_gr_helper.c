@@ -383,7 +383,7 @@ int ospf6_process_grace_lsa(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 	}
 
 	if (OSPF6_GR_IS_ACTIVE_HELPER(restarter)) {
-		EVENT_OFF(restarter->gr_helper_info.t_grace_timer);
+		event_cancel(&restarter->gr_helper_info.t_grace_timer);
 
 		if (ospf6->ospf6_helper_cfg.active_restarter_cnt > 0)
 			ospf6->ospf6_helper_cfg.active_restarter_cnt--;
@@ -471,7 +471,7 @@ void ospf6_gr_helper_exit(struct ospf6_neighbor *nbr,
 	 * expiry, stop the grace timer.
 	 */
 	if (reason != OSPF6_GR_HELPER_GRACE_TIMEOUT)
-		EVENT_OFF(nbr->gr_helper_info.t_grace_timer);
+		event_cancel(&nbr->gr_helper_info.t_grace_timer);
 
 	if (ospf6->ospf6_helper_cfg.active_restarter_cnt <= 0) {
 		zlog_err(

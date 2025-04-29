@@ -435,8 +435,8 @@ void ospf6_area_disable(struct ospf6_area *oa)
 	ospf6_spf_table_finish(oa->spf_table);
 	ospf6_route_remove_all(oa->route_table);
 
-	EVENT_OFF(oa->thread_router_lsa);
-	EVENT_OFF(oa->thread_intra_prefix_lsa);
+	event_cancel(&oa->thread_router_lsa);
+	event_cancel(&oa->thread_intra_prefix_lsa);
 }
 
 

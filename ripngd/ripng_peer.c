@@ -29,7 +29,7 @@ static struct ripng_peer *ripng_peer_new(void)
 
 static void ripng_peer_free(struct ripng_peer *peer)
 {
-	EVENT_OFF(peer->t_timeout);
+	event_cancel(&peer->t_timeout);
 	XFREE(MTYPE_RIPNG_PEER, peer);
 }
 
@@ -79,7 +79,7 @@ static struct ripng_peer *ripng_peer_get(struct ripng *ripng,
 	peer = ripng_peer_lookup(ripng, addr);
 
 	if (peer) {
-		EVENT_OFF(peer->t_timeout);
+		event_cancel(&peer->t_timeout);
 	} else {
 		peer = ripng_peer_new();
 		peer->ripng = ripng;

@@ -182,7 +182,7 @@ static void ospf_config_finish(struct event *t)
 
 static void ospf_config_start(void)
 {
-	EVENT_OFF(t_ospf_cfg);
+	event_cancel(&t_ospf_cfg);
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("ospfd config start callback received.");
 	event_add_timer(master, ospf_config_finish, NULL,
@@ -194,7 +194,7 @@ static void ospf_config_end(void)
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("ospfd config end callback received.");
 
-	EVENT_OFF(t_ospf_cfg);
+	event_cancel(&t_ospf_cfg);
 }
 
 /* OSPFd main routine. */

@@ -416,7 +416,7 @@ static void ripng_garbage_collect(struct event *t)
 	rinfo = EVENT_ARG(t);
 
 	/* Off timeout timer. */
-	EVENT_OFF(rinfo->t_timeout);
+	event_cancel(&rinfo->t_timeout);
 
 	/* Get route_node pointer. */
 	rp = rinfo->rp;
@@ -563,14 +563,14 @@ struct ripng_info *ripng_ecmp_replace(struct ripng *ripng,
 	/* Re-use the first entry, and delete the others. */
 	for (ALL_LIST_ELEMENTS(list, node, nextnode, tmp_rinfo))
 		if (tmp_rinfo != rinfo) {
-			EVENT_OFF(tmp_rinfo->t_timeout);
-			EVENT_OFF(tmp_rinfo->t_garbage_collect);
+			event_cancel(&tmp_rinfo->t_timeout);
+			event_cancel(&tmp_rinfo->t_garbage_collect);
 			list_delete_node(list, node);
 			ripng_info_free(tmp_rinfo);
 		}
 
-	EVENT_OFF(rinfo->t_timeout);
-	EVENT_OFF(rinfo->t_garbage_collect);
+	event_cancel(&rinfo->t_timeout);
+	event_cancel(&rinfo->t_garbage_collect);
 	memcpy(rinfo, rinfo_new, sizeof(struct ripng_info));
 
 	if (ripng_route_rte(rinfo)) {
@@ -602,7 +602,7 @@ struct ripng_info *ripng_ecmp_delete(struct ripng *ripng,
 	struct agg_node *rp = rinfo->rp;
 	struct list *list = (struct list *)rp->info;
 
-	EVENT_OFF(rinfo->t_timeout);
+	event_cancel(&rinfo->t_timeout);
 
 	if (rinfo->metric != RIPNG_METRIC_INFINITY)
 		ripng_aggregate_decrement(rp, rinfo);
@@ -610,7 +610,7 @@ struct ripng_info *ripng_ecmp_delete(struct ripng *ripng,
 	if (listcount(list) > 1) {
 		/* Some other ECMP entries still exist. Just delete this entry.
 		 */
-		EVENT_OFF(rinfo->t_garbage_collect);
+		event_cancel(&rinfo->t_garbage_collect);
 		listnode_delete(list, rinfo);
 		if (ripng_route_rte(rinfo) &&
 		    CHECK_FLAG(rinfo->flags, RIPNG_RTF_FIB))
@@ -656,7 +656,7 @@ static void ripng_timeout(struct event *t)
 static void ripng_timeout_update(struct ripng *ripng, struct ripng_info *rinfo)
 {
 	if (rinfo->metric != RIPNG_METRIC_INFINITY) {
-		EVENT_OFF(rinfo->t_timeout);
+		event_cancel(&rinfo->t_timeout);
 		event_add_timer(master, ripng_timeout, rinfo,
 				ripng->timeout_time, &rinfo->t_timeout);
 	}
@@ -1064,7 +1064,7 @@ void ripng_redistribute_delete(struct ripng *ripng, int type, int sub_type,
 				RIPNG_TIMER_ON(rinfo->t_garbage_collect,
 					       ripng_garbage_collect,
 					       ripng->garbage_time);
-				EVENT_OFF(rinfo->t_timeout);
+				event_cancel(&rinfo->t_timeout);
 
 				/* Aggregate count decrement. */
 				ripng_aggregate_decrement(rp, rinfo);
@@ -1103,7 +1103,7 @@ void ripng_redistribute_withdraw(struct ripng *ripng, int type)
 				RIPNG_TIMER_ON(rinfo->t_garbage_collect,
 					       ripng_garbage_collect,
 					       ripng->garbage_time);
-				EVENT_OFF(rinfo->t_timeout);
+				event_cancel(&rinfo->t_timeout);
 
 				/* Aggregate count decrement. */
 				ripng_aggregate_decrement(rp, rinfo);
@@ -1487,7 +1487,7 @@ static void ripng_update(struct event *t)
 
 	/* Triggered updates may be suppressed if a regular update is due by
 	   the time the triggered update would be sent. */
-	EVENT_OFF(ripng->t_triggered_interval);
+	event_cancel(&ripng->t_triggered_interval);
 	ripng->trigger = 0;
 
 	/* Reset flush event. */
@@ -1514,7 +1514,7 @@ void ripng_triggered_update(struct event *t)
 	int interval;
 
 	/* Cancel interval timer. */
-	EVENT_OFF(ripng->t_triggered_interval);
+	event_cancel(&ripng->t_triggered_interval);
 	ripng->trigger = 0;
 
 	/* Logging triggered update. */
@@ -1958,7 +1958,7 @@ void ripng_event(struct ripng *ripng, enum ripng_event event, int sock)
 		event_add_read(master, ripng_read, ripng, sock, &ripng->t_read);
 		break;
 	case RIPNG_UPDATE_EVENT:
-		EVENT_OFF(ripng->t_update);
+		event_cancel(&ripng->t_update);
 
 		/* Update timer jitter. */
 		jitter = ripng_update_jitter(ripng->update_time);
@@ -2254,8 +2254,8 @@ void ripng_ecmp_disable(struct ripng *ripng)
 			/* Drop all other entries, except the first one. */
 			for (ALL_LIST_ELEMENTS(list, node, nextnode, tmp_rinfo))
 				if (tmp_rinfo != rinfo) {
-					EVENT_OFF(tmp_rinfo->t_timeout);
-					EVENT_OFF(tmp_rinfo->t_garbage_collect);
+					event_cancel(&tmp_rinfo->t_timeout);
+					event_cancel(&tmp_rinfo->t_garbage_collect);
 					list_delete_node(list, node);
 					ripng_info_free(tmp_rinfo);
 				}
@@ -2532,8 +2532,8 @@ static void ripng_instance_disable(struct ripng *ripng)
 				ripng_zebra_ipv6_delete(ripng, rp);
 
 			for (ALL_LIST_ELEMENTS_RO(list, listnode, rinfo)) {
-				EVENT_OFF(rinfo->t_timeout);
-				EVENT_OFF(rinfo->t_garbage_collect);
+				event_cancel(&rinfo->t_timeout);
+				event_cancel(&rinfo->t_garbage_collect);
 				ripng_info_free(rinfo);
 			}
 			list_delete(&list);
@@ -2552,12 +2552,12 @@ static void ripng_instance_disable(struct ripng *ripng)
 	ripng_redistribute_disable(ripng);
 
 	/* Cancel the RIPng timers */
-	EVENT_OFF(ripng->t_update);
-	EVENT_OFF(ripng->t_triggered_update);
-	EVENT_OFF(ripng->t_triggered_interval);
+	event_cancel(&ripng->t_update);
+	event_cancel(&ripng->t_triggered_update);
+	event_cancel(&ripng->t_triggered_interval);
 
 	/* Cancel the read thread */
-	EVENT_OFF(ripng->t_read);
+	event_cancel(&ripng->t_read);
 
 	/* Close the RIPng socket */
 	if (ripng->sock >= 0) {

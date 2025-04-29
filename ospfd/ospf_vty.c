@@ -8838,7 +8838,7 @@ DEFPY (no_ip_ospf_gr_hdelay,
 			continue;
 
 		oi->gr.hello_delay.elapsed_seconds = 0;
-		EVENT_OFF(oi->gr.hello_delay.t_grace_send);
+		event_cancel(&oi->gr.hello_delay.t_grace_send);
 	}
 
 	return CMD_SUCCESS;
@@ -10032,7 +10032,7 @@ DEFUN (no_ospf_max_metric_router_lsa_startup,
 	for (ALL_LIST_ELEMENTS_RO(ospf->areas, ln, area)) {
 		SET_FLAG(area->stub_router_state,
 			 OSPF_AREA_WAS_START_STUB_ROUTED);
-		EVENT_OFF(area->t_stub_router);
+		event_cancel(&area->t_stub_router);
 
 		/* Don't trample on admin stub routed */
 		if (!CHECK_FLAG(area->stub_router_state,
@@ -13380,7 +13380,7 @@ DEFPY_HIDDEN(ospf_maxage_delay_timer, ospf_maxage_delay_timer_cmd,
 	else
 		ospf->maxage_delay = value;
 
-	EVENT_OFF(ospf->t_maxage);
+	event_cancel(&ospf->t_maxage);
 	OSPF_TIMER_ON(ospf->t_maxage, ospf_maxage_lsa_remover,
 		      ospf->maxage_delay);
 

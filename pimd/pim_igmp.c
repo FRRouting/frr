@@ -379,7 +379,7 @@ void pim_igmp_other_querier_timer_on(struct gm_sock *igmp)
 				"Querier %s resetting TIMER event for Other-Querier-Present",
 				ifaddr_str);
 		}
-		EVENT_OFF(igmp->t_other_querier_timer);
+		event_cancel(&igmp->t_other_querier_timer);
 	} else {
 		/*
 		  We are the current querier, then stop sending general queries:
@@ -441,7 +441,7 @@ void pim_igmp_other_querier_timer_off(struct gm_sock *igmp)
 				ifaddr_str, igmp->fd, igmp->interface->name);
 		}
 	}
-	EVENT_OFF(igmp->t_other_querier_timer);
+	event_cancel(&igmp->t_other_querier_timer);
 }
 
 int igmp_validate_checksum(char *igmp_msg, int igmp_msg_len)
@@ -885,7 +885,7 @@ void pim_igmp_general_query_off(struct gm_sock *igmp)
 				ifaddr_str, igmp->fd, igmp->interface->name);
 		}
 	}
-	EVENT_OFF(igmp->t_igmp_query_timer);
+	event_cancel(&igmp->t_igmp_query_timer);
 }
 
 /* Issue IGMP general query */
@@ -955,7 +955,7 @@ static void sock_close(struct gm_sock *igmp)
 				igmp->interface->name);
 		}
 	}
-	EVENT_OFF(igmp->t_igmp_read);
+	event_cancel(&igmp->t_igmp_read);
 
 	if (close(igmp->fd)) {
 		flog_err(
@@ -1047,7 +1047,7 @@ void igmp_group_delete(struct gm_group *group)
 		igmp_source_delete(src);
 	}
 
-	EVENT_OFF(group->t_group_query_retransmit_timer);
+	event_cancel(&group->t_group_query_retransmit_timer);
 
 	group_timer_off(group);
 	igmp_group_count_decr(pim_ifp);
@@ -1350,7 +1350,7 @@ static void group_timer_off(struct gm_group *group)
 		zlog_debug("Cancelling TIMER event for group %s on %s",
 			   group_str, group->interface->name);
 	}
-	EVENT_OFF(group->t_group_timer);
+	event_cancel(&group->t_group_timer);
 }
 
 void igmp_group_timer_on(struct gm_group *group, long interval_msec,

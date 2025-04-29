@@ -1079,7 +1079,7 @@ static void ospf6_ase_lsa_refresh(struct ospf6 *o)
 					route->path.origin.id, o->router_id,
 					o->lsdb);
 		if (old) {
-			EVENT_OFF(old->refresh);
+			event_cancel(&old->refresh);
 			event_add_event(master, ospf6_lsa_refresh, old, 0,
 					&old->refresh);
 		} else {
@@ -1154,7 +1154,7 @@ void ospf6_area_nssa_update(struct ospf6_area *area)
 						   lsa)) {
 				if (IS_OSPF6_DEBUG_NSSA)
 					ospf6_lsa_header_print(lsa);
-				EVENT_OFF(lsa->refresh);
+				event_cancel(&lsa->refresh);
 				event_add_event(master, ospf6_lsa_refresh, lsa,
 						0, &lsa->refresh);
 			}

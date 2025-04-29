@@ -214,7 +214,7 @@ static void ospf6_config_start(void)
 {
 	if (IS_OSPF6_DEBUG_EVENT)
 		zlog_debug("ospf6d config start received");
-	EVENT_OFF(t_ospf6_cfg);
+	event_cancel(&t_ospf6_cfg);
 	event_add_timer(master, ospf6_config_finish, NULL,
 			OSPF6_PRE_CONFIG_MAX_WAIT_SECONDS, &t_ospf6_cfg);
 }
@@ -224,7 +224,7 @@ static void ospf6_config_end(void)
 	if (IS_OSPF6_DEBUG_EVENT)
 		zlog_debug("ospf6d config end received");
 
-	EVENT_OFF(t_ospf6_cfg);
+	event_cancel(&t_ospf6_cfg);
 }
 
 /* Main routine of ospf6d. Treatment of argument and starting ospf finite

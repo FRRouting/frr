@@ -428,7 +428,7 @@ void pim_crp_nht_update(struct pim_instance *pim, struct pim_nexthop_cache *pnc)
 
 static void pim_crp_free(struct pim_instance *pim, struct bsr_crp_rp *rp)
 {
-	EVENT_OFF(rp->t_hold);
+	event_cancel(&rp->t_hold);
 	pim_nht_candrp_del(pim, rp->addr);
 	bsr_crp_rp_groups_fini(rp->groups);
 
@@ -553,7 +553,7 @@ int pim_crp_process(struct interface *ifp, pim_sgaddr *src_dst, uint8_t *buf,
 	rp->seen_last = monotime(NULL);
 	rp->holdtime = ntohs(crp_hdr->rp_holdtime);
 
-	EVENT_OFF(rp->t_hold);
+	event_cancel(&rp->t_hold);
 	event_add_timer(router->master, pim_crp_expire, rp,
 			ntohs(crp_hdr->rp_holdtime), &rp->t_hold);
 

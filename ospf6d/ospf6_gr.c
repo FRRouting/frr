@@ -172,7 +172,7 @@ static void ospf6_gr_restart_exit(struct ospf6 *ospf6, const char *reason)
 	ospf6->gr_info.finishing_restart = true;
 	XFREE(MTYPE_TMP, ospf6->gr_info.exit_reason);
 	ospf6->gr_info.exit_reason = XSTRDUP(MTYPE_TMP, reason);
-	EVENT_OFF(ospf6->gr_info.t_grace_period);
+	event_cancel(&ospf6->gr_info.t_grace_period);
 
 	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, onode, area)) {
 		struct ospf6_interface *oi;
@@ -194,7 +194,7 @@ static void ospf6_gr_restart_exit(struct ospf6 *ospf6, const char *reason)
 			/* Disable hello delay. */
 			if (oi->gr.hello_delay.t_grace_send) {
 				oi->gr.hello_delay.elapsed_seconds = 0;
-				EVENT_OFF(oi->gr.hello_delay.t_grace_send);
+				event_cancel(&oi->gr.hello_delay.t_grace_send);
 				event_add_event(master, ospf6_hello_send, oi, 0,
 						&oi->thread_send_hello);
 			}

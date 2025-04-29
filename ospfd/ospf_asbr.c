@@ -1157,7 +1157,7 @@ static void ospf_external_aggr_timer(struct ospf *ospf,
 				zlog_debug(
 					"%s, Restarting Aggregator delay timer.",
 					__func__);
-			EVENT_OFF(ospf->t_external_aggr);
+			event_cancel(&ospf->t_external_aggr);
 		}
 	}
 
