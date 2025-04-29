@@ -899,7 +899,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 
 		if (pkt->hdr.priority == 0) {
 			vrrp_send_advertisement(r);
-			EVENT_OFF(r->t_adver_timer);
+			event_cancel(&r->t_adver_timer);
 			event_add_timer_msec(master, vrrp_adver_timer_expire, r,
 					     r->vr->advertisement_interval *
 						     CS2MS,
@@ -912,13 +912,13 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 				"Received advertisement from %s w/ priority %hhu; switching to Backup",
 				r->vr->vrid, family2str(r->family), sipstr,
 				pkt->hdr.priority);
-			EVENT_OFF(r->t_adver_timer);
+			event_cancel(&r->t_adver_timer);
 			if (r->vr->version == 3) {
 				r->master_adver_interval =
 					htons(pkt->hdr.v3.adver_int);
 			}
 			vrrp_recalculate_timers(r);
-			EVENT_OFF(r->t_master_down_timer);
+			event_cancel(&r->t_master_down_timer);
 			event_add_timer_msec(master,
 					     vrrp_master_down_timer_expire, r,
 					     r->master_down_interval * CS2MS,
@@ -935,7 +935,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 		break;
 	case VRRP_STATE_BACKUP:
 		if (pkt->hdr.priority == 0) {
-			EVENT_OFF(r->t_master_down_timer);
+			event_cancel(&r->t_master_down_timer);
 			event_add_timer_msec(
 				master, vrrp_master_down_timer_expire, r,
 				r->skew_time * CS2MS, &r->t_master_down_timer);
@@ -946,7 +946,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 					ntohs(pkt->hdr.v3.adver_int);
 			}
 			vrrp_recalculate_timers(r);
-			EVENT_OFF(r->t_master_down_timer);
+			event_cancel(&r->t_master_down_timer);
 			event_add_timer_msec(master,
 					     vrrp_master_down_timer_expire, r,
 					     r->master_down_interval * CS2MS,
@@ -1416,7 +1416,7 @@ static void vrrp_change_state_backup(struct vrrp_router *r)
 		vrrp_zebra_radv_set(r, false);
 
 	/* Disable Adver_Timer */
-	EVENT_OFF(r->t_adver_timer);
+	event_cancel(&r->t_adver_timer);
 
 	r->advert_pending = false;
 	r->garp_pending = false;
@@ -1643,10 +1643,10 @@ static int vrrp_shutdown(struct vrrp_router *r)
 	}
 
 	/* Cancel all timers */
-	EVENT_OFF(r->t_adver_timer);
-	EVENT_OFF(r->t_master_down_timer);
-	EVENT_OFF(r->t_read);
-	EVENT_OFF(r->t_write);
+	event_cancel(&r->t_adver_timer);
+	event_cancel(&r->t_master_down_timer);
+	event_cancel(&r->t_read);
+	event_cancel(&r->t_write);
 
 	/* Protodown macvlan */
 	if (r->mvl_ifp)
