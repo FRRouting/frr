@@ -168,7 +168,14 @@ flavors (local LFA, Remote LFA and TI-LFA).
 .. clicmd:: redistribute <ipv4 | ipv6> table (1-65535) <level-1 | level-2> [metric (0-16777215)|route-map WORD]
 
    Redistribute routes from a given routing table into the given ISIS
-   level database.
+   level database.  Any default route will be ignored unless the
+   `default-information originate` command is specified.
+
+.. clicmd:: default-information originate <ipv4 | ipv6> <level-1 | level-2> [always] [metric (0-16777214)|route-map WORD]
+
+   Originate a default route into the given ISIS level datbase.
+   The `always` command will turn it on by default even if there
+   is no default route in the system.
 
 .. _isis-region:
 
