@@ -820,6 +820,7 @@ void if_delete_update(struct interface **pifp)
 		       sizeof(struct zebra_l2info_brslave));
 		zebra_evpn_mac_ifp_del(ifp);
 		mpls_auto_interface_data_off(ifp);
+		zebra_rtadv_disable_per_interface(zif);
 	}
 
 	if (!ifp->configured) {
