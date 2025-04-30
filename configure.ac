@@ -714,7 +714,7 @@ AC_ARG_ENABLE([zebra],
 AC_ARG_ENABLE([bgpd],
   AS_HELP_STRING([--disable-bgpd], [do not build bgpd]))
 AC_ARG_ENABLE([mgmtd],
-  AS_HELP_STRING([--disable-mgmtd], [do not build mgmtd]))
+  AS_HELP_STRING([--disable-mgmtd], [do not build mgmtd]), [], enable_mgmtd=no)
 AC_ARG_ENABLE([mgmtd_local_validations],
   AS_HELP_STRING([--enable-mgmtd-local-validations], [dev: unimplemented local validation]))
 AC_ARG_ENABLE([mgmtd_test_be_client],
