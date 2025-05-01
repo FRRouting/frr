@@ -1362,7 +1362,7 @@ struct zserv *zserv_find_client_session(uint8_t proto, unsigned short instance,
 /* This command is for debugging purpose. */
 DEFUN (show_zebra_client,
        show_zebra_client_cmd,
-       "show zebra client",
+       "show zebra client json",
        SHOW_STR
        ZEBRA_STR
        "Client information\n")
