@@ -483,7 +483,8 @@ parse_encap_seg6local(struct rtattr *tb,
 	return act;
 }
 
-static int parse_encap_seg6(struct rtattr *tb, struct in6_addr *segs)
+static int parse_encap_seg6(struct rtattr *tb, struct in6_addr *segs,
+			    enum srv6_headend_behavior *encap_behavior)
 {
 	struct rtattr *tb_encap[SEG6_IPTUNNEL_MAX + 1] = {};
 	struct seg6_iptunnel_encap *ipt = NULL;
@@ -494,6 +495,24 @@ static int parse_encap_seg6(struct rtattr *tb, struct in6_addr *segs)
 	if (tb_encap[SEG6_IPTUNNEL_SRH]) {
 		ipt = (struct seg6_iptunnel_encap *)
 			RTA_DATA(tb_encap[SEG6_IPTUNNEL_SRH]);
+
+		switch (ipt->mode) {
+		case SEG6_IPTUN_MODE_INLINE:
+			*encap_behavior = SRV6_HEADEND_BEHAVIOR_H_INSERT;
+			break;
+		case SEG6_IPTUN_MODE_ENCAP:
+			*encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
+			break;
+		case SEG6_IPTUN_MODE_ENCAP_RED:
+			*encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS_RED;
+			break;
+		case SEG6_IPTUN_MODE_L2ENCAP:
+			*encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS_L2;
+			break;
+		case SEG6_IPTUN_MODE_L2ENCAP_RED:
+			*encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS_L2_RED;
+			break;
+		}
 
 		for (i = ipt->srh[0].first_segment; i >= 0; i--)
 			memcpy(&segs[i], &ipt->srh[0].segments[i],
@@ -519,6 +538,7 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 	struct seg6local_context seg6l_ctx = {};
 	struct in6_addr segs[SRV6_MAX_SIDS] = {};
 	int num_segs = 0;
+	enum srv6_headend_behavior srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
 
 	vrf_id_t nh_vrf_id = vrf_id;
 	size_t sz = (afi == AFI_IP) ? 4 : 16;
@@ -566,7 +586,7 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 	if (tb[RTA_ENCAP] && tb[RTA_ENCAP_TYPE]
 	    && *(uint16_t *)RTA_DATA(tb[RTA_ENCAP_TYPE])
 		       == LWTUNNEL_ENCAP_SEG6) {
-		num_segs = parse_encap_seg6(tb[RTA_ENCAP], segs);
+		num_segs = parse_encap_seg6(tb[RTA_ENCAP], segs, &srv6_encap_behavior);
 	}
 
 	if (rtm->rtm_flags & RTNH_F_ONLINK)
@@ -592,7 +612,7 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 		nexthop_add_srv6_seg6local(&nh, seg6l_act, &seg6l_ctx);
 
 	if (num_segs)
-		nexthop_add_srv6_seg6(&nh, segs, num_segs);
+		nexthop_add_srv6_seg6(&nh, segs, num_segs, srv6_encap_behavior);
 
 	return nh;
 }
@@ -611,6 +631,7 @@ static uint16_t parse_multipath_nexthops_unicast(ns_id_t ns_id, struct nexthop_g
 	struct seg6local_context seg6l_ctx = {};
 	struct in6_addr segs[SRV6_MAX_SIDS] = {};
 	int num_segs = 0;
+	enum srv6_headend_behavior srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
 	struct rtattr *rtnh_tb[RTA_MAX + 1] = {};
 
 	int len = RTA_PAYLOAD(tb[RTA_MULTIPATH]);
@@ -664,8 +685,8 @@ static uint16_t parse_multipath_nexthops_unicast(ns_id_t ns_id, struct nexthop_g
 			if (rtnh_tb[RTA_ENCAP] && rtnh_tb[RTA_ENCAP_TYPE]
 			    && *(uint16_t *)RTA_DATA(rtnh_tb[RTA_ENCAP_TYPE])
 				       == LWTUNNEL_ENCAP_SEG6) {
-				num_segs = parse_encap_seg6(rtnh_tb[RTA_ENCAP],
-							    segs);
+				num_segs = parse_encap_seg6(rtnh_tb[RTA_ENCAP], segs,
+							    &srv6_encap_behavior);
 			}
 		}
 
@@ -708,7 +729,7 @@ static uint16_t parse_multipath_nexthops_unicast(ns_id_t ns_id, struct nexthop_g
 							   &seg6l_ctx);
 
 			if (num_segs)
-				nexthop_add_srv6_seg6(nh, segs, num_segs);
+				nexthop_add_srv6_seg6(nh, segs, num_segs, srv6_encap_behavior);
 
 			if (rtnh->rtnh_flags & RTNH_F_ONLINK)
 				SET_FLAG(nh->flags, NEXTHOP_FLAG_ONLINK);
@@ -1790,7 +1811,32 @@ static ssize_t fill_seg6ipt_encap(char *buffer, size_t buflen,
 	memset(buffer, 0, buflen);
 
 	ipt = (struct seg6_iptunnel_encap *)buffer;
-	ipt->mode = SEG6_IPTUN_MODE_ENCAP;
+
+	/*
+	 * Note: even if Zebra is capable of programming all the SRv6
+	 * Headend Behaviors defined in RFC 8986, FRR daemons support
+	 * only a subset of them.
+	 * Currently, STATIC currently supports H.Encaps and H.Encaps.Red.
+	 * BGP supports only H.Encaps.
+	 * Daemons need to be extended to support other behaviors.
+	 */
+	switch (segs->encap_behavior) {
+	case SRV6_HEADEND_BEHAVIOR_H_INSERT:
+		ipt->mode = SEG6_IPTUN_MODE_INLINE;
+		break;
+	case SRV6_HEADEND_BEHAVIOR_H_ENCAPS:
+		ipt->mode = SEG6_IPTUN_MODE_ENCAP;
+		break;
+	case SRV6_HEADEND_BEHAVIOR_H_ENCAPS_RED:
+		ipt->mode = SEG6_IPTUN_MODE_ENCAP_RED;
+		break;
+	case SRV6_HEADEND_BEHAVIOR_H_ENCAPS_L2:
+		ipt->mode = SEG6_IPTUN_MODE_L2ENCAP;
+		break;
+	case SRV6_HEADEND_BEHAVIOR_H_ENCAPS_L2_RED:
+		ipt->mode = SEG6_IPTUN_MODE_L2ENCAP_RED;
+		break;
+	}
 
 	srh = (struct ipv6_sr_hdr *)&ipt->srh;
 	srh->hdrlen = (srhlen >> 3) - 1;

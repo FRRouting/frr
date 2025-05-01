@@ -1,0 +1,852 @@
+module ietf-srv6-types {
+  yang-version 1.1;
+
+  namespace "urn:ietf:params:xml:ns:yang:ietf-srv6-types";
+  prefix srv6-types;
+
+  import ietf-inet-types {
+    prefix inet;
+    reference "RFC 6991: Common YANG Data Types";
+  }
+
+  organization
+    "IETF SPRING Working Group";
+  contact
+    "WG Web:   <http://tools.ietf.org/wg/spring/>
+     WG List:  <mailto:spring@ietf.org>
+
+     Editor:   Kamran Raza
+               <mailto:skraza@cisco.com>
+
+     Editor:   Jaganbabu Rajamanickam
+               <maito:jrajaman@cisco.com>
+
+     Editor:   Xufeng Liu
+               <mailto:xufeng.liu.ietf@gmail.com>
+
+     Editor:   Zhibo Hu
+               <mailto:huzhibo@huawei.com>
+
+     Editor:   Iftekhar Hussain
+               <mailto:IHussain@infinera.com>
+
+     Editor:   Himanshu Shah
+               <mailto:hshah@ciena.com>
+
+     Editor:   Daniel Voyer
+               <mailto:daniel.voyer@bell.ca>
+
+     Editor:   Hani Elmalky
+               <mailto:helmalky@google.com>
+
+     Editor:   Satoru Matsushima
+               <mailto:satoru.matsushima@gmail.com>
+
+     Editor:   Katsuhiro Horiba
+               <mailto:katsuhiro.horiba@g.softbank.co.jp>
+
+     Editor:   Ahmed AbdelSalam
+               <mailto:ahabdels@cisco.com>
+
+     ";
+
+  description
+    "This YANG module defines the essential types for the
+     management of Segment-Routing with IPv6 dataplane (SRv6).
+
+     Copyright (c) 2018 IETF Trust and the persons identified as
+     authors of the code.  All rights reserved.
+
+     Redistribution and use in source and binary forms, with or
+     without modification, is permitted pursuant to, and subject
+     to the license terms contained in, the Simplified BSD License
+     set forth in Section 4.c of the IETF Trust's Legal Provisions
+     Relating to IETF Documents
+     (http://trustee.ietf.org/license-info).
+
+     This version of this YANG module is part of RFC XXXX; see the
+     RFC itself for full legal notices.";
+
+     // RFC Editor: replace XXXX with actual RFC number and remove
+     // this note
+
+  revision 2024-11-21 {
+    description
+      "Added SID structure definition and ";
+    reference
+      "RFC XXXX: YANG Data Model for SRv6";
+     // RFC Editor: replace XXXX with actual RFC number and remove
+     // this note
+  }
+
+  revision 2024-03-04 {
+    description
+      "Renamed some of End identities";
+    reference
+      "RFC XXXX: YANG Data Model for SRv6";
+     // RFC Editor: replace XXXX with actual RFC number and remove
+     // this note
+  }
+
+  revision 2022-01-14 {
+    description
+      "Alignment with SRv6 net-pgm rev16";
+    reference
+      "RFC XXXX: YANG Data Model for SRv6";
+     // RFC Editor: replace XXXX with actual RFC number and remove
+     // this note
+  }
+
+  revision 2019-10-30 {
+    description
+      "Renaming of some types";
+    reference
+      "RFC XXXX: YANG Data Model for SRv6";
+     // RFC Editor: replace XXXX with actual RFC number and remove
+     // this note
+  }
+
+  revision 2019-07-08 {
+    description
+      "Alignment with latest SRv6 network programming";
+    reference
+      "RFC XXXX: YANG Data Model for SRv6";
+     // RFC Editor: replace XXXX with actual RFC number and remove
+     // this note
+  }
+
+  revision 2018-10-22 {
+    description
+      "Initial revision.";
+    reference
+      "RFC XXXX: YANG Data Model for SRv6";
+     // RFC Editor: replace XXXX with actual RFC number and remove
+     // this note
+  }
+
+  identity srv6-endpoint-type {
+    description
+      "Base identity from which specific SRv6 Endpoint types are
+      derived.";
+  }
+
+  /* Endpoints defined under draft-ietf-spring-
+   * srv6-network-programming */
+
+  identity End {
+    base srv6-endpoint-type;
+    description
+      "End function (variant: no PSP, no USP).";
+    reference
+      "RFC 8986";
+  }
+
+  identity End_PSP {
+    base srv6-endpoint-type;
+    description
+      "End function (variant: PSP only).";
+    reference
+      "RFC 8986";
+  }
+  identity End_USP {
+    base srv6-endpoint-type;
+    description
+      "End function (variant: USP only).";
+    reference
+      "RFC 8986";
+  }
+
+  identity End_PSP_USP {
+    base srv6-endpoint-type;
+    description
+      "End function (variant: PSP and USP).";
+    reference
+      "RFC 8986";
+  }
+
+  identity End.X {
+    base srv6-endpoint-type;
+    description
+      "Endpoint with cross-connect to an array
+      of layer-3 adjacencies (variant: no PSP, no USP).";
+    reference
+      "RFC 8986";
+  }
+
+  identity End.X_PSP {
+    base srv6-endpoint-type;
+    description
+      "Endpoint with cross-connect to an array
+      of layer-3 adjacencies (variant: PSP only).";
+    reference
+      "RFC 8986";
+  }
+
+  identity End.X_USP {
+    base srv6-endpoint-type;
+    description
+      "Endpoint with cross-connect to an array
+      of layer-3 adjacencies (variant: USP only).";
+    reference
+      "RFC 8986";
+  }
+
+  identity End.X_PSP_USP {
+    base srv6-endpoint-type;
+    description
+      "Endpoint with cross-connect to an array
+      of layer-3 adjacencies (variant: PSP and USP).";
+    reference
+      "RFC 8986";
+  }
+
+  identity End.T {
+    base srv6-endpoint-type;
+    description
+      "Endpoint with specific IPv6 table lookup
+      (variant: no PSP, no USP).";
+    reference
+      "RFC 8986";
+  }
+
+  identity End.T_PSP {
+    base srv6-endpoint-type;
+    description
+      "Endpoint with specific IPv6 table lookup
+      (variant: PSP only).";
+    reference
+      "RFC 8986";
+  }
+
+  identity End.T_USP {
+    base srv6-endpoint-type;
+    description
+      "Endpoint with specific IPv6 table lookup
+      (variant: USP only).";
+    reference
+      "RFC 8986";
+  }
+
+  identity End.T_PSP_USP {
+    base srv6-endpoint-type;
+    description
+      "Endpoint with specific IPv6 table lookup
+      (variant: PSP and USP).";
+    reference
+      "RFC 8986";
+  }
+
+  identity End.B6.Encaps {
+    base srv6-endpoint-type;
+    description
+      "Endpoint bound to an SRv6 Policy
+      where the SRv6 Policy also includes an
+      IPv6 Source Address A.";
+    reference
+      "RFC 8986";
+  }
+
+  identity End.BM {
+    base srv6-endpoint-type;
+    description
+      "Endpoint bound to an SR-MPLS Policy";
+    reference
+      "RFC 8986";
+  }
+
+  identity End.DX6 {
+    base srv6-endpoint-type;
+    description
+      "Endpoint with decapsulation and cross-connect
+      to an array of IPv6 adjacencies";
+    reference
+      "RFC 8986";
+  }
+  identity End.DX4 {
+    base srv6-endpoint-type;
+    description
+      "Endpoint with decapsulation and cross-connect
+      to an array of IPv4 adjacencies";
+    reference
+      "RFC 8986";
+  }
+
+  identity End.DT6 {
+    base srv6-endpoint-type;
+    description
+      "Endpoint with decapsulation and specific
+      IPv6 table lookup";
+    reference
+      "RFC 8986";
+  }
+
+  identity End.DT4 {
+    base srv6-endpoint-type;
+    description
+      "Endpoint with decapsulation and specific
+      IPv4 table lookup";
+    reference
+      "RFC 8986";
+  }
+
+  identity End.DT46 {
+    base srv6-endpoint-type;
+    description
+      "Endpoint with decapsulation and specific IP
+      (IPv4 or IPv6) table lookup";
+    reference
+      "RFC 8986";
+  }
+
+  identity End.DX2 {
+    base srv6-endpoint-type;
+    description
+      "Endpoint with decapsulation and Layer-2
+      cross-connect to an L2 interface";
+    reference
+      "RFC 8986";
+  }
+
+  identity End.DX2V {
+    base srv6-endpoint-type;
+    description
+      "Endpoint with decapsulation and specific
+      VLAN L2 table lookup";
+    reference
+      "RFC 8986";
+  }
+
+  identity End.DT2U {
+    base srv6-endpoint-type;
+    description
+      "Endpoint with decapsulation and specific
+      unicast MAC L2 table lookup";
+    reference
+      "RFC 8986";
+  }
+
+  identity End.DT2M {
+    base srv6-endpoint-type;
+    description
+      "Endpoint with decapsulation and specific L2 table
+      flooding";
+    reference
+      "RFC 8986";
+  }
+
+  identity End.B6.Encaps.Red {
+    base srv6-endpoint-type;
+    description
+      "This is a reduced encap variation of the End.B6.Encap
+      behavior.";
+    reference
+      "RFC 8986";
+  }
+
+  identity End_USD {
+    base srv6-endpoint-type;
+    description
+      "End function (variant: USD).";
+    reference
+      "RFC 8986";
+  }
+
+  identity End_PSP_USD {
+    base srv6-endpoint-type;
+    description
+      "End function (variant: PSP and USD).";
+    reference
+      "RFC 8986";
+  }
+  identity End_USP_USD {
+    base srv6-endpoint-type;
+    description
+      "End function (variant: USP and USD).";
+    reference
+      "RFC 8986";
+  }
+
+  identity End_PSP_USP_USD {
+    base srv6-endpoint-type;
+    description
+      "End function (variant: PSP and USP and USD).";
+    reference
+      "RFC 8986";
+  }
+
+  identity End.X_USD {
+    base srv6-endpoint-type;
+    description
+      "Endpoint with cross-connect to an array
+      of layer-3 adjacencies (variant: USD).";
+    reference
+      "RFC 8986";
+  }
+
+  identity End.X_PSP_USD {
+    base srv6-endpoint-type;
+    description
+      "Endpoint with cross-connect to an array
+      of layer-3 adjacencies (variant: PSP and USD).";
+    reference
+      "RFC 8986";
+  }
+
+  identity End.X_USP_USD {
+    base srv6-endpoint-type;
+    description
+      "Endpoint with cross-connect to an array
+      of layer-3 adjacencies (variant: USP and USD).";
+    reference
+      "RFC 8986";
+  }
+
+  identity End.X_PSP_USP_USD {
+    base srv6-endpoint-type;
+    description
+      "Endpoint with cross-connect to an array
+      of layer-3 adjacencies (variant: PSP and USP and USD).";
+    reference
+      "RFC 8986";
+  }
+
+  identity End.T_USD {
+    base srv6-endpoint-type;
+    description
+      "Endpoint with decapsulation and Layer-2
+      cross-connect to an L2 interface";
+    reference
+      "RFC 8986";
+  }
+
+  identity End.T_PSP_USD {
+    base srv6-endpoint-type;
+    description
+      "Endpoint with specific IPv6 table lookup
+      (variant: PSP and USD).";
+    reference
+      "RFC 8986";
+  }
+
+  identity End.T_USP_USD {
+    base srv6-endpoint-type;
+    description
+      "Endpoint with specific IPv6 table lookup
+      (variant: USP and USD).";
+    reference
+      "RFC 8986";
+  }
+  identity End.T_PSP_USP_USD {
+    base srv6-endpoint-type;
+    description
+      "Endpoint with specific IPv6 table lookup
+      (variant: PSP and USP and USD).";
+    reference
+      "RFC 8986";
+  }
+
+  /* Endpoints defined under
+   * draft-ietf-spring-sr-service-programming */
+
+  identity End.AN {
+    base srv6-endpoint-type;
+    description
+      "Service-Chaining SR Aware function (native)";
+    reference
+      "draft-ietf-spring-sr-service-programming-05";
+    // RFC Editor: replace with actual RFC number and remove this
+    // note
+  }
+
+  identity End.AS {
+    base srv6-endpoint-type;
+    description
+      "Service-Chaining Static proxy";
+    reference
+      "draft-ietf-spring-sr-service-programming-05";
+    // RFC Editor: replace with actual RFC number and remove this
+    // note
+  }
+
+  identity End.AD {
+    base srv6-endpoint-type;
+    description
+      "Service-Chaining Dynamic proxy";
+    reference
+      "draft-ietf-spring-sr-service-programming-05";
+    // RFC Editor: replace with actual RFC number and remove this
+    // note
+  }
+
+  identity End.AM {
+    base srv6-endpoint-type;
+    description
+      "Service-Chaining Masquerading SR proxy";
+    reference
+      "draft-ietf-spring-sr-service-programming-05";
+    // RFC Editor: replace with actual RFC number and remove this
+    // note
+  }
+
+  identity End.AM_NAT {
+    base srv6-endpoint-type;
+    description
+      "Service-Chaining Masquerading SR proxy with NAT";
+    reference
+      "draft-ietf-spring-sr-service-programming-05";
+    // RFC Editor: replace with actual RFC number and remove this
+    // note
+  }
+
+  identity End.AM_CACHE {
+    base srv6-endpoint-type;
+    description
+      "Service-Chaining Masquerading SR proxy with Caching";
+    reference
+      "draft-ietf-spring-sr-service-programming-05";
+    // RFC Editor: replace with actual RFC number and remove this
+    // note
+  }
+
+  identity End.AM_NAT_CACHE {
+    base srv6-endpoint-type;
+    description
+      "Service-Chaining Masquerading SR proxy with NAT and
+      Caching";
+    reference
+      "draft-ietf-spring-sr-service-programming-05";
+    // RFC Editor: replace with actual RFC number and remove this
+    // note
+  }
+
+  /* Endpoints defined under draft-ietf-dmm-srv6-mobile-uplane */
+
+  identity End.MAP {
+    base srv6-endpoint-type;
+    description
+      "DMM End.MAP";
+    reference
+      "draft-ietf-dmm-srv6-mobile-uplane-17";
+    // RFC Editor: replace with actual RFC number and remove this
+    // note
+  }
+
+  identity End.Limit {
+    base srv6-endpoint-type;
+    description
+      "DMM End.Limit";
+    reference
+      "draft-ietf-dmm-srv6-mobile-uplane-17";
+    // RFC Editor: replace with actual RFC number and remove this
+    // note
+  }
+
+  identity End.M.GTP6.D {
+    base srv6-endpoint-type;
+    description
+      "DMM End.M.GTP6.D";
+    reference
+      "draft-ietf-dmm-srv6-mobile-uplane-17";
+    // RFC Editor: replace with actual RFC number and remove this
+    // note
+  }
+
+  identity End.M.GTP6.Di {
+    base srv6-endpoint-type;
+    description
+      "DMM End.M.GTP6.Di";
+    reference
+      "draft-ietf-dmm-srv6-mobile-uplane-17";
+    // RFC Editor: replace with actual RFC number and remove this
+    // note
+  }
+
+  identity End.M.GTP6.E {
+    base srv6-endpoint-type;
+    description
+      "DMM End.M.GTP6.E";
+    reference
+      "draft-ietf-dmm-srv6-mobile-uplane-05";
+    // RFC Editor: replace with actual RFC number and remove this
+    // note
+  }
+
+  identity End.M.GTP4.E {
+    base srv6-endpoint-type;
+    description
+      "DMM End.M.GTP4.E";
+    reference
+      "draft-ietf-dmm-srv6-mobile-uplane-05";
+    // RFC Editor: replace with actual RFC number and remove this
+    // note
+  }
+  /* DMM end */
+
+  identity srv6-headend-type {
+    description
+      "Base identity from which SRv6 headend rule types are
+      derived.";
+  }
+
+  identity H.Encaps {
+    base srv6-headend-type;
+    description
+      "Headend rule H.Encaps with encapsulated of an SRv6 policy";
+    reference
+      "draft-ietf-spring-srv6-network-programming-16";
+    // RFC Editor: replace with actual RFC number and remove this
+    // note
+  }
+
+  identity H.Encaps.Red {
+    base srv6-headend-type;
+    description
+      "Headend rule H.Encaps.Red with reduced encap of an
+      SRv6 policy";
+    reference
+      "draft-ietf-spring-srv6-network-programming-16";
+    // RFC Editor: replace with actual RFC number and remove this
+    // note
+  }
+
+  identity H.Encaps.L2 {
+    base srv6-headend-type;
+    description
+      "Headend rule H.Encaps.l2 on the received L2 frame";
+    reference
+      "draft-ietf-spring-srv6-network-programming-16";
+    // RFC Editor: replace with actual RFC number and remove this
+    // note
+  }
+
+  identity H.Encaps.L2.Red {
+    base srv6-headend-type;
+    description
+      "Headend rule H.Encaps.L2.Red on the received L2 frame";
+    reference
+      "draft-ietf-spring-srv6-network-programming-16";
+    // RFC Editor: replace with actual RFC number and remove this
+    // note
+  }
+  identity srv6-security-type {
+    description
+      "Base identity from which SRv6 Security rule types are
+      derived.";
+  }
+
+  identity SEC-1 {
+    base srv6-security-type;
+    description
+      "Support an ACL on the external interface that
+      drops any traffic with SA or DA in the internal SID space.
+      (aka Security rule SEC-1)";
+  }
+
+  identity SEC-2 {
+    base srv6-security-type;
+    description
+      "Support an ACL that drops any traffic on local SID as DA
+      from a source SA that does not belong to internal address
+      or SID space. (aka Security rule SEC-2)";
+  }
+
+  identity srv6-counter-type {
+    description
+      "Base identity from which SRv6 counter types are derived.";
+  }
+
+  identity LocalSID {
+    base srv6-counter-type;
+    description
+      "Count packets and bytes traffic that matched that SID and
+      was processed successfully (aka Counter CNT-1)";
+    reference
+      "RFC 8986";
+    // RFC Editor: replace with actual RFC number and remove this
+    // note
+  }
+
+  typedef srv6-sid {
+    type inet:ipv6-prefix;
+    description
+      "This type defines a SID value in SRv6";
+  }
+
+  typedef srv6-sid-func-value {
+    type uint32;
+    description
+      "This is a typedef for SID's FUNC value";
+  }
+
+  typedef srv6-sid-func-value-reserved-type {
+    type enumeration {
+      enum invalid {
+        value 0;
+        description "Invalid function value";
+      }
+    }
+
+    description "SRv6 SID's FUNC Reserved values";
+  }
+
+  typedef srv6-locator-name-type {
+    type string {
+      length "1..59";
+    }
+    description "SRv6 locator name";
+  }
+
+  typedef srv6-locator-len {
+    type uint8 {
+      range "32 .. 96";
+    }
+    description
+      "This type defines an SRv6 locator len with range
+      constraints";
+  }
+
+  typedef srv6-locator-block-len {
+    type uint8;
+    description
+      "This type defines an SRv6 locator block length in bits";
+  }
+
+  typedef srv6-locator-node-len {
+    type uint8;
+    description
+      "This type defines an SRv6 locator node length in bits";
+  }
+
+  typedef srv6-sid-func-len {
+    type uint8;
+    description
+      "This type defines an SRv6 SID function length in bits";
+  }
+
+  typedef srv6-sid-arg-len {
+    type uint8;
+    description
+      "This type defines an SRv6 SID argument length in bits";
+  }
+
+  typedef srv6-sid-pfxlen {
+    type uint8 {
+      range "32 .. 128";
+    }
+    default 128;
+    description
+      "This type defines a SID prefixlen with range constraints";
+  }
+
+  typedef sid-alloc-type {
+    type enumeration {
+      enum Dynamic {
+        description
+          "SID allocated dynamically.";
+      }
+      enum Explicit {
+        description
+          "SID allocated with explicit (static) value";
+      }
+    }
+    description
+      "Types of sid allocation used.";
+  }
+
+  identity srv6-sid-owner-type {
+    description
+      "Base identity from which SID owner types are derived.";
+  }
+
+  identity isis {
+    base srv6-sid-owner-type;
+    description "ISIS";
+  }
+
+  identity ospfv3 {
+    base srv6-sid-owner-type;
+    description "OSPFv3";
+  }
+
+  identity bgp {
+    base srv6-sid-owner-type;
+    description "BGP";
+  }
+  identity evpn {
+    base srv6-sid-owner-type;
+    description "EVPN";
+  }
+
+  identity sr-policy {
+    base srv6-sid-owner-type;
+    description "SR Policy";
+  }
+
+  identity service-function {
+    base srv6-sid-owner-type;
+    description "SF";
+  }
+
+  typedef table-id {
+    type uint32;
+    description
+      "Routing/switching/bridging/VLAN Table Id";
+  }
+
+  typedef srv6-status-type {
+    type enumeration {
+      enum up { value 1; description "State is Up"; }
+      enum down { description "State is Down"; }
+    }
+    description
+      "Status type";
+  }
+
+  typedef srv6-nexthop-type {
+    type enumeration {
+      enum ipv4 { value 1; description "IPv4 next-hop"; }
+      enum ipv6 { description "IPv6 next-hop"; }
+      enum mpls { description "MPLS next-hop"; }
+      enum l2 { description "L2 next-hop"; }
+    }
+    description
+      "Forwarding Next-hop type";
+  }
+
+  grouping srv6-sid-structure {
+    description "SRv6 SID structure grouping";
+
+    leaf locator-block-length {
+      type srv6-types:srv6-locator-block-len;
+      description "SRv6 SID locator block length in bits";
+    }
+    leaf locator-node-length {
+      type srv6-types:srv6-locator-node-len;
+      description "SRv6 SID locator node length in bits";
+    }
+    leaf function-length {
+      type srv6-types:srv6-sid-func-len;
+      description "SRv6 SID function length in bits";
+    }
+    leaf argument-length {
+      type srv6-types:srv6-sid-arg-len;
+      description "SRv6 SID argument length in bits";
+    }
+  }
+
+  grouping srv6-sid-type-b-config {
+    description "SRv6 SID Type-B config grouping";
+
+    leaf sid-behavior {
+      type identityref {
+        base srv6-types:srv6-endpoint-type;
+      }
+      description "SRv6 SID behavior";
+    }
+
+    container sid-structure {
+      description "SRv6 SID structure";
+      uses srv6-types:srv6-sid-structure;
+    }
+  }
+} // module

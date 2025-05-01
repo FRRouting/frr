@@ -1115,6 +1115,12 @@ const struct frr_yang_module_info frr_zebra_info = {
 				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_srv6_segs_stack_entry_seg_get_elem,
 			}
 		},
+		{
+			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/srv6-segs-stack/encap-behavior",
+			.cbs = {
+				.get_elem = lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_srv6_segs_stack_encap_behavior_get_elem,
+			}
+		},
 
 		{
 			.xpath = "/frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/mpls-label-stack/entry",
