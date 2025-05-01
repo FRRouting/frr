@@ -77,7 +77,7 @@ void zebra_gr_stale_client_cleanup(void)
 
 			/* Cancel the stale timer */
 			if (info->t_stale_removal != NULL) {
-				EVENT_OFF(info->t_stale_removal);
+				event_cancel(&info->t_stale_removal);
 				info->do_delete = true;
 				/* Process the stale routes */
 				event_execute(
@@ -115,7 +115,7 @@ static void zebra_gr_client_info_delete(struct zserv *client,
 
 	TAILQ_REMOVE(&(client->gr_info_queue), info, gr_info);
 
-	EVENT_OFF(info->t_stale_removal);
+	event_cancel(&info->t_stale_removal);
 
 	LOG_GR("%s: Instance info is being deleted for client %s vrf %s(%u)",
 	       __func__, zebra_route_string(client->proto), VRF_LOGNAME(vrf),
@@ -669,7 +669,7 @@ static void zebra_gr_process_client_stale_routes(struct zserv *client,
 		LOG_GR("%s: Client %s route update complete for all AFI/SAFI in vrf %s(%d)",
 		       __func__, zebra_route_string(client->proto),
 		       VRF_LOGNAME(vrf), info->vrf_id);
-		EVENT_OFF(info->t_stale_removal);
+		event_cancel(&info->t_stale_removal);
 	}
 }
 

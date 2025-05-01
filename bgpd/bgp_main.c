@@ -166,7 +166,7 @@ __attribute__((__noreturn__)) void sigint(void)
 	 * from the connection_fifo
 	 */
 	peer_connection_fifo_fini(&bm->connection_fifo);
-	EVENT_OFF(bm->e_process_packet);
+	event_cancel(&bm->e_process_packet);
 	pthread_mutex_destroy(&bm->peer_connection_mtx);
 
 	exit(0);

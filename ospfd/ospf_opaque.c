@@ -142,7 +142,7 @@ int ospf_opaque_type9_lsa_init(struct ospf_interface *oi)
 
 void ospf_opaque_type9_lsa_term(struct ospf_interface *oi)
 {
-	EVENT_OFF(oi->t_opaque_lsa_self);
+	event_cancel(&oi->t_opaque_lsa_self);
 	if (oi->opaque_lsa_self != NULL)
 		list_delete(&oi->opaque_lsa_self);
 	oi->opaque_lsa_self = NULL;
@@ -171,7 +171,7 @@ void ospf_opaque_type10_lsa_term(struct ospf_area *area)
 	hook_unregister(ospf_lsa_delete, ospf_opaque_lsa_delete_hook);
 	ospf_opaque_lsa_hooks_registered = false;
 
-	EVENT_OFF(area->t_opaque_lsa_self);
+	event_cancel(&area->t_opaque_lsa_self);
 	if (area->opaque_lsa_self != NULL)
 		list_delete(&area->opaque_lsa_self);
 	return;
@@ -191,7 +191,7 @@ int ospf_opaque_type11_lsa_init(struct ospf *top)
 
 void ospf_opaque_type11_lsa_term(struct ospf *top)
 {
-	EVENT_OFF(top->t_opaque_lsa_self);
+	event_cancel(&top->t_opaque_lsa_self);
 	if (top->opaque_lsa_self != NULL)
 		list_delete(&top->opaque_lsa_self);
 	return;
@@ -631,7 +631,7 @@ static void free_opaque_info_per_type(struct opaque_info_per_type *oipt,
 		ospf_opaque_lsa_flush_schedule(lsa);
 	}
 
-	EVENT_OFF(oipt->t_opaque_lsa_self);
+	event_cancel(&oipt->t_opaque_lsa_self);
 	list_delete(&oipt->id_list);
 	if (cleanup_owner) {
 		/* Remove from its owner's self-originated LSA list. */
@@ -747,7 +747,7 @@ static void free_opaque_info_per_id(void *val)
 {
 	struct opaque_info_per_id *oipi = (struct opaque_info_per_id *)val;
 
-	EVENT_OFF(oipi->t_opaque_lsa_self);
+	event_cancel(&oipi->t_opaque_lsa_self);
 	if (oipi->lsa != NULL)
 		ospf_lsa_unlock(&oipi->lsa);
 	XFREE(MTYPE_OPAQUE_INFO_PER_ID, oipi);

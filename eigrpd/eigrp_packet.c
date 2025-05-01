@@ -923,7 +923,7 @@ void eigrp_packet_free(struct eigrp_packet *ep)
 	if (ep->s)
 		stream_free(ep->s);
 
-	EVENT_OFF(ep->t_retrans_timer);
+	event_cancel(&ep->t_retrans_timer);
 
 	XFREE(MTYPE_EIGRP_PACKET, ep);
 }

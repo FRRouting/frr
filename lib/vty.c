@@ -1653,7 +1653,7 @@ static void vty_flush(struct event *thread)
 
 	/* Tempolary disable read thread. */
 	if (vty->lines == 0)
-		EVENT_OFF(vty->t_read);
+		event_cancel(&vty->t_read);
 
 	/* Function execution continue. */
 	erase = ((vty->status == VTY_MORE || vty->status == VTY_MORELINE));
@@ -1841,9 +1841,9 @@ void vty_stdio_suspend(void)
 	if (!stdio_vty)
 		return;
 
-	EVENT_OFF(stdio_vty->t_write);
-	EVENT_OFF(stdio_vty->t_read);
-	EVENT_OFF(stdio_vty->t_timeout);
+	event_cancel(&stdio_vty->t_write);
+	event_cancel(&stdio_vty->t_read);
+	event_cancel(&stdio_vty->t_timeout);
 
 	if (stdio_termios)
 		tcsetattr(0, TCSANOW, &stdio_orig_termios);
@@ -2503,7 +2503,7 @@ void vty_serv_stop(void)
 	struct vty_serv *vtyserv;
 
 	while ((vtyserv = vtyservs_pop(vty_servs))) {
-		EVENT_OFF(vtyserv->t_accept);
+		event_cancel(&vtyserv->t_accept);
 		close(vtyserv->sock);
 		XFREE(MTYPE_VTY_SERV, vtyserv);
 	}
@@ -2549,9 +2549,9 @@ void vty_close(struct vty *vty)
 	}
 
 	/* Cancel threads.*/
-	EVENT_OFF(vty->t_read);
-	EVENT_OFF(vty->t_write);
-	EVENT_OFF(vty->t_timeout);
+	event_cancel(&vty->t_read);
+	event_cancel(&vty->t_write);
+	event_cancel(&vty->t_timeout);
 
 	if (vty->pass_fd != -1) {
 		close(vty->pass_fd);
@@ -3086,7 +3086,7 @@ static void vty_event(enum vty_event event, struct vty *vty)
 
 		/* Time out treatment. */
 		if (vty->v_timeout) {
-			EVENT_OFF(vty->t_timeout);
+			event_cancel(&vty->t_timeout);
 			event_add_timer(vty_master, vty_timeout, vty,
 					vty->v_timeout, &vty->t_timeout);
 		}
@@ -3096,7 +3096,7 @@ static void vty_event(enum vty_event event, struct vty *vty)
 				&vty->t_write);
 		break;
 	case VTY_TIMEOUT_RESET:
-		EVENT_OFF(vty->t_timeout);
+		event_cancel(&vty->t_timeout);
 		if (vty->v_timeout)
 			event_add_timer(vty_master, vty_timeout, vty,
 					vty->v_timeout, &vty->t_timeout);

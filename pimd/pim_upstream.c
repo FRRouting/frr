@@ -167,10 +167,10 @@ static void upstream_channel_oil_detach(struct pim_upstream *up)
 
 static void pim_upstream_timers_stop(struct pim_upstream *up)
 {
-	EVENT_OFF(up->t_ka_timer);
-	EVENT_OFF(up->t_rs_timer);
-	EVENT_OFF(up->t_msdp_reg_timer);
-	EVENT_OFF(up->t_join_timer);
+	event_cancel(&up->t_ka_timer);
+	event_cancel(&up->t_rs_timer);
+	event_cancel(&up->t_msdp_reg_timer);
+	event_cancel(&up->t_join_timer);
 }
 
 struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
@@ -332,7 +332,7 @@ static void join_timer_stop(struct pim_upstream *up)
 {
 	struct pim_neighbor *nbr = NULL;
 
-	EVENT_OFF(up->t_join_timer);
+	event_cancel(&up->t_join_timer);
 
 	if (up->rpf.source_nexthop.interface)
 		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
@@ -362,7 +362,7 @@ void join_timer_start(struct pim_upstream *up)
 	if (nbr)
 		pim_jp_agg_add_group(nbr->upstream_jp_agg, up, 1, nbr);
 	else {
-		EVENT_OFF(up->t_join_timer);
+		event_cancel(&up->t_join_timer);
 		event_add_timer(router->master, on_join_timer, up,
 				router->t_periodic, &up->t_join_timer);
 	}
@@ -379,7 +379,7 @@ void join_timer_start(struct pim_upstream *up)
 void pim_upstream_join_timer_restart(struct pim_upstream *up,
 				     struct pim_rpf *old)
 {
-	// EVENT_OFF(up->t_join_timer);
+	// event_cancel(&up->t_join_timer);
 	join_timer_start(up);
 }
 
@@ -391,7 +391,7 @@ static void pim_upstream_join_timer_restart_msec(struct pim_upstream *up,
 			   __func__, interval_msec, up->sg_str);
 	}
 
-	EVENT_OFF(up->t_join_timer);
+	event_cancel(&up->t_join_timer);
 	event_add_timer_msec(router->master, on_join_timer, up, interval_msec,
 			     &up->t_join_timer);
 }
@@ -1386,7 +1386,7 @@ static void pim_upstream_fhr_kat_expiry(struct pim_instance *pim,
 			   up->sg_str);
 
 	/* stop reg-stop timer */
-	EVENT_OFF(up->t_rs_timer);
+	event_cancel(&up->t_rs_timer);
 	/* remove regiface from the OIL if it is there*/
 	pim_channel_del_oif(up->channel_oil, pim->regiface,
 			    PIM_OIF_FLAG_PROTO_PIM, __func__);
@@ -1509,7 +1509,7 @@ void pim_upstream_keep_alive_timer_start(struct pim_upstream *up, uint32_t time)
 			zlog_debug("kat start on %s with no stream reference",
 				   up->sg_str);
 	}
-	EVENT_OFF(up->t_ka_timer);
+	event_cancel(&up->t_ka_timer);
 	event_add_timer(router->master, pim_upstream_keep_alive_timer, up, time,
 			&up->t_ka_timer);
 
@@ -1760,7 +1760,7 @@ static void pim_upstream_start_register_stop_timer(struct pim_upstream *up)
 {
 	uint32_t time;
 
-	EVENT_OFF(up->t_rs_timer);
+	event_cancel(&up->t_rs_timer);
 
 	time = router->register_probe_time;
 
@@ -1790,7 +1790,7 @@ void pim_upstream_start_register_probe_timer(struct pim_upstream *up)
 {
 	uint32_t time;
 
-	EVENT_OFF(up->t_rs_timer);
+	event_cancel(&up->t_rs_timer);
 
 	uint32_t lower = (0.5 * router->register_suppress_time);
 	uint32_t upper = (1.5 * router->register_suppress_time);

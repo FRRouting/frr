@@ -44,7 +44,7 @@ void dyn_cache_finish(struct isis *isis)
 	struct listnode *node, *nnode;
 	struct isis_dynhn *dyn;
 
-	EVENT_OFF(isis->t_dync_clean);
+	event_cancel(&isis->t_dync_clean);
 
 	for (ALL_LIST_ELEMENTS(isis->dyn_cache, node, nnode, dyn)) {
 		list_delete_node(isis->dyn_cache, node);

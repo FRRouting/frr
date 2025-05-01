@@ -1046,12 +1046,12 @@ void lde_gc_timer(struct event *thread)
 void
 lde_gc_start_timer(void)
 {
-	EVENT_OFF(gc_timer);
+	event_cancel(&gc_timer);
 	event_add_timer(master, lde_gc_timer, NULL, LDE_GC_INTERVAL, &gc_timer);
 }
 
 void
 lde_gc_stop_timer(void)
 {
-	EVENT_OFF(gc_timer);
+	event_cancel(&gc_timer);
 }

@@ -79,7 +79,7 @@ void pim_bsm_write_config(struct vty *vty, struct interface *ifp)
 
 static void pim_bsm_rpinfo_free(struct bsm_rpinfo *bsrp_info)
 {
-	EVENT_OFF(bsrp_info->g2rp_timer);
+	event_cancel(&bsrp_info->g2rp_timer);
 	XFREE(MTYPE_PIM_BSRP_INFO, bsrp_info);
 }
 
@@ -173,7 +173,7 @@ static void pim_on_bs_timer(struct event *t)
 	struct bsm_scope *scope;
 
 	scope = EVENT_ARG(t);
-	EVENT_OFF(scope->bs_timer);
+	event_cancel(&scope->bs_timer);
 
 	if (PIM_DEBUG_BSM)
 		zlog_debug("%s: Bootstrap Timer expired for scope: %d",
@@ -191,7 +191,7 @@ static void pim_bsm_accept_any(struct bsm_scope *scope)
 	struct bsgrp_node *bsgrp_node;
 	struct bsm_rpinfo *bsrp;
 
-	EVENT_OFF(scope->t_ebsr_regen_bsm);
+	event_cancel(&scope->t_ebsr_regen_bsm);
 
 	/* Reset scope zone data */
 	scope->state = ACCEPT_ANY;
@@ -231,7 +231,7 @@ static void pim_bs_timer_stop(struct bsm_scope *scope)
 	if (PIM_DEBUG_BSM)
 		zlog_debug("%s : BS timer being stopped of sz: %d", __func__,
 			   scope->sz_id);
-	EVENT_OFF(scope->bs_timer);
+	event_cancel(&scope->bs_timer);
 }
 
 static void pim_bs_timer_start(struct bsm_scope *scope, int bs_timeout)
@@ -241,7 +241,7 @@ static void pim_bs_timer_start(struct bsm_scope *scope, int bs_timeout)
 			zlog_debug("%s : Invalid scope(NULL).", __func__);
 		return;
 	}
-	EVENT_OFF(scope->bs_timer);
+	event_cancel(&scope->bs_timer);
 	if (PIM_DEBUG_BSM)
 		zlog_debug(
 			"%s : starting bs timer for scope %d with timeout %d secs",
@@ -307,7 +307,7 @@ void pim_bsm_proc_free(struct pim_instance *pim)
 	struct bsgrp_node *bsgrp;
 	struct cand_rp_group *crpgrp;
 
-	EVENT_OFF(scope->unicast_read);
+	event_cancel(&scope->unicast_read);
 	close(scope->unicast_sock);
 
 	pim_bs_timer_stop(scope);
@@ -352,7 +352,7 @@ static void pim_on_g2rp_timer(struct event *t)
 	pim_addr bsrp_addr;
 
 	bsrp = EVENT_ARG(t);
-	EVENT_OFF(bsrp->g2rp_timer);
+	event_cancel(&bsrp->g2rp_timer);
 	bsgrp_node = bsrp->bsgrp_node;
 	pim = bsgrp_node->scope->pim;
 	bsrp_addr = bsrp->rp_address;
@@ -419,7 +419,7 @@ static void pim_g2rp_timer_start(struct bsm_rpinfo *bsrp, int hold_time)
 			zlog_debug("%s : Invalid brsp(NULL).", __func__);
 		return;
 	}
-	EVENT_OFF(bsrp->g2rp_timer);
+	event_cancel(&bsrp->g2rp_timer);
 	if (PIM_DEBUG_BSM)
 		zlog_debug(
 			"%s : starting g2rp timer for grp: %pFX - rp: %pPAs with timeout  %d secs(Actual Hold time : %d secs)",
@@ -446,7 +446,7 @@ static void pim_g2rp_timer_stop(struct bsm_rpinfo *bsrp)
 			   __func__, &bsrp->bsgrp_node->group,
 			   &bsrp->rp_address);
 
-	EVENT_OFF(bsrp->g2rp_timer);
+	event_cancel(&bsrp->g2rp_timer);
 }
 
 static bool is_hold_time_zero(void *data)
@@ -652,7 +652,7 @@ static void pim_bsm_update(struct pim_instance *pim, pim_addr bsr,
 		break;
 	}
 
-	EVENT_OFF(pim->global_scope.t_ebsr_regen_bsm);
+	event_cancel(&pim->global_scope.t_ebsr_regen_bsm);
 
 	if (pim->global_scope.state == BSR_ELECTED)
 		pim_crp_db_clear(&pim->global_scope);
@@ -679,7 +679,7 @@ void pim_bsm_clear(struct pim_instance *pim)
 	struct rp_info *rp_info;
 	bool upstream_updated = false;
 
-	EVENT_OFF(pim->global_scope.t_ebsr_regen_bsm);
+	event_cancel(&pim->global_scope.t_ebsr_regen_bsm);
 
 	if (pim->global_scope.state == BSR_ELECTED)
 		pim_crp_db_clear(&pim->global_scope);
@@ -1638,7 +1638,7 @@ void pim_bsm_changed(struct bsm_scope *scope)
 {
 	struct event t;
 
-	EVENT_OFF(scope->bs_timer);
+	event_cancel(&scope->bs_timer);
 	scope->changed_bsm_trigger = 2;
 
 	t.arg = scope;
@@ -1705,8 +1705,8 @@ static void pim_cand_bsr_pending(struct bsm_scope *scope)
 	pim_addr best_addr;
 	float prio_delay, addr_delay;
 
-	EVENT_OFF(scope->bs_timer);
-	EVENT_OFF(scope->t_ebsr_regen_bsm);
+	event_cancel(&scope->bs_timer);
+	event_cancel(&scope->t_ebsr_regen_bsm);
 	scope->state = BSR_PENDING;
 
 	best_prio = MAX(scope->cand_bsr_prio, scope->current_bsr_prio);
@@ -1850,8 +1850,8 @@ static void pim_cand_bsr_stop(struct bsm_scope *scope, bool verbose)
 	if (PIM_DEBUG_BSM)
 		zlog_debug("Candidate BSR ceasing operation");
 
-	EVENT_OFF(scope->t_ebsr_regen_bsm);
-	EVENT_OFF(scope->bs_timer);
+	event_cancel(&scope->t_ebsr_regen_bsm);
+	event_cancel(&scope->bs_timer);
 	pim_crp_db_clear(scope);
 	pim_bsm_accept_any(scope);
 }
@@ -2055,7 +2055,7 @@ void pim_cand_rp_trigger(struct bsm_scope *scope)
 		return;
 	}
 
-	EVENT_OFF(scope->cand_rp_adv_timer);
+	event_cancel(&scope->cand_rp_adv_timer);
 
 	if (!scope->cand_rp_addrsel.run)
 		return;
@@ -2078,7 +2078,7 @@ void pim_cand_rp_apply(struct bsm_scope *scope)
 			zlog_debug("Candidate RP ceasing operation");
 
 		cand_addrsel_clear(&scope->cand_rp_addrsel);
-		EVENT_OFF(scope->cand_rp_adv_timer);
+		event_cancel(&scope->cand_rp_adv_timer);
 		pim_cand_rp_adv_stop_maybe(scope);
 		scope->cand_rp_adv_trigger = 0;
 		return;
@@ -2143,7 +2143,7 @@ static void pim_cand_addrs_reapply(struct event *t)
 
 void pim_cand_addrs_changed(void)
 {
-	EVENT_OFF(t_cand_addrs_reapply);
+	event_cancel(&t_cand_addrs_reapply);
 	event_add_timer_msec(router->master, pim_cand_addrs_reapply, NULL, 1,
 			     &t_cand_addrs_reapply);
 }

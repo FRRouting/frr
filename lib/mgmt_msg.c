@@ -641,9 +641,9 @@ void msg_conn_cleanup(struct msg_conn *conn)
 		conn->fd = -1;
 	}
 
-	EVENT_OFF(conn->read_ev);
-	EVENT_OFF(conn->write_ev);
-	EVENT_OFF(conn->proc_msg_ev);
+	event_cancel(&conn->read_ev);
+	event_cancel(&conn->write_ev);
+	event_cancel(&conn->proc_msg_ev);
 
 	mgmt_msg_destroy(ms);
 }
@@ -796,7 +796,7 @@ void msg_client_cleanup(struct msg_client *client)
 {
 	assert(client->conn.is_client);
 
-	EVENT_OFF(client->conn_retry_tmr);
+	event_cancel(&client->conn_retry_tmr);
 	free(client->sopath);
 
 	msg_conn_cleanup(&client->conn);
@@ -910,7 +910,7 @@ void msg_server_cleanup(struct msg_server *server)
 	DEBUGD(server->debug, "Closing %s server", server->idtag);
 
 	if (server->listen_ev)
-		EVENT_OFF(server->listen_ev);
+		event_cancel(&server->listen_ev);
 
 	msg_server_list_del(&msg_servers, server);
 

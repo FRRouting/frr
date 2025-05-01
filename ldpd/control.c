@@ -169,8 +169,8 @@ control_close(int fd)
 	msgbuf_clear(&c->iev.ibuf.w);
 	TAILQ_REMOVE(&ctl_conns, c, entry);
 
-	EVENT_OFF(c->iev.ev_read);
-	EVENT_OFF(c->iev.ev_write);
+	event_cancel(&c->iev.ev_read);
+	event_cancel(&c->iev.ev_write);
 	close(c->iev.ibuf.fd);
 	accept_unpause();
 	free(c);

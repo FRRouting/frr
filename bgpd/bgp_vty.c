@@ -2287,7 +2287,7 @@ DEFUN (no_bgp_maxmed_onstartup,
 
 	/* Cancel max-med onstartup if its on */
 	if (bgp->t_maxmed_onstartup) {
-		EVENT_OFF(bgp->t_maxmed_onstartup);
+		event_cancel(&bgp->t_maxmed_onstartup);
 		bgp->maxmed_onstartup_over = 1;
 	}
 
@@ -8094,7 +8094,7 @@ DEFUN (bgp_set_route_map_delay_timer,
 		 * fired.
 		 */
 		if (!rmap_delay_timer && bm->t_rmap_update) {
-			EVENT_OFF(bm->t_rmap_update);
+			event_cancel(&bm->t_rmap_update);
 			event_execute(bm->master, bgp_route_map_update_timer,
 				      NULL, 0, NULL);
 		}
@@ -8506,7 +8506,7 @@ DEFPY (bgp_def_originate_eval,
 	bgp->rmap_def_originate_eval_timer = no ? 0 : timer;
 
 	if (bgp->t_rmap_def_originate_eval)
-		EVENT_OFF(bgp->t_rmap_def_originate_eval);
+		event_cancel(&bgp->t_rmap_def_originate_eval);
 
 	return CMD_SUCCESS;
 }
@@ -20294,7 +20294,7 @@ static void bgp_config_end_timeout(struct event *t)
 
 static void bgp_config_start(void)
 {
-	EVENT_OFF(t_bgp_cfg);
+	event_cancel(&t_bgp_cfg);
 	event_add_timer(bm->master, bgp_config_end_timeout, NULL,
 			BGP_PRE_CONFIG_MAX_WAIT_SECONDS, &t_bgp_cfg);
 }
@@ -20318,7 +20318,7 @@ static void bgp_config_end(void)
 	if (!bgp_config_inprocess())
 		return;
 
-	EVENT_OFF(t_bgp_cfg);
+	event_cancel(&t_bgp_cfg);
 
 	/* Start a new timer to make sure we don't send EoR
 	 * before route-maps are processed.

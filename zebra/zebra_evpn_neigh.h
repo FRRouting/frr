@@ -158,7 +158,7 @@ static inline void zebra_evpn_neigh_stop_hold_timer(struct zebra_neigh *n)
 	if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
 		zlog_debug("sync-neigh vni %u ip %pIA mac %pEA 0x%x hold stop",
 			   n->zevpn->vni, &n->ip, &n->emac, n->flags);
-	EVENT_OFF(n->hold_timer);
+	event_cancel(&n->hold_timer);
 }
 
 void zebra_evpn_sync_neigh_static_chg(struct zebra_neigh *n, bool old_n_static,

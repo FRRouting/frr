@@ -5014,7 +5014,7 @@ void bgp_evpn_mh_finish(void)
 		bgp_evpn_es_local_info_clear(es, true);
 	}
 	if (bgp_mh_info->t_cons_check)
-		EVENT_OFF(bgp_mh_info->t_cons_check);
+		event_cancel(&bgp_mh_info->t_cons_check);
 	list_delete(&bgp_mh_info->local_es_list);
 	list_delete(&bgp_mh_info->pend_es_list);
 	list_delete(&bgp_mh_info->ead_es_export_rtl);

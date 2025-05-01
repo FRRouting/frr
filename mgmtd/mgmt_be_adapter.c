@@ -869,7 +869,7 @@ extern void mgmt_be_adapter_unlock(struct mgmt_be_client_adapter **adapter)
 
 	if (!--a->refcount) {
 		mgmt_be_adapters_del(&mgmt_be_adapters, a);
-		EVENT_OFF(a->conn_init_ev);
+		event_cancel(&a->conn_init_ev);
 		msg_server_conn_delete(a->conn);
 		XFREE(MTYPE_MGMTD_BE_ADPATER, a);
 	}

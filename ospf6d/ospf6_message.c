@@ -822,7 +822,7 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 		event_add_event(master, ospf6_lsreq_send, on, 0,
 				&on->thread_send_lsreq);
 
-	EVENT_OFF(on->thread_send_dbdesc);
+	event_cancel(&on->thread_send_dbdesc);
 
 	/* More bit check */
 	if (!CHECK_FLAG(dbdesc->bits, OSPF6_DBDESC_MBIT)
@@ -907,7 +907,7 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV_HDR))
 				zlog_debug(
 					"Duplicated dbdesc causes retransmit");
-			EVENT_OFF(on->thread_send_dbdesc);
+			event_cancel(&on->thread_send_dbdesc);
 			event_add_event(master, ospf6_dbdesc_send, on, 0,
 					&on->thread_send_dbdesc);
 			return;
@@ -960,7 +960,7 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV_HDR))
 				zlog_debug(
 					"Duplicated dbdesc causes retransmit");
-			EVENT_OFF(on->thread_send_dbdesc);
+			event_cancel(&on->thread_send_dbdesc);
 			event_add_event(master, ospf6_dbdesc_send, on, 0,
 					&on->thread_send_dbdesc);
 			return;
@@ -1034,7 +1034,7 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 		event_add_event(master, ospf6_lsreq_send, on, 0,
 				&on->thread_send_lsreq);
 
-	EVENT_OFF(on->thread_send_dbdesc);
+	event_cancel(&on->thread_send_dbdesc);
 	event_add_event(master, ospf6_dbdesc_send_newone, on, 0,
 			&on->thread_send_dbdesc);
 
@@ -1168,7 +1168,7 @@ static void ospf6_lsreq_recv(struct in6_addr *src, struct in6_addr *dst,
 	assert(p == OSPF6_MESSAGE_END(oh));
 
 	/* schedule send lsupdate */
-	EVENT_OFF(on->thread_send_lsupdate);
+	event_cancel(&on->thread_send_lsupdate);
 	event_add_event(master, ospf6_lsupdate_send_neighbor, on, 0,
 			&on->thread_send_lsupdate);
 }
@@ -3000,7 +3000,7 @@ static uint16_t ospf6_make_lsack_interface(struct ospf6_interface *oi,
 		    > ospf6_packet_max(oi)) {
 			/* if we run out of packet size/space here,
 			   better to try again soon. */
-			EVENT_OFF(oi->thread_send_lsack);
+			event_cancel(&oi->thread_send_lsack);
 			event_add_event(master, ospf6_lsack_send_interface, oi,
 					0, &oi->thread_send_lsack);
 

@@ -722,7 +722,7 @@ void ospf6_spf_schedule(struct ospf6 *ospf6, unsigned int reason)
 	if (IS_OSPF6_DEBUG_SPF(PROCESS) || IS_OSPF6_DEBUG_SPF(TIME))
 		zlog_debug("SPF: Rescheduling in %ld msec", delay);
 
-	EVENT_OFF(ospf6->t_spf_calc);
+	event_cancel(&ospf6->t_spf_calc);
 	event_add_timer_msec(master, ospf6_spf_calculation_thread, ospf6, delay,
 			     &ospf6->t_spf_calc);
 }

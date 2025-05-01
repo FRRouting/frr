@@ -554,15 +554,15 @@ static void ospf6_disable(struct ospf6 *o)
 		ospf6_route_remove_all(o->route_table);
 		ospf6_route_remove_all(o->brouter_table);
 
-		EVENT_OFF(o->maxage_remover);
-		EVENT_OFF(o->t_spf_calc);
-		EVENT_OFF(o->t_ase_calc);
-		EVENT_OFF(o->t_distribute_update);
-		EVENT_OFF(o->t_ospf6_receive);
-		EVENT_OFF(o->t_external_aggr);
-		EVENT_OFF(o->gr_info.t_grace_period);
-		EVENT_OFF(o->t_write);
-		EVENT_OFF(o->t_abr_task);
+		event_cancel(&o->maxage_remover);
+		event_cancel(&o->t_spf_calc);
+		event_cancel(&o->t_ase_calc);
+		event_cancel(&o->t_distribute_update);
+		event_cancel(&o->t_ospf6_receive);
+		event_cancel(&o->t_external_aggr);
+		event_cancel(&o->gr_info.t_grace_period);
+		event_cancel(&o->t_write);
+		event_cancel(&o->t_abr_task);
 	}
 }
 

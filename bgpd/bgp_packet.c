@@ -2531,7 +2531,7 @@ static int bgp_update_receive(struct peer_connection *connection,
 							gr_info->t_select_deferral);
 						XFREE(MTYPE_TMP, info);
 					}
-					EVENT_OFF(gr_info->t_select_deferral);
+					event_cancel(&gr_info->t_select_deferral);
 					gr_info->eor_required = 0;
 					gr_info->eor_received = 0;
 					/* Best path selection */
@@ -3055,7 +3055,7 @@ static int bgp_route_refresh_receive(struct peer_connection *connection,
 			return BGP_PACKET_NOOP;
 		}
 
-		EVENT_OFF(peer->t_refresh_stalepath);
+		event_cancel(&peer->t_refresh_stalepath);
 
 		SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_EORR_RECEIVED);
 		UNSET_FLAG(peer->af_sflags[afi][safi],

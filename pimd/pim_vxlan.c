@@ -239,7 +239,7 @@ void pim_vxlan_update_sg_reg_state(struct pim_instance *pim,
 			zlog_debug("Received Register stop for %s",
 				   vxlan_sg->sg_str);
 
-		EVENT_OFF(vxlan_sg->null_register);
+		event_cancel(&vxlan_sg->null_register);
 		pim_vxlan_del_work(vxlan_sg);
 	}
 }
@@ -253,7 +253,7 @@ static void pim_vxlan_work_timer_cb(struct event *t)
 /* global 1second timer used for periodic processing */
 static void pim_vxlan_work_timer_setup(bool start)
 {
-	EVENT_OFF(vxlan_info.work_timer);
+	event_cancel(&vxlan_info.work_timer);
 	if (start)
 		event_add_timer(router->master, pim_vxlan_work_timer_cb, NULL,
 				PIM_VXLAN_WORK_TIME, &vxlan_info.work_timer);
@@ -300,7 +300,7 @@ static void pim_vxlan_orig_mr_up_del(struct pim_vxlan_sg *vxlan_sg)
 		 * if there are no other references.
 		 */
 		if (PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags)) {
-			EVENT_OFF(up->t_ka_timer);
+			event_cancel(&up->t_ka_timer);
 			up = pim_upstream_keep_alive_timer_proc(up);
 		} else {
 			/* this is really unexpected as we force vxlan
@@ -842,7 +842,7 @@ static void pim_vxlan_sg_del_item(struct pim_vxlan_sg *vxlan_sg)
 {
 	vxlan_sg->flags |= PIM_VXLAN_SGF_DEL_IN_PROG;
 
-	EVENT_OFF(vxlan_sg->null_register);
+	event_cancel(&vxlan_sg->null_register);
 	pim_vxlan_del_work(vxlan_sg);
 
 	if (pim_vxlan_is_orig_mroute(vxlan_sg))

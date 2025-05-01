@@ -266,8 +266,8 @@ void eigrp_finish_final(struct eigrp *eigrp)
 		eigrp_if_delete_hook(ei->ifp);
 	}
 
-	EVENT_OFF(eigrp->t_write);
-	EVENT_OFF(eigrp->t_read);
+	event_cancel(&eigrp->t_write);
+	event_cancel(&eigrp->t_read);
 	close(eigrp->fd);
 
 	eigrp_interface_hash_fini(&eigrp->eifs);

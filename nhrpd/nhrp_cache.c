@@ -74,8 +74,8 @@ static void nhrp_cache_free(struct nhrp_cache *c)
 		nhrp_peer_notify_del(c->cur.peer, &c->peer_notifier);
 	nhrp_peer_unref(c->cur.peer);
 	nhrp_peer_unref(c->new.peer);
-	EVENT_OFF(c->t_timeout);
-	EVENT_OFF(c->t_auth);
+	event_cancel(&c->t_timeout);
+	event_cancel(&c->t_auth);
 	XFREE(MTYPE_NHRP_CACHE, c);
 }
 
@@ -312,7 +312,7 @@ static void nhrp_cache_peer_notifier(struct notifier_block *n,
 
 static void nhrp_cache_reset_new(struct nhrp_cache *c)
 {
-	EVENT_OFF(c->t_auth);
+	event_cancel(&c->t_auth);
 	if (notifier_list_anywhere(&c->newpeer_notifier))
 		nhrp_peer_notify_del(c->new.peer, &c->newpeer_notifier);
 	nhrp_peer_unref(c->new.peer);
@@ -322,7 +322,7 @@ static void nhrp_cache_reset_new(struct nhrp_cache *c)
 
 static void nhrp_cache_update_timers(struct nhrp_cache *c)
 {
-	EVENT_OFF(c->t_timeout);
+	event_cancel(&c->t_timeout);
 
 	switch (c->cur.type) {
 	case NHRP_CACHE_INVALID:

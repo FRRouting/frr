@@ -2138,7 +2138,7 @@ static void bmp_close(struct bmp *bmp)
 	struct bmp_queue_entry *bqe;
 	struct bmp_mirrorq *bmq;
 
-	EVENT_OFF(bmp->t_read);
+	event_cancel(&bmp->t_read);
 
 	if (bmp->active)
 		bmp_active_disconnected(bmp->active);
@@ -2153,7 +2153,7 @@ static void bmp_close(struct bmp *bmp)
 		if (!bqe->refcount)
 			XFREE(MTYPE_BMP_QUEUE, bqe);
 
-	EVENT_OFF(bmp->t_read);
+	event_cancel(&bmp->t_read);
 	pullwr_del(bmp->pullwr);
 	close(bmp->socket);
 }
@@ -2373,7 +2373,7 @@ static void bmp_targets_put(struct bmp_targets *bt)
 	struct bmp_active *ba;
 	struct bmp_imported_bgp *bib;
 
-	EVENT_OFF(bt->t_stats);
+	event_cancel(&bt->t_stats);
 
 	frr_each_safe (bmp_actives, &bt->actives, ba)
 		bmp_active_put(ba);
@@ -2529,7 +2529,7 @@ out_sock:
 
 static void bmp_listener_stop(struct bmp_listener *bl)
 {
-	EVENT_OFF(bl->t_accept);
+	event_cancel(&bl->t_accept);
 
 	if (bl->sock != -1)
 		close(bl->sock);
@@ -2568,9 +2568,9 @@ static struct bmp_active *bmp_active_get(struct bmp_targets *bt,
 
 static void bmp_active_put(struct bmp_active *ba)
 {
-	EVENT_OFF(ba->t_timer);
-	EVENT_OFF(ba->t_read);
-	EVENT_OFF(ba->t_write);
+	event_cancel(&ba->t_timer);
+	event_cancel(&ba->t_read);
+	event_cancel(&ba->t_write);
 
 	bmp_actives_del(&ba->targets->actives, ba);
 
@@ -2711,9 +2711,9 @@ static void bmp_active_thread(struct event *t)
 
 	/* all 3 end up here, though only timer or read+write are active
 	 * at a time */
-	EVENT_OFF(ba->t_timer);
-	EVENT_OFF(ba->t_read);
-	EVENT_OFF(ba->t_write);
+	event_cancel(&ba->t_timer);
+	event_cancel(&ba->t_read);
+	event_cancel(&ba->t_write);
 
 	ba->last_err = NULL;
 
@@ -2767,9 +2767,9 @@ static void bmp_active_disconnected(struct bmp_active *ba)
 
 static void bmp_active_setup(struct bmp_active *ba)
 {
-	EVENT_OFF(ba->t_timer);
-	EVENT_OFF(ba->t_read);
-	EVENT_OFF(ba->t_write);
+	event_cancel(&ba->t_timer);
+	event_cancel(&ba->t_read);
+	event_cancel(&ba->t_write);
 
 	if (ba->bmp)
 		return;
@@ -3050,7 +3050,7 @@ DEFPY(bmp_stats_cfg,
 {
 	VTY_DECLVAR_CONTEXT_SUB(bmp_targets, bt);
 
-	EVENT_OFF(bt->t_stats);
+	event_cancel(&bt->t_stats);
 	if (no)
 		bt->stat_msec = 0;
 	else if (interval_str)

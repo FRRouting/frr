@@ -1739,7 +1739,7 @@ static void ospf_abr_announce_non_dna_routers(struct event *thread)
 	struct listnode *node;
 	struct ospf *ospf = EVENT_ARG(thread);
 
-	EVENT_OFF(ospf->t_abr_fr);
+	event_cancel(&ospf->t_abr_fr);
 
 	if (!IS_OSPF_ABR(ospf))
 		return;

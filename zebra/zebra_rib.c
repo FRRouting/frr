@@ -4830,7 +4830,7 @@ void rib_update_finish(void)
 			ctx = EVENT_ARG(t_rib_update_threads[i]);
 
 			rib_update_ctx_fini(&ctx);
-			EVENT_OFF(t_rib_update_threads[i]);
+			event_cancel(&t_rib_update_threads[i]);
 		}
 	}
 }
@@ -5300,7 +5300,7 @@ void zebra_rib_terminate(void)
 {
 	struct zebra_dplane_ctx *ctx;
 
-	EVENT_OFF(t_dplane);
+	event_cancel(&t_dplane);
 
 	ctx = dplane_ctx_dequeue(&rib_dplane_q);
 	while (ctx) {

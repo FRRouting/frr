@@ -194,7 +194,7 @@ static void netlink_mcast_log_register(int fd, int group)
 void netlink_mcast_set_nflog_group(int nlgroup)
 {
 	if (netlink_mcast_log_fd >= 0) {
-		EVENT_OFF(netlink_mcast_log_thread);
+		event_cancel(&netlink_mcast_log_thread);
 		close(netlink_mcast_log_fd);
 		netlink_mcast_log_fd = -1;
 		debugf(NHRP_DEBUG_COMMON, "De-register nflog group");

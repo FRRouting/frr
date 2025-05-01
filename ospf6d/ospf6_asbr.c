@@ -3117,7 +3117,7 @@ static void ospf6_aggr_handle_external_info(void *data)
 			if (IS_OSPF6_DEBUG_AGGR)
 				zlog_debug("%s: LSA found, refresh it",
 					   __func__);
-			EVENT_OFF(lsa->refresh);
+			event_cancel(&lsa->refresh);
 			event_add_event(master, ospf6_lsa_refresh, lsa, 0,
 					&lsa->refresh);
 			return;
@@ -3319,7 +3319,7 @@ static void ospf6_handle_exnl_rt_after_aggr_del(struct ospf6 *ospf6,
 	lsa = ospf6_find_external_lsa(ospf6, &rt->prefix);
 
 	if (lsa) {
-		EVENT_OFF(lsa->refresh);
+		event_cancel(&lsa->refresh);
 		event_add_event(master, ospf6_lsa_refresh, lsa, 0,
 				&lsa->refresh);
 	} else {
@@ -3468,7 +3468,7 @@ ospf6_start_asbr_summary_delay_timer(struct ospf6 *ospf6,
 			if (IS_OSPF6_DEBUG_AGGR)
 				zlog_debug("%s, Restarting Aggregator delay timer.",
 							__func__);
-			EVENT_OFF(ospf6->t_external_aggr);
+			event_cancel(&ospf6->t_external_aggr);
 		}
 	}
 

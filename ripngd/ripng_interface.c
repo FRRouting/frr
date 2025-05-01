@@ -146,7 +146,7 @@ static int ripng_if_down(struct interface *ifp)
 
 	ri = ifp->info;
 
-	EVENT_OFF(ri->t_wakeup);
+	event_cancel(&ri->t_wakeup);
 
 	ripng = ri->ripng;
 
@@ -267,7 +267,7 @@ void ripng_interface_clean(struct ripng *ripng)
 		ri->enable_interface = 0;
 		ri->running = 0;
 
-		EVENT_OFF(ri->t_wakeup);
+		event_cancel(&ri->t_wakeup);
 	}
 }
 

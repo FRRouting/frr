@@ -625,7 +625,7 @@ static int frr_sr_finish(void)
 		if (!module->sr_subscription)
 			continue;
 		sr_unsubscribe(module->sr_subscription);
-		EVENT_OFF(module->sr_thread);
+		event_cancel(&module->sr_thread);
 	}
 
 	if (session)
