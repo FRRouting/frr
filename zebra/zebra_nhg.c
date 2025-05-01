@@ -2814,8 +2814,14 @@ static bool zebra_nhg_set_valid_if_active(struct nhg_hash_entry *nhe)
 	}
 
 	/* should be fully resolved singleton at this point */
-	if (CHECK_FLAG(nhe->nhg.nexthop->flags, NEXTHOP_FLAG_ACTIVE))
-		valid = true;
+	if (CHECK_FLAG(nhe->nhg.nexthop->flags, NEXTHOP_FLAG_ACTIVE)) {
+		struct interface *ifp = if_lookup_by_index(nhe->nhg.nexthop->ifindex, nhe->vrf_id);
+
+		if (!ifp || !if_is_operative(ifp))
+			valid = false;
+		else
+			valid = true;
+	}
 
 done:
 	if (valid)
