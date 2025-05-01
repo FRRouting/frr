@@ -150,7 +150,7 @@ def create_router_bgp(tgen, topo=None, input_dict=None, build=False, load_config
 
         bgp_data_list = input_dict[router]["bgp"]
 
-        if type(bgp_data_list) is not list:
+        if not isinstance(bgp_data_list, list):
             bgp_data_list = [bgp_data_list]
 
         config_data = []
@@ -397,7 +397,7 @@ def __create_bgp_unicast_neighbor(
         advertise_network = addr_data.setdefault("advertise_networks", [])
         for advertise_network_dict in advertise_network:
             network = advertise_network_dict["network"]
-            if type(network) is not list:
+            if not isinstance(network, list):
                 network = [network]
 
             if "no_of_network" in advertise_network_dict:
@@ -476,7 +476,7 @@ def __create_bgp_unicast_neighbor(
                     cmd = "redistribute {}".format(redistribute["redist_type"])
                     redist_attr = redistribute.setdefault("attribute", None)
                     if redist_attr:
-                        if type(redist_attr) is dict:
+                        if isinstance(redist_attr, dict):
                             for key, value in redist_attr.items():
                                 cmd = "{} {} {}".format(cmd, key, value)
                         else:
@@ -655,7 +655,7 @@ def __create_l2vpn_evpn_address_family(
 
         if advertise_data:
             for address_type, unicast_type in advertise_data.items():
-                if type(unicast_type) is dict:
+                if isinstance(unicast_type, dict):
                     for key, value in unicast_type.items():
                         cmd = "advertise {} {}".format(address_type, key)
 
@@ -682,7 +682,7 @@ def __create_l2vpn_evpn_address_family(
                             "ipv4"
                         ].split("/")[0]
 
-                        if type(action) is dict:
+                        if isinstance(action, dict):
                             next_hop_self = action.setdefault("next_hop_self", None)
                             route_maps = action.setdefault("route_maps", {})
 
@@ -841,7 +841,7 @@ def __create_bgp_neighbor(topo, input_dict, router, addr_type, add_neigh=True):
                     )
             nh_details = topo[name]
 
-            if "vrfs" in topo[router] or type(nh_details["bgp"]) is list:
+            if "vrfs" in topo[router] or isinstance(nh_details["bgp"], list):
                 for vrf_data in nh_details["bgp"]:
                     if "vrf" in nh_details["links"][dest_link] and "vrf" in vrf_data:
                         if nh_details["links"][dest_link]["vrf"] == vrf_data["vrf"]:
@@ -1374,7 +1374,7 @@ def verify_bgp_convergence(tgen, topo=None, dut=None, expected=True, addr_type=N
         # To find neighbor ip type
         bgp_data_list = topo["routers"][router]["bgp"]
 
-        if type(bgp_data_list) is not list:
+        if not isinstance(bgp_data_list, list):
             bgp_data_list = [bgp_data_list]
 
         for bgp_data in bgp_data_list:
@@ -1885,7 +1885,7 @@ def clear_bgp(tgen, addr_type, router, vrf=None, neighbor=None):
     rnode = tgen.routers()[router]
 
     if vrf:
-        if type(vrf) is not list:
+        if not isinstance(vrf, list):
             vrf = [vrf]
 
     # Clearing BGP
@@ -2447,7 +2447,7 @@ def verify_bgp_attributes(
                             dict_to_test = values
                             for rmap_dict in values:
                                 if seq_id is not None:
-                                    if type(seq_id) is not list:
+                                    if not isinstance(seq_id, list):
                                         seq_id = [seq_id]
 
                                     if "seq_id" in rmap_dict:
@@ -2953,7 +2953,7 @@ def verify_bgp_rib(
                             found_routes.append(st_rt)
 
                             if next_hop and multi_nh and st_found:
-                                if type(next_hop) is not list:
+                                if not isinstance(next_hop, list):
                                     next_hop = [next_hop]
                                     list1 = next_hop
 
@@ -2992,7 +2992,7 @@ def verify_bgp_rib(
                                         nh_found = True
 
                             elif next_hop and multi_nh is None:
-                                if type(next_hop) is not list:
+                                if not isinstance(next_hop, list):
                                     next_hop = [next_hop]
                                     list1 = next_hop
                                 found_hops = [
@@ -3078,7 +3078,7 @@ def verify_bgp_rib(
             # Advertise networks
             bgp_data_list = input_dict[routerInput]["bgp"]
 
-            if type(bgp_data_list) is not list:
+            if not isinstance(bgp_data_list, list):
                 bgp_data_list = [bgp_data_list]
 
             for bgp_data in bgp_data_list:
@@ -4157,7 +4157,7 @@ def verify_attributes_for_evpn_routes(
                 if "vrf" in static_route:
                     vrf = static_route["vrf"]
 
-                if type(network) is not list:
+                if not isinstance(network, list):
                     network = [network]
 
                 for route in network:
@@ -4362,7 +4362,7 @@ def verify_attributes_for_evpn_routes(
                             route,
                         )
 
-                        if type(rt) is not list:
+                        if not isinstance(rt, list):
                             rt = [rt]
 
                         for _rt in rt:
@@ -4541,7 +4541,7 @@ def verify_evpn_routes(
             for static_route in input_dict[router]["static_routes"]:
                 network = static_route["network"]
 
-                if type(network) is not list:
+                if not isinstance(network, list):
                     network = [network]
 
                 missing_routes = {}
@@ -4566,7 +4566,7 @@ def verify_evpn_routes(
                         return errormsg
 
                     for key, route_data_json in evpn_value_json.items():
-                        if type(route_data_json) is dict:
+                        if isinstance(route_data_json, dict):
                             rd_keys += 1
                             if prefix not in route_data_json:
                                 missing_routes[key] = prefix
@@ -4580,7 +4580,7 @@ def verify_evpn_routes(
                         return errormsg
 
                     for key, route_data_json in evpn_value_json.items():
-                        if type(route_data_json) is dict:
+                        if isinstance(route_data_json, dict):
                             if prefix not in route_data_json:
                                 continue
 
