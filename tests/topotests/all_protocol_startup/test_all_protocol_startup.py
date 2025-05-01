@@ -41,6 +41,7 @@ from lib.common_config import (
 
 import json
 import functools
+import subprocess
 
 # Global that must be set on a failure to stop subsequent tests from being run
 fatal_error = ""
@@ -1854,6 +1855,47 @@ def test_pbr_table():
         assert False, fatal_error
 
     print("Default route found in PBR table 10000")
+
+
+def test_vtysh_timeout():
+    "Test vtysh idle session timeout feature."
+
+    global fatal_error
+    tgen = get_topogen()
+    net = tgen.net
+
+    # Skip if previous fatal error condition is raised
+    if fatal_error != "":
+        pytest.skip(fatal_error)
+    r1 = tgen.gears["r1"]
+
+    timeout = 20
+    logger.info("Testing vtysh with idle timeout of {} seconds".format(timeout))
+
+    p1 = None
+    p1 = r1.popen(
+        ["vtysh", "--exec-timeout", str(timeout)],
+        encoding=None,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+
+    # Wait for a while, with a bit of buffer time
+    errmsg = None
+    try:
+        p1.wait(timeout + 10)
+        retcode = p1.returncode
+        if retcode == None:
+            p1.terminate()
+            errmsg = "Vtysh timeout failed after {} seconds".format(timeout + 10)
+    except Exception as e:
+        errmsg = "Vtysh timeout failed after {} seconds".format(timeout + 10)
+
+    if errmsg != None:
+        assert None, errmsg
+
+    logger.info("Vtysh idle timeout test passed")
 
 
 def test_shutdown_check_stderr():
