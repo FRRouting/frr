@@ -4522,6 +4522,18 @@ DEFPY_ATTR(no_ip_pim_rp,
 	return ret;
 }
 
+DEFPY_YANG(pim_dm_prefix_list,
+      pim_dm_prefix_list_cmd,
+      "[no] dm prefix-list WORD$plist",
+      NO_STR
+      "PIM Dense Mode Multicast\n"
+      "Group range prefix-list filter\n"
+      "Name of a prefix-list\n")
+{
+	nb_cli_enqueue_change(vty, ".", NB_OP_MODIFY, no ? NULL : plist);
+	return nb_cli_apply_changes(vty, "./dm-prefix-list");
+}
+
 DEFPY (no_pim_rp_prefix_list,
        no_pim_rp_prefix_list_cmd,
        "no rp A.B.C.D$rp prefix-list PREFIXLIST4_NAME$plist",
@@ -5817,90 +5829,49 @@ DEFPY (interface_ip_pim_activeactive,
 	return pim_process_ip_pim_activeactive_cmd(vty, no);
 }
 
-DEFUN_HIDDEN (interface_ip_pim_ssm,
-	      interface_ip_pim_ssm_cmd,
-	      "ip pim ssm",
-	      IP_STR
-	      PIM_STR
-	      IFACE_PIM_STR)
-{
-	int ret;
-
-	ret = pim_process_ip_pim_cmd(vty);
-
-	if (ret != NB_OK)
-		return ret;
-
-	vty_out(vty,
-		"WARN: Enabled PIM SM on interface; configure PIM SSM range if needed\n");
-
-	return NB_OK;
-}
-
-DEFUN_HIDDEN (interface_ip_pim_sm,
-	      interface_ip_pim_sm_cmd,
-	      "ip pim sm",
-	      IP_STR
-	      PIM_STR
-	      IFACE_PIM_SM_STR)
-{
-	return pim_process_ip_pim_cmd(vty);
-}
 
 DEFPY (interface_ip_pim,
        interface_ip_pim_cmd,
-       "ip pim [passive$passive]",
+       "[no] ip pim [sm|ssm$ssm|dm$dm|sm-dm$smdm|passive$passive]",
+       NO_STR
        IP_STR
        PIM_STR
+       IFACE_PIM_SM_STR
+       IFACE_PIM_STR
+       IFACE_PIM_DM_STR
+       IFACE_PIM_SMDM_STR
        "Disable exchange of protocol packets\n")
 {
 	int ret;
+	enum pim_iface_mode mode;
+
+	if (no) {
+		if (passive)
+			return pim_process_ip_pim_mode_cmd(vty, PIM_MODE_SPARSE);
+
+		return pim_process_no_ip_pim_cmd(vty);
+	}
+
 
 	ret = pim_process_ip_pim_cmd(vty);
 
 	if (ret != NB_OK)
 		return ret;
 
-	if (passive)
-		return pim_process_ip_pim_passive_cmd(vty, true);
+	if (dm)
+		mode = PIM_MODE_DENSE;
+	else if (smdm)
+		mode = PIM_MODE_SPARSE_DENSE;
+	else if (passive)
+		mode = PIM_MODE_PASSIVE;
+	else if (ssm) {
+		mode = PIM_MODE_PASSIVE;
+		vty_out(vty,
+			"WARN: Enabled PIM SM on interface; configure PIM SSM range if needed\n");
+	} else
+		mode = PIM_MODE_SPARSE;
 
-	return CMD_SUCCESS;
-}
-
-DEFUN_HIDDEN (interface_no_ip_pim_ssm,
-	      interface_no_ip_pim_ssm_cmd,
-	      "no ip pim ssm",
-	      NO_STR
-	      IP_STR
-	      PIM_STR
-	      IFACE_PIM_STR)
-{
-	return pim_process_no_ip_pim_cmd(vty);
-}
-
-DEFUN_HIDDEN (interface_no_ip_pim_sm,
-	      interface_no_ip_pim_sm_cmd,
-	      "no ip pim sm",
-	      NO_STR
-	      IP_STR
-	      PIM_STR
-	      IFACE_PIM_SM_STR)
-{
-	return pim_process_no_ip_pim_cmd(vty);
-}
-
-DEFPY (interface_no_ip_pim,
-       interface_no_ip_pim_cmd,
-       "no ip pim [passive$passive]",
-       NO_STR
-       IP_STR
-       PIM_STR
-       "Disable exchange of protocol packets\n")
-{
-	if (passive)
-		return pim_process_ip_pim_passive_cmd(vty, false);
-
-	return pim_process_no_ip_pim_cmd(vty);
+	return pim_process_ip_pim_mode_cmd(vty, mode);
 }
 
 /* boundaries */
@@ -9149,6 +9120,7 @@ void pim_cmd_init(void)
 	install_element(PIM_NODE, &pim_bsr_candidate_rp_cmd);
 	install_element(PIM_NODE, &pim_bsr_candidate_rp_group_cmd);
 	install_element(PIM_NODE, &pim_bsr_candidate_bsr_cmd);
+	install_element(PIM_NODE, &pim_dm_prefix_list_cmd);
 
 	install_element(PIM_NODE, &pim_rpf_lookup_mode_cmd);
 
@@ -9183,12 +9155,7 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &no_interface_ip_igmp_limits_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_igmp_immediate_leave_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_activeactive_cmd);
-	install_element(INTERFACE_NODE, &interface_ip_pim_ssm_cmd);
-	install_element(INTERFACE_NODE, &interface_no_ip_pim_ssm_cmd);
-	install_element(INTERFACE_NODE, &interface_ip_pim_sm_cmd);
-	install_element(INTERFACE_NODE, &interface_no_ip_pim_sm_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_cmd);
-	install_element(INTERFACE_NODE, &interface_no_ip_pim_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_drprio_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_drprio_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_hello_cmd);
