@@ -499,6 +499,7 @@ void vpn_leak_zebra_vrf_sid_withdraw_per_af(struct bgp *bgp, afi_t afi)
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_LABEL);
 	struct srv6_sid_ctx ctx = {};
 	struct seg6local_context seg6localctx = {};
+	bool tovpn_sid_auto = false;
 
 	if (bgp->vrf_id == VRF_UNKNOWN) {
 		if (debug)
@@ -510,6 +511,8 @@ void vpn_leak_zebra_vrf_sid_withdraw_per_af(struct bgp *bgp, afi_t afi)
 	if (debug)
 		zlog_debug("%s: deleting sid for vrf %s afi (id=%d)", __func__,
 			   bgp->name_pretty, bgp->vrf_id);
+
+	tovpn_sid_auto = CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO);
 
 	if (bgp->vpn_policy[afi].tovpn_sid_locator) {
 		seg6localctx.block_len =
@@ -534,6 +537,7 @@ void vpn_leak_zebra_vrf_sid_withdraw_per_af(struct bgp *bgp, afi_t afi)
 	ctx.vrf_id = bgp->vrf_id;
 	ctx.behavior = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
 				     : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+	ctx.alloc_mode = tovpn_sid_auto ? SRV6_SID_ALLOC_MODE_DYNAMIC : SRV6_SID_ALLOC_MODE_EXPLICIT;
 	bgp_zebra_release_srv6_sid(&ctx);
 }
 
@@ -546,6 +550,7 @@ void vpn_leak_zebra_vrf_sid_withdraw_per_vrf(struct bgp *bgp)
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_LABEL);
 	struct srv6_sid_ctx ctx = {};
 	struct seg6local_context seg6localctx = {};
+	bool tovpn_sid_auto = false;
 
 	if (bgp->vrf_id == VRF_UNKNOWN) {
 		if (debug)
@@ -558,6 +563,8 @@ void vpn_leak_zebra_vrf_sid_withdraw_per_vrf(struct bgp *bgp)
 	if (debug)
 		zlog_debug("%s: deleting sid for vrf %s (id=%d)", __func__,
 			   bgp->name_pretty, bgp->vrf_id);
+
+	tovpn_sid_auto = CHECK_FLAG(bgp->vrf_flags, BGP_VPN_POLICY_TOVPN_SID_AUTO);
 
 	if (bgp->tovpn_sid_locator) {
 		seg6localctx.block_len =
@@ -576,6 +583,7 @@ void vpn_leak_zebra_vrf_sid_withdraw_per_vrf(struct bgp *bgp)
 
 	ctx.vrf_id = bgp->vrf_id;
 	ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
+	ctx.alloc_mode = tovpn_sid_auto ? SRV6_SID_ALLOC_MODE_DYNAMIC : SRV6_SID_ALLOC_MODE_EXPLICIT;
 	bgp_zebra_release_srv6_sid(&ctx);
 }
 
@@ -834,6 +842,7 @@ void ensure_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 	ctx.vrf_id = bgp_vrf->vrf_id;
 	ctx.behavior = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
 				     : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+	ctx.alloc_mode = tovpn_sid_auto ? SRV6_SID_ALLOC_MODE_DYNAMIC : SRV6_SID_ALLOC_MODE_EXPLICIT;
 	if (!bgp_zebra_request_srv6_sid(&ctx, &tovpn_sid,
 					bgp_vpn->srv6_locator_name, &sid_func)) {
 		zlog_err("%s: failed to request sid for vrf %s: afi %s",
@@ -898,6 +907,7 @@ void ensure_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 
 	ctx.vrf_id = bgp_vrf->vrf_id;
 	ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
+	ctx.alloc_mode = tovpn_sid_auto ? SRV6_SID_ALLOC_MODE_DYNAMIC : SRV6_SID_ALLOC_MODE_EXPLICIT;
 	if (!bgp_zebra_request_srv6_sid(&ctx, &tovpn_sid,
 					bgp_vpn->srv6_locator_name, &sid_func)) {
 		zlog_err("%s: failed to request new sid for vrf %s", __func__,
