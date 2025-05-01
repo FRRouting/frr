@@ -1,0 +1,16 @@
+Codes: K - kernel route, C - connected, L - local, S - static,
+       R - RIPng, O - OSPFv3, I - IS-IS, B - BGP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric, t - Table-Direct,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+IPv6 unicast VRF default:
+S>* ::ffff:192.168.2.1/128 [1/0] unreachable (blackhole), weight 1
+S>* ::ffff:200.100.222.111/128 [1/0] unreachable (blackhole), weight 1
+
+K>* ::/0 via ::, lo, 01:23:45
+C>* 2001:db8:1::/64 via ::, r1-eth0, 01:23:45
+C>* 2001:db8:f::1/128 via ::, lo, 01:23:45
+B>* ::ffff:192.168.2.1/128 via ::, lo, 01:23:45
+B>* ::ffff:200.100.222.111/128 via ::, lo, 01:23:45

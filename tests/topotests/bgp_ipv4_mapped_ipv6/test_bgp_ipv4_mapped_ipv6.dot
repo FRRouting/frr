@@ -1,0 +1,23 @@
+graph test_bgp_ipv4_mapped_ipv6 {
+    label="BGP IPv4-mapped IPv6 Test Topology";
+
+    # Network nodes
+    r1 [
+        shape=doubleoctagon,
+        label="r1\nAS65001",
+        fillcolor="#f08080",
+        style=filled,
+    ];
+    r2 [
+        shape=doubleoctagon,
+        label="r2\nAS65002",
+        fillcolor="#f08080",
+        style=filled,
+    ];
+
+    # Network connections
+    r1 -- r2 [label="eth0\n192.168.1.0/24\n2001:db8:1::/64"];
+
+    # Network info
+    label="BGP IPv4-mapped IPv6 Test Topology: \nr1 advertises IPv4-mapped IPv6 addresses (::ffff:x.x.x.x)";
+}
