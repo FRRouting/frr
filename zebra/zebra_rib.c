@@ -2129,6 +2129,16 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 							rn);
 				}
 
+				/*
+				 * The nhe_installed_id stores the actually installed
+				 * nhg id.  This can be different than the nhe_id in
+				 * that if you have a recursive singleton through another
+				 * singleton it can show this.  See the
+				 * zebra_recursive_nhg_installed topotest for examples
+				 * of how we got here
+				 */
+				re->nhe_installed_id = dplane_ctx_get_nhe_id(ctx);
+
 				/* Redistribute if this is the selected re */
 				if (dest && re == dest->selected_fib)
 					redistribute_update(rn, re, old_re);
