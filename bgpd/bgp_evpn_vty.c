@@ -3273,7 +3273,10 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 	}
 
 	if (json) {
-		vty_out(vty, ",\"numPrefix\":%u", prefix_cnt);
+		/* at least one prefix was printed */
+		if (!first)
+			vty_out(vty, ",");
+		vty_out(vty, "\"numPrefix\":%u", prefix_cnt);
 		vty_out(vty, ",\"numPaths\":%u", path_cnt);
 	} else {
 		if (prefix_cnt == 0) {
