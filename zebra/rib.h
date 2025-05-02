@@ -85,6 +85,8 @@ struct route_entry {
 	 */
 	struct nhg_hash_entry *nhe;
 
+	struct nhg_hash_entry *nhe_received;
+
 	/*
 	 * Nexthop group hash entry IDs.
 	 * Since the nhe_id is used as a temporary holder
