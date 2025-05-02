@@ -85,10 +85,22 @@ struct route_entry {
 	 */
 	struct nhg_hash_entry *nhe;
 
-	/* Nexthop group hash entry IDs. The "installed" id is the id
-	 * used in linux/netlink, if available.
+	/*
+	 * Nexthop group hash entry IDs.
+	 * Since the nhe_id is used as a temporary holder
+	 * of the nexthop group id ( say the route was learned
+	 * from the kernel and it had a nhg_id, this value will
+	 * need to stay for the moment, until we untangle
+	 * route reception from handling of nexthop groups a bit more
 	 */
 	uint32_t nhe_id;
+	/*
+	 * The installed id is the id of the nexthop group
+	 * that is installed in the FIB.  This can be different
+	 * a great example is a recursive singleton through
+	 * another singleton.  See the test_zebra_recursive_nhg_installed
+	 * for more details on how to setup this situation.
+	 */
 	uint32_t nhe_installed_id;
 
 	/* Type of this route. */
