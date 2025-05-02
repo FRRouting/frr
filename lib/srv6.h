@@ -97,6 +97,9 @@ struct seg6_segs {
 	struct in6_addr segs[256];
 };
 
+/* flavors psp, usd, usp, next-csid */
+#define SRV6_FLAVORS_STRLEN 50
+
 struct seg6local_flavors_info {
 	/* Flavor operations */
 	uint32_t flv_ops;
@@ -209,6 +212,16 @@ enum srv6_endpoint_behavior_codepoint {
 	SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_RED_NEXT_CSID = 0x005E,
 	SRV6_ENDPOINT_BEHAVIOR_OPAQUE           = 0xFFFF,
 };
+
+/*
+ * Return true if next-csid behavior is used, false otherwise
+ */
+static inline bool seg6local_has_next_csid(const struct seg6local_context *ctx)
+{
+	const struct seg6local_flavors_info *flv_info = &ctx->flv;
+
+	return CHECK_SRV6_FLV_OP(flv_info->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
+}
 
 /*
  * Convert SRv6 endpoint behavior codepoints to human-friendly string.
@@ -419,6 +432,8 @@ static inline void *sid_copy(struct in6_addr *dst,
 {
 	return memcpy(dst, src, sizeof(struct in6_addr));
 }
+
+const char *seg6local_action2str_with_next_csid(uint32_t action, bool has_next_csid);
 
 const char *
 seg6local_action2str(uint32_t action);

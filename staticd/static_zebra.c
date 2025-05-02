@@ -662,7 +662,23 @@ void static_zebra_srv6_sid_install(struct static_srv6_sid *sid)
 		ctx.flv.lcnode_func_len = sid->locator->node_bits_length;
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_DT6:
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+		vrf = vrf_lookup_by_name(sid->attributes.vrf_name);
+		if (!vrf_is_enabled(vrf)) {
+			zlog_warn("Failed to install SID %pFX: VRF %s is inactive", &sid->addr,
+				  sid->attributes.vrf_name);
+			return;
+		}
+		ctx.table = vrf->data.l.table_id;
+		ifp = if_get_vrf_loopback(vrf->vrf_id);
+		if (!ifp) {
+			zlog_warn("Failed to install SID %pFX: failed to get loopback for vrf %s",
+				  &sid->addr, sid->attributes.vrf_name);
+			return;
+		}
+		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID:
+		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 		action = ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
 		vrf = vrf_lookup_by_name(sid->attributes.vrf_name);
 		if (!vrf_is_enabled(vrf)) {
@@ -679,7 +695,23 @@ void static_zebra_srv6_sid_install(struct static_srv6_sid *sid)
 		}
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_DT4:
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_DT4;
+		vrf = vrf_lookup_by_name(sid->attributes.vrf_name);
+		if (!vrf_is_enabled(vrf)) {
+			zlog_warn("Failed to install SID %pFX: VRF %s is inactive", &sid->addr,
+				  sid->attributes.vrf_name);
+			return;
+		}
+		ctx.table = vrf->data.l.table_id;
+		ifp = if_get_vrf_loopback(vrf->vrf_id);
+		if (!ifp) {
+			zlog_warn("Failed to install SID %pFX: failed to get loopback for vrf %s",
+				  &sid->addr, sid->attributes.vrf_name);
+			return;
+		}
+		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID:
+		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 		action = ZEBRA_SEG6_LOCAL_ACTION_END_DT4;
 		vrf = vrf_lookup_by_name(sid->attributes.vrf_name);
 		if (!vrf_is_enabled(vrf)) {
@@ -696,7 +728,23 @@ void static_zebra_srv6_sid_install(struct static_srv6_sid *sid)
 		}
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_DT46:
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
+		vrf = vrf_lookup_by_name(sid->attributes.vrf_name);
+		if (!vrf_is_enabled(vrf)) {
+			zlog_warn("Failed to install SID %pFX: VRF %s is inactive", &sid->addr,
+				  sid->attributes.vrf_name);
+			return;
+		}
+		ctx.table = vrf->data.l.table_id;
+		ifp = if_get_vrf_loopback(vrf->vrf_id);
+		if (!ifp) {
+			zlog_warn("Failed to install SID %pFX: failed to get loopback for vrf %s",
+				  &sid->addr, sid->attributes.vrf_name);
+			return;
+		}
+		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID:
+		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 		action = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
 		vrf = vrf_lookup_by_name(sid->attributes.vrf_name);
 		if (!vrf_is_enabled(vrf)) {
