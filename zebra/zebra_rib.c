@@ -474,6 +474,12 @@ static void route_entry_attach_ref(struct route_entry *re,
 	zebra_nhg_increment_ref(new);
 }
 
+static void route_entry_update_original_nhe(struct route_entry *re, struct nhg_hash_entry *nhe)
+{
+	re->nhe_received = nhe;
+	zebra_nhg_increment_ref(nhe);
+}
+
 /* Replace (if 'new_nhghe') or clear (if that's NULL) an re's nhe. */
 int route_entry_update_nhe(struct route_entry *re,
 			   struct nhg_hash_entry *new_nhghe)
@@ -2703,6 +2709,9 @@ static void rib_re_nhg_free(struct route_entry *re)
 		nexthops_free(re->nhe->nhg.nexthop);
 
 	nexthops_free(re->fib_ng.nexthop);
+
+	if (re->nhe_received)
+		zebra_nhg_decrement_ref(re->nhe_received);
 }
 
 struct zebra_early_route {
@@ -2813,6 +2822,7 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 	 * if old_id != new_id.
 	 */
 	route_entry_update_nhe(re, nhe);
+	route_entry_update_original_nhe(re, nhe);
 
 	/* Make it sure prefixlen is applied to the prefix. */
 	apply_mask(&ere->p);
