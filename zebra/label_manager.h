@@ -109,7 +109,6 @@ int release_label_chunk(uint8_t proto, unsigned short instance,
 			uint32_t session_id, uint32_t start, uint32_t end);
 int lm_client_disconnect_cb(struct zserv *client);
 int release_daemon_label_chunks(struct zserv *client);
-void label_manager_close(void);
 
 #ifdef __cplusplus
 }

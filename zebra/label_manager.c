@@ -623,8 +623,3 @@ static int label_manager_get_chunk(struct label_manager_chunk **lmc,
 
 	return zsend_assign_label_chunk_response(client, vrf_id, *lmc);
 }
-
-void label_manager_close(void)
-{
-	list_delete(&lbl_mgr.lc_list);
-}
