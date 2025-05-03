@@ -182,8 +182,6 @@ int main(int argc, char **argv)
 			break;
 
 		switch (opt) {
-		case 0:
-			break;
 		default:
 			frr_help_exit(1);
 		}
