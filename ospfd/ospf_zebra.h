@@ -79,10 +79,6 @@ extern void ospf_routemap_set(struct ospf_redist *, const char *);
 extern void ospf_routemap_unset(struct ospf_redist *);
 extern int ospf_zebra_gr_enable(struct ospf *ospf, uint32_t stale_time);
 extern int ospf_zebra_gr_disable(struct ospf *ospf);
-extern int ospf_distance_set(struct vty *, struct ospf *, const char *,
-			     const char *, const char *);
-extern int ospf_distance_unset(struct vty *, struct ospf *, const char *,
-			       const char *, const char *);
 extern void ospf_zebra_init(struct event_loop *m, unsigned short instance);
 extern void ospf_zebra_vrf_register(struct ospf *ospf);
 extern void ospf_zebra_vrf_deregister(struct ospf *ospf);
