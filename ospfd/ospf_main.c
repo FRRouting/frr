@@ -220,8 +220,6 @@ int main(int argc, char **argv)
 			if (ospf_instance < 1)
 				exit(0);
 			break;
-		case 0:
-			break;
 #ifdef SUPPORT_OSPF_API
 		case 'a':
 			ospf_apiserver_enable = 1;
