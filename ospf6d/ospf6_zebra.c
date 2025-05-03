@@ -603,90 +603,9 @@ void ospf6_zebra_delete_discard(struct ospf6_route *request,
 	}
 }
 
-static struct ospf6_distance *ospf6_distance_new(void)
-{
-	return XCALLOC(MTYPE_OSPF6_DISTANCE, sizeof(struct ospf6_distance));
-}
-
 static void ospf6_distance_free(struct ospf6_distance *odistance)
 {
 	XFREE(MTYPE_OSPF6_DISTANCE, odistance);
-}
-
-int ospf6_distance_set(struct vty *vty, struct ospf6 *o,
-		       const char *distance_str, const char *ip_str,
-		       const char *access_list_str)
-{
-	int ret;
-	struct prefix_ipv6 p;
-	uint8_t distance;
-	struct route_node *rn;
-	struct ospf6_distance *odistance;
-
-	ret = str2prefix_ipv6(ip_str, &p);
-	if (ret == 0) {
-		vty_out(vty, "Malformed prefix\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	distance = atoi(distance_str);
-
-	/* Get OSPF6 distance node. */
-	rn = route_node_get(o->distance_table, (struct prefix *)&p);
-	if (rn->info) {
-		odistance = rn->info;
-		route_unlock_node(rn);
-	} else {
-		odistance = ospf6_distance_new();
-		rn->info = odistance;
-	}
-
-	/* Set distance value. */
-	odistance->distance = distance;
-
-	/* Reset access-list configuration. */
-	if (odistance->access_list) {
-		free(odistance->access_list);
-		odistance->access_list = NULL;
-	}
-	if (access_list_str)
-		odistance->access_list = strdup(access_list_str);
-
-	return CMD_SUCCESS;
-}
-
-int ospf6_distance_unset(struct vty *vty, struct ospf6 *o,
-			 const char *distance_str, const char *ip_str,
-			 const char *access_list_str)
-{
-	int ret;
-	struct prefix_ipv6 p;
-	struct route_node *rn;
-	struct ospf6_distance *odistance;
-
-	ret = str2prefix_ipv6(ip_str, &p);
-	if (ret == 0) {
-		vty_out(vty, "Malformed prefix\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	rn = route_node_lookup(o->distance_table, (struct prefix *)&p);
-	if (!rn) {
-		vty_out(vty, "Cant't find specified prefix\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	odistance = rn->info;
-
-	if (odistance->access_list)
-		free(odistance->access_list);
-	ospf6_distance_free(odistance);
-
-	rn->info = NULL;
-	route_unlock_node(rn);
-	route_unlock_node(rn);
-
-	return CMD_SUCCESS;
 }
 
 void ospf6_distance_reset(struct ospf6 *o)
