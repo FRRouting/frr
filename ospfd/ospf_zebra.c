@@ -1881,90 +1881,9 @@ static void ospf_prefix_list_update(struct prefix_list *plist)
 	}
 }
 
-static struct ospf_distance *ospf_distance_new(void)
-{
-	return XCALLOC(MTYPE_OSPF_DISTANCE, sizeof(struct ospf_distance));
-}
-
 static void ospf_distance_free(struct ospf_distance *odistance)
 {
 	XFREE(MTYPE_OSPF_DISTANCE, odistance);
-}
-
-int ospf_distance_set(struct vty *vty, struct ospf *ospf,
-		      const char *distance_str, const char *ip_str,
-		      const char *access_list_str)
-{
-	int ret;
-	struct prefix_ipv4 p;
-	uint8_t distance;
-	struct route_node *rn;
-	struct ospf_distance *odistance;
-
-	ret = str2prefix_ipv4(ip_str, &p);
-	if (ret == 0) {
-		vty_out(vty, "Malformed prefix\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	distance = atoi(distance_str);
-
-	/* Get OSPF distance node. */
-	rn = route_node_get(ospf->distance_table, (struct prefix *)&p);
-	if (rn->info) {
-		odistance = rn->info;
-		route_unlock_node(rn);
-	} else {
-		odistance = ospf_distance_new();
-		rn->info = odistance;
-	}
-
-	/* Set distance value. */
-	odistance->distance = distance;
-
-	/* Reset access-list configuration. */
-	if (odistance->access_list) {
-		free(odistance->access_list);
-		odistance->access_list = NULL;
-	}
-	if (access_list_str)
-		odistance->access_list = strdup(access_list_str);
-
-	return CMD_SUCCESS;
-}
-
-int ospf_distance_unset(struct vty *vty, struct ospf *ospf,
-			const char *distance_str, const char *ip_str,
-			char const *access_list_str)
-{
-	int ret;
-	struct prefix_ipv4 p;
-	struct route_node *rn;
-	struct ospf_distance *odistance;
-
-	ret = str2prefix_ipv4(ip_str, &p);
-	if (ret == 0) {
-		vty_out(vty, "Malformed prefix\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	rn = route_node_lookup(ospf->distance_table, (struct prefix *)&p);
-	if (!rn) {
-		vty_out(vty, "Can't find specified prefix\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	odistance = rn->info;
-
-	if (odistance->access_list)
-		free(odistance->access_list);
-	ospf_distance_free(odistance);
-
-	rn->info = NULL;
-	route_unlock_node(rn);
-	route_unlock_node(rn);
-
-	return CMD_SUCCESS;
 }
 
 void ospf_distance_reset(struct ospf *ospf)
