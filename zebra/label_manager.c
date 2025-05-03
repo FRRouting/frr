@@ -624,22 +624,6 @@ static int label_manager_get_chunk(struct label_manager_chunk **lmc,
 	return zsend_assign_label_chunk_response(client, vrf_id, *lmc);
 }
 
-/* Respond to a connect request */
-int lm_client_connect_response(uint8_t proto, uint16_t instance,
-			       uint32_t session_id, vrf_id_t vrf_id,
-			       uint8_t result)
-{
-	struct zserv *client = zserv_find_client_session(proto, instance,
-							 session_id);
-	if (!client) {
-		zlog_err("%s: could not find client for daemon %s instance %u session %u",
-			 __func__, zebra_route_string(proto), instance,
-			 session_id);
-		return 1;
-	}
-	return zsend_label_manager_connect_response(client, vrf_id, result);
-}
-
 void label_manager_close(void)
 {
 	list_delete(&lbl_mgr.lc_list);
