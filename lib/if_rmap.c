@@ -185,7 +185,7 @@ int if_route_map_handler(struct vty *vty, bool no, const char *dir,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-#if HAVE_MGMTD
+#ifdef HAVE_MGMTD
 DEFPY_YANG(if_ipv4_route_map, if_ipv4_route_map_cmd,
 	   "route-map ROUTE-MAP <in$in|out> IFNAME",
 	   "Route map set\n"
@@ -304,7 +304,7 @@ struct if_rmap_ctx *if_rmap_ctx_create(const char *name)
 	return ctx;
 }
 
-#if HAVE_MGMTD
+#ifdef HAVE_MGMTD
 void if_rmap_init(int node)
 {
 	if (node == RIP_NODE) {
