@@ -33,6 +33,13 @@ static const uint8_t maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
 
 #define MASKBIT(offset)  ((0xff << (PNBBY - (offset))) & 0xff)
 
+enum bgp_rtc_prefix_type {
+	BGP_RTC_PREFIX_AS2 = 0,
+	BGP_RTC_PREFIX_IPV4,
+	BGP_RTC_PREFIX_AS4,
+	BGP_RTC_PREFIX_WILDCARD,
+};
+
 char *(*prefix_linkstate_display_hook)(char *buf, size_t size,
 				       uint16_t nlri_type, uintptr_t ptr,
 				       uint16_t len) = NULL;
@@ -778,7 +785,7 @@ done:
 
 /* When string format is invalid return 0. */
 static int str2prefix_rtc_common(char *cp, char **rt_global_adm, char **rt_local_adm, uint8_t *plen,
-				 uint32_t *origin_as)
+				 uint32_t *origin_as, enum bgp_rtc_prefix_type type)
 {
 	char *rt_pnt, *rt_colon_pnt;
 	char *slash_pnt;
@@ -804,27 +811,34 @@ static int str2prefix_rtc_common(char *cp, char **rt_global_adm, char **rt_local
 	if (slash_pnt)
 		*slash_pnt = '\0';
 
-	rt_pnt = strstr(cp, ":0:2:");
-	if (!rt_pnt)
+	switch (type) {
+	case BGP_RTC_PREFIX_AS2:
+		rt_pnt = strstr(cp, ":0:2:");
+		break;
+	case BGP_RTC_PREFIX_IPV4:
 		rt_pnt = strstr(cp, ":1:2:");
-	if (!rt_pnt)
+		break;
+	case BGP_RTC_PREFIX_AS4:
 		rt_pnt = strstr(cp, ":2:2:");
-	if (!rt_pnt) {
+		break;
+	case BGP_RTC_PREFIX_WILDCARD:
 		rt_pnt = strstr(cp, "*:*");
 		if (rt_pnt) {
 			if (slash_pnt && *plen != 0)
 				return 0;
 			*plen = 0;
+			break;
 		}
-	}
-	if (!rt_pnt) {
+
 		rt_pnt = strstr(cp, ":*");
 		if (rt_pnt) {
 			if (slash_pnt && *plen != 32)
 				return 0;
 			*plen = 32;
 		}
+		break;
 	}
+
 	if (!rt_pnt)
 		return 0;
 
@@ -870,7 +884,8 @@ int str2prefix_rtc_wildcard(const char *str, struct prefix_rtc *p)
 
 	cp = XSTRDUP(MTYPE_TMP, str);
 
-	ret = str2prefix_rtc_common(cp, &rt_global_adm, &rt_local_adm, &plen, &origin_as);
+	ret = str2prefix_rtc_common(cp, &rt_global_adm, &rt_local_adm, &plen, &origin_as,
+				    BGP_RTC_PREFIX_WILDCARD);
 	if (!ret) {
 		XFREE(MTYPE_TMP, cp);
 		return 0;
@@ -910,7 +925,8 @@ int str2prefix_rtc_as2(const char *str, struct prefix_rtc *p)
 
 	cp = XSTRDUP(MTYPE_TMP, str);
 
-	ret = str2prefix_rtc_common(cp, &rt_global_adm, &rt_local_adm, &plen, &origin_as);
+	ret = str2prefix_rtc_common(cp, &rt_global_adm, &rt_local_adm, &plen, &origin_as,
+				    BGP_RTC_PREFIX_AS2);
 	if (!ret) {
 		XFREE(MTYPE_TMP, cp);
 		return 0;
@@ -973,7 +989,8 @@ int str2prefix_rtc_as4(const char *str, struct prefix_rtc *p)
 
 	cp = XSTRDUP(MTYPE_TMP, str);
 
-	ret = str2prefix_rtc_common(cp, &rt_global_adm, &rt_local_adm, &plen, &origin_as);
+	ret = str2prefix_rtc_common(cp, &rt_global_adm, &rt_local_adm, &plen, &origin_as,
+				    BGP_RTC_PREFIX_AS4);
 	if (!ret) {
 		XFREE(MTYPE_TMP, cp);
 		return 0;
@@ -1035,7 +1052,8 @@ int str2prefix_rtc_ip(const char *str, struct prefix_rtc *p)
 
 	cp = XSTRDUP(MTYPE_TMP, str);
 
-	ret = str2prefix_rtc_common(cp, &rt_global_adm, &rt_local_adm, &plen, &origin_as);
+	ret = str2prefix_rtc_common(cp, &rt_global_adm, &rt_local_adm, &plen, &origin_as,
+				    BGP_RTC_PREFIX_IPV4);
 	if (!ret) {
 		XFREE(MTYPE_TMP, cp);
 		return 0;
