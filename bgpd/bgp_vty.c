@@ -1710,7 +1710,7 @@ DEFUN (no_router_bgp,
 				argv[idx_asn]->arg);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-		if (argc > 4 && strncmp(argv[4]->arg, "vrf", 3) == 0) {
+		if (argc > 4 && (strmatch(argv[4]->arg, "vrf") || strmatch(argv[4]->arg, "view"))) {
 			name = argv[idx_vrf]->arg;
 			if (strmatch(argv[idx_vrf - 1]->text, "vrf")
 			    && strmatch(name, VRF_DEFAULT_NAME))
