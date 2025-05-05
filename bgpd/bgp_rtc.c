@@ -528,9 +528,9 @@ char *bgp_rtc_prefix_display(char *buf, size_t size, uint16_t prefix_len,
 
 				snprintf(sbuf, sizeof(sbuf), "%u:%u", ival, lval);
 			} else if (type == 1) {
-				memcpy(&ipval, ptr, 4);
-				ptr_get_be16((uint8_t *)ptr + 4, &ival);
-				snprintf(sbuf, sizeof(sbuf), "%pI4:%u", &ipval, ival);
+				ptr = ptr_get_be32(ptr, &ipval);
+				ptr_get_be16((uint8_t *)ptr, &ival);
+				snprintfrr(sbuf, sizeof(sbuf), "%pI4:%u", &ipval, ival);
 			} else if (type == 2) {
 				ptr = ptr_get_be32(ptr, &lval);
 				ptr_get_be16((uint8_t *)ptr, &ival);
