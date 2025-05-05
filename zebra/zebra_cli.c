@@ -844,7 +844,7 @@ DEFPY_YANG (link_params_affinity,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-int ag_iter_cb(const struct lyd_node *dnode, void *arg)
+static int ag_iter_cb(const struct lyd_node *dnode, void *arg)
 {
 	struct vty *vty = arg;
 
