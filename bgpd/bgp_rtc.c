@@ -447,9 +447,8 @@ int bgp_rtc_static_from_str(struct vty *vty, struct bgp *bgp, const char *str, b
 			/* full RTC prefix */
 			snprintf(prefix_str, sizeof(prefix_str), "%s", str);
 		else if (count == 1) {
-			ptr = strchr(str, ':');
 			/* only the route-target is provided */
-			if (strchr(ptr + 1, '.'))
+			if (strchr(str, '.'))
 				/* assume IPv4 */
 				snprintf(prefix_str, sizeof(prefix_str), "%u:1:2:%s", bgp->as, str);
 			else {
