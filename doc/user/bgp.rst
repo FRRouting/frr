@@ -3670,11 +3670,18 @@ prefix:
 .. clicmd:: advertise <ipv4|ipv6> unicast [gateway-ip]
 
 When this CLI is configured for a BGP vrf under L2VPN EVPN address family, EVPN
-type-5 routes are generated for BGP prefixes in the vrf. Nexthop of the BGP
-prefix becomes the gateway IP of the corresponding type-5 route.
+type-5 routes are generated for BGP prefixes in the vrf.
 
 If the above command is configured without the "gateway-ip" keyword, type-5
-routes are generated without overlay index.
+routes are generated without overlay index, and only the best path for each
+prefix is exported to EVPN.
+
+If the above command is configured with the "gateway-ip" keyword, all paths are
+exported to EVPN using AddPath, and each path's nexthop becomes the gateway IP
+of the corresponding type-5 paths.
+
+Note that EVPN will still perform its own bestpath selection for each EVPN
+prefix, and addpath must be properly configured in EVPN to enable multipathing.
 
 2. Add gateway IP to EVPN type-5 route using a route-map:
 
