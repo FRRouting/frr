@@ -2276,7 +2276,9 @@ bool mgmt_vty_read_configs(void)
 	FILE *confp;
 	uint line_num = 0;
 	uint count = 0;
+#if defined(HAVE_MGMTD) || (defined(HAVE_STATICD) && defined(HAVE_STATICD_MGMTD))
 	uint index;
+#endif /* defined(HAVE_MGMTD) || (defined(HAVE_STATICD) && defined(HAVE_STATICD_MGMTD)) */
 
 	vty = vty_new();
 	vty->wfd = STDERR_FILENO;
@@ -2290,6 +2292,7 @@ bool mgmt_vty_read_configs(void)
 	vty_mgmt_lock_candidate_inline(vty);
 	vty_mgmt_lock_running_inline(vty);
 
+#if defined(HAVE_MGMTD) || (defined(HAVE_STATICD) && defined(HAVE_STATICD_MGMTD))
 	for (index = 0; index < array_size(mgmt_daemons); index++) {
 		snprintf(path, sizeof(path), "%s/%s.conf", frr_sysconfdir,
 			 mgmt_daemons[index]);
@@ -2307,6 +2310,7 @@ bool mgmt_vty_read_configs(void)
 
 		fclose(confp);
 	}
+#endif /* defined(HAVE_MGMTD) || (defined(HAVE_STATICD) && defined(HAVE_STATICD_MGMTD)) */
 
 	snprintf(path, sizeof(path), "%s/mgmtd.conf", frr_sysconfdir);
 	confp = vty_open_config(path, config_default);
