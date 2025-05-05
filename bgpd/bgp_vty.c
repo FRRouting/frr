@@ -7381,6 +7381,26 @@ DEFPY(neighbor_extended_link_bw,
 	return ret;
 }
 
+DEFPY(neighbor_nhc_attribute,
+      neighbor_nhc_attribute_cmd,
+      "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor send-nexthop-characteristics",
+      NO_STR
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Send BGP Next Hop Dependent Characteristics Attribute\n")
+{
+	struct peer *peer;
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (no)
+		return peer_flag_unset_vty(vty, neighbor, PEER_FLAG_SEND_NHC_ATTRIBUTE);
+
+	return peer_flag_set_vty(vty, neighbor, PEER_FLAG_SEND_NHC_ATTRIBUTE);
+}
+
 /* disable-link-bw-encoding-ieee */
 DEFUN(neighbor_disable_link_bw_encoding_ieee,
       neighbor_disable_link_bw_encoding_ieee_cmd,
@@ -19166,6 +19186,9 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 				addr);
 		}
 	}
+
+	if (peergroup_flag_check(peer, PEER_FLAG_SEND_NHC_ATTRIBUTE))
+		vty_out(vty, " neighbor %s send-nexthop-characteristics\n", addr);
 }
 
 /* BGP peer configuration display function. */
@@ -21633,6 +21656,8 @@ void bgp_vty_init(void)
 
 
 	install_element(BGP_NODE, &neighbor_extended_link_bw_cmd);
+
+	install_element(BGP_NODE, &neighbor_nhc_attribute_cmd);
 
 	/* "neighbor extended-optional-parameters" commands.  */
 	install_element(BGP_NODE, &neighbor_extended_optional_parameters_cmd);
