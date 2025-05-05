@@ -38,7 +38,8 @@ Build-Depends: bison,
 	       libgrpc++-dev (>=1.16.1) <pkg.frr.grpc>,
 	       protobuf-compiler (>=3.6.1) <pkg.frr.grpc>,
 	       protobuf-compiler-grpc (>=1.16.1) <pkg.frr.grpc>,
-               libprotobuf-dev (>=3.6.1) <pkg.frr.grpc>
+               libprotobuf-dev (>=3.6.1) <pkg.frr.grpc>,
+               libjs-sphinxdoc
 Standards-Version: 4.5.0.3
 Homepage: https://www.frrouting.org/
 Vcs-Browser: https://github.com/FRRouting/frr/tree/debian/master
@@ -120,7 +121,6 @@ Section: doc
 Architecture: all
 Multi-Arch: foreign
 Depends: ${misc:Depends},
-         ${sphinxdoc:Depends}
 Suggests: frr
 Conflicts: quagga-doc
 Description: FRRouting suite - user manual
