@@ -1801,6 +1801,12 @@ Configuring Peers
    modifying the `net.core.optmem_max` sysctl to a larger value to
    avoid out of memory errors from the linux kernel.
 
+.. clicmd:: neighbor PEER send-nexthop-characteristics
+
+   Send the BGP Next Hop Dependent Characteristics Attribute (NHC) to the peer.
+
+   Default: disabled.
+
 .. clicmd:: neighbor PEER send-community <both|all|extended|standard|large>
 
    Send the communities to the peer.
