@@ -32,7 +32,10 @@
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_lcommunity.h"
 #include "bgpd/bgp_updgrp.h"
+#include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_encap_types.h"
+#include "bgpd/bgp_nhc.h"
+#include "bgpd/bgp_vty.h"
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
 #include "bgp_encap_types.h"
@@ -69,6 +72,7 @@ static const struct message attr_str[] = {
 	{BGP_ATTR_PREFIX_SID, "PREFIX_SID"},
 	{BGP_ATTR_IPV6_EXT_COMMUNITIES, "IPV6_EXT_COMMUNITIES"},
 	{BGP_ATTR_AIGP, "AIGP"},
+	{BGP_ATTR_NHC, "Next Hop Dependent Characteristics"},
 	{0}};
 
 static const struct message attr_flag_str[] = {
@@ -199,6 +203,7 @@ static struct hash *vnc_hash = NULL;
 static struct hash *srv6_l3vpn_hash;
 static struct hash *srv6_vpn_hash;
 static struct hash *evpn_overlay_hash;
+static struct hash *bgp_nhc_hash;
 
 struct bgp_attr_encap_subtlv *encap_tlv_dup(struct bgp_attr_encap_subtlv *orig)
 {
@@ -614,6 +619,118 @@ static void evpn_overlay_finish(void)
 			    (void (*)(void *))evpn_overlay_free);
 }
 
+static bool bgp_nhc_same(const struct bgp_nhc *nhc1, const struct bgp_nhc *nhc2)
+{
+	const struct bgp_nhc_tlv *p;
+	const struct bgp_nhc_tlv *q;
+
+	if (nhc1 == nhc2)
+		return true;
+
+	if (!nhc1 || !nhc2)
+		return false;
+
+	if (nhc1->afi != nhc2->afi || nhc1->safi != nhc2->safi ||
+	    nhc1->nh_length != nhc2->nh_length || nhc1->tlvs_length != nhc2->tlvs_length)
+		return false;
+
+	if (IPV4_ADDR_CMP(&nhc1->nh_ipv4, &nhc2->nh_ipv4))
+		return false;
+	if (IPV6_ADDR_CMP(&nhc1->nh_ipv6, &nhc2->nh_ipv6))
+		return false;
+
+	for (p = nhc1->tlvs; p; p = p->next) {
+		for (q = nhc2->tlvs; q; q = q->next) {
+			if ((p->code == q->code) && (p->length == q->length) &&
+			    !memcmp(p->value, q->value, p->length))
+				break;
+		}
+		if (!q)
+			return false;
+	}
+
+	for (p = nhc2->tlvs; p; p = p->next) {
+		for (q = nhc1->tlvs; q; q = q->next) {
+			if ((p->code == q->code) && (p->length == q->length) &&
+			    !memcmp(p->value, q->value, p->length))
+				break;
+		}
+		if (!q)
+			return false;
+	}
+
+	return true;
+}
+
+static void *bgp_nhc_hash_alloc(void *p)
+{
+	return p;
+}
+
+static struct bgp_nhc *bgp_nhc_intern(struct bgp_nhc *nhc)
+{
+	struct bgp_nhc *find;
+
+	find = hash_get(bgp_nhc_hash, nhc, bgp_nhc_hash_alloc);
+	if (find != nhc)
+		bgp_nhc_free(nhc);
+	find->refcnt++;
+
+	return find;
+}
+
+static void bgp_nhc_unintern(struct bgp_nhc **nhcp)
+{
+	struct bgp_nhc *nhc = *nhcp;
+
+	if (!*nhcp)
+		return;
+
+	if (nhc->refcnt)
+		nhc->refcnt--;
+
+	if (nhc->refcnt == 0) {
+		hash_release(bgp_nhc_hash, nhc);
+		bgp_nhc_free(nhc);
+		*nhcp = NULL;
+	}
+}
+
+static uint32_t bgp_nhc_hash_key_make(const void *p)
+{
+	const struct bgp_nhc *nhc = p;
+	uint32_t key = 0;
+
+	key = jhash_3words(nhc->afi, nhc->safi, nhc->nh_length, key);
+	key = jhash_1word(nhc->tlvs_length, key);
+	key = jhash(&nhc->nh_ipv4, IPV4_MAX_BYTELEN, key);
+	key = jhash(&nhc->nh_ipv6, IPV6_MAX_BYTELEN, key);
+
+	if (nhc->tlvs)
+		key = jhash(nhc->tlvs, nhc->tlvs_length, key);
+
+	return key;
+}
+
+static bool bgp_nhc_hash_cmp(const void *p1, const void *p2)
+{
+	const struct bgp_nhc *nhc1 = p1;
+	const struct bgp_nhc *nhc2 = p2;
+
+	return bgp_nhc_same(nhc1, nhc2);
+}
+
+static void nhc_init(void)
+{
+	bgp_nhc_hash = hash_create(bgp_nhc_hash_key_make, bgp_nhc_hash_cmp,
+				   "BGP Next Hop Dependent Characteristics");
+}
+
+static void nhc_finish(void)
+{
+	hash_clean_and_free(&bgp_nhc_hash, (void (*)(void *))bgp_nhc_free);
+}
+
 static void *srv6_l3vpn_hash_alloc(void *p)
 {
 	return p;
@@ -866,6 +983,8 @@ unsigned int attrhash_key_make(const void *p)
 	MIX3(attr->mm_seqnum, attr->df_alg, attr->df_pref);
 	MIX(attr->encap_tunneltype);
 	key = jhash(&attr->rmac, sizeof(attr->rmac), key);
+	if (bgp_attr_get_nhc(attr))
+		MIX(bgp_nhc_hash_key_make(bgp_attr_get_nhc(attr)));
 
 	return key;
 }
@@ -882,54 +1001,40 @@ bool attrhash_cmp(const void *p1, const void *p2)
 	    attr1->med == attr2->med && attr1->local_pref == attr2->local_pref &&
 	    attr1->rmap_change_flags == attr2->rmap_change_flags) {
 		if (attr1->aggregator_as == attr2->aggregator_as &&
-		    attr1->aggregator_addr.s_addr ==
-			    attr2->aggregator_addr.s_addr &&
+		    attr1->aggregator_addr.s_addr == attr2->aggregator_addr.s_addr &&
 		    attr1->weight == attr2->weight && attr1->tag == attr2->tag &&
 		    attr1->label_index == attr2->label_index &&
 		    attr1->mp_nexthop_len == attr2->mp_nexthop_len &&
-		    bgp_attr_get_ecommunity(attr1) ==
-			    bgp_attr_get_ecommunity(attr2) &&
-		    bgp_attr_get_ipv6_ecommunity(attr1) ==
-			    bgp_attr_get_ipv6_ecommunity(attr2) &&
-		    bgp_attr_get_lcommunity(attr1) ==
-			    bgp_attr_get_lcommunity(attr2) &&
+		    bgp_attr_get_ecommunity(attr1) == bgp_attr_get_ecommunity(attr2) &&
+		    bgp_attr_get_ipv6_ecommunity(attr1) == bgp_attr_get_ipv6_ecommunity(attr2) &&
+		    bgp_attr_get_lcommunity(attr1) == bgp_attr_get_lcommunity(attr2) &&
 		    bgp_attr_get_cluster(attr1) == bgp_attr_get_cluster(attr2) &&
 		    bgp_attr_get_transit(attr1) == bgp_attr_get_transit(attr2) &&
-		    bgp_attr_get_aigp_metric(attr1) ==
-			    bgp_attr_get_aigp_metric(attr2) &&
+		    bgp_attr_get_aigp_metric(attr1) == bgp_attr_get_aigp_metric(attr2) &&
 		    attr1->rmap_table_id == attr2->rmap_table_id &&
 		    (attr1->encap_tunneltype == attr2->encap_tunneltype) &&
 		    encap_same(attr1->encap_subtlvs, attr2->encap_subtlvs)
 #ifdef ENABLE_BGP_VNC
-		    && encap_same(bgp_attr_get_vnc_subtlvs(attr1),
-				  bgp_attr_get_vnc_subtlvs(attr2))
+		    && encap_same(bgp_attr_get_vnc_subtlvs(attr1), bgp_attr_get_vnc_subtlvs(attr2))
 #endif
-		    && IPV6_ADDR_SAME(&attr1->mp_nexthop_global,
-				      &attr2->mp_nexthop_global) &&
-		    IPV6_ADDR_SAME(&attr1->mp_nexthop_local,
-				   &attr2->mp_nexthop_local) &&
-		    IPV4_ADDR_SAME(&attr1->mp_nexthop_global_in,
-				   &attr2->mp_nexthop_global_in) &&
-		    IPV4_ADDR_SAME(&attr1->originator_id,
-				   &attr2->originator_id) &&
+		    && IPV6_ADDR_SAME(&attr1->mp_nexthop_global, &attr2->mp_nexthop_global) &&
+		    IPV6_ADDR_SAME(&attr1->mp_nexthop_local, &attr2->mp_nexthop_local) &&
+		    IPV4_ADDR_SAME(&attr1->mp_nexthop_global_in, &attr2->mp_nexthop_global_in) &&
+		    IPV4_ADDR_SAME(&attr1->originator_id, &attr2->originator_id) &&
 		    overlay_index_same(attr1, attr2) &&
 		    !memcmp(&attr1->esi, &attr2->esi, sizeof(esi_t)) &&
-		    attr1->es_flags == attr2->es_flags &&
-		    attr1->mm_seqnum == attr2->mm_seqnum &&
+		    attr1->es_flags == attr2->es_flags && attr1->mm_seqnum == attr2->mm_seqnum &&
 		    attr1->mm_sync_seqnum == attr2->mm_sync_seqnum &&
-		    attr1->df_pref == attr2->df_pref &&
-		    attr1->df_alg == attr2->df_alg &&
+		    attr1->df_pref == attr2->df_pref && attr1->df_alg == attr2->df_alg &&
 		    attr1->nh_ifindex == attr2->nh_ifindex &&
 		    attr1->nh_lla_ifindex == attr2->nh_lla_ifindex &&
-		    attr1->nh_flags == attr2->nh_flags &&
-		    attr1->distance == attr2->distance &&
+		    attr1->nh_flags == attr2->nh_flags && attr1->distance == attr2->distance &&
 		    srv6_l3vpn_same(attr1->srv6_l3vpn, attr2->srv6_l3vpn) &&
 		    srv6_vpn_same(attr1->srv6_vpn, attr2->srv6_vpn) &&
-		    attr1->srte_color == attr2->srte_color &&
-		    attr1->nh_type == attr2->nh_type &&
-		    attr1->bh_type == attr2->bh_type &&
-		    attr1->otc == attr2->otc &&
-		    !memcmp(&attr1->rmac, &attr2->rmac, sizeof(struct ethaddr)))
+		    attr1->srte_color == attr2->srte_color && attr1->nh_type == attr2->nh_type &&
+		    attr1->bh_type == attr2->bh_type && attr1->otc == attr2->otc &&
+		    !memcmp(&attr1->rmac, &attr2->rmac, sizeof(struct ethaddr)) &&
+		    bgp_nhc_same(bgp_attr_get_nhc(attr1), bgp_attr_get_nhc(attr2)))
 			return true;
 	}
 
@@ -959,6 +1064,8 @@ static void attr_show_all_iterator(struct hash_bucket *bucket, struct vty *vty)
 {
 	struct attr *attr = bucket->data;
 	struct in6_addr *sid = NULL;
+	struct bgp_nhc *nhc = bgp_attr_get_nhc(attr);
+	struct bgp_nhc_tlv *tlv = NULL;
 
 	if (attr->srv6_l3vpn)
 		sid = &attr->srv6_l3vpn->sid;
@@ -983,6 +1090,13 @@ static void attr_show_all_iterator(struct hash_bucket *bucket, struct vty *vty)
 	vty_out(vty, "\tExtended Community: %s Extended IPv6 Community: %s\n",
 		ecommunity_str(attr->ecommunity),
 		ecommunity_str(attr->ipv6_ecommunity));
+
+	if (nhc) {
+		vty_out(vty, "\tNHC: TLVs length %d\n", nhc->tlvs_length);
+		for (tlv = nhc->tlvs; tlv; tlv = tlv->next)
+			vty_out(vty, "\t  TLV: code %d, length %d, value %p\n", tlv->code,
+				tlv->length, tlv->value);
+	}
 }
 
 void attr_show_all(struct vty *vty)
@@ -1124,6 +1238,15 @@ struct attr *bgp_attr_intern(struct attr *attr)
 			vnc_subtlvs->refcnt++;
 	}
 #endif
+
+	struct bgp_nhc *nhc = bgp_attr_get_nhc(attr);
+
+	if (nhc) {
+		if (!nhc->refcnt)
+			bgp_attr_set_nhc(attr, bgp_nhc_intern(nhc));
+		else
+			nhc->refcnt++;
+	}
 
 	/* At this point, attr only contains intern'd pointers.  that means
 	 * if we find it in attrhash, it has all the same pointers and we
@@ -1288,6 +1411,7 @@ void bgp_attr_unintern_sub(struct attr *attr)
 	struct community *comm = NULL;
 	struct transit *transit;
 	struct bgp_route_evpn *bre;
+	struct bgp_nhc *nhc;
 
 	/* aspath refcount shoud be decrement. */
 	aspath_unintern(&attr->aspath);
@@ -1316,6 +1440,10 @@ void bgp_attr_unintern_sub(struct attr *attr)
 	transit = bgp_attr_get_transit(attr);
 	transit_unintern(&transit);
 	bgp_attr_set_transit(attr, NULL);
+
+	nhc = bgp_attr_get_nhc(attr);
+	bgp_nhc_unintern(&nhc);
+	bgp_attr_set_nhc(attr, NULL);
 
 	encap_unintern(&attr->encap_subtlvs, ENCAP_SUBTLV_TYPE);
 
@@ -1366,6 +1494,7 @@ void bgp_attr_flush(struct attr *attr)
 	struct lcommunity *lcomm;
 	struct community *comm;
 	struct bgp_route_evpn *bre;
+	struct bgp_nhc *nhc;
 
 	if (attr->aspath && !attr->aspath->refcnt) {
 		aspath_free(attr->aspath);
@@ -1429,6 +1558,12 @@ void bgp_attr_flush(struct attr *attr)
 		evpn_overlay_free(bre);
 		bgp_attr_set_evpn_overlay(attr, NULL);
 	}
+
+	nhc = bgp_attr_get_nhc(attr);
+	if (nhc && !nhc->refcnt) {
+		bgp_nhc_free(nhc);
+		bgp_attr_set_nhc(attr, NULL);
+	}
 }
 
 /* Implement draft-scudder-idr-optional-transitive behaviour and
@@ -1491,6 +1626,7 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 	case BGP_ATTR_AGGREGATOR:
 	case BGP_ATTR_ATOMIC_AGGREGATE:
 	case BGP_ATTR_PREFIX_SID:
+	case BGP_ATTR_NHC:
 		return BGP_ATTR_PARSE_PROCEED;
 
 	/* Core attributes, particularly ones which may influence route
@@ -1600,6 +1736,7 @@ const uint8_t attr_flags_values[] = {
 	[BGP_ATTR_IPV6_EXT_COMMUNITIES] =
 		BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
 	[BGP_ATTR_AIGP] = BGP_ATTR_FLAG_OPTIONAL,
+	[BGP_ATTR_NHC] = BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
 };
 static const size_t attr_flags_values_max = array_size(attr_flags_values) - 1;
 
@@ -3453,6 +3590,162 @@ aigp_ignore:
 	return bgp_attr_ignore(peer, args->type);
 }
 
+static int bgp_attr_nhc(struct bgp_attr_parser_args *args)
+{
+	struct peer *const peer = args->peer;
+	struct attr *const attr = args->attr;
+	bgp_size_t length = args->length;
+	uint8_t type = args->type;
+	iana_afi_t pkt_afi;
+	afi_t afi;
+	iana_safi_t pkt_safi;
+	safi_t safi;
+	struct stream *s = BGP_INPUT(peer);
+	struct bgp_nhc *nhc;
+	uint16_t tlv_code;
+	uint16_t tlv_length;
+	struct bgp_nhc_tlv *tlv;
+
+	if (peer->discard_attrs[args->type] || peer->withdraw_attrs[args->type])
+		goto nhc_ignore;
+
+	if (length < BGP_NHC_MIN_LEN) {
+		zlog_err("%pBP rcvd BGP NHC attribute length is too short: %d", peer, length);
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR, args->total);
+	}
+
+	pkt_afi = stream_getw(s);
+	pkt_safi = stream_getc(s);
+
+	if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi, &safi)) {
+		if (bgp_debug_update(peer, NULL, NULL, 0))
+			zlog_debug("%pBP rcvd unrecognizable AFI, %s or, SAFI, %s, of NHC", peer,
+				   iana_afi2str(pkt_afi), iana_safi2str(pkt_safi));
+		return BGP_ATTR_PARSE_ERROR;
+	}
+
+	if (bgp_debug_update(peer, NULL, NULL, 0))
+		zlog_debug("%pBP rcvd BGP NHC attribute with length %d for afi %s, safi %s", peer,
+			   length, iana_afi2str(pkt_afi), iana_safi2str(pkt_safi));
+
+	nhc = XCALLOC(MTYPE_BGP_NHC, sizeof(struct bgp_nhc));
+	nhc->afi = afi;
+	nhc->safi = safi;
+	nhc->nh_length = stream_getc(s);
+
+	/* If Next-hop is IPv6, we should check if we are not out of bound too */
+	if (nhc->nh_length == BGP_ATTR_NHLEN_IPV6_GLOBAL) {
+		if (length < BGP_NHC_MIN_IPV6_LEN) {
+			zlog_err("%pBP rcvd BGP NHC attribute length is too short: %d", peer,
+				 length);
+			bgp_nhc_free(nhc);
+			return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR, args->total);
+		}
+	}
+
+	/* Next-hop length should be either 4 or 16 */
+	if (nhc->nh_length != BGP_ATTR_NHLEN_IPV4 && nhc->nh_length != BGP_ATTR_NHLEN_IPV6_GLOBAL) {
+		zlog_err("%pBP rcvd wrong next-hop length, %d, in NHC", peer, nhc->nh_length);
+		bgp_nhc_free(nhc);
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR, args->total);
+	}
+
+	length -= 4; /* AFI(2) + SAFI(1) + Next-hop length(1) */
+
+	if (nhc->nh_length == BGP_ATTR_NHLEN_IPV4) {
+		stream_get(&nhc->nh_ipv4, s, IPV4_MAX_BYTELEN);
+		length -= IPV4_MAX_BYTELEN;
+	} else if (nhc->nh_length == BGP_ATTR_NHLEN_IPV6_GLOBAL) {
+		stream_get(&nhc->nh_ipv6, s, IPV6_MAX_BYTELEN);
+		length -= IPV6_MAX_BYTELEN;
+		if (IN6_IS_ADDR_LINKLOCAL(&nhc->nh_ipv6)) {
+			if (!peer->nexthop.ifp) {
+				zlog_warn("%pBP sent a v6 global attribute but address is a V6 LL and there's no peer interface information. Hence, withdrawing",
+					  peer);
+				if (PEER_HAS_LINK_LOCAL_CAPABILITY(peer))
+					bgp_notify_send(peer->connection, BGP_NOTIFY_UPDATE_ERR,
+							BGP_NOTIFY_UPDATE_UNREACH_NEXT_HOP);
+				return BGP_ATTR_PARSE_PROCEED;
+			}
+		}
+	} else {
+		zlog_err("%pBP sent wrong next-hop length, %d, in NHC", peer, attr->mp_nexthop_len);
+		bgp_nhc_free(nhc);
+		return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
+	}
+
+	/*
+	 * draft-ietf-idr-entropy-label-17
+	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 * |      Characteristic Code      |      Characteristic Length    |
+	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 * ~                Characteristic Value (variable)                ~
+	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 */
+	while (length && STREAM_READABLE(s) >= BGP_NHC_TLV_MIN_LEN) {
+		struct bgp_nhc_tlv *found;
+
+		tlv_code = stream_getw(s);
+		tlv_length = stream_getw(s);
+
+		if (length < tlv_length) {
+			zlog_err("%pBP rcvd BGP NHC TLV length %d exceeds remaining length %d",
+				 peer, tlv_length, length);
+			bgp_nhc_free(nhc);
+			return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR, args->total);
+		}
+
+		if (STREAM_READABLE(s) < tlv_length) {
+			zlog_err("%pBP rcvd BGP NHC TLV length %d exceeds remaining stream length %zu",
+				 peer, tlv_length, STREAM_READABLE(s));
+			bgp_nhc_free(nhc);
+			return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR, args->total);
+		}
+
+		tlv = XCALLOC(MTYPE_BGP_NHC_TLV, sizeof(struct bgp_nhc_tlv) + tlv_length);
+		tlv->code = tlv_code;
+		tlv->length = tlv_length;
+		tlv->value = XCALLOC(MTYPE_BGP_NHC_TLV_VAL, tlv_length);
+		stream_get(tlv->value, s, tlv_length);
+
+		if (bgp_debug_update(peer, NULL, NULL, 1))
+			zlog_debug("%pBP rcvd BGP NHC TLV code %d, length %d, value %p", peer,
+				   tlv->code, tlv->length, tlv->value);
+
+		/* draft-wang-idr-next-next-hop-nodes */
+		if (tlv->code == BGP_ATTR_NHC_TLV_NNHN) {
+			uint16_t len = tlv->length;
+
+			if (len % IPV4_MAX_BYTELEN != 0) {
+				zlog_err("%pBP rcvd BGP NHC (NNHN TLV) length %d not a multiple of %d",
+					 peer, tlv->length, IPV4_MAX_BYTELEN);
+				bgp_nhc_free(nhc);
+				return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
+							  args->total);
+			}
+		}
+
+		found = bgp_nhc_tlv_find(nhc, tlv_code);
+		if (found) {
+			nhc->tlvs_length -= found->length + BGP_NHC_TLV_MIN_LEN;
+			bgp_nhc_tlv_free(found);
+		}
+
+		bgp_nhc_tlv_add(nhc, tlv);
+
+		length -= tlv_length + BGP_NHC_TLV_MIN_LEN;
+	}
+
+	bgp_attr_set_nhc(attr, bgp_nhc_intern(nhc));
+
+	return BGP_ATTR_PARSE_PROCEED;
+
+nhc_ignore:
+	stream_forward_getp(s, length);
+
+	return bgp_attr_ignore(peer, type);
+}
+
 /* OTC attribute. */
 static enum bgp_attr_parse_ret bgp_attr_otc(struct bgp_attr_parser_args *args)
 {
@@ -3915,6 +4208,9 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 		case BGP_ATTR_AIGP:
 			ret = bgp_attr_aigp(&attr_args);
 			break;
+		case BGP_ATTR_NHC:
+			ret = bgp_attr_nhc(&attr_args);
+			break;
 		default:
 			ret = bgp_attr_unknown(&attr_args);
 			break;
@@ -4276,6 +4572,70 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 	return sizep;
 }
 
+static void bgp_packet_nhc(struct stream *s, struct peer *peer, afi_t afi, safi_t safi,
+			   struct attr *attr, struct bgp_path_info *bpi)
+{
+	size_t sizep;
+	iana_afi_t pkt_afi = IANA_AFI_IPV4;
+	iana_safi_t pkt_safi = IANA_SAFI_UNICAST;
+	afi_t nh_afi;
+	struct bgp_path_info *exists;
+	uint16_t total;
+
+	if (!bpi)
+		return;
+
+	total = bgp_path_info_mpath_count(bpi) * IPV4_MAX_BYTELEN;
+
+	/* NHC now supports only draft-wang-idr-next-next-hop-nodes, thus
+	 * do not sent NHC attribute if the path is not multipath or self
+	 * originated.
+	 */
+	if (bpi->peer == bpi->peer->bgp->peer_self || bgp_path_info_mpath_count(bpi) < 2)
+		return;
+
+	stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
+	stream_putc(s, BGP_ATTR_NHC);
+	sizep = stream_get_endp(s);
+	stream_putc(s, 0);
+
+	/* Convert AFI, SAFI to values for packet. */
+	bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi, &pkt_safi);
+
+	stream_putw(s, pkt_afi);
+	stream_putc(s, pkt_safi);
+
+	if (afi == AFI_IP && (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST ||
+			      safi == SAFI_MPLS_VPN || safi == SAFI_MULTICAST))
+		nh_afi = peer_cap_enhe(peer, afi, safi) ? AFI_IP6 : AFI_IP;
+	else if (safi == SAFI_FLOWSPEC)
+		nh_afi = afi;
+	else
+		nh_afi = BGP_NEXTHOP_AFI_FROM_NHLEN(attr->mp_nexthop_len);
+
+	if (nh_afi == AFI_IP) {
+		stream_putc(s, IPV4_MAX_BYTELEN);
+		stream_put_ipv4(s, attr->nexthop.s_addr);
+	} else {
+		stream_putc(s, IPV6_MAX_BYTELEN);
+		stream_put(s, &attr->mp_nexthop_global, IPV6_MAX_BYTELEN);
+	}
+
+	/* Put TLVs */
+
+	/* Begin NNHN TLV */
+	stream_putw(s, BGP_ATTR_NHC_TLV_NNHN);
+	stream_putw(s, total);
+	stream_put_ipv4(s, bpi->peer->remote_id.s_addr);
+
+	for (exists = bgp_path_info_mpath_first(bpi); exists;
+	     exists = bgp_path_info_mpath_next(exists))
+		stream_put_ipv4(s, exists->peer->remote_id.s_addr);
+	/* End NNHN TLV */
+
+	stream_putc_at(s, sizep, (stream_get_endp(s) - sizep) - 1);
+}
+
 void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 			      const struct prefix *p,
 			      const struct prefix_rd *prd, mpls_label_t *label,
@@ -4510,15 +4870,16 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 				struct attr *attr, struct bpacket_attr_vec_arr *vecarr,
 				struct prefix *p, afi_t afi, safi_t safi, struct peer *from,
 				struct prefix_rd *prd, mpls_label_t *label, uint8_t num_labels,
-				bool addpath_capable, uint32_t addpath_tx_id)
+				bool addpath_capable, uint32_t addpath_tx_id,
+				struct bgp_path_info *bpi)
 {
 	size_t cp;
 	size_t aspath_sizep;
 	struct aspath *aspath;
 	int send_as4_path = 0;
 	int send_as4_aggregator = 0;
-	bool use32bit = CHECK_FLAG(peer->cap, PEER_CAP_AS4_RCV)
-			&& CHECK_FLAG(peer->cap, PEER_CAP_AS4_ADV);
+	bool use32bit = CHECK_FLAG(peer->cap, PEER_CAP_AS4_RCV) &&
+			CHECK_FLAG(peer->cap, PEER_CAP_AS4_ADV);
 
 	if (!bgp)
 		bgp = peer->bgp;
@@ -4993,6 +5354,10 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 		stream_put_bgp_aigp_tlv_metric(s, attr->aigp_metric);
 	}
 
+	/* draft-ietf-idr-entropy-label */
+	if (peergroup_flag_check(peer, PEER_FLAG_SEND_NHC_ATTRIBUTE))
+		bgp_packet_nhc(s, peer, afi, safi, attr, bpi);
+
 	/* Unknown transit attribute. */
 	struct transit *transit = bgp_attr_get_transit(attr);
 
@@ -5067,6 +5432,7 @@ void bgp_attr_init(void)
 	encap_init();
 	srv6_init();
 	evpn_overlay_init();
+	nhc_init();
 }
 
 void bgp_attr_finish(void)
@@ -5081,6 +5447,7 @@ void bgp_attr_finish(void)
 	encap_finish();
 	srv6_finish();
 	evpn_overlay_finish();
+	nhc_finish();
 }
 
 /* Make attribute packet. */
