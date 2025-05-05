@@ -675,8 +675,8 @@ int mgmt_be_send_native(enum mgmt_be_client_id id, void *msg)
 /*
  * Send notification to back-ends that subscribed for them.
  */
-static void mgmt_be_adapter_send_notify(struct mgmt_msg_notify_data *msg,
-					size_t msglen)
+static void mgmt_be_adapter_send_notify(struct mgmt_msg_notify_data *msg, size_t msglen,
+					struct mgmt_be_client_adapter *from_adapter)
 {
 	struct mgmt_be_client_adapter *adapter;
 	struct mgmt_be_xpath_map *map;
@@ -712,7 +712,7 @@ static void mgmt_be_adapter_send_notify(struct mgmt_msg_notify_data *msg,
 		}
 		FOREACH_BE_CLIENT_BITS (id, map->clients) {
 			adapter = mgmt_be_get_adapter_by_id(id);
-			if (!adapter)
+			if (!adapter || adapter == from_adapter)
 				continue;
 
 			msg_conn_send_msg(adapter->conn, MGMT_MSG_VERSION_NATIVE,
@@ -771,7 +771,7 @@ static void be_adapter_handle_native_msg(struct mgmt_be_client_adapter *adapter,
 		 */
 		notify_msg = (typeof(notify_msg))msg;
 		__dbg("Got NOTIFY from '%s'", adapter->name);
-		mgmt_be_adapter_send_notify(notify_msg, msg_len);
+		mgmt_be_adapter_send_notify(notify_msg, msg_len, adapter);
 		mgmt_fe_adapter_send_notify(notify_msg, msg_len);
 		break;
 	default:
