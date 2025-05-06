@@ -209,7 +209,7 @@ def _add_pim_rp_config(tgen, topo, input_dict, router, build, config_data_dict):
 
                 if rp_addr:
                     if group_addr_range:
-                        if type(group_addr_range) is not list:
+                        if not isinstance(group_addr_range, list):
                             group_addr_range = [group_addr_range]
 
                         for grp_addr in group_addr_range:
@@ -515,7 +515,7 @@ def _enable_disable_pim_config(tgen, topo, input_dict, router, build=False):
                 enable_flag = False
                 interfaces = input_dict[router]["pim"]["disable"]
 
-                if type(interfaces) is not list:
+                if not isinstance(interfaces, list):
                     interfaces = [interfaces]
 
                 for interface in interfaces:
@@ -539,7 +539,7 @@ def _enable_disable_pim_config(tgen, topo, input_dict, router, build=False):
                 enable_flag = False
                 interfaces = input_dict[router]["pim6"]["disable"]
 
-                if type(interfaces) is not list:
+                if not isinstance(interfaces, list):
                     interfaces = [interfaces]
 
                 for interface in interfaces:
@@ -664,7 +664,7 @@ def configure_pim_force_expire(tgen, topo, input_dict, build=False):
                 force_expire_data = pim_data["force_expire"]
 
                 for source, groups in force_expire_data.items():
-                    if type(groups) is not list:
+                    if not isinstance(groups, list):
                         groups = [groups]
 
                     for group in groups:
@@ -981,7 +981,7 @@ def verify_igmp_groups(tgen, dut, interface, group_addresses, expected=True):
     logger.info("[DUT: %s]: Verifying IGMP groups received:", dut)
     show_ip_igmp_json = run_frr_cmd(rnode, "show ip igmp groups json", isjson=True)
 
-    if type(group_addresses) is not list:
+    if not isinstance(group_addresses, list):
         group_addresses = [group_addresses]
 
     if interface in show_ip_igmp_json:
@@ -1073,10 +1073,10 @@ def verify_upstream_iif(
         dut,
     )
 
-    if type(group_addresses) is not list:
+    if not isinstance(group_addresses, list):
         group_addresses = [group_addresses]
 
-    if type(iif) is not list:
+    if not isinstance(iif, list):
         iif = [iif]
 
     for grp in group_addresses:
@@ -1257,7 +1257,7 @@ def verify_join_state_and_timer(
         dut,
     )
 
-    if type(group_addresses) is not list:
+    if not isinstance(group_addresses, list):
         group_addresses = [group_addresses]
 
     for grp in group_addresses:
@@ -1604,10 +1604,10 @@ def verify_pim_rp_info(
 
     rnode = tgen.routers()[dut]
 
-    if type(group_addresses) is not list:
+    if not isinstance(group_addresses, list):
         group_addresses = [group_addresses]
 
-    if oif is not None and type(oif) is not list:
+    if oif is not None and not isinstance(oif, list):
         oif = [oif]
 
     for grp in group_addresses:
@@ -1836,7 +1836,7 @@ def verify_pim_state(
 
     logger.info("[DUT: %s]: Verifying pim state", dut)
 
-    if type(group_addresses) is not list:
+    if not isinstance(group_addresses, list):
         group_addresses = [group_addresses]
 
     for grp in group_addresses:
@@ -2419,7 +2419,7 @@ def clear_igmp_interfaces(tgen, dut):
     total_groups_before_clear = igmp_json["totalGroups"]
 
     for _, value in igmp_json.items():
-        if type(value) is not dict:
+        if not isinstance(value, dict):
             continue
 
         groups = value["groups"]
@@ -2444,7 +2444,7 @@ def clear_igmp_interfaces(tgen, dut):
             break
 
     for key, value in igmp_json.items():
-        if type(value) is not dict:
+        if not isinstance(value, dict):
             continue
 
         groups = value["groups"]
@@ -3107,7 +3107,7 @@ def verify_pim_upstream_rpf(
             "show_ip_pim_upstream_rpf_json: \n %s", show_ip_pim_upstream_rpf_json
         )
 
-        if type(group_addresses) is not list:
+        if not isinstance(group_addresses, list):
             group_addresses = [group_addresses]
 
         for grp_addr in group_addresses:
@@ -3307,7 +3307,7 @@ def verify_pim_join(
 
     logger.info("[DUT: %s]: Verifying pim join", dut)
 
-    if type(group_addresses) is not list:
+    if not isinstance(group_addresses, list):
         group_addresses = [group_addresses]
 
     for grp in group_addresses:
@@ -3998,7 +3998,7 @@ def get_refCount_for_mroute(tgen, dut, iif, src_address, group_addresses):
         rnode, "show ip pim upstream json", isjson=True
     )
 
-    if type(group_addresses) is not list:
+    if not isinstance(group_addresses, list):
         group_addresses = [group_addresses]
 
     for grp_addr in group_addresses:
@@ -4072,7 +4072,7 @@ def verify_multicast_flag_state(
         error_msg = "[DUT %s]: mroutes are not present or flushed out !!" % (dut)
         return error_msg
 
-    if type(group_addresses) is not list:
+    if not isinstance(group_addresses, list):
         group_addresses = [group_addresses]
 
     for grp_addr in group_addresses:
@@ -4311,7 +4311,7 @@ def verify_local_igmp_groups(tgen, dut, interface, group_addresses):
     logger.info("[DUT: %s]: Verifying local IGMP groups received:", dut)
     show_ip_local_igmp_json = run_frr_cmd(rnode, "show ip igmp join json", isjson=True)
 
-    if type(group_addresses) is not list:
+    if not isinstance(group_addresses, list):
         group_addresses = [group_addresses]
 
     if interface not in show_ip_local_igmp_json:
@@ -4384,7 +4384,7 @@ def verify_static_groups(tgen, dut, interface, group_addresses):
         rnode, "show ip igmp static-group json", isjson=True
     )
 
-    if type(group_addresses) is not list:
+    if not isinstance(group_addresses, list):
         group_addresses = [group_addresses]
 
     if interface not in show_static_group_json:
@@ -4460,9 +4460,9 @@ def verify_local_igmp_proxy_groups(
     out = rnode.vtysh_cmd("show ip igmp proxy json", isjson=True)
     groups = [g["group"] if "group" in g else None for g in out["r1-eth1"]["groups"]]
 
-    if type(group_addresses_present) is not list:
+    if not isinstance(group_addresses_present, list):
         group_addresses_present = [group_addresses_present]
-    if type(group_addresses_not_present) is not list:
+    if not isinstance(group_addresses_not_present, list):
         group_addresses_not_present = [group_addresses_not_present]
 
     for test_addr in group_addresses_present:
@@ -4588,7 +4588,7 @@ def verify_mld_groups(tgen, dut, interface, group_addresses, expected=True):
     logger.info("[DUT: %s]: Verifying mld groups received:", dut)
     show_mld_json = run_frr_cmd(rnode, "show ipv6 mld groups json", isjson=True)
 
-    if type(group_addresses) is not list:
+    if not isinstance(group_addresses, list):
         group_addresses = [group_addresses]
 
     if interface in show_mld_json:
@@ -5370,7 +5370,7 @@ def verify_local_mld_groups(tgen, dut, interface, group_addresses):
         rnode, "show ipv6 mld join json", isjson=True
     )
 
-    if type(group_addresses) is not list:
+    if not isinstance(group_addresses, list):
         group_addresses = [group_addresses]
 
     if interface not in show_ipv6_local_mld_json["default"]:
