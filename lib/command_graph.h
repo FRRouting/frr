@@ -123,7 +123,12 @@ extern void cmd_token_varname_set(struct cmd_token *token, const char *varname);
 extern void cmd_token_varname_seqappend(struct graph_node *n);
 extern void cmd_token_varname_join(struct graph_node *n, const char *varname);
 
-extern void cmd_graph_parse(struct graph *graph, const struct cmd_element *cmd);
+enum cmd_graph_parse_errors {
+	CMD_GRAPH_PARSE_DOCSTRING_MISSING = (1 << 0),
+	CMD_GRAPH_PARSE_DOCSTRING_EXTRA = (1 << 1),
+};
+
+extern uint32_t cmd_graph_parse(struct graph *graph, const struct cmd_element *cmd);
 extern void cmd_graph_names(struct graph *graph);
 extern void cmd_graph_merge(struct graph *old, struct graph *n,
 			    int direction);

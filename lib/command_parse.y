@@ -75,6 +75,8 @@
 
     /* pointers to copy of command docstring */
     char *docstr_start, *docstr;
+
+    uint32_t retval;
   };
 }
 
@@ -394,10 +396,9 @@ selector: EXCL_BRACKET selector_seq_seq ']' varname_token
 
 DEFINE_MTYPE(LIB, LEX, "Lexer token (temporary)");
 
-void
-cmd_graph_parse (struct graph *graph, const struct cmd_element *cmd)
+uint32_t cmd_graph_parse(struct graph *graph, const struct cmd_element *cmd)
 {
-  struct parser_ctx ctx = { .graph = graph, .el = cmd };
+  struct parser_ctx ctx = { .graph = graph, .el = cmd, .retval = 0 };
 
   // set to 1 to enable parser traces
   yydebug = 0;
@@ -412,6 +413,8 @@ cmd_graph_parse (struct graph *graph, const struct cmd_element *cmd)
 
   // cleanup
   cleanup (&ctx);
+
+  return ctx.retval;
 }
 
 /* parser helper functions */
@@ -513,6 +516,7 @@ terminate_graph (CMD_YYLTYPE *locp, struct parser_ctx *ctx,
     while (ctx->docstr && ctx->docstr[1] != '\0')
       zlog_err ("%s", strsep(&ctx->docstr, "\n"));
     zlog_err ("----------");
+    ctx->retval |= CMD_GRAPH_PARSE_DOCSTRING_EXTRA;
   }
 
   graph_add_edge (finalnode, end_token_node);
@@ -527,6 +531,7 @@ doc_next (struct parser_ctx *ctx)
   {
     zlog_err ("Ran out of docstring while parsing '%s'", ctx->el->string);
     piece = "";
+    ctx->retval |= CMD_GRAPH_PARSE_DOCSTRING_MISSING;
   }
 
   return piece;
