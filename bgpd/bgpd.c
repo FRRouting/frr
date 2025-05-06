@@ -4880,7 +4880,9 @@ enum bgp_peer_active peer_active(struct peer *peer)
 		return BGP_PEER_CONNECTION_UNSPECIFIED;
 
 	if (peer->bfd_config) {
-		if (peer_established(peer->connection) && bfd_session_is_down(peer->bfd_config->session))
+		if (bfd_session_is_admin_down(peer->bfd_config->session))
+			return BGP_PEER_BFD_ADMIN_DOWN;
+		else if (peer_established(peer->connection) && bfd_session_is_down(peer->bfd_config->session))
 			return BGP_PEER_BFD_DOWN;
 	}
 
