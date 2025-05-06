@@ -4443,10 +4443,15 @@ static void show_ip_ospf_neighbour_brief(struct vty *vty,
 	struct timeval res = {.tv_sec = 0, .tv_usec = 0};
 	long time_val = 0;
 	char uptime[OSPF_TIME_DUMP_SIZE];
+	time_t epoch_tbuf = 0;
 
 	if (nbr->ts_last_progress.tv_sec || nbr->ts_last_progress.tv_usec)
 		time_val =
 			monotime_since(&nbr->ts_last_progress, &res) / 1000LL;
+
+	if (nbr->ts_last_progress.tv_sec)
+		epoch_tbuf = time(NULL) -
+			     (monotime(NULL) - (nbr->ts_last_progress.tv_sec));
 
 	if (use_json) {
 		char neigh_str[INET_ADDRSTRLEN];
@@ -4505,6 +4510,11 @@ static void show_ip_ospf_neighbour_brief(struct vty *vty,
 				json_neighbor, "deadTime",
 				ospf_timer_dump(nbr->t_inactivity, timebuf,
 						sizeof(timebuf)));
+			json_object_int_add(json_neighbor,
+					    "ospfNeighUptimeEpoch", epoch_tbuf);
+			json_object_string_add(json_neighbor,
+					       "ospfNeighUptimeEpochStr",
+					       ctime(&epoch_tbuf));
 		} else {
 			json_object_string_add(json_neighbor, "deadTimeMsecs",
 					       "inactive");

@@ -510,8 +510,10 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 	char up_str[MONOTIME_STRLEN];
 	bool first_p = true;
 	bool nhg_from_backup = false;
+	time_t epoch_tbuf;
 
 	uptime2str(re->uptime, up_str, sizeof(up_str));
+	epoch_tbuf = time(NULL) - (monotime(NULL) - (UPTIMESECS(re->uptime)));
 
 	/* If showing fib information, use the fib view of the
 	 * nexthops.
@@ -591,6 +593,11 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 					    re->nhe_installed_id);
 
 		json_object_string_add(json_route, "uptime", up_str);
+		json_object_int_add(json_route, "routeUptimeEstablishedEpoch",
+				    epoch_tbuf);
+		json_object_string_add(json_route,
+				       "routeUptimeEstablishedEpochStr",
+				       ctime(&epoch_tbuf));
 
 		for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
 			json_nexthop = json_object_new_object();
@@ -1071,9 +1078,10 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 	json_object *json = NULL;
 	json_object *json_backup_nexthop_array = NULL;
 	json_object *json_backup_nexthops = NULL;
-
+	time_t epoch_tbuf;
 
 	uptime2str(nhe->uptime, up_str, sizeof(up_str));
+	epoch_tbuf = time(NULL) - (monotime(NULL) - (UPTIMESECS(nhe->uptime)));
 
 	if (json_nhe_hdr)
 		json = json_object_new_object();
@@ -1089,6 +1097,10 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 						      sizeof(time_left),
 						      nhe->timer));
 		json_object_string_add(json, "uptime", up_str);
+		json_object_int_add(json, "nhGrpUptimeEstablishedEpoch",
+				    epoch_tbuf);
+		json_object_string_add(json, "nhGrpUptimeEstablishedEpochStr",
+				       ctime(&epoch_tbuf));
 		json_object_string_add(json, "vrf",
 				       vrf_id_to_name(nhe->vrf_id));
 		json_object_string_add(json, "afi", zebra_nhg_afi2str(nhe));
