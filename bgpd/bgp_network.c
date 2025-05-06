@@ -398,6 +398,8 @@ static const char *bgp_peer_active2str(enum bgp_peer_active active)
 		return "unspecified connection";
 	case BGP_PEER_BFD_DOWN:
 		return "BFD down";
+	case BGP_PEER_BFD_ADMIN_DOWN:
+		return "BFD administrative shutdown";
 	case BGP_PEER_AF_UNCONFIGURED:
 		return "no AF activated";
 	}

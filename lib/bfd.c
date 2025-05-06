@@ -1355,3 +1355,8 @@ bool bfd_session_is_down(const struct bfd_session_params *session)
 	return session->bss.state == BSS_DOWN ||
 	       session->bss.state == BSS_ADMIN_DOWN;
 }
+
+bool bfd_session_is_admin_down(const struct bfd_session_params *session)
+{
+	return session->bss.state == BSS_ADMIN_DOWN;
+}
