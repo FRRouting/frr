@@ -4693,8 +4693,16 @@ bool peer_active(struct peer_connection *connection)
 		return false;
 
 	if (peer->bfd_config) {
+<<<<<<< HEAD
 		if (peer_established(peer->connection) && bfd_session_is_down(peer->bfd_config->session))
 			return false;
+=======
+		if (bfd_session_is_admin_down(peer->bfd_config->session))
+			return BGP_PEER_BFD_ADMIN_DOWN;
+		else if (peer_established(connection) &&
+			 bfd_session_is_down(peer->bfd_config->session))
+			return BGP_PEER_BFD_DOWN;
+>>>>>>> f9400457e (bgpd: Make sure BGP stays in Idle if BFD profile is admin shutdown)
 	}
 
 	if (peer->afc[AFI_IP][SAFI_UNICAST] || peer->afc[AFI_IP][SAFI_MULTICAST]

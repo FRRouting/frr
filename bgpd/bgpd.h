@@ -2273,6 +2273,18 @@ enum bgp_martian_type {
 	BGP_MARTIAN_SOO,    /* bgp->evpn_info->macvrf_soo */
 };
 
+<<<<<<< HEAD
+=======
+/* Distinguish the reason why the peer is not active. */
+enum bgp_peer_active {
+	BGP_PEER_ACTIVE,
+	BGP_PEER_CONNECTION_UNSPECIFIED,
+	BGP_PEER_BFD_DOWN,
+	BGP_PEER_BFD_ADMIN_DOWN,
+	BGP_PEER_AF_UNCONFIGURED,
+};
+
+>>>>>>> f9400457e (bgpd: Make sure BGP stays in Idle if BFD profile is admin shutdown)
 extern const struct message bgp_martian_type_str[];
 extern const char *bgp_martian_type2str(enum bgp_martian_type mt);
 

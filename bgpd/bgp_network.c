@@ -389,6 +389,28 @@ static void bgp_socket_set_buffer_size(const int fd)
 		setsockopt_so_recvbuf(fd, bm->socket_buffer);
 }
 
+<<<<<<< HEAD
+=======
+static const char *bgp_peer_active2str(enum bgp_peer_active active)
+{
+	switch (active) {
+	case BGP_PEER_ACTIVE:
+		return "active";
+	case BGP_PEER_CONNECTION_UNSPECIFIED:
+		return "unspecified connection";
+	case BGP_PEER_BFD_DOWN:
+		return "BFD down";
+	case BGP_PEER_BFD_ADMIN_DOWN:
+		return "BFD administrative shutdown";
+	case BGP_PEER_AF_UNCONFIGURED:
+		return "no AF activated";
+	}
+
+	assert(!"We should never get here this is a dev escape");
+	return "ERROR";
+}
+
+>>>>>>> f9400457e (bgpd: Make sure BGP stays in Idle if BFD profile is admin shutdown)
 /* Accept bgp connection. */
 static void bgp_accept(struct event *thread)
 {
