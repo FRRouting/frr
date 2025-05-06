@@ -25,7 +25,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.common_config import kill_router_daemons, step
+from lib.common_config import step
 
 pytestmark = [pytest.mark.bfdd, pytest.mark.bgpd]
 
@@ -115,6 +115,29 @@ def test_bgp_bfd_down_notification_shutdown():
     test_func = functools.partial(_bgp_bfd_down_notification)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Failed to see BGP Cease/BFD Down notification message on R2"
+
+    def _bgp_status_post_bfd_profile_shutdown():
+        output = json.loads(r1.vtysh_cmd("show bgp summary json"))
+        expected = {"ipv4Unicast": {"peers": {"192.168.255.2": {"state": "Idle"}}}}
+        ret = topotest.json_cmp(output, expected)
+        # If the peer is in Idle state and already 10 seconds, then all good
+        if (
+            not ret
+            and output["ipv4Unicast"]["peers"]["192.168.255.2"]["peerUptimeMsec"]
+            > 10000
+        ):
+            return ret
+
+        # Here, the peer might be in Idle state, but not for long enough, which is bad
+        # and not expected.
+        return "BGP peer is not in Idle state for long enough"
+
+    step("Check if BGP stays in Idle state on R1 after BFD profile shutdown")
+    test_func = functools.partial(_bgp_status_post_bfd_profile_shutdown)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert (
+        result is None
+    ), "BGP should stay in shutdown state on R1 after BFD profile shutdown"
 
 
 if __name__ == "__main__":
