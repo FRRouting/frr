@@ -104,6 +104,40 @@ def test_bgp_weighted_ecmp_recursive():
     assert result is None, "Can't converge"
 
 
+def test_verify_nhg_nexthop_count():
+    """
+    Verify that the nexthop count is correctly displayed in the show nexthop-group
+    command output.
+    """
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    step("Verify nexthop count in 'show nexthop-group rib'")
+
+    # Extract the nexthopGroupId
+    route_output = json.loads(r1.vtysh_cmd("show ip route 10.10.10.10/32 json"))
+    nexthop_group_id = None
+    if "10.10.10.10/32" in route_output:
+        nexthop_group_id = route_output["10.10.10.10/32"][0].get("nexthopGroupId")
+    assert nexthop_group_id is not None, "Failed to get nexthopGroupId for route"
+
+    cmd = f"show nexthop-group rib {nexthop_group_id} json"
+    nhg_output = json.loads(r1.vtysh_cmd(cmd))
+
+    # Verify that the nexthopCount field exists and equals 2
+    nhg_id_str = str(nexthop_group_id)
+    assert nhg_id_str in nhg_output, f"Nexthop group {nexthop_group_id} not found"
+
+    # Verify that the nexthopCount is 2
+    assert "nexthopCount" in nhg_output[nhg_id_str], "nexthopCount field not found"
+    nexthop_count = nhg_output[nhg_id_str]["nexthopCount"]
+    assert nexthop_count == 2, f"Expected nexthopCount to be 2, but got {nexthop_count}"
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
