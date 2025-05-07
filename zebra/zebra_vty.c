@@ -2177,6 +2177,7 @@ static void show_ip_route_dump_vty(struct vty *vty, struct route_table *table, a
 					 tm.tm_hour);
 
 			vty_out(vty, "   status: %u\n", re->status);
+			vty_out(vty, "   nexthop_group_id: %u\n", re->nhe->id);
 			vty_out(vty, "   nexthop_num: %u\n",
 				nexthop_group_nexthop_num(&(re->nhe->nhg)));
 			vty_out(vty, "   nexthop_active_num: %u\n",
