@@ -806,27 +806,7 @@ static void rip_packet_dump(struct rip_packet *packet, int size,
    check net 0 because we accept default route. */
 static int rip_destination_check(struct in_addr addr)
 {
-	uint32_t destination;
-
-	/* Convert to host byte order. */
-	destination = ntohl(addr.s_addr);
-
-	if (IPV4_NET127(destination))
-		return 0;
-
-	/* Net 0 may match to the default route. */
-	if (IPV4_NET0(destination) && destination != 0)
-		return 0;
-
-	/* Unicast address must belong to class A, B, C. */
-	if (IN_CLASSA(destination))
-		return 1;
-	if (IN_CLASSB(destination))
-		return 1;
-	if (IN_CLASSC(destination))
-		return 1;
-
-	return 0;
+	return ipv4_unicast_valid(&addr);
 }
 
 /* RIP version 2 authentication. */
