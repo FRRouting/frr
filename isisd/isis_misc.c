@@ -220,24 +220,6 @@ const char *circuit_t2string(int circuit_t)
 	return NULL; /* not reached */
 }
 
-const char *syst2string(int type)
-{
-	switch (type) {
-	case ISIS_SYSTYPE_ES:
-		return "ES";
-	case ISIS_SYSTYPE_IS:
-		return "IS";
-	case ISIS_SYSTYPE_L1_IS:
-		return "1";
-	case ISIS_SYSTYPE_L2_IS:
-		return "2";
-	default:
-		return "??";
-	}
-
-	return NULL; /* not reached */
-}
-
 const char *isis_hello_padding2string(int hello_padding_type)
 {
 	switch (hello_padding_type) {
