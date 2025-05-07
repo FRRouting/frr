@@ -2,10 +2,12 @@
 # pmd
 #
 
+if PMD
 noinst_LIBRARIES += pmd/libpm.a
 sbin_PROGRAMS += pmd/pmd
 vtysh_daemons += pmd
 man8 += $(MANBUILD)/frr-pmd.8
+endif
 
 if PM_TRACKING
 module_LTLIBRARIES += pmd/pm_tracking.la
