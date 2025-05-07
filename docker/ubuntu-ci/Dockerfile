@@ -119,7 +119,7 @@ RUN cd ~/frr && \
        --enable-mgmtd-test-be-client \
        --enable-rpki \
        --enable-sharpd \
-       --enable-multipath=64 \
+       --enable-multipath=256 \
        --enable-user=frr \
        --enable-group=frr \
        --enable-config-rollbacks \
