@@ -694,7 +694,7 @@ and sometimes not, depending on the properties of those other routes, means MED
 can cause the order of preference over all the routes to be undefined. That is,
 given routes A, B, and C, if A is preferred to B, and B is preferred to C, then
 a well-defined order should mean the preference is transitive (in the sense of
-orders [#med-transitivity-rant]_) and that A would be preferred to C.
+orders and that A would be preferred to C.
 
 However, when MED is involved this need not be the case. With MED it is
 possible that C is actually preferred over A. So A is preferred to B, B is
@@ -5620,7 +5620,6 @@ Show command json output:
 
 .. include:: flowspec.rst
 
-.. [#med-transitivity-rant] For some set of objects to have an order, there *must* be some binary ordering relation that is defined for *every* combination of those objects, and that relation *must* be transitive. I.e.:, if the relation operator is <, and if a < b and b < c then that relation must carry over and it *must* be that a < c for the objects to have an order. The ordering relation may allow for equality, i.e. a < b and b < a may both be true and imply that a and b are equal in the order and not distinguished by it, in which case the set has a partial order. Otherwise, if there is an order, all the objects have a distinct place in the order and the set has a total order)
 .. [bgp-route-osci-cond] McPherson, D. and Gill, V. and Walton, D., "Border Gateway Protocol (BGP) Persistent Route Oscillation Condition", IETF RFC3345
 .. [stable-flexible-ibgp] Flavel, A. and M. Roughan, "Stable and flexible iBGP", ACM SIGCOMM 2009
 .. [ibgp-correctness] Griffin, T. and G. Wilfong, "On the correctness of IBGP configuration", ACM SIGCOMM 2002
