@@ -4241,12 +4241,13 @@ void route_entry_dump_nh(const struct route_entry *re, const char *straddr,
 	struct interface *ifp;
 	struct vrf *vrf = vrf_lookup_by_id(nexthop->vrf_id);
 
+	ifp = if_lookup_by_index(nexthop->ifindex, nexthop->vrf_id);
+
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_BLACKHOLE:
 		snprintf(nhname, sizeof(nhname), "Blackhole");
 		break;
 	case NEXTHOP_TYPE_IFINDEX:
-		ifp = if_lookup_by_index(nexthop->ifindex, nexthop->vrf_id);
 		snprintf(nhname, sizeof(nhname), "%s",
 			 ifp ? ifp->name : "Unknown");
 		break;
@@ -4284,9 +4285,9 @@ void route_entry_dump_nh(const struct route_entry *re, const char *straddr,
 	if (nexthop->weight)
 		snprintf(wgt_str, sizeof(wgt_str), "wgt %d,", nexthop->weight);
 
-	zlog_debug("%s(%s): %s %s[%u] %svrf %s(%u) %s%s with flags %s%s%s%s%s%s%s%s%s",
+	zlog_debug("%s(%s): %s %s[%s:%d] %svrf %s(%u) %s%s with flags %s%s%s%s%s%s%s%s%s",
 		   straddr, VRF_LOGNAME(re_vrf),
-		   (nexthop->rparent ? "  NH" : "NH"), nhname, nexthop->ifindex,
+		   (nexthop->rparent ? "  NH" : "NH"), nhname, ifp ? ifp->name : "Unknown", nexthop->ifindex,
 		   label_str, vrf ? vrf->name : "Unknown", nexthop->vrf_id,
 		   wgt_str, backup_str,
 		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE) ? "ACTIVE "
