@@ -312,16 +312,6 @@ unsigned long isis_jitter(unsigned long timer, unsigned long jitter)
 	return timer;
 }
 
-struct in_addr newprefix2inaddr(uint8_t *prefix_start, uint8_t prefix_masklen)
-{
-	memset(&new_prefix, 0, sizeof(new_prefix));
-	memcpy(&new_prefix, prefix_start,
-	       (prefix_masklen & 0x3F)
-		       ? ((((prefix_masklen & 0x3F) - 1) >> 3) + 1)
-		       : 0);
-	return new_prefix;
-}
-
 /*
  * Returns the dynamic hostname associated with the passed system ID.
  * If no dynamic hostname found then returns formatted system ID.

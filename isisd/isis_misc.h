@@ -15,7 +15,7 @@ const char *circuit_t2string(int);
 const char *circuit_state2string(int state);
 const char *circuit_type2string(int type);
 const char *isis_hello_padding2string(int hello_padding_type);
-struct in_addr newprefix2inaddr(uint8_t *prefix_start, uint8_t prefix_masklen);
+
 /*
  * Converting input to memory stored format
  * return value of 0 indicates wrong input
