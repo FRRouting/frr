@@ -3602,8 +3602,6 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 		     !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED) &&
 		     !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED)))
 			return ENOENT;
-
-		re->nhe_installed_id = nhe->id;
 	}
 #endif /* HAVE_NETLINK */
 
