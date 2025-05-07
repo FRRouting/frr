@@ -1880,6 +1880,8 @@ void rtadv_if_fini(struct zebra_if *zif)
 	struct rtadvconf *rtadv;
 	struct rtadv_prefix *rp;
 
+	zebra_rtadv_disable_per_interface(zif);
+
 	rtadv = &zif->rtadv;
 
 	while ((rp = rtadv_prefixes_pop(rtadv->prefixes)))
