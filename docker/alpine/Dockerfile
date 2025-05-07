@@ -39,6 +39,7 @@ ARG PKGVER
 RUN cd /src \
 	&& ./bootstrap.sh \
 	&& ./configure \
+		--enable-multipath=256 \
 		--enable-numeric-version \
 		--with-pkg-extra-version="_git$PKGVER" \
 	&& make dist

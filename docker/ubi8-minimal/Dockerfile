@@ -65,6 +65,7 @@ RUN echo '%_smp_mflags %( echo "-j$(/usr/bin/getconf _NPROCESSORS_ONLN)"; )' >> 
     && cd /src \
     && ./bootstrap.sh \
     && ./configure \
+	--enable-multipath=256 \
         --enable-rpki \
         --enable-snmp=agentx \
         --enable-numeric-version \
