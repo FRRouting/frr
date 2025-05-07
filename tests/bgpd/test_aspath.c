@@ -1342,10 +1342,11 @@ static int handle_attr_test(struct aspath_tests *t)
 			  t->segment->asnotation);
 	bgp.asnotation = t->segment->asnotation;
 
+	peer.bgp = &bgp;
+	bgp.rpkt_quanta = 255;
 	peer.curr = stream_new(BGP_MAX_PACKET_SIZE);
 	peer.connection = bgp_peer_connection_new(&peer);
 	peer.connection->obuf = stream_fifo_new();
-	peer.bgp = &bgp;
 	peer.host = (char *)"none";
 	peer.connection->fd = -1;
 	peer.cap = t->cap;
