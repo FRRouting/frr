@@ -425,26 +425,6 @@ void log_multiline(int priority, const char *prefix, const char *format, ...)
 		XFREE(MTYPE_TMP, p);
 }
 
-char *log_uptime(time_t uptime, char *buf, size_t nbuf)
-{
-	struct tm tm;
-	time_t difftime = time(NULL);
-	difftime -= uptime;
-	gmtime_r(&difftime, &tm);
-
-	if (difftime < ONE_DAY_SECOND)
-		snprintf(buf, nbuf, "%02d:%02d:%02d", tm.tm_hour, tm.tm_min,
-			 tm.tm_sec);
-	else if (difftime < ONE_WEEK_SECOND)
-		snprintf(buf, nbuf, "%dd%02dh%02dm", tm.tm_yday, tm.tm_hour,
-			 tm.tm_min);
-	else
-		snprintf(buf, nbuf, "%02dw%dd%02dh", tm.tm_yday / 7,
-			 tm.tm_yday - ((tm.tm_yday / 7) * 7), tm.tm_hour);
-
-	return buf;
-}
-
 void vty_multiline(struct vty *vty, const char *prefix, const char *format, ...)
 {
 	char shortbuf[256];
