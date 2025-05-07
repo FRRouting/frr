@@ -231,6 +231,12 @@ static void static_bfd_show_nexthop_json(struct vty *vty,
 
 	json_object_boolean_add(jo_nh, "installed", !sn->path_down);
 
+	/* Add peer address based on nexthop type */
+	if (sn->type == STATIC_IPV4_GATEWAY || sn->type == STATIC_IPV4_GATEWAY_IFNAME)
+		json_object_string_addf(jo_nh, "peer", "%pI4", &sn->addr.ipv4);
+	else if (sn->type == STATIC_IPV6_GATEWAY || sn->type == STATIC_IPV6_GATEWAY_IFNAME)
+		json_object_string_addf(jo_nh, "peer", "%pI6", &sn->addr.ipv6);
+
 	json_object_array_add(jo, jo_nh);
 }
 
