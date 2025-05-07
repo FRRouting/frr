@@ -13,7 +13,9 @@
 #include "lib/json.h"
 
 #include "bfd.h"
+#ifdef BFD_TRACKING
 #include "bfd_tracking.h"
+#endif /* BFD_TRACKING */
 #include "bfdd_nb.h"
 
 DEFINE_HOOK(bfd_tracking_set_notify_string,
