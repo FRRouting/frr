@@ -957,3 +957,271 @@ def test_bgp_evpn_rt5_addpath_session_down():
          no neighbor 10.0.0.1 shutdown
     """)
     _ensure_baseline(tgen)
+
+
+def test_bgp_evpn_rt5_addpath_disable_addpath_rx():
+    """
+    Ensures that an EVPN peer can opt out of multipath, and still recieves the best path.
+    """
+
+    tgen: Topogen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    _ensure_baseline(tgen)
+
+    logger.info("Disable RX AddPath on R2")
+    r2: TopoRouter = tgen.gears["r2"]
+    r2.vtysh_cmd("""
+        conf
+        router bgp 64001
+         address-family l2vpn evpn
+          neighbor 10.0.0.9 disable-addpath-rx
+    """)
+
+    # 1. ensure that path through C1 wins due to a lower IP
+    logger.info("Check EVPN routes on R2")
+    expected = {
+        "10.0.0.10:1": {
+            "[5]:[0]:[24]:[10.0.0.0]": {
+                "paths": [
+                    [
+                        {
+                            "vni": "100",
+                            "gatewayIP": "10.0.0.0",
+                            "valid": True,
+                            "nexthops": [{"ip": "10.0.0.10"}],
+                        },
+                    ],
+                ],
+            },
+        },
+        "numPrefix": 1,
+        "numPaths": 1,
+    }
+    f = _converge_fn(r2, "show bgp l2vpn evpn route detail type prefix json", expected)
+    _, result = topotest.run_and_expect(f, None, count=60, wait=1)
+    assert result is None, "Path through C1 should be the only one left"
+
+    logger.info("Check IPv4 routes on R2")
+    expected = {
+        "routes": {
+            "10.0.0.0/24": [
+                {
+                    "valid": True,
+                    "nexthops": [{"ip": "10.0.0.0"}],
+                },
+            ],
+        },
+        "totalRoutes": 1,
+        "totalPaths": 1,
+    }
+    f = _converge_fn(r2, "show bgp vrf vrf100 ipv4 unicast detail json", expected)
+
+    # 2. ensure an actually bestpath wins
+    logger.info("Make path through C2 the preferred one")
+    r1: TopoRouter = tgen.gears["r1"]
+    r1.vtysh_cmd("""
+        conf
+        route-map set-pref permit 10
+         set local-pref 200
+        router bgp 64001 vrf vrf100
+         address-family ipv4 unicast
+          neighbor 10.0.0.2 route-map set-pref in
+    """)
+
+    logger.info("Check IPv4 routes on R1")
+    expected = {
+        "routes": {
+            "10.0.0.0/24": [
+                {
+                    "valid": True,
+                    "nexthops": [{"ip": "10.0.0.2"}],
+                    "locPrf": 200,
+                    "bestpath": {"overall": True, "selectionReason": "Local Pref"},
+                },
+                {
+                    "valid": True,
+                    "nexthops": [{"ip": "10.0.0.0"}],
+                },
+            ],
+        },
+        "totalRoutes": 1,
+        "totalPaths": 2,
+    }
+    f = _converge_fn(r1, "show bgp vrf vrf100 ipv4 unicast detail json", expected)
+    _, result = topotest.run_and_expect(f, None, count=60, wait=1)
+    assert result is None, "Path through C2 should be the best one"
+
+    logger.info("Check EVPN routes on RR")
+    expected = {"numPrefix": 1, "numPaths": 2}
+    f = _converge_fn(tgen.gears["rr"], "show bgp l2vpn evpn route detail type prefix json", expected)
+    assert result is None, "All should still be sent by R1"
+
+    logger.info("Check EVPN routes on R2")
+    expected = {
+        "10.0.0.10:1": {
+            "[5]:[0]:[24]:[10.0.0.0]": {
+                "paths": [
+                    [
+                        {
+                            "vni": "100",
+                            "gatewayIP": "10.0.0.2",
+                            "valid": True,
+                            "nexthops": [{"ip": "10.0.0.10"}],
+                            "locPrf": 200,
+                        },
+                    ],
+                ],
+            },
+        },
+        "numPrefix": 1,
+        "numPaths": 1,
+    }
+    f = _converge_fn(r2, "show bgp l2vpn evpn route detail type prefix json", expected)
+    _, result = topotest.run_and_expect(f, None, count=60, wait=1)
+    assert result is None, "Path through C2 should be the only one left"
+
+    logger.info("Cleaning up...")
+    r1.vtysh_cmd("""
+        conf
+        no route-map set-pref
+        router bgp 64001 vrf vrf100
+         address-family ipv4 unicast
+          no neighbor 10.0.0.2 route-map set-pref in
+    """)
+    r2.vtysh_cmd("""
+        conf
+        router bgp 64001
+         address-family l2vpn evpn
+          no neighbor 10.0.0.9 disable-addpath-rx
+    """)
+    _ensure_baseline(tgen)
+
+
+def test_bgp_evpn_rt5_addpath_tx_bestpath():
+    """
+    Ensures we can only transmit the bestpath instead of all paths.
+    """
+
+    tgen: Topogen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    _ensure_baseline(tgen)
+
+    logger.info("Limiting paths sent by R1")
+    r1: TopoRouter = tgen.gears["r1"]
+    r1.vtysh_cmd("""
+        conf
+        router bgp 64001
+         address-family l2vpn evpn
+          neighbor 10.0.0.9 addpath-tx-bestpath-per-AS
+    """)
+
+    logger.info("Checking EVPN routes on R2")
+    r2: TopoRouter = tgen.gears["r2"]
+    expected = {
+        "10.0.0.10:1": {
+            "[5]:[0]:[24]:[10.0.0.0]": {
+                "paths": [
+                    [
+                        {
+                            "aspath": {"string": "64000"},
+                            "valid": True,
+                            "nexthops": [{"ip": "10.0.0.10"}],
+                        },
+                    ],
+                ],
+            },
+        },
+        "numPrefix": 1,
+        "numPaths": 1,
+    }
+    f = _converge_fn(r2, "show bgp l2vpn evpn route detail type prefix json", expected)
+    _, result = topotest.run_and_expect(f, None, count=60, wait=1)
+    assert result is None, "Only one path should be transmitted"
+
+    logger.info("Prepending fake AS, and skewing paths")
+    r1.vtysh_cmd("""
+        conf
+        route-map prepend-as-65001 permit 10
+         set as-path prepend 65001
+         set local-pref 100
+        route-map prepend-as-65002 permit 10
+         set as-path prepend 65002
+         set local-pref 50
+        router bgp 64001
+         address-family l2vpn evpn
+          neighbor 10.0.0.9 addpath-tx-bestpath-per-AS
+        router bgp 64001 vrf vrf100
+         address-family ipv4 unicast
+          neighbor 10.0.0.0 route-map prepend-as-65001 in
+          neighbor 10.0.0.2 route-map prepend-as-65002 in
+    """)
+
+    logger.info("Check IPv4 routes on R1")
+    expected = {
+        "routes": {
+            "10.0.0.0/24": [
+                {
+                    "aspath": {"string": "65001 64000"},
+                    "valid": True,
+                    "nexthops": [{"ip": "10.0.0.0"}],
+                },
+                {
+                    "aspath": {"string": "65002 64000"},
+                    "valid": True,
+                    "nexthops": [{"ip": "10.0.0.2"}],
+                },
+            ],
+        },
+    }
+    f = _converge_fn(r1, "show bgp vrf vrf100 ipv4 unicast detail json", expected)
+    _, result = topotest.run_and_expect(f, None, count=60, wait=1)
+    assert result is None, "Paths should have the new AS prepended, with only one best"
+
+    logger.info("Check EVPN routes on R2")
+    r2: TopoRouter = tgen.gears["r2"]
+    expected = {
+        "10.0.0.10:1": {
+            "[5]:[0]:[24]:[10.0.0.0]": {
+                "paths": [
+                    [
+                        {
+                            "aspath": {"string": "65001 64000"},
+                            "gatewayIP": "10.0.0.0",
+                            "valid": True,
+                            "nexthops": [{"ip": "10.0.0.10"}],
+                        },
+                    ],
+                    [
+                        {
+                            "aspath": {"string": "65002 64000"},
+                            "gatewayIP": "10.0.0.2",
+                            "valid": True,
+                            "nexthops": [{"ip": "10.0.0.10"}],
+                        },
+                    ],
+                ],
+            },
+        },
+        "numPrefix": 1,
+        "numPaths": 2,
+    }
+    f = _converge_fn(r2, "show bgp l2vpn evpn route detail type prefix json", expected)
+    _, result = topotest.run_and_expect(f, None, count=60, wait=1)
+    assert result is None, "Both paths have different neighboring AS, both should be sent"
+
+    logger.info("Cleaning up")
+    r1.vtysh_cmd("""
+        conf
+        router bgp 64001 vrf vrf100
+         address-family ipv4 unicast
+          no neighbor 10.0.0.0 route-map prepend-as-65001 in
+          no neighbor 10.0.0.2 route-map prepend-as-65002 in
+        no route-map prepend-as-65001
+        no route-map prepend-as-65002
+        router bgp 64001
+         address-family l2vpn evpn
+          neighbor 10.0.0.9 addpath-tx-all-paths
+    """)
+    _ensure_baseline(tgen)
