@@ -313,9 +313,14 @@ Basic Config Commands
 
 .. clicmd:: allow-reserved-ranges
 
-   Allow peering via loopback addresses (127.0.0.0/8). This is necessary in case
-   of multiple FRR instances (or FRR + any other daemon) peering via loopback
-   interfaces running on the same router.
+   Allow using reserved ranges (e.g. 127.0.0.0/8, 0.0.0.0/8, 240.0.0.0/4).
+
+   For example, this is necessary in case of multiple FRR instances
+   (or FRR + any other daemon) peering via loopback interfaces
+   running on the same router.
+
+   Another example is when you need to annouce a reserved range via
+   RIP protocol.
 
    Default: off.
 
