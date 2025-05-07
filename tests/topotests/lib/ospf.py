@@ -2292,7 +2292,6 @@ def verify_ospf6_database(tgen, topo, dut, input_dict):
                                         )
                                     )
                                     raise ValueError(errormsg)
-                                    return errormsg
                         except KeyError:
                             errormsg = "[DUT: FRR] linkLocalOpaqueLsa Not " "present"
                             return errormsg
@@ -2507,7 +2506,6 @@ def verify_ospf_gr_helper(tgen, topo, dut, input_dict=None):
     if not bool(show_ospf_json):
         errormsg = "OSPF is not running"
         raise ValueError(errormsg)
-        return errormsg
 
     for ospf_gr, _ in input_dict.items():
         try:
@@ -2526,7 +2524,6 @@ def verify_ospf_gr_helper(tgen, topo, dut, input_dict=None):
                     )
                 )
                 raise ValueError(errormsg)
-                return errormsg
 
         except KeyError:
             errormsg = "[DUT: FRR] OSPF GR Helper: {}".format(ospf_gr)
@@ -2802,7 +2799,6 @@ def get_ospf_database(tgen, topo, dut, input_dict, vrf=None, lsatype=None, rid=N
                                         )
                                     )
                                     raise ValueError(errormsg)
-                                    return errormsg
                         except KeyError:
                             errormsg = "[DUT: FRR] linkLocalOpaqueLsa Not " "present"
                             return errormsg
@@ -2997,7 +2993,6 @@ def get_ospf_database(tgen, topo, dut, input_dict, vrf=None, lsatype=None, rid=N
                                         )
                                     )
                                     raise ValueError(errormsg)
-                                    return errormsg
                         except KeyError:
                             errormsg = "[DUT: FRR] linkLocalOpaqueLsa Not " "present"
                             return errormsg
