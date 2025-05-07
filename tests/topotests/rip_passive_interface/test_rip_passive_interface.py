@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # SPDX-License-Identifier: ISC
 
-# Copyright (c) 2023 by
+# Copyright (c) 2023-2025 by
 # Donatas Abraitis <donatas@opensourcerouting.org>
 #
 
@@ -55,14 +55,20 @@ def test_rip_passive_interface():
     r2 = tgen.gears["r2"]
 
     def _show_routes(nh_num):
-        output = json.loads(r1.vtysh_cmd("show ip route 10.10.10.1/32 json"))
+        output = json.loads(r1.vtysh_cmd("show ip route json"))
         expected = {
+            "0.0.10.1/32": [
+                {
+                    "internalNextHopNum": nh_num,
+                    "internalNextHopActiveNum": nh_num,
+                }
+            ],
             "10.10.10.1/32": [
                 {
                     "internalNextHopNum": nh_num,
                     "internalNextHopActiveNum": nh_num,
                 }
-            ]
+            ],
         }
         return topotest.json_cmp(output, expected)
 
