@@ -73,6 +73,9 @@ void affinity_map_set_update_hook(void (*func)(const char *affmap_name,
 void affinity_map_init(void);
 void affinity_map_terminate(void);
 
+void cli_show_affinity_map(struct vty *vty, const struct lyd_node *dnode,
+			   bool show_defaults __attribute__((__unused__)));
+
 #ifdef __cplusplus
 }
 #endif

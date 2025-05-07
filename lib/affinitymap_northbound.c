@@ -94,6 +94,7 @@ const struct frr_yang_module_info frr_affinity_map_info = {
 			.cbs = {
 				.create = lib_affinity_map_create,
 				.destroy = lib_affinity_map_destroy,
+				.cli_show = cli_show_affinity_map,
 			},
 			.priority = NB_DFLT_PRIORITY - 1,
 		},
