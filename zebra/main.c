@@ -354,6 +354,7 @@ int main(int argc, char **argv)
 	bool asic_offload = false;
 	bool v6_with_v4_nexthop = false;
 	bool notify_on_ack = true;
+	struct list *foo = list_new();
 
 	zserv_path = NULL;
 
