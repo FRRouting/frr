@@ -11,7 +11,6 @@
 #ifndef _ZEBRA_ISIS_MISC_H
 #define _ZEBRA_ISIS_MISC_H
 
-int string2circuit_t(const char *);
 const char *circuit_t2string(int);
 const char *circuit_state2string(int state);
 const char *circuit_type2string(int type);

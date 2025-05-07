@@ -172,27 +172,6 @@ char *nlpid2string(struct nlpids *nlpids)
 	return nlpidstring;
 }
 
-/*
- * Returns 0 on error, IS-IS Circuit Type on ok
- */
-int string2circuit_t(const char *str)
-{
-
-	if (!str)
-		return 0;
-
-	if (!strcmp(str, "level-1"))
-		return IS_LEVEL_1;
-
-	if (!strcmp(str, "level-2-only") || !strcmp(str, "level-2"))
-		return IS_LEVEL_2;
-
-	if (!strcmp(str, "level-1-2"))
-		return IS_LEVEL_1_AND_2;
-
-	return 0;
-}
-
 const char *circuit_state2string(int state)
 {
 
