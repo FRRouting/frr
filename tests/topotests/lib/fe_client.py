@@ -89,7 +89,7 @@ NOTIFY_OP_PATCH = 3
 
 MSG_NOTIFY_SELECT_FMT = "=B7x"
 
-MSG_SESSION_REQ_FMT = "=8x"
+MSG_SESSION_REQ_FMT = "=B7x"
 
 MSG_SESSION_REPLY_FMT = "=B7x"
 SESSION_REPLY_FIELD_CREATED = 0
@@ -236,7 +236,7 @@ class Session:
             # Establish a native session
             self.sess_id = 0
             mdata, _ = self.get_native_msg_header(MSG_CODE_SESSION_REQ)
-            mdata += struct.pack(MSG_SESSION_REQ_FMT)
+            mdata += struct.pack(MSG_SESSION_REQ_FMT, MSG_FORMAT_JSON)
             mdata += "test-client".encode("utf-8") + b"\x00"
             self.send_native_msg(mdata)
             logging.debug("Sent native SESSION-REQ")
