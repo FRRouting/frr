@@ -316,7 +316,6 @@ static int __send_notification(struct mgmt_be_client *client, const char *xpath,
 			       const struct lyd_node *tree, uint8_t op, uint64_t refer_id)
 {
 	struct mgmt_msg_notify_data *msg = NULL;
-	// LYD_FORMAT format = LYD_LYB;
 	LYD_FORMAT format = LYD_JSON;
 	uint8_t **darrp;
 	LY_ERR err;

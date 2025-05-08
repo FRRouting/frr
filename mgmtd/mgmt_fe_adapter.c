@@ -44,6 +44,7 @@ struct mgmt_fe_session_ctx {
 	uint64_t client_id;
 	uint64_t txn_id;
 	uint64_t cfg_txn_id;
+	uint8_t notify_format;
 	uint8_t ds_locked[MGMTD_DS_MAX_ID];
 	const char **notify_xpaths;
 	struct event *proc_cfg_txn_clnp;
@@ -1333,8 +1334,8 @@ static void fe_adapter_handle_session_req(struct mgmt_fe_client_adapter *adapter
 	struct mgmt_fe_session_ctx *session;
 	uint64_t client_id;
 
-	__dbg("Got session-req is create %u req-id %Lu for refer-id %Lu from '%s'",
-	      msg->refer_id == 0, msg->req_id, msg->refer_id, adapter->name);
+	__dbg("Got session-req is create %u req-id %Lu for refer-id %Lu notify-fmt %u from '%s'",
+	      msg->refer_id == 0, msg->req_id, msg->refer_id, msg->notify_format, adapter->name);
 
 	if (msg->refer_id) {
 		uint64_t session_id = msg->refer_id;
@@ -1356,6 +1357,13 @@ static void fe_adapter_handle_session_req(struct mgmt_fe_client_adapter *adapter
 
 	client_id = msg->req_id;
 
+	/* Default notification format */
+	if (msg->notify_format && msg->notify_format > MGMT_MSG_FORMAT_LAST) {
+		fe_adapter_conn_send_error(adapter->conn, client_id, msg->req_id, false, -EINVAL,
+					   "Unrecognized notify format: %u", msg->notify_format);
+		return;
+	}
+
 	/* See if we have a client name to register */
 	if (msg_len > sizeof(*msg)) {
 		if (!MGMT_MSG_VALIDATE_NUL_TERM(msg, msg_len)) {
@@ -1371,6 +1379,7 @@ static void fe_adapter_handle_session_req(struct mgmt_fe_client_adapter *adapter
 	}
 
 	session = mgmt_fe_create_session(adapter, client_id);
+	session->notify_format = msg->notify_format ?: DEFAULT_NOTIFY_FORMAT;
 	fe_adapter_native_send_session_reply(adapter, client_id,
 					     session->session_id, true);
 }

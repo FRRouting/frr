@@ -197,6 +197,7 @@ DECLARE_MTYPE(MSG_NATIVE_SESSION_REPLY);
 #define MGMT_MSG_FORMAT_XML    1
 #define MGMT_MSG_FORMAT_JSON   2
 #define MGMT_MSG_FORMAT_BINARY 3 /* non-standard libyang internal format */
+#define MGMT_MSG_FORMAT_LAST   3
 
 /*
  * Now we're using LYD_FORMAT directly to avoid mapping code, but having our
@@ -467,16 +468,20 @@ _Static_assert(sizeof(struct mgmt_msg_notify_select) ==
 		       offsetof(struct mgmt_msg_notify_select, selectors),
 	       "Size mismatch");
 
+
+#define DEFAULT_NOTIFY_FORMAT MGMT_MSG_FORMAT_JSON
 /**
  * struct mgmt_msg_session_req - Create or delete a front-end session.
  *
  * @refer_id: Zero for create, otherwise the session-id to delete.
  * @req_id: For create will use as client-id.
+ * @notify_format: Format for notification data or 0 for default.
  * @client_name: For first session request the client name, otherwise empty.
  */
 struct mgmt_msg_session_req {
 	struct mgmt_msg_header;
-	uint8_t resv2[8]; /* bug in compiler produces error w/o this */
+	uint8_t notify_format;
+	uint8_t resv2[7];
 
 	alignas(8) char client_name[];
 };
