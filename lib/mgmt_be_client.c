@@ -388,14 +388,18 @@ int mgmt_be_send_ds_patch_notification(const char *path, const struct lyd_node *
 /**
  * mgmt_be_send_ds_replace_notification() - Send a replace DS notification to mgmtd
  */
-int mgmt_be_send_ds_replace_notification(const char *path, const struct lyd_node *tree)
+int mgmt_be_send_ds_replace_notification(const char *path, const struct lyd_node *tree,
+					 uint64_t refer_id)
 {
+	uint8_t op = refer_id ? NOTIFY_OP_DS_GET_SYNC : NOTIFY_OP_DS_REPLACE;
+
 	if (!__be_client) {
 		debug_be_client("%s: No mgmtd connection for DS delete notification: %s", __func__,
 				path);
 		return 1;
 	}
-	return __send_notification(__be_client, path, tree, NOTIFY_OP_DS_REPLACE, 0);
+
+	return __send_notification(__be_client, path, tree, op, refer_id);
 }
 
 /**
@@ -1192,7 +1196,10 @@ static void be_client_handle_notify_select(struct mgmt_be_client *client, void *
 
 	if (msg_len >= sizeof(*msg))
 		selectors = mgmt_msg_native_strings_decode(msg, msg_len, msg->selectors);
-	nb_notif_set_filters(selectors, msg->replace);
+	if (!msg->get_only)
+		nb_notif_set_filters(selectors, msg->replace);
+	else
+		nb_notif_get_state(selectors, msg->refer_id);
 }
 
 /*
