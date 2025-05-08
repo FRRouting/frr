@@ -206,6 +206,9 @@ static void __ds_notification(struct nb_cb_notify_args *args)
 	case NOTIFY_OP_DS_PATCH:
 		printfrr("#OP=PATCH: %s\n", args->xpath);
 		break;
+	case NOTIFY_OP_DS_GET_SYNC:
+		printfrr("#OP=SYNC: %s\n", args->xpath);
+		break;
 	default:
 		printfrr("#OP=%u: unknown notify op\n", args->op);
 		quit(1);

@@ -86,10 +86,11 @@ NOTIFY_OP_NOTIFICATION = 0
 NOTIFY_OP_REPLACE = 1
 NOTIFY_OP_DELETE = 2
 NOTIFY_OP_PATCH = 3
+NOTIFY_OP_GET_SYNC = 4
 
 MSG_NOTIFY_SELECT_FMT = "=B7x"
 
-MSG_SESSION_REQ_FMT = "=8x"
+MSG_SESSION_REQ_FMT = "=B7x"
 
 MSG_SESSION_REPLY_FMT = "=B7x"
 SESSION_REPLY_FIELD_CREATED = 0
@@ -236,14 +237,19 @@ class Session:
             # Establish a native session
             self.sess_id = 0
             mdata, _ = self.get_native_msg_header(MSG_CODE_SESSION_REQ)
-            mdata += struct.pack(MSG_SESSION_REQ_FMT)
+            mdata += struct.pack(MSG_SESSION_REQ_FMT, MSG_FORMAT_JSON)
             mdata += "test-client".encode("utf-8") + b"\x00"
             self.send_native_msg(mdata)
             logging.debug("Sent native SESSION-REQ")
 
             mhdr, mfixed, mdata = self.recv_native_msg()
             if mhdr[HDR_FIELD_CODE] == MSG_CODE_SESSION_REPLY:
-                logging.debug("Recv native SESSION-REQ Message: %s: %s", mfixed, mdata)
+                logging.debug(
+                    "Recv native SESSION-REPLY Message: sess-id %u: fixed: %s: %s",
+                    mhdr[HDR_FIELD_SESS_ID],
+                    mfixed,
+                    mdata,
+                )
             else:
                 raise Exception(f"Recv NON-SESSION-REPLY Message: {mfixed}: {mdata}")
             assert mfixed[0]
@@ -539,6 +545,12 @@ def __main():
             elif op == NOTIFY_OP_DELETE:
                 print(f"#OP=DELETE: {xpath}")
                 assert len(notif) == 0
+            elif op == NOTIFY_OP_GET_SYNC:
+                print(f"#OP=SYNC: {xpath}")
+                print(notif)
+            else:
+                logging.error("Unknown notification OP: %s", op)
+                sys.exit(1)
             i -= 1
 
 
