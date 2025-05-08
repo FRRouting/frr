@@ -197,6 +197,7 @@ DECLARE_MTYPE(MSG_NATIVE_SESSION_REPLY);
 #define MGMT_MSG_FORMAT_XML    1
 #define MGMT_MSG_FORMAT_JSON   2
 #define MGMT_MSG_FORMAT_BINARY 3 /* non-standard libyang internal format */
+#define MGMT_MSG_FORMAT_LAST   3
 
 /*
  * Now we're using LYD_FORMAT directly to avoid mapping code, but having our
@@ -478,16 +479,20 @@ _Static_assert(sizeof(struct mgmt_msg_notify_select) ==
 		       offsetof(struct mgmt_msg_notify_select, selectors),
 	       "Size mismatch");
 
+
+#define DEFAULT_NOTIFY_FORMAT MGMT_MSG_FORMAT_JSON
 /**
  * struct mgmt_msg_session_req - Create or delete a front-end session.
  *
  * @refer_id: Zero for create, otherwise the session-id to delete.
  * @req_id: For create will use as client-id.
+ * @notify_format: Format for notification data or 0 for default.
  * @client_name: For first session request the client name, otherwise empty.
  */
 struct mgmt_msg_session_req {
 	struct mgmt_msg_header;
-	uint8_t resv2[8]; /* bug in compiler produces error w/o this */
+	uint8_t notify_format;
+	uint8_t resv2[7];
 
 	alignas(8) char client_name[];
 };
@@ -722,19 +727,17 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
  *	The xpath string or NULL if there was an error decoding (i.e., the
  *	message is corrupt).
  */
-#define mgmt_msg_native_xpath_data_decode(msg, msglen, __data)                 \
-	({                                                                     \
-		size_t __len = (msglen) - sizeof(*msg);                        \
-		const char *__s = NULL;                                        \
-		if (msg->vsplit && msg->vsplit <= __len &&                     \
-		    msg->data[msg->vsplit - 1] == 0) {                         \
-			if (msg->vsplit < __len)                               \
-				(__data) = msg->data + msg->vsplit;            \
-			else                                                   \
-				(__data) = NULL;                               \
-			__s = msg->data;                                       \
-		}                                                              \
-		__s;                                                           \
+#define mgmt_msg_native_xpath_data_decode(msg, msglen, __data)                                     \
+	({                                                                                         \
+		size_t __len = (msglen) - sizeof(*msg);                                            \
+		const char *__s = NULL;                                                            \
+		(__data) = NULL;                                                                   \
+		if (msg->vsplit && msg->vsplit <= __len && msg->data[msg->vsplit - 1] == 0) {      \
+			if (msg->vsplit < __len)                                                   \
+				(__data) = msg->data + msg->vsplit;                                \
+			__s = msg->data;                                                           \
+		}                                                                                  \
+		__s;                                                                               \
 	})
 
 /**
