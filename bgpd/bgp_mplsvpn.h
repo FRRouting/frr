@@ -372,6 +372,7 @@ static inline bool is_pi_srv6_valid(struct bgp_path_info *pi, struct bgp *bgp_ne
 
 	if (bgp_nexthop->tovpn_sid_index == 0 &&
 	    !CHECK_FLAG(bgp_nexthop->vrf_flags, BGP_VRF_TOVPN_SID_AUTO) &&
+		!CHECK_FLAG(bgp_nexthop->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT) &&
 	    bgp_nexthop->vpn_policy[afi].tovpn_sid_index == 0 &&
 	    !CHECK_FLAG(bgp_nexthop->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO))
 		return false;
