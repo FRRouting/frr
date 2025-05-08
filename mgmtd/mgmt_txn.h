@@ -300,12 +300,16 @@ extern int mgmt_txn_send_rpc(uint64_t txn_id, uint64_t req_id, uint64_t clients,
 /**
  * mgmt_txn_send_notify_selectors() - Send NOTIFY SELECT request.
  * @req_id: FE client request identifier.
- * @clients: Bitmask of clients to send RPC to.
+ * @session_id: If non-zero the message will get sent as a `get_only` vs modifing
+ *	        the selectors in the backend, and the get result will be sent
+ *              back to the given session.
+ * @clients: Bitmask of backend clients to send message to.
  * @selectors: Array of selectors or NULL to resend all selectors to BE clients.
  *
  * Returns 0 on success.
  */
-extern int mgmt_txn_send_notify_selectors(uint64_t req_id, uint64_t clients, const char **selectors);
+extern int mgmt_txn_send_notify_selectors(uint64_t req_id, uint64_t session_id, uint64_t clients,
+					  const char **selectors);
 
 /*
  * Notifiy backend adapter on connection.

@@ -130,20 +130,23 @@ static uint64_t mgmt_fe_ns_string_remove_session(struct ns_string_head *head,
 }
 
 static uint64_t mgmt_fe_add_ns_string(struct ns_string_head *head, const char *path, size_t plen,
-				      struct mgmt_fe_session_ctx *session)
+				      struct mgmt_fe_session_ctx *session, uint64_t *all_matched)
 {
 	struct ns_string *e, *ns;
-	uint64_t clients = 0;
+	uint64_t clients;
 
 	ns = XCALLOC(MTYPE_MGMTD_XPATH, sizeof(*ns) + plen + 1);
 	strlcpy(ns->s, path, plen + 1);
+
+	clients = mgmt_be_interested_clients(ns->s, MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
+	*all_matched |= clients;
 
 	e = ns_string_add(head, ns);
 	if (!e) {
 		ns->sessions = list_new();
 		listnode_add(ns->sessions, session);
-		clients = mgmt_be_interested_clients(ns->s, MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
 	} else {
+		clients = 0;
 		XFREE(MTYPE_MGMTD_XPATH, ns);
 		if (!listnode_lookup(e->sessions, session))
 			listnode_add(e->sessions, session);
@@ -1648,7 +1651,9 @@ static void fe_adapter_handle_notify_select(struct mgmt_fe_session_ctx *session,
 	const char **sp;
 	char *selstr = NULL;
 	uint64_t clients = 0;
-	uint ret;
+	uint64_t all_matched = 0, rm_clients = 0;
+	uint ret = NB_OK;
+
 
 	if (msg_len >= sizeof(*msg)) {
 		selectors = mgmt_msg_native_strings_decode(msg, msg_len, msg->selectors);
@@ -1677,7 +1682,7 @@ static void fe_adapter_handle_notify_select(struct mgmt_fe_session_ctx *session,
 	}
 
 	if (msg->replace) {
-		clients = mgmt_fe_ns_string_remove_session(&mgmt_fe_ns_strings, session);
+		rm_clients = mgmt_fe_ns_string_remove_session(&mgmt_fe_ns_strings, session);
 		// [ ] Keep a local tree to optimize sending selectors to BE?
 		// [*] Or just KISS and fanout the original message to BEs?
 		// mgmt_remove_add_notify_selectors(session->notify_xpaths, selectors);
@@ -1701,24 +1706,51 @@ static void fe_adapter_handle_notify_select(struct mgmt_fe_session_ctx *session,
 	if (session->notify_xpaths && DEBUG_MODE_CHECK(&mgmt_debug_fe, DEBUG_MODE_ALL)) {
 		const char **sel = session->notify_xpaths;
 		char *s = frrstr_join(sel, darr_len(sel), ", ");
-		__dbg("New NOTIF %d selectors '%s' (replace: %d) txn-id: %Lu for session-id: %Lu",
-		      darr_len(sel), s, msg->replace, session->cfg_txn_id, session->session_id);
+		__dbg("New NOTIF %d selectors '%s' (replace: %d) for session-id: %Lu",
+		      darr_len(sel), s, msg->replace, session->session_id);
 		XFREE(MTYPE_TMP, s);
 	}
 
-	/* Add the new selectors to the global tree */
+	/*
+	 * Add the new selectors to the global tree, track BE clients that
+	 * haven't been given the selectors (that need to be), and also all the
+	 * BE clients that provide state for the selectors (to query for initial
+	 * dump)
+	 */
 	darr_foreach_p (selectors, sp)
 		clients |= mgmt_fe_add_ns_string(&mgmt_fe_ns_strings, *sp, darr_strlen(*sp),
-						 session);
+						 session, &all_matched);
 
-	if (!clients) {
-		__dbg("No backends to newly notify for selectors: '%s' txn-id %Lu session-id: %Lu",
-		      selstr, session->txn_id, session->session_id);
+	if (!(all_matched | rm_clients)) {
+		__dbg("No backends publishing for selectors: '%s' session-id: %Lu", selstr,
+		      session->session_id);
 		goto done;
 	}
+	if (!(clients | rm_clients)) {
+		__dbg("No backends to newly notify for selectors: '%s' session-id: %Lu", selstr,
+		      session->session_id);
+	} else {
+		/*
+		 * First send a message to set the selectors on the changed clients.
+		 */
+		ret = mgmt_txn_send_notify_selectors(req_id, MGMTD_SESSION_ID_NONE,
+						     (clients | rm_clients),
+						     msg->replace ? NULL : selectors);
+		if (ret) {
+			fe_adapter_send_error(session, req_id, false, -EINPROGRESS,
+					      "Failed to create a NOTIFY_SELECT transaction");
+		}
+	}
 
-	/* We don't use a transaction for this, just send the message */
-	ret = mgmt_txn_send_notify_selectors(req_id, clients, msg->replace ? NULL : selectors);
+	if (ret != NB_OK || !all_matched || !selectors)
+		goto done;
+
+	__dbg("Created new push for session-id: %Lu", session->session_id);
+
+	/*
+	 * Send a second message requesting a full state dump
+	 */
+	ret = mgmt_txn_send_notify_selectors(req_id, session->session_id, all_matched, selectors);
 	if (ret) {
 		fe_adapter_send_error(session, req_id, false, -EINPROGRESS,
 				      "Failed to create a NOTIFY_SELECT transaction");
@@ -1925,7 +1957,6 @@ void mgmt_fe_adapter_send_notify(struct mgmt_msg_notify_data *msg, size_t msglen
 	bool is_root;
 	uint len;
 
-	assert(msg->refer_id == 0);
 
 	notif = mgmt_msg_native_xpath_decode(msg, msglen);
 	if (!notif) {
@@ -1947,8 +1978,22 @@ void mgmt_fe_adapter_send_notify(struct mgmt_msg_notify_data *msg, size_t msglen
 	}
 
 	/*
-	 * XXX if `is_root` should only send to each session one time, the code
-	 * below will send multiple times if a session has multiple selectors.
+	 * Handle notify "get" data case. When a FE session subscribes to DS
+	 * notifications it first gets a dump of all the subscribed state.
+	 */
+
+	if (msg->refer_id != MGMTD_SESSION_ID_NONE) {
+		session = mgmt_session_id2ctx(msg->refer_id);
+		if (!session || !session->notify_xpaths) {
+			__dbg("No session listening for notify 'get' data: %Lu", msg->refer_id);
+			return;
+		}
+		(void)fe_adapter_send_native_msg(session->adapter, msg, msglen, false);
+		return;
+	}
+
+	/*
+	 * Normal notification case.
 	 */
 
 	frr_each (ns_string, &mgmt_fe_ns_strings, ns) {

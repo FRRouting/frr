@@ -329,6 +329,7 @@ _Static_assert(sizeof(struct mgmt_msg_get_data) ==
 #define NOTIFY_OP_DS_REPLACE   1
 #define NOTIFY_OP_DS_DELETE    2
 #define NOTIFY_OP_DS_PATCH     3
+#define NOTIFY_OP_DS_GET_SYNC  4
 
 /**
  * struct mgmt_msg_notify_data - Message carrying notification data.
@@ -452,13 +453,23 @@ _Static_assert(sizeof(struct mgmt_msg_rpc_reply) ==
  * Add xpath prefix notification selectors to limit the notifications sent
  * to the front-end client.
  *
+ * Also used by mgmtd to the backend clients. In this case behavior depends on
+ * the @get_only boolean. If unset the backend filter set is updated
+ * accordingly, otherwise @get_only is true and a "get" operation is done within
+ * the notification stream using the given selectors, and the filter set in the
+ * backend is not modified. This is used so front-end clients can get an initial
+ * dump of the state followed by notifications w/o missing any changes to the
+ * state.
+ *
  * @selectors: the xpath prefixes to selectors notifications through.
  * @replace: if true replace existing selectors with `selectors`.
+ * @get_only: [backend-only]: if true do get op, don't change selectors.
  */
 struct mgmt_msg_notify_select {
 	struct mgmt_msg_header;
 	uint8_t replace;
-	uint8_t resv2[7];
+	uint8_t get_only;
+	uint8_t resv2[6];
 
 	alignas(8) char selectors[];
 };

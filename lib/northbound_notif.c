@@ -80,6 +80,7 @@ struct op_changes_group {
 	struct op_changes dels;
 	struct op_changes *cur_changes; /* used when walking */
 	struct op_change *cur_change;	/* "    "     " */
+	uint64_t refer_id;		/* for sending initial notify dump */
 };
 
 DECLARE_LIST(op_changes_queue, struct op_changes_group, item);
@@ -162,28 +163,32 @@ static void op_change_free(struct op_change *note)
 
 /**
  * __op_changes_group_push() - Save the current set of changes on the queue.
+ * @refer_id - sets refer_id usually 0.
  *
  * This function will save the current set of changes on the queue and
  * initialize a new set of changes.
  *
  * The lock must be held during this call.
  */
-static void __op_changes_group_push(void)
+static struct op_changes_group *__op_changes_group_push(uint64_t refer_id)
 {
 	struct op_changes_group *changes;
 
 	if (RB_EMPTY(op_changes, &nb_notif_adds) && RB_EMPTY(op_changes, &nb_notif_dels))
-		return;
+		return NULL;
 
 	__dbg("pushing current oper changes onto queue");
 
 	changes = XCALLOC(MTYPE_OP_CHANGES_GROUP, sizeof(*changes));
 	changes->adds = nb_notif_adds;
 	changes->dels = nb_notif_dels;
+	changes->refer_id = refer_id;
 	op_changes_queue_add_tail(&op_changes_queue, changes);
 
 	RB_INIT(op_changes, &nb_notif_adds);
 	RB_INIT(op_changes, &nb_notif_dels);
+
+	return changes;
 }
 
 static void op_changes_group_free(struct op_changes_group *group)
@@ -486,7 +491,7 @@ static struct op_changes_group *op_changes_group_next(void)
 
 	group = op_changes_queue_pop(&op_changes_queue);
 	if (!group) {
-		__op_changes_group_push();
+		__op_changes_group_push(0);
 		group = op_changes_queue_pop(&op_changes_queue);
 	}
 
@@ -557,7 +562,7 @@ error:
 			tree = lyd_parent(tree);
 
 		/* Send the add (replace) notification */
-		if (mgmt_be_send_ds_replace_notification(path, tree)) {
+		if (mgmt_be_send_ds_replace_notification(path, tree, group->refer_id)) {
 			__log_err("Error sending notification message for path: %s", path);
 			ret = NB_ERR;
 			goto error;
@@ -715,6 +720,29 @@ void nb_notif_set_filters(const char **selectors, bool replace)
 	}
 
 	darr_free(selectors);
+}
+
+void nb_notif_get_state(const char **selectors, uint64_t refer_id)
+{
+	uint i;
+
+	if (nb_notif_lock)
+		pthread_mutex_lock(nb_notif_lock);
+
+	/* push any current changes */
+	__op_changes_group_push(0);
+
+	/* add "add" notifications for each selector */
+	darr_foreach_i (selectors, i)
+		__op_change_add_del(selectors[i], &nb_notif_adds, &nb_notif_dels);
+
+	/* push new "changes" */
+	__op_changes_group_push(refer_id);
+
+	if (nb_notif_lock)
+		pthread_mutex_unlock(nb_notif_lock);
+
+	darr_free_free(selectors);
 }
 
 void nb_notif_enable_multi_thread(void)

@@ -2647,7 +2647,8 @@ int mgmt_txn_send_rpc(uint64_t txn_id, uint64_t req_id, uint64_t clients,
 	return 0;
 }
 
-int mgmt_txn_send_notify_selectors(uint64_t req_id, uint64_t clients, const char **selectors)
+int mgmt_txn_send_notify_selectors(uint64_t req_id, uint64_t session_id, uint64_t clients,
+				   const char **selectors)
 {
 	struct mgmt_msg_notify_select *msg;
 	char **all_selectors = NULL;
@@ -2657,10 +2658,11 @@ int mgmt_txn_send_notify_selectors(uint64_t req_id, uint64_t clients, const char
 
 	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_notify_select, 0,
 					MTYPE_MSG_NATIVE_NOTIFY_SELECT);
-	msg->refer_id = MGMTD_TXN_ID_NONE;
+	msg->refer_id = session_id;
 	msg->req_id = req_id;
 	msg->code = MGMT_MSG_CODE_NOTIFY_SELECT;
 	msg->replace = selectors == NULL;
+	msg->get_only = session_id != MGMTD_SESSION_ID_NONE;
 
 	if (selectors == NULL) {
 		/* Get selectors for all sessions */
