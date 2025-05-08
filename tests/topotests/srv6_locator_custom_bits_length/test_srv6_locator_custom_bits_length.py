@@ -185,6 +185,49 @@ def test_srv6_locator_func_bits():
     check_srv6_locator(router, "expected_locators7.json")
 
 
+def test_srv6_locator_node_len():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+
+    def _check_srv6_locator(router, expected_locator_file):
+        logger.info("checking zebra locator status")
+        output = json.loads(router.vtysh_cmd("show segment-routing srv6 locator json"))
+        expected = open_json_file("{}/{}".format(CWD, expected_locator_file))
+        return topotest.json_cmp(output, expected)
+
+    def check_srv6_locator(router, expected_file):
+        func = functools.partial(_check_srv6_locator, router, expected_file)
+        _, result = topotest.run_and_expect(func, None, count=20, wait=1)
+        assert result is None, "Failed"
+
+    logger.info("Configure various locators with and without node-len")
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator loc1
+             prefix 2001:db8:3::/48 block-len 32
+            locator loc2
+             prefix 2001:db8:3::/48 block-len 48 node-len 0
+            locator loc3
+             prefix 2001:db8:3::/48 node-len 0
+            locator loc4
+             prefix 2001:db8:3::/48 node-len 16
+            locator loc5
+             prefix 2001:db8:3::/48
+            locator loc6
+             prefix 2001:db8::/32 block-len 16 node-len 16 func-bits 0
+            locator loc7
+             prefix 2001::/16 block-len 16 node-len 0 func-bits 16
+        """
+    )
+    check_srv6_locator(router, "expected_locators8.json")
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

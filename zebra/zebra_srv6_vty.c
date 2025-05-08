@@ -788,7 +788,7 @@ DEFUN (no_srv6_locator,
 DEFPY (locator_prefix,
        locator_prefix_cmd,
        "prefix X:X::X:X/M$prefix [block-len (16-64)$block_bit_len]  \
-	        [node-len (16-64)$node_bit_len] [func-bits (0-64)$func_bit_len]",
+	        [node-len (0-64)$node_bit_len] [func-bits (0-64)$func_bit_len]",
        "Configure SRv6 locator prefix\n"
        "Specify SRv6 locator prefix\n"
        "Configure SRv6 locator block length in bits\n"
@@ -804,11 +804,15 @@ DEFPY (locator_prefix,
 	uint8_t expected_prefixlen;
 	struct srv6_sid_format *format;
 	int idx = 0;
+	bool node_bit_not_conf = false;
 
 	locator->prefix = *prefix;
 	/* Only set default if func_bit_len was not provided in command */
 	if (func_bit_len == 0 && !argv_find(argv, argc, "func-bits", &idx))
 		func_bit_len = ZEBRA_SRV6_FUNCTION_LENGTH;
+
+	if (node_bit_len == 0 && !argv_find(argv, argc, "node-len", &idx))
+		node_bit_not_conf = true;
 
 	expected_prefixlen = prefix->prefixlen;
 	format = locator->sid_format;
@@ -832,13 +836,13 @@ DEFPY (locator_prefix,
 	}
 
 	/* Resolve optional arguments */
-	if (block_bit_len == 0 && node_bit_len == 0) {
+	if (block_bit_len == 0 && node_bit_not_conf) {
 		block_bit_len = prefix->prefixlen -
 				ZEBRA_SRV6_LOCATOR_NODE_LENGTH;
 		node_bit_len = ZEBRA_SRV6_LOCATOR_NODE_LENGTH;
 	} else if (block_bit_len == 0) {
 		block_bit_len = prefix->prefixlen - node_bit_len;
-	} else if (node_bit_len == 0) {
+	} else if (node_bit_not_conf) {
 		node_bit_len = prefix->prefixlen - block_bit_len;
 	} else {
 		if (block_bit_len + node_bit_len != prefix->prefixlen) {
