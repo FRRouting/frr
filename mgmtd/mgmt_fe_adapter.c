@@ -44,6 +44,7 @@ struct mgmt_fe_session_ctx {
 	uint64_t client_id;
 	uint64_t txn_id;
 	uint64_t cfg_txn_id;
+	uint8_t notify_format;
 	uint8_t ds_locked[MGMTD_DS_MAX_ID];
 	const char **notify_xpaths;
 	struct event *proc_cfg_txn_clnp;
@@ -1336,8 +1337,8 @@ static void fe_adapter_handle_session_req(struct mgmt_fe_client_adapter *adapter
 	struct mgmt_fe_session_ctx *session;
 	uint64_t client_id;
 
-	__dbg("Got session-req is create %u req-id %Lu for refer-id %Lu from '%s'",
-	      msg->refer_id == 0, msg->req_id, msg->refer_id, adapter->name);
+	__dbg("Got session-req is create %u req-id %Lu for refer-id %Lu notify-fmt %u from '%s'",
+	      msg->refer_id == 0, msg->req_id, msg->refer_id, msg->notify_format, adapter->name);
 
 	if (msg->refer_id) {
 		uint64_t session_id = msg->refer_id;
@@ -1359,6 +1360,13 @@ static void fe_adapter_handle_session_req(struct mgmt_fe_client_adapter *adapter
 
 	client_id = msg->req_id;
 
+	/* Default notification format */
+	if (msg->notify_format && msg->notify_format > MGMT_MSG_FORMAT_LAST) {
+		fe_adapter_conn_send_error(adapter->conn, client_id, msg->req_id, false, -EINVAL,
+					   "Unrecognized notify format: %u", msg->notify_format);
+		return;
+	}
+
 	/* See if we have a client name to register */
 	if (msg_len > sizeof(*msg)) {
 		if (!MGMT_MSG_VALIDATE_NUL_TERM(msg, msg_len)) {
@@ -1374,6 +1382,7 @@ static void fe_adapter_handle_session_req(struct mgmt_fe_client_adapter *adapter
 	}
 
 	session = mgmt_fe_create_session(adapter, client_id);
+	session->notify_format = msg->notify_format ?: DEFAULT_NOTIFY_FORMAT;
 	fe_adapter_native_send_session_reply(adapter, client_id,
 					     session->session_id, true);
 }
@@ -1946,17 +1955,93 @@ static void mgmt_fe_adapter_process_msg(uint8_t version, uint8_t *data,
 	mgmtd__fe_message__free_unpacked(fe_msg, NULL);
 }
 
+
+static struct mgmt_msg_notify_data *assure_notify_msg_cache(const struct mgmt_msg_notify_data *msg,
+							    size_t msglen, struct lyd_node **tree,
+							    uint8_t format,
+							    struct mgmt_msg_notify_data **cache)
+
+{
+	struct mgmt_msg_notify_data *new_msg;
+	const struct lyd_node *root;
+	uint8_t **darrp = NULL;
+	const char *data, *xpath;
+	LY_ERR err;
+
+	if (cache[format])
+		return cache[format];
+
+	__dbg("creating notify msg cache for format %u", format);
+
+	xpath = mgmt_msg_native_xpath_data_decode(msg, msglen, data);
+
+	/* Get a libyang data tree if we haven't yet */
+	if (!*tree) {
+		err = lyd_parse_data_mem(ly_native_ctx, data, msg->result_type,
+					 LYD_PARSE_STRICT | LYD_PARSE_ONLY, 0, tree);
+		assert(err == LY_SUCCESS);
+	}
+
+	root = *tree;
+
+	/* Copy original message (fixed-part), update format */
+	new_msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_notify_data, 0, MTYPE_MSG_NATIVE_NOTIFY);
+	*new_msg = *msg;
+	new_msg->result_type = format;
+
+	/* Append the xpath string */
+	mgmt_msg_native_xpath_encode(new_msg, xpath);
+
+	/*
+	 * Append new `format`ed data
+	 */
+
+	/* For JSON result top node starts at the xpath target */
+	if (format == LYD_JSON) {
+		root = yang_dnode_get(*tree, xpath);
+		assert(root);
+	}
+
+	darrp = mgmt_msg_native_get_darrp(new_msg);
+	err = yang_print_tree_append(darrp, root, format, LYD_PRINT_WITHSIBLINGS);
+	assert(err == LY_SUCCESS);
+
+	cache[format] = new_msg;
+	return new_msg;
+}
+
+static void cleanup_notify_msg_cache(struct mgmt_msg_notify_data *msg, struct lyd_node **tree,
+				     struct mgmt_msg_notify_data **cache)
+
+{
+	if (*tree) {
+		lyd_free_all(*tree);
+		*tree = NULL;
+	}
+
+	for (uint i = 0; i <= MGMT_MSG_FORMAT_LAST; i++) {
+		if (cache[i] && cache[i] != msg) {
+			__dbg("freeing notify msg cache for format %u", i);
+			mgmt_msg_native_free_msg(cache[i]);
+		}
+	}
+}
+
 void mgmt_fe_adapter_send_notify(struct mgmt_msg_notify_data *msg, size_t msglen)
 {
+	struct mgmt_msg_notify_data *cache[MGMT_MSG_FORMAT_LAST + 1] = {};
+	struct mgmt_msg_notify_data *send_msg;
 	struct mgmt_fe_client_adapter *adapter;
+	struct mgmt_fe_session_ctx **sessions = NULL;
 	struct mgmt_fe_session_ctx *session;
 	struct nb_node *nb_node = NULL;
+	struct lyd_node *tree = NULL;
 	struct listnode *node;
 	struct ns_string *ns;
 	const char *notif;
-	bool is_root;
-	uint len;
+	uint i, sel_len, notif_len, nb_xpath_len;
 
+	cache[msg->result_type] = msg;
 
 	notif = mgmt_msg_native_xpath_decode(msg, msglen);
 	if (!notif) {
@@ -1964,68 +2049,93 @@ void mgmt_fe_adapter_send_notify(struct mgmt_msg_notify_data *msg, size_t msglen
 		return;
 	}
 
-	is_root = !strcmp(notif, "/");
-	if (!is_root) {
-		/*
-		 * We need the nb_node to obtain a path which does not include any
-		 * specific list entry selectors
-		 */
-		nb_node = nb_node_find(notif);
-		if (!nb_node) {
-			__log_err("No schema found for notification: %s", notif);
-			return;
-		}
+	/* We don't support root level notifications, no backend should send this */
+	assert(strcmp(notif, "/"));
+
+	/*
+	 * We need the nb_node to obtain a path which does not include any
+	 * specific list entry selectors
+	 */
+	nb_node = nb_node_find(notif);
+	if (!nb_node) {
+		__log_err("No schema found for notification: %s", notif);
+		return;
 	}
 
 	/*
 	 * Handle notify "get" data case. When a FE session subscribes to DS
 	 * notifications it first gets a dump of all the subscribed state.
 	 */
-
 	if (msg->refer_id != MGMTD_SESSION_ID_NONE) {
 		session = mgmt_session_id2ctx(msg->refer_id);
 		if (!session || !session->notify_xpaths) {
 			__dbg("No session listening for notify 'get' data: %Lu", msg->refer_id);
 			return;
 		}
-		(void)fe_adapter_send_native_msg(session->adapter, msg, msglen, false);
-		return;
+
+		send_msg = assure_notify_msg_cache(msg, msglen, &tree, session->notify_format,
+						   cache);
+		(void)fe_adapter_send_native_msg(session->adapter, send_msg, msglen, false);
+		goto done;
 	}
 
 	/*
 	 * Normal notification case.
 	 */
 
+	notif_len = strlen(notif);
+	nb_xpath_len = strlen(nb_node->xpath);
 	frr_each (ns_string, &mgmt_fe_ns_strings, ns) {
-		if (!is_root) {
-			len = strlen(ns->s);
-			if (strncmp(ns->s, notif, len) && strncmp(ns->s, nb_node->xpath, len))
-				continue;
-		}
-		for (ALL_LIST_ELEMENTS_RO(ns->sessions, node, session)) {
-			msg->refer_id = session->session_id;
-			(void)fe_adapter_send_native_msg(session->adapter, msg, msglen, false);
-		}
+		sel_len = strlen(ns->s);
+		/*
+		 * Notify if:
+		 * 1) the selector covers (is prefix of) the specific notified path.
+		 * 2) the selector covers (is prefix of) the schema path of the
+		 * notified path. this means the selector is generic (contains no keys)
+		 *
+		 * Also check if the selector is contained by the notification path
+		 * (i.e., it's a prefix of).
+		 */
+		if (/* selector contains (specific or schema) notification path */
+		    strncmp(ns->s, notif, sel_len) && strncmp(ns->s, nb_node->xpath, sel_len) &&
+		    /* notify (specific or schema) contains selector */
+		    strncmp(notif, ns->s, notif_len) && strncmp(nb_node->xpath, ns->s, nb_xpath_len))
+			continue;
+
+		for (ALL_LIST_ELEMENTS_RO(ns->sessions, node, session))
+			darr_push_uniq(sessions, session);
 	}
+	/* Send to all interested sessions */
+	darr_foreach_i (sessions, i) {
+		send_msg = assure_notify_msg_cache(msg, msglen, &tree, sessions[i]->notify_format,
+						   cache);
+		send_msg->refer_id = sessions[i]->session_id;
+		(void)fe_adapter_send_native_msg(sessions[i]->adapter, send_msg, msglen, false);
+	}
+	darr_free(sessions);
 
 	/*
 	 * Send all YANG defined notifications to all sesisons with *no*
 	 * selectors as well (i.e., original NETCONF/RESTCONF notification
 	 * scheme).
 	 */
-	if (!is_root && CHECK_FLAG(nb_node->snode->nodetype, LYS_NOTIF)) {
+	if (CHECK_FLAG(nb_node->snode->nodetype, LYS_NOTIF)) {
 		FOREACH_ADAPTER_IN_LIST (adapter) {
 			FOREACH_SESSION_IN_LIST (adapter, session) {
 				if (session->notify_xpaths)
 					continue;
-				msg->refer_id = session->session_id;
-				(void)fe_adapter_send_native_msg(adapter, msg,
-								 msglen, false);
+				send_msg = assure_notify_msg_cache(msg, msglen, &tree,
+								   session->notify_format, cache);
+				send_msg->refer_id = session->session_id;
+				(void)fe_adapter_send_native_msg(adapter, send_msg, msglen, false);
 			}
 		}
 	}
 
 	msg->refer_id = 0;
+
+done:
+	cleanup_notify_msg_cache(msg, &tree, cache);
 }
 
 void mgmt_fe_adapter_lock(struct mgmt_fe_client_adapter *adapter)
