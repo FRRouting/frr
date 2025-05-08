@@ -3148,6 +3148,7 @@ static void zread_srv6_manager_get_locator_static_sids(struct zserv *client, str
 	struct zebra_srv6_sid_ctx *zctx = NULL;
 	struct srv6_sid *static_sid = NULL;
 	struct list *static_sids_list = list_new();
+
 	static_sids_list->del = zebra_static_sid_del;
 
 	/* Get data */

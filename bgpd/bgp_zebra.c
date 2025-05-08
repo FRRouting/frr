@@ -3486,6 +3486,7 @@ static int bgp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 static void bgp_static_sid_del(void *data)
 {
 	struct srv6_sid *static_sid = data;
+
 	if (!static_sid)
 		return;
 
@@ -3562,6 +3563,7 @@ static int bgp_zebra_process_srv6_locator_static_sids(ZAPI_CALLBACK_ARGS)
 	struct bgp *bgp = bgp_get_default();
 	struct srv6_locator loc = {};
 	struct list *static_sids_list = list_new();
+
 	static_sids_list->del = bgp_static_sid_del;
 
 	if (!bgp || !bgp->srv6_enabled)

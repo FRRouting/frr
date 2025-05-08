@@ -1499,6 +1499,7 @@ int bgp_peer_gr_init(struct peer *peer)
 static void srv6_static_sid_free(void *data)
 {
 	struct srv6_sid *static_sid = data;
+
 	if (!static_sid)
 		return;
 
