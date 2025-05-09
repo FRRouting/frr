@@ -4694,6 +4694,7 @@ bool peer_active(struct peer_connection *connection)
 
 	if (peer->bfd_config) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 		if (peer_established(peer->connection) && bfd_session_is_down(peer->bfd_config->session))
 			return false;
 =======
@@ -4703,6 +4704,15 @@ bool peer_active(struct peer_connection *connection)
 			 bfd_session_is_down(peer->bfd_config->session))
 			return BGP_PEER_BFD_DOWN;
 >>>>>>> f9400457e (bgpd: Make sure BGP stays in Idle if BFD profile is admin shutdown)
+=======
+		/* Only if `neighbor X bfd strict` is enabled */
+		if (peergroup_flag_check(peer, PEER_FLAG_BFD_STRICT)) {
+			if (bfd_session_is_admin_down(peer->bfd_config->session))
+				return BGP_PEER_BFD_ADMIN_DOWN;
+			else if (bfd_session_is_down(peer->bfd_config->session))
+				return BGP_PEER_BFD_DOWN;
+		}
+>>>>>>> 4169f2708 (bgpd: Add `neighbor X bfd strict` command)
 	}
 
 	if (peer->afc[AFI_IP][SAFI_UNICAST] || peer->afc[AFI_IP][SAFI_MULTICAST]
@@ -4857,6 +4867,11 @@ static const struct peer_flag_action peer_flag_action_list[] = {
 	{PEER_FLAG_EXTENDED_LINK_BANDWIDTH, 0, peer_change_none},
 	{PEER_FLAG_LONESOUL, 0, peer_change_reset_out},
 	{PEER_FLAG_TCP_MSS, 0, peer_change_none},
+<<<<<<< HEAD
+=======
+	{PEER_FLAG_CAPABILITY_LINK_LOCAL, 0, peer_change_none},
+	{PEER_FLAG_BFD_STRICT, 0, peer_change_none},
+>>>>>>> 4169f2708 (bgpd: Add `neighbor X bfd strict` command)
 	{0, 0, 0}};
 
 static const struct peer_flag_action peer_af_flag_action_list[] = {
