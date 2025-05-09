@@ -1543,6 +1543,8 @@ struct peer {
 #define PEER_FLAG_EXTENDED_LINK_BANDWIDTH (1ULL << 39)
 #define PEER_FLAG_AS_LOOP_DETECTION (1ULL << 40) /* as path loop detection */
 #define PEER_FLAG_RTC_UPDATE		  (1ULL << 41)
+/* BFD strict mode */
+#define PEER_FLAG_BFD_STRICT (1ULL << 42)
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
