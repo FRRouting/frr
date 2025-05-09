@@ -14,8 +14,7 @@
 
 extern void bgp_bfd_init(struct event_loop *tm);
 
-extern void bgp_bfd_peer_config_write(struct vty *vty, const struct peer *peer,
-				      const char *addr);
+extern void bgp_bfd_peer_config_write(struct vty *vty, struct peer *peer, const char *addr);
 
 /**
  * Show BFD information helper.
@@ -25,8 +24,7 @@ extern void bgp_bfd_peer_config_write(struct vty *vty, const struct peer *peer,
  * \param use_json unused.
  * \param json_neigh JSON object when called as JSON command.
  */
-extern void bgp_bfd_show_info(struct vty *vty, const struct peer *peer,
-			      json_object *json_neigh);
+extern void bgp_bfd_show_info(struct vty *vty, struct peer *peer, json_object *json_neigh);
 
 /**
  * When called on a group it applies configuration to all peers in that group,
