@@ -784,12 +784,6 @@ def test_verify_bgp_local_as_GR_EBGP_p0(request):
             }
         }
 
-        logger.info("Configure static routes")
-        result = create_static_routes(tgen, input_dict_static_route)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
         step("configure redistribute static in Router BGP in R1")
         input_dict_static_route_redist = {
             "r1": {
@@ -1473,12 +1467,6 @@ def test_verify_bgp_local_as_in_EBGP_aspath_p0(request):
             }
         }
 
-        logger.info("Configure static routes")
-        result = create_static_routes(tgen, input_static_r1)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
         step("configure redistribute static in Router BGP in R1")
 
         input_static_redist_r1 = {
@@ -1739,12 +1727,6 @@ def test_verify_bgp_local_as_in_iBGP_p0(request):
                 ]
             }
         }
-
-        logger.info("Configure static routes")
-        result = create_static_routes(tgen, input_dict_static_route)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
 
         step("configure redistribute static in Router BGP in R1")
         input_dict_static_route_redist = {
@@ -2055,12 +2037,6 @@ def test_verify_bgp_local_as_allow_as_in_iBGP_p0(request):
                 ]
             }
         }
-
-        logger.info("Configure static routes")
-        result = create_static_routes(tgen, input_dict_static_route)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
 
         step("configure redistribute static in Router BGP in R1")
         input_dict_static_route_redist = {
@@ -2574,12 +2550,6 @@ def test_verify_bgp_local_as_in_EBGP_port_reset_p0(request):
             }
         }
 
-        logger.info("Configure static routes")
-        result = create_static_routes(tgen, input_static_r1)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
         step("configure redistribute static in Router BGP in R1")
         input_static_redist_r1 = {
             "r1": {
@@ -2919,12 +2889,6 @@ def test_verify_bgp_local_as_in_EBGP_negative2_p0(request):
             }
         }
 
-        logger.info("Configure static routes")
-        result = create_static_routes(tgen, input_static_r1)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
         step("configure redistribute static in Router BGP in R1")
 
         input_static_redist_r1 = {
@@ -3263,12 +3227,6 @@ def test_verify_bgp_local_as_in_EBGP_negative3_p0(request):
             }
         }
 
-        logger.info("Configure static routes")
-        result = create_static_routes(tgen, input_static_r1)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
         step("configure redistribute static in Router BGP in R1")
 
         input_static_redist_r1 = {
@@ -3455,12 +3413,6 @@ def test_verify_bgp_local_as_in_EBGP_restart_daemons_p0(request):
                 ]
             }
         }
-
-        logger.info("Configure static routes")
-        result = create_static_routes(tgen, input_static_r1)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
 
         step("configure redistribute static in Router BGP in R1")
         input_static_redist_r1 = {
