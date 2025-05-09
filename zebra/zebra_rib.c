@@ -2121,6 +2121,8 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 			if (re) {
 				UNSET_FLAG(re->status, ROUTE_ENTRY_FAILED);
 				SET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
+				/* Increment the installed re count for the nhe */
+				re->nhe->installed_re_count++;
 			}
 			/*
 			 * On an update operation from the same route type
@@ -2135,6 +2137,21 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 				UNSET_FLAG(old_re->status, ROUTE_ENTRY_FAILED);
 				UNSET_FLAG(old_re->status,
 					   ROUTE_ENTRY_INSTALLED);
+
+				/* Decrement the installed re count for the nhe which is no longer installed
+				 * If there are no more re installed using the old nhe, uninstalled the nhe from dplane
+				 */
+				if (old_re->nhe && old_re->nhe->installed_re_count)
+					old_re->nhe->installed_re_count--;
+
+				if (old_re->nhe && old_re->nhe->installed_re_count == 0) {
+					if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+						zlog_debug("%s: re %p flags 0x%x, uninstall nhe %p id %u flags 0x%x has no more installed routes",
+							   __func__, old_re, old_re->flags,
+							   old_re->nhe, old_re->nhe->id,
+							   old_re->nhe->flags);
+					zebra_nhg_uninstall_kernel(old_re->nhe);
+				}
 			}
 
 			/* Update zebra route based on the results in
@@ -2230,6 +2247,9 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 			if (re) {
 				UNSET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
 				UNSET_FLAG(re->status, ROUTE_ENTRY_FAILED);
+				/* Decrement installed_re_count for route's nexthop group */
+				if (re->nhe && re->nhe->installed_re_count)
+					re->nhe->installed_re_count--;
 			}
 			zsend_route_notify_owner_ctx(ctx, ZAPI_ROUTE_REMOVED);
 

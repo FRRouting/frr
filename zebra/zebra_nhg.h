@@ -171,6 +171,9 @@ struct nhg_hash_entry {
  * chooses this NHG then we can install it then.
  */
 #define NEXTHOP_GROUP_INITIAL_DELAY_INSTALL (1 << 9)
+
+	/* Keeps count of installed res used to uninstall nhg from dplane */
+	uint32_t installed_re_count;
 };
 
 /* Upper 4 bits of the NHG are reserved for indicating the NHG type */

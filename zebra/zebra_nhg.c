@@ -3553,6 +3553,15 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 				"Failed to uninstall Nexthop ID (%u) from the kernel",
 				id);
 
+		nhe = zebra_nhg_lookup_id(id);
+		if (nhe) {
+			UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+			UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED);
+			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+				zlog_debug("%s Nexthop ID (%u) flags 0x%x uninstalled from kernel but present in zebra",
+					   __func__, nhe->id, nhe->flags);
+		}
+
 		/* We already free'd the data, nothing to do */
 	} else if (op == DPLANE_OP_NH_INSTALL || op == DPLANE_OP_NH_UPDATE) {
 		nhe = zebra_nhg_lookup_id(id);
