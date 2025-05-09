@@ -633,11 +633,7 @@ def _test_epoch_after_clear(router, peer, last_established_epoch, vrf=None):
     Without this, the second session is cleared as well on slower systems (like CI)
     """
     test_func = partial(
-        _check_established_epoch_differ,
-        router,
-        peer,
-        last_established_epoch,
-        vrf=vrf
+        _check_established_epoch_differ, router, peer, last_established_epoch, vrf=vrf
     )
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert (
