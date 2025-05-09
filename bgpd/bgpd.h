@@ -1514,6 +1514,14 @@ struct peer {
 #define PEER_FLAG_AS_LOOP_DETECTION (1ULL << 38) /* as path loop detection */
 #define PEER_FLAG_EXTENDED_LINK_BANDWIDTH (1ULL << 39)
 #define PEER_FLAG_DUAL_AS		  (1ULL << 40)
+<<<<<<< HEAD
+=======
+#define PEER_FLAG_CAPABILITY_LINK_LOCAL	  (1ULL << 41)
+/* Peer is part of a batch clearing its routes */
+#define PEER_FLAG_CLEARING_BATCH (1ULL << 42)
+/* BFD strict mode */
+#define PEER_FLAG_BFD_STRICT (1ULL << 43)
+>>>>>>> 4169f2708 (bgpd: Add `neighbor X bfd strict` command)
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
