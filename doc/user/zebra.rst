@@ -650,7 +650,7 @@ Single Vxlan Device Support
 FRR supports configuring VLAN-to-VNI mappings for EVPN-VXLAN,
 when working with the Linux kernel. In this new way, the mapping of a VLAN
 to a VNI is configured against a container VXLAN interface which is referred
-to as a ‘Single VXLAN device (SVD)’. Multiple VLAN to VNI mappings can be
+to as a 'Single VXLAN device (SVD)'. Multiple VLAN to VNI mappings can be
 configured against the same SVD. This allows for a significant scaling of
 the number of VNIs since a separate VXLAN interface is no longer required
 for each VNI. Sample configuration of SVD with VLAN to VNI mappings is shown
@@ -1571,6 +1571,50 @@ zebra Terminal Mode Commands
 
    Display detailed information about a route. If [nexthop-group] is
    included, it will display the nexthop group ID the route is using as well.
+
+.. clicmd:: show [ip|ipv6] route [vrf NAME|all|table TABLENO] [A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M] [json] [nexthop-group]
+
+   Display detailed information about routes in the routing table. This command provides comprehensive information about specific routes, including their attributes, nexthops, and other routing details.
+
+   Options:
+
+   - ``vrf NAME|all``: Display routes for a specific VRF or all VRFs
+   - ``table TABLENO``: Display routes from a specific routing table (1-4294967295)
+   - ``A.B.C.D|A.B.C.D/M``: Display detailed information for a specific IPv4 address or prefix
+   - ``X:X::X:X|X:X::X:X/M``: Display detailed information for a specific IPv6 address or prefix
+   - ``json``: Display output in JSON format
+   - ``nexthop-group``: Include nexthop group information in the output
+
+   The detailed output includes:
+
+   - Route prefix and mask
+   - Route type and protocol
+   - Administrative distance and metric
+   - Nexthop information including:
+     - Interface name
+     - Nexthop IP address
+     - Nexthop type (direct, recursive, etc.)
+     - Nexthop group ID (if applicable)
+   - Route tags
+   - Route timers
+   - Route status flags
+   - Additional protocol-specific attributes
+
+   Example output:
+
+   ::
+
+      Router# show ip route 192.168.1.0/24 detail
+      Routing entry for 192.168.1.0/24
+        Known via "ospf", distance 110, metric 20, type intra area
+        Last update from 10.0.0.1 on eth0, 00:05:23 ago
+        Routing Descriptor Blocks:
+        * 10.0.0.1, from 10.0.0.1, via eth0
+            Route metric is 20, traffic share count is 1
+            Nexthop group ID: 5
+            Backup nexthop: 10.0.0.2 via eth1
+
+   When using the JSON output format, the information is structured in a hierarchical JSON object containing all the route details in a machine-readable format.
 
 .. clicmd:: show [ip|ipv6] route summary
 
