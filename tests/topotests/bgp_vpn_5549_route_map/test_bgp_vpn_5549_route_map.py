@@ -60,10 +60,15 @@ def setup_module(mod):
     pe1.run("ip link set pe1-eth0 master RED")
     pe2.run("ip link set pe2-eth1 master RED")
 
+    pe1.run("ip link add link pe1-eth1 name pe1-eth1.100 type vlan id 100")
+    pe1.run("ip link set dev pe1-eth1.100 up")
+    pe2.run("ip link add link pe2-eth0 name pe2-eth0.100 type vlan id 100")
+    pe2.run("ip link set dev pe2-eth0.100 up")
+
     pe1.run("sysctl -w net.ipv4.ip_forward=1")
     pe2.run("sysctl -w net.ipv4.ip_forward=1")
-    pe1.run("sysctl -w net.mpls.conf.pe1-eth0.input=1")
-    pe2.run("sysctl -w net.mpls.conf.pe2-eth1.input=1")
+    pe1.run("sysctl -w net.mpls.conf.pe1-eth0.100.input=1")
+    pe2.run("sysctl -w net.mpls.conf.pe2-eth1.100.input=1")
 
     router_list = tgen.routers()
 
@@ -139,7 +144,7 @@ def test_bgp_vpn_5549():
                     "complete": True,
                     "igpMetric": 0,
                     "pathCount": 2,
-                    "nexthops": [{"interfaceName": "pe2-eth0"}],
+                    "nexthops": [{"interfaceName": "pe2-eth0.100"}],
                 },
                 "2001:db8:1::1": {
                     "valid": True,
@@ -147,7 +152,7 @@ def test_bgp_vpn_5549():
                     "igpMetric": 10,
                     "pathCount": 2,
                     "peer": "2001:db8:1::1",
-                    "nexthops": [{"interfaceName": "pe2-eth0"}],
+                    "nexthops": [{"interfaceName": "pe2-eth0.100"}],
                 },
             }
         }
@@ -169,7 +174,7 @@ def test_bgp_vpn_5549():
 def check_show_interface_rtadv_params_found(router):
     output = json.loads(router.vtysh_cmd("show interface json"))
     expected = {
-        "pe1-eth1": {
+        "pe1-eth1.100": {
             "ndAdvertisedReachableTimeMsecs": 0,
             "ndAdvertisedRetransmitIntervalMsecs": 0,
             "ndAdvertisedHopCountLimitHops": 64,
@@ -195,7 +200,7 @@ def test_show_interface_rtadv_params_found():
 def check_show_interface_rtadv_params_not_found(router):
     output = json.loads(router.vtysh_cmd("show interface json"))
     expected = {
-        "pe1-eth1": {
+        "pe1-eth1.100": {
             "ndAdvertisedReachableTimeMsecs": 0,
             "ndAdvertisedRetransmitIntervalMsecs": 0,
         }
@@ -227,7 +232,7 @@ def test_show_interface_rtadv_params_not_found():
 def check_show_interface_rtadv_params_found_reapply(router):
     output = json.loads(router.vtysh_cmd("show interface json"))
     expected = {
-        "pe1-eth1": {
+        "pe1-eth1.100": {
             "ndAdvertisedReachableTimeMsecs": 0,
             "ndAdvertisedRetransmitIntervalMsecs": 0,
         }
@@ -262,7 +267,7 @@ def check_show_interface_rtadv_params_not_found_after_reapply(router):
     output = json.loads(router.vtysh_cmd("show interface json"))
 
     expected = {
-        "pe1-eth1": {
+        "pe1-eth1.100": {
             "ndAdvertisedReachableTimeMsecs": 0,
             "ndAdvertisedRetransmitIntervalMsecs": 0,
         }
