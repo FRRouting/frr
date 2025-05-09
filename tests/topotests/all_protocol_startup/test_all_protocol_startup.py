@@ -1826,6 +1826,28 @@ def test_interface_stuff():
     assert rc == 0
 
 
+def test_pbr_table():
+    global fatal_error
+    net = get_topogen().net
+
+    # Skip if previous fatal error condition is raised
+    if fatal_error != "":
+        pytest.skip(fatal_error)
+
+    print("\n\n** Verifying PBR table default route")
+    print("******************************************\n")
+
+    # Get the route table output
+    output = net["r1"].cmd('vtysh -c "show ip route table 10000 nexthop"').rstrip()
+
+    # Check for default route (0.0.0.0/0)
+    if "0.0.0.0/0" not in output:
+        fatal_error = "Default route not found in PBR table 10000"
+        assert False, fatal_error
+
+    print("Default route found in PBR table 10000")
+
+
 def test_shutdown_check_stderr():
     global fatal_error
     net = get_topogen().net
