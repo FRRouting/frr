@@ -295,6 +295,48 @@ def test_show_interface_rtadv_params_not_found_after_reapply():
     assert success, "not good"
 
 
+def test_reapply_bgp_config():
+    tgen = get_topogen()
+
+    router = tgen.gears["pe1"]
+    router.run("vtysh -f {0}".format(os.path.join(CWD, "pe1/bgpd.conf")))
+
+    test_func = functools.partial(
+        check_show_interface_rtadv_params_found_reapply, router
+    )
+    success, _ = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert success, "rtadv output is invalid"
+
+
+def test_remove_vlan_interface_from_pe1():
+    tgen = get_topogen()
+
+    router = tgen.gears["pe1"]
+    router.run("ip link delete pe1-eth1.100")
+    output = router.vtysh_cmd("show interface pe1-eth1.100")
+    print(output)
+    test_func = functools.partial(
+        check_show_interface_rtadv_params_not_found_after_reapply, router
+    )
+    success, _ = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert success, "not good"
+
+
+def test_readd_vlan_interface_from_pe1():
+    tgen = get_topogen()
+
+    router = tgen.gears["pe1"]
+    router.run("ip link add link pe1-eth1 name pe1-eth1.100 type vlan id 100")
+    router.run("ip link set dev pe1-eth1.100 up")
+    output = router.vtysh_cmd("show interface pe1-eth1.100")
+    print(output)
+    test_func = functools.partial(
+        check_show_interface_rtadv_params_not_found_after_reapply, router
+    )
+    success, _ = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert success, "not good"
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
