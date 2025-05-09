@@ -19,10 +19,6 @@ module frr-bgp-route-map {
     prefix bgp-filter;
   }
 
-  import ietf-routing-types {
-    prefix rt-types;
-  }
-
   import frr-route-types {
     prefix frr-route-types;
   }
@@ -38,6 +34,7 @@ module frr-bgp-route-map {
   revision 2020-01-02 {
     description
       "Initial revision";
+    reference "FRRouting";
   }
 
   identity match-alias {
@@ -395,6 +392,9 @@ identity set-extcommunity-color {
   }
 
   grouping extcommunity-non-transitive-types {
+    description
+      "Defines a grouping for non-transitive extended community types";
+
     leaf two-octet-as-specific {
       type boolean;
       default false;
@@ -540,6 +540,8 @@ identity set-extcommunity-color {
         }
       }
     }
+    description
+      "Defines the ASN type as a union of uint32 and string patterns";
   }
 
   typedef color-list {
@@ -560,12 +562,17 @@ identity set-extcommunity-color {
   }
 
   augment "/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:rmap-match-condition/frr-route-map:match-condition" {
+    description
+      "Augments the match condition with local preference";
+
     case local-preference {
       when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:match-local-preference')";
       leaf local-preference {
         type uint32 {
           range "0..4294967295";
         }
+        description
+          "Specifies the local preference value for the route";
       }
     }
 
@@ -573,6 +580,8 @@ identity set-extcommunity-color {
       when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:match-alias')";
       leaf alias {
         type string;
+        description
+          "Specifies the script to be executed";
       }
     }
 
@@ -580,6 +589,8 @@ identity set-extcommunity-color {
       when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:match-script')";
       leaf script {
         type string;
+        description
+          "Specifies the script to be executed";
       }
     }
 
@@ -603,6 +614,8 @@ identity set-extcommunity-color {
               "Unknown heritage";
           }
         }
+        description
+          "Specifies the origin of the route";
       }
     }
 
@@ -626,6 +639,8 @@ identity set-extcommunity-color {
               "Valid prefix";
           }
         }
+        description
+          "Specifies the rpki status of the prefix";
       }
     }
 
@@ -649,6 +664,8 @@ identity set-extcommunity-color {
               "Invalid prefix";
           }
         }
+        description
+          "Specifies the rpki extended community";
       }
     }
 
@@ -658,6 +675,8 @@ identity set-extcommunity-color {
         type uint8 {
           range "0..100";
         }
+        description
+          "Specifies the probability of applying the route-map";
       }
     }
 
@@ -665,6 +684,8 @@ identity set-extcommunity-color {
       when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:source-vrf')";
       leaf source-vrf {
         type string;
+        description
+          "Specifies the source VRF for the route";
       }
     }
 
@@ -678,6 +699,8 @@ identity set-extcommunity-color {
             "IP address of peer";
           leaf peer-ipv4-address {
             type inet:ipv4-address;
+            description
+              "Specifies the IP address of the peer";
           }
         }
 
@@ -686,6 +709,8 @@ identity set-extcommunity-color {
             "Interface name of peer";
           leaf peer-interface {
             type string;
+            description
+              "Specifies the name of the interface used by the peer";
           }
         }
 
@@ -694,6 +719,8 @@ identity set-extcommunity-color {
             "IPv6 address of peer";
           leaf peer-ipv6-address {
             type inet:ipv6-address;
+            description
+              "Specifies the IPv6 address of the peer";
           }
         }
 
@@ -702,6 +729,8 @@ identity set-extcommunity-color {
             "Static or Redistributed routes";
           leaf peer-local {
             type boolean;
+            description
+              "Specifies whether the routes are static or redistributed";
           }
         }
       }
@@ -717,6 +746,8 @@ identity set-extcommunity-color {
             "IP address of peer";
           leaf src-peer-ipv4-address {
             type inet:ipv4-address;
+            description
+              "Specifies the IP address of the peer";
           }
         }
 
@@ -725,6 +756,8 @@ identity set-extcommunity-color {
             "Interface name of peer";
           leaf src-peer-interface {
             type string;
+            description
+              "Specifies the name of the interface used by the peer";
           }
         }
 
@@ -733,6 +766,8 @@ identity set-extcommunity-color {
             "IPv6 address of peer";
           leaf src-peer-ipv6-address {
             type inet:ipv6-address;
+            description
+              "Specifies the IPv6 address of the peer";
           }
         }
       }
@@ -747,6 +782,8 @@ identity set-extcommunity-color {
         "Access-list name";
       leaf list-name {
         type filter:access-list-name;
+        description
+          "Specifies the name of the access list";
       }
     }
 
@@ -756,6 +793,8 @@ identity set-extcommunity-color {
         "Match default EVPN type-5 route";
       leaf evpn-default-route {
         type empty;
+        description
+          "Specifies that the route is a default EVPN type-5 route";
       }
     }
 
@@ -767,6 +806,8 @@ identity set-extcommunity-color {
         type uint32 {
           range "1..16777215";
         }
+        description
+          "Specifies the eVPN Virtual Network Identifier";
       }
     }
 
@@ -802,6 +843,8 @@ identity set-extcommunity-color {
               "Ethernet Segment route";
           }
         }
+        description
+          "Specifies the eVPN route type";
       }
     }
 
@@ -811,6 +854,8 @@ identity set-extcommunity-color {
         "Match eVPN route-distinguisher";
       leaf route-distinguisher {
         type route-distinguisher;
+        description
+          "Specifies the route-distinguisher for eVPN routes";
       }
     }
 
@@ -822,6 +867,8 @@ identity set-extcommunity-color {
         type uint16 {
           range "0..1024";
         }
+        description
+          "Specifies the limit for the count of communities";
       }
     }
 
@@ -833,6 +880,8 @@ identity set-extcommunity-color {
         type uint16 {
           range "0..1024";
         }
+        description
+          "Specifies the limit for the count of extended communities";
       }
     }
 
@@ -841,9 +890,14 @@ identity set-extcommunity-color {
         + "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:match-large-community') or "
         + "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:match-extcommunity')";
       container comm-list {
+        description
+          "Specifies the community list for BGP routes";
+
         leaf comm-list-name {
-          mandatory true;
           type bgp-filter:bgp-list-name;
+          mandatory true;
+          description
+            "Specifies the name of the community list";
         }
 
         leaf comm-list-name-exact-match {
@@ -883,17 +937,24 @@ identity set-extcommunity-color {
       when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:source-protocol')";
       leaf source-protocol {
         type frr-route-types:frr-route-types;
+        description
+          "Specifies the source protocol for BGP routes";
       }
     }
   }
 
   augment "/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:rmap-set-action/frr-route-map:set-action" {
+    description
+      "Augment set-action for route-map entries";
+
     case distance {
       when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:distance')";
       leaf distance {
         type uint8 {
           range "1..255";
         }
+        description
+          "Set the OSPF distance for the route";
       }
     }
 
@@ -946,14 +1007,16 @@ identity set-extcommunity-color {
         description
           "Value of the ext-community.";
         leaf lb-type {
-          mandatory true;
           type frr-bgp-route-map:extcommunity-lb-type;
+          mandatory true;
+          description
+            "Specifies the type of extended community load balancing";
         }
 
         leaf bandwidth {
           when "../lb-type = 'explicit-bandwidth'";
-          mandatory true;
           type uint32;
+          mandatory true;
           description
             "Bandwidth value in Mbps";
         }
@@ -980,6 +1043,8 @@ identity set-extcommunity-color {
         "Set the IPv4 address";
       leaf ipv4-address {
         type inet:ipv4-address;
+        description
+          "Specifies the IPv4 address for BGP routes";
       }
     }
 
@@ -987,6 +1052,8 @@ identity set-extcommunity-color {
       when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:set-ipv4-nexthop')";
       leaf ipv4-nexthop {
         type string;
+        description
+          "Specifies the IPv4 next-hop address for BGP routes";
       }
     }
 
@@ -997,6 +1064,8 @@ identity set-extcommunity-color {
         "Set the IPv6 address";
       leaf ipv6-address {
         type inet:ipv6-address;
+        description
+          "Specifies the IPv6 address for BGP routes";
       }
     }
 
@@ -1005,6 +1074,8 @@ identity set-extcommunity-color {
         + "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:ipv6-peer-address')";
       leaf preference {
         type boolean;
+        description
+          "Specifies the preference for IPv6 routes";
       }
     }
 
@@ -1014,6 +1085,8 @@ identity set-extcommunity-color {
         type uint32 {
           range "0..1048560";
         }
+        description
+          "Specifies the label index for BGP routes";
       }
     }
 
@@ -1021,6 +1094,8 @@ identity set-extcommunity-color {
       when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:set-local-preference')";
       leaf local-pref {
         type string;
+        description
+          "Specifies the local preference value for BGP routes";
       }
     }
 
@@ -1030,6 +1105,8 @@ identity set-extcommunity-color {
         type uint32 {
           range "0..4294967295";
         }
+        description
+          "Specifies the weight of BGP routes";
       }
     }
 
@@ -1053,6 +1130,8 @@ identity set-extcommunity-color {
               "Unknown heritage";
           }
         }
+        description
+          "Specifies the origin of BGP routes";
       }
     }
 
@@ -1060,6 +1139,8 @@ identity set-extcommunity-color {
       when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:originator-id')";
       leaf originator-id {
         type inet:ipv4-address;
+        description
+          "Specifies the originator ID for BGP routes";
       }
     }
 
@@ -1069,6 +1150,8 @@ identity set-extcommunity-color {
         type uint32 {
           range "1..4294967295";
         }
+        description
+          "Specifies the table identifier for BGP routes";
       }
     }
 
@@ -1076,6 +1159,8 @@ identity set-extcommunity-color {
       when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:atomic-aggregate')";
       leaf atomic-aggregate {
         type empty;
+        description
+          "Indicates that the route is an atomic aggregate";
       }
     }
 
@@ -1098,6 +1183,8 @@ identity set-extcommunity-color {
             "Prepend the mentioned AS-path";
           leaf prepend-as-path {
             type string;
+            description
+              "Specifies the AS-path to be prepended";
           }
         }
 
@@ -1108,6 +1195,8 @@ identity set-extcommunity-color {
             type uint8 {
               range "1..10";
             }
+            description
+              "Specifies the number of times to prepend the last ASN in the AS-path";
           }
         }
       }
@@ -1141,6 +1230,8 @@ identity set-extcommunity-color {
             "No community attribute";
           leaf community-none {
             type boolean;
+            description
+              "Indicates that no community attribute should be set";
           }
         }
 
@@ -1149,6 +1240,8 @@ identity set-extcommunity-color {
             "Community string";
           leaf community-string {
             type string;
+            description
+              "Specifies the value of the community attribute as a string";
           }
         }
       }
@@ -1164,6 +1257,8 @@ identity set-extcommunity-color {
             "No large-community attribute";
           leaf large-community-none {
             type boolean;
+            description
+              "Indicates that no large-community attribute should be set";
           }
         }
 
@@ -1172,6 +1267,8 @@ identity set-extcommunity-color {
             "Large-Community string";
           leaf large-community-string {
             type string;
+            description
+              "Specifies the value of the large-community attribute as a string";
           }
         }
       }
@@ -1180,6 +1277,9 @@ identity set-extcommunity-color {
     case aggregator {
       when "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:aggregator')";
       container aggregator {
+        description
+          "Aggregator configuration for BGP routes";
+
         leaf aggregator-asn {
           type asn-type;
           mandatory true;
@@ -1202,6 +1302,8 @@ identity set-extcommunity-color {
         + "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:extended-comm-list-delete')";
       leaf comm-list-name {
         type bgp-filter:bgp-list-name;
+        description
+          "Name of the community list to be deleted";
       }
     }
     case evpn-gateway-ip-ipv4 {
@@ -1211,6 +1313,8 @@ identity set-extcommunity-color {
         "Set EVPN gateway IP overlay index IPv4";
       leaf evpn-gateway-ip-ipv4 {
         type inet:ipv4-address;
+        description
+          "IPv4 address of the EVPN gateway IP overlay index";
       }
     }
     case evpn-gateway-ip-ipv6 {
@@ -1220,6 +1324,8 @@ identity set-extcommunity-color {
         "Set EVPN gateway IP overlay index IPv6";
       leaf evpn-gateway-ip-ipv6 {
         type inet:ipv6-address;
+        description
+          "IPv6 address of the EVPN gateway IP overlay index";
       }
     }
     case l3vpn-nexthop-encapsulation {
@@ -1235,6 +1341,8 @@ identity set-extcommunity-color {
               "GRE protocol";
           }
         }
+        description
+          "Accept L3VPN traffic over other than LSP encapsulation";
       }
     }
   }
