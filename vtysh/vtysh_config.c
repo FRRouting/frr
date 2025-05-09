@@ -602,7 +602,7 @@ void vtysh_config_dump(void)
 static int vtysh_read_file(FILE *confp, bool dry_run)
 {
 	struct vty *lvty;
-	int ret;
+	int ret, saved_ret = CMD_SUCCESS;
 
 	lvty = vty_new();
 	lvty->wfd = STDERR_FILENO;
@@ -623,16 +623,21 @@ static int vtysh_read_file(FILE *confp, bool dry_run)
 
 	/* Execute configuration file. */
 	ret = vtysh_config_from_file(lvty, confp);
+	if (ret != CMD_SUCCESS)
+		saved_ret = ret;
 
-	if (!dry_run)
-		vtysh_execute_no_pager("XFRR_end_configuration");
+	if (!dry_run) {
+		ret = vtysh_execute_no_pager("XFRR_end_configuration");
+		if (ret != CMD_SUCCESS)
+			saved_ret = ret;
+	}
 
 	vtysh_execute_no_pager("end");
 	vtysh_execute_no_pager("disable");
 
 	vty_close(lvty);
 
-	return (ret);
+	return (saved_ret);
 }
 
 /*
