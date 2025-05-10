@@ -64,13 +64,13 @@ DEFINE_HOOK(srv6_manager_release_chunk,
 	    (client, locator_name, vrf_id));
 
 DEFINE_HOOK(srv6_manager_get_sid,
-	    (struct zebra_srv6_sid **sid, struct zserv *client,
-	     struct srv6_sid_ctx *ctx, struct in6_addr *sid_value,
-	     const char *locator_name),
-	    (sid, client, ctx, sid_value, locator_name));
+	    (struct zebra_srv6_sid **sid, struct zserv *client, struct srv6_sid_ctx *ctx,
+	     struct in6_addr *sid_value, const char *locator_name, bool is_localonly),
+	    (sid, client, ctx, sid_value, locator_name, is_localonly));
 DEFINE_HOOK(srv6_manager_release_sid,
-	    (struct zserv * client, struct srv6_sid_ctx *ctx, const char *locator_name),
-	    (client, ctx, locator_name));
+	    (struct zserv *client, struct srv6_sid_ctx *ctx, const char *locator_name,
+	     bool is_localonly),
+	    (client, ctx, locator_name, is_localonly));
 DEFINE_HOOK(srv6_manager_get_locator,
 	    (struct srv6_locator **locator, struct zserv *client,
 	     const char *locator_name),
@@ -107,19 +107,17 @@ int srv6_manager_client_disconnect_cb(struct zserv *client)
 }
 
 
-void srv6_manager_get_sid_call(struct zebra_srv6_sid **sid,
-			       struct zserv *client, struct srv6_sid_ctx *ctx,
-			       struct in6_addr *sid_value,
-			       const char *locator_name)
+void srv6_manager_get_sid_call(struct zebra_srv6_sid **sid, struct zserv *client,
+			       struct srv6_sid_ctx *ctx, struct in6_addr *sid_value,
+			       const char *locator_name, bool is_localonly)
 {
-	hook_call(srv6_manager_get_sid, sid, client, ctx, sid_value,
-		  locator_name);
+	hook_call(srv6_manager_get_sid, sid, client, ctx, sid_value, locator_name, is_localonly);
 }
 
 void srv6_manager_release_sid_call(struct zserv *client, struct srv6_sid_ctx *ctx,
-				   const char *locator_name)
+				   const char *locator_name, bool is_localonly)
 {
-	hook_call(srv6_manager_release_sid, client, ctx, locator_name);
+	hook_call(srv6_manager_release_sid, client, ctx, locator_name, is_localonly);
 }
 
 void srv6_manager_get_locator_call(struct srv6_locator **locator,
@@ -1488,9 +1486,8 @@ static bool alloc_srv6_sid_func_dynamic(struct zebra_srv6_sid_block *block,
  * @return 0 if the function returned an existing SID and SID value has not changed,
  * 1 if a new SID has been allocated or the existing SID value has changed, -1 if an error occurred
  */
-static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid,
-				 struct srv6_sid_ctx *ctx,
-				 struct in6_addr *sid_value)
+static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx,
+				 struct in6_addr *sid_value, bool is_localonly)
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
 	struct zebra_srv6_sid_ctx *s = NULL;
@@ -1635,9 +1632,8 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid,
  * @return 0 if the function returned an existing SID and SID value has not changed,
  * 1 if a new SID has been allocated or the existing SID value has changed, -1 if an error occurred
  */
-static int get_srv6_sid_dynamic(struct zebra_srv6_sid **sid,
-				struct srv6_sid_ctx *ctx,
-				struct srv6_locator *locator)
+static int get_srv6_sid_dynamic(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx,
+				struct srv6_locator *locator, bool is_localonly)
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
 	struct zebra_srv6_sid_block *block;
@@ -1741,8 +1737,8 @@ static int get_srv6_sid_dynamic(struct zebra_srv6_sid **sid,
  * @return 0 if the function returned an existing SID and SID value has not changed,
  * 1 if a new SID has been allocated or the existing SID value has changed, -1 if an error occurred
  */
-int get_srv6_sid(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx,
-		 struct in6_addr *sid_value, const char *locator_name)
+int get_srv6_sid(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx, struct in6_addr *sid_value,
+		 const char *locator_name, bool is_localonly)
 {
 	int ret = -1;
 	struct srv6_locator *locator;
@@ -1813,7 +1809,7 @@ int get_srv6_sid(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx,
 			return -1;
 		}
 
-		ret = get_srv6_sid_explicit(sid, ctx, sid_value);
+		ret = get_srv6_sid_explicit(sid, ctx, sid_value, is_localonly);
 	} else {
 		/*
 		 * Dynamic SID allocation: allocate any available SID value
@@ -1832,7 +1828,7 @@ int get_srv6_sid(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx,
 			return -1;
 		}
 
-		ret = get_srv6_sid_dynamic(sid, ctx, locator);
+		ret = get_srv6_sid_dynamic(sid, ctx, locator, is_localonly);
 	}
 
 	return ret;
@@ -2186,7 +2182,7 @@ static int release_srv6_sid_func_dynamic(struct zebra_srv6_sid_block *block,
  * @return 0 on success, -1 otherwise
  */
 int release_srv6_sid(struct zserv *client, struct zebra_srv6_sid_ctx *zctx,
-		     struct srv6_locator *locator)
+		     struct srv6_locator *locator, bool is_localonly)
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
 	char buf[256];
@@ -2312,11 +2308,9 @@ static int srv6_manager_get_srv6_locator_internal(struct srv6_locator **locator,
  *
  * @return 0 on success, -1 otherwise
  */
-static int srv6_manager_get_sid_internal(struct zebra_srv6_sid **sid,
-					 struct zserv *client,
-					 struct srv6_sid_ctx *ctx,
-					 struct in6_addr *sid_value,
-					 const char *locator_name)
+static int srv6_manager_get_sid_internal(struct zebra_srv6_sid **sid, struct zserv *client,
+					 struct srv6_sid_ctx *ctx, struct in6_addr *sid_value,
+					 const char *locator_name, bool is_localonly)
 {
 	int ret = -1;
 	struct listnode *node;
@@ -2328,7 +2322,7 @@ static int srv6_manager_get_sid_internal(struct zebra_srv6_sid **sid,
 			   __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx),
 			   sid_value ? sid_value : &in6addr_any, locator_name);
 
-	ret = get_srv6_sid(sid, ctx, sid_value, locator_name);
+	ret = get_srv6_sid(sid, ctx, sid_value, locator_name, is_localonly);
 	if (ret < 0) {
 		zlog_warn("%s: not got SRv6 SID for ctx %s, sid_value=%pI6, locator_name=%s",
 			  __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx),
@@ -2401,7 +2395,7 @@ int release_daemon_srv6_sids(struct zserv *client)
 		if (!listnode_lookup(ctx->sid->client_list, client))
 			continue;
 
-		ret = release_srv6_sid(client, ctx, ctx->sid->locator);
+		ret = release_srv6_sid(client, ctx, ctx->sid->locator, false);
 		if (ret == 0)
 			count++;
 	}
@@ -2420,7 +2414,7 @@ int release_daemon_srv6_sids(struct zserv *client)
  * @return 0 on success, -1 on failure
  */
 static int srv6_manager_release_sid_internal(struct zserv *client, struct srv6_sid_ctx *ctx,
-					     const char *locator_name)
+					     const char *locator_name, bool is_localonly)
 {
 	int ret = -1;
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
@@ -2445,7 +2439,7 @@ static int srv6_manager_release_sid_internal(struct zserv *client, struct srv6_s
 	/* Lookup Zebra SID context and release it */
 	for (ALL_LIST_ELEMENTS(srv6->sids, node, nnode, zctx))
 		if (memcmp(&zctx->ctx, ctx, sizeof(struct srv6_sid_ctx)) == 0) {
-			ret = release_srv6_sid(client, zctx, locator);
+			ret = release_srv6_sid(client, zctx, locator, is_localonly);
 			break;
 		}
 
