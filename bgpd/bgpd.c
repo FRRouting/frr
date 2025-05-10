@@ -1496,6 +1496,83 @@ int bgp_peer_gr_init(struct peer *peer)
 	return BGP_GR_SUCCESS;
 }
 
+static void srv6_static_sid_free(void *data)
+{
+	struct srv6_sid *static_sid = data;
+
+	if (!static_sid)
+		return;
+
+	if (static_sid->locator) {
+		srv6_locator_free(static_sid->locator);
+		static_sid->locator = NULL;
+	}
+	free(static_sid);
+}
+
+static bool sid_behavior_check(enum seg6local_action_t behavior, afi_t afi)
+{
+	if (afi != AFI_IP && afi != AFI_IP6)
+		return false;
+
+	switch (behavior) {
+	case ZEBRA_SEG6_LOCAL_ACTION_UNSPEC:
+	case ZEBRA_SEG6_LOCAL_ACTION_END:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_X:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_T:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DX4:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DX6:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_B6:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_BM:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_S:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_AS:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_AM:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_BPF:
+		return false;
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT46:
+		return true;
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT4:
+		if (afi == AFI_IP)
+			return true;
+		break;
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT6:
+		if (afi == AFI_IP6)
+			return true;
+		break;
+	default:
+		return false;
+	}
+	return false;
+}
+
+struct srv6_sid *static_sid_lookup_by_vrf(const char *vrfname, afi_t afi)
+{
+	struct bgp *bgp = bgp_get_default();
+	struct srv6_sid *static_sid = NULL;
+	struct listnode *node, *nnode;
+	struct vrf *vrf = NULL;
+	vrf_id_t vrf_id;
+
+	if (!vrfname)
+		return NULL;
+
+	vrf = vrf_lookup_by_name(vrfname);
+	if (!vrf) {
+		zlog_err("%s: vrf %s does not exist.", __func__, vrfname);
+		return NULL;
+	}
+	vrf_id = vrf->vrf_id;
+
+	for (ALL_LIST_ELEMENTS(bgp->srv6_static_sids, node, nnode, static_sid)) {
+		if (static_sid->vrf_id == vrf_id && sid_behavior_check(static_sid->behavior, afi))
+			return static_sid;
+	}
+
+	return NULL;
+}
+
 static void bgp_srv6_init(struct bgp *bgp)
 {
 	bgp->srv6_enabled = false;
@@ -1504,6 +1581,8 @@ static void bgp_srv6_init(struct bgp *bgp)
 	bgp->srv6_locator_chunks->del = srv6_locator_chunk_list_free;
 	bgp->srv6_functions = list_new();
 	bgp->srv6_functions->del = (void (*)(void *))srv6_function_free;
+	bgp->srv6_static_sids = list_new();
+	bgp->srv6_static_sids->del = srv6_static_sid_free;
 }
 
 static void bgp_srv6_cleanup(struct bgp *bgp)
@@ -1528,6 +1607,10 @@ static void bgp_srv6_cleanup(struct bgp *bgp)
 		srv6_locator_free(bgp->tovpn_sid_locator);
 		bgp->tovpn_sid_locator = NULL;
 	}
+	if (bgp->tovpn_sid_locator_explicit != NULL) {
+		srv6_locator_free(bgp->tovpn_sid_locator_explicit);
+		bgp->tovpn_sid_locator_explicit = NULL;
+	}
 	if (bgp->tovpn_zebra_vrf_sid_last_sent != NULL)
 		XFREE(MTYPE_BGP_SRV6_SID, bgp->tovpn_zebra_vrf_sid_last_sent);
 	if (bgp->tovpn_sid != NULL) {
@@ -1539,6 +1622,8 @@ static void bgp_srv6_cleanup(struct bgp *bgp)
 		list_delete(&bgp->srv6_locator_chunks);
 	if (bgp->srv6_functions)
 		list_delete(&bgp->srv6_functions);
+	if (bgp->srv6_static_sids)
+		list_delete(&bgp->srv6_static_sids);
 
 	srv6_locator_free(bgp->srv6_locator);
 	bgp->srv6_locator = NULL;
