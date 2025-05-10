@@ -987,6 +987,8 @@ void ospf_apiserver_notify_ready_type9(struct ospf_apiserver *apiserv)
 	struct registered_opaque_type *r;
 
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	if (!ospf)
+		goto out;
 
 	for (ALL_LIST_ELEMENTS(ospf->oiflist, node, nnode, oi)) {
 		/* Check if this interface is indeed ready for type 9 */
@@ -1035,6 +1037,8 @@ void ospf_apiserver_notify_ready_type10(struct ospf_apiserver *apiserv)
 	struct ospf_area *area;
 
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	if (!ospf)
+		goto out;
 
 	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area)) {
 		struct registered_opaque_type *r;
@@ -1082,6 +1086,8 @@ void ospf_apiserver_notify_ready_type11(struct ospf_apiserver *apiserv)
 	struct registered_opaque_type *r;
 
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	if (!ospf)
+		goto out;
 
 	/* Can type 11 be originated? */
 	if (!ospf_apiserver_is_ready_type11(ospf))
@@ -1258,10 +1264,13 @@ int ospf_apiserver_handle_sync_lsdb(struct ospf_apiserver *apiserv,
 	struct ospf *ospf;
 	struct ospf_area *area;
 
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-
 	/* Get request sequence number */
 	seqnum = msg_get_seq(msg);
+
+	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	if (!ospf)
+		goto out;
+
 	/* Set sync msg. */
 	smsg = (struct msg_sync_lsdb *)STREAM_DATA(msg->s);
 
@@ -1339,6 +1348,7 @@ int ospf_apiserver_handle_sync_lsdb(struct ospf_apiserver *apiserv,
 							seqnum);
 	}
 
+out:
 	/* Send a reply back to client with return code */
 	rc = ospf_apiserver_send_reply(apiserv, seqnum, rc);
 	return rc;
@@ -1353,14 +1363,19 @@ int ospf_apiserver_handle_sync_lsdb(struct ospf_apiserver *apiserv,
 int ospf_apiserver_handle_sync_reachable(struct ospf_apiserver *apiserv,
 					 struct msg *msg)
 {
-	struct ospf *ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-	struct route_table *rt = ospf->all_rtrs;
+	int _rc, rc = 0;
 	uint32_t seqnum = msg_get_seq(msg);
+	struct ospf *ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+
+	if (!ospf)
+		goto out;
+
+	struct route_table *rt = ospf->all_rtrs;
 	struct in_addr *a, *abuf;
 	struct msg_reachable_change *areach;
 	struct msg *amsg;
 	uint mcount, count;
-	int _rc, rc = 0;
+
 
 	if (!rt)
 		goto out;
@@ -1398,13 +1413,17 @@ out:
 int ospf_apiserver_handle_sync_ism(struct ospf_apiserver *apiserv,
 				   struct msg *msg)
 {
+	uint32_t seqnum = msg_get_seq(msg);
+	int _rc, rc = 0;
 	struct ospf *ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+
+	if (!ospf)
+		goto out;
+
 	struct listnode *anode, *inode;
 	struct ospf_area *area;
 	struct ospf_interface *oi;
 	struct msg *m;
-	uint32_t seqnum = msg_get_seq(msg);
-	int _rc, rc = 0;
 
 	/* walk all areas */
 	for (ALL_LIST_ELEMENTS_RO(ospf->areas, anode, area)) {
@@ -1420,6 +1439,7 @@ int ospf_apiserver_handle_sync_ism(struct ospf_apiserver *apiserv,
 		if (rc)
 			break;
 	}
+out:
 	/* Send a reply back to client with return code */
 	_rc = ospf_apiserver_send_reply(apiserv, seqnum, rc);
 	return rc ? rc : _rc;
@@ -1429,15 +1449,19 @@ int ospf_apiserver_handle_sync_ism(struct ospf_apiserver *apiserv,
 int ospf_apiserver_handle_sync_nsm(struct ospf_apiserver *apiserv,
 				   struct msg *msg)
 {
+	uint32_t seqnum = msg_get_seq(msg);
+	int _rc, rc = 0;
 	struct ospf *ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+
+	if (!ospf)
+		goto out;
+
 	struct listnode *anode, *inode;
 	struct ospf_area *area;
 	struct ospf_interface *oi;
 	struct ospf_neighbor *nbr;
 	struct route_node *rn;
 	struct msg *m;
-	uint32_t seqnum = msg_get_seq(msg);
-	int _rc, rc = 0;
 
 	/* walk all areas */
 	for (ALL_LIST_ELEMENTS_RO(ospf->areas, anode, area)) {
@@ -1463,6 +1487,7 @@ int ospf_apiserver_handle_sync_nsm(struct ospf_apiserver *apiserv,
 		if (rc)
 			break;
 	}
+out:
 	/* Send a reply back to client with return code */
 	_rc = ospf_apiserver_send_reply(apiserv, seqnum, rc);
 	return rc ? rc : _rc;
@@ -1472,15 +1497,20 @@ int ospf_apiserver_handle_sync_nsm(struct ospf_apiserver *apiserv,
 int ospf_apiserver_handle_sync_router_id(struct ospf_apiserver *apiserv,
 					 struct msg *msg)
 {
-	struct ospf *ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 	uint32_t seqnum = msg_get_seq(msg);
 	struct msg *m;
 	int _rc, rc = 0;
+	struct ospf *ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+
+	if (!ospf)
+		goto out;
+
 
 	m = new_msg_router_id_change(seqnum, ospf->router_id);
 	rc = ospf_apiserver_send_msg(apiserv, m);
 	msg_free(m);
 
+out:
 	/* Send a reply back to client with return code */
 	_rc = ospf_apiserver_send_reply(apiserv, seqnum, rc);
 	return rc ? rc : _rc;
@@ -1515,7 +1545,8 @@ struct ospf_lsa *ospf_apiserver_opaque_lsa_new(struct ospf_area *area,
 	else
 		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 
-	assert(ospf);
+	if (!ospf)
+		return NULL;
 
 	/* Create a stream for internal opaque LSA */
 	if ((s = stream_new(OSPF_MAX_LSA_SIZE)) == NULL) {
@@ -1602,6 +1633,9 @@ int ospf_apiserver_handle_originate_request(struct ospf_apiserver *apiserv,
 	int rc = 0;
 
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+
+	if (!ospf)
+		goto out;
 
 	/* Extract opaque LSA data from message */
 	omsg = (struct msg_originate_request *)STREAM_DATA(msg->s);
@@ -1746,7 +1780,8 @@ void ospf_apiserver_flood_opaque_lsa(struct ospf_lsa *lsa)
 		struct ospf *ospf;
 
 		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-		assert(ospf);
+		if (!ospf)
+			return;
 
 		/* Increment counters? XXX */
 
@@ -1762,7 +1797,8 @@ int ospf_apiserver_originate1(struct ospf_lsa *lsa, struct ospf_lsa *old)
 	struct ospf *ospf;
 
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-	assert(ospf);
+	if (!ospf)
+		return -1;
 
 	if (old) {
 		/*
@@ -1861,7 +1897,8 @@ struct ospf_lsa *ospf_apiserver_lsa_refresher(struct ospf_lsa *lsa)
 	assert(lsa);
 
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-	assert(ospf);
+	if (!ospf)
+		return NULL;
 
 	if (IS_DEBUG_OSPF_CLIENT_API) {
 		zlog_debug("LSA[Type%d:%pI4]: OSPF API Server LSA Refresher",
@@ -1953,7 +1990,8 @@ int ospf_apiserver_handle_delete_request(struct ospf_apiserver *apiserv,
 	struct ospf *ospf;
 
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-	assert(ospf);
+	if (!ospf)
+		goto out;
 
 	/* Extract opaque LSA from message */
 	dmsg = (struct msg_delete_request *)STREAM_DATA(msg->s);
@@ -2077,7 +2115,8 @@ void ospf_apiserver_flush_opaque_lsa(struct ospf_apiserver *apiserv,
 	struct ospf_area *area;
 
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-	assert(ospf);
+	if (!ospf)
+		return;
 
 	/* Set parameter struct. */
 	param.apiserv = apiserv;
