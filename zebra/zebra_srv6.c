@@ -1523,13 +1523,13 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid,
 
 			/*
 			 * It is not allowed to allocate an explicit SID for a given context if the context
-			 * is already associated with an explicit SID
+			 * is already associated with an explicit SID (Except uN)
 			 */
-			if (s->sid->alloc_mode == SRV6_SID_ALLOC_MODE_EXPLICIT) {
+			if (s->sid->alloc_mode == SRV6_SID_ALLOC_MODE_EXPLICIT &&
+			    ctx->behavior != ZEBRA_SEG6_LOCAL_ACTION_END) {
 				zlog_err("%s: cannot alloc SID %pI6 for ctx %s: ctx already associated with SID %pI6",
 					 __func__, sid_value,
-					 srv6_sid_ctx2str(buf, sizeof(buf),
-							  &s->ctx),
+					 srv6_sid_ctx2str(buf, sizeof(buf), &s->ctx),
 					 &s->sid->value);
 				return -1;
 			}

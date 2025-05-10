@@ -319,6 +319,44 @@ def test_srv6_static_sids_sid_readd_all():
     check_srv6_static_sids(router, "expected_srv6_sids.json")
 
 
+def test_srv6_static_sids_sid_multiple_uN_behavior():
+    """
+    Request for multiple uN with different locators
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           static-sids
+            sid fcbb:cccc:1::/48 locator MAIN1 behavior uN
+          srv6
+           locators
+            locator MAIN1
+             prefix fcbb:cccc:1::/48 block-len 32 node-len 16 func-bits 0 
+        """
+    )
+
+    def _check_srv6_static_sids(router, expected_route_file):
+        logger.info("checking zebra srv6 static sids")
+        output = json.loads(router.vtysh_cmd("show ipv6 route static json"))
+        expected = open_json_file("{}/{}".format(CWD, expected_route_file))
+        return topotest.json_cmp(output, expected)
+
+    def check_srv6_static_sids(router, expected_file):
+        func = functools.partial(_check_srv6_static_sids, router, expected_file)
+        _, result = topotest.run_and_expect(func, None, count=15, wait=1)
+        assert result is None, "Failed"
+
+    logger.info("Test for Multiple uN with different locators")
+    check_srv6_static_sids(router, "expected_srv6_sids_multi_uN.json")
+
+
 def test_srv6_static_sids_srv6_disable():
     """
     Disable SRv6
