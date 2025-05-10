@@ -17,6 +17,8 @@ import sys
 import json
 import pytest
 import functools
+import re
+import json
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
@@ -177,6 +179,111 @@ def test_bgp_peer_group_remote_as_del_readd():
     test_func = functools.partial(_bgp_peer_group_remoteas_add)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Failed bgp convergence in r1"
+
+
+def test_bgp_peer_group_with_non_peer_group_peer():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    logger.info("Change a peer r1-eth0 to be non peer group and PG2 to have two peers")
+    r1.vtysh_cmd(
+        """
+    configure terminal
+      router bgp 65001
+        no bgp ebgp-requires-policy
+        no neighbor 192.168.251.2 peer-group PG1
+        neighbor PG2 remote-as external
+        neighbor 192.168.251.2 peer-group PG2
+        no neighbor r1-eth0 interface peer-group PG
+        neighbor r1-eth0 interface remote-as external
+        address-family ipv4 unicast
+          redistribute connected
+    """
+    )
+
+    # Function to check if the route is properly advertised to all expected peers
+    def _check_route_advertisement():
+        output_str = r1.vtysh_cmd("show bgp ipv4 unicast 192.168.251.0/30 json")
+        output = json.loads(output_str)
+
+        # Define the expected structure based on the exact JSON format shared
+        expected = {
+            "advertisedTo": {
+                "192.168.255.3": {"peerGroup": "PG"},
+                "192.168.251.2": {"peerGroup": "PG2"},
+                "192.168.252.2": {"peerGroup": "PG2"},
+                "r1-eth0": {},  # Just verify existence, content will vary
+            }
+        }
+
+        # Return any differences between expected and actual output
+        return topotest.json_cmp(output, expected)
+
+    # Wait for the route to be properly advertised to all peers
+    test_func = functools.partial(_check_route_advertisement)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Route 192.168.251.0/30 not properly advertised to all peers"
+
+    # Now get the text BGP output for pattern matching
+    show_bgp_adv_str = r1.vtysh_cmd("show bgp ipv4 unicast 192.168.251.0/30").rstrip()
+
+    # Part 1: Check text output format
+    # Check for "Advertised to peers:" section
+    adv_to_peers_pattern = r"Advertised to peers:"
+    adv_to_peers_match = re.search(adv_to_peers_pattern, show_bgp_adv_str)
+    assert adv_to_peers_match is not None, "Missing 'Advertised to peers:' section"
+
+    # Check for specific peers
+    pg_peer_pattern = r"192\.168\.255\.3"
+    pg_peer_match = re.search(pg_peer_pattern, show_bgp_adv_str)
+    assert pg_peer_match is not None, "Missing peer 192.168.255.3"
+
+    pg2_peer1_pattern = r"192\.168\.251\.2"
+    pg2_peer1_match = re.search(pg2_peer1_pattern, show_bgp_adv_str)
+    assert pg2_peer1_match is not None, "Missing peer 192.168.251.2"
+
+    pg2_peer2_pattern = r"192\.168\.252\.2"
+    pg2_peer2_match = re.search(pg2_peer2_pattern, show_bgp_adv_str)
+    assert pg2_peer2_match is not None, "Missing peer 192.168.252.2"
+
+    # Check for the non-peer-group peer
+    non_pg_peer_pattern = r"r1-eth0"
+    non_pg_peer_match = re.search(non_pg_peer_pattern, show_bgp_adv_str)
+    assert non_pg_peer_match is not None, "Missing peer r1-eth0"
+
+    # Verify the complete advertised peers line
+    # Check that all peers appear after the "Advertised to peers:" line
+    peers_line_pattern = r"Advertised to peers:[\r\n]+\s+.*(192\.168\.255\.3).*"
+    peers_line_match = re.search(peers_line_pattern, show_bgp_adv_str, re.DOTALL)
+    assert (
+        peers_line_match is not None
+    ), "The 'Advertised to peers:' section doesn't contain the peers"
+
+    # Verify all expected peers are in the peers line
+    all_peers_pattern = r"Advertised to peers:[\r\n]+\s+.*192\.168\.255\.3.*192\.168\.251\.2.*192\.168\.252\.2.*r1-eth0"
+    all_peers_match = re.search(all_peers_pattern, show_bgp_adv_str, re.DOTALL)
+    assert (
+        all_peers_match is not None
+    ), "Not all expected peers appear in the advertised peers list"
+
+    logger.info("Rollback config change")
+    r1.vtysh_cmd(
+        """
+    configure terminal
+      router bgp 65001
+        bgp ebgp-requires-policy
+        no neighbor 192.168.251.2 peer-group PG2
+        no neighbor PG2 remote-as external
+        neighbor 192.168.251.2 peer-group PG1
+        no neighbor r1-eth0 interface remote-as external
+        neighbor r1-eth0 interface peer-group PG
+        address-family ipv4 unicast
+          no redistribute connected
+    """
+    )
 
 
 if __name__ == "__main__":
