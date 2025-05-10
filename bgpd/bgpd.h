@@ -1696,6 +1696,8 @@ struct peer {
 #define PEER_FLAG_CAPABILITY_LINK_LOCAL	  (1ULL << 41)
 /* Peer is part of a batch clearing its routes */
 #define PEER_FLAG_CLEARING_BATCH (1ULL << 42)
+/* BFD strict mode */
+#define PEER_FLAG_BFD_STRICT (1ULL << 43)
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
@@ -2435,6 +2437,7 @@ enum bgp_peer_active {
 	BGP_PEER_ACTIVE,
 	BGP_PEER_CONNECTION_UNSPECIFIED,
 	BGP_PEER_BFD_DOWN,
+	BGP_PEER_BFD_ADMIN_DOWN,
 	BGP_PEER_AF_UNCONFIGURED,
 };
 
