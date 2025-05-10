@@ -12,8 +12,8 @@
 #include "northbound.h"
 #include "mgmt_be_client.h"
 
-#define __dbg(fmt, ...)	    DEBUGD(&nb_dbg_notif, "NB_OP_CHANGE: %s: " fmt, __func__, ##__VA_ARGS__)
-#define __log_err(fmt, ...) zlog_err("NB_OP_CHANGE: %s: ERROR: " fmt, __func__, ##__VA_ARGS__)
+#define _dbg(fmt, ...)	   DEBUGD(&nb_dbg_notif, "NB_OP_CHANGE: %s: " fmt, __func__, ##__VA_ARGS__)
+#define _log_err(fmt, ...) zlog_err("NB_OP_CHANGE: %s: ERROR: " fmt, __func__, ##__VA_ARGS__)
 
 #define NB_NOTIF_TIMER_MSEC (10) /* 10msec */
 
@@ -177,7 +177,7 @@ static struct op_changes_group *__op_changes_group_push(uint64_t refer_id)
 	if (RB_EMPTY(op_changes, &nb_notif_adds) && RB_EMPTY(op_changes, &nb_notif_dels))
 		return NULL;
 
-	__dbg("pushing current oper changes onto queue");
+	_dbg("pushing current oper changes onto queue");
 
 	changes = XCALLOC(MTYPE_OP_CHANGES_GROUP, sizeof(*changes));
 	changes->adds = nb_notif_adds;
@@ -241,8 +241,8 @@ static void __drop_eq_or_more_specific(struct op_changes *head, const char *path
 		/* if the prefix no longer matches we are done */
 		if (pathncmp(path, e->path, plen))
 			break;
-		__dbg("dropping more specific %s: %s", head == &nb_notif_adds ? "add" : "delete",
-		      e->path);
+		_dbg("dropping more specific %s: %s", head == &nb_notif_adds ? "add" : "delete",
+		     e->path);
 		next = RB_NEXT(op_changes, e);
 		RB_REMOVE(op_changes, head, e);
 		op_change_free(e);
@@ -259,14 +259,14 @@ static void __op_change_add_del(const char *path, struct op_changes *this_head,
 	struct op_change *next, *e;
 	int plen;
 
-	__dbg("processing oper %s change path: %s", op, path);
+	_dbg("processing oper %s change path: %s", op, path);
 
 	/*
 	 * See if we are already covered by a more general `op`.
 	 */
 	e = __find_less_specific(this_head, note);
 	if (e) {
-		__dbg("%s path already covered by: %s", op, e->path);
+		_dbg("%s path already covered by: %s", op, e->path);
 		op_change_free(note);
 		return;
 	}
@@ -282,7 +282,7 @@ static void __op_change_add_del(const char *path, struct op_changes *this_head,
 			 * more-specific delete as the add-replace will remove
 			 * this missing state.
 			 */
-			__dbg("delete path already covered add-replace: %s", e->path);
+			_dbg("delete path already covered add-replace: %s", e->path);
 		} else {
 			/*
 			 * If we have a less-specific delete, convert the delete
@@ -292,7 +292,7 @@ static void __op_change_add_del(const char *path, struct op_changes *this_head,
 			 * any other existing state that was to be deleted will
 			 * still be deleted (unless it also returns) by the replace.
 			 */
-			__dbg("add covered, converting covering delete to add-replace: %s", e->path);
+			_dbg("add covered, converting covering delete to add-replace: %s", e->path);
 			RB_REMOVE(op_changes, other_head, e);
 			__op_change_add_del(e->path, &nb_notif_adds, &nb_notif_dels);
 			op_change_free(e);
@@ -303,12 +303,12 @@ static void __op_change_add_del(const char *path, struct op_changes *this_head,
 
 	e = RB_INSERT(op_changes, this_head, note);
 	if (e) {
-		__dbg("path already in %s tree: %s", op, path);
+		_dbg("path already in %s tree: %s", op, path);
 		op_change_free(note);
 		return;
 	}
 
-	__dbg("scanning for subsumed or subsuming: %s", path);
+	_dbg("scanning for subsumed or subsuming: %s", path);
 
 	plen = strlen(path);
 
@@ -355,7 +355,7 @@ struct lyd_node *nb_op_update(struct lyd_node *tree, const char *path, const cha
 	struct lyd_node *dnode;
 	const char *abs_path = NULL;
 
-	__dbg("updating path: %s with value: %s", path, value);
+	_dbg("updating path: %s with value: %s", path, value);
 
 	dnode = yang_state_new(tree, path, value);
 
@@ -376,7 +376,7 @@ void nb_op_update_delete(struct lyd_node *tree, const char *path)
 {
 	char *abs_path = NULL;
 
-	__dbg("deleting path: %s", path);
+	_dbg("deleting path: %s", path);
 
 	if (path && path[0] == '/')
 		abs_path = (char *)path;
@@ -531,7 +531,7 @@ static struct op_change *__next_change(struct op_changes_group *group)
 
 static struct op_changes_group *__next_group(struct op_changes_group *group)
 {
-	__dbg("done with oper-path collection for group");
+	_dbg("done with oper-path collection for group");
 	op_changes_group_free(group);
 	return op_changes_group_next();
 }
@@ -546,16 +546,16 @@ static enum nb_error oper_walk_done(const struct lyd_node *tree, void *arg, enum
 	assert(ret != NB_YIELD);
 
 	if (ret == NB_ERR_NOT_FOUND) {
-		__dbg("Path not found while walking oper tree: %s", path);
+		_dbg("Path not found while walking oper tree: %s", path);
 		ret = NB_OK;
 	} else if (ret != NB_OK) {
 error:
-		__log_err("Error notifying for datastore path: %s: %s", path, nb_err_name(ret));
+		_log_err("Error notifying for datastore path: %s: %s", path, nb_err_name(ret));
 
 		timer_walk_abort(args);
 		goto done;
 	} else {
-		__dbg("Done with oper-path collection for path: %s", path);
+		_dbg("Done with oper-path collection for path: %s", path);
 
 		/* Do we need this? */
 		while (tree->parent)
@@ -563,7 +563,7 @@ error:
 
 		/* Send the add (replace) notification */
 		if (mgmt_be_send_ds_replace_notification(path, tree, group->refer_id)) {
-			__log_err("Error sending notification message for path: %s", path);
+			_log_err("Error sending notification message for path: %s", path);
 			ret = NB_ERR;
 			goto error;
 		}
@@ -598,8 +598,8 @@ static int nb_notify_delete_changes(struct nb_notif_walk_args *args)
 	group->cur_change = RB_MIN(op_changes, group->cur_changes);
 	while (group->cur_change) {
 		if (mgmt_be_send_ds_delete_notification(group->cur_change->path)) {
-			__log_err("Error sending delete notification message for path: %s",
-				  group->cur_change->path);
+			_log_err("Error sending delete notification message for path: %s",
+				 group->cur_change->path);
 			return 1;
 		}
 		group->cur_change = __next_change(group);
@@ -639,7 +639,7 @@ static void timer_walk_continue(struct event *event)
 	}
 
 	path = group->cur_change->path;
-	__dbg("starting next oper-path replace walk for path: %s", path);
+	_dbg("starting next oper-path replace walk for path: %s", path);
 	nb_notif_walk = nb_oper_walk(path, NULL, 0, false, NULL, NULL, oper_walk_done, args);
 }
 
@@ -648,11 +648,11 @@ static void timer_walk_start(struct event *event)
 	struct op_changes_group *group;
 	struct nb_notif_walk_args *args;
 
-	__dbg("oper-state change notification timer fires");
+	_dbg("oper-state change notification timer fires");
 
 	group = op_changes_group_next();
 	if (!group) {
-		__dbg("no oper changes to notify");
+		_dbg("no oper changes to notify");
 		return;
 	}
 
@@ -665,16 +665,16 @@ static void timer_walk_start(struct event *event)
 
 static void timer_walk_abort(struct nb_notif_walk_args *args)
 {
-	__dbg("Failed notifying datastore changes, will retry");
+	_dbg("Failed notifying datastore changes, will retry");
 
-	__dbg("oper-state notify setting retry timer to fire in: %d msec ", NB_NOTIF_TIMER_MSEC);
+	_dbg("oper-state notify setting retry timer to fire in: %d msec ", NB_NOTIF_TIMER_MSEC);
 	event_add_timer_msec(nb_notif_master, timer_walk_continue, args, NB_NOTIF_TIMER_MSEC,
 			     &nb_notif_timer);
 }
 
 static void timer_walk_done(struct nb_notif_walk_args *args)
 {
-	__dbg("Finished notifying for all datastore changes");
+	_dbg("Finished notifying for all datastore changes");
 	assert(!args->group);
 	XFREE(MTYPE_NB_NOTIF_WALK_ARGS, args);
 }
@@ -682,15 +682,15 @@ static void timer_walk_done(struct nb_notif_walk_args *args)
 static void nb_notif_set_walk_timer(void)
 {
 	if (nb_notif_walk) {
-		__dbg("oper-state walk already in progress.");
+		_dbg("oper-state walk already in progress.");
 		return;
 	}
 	if (event_is_scheduled(nb_notif_timer)) {
-		__dbg("oper-state notification timer already set.");
+		_dbg("oper-state notification timer already set.");
 		return;
 	}
 
-	__dbg("oper-state notification setting timer to fire in: %d msec ", NB_NOTIF_TIMER_MSEC);
+	_dbg("oper-state notification setting timer to fire in: %d msec ", NB_NOTIF_TIMER_MSEC);
 	event_add_timer_msec(nb_notif_master, timer_walk_start, NULL, NB_NOTIF_TIMER_MSEC,
 			     &nb_notif_timer);
 }
@@ -761,7 +761,7 @@ void nb_notif_terminate(void)
 	struct nb_notif_walk_args *args = nb_notif_timer ? EVENT_ARG(nb_notif_timer) : NULL;
 	struct op_changes_group *group;
 
-	__dbg("terminating: timer: %p timer arg: %p walk %p", nb_notif_timer, args, nb_notif_walk);
+	_dbg("terminating: timer: %p timer arg: %p walk %p", nb_notif_timer, args, nb_notif_walk);
 
 	event_cancel(&nb_notif_timer);
 
