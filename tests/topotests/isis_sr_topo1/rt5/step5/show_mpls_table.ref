@@ -129,6 +129,17 @@
       }
     ]
   },
+  "16100":{
+    "inLabel":16100,
+    "installed":true,
+    "nexthops":[
+      {
+        "type":"SR (IS-IS)",
+        "outLabel":3,
+        "installed":true
+      }
+    ]
+  },
   "16101":{
     "inLabel":16101,
     "installed":true,
