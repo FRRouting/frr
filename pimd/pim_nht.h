@@ -134,6 +134,10 @@ bool pim_nht_lookup_ecmp(struct pim_instance *pim, struct pim_nexthop *nexthop, 
 bool pim_nht_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop, pim_addr addr,
 		    pim_addr group, bool neighbor_needed);
 
+/* Similar to `pim_nht_lookup`, but uses only BGP route when `asn` is provided. */
+bool pim_bgp_nht_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop, pim_addr addr,
+			pim_addr group, uint32_t *asn);
+
 /* Performs a pim_nht_lookup_ecmp and returns the mroute VIF index of the nexthop interface */
 int pim_nht_lookup_ecmp_if_vif_index(struct pim_instance *pim, pim_addr src, struct prefix *grp);
 
