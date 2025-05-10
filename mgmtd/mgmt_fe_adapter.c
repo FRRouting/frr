@@ -362,9 +362,8 @@ static struct mgmt_fe_session_ctx *fe_adapter_session_by_txn_id(uint64_t txn_id)
 	return mgmt_session_id2ctx(session_id);
 }
 
-static struct mgmt_fe_session_ctx *
-mgmt_fe_create_session(struct mgmt_fe_client_adapter *adapter,
-			   uint64_t client_id)
+static struct mgmt_fe_session_ctx *mgmt_fe_create_session(struct mgmt_fe_client_adapter *adapter,
+							  uint8_t notify_format, uint64_t client_id)
 {
 	struct mgmt_fe_session_ctx *session;
 
@@ -377,6 +376,7 @@ mgmt_fe_create_session(struct mgmt_fe_client_adapter *adapter,
 	assert(session);
 	session->client_id = client_id;
 	session->adapter = adapter;
+	session->notify_format = notify_format;
 	session->txn_id = MGMTD_TXN_ID_NONE;
 	session->cfg_txn_id = MGMTD_TXN_ID_NONE;
 	mgmt_fe_adapter_lock(adapter);
@@ -1068,8 +1068,9 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 			      fe_msg->session_req->client_conn_id,
 			      adapter->name);
 
-			session = mgmt_fe_create_session(
-				adapter, fe_msg->session_req->client_conn_id);
+			session = mgmt_fe_create_session(adapter, DEFAULT_NOTIFY_FORMAT,
+							 fe_msg->session_req->client_conn_id);
+			assert(session); /* clang-analyzer fails to look in the above to see same assert. :( */
 			fe_adapter_send_session_reply(adapter, session, true,
 						      session ? true : false);
 		} else if (
@@ -1381,8 +1382,8 @@ static void fe_adapter_handle_session_req(struct mgmt_fe_client_adapter *adapter
 		strlcpy(adapter->name, msg->client_name, sizeof(adapter->name));
 	}
 
-	session = mgmt_fe_create_session(adapter, client_id);
-	session->notify_format = msg->notify_format ?: DEFAULT_NOTIFY_FORMAT;
+	session = mgmt_fe_create_session(adapter, msg->notify_format ?: DEFAULT_NOTIFY_FORMAT,
+					 client_id);
 	fe_adapter_native_send_session_reply(adapter, client_id,
 					     session->session_id, true);
 }
