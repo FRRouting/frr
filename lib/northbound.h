@@ -1897,6 +1897,15 @@ void nb_notif_delete(const char *path);
  */
 extern void nb_notif_set_filters(const char **selectors, bool replace);
 
+
+/**
+ * nb_notif_get_state() - request state dump be sent to mgmtd
+ * @selectors: darr array of xpath strings to do get operations on returning
+ *		the state as notification data.
+ * @refer_id: send in the refer_id field of the returned notification data.
+ */
+extern void nb_notif_get_state(const char **selectors, uint64_t refer_id);
+
 /**
  * nb_notif_enable_multi_thread() - enable use of multiple threads with nb_notif
  *

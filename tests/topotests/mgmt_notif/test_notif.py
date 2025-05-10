@@ -115,7 +115,7 @@ def test_frontend_all_notification(tgen):
     try:
         # The first notifications is a frr-ripd:authentication-type-failure
         # All the rest are frr-ripd:authentication-failure so we check for both.
-        output = r1.cmd_raises(fe_client_path + " --listen /")
+        output = r1.cmd_raises(fe_client_path + " --listen")
         jsout = json.loads(output)
         expected = {
             "frr-ripd:authentication-type-failure": {"interface-name": "r1-eth0"}
@@ -128,7 +128,7 @@ def test_frontend_all_notification(tgen):
             result = json_cmp(jsout, expected)
         assert result is None
 
-        output = r1.cmd_raises(fe_client_path + " --use-protobuf --listen /")
+        output = r1.cmd_raises(fe_client_path + " --use-protobuf --listen")
         jsout = json.loads(output)
         expected = {"frr-ripd:authentication-failure": {"interface-name": "r1-eth0"}}
         result = json_cmp(jsout, expected)

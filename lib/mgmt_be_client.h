@@ -128,7 +128,8 @@ extern int mgmt_be_send_ds_patch_notification(const char *path, const struct lyd
 /**
  * mgmt_be_send_ds_replace_notification() - Send a datastore replace notification.
  */
-extern int mgmt_be_send_ds_replace_notification(const char *path, const struct lyd_node *tree);
+extern int mgmt_be_send_ds_replace_notification(const char *path, const struct lyd_node *tree,
+						uint64_t refer_id);
 
 /*
  * Initialize library vty (adds debug support).

@@ -489,6 +489,28 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
 #define darr_pushz(A)	       (darr_appendz(A))
 #define darr_pushz_mt(A, MT)   (darr_appendz_mt(A, MT))
 
+#define darr_push_uniq_mt(A, E, MT)                                                                \
+	do {                                                                                       \
+		uint _dpu_i;                                                                       \
+                                                                                                   \
+		darr_foreach_i (A, _dpu_i) {                                                       \
+			if ((A)[_dpu_i] == (E))                                                    \
+				break;                                                             \
+		}                                                                                  \
+		if (_dpu_i == darr_len(A))                                                         \
+			(*darr_append_mt(A, MT) = (E));                                            \
+	} while (0)
+
+/**
+ * darr_push_uniq() - Append element if not present.
+ * @A: The dynamic array, can be NULL.
+ * @E: The element to push onto the array if missing.
+ *
+ * Append an element `E` onto the array `A`, extending it's length by 1. This is
+ * particularly useful for arrays of pointers.
+ */
+#define darr_push_uniq(A, E) darr_push_uniq_mt(A, E, MTYPE_DARR)
+
 
 /**
  * Pop the last `N` elements from the array decrementing the length by `N`.

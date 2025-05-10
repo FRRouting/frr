@@ -179,7 +179,12 @@ int _darr_search_floor(const void *a, size_t esize, const void *key, bool *equal
 #define _a_at(i) ((void *)((char *)a + ((i)*esize)))
 	while (low <= high) {
 		int mid = low + (high - low) / 2;
-		int cmp = cmpf(_a_at(mid), key);
+		int cmp;
+
+		if (cmpf)
+			cmp = cmpf(_a_at(mid), key);
+		else
+			cmp = memcmp(_a_at(mid), key, esize);
 
 		if (!cmp) {
 			if (equal)
