@@ -1462,7 +1462,7 @@ bool isis_zebra_request_srv6_sid(const struct srv6_sid_ctx *ctx,
 	 * Send the Get SRv6 SID request to the SRv6 Manager and check the
 	 * result
 	 */
-	ret = srv6_manager_get_sid(isis_zclient, ctx, sid_value, locator_name, NULL);
+	ret = srv6_manager_get_sid(isis_zclient, ctx, sid_value, locator_name, NULL, false);
 	if (ret < 0) {
 		zlog_warn("%s: error getting SRv6 SID!", __func__);
 		return false;
@@ -1491,7 +1491,7 @@ void isis_zebra_release_srv6_sid(const struct srv6_sid_ctx *ctx, const char *loc
 	 * Send the Release SRv6 SID request to the SRv6 Manager and check the
 	 * result
 	 */
-	ret = srv6_manager_release_sid(isis_zclient, ctx, locator_name);
+	ret = srv6_manager_release_sid(isis_zclient, ctx, locator_name, false);
 	if (ret < 0) {
 		zlog_warn("%s: error releasing SRv6 SID!", __func__);
 		return;

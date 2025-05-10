@@ -1114,6 +1114,7 @@ extern int tm_release_table_chunk(struct zclient *zclient, uint32_t start,
 /* Zebra SRv6 Manager flags */
 #define ZAPI_SRV6_MANAGER_SID_FLAG_HAS_SID_VALUE 0x01
 #define ZAPI_SRV6_MANAGER_SID_FLAG_HAS_LOCATOR	 0x02
+#define ZAPI_SRV6_MANAGER_SID_FLAG_IS_LOCALONLY	 0x04
 
 extern int srv6_manager_get_locator_chunk(struct zclient *zclient,
 					  const char *locator_name);
@@ -1121,12 +1122,11 @@ extern int srv6_manager_release_locator_chunk(struct zclient *zclient,
 					      const char *locator_name);
 extern int srv6_manager_get_locator(struct zclient *zclient,
 				    const char *locator_name);
-extern int srv6_manager_get_sid(struct zclient *zclient,
-				const struct srv6_sid_ctx *ctx,
-				struct in6_addr *sid_value,
-				const char *locator_name, uint32_t *sid_func);
+extern int srv6_manager_get_sid(struct zclient *zclient, const struct srv6_sid_ctx *ctx,
+				struct in6_addr *sid_value, const char *locator_name,
+				uint32_t *sid_func, bool is_localonly);
 extern int srv6_manager_release_sid(struct zclient *zclient, const struct srv6_sid_ctx *ctx,
-				    const char *locator_name);
+				    const char *locator_name, bool is_localonly);
 
 extern enum zclient_send_status zebra_send_sr_policy(struct zclient *zclient,
 						     int cmd,
