@@ -20,13 +20,13 @@
                     "metric":0,
                     "locPrf":100,
                     "weight":0,
-                    "peerId":"192.168.0.2",
+                    "peerId":"192.168.1.101",
                     "path":"",
                     "origin":"IGP",
                     "nexthops":[
                         {
-                            "ip":"192.168.0.2",
-                            "hostname":"r2",
+                            "ip":"192.168.2.2",
+                            "hostname":"rr",
                             "afi":"ipv4",
                             "used":true
                         }
@@ -50,13 +50,13 @@
                     "metric":0,
                     "locPrf":100,
                     "weight":0,
-                    "peerId":"192.168.0.2",
+                    "peerId":"192.168.1.101",
                     "path":"",
                     "origin":"IGP",
                     "nexthops":[
                         {
-                            "ip":"192.168.0.2",
-                            "hostname":"r2",
+                            "ip":"192.168.2.2",
+                            "hostname":"rr",
                             "afi":"ipv4",
                             "used":true
                         }
@@ -80,13 +80,13 @@
                     "metric":0,
                     "locPrf":100,
                     "weight":0,
-                    "peerId":"192.168.0.2",
+                    "peerId":"192.168.1.101",
                     "path":"",
                     "origin":"IGP",
                     "nexthops":[
                         {
-                            "ip":"192.168.0.2",
-                            "hostname":"r2",
+                            "ip":"192.168.2.2",
+                            "hostname":"rr",
                             "afi":"ipv4",
                             "used":true
                         }
@@ -110,13 +110,13 @@
                     "metric":0,
                     "locPrf":100,
                     "weight":0,
-                    "peerId":"192.168.0.2",
+                    "peerId":"192.168.1.101",
                     "path":"",
                     "origin":"IGP",
                     "nexthops":[
                         {
-                            "ip":"192.168.0.2",
-                            "hostname":"r2",
+                            "ip":"192.168.2.2",
+                            "hostname":"rr",
                             "afi":"ipv4",
                             "used":true
                         }
@@ -147,7 +147,7 @@
                     "origin":"IGP",
                     "nexthops":[
                         {
-                            "ip":"192.168.0.1",
+                            "ip":"192.168.1.1",
                             "hostname":"r1",
                             "afi":"ipv4",
                             "used":true
@@ -176,7 +176,7 @@
                     "origin":"IGP",
                     "nexthops":[
                         {
-                            "ip":"192.168.0.1",
+                            "ip":"192.168.1.1",
                             "hostname":"r1",
                             "afi":"ipv4",
                             "used":true
@@ -204,13 +204,13 @@
                     "metric":0,
                     "locPrf":100,
                     "weight":0,
-                    "peerId":"192.168.0.2",
+                    "peerId":"192.168.1.101",
                     "path":"",
                     "origin":"IGP",
                     "nexthops":[
                         {
-                            "ip":"192.168.0.2",
-                            "hostname":"r2",
+                            "ip":"192.168.2.2",
+                            "hostname":"rr",
                             "afi":"ipv4",
                             "used":true
                         }
@@ -234,13 +234,13 @@
                     "metric":0,
                     "locPrf":100,
                     "weight":0,
-                    "peerId":"192.168.0.2",
+                    "peerId":"192.168.1.101",
                     "path":"",
                     "origin":"IGP",
                     "nexthops":[
                         {
-                            "ip":"192.168.0.2",
-                            "hostname":"r2",
+                            "ip":"192.168.2.2",
+                            "hostname":"rr",
                             "afi":"ipv4",
                             "used":true
                         }
@@ -271,7 +271,7 @@
                     "origin":"IGP",
                     "nexthops":[
                         {
-                            "ip":"192.168.0.1",
+                            "ip":"192.168.1.1",
                             "hostname":"r1",
                             "afi":"ipv4",
                             "used":true
@@ -300,7 +300,7 @@
                     "origin":"IGP",
                     "nexthops":[
                         {
-                            "ip":"192.168.0.1",
+                            "ip":"192.168.1.1",
                             "hostname":"r1",
                             "afi":"ipv4",
                             "used":true

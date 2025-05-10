@@ -41,12 +41,17 @@ pytestmark = [pytest.mark.bgpd]
 def build_topo(tgen):
     "Build function"
 
-    tgen.add_router("r1")
-    tgen.add_router("r2")
+    def connect_routers(tgen, left, right):
+        for rname in [left, right]:
+            if rname not in tgen.routers().keys():
+                tgen.add_router(rname)
 
-    switch = tgen.add_switch("s1")
-    switch.add_link(tgen.gears["r1"])
-    switch.add_link(tgen.gears["r2"])
+        switch = tgen.add_switch("s-{}-{}".format(left, right))
+        switch.add_link(tgen.gears[left], nodeif="eth-{}".format(right))
+        switch.add_link(tgen.gears[right], nodeif="eth-{}".format(left))
+
+    connect_routers(tgen, "rr", "r1")
+    connect_routers(tgen, "rr", "r2")
 
 
 def setup_module(mod):
@@ -73,7 +78,7 @@ def setup_module(mod):
         r1.cmd_raises(
             """
 ip link add loop{0} type dummy
-ip link add vxlan-{0} type vxlan id {0} dstport 4789 dev r1-eth0 local 192.168.0.1
+ip link add vxlan-{0} type vxlan id {0} dstport 4789 dev eth-rr local 192.168.1.1
 """.format(
                 vrf
             )
@@ -102,7 +107,7 @@ ip link set dev loop{0} up
 ip link add bridge-{0} up address {1} type bridge stp_state 0
 ip link set bridge-{0} master vrf-{0}
 ip link set dev bridge-{0} up
-ip link add vxlan-{0} type vxlan id {0} dstport 4789 dev r2-eth0 local 192.168.0.2
+ip link add vxlan-{0} type vxlan id {0} dstport 4789 dev eth-rr local 192.168.2.2
 ip link set dev vxlan-{0} master bridge-{0}
 ip link set vxlan-{0} up type bridge_slave learning off flood off mcast_flood off
 """.format(
@@ -252,6 +257,8 @@ def test_protocols_dump_info():
 
 def _test_bgp_vrf_routes(router, vrf, suffix=None):
     for af in ("ipv4", "ipv6"):
+        logger.info(f"Check {af} routes on {router.name} vrf-{vrf}")
+
         json_file = "{}/{}/bgp_vrf_{}_{}_routes_detail{}.json".format(
             CWD, router.name, vrf, af, "_" + suffix if suffix else ""
         )
@@ -298,7 +305,7 @@ def test_router_check_ip():
                 "vrfName": "vrf-101",
                 "nexthops": [
                     {
-                        "ip": "::ffff:192.168.0.2",
+                        "ip": "::ffff:192.168.2.2",
                     }
                 ],
             }
@@ -315,14 +322,14 @@ def _test_router_check_evpn_next_hop(expected_paths=1):
 
     # Check IPv4
     expected = {
-        "ip": "192.168.0.1",
+        "ip": "192.168.1.1",
         "refCount": 1,
         "prefixList": [{"prefix": "10.0.101.1/32", "pathCount": expected_paths}],
     }
     test_func = partial(
         topotest.router_json_cmp,
         r2,
-        "show evpn next-hops vni 101 ip 192.168.0.1 json",
+        "show evpn next-hops vni 101 ip 192.168.1.1 json",
         expected,
     )
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
@@ -330,14 +337,14 @@ def _test_router_check_evpn_next_hop(expected_paths=1):
 
     # Check IPv6
     expected = {
-        "ip": "::ffff:192.168.0.1",
+        "ip": "::ffff:192.168.1.1",
         "refCount": 1,
         "prefixList": [{"prefix": "fd01::1/128", "pathCount": expected_paths}],
     }
     test_func = partial(
         topotest.router_json_cmp,
         r2,
-        "show evpn next-hops vni 101 ip ::ffff:192.168.0.1 json",
+        "show evpn next-hops vni 101 ip ::ffff:192.168.1.1 json",
         expected,
     )
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
@@ -352,8 +359,8 @@ def _test_router_check_evpn_contexts(router, ipv4_only=False, ipv6_only=False):
         expected = {
             "101": {
                 "numNextHops": 1,
-                "192.168.0.2": {
-                    "nexthopIp": "192.168.0.2",
+                "192.168.2.2": {
+                    "nexthopIp": "192.168.2.2",
                 },
             }
         }
@@ -361,8 +368,8 @@ def _test_router_check_evpn_contexts(router, ipv4_only=False, ipv6_only=False):
         expected = {
             "101": {
                 "numNextHops": 1,
-                "::ffff:192.168.0.2": {
-                    "nexthopIp": "::ffff:192.168.0.2",
+                "::ffff:192.168.2.2": {
+                    "nexthopIp": "::ffff:192.168.2.2",
                 },
             }
         }
@@ -370,11 +377,11 @@ def _test_router_check_evpn_contexts(router, ipv4_only=False, ipv6_only=False):
         expected = {
             "101": {
                 "numNextHops": 2,
-                "192.168.0.2": {
-                    "nexthopIp": "192.168.0.2",
+                "192.168.2.2": {
+                    "nexthopIp": "192.168.2.2",
                 },
-                "::ffff:192.168.0.2": {
-                    "nexthopIp": "::ffff:192.168.0.2",
+                "::ffff:192.168.2.2": {
+                    "nexthopIp": "::ffff:192.168.2.2",
                 },
             }
         }
@@ -621,7 +628,7 @@ def _test_wait_for_multipath_convergence(router, expected_paths=1):
     Wait for multipath convergence on R2
     """
     expected = {
-        "10.0.101.1/32": [{"nexthops": [{"ip": "192.168.0.1"}] * expected_paths}]
+        "10.0.101.1/32": [{"nexthops": [{"ip": "192.168.1.1"}] * expected_paths}]
     }
     # Using router_json_cmp instead of verify_fib_routes, because we need to check for
     # two next-hops with the same IP address.
@@ -668,27 +675,47 @@ def test_evpn_multipath():
     evpn_multipath = {
         "r1": {
             "raw_config": [
-                "interface r1-eth0",
-                "ip address 192.168.99.1/24",
+                "interface eth-rr",
+                "ip address 192.168.101.1/24",
                 "router bgp 65000",
-                "neighbor 192.168.99.2 remote-as 65000",
-                "neighbor 192.168.99.2 capability extended-nexthop",
-                "neighbor 192.168.99.2 update-source 192.168.99.1",
+                "neighbor 192.168.101.101 remote-as 65000",
+                "neighbor 192.168.101.101 capability extended-nexthop",
+                "neighbor 192.168.101.101 update-source 192.168.101.1",
                 "address-family l2vpn evpn",
-                "neighbor 192.168.99.2 activate",
-                "neighbor 192.168.99.2 route-map rmap_r1 in",
+                "neighbor 192.168.101.101 activate",
+                "neighbor 192.168.101.101 route-map rmap_r1 in",
             ]
         },
         "r2": {
             "raw_config": [
-                "interface r2-eth0",
-                "ip address 192.168.99.2/24",
+                "interface eth-rr",
+                "ip address 192.168.102.2/24",
                 "router bgp 65000",
-                "neighbor 192.168.99.1 remote-as 65000",
-                "neighbor 192.168.99.1 capability extended-nexthop",
-                "neighbor 192.168.99.1 update-source 192.168.99.2",
+                "neighbor 192.168.102.101 remote-as 65000",
+                "neighbor 192.168.102.101 capability extended-nexthop",
+                "neighbor 192.168.102.101 update-source 192.168.102.2",
                 "address-family l2vpn evpn",
-                "neighbor 192.168.99.1 activate",
+                "neighbor 192.168.102.101 activate",
+            ]
+        },
+        "rr": {
+            "raw_config": [
+                "interface eth-r1",
+                " ip address 192.168.101.101/24",
+                "interface eth-r2",
+                " ip address 192.168.102.101/24",
+                "router bgp 65000",
+                " neighbor 192.168.101.1 remote-as 65000",
+                " neighbor 192.168.101.1 capability extended-nexthop",
+                " neighbor 192.168.101.1 update-source 192.168.102.101",
+                " neighbor 192.168.102.2 remote-as 65000",
+                " neighbor 192.168.102.2 capability extended-nexthop",
+                " neighbor 192.168.102.2 update-source 192.168.102.101",
+                " address-family l2vpn evpn",
+                "  neighbor 192.168.101.1 activate",
+                "  neighbor 192.168.101.1 route-reflector-client",
+                "  neighbor 192.168.102.2 activate",
+                "  neighbor 192.168.102.2 route-reflector-client",
             ]
         },
     }
@@ -699,7 +726,7 @@ def test_evpn_multipath():
         result
     ), "Failed to configure second path between R1 and R2, Error: {} ".format(result)
 
-    r1 = tgen.gears["r1"]
+    rr = tgen.gears["rr"]
     r2 = tgen.gears["r2"]
     _test_wait_for_multipath_convergence(r2, expected_paths=2)
     _test_rmac_present(r2)
@@ -713,19 +740,19 @@ configure terminal
     )
 
     for i in range(4):
-        peer = "192.168.0.2" if i % 2 == 0 else "192.168.99.2"
-        local_peer = "192.168.0.1" if i % 2 == 0 else "192.168.99.1"
+        rr_addr = "192.168.2.101" if i % 2 == 0 else "192.168.102.101"
+        r2_addr = "192.168.2.2" if i % 2 == 0 else "192.168.102.2"
 
         # Retrieving the last established epoch from the r2 to check against
-        last_established_epoch = _get_established_epoch(r2, local_peer)
+        last_established_epoch = _get_established_epoch(r2, rr_addr)
         if last_established_epoch is None:
             assert False, "Failed to retrieve established epoch for peer {}".format(
-                peer
+                rr_addr
             )
 
-        r1.vtysh_cmd("clear bgp {0}".format(peer))
+        rr.vtysh_cmd("clear bgp {0}".format(r2_addr))
 
-        _test_epoch_after_clear(r2, local_peer, last_established_epoch)
+        _test_epoch_after_clear(r2, rr_addr, last_established_epoch)
         _test_wait_for_multipath_convergence(r2, expected_paths=2)
         _test_rmac_present(r2)
         _test_router_check_evpn_next_hop(expected_paths=2)
@@ -755,13 +782,20 @@ def test_shutdown_multipath_check_next_hops():
         "r1": {
             "raw_config": [
                 "router bgp 65000",
-                "neighbor 192.168.99.2 shutdown",
+                "neighbor 192.168.101.101 shutdown",
             ]
         },
         "r2": {
             "raw_config": [
                 "router bgp 65000",
-                "neighbor 192.168.99.1 shutdown",
+                "neighbor 192.168.102.101 shutdown",
+            ]
+        },
+        "rr": {
+            "raw_config": [
+                "router bgp 65000",
+                " neighbor 192.168.101.1 shutdown",
+                " neighbor 192.168.102.2 shutdown",
             ]
         },
     }
@@ -905,8 +939,8 @@ def test_no_rmap_match_evpn_vni():
             "raw_config": [
                 "router bgp 65000",
                 " address-family l2vpn evpn",
-                "  no neighbor 192.168.0.2 route-map rmap_r1 in",
-                "  no neighbor 192.168.99.2 route-map rmap_r1 in",
+                "  no neighbor 192.168.1.101 route-map rmap_r1 in",
+                "  no neighbor 192.168.101.101 route-map rmap_r1 in",
             ]
         },
     }
@@ -960,7 +994,7 @@ def _test_evpn_rmac(tgen):
             str(vrf): {
                 _create_rmac(peer, vrf): {
                     "routerMac": _create_rmac(peer, vrf),
-                    "vtepIp": "192.168.0.{}".format(peer),
+                    "vtepIp": "192.168.{}.{}".format(peer, peer),
                 }
             }
             for vrf in (101, 102)
