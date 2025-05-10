@@ -170,6 +170,14 @@ extern int setsockopt_tcp_keepalive(int sock, uint16_t keepalive_idle,
 				    uint16_t keepalive_intvl,
 				    uint16_t keepalive_probes);
 
+/*
+ * Set IP_TRANSPARENT option to socket
+ *
+ * sock
+ *    Socket to enable option on.
+ */
+extern void sockopt_ip_transparent(int sock);
+
 #ifdef __cplusplus
 }
 #endif
