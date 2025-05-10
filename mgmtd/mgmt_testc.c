@@ -32,7 +32,7 @@ static void sigint(void);
 /* privileges */
 static zebra_capabilities_t _caps_p[] = {};
 
-struct zebra_privs_t __privs = {
+static struct zebra_privs_t _privs = {
 #if defined(FRR_USER) && defined(FRR_GROUP)
 	.user = FRR_USER,
 	.group = FRR_GROUP,
@@ -63,7 +63,7 @@ struct mgmt_be_client *mgmt_be_client;
 
 static struct frr_daemon_info mgmtd_testc_di;
 
-struct frr_signal_t __signals[] = {
+struct frr_signal_t _signals[] = {
 	{
 		.signal = SIGUSR1,
 		.handler = &sigusr1,
@@ -122,10 +122,10 @@ static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 FRR_DAEMON_INFO(mgmtd_testc, MGMTD_TESTC,
 		.proghelp = "FRR Management Daemon Test Client.",
 
-		.signals = __signals,
-		.n_signals = array_size(__signals),
+		.signals = _signals,
+		.n_signals = array_size(_signals),
 
-		.privs = &__privs,
+		.privs = &_privs,
 
 		.yang_modules = mgmt_yang_modules,
 		.n_yang_modules = array_size(mgmt_yang_modules),
@@ -135,10 +135,10 @@ FRR_DAEMON_INFO(mgmtd_testc, MGMTD_TESTC,
 	);
 /* clang-format on */
 
-const char **__notif_xpaths;
-const char **__rpc_xpaths;
+const char **_notif_xpaths;
+const char **_rpc_xpaths;
 
-struct mgmt_be_client_cbs __client_cbs = {};
+struct mgmt_be_client_cbs _client_cbs = {};
 struct event *event_timeout;
 
 int f_datastore;
@@ -158,8 +158,8 @@ static void sigusr1(void)
 static void quit(int exit_code)
 {
 	event_cancel(&event_timeout);
-	darr_free(__client_cbs.notif_xpaths);
-	darr_free(__client_cbs.rpc_xpaths);
+	darr_free(_client_cbs.notif_xpaths);
+	darr_free(_client_cbs.rpc_xpaths);
 
 	frr_fini();
 
@@ -184,7 +184,7 @@ static void success(struct event *event)
 	quit(0);
 }
 
-static void __ds_notification(struct nb_cb_notify_args *args)
+static void _ds_notification(struct nb_cb_notify_args *args)
 {
 	uint8_t *output = NULL;
 
@@ -227,7 +227,7 @@ static void __ds_notification(struct nb_cb_notify_args *args)
 		quit(0);
 }
 
-static void __notification(struct nb_cb_notify_args *args)
+static void _notification(struct nb_cb_notify_args *args)
 {
 	zlog_notice("Received YANG notification: op: %u", args->op);
 
@@ -247,9 +247,9 @@ static void __notification(struct nb_cb_notify_args *args)
 static void async_notification(struct nb_cb_notify_args *args)
 {
 	if (f_datastore)
-		__ds_notification(args);
+		_ds_notification(args);
 	else
-		__notification(args);
+		_notification(args);
 }
 
 static int rpc_callback(struct nb_cb_rpc_args *args)
@@ -323,18 +323,17 @@ int main(int argc, char **argv)
 	if (argc && f_listen) {
 		for (i = 0; i < argc; i++) {
 			zlog_notice("Listen on xpath: %s", argv[i]);
-			darr_push(__notif_xpaths, argv[i]);
+			darr_push(_notif_xpaths, argv[i]);
 		}
-		__client_cbs.notif_xpaths = __notif_xpaths;
-		__client_cbs.nnotif_xpaths = darr_len(__notif_xpaths);
+		_client_cbs.notif_xpaths = _notif_xpaths;
+		_client_cbs.nnotif_xpaths = darr_len(_notif_xpaths);
 	}
 
-	darr_push(__rpc_xpaths, "/frr-ripd:clear-rip-route");
-	__client_cbs.rpc_xpaths = __rpc_xpaths;
-	__client_cbs.nrpc_xpaths = darr_len(__rpc_xpaths);
+	darr_push(_rpc_xpaths, "/frr-ripd:clear-rip-route");
+	_client_cbs.rpc_xpaths = _rpc_xpaths;
+	_client_cbs.nrpc_xpaths = darr_len(_rpc_xpaths);
 
-	mgmt_be_client = mgmt_be_client_create("mgmtd-testc", &__client_cbs, 0,
-					       master);
+	mgmt_be_client = mgmt_be_client_create("mgmtd-testc", &_client_cbs, 0, master);
 
 	frr_config_fork();
 

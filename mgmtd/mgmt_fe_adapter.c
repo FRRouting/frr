@@ -1301,10 +1301,10 @@ fe_adapter_native_send_session_reply(struct mgmt_fe_client_adapter *adapter,
  * @msg_raw: the message data.
  * @msg_len: the length of the message data.
  */
-static void fe_adapter_handle_session_req(struct mgmt_fe_client_adapter *adapter,
-					  void *__msg, size_t msg_len)
+static void fe_adapter_handle_session_req(struct mgmt_fe_client_adapter *adapter, void *_msg,
+					  size_t msg_len)
 {
-	struct mgmt_msg_session_req *msg = __msg;
+	struct mgmt_msg_session_req *msg = _msg;
 	struct mgmt_fe_session_ctx *session;
 	uint64_t client_id;
 
@@ -1364,10 +1364,10 @@ static void fe_adapter_handle_session_req(struct mgmt_fe_client_adapter *adapter
  * @msg_raw: the message data.
  * @msg_len: the length of the message data.
  */
-static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session,
-				       void *__msg, size_t msg_len)
+static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session, void *_msg,
+				       size_t msg_len)
 {
-	struct mgmt_msg_get_data *msg = __msg;
+	struct mgmt_msg_get_data *msg = _msg;
 	const struct lysc_node **snodes = NULL;
 	uint64_t req_id = msg->req_id;
 	Mgmtd__DatastoreId ds_id;
@@ -1504,10 +1504,9 @@ done:
 	darr_free(snodes);
 }
 
-static void fe_adapter_handle_edit(struct mgmt_fe_session_ctx *session,
-				   void *__msg, size_t msg_len)
+static void fe_adapter_handle_edit(struct mgmt_fe_session_ctx *session, void *_msg, size_t msg_len)
 {
-	struct mgmt_msg_edit *msg = __msg;
+	struct mgmt_msg_edit *msg = _msg;
 	Mgmtd__DatastoreId ds_id, rds_id;
 	struct mgmt_ds_ctx *ds_ctx, *rds_ctx;
 	const char *xpath, *data;
@@ -1615,13 +1614,13 @@ static void fe_adapter_handle_edit(struct mgmt_fe_session_ctx *session,
 /**
  * fe_adapter_handle_notify_select() - Handle an Notify Select message.
  * @session: the client session.
- * @__msg: the message data.
+ * @_msg: the message data.
  * @msg_len: the length of the message data.
  */
-static void fe_adapter_handle_notify_select(struct mgmt_fe_session_ctx *session, void *__msg,
+static void fe_adapter_handle_notify_select(struct mgmt_fe_session_ctx *session, void *_msg,
 					    size_t msg_len)
 {
-	struct mgmt_msg_notify_select *msg = __msg;
+	struct mgmt_msg_notify_select *msg = _msg;
 	uint64_t req_id = msg->req_id;
 	struct nb_node **nb_nodes;
 	const char **selectors = NULL;
@@ -1743,13 +1742,12 @@ done:
 /**
  * fe_adapter_handle_rpc() - Handle an RPC message from an FE client.
  * @session: the client session.
- * @__msg: the message data.
+ * @_msg: the message data.
  * @msg_len: the length of the message data.
  */
-static void fe_adapter_handle_rpc(struct mgmt_fe_session_ctx *session,
-				  void *__msg, size_t msg_len)
+static void fe_adapter_handle_rpc(struct mgmt_fe_session_ctx *session, void *_msg, size_t msg_len)
 {
-	struct mgmt_msg_rpc *msg = __msg;
+	struct mgmt_msg_rpc *msg = _msg;
 	const struct lysc_node *snode;
 	const char *xpath, *data;
 	uint64_t req_id = msg->req_id;
