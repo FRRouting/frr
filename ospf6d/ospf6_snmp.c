@@ -1023,6 +1023,36 @@ static uint8_t *ospfv3WwLsdbEntry(struct variable *v, oid *name, size_t *length,
 	return NULL;
 }
 
+/*
+ * Map OSPFv3 internal interface states to OSPFv3 MIB state values
+ *
+ * This function converts the internal interface state values used by OSPFv3
+ * into the corresponding values defined in the OSPFv3 Management Information
+ * Base (MIB). The MIB defines specific states for interfaces, which are
+ * used by SNMP to monitor and manage OSPFv3 networks.
+ */
+static uint8_t ospf6_snmp_interface_state(uint8_t state)
+{
+	switch (state) {
+	case OSPF6_INTERFACE_DOWN:
+		return 1;
+	case OSPF6_INTERFACE_LOOPBACK:
+		return 2;
+	case OSPF6_INTERFACE_WAITING:
+		return 3;
+	case OSPF6_INTERFACE_POINTTOPOINT:
+		return 4;
+	case OSPF6_INTERFACE_DR:
+		return 5;
+	case OSPF6_INTERFACE_BDR:
+		return 6;
+	case OSPF6_INTERFACE_DROTHER:
+		return 7;
+	default:
+		return 8;
+	}
+}
+
 static uint8_t *ospfv3IfEntry(struct variable *v, oid *name, size_t *length,
 			      int exact, size_t *var_len,
 			      WriteMethod **write_method)
@@ -1144,7 +1174,7 @@ static uint8_t *ospfv3IfEntry(struct variable *v, oid *name, size_t *length,
 		/* No support for NBMA */
 		break;
 	case OSPFv3IFSTATE:
-		return SNMP_INTEGER(oi->state);
+		return SNMP_INTEGER(ospf6_snmp_interface_state(oi->state));
 	case OSPFv3IFDESIGNATEDROUTER:
 		return SNMP_INTEGER(ntohl(oi->drouter));
 	case OSPFv3IFBACKUPDESIGNATEDROUTER:
