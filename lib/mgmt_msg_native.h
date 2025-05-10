@@ -576,12 +576,10 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
  *
  * Return: A `msg_type` object created using a dynamic_array.
  */
-#define mgmt_msg_native_alloc_msg(msg_type, var_len, mem_type)                 \
-	({                                                                     \
-		uint8_t *__nam_buf = NULL;                                     \
-		(msg_type *)darr_append_nz_mt(__nam_buf,                       \
-					      sizeof(msg_type) + (var_len),    \
-					      mem_type);                       \
+#define mgmt_msg_native_alloc_msg(msg_type, var_len, mem_type)                                     \
+	({                                                                                         \
+		uint8_t *_nam_buf = NULL;                                                          \
+		(msg_type *)darr_append_nz_mt(_nam_buf, sizeof(msg_type) + (var_len), mem_type);   \
 	})
 
 /**
@@ -612,12 +610,12 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
  *
  * Return: a pointer to the newly appended data.
  */
-#define mgmt_msg_native_append(msg, data, len)                                 \
-	({                                                                     \
-		uint8_t **__na_darrp = mgmt_msg_native_get_darrp(msg);         \
-		uint8_t *__na_p = darr_append_n(*__na_darrp, len);             \
-		memcpy(__na_p, data, len);                                     \
-		__na_p;							       \
+#define mgmt_msg_native_append(msg, data, len)                                                     \
+	({                                                                                         \
+		uint8_t **_na_darrp = mgmt_msg_native_get_darrp(msg);                              \
+		uint8_t *_na_p = darr_append_n(*_na_darrp, len);                                   \
+		memcpy(_na_p, data, len);                                                          \
+		_na_p;                                                                             \
 	})
 
 /**
@@ -633,10 +631,10 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
  * message to fit the new data. Any other pointers into the old message should
  * be discarded.
  */
-#define mgmt_msg_native_add_str(msg, s)                                        \
-	do {                                                                   \
-		int __nas_len = strlen(s) + 1;                                 \
-		mgmt_msg_native_append(msg, s, __nas_len);                     \
+#define mgmt_msg_native_add_str(msg, s)                                                            \
+	do {                                                                                       \
+		int _nas_len = strlen(s) + 1;                                                      \
+		mgmt_msg_native_append(msg, s, _nas_len);                                          \
 	} while (0)
 
 /**
@@ -706,11 +704,11 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
  * the first half of the encoding, after which one can simply append the
  * secondary data to the message.
  */
-#define mgmt_msg_native_xpath_encode(msg, xpath)                               \
-	do {                                                                   \
-		size_t __slen = strlen(xpath) + 1;                             \
-		mgmt_msg_native_append(msg, xpath, __slen);                    \
-		(msg)->vsplit = __slen;                                        \
+#define mgmt_msg_native_xpath_encode(msg, xpath)                                                   \
+	do {                                                                                       \
+		size_t _m__slen = strlen(xpath) + 1;                                               \
+		mgmt_msg_native_append(msg, xpath, _m__slen);                                      \
+		(msg)->vsplit = _m__slen;                                                          \
 	} while (0)
 
 /**
@@ -727,17 +725,17 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
  *	The xpath string or NULL if there was an error decoding (i.e., the
  *	message is corrupt).
  */
-#define mgmt_msg_native_xpath_data_decode(msg, msglen, __data)                                     \
+#define mgmt_msg_native_xpath_data_decode(msg, msglen, _data)                                      \
 	({                                                                                         \
-		size_t __len = (msglen) - sizeof(*msg);                                            \
-		const char *__s = NULL;                                                            \
-		(__data) = NULL;                                                                   \
-		if (msg->vsplit && msg->vsplit <= __len && msg->data[msg->vsplit - 1] == 0) {      \
-			if (msg->vsplit < __len)                                                   \
-				(__data) = msg->data + msg->vsplit;                                \
-			__s = msg->data;                                                           \
+		size_t _m__len = (msglen) - sizeof(*msg);                                          \
+		const char *_m__s = NULL;                                                          \
+		(_data) = NULL;                                                                    \
+		if (msg->vsplit && msg->vsplit <= _m__len && msg->data[msg->vsplit - 1] == 0) {    \
+			if (msg->vsplit < _m__len)                                                 \
+				(_data) = msg->data + msg->vsplit;                                 \
+			_m__s = msg->data;                                                         \
 		}                                                                                  \
-		__s;                                                                               \
+		_m__s;                                                                             \
 	})
 
 /**
@@ -753,14 +751,13 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
  *	The xpath string or NULL if there was an error decoding (i.e., the
  *	message is corrupt).
  */
-#define mgmt_msg_native_xpath_decode(msg, msglen)                              \
-	({                                                                     \
-		size_t __len = (msglen) - sizeof(*msg);                        \
-		const char *__s = msg->data;                                   \
-		if (!msg->vsplit || msg->vsplit > __len ||                     \
-		    __s[msg->vsplit - 1] != 0)                                 \
-			__s = NULL;                                            \
-		__s;                                                           \
+#define mgmt_msg_native_xpath_decode(msg, msglen)                                                  \
+	({                                                                                         \
+		size_t _m__len = (msglen) - sizeof(*msg);                                          \
+		const char *_m__s = msg->data;                                                     \
+		if (!msg->vsplit || msg->vsplit > _m__len || _m__s[msg->vsplit - 1] != 0)          \
+			_m__s = NULL;                                                              \
+		_m__s;                                                                             \
 	})
 
 /**
@@ -776,13 +773,13 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
  *	The secondary data or NULL if there was an error decoding (i.e., the
  *	message is corrupt).
  */
-#define mgmt_msg_native_data_decode(msg, msglen)                               \
-	({                                                                     \
-		size_t __len = (msglen) - sizeof(*msg);                        \
-		const char *__data = msg->data + msg->vsplit;                  \
-		if (!msg->vsplit || msg->vsplit > __len || __data[-1] != 0)    \
-			__data = NULL;                                         \
-		__data;                                                        \
+#define mgmt_msg_native_data_decode(msg, msglen)                                                   \
+	({                                                                                         \
+		size_t _m__len = (msglen) - sizeof(*msg);                                          \
+		const char *_m__data = msg->data + msg->vsplit;                                    \
+		if (!msg->vsplit || msg->vsplit > _m__len || _m__data[-1] != 0)                    \
+			_m__data = NULL;                                                           \
+		_m__data;                                                                          \
 	})
 
 /**
