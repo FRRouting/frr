@@ -1305,7 +1305,7 @@ void path_zebra_srv6_manager_get_sid(struct srv6_sid_ctx *ctx,
 	int ret;
 	uint32_t sid_func;
 
-	ret = srv6_manager_get_sid(zclient, ctx, sid_addr, NULL, &sid_func);
+	ret = srv6_manager_get_sid(zclient, ctx, sid_addr, NULL, &sid_func, false);
 	if (ret < 0)
 		/* TODO: need to re-send later GET_SID message */
 		zlog_warn("%s: error getting SRv6 SID!", __func__);
@@ -1315,7 +1315,7 @@ void path_zebra_srv6_manager_release_sid(struct srv6_sid_ctx *ctx)
 {
 	int ret;
 
-	ret = srv6_manager_release_sid(zclient, ctx, NULL);
+	ret = srv6_manager_release_sid(zclient, ctx, NULL, false);
 	if (ret < 0)
 		/* TODO: need to re-send later GET_SID message */
 		zlog_warn("%s: error releasing SRv6 SID!", __func__);

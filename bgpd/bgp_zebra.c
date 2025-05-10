@@ -4535,7 +4535,7 @@ bool bgp_zebra_request_srv6_sid(const struct srv6_sid_ctx *ctx,
 	 * result
 	 */
 	ret = srv6_manager_get_sid(zclient, ctx, sid_value, locator_name,
-				   sid_func);
+				   sid_func, false);
 	if (ret < 0) {
 		zlog_warn("%s: error getting SRv6 SID!", __func__);
 		return false;
@@ -4564,7 +4564,7 @@ void bgp_zebra_release_srv6_sid(const struct srv6_sid_ctx *ctx, const char *loca
 	 * Send the Release SRv6 SID request to the SRv6 Manager and check the
 	 * result
 	 */
-	ret = srv6_manager_release_sid(zclient, ctx, locator_name);
+	ret = srv6_manager_release_sid(zclient, ctx, locator_name, false);
 	if (ret < 0) {
 		zlog_warn("%s: error releasing SRv6 SID!", __func__);
 		return;
