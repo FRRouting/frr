@@ -123,6 +123,23 @@ static void peer_drop_dynamic_neighbor(struct peer *peer);
 
 extern struct zclient *bgp_zclient;
 
+static bool bgp_has_remaining_instances(const struct bgp *bgp)
+{
+	struct listnode *node;
+	struct bgp *bgp_next;
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_next)) {
+		if (bgp_next == bgp)
+			continue;
+		if (bgp->vrf_id != bgp_next->vrf_id)
+			continue;
+
+		return true;
+	}
+
+	return false;
+}
+
 /* handle main socket creation or deletion */
 static int bgp_check_main_socket(bool create, struct bgp *bgp)
 {
@@ -146,6 +163,9 @@ static int bgp_check_main_socket(bool create, struct bgp *bgp)
 	}
 	if (!bgp_server_main_created)
 		return 0;
+	if (bgp_has_remaining_instances(bgp))
+		return 0;
+
 	bgp_close();
 	bgp_server_main_created = 0;
 	return 0;
