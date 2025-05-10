@@ -2599,6 +2599,11 @@ void *nb_running_get_entry(const struct lyd_node *dnode, const char *xpath,
 					   true);
 }
 
+void *nb_running_entry(const struct lyd_node *dnode)
+{
+	return nb_running_get_entry_worker(dnode, NULL, true, true);
+}
+
 void *nb_running_get_entry_non_rec(const struct lyd_node *dnode,
 				   const char *xpath, bool abort_if_not_found)
 {

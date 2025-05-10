@@ -58,7 +58,7 @@ static int static_path_list_create(struct nb_cb_create_args *args)
 	case NB_EV_PREPARE:
 		break;
 	case NB_EV_APPLY:
-		rn = nb_running_get_entry(args->dnode, NULL, true);
+		rn = nb_running_entry(args->dnode);
 		distance = yang_dnode_get_uint8(args->dnode, "distance");
 		table_id = yang_dnode_get_uint32(args->dnode, "table-id");
 		pn = static_add_path(rn, table_id, distance);
@@ -96,7 +96,7 @@ static int static_path_list_tag_modify(struct nb_cb_modify_args *args)
 	case NB_EV_PREPARE:
 		break;
 	case NB_EV_APPLY:
-		pn = nb_running_get_entry(args->dnode, NULL, true);
+		pn = nb_running_entry(args->dnode);
 		pn->tag = yang_dnode_get_uint32(args->dnode, NULL);
 		static_install_path(pn);
 		break;
@@ -177,7 +177,7 @@ static bool static_nexthop_create(struct nb_cb_create_args *args)
 		nh_type = yang_dnode_get_enum(args->dnode, "nh-type");
 		ifname = yang_dnode_get_string(args->dnode, "interface");
 		nh_vrf = yang_dnode_get_string(args->dnode, "vrf");
-		pn = nb_running_get_entry(args->dnode, NULL, true);
+		pn = nb_running_entry(args->dnode);
 
 		if (strmatch(ifname, "(null)"))
 			ifname = "";
@@ -227,7 +227,7 @@ static int nexthop_srv6_segs_stack_entry_create(struct nb_cb_create_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		nh = nb_running_get_entry(args->dnode, NULL, true);
+		nh = nb_running_entry(args->dnode);
 		pos = yang_get_list_pos(args->dnode);
 		if (!pos) {
 			flog_warn(EC_LIB_NB_CB_CONFIG_APPLY,
@@ -257,7 +257,7 @@ static int nexthop_srv6_segs_stack_entry_destroy(struct nb_cb_destroy_args *args
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		nh = nb_running_get_entry(args->dnode, NULL, true);
+		nh = nb_running_entry(args->dnode);
 		pos = yang_get_list_pos(args->dnode);
 		if (!pos) {
 			flog_warn(EC_LIB_NB_CB_CONFIG_APPLY,
@@ -285,7 +285,7 @@ static int static_nexthop_srv6_segs_modify(struct nb_cb_modify_args *args)
 	struct in6_addr old_seg;
 	struct in6_addr cli_seg;
 
-	nh = nb_running_get_entry(args->dnode, NULL, true);
+	nh = nb_running_entry(args->dnode);
 	pos = yang_get_list_pos(lyd_parent(args->dnode));
 	if (!pos) {
 		flog_warn(EC_LIB_NB_CB_CONFIG_APPLY,
@@ -382,7 +382,7 @@ static int nexthop_mpls_label_stack_entry_create(struct nb_cb_create_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		nh = nb_running_get_entry(args->dnode, NULL, true);
+		nh = nb_running_entry(args->dnode);
 		pos = yang_get_list_pos(args->dnode);
 		if (!pos) {
 			flog_warn(EC_LIB_NB_CB_CONFIG_APPLY,
@@ -413,7 +413,7 @@ nexthop_mpls_label_stack_entry_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		nh = nb_running_get_entry(args->dnode, NULL, true);
+		nh = nb_running_entry(args->dnode);
 		pos = yang_get_list_pos(args->dnode);
 		if (!pos) {
 			flog_warn(EC_LIB_NB_CB_CONFIG_APPLY,
@@ -440,7 +440,7 @@ static int static_nexthop_mpls_label_modify(struct nb_cb_modify_args *args)
 	uint8_t index;
 	mpls_label_t old_label;
 
-	nh = nb_running_get_entry(args->dnode, NULL, true);
+	nh = nb_running_entry(args->dnode);
 	pos = yang_get_list_pos(lyd_parent(args->dnode));
 	if (!pos) {
 		flog_warn(EC_LIB_NB_CB_CONFIG_APPLY,
@@ -480,7 +480,7 @@ static int static_nexthop_onlink_modify(struct nb_cb_modify_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		nh = nb_running_get_entry(args->dnode, NULL, true);
+		nh = nb_running_entry(args->dnode);
 		old_onlink = nh->onlink;
 		nh->onlink = yang_dnode_get_bool(args->dnode, NULL);
 
@@ -497,7 +497,7 @@ static int static_nexthop_color_modify(struct nb_cb_modify_args *args)
 	struct static_nexthop *nh;
 	uint32_t old_color;
 
-	nh = nb_running_get_entry(args->dnode, NULL, true);
+	nh = nb_running_entry(args->dnode);
 	old_color = nh->color;
 	nh->color = yang_dnode_get_uint32(args->dnode, NULL);
 
@@ -512,7 +512,7 @@ static int static_nexthop_color_destroy(struct nb_cb_destroy_args *args)
 	struct static_nexthop *nh;
 	uint32_t old_color;
 
-	nh = nb_running_get_entry(args->dnode, NULL, true);
+	nh = nb_running_entry(args->dnode);
 	old_color = nh->color;
 	nh->color = 0;
 
@@ -540,7 +540,7 @@ static int static_nexthop_bh_type_modify(struct nb_cb_modify_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		nh = nb_running_get_entry(args->dnode, NULL, true);
+		nh = nb_running_entry(args->dnode);
 		nh->bh_type = yang_dnode_get_enum(args->dnode, NULL);
 		break;
 	}
@@ -553,7 +553,7 @@ void routing_control_plane_protocols_control_plane_protocol_staticd_route_list_p
 {
 	struct static_nexthop *nh;
 
-	nh = nb_running_get_entry(args->dnode, NULL, true);
+	nh = nb_running_entry(args->dnode);
 
 	static_install_nexthop(nh);
 }
@@ -677,7 +677,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_cr
 	case NB_EV_APPLY:
 		vrf_dnode = yang_dnode_get_parent(args->dnode,
 						  "control-plane-protocol");
-		svrf = nb_running_get_entry(vrf_dnode, NULL, true);
+		svrf = nb_running_entry(vrf_dnode);
 
 		yang_dnode_get_prefix(&prefix, args->dnode, "prefix");
 		yang_dnode_get_prefix(&src_prefix, args->dnode, "src-prefix");
@@ -1033,7 +1033,7 @@ int route_next_hop_bfd_create(struct nb_cb_create_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	sn = nb_running_get_entry(args->dnode, NULL, true);
+	sn = nb_running_entry(args->dnode);
 	static_next_hop_bfd_monitor_enable(sn, args->dnode);
 	return NB_OK;
 }
@@ -1045,7 +1045,7 @@ int route_next_hop_bfd_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	sn = nb_running_get_entry(args->dnode, NULL, true);
+	sn = nb_running_entry(args->dnode);
 	static_next_hop_bfd_monitor_disable(sn);
 	return NB_OK;
 }
@@ -1062,7 +1062,7 @@ int route_next_hop_bfd_source_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	sn = nb_running_get_entry(args->dnode, NULL, true);
+	sn = nb_running_entry(args->dnode);
 	yang_dnode_get_ip(&source, args->dnode, NULL);
 	static_next_hop_bfd_source(sn, &source);
 	return NB_OK;
@@ -1075,7 +1075,7 @@ int route_next_hop_bfd_source_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	sn = nb_running_get_entry(args->dnode, NULL, true);
+	sn = nb_running_entry(args->dnode);
 	static_next_hop_bfd_auto_source(sn);
 
 	/* NHT information are needed by BFD to automatically find the source
@@ -1102,7 +1102,7 @@ int route_next_hop_bfd_multi_hop_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	sn = nb_running_get_entry(args->dnode, NULL, true);
+	sn = nb_running_entry(args->dnode);
 	static_next_hop_bfd_multi_hop(sn,
 				      yang_dnode_get_bool(args->dnode, NULL));
 
@@ -1120,7 +1120,7 @@ int route_next_hop_bfd_profile_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	sn = nb_running_get_entry(args->dnode, NULL, true);
+	sn = nb_running_entry(args->dnode);
 	static_next_hop_bfd_profile(sn,
 				    yang_dnode_get_string(args->dnode, NULL));
 
@@ -1134,7 +1134,7 @@ int route_next_hop_bfd_profile_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	sn = nb_running_get_entry(args->dnode, NULL, true);
+	sn = nb_running_entry(args->dnode);
 	static_next_hop_bfd_profile(sn, NULL);
 
 	return NB_OK;
@@ -1230,7 +1230,7 @@ void routing_control_plane_protocols_control_plane_protocol_staticd_segment_rout
 	struct static_srv6_sid *sid;
 	struct static_srv6_locator *locator;
 
-	sid = nb_running_get_entry(args->dnode, NULL, true);
+	sid = nb_running_entry(args->dnode);
 
 	locator = static_srv6_locator_lookup(sid->locator_name);
 	if (!locator) {
@@ -1258,7 +1258,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routi
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	sid = nb_running_get_entry(args->dnode, NULL, true);
+	sid = nb_running_entry(args->dnode);
 
 	/* Release and uninstall existing SID, if any, before requesting the new one */
 	if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID)) {
@@ -1295,7 +1295,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routi
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	sid = nb_running_get_entry(args->dnode, NULL, true);
+	sid = nb_running_entry(args->dnode);
 
 	/* Release and uninstall existing SID, if any, before requesting the new one */
 	if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID)) {
@@ -1350,7 +1350,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routi
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	sid = nb_running_get_entry(args->dnode, NULL, true);
+	sid = nb_running_entry(args->dnode);
 
 	/* Release and uninstall existing SID, if any, before requesting the new one */
 	if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID)) {
@@ -1398,7 +1398,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routi
 	case NB_EV_PREPARE:
 		break;
 	case NB_EV_APPLY:
-		sid = nb_running_get_entry(args->dnode, NULL, true);
+		sid = nb_running_entry(args->dnode);
 
 		/* Release and uninstall existing SID, if any, before requesting the new one */
 		if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID)) {
@@ -1439,7 +1439,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routi
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	sid = nb_running_get_entry(args->dnode, NULL, true);
+	sid = nb_running_entry(args->dnode);
 
 	/* Release and uninstall existing SID, if any, before requesting the new one */
 	if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID)) {

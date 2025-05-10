@@ -877,7 +877,7 @@ int lib_interface_zebra_ipv4_addrs_create(struct nb_cb_create_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		if_ip_address_install(ifp, &p, label, NULL);
 
 		/* set something for checking on label modify */
@@ -984,7 +984,7 @@ int lib_interface_zebra_ipv4_p2p_addrs_create(struct nb_cb_create_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		if_ip_address_install(ifp, &p, label, &pp);
 
 		/* set something for checking on label modify */
@@ -1088,7 +1088,7 @@ int lib_interface_zebra_ipv6_addrs_create(struct nb_cb_create_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		if_ipv6_address_install(ifp, &p);
 		break;
 	}
@@ -1130,7 +1130,7 @@ int lib_interface_zebra_multicast_modify(struct nb_cb_modify_args *args)
 	struct interface *ifp;
 	bool multicast = yang_dnode_get_bool(args->dnode, NULL);
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 
 	if (multicast)
 		if_multicast_set(ifp);
@@ -1148,7 +1148,7 @@ int lib_interface_zebra_multicast_destroy(struct nb_cb_destroy_args *args)
 	struct interface *ifp;
 	struct zebra_if *zif;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	zif = ifp->info;
 
 	zif->multicast = IF_ZEBRA_DATA_UNSPEC;
@@ -1167,7 +1167,7 @@ int lib_interface_zebra_link_detect_modify(struct nb_cb_modify_args *args)
 	struct interface *ifp;
 	bool link_detect;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	link_detect = yang_dnode_get_bool(args->dnode, NULL);
 
 	if_linkdetect(ifp, link_detect);
@@ -1186,7 +1186,7 @@ int lib_interface_zebra_enabled_modify(struct nb_cb_modify_args *args)
 	struct interface *ifp;
 	bool enabled;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	enabled = yang_dnode_get_bool(args->dnode, NULL);
 
 	if (enabled)
@@ -1205,7 +1205,7 @@ int lib_interface_zebra_enabled_destroy(struct nb_cb_destroy_args *args)
 	struct interface *ifp;
 	struct zebra_if *zif;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	zif = ifp->info;
 
 	zif->shutdown = IF_ZEBRA_DATA_UNSPEC;
@@ -1225,7 +1225,7 @@ int lib_interface_zebra_mpls_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	zif = ifp->info;
 	mpls = yang_dnode_get_bool(args->dnode, NULL);
 
@@ -1247,7 +1247,7 @@ int lib_interface_zebra_mpls_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	zif = ifp->info;
 
 	zif->mpls_config = IF_ZEBRA_DATA_UNSPEC;
@@ -1268,7 +1268,7 @@ int lib_interface_zebra_bandwidth_modify(struct nb_cb_modify_args *args)
 	struct interface *ifp;
 	uint32_t bandwidth;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	bandwidth = yang_dnode_get_uint32(args->dnode, NULL);
 
 	ifp->bandwidth = bandwidth;
@@ -1287,7 +1287,7 @@ int lib_interface_zebra_bandwidth_destroy(struct nb_cb_destroy_args *args)
 
 	struct interface *ifp;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 
 	ifp->bandwidth = 0;
 
@@ -1308,7 +1308,7 @@ int lib_interface_zebra_link_params_create(struct nb_cb_create_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	if_link_params_enable(ifp);
 
 	/*
@@ -1326,7 +1326,7 @@ int lib_interface_zebra_link_params_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	if_link_params_free(ifp);
 	if (if_is_operative(ifp))
 		zebra_interface_parameters_update(ifp);
@@ -1339,7 +1339,7 @@ void lib_interface_zebra_link_params_apply_finish(
 {
 	struct interface *ifp;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	if (if_is_operative(ifp))
 		zebra_interface_parameters_update(ifp);
 }
@@ -1356,7 +1356,7 @@ int lib_interface_zebra_link_params_metric_modify(struct nb_cb_modify_args *args
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	iflp = if_link_params_get(ifp);
 	metric = yang_dnode_get_uint32(args->dnode, NULL);
 
@@ -1372,7 +1372,7 @@ int lib_interface_zebra_link_params_metric_destroy(struct nb_cb_destroy_args *ar
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 
 	link_param_cmd_unset(ifp, LP_TE_METRIC);
 
@@ -1428,7 +1428,7 @@ int lib_interface_zebra_link_params_max_bandwidth_modify(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		iflp = if_link_params_get(ifp);
 		link_param_cmd_set_float(ifp, &iflp->max_bw, LP_MAX_BW, max_bw);
 		break;
@@ -1464,7 +1464,7 @@ int lib_interface_zebra_link_params_max_reservable_bandwidth_modify(
 
 	max_rsv_bw = yang_dnode_get_bandwidth_ieee_float32(args->dnode, NULL);
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	iflp = if_link_params_get(ifp);
 	link_param_cmd_set_float(ifp, &iflp->max_rsv_bw, LP_MAX_RSV_BW,
 				 max_rsv_bw);
@@ -1502,7 +1502,7 @@ int lib_interface_zebra_link_params_unreserved_bandwidths_unreserved_bandwidth_c
 	unrsv_bw = yang_dnode_get_bandwidth_ieee_float32(args->dnode,
 							 "unreserved-bandwidth");
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	iflp = if_link_params_get(ifp);
 	link_param_cmd_set_float(ifp, &iflp->unrsv_bw[priority], LP_UNRSV_BW,
 				 unrsv_bw);
@@ -1539,7 +1539,7 @@ int lib_interface_zebra_link_params_unreserved_bandwidths_unreserved_bandwidth_u
 	priority = yang_dnode_get_uint8(args->dnode, "../priority");
 	unrsv_bw = yang_dnode_get_bandwidth_ieee_float32(args->dnode, NULL);
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	iflp = if_link_params_get(ifp);
 	link_param_cmd_set_float(ifp, &iflp->unrsv_bw[priority], LP_UNRSV_BW,
 				 unrsv_bw);
@@ -1577,7 +1577,7 @@ int lib_interface_zebra_link_params_residual_bandwidth_modify(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		iflp = if_link_params_get(ifp);
 		link_param_cmd_set_float(ifp, &iflp->res_bw, LP_RES_BW, res_bw);
 		break;
@@ -1594,7 +1594,7 @@ int lib_interface_zebra_link_params_residual_bandwidth_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	link_param_cmd_unset(ifp, LP_RES_BW);
 
 	return NB_OK;
@@ -1630,7 +1630,7 @@ int lib_interface_zebra_link_params_available_bandwidth_modify(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		iflp = if_link_params_get(ifp);
 		link_param_cmd_set_float(ifp, &iflp->ava_bw, LP_AVA_BW, ava_bw);
 		break;
@@ -1647,7 +1647,7 @@ int lib_interface_zebra_link_params_available_bandwidth_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	link_param_cmd_unset(ifp, LP_AVA_BW);
 
 	return NB_OK;
@@ -1683,7 +1683,7 @@ int lib_interface_zebra_link_params_utilized_bandwidth_modify(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		iflp = if_link_params_get(ifp);
 		link_param_cmd_set_float(ifp, &iflp->use_bw, LP_USE_BW, use_bw);
 		break;
@@ -1700,7 +1700,7 @@ int lib_interface_zebra_link_params_utilized_bandwidth_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	link_param_cmd_unset(ifp, LP_USE_BW);
 
 	return NB_OK;
@@ -1725,7 +1725,7 @@ int lib_interface_zebra_legacy_admin_group_modify(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		iflp = if_link_params_get(ifp);
 
 		iflp->admin_grp = admin_group_value;
@@ -1747,7 +1747,7 @@ int lib_interface_zebra_legacy_admin_group_destroy(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		iflp = if_link_params_get(ifp);
 
 		iflp->admin_grp = 0;
@@ -1774,7 +1774,7 @@ int lib_interface_zebra_affinities_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	iflp = if_link_params_get(ifp);
 
 	iflp->admin_grp = 0;
@@ -1807,7 +1807,7 @@ int lib_interface_zebra_affinity_create(struct nb_cb_create_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		iflp = if_link_params_get(ifp);
 		affmap = affinity_map_get(affname);
 
@@ -1845,7 +1845,7 @@ int lib_interface_zebra_affinity_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		iflp = if_link_params_get(ifp);
 		affmap = affinity_map_get(affname);
 
@@ -1886,7 +1886,7 @@ int lib_interface_zebra_affinity_mode_modify(struct nb_cb_modify_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		iflp = if_link_params_get(ifp);
 
 		if (affinity_mode == AFFINITY_MODE_STANDARD) {
@@ -1943,7 +1943,7 @@ int lib_interface_zebra_link_params_neighbor_create(struct nb_cb_create_args *ar
 	as = yang_dnode_get_uint32(args->dnode, "remote-as");
 	yang_dnode_get_ipv4(&ip, args->dnode, "ipv4-remote-id");
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	iflp = if_link_params_get(ifp);
 
 	iflp->rmt_as = as;
@@ -1962,7 +1962,7 @@ int lib_interface_zebra_link_params_neighbor_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	iflp = if_link_params_get(ifp);
 
 	iflp->rmt_as = 0;
@@ -1987,7 +1987,7 @@ int lib_interface_zebra_link_params_neighbor_remote_as_modify(
 
 	as = yang_dnode_get_uint32(args->dnode, NULL);
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	iflp = if_link_params_get(ifp);
 
 	iflp->rmt_as = as;
@@ -2010,7 +2010,7 @@ int lib_interface_zebra_link_params_neighbor_ipv4_remote_id_modify(
 
 	yang_dnode_get_ipv4(&ip, args->dnode, NULL);
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	iflp = if_link_params_get(ifp);
 
 	iflp->rmt_ip = ip;
@@ -2032,7 +2032,7 @@ int lib_interface_zebra_link_params_delay_modify(struct nb_cb_modify_args *args)
 
 	delay = yang_dnode_get_uint32(args->dnode, NULL);
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	iflp = if_link_params_get(ifp);
 
 	link_param_cmd_set_uint32(ifp, &iflp->av_delay, LP_DELAY, delay);
@@ -2048,7 +2048,7 @@ int lib_interface_zebra_link_params_delay_destroy(struct nb_cb_destroy_args *arg
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	iflp = if_link_params_get(ifp);
 
 	iflp->av_delay = 0;
@@ -2073,7 +2073,7 @@ int lib_interface_zebra_link_params_min_max_delay_create(
 	delay_min = yang_dnode_get_uint32(args->dnode, "delay-min");
 	delay_max = yang_dnode_get_uint32(args->dnode, "delay-max");
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	iflp = if_link_params_get(ifp);
 
 	iflp->min_delay = delay_min;
@@ -2092,7 +2092,7 @@ int lib_interface_zebra_link_params_min_max_delay_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	iflp = if_link_params_get(ifp);
 
 	iflp->min_delay = 0;
@@ -2117,7 +2117,7 @@ int lib_interface_zebra_link_params_min_max_delay_delay_min_modify(
 
 	delay_min = yang_dnode_get_uint32(args->dnode, NULL);
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	iflp = if_link_params_get(ifp);
 
 	iflp->min_delay = delay_min;
@@ -2140,7 +2140,7 @@ int lib_interface_zebra_link_params_min_max_delay_delay_max_modify(
 
 	delay_max = yang_dnode_get_uint32(args->dnode, NULL);
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	iflp = if_link_params_get(ifp);
 
 	iflp->max_delay = delay_max;
@@ -2163,7 +2163,7 @@ int lib_interface_zebra_link_params_delay_variation_modify(
 
 	delay_var = yang_dnode_get_uint32(args->dnode, NULL);
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	iflp = if_link_params_get(ifp);
 
 	link_param_cmd_set_uint32(ifp, &iflp->delay_var, LP_DELAY_VAR,
@@ -2180,7 +2180,7 @@ int lib_interface_zebra_link_params_delay_variation_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 
 	link_param_cmd_unset(ifp, LP_DELAY_VAR);
 
@@ -2204,7 +2204,7 @@ int lib_interface_zebra_link_params_packet_loss_modify(
 	packet_loss = yang_dnode_get_dec64(args->dnode, NULL);
 	value = (uint32_t)(packet_loss / LOSS_PRECISION);
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	iflp = if_link_params_get(ifp);
 
 	link_param_cmd_set_uint32(ifp, &iflp->pkt_loss, LP_PKT_LOSS, value);
@@ -2220,7 +2220,7 @@ int lib_interface_zebra_link_params_packet_loss_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 
 	link_param_cmd_unset(ifp, LP_PKT_LOSS);
 
@@ -2306,7 +2306,7 @@ int lib_interface_zebra_evpn_mh_type_0_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	zebra_evpn_es_type0_esi_update(ifp->info, NULL);
 
 	return NB_OK;
@@ -2332,7 +2332,7 @@ int lib_interface_zebra_evpn_mh_type_0_esi_modify(struct nb_cb_modify_args *args
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		if (!str_to_esi(yang_dnode_get_string(args->dnode, NULL), &esi))
 			assert(false);
 		zebra_evpn_es_type0_esi_update(ifp->info, &esi);
@@ -2349,7 +2349,7 @@ int lib_interface_zebra_evpn_mh_type_0_esi_destroy(struct nb_cb_destroy_args *ar
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	zebra_evpn_es_type0_esi_update(ifp->info, NULL);
 
 	return NB_OK;
@@ -2370,7 +2370,7 @@ int lib_interface_zebra_evpn_mh_type_3_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	zebra_evpn_es_sys_mac_update(ifp->info, NULL);
 	zebra_evpn_es_lid_update(ifp->info, 0);
 
@@ -2405,7 +2405,7 @@ int lib_interface_zebra_evpn_mh_type_3_system_mac_modify(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		zebra_evpn_es_sys_mac_update(ifp->info, &mac);
 		break;
 	}
@@ -2421,7 +2421,7 @@ int lib_interface_zebra_evpn_mh_type_3_system_mac_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	zebra_evpn_es_sys_mac_update(ifp->info, NULL);
 
 	return NB_OK;
@@ -2448,7 +2448,7 @@ int lib_interface_zebra_evpn_mh_type_3_local_discriminator_modify(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		lid = yang_dnode_get_uint32(args->dnode, NULL);
 		zebra_evpn_es_lid_update(ifp->info, lid);
 		break;
@@ -2465,7 +2465,7 @@ int lib_interface_zebra_evpn_mh_type_3_local_discriminator_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	zebra_evpn_es_lid_update(ifp->info, 0);
 
 	return NB_OK;
@@ -2483,7 +2483,7 @@ int lib_interface_zebra_evpn_mh_df_preference_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	df_pref = yang_dnode_get_uint16(args->dnode, NULL);
 	zebra_evpn_es_df_pref_update(ifp->info, df_pref);
 
@@ -2501,7 +2501,7 @@ int lib_interface_zebra_evpn_mh_bypass_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	bypass = yang_dnode_get_bool(args->dnode, NULL);
 	zebra_evpn_es_bypass_cfg_update(ifp->info, bypass);
 
@@ -2519,7 +2519,7 @@ int lib_interface_zebra_evpn_mh_uplink_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	uplink = yang_dnode_get_bool(args->dnode, NULL);
 	zebra_evpn_mh_uplink_cfg_update(ifp->info, uplink);
 
@@ -2540,7 +2540,7 @@ int lib_interface_zebra_ipv6_router_advertisements_send_advertisements_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	zif = ifp->info;
 
 	send_adv = yang_dnode_get_bool(args->dnode, NULL);
@@ -2569,7 +2569,7 @@ int lib_interface_zebra_ipv6_router_advertisements_max_rtr_adv_interval_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	interval = yang_dnode_get_uint32(args->dnode, NULL);
 
 	ipv6_nd_interval_set(ifp, interval);
@@ -2590,7 +2590,7 @@ int lib_interface_zebra_ipv6_router_advertisements_managed_flag_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	zif = ifp->info;
 
 	managed_flag = yang_dnode_get_bool(args->dnode, NULL);
@@ -2613,7 +2613,7 @@ int lib_interface_zebra_ipv6_router_advertisements_other_config_flag_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	zif = ifp->info;
 
 	other_config_flag = yang_dnode_get_bool(args->dnode, NULL);
@@ -2636,7 +2636,7 @@ int lib_interface_zebra_ipv6_router_advertisements_home_agent_flag_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	zif = ifp->info;
 
 	home_agent_flag = yang_dnode_get_bool(args->dnode, NULL);
@@ -2659,7 +2659,7 @@ int lib_interface_zebra_ipv6_router_advertisements_link_mtu_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	zif = ifp->info;
 
 	mtu = yang_dnode_get_uint32(args->dnode, NULL);
@@ -2682,7 +2682,7 @@ int lib_interface_zebra_ipv6_router_advertisements_reachable_time_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	zif = ifp->info;
 	time = yang_dnode_get_uint32(args->dnode, NULL);
 
@@ -2704,7 +2704,7 @@ int lib_interface_zebra_ipv6_router_advertisements_retrans_timer_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	zif = ifp->info;
 	timer = yang_dnode_get_uint32(args->dnode, NULL);
 
@@ -2726,7 +2726,7 @@ int lib_interface_zebra_ipv6_router_advertisements_cur_hop_limit_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	zif = ifp->info;
 	limit = yang_dnode_get_uint8(args->dnode, NULL);
 
@@ -2744,7 +2744,7 @@ int lib_interface_zebra_ipv6_router_advertisements_cur_hop_limit_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	zif = ifp->info;
 
 	zif->rtadv.AdvCurHopLimit = RTADV_DEFAULT_HOPLIMIT;
@@ -2765,7 +2765,7 @@ int lib_interface_zebra_ipv6_router_advertisements_default_lifetime_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	zif = ifp->info;
 
 	lifetime = yang_dnode_get_uint16(args->dnode, NULL);
@@ -2784,7 +2784,7 @@ int lib_interface_zebra_ipv6_router_advertisements_default_lifetime_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	zif = ifp->info;
 
 	zif->rtadv.AdvDefaultLifetime = -1;
@@ -2805,7 +2805,7 @@ int lib_interface_zebra_ipv6_router_advertisements_fast_retransmit_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	zif = ifp->info;
 
 	fast_retransmit = yang_dnode_get_bool(args->dnode, NULL);
@@ -2828,7 +2828,7 @@ int lib_interface_zebra_ipv6_router_advertisements_advertisement_interval_option
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	zif = ifp->info;
 
 	option = yang_dnode_get_bool(args->dnode, NULL);
@@ -2851,7 +2851,7 @@ int lib_interface_zebra_ipv6_router_advertisements_home_agent_preference_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	zif = ifp->info;
 
 	preference = yang_dnode_get_uint16(args->dnode, NULL);
@@ -2870,7 +2870,7 @@ int lib_interface_zebra_ipv6_router_advertisements_home_agent_preference_destroy
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	zif = ifp->info;
 
 	zif->rtadv.HomeAgentPreference = 0;
@@ -2891,7 +2891,7 @@ int lib_interface_zebra_ipv6_router_advertisements_home_agent_lifetime_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	zif = ifp->info;
 
 	lifetime = yang_dnode_get_uint16(args->dnode, NULL);
@@ -2910,7 +2910,7 @@ int lib_interface_zebra_ipv6_router_advertisements_home_agent_lifetime_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	zif = ifp->info;
 
 	zif->rtadv.HomeAgentLifetime = -1;
@@ -2931,7 +2931,7 @@ int lib_interface_zebra_ipv6_router_advertisements_default_router_preference_mod
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 	zif = ifp->info;
 
 	preference = yang_dnode_get_enum(args->dnode, NULL);
@@ -2953,7 +2953,7 @@ int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_create(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 
 	yang_dnode_get_ipv6p(&rp.prefix, args->dnode, "prefix-spec");
 	rp.AdvOnLinkFlag = yang_dnode_get_bool(args->dnode, "on-link-flag");
@@ -2982,7 +2982,7 @@ int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_destroy(
 		return NB_OK;
 
 	prefix = nb_running_unset_entry(args->dnode);
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 
 	rtadv_delete_prefix_manual(ifp->info, prefix);
 
@@ -3000,7 +3000,7 @@ int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_valid_life
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	prefix = nb_running_get_entry(args->dnode, NULL, true);
+	prefix = nb_running_entry(args->dnode);
 
 	prefix->AdvValidLifetime = yang_dnode_get_uint32(args->dnode, NULL);
 
@@ -3018,7 +3018,7 @@ int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_on_link_fl
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	prefix = nb_running_get_entry(args->dnode, NULL, true);
+	prefix = nb_running_entry(args->dnode);
 
 	prefix->AdvOnLinkFlag = yang_dnode_get_bool(args->dnode, NULL);
 
@@ -3036,7 +3036,7 @@ int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_preferred_
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	prefix = nb_running_get_entry(args->dnode, NULL, true);
+	prefix = nb_running_entry(args->dnode);
 
 	prefix->AdvPreferredLifetime = yang_dnode_get_uint32(args->dnode, NULL);
 
@@ -3054,7 +3054,7 @@ int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_autonomous
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	prefix = nb_running_get_entry(args->dnode, NULL, true);
+	prefix = nb_running_entry(args->dnode);
 
 	prefix->AdvAutonomousFlag = yang_dnode_get_bool(args->dnode, NULL);
 
@@ -3072,7 +3072,7 @@ int lib_interface_zebra_ipv6_router_advertisements_prefix_list_prefix_router_add
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	prefix = nb_running_get_entry(args->dnode, NULL, true);
+	prefix = nb_running_entry(args->dnode);
 
 	prefix->AdvRouterAddressFlag = yang_dnode_get_bool(args->dnode, NULL);
 
@@ -3091,7 +3091,7 @@ int lib_interface_zebra_ipv6_router_advertisements_rdnss_rdnss_address_create(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 
 	yang_dnode_get_ipv6(&rdnss.addr, args->dnode, "address");
 	if (yang_dnode_exists(args->dnode, "lifetime")) {
@@ -3117,7 +3117,7 @@ int lib_interface_zebra_ipv6_router_advertisements_rdnss_rdnss_address_destroy(
 		return NB_OK;
 
 	p = nb_running_unset_entry(args->dnode);
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 
 	rtadv_rdnss_reset(ifp->info, p);
 
@@ -3135,7 +3135,7 @@ int lib_interface_zebra_ipv6_router_advertisements_rdnss_rdnss_address_lifetime_
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	p = nb_running_get_entry(args->dnode, NULL, true);
+	p = nb_running_entry(args->dnode);
 
 	p->lifetime = yang_dnode_get_uint32(args->dnode, NULL);
 	p->lifetime_set = 1;
@@ -3151,7 +3151,7 @@ int lib_interface_zebra_ipv6_router_advertisements_rdnss_rdnss_address_lifetime_
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	p = nb_running_get_entry(args->dnode, NULL, true);
+	p = nb_running_entry(args->dnode);
 
 	p->lifetime_set = 0;
 
@@ -3184,7 +3184,7 @@ int lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_create(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 
 	if (yang_dnode_exists(args->dnode, "lifetime")) {
 		dnssl.lifetime = yang_dnode_get_uint32(args->dnode, "lifetime");
@@ -3209,7 +3209,7 @@ int lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_destroy(
 		return NB_OK;
 
 	p = nb_running_unset_entry(args->dnode);
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 
 	rtadv_dnssl_reset(ifp->info, p);
 
@@ -3227,7 +3227,7 @@ int lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_lifetime_m
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	p = nb_running_get_entry(args->dnode, NULL, true);
+	p = nb_running_entry(args->dnode);
 
 	p->lifetime = yang_dnode_get_uint32(args->dnode, NULL);
 	p->lifetime_set = 1;
@@ -3243,7 +3243,7 @@ int lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_lifetime_d
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	p = nb_running_get_entry(args->dnode, NULL, true);
+	p = nb_running_entry(args->dnode);
 
 	p->lifetime_set = 0;
 
@@ -3342,7 +3342,7 @@ int lib_interface_zebra_ptm_enable_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	ifp = nb_running_entry(args->dnode);
 
 	ptm = yang_dnode_get_bool(args->dnode, NULL);
 	if (ptm)
@@ -3365,7 +3365,7 @@ int lib_vrf_zebra_router_id_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	vrf = nb_running_get_entry(args->dnode, NULL, true);
+	vrf = nb_running_entry(args->dnode);
 
 	yang_dnode_get_ipv4p(&p, args->dnode, NULL);
 
@@ -3382,7 +3382,7 @@ int lib_vrf_zebra_router_id_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	vrf = nb_running_get_entry(args->dnode, NULL, true);
+	vrf = nb_running_entry(args->dnode);
 
 	memset(&p, 0, sizeof(p));
 	p.family = AF_INET;
@@ -3403,7 +3403,7 @@ int lib_vrf_zebra_ipv6_router_id_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	vrf = nb_running_get_entry(args->dnode, NULL, true);
+	vrf = nb_running_entry(args->dnode);
 
 	yang_dnode_get_ipv6p(&p, args->dnode, NULL);
 
@@ -3420,7 +3420,7 @@ int lib_vrf_zebra_ipv6_router_id_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	vrf = nb_running_get_entry(args->dnode, NULL, true);
+	vrf = nb_running_entry(args->dnode);
 
 	memset(&p, 0, sizeof(p));
 	p.family = AF_INET6;
@@ -3472,7 +3472,7 @@ int lib_vrf_zebra_filter_protocol_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	vrf = nb_running_get_entry(args->dnode, NULL, true);
+	vrf = nb_running_entry(args->dnode);
 
 	ip_protocol_rm_del(vrf->info, rmap, rtype, afi, safi);
 
@@ -3497,7 +3497,7 @@ void lib_vrf_zebra_filter_protocol_apply_finish(
 	/* finishing apply for a validated entry, it can't be invalid */
 	assert(rtype >= 0);
 
-	vrf = nb_running_get_entry(args->dnode, NULL, true);
+	vrf = nb_running_entry(args->dnode);
 
 	ip_protocol_rm_add(vrf->info, rmap, rtype, afi, safi);
 }
@@ -3571,7 +3571,7 @@ int lib_vrf_zebra_filter_nht_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	vrf = nb_running_get_entry(args->dnode, NULL, true);
+	vrf = nb_running_entry(args->dnode);
 
 	ip_nht_rm_del(vrf->info, rmap, rtype, afi);
 
@@ -3599,7 +3599,7 @@ void lib_vrf_zebra_filter_nht_apply_finish(struct nb_cb_apply_finish_args *args)
 	assert(rtype >= 0);
 	assert(safi == SAFI_UNICAST);
 
-	vrf = nb_running_get_entry(args->dnode, NULL, true);
+	vrf = nb_running_entry(args->dnode);
 
 	ip_nht_rm_add(vrf->info, rmap, rtype, afi);
 }
@@ -3625,7 +3625,7 @@ int lib_vrf_zebra_resolve_via_default_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	vrf = nb_running_get_entry(args->dnode, NULL, true);
+	vrf = nb_running_entry(args->dnode);
 	zvrf = vrf->info;
 
 	resolve_via_default = yang_dnode_get_bool(args->dnode, NULL);
@@ -3649,7 +3649,7 @@ int lib_vrf_zebra_resolve_via_default_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	vrf = nb_running_get_entry(args->dnode, NULL, true);
+	vrf = nb_running_entry(args->dnode);
 	zvrf = vrf->info;
 
 	resolve_via_default = DFLT_ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT;
@@ -3676,7 +3676,7 @@ int lib_vrf_zebra_ipv6_resolve_via_default_modify(struct nb_cb_modify_args *args
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	vrf = nb_running_get_entry(args->dnode, NULL, true);
+	vrf = nb_running_entry(args->dnode);
 	zvrf = vrf->info;
 
 	resolve_via_default = yang_dnode_get_bool(args->dnode, NULL);
@@ -3700,7 +3700,7 @@ int lib_vrf_zebra_ipv6_resolve_via_default_destroy(struct nb_cb_destroy_args *ar
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	vrf = nb_running_get_entry(args->dnode, NULL, true);
+	vrf = nb_running_entry(args->dnode);
 	zvrf = vrf->info;
 
 	resolve_via_default = DFLT_ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT;
@@ -3763,7 +3763,7 @@ int lib_vrf_zebra_netns_table_range_create(struct nb_cb_create_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	vrf = nb_running_get_entry(args->dnode, NULL, true);
+	vrf = nb_running_entry(args->dnode);
 
 	table_manager_range(true, vrf->info, start, end);
 
@@ -3777,7 +3777,7 @@ int lib_vrf_zebra_netns_table_range_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	vrf = nb_running_get_entry(args->dnode, NULL, true);
+	vrf = nb_running_entry(args->dnode);
 
 	table_manager_range(false, vrf->info, 0, 0);
 
@@ -3802,7 +3802,7 @@ int lib_vrf_zebra_netns_table_range_start_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	vrf = nb_running_get_entry(args->dnode, NULL, true);
+	vrf = nb_running_entry(args->dnode);
 
 	table_manager_range(true, vrf->info, start, end);
 
@@ -3827,7 +3827,7 @@ int lib_vrf_zebra_netns_table_range_end_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	vrf = nb_running_get_entry(args->dnode, NULL, true);
+	vrf = nb_running_entry(args->dnode);
 
 	table_manager_range(true, vrf->info, start, end);
 
@@ -3847,7 +3847,7 @@ int lib_vrf_zebra_mpls_fec_nexthop_resolution_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	vrf = nb_running_get_entry(args->dnode, NULL, true);
+	vrf = nb_running_entry(args->dnode);
 	zvrf = vrf->info;
 
 	fec_nexthop_resolution = yang_dnode_get_bool(args->dnode, NULL);
@@ -3872,7 +3872,7 @@ int lib_vrf_zebra_mpls_fec_nexthop_resolution_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	vrf = nb_running_get_entry(args->dnode, NULL, true);
+	vrf = nb_running_entry(args->dnode);
 	zvrf = vrf->info;
 
 	fec_nexthop_resolution = DFLT_ZEBRA_IP_NHT_RESOLVE_VIA_DEFAULT;
@@ -3915,7 +3915,7 @@ int lib_vrf_zebra_l3vni_id_modify(struct nb_cb_modify_args *args)
 		}
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		pfx_only = yang_dnode_get_bool(args->dnode, "../prefix-only");
 
 		zebra_vxlan_process_vrf_vni_cmd(vrf->info, vni,
@@ -3937,7 +3937,7 @@ int lib_vrf_zebra_l3vni_id_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_VALIDATE:
 		return NB_OK;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		vrf = nb_running_entry(args->dnode);
 		vni = yang_dnode_get_uint32(args->dnode, NULL);
 
 		zebra_vxlan_process_vrf_vni_cmd(vrf->info, vni, 0, 0);

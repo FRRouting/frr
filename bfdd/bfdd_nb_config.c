@@ -494,7 +494,7 @@ int bfdd_bfd_profile_detection_multiplier_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	bp = nb_running_get_entry(args->dnode, NULL, true);
+	bp = nb_running_entry(args->dnode);
 	bp->detection_multiplier = yang_dnode_get_uint8(args->dnode, NULL);
 	bfd_profile_update(bp);
 
@@ -518,7 +518,7 @@ int bfdd_bfd_profile_desired_transmission_interval_modify(
 		break;
 
 	case NB_EV_APPLY:
-		bp = nb_running_get_entry(args->dnode, NULL, true);
+		bp = nb_running_entry(args->dnode);
 		bp->min_tx = yang_dnode_get_uint32(args->dnode, NULL);
 		bfd_profile_update(bp);
 		break;
@@ -548,7 +548,7 @@ int bfdd_bfd_profile_required_receive_interval_modify(
 		break;
 
 	case NB_EV_APPLY:
-		bp = nb_running_get_entry(args->dnode, NULL, true);
+		bp = nb_running_entry(args->dnode);
 		bp->min_rx = yang_dnode_get_uint32(args->dnode, NULL);
 		bfd_profile_update(bp);
 		break;
@@ -571,7 +571,7 @@ int bfdd_bfd_profile_administrative_down_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	bp = nb_running_get_entry(args->dnode, NULL, true);
+	bp = nb_running_entry(args->dnode);
 	bp->admin_shutdown = yang_dnode_get_bool(args->dnode, NULL);
 	bfd_profile_update(bp);
 
@@ -588,7 +588,7 @@ int bfdd_bfd_profile_passive_mode_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	bp = nb_running_get_entry(args->dnode, NULL, true);
+	bp = nb_running_entry(args->dnode);
 	bp->passive = yang_dnode_get_bool(args->dnode, NULL);
 	bfd_profile_update(bp);
 
@@ -605,7 +605,7 @@ int bfdd_bfd_profile_log_session_changes_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	bp = nb_running_get_entry(args->dnode, NULL, true);
+	bp = nb_running_entry(args->dnode);
 	bp->log_session_changes = yang_dnode_get_bool(args->dnode, NULL);
 	bfd_profile_update(bp);
 
@@ -622,7 +622,7 @@ int bfdd_bfd_profile_minimum_ttl_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	bp = nb_running_get_entry(args->dnode, NULL, true);
+	bp = nb_running_entry(args->dnode);
 	bp->minimum_ttl = yang_dnode_get_uint8(args->dnode, NULL);
 	bfd_profile_update(bp);
 
@@ -641,7 +641,7 @@ int bfdd_bfd_profile_echo_mode_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 
 	echo = yang_dnode_get_bool(args->dnode, NULL);
-	bp = nb_running_get_entry(args->dnode, NULL, true);
+	bp = nb_running_entry(args->dnode);
 	if (bp->echo_mode == echo)
 		return NB_OK;
 
@@ -668,7 +668,7 @@ int bfdd_bfd_profile_desired_echo_transmission_interval_modify(
 		break;
 
 	case NB_EV_APPLY:
-		bp = nb_running_get_entry(args->dnode, NULL, true);
+		bp = nb_running_entry(args->dnode);
 		bp->min_echo_tx = yang_dnode_get_uint32(args->dnode, NULL);
 		bfd_profile_update(bp);
 		break;
@@ -698,7 +698,7 @@ int bfdd_bfd_profile_required_echo_receive_interval_modify(
 		break;
 
 	case NB_EV_APPLY:
-		bp = nb_running_get_entry(args->dnode, NULL, true);
+		bp = nb_running_entry(args->dnode);
 		bp->min_echo_rx = yang_dnode_get_uint32(args->dnode, NULL);
 		bfd_profile_update(bp);
 		break;
@@ -749,7 +749,7 @@ int bfdd_bfd_sessions_single_hop_profile_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	bs = nb_running_get_entry(args->dnode, NULL, true);
+	bs = nb_running_entry(args->dnode);
 	bfd_profile_apply(yang_dnode_get_string(args->dnode, NULL), bs);
 
 	return NB_OK;
@@ -763,7 +763,7 @@ int bfdd_bfd_sessions_single_hop_profile_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	bs = nb_running_get_entry(args->dnode, NULL, true);
+	bs = nb_running_entry(args->dnode);
 	bfd_profile_remove(bs);
 
 	return NB_OK;
@@ -787,7 +787,7 @@ int bfdd_bfd_sessions_single_hop_detection_multiplier_modify(
 		break;
 
 	case NB_EV_APPLY:
-		bs = nb_running_get_entry(args->dnode, NULL, true);
+		bs = nb_running_entry(args->dnode);
 		bs->peer_profile.detection_multiplier = detection_multiplier;
 		bfd_session_apply(bs);
 		break;
@@ -817,7 +817,7 @@ int bfdd_bfd_sessions_single_hop_desired_transmission_interval_modify(
 		break;
 
 	case NB_EV_APPLY:
-		bs = nb_running_get_entry(args->dnode, NULL, true);
+		bs = nb_running_entry(args->dnode);
 		bs->peer_profile.min_tx =
 			yang_dnode_get_uint32(args->dnode, NULL);
 		bfd_session_apply(bs);
@@ -848,7 +848,7 @@ int bfdd_bfd_sessions_single_hop_required_receive_interval_modify(
 		break;
 
 	case NB_EV_APPLY:
-		bs = nb_running_get_entry(args->dnode, NULL, true);
+		bs = nb_running_entry(args->dnode);
 		bs->peer_profile.min_rx =
 			yang_dnode_get_uint32(args->dnode, NULL);
 		bfd_session_apply(bs);
@@ -883,7 +883,7 @@ int bfdd_bfd_sessions_single_hop_administrative_down_modify(
 		return NB_OK;
 	}
 
-	bs = nb_running_get_entry(args->dnode, NULL, true);
+	bs = nb_running_entry(args->dnode);
 	bs->peer_profile.admin_shutdown = shutdown;
 	bfd_session_apply(bs);
 
@@ -913,7 +913,7 @@ int bfdd_bfd_sessions_single_hop_passive_mode_modify(
 
 	passive = yang_dnode_get_bool(args->dnode, NULL);
 
-	bs = nb_running_get_entry(args->dnode, NULL, true);
+	bs = nb_running_entry(args->dnode);
 	bs->peer_profile.passive = passive;
 	bfd_session_apply(bs);
 
@@ -945,7 +945,7 @@ int bfdd_bfd_sessions_single_hop_log_session_changes_modify(struct nb_cb_modify_
 
 	log_session_changes = yang_dnode_get_bool(args->dnode, NULL);
 
-	bs = nb_running_get_entry(args->dnode, NULL, true);
+	bs = nb_running_entry(args->dnode);
 	bs->peer_profile.log_session_changes = log_session_changes;
 	bfd_session_apply(bs);
 
@@ -979,7 +979,7 @@ int bfdd_bfd_sessions_bfd_mode_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 	}
 
-	bs = nb_running_get_entry(args->dnode, NULL, true);
+	bs = nb_running_entry(args->dnode);
 	bs->bfd_mode = bfd_mode;
 	bfd_session_apply(bs);
 
@@ -1012,7 +1012,7 @@ int bfdd_bfd_sessions_single_hop_echo_mode_modify(
 		return NB_OK;
 	}
 
-	bs = nb_running_get_entry(args->dnode, NULL, true);
+	bs = nb_running_entry(args->dnode);
 	bs->peer_profile.echo_mode = echo;
 	bfd_session_apply(bs);
 
@@ -1037,7 +1037,7 @@ int bfdd_bfd_sessions_single_hop_desired_echo_transmission_interval_modify(
 		break;
 
 	case NB_EV_APPLY:
-		bs = nb_running_get_entry(args->dnode, NULL, true);
+		bs = nb_running_entry(args->dnode);
 		bs->peer_profile.min_echo_tx =
 			yang_dnode_get_uint32(args->dnode, NULL);
 		bfd_session_apply(bs);
@@ -1069,7 +1069,7 @@ int bfdd_bfd_sessions_single_hop_required_echo_receive_interval_modify(
 		break;
 
 	case NB_EV_APPLY:
-		bs = nb_running_get_entry(args->dnode, NULL, true);
+		bs = nb_running_entry(args->dnode);
 		bs->peer_profile.min_echo_rx =
 			yang_dnode_get_uint32(args->dnode, NULL);
 		bfd_session_apply(bs);
@@ -1116,7 +1116,7 @@ int bfdd_bfd_sessions_multi_hop_minimum_ttl_modify(
 		return NB_OK;
 	}
 
-	bs = nb_running_get_entry(args->dnode, NULL, true);
+	bs = nb_running_entry(args->dnode);
 	bs->peer_profile.minimum_ttl = yang_dnode_get_uint8(args->dnode, NULL);
 	bfd_session_apply(bs);
 

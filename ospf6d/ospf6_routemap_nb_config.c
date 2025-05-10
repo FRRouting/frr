@@ -30,7 +30,7 @@ int lib_route_map_entry_set_action_rmap_set_action_metric_type_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		type = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -82,7 +82,7 @@ int lib_route_map_entry_set_action_rmap_set_action_ipv6_address_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		ipv6_addr = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
