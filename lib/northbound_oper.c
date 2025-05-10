@@ -289,9 +289,9 @@ static uint nb_op_get_position_predicate(struct nb_op_yield_state *ys, struct nb
 }
 
 /**
- * __move_back_to_next() - move back to the next lookup-next schema
+ * _move_back_to_next() - move back to the next lookup-next schema
  */
-static bool __move_back_to_next(struct nb_op_yield_state *ys, int i)
+static bool _move_back_to_next(struct nb_op_yield_state *ys, int i)
 {
 	struct nb_op_node_info *ni;
 	int j;
@@ -324,7 +324,7 @@ static bool __move_back_to_next(struct nb_op_yield_state *ys, int i)
 	ni->list_entry = NULL;
 
 	/*
-	 * Leave the empty-of-data node_info on top, __walk will deal with
+	 * Leave the empty-of-data node_info on top, _walk will deal with
 	 * this, by doing a lookup-next with the keys which we still have.
 	 */
 
@@ -375,7 +375,7 @@ static void nb_op_resume_data_tree(struct nb_op_yield_state *ys)
 			 * container with last lookup_next list node
 			 * (which may be this one) and get next.
 			 */
-			if (!__move_back_to_next(ys, i))
+			if (!_move_back_to_next(ys, i))
 				DEBUGD(&nb_dbg_events,
 				       "%s: Nothing to resume after delete during walk (yield)",
 				       __func__);
@@ -674,13 +674,13 @@ static enum nb_error nb_op_ys_init_node_infos(struct nb_op_yield_state *ys)
 /* End of init code */
 /* ================ */
 
-static const char *__module_name(const struct nb_node *nb_node)
+static const char *_module_name(const struct nb_node *nb_node)
 {
 	return nb_node->snode->module->name;
 }
 
-static get_tree_locked_cb __get_get_tree_funcs(const char *module_name,
-					       unlock_tree_cb *unlock_func_pp)
+static get_tree_locked_cb _get_get_tree_funcs(const char *module_name,
+					      unlock_tree_cb *unlock_func_pp)
 {
 	struct yang_module *module = yang_module_find(module_name);
 
@@ -691,15 +691,15 @@ static get_tree_locked_cb __get_get_tree_funcs(const char *module_name,
 	return module->frr_info->get_tree_locked;
 }
 
-static const struct lyd_node *__get_tree(struct nb_op_yield_state *ys,
-					 const struct nb_node *nb_node, const char *xpath)
+static const struct lyd_node *_get_tree(struct nb_op_yield_state *ys, const struct nb_node *nb_node,
+					const char *xpath)
 {
 	get_tree_locked_cb get_tree_cb;
 
 	if (ys->user_tree)
 		return ys->user_tree;
 
-	get_tree_cb = __get_get_tree_funcs(__module_name(nb_node), &ys->user_tree_unlock);
+	get_tree_cb = _get_get_tree_funcs(_module_name(nb_node), &ys->user_tree_unlock);
 	assert(get_tree_cb);
 
 	ys->user_tree = get_tree_cb(xpath, &ys->user_tree_lock);
@@ -714,7 +714,7 @@ static enum nb_error nb_op_libyang_cb_get(struct nb_op_yield_state *ys,
 					  const char *xpath)
 {
 	const struct lysc_node *snode = nb_node->snode;
-	const struct lyd_node *tree = __get_tree(ys, nb_node, xpath);
+	const struct lyd_node *tree = _get_tree(ys, nb_node, xpath);
 	struct lyd_node *node;
 	LY_ERR err;
 
@@ -735,7 +735,7 @@ static enum nb_error nb_op_libyang_cb_get_leaflist(struct nb_op_yield_state *ys,
 						   struct lyd_node *parent, const char *xpath)
 {
 	const struct lysc_node *snode = nb_node->snode;
-	const struct lyd_node *tree = __get_tree(ys, nb_node, xpath);
+	const struct lyd_node *tree = _get_tree(ys, nb_node, xpath);
 	struct ly_set *set = NULL;
 	LY_ERR err;
 	int ret = NB_OK;
@@ -759,10 +759,10 @@ static enum nb_error nb_op_libyang_cb_get_leaflist(struct nb_op_yield_state *ys,
 	return ret;
 }
 
-static const struct lyd_node *__get_node_other_tree(const struct lyd_node *tree,
-						    const struct lyd_node *parent_node,
-						    const struct lysc_node *schema,
-						    const struct yang_list_keys *keys)
+static const struct lyd_node *_get_node_other_tree(const struct lyd_node *tree,
+						   const struct lyd_node *parent_node,
+						   const struct lysc_node *schema,
+						   const struct yang_list_keys *keys)
 {
 	char xpath[XPATH_MAXLEN];
 	struct lyd_node *node;
@@ -825,21 +825,21 @@ static const void *nb_op_list_lookup_entry(struct nb_op_yield_state *ys, struct 
 		}
 		keys = &_keys;
 	}
-	tree = __get_tree(ys, nb_node, NULL);
+	tree = _get_tree(ys, nb_node, NULL);
 	parent_node = pni ? pni->inner : NULL;
-	return __get_node_other_tree(tree, parent_node, nb_node->snode, keys);
+	return _get_node_other_tree(tree, parent_node, nb_node->snode, keys);
 }
 
-static const void *__get_next(struct nb_op_yield_state *ys, struct nb_node *nb_node,
-			      const struct nb_op_node_info *pni, const void *list_entry)
+static const void *_get_next(struct nb_op_yield_state *ys, struct nb_node *nb_node,
+			     const struct nb_op_node_info *pni, const void *list_entry)
 {
 	const struct lysc_node *snode = nb_node->snode;
-	const struct lyd_node *tree = __get_tree(ys, nb_node, NULL);
+	const struct lyd_node *tree = _get_tree(ys, nb_node, NULL);
 	const struct lyd_node *parent_node = pni ? pni->inner : NULL;
 	const struct lyd_node *node = list_entry;
 
 	if (!node)
-		return __get_node_other_tree(tree, parent_node, snode, NULL);
+		return _get_node_other_tree(tree, parent_node, snode, NULL);
 
 	node = node->next;
 	LY_LIST_FOR (node, node) {
@@ -854,7 +854,7 @@ static const void *nb_op_list_get_next(struct nb_op_yield_state *ys, struct nb_n
 {
 	if (!CHECK_FLAG(nb_node->flags, F_NB_NODE_HAS_GET_TREE))
 		return nb_callback_get_next(nb_node, pni ? pni->list_entry : NULL, list_entry);
-	return __get_next(ys, nb_node, pni, list_entry);
+	return _get_next(ys, nb_node, pni, list_entry);
 }
 
 static enum nb_error nb_op_list_get_keys(struct nb_op_yield_state *ys, struct nb_node *nb_node,
@@ -1080,20 +1080,20 @@ static char *nb_op_get_child_path(const char *xpath_parent,
 	return xpath_child;
 }
 
-static bool __is_yielding_node(const struct lysc_node *snode)
+static bool _is_yielding_node(const struct lysc_node *snode)
 {
 	struct nb_node *nn = snode->priv;
 
 	return nn->cbs.lookup_next != NULL;
 }
 
-static const struct lysc_node *__sib_next(bool yn, const struct lysc_node *sib)
+static const struct lysc_node *_sib_next(bool yn, const struct lysc_node *sib)
 {
 	for (; sib; sib = sib->next) {
 		/* Always skip keys. */
 		if (lysc_is_key(sib))
 			continue;
-		if (yn == __is_yielding_node(sib))
+		if (yn == _is_yielding_node(sib))
 			return sib;
 	}
 	return NULL;
@@ -1110,7 +1110,7 @@ static const struct lysc_node *nb_op_sib_next(struct nb_op_yield_state *ys,
 					      const struct lysc_node *sib)
 {
 	struct lysc_node *parent = sib->parent;
-	bool yn = __is_yielding_node(sib);
+	bool yn = _is_yielding_node(sib);
 
 	/*
 	 * If the node info stack is shorter than the schema path then we are
@@ -1139,12 +1139,12 @@ static const struct lysc_node *nb_op_sib_next(struct nb_op_yield_state *ys,
 			return NULL;
 	}
 
-	sib = __sib_next(yn, sib->next);
+	sib = _sib_next(yn, sib->next);
 	if (sib)
 		return sib;
 	if (yn)
 		return NULL;
-	return __sib_next(true, lysc_node_child(parent));
+	return _sib_next(true, lysc_node_child(parent));
 }
 /*
  * sib_walk((struct lyd_node *)ni->inner->node.parent->parent->parent->parent->parent->parent->parent)
@@ -1194,8 +1194,8 @@ static const struct lysc_node *nb_op_sib_first(struct nb_op_yield_state *ys,
 
 	/* Return non-yielding node's first */
 	first_sib = sib;
-	if (__is_yielding_node(sib)) {
-		sib = __sib_next(false, sib);
+	if (_is_yielding_node(sib)) {
+		sib = _sib_next(false, sib);
 		if (sib)
 			return sib;
 	}
@@ -1234,7 +1234,7 @@ static const struct lysc_node *nb_op_sib_first(struct nb_op_yield_state *ys,
  *                             Schema Leaf C: 7,10,13
  *                             Schema Leaf D: 8,11,14
  */
-static enum nb_error __walk(struct nb_op_yield_state *ys, bool is_resume)
+static enum nb_error _walk(struct nb_op_yield_state *ys, bool is_resume)
 {
 	const struct lysc_node *walk_stem_tip = ys_get_walk_stem_tip(ys);
 	const struct lysc_node *sib;
@@ -1867,7 +1867,7 @@ static void nb_op_walk_continue(struct event *thread)
 	assert(darr_last(ys->node_infos) &&
 	       darr_last(ys->node_infos)->has_lookup_next);
 
-	ret = __walk(ys, true);
+	ret = _walk(ys, true);
 	if (ret == NB_YIELD) {
 		ret = nb_op_yield(ys);
 		if (ret == NB_OK)
@@ -1879,7 +1879,7 @@ finish:
 	nb_op_free_yield_state(ys, false);
 }
 
-static void __free_siblings(struct lyd_node *this)
+static void _free_siblings(struct lyd_node *this)
 {
 	struct lyd_node *next, *sib;
 	uint count = 0;
@@ -1922,13 +1922,13 @@ static void nb_op_trim_yield_state(struct nb_op_yield_state *ys)
 	assert(ni->has_lookup_next);
 
 	DEBUGD(&nb_dbg_events, "NB oper-state: deleting tree at level %d", i);
-	__free_siblings(ni->inner);
+	_free_siblings(ni->inner);
 	ys_free_inner(ys, ni);
 
 	while (--i > 0) {
 		DEBUGD(&nb_dbg_events,
 		       "NB oper-state: deleting siblings at level: %d", i);
-		__free_siblings(ys->node_infos[i].inner);
+		_free_siblings(ys->node_infos[i].inner);
 	}
 	DEBUGD(&nb_dbg_events, "NB oper-state: stop trimming: new top: %d",
 	       (int)darr_lasti(ys->node_infos));
@@ -2119,7 +2119,7 @@ static enum nb_error nb_op_walk_start(struct nb_op_yield_state *ys)
 	if (ret != NB_OK)
 		return ret;
 
-	return __walk(ys, false);
+	return _walk(ys, false);
 }
 
 bool nb_oper_is_yang_lib_query(const char *xpath)
@@ -2217,7 +2217,7 @@ enum nb_error nb_oper_iterate_legacy(const char *xpath,
 	return ret;
 }
 
-static const char *__adjust_ptr(struct lysc_node_leaf *lsnode, const char *valuep, size_t *size)
+static const char *_adjust_ptr(struct lysc_node_leaf *lsnode, const char *valuep, size_t *size)
 {
 	switch (lsnode->type->basetype) {
 	case LY_TYPE_INT8:
@@ -2273,7 +2273,7 @@ enum nb_error nb_oper_uint64_get(const struct nb_node *nb_node, const void *pare
 	const char *valuep;
 	size_t size;
 
-	valuep = __adjust_ptr(lsnode, (const char *)&ubigval, &size);
+	valuep = _adjust_ptr(lsnode, (const char *)&ubigval, &size);
 	if (lyd_new_term_bin(parent, snode->module, snode->name, valuep, size, LYD_NEW_PATH_UPDATE,
 			     NULL))
 		return NB_ERR_RESOURCE;
@@ -2291,7 +2291,7 @@ enum nb_error nb_oper_uint32_get(const struct nb_node *nb_node, const void *pare
 	const char *valuep;
 	size_t size;
 
-	valuep = __adjust_ptr(lsnode, (const char *)&ubigval, &size);
+	valuep = _adjust_ptr(lsnode, (const char *)&ubigval, &size);
 	if (lyd_new_term_bin(parent, snode->module, snode->name, valuep, size, LYD_NEW_PATH_UPDATE,
 			     NULL))
 		return NB_ERR_RESOURCE;

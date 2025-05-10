@@ -50,10 +50,9 @@ struct nb_yang_xpath {
 	} tags[NB_MAX_NUM_XPATH_TAGS];
 };
 
-#define NB_YANG_XPATH_KEY(__xpath, __indx1, __indx2)                           \
-	((__xpath->num_tags > __indx1) &&                                      \
-			 (__xpath->tags[__indx1].num_keys > __indx2)           \
-		 ? &__xpath->tags[__indx1].keys[__indx2]                       \
+#define NB_YANG_XPATH_KEY(_xpath, _indx1, _indx2)                                                  \
+	(((_xpath)->num_tags > (_indx1)) && ((_xpath)->tags[(_indx1)].num_keys > (_indx2))         \
+		 ? &(_xpath)->tags[(_indx1)].keys[(_indx2)]                                        \
 		 : NULL)
 
 /* Northbound events. */
