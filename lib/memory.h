@@ -152,8 +152,7 @@ extern void *qcalloc(struct memtype *mt, size_t size)
 	__attribute__((malloc, _ALLOC_SIZE(2), nonnull(1) _RET_NONNULL));
 extern void *qrealloc(struct memtype *mt, void *ptr, size_t size)
 	__attribute__((_ALLOC_SIZE(3), nonnull(1) _RET_NONNULL));
-extern void *qstrdup(struct memtype *mt, const char *str)
-	__attribute__((malloc, nonnull(1) _RET_NONNULL));
+extern void *qstrdup(struct memtype *mt, const char *str);
 extern void qcountfree(struct memtype *mt, void *ptr)
 	__attribute__((nonnull(1)));
 extern void qfree(struct memtype *mt, void *ptr) __attribute__((nonnull(1)));
