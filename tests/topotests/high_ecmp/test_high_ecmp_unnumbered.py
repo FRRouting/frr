@@ -105,6 +105,103 @@ def teardown_module(_mod):
     tgen.stop_topology()
 
 
+def test_v6_rtadv_():
+    failures = 0
+    tgen = get_topogen()
+    print("Shutdown r1-eth200")
+    tgen.gears["r1"].vtysh_cmd(
+        """
+    configure terminal
+      interface r1-eth200
+        shutdown
+    """
+    )
+
+    # Take two snap shots for RA status, it should not change
+    # Give enough time, RA adv timer to expire
+    sleep(2)
+    rtadv_output1 = tgen.gears["r1"].vtysh_cmd("show interface r1-eth200 json")
+    sleep(2)
+    rtadv_output2 = tgen.gears["r1"].vtysh_cmd("show interface r1-eth200 json")
+    if rtadv_output1 != rtadv_output2:
+        sys.stderr.write(
+            f"RA state should not have changed: got {rtadv_output1}, expected {rtadv_output2}\n"
+        )
+        failures += 1
+
+    logger.info("Do no shutdown for r1-eth200")
+    tgen.gears["r1"].vtysh_cmd(
+        """
+    configure terminal
+      interface r1-eth200
+        no shutdown
+    """
+    )
+
+    sleep(2)
+    rtadv_output1 = tgen.gears["r1"].vtysh_cmd("show interface r1-eth200 json")
+    sleep(2)
+    rtadv_output2 = tgen.gears["r1"].vtysh_cmd("show interface r1-eth200 json")
+    if rtadv_output1 == rtadv_output2:
+        sys.stderr.write(
+            f"RA state didn't change: got {rtadv_output1}, previous {rtadv_output2}\n"
+        )
+        failures += 1
+
+    logger.info("Remove r1-eth200")
+    existing_config = tgen.gears["r1"].vtysh_cmd("show interface r1-eth200")
+    tgen.gears["r1"].cmd(
+        """
+    sudo ip link set dev r1-eth200 down
+    """
+    )
+
+    sleep(2)
+    rtadv_output1 = tgen.gears["r1"].vtysh_cmd("show interface r1-eth200 json")
+    pattern1 = '"administrativeStatus":"down"'
+
+    if pattern1 not in rtadv_output1:
+        sys.stderr.write(f"Interface state not down yet:: got {rtadv_output1}\n")
+        failures += 1
+
+    # Parse the JSON string into a Python dictionary
+    rtadv_output1 = json.loads(rtadv_output1)
+    sent_count1 = rtadv_output1.get("r1-eth200", {}).get("ndRouterAdvertisementsSent")
+
+    if sent_count1 is not None:
+        # Wait 2 seconds
+        sleep(2)
+
+        # Get second output
+        rtadv_output2 = tgen.gears["r1"].vtysh_cmd("show interface r1-eth200 json")
+
+        rtadv_output2 = json.loads(rtadv_output2)
+        sent_count2 = rtadv_output2.get("r1-eth200", {}).get(
+            "ndRouterAdvertisementsSent"
+        )
+
+        # Verify counts are the same
+        if sent_count1 is not None and sent_count2 is not None:
+            if sent_count1 != sent_count2:
+                sys.stderr.write(
+                    f"RA count changed from {sent_count1} to {sent_count2} within 2 seconds\n"
+                )
+                failures += 1
+
+    tgen.gears["r1"].cmd(
+        """
+    sudo ip link set dev r1-eth200 up
+    """
+    )
+
+    pattern1 = '"administrativeStatus":"up"'
+    rtadv_output1 = tgen.gears["r1"].vtysh_cmd("show interface r1-eth200 json")
+    if pattern1 not in rtadv_output1:
+        sys.stderr.write(f"Interface state not up yet:: got {rtadv_output1}\n")
+        failures += 1
+    assert failures == 0, f"Test failed with {failures} failures"
+
+
 def test_bgp_route_cleanup():
     failures = 0
     net = get_topogen().net
