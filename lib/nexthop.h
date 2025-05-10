@@ -238,6 +238,7 @@ struct nexthop *nexthop_from_blackhole(enum blackhole_type bh_type,
 uint32_t nexthop_hash(const struct nexthop *nexthop);
 
 extern bool nexthop_same(const struct nexthop *nh1, const struct nexthop *nh2);
+extern bool nexthop_same_no_ifindex(const struct nexthop *nh1, const struct nexthop *nh2);
 extern bool nexthop_same_no_labels(const struct nexthop *nh1,
 				   const struct nexthop *nh2);
 extern int nexthop_cmp(const struct nexthop *nh1, const struct nexthop *nh2);

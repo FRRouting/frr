@@ -145,7 +145,7 @@ static int _nexthop_source_cmp(const struct nexthop *nh1,
 }
 
 static int _nexthop_cmp_no_labels(const struct nexthop *next1,
-				  const struct nexthop *next2, bool use_weight)
+				  const struct nexthop *next2, bool use_weight, bool use_ifindex)
 {
 	int ret = 0;
 
@@ -181,6 +181,8 @@ static int _nexthop_cmp_no_labels(const struct nexthop *next1,
 		ret = _nexthop_gateway_cmp(next1, next2);
 		if (ret != 0)
 			return ret;
+		if (!use_ifindex)
+			break;
 		fallthrough;
 	case NEXTHOP_TYPE_IFINDEX:
 		if (next1->ifindex < next2->ifindex)
@@ -236,11 +238,11 @@ done:
 }
 
 static int nexthop_cmp_internal(const struct nexthop *next1,
-				const struct nexthop *next2, bool use_weight)
+				const struct nexthop *next2, bool use_weight, bool use_ifindex)
 {
 	int ret = 0;
 
-	ret = _nexthop_cmp_no_labels(next1, next2, use_weight);
+	ret = _nexthop_cmp_no_labels(next1, next2, use_weight, use_ifindex);
 	if (ret != 0)
 		return ret;
 
@@ -255,13 +257,13 @@ static int nexthop_cmp_internal(const struct nexthop *next1,
 
 int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
 {
-	return nexthop_cmp_internal(next1, next2, true);
+	return nexthop_cmp_internal(next1, next2, true, true);
 }
 
 int nexthop_cmp_no_weight(const struct nexthop *next1,
 			  const struct nexthop *next2)
 {
-	return nexthop_cmp_internal(next1, next2, false);
+	return nexthop_cmp_internal(next1, next2, false, true);
 }
 
 /*
@@ -432,6 +434,20 @@ void nexthops_free(struct nexthop *nexthop)
 	}
 }
 
+bool nexthop_same_no_ifindex(const struct nexthop *nh1, const struct nexthop *nh2)
+{
+	if (nh1 && !nh2)
+		return false;
+
+	if (!nh1 && nh2)
+		return false;
+
+	if (nh1 == nh2)
+		return true;
+
+	return nexthop_cmp_internal(nh1, nh2, true, false);
+}
+
 bool nexthop_same(const struct nexthop *nh1, const struct nexthop *nh2)
 {
 	if (nh1 && !nh2)
@@ -461,7 +477,7 @@ bool nexthop_same_no_labels(const struct nexthop *nh1,
 	if (nh1 == nh2)
 		return true;
 
-	if (_nexthop_cmp_no_labels(nh1, nh2, true) != 0)
+	if (_nexthop_cmp_no_labels(nh1, nh2, true, true) != 0)
 		return false;
 
 	return true;
