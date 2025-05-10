@@ -529,6 +529,7 @@ static void _display_peer_counter(struct vty *vty, struct bfd_session *bs)
 		zlog_debug("%s: failed to update BFD session counters (%s)",
 			   __func__, bs_to_string(bs));
 
+	vty_out(vty, "\t\tID: %u\n", bs->discrs.my_discr);
 	vty_out(vty, "\t\tControl packet input: %" PRIu64 " packets\n",
 		bs->stats.rx_ctrl_pkt);
 	vty_out(vty, "\t\tControl packet output: %" PRIu64 " packets\n",
@@ -556,6 +557,7 @@ static struct json_object *__display_peer_counters_json(struct bfd_session *bs)
 		zlog_debug("%s: failed to update BFD session counters (%s)",
 			   __func__, bs_to_string(bs));
 
+	json_object_int_add(jo, "id", bs->discrs.my_discr);
 	json_object_int_add(jo, "control-packet-input", bs->stats.rx_ctrl_pkt);
 	json_object_int_add(jo, "control-packet-output", bs->stats.tx_ctrl_pkt);
 	json_object_int_add(jo, "echo-packet-input", bs->stats.rx_echo_pkt);
