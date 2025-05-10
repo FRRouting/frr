@@ -1074,7 +1074,7 @@ extern void static_zebra_request_srv6_sid(struct static_srv6_sid *sid)
 
 	/* Request SRv6 SID from SID Manager */
 	ret = srv6_manager_get_sid(static_zclient, &ctx, &sid->addr.prefix, sid->locator->name,
-				   NULL);
+				   NULL, false);
 	if (ret < 0)
 		zlog_warn("%s: error getting SRv6 SID!", __func__);
 }
@@ -1165,7 +1165,7 @@ extern void static_zebra_release_srv6_sid(struct static_srv6_sid *sid)
 	}
 
 	/* remove the SRv6 SID from the zebra RIB */
-	ret = srv6_manager_release_sid(static_zclient, &ctx, sid->locator->name);
+	ret = srv6_manager_release_sid(static_zclient, &ctx, sid->locator->name, false);
 	if (ret == ZCLIENT_SEND_FAILURE)
 		flog_err(EC_LIB_ZAPI_SOCKET, "zclient_send_get_srv6_sid() delete failed: %s",
 			 safe_strerror(errno));
