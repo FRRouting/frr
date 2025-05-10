@@ -4084,11 +4084,15 @@ DEFUN_HIDDEN(end_config, end_config_cmd, "XFRR_end_configuration",
 {
 	unsigned int i;
 	char line[] = "XFRR_end_configuration";
+	int ret, err_gathered = CMD_SUCCESS;
 
-	for (i = 0; i < array_size(vtysh_client); i++)
-		vtysh_client_execute(&vtysh_client[i], line);
+	for (i = 0; i < array_size(vtysh_client); i++) {
+		ret = vtysh_client_execute(&vtysh_client[i], line);
+		if (ret != CMD_SUCCESS)
+			err_gathered = ret;
+	}
 
-	return CMD_SUCCESS;
+	return err_gathered;
 }
 
 static bool want_config_integrated(void)

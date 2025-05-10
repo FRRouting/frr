@@ -767,12 +767,6 @@ def test_verify_bgp_local_as_GR_EBGP_p0(request):
             }
         }
 
-        logger.info("Configure static routes")
-        result = create_static_routes(tgen, input_dict_static_route)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result
-        )
-
         step("configure redistribute static in Router BGP in R1")
         input_dict_static_route_redist = {
             "r1": {
