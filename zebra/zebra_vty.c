@@ -1749,6 +1749,7 @@ DEFPY (show_route_detail,
            [{\
             mrib$mrib\
             |vrf <NAME$vrf_name|all$vrf_all>\
+			|table <(1-4294967295)$table_id>\
            }]\
            <\
             A.B.C.D$address\
@@ -1758,6 +1759,7 @@ DEFPY (show_route_detail,
            [{\
             mrib$mrib\
             |vrf <NAME$vrf_name|all$vrf_all>\
+			|table <(1-4294967295)$table_id>\
            }]\
            <\
             X:X::X:X$address\
@@ -1771,6 +1773,8 @@ DEFPY (show_route_detail,
        "IP routing table\n"
        "Multicast SAFI table\n"
        VRF_FULL_CMD_HELP_STR
+	   "Table to display\n"
+	   "The table number to display\n"
        "Network in the IP routing table to display\n"
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        IP6_STR
@@ -1778,6 +1782,8 @@ DEFPY (show_route_detail,
        "IPv6 routing table\n"
        "Multicast SAFI table\n"
        VRF_FULL_CMD_HELP_STR
+	   "Table to display\n"
+	   "The table number to display\n"
        "IPv6 Address\n"
        "IPv6 prefix\n"
        JSON_STR
@@ -1866,7 +1872,11 @@ DEFPY (show_route_detail,
 		if (vrf_name)
 			VRF_GET_ID(vrf_id, vrf_name, false);
 
-		table = zebra_vrf_table(afi, safi, vrf_id);
+		if (table_id)
+			table = zebra_vrf_lookup_table_with_table_id(afi, safi, vrf_id, table_id);
+		else
+			table = zebra_vrf_table(afi, safi, vrf_id);
+
 		if (!table)
 			return CMD_SUCCESS;
 
