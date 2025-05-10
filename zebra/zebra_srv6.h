@@ -232,13 +232,13 @@ DECLARE_HOOK(srv6_manager_release_chunk,
 	     (client, locator_name, vrf_id));
 
 DECLARE_HOOK(srv6_manager_get_sid,
-	     (struct zebra_srv6_sid **sid, struct zserv *client,
-	      struct srv6_sid_ctx *ctx, struct in6_addr *sid_value,
-	      const char *locator_name),
-	     (sid, client, ctx, sid_value, locator_name));
+	     (struct zebra_srv6_sid **sid, struct zserv *client, struct srv6_sid_ctx *ctx,
+	      struct in6_addr *sid_value, const char *locator_name, bool is_localonly),
+	     (sid, client, ctx, sid_value, locator_name, is_localonly));
 DECLARE_HOOK(srv6_manager_release_sid,
-	     (struct zserv * client, struct srv6_sid_ctx *ctx, const char *locator_name),
-	     (client, ctx, locator_name));
+	     (struct zserv *client, struct srv6_sid_ctx *ctx, const char *locator_name,
+	      bool is_localonly),
+	     (client, ctx, locator_name, is_localonly));
 DECLARE_HOOK(srv6_manager_get_locator,
 	     (struct srv6_locator **locator, struct zserv *client,
 	      const char *locator_name),
@@ -298,22 +298,20 @@ zebra_srv6_sid_alloc(struct zebra_srv6_sid_ctx *ctx, struct in6_addr *sid_value,
 extern void zebra_srv6_sid_free(struct zebra_srv6_sid *sid);
 extern void delete_zebra_srv6_sid(void *val);
 
-extern void srv6_manager_get_sid_call(struct zebra_srv6_sid **sid,
-				      struct zserv *client,
-				      struct srv6_sid_ctx *ctx,
-				      struct in6_addr *sid_value,
-				      const char *locator_name);
+extern void srv6_manager_get_sid_call(struct zebra_srv6_sid **sid, struct zserv *client,
+				      struct srv6_sid_ctx *ctx, struct in6_addr *sid_value,
+				      const char *locator_name, bool is_localonly);
 extern void srv6_manager_release_sid_call(struct zserv *client, struct srv6_sid_ctx *ctx,
-					  const char *locator_name);
+					  const char *locator_name, bool is_localonly);
 
 extern void srv6_manager_get_locator_call(struct srv6_locator **locator,
 					  struct zserv *client,
 					  const char *locator_name);
 
 extern int get_srv6_sid(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx,
-			struct in6_addr *sid_value, const char *locator_name);
+			struct in6_addr *sid_value, const char *locator_name, bool is_localonly);
 extern int release_srv6_sid(struct zserv *client, struct zebra_srv6_sid_ctx *zctx,
-			    struct srv6_locator *locator);
+			    struct srv6_locator *locator, bool is_localonly);
 extern int release_daemon_srv6_sids(struct zserv *client);
 extern int srv6_manager_get_sid_response(struct zebra_srv6_sid *sid,
 					 struct zserv *client);
