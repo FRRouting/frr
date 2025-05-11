@@ -385,11 +385,11 @@ class Xrelfo(dict):
             endian = ">" if edf._elffile.bigendian else "<"
             mem = edf._elffile[note]
             if edf._elffile.elfclass == 64:
-                start, end = struct.unpack(endian + "QQ", mem)
+                start, end = struct.unpack(endian + "qq", mem)
                 start += note.start
                 end += note.start + 8
             else:
-                start, end = struct.unpack(endian + "II", mem)
+                start, end = struct.unpack(endian + "ii", mem)
                 start += note.start
                 end += note.start + 4
 
