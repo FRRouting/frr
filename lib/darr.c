@@ -54,7 +54,7 @@ static size_t darr_size(uint count, size_t esize)
 	return count * esize + sizeof(struct darr_metadata);
 }
 
-char *__darr_in_vsprintf(char **sp, bool concat, const char *fmt, va_list ap)
+char *_darr__in_vsprintf(char **sp, bool concat, const char *fmt, va_list ap)
 {
 	size_t inlen = concat ? darr_strlen(*sp) : 0;
 	size_t capcount = strlen(fmt) + MIN(inlen + 64, 128);
@@ -84,18 +84,18 @@ again:
 	return *sp;
 }
 
-char *__darr_in_sprintf(char **sp, bool concat, const char *fmt, ...)
+char *_darr__in_sprintf(char **sp, bool concat, const char *fmt, ...)
 {
 	va_list ap;
 
 	va_start(ap, fmt);
-	(void)__darr_in_vsprintf(sp, concat, fmt, ap);
+	(void)_darr__in_vsprintf(sp, concat, fmt, ap);
 	va_end(ap);
 	return *sp;
 }
 
 
-void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mtype)
+void *_darr__resize(void *a, uint count, size_t esize, struct memtype *mtype)
 {
 	uint ncount = darr_next_count(count, esize);
 	size_t osz = (a == NULL) ? 0 : darr_size(darr_cap(a), esize);
@@ -115,14 +115,13 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mtype)
 }
 
 
-void *__darr_insert_n(void *a, uint at, uint count, size_t esize, bool zero,
-		      struct memtype *mtype)
+void *_darr__insert_n(void *a, uint at, uint count, size_t esize, bool zero, struct memtype *mtype)
 {
 	struct darr_metadata *dm;
 	uint olen, nlen;
 
 	if (!a)
-		a = __darr_resize(NULL, at + count, esize, mtype);
+		a = _darr__resize(NULL, at + count, esize, mtype);
 	dm = (struct darr_metadata *)a - 1;
 	olen = dm->len;
 
@@ -137,7 +136,7 @@ void *__darr_insert_n(void *a, uint at, uint count, size_t esize, bool zero,
 		nlen = olen + count;
 
 	if (nlen > dm->cap) {
-		a = __darr_resize(a, nlen, esize, mtype);
+		a = _darr__resize(a, nlen, esize, mtype);
 		dm = (struct darr_metadata *)a - 1;
 	}
 

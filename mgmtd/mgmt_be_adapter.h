@@ -113,21 +113,19 @@ DECLARE_LIST(mgmt_be_adapters, struct mgmt_be_client_adapter, list_linkage);
 #define IS_IDBIT_SET(v, id)   (!IS_IDBIT_UNSET(v, id))
 #define IS_IDBIT_UNSET(v, id) (!((v) & (1ull << (id))))
 
-#define __GET_NEXT_SET(id, bits)                                               \
-	({                                                                     \
-		enum mgmt_be_client_id __id = (id);                            \
-									       \
-		for (; __id < MGMTD_BE_CLIENT_ID_MAX &&                        \
-		       IS_IDBIT_UNSET(bits, __id);                             \
-		     __id++)                                                   \
-			;                                                      \
-		__id;                                                          \
+#define _GET_NEXT_SET(id, bits)                                                                    \
+	({                                                                                         \
+		enum mgmt_be_client_id _gns_id = (id);                                             \
+                                                                                                   \
+		for (; _gns_id < MGMTD_BE_CLIENT_ID_MAX && IS_IDBIT_UNSET(bits, _gns_id);          \
+		     _gns_id++)                                                                    \
+			;                                                                          \
+		_gns_id;                                                                           \
 	})
 
-#define FOREACH_BE_CLIENT_BITS(id, bits)                                       \
-	for ((id) = __GET_NEXT_SET(MGMTD_BE_CLIENT_ID_MIN, bits);              \
-	     (id) < MGMTD_BE_CLIENT_ID_MAX;                                    \
-	     (id) = __GET_NEXT_SET((id) + 1, bits))
+#define FOREACH_BE_CLIENT_BITS(id, bits)                                                           \
+	for ((id) = _GET_NEXT_SET(MGMTD_BE_CLIENT_ID_MIN, bits); (id) < MGMTD_BE_CLIENT_ID_MAX;    \
+	     (id) = _GET_NEXT_SET((id) + 1, bits))
 
 /* ---------- */
 /* Prototypes */
