@@ -95,22 +95,16 @@ struct darr_metadata {
 	struct memtype *mtype;
 };
 
-void *__darr_insert_n(void *a, uint at, uint count, size_t esize, bool zero,
-		      struct memtype *mt);
-char *__darr_in_sprintf(char **sp, bool concat, const char *fmt, ...)
-	PRINTFRR(3, 4);
-char *__darr_in_vsprintf(char **sp, bool concat, const char *fmt, va_list ap)
-	PRINTFRR(3, 0);
-void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
-
+void *_darr__insert_n(void *a, uint at, uint count, size_t esize, bool zero, struct memtype *mt);
+char *_darr__in_sprintf(char **sp, bool concat, const char *fmt, ...) PRINTFRR(3, 4);
+char *_darr__in_vsprintf(char **sp, bool concat, const char *fmt, va_list ap) PRINTFRR(3, 0);
+void *_darr__resize(void *a, uint count, size_t esize, struct memtype *mt);
 
 #define _darr_esize(A) sizeof((A)[0])
-#define darr_esize(A)  sizeof((A)[0])
 #define _darr_len(A)   _darr_meta(A)->len
 #define _darr_meta(A)  (((struct darr_metadata *)(A)) - 1)
-#define _darr_resize_mt(A, C, MT)                                              \
-	({ (A) = __darr_resize(A, C, _darr_esize(A), MT); })
-#define _darr_resize(A, C) _darr_resize_mt(A, C, MTYPE_DARR)
+#define _darr_resize_mt(A, C, MT) ({ (A) = _darr__resize(A, C, _darr_esize(A), MT); })
+#define _darr_resize(A, C)	  _darr_resize_mt(A, C, MTYPE_DARR)
 
 /* Get the current capacity of the array */
 #define darr_cap(A) (((A) == NULL) ? 0 : _darr_meta(A)->cap)
@@ -214,13 +208,13 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
  *	A: The dynamic array, can be NULL.
  */
 
-#define darr_free(A)                                                           \
-	do {                                                                   \
-		if ((A)) {                                                     \
-			struct darr_metadata *__meta = _darr_meta(A);          \
-			XFREE(__meta->mtype, __meta);                          \
-			(A) = NULL;                                            \
-		}                                                              \
+#define darr_free(A)                                                                               \
+	do {                                                                                       \
+		if ((A)) {                                                                         \
+			struct darr_metadata *_d__meta = _darr_meta(A);                            \
+			XFREE(_d__meta->mtype, _d__meta);                                          \
+			(A) = NULL;                                                                \
+		}                                                                                  \
 	} while (0)
 
 /**
@@ -230,15 +224,14 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
  * Args:
  *	A: The dynamic array, can be NULL.
  */
-#define darr_free_free(A)                                                      \
-	do {                                                                   \
-		for (uint __i = 0; __i < darr_len(A); __i++)                   \
-			if ((A)[__i]) {                                        \
-				struct darr_metadata *__meta =                 \
-					_darr_meta((A)[__i]);                  \
-				XFREE(__meta->mtype, __meta);                  \
-			}                                                      \
-		darr_free(A);                                                  \
+#define darr_free_free(A)                                                                          \
+	do {                                                                                       \
+		for (uint _d__i = 0; _d__i < darr_len(A); _d__i++)                                 \
+			if ((A)[_d__i]) {                                                          \
+				struct darr_metadata *_d__meta = _darr_meta((A)[_d__i]);           \
+				XFREE(_d__meta->mtype, _d__meta);                                  \
+			}                                                                          \
+		darr_free(A);                                                                      \
 	} while (0)
 
 /**
@@ -250,12 +243,12 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
  *	F: The function to call for each element.
  */
 
-#define darr_free_func(A, F)                                                   \
-	do {                                                                   \
-		for (uint __i = 0; __i < darr_len(A); __i++) {                 \
-			F((A)[__i]);                                           \
-		}                                                              \
-		darr_free(A);                                                  \
+#define darr_free_func(A, F)                                                                       \
+	do {                                                                                       \
+		for (uint _d__i = 0; _d__i < darr_len(A); _d__i++) {                               \
+			F((A)[_d__i]);                                                             \
+		}                                                                                  \
+		darr_free(A);                                                                      \
 	} while (0)
 
 /**
@@ -274,13 +267,12 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
  * Return:
  *      A pointer to the (possibly moved) array.
  */
-#define darr_ensure_avail_mt(A, S, MT)                                         \
-	({                                                                     \
-		ssize_t __dea_need = (ssize_t)(S) -                            \
-				     (ssize_t)(darr_cap(A) - darr_len(A));     \
-		if (__dea_need > 0)                                            \
-			_darr_resize_mt((A), darr_cap(A) + __dea_need, MT);    \
-		(A);                                                           \
+#define darr_ensure_avail_mt(A, S, MT)                                                             \
+	({                                                                                         \
+		ssize_t _dea_need = (ssize_t)(S) - (ssize_t)(darr_cap(A) - darr_len(A));           \
+		if (_dea_need > 0)                                                                 \
+			_darr_resize_mt((A), darr_cap(A) + _dea_need, MT);                         \
+		(A);                                                                               \
 	})
 #define darr_ensure_avail(A, S) darr_ensure_avail_mt(A, S, MTYPE_DARR)
 
@@ -302,13 +294,13 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
  * Return:
  *      A pointer to the (possibly moved) array.
  */
-#define darr_ensure_cap_mt(A, C, MT)                                           \
-	({                                                                     \
-		/* Cast to avoid warning when C == 0 */                        \
-		uint __dec_c = (C) > 0 ? (C) : 1;                              \
-		if ((size_t)darr_cap(A) < __dec_c)                             \
-			_darr_resize_mt((A), __dec_c, MT);                     \
-		(A);                                                           \
+#define darr_ensure_cap_mt(A, C, MT)                                                               \
+	({                                                                                         \
+		/* Cast to avoid warning when C == 0 */                                            \
+		uint _dec_c = (C) > 0 ? (C) : 1;                                                   \
+		if ((size_t)darr_cap(A) < _dec_c)                                                  \
+			_darr_resize_mt((A), _dec_c, MT);                                          \
+		(A);                                                                               \
 	})
 #define darr_ensure_cap(A, C) darr_ensure_cap_mt(A, C, MTYPE_DARR)
 
@@ -330,16 +322,16 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
  * Return:
  *      A pointer to the (I)th element in `A`
  */
-#define darr_ensure_i_mt(A, I, MT)                                             \
-	({                                                                     \
-		assert((int)(I) >= 0 && (uint)(I) <= INT_MAX);                 \
-		int _i = (int)(I);                                             \
-		if (_i > darr_maxi(A))                                         \
-			_darr_resize_mt((A), _i + 1, MT);                      \
-		assert((A) != NULL);                                           \
-		if ((uint)_i + 1 > _darr_len(A))                               \
-			_darr_len(A) = _i + 1;                                 \
-		&(A)[_i];                                                      \
+#define darr_ensure_i_mt(A, I, MT)                                                                 \
+	({                                                                                         \
+		assert((int)(I) >= 0 && (uint)(I) <= INT_MAX);                                     \
+		int _d__i = (int)(I);                                                              \
+		if (_d__i > darr_maxi(A))                                                          \
+			_darr_resize_mt((A), _d__i + 1, MT);                                       \
+		assert((A) != NULL);                                                               \
+		if ((uint)_d__i + 1 > _darr_len(A))                                                \
+			_darr_len(A) = _d__i + 1;                                                  \
+		&(A)[_d__i];                                                                       \
 	})
 #define darr_ensure_i(A, I) darr_ensure_i_mt(A, I, MTYPE_DARR)
 
@@ -347,7 +339,7 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
 	({                                                                                         \
 		uint _ins_i = (I);                                                                 \
 		uint _ins_n = (N);                                                                 \
-		(A) = __darr_insert_n(A, _ins_i, _ins_n, _darr_esize(A), Z, MT);                   \
+		(A) = _darr__insert_n(A, _ins_i, _ins_n, _darr_esize(A), Z, MT);                   \
 		&(A)[_ins_i];                                                                      \
 	})
 /**
@@ -405,19 +397,19 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
  * Args:
  *	A: The dynamic array, can be NULL.
  */
-#define darr_remove_n(A, I, N)                                                 \
-	do {                                                                   \
-		uint __i = (I);                                                \
-		uint __n = (N);                                                \
-		uint __len = darr_len(A);                                      \
-		if (!__len)                                                    \
-			break;                                                 \
-		else if (__i + __n < __len) {                                  \
-			memmove(&(A)[__i], &(A)[__i + __n],                    \
-				_darr_esize(A) * (__len - (__i + __n)));       \
-			_darr_len(A) = __len - __n;                            \
-		} else                                                         \
-			_darr_len(A) = __i;                                    \
+#define darr_remove_n(A, I, N)                                                                     \
+	do {                                                                                       \
+		uint _d__i = (I);                                                                  \
+		uint _d__n = (N);                                                                  \
+		uint _d__len = darr_len(A);                                                        \
+		if (!_d__len)                                                                      \
+			break;                                                                     \
+		else if (_d__i + _d__n < _d__len) {                                                \
+			memmove(&(A)[_d__i], &(A)[_d__i + _d__n],                                  \
+				_darr_esize(A) * (_d__len - (_d__i + _d__n)));                     \
+			_darr_len(A) = _d__len - _d__n;                                            \
+		} else                                                                             \
+			_darr_len(A) = _d__i;                                                      \
 	} while (0)
 
 /**
@@ -432,14 +424,14 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
 #define darr_remove(A, I) darr_remove_n(A, I, 1)
 
 
-#define _darr_append_n(A, N, Z, MT)                                            \
-	({                                                                     \
-		uint __da_len = darr_len(A);                                   \
-		darr_ensure_cap_mt(A, __da_len + (N), MT);                     \
-		_darr_len(A) = __da_len + (N);                                 \
-		if (Z)                                                         \
-			memset(&(A)[__da_len], 0, (N)*_darr_esize(A));         \
-		&(A)[__da_len];                                                \
+#define _darr_append_n(A, N, Z, MT)                                                                \
+	({                                                                                         \
+		uint _da_len = darr_len(A);                                                        \
+		darr_ensure_cap_mt(A, _da_len + (N), MT);                                          \
+		_darr_len(A) = _da_len + (N);                                                      \
+		if (Z)                                                                             \
+			memset(&(A)[_da_len], 0, (N)*_darr_esize(A));                              \
+		&(A)[_da_len];                                                                     \
 	})
 /**
  * Extending the array's length by N.
@@ -536,13 +528,13 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
  * Return:
  *      The element just popped.
  */
-#define darr_pop(A)                                                            \
-	({                                                                     \
-		uint __poplen = _darr_len(A);                                  \
-		assert(__poplen);                                              \
-		darr_remove(A, __poplen - 1);                                  \
-		/* count on fact that we don't resize */                       \
-		(A)[__poplen - 1];                                             \
+#define darr_pop(A)                                                                                \
+	({                                                                                         \
+		uint _d__poplen = _darr_len(A);                                                    \
+		assert(_d__poplen);                                                                \
+		darr_remove(A, _d__poplen - 1);                                                    \
+		/* count on fact that we don't resize */                                           \
+		(A)[_d__poplen - 1];                                                               \
 	})
 
 /**
@@ -568,10 +560,10 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
  *      A pointer to the last element of the array or NULL if the array is
  *      empty.
  */
-#define darr_last(A)                                                           \
-	({                                                                     \
-		uint __len = darr_len(A);                                      \
-		((__len > 0) ? &(A)[__len - 1] : NULL);                        \
+#define darr_last(A)                                                                               \
+	({                                                                                         \
+		uint _d__len = darr_len(A);                                                        \
+		((_d__len > 0) ? &(A)[_d__len - 1] : NULL);                                        \
 	})
 #define darr_strnul(S) darr_last(S)
 
@@ -586,7 +578,7 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
  * Return:
  *	The dynamic_array D with the new string content.
  */
-#define darr_in_sprintf(D, F, ...) __darr_in_sprintf(&(D), 0, F, __VA_ARGS__)
+#define darr_in_sprintf(D, F, ...) _darr__in_sprintf(&(D), 0, F, __VA_ARGS__)
 
 
 /**
@@ -601,14 +593,14 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
  */
 #define darr_in_strcat(D, S)                                                                       \
 	({                                                                                         \
-		uint __dlen = darr_strlen(D);                                                      \
-		uint __slen = strlen(S);                                                           \
-		darr_ensure_cap_mt(D, __dlen + __slen + 1, MTYPE_DARR_STR);                        \
+		uint _d__dlen = darr_strlen(D);                                                    \
+		uint _d__slen = strlen(S);                                                         \
+		darr_ensure_cap_mt(D, _d__dlen + _d__slen + 1, MTYPE_DARR_STR);                    \
 		if (darr_len(D) == 0)                                                              \
 			*darr_append(D) = 0;                                                       \
-		memcpy(&(D)[darr_strlen(D)] /* darr_last(D) clangSA :( */, (S), __slen + 1);       \
-		_darr_len(D) += __slen;                                                            \
-		D;                                                                                 \
+		memcpy(&(D)[darr_strlen(D)] /* darr_last(D) clangSA :( */, (S), _d__slen + 1);     \
+		_darr_len(D) += _d__slen;                                                          \
+		(D);                                                                               \
 	})
 
 /**
@@ -621,8 +613,7 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
  * Return:
  *	The dynamic_array D with the new string content.
  */
-#define darr_in_strcatf(D, F, ...)                                             \
-	__darr_in_sprintf(&(D), true, (F), __VA_ARGS__)
+#define darr_in_strcatf(D, F, ...) _darr__in_sprintf(&(D), true, (F), __VA_ARGS__)
 
 /**
  * darr_in_strcat_tail() - copies end of one darr str to another.
@@ -649,21 +640,21 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
  * Return:
  *	The dynamic_array D with the extended string content.
  */
-#define darr_in_strcat_tail(D, S)                                              \
-	({                                                                     \
-		int __dsize, __ssize, __extra;                                 \
-									       \
-		if (darr_len(D) == 0)                                          \
-			*darr_append(D) = 0;                                   \
-		__dsize = darr_ilen(D);                                        \
-		__ssize = darr_ilen(S);                                        \
-		__extra = __ssize - __dsize;                                   \
-		if (__extra > 0) {                                             \
-			darr_ensure_cap_mt(D, (uint)__ssize, MTYPE_DARR_STR);  \
-			memcpy(darr_last(D), (S) + __dsize - 1, __extra + 1);  \
-			_darr_len(D) += __extra;                               \
-		}                                                              \
-		D;                                                             \
+#define darr_in_strcat_tail(D, S)                                                                  \
+	({                                                                                         \
+		int _d__dsize, _d__ssize, _d__extra;                                               \
+                                                                                                   \
+		if (darr_len(D) == 0)                                                              \
+			*darr_append(D) = 0;                                                       \
+		_d__dsize = darr_ilen(D);                                                          \
+		_d__ssize = darr_ilen(S);                                                          \
+		_d__extra = _d__ssize - _d__dsize;                                                 \
+		if (_d__extra > 0) {                                                               \
+			darr_ensure_cap_mt(D, (uint)_d__ssize, MTYPE_DARR_STR);                    \
+			memcpy(darr_last(D), (S) + _d__dsize - 1, _d__extra + 1);                  \
+			_darr_len(D) += _d__extra;                                                 \
+		}                                                                                  \
+		(D);                                                                               \
 	})
 
 /**
@@ -678,17 +669,15 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
  * Return:
  *	The dynamic_array D with the duplicated string.
  */
-#define darr_in_strdup_cap(D, S, C)                                            \
-	({                                                                     \
-		size_t __size = strlen(S) + 1;                                 \
-		darr_reset(D);                                                 \
-		darr_ensure_cap_mt(D,                                          \
-				   ((size_t)(C) > __size) ? (size_t)(C)        \
-							  : __size,            \
-				   MTYPE_DARR_STR);                            \
-		strlcpy(D, (S), darr_cap(D));                                  \
-		darr_setlen((D), (size_t)__size);                              \
-		D;                                                             \
+#define darr_in_strdup_cap(D, S, C)                                                                \
+	({                                                                                         \
+		size_t _d__size = strlen(S) + 1;                                                   \
+		darr_reset(D);                                                                     \
+		darr_ensure_cap_mt(D, ((size_t)(C) > _d__size) ? (size_t)(C) : _d__size,           \
+				   MTYPE_DARR_STR);                                                \
+		strlcpy(D, (S), darr_cap(D));                                                      \
+		darr_setlen((D), (size_t)_d__size);                                                \
+		(D);                                                                               \
 	})
 #define darr_in_strdup(D, S) darr_in_strdup_cap(D, S, 1)
 
@@ -703,7 +692,7 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
  * Return:
  *	The dynamic_array D with the new string content.
  */
-#define darr_in_vsprintf(D, F, A) __darr_in_vsprintf(&(D), 0, F, A)
+#define darr_in_vsprintf(D, F, A) _darr__in_vsprintf(&(D), 0, F, A)
 
 /**
  * darr_in_vstrcatf() - concat a formatted string into a darr string.
@@ -716,7 +705,7 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
  * Return:
  *	The dynamic_array D with the new string content.
  */
-#define darr_in_vstrcatf(D, F, A) __darr_in_vsprintf(&(D), true, (F), (A))
+#define darr_in_vstrcatf(D, F, A) __darr__in_vsprintf(&(D), true, (F), (A))
 
 /**
  * darr_sprintf() - sprintf into a new dynamic array.
@@ -728,11 +717,11 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
  * Return:
  *	A char * dynamic_array with the new string content.
  */
-#define darr_sprintf(F, ...)                                                   \
-	({                                                                     \
-		char *d = NULL;                                                \
-		__darr_in_sprintf(&d, false, F, __VA_ARGS__);                  \
-		d;                                                             \
+#define darr_sprintf(F, ...)                                                                       \
+	({                                                                                         \
+		char *_d__d = NULL;                                                                \
+		_darr__in_sprintf(&_d__d, false, F, __VA_ARGS__);                                  \
+		_d__d;                                                                             \
 	})
 
 /**
@@ -746,19 +735,17 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
  * Return:
  *	The dynamic_array with the duplicated string.
  */
-#define darr_strdup_cap(S, C)                                                  \
-	({                                                                     \
-		size_t __size = strlen(S) + 1;                                 \
-		char *__s = NULL;                                              \
-		/* Cast to ssize_t to avoid warning when C == 0 */             \
-		darr_ensure_cap_mt(__s,                                        \
-				   ((ssize_t)(C) > (ssize_t)__size)            \
-					   ? (size_t)(C)                       \
-					   : __size,                           \
-				   MTYPE_DARR_STR);                            \
-		strlcpy(__s, (S), darr_cap(__s));                              \
-		darr_setlen(__s, (size_t)__size);                              \
-		__s;                                                           \
+#define darr_strdup_cap(S, C)                                                                      \
+	({                                                                                         \
+		size_t _d__size = strlen(S) + 1;                                                   \
+		char *_d__s = NULL;                                                                \
+		/* Cast to ssize_t to avoid warning when C == 0 */                                 \
+		darr_ensure_cap_mt(_d__s,                                                          \
+				   ((ssize_t)(C) > (ssize_t)_d__size) ? (size_t)(C) : _d__size,    \
+				   MTYPE_DARR_STR);                                                \
+		strlcpy(_d__s, (S), darr_cap(_d__s));                                              \
+		darr_setlen(_d__s, (size_t)_d__size);                                              \
+		_d__s;                                                                             \
 	})
 #define darr_strdup(S) darr_strdup_cap(S, 0)
 
@@ -771,13 +758,13 @@ void *__darr_resize(void *a, uint count, size_t esize, struct memtype *mt);
  * Return:
  *	The length of the NUL terminated string in @S
  */
-#define darr_strlen(S)                                                         \
-	({                                                                     \
-		uint __size = darr_len(S);                                     \
-		if (__size)                                                    \
-			__size -= 1;                                           \
-		assert(!(S) || ((char *)(S))[__size] == 0);                    \
-		__size;                                                        \
+#define darr_strlen(S)                                                                             \
+	({                                                                                         \
+		uint _d__size = darr_len(S);                                                       \
+		if (_d__size)                                                                      \
+			_d__size -= 1;                                                             \
+		assert(!(S) || ((char *)(S))[_d__size] == 0);                                      \
+		_d__size;                                                                          \
 	})
 
 /**
