@@ -96,9 +96,8 @@ override_dh_auto_install:
 	cp -r tools/etc/* debian/tmp/etc/
 	-rm debian/tmp/etc/frr/daemons.conf
 
-# drop dev-only files
-	find debian/tmp -name '*.la' -o -name '*.a' -o -name 'lib*.so' | xargs rm -f
-	rm -rf debian/tmp/usr/include
+# drop static libraries and ssd
+	find debian/tmp -name '*.la' -o -name '*.a' | xargs rm -f
 	-rm debian/tmp/usr/lib/frr/ssd
 
 override_dh_auto_build:

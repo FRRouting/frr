@@ -151,3 +151,10 @@ Description: FRRouting suite - GRPC interface
  This provides the GRPC interface to the daemons.
 Build-Profiles: <pkg.frr.grpc>
 
+Package: frr-dev
+Architecture: any
+Section: libdevel
+Depends: ${misc:Depends}, frr (= ${binary:Version})
+Description: Development files for FRRouting
+ This package contains the development files (headers and static libraries)
+ necessary to build software that links against FRR internals.

@@ -1,2 +1,2 @@
-usr/lib/*/frr/libfrrsnmp.*
+usr/lib/*/frr/libfrrsnmp.so.*
 usr/lib/*/frr/modules/*_snmp.so
