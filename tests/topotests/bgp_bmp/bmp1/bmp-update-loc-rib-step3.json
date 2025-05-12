@@ -1,0 +1,34 @@
+{
+  "loc-rib": {
+    "update": {
+      "1.1.1.0/31": {
+        "as_path": "65501 65502",
+        "bgp_nexthop": "192.168.0.3",
+        "bmp_log_type": "update",
+        "ip_prefix": "1.1.1.0/31",
+        "is_filtered": false,
+        "origin": "IGP",
+        "path_id": 0,
+        "peer_asn": 65501,
+        "peer_bgp_id": "192.168.0.1",
+        "peer_distinguisher": "0:0",
+        "peer_type": "loc-rib instance",
+        "policy": "loc-rib"
+      },
+      "3.3.3.0/31": {
+        "as_path": "65501 65502",
+        "bgp_nexthop": "192.168.0.3",
+        "bmp_log_type": "update",
+        "ip_prefix": "3.3.3.0/31",
+        "is_filtered": false,
+        "origin": "IGP",
+        "path_id": 0,
+        "peer_asn": 65501,
+        "peer_bgp_id": "192.168.0.1",
+        "peer_distinguisher": "0:0",
+        "peer_type": "loc-rib instance",
+        "policy": "loc-rib"
+      }
+    }
+  }
+}
