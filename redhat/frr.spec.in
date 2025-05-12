@@ -285,13 +285,15 @@ Contributed python 2.7 tools which may be of use with frr.
 
 
 %package devel
-Summary: Header and object files for frr development
+Summary: Development files for building applications or plugins using FRR
 Group: System Environment/Daemons
 Requires: %{name} = %{version}-%{release}
 
 %description devel
-The frr-devel package contains the header and object files necessary for
-developing OSPF-API and frr applications.
+The frr-devel package contains header files and configuration needed for
+developing out-of-tree applications or plugins that interface with FRR, such
+as dplane modules, monitoring tools, and routing integrations. This includes
+headers from FRR's core libraries, zebra, and optional daemons.
 
 
 %if %{with_rpki}
@@ -854,7 +856,16 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 %files devel
 %{_libdir}/lib*.so
 %dir %{_includedir}/%{name}
-%{_includedir}/%{name}/*.h
+# Core config header
+%{_includedir}/%{name}/config.h
+# Core library headers
+%dir %{_includedir}/%{name}/lib
+%{_includedir}/%{name}/lib/*.h
+%{_includedir}/%{name}/lib/*/*.h
+# Zebra headers
+%dir %{_includedir}/%{name}/zebra
+%{_includedir}/%{name}/zebra/*.h
+# Optional daemon headers (still under frr/)
 %dir %{_includedir}/%{name}/ospfd
 %{_includedir}/%{name}/ospfd/*.h
 %if %{with_bfdd}
