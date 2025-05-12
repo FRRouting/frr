@@ -1534,6 +1534,9 @@ static void bgp_srv6_cleanup(struct bgp *bgp)
 		sid_unregister(bgp, bgp->tovpn_sid);
 		XFREE(MTYPE_BGP_SRV6_SID, bgp->tovpn_sid);
 	}
+	if (bgp->tovpn_sid_explicit != NULL) {
+		XFREE(MTYPE_BGP_SRV6_SID, bgp->tovpn_sid_explicit);
+	}
 
 	if (bgp->srv6_locator_chunks)
 		list_delete(&bgp->srv6_locator_chunks);
