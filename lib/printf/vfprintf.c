@@ -181,8 +181,8 @@ vbprintfrr(struct fbuf *cb_in, const char *fmt0, va_list ap)
 	struct fbuf cb_copy, *cb;
 	struct fmt_outpos *opos;
 
-	static const char xdigs_lower[16] = "0123456789abcdef";
-	static const char xdigs_upper[16] = "0123456789ABCDEF";
+	static const char *xdigs_lower = "0123456789abcdef";
+	static const char *xdigs_upper = "0123456789ABCDEF";
 
 	/* BEWARE, these `goto error' on error. */
 #define	PRINT(ptr, len) { \
