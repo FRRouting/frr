@@ -577,7 +577,7 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 	char buf[INET_ADDRSTRLEN + 1];
 	struct ecommunity_val *eval = (struct ecommunity_val *)eval_ptr;
 	uint64_t tmp_as = 0;
-	static const char str_color[5] = "color";
+	static const char *str_color = "color";
 	const char *ptr_color;
 	bool val_color_set = false;
 
