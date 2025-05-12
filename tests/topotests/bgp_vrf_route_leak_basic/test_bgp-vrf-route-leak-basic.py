@@ -16,6 +16,7 @@ import os
 import sys
 from functools import partial
 import pytest
+import json
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
@@ -450,6 +451,26 @@ def test_vrf_route_leak_donna_delete_vrf_zita():
     )
     result, diff = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assert result, "BGP VRF DONNA check failed:\n{}".format(diff)
+
+
+def test_show_bgp_rd_json_output():
+    """
+    Test show bgp ipv4 vpn rd XX json output format is correct
+    """
+
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+    ouput = r1.vtysh_cmd("show bgp ipv4 vpn json", isjson=True)
+
+    rds = ouput.get("routes", {}).get("routeDistinguishers", {}).keys()
+    assert len(rds) > 1, "Missing routeDistinguishers"
+
+    # will fail with json.decoder.JSONDecodeError if JSON is malformed
+    json.loads(r1.vtysh_cmd(f"show bgp ipv4 vpn rd {list(rds)[0]} json"))
 
 
 def test_memory_leak():
