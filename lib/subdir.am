@@ -195,7 +195,7 @@ clippy_scan += \
 	lib/zlog_5424_cli.c \
 	# end
 
-pkginclude_HEADERS += \
+nobase_pkginclude_HEADERS += \
 	lib/admin_group.h \
 	lib/affinitymap.h \
 	lib/agg_table.h \
@@ -334,7 +334,7 @@ pkginclude_HEADERS += \
 	# end
 
 
-nodist_pkginclude_HEADERS += \
+nobase_nodist_pkginclude_HEADERS += \
 	lib/route_types.h \
 	lib/version.h \
 	# end
@@ -379,7 +379,7 @@ lib_libfrrsnmp_la_SOURCES = \
 #
 if CARES
 lib_LTLIBRARIES += lib/libfrrcares.la
-pkginclude_HEADERS += lib/resolver.h
+nobase_pkginclude_HEADERS += lib/resolver.h
 endif
 
 lib_libfrrcares_la_CFLAGS = $(AM_CFLAGS) $(CARES_CFLAGS)
@@ -394,7 +394,7 @@ lib_libfrrcares_la_SOURCES = \
 #
 if ZEROMQ
 lib_LTLIBRARIES += lib/libfrrzmq.la
-pkginclude_HEADERS += lib/frr_zmq.h
+nobase_pkginclude_HEADERS += lib/frr_zmq.h
 endif
 
 lib_libfrrzmq_la_CFLAGS = $(AM_CFLAGS) $(ZEROMQ_CFLAGS)
