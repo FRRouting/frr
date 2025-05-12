@@ -618,7 +618,7 @@ static int zebra_nhrp_6wind_if_new_hook(struct interface *ifp)
 			       zebra_nhrp_alloc);
 	}
 	/* if no interface name is available, a new hook */
-	if (!ifp->name)
+	if (!ifp->name[0])
 		return 0;
 	/* XXX no retry mechanism at this point */
 	if (ifp->ifindex != IFINDEX_INTERNAL) {
