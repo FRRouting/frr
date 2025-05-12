@@ -4954,6 +4954,7 @@ static const struct peer_flag_action peer_flag_action_list[] = {
 	{PEER_FLAG_TCP_MSS, 0, peer_change_none},
 	{PEER_FLAG_CAPABILITY_LINK_LOCAL, 0, peer_change_none},
 	{PEER_FLAG_BFD_STRICT, 0, peer_change_none},
+	{PEER_FLAG_IP_TRANSPARENT, 0, peer_change_reset},
 	{0, 0, 0}};
 
 static const struct peer_flag_action peer_af_flag_action_list[] = {
