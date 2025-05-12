@@ -1280,7 +1280,7 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 {
 	struct zapi_route api;
 	struct prefix_ipv4 p;
-	struct prefix pgen;
+	struct prefix pgen = {};
 	unsigned long ifindex;
 	struct in_addr nexthop;
 	struct external_info *ei;
