@@ -88,6 +88,10 @@ def setup_module(mod):
     if result is not True:
         pytest.skip("Kernel requirements are not met")
 
+    result = required_linux_kernel_version("6.0")
+    if result is not True:
+        logger.info("This test will skip header reduced tests (kernel < 6.0)")
+
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
     router_list = tgen.routers()
@@ -142,7 +146,7 @@ def check_rib(name, cmd, expected_file):
     logger.info('[+] check {} "{}" {}'.format(name, cmd, expected_file))
     tgen = get_topogen()
     func = functools.partial(_check, name, cmd, expected_file)
-    _, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(func, None, count=30, wait=0.5)
     assert result is None, "Failed"
 
 
@@ -263,6 +267,52 @@ def test_bgp_srv6_reset():
     )
     check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_locator_recreated.json")
     check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_locator_recreated.json")
+    check_ping("ce1", "2001:2::2", True, 10, 1)
+
+
+def test_bgp_h_encaps_reduced_added():
+    tgen = get_topogen()
+
+    result = required_linux_kernel_version("6.0")
+    if result is not True:
+        pytest.skip(tgen.errors)
+
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65500
+          segment-routing srv6
+           encap-behavior H_Encaps_Red
+        """
+    )
+    check_rib(
+        "r1", "show ipv6 route vrf vrf10 json", "r1/vrf10_rib_h_encaps_reduced.json"
+    )
+    check_rib(
+        "r1", "show ipv6 route vrf vrf20 json", "r1/vrf20_rib_h_encaps_reduced.json"
+    )
+
+    check_ping("ce1", "2001:2::2", True, 10, 1)
+
+
+def test_bgp_h_encaps_reduced_reverted():
+    tgen = get_topogen()
+
+    result = required_linux_kernel_version("6.0")
+    if result is not True:
+        pytest.skip(tgen.errors)
+
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65500
+          segment-routing srv6
+           no encap-behavior H_Encaps_Red
+        """
+    )
+    check_rib("r1", "show ipv6 route vrf vrf10 json", "r1/vrf10_rib.json")
+    check_rib("r1", "show ipv6 route vrf vrf20 json", "r1/vrf20_rib.json")
+
     check_ping("ce1", "2001:2::2", True, 10, 1)
 
 
