@@ -92,6 +92,7 @@ enum bgp_log_refs {
 	EC_BGP_NO_LL_ADDRESS_AVAILABLE,
 	EC_BGP_SENDQ_STUCK_WARN,
 	EC_BGP_SENDQ_STUCK_PROPER,
+	EC_BGP_PATH_WITHOUT_LABEL,
 };
 
 extern void bgp_error_init(void);
