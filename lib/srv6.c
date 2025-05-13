@@ -148,7 +148,7 @@ static char *seg6local_flavors2str(char *str, size_t size,
 							  ZEBRA_SEG6_LOCAL_FLV_OP_USD))
 		return str;
 
-	len += snprintf(str + len, size - len, " (");
+	len += snprintf(str + len, size - len, "(");
 	if (CHECK_SRV6_FLV_OP(flv_info->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_PSP)) {
 		len += snprintf(str + len, size - len, "%sPSP", first ? "" : "/");
 		first = false;
