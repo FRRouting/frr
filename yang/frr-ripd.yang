@@ -306,8 +306,8 @@ module frr-ripd {
         description
           "Settings of basic timers";
         leaf flush-interval {
-          type uint32 {
-            range "5..2147483647";
+          type uint16 {
+            range "1..32767";
           }
           units "seconds";
           default "120";
@@ -316,8 +316,8 @@ module frr-ripd {
              table.";
         }
         leaf holddown-interval {
-          type uint32 {
-            range "5..2147483647";
+          type uint16 {
+            range "1..32767";
           }
           units "seconds";
           default "180";
@@ -325,8 +325,8 @@ module frr-ripd {
             "Interval before better routes are released.";
         }
         leaf update-interval {
-          type uint32 {
-            range "5..2147483647";
+          type uint16 {
+            range "1..32767";
           }
           units "seconds";
           default "30";
