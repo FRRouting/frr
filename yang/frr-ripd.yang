@@ -310,7 +310,7 @@ module frr-ripd {
             range "1..32767";
           }
           units "seconds";
-          default "120";
+          default "240";
           description
             "Interval before a route is flushed from the routing
              table.";

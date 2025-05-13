@@ -1174,7 +1174,7 @@ same time.
           "Basic routing protocol update timers\n"
           "Routing table update timer value in second. Default is 30.\n"
           "Routing information timeout timer. Default is 180.\n"
-          "Garbage collection timer. Default is 120.\n")
+          "Garbage collection timer. Default is 240.\n")
    {
            struct cli_config_change changes[] = {
                    {
@@ -1557,7 +1557,7 @@ YANG representation:
                range "1..32767";
              }
              units "seconds";
-             default "120";
+             default "240";
              description
                "Interval before a route is flushed from the routing
                 table.";
