@@ -499,7 +499,7 @@ for routes redistributed into RIP.
    ripd> **show ip rip status**
    Routing Protocol is "rip"
      Sending updates every 30 seconds with +/-50%, next due in 35 seconds
-     Timeout after 180 seconds, garbage collect after 120 seconds
+     Timeout after 180 seconds, garbage collect after 240 seconds
      Outgoing update filter list for all interface is not set
      Incoming update filter list for all interface is not set
      Default redistribution metric is 1
