@@ -1604,6 +1604,9 @@ void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 		case DPLANE_OP_SYS_ROUTE_DELETE:
 		case DPLANE_OP_ROUTE_NOTIFY:
 		case DPLANE_OP_LSP_NOTIFY:
+		case DPLANE_OP_PIC_NH_UPDATE:
+		case DPLANE_OP_PIC_NH_INSTALL:
+		case DPLANE_OP_PIC_NH_DELETE:
 			res = ZEBRA_DPLANE_REQUEST_SUCCESS;
 			break;
 
