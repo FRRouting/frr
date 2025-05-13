@@ -4225,7 +4225,7 @@ void zebra_mpls_turned_on(void)
 	}
 }
 
-void zebra_mpls_platform_labels_update()
+void zebra_mpls_platform_labels_update(void)
 {
 	uint32_t platform_labels_new;
 

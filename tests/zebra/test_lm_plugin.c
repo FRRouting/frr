@@ -35,7 +35,7 @@ bool zebra_mpls_is_platform_auto_enabled(void)
 	return platform_auto;
 }
 
-void zebra_mpls_platform_labels_update()
+void zebra_mpls_platform_labels_update(void)
 {
 	uint32_t platform_labels_new;
 

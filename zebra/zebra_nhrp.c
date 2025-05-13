@@ -897,7 +897,7 @@ DEFPY(show_zebra_nhrp,
 	return CMD_SUCCESS;
 }
 
-void zebra_nhrp_6wind_init()
+void zebra_nhrp_6wind_init(void)
 {
 	zebra_nhrp_list_init();
 	zebra_nhrp_fastpath_init();

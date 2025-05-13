@@ -105,7 +105,7 @@ void bgp_tracker_set(char *name, bool status)
 	bgp_route_map_tracker_event(tracker->name);
 }
 
-void bgp_tracker_init()
+void bgp_tracker_init(void)
 {
 	bm->trackers = list_new();
 	bm->trackers->del = bgp_tracker_free;

@@ -278,7 +278,7 @@ static void srte_triggered_policy_candidate_removing(
  * @return : SRTE_ORIGIN_BGP if path_triggered_enabled is true
  *           SRTE_ORIGIN_LOCAL otherwise
  */
-enum srte_protocol_origin srte_triggered_get_protocol_origin()
+enum srte_protocol_origin srte_triggered_get_protocol_origin(void)
 {
 	if (path_triggered_enabled)
 		return SRTE_ORIGIN_BGP;

@@ -7004,7 +7004,7 @@ void bgp_optmem_max_display(struct vty *vty)
 		bgp_optmem_max_changes);
 }
 
-void peer_password_update_count()
+void peer_password_update_count(void)
 {
 	struct peer *peer;
 	struct listnode *node, *nnode, *mnode, *mnnode;
