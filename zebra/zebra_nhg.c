@@ -3533,6 +3533,7 @@ uint16_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe, int m
 void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe, uint8_t type)
 {
 	struct nhg_connected *rb_node_dep = NULL;
+	enum zebra_dplane_result ret;
 
 	/* Resolve it first */
 	nhe = zebra_nhg_resolve(nhe);
@@ -3554,6 +3555,8 @@ void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe, uint8_t type)
 	frr_each(nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
 		zebra_nhg_install_kernel(rb_node_dep->nhe, type);
 	}
+	if (nhe->pic_nhe)
+		zebra_nhg_install_kernel(nhe->pic_nhe, ZEBRA_ROUTE_MAX);
 
 	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID) &&
 	    (!CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED) ||
@@ -3563,7 +3566,10 @@ void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe, uint8_t type)
 		if (!ZEBRA_NHG_CREATED(nhe))
 			nhe->type = ZEBRA_ROUTE_NHG;
 
-		enum zebra_dplane_result ret = dplane_nexthop_add(nhe);
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_PIC_NHT))
+			ret = dplane_pic_nh_add(nhe);
+		else
+			ret = dplane_nexthop_add(nhe);
 
 		switch (ret) {
 		case ZEBRA_DPLANE_REQUEST_QUEUED:
@@ -3583,6 +3589,7 @@ void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe, uint8_t type)
 
 void zebra_nhg_uninstall_kernel(struct nhg_hash_entry *nhe)
 {
+	enum zebra_dplane_result ret;
 	/*
 	 * Clearly if the nexthop group is installed we should
 	 * remove it.  Additionally If the nexthop is already
@@ -3594,7 +3601,10 @@ void zebra_nhg_uninstall_kernel(struct nhg_hash_entry *nhe)
 	 */
 	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED) ||
 	    CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED)) {
-		int ret = dplane_nexthop_delete(nhe);
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_PIC_NHT))
+			ret = dplane_pic_nh_delete(nhe);
+		else
+			ret = dplane_nexthop_delete(nhe);
 
 		switch (ret) {
 		case ZEBRA_DPLANE_REQUEST_QUEUED:
@@ -3632,7 +3642,7 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 			"Nexthop dplane ctx %p, op %s, nexthop ID (%u), result %s",
 			ctx, dplane_op2str(op), id, dplane_res2str(status));
 
-	if (op == DPLANE_OP_NH_DELETE) {
+	if (op == DPLANE_OP_NH_DELETE || op == DPLANE_OP_PIC_NH_DELETE) {
 		if (status != ZEBRA_DPLANE_REQUEST_SUCCESS)
 			flog_err(
 				EC_ZEBRA_DP_DELETE_FAIL,
@@ -3640,7 +3650,8 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 				id);
 
 		/* We already free'd the data, nothing to do */
-	} else if (op == DPLANE_OP_NH_INSTALL || op == DPLANE_OP_NH_UPDATE) {
+	} else if (op == DPLANE_OP_NH_INSTALL || op == DPLANE_OP_NH_UPDATE ||
+		   op == DPLANE_OP_PIC_NH_INSTALL || op == DPLANE_OP_PIC_NH_UPDATE) {
 		nhe = zebra_nhg_lookup_id(id);
 
 		if (!nhe) {
