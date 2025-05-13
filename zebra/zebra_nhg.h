@@ -88,6 +88,7 @@ struct nhg_hash_entry {
 	 * nhg(2)->nhg_dependents is 3 in the tree
 	 */
 	struct nhg_connected_tree_head nhg_depends, nhg_dependents;
+	struct nhg_connected_tree_head picnh_dependents;
 	struct nhg_hash_entry *pic_nhe;
 	struct event *timer;
 
@@ -306,6 +307,9 @@ extern bool zebra_nhg_depends_is_empty(const struct nhg_hash_entry *nhe);
 extern unsigned int
 zebra_nhg_dependents_count(const struct nhg_hash_entry *nhe);
 extern bool zebra_nhg_dependents_is_empty(const struct nhg_hash_entry *nhe);
+extern unsigned int zebra_nhg_pic_dependents_count(const struct nhg_hash_entry *nhe);
+extern bool zebra_nhg_pic_dependents_is_empty(const struct nhg_hash_entry *nhe);
+
 
 /* Lookup ID, doesn't create */
 extern struct nhg_hash_entry *zebra_nhg_lookup_id(uint32_t id);

@@ -491,6 +491,7 @@ extern struct route_table *rib_tables_iter_next(rib_tables_iter_t *iter);
 
 extern uint8_t route_distance(int type);
 extern bool zebra_update_pic_nhe(struct route_node *rn);
+extern bool zebra_update_pic_dep_nhe(struct nhg_hash_entry *pic_dep_nhe);
 
 extern void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq,
 					   bool rt_delete);
