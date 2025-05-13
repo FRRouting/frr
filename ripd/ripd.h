@@ -128,9 +128,9 @@ struct rip {
 	struct event *t_triggered_interval;
 
 	/* RIP timer values. */
-	uint32_t update_time;
-	uint32_t timeout_time;
-	uint32_t garbage_time;
+	uint16_t update_time;
+	uint16_t timeout_time;
+	uint16_t garbage_time;
 
 	/* RIP default metric. */
 	uint8_t default_metric;

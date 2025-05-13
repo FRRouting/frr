@@ -539,7 +539,7 @@ void cli_show_rip_route(struct vty *vty, const struct lyd_node *dnode,
  */
 DEFPY_YANG (rip_timers,
        rip_timers_cmd,
-       "timers basic (5-2147483647)$update (5-2147483647)$timeout (5-2147483647)$garbage",
+       "timers basic (1-32767)$update (1-32767)$timeout (1-32767)$garbage",
        "Adjust routing timers\n"
        "Basic routing protocol update timers\n"
        "Routing table update timer value in second. Default is 30.\n"
@@ -558,7 +558,7 @@ DEFPY_YANG (rip_timers,
 
 DEFPY_YANG (no_rip_timers,
        no_rip_timers_cmd,
-       "no timers basic [(5-2147483647) (5-2147483647) (5-2147483647)]",
+       "no timers basic [(1-32767) (1-32767) (1-32767)]",
        NO_STR
        "Adjust routing timers\n"
        "Basic routing protocol update timers\n"

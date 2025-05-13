@@ -17,7 +17,7 @@ exactly that (e.g. `Clixon <https://github.com/clicon/clixon>`__).
 The problem however is that there isn’t an exact one-to-one mapping
 between the existing CLI commands and the corresponding YANG nodes from
 the native models. As an example, ripd’s
-``timers basic (5-2147483647) (5-2147483647) (5-2147483647)`` command
+``timers basic (1-32767) (1-32767) (1-32767)`` command
 changes three YANG leaves at the same time. In order to auto-generate
 CLI commands and retain their original form, it’s necessary to add
 annotations in the YANG modules to specify how the commands should look
