@@ -1175,11 +1175,11 @@ void prefix_mcast_inet4_dump(const char *onfail, struct in_addr addr,
 
 const char *prefix_sg2str(const struct prefix_sg *sg, char *sg_str)
 {
-	char src_str[INET_ADDRSTRLEN];
-	char grp_str[INET_ADDRSTRLEN];
+	char src_str[INET6_ADDRSTRLEN];
+	char grp_str[INET6_ADDRSTRLEN];
 
 	prefix_mcast_ip_dump("<src?>", &sg->src, src_str, sizeof(src_str));
-	prefix_mcast_inet4_dump("<grp?>", sg->grp, grp_str, sizeof(grp_str));
+	prefix_mcast_ip_dump("<grp?>", &sg->grp, grp_str, sizeof(grp_str));
 	snprintf(sg_str, PREFIX_SG_STR_LEN, "(%s,%s)", src_str, grp_str);
 
 	return sg_str;
@@ -1642,7 +1642,7 @@ static ssize_t printfrr_pfx(struct fbuf *buf, struct printfrr_eargs *ea,
 	}
 }
 
-printfrr_ext_autoreg_p("PSG4", printfrr_psg);
+printfrr_ext_autoreg_p("PSG", printfrr_psg);
 static ssize_t printfrr_psg(struct fbuf *buf, struct printfrr_eargs *ea,
 			    const void *ptr)
 {
@@ -1657,10 +1657,10 @@ static ssize_t printfrr_psg(struct fbuf *buf, struct printfrr_eargs *ea,
 	else
 		ret += bprintfrr(buf, "(%pIA,", &sg->src);
 
-	if (sg->grp.s_addr == INADDR_ANY)
+	if (ipaddr_is_zero(&sg->grp))
 		ret += bputs(buf, "*)");
 	else
-		ret += bprintfrr(buf, "%pI4)", &sg->grp);
+		ret += bprintfrr(buf, "%pIA)", &sg->grp);
 
 	return ret;
 }

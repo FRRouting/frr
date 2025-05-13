@@ -282,8 +282,8 @@ struct prefix_fs {
 struct prefix_sg {
 	uint8_t family;
 	uint16_t prefixlen;
-	struct ipaddr src __attribute__((aligned(8)));
-	struct in_addr grp;
+	struct ipaddr src;
+	struct ipaddr grp;
 };
 
 /* clang-format off */
@@ -323,13 +323,13 @@ union prefixconstptr {
 #define PREFIX_STRLEN 80
 
 /*
- * Longest possible length of a (S,G) string is 34 bytes
- * 123.123.123.123 = 15 * 2
+ * Longest possible length of a (S,G) string is 82 bytes
+ * 1111:2222:3333:4444:5555:6666:7777:8888 = INET6_ADDRSTRLEN * 2 = 92
  * (,) = 3
  * NULL Character at end = 1
- * (123.123.123.123,123.123.123.123)
+ * (1111:2222:3333:4444:5555:6666:7777:8888,1111:2222:3333:4444:5555:6666:7777:8888)
  */
-#define PREFIX_SG_STR_LEN 34
+#define PREFIX_SG_STR_LEN (INET6_ADDRSTRLEN * 2 + 3 + 1)
 
 /* Max bit/byte length of IPv4 address. */
 #define IPV4_MAX_BYTELEN    4
@@ -662,7 +662,7 @@ static inline bool ipv4_mcast_ssm(const struct in_addr *addr)
 #pragma FRR printfrr_ext "%pRDD"  (struct prefix_rd *)
 #pragma FRR printfrr_ext "%pRDE"  (struct prefix_rd *)
 
-#pragma FRR printfrr_ext "%pPSG4" (struct prefix_sg *)
+#pragma FRR printfrr_ext "%pPSG" (struct prefix_sg *)
 #endif
 
 #ifdef __cplusplus
