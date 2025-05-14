@@ -113,6 +113,9 @@ struct zebra_srv6_sid_block {
 			struct list *func_released;
 		} uncompressed;
 	} u;
+
+	/* SRv6 SIDs */
+	struct list *sids;
 };
 
 /**
@@ -231,9 +234,6 @@ struct zebra_srv6 {
 
 	/* SRv6 SID formats */
 	struct list *sid_formats;
-
-	/* SRv6 SIDs */
-	struct list *sids;
 
 	/* SRv6 SID blocks */
 	struct list *sid_blocks;
@@ -370,6 +370,7 @@ extern int srv6_manager_get_sid_response(struct zebra_srv6_sid *sid,
 extern struct zebra_srv6_sid_ctx *zebra_srv6_sid_ctx_alloc(void);
 extern void zebra_srv6_sid_ctx_free(struct zebra_srv6_sid_ctx *ctx);
 extern void delete_zebra_srv6_sid_ctx(void *val);
-extern struct zebra_srv6_sid_ctx *zebra_srv6_sid_ctx_lookup(const struct srv6_sid_ctx *ctx);
+extern struct zebra_srv6_sid_ctx *zebra_srv6_sid_ctx_lookup(const struct srv6_sid_ctx *ctx,
+							    struct zebra_srv6_sid_block *block);
 
 #endif /* _ZEBRA_SRV6_H */
