@@ -322,6 +322,24 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(C, "frr-bgp-route-map:ipv4-nexthop"))
 #define IS_MATCH_IPV6_NH(C)                                                    \
 	(strmatch(C, "frr-bgp-route-map:ipv6-nexthop"))
+#define IS_MATCH_IPV4_MULTICAST_SOURCE(C) \
+	(strmatch(C, "frr-pim-route-map:ipv4-multicast-source"))
+#define IS_MATCH_IPV6_MULTICAST_SOURCE(C) \
+	(strmatch(C, "frr-pim-route-map:ipv6-multicast-source"))
+#define IS_MATCH_IPV4_MULTICAST_SOURCE_PREFIX_LIST(C) \
+	(strmatch(C, "frr-pim-route-map:ipv4-multicast-source-prefix-list"))
+#define IS_MATCH_IPV6_MULTICAST_SOURCE_PREFIX_LIST(C) \
+	(strmatch(C, "frr-pim-route-map:ipv6-multicast-source-prefix-list"))
+#define IS_MATCH_IPV4_MULTICAST_GROUP(C) \
+	(strmatch(C, "frr-pim-route-map:ipv4-multicast-group"))
+#define IS_MATCH_IPV6_MULTICAST_GROUP(C) \
+	(strmatch(C, "frr-pim-route-map:ipv6-multicast-group"))
+#define IS_MATCH_IPV4_MULTICAST_GROUP_PREFIX_LIST(C) \
+	(strmatch(C, "frr-pim-route-map:ipv4-multicast-group-prefix-list"))
+#define IS_MATCH_IPV6_MULTICAST_GROUP_PREFIX_LIST(C) \
+	(strmatch(C, "frr-pim-route-map:ipv6-multicast-group-prefix-list"))
+#define IS_MATCH_MULTICAST_INTERFACE(C) \
+	(strmatch(C, "frr-pim-route-map:multicast-interface"))
 
 /* Route-map set actions */
 #define IS_SET_IPv4_NH(A)                                                      \
