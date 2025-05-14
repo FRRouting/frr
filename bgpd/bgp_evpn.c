@@ -1438,7 +1438,7 @@ static void evpn_delete_old_local_route(struct bgp *bgp, struct bgpevpn *vpn,
 	}
 
 	/* Delete route entry in the VNI route table, caller to remove. */
-	bgp_path_info_delete(dest, old_local);
+	bgp_path_info_mark_for_delete(dest, old_local);
 }
 
 /*
@@ -2415,7 +2415,7 @@ void delete_evpn_route_entry(struct bgp *bgp, afi_t afi, safi_t safi,
 
 	/* Mark route for delete. */
 	if (tmp_pi)
-		bgp_path_info_delete(dest, tmp_pi);
+		bgp_path_info_mark_for_delete(dest, tmp_pi);
 }
 
 /* Delete EVPN type5 route */
@@ -2489,7 +2489,7 @@ static int delete_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	 */
 	delete_evpn_route_entry(bgp, afi, safi, dest, &pi);
 	if (pi) {
-		bgp_path_info_delete(dest, pi);
+		bgp_path_info_mark_for_delete(dest, pi);
 		evpn_route_select_install(bgp, vpn, dest, pi);
 	}
 
@@ -2817,7 +2817,7 @@ static void delete_all_vni_routes(struct bgp *bgp, struct bgpevpn *vpn)
 		for (pi = bgp_dest_get_bgp_path_info(dest);
 		     (pi != NULL) && (nextpi = pi->next, 1); pi = nextpi) {
 			bgp_evpn_remote_ip_hash_del(vpn, pi);
-			bgp_path_info_delete(dest, pi);
+			bgp_path_info_mark_for_delete(dest, pi);
 			dest = bgp_path_info_reap(dest, pi);
 
 			assert(dest);
@@ -2828,7 +2828,7 @@ static void delete_all_vni_routes(struct bgp *bgp, struct bgpevpn *vpn)
 	     dest = bgp_route_next(dest)) {
 		for (pi = bgp_dest_get_bgp_path_info(dest);
 		     (pi != NULL) && (nextpi = pi->next, 1); pi = nextpi) {
-			bgp_path_info_delete(dest, pi);
+			bgp_path_info_mark_for_delete(dest, pi);
 			dest = bgp_path_info_reap(dest, pi);
 
 			assert(dest);
@@ -3386,7 +3386,7 @@ static int uninstall_evpn_route_entry_in_vni_common(
 	bgp_evpn_remote_ip_hash_del(vpn, pi);
 
 	/* Mark entry for deletion */
-	bgp_path_info_delete(dest, pi);
+	bgp_path_info_mark_for_delete(dest, pi);
 
 	/* Perform route selection and update zebra, if required. */
 	ret = evpn_route_select_install(bgp, vpn, dest, pi);
@@ -3590,7 +3590,7 @@ int uninstall_evpn_route_entry_in_vrf(struct bgp *bgp_vrf, const struct prefix_e
 	SET_FLAG(dest->flags, BGP_NODE_PROCESS_CLEAR);
 
 	/* Mark entry for deletion */
-	bgp_path_info_delete(dest, pi);
+	bgp_path_info_mark_for_delete(dest, pi);
 
 	/* Unlink path to evpn nexthop */
 	bgp_evpn_path_nh_del(bgp_vrf, pi);

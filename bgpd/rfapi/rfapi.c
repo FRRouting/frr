@@ -462,7 +462,7 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 			list_delete(&bpi->extra->vnc->vnc.export.local_nexthops);
 
 		bgp_aggregate_decrement(bgp, p, bpi, afi, safi);
-		bgp_path_info_delete(bn, bpi);
+		bgp_path_info_mark_for_delete(bn, bpi);
 		bgp_process(bgp, bn, bpi, afi, safi);
 	} else {
 		vnc_zlog_debug_verbose(

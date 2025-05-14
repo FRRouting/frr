@@ -383,7 +383,7 @@ void bgp_damp_info_free(struct bgp_damp_info *bdi, struct reuselist *list,
 	bgp_path_info_unset_flag(dest, bpi, BGP_PATH_HISTORY | BGP_PATH_DAMPED);
 	if (bdi->lastrecord == BGP_RECORD_WITHDRAW && withdraw) {
 		bgp_aggregate_decrement(bgp, p, bpi, afi, SAFI_UNICAST);
-		bgp_path_info_delete(dest, bpi);
+		bgp_path_info_mark_for_delete(dest, bpi);
 		bgp_process(bgp, dest, bpi, afi, safi);
 	}
 
