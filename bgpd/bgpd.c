@@ -3934,7 +3934,9 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 	/* BGP server socket already processed if BGP instance
 	 * already part of the list
 	 */
-	bgp_handle_socket(bgp, vrf, VRF_UNKNOWN, true);
+	if (bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
+		bgp_handle_socket(bgp, vrf, VRF_UNKNOWN, true);
+
 	listnode_add(bm->bgp, bgp);
 
 	if (IS_BGP_INST_KNOWN_TO_ZEBRA(bgp)) {
