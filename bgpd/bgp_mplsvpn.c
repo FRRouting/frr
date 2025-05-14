@@ -1264,7 +1264,7 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 				vpn_leak_to_vrf_withdraw(bpi);
 				bgp_aggregate_decrement(to_bgp, p, bpi, afi,
 							safi);
-				bgp_path_info_delete(bn, bpi);
+				bgp_path_info_mark_for_delete(bn, bpi);
 			}
 		}
 
@@ -2085,7 +2085,7 @@ void vpn_leak_from_vrf_withdraw(struct bgp *to_bgp,		/* to */
 		vpn_leak_to_vrf_withdraw(bpi);
 
 		bgp_aggregate_decrement(to_bgp, p, bpi, afi, safi);
-		bgp_path_info_delete(bn, bpi);
+		bgp_path_info_mark_for_delete(bn, bpi);
 		bgp_process(to_bgp, bn, bpi, afi, safi);
 	}
 	bgp_dest_unlock_node(bn);
@@ -2142,7 +2142,7 @@ void vpn_leak_from_vrf_withdraw_all(struct bgp *to_bgp, struct bgp *from_bgp,
 					bgp_aggregate_decrement(
 						to_bgp, bgp_dest_get_prefix(bn),
 						bpi, afi, safi);
-					bgp_path_info_delete(bn, bpi);
+					bgp_path_info_mark_for_delete(bn, bpi);
 					bgp_process(to_bgp, bn, bpi, afi, safi);
 					bgp_mplsvpn_path_nh_label_unlink(
 						bpi->extra->vrfleak->parent);
@@ -2319,7 +2319,7 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	/* to */
 				zlog_debug("%s: blocking import of %p, as-path match",
 					   __func__, bpi);
 			bgp_aggregate_decrement(to_bgp, p, bpi, afi, safi);
-			bgp_path_info_delete(bn, bpi);
+			bgp_path_info_mark_for_delete(bn, bpi);
 			bgp_process(to_bgp, bn, bpi, afi, safi);
 		}
 		bgp_dest_unlock_node(bn);
@@ -2683,7 +2683,7 @@ void vpn_leak_to_vrf_withdraw(struct bgp_path_info *path_vpn)
 				zlog_debug("%s: deleting bpi %p", __func__,
 					   bpi);
 			bgp_aggregate_decrement(bgp, p, bpi, afi, safi);
-			bgp_path_info_delete(bn, bpi);
+			bgp_path_info_mark_for_delete(bn, bpi);
 			bgp_process(bgp, bn, bpi, afi, safi);
 		}
 		bgp_dest_unlock_node(bn);
@@ -2714,7 +2714,7 @@ void vpn_leak_to_vrf_withdraw_all(struct bgp *to_bgp, afi_t afi)
 				bgp_aggregate_decrement(to_bgp,
 							bgp_dest_get_prefix(bn),
 							bpi, afi, safi);
-				bgp_path_info_delete(bn, bpi);
+				bgp_path_info_mark_for_delete(bn, bpi);
 				bgp_process(to_bgp, bn, bpi, afi, safi);
 			}
 		}
