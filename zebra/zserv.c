@@ -486,6 +486,10 @@ zread_fail:
 static void zserv_client_event(struct zserv *client,
 			       enum zserv_client_event event)
 {
+	/* Don't continue if client is being shut/freed */
+	if (client->pthread == NULL)
+		return;
+
 	switch (event) {
 	case ZSERV_CLIENT_READ:
 		event_add_read(client->pthread->master, zserv_read, client,
@@ -568,12 +572,17 @@ static void zserv_process_messages(struct event *thread)
 
 int zserv_send_message(struct zserv *client, struct stream *msg)
 {
+	/* Don't continue if zclient is being freed/shut */
+	if (client->pthread == NULL)
+		goto done;
+
 	frr_with_mutex (&client->obuf_mtx) {
 		stream_fifo_push(client->obuf_fifo, msg);
 	}
 
 	zserv_client_event(client, ZSERV_CLIENT_WRITE);
 
+done:
 	return 0;
 }
 
@@ -583,6 +592,10 @@ int zserv_send_message(struct zserv *client, struct stream *msg)
 int zserv_send_batch(struct zserv *client, struct stream_fifo *fifo)
 {
 	struct stream *msg;
+
+	/* Don't continue if zclient is being freed/shut */
+	if (client->pthread == NULL)
+		goto done;
 
 	frr_with_mutex (&client->obuf_mtx) {
 		msg = stream_fifo_pop(fifo);
@@ -594,6 +607,7 @@ int zserv_send_batch(struct zserv *client, struct stream_fifo *fifo)
 
 	zserv_client_event(client, ZSERV_CLIENT_WRITE);
 
+done:
 	return 0;
 }
 
@@ -1406,7 +1420,8 @@ static int zserv_client_close_cb(struct zserv *closed_client)
 	struct zserv *client = NULL;
 
 	frr_each (zserv_client_list, &zrouter.client_list, client) {
-		if (client->proto == closed_client->proto)
+		if (client->proto == closed_client->proto ||
+		    client->pthread == NULL)
 			continue;
 
 		zsend_client_close_notify(client, closed_client);
