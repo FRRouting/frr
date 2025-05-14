@@ -157,12 +157,9 @@ int main(int argc, char **argv, char **envp)
 	 */
 	pim_error_init();
 	pim_vrf_init();
-#if 0
 	prefix_list_add_hook(pim_prefix_list_update);
 	prefix_list_delete_hook(pim_prefix_list_update);
-
 	pim_route_map_init();
-#endif
 	pim_init();
 	/*
 	 * Initialize zclient "update" and "lookup" sockets
