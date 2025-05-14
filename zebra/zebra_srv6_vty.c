@@ -550,23 +550,27 @@ static void do_show_srv6_sid_all(struct vty *vty, json_object **json, struct srv
 	struct listnode *node;
 	struct ttable *tt;
 	struct zebra_srv6_sid_entry *entry;
+	struct zebra_srv6_sid_block *block;
+	struct listnode *node2;
 
 	if (json) {
-		for (ALL_LIST_ELEMENTS_RO(srv6->sids, node, ctx)) {
-			/* Skip contexts not associated with any SID */
-			if (!ctx->sid)
-				continue;
+		for (ALL_LIST_ELEMENTS_RO(srv6->sid_blocks, node2, block)) {
+			for (ALL_LIST_ELEMENTS_RO(block->sids, node, ctx)) {
+				/* Skip contexts not associated with any SID */
+				if (!ctx->sid)
+					continue;
 
-			/* Skip SIDs from locators we are not interested in */
-			if (locator) {
-				frr_each_safe (zebra_srv6_sid_entry_list, &ctx->sid->entries,
-					       entry) {
-					if (entry->locator != locator)
-						continue;
+				/* Skip SIDs from locators we are not interested in */
+				if (locator) {
+					frr_each_safe (zebra_srv6_sid_entry_list,
+						       &ctx->sid->entries, entry) {
+						if (entry->locator != locator)
+							continue;
+					}
+
+					do_show_srv6_sid_json(vty, json, locator, ctx);
 				}
 			}
-
-			do_show_srv6_sid_json(vty, json, locator, ctx);
 		}
 	} else {
 		/* Prepare table. */
@@ -577,21 +581,23 @@ static void do_show_srv6_sid_all(struct vty *vty, json_object **json, struct srv
 		ttable_restyle(tt);
 		ttable_rowseps(tt, 0, BOTTOM, true, '-');
 
-		for (ALL_LIST_ELEMENTS_RO(srv6->sids, node, ctx)) {
-			/* Skip contexts not associated with any SID */
-			if (!ctx->sid)
-				continue;
+		for (ALL_LIST_ELEMENTS_RO(srv6->sid_blocks, node2, block)) {
+			for (ALL_LIST_ELEMENTS_RO(block->sids, node, ctx)) {
+				/* Skip contexts not associated with any SID */
+				if (!ctx->sid)
+					continue;
 
-			/* Skip SIDs from locators we are not interested in */
-			if (locator) {
-				frr_each_safe (zebra_srv6_sid_entry_list, &ctx->sid->entries,
-					       entry) {
-					if (entry->locator != locator)
-						continue;
+				/* Skip SIDs from locators we are not interested in */
+				if (locator) {
+					frr_each_safe (zebra_srv6_sid_entry_list,
+						       &ctx->sid->entries, entry) {
+						if (entry->locator != locator)
+							continue;
+					}
+
+					do_show_srv6_sid_line(tt, ctx->sid);
 				}
 			}
-
-			do_show_srv6_sid_line(tt, ctx->sid);
 		}
 
 		ttable_colseps(tt, 1, RIGHT, true, ' ');
@@ -635,6 +641,8 @@ DEFPY (show_srv6_sid,
 	json_object *json = NULL;
 	bool found = false;
 	struct zebra_srv6_sid_entry *entry;
+	struct zebra_srv6_sid_block *block = NULL;
+	struct listnode *node_block;
 
 	if (uj)
 		json = json_object_new_object();
@@ -651,16 +659,20 @@ DEFPY (show_srv6_sid,
 	}
 
 	if (!IPV6_ADDR_SAME(&sid_value, &in6addr_any)) {
-		for (ALL_LIST_ELEMENTS_RO(srv6->sids, node, c)) {
-			if (c->sid) {
-				frr_each_safe (zebra_srv6_sid_entry_list, &c->sid->entries, entry) {
-					if (IPV6_ADDR_SAME(&entry->sid_value, &sid_value)) {
-						sid_ctx = c;
-						break;
+		for (ALL_LIST_ELEMENTS_RO(srv6->sid_blocks, node_block, block)) {
+			for (ALL_LIST_ELEMENTS_RO(block->sids, node, c)) {
+				if (c->sid) {
+					frr_each_safe (zebra_srv6_sid_entry_list, &c->sid->entries,
+						       entry) {
+						if (IPV6_ADDR_SAME(&entry->sid_value, &sid_value)) {
+							sid_ctx = c;
+							break;
+						}
 					}
 				}
 			}
 		}
+
 
 		if (!sid_ctx) {
 			if (uj)
@@ -728,19 +740,19 @@ DEFUN (no_srv6,
 	struct zebra_srv6_sid_block *block;
 	struct zebra_srv6_sid_ctx *ctx;
 
-	for (ALL_LIST_ELEMENTS(srv6->sids, node, nnode, ctx)) {
-		if (ctx->sid)
-			zebra_srv6_sid_free(ctx->sid);
-
-		listnode_delete(srv6->sids, ctx);
-		zebra_srv6_sid_ctx_free(ctx);
-	}
-
 	for (ALL_LIST_ELEMENTS(srv6->locators, node, nnode, locator)) {
 		block = locator->sid_block;
 		if (block) {
 			block->refcnt--;
 			if (block->refcnt == 0) {
+				for (ALL_LIST_ELEMENTS(block->sids, node, nnode, ctx)) {
+					if (ctx->sid)
+						zebra_srv6_sid_free(ctx->sid);
+
+					listnode_delete(block->sids, ctx);
+					zebra_srv6_sid_ctx_free(ctx);
+				}
+				list_delete(&block->sids);
 				listnode_delete(srv6->sid_blocks, block);
 				zebra_srv6_sid_block_free(block);
 			}
@@ -803,7 +815,8 @@ DEFUN (no_srv6_locator,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	for (ALL_LIST_ELEMENTS(srv6->sids, node, nnode, ctx)) {
+	block = locator->sid_block;
+	for (ALL_LIST_ELEMENTS(block->sids, node, nnode, ctx)) {
 		if (!ctx->sid)
 			continue;
 
@@ -816,7 +829,7 @@ DEFUN (no_srv6_locator,
 		if (zebra_srv6_sid_entry_list_count(&ctx->sid->entries) == 0) {
 			zebra_srv6_sid_free(ctx->sid);
 
-			listnode_delete(srv6->sids, ctx);
+			listnode_delete(block->sids, ctx);
 			zebra_srv6_sid_ctx_free(ctx);
 		}
 	}
@@ -825,6 +838,14 @@ DEFUN (no_srv6_locator,
 	if (block) {
 		block->refcnt--;
 		if (block->refcnt == 0) {
+			for (ALL_LIST_ELEMENTS(block->sids, node, nnode, ctx)) {
+				if (ctx->sid)
+					zebra_srv6_sid_free(ctx->sid);
+
+				listnode_delete(block->sids, ctx);
+				zebra_srv6_sid_ctx_free(ctx);
+			}
+			list_delete(&block->sids);
 			listnode_delete(srv6->sid_blocks, block);
 			zebra_srv6_sid_block_free(block);
 		}
