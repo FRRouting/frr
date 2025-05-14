@@ -327,10 +327,12 @@ static void do_show_srv6_sid_line(struct ttable *tt, struct zebra_srv6_sid *sid,
 			case ZEBRA_SEG6_LOCAL_ACTION_UNSPEC:
 				snprintf(behavior, sizeof(behavior), "unspec");
 				break;
+			case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
+				snprintf(behavior, sizeof(behavior), "End.B6.Encap");
+				break;
 			case ZEBRA_SEG6_LOCAL_ACTION_END_T:
 			case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
 			case ZEBRA_SEG6_LOCAL_ACTION_END_B6:
-			case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
 			case ZEBRA_SEG6_LOCAL_ACTION_END_BM:
 			case ZEBRA_SEG6_LOCAL_ACTION_END_S:
 			case ZEBRA_SEG6_LOCAL_ACTION_END_AS:
