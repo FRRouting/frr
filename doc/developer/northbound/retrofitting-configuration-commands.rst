@@ -743,7 +743,7 @@ Configuration options are edited individually
 Several CLI commands edit multiple configuration options at the same
 time. Some examples taken from ripd:
 
-* ``timers basic (5-2147483647) (5-2147483647) (5-2147483647)``
+* ``timers basic (1-32767) (1-32767) (1-32767)``
   * */frr-ripd:ripd/instance/timers/flush-interval*
   * */frr-ripd:ripd/instance/timers/holddown-interval*
   * */frr-ripd:ripd/instance/timers/update-interval*
@@ -1169,12 +1169,12 @@ same time.
 
    DEFPY (rip_timers,
           rip_timers_cmd,
-          "timers basic (5-2147483647)$update (5-2147483647)$timeout (5-2147483647)$garbage",
+          "timers basic (1-32767)$update (1-32767)$timeout (1-32767)$garbage",
           "Adjust routing timers\n"
           "Basic routing protocol update timers\n"
           "Routing table update timer value in second. Default is 30.\n"
           "Routing information timeout timer. Default is 180.\n"
-          "Garbage collection timer. Default is 120.\n")
+          "Garbage collection timer. Default is 240.\n")
    {
            struct cli_config_change changes[] = {
                    {
@@ -1543,7 +1543,7 @@ any data (apart from their child nodes, but they have their own
 Example 3
 ^^^^^^^^^
 
-Command: ``timers basic (5-2147483647) (5-2147483647) (5-2147483647)``
+Command: ``timers basic (1-32767) (1-32767) (1-32767)``
 
 YANG representation:
 
@@ -1553,18 +1553,18 @@ YANG representation:
            description
              "Settings of basic timers";
            leaf flush-interval {
-             type uint32 {
-               range "5..2147483647";
+             type uint16 {
+               range "1..32767";
              }
              units "seconds";
-             default "120";
+             default "240";
              description
                "Interval before a route is flushed from the routing
                 table.";
            }
            leaf holddown-interval {
-             type uint32 {
-               range "5..2147483647";
+             type uint16 {
+               range "1..32767";
              }
              units "seconds";
              default "180";
@@ -1572,8 +1572,8 @@ YANG representation:
                "Interval before better routes are released.";
            }
            leaf update-interval {
-             type uint32 {
-               range "5..2147483647";
+             type uint16 {
+               range "1..32767";
              }
              units "seconds";
              default "30";

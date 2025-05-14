@@ -858,7 +858,7 @@ int ripd_instance_timers_flush_interval_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 
 	rip = nb_running_get_entry(args->dnode, NULL, true);
-	rip->garbage_time = yang_dnode_get_uint32(args->dnode, NULL);
+	rip->garbage_time = yang_dnode_get_uint16(args->dnode, NULL);
 
 	return NB_OK;
 }
@@ -875,7 +875,7 @@ int ripd_instance_timers_holddown_interval_modify(
 		return NB_OK;
 
 	rip = nb_running_get_entry(args->dnode, NULL, true);
-	rip->timeout_time = yang_dnode_get_uint32(args->dnode, NULL);
+	rip->timeout_time = yang_dnode_get_uint16(args->dnode, NULL);
 
 	return NB_OK;
 }
@@ -891,7 +891,7 @@ int ripd_instance_timers_update_interval_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 
 	rip = nb_running_get_entry(args->dnode, NULL, true);
-	rip->update_time = yang_dnode_get_uint32(args->dnode, NULL);
+	rip->update_time = yang_dnode_get_uint16(args->dnode, NULL);
 
 	return NB_OK;
 }
