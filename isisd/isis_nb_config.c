@@ -103,7 +103,7 @@ int isis_instance_is_type_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	type = yang_dnode_get_enum(args->dnode, NULL);
 	isis_area_is_type_set(area, type);
 
@@ -179,7 +179,7 @@ int isis_instance_area_address_create(struct nb_cb_create_args *args)
 		XFREE(MTYPE_ISIS_AREA_ADDR, args->resource->ptr);
 		break;
 	case NB_EV_APPLY:
-		area = nb_running_get_entry(args->dnode, NULL, true);
+		area = nb_running_entry(args->dnode);
 		addrr = args->resource->ptr;
 		assert(area);
 
@@ -241,7 +241,7 @@ int isis_instance_area_address_destroy(struct nb_cb_destroy_args *args)
 	net_title = yang_dnode_get_string(args->dnode, NULL);
 	addr.addr_len = dotformat2buff(buff, net_title);
 	memcpy(addr.area_addr, buff, (int)addr.addr_len);
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 
 	for (ALL_LIST_ELEMENTS_RO(area->area_addrs, node, addrp)) {
 		if ((addrp->addr_len + ISIS_SYS_ID_LEN + 1) == addr.addr_len
@@ -284,7 +284,7 @@ int isis_instance_dynamic_hostname_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	isis_area_dynhostname_set(area, yang_dnode_get_bool(args->dnode, NULL));
 
 	return NB_OK;
@@ -301,7 +301,7 @@ int isis_instance_attached_send_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	attached = yang_dnode_get_bool(args->dnode, NULL);
 	isis_area_attached_bit_send_set(area, attached);
 
@@ -319,7 +319,7 @@ int isis_instance_attached_receive_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	attached = yang_dnode_get_bool(args->dnode, NULL);
 	isis_area_attached_bit_receive_set(area, attached);
 
@@ -345,7 +345,7 @@ int isis_instance_overload_enabled_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	overload = yang_dnode_get_bool(args->dnode, NULL);
 	area->overload_configured = overload;
 
@@ -366,7 +366,7 @@ int isis_instance_overload_on_startup_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 
 	overload_time = yang_dnode_get_uint32(args->dnode, NULL);
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	isis_area_overload_on_startup_set(area, overload_time);
 
 	return NB_OK;
@@ -384,7 +384,7 @@ int isis_instance_advertise_high_metrics_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 
 	advertise_high_metrics = yang_dnode_get_bool(args->dnode, NULL);
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	isis_area_advertise_high_metrics_set(area, advertise_high_metrics);
 
 	return NB_OK;
@@ -403,7 +403,7 @@ int isis_instance_metric_style_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	old_metric = (metric_style == ISIS_WIDE_METRIC) ? false : true;
 	new_metric = (metric_style == ISIS_NARROW_METRIC) ? false : true;
 	isis_area_metricstyle_set(area, old_metric, new_metric);
@@ -421,7 +421,7 @@ int isis_instance_purge_originator_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	area->purge_originator = yang_dnode_get_bool(args->dnode, NULL);
 
 	return NB_OK;
@@ -441,7 +441,7 @@ int isis_instance_admin_group_send_zero_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	area->admin_group_send_zero = yang_dnode_get_bool(args->dnode, NULL);
 
 	if (area->admin_group_send_zero) {
@@ -485,7 +485,7 @@ int isis_instance_asla_legacy_flag_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	area->asla_legacy_flag = yang_dnode_get_bool(args->dnode, NULL);
 	lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 0);
 
@@ -506,7 +506,7 @@ int isis_instance_lsp_mtu_modify(struct nb_cb_modify_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		area = nb_running_get_entry(args->dnode, NULL, true);
+		area = nb_running_entry(args->dnode);
 		isis_area_lsp_mtu_set(area, lsp_mtu);
 		break;
 	}
@@ -525,7 +525,7 @@ int isis_instance_advertise_passive_only_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	advertise_passive_only = yang_dnode_get_bool(args->dnode, NULL);
 	area->advertise_passive_only = advertise_passive_only;
 
@@ -547,7 +547,7 @@ int isis_instance_lsp_refresh_interval_level_1_modify(
 		return NB_OK;
 
 	refr_int = yang_dnode_get_uint16(args->dnode, NULL);
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	isis_area_lsp_refresh_set(area, IS_LEVEL_1, refr_int);
 
 	return NB_OK;
@@ -566,7 +566,7 @@ int isis_instance_lsp_refresh_interval_level_2_modify(
 		return NB_OK;
 
 	refr_int = yang_dnode_get_uint16(args->dnode, NULL);
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	isis_area_lsp_refresh_set(area, IS_LEVEL_2, refr_int);
 
 	return NB_OK;
@@ -585,7 +585,7 @@ int isis_instance_lsp_maximum_lifetime_level_1_modify(
 		return NB_OK;
 
 	max_lt = yang_dnode_get_uint16(args->dnode, NULL);
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	isis_area_max_lsp_lifetime_set(area, IS_LEVEL_1, max_lt);
 
 	return NB_OK;
@@ -604,7 +604,7 @@ int isis_instance_lsp_maximum_lifetime_level_2_modify(
 		return NB_OK;
 
 	max_lt = yang_dnode_get_uint16(args->dnode, NULL);
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	isis_area_max_lsp_lifetime_set(area, IS_LEVEL_2, max_lt);
 
 	return NB_OK;
@@ -623,7 +623,7 @@ int isis_instance_lsp_generation_interval_level_1_modify(
 		return NB_OK;
 
 	gen_int = yang_dnode_get_uint16(args->dnode, NULL);
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	area->lsp_gen_interval[0] = gen_int;
 
 	return NB_OK;
@@ -642,7 +642,7 @@ int isis_instance_lsp_generation_interval_level_2_modify(
 		return NB_OK;
 
 	gen_int = yang_dnode_get_uint16(args->dnode, NULL);
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	area->lsp_gen_interval[1] = gen_int;
 
 	return NB_OK;
@@ -659,7 +659,7 @@ void ietf_backoff_delay_apply_finish(struct nb_cb_apply_finish_args *args)
 	long holddown = yang_dnode_get_uint16(args->dnode, "hold-down");
 	long timetolearn =
 		yang_dnode_get_uint16(args->dnode, "time-to-learn");
-	struct isis_area *area = nb_running_get_entry(args->dnode, NULL, true);
+	struct isis_area *area = nb_running_entry(args->dnode);
 	size_t bufsiz = strlen(area->area_tag) + sizeof("IS-IS  Lx");
 	char *buf = XCALLOC(MTYPE_TMP, bufsiz);
 
@@ -692,7 +692,7 @@ int isis_instance_spf_ietf_backoff_delay_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	spf_backoff_free(area->spf_delay_ietf[0]);
 	spf_backoff_free(area->spf_delay_ietf[1]);
 	area->spf_delay_ietf[0] = NULL;
@@ -762,7 +762,7 @@ int isis_instance_spf_minimum_interval_level_1_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	area->min_spf_interval[0] = yang_dnode_get_uint16(args->dnode, NULL);
 
 	return NB_OK;
@@ -779,7 +779,7 @@ int isis_instance_spf_minimum_interval_level_2_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	area->min_spf_interval[1] = yang_dnode_get_uint16(args->dnode, NULL);
 
 	return NB_OK;
@@ -799,7 +799,7 @@ int isis_instance_spf_prefix_priorities_critical_access_list_name_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	acl_name = yang_dnode_get_string(args->dnode, NULL);
 
 	ppa = &area->spf_prefix_priorities[SPF_PREFIX_PRIO_CRITICAL];
@@ -821,7 +821,7 @@ int isis_instance_spf_prefix_priorities_critical_access_list_name_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 
 	ppa = &area->spf_prefix_priorities[SPF_PREFIX_PRIO_CRITICAL];
 	XFREE(MTYPE_ISIS_ACL_NAME, ppa->name);
@@ -845,7 +845,7 @@ int isis_instance_spf_prefix_priorities_high_access_list_name_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	acl_name = yang_dnode_get_string(args->dnode, NULL);
 
 	ppa = &area->spf_prefix_priorities[SPF_PREFIX_PRIO_HIGH];
@@ -867,7 +867,7 @@ int isis_instance_spf_prefix_priorities_high_access_list_name_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 
 	ppa = &area->spf_prefix_priorities[SPF_PREFIX_PRIO_HIGH];
 	XFREE(MTYPE_ISIS_ACL_NAME, ppa->name);
@@ -891,7 +891,7 @@ int isis_instance_spf_prefix_priorities_medium_access_list_name_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	acl_name = yang_dnode_get_string(args->dnode, NULL);
 
 	ppa = &area->spf_prefix_priorities[SPF_PREFIX_PRIO_MEDIUM];
@@ -913,7 +913,7 @@ int isis_instance_spf_prefix_priorities_medium_access_list_name_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 
 	ppa = &area->spf_prefix_priorities[SPF_PREFIX_PRIO_MEDIUM];
 	XFREE(MTYPE_ISIS_ACL_NAME, ppa->name);
@@ -930,7 +930,7 @@ int isis_instance_spf_prefix_priorities_medium_access_list_name_destroy(
 void area_password_apply_finish(struct nb_cb_apply_finish_args *args)
 {
 	const char *password = yang_dnode_get_string(args->dnode, "password");
-	struct isis_area *area = nb_running_get_entry(args->dnode, NULL, true);
+	struct isis_area *area = nb_running_entry(args->dnode);
 	int pass_type = yang_dnode_get_enum(args->dnode, "password-type");
 	uint8_t snp_auth =
 		yang_dnode_get_enum(args->dnode, "authenticate-snp");
@@ -960,7 +960,7 @@ int isis_instance_area_password_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	isis_area_passwd_unset(area, IS_LEVEL_1);
 
 	return NB_OK;
@@ -1001,7 +1001,7 @@ int isis_instance_area_password_authenticate_snp_modify(
 void domain_password_apply_finish(struct nb_cb_apply_finish_args *args)
 {
 	const char *password = yang_dnode_get_string(args->dnode, "password");
-	struct isis_area *area = nb_running_get_entry(args->dnode, NULL, true);
+	struct isis_area *area = nb_running_entry(args->dnode);
 	int pass_type = yang_dnode_get_enum(args->dnode, "password-type");
 	uint8_t snp_auth =
 		yang_dnode_get_enum(args->dnode, "authenticate-snp");
@@ -1031,7 +1031,7 @@ int isis_instance_domain_password_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	isis_area_passwd_unset(area, IS_LEVEL_2);
 
 	return NB_OK;
@@ -1075,7 +1075,7 @@ void default_info_origin_apply_finish(const struct lyd_node *dnode, int family)
 	int originate_type = DEFAULT_ORIGINATE;
 	unsigned long metric = 0;
 	const char *routemap = NULL;
-	struct isis_area *area = nb_running_get_entry(dnode, NULL, true);
+	struct isis_area *area = nb_running_entry(dnode);
 	int level = yang_dnode_get_enum(dnode, "level");
 
 	if (yang_dnode_get_bool(dnode, "always")) {
@@ -1121,7 +1121,7 @@ int isis_instance_default_information_originate_ipv4_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	level = yang_dnode_get_enum(args->dnode, "level");
 	isis_redist_unset(area, level, AF_INET, DEFAULT_ROUTE, 0);
 
@@ -1184,7 +1184,7 @@ int isis_instance_default_information_originate_ipv6_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	level = yang_dnode_get_enum(args->dnode, "level");
 	isis_redist_unset(area, level, AF_INET6, DEFAULT_ROUTE, 0);
 
@@ -1241,7 +1241,7 @@ void redistribute_apply_finish(const struct lyd_node *dnode, int family)
 
 	type = yang_dnode_get_enum(dnode, "protocol");
 	level = yang_dnode_get_enum(dnode, "level");
-	area = nb_running_get_entry(dnode, NULL, true);
+	area = nb_running_entry(dnode);
 
 	if (yang_dnode_exists(dnode, "metric"))
 		metric = yang_dnode_get_uint32(dnode, "metric");
@@ -1275,7 +1275,7 @@ int isis_instance_redistribute_ipv4_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	level = yang_dnode_get_enum(args->dnode, "level");
 	type = yang_dnode_get_enum(args->dnode, "protocol");
 	isis_redist_unset(area, level, AF_INET, type, 0);
@@ -1381,7 +1381,7 @@ int isis_instance_redistribute_ipv6_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	level = yang_dnode_get_enum(args->dnode, "level");
 	type = yang_dnode_get_enum(args->dnode, "protocol");
 	isis_redist_unset(area, level, AF_INET6, type, 0);
@@ -1467,7 +1467,7 @@ static int isis_multi_topology_common(enum nb_event event,
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		area = nb_running_get_entry(dnode, NULL, true);
+		area = nb_running_entry(dnode);
 		setting = area_get_mt_setting(area, mtid);
 		setting->enabled = create;
 		lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 0);
@@ -1489,7 +1489,7 @@ static int isis_multi_topology_overload_common(enum nb_event event,
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(dnode, NULL, true);
+	area = nb_running_entry(dnode);
 	setting = area_get_mt_setting(area, mtid);
 	setting->overload = yang_dnode_get_bool(dnode, NULL);
 	if (setting->enabled)
@@ -1680,7 +1680,7 @@ int isis_instance_fast_reroute_level_1_lfa_load_sharing_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	area->lfa_load_sharing[0] = yang_dnode_get_bool(args->dnode, NULL);
 	lsp_regenerate_schedule(area, area->is_type, 0);
 
@@ -1698,7 +1698,7 @@ int isis_instance_fast_reroute_level_1_lfa_priority_limit_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	area->lfa_priority_limit[0] = yang_dnode_get_enum(args->dnode, NULL);
 	lsp_regenerate_schedule(area, area->is_type, 0);
 
@@ -1713,7 +1713,7 @@ int isis_instance_fast_reroute_level_1_lfa_priority_limit_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	area->lfa_priority_limit[0] = SPF_PREFIX_PRIO_LOW;
 	lsp_regenerate_schedule(area, area->is_type, 0);
 
@@ -1734,7 +1734,7 @@ int isis_instance_fast_reroute_level_1_lfa_tiebreaker_create(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	index = yang_dnode_get_uint8(args->dnode, "index");
 	type = yang_dnode_get_enum(args->dnode, "type");
 
@@ -1774,7 +1774,7 @@ int isis_instance_fast_reroute_level_1_remote_lfa_prefix_list_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	plist_name = yang_dnode_get_string(args->dnode, NULL);
 
 	area->rlfa_plist_name[0] = XSTRDUP(MTYPE_ISIS_PLIST_NAME, plist_name);
@@ -1792,7 +1792,7 @@ int isis_instance_fast_reroute_level_1_remote_lfa_prefix_list_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 
 	XFREE(MTYPE_ISIS_PLIST_NAME, area->rlfa_plist_name[0]);
 	area->rlfa_plist[0] = NULL;
@@ -1812,7 +1812,7 @@ int isis_instance_fast_reroute_level_2_lfa_load_sharing_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	area->lfa_load_sharing[1] = yang_dnode_get_bool(args->dnode, NULL);
 
 	return NB_OK;
@@ -1829,7 +1829,7 @@ int isis_instance_fast_reroute_level_2_lfa_priority_limit_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	area->lfa_priority_limit[1] = yang_dnode_get_enum(args->dnode, NULL);
 
 	return NB_OK;
@@ -1843,7 +1843,7 @@ int isis_instance_fast_reroute_level_2_lfa_priority_limit_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	area->lfa_priority_limit[1] = SPF_PREFIX_PRIO_LOW;
 
 	return NB_OK;
@@ -1863,7 +1863,7 @@ int isis_instance_fast_reroute_level_2_lfa_tiebreaker_create(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	index = yang_dnode_get_uint8(args->dnode, "index");
 	type = yang_dnode_get_enum(args->dnode, "type");
 
@@ -1903,7 +1903,7 @@ int isis_instance_fast_reroute_level_2_remote_lfa_prefix_list_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	plist_name = yang_dnode_get_string(args->dnode, NULL);
 
 	area->rlfa_plist_name[1] = XSTRDUP(MTYPE_ISIS_PLIST_NAME, plist_name);
@@ -1921,7 +1921,7 @@ int isis_instance_fast_reroute_level_2_remote_lfa_prefix_list_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 
 	XFREE(MTYPE_ISIS_PLIST_NAME, area->rlfa_plist_name[1]);
 	area->rlfa_plist[1] = NULL;
@@ -1941,7 +1941,7 @@ int isis_instance_log_adjacency_changes_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	area->log_adj_changes = log ? 1 : 0;
 
 	return NB_OK;
@@ -1958,7 +1958,7 @@ int isis_instance_log_pdu_drops_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	area->log_pdu_drops = log ? 1 : 0;
 
 	return NB_OK;
@@ -1974,7 +1974,7 @@ int isis_instance_mpls_te_create(struct nb_cb_create_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	isis_mpls_te_create(area);
 
 	/* Reoriginate STD_TE & GMPLS circuits */
@@ -1990,7 +1990,7 @@ int isis_instance_mpls_te_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	if (!IS_MPLS_TE(area->mta))
 		return NB_OK;
 
@@ -2016,7 +2016,7 @@ int isis_instance_mpls_te_router_address_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	/* only proceed if MPLS-TE is enabled */
 	if (!IS_MPLS_TE(area->mta))
 		return NB_OK;
@@ -2039,7 +2039,7 @@ int isis_instance_mpls_te_router_address_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	/* only proceed if MPLS-TE is enabled */
 	if (!IS_MPLS_TE(area->mta))
 		return NB_OK;
@@ -2065,7 +2065,7 @@ int isis_instance_mpls_te_router_address_ipv6_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	/* only proceed if MPLS-TE is enabled */
 	if (!IS_MPLS_TE(area->mta))
 		return NB_OK;
@@ -2090,7 +2090,7 @@ int isis_instance_mpls_te_router_address_ipv6_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	/* only proceed if MPLS-TE is enabled */
 	if (!IS_MPLS_TE(area->mta))
 		return NB_OK;
@@ -2114,7 +2114,7 @@ int isis_instance_mpls_te_export_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	/* only proceed if MPLS-TE is enabled */
 	if (!IS_MPLS_TE(area->mta))
 		return NB_OK;
@@ -2146,7 +2146,7 @@ int isis_instance_segment_routing_enabled_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	area->srdb.config.enabled = yang_dnode_get_bool(args->dnode, NULL);
 
 	if (area->srdb.config.enabled) {
@@ -2217,7 +2217,7 @@ void isis_instance_segment_routing_srgb_apply_finish(
 	struct isis_area *area;
 	uint32_t lower_bound, upper_bound;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	lower_bound = yang_dnode_get_uint32(args->dnode, "lower-bound");
 	upper_bound = yang_dnode_get_uint32(args->dnode, "upper-bound");
 
@@ -2283,7 +2283,7 @@ void isis_instance_segment_routing_srlb_apply_finish(
 	struct isis_area *area;
 	uint32_t lower_bound, upper_bound;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	lower_bound = yang_dnode_get_uint32(args->dnode, "lower-bound");
 	upper_bound = yang_dnode_get_uint32(args->dnode, "upper-bound");
 
@@ -2351,7 +2351,7 @@ int isis_instance_segment_routing_msd_node_msd_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	area->srdb.config.msd = yang_dnode_get_uint8(args->dnode, NULL);
 
 	/* Update and regenerate LSP */
@@ -2368,7 +2368,7 @@ int isis_instance_segment_routing_msd_node_msd_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	area->srdb.config.msd = 0;
 
 	/* Update and regenerate LSP */
@@ -2390,7 +2390,7 @@ int isis_instance_segment_routing_prefix_sid_map_prefix_sid_create(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	yang_dnode_get_prefix(&prefix, args->dnode, "prefix");
 
 	pcfg = isis_sr_cfg_prefix_add(area, &prefix, SR_ALGORITHM_SPF);
@@ -2507,7 +2507,7 @@ void isis_instance_segment_routing_prefix_sid_map_prefix_sid_apply_finish(
 	struct sr_prefix_cfg *pcfg;
 	struct isis_area *area;
 
-	pcfg = nb_running_get_entry(args->dnode, NULL, true);
+	pcfg = nb_running_entry(args->dnode);
 	area = pcfg->area;
 	lsp_regenerate_schedule(area, area->is_type, 0);
 }
@@ -2524,7 +2524,7 @@ int isis_instance_segment_routing_prefix_sid_map_prefix_sid_sid_value_type_modif
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	pcfg = nb_running_get_entry(args->dnode, NULL, true);
+	pcfg = nb_running_entry(args->dnode);
 	pcfg->sid_type = yang_dnode_get_enum(args->dnode, NULL);
 
 	return NB_OK;
@@ -2542,7 +2542,7 @@ int isis_instance_segment_routing_prefix_sid_map_prefix_sid_sid_value_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	pcfg = nb_running_get_entry(args->dnode, NULL, true);
+	pcfg = nb_running_entry(args->dnode);
 	pcfg->sid = yang_dnode_get_uint32(args->dnode, NULL);
 
 	return NB_OK;
@@ -2560,7 +2560,7 @@ int isis_instance_segment_routing_prefix_sid_map_prefix_sid_last_hop_behavior_mo
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	pcfg = nb_running_get_entry(args->dnode, NULL, true);
+	pcfg = nb_running_entry(args->dnode);
 	pcfg->last_hop_behavior = yang_dnode_get_enum(args->dnode, NULL);
 
 	return NB_OK;
@@ -2577,7 +2577,7 @@ int isis_instance_segment_routing_prefix_sid_map_prefix_sid_n_flag_clear_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	pcfg = nb_running_get_entry(args->dnode, NULL, true);
+	pcfg = nb_running_entry(args->dnode);
 	pcfg->n_flag_clear = yang_dnode_get_bool(args->dnode, NULL);
 
 	return NB_OK;
@@ -2598,7 +2598,7 @@ int isis_instance_segment_routing_algorithm_prefix_sid_create(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	yang_dnode_get_prefix(&prefix, args->dnode, "prefix");
 	algorithm = yang_dnode_get_uint8(args->dnode, "algo");
 
@@ -2714,7 +2714,7 @@ void isis_instance_segment_routing_algorithm_prefix_sid_apply_finish(
 	struct sr_prefix_cfg *pcfg;
 	struct isis_area *area;
 
-	pcfg = nb_running_get_entry(args->dnode, NULL, true);
+	pcfg = nb_running_entry(args->dnode);
 	area = pcfg->area;
 	lsp_regenerate_schedule(area, area->is_type, 0);
 }
@@ -2731,7 +2731,7 @@ int isis_instance_segment_routing_algorithm_prefix_sid_sid_value_type_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	pcfg = nb_running_get_entry(args->dnode, NULL, true);
+	pcfg = nb_running_entry(args->dnode);
 	pcfg->sid_type = yang_dnode_get_enum(args->dnode, NULL);
 
 	return NB_OK;
@@ -2749,7 +2749,7 @@ int isis_instance_segment_routing_algorithm_prefix_sid_sid_value_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	pcfg = nb_running_get_entry(args->dnode, NULL, true);
+	pcfg = nb_running_entry(args->dnode);
 	pcfg->sid = yang_dnode_get_uint32(args->dnode, NULL);
 
 	return NB_OK;
@@ -2767,7 +2767,7 @@ int isis_instance_segment_routing_algorithm_prefix_sid_last_hop_behavior_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	pcfg = nb_running_get_entry(args->dnode, NULL, true);
+	pcfg = nb_running_entry(args->dnode);
 	pcfg->last_hop_behavior = yang_dnode_get_enum(args->dnode, NULL);
 
 	return NB_OK;
@@ -2785,7 +2785,7 @@ int isis_instance_segment_routing_algorithm_prefix_sid_n_flag_clear_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	pcfg = nb_running_get_entry(args->dnode, NULL, true);
+	pcfg = nb_running_entry(args->dnode);
 	pcfg->n_flag_clear = yang_dnode_get_bool(args->dnode, NULL);
 
 	return NB_OK;
@@ -2810,7 +2810,7 @@ int isis_instance_flex_algo_create(struct nb_cb_create_args *args)
 
 	switch (args->event) {
 	case NB_EV_APPLY:
-		area = nb_running_get_entry(args->dnode, NULL, true);
+		area = nb_running_entry(args->dnode);
 		arg.algorithm = algorithm;
 		arg.area = area;
 		update_te = list_isempty(area->flex_algos->flex_algos);
@@ -2854,7 +2854,7 @@ int isis_instance_flex_algo_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 
 	algorithm = yang_dnode_get_uint32(args->dnode, "flex-algo");
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 
 	for (ALL_LIST_ELEMENTS(area->flex_algos->flex_algos, node, nnode, fa)) {
 		if (fa->algorithm == algorithm)
@@ -2887,7 +2887,7 @@ int isis_instance_flex_algo_advertise_definition_modify(
 
 	switch (args->event) {
 	case NB_EV_APPLY:
-		area = nb_running_get_entry(args->dnode, NULL, true);
+		area = nb_running_entry(args->dnode);
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -2917,7 +2917,7 @@ int isis_instance_flex_algo_advertise_definition_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 
 	algorithm = yang_dnode_get_uint32(args->dnode, "../flex-algo");
 
@@ -2964,7 +2964,7 @@ static int isis_instance_flex_algo_affinity_set(struct nb_cb_create_args *args,
 	case NB_EV_APPLY:
 		algorithm = yang_dnode_get_uint32(args->dnode,
 						  "../../flex-algo");
-		area = nb_running_get_entry(args->dnode, NULL, true);
+		area = nb_running_entry(args->dnode);
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -3026,7 +3026,7 @@ isis_instance_flex_algo_affinity_unset(struct nb_cb_destroy_args *args,
 	case NB_EV_APPLY:
 		algorithm = yang_dnode_get_uint32(args->dnode,
 						  "../../flex-algo");
-		area = nb_running_get_entry(args->dnode, NULL, true);
+		area = nb_running_entry(args->dnode);
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
 		if (!fa) {
 			snprintf(args->errmsg, args->errmsg_len,
@@ -3123,7 +3123,7 @@ int isis_instance_flex_algo_prefix_metric_create(struct nb_cb_create_args *args)
 
 	switch (args->event) {
 	case NB_EV_APPLY:
-		area = nb_running_get_entry(args->dnode, NULL, true);
+		area = nb_running_entry(args->dnode);
 		if (!area)
 			return NB_ERR_RESOURCE;
 		fa = flex_algo_lookup(area->flex_algos, algorithm);
@@ -3155,7 +3155,7 @@ int isis_instance_flex_algo_prefix_metric_destroy(
 
 	switch (args->event) {
 	case NB_EV_APPLY:
-		area = nb_running_get_entry(args->dnode, NULL, true);
+		area = nb_running_entry(args->dnode);
 		if (!area)
 			return NB_ERR_RESOURCE;
 
@@ -3188,7 +3188,7 @@ static int isis_instance_flex_algo_dplane_set(struct nb_cb_create_args *args,
 
 	switch (args->event) {
 	case NB_EV_APPLY:
-		area = nb_running_get_entry(args->dnode, NULL, true);
+		area = nb_running_entry(args->dnode);
 		if (!area)
 			return NB_ERR_RESOURCE;
 
@@ -3228,7 +3228,7 @@ static int isis_instance_flex_algo_dplane_unset(struct nb_cb_destroy_args *args,
 
 	switch (args->event) {
 	case NB_EV_APPLY:
-		area = nb_running_get_entry(args->dnode, NULL, true);
+		area = nb_running_entry(args->dnode);
 		if (!area)
 			return NB_ERR_RESOURCE;
 
@@ -3310,7 +3310,7 @@ int isis_instance_flex_algo_metric_type_modify(struct nb_cb_modify_args *args)
 
 	switch (args->event) {
 	case NB_EV_APPLY:
-		area = nb_running_get_entry(args->dnode, NULL, true);
+		area = nb_running_entry(args->dnode);
 		if (!area)
 			return NB_ERR_RESOURCE;
 
@@ -3348,7 +3348,7 @@ int isis_instance_flex_algo_priority_modify(struct nb_cb_modify_args *args)
 
 	switch (args->event) {
 	case NB_EV_APPLY:
-		area = nb_running_get_entry(args->dnode, NULL, true);
+		area = nb_running_entry(args->dnode);
 		if (!area)
 			return NB_ERR_RESOURCE;
 
@@ -3382,7 +3382,7 @@ int isis_instance_flex_algo_priority_destroy(struct nb_cb_destroy_args *args)
 
 	switch (args->event) {
 	case NB_EV_APPLY:
-		area = nb_running_get_entry(args->dnode, NULL, true);
+		area = nb_running_entry(args->dnode);
 		if (!area)
 			return NB_ERR_RESOURCE;
 
@@ -3415,7 +3415,7 @@ int isis_instance_segment_routing_srv6_enabled_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	area->srv6db.config.enabled = yang_dnode_get_bool(args->dnode, NULL);
 
 	if (area->srv6db.config.enabled) {
@@ -3447,8 +3447,7 @@ int isis_instance_segment_routing_srv6_locator_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(lyd_parent(lyd_parent(args->dnode)), NULL,
-				    true);
+	area = nb_running_entry(lyd_parent(lyd_parent(args->dnode)));
 
 	loc_name = yang_dnode_get_string(args->dnode, NULL);
 
@@ -3493,8 +3492,7 @@ int isis_instance_segment_routing_srv6_locator_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(lyd_parent(lyd_parent(args->dnode)), NULL,
-				    true);
+	area = nb_running_entry(lyd_parent(lyd_parent(args->dnode)));
 
 	loc_name = yang_dnode_get_string(args->dnode, NULL);
 
@@ -3530,7 +3528,7 @@ int isis_instance_segment_routing_srv6_msd_node_msd_max_segs_left_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	area->srv6db.config.max_seg_left_msd = yang_dnode_get_uint8(args->dnode,
 								    NULL);
 
@@ -3551,7 +3549,7 @@ int isis_instance_segment_routing_srv6_msd_node_msd_max_end_pop_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	area->srv6db.config.max_end_pop_msd = yang_dnode_get_uint8(args->dnode,
 								   NULL);
 
@@ -3572,7 +3570,7 @@ int isis_instance_segment_routing_srv6_msd_node_msd_max_h_encaps_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	area->srv6db.config.max_h_encaps_msd = yang_dnode_get_uint8(args->dnode,
 								    NULL);
 
@@ -3593,7 +3591,7 @@ int isis_instance_segment_routing_srv6_msd_node_msd_max_end_d_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	area->srv6db.config.max_end_d_msd = yang_dnode_get_uint8(args->dnode,
 								 NULL);
 
@@ -3615,8 +3613,7 @@ int isis_instance_segment_routing_srv6_interface_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(lyd_parent(lyd_parent(args->dnode)), NULL,
-				    true);
+	area = nb_running_entry(lyd_parent(lyd_parent(args->dnode)));
 
 	ifname = yang_dnode_get_string(args->dnode, NULL);
 
@@ -3651,7 +3648,7 @@ int isis_instance_mpls_ldp_sync_create(struct nb_cb_create_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		area = nb_running_get_entry(args->dnode, NULL, true);
+		area = nb_running_entry(args->dnode);
 		isis_area_ldp_sync_enable(area);
 		break;
 	}
@@ -3665,7 +3662,7 @@ int isis_instance_mpls_ldp_sync_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = nb_running_get_entry(args->dnode, NULL, true);
+	area = nb_running_entry(args->dnode);
 	isis_area_ldp_sync_disable(area);
 
 	return NB_OK;
@@ -3696,7 +3693,7 @@ int isis_instance_mpls_ldp_sync_holddown_modify(struct nb_cb_modify_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		area = nb_running_get_entry(args->dnode, NULL, true);
+		area = nb_running_entry(args->dnode);
 		holddown = yang_dnode_get_uint16(args->dnode, NULL);
 		isis_area_ldp_sync_set_holddown(area, holddown);
 		break;
@@ -3719,7 +3716,7 @@ int lib_interface_isis_create(struct nb_cb_create_args *args)
 	case NB_EV_VALIDATE:
 		break;
 	case NB_EV_APPLY:
-		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		ifp = nb_running_entry(args->dnode);
 		circuit = isis_circuit_new(ifp, area_tag);
 		nb_running_set_entry(args->dnode, circuit);
 		break;
@@ -3776,7 +3773,7 @@ int lib_interface_isis_circuit_type_modify(struct nb_cb_modify_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		circuit = nb_running_get_entry(args->dnode, NULL, true);
+		circuit = nb_running_entry(args->dnode);
 		circuit->is_type_config = circ_type;
 		if (!circuit->area || circuit->area->is_type == IS_LEVEL_1_AND_2)
 			isis_circuit_is_type_set(circuit, circ_type);
@@ -3797,7 +3794,7 @@ int lib_interface_isis_ipv4_routing_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	ipv4 = yang_dnode_get_bool(args->dnode, NULL);
 	ipv6 = yang_dnode_get_bool(args->dnode, "../ipv6-routing");
 	isis_circuit_af_set(circuit, ipv4, ipv6);
@@ -3816,7 +3813,7 @@ int lib_interface_isis_ipv6_routing_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	ipv4 = yang_dnode_get_bool(args->dnode, "../ipv4-routing");
 	ipv6 = yang_dnode_get_bool(args->dnode, NULL);
 	isis_circuit_af_set(circuit, ipv4, ipv6);
@@ -3832,7 +3829,7 @@ void lib_interface_isis_bfd_monitoring_apply_finish(
 {
 	struct isis_circuit *circuit;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	isis_bfd_circuit_cmd(circuit);
 }
 
@@ -3847,7 +3844,7 @@ int lib_interface_isis_bfd_monitoring_enabled_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	circuit->bfd_config.enabled = yang_dnode_get_bool(args->dnode, NULL);
 
 	return NB_OK;
@@ -3864,7 +3861,7 @@ int lib_interface_isis_bfd_monitoring_profile_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	XFREE(MTYPE_TMP, circuit->bfd_config.profile);
 	circuit->bfd_config.profile =
 		XSTRDUP(MTYPE_TMP, yang_dnode_get_string(args->dnode, NULL));
@@ -3880,7 +3877,7 @@ int lib_interface_isis_bfd_monitoring_profile_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	XFREE(MTYPE_TMP, circuit->bfd_config.profile);
 
 	return NB_OK;
@@ -3897,7 +3894,7 @@ int lib_interface_isis_csnp_interval_level_1_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	circuit->csnp_interval[0] = yang_dnode_get_uint16(args->dnode, NULL);
 
 	return NB_OK;
@@ -3914,7 +3911,7 @@ int lib_interface_isis_csnp_interval_level_2_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	circuit->csnp_interval[1] = yang_dnode_get_uint16(args->dnode, NULL);
 
 	return NB_OK;
@@ -3931,7 +3928,7 @@ int lib_interface_isis_psnp_interval_level_1_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	circuit->psnp_interval[0] = yang_dnode_get_uint16(args->dnode, NULL);
 
 	return NB_OK;
@@ -3948,7 +3945,7 @@ int lib_interface_isis_psnp_interval_level_2_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	circuit->psnp_interval[1] = yang_dnode_get_uint16(args->dnode, NULL);
 
 	return NB_OK;
@@ -3964,7 +3961,7 @@ int lib_interface_isis_hello_padding_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	circuit->pad_hellos = yang_dnode_get_enum(args->dnode, NULL);
 
 	return NB_OK;
@@ -3982,7 +3979,7 @@ int lib_interface_isis_hello_interval_level_1_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	interval = yang_dnode_get_uint32(args->dnode, NULL);
 	circuit->hello_interval[0] = interval;
 
@@ -4001,7 +3998,7 @@ int lib_interface_isis_hello_interval_level_2_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	interval = yang_dnode_get_uint32(args->dnode, NULL);
 	circuit->hello_interval[1] = interval;
 
@@ -4020,7 +4017,7 @@ int lib_interface_isis_hello_multiplier_level_1_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	multi = yang_dnode_get_uint16(args->dnode, NULL);
 	circuit->hello_multiplier[0] = multi;
 
@@ -4039,7 +4036,7 @@ int lib_interface_isis_hello_multiplier_level_2_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	multi = yang_dnode_get_uint16(args->dnode, NULL);
 	circuit->hello_multiplier[1] = multi;
 
@@ -4057,7 +4054,7 @@ int lib_interface_isis_metric_level_1_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	met = yang_dnode_get_uint32(args->dnode, NULL);
 	isis_circuit_metric_set(circuit, IS_LEVEL_1, met);
 
@@ -4075,7 +4072,7 @@ int lib_interface_isis_metric_level_2_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	met = yang_dnode_get_uint32(args->dnode, NULL);
 	isis_circuit_metric_set(circuit, IS_LEVEL_2, met);
 
@@ -4092,7 +4089,7 @@ int lib_interface_isis_priority_level_1_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	circuit->priority[0] = yang_dnode_get_uint8(args->dnode, NULL);
 
 	return NB_OK;
@@ -4108,7 +4105,7 @@ int lib_interface_isis_priority_level_2_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	circuit->priority[1] = yang_dnode_get_uint8(args->dnode, NULL);
 
 	return NB_OK;
@@ -4146,7 +4143,7 @@ int lib_interface_isis_network_type_modify(struct nb_cb_modify_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		circuit = nb_running_get_entry(args->dnode, NULL, true);
+		circuit = nb_running_entry(args->dnode);
 		isis_circuit_circ_type_set(circuit, net_type);
 		break;
 	}
@@ -4165,7 +4162,7 @@ int lib_interface_isis_passive_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	isis_circuit_passive_set(circuit, passive);
 
 	return NB_OK;
@@ -4186,7 +4183,7 @@ int lib_interface_isis_password_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	isis_circuit_passwd_unset(circuit);
 
 	return NB_OK;
@@ -4204,7 +4201,7 @@ int lib_interface_isis_password_password_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 
 	password = yang_dnode_get_string(args->dnode, NULL);
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 
 	isis_circuit_passwd_set(circuit, circuit->passwd.type, password);
 
@@ -4224,7 +4221,7 @@ int lib_interface_isis_password_password_type_modify(
 		return NB_OK;
 
 	pass_type = yang_dnode_get_enum(args->dnode, NULL);
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	circuit->passwd.type = pass_type;
 
 	return NB_OK;
@@ -4242,7 +4239,7 @@ int lib_interface_isis_disable_three_way_handshake_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	circuit->disable_threeway_adj = yang_dnode_get_bool(args->dnode, NULL);
 
 	return NB_OK;
@@ -4261,7 +4258,7 @@ static int lib_interface_isis_multi_topology_common(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		circuit = nb_running_get_entry(dnode, NULL, true);
+		circuit = nb_running_entry(dnode);
 		value = yang_dnode_get_bool(dnode, NULL);
 		isis_circuit_mt_enabled_set(circuit, mtid, value);
 		break;
@@ -4368,7 +4365,7 @@ int lib_interface_isis_mpls_ldp_sync_modify(struct nb_cb_modify_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		circuit = nb_running_get_entry(args->dnode, NULL, true);
+		circuit = nb_running_entry(args->dnode);
 		ldp_sync_enable = yang_dnode_get_bool(args->dnode, NULL);
 
 		ldp_sync_info = circuit->ldp_sync_info;
@@ -4402,7 +4399,7 @@ int lib_interface_isis_mpls_holddown_modify(struct nb_cb_modify_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		circuit = nb_running_get_entry(args->dnode, NULL, true);
+		circuit = nb_running_entry(args->dnode);
 		holddown = yang_dnode_get_uint16(args->dnode, NULL);
 
 		ldp_sync_info = circuit->ldp_sync_info;
@@ -4425,7 +4422,7 @@ int lib_interface_isis_mpls_holddown_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		circuit = nb_running_get_entry(args->dnode, NULL, true);
+		circuit = nb_running_entry(args->dnode);
 		ldp_sync_info = circuit->ldp_sync_info;
 
 		UNSET_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_HOLDDOWN);
@@ -4451,7 +4448,7 @@ int lib_interface_isis_fast_reroute_level_1_lfa_enable_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	circuit->lfa_protection[0] = yang_dnode_get_bool(args->dnode, NULL);
 
 	area = circuit->area;
@@ -4483,7 +4480,7 @@ int lib_interface_isis_fast_reroute_level_1_lfa_exclude_interface_create(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	exclude_ifname = yang_dnode_get_string(args->dnode, NULL);
 
 	isis_lfa_excluded_iface_add(circuit, ISIS_LEVEL1, exclude_ifname);
@@ -4504,7 +4501,7 @@ int lib_interface_isis_fast_reroute_level_1_lfa_exclude_interface_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	exclude_ifname = yang_dnode_get_string(args->dnode, NULL);
 
 	isis_lfa_excluded_iface_delete(circuit, ISIS_LEVEL1, exclude_ifname);
@@ -4528,7 +4525,7 @@ int lib_interface_isis_fast_reroute_level_1_remote_lfa_enable_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	circuit->rlfa_protection[0] = yang_dnode_get_bool(args->dnode, NULL);
 
 	area = circuit->area;
@@ -4559,7 +4556,7 @@ int lib_interface_isis_fast_reroute_level_1_remote_lfa_maximum_metric_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	circuit->rlfa_max_metric[0] = yang_dnode_get_uint32(args->dnode, NULL);
 
 	area = circuit->area;
@@ -4578,7 +4575,7 @@ int lib_interface_isis_fast_reroute_level_1_remote_lfa_maximum_metric_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	circuit->rlfa_max_metric[0] = 0;
 
 	area = circuit->area;
@@ -4601,7 +4598,7 @@ int lib_interface_isis_fast_reroute_level_1_ti_lfa_enable_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	circuit->tilfa_protection[0] = yang_dnode_get_bool(args->dnode, NULL);
 
 	area = circuit->area;
@@ -4632,7 +4629,7 @@ int lib_interface_isis_fast_reroute_level_1_ti_lfa_node_protection_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	circuit->tilfa_node_protection[0] =
 		yang_dnode_get_bool(args->dnode, NULL);
 
@@ -4656,7 +4653,7 @@ int lib_interface_isis_fast_reroute_level_1_ti_lfa_link_fallback_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	circuit->tilfa_link_fallback[0] =
 		yang_dnode_get_bool(args->dnode, NULL);
 
@@ -4680,7 +4677,7 @@ int lib_interface_isis_fast_reroute_level_2_lfa_enable_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	circuit->lfa_protection[1] = yang_dnode_get_bool(args->dnode, NULL);
 
 	area = circuit->area;
@@ -4712,7 +4709,7 @@ int lib_interface_isis_fast_reroute_level_2_lfa_exclude_interface_create(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	exclude_ifname = yang_dnode_get_string(args->dnode, NULL);
 
 	isis_lfa_excluded_iface_add(circuit, ISIS_LEVEL2, exclude_ifname);
@@ -4733,7 +4730,7 @@ int lib_interface_isis_fast_reroute_level_2_lfa_exclude_interface_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	exclude_ifname = yang_dnode_get_string(args->dnode, NULL);
 
 	isis_lfa_excluded_iface_delete(circuit, ISIS_LEVEL2, exclude_ifname);
@@ -4757,7 +4754,7 @@ int lib_interface_isis_fast_reroute_level_2_remote_lfa_enable_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	circuit->rlfa_protection[1] = yang_dnode_get_bool(args->dnode, NULL);
 
 	area = circuit->area;
@@ -4788,7 +4785,7 @@ int lib_interface_isis_fast_reroute_level_2_remote_lfa_maximum_metric_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	circuit->rlfa_max_metric[1] = yang_dnode_get_uint32(args->dnode, NULL);
 
 	area = circuit->area;
@@ -4807,7 +4804,7 @@ int lib_interface_isis_fast_reroute_level_2_remote_lfa_maximum_metric_destroy(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	circuit->rlfa_max_metric[1] = 0;
 
 	area = circuit->area;
@@ -4830,7 +4827,7 @@ int lib_interface_isis_fast_reroute_level_2_ti_lfa_enable_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	circuit->tilfa_protection[1] = yang_dnode_get_bool(args->dnode, NULL);
 
 	area = circuit->area;
@@ -4861,7 +4858,7 @@ int lib_interface_isis_fast_reroute_level_2_ti_lfa_node_protection_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	circuit->tilfa_node_protection[1] =
 		yang_dnode_get_bool(args->dnode, NULL);
 
@@ -4885,7 +4882,7 @@ int lib_interface_isis_fast_reroute_level_2_ti_lfa_link_fallback_modify(
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	circuit = nb_running_get_entry(args->dnode, NULL, true);
+	circuit = nb_running_entry(args->dnode);
 	circuit->tilfa_link_fallback[1] =
 		yang_dnode_get_bool(args->dnode, NULL);
 

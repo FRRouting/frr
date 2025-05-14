@@ -28,7 +28,7 @@ lib_route_map_entry_match_condition_rmap_match_condition_ipv4_prefix_length_modi
 		return NB_OK;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		length = yang_dnode_get_string(args->dnode, NULL);
 		condition = yang_dnode_get_string(args->dnode,
 				"../../frr-route-map:condition");
@@ -87,7 +87,7 @@ lib_route_map_entry_match_condition_rmap_match_condition_ipv6_prefix_length_modi
 		return NB_OK;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		length = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -142,7 +142,7 @@ lib_route_map_entry_match_condition_rmap_match_condition_source_instance_modify(
 		break;
 	case NB_EV_APPLY:
 		/* Add configuration. */
-		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		rhc = nb_running_entry(args->dnode);
 		type = yang_dnode_get_string(args->dnode, NULL);
 
 		/* Set destroy information. */
@@ -206,7 +206,7 @@ lib_route_map_entry_match_condition_rmap_match_condition_source_protocol_modify(
 	}
 
 	/* Add configuration. */
-	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	rhc = nb_running_entry(args->dnode);
 	type = yang_dnode_get_string(args->dnode, NULL);
 
 	/* Set destroy information. */
@@ -272,7 +272,7 @@ lib_route_map_entry_set_action_rmap_set_action_ipv4_src_address_modify(
 	}
 
 	/* Add configuration. */
-	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	rhc = nb_running_entry(args->dnode);
 	source = yang_dnode_get_string(args->dnode, NULL);
 
 	/* Set destroy information. */
@@ -336,7 +336,7 @@ lib_route_map_entry_set_action_rmap_set_action_ipv6_src_address_modify(
 	}
 
 	/* Add configuration. */
-	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	rhc = nb_running_entry(args->dnode);
 	source = yang_dnode_get_string(args->dnode, NULL);
 
 	/* Set destroy information. */

@@ -27,7 +27,7 @@ int lib_route_map_entry_match_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	rhc = nb_running_entry(args->dnode);
 	if (rhc->rhc_mhook == NULL)
 		return NB_OK;
 
@@ -48,7 +48,7 @@ int lib_route_map_entry_set_destroy(struct nb_cb_destroy_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	rhc = nb_running_entry(args->dnode);
 	if (rhc->rhc_shook == NULL)
 		return NB_OK;
 
@@ -142,7 +142,7 @@ lib_route_map_optimization_disabled_modify(struct nb_cb_modify_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		rm = nb_running_get_entry(args->dnode, NULL, true);
+		rm = nb_running_entry(args->dnode);
 		rm->optimization_disabled = disabled;
 		break;
 	}
@@ -171,7 +171,7 @@ static int lib_route_map_entry_create(struct nb_cb_create_args *args)
 		action = yang_dnode_get_enum(args->dnode, "action") == 0
 				 ? RMAP_PERMIT
 				 : RMAP_DENY;
-		rm = nb_running_get_entry(args->dnode, NULL, true);
+		rm = nb_running_entry(args->dnode);
 		rmi = route_map_index_get(rm, action, sequence);
 		nb_running_set_entry(args->dnode, rmi);
 		break;
@@ -222,7 +222,7 @@ lib_route_map_entry_description_modify(struct nb_cb_modify_args *args)
 		XFREE(MTYPE_TMP, args->resource->ptr);
 		break;
 	case NB_EV_APPLY:
-		rmi = nb_running_get_entry(args->dnode, NULL, true);
+		rmi = nb_running_entry(args->dnode);
 		XFREE(MTYPE_TMP, rmi->description);
 		rmi->description = args->resource->ptr;
 		break;
@@ -243,7 +243,7 @@ lib_route_map_entry_description_destroy(struct nb_cb_destroy_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		rmi = nb_running_get_entry(args->dnode, NULL, true);
+		rmi = nb_running_entry(args->dnode);
 		XFREE(MTYPE_TMP, rmi->description);
 		break;
 	}
@@ -266,7 +266,7 @@ static int lib_route_map_entry_action_modify(struct nb_cb_modify_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		rmi = nb_running_get_entry(args->dnode, NULL, true);
+		rmi = nb_running_entry(args->dnode);
 		rmi->type = yang_dnode_get_enum(args->dnode, NULL);
 		map = rmi->map;
 
@@ -309,7 +309,7 @@ static int lib_route_map_entry_call_modify(struct nb_cb_modify_args *args)
 		XFREE(MTYPE_ROUTE_MAP_NAME, args->resource->ptr);
 		break;
 	case NB_EV_APPLY:
-		rmi = nb_running_get_entry(args->dnode, NULL, true);
+		rmi = nb_running_entry(args->dnode);
 		if (rmi->nextrm) {
 			route_map_upd8_dependency(RMAP_EVENT_CALL_DELETED,
 						  rmi->nextrm, rmi->map->name);
@@ -335,7 +335,7 @@ static int lib_route_map_entry_call_destroy(struct nb_cb_destroy_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		rmi = nb_running_get_entry(args->dnode, NULL, true);
+		rmi = nb_running_entry(args->dnode);
 		route_map_upd8_dependency(RMAP_EVENT_CALL_DELETED, rmi->nextrm,
 					  rmi->map->name);
 		XFREE(MTYPE_ROUTE_MAP_NAME, rmi->nextrm);
@@ -381,7 +381,7 @@ lib_route_map_entry_exit_policy_modify(struct nb_cb_modify_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		rmi = nb_running_get_entry(args->dnode, NULL, true);
+		rmi = nb_running_entry(args->dnode);
 		map = rmi->map;
 		policy = yang_dnode_get_enum(args->dnode, NULL);
 
@@ -433,7 +433,7 @@ static int lib_route_map_entry_goto_value_modify(struct nb_cb_modify_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		rmi = nb_running_get_entry(args->dnode, NULL, true);
+		rmi = nb_running_entry(args->dnode);
 		rmi->nextpref = yang_dnode_get_uint16(args->dnode, NULL);
 		break;
 	}
@@ -453,7 +453,7 @@ lib_route_map_entry_goto_value_destroy(struct nb_cb_destroy_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		rmi = nb_running_get_entry(args->dnode, NULL, true);
+		rmi = nb_running_entry(args->dnode);
 		rmi->nextpref = 0;
 		break;
 	}
@@ -477,7 +477,7 @@ lib_route_map_entry_match_condition_create(struct nb_cb_create_args *args)
 		/* NOTHING */
 		break;
 	case NB_EV_APPLY:
-		rmi = nb_running_get_entry(args->dnode, NULL, true);
+		rmi = nb_running_entry(args->dnode);
 		rhc = routemap_hook_context_insert(rmi);
 		nb_running_set_entry(args->dnode, rhc);
 		break;
@@ -520,7 +520,7 @@ static int lib_route_map_entry_match_condition_interface_modify(
 		return NB_OK;
 
 	/* Add configuration. */
-	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	rhc = nb_running_entry(args->dnode);
 	ifname = yang_dnode_get_string(args->dnode, NULL);
 
 	/* Set destroy information. */
@@ -562,7 +562,7 @@ static int lib_route_map_entry_match_condition_list_name_modify(
 
 	/* Check for hook installation, otherwise we can just stop. */
 	acl = yang_dnode_get_string(args->dnode, NULL);
-	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	rhc = nb_running_entry(args->dnode);
 	condition = yang_dnode_get_string(args->dnode, "../../condition");
 
 	if (IS_MATCH_IPv4_ADDRESS_LIST(condition)) {
@@ -683,7 +683,7 @@ static int lib_route_map_entry_match_condition_ipv4_next_hop_type_modify(
 		return NB_OK;
 
 	/* Add configuration. */
-	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	rhc = nb_running_entry(args->dnode);
 	type = yang_dnode_get_string(args->dnode, NULL);
 
 	/* Set destroy information. */
@@ -727,7 +727,7 @@ static int lib_route_map_entry_match_condition_ipv6_next_hop_type_modify(
 		return NB_OK;
 
 	/* Add configuration. */
-	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	rhc = nb_running_entry(args->dnode);
 	type = yang_dnode_get_string(args->dnode, NULL);
 
 	/* Set destroy information. */
@@ -771,7 +771,7 @@ static int lib_route_map_entry_match_condition_metric_modify(
 		return NB_OK;
 
 	/* Add configuration. */
-	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	rhc = nb_running_entry(args->dnode);
 	type = yang_dnode_get_string(args->dnode, NULL);
 
 	/* Set destroy information. */
@@ -814,7 +814,7 @@ lib_route_map_entry_match_condition_tag_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 
 	/* Add configuration. */
-	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	rhc = nb_running_entry(args->dnode);
 	tag = yang_dnode_get_string(args->dnode, NULL);
 
 	/* Set destroy information. */
@@ -897,7 +897,7 @@ static int lib_route_map_entry_set_action_ipv4_address_modify(
 		return NB_OK;
 
 	/* Add configuration. */
-	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	rhc = nb_running_entry(args->dnode);
 	address = yang_dnode_get_string(args->dnode, NULL);
 
 	/* Set destroy information. */
@@ -956,7 +956,7 @@ static int lib_route_map_entry_set_action_ipv6_address_modify(
 		return NB_OK;
 
 	/* Add configuration. */
-	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	rhc = nb_running_entry(args->dnode);
 	address = yang_dnode_get_string(args->dnode, NULL);
 
 	/* Set destroy information. */
@@ -1003,7 +1003,7 @@ static int set_action_modify(enum nb_event event, const struct lyd_node *dnode,
 		return NB_OK;
 
 	/* Add configuration. */
-	rhc = nb_running_get_entry(dnode, NULL, true);
+	rhc = nb_running_entry(dnode);
 
 	/* Set destroy information. */
 	rhc->rhc_shook = rmap_match_set_hook.no_set_metric;
@@ -1056,7 +1056,7 @@ static int set_action_min_metric_modify(enum nb_event event,
 		return NB_OK;
 
 	/* Add configuration. */
-	rhc = nb_running_get_entry(dnode, NULL, true);
+	rhc = nb_running_entry(dnode);
 
 	/* Set destroy information. */
 	rhc->rhc_shook = rmap_match_set_hook.no_set_min_metric;
@@ -1108,7 +1108,7 @@ static int set_action_max_metric_modify(enum nb_event event,
 		return NB_OK;
 
 	/* Add configuration. */
-	rhc = nb_running_get_entry(dnode, NULL, true);
+	rhc = nb_running_entry(dnode);
 
 	/* Set destroy information. */
 	rhc->rhc_shook = rmap_match_set_hook.no_set_max_metric;
@@ -1297,7 +1297,7 @@ lib_route_map_entry_set_action_tag_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 
 	/* Add configuration. */
-	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	rhc = nb_running_entry(args->dnode);
 	tag = yang_dnode_get_string(args->dnode, NULL);
 
 	/* Set destroy information. */
@@ -1343,7 +1343,7 @@ lib_route_map_entry_set_action_policy_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 
 	/* Add configuration. */
-	rhc = nb_running_get_entry(args->dnode, NULL, true);
+	rhc = nb_running_entry(args->dnode);
 	policy = yang_dnode_get_string(args->dnode, NULL);
 
 	/* Set destroy information. */
