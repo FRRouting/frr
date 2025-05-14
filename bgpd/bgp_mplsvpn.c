@@ -932,7 +932,12 @@ void delete_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 
 	tovpn_sid_index = bgp_vrf->tovpn_sid_index;
 	tovpn_sid_auto =
+<<<<<<< HEAD
 		CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VPN_POLICY_TOVPN_SID_AUTO);
+=======
+		CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_TOVPN_SID_AUTO);
+	is_tovpn_sid_explicit = CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT);
+>>>>>>> 3593f6965 (bgpd: Fix flag issue in delete_vrf_tovpn_sid_per_vrf)
 
 	/* skip when VPN is configured on vrf-instance */
 	if (tovpn_sid_index != 0 || tovpn_sid_auto)
