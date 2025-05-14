@@ -79,6 +79,7 @@ pimd_pimd_SOURCES = \
 
 nodist_pimd_pimd_SOURCES = \
 	yang/frr-pim.yang.c \
+	yang/frr-pim-route-map.yang.c \
 	yang/frr-pim-rp.yang.c \
 	yang/frr-pim-candidate.yang.c \
 	yang/frr-gmp.yang.c \
@@ -93,6 +94,7 @@ pimd_pim6d_SOURCES = \
 
 nodist_pimd_pim6d_SOURCES = \
 	yang/frr-pim.yang.c \
+	yang/frr-pim-route-map.yang.c \
 	yang/frr-pim-rp.yang.c \
 	yang/frr-pim-candidate.yang.c \
 	yang/frr-gmp.yang.c \
@@ -164,6 +166,7 @@ noinst_HEADERS += \
 
 clippy_scan += \
 	pimd/pim_cmd.c \
+	pimd/pim_routemap.c \
 	pimd/pim6_cmd.c \
 	pimd/pim6_mld.c \
 	# end
