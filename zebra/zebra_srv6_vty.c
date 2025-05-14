@@ -286,10 +286,11 @@ static const char *show_srv6_sid_seg6_action(enum seg6local_action_t behavior)
 		return "uDT46";
 	case ZEBRA_SEG6_LOCAL_ACTION_UNSPEC:
 		return "unspec";
+	case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
+		return "End.B6.Encap";
 	case ZEBRA_SEG6_LOCAL_ACTION_END_T:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_B6:
-	case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_BM:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_S:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_AS:
