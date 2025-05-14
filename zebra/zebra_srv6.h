@@ -237,7 +237,8 @@ DECLARE_HOOK(srv6_manager_get_sid,
 	      const char *locator_name),
 	     (sid, client, ctx, sid_value, locator_name));
 DECLARE_HOOK(srv6_manager_release_sid,
-	     (struct zserv *client, struct srv6_sid_ctx *ctx), (client, ctx));
+	     (struct zserv * client, struct srv6_sid_ctx *ctx, const char *locator_name),
+	     (client, ctx, locator_name));
 DECLARE_HOOK(srv6_manager_get_locator,
 	     (struct srv6_locator **locator, struct zserv *client,
 	      const char *locator_name),
@@ -302,8 +303,8 @@ extern void srv6_manager_get_sid_call(struct zebra_srv6_sid **sid,
 				      struct srv6_sid_ctx *ctx,
 				      struct in6_addr *sid_value,
 				      const char *locator_name);
-extern void srv6_manager_release_sid_call(struct zserv *client,
-					  struct srv6_sid_ctx *ctx);
+extern void srv6_manager_release_sid_call(struct zserv *client, struct srv6_sid_ctx *ctx,
+					  const char *locator_name);
 
 extern void srv6_manager_get_locator_call(struct srv6_locator **locator,
 					  struct zserv *client,
@@ -311,8 +312,8 @@ extern void srv6_manager_get_locator_call(struct srv6_locator **locator,
 
 extern int get_srv6_sid(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx,
 			struct in6_addr *sid_value, const char *locator_name);
-extern int release_srv6_sid(struct zserv *client,
-			    struct zebra_srv6_sid_ctx *zctx);
+extern int release_srv6_sid(struct zserv *client, struct zebra_srv6_sid_ctx *zctx,
+			    struct srv6_locator *locator);
 extern int release_daemon_srv6_sids(struct zserv *client);
 extern int srv6_manager_get_sid_response(struct zebra_srv6_sid *sid,
 					 struct zserv *client);

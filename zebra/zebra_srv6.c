@@ -69,7 +69,8 @@ DEFINE_HOOK(srv6_manager_get_sid,
 	     const char *locator_name),
 	    (sid, client, ctx, sid_value, locator_name));
 DEFINE_HOOK(srv6_manager_release_sid,
-	    (struct zserv *client, struct srv6_sid_ctx *ctx), (client, ctx));
+	    (struct zserv * client, struct srv6_sid_ctx *ctx, const char *locator_name),
+	    (client, ctx, locator_name));
 DEFINE_HOOK(srv6_manager_get_locator,
 	    (struct srv6_locator **locator, struct zserv *client,
 	     const char *locator_name),
@@ -115,10 +116,10 @@ void srv6_manager_get_sid_call(struct zebra_srv6_sid **sid,
 		  locator_name);
 }
 
-void srv6_manager_release_sid_call(struct zserv *client,
-				   struct srv6_sid_ctx *ctx)
+void srv6_manager_release_sid_call(struct zserv *client, struct srv6_sid_ctx *ctx,
+				   const char *locator_name)
 {
-	hook_call(srv6_manager_release_sid, client, ctx);
+	hook_call(srv6_manager_release_sid, client, ctx, locator_name);
 }
 
 void srv6_manager_get_locator_call(struct srv6_locator **locator,
@@ -2182,9 +2183,11 @@ static int release_srv6_sid_func_dynamic(struct zebra_srv6_sid_block *block,
  *
  * @param client The client for which the SID has to be released
  * @param ctx Context associated with the SRv6 SID to be released
+ * @param locator Parent locator of the SID
  * @return 0 on success, -1 otherwise
  */
-int release_srv6_sid(struct zserv *client, struct zebra_srv6_sid_ctx *zctx)
+int release_srv6_sid(struct zserv *client, struct zebra_srv6_sid_ctx *zctx,
+		     struct srv6_locator *locator)
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
 	char buf[256];
@@ -2197,6 +2200,13 @@ int release_srv6_sid(struct zserv *client, struct zebra_srv6_sid_ctx *zctx)
 			   __func__, &zctx->sid->value,
 			   srv6_sid_ctx2str(buf, sizeof(buf), &zctx->ctx),
 			   client->proto, client->instance);
+
+	if (zctx->sid->locator != locator) {
+		zlog_err("SRv6 SID %pI6 ctx %s is not allocated from the provided locator %s",
+			 &zctx->sid->value, srv6_sid_ctx2str(buf, sizeof(buf), &zctx->ctx),
+			 locator->name);
+		return -1;
+	}
 
 	/* Ensures the SID is in use by the client */
 	if (!listnode_lookup(zctx->sid->client_list, client)) {
@@ -2392,7 +2402,7 @@ int release_daemon_srv6_sids(struct zserv *client)
 		if (!listnode_lookup(ctx->sid->client_list, client))
 			continue;
 
-		ret = release_srv6_sid(client, ctx);
+		ret = release_srv6_sid(client, ctx, ctx->sid->locator);
 		if (ret == 0)
 			count++;
 	}
@@ -2408,32 +2418,40 @@ int release_daemon_srv6_sids(struct zserv *client)
  *
  * @param client The client zapi session
  * @param ctx Context associated with the SRv6 SID
+ * @param locator_name Locator from which the SID has to be allocated (for dynamic SID allocation)
  * @return 0 on success, -1 on failure
  */
-static int srv6_manager_release_sid_internal(struct zserv *client,
-					     struct srv6_sid_ctx *ctx)
+static int srv6_manager_release_sid_internal(struct zserv *client, struct srv6_sid_ctx *ctx,
+					     const char *locator_name)
 {
 	int ret = -1;
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
 	struct zebra_srv6_sid_ctx *zctx;
 	struct listnode *node, *nnode;
 	char buf[256];
-	const char *locator_name = NULL;
+	struct srv6_locator *locator = NULL;
 	struct in6_addr sid_value = {};
 
 	if (IS_ZEBRA_DEBUG_SRV6)
 		zlog_debug("%s: releasing SRv6 SID associated with ctx %s",
 			   __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx));
 
+	if (locator_name && locator_name[0] != '\0') {
+		locator = zebra_srv6_locator_lookup(locator_name);
+		if (!locator) {
+			zlog_err("%s: invalid SM request arguments: SRv6 locator '%s' does not exist",
+				 __func__, locator_name);
+			return -1;
+		}
+	}
+
 	/* Lookup Zebra SID context and release it */
 	for (ALL_LIST_ELEMENTS(srv6->sids, node, nnode, zctx))
 		if (memcmp(&zctx->ctx, ctx, sizeof(struct srv6_sid_ctx)) == 0) {
-			if (zctx->sid) {
-				if (zctx->sid->locator)
-					locator_name = (const char *)zctx->sid->locator->name;
+			if (zctx->sid)
 				sid_value = zctx->sid->value;
-			}
-			ret = release_srv6_sid(client, zctx);
+
+			ret = release_srv6_sid(client, zctx, locator);
 			break;
 		}
 
