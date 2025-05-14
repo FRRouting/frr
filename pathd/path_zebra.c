@@ -1315,7 +1315,7 @@ void path_zebra_srv6_manager_release_sid(struct srv6_sid_ctx *ctx)
 {
 	int ret;
 
-	ret = srv6_manager_release_sid(zclient, ctx);
+	ret = srv6_manager_release_sid(zclient, ctx, NULL);
 	if (ret < 0)
 		/* TODO: need to re-send later GET_SID message */
 		zlog_warn("%s: error releasing SRv6 SID!", __func__);
