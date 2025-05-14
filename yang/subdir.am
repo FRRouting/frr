@@ -84,6 +84,7 @@ endif
 if PIMD
 dist_yangmodels_DATA += yang/frr-gmp.yang
 dist_yangmodels_DATA += yang/frr-pim.yang
+dist_yangmodels_DATA += yang/frr-pim-route-map.yang
 dist_yangmodels_DATA += yang/frr-pim-rp.yang
 dist_yangmodels_DATA += yang/frr-pim-candidate.yang
 endif
