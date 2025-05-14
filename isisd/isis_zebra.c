@@ -1478,19 +1478,20 @@ bool isis_zebra_request_srv6_sid(const struct srv6_sid_ctx *ctx,
  * to use the SID.
  *
  * @param ctx Context to be associated with the SID to be released
+ * @param locator_name Parent locator of the SID
  */
-void isis_zebra_release_srv6_sid(const struct srv6_sid_ctx *ctx)
+void isis_zebra_release_srv6_sid(const struct srv6_sid_ctx *ctx, const char *locator_name)
 {
 	int ret;
 
-	if (!ctx)
+	if (!ctx || !locator_name)
 		return;
 
 	/*
 	 * Send the Release SRv6 SID request to the SRv6 Manager and check the
 	 * result
 	 */
-	ret = srv6_manager_release_sid(isis_zclient, ctx);
+	ret = srv6_manager_release_sid(isis_zclient, ctx, locator_name);
 	if (ret < 0) {
 		zlog_warn("%s: error releasing SRv6 SID!", __func__);
 		return;
