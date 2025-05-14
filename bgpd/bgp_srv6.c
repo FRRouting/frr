@@ -744,7 +744,7 @@ void bgp_srv6_vpn_path_withdraw(struct bgp *bgp, const struct prefix *p, afi_t a
 			vpn_leak_to_vrf_withdraw(bpi);
 			bgp_aggregate_decrement(bgp_get_default(), bgp_dest_get_prefix(bn), bpi,
 						afi, SAFI_MPLS_VPN);
-			bgp_path_info_delete(bn, bpi);
+			bgp_path_info_mark_for_delete(bn, bpi);
 			process_pdest = true;
 			/* no need to handle mpls function */
 		}

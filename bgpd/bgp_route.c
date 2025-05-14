@@ -516,14 +516,14 @@ struct bgp_dest *bgp_path_info_reap(struct bgp_dest *dest,
 	return bgp_dest_unlock_node(dest);
 }
 
-void bgp_path_info_delete(struct bgp_dest *dest, struct bgp_path_info *pi)
+void bgp_path_info_mark_for_delete(struct bgp_dest *dest, struct bgp_path_info *pi)
 {
 	bgp_path_info_set_flag(dest, pi, BGP_PATH_REMOVED);
 	/* set of previous already took care of pcount */
 	UNSET_FLAG(pi->flags, BGP_PATH_VALID);
 }
 
-/* undo the effects of a previous call to bgp_path_info_delete; typically
+/* undo the effects of a previous call to bgp_path_info_mark_for_delete; typically
    called when a route is deleted and then quickly re-added before the
    deletion has been processed */
 void bgp_path_info_restore(struct bgp_dest *dest, struct bgp_path_info *pi)
@@ -4624,7 +4624,7 @@ void bgp_rib_remove(struct bgp_dest *dest, struct bgp_path_info *pi,
 				safi);
 
 	if (!CHECK_FLAG(pi->flags, BGP_PATH_HISTORY)) {
-		bgp_path_info_delete(dest, pi); /* keep historical info */
+		bgp_path_info_mark_for_delete(dest, pi); /* keep historical info */
 
 		/* If the selected path is removed, reset BGP_NODE_SELECT_DEFER
 		 * flag
@@ -5743,7 +5743,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 filtered:
 	if (new) {
 		bgp_unlink_nexthop(new);
-		bgp_path_info_delete(dest, new);
+		bgp_path_info_mark_for_delete(dest, new);
 		bgp_path_info_extra_free(&new->extra);
 		XFREE(MTYPE_BGP_ROUTE, new);
 	}
@@ -7317,7 +7317,7 @@ void bgp_static_withdraw(struct bgp *bgp, const struct prefix *p, afi_t afi,
 		}
 		bgp_aggregate_decrement(bgp, p, pi, afi, safi);
 		bgp_unlink_nexthop(pi);
-		bgp_path_info_delete(dest, pi);
+		bgp_path_info_mark_for_delete(dest, pi);
 		bgp_process(bgp, dest, afi, safi);
 	}
 
@@ -7726,7 +7726,7 @@ static void bgp_purge_af_static_redist_routes(struct bgp *bgp, afi_t afi,
 					bgp, bgp_dest_get_prefix(dest), pi, afi,
 					safi);
 				bgp_unlink_nexthop(pi);
-				bgp_path_info_delete(dest, pi);
+				bgp_path_info_mark_for_delete(dest, pi);
 				bgp_process(bgp, dest, afi, safi);
 			}
 		}
@@ -8069,7 +8069,7 @@ static void bgp_aggregate_install(
 		 * Mark the old as unusable
 		 */
 		if (pi) {
-			bgp_path_info_delete(dest, pi);
+			bgp_path_info_mark_for_delete(dest, pi);
 			bgp_process(bgp, dest, afi, safi);
 			if (debug)
 				zlog_debug("  aggregate %pFX: existing, removed", p);
@@ -8092,7 +8092,7 @@ static void bgp_aggregate_install(
 	uninstall_aggregate_route:
 			/* Withdraw the aggregate route from routing table. */
 			if (pi) {
-				bgp_path_info_delete(dest, pi);
+				bgp_path_info_mark_for_delete(dest, pi);
 				bgp_process(bgp, dest, afi, safi);
 				if (debug)
 					zlog_debug("  aggregate %pFX: uninstall", p);
@@ -9471,7 +9471,7 @@ void bgp_redistribute_delete(struct bgp *bgp, struct prefix *p, uint8_t type,
 							   bgp, pi);
 			}
 			bgp_aggregate_decrement(bgp, p, pi, afi, SAFI_UNICAST);
-			bgp_path_info_delete(dest, pi);
+			bgp_path_info_mark_for_delete(dest, pi);
 			bgp_process(bgp, dest, afi, SAFI_UNICAST);
 		}
 		bgp_dest_unlock_node(dest);
@@ -9506,7 +9506,7 @@ void bgp_redistribute_withdraw(struct bgp *bgp, afi_t afi, int type,
 			}
 			bgp_aggregate_decrement(bgp, bgp_dest_get_prefix(dest),
 						pi, afi, SAFI_UNICAST);
-			bgp_path_info_delete(dest, pi);
+			bgp_path_info_mark_for_delete(dest, pi);
 			if (!CHECK_FLAG(bgp->flags,
 					BGP_FLAG_DELETE_IN_PROGRESS))
 				bgp_process(bgp, dest, afi, SAFI_UNICAST);

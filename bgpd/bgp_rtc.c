@@ -319,7 +319,7 @@ void bgp_rtc_remove_ecommunity_val_dynamic(struct bgp *bgp, struct ecommunity_va
 	if (pi) {
 		bgp_aggregate_decrement(bgp, &prefix, pi, afi, safi);
 		bgp_unlink_nexthop(pi);
-		bgp_path_info_delete(dest, pi);
+		bgp_path_info_mark_for_delete(dest, pi);
 		bgp_process(bgp, dest, afi, safi);
 	}
 
