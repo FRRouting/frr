@@ -21,6 +21,10 @@ module frr-gmp {
     prefix frr-interface;
   }
 
+  import frr-route-map {
+    prefix frr-route-map;
+  }
+
   organization
     "FRRouting";
 
@@ -199,6 +203,12 @@ module frr-gmp {
       default "false";
       description
         "Only process IGMP packets with IP Router Alert option set.";
+    }
+
+    leaf route-map {
+      type frr-route-map:route-map-ref;
+      description
+        "Filter multicast with referenced route-map.";
     }
 
     list static-group {

@@ -480,6 +480,13 @@ int pim_config_write(struct vty *vty, int writes, struct interface *ifp,
 		++writes;
 	}
 
+	/* IF igmp/mld routemap */
+	if (pim_ifp->gmp_filter.rmapname) {
+		vty_out(vty, " " PIM_AF_NAME " " GM_AF_DBG " route-map %s\n",
+			pim_ifp->gmp_filter.rmapname);
+		++writes;
+	}
+
 	/* IF igmp/mld max-sources */
 	if (pim_ifp->gm_source_limit != UINT32_MAX) {
 		vty_out(vty, " " PIM_AF_NAME " " GM_AF_DBG " max-sources %u\n",
