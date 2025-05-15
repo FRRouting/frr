@@ -155,7 +155,7 @@ static void sigusr1(void)
 	zlog_rotate();
 }
 
-static void quit(int exit_code)
+static __attribute__((__noreturn__)) void quit(int exit_code)
 {
 	event_cancel(&event_timeout);
 	darr_free(_client_cbs.notif_xpaths);
@@ -166,19 +166,19 @@ static void quit(int exit_code)
 	exit(exit_code);
 }
 
-static void sigint(void)
+static __attribute__((__noreturn__)) void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 	quit(0);
 }
 
-static void timeout(struct event *event)
+static __attribute__((__noreturn__)) void timeout(struct event *event)
 {
 	zlog_notice("Timeout, exiting");
 	quit(1);
 }
 
-static void success(struct event *event)
+static __attribute__((__noreturn__)) void success(struct event *event)
 {
 	zlog_notice("Success, exiting");
 	quit(0);
