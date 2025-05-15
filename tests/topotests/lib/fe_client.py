@@ -18,14 +18,14 @@ import sys
 import time
 from pathlib import Path
 
-from munet.base import Timeout
-
 CWD = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.dirname(CWD))
+
+from munet.base import Timeout
 
 # This is painful but works if you have installed protobuf would be better if we
 # actually built and installed these but ... python packaging.
 try:
-    sys.path.append(os.path.dirname(CWD))
     from munet.base import commander
 
     commander.cmd_raises(f"protoc --python_out={CWD} -I {CWD}/../../../lib mgmt.proto")
