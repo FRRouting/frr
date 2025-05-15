@@ -24,10 +24,10 @@
                     "origin": "IGP",
                     "nexthops": [
                         {
-                            "ip": "192.168.0.2",
-                            "hostname": "r2",
-                            "afi": "ipv4",
-                            "used": true
+                            "ip":"192.168.2.2",
+                            "hostname":"r2",
+                            "afi":"ipv4",
+                            "used":true
                         }
                     ]
                 }
@@ -53,10 +53,10 @@
                     "origin": "IGP",
                     "nexthops": [
                         {
-                            "ip": "192.168.0.2",
-                            "hostname": "r2",
-                            "afi": "ipv4",
-                            "used": true
+                            "ip":"192.168.2.2",
+                            "hostname":"r2",
+                            "afi":"ipv4",
+                            "used":true
                         }
                     ]
                 }
@@ -81,13 +81,13 @@
                     "metric": 0,
                     "locPrf": 100,
                     "weight": 0,
-                    "peerId": "192.168.0.1",
+                    "peerId": "192.168.2.101",
                     "path": "",
                     "origin": "IGP",
                     "nexthops": [
                         {
-                            "ip": "192.168.0.1",
-                            "hostname": "r1",
+                            "ip":"192.168.1.1",
+                            "hostname":"rr",
                             "afi": "ipv4",
                             "used": true
                         }
@@ -111,13 +111,13 @@
                     "metric": 0,
                     "locPrf": 100,
                     "weight": 0,
-                    "peerId": "192.168.0.1",
+                    "peerId": "192.168.2.101",
                     "path": "",
                     "origin": "IGP",
                     "nexthops": [
                         {
-                            "ip": "192.168.0.1",
-                            "hostname": "r1",
+                            "ip":"192.168.1.1",
+                            "hostname":"rr",
                             "afi": "ipv4",
                             "used": true
                         }
@@ -148,7 +148,7 @@
                     "origin": "IGP",
                     "nexthops": [
                         {
-                            "ip": "192.168.0.2",
+                            "ip": "192.168.2.2",
                             "hostname": "r2",
                             "afi": "ipv4",
                             "used": true
@@ -177,7 +177,7 @@
                     "origin": "IGP",
                     "nexthops": [
                         {
-                            "ip": "192.168.0.2",
+                            "ip": "192.168.2.2",
                             "hostname": "r2",
                             "afi": "ipv4",
                             "used": true
@@ -205,13 +205,13 @@
                     "metric": 0,
                     "locPrf": 100,
                     "weight": 0,
-                    "peerId": "192.168.0.1",
+                    "peerId": "192.168.2.101",
                     "path": "",
                     "origin": "IGP",
                     "nexthops": [
                         {
-                            "ip": "192.168.0.1",
-                            "hostname": "r1",
+                            "ip": "192.168.1.1",
+                            "hostname": "rr",
                             "afi": "ipv4",
                             "used": true
                         }
@@ -235,13 +235,13 @@
                     "metric": 0,
                     "locPrf": 100,
                     "weight": 0,
-                    "peerId": "192.168.0.1",
+                    "peerId": "192.168.2.101",
                     "path": "",
                     "origin": "IGP",
                     "nexthops": [
                         {
-                            "ip": "192.168.0.1",
-                            "hostname": "r1",
+                            "ip": "192.168.1.1",
+                            "hostname": "rr",
                             "afi": "ipv4",
                             "used": true
                         }
