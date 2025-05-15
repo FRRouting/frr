@@ -268,6 +268,28 @@ static bool gm_sg_limit_reached(struct gm_if *gm_if, const pim_addr source, cons
 	return false;
 }
 
+static bool gm_sg_filter_match(const struct gm_if *gm_if, const pim_addr source,
+			       const pim_addr group)
+{
+	const struct pim_interface *pim_interface = gm_if->ifp->info;
+	const struct prefix_sg sg = {
+		.family = PIM_AF,
+		.src.ipa_type = IPADDR_V6,
+		.src.ipaddr_v6 = source,
+		.grp.ipa_type = IPADDR_V6,
+		.grp.ipaddr_v6 = group,
+	};
+
+	if (!pim_filter_match(&pim_interface->gmp_filter, &sg, gm_if->ifp)) {
+		if (PIM_DEBUG_GM_TRACE)
+			zlog_debug("%s: SG%pPSG on interface %s filtered due to route-map",
+				   __func__, &sg, gm_if->ifp->name);
+		return true;
+	}
+
+	return false;
+}
+
 /*
  * interface -> packets, sorted by expiry (because add_tail insert order)
  */
@@ -410,6 +432,7 @@ static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 	struct pim_interface *pim_ifp = gm_ifp->ifp->info;
 	enum gm_sg_state prev, desired;
 	bool new_join;
+	bool entry_filtered = false;
 	struct gm_sg *grp = NULL;
 
 	if (!pim_addr_is_any(sg->sgaddr.src))
@@ -439,13 +462,17 @@ static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 	else
 		desired = GM_SG_NOINFO;
 
+	/* Check if entry is filtered by route maps */
+	if (gm_sg_filter_match(gm_ifp, sg->sgaddr.src, sg->sgaddr.grp))
+		entry_filtered = true;
+
 	if (desired != sg->state && !gm_ifp->stopping) {
 		if (PIM_DEBUG_GM_EVENTS)
 			zlog_debug(log_sg(sg, "%s => %s"), gm_states[sg->state],
 				   gm_states[desired]);
 
-		if (desired == GM_SG_JOIN_EXPIRING ||
-		    desired == GM_SG_NOPRUNE_EXPIRING) {
+		if (!entry_filtered &&
+		    (desired == GM_SG_JOIN_EXPIRING || desired == GM_SG_NOPRUNE_EXPIRING)) {
 			struct gm_query_timers timers;
 
 			if (!pim_ifp->gmp_immediate_leave) {
@@ -478,7 +505,7 @@ static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 	else
 		new_join = gm_sg_state_want_join(desired);
 
-	if (new_join && !sg->tib_joined) {
+	if (new_join && !sg->tib_joined && !entry_filtered) {
 		pim_addr embedded_rp;
 
 		if (sg->iface->pim->embedded_rp.enable &&
@@ -701,6 +728,8 @@ static void gm_handle_v2_pass1(struct gm_packet_state *pkt,
 		/* this always replaces or creates state */
 		is_excl = true;
 		if (!grp) {
+			if (gm_sg_filter_match(pkt->iface, PIMADDR_ANY, rechdr->grp))
+				return;
 			if (gm_sg_limit_reached(pkt->iface, PIMADDR_ANY, rechdr->grp))
 				return;
 
@@ -771,6 +800,8 @@ static void gm_handle_v2_pass1(struct gm_packet_state *pkt,
 
 		sg = gm_sg_find(pkt->iface, rechdr->grp, rechdr->srcs[j]);
 		if (!sg) {
+			if (gm_sg_filter_match(pkt->iface, rechdr->srcs[j], rechdr->grp))
+				return;
 			if (gm_sg_limit_reached(pkt->iface, rechdr->srcs[j], rechdr->grp))
 				return;
 
@@ -1025,6 +1056,9 @@ static void gm_handle_v1_report(struct gm_if *gm_ifp,
 	gm_ifp->stats.rx_old_report++;
 
 	hdr = (struct mld_v1_pkt *)data;
+
+	if (gm_sg_filter_match(gm_ifp, PIMADDR_ANY, hdr->grp))
+		return;
 
 	if (!gm_sg_has_group(gm_ifp->sgs, hdr->grp) &&
 	    gm_sg_limit_reached(gm_ifp, PIMADDR_ANY, hdr->grp))
