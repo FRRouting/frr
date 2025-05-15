@@ -183,6 +183,8 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool gm, bool pim,
 	pim_if_add_vif(ifp, ispimreg, is_vxlan_term);
 	pim_ifp->pim->mcast_if_count++;
 
+	pim_filter_ref_init(&pim_ifp->gmp_filter);
+
 	return pim_ifp;
 }
 
@@ -220,6 +222,8 @@ void pim_if_delete(struct interface *ifp)
 	pim_if_del_vif(ifp);
 
 	pim_igmp_if_fini(pim_ifp);
+
+	pim_filter_ref_fini(&pim_ifp->gmp_filter);
 
 	list_delete(&pim_ifp->pim_neighbor_list);
 	list_delete(&pim_ifp->upstream_switch_list);
