@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /* PIM Route-map Code
+ * Copyright (C) 2021  David Lamparter for NetDEF, Inc.
  * Copyright (C) 2016 Cumulus Networks <sharpd@cumulusnetworks.com>
  * Copyright (C) 1999 Kunihiro Ishiguro <kunihiro@zebra.org>
  *
@@ -12,7 +13,10 @@
 #include "routemap.h"
 #include "lib/command.h"
 #include "lib/northbound_cli.h"
+#include "pimd/pim_addr.h"
 #include "pimd/pim_nb.h"
+#include "pimd/pim_routemap.h"
+#include "pimd/pim_util.h"
 
 #include "pimd.h"
 
@@ -25,6 +29,102 @@
 #define MULTICAST_IPV6_GROUP	   "multicast-group-v6"
 #define MULTICAST_IPV6_GROUP_LIST  "multicast-group-v6 prefix-list"
 #define MULTICAST_INTERFACE	   "multicast-interface"
+
+DEFINE_MTYPE_STATIC(PIMD, PIM_ACL_REF, "PIM filter name");
+
+DECLARE_DLIST(pim_filter_refs, struct pim_filter_ref, itm);
+static struct pim_filter_refs_head refs[1] = { INIT_DLIST(refs[0]) };
+
+void pim_filter_ref_init(struct pim_filter_ref *ref)
+{
+	memset(ref, 0, sizeof(*ref));
+	pim_filter_refs_add_tail(refs, ref);
+}
+
+void pim_filter_ref_fini(struct pim_filter_ref *ref)
+{
+	pim_filter_refs_del(refs, ref);
+
+	XFREE(MTYPE_PIM_ACL_REF, ref->rmapname);
+}
+
+void pim_filter_ref_set_rmap(struct pim_filter_ref *ref, const char *rmapname)
+{
+	XFREE(MTYPE_PIM_ACL_REF, ref->rmapname);
+	ref->rmap = NULL;
+
+	if (rmapname) {
+		ref->rmapname = XSTRDUP(MTYPE_PIM_ACL_REF, rmapname);
+		ref->rmap = route_map_lookup_by_name(ref->rmapname);
+	}
+}
+
+void pim_filter_ref_update(void)
+{
+	struct pim_filter_ref *ref;
+
+	frr_each (pim_filter_refs, refs, ref) {
+		ref->rmap = route_map_lookup_by_name(ref->rmapname);
+	}
+}
+
+void pim_sg_to_prefix(const pim_sgaddr *sg, struct prefix_sg *prefix)
+{
+	prefix->family = PIM_AF;
+
+#if PIM_IPV == 4
+	prefix->prefixlen = IPV4_MAX_BITLEN;
+	prefix->src.ipa_type = IPADDR_V4;
+	prefix->src.ipaddr_v4 = sg->src;
+	prefix->grp.ipa_type = IPADDR_V4;
+	prefix->grp.ipaddr_v4 = sg->grp;
+#else
+	prefix->prefixlen = IPV6_MAX_BITLEN;
+	prefix->src.ipa_type = IPADDR_V6;
+	prefix->src.ipaddr_v6 = sg->src;
+	prefix->grp.ipa_type = IPADDR_V6;
+	prefix->grp.ipaddr_v6 = sg->grp;
+#endif
+}
+
+struct pim_rmap_info {
+	const struct prefix_sg *sg;
+	struct interface *interface;
+};
+
+bool pim_filter_match(const struct pim_filter_ref *ref, const struct prefix_sg *sg,
+		      struct interface *interface)
+{
+#if PIM_IPV == 4
+	if (sg->grp.ipaddr_v4.s_addr && !pim_is_group_224_4(sg->grp.ipaddr_v4))
+		return false;
+	if (sg->src.ipaddr_v4.s_addr && IPV4_CLASS_DE(ntohl(sg->src.ipaddr_v4.s_addr)))
+		return false;
+#else
+	if (sg->grp.ipaddr_v6.s6_addr[0] && !pim_addr_is_multicast(sg->grp.ipaddr_v6))
+		return false;
+	if (sg->src.ipaddr_v6.s6_addr[0] && pim_addr_is_multicast(sg->src.ipaddr_v6))
+		return false;
+#endif
+
+	if (ref->rmapname) {
+		route_map_result_t result;
+		struct prefix dummy_prefix = { .family = PIM_AF };
+		struct pim_rmap_info info = {
+			.sg = sg,
+			.interface = interface,
+		};
+
+		if (!ref->rmap)
+			return false;
+
+		result = route_map_apply(ref->rmap, &dummy_prefix, &info);
+		if (result != RMAP_PERMITMATCH)
+			return false;
+	}
+
+	return true;
+}
 
 /*
  * CLI
@@ -482,11 +582,13 @@ static const struct route_map_rule_cmd route_match_interface_cmd = {
 
 static void pim_route_map_add(const char *rmap_name)
 {
+	pim_filter_ref_update();
 	route_map_notify_dependencies(rmap_name, RMAP_EVENT_MATCH_ADDED);
 }
 
 static void pim_route_map_delete(const char *rmap_name)
 {
+	pim_filter_ref_update();
 	route_map_notify_dependencies(rmap_name, RMAP_EVENT_MATCH_DELETED);
 }
 

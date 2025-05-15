@@ -136,6 +136,7 @@ noinst_HEADERS += \
 	pimd/pim_oil.h \
 	pimd/pim_pim.h \
 	pimd/pim_register.h \
+	pimd/pim_routemap.h \
 	pimd/pim_rp.h \
 	pimd/pim_rpf.h \
 	pimd/pim_signals.h \
