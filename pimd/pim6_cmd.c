@@ -1640,6 +1640,22 @@ DEFPY_YANG(interface_ipv6_mld_immediate_leave,
 	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
 }
 
+DEFPY_YANG(interface_ipv6_mld_rmap, interface_ipv6_mld_rmap_cmd,
+           "[no] ipv6 mld route-map ![RMAP_NAME]",
+           NO_STR
+           IPV6_STR
+           IFACE_MLD_STR
+           "Filter joins through route-map\n"
+           "Route-map name\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./route-map", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./route-map", NB_OP_MODIFY, rmap_name);
+
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
+}
+
 DEFPY (interface_ipv6_mld_query_interval,
        interface_ipv6_mld_query_interval_cmd,
        "ipv6 mld query-interval (1-65535)$q_interval",
@@ -3044,6 +3060,7 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_version_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ipv6_mld_version_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_immediate_leave_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_mld_rmap_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_query_interval_cmd);
 	install_element(INTERFACE_NODE,
 			&interface_no_ipv6_mld_query_interval_cmd);
