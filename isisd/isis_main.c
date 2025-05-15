@@ -100,7 +100,7 @@ void sigterm(void);
 void sigusr1(void);
 
 
-static __attribute__((__noreturn__)) void terminate(int i)
+static FRR_NORETURN void terminate(int i)
 {
 	isis_terminate();
 	isis_sr_term();
@@ -140,13 +140,13 @@ void sighup(void)
 
 #endif
 
-__attribute__((__noreturn__)) void sigint(void)
+FRR_NORETURN void sigint(void)
 {
 	zlog_notice("Terminating on signal SIGINT");
 	terminate(0);
 }
 
-__attribute__((__noreturn__)) void sigterm(void)
+FRR_NORETURN void sigterm(void)
 {
 	zlog_notice("Terminating on signal SIGTERM");
 	terminate(0);

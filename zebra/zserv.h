@@ -401,7 +401,7 @@ void zserv_log_message(const char *errmsg, struct stream *msg,
 		       struct zmsghdr *hdr);
 
 /* TODO */
-__attribute__((__noreturn__)) void zebra_finalize(struct event *event);
+FRR_NORETURN void zebra_finalize(struct event *event);
 
 /*
  * Graceful restart functions.
