@@ -6983,7 +6983,7 @@ static void update_auth_hmac_md5(struct isis_auth *auth, struct stream *s,
 				 bool is_lsp)
 {
 	uint8_t digest[16];
-	uint16_t checksum, rem_lifetime;
+	uint16_t checksum = 0, rem_lifetime = 0;
 
 	if (is_lsp)
 		safe_auth_md5(s, &checksum, &rem_lifetime);
