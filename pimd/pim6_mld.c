@@ -410,6 +410,8 @@ static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 	struct pim_interface *pim_ifp = gm_ifp->ifp->info;
 	enum gm_sg_state prev, desired;
 	bool new_join;
+	bool entry_filtered = false;
+	struct prefix_sg sg_prefix;
 	struct gm_sg *grp = NULL;
 
 	if (!pim_addr_is_any(sg->sgaddr.src))
@@ -439,13 +441,22 @@ static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 	else
 		desired = GM_SG_NOINFO;
 
+	/* Check if entry is filtered by route maps */
+	pim_sg_to_prefix(&sg->sgaddr, &sg_prefix);
+	if (!pim_filter_match(&pim_ifp->gmp_filter, &sg_prefix, sg->iface->ifp)) {
+		if (PIM_DEBUG_GM_TRACE)
+			zlog_debug("%s: filter MLD %pPSG", __func__, &sg_prefix);
+
+		entry_filtered = true;
+	}
+
 	if (desired != sg->state && !gm_ifp->stopping) {
 		if (PIM_DEBUG_GM_EVENTS)
 			zlog_debug(log_sg(sg, "%s => %s"), gm_states[sg->state],
 				   gm_states[desired]);
 
-		if (desired == GM_SG_JOIN_EXPIRING ||
-		    desired == GM_SG_NOPRUNE_EXPIRING) {
+		if (!entry_filtered &&
+		    (desired == GM_SG_JOIN_EXPIRING || desired == GM_SG_NOPRUNE_EXPIRING)) {
 			struct gm_query_timers timers;
 
 			if (!pim_ifp->gmp_immediate_leave) {
@@ -478,7 +489,7 @@ static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 	else
 		new_join = gm_sg_state_want_join(desired);
 
-	if (new_join && !sg->tib_joined) {
+	if (new_join && !sg->tib_joined && !entry_filtered) {
 		pim_addr embedded_rp;
 
 		if (sg->iface->pim->embedded_rp.enable &&
