@@ -2528,8 +2528,8 @@ def clear_mroute_verify(tgen, dut, expected=True):
 
                     for _key, _value in mroute_json_2[group][key]["oil"].items():
                         if _key != "pimreg" and keys_json1 == keys_json2:
-                            break
                             flag = True
+                            break
             if flag:
                 break
             else:
