@@ -3396,6 +3396,14 @@ L3VPN SRv6
    Specify the SRv6 locator to be used for SRv6 L3VPN. The Locator name must
    be set in zebra, but user can set it in any order.
 
+.. clicmd:: encap-behavior <H_Encaps|H_Encaps_Red>
+
+   Specify the encapsulation instruction to use for incoming BGP L3VPN SRv6 routes
+   to install to RIB. By default, a segment-routing-header is added, in addition to
+   the IPv6 header. With `H_Encaps_Red`, if the number of segments is only 1, and
+   there are no other specific options, then the segment-routing-header is removed,
+   and only the IPv6 header is appended to the original packet.
+
 L3VPN SRv6 SID reachability
 ---------------------------
 

@@ -52,7 +52,7 @@
           "seg6": {
             "segs": "2001:db8:2:2:100::"
           },
-          "srv6EncapBehavior": "H.Encaps"
+          "srv6EncapBehavior": "H.Encaps.Red"
         }
       ]
     }
