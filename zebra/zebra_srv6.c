@@ -35,6 +35,7 @@ DEFINE_MTYPE_STATIC(SRV6_MGR, ZEBRA_SRV6_USID_WLIB,
 		    "SRv6 uSID Wide LIB information");
 DEFINE_MTYPE_STATIC(SRV6_MGR, ZEBRA_SRV6_SID, "SRv6 SID");
 DEFINE_MTYPE_STATIC(SRV6_MGR, ZEBRA_SRV6_SID_CTX, "SRv6 SID context");
+DEFINE_MTYPE_STATIC(SRV6_MGR, ZEBRA_SRV6_SID_ENTRY_INFO, "SRv6 SID entry information");
 
 static struct zebra_srv6 g_srv6;
 
@@ -203,6 +204,36 @@ struct srv6_sid_format *srv6_sid_format_lookup(const char *name)
 			return format;
 
 	return NULL;
+}
+
+static void zebra_srv6_sid_entry_del_by_locator(struct zebra_srv6_sid *sid,
+						struct srv6_locator *locator)
+{
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	struct zebra_srv6_sid_entry *entry;
+
+	frr_each_safe (zebra_srv6_sid_entry_list, &sid->entries, entry)
+		if (entry->locator == locator) {
+			zebra_srv6_sid_entry_list_del(&sid->entries, entry);
+			zebra_srv6_sid_entry_free(entry);
+		}
+
+	if (zebra_srv6_sid_entry_list_count(&sid->entries) == 0) {
+		listnode_delete(srv6->sids, sid->ctx);
+		zebra_srv6_sid_ctx_free(sid->ctx);
+
+		zebra_srv6_sid_free(sid);
+	}
+}
+
+void zebra_srv6_sid_entry_del_by_locator_all_sids(struct srv6_locator *locator)
+{
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	struct listnode *node, *nnode;
+	struct zebra_srv6_sid_ctx *ctx;
+
+	for (ALL_LIST_ELEMENTS(srv6->sids, node, nnode, ctx))
+		zebra_srv6_sid_entry_del_by_locator(ctx->sid, locator);
 }
 
 /*
@@ -648,12 +679,20 @@ zebra_srv6_sid_alloc(struct zebra_srv6_sid_ctx *ctx, struct in6_addr *sid_value,
 	sid->func = sid_func;
 	sid->alloc_mode = alloc_mode;
 	sid->client_list = list_new();
+	zebra_srv6_sid_entry_list_init(&sid->entries);
 
 	return sid;
 }
 
 void zebra_srv6_sid_free(struct zebra_srv6_sid *sid)
 {
+	struct zebra_srv6_sid_entry *entry;
+
+	frr_each_safe (zebra_srv6_sid_entry_list, &sid->entries, entry) {
+		zebra_srv6_sid_entry_list_del(&sid->entries, entry);
+		zebra_srv6_sid_entry_free(entry);
+	}
+	zebra_srv6_sid_entry_list_fini(&sid->entries);
 	list_delete(&sid->client_list);
 	XFREE(MTYPE_ZEBRA_SRV6_SID, sid);
 }
@@ -666,6 +705,136 @@ void zebra_srv6_sid_free(struct zebra_srv6_sid *sid)
 void delete_zebra_srv6_sid(void *val)
 {
 	zebra_srv6_sid_free((struct zebra_srv6_sid *)val);
+}
+
+void zebra_srv6_sid_client_add(struct zebra_srv6_sid *sid, bool is_localonly,
+			       struct srv6_locator *locator, struct zserv *client)
+{
+	struct zebra_srv6_sid_entry *entry;
+	struct zebra_srv6_sid_client *zclient;
+
+	entry = zebra_srv6_sid_entry_lookup(sid, locator->name, is_localonly);
+	if (!entry)
+		return;
+
+	zclient = zebra_srv6_sid_client_lookup(sid, entry, client);
+	if (!zclient) {
+		zclient = XCALLOC(MTYPE_ZEBRA_SRV6_SID_ENTRY_INFO,
+				  sizeof(struct zebra_srv6_sid_client));
+		zclient->client = client;
+
+		zebra_srv6_sid_client_list_add_tail(&entry->clients_list, zclient);
+	}
+}
+
+struct zebra_srv6_sid_entry *zebra_srv6_sid_entry_alloc(void)
+{
+	struct zebra_srv6_sid_entry *entry = NULL;
+
+	entry = XCALLOC(MTYPE_ZEBRA_SRV6_SID_ENTRY_INFO, sizeof(struct zebra_srv6_sid_entry));
+
+	return entry;
+}
+
+void zebra_srv6_sid_entry_free(struct zebra_srv6_sid_entry *entry)
+{
+	struct zebra_srv6_sid_client *sclient;
+
+	frr_each_safe (zebra_srv6_sid_client_list, &entry->clients_list, sclient) {
+		zebra_srv6_sid_client_list_del(&entry->clients_list, sclient);
+		XFREE(MTYPE_ZEBRA_SRV6_SID_ENTRY_INFO, sclient);
+	}
+	zebra_srv6_sid_client_list_fini(&entry->clients_list);
+	XFREE(MTYPE_ZEBRA_SRV6_SID_ENTRY_INFO, entry);
+}
+
+struct zebra_srv6_sid_entry *zebra_srv6_sid_entry_lookup(struct zebra_srv6_sid *sid,
+							 const char *locator_name,
+							 bool is_localonly)
+{
+	struct zebra_srv6_sid_entry *entry;
+
+	if (!locator_name)
+		return NULL;
+
+	frr_each (zebra_srv6_sid_entry_list, &sid->entries, entry)
+		if (!strncmp(entry->locator->name, locator_name, SRV6_LOCNAME_SIZE) &&
+		    entry->is_localonly == is_localonly)
+			return entry;
+
+	return NULL;
+}
+
+void zebra_srv6_sid_client_del(struct zebra_srv6_sid *sid, struct zebra_srv6_sid_entry *entry,
+			       struct zebra_srv6_sid_client *sclient)
+{
+	zebra_srv6_sid_client_list_del(&entry->clients_list, sclient);
+	XFREE(MTYPE_ZEBRA_SRV6_SID_ENTRY_INFO, sclient);
+	if (zebra_srv6_sid_client_list_count(&entry->clients_list) == 0) {
+		zebra_srv6_sid_entry_list_del(&sid->entries, entry);
+		zebra_srv6_sid_entry_free(entry);
+	}
+}
+
+void zebra_srv6_sid_client_del_all(struct zebra_srv6_sid *sid, struct zserv *client)
+{
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	struct zebra_srv6_sid_entry *entry;
+	struct zebra_srv6_sid_client *zclient;
+
+	frr_each_safe (zebra_srv6_sid_entry_list, &sid->entries, entry) {
+		zclient = zebra_srv6_sid_client_lookup(sid, entry, client);
+		if (!zclient)
+			continue;
+
+		/* Remove the client from the list of clients using the SID */
+		zebra_srv6_sid_client_list_del(&entry->clients_list, zclient);
+		XFREE(MTYPE_ZEBRA_SRV6_SID_ENTRY_INFO, zclient);
+		if (zebra_srv6_sid_client_list_count(&entry->clients_list) == 0) {
+			zebra_srv6_sid_entry_list_del(&sid->entries, entry);
+			zebra_srv6_sid_entry_free(entry);
+		}
+	}
+
+	/*
+	 * If the SID is not used by any other client, then deallocate it
+	 * and remove it from the SRv6 database.
+	 */
+	if (zebra_srv6_sid_entry_list_count(&sid->entries) == 0) {
+		release_srv6_sid_func(sid->ctx);
+
+		/* Remove the SID context from the list and free memory */
+		listnode_delete(srv6->sids, sid->ctx);
+		zebra_srv6_sid_ctx_free(sid->ctx);
+
+		/* Free the SID */
+		zebra_srv6_sid_free(sid);
+	}
+}
+
+struct zebra_srv6_sid_entry *zebra_srv6_sid_entry_add(struct zebra_srv6_sid *sid,
+						      const char *locator_name,
+						      struct in6_addr *sid_value, bool is_localonly)
+{
+	struct zebra_srv6_sid_entry *entry;
+	struct srv6_locator *locator;
+
+	locator = zebra_srv6_locator_lookup(locator_name);
+	if (!locator)
+		return NULL;
+
+	entry = zebra_srv6_sid_entry_lookup(sid, locator_name, is_localonly);
+	if (entry)
+		return entry;
+
+	entry = zebra_srv6_sid_entry_alloc();
+	entry->locator = locator;
+	entry->sid_value = *sid_value;
+	entry->is_localonly = is_localonly;
+	zebra_srv6_sid_client_list_init(&entry->clients_list);
+	zebra_srv6_sid_entry_list_add_tail(&sid->entries, entry);
+
+	return entry;
 }
 
 void zebra_srv6_locator_add(struct srv6_locator *locator)
@@ -2222,6 +2391,19 @@ static void release_srv6_sid_func(const struct zebra_srv6_sid_ctx *zctx)
 			/* We should never arrive here */
 			assert(0);
 	}
+}
+
+struct zebra_srv6_sid_client *zebra_srv6_sid_client_lookup(struct zebra_srv6_sid *sid,
+							   struct zebra_srv6_sid_entry *entry,
+							   struct zserv *client)
+{
+	struct zebra_srv6_sid_client *zclient;
+
+	frr_each (zebra_srv6_sid_client_list, &entry->clients_list, zclient)
+		if (zclient->client == client)
+			return zclient;
+
+	return NULL;
 }
 
 /**
