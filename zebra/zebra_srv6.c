@@ -43,6 +43,9 @@ static struct zebra_srv6 g_srv6;
 /* Prototypes */
 static void release_srv6_sid_func(const struct zebra_srv6_sid_ctx *zctx);
 
+static bool zebra_srv6_sid_compose(struct in6_addr *sid_value, struct srv6_locator *locator,
+				   uint32_t sid_func, uint32_t sid_func_wide, bool is_localonly);
+
 /* define hooks for the basic API, so that it can be specialized or served
  * externally
  */
@@ -685,6 +688,54 @@ void delete_zebra_srv6_sid(void *val)
 	zebra_srv6_sid_free((struct zebra_srv6_sid *)val);
 }
 
+static void zebra_srv6_sid_clients_notify_single(struct zebra_srv6_sid *sid,
+						 struct srv6_locator *locator,
+						 struct zserv *client, bool is_localonly,
+						 enum zapi_srv6_sid_notify notify)
+{
+	struct zebra_srv6_sid_entry *entry;
+	struct in6_addr sid_value = {};
+
+	entry = zebra_srv6_sid_entry_lookup(sid, locator->name, is_localonly);
+	if (!entry)
+		return;
+
+	zebra_srv6_sid_compose(&sid_value, locator, sid->func, sid->wide_func, is_localonly);
+	zsend_srv6_sid_notify(client, &sid->ctx->ctx, &sid_value, sid->func, sid->wide_func,
+			      locator->name, notify);
+}
+
+static void zebra_srv6_sid_clients_release_notify_all(struct zebra_srv6_sid *sid)
+{
+	struct zebra_srv6_sid_entry *entry;
+	struct zebra_srv6_sid_client *zclient;
+
+	frr_each (zebra_srv6_sid_entry_list, &sid->entries, entry)
+		frr_each (zebra_srv6_sid_client_list, &entry->clients_list, zclient)
+			zsend_srv6_sid_notify(zclient->client, &sid->ctx->ctx, &entry->sid_value,
+					      sid->func, sid->wide_func, entry->locator->name,
+					      ZAPI_SRV6_SID_RELEASED);
+}
+
+static void zebra_srv6_sid_clients_notify_all(struct zebra_srv6_sid *sid,
+					      struct srv6_locator *locator, bool is_localonly,
+					      enum zapi_srv6_sid_notify notify)
+{
+	struct in6_addr sid_value = {};
+	struct zebra_srv6_sid_entry *entry;
+	struct zebra_srv6_sid_client *zclient;
+
+	entry = zebra_srv6_sid_entry_lookup(sid, locator->name, is_localonly);
+	if (!entry)
+		return;
+
+	zebra_srv6_sid_compose(&sid_value, locator, sid->func, sid->wide_func, is_localonly);
+
+	frr_each (zebra_srv6_sid_client_list, &entry->clients_list, zclient)
+		zsend_srv6_sid_notify(zclient->client, &sid->ctx->ctx, &sid_value, sid->func,
+				      sid->wide_func, locator->name, notify);
+}
+
 void zebra_srv6_sid_client_add(struct zebra_srv6_sid *sid, bool is_localonly,
 			       struct srv6_locator *locator, struct zserv *client)
 {
@@ -788,6 +839,14 @@ void zebra_srv6_sid_client_del_all(struct zebra_srv6_sid *sid, struct zserv *cli
 		/* Free the SID */
 		zebra_srv6_sid_free(sid);
 	}
+}
+
+static void zebra_srv6_sid_entry_delete_all(struct zebra_srv6_sid *sid)
+{
+	struct zebra_srv6_sid_entry *entry;
+
+	frr_each_safe (zebra_srv6_sid_entry_list, &sid->entries, entry)
+		zebra_srv6_sid_entry_list_del(&sid->entries, entry);
 }
 
 struct zebra_srv6_sid_entry *zebra_srv6_sid_entry_add(struct zebra_srv6_sid *sid,
@@ -1777,6 +1836,9 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid, struct srv6_sid_ct
 
 			release_srv6_sid_func(zctx);
 
+			zebra_srv6_sid_clients_release_notify_all(zctx->sid);
+			zebra_srv6_sid_entry_delete_all(zctx->sid);
+
 			zctx->sid->value = *sid_value;
 			zctx->sid->locator = locator;
 			zctx->sid->block = block;
@@ -2533,8 +2595,6 @@ static int srv6_manager_get_sid_internal(struct zebra_srv6_sid **sid, struct zse
 					 const char *locator_name, bool is_localonly)
 {
 	int ret = -1;
-	struct listnode *node;
-	struct zserv *c;
 	char buf[256];
 	struct srv6_locator *locator = NULL;
 
@@ -2559,41 +2619,27 @@ static int srv6_manager_get_sid_internal(struct zebra_srv6_sid **sid, struct zse
 			  sid_value ? sid_value : &in6addr_any, locator_name);
 
 		/* Notify client about SID alloc failure */
-		zsend_srv6_sid_notify(client, ctx, sid_value, 0, 0, NULL,
-				      ZAPI_SRV6_SID_FAIL_ALLOC);
+		zebra_srv6_sid_clients_notify_single(*sid, NULL, client, is_localonly,
+						     ZAPI_SRV6_SID_FAIL_ALLOC);
 	} else if (ret == 0) {
 		assert(*sid);
 		if (IS_ZEBRA_DEBUG_SRV6)
 			zlog_debug("%s: got existing SRv6 SID for ctx %s: sid_value=%pI6 (func=%u) (proto=%u, instance=%u, sessionId=%u), notify client",
-				   __func__,
-				   srv6_sid_ctx2str(buf, sizeof(buf), ctx),
-				   &(*sid)->value, (*sid)->func, client->proto,
-				   client->instance, client->session_id);
-		if (!listnode_lookup((*sid)->client_list, client))
-			listnode_add((*sid)->client_list, client);
-
-		zsend_srv6_sid_notify(client, ctx, &(*sid)->value, (*sid)->func,
-				      (*sid)->wide_func,
-				      (*sid)->locator ? (*sid)->locator->name
-						      : NULL,
-				      ZAPI_SRV6_SID_ALLOCATED);
+				   __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx), sid_value,
+				   (*sid)->func, client->proto, client->instance,
+				   client->session_id);
+		zebra_srv6_sid_client_add(*sid, is_localonly, locator, client);
+		zebra_srv6_sid_clients_notify_single(*sid, locator, client, is_localonly,
+						     ZAPI_SRV6_SID_ALLOCATED);
 	} else {
 		if (IS_ZEBRA_DEBUG_SRV6)
 			zlog_debug("%s: got new SRv6 SID for ctx %s: sid_value=%pI6 (func=%u) (proto=%u, instance=%u, sessionId=%u), notifying all clients",
-				   __func__,
-				   srv6_sid_ctx2str(buf, sizeof(buf), ctx),
-				   &(*sid)->value, (*sid)->func, client->proto,
-				   client->instance, client->session_id);
-		if (!listnode_lookup((*sid)->client_list, client))
-			listnode_add((*sid)->client_list, client);
-
-		for (ALL_LIST_ELEMENTS_RO((*sid)->client_list, node, c))
-			zsend_srv6_sid_notify(c, ctx, &(*sid)->value,
-					      (*sid)->func, (*sid)->wide_func,
-					      (*sid)->locator
-						      ? (*sid)->locator->name
-						      : NULL,
-					      ZAPI_SRV6_SID_ALLOCATED);
+				   __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx), sid_value,
+				   (*sid)->func, client->proto, client->instance,
+				   client->session_id);
+		zebra_srv6_sid_client_add(*sid, is_localonly, locator, client);
+		zebra_srv6_sid_clients_notify_all(*sid, locator, is_localonly,
+						  ZAPI_SRV6_SID_ALLOCATED);
 	}
 
 	return ret;
