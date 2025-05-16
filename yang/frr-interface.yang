@@ -300,6 +300,13 @@ module frr-interface {
     description
       "Library container.";
 
+    leaf debug-enable {
+      type boolean;
+      default false;
+      description
+        "Enable library-level debugs.";
+    }
+
     list interface {
       key "name";
       description

@@ -3512,6 +3512,32 @@ void vty_init_vtysh(void)
 	/* currently nothing to do, but likely to have future use */
 }
 
+/* Control interface lib-level debugs */
+DEFPY (intf_lib_debug_s,
+       intf_lib_debug_cmd,
+       "[no] debug interface",
+       NO_STR
+       DEBUG_STR
+       "Interface Library Debugging\n")
+{
+	lib_if_enable_debug(vty, no == NULL, vty->node == CONFIG_NODE);
+
+	return CMD_SUCCESS;
+}
+
+/* Config write for interface lib debugs */
+static int intf_lib_write_cfg(struct vty *vty)
+{
+	return lib_if_debug_write_config(vty);
+}
+
+/* Config node for interface lib debugs */
+static struct cmd_node intf_lib_debug_node = {
+	.name = "intf debug",
+	.node = INTF_DEBUG_NODE,
+	.prompt = "",
+	.config_write = intf_lib_write_cfg,
+};
 
 /*
  * These functions allow for CLI handling to be placed inside daemons; however,
@@ -4306,6 +4332,11 @@ void vty_init(struct event_loop *master_thread, bool do_command_logging)
 	install_element(VTY_NODE, &no_vty_login_cmd);
 	install_element(VTY_NODE, &vty_ipv6_access_class_cmd);
 	install_element(VTY_NODE, &no_vty_ipv6_access_class_cmd);
+
+	/* Install interface lib debugs */
+	install_node(&intf_lib_debug_node);
+	install_element(ENABLE_NODE, &intf_lib_debug_cmd);
+	install_element(CONFIG_NODE, &intf_lib_debug_cmd);
 }
 
 void vty_terminate(void)
