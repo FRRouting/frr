@@ -4296,15 +4296,6 @@ int bgp_delete(struct bgp *bgp)
 
 	list_delete_all_node(bgp->rtc_plists);
 
-	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-		if (!bgp->vpn_policy[afi].rtlist[BGP_VPN_POLICY_DIR_FROMVPN])
-			continue;
-		bgp_rtc_update_vpn_policy_ecommunity_dynamic(bgp, afi,
-							     bgp->vpn_policy[afi].rtlist
-								     [BGP_VPN_POLICY_DIR_FROMVPN],
-							     NULL);
-	}
-
 	if (!IS_BGP_INSTANCE_HIDDEN(bgp) || bm->terminating) {
 		if (bgp->process_queue)
 			work_queue_free_and_null(&bgp->process_queue);
@@ -4317,9 +4308,13 @@ int bgp_delete(struct bgp *bgp)
 				list_delete(&bgp->vpn_policy[afi].import_vrf);
 
 			dir = BGP_VPN_POLICY_DIR_FROMVPN;
-			if (bgp->vpn_policy[afi].rtlist[dir])
+			if (bgp->vpn_policy[afi].rtlist[dir]) {
+				bgp_rtc_update_vpn_policy_ecommunity_dynamic(bgp, afi,
+									     bgp->vpn_policy[afi].rtlist[dir],
+									     NULL);
 				ecommunity_free(
 					&bgp->vpn_policy[afi].rtlist[dir]);
+			}
 		}
 	}
 
@@ -4382,10 +4377,14 @@ void bgp_free(struct bgp *bgp)
 			list_delete(&bgp->vpn_policy[afi].import_vrf);
 		if (bgp->vpn_policy[afi].export_vrf)
 			list_delete(&bgp->vpn_policy[afi].export_vrf);
-
 		dir = BGP_VPN_POLICY_DIR_FROMVPN;
-		if (bgp->vpn_policy[afi].rtlist[dir])
+		if (bgp->vpn_policy[afi].rtlist[dir]) {
+			bgp_rtc_update_vpn_policy_ecommunity_dynamic(bgp, afi,
+								     bgp->vpn_policy[afi].rtlist
+									     [dir],
+								     NULL);
 			ecommunity_free(&bgp->vpn_policy[afi].rtlist[dir]);
+		}
 		dir = BGP_VPN_POLICY_DIR_TOVPN;
 		if (bgp->vpn_policy[afi].rtlist[dir])
 			ecommunity_free(&bgp->vpn_policy[afi].rtlist[dir]);
