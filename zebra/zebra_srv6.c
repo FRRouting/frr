@@ -2251,6 +2251,25 @@ static int release_srv6_sid_func_dynamic(struct zebra_srv6_sid_block *block,
 	return 0;
 }
 
+static void release_srv6_sid_func(const struct zebra_srv6_sid_ctx *zctx)
+{
+	if (!(zctx->sid->block->sid_format &&
+	      zctx->sid->block->sid_format->type == SRV6_SID_FORMAT_TYPE_USID &&
+	      zctx->ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END) &&
+	    !(!zctx->sid->block->sid_format && zctx->ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END)) {
+		if (zctx->sid->alloc_mode == SRV6_SID_ALLOC_MODE_EXPLICIT)
+			/* Release SRv6 SID function */
+			release_srv6_sid_func_explicit(zctx->sid->block, zctx->sid->func,
+						       zctx->sid->wide_func);
+		else if (zctx->sid->alloc_mode == SRV6_SID_ALLOC_MODE_DYNAMIC)
+			/* Release SRv6 SID function */
+			release_srv6_sid_func_dynamic(zctx->sid->block, zctx->sid->func);
+		else
+			/* We should never arrive here */
+			assert(0);
+	}
+}
+
 /**
  * Core function, release the SRv6 SID associated with a given context.
  *
@@ -2309,27 +2328,7 @@ int release_srv6_sid(struct zserv *client, struct zebra_srv6_sid_ctx *zctx,
 				   srv6_sid_ctx2str(buf, sizeof(buf),
 						    &zctx->ctx));
 
-		if (!(zctx->sid->block->sid_format &&
-		      zctx->sid->block->sid_format->type ==
-			      SRV6_SID_FORMAT_TYPE_USID &&
-		      zctx->ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END) &&
-		    !(!zctx->sid->block->sid_format &&
-		      zctx->ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END)) {
-			if (zctx->sid->alloc_mode ==
-			    SRV6_SID_ALLOC_MODE_EXPLICIT)
-				/* Release SRv6 SID function */
-				release_srv6_sid_func_explicit(zctx->sid->block,
-							       zctx->sid->func,
-							       zctx->sid->wide_func);
-			else if (zctx->sid->alloc_mode ==
-				 SRV6_SID_ALLOC_MODE_DYNAMIC)
-				/* Release SRv6 SID function */
-				release_srv6_sid_func_dynamic(zctx->sid->block,
-							      zctx->sid->func);
-			else
-				/* We should never arrive here */
-				assert(0);
-		}
+		release_srv6_sid_func(zctx);
 
 		/* Free the SID */
 		zebra_srv6_sid_free(zctx->sid);
