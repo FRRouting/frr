@@ -990,6 +990,7 @@ void if_down(struct interface *ifp)
 	zif->down_count++;
 	frr_timestamp(2, zif->down_last, sizeof(zif->down_last));
 
+	rtadv_stop_ra(ifp, true);
 	if_down_nhg_dependents(ifp);
 
 	/* Handle interface down for specific types for EVPN. Non-VxLAN
@@ -3706,7 +3707,7 @@ int if_shutdown(struct interface *ifp)
 
 	if (ifp->ifindex != IFINDEX_INTERNAL) {
 		/* send RA lifetime of 0 before stopping. rfc4861/6.2.5 */
-		rtadv_stop_ra(ifp);
+		rtadv_stop_ra(ifp, false);
 		if (if_unset_flags(ifp, IFF_UP) < 0) {
 			zlog_debug("Can't shutdown interface %s", ifp->name);
 			return -1;
