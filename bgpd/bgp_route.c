@@ -31,6 +31,7 @@
 #include "frrdistance.h"
 
 #include "bgpd/bgpd.h"
+#include "bgpd/bgp_nhc.h"
 #include "bgpd/bgp_table.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_attr.h"
@@ -12277,6 +12278,40 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 				path, path->extra, attr);
 			vty_out(vty, "      flags net: 0x%u, path: 0x%u, attr: 0x%" PRIu64 "\n",
 				path->net->flags, path->flags, attr->flag);
+		}
+	}
+
+	/* Display NHC attributes */
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NHC))) {
+		struct bgp_nhc *nhc = bgp_attr_get_nhc(attr);
+		struct bgp_nhc_tlv *tlv = NULL;
+
+		if (nhc) {
+			for (tlv = nhc->tlvs; tlv; tlv = tlv->next) {
+				if (tlv->code == BGP_ATTR_NHC_TLV_NNHN) {
+					json_object *json_nhc_nnhn = NULL;
+
+					if (!json_paths)
+						vty_out(vty, "      Next-next Hop Nodes:\n");
+					else
+						json_nhc_nnhn = json_object_new_array();
+
+					for (i = 0; i < tlv->length; i += IPV4_MAX_BYTELEN) {
+						if (!json_paths) {
+							vty_out(vty, "       %pI4\n",
+								(struct in_addr *)&tlv->value[i]);
+						} else {
+							json_array_string_addf(json_nhc_nnhn, "%pI4",
+									       (struct in_addr *)&tlv
+										       ->value[i]);
+						}
+					}
+
+					if (json_paths)
+						json_object_object_add(json_path, "nextNextHopNodes",
+								       json_nhc_nnhn);
+				}
+			}
 		}
 	}
 

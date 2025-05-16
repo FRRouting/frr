@@ -78,6 +78,7 @@ bgpd_libbgp_a_SOURCES = \
 	bgpd/bgpd.c \
 	bgpd/bgp_trace.c \
 	bgpd/bgp_nhg.c \
+	bgpd/bgp_nhc.c \
 	# end
 
 if ENABLE_BGP_VNC
@@ -183,6 +184,7 @@ noinst_HEADERS += \
 	bgpd/rfapi/vnc_export_bgp_p.h \
 	bgpd/rfapi/vnc_import_bgp_p.h \
 	bgpd/bgp_vnc_types.h \
+	bgpd/bgp_nhc.h \
 	# end
 
 bgpd_bgpd_SOURCES = bgpd/bgp_main.c
