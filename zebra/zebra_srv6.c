@@ -1683,9 +1683,7 @@ static int get_srv6_sid_dynamic(struct zebra_srv6_sid **sid, struct srv6_sid_ctx
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
 	struct zebra_srv6_sid_block *block;
 	struct srv6_sid_format *format;
-	struct zebra_srv6_sid_ctx *s = NULL;
 	struct zebra_srv6_sid_ctx *zctx;
-	struct listnode *node;
 	struct in6_addr sid_value;
 	uint32_t sid_func = 0;
 	char buf[256];
@@ -1700,23 +1698,10 @@ static int get_srv6_sid_dynamic(struct zebra_srv6_sid **sid, struct srv6_sid_ctx
 	 * If we already have a SID for the provided context, we return the existing
 	 * SID instead of allocating a new one.
 	 */
-	for (ALL_LIST_ELEMENTS_RO(srv6->sids, node, s)) {
-		if (locator && s->sid && s->sid->locator) {
-			if (strncmp(s->sid->locator->name, locator->name,
-				    SRV6_LOCNAME_SIZE)) {
-				continue;
-			}
-		}
-		if (memcmp(&s->ctx, ctx, sizeof(struct srv6_sid_ctx)) == 0) {
-			if (IS_ZEBRA_DEBUG_SRV6)
-				zlog_debug("%s: returning existing SID %s %pI6",
-					   __func__,
-					   srv6_sid_ctx2str(buf, sizeof(buf),
-							    ctx),
-					   &s->sid->value);
-			*sid = s->sid;
-			return 0;
-		}
+	zctx = zebra_srv6_sid_ctx_lookup(ctx);
+	if (zctx && strncmp(zctx->sid->locator->name, locator->name, SRV6_LOCNAME_SIZE)) {
+		*sid = zctx->sid;
+		return 0;
 	}
 
 	if (format && format->type == SRV6_SID_FORMAT_TYPE_USID &&
