@@ -39,8 +39,7 @@ DEFINE_MTYPE_STATIC(SRV6_MGR, ZEBRA_SRV6_SID_CTX, "SRv6 SID context");
 static struct zebra_srv6 g_srv6;
 
 /* Prototypes */
-static int release_srv6_sid_func_dynamic(struct zebra_srv6_sid_block *block,
-					 uint32_t sid_func);
+static void release_srv6_sid_func(const struct zebra_srv6_sid_ctx *zctx);
 
 /* define hooks for the basic API, so that it can be specialized or served
  * externally
@@ -1566,9 +1565,7 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid, struct srv6_sid_ct
 				 struct in6_addr *sid_value, bool is_localonly)
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
-	struct zebra_srv6_sid_ctx *s = NULL;
 	struct zebra_srv6_sid_ctx *zctx = NULL;
-	struct listnode *node;
 	uint32_t sid_func = 0, sid_func_wide = 0;
 	struct srv6_locator *locator = NULL;
 	struct zebra_srv6_sid_block *block = NULL;
@@ -1585,45 +1582,66 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid, struct srv6_sid_ct
 	}
 
 	/* Check if we already have a SID associated with the provided context */
-	for (ALL_LIST_ELEMENTS_RO(srv6->sids, node, s)) {
-		if (memcmp(&s->ctx, ctx, sizeof(struct srv6_sid_ctx)) == 0) {
-			/*
-			 * If the context is already associated with a SID that has the same SID value, then
-			 * return the existing SID
-			 */
-			if (sid_same(&s->sid->value, sid_value)) {
-				if (IS_ZEBRA_DEBUG_SRV6)
-					zlog_debug("%s: returning existing SRv6 SID %pI6 ctx %s",
-						   __func__, &s->sid->value,
-						   srv6_sid_ctx2str(buf,
-								    sizeof(buf),
-								    ctx));
-				*sid = s->sid;
-				return 0;
-			}
+	zctx = zebra_srv6_sid_ctx_lookup(ctx);
 
-			/*
-			 * It is not allowed to allocate an explicit SID for a given context if the context
-			 * is already associated with an explicit SID
-			 */
-			if (s->sid->alloc_mode == SRV6_SID_ALLOC_MODE_EXPLICIT) {
-				zlog_err("%s: cannot alloc SID %pI6 for ctx %s: ctx already associated with SID %pI6",
-					 __func__, sid_value,
-					 srv6_sid_ctx2str(buf, sizeof(buf),
-							  &s->ctx),
-					 &s->sid->value);
+	if (zctx) {
+		/*
+		 * If the context is already associated with a SID that has the same SID value, then
+		 * return the existing SID
+		 */
+		if (sid_same(&zctx->sid->value, sid_value)) {
+			if (IS_ZEBRA_DEBUG_SRV6)
+				zlog_debug("%s: returning existing SRv6 SID %pI6 ctx %s", __func__,
+					   &zctx->sid->value,
+					   srv6_sid_ctx2str(buf, sizeof(buf), ctx));
+			*sid = zctx->sid;
+			return 0;
+		}
+
+		/* Allocate an explicit SID function for the SID */
+		if (ctx->behavior != ZEBRA_SEG6_LOCAL_ACTION_END)
+			if (!alloc_srv6_sid_func_explicit(block, sid_func, sid_func_wide)) {
+				zlog_err("%s: invalid SM request arguments: failed to allocate SID function %u from block %pFX",
+					 __func__, sid_func, &block->prefix);
 				return -1;
 			}
 
-			zctx = s;
-			break;
-		}
-	}
+		/*
+		 * If we already have a SID associated with this context, we need to
+		 * deallocate the current SID function before allocating the new one
+		 */
+		if (zctx->sid) {
+			if (IS_ZEBRA_DEBUG_SRV6)
+				zlog_debug("%s: ctx %s already associated with SID %pI6, releasing existing SID",
+					   __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx),
+					   &zctx->sid->value);
 
-	if (ctx->behavior == ZEBRA_SEG6_LOCAL_ACTION_END) {
+			release_srv6_sid_func(zctx);
+
+			zctx->sid->value = *sid_value;
+			zctx->sid->locator = locator;
+			zctx->sid->block = block;
+			zctx->sid->func = sid_func;
+			zctx->sid->wide_func = sid_func_wide;
+			zctx->sid->alloc_mode = SRV6_SID_ALLOC_MODE_EXPLICIT;
+
+			*sid = zctx->sid;
+			(*sid)->ctx = zctx;
+		}
+	} else {
+		/* Allocate an explicit SID function for the SID */
+		if (ctx->behavior != ZEBRA_SEG6_LOCAL_ACTION_END)
+			if (!alloc_srv6_sid_func_explicit(block, sid_func, sid_func_wide)) {
+				zlog_err("%s: invalid SM request arguments: failed to allocate SID function %u from block %pFX",
+					 __func__, sid_func, &block->prefix);
+				return -1;
+			}
+
+		/* If we don't have a zebra SID context for this context, allocate a new one */
 		zctx = zebra_srv6_sid_ctx_alloc();
 		zctx->ctx = *ctx;
 
+		/* Allocate the SID to store SID information */
 		*sid = zebra_srv6_sid_alloc(zctx, sid_value, locator, block, sid_func,
 					    SRV6_SID_ALLOC_MODE_EXPLICIT);
 		if (!(*sid)) {
@@ -1635,56 +1653,7 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid, struct srv6_sid_ct
 		(*sid)->ctx = zctx;
 		zctx->sid = *sid;
 		listnode_add(srv6->sids, zctx);
-
-		if (IS_ZEBRA_DEBUG_SRV6)
-			zlog_debug("%s: allocated explicit SRv6 SID %pI6 for context %s", __func__,
-				   &(*sid)->value, srv6_sid_ctx2str(buf, sizeof(buf), ctx));
-
-		return 1;
 	}
-
-	/* Allocate an explicit SID function for the SID */
-	if (!alloc_srv6_sid_func_explicit(block, sid_func, sid_func_wide)) {
-		zlog_err("%s: invalid SM request arguments: failed to allocate SID function %u from block %pFX",
-			 __func__, sid_func, &block->prefix);
-		return -1;
-	}
-
-	if (!zctx) {
-		/* If we don't have a zebra SID context for this context, allocate a new one */
-		zctx = zebra_srv6_sid_ctx_alloc();
-		zctx->ctx = *ctx;
-	} else {
-		/*
-		 * If we already have a SID associated with this context, we need to
-		 * deallocate the current SID function before allocating the new one
-		 */
-		if (zctx->sid) {
-			if (IS_ZEBRA_DEBUG_SRV6)
-				zlog_debug("%s: ctx %s already associated with a dynamic SID %pI6, releasing dynamic SID",
-					   __func__,
-					   srv6_sid_ctx2str(buf, sizeof(buf),
-							    ctx),
-					   &zctx->sid->value);
-
-			release_srv6_sid_func_dynamic(block, zctx->sid->func);
-			zebra_srv6_sid_free(zctx->sid);
-			zctx->sid = NULL;
-		}
-	}
-
-	/* Allocate the SID to store SID information */
-	*sid = zebra_srv6_sid_alloc(zctx, sid_value, locator, block, sid_func,
-				    SRV6_SID_ALLOC_MODE_EXPLICIT);
-	if (!(*sid)) {
-		flog_err(EC_ZEBRA_SM_CANNOT_ASSIGN_SID,
-			 "%s: failed to create SRv6 SID %s (%pI6)", __func__,
-			 srv6_sid_ctx2str(buf, sizeof(buf), ctx), sid_value);
-		return -1;
-	}
-	(*sid)->ctx = zctx;
-	zctx->sid = *sid;
-	listnode_add(srv6->sids, zctx);
 
 	if (IS_ZEBRA_DEBUG_SRV6)
 		zlog_debug("%s: allocated explicit SRv6 SID %pI6 for context %s",
