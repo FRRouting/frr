@@ -1186,34 +1186,45 @@ void zebra_srv6_encap_src_addr_unset(void)
  * @param sid_value SRv6 SID address returned
  * @param locator Parent locator of the SRv6 SID
  * @param sid_func Function part of the SID
+ * @param sid_func_wide Wide function of the SID
  * @param is_localonly SID is local-only
  * @return True if success, False otherwise
  */
-static bool zebra_srv6_sid_compose(struct in6_addr *sid_value,
-				   struct srv6_locator *locator,
-				   uint32_t sid_func)
+static bool zebra_srv6_sid_compose(struct in6_addr *sid_value, struct srv6_locator *locator,
+				   uint32_t sid_func, uint32_t sid_func_wide, bool is_localonly)
 {
 	uint8_t offset, func_len;
 	struct srv6_sid_format *format;
+	struct zebra_srv6_sid_block *block;
 
 	if (!sid_value || !locator)
 		return false;
 
+	block = locator->sid_block;
+
 	format = locator->sid_format;
 	if (format) {
-		offset = format->block_len + format->node_len;
+		offset = is_localonly ? format->block_len : format->block_len + format->node_len;
 		func_len = format->function_len;
 	} else {
-		offset = locator->block_bits_length + locator->node_bits_length;
+		offset = is_localonly ? locator->block_bits_length
+				      : locator->block_bits_length + locator->node_bits_length;
 		func_len = locator->function_bits_length;
 	}
 
-	*sid_value = locator->prefix.prefix;
+	*sid_value = is_localonly ? block->prefix.prefix : locator->prefix.prefix;
 	for (uint8_t idx = 0; idx < func_len; idx++) {
 		uint8_t tidx = offset + idx;
 
 		sid_value->s6_addr[tidx / 8] &= ~(0x1 << (7 - tidx % 8));
 		if (sid_func >> (func_len - 1 - idx) & 0x1)
+			sid_value->s6_addr[tidx / 8] |= 0x1 << (7 - tidx % 8);
+	}
+	for (uint8_t idx = 0; idx < func_len; idx++) {
+		uint8_t tidx = offset + func_len + idx;
+
+		sid_value->s6_addr[tidx / 8] &= ~(0x1 << (7 - tidx % 8));
+		if (sid_func_wide >> (func_len - 1 - idx) & 0x1)
 			sid_value->s6_addr[tidx / 8] |= 0x1 << (7 - tidx % 8);
 	}
 
@@ -1338,29 +1349,31 @@ static bool zebra_srv6_sid_decompose(struct in6_addr *sid_value,
 				 (struct prefix *)&tmp_prefix)) {
 			format = b->sid_format;
 
-			if (!format)
-				continue;
-
-			offset = format->block_len + format->node_len;
-			func_len = format->function_len;
+			if (format) {
+				offset = format->block_len;
+				func_len = format->function_len;
+			} else {
+				offset = b->prefix.prefixlen;
+				func_len = SRV6_SID_FORMAT_USID_F3216_FUNCTION_LEN;
+			}
 
 			for (uint8_t idx = 0; idx < func_len; idx++) {
 				uint8_t tidx = offset + idx;
 				*sid_func |= (sid_value->s6_addr[tidx / 8] &
 					      (0x1 << (7 - tidx % 8)))
-					     << ((func_len - 1 - idx) / 8);
+					     << (((func_len - 1 - idx) / 8) * 8);
 			}
 
 			/*
 			 * If function comes from the Wide LIB range, we also
 			 * need to get the Wide function.
 			 */
-			if (*sid_func >= format->config.usid.wlib_start &&
+			if (format && format->type == SRV6_SID_FORMAT_TYPE_USID &&
+			    *sid_func >= format->config.usid.wlib_start &&
 			    *sid_func <= format->config.usid.wlib_end) {
 				format = b->sid_format;
 
-				offset = format->block_len + format->node_len +
-					 format->function_len;
+				offset = format->block_len + format->function_len;
 
 				for (uint8_t idx = 0; idx < 16; idx++) {
 					uint8_t tidx = offset + idx;
@@ -1413,6 +1426,7 @@ static bool alloc_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
 		if (format->type == SRV6_SID_FORMAT_TYPE_USID) {
 			uint32_t elib_start = format->config.usid.elib_start;
 			uint32_t elib_end = format->config.usid.elib_end;
+			uint32_t wlib_start = format->config.usid.wlib_start;
 			uint32_t wlib_end = format->config.usid.wlib_end;
 			uint32_t ewlib_start = format->config.usid.ewlib_start;
 			uint32_t ewlib_end = wlib_end;
@@ -1450,10 +1464,9 @@ static bool alloc_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
 
 				/* Ensure that the requested SID function has not already been taken */
 				for (ALL_LIST_ELEMENTS_RO(block->u.usid
-								  .wide_lib[sid_func]
+								  .wide_lib[sid_func - wlib_start]
 								  .func_allocated,
-							  node,
-							  sid_wide_func_ptr))
+							  node, sid_wide_func_ptr))
 					if (*sid_wide_func_ptr == sid_wide_func)
 						break;
 
@@ -1469,11 +1482,10 @@ static bool alloc_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
 				 */
 				sid_wide_func_ptr = zebra_srv6_sid_func_alloc(
 					sid_wide_func);
-				listnode_add(block->u.usid.wide_lib[sid_func]
+				listnode_add(block->u.usid.wide_lib[sid_func - wlib_start]
 						     .func_allocated,
 					     sid_wide_func_ptr);
-				block->u.usid.wide_lib[sid_func]
-					.num_func_allocated++;
+				block->u.usid.wide_lib[sid_func - wlib_start].num_func_allocated++;
 			} else {
 				zlog_warn("%s: function %u is outside ELIB [%u/%u] and EWLIB alloc ranges [%u/%u]",
 					  __func__, sid_func, elib_start,
@@ -1819,6 +1831,7 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid, struct srv6_sid_ct
 				 srv6_sid_ctx2str(buf, sizeof(buf), ctx), sid_value);
 			return -1;
 		}
+		(*sid)->wide_func = sid_func_wide;
 		(*sid)->ctx = zctx;
 		zctx->sid = *sid;
 		listnode_add(srv6->sids, zctx);
@@ -1889,7 +1902,7 @@ static int get_srv6_sid_dynamic(struct zebra_srv6_sid **sid, struct srv6_sid_ctx
 		}
 
 		/* Compose the SID as the locator followed by the SID function */
-		zebra_srv6_sid_compose(&sid_value, locator, sid_func);
+		zebra_srv6_sid_compose(&sid_value, locator, sid_func, 0, is_localonly);
 	}
 
 	/* Allocate a zebra SID context to store SID context information */
@@ -2065,6 +2078,7 @@ static bool release_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
 		if (format->type == SRV6_SID_FORMAT_TYPE_USID) {
 			uint32_t elib_start = format->config.usid.elib_start;
 			uint32_t elib_end = format->config.usid.elib_end;
+			uint32_t wlib_start = format->config.usid.wlib_start;
 			uint32_t ewlib_start = format->config.usid.ewlib_start;
 			uint32_t ewlib_end = format->config.usid.wlib_end;
 			uint32_t *sid_wide_func_ptr = NULL;
@@ -2097,7 +2111,7 @@ static bool release_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
 
 				/* Lookup SID function in the functions allocated list of EWLIB range */
 				for (ALL_LIST_ELEMENTS_RO(block->u.usid
-								  .wide_lib[sid_func]
+								  .wide_lib[sid_func - wlib_start]
 								  .func_allocated,
 							  node, sid_wide_func_ptr))
 					if (*sid_wide_func_ptr == sid_wide_func)
@@ -2111,7 +2125,7 @@ static bool release_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
 				}
 
 				/* Release the SID function from the EWLIB range */
-				listnode_delete(block->u.usid.wide_lib[sid_func]
+				listnode_delete(block->u.usid.wide_lib[sid_func - wlib_start]
 							.func_allocated,
 						sid_wide_func_ptr);
 				zebra_srv6_sid_func_free(sid_wide_func_ptr);
