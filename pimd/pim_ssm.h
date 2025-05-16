@@ -7,6 +7,7 @@
 #define PIM_SSM_H
 
 #define PIM_SSM_STANDARD_RANGE "232.0.0.0/8"
+#define PIM6_SSM_STANDARD_RANGE "FF30::/32"
 
 struct pim_instance;
 
