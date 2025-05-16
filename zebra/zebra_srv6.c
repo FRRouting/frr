@@ -1564,6 +1564,13 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid, struct srv6_sid_ct
 	if (!ctx || !sid_value)
 		return -1;
 
+	/* Get parent locator and function of the provided SID */
+	if (!zebra_srv6_sid_decompose(sid_value, &block, &locator, &sid_func, &sid_func_wide)) {
+		zlog_err("%s: invalid SM request arguments: parent block/locator not found for SID %pI6",
+			 __func__, sid_value);
+		return -1;
+	}
+
 	/* Check if we already have a SID associated with the provided context */
 	for (ALL_LIST_ELEMENTS_RO(srv6->sids, node, s)) {
 		if (memcmp(&s->ctx, ctx, sizeof(struct srv6_sid_ctx)) == 0) {
@@ -1598,14 +1605,6 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid, struct srv6_sid_ct
 			zctx = s;
 			break;
 		}
-	}
-
-	/* Get parent locator and function of the provided SID */
-	if (!zebra_srv6_sid_decompose(sid_value, &block, &locator, &sid_func,
-				      &sid_func_wide)) {
-		zlog_err("%s: invalid SM request arguments: parent block/locator not found for SID %pI6",
-			 __func__, sid_value);
-		return -1;
 	}
 
 	if (ctx->behavior == ZEBRA_SEG6_LOCAL_ACTION_END) {
