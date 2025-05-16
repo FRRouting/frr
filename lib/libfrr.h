@@ -188,7 +188,7 @@ extern void frr_opt_add(const char *optstr, const struct option *longopts,
 			const char *helpstr);
 extern int frr_getopt(int argc, char *const argv[], int *longindex);
 
-extern __attribute__((__noreturn__)) void frr_help_exit(int status);
+extern FRR_NORETURN void frr_help_exit(int status);
 
 extern struct event_loop *frr_init(void);
 extern const char *frr_get_progname(void);

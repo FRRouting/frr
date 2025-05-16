@@ -2467,6 +2467,8 @@ end:
 	sbuf_free(&sbuf);
 }
 
+#define AG_LEN 11
+
 static void ls_show_edge_json(struct ls_edge *edge, struct json_object *json)
 {
 	struct ls_attributes *attr;
@@ -2474,7 +2476,7 @@ static void ls_show_edge_json(struct ls_edge *edge, struct json_object *json)
 					      *js_ext_ag_arr_word,
 					      *js_ext_ag_arr_bit, *jsrv6 = NULL;
 	char buf[INET6_BUFSIZ];
-	char buf_ag[strlen("0xffffffff") + 1];
+	char buf_ag[AG_LEN];
 	uint32_t bitmap;
 	size_t i;
 

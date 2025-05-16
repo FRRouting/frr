@@ -82,7 +82,7 @@ static void sighup(void)
 }
 
 /* SIGINT handler. */
-static __attribute__((__noreturn__)) void sigint(void)
+static FRR_NORETURN void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 	assert(mm->terminating == false);
@@ -108,7 +108,7 @@ static void sigusr1(void)
  * Zebra route removal and protocol teardown are not meant to be done here.
  * For example, "retain_mode" may be set.
  */
-static __attribute__((__noreturn__)) void mgmt_exit(int status)
+static FRR_NORETURN void mgmt_exit(int status)
 {
 	/* it only makes sense for this to be called on a clean exit */
 	assert(status == 0);
