@@ -1157,31 +1157,41 @@ void zebra_srv6_encap_src_addr_unset(void)
  * @param sid_func Function part of the SID
  * @return True if success, False otherwise
  */
-static bool zebra_srv6_sid_compose(struct in6_addr *sid_value,
-				   struct srv6_locator *locator,
-				   uint32_t sid_func)
+static bool zebra_srv6_sid_compose(struct in6_addr *sid_value, struct srv6_locator *locator,
+				   uint32_t sid_func, uint32_t sid_func_wide, bool is_localonly)
 {
 	uint8_t offset, func_len;
 	struct srv6_sid_format *format;
+	struct zebra_srv6_sid_block *block;
 
 	if (!sid_value || !locator)
 		return false;
 
+	block = locator->sid_block;
+
 	format = locator->sid_format;
 	if (format) {
-		offset = format->block_len + format->node_len;
+		offset = is_localonly ? format->block_len : format->block_len + format->node_len;
 		func_len = format->function_len;
 	} else {
-		offset = locator->block_bits_length + locator->node_bits_length;
+		offset = is_localonly ? locator->block_bits_length
+				      : locator->block_bits_length + locator->node_bits_length;
 		func_len = locator->function_bits_length;
 	}
 
-	*sid_value = locator->prefix.prefix;
+	*sid_value = is_localonly ? block->prefix.prefix : locator->prefix.prefix;
 	for (uint8_t idx = 0; idx < func_len; idx++) {
 		uint8_t tidx = offset + idx;
 
 		sid_value->s6_addr[tidx / 8] &= ~(0x1 << (7 - tidx % 8));
 		if (sid_func >> (func_len - 1 - idx) & 0x1)
+			sid_value->s6_addr[tidx / 8] |= 0x1 << (7 - tidx % 8);
+	}
+	for (uint8_t idx = 0; idx < func_len; idx++) {
+		uint8_t tidx = offset + func_len + idx;
+
+		sid_value->s6_addr[tidx / 8] &= ~(0x1 << (7 - tidx % 8));
+		if (sid_func_wide >> (func_len - 1 - idx) & 0x1)
 			sid_value->s6_addr[tidx / 8] |= 0x1 << (7 - tidx % 8);
 	}
 
@@ -1306,24 +1316,27 @@ static bool zebra_srv6_sid_decompose(struct in6_addr *sid_value,
 				 (struct prefix *)&tmp_prefix)) {
 			format = b->sid_format;
 
-			if (!format)
-				continue;
-
-			offset = format->block_len + format->node_len;
-			func_len = format->function_len;
+			if (format) {
+				offset = format->block_len;
+				func_len = format->function_len;
+			} else {
+				offset = b->prefix.prefixlen;
+				func_len = SRV6_SID_FORMAT_USID_F3216_FUNCTION_LEN;
+			}
 
 			for (uint8_t idx = 0; idx < func_len; idx++) {
 				uint8_t tidx = offset + idx;
 				*sid_func |= (sid_value->s6_addr[tidx / 8] &
 					      (0x1 << (7 - tidx % 8)))
-					     << ((func_len - 1 - idx) / 8);
+					     << (((func_len - 1 - idx) / 8) * 8);
 			}
 
 			/*
 			 * If function comes from the Wide LIB range, we also
 			 * need to get the Wide function.
 			 */
-			if (*sid_func >= format->config.usid.wlib_start &&
+			if (format && format->type == SRV6_SID_FORMAT_TYPE_USID &&
+			    *sid_func >= format->config.usid.wlib_start &&
 			    *sid_func <= format->config.usid.wlib_end) {
 				format = b->sid_format;
 
@@ -1867,7 +1880,7 @@ static int get_srv6_sid_dynamic(struct zebra_srv6_sid **sid, struct srv6_sid_ctx
 		}
 
 		/* Compose the SID as the locator followed by the SID function */
-		zebra_srv6_sid_compose(&sid_value, locator, sid_func);
+		zebra_srv6_sid_compose(&sid_value, locator, sid_func, 0, is_localonly);
 	}
 
 	/* Allocate a zebra SID context to store SID context information */
