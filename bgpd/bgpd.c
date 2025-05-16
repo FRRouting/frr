@@ -4233,7 +4233,7 @@ int bgp_delete(struct bgp *bgp)
 	}
 
 	/* unmap from RT list */
-	if (!IS_BGP_INSTANCE_HIDDEN(bgp))
+	if (!IS_BGP_INSTANCE_HIDDEN(bgp) || bm->terminating)
 		bgp_evpn_vrf_delete(bgp);
 
 	/* unmap bgp vrf label */
