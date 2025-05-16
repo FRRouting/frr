@@ -78,6 +78,15 @@ nodist_mgmtd_mgmtd_SOURCES += yang/frr-bfdd.yang.c
 endif
 endif
 
+if OSPFD
+nodist_mgmtd_mgmtd_SOURCES += \
+	yang/frr-ospfd-lite.yang.c \
+	# end
+mgmtd_libmgmt_be_nb_la_SOURCES += \
+	ospfd/ospf_cli.c \
+	# end
+endif
+
 if RIPD
 nodist_mgmtd_mgmtd_SOURCES += \
 	yang/frr-ripd.yang.c \

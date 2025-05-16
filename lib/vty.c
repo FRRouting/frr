@@ -138,6 +138,9 @@ char const *const mgmt_daemons[] = {
 #ifdef HAVE_STATICD
 	"staticd",
 #endif
+#ifdef HAVE_OSPFD
+	"ospfd",
+#endif
 };
 uint mgmt_daemons_count = array_size(mgmt_daemons);
 
