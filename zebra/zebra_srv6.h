@@ -334,5 +334,6 @@ extern int srv6_manager_get_sid_response(struct zebra_srv6_sid *sid,
 extern struct zebra_srv6_sid_ctx *zebra_srv6_sid_ctx_alloc(void);
 extern void zebra_srv6_sid_ctx_free(struct zebra_srv6_sid_ctx *ctx);
 extern void delete_zebra_srv6_sid_ctx(void *val);
+extern struct zebra_srv6_sid_ctx *zebra_srv6_sid_ctx_lookup(const struct srv6_sid_ctx *ctx);
 
 #endif /* _ZEBRA_SRV6_H */

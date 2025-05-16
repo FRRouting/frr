@@ -161,6 +161,19 @@ void delete_zebra_srv6_sid_ctx(void *val)
 	zebra_srv6_sid_ctx_free((struct zebra_srv6_sid_ctx *)val);
 }
 
+struct zebra_srv6_sid_ctx *zebra_srv6_sid_ctx_lookup(const struct srv6_sid_ctx *ctx)
+{
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	struct zebra_srv6_sid_ctx *zctx;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(srv6->sids, node, zctx))
+		if (memcmp(&zctx->ctx, ctx, sizeof(struct srv6_sid_ctx)) == 0)
+			return zctx;
+
+	return NULL;
+}
+
 /* --- Zebra SRv6 SID format management functions --------------------------- */
 
 void srv6_sid_format_register(struct srv6_sid_format *format)
