@@ -248,6 +248,7 @@ void bgp_rtc_add_ecommunity_val_dynamic(struct bgp *bgp, struct ecommunity_val *
 
 	if (pi) {
 		bgp_attr_unintern(&attr_new);
+		aspath_unintern(&attr.aspath);
 		bgp_dest_unlock_node(dest);
 		return;
 	}
