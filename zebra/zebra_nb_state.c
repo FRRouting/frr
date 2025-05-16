@@ -1177,7 +1177,7 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_weight_get_elem(
 
 /*
  * XPath:
- * /frr-zebra:zebra/max-multipath
+ * /frr-zebra:zebra/state/max-multipath
  */
 struct yang_data *zebra_max_multipath_get_elem(struct nb_cb_get_elem_args *args)
 {

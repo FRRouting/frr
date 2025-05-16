@@ -3849,45 +3849,17 @@ DEFUN (show_zebra,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ip_forwarding,
-       ip_forwarding_cmd,
-       "ip forwarding",
-       IP_STR
-       "Turn on IP forwarding\n")
+DEFPY_YANG (ip_forwarding,
+	    ip_forwarding_cmd,
+	    "[no] ip forwarding",
+	    NO_STR
+	    IP_STR
+	    "Turn on IP forwarding\n")
 {
-	int ret;
+	nb_cli_enqueue_change(vty, "/frr-zebra:zebra/ip-forwarding", NB_OP_MODIFY,
+			      no ? "false" : "true");
 
-	ret = ipforward();
-	if (ret == 0)
-		ret = ipforward_on();
-
-	if (ret == 0) {
-		vty_out(vty, "Can't turn on IP forwarding\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ip_forwarding,
-       no_ip_forwarding_cmd,
-       "no ip forwarding",
-       NO_STR
-       IP_STR
-       "Turn off IP forwarding\n")
-{
-	int ret;
-
-	ret = ipforward();
-	if (ret != 0)
-		ret = ipforward_off();
-
-	if (ret != 0) {
-		vty_out(vty, "Can't turn off IP forwarding\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 /* Only display ip forwarding is enabled or not. */
@@ -3938,45 +3910,17 @@ DEFUN (show_ipv6_forwarding,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ipv6_forwarding,
-       ipv6_forwarding_cmd,
-       "ipv6 forwarding",
-       IPV6_STR
-       "Turn on IPv6 forwarding\n")
+DEFPY_YANG (ipv6_forwarding,
+	    ipv6_forwarding_cmd,
+	    "[no] ipv6 forwarding",
+	    NO_STR
+	    IPV6_STR
+	    "Turn on IPv6 forwarding\n")
 {
-	int ret;
+	nb_cli_enqueue_change(vty, "/frr-zebra:zebra/ipv6-forwarding", NB_OP_MODIFY,
+			      no ? "false" : "true");
 
-	ret = ipforward_ipv6();
-	if (ret == 0)
-		ret = ipforward_ipv6_on();
-
-	if (ret == 0) {
-		vty_out(vty, "Can't turn on IPv6 forwarding\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ipv6_forwarding,
-       no_ipv6_forwarding_cmd,
-       "no ipv6 forwarding",
-       NO_STR
-       IPV6_STR
-       "Turn off IPv6 forwarding\n")
-{
-	int ret;
-
-	ret = ipforward_ipv6();
-	if (ret != 0)
-		ret = ipforward_ipv6_off();
-
-	if (ret != 0) {
-		vty_out(vty, "Can't turn off IPv6 forwarding\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return CMD_SUCCESS;
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 /* Display dataplane info */
@@ -4269,12 +4213,10 @@ void zebra_vty_init(void)
 
 	install_element(VIEW_NODE, &show_ip_forwarding_cmd);
 	install_element(CONFIG_NODE, &ip_forwarding_cmd);
-	install_element(CONFIG_NODE, &no_ip_forwarding_cmd);
 	install_element(ENABLE_NODE, &show_zebra_cmd);
 
 	install_element(VIEW_NODE, &show_ipv6_forwarding_cmd);
 	install_element(CONFIG_NODE, &ipv6_forwarding_cmd);
-	install_element(CONFIG_NODE, &no_ipv6_forwarding_cmd);
 
 	/* Route-map */
 	zebra_route_map_init();
