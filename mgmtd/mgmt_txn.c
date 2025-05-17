@@ -2389,11 +2389,10 @@ int mgmt_txn_send_get_req(uint64_t txn_id, uint64_t req_id,
  * Send get-tree requests to each client indicated in `clients` bitmask, which
  * has registered operational state that matches the given `xpath`
  */
-int mgmt_txn_send_get_tree_oper(uint64_t txn_id, uint64_t req_id,
-				uint64_t clients, Mgmtd__DatastoreId ds_id,
-				LYD_FORMAT result_type, uint8_t flags,
-				uint32_t wd_options, bool simple_xpath,
-				const char *xpath)
+int mgmt_txn_send_get_tree(uint64_t txn_id, uint64_t req_id, uint64_t clients,
+			   Mgmtd__DatastoreId ds_id, LYD_FORMAT result_type, uint8_t flags,
+			   uint32_t wd_options, bool simple_xpath, struct lyd_node **ylib,
+			   const char *xpath)
 {
 	struct mgmt_msg_get_tree *msg;
 	struct mgmt_txn_ctx *txn;
@@ -2469,6 +2468,17 @@ int mgmt_txn_send_get_tree_oper(uint64_t txn_id, uint64_t req_id,
 		}
 	}
 state:
+	if (*ylib) {
+		LY_ERR err;
+
+		err = lyd_merge_siblings(&get_tree->client_results, *ylib, LYD_MERGE_DESTRUCT);
+		*ylib = NULL;
+		if (err) {
+			_log_err("Error merging yang-library result for txn-id: %Lu", txn_id);
+			return NB_ERR;
+		}
+	}
+
 	/* If we are only getting config, we are done */
 	if (!CHECK_FLAG(flags, GET_DATA_FLAG_STATE) ||
 	    ds_id != MGMTD_DS_OPERATIONAL || !clients)

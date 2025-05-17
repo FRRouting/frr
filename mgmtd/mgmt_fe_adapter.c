@@ -1369,12 +1369,14 @@ static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session, void
 {
 	struct mgmt_msg_get_data *msg = _msg;
 	const struct lysc_node **snodes = NULL;
+	struct lyd_node *ylib = NULL;
 	uint64_t req_id = msg->req_id;
 	Mgmtd__DatastoreId ds_id;
-	uint64_t clients;
+	uint64_t clients = 0;
 	uint32_t wd_options;
+	bool in_oper = false;
 	bool simple_xpath;
-	LY_ERR err;
+	LY_ERR err = 0;
 	int ret;
 
 	_dbg("Received get-data request from client %s for session-id %" PRIu64 " req-id %" PRIu64,
@@ -1415,28 +1417,32 @@ static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session, void
 		goto done;
 	}
 
-	/* Check for yang-library shortcut */
-	if (nb_oper_is_yang_lib_query(msg->xpath)) {
-		struct lyd_node *ylib = NULL;
+	/*
+	 * Not shrinking can triple or more the size of the result, as a result
+	 * we should probably not send indented results by default and have the
+	 * FE client do this instead.
+	 */
+	/* wd_options |= LYD_PRINT_SHRINK; */
 
+	if (msg->datastore == MGMT_MSG_DATASTORE_OPERATIONAL)
+		in_oper = true;
+
+	/* Check for yang-library shortcut */
+	if (in_oper && CHECK_FLAG(msg->flags, GET_DATA_FLAG_STATE) &&
+	    (!strcmp("/*", msg->xpath) || nb_oper_is_yang_lib_query(msg->xpath))) {
 		err = ly_ctx_get_yanglib_data(ly_native_ctx, &ylib, "%u",
-					      ly_ctx_get_change_count(
-						      ly_native_ctx));
+					      ly_ctx_get_change_count(ly_native_ctx));
 		if (err) {
 			fe_adapter_send_error(session, req_id, false, err,
 					      "Error getting yang-library data, session-id: %" PRIu64
 					      " error: %s",
-					      session->session_id,
-					      ly_last_errmsg());
-		} else {
+					      session->session_id, ly_last_errmsg());
+		} else if (nb_oper_is_yang_lib_query(msg->xpath)) {
 			yang_lyd_trim_xpath(&ylib, msg->xpath);
-			(void)fe_adapter_send_tree_data(session, req_id, false,
-							msg->result_type,
+			(void)fe_adapter_send_tree_data(session, req_id, false, msg->result_type,
 							wd_options, ylib, 0);
+			goto done;
 		}
-		if (ylib)
-			lyd_free_all(ylib);
-		goto done;
 	}
 
 	switch (msg->datastore) {
@@ -1467,9 +1473,10 @@ static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session, void
 	}
 	darr_free(snodes);
 
-	clients = mgmt_be_interested_clients(msg->xpath,
-					     MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
-	if (!clients && !CHECK_FLAG(msg->flags, GET_DATA_FLAG_CONFIG)) {
+	if (in_oper)
+		clients = mgmt_be_interested_clients(msg->xpath, MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
+
+	if (!clients && !ylib && !CHECK_FLAG(msg->flags, GET_DATA_FLAG_CONFIG)) {
 		_dbg("No backends provide xpath: %s for txn-id: %" PRIu64 " session-id: %" PRIu64,
 		     msg->xpath, session->txn_id, session->session_id);
 
@@ -1477,6 +1484,9 @@ static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session, void
 					  msg->result_type, wd_options, NULL, 0);
 		goto done;
 	}
+
+	if (ylib)
+		simple_xpath = false;
 
 	/* Start a SHOW Transaction */
 	session->txn_id = mgmt_create_txn(session->session_id,
@@ -1491,9 +1501,8 @@ static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session, void
 	     session->session_id);
 
 	/* Create a GET-TREE request under the transaction */
-	ret = mgmt_txn_send_get_tree_oper(session->txn_id, req_id, clients,
-					  ds_id, msg->result_type, msg->flags,
-					  wd_options, simple_xpath, msg->xpath);
+	ret = mgmt_txn_send_get_tree(session->txn_id, req_id, clients, ds_id, msg->result_type,
+				     msg->flags, wd_options, simple_xpath, &ylib, msg->xpath);
 	if (ret) {
 		/* destroy the just created txn */
 		mgmt_destroy_txn(&session->txn_id);
@@ -1501,6 +1510,8 @@ static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session, void
 				      "failed to create a 'show' txn");
 	}
 done:
+	if (ylib)
+		lyd_free_all(ylib);
 	darr_free(snodes);
 }
 
