@@ -241,17 +241,16 @@ extern int mgmt_txn_send_get_req(uint64_t txn_id, uint64_t req_id,
  *	flags: option flags for the request.
  *	wd_options: LYD_PRINT_WD_* flags for the result.
  *	simple_xpath: true if xpath is simple (only key predicates).
+ *	ylib: libyang tree for yang-library module to be merged.
  *	xpath: The xpath to get the tree from.
  *
  * Return:
  *	0 on success.
  */
-extern int mgmt_txn_send_get_tree_oper(uint64_t txn_id, uint64_t req_id,
-				       uint64_t clients,
-				       Mgmtd__DatastoreId ds_id,
-				       LYD_FORMAT result_type, uint8_t flags,
-				       uint32_t wd_options, bool simple_xpath,
-				       const char *xpath);
+extern int mgmt_txn_send_get_tree(uint64_t txn_id, uint64_t req_id, uint64_t clients,
+				  Mgmtd__DatastoreId ds_id, LYD_FORMAT result_type, uint8_t flags,
+				  uint32_t wd_options, bool simple_xpath, struct lyd_node **ylib,
+				  const char *xpath);
 
 /**
  * Send edit request.
