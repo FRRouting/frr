@@ -206,15 +206,11 @@ void zebra_srv6_locator_format_set(struct srv6_locator *locator,
 				   struct srv6_sid_format *format)
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
-	struct zebra_srv6_sid_block *block_old, *block_new;
-	struct prefix_ipv6 block_pfx_new;
 	struct listnode *node, *nnode;
 	struct zebra_srv6_sid_ctx *ctx;
 
 	if (!locator)
 		return;
-
-	locator->sid_format = format;
 
 	if (IS_ZEBRA_DEBUG_SRV6)
 		zlog_debug("%s: Locator %s format has changed, old=%s new=%s",
@@ -244,32 +240,13 @@ void zebra_srv6_locator_format_set(struct srv6_locator *locator,
 			   __func__, locator->name);
 
 	/* Release the current parent block */
-	block_old = locator->sid_block;
-	if (block_old) {
-		block_old->refcnt--;
-		if (block_old->refcnt == 0) {
-			listnode_delete(srv6->sid_blocks, block_old);
-			zebra_srv6_sid_block_free(block_old);
-		}
-	}
-	locator->sid_block = NULL;
+	zebra_srv6_sid_locator_block_release(locator);
 
-	block_pfx_new = locator->prefix;
-	if (format)
-		block_pfx_new.prefixlen = format->block_len;
-	else
-		block_pfx_new.prefixlen = locator->block_bits_length;
-	apply_mask(&block_pfx_new);
+	/* Change format */
+	locator->sid_format = format;
 
 	/* Allocate the new parent block */
-	block_new = zebra_srv6_sid_block_lookup(&block_pfx_new);
-	if (!block_new) {
-		block_new = zebra_srv6_sid_block_alloc(format, &block_pfx_new);
-		listnode_add(srv6->sid_blocks, block_new);
-	}
-
-	block_new->refcnt++;
-	locator->sid_block = block_new;
+	zebra_srv6_sid_locator_block_alloc(locator);
 
 	if (IS_ZEBRA_DEBUG_SRV6)
 		zlog_debug("%s: Locator %s format has changed, send SRV6_LOCATOR_ADD notification to zclients",
@@ -574,6 +551,57 @@ zebra_srv6_sid_block_lookup(struct prefix_ipv6 *prefix)
 			return block;
 
 	return NULL;
+}
+
+static void zebra_srv6_sid_block_refcnt_increment(struct zebra_srv6_sid_block *block)
+{
+	block->refcnt++;
+}
+
+static void zebra_srv6_sid_block_refcnt_decrement(struct zebra_srv6_sid_block *block)
+{
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+
+	assert(block->refcnt > 0);
+
+	block->refcnt--;
+	if (block->refcnt == 0) {
+		listnode_delete(srv6->sid_blocks, block);
+		zebra_srv6_sid_block_free(block);
+	}
+}
+
+void zebra_srv6_sid_locator_block_alloc(struct srv6_locator *locator)
+{
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	struct zebra_srv6_sid_block *block_new;
+	struct prefix_ipv6 block_pfx_new;
+	struct srv6_sid_format *format;
+
+	format = locator->sid_format;
+
+	block_pfx_new = locator->prefix;
+	if (format)
+		block_pfx_new.prefixlen = format->block_len;
+	else
+		block_pfx_new.prefixlen = locator->block_bits_length;
+	apply_mask(&block_pfx_new);
+
+	/* Allocate the new parent block */
+	block_new = zebra_srv6_sid_block_lookup(&block_pfx_new);
+	if (!block_new) {
+		block_new = zebra_srv6_sid_block_alloc(format, &block_pfx_new);
+		listnode_add(srv6->sid_blocks, block_new);
+	}
+
+	zebra_srv6_sid_block_refcnt_increment(block_new);
+	locator->sid_block = block_new;
+}
+
+void zebra_srv6_sid_locator_block_release(struct srv6_locator *locator)
+{
+	zebra_srv6_sid_block_refcnt_decrement(locator->sid_block);
+	locator->sid_block = NULL;
 }
 
 /* --- Zebra SRv6 SID management functions ---------------------------------- */
