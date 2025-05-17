@@ -634,32 +634,27 @@ void zebra_srv6_sid_locator_block_release(struct srv6_locator *locator)
  * Alloc and fill an SRv6 SID.
  *
  * @param ctx Context associated with the SID to be created
- * @param sid_value IPv6 address associated with the SID to be created
  * @param locator Parent locator of the SID to be created
  * @param sid_block Block from which the SID value has been allocated
  * @param sid_func Function part of the SID to be created
  * @param alloc_mode Allocation mode of the Function (dynamic vs explicit)
  * @return The requested SID
  */
-struct zebra_srv6_sid *
-zebra_srv6_sid_alloc(struct zebra_srv6_sid_ctx *ctx, struct in6_addr *sid_value,
-		     struct srv6_locator *locator,
-		     struct zebra_srv6_sid_block *sid_block, uint32_t sid_func,
-		     enum srv6_sid_alloc_mode alloc_mode)
+struct zebra_srv6_sid *zebra_srv6_sid_alloc(struct zebra_srv6_sid_ctx *ctx,
+					    struct srv6_locator *locator,
+					    struct zebra_srv6_sid_block *sid_block,
+					    uint32_t sid_func, enum srv6_sid_alloc_mode alloc_mode)
 {
 	struct zebra_srv6_sid *sid;
 
-	if (!ctx || !sid_value)
+	if (!ctx)
 		return NULL;
 
 	sid = XCALLOC(MTYPE_ZEBRA_SRV6_SID, sizeof(struct zebra_srv6_sid));
 	sid->ctx = ctx;
-	sid->value = *sid_value;
-	sid->locator = locator;
 	sid->block = sid_block;
 	sid->func = sid_func;
 	sid->alloc_mode = alloc_mode;
-	sid->client_list = list_new();
 	zebra_srv6_sid_entry_list_init(&sid->entries);
 
 	return sid;
@@ -674,7 +669,6 @@ void zebra_srv6_sid_free(struct zebra_srv6_sid *sid)
 		zebra_srv6_sid_entry_free(entry);
 	}
 	zebra_srv6_sid_entry_list_fini(&sid->entries);
-	list_delete(&sid->client_list);
 	XFREE(MTYPE_ZEBRA_SRV6_SID, sid);
 }
 
@@ -1839,8 +1833,6 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid, struct srv6_sid_ct
 			zebra_srv6_sid_clients_release_notify_all(zctx->sid);
 			zebra_srv6_sid_entry_delete_all(zctx->sid);
 
-			zctx->sid->value = *sid_value;
-			zctx->sid->locator = locator;
 			zctx->sid->block = block;
 			zctx->sid->func = sid_func;
 			zctx->sid->wide_func = sid_func_wide;
@@ -1863,7 +1855,7 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid, struct srv6_sid_ct
 		zctx->ctx = *ctx;
 
 		/* Allocate the SID to store SID information */
-		*sid = zebra_srv6_sid_alloc(zctx, sid_value, locator, block, sid_func,
+		*sid = zebra_srv6_sid_alloc(zctx, locator, block, sid_func,
 					    SRV6_SID_ALLOC_MODE_EXPLICIT);
 		if (!(*sid)) {
 			flog_err(EC_ZEBRA_SM_CANNOT_ASSIGN_SID,
@@ -1961,8 +1953,7 @@ static int get_srv6_sid_dynamic(struct zebra_srv6_sid **sid, struct srv6_sid_ctx
 	zctx->ctx = *ctx;
 
 	/* Allocate the SID to store SID information */
-	*sid = zebra_srv6_sid_alloc(zctx, &sid_value, locator, block, sid_func,
-				    SRV6_SID_ALLOC_MODE_DYNAMIC);
+	*sid = zebra_srv6_sid_alloc(zctx, locator, block, sid_func, SRV6_SID_ALLOC_MODE_DYNAMIC);
 	if (!(*sid)) {
 		flog_err(EC_ZEBRA_SM_CANNOT_ASSIGN_SID,
 			 "%s: failed to create SRv6 SID ctx %s (%pI6)", __func__,

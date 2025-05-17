@@ -181,12 +181,6 @@ struct zebra_srv6_sid {
 	 */
 	struct zebra_srv6_sid_ctx *ctx;
 
-	/* SID value (e.g. fc00:0:1:e000::) */
-	struct in6_addr value;
-
-	/* Pointer to the SRv6 locator from which the SID has been allocated */
-	struct srv6_locator *locator;
-
 	/* Pointer to the SRv6 block from which the SID has been allocated */
 	struct zebra_srv6_sid_block *block;
 
@@ -202,9 +196,6 @@ struct zebra_srv6_sid {
 
 	/* SID allocation mode: dynamic or explicit */
 	enum srv6_sid_alloc_mode alloc_mode;
-
-	/* List of clients that are using the SID */
-	struct list *client_list;
 
 	/* List of SID entries allocated for this SID */
 	struct zebra_srv6_sid_entry_list_head entries;
@@ -331,11 +322,11 @@ zebra_srv6_sid_block_lookup(struct prefix_ipv6 *prefix);
 void zebra_srv6_sid_locator_block_alloc(struct srv6_locator *locator);
 void zebra_srv6_sid_locator_block_release(struct srv6_locator *locator);
 
-extern struct zebra_srv6_sid *
-zebra_srv6_sid_alloc(struct zebra_srv6_sid_ctx *ctx, struct in6_addr *sid_value,
-		     struct srv6_locator *locator,
-		     struct zebra_srv6_sid_block *sid_block, uint32_t sid_func,
-		     enum srv6_sid_alloc_mode alloc_mode);
+extern struct zebra_srv6_sid *zebra_srv6_sid_alloc(struct zebra_srv6_sid_ctx *ctx,
+						   struct srv6_locator *locator,
+						   struct zebra_srv6_sid_block *sid_block,
+						   uint32_t sid_func,
+						   enum srv6_sid_alloc_mode alloc_mode);
 extern void zebra_srv6_sid_free(struct zebra_srv6_sid *sid);
 extern void delete_zebra_srv6_sid(void *val);
 
