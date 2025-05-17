@@ -23,13 +23,19 @@
 #define MGMTD_TXN_LOCK(txn)   mgmt_txn_lock(txn, __FILE__, __LINE__)
 #define MGMTD_TXN_UNLOCK(txn, in_hash_free) mgmt_txn_unlock(txn, in_hash_free, __FILE__, __LINE__)
 
-enum mgmt_txn_event {
+enum mgmt_txn_req_type {
 	MGMTD_TXN_PROC_SETCFG = 1,
 	MGMTD_TXN_PROC_COMMITCFG,
 	MGMTD_TXN_PROC_GETCFG,
 	MGMTD_TXN_PROC_GETTREE,
 	MGMTD_TXN_PROC_RPC,
-	MGMTD_TXN_COMMITCFG_TIMEOUT,
+};
+
+enum mgmt_txn_frr_event {
+	MGMTD_TXN_EVENT_SETCFG = 1,
+	MGMTD_TXN_EVENT_GETCFG,
+	MGMTD_TXN_EVENT_COMMITCFG,
+	MGMTD_TXN_EVENT_COMMITCFG_TIMEOUT,
 };
 
 PREDECL_LIST(mgmt_txn_reqs);
@@ -200,7 +206,7 @@ struct txn_req_rpc {
 
 struct mgmt_txn_req {
 	struct mgmt_txn_ctx *txn;
-	enum mgmt_txn_event req_event;
+	enum mgmt_txn_req_type req_type;
 	uint64_t req_id;
 	union {
 		struct mgmt_set_cfg_req *set_cfg;
@@ -302,8 +308,7 @@ static int mgmt_txn_send_be_txn_delete(struct mgmt_txn_ctx *txn,
 static struct event_loop *mgmt_txn_tm;
 static struct mgmt_master *mgmt_txn_mm;
 
-static void mgmt_txn_register_event(struct mgmt_txn_ctx *txn,
-				    enum mgmt_txn_event event);
+static void mgmt_txn_register_event(struct mgmt_txn_ctx *txn, enum mgmt_txn_frr_event event);
 
 static void mgmt_txn_cleanup_txn(struct mgmt_txn_ctx **txn);
 
@@ -377,9 +382,8 @@ static void mgmt_txn_cleanup_be_cfg_batches(struct mgmt_txn_ctx *txn,
 	txn->commit_cfg_req->req.commit_cfg.last_be_cfg_batch[id] = NULL;
 }
 
-static struct mgmt_txn_req *mgmt_txn_req_alloc(struct mgmt_txn_ctx *txn,
-					       uint64_t req_id,
-					       enum mgmt_txn_event req_event)
+static struct mgmt_txn_req *mgmt_txn_req_alloc(struct mgmt_txn_ctx *txn, uint64_t req_id,
+					       enum mgmt_txn_req_type req_type)
 {
 	struct mgmt_txn_req *txn_req;
 	enum mgmt_be_client_id id;
@@ -388,9 +392,9 @@ static struct mgmt_txn_req *mgmt_txn_req_alloc(struct mgmt_txn_ctx *txn,
 	assert(txn_req);
 	txn_req->txn = txn;
 	txn_req->req_id = req_id;
-	txn_req->req_event = req_event;
+	txn_req->req_type = req_type;
 
-	switch (txn_req->req_event) {
+	switch (txn_req->req_type) {
 	case MGMTD_TXN_PROC_SETCFG:
 		txn_req->req.set_cfg = XCALLOC(MTYPE_MGMTD_TXN_SETCFG_REQ,
 					       sizeof(struct mgmt_set_cfg_req));
@@ -441,8 +445,6 @@ static struct mgmt_txn_req *mgmt_txn_req_alloc(struct mgmt_txn_ctx *txn,
 		_dbg("Added a new RPC req-id: %" PRIu64 " txn-id: %" PRIu64 " session-id: %" PRIu64,
 		     txn_req->req_id, txn->txn_id, txn->session_id);
 		break;
-	case MGMTD_TXN_COMMITCFG_TIMEOUT:
-		break;
 	}
 
 	MGMTD_TXN_LOCK(txn);
@@ -460,7 +462,7 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 	struct mgmt_set_cfg_req *set_cfg;
 	bool cleanup;
 
-	switch ((*txn_req)->req_event) {
+	switch ((*txn_req)->req_type) {
 	case MGMTD_TXN_PROC_SETCFG:
 		set_cfg = (*txn_req)->req.set_cfg;
 		for (indx = 0; indx < set_cfg->num_cfg_changes; indx++) {
@@ -540,8 +542,6 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 		XFREE(MTYPE_MGMTD_XPATH, (*txn_req)->req.rpc->xpath);
 		XFREE(MTYPE_MGMTD_TXN_RPC_REQ, (*txn_req)->req.rpc);
 		break;
-	case MGMTD_TXN_COMMITCFG_TIMEOUT:
-		break;
 	}
 
 	if (req_list) {
@@ -576,7 +576,7 @@ static void mgmt_txn_process_set_cfg(struct event *thread)
 	     mgmt_txn_reqs_count(&txn->set_cfg_reqs), txn->txn_id, txn->session_id);
 
 	FOREACH_TXN_REQ_IN_LIST (&txn->set_cfg_reqs, txn_req) {
-		assert(txn_req->req_event == MGMTD_TXN_PROC_SETCFG);
+		assert(txn_req->req_type == MGMTD_TXN_PROC_SETCFG);
 		ds_ctx = txn_req->req.set_cfg->ds_ctx;
 		if (!ds_ctx) {
 			mgmt_fe_send_set_cfg_reply(txn->session_id, txn->txn_id,
@@ -681,7 +681,7 @@ mgmt_txn_process_set_cfg_done:
 	if (left) {
 		_dbg("Processed maximum number of Set-Config requests (%d/%d/%d). Rescheduling for rest.",
 		     num_processed, MGMTD_TXN_MAX_NUM_SETCFG_PROC, (int)left);
-		mgmt_txn_register_event(txn, MGMTD_TXN_PROC_SETCFG);
+		mgmt_txn_register_event(txn, MGMTD_TXN_EVENT_SETCFG);
 	}
 }
 
@@ -858,7 +858,7 @@ mgmt_try_move_commit_to_next_phase(struct mgmt_txn_ctx *txn,
 	_dbg("Move entire txn-id: %" PRIu64 " to phase '%s'", txn->txn_id,
 	     mgmt_txn_commit_phase_str(txn));
 
-	mgmt_txn_register_event(txn, MGMTD_TXN_PROC_COMMITCFG);
+	mgmt_txn_register_event(txn, MGMTD_TXN_EVENT_COMMITCFG);
 
 	return 0;
 }
@@ -1148,13 +1148,13 @@ mgmt_txn_prep_config_validation_done:
 	/* Move to the Transaction Create Phase */
 	txn->commit_cfg_req->req.commit_cfg.phase =
 		MGMTD_COMMIT_PHASE_TXN_CREATE;
-	mgmt_txn_register_event(txn, MGMTD_TXN_PROC_COMMITCFG);
+	mgmt_txn_register_event(txn, MGMTD_TXN_EVENT_COMMITCFG);
 
 	/*
 	 * Start the COMMIT Timeout Timer to abort Txn if things get stuck at
 	 * backend.
 	 */
-	mgmt_txn_register_event(txn, MGMTD_TXN_COMMITCFG_TIMEOUT);
+	mgmt_txn_register_event(txn, MGMTD_TXN_EVENT_COMMITCFG_TIMEOUT);
 mgmt_txn_prepare_config_done:
 
 	if (cfg_chgs && del_cfg_chgs)
@@ -1575,7 +1575,7 @@ static void mgmt_txn_send_getcfg_reply_data(struct mgmt_txn_req *txn_req,
 	_dbg("Sending %zu Get-Config/Data replies next-index:%" PRId64, data_reply->n_data,
 	     data_reply->next_indx);
 
-	switch (txn_req->req_event) {
+	switch (txn_req->req_type) {
 	case MGMTD_TXN_PROC_GETCFG:
 		if (mgmt_fe_send_get_reply(txn_req->txn->session_id,
 					   txn_req->txn->txn_id, get_req->ds_id,
@@ -1590,8 +1590,7 @@ static void mgmt_txn_send_getcfg_reply_data(struct mgmt_txn_req *txn_req,
 	case MGMTD_TXN_PROC_COMMITCFG:
 	case MGMTD_TXN_PROC_GETTREE:
 	case MGMTD_TXN_PROC_RPC:
-	case MGMTD_TXN_COMMITCFG_TIMEOUT:
-		_log_err("Invalid Txn-Req-Event %u", txn_req->req_event);
+		_log_err("Invalid Txn-Req-Type %u", txn_req->req_type);
 		break;
 	}
 
@@ -1617,7 +1616,7 @@ static void txn_iter_get_config_data_cb(const char *xpath, struct lyd_node *node
 	if (!(node->schema->nodetype & LYD_NODE_TERM))
 		return;
 
-	assert(txn_req->req_event == MGMTD_TXN_PROC_GETCFG);
+	assert(txn_req->req_type == MGMTD_TXN_PROC_GETCFG);
 
 	get_req = txn_req->req.get_data;
 	assert(get_req);
@@ -1720,7 +1719,7 @@ static void mgmt_txn_process_get_cfg(struct event *thread)
 
 	FOREACH_TXN_REQ_IN_LIST (&txn->get_cfg_reqs, txn_req) {
 		error = false;
-		assert(txn_req->req_event == MGMTD_TXN_PROC_GETCFG);
+		assert(txn_req->req_type == MGMTD_TXN_PROC_GETCFG);
 		cfg_root = txn_req->req.get_data->cfg_root;
 		assert(cfg_root);
 
@@ -1753,7 +1752,7 @@ static void mgmt_txn_process_get_cfg(struct event *thread)
 	if (mgmt_txn_reqs_count(&txn->get_cfg_reqs)) {
 		_dbg("Processed maximum number of Get-Config requests (%d/%d). Rescheduling for rest.",
 		     num_processed, MGMTD_TXN_MAX_NUM_GETCFG_PROC);
-		mgmt_txn_register_event(txn, MGMTD_TXN_PROC_GETCFG);
+		mgmt_txn_register_event(txn, MGMTD_TXN_EVENT_GETCFG);
 	}
 }
 
@@ -1934,8 +1933,7 @@ static void mgmt_txn_cleanup_all_txns(void)
 		mgmt_txn_cleanup_txn(&txn);
 }
 
-static void mgmt_txn_register_event(struct mgmt_txn_ctx *txn,
-				    enum mgmt_txn_event event)
+static void mgmt_txn_register_event(struct mgmt_txn_ctx *txn, enum mgmt_txn_frr_event event)
 {
 	struct timeval tv = { .tv_sec = 0,
 			      .tv_usec = MGMTD_TXN_PROC_DELAY_USEC };
@@ -1943,26 +1941,22 @@ static void mgmt_txn_register_event(struct mgmt_txn_ctx *txn,
 	assert(mgmt_txn_mm && mgmt_txn_tm);
 
 	switch (event) {
-	case MGMTD_TXN_PROC_SETCFG:
+	case MGMTD_TXN_EVENT_SETCFG:
 		event_add_timer_tv(mgmt_txn_tm, mgmt_txn_process_set_cfg, txn,
 				   &tv, &txn->proc_set_cfg);
 		break;
-	case MGMTD_TXN_PROC_COMMITCFG:
+	case MGMTD_TXN_EVENT_COMMITCFG:
 		event_add_timer_tv(mgmt_txn_tm, mgmt_txn_process_commit_cfg,
 				   txn, &tv, &txn->proc_comm_cfg);
 		break;
-	case MGMTD_TXN_PROC_GETCFG:
+	case MGMTD_TXN_EVENT_GETCFG:
 		event_add_timer_tv(mgmt_txn_tm, mgmt_txn_process_get_cfg, txn,
 				   &tv, &txn->proc_get_cfg);
 		break;
-	case MGMTD_TXN_COMMITCFG_TIMEOUT:
+	case MGMTD_TXN_EVENT_COMMITCFG_TIMEOUT:
 		event_add_timer(mgmt_txn_tm, mgmt_txn_cfg_commit_timedout, txn,
 				MGMTD_TXN_CFG_COMMIT_MAX_DELAY_SEC,
 				&txn->comm_cfg_timeout);
-		break;
-	case MGMTD_TXN_PROC_GETTREE:
-	case MGMTD_TXN_PROC_RPC:
-		assert(!"code bug do not register this event");
 		break;
 	}
 }
@@ -2100,7 +2094,7 @@ int mgmt_txn_send_set_config_req(uint64_t txn_id, uint64_t req_id,
 	txn_req->req.set_cfg->dst_ds_ctx = dst_ds_ctx;
 	txn_req->req.set_cfg->setcfg_stats =
 		mgmt_fe_get_session_setcfg_stats(txn->session_id);
-	mgmt_txn_register_event(txn, MGMTD_TXN_PROC_SETCFG);
+	mgmt_txn_register_event(txn, MGMTD_TXN_EVENT_SETCFG);
 
 	return 0;
 }
@@ -2142,7 +2136,7 @@ int mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id,
 	/*
 	 * Trigger a COMMIT-CONFIG process.
 	 */
-	mgmt_txn_register_event(txn, MGMTD_TXN_PROC_COMMITCFG);
+	mgmt_txn_register_event(txn, MGMTD_TXN_EVENT_COMMITCFG);
 	return 0;
 }
 
@@ -2210,7 +2204,7 @@ int mgmt_txn_notify_be_adapter_conn(struct mgmt_be_client_adapter *adapter,
 		/*
 		 * Trigger a COMMIT-CONFIG process.
 		 */
-		mgmt_txn_register_event(txn, MGMTD_TXN_PROC_COMMITCFG);
+		mgmt_txn_register_event(txn, MGMTD_TXN_EVENT_COMMITCFG);
 
 	} else {
 		/*
@@ -2359,15 +2353,13 @@ int mgmt_txn_send_get_req(uint64_t txn_id, uint64_t req_id,
 {
 	struct mgmt_txn_ctx *txn;
 	struct mgmt_txn_req *txn_req;
-	enum mgmt_txn_event req_event;
 	size_t indx;
 
 	txn = mgmt_txn_id2ctx(txn_id);
 	if (!txn)
 		return -1;
 
-	req_event = MGMTD_TXN_PROC_GETCFG;
-	txn_req = mgmt_txn_req_alloc(txn, req_id, req_event);
+	txn_req = mgmt_txn_req_alloc(txn, req_id, MGMTD_TXN_PROC_GETCFG);
 	txn_req->req.get_data->ds_id = ds_id;
 	txn_req->req.get_data->cfg_root = cfg_root;
 	for (indx = 0;
@@ -2379,7 +2371,7 @@ int mgmt_txn_send_get_req(uint64_t txn_id, uint64_t req_id,
 		txn_req->req.get_data->num_xpaths++;
 	}
 
-	mgmt_txn_register_event(txn, req_event);
+	mgmt_txn_register_event(txn, MGMTD_TXN_EVENT_GETCFG);
 
 	return 0;
 }
@@ -2710,7 +2702,7 @@ int mgmt_txn_notify_error(struct mgmt_be_client_adapter *adapter,
 	_log_err("Error reply from %s for txn-id %" PRIu64 " req_id %" PRIu64, adapter->name,
 		 txn_id, req_id);
 
-	switch (txn_req->req_event) {
+	switch (txn_req->req_type) {
 	case MGMTD_TXN_PROC_GETTREE:
 		get_tree = txn_req->req.get_tree;
 		get_tree->recv_clients |= (1u << id);
@@ -2736,9 +2728,8 @@ int mgmt_txn_notify_error(struct mgmt_be_client_adapter *adapter,
 	case MGMTD_TXN_PROC_SETCFG:
 	case MGMTD_TXN_PROC_COMMITCFG:
 	case MGMTD_TXN_PROC_GETCFG:
-	case MGMTD_TXN_COMMITCFG_TIMEOUT:
 	default:
-		assert(!"non-native req event in native error path");
+		assert(!"non-native req type in native error path");
 		return -1;
 	}
 }
@@ -2963,6 +2954,6 @@ int mgmt_txn_rollback_trigger_cfg_apply(struct mgmt_ds_ctx *src_ds_ctx,
 	/*
 	 * Trigger a COMMIT-CONFIG process.
 	 */
-	mgmt_txn_register_event(txn, MGMTD_TXN_PROC_COMMITCFG);
+	mgmt_txn_register_event(txn, MGMTD_TXN_EVENT_COMMITCFG);
 	return 0;
 }
