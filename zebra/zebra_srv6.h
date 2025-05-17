@@ -302,6 +302,8 @@ extern void zebra_srv6_sid_block_free(struct zebra_srv6_sid_block *block);
 extern void delete_zebra_srv6_sid_block(void *val);
 extern struct zebra_srv6_sid_block *
 zebra_srv6_sid_block_lookup(struct prefix_ipv6 *prefix);
+void zebra_srv6_sid_locator_block_alloc(struct srv6_locator *locator);
+void zebra_srv6_sid_locator_block_release(struct srv6_locator *locator);
 
 extern struct zebra_srv6_sid *
 zebra_srv6_sid_alloc(struct zebra_srv6_sid_ctx *ctx, struct in6_addr *sid_value,
