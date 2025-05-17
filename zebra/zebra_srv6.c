@@ -944,6 +944,7 @@ void zebra_srv6_encap_src_addr_unset(void)
  * @param sid_value SRv6 SID address returned
  * @param locator Parent locator of the SRv6 SID
  * @param sid_func Function part of the SID
+ * @param is_localonly SID is local-only
  * @return True if success, False otherwise
  */
 static bool zebra_srv6_sid_compose(struct in6_addr *sid_value,

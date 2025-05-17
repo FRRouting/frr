@@ -3523,6 +3523,7 @@ int srv6_manager_get_locator(struct zclient *zclient, const char *locator_name)
  * @param sid_value SRv6 SID value for explicit SID allocation
  * @param locator_name Name of the parent locator for dynamic SID allocation
  * @param sid_func SID function assigned by the SRv6 Manager
+ * @param is_localonly SID is local-only
  * @result 0 on success, -1 otherwise
  */
 int srv6_manager_get_sid(struct zclient *zclient, const struct srv6_sid_ctx *ctx,
@@ -3586,6 +3587,7 @@ int srv6_manager_get_sid(struct zclient *zclient, const struct srv6_sid_ctx *ctx
  * @param zclient Zclient used to connect to SRv6 manager (zebra)
  * @param ctx Context associated with the SRv6 SID to be removed
  * @param locator_name Parent locator of the SID
+ * @param is_localonly SID is local-only
  * @result 0 on success, -1 otherwise
  */
 int srv6_manager_release_sid(struct zclient *zclient, const struct srv6_sid_ctx *ctx,
