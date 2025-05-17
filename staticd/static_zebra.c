@@ -979,12 +979,30 @@ static bool static_zebra_sid_locator_block_check(struct static_srv6_sid *sid)
 	return true;
 }
 
+static bool is_srv6_sid_localonly(const struct static_srv6_sid *sid)
+{
+	struct prefix_ipv6 block = {};
+	struct prefix_ipv6 locator = {};
+
+	block = sid->locator->prefix;
+	block.prefixlen = sid->locator->block_bits_length;
+	apply_mask(&block);
+
+	locator = sid->locator->prefix;
+
+	if (prefix_match(&block, &sid->addr) && !prefix_match(&locator, &sid->addr))
+		return true;
+
+	return false;
+}
+
 extern void static_zebra_request_srv6_sid(struct static_srv6_sid *sid)
 {
 	struct srv6_sid_ctx ctx = {};
 	int ret = 0;
 	struct vrf *vrf;
 	struct interface *ifp;
+	bool is_localonly;
 
 	if (!sid)
 		return;
@@ -1072,9 +1090,11 @@ extern void static_zebra_request_srv6_sid(struct static_srv6_sid *sid)
 		return;
 	}
 
+	is_localonly = is_srv6_sid_localonly(sid);
+
 	/* Request SRv6 SID from SID Manager */
 	ret = srv6_manager_get_sid(static_zclient, &ctx, &sid->addr.prefix, sid->locator->name,
-				   NULL, false);
+				   NULL, is_localonly);
 	if (ret < 0)
 		zlog_warn("%s: error getting SRv6 SID!", __func__);
 }
@@ -1085,6 +1105,7 @@ extern void static_zebra_release_srv6_sid(struct static_srv6_sid *sid)
 	struct vrf *vrf;
 	int ret = 0;
 	struct interface *ifp;
+	bool is_localonly;
 
 	if (!sid || !CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID))
 		return;
@@ -1164,8 +1185,10 @@ extern void static_zebra_release_srv6_sid(struct static_srv6_sid *sid)
 		return;
 	}
 
+	is_localonly = is_srv6_sid_localonly(sid);
+
 	/* remove the SRv6 SID from the zebra RIB */
-	ret = srv6_manager_release_sid(static_zclient, &ctx, sid->locator->name, false);
+	ret = srv6_manager_release_sid(static_zclient, &ctx, sid->locator->name, is_localonly);
 	if (ret == ZCLIENT_SEND_FAILURE)
 		flog_err(EC_LIB_ZAPI_SOCKET, "zclient_send_get_srv6_sid() delete failed: %s",
 			 safe_strerror(errno));
