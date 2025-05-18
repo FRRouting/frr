@@ -1,6 +1,5 @@
 {
     "prefix":"192.168.1.0/24",
-    "version":2,
     "pathCount":1,
     "paths":[
       {
@@ -22,7 +21,6 @@
         "origin":"incomplete",
         "metric":0,
         "valid":true,
-        "version":2,
         "sourced":true,
         "local":true,
         "bestpath":{
