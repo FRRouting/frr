@@ -35,6 +35,7 @@
 #include "qobj.h"
 #include "libfrr.h"
 #include "lib_errors.h"
+#include "plist.h"
 
 #include "l2vpn.h"
 
@@ -389,6 +390,7 @@ main(int argc, char *argv[])
 
 	vrf_init(NULL, NULL, NULL, NULL);
 	access_list_init();
+	prefix_list_init();
 	ldp_vty_init();
 	ldp_zebra_init(master);
 
@@ -521,6 +523,7 @@ ldpd_shutdown(void)
 
 	vrf_terminate();
 	access_list_reset();
+	prefix_list_reset();
 	ldp_zebra_destroy();
 
 	frr_fini();
