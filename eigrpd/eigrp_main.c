@@ -92,7 +92,7 @@ static void sighup(void)
 }
 
 /* SIGINT / SIGTERM handler. */
-static FRR_NORETURN void sigint(void)
+FRR_NORETURN static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 

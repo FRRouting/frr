@@ -64,7 +64,7 @@ static void sighup(void)
 }
 
 /* SIGINT / SIGTERM handler. */
-static void __attribute__((noreturn)) sigint(void)
+FRR_NORETURN static void  sigint(void)
 {
 	zlog_notice("Terminating on signal");
 

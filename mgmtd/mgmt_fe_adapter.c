@@ -2143,7 +2143,7 @@ void mgmt_fe_adapter_init(struct event_loop *tm)
 	}
 }
 
-static FRR_NORETURN void mgmt_fe_abort_if_session(void *data)
+FRR_NORETURN static void mgmt_fe_abort_if_session(void *data)
 {
 	struct mgmt_fe_session_ctx *session = data;
 

@@ -206,7 +206,7 @@ static void *program_counter(void *context)
 	return NULL;
 }
 
-static void FRR_NORETURN exit_handler(int signo, siginfo_t *siginfo,
+FRR_NORETURN static void exit_handler(int signo, siginfo_t *siginfo,
 				      void *context)
 {
 	void *pc = program_counter(context);
@@ -215,7 +215,7 @@ static void FRR_NORETURN exit_handler(int signo, siginfo_t *siginfo,
 	_exit(128 + signo);
 }
 
-static void FRR_NORETURN core_handler(int signo, siginfo_t *siginfo,
+FRR_NORETURN static void core_handler(int signo, siginfo_t *siginfo,
 				      void *context)
 {
 	void *pc = program_counter(context);

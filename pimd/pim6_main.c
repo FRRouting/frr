@@ -56,14 +56,14 @@ static void pim6_sighup(void)
 	zlog_info("SIGHUP received, ignoring");
 }
 
-static FRR_NORETURN void pim6_sigint(void)
+FRR_NORETURN static void pim6_sigint(void)
 {
 	zlog_notice("Terminating on signal SIGINT");
 	pim6_terminate();
 	exit(1);
 }
 
-static FRR_NORETURN void pim6_sigterm(void)
+FRR_NORETURN static void pim6_sigterm(void)
 {
 	zlog_notice("Terminating on signal SIGTERM");
 	pim6_terminate();

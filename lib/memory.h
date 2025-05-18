@@ -183,7 +183,7 @@ typedef int qmem_walk_fn(void *arg, struct memgroup *mg, struct memtype *mt);
 extern int qmem_walk(qmem_walk_fn *func, void *arg);
 extern int log_memstats(const char *daemon_name, bool enabled);
 
-extern FRR_NORETURN void memory_oom(size_t size, const char *name);
+FRR_NORETURN extern void memory_oom(size_t size, const char *name);
 
 #ifdef __cplusplus
 }

@@ -13,7 +13,7 @@
 #include "yang.h"
 #include "northbound.h"
 
-static void __attribute__((noreturn)) usage(int status)
+FRR_NORETURN static void  usage(int status)
 {
 	fprintf(stderr, "usage: gen_yang_deviations [-h] MODULE\n");
 	exit(status);

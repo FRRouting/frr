@@ -70,7 +70,7 @@ struct option longopts[] = {{0}};
 /* Master of threads. */
 struct event_loop *master;
 
-static void __attribute__((noreturn)) ospf6_exit(int status)
+FRR_NORETURN static void ospf6_exit(int status)
 {
 	struct vrf *vrf;
 	struct interface *ifp;
@@ -125,14 +125,14 @@ static void sighup(void)
 }
 
 /* SIGINT handler. */
-static FRR_NORETURN void sigint(void)
+FRR_NORETURN static void sigint(void)
 {
 	zlog_notice("Terminating on signal SIGINT");
 	ospf6_exit(0);
 }
 
 /* SIGTERM handler. */
-static FRR_NORETURN void sigterm(void)
+FRR_NORETURN static void sigterm(void)
 {
 	zlog_notice("Terminating on signal SIGTERM");
 	ospf6_exit(0);

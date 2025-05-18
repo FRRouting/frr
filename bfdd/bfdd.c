@@ -57,7 +57,7 @@ static void sigusr1_handler(void)
 	zlog_rotate();
 }
 
-static FRR_NORETURN void sigterm_handler(void)
+FRR_NORETURN static void sigterm_handler(void)
 {
 	bglobal.bg_shutdown = true;
 

@@ -67,7 +67,7 @@ static void sighup(void)
 }
 
 /* SIGINT handler. */
-static FRR_NORETURN void sigint(void)
+FRR_NORETURN static void sigint(void)
 {
 	struct vrf *vrf;
 

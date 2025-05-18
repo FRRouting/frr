@@ -462,7 +462,11 @@ _Static_assert(sizeof(_uint64_t) == 8 && sizeof(_int64_t) == 8,
 #endif
 
 /* Wrapper for the 'noreturn' metadata */
-#define FRR_NORETURN __attribute__((noreturn))
+#if defined(__has_cpp_attribute) && __has_cpp_attribute(noreturn)
+#  define FRR_NORETURN [[noreturn]]
+#else
+#  define FRR_NORETURN __attribute__((noreturn))
+#endif
 
 #ifdef __cplusplus
 }

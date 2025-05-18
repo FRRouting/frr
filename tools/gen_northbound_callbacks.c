@@ -18,7 +18,7 @@
 static bool f_static_cbs;
 static bool f_new_cbs;
 
-static void __attribute__((noreturn)) usage(int status)
+FRR_NORETURN static void usage(int status)
 {
 	extern const char *__progname;
 	fprintf(stderr, "usage: %s [-h] [-n] [-s] [-p path]* MODULE\n", __progname);

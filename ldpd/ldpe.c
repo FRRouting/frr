@@ -25,7 +25,7 @@
 #include "libfrr.h"
 #include "zlog_live.h"
 
-static FRR_NORETURN void ldpe_shutdown(void);
+FRR_NORETURN static void ldpe_shutdown(void);
 static void ldpe_dispatch_main(struct event *thread);
 static void ldpe_dispatch_lde(struct event *thread);
 #ifdef __OpenBSD__
@@ -66,7 +66,7 @@ struct zebra_privs_t ldpe_privs =
 };
 
 /* SIGINT / SIGTERM handler. */
-static FRR_NORETURN void sigint(void)
+FRR_NORETURN static void sigint(void)
 {
 	ldpe_shutdown();
 }
@@ -181,7 +181,7 @@ ldpe_init(struct ldpd_init *init)
 	accept_init();
 }
 
-static FRR_NORETURN void ldpe_shutdown(void)
+FRR_NORETURN static void ldpe_shutdown(void)
 {
 	struct if_addr		*if_addr;
 	struct adj		*adj;

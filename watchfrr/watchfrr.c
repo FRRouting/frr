@@ -1090,7 +1090,7 @@ void watchfrr_status(struct vty *vty)
 	}
 }
 
-static FRR_NORETURN void sigint(void)
+FRR_NORETURN static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 	systemd_send_stopping();

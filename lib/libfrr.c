@@ -410,7 +410,7 @@ void frr_opt_add(const char *optstr, const struct option *longopts,
 	opt_extend(&main_opts);
 }
 
-void frr_help_exit(int status)
+FRR_NORETURN void frr_help_exit(int status)
 {
 	FILE *target = status ? stderr : stdout;
 
@@ -868,7 +868,7 @@ static void rcv_signal(int signum)
 	/* poll() is interrupted by the signal; handled below */
 }
 
-static FRR_NORETURN void frr_daemon_wait(int fd)
+FRR_NORETURN static void frr_daemon_wait(int fd)
 {
 	struct pollfd pfd[1];
 	int ret;
