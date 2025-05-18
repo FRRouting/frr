@@ -923,6 +923,12 @@ int bgp_getsockname(struct peer_connection *connection)
 
 	if (!bgp_zebra_nexthop_set(connection->su_local, connection->su_remote, &peer->nexthop,
 				   peer)) {
+		/* no nexthop, but the admin has enforced the source address with an ip-transparent mode
+		 * so let's honor the configuration.
+		 */
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_IP_TRANSPARENT) &&
+		    CHECK_FLAG(peer->flags, PEER_FLAG_UPDATE_SOURCE))
+			return 0;
 		flog_err(EC_BGP_NH_UPD,
 			 "%s: nexthop_set failed, local: %pSUp remote: %pSUp update_if: %s resetting connection - intf %s",
 			 peer->host, connection->su_local, connection->su_remote,
