@@ -1,7 +1,6 @@
 {
     "65001:10":{
       "prefix":"192.168.1.0/24",
-      "version":1,
       "advertisedTo":{
         "2001:db8:12::2":{
           "hostname":"r2"
@@ -22,7 +21,6 @@
           "metric":0,
           "weight":32768,
           "valid":true,
-          "version":1,
           "sourced":true,
           "local":true,
           "bestpath":{
@@ -75,7 +73,6 @@
           "metric":0,
           "weight":32768,
           "valid":true,
-          "version":1,
           "sourced":true,
           "local":true,
           "bestpath":{
