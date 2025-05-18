@@ -22,6 +22,7 @@
 #include "bfddp_packet.h"
 #include "lib/version.h"
 #include "lib/command.h"
+#include "lib/plist.h"
 
 
 /*
@@ -73,6 +74,9 @@ static FRR_NORETURN void sigterm_handler(void)
 	bfd_vrf_terminate();
 
 	bfdd_zclient_terminate();
+
+	prefix_list_reset();
+	access_list_reset();
 
 	/* Terminate and free() FRR related memory. */
 	frr_fini();
@@ -359,6 +363,7 @@ int main(int argc, char *argv[])
 	bfd_vrf_init();
 
 	access_list_init();
+	prefix_list_init();
 
 	/* Initialize zebra connection. */
 	bfdd_zclient_init(&bglobal.bfdd_privs);
