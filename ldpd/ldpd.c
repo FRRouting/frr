@@ -37,6 +37,7 @@
 #include "lib_errors.h"
 #include "zlog_recirculate.h"
 #include "libagentx.h"
+#include "plist.h"
 
 static void		 ldpd_shutdown(void);
 static pid_t		 start_child(enum ldpd_process, char *, int, int, int);
@@ -374,6 +375,7 @@ main(int argc, char *argv[])
 	libagentx_init();
 	vrf_init(NULL, NULL, NULL, NULL);
 	access_list_init();
+	prefix_list_init();
 	ldp_vty_init();
 	ldp_zebra_init(master);
 
@@ -497,6 +499,7 @@ static FRR_NORETURN void ldpd_shutdown(void)
 
 	vrf_terminate();
 	access_list_reset();
+	prefix_list_reset();
 	ldp_zebra_destroy();
 
 	frr_fini();
