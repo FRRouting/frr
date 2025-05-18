@@ -35,6 +35,12 @@
 #include "qobj.h"
 #include "libfrr.h"
 #include "lib_errors.h"
+<<<<<<< HEAD
+=======
+#include "zlog_recirculate.h"
+#include "libagentx.h"
+#include "plist.h"
+>>>>>>> d332e28fa (ldpd: Free up leaked prefix-list memory on shutdown)
 
 static void		 ldpd_shutdown(void);
 static pid_t		 start_child(enum ldpd_process, char *, int, int);
@@ -353,6 +359,7 @@ main(int argc, char *argv[])
 
 	vrf_init(NULL, NULL, NULL, NULL);
 	access_list_init();
+	prefix_list_init();
 	ldp_vty_init();
 	ldp_zebra_init(master);
 
@@ -477,6 +484,7 @@ ldpd_shutdown(void)
 
 	vrf_terminate();
 	access_list_reset();
+	prefix_list_reset();
 	ldp_zebra_destroy();
 
 	frr_fini();
