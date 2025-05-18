@@ -342,64 +342,71 @@ static const char *show_srv6_sid_seg6_context(char *str, size_t size, const stru
 
 static void do_show_srv6_sid_line(struct ttable *tt, struct zebra_srv6_sid *sid)
 {
-	struct listnode *node;
 	struct zserv *client;
 	char clients[256];
 	char ctx[256] = {};
 	char behavior[256] = {};
 	char alloc_mode_str[10] = {};
 	char locator_name[SRV6_LOCNAME_SIZE];
+	struct zebra_srv6_sid_entry *entry;
+	struct zebra_srv6_sid_client *sclient;
 	int ret;
 
-	/* Zclients */
-	if (listcount(sid->client_list)) {
-		bool first = true;
-		int i = 0;
-		for (ALL_LIST_ELEMENTS_RO(sid->client_list, node, client)) {
-			if (first) {
-				ret = snprintf(clients + i, sizeof(clients) - i, "%s(%d)",
-					       zebra_route_string(client->proto), client->instance);
-				first = false;
-			} else {
-				ret = snprintf(clients + i, sizeof(clients) - i, ", %s(%d)",
-					       zebra_route_string(client->proto), client->instance);
+	frr_each_safe (zebra_srv6_sid_entry_list, &sid->entries, entry) {
+		/* Zclients */
+		if (zebra_srv6_sid_client_list_count(&entry->clients_list)) {
+			bool first = true;
+			int i = 0;
+			frr_each_safe (zebra_srv6_sid_client_list, &entry->clients_list, sclient) {
+				client = sclient->client;
+				if (first) {
+					ret = snprintf(clients + i, sizeof(clients) - i, "%s(%d)",
+						       zebra_route_string(client->proto),
+						       client->instance);
+					first = false;
+				} else {
+					ret = snprintf(clients + i, sizeof(clients) - i, ", %s(%d)",
+						       zebra_route_string(client->proto),
+						       client->instance);
+				}
+
+				if (ret > 0)
+					i += ret;
 			}
-
-			if (ret > 0)
-				i += ret;
 		}
-	}
 
-	/* Behavior */
-	if (sid->locator) {
-		if ((sid->locator->sid_format &&
-		     sid->locator->sid_format->type == SRV6_SID_FORMAT_TYPE_USID) ||
-		    (!sid->locator->sid_format &&
-		     CHECK_FLAG(sid->locator->flags, SRV6_LOCATOR_USID))) {
-			snprintf(behavior, sizeof(behavior), "%s",
-				 show_srv6_sid_seg6_action(sid->ctx->ctx.behavior));
-		} else {
-			snprintf(behavior, sizeof(behavior), "%s",
-				 seg6local_action2str(sid->ctx->ctx.behavior));
+		/* Behavior */
+		if (entry->locator) {
+			if ((entry->locator->sid_format &&
+			     entry->locator->sid_format->type == SRV6_SID_FORMAT_TYPE_USID) ||
+			    (!entry->locator->sid_format &&
+			     CHECK_FLAG(entry->locator->flags, SRV6_LOCATOR_USID))) {
+				snprintf(behavior, sizeof(behavior), "%s",
+					 show_srv6_sid_seg6_action(sid->ctx->ctx.behavior));
+			} else {
+				snprintf(behavior, sizeof(behavior), "%s",
+					 seg6local_action2str(sid->ctx->ctx.behavior));
+			}
 		}
+
+		/* SID context */
+		show_srv6_sid_seg6_context(ctx, sizeof(ctx), &sid->ctx->ctx,
+					   sid->ctx->ctx.behavior);
+
+		if (strlen(ctx) == 0)
+			snprintf(ctx, sizeof(ctx), "-");
+
+		if (entry->locator)
+			snprintf(locator_name, sizeof(locator_name), "%s", entry->locator->name);
+		else
+			snprintf(locator_name, sizeof(locator_name), "-");
+
+		snprintf(alloc_mode_str, sizeof(alloc_mode_str), "%s",
+			 srv6_sid_alloc_mode2str(sid->alloc_mode));
+
+		ttable_add_row(tt, "%pI6|%s|%s|%s|%s|%s", &entry->sid_value, behavior, ctx,
+			       clients, locator_name, alloc_mode_str);
 	}
-
-	/* SID context */
-	show_srv6_sid_seg6_context(ctx, sizeof(ctx), &sid->ctx->ctx, sid->ctx->ctx.behavior);
-
-	if (strlen(ctx) == 0)
-		snprintf(ctx, sizeof(ctx), "-");
-
-	if (sid->locator)
-		snprintf(locator_name, sizeof(locator_name), "%s", sid->locator->name);
-	else
-		snprintf(locator_name, sizeof(locator_name), "-");
-
-	snprintf(alloc_mode_str, sizeof(alloc_mode_str), "%s",
-		 srv6_sid_alloc_mode2str(sid->alloc_mode));
-
-	ttable_add_row(tt, "%pI6|%s|%s|%s|%s|%s", &sid->value, behavior, ctx, clients, locator_name,
-		       alloc_mode_str);
 }
 
 static void do_show_srv6_sid_json(struct vty *vty, json_object **json, struct srv6_locator *locator,
@@ -412,75 +419,81 @@ static void do_show_srv6_sid_json(struct vty *vty, json_object **json, struct sr
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
 	struct interface *ifp;
-	struct listnode *node;
 	struct zserv *client;
+	struct zebra_srv6_sid_client *sclient;
+	struct zebra_srv6_sid_entry *entry;
 	char buf[256];
 
 	if (!sid_ctx || !sid_ctx->sid)
 		return;
 
-	if (locator && sid_ctx->sid->locator != locator)
-		return;
+	frr_each (zebra_srv6_sid_entry_list, &sid_ctx->sid->entries, entry) {
+		if (locator && entry->locator != locator)
+			return;
 
-	json_sid = json_object_new_object();
-	json_sid_ctx = json_object_new_object();
+		json_sid = json_object_new_object();
+		json_sid_ctx = json_object_new_object();
 
-	json_object_string_addf(json_sid, "sid", "%pI6", &sid_ctx->sid->value);
-	if ((sid_ctx->sid->locator->sid_format &&
-	     sid_ctx->sid->locator->sid_format->type == SRV6_SID_FORMAT_TYPE_USID) ||
-	    (!sid_ctx->sid->locator->sid_format &&
-	     CHECK_FLAG(sid_ctx->sid->locator->flags, SRV6_LOCATOR_USID))) {
-		json_object_string_add(json_sid, "behavior",
-				       show_srv6_sid_seg6_action(sid_ctx->ctx.behavior));
-	} else {
-		json_object_string_add(json_sid, "behavior",
-				       seg6local_action2str(sid_ctx->ctx.behavior));
-	}
-
-	if (sid_ctx->ctx.vrf_id) {
-		json_object_int_add(json_sid_ctx, "vrfId", sid_ctx->ctx.vrf_id);
-
-		vrf = vrf_lookup_by_id(sid_ctx->ctx.vrf_id);
-		if (vrf)
-			json_object_string_add(json_sid_ctx, "vrfName", vrf->name);
-
-		zvrf = vrf_info_lookup(sid_ctx->ctx.vrf_id);
-		if (vrf)
-			json_object_int_add(json_sid_ctx, "table", zvrf->table_id);
-	}
-	if (sid_ctx->ctx.ifindex) {
-		json_object_int_add(json_sid_ctx, "interfaceIndex", sid_ctx->ctx.ifindex);
-		RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-			ifp = if_lookup_by_index(sid_ctx->ctx.ifindex, vrf->vrf_id);
-			if (ifp)
-				json_object_string_add(json_sid_ctx, "interfaceName", ifp->name);
+		json_object_string_addf(json_sid, "sid", "%pI6", &entry->sid_value);
+		if ((entry->locator->sid_format &&
+		     entry->locator->sid_format->type == SRV6_SID_FORMAT_TYPE_USID) ||
+		    (!entry->locator->sid_format &&
+		     CHECK_FLAG(entry->locator->flags, SRV6_LOCATOR_USID))) {
+			json_object_string_add(json_sid, "behavior",
+					       show_srv6_sid_seg6_action(sid_ctx->ctx.behavior));
+		} else {
+			json_object_string_add(json_sid, "behavior",
+					       seg6local_action2str(sid_ctx->ctx.behavior));
 		}
-	}
-	if (memcmp(&sid_ctx->ctx.nh6, &in6addr_any, sizeof(struct in6_addr)) != 0) {
-		json_object_string_addf(json_sid_ctx, "nexthopIpv6Address", "%pI6",
-					&sid_ctx->ctx.nh6);
-	}
-	json_object_object_add(json_sid, "context", json_sid_ctx);
 
-	json_object_string_add(json_sid, "locator", sid_ctx->sid->locator->name);
-	json_object_string_add(json_sid, "allocationMode",
-			       srv6_sid_alloc_mode2str(sid_ctx->sid->alloc_mode));
+		if (sid_ctx->ctx.vrf_id) {
+			json_object_int_add(json_sid_ctx, "vrfId", sid_ctx->ctx.vrf_id);
 
-	/* Zclients */
-	json_sid_clients = json_object_new_array();
-	if (listcount(sid_ctx->sid->client_list)) {
-		for (ALL_LIST_ELEMENTS_RO(sid_ctx->sid->client_list, node, client)) {
-			json_sid_client = json_object_new_object();
-			json_object_string_add(json_sid_client, "protocol",
-					       zebra_route_string(client->proto));
-			json_object_int_add(json_sid_client, "instance", client->instance);
-			json_object_array_add(json_sid_clients, json_sid_client);
+			vrf = vrf_lookup_by_id(sid_ctx->ctx.vrf_id);
+			if (vrf)
+				json_object_string_add(json_sid_ctx, "vrfName", vrf->name);
+
+			zvrf = vrf_info_lookup(sid_ctx->ctx.vrf_id);
+			if (vrf)
+				json_object_int_add(json_sid_ctx, "table", zvrf->table_id);
 		}
-	}
-	json_object_object_add(json_sid, "clients", json_sid_clients);
+		if (sid_ctx->ctx.ifindex) {
+			json_object_int_add(json_sid_ctx, "interfaceIndex", sid_ctx->ctx.ifindex);
+			RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+				ifp = if_lookup_by_index(sid_ctx->ctx.ifindex, vrf->vrf_id);
+				if (ifp)
+					json_object_string_add(json_sid_ctx, "interfaceName",
+							       ifp->name);
+			}
+		}
+		if (memcmp(&sid_ctx->ctx.nh6, &in6addr_any, sizeof(struct in6_addr)) != 0) {
+			json_object_string_addf(json_sid_ctx, "nexthopIpv6Address", "%pI6",
+						&sid_ctx->ctx.nh6);
+		}
+		json_object_object_add(json_sid, "context", json_sid_ctx);
 
-	json_object_object_add(*json, inet_ntop(AF_INET6, &sid_ctx->sid->value, buf, sizeof(buf)),
-			       json_sid);
+		json_object_string_add(json_sid, "locator", entry->locator->name);
+		json_object_string_add(json_sid, "allocationMode",
+				       srv6_sid_alloc_mode2str(sid_ctx->sid->alloc_mode));
+
+		/* Zclients */
+		json_sid_clients = json_object_new_array();
+		if (zebra_srv6_sid_client_list_count(&entry->clients_list)) {
+			frr_each_safe (zebra_srv6_sid_client_list, &entry->clients_list, sclient) {
+				client = sclient->client;
+				json_sid_client = json_object_new_object();
+				json_object_string_add(json_sid_client, "protocol",
+						       zebra_route_string(client->proto));
+				json_object_int_add(json_sid_client, "instance", client->instance);
+				json_object_array_add(json_sid_clients, json_sid_client);
+			}
+		}
+		json_object_object_add(json_sid, "clients", json_sid_clients);
+
+		json_object_object_add(*json,
+				       inet_ntop(AF_INET6, &entry->sid_value, buf, sizeof(buf)),
+				       json_sid);
+	}
 }
 
 static void do_show_srv6_sid_specific(struct vty *vty, json_object **json,
@@ -488,6 +501,8 @@ static void do_show_srv6_sid_specific(struct vty *vty, json_object **json,
 				      struct zebra_srv6_sid_ctx *sid_ctx)
 {
 	struct ttable *tt;
+	struct zebra_srv6_sid_entry *entry;
+	bool found = false;
 
 	if (json) {
 		do_show_srv6_sid_json(vty, json, locator, sid_ctx);
@@ -506,9 +521,15 @@ static void do_show_srv6_sid_specific(struct vty *vty, json_object **json,
 			return;
 		}
 
-		if (locator && sid_ctx->sid->locator != locator) {
-			ttable_del(tt);
-			return;
+		if (locator) {
+			frr_each_safe (zebra_srv6_sid_entry_list, &sid_ctx->sid->entries, entry) {
+				if (entry->locator == locator) {
+					found = true;
+					break;
+				}
+			}
+			if (!found)
+				return;
 		}
 
 		do_show_srv6_sid_line(tt, sid_ctx->sid);
@@ -540,6 +561,7 @@ static void do_show_srv6_sid_all(struct vty *vty, json_object **json, struct srv
 	struct zebra_srv6_sid_ctx *ctx;
 	struct listnode *node;
 	struct ttable *tt;
+	char *table;
 
 	if (json) {
 		for (ALL_LIST_ELEMENTS_RO(srv6->sids, node, ctx)) {
@@ -548,7 +570,9 @@ static void do_show_srv6_sid_all(struct vty *vty, json_object **json, struct srv
 				continue;
 
 			/* Skip SIDs from locators we are not interested in */
-			if (locator && ctx->sid->locator != locator)
+			if (locator &&
+			    !zebra_srv6_sid_entry_lookup(ctx->sid, locator->name, false) &&
+			    !zebra_srv6_sid_entry_lookup(ctx->sid, locator->name, true))
 				continue;
 
 			do_show_srv6_sid_json(vty, json, locator, ctx);
@@ -568,7 +592,9 @@ static void do_show_srv6_sid_all(struct vty *vty, json_object **json, struct srv
 				continue;
 
 			/* Skip SIDs from locators we are not interested in */
-			if (locator && ctx->sid->locator != locator)
+			if (locator &&
+			    !zebra_srv6_sid_entry_lookup(ctx->sid, locator->name, false) &&
+			    !zebra_srv6_sid_entry_lookup(ctx->sid, locator->name, true))
 				continue;
 
 			do_show_srv6_sid_line(tt, ctx->sid);
@@ -584,13 +610,9 @@ static void do_show_srv6_sid_all(struct vty *vty, json_object **json, struct srv
 		ttable_colseps(tt, 5, LEFT, true, ' ');
 
 		/* Dump the generated table. */
-		if (tt->nrows > 1) {
-			char *table;
-
-			table = ttable_dump(tt, "\n");
-			vty_out(vty, "%s\n", table);
-			XFREE(MTYPE_TMP_TTABLE, table);
-		}
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP_TTABLE, table);
 		ttable_del(tt);
 	}
 }
@@ -613,6 +635,8 @@ DEFPY (show_srv6_sid,
 	struct zebra_srv6_sid_ctx *sid_ctx = NULL, *c;
 	struct listnode *node;
 	json_object *json = NULL;
+	bool found = false;
+	struct zebra_srv6_sid_entry *entry;
 
 	if (uj)
 		json = json_object_new_object();
@@ -630,9 +654,14 @@ DEFPY (show_srv6_sid,
 
 	if (!IPV6_ADDR_SAME(&sid_value, &in6addr_any)) {
 		for (ALL_LIST_ELEMENTS_RO(srv6->sids, node, c)) {
-			if (c->sid && IPV6_ADDR_SAME(&c->sid->value, &sid_value)) {
-				sid_ctx = c;
-				break;
+			if (!c->sid)
+				continue;
+
+			frr_each_safe (zebra_srv6_sid_entry_list, &c->sid->entries, entry) {
+				if (IPV6_ADDR_SAME(&entry->sid_value, &sid_value)) {
+					sid_ctx = c;
+					break;
+				}
 			}
 		}
 
@@ -645,14 +674,21 @@ DEFPY (show_srv6_sid,
 		}
 	}
 
-	if (locator && sid_ctx)
-		if (!sid_ctx->sid || sid_ctx->sid->locator != locator) {
+	if (locator && sid_ctx) {
+		frr_each_safe (zebra_srv6_sid_entry_list, &sid_ctx->sid->entries, entry) {
+			if (entry->locator == locator) {
+				found = true;
+				break;
+			}
+		}
+		if (!sid_ctx->sid || !found) {
 			if (uj)
 				vty_json(vty, json); /* Return empty json */
 			else
 				vty_out(vty, "%% Can't find the SRv6 SID in the provided locator\n");
 			return CMD_WARNING;
 		}
+	}
 
 	if (sid_ctx)
 		do_show_srv6_sid_specific(vty, uj ? &json : NULL, locator, sid_ctx);
@@ -763,6 +799,7 @@ DEFUN (no_srv6_locator,
 	struct listnode *node, *nnode;
 	struct zebra_srv6_sid_ctx *ctx;
 	struct srv6_locator *locator = zebra_srv6_locator_lookup(argv[2]->arg);
+	struct zebra_srv6_sid_entry *entry;
 
 	if (!locator) {
 		vty_out(vty, "%% Can't find SRv6 locator\n");
@@ -770,14 +807,21 @@ DEFUN (no_srv6_locator,
 	}
 
 	for (ALL_LIST_ELEMENTS(srv6->sids, node, nnode, ctx)) {
-		if (!ctx->sid || ctx->sid->locator != locator)
+		if (!ctx->sid)
 			continue;
 
-		if (ctx->sid)
+		frr_each_safe (zebra_srv6_sid_entry_list, &ctx->sid->entries, entry)
+			if (entry->locator == locator) {
+				zebra_srv6_sid_entry_list_del(&ctx->sid->entries, entry);
+				zebra_srv6_sid_entry_free(entry);
+			}
+
+		if (zebra_srv6_sid_entry_list_count(&ctx->sid->entries) == 0) {
 			zebra_srv6_sid_free(ctx->sid);
 
-		listnode_delete(srv6->sids, ctx);
-		zebra_srv6_sid_ctx_free(ctx);
+			listnode_delete(srv6->sids, ctx);
+			zebra_srv6_sid_ctx_free(ctx);
+		}
 	}
 
 	block = locator->sid_block;
