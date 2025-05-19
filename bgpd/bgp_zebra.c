@@ -1425,7 +1425,7 @@ static void bgp_zebra_announce_parse_nexthop(
 
 			memcpy(&api_nh->seg6_segs[0], sid_tmp,
 			       sizeof(api_nh->seg6_segs[0]));
-			api_nh->srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
+			api_nh->srv6_encap_behavior = bgp_orig->srv6_encap_behavior;
 
 			if (mpinfo->attr->srv6_l3vpn &&
 			    mpinfo->attr->srv6_l3vpn->transposition_len != 0) {
@@ -2327,6 +2327,40 @@ void bgp_redistribute_redo(struct bgp *bgp)
 void bgp_zclient_reset(void)
 {
 	zclient_reset(bgp_zclient);
+}
+
+void bgp_zebra_update_srv6_encap_routes(struct bgp *bgp, afi_t afi, struct bgp *from_bgp, bool add)
+{
+	struct bgp_table *table;
+	struct bgp_dest *dest;
+	struct bgp_path_info *pi;
+
+	if (!bgp_install_info_to_zebra(bgp))
+		return;
+
+	table = bgp->rib[afi][SAFI_UNICAST];
+	if (!table)
+		return;
+
+	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
+		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+			if (!CHECK_FLAG(pi->flags, BGP_PATH_SELECTED) || pi->type != ZEBRA_ROUTE_BGP)
+				continue;
+
+			if (pi->sub_type != BGP_ROUTE_IMPORTED)
+				continue;
+
+			if (!pi->extra || !pi->extra->vrfleak)
+				continue;
+
+			if (pi->extra->vrfleak->bgp_orig != from_bgp)
+				continue;
+
+			if ((pi->attr->srv6_l3vpn && !sid_zero_ipv6(&pi->attr->srv6_l3vpn->sid)) ||
+			    (pi->attr->srv6_vpn && !sid_zero_ipv6(&pi->attr->srv6_vpn->sid)))
+				bgp_zebra_route_install(dest, pi, bgp, add, NULL, false);
+		}
+	}
 }
 
 /* Register this instance with Zebra. Invoked upon connect (for

@@ -45,6 +45,10 @@ extern void bgp_zebra_announce_table_all_subtypes(struct bgp *bgp, afi_t afi,
 extern void bgp_zebra_withdraw_table_all_subtypes(struct bgp *bgp, afi_t afi,
 						  safi_t safi);
 
+/* withdraw or add srv6 encapsulated routes */
+extern void bgp_zebra_update_srv6_encap_routes(struct bgp *bgp, afi_t afi, struct bgp *from_bgp,
+					       bool add);
+
 extern void bgp_zebra_initiate_radv(struct bgp *bgp, struct peer *peer);
 extern void bgp_zebra_terminate_radv(struct bgp *bgp, struct peer *peer);
 

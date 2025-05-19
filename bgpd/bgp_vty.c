@@ -10943,6 +10943,53 @@ DEFUN (no_bgp_segment_routing_srv6,
 	return CMD_SUCCESS;
 }
 
+DEFPY (bgp_srv6_encap_behavior,
+       bgp_srv6_encap_behavior_cmd,
+       "[no$no] encap-behavior <H_Encaps|H_Encaps_Red>$encap_behavior",
+       NO_STR
+       "Configure SRv6 encap mode\n"
+       "H.Encaps\n"
+       "H.Encaps.Red\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	enum srv6_headend_behavior srv6_encap_behavior;
+	struct bgp *bgp_inst;
+	struct listnode *node;
+
+	bgp = bgp_get_default();
+	if (!bgp)
+		return CMD_SUCCESS;
+
+	if (strmatch(encap_behavior, "H_Encaps_Red"))
+		srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS_RED;
+	else
+		srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
+
+	if (no && ((srv6_encap_behavior != bgp->srv6_encap_behavior) ||
+		   (srv6_encap_behavior == SRV6_HEADEND_BEHAVIOR_H_ENCAPS)))
+		return CMD_SUCCESS;
+	else if (no == NULL && srv6_encap_behavior == bgp->srv6_encap_behavior)
+		return CMD_SUCCESS;
+
+	if (no)
+		bgp->srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
+	else
+		bgp->srv6_encap_behavior = srv6_encap_behavior;
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_inst)) {
+		if (!bgp_fibupd_safi(SAFI_UNICAST))
+			continue;
+
+		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP, bgp, false);
+		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP6, bgp, false);
+
+		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP, bgp, true);
+		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP6, bgp, true);
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFPY (bgp_srv6_locator,
        bgp_srv6_locator_cmd,
        "locator NAME$name",
@@ -20051,6 +20098,9 @@ int bgp_config_write(struct vty *vty)
 			if (strlen(bgp->srv6_locator_name))
 				vty_out(vty, "  locator %s\n",
 					bgp->srv6_locator_name);
+			if (bgp->srv6_encap_behavior != SRV6_HEADEND_BEHAVIOR_H_ENCAPS)
+				vty_out(vty, "  encap-behavior %s\n",
+					srv6_headend_behavior2str(bgp->srv6_encap_behavior));
 			vty_endframe(vty, " exit\n");
 		}
 
@@ -22168,6 +22218,7 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &no_bgp_segment_routing_srv6_cmd);
 	install_element(BGP_SRV6_NODE, &bgp_srv6_locator_cmd);
 	install_element(BGP_SRV6_NODE, &no_bgp_srv6_locator_cmd);
+	install_element(BGP_SRV6_NODE, &bgp_srv6_encap_behavior_cmd);
 	install_element(BGP_IPV4_NODE, &af_sid_vpn_export_cmd);
 	install_element(BGP_IPV6_NODE, &af_sid_vpn_export_cmd);
 	install_element(BGP_NODE, &bgp_sid_vpn_export_cmd);

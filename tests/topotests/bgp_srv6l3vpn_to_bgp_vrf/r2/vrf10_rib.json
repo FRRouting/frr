@@ -25,7 +25,8 @@
           "weight": 1,
           "seg6": {
             "segs": "2001:db8:1:1:100::"
-          }
+          },
+          "srv6EncapBehavior": "H.Encaps"
         }
       ]
     }
@@ -82,7 +83,8 @@
           "weight": 1,
           "seg6": {
             "segs": "2001:db8:1:1:100::"
-          }
+          },
+          "srv6EncapBehavior": "H.Encaps"
         }
       ]
     }
@@ -113,7 +115,8 @@
           "weight": 1,
           "seg6": {
             "segs": "2001:db8:1:1:100::"
-          }
+          },
+          "srv6EncapBehavior": "H.Encaps"
         }
       ]
     }
