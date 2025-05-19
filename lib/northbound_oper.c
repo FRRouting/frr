@@ -100,6 +100,11 @@ struct nb_op_yield_state {
 	int query_base_level;
 	bool query_list_entry; /* XXX query was for a specific list entry */
 
+	/* top-level module walk state */
+	struct yang_module *module;   /* current module */
+	const struct lysc_node *node; /* current schema node */
+	struct lyd_node *top_level_tree;
+
 	/* For now we support a single use of this. */
 	const struct lyd_node *user_tree;
 	void *user_tree_lock;
@@ -141,6 +146,7 @@ static const void *nb_op_list_lookup_entry(struct nb_op_yield_state *ys, struct 
 					   const struct yang_list_keys *keys);
 static void nb_op_list_list_entry_done(struct nb_op_yield_state *ys, struct nb_node *nb_node,
 				       const struct nb_op_node_info *pni, const void *list_entry);
+static void *nb_op_root_walk_branch_finished(struct nb_op_yield_state *ys, enum nb_error ret);
 static void ys_pop_inner(struct nb_op_yield_state *ys);
 
 /* -------------------- */
@@ -177,6 +183,17 @@ nb_op_create_yield_state(const char *xpath, struct yang_translator *translator,
 	return ys;
 }
 
+static void nb_op_reset_yield_state(struct nb_op_yield_state *ys)
+{
+	darr_setlen(ys->query_tokens, 0);
+	darr_setlen(ys->non_specific_predicate, 0);
+	darr_setlen(ys->query_tokstr, 0);
+	darr_setlen(ys->schema_path, 0);
+	/* need to cleanup resources, so pop these individually */
+	while (darr_len(ys->node_infos))
+		ys_pop_inner(ys);
+}
+
 static inline void nb_op_free_yield_state(struct nb_op_yield_state *ys,
 					  bool nofree_tree)
 {
@@ -198,6 +215,8 @@ static inline void nb_op_free_yield_state(struct nb_op_yield_state *ys,
 		darr_free(ys->node_infos);
 		darr_free(ys->xpath_orig);
 		darr_free(ys->xpath);
+		if (ys->top_level_tree)
+			lyd_free_all(ys->top_level_tree);
 		XFREE(MTYPE_NB_YIELD_STATE, ys);
 	}
 }
@@ -1875,6 +1894,12 @@ static void nb_op_walk_continue(struct event *thread)
 	}
 finish:
 	assert(ret != NB_YIELD);
+	/* If we are doing a root level walk, continue that. */
+	if (ys->module) {
+		nb_op_root_walk_branch_finished(ys, ret);
+		return;
+	}
+	/* Otherwise call the user's callback */
 	(*ys->finish)(ys_root_node(ys), ys->finish_arg, ret);
 	nb_op_free_yield_state(ys, false);
 }
@@ -2035,7 +2060,7 @@ static enum nb_error nb_op_ys_init_schema_path(struct nb_op_yield_state *ys,
 	s = ys->xpath;
 	while (*s && *s == '/')
 		s++;
-	ys->query_tokstr = darr_strdup(s);
+	darr_in_strdup(ys->query_tokstr, s);
 	s = ys->query_tokstr;
 
 	darr_foreach_i (ys->schema_path, i) {
@@ -2147,6 +2172,108 @@ void *nb_oper_walk_cb_arg(void *walk)
 	return ys->cb_arg;
 }
 
+static const struct lysc_node *_next_top_level_node(struct nb_op_yield_state *ys)
+
+{
+	const uint ok_types = (LYS_CONTAINER | LYS_CHOICE | LYS_LEAF | LYS_LEAFLIST | LYS_LIST |
+			       LYS_ANYXML | LYS_ANYDATA | LYS_CASE);
+
+	/* Initial start */
+	if (!ys->module)
+		ys->module = RB_MIN(yang_modules, &yang_modules);
+	assert(ys->module);
+	do {
+		do {
+			ys->node = lys_getnext(ys->node, NULL, ys->module->info->compiled,
+					       0 /*LYS_GETNEXT_WITHSCHEMAMOUNT*/);
+		} while (ys->node && !CHECK_FLAG(ys->node->nodetype, ok_types));
+
+		/* Found one. */
+		if (ys->node)
+			return ys->node;
+
+		ys->module = RB_NEXT(yang_modules, ys->module);
+	} while (ys->module);
+
+	return NULL;
+}
+
+static void nb_op_root_walk_continue(struct event *thread)
+{
+	struct nb_op_yield_state *ys = EVENT_ARG(thread);
+
+	nb_op_root_walk_branch_finished(ys, NB_OK);
+}
+
+
+static void *nb_op_root_walk_branch_finished(struct nb_op_yield_state *ys, enum nb_error ret)
+{
+	unsigned long min_us = MAX(1, NB_OP_WALK_INTERVAL_US / 50000);
+	struct timeval tv = { .tv_sec = 0, .tv_usec = min_us };
+	LY_ERR err;
+
+	do {
+		const struct lyd_node *tree = ys_root_node(ys);
+
+		if (tree) {
+			/*
+			 * Merge results.
+			 */
+			if (!ys->top_level_tree)
+				ys->top_level_tree = (struct lyd_node *)tree;
+			else {
+				/* merge the new data into the existing tree */
+				err = lyd_merge_siblings(&ys->top_level_tree, tree,
+							 LYD_MERGE_DESTRUCT);
+				if (err) {
+					flog_err(EC_LIB_NB_OPERATIONAL_DATA,
+						 "%s: unable to merge data tree: %s", __func__,
+						 yang_ly_strerrcode(err));
+					ret = NB_ERR_RESOURCE;
+					break;
+				}
+			}
+		}
+
+		nb_op_reset_yield_state(ys);
+		/* make sure tree == NULL for when we are called back */
+		assert(ys_root_node(ys) == NULL);
+
+		if (tree && monotime_since(&ys->start_time, NULL) > NB_OP_WALK_INTERVAL_US) {
+			/* come back for next branch */
+			event_add_timer_tv(event_loop, nb_op_root_walk_continue, ys, &tv,
+					   &ys->walk_ev);
+			return ys;
+		}
+
+		/*
+		 * Process next schema node
+		 */
+
+		ys->node = _next_top_level_node(ys);
+		if (!ys->node)
+			break;
+
+		darr_in_strdup(ys->xpath, "/");
+		darr_in_strcat(ys->xpath, ys->module->name);
+		darr_in_strcat(ys->xpath, ":");
+		darr_in_strcat(ys->xpath, ys->node->name);
+
+		ret = nb_op_walk_start(ys);
+		if (ret == NB_YIELD) {
+			ret = nb_op_yield(ys);
+			if (ret == NB_OK)
+				return ys;
+			assert(ret != NB_YIELD);
+		}
+	} while (ret == NB_OK);
+
+	/* We are done with the top-level walk */
+	(*ys->finish)(ys->top_level_tree, ys->finish_arg, ret);
+	nb_op_free_yield_state(ys, false);
+	return NULL;
+}
+
 void *nb_oper_walk(const char *xpath, struct yang_translator *translator,
 		   uint32_t flags, bool should_batch, nb_oper_data_cb cb,
 		   void *cb_arg, nb_oper_data_finish_cb finish, void *finish_arg)
@@ -2156,6 +2283,10 @@ void *nb_oper_walk(const char *xpath, struct yang_translator *translator,
 
 	ys = nb_op_create_yield_state(xpath, translator, flags, should_batch,
 				      cb, cb_arg, finish, finish_arg);
+
+	/* Handle root level query specially */
+	if (!strcmp(xpath, "/") || !strcmp(xpath, "/*"))
+		return nb_op_root_walk_branch_finished(ys, NB_OK);
 
 	ret = nb_op_walk_start(ys);
 	if (ret == NB_YIELD) {
