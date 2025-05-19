@@ -113,11 +113,6 @@ enum mgmt_msg_rsched mgmt_msg_read(struct mgmt_msg_state *ms, int fd,
 			 * therefor the stream is too small to fit the message..
 			 * Resize the stream to fit.
 			 */
-			if (mhdr->len > MGMT_MSG_MAX_MSG_ALLOC_LEN) {
-				MGMT_MSG_ERR(ms, "corrupt msg len rcvd %u",
-					     mhdr->len);
-				return MSR_DISCONNECT;
-			}
 			news = stream_new(mhdr->len);
 			stream_put(news, mhdr, left);
 			stream_set_endp(news, left);
