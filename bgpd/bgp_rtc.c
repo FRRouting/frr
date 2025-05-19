@@ -330,11 +330,10 @@ void bgp_rtc_remove_ecommunity_val_dynamic(struct bgp *bgp, struct ecommunity_va
 /* Is "ecom_val" rt value used in "ecom" list ? */
 static bool bgp_rtc_is_rt_used(struct ecommunity *ecom, struct ecommunity_val *ecom_val)
 {
-	struct ecommunity_val *pnt;
+	uint8_t *pnt;
 	uint32_t i;
 
-	for (i = 0, pnt = (struct ecommunity_val *)ecom->val; i < ecom->size;
-	     pnt += ecom->unit_size, i++) {
+	for (i = 0, pnt = ecom->val; i < ecom->size; pnt += ecom->unit_size, i++) {
 		if (!memcmp(pnt, ecom_val, ecom->unit_size))
 			return true;
 	}
