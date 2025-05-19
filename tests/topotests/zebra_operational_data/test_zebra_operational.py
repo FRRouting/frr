@@ -48,13 +48,13 @@ def test_zebra_operationalr(tgen):
 
     r1 = tgen.gears["r1"]
 
-    output = json.loads(r1.vtysh_cmd("show mgmt get-data /frr-zebra:zebra"))
+    output = json.loads(r1.vtysh_cmd("show mgmt get-data /frr-zebra:zebra/state"))
 
     logger.info("Output")
     logger.info(output)
 
     logger.info("Ensuring that the max-multipath value is returned")
-    assert "max-multipath" in output["frr-zebra:zebra"].keys()
+    assert "max-multipath" in output["frr-zebra:zebra"]["state"].keys()
 
     logger.info("Checking IP forwarding states")
     state = output["frr-zebra:zebra"]["state"]
