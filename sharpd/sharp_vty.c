@@ -558,6 +558,7 @@ DEFPY (install_seg6local_routes,
 	      End_DT46$seg6l_enddt46 (1-4294967295)$seg6l_enddt46_table|\
 	      uDT46$seg6l_micro_enddt46 (1-4294967295)$seg6l_micro_enddt46_table>\
 	      [usid-block-length (1-128)$lcblen] [usid-function-length (1-128)$lcfunclen] \
+	      [psp-flavor$psp_flavor] \
 	  (1-1000000)$routes [repeat (2-1000)$rpt]",
        "Sharp routing Protocol\n"
        "install some routes\n"
@@ -601,6 +602,7 @@ DEFPY (install_seg6local_routes,
        "Value in bits\n"
        "uSID node Function length\n"
        "Value in bits\n"
+       "Add the PSP flavor\n"
        "How many to create\n"
        "Should we repeat this command\n"
        "How many times to repeat this command\n")
@@ -693,8 +695,13 @@ DEFPY (install_seg6local_routes,
 	} else if (seg6l_micro_end) {
 		action = ZEBRA_SEG6_LOCAL_ACTION_END;
 		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
-	} else
+		if (psp_flavor)
+			SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_PSP);
+	} else {
 		action = ZEBRA_SEG6_LOCAL_ACTION_END;
+		if (psp_flavor)
+			SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_PSP);
+	}
 
 	if (CHECK_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID)) {
 		if (lcblen)
