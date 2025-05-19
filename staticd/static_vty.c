@@ -81,6 +81,7 @@ static struct static_route_args *static_args_find(struct static_vrf *svrf,
 		 * - segs,
 		 * - tags
 		 * - onlink
+		 * - encap-behavior
 		 * - pm
 		 * - distance
 		 * - bfd arguments
@@ -117,6 +118,9 @@ static struct static_route_args *static_args_copy(struct static_route_args *args
 	run_args = XCALLOC(MTYPE_STATIC_ARGS, sizeof(struct static_route_args));
 
 	run_args->onlink = args->onlink;
+	if (args->srv6_encap_behavior)
+		run_args->srv6_encap_behavior = XSTRDUP(MTYPE_STATIC_ARGS_ATTR,
+							args->srv6_encap_behavior);
 	run_args->pm = args->pm;
 	run_args->bfd = args->bfd;
 	run_args->bfd_auto_hop = args->bfd_auto_hop;
@@ -193,6 +197,8 @@ static void static_args_update(struct static_route_args *dst_args,
 	static_args_update_string((char **)&dst_args->color, src_args->color);
 	static_args_update_string((char **)&dst_args->label, src_args->label);
 	static_args_update_string((char **)&dst_args->segs, src_args->segs);
+	static_args_update_string((char **)&dst_args->srv6_encap_behavior,
+				  src_args->srv6_encap_behavior);
 }
 
 static void static_args_free_arg(void **arg)
@@ -221,6 +227,7 @@ void static_args_free(struct static_route_args *args)
 	static_args_free_arg((void **)&args->color);
 	static_args_free_arg((void **)&args->bfd_profile);
 	static_args_free_arg((void **)&args->bfd_source);
+	static_args_free_arg((void **)&args->srv6_encap_behavior);
 
 	XFREE(MTYPE_STATIC_ARGS, args);
 }
@@ -859,9 +866,15 @@ static void static_route_args_install(struct static_route_args *args, struct sta
 			     segs_stack_id++)
 				inet_pton(AF_INET6, nump, &snh_seg.seg[segs_stack_id]);
 			snh_seg.num_segs = segs_stack_id;
+			snh_seg.encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
 			XFREE(MTYPE_TMP, orig_seg);
 		}
-
+		if (args->srv6_encap_behavior) {
+			if (strmatch(args->srv6_encap_behavior, "H_Encaps"))
+				snh_seg.encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
+			else if (strmatch(args->srv6_encap_behavior, "H_Encaps_Red"))
+				snh_seg.encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS_RED;
+		}
 		if (args->label) {
 			orig_label = ostr = XSTRDUP(MTYPE_TMP, args->label);
 			for (label_stack_id = 0;
@@ -910,7 +923,10 @@ static void static_route_args_install(struct static_route_args *args, struct sta
 			update_nexthop = true;
 		}
 		if ((!!run_args->segs != !!args->segs) ||
-		    ((run_args->segs && args->segs && strcmp(run_args->segs, args->segs)))) {
+		    (run_args->segs && args->segs && strcmp(run_args->segs, args->segs)) ||
+		    (!!run_args->srv6_encap_behavior != !!args->srv6_encap_behavior) ||
+		    (run_args->srv6_encap_behavior && args->srv6_encap_behavior &&
+		     strcmp(run_args->srv6_encap_behavior, args->srv6_encap_behavior))) {
 			/* segments update */
 			memcpy(&run_args->nh->snh_seg, &snh_seg, sizeof(struct static_nh_seg));
 			run_args->nh->state = STATIC_START;
@@ -1023,6 +1039,15 @@ static int static_route_configure(struct vty *vty, struct static_route_args *arg
 		vty_out(vty,
 			"Nexthop interface name can not be from reserved keywords (reject, blackhole)\n");
 		return CMD_WARNING;
+	}
+
+	if (args->srv6_encap_behavior) {
+		if (!strmatch(args->srv6_encap_behavior, "H_Encaps") &&
+		    !strmatch(args->srv6_encap_behavior, "H_Encaps_Red")) {
+			vty_out(vty, "%% Unsupported encap behavior: %s\n",
+				args->srv6_encap_behavior);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 	}
 
 	if (args->vrf == NULL)
