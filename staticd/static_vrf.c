@@ -218,6 +218,8 @@ static int static_config(struct vty *vty, struct static_vrf *svrf, afi_t afi, sa
 			vty_out(vty, "label %s ", args->label);
 		if (args->segs)
 			vty_out(vty, "segments %s ", args->segs);
+		if (args->srv6_encap_behavior && !strmatch(args->srv6_encap_behavior, "H_Encaps"))
+			vty_out(vty, "encap-behavior %s", args->srv6_encap_behavior);
 		if (strcmp(args->vrf, args->nexthop_vrf) != 0)
 			vty_out(vty, "nexthop-vrf %s ", args->nexthop_vrf);
 		if (args->table)
