@@ -444,13 +444,6 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			config = config_get(KEYCHAIN_NODE, line);
 		else if (strncmp(line, "line", strlen("line")) == 0)
 			config = config_get(VTY_NODE, line);
-		else if ((strncmp(line, "ipv6 forwarding",
-				  strlen("ipv6 forwarding"))
-			  == 0)
-			 || (strncmp(line, "ip forwarding",
-				     strlen("ip forwarding"))
-			     == 0))
-			config = config_get(FORWARDING_NODE, line);
 		else if (strncmp(line, "debug vrf", strlen("debug vrf")) == 0)
 			config = config_get(VRF_DEBUG_NODE, line);
 		else if (strncmp(line, "debug route-map",
@@ -520,15 +513,12 @@ void vtysh_config_parse_line(void *arg, const char *line)
 
 /* Macro to check delimiter is needed between each configuration line
  * or not. */
-#define NO_DELIMITER(I)                                                        \
-	((I) == AFFMAP_NODE || (I) == ACCESS_NODE || (I) == PREFIX_NODE ||     \
-	 (I) == IP_NODE || (I) == AS_LIST_NODE ||                              \
-	 (I) == COMMUNITY_LIST_NODE || (I) == COMMUNITY_ALIAS_NODE ||          \
-	 (I) == ACCESS_IPV6_NODE || (I) == ACCESS_MAC_NODE ||                  \
-	 (I) == PREFIX_IPV6_NODE || (I) == FORWARDING_NODE ||                  \
-	 (I) == DEBUG_NODE || (I) == AAA_NODE || (I) == VRF_DEBUG_NODE ||      \
-	 (I) == RMAP_DEBUG_NODE || (I) == RESOLVER_DEBUG_NODE ||               \
-	 (I) == MPLS_NODE || (I) == KEYCHAIN_KEY_NODE)
+#define NO_DELIMITER(I)                                                                             \
+	((I) == AFFMAP_NODE || (I) == ACCESS_NODE || (I) == PREFIX_NODE || (I) == IP_NODE ||        \
+	 (I) == AS_LIST_NODE || (I) == COMMUNITY_LIST_NODE || (I) == COMMUNITY_ALIAS_NODE ||        \
+	 (I) == ACCESS_IPV6_NODE || (I) == ACCESS_MAC_NODE || (I) == PREFIX_IPV6_NODE ||            \
+	 (I) == DEBUG_NODE || (I) == AAA_NODE || (I) == VRF_DEBUG_NODE || (I) == RMAP_DEBUG_NODE || \
+	 (I) == RESOLVER_DEBUG_NODE || (I) == MPLS_NODE || (I) == KEYCHAIN_KEY_NODE)
 
 static void configvec_dump(vector vec, bool nested)
 {

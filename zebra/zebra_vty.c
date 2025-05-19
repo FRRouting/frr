@@ -3896,19 +3896,6 @@ DEFUN (show_zebra,
 	return CMD_SUCCESS;
 }
 
-DEFPY_YANG (ip_forwarding,
-	    ip_forwarding_cmd,
-	    "[no] ip forwarding",
-	    NO_STR
-	    IP_STR
-	    "Turn on IP forwarding\n")
-{
-	nb_cli_enqueue_change(vty, "/frr-zebra:zebra/ip-forwarding", NB_OP_MODIFY,
-			      no ? "false" : "true");
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
 /* Only display ip forwarding is enabled or not. */
 DEFUN (show_ip_forwarding,
        show_ip_forwarding_cmd,
@@ -3955,19 +3942,6 @@ DEFUN (show_ipv6_forwarding,
 		break;
 	}
 	return CMD_SUCCESS;
-}
-
-DEFPY_YANG (ipv6_forwarding,
-	    ipv6_forwarding_cmd,
-	    "[no] ipv6 forwarding",
-	    NO_STR
-	    IPV6_STR
-	    "Turn on IPv6 forwarding\n")
-{
-	nb_cli_enqueue_change(vty, "/frr-zebra:zebra/ipv6-forwarding", NB_OP_MODIFY,
-			      no ? "false" : "true");
-
-	return nb_cli_apply_changes(vty, NULL);
 }
 
 /* Display dataplane info */
@@ -4066,17 +4040,6 @@ DEFUN (show_zebra_metaq_counters,
 	bool uj = use_json(argc, argv);
 
 	return zebra_show_metaq_counter(vty, uj);
-}
-
-/* IPForwarding configuration write function. */
-static int config_write_forwarding(struct vty *vty)
-{
-	if (!ipforward())
-		vty_out(vty, "no ip forwarding\n");
-	if (!ipforward_ipv6())
-		vty_out(vty, "no ipv6 forwarding\n");
-	vty_out(vty, "!\n");
-	return 0;
 }
 
 DEFUN_HIDDEN (show_frr,
@@ -4244,26 +4207,16 @@ static struct cmd_node protocol_node = {
 	.prompt = "",
 	.config_write = config_write_protocol,
 };
-static int config_write_forwarding(struct vty *vty);
-static struct cmd_node forwarding_node = {
-	.name = "forwarding",
-	.node = FORWARDING_NODE,
-	.prompt = "",
-	.config_write = config_write_forwarding,
-};
 
 /* Route VTY.  */
 void zebra_vty_init(void)
 {
 	/* Install configuration write function. */
-	install_node(&forwarding_node);
 
 	install_element(VIEW_NODE, &show_ip_forwarding_cmd);
-	install_element(CONFIG_NODE, &ip_forwarding_cmd);
 	install_element(ENABLE_NODE, &show_zebra_cmd);
 
 	install_element(VIEW_NODE, &show_ipv6_forwarding_cmd);
-	install_element(CONFIG_NODE, &ipv6_forwarding_cmd);
 
 	/* Route-map */
 	zebra_route_map_init();
