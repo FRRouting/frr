@@ -12338,6 +12338,103 @@ DEFUN(show_bgp_martian_nexthop_db, show_bgp_martian_nexthop_db_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(show_bgp_redistribute,
+      show_bgp_redistribute_cmd,
+      "show bgp <view|vrf> VIEWVRFNAME <ipv4|ipv6> unicast redistribute [json]",
+      SHOW_STR
+      BGP_STR
+      BGP_INSTANCE_HELP_STR
+      BGP_AF_STR
+      BGP_AF_STR
+      BGP_AF_MODIFIER_STR
+      "Detailed information on redistribute\n"
+      JSON_STR)
+{
+	safi_t afi = AFI_IP6;
+	safi_t safi = SAFI_UNICAST;
+	struct bgp *bgp = NULL;
+	bool uj = use_json(argc, argv);
+	int idx = 0, i = 0;
+	json_object *json_redestribute = NULL;
+	json_object *json_re = NULL;
+	json_object *json = NULL;
+
+	if (uj)
+		argc--;
+
+	bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi, &bgp, uj);
+
+	if (!idx)
+		return CMD_WARNING;
+
+	if (!bgp)
+		return CMD_WARNING;
+
+	if (!(afi == AFI_IP || afi == AFI_IP6)) {
+		vty_out(vty, "%% Only ipv4 or ipv6 address families are supported\n");
+		return CMD_WARNING;
+	}
+
+	if (safi != SAFI_UNICAST) {
+		vty_out(vty, "%% Only ipv4 unicast or ipv6 unicast are supported\n");
+		return CMD_WARNING;
+	}
+
+	if (uj) {
+		json = json_object_new_object();
+		json_re = json_object_new_object();
+	}
+
+	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
+		/* Redistribute BGP does not make sense.  */
+		if (i != ZEBRA_ROUTE_BGP) {
+			struct list *red_list;
+			struct listnode *node;
+			struct bgp_redist *red;
+
+			red_list = bgp->redist[afi][i];
+			if (!red_list)
+				continue;
+
+			for (ALL_LIST_ELEMENTS_RO(red_list, node, red)) {
+				if (uj) {
+					json_redestribute = json_object_new_object();
+					if (red->instance)
+						json_object_int_add(json_redestribute, "instance",
+								    red->instance);
+					if (red->redist_metric_flag)
+						json_object_int_add(json_redestribute, "metric",
+								    red->redist_metric);
+					if (red->rmap.name)
+						json_object_string_add(json_redestribute,
+								       "routeMap", red->rmap.name);
+
+					if (json_redestribute)
+						json_object_object_add(json_re,
+								       zebra_route_string(i),
+								       json_redestribute);
+				} else {
+					vty_out(vty, "  redistribute %s", zebra_route_string(i));
+					if (red->instance)
+						vty_out(vty, " %d", red->instance);
+					if (red->redist_metric_flag)
+						vty_out(vty, " metric %u", red->redist_metric);
+					if (red->rmap.name)
+						vty_out(vty, " route-map %s", red->rmap.name);
+					vty_out(vty, "\n");
+				}
+			}
+		}
+	}
+
+	if (uj) {
+		json_object_object_add(json, "redistribute", json_re);
+		vty_json(vty, json);
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_bgp_memory,
        show_bgp_memory_cmd,
        "show [ip] bgp memory",
@@ -22705,6 +22802,9 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6_NODE, &bgp_redistribute_ipv6_metric_rmap_cmd);
 	install_element(BGP_IPV6_NODE, &bgp_redistribute_ipv6_table_cmd);
 	install_element(BGP_IPV6_NODE, &no_bgp_redistribute_ipv6_table_cmd);
+
+	/* redistribute show commands */
+	install_element(VIEW_NODE, &show_bgp_redistribute_cmd);
 
 	/* import|export vpn [route-map RMAP_NAME] */
 	install_element(BGP_IPV4_NODE, &bgp_imexport_vpn_cmd);
