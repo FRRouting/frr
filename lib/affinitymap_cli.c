@@ -74,6 +74,30 @@ static void cli_show_affinity_map(struct vty *vty, const struct lyd_node *dnode,
 		yang_dnode_get_uint16(dnode, "value"));
 }
 
+static int affinity_config_write(struct vty *vty)
+{
+	const struct lyd_node *dnode;
+	int written = 0;
+
+	dnode = yang_dnode_get(running_config->dnode, "/frr-affinity-map:lib");
+	if (dnode) {
+		nb_cli_show_dnode_cmds(vty, dnode, false);
+		written = 1;
+	}
+
+	return written;
+}
+
+/* Affinity map node structure. */
+static int affinity_config_write(struct vty *vty);
+static struct cmd_node affinity_node = {
+	.name = "affinity",
+	.node = AFFMAP_NODE,
+	.prompt = "",
+	.config_write = affinity_config_write,
+
+};
+
 const struct frr_yang_module_info frr_affinity_map_cli_info = {
 	.name = "frr-affinity-map",
 	.ignore_cfg_cbs = true,
@@ -92,6 +116,7 @@ const struct frr_yang_module_info frr_affinity_map_cli_info = {
 void affinity_map_init(void)
 {
 	/* CLI commands. */
+	install_node(&affinity_node);
 	install_element(CONFIG_NODE, &affinity_map_cmd);
 	install_element(CONFIG_NODE, &no_affinity_map_cmd);
 }
