@@ -24,9 +24,6 @@ DECLARE_MTYPE(MSG_CONN);
 #define MGMT_MSG_VERSION_PROTOBUF 0
 #define MGMT_MSG_VERSION_NATIVE 1
 
-/* The absolute maximum message size (16MB) */
-#define MGMT_MSG_MAX_MSG_ALLOC_LEN (16 * 1024 * 1024)
-
 struct mgmt_msg_state {
 	struct stream *ins;
 	struct stream *outs;
