@@ -132,15 +132,6 @@ static int be_client_send_native_msg(struct mgmt_be_client *client_ctx,
 				 short_circuit_ok);
 }
 
-static int mgmt_be_client_send_msg(struct mgmt_be_client *client_ctx,
-				   Mgmtd__BeMessage *be_msg)
-{
-	return msg_conn_send_msg(
-		&client_ctx->client.conn, MGMT_MSG_VERSION_PROTOBUF, be_msg,
-		mgmtd__be_message__get_packed_size(be_msg),
-		(size_t(*)(void *, void *))mgmtd__be_message__pack, false);
-}
-
 static struct mgmt_be_batch_ctx *
 mgmt_be_batch_create(struct mgmt_be_txn_ctx *txn)
 {
@@ -413,76 +404,80 @@ static int mgmt_be_send_notification(void *__client, const char *path, const str
 	return 0;
 }
 
-static int mgmt_be_send_txn_reply(struct mgmt_be_client *client_ctx,
-				  uint64_t txn_id, bool create)
+static int mgmt_be_send_txn_reply(struct mgmt_be_client *client, uint64_t txn_id, bool create)
 {
-	Mgmtd__BeMessage be_msg;
-	Mgmtd__BeTxnReply txn_reply;
+	struct mgmt_msg_txn_reply *msg;
+	int ret;
 
-	mgmtd__be_txn_reply__init(&txn_reply);
-	txn_reply.create = create;
-	txn_reply.txn_id = txn_id;
-	txn_reply.success = true;
+	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_txn_reply, 0, MTYPE_MSG_NATIVE_TXN_REPLY);
+	msg->code = MGMT_MSG_CODE_TXN_REPLY;
+	msg->refer_id = txn_id;
+	msg->created = create;
 
-	mgmtd__be_message__init(&be_msg);
-	be_msg.message_case = MGMTD__BE_MESSAGE__MESSAGE_TXN_REPLY;
-	be_msg.txn_reply = &txn_reply;
+	debug_be_client("Sending TXN_REPLY txn-id %Lu", txn_id);
 
-	debug_be_client("Sending TXN_REPLY txn-id %" PRIu64, txn_id);
-
-	return mgmt_be_client_send_msg(client_ctx, &be_msg);
+	ret = be_client_send_native_msg(client, msg, mgmt_msg_native_get_msg_len(msg), false);
+	mgmt_msg_native_free_msg(msg);
+	return ret;
 }
 
-static int mgmt_be_process_txn_req(struct mgmt_be_client *client_ctx,
-				   uint64_t txn_id, bool create)
+/*
+ * Process transaction create message
+ */
+static void be_client_handle_txn_req(struct mgmt_be_client *client, uint64_t txn_id, void *msgbuf,
+				     size_t msg_len)
 {
+	struct mgmt_msg_txn_req *msg = msgbuf;
 	struct mgmt_be_txn_ctx *txn;
 
-	if (create) {
+	debug_be_client("Got TXN_REQ for client %s txn-id %Lu req-id %Lu", client->name, txn_id,
+			msg->req_id);
+
+	if (msg->create) {
 		debug_be_client("Creating new txn-id %" PRIu64, txn_id);
 
-		txn = mgmt_be_txn_create(client_ctx, txn_id);
-		if (!txn)
-			goto failed;
+		txn = mgmt_be_txn_create(client, txn_id);
+		if (!txn) {
+			msg_conn_disconnect(&client->client.conn, true);
+			return;
+		}
 
-		if (client_ctx->cbs.txn_notify)
-			(*client_ctx->cbs.txn_notify)(client_ctx,
-						      client_ctx->user_data,
-						      &txn->client_data, false);
+		if (client->cbs.txn_notify)
+			(*client->cbs.txn_notify)(client, client->user_data, &txn->client_data,
+						  false);
 	} else {
 		debug_be_client("Deleting txn-id: %" PRIu64, txn_id);
-		txn = mgmt_be_find_txn_by_id(client_ctx, txn_id, false);
+		txn = mgmt_be_find_txn_by_id(client, txn_id, false);
 		if (txn)
-			mgmt_be_txn_delete(client_ctx, &txn);
+			mgmt_be_txn_delete(client, &txn);
 	}
 
-	return mgmt_be_send_txn_reply(client_ctx, txn_id, create);
-
-failed:
-	msg_conn_disconnect(&client_ctx->client.conn, true);
-	return -1;
+	mgmt_be_send_txn_reply(client, txn_id, msg->create);
 }
+
 
 static int mgmt_be_send_cfgdata_create_reply(struct mgmt_be_client *client_ctx,
 					     uint64_t txn_id, bool success,
 					     const char *error_if_any)
 {
-	Mgmtd__BeMessage be_msg;
-	Mgmtd__BeCfgDataCreateReply cfgdata_reply;
+	struct mgmt_msg_cfg_reply *msg;
+	int ret;
 
-	mgmtd__be_cfg_data_create_reply__init(&cfgdata_reply);
-	cfgdata_reply.txn_id = (uint64_t)txn_id;
-	cfgdata_reply.success = success;
-	if (error_if_any)
-		cfgdata_reply.error_if_any = (char *)error_if_any;
+	if (!success) {
+		if (!error_if_any)
+			error_if_any = "Unknown error";
+		return be_client_send_error(client_ctx, txn_id, 0, false, EINVAL,
+					    "Failed to create cfgdata: %s", error_if_any);
+	}
+	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_cfg_reply, 0, MTYPE_MSG_NATIVE_CFG_REPLY);
+	msg->code = MGMT_MSG_CODE_CFG_REPLY;
+	msg->refer_id = txn_id;
 
-	mgmtd__be_message__init(&be_msg);
-	be_msg.message_case = MGMTD__BE_MESSAGE__MESSAGE_CFG_DATA_REPLY;
-	be_msg.cfg_data_reply = &cfgdata_reply;
+	debug_be_client("Sending CFGDATA_CREATE_REPLY txn-id: %Lu", txn_id);
 
-	debug_be_client("Sending CFGDATA_CREATE_REPLY txn-id: %" PRIu64, txn_id);
-
-	return mgmt_be_client_send_msg(client_ctx, &be_msg);
+	ret = be_client_send_native_msg(client_ctx, msg, mgmt_msg_native_get_msg_len(msg), false);
+	mgmt_msg_native_free_msg(msg);
+	return ret;
 }
 
 static void mgmt_be_txn_cfg_abort(struct mgmt_be_txn_ctx *txn)
@@ -551,6 +546,7 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
 				(size_t)txn_req->req.set_cfg.num_cfg_changes,
 				NULL, true, err_buf, sizeof(err_buf), &error);
 			if (error) {
+				/* XXX this looks bogus! */
 				err_buf[sizeof(err_buf) - 1] = 0;
 				log_err_be_client("Failed to update configs for txn-id: %" PRIu64
 						  " to candidate, err: '%s'",
@@ -590,6 +586,7 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
 #endif
 					  err_buf, sizeof(err_buf) - 1);
 	if (err != NB_OK) {
+		/* XXX looks bogus */
 		err_buf[sizeof(err_buf) - 1] = 0;
 		if (err == NB_ERR_VALIDATION)
 			log_err_be_client("Failed to validate configs txn-id: %" PRIu64
@@ -623,8 +620,7 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
 		}
 	}
 
-	mgmt_be_send_cfgdata_create_reply(client_ctx, txn->txn_id,
-		error ? false : true, error ? err_buf : NULL);
+	mgmt_be_send_cfgdata_create_reply(client_ctx, txn->txn_id, !error, error ? err_buf : NULL);
 
 	debug_be_client("Avg-nb-edit-duration %Lu uSec, nb-prep-duration %lu (avg: %Lu) uSec, batch size %u",
 			client_ctx->avg_edit_nb_cfg_tm, prep_nb_cfg_tm,
@@ -733,23 +729,19 @@ static int mgmt_be_send_apply_reply(struct mgmt_be_client *client_ctx,
 				    uint64_t txn_id, bool success,
 				    const char *error_if_any)
 {
-	Mgmtd__BeMessage be_msg;
-	Mgmtd__BeCfgDataApplyReply apply_reply;
+	struct mgmt_msg_cfg_apply_reply *msg;
+	int ret;
 
-	mgmtd__be_cfg_data_apply_reply__init(&apply_reply);
-	apply_reply.success = success;
-	apply_reply.txn_id = txn_id;
-
-	if (error_if_any)
-		apply_reply.error_if_any = (char *)error_if_any;
-
-	mgmtd__be_message__init(&be_msg);
-	be_msg.message_case = MGMTD__BE_MESSAGE__MESSAGE_CFG_APPLY_REPLY;
-	be_msg.cfg_apply_reply = &apply_reply;
+	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_cfg_apply_reply, 0,
+					MTYPE_MSG_NATIVE_CFG_APPLY_REPLY);
+	msg->code = MGMT_MSG_CODE_CFG_APPLY_REPLY;
+	msg->refer_id = txn_id;
 
 	debug_be_client("Sending CFG_APPLY_REPLY txn-id %" PRIu64, txn_id);
 
-	return mgmt_be_client_send_msg(client_ctx, &be_msg);
+	ret = be_client_send_native_msg(client_ctx, msg, mgmt_msg_native_get_msg_len(msg), false);
+	mgmt_msg_native_free_msg(msg);
+	return ret;
 }
 
 static int mgmt_be_txn_proc_cfgapply(struct mgmt_be_txn_ctx *txn)
@@ -799,23 +791,15 @@ static int mgmt_be_txn_proc_cfgapply(struct mgmt_be_txn_ctx *txn)
 	return 0;
 }
 
-static int mgmt_be_process_cfg_apply(struct mgmt_be_client *client_ctx,
-				     uint64_t txn_id)
+static void be_client_handle_cfg_apply(struct mgmt_be_client *client, uint64_t txn_id)
 {
 	struct mgmt_be_txn_ctx *txn;
 
-	txn = mgmt_be_find_txn_by_id(client_ctx, txn_id, true);
-	if (!txn)
-		goto failed;
+	debug_be_client("Got CFG_APPLY_REQ for client %s txn-id %Lu", client->name, txn_id);
 
-	debug_be_client("Trigger CFG_APPLY_REQ processing");
-	if (mgmt_be_txn_proc_cfgapply(txn))
-		goto failed;
-
-	return 0;
-failed:
-	msg_conn_disconnect(&client_ctx->client.conn, true);
-	return -1;
+	txn = mgmt_be_find_txn_by_id(client, txn_id, true);
+	if (!txn || mgmt_be_txn_proc_cfgapply(txn))
+		msg_conn_disconnect(&client->client.conn, true);
 }
 
 
@@ -830,24 +814,6 @@ static int mgmt_be_client_handle_msg(struct mgmt_be_client *client_ctx,
 	 * version, name; cast to an int to avoid unhandled enum warnings
 	 */
 	switch ((int)be_msg->message_case) {
-	case MGMTD__BE_MESSAGE__MESSAGE_SUBSCR_REPLY:
-		debug_be_client("Got SUBSCR_REPLY success %u",
-				be_msg->subscr_reply->success);
-
-		if (client_ctx->cbs.subscr_done)
-			(*client_ctx->cbs.subscr_done)(client_ctx,
-						       client_ctx->user_data,
-						       be_msg->subscr_reply
-							       ->success);
-		break;
-	case MGMTD__BE_MESSAGE__MESSAGE_TXN_REQ:
-		debug_be_client("Got TXN_REQ %s txn-id: %" PRIu64,
-				be_msg->txn_req->create ? "Create" : "Delete",
-				be_msg->txn_req->txn_id);
-		mgmt_be_process_txn_req(client_ctx,
-					    be_msg->txn_req->txn_id,
-					    be_msg->txn_req->create);
-		break;
 	case MGMTD__BE_MESSAGE__MESSAGE_CFG_DATA_REQ:
 		debug_be_client("Got CFG_DATA_REQ txn-id: %" PRIu64
 				" end-of-data %u",
@@ -859,20 +825,10 @@ static int mgmt_be_client_handle_msg(struct mgmt_be_client *client_ctx,
 			be_msg->cfg_data_req->n_data_req,
 			be_msg->cfg_data_req->end_of_data);
 		break;
-	case MGMTD__BE_MESSAGE__MESSAGE_CFG_APPLY_REQ:
-		debug_be_client("Got CFG_APPLY_REQ txn-id: %" PRIu64,
-				be_msg->cfg_data_req->txn_id);
-		mgmt_be_process_cfg_apply(
-			client_ctx, (uint64_t)be_msg->cfg_apply_req->txn_id);
-		break;
 	/*
 	 * NOTE: The following messages are always sent from Backend
 	 * clients to MGMTd only and/or need not be handled here.
 	 */
-	case MGMTD__BE_MESSAGE__MESSAGE_SUBSCR_REQ:
-	case MGMTD__BE_MESSAGE__MESSAGE_TXN_REPLY:
-	case MGMTD__BE_MESSAGE__MESSAGE_CFG_DATA_REPLY:
-	case MGMTD__BE_MESSAGE__MESSAGE_CFG_APPLY_REPLY:
 	case MGMTD__BE_MESSAGE__MESSAGE__NOT_SET:
 	default:
 		/*
@@ -1214,6 +1170,12 @@ static void be_client_handle_native_msg(struct mgmt_be_client *client,
 	uint64_t txn_id = msg->refer_id;
 
 	switch (msg->code) {
+	case MGMT_MSG_CODE_TXN_REQ:
+		be_client_handle_txn_req(client, txn_id, msg, msg_len);
+		break;
+	case MGMT_MSG_CODE_CFG_APPLY_REQ:
+		be_client_handle_cfg_apply(client, txn_id);
+		break;
 	case MGMT_MSG_CODE_GET_TREE:
 		be_client_handle_get_tree(client, txn_id, msg, msg_len);
 		break;
@@ -1270,36 +1232,48 @@ static void mgmt_be_client_process_msg(uint8_t version, uint8_t *data,
 	mgmtd__be_message__free_unpacked(be_msg, NULL);
 }
 
-int mgmt_be_send_subscr_req(struct mgmt_be_client *client_ctx,
-			    int n_config_xpaths, char **config_xpaths,
-			    int n_oper_xpaths, char **oper_xpaths)
+/**
+ * mgmt_be_send_subscribe() - Send subscription request to mgmtd.
+ * @client: the client.
+ *
+ * Return: 0 on success, negative value on error.
+ */
+static int mgmt_be_send_subscribe(struct mgmt_be_client *client)
 {
-	Mgmtd__BeMessage be_msg;
-	Mgmtd__BeSubscribeReq subscr_req;
+	const struct mgmt_be_client_cbs *cbs = &client->cbs;
+	struct mgmt_msg_subscribe *msg;
+	int ret;
+	uint i;
 
-	mgmtd__be_subscribe_req__init(&subscr_req);
-	subscr_req.client_name = client_ctx->name;
-	subscr_req.n_config_xpaths = n_config_xpaths;
-	subscr_req.config_xpaths = config_xpaths;
-	subscr_req.n_oper_xpaths = n_oper_xpaths;
-	subscr_req.oper_xpaths = oper_xpaths;
+	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_subscribe, 0, MTYPE_MSG_NATIVE_SUBSCRIBE);
+	msg->code = MGMT_MSG_CODE_SUBSCRIBE;
 
-	/* See if we should register for notifications */
-	subscr_req.n_notif_xpaths = client_ctx->cbs.nnotif_xpaths;
-	subscr_req.notif_xpaths = (char **)client_ctx->cbs.notif_xpaths;
+	mgmt_msg_native_add_str(msg, client->name);
 
-	subscr_req.n_rpc_xpaths = client_ctx->cbs.nrpc_xpaths;
-	subscr_req.rpc_xpaths = (char **)client_ctx->cbs.rpc_xpaths;
+	for (i = 0; i < cbs->nconfig_xpaths; i++)
+		mgmt_msg_native_add_str(msg, cbs->config_xpaths[i]);
+	msg->nconfig = cbs->nconfig_xpaths;
 
-	mgmtd__be_message__init(&be_msg);
-	be_msg.message_case = MGMTD__BE_MESSAGE__MESSAGE_SUBSCR_REQ;
-	be_msg.subscr_req = &subscr_req;
+	for (i = 0; i < cbs->noper_xpaths; i++)
+		mgmt_msg_native_add_str(msg, cbs->oper_xpaths[i]);
+	msg->noper = cbs->noper_xpaths;
 
-	debug_be_client("Sending SUBSCR_REQ name: %s xpaths: config %zu oper: %zu notif: %zu",
-			subscr_req.client_name, subscr_req.n_config_xpaths,
-			subscr_req.n_oper_xpaths, subscr_req.n_notif_xpaths);
+	for (i = 0; i < cbs->nnotify_xpaths; i++)
+		mgmt_msg_native_add_str(msg, cbs->notify_xpaths[i]);
+	msg->nnotify = cbs->nnotify_xpaths;
 
-	return mgmt_be_client_send_msg(client_ctx, &be_msg);
+	for (i = 0; i < cbs->nrpc_xpaths; i++)
+		mgmt_msg_native_add_str(msg, cbs->rpc_xpaths[i]);
+	msg->nrpc = cbs->nrpc_xpaths;
+
+	debug_be_client("Sending SUBSCRIBE name: %s xpaths: config %d oper: %d notify: %d rpc: %d",
+			client->name, cbs->nconfig_xpaths, cbs->noper_xpaths, cbs->nnotify_xpaths,
+			cbs->nrpc_xpaths);
+
+	ret = be_client_send_native_msg(client, msg, mgmt_msg_native_get_msg_len(msg), false);
+	mgmt_msg_native_free_msg(msg);
+
+	return ret;
 }
 
 static int _notify_conenct_disconnect(struct msg_client *msg_client,
@@ -1311,7 +1285,7 @@ static int _notify_conenct_disconnect(struct msg_client *msg_client,
 
 	if (connected) {
 		assert(msg_client->conn.fd != -1);
-		ret = mgmt_be_send_subscr_req(client, 0, NULL, 0, NULL);
+		ret = mgmt_be_send_subscribe(client);
 		if (ret)
 			return ret;
 	}

@@ -60,21 +60,29 @@ struct mgmt_be_client_txn_ctx {
  * Callbacks:
  *	client_connect_notify: called when connection is made/lost to mgmtd.
  *	txn_notify: called when a txn has been created
- *	notify_cbs: callbacks for notifications.
- *	nnotify_cbs: number of notification callbacks.
+ *	config_xpaths: config xpaths to register with mgmtd.
+ *	nconfig_xpaths: number of config xpaths.
+ *	oper_xpaths: oper-state xpaths to register with mgmtd.
+ *	noper_xpaths: number of oper-state xpaths.
+ *	notify_xpaths: notify xpaths to register with mgmtd.
+ *	nnotify_xpaths: number of notify xpaths.
+ *	rpc_xpaths: rpc xpaths to register with mgmtd.
+ *	nrpc_xpaths: number of rpc xpaths.
  *
  */
 struct mgmt_be_client_cbs {
 	void (*client_connect_notify)(struct mgmt_be_client *client,
 				      uintptr_t usr_data, bool connected);
-	void (*subscr_done)(struct mgmt_be_client *client, uintptr_t usr_data,
-			    bool success);
 	void (*txn_notify)(struct mgmt_be_client *client, uintptr_t usr_data,
 			   struct mgmt_be_client_txn_ctx *txn_ctx,
 			   bool destroyed);
 
-	const char **notif_xpaths;
-	uint nnotif_xpaths;
+	const char **config_xpaths;
+	uint nconfig_xpaths;
+	const char **oper_xpaths;
+	uint noper_xpaths;
+	const char **notify_xpaths;
+	uint nnotify_xpaths;
 	const char **rpc_xpaths;
 	uint nrpc_xpaths;
 };
@@ -139,25 +147,6 @@ extern int mgmt_be_send_ds_replace_notification(const char *path, const struct l
  * component in `xref2vtysh.py` as well.
  */
 extern void mgmt_be_client_lib_vty_init(void);
-
-/*
- * [Un]-subscribe with MGMTD for one or more YANG subtree(s).
- *
- * client
- *    The client object.
- *
- * reg_yang_xpaths
- *    Yang xpath(s) that needs to be subscribed to
- *
- * num_xpaths
- *    Number of xpaths
- *
- * Returns:
- *    MGMTD_SUCCESS on success, MGMTD_* otherwise.
- */
-extern int mgmt_be_send_subscr_req(struct mgmt_be_client *client_ctx,
-				   int n_config_xpaths, char **config_xpaths,
-				   int n_oper_xpaths, char **oper_xpaths);
 
 /*
  * Destroy backend client and cleanup everything.
