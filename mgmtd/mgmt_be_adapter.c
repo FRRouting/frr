@@ -990,6 +990,7 @@ uint64_t mgmt_be_interested_clients(const char *xpath,
 	struct mgmt_be_xpath_map *maps = NULL, *map;
 	enum mgmt_be_client_id id;
 	uint64_t clients;
+	bool wild_root;
 
 	switch (type) {
 	case MGMT_BE_XPATH_SUBSCR_TYPE_CFG:
@@ -1009,8 +1010,11 @@ uint64_t mgmt_be_interested_clients(const char *xpath,
 	clients = 0;
 
 	_dbg("XPATH: '%s'", xpath);
+
+	/* wild_root will select all clients that advertise op-state */
+	wild_root = !strcmp(xpath, "/") || !strcmp(xpath, "/*");
 	darr_foreach_p (maps, map)
-		if (mgmt_be_xpath_prefix(map->xpath_prefix, xpath))
+		if (wild_root || mgmt_be_xpath_prefix(map->xpath_prefix, xpath))
 			clients |= map->clients;
 
 	if (DEBUG_MODE_CHECK(&mgmt_debug_be, DEBUG_MODE_ALL)) {
