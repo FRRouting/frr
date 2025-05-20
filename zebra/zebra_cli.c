@@ -45,6 +45,54 @@ static void zebra_ptm_enable_cli_write(struct vty *vty,
 }
 #endif
 
+DEFPY_YANG (ip_forwarding,
+	    ip_forwarding_cmd,
+	    "[no] ip forwarding",
+	    NO_STR
+	    IP_STR
+	    "Turn on IP forwarding\n")
+{
+	nb_cli_enqueue_change(vty, "/frr-zebra:zebra/ip-forwarding", NB_OP_MODIFY,
+			      no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+static void zebra_ip_forwarding_cli_write(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults)
+{
+	bool enabled = yang_dnode_get_bool(dnode, NULL);
+
+	if (!enabled)
+		vty_out(vty, "no ip forwrding\n");
+	else if (show_defaults)
+		vty_out(vty, "ip forwrding\n");
+}
+
+DEFPY_YANG (ipv6_forwarding,
+	    ipv6_forwarding_cmd,
+	    "[no] ipv6 forwarding",
+	    NO_STR
+	    IPV6_STR
+	    "Turn on IPv6 forwarding\n")
+{
+	nb_cli_enqueue_change(vty, "/frr-zebra:zebra/ipv6-forwarding", NB_OP_MODIFY,
+			      no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+static void zebra_ipv6_forwarding_cli_write(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults)
+{
+	bool enabled = yang_dnode_get_bool(dnode, NULL);
+
+	if (!enabled)
+		vty_out(vty, "no ipv6 forwrding\n");
+	else if (show_defaults)
+		vty_out(vty, "ipv6 forwrding\n");
+}
+
 DEFPY_YANG (zebra_route_map_timer,
        zebra_route_map_timer_cmd,
        "[no] zebra route-map delay-timer ![(0-600)$delay]",
@@ -2734,6 +2782,14 @@ const struct frr_yang_module_info frr_zebra_cli_info = {
 		},
 #endif
 		{
+			.xpath = "/frr-zebra:zebra/ip-forwarding",
+			.cbs.cli_show = zebra_ip_forwarding_cli_write,
+		},
+		{
+			.xpath = "/frr-zebra:zebra/ipv6-forwarding",
+			.cbs.cli_show = zebra_ipv6_forwarding_cli_write,
+		},
+		{
 			.xpath = "/frr-zebra:zebra/route-map-delay",
 			.cbs.cli_show = zebra_route_map_delay_cli_write,
 		},
@@ -3051,6 +3107,9 @@ void zebra_cli_init(void)
 #if HAVE_BFDD == 0
 	install_element(INTERFACE_NODE, &zebra_ptm_enable_if_cmd);
 #endif
+
+	install_element(CONFIG_NODE, &ip_forwarding_cmd);
+	install_element(CONFIG_NODE, &ipv6_forwarding_cmd);
 
 	install_element(CONFIG_NODE, &ip_router_id_cmd);
 	install_element(CONFIG_NODE, &router_id_cmd);
