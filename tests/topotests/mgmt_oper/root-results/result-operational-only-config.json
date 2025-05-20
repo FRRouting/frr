@@ -1,0 +1,102 @@
+{
+  "frr-interface:lib": {
+    "interface": [
+      {
+        "name": "r1-eth0",
+        "description": "r1-eth0-desc",
+        "frr-zebra:zebra": {
+          "ipv4-addrs": [
+            {
+              "ip": "1.1.1.1",
+              "prefix-length": 24
+            }
+          ],
+          "ipv6-addrs": [
+            {
+              "ip": "2001:1111::1",
+              "prefix-length": 64
+            }
+          ]
+        }
+      },
+      {
+        "name": "r1-eth1",
+        "description": "r1-eth1-desc",
+        "frr-zebra:zebra": {
+          "ipv4-addrs": [
+            {
+              "ip": "3.3.3.1",
+              "prefix-length": 24
+            }
+          ],
+          "ipv6-addrs": [
+            {
+              "ip": "2002:2222::1",
+              "prefix-length": 64
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "frr-routing:routing": {
+    "control-plane-protocols": {
+      "control-plane-protocol": [
+        {
+          "type": "frr-staticd:staticd",
+          "name": "staticd",
+          "vrf": "default",
+          "frr-staticd:staticd": {
+            "route-list": [
+              {
+                "prefix": "2002:3333::1/128",
+                "src-prefix": "::/0",
+                "afi-safi": "frr-routing:ipv6-unicast",
+                "path-list": [
+                  {
+                    "table-id": 0,
+                    "distance": 1,
+                    "tag": 0,
+                    "frr-nexthops": {
+                      "nexthop": [
+                        {
+                          "nh-type": "ip6",
+                          "vrf": "default",
+                          "gateway": "2001:1111::2",
+                          "interface": "(null)"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "prefix": "11.11.11.11/32",
+                "src-prefix": "::/0",
+                "afi-safi": "frr-routing:ipv4-unicast",
+                "path-list": [
+                  {
+                    "table-id": 0,
+                    "distance": 1,
+                    "tag": 0,
+                    "frr-nexthops": {
+                      "nexthop": [
+                        {
+                          "nh-type": "ip4",
+                          "vrf": "default",
+                          "gateway": "1.1.1.2",
+                          "interface": "(null)"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
+

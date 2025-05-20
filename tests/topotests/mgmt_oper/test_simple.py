@@ -194,11 +194,15 @@ vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra/ri
 vtysh -c 'show mgmt get-data /frr-interface:lib/interface[name="r1-eth0"]/state' > ${resdir}/result-intf-state.json
 vtysh -c 'show mgmt get-data /frr-interface:lib/interface[name="r1-eth0"]/state/mtu' > ${resdir}/result-intf-state-mtu.json
 
-for f in ${resdir}/result-*; do
-   sed -i -e 's/"uptime": ".*"/"uptime": "rubout"/;s/"id": [0-9][0-9]*/"id": "rubout"/' $f
-   sed -i -e 's/"phy-address": ".*"/"phy-address": "rubout"/' $f
-   sed -i -e 's/"if-index": [0-9][0-9]*/"if-index": "rubout"/' $f
+scriptdir=~chopps/w/frr/tests/topotests/mgmt_oper
+resdir=${scriptdir}/simple-results
+for f in ${resdir}/result*.json; do
+   sed -i -e 's/"\(phy-address\|revision\|uptime\)": ".*"/"\1": "rubout"/' $f
+   sed -i -e 's/"\(id\|if-index\|mtu\|mtu6\|speed\)": [0-9][0-9]*/"\1": "rubout"/' $f
    sed -i -e 's,"vrf": "[0-9]*","vrf": "rubout",' $f
+   sed -i -e 's,"module-set-id": "[0-9]*","module-set-id": "rubout",' $f
+   sed -i -e 's,"\(apply\|edit\|prep\)-count": "[0-9]*","\1-count": "rubout",' $f
+   sed -i -e 's,"avg-\(apply\|edit\|prep\)-time": "[0-9]*","avg-\1-time": "rubout",' $f
 done
 """  # noqa: 501
 

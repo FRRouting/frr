@@ -63,16 +63,18 @@ def disable_debug(router):
 
 
 @retry(retry_timeout=30, initial_wait=0.1)
-def _do_oper_test(tgen, qr, seconds_left=None):
+def _do_oper_test(tgen, qr, exact, seconds_left=None):
     r1 = tgen.gears["r1"].net
 
     qcmd = (
         r"vtysh -c 'show mgmt get-data {} {}' "
-        r"""| sed -e 's/"phy-address": ".*"/"phy-address": "rubout"/'"""
-        r"""| sed -e 's/"uptime": ".*"/"uptime": "rubout"/'"""
+        r"""| sed -e 's/"\(phy-address\|revision\|uptime\)": ".*"/"\1": "rubout"/'"""
+        r"""| sed -e 's/"\(candidate\|running\)-config-version": ".*"/"\1-config-version": "rubout"/'"""
+        r"""| sed -e 's/"\(id\|if-index\|mtu\|mtu6\|speed\)": [0-9][0-9]*/"\1": "rubout"/'"""
         r"""| sed -e 's/"vrf": "[0-9]*"/"vrf": "rubout"/'"""
-        r"""| sed -e 's/"if-index": [0-9][0-9]*/"if-index": "rubout"/'"""
-        r"""| sed -e 's/"id": [0-9][0-9]*/"id": "rubout"/'"""
+        r"""| sed -e 's/"module-set-id": "[0-9]*"/"module-set-id": "rubout"/'"""
+        r"""| sed -e 's/"\(apply\|edit\|prep\)-count": "[0-9]*"/"\1-count": "rubout"/'"""
+        r"""| sed -e 's/"avg-\(apply\|edit\|prep\)-time": "[0-9]*"/"avg-\1-time": "rubout"/'"""
     )
     # Don't use this for now.
     dd_json_cmp = None
@@ -105,9 +107,9 @@ def _do_oper_test(tgen, qr, seconds_left=None):
         raise
 
     if dd_json_cmp:
-        cmpout = json_cmp(ojson, ejson, exact_match=True)
+        cmpout = json_cmp(ojson, ejson, exact_match=exact)
         if cmpout and ejson_alt is not None:
-            cmpout = json_cmp(ojson, ejson_alt, exact_match=True)
+            cmpout = json_cmp(ojson, ejson_alt, exact_match=exact)
         if cmpout:
             diag(
                 "-------DIFF---------\n%s\n---------DIFF----------",
@@ -115,9 +117,9 @@ def _do_oper_test(tgen, qr, seconds_left=None):
             )
             cmpout = str(cmpout)
     else:
-        cmpout = tt_json_cmp(ojson, ejson, exact=True)
+        cmpout = tt_json_cmp(ojson, ejson, exact=exact)
         if cmpout and ejson_alt is not None:
-            cmpout = tt_json_cmp(ojson, ejson_alt, exact=True)
+            cmpout = tt_json_cmp(ojson, ejson_alt, exact=exact)
         if cmpout:
             diag(
                 "-------EXPECT--------\n%s\n------END-EXPECT------",
@@ -134,13 +136,16 @@ def _do_oper_test(tgen, qr, seconds_left=None):
     return cmpout
 
 
-def do_oper_test(tgen, query_results):
+def do_oper_test(tgen, query_results, exact=True):
     reset = True
     for qr in query_results:
-        step(f"Perform query '{qr[0]}'", reset=reset)
+        if len(qr) == 3 and qr[2]:
+            step(f"Perform query '{qr[0]}' + '{qr[2]}'", reset=reset)
+        else:
+            step(f"Perform query '{qr[0]}'", reset=reset)
         if reset:
             reset = False
-        ret = _do_oper_test(tgen, qr)
+        ret = _do_oper_test(tgen, qr, exact=exact)
         assert ret is None, "Unexpected diff: " + str(ret)
 
 

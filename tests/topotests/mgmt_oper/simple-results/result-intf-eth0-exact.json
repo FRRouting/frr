@@ -5,9 +5,9 @@
       "vrf": "default",
       "state": {
         "if-index": "rubout",
-        "mtu": 1500,
-        "mtu6": 1500,
-        "speed": 10000,
+        "mtu": "rubout",
+        "mtu6": "rubout",
+        "speed": "rubout",
         "metric": 0,
         "phy-address": "rubout"
       },
