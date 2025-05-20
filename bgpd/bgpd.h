@@ -1701,6 +1701,8 @@ struct peer {
 #define PEER_FLAG_CLEARING_BATCH (1ULL << 42)
 /* BFD strict mode */
 #define PEER_FLAG_BFD_STRICT (1ULL << 43)
+/* https://datatracker.ietf.org/doc/html/draft-ietf-idr-entropy-label */
+#define PEER_FLAG_SEND_NHC_ATTRIBUTE (1ULL << 44)
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
@@ -2206,6 +2208,7 @@ struct bgp_nlri {
 #define BGP_ATTR_AIGP                           26
 #define BGP_ATTR_LARGE_COMMUNITIES              32
 #define BGP_ATTR_OTC                            35
+#define BGP_ATTR_NHC                            39
 #define BGP_ATTR_PREFIX_SID                     40
 #ifdef ENABLE_BGP_VNC_ATTR
 #define BGP_ATTR_VNC                           255
