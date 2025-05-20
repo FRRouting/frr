@@ -56,6 +56,9 @@ void lua_pushzebra_dplane_ctx(lua_State *L, const struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_NH_INSTALL:
 	case DPLANE_OP_NH_UPDATE:
 	case DPLANE_OP_NH_DELETE:
+	case DPLANE_OP_PIC_NH_INSTALL:
+	case DPLANE_OP_PIC_NH_UPDATE:
+	case DPLANE_OP_PIC_NH_DELETE:
 		/* rinfo */
 		lua_newtable(L);
 		{

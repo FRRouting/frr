@@ -825,6 +825,12 @@ class TopoRouter(TopoGear):
         """
         self.net.useNetnsVRF()
 
+    def use_pic_mode(self):
+        """
+        Use pic mode
+        """
+        self.net.usePicMode()
+
     def check_capability(self, daemon, param):
         """
         Checks a capability daemon against an argument option
