@@ -302,7 +302,7 @@ def test_show_bgp_bestpath_json():
             "default": {
                 "bestPath": {
                     "asPathMultiPathRelaxEnabled": True,
-                    "deterministicMed": True,
+                    "deterministicMed": False,
                 }
             }
         }
