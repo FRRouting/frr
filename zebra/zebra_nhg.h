@@ -177,7 +177,7 @@ struct nhg_hash_entry {
  * identifier when sending to the dplane.
  * For the kernel, this extra PIC next hop does not need
  * to be delivered to it. However, for devices using
- * FPM as the dplane, it is necessary to deliver this PIC next hop.
+ * SONiC as the dplane, it is necessary to deliver this PIC next hop.
  */
 #define NEXTHOP_GROUP_PIC_NHT		    (1 << 10)
 };
