@@ -1468,7 +1468,6 @@ class Router(Node):
         self.reportCores = True
         self.version = None
         self.use_netns_vrf = False
-        self.use_pic_mode = False
 
         self.ns_cmd = "sudo nsenter -a -t {} ".format(self.pid)
         try:
@@ -1627,9 +1626,6 @@ class Router(Node):
 
     def useNetnsVRF(self):
         self.use_netns_vrf = True
-
-    def usePicMode(self):
-        self.use_pic_mode = True
 
     def checkCapability(self, daemon, param):
         if param is not None:
@@ -1919,9 +1915,6 @@ class Router(Node):
             daemon_opts = self.daemons_options.get(daemon, "")
             if self.use_netns_vrf:
                 daemon_opts += " -w"
-
-            if daemon == "zebra" and self.use_pic_mode:
-                daemon_opts += " -p"
 
             # get pid and vty filenames and remove the files
             m = re.match(r"(.* |^)-n (\d+)( ?.*|$)", daemon_opts)
