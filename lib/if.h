@@ -626,8 +626,14 @@ struct if_link_params *if_link_params_enable(struct interface *ifp);
 struct if_link_params *if_link_params_init(struct interface *ifp);
 void if_link_params_free(struct interface *ifp);
 
-/* Northbound. */
+/* Forward declaration */
 struct vty;
+
+void lib_if_show_debug(struct vty *vty);
+void lib_if_enable_debug(struct vty *vty, bool enable, bool config);
+int lib_if_debug_write_config(struct vty *vty);
+
+/* Northbound. */
 extern void if_vty_config_start(struct vty *vty, struct interface *ifp);
 extern void if_vty_config_end(struct vty *vty);
 extern void if_cmd_init(int (*config_write)(struct vty *));

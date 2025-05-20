@@ -453,6 +453,9 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			config = config_get(FORWARDING_NODE, line);
 		else if (strncmp(line, "debug vrf", strlen("debug vrf")) == 0)
 			config = config_get(VRF_DEBUG_NODE, line);
+		else if (strncmp(line, "debug interface",
+				 strlen("debug interface")) == 0)
+			config = config_get(INTF_DEBUG_NODE, line);
 		else if (strncmp(line, "debug route-map",
 				 strlen("debug route-map"))
 			 == 0)
@@ -528,7 +531,8 @@ void vtysh_config_parse_line(void *arg, const char *line)
 	 (I) == PREFIX_IPV6_NODE || (I) == FORWARDING_NODE ||                  \
 	 (I) == DEBUG_NODE || (I) == AAA_NODE || (I) == VRF_DEBUG_NODE ||      \
 	 (I) == RMAP_DEBUG_NODE || (I) == RESOLVER_DEBUG_NODE ||               \
-	 (I) == MPLS_NODE || (I) == KEYCHAIN_KEY_NODE)
+	 (I) == MPLS_NODE || (I) == KEYCHAIN_KEY_NODE ||                       \
+	 (I) == INTF_DEBUG_NODE)
 
 static void configvec_dump(vector vec, bool nested)
 {

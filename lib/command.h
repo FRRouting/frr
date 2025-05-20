@@ -181,6 +181,7 @@ enum node_type {
 	RPKI_VRF_NODE,  /* RPKI node for VRF */
 	PIM_NODE,		 /* PIM protocol mode */
 	PIM6_NODE,		 /* PIM protocol for IPv6 mode */
+	INTF_DEBUG_NODE, /* Interface Lib Debug node. */
 	NODE_TYPE_MAX, /* maximum */
 };
 /* clang-format on */
