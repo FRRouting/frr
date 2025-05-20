@@ -67,8 +67,6 @@ struct mgmt_be_client *mgmt_be_client;
 /* Route retain mode flag. */
 int retain_mode = 0;
 
-bool pic_nexthop;
-
 /* Receive buffer size for kernel control sockets */
 #define RCVBUFSIZE_MIN 4194304
 #ifdef HAVE_NETLINK
@@ -84,7 +82,7 @@ uint32_t rt_table_main_id = RT_TABLE_MAIN;
 #define OPTION_V6_WITH_V4_NEXTHOP 2002
 
 /* Command line options. */
-const struct option longopts[] = { { "pic", no_argument, NULL, 'p' },
+const struct option longopts[] = {
 	{ "batch", no_argument, NULL, 'b' },
 	{ "allow_delete", no_argument, NULL, 'a' },
 	{ "socket", required_argument, NULL, 'z' },
@@ -359,19 +357,17 @@ int main(int argc, char **argv)
 
 	zserv_path = NULL;
 
-	pic_nexthop = false;
 	if_notify_oper_changes = true;
 	vrf_notify_oper_changes = true;
 
 	frr_preinit(&zebra_di, argc, argv);
 
-	frr_opt_add("pbaz:e:rK:s:R:"
+	frr_opt_add("baz:e:rK:s:R:"
 #ifdef HAVE_NETLINK
 		    "n"
 #endif
 		    ,
 		    longopts,
-		    "  -p, --pic                 Runs in pic mode\n"
 		    "  -b, --batch               Runs in batch mode\n"
 		    "  -a, --allow_delete        Allow other processes to delete zebra routes\n"
 		    "  -z, --socket              Set path of zebra socket\n"
@@ -460,10 +456,6 @@ int main(int argc, char **argv)
 			v6_with_v4_nexthop = true;
 			break;
 #endif /* HAVE_NETLINK */
-		case 'p':
-			pic_nexthop = true;
-			break;
-
 		default:
 			frr_help_exit(1);
 		}
