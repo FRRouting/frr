@@ -12258,11 +12258,18 @@ DEFPY(show_bgp_router,
 	}
 
 	if (uj) {
+		json_object_boolean_add(json, "bgpGShutEnabled",
+					CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN));
+	} else {
+		vty_out(vty, "BGP GSHUT is %s.\n",
+			CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN) ? "enabled" : "disabled");
+	}
+
+	if (uj) {
 		json_object_boolean_add(json, "bgpInMaintenanceMode",
 					(CHECK_FLAG(bm->flags, BM_FLAG_MAINTENANCE_MODE)));
 		json_object_int_add(json, "bgpInstanceCount", listcount(bm->bgp));
 
-		vty_json(vty, json);
 	} else {
 		if (CHECK_FLAG(bm->flags, BM_FLAG_MAINTENANCE_MODE))
 			vty_out(vty, "BGP is in Maintenance mode (BGP GSHUT is in effect)\n");
@@ -12271,6 +12278,30 @@ DEFPY(show_bgp_router,
 			listcount(bm->bgp));
 	}
 
+	if (uj) {
+		json_object_boolean_add(json, "bgpWaitForFibSet", bm->wait_for_fib);
+	} else {
+		vty_out(vty, "BGP suppress-fib-pending is %s.\n",
+			bm->wait_for_fib ? "enabled" : "disabled");
+	}
+
+	if (uj) {
+		json_object_int_add(json, "bgpInputQueueLimit", bm->inq_limit);
+		json_object_int_add(json, "bgpOutputQueueLimit", bm->outq_limit);
+		json_object_int_add(json, "bgpUpdateDelayTime", bm->v_update_delay);
+		json_object_int_add(json, "bgpEstablishWaitTime", bm->v_establish_wait);
+		json_object_int_add(json, "bgpRMapDelayTimer", bm->rmap_update_timer);
+		vty_json(vty, json);
+	} else {
+		vty_out(vty, "BGP Input Queue Limit: %d\n", bm->inq_limit);
+		vty_out(vty, "BGP Output Queue Limit: %d\n", bm->outq_limit);
+
+		vty_out(vty, "BGP Global Update Delay Timers:\n");
+		vty_out(vty, "  Update Delay Time: %ds\n", bm->v_update_delay);
+		vty_out(vty, "  Establish Wait Time: %ds\n", bm->v_establish_wait);
+
+		vty_out(vty, "BGP route-map Delay Timer: %ds\n", bm->rmap_update_timer);
+	}
 	return CMD_SUCCESS;
 }
 
