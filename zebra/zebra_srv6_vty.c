@@ -1412,9 +1412,10 @@ static int zebra_sr_config(struct vty *vty)
 			if (locator->node_bits_length)
 				vty_out(vty, " node-len %u",
 					locator->node_bits_length);
-			if (locator->function_bits_length)
-				vty_out(vty, " func-bits %u",
-					locator->function_bits_length);
+
+			if (locator->function_bits_length != ZEBRA_SRV6_FUNCTION_LENGTH)
+				vty_out(vty, " func-bits %u", locator->function_bits_length);
+
 			if (locator->argument_bits_length)
 				vty_out(vty, " arg-len %u",
 					locator->argument_bits_length);
