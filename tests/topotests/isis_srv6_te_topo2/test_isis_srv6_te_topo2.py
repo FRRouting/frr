@@ -280,16 +280,6 @@ def test_configure_srv6_locators():
          index 3 ipv6-address fc00:0:6:: \n \
          exit \n \
          exit \n \
-         srv6 \n \
-         locators \n \
-         locator loc1 \n \
-         prefix fc00:0:1::/48 block-len 32 node-len 16 func-bits 16 \n \
-         exit \n \
-         locator loc2 \n \
-         prefix fc00:0:1b::/48 block-len 32 node-len 16 func-bits 16 \n \
-         exit \n \
-         exit \n \
-         exit \n \
          exit"
     )
 
