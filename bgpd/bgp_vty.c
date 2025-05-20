@@ -18545,12 +18545,23 @@ static bool peergroup_filter_check(struct peer *peer, afi_t afi, safi_t safi,
 				   uint8_t type, int direct)
 {
 	struct bgp_filter *filter;
+	filter = &peer->filter[afi][safi];
 
-	if (peer_group_active(peer))
+	if (peer_group_active(peer)) {
+		/* This is required because the filter_override stores only the filter type.
+		 * To determine whether exist-map or non-exist-map is configured along with adv-map filter,
+		 * 'advmap.condition == direct' is evaluated where 'direct' should be passed appropriately by the caller */
+		if (type == PEER_FT_ADVERTISE_MAP) {
+			if (CHECK_FLAG(peer->filter_override[afi][safi][RMAP_OUT], type)) {
+				/* Only return true if the condition matches what we're checking for */
+				return (filter->advmap.condition == direct);
+			}
+			return false;
+		}
 		return !!CHECK_FLAG(peer->filter_override[afi][safi][direct],
 				    type);
+	}
 
-	filter = &peer->filter[afi][safi];
 	switch (type) {
 	case PEER_FT_DISTRIBUTE_LIST:
 		return !!(filter->dlist[direct].name);
