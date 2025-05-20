@@ -5596,7 +5596,7 @@ DEFUN_YANG (match_probability,
 
 DEFUN_YANG (no_match_probability,
 	    no_match_probability_cmd,
-	    "no match probability [(1-99)]",
+	    "no match probability [(0-100)]",
 	    NO_STR
 	    MATCH_STR
 	    "Match portion of routes defined by percentage value\n"
