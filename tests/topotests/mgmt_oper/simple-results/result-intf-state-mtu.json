@@ -4,7 +4,7 @@
       {
         "name": "r1-eth0",
         "state": {
-          "mtu": 1500
+          "mtu": "rubout"
         }
       }
     ]
