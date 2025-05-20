@@ -1505,13 +1505,7 @@ void event_cancel_async(struct event_loop *master, struct event **thread,
 {
 	assert(!(thread && eventobj) && (thread || eventobj));
 
-	if (thread && *thread)
-		frrtrace(9, frr_libfrr, event_cancel_async, master,
-			 (*thread)->xref->funcname, (*thread)->xref->xref.file,
-			 (*thread)->xref->xref.line, NULL, (*thread)->u.fd,
-			 (*thread)->u.val, (*thread)->arg,
-			 (*thread)->u.sands.tv_sec);
-	else
+	if (!thread)
 		frrtrace(9, frr_libfrr, event_cancel_async, master, NULL, NULL,
 			 0, NULL, 0, 0, eventobj, 0);
 
@@ -1521,6 +1515,14 @@ void event_cancel_async(struct event_loop *master, struct event **thread,
 		master->canceled = false;
 
 		if (thread) {
+			if (*thread)
+				frrtrace(9, frr_libfrr, event_cancel_async,
+					 master, (*thread)->xref->funcname,
+					 (*thread)->xref->xref.file,
+					 (*thread)->xref->xref.line, NULL,
+					 (*thread)->u.fd, (*thread)->u.val,
+					 (*thread)->arg,
+					 (*thread)->u.sands.tv_sec);
 			struct cancel_req *cr =
 				XCALLOC(MTYPE_TMP, sizeof(struct cancel_req));
 			cr->threadref = thread;

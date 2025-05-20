@@ -1408,8 +1408,12 @@ static int netlink_route_change_read_multicast(struct nlmsghdr *h,
 				*(struct in6_addr *)RTA_DATA(tb[RTA_DST]);
 	}
 
-	if (tb[RTA_EXPIRES])
-		m->lastused = *(unsigned long long *)RTA_DATA(tb[RTA_EXPIRES]);
+	if (tb[RTA_EXPIRES]) {
+		unsigned long long temporary;
+
+		memcpy(&temporary, RTA_DATA(tb[RTA_EXPIRES]), sizeof(temporary));
+		m->lastused = temporary;
+	}
 
 	if (tb[RTA_MULTIPATH]) {
 		struct rtnexthop *rtnh =
