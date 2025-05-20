@@ -268,22 +268,6 @@ def test_isis_adjacencies_step1():
         )
 
 
-def test_configure_srv6_locators():
-    tgen = get_topogen()
-    tgen.gears["rt1"].vtysh_cmd(
-        "configure \n \
-         segment-routing \n \
-         traffic-eng \n \
-         segment-list srv6-header \n \
-         index 1 ipv6-address fc00:0:3:: \n \
-         index 2 ipv6-address fc00:0:5:: \n \
-         index 3 ipv6-address fc00:0:6:: \n \
-         exit \n \
-         exit \n \
-         exit"
-    )
-
-
 def test_rib_ipv6_step1():
     logger.info("Test (step 1): verify IPv6 RIB")
     tgen = get_topogen()
