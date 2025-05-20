@@ -766,10 +766,13 @@ int pathd_srte_policy_template_name_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY && args->event != NB_EV_VALIDATE)
 		return NB_OK;
 
-	policy = nb_running_get_entry(args->dnode, NULL, true);
 	name = yang_dnode_get_string(args->dnode, NULL);
 
 	if (args->event == NB_EV_VALIDATE) {
+		policy = nb_running_get_entry(args->dnode, NULL, false);
+		if (!policy)
+			return NB_OK;
+
 		if (CHECK_FLAG(policy->flags, F_POLICY_TEMPLATE)) {
 			flog_warn(
 				EC_LIB_NB_CB_CONFIG_VALIDATE,
@@ -793,6 +796,7 @@ int pathd_srte_policy_template_name_modify(struct nb_cb_modify_args *args)
 			return NB_OK;
 	}
 
+	policy = nb_running_get_entry(args->dnode, NULL, true);
 	strlcpy(policy->name, name, sizeof(policy->name));
 	SET_FLAG(policy->flags, F_POLICY_MODIFIED);
 
