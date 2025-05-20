@@ -27,6 +27,10 @@ int split_horizon = 1;
 unsigned short myseqno = 0;
 
 #define UNICAST_BUFSIZE 1024
+#define PARSE_OK         1     // Successfully parsed and processed
+#define PARSE_IGNORED    0     // Ignored TLV or no action needed
+#define PARSE_MALFORMED -1     // Malformed packet or serious error
+
 static int unicast_buffered = 0;
 static unsigned char *unicast_buffer = NULL;
 struct neighbour *unicast_neighbour = NULL;
@@ -117,10 +121,10 @@ network_prefix(int ae, int plen, unsigned int omitted,
     return ret;
 }
 
-static bool parse_update_subtlv(const unsigned char *a, int alen,
+static int parse_update_subtlv(const unsigned char *a, int alen,
 				unsigned char *channels)
 {
-    int type, len, i = 0;
+    int type, len, i = 0, ret = PARSE_OK;
 
     while(i < alen) {
         type = a[i];
@@ -131,12 +135,12 @@ static bool parse_update_subtlv(const unsigned char *a, int alen,
 
         if(i + 1 >= alen) {
             flog_err(EC_BABEL_PACKET, "Received truncated attributes.");
-	    return false;
+	    return PARSE_MALFORMED;
 	}
         len = a[i + 1];
         if(i + len + 2 > alen) {
             flog_err(EC_BABEL_PACKET, "Received truncated attributes.");
-	    return false;
+	    return PARSE_MALFORMED;
 	}
 
 	if (CHECK_FLAG(type, SUBTLV_MANDATORY)) {
@@ -149,7 +153,7 @@ static bool parse_update_subtlv(const unsigned char *a, int alen,
 		 */
 		debugf(BABEL_DEBUG_COMMON,
 		       "Received Mandatory bit set but this FRR version is not prepared to handle it at this point");
-		return true;
+		return PARSE_IGNORED;
 	} else if (type == SUBTLV_PADN) {
 		/* Nothing. */
 	} else if (type == SUBTLV_DIVERSITY) {
@@ -162,8 +166,9 @@ static bool parse_update_subtlv(const unsigned char *a, int alen,
 		}
 		if (memchr(a + i + 2, 0, len) != NULL) {
 			/* 0 is reserved. */
-			flog_err(EC_BABEL_PACKET, "Channel information contains 0!");
-			return false;
+			flog_err(EC_BABEL_PACKET,
+				 "Channel information contains 0!");
+                        return PARSE_MALFORMED;
 		}
 		memset(channels, 0, DIVERSITY_HOPS);
 		memcpy(channels, a + i + 2, len);
@@ -174,14 +179,14 @@ static bool parse_update_subtlv(const unsigned char *a, int alen,
 
 	i += len + 2;
     }
-    return false;
+    return ret;
 }
 
 static int
 parse_hello_subtlv(const unsigned char *a, int alen,
                    unsigned int *hello_send_us)
 {
-    int type, len, i = 0, ret = 0;
+    int type, len, i = 0, ret = PARSE_IGNORED;
 
     while(i < alen) {
         type = a[i];
@@ -193,13 +198,13 @@ parse_hello_subtlv(const unsigned char *a, int alen,
         if(i + 1 >= alen) {
             flog_err(EC_BABEL_PACKET,
 		      "Received truncated sub-TLV on Hello message.");
-            return -1;
+            return PARSE_MALFORMED;
         }
         len = a[i + 1];
         if(i + len + 2 > alen) {
             flog_err(EC_BABEL_PACKET,
 		      "Received truncated sub-TLV on Hello message.");
-            return -1;
+            return PARSE_MALFORMED;
         }
 
 	if (CHECK_FLAG(type, SUBTLV_MANDATORY)) {
@@ -212,13 +217,13 @@ parse_hello_subtlv(const unsigned char *a, int alen,
 		 */
 		debugf(BABEL_DEBUG_COMMON,
 		       "Received subtlv with Mandatory bit, this version of FRR is not prepared to handle this currently");
-		return -2;
+		return PARSE_IGNORED;
 	} else if (type == SUBTLV_PADN) {
 		/* Nothing to do. */
 	} else if (type == SUBTLV_TIMESTAMP) {
 		if (len >= 4) {
 			DO_NTOHL(*hello_send_us, a + i + 2);
-			ret = 1;
+			ret = PARSE_OK;
 		} else {
 			flog_err(
 				EC_BABEL_PACKET,
@@ -239,7 +244,7 @@ parse_ihu_subtlv(const unsigned char *a, int alen,
                  unsigned int *hello_send_us,
                  unsigned int *hello_rtt_receive_time)
 {
-    int type, len, i = 0, ret = 0;
+    int type, len, i = 0, ret = PARSE_IGNORED;
 
     while(i < alen) {
         type = a[i];
@@ -251,22 +256,33 @@ parse_ihu_subtlv(const unsigned char *a, int alen,
         if(i + 1 >= alen) {
             flog_err(EC_BABEL_PACKET,
 		      "Received truncated sub-TLV on IHU message.");
-            return -1;
+            return PARSE_MALFORMED;
         }
         len = a[i + 1];
         if(i + len + 2 > alen) {
             flog_err(EC_BABEL_PACKET,
 		      "Received truncated sub-TLV on IHU message.");
-            return -1;
+            return PARSE_MALFORMED;
         }
 
-        if(type == SUBTLV_PADN) {
+        if (type & SUBTLV_MANDATORY) {
+            /*
+             * RFC 8966 4.4
+             * If the mandatory bit is set, then the whole enclosing
+             * TLV MUST be silently ignored (except for updating the
+             * parser state by a Router-Id, Next Hop, or Update TLV, as
+             * described in the next section).
+             */
+            debugf(BABEL_DEBUG_COMMON,
+                   "Ignoring subtlv with Mandatory bit: Not supported");
+            return PARSE_IGNORED;
+        } else if(type == SUBTLV_PADN) {
             /* Nothing to do. */
         } else if(type == SUBTLV_TIMESTAMP) {
             if(len >= 8) {
                 DO_NTOHL(*hello_send_us, a + i + 2);
                 DO_NTOHL(*hello_rtt_receive_time, a + i + 6);
-                ret = 1;
+                ret = PARSE_OK;
             }
             else {
                 flog_err(EC_BABEL_PACKET,
@@ -512,11 +528,17 @@ parse_packet(const unsigned char *from, struct interface *ifp,
 			schedule_neighbours_check(interval * 15, 0);
 		/* Sub-TLV handling. */
 		if (len > 8) {
-			if (parse_hello_subtlv(message + 8, len - 6, &timestamp) > 0) {
-				neigh->hello_send_us = timestamp;
-				neigh->hello_rtt_receive_time = babel_now;
-				have_hello_rtt = 1;
-			}
+                        int ret = parse_hello_subtlv(message + 8, len - 6, &timestamp);
+                        if (ret == PARSE_OK) {
+                                neigh->hello_send_us = timestamp;
+                                neigh->hello_rtt_receive_time = babel_now;
+                                have_hello_rtt = 1;
+                        }
+                        else if (ret == PARSE_MALFORMED) {
+                                goto fail;
+                        } else if (ret == PARSE_IGNORED) {
+                                goto done;
+                        }
 		}
         } else if(type == MESSAGE_IHU) {
             unsigned short txcost, interval;
@@ -540,9 +562,14 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                     /* Multiply by 3/2 to allow neighbours to expire. */
                     schedule_neighbours_check(interval * 45, 0);
                 /* RTT sub-TLV. */
-                if(len > 10 + rc)
-                    parse_ihu_subtlv(message + 8 + rc, len - 6 - rc,
+                if(len > 10 + rc) {
+                    int ret = parse_ihu_subtlv(message + 8 + rc, len - 6 - rc,
                                      &hello_send_us, &hello_rtt_receive_time);
+                    if (ret == PARSE_IGNORED)
+                        goto done;
+                    else if (ret == PARSE_MALFORMED)
+                        goto fail;
+                }
             }
         } else if(type == MESSAGE_ROUTER_ID) {
             memcpy(router_id, message + 4, 8);
@@ -574,7 +601,6 @@ parse_packet(const unsigned char *from, struct interface *ifp,
             unsigned char channels[DIVERSITY_HOPS];
             unsigned short interval, seqno, metric;
             int rc, parsed_len;
-            bool ignore_update = false;
 
             DO_NTOHS(interval, message + 6);
             DO_NTOHS(seqno, message + 8);
@@ -661,15 +687,22 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                     channels[1] = 0;
                 }
 
-                if(parsed_len < len)
-					ignore_update =
-						parse_update_subtlv(message + 2 + parsed_len,
-						len - parsed_len, channels);
-	    }
-
-	    if (!ignore_update)
-		    update_route(router_id, prefix, plen, seqno, metric,
-				 interval, neigh, nh, channels, channels_len(channels));
+                if(parsed_len < len) {
+                    int ret = parse_update_subtlv(message + 2 + parsed_len,
+                                                  len - parsed_len, channels);
+                    if (ret == PARSE_MALFORMED) {
+                        goto fail;
+                    }
+                    else if (ret == PARSE_IGNORED) {
+                        goto done;
+                    }
+                    else {
+                        update_route(router_id, prefix, plen, seqno, metric,
+                                interval, neigh, nh, channels,
+                                channels_len(channels));
+                    }
+                }
+            }
 	} else if(type == MESSAGE_REQUEST) {
             unsigned char prefix[16], src_prefix[16], plen, src_plen;
             int rc, is_ss;
