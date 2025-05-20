@@ -471,31 +471,12 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 		vty_out(vty, "  Last update %s ago\n", buf);
 
 		if (show_ng) {
-			if (pic_nexthop) {
-				if (re->pic_nhe_id != 0) {
-					vty_out(vty, "  Nexthop Group ID: %u\n", re->pic_nhe_id);
-					vty_out(vty, "  PIC Context ID: %u\n", re->nhe_id);
-					if (re->pic_nhe_installed_id != 0 &&
-					    re->pic_nhe_installed_id != re->pic_nhe_id)
-						vty_out(vty, "  Installed Nexthop Group ID: %u\n",
-							re->pic_nhe_installed_id);
-					if (re->nhe_installed_id != 0 &&
-					    re->nhe_installed_id != re->nhe_id)
-						vty_out(vty, "  Installed PIC Context ID: %u\n",
-							re->pic_nhe_installed_id);
-				} else {
-					vty_out(vty, "  Nexthop Group ID: %u\n", re->nhe_id);
-					if (re->nhe_installed_id != 0 &&
-					    re->nhe_installed_id != re->nhe_id)
-						vty_out(vty, "  Installed Nexthop Group ID: %u\n",
-							re->pic_nhe_installed_id);
-				}
-			} else {
-				vty_out(vty, "  Nexthop Group ID: %u\n", re->nhe_id);
-				if (re->nhe_installed_id != 0 && re->nhe_id != re->nhe_installed_id)
-					vty_out(vty, "  Installed Nexthop Group ID: %u\n",
-						re->nhe_installed_id);
-			}
+			vty_out(vty, "  Nexthop Group ID: %u\n", re->nhe_id);
+			if (re->nhe_installed_id != 0
+			    && re->nhe_id != re->nhe_installed_id)
+				vty_out(vty,
+					"  Installed Nexthop Group ID: %u\n",
+					re->nhe_installed_id);
 		}
 
 		for (ALL_NEXTHOPS(re->nhe->nhg, nexthop)) {
@@ -603,16 +584,11 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 				    nexthop_group_active_nexthop_num(
 					    &(re->nhe->nhg)));
 		json_object_int_add(json_route, "nexthopGroupId", re->nhe_id);
-		if (re->pic_nhe_id != 0)
-			json_object_int_add(json_route, "picNexthopId", re->pic_nhe_id);
 
 		if (re->nhe_installed_id != 0)
 			json_object_int_add(json_route,
 					    "installedNexthopGroupId",
 					    re->nhe_installed_id);
-		if (re->pic_nhe_installed_id != 0)
-			json_object_int_add(json_route, "installedPicNexthopGroupId",
-					    re->pic_nhe_installed_id);
 
 		json_object_string_add(json_route, "uptime", up_str);
 
@@ -687,10 +663,8 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		len += vty_out(vty, " [%u/%u]", re->distance,
 			       re->metric);
 
-	if (show_ng) {
+	if (show_ng)
 		len += vty_out(vty, " (%u)", re->nhe_id);
-		len += vty_out(vty, " (pic_nh %u)", re->pic_nhe_id);
-	}
 
 	/* Nexthop information. */
 	for (ALL_NEXTHOPS_PTR(nhg, nexthop)) {
@@ -1092,7 +1066,6 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 	char time_left[MONOTIME_STRLEN];
 	json_object *json_dependants = NULL;
 	json_object *json_depends = NULL;
-	json_object *json_pic_dependants = NULL;
 	json_object *json_nexthop_array = NULL;
 	json_object *json_nexthops = NULL;
 	json_object *json = NULL;
@@ -1313,26 +1286,6 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 		if (json)
 			json_object_object_add(json, "dependents",
 					       json_dependants);
-		else
-			vty_out(vty, "\n");
-	}
-
-	if (nhe->pic_nhe)
-		vty_out(vty, "     pic nhe:%d\n", nhe->pic_nhe->id);
-	if (!zebra_nhg_pic_dependents_is_empty(nhe)) {
-		if (json)
-			json_pic_dependants = json_object_new_array();
-		else
-			vty_out(vty, "     PIC Dependents:");
-		frr_each (nhg_connected_tree, &nhe->picnh_dependents, rb_node_dep) {
-			if (json)
-				json_object_array_add(json_pic_dependants,
-						      json_object_new_int(rb_node_dep->nhe->id));
-			else
-				vty_out(vty, " (%u)", rb_node_dep->nhe->id);
-		}
-		if (json)
-			json_object_object_add(json, "pic_dependents", json_pic_dependants);
 		else
 			vty_out(vty, "\n");
 	}

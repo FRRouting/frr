@@ -88,8 +88,7 @@ struct nhg_hash_entry {
 	 * nhg(2)->nhg_dependents is 3 in the tree
 	 */
 	struct nhg_connected_tree_head nhg_depends, nhg_dependents;
-	struct nhg_connected_tree_head picnh_dependents;
-	struct nhg_hash_entry *pic_nhe;
+
 	struct event *timer;
 
 /*
@@ -172,15 +171,6 @@ struct nhg_hash_entry {
  * chooses this NHG then we can install it then.
  */
 #define NEXTHOP_GROUP_INITIAL_DELAY_INSTALL (1 << 9)
-
-/*
- * This flag is intended to control the addition of an
- * identifier when sending to the dplane.
- * For the kernel, this extra PIC next hop does not need
- * to be delivered to it. However, for devices using
- * FPM as the dplane, it is necessary to deliver this PIC next hop.
- */
-#define NEXTHOP_GROUP_PIC_NHT		    (1 << 10)
 };
 
 /* Upper 4 bits of the NHG are reserved for indicating the NHG type */
@@ -307,9 +297,6 @@ extern bool zebra_nhg_depends_is_empty(const struct nhg_hash_entry *nhe);
 extern unsigned int
 zebra_nhg_dependents_count(const struct nhg_hash_entry *nhe);
 extern bool zebra_nhg_dependents_is_empty(const struct nhg_hash_entry *nhe);
-extern unsigned int zebra_nhg_pic_dependents_count(const struct nhg_hash_entry *nhe);
-extern bool zebra_nhg_pic_dependents_is_empty(const struct nhg_hash_entry *nhe);
-
 
 /* Lookup ID, doesn't create */
 extern struct nhg_hash_entry *zebra_nhg_lookup_id(uint32_t id);
@@ -337,14 +324,13 @@ extern int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh, struct nh_grp 
 extern int zebra_nhg_kernel_del(uint32_t id, vrf_id_t vrf_id);
 
 /* Find an nhe based on a nexthop_group */
-extern struct nhg_hash_entry *zebra_nhg_rib_find(uint32_t id, struct nexthop_group *nhg,
-						 afi_t rt_afi, int type, bool pic);
+extern struct nhg_hash_entry *zebra_nhg_rib_find(uint32_t id,
+						 struct nexthop_group *nhg,
+						 afi_t rt_afi, int type);
 
 /* Find an nhe based on a route's nhe, used during route creation */
 struct nhg_hash_entry *
 zebra_nhg_rib_find_nhe(struct nhg_hash_entry *rt_nhe, afi_t rt_afi);
-extern bool zebra_pic_nhe_find(struct nhg_hash_entry **pic_nhe, /* return value */
-			       struct nhg_hash_entry *nhe, afi_t afi, bool from_dplane);
 
 
 /**
