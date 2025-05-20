@@ -308,35 +308,37 @@ def test_srv6_end_b6_encaps_within_locator_srv6_sid_manager():
         pytest.skip(tgen.errors)
 
     tgen.gears["rt1"].vtysh_cmd(
-        "configure \n \
-         ipv6 route fc00:0:6b::/48 fc00:0:6:: color 1 \n \
-         segment-routing \n \
-         traffic-eng \n \
-         segment-list srv6 \n \
-          index 1 ipv6-address fc00:0:2:: \n \
-          index 2 ipv6-address fc00:0:6:: \n \
-          exit \n \
-          policy color 1 endpoint fc00:0:6:: \n \
-           candidate-path preference 1 name srv6 explicit segment-list srv6 \n \
-         exit \n \
-        exit \n \
-        !"
+        """
+        configure
+        ipv6 route fc00:0:6b::/48 fc00:0:6:: color 1
+        segment-routing
+        traffic-eng
+         segment-list srv6
+          index 1 ipv6-address fc00:0:2::
+          index 2 ipv6-address fc00:0:6::
+          exit
+          policy color 1 endpoint fc00:0:6::
+           candidate-path preference 1 name srv6 explicit segment-list srv6
+         exit
+        exit
+        """
     )
 
     tgen.gears["rt2"].vtysh_cmd(
-        "configure \n \
-         segment-routing \n \
-         traffic-eng \n \
-          segment-list srv6-header \n \
-           index 1 ipv6-address fc00:0:4:: \n \
-           index 2 ipv6-address fc00:0:5:: \n \
-          exit \n \
-          policy color 1 endpoint fc00:0:6:: \n \
-           srv6-binding-sid fc00:0:2::128 \n \
-           candidate-path preference 1 name srv6 explicit segment-list srv6-header \n \
-         exit \n \
-        exit \n \
-        !"
+        """
+        configure
+         segment-routing
+         traffic-eng
+          segment-list srv6-header
+           index 1 ipv6-address fc00:0:4::
+           index 2 ipv6-address fc00:0:5::
+          exit
+          policy color 1 endpoint fc00:0:6::
+           srv6-binding-sid fc00:0:2::128
+           candidate-path preference 1 name srv6 explicit segment-list srv6-header
+         exit
+        exit
+        """
     )
 
     for rname in ["rt2"]:
@@ -358,18 +360,19 @@ def test_srv6_end_b6_encaps_outside_locator_no_srv6_sid_manager():
         pytest.skip(tgen.errors)
 
     tgen.gears["rt2"].vtysh_cmd(
-        "configure \n \
-		 segment-routing \n \
-		 traffic-eng \n \
-         policy color 1 endpoint fc00:0:6:: \n \
-           no srv6-binding-sid fc00:0:2::128 \n \
-         exit \n \
-         no use-srv6-sid-manager \n \
-		 policy color 1 endpoint fc00:0:6:: \n \
-		   srv6-binding-sid fc10:0:2::128 \n \
-         exit \n \
-		exit \n \
-		!"
+        """
+        configure
+         segment-routing
+          traffic-eng
+           policy color 1 endpoint fc00:0:6::
+            no srv6-binding-sid fc00:0:2::128
+           exit
+           no use-srv6-sid-manager
+           policy color 1 endpoint fc00:0:6::
+            srv6-binding-sid fc10:0:2::128
+           exit
+          exit
+        """
     )
 
     for rname in ["rt2"]:
