@@ -139,19 +139,6 @@
 extern "C" {
 #endif
 
-#ifndef HAVE_STRLCAT
-size_t strlcat(char *__restrict dest,
-	       const char *__restrict src, size_t destsize);
-#endif
-#ifndef HAVE_STRLCPY
-size_t strlcpy(char *__restrict dest,
-	       const char *__restrict src, size_t destsize);
-#endif
-
-#ifndef HAVE_EXPLICIT_BZERO
-void explicit_bzero(void *buf, size_t len);
-#endif
-
 /*
  * RFC 3542 defines several macros for using struct cmsghdr.
  * Here, we define those that are not present

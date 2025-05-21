@@ -1382,6 +1382,32 @@ AC_CHECK_FUNCS([ \
 	explicit_bzero \
 	])
 
+dnl note the trailing _ in the following macros; this is neccessary since
+dnl otherwise autoheader *replaces* the #define with the block...
+dnl
+dnl yes this might include stddef.h 3 times but who cares
+
+AH_VERBATIM(HAVE_STRLCAT_, [
+#ifndef HAVE_STRLCAT
+#include <stddef.h>
+size_t strlcat(char *__restrict dest,
+	       const char *__restrict src, size_t destsize);
+#endif
+])
+AH_VERBATIM(HAVE_STRLCPY_, [
+#ifndef HAVE_STRLCPY
+#include <stddef.h>
+size_t strlcpy(char *__restrict dest,
+	       const char *__restrict src, size_t destsize);
+#endif
+])
+AH_VERBATIM(HAVE_EXPLICIT_BZERO_, [
+#ifndef HAVE_EXPLICIT_BZERO
+#include <stddef.h>
+void explicit_bzero(void *buf, size_t len);
+#endif
+])
+
 AC_CHECK_MEMBERS([struct mmsghdr.msg_hdr], [], [], FRR_INCLUDES)
 
 dnl ##########################################################################
