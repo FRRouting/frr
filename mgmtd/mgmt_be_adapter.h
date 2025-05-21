@@ -175,25 +175,14 @@ extern int mgmt_be_send_txn_req(struct mgmt_be_client_adapter *adapter,
  * adaptr
  *    Backend adapter information.
  *
- * txn_id
- *    Unique transaction identifier.
- *
- * cfgdata_reqs
- *    An array of pointer to Mgmtd__YangCfgDataReq.
- *
- * num_reqs
- *    Length of the cfgdata_reqs array.
- *
- * end_of_data
- *    TRUE if the data from last batch, FALSE otherwise.
+ * msg
+ *    The already constructed message to send.
  *
  * Returns:
  *    0 on success, -1 on failure.
  */
 extern int mgmt_be_send_cfgdata_req(struct mgmt_be_client_adapter *adapter,
-				    uint64_t txn_id,
-				    Mgmtd__YangCfgDataReq **cfgdata_reqs,
-				    size_t num_reqs, bool end_of_data);
+				    struct mgmt_msg_cfg_req *msg);
 
 /*
  * Send config apply request to backend client.
