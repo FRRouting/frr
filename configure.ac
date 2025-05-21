@@ -1262,7 +1262,7 @@ FRR_INCLUDES
 
 AC_CHECK_HEADERS([netinet/in_var.h \
 	net/if_dl.h net/netopt.h \
-	inet/nd.h netinet/ip_icmp.h \
+	netinet/ip_icmp.h \
 	sys/sysctl.h sys/sockio.h sys/conf.h],
 	[], [], [FRR_INCLUDES])
 
@@ -1300,9 +1300,6 @@ FRR_INCLUDES
 # include <net/netopt.h>
 #endif
 #include <net/route.h>
-#ifdef HAVE_INET_ND_H
-# include <inet/nd.h>
-#endif
 #include <arpa/inet.h>
 /* Required for IDRP */
 #ifdef HAVE_NETINET_IP_ICMP_H
