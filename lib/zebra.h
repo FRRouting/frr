@@ -159,17 +159,6 @@ extern "C" {
 #warning "assuming 4-byte alignment for CMSG_LEN"
 #endif /* CMSG_LEN */
 
-
-/*  The definition of struct in_pktinfo is missing in old version of
-    GLIBC 2.1 (Redhat 6.1).  */
-#if defined(GNU_LINUX) && !defined(HAVE_STRUCT_IN_PKTINFO)
-struct in_pktinfo {
-	int ipi_ifindex;
-	struct in_addr ipi_spec_dst;
-	struct in_addr ipi_addr;
-};
-#endif
-
 /*
  * IP_HDRINCL / struct ip byte order
  *
