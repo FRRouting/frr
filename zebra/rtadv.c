@@ -1400,8 +1400,11 @@ static void rtadv_start_interface_events(struct zebra_vrf *zvrf,
 	}
 
 	adv_if = adv_if_add(zvrf, zif->ifp->name);
-	if (adv_if != NULL)
+	if (adv_if != NULL) {
+		rtadv_send_packet(zvrf->rtadv.sock, zif->ifp, RA_ENABLE);
+		wheel_add_item(zrouter.ra_wheel, zif->ifp);
 		return; /* Already added */
+	}
 
 	if (if_join_all_router(zvrf->rtadv.sock, zif->ifp)) {
 		/*Failed to join on 1st attempt, wait random amount of time between 1 ms 
@@ -1413,6 +1416,9 @@ static void rtadv_start_interface_events(struct zebra_vrf *zvrf,
 
 	if (adv_if_list_count(&zvrf->rtadv.adv_if) == 1)
 		rtadv_event(zvrf, RTADV_START, 0);
+
+	rtadv_send_packet(zvrf->rtadv.sock, zif->ifp, RA_ENABLE);
+	wheel_add_item(zrouter.ra_wheel, zif->ifp);
 }
 
 void ipv6_nd_suppress_ra_set(struct interface *ifp,
@@ -1461,7 +1467,6 @@ void ipv6_nd_suppress_ra_set(struct interface *ifp,
 					RTADV_NUM_FAST_REXMITS;
 			}
 
-			wheel_add_item(zrouter.ra_wheel, ifp);
 			rtadv_start_interface_events(zvrf, zif);
 		}
 	}
@@ -1581,19 +1586,24 @@ stream_failure:
  * ceasing to advertise and want to let our neighbors know.
  * RFC 4861 secion 6.2.5
  */
-void rtadv_stop_ra(struct interface *ifp)
+void rtadv_stop_ra(struct interface *ifp, bool if_down_event)
 {
 	struct zebra_if *zif;
 	struct zebra_vrf *zvrf;
 
-	zif = ifp->info;
-	zvrf = rtadv_interface_get_zvrf(ifp);
-
 	/*Try to delete from ra wheels */
 	wheel_remove_item(zrouter.ra_wheel, ifp);
 
+	zif = ifp->info;
+	zvrf = rtadv_interface_get_zvrf(ifp);
+
 	/*Turn off event for ICMPv6 join*/
 	event_cancel(&zif->icmpv6_join_timer);
+
+	if (if_down_event) {
+		/* Nothing to do more, return */
+		return;
+	}
 
 	if (zif->rtadv.AdvSendAdvertisements)
 		rtadv_send_packet(zvrf->rtadv.sock, ifp, RA_SUPPRESS);
@@ -1622,7 +1632,7 @@ void rtadv_stop_ra_all(void)
 				       rprefix)
 				rtadv_prefix_reset(zif, rprefix, rprefix);
 
-			rtadv_stop_ra(ifp);
+			rtadv_stop_ra(ifp, false);
 		}
 }
 
