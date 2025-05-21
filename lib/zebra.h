@@ -54,13 +54,6 @@
 #include <sys/sockio.h>
 #endif /* HAVE_SYS_SOCKIO_H */
 
-#ifndef HAVE_LIBCRYPT
-#ifdef HAVE_LIBCRYPTO
-#include <openssl/des.h>
-#      define crypt DES_crypt
-#endif
-#endif
-
 #include "openbsd-tree.h"
 
 #include <netinet/in.h>
