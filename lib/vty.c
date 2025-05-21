@@ -23,6 +23,13 @@
 #endif /* HAVE_LIBPCRE2_POSIX */
 #include <stdio.h>
 
+#ifndef HAVE_LIBCRYPT
+#ifdef HAVE_LIBCRYPTO
+#include <openssl/des.h>
+#define crypt DES_crypt
+#endif
+#endif
+
 #include "debug.h"
 #include "linklist.h"
 #include "frrevent.h"
