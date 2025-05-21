@@ -1339,14 +1339,12 @@ case "$host_os" in
     AC_MSG_RESULT([OpenBSD])
 
     AC_DEFINE([OPEN_BSD], [1], [OpenBSD])
-    AC_DEFINE([KAME], [1], [KAME IPv6])
     AC_DEFINE([BSD_V6_SYSCTL], [1], [BSD v6 sysctl to turn on and off forwarding])
     ;;
   *)
     AC_MSG_RESULT([BSD])
 
     AC_DEFINE([HAVE_NET_RT_IFLIST], [1], [NET_RT_IFLIST])
-    AC_DEFINE([KAME], [1], [KAME IPv6])
     AC_DEFINE([BSD_V6_SYSCTL], [1], [BSD v6 sysctl to turn on and off forwarding])
     ;;
 esac
