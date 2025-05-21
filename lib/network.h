@@ -10,9 +10,7 @@
 #ifdef HAVE_SYS_ENDIAN_H
 #include <sys/endian.h>
 #endif
-#ifdef HAVE_ENDIAN_H
 #include <endian.h>
-#endif
 
 #ifdef __cplusplus
 extern "C" {
