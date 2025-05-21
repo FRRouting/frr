@@ -4601,49 +4601,6 @@ dplane_route_update_internal(struct route_node *rn,
 #endif	/* !HAVE_NETLINK */
 		}
 
-		/*
-		 * If the old and new context type, and nexthop group id
-		 * are the same there is no need to send down a route replace
-		 * as that we know we have sent a nexthop group replace
-		 * or an upper level protocol has sent us the exact
-		 * same route again.
-		 */
-		if ((dplane_ctx_get_type(ctx) == dplane_ctx_get_old_type(ctx))
-		    && (dplane_ctx_get_nhe_id(ctx)
-			== dplane_ctx_get_old_nhe_id(ctx))
-		    && (dplane_ctx_get_nhe_id(ctx) >= ZEBRA_NHG_PROTO_LOWER)) {
-			struct nexthop *nexthop;
-
-			if (IS_ZEBRA_DEBUG_DPLANE)
-				zlog_debug(
-					"%s: Ignoring Route exactly the same",
-					__func__);
-
-			for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx),
-					      nexthop)) {
-				if (CHECK_FLAG(nexthop->flags,
-					       NEXTHOP_FLAG_RECURSIVE))
-					continue;
-
-				if (CHECK_FLAG(nexthop->flags,
-					       NEXTHOP_FLAG_DUPLICATE))
-					continue;
-
-				if (CHECK_FLAG(nexthop->flags,
-					       NEXTHOP_FLAG_ACTIVE))
-					SET_FLAG(nexthop->flags,
-						 NEXTHOP_FLAG_FIB);
-			}
-
-			if ((op == DPLANE_OP_ROUTE_UPDATE) && old_re && re &&
-			    (old_re != re) &&
-			    !CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED))
-				SET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
-
-			dplane_ctx_free(&ctx);
-			return ZEBRA_DPLANE_REQUEST_SUCCESS;
-		}
-
 		/* Enqueue context for processing */
 		ret = dplane_update_enqueue(ctx);
 	}

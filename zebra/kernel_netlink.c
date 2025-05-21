@@ -1412,8 +1412,16 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 
 	switch (dplane_ctx_get_op(ctx)) {
 
-	case DPLANE_OP_ROUTE_INSTALL:
 	case DPLANE_OP_ROUTE_UPDATE:
+		/* If an update is using the same NHG ID as the existing
+		 * route, don't send an update to the OS
+		 */
+		if (dplane_ctx_get_nhe_id(ctx) == dplane_ctx_get_old_nhe_id(ctx))
+			return FRR_NETLINK_SUCCESS;
+
+		fallthrough;
+
+	case DPLANE_OP_ROUTE_INSTALL:
 	case DPLANE_OP_ROUTE_DELETE:
 		return netlink_put_route_update_msg(bth, ctx);
 
