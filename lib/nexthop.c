@@ -1398,8 +1398,9 @@ void nexthop_json_helper(json_object *json_nexthop,
 							 ->seg[0]);
 			json_object_object_add(json_nexthop, "seg6", json_seg6);
 			json_object_string_add(json_nexthop, "srv6EncapBehavior",
-					       srv6_headend_behavior2str(
-						       nexthop->nh_srv6->seg6_segs->encap_behavior));
+					       srv6_headend_behavior2str(nexthop->nh_srv6->seg6_segs
+										 ->encap_behavior,
+									 false));
 		} else {
 			if (nexthop->nh_srv6->seg6_segs) {
 				json_segs = json_object_new_array();
@@ -1417,9 +1418,10 @@ void nexthop_json_helper(json_object *json_nexthop,
 				json_object_object_add(json_nexthop, "seg6",
 						       json_segs);
 				json_object_string_add(json_nexthop, "srv6EncapBehavior",
-						       srv6_headend_behavior2str(
-							       nexthop->nh_srv6->seg6_segs
-								       ->encap_behavior));
+						       srv6_headend_behavior2str(nexthop->nh_srv6
+											 ->seg6_segs
+											 ->encap_behavior,
+										 false));
 			}
 		}
 	}
@@ -1553,8 +1555,9 @@ void nexthop_vty_helper(struct vty *vty, const struct nexthop *nexthop,
 			if (nexthop->nh_srv6->seg6_segs->encap_behavior !=
 			    SRV6_HEADEND_BEHAVIOR_H_ENCAPS)
 				vty_out(vty, ", encap behavior %s",
-					srv6_headend_behavior2str(
-						nexthop->nh_srv6->seg6_segs->encap_behavior));
+					srv6_headend_behavior2str(nexthop->nh_srv6->seg6_segs
+									  ->encap_behavior,
+								  false));
 		}
 	}
 
