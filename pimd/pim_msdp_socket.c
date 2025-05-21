@@ -441,5 +441,5 @@ int pim_msdp_sock_connect(struct pim_msdp_peer *mp)
 	}
 
 	/* Connect to the remote mp. */
-	return (sockunion_connect(mp->fd, &su_peer, htons(PIM_MSDP_TCP_PORT), 0));
+	return sockunion_connect(mp->fd, &su_peer, htons(PIM_MSDP_TCP_PORT));
 }
