@@ -2271,19 +2271,28 @@ int mgmt_txn_notify_be_txn_reply(uint64_t txn_id, bool create, bool success,
 	return 0;
 }
 
-int mgmt_txn_notify_be_cfgdata_reply(uint64_t txn_id, bool success,
-				     char *error_if_any,
+int mgmt_txn_notify_be_cfgdata_reply(uint64_t txn_id, bool success, const char *error_if_any,
 				     struct mgmt_be_client_adapter *adapter)
 {
 	struct mgmt_txn_ctx *txn;
 	struct mgmt_commit_cfg_req *cmtcfg_req;
 
 	txn = mgmt_txn_id2ctx(txn_id);
-	if (!txn || txn->type != MGMTD_TXN_TYPE_CONFIG)
+	if (!txn) {
+		_log_err("CFG_REPLY from '%s' failed no TXN for txn-id: %Lu", adapter->name, txn_id);
 		return -1;
+	}
+	if (txn->type != MGMTD_TXN_TYPE_CONFIG) {
+		_log_err("CFG_REPLY from '%s' failed wrong txn TYPE %u for txn-id: %Lu",
+			 adapter->name, txn->type, txn_id);
+		return -1;
+	}
 
-	if (!txn->commit_cfg_req)
+	if (!txn->commit_cfg_req) {
+		_log_err("CFG_REPLY from '%s' failed no COMMITCFG_REQ for txn-id: %Lu",
+			 adapter->name, txn_id);
 		return -1;
+	}
 	cmtcfg_req = &txn->commit_cfg_req->req.commit_cfg;
 
 	if (!success) {
@@ -2291,9 +2300,8 @@ int mgmt_txn_notify_be_cfgdata_reply(uint64_t txn_id, bool success,
 			 adapter->name, txn->txn_id, error_if_any ? error_if_any : "None");
 		mgmt_txn_send_commit_cfg_reply(
 			txn, MGMTD_INTERNAL_ERROR,
-			error_if_any
-				? error_if_any
-				: "Internal error! Failed to download config data to backend!");
+			error_if_any ? error_if_any
+				     : "Internal error! Failed to download config data to backend!");
 		return 0;
 	}
 
@@ -2685,14 +2693,26 @@ int mgmt_txn_notify_error(struct mgmt_be_client_adapter *adapter,
 		return -1;
 	}
 
-	/* Find the request. */
-	FOREACH_TXN_REQ_IN_LIST (&txn->get_tree_reqs, txn_req)
-		if (txn_req->req_id == req_id)
-			break;
-	if (!txn_req)
-		FOREACH_TXN_REQ_IN_LIST (&txn->rpc_reqs, txn_req)
+	if (txn->type == MGMTD_TXN_TYPE_CONFIG) {
+		/*
+		 * XXX want to make sure this isn't an error from sending
+		 * cfg_apply_req, I think in that case we want to disconnect
+		 * earlier anyway
+		 */
+		txn_req = txn->commit_cfg_req;
+		if (txn_req)
+			return mgmt_txn_notify_be_cfgdata_reply(txn_id, false, errstr, adapter);
+	} else {
+		/* Find the request. */
+		FOREACH_TXN_REQ_IN_LIST (&txn->get_tree_reqs, txn_req)
 			if (txn_req->req_id == req_id)
 				break;
+		if (!txn_req)
+			FOREACH_TXN_REQ_IN_LIST (&txn->rpc_reqs, txn_req)
+				if (txn_req->req_id == req_id)
+					break;
+	}
+
 	if (!txn_req) {
 		_log_err("Error reply from %s for txn-id %" PRIu64 " cannot find req_id %" PRIu64,
 			 adapter->name, txn_id, req_id);
