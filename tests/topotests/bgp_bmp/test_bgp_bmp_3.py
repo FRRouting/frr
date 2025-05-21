@@ -9,15 +9,15 @@ test_bgp_bmp.py_3: Test BGP BMP functionalities
 
     +------+            +------+               +------+
     |      |            |      |               |      |
-    | BMP1 |------------|  R1  |---------------|  R2  |
-    |      |            |      |               |      |
-    +------+            +--+---+               +------+
-                           |
-                        +--+---+
-                        |      |
-                        |  R3  |
-                        |      |
-                        +------+
+    | BMP1 |------+-----|  R1  |---------------|  R2  |
+    |      |      |     |      |               |      |
+    +------+      |     +--+---+               +------+
+                  |        |
+    +------+      |     +--+---+
+    |      |      |     |      |
+    | BMP2 |------+     |  R3  |
+    |      |            |      |
+    +------+            +------+
 
 Setup two routers R1 and R2 with one link configured with IPv4 and
 IPv6 addresses.
@@ -46,6 +46,8 @@ from lib.bgp import bgp_configure_prefixes
 from .bgpbmp import (
     bmp_check_for_prefixes,
     bmp_check_for_peer_message,
+    bmp_display_seq,
+    bmp_get_seq,
     bmp_update_seq,
     bmp_reset_seq,
 )
@@ -61,6 +63,8 @@ LOC_RIB = "loc-rib"
 UPDATE_EXPECTED_JSON = False
 DEBUG_PCAP = False
 
+SEQ_BACKUP = 0
+
 
 def build_topo(tgen):
     tgen.add_router("r1import")
@@ -68,10 +72,14 @@ def build_topo(tgen):
     tgen.add_router("r3")  # CPE behind r1
 
     tgen.add_bmp_server("bmp1import", ip="192.0.2.10", defaultRoute="via 192.0.2.1")
+    tgen.add_bmp_server(
+        "bmp2import", ip="192.0.2.20", defaultRoute="via 192.0.2.1", port=1790
+    )
 
     switch = tgen.add_switch("s1")
     switch.add_link(tgen.gears["r1import"])
     switch.add_link(tgen.gears["bmp1import"])
+    switch.add_link(tgen.gears["bmp2import"])
 
     tgen.add_link(tgen.gears["r1import"], tgen.gears["r2"], "r1import-eth1", "r2-eth0")
     tgen.add_link(tgen.gears["r1import"], tgen.gears["r3"], "r1import-eth2", "r3-eth0")
@@ -124,7 +132,7 @@ def test_bgp_convergence():
     assert result is True, "BGP is not converging"
 
 
-def _test_prefixes_syncro(policy, vrf=None, step=1):
+def _test_prefixes_syncro(policy, vrf=None, step=1, bmp_name="bmp1import"):
     """
     Check that the given policy has syncronised the previously received BGP
     updates.
@@ -139,10 +147,10 @@ def _test_prefixes_syncro(policy, vrf=None, step=1):
         "update",
         policy,
         step,
-        tgen.gears["bmp1import"],
-        os.path.join(tgen.logdir, "bmp1import"),
+        tgen.gears[bmp_name],
+        os.path.join(tgen.logdir, bmp_name),
         tgen.gears["r1import"],
-        f"{CWD}/bmp1import",
+        f"{CWD}/{bmp_name}",
         UPDATE_EXPECTED_JSON,
         LOC_RIB,
     )
@@ -214,7 +222,7 @@ def _test_prefixes(policy, vrf=None, step=0):
         assert success, "Checking the updated prefixes has failed ! %s" % res
 
 
-def _test_peer_up(check_locrib=True):
+def _test_peer_up(check_locrib=True, bmp_name="bmp1import"):
     """
     Checking for BMP peers up messages
     """
@@ -231,8 +239,8 @@ def _test_peer_up(check_locrib=True):
         bmp_check_for_peer_message,
         peers,
         "peer up",
-        tgen.gears["bmp1import"],
-        os.path.join(tgen.logdir, "bmp1import", "bmp.log"),
+        tgen.gears[bmp_name],
+        os.path.join(tgen.logdir, bmp_name, "bmp.log"),
         is_rd_instance=True,
     )
     success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
@@ -271,6 +279,82 @@ def test_bmp_bgp_unicast():
     _test_prefixes(POST_POLICY, vrf="vrf1", step=1)
     logger.info("*** Unicast prefixes loc-rib logging ***")
     _test_prefixes(LOC_RIB, vrf="vrf1", step=1)
+
+
+def _test_r1import_update_networks(update=True):
+    """
+    Populate R3 with networks
+    """
+    tgen = get_topogen()
+
+    prefixes = ["172.31.0.77/32", "2001::1125/128"]
+    bgp_configure_prefixes(
+        tgen.gears["r3"],
+        65501,
+        "unicast",
+        prefixes,
+        vrf=None,
+        update=update,
+    )
+
+
+def test_r1import_add_networks():
+    _test_r1import_update_networks()
+
+
+def test_bmp_collector_bmp2_connect():
+    """
+    Check that BMP client reconnected to BMP collector
+    """
+    tgen = get_topogen()
+
+    tgen.gears["r1import"].vtysh_cmd(
+        """
+        configure terminal
+        router bgp 65501
+        bmp targets bmp1
+        bmp connect 192.0.2.20 port 1790 min-retry 100 max-retry 10000
+        """
+    )
+
+    def _bmp_check_bmp_state(router, bmp_collector, state):
+        output = router.cmd(
+            f'vtysh -c "show bmp" 2>/dev/null | grep {bmp_collector} | grep {state}'
+        )
+        if output == "":
+            return "not good"
+        return True
+
+    logger.info("Checking that BMP collector 192.0.2.20 is in Up state.")
+    test_func = partial(
+        _bmp_check_bmp_state, tgen.gears["r1import"], "192.0.2.20:1790", "Up"
+    )
+    success, _ = topotest.run_and_expect(test_func, True, count=15, wait=1)
+    assert success, "Checking that BMP collector 192.0.2.20 is in Up state, has failed."
+
+
+def test_bmp2_peer_up_start():
+    SEQ_BACKUP = bmp_get_seq()
+    bmp_reset_seq()
+    _test_peer_up(bmp_name="bmp2import")
+
+
+def test_bmp2_bgp_unicast():
+    """
+    Check the bmp logs.
+    """
+    logger.info("*** Unicast prefixes pre-policy logging ***")
+    _test_prefixes_syncro(PRE_POLICY, vrf="vrf1", bmp_name="bmp2import")
+    logger.info("*** Unicast prefixes post-policy logging ***")
+    _test_prefixes_syncro(POST_POLICY, vrf="vrf1", bmp_name="bmp2import")
+    logger.info("*** Unicast prefixes loc-rib logging ***")
+    _test_prefixes_syncro(LOC_RIB, vrf="vrf1", bmp_name="bmp2import")
+
+    bmp_reset_seq(seq_param=SEQ_BACKUP)
+
+
+def test_r1import_del_networks():
+    _test_r1import_update_networks(update=False)
 
 
 def test_peer_down():
