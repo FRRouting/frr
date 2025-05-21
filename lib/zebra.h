@@ -91,10 +91,6 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 
-#ifdef HAVE_INET_ND_H
-#include <inet/nd.h>
-#endif /* HAVE_INET_ND_H */
-
 #ifdef HAVE_NETINET_IN_VAR_H
 #include <netinet/in_var.h>
 #endif /* HAVE_NETINET_IN_VAR_H */
