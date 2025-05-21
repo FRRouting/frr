@@ -2336,7 +2336,7 @@ dnl ---------------------------
 dnl IRDP/pktinfo/icmphdr checks
 dnl ---------------------------
 
-AC_CHECK_TYPES([struct in_pktinfo], [
+AC_CHECK_TYPE([struct in_pktinfo], [
   AC_CHECK_TYPES([struct icmphdr], [
     IRDP=true
   ], [
