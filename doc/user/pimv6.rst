@@ -251,6 +251,10 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    Tell pim to receive MLD reports and Query on this interface. The default
    version is v2. This command is useful on a LHR.
 
+.. clicmd:: ipv6 mld require-router-alert
+
+   Only accept MLD reports with the router-alert IPv6 hop option.
+
 .. clicmd:: ipv6 mld join X:X::X:X [Y:Y::Y:Y]
 
    Join multicast group or source-group on an interface.
