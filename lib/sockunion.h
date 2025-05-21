@@ -116,8 +116,7 @@ extern int sockopt_ttl(int family, int sock, int ttl);
 extern int sockopt_minttl(int family, int sock, int minttl);
 extern int sockunion_socket(const union sockunion *su);
 extern const char *inet_sutop(const union sockunion *su, char *str);
-extern enum connect_result sockunion_connect(int fd, const union sockunion *su,
-					     unsigned short port, ifindex_t);
+extern enum connect_result sockunion_connect(int fd, const union sockunion *su, unsigned short port);
 extern union sockunion *sockunion_getsockname(int);
 extern union sockunion *sockunion_getpeername(int);
 extern union sockunion *sockunion_dup(const union sockunion *);

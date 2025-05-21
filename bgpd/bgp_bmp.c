@@ -2645,8 +2645,7 @@ static void bmp_active_connect(struct bmp_active *ba)
 		}
 
 
-		res = sockunion_connect(ba->socket, &ba->addrs[ba->addrpos],
-				      htons(ba->port), 0);
+		res = sockunion_connect(ba->socket, &ba->addrs[ba->addrpos], htons(ba->port));
 		switch (res) {
 		case connect_error:
 			zlog_warn("bmp[%s]: failed to connect to %pSU:%d",
