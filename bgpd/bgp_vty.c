@@ -20113,7 +20113,7 @@ int bgp_config_write(struct vty *vty)
 					bgp->srv6_locator_name);
 			if (bgp->srv6_encap_behavior != SRV6_HEADEND_BEHAVIOR_H_ENCAPS)
 				vty_out(vty, "  encap-behavior %s\n",
-					srv6_headend_behavior2str(bgp->srv6_encap_behavior));
+					srv6_headend_behavior2str(bgp->srv6_encap_behavior, true));
 			vty_endframe(vty, " exit\n");
 		}
 
