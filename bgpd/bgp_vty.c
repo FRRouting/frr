@@ -1497,27 +1497,6 @@ DEFUN_HIDDEN (no_bgp_local_mac,
 	return CMD_SUCCESS;
 }
 
-#if CONFDATE > 20250514
-CPP_NOTICE("Remove no_synchronization_cmd, no_auto_summary_cmd commands")
-#endif
-DEFUN (no_synchronization,
-       no_synchronization_cmd,
-       "no synchronization",
-       NO_STR
-       "Perform IGP synchronization\n")
-{
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_auto_summary,
-       no_auto_summary_cmd,
-       "no auto-summary",
-       NO_STR
-       "Enable automatic network number summarization\n")
-{
-	return CMD_SUCCESS;
-}
-
 /* "router bgp" commands. */
 DEFUN_NOSH (router_bgp,
        router_bgp_cmd,
@@ -20700,13 +20679,6 @@ void bgp_vty_init(void)
 	install_element(CONFIG_NODE, &bgp_graceful_restart_rib_stale_time_cmd);
 	install_element(CONFIG_NODE,
 			&no_bgp_graceful_restart_rib_stale_time_cmd);
-
-#if CONFDATE > 20250514
-	CPP_NOTICE("Remove no_synchronization_cmd, no_auto_summary_cmd commands")
-#endif
-	/* Dummy commands (Currently not supported) */
-	install_element(BGP_NODE, &no_synchronization_cmd);
-	install_element(BGP_NODE, &no_auto_summary_cmd);
 
 	/* "router bgp" commands. */
 	install_element(CONFIG_NODE, &router_bgp_cmd);
