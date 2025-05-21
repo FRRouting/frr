@@ -19,6 +19,13 @@ extern "C" {
 #define ZEBRA_ERR_RTNOEXIST             -4
 #define ZEBRA_ERR_KERNEL                -5
 
+#define IN6_LINKLOCAL_IFINDEX(a) ((a).s6_addr[2] << 8 | (a).s6_addr[3])
+#define SET_IN6_LINKLOCAL_IFINDEX(a, i)                                                            \
+	do {                                                                                       \
+		(a).s6_addr[2] = ((i) >> 8) & 0xff;                                                \
+		(a).s6_addr[3] = (i) & 0xff;                                                       \
+	} while (0)
+
 extern void rtm_read(struct rt_msghdr *);
 extern int ifam_read(struct ifa_msghdr *);
 extern int ifm_read(struct if_msghdr *);

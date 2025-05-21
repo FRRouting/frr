@@ -235,7 +235,6 @@ static int if_getaddrs(void)
 			mask = (struct sockaddr_in6 *)ifap->ifa_netmask;
 			prefixlen = ip6_masklen(mask->sin6_addr);
 
-#if defined(KAME)
 			if (IN6_IS_ADDR_LINKLOCAL(&addr->sin6_addr)) {
 				addr->sin6_scope_id =
 					ntohs(*(uint16_t *)&addr->sin6_addr
@@ -243,7 +242,6 @@ static int if_getaddrs(void)
 				addr->sin6_addr.s6_addr[2] =
 					addr->sin6_addr.s6_addr[3] = 0;
 			}
-#endif
 
 			connected_add_ipv6(ifp, flags, &addr->sin6_addr, NULL,
 					   prefixlen, NULL, METRIC_MAX);
