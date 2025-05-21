@@ -1134,10 +1134,7 @@ AC_CHECK_HEADERS([stropts.h sys/ksym.h \
 
 AC_CHECK_LIB([atomic], [main], [LIBS="$LIBS -latomic"], [], [])
 
-ac_stdatomic_ok=false
-AC_DEFINE([FRR_AUTOCONF_ATOMIC], [1], [did autoconf checks for atomic funcs])
 AC_CHECK_HEADER([stdatomic.h],[
-
   AC_MSG_CHECKING([whether _Atomic qualifier works])
   AC_LINK_IFELSE([AC_LANG_SOURCE([[
 #include <stdatomic.h>
@@ -1151,52 +1148,7 @@ int main(int argc, char **argv) {
     ac_stdatomic_ok=true
   ], [
     AC_MSG_RESULT([no])
-  ])
-])
-
-AS_IF([$ac_stdatomic_ok], [true], [
-  AC_MSG_CHECKING([for __atomic_* builtins])
-  AC_LINK_IFELSE([AC_LANG_SOURCE([[
-int main(int argc, char **argv) {
-  volatile int i = 1;
-  __atomic_store_n (&i, 0, __ATOMIC_RELEASE);
-  return __atomic_load_n (&i, __ATOMIC_ACQUIRE);
-}
-]])], [
-    AC_DEFINE([HAVE___ATOMIC], [1], [found __atomic builtins])
-    AC_MSG_RESULT([yes])
-  ], [
-    AC_MSG_RESULT([no])
-
-    dnl FreeBSD 9 has a broken stdatomic.h where _Atomic doesn't work
-    AC_MSG_CHECKING([for __sync_* builtins])
-    AC_LINK_IFELSE([AC_LANG_SOURCE([[
-int main(int argc, char **argv) {
-  volatile int i = 1;
-  __sync_fetch_and_sub (&i, 1);
-  return __sync_val_compare_and_swap (&i, 0, 1);
-}
-]])], [
-      AC_DEFINE([HAVE___SYNC], [1], [found __sync builtins])
-      AC_MSG_RESULT([yes])
-
-      AC_MSG_CHECKING([for __sync_swap builtin])
-      AC_LINK_IFELSE([AC_LANG_SOURCE([[
-int main(int argc, char **argv) {
-  volatile int i = 1;
-  return __sync_swap (&i, 2);
-}
-]])], [
-        AC_DEFINE([HAVE___SYNC_SWAP], 1, [found __sync_swap builtin])
-        AC_MSG_RESULT([yes])
-      ], [
-        AC_MSG_RESULT([no])
-      ])
-
-    ], [
-      AC_MSG_RESULT([no])
-      AC_MSG_FAILURE([stdatomic.h unavailable and $CC has neither __atomic nor __sync builtins])
-    ])
+    AC_MSG_ERROR([building FRR requires an ISO C11 compliant compiler with atomics support])
   ])
 ])
 
