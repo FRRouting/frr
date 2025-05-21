@@ -630,7 +630,7 @@ int pim_process_no_rp_cmd(struct vty *vty, const char *rp_str,
 	else
 		nb_cli_enqueue_change(vty, group_xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes_clear_pending(vty, NULL);
 }
 
 int pim_process_rp_plist_cmd(struct vty *vty, const char *rp_str,
