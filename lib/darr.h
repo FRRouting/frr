@@ -107,7 +107,27 @@ void *_darr__resize(void *a, uint count, size_t esize, struct memtype *mt);
 #define _darr_resize(A, C)	  _darr_resize_mt(A, C, MTYPE_DARR)
 
 /* Get the current capacity of the array */
-#define darr_cap(A) (((A) == NULL) ? 0 : _darr_meta(A)->cap)
+/* GCC 14.2 seems to trip a false-positive warning on this:
+ * lib/darr.h:110:55: warning: array subscript -1 is outside array bounds of 'char[]' [-Warray-bounds=]
+ *  110 | #define darr_cap(A) (((A) == NULL) ? 0 : _darr_meta(A)->cap)
+ *      |                                                       ^
+ * (...)
+ * lib/northbound_oper.c:450:9: note: in expansion of macro 'darr_in_strdup'
+ *  450 |         darr_in_strdup(xpath, xpath_in);
+ *      |         ^~~~~~~~~~~~~~
+ *
+ * Hence the warning-suppression pragmas here :( (added 2025-05-23)
+ * (and of course _Pragma gets clang-format confused...)
+ */
+/* clang-format off */
+#define darr_cap(A)                                                                                \
+	({                                                                                         \
+		_Pragma("GCC diagnostic push")                                                     \
+		_Pragma("GCC diagnostic ignored \"-Warray-bounds\"")                               \
+		(((A) == NULL) ? 0 : _darr_meta(A)->cap);                                          \
+		_Pragma("GCC diagnostic pop")                                                      \
+	})
+/* clang-format on */
 
 /* Get the current available expansion space */
 #define darr_avail(A) (((A) == NULL) ? 0 : (darr_cap(A) - darr_len(A)))
