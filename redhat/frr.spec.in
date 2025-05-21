@@ -338,8 +338,11 @@ Adds GRPC support to the individual FRR daemons.
 
 %build
 
+# Fix issue with D_FORTIFY_SOURCE on newer glibc (See Issue #18575)
+CFLAGS="%{optflags} -DINET_NTOP_NO_OVERRIDE"
+
 # For standard gcc verbosity, uncomment these lines:
-#CFLAGS="%{optflags} -Wall -Wsign-compare -Wpointer-arith"
+#CFLAGS="%{CFLAGS} -Wall -Wsign-compare -Wpointer-arith"
 #CFLAGS="${CFLAGS} -Wbad-function-cast -Wwrite-strings"
 
 # For ultra gcc verbosity, uncomment these lines also:
