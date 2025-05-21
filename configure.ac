@@ -1130,7 +1130,11 @@ dnl -------------------------
 dnl Check other header files.
 dnl -------------------------
 AC_CHECK_HEADERS([stropts.h sys/ksym.h \
-	linux/version.h asm/types.h endian.h sys/endian.h])
+	linux/version.h asm/types.h sys/endian.h])
+
+AC_CHECK_HEADER([endian.h], [], [
+  AC_MSG_ERROR([missing endian.h])
+])
 
 AC_CHECK_LIB([atomic], [main], [LIBS="$LIBS -latomic"], [], [])
 
@@ -2447,9 +2451,7 @@ AC_CHECK_DECLS([be32enc, be32dec], [], [], [
         #ifdef HAVE_SYS_ENDIAN_H
         #include <sys/endian.h>
         #endif
-        #ifdef HAVE_ENDIAN_H
         #include <endian.h>
-        #endif
 ])
 
 dnl --------------------------------------
