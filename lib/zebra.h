@@ -17,9 +17,6 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <ctype.h>
-#ifdef HAVE_STROPTS_H
-#include <stropts.h>
-#endif /* HAVE_STROPTS_H */
 #include <sys/types.h>
 #include <sys/param.h>
 #ifdef HAVE_SYS_SYSCTL_H
