@@ -12456,6 +12456,14 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 			}
 			vty_out(vty, "\n");
 		}
+
+		if (json) {
+			if (incremental_print) {
+				vty_out(vty, "\"pathCount\": %d", count);
+				vty_out(vty, ",");
+			} else
+				json_object_int_add(json, "pathCount", count);
+		}
 	}
 }
 
