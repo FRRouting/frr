@@ -1079,12 +1079,10 @@ void rtm_read(struct rt_msghdr *rtm)
 		else
 			p.prefixlen = ip6_masklen(mask.sin6.sin6_addr);
 
-#ifdef KAME
 		if (IN6_IS_ADDR_LINKLOCAL(&gate.sin6.sin6_addr)) {
 			ifindex = IN6_LINKLOCAL_IFINDEX(gate.sin6.sin6_addr);
 			SET_IN6_LINKLOCAL_IFINDEX(gate.sin6.sin6_addr, 0);
 		}
-#endif /* KAME */
 
 		if (!nh.type) {
 			nh.type = ifindex ? NEXTHOP_TYPE_IPV6_IFINDEX

@@ -165,8 +165,7 @@ int sockunion_sizeof(const union sockunion *su)
 }
 
 /* Performs a non-blocking connect().  */
-enum connect_result sockunion_connect(int fd, const union sockunion *peersu,
-				      unsigned short port, ifindex_t ifindex)
+enum connect_result sockunion_connect(int fd, const union sockunion *peersu, unsigned short port)
 {
 	int ret;
 	union sockunion su;
@@ -179,12 +178,6 @@ enum connect_result sockunion_connect(int fd, const union sockunion *peersu,
 		break;
 	case AF_INET6:
 		su.sin6.sin6_port = port;
-#ifdef KAME
-		if (IN6_IS_ADDR_LINKLOCAL(&su.sin6.sin6_addr) && ifindex) {
-			su.sin6.sin6_scope_id = ifindex;
-			SET_IN6_LINKLOCAL_IFINDEX(su.sin6.sin6_addr, ifindex);
-		}
-#endif /* KAME */
 		break;
 	}
 

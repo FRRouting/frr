@@ -41,9 +41,7 @@
 #ifdef HAVE_SYS_ENDIAN_H
 #include <sys/endian.h>
 #endif
-#ifdef HAVE_ENDIAN_H
 #include <endian.h>
-#endif
 
 /* misc include group */
 #include <stdarg.h>
@@ -55,13 +53,6 @@
 #ifdef HAVE_SYS_SOCKIO_H
 #include <sys/sockio.h>
 #endif /* HAVE_SYS_SOCKIO_H */
-
-#ifndef HAVE_LIBCRYPT
-#ifdef HAVE_LIBCRYPTO
-#include <openssl/des.h>
-#      define crypt DES_crypt
-#endif
-#endif
 
 #include "openbsd-tree.h"
 
@@ -90,10 +81,6 @@
 
 #include <netdb.h>
 #include <arpa/inet.h>
-
-#ifdef HAVE_INET_ND_H
-#include <inet/nd.h>
-#endif /* HAVE_INET_ND_H */
 
 #ifdef HAVE_NETINET_IN_VAR_H
 #include <netinet/in_var.h>
@@ -139,19 +126,6 @@
 extern "C" {
 #endif
 
-#ifndef HAVE_STRLCAT
-size_t strlcat(char *__restrict dest,
-	       const char *__restrict src, size_t destsize);
-#endif
-#ifndef HAVE_STRLCPY
-size_t strlcpy(char *__restrict dest,
-	       const char *__restrict src, size_t destsize);
-#endif
-
-#ifndef HAVE_EXPLICIT_BZERO
-void explicit_bzero(void *buf, size_t len);
-#endif
-
 /*
  * RFC 3542 defines several macros for using struct cmsghdr.
  * Here, we define those that are not present
@@ -184,17 +158,6 @@ void explicit_bzero(void *buf, size_t len);
 #define CMSG_LEN(l)         (_CMSG_DATA_ALIGN(sizeof(struct cmsghdr)) + (l))
 #warning "assuming 4-byte alignment for CMSG_LEN"
 #endif /* CMSG_LEN */
-
-
-/*  The definition of struct in_pktinfo is missing in old version of
-    GLIBC 2.1 (Redhat 6.1).  */
-#if defined(GNU_LINUX) && !defined(HAVE_STRUCT_IN_PKTINFO)
-struct in_pktinfo {
-	int ipi_ifindex;
-	struct in_addr ipi_spec_dst;
-	struct in_addr ipi_addr;
-};
-#endif
 
 /*
  * IP_HDRINCL / struct ip byte order

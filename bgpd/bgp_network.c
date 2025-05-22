@@ -793,7 +793,6 @@ enum connect_result bgp_connect(struct peer_connection *connection)
 
 	assert(!CHECK_FLAG(connection->thread_flags, PEER_THREAD_WRITES_ON));
 	assert(!CHECK_FLAG(connection->thread_flags, PEER_THREAD_READS_ON));
-	ifindex_t ifindex = 0;
 
 	if (peer->bgp->router_id.s_addr == INADDR_ANY) {
 		peer->last_reset = PEER_DOWN_ROUTER_ID_ZERO;
@@ -880,11 +879,6 @@ enum connect_result bgp_connect(struct peer_connection *connection)
 		return connect_error;
 	}
 
-	if (peer->conf_if || peer->ifname)
-		ifindex = ifname2ifindex(peer->conf_if ? peer->conf_if
-						       : peer->ifname,
-					 peer->bgp->vrf_id);
-
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [Event] Connect start to %s fd %d", peer->host,
 			   peer->host, connection->fd);
@@ -892,7 +886,7 @@ enum connect_result bgp_connect(struct peer_connection *connection)
 	/* Connect to the remote peer. */
 	enum connect_result res;
 
-	res = sockunion_connect(connection->fd, &connection->su, htons(peer->port), ifindex);
+	res = sockunion_connect(connection->fd, &connection->su, htons(peer->port));
 
 	if (connection->su_remote)
 		sockunion_free(connection->su_remote);

@@ -1130,14 +1130,15 @@ dnl -------------------------
 dnl Check other header files.
 dnl -------------------------
 AC_CHECK_HEADERS([stropts.h sys/ksym.h \
-	linux/version.h asm/types.h endian.h sys/endian.h])
+	linux/version.h asm/types.h sys/endian.h])
+
+AC_CHECK_HEADER([endian.h], [], [
+  AC_MSG_ERROR([missing endian.h])
+])
 
 AC_CHECK_LIB([atomic], [main], [LIBS="$LIBS -latomic"], [], [])
 
-ac_stdatomic_ok=false
-AC_DEFINE([FRR_AUTOCONF_ATOMIC], [1], [did autoconf checks for atomic funcs])
 AC_CHECK_HEADER([stdatomic.h],[
-
   AC_MSG_CHECKING([whether _Atomic qualifier works])
   AC_LINK_IFELSE([AC_LANG_SOURCE([[
 #include <stdatomic.h>
@@ -1151,52 +1152,7 @@ int main(int argc, char **argv) {
     ac_stdatomic_ok=true
   ], [
     AC_MSG_RESULT([no])
-  ])
-])
-
-AS_IF([$ac_stdatomic_ok], [true], [
-  AC_MSG_CHECKING([for __atomic_* builtins])
-  AC_LINK_IFELSE([AC_LANG_SOURCE([[
-int main(int argc, char **argv) {
-  volatile int i = 1;
-  __atomic_store_n (&i, 0, __ATOMIC_RELEASE);
-  return __atomic_load_n (&i, __ATOMIC_ACQUIRE);
-}
-]])], [
-    AC_DEFINE([HAVE___ATOMIC], [1], [found __atomic builtins])
-    AC_MSG_RESULT([yes])
-  ], [
-    AC_MSG_RESULT([no])
-
-    dnl FreeBSD 9 has a broken stdatomic.h where _Atomic doesn't work
-    AC_MSG_CHECKING([for __sync_* builtins])
-    AC_LINK_IFELSE([AC_LANG_SOURCE([[
-int main(int argc, char **argv) {
-  volatile int i = 1;
-  __sync_fetch_and_sub (&i, 1);
-  return __sync_val_compare_and_swap (&i, 0, 1);
-}
-]])], [
-      AC_DEFINE([HAVE___SYNC], [1], [found __sync builtins])
-      AC_MSG_RESULT([yes])
-
-      AC_MSG_CHECKING([for __sync_swap builtin])
-      AC_LINK_IFELSE([AC_LANG_SOURCE([[
-int main(int argc, char **argv) {
-  volatile int i = 1;
-  return __sync_swap (&i, 2);
-}
-]])], [
-        AC_DEFINE([HAVE___SYNC_SWAP], 1, [found __sync_swap builtin])
-        AC_MSG_RESULT([yes])
-      ], [
-        AC_MSG_RESULT([no])
-      ])
-
-    ], [
-      AC_MSG_RESULT([no])
-      AC_MSG_FAILURE([stdatomic.h unavailable and $CC has neither __atomic nor __sync builtins])
-    ])
+    AC_MSG_ERROR([building FRR requires an ISO C11 compliant compiler with atomics support])
   ])
 ])
 
@@ -1310,7 +1266,7 @@ FRR_INCLUDES
 
 AC_CHECK_HEADERS([netinet/in_var.h \
 	net/if_dl.h net/netopt.h \
-	inet/nd.h netinet/ip_icmp.h \
+	netinet/ip_icmp.h \
 	sys/sysctl.h sys/sockio.h sys/conf.h],
 	[], [], [FRR_INCLUDES])
 
@@ -1348,9 +1304,6 @@ FRR_INCLUDES
 # include <net/netopt.h>
 #endif
 #include <net/route.h>
-#ifdef HAVE_INET_ND_H
-# include <inet/nd.h>
-#endif
 #include <arpa/inet.h>
 /* Required for IDRP */
 #ifdef HAVE_NETINET_IP_ICMP_H
@@ -1387,14 +1340,12 @@ case "$host_os" in
     AC_MSG_RESULT([OpenBSD])
 
     AC_DEFINE([OPEN_BSD], [1], [OpenBSD])
-    AC_DEFINE([KAME], [1], [KAME IPv6])
     AC_DEFINE([BSD_V6_SYSCTL], [1], [BSD v6 sysctl to turn on and off forwarding])
     ;;
   *)
     AC_MSG_RESULT([BSD])
 
     AC_DEFINE([HAVE_NET_RT_IFLIST], [1], [NET_RT_IFLIST])
-    AC_DEFINE([KAME], [1], [KAME IPv6])
     AC_DEFINE([BSD_V6_SYSCTL], [1], [BSD v6 sysctl to turn on and off forwarding])
     ;;
 esac
@@ -1429,6 +1380,32 @@ AC_CHECK_FUNCS([ \
 	sendmmsg \
 	explicit_bzero \
 	])
+
+dnl note the trailing _ in the following macros; this is neccessary since
+dnl otherwise autoheader *replaces* the #define with the block...
+dnl
+dnl yes this might include stddef.h 3 times but who cares
+
+AH_VERBATIM(HAVE_STRLCAT_, [
+#ifndef HAVE_STRLCAT
+#include <stddef.h>
+size_t strlcat(char *__restrict dest,
+	       const char *__restrict src, size_t destsize);
+#endif
+])
+AH_VERBATIM(HAVE_STRLCPY_, [
+#ifndef HAVE_STRLCPY
+#include <stddef.h>
+size_t strlcpy(char *__restrict dest,
+	       const char *__restrict src, size_t destsize);
+#endif
+])
+AH_VERBATIM(HAVE_EXPLICIT_BZERO_, [
+#ifndef HAVE_EXPLICIT_BZERO
+#include <stddef.h>
+void explicit_bzero(void *buf, size_t len);
+#endif
+])
 
 AC_CHECK_MEMBERS([struct mmsghdr.msg_hdr], [], [], FRR_INCLUDES)
 
@@ -2359,7 +2336,7 @@ dnl ---------------------------
 dnl IRDP/pktinfo/icmphdr checks
 dnl ---------------------------
 
-AC_CHECK_TYPES([struct in_pktinfo], [
+AC_CHECK_TYPE([struct in_pktinfo], [
   AC_CHECK_TYPES([struct icmphdr], [
     IRDP=true
   ], [
@@ -2474,9 +2451,7 @@ AC_CHECK_DECLS([be32enc, be32dec], [], [], [
         #ifdef HAVE_SYS_ENDIAN_H
         #include <sys/endian.h>
         #endif
-        #ifdef HAVE_ENDIAN_H
         #include <endian.h>
-        #endif
 ])
 
 dnl --------------------------------------
