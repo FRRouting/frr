@@ -1129,7 +1129,7 @@ fi
 dnl -------------------------
 dnl Check other header files.
 dnl -------------------------
-AC_CHECK_HEADERS([stropts.h \
+AC_CHECK_HEADERS([ \
 	asm/types.h sys/endian.h])
 
 AC_CHECK_HEADER([endian.h], [], [
