@@ -32,9 +32,6 @@
 #ifdef HAVE_SYS_CONF_H
 #include <sys/conf.h>
 #endif /* HAVE_SYS_CONF_H */
-#ifdef HAVE_SYS_KSYM_H
-#include <sys/ksym.h>
-#endif /* HAVE_SYS_KSYM_H */
 #include <sys/time.h>
 #include <time.h>
 #include <inttypes.h>
