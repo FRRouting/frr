@@ -575,11 +575,6 @@ static int if_set_prefix6_ctx(const struct zebra_dplane_ctx *ctx)
 	addreq.ifra_lifetime.ia6t_vltime = 0xffffffff;
 	addreq.ifra_lifetime.ia6t_pltime = 0xffffffff;
 
-#ifdef HAVE_STRUCT_IF6_ALIASREQ_IFRA_LIFETIME
-	addreq.ifra_lifetime.ia6t_pltime = ND6_INFINITE_LIFETIME;
-	addreq.ifra_lifetime.ia6t_vltime = ND6_INFINITE_LIFETIME;
-#endif
-
 	ret = if_ioctl_ipv6(SIOCAIFADDR_IN6, (caddr_t)&addreq);
 	if (ret < 0)
 		return ret;

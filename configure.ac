@@ -2310,7 +2310,7 @@ AC_CHECK_TYPES([
 	struct sockaddr_dl,
 	struct vifctl, struct mfcctl, struct sioc_sg_req,
 	vifi_t, struct sioc_vif_req, struct igmpmsg,
-	struct ifaliasreq, struct if6_aliasreq, struct in6_aliasreq,
+	struct ifaliasreq, struct in6_aliasreq,
 	struct nd_opt_adv_interval,
 	struct nd_opt_homeagent_info, struct nd_opt_adv_interval,
 	struct nd_opt_rdnss, struct nd_opt_dnssl],
@@ -2319,7 +2319,6 @@ AC_CHECK_TYPES([
 AC_CHECK_MEMBERS([struct sockaddr.sa_len,
 	struct sockaddr_in.sin_len, struct sockaddr_un.sun_len,
 	struct sockaddr_dl.sdl_len,
-	struct if6_aliasreq.ifra_lifetime,
 	struct nd_opt_adv_interval.nd_opt_ai_type],
 	[], [], FRR_INCLUDES)
 
