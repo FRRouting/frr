@@ -1799,16 +1799,13 @@ AC_CHECK_MEMBERS([struct utsname.domainname], [], [], [#include <sys/utsname.h>]
 dnl ------------------
 dnl IPv6 header checks
 dnl ------------------
-AC_CHECK_HEADERS([netinet6/in6.h netinet/in6_var.h \
+AC_CHECK_HEADERS([netinet/in6_var.h \
 	netinet6/in6_var.h netinet6/nd6.h], [], [],
 	FRR_INCLUDES)
 
 m4_define([FRR_INCLUDES],dnl
 FRR_INCLUDES
-[#ifdef HAVE_NETINET6_IN6_H
-#include <netinet6/in6.h>
-#endif
-#ifdef HAVE_NETINET_IN6_VAR_H
+[#ifdef HAVE_NETINET_IN6_VAR_H
 #include <netinet/in6_var.h>
 #endif
 #include <netinet/icmp6.h>
