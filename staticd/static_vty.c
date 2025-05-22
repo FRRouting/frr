@@ -1612,7 +1612,7 @@ static void nexthop_cli_show(struct vty *vty, const struct lyd_node *route,
 
 		if (srv6_encap_behavior != SRV6_HEADEND_BEHAVIOR_H_ENCAPS || show_defaults)
 			vty_out(vty, " encap-behavior %s",
-				srv6_headend_behavior2str(srv6_encap_behavior));
+				srv6_headend_behavior2str(srv6_encap_behavior, true));
 	}
 
 	nexthop_vrf = yang_dnode_get_string(nexthop, "vrf");
