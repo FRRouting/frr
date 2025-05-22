@@ -1703,6 +1703,7 @@ struct peer {
 #define PEER_FLAG_BFD_STRICT (1ULL << 43)
 /* https://datatracker.ietf.org/doc/html/draft-ietf-idr-entropy-label */
 #define PEER_FLAG_SEND_NHC_ATTRIBUTE (1ULL << 44)
+#define PEER_FLAG_IP_TRANSPARENT     (1ULL << 45) /* ip-transparent */
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART

@@ -1766,6 +1766,15 @@ Configuring Peers
        neighbor foo update-source 192.168.0.1
        neighbor bar update-source lo0
 
+.. clicmd:: neighbor PEER ip-transparent
+
+   Use this command when you need to establish a BGP session with a
+   neighbor using an IP address that you do *not* own. Some typical use
+   cases include running BGP in a container without configuring the
+   address on a loopback interface, peering over a virtual (floating)
+   IP (VIP), or operating as a transparent IP firewall.
+   The BGP TCP session shall have a TCP source address that you set with
+   `neighbor PEER update-source A.B.C.D`.
 
 .. clicmd:: neighbor PEER default-originate [route-map WORD]
 
