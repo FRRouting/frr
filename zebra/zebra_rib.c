@@ -471,9 +471,6 @@ static void route_entry_attach_ref(struct route_entry *re,
 	re->nhe_id = new->id;
 	re->nhe_installed_id = 0;
 
-	if (new->pic_nhe)
-		re->pic_nhe_id = new->pic_nhe->id;
-
 	zebra_nhg_increment_ref(new);
 }
 
@@ -489,7 +486,6 @@ int route_entry_update_nhe(struct route_entry *re,
 
 		re->nhe_id = 0;
 		re->nhe_installed_id = 0;
-		re->pic_nhe_id = 0;
 		re->nhe = NULL;
 		goto done;
 	}
@@ -738,93 +734,6 @@ void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 	return;
 }
 
-bool zebra_update_pic_dep_nhe(struct nhg_hash_entry *pic_dep_nhe)
-{
-	struct nhg_connected *rb_node_dep = NULL;
-
-	frr_each_safe (nhg_connected_tree, &pic_dep_nhe->nhg_dependents, rb_node_dep) {
-		if (ZEBRA_DEBUG_DPLANE_DETAILED)
-			zlog_debug("%s: pic_dep_nhe %ul become invalid , update pic_dep_nhe dependents %ul",
-				   __func__, pic_dep_nhe->id, rb_node_dep->nhe->id);
-		UNSET_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_INSTALLED);
-		zebra_nhg_install_kernel(rb_node_dep->nhe, ZEBRA_ROUTE_MAX);
-	}
-
-	return true;
-}
-
-
-bool zebra_update_pic_nhe(struct route_node *rn)
-{
-	afi_t afi;
-	int ret = 0;
-	struct nhg_hash_entry *picnhe;
-	struct nexthop *nh = NULL;
-	struct nhg_hash_entry pic_nh_lookup = { 0 };
-	struct prefix *p;
-	struct nhg_connected *rb_node_dep = NULL;
-	struct rnh *rnh = NULL;
-
-	rnh = rn->info;
-	if (!rnh)
-		return false;
-
-	p = &rn->p;
-	afi = family2afi(p->family);
-	pic_nh_lookup.afi = afi;
-	/* Use a temporary nhe to find pic nh */
-	pic_nh_lookup.type = ZEBRA_ROUTE_NHG;
-	pic_nh_lookup.vrf_id = rnh->vrf_id;
-	SET_FLAG(pic_nh_lookup.flags, NEXTHOP_GROUP_PIC_NHT);
-	/* the nhg.nexthop is sorted */
-	switch (afi) {
-	case AFI_IP:
-		nh = nexthop_from_ipv4(&p->u.prefix4, NULL, rnh->vrf_id);
-		break;
-	case AFI_IP6:
-		nh = nexthop_from_ipv6(&p->u.prefix6, rnh->vrf_id);
-		break;
-	case AFI_UNSPEC:
-	case AFI_L2VPN:
-	case AFI_MAX:
-		return false;
-	}
-
-	SET_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE);
-	ret = nexthop_group_add_sorted_nodup(&pic_nh_lookup.nhg, nh);
-	if (!ret) {
-		nexthop_free(nh);
-		return false;
-	}
-
-	picnhe = hash_lookup(zrouter.nhgs, &pic_nh_lookup);
-
-	if (pic_nh_lookup.nhg.nexthop)
-		nexthops_free(pic_nh_lookup.nhg.nexthop);
-
-	if (!picnhe)
-		return false;
-
-	UNSET_FLAG(picnhe->flags, NEXTHOP_GROUP_VALID);
-
-	frr_each_safe (nhg_connected_tree, &picnhe->nhg_dependents, rb_node_dep) {
-		//zebra_nhg_set_invalid(rb_node_dep->nhe);
-		if (ZEBRA_DEBUG_DPLANE_DETAILED)
-			zlog_debug("%s: pic_nhe %ul become invalid during route %pRN deleted, update pic_nh dependents %ul",
-				   __func__, picnhe->id, rn, rb_node_dep->nhe->id);
-		UNSET_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_INSTALLED);
-		zebra_nhg_install_kernel(rb_node_dep->nhe, ZEBRA_ROUTE_MAX);
-	}
-
-	rb_node_dep = NULL;
-	frr_each_safe (nhg_connected_tree, &picnhe->picnh_dependents, rb_node_dep) {
-		UNSET_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_VALID);
-		zebra_update_pic_dep_nhe(rb_node_dep->nhe);
-	}
-
-	return true;
-}
-
 /*
  * rib_can_delete_dest
  *
@@ -862,12 +771,6 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq,
 {
 	rib_dest_t *dest = rib_dest_from_rnode(rn);
 	struct rnh *rnh;
-
-	if (pic_nexthop && dest && rt_delete) {
-		frr_each_safe (rnh_list, &dest->nht, rnh) {
-			zebra_update_pic_nhe(rnh->node);
-		}
-	}
 
 	/*
 	 * We are storing the rnh's associated with
@@ -5238,9 +5141,6 @@ static void rib_process_dplane_results(struct event *thread)
 			case DPLANE_OP_NH_INSTALL:
 			case DPLANE_OP_NH_UPDATE:
 			case DPLANE_OP_NH_DELETE:
-			case DPLANE_OP_PIC_NH_INSTALL:
-			case DPLANE_OP_PIC_NH_UPDATE:
-			case DPLANE_OP_PIC_NH_DELETE:
 				zebra_nhg_dplane_result(ctx);
 				break;
 
