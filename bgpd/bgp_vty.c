@@ -18427,6 +18427,34 @@ DEFUN(no_neighbor_tcp_mss, no_neighbor_tcp_mss_cmd,
 	return peer_tcp_mss_vty(vty, argv[peer_index]->arg, NULL);
 }
 
+DEFPY(neighbor_ip_transparent,
+      neighbor_ip_transparent_cmd,
+      "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor ip-transparent",
+      NO_STR
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Enable IP_TRANSPARENT on the BGP TCP socket\n")
+{
+	struct peer *peer;
+	int ret;
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (!peergroup_flag_check(peer, PEER_FLAG_UPDATE_SOURCE)) {
+		vty_out(vty, "%% Missing update-source\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (no)
+		ret = peer_flag_unset_vty(vty, neighbor, PEER_FLAG_IP_TRANSPARENT);
+	else
+		ret = peer_flag_set_vty(vty, neighbor, PEER_FLAG_IP_TRANSPARENT);
+
+	return bgp_vty_return(vty, ret);
+}
+
 DEFPY(bgp_retain_route_target, bgp_retain_route_target_cmd,
       "[no$no] bgp retain route-target all",
       NO_STR BGP_STR
@@ -19026,6 +19054,10 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 			vty_out(vty, " neighbor %s update-source %s\n", addr,
 				peer->update_if);
 	}
+
+	/* ip-transparent on/off */
+	if (peergroup_flag_check(peer, PEER_FLAG_IP_TRANSPARENT))
+		vty_out(vty, " neighbor %s ip-transparent\n", addr);
 
 	/* advertisement-interval */
 	if (peergroup_flag_check(peer, PEER_FLAG_ROUTEADV))
@@ -22219,6 +22251,8 @@ void bgp_vty_init(void)
 	/* tcp-mss command */
 	install_element(BGP_NODE, &neighbor_tcp_mss_cmd);
 	install_element(BGP_NODE, &no_neighbor_tcp_mss_cmd);
+
+	install_element(BGP_NODE, &neighbor_ip_transparent_cmd);
 
 	/* srv6 commands */
 	install_element(VIEW_NODE, &show_bgp_srv6_cmd);
