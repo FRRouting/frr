@@ -60,10 +60,6 @@
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
 
-#ifdef HAVE_NET_NETOPT_H
-#include <net/netopt.h>
-#endif /* HAVE_NET_NETOPT_H */
-
 #include <net/if.h>
 
 #ifdef HAVE_NET_IF_DL_H
