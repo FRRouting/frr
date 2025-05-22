@@ -1265,7 +1265,7 @@ FRR_INCLUDES
 ])dnl
 
 AC_CHECK_HEADERS([netinet/in_var.h \
-	net/if_dl.h net/netopt.h \
+	net/if_dl.h \
 	netinet/ip_icmp.h \
 	sys/sysctl.h sys/sockio.h sys/conf.h],
 	[], [], [FRR_INCLUDES])
@@ -1299,9 +1299,6 @@ FRR_INCLUDES
 #endif
 #ifdef HAVE_NET_IF_DL_H
 # include <net/if_dl.h>
-#endif
-#ifdef HAVE_NET_NETOPT_H
-# include <net/netopt.h>
 #endif
 #include <net/route.h>
 #include <arpa/inet.h>
