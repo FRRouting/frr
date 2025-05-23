@@ -1,9 +1,9 @@
 {
     "loc-rib": {
         "withdraw": {
-            "1.1.1.0/31": {
+            "10.1.1.0/31": {
                 "bmp_log_type": "withdraw",
-                "ip_prefix": "1.1.1.0/31",
+                "ip_prefix": "10.1.1.0/31",
                 "is_filtered": false,
                 "peer_asn": 65501,
                 "peer_bgp_id": "192.168.0.1",
@@ -12,9 +12,9 @@
                 "policy": "loc-rib",
                 "path_id": 0
             },
-            "3.3.3.0/31": {
+            "172.16.3.0/31": {
                 "bmp_log_type": "withdraw",
-                "ip_prefix": "3.3.3.0/31",
+                "ip_prefix": "172.16.3.0/31",
                 "is_filtered": false,
                 "peer_asn": 65501,
                 "peer_bgp_id": "192.168.0.1",
