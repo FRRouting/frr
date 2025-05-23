@@ -1,40 +1,40 @@
-NetBSD 6
-========================================
+NetBSD 10
+=========
 
-NetBSD 6 restrictions:
-----------------------
+NetBSD 10 restrictions:
+-----------------------
 
--  MPLS is not supported on ``NetBSD``. MPLS requires a Linux Kernel
-   (4.5 or higher). LDP can be built, but may have limited use without
-   MPLS
+-  While NetBSD supports MPLS, FRRouting does not have a backend suitable for
+   use with it.  MPLS is therefore not supported on NetBSD.  It may be possible
+   to adapt FRR's OpenBSD MPLS backend but noone has currently committed the
+   resources to do this.  LDP can be built, but will be of limited use.
+
+-  Similarly, multicast routing is not supported on NetBSD; ``pimd`` and
+   ``pim6d`` cannot be built.
 
 Install required packages
 -------------------------
 
-Configure Package location:
-
 ::
 
-    PKG_PATH="ftp://ftp.NetBSD.org/pub/pkgsrc/packages/NetBSD/`uname -m`/`uname -r`/All"
-    export PKG_PATH
-
-Add packages:
-
-::
-
-    sudo pkg_add git autoconf automake libtool gmake openssl \
-       pkg-config json-c py36-test python36 py36-sphinx \
-       protobuf-c
+    sudo pkgin install \
+        git openssl \
+        autoconf automake libtool gmake gtexinfo pkg-config \
+        json-c protobuf-c libyang2 libcares \
+        bison flex python313 py313-test py313-sphinx
 
 Install SSL Root Certificates (for git https access):
 
 ::
 
-    sudo pkg_add mozilla-rootcerts
+    sudo pkgin install mozilla-rootcerts
     sudo touch /etc/openssl/openssl.cnf
     sudo mozilla-rootcerts install
 
-.. include:: building-libyang.rst
+
+A source build of libyang is not currently necessary on NetBSD, the packaged
+version is sufficiently new and can be used.
+
 
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
@@ -60,11 +60,11 @@ an example)
     git clone https://github.com/frrouting/frr.git frr
     cd frr
     ./bootstrap.sh
-    MAKE=gmake
+    export MAKE=gmake
     export LDFLAGS="-L/usr/pkg/lib -R/usr/pkg/lib"
     export CPPFLAGS="-I/usr/pkg/include"
     ./configure \
-        --sysconfdir=/usr/pkg/etc \
+        --prefix=/usr/pkg \
         --localstatedir=/var \
         --enable-pkgsrcrcdir=/usr/pkg/share/examples/rc.d \
         --enable-multipath=64 \
@@ -74,6 +74,8 @@ an example)
         --enable-configfile-mask=0640 \
         --enable-logfile-mask=0640 \
         --enable-fpm \
+        --disable-pimd \
+        --disable-pim6d \
         --with-pkg-git-version \
         --with-pkg-extra-version=-MyOwnFRRVersion
     gmake
@@ -85,19 +87,11 @@ Create empty FRR configuration files
 
 ::
 
-    sudo mkdir /var/log/frr
     sudo mkdir /usr/pkg/etc/frr
-    sudo touch /usr/pkg/etc/frr/zebra.conf
-    sudo touch /usr/pkg/etc/frr/bgpd.conf
-    sudo touch /usr/pkg/etc/frr/ospfd.conf
-    sudo touch /usr/pkg/etc/frr/ospf6d.conf
-    sudo touch /usr/pkg/etc/frr/isisd.conf
-    sudo touch /usr/pkg/etc/frr/ripd.conf
-    sudo touch /usr/pkg/etc/frr/ripngd.conf
-    sudo touch /usr/pkg/etc/frr/pimd.conf
+    sudo touch /usr/pkg/etc/frr/frr.conf
     sudo chown -R frr:frr /usr/pkg/etc/frr
     sudo touch /usr/local/etc/frr/vtysh.conf
-    sudo chown frr:frrvty /usr/pkg/etc/frr/*.conf
+    sudo chown frr:frrvty /usr/pkg/etc/frr/vtysh.conf
     sudo chmod 640 /usr/pkg/etc/frr/*.conf
 
 Enable IP & IPv6 forwarding
