@@ -8,6 +8,8 @@
 
 #include <typesafe.h>
 
+struct frregex;
+
 #define ASPATH_SEQ_NUMBER_AUTO -1
 
 enum as_filter_type { AS_FILTER_DENY, AS_FILTER_PERMIT };
@@ -19,7 +21,7 @@ struct as_filter {
 
 	enum as_filter_type type;
 
-	regex_t *reg;
+	struct frregex *reg;
 	char *reg_str;
 
 	/* Sequence number. */

@@ -48,6 +48,7 @@
 #include "northbound_cli.h"
 #include "network.h"
 #include "routemap.h"
+#include "frregex_real.h"
 
 #include "frrscript.h"
 

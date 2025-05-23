@@ -29,6 +29,7 @@
 #include "lib_errors.h"
 #include "zclient.h"
 #include "frrdistance.h"
+#include "frregex_real.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_nhc.h"
@@ -12528,7 +12529,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 					continue;
 			}
 			if (type == bgp_show_type_regexp) {
-				regex_t *regex = output_arg;
+				struct frregex *regex = output_arg;
 
 				if (bgp_regexec(regex, pi->attr->aspath)
 				    == REG_NOMATCH)
@@ -14429,7 +14430,7 @@ static int bgp_show_regexp(struct vty *vty, struct bgp *bgp, const char *regstr,
 			   afi_t afi, safi_t safi, enum bgp_show_type type,
 			   bool use_json)
 {
-	regex_t *regex;
+	struct frregex *regex;
 	int rc;
 	uint16_t show_flags = 0;
 

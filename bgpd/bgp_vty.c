@@ -29,6 +29,7 @@
 #include "filter.h"
 #include "frrstr.h"
 #include "asn.h"
+#include "frregex_real.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr_evpn.h"
@@ -11890,9 +11891,8 @@ DEFUN (show_bgp_memory,
 
 	/* Other */
 	if ((count = mtype_stats_alloc(MTYPE_BGP_REGEXP)))
-		vty_out(vty, "%ld compiled regexes, using %s of memory\n",
-			count, mtype_memstr(memstrbuf, sizeof(memstrbuf),
-					    count * sizeof(regex_t)));
+		vty_out(vty, "%ld compiled regexes, using %s of memory\n", count,
+			mtype_memstr(memstrbuf, sizeof(memstrbuf), count * sizeof(struct frregex)));
 	return CMD_SUCCESS;
 }
 

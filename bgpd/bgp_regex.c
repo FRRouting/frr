@@ -10,6 +10,7 @@
 #include "memory.h"
 #include "queue.h"
 #include "filter.h"
+#include "frregex_real.h"
 
 #include "bgpd.h"
 #include "bgp_aspath.h"
@@ -20,7 +21,7 @@
 
    (^|[,{}() ]|$) */
 
-regex_t *bgp_regcomp(const char *regstr)
+struct frregex *bgp_regcomp(const char *regstr)
 {
 	/* Convert _ character to generic regular expression. */
 	int i, j;
@@ -29,7 +30,7 @@ regex_t *bgp_regcomp(const char *regstr)
 	char *magic_str;
 	char magic_regexp[] = "(^|[,{}() ]|$)";
 	int ret;
-	regex_t *regex;
+	struct frregex *regex;
 
 	len = strlen(regstr);
 	for (i = 0; i < len; i++)
@@ -48,9 +49,9 @@ regex_t *bgp_regcomp(const char *regstr)
 	}
 	magic_str[j] = '\0';
 
-	regex = XMALLOC(MTYPE_BGP_REGEXP, sizeof(regex_t));
+	regex = XMALLOC(MTYPE_BGP_REGEXP, sizeof(*regex));
 
-	ret = regcomp(regex, magic_str, REG_EXTENDED | REG_NOSUB);
+	ret = regcomp(&regex->real, magic_str, REG_EXTENDED | REG_NOSUB);
 
 	XFREE(MTYPE_TMP, magic_str);
 
@@ -62,13 +63,13 @@ regex_t *bgp_regcomp(const char *regstr)
 	return regex;
 }
 
-int bgp_regexec(regex_t *regex, struct aspath *aspath)
+int bgp_regexec(struct frregex *regex, struct aspath *aspath)
 {
-	return regexec(regex, aspath->str, 0, NULL, 0);
+	return regexec(&regex->real, aspath->str, 0, NULL, 0);
 }
 
-void bgp_regex_free(regex_t *regex)
+void bgp_regex_free(struct frregex *regex)
 {
-	regfree(regex);
+	regfree(&regex->real);
 	XFREE(MTYPE_BGP_REGEXP, regex);
 }

@@ -11,16 +11,6 @@
 #include <lib/version.h>
 #include <sys/types.h>
 #include <sys/types.h>
-#ifdef HAVE_LIBPCRE2_POSIX
-#ifndef _FRR_PCRE2_POSIX
-#define _FRR_PCRE2_POSIX
-#include <pcre2posix.h>
-#endif /* _FRR_PCRE2_POSIX */
-#elif defined(HAVE_LIBPCREPOSIX)
-#include <pcreposix.h>
-#else
-#include <regex.h>
-#endif /* HAVE_LIBPCRE2_POSIX */
 #include <stdio.h>
 
 #ifndef HAVE_LIBCRYPT
@@ -51,6 +41,7 @@
 #include "printfrr.h"
 #include "json.h"
 #include "sockopt.h"
+#include "frregex_real.h"
 
 #include <arpa/telnet.h>
 #include <termios.h>
@@ -63,6 +54,7 @@ DEFINE_MTYPE_STATIC(LIB, VTY, "VTY");
 DEFINE_MTYPE_STATIC(LIB, VTY_SERV, "VTY server");
 DEFINE_MTYPE_STATIC(LIB, VTY_OUT_BUF, "VTY output buffer");
 DEFINE_MTYPE_STATIC(LIB, VTY_HIST, "VTY history");
+DEFINE_MTYPE_STATIC(LIB, VTY_REGEX, "VTY filter regex");
 
 DECLARE_DLIST(vtys, struct vty, itm);
 
@@ -239,18 +231,20 @@ bool vty_set_include(struct vty *vty, const char *regexp)
 
 	if (!regexp) {
 		if (vty->filter) {
-			regfree(&vty->include);
+			regfree(&vty->include->real);
+			XFREE(MTYPE_VTY_REGEX, vty->include);
 			vty->filter = false;
 		}
 		return true;
 	}
 
-	errcode = regcomp(&vty->include, regexp,
-			  REG_EXTENDED | REG_NEWLINE | REG_NOSUB);
+	vty->include = XCALLOC(MTYPE_VTY_REGEX, sizeof(*vty->include));
+	errcode = regcomp(&vty->include->real, regexp, REG_EXTENDED | REG_NEWLINE | REG_NOSUB);
 	if (errcode) {
 		ret = false;
-		regerror(errcode, &vty->include, errbuf, sizeof(errbuf));
+		regerror(errcode, &vty->include->real, errbuf, sizeof(errbuf));
 		vty_out(vty, "%% Regex compilation error: %s\n", errbuf);
+		XFREE(MTYPE_VTY_REGEX, vty->include);
 	} else {
 		vty->filter = true;
 	}
@@ -299,7 +293,7 @@ int vty_out(struct vty *vty, const char *format, ...)
 			buffer_reset(vty->lbuf);
 			XFREE(MTYPE_TMP, lines->index[0]);
 			vector_set_index(lines, 0, bstr);
-			frrstr_filter_vec(lines, &vty->include);
+			frrstr_filter_vec(lines, vty->include);
 			vector_compact(lines);
 			/*
 			 * Consider the string "foo\n". If the regex is an empty string
