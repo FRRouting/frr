@@ -28,10 +28,6 @@ module frr-staticd {
     prefix frr-vrf;
   }
 
-  import ietf-srv6-types {
-    prefix srv6-types;
-  }
-
   organization
     "FRRouting";
   contact
@@ -70,6 +66,7 @@ module frr-staticd {
   revision 2019-12-03 {
     description
       "Initial revision.";
+    reference "FRRouting";
   }
 
   identity staticd {
@@ -79,8 +76,12 @@ module frr-staticd {
   }
 
   grouping staticd-prefix-attributes {
+    description
+      "Grouping for staticd prefix attributes.";
     list path-list {
       key "table-id distance";
+      description
+        "List of paths associated with a staticd prefix.";
       leaf table-id {
         type uint32;
         description
@@ -105,9 +106,6 @@ module frr-staticd {
   }
 
   typedef srv6-behavior-codepoint {
-    description
-      "SRv6 Endpoint Behaviors Codepoints as per
-      https://www.iana.org/assignments/segment-routing/segment-routing.xhtml.";
     type enumeration {
       enum End {
         value 1;
@@ -160,9 +158,14 @@ module frr-staticd {
           "This enum indicates End.DT46 with NEXT-CSID endpoint behavior.";
       }
     }
+    description
+      "SRv6 Endpoint Behaviors Codepoints as per
+      https://www.iana.org/assignments/segment-routing/segment-routing.xhtml.";
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol" {
+    description
+      "Augments the control-plane-protocol container with staticd pseudo-protocol instance.";
     container staticd {
       when "../frr-rt:type = 'frr-staticd:staticd'" {
         description
@@ -173,6 +176,12 @@ module frr-staticd {
         "Support for a 'staticd' pseudo-protocol instance
          consists of a list of routes.";
       list route-list {
+        /* note dst-src routes are semantically invalid in MRIB */
+        must "afi-safi = 'frr-rt:ipv6-unicast'
+           or afi-safi = 'frr-rt:ipv6-labeled-unicast'
+           or afi-safi = 'frr-rt:l3vpn-ipv6-unicast'
+           or src-prefix = '::/0'
+        ";
         key "prefix src-prefix afi-safi";
         description
           "List of staticd IP routes.";
@@ -193,22 +202,18 @@ module frr-staticd {
           description
             "AFI-SAFI type.";
         }
-        /* note dst-src routes are semantically invalid in MRIB */
-        must "afi-safi = 'frr-rt:ipv6-unicast'
-           or afi-safi = 'frr-rt:ipv6-labeled-unicast'
-           or afi-safi = 'frr-rt:l3vpn-ipv6-unicast'
-           or src-prefix = '::/0'
-        ";
 
         uses staticd-prefix-attributes {
           augment "path-list/frr-nexthops/nexthop" {
+            description
+              "Augments the nexthop container with BFD monitoring options.";
             container bfd-monitoring {
-              description "BFD monitoring options.";
-              presence
-                "Present if BFD configuration is available.";
-
               when "../nh-type = 'ip4' or ../nh-type = 'ip4-ifindex' or
                     ../nh-type = 'ip6' or ../nh-type = 'ip6-ifindex'";
+              presence
+                "Present if BFD configuration is available.";
+              description "BFD monitoring options.";
+
               uses frr-bfdd:bfd-monitoring;
             }
           }
@@ -225,9 +230,9 @@ module frr-staticd {
             description
               "This container lists the SRv6 Static SIDs instantiated on the local node.";
             list sid {
+              key "sid";
               description
                 "List of SRv6 Static SIDs.";
-              key "sid";
               leaf sid {
                 type inet:ipv6-prefix;
                 description
@@ -250,6 +255,8 @@ module frr-staticd {
               }
               list paths {
                 key "path-index";
+                description
+                  "List of paths for the SRv6 Static SID.";
                 leaf path-index {
                   type uint8;
                   description
