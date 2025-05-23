@@ -533,8 +533,6 @@ int if_unset_flags(struct interface *ifp, uint64_t flags)
 }
 
 #ifndef LINUX_IPV6 /* Netlink has its own code */
-
-#ifdef HAVE_STRUCT_IN6_ALIASREQ
 /*
  * Helper for interface-addr install, non-netlink
  */
@@ -615,19 +613,4 @@ static int if_unset_prefix6_ctx(const struct zebra_dplane_ctx *ctx)
 		return ret;
 	return 0;
 }
-#else
-/* The old, pre-dataplane code here just returned, so we're retaining that
- * choice.
- */
-static int if_set_prefix6_ctx(const struct zebra_dplane_ctx *ctx)
-{
-	return 0;
-}
-
-static int if_unset_prefix6_ctx(const struct zebra_dplane_ctx *ctx)
-{
-	return 0;
-}
-#endif /* HAVE_STRUCT_IN6_ALIASREQ */
-
 #endif /* LINUX_IPV6 */

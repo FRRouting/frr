@@ -2310,7 +2310,7 @@ AC_CHECK_TYPES([
 	struct sockaddr_dl,
 	struct vifctl, struct mfcctl, struct sioc_sg_req,
 	vifi_t, struct sioc_vif_req, struct igmpmsg,
-	struct ifaliasreq, struct in6_aliasreq,
+	struct ifaliasreq,
 	struct nd_opt_adv_interval,
 	struct nd_opt_homeagent_info, struct nd_opt_adv_interval,
 	struct nd_opt_rdnss, struct nd_opt_dnssl],
