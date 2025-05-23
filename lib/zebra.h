@@ -19,13 +19,6 @@
 #include <ctype.h>
 #include <sys/types.h>
 #include <sys/param.h>
-#ifdef HAVE_SYS_SYSCTL_H
-#ifdef GNU_LINUX
-#include <linux/types.h>
-#else
-#include <sys/sysctl.h>
-#endif
-#endif /* HAVE_SYS_SYSCTL_H */
 #ifdef HAVE_SYS_CONF_H
 #include <sys/conf.h>
 #endif /* HAVE_SYS_CONF_H */
