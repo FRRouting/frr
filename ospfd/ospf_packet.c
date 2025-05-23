@@ -6,6 +6,10 @@
 
 #include <zebra.h>
 
+#ifndef __linux__
+#include <net/if_dl.h>
+#endif
+
 #include "monotime.h"
 #include "frrevent.h"
 #include "memory.h"

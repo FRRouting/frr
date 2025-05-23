@@ -1251,7 +1251,6 @@ m4_define([FRR_INCLUDES],
 ])dnl
 
 AC_CHECK_HEADERS([netinet/in_var.h \
-	net/if_dl.h \
 	netinet/ip_icmp.h],
 	[], [], [FRR_INCLUDES])
 
@@ -1282,7 +1281,7 @@ FRR_INCLUDES
 #ifdef HAVE_NETINET_IN_VAR_H
 # include <netinet/in_var.h>
 #endif
-#ifdef HAVE_NET_IF_DL_H
+#ifndef __linux__
 # include <net/if_dl.h>
 #endif
 #include <net/route.h>
