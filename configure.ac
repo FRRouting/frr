@@ -1797,15 +1797,12 @@ dnl ------------------
 dnl IPv6 header checks
 dnl ------------------
 AC_CHECK_HEADERS([ \
-	netinet6/in6_var.h netinet6/nd6.h], [], [],
+	netinet6/nd6.h], [], [],
 	FRR_INCLUDES)
 
 m4_define([FRR_INCLUDES],dnl
 FRR_INCLUDES
 [#include <netinet/icmp6.h>
-#ifdef HAVE_NETINET6_IN6_VAR_H
-# include <netinet6/in6_var.h>
-#endif
 #ifdef HAVE_NETINET6_ND6_H
 # include <netinet6/nd6.h>
 #endif
