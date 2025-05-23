@@ -208,17 +208,8 @@ static void ares_address_cb(void *arg, int status, int timeouts,
 	node = result->nodes;
 	for (i = 0; i < array_size(addr) && node; i++) {
 		memset(&addr[i], 0, sizeof(addr[i]));
-		addr[i].sa.sa_family = node->ai_family;
-		switch (node->ai_family) {
-		case AF_INET:
-			memcpy(&addr[i].sin.sin_addr, node->ai_addr,
-			       node->ai_addrlen);
-			break;
-		case AF_INET6:
-			memcpy(&addr[i].sin6.sin6_addr, node->ai_addr,
-			       node->ai_addrlen);
-			break;
-		}
+		if (node->ai_addrlen <= sizeof(addr[i]))
+			memcpy(&addr[i], node->ai_addr, node->ai_addrlen);
 		node = node->ai_next;
 	}
 
