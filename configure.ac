@@ -1129,8 +1129,8 @@ fi
 dnl -------------------------
 dnl Check other header files.
 dnl -------------------------
-AC_CHECK_HEADERS([stropts.h sys/ksym.h \
-	linux/version.h asm/types.h sys/endian.h])
+AC_CHECK_HEADERS([ \
+	asm/types.h sys/endian.h])
 
 AC_CHECK_HEADER([endian.h], [], [
   AC_MSG_ERROR([missing endian.h])
@@ -1265,7 +1265,7 @@ FRR_INCLUDES
 ])dnl
 
 AC_CHECK_HEADERS([netinet/in_var.h \
-	net/if_dl.h net/netopt.h \
+	net/if_dl.h \
 	netinet/ip_icmp.h \
 	sys/sysctl.h sys/sockio.h sys/conf.h],
 	[], [], [FRR_INCLUDES])
@@ -1299,9 +1299,6 @@ FRR_INCLUDES
 #endif
 #ifdef HAVE_NET_IF_DL_H
 # include <net/if_dl.h>
-#endif
-#ifdef HAVE_NET_NETOPT_H
-# include <net/netopt.h>
 #endif
 #include <net/route.h>
 #include <arpa/inet.h>
@@ -1799,19 +1796,13 @@ AC_CHECK_MEMBERS([struct utsname.domainname], [], [], [#include <sys/utsname.h>]
 dnl ------------------
 dnl IPv6 header checks
 dnl ------------------
-AC_CHECK_HEADERS([netinet6/in6.h netinet/in6_var.h \
+AC_CHECK_HEADERS([ \
 	netinet6/in6_var.h netinet6/nd6.h], [], [],
 	FRR_INCLUDES)
 
 m4_define([FRR_INCLUDES],dnl
 FRR_INCLUDES
-[#ifdef HAVE_NETINET6_IN6_H
-#include <netinet6/in6.h>
-#endif
-#ifdef HAVE_NETINET_IN6_VAR_H
-#include <netinet/in6_var.h>
-#endif
-#include <netinet/icmp6.h>
+[#include <netinet/icmp6.h>
 #ifdef HAVE_NETINET6_IN6_VAR_H
 # include <netinet6/in6_var.h>
 #endif
@@ -2319,7 +2310,7 @@ AC_CHECK_TYPES([
 	struct sockaddr_dl,
 	struct vifctl, struct mfcctl, struct sioc_sg_req,
 	vifi_t, struct sioc_vif_req, struct igmpmsg,
-	struct ifaliasreq, struct if6_aliasreq, struct in6_aliasreq,
+	struct ifaliasreq, struct in6_aliasreq,
 	struct nd_opt_adv_interval,
 	struct nd_opt_homeagent_info, struct nd_opt_adv_interval,
 	struct nd_opt_rdnss, struct nd_opt_dnssl],
@@ -2328,7 +2319,6 @@ AC_CHECK_TYPES([
 AC_CHECK_MEMBERS([struct sockaddr.sa_len,
 	struct sockaddr_in.sin_len, struct sockaddr_un.sun_len,
 	struct sockaddr_dl.sdl_len,
-	struct if6_aliasreq.ifra_lifetime,
 	struct nd_opt_adv_interval.nd_opt_ai_type],
 	[], [], FRR_INCLUDES)
 

@@ -17,9 +17,6 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <ctype.h>
-#ifdef HAVE_STROPTS_H
-#include <stropts.h>
-#endif /* HAVE_STROPTS_H */
 #include <sys/types.h>
 #include <sys/param.h>
 #ifdef HAVE_SYS_SYSCTL_H
@@ -32,9 +29,6 @@
 #ifdef HAVE_SYS_CONF_H
 #include <sys/conf.h>
 #endif /* HAVE_SYS_CONF_H */
-#ifdef HAVE_SYS_KSYM_H
-#include <sys/ksym.h>
-#endif /* HAVE_SYS_KSYM_H */
 #include <sys/time.h>
 #include <time.h>
 #include <inttypes.h>
@@ -59,10 +53,6 @@
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
-
-#ifdef HAVE_NET_NETOPT_H
-#include <net/netopt.h>
-#endif /* HAVE_NET_NETOPT_H */
 
 #include <net/if.h>
 
@@ -89,10 +79,6 @@
 #ifdef HAVE_NETINET6_IN6_VAR_H
 #include <netinet6/in6_var.h>
 #endif /* HAVE_NETINET6_IN6_VAR_H */
-
-#ifdef HAVE_NETINET_IN6_VAR_H
-#include <netinet/in6_var.h>
-#endif /* HAVE_NETINET_IN6_VAR_H */
 
 #ifdef HAVE_NETINET6_IN_H
 #include <netinet6/in.h>
