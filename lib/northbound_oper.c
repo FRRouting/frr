@@ -2353,21 +2353,21 @@ static const char *_adjust_ptr(struct lysc_node_leaf *lsnode, const char *valuep
 	switch (lsnode->type->basetype) {
 	case LY_TYPE_INT8:
 	case LY_TYPE_UINT8:
-#ifdef BIG_ENDIAN
+#if BYTE_ORDER == BIG_ENDIAN
 		valuep += 7;
 #endif
 		*size = 1;
 		break;
 	case LY_TYPE_INT16:
 	case LY_TYPE_UINT16:
-#ifdef BIG_ENDIAN
+#if BYTE_ORDER == BIG_ENDIAN
 		valuep += 6;
 #endif
 		*size = 2;
 		break;
 	case LY_TYPE_INT32:
 	case LY_TYPE_UINT32:
-#ifdef BIG_ENDIAN
+#if BYTE_ORDER == BIG_ENDIAN
 		valuep += 4;
 #endif
 		*size = 4;
