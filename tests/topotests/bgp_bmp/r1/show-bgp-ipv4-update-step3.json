@@ -1,12 +1,12 @@
 {
   "routes": {
-    "1.1.1.0/31": [
+    "10.1.1.0/31": [
       {
         "valid": true,
         "pathFrom": "external",
-        "prefix": "1.1.1.0",
+        "prefix": "10.1.1.0",
         "prefixLen": 31,
-        "network": "1.1.1.0/31",
+        "network": "10.1.1.0/31",
         "metric": 0,
         "weight": 0,
         "peerId": "192.168.0.3",
@@ -22,13 +22,13 @@
         ]
       }
     ],
-    "3.3.3.0/31": [
+    "172.16.3.0/31": [
       {
         "valid": true,
         "pathFrom": "external",
-        "prefix": "3.3.3.0",
+        "prefix": "172.16.3.0",
         "prefixLen": 31,
-        "network": "3.3.3.0/31",
+        "network": "172.16.3.0/31",
         "metric": 0,
         "weight": 0,
         "peerId": "192.168.0.3",
