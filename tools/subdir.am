@@ -30,6 +30,10 @@ sbin_SCRIPTS += \
 	tools/watchfrr.sh \
 	# end
 
+CLEANFILES += tools/frr.pc
+tools_pkgconfigdir = @pkgconfigdir@
+tools_pkgconfig_DATA = tools/frr.pc
+
 tools_permutations_SOURCES = tools/permutations.c
 tools_permutations_LDADD = lib/libfrr.la
 
