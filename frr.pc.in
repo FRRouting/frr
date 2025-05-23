@@ -1,0 +1,30 @@
+# when packaging an FRR source/build tree, fill in the next line
+# (e.g. with /usr/src/frr)
+#
+abs_top_treedir="FILL_TREEDIR_DURING_PACKAGING"
+#
+# the following are provided so you can line up installation paths.
+# note you can access them with e.g. "pkgconf --variable=moduledir"
+#
+frr_runstatedir="@e_frr_runstatedir@"
+frr_libstatedir="@e_frr_libstatedir@"
+yangmodelsdir="@e_yangmodelsdir@"
+moduledir="@e_moduledir@"
+scriptdir="@e_scriptdir@"
+frr_sysconfdir="@e_frr_sysconfdir@/"
+vtysh_bin="@e_vtysh_bin@"
+watchfrr_sh="@e_watchfrr_sh@"
+#
+# these are needed to make the build work
+#
+multipath_num="@MULTIPATH_NUM@"
+libdir="@libdir@"
+clippy="${abs_top_treedir}/lib/clippy"
+
+Name: @PACKAGE@
+Description: FRRouting packaged-source-tree build support
+URL: @PACKAGE_BUGREPORT@
+Version: @PACKAGE_VERSION@
+Libs: -L${libdir} -Wl,-rpath,${libdir} -lfrr
+Cflags: -I${abs_top_treedir} -I${abs_top_treedir}/lib \
+	-fms-extensions -DMULTIPATH_NUM=${multipath_num}
