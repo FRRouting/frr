@@ -13,6 +13,7 @@
                 "peer_type": "loc-rib instance",
                 "policy": "loc-rib",
                 "rd": "444:2",
+                "path_id": 0,
                 "safi": 128
             },
             "2001::1111/128": {
@@ -27,6 +28,7 @@
                 "peer_type": "loc-rib instance",
                 "policy": "loc-rib",
                 "rd": "555:2",
+                "path_id": 0,
                 "safi": 128
             }
         }
