@@ -38,7 +38,6 @@ sys.path.append(os.path.join("../lib/"))
 # Import topogen and topotest helpers
 from lib import topotest
 from lib.bgp import verify_bgp_convergence_from_running_config
-from lib.bgp import bgp_configure_prefixes
 from .bgpbmp import (
     bmp_check_for_prefixes,
     bmp_check_for_peer_message,
@@ -57,7 +56,6 @@ PRE_POLICY = "pre-policy"
 POST_POLICY = "post-policy"
 LOC_RIB = "loc-rib"
 
-UPDATE_EXPECTED_JSON = False
 DEBUG_PCAP = False
 
 # Create a global BMP sequence context for this test module
@@ -120,67 +118,6 @@ def test_bgp_convergence():
 
     result = verify_bgp_convergence_from_running_config(tgen, dut="r1vrf")
     assert result is True, "BGP is not converging"
-
-
-def _test_prefixes(policy, step=1):
-    """
-    Setup the BMP  monitor policy, Add and withdraw ipv4/v6 prefixes.
-    Check if the previous actions are logged in the BMP server with the right
-    message type and the right policy.
-    """
-    tgen = get_topogen()
-
-    prefixes = ["172.31.0.15/32", "2111::1111/128"]
-
-    for type in ("update", "withdraw"):
-        bmp_update_seq(
-            tgen.gears["bmp1vrf"],
-            os.path.join(tgen.logdir, "bmp1vrf", "bmp.log"),
-            bmp_seq_context,
-        )
-
-        # add prefixes
-        bgp_configure_prefixes(
-            tgen.gears["r2vrf"], 65502, "unicast", prefixes, update=(type == "update")
-        )
-
-        logger.info(f"checking for prefixes {type}")
-
-        for ipver in [4, 6]:
-            if UPDATE_EXPECTED_JSON:
-                continue
-            ref_file = "{}/r1vrf/show-bgp-ipv{}-{}-step{}.json".format(
-                CWD, ipver, type, step
-            )
-            expected = json.loads(open(ref_file).read())
-
-            test_func = partial(
-                topotest.router_json_cmp,
-                tgen.gears["r1vrf"],
-                f"show bgp vrf vrf1 ipv{ipver} json",
-                expected,
-            )
-            _, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
-            assertmsg = f"r1vrf: BGP IPv{ipver} convergence failed"
-            assert res is None, assertmsg
-
-        # check
-        test_func = partial(
-            bmp_check_for_prefixes,
-            prefixes,
-            type,
-            policy,
-            step,
-            tgen.gears["bmp1vrf"],
-            os.path.join(tgen.logdir, "bmp1vrf"),
-            tgen.gears["r1vrf"],
-            f"{CWD}/bmp1vrf",
-            UPDATE_EXPECTED_JSON,
-            LOC_RIB,
-            bmp_seq_context,
-        )
-        success, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
-        assert success, "Checking the updated prefixes has failed ! %s" % res
 
 
 def test_bmp_server_logging():
