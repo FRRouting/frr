@@ -10,14 +10,21 @@ test_bgp_bmp.py: Test BGP BMP functionalities
 
     +------+            +------+               +------+
     |      |            |      |               |      |
-    | BMP1 |------------|  R1  |---------------|  R2  |
-    |      |            |      |               |      |
-    +------+            +------+               +------+
+    | BMP1 |------------|  R1  |-------+-------|  R2  |
+    |      |            |      |       |       |      |
+    +------+            +------+       |       +------+
+                                       |
+                                       |       +------+
+                                       |       |      |
+                                       +-------|  R3  |
+                                               | ecmp |
+                                               +------+
 
-Setup two routers R1 and R2 with one link configured with IPv4 and
+Setup three routers R1 and R3 with one link configured with IPv4 and
 IPv6 addresses.
-Configure BGP in R1 and R2 to exchange prefixes from
-the latter to the first router.
+Configure BGP to exchange prefixes from R2 and R3 to R1.
+R3 is only used in the multi-path test, it announces the same as R2 to R1 to
+have the R2 prefixes be ECMP paths in R1.
 Setup a link between R1 and the BMP server, activate the BMP feature in R1
 and ensure the monitored BGP sessions logs are well present on the BMP server.
 """
@@ -66,13 +73,17 @@ bmp_seq_context = BMPSequenceContext()
 def build_topo(tgen):
     tgen.add_router("r1")
     tgen.add_router("r2")
+    tgen.add_router("r3ecmp")
     tgen.add_bmp_server("bmp1", ip="192.0.2.10", defaultRoute="via 192.0.2.1")
 
     switch = tgen.add_switch("s1")
     switch.add_link(tgen.gears["r1"])
     switch.add_link(tgen.gears["bmp1"])
 
-    tgen.add_link(tgen.gears["r1"], tgen.gears["r2"], "r1-eth1", "r2-eth0")
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r1"], nodeif="r1-eth1")
+    switch.add_link(tgen.gears["r2"], nodeif="r2-eth0")
+    switch.add_link(tgen.gears["r3ecmp"], nodeif="r3ecmp-eth0")
 
 
 def setup_module(mod):
@@ -216,6 +227,59 @@ def test_bmp_bgp_vpn():
     _test_prefixes(LOC_RIB, *args)
 
 
+def multipath_unicast_prefixes(policy, step, vrf=None):
+    """
+    Setup the BMP  monitor policy, Add and withdraw ipv4/v6 prefixes.
+    Check if the previous actions are logged in the BMP server with the right
+    message type and the right policy.
+    Make R3 announce the prefixes, then R2 so its paths are ECMP
+    Finally, withdraw on R3 to clean up
+    """
+    tgen = get_topogen()
+
+    MULTIPATH_TEST_PREFIXES = ["10.1.1.0/31", "172.16.3.0/31"]
+
+    bgp_configure_prefixes(
+        tgen.gears["r3ecmp"],
+        65502,
+        "unicast",
+        MULTIPATH_TEST_PREFIXES,
+        vrf,
+        update=True,
+    )
+
+    _test_prefixes(
+        policy,
+        MULTIPATH_TEST_PREFIXES,
+        "r2",
+        "r1",
+        "bmp1",
+        CWD,
+        bmp_seq_context,
+        vrf,
+        None,
+        65502,
+        "unicast",
+        3,
+    )
+
+    bgp_configure_prefixes(
+        tgen.gears["r3ecmp"],
+        65502,
+        "unicast",
+        MULTIPATH_TEST_PREFIXES,
+        vrf,
+        update=False,
+    )
+
+
+def test_bmp_bgp_multipath():
+    """
+    Test the ECMP feature of BMP i.e. when the loc-rib installs multiple paths
+    """
+
+    logger.info("*** Multipath unicast prefixes loc-rib logging ***")
+    multipath_unicast_prefixes(LOC_RIB, step=3)
 
 
 def test_peer_down():
