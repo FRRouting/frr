@@ -1254,7 +1254,7 @@ static struct bgp *bmp_get_next_bgp(struct bmp_targets *bt, struct bgp *bgp, afi
 
 	if (bgp == NULL && bt->bgp_request_sync[afi][safi])
 		return bt->bgp;
-	if (bgp == NULL)
+	if (bgp == NULL || bgp == bt->bgp)
 		get_first = true;
 	frr_each (bmp_imported_bgps, &bt->imported_bgps, bib) {
 		bgp_inst = bgp_lookup_by_name(bib->name);
