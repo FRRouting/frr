@@ -1,5 +1,5 @@
 {
-    "pre-policy": {
+    "rib-in-post-policy": {
         "withdraw": {
             "2001::1111/128": {
                 "afi": 2,
@@ -12,7 +12,7 @@
                 "peer_distinguisher": "0:0",
                 "peer_ip": "192:168::2",
                 "peer_type": "global instance",
-                "policy": "pre-policy",
+                "policy": "rib-in-post-policy",
                 "rd": "555:2",
                 "safi": 128
             },
@@ -27,7 +27,7 @@
                 "peer_distinguisher": "0:0",
                 "peer_ip": "192.168.0.2",
                 "peer_type": "global instance",
-                "policy": "pre-policy",
+                "policy": "rib-in-post-policy",
                 "rd": "444:2",
                 "safi": 128
             }

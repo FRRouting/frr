@@ -43,15 +43,19 @@ from .bgpbmp import (
     bmp_check_for_prefixes,
     bmp_check_for_peer_message,
     bmp_update_seq,
+    ADJ_IN_PRE_POLICY,
+    ADJ_IN_POST_POLICY,
+    LOC_RIB,
+    ADJ_OUT_PRE_POLICY,
+    ADJ_OUT_POST_POLICY,
+    _test_prefixes,
 )
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 pytestmark = [pytest.mark.bgpd]
 
-PRE_POLICY = "pre-policy"
-POST_POLICY = "post-policy"
-LOC_RIB = "loc-rib"
+TEST_PREFIXES = ["172.31.0.15/32", "2001::1111/128"]
 
 DEBUG_PCAP = False
 
@@ -160,22 +164,58 @@ def test_bmp_bgp_unicast():
     """
     Add/withdraw bgp unicast prefixes and check the bmp logs.
     """
-    logger.info("*** Unicast prefixes pre-policy logging ***")
-    _test_prefixes(PRE_POLICY, step=1)
-    logger.info("*** Unicast prefixes post-policy logging ***")
-    _test_prefixes(POST_POLICY, step=1)
+
+    args = [
+        TEST_PREFIXES,
+        "r2",
+        "r1",
+        "bmp1",
+        CWD,
+        bmp_seq_context,
+        None,
+        None,
+        65502,
+        "unicast",
+        1,
+    ]
+
+    logger.info("*** Unicast prefixes rib-in pre-policy logging ***")
+    _test_prefixes(ADJ_IN_PRE_POLICY, *args)
+    logger.info("*** Unicast prefixes rib-in post-policy logging ***")
+    _test_prefixes(ADJ_IN_POST_POLICY, *args)
     logger.info("*** Unicast prefixes loc-rib logging ***")
-    _test_prefixes(LOC_RIB, step=1)
+    _test_prefixes(LOC_RIB, *args)
+    logger.info("*** Unicast prefixes rib-out pre-policy logging ***")
+    _test_prefixes(ADJ_OUT_PRE_POLICY, *args)
+    logger.info("*** Unicast prefixes rib-out post-policy logging ***")
+    _test_prefixes(ADJ_OUT_POST_POLICY, *args)
 
 
 def test_bmp_bgp_vpn():
     # check for the prefixes in the BMP server logging file
-    logger.info("***** VPN prefixes pre-policy logging *****")
-    _test_prefixes(PRE_POLICY, vrf="vrf1", step=2)
-    logger.info("***** VPN prefixes post-policy logging *****")
-    _test_prefixes(POST_POLICY, vrf="vrf1", step=2)
+
+    args = [
+        TEST_PREFIXES,
+        "r2",
+        "r1",
+        "bmp1",
+        CWD,
+        bmp_seq_context,
+        "vrf1",
+        None,
+        65502,
+        "vpn",
+        2,
+    ]
+
+    logger.info("***** VPN prefixes rib-in pre-policy logging *****")
+    _test_prefixes(ADJ_IN_PRE_POLICY, *args)
+    logger.info("***** VPN prefixes rib-in post-policy logging *****")
+    _test_prefixes(ADJ_IN_POST_POLICY, *args)
     logger.info("***** VPN prefixes loc-rib logging *****")
-    _test_prefixes(LOC_RIB, vrf="vrf1", step=2)
+    _test_prefixes(LOC_RIB, *args)
+
+
 
 
 def test_peer_down():
