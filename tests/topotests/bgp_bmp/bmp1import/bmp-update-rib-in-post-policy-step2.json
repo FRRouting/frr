@@ -1,5 +1,5 @@
 {
-    "post-policy": {
+    "rib-in-post-policy": {
         "update": {
             "172.31.0.77/32": {
                 "as_path": "",
@@ -10,10 +10,11 @@
                 "origin": "IGP",
                 "peer_asn": 65501,
                 "peer_bgp_id": "192.168.1.3",
-                "peer_distinguisher": "444:1",
+                "peer_distinguisher": "666:22",
                 "peer_ip": "192.168.1.3",
                 "peer_type": "route distinguisher instance",
-                "policy": "post-policy"
+                "path_id": 0,
+                "policy": "rib-in-post-policy"
             },
             "2001::1125/128": {
                 "afi": 2,
@@ -25,10 +26,11 @@
                 "origin": "IGP",
                 "peer_asn": 65501,
                 "peer_bgp_id": "192.168.1.3",
-                "peer_distinguisher": "555:1",
+                "peer_distinguisher": "666:22",
                 "peer_ip": "192:167::3",
                 "peer_type": "route distinguisher instance",
-                "policy": "post-policy",
+                "policy": "rib-in-post-policy",
+                "path_id": 0,
                 "safi": 1
             }
         }
