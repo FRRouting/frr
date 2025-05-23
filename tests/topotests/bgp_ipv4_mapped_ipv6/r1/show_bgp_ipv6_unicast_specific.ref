@@ -1,0 +1,8 @@
+BGP routing table entry for ::ffff:200.100.222.111/128, version 1
+Paths: (1 available, best #1, table default)
+  Advertised to non peer-group peers:
+  2001:db8:1::2
+  Local
+    :: from 0.0.0.0 (10.254.254.1)
+      Origin IGP, metric 0, localpref 100, weight 32768, valid, sourced, best
+      Last update: 01:23:45
