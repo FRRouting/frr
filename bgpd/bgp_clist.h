@@ -83,7 +83,7 @@ struct community_entry {
 	char *config;
 
 	/* Expanded community-list regular expression.  */
-	regex_t *reg;
+	struct frregex *reg;
 };
 
 /* Linked list of community-list.  */

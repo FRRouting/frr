@@ -353,6 +353,7 @@ nodist_pkginclude_HEADERS += \
 
 noinst_HEADERS += \
 	lib/clippy.h \
+	lib/frregex_real.h \
 	lib/plist_int.h \
 	lib/printf/printfcommon.h \
 	lib/printf/printflocal.h \
