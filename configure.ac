@@ -1267,7 +1267,7 @@ FRR_INCLUDES
 AC_CHECK_HEADERS([netinet/in_var.h \
 	net/if_dl.h \
 	netinet/ip_icmp.h \
-	sys/sysctl.h sys/sockio.h sys/conf.h],
+	sys/sockio.h sys/conf.h],
 	[], [], [FRR_INCLUDES])
 
 AC_CHECK_HEADERS([ucontext.h], [], [],
