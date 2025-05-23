@@ -19,9 +19,6 @@
 #include <ctype.h>
 #include <sys/types.h>
 #include <sys/param.h>
-#ifdef HAVE_SYS_CONF_H
-#include <sys/conf.h>
-#endif /* HAVE_SYS_CONF_H */
 #include <sys/time.h>
 #include <time.h>
 #include <inttypes.h>
@@ -36,10 +33,6 @@
 /* network include group */
 
 #include <sys/socket.h>
-
-#ifdef HAVE_SYS_SOCKIO_H
-#include <sys/sockio.h>
-#endif /* HAVE_SYS_SOCKIO_H */
 
 #include "openbsd-tree.h"
 
