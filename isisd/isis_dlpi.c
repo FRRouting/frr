@@ -52,13 +52,13 @@ static unsigned short pf_filter[] = {
 	ISO_SAP | (ISO_SAP << 8),
 	ENF_PUSHWORD + 1,      /* Get the control value */
 	ENF_PUSHLIT | ENF_AND, /* Isolate it */
-#ifdef _BIG_ENDIAN
+#if BYTE_ORDER == BIG_ENDIAN
 	0xFF00,
 #else
 	0x00FF,
 #endif
 	ENF_PUSHLIT | ENF_CAND, /* Test for expected value */
-#ifdef _BIG_ENDIAN
+#if BYTE_ORDER == BIG_ENDIAN
 	0x0300
 #else
 	0x0003
