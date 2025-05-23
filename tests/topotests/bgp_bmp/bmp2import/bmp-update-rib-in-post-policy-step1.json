@@ -1,28 +1,36 @@
 {
-    "pre-policy": {
-        "withdraw": {
+    "rib-in-post-policy": {
+        "update": {
             "172.31.0.77/32": {
-                "bmp_log_type": "withdraw",
+                "as_path": "",
+                "bgp_nexthop": "192.168.1.3",
+                "bmp_log_type": "update",
                 "ip_prefix": "172.31.0.77/32",
                 "ipv6": false,
+                "origin": "IGP",
                 "peer_asn": 65501,
                 "peer_bgp_id": "192.168.1.3",
                 "peer_distinguisher": "444:1",
                 "peer_ip": "192.168.1.3",
                 "peer_type": "route distinguisher instance",
-                "policy": "pre-policy"
+                "path_id": 0,
+                "policy": "rib-in-post-policy"
             },
             "2001::1125/128": {
                 "afi": 2,
-                "bmp_log_type": "withdraw",
+                "as_path": "",
+                "bmp_log_type": "update",
                 "ip_prefix": "2001::1125/128",
                 "ipv6": true,
+                "nxhp_ip": "192:167::3",
+                "origin": "IGP",
                 "peer_asn": 65501,
                 "peer_bgp_id": "192.168.1.3",
                 "peer_distinguisher": "555:1",
                 "peer_ip": "192:167::3",
                 "peer_type": "route distinguisher instance",
-                "policy": "pre-policy",
+                "path_id": 0,
+                "policy": "rib-in-post-policy",
                 "safi": 1
             }
         }
