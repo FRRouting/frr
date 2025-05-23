@@ -7,6 +7,9 @@
 #include <zebra.h>
 
 #include <sys/ioctl.h>
+#ifndef __linux__
+#include <netinet6/in6_var.h>
+#endif
 
 #include "linklist.h"
 #include "if.h"
