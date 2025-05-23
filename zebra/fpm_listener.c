@@ -641,10 +641,9 @@ static int parse_nexthop_msg(struct nlmsghdr *hdr)
 
 	/* Count nexthops in the group */
 	if (tb[NHA_GROUP]) {
-		struct nexthop_grp *nhg = (struct nexthop_grp *)RTA_DATA(tb[NHA_GROUP]);
-		size_t count = (RTA_PAYLOAD(tb[NHA_GROUP]) / sizeof(*nhg));
+		size_t count = (RTA_PAYLOAD(tb[NHA_GROUP]) / sizeof(struct nexthop_grp));
 
-		if (count > 0 && (count * sizeof(*nhg)) == RTA_PAYLOAD(tb[NHA_GROUP]))
+		if (count > 0 && (count * sizeof(struct nexthop_grp)) == RTA_PAYLOAD(tb[NHA_GROUP]))
 			nhg_count = count;
 	} else if (tb[NHA_OIF] || tb[NHA_GATEWAY]) {
 		/* Single nexthop case */
