@@ -1,18 +1,19 @@
 {
-    "loc-rib": {
+    "rib-out-pre-policy": {
         "update": {
             "172.31.0.15/32": {
                 "as_path": "65501 65502",
                 "bgp_nexthop": "192.168.0.2",
                 "bmp_log_type": "update",
                 "ip_prefix": "172.31.0.15/32",
-                "is_filtered": false,
+                "ipv6": false,
                 "origin": "IGP",
-                "peer_asn": 65501,
-                "peer_bgp_id": "192.168.0.1",
+                "peer_asn": 65502,
+                "peer_bgp_id": "192.168.0.3",
                 "peer_distinguisher": "0:0",
-                "peer_type": "loc-rib instance",
-                "policy": "loc-rib",
+                "peer_ip": "192.168.0.3",
+                "peer_type": "global instance",
+                "policy": "rib-out-pre-policy",
                 "path_id": 0
             },
             "2001::1111/128": {
@@ -20,14 +21,15 @@
                 "as_path": "65501 65502",
                 "bmp_log_type": "update",
                 "ip_prefix": "2001::1111/128",
-                "is_filtered": false,
+                "ipv6": true,
                 "nxhp_ip": "192:168::2",
                 "origin": "IGP",
-                "peer_asn": 65501,
-                "peer_bgp_id": "192.168.0.1",
+                "peer_asn": 65502,
+                "peer_bgp_id": "192.168.0.3",
                 "peer_distinguisher": "0:0",
-                "peer_type": "loc-rib instance",
-                "policy": "loc-rib",
+                "peer_ip": "192:168::3",
+                "peer_type": "global instance",
+                "policy": "rib-out-pre-policy",
                 "safi": 1,
                 "path_id": 0
             }
