@@ -828,6 +828,14 @@ enum connect_result bgp_connect(struct peer_connection *connection)
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_TCP_MSS))
 		sockopt_tcp_mss_set(connection->fd, peer->tcp_mss);
 
+	/* Neighbor's bind() as a source address when ip transparent is used */
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_IP_TRANSPARENT) &&
+	    CHECK_FLAG(peer->flags, PEER_FLAG_UPDATE_SOURCE)) {
+		frr_with_privs (&bgpd_privs) {
+			sockopt_ip_transparent(connection->fd);
+		}
+	}
+
 	bgp_socket_set_buffer_size(connection->fd);
 
 	/* Set TCP keepalive when TCP keepalive is enabled */
@@ -915,6 +923,12 @@ int bgp_getsockname(struct peer_connection *connection)
 
 	if (!bgp_zebra_nexthop_set(connection->su_local, connection->su_remote, &peer->nexthop,
 				   peer)) {
+		/* no nexthop, but the admin has enforced the source address with an ip-transparent mode
+		 * so let's honor the configuration.
+		 */
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_IP_TRANSPARENT) &&
+		    CHECK_FLAG(peer->flags, PEER_FLAG_UPDATE_SOURCE))
+			return 0;
 		flog_err(EC_BGP_NH_UPD,
 			 "%s: nexthop_set failed, local: %pSUp remote: %pSUp update_if: %s resetting connection - intf %s",
 			 peer->host, connection->su_local, connection->su_remote,
