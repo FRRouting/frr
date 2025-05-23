@@ -1251,19 +1251,6 @@ m4_define([FRR_INCLUDES],
 #include <net/if.h>
 ])dnl
 
-dnl Same applies for HAVE_NET_IF_VAR_H, which HAVE_NETINET6_ND6_H and
-dnl HAVE_NETINET_IN_VAR_H depend upon. But if_var.h depends on if.h, hence
-dnl an additional round for it.
-
-AC_CHECK_HEADERS([net/if_var.h], [], [], [FRR_INCLUDES])
-
-m4_define([FRR_INCLUDES],
-FRR_INCLUDES
-[#ifdef HAVE_NET_IF_VAR_H
-# include <net/if_var.h>
-#endif
-])dnl
-
 AC_CHECK_HEADERS([netinet/in_var.h \
 	net/if_dl.h \
 	netinet/ip_icmp.h \
