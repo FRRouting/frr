@@ -1240,7 +1240,6 @@ m4_define([FRR_INCLUDES],
 #include <stdlib.h>
 #include <stddef.h>
 #include <sys/types.h>
-/* sys/conf.h depends on param.h on FBSD at least */
 #include <sys/param.h>
 /* Required for MAXSIG */
 #include <signal.h>
@@ -1253,8 +1252,7 @@ m4_define([FRR_INCLUDES],
 
 AC_CHECK_HEADERS([netinet/in_var.h \
 	net/if_dl.h \
-	netinet/ip_icmp.h \
-	sys/sockio.h sys/conf.h],
+	netinet/ip_icmp.h],
 	[], [], [FRR_INCLUDES])
 
 AC_CHECK_HEADERS([ucontext.h], [], [],
