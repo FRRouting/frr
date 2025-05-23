@@ -43,7 +43,13 @@ from .bgpbmp import (
     bmp_check_for_peer_message,
     bmp_update_seq,
     bmp_reset_seq,
+    _test_prefixes,
     BMPSequenceContext,
+    ADJ_IN_PRE_POLICY,
+    ADJ_IN_POST_POLICY,
+    LOC_RIB,
+    ADJ_OUT_PRE_POLICY,
+    ADJ_OUT_POST_POLICY,
 )
 
 
@@ -52,9 +58,7 @@ from lib.topolog import logger
 
 pytestmark = [pytest.mark.bgpd]
 
-PRE_POLICY = "pre-policy"
-POST_POLICY = "post-policy"
-LOC_RIB = "loc-rib"
+TEST_PREFIXES = ["172.31.0.15/32", "2111::1111/128"]
 
 DEBUG_PCAP = False
 
@@ -165,12 +169,31 @@ def test_bmp_bgp_unicast():
     """
     Add/withdraw bgp unicast prefixes and check the bmp logs.
     """
-    logger.info("*** Unicast prefixes pre-policy logging ***")
-    _test_prefixes(PRE_POLICY)
-    logger.info("*** Unicast prefixes post-policy logging ***")
-    _test_prefixes(POST_POLICY)
+
+    args = [
+        TEST_PREFIXES,
+        "r2vrf",
+        "r1vrf",
+        "bmp1vrf",
+        CWD,
+        bmp_seq_context,
+        None,
+        "vrf1",
+        65502,
+        "unicast",
+        1,
+    ]
+
+    logger.info("*** Unicast prefixes rib-in pre-policy logging ***")
+    _test_prefixes(ADJ_IN_PRE_POLICY, *args)
+    logger.info("*** Unicast prefixes rib-in post-policy logging ***")
+    _test_prefixes(ADJ_IN_POST_POLICY, *args)
     logger.info("*** Unicast prefixes loc-rib logging ***")
-    _test_prefixes(LOC_RIB)
+    _test_prefixes(LOC_RIB, *args)
+    logger.info("*** Unicast prefixes rib-out pre-policy logging ***")
+    _test_prefixes(ADJ_OUT_PRE_POLICY, *args)
+    logger.info("*** Unicast prefixes rib-out post-policy logging ***")
+    _test_prefixes(ADJ_OUT_POST_POLICY, *args)
 
 
 def test_peer_down():
