@@ -65,7 +65,7 @@ def setup_module(module):
         router.load_config(
             TopoRouter.RD_FPM_LISTENER,
             os.path.join(CWD, "{}/fpm_stub.conf".format(rname)),
-            "-r",
+            "-r -z /tmp/fpm_test.data",
         )
 
     tgen.start_router()
