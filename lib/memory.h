@@ -16,11 +16,6 @@
 extern "C" {
 #endif
 
-#if defined(HAVE_MALLOC_SIZE) && !defined(HAVE_MALLOC_USABLE_SIZE)
-#define malloc_usable_size(x) malloc_size(x)
-#define HAVE_MALLOC_USABLE_SIZE
-#endif
-
 #define SIZE_VAR ~0UL
 struct memtype {
 	struct memtype *next, **ref;
@@ -28,10 +23,8 @@ struct memtype {
 	atomic_size_t n_alloc;
 	atomic_size_t n_max;
 	atomic_size_t size;
-#ifdef HAVE_MALLOC_USABLE_SIZE
 	atomic_size_t total;
 	atomic_size_t max_size;
-#endif
 };
 
 struct memgroup {
