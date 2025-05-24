@@ -384,12 +384,25 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
 
    Set the pim hello and hold interval for a interface.
 
-.. clicmd:: ip pim
+.. clicmd:: ip pim [sm | dm | sm-dm]
 
-   Tell pim that we would like to use this interface to form pim neighbors
-   over. Please note that this command does not enable the reception of IGMP
+   Enable pim on this interface. pim will use this interface to form pim neighbors,
+   and start exchaning pim protocol messages with those neighbors. The optional argument
+   determines what mode pim will use this interface for. ``sm`` enables sparse mode,
+   ``dm`` enables dense mode, while ``sm-dm`` enables sparse-dense mode.
+
+   Please note that this command does not enable the reception of IGMP
    reports on the interface. Refer to the next `ip igmp` command for IGMP
    management.
+
+.. clicmd:: ip pim ssm prefix-list PREFIX_LIST
+
+   Configure the Source-Specific-Multicast group range. Defaults to 232.0.0.0/8.
+
+.. clicmd:: ip pim dm prefix-list PREFIX_LIST
+
+   Limit dense mode multicast to the range configured with prefix-list. By default
+   there is no limit.
 
 .. clicmd:: ip pim allowed-neighbors prefix-list PREFIX_LIST
 

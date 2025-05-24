@@ -94,7 +94,7 @@ void pim_register_stop_send(struct interface *ifp, pim_sgaddr *sg, pim_addr src,
 		}
 	}
 
-	if (!pinfo->pim_passive_enable)
+	if (pinfo->pim_mode != PIM_MODE_PASSIVE)
 		++pinfo->pim_ifstat_reg_stop_send;
 }
 
@@ -132,7 +132,7 @@ int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
 	bool handling_star = false;
 	int l;
 
-	if (pim_ifp->pim_passive_enable) {
+	if (pim_ifp->pim_mode == PIM_MODE_PASSIVE) {
 		if (PIM_DEBUG_PIM_PACKETS)
 			zlog_debug(
 				"skip receiving PIM message on passive interface %s",
@@ -316,7 +316,7 @@ void pim_register_send(const uint8_t *buf, int buf_size, pim_addr src,
 			     buf_size + PIM_MSG_REGISTER_LEN,
 			     PIM_MSG_TYPE_REGISTER, false);
 
-	if (!pinfo->pim_passive_enable)
+	if (pinfo->pim_mode != PIM_MODE_PASSIVE)
 		++pinfo->pim_ifstat_reg_send;
 
 	if (pim_msg_send(pinfo->pim->reg_sock, src, rpg->rpf_addr, buffer,
@@ -495,7 +495,7 @@ int pim_register_recv(struct interface *ifp, pim_addr dest_addr,
 	pim_addr rp_addr;
 	struct pim_rpf *rpg;
 
-	if (pim_ifp->pim_passive_enable) {
+	if (pim_ifp->pim_mode == PIM_MODE_PASSIVE) {
 		if (PIM_DEBUG_PIM_PACKETS)
 			zlog_debug(
 				"skip receiving PIM message on passive interface %s",
