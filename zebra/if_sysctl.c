@@ -10,6 +10,8 @@
 
 #if !defined(GNU_LINUX) && !defined(OPEN_BSD)
 
+#include <sys/sysctl.h>
+
 #include "if.h"
 #include "sockunion.h"
 #include "prefix.h"

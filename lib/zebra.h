@@ -19,16 +19,6 @@
 #include <ctype.h>
 #include <sys/types.h>
 #include <sys/param.h>
-#ifdef HAVE_SYS_SYSCTL_H
-#ifdef GNU_LINUX
-#include <linux/types.h>
-#else
-#include <sys/sysctl.h>
-#endif
-#endif /* HAVE_SYS_SYSCTL_H */
-#ifdef HAVE_SYS_CONF_H
-#include <sys/conf.h>
-#endif /* HAVE_SYS_CONF_H */
 #include <sys/time.h>
 #include <time.h>
 #include <inttypes.h>
@@ -44,10 +34,6 @@
 
 #include <sys/socket.h>
 
-#ifdef HAVE_SYS_SOCKIO_H
-#include <sys/sockio.h>
-#endif /* HAVE_SYS_SOCKIO_H */
-
 #include "openbsd-tree.h"
 
 #include <netinet/in.h>
@@ -55,14 +41,6 @@
 #include <netinet/tcp.h>
 
 #include <net/if.h>
-
-#ifdef HAVE_NET_IF_DL_H
-#include <net/if_dl.h>
-#endif /* HAVE_NET_IF_DL_H */
-
-#ifdef HAVE_NET_IF_VAR_H
-#include <net/if_var.h>
-#endif /* HAVE_NET_IF_VAR_H */
 
 #ifndef HAVE_NETLINK
 #define RT_TABLE_MAIN		0
@@ -75,10 +53,6 @@
 #ifdef HAVE_NETINET_IN_VAR_H
 #include <netinet/in_var.h>
 #endif /* HAVE_NETINET_IN_VAR_H */
-
-#ifdef HAVE_NETINET6_IN6_VAR_H
-#include <netinet6/in6_var.h>
-#endif /* HAVE_NETINET6_IN6_VAR_H */
 
 #ifdef HAVE_NETINET6_IN_H
 #include <netinet6/in.h>

@@ -9,6 +9,10 @@
 
 #include <zebra.h>
 
+#ifndef __linux__
+#include <net/if_dl.h>
+#endif
+
 #include "ldpd.h"
 #include "ldpe.h"
 #include "log.h"

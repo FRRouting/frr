@@ -7,6 +7,10 @@
 #ifndef _ZEBRA_INTERFACE_H
 #define _ZEBRA_INTERFACE_H
 
+#ifndef __linux__
+#include <net/if_dl.h>
+#endif
+
 #include "redistribute.h"
 #include "vrf.h"
 #include "hook.h"
