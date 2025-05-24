@@ -1865,13 +1865,14 @@ DEFPY(show_pbr_nexthop_group,
       JSON_STR)
 {
 	json_object *j = NULL;
+	uint16_t pbr_nhg_count = 0;
 
 	if (json)
-		j = json_object_new_array();
+		j = json_object_new_object();
 
 	if (j) {
-		pbr_nht_json_nexthop_group(j, word);
-
+		pbr_nht_json_nexthop_group(j, word, &pbr_nhg_count);
+		json_object_int_add(j, "nhgCount", pbr_nhg_count);
 		vty_json(vty, j);
 	} else
 		pbr_nht_show_nexthop_group(vty, word);
