@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: BSD-3-Clause
 module ietf-netconf-with-defaults {
 
    namespace "urn:ietf:params:xml:ns:yang:ietf-netconf-with-defaults";

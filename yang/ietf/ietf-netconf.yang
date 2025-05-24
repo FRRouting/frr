@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: BSD-3-Clause
 module ietf-netconf {
 
   // the namespace for NETCONF XML definitions is unchanged

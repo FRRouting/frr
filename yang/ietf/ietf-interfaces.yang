@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: BSD-3-Clause
 module ietf-interfaces {
   yang-version 1.1;
   namespace "urn:ietf:params:xml:ns:yang:ietf-interfaces";
