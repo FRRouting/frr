@@ -626,13 +626,6 @@ AX_PTHREAD([
 orig_cflags="$CFLAGS"
 CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
 
-AC_SEARCH_LIBS([pthread_condattr_setclock], [],
-		[frr_cv_pthread_condattr_setclock=yes],
-		[frr_cv_pthread_condattr_setclock=no])
-if test "$frr_cv_pthread_condattr_setclock" = "yes"; then
-  AC_DEFINE([HAVE_PTHREAD_CONDATTR_SETCLOCK], [1], [Have pthread.h pthread_condattr_setclock])
-fi
-
 AC_CHECK_HEADERS([pthread_np.h],,, [
 #include <pthread.h>
 ])
