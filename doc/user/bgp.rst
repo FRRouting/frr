@@ -4957,6 +4957,11 @@ Displaying Routes by Route Distinguisher
    can be supplied to the command to only display matching prefixes in the
    specified RD.
 
+.. clicmd:: show bgp l2vpn evpn route rd <rd> prefix <prefix> [json]
+
+   For EVPN Type 5 routes, an IP address can be supplied to the command to only
+   display matching prefixes in the specified RD.
+
 Displaying Update Group Information
 -----------------------------------
 
