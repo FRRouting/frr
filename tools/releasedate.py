@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+# SPDX-License-Identifier: ISC
 #
 # print FRR release schedule dates
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: ISC
 #
 # helper class to grab variables from FRR's Makefile
 #

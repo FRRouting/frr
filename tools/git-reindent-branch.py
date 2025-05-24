@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# SPDX-License-Identifier: ISC
 # -*- coding: utf-8 -*-
 
 import sys, os
