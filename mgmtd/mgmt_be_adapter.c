@@ -446,137 +446,20 @@ static int mgmt_be_adapter_send_msg(struct mgmt_be_client_adapter *adapter,
 		(size_t(*)(void *, void *))mgmtd__be_message__pack, false);
 }
 
-static int mgmt_be_send_subscr_reply(struct mgmt_be_client_adapter *adapter,
-				     bool success)
-{
-	Mgmtd__BeMessage be_msg;
-	Mgmtd__BeSubscribeReply reply;
-
-	mgmtd__be_subscribe_reply__init(&reply);
-	reply.success = success;
-
-	mgmtd__be_message__init(&be_msg);
-	be_msg.message_case = MGMTD__BE_MESSAGE__MESSAGE_SUBSCR_REPLY;
-	be_msg.subscr_reply = &reply;
-
-	_dbg("Sending SUBSCR_REPLY client: %s success: %u", adapter->name, success);
-
-	return mgmt_be_adapter_send_msg(adapter, &be_msg);
-}
-
 static int
 mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 			      Mgmtd__BeMessage *be_msg)
 {
-	const char *xpath;
-	uint i, num;
-
 	/*
 	 * protobuf-c adds a max size enum with an internal, and changing by
 	 * version, name; cast to an int to avoid unhandled enum warnings
 	 */
 	switch ((int)be_msg->message_case) {
-	case MGMTD__BE_MESSAGE__MESSAGE_SUBSCR_REQ:
-		_dbg("Got SUBSCR_REQ from '%s' to register xpaths config: %zu oper: %zu notif: %zu rpc: %zu",
-		     be_msg->subscr_req->client_name, be_msg->subscr_req->n_config_xpaths,
-		     be_msg->subscr_req->n_oper_xpaths, be_msg->subscr_req->n_notif_xpaths,
-		     be_msg->subscr_req->n_rpc_xpaths);
-
-		if (strlen(be_msg->subscr_req->client_name)) {
-			strlcpy(adapter->name, be_msg->subscr_req->client_name,
-				sizeof(adapter->name));
-			adapter->id = mgmt_be_client_name2id(adapter->name);
-			if (adapter->id >= MGMTD_BE_CLIENT_ID_MAX) {
-				_log_err("Unable to resolve adapter '%s' to a valid ID. Disconnecting!",
-					 adapter->name);
-				/* this will/should delete old */
-				msg_conn_disconnect(adapter->conn, false);
-				break;
-			}
-			mgmt_be_adapters_by_id[adapter->id] = adapter;
-			mgmt_be_adapter_cleanup_old_conn(adapter);
-
-			/* schedule INIT sequence now that it is registered */
-			mgmt_be_adapter_sched_init_event(adapter);
-		}
-
-		num = be_msg->subscr_req->n_config_xpaths;
-		for (i = 0; i < num; i++) {
-			xpath = be_msg->subscr_req->config_xpaths[i];
-			mgmt_register_client_xpath(adapter->id, xpath,
-						   MGMT_BE_XPATH_SUBSCR_TYPE_CFG);
-		}
-
-		num = be_msg->subscr_req->n_oper_xpaths;
-		for (i = 0; i < num; i++) {
-			xpath = be_msg->subscr_req->oper_xpaths[i];
-			mgmt_register_client_xpath(adapter->id, xpath,
-						   MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
-		}
-
-		num = be_msg->subscr_req->n_notif_xpaths;
-		for (i = 0; i < num; i++) {
-			xpath = be_msg->subscr_req->notif_xpaths[i];
-			mgmt_register_client_xpath(adapter->id, xpath,
-						   MGMT_BE_XPATH_SUBSCR_TYPE_NOTIF);
-		}
-
-		num = be_msg->subscr_req->n_rpc_xpaths;
-		for (i = 0; i < num; i++) {
-			xpath = be_msg->subscr_req->rpc_xpaths[i];
-			mgmt_register_client_xpath(adapter->id, xpath,
-						   MGMT_BE_XPATH_SUBSCR_TYPE_RPC);
-		}
-
-		mgmt_be_send_subscr_reply(adapter, true);
-		break;
-	case MGMTD__BE_MESSAGE__MESSAGE_TXN_REPLY:
-		_dbg("Got %s TXN_REPLY from '%s' txn-id %" PRIx64 " with '%s'",
-		     be_msg->txn_reply->create ? "Create" : "Delete", adapter->name,
-		     be_msg->txn_reply->txn_id, be_msg->txn_reply->success ? "success" : "failure");
-		/*
-		 * Forward the TXN_REPLY to txn module.
-		 */
-		mgmt_txn_notify_be_txn_reply(
-			be_msg->txn_reply->txn_id,
-			be_msg->txn_reply->create,
-			be_msg->txn_reply->success, adapter);
-		break;
-	case MGMTD__BE_MESSAGE__MESSAGE_CFG_DATA_REPLY:
-		_dbg("Got CFGDATA_REPLY from '%s' txn-id %" PRIx64 " err:'%s'", adapter->name,
-		     be_msg->cfg_data_reply->txn_id,
-		     be_msg->cfg_data_reply->error_if_any ? be_msg->cfg_data_reply->error_if_any
-							  : "None");
-		/*
-		 * Forward the CGFData-create reply to txn module.
-		 */
-		mgmt_txn_notify_be_cfgdata_reply(
-			be_msg->cfg_data_reply->txn_id,
-			be_msg->cfg_data_reply->success,
-			be_msg->cfg_data_reply->error_if_any, adapter);
-		break;
-	case MGMTD__BE_MESSAGE__MESSAGE_CFG_APPLY_REPLY:
-		_dbg("Got %s CFG_APPLY_REPLY from '%s' txn-id %" PRIx64 " err:'%s'",
-		     be_msg->cfg_apply_reply->success ? "successful" : "failed", adapter->name,
-		     be_msg->cfg_apply_reply->txn_id,
-		     be_msg->cfg_apply_reply->error_if_any ? be_msg->cfg_apply_reply->error_if_any
-							   : "None");
-		/*
-		 * Forward the CGFData-apply reply to txn module.
-		 */
-		mgmt_txn_notify_be_cfg_apply_reply(
-			be_msg->cfg_apply_reply->txn_id,
-			be_msg->cfg_apply_reply->success,
-			be_msg->cfg_apply_reply->error_if_any, adapter);
-		break;
 	/*
 	 * NOTE: The following messages are always sent from MGMTD to
 	 * Backend clients only and/or need not be handled on MGMTd.
 	 */
-	case MGMTD__BE_MESSAGE__MESSAGE_SUBSCR_REPLY:
-	case MGMTD__BE_MESSAGE__MESSAGE_TXN_REQ:
 	case MGMTD__BE_MESSAGE__MESSAGE_CFG_DATA_REQ:
-	case MGMTD__BE_MESSAGE__MESSAGE_CFG_APPLY_REQ:
 	case MGMTD__BE_MESSAGE__MESSAGE__NOT_SET:
 	default:
 		/*
@@ -591,23 +474,21 @@ mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 	return 0;
 }
 
-int mgmt_be_send_txn_req(struct mgmt_be_client_adapter *adapter,
-			 uint64_t txn_id, bool create)
+int mgmt_be_send_txn_req(struct mgmt_be_client_adapter *adapter, uint64_t txn_id, bool create)
 {
-	Mgmtd__BeMessage be_msg;
-	Mgmtd__BeTxnReq txn_req;
+	struct mgmt_msg_txn_req *msg;
+	int ret;
 
-	mgmtd__be_txn_req__init(&txn_req);
-	txn_req.create = create;
-	txn_req.txn_id = txn_id;
-
-	mgmtd__be_message__init(&be_msg);
-	be_msg.message_case = MGMTD__BE_MESSAGE__MESSAGE_TXN_REQ;
-	be_msg.txn_req = &txn_req;
+	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_txn_req, 0, MTYPE_MSG_NATIVE_TXN_REQ);
+	msg->code = MGMT_MSG_CODE_TXN_REQ;
+	msg->refer_id = txn_id;
+	msg->create = create;
 
 	_dbg("Sending TXN_REQ to '%s' txn-id: %" PRIu64, adapter->name, txn_id);
 
-	return mgmt_be_adapter_send_msg(adapter, &be_msg);
+	ret = mgmt_msg_native_send_msg(adapter->conn, msg, false);
+	mgmt_msg_native_free_msg(msg);
+	return ret;
 }
 
 int mgmt_be_send_cfgdata_req(struct mgmt_be_client_adapter *adapter,
@@ -637,19 +518,19 @@ int mgmt_be_send_cfgdata_req(struct mgmt_be_client_adapter *adapter,
 int mgmt_be_send_cfgapply_req(struct mgmt_be_client_adapter *adapter,
 			      uint64_t txn_id)
 {
-	Mgmtd__BeMessage be_msg;
-	Mgmtd__BeCfgDataApplyReq apply_req;
+	struct mgmt_msg_cfg_apply_req *msg;
+	int ret;
 
-	mgmtd__be_cfg_data_apply_req__init(&apply_req);
-	apply_req.txn_id = txn_id;
+	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_cfg_apply_req, 0,
+					MTYPE_MSG_NATIVE_CFG_APPLY_REQ);
+	msg->code = MGMT_MSG_CODE_CFG_APPLY_REQ;
+	msg->refer_id = txn_id;
 
-	mgmtd__be_message__init(&be_msg);
-	be_msg.message_case = MGMTD__BE_MESSAGE__MESSAGE_CFG_APPLY_REQ;
-	be_msg.cfg_apply_req = &apply_req;
+	_dbg("Sending CFG_APPLY_REQ to '%s' txn-id: %Lu", adapter->name, txn_id);
 
-	_dbg("Sending CFG_APPLY_REQ to '%s' txn-id: %" PRIu64, adapter->name, txn_id);
-
-	return mgmt_be_adapter_send_msg(adapter, &be_msg);
+	ret = mgmt_msg_native_send_msg(adapter->conn, msg, false);
+	mgmt_msg_native_free_msg(msg);
+	return ret;
 }
 
 int mgmt_be_send_native(enum mgmt_be_client_id id, void *msg)
@@ -711,6 +592,55 @@ static void mgmt_be_adapter_send_notify(struct mgmt_msg_notify_data *msg, size_t
 	}
 }
 
+static void be_adapter_handle_subscribe(struct mgmt_msg_subscribe *msg, size_t msg_len,
+					struct mgmt_be_client_adapter *adapter)
+{
+	const char **s = NULL;
+	uint i = 0;
+
+	s = mgmt_msg_native_strings_decode(msg, msg_len, msg->strings);
+	if (!s) {
+		_log_err("Corrupt subscribe msg from '%s'", adapter->name);
+		msg_conn_disconnect(adapter->conn, false);
+		return;
+	}
+	if (darr_len(s) != (1u + msg->nconfig + msg->noper + msg->nnotify + msg->nrpc)) {
+		_log_err("Corrupt subscribe msg from '%s': len == %u", adapter->name, darr_len(s));
+		msg_conn_disconnect(adapter->conn, false);
+		goto done;
+	}
+
+	_dbg("\"%s\" now known as \"%s\"", adapter->name, s[i]);
+
+	strlcpy(adapter->name, s[i++], sizeof(adapter->name));
+	adapter->id = mgmt_be_client_name2id(adapter->name);
+	if (adapter->id >= MGMTD_BE_CLIENT_ID_MAX) {
+		_log_err("Unable to resolve adapter '%s' to a valid ID. Disconnecting!",
+			 adapter->name);
+		/* this will/should delete old */
+		msg_conn_disconnect(adapter->conn, false);
+		goto done;
+	}
+	mgmt_be_adapters_by_id[adapter->id] = adapter;
+	mgmt_be_adapter_cleanup_old_conn(adapter);
+
+	/* schedule INIT sequence now that it is registered */
+	mgmt_be_adapter_sched_init_event(adapter);
+
+	for (uint j = 0; j < msg->nconfig; j++)
+		mgmt_register_client_xpath(adapter->id, s[i++], MGMT_BE_XPATH_SUBSCR_TYPE_CFG);
+
+	for (uint j = 0; j < msg->noper; j++)
+		mgmt_register_client_xpath(adapter->id, s[i++], MGMT_BE_XPATH_SUBSCR_TYPE_OPER);
+
+	for (uint j = 0; j < msg->nnotify; j++)
+		mgmt_register_client_xpath(adapter->id, s[i++], MGMT_BE_XPATH_SUBSCR_TYPE_NOTIF);
+
+	for (uint j = 0; j < msg->nrpc; j++)
+		mgmt_register_client_xpath(adapter->id, s[i++], MGMT_BE_XPATH_SUBSCR_TYPE_RPC);
+done:
+	darr_free_free(s);
+}
 
 /*
  * Handle a native encoded message
@@ -719,14 +649,55 @@ static void be_adapter_handle_native_msg(struct mgmt_be_client_adapter *adapter,
 					 struct mgmt_msg_header *msg,
 					 size_t msg_len)
 {
+	struct mgmt_msg_subscribe *subr_msg;
+	struct mgmt_msg_cfg_reply *cfg_msg;
+	struct mgmt_msg_cfg_apply_reply *apply_msg;
 	struct mgmt_msg_notify_data *notify_msg;
 	struct mgmt_msg_tree_data *tree_msg;
+	struct mgmt_msg_txn_reply *txn_msg;
 	struct mgmt_msg_rpc_reply *rpc_msg;
 	struct mgmt_msg_error *error_msg;
 
 	/* get the transaction */
 
 	switch (msg->code) {
+	case MGMT_MSG_CODE_SUBSCRIBE:
+		subr_msg = (typeof(subr_msg))msg;
+		_dbg("Got SUBSCRIBE from '%s' to register xpaths config: %u oper: %u notif: %u rpc: %u",
+		     adapter->name, subr_msg->nconfig, subr_msg->noper, subr_msg->nnotify,
+		     subr_msg->nrpc);
+
+		be_adapter_handle_subscribe(subr_msg, msg_len, adapter);
+		break;
+
+	case MGMT_MSG_CODE_TXN_REPLY:
+		txn_msg = (typeof(txn_msg))msg;
+		_dbg("Got TXN_REPLY from '%s' txn-id %Lu successfully '%s'", adapter->name,
+		     txn_msg->refer_id, txn_msg->created ? "Created" : "Deleted");
+		/*
+		 * Forward the TXN_REPLY to txn module.
+		 */
+		mgmt_txn_notify_be_txn_reply(txn_msg->refer_id, txn_msg->created, true, adapter);
+		break;
+	case MGMT_MSG_CODE_CFG_APPLY_REPLY:
+		apply_msg = (typeof(apply_msg))msg;
+		_dbg("Got successful CFG_APPLY_REPLY from '%s' txn-id %Lu", adapter->name,
+		     apply_msg->refer_id);
+		/*
+		 * Forward the CGFData-apply reply to txn module.
+		 */
+		mgmt_txn_notify_be_cfg_apply_reply(apply_msg->refer_id, true, NULL, adapter);
+		break;
+
+	case MGMT_MSG_CODE_CFG_REPLY:
+		cfg_msg = (typeof(cfg_msg))msg;
+		_dbg("Got successful CFG_REPLY from '%s' txn-id %Lu", adapter->name,
+		     cfg_msg->refer_id);
+		/*
+		 * Forward the CGFData-create reply to txn module.
+		 */
+		mgmt_txn_notify_be_cfgdata_reply(cfg_msg->refer_id, true, NULL, adapter);
+		break;
 	case MGMT_MSG_CODE_ERROR:
 		error_msg = (typeof(error_msg))msg;
 		_dbg("Got ERROR from '%s' txn-id %" PRIx64, adapter->name, msg->refer_id);

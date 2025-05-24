@@ -20,8 +20,15 @@ DEFINE_MTYPE(MSG_NATIVE, MSG_NATIVE_EDIT, "native edit msg");
 DEFINE_MTYPE(MSG_NATIVE, MSG_NATIVE_EDIT_REPLY, "native edit reply msg");
 DEFINE_MTYPE(MSG_NATIVE, MSG_NATIVE_RPC, "native RPC msg");
 DEFINE_MTYPE(MSG_NATIVE, MSG_NATIVE_RPC_REPLY, "native RPC reply msg");
+DEFINE_MTYPE(MSG_NATIVE, MSG_NATIVE_SUBSCRIBE, "native subscribe msg");
 DEFINE_MTYPE(MSG_NATIVE, MSG_NATIVE_SESSION_REQ, "native session-req msg");
 DEFINE_MTYPE(MSG_NATIVE, MSG_NATIVE_SESSION_REPLY, "native session-reply msg");
+DEFINE_MTYPE(MSG_NATIVE, MSG_NATIVE_TXN_REQ, "native txn-req msg");
+DEFINE_MTYPE(MSG_NATIVE, MSG_NATIVE_TXN_REPLY, "native txn-reply msg");
+DEFINE_MTYPE(MSG_NATIVE, MSG_NATIVE_CFG_REQ, "native cfg-req msg");
+DEFINE_MTYPE(MSG_NATIVE, MSG_NATIVE_CFG_REPLY, "native cfg-reply msg");
+DEFINE_MTYPE(MSG_NATIVE, MSG_NATIVE_CFG_APPLY_REQ, "native cfg-act-req msg");
+DEFINE_MTYPE(MSG_NATIVE, MSG_NATIVE_CFG_APPLY_REPLY, "native cfg-act-reply msg");
 
 
 size_t mgmt_msg_min_sizes[] = {
@@ -37,6 +44,13 @@ size_t mgmt_msg_min_sizes[] = {
 	[MGMT_MSG_CODE_NOTIFY_SELECT] = sizeof(struct mgmt_msg_notify_select),
 	[MGMT_MSG_CODE_SESSION_REQ] = sizeof(struct mgmt_msg_session_req),
 	[MGMT_MSG_CODE_SESSION_REPLY] = sizeof(struct mgmt_msg_session_reply),
+	[MGMT_MSG_CODE_SUBSCRIBE] = sizeof(struct mgmt_msg_subscribe),
+	[MGMT_MSG_CODE_TXN_REQ] = sizeof(struct mgmt_msg_txn_req),
+	[MGMT_MSG_CODE_TXN_REPLY] = sizeof(struct mgmt_msg_txn_reply),
+	[MGMT_MSG_CODE_CFG_REQ] = sizeof(struct mgmt_msg_cfg_req),
+	[MGMT_MSG_CODE_CFG_REPLY] = sizeof(struct mgmt_msg_cfg_reply),
+	[MGMT_MSG_CODE_CFG_APPLY_REQ] = sizeof(struct mgmt_msg_cfg_apply_req),
+	[MGMT_MSG_CODE_CFG_APPLY_REPLY] = sizeof(struct mgmt_msg_cfg_apply_reply),
 };
 size_t nmgmt_msg_min_sizes = sizeof(mgmt_msg_min_sizes) /
 			     sizeof(*mgmt_msg_min_sizes);
