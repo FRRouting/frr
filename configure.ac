@@ -577,9 +577,38 @@ extern int __start_secttest, __stop_secttest;
   printf("%p %p %p\n", a, b, c);
 ]])], [
   AC_MSG_RESULT(yes)
-  AC_DEFINE(HAVE_SECTION_SYMS, 1, [have __start/stop_section symbols])
 ], [
   AC_MSG_RESULT(no)
+  AC_MSG_ERROR([Toolchain issue: ELF __start/stop_section symbols seem to not work.  Please open configure.ac and search for this message for further information.])
+dnl
+dnl if you have arrived here, well, you might be about to have a rather bad day
+dnl since the above issue will be caused by one of the following things:
+dnl
+dnl (1) the test above broke.  This is the best case; just comment it out and
+dnl     try building anyway.  If it works, you're lucky, but please open an
+dnl     issue on the FRR bugtracker.
+dnl
+dnl (2) you're trying to build for Linux or *BSD.  All non-necromantic versions
+dnl     of those support this feature, so start looking at what might be wrong
+dnl     with your compiler toolchain.  Is "ld" not installed correctly or
+dnl     something like that?  Some weird LTO thing going on?  Weird mix of GNU
+dnl     and LLVM toolchains?  Maybe try a fresh install in a container/VM?
+dnl
+dnl (3) you're trying to build for Solaris.  Support for Solaris has been
+dnl     removed due to lack of maintainers and testing.  For this specific
+dnl     problem, use GNU ld and you're good, but you'll hit walls elsewhere.
+dnl
+dnl (4) you're trying to build for Apple OSX.  You in for a world of pain, with
+dnl     OSX using Mach-O for its binaries rather than ELF.  FRR contains code
+dnl     that uses libelf to open its own binaries and fish out things.  For
+dnl     obvious reasons of Mach-O not being ELF, this won't work.  There is no
+dnl     easy workaround, disabling this code results in a non-working FRR
+dnl     build even if you somehow get it to pass.  Good luck!
+dnl
+dnl IN ALL CASES: open config.log, scroll to the very bottom, then back up to
+dnl     before the kilometer long dumps of internal autoconf variables.  There
+dnl     should be a compiler/linker error there.  You absolutely need that
+dnl     error message, otherwise you're completely lost in the dark.
 ])
 
 dnl ----------
