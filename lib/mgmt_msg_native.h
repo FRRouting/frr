@@ -586,14 +586,14 @@ struct mgmt_msg_txn_reply {
  *	    possible: "m" for modify and "r" for remove.
  *
  * To process the config data, walk the action string, each byte indicates the
- * action to take. For "r" (remove) consume 1 string which is the xpath to
+ * action to take. For "d" (delete/remove) consume 1 string which is the xpath to
  * remove. For "m" (modify) consume 2 strings, the first is the xpath to modify
  * and the second is the new value. The value may be zero length for YANG value
  * type "empty".
  */
 struct mgmt_msg_cfg_req {
 	struct mgmt_msg_header;
-	uint8_t resv2[8]; /* bug in compiler */
+	uint8_t resv2[7];
 	alignas(8) char config[];
 };
 

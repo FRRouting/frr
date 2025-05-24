@@ -421,6 +421,14 @@ static int mgmt_be_send_txn_reply(struct mgmt_be_client *client, uint64_t txn_id
 	return ret;
 }
 
+/* ===================== */
+/* CONFIGURATION PROCESS */
+/* ===================== */
+
+/* ------------------ */
+/* Create Transaction */
+/* ------------------ */
+
 /*
  * Process transaction create message
  */
@@ -455,6 +463,9 @@ static void be_client_handle_txn_req(struct mgmt_be_client *client, uint64_t txn
 	mgmt_be_send_txn_reply(client, txn_id, msg->create);
 }
 
+/* ------------------------- */
+/* Receive Config from MgmtD */
+/* ------------------------- */
 
 static int mgmt_be_send_cfgdata_create_reply(struct mgmt_be_client *client_ctx,
 					     uint64_t txn_id, bool success,
@@ -504,10 +515,60 @@ static void mgmt_be_txn_cfg_abort(struct mgmt_be_txn_ctx *txn)
 			  txn->client->running_config, true);
 }
 
-static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
+/* ------------------------------------------------ */
+/* Received All Configuration, Prepare and Validate */
+/* ------------------------------------------------ */
+
+static bool be_client_change_edit_config(struct nb_config *candidate_config, const char **changes,
+					 char *err_buf, int err_bufsize)
+{
+	enum nb_change_result result;
+	enum nb_operation operation;
+	const char *actions;
+	const char *xpath;
+	const char *value;
+	bool error = false;
+	uint end = darr_lasti(changes);
+	uint i = 0;
+
+	actions = changes[end];
+	assert(end > 0);
+	while (i < end) {
+		char action = *actions++;
+
+		xpath = changes[i++];
+
+		if (action == 'm') {
+			operation = NB_OP_MODIFY;
+			assert(i < end);
+			value = changes[i++];
+		} else if (action == 'd') {
+			operation = NB_OP_DESTROY;
+			value = NULL;
+		} else {
+			assert(!"config change action is invalid");
+			value = NULL;
+		}
+		result = nb_candidate_edit_config_change(candidate_config, operation, xpath, value,
+							 true);
+		if (result != NB_CHANGE_OK)
+			error = true;
+		if (result == NB_CHANGE_ERR)
+			break;
+	}
+	if (error) {
+		char buf[BUFSIZ];
+
+		snprintf(err_buf, err_bufsize, "%% Failed to edit configuration.\n\n%s",
+			 yang_print_errors(ly_native_ctx, buf, sizeof(buf)));
+		err_buf[err_bufsize - 1] = 0;
+	}
+	return error;
+}
+
+static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn, const char **config)
 {
 	struct mgmt_be_client *client_ctx;
-	struct mgmt_be_txn_req *txn_req = NULL;
 	struct nb_context nb_ctx = {0};
 	struct timeval edit_nb_cfg_start;
 	struct timeval edit_nb_cfg_end;
@@ -525,56 +586,42 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
 	client_ctx = txn->client;
 
 	num_processed = 0;
-	FOREACH_BE_TXN_BATCH_IN_LIST (txn, batch) {
-		txn_req = &batch->txn_req;
-		error = false;
-		nb_ctx.client = NB_CLIENT_CLI;
-		nb_ctx.user = (void *)client_ctx->user_data;
-
-		if (!txn->nb_txn) {
-			/*
-			 * This happens when the current backend client is only
-			 * interested in consuming the config items but is not
-			 * interested in validating it.
-			 */
-			error = false;
-
-			gettimeofday(&edit_nb_cfg_start, NULL);
-			nb_candidate_edit_config_changes(
-				client_ctx->candidate_config,
-				txn_req->req.set_cfg.cfg_changes,
-				(size_t)txn_req->req.set_cfg.num_cfg_changes,
-				NULL, true, err_buf, sizeof(err_buf), &error);
-			if (error) {
-				/* XXX this looks bogus! */
-				err_buf[sizeof(err_buf) - 1] = 0;
-				log_err_be_client("Failed to update configs for txn-id: %" PRIu64
-						  " to candidate, err: '%s'",
-						  txn->txn_id, err_buf);
-				return -1;
-			}
-			gettimeofday(&edit_nb_cfg_end, NULL);
-			edit_nb_cfg_tm = timeval_elapsed(edit_nb_cfg_end,
-							 edit_nb_cfg_start);
-			client_ctx->avg_edit_nb_cfg_tm =
-				((client_ctx->avg_edit_nb_cfg_tm *
-				  client_ctx->num_edit_nb_cfg) +
-				 edit_nb_cfg_tm) /
-				(client_ctx->num_edit_nb_cfg + 1);
-			client_ctx->num_edit_nb_cfg++;
-		}
-
-		num_processed++;
-	}
-
-	if (!num_processed)
-		return 0;
-
-	/*
-	 * Now prepare all the batches we have applied in one go.
-	 */
+	error = false;
 	nb_ctx.client = NB_CLIENT_CLI;
 	nb_ctx.user = (void *)client_ctx->user_data;
+
+	/*
+	 * this is always true, right?!
+	 */
+	assert(!txn->nb_txn);
+
+	if (!txn->nb_txn) {
+		/*
+		 * XXX, is this just an old crusty comment?
+		 *
+		 * This happens when the current backend client is only
+		 * interested in consuming the config items but is not
+		 * interested in validating it.
+		 */
+		gettimeofday(&edit_nb_cfg_start, NULL);
+
+		error = be_client_change_edit_config(client_ctx->candidate_config, config, err_buf,
+						     sizeof(err_buf));
+		if (error) {
+			log_err_be_client("Failed to update configs for txn-id: %" PRIu64
+					  " to candidate, err: '%s'",
+					  txn->txn_id, err_buf);
+			return -1;
+		}
+
+		gettimeofday(&edit_nb_cfg_end, NULL);
+		edit_nb_cfg_tm = timeval_elapsed(edit_nb_cfg_end, edit_nb_cfg_start);
+		client_ctx->avg_edit_nb_cfg_tm =
+			((client_ctx->avg_edit_nb_cfg_tm * client_ctx->num_edit_nb_cfg) +
+			 edit_nb_cfg_tm) /
+			(client_ctx->num_edit_nb_cfg + 1);
+		client_ctx->num_edit_nb_cfg++;
+	}
 
 	gettimeofday(&prep_nb_cfg_start, NULL);
 	err = nb_candidate_commit_prepare(nb_ctx, client_ctx->candidate_config,
@@ -635,6 +682,7 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn)
 /*
  * Process all CFG_DATA_REQs received so far and prepare them all in one go.
  */
+
 static int mgmt_be_update_setcfg_in_batch(struct mgmt_be_client *client_ctx,
 					  struct mgmt_be_txn_ctx *txn,
 					  Mgmtd__YangCfgDataReq *cfg_req[],
@@ -700,30 +748,44 @@ static int mgmt_be_update_setcfg_in_batch(struct mgmt_be_client *client_ctx,
 	return 0;
 }
 
-static int mgmt_be_process_cfgdata_req(struct mgmt_be_client *client_ctx,
-				       uint64_t txn_id,
-				       Mgmtd__YangCfgDataReq *cfg_req[],
-				       int num_req, bool end_of_data)
+static void be_client_handle_cfg(struct mgmt_be_client *client, uint64_t txn_id, void *msgbuf,
+				 size_t msg_len)
 {
+	struct mgmt_msg_cfg_req *msg = msgbuf;
 	struct mgmt_be_txn_ctx *txn;
+	const char **config = NULL;
 
-	txn = mgmt_be_find_txn_by_id(client_ctx, txn_id, true);
-	if (!txn)
+	debug_be_client("Got CFG_DATA_REQ txn-id: %Lu", txn_id);
+
+	txn = mgmt_be_find_txn_by_id(client, txn_id, true);
+	if (!txn) {
+		log_err_be_client("Can't find TXN for txn_id: %Lu", txn_id);
 		goto failed;
-
-	mgmt_be_update_setcfg_in_batch(client_ctx, txn, cfg_req, num_req);
-
-	if (txn && end_of_data) {
-		debug_be_client("End of data; CFG_PREPARE_REQ processing");
-		if (mgmt_be_txn_cfg_prepare(txn))
-			goto failed;
 	}
 
-	return 0;
+	config = mgmt_msg_native_strings_decode(msg, msg_len, msg->config);
+	if (darr_len(config) == 0) {
+		log_err_be_client("No config data in CFG_REQ");
+		goto failed;
+	}
+
+	debug_be_client("End of data; CFG_PREPARE_REQ processing");
+
+	if (mgmt_be_txn_cfg_prepare(txn, config))
+		goto failed;
+
+	darr_free_free(config);
+	return;
+
 failed:
-	msg_conn_disconnect(&client_ctx->client.conn, true);
-	return -1;
+	darr_free_free(config);
+	msg_conn_disconnect(&client->client.conn, true);
 }
+
+/* ============================ */
+/* Receive Apply Config Message */
+/* ============================ */
+
 
 static int mgmt_be_send_apply_reply(struct mgmt_be_client *client_ctx,
 				    uint64_t txn_id, bool success,
@@ -802,46 +864,6 @@ static void be_client_handle_cfg_apply(struct mgmt_be_client *client, uint64_t t
 		msg_conn_disconnect(&client->client.conn, true);
 }
 
-
-static int mgmt_be_client_handle_msg(struct mgmt_be_client *client_ctx,
-				     Mgmtd__BeMessage *be_msg)
-{
-	/*
-	 * On error we may have closed the connection so don't do anything with
-	 * the client_ctx on return.
-	 *
-	 * protobuf-c adds a max size enum with an internal, and changing by
-	 * version, name; cast to an int to avoid unhandled enum warnings
-	 */
-	switch ((int)be_msg->message_case) {
-	case MGMTD__BE_MESSAGE__MESSAGE_CFG_DATA_REQ:
-		debug_be_client("Got CFG_DATA_REQ txn-id: %" PRIu64
-				" end-of-data %u",
-				be_msg->cfg_data_req->txn_id,
-				be_msg->cfg_data_req->end_of_data);
-		mgmt_be_process_cfgdata_req(
-			client_ctx, be_msg->cfg_data_req->txn_id,
-			be_msg->cfg_data_req->data_req,
-			be_msg->cfg_data_req->n_data_req,
-			be_msg->cfg_data_req->end_of_data);
-		break;
-	/*
-	 * NOTE: The following messages are always sent from Backend
-	 * clients to MGMTd only and/or need not be handled here.
-	 */
-	case MGMTD__BE_MESSAGE__MESSAGE__NOT_SET:
-	default:
-		/*
-		 * A 'default' case is being added contrary to the
-		 * FRR code guidelines to take care of build
-		 * failures on certain build systems (courtesy of
-		 * the proto-c package).
-		 */
-		break;
-	}
-
-	return 0;
-}
 
 struct be_client_tree_data_batch_args {
 	struct mgmt_be_client *client;
@@ -1173,6 +1195,9 @@ static void be_client_handle_native_msg(struct mgmt_be_client *client,
 	case MGMT_MSG_CODE_TXN_REQ:
 		be_client_handle_txn_req(client, txn_id, msg, msg_len);
 		break;
+	case MGMT_MSG_CODE_CFG_REQ:
+		be_client_handle_cfg(client, txn_id, msg, msg_len);
+		break;
 	case MGMT_MSG_CODE_CFG_APPLY_REQ:
 		be_client_handle_cfg_apply(client, txn_id);
 		break;
@@ -1205,7 +1230,6 @@ static void mgmt_be_client_process_msg(uint8_t version, uint8_t *data,
 {
 	struct mgmt_be_client *client_ctx;
 	struct msg_client *client;
-	Mgmtd__BeMessage *be_msg;
 
 	client = container_of(conn, struct msg_client, conn);
 	client_ctx = container_of(client, struct mgmt_be_client, client);
@@ -1221,15 +1245,8 @@ static void mgmt_be_client_process_msg(uint8_t version, uint8_t *data,
 		return;
 	}
 
-	be_msg = mgmtd__be_message__unpack(NULL, len, data);
-	if (!be_msg) {
-		debug_be_client("Failed to decode %zu bytes from server", len);
-		return;
-	}
-	debug_be_client("Decoded %zu bytes of message(msg: %u/%u) from server",
-			len, be_msg->message_case, be_msg->message_case);
-	(void)mgmt_be_client_handle_msg(client_ctx, be_msg);
-	mgmtd__be_message__free_unpacked(be_msg, NULL);
+	log_err_be_client("Protobuf no longer used in backend API");
+	msg_conn_disconnect(&client_ctx->client.conn, true);
 }
 
 /**
