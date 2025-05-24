@@ -135,6 +135,20 @@ static int zebra_srv6_cleanup(struct zserv *client)
 	return 0;
 }
 
+static int zebra_srv6_connect(struct zserv *client)
+{
+	struct srv6_locator *locator;
+	struct listnode *node;
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+
+	/* Client has connected, let's send the available locators */
+	for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
+		if (locator->status_up)
+			zsend_zebra_srv6_locator_add(client, locator);
+	}
+	return 0;
+}
+
 /* --- Zebra SRv6 SID context management functions -------------------------- */
 
 struct zebra_srv6_sid_ctx *zebra_srv6_sid_ctx_alloc(void)
@@ -2505,6 +2519,7 @@ void zebra_srv6_terminate(void)
 
 void zebra_srv6_init(void)
 {
+	hook_register(zserv_client_connect, zebra_srv6_connect);
 	hook_register(zserv_client_close, zebra_srv6_cleanup);
 	hook_register(srv6_manager_get_chunk,
 		      zebra_srv6_manager_get_locator_chunk);
