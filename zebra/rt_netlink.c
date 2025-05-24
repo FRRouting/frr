@@ -115,6 +115,28 @@ static bool is_route_v4_over_v6(unsigned char rtm_family,
 	return false;
 }
 
+static bool add_v4_over_v6_rta_via_attr(struct nlmsghdr *nlmsg, size_t req_size,
+					const struct nexthop *nexthop)
+{
+	struct gw_family_t gw_fam = {
+		.family = AF_INET6,
+	};
+	uint addr_num_bytes;
+
+	if (nexthop->type == NEXTHOP_TYPE_IPV6 || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
+		gw_fam.family = AF_INET6;
+		memcpy(&gw_fam.gate.ipv6, &nexthop->gate.ipv6, sizeof(nexthop->gate.ipv6));
+		addr_num_bytes = sizeof(nexthop->gate.ipv6);
+	} else {
+		gw_fam.family = AF_INET;
+		memcpy(&gw_fam.gate.ipv4, &ipv4_ll, sizeof(nexthop->gate.ipv4));
+		addr_num_bytes = sizeof(nexthop->gate.ipv4);
+	}
+
+	return nl_attr_put(nlmsg, req_size, RTA_VIA, &gw_fam.family,
+			   addr_num_bytes + sizeof(gw_fam.family));
+}
+
 /* Helper to control use of kernel-level nexthop ids */
 static bool kernel_nexthops_supported(void)
 {
@@ -148,8 +170,7 @@ static bool is_proto_nhg(uint32_t id, int type)
 }
 
 /* Is vni mcast group */
-static bool is_mac_vni_mcast_group(struct ethaddr *mac, vni_t vni,
-				   struct in_addr grp_addr)
+static bool is_mac_vni_mcast_group(struct ethaddr *mac, vni_t vni, struct ipaddr *grp_addr)
 {
 	if (!vni)
 		return false;
@@ -157,10 +178,7 @@ static bool is_mac_vni_mcast_group(struct ethaddr *mac, vni_t vni,
 	if (!is_zero_mac(mac))
 		return false;
 
-	if (!IN_MULTICAST(ntohl(grp_addr.s_addr)))
-		return false;
-
-	return true;
+	return ipaddr_is_mcast(grp_addr);
 }
 
 /*
@@ -1678,7 +1696,7 @@ static bool _netlink_nexthop_encode_dvni_label(const struct nexthop *nexthop,
 				return false;
 
 		} else {
-			if (!nl_attr_put(nlmsg, buflen, LWTUNNEL_IP_DST,
+			if (!nl_attr_put(nlmsg, buflen, LWTUNNEL_IP6_DST,
 					 &nexthop->gate.ipv6, 16))
 				return false;
 		}
@@ -2071,7 +2089,7 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 
 	if (is_route_v4_over_v6(rtmsg->rtm_family, nexthop->type)) {
 		rtmsg->rtm_flags |= RTNH_F_ONLINK;
-		if (!nl_attr_put(nlmsg, req_size, RTA_GATEWAY, &ipv4_ll, 4))
+		if (!add_v4_over_v6_rta_via_attr(nlmsg, req_size, nexthop))
 			return false;
 		if (!nl_attr_put32(nlmsg, req_size, RTA_OIF, nexthop->ifindex))
 			return false;
@@ -2082,11 +2100,16 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 				return false;
 		}
 
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: 5549 (%s): %pFX nexthop via %s %s if %u vrf %u",
-				   __func__, routedesc, p, ipv4_ll_buf,
-				   label_buf, nexthop->ifindex,
+		if (IS_ZEBRA_DEBUG_KERNEL) {
+			inet_ntop(nexthop->type == NEXTHOP_TYPE_IPV6 ||
+						  nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX
+					  ? AF_INET6
+					  : AF_INET,
+				  &nexthop->gate, addrstr, sizeof(addrstr));
+			zlog_debug("%s: 5549 (%s): %pFX nexthop via %s %s if %u vrf %u", __func__,
+				   routedesc, p, addrstr, label_buf, nexthop->ifindex,
 				   nexthop->vrf_id);
+		}
 		return true;
 	}
 
@@ -2115,8 +2138,8 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 		}
 	}
 
-	if (nexthop->type == NEXTHOP_TYPE_IPV6
-	    || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
+	if (!is_route_v4_over_v6(rtmsg->rtm_family, nexthop->type) &&
+	    (nexthop->type == NEXTHOP_TYPE_IPV6 || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX)) {
 		if (!_netlink_route_add_gateway_info(rtmsg->rtm_family,
 						     AF_INET6, nlmsg, req_size,
 						     bytelen, nexthop))
@@ -2243,6 +2266,7 @@ static bool _netlink_route_build_multipath(const struct prefix *p,
 {
 	char label_buf[256];
 	struct rtnexthop *rtnh;
+	char addrstr[INET6_ADDRSTRLEN];
 
 	rtnh = nl_attr_rtnh(nlmsg, req_size);
 	if (rtnh == NULL)
@@ -2259,7 +2283,7 @@ static bool _netlink_route_build_multipath(const struct prefix *p,
 
 	if (is_route_v4_over_v6(rtmsg->rtm_family, nexthop->type)) {
 		rtnh->rtnh_flags |= RTNH_F_ONLINK;
-		if (!nl_attr_put(nlmsg, req_size, RTA_GATEWAY, &ipv4_ll, 4))
+		if (!add_v4_over_v6_rta_via_attr(nlmsg, req_size, nexthop))
 			return false;
 		rtnh->rtnh_ifindex = nexthop->ifindex;
 		if (nexthop->weight)
@@ -2270,11 +2294,16 @@ static bool _netlink_route_build_multipath(const struct prefix *p,
 		else if (nexthop->src.ipv4.s_addr != INADDR_ANY)
 			*src = &nexthop->src;
 
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug(
-				"%s: 5549 (%s): %pFX nexthop via %s %s if %u vrf %u",
-				__func__, routedesc, p, ipv4_ll_buf, label_buf,
-				nexthop->ifindex, nexthop->vrf_id);
+		if (IS_ZEBRA_DEBUG_KERNEL) {
+			inet_ntop(nexthop->type == NEXTHOP_TYPE_IPV6 ||
+						  nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX
+					  ? AF_INET6
+					  : AF_INET,
+				  &nexthop->gate, addrstr, sizeof(addrstr));
+			zlog_debug("%s: 5549 (%s): %pFX nexthop via %s %s if %u vrf %u", __func__,
+				   routedesc, p, addrstr, label_buf, nexthop->ifindex,
+				   nexthop->vrf_id);
+		}
 		nl_attr_rtnh_end(nlmsg, rtnh);
 		return true;
 	}
@@ -2296,8 +2325,9 @@ static bool _netlink_route_build_multipath(const struct prefix *p,
 				   __func__, routedesc, p, &nexthop->gate.ipv4,
 				   label_buf, nexthop->ifindex, nexthop->vrf_id);
 	}
-	if (nexthop->type == NEXTHOP_TYPE_IPV6
-	    || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
+
+	if (!is_route_v4_over_v6(rtmsg->rtm_family, nexthop->type) &&
+	    (nexthop->type == NEXTHOP_TYPE_IPV6 || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX)) {
 		if (!_netlink_route_add_gateway_info(rtmsg->rtm_family,
 						     AF_INET6, nlmsg, req_size,
 						     bytelen, nexthop))
@@ -3144,11 +3174,15 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 			const struct nexthop *nh =
 				dplane_ctx_get_nhe_ng(ctx)->nexthop;
 			afi_t afi = dplane_ctx_get_nhe_afi(ctx);
+			enum lwtunnel_encap_types nh_afi = LWTUNNEL_ENCAP_IP;
 
-			if (afi == AFI_IP)
+			if (afi == AFI_IP) {
 				req->nhm.nh_family = AF_INET;
-			else if (afi == AFI_IP6)
+				nh_afi = LWTUNNEL_ENCAP_IP;
+			} else if (afi == AFI_IP6) {
 				req->nhm.nh_family = AF_INET6;
+				nh_afi = LWTUNNEL_ENCAP_IP6;
+			}
 
 			switch (nh->type) {
 			case NEXTHOP_TYPE_IPV4:
@@ -3198,7 +3232,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 			if (num_labels && nh->nh_label_type == ZEBRA_LSP_EVPN) {
 				if (!nl_attr_put16(&req->n, buflen,
 						   NHA_ENCAP_TYPE,
-						   LWTUNNEL_ENCAP_IP))
+						   nh_afi))
 					return 0;
 
 				nest = nl_attr_nest(&req->n, buflen, NHA_ENCAP);
@@ -4055,7 +4089,7 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	struct interface *br_if;
 	struct ethaddr mac;
 	vlanid_t vid = 0;
-	struct in_addr vtep_ip;
+	struct ipaddr vtep_ip;
 	int vid_present = 0, dst_present = 0;
 	char vid_buf[20];
 	char dst_buf[30];
@@ -4104,12 +4138,14 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	}
 
 	if (tb[NDA_DST]) {
-		/* TODO: Only IPv4 supported now. */
 		dst_present = 1;
-		memcpy(&vtep_ip.s_addr, RTA_DATA(tb[NDA_DST]),
-		       IPV4_MAX_BYTELEN);
-		snprintfrr(dst_buf, sizeof(dst_buf), " dst %pI4",
-			   &vtep_ip);
+		memset(&vtep_ip, 0, sizeof(struct ipaddr));
+		if (RTA_PAYLOAD(tb[NDA_DST]) == sizeof(struct in_addr))
+			SET_IPADDR_V4(&vtep_ip);
+		else
+			SET_IPADDR_V6(&vtep_ip);
+		memcpy(&vtep_ip.ip.addr, RTA_DATA(tb[NDA_DST]), RTA_PAYLOAD(tb[NDA_DST]));
+		snprintfrr(dst_buf, sizeof(dst_buf), " dst %pIA", &vtep_ip);
 	} else
 		memset(&vtep_ip, 0, sizeof(vtep_ip));
 
@@ -4188,7 +4224,7 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	/*
 	 * Check if this is a mcast group update (svd case)
 	 */
-	vni_mcast_grp = is_mac_vni_mcast_group(&mac, vni, vtep_ip);
+	vni_mcast_grp = is_mac_vni_mcast_group(&mac, vni, &vtep_ip);
 
 	/* If add or update, do accordingly if learnt on a "local" interface; if
 	 * the notification is over VxLAN, this has to be related to
@@ -4209,8 +4245,11 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 				return 0;
 
 			if (vni_mcast_grp)
-				return zebra_vxlan_if_vni_mcast_group_add_update(
-					ifp, vni, &vtep_ip);
+				/* PIM does not yet support IPV6 */
+				return zebra_vxlan_if_vni_mcast_group_add_update(ifp, vni,
+										 (struct in_addr *)&vtep_ip
+											 .ipaddr_v4
+											 .s_addr);
 
 			return zebra_vxlan_dp_network_mac_add(
 				ifp, br_if, &mac, vid, vni, nhg_id, sticky,
@@ -4236,11 +4275,13 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 
 	if (dst_present) {
 		if (vni_mcast_grp)
+			/* PIM does not yet support IPV6 */
 			return zebra_vxlan_if_vni_mcast_group_del(ifp, vni,
-								  &vtep_ip);
+								  (struct in_addr *)&vtep_ip
+									  .ipaddr_v4.s_addr);
 
 		if (is_zero_mac(&mac) && vni)
-			return zebra_vxlan_check_readd_vtep(ifp, vni, vtep_ip);
+			return zebra_vxlan_check_readd_vtep(ifp, vni, &vtep_ip);
 
 		return 0;
 	}
@@ -4500,8 +4541,7 @@ ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, void *data,
 	}
 
 	nhg_id = dplane_ctx_mac_get_nhg_id(ctx);
-	vtep_ip.ipaddr_v4 = *(dplane_ctx_mac_get_vtep_ip(ctx));
-	SET_IPADDR_V4(&vtep_ip);
+	vtep_ip = *(dplane_ctx_mac_get_vtep_ip(ctx));
 
 	if (IS_ZEBRA_DEBUG_KERNEL) {
 		char vid_buf[20];
@@ -5323,7 +5363,7 @@ ssize_t netlink_mpls_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 * MAC updates. Hence the use of the legacy style. It will be moved to
 * the new dplane style pre-merge to master. XXX
 */
-static int netlink_fdb_nh_update(uint32_t nh_id, struct in_addr vtep_ip)
+static int netlink_fdb_nh_update(uint32_t nh_id, struct ipaddr *vtep_ip)
 {
 	struct {
 		struct nlmsghdr n;
@@ -5343,20 +5383,27 @@ static int netlink_fdb_nh_update(uint32_t nh_id, struct in_addr vtep_ip)
 	req.n.nlmsg_flags = NLM_F_REQUEST;
 	req.n.nlmsg_flags |= (NLM_F_CREATE | NLM_F_REPLACE);
 	req.n.nlmsg_type = cmd;
-	req.nhm.nh_family = AF_INET;
+	if (IS_IPADDR_V4(vtep_ip))
+		req.nhm.nh_family = AF_INET;
+	else
+		req.nhm.nh_family = AF_INET6;
 
 	if (!nl_attr_put32(&req.n, sizeof(req), NHA_ID, nh_id))
 		return -1;
 	if (!nl_attr_put(&req.n, sizeof(req), NHA_FDB, NULL, 0))
 		return -1;
-	if (!nl_attr_put(&req.n, sizeof(req), NHA_GATEWAY,
-			&vtep_ip, IPV4_MAX_BYTELEN))
-		return -1;
-
-	if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_EVPN_MH_NH) {
-		zlog_debug("Tx %s fdb-nh 0x%x %pI4",
-			   nl_msg_type_to_str(cmd), nh_id, &vtep_ip);
+	if (req.nhm.nh_family == AF_INET) {
+		if (!nl_attr_put(&req.n, sizeof(req), NHA_GATEWAY, &vtep_ip->ipaddr_v4,
+				 IPV4_MAX_BYTELEN))
+			return -1;
+	} else {
+		if (!nl_attr_put(&req.n, sizeof(req), NHA_GATEWAY, &vtep_ip->ipaddr_v6,
+				 IPV6_MAX_BYTELEN))
+			return -1;
 	}
+
+	if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_EVPN_MH_NH)
+		zlog_debug("Tx %s fdb-nh 0x%x %pIA", nl_msg_type_to_str(cmd), nh_id, vtep_ip);
 
 	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
 			    false);
@@ -5458,7 +5505,7 @@ static int netlink_fdb_nhg_del(uint32_t nhg_id)
 	return netlink_fdb_nh_del(nhg_id);
 }
 
-int kernel_upd_mac_nh(uint32_t nh_id, struct in_addr vtep_ip)
+int kernel_upd_mac_nh(uint32_t nh_id, struct ipaddr *vtep_ip)
 {
 	return netlink_fdb_nh_update(nh_id, vtep_ip);
 }
