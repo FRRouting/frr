@@ -29,11 +29,7 @@ extern unsigned long cputime_threshold;
 extern unsigned long walltime_threshold;
 
 struct rusage_t {
-#ifdef HAVE_CLOCK_THREAD_CPUTIME_ID
 	struct timespec cpu;
-#else
-	struct rusage cpu;
-#endif
 	struct timeval real;
 };
 #define RUSAGE_T struct rusage_t

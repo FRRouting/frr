@@ -1848,8 +1848,6 @@ struct event *event_fetch(struct event_loop *m, struct event *fetch)
 unsigned long event_consumed_time(RUSAGE_T *now, RUSAGE_T *start,
 				  unsigned long *cputime)
 {
-#ifdef HAVE_CLOCK_THREAD_CPUTIME_ID
-
 #ifdef __FreeBSD__
 	/*
 	 * FreeBSD appears to have an issue when calling clock_gettime
@@ -1870,13 +1868,8 @@ unsigned long event_consumed_time(RUSAGE_T *now, RUSAGE_T *start,
 		now->cpu.tv_nsec = start->cpu.tv_nsec + 1;
 	}
 #endif
-	*cputime = (now->cpu.tv_sec - start->cpu.tv_sec) * TIMER_SECOND_MICRO
-		   + (now->cpu.tv_nsec - start->cpu.tv_nsec) / 1000;
-#else
-	/* This is 'user + sys' time.  */
-	*cputime = timeval_elapsed(now->cpu.ru_utime, start->cpu.ru_utime)
-		   + timeval_elapsed(now->cpu.ru_stime, start->cpu.ru_stime);
-#endif
+	*cputime = (now->cpu.tv_sec - start->cpu.tv_sec) * TIMER_SECOND_MICRO +
+		   (now->cpu.tv_nsec - start->cpu.tv_nsec) / 1000;
 	return timeval_elapsed(now->real, start->real);
 }
 
@@ -1918,19 +1911,10 @@ void event_getrusage(RUSAGE_T *r)
 		return;
 	}
 
-#ifdef HAVE_CLOCK_THREAD_CPUTIME_ID
 	/* not currently implemented in Linux's vDSO, but maybe at some point
 	 * in the future?
 	 */
 	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &r->cpu);
-#else /* !HAVE_CLOCK_THREAD_CPUTIME_ID */
-#if defined RUSAGE_THREAD
-#define FRR_RUSAGE RUSAGE_THREAD
-#else
-#define FRR_RUSAGE RUSAGE_SELF
-#endif
-	getrusage(FRR_RUSAGE, &(r->cpu));
-#endif
 }
 
 static void event_tardy_warn(struct event *thread, unsigned long since_us)

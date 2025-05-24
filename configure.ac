@@ -2457,14 +2457,7 @@ AC_CHECK_DECLS([be32enc, be32dec], [], [], [
 dnl --------------------------------------
 dnl checking for clock_time monotonic struct and call
 dnl --------------------------------------
-AC_CHECK_DECL([CLOCK_MONOTONIC],
-	[AC_CHECK_LIB([rt], [clock_gettime], [LIBS="$LIBS -lrt"])
-	 AC_DEFINE([HAVE_CLOCK_MONOTONIC], [1], [Have monotonic clock])
-], [AC_MSG_RESULT([no])], [FRR_INCLUDES])
-
-AC_CHECK_DECL([CLOCK_THREAD_CPUTIME_ID], [
-	 AC_DEFINE([HAVE_CLOCK_THREAD_CPUTIME_ID], [1], [Have cpu-time clock])
-], [AC_MSG_RESULT([no])], [FRR_INCLUDES])
+AC_CHECK_LIB([rt], [clock_gettime], [LIBS="$LIBS -lrt"])
 
 AC_SEARCH_LIBS([clock_nanosleep], [rt], [
   AC_DEFINE([HAVE_CLOCK_NANOSLEEP], [1], [Have clock_nanosleep()])
