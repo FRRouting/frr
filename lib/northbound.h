@@ -1142,6 +1142,36 @@ extern void nb_config_diff_created(const struct lyd_node *dnode, uint32_t *seq,
  */
 extern bool nb_candidate_needs_update(const struct nb_config *candidate);
 
+
+enum nb_change_result {
+	NB_CHANGE_OK,
+	NB_CHANGE_ERR,
+	NB_CHANGE_ERR_CONT,
+};
+
+/*
+ * Edit candidate configuration given single change.
+ *
+ * candidate_config
+ *    Candidate configuration to edit.
+ *
+ * operation
+ *    The type of change.
+ *
+ * xpath
+ *     Absolute xpath of the configuration node being edited.
+ *
+ * value
+ *    New value of the configuration node.
+ *
+ * in_backend
+ *    If true then ignore errors due to schema non-presence.
+ */
+extern enum nb_change_result nb_candidate_edit_config_change(struct nb_config *candidate_config,
+							     enum nb_operation operation,
+							     const char *xpath, const char *value,
+							     bool in_backend);
+
 /*
  * Edit candidate configuration changes.
  *
