@@ -166,6 +166,13 @@ DECLARE_MTYPE(MSG_NATIVE_RPC);
 DECLARE_MTYPE(MSG_NATIVE_RPC_REPLY);
 DECLARE_MTYPE(MSG_NATIVE_SESSION_REQ);
 DECLARE_MTYPE(MSG_NATIVE_SESSION_REPLY);
+DECLARE_MTYPE(MSG_NATIVE_SUBSCRIBE);
+DECLARE_MTYPE(MSG_NATIVE_TXN_REQ);
+DECLARE_MTYPE(MSG_NATIVE_TXN_REPLY);
+DECLARE_MTYPE(MSG_NATIVE_CFG_REQ);
+DECLARE_MTYPE(MSG_NATIVE_CFG_REPLY);
+DECLARE_MTYPE(MSG_NATIVE_CFG_APPLY_REQ);
+DECLARE_MTYPE(MSG_NATIVE_CFG_APPLY_REPLY);
 
 /*
  * Native message codes
@@ -182,6 +189,15 @@ DECLARE_MTYPE(MSG_NATIVE_SESSION_REPLY);
 #define MGMT_MSG_CODE_NOTIFY_SELECT 9 /* Public API */
 #define MGMT_MSG_CODE_SESSION_REQ   10 /* Public API */
 #define MGMT_MSG_CODE_SESSION_REPLY 11 /* Public API */
+
+/* Derived from protobuf messages to remove protobuf dependency */
+#define MGMT_MSG_CODE_SUBSCRIBE	      12 /* BE only, non-public API */
+#define MGMT_MSG_CODE_TXN_REQ	      13 /* BE only, non-public API */
+#define MGMT_MSG_CODE_TXN_REPLY	      14 /* BE only, non-public API */
+#define MGMT_MSG_CODE_CFG_REQ	      15 /* BE only, non-public API */
+#define MGMT_MSG_CODE_CFG_REPLY	      16 /* BE only, non-public API */
+#define MGMT_MSG_CODE_CFG_APPLY_REQ   17 /* BE only, non-public API */
+#define MGMT_MSG_CODE_CFG_APPLY_REPLY 18 /* BE only, non-public API */
 
 /*
  * Datastores
@@ -511,6 +527,105 @@ struct mgmt_msg_session_reply {
 	struct mgmt_msg_header;
 	uint8_t created;
 	uint8_t resv2[7];
+};
+
+/**
+ * struct mgmt_msg_subscribe - Subscribe YANG paths for backend client.
+ *
+ * @nconfig: Number of config paths that start the array.
+ * @noper: Number of oper-state paths that follow config.
+ * @nnotif: Number of notif paths that follow oper.
+ * @nrpc: Number of rpc paths that follow notif.
+ * @strings: A sequence of strings that starts with the name of the client
+ *	     followed by @nconfig xpath prefxies, then by @noper xpath
+ *	     prefixes, finally by @nrpc xpath prefixes.
+ *
+ */
+struct mgmt_msg_subscribe {
+	struct mgmt_msg_header;
+	uint16_t nconfig; /* config path count */
+	uint16_t noper;	  /* oper-state path count */
+	uint16_t nnotify; /* notif path count */
+	uint16_t nrpc;	  /* rpc path count */
+
+	alignas(8) char strings[];
+};
+
+
+/**
+ * struct mgmt_msg_txn_req - Create or delete a transaction.
+ *
+ * @refer_id: The transaction ID to create or delete.
+ * @create: true if this is a create request, otherwise delete.
+ */
+struct mgmt_msg_txn_req {
+	struct mgmt_msg_header;
+	uint8_t create;
+	uint8_t resv2[7];
+};
+
+/**
+ * struct mgmt_msg_txn_reply - Reply to transaction request message.
+ *
+ * @refer_id: The transaction ID for the action (create or delete) just taken.
+ * @created: true if this is a reply to a create request, otherwise 0.
+ */
+struct mgmt_msg_txn_reply {
+	struct mgmt_msg_header;
+	uint8_t created;
+	uint8_t resv2[7];
+};
+
+/**
+ * struct mgmt_msg_cfg_req - Send the configuration to backend.
+ *
+ * @refer_id: The transaction ID to add config changes to.
+ * @config: The configuration changes as a sequence of strings to validate and
+ *	    store for applying. These are followed by a final string indicating
+ *	    the action to take for the preceding strings. There are 2 actions
+ *	    possible: "m" for modify and "r" for remove.
+ *
+ * To process the config data, walk the action string, each byte indicates the
+ * action to take. For "d" (delete/remove) consume 1 string which is the xpath to
+ * remove. For "m" (modify) consume 2 strings, the first is the xpath to modify
+ * and the second is the new value. The value may be zero length for YANG value
+ * type "empty".
+ */
+struct mgmt_msg_cfg_req {
+	struct mgmt_msg_header;
+	uint8_t resv2[8]; /* bug in compiler */
+
+	alignas(8) char config[];
+};
+
+_Static_assert(sizeof(struct mgmt_msg_cfg_req) == offsetof(struct mgmt_msg_cfg_req, config),
+	       "Size mismatch");
+
+/**
+ * struct mgmt_msg_cfg_reply - Reply to configuration message.
+ *
+ * @refer_id: The transaction ID whose configuration was received and validated.
+ */
+struct mgmt_msg_cfg_reply {
+	struct mgmt_msg_header;
+};
+
+/**
+ * struct mgmt_msg_cfg_apply_req - Apply config in transaction.
+ *
+ * @refer_id: The transaction ID to apply.
+ */
+struct mgmt_msg_cfg_apply_req {
+	struct mgmt_msg_header;
+};
+
+/**
+ * struct mgmt_msg_cfg_apply_reply - Signal the config has been applied.
+ *
+ * @refer_id: The transaction ID which was applied.
+ */
+struct mgmt_msg_cfg_apply_reply {
+	struct mgmt_msg_header;
 };
 
 /*
