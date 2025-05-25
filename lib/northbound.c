@@ -1115,13 +1115,64 @@ bool nb_is_operation_allowed(struct nb_node *nb_node, enum nb_operation oper)
 	return true;
 }
 
-void nb_candidate_edit_config_changes(struct nb_config *candidate_config,
-				      struct nb_cfg_change cfg_changes[],
-				      size_t num_cfg_changes,
-				      const char *xpath_base, bool in_backend,
-				      char *err_buf, int err_bufsize,
-				      bool *error)
+enum nb_change_result nb_candidate_edit_config_change(struct nb_config *candidate_config,
+						      enum nb_operation operation, const char *xpath,
+						      const char *value, bool in_backend)
 {
+	struct nb_node *nb_node;
+	struct yang_data *data;
+	enum nb_error ret;
+
+	/* Find the northbound node associated to the data path. */
+	nb_node = nb_node_find(xpath);
+	if (!nb_node) {
+		if (in_backend) {
+			DEBUGD(&nb_dbg_cbs_config, "%s: ignoring non-handled path: %s", __func__,
+			       xpath);
+			return NB_CHANGE_OK;
+		}
+		flog_warn(EC_LIB_YANG_UNKNOWN_DATA_PATH, "%s: unknown data path: %s", __func__,
+			  xpath);
+		return NB_CHANGE_ERR_CONT;
+	}
+
+	/* Find if the node to be edited is not a key node */
+	if (!nb_is_operation_allowed(nb_node, operation)) {
+		zlog_err("xpath: %s points to key node", xpath);
+		return NB_CHANGE_ERR;
+	}
+
+	/* If the value is not set, get the default if it exists. */
+	/* XXX what about presence containers? */
+	if (value == NULL)
+		value = yang_snode_get_default(nb_node->snode);
+
+	/* XXX change to not require allocation */
+	data = yang_data_new(xpath, value);
+
+	/*
+	 * Ignore "not found" errors when editing the candidate configuration.
+	 * [XXX chopps: why?, and then why not check for NB_ERR_NOTFOUND]
+	 */
+	ret = nb_candidate_edit(candidate_config, nb_node, operation, xpath, NULL, data);
+	yang_data_free(data);
+	if (ret != NB_OK) {
+		flog_warn(EC_LIB_NB_CANDIDATE_EDIT_ERROR,
+			  "%s: failed to edit candidate configuration: operation [%s] xpath [%s]",
+			  __func__, nb_operation_name(operation), xpath);
+		return NB_CHANGE_ERR_CONT;
+	}
+
+	return NB_CHANGE_OK;
+}
+
+void nb_candidate_edit_config_changes(struct nb_config *candidate_config,
+				      struct nb_cfg_change cfg_changes[], size_t num_cfg_changes,
+				      const char *xpath_base, bool in_backend, char *err_buf,
+				      int err_bufsize, bool *error)
+{
+	enum nb_change_result result = NB_CHANGE_OK;
+
 	if (error)
 		*error = false;
 
@@ -1131,76 +1182,32 @@ void nb_candidate_edit_config_changes(struct nb_config *candidate_config,
 	/* Edit candidate configuration. */
 	for (size_t i = 0; i < num_cfg_changes; i++) {
 		struct nb_cfg_change *change = &cfg_changes[i];
-		struct nb_node *nb_node;
 		char *change_xpath = change->xpath;
 		char xpath[XPATH_MAXLEN];
-		const char *value;
-		struct yang_data *data;
-		int ret;
 
 		memset(xpath, 0, sizeof(xpath));
 		/* If change xpath is relative, prepend base xpath. */
+		/* XXX shouldn't this be change_xpath[0] != '/'? */
 		if (change_xpath[0] == '.') {
 			strlcpy(xpath, xpath_base, sizeof(xpath));
 			change_xpath++; /* skip '.' */
 		}
 		strlcat(xpath, change_xpath, sizeof(xpath));
 
-		/* Find the northbound node associated to the data path. */
-		nb_node = nb_node_find(xpath);
-		if (!nb_node) {
-			if (in_backend)
-				DEBUGD(&nb_dbg_cbs_config,
-				       "%s: ignoring non-handled path: %s",
-				       __func__, xpath);
-			else {
-				flog_warn(EC_LIB_YANG_UNKNOWN_DATA_PATH,
-					  "%s: unknown data path: %s", __func__,
-					  xpath);
-				if (error)
-					*error = true;
-			}
-			continue;
-		}
-		/* Find if the node to be edited is not a key node */
-		if (!nb_is_operation_allowed(nb_node, change->operation)) {
-			zlog_err(" Xpath %s points to key node", xpath);
-			if (error)
-				*error = true;
+		result = nb_candidate_edit_config_change(candidate_config, change->operation, xpath,
+							 change->value, in_backend);
+		if (result != NB_CHANGE_OK)
+			*error = true;
+		if (result == NB_CHANGE_ERR)
 			break;
-		}
-
-		/* If the value is not set, get the default if it exists. */
-		value = change->value;
-		if (value == NULL)
-			value = yang_snode_get_default(nb_node->snode);
-		data = yang_data_new(xpath, value);
-
-		/*
-		 * Ignore "not found" errors when editing the candidate
-		 * configuration.
-		 */
-		ret = nb_candidate_edit(candidate_config, nb_node,
-					change->operation, xpath, NULL, data);
-		yang_data_free(data);
-		if (ret != NB_OK) {
-			flog_warn(
-				EC_LIB_NB_CANDIDATE_EDIT_ERROR,
-				"%s: failed to edit candidate configuration: operation [%s] xpath [%s]",
-				__func__, nb_operation_name(change->operation),
-				xpath);
-			if (error)
-				*error = true;
-			continue;
-		}
 	}
-
 	if (error && *error) {
 		char buf[BUFSIZ];
 
-		snprintf(err_buf, err_bufsize,
-			 "%% Failed to edit configuration.\n\n%s",
+		snprintf(err_buf, err_bufsize, "%% Failed to edit configuration.\n\n%s",
 			 yang_print_errors(ly_native_ctx, buf, sizeof(buf)));
+		if (error)
+			*error = true;
 	}
 }
 
