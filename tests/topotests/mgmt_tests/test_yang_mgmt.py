@@ -31,42 +31,41 @@
 8. Verify mgmt rollback functionality.
 
 """
+import json
+import os
+import platform
 import sys
 import time
-import os
-import pytest
-import platform
-import json
 
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-sys.path.append(os.path.join(CWD, "../lib/"))
+import pytest
+
+# Import topoJson from lib, to create topology and initial configuration
+from lib.common_config import (
+    apply_raw_config,
+    check_address_types,
+    create_static_routes,
+    kill_router_daemons,
+    reset_config_on_routers,
+    shutdown_bringup_interface,
+    start_router,
+    start_router_daemons,
+    start_topology,
+    step,
+    stop_router,
+    verify_rib,
+    write_test_footer,
+    write_test_header,
+)
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
-from lib.topotest import version_cmp, router_json_cmp
-
-# Import topoJson from lib, to create topology and initial configuration
-from lib.common_config import (
-    start_topology,
-    write_test_header,
-    write_test_footer,
-    reset_config_on_routers,
-    verify_rib,
-    create_static_routes,
-    check_address_types,
-    step,
-    shutdown_bringup_interface,
-    stop_router,
-    start_router,
-    apply_raw_config,
-    kill_router_daemons,
-    start_router_daemons,
-)
-from lib.topolog import logger
 from lib.topojson import build_config_from_json
+from lib.topolog import logger
+from lib.topotest import router_json_cmp, version_cmp
+
+# Save the Current Working Directory to find configuration files.
+CWD = os.path.dirname(os.path.realpath(__file__))
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd, pytest.mark.mgmtd]
 
@@ -241,11 +240,17 @@ def test_mgmt_commit_apply(request):
 
     reset_config_on_routers(tgen)
 
+    r1 = tgen.gears["r1"]
+    r1.vtysh_cmd("debug mgmt backend datastore frontend transaction")
+    r1.vtysh_cmd("debug northbound callbacks")
+    r1.vtysh_cmd("debug northbound events")
+    r1.vtysh_cmd("debug northbound transaction")
+
     step("Mgmt Commit apply with Valid Configuration")
     raw_config = {
         "r1": {
             "raw_config": [
-                "mgmt set-config /frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-staticd:staticd'][name='staticd'][vrf='default']/frr-staticd:staticd/route-list[prefix='192.1.1.20/32'][src-prefix='::/0'][afi-safi='frr-routing:ipv4-unicast']/path-list[table-id='0'][distance='1']/frr-nexthops/nexthop[nh-type='blackhole'][vrf='default'][gateway=''][interface='(null)']/vrf default",
+                "mgmt set-config /frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-staticd:staticd'][name='staticd'][vrf='default']/frr-staticd:staticd/route-list[prefix='192.1.1.20/32'][src-prefix='::/0'][afi-safi='frr-routing:ipv4-unicast']/path-list[table-id='0'][distance='1']/frr-nexthops/nexthop[nh-type='blackhole'][vrf='default'][gateway=''][interface='(null)']/bh-type unspec",
                 "mgmt commit apply",
             ]
         }
@@ -298,7 +303,7 @@ def test_mgmt_commit_abort(request):
     raw_config = {
         "r1": {
             "raw_config": [
-                "mgmt set-config /frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-staticd:staticd'][name='staticd'][vrf='default']/frr-staticd:staticd/route-list[prefix='192.1.1.3/32'][src-prefix='::/0'][afi-safi='frr-routing:ipv4-unicast']/path-list[table-id='0'][distance='1']/frr-nexthops/nexthop[nh-type='blackhole'][vrf='default'][gateway=''][interface='(null)']/vrf default",
+                "mgmt set-config /frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-staticd:staticd'][name='staticd'][vrf='default']/frr-staticd:staticd/route-list[prefix='192.1.1.3/32'][src-prefix='::/0'][afi-safi='frr-routing:ipv4-unicast']/path-list[table-id='0'][distance='1']/frr-nexthops/nexthop[nh-type='blackhole'][vrf='default'][gateway=''][interface='(null)']/bh-type unspec",
                 "mgmt commit abort",
             ]
         }
@@ -350,7 +355,7 @@ def test_mgmt_delete_config(request):
     raw_config = {
         "r1": {
             "raw_config": [
-                "mgmt set-config /frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-staticd:staticd'][name='staticd'][vrf='default']/frr-staticd:staticd/route-list[prefix='192.168.1.3/32'][src-prefix='::/0'][afi-safi='frr-routing:ipv4-unicast']/path-list[table-id='0'][distance='1']/frr-nexthops/nexthop[nh-type='blackhole'][vrf='default'][gateway=''][interface='(null)']/vrf default",
+                "mgmt set-config /frr-routing:routing/control-plane-protocols/control-plane-protocol[type='frr-staticd:staticd'][name='staticd'][vrf='default']/frr-staticd:staticd/route-list[prefix='192.168.1.3/32'][src-prefix='::/0'][afi-safi='frr-routing:ipv4-unicast']/path-list[table-id='0'][distance='1']/frr-nexthops/nexthop[nh-type='blackhole'][vrf='default'][gateway=''][interface='(null)']/bh-type unspec",
                 "mgmt commit apply",
             ]
         }
