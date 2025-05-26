@@ -1057,22 +1057,15 @@ extern bool nb_is_operation_allowed(struct nb_node *nb_node,
  * xpath
  *    XPath of the configuration node being edited.
  *
- * previous
- *    Previous value of the configuration node. Should be used only when the
- *    operation is NB_OP_MOVE, otherwise this parameter is ignored.
- *
- * data
+ * value
  *    New value of the configuration node.
  *
  * Returns:
  *    - NB_OK on success.
  *    - NB_ERR for other errors.
  */
-extern int nb_candidate_edit(struct nb_config *candidate,
-			     const struct nb_node *nb_node,
-			     enum nb_operation operation, const char *xpath,
-			     const struct yang_data *previous,
-			     const struct yang_data *data);
+extern int nb_candidate_edit(struct nb_config *candidate, const struct nb_node *nb_node,
+			     enum nb_operation operation, const char *xpath, const char *value);
 
 /*
  * Edit a candidate configuration. Value is given as JSON/XML.
