@@ -742,9 +742,7 @@ static LY_ERR dnode_create(struct nb_config *candidate, const char *xpath, const
 }
 
 int nb_candidate_edit(struct nb_config *candidate, const struct nb_node *nb_node,
-		      enum nb_operation operation, const char *xpath,
-		      const struct yang_data *previous,
-		      const struct yang_data *data)
+		      enum nb_operation operation, const char *xpath, const char *value)
 {
 	struct lyd_node *dnode, *dep_dnode, *old_dnode;
 	char dep_xpath[XPATH_MAXLEN];
@@ -758,8 +756,7 @@ int nb_candidate_edit(struct nb_config *candidate, const struct nb_node *nb_node
 		options = LYD_NEW_PATH_UPDATE;
 		fallthrough;
 	case NB_OP_CREATE_EXCL:
-		err = dnode_create(candidate, xpath, data->value, options,
-				   &dnode);
+		err = dnode_create(candidate, xpath, value, options, &dnode);
 		if (err) {
 			return err;
 		} else if (dnode) {
@@ -808,8 +805,7 @@ int nb_candidate_edit(struct nb_config *candidate, const struct nb_node *nb_node
 			parent = lyd_parent(old_dnode);
 			lyd_unlink_tree(old_dnode);
 		}
-		err = dnode_create(candidate, xpath, data->value, options,
-				   &dnode);
+		err = dnode_create(candidate, xpath, value, options, &dnode);
 		if (!err && dnode && !old_dnode) {
 			/* create dependency if the node didn't exist */
 			nb_node = dnode->schema->priv;
@@ -1120,7 +1116,6 @@ enum nb_change_result nb_candidate_edit_config_change(struct nb_config *candidat
 						      const char *value, bool in_backend)
 {
 	struct nb_node *nb_node;
-	struct yang_data *data;
 	enum nb_error ret;
 
 	/* Find the northbound node associated to the data path. */
@@ -1147,15 +1142,11 @@ enum nb_change_result nb_candidate_edit_config_change(struct nb_config *candidat
 	if (value == NULL)
 		value = yang_snode_get_default(nb_node->snode);
 
-	/* XXX change to not require allocation */
-	data = yang_data_new(xpath, value);
-
 	/*
 	 * Ignore "not found" errors when editing the candidate configuration.
 	 * [XXX chopps: why?, and then why not check for NB_ERR_NOTFOUND]
 	 */
-	ret = nb_candidate_edit(candidate_config, nb_node, operation, xpath, NULL, data);
-	yang_data_free(data);
+	ret = nb_candidate_edit(candidate_config, nb_node, operation, xpath, value);
 	if (ret != NB_OK) {
 		flog_warn(EC_LIB_NB_CANDIDATE_EDIT_ERROR,
 			  "%s: failed to edit candidate configuration: operation [%s] xpath [%s]",

@@ -161,7 +161,6 @@ static int frr_sr_process_change(struct nb_config *candidate,
 	sr_val_t *sr_data;
 	const char *xpath;
 	char value_str[YANG_VALUE_MAXLEN];
-	struct yang_data *data;
 	int ret;
 
 	sr_data = sr_new_val ? sr_new_val : sr_old_val;
@@ -217,10 +216,7 @@ static int frr_sr_process_change(struct nb_config *candidate,
 	}
 
 	sr_val_to_buff(sr_data, value_str, sizeof(value_str));
-	data = yang_data_new(xpath, value_str);
-
-	ret = nb_candidate_edit(candidate, nb_node, nb_op, xpath, NULL, data);
-	yang_data_free(data);
+	ret = nb_candidate_edit(candidate, nb_node, nb_op, xpath, value_str);
 	if (ret != NB_OK) {
 		flog_warn(
 			EC_LIB_NB_CANDIDATE_EDIT_ERROR,
