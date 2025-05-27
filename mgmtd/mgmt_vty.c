@@ -147,7 +147,7 @@ DEFPY(mgmt_commit,
 	bool validate_only = type[0] == 'c';
 	bool abort = type[1] == 'b';
 
-	if (vty_mgmt_send_commit_config(vty, validate_only, abort) != 0)
+	if (vty_mgmt_send_commit_config(vty, validate_only, abort, false) != 0)
 		return CMD_WARNING_CONFIG_FAILED;
 	return CMD_SUCCESS;
 }

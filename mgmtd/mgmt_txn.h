@@ -204,17 +204,20 @@ extern int mgmt_txn_send_set_config_req(uint64_t txn_id, uint64_t req_id,
  * implicit
  *    TRUE if the commit is implicit, FALSE otherwise.
  *
+ * unlock
+ *    pass back in the commit config reply
+ *
  * edit
  *    Additional info when triggered from native edit request.
  *
  * Returns:
  *    0 on success, -1 on failures.
  */
-extern int mgmt_txn_send_commit_config_req(
-	uint64_t txn_id, uint64_t req_id, Mgmtd__DatastoreId src_ds_id,
-	struct mgmt_ds_ctx *dst_ds_ctx, Mgmtd__DatastoreId dst_ds_id,
-	struct mgmt_ds_ctx *src_ds_ctx, bool validate_only, bool abort,
-	bool implicit, struct mgmt_edit_req *edit);
+extern int
+mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id, Mgmtd__DatastoreId src_ds_id,
+				struct mgmt_ds_ctx *dst_ds_ctx, Mgmtd__DatastoreId dst_ds_id,
+				struct mgmt_ds_ctx *src_ds_ctx, bool validate_only, bool abort,
+				bool implicit, bool unlock, struct mgmt_edit_req *edit);
 
 /*
  * Send get-{cfg,data} request to be processed later in transaction.

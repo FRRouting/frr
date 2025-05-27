@@ -94,6 +94,7 @@ struct mgmt_commit_cfg_req {
 	uint8_t implicit : 1;
 	uint8_t rollback : 1;
 	uint8_t init : 1;
+	uint8_t unlock : 1;
 
 	/* Track commit phases */
 	enum mgmt_commit_phase phase;
@@ -538,18 +539,12 @@ static void mgmt_txn_process_set_cfg(struct event *thread)
 				goto mgmt_txn_process_set_cfg_done;
 			}
 
-			mgmt_txn_send_commit_config_req(txn->txn_id,
-							txn_req->req_id,
-							txn_req->req.set_cfg
-								->ds_id,
-							txn_req->req.set_cfg
-								->ds_ctx,
-							txn_req->req.set_cfg
-								->dst_ds_id,
-							txn_req->req.set_cfg
-								->dst_ds_ctx,
-							false, false, true,
-							NULL);
+			mgmt_txn_send_commit_config_req(txn->txn_id, txn_req->req_id,
+							txn_req->req.set_cfg->ds_id,
+							txn_req->req.set_cfg->ds_ctx,
+							txn_req->req.set_cfg->dst_ds_id,
+							txn_req->req.set_cfg->dst_ds_ctx, false,
+							false, true, false, NULL);
 
 			if (mm->perf_stats_en)
 				gettimeofday(&cmt_stats->last_start, NULL);
@@ -604,14 +599,12 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 	    !txn->commit_cfg_req->req.commit_cfg.implicit && txn->session_id &&
 	    !txn->commit_cfg_req->req.commit_cfg.rollback &&
 	    mgmt_fe_send_commit_cfg_reply(txn->session_id, txn->txn_id,
-					  txn->commit_cfg_req->req.commit_cfg
-						  .src_ds_id,
-					  txn->commit_cfg_req->req.commit_cfg
-						  .dst_ds_id,
+					  txn->commit_cfg_req->req.commit_cfg.src_ds_id,
+					  txn->commit_cfg_req->req.commit_cfg.dst_ds_id,
 					  txn->commit_cfg_req->req_id,
-					  txn->commit_cfg_req->req.commit_cfg
-						  .validate_only,
-					  result, error_if_any) != 0) {
+					  txn->commit_cfg_req->req.commit_cfg.validate_only,
+					  txn->commit_cfg_req->req.commit_cfg.unlock, result,
+					  error_if_any) != 0) {
 		_log_err("Failed to send COMMIT-CONFIG-REPLY txn-id: %" PRIu64
 			 " session-id: %" PRIu64,
 			 txn->txn_id, txn->session_id);
@@ -683,7 +676,8 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 		 * commit we want to allow the user to re-commit on the changes
 		 * (whether further modified or not).
 		 */
-		if (txn->commit_cfg_req->req.commit_cfg.implicit)
+		if (txn->commit_cfg_req->req.commit_cfg.implicit ||
+		    txn->commit_cfg_req->req.commit_cfg.unlock)
 			mgmt_ds_copy_dss(txn->commit_cfg_req->req.commit_cfg.src_ds_ctx,
 					 txn->commit_cfg_req->req.commit_cfg.dst_ds_ctx, false);
 	}
@@ -1971,13 +1965,10 @@ int mgmt_txn_send_set_config_req(uint64_t txn_id, uint64_t req_id,
 	return 0;
 }
 
-int mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id,
-				    Mgmtd__DatastoreId src_ds_id,
-				    struct mgmt_ds_ctx *src_ds_ctx,
-				    Mgmtd__DatastoreId dst_ds_id,
-				    struct mgmt_ds_ctx *dst_ds_ctx,
-				    bool validate_only, bool abort,
-				    bool implicit, struct mgmt_edit_req *edit)
+int mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id, Mgmtd__DatastoreId src_ds_id,
+				    struct mgmt_ds_ctx *src_ds_ctx, Mgmtd__DatastoreId dst_ds_id,
+				    struct mgmt_ds_ctx *dst_ds_ctx, bool validate_only, bool abort,
+				    bool implicit, bool unlock, struct mgmt_edit_req *edit)
 {
 	struct mgmt_txn_ctx *txn;
 	struct mgmt_txn_req *txn_req;
@@ -2001,6 +1992,7 @@ int mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id,
 	txn_req->req.commit_cfg.validate_only = validate_only;
 	txn_req->req.commit_cfg.abort = abort;
 	txn_req->req.commit_cfg.implicit = implicit;
+	txn_req->req.commit_cfg.unlock = unlock;
 	txn_req->req.commit_cfg.edit = edit;
 	txn_req->req.commit_cfg.cmt_stats =
 		mgmt_fe_get_session_commit_stats(txn->session_id);
@@ -2417,6 +2409,8 @@ int mgmt_txn_send_edit(uint64_t txn_id, uint64_t req_id,
 	nb_config = mgmt_ds_get_nb_config(ds_ctx);
 	assert(nb_config);
 
+	/* XXX Should we do locking here? */
+
 	ret = nb_candidate_edit_tree(nb_config, operation, request_type, xpath,
 				     data, &edit->created, edit->xpath_created,
 				     errstr, sizeof(errstr));
@@ -2426,9 +2420,8 @@ int mgmt_txn_send_edit(uint64_t txn_id, uint64_t req_id,
 	if (commit) {
 		edit->unlock = unlock;
 
-		mgmt_txn_send_commit_config_req(txn_id, req_id, ds_id, ds_ctx,
-						commit_ds_id, commit_ds_ctx,
-						false, false, true, edit);
+		mgmt_txn_send_commit_config_req(txn_id, req_id, ds_id, ds_ctx, commit_ds_id,
+						commit_ds_ctx, false, false, true, false, edit);
 		return 0;
 	}
 reply:

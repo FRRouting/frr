@@ -3641,11 +3641,12 @@ static void vty_mgmt_set_config_result_notified(
 					      : CMD_WARNING_CONFIG_FAILED);
 }
 
-static void vty_mgmt_commit_config_result_notified(
-	struct mgmt_fe_client *client, uintptr_t usr_data, uint64_t client_id,
-	uintptr_t session_id, uintptr_t session_ctx, uint64_t req_id,
-	bool success, Mgmtd__DatastoreId src_ds_id,
-	Mgmtd__DatastoreId dst_ds_id, bool validate_only, char *errmsg_if_any)
+static void vty_mgmt_commit_config_result_notified(struct mgmt_fe_client *client, uintptr_t usr_data,
+						   uint64_t client_id, uintptr_t session_id,
+						   uintptr_t session_ctx, uint64_t req_id,
+						   bool success, Mgmtd__DatastoreId src_ds_id,
+						   Mgmtd__DatastoreId dst_ds_id, bool validate_only,
+						   bool unlock, char *errmsg_if_any)
 {
 	struct vty *vty;
 
@@ -3663,8 +3664,14 @@ static void vty_mgmt_commit_config_result_notified(
 				" req-id %" PRIu64 " was successfull%s%s",
 				client_id, req_id, errmsg_if_any ? ": " : "",
 				errmsg_if_any ?: "");
-		if (errmsg_if_any)
+		if (!unlock && errmsg_if_any)
 			vty_out(vty, "MGMTD: %s\n", errmsg_if_any);
+	}
+
+	if (unlock) {
+		/* we locked these when we sent the commit, unlock now */
+		vty_mgmt_unlock_candidate_inline(vty);
+		vty_mgmt_unlock_running_inline(vty);
 	}
 
 	vty_mgmt_resume_response(vty, success ? CMD_SUCCESS
@@ -4030,7 +4037,6 @@ int vty_mgmt_send_config_data(struct vty *vty, const char *xpath_base,
 
 	if (implicit_commit) {
 		assert(vty->mgmt_client_id && vty->mgmt_session_id);
-
 		if (vty_mgmt_lock_candidate_inline(vty)) {
 			vty_out(vty, "%% could not lock candidate DS\n");
 			return CMD_WARNING_CONFIG_FAILED;
@@ -4068,10 +4074,9 @@ error:
 		return CMD_SUCCESS;
 
 	assert(vty->mgmt_client_id && vty->mgmt_session_id);
-	if (vty_mgmt_send_commit_config(vty, false, false) < 0)
+	if (vty_mgmt_send_commit_config(vty, false, false, true) < 0)
 		goto error;
 
-	// return CMD_SUSPEND;???
 	return CMD_SUCCESS;
 }
 #else
@@ -4203,14 +4208,13 @@ int vty_mgmt_send_config_data(struct vty *vty, const char *xpath_base, bool impl
 }
 #endif
 
-int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only, bool abort)
+int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only, bool abort, bool unlock)
 {
 	if (mgmt_fe_client && vty->mgmt_session_id) {
 		vty->mgmt_req_id++;
-		if (mgmt_fe_send_commitcfg_req(
-			    mgmt_fe_client, vty->mgmt_session_id,
-			    vty->mgmt_req_id, MGMTD_DS_CANDIDATE,
-			    MGMTD_DS_RUNNING, validate_only, abort)) {
+		if (mgmt_fe_send_commitcfg_req(mgmt_fe_client, vty->mgmt_session_id,
+					       vty->mgmt_req_id, MGMTD_DS_CANDIDATE,
+					       MGMTD_DS_RUNNING, validate_only, abort, unlock)) {
 			zlog_err("Failed sending COMMIT-REQ req-id %" PRIu64,
 				 vty->mgmt_req_id);
 			vty_out(vty, "Failed to send COMMIT-REQ to MGMTD!\n");

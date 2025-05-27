@@ -84,14 +84,11 @@ struct mgmt_fe_client_cbs {
 				  Mgmtd__DatastoreId ds_id, bool implcit_commit,
 				  char *errmsg_if_any);
 
-	void (*commit_config_notify)(struct mgmt_fe_client *client,
-				     uintptr_t user_data, uint64_t client_id,
-				     uintptr_t session_id,
-				     uintptr_t user_session_client,
-				     uint64_t req_id, bool success,
-				     Mgmtd__DatastoreId src_ds_id,
-				     Mgmtd__DatastoreId dst_ds_id,
-				     bool validate_only, char *errmsg_if_any);
+	void (*commit_config_notify)(struct mgmt_fe_client *client, uintptr_t user_data,
+				     uint64_t client_id, uintptr_t session_id,
+				     uintptr_t user_session_client, uint64_t req_id, bool success,
+				     Mgmtd__DatastoreId src_ds_id, Mgmtd__DatastoreId dst_ds_id,
+				     bool validate_only, bool unlock, char *errmsg_if_any);
 
 	int (*get_data_notify)(struct mgmt_fe_client *client,
 			       uintptr_t user_data, uint64_t client_id,
@@ -301,14 +298,16 @@ extern int mgmt_fe_send_setcfg_req(struct mgmt_fe_client *client,
  * abort
  *    TRUE if need to restore Src DS back to Dest DS, FALSE otherwise.
  *
+ * unlock
+ *    Passed through to the resulting reply.
+ *
  * Returns:
  *    0 on success, otherwise msg_conn_send_msg() return values.
  */
-extern int mgmt_fe_send_commitcfg_req(struct mgmt_fe_client *client,
-				      uint64_t session_id, uint64_t req_id,
-				      Mgmtd__DatastoreId src_ds_id,
-				      Mgmtd__DatastoreId dst_ds_id,
-				      bool validate_only, bool abort);
+extern int mgmt_fe_send_commitcfg_req(struct mgmt_fe_client *client, uint64_t session_id,
+				      uint64_t req_id, Mgmtd__DatastoreId src_ds_id,
+				      Mgmtd__DatastoreId dst_ds_id, bool validate_only, bool abort,
+				      bool unlock);
 
 /*
  * Send GET_REQ to MGMTD for one or more config data item(s).

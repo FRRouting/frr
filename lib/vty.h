@@ -419,8 +419,7 @@ extern bool vty_mgmt_should_process_cli_apply_changes(struct vty *vty);
 extern bool mgmt_vty_read_configs(void);
 extern int vty_mgmt_send_config_data(struct vty *vty, const char *xpath_base,
 				     bool implicit_commit);
-extern int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only,
-				       bool abort);
+extern int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only, bool abort, bool unlock);
 extern int vty_mgmt_send_get_req(struct vty *vty, bool is_config,
 				 Mgmtd__DatastoreId datastore,
 				 const char **xpath_list, int num_req);

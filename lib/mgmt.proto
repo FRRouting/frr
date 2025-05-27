@@ -148,6 +148,7 @@ message FeCommitConfigReq {
   required uint64 req_id = 4;
   required bool validate_only = 5;
   required bool abort = 6;
+  required bool unlock = 7;
 }
 
 message FeCommitConfigReply {
@@ -158,7 +159,8 @@ message FeCommitConfigReply {
   required bool validate_only = 5;
   required bool success = 6;
   required bool abort = 7;
-  optional string error_if_any = 8;
+  required bool unlock = 8;
+  optional string error_if_any = 9;
 }
 
 message FeGetReq {
