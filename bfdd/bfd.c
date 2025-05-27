@@ -1439,6 +1439,8 @@ void bs_echo_timer_handler(struct bfd_session *bs)
  */
 void bs_final_handler(struct bfd_session *bs)
 {
+	uint64_t old_xmt_TO = bs->xmt_TO;
+
 	/* Start using our new timers. */
 	bs->cur_timers.desired_min_tx = bs->timers.desired_min_tx;
 	bs->cur_timers.required_min_rx = bs->timers.required_min_rx;
@@ -1466,6 +1468,12 @@ void bs_final_handler(struct bfd_session *bs)
 		bs->xmt_TO = bs->timers.desired_min_tx;
 	else
 		bs->xmt_TO = bs->remote_timers.required_min_rx;
+	
+	/* Only apply increased transmission interval after Poll Sequence */
+	if (bs->ses_state == PTM_BFD_UP && bs->xmt_TO > old_xmt_TO) {
+		bs->xmt_TO = old_xmt_TO;  /* Keep old timing until Poll Sequence done */
+		return;
+	}
 
 	/* Apply new transmission timer immediately. */
 	ptm_bfd_start_xmt_timer(bs, false);
