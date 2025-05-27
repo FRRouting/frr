@@ -578,6 +578,8 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp, pim_sgaddr *sg,
 	ch->t_ifjoin_prune_pending_timer = NULL;
 	ch->ifjoin_creation = 0;
 
+	ch->prune_holdtime = 0;
+
 	RB_INSERT(pim_ifchannel_rb, &pim_ifp->ifchannel_rb, ch);
 
 	up = pim_upstream_add(pim_ifp->pim, sg, NULL, up_flags, __func__, ch);

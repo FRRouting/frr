@@ -27,6 +27,8 @@
 #include "pim_time.h"
 #include "pim_ssm.h"
 #include "pim_tib.h"
+#include "pim_pim.h"
+#include "pim_dm.h"
 
 static void group_timer_off(struct gm_group *group);
 static void pim_igmp_general_query(struct event *t);
@@ -1068,7 +1070,10 @@ void igmp_group_delete(struct gm_group *group)
 	struct listnode *src_node;
 	struct listnode *src_nextnode;
 	struct gm_source *src;
-	struct pim_interface *pim_ifp = group->interface->info;
+	struct interface *ifp = group->interface;
+	struct pim_interface *pim_ifp = ifp->info;
+	struct channel_oil *c_oil;
+
 
 	if (PIM_DEBUG_GM_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
@@ -1091,6 +1096,18 @@ void igmp_group_delete(struct gm_group *group)
 	hash_release(pim_ifp->gm_group_hash, group);
 
 	igmp_group_free(group);
+	/* dm: check if we need to send a prune message */
+	if (pim_ifp->pim_neighbor_list->count == 0 && !pim_dm_check_gm_group_list(ifp)) {
+		frr_each (rb_pim_oil, &pim_ifp->pim->channel_oil_head, c_oil) {
+			if (pim_iface_grp_dm(pim_ifp, *oil_mcastgrp(c_oil)) && c_oil->installed &&
+			    !pim_upstream_up_connected(c_oil->up)) {
+				event_cancel(&c_oil->up->t_graft_timer);
+				PIM_UPSTREAM_DM_SET_PRUNE(c_oil->up->flags);
+				pim_dm_prune_send(c_oil->up->rpf, c_oil->up, 0);
+				prune_timer_start(c_oil->up);
+			}
+		}
+	}
 }
 
 void igmp_group_delete_empty_include(struct gm_group *group)
@@ -1433,6 +1450,7 @@ struct gm_group *igmp_add_group_by_addr(struct gm_sock *igmp,
 {
 	struct gm_group *group;
 	struct pim_interface *pim_ifp = igmp->interface->info;
+	struct channel_oil *c_oil;
 
 	group = find_group_by_addr(igmp, group_addr);
 	if (group) {
@@ -1517,6 +1535,20 @@ struct gm_group *igmp_add_group_by_addr(struct gm_sock *igmp,
 
 	/* Any source (*,G) is forwarded only if mode is EXCLUDE {empty} */
 	igmp_anysource_forward_stop(group);
+
+	/* dm: check is we need to send a graft message */
+	if (pim_ifp->pim_neighbor_list->count > 0 || pim_iface_grp_dm(pim_ifp, group->group_addr)) {
+		frr_each (rb_pim_oil, &pim_ifp->pim->channel_oil_head, c_oil) {
+			if (pim_iface_grp_dm(pim_ifp, *oil_mcastgrp(c_oil)) && c_oil->installed &&
+			    pim_upstream_up_connected(c_oil->up) &&
+			    PIM_UPSTREAM_DM_TEST_PRUNE(c_oil->up->flags)) {
+				PIM_UPSTREAM_DM_UNSET_PRUNE(c_oil->up->flags);
+				event_cancel(&c_oil->up->t_prune_timer);
+				pim_dm_graft_send(c_oil->up->rpf, c_oil->up);
+				graft_timer_start(c_oil->up);
+			}
+		}
+	}
 
 	return group;
 }

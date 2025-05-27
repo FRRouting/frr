@@ -31,11 +31,11 @@
 #include "pim_mroute.h"
 #include "pim_cmd.h"
 #include "pim6_cmd.h"
+#include "pim_iface.h"
 #include "pim_cmd_common.h"
 #include "pim_time.h"
 #include "pim_zebra.h"
 #include "pim_zlookup.h"
-#include "pim_iface.h"
 #include "pim_macro.h"
 #include "pim_neighbor.h"
 #include "pim_nht.h"
@@ -46,6 +46,7 @@
 #include "pim_static.h"
 #include "pim_util.h"
 #include "pim6_mld.h"
+#include "pim_dm.h"
 
 /**
  * Get current node VRF name.
@@ -273,7 +274,7 @@ int pim_process_no_register_suppress_cmd(struct vty *vty)
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-int pim_process_ip_pim_cmd(struct vty *vty)
+static int pim_process_ip_pim_cmd(struct vty *vty)
 {
 	nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY, "true");
 
@@ -283,15 +284,48 @@ int pim_process_ip_pim_cmd(struct vty *vty)
 
 int pim_process_ip_pim_passive_cmd(struct vty *vty, bool enable)
 {
-	if (enable)
+	int ret;
+
+	if (enable) {
+		ret = pim_process_ip_pim_cmd(vty);
+
+		if (ret != NB_OK)
+			return ret;
+
 		nb_cli_enqueue_change(vty, "./pim-passive-enable", NB_OP_MODIFY,
 				      "true");
-	else
+	} else
 		nb_cli_enqueue_change(vty, "./pim-passive-enable", NB_OP_MODIFY,
 				      "false");
 
 	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
 				    FRR_PIM_AF_XPATH_VAL);
+}
+
+int pim_process_ip_pim_mode_cmd(struct vty *vty, bool dm, bool smdm, bool ssm)
+{
+	int ret;
+	enum pim_iface_mode mode;
+
+	ret = pim_process_ip_pim_cmd(vty);
+
+	if (ret != NB_OK)
+		return ret;
+
+	if (dm)
+		mode = PIM_MODE_DENSE;
+	else if (smdm)
+		mode = PIM_MODE_SPARSE_DENSE;
+	else if (ssm) {
+		mode = PIM_MODE_SSM;
+		vty_out(vty,
+			"WARN: Enabled PIM SM on interface; configure PIM SSM range if needed\n");
+	} else
+		mode = PIM_MODE_SPARSE;
+
+	nb_cli_enqueue_change(vty, "./pim-mode", NB_OP_MODIFY, pim_mod_str(mode));
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
 }
 
 int pim_process_no_ip_pim_cmd(struct vty *vty)
@@ -2633,9 +2667,7 @@ void pim_show_interfaces_single(struct pim_instance *pim, struct vty *vty,
 			}
 
 			if (pim_ifp->pim_passive_enable)
-				vty_out(vty, "Passive    : %s\n",
-					(pim_ifp->pim_passive_enable) ? "yes"
-								      : "no");
+				vty_out(vty, "Passive    : yes\n");
 
 			vty_out(vty, "\n");
 
@@ -2782,9 +2814,8 @@ void pim_show_interfaces_single(struct pim_instance *pim, struct vty *vty,
 void ip_pim_ssm_show_group_range(struct pim_instance *pim, struct vty *vty,
 				 bool uj)
 {
-	struct pim_ssm *ssm = pim->ssm_info;
-	const char *range_str =
-		ssm->plist_name ? ssm->plist_name : PIM_SSM_STANDARD_RANGE;
+	const char *range_str = pim->ssm_info->plist_name ? pim->ssm_info->plist_name
+							  : PIM_SSM_STANDARD_RANGE;
 
 	if (uj) {
 		json_object *json;
@@ -3738,12 +3769,12 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 	int oif_vif_index;
 	struct interface *ifp_in;
 	char proto[100];
-	char state_str[PIM_REG_STATE_STR_LEN];
+	char state_str[PIM_REG_STATE_STR_LEN] = { '\0' };
 	char mroute_uptime[10];
 
 	if (!json) {
 		vty_out(vty, "IP Multicast Routing Table\n");
-		vty_out(vty, "Flags: S - Sparse, C - Connected, P - Pruned\n");
+		vty_out(vty, "Flags: S - Sparse, D - Dense, C - Connected, P - Pruned\n");
 		vty_out(vty,
 			"       R - SGRpt Pruned, F - Register flag, T - SPT-bit set\n");
 
@@ -3777,7 +3808,18 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 		snprintfrr(src_str, sizeof(src_str), "%pPAs",
 			   oil_origin(c_oil));
 
-		strlcpy(state_str, "S", sizeof(state_str));
+		ifp_in = pim_if_find_by_vif_index(pim, *oil_incoming_vif(c_oil));
+
+		if (ifp_in) {
+			strlcpy(in_ifname, ifp_in->name, sizeof(in_ifname));
+			if (!pim_iface_grp_dm(ifp_in->info, *oil_mcastgrp(c_oil)))
+				strlcpy(state_str, "S", sizeof(state_str));
+		} else {
+			strlcpy(in_ifname, "<iif?>", sizeof(in_ifname));
+			if (!pim_is_grp_dm(pim, *oil_mcastgrp(c_oil)))
+				strlcpy(state_str, "S", sizeof(state_str));
+		}
+
 		/* When a non DR receives a igmp join, it creates a (*,G)
 		 * channel_oil without any upstream creation
 		 */
@@ -3790,17 +3832,11 @@ void show_mroute(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
 				strlcat(state_str, "F", sizeof(state_str));
 			if (c_oil->up->sptbit == PIM_UPSTREAM_SPTBIT_TRUE)
 				strlcat(state_str, "T", sizeof(state_str));
+			if (PIM_UPSTREAM_DM_TEST_INTERFACE(c_oil->up->flags))
+				strlcat(state_str, "D", sizeof(state_str));
 		}
 		if (pim_channel_oil_empty(c_oil))
 			strlcat(state_str, "P", sizeof(state_str));
-
-		ifp_in = pim_if_find_by_vif_index(pim, *oil_incoming_vif(c_oil));
-
-		if (ifp_in)
-			strlcpy(in_ifname, ifp_in->name, sizeof(in_ifname));
-		else
-			strlcpy(in_ifname, "<iif?>", sizeof(in_ifname));
-
 
 		pim_time_uptime(mroute_uptime, sizeof(mroute_uptime),
 				now - c_oil->mroute_creation);
@@ -4429,6 +4465,7 @@ int clear_pim_interface_traffic(const char *vrf, struct vty *vty)
 		pim_ifp->pim_ifstat_join_recv = 0;
 		pim_ifp->pim_ifstat_join_send = 0;
 		pim_ifp->pim_ifstat_prune_recv = 0;
+		pim_ifp->pim_ifstat_graft_recv = 0;
 		pim_ifp->pim_ifstat_prune_send = 0;
 		pim_ifp->pim_ifstat_reg_recv = 0;
 		pim_ifp->pim_ifstat_reg_send = 0;

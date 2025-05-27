@@ -119,7 +119,8 @@ struct pim_instance {
 	struct hash *nht_hash;
 	struct pim_lookup_mode_head rpf_mode;
 
-	void *ssm_info; /* per-vrf SSM configuration */
+	struct pim_ssm *ssm_info; /* per-vrf SSM configuration */
+	struct pim_dm *dm_info;	  /* per-vrf DM configuration */
 
 	int send_v6_secondary;
 
@@ -170,6 +171,10 @@ struct pim_instance {
 	unsigned int gm_watermark_limit;
 	unsigned int keep_alive_time;
 	unsigned int rp_keep_alive_time;
+	unsigned int staterefresh_time;
+
+	uint8_t staterefresh_counter;
+
 
 	bool ecmp_enable;
 	bool ecmp_rebalance_enable;
