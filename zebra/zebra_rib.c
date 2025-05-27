@@ -2136,7 +2136,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 							   __func__, old_re, old_re->flags,
 							   old_re->nhe, old_re->nhe->id,
 							   old_re->nhe->flags);
-					zebra_nhg_uninstall_kernel(old_re->nhe);
+					zebra_nhg_uninstall_kernel(old_re->nhe, false);
 				}
 			}
 

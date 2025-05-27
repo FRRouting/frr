@@ -384,7 +384,7 @@ extern uint16_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe
 
 /* Dataplane install/uninstall */
 extern void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe, uint8_t type);
-extern void zebra_nhg_uninstall_kernel(struct nhg_hash_entry *nhe);
+extern void zebra_nhg_uninstall_kernel(struct nhg_hash_entry *nhe, bool free_nhg);
 extern void zebra_interface_nhg_reinstall(struct interface *ifp);
 
 /* Forward ref of dplane update context type */
