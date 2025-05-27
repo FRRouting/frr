@@ -158,7 +158,9 @@ static void sigusr1(void)
 static FRR_NORETURN void quit(int exit_code)
 {
 	event_cancel(&event_timeout);
-	darr_free(_client_cbs.notif_xpaths);
+	darr_free(_client_cbs.config_xpaths);
+	darr_free(_client_cbs.oper_xpaths);
+	darr_free(_client_cbs.notify_xpaths);
 	darr_free(_client_cbs.rpc_xpaths);
 
 	frr_fini();
@@ -325,8 +327,8 @@ int main(int argc, char **argv)
 			zlog_notice("Listen on xpath: %s", argv[i]);
 			darr_push(_notif_xpaths, argv[i]);
 		}
-		_client_cbs.notif_xpaths = _notif_xpaths;
-		_client_cbs.nnotif_xpaths = darr_len(_notif_xpaths);
+		_client_cbs.notify_xpaths = _notif_xpaths;
+		_client_cbs.nnotify_xpaths = darr_len(_notif_xpaths);
 	}
 
 	darr_push(_rpc_xpaths, "/frr-ripd:clear-rip-route");

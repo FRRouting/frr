@@ -1057,22 +1057,15 @@ extern bool nb_is_operation_allowed(struct nb_node *nb_node,
  * xpath
  *    XPath of the configuration node being edited.
  *
- * previous
- *    Previous value of the configuration node. Should be used only when the
- *    operation is NB_OP_MOVE, otherwise this parameter is ignored.
- *
- * data
+ * value
  *    New value of the configuration node.
  *
  * Returns:
  *    - NB_OK on success.
  *    - NB_ERR for other errors.
  */
-extern int nb_candidate_edit(struct nb_config *candidate,
-			     const struct nb_node *nb_node,
-			     enum nb_operation operation, const char *xpath,
-			     const struct yang_data *previous,
-			     const struct yang_data *data);
+extern int nb_candidate_edit(struct nb_config *candidate, const struct nb_node *nb_node,
+			     enum nb_operation operation, const char *xpath, const char *value);
 
 /*
  * Edit a candidate configuration. Value is given as JSON/XML.
@@ -1141,6 +1134,36 @@ extern void nb_config_diff_created(const struct lyd_node *dnode, uint32_t *seq,
  *    true if the candidate is outdated, false otherwise.
  */
 extern bool nb_candidate_needs_update(const struct nb_config *candidate);
+
+
+enum nb_change_result {
+	NB_CHANGE_OK,
+	NB_CHANGE_ERR,
+	NB_CHANGE_ERR_CONT,
+};
+
+/*
+ * Edit candidate configuration given single change.
+ *
+ * candidate_config
+ *    Candidate configuration to edit.
+ *
+ * operation
+ *    The type of change.
+ *
+ * xpath
+ *     Absolute xpath of the configuration node being edited.
+ *
+ * value
+ *    New value of the configuration node.
+ *
+ * in_backend
+ *    If true then ignore errors due to schema non-presence.
+ */
+extern enum nb_change_result nb_candidate_edit_config_change(struct nb_config *candidate_config,
+							     enum nb_operation operation,
+							     const char *xpath, const char *value,
+							     bool in_backend);
 
 /*
  * Edit candidate configuration changes.

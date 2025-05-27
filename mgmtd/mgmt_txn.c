@@ -23,13 +23,19 @@
 #define MGMTD_TXN_LOCK(txn)   mgmt_txn_lock(txn, __FILE__, __LINE__)
 #define MGMTD_TXN_UNLOCK(txn, in_hash_free) mgmt_txn_unlock(txn, in_hash_free, __FILE__, __LINE__)
 
-enum mgmt_txn_event {
+enum mgmt_txn_req_type {
 	MGMTD_TXN_PROC_SETCFG = 1,
 	MGMTD_TXN_PROC_COMMITCFG,
 	MGMTD_TXN_PROC_GETCFG,
 	MGMTD_TXN_PROC_GETTREE,
 	MGMTD_TXN_PROC_RPC,
-	MGMTD_TXN_COMMITCFG_TIMEOUT,
+};
+
+enum mgmt_txn_frr_event {
+	MGMTD_TXN_EVENT_SETCFG = 1,
+	MGMTD_TXN_EVENT_GETCFG,
+	MGMTD_TXN_EVENT_COMMITCFG,
+	MGMTD_TXN_EVENT_COMMITCFG_TIMEOUT,
 };
 
 PREDECL_LIST(mgmt_txn_reqs);
@@ -70,26 +76,6 @@ static inline const char *mgmt_commit_phase2str(enum mgmt_commit_phase cmt_phase
 
 	return "Invalid/Unknown";
 }
-
-PREDECL_LIST(mgmt_txn_batches);
-
-struct mgmt_txn_be_cfg_batch {
-	struct mgmt_txn_ctx *txn;
-	enum mgmt_be_client_id be_id;
-	struct mgmt_be_client_adapter *be_adapter;
-	Mgmtd__YangCfgDataReq cfg_data[MGMTD_MAX_CFG_CHANGES_IN_BATCH];
-	Mgmtd__YangCfgDataReq *cfg_datap[MGMTD_MAX_CFG_CHANGES_IN_BATCH];
-	Mgmtd__YangData data[MGMTD_MAX_CFG_CHANGES_IN_BATCH];
-	Mgmtd__YangDataValue value[MGMTD_MAX_CFG_CHANGES_IN_BATCH];
-	size_t num_cfg_data;
-	int buf_space_left;
-	struct mgmt_txn_batches_item list_linkage;
-};
-
-DECLARE_LIST(mgmt_txn_batches, struct mgmt_txn_be_cfg_batch, list_linkage);
-
-#define FOREACH_TXN_CFG_BATCH_IN_LIST(list, batch)                             \
-	frr_each_safe (mgmt_txn_batches, list, batch)
 
 struct mgmt_edit_req {
 	char xpath_created[XPATH_MAXLEN];
@@ -137,14 +123,12 @@ struct mgmt_commit_cfg_req {
 	uint64_t clients;
 
 	/*
-	 * List of backend batches for this commit to be validated
-	 * and applied at the backend.
+	 * Config messages to send to the backends, and their action strings to
+	 * add to the message just prior to sending.
 	 */
-	struct mgmt_txn_batches_head batches[MGMTD_BE_CLIENT_ID_MAX];
-	/*
-	 * The last batch added for any backend client.
-	 */
-	struct mgmt_txn_be_cfg_batch *last_be_cfg_batch[MGMTD_BE_CLIENT_ID_MAX];
+	struct mgmt_msg_cfg_req *cfg_msgs[MGMTD_BE_CLIENT_ID_MAX];
+	char *cfg_actions[MGMTD_BE_CLIENT_ID_MAX];
+	uint64_t num_cfg_data[MGMTD_BE_CLIENT_ID_MAX];
 
 	struct mgmt_commit_stats *cmt_stats;
 };
@@ -200,7 +184,7 @@ struct txn_req_rpc {
 
 struct mgmt_txn_req {
 	struct mgmt_txn_ctx *txn;
-	enum mgmt_txn_event req_event;
+	enum mgmt_txn_req_type req_type;
 	uint64_t req_id;
 	union {
 		struct mgmt_set_cfg_req *set_cfg;
@@ -302,95 +286,22 @@ static int mgmt_txn_send_be_txn_delete(struct mgmt_txn_ctx *txn,
 static struct event_loop *mgmt_txn_tm;
 static struct mgmt_master *mgmt_txn_mm;
 
-static void mgmt_txn_register_event(struct mgmt_txn_ctx *txn,
-				    enum mgmt_txn_event event);
+static void mgmt_txn_register_event(struct mgmt_txn_ctx *txn, enum mgmt_txn_frr_event event);
 
 static void mgmt_txn_cleanup_txn(struct mgmt_txn_ctx **txn);
 
-static struct mgmt_txn_be_cfg_batch *
-mgmt_txn_cfg_batch_alloc(struct mgmt_txn_ctx *txn, enum mgmt_be_client_id id,
-			 struct mgmt_be_client_adapter *be_adapter)
-{
-	struct mgmt_txn_be_cfg_batch *batch;
-
-	batch = XCALLOC(MTYPE_MGMTD_TXN_CFG_BATCH,
-			sizeof(struct mgmt_txn_be_cfg_batch));
-	assert(batch);
-	batch->be_id = id;
-
-	batch->txn = txn;
-	MGMTD_TXN_LOCK(txn);
-	assert(txn->commit_cfg_req);
-	mgmt_txn_batches_add_tail(&txn->commit_cfg_req->req.commit_cfg
-					   .batches[id],
-				  batch);
-	batch->be_adapter = be_adapter;
-	batch->buf_space_left = MGMTD_BE_CFGDATA_MAX_MSG_LEN;
-	if (be_adapter)
-		mgmt_be_adapter_lock(be_adapter);
-
-	txn->commit_cfg_req->req.commit_cfg.last_be_cfg_batch[id] = batch;
-
-	return batch;
-}
-
-static void mgmt_txn_cfg_batch_free(struct mgmt_txn_be_cfg_batch **batch)
-{
-	size_t indx;
-	struct mgmt_commit_cfg_req *cmtcfg_req;
-
-	_dbg(" freeing batch txn-id %" PRIu64, (*batch)->txn->txn_id);
-
-	assert((*batch)->txn && (*batch)->txn->type == MGMTD_TXN_TYPE_CONFIG);
-
-	cmtcfg_req = &(*batch)->txn->commit_cfg_req->req.commit_cfg;
-	mgmt_txn_batches_del(&cmtcfg_req->batches[(*batch)->be_id], *batch);
-
-	if ((*batch)->be_adapter)
-		mgmt_be_adapter_unlock(&(*batch)->be_adapter);
-
-	for (indx = 0; indx < (*batch)->num_cfg_data; indx++) {
-		if ((*batch)->data[indx].xpath) {
-			free((*batch)->data[indx].xpath);
-			(*batch)->data[indx].xpath = NULL;
-		}
-	}
-
-	MGMTD_TXN_UNLOCK(&(*batch)->txn, false);
-
-	XFREE(MTYPE_MGMTD_TXN_CFG_BATCH, *batch);
-	*batch = NULL;
-}
-
-static void mgmt_txn_cleanup_be_cfg_batches(struct mgmt_txn_ctx *txn,
-					    enum mgmt_be_client_id id)
-{
-	struct mgmt_txn_be_cfg_batch *batch;
-	struct mgmt_txn_batches_head *list;
-
-	list = &txn->commit_cfg_req->req.commit_cfg.batches[id];
-	FOREACH_TXN_CFG_BATCH_IN_LIST (list, batch)
-		mgmt_txn_cfg_batch_free(&batch);
-
-	mgmt_txn_batches_fini(list);
-
-	txn->commit_cfg_req->req.commit_cfg.last_be_cfg_batch[id] = NULL;
-}
-
-static struct mgmt_txn_req *mgmt_txn_req_alloc(struct mgmt_txn_ctx *txn,
-					       uint64_t req_id,
-					       enum mgmt_txn_event req_event)
+static struct mgmt_txn_req *mgmt_txn_req_alloc(struct mgmt_txn_ctx *txn, uint64_t req_id,
+					       enum mgmt_txn_req_type req_type)
 {
 	struct mgmt_txn_req *txn_req;
-	enum mgmt_be_client_id id;
 
 	txn_req = XCALLOC(MTYPE_MGMTD_TXN_REQ, sizeof(struct mgmt_txn_req));
 	assert(txn_req);
 	txn_req->txn = txn;
 	txn_req->req_id = req_id;
-	txn_req->req_event = req_event;
+	txn_req->req_type = req_type;
 
-	switch (txn_req->req_event) {
+	switch (txn_req->req_type) {
 	case MGMTD_TXN_PROC_SETCFG:
 		txn_req->req.set_cfg = XCALLOC(MTYPE_MGMTD_TXN_SETCFG_REQ,
 					       sizeof(struct mgmt_set_cfg_req));
@@ -405,13 +316,6 @@ static struct mgmt_txn_req *mgmt_txn_req_alloc(struct mgmt_txn_ctx *txn,
 		_dbg("Added a new COMMITCFG req-id: %" PRIu64 " txn-id: %" PRIu64
 		     " session-id: %" PRIu64,
 		     txn_req->req_id, txn->txn_id, txn->session_id);
-
-		FOREACH_MGMTD_BE_CLIENT_ID (id) {
-			txn_req->req.commit_cfg.be_phase[id] =
-				MGMTD_COMMIT_PHASE_PREPARE_CFG;
-			mgmt_txn_batches_init(
-				&txn_req->req.commit_cfg.batches[id]);
-		}
 
 		txn_req->req.commit_cfg.phase = MGMTD_COMMIT_PHASE_PREPARE_CFG;
 		break;
@@ -441,8 +345,6 @@ static struct mgmt_txn_req *mgmt_txn_req_alloc(struct mgmt_txn_ctx *txn,
 		_dbg("Added a new RPC req-id: %" PRIu64 " txn-id: %" PRIu64 " session-id: %" PRIu64,
 		     txn_req->req_id, txn->txn_id, txn->session_id);
 		break;
-	case MGMTD_TXN_COMMITCFG_TIMEOUT:
-		break;
 	}
 
 	MGMTD_TXN_LOCK(txn);
@@ -460,7 +362,7 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 	struct mgmt_set_cfg_req *set_cfg;
 	bool cleanup;
 
-	switch ((*txn_req)->req_event) {
+	switch ((*txn_req)->req_type) {
 	case MGMTD_TXN_PROC_SETCFG:
 		set_cfg = (*txn_req)->req.set_cfg;
 		for (indx = 0; indx < set_cfg->num_cfg_changes; indx++) {
@@ -489,10 +391,10 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 			 */
 
 			/*
-			 * Get rid of the batches first so we don't end up doing
-			 * anything more with them
+			 * Delete any config messages and action data
 			 */
-			mgmt_txn_cleanup_be_cfg_batches((*txn_req)->txn, id);
+			mgmt_msg_native_free_msg(ccreq->cfg_msgs[id]);
+			darr_free(ccreq->cfg_actions[id]);
 
 			/*
 			 * If we were in the middle of the state machine then
@@ -540,8 +442,6 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 		XFREE(MTYPE_MGMTD_XPATH, (*txn_req)->req.rpc->xpath);
 		XFREE(MTYPE_MGMTD_TXN_RPC_REQ, (*txn_req)->req.rpc);
 		break;
-	case MGMTD_TXN_COMMITCFG_TIMEOUT:
-		break;
 	}
 
 	if (req_list) {
@@ -576,7 +476,7 @@ static void mgmt_txn_process_set_cfg(struct event *thread)
 	     mgmt_txn_reqs_count(&txn->set_cfg_reqs), txn->txn_id, txn->session_id);
 
 	FOREACH_TXN_REQ_IN_LIST (&txn->set_cfg_reqs, txn_req) {
-		assert(txn_req->req_event == MGMTD_TXN_PROC_SETCFG);
+		assert(txn_req->req_type == MGMTD_TXN_PROC_SETCFG);
 		ds_ctx = txn_req->req.set_cfg->ds_ctx;
 		if (!ds_ctx) {
 			mgmt_fe_send_set_cfg_reply(txn->session_id, txn->txn_id,
@@ -681,7 +581,7 @@ mgmt_txn_process_set_cfg_done:
 	if (left) {
 		_dbg("Processed maximum number of Set-Config requests (%d/%d/%d). Rescheduling for rest.",
 		     num_processed, MGMTD_TXN_MAX_NUM_SETCFG_PROC, (int)left);
-		mgmt_txn_register_event(txn, MGMTD_TXN_PROC_SETCFG);
+		mgmt_txn_register_event(txn, MGMTD_TXN_EVENT_SETCFG);
 	}
 }
 
@@ -858,7 +758,7 @@ mgmt_try_move_commit_to_next_phase(struct mgmt_txn_ctx *txn,
 	_dbg("Move entire txn-id: %" PRIu64 " to phase '%s'", txn->txn_id,
 	     mgmt_txn_commit_phase_str(txn));
 
-	mgmt_txn_register_event(txn, MGMTD_TXN_PROC_COMMITCFG);
+	mgmt_txn_register_event(txn, MGMTD_TXN_EVENT_COMMITCFG);
 
 	return 0;
 }
@@ -866,19 +766,17 @@ mgmt_try_move_commit_to_next_phase(struct mgmt_txn_ctx *txn,
 /*
  * This is the real workhorse
  */
-static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
-					  struct nb_config_cbs *changes)
+static int mgmt_txn_create_config_msgs(struct mgmt_txn_req *txn_req, struct nb_config_cbs *changes)
 {
 	struct nb_config_cb *cb, *nxt;
 	struct nb_config_change *chg;
-	struct mgmt_txn_be_cfg_batch *batch;
 	char *xpath = NULL, *value = NULL;
 	enum mgmt_be_client_id id;
 	struct mgmt_be_client_adapter *adapter;
 	struct mgmt_commit_cfg_req *cmtcfg_req;
 	int num_chgs = 0;
-	int xpath_len, value_len;
 	uint64_t clients, chg_clients;
+	char op;
 
 	cmtcfg_req = &txn_req->req.commit_cfg;
 
@@ -904,14 +802,13 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 
 		_dbg("XPATH: %s, Value: '%s'", xpath, value ? value : "NIL");
 
-		clients =
-			mgmt_be_interested_clients(xpath,
-						   MGMT_BE_XPATH_SUBSCR_TYPE_CFG);
+		clients = mgmt_be_interested_clients(xpath, MGMT_BE_XPATH_SUBSCR_TYPE_CFG);
+		if (!clients) {
+			_dbg("No backends interested in xpath: %s", xpath);
+			continue;
+		}
 
 		chg_clients = 0;
-
-		xpath_len = strlen(xpath) + 1;
-		value_len = strlen(value) + 1;
 		FOREACH_BE_CLIENT_BITS (id, clients) {
 			adapter = mgmt_be_get_adapter_by_id(id);
 			if (!adapter)
@@ -919,52 +816,33 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 
 			chg_clients |= (1ull << id);
 
-			batch = cmtcfg_req->last_be_cfg_batch[id];
-			if (!batch ||
-			    (batch->num_cfg_data ==
-			     MGMTD_MAX_CFG_CHANGES_IN_BATCH) ||
-			    (batch->buf_space_left < (xpath_len + value_len))) {
-				/* Allocate a new config batch */
-				batch = mgmt_txn_cfg_batch_alloc(txn_req->txn,
-								 id, adapter);
+			if (!cmtcfg_req->cfg_msgs[id]) {
+				/* Allocate a new config message */
+				struct mgmt_msg_cfg_req *msg;
+
+				msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_cfg_req, 0,
+								MTYPE_MSG_NATIVE_CFG_REQ);
+				msg->code = MGMT_MSG_CODE_CFG_REQ;
+				msg->refer_id = txn_req->txn->txn_id;
+				msg->req_id = txn_req->req_id;
+				cmtcfg_req->cfg_msgs[id] = msg;
 			}
-
-			batch->buf_space_left -= (xpath_len + value_len);
-
-			mgmt_yang_cfg_data_req_init(
-				&batch->cfg_data[batch->num_cfg_data]);
-			batch->cfg_datap[batch->num_cfg_data] =
-				&batch->cfg_data[batch->num_cfg_data];
 
 			/*
 			 * On the backend, we don't really care if it's CREATE
 			 * or MODIFY, because the existence was already checked
 			 * on the frontend. Therefore we use SET for both.
 			 */
-			if (chg->cb.operation == NB_CB_DESTROY)
-				batch->cfg_data[batch->num_cfg_data].req_type =
-					MGMTD__CFG_DATA_REQ_TYPE__REMOVE_DATA;
-			else
-				batch->cfg_data[batch->num_cfg_data].req_type =
-					MGMTD__CFG_DATA_REQ_TYPE__SET_DATA;
+			op = chg->cb.operation == NB_CB_DESTROY ? 'd' : 'm';
+			darr_push(cmtcfg_req->cfg_actions[id], op);
 
-			mgmt_yang_data_init(&batch->data[batch->num_cfg_data]);
-			batch->cfg_data[batch->num_cfg_data].data =
-				&batch->data[batch->num_cfg_data];
-			batch->data[batch->num_cfg_data].xpath = strdup(xpath);
+			mgmt_msg_native_add_str(cmtcfg_req->cfg_msgs[id], xpath);
+			if (op == 'm')
+				mgmt_msg_native_add_str(cmtcfg_req->cfg_msgs[id], value);
+			cmtcfg_req->num_cfg_data[id]++;
 
-			mgmt_yang_data_value_init(
-				&batch->value[batch->num_cfg_data]);
-			batch->data[batch->num_cfg_data].value =
-				&batch->value[batch->num_cfg_data];
-			batch->value[batch->num_cfg_data].value_case =
-				MGMTD__YANG_DATA_VALUE__VALUE_ENCODED_STR_VAL;
-			batch->value[batch->num_cfg_data].encoded_str_val =
-				value;
+			_dbg(" -- %s, batch item: %Lu", adapter->name, cmtcfg_req->num_cfg_data[id]);
 
-			_dbg(" -- %s, batch item:%d", adapter->name, (int)batch->num_cfg_data);
-
-			batch->num_cfg_data++;
 			num_chgs++;
 		}
 
@@ -984,7 +862,7 @@ static int mgmt_txn_create_config_batches(struct mgmt_txn_req *txn_req,
 		return -1;
 	}
 
-	/* Move all BE clients to create phase */
+	/* Move all BE clients to create phase -- XXX go straight to cfg_req */
 	FOREACH_MGMTD_BE_CLIENT_ID(id) {
 		if (IS_IDBIT_SET(cmtcfg_req->clients, id))
 			cmtcfg_req->be_phase[id] =
@@ -1136,10 +1014,9 @@ mgmt_txn_prep_config_validation_done:
 			     NULL);
 
 	/*
-	 * Iterate over the diffs and create ordered batches of config
-	 * commands to be validated.
+	 * Iterate over the diffs and create config messages to send to backends.
 	 */
-	ret = mgmt_txn_create_config_batches(txn->commit_cfg_req, cfg_chgs);
+	ret = mgmt_txn_create_config_msgs(txn->commit_cfg_req, cfg_chgs);
 	if (ret != 0) {
 		ret = -1;
 		goto mgmt_txn_prepare_config_done;
@@ -1148,13 +1025,13 @@ mgmt_txn_prep_config_validation_done:
 	/* Move to the Transaction Create Phase */
 	txn->commit_cfg_req->req.commit_cfg.phase =
 		MGMTD_COMMIT_PHASE_TXN_CREATE;
-	mgmt_txn_register_event(txn, MGMTD_TXN_PROC_COMMITCFG);
+	mgmt_txn_register_event(txn, MGMTD_TXN_EVENT_COMMITCFG);
 
 	/*
 	 * Start the COMMIT Timeout Timer to abort Txn if things get stuck at
 	 * backend.
 	 */
-	mgmt_txn_register_event(txn, MGMTD_TXN_COMMITCFG_TIMEOUT);
+	mgmt_txn_register_event(txn, MGMTD_TXN_EVENT_COMMITCFG_TIMEOUT);
 mgmt_txn_prepare_config_done:
 
 	if (cfg_chgs && del_cfg_chgs)
@@ -1198,38 +1075,33 @@ static int mgmt_txn_send_be_txn_create(struct mgmt_txn_ctx *txn)
 static int mgmt_txn_send_be_cfg_data(struct mgmt_txn_ctx *txn,
 				     struct mgmt_be_client_adapter *adapter)
 {
-	struct mgmt_commit_cfg_req *cmtcfg_req;
-	struct mgmt_txn_be_cfg_batch *batch;
-	struct mgmt_be_cfgreq cfg_req = { 0 };
-	size_t num_batches, indx;
+	enum mgmt_be_client_id id = adapter->id;
+	struct mgmt_commit_cfg_req *ccreq;
+	int ret;
 
 	assert(txn->type == MGMTD_TXN_TYPE_CONFIG && txn->commit_cfg_req);
 
-	cmtcfg_req = &txn->commit_cfg_req->req.commit_cfg;
-	assert(IS_IDBIT_SET(cmtcfg_req->clients, adapter->id));
+	ccreq = &txn->commit_cfg_req->req.commit_cfg;
+	assert(IS_IDBIT_SET(ccreq->clients, id));
 
-	indx = 0;
-	num_batches = mgmt_txn_batches_count(&cmtcfg_req->batches[adapter->id]);
-	FOREACH_TXN_CFG_BATCH_IN_LIST (&cmtcfg_req->batches[adapter->id],
-				       batch) {
+	/* NUL terminate the actions string */
+	darr_push(ccreq->cfg_actions[id], 0);
 
-		cfg_req.cfgdata_reqs = batch->cfg_datap;
-		cfg_req.num_reqs = batch->num_cfg_data;
-		indx++;
-		if (mgmt_be_send_cfgdata_req(adapter, txn->txn_id,
-					     cfg_req.cfgdata_reqs,
-					     cfg_req.num_reqs,
-					     indx == num_batches)) {
-			(void)mgmt_txn_send_commit_cfg_reply(
-				txn, MGMTD_INTERNAL_ERROR,
-				"Internal Error! Could not send config data to backend!");
-			_log_err("Could not send CFGDATA_CREATE txn-id: %" PRIu64 " to client '%s",
-				 txn->txn_id, adapter->name);
-			return -1;
-		}
+	_dbg("Finished CFG_REQ for '%s' txn-id: %Lu with actions: %s", adapter->name, txn->txn_id,
+	     ccreq->cfg_actions[id]);
 
-		cmtcfg_req->cmt_stats->last_num_cfgdata_reqs++;
+	/* Add the final action string to the message */
+	mgmt_msg_native_add_str(ccreq->cfg_msgs[id], ccreq->cfg_actions[id]);
+	darr_free(ccreq->cfg_actions[id]);
+
+	ret = mgmt_be_send_cfgdata_req(adapter, ccreq->cfg_msgs[id]);
+	mgmt_msg_native_free_msg(ccreq->cfg_msgs[id]);
+	if (ret) {
+		(void)mgmt_txn_send_commit_cfg_reply(txn, MGMTD_INTERNAL_ERROR,
+						     "Internal Error! Could not send config data to backend!");
+		return -1;
 	}
+	ccreq->cmt_stats->last_num_cfgdata_reqs++;
 
 	/*
 	 * We don't advance the phase here, instead that is driven by the
@@ -1575,7 +1447,7 @@ static void mgmt_txn_send_getcfg_reply_data(struct mgmt_txn_req *txn_req,
 	_dbg("Sending %zu Get-Config/Data replies next-index:%" PRId64, data_reply->n_data,
 	     data_reply->next_indx);
 
-	switch (txn_req->req_event) {
+	switch (txn_req->req_type) {
 	case MGMTD_TXN_PROC_GETCFG:
 		if (mgmt_fe_send_get_reply(txn_req->txn->session_id,
 					   txn_req->txn->txn_id, get_req->ds_id,
@@ -1590,8 +1462,7 @@ static void mgmt_txn_send_getcfg_reply_data(struct mgmt_txn_req *txn_req,
 	case MGMTD_TXN_PROC_COMMITCFG:
 	case MGMTD_TXN_PROC_GETTREE:
 	case MGMTD_TXN_PROC_RPC:
-	case MGMTD_TXN_COMMITCFG_TIMEOUT:
-		_log_err("Invalid Txn-Req-Event %u", txn_req->req_event);
+		_log_err("Invalid Txn-Req-Type %u", txn_req->req_type);
 		break;
 	}
 
@@ -1617,7 +1488,7 @@ static void txn_iter_get_config_data_cb(const char *xpath, struct lyd_node *node
 	if (!(node->schema->nodetype & LYD_NODE_TERM))
 		return;
 
-	assert(txn_req->req_event == MGMTD_TXN_PROC_GETCFG);
+	assert(txn_req->req_type == MGMTD_TXN_PROC_GETCFG);
 
 	get_req = txn_req->req.get_data;
 	assert(get_req);
@@ -1720,7 +1591,7 @@ static void mgmt_txn_process_get_cfg(struct event *thread)
 
 	FOREACH_TXN_REQ_IN_LIST (&txn->get_cfg_reqs, txn_req) {
 		error = false;
-		assert(txn_req->req_event == MGMTD_TXN_PROC_GETCFG);
+		assert(txn_req->req_type == MGMTD_TXN_PROC_GETCFG);
 		cfg_root = txn_req->req.get_data->cfg_root;
 		assert(cfg_root);
 
@@ -1753,7 +1624,7 @@ static void mgmt_txn_process_get_cfg(struct event *thread)
 	if (mgmt_txn_reqs_count(&txn->get_cfg_reqs)) {
 		_dbg("Processed maximum number of Get-Config requests (%d/%d). Rescheduling for rest.",
 		     num_processed, MGMTD_TXN_MAX_NUM_GETCFG_PROC);
-		mgmt_txn_register_event(txn, MGMTD_TXN_PROC_GETCFG);
+		mgmt_txn_register_event(txn, MGMTD_TXN_EVENT_GETCFG);
 	}
 }
 
@@ -1934,8 +1805,7 @@ static void mgmt_txn_cleanup_all_txns(void)
 		mgmt_txn_cleanup_txn(&txn);
 }
 
-static void mgmt_txn_register_event(struct mgmt_txn_ctx *txn,
-				    enum mgmt_txn_event event)
+static void mgmt_txn_register_event(struct mgmt_txn_ctx *txn, enum mgmt_txn_frr_event event)
 {
 	struct timeval tv = { .tv_sec = 0,
 			      .tv_usec = MGMTD_TXN_PROC_DELAY_USEC };
@@ -1943,26 +1813,22 @@ static void mgmt_txn_register_event(struct mgmt_txn_ctx *txn,
 	assert(mgmt_txn_mm && mgmt_txn_tm);
 
 	switch (event) {
-	case MGMTD_TXN_PROC_SETCFG:
+	case MGMTD_TXN_EVENT_SETCFG:
 		event_add_timer_tv(mgmt_txn_tm, mgmt_txn_process_set_cfg, txn,
 				   &tv, &txn->proc_set_cfg);
 		break;
-	case MGMTD_TXN_PROC_COMMITCFG:
+	case MGMTD_TXN_EVENT_COMMITCFG:
 		event_add_timer_tv(mgmt_txn_tm, mgmt_txn_process_commit_cfg,
 				   txn, &tv, &txn->proc_comm_cfg);
 		break;
-	case MGMTD_TXN_PROC_GETCFG:
+	case MGMTD_TXN_EVENT_GETCFG:
 		event_add_timer_tv(mgmt_txn_tm, mgmt_txn_process_get_cfg, txn,
 				   &tv, &txn->proc_get_cfg);
 		break;
-	case MGMTD_TXN_COMMITCFG_TIMEOUT:
+	case MGMTD_TXN_EVENT_COMMITCFG_TIMEOUT:
 		event_add_timer(mgmt_txn_tm, mgmt_txn_cfg_commit_timedout, txn,
 				MGMTD_TXN_CFG_COMMIT_MAX_DELAY_SEC,
 				&txn->comm_cfg_timeout);
-		break;
-	case MGMTD_TXN_PROC_GETTREE:
-	case MGMTD_TXN_PROC_RPC:
-		assert(!"code bug do not register this event");
 		break;
 	}
 }
@@ -2100,7 +1966,7 @@ int mgmt_txn_send_set_config_req(uint64_t txn_id, uint64_t req_id,
 	txn_req->req.set_cfg->dst_ds_ctx = dst_ds_ctx;
 	txn_req->req.set_cfg->setcfg_stats =
 		mgmt_fe_get_session_setcfg_stats(txn->session_id);
-	mgmt_txn_register_event(txn, MGMTD_TXN_PROC_SETCFG);
+	mgmt_txn_register_event(txn, MGMTD_TXN_EVENT_SETCFG);
 
 	return 0;
 }
@@ -2142,7 +2008,7 @@ int mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id,
 	/*
 	 * Trigger a COMMIT-CONFIG process.
 	 */
-	mgmt_txn_register_event(txn, MGMTD_TXN_PROC_COMMITCFG);
+	mgmt_txn_register_event(txn, MGMTD_TXN_EVENT_COMMITCFG);
 	return 0;
 }
 
@@ -2210,7 +2076,7 @@ int mgmt_txn_notify_be_adapter_conn(struct mgmt_be_client_adapter *adapter,
 		/*
 		 * Trigger a COMMIT-CONFIG process.
 		 */
-		mgmt_txn_register_event(txn, MGMTD_TXN_PROC_COMMITCFG);
+		mgmt_txn_register_event(txn, MGMTD_TXN_EVENT_COMMITCFG);
 
 	} else {
 		/*
@@ -2277,19 +2143,28 @@ int mgmt_txn_notify_be_txn_reply(uint64_t txn_id, bool create, bool success,
 	return 0;
 }
 
-int mgmt_txn_notify_be_cfgdata_reply(uint64_t txn_id, bool success,
-				     char *error_if_any,
-				     struct mgmt_be_client_adapter *adapter)
+int mgmt_txn_notify_be_cfg_reply(uint64_t txn_id, bool success, const char *error_if_any,
+				 struct mgmt_be_client_adapter *adapter)
 {
 	struct mgmt_txn_ctx *txn;
 	struct mgmt_commit_cfg_req *cmtcfg_req;
 
 	txn = mgmt_txn_id2ctx(txn_id);
-	if (!txn || txn->type != MGMTD_TXN_TYPE_CONFIG)
+	if (!txn) {
+		_log_err("CFG_REPLY from '%s' failed no TXN for txn-id: %Lu", adapter->name, txn_id);
 		return -1;
+	}
+	if (txn->type != MGMTD_TXN_TYPE_CONFIG) {
+		_log_err("CFG_REPLY from '%s' failed wrong txn TYPE %u for txn-id: %Lu",
+			 adapter->name, txn->type, txn_id);
+		return -1;
+	}
 
-	if (!txn->commit_cfg_req)
+	if (!txn->commit_cfg_req) {
+		_log_err("CFG_REPLY from '%s' failed no COMMITCFG_REQ for txn-id: %Lu",
+			 adapter->name, txn_id);
 		return -1;
+	}
 	cmtcfg_req = &txn->commit_cfg_req->req.commit_cfg;
 
 	if (!success) {
@@ -2297,9 +2172,8 @@ int mgmt_txn_notify_be_cfgdata_reply(uint64_t txn_id, bool success,
 			 adapter->name, txn->txn_id, error_if_any ? error_if_any : "None");
 		mgmt_txn_send_commit_cfg_reply(
 			txn, MGMTD_INTERNAL_ERROR,
-			error_if_any
-				? error_if_any
-				: "Internal error! Failed to download config data to backend!");
+			error_if_any ? error_if_any
+				     : "Internal error! Failed to download config data to backend!");
 		return 0;
 	}
 
@@ -2359,15 +2233,13 @@ int mgmt_txn_send_get_req(uint64_t txn_id, uint64_t req_id,
 {
 	struct mgmt_txn_ctx *txn;
 	struct mgmt_txn_req *txn_req;
-	enum mgmt_txn_event req_event;
 	size_t indx;
 
 	txn = mgmt_txn_id2ctx(txn_id);
 	if (!txn)
 		return -1;
 
-	req_event = MGMTD_TXN_PROC_GETCFG;
-	txn_req = mgmt_txn_req_alloc(txn, req_id, req_event);
+	txn_req = mgmt_txn_req_alloc(txn, req_id, MGMTD_TXN_PROC_GETCFG);
 	txn_req->req.get_data->ds_id = ds_id;
 	txn_req->req.get_data->cfg_root = cfg_root;
 	for (indx = 0;
@@ -2379,7 +2251,7 @@ int mgmt_txn_send_get_req(uint64_t txn_id, uint64_t req_id,
 		txn_req->req.get_data->num_xpaths++;
 	}
 
-	mgmt_txn_register_event(txn, req_event);
+	mgmt_txn_register_event(txn, MGMTD_TXN_EVENT_GETCFG);
 
 	return 0;
 }
@@ -2693,14 +2565,26 @@ int mgmt_txn_notify_error(struct mgmt_be_client_adapter *adapter,
 		return -1;
 	}
 
-	/* Find the request. */
-	FOREACH_TXN_REQ_IN_LIST (&txn->get_tree_reqs, txn_req)
-		if (txn_req->req_id == req_id)
-			break;
-	if (!txn_req)
-		FOREACH_TXN_REQ_IN_LIST (&txn->rpc_reqs, txn_req)
+	if (txn->type == MGMTD_TXN_TYPE_CONFIG) {
+		/*
+		 * XXX want to make sure this isn't an error from sending
+		 * cfg_apply_req, I think in that case we want to disconnect
+		 * earlier anyway
+		 */
+		txn_req = txn->commit_cfg_req;
+		if (txn_req)
+			return mgmt_txn_notify_be_cfg_reply(txn_id, false, errstr, adapter);
+	} else {
+		/* Find the request. */
+		FOREACH_TXN_REQ_IN_LIST (&txn->get_tree_reqs, txn_req)
 			if (txn_req->req_id == req_id)
 				break;
+		if (!txn_req)
+			FOREACH_TXN_REQ_IN_LIST (&txn->rpc_reqs, txn_req)
+				if (txn_req->req_id == req_id)
+					break;
+	}
+
 	if (!txn_req) {
 		_log_err("Error reply from %s for txn-id %" PRIu64 " cannot find req_id %" PRIu64,
 			 adapter->name, txn_id, req_id);
@@ -2710,7 +2594,7 @@ int mgmt_txn_notify_error(struct mgmt_be_client_adapter *adapter,
 	_log_err("Error reply from %s for txn-id %" PRIu64 " req_id %" PRIu64, adapter->name,
 		 txn_id, req_id);
 
-	switch (txn_req->req_event) {
+	switch (txn_req->req_type) {
 	case MGMTD_TXN_PROC_GETTREE:
 		get_tree = txn_req->req.get_tree;
 		get_tree->recv_clients |= (1u << id);
@@ -2736,9 +2620,8 @@ int mgmt_txn_notify_error(struct mgmt_be_client_adapter *adapter,
 	case MGMTD_TXN_PROC_SETCFG:
 	case MGMTD_TXN_PROC_COMMITCFG:
 	case MGMTD_TXN_PROC_GETCFG:
-	case MGMTD_TXN_COMMITCFG_TIMEOUT:
 	default:
-		assert(!"non-native req event in native error path");
+		assert(!"non-native req type in native error path");
 		return -1;
 	}
 }
@@ -2963,6 +2846,6 @@ int mgmt_txn_rollback_trigger_cfg_apply(struct mgmt_ds_ctx *src_ds_ctx,
 	/*
 	 * Trigger a COMMIT-CONFIG process.
 	 */
-	mgmt_txn_register_event(txn, MGMTD_TXN_PROC_COMMITCFG);
+	mgmt_txn_register_event(txn, MGMTD_TXN_EVENT_COMMITCFG);
 	return 0;
 }

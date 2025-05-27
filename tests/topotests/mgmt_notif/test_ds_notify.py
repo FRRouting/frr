@@ -133,6 +133,9 @@ def test_backend_datastore_update(tgen):
     if rc:
         pytest.skip("No mgmtd_testc")
 
+    # Watch the mgmtd log for the BE subscribing
+    mlogp = r1.popen(["/usr/bin/tail", "-n0", "-f", f"{r1.rundir}/mgmtd.log"])
+
     # Start our BE client in the background
     p = r1.popen(
         [
@@ -144,7 +147,8 @@ def test_backend_datastore_update(tgen):
             "/frr-interface:lib/interface",
         ]
     )
-    assert waitline(p.stderr, "Got SUBSCR_REPLY success 1", timeout=10)
+    assert waitline(mlogp.stdout, 'now known as "mgmtd-testc"', timeout=10)
+    mlogp.kill()
 
     r1.cmd_raises("ip link set r1-eth0 mtu 1200")
     try:
@@ -177,6 +181,9 @@ def test_backend_datastore_add_delete(tgen):
     if rc:
         pytest.skip("No mgmtd_testc")
 
+    # Watch the mgmtd log for the BE subscribing
+    mlogp = r1.popen(["/usr/bin/tail", "-n0", "-f", f"{r1.rundir}/mgmtd.log"])
+
     # Start our BE client in the background
     p = r1.popen(
         [
@@ -189,7 +196,8 @@ def test_backend_datastore_add_delete(tgen):
             "/frr-interface:lib/interface",
         ]
     )
-    assert waitline(p.stderr, "Got SUBSCR_REPLY success 1", timeout=10)
+    assert waitline(mlogp.stdout, 'now known as "mgmtd-testc"', timeout=10)
+    mlogp.kill()
 
     r1.cmd_raises('vtysh -c "conf t" -c "int foobar"')
     try:
