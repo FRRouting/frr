@@ -1186,8 +1186,10 @@ void nb_candidate_edit_config_changes(struct nb_config *candidate_config,
 
 		result = nb_candidate_edit_config_change(candidate_config, change->operation, xpath,
 							 change->value, in_backend);
-		if (result != NB_CHANGE_OK)
-			*error = true;
+		if (result != NB_CHANGE_OK) {
+			if (error)
+				*error = true;
+		}
 		if (result == NB_CHANGE_ERR)
 			break;
 	}
