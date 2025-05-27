@@ -209,10 +209,6 @@ int frr_pthread_stop(struct frr_pthread *fpt, void **result);
 /* Stops all frr_pthread's. */
 void frr_pthread_stop_all(void);
 
-#ifndef HAVE_PTHREAD_CONDATTR_SETCLOCK
-#define pthread_condattr_setclock(A, B)
-#endif
-
 int frr_pthread_non_controlled_startup(pthread_t thread, const char *name,
 				       const char *os_name);
 
