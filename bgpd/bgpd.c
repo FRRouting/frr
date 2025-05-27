@@ -3809,6 +3809,8 @@ int bgp_handle_socket(struct bgp *bgp, struct vrf *vrf, vrf_id_t old_vrf_id,
 		}
 		if (vrf == NULL)
 			return BGP_ERR_INVALID_VALUE;
+		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_VRF_MAY_LISTEN))
+			return 0;
 		/* do nothing
 		 * if vrf_id did not change
 		 */
