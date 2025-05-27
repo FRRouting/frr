@@ -2168,8 +2168,8 @@ int mgmt_txn_notify_be_cfg_reply(uint64_t txn_id, bool success, const char *erro
 	cmtcfg_req = &txn->commit_cfg_req->req.commit_cfg;
 
 	if (!success) {
-		_log_err("CFGDATA_CREATE_REQ sent to '%s' failed txn-id: %" PRIu64 " err: %s",
-			 adapter->name, txn->txn_id, error_if_any ? error_if_any : "None");
+		_log_err("CFG_REQ sent to '%s' failed txn-id: %" PRIu64 " err: %s", adapter->name,
+			 txn->txn_id, error_if_any ? error_if_any : "None");
 		mgmt_txn_send_commit_cfg_reply(
 			txn, MGMTD_INTERNAL_ERROR,
 			error_if_any ? error_if_any
@@ -2177,8 +2177,8 @@ int mgmt_txn_notify_be_cfg_reply(uint64_t txn_id, bool success, const char *erro
 		return 0;
 	}
 
-	_dbg("CFGDATA_CREATE_REQ sent to '%s' was successful txn-id: %" PRIu64 " err: %s",
-	     adapter->name, txn->txn_id, error_if_any ? error_if_any : "None");
+	_dbg("CFG_REQ sent to '%s' was successful txn-id: %" PRIu64 " err: %s", adapter->name,
+	     txn->txn_id, error_if_any ? error_if_any : "None");
 
 	cmtcfg_req->be_phase[adapter->id] = MGMTD_COMMIT_PHASE_APPLY_CFG;
 

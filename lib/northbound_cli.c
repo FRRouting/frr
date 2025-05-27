@@ -215,21 +215,10 @@ static void create_xpath_base_abs(struct vty *vty, char *xpath_base_abs,
 	strlcat(xpath_base_abs, xpath_base, xpath_base_abs_size);
 }
 
-int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
+static int _nb_cli_apply_changes(struct vty *vty, const char *xpath_base, bool clear_pending)
 {
 	char xpath_base_abs[XPATH_MAXLEN] = {};
-	char xpath_base[XPATH_MAXLEN] = {};
 	bool implicit_commit;
-	int ret;
-
-	/* Parse the base XPath format string. */
-	if (xpath_base_fmt) {
-		va_list ap;
-
-		va_start(ap, xpath_base_fmt);
-		vsnprintf(xpath_base, sizeof(xpath_base), xpath_base_fmt, ap);
-		va_end(ap);
-	}
 
 	create_xpath_base_abs(vty, xpath_base_abs, sizeof(xpath_base_abs),
 			      xpath_base);
@@ -237,42 +226,7 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 	if (vty_mgmt_should_process_cli_apply_changes(vty)) {
 		VTY_CHECK_XPATH;
 
-		if (vty->type == VTY_FILE)
-			return CMD_SUCCESS;
-
-		implicit_commit = vty_needs_implicit_commit(vty);
-		ret = vty_mgmt_send_config_data(vty, xpath_base_abs,
-						implicit_commit);
-		if (ret >= 0 && !implicit_commit)
-			vty->mgmt_num_pending_setcfg++;
-		return ret;
-	}
-
-	return nb_cli_apply_changes_internal(vty, xpath_base_abs, false);
-}
-
-int nb_cli_apply_changes_clear_pending(struct vty *vty,
-				       const char *xpath_base_fmt, ...)
-{
-	char xpath_base_abs[XPATH_MAXLEN] = {};
-	char xpath_base[XPATH_MAXLEN] = {};
-	bool implicit_commit;
-	int ret;
-
-	/* Parse the base XPath format string. */
-	if (xpath_base_fmt) {
-		va_list ap;
-
-		va_start(ap, xpath_base_fmt);
-		vsnprintf(xpath_base, sizeof(xpath_base), xpath_base_fmt, ap);
-		va_end(ap);
-	}
-
-	create_xpath_base_abs(vty, xpath_base_abs, sizeof(xpath_base_abs),
-			      xpath_base);
-
-	if (vty_mgmt_should_process_cli_apply_changes(vty)) {
-		VTY_CHECK_XPATH;
+		assert(vty->type != VTY_FILE);
 		/*
 		 * The legacy user wanted to clear pending (i.e., perform a
 		 * commit immediately) due to some non-yang compatible
@@ -281,15 +235,52 @@ int nb_cli_apply_changes_clear_pending(struct vty *vty,
 		 * (i.e., end-of-config-file). This should be fine b/c all
 		 * conversions to mgmtd require full proper implementations.
 		 */
+		if (!vty->num_cfg_changes)
+			return CMD_SUCCESS;
+
 		implicit_commit = vty_needs_implicit_commit(vty);
-		ret = vty_mgmt_send_config_data(vty, xpath_base_abs,
-						implicit_commit);
-		if (ret >= 0 && !implicit_commit)
-			vty->mgmt_num_pending_setcfg++;
-		return ret;
+		if (vty_mgmt_send_config_data(vty, xpath_base_abs, implicit_commit) < 0) {
+			vty_out(vty, "%% Failed to apply configuration data.\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		if (!implicit_commit)
+			++vty->mgmt_num_pending_setcfg;
+		return CMD_SUCCESS;
 	}
 
-	return nb_cli_apply_changes_internal(vty, xpath_base_abs, true);
+	return nb_cli_apply_changes_internal(vty, xpath_base_abs, clear_pending);
+}
+
+int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
+{
+	char xpath_base[XPATH_MAXLEN] = {};
+
+	/* Parse the base XPath format string. */
+	if (xpath_base_fmt) {
+		va_list ap;
+
+		va_start(ap, xpath_base_fmt);
+		vsnprintf(xpath_base, sizeof(xpath_base), xpath_base_fmt, ap);
+		va_end(ap);
+	}
+
+	return _nb_cli_apply_changes(vty, xpath_base, false);
+}
+
+int nb_cli_apply_changes_clear_pending(struct vty *vty, const char *xpath_base_fmt, ...)
+{
+	char xpath_base[XPATH_MAXLEN] = {};
+
+	/* Parse the base XPath format string. */
+	if (xpath_base_fmt) {
+		va_list ap;
+
+		va_start(ap, xpath_base_fmt);
+		vsnprintf(xpath_base, sizeof(xpath_base), xpath_base_fmt, ap);
+		va_end(ap);
+	}
+
+	return _nb_cli_apply_changes(vty, xpath_base, true);
 }
 
 int nb_cli_rpc_enqueue(struct vty *vty, const char *xpath, const char *value)

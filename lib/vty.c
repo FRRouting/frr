@@ -4019,8 +4019,63 @@ int vty_mgmt_send_lockds_req(struct vty *vty, Mgmtd__DatastoreId ds_id,
 	return 0;
 }
 
+#if 1
 int vty_mgmt_send_config_data(struct vty *vty, const char *xpath_base,
 			      bool implicit_commit)
+{
+	char err_buf[BUFSIZ];
+	bool error = false;
+
+	/* ADD this: candidate is locked or error */
+
+	if (implicit_commit) {
+		assert(vty->mgmt_client_id && vty->mgmt_session_id);
+
+		if (vty_mgmt_lock_candidate_inline(vty)) {
+			vty_out(vty, "%% could not lock candidate DS\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		} else if (vty_mgmt_lock_running_inline(vty)) {
+			vty_out(vty, "%% could not lock running DS\n");
+			vty_mgmt_unlock_candidate_inline(vty);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	nb_candidate_edit_config_changes(vty->candidate_config, vty->cfg_changes,
+					 vty->num_cfg_changes, xpath_base, false, err_buf,
+					 sizeof(err_buf), &error);
+	if (error) {
+		/*
+		 * Failure to edit the candidate configuration should never
+		 * happen in practice, unless there's a bug in the code. When
+		 * that happens, log the error but otherwise ignore it.
+		 */
+		vty_out(vty, "%% Couldn't apply changes: %s", err_buf);
+
+#if 0 // or do we expect the caller to do this?
+		/* the candidate is no longer valid so restore it */
+		nb_config_replace(vty->candidate_config, running_config, true);
+#endif
+error:
+		if (implicit_commit) {
+			vty_mgmt_unlock_running_inline(vty);
+			vty_mgmt_unlock_candidate_inline(vty);
+		}
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (!implicit_commit)
+		return CMD_SUCCESS;
+
+	assert(vty->mgmt_client_id && vty->mgmt_session_id);
+	if (vty_mgmt_send_commit_config(vty, false, false) < 0)
+		goto error;
+
+	// return CMD_SUSPEND;???
+	return CMD_SUCCESS;
+}
+#else
+int vty_mgmt_send_config_data(struct vty *vty, const char *xpath_base, bool implicit_commit)
 {
 	Mgmtd__YangDataValue value[VTY_MAXCFGCHANGES];
 	Mgmtd__YangData cfg_data[VTY_MAXCFGCHANGES];
@@ -4146,6 +4201,7 @@ int vty_mgmt_send_config_data(struct vty *vty, const char *xpath_base,
 
 	return 0;
 }
+#endif
 
 int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only, bool abort)
 {

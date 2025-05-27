@@ -165,8 +165,7 @@ DEFPY(mgmt_create_config_data, mgmt_create_config_data_cmd,
 	vty->cfg_changes[0].operation = NB_OP_CREATE_EXCL;
 	vty->num_cfg_changes = 1;
 
-	vty_mgmt_send_config_data(vty, NULL, false);
-	return CMD_SUCCESS;
+	return vty_mgmt_send_config_data(vty, NULL, false);
 }
 
 DEFPY(mgmt_set_config_data, mgmt_set_config_data_cmd,
@@ -182,8 +181,7 @@ DEFPY(mgmt_set_config_data, mgmt_set_config_data_cmd,
 	vty->cfg_changes[0].operation = NB_OP_MODIFY;
 	vty->num_cfg_changes = 1;
 
-	vty_mgmt_send_config_data(vty, NULL, false);
-	return CMD_SUCCESS;
+	return vty_mgmt_send_config_data(vty, NULL, false);
 }
 
 DEFPY(mgmt_delete_config_data, mgmt_delete_config_data_cmd,
@@ -199,8 +197,7 @@ DEFPY(mgmt_delete_config_data, mgmt_delete_config_data_cmd,
 	vty->cfg_changes[0].operation = NB_OP_DELETE;
 	vty->num_cfg_changes = 1;
 
-	vty_mgmt_send_config_data(vty, NULL, false);
-	return CMD_SUCCESS;
+	return vty_mgmt_send_config_data(vty, NULL, false);
 }
 
 DEFPY(mgmt_remove_config_data, mgmt_remove_config_data_cmd,
@@ -216,8 +213,7 @@ DEFPY(mgmt_remove_config_data, mgmt_remove_config_data_cmd,
 	vty->cfg_changes[0].operation = NB_OP_DESTROY;
 	vty->num_cfg_changes = 1;
 
-	vty_mgmt_send_config_data(vty, NULL, false);
-	return CMD_SUCCESS;
+	return vty_mgmt_send_config_data(vty, NULL, false);
 }
 
 DEFPY(mgmt_replace_config_data, mgmt_replace_config_data_cmd,
@@ -234,8 +230,7 @@ DEFPY(mgmt_replace_config_data, mgmt_replace_config_data_cmd,
 	vty->cfg_changes[0].operation = NB_OP_REPLACE;
 	vty->num_cfg_changes = 1;
 
-	vty_mgmt_send_config_data(vty, NULL, false);
-	return CMD_SUCCESS;
+	return vty_mgmt_send_config_data(vty, NULL, false);
 }
 
 DEFPY(mgmt_edit, mgmt_edit_cmd,
@@ -291,9 +286,8 @@ DEFPY(mgmt_edit, mgmt_edit_cmd,
 	if (commit)
 		flags |= EDIT_FLAG_IMPLICIT_COMMIT;
 
-	vty_mgmt_send_edit_req(vty, MGMT_MSG_DATASTORE_CANDIDATE, format, flags,
-			       operation, xpath, data);
-	return CMD_SUCCESS;
+	return vty_mgmt_send_edit_req(vty, MGMT_MSG_DATASTORE_CANDIDATE, format, flags, operation,
+				      xpath, data);
 }
 
 DEFPY(mgmt_rpc, mgmt_rpc_cmd,
@@ -307,8 +301,7 @@ DEFPY(mgmt_rpc, mgmt_rpc_cmd,
 {
 	LYD_FORMAT format = (fmt && fmt[0] == 'x') ? LYD_XML : LYD_JSON;
 
-	vty_mgmt_send_rpc_req(vty, format, xpath, data);
-	return CMD_SUCCESS;
+	return vty_mgmt_send_rpc_req(vty, format, xpath, data);
 }
 
 DEFPY(show_mgmt_get_config, show_mgmt_get_config_cmd,
