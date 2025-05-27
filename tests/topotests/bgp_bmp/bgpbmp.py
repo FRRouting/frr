@@ -13,9 +13,17 @@ from lib.topolog import logger
 SEQ = 0
 
 
-def bmp_reset_seq():
+def bmp_reset_seq(seq_param=0):
     global SEQ
-    SEQ = 0
+    SEQ = seq_param
+
+
+def bmp_get_seq():
+    return SEQ
+
+
+def bmp_display_seq():
+    logger.info(f"SEQ is {SEQ}")
 
 
 def get_bmp_messages(bmp_collector, bmp_log_file):

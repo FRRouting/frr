@@ -18,7 +18,8 @@ from datetime import datetime
 
 from bmp import BMPMsg
 
-BGP_MAX_SIZE = 4096
+# RFC8654 : max packet size is 65535 bytes
+BGP_MAX_SIZE = 65535
 
 # Global variable to track shutdown signal
 shutdown = False
