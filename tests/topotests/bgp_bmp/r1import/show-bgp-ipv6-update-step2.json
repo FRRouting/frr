@@ -1,0 +1,25 @@
+{
+    "routes": {
+        "routeDistinguishers": {
+            "555:1": {
+                "2001::1125/128": [
+                    {
+                        "bestpath": true,
+                        "pathFrom": "external",
+                        "path": "",
+                        "origin": "IGP",
+                        "nexthops": [
+                            {
+                                "ip": "192:167::3",
+                                "hostname": "r1import",
+                                "afi": "ipv6",
+                                "used": true
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    }
+}
+
