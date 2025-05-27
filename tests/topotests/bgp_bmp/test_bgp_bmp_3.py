@@ -218,11 +218,47 @@ def test_bmp_bgp_unicast():
     """
 
     logger.info("*** Unicast prefixes rib-in pre-policy logging ***")
-    _test_prefixes(ADJ_IN_PRE_POLICY, TEST_PREFIXES, "r3", "r1import", "bmp1import", CWD, bmp_seq_context, vrf_check="vrf1", asn=65501, safi="unicast", step=1)
+    _test_prefixes(
+        ADJ_IN_PRE_POLICY,
+        TEST_PREFIXES,
+        "r3",
+        "r1import",
+        "bmp1import",
+        CWD,
+        bmp_seq_context,
+        vrf_check="vrf1",
+        asn=65501,
+        safi="unicast",
+        step=1,
+    )
     logger.info("*** Unicast prefixes rib-in post-policy logging ***")
-    _test_prefixes(ADJ_IN_POST_POLICY, TEST_PREFIXES, "r3", "r1import", "bmp1import", CWD, bmp_seq_context, vrf_heck="vrf1", asn=65501, safi="unicast", step=1)
+    _test_prefixes(
+        ADJ_IN_POST_POLICY,
+        TEST_PREFIXES,
+        "r3",
+        "r1import",
+        "bmp1import",
+        CWD,
+        bmp_seq_context,
+        vrf_check="vrf1",
+        asn=65501,
+        safi="unicast",
+        step=1,
+    )
     logger.info("*** Unicast prefixes loc-rib logging ***")
-    _test_prefixes(LOC_RIB, TEST_PREFIXES, "r3", "r1import", "bmp1import", CWD, bmp_seq_context, vrf_check="vrf1", asn=65501, safi="unicast", step=1)
+    _test_prefixes(
+        LOC_RIB,
+        TEST_PREFIXES,
+        "r3",
+        "r1import",
+        "bmp1import",
+        CWD,
+        bmp_seq_context,
+        vrf_check="vrf1",
+        asn=65501,
+        safi="unicast",
+        step=1,
+    )
 
 
 def _test_r1import_update_networks(update=True):
@@ -289,9 +325,13 @@ def test_bmp2_bgp_unicast():
     Check the bmp logs.
     """
     logger.info("*** Unicast prefixes pre-policy logging ***")
-    _test_prefixes_syncro(ADJ_IN_PRE_POLICY, bmp_seq_context, vrf="vrf1", bmp_name="bmp2import")
+    _test_prefixes_syncro(
+        ADJ_IN_PRE_POLICY, bmp_seq_context, vrf="vrf1", bmp_name="bmp2import"
+    )
     logger.info("*** Unicast prefixes post-policy logging ***")
-    _test_prefixes_syncro(ADJ_IN_POST_POLICY, bmp_seq_context, vrf="vrf1", bmp_name="bmp2import")
+    _test_prefixes_syncro(
+        ADJ_IN_POST_POLICY, bmp_seq_context, vrf="vrf1", bmp_name="bmp2import"
+    )
     logger.info("*** Unicast prefixes loc-rib logging ***")
     _test_prefixes_syncro(LOC_RIB, bmp_seq_context, vrf="vrf1", bmp_name="bmp2import")
 
@@ -300,6 +340,105 @@ def test_bmp2_bgp_unicast():
 
 def test_r1import_del_networks():
     _test_r1import_update_networks(update=False)
+
+
+def test_bmp_bgp_vpn():
+    """
+    Check BMP vpn logs on R1.
+    """
+
+    logger.info("***** Activating bmp rib-out config on R1 *****")
+    tgen = get_topogen()
+
+    tgen.gears["r1import"].vtysh_cmd(
+        """
+        configure terminal
+        router bgp 65501
+        bmp targets bmp1
+        bmp monitor ipv4 vpn rib-out pre-policy
+        bmp monitor ipv4 vpn rib-out post-policy
+        bmp monitor ipv6 vpn rib-out pre-policy
+        bmp monitor ipv6 vpn rib-out post-policy
+        """
+    )
+    logger.info("VPN prefixes R3->R1->R2")
+
+    logger.info(
+        "***** VPN prefixes imported from bgp vrf1, rib-in pre-policy logging *****"
+    )
+    _test_prefixes(
+        ADJ_IN_PRE_POLICY,
+        TEST_PREFIXES,
+        ["r3"],
+        "r1import",
+        "bmp1import",
+        CWD,
+        bmp_seq_context,
+        asn=65501,
+        safi="vpn",
+        step=2,
+    )
+    logger.info(
+        "***** VPN prefixes imported from bgp vrf1, rib-in post-policy logging *****"
+    )
+    _test_prefixes(
+        ADJ_IN_POST_POLICY,
+        TEST_PREFIXES,
+        ["r3"],
+        "r1import",
+        "bmp1import",
+        CWD,
+        bmp_seq_context,
+        asn=65501,
+        safi="vpn",
+        step=2,
+    )
+    logger.info("***** VPN prefixes imported from bgp vrf1 loc-rib logging *****")
+    _test_prefixes(
+        LOC_RIB,
+        TEST_PREFIXES,
+        ["r3"],
+        "r1import",
+        "bmp1import",
+        CWD,
+        bmp_seq_context,
+        asn=65501,
+        safi="vpn",
+        step=2,
+    )
+
+    logger.info(
+        "***** Redistribute VPN prefixes to R2, rib-out pre-policy logging *****"
+    )
+    _test_prefixes(
+        ADJ_OUT_PRE_POLICY,
+        TEST_PREFIXES,
+        ["r3"],
+        "r1import",
+        "bmp1import",
+        CWD,
+        bmp_seq_context,
+        asn=65501,
+        safi="vpn",
+        step=2,
+    )
+    # TODO: nexthop is always 0 for adj out past policy,
+    # bgp updates it in bpacket_reformat_for_peer()
+    logger.info(
+        "***** Redistribute VPN prefixes to R2, rib-out post-policy logging *****"
+    )
+    _test_prefixes(
+        ADJ_OUT_POST_POLICY,
+        TEST_PREFIXES,
+        ["r3"],
+        "r1import",
+        "bmp1import",
+        CWD,
+        bmp_seq_context,
+        asn=65501,
+        safi="vpn",
+        step=2,
+    )
 
 
 def test_peer_down():
