@@ -1619,6 +1619,9 @@ static void zebra_rib_fixup_system(struct route_node *rn)
 		UNSET_FLAG(re->status, ROUTE_ENTRY_QUEUED);
 		UNSET_FLAG(re->status, ROUTE_ENTRY_ROUTE_REPLACING);
 
+		if (!re->nhe)
+			continue;
+
 		for (ALL_NEXTHOPS(re->nhe->nhg, nhop)) {
 			if (CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_RECURSIVE))
 				continue;
@@ -2150,7 +2153,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 							   __func__, old_re, old_re->flags,
 							   old_re->nhe, old_re->nhe->id,
 							   old_re->nhe->flags);
-					zebra_nhg_uninstall_kernel(old_re->nhe);
+					zebra_nhg_uninstall_kernel(old_re->nhe, false);
 				}
 			}
 

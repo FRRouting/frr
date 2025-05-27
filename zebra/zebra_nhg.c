@@ -1809,7 +1809,7 @@ void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
 		nhg_connected_tree_decrement_ref(&nhe->nhg_depends);
 
 	if (ZEBRA_NHG_CREATED(nhe) && nhe->refcnt <= 0)
-		zebra_nhg_uninstall_kernel(nhe);
+		zebra_nhg_uninstall_kernel(nhe, true);
 }
 
 void zebra_nhg_increment_ref(struct nhg_hash_entry *nhe)
@@ -3495,7 +3495,12 @@ void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe, uint8_t type)
 	}
 }
 
-void zebra_nhg_uninstall_kernel(struct nhg_hash_entry *nhe)
+/* This function uninstalls NHG from dplane and free up the if no re
+ * referencing it.
+ * free_nhg: variable used to not free up nhg but rather just uinstall from
+ * dplane.
+ */
+void zebra_nhg_uninstall_kernel(struct nhg_hash_entry *nhe, bool free_nhg)
 {
 	/*
 	 * Clearly if the nexthop group is installed we should
@@ -3526,7 +3531,14 @@ void zebra_nhg_uninstall_kernel(struct nhg_hash_entry *nhe)
 		}
 	}
 
-	zebra_nhg_handle_uninstall(nhe);
+	/* do not call delete of the NHG if there are re's referencing it. */
+	if (free_nhg)
+		zebra_nhg_handle_uninstall(nhe);
+	else {
+		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL || IS_ZEBRA_DEBUG_NHG_DETAIL)
+			zlog_debug("%s skip nhe %d free as there are re referencing it", __func__,
+				   nhe->id);
+	}
 }
 
 void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
@@ -3649,7 +3661,7 @@ static int zebra_nhg_sweep_entry(struct hash_bucket *bucket, void *arg)
 	 * removal.
 	 */
 	if (ZEBRA_NHG_CREATED(nhe) && nhe->refcnt <= 0) {
-		zebra_nhg_uninstall_kernel(nhe);
+		zebra_nhg_uninstall_kernel(nhe, true);
 		return HASHWALK_ABORT;
 	}
 
