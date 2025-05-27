@@ -123,10 +123,10 @@ extern int mgmt_fe_send_set_cfg_reply(uint64_t session_id, uint64_t txn_id,
 /*
  * Send commit-config reply to the frontend client.
  */
-extern int mgmt_fe_send_commit_cfg_reply(
-	uint64_t session_id, uint64_t txn_id, Mgmtd__DatastoreId src_ds_id,
-	Mgmtd__DatastoreId dst_ds_id, uint64_t req_id, bool validate_only,
-	enum mgmt_result result, const char *error_if_any);
+extern int mgmt_fe_send_commit_cfg_reply(uint64_t session_id, uint64_t txn_id,
+					 Mgmtd__DatastoreId src_ds_id, Mgmtd__DatastoreId dst_ds_id,
+					 uint64_t req_id, bool validate_only, bool unlock,
+					 enum mgmt_result result, const char *error_if_any);
 
 /*
  * Send get-config/get-data reply to the frontend client.

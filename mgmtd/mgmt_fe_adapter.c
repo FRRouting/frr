@@ -498,10 +498,11 @@ static int fe_adapter_send_set_cfg_reply(struct mgmt_fe_session_ctx *session,
 	return fe_adapter_send_msg(session->adapter, &fe_msg, false);
 }
 
-static int fe_adapter_send_commit_cfg_reply(
-	struct mgmt_fe_session_ctx *session, Mgmtd__DatastoreId src_ds_id,
-	Mgmtd__DatastoreId dst_ds_id, uint64_t req_id, enum mgmt_result result,
-	bool validate_only, const char *error_if_any)
+static int fe_adapter_send_commit_cfg_reply(struct mgmt_fe_session_ctx *session,
+					    Mgmtd__DatastoreId src_ds_id,
+					    Mgmtd__DatastoreId dst_ds_id, uint64_t req_id,
+					    enum mgmt_result result, bool validate_only,
+					    bool unlock, const char *error_if_any)
 {
 	Mgmtd__FeMessage fe_msg;
 	Mgmtd__FeCommitConfigReply commcfg_reply;
@@ -518,6 +519,7 @@ static int fe_adapter_send_commit_cfg_reply(
 			? true
 			: false;
 	commcfg_reply.validate_only = validate_only;
+	commcfg_reply.unlock = unlock;
 	if (error_if_any)
 		commcfg_reply.error_if_any = (char *)error_if_any;
 
@@ -953,11 +955,11 @@ static int mgmt_fe_session_handle_commit_config_req_msg(
 	/* Validate source and dest DS */
 	if (commcfg_req->src_ds_id != MGMTD_DS_CANDIDATE ||
 	    commcfg_req->dst_ds_id != MGMTD_DS_RUNNING) {
-		fe_adapter_send_commit_cfg_reply(
-			session, commcfg_req->src_ds_id, commcfg_req->dst_ds_id,
-			commcfg_req->req_id, MGMTD_INTERNAL_ERROR,
-			commcfg_req->validate_only,
-			"Source/Dest for commit must be candidate/running DS");
+		fe_adapter_send_commit_cfg_reply(session, commcfg_req->src_ds_id,
+						 commcfg_req->dst_ds_id, commcfg_req->req_id,
+						 MGMTD_INTERNAL_ERROR, commcfg_req->validate_only,
+						 commcfg_req->unlock,
+						 "Source/Dest for commit must be candidate/running DS");
 		return 0;
 	}
 	src_ds_ctx = mgmt_ds_get_ctx_by_id(mm, commcfg_req->src_ds_id);
@@ -968,11 +970,11 @@ static int mgmt_fe_session_handle_commit_config_req_msg(
 	/* User should have lock on both source and dest DS */
 	if (!session->ds_locked[commcfg_req->dst_ds_id] ||
 	    !session->ds_locked[commcfg_req->src_ds_id]) {
-		fe_adapter_send_commit_cfg_reply(
-			session, commcfg_req->src_ds_id, commcfg_req->dst_ds_id,
-			commcfg_req->req_id, MGMTD_DS_LOCK_FAILED,
-			commcfg_req->validate_only,
-			"Commit requires lock on candidate and/or running DS");
+		fe_adapter_send_commit_cfg_reply(session, commcfg_req->src_ds_id,
+						 commcfg_req->dst_ds_id, commcfg_req->req_id,
+						 MGMTD_DS_LOCK_FAILED, commcfg_req->validate_only,
+						 commcfg_req->unlock,
+						 "Commit requires lock on candidate and/or running DS");
 		return 0;
 	}
 
@@ -983,14 +985,14 @@ static int mgmt_fe_session_handle_commit_config_req_msg(
 		/*
 		 * Start a CONFIG Transaction (if not started already)
 		 */
-		session->cfg_txn_id = mgmt_create_txn(session->session_id,
-						MGMTD_TXN_TYPE_CONFIG);
+		session->cfg_txn_id = mgmt_create_txn(session->session_id, MGMTD_TXN_TYPE_CONFIG);
 		if (session->cfg_txn_id == MGMTD_SESSION_ID_NONE) {
-			fe_adapter_send_commit_cfg_reply(
-				session, commcfg_req->src_ds_id,
-				commcfg_req->dst_ds_id, commcfg_req->req_id,
-				MGMTD_INTERNAL_ERROR, commcfg_req->validate_only,
-				"Failed to create a Configuration session!");
+			fe_adapter_send_commit_cfg_reply(session, commcfg_req->src_ds_id,
+							 commcfg_req->dst_ds_id,
+							 commcfg_req->req_id, MGMTD_INTERNAL_ERROR,
+							 commcfg_req->validate_only,
+							 commcfg_req->unlock,
+							 "Failed to create a Configuration session!");
 			return 0;
 		}
 		_dbg("Created txn-id: %" PRIu64 " for session-id %" PRIu64 " for COMMIT-CFG-REQ",
@@ -1000,18 +1002,16 @@ static int mgmt_fe_session_handle_commit_config_req_msg(
 	/*
 	 * Create COMMITConfig request under the transaction
 	 */
-	if (mgmt_txn_send_commit_config_req(session->cfg_txn_id,
-					    commcfg_req->req_id,
+	if (mgmt_txn_send_commit_config_req(session->cfg_txn_id, commcfg_req->req_id,
 					    commcfg_req->src_ds_id, src_ds_ctx,
 					    commcfg_req->dst_ds_id, dst_ds_ctx,
-					    commcfg_req->validate_only,
-					    commcfg_req->abort, false,
-					    NULL) != 0) {
-		fe_adapter_send_commit_cfg_reply(
-			session, commcfg_req->src_ds_id, commcfg_req->dst_ds_id,
-			commcfg_req->req_id, MGMTD_INTERNAL_ERROR,
-			commcfg_req->validate_only,
-			"Request processing for COMMIT-CONFIG failed!");
+					    commcfg_req->validate_only, commcfg_req->abort, false,
+					    commcfg_req->unlock, NULL) != 0) {
+		fe_adapter_send_commit_cfg_reply(session, commcfg_req->src_ds_id,
+						 commcfg_req->dst_ds_id, commcfg_req->req_id,
+						 MGMTD_INTERNAL_ERROR, commcfg_req->validate_only,
+						 commcfg_req->unlock,
+						 "Request processing for COMMIT-CONFIG failed!");
 		return 0;
 	}
 
@@ -2238,12 +2238,9 @@ int mgmt_fe_send_set_cfg_reply(uint64_t session_id, uint64_t txn_id,
 					     error_if_any, implicit_commit);
 }
 
-int mgmt_fe_send_commit_cfg_reply(uint64_t session_id, uint64_t txn_id,
-				      Mgmtd__DatastoreId src_ds_id,
-				      Mgmtd__DatastoreId dst_ds_id,
-				      uint64_t req_id, bool validate_only,
-				      enum mgmt_result result,
-				      const char *error_if_any)
+int mgmt_fe_send_commit_cfg_reply(uint64_t session_id, uint64_t txn_id, Mgmtd__DatastoreId src_ds_id,
+				  Mgmtd__DatastoreId dst_ds_id, uint64_t req_id, bool validate_only,
+				  bool unlock, enum mgmt_result result, const char *error_if_any)
 {
 	struct mgmt_fe_session_ctx *session;
 
@@ -2251,9 +2248,8 @@ int mgmt_fe_send_commit_cfg_reply(uint64_t session_id, uint64_t txn_id,
 	if (!session || session->cfg_txn_id != txn_id)
 		return -1;
 
-	return fe_adapter_send_commit_cfg_reply(session, src_ds_id, dst_ds_id,
-						req_id, result, validate_only,
-						error_if_any);
+	return fe_adapter_send_commit_cfg_reply(session, src_ds_id, dst_ds_id, req_id, result,
+						validate_only, unlock, error_if_any);
 }
 
 int mgmt_fe_send_get_reply(uint64_t session_id, uint64_t txn_id,

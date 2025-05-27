@@ -252,7 +252,7 @@ DEFUN_NOSH(end_config, end_config_cmd, "XFRR_end_configuration",
 	 * to apply all those commands at once.
 	 */
 	if (vty->mgmt_num_pending_setcfg && vty_mgmt_fe_enabled())
-		vty_mgmt_send_commit_config(vty, false, false);
+		vty_mgmt_send_commit_config(vty, false, false, false);
 
 	if (callback.end_config)
 		(*callback.end_config)();
