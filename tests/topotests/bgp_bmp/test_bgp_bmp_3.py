@@ -317,6 +317,63 @@ def test_r1import_del_networks():
     _test_r1import_update_networks(update=False)
 
 
+def test_bmp_bgp_vpn():
+    """
+    Check BMP vpn logs on R1.
+    """
+
+    logger.info("***** Activating bmp rib-out config on R1 *****")
+    tgen = get_topogen()
+
+    tgen.gears["r1import"].vtysh_cmd(
+        """
+        configure terminal
+        router bgp 65501
+        bmp targets bmp1
+        bmp monitor ipv4 vpn rib-out pre-policy
+        bmp monitor ipv4 vpn rib-out post-policy
+        bmp monitor ipv6 vpn rib-out pre-policy
+        bmp monitor ipv6 vpn rib-out post-policy
+        """
+    )
+    logger.info("VPN prefixes R3->R1->R2")
+    args = [
+        TEST_PREFIXES,
+        "r3",
+        "r1import",
+        "bmp1import",
+        CWD,
+        bmp_seq_context,
+        None,
+        None,
+        65501,
+        "vpn",
+        2,
+    ]
+
+    logger.info(
+        "***** VPN prefixes imported from bgp vrf1, rib-in pre-policy logging *****"
+    )
+    _test_prefixes(ADJ_IN_PRE_POLICY, *args)
+    logger.info(
+        "***** VPN prefixes imported from bgp vrf1, rib-in post-policy logging *****"
+    )
+    _test_prefixes(ADJ_IN_POST_POLICY, *args)
+    logger.info("***** VPN prefixes imported from bgp vrf1 loc-rib logging *****")
+    _test_prefixes(LOC_RIB, *args)
+
+    logger.info(
+        "***** Redistribute VPN prefixes to R2, rib-out pre-policy logging *****"
+    )
+    _test_prefixes(ADJ_OUT_PRE_POLICY, *args)
+    # TODO: nexthop is always 0 for adj out past policy,
+    # bgp updates it in bpacket_reformat_for_peer()
+    logger.info(
+        "***** Redistribute VPN prefixes to R2, rib-out post-policy logging *****"
+    )
+    _test_prefixes(ADJ_OUT_POST_POLICY, *args)
+
+
 def test_peer_down():
     """
     Checking for BMP peers down messages
