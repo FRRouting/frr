@@ -989,13 +989,16 @@ extern void static_zebra_request_srv6_sid(struct static_srv6_sid *sid)
 	struct vrf *vrf;
 	struct interface *ifp;
 
-	if (!sid || !static_zebra_sid_locator_block_check(sid))
+	if (!sid)
 		return;
 
 	if (!sid->locator) {
 		static_zebra_srv6_manager_get_locator(sid->locator_name);
 		return;
 	}
+
+	if (!static_zebra_sid_locator_block_check(sid))
+		return;
 
 	/* convert `srv6_endpoint_behavior_codepoint` to `seg6local_action_t` */
 	switch (sid->behavior) {
