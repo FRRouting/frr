@@ -7,6 +7,9 @@
 #include <zebra.h>
 
 #include <sys/ioctl.h>
+#ifndef __linux__
+#include <netinet6/in6_var.h>
+#endif
 
 #include "linklist.h"
 #include "if.h"
@@ -533,12 +536,6 @@ int if_unset_flags(struct interface *ifp, uint64_t flags)
 }
 
 #ifndef LINUX_IPV6 /* Netlink has its own code */
-
-#ifdef HAVE_STRUCT_IN6_ALIASREQ
-#ifndef ND6_INFINITE_LIFETIME
-#define ND6_INFINITE_LIFETIME 0xffffffffL
-#endif /* ND6_INFINITE_LIFETIME */
-
 /*
  * Helper for interface-addr install, non-netlink
  */
@@ -614,29 +611,9 @@ static int if_unset_prefix6_ctx(const struct zebra_dplane_ctx *ctx)
 #endif
 	memcpy(&addreq.ifra_prefixmask, &mask, sizeof(struct sockaddr_in6));
 
-#ifdef HAVE_STRUCT_IF6_ALIASREQ_IFRA_LIFETIME
-	addreq.ifra_lifetime.ia6t_pltime = ND6_INFINITE_LIFETIME;
-	addreq.ifra_lifetime.ia6t_vltime = ND6_INFINITE_LIFETIME;
-#endif
-
 	ret = if_ioctl_ipv6(SIOCDIFADDR_IN6, (caddr_t)&addreq);
 	if (ret < 0)
 		return ret;
 	return 0;
 }
-#else
-/* The old, pre-dataplane code here just returned, so we're retaining that
- * choice.
- */
-static int if_set_prefix6_ctx(const struct zebra_dplane_ctx *ctx)
-{
-	return 0;
-}
-
-static int if_unset_prefix6_ctx(const struct zebra_dplane_ctx *ctx)
-{
-	return 0;
-}
-#endif /* HAVE_STRUCT_IN6_ALIASREQ */
-
 #endif /* LINUX_IPV6 */

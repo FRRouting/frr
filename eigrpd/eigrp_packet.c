@@ -12,6 +12,10 @@
 
 #include <zebra.h>
 
+#ifndef __linux__
+#include <net/if_dl.h>
+#endif
+
 #include "frrevent.h"
 #include "memory.h"
 #include "linklist.h"

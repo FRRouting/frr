@@ -1240,7 +1240,6 @@ m4_define([FRR_INCLUDES],
 #include <stdlib.h>
 #include <stddef.h>
 #include <sys/types.h>
-/* sys/conf.h depends on param.h on FBSD at least */
 #include <sys/param.h>
 /* Required for MAXSIG */
 #include <signal.h>
@@ -1251,23 +1250,8 @@ m4_define([FRR_INCLUDES],
 #include <net/if.h>
 ])dnl
 
-dnl Same applies for HAVE_NET_IF_VAR_H, which HAVE_NETINET6_ND6_H and
-dnl HAVE_NETINET_IN_VAR_H depend upon. But if_var.h depends on if.h, hence
-dnl an additional round for it.
-
-AC_CHECK_HEADERS([net/if_var.h], [], [], [FRR_INCLUDES])
-
-m4_define([FRR_INCLUDES],
-FRR_INCLUDES
-[#ifdef HAVE_NET_IF_VAR_H
-# include <net/if_var.h>
-#endif
-])dnl
-
 AC_CHECK_HEADERS([netinet/in_var.h \
-	net/if_dl.h \
-	netinet/ip_icmp.h \
-	sys/sysctl.h sys/sockio.h sys/conf.h],
+	netinet/ip_icmp.h],
 	[], [], [FRR_INCLUDES])
 
 AC_CHECK_HEADERS([ucontext.h], [], [],
@@ -1297,7 +1281,7 @@ FRR_INCLUDES
 #ifdef HAVE_NETINET_IN_VAR_H
 # include <netinet/in_var.h>
 #endif
-#ifdef HAVE_NET_IF_DL_H
+#ifndef __linux__
 # include <net/if_dl.h>
 #endif
 #include <net/route.h>
@@ -1797,15 +1781,12 @@ dnl ------------------
 dnl IPv6 header checks
 dnl ------------------
 AC_CHECK_HEADERS([ \
-	netinet6/in6_var.h netinet6/nd6.h], [], [],
+	netinet6/nd6.h], [], [],
 	FRR_INCLUDES)
 
 m4_define([FRR_INCLUDES],dnl
 FRR_INCLUDES
 [#include <netinet/icmp6.h>
-#ifdef HAVE_NETINET6_IN6_VAR_H
-# include <netinet6/in6_var.h>
-#endif
 #ifdef HAVE_NETINET6_ND6_H
 # include <netinet6/nd6.h>
 #endif
@@ -2310,7 +2291,7 @@ AC_CHECK_TYPES([
 	struct sockaddr_dl,
 	struct vifctl, struct mfcctl, struct sioc_sg_req,
 	vifi_t, struct sioc_vif_req, struct igmpmsg,
-	struct ifaliasreq, struct in6_aliasreq,
+	struct ifaliasreq,
 	struct nd_opt_adv_interval,
 	struct nd_opt_homeagent_info, struct nd_opt_adv_interval,
 	struct nd_opt_rdnss, struct nd_opt_dnssl],
