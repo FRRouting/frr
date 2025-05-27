@@ -496,11 +496,15 @@ static void do_show_srv6_sid_specific(struct vty *vty, json_object **json,
 		ttable_restyle(tt);
 		ttable_rowseps(tt, 0, BOTTOM, true, '-');
 
-		if (!sid_ctx || !sid_ctx->sid)
+		if (!sid_ctx || !sid_ctx->sid) {
+			ttable_del(tt);
 			return;
+		}
 
-		if (locator && sid_ctx->sid->locator != locator)
+		if (locator && sid_ctx->sid->locator != locator) {
+			ttable_del(tt);
 			return;
+		}
 
 		do_show_srv6_sid_line(tt, sid_ctx->sid);
 
