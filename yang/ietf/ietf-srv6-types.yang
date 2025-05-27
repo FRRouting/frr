@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: BSD-3-Clause
 module ietf-srv6-types {
   yang-version 1.1;
 
