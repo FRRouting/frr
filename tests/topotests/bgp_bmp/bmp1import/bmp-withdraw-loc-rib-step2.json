@@ -1,35 +1,29 @@
 {
     "loc-rib": {
         "withdraw": {
-            "172.31.0.15/32": {
-                "afi": 1,
+            "172.31.0.77/32": {
                 "bmp_log_type": "withdraw",
-                "ip_prefix": "172.31.0.15/32",
+                "ip_prefix": "172.31.0.77/32",
                 "is_filtered": false,
-                "label": 524288,
                 "peer_asn": 65501,
                 "peer_bgp_id": "192.168.0.1",
-                "peer_distinguisher": "0:0",
                 "peer_type": "loc-rib instance",
                 "policy": "loc-rib",
-                "rd": "444:2",
                 "path_id": 0,
-                "safi": 128
+                "peer_distinguisher": "444:1"
             },
-            "2001::1111/128": {
+            "2001::1125/128": {
                 "afi": 2,
                 "bmp_log_type": "withdraw",
-                "ip_prefix": "2001::1111/128",
+                "ip_prefix": "2001::1125/128",
                 "is_filtered": false,
-                "label": 524288,
                 "peer_asn": 65501,
                 "peer_bgp_id": "192.168.0.1",
-                "peer_distinguisher": "0:0",
+                "peer_distinguisher": "555:1",
                 "peer_type": "loc-rib instance",
                 "policy": "loc-rib",
-                "rd": "555:2",
                 "path_id": 0,
-                "safi": 128
+                "safi": 1
             }
         }
     }
