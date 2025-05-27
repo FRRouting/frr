@@ -133,7 +133,8 @@ static bool bgp_has_remaining_instances(const struct bgp *bgp)
 			continue;
 		if (bgp->vrf_id != bgp_next->vrf_id)
 			continue;
-
+		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_VRF_MAY_LISTEN))
+			continue;
 		return true;
 	}
 
@@ -3803,6 +3804,8 @@ int bgp_handle_socket(struct bgp *bgp, struct vrf *vrf, vrf_id_t old_vrf_id,
 		}
 		if (vrf == NULL)
 			return BGP_ERR_INVALID_VALUE;
+		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_VRF_MAY_LISTEN))
+			return 0;
 		/* do nothing
 		 * if vrf_id did not change
 		 */
