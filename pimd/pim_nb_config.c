@@ -3901,7 +3901,7 @@ static int candidate_bsr_addrsel(struct bsm_scope *scope,
 	return NB_OK;
 }
 
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_create(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_candidate_bsr_create(
 	struct nb_cb_create_args *args)
 {
 	struct vrf *vrf;
@@ -3929,7 +3929,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ca
 	return NB_OK;
 }
 
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_destroy(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_candidate_bsr_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	struct vrf *vrf;
@@ -3955,7 +3955,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ca
 	return NB_OK;
 }
 
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_priority_modify(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_candidate_bsr_priority_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct vrf *vrf;
@@ -3982,7 +3982,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ca
 	return NB_OK;
 }
 
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_addrsel_create(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_candidate_bsr_addrsel_create(
 	struct nb_cb_create_args *args)
 {
 	struct vrf *vrf;
@@ -4007,7 +4007,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ca
 	return NB_OK;
 }
 
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_addrsel_modify(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_candidate_bsr_addrsel_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct vrf *vrf;
@@ -4032,7 +4032,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ca
 	return NB_OK;
 }
 
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_addrsel_destroy(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_candidate_bsr_addrsel_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	/* nothing to do here, we'll get a CREATE for something else */
@@ -4047,7 +4047,7 @@ static int candidate_rp_addrsel(struct bsm_scope *scope,
 	return NB_OK;
 }
 
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_create(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_candidate_rp_create(
 	struct nb_cb_create_args *args)
 {
 	struct vrf *vrf;
@@ -4078,7 +4078,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ca
 	return NB_OK;
 }
 
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_destroy(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_candidate_rp_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	struct vrf *vrf;
@@ -4104,7 +4104,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ca
 	return NB_OK;
 }
 
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_priority_modify(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_candidate_rp_priority_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct vrf *vrf;
@@ -4130,7 +4130,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ca
 	return NB_OK;
 }
 
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_adv_interval_modify(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_candidate_rp_adv_interval_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct vrf *vrf;
@@ -4163,7 +4163,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ca
 #define yang_dnode_get_pim_p yang_dnode_get_ipv6p
 #endif
 
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_group_list_create(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_candidate_rp_group_list_create(
 	struct nb_cb_create_args *args)
 {
 	struct vrf *vrf;
@@ -4188,7 +4188,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ca
 	return NB_OK;
 }
 
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_group_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_candidate_rp_group_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	struct vrf *vrf;
@@ -4238,19 +4238,19 @@ static int candidate_rp_addrsel_common(enum nb_event event,
 	return NB_OK;
 }
 
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_addrsel_create(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_candidate_rp_addrsel_create(
 	struct nb_cb_create_args *args)
 {
 	return candidate_rp_addrsel_common(args->event, args->dnode);
 }
 
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_addrsel_modify(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_candidate_rp_addrsel_modify(
 	struct nb_cb_modify_args *args)
 {
 	return candidate_rp_addrsel_common(args->event, args->dnode);
 }
 
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_addrsel_destroy(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_candidate_rp_addrsel_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	/* nothing to do here - we'll get a create or modify event too */
