@@ -280,6 +280,12 @@ void pim_send_staterefresh(struct pim_upstream *up)
 	struct pim_neighbor *neigh;
 
 	ifp = pim_if_find_by_vif_index(up->pim, *oil_incoming_vif(up->channel_oil));
+	if (!ifp) {
+		if (PIM_DEBUG_PIM_EVENTS)
+			zlog_debug("%s: could not find input interface for oil_incoming_vif=%d",
+				   __func__, *oil_incoming_vif(up->channel_oil));
+		return;
+	}
 	if (up->pim->staterefresh_counter < 3) {
 		up->pim->staterefresh_counter++;
 		n = 0;
