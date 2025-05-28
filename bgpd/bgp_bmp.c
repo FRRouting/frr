@@ -2310,10 +2310,7 @@ static bool bmp_wrqueue_ribout(struct bmp *bmp, struct pullwr *pullwr)
 		adj = adj_lookup(bn, peer_subgroup(peer, afi, safi), addpath_tx_id);
 
 		/* advertised attributes (NULL if withdrawn) */
-		advertised_attr = adj ? !adj->adv	  ? adj->attr
-					  : adj->adv->baa ? adj->adv->baa->attr
-							  : NULL
-				      : NULL;
+		advertised_attr = adj && adj->adv && adj->adv->baa ? adj->adv->baa->attr : NULL;
 
 		bpi_num_labels = adj && adj->labels ? adj->labels->num_labels : 0;
 
