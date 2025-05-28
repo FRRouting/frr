@@ -448,12 +448,13 @@ static bool be_client_change_edit_config(struct nb_config *candidate_config, con
 	const char *actions;
 	const char *xpath;
 	const char *value;
+	uint end = darr_len(changes);
 	bool error = false;
-	uint end = darr_lasti(changes);
 	uint i = 0;
 
-	actions = changes[end];
 	assert(end > 0);
+	end -= 1;
+	actions = changes[end]; /* action string in last element */
 	while (i < end) {
 		char action = *actions++;
 
