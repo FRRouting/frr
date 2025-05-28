@@ -14,6 +14,7 @@
 #include "pim_upstream.h"
 #include "pim_oil.h"
 #include "pim_nht.h"
+#include "pim_dm.h"
 
 static struct channel_oil *
 tib_sg_oil_setup(struct pim_instance *pim, pim_sgaddr sg, struct interface *oif)
@@ -108,6 +109,7 @@ bool tib_sg_gm_join(struct pim_instance *pim, pim_sgaddr sg,
 		    struct interface *oif, struct channel_oil **oilp)
 {
 	struct pim_interface *pim_oif = oif->info;
+	struct channel_oil *c_oil;
 
 	if (!pim_oif) {
 		if (PIM_DEBUG_GM_TRACE)
@@ -122,6 +124,36 @@ bool tib_sg_gm_join(struct pim_instance *pim, pim_sgaddr sg,
 		return false;
 
 	tib_sg_proxy_join_prune_check(pim, sg, oif, true);
+
+	/* For dense mode, we know we have a new IGMP that we may need to forward
+	 * We need to look for any existing pruned coil for this group and graft as needed
+	 * Go over every interface, look for a pruned coil, and graft if found
+	 */
+	/* Only do dense on dense interfaces (and/or groups if SM-DM or have a prefix list)*/
+	if (pim_iface_grp_dm(pim_oif, sg.grp)) {
+		frr_each (rb_pim_oil, &(pim->channel_oil_head), c_oil) {
+			/* TODO debug log of oil */
+			if (PIM_DEBUG_GRAFT)
+				zlog_debug("%s: Evaluating c_oil for DM graft", __func__);
+
+			if (!pim_addr_cmp(sg.grp, *oil_mcastgrp(c_oil))) {
+				if (c_oil->up && PIM_UPSTREAM_DM_TEST_PRUNE(c_oil->up->flags)) {
+					struct interface *ifp =
+						c_oil->up->rpf.source_nexthop.interface;
+					if (ifp && ifp->info) {
+						struct pim_interface *pim_ifp = ifp->info;
+						if (HAVE_DENSE_MODE(pim_ifp->pim_mode)) {
+							PIM_UPSTREAM_DM_UNSET_PRUNE(
+								c_oil->up->flags);
+							event_cancel(&c_oil->up->t_prune_timer);
+							pim_dm_graft_send(c_oil->up->rpf, c_oil->up);
+							graft_timer_start(c_oil->up);
+						}
+					}
+				}
+			}
+		}
+	}
 
 	if (PIM_I_am_DR(pim_oif) || PIM_I_am_DualActive(pim_oif)) {
 		int result;
@@ -164,6 +196,7 @@ void tib_sg_gm_prune(struct pim_instance *pim, pim_sgaddr sg,
 		     struct interface *oif, struct channel_oil **oilp)
 {
 	int result;
+	struct pim_interface *pim_oif = oif->info;
 
 	tib_sg_proxy_join_prune_check(pim, sg, oif, false);
 
@@ -193,6 +226,26 @@ void tib_sg_gm_prune(struct pim_instance *pim, pim_sgaddr sg,
 				"%s: pim_channel_del_oif() failed with return=%d",
 				__func__, result);
 		return;
+	}
+
+	/* dm: check if we need to send a prune message */
+	if ((*oilp)->oil_size == 0) {
+		/* Not forwarding to any other interfaces, prune it */
+		/* Only if the upstream is dense and group is dense */
+		if (pim_iface_grp_dm(pim_oif, sg.grp) && HAVE_DENSE_MODE(pim_oif->pim_mode)) {
+			if ((*oilp)->up) {
+				struct interface *ifp = (*oilp)->up->rpf.source_nexthop.interface;
+				if (ifp && ifp->info) {
+					struct pim_interface *pim_ifp = ifp->info;
+					if (HAVE_DENSE_MODE(pim_ifp->pim_mode)) {
+						event_cancel(&(*oilp)->up->t_graft_timer);
+						PIM_UPSTREAM_DM_SET_PRUNE((*oilp)->up->flags);
+						pim_dm_prune_send((*oilp)->up->rpf, (*oilp)->up, 0);
+						prune_timer_start((*oilp)->up);
+					}
+				}
+			}
+		}
 	}
 
 	/*
