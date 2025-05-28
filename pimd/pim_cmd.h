@@ -59,6 +59,8 @@
 #define DEBUG_MTRACE_STR                            "Mtrace protocol activity\n"
 #define DEBUG_PIM_BSM_STR                           "BSR message processing activity\n"
 #define DEBUG_PIM_AUTORP_STR			    "AutoRP message processing activity\n"
+#define DEBUG_PIM_GRAFT_STR			    "PIM Graft processing activity\n"
+#define DEBUG_PIM_STATE_REFRESH_STR		    "PIM State Refresh processing activity\n"
 
 
 void pim_cmd_init(void);
