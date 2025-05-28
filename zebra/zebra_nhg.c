@@ -3916,6 +3916,23 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 			__func__, ifp->name);
 
 	frr_each (nhg_connected_tree, &zif->nhg_dependents, rb_node_dep) {
+<<<<<<< HEAD
+=======
+		/*
+		 * If this nhe has 'initial delay' flag set, we should not install this
+		 * in kernel in case of any interface events. Zebra created this entry
+		 * while processing the kernel/connected routes, just to pretend
+		 * the successful kernel install of this NHG
+		 */
+		if (CHECK_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL))
+			continue;
+		/*
+		 * The nexthop associated with this was set as !ACTIVE
+		 * so we need to turn it back to active when we get to
+		 * this point again
+		 */
+		SET_FLAG(rb_node_dep->nhe->nhg.nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+>>>>>>> d7f6d9580 (zebra: do not install the nhg for kernel/connected routes)
 		nh = rb_node_dep->nhe->nhg.nexthop;
 		if (zebra_nhg_set_valid_if_active(rb_node_dep->nhe)) {
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
