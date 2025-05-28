@@ -1713,9 +1713,7 @@ static int bmp_monitor_rib_out_post_updgrp_walkcb(struct update_group *updgrp, v
 		if (!adj)
 			continue;
 
-		advertised_attr = !adj->adv	  ? adj->attr
-				  : adj->adv->baa ? adj->adv->baa->attr
-						  : NULL;
+		advertised_attr = adj->adv && adj->adv->baa ? adj->adv->baa->attr : NULL;
 
 		SUBGRP_FOREACH_PEER (subgrp, paf) {
 			bmp_monitor(ctx->bmp, PAF_PEER(paf), BMP_PEER_FLAG_O | BMP_PEER_FLAG_L,
@@ -2312,10 +2310,7 @@ static bool bmp_wrqueue_ribout(struct bmp *bmp, struct pullwr *pullwr)
 		adj = adj_lookup(bn, peer_subgroup(peer, afi, safi), addpath_tx_id);
 
 		/* advertised attributes (NULL if withdrawn) */
-		advertised_attr = adj ? !adj->adv	  ? adj->attr
-					  : adj->adv->baa ? adj->adv->baa->attr
-							  : NULL
-				      : NULL;
+		advertised_attr = adj && adj->adv && adj->adv->baa ? adj->adv->baa->attr : NULL;
 
 		bpi_num_labels = adj && adj->labels ? adj->labels->num_labels : 0;
 
