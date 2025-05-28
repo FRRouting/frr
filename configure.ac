@@ -2596,7 +2596,7 @@ if test "$enable_backtrace" != "no" ; then
   ])
 
   if test "$backtrace_ok" = "no"; then
-    AC_CHECK_HEADER([unwind.h], [
+    AC_CHECK_HEADER([libunwind.h], [
       AC_SEARCH_LIBS([unw_getcontext], [unwind], [
         AC_DEFINE([HAVE_LIBUNWIND], [1], [libunwind])
         backtrace_ok=yes
