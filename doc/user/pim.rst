@@ -917,6 +917,16 @@ the config was written out.
    This turns on debugging for PIM nexthop in detail. This is not enabled
    by default.
 
+.. clicmd:: debug pim graft
+
+   This turns on debugging for PIM graft message processing. Graft messages are similar to PIM joins
+   but are specifically used for PIM dense mode. This is not enabled by default.
+
+.. clicmd:: debug pim state-refresh
+
+   This turns on debugging for PIM state-refresh message processing. State-refresh messages are used
+   in PIM dense mode. This is not enabled by default.
+
 .. clicmd:: debug pim packet-dump
 
    This turns on an extraordinary amount of data. Each pim packet sent and
