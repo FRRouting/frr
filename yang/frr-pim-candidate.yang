@@ -21,6 +21,9 @@ module frr-pim-candidate {
     prefix "frr-pim";
   }
 
+  import frr-pim-rp {
+    prefix "frr-pim-rp";
+  }
   import frr-route-types {
     prefix frr-route-types;
   }
@@ -166,7 +169,7 @@ module frr-pim-candidate {
    */
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/"
     + "frr-rt:control-plane-protocol/frr-pim:pim/"
-    + "frr-pim:address-family" {
+    + "frr-pim:address-family/frr-pim-rp:rp" {
     description "PIM Candidate RP augmentation.";
 
     uses candidate-bsr-container;
