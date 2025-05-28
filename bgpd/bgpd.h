@@ -1800,6 +1800,7 @@ struct peer {
 #define PEER_STATUS_NSF_WAIT          (1U << 6) /* wait comeback peer */
 /* received extended format encoding for OPEN message */
 #define PEER_STATUS_EXT_OPT_PARAMS_LENGTH (1U << 7)
+#define PEER_STATUS_BFD_STRICT_HOLD_TIME_EXPIRED (1U << 8) /* BFD strict hold time expired */
 
 	/* Peer status af flags (reset in bgp_stop) */
 	uint16_t af_sflags[AFI_MAX][SAFI_MAX];
@@ -2063,6 +2064,16 @@ struct peer {
 		char profile[BFD_PROFILE_NAME_LEN];
 		/** Peer BFD session */
 		struct bfd_session_params *session;
+		/* Hold time value used for the BfdHoldTimer.
+		 * The default value for this attribute is 30 seconds and is
+		 * user configurable.
+		 */
+		uint32_t hold_time;
+		/* Hold timer used when the BGP HoldTime has been negotiated
+		 * to zero to ensure the BGP session terminates if the associated
+		 * BFD session does not enter the Up state.
+		 */
+		struct event *t_hold_timer;
 	} * bfd_config;
 
 	/* hostname and domainname advertised by host */

@@ -18,6 +18,7 @@ extern "C" {
 #define BFD_DEF_MIN_RX 300
 #define BFD_DEF_MIN_TX 300
 #define BFD_DEF_DETECT_MULT 3
+#define BFD_DEF_STRICT_HOLD_TIME 30 /* seconds */
 
 #define BFD_STATUS_UNKNOWN    (1 << 0) /* BFD session status never received */
 #define BFD_STATUS_DOWN       (1 << 1) /* BFD session status is down */
