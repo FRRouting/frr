@@ -229,37 +229,37 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	struct nb_cb_destroy_args *args);
 
 /* frr-cand-bsr */
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_create(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_candidate_bsr_create(
 	struct nb_cb_create_args *args);
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_destroy(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_candidate_bsr_destroy(
 	struct nb_cb_destroy_args *args);
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_priority_modify(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_candidate_bsr_priority_modify(
 	struct nb_cb_modify_args *args);
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_addrsel_create(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_candidate_bsr_addrsel_create(
 	struct nb_cb_create_args *args);
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_addrsel_modify(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_candidate_bsr_addrsel_modify(
 	struct nb_cb_modify_args *args);
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_addrsel_destroy(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_candidate_bsr_addrsel_destroy(
 	struct nb_cb_destroy_args *args);
 
 /* frr-candidate */
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_create(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_candidate_rp_create(
 	struct nb_cb_create_args *args);
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_destroy(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_candidate_rp_destroy(
 	struct nb_cb_destroy_args *args);
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_priority_modify(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_candidate_rp_priority_modify(
 	struct nb_cb_modify_args *args);
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_adv_interval_modify(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_candidate_rp_adv_interval_modify(
 	struct nb_cb_modify_args *args);
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_group_list_create(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_candidate_rp_group_list_create(
 	struct nb_cb_create_args *args);
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_group_list_destroy(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_candidate_rp_group_list_destroy(
 	struct nb_cb_destroy_args *args);
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_addrsel_create(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_candidate_rp_addrsel_create(
 	struct nb_cb_create_args *args);
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_addrsel_modify(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_candidate_rp_addrsel_modify(
 	struct nb_cb_modify_args *args);
-int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_addrsel_destroy(
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_candidate_rp_addrsel_destroy(
 	struct nb_cb_destroy_args *args);
 
 /* frr-gmp prototypes*/
@@ -312,8 +312,8 @@ int routing_control_plane_protocols_name_validate(
 #define FRR_PIM_AF_XPATH_VAL "frr-routing:ipv6"
 #endif
 
-#define FRR_PIM_CAND_RP_XPATH  "./frr-pim-candidate:candidate-rp"
-#define FRR_PIM_CAND_BSR_XPATH "./frr-pim-candidate:candidate-bsr"
+#define FRR_PIM_CAND_RP_XPATH  "./frr-pim-rp:rp/frr-pim-candidate:candidate-rp"
+#define FRR_PIM_CAND_BSR_XPATH "./frr-pim-rp:rp/frr-pim-candidate:candidate-bsr"
 
 #define FRR_PIM_VRF_XPATH                                               \
 	"/frr-routing:routing/control-plane-protocols/"                 \
