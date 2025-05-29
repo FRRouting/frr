@@ -94,6 +94,12 @@ struct gw_family_t {
 	union g_addr gate;
 };
 
+struct buf_req {
+	struct nlmsghdr n;
+	struct nhmsg nhm;
+	char buf[];
+};
+
 static const char ipv4_ll_buf[16] = "169.254.0.1";
 static struct in_addr ipv4_ll;
 
@@ -477,7 +483,8 @@ parse_encap_seg6local(struct rtattr *tb,
 	return act;
 }
 
-static int parse_encap_seg6(struct rtattr *tb, struct in6_addr *segs)
+static int parse_encap_seg6(struct rtattr *tb, struct in6_addr *segs,
+			    enum srv6_headend_behavior *encap_behavior)
 {
 	struct rtattr *tb_encap[SEG6_IPTUNNEL_MAX + 1] = {};
 	struct seg6_iptunnel_encap *ipt = NULL;
@@ -488,6 +495,24 @@ static int parse_encap_seg6(struct rtattr *tb, struct in6_addr *segs)
 	if (tb_encap[SEG6_IPTUNNEL_SRH]) {
 		ipt = (struct seg6_iptunnel_encap *)
 			RTA_DATA(tb_encap[SEG6_IPTUNNEL_SRH]);
+
+		switch (ipt->mode) {
+		case SEG6_IPTUN_MODE_INLINE:
+			*encap_behavior = SRV6_HEADEND_BEHAVIOR_H_INSERT;
+			break;
+		case SEG6_IPTUN_MODE_ENCAP:
+			*encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
+			break;
+		case SEG6_IPTUN_MODE_ENCAP_RED:
+			*encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS_RED;
+			break;
+		case SEG6_IPTUN_MODE_L2ENCAP:
+			*encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS_L2;
+			break;
+		case SEG6_IPTUN_MODE_L2ENCAP_RED:
+			*encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS_L2_RED;
+			break;
+		}
 
 		for (i = ipt->srh[0].first_segment; i >= 0; i--)
 			memcpy(&segs[i], &ipt->srh[0].segments[i],
@@ -513,6 +538,7 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 	struct seg6local_context seg6l_ctx = {};
 	struct in6_addr segs[SRV6_MAX_SIDS] = {};
 	int num_segs = 0;
+	enum srv6_headend_behavior srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
 
 	vrf_id_t nh_vrf_id = vrf_id;
 	size_t sz = (afi == AFI_IP) ? 4 : 16;
@@ -560,7 +586,7 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 	if (tb[RTA_ENCAP] && tb[RTA_ENCAP_TYPE]
 	    && *(uint16_t *)RTA_DATA(tb[RTA_ENCAP_TYPE])
 		       == LWTUNNEL_ENCAP_SEG6) {
-		num_segs = parse_encap_seg6(tb[RTA_ENCAP], segs);
+		num_segs = parse_encap_seg6(tb[RTA_ENCAP], segs, &srv6_encap_behavior);
 	}
 
 	if (rtm->rtm_flags & RTNH_F_ONLINK)
@@ -586,7 +612,7 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 		nexthop_add_srv6_seg6local(&nh, seg6l_act, &seg6l_ctx);
 
 	if (num_segs)
-		nexthop_add_srv6_seg6(&nh, segs, num_segs);
+		nexthop_add_srv6_seg6(&nh, segs, num_segs, srv6_encap_behavior);
 
 	return nh;
 }
@@ -605,6 +631,7 @@ static uint16_t parse_multipath_nexthops_unicast(ns_id_t ns_id, struct nexthop_g
 	struct seg6local_context seg6l_ctx = {};
 	struct in6_addr segs[SRV6_MAX_SIDS] = {};
 	int num_segs = 0;
+	enum srv6_headend_behavior srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
 	struct rtattr *rtnh_tb[RTA_MAX + 1] = {};
 
 	int len = RTA_PAYLOAD(tb[RTA_MULTIPATH]);
@@ -658,8 +685,8 @@ static uint16_t parse_multipath_nexthops_unicast(ns_id_t ns_id, struct nexthop_g
 			if (rtnh_tb[RTA_ENCAP] && rtnh_tb[RTA_ENCAP_TYPE]
 			    && *(uint16_t *)RTA_DATA(rtnh_tb[RTA_ENCAP_TYPE])
 				       == LWTUNNEL_ENCAP_SEG6) {
-				num_segs = parse_encap_seg6(rtnh_tb[RTA_ENCAP],
-							    segs);
+				num_segs = parse_encap_seg6(rtnh_tb[RTA_ENCAP], segs,
+							    &srv6_encap_behavior);
 			}
 		}
 
@@ -702,7 +729,7 @@ static uint16_t parse_multipath_nexthops_unicast(ns_id_t ns_id, struct nexthop_g
 							   &seg6l_ctx);
 
 			if (num_segs)
-				nexthop_add_srv6_seg6(nh, segs, num_segs);
+				nexthop_add_srv6_seg6(nh, segs, num_segs, srv6_encap_behavior);
 
 			if (rtnh->rtnh_flags & RTNH_F_ONLINK)
 				SET_FLAG(nh->flags, NEXTHOP_FLAG_ONLINK);
@@ -1381,8 +1408,12 @@ static int netlink_route_change_read_multicast(struct nlmsghdr *h,
 				*(struct in6_addr *)RTA_DATA(tb[RTA_DST]);
 	}
 
-	if (tb[RTA_EXPIRES])
-		m->lastused = *(unsigned long long *)RTA_DATA(tb[RTA_EXPIRES]);
+	if (tb[RTA_EXPIRES]) {
+		unsigned long long temporary;
+
+		memcpy(&temporary, RTA_DATA(tb[RTA_EXPIRES]), sizeof(temporary));
+		m->lastused = temporary;
+	}
 
 	if (tb[RTA_MULTIPATH]) {
 		struct rtnexthop *rtnh =
@@ -1784,7 +1815,32 @@ static ssize_t fill_seg6ipt_encap(char *buffer, size_t buflen,
 	memset(buffer, 0, buflen);
 
 	ipt = (struct seg6_iptunnel_encap *)buffer;
-	ipt->mode = SEG6_IPTUN_MODE_ENCAP;
+
+	/*
+	 * Note: even if Zebra is capable of programming all the SRv6
+	 * Headend Behaviors defined in RFC 8986, FRR daemons support
+	 * only a subset of them.
+	 * Currently, STATIC currently supports H.Encaps and H.Encaps.Red.
+	 * BGP supports only H.Encaps.
+	 * Daemons need to be extended to support other behaviors.
+	 */
+	switch (segs->encap_behavior) {
+	case SRV6_HEADEND_BEHAVIOR_H_INSERT:
+		ipt->mode = SEG6_IPTUN_MODE_INLINE;
+		break;
+	case SRV6_HEADEND_BEHAVIOR_H_ENCAPS:
+		ipt->mode = SEG6_IPTUN_MODE_ENCAP;
+		break;
+	case SRV6_HEADEND_BEHAVIOR_H_ENCAPS_RED:
+		ipt->mode = SEG6_IPTUN_MODE_ENCAP_RED;
+		break;
+	case SRV6_HEADEND_BEHAVIOR_H_ENCAPS_L2:
+		ipt->mode = SEG6_IPTUN_MODE_L2ENCAP;
+		break;
+	case SRV6_HEADEND_BEHAVIOR_H_ENCAPS_L2_RED:
+		ipt->mode = SEG6_IPTUN_MODE_L2ENCAP_RED;
+		break;
+	}
 
 	srh = (struct ipv6_sr_hdr *)&ipt->srh;
 	srh->hdrlen = (srhlen >> 3) - 1;
@@ -2936,6 +2992,54 @@ static bool _netlink_nexthop_build_group(struct nlmsghdr *n, size_t req_size, ui
 	return true;
 }
 
+static ssize_t fill_srh_end_b6_encaps(char *buffer, size_t buflen, struct seg6_seg_stack *segs)
+{
+	struct ipv6_sr_hdr *srh;
+	size_t srhlen;
+	int i;
+
+	if (!segs || segs->num_segs > SRV6_MAX_SEGS) {
+		/* Exceeding maximum supported SIDs */
+		return -1;
+	}
+
+	srhlen = SRH_BASE_HEADER_LENGTH + SRH_SEGMENT_LENGTH * segs->num_segs;
+
+	if (buflen < srhlen)
+		return -1;
+
+	memset(buffer, 0, buflen);
+
+	srh = (struct ipv6_sr_hdr *)buffer;
+	srh->hdrlen = (srhlen >> 3) - 1;
+	srh->type = 4;
+	srh->segments_left = segs->num_segs - 1;
+	srh->first_segment = segs->num_segs - 1;
+
+	for (i = 0; i < segs->num_segs; i++) {
+		memcpy(&srh->segments[segs->num_segs - i - 1], &segs->seg[i],
+		       sizeof(struct in6_addr));
+	}
+
+	return srhlen;
+}
+
+static int netlink_nexthop_msg_encode_end_b6_encaps(struct buf_req *req, const struct nexthop *nh,
+						    size_t buflen)
+{
+	int srh_len;
+	char srh_buf[4096];
+
+	if (!nl_attr_put32(&req->n, buflen, SEG6_LOCAL_ACTION, SEG6_LOCAL_ACTION_END_B6_ENCAP))
+		return 0;
+	srh_len = fill_srh_end_b6_encaps(srh_buf, sizeof(srh_buf), nh->nh_srv6->seg6_segs);
+	if (srh_len < 0)
+		return 0;
+	if (!nl_attr_put(&req->n, buflen, SEG6_LOCAL_SRH, srh_buf, srh_len))
+		return 0;
+	return 1;
+}
+
 /**
  * Next hop packet encoding helper function.
  *
@@ -3139,13 +3243,11 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 				if (nh->nh_srv6->seg6local_action !=
 				    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC) {
 					uint32_t action;
-					uint16_t encap;
-					struct rtattr *nest;
-					const struct seg6local_context *ctx;
+					const struct seg6local_context *ctx6;
 
 					req->nhm.nh_family = AF_INET6;
 					action = nh->nh_srv6->seg6local_action;
-					ctx = &nh->nh_srv6->seg6local_ctx;
+					ctx6 = &nh->nh_srv6->seg6local_ctx;
 					encap = LWTUNNEL_ENCAP_SEG6_LOCAL;
 					if (!nl_attr_put(&req->n, buflen,
 							 NHA_ENCAP_TYPE,
@@ -3174,7 +3276,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 							return 0;
 						if (!nl_attr_put(
 						    &req->n, buflen,
-						    SEG6_LOCAL_NH6, &ctx->nh6,
+						    SEG6_LOCAL_NH6, &ctx6->nh6,
 						    sizeof(struct in6_addr)))
 							return 0;
 						break;
@@ -3187,7 +3289,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 						if (!nl_attr_put32(
 						    &req->n, buflen,
 						    SEG6_LOCAL_TABLE,
-						    ctx->table))
+						    ctx6->table))
 							return 0;
 						break;
 					case SEG6_LOCAL_ACTION_END_DX4:
@@ -3198,7 +3300,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 							return 0;
 						if (!nl_attr_put(
 						    &req->n, buflen,
-						    SEG6_LOCAL_NH4, &ctx->nh4,
+						    SEG6_LOCAL_NH4, &ctx6->nh4,
 						    sizeof(struct in_addr)))
 							return 0;
 						break;
@@ -3210,7 +3312,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 							return 0;
 						if (!nl_attr_put(&req->n, buflen,
 								 SEG6_LOCAL_NH6,
-								 &ctx->nh6,
+								 &ctx6->nh6,
 								 sizeof(struct in6_addr)))
 							return 0;
 						break;
@@ -3223,7 +3325,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 						if (!nl_attr_put32(
 						    &req->n, buflen,
 						    SEG6_LOCAL_TABLE,
-						    ctx->table))
+						    ctx6->table))
 							return 0;
 						break;
 					case SEG6_LOCAL_ACTION_END_DT4:
@@ -3235,7 +3337,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 						if (!nl_attr_put32(
 							    &req->n, buflen,
 							    SEG6_LOCAL_VRFTABLE,
-							    ctx->table))
+							    ctx6->table))
 							return 0;
 						break;
 					case SEG6_LOCAL_ACTION_END_DT46:
@@ -3247,8 +3349,14 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 						if (!nl_attr_put32(
 							    &req->n, buflen,
 							    SEG6_LOCAL_VRFTABLE,
-							    ctx->table))
+							    ctx6->table))
 							return 0;
+						break;
+					case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
+						netlink_nexthop_msg_encode_end_b6_encaps((struct buf_req
+												  *)
+												 req,
+											 nh, buflen);
 						break;
 					default:
 						zlog_err("%s: unsupport seg6local behaviour action=%u",
@@ -3263,12 +3371,11 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 					nl_attr_nest_end(&req->n, nest);
 				}
 
-				if (nh->nh_srv6->seg6_segs &&
-				    nh->nh_srv6->seg6_segs->num_segs &&
-				    !sid_zero(nh->nh_srv6->seg6_segs)) {
+				if (nh->nh_srv6->seg6_segs && nh->nh_srv6->seg6_segs->num_segs &&
+				    !sid_zero(nh->nh_srv6->seg6_segs) &&
+				    nh->nh_srv6->seg6local_action == ZEBRA_SEG6_LOCAL_ACTION_UNSPEC) {
 					char tun_buf[4096];
 					ssize_t tun_len;
-					struct rtattr *nest;
 
 					if (!nl_attr_put16(&req->n, buflen,
 					    NHA_ENCAP_TYPE,

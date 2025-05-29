@@ -100,7 +100,7 @@ void sigterm(void);
 void sigusr1(void);
 
 
-static __attribute__((__noreturn__)) void terminate(int i)
+static FRR_NORETURN void terminate(int i)
 {
 	isis_terminate();
 	isis_sr_term();
@@ -109,6 +109,10 @@ static __attribute__((__noreturn__)) void terminate(int i)
 
 	isis_master_terminate();
 	route_map_finish();
+	prefix_list_reset();
+#ifndef FABRICD
+	isis_affinity_map_terminate();
+#endif
 	vrf_terminate();
 
 	frr_fini();
@@ -136,13 +140,13 @@ void sighup(void)
 
 #endif
 
-__attribute__((__noreturn__)) void sigint(void)
+FRR_NORETURN void sigint(void)
 {
 	zlog_notice("Terminating on signal SIGINT");
 	terminate(0);
 }
 
-__attribute__((__noreturn__)) void sigterm(void)
+FRR_NORETURN void sigterm(void)
 {
 	zlog_notice("Terminating on signal SIGTERM");
 	terminate(0);
@@ -212,7 +216,7 @@ static void isis_config_end_timeout(struct event *t)
 
 static void isis_config_start(void)
 {
-	EVENT_OFF(t_isis_cfg);
+	event_cancel(&t_isis_cfg);
 	event_add_timer(im->master, isis_config_end_timeout, NULL,
 			ISIS_PRE_CONFIG_MAX_WAIT_SECONDS, &t_isis_cfg);
 }
@@ -225,7 +229,7 @@ static void isis_config_end(void)
 	if (!event_is_scheduled(t_isis_cfg))
 		return;
 
-	EVENT_OFF(t_isis_cfg);
+	event_cancel(&t_isis_cfg);
 	isis_config_finish(t_isis_cfg);
 }
 

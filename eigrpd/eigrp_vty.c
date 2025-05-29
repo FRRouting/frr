@@ -195,12 +195,11 @@ static void eigrp_interface_helper(struct vty *vty, struct eigrp *eigrp,
 				   const char *ifname, const char *detail)
 {
 	struct eigrp_interface *ei;
-	struct listnode *node;
 
 	if (!ifname)
 		show_ip_eigrp_interface_header(vty, eigrp);
 
-	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, ei)) {
+	frr_each (eigrp_interface_hash, &eigrp->eifs, ei) {
 		if (!ifname || strcmp(ei->ifp->name, ifname) == 0) {
 			show_ip_eigrp_interface_sub(vty, eigrp, ei);
 			if (detail)
@@ -252,14 +251,13 @@ static void eigrp_neighbors_helper(struct vty *vty, struct eigrp *eigrp,
 				   const char *ifname, const char *detail)
 {
 	struct eigrp_interface *ei;
-	struct listnode *node, *node2, *nnode2;
 	struct eigrp_neighbor *nbr;
 
 	show_ip_eigrp_neighbor_header(vty, eigrp);
 
-	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, ei)) {
+	frr_each (eigrp_interface_hash, &eigrp->eifs, ei) {
 		if (!ifname || strcmp(ei->ifp->name, ifname) == 0) {
-			for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr)) {
+			frr_each (eigrp_nbr_hash, &ei->nbr_hash_head, nbr) {
 				if (detail || (nbr->state == EIGRP_NEIGHBOR_UP))
 					show_ip_eigrp_neighbor_sub(vty, nbr,
 								   !!detail);
@@ -282,14 +280,14 @@ DEFPY (show_ip_eigrp_neighbors,
 	struct eigrp *eigrp;
 
 	if (vrf && strncmp(vrf, "all", sizeof("all")) == 0) {
-		struct vrf *vrf;
+		struct vrf *tvrf;
 
-		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-			eigrp = eigrp_lookup(vrf->vrf_id);
+		RB_FOREACH (tvrf, vrf_name_head, &vrfs_by_name) {
+			eigrp = eigrp_lookup(tvrf->vrf_id);
 			if (!eigrp)
 				continue;
 
-			vty_out(vty, "VRF %s:\n", vrf->name);
+			vty_out(vty, "VRF %s:\n", tvrf->name);
 
 			eigrp_neighbors_helper(vty, eigrp, ifname, detail);
 		}
@@ -320,7 +318,6 @@ DEFPY (clear_ip_eigrp_neighbors,
 {
 	struct eigrp *eigrp;
 	struct eigrp_interface *ei;
-	struct listnode *node, *node2, *nnode2;
 	struct eigrp_neighbor *nbr;
 
 	/* Check if eigrp process is enabled */
@@ -331,12 +328,12 @@ DEFPY (clear_ip_eigrp_neighbors,
 	}
 
 	/* iterate over all eigrp interfaces */
-	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, ei)) {
+	frr_each (eigrp_interface_hash, &eigrp->eifs, ei) {
 		/* send Goodbye Hello */
 		eigrp_hello_send(ei, EIGRP_HELLO_GRACEFUL_SHUTDOWN, NULL);
 
 		/* iterate over all neighbors on eigrp interface */
-		for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr)) {
+		frr_each_safe (eigrp_nbr_hash, &ei->nbr_hash_head, nbr) {
 			if (nbr->state != EIGRP_NEIGHBOR_DOWN) {
 				zlog_debug(
 					"Neighbor %pI4 (%s) is down: manually cleared",
@@ -376,7 +373,6 @@ DEFPY (clear_ip_eigrp_neighbors_int,
 {
 	struct eigrp *eigrp;
 	struct eigrp_interface *ei;
-	struct listnode *node2, *nnode2;
 	struct eigrp_neighbor *nbr;
 
 	/* Check if eigrp process is enabled */
@@ -397,7 +393,7 @@ DEFPY (clear_ip_eigrp_neighbors_int,
 	eigrp_hello_send(ei, EIGRP_HELLO_GRACEFUL_SHUTDOWN, NULL);
 
 	/* iterate over all neighbors on eigrp interface */
-	for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr)) {
+	frr_each_safe (eigrp_nbr_hash, &ei->nbr_hash_head, nbr) {
 		if (nbr->state != EIGRP_NEIGHBOR_DOWN) {
 			zlog_debug(
 				"Neighbor %pI4 (%s) is down: manually cleared",

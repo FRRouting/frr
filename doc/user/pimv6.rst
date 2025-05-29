@@ -175,6 +175,12 @@ PIMv6 Router
    notifications to the kernel. This command is vrf aware, to configure for a
    vrf, specify the vrf in the router pim6 block.
 
+.. clicmd:: ssm prefix-list WORD
+
+   Specify a range of group addresses via a prefix-list that forces pim to
+   never do SM over. This command is vrf aware, to configure for a vrf, specify
+   the vrf in the router pim block.
+
 .. clicmd:: ssmpingd [X:X::X:X]
 
    Enable ipv6 ssmpingd configuration. A network level management tool
@@ -244,6 +250,10 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
 
    Tell pim to receive MLD reports and Query on this interface. The default
    version is v2. This command is useful on a LHR.
+
+.. clicmd:: ipv6 mld require-router-alert
+
+   Only accept MLD reports with the router-alert IPv6 hop option.
 
 .. clicmd:: ipv6 mld join X:X::X:X [Y:Y::Y:Y]
 

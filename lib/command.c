@@ -14,6 +14,13 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#ifndef HAVE_LIBCRYPT
+#ifdef HAVE_LIBCRYPTO
+#include <openssl/des.h>
+#define crypt DES_crypt
+#endif
+#endif
+
 #include <lib/version.h>
 
 #include "command.h"
@@ -41,6 +48,7 @@
 #include "northbound_cli.h"
 #include "network.h"
 #include "routemap.h"
+#include "frregex_real.h"
 
 #include "frrscript.h"
 

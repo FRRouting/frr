@@ -189,7 +189,7 @@ static void source_timer_off(struct gm_group *group, struct gm_source *source)
 			group_str, source_str, group->interface->name);
 	}
 
-	EVENT_OFF(source->t_source_timer);
+	event_cancel(&source->t_source_timer);
 }
 
 static void igmp_source_timer_on(struct gm_group *group,

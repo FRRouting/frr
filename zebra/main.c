@@ -57,7 +57,7 @@
 char *zserv_path;
 
 /* process id. */
-pid_t pid;
+pid_t zebra_pid;
 
 /* Pacify zclient.o in libfrr, which expects this variable. */
 struct event_loop *master;
@@ -247,6 +247,8 @@ void zebra_finalize(struct event *dummy)
 
 	label_manager_terminate();
 
+	affinity_map_terminate();
+
 	ns_walk_func(zebra_ns_final_shutdown, NULL, NULL);
 
 	ns_terminate();
@@ -330,7 +332,7 @@ void zebra_main_router_started(void)
 	zrouter.rib_sweep_time = 0;
 	zrouter.graceful_restart = zebra_di.graceful_restart;
 	if (!zrouter.graceful_restart)
-		event_add_timer(zrouter.master, rib_sweep_route, NULL, 0, NULL);
+		event_add_timer(zrouter.master, rib_sweep_route, NULL, 0, &zrouter.t_rib_sweep);
 	else {
 		int gr_cleanup_time;
 
@@ -518,7 +520,7 @@ int main(int argc, char **argv)
 	 */
 
 	/* Needed for BSD routing socket. */
-	pid = getpid();
+	zebra_pid = getpid();
 
 	/* Start dataplane system */
 	zebra_dplane_start();

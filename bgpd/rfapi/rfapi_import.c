@@ -53,13 +53,22 @@
 #undef DEBUG_BI_SEARCH
 
 /*
+ * Hash to keep track of outstanding timers so we can force them to
+ * expire at shutdown time, thus freeing their allocated memory.
+ */
+PREDECL_HASH(rwcb);
+
+/*
  * Allocated for each withdraw timer instance; freed when the timer
  * expires or is canceled
  */
 struct rfapi_withdraw {
+	struct rwcb_item rwcbi;
+
 	struct rfapi_import_table *import_table;
 	struct agg_node *node;
 	struct bgp_path_info *info;
+	void (*timer_service_func)(struct event *t); /* for cleanup */
 	safi_t safi; /* used only for bulk operations */
 	/*
 	 * For import table node reference count checking (i.e., debugging).
@@ -71,6 +80,19 @@ struct rfapi_withdraw {
 	 */
 	int lockoffset;
 };
+
+static int _rwcb_cmp(const struct rfapi_withdraw *w1, const struct rfapi_withdraw *w2)
+{
+	return (w1 != w2);
+}
+
+static uint32_t _rwcb_hash(const struct rfapi_withdraw *w)
+{
+	return (uintptr_t)w & 0xffffffff;
+}
+
+DECLARE_HASH(rwcb, struct rfapi_withdraw, rwcbi, _rwcb_cmp, _rwcb_hash);
+static struct rwcb_head _rwcbhash;
 
 /*
  * DEBUG FUNCTION
@@ -826,8 +848,9 @@ static void rfapiBgpInfoChainFree(struct bgp_path_info *bpi)
 			struct rfapi_withdraw *wcb =
 				EVENT_ARG(bpi->extra->vnc->vnc.import.timer);
 
+			rwcb_del(&_rwcbhash, wcb);
 			XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
-			EVENT_OFF(bpi->extra->vnc->vnc.import.timer);
+			event_cancel(&bpi->extra->vnc->vnc.import.timer);
 		}
 
 		next = bpi->next;
@@ -1329,11 +1352,11 @@ rfapiRouteInfo2NextHopEntry(struct rfapi_ip_prefix *rprefix,
 
 	bgp_attr_extcom_tunnel_type(bpi->attr, &tun_type);
 	if (tun_type == BGP_ENCAP_TYPE_MPLS) {
-		struct prefix p;
+		struct prefix pfx;
 		/* MPLS carries UN address in next hop */
-		rfapiNexthop2Prefix(bpi->attr, &p);
-		if (p.family != AF_UNSPEC) {
-			rfapiQprefix2Raddr(&p, &new->un_address);
+		rfapiNexthop2Prefix(bpi->attr, &pfx);
+		if (pfx.family != AF_UNSPEC) {
+			rfapiQprefix2Raddr(&pfx, &new->un_address);
 			have_vnc_tunnel_un = 1;
 		}
 	}
@@ -1750,7 +1773,7 @@ struct rfapi_next_hop_entry *rfapiRouteNode2NextHopList(
 	 * Add non-withdrawn routes from less-specific prefix
 	 */
 	if (parent) {
-		const struct prefix *p = agg_node_get_prefix(parent);
+		p = agg_node_get_prefix(parent);
 
 		rib_rn = rfd_rib_table ? agg_node_get(rfd_rib_table, p) : NULL;
 		rfapiQprefix2Rprefix(p, &rprefix);
@@ -2349,6 +2372,7 @@ static void rfapiWithdrawTimerVPN(struct event *t)
 
 	/* This callback is responsible for the withdraw object's memory */
 	if (early_exit) {
+		rwcb_del(&_rwcbhash, wcb);
 		XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
 		return;
 	}
@@ -2462,6 +2486,7 @@ done:
 
 	RFAPI_CHECK_REFCOUNT(wcb->node, SAFI_MPLS_VPN, 1 + wcb->lockoffset);
 	agg_unlock_node(wcb->node); /* decr ref count */
+	rwcb_del(&_rwcbhash, wcb);
 	XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
 }
 
@@ -2705,6 +2730,7 @@ static void rfapiWithdrawTimerEncap(struct event *t)
 done:
 	RFAPI_CHECK_REFCOUNT(wcb->node, SAFI_ENCAP, 1);
 	agg_unlock_node(wcb->node); /* decr ref count */
+	rwcb_del(&_rwcbhash, wcb);
 	XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
 	skiplist_free(vpn_node_sl);
 }
@@ -2754,6 +2780,8 @@ rfapiBiStartWithdrawTimer(struct rfapi_import_table *import_table,
 	wcb->node = rn;
 	wcb->info = bpi;
 	wcb->import_table = import_table;
+	wcb->timer_service_func = timer_service_func;
+	rwcb_add(&_rwcbhash, wcb);
 	bgp_attr_intern(bpi->attr);
 
 	if (VNC_DEBUG(VERBOSE)) {
@@ -2819,6 +2847,7 @@ static void rfapiExpireEncapNow(struct rfapi_import_table *it,
 	wcb->info = bpi;
 	wcb->node = rn;
 	wcb->import_table = it;
+	rwcb_add(&_rwcbhash, wcb);
 	memset(&t, 0, sizeof(t));
 	t.arg = wcb;
 	rfapiWithdrawTimerEncap(&t); /* frees wcb */
@@ -3057,8 +3086,9 @@ static void rfapiBgpInfoFilteredImportEncap(
 					struct rfapi_withdraw *wcb = EVENT_ARG(
 						bpi->extra->vnc->vnc.import.timer);
 
+					rwcb_del(&_rwcbhash, wcb);
 					XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
-					EVENT_OFF(bpi->extra->vnc->vnc.import
+					event_cancel(&bpi->extra->vnc->vnc.import
 							  .timer);
 				}
 
@@ -3083,6 +3113,7 @@ static void rfapiBgpInfoFilteredImportEncap(
 					wcb->info = bpi;
 					wcb->node = rn;
 					wcb->import_table = import_table;
+					rwcb_add(&_rwcbhash, wcb);
 					memset(&t, 0, sizeof(t));
 					t.arg = wcb;
 					rfapiWithdrawTimerEncap(
@@ -3149,8 +3180,9 @@ static void rfapiBgpInfoFilteredImportEncap(
 			struct rfapi_withdraw *wcb =
 				EVENT_ARG(bpi->extra->vnc->vnc.import.timer);
 
+			rwcb_del(&_rwcbhash, wcb);
 			XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
-			EVENT_OFF(bpi->extra->vnc->vnc.import.timer);
+			event_cancel(&bpi->extra->vnc->vnc.import.timer);
 		}
 		rfapiExpireEncapNow(import_table, rn, bpi);
 	}
@@ -3192,7 +3224,7 @@ static void rfapiBgpInfoFilteredImportEncap(
 				       __func__, rn);
 #endif
 		for (m = RFAPI_MONITOR_ENCAP(rn); m; m = m->next) {
-			const struct prefix *p;
+			const struct prefix *pfx;
 
 			/*
 			 * For each referenced bpi/route, copy the ENCAP route's
@@ -3220,9 +3252,9 @@ static void rfapiBgpInfoFilteredImportEncap(
 			 * list
 			 * per prefix.
 			 */
-			p = agg_node_get_prefix(m->node);
+			pfx = agg_node_get_prefix(m->node);
 			referenced_vpn_prefix =
-				agg_node_get(referenced_vpn_table, p);
+				agg_node_get(referenced_vpn_table, pfx);
 			assert(referenced_vpn_prefix);
 			for (mnext = referenced_vpn_prefix->info; mnext;
 			     mnext = mnext->next) {
@@ -3293,6 +3325,7 @@ static void rfapiExpireVpnNow(struct rfapi_import_table *it,
 	wcb->node = rn;
 	wcb->import_table = it;
 	wcb->lockoffset = lockoffset;
+	rwcb_add(&_rwcbhash, wcb);
 	memset(&t, 0, sizeof(t));
 	t.arg = wcb;
 	rfapiWithdrawTimerVPN(&t); /* frees wcb */
@@ -3510,8 +3543,9 @@ void rfapiBgpInfoFilteredImportVPN(
 					struct rfapi_withdraw *wcb = EVENT_ARG(
 						bpi->extra->vnc->vnc.import.timer);
 
+					rwcb_del(&_rwcbhash, wcb);
 					XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
-					EVENT_OFF(bpi->extra->vnc->vnc.import
+					event_cancel(&bpi->extra->vnc->vnc.import
 							  .timer);
 
 					import_table->holddown_count[afi] -= 1;
@@ -3729,8 +3763,9 @@ void rfapiBgpInfoFilteredImportVPN(
 			struct rfapi_withdraw *wcb =
 				EVENT_ARG(bpi->extra->vnc->vnc.import.timer);
 
+			rwcb_del(&_rwcbhash, wcb);
 			XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
-			EVENT_OFF(bpi->extra->vnc->vnc.import.timer);
+			event_cancel(&bpi->extra->vnc->vnc.import.timer);
 		}
 		rfapiExpireVpnNow(import_table, rn, bpi, 0);
 	}
@@ -3809,6 +3844,7 @@ rfapiBgpInfoFilteredImportFunction(safi_t safi)
 	}
 
 	assert(!"Reached end of function when we were not expecting to");
+	return NULL;
 }
 
 void rfapiProcessUpdate(struct peer *peer,
@@ -4480,9 +4516,10 @@ static void rfapiDeleteRemotePrefixesIt(
 						RFAPI_UPDATE_ITABLE_COUNT(
 							bpi, wcb->import_table,
 							afi, 1);
+						rwcb_del(&_rwcbhash, wcb);
 						XFREE(MTYPE_RFAPI_WITHDRAW,
 						      wcb);
-						EVENT_OFF(bpi->extra->vnc->vnc
+						event_cancel(&bpi->extra->vnc->vnc
 								  .import.timer);
 					}
 				} else {
@@ -4803,4 +4840,34 @@ uint32_t rfapiGetHolddownFromLifetime(uint32_t lifetime)
 		return lifetime;
 	else
 		return RFAPI_LIFETIME_INFINITE_WITHDRAW_DELAY;
+}
+
+void rfapi_import_init(void)
+{
+	rwcb_init(&_rwcbhash);
+}
+
+void rfapi_import_terminate(void)
+{
+	struct rfapi_withdraw *wcb;
+	struct bgp_path_info *bpi;
+	void (*timer_service_func)(struct event *t);
+	struct event t;
+
+	vnc_zlog_debug_verbose("%s: cleaning up %zu pending timers", __func__,
+			       rwcb_count(&_rwcbhash));
+
+	/*
+	 * clean up memory allocations stored in pending timers
+	 */
+	while ((wcb = rwcb_pop(&_rwcbhash))) {
+		bpi = wcb->info;
+		assert(wcb == EVENT_ARG(bpi->extra->vnc->vnc.import.timer));
+		event_cancel(&bpi->extra->vnc->vnc.import.timer);
+
+		timer_service_func = wcb->timer_service_func;
+		memset(&t, 0, sizeof(t));
+		t.arg = wcb;
+		(*timer_service_func)(&t); /* frees wcb */
+	}
 }

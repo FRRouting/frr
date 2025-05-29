@@ -2345,7 +2345,7 @@ static void zebra_evpn_es_local_info_clear(struct zebra_evpn_es **esp)
 
 	es->flags &= ~(ZEBRA_EVPNES_LOCAL | ZEBRA_EVPNES_READY_FOR_BGP);
 
-	EVENT_OFF(es->df_delay_timer);
+	event_cancel(&es->df_delay_timer);
 
 	/* clear EVPN protodown flags on the access port */
 	zebra_evpn_mh_clear_protodown_es(es);
@@ -3741,7 +3741,7 @@ static void zebra_evpn_mh_startup_delay_timer_start(const char *rc)
 	if (zmh_info->startup_delay_timer) {
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 			zlog_debug("startup-delay timer cancelled");
-		EVENT_OFF(zmh_info->startup_delay_timer);
+		event_cancel(&zmh_info->startup_delay_timer);
 	}
 
 	if (zmh_info->startup_delay_time) {
@@ -3795,7 +3795,7 @@ void zebra_evpn_proc_remote_nh(ZAPI_HANDLER_ARGS)
 	memset(&dummy_prefix, 0, sizeof(dummy_prefix));
 	dummy_prefix.family = AF_EVPN;
 	dummy_prefix.prefixlen = (sizeof(struct evpn_addr) * 8);
-	dummy_prefix.prefix.route_type = 1; /* XXX - fixup to type-1 def */
+	dummy_prefix.prefix.route_type = BGP_EVPN_AD_ROUTE; /* XXX - fixup to type-1 def */
 	dummy_prefix.prefix.ead_addr.ip.ipa_type = nh.ipa_type;
 
 	if (hdr->command == ZEBRA_EVPN_REMOTE_NH_ADD) {

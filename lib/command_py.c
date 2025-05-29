@@ -63,6 +63,7 @@ struct wrap_graph {
 		char *definition;
 	struct graph *graph;
 	size_t n_nodewrappers;
+	unsigned long errors;
 	struct wrap_graph_node **nodewrappers;
 };
 
@@ -352,6 +353,7 @@ static PyObject *graph_to_pyobj_idx(struct wrap_graph *wgraph, size_t i)
 	}
 static PyMemberDef members_graph[] = {
 	member(definition, T_STRING),
+	member(errors, T_ULONG),
 	{},
 };
 #undef member
@@ -457,7 +459,7 @@ static PyObject *graph_parse(PyTypeObject *type, PyObject *args, PyObject *kwds)
 		struct cmd_element cmd = { .string = def, .doc = doc };
 		struct graph_node *last;
 
-		cmd_graph_parse(graph, &cmd);
+		gwrap->errors = cmd_graph_parse(graph, &cmd);
 		cmd_graph_names(graph);
 
 		last = vector_slot(graph->nodes,
@@ -514,10 +516,12 @@ PyMODINIT_FUNC command_py_init(void)
 	if (!pymod)
 		initret(NULL);
 
-	if (PyModule_AddIntMacro(pymod, CMD_ATTR_YANG)
-	    || PyModule_AddIntMacro(pymod, CMD_ATTR_HIDDEN)
-	    || PyModule_AddIntMacro(pymod, CMD_ATTR_DEPRECATED)
-	    || PyModule_AddIntMacro(pymod, CMD_ATTR_NOSH))
+	if (PyModule_AddIntMacro(pymod, CMD_ATTR_YANG) ||
+	    PyModule_AddIntMacro(pymod, CMD_ATTR_HIDDEN) ||
+	    PyModule_AddIntMacro(pymod, CMD_ATTR_DEPRECATED) ||
+	    PyModule_AddIntMacro(pymod, CMD_ATTR_NOSH) ||
+	    PyModule_AddIntMacro(pymod, CMD_GRAPH_PARSE_DOCSTRING_MISSING) ||
+	    PyModule_AddIntMacro(pymod, CMD_GRAPH_PARSE_DOCSTRING_EXTRA))
 		initret(NULL);
 
 	Py_INCREF(&typeobj_graph_node);

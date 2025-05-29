@@ -7,7 +7,7 @@
 #ifndef _ZEBRA_PREFIX_H
 #define _ZEBRA_PREFIX_H
 
-#ifdef GNU_LINUX
+#ifdef __linux__
 #include <net/ethernet.h>
 #else
 #include <netinet/if_ether.h>

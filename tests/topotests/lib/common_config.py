@@ -196,7 +196,7 @@ def get_seq_id(obj_type, router, obj_name):
     return seq_id
 
 
-def set_seq_id(obj_type, router, id, obj_name):
+def set_seq_id(obj_type, router, sequence_id, obj_name):
     """
     Saves sequence number if not auto-generated and given by user
     Parameters
@@ -209,7 +209,7 @@ def set_seq_id(obj_type, router, id, obj_name):
     obj_data = router_data.setdefault(obj_name, {})
     seq_id = obj_data.setdefault("seq_id", 0)
 
-    seq_id = int(seq_id) + int(id)
+    seq_id = int(seq_id) + int(sequence_id)
     obj_data["seq_id"] = seq_id
 
 
@@ -330,13 +330,12 @@ def create_common_configurations(
     for router in routers:
         fname = "{}/{}/{}".format(tgen.logdir, router, FRRCFG_FILE)
         try:
-            frr_cfg_fd = open(fname, mode)
-            if config_type:
-                frr_cfg_fd.write(config_map[config_type])
-            for line in config_dict[router]:
-                frr_cfg_fd.write("{} \n".format(str(line)))
-            frr_cfg_fd.write("\n")
-
+            with open(fname, mode) as frr_cfg_fd:
+                if config_type:
+                    frr_cfg_fd.write(config_map[config_type])
+                for line in config_dict[router]:
+                    frr_cfg_fd.write("{} \n".format(str(line)))
+                frr_cfg_fd.write("\n")
         except IOError as err:
             logger.error("Unable to open FRR Config '%s': %s" % (fname, str(err)))
             return False
@@ -487,12 +486,13 @@ def save_initial_config_on_routers(tgen):
     procs = {}
     for rname in router_list:
         logger.debug("Fetching running config for router %s", rname)
-        procs[rname] = router_list[rname].popen(
-            ["/usr/bin/env", "vtysh", "-c", "show running-config no-header"],
-            stdin=None,
-            stdout=open(target_cfg_fmt.format(rname), "w"),
-            stderr=subprocess.PIPE,
-        )
+        with open(target_cfg_fmt.format(rname), "w") as target_cfg_fd:
+            procs[rname] = router_list[rname].popen(
+                ["/usr/bin/env", "vtysh", "-c", "show running-config no-header"],
+                stdin=None,
+                stdout=target_cfg_fd,
+                stderr=subprocess.PIPE,
+            )
     for rname, p in procs.items():
         _, error = p.communicate()
         if p.returncode:
@@ -543,12 +543,13 @@ def reset_config_on_routers(tgen, routerName=None):
     procs = {}
     for rname in router_list:
         logger.debug("Fetching running config for router %s", rname)
-        procs[rname] = router_list[rname].popen(
-            ["/usr/bin/env", "vtysh", "-c", "show running-config no-header"],
-            stdin=None,
-            stdout=open(run_cfg_fmt.format(rname, gen), "w"),
-            stderr=subprocess.PIPE,
-        )
+        with open(run_cfg_fmt.format(rname, gen), "w") as run_cfg_fd:
+            procs[rname] = router_list[rname].popen(
+                ["/usr/bin/env", "vtysh", "-c", "show running-config no-header"],
+                stdin=None,
+                stdout=run_cfg_fd,
+                stderr=subprocess.PIPE,
+            )
     for rname, p in procs.items():
         _, error = p.communicate()
         if p.returncode:
@@ -567,19 +568,20 @@ def reset_config_on_routers(tgen, routerName=None):
         logger.debug(
             "Generating delta for router %s to new configuration (gen %d)", rname, gen
         )
-        procs[rname] = tgen.net.popen(
-            [
-                "/usr/lib/frr/frr-reload.py",
-                "--test-reset",
-                "--input",
-                run_cfg_fmt.format(rname, gen),
-                "--test",
-                target_cfg_fmt.format(rname),
-            ],
-            stdin=None,
-            stdout=open(delta_fmt.format(rname, gen), "w"),
-            stderr=subprocess.PIPE,
-        )
+        with open(delta_fmt.format(rname, gen), "w") as delta_fd:
+            procs[rname] = tgen.net.popen(
+                [
+                    "/usr/lib/frr/frr-reload.py",
+                    "--test-reset",
+                    "--input",
+                    run_cfg_fmt.format(rname, gen),
+                    "--test",
+                    target_cfg_fmt.format(rname),
+                ],
+                stdin=None,
+                stdout=delta_fd,
+                stderr=subprocess.PIPE,
+            )
     for rname, p in procs.items():
         _, error = p.communicate()
         if p.returncode:
@@ -2539,10 +2541,10 @@ def create_route_maps(tgen, input_dict, build=False):
                                 )
                                 return False
                         if large_comm_list:
-                            id = large_comm_list.setdefault("id", None)
+                            comm_id = large_comm_list.setdefault("id", None)
                             del_comm = large_comm_list.setdefault("delete", None)
-                            if id:
-                                cmd = "set large-comm-list {}".format(id)
+                            if comm_id:
+                                cmd = "set large-comm-list {}".format(comm_id)
                                 if del_comm:
                                     cmd = "{} delete".format(cmd)
 
@@ -4608,7 +4610,7 @@ class HostApplicationHelper(object):
         self.init()
         return self
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, exit_type, exit_value, exit_traceback):
         self.cleanup()
 
     def __str__(self):

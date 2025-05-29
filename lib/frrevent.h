@@ -29,11 +29,7 @@ extern unsigned long cputime_threshold;
 extern unsigned long walltime_threshold;
 
 struct rusage_t {
-#ifdef HAVE_CLOCK_THREAD_CPUTIME_ID
 	struct timespec cpu;
-#else
-	struct rusage cpu;
-#endif
 	struct timeval real;
 };
 #define RUSAGE_T struct rusage_t
@@ -185,15 +181,6 @@ static inline unsigned long timeval_elapsed(struct timeval a, struct timeval b)
 #define EVENT_ARG(X) ((X)->arg)
 #define EVENT_FD(X) ((X)->u.fd)
 #define EVENT_VAL(X) ((X)->u.val)
-
-/*
- * Please consider this macro deprecated, and do not use it in new code.
- */
-#define EVENT_OFF(thread)                                                      \
-	do {                                                                   \
-		if ((thread))                                                  \
-			event_cancel(&(thread));                               \
-	} while (0)
 
 /*
  * Macro wrappers to generate xrefs for all thread add calls.  Includes

@@ -29,6 +29,7 @@
 /* ignore harmless bugs in old versions of flex */
 #pragma GCC diagnostic ignored "-Wsign-compare"
 #pragma GCC diagnostic ignored "-Wunused-value"
+#pragma GCC diagnostic ignored "-Wmissing-noreturn"
 
 #include "config.h"
 #include <Python.h>

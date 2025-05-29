@@ -31,14 +31,14 @@ PREDECL_SORTLIST_UNIQ(pim_autorp_rp);
 PREDECL_SORTLIST_UNIQ(pim_autorp_grppfix);
 
 struct autorp_pkt_grp {
-#if __BYTE_ORDER == __LITTLE_ENDIAN
+#if BYTE_ORDER == LITTLE_ENDIAN
 	uint8_t negprefix : 1;
 	uint8_t reserved : 7;
-#elif __BYTE_ORDER == __BIG_ENDIAN
+#elif BYTE_ORDER == BIG_ENDIAN
 	uint8_t reserved : 7;
 	uint8_t negprefix : 1;
 #else
-#error "Please fix <bits/endian.h>"
+#error "Please fix <endian.h>"
 #endif
 	uint8_t masklen;
 	uint32_t addr;
@@ -46,27 +46,27 @@ struct autorp_pkt_grp {
 
 struct autorp_pkt_rp {
 	uint32_t addr;
-#if __BYTE_ORDER == __LITTLE_ENDIAN
+#if BYTE_ORDER == LITTLE_ENDIAN
 	uint8_t pimver : 2;
 	uint8_t reserved : 6;
-#elif __BYTE_ORDER == __BIG_ENDIAN
+#elif BYTE_ORDER == BIG_ENDIAN
 	uint8_t reserved : 6;
 	uint8_t pimver : 2;
 #else
-#error "Please fix <bits/endian.h>"
+#error "Please fix <endian.h>"
 #endif
 	uint8_t grpcnt;
 } __attribute__((__packed__));
 
 struct autorp_pkt_hdr {
-#if __BYTE_ORDER == __LITTLE_ENDIAN
+#if BYTE_ORDER == LITTLE_ENDIAN
 	uint8_t type : 4;
 	uint8_t version : 4;
-#elif __BYTE_ORDER == __BIG_ENDIAN
+#elif BYTE_ORDER == BIG_ENDIAN
 	uint8_t version : 4;
 	uint8_t type : 4;
 #else
-#error "Please fix <bits/endian.h>"
+#error "Please fix <endian.h>"
 #endif
 	uint8_t rpcnt;
 	uint16_t holdtime;

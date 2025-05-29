@@ -70,8 +70,7 @@ and the :clicmd:`terminal paginate` command:
    (particularly waiting at the end of output) tends to be annoying to the
    user.  Using ``less -EFX`` is recommended for a better user experience.
 
-   If this environment variable is unset, *vtysh* defaults to not using any
-   pager.
+   If this environment variable is unset, *vtysh* defaults to using *more*.
 
    This variable should be set by the user according to their preferences,
    in their :file:`~/.profile` file.
@@ -82,6 +81,18 @@ and the :clicmd:`terminal paginate` command:
    be placed in :file:`vtysh.conf` to set a system-wide default.  If this
    is enabled but ``VTYSH_PAGER`` is not set, the system default pager
    (likely ``more`` or ``/usr/bin/pager``) will be used.
+
+
+Idle Timeout
+============
+
+.. clicmd:: exec-timeout TIMEOUT
+
+   Enable an idle timeout for the vtysh session, in seconds. When
+   configured, the vtysh process will exit if the session is
+   idle. The timeout can be configured via ``vtysh.conf``, via a
+   ``-T, --exec-timeout`` command-line option, or in the configure
+   mode. A timeout of zero is equivalent to "no timeout".
 
 
 Permissions and setup requirements

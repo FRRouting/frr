@@ -8,7 +8,7 @@ Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
 
 #include "vty.h"
 
-extern struct zclient *zclient;
+extern struct zclient *babel_zclient;
 
 void babelz_zebra_init(void);
 void babel_zebra_close_connexion(void);

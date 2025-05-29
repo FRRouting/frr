@@ -1,0 +1,21 @@
+{
+    "routers": {
+        "r1": {
+            "links": {
+                "lo": { "type": "loopback" },
+                "r2": { "ipv4": "10.20.100.1/24"}
+            },
+            "static_routes": [
+                {"network": "0.0.0.0/0", "next_hop": "10.20.100.2"}
+            ],
+            "bgp": { "local_as": "20101" }
+        },
+        "r2": {
+            "links": {
+                "lo": { "type": "loopback" },
+                "r1": { "ipv4": "10.20.100.2/24"}
+            },
+            "bgp": { "local_as": "20102" }
+	}
+    }
+}

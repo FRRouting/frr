@@ -398,6 +398,8 @@ static const char *bgp_peer_active2str(enum bgp_peer_active active)
 		return "unspecified connection";
 	case BGP_PEER_BFD_DOWN:
 		return "BFD down";
+	case BGP_PEER_BFD_ADMIN_DOWN:
+		return "BFD administrative shutdown";
 	case BGP_PEER_AF_UNCONFIGURED:
 		return "no AF activated";
 	}
@@ -461,7 +463,7 @@ static void bgp_accept(struct event *thread)
 				"[Error] accept() failed with error \"%s\" on BGP listener socket %d for BGP instance in VRF \"%s\"; refreshing socket",
 				safe_strerror(save_errno), accept_sock,
 				VRF_LOGNAME(vrf));
-			EVENT_OFF(listener->thread);
+			event_cancel(&listener->thread);
 		} else {
 			flog_err_sys(
 				EC_LIB_SOCKET,
@@ -524,7 +526,7 @@ static void bgp_accept(struct event *thread)
 			}
 			bgp_peer_reg_with_nht(dynamic_peer);
 			bgp_fsm_change_status(incoming, Active);
-			EVENT_OFF(incoming->t_start);
+			event_cancel(&incoming->t_start);
 
 			if (peer_active(incoming) == BGP_PEER_ACTIVE) {
 				if (CHECK_FLAG(dynamic_peer->flags, PEER_FLAG_TIMER_DELAYOPEN))
@@ -661,7 +663,7 @@ static void bgp_accept(struct event *thread)
 	}
 	bgp_peer_reg_with_nht(doppelganger);
 	bgp_fsm_change_status(incoming, Active);
-	EVENT_OFF(incoming->t_start); /* created in peer_create() */
+	event_cancel(&incoming->t_start); /* created in peer_create() */
 
 	SET_FLAG(doppelganger->sflags, PEER_STATUS_ACCEPT_PEER);
 	/* Make dummy peer until read Open packet. */
@@ -791,7 +793,6 @@ enum connect_result bgp_connect(struct peer_connection *connection)
 
 	assert(!CHECK_FLAG(connection->thread_flags, PEER_THREAD_WRITES_ON));
 	assert(!CHECK_FLAG(connection->thread_flags, PEER_THREAD_READS_ON));
-	ifindex_t ifindex = 0;
 
 	if (peer->bgp->router_id.s_addr == INADDR_ANY) {
 		peer->last_reset = PEER_DOWN_ROUTER_ID_ZERO;
@@ -826,6 +827,14 @@ enum connect_result bgp_connect(struct peer_connection *connection)
 	/* Set the user configured MSS to TCP socket */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_TCP_MSS))
 		sockopt_tcp_mss_set(connection->fd, peer->tcp_mss);
+
+	/* Neighbor's bind() as a source address when ip transparent is used */
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_IP_TRANSPARENT) &&
+	    CHECK_FLAG(peer->flags, PEER_FLAG_UPDATE_SOURCE)) {
+		frr_with_privs (&bgpd_privs) {
+			sockopt_ip_transparent(connection->fd);
+		}
+	}
 
 	bgp_socket_set_buffer_size(connection->fd);
 
@@ -878,11 +887,6 @@ enum connect_result bgp_connect(struct peer_connection *connection)
 		return connect_error;
 	}
 
-	if (peer->conf_if || peer->ifname)
-		ifindex = ifname2ifindex(peer->conf_if ? peer->conf_if
-						       : peer->ifname,
-					 peer->bgp->vrf_id);
-
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [Event] Connect start to %s fd %d", peer->host,
 			   peer->host, connection->fd);
@@ -890,7 +894,7 @@ enum connect_result bgp_connect(struct peer_connection *connection)
 	/* Connect to the remote peer. */
 	enum connect_result res;
 
-	res = sockunion_connect(connection->fd, &connection->su, htons(peer->port), ifindex);
+	res = sockunion_connect(connection->fd, &connection->su, htons(peer->port));
 
 	if (connection->su_remote)
 		sockunion_free(connection->su_remote);
@@ -919,6 +923,12 @@ int bgp_getsockname(struct peer_connection *connection)
 
 	if (!bgp_zebra_nexthop_set(connection->su_local, connection->su_remote, &peer->nexthop,
 				   peer)) {
+		/* no nexthop, but the admin has enforced the source address with an ip-transparent mode
+		 * so let's honor the configuration.
+		 */
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_IP_TRANSPARENT) &&
+		    CHECK_FLAG(peer->flags, PEER_FLAG_UPDATE_SOURCE))
+			return 0;
 		flog_err(EC_BGP_NH_UPD,
 			 "%s: nexthop_set failed, local: %pSUp remote: %pSUp update_if: %s resetting connection - intf %s",
 			 peer->host, connection->su_local, connection->su_remote,
@@ -1074,7 +1084,7 @@ void bgp_close_vrf_socket(struct bgp *bgp)
 
 	for (ALL_LIST_ELEMENTS(bm->listen_sockets, node, next, listener)) {
 		if (listener->bgp == bgp) {
-			EVENT_OFF(listener->thread);
+			event_cancel(&listener->thread);
 			close(listener->fd);
 			listnode_delete(bm->listen_sockets, listener);
 			XFREE(MTYPE_BGP_LISTENER, listener->name);
@@ -1096,7 +1106,7 @@ void bgp_close(void)
 	for (ALL_LIST_ELEMENTS(bm->listen_sockets, node, next, listener)) {
 		if (listener->bgp)
 			continue;
-		EVENT_OFF(listener->thread);
+		event_cancel(&listener->thread);
 		close(listener->fd);
 		listnode_delete(bm->listen_sockets, listener);
 		XFREE(MTYPE_BGP_LISTENER, listener->name);

@@ -233,7 +233,7 @@ static int if_zebra_delete_hook(struct interface *ifp)
 
 		XFREE(MTYPE_ZIF_DESC, zebra_if->desc);
 
-		EVENT_OFF(zebra_if->speed_update);
+		event_cancel(&zebra_if->speed_update);
 
 		XFREE(MTYPE_ZINFO, zebra_if);
 	}
@@ -990,6 +990,7 @@ void if_down(struct interface *ifp)
 	zif->down_count++;
 	frr_timestamp(2, zif->down_last, sizeof(zif->down_last));
 
+	rtadv_stop_ra(ifp, true);
 	if_down_nhg_dependents(ifp);
 
 	/* Handle interface down for specific types for EVPN. Non-VxLAN
@@ -1461,7 +1462,7 @@ static void interface_vrf_change(enum dplane_op_e op, ifindex_t ifindex,
 		 */
 		vrf_id_t exist_id = zebra_vrf_lookup_by_table(tableid, ns_id);
 
-		if (exist_id != VRF_DEFAULT) {
+		if (exist_id != VRF_DEFAULT || strmatch(name, VRF_DEFAULT_NAME)) {
 			vrf = vrf_lookup_by_id(exist_id);
 
 			if (!vrf_lookup_by_id((vrf_id_t)ifindex) && !vrf) {
@@ -1919,8 +1920,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 		if (zif_type == ZEBRA_IF_VRF && !vrf_is_backend_netns())
 			interface_vrf_change(op, ifindex, name, tableid, ns_id);
 	} else {
-		ifindex_t master_ifindex, bridge_ifindex, bond_ifindex,
-			link_ifindex;
+		ifindex_t master_ifindex, bridge_ifindex, link_ifindex;
 		enum zebra_slave_iftype zif_slave_type;
 		uint8_t bypass;
 		uint64_t flags;
@@ -2730,14 +2730,14 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 		}
 		if (gre_info->ifindex_link &&
 		    (gre_info->link_nsid != NS_UNKNOWN)) {
-			struct interface *ifp;
+			struct interface *nifp;
 
-			ifp = if_lookup_by_index_per_ns(
-					zebra_ns_lookup(gre_info->link_nsid),
-					gre_info->ifindex_link);
+			nifp = if_lookup_by_index_per_ns(
+				zebra_ns_lookup(gre_info->link_nsid),
+				gre_info->ifindex_link);
 			vty_out(vty, "  Link Interface %s\n",
-				ifp == NULL ? "Unknown" :
-				ifp->name);
+				nifp == NULL ? "Unknown" :
+				nifp->name);
 		}
 	}
 
@@ -3116,14 +3116,13 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 		}
 		if (gre_info->ifindex_link
 		    && (gre_info->link_nsid != NS_UNKNOWN)) {
-			struct interface *ifp;
+			struct interface *nifp;
 
-			ifp = if_lookup_by_index_per_ns(
+			nifp = if_lookup_by_index_per_ns(
 				zebra_ns_lookup(gre_info->link_nsid),
 				gre_info->ifindex_link);
 			json_object_string_add(json_if, "linkInterface",
-					       ifp == NULL ? "Unknown"
-							   : ifp->name);
+					       nifp == NULL ? "Unknown" : nifp->name);
 		}
 	}
 
@@ -3708,7 +3707,7 @@ int if_shutdown(struct interface *ifp)
 
 	if (ifp->ifindex != IFINDEX_INTERNAL) {
 		/* send RA lifetime of 0 before stopping. rfc4861/6.2.5 */
-		rtadv_stop_ra(ifp);
+		rtadv_stop_ra(ifp, false);
 		if (if_unset_flags(ifp, IFF_UP) < 0) {
 			zlog_debug("Can't shutdown interface %s", ifp->name);
 			return -1;

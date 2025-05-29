@@ -1888,8 +1888,8 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 			if (IS_ZEBRA_DEBUG_RECV)
 				zlog_debug("%s: adding seg6", __func__);
 
-			nexthop_add_srv6_seg6(nexthop, &api_nh->seg6_segs[0],
-					      api_nh->seg_num);
+			nexthop_add_srv6_seg6(nexthop, &api_nh->seg6_segs[0], api_nh->seg_num,
+					      api_nh->srv6_encap_behavior);
 		}
 
 		if (IS_ZEBRA_DEBUG_RECV) {
@@ -3872,12 +3872,13 @@ static inline void zebra_neigh_ip_del(ZAPI_HANDLER_ARGS)
 static inline void zread_iptable(ZAPI_HANDLER_ARGS)
 {
 	struct zebra_pbr_iptable *zpi =
-		XCALLOC(MTYPE_PBR_OBJ, sizeof(struct zebra_pbr_iptable));
+		XCALLOC(MTYPE_PBR_IPTABLE, sizeof(struct zebra_pbr_iptable));
 	struct stream *s;
 
 	s = msg;
 
 	zpi->interface_name_list = list_new();
+	zpi->interface_name_list->del = zebra_pbr_iptable_interface_name_list_free;
 	zpi->sock = client->sock;
 	zpi->vrf_id = zvrf->vrf->vrf_id;
 	STREAM_GETL(s, zpi->unique);

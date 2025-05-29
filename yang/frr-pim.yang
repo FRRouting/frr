@@ -310,6 +310,13 @@ module frr-pim {
           "Prefix-list used to define Source-Specific Multicast address range.";
     }
 
+    leaf dm-prefix-list {
+        type plist-ref;
+        description
+          "Prefix-list used to define Dennse Mode Multicast address range.";
+    }
+
+
     leaf-list ssm-pingd-source-ip {
       type inet:ip-address;
       description
@@ -488,12 +495,38 @@ module frr-pim {
       description
         "Enable PIM flag on the interface.";
     }
-
     leaf pim-passive-enable {
       type boolean;
       default "false";
       description
         "Disable exchange of protocol packets.";
+    }
+    leaf pim-mode {
+      type enumeration {
+        enum "SPARSE" {
+          value 0;
+          description
+            "Sparse mode.";
+        }
+        enum "DENSE" {
+          value 1;
+          description
+            "Dense mode.";
+        }
+        enum "SPARSE_DENSE" {
+          value 2;
+          description
+            "Sparse-Dense mode.";
+        }
+        enum "SSM" {
+          value 3;
+          description
+            "Source Specific Multicast only.";
+        }
+      }
+      default "SPARSE";
+      description
+        "PIM interface mode";
     }
 
     leaf hello-interval {

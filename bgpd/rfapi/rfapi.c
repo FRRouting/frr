@@ -462,7 +462,7 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 			list_delete(&bpi->extra->vnc->vnc.export.local_nexthops);
 
 		bgp_aggregate_decrement(bgp, p, bpi, afi, safi);
-		bgp_path_info_delete(bn, bpi);
+		bgp_path_info_mark_for_delete(bn, bpi);
 		bgp_process(bgp, bn, bpi, afi, safi);
 	} else {
 		vnc_zlog_debug_verbose(
@@ -946,8 +946,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 			}
 		}
 
-		if (attrhash_cmp(bpi->attr, new_attr)
-		    && !CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED)) {
+		if (!CHECK_FLAG(bpi->flags, BGP_PATH_REMOVED) && attrhash_cmp(bpi->attr, new_attr)) {
 			bgp_attr_unintern(&new_attr);
 			bgp_dest_unlock_node(bn);
 
@@ -3546,6 +3545,8 @@ DEFUN (skiplist_debug_cli,
 
 void rfapi_init(void)
 {
+	rfapi_rib_init();
+	rfapi_import_init();
 	bgp_rfapi_cfg_init();
 	vnc_debug_init();
 
@@ -3574,6 +3575,12 @@ void rfapi_init(void)
 #endif
 
 	rfapi_vty_init();
+}
+
+void rfapi_terminate(void)
+{
+	rfapi_import_terminate();
+	rfapi_rib_terminate();
 }
 
 #ifdef DEBUG_RFAPI

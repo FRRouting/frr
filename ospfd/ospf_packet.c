@@ -6,6 +6,10 @@
 
 #include <zebra.h>
 
+#ifndef __linux__
+#include <net/if_dl.h>
+#endif
+
 #include "monotime.h"
 #include "frrevent.h"
 #include "memory.h"
@@ -288,7 +292,7 @@ static void ospf_ls_req_timer(struct event *thread)
 
 void ospf_ls_req_event(struct ospf_neighbor *nbr)
 {
-	EVENT_OFF(nbr->t_ls_req);
+	event_cancel(&nbr->t_ls_req);
 	event_add_event(master, ospf_ls_req_timer, nbr, 0, &nbr->t_ls_req);
 }
 
@@ -3863,7 +3867,7 @@ void ospf_ls_upd_queue_send(struct ospf_interface *oi, struct list *update,
 		 * is actually turned off.
 		 */
 		if (list_isempty(oi->ospf->oi_write_q))
-			EVENT_OFF(oi->ospf->t_write);
+			event_cancel(&oi->ospf->t_write);
 	} else {
 		/* Hook thread to write packet. */
 		OSPF_ISM_WRITE_ON(oi->ospf);
@@ -4055,11 +4059,11 @@ void ospf_ls_ack_send_direct(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 	 * ignored.
 	 */
 	if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT && !oi->p2mp_non_broadcast) {
-		struct ospf_lsa_list_entry *ls_ack_list_entry;
+		struct ospf_lsa_list_entry *ack_list_entry;
 		struct ospf_lsa *ack_queue_lsa;
 
-		frr_each (ospf_lsa_list, &oi->ls_ack_direct, ls_ack_list_entry) {
-			ack_queue_lsa = ls_ack_list_entry->lsa;
+		frr_each (ospf_lsa_list, &oi->ls_ack_direct, ack_list_entry) {
+			ack_queue_lsa = ack_list_entry->lsa;
 			if ((lsa == ack_queue_lsa) ||
 			    ((lsa->data->type == ack_queue_lsa->data->type) &&
 			     (lsa->data->id.s_addr ==

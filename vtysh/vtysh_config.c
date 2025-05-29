@@ -444,13 +444,6 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			config = config_get(KEYCHAIN_NODE, line);
 		else if (strncmp(line, "line", strlen("line")) == 0)
 			config = config_get(VTY_NODE, line);
-		else if ((strncmp(line, "ipv6 forwarding",
-				  strlen("ipv6 forwarding"))
-			  == 0)
-			 || (strncmp(line, "ip forwarding",
-				     strlen("ip forwarding"))
-			     == 0))
-			config = config_get(FORWARDING_NODE, line);
 		else if (strncmp(line, "debug vrf", strlen("debug vrf")) == 0)
 			config = config_get(VRF_DEBUG_NODE, line);
 		else if (strncmp(line, "debug route-map",
@@ -520,15 +513,12 @@ void vtysh_config_parse_line(void *arg, const char *line)
 
 /* Macro to check delimiter is needed between each configuration line
  * or not. */
-#define NO_DELIMITER(I)                                                        \
-	((I) == AFFMAP_NODE || (I) == ACCESS_NODE || (I) == PREFIX_NODE ||     \
-	 (I) == IP_NODE || (I) == AS_LIST_NODE ||                              \
-	 (I) == COMMUNITY_LIST_NODE || (I) == COMMUNITY_ALIAS_NODE ||          \
-	 (I) == ACCESS_IPV6_NODE || (I) == ACCESS_MAC_NODE ||                  \
-	 (I) == PREFIX_IPV6_NODE || (I) == FORWARDING_NODE ||                  \
-	 (I) == DEBUG_NODE || (I) == AAA_NODE || (I) == VRF_DEBUG_NODE ||      \
-	 (I) == RMAP_DEBUG_NODE || (I) == RESOLVER_DEBUG_NODE ||               \
-	 (I) == MPLS_NODE || (I) == KEYCHAIN_KEY_NODE)
+#define NO_DELIMITER(I)                                                                             \
+	((I) == AFFMAP_NODE || (I) == ACCESS_NODE || (I) == PREFIX_NODE || (I) == IP_NODE ||        \
+	 (I) == AS_LIST_NODE || (I) == COMMUNITY_LIST_NODE || (I) == COMMUNITY_ALIAS_NODE ||        \
+	 (I) == ACCESS_IPV6_NODE || (I) == ACCESS_MAC_NODE || (I) == PREFIX_IPV6_NODE ||            \
+	 (I) == DEBUG_NODE || (I) == AAA_NODE || (I) == VRF_DEBUG_NODE || (I) == RMAP_DEBUG_NODE || \
+	 (I) == RESOLVER_DEBUG_NODE || (I) == MPLS_NODE || (I) == KEYCHAIN_KEY_NODE)
 
 static void configvec_dump(vector vec, bool nested)
 {
@@ -558,19 +548,19 @@ static void configvec_dump(vector vec, bool nested)
 					continue;
 				}
 
-				vty_out(vty, "%s\n", config->name);
+				vty_out(gvty, "%s\n", config->name);
 
 				for (ALL_LIST_ELEMENTS(config->line, mnode,
 						       mnnode, line))
-					vty_out(vty, "%s\n", line);
+					vty_out(gvty, "%s\n", line);
 
 				configvec_dump(config->nested, true);
 
 				if (config->exit)
-					vty_out(vty, "%s\n", config->exit);
+					vty_out(gvty, "%s\n", config->exit);
 
 				if (!NO_DELIMITER(i))
-					vty_out(vty, "!\n");
+					vty_out(gvty, "!\n");
 
 				config_del(config);
 			}
@@ -579,7 +569,7 @@ static void configvec_dump(vector vec, bool nested)
 			XFREE(MTYPE_VTYSH_CONFIG, configuration);
 			vector_slot(vec, i) = NULL;
 			if (!nested && NO_DELIMITER(i))
-				vty_out(vty, "!\n");
+				vty_out(gvty, "!\n");
 		}
 }
 
@@ -589,11 +579,11 @@ void vtysh_config_dump(void)
 	char *line;
 
 	for (ALL_LIST_ELEMENTS(config_top, node, nnode, line))
-		vty_out(vty, "%s\n", line);
+		vty_out(gvty, "%s\n", line);
 
 	list_delete_all_node(config_top);
 
-	vty_out(vty, "!\n");
+	vty_out(gvty, "!\n");
 
 	configvec_dump(configvec, false);
 }
@@ -601,13 +591,13 @@ void vtysh_config_dump(void)
 /* Read up configuration file from file_name. */
 static int vtysh_read_file(FILE *confp, bool dry_run)
 {
-	struct vty *vty;
-	int ret;
+	struct vty *lvty;
+	int ret, saved_ret = CMD_SUCCESS;
 
-	vty = vty_new();
-	vty->wfd = STDERR_FILENO;
-	vty->type = VTY_TERM;
-	vty->node = CONFIG_NODE;
+	lvty = vty_new();
+	lvty->wfd = STDERR_FILENO;
+	lvty->type = VTY_TERM;
+	lvty->node = CONFIG_NODE;
 
 	vtysh_execute_no_pager("enable");
 	/*
@@ -622,17 +612,22 @@ static int vtysh_read_file(FILE *confp, bool dry_run)
 		vtysh_execute_no_pager("XFRR_start_configuration");
 
 	/* Execute configuration file. */
-	ret = vtysh_config_from_file(vty, confp);
+	ret = vtysh_config_from_file(lvty, confp);
+	if (ret != CMD_SUCCESS)
+		saved_ret = ret;
 
-	if (!dry_run)
-		vtysh_execute_no_pager("XFRR_end_configuration");
+	if (!dry_run) {
+		ret = vtysh_execute_no_pager("XFRR_end_configuration");
+		if (ret != CMD_SUCCESS)
+			saved_ret = ret;
+	}
 
 	vtysh_execute_no_pager("end");
 	vtysh_execute_no_pager("disable");
 
-	vty_close(vty);
+	vty_close(lvty);
 
-	return (ret);
+	return (saved_ret);
 }
 
 /*
@@ -767,6 +762,7 @@ void vtysh_config_write(void)
 {
 	const char *name;
 	char line[512];
+	uint32_t ival;
 
 	name = cmd_hostname_get();
 	if (name && name[0] != '\0') {
@@ -786,6 +782,12 @@ void vtysh_config_write(void)
 	if (vtysh_write_integrated == WRITE_INTEGRATED_YES)
 		vtysh_config_parse_line(NULL,
 					"service integrated-vtysh-config");
+
+	ival = vtysh_get_exec_timeout();
+	if (ival > 0) {
+		snprintf(line, sizeof(line), "exec-timeout %u", ival);
+		vtysh_config_parse_line(NULL, line);
+	}
 
 	user_config_write();
 }

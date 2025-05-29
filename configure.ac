@@ -467,14 +467,14 @@ AC_C_FLAG([-Wbad-function-cast])
 AC_C_FLAG([-Wwrite-strings])
 AC_C_FLAG([-Wundef])
 AC_C_FLAG([-Wimplicit-fallthrough])
+AC_C_FLAG([-Wshadow])
+AC_C_FLAG([-Wmissing-noreturn])
 if test "$enable_gcc_ultra_verbose" = "yes" ; then
   AC_C_FLAG([-Wcast-qual])
-  AC_C_FLAG([-Wmissing-noreturn])
   AC_C_FLAG([-Wmissing-format-attribute])
   AC_C_FLAG([-Wunreachable-code])
   AC_C_FLAG([-Wpacked])
   AC_C_FLAG([-Wpadded])
-  AC_C_FLAG([-Wshadow])
 else
   AC_C_FLAG([-Wno-unused-result])
 fi
@@ -577,9 +577,38 @@ extern int __start_secttest, __stop_secttest;
   printf("%p %p %p\n", a, b, c);
 ]])], [
   AC_MSG_RESULT(yes)
-  AC_DEFINE(HAVE_SECTION_SYMS, 1, [have __start/stop_section symbols])
 ], [
   AC_MSG_RESULT(no)
+  AC_MSG_ERROR([Toolchain issue: ELF __start/stop_section symbols seem to not work.  Please open configure.ac and search for this message for further information.])
+dnl
+dnl if you have arrived here, well, you might be about to have a rather bad day
+dnl since the above issue will be caused by one of the following things:
+dnl
+dnl (1) the test above broke.  This is the best case; just comment it out and
+dnl     try building anyway.  If it works, you're lucky, but please open an
+dnl     issue on the FRR bugtracker.
+dnl
+dnl (2) you're trying to build for Linux or *BSD.  All non-necromantic versions
+dnl     of those support this feature, so start looking at what might be wrong
+dnl     with your compiler toolchain.  Is "ld" not installed correctly or
+dnl     something like that?  Some weird LTO thing going on?  Weird mix of GNU
+dnl     and LLVM toolchains?  Maybe try a fresh install in a container/VM?
+dnl
+dnl (3) you're trying to build for Solaris.  Support for Solaris has been
+dnl     removed due to lack of maintainers and testing.  For this specific
+dnl     problem, use GNU ld and you're good, but you'll hit walls elsewhere.
+dnl
+dnl (4) you're trying to build for Apple OSX.  You in for a world of pain, with
+dnl     OSX using Mach-O for its binaries rather than ELF.  FRR contains code
+dnl     that uses libelf to open its own binaries and fish out things.  For
+dnl     obvious reasons of Mach-O not being ELF, this won't work.  There is no
+dnl     easy workaround, disabling this code results in a non-working FRR
+dnl     build even if you somehow get it to pass.  Good luck!
+dnl
+dnl IN ALL CASES: open config.log, scroll to the very bottom, then back up to
+dnl     before the kilometer long dumps of internal autoconf variables.  There
+dnl     should be a compiler/linker error there.  You absolutely need that
+dnl     error message, otherwise you're completely lost in the dark.
 ])
 
 dnl ----------
@@ -596,13 +625,6 @@ AX_PTHREAD([
 
 orig_cflags="$CFLAGS"
 CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
-
-AC_SEARCH_LIBS([pthread_condattr_setclock], [],
-		[frr_cv_pthread_condattr_setclock=yes],
-		[frr_cv_pthread_condattr_setclock=no])
-if test "$frr_cv_pthread_condattr_setclock" = "yes"; then
-  AC_DEFINE([HAVE_PTHREAD_CONDATTR_SETCLOCK], [1], [Have pthread.h pthread_condattr_setclock])
-fi
 
 AC_CHECK_HEADERS([pthread_np.h],,, [
 #include <pthread.h>
@@ -1129,15 +1151,16 @@ fi
 dnl -------------------------
 dnl Check other header files.
 dnl -------------------------
-AC_CHECK_HEADERS([stropts.h sys/ksym.h \
-	linux/version.h asm/types.h endian.h sys/endian.h])
+AC_CHECK_HEADERS([ \
+	asm/types.h sys/endian.h])
+
+AC_CHECK_HEADER([endian.h], [], [
+  AC_MSG_ERROR([missing endian.h])
+])
 
 AC_CHECK_LIB([atomic], [main], [LIBS="$LIBS -latomic"], [], [])
 
-ac_stdatomic_ok=false
-AC_DEFINE([FRR_AUTOCONF_ATOMIC], [1], [did autoconf checks for atomic funcs])
 AC_CHECK_HEADER([stdatomic.h],[
-
   AC_MSG_CHECKING([whether _Atomic qualifier works])
   AC_LINK_IFELSE([AC_LANG_SOURCE([[
 #include <stdatomic.h>
@@ -1151,52 +1174,7 @@ int main(int argc, char **argv) {
     ac_stdatomic_ok=true
   ], [
     AC_MSG_RESULT([no])
-  ])
-])
-
-AS_IF([$ac_stdatomic_ok], [true], [
-  AC_MSG_CHECKING([for __atomic_* builtins])
-  AC_LINK_IFELSE([AC_LANG_SOURCE([[
-int main(int argc, char **argv) {
-  volatile int i = 1;
-  __atomic_store_n (&i, 0, __ATOMIC_RELEASE);
-  return __atomic_load_n (&i, __ATOMIC_ACQUIRE);
-}
-]])], [
-    AC_DEFINE([HAVE___ATOMIC], [1], [found __atomic builtins])
-    AC_MSG_RESULT([yes])
-  ], [
-    AC_MSG_RESULT([no])
-
-    dnl FreeBSD 9 has a broken stdatomic.h where _Atomic doesn't work
-    AC_MSG_CHECKING([for __sync_* builtins])
-    AC_LINK_IFELSE([AC_LANG_SOURCE([[
-int main(int argc, char **argv) {
-  volatile int i = 1;
-  __sync_fetch_and_sub (&i, 1);
-  return __sync_val_compare_and_swap (&i, 0, 1);
-}
-]])], [
-      AC_DEFINE([HAVE___SYNC], [1], [found __sync builtins])
-      AC_MSG_RESULT([yes])
-
-      AC_MSG_CHECKING([for __sync_swap builtin])
-      AC_LINK_IFELSE([AC_LANG_SOURCE([[
-int main(int argc, char **argv) {
-  volatile int i = 1;
-  return __sync_swap (&i, 2);
-}
-]])], [
-        AC_DEFINE([HAVE___SYNC_SWAP], 1, [found __sync_swap builtin])
-        AC_MSG_RESULT([yes])
-      ], [
-        AC_MSG_RESULT([no])
-      ])
-
-    ], [
-      AC_MSG_RESULT([no])
-      AC_MSG_FAILURE([stdatomic.h unavailable and $CC has neither __atomic nor __sync builtins])
-    ])
+    AC_MSG_ERROR([building FRR requires an ISO C11 compliant compiler with atomics support])
   ])
 ])
 
@@ -1284,7 +1262,6 @@ m4_define([FRR_INCLUDES],
 #include <stdlib.h>
 #include <stddef.h>
 #include <sys/types.h>
-/* sys/conf.h depends on param.h on FBSD at least */
 #include <sys/param.h>
 /* Required for MAXSIG */
 #include <signal.h>
@@ -1295,23 +1272,8 @@ m4_define([FRR_INCLUDES],
 #include <net/if.h>
 ])dnl
 
-dnl Same applies for HAVE_NET_IF_VAR_H, which HAVE_NETINET6_ND6_H and
-dnl HAVE_NETINET_IN_VAR_H depend upon. But if_var.h depends on if.h, hence
-dnl an additional round for it.
-
-AC_CHECK_HEADERS([net/if_var.h], [], [], [FRR_INCLUDES])
-
-m4_define([FRR_INCLUDES],
-FRR_INCLUDES
-[#ifdef HAVE_NET_IF_VAR_H
-# include <net/if_var.h>
-#endif
-])dnl
-
 AC_CHECK_HEADERS([netinet/in_var.h \
-	net/if_dl.h net/netopt.h \
-	inet/nd.h netinet/ip_icmp.h \
-	sys/sysctl.h sys/sockio.h sys/conf.h],
+	netinet/ip_icmp.h],
 	[], [], [FRR_INCLUDES])
 
 AC_CHECK_HEADERS([ucontext.h], [], [],
@@ -1341,16 +1303,10 @@ FRR_INCLUDES
 #ifdef HAVE_NETINET_IN_VAR_H
 # include <netinet/in_var.h>
 #endif
-#ifdef HAVE_NET_IF_DL_H
+#ifndef __linux__
 # include <net/if_dl.h>
 #endif
-#ifdef HAVE_NET_NETOPT_H
-# include <net/netopt.h>
-#endif
 #include <net/route.h>
-#ifdef HAVE_INET_ND_H
-# include <inet/nd.h>
-#endif
 #include <arpa/inet.h>
 /* Required for IDRP */
 #ifdef HAVE_NETINET_IP_ICMP_H
@@ -1387,14 +1343,12 @@ case "$host_os" in
     AC_MSG_RESULT([OpenBSD])
 
     AC_DEFINE([OPEN_BSD], [1], [OpenBSD])
-    AC_DEFINE([KAME], [1], [KAME IPv6])
     AC_DEFINE([BSD_V6_SYSCTL], [1], [BSD v6 sysctl to turn on and off forwarding])
     ;;
   *)
     AC_MSG_RESULT([BSD])
 
     AC_DEFINE([HAVE_NET_RT_IFLIST], [1], [NET_RT_IFLIST])
-    AC_DEFINE([KAME], [1], [KAME IPv6])
     AC_DEFINE([BSD_V6_SYSCTL], [1], [BSD v6 sysctl to turn on and off forwarding])
     ;;
 esac
@@ -1429,6 +1383,32 @@ AC_CHECK_FUNCS([ \
 	sendmmsg \
 	explicit_bzero \
 	])
+
+dnl note the trailing _ in the following macros; this is neccessary since
+dnl otherwise autoheader *replaces* the #define with the block...
+dnl
+dnl yes this might include stddef.h 3 times but who cares
+
+AH_VERBATIM(HAVE_STRLCAT_, [
+#ifndef HAVE_STRLCAT
+#include <stddef.h>
+size_t strlcat(char *__restrict dest,
+	       const char *__restrict src, size_t destsize);
+#endif
+])
+AH_VERBATIM(HAVE_STRLCPY_, [
+#ifndef HAVE_STRLCPY
+#include <stddef.h>
+size_t strlcpy(char *__restrict dest,
+	       const char *__restrict src, size_t destsize);
+#endif
+])
+AH_VERBATIM(HAVE_EXPLICIT_BZERO_, [
+#ifndef HAVE_EXPLICIT_BZERO
+#include <stddef.h>
+void explicit_bzero(void *buf, size_t len);
+#endif
+])
 
 AC_CHECK_MEMBERS([struct mmsghdr.msg_hdr], [], [], FRR_INCLUDES)
 
@@ -1822,22 +1802,13 @@ AC_CHECK_MEMBERS([struct utsname.domainname], [], [], [#include <sys/utsname.h>]
 dnl ------------------
 dnl IPv6 header checks
 dnl ------------------
-AC_CHECK_HEADERS([netinet6/in6.h netinet/in6_var.h \
-	netinet6/in6_var.h netinet6/nd6.h], [], [],
+AC_CHECK_HEADERS([ \
+	netinet6/nd6.h], [], [],
 	FRR_INCLUDES)
 
 m4_define([FRR_INCLUDES],dnl
 FRR_INCLUDES
-[#ifdef HAVE_NETINET6_IN6_H
-#include <netinet6/in6.h>
-#endif
-#ifdef HAVE_NETINET_IN6_VAR_H
-#include <netinet/in6_var.h>
-#endif
-#include <netinet/icmp6.h>
-#ifdef HAVE_NETINET6_IN6_VAR_H
-# include <netinet6/in6_var.h>
-#endif
+[#include <netinet/icmp6.h>
 #ifdef HAVE_NETINET6_ND6_H
 # include <netinet6/nd6.h>
 #endif
@@ -2342,7 +2313,7 @@ AC_CHECK_TYPES([
 	struct sockaddr_dl,
 	struct vifctl, struct mfcctl, struct sioc_sg_req,
 	vifi_t, struct sioc_vif_req, struct igmpmsg,
-	struct ifaliasreq, struct if6_aliasreq, struct in6_aliasreq,
+	struct ifaliasreq,
 	struct nd_opt_adv_interval,
 	struct nd_opt_homeagent_info, struct nd_opt_adv_interval,
 	struct nd_opt_rdnss, struct nd_opt_dnssl],
@@ -2351,7 +2322,6 @@ AC_CHECK_TYPES([
 AC_CHECK_MEMBERS([struct sockaddr.sa_len,
 	struct sockaddr_in.sin_len, struct sockaddr_un.sun_len,
 	struct sockaddr_dl.sdl_len,
-	struct if6_aliasreq.ifra_lifetime,
 	struct nd_opt_adv_interval.nd_opt_ai_type],
 	[], [], FRR_INCLUDES)
 
@@ -2359,7 +2329,7 @@ dnl ---------------------------
 dnl IRDP/pktinfo/icmphdr checks
 dnl ---------------------------
 
-AC_CHECK_TYPES([struct in_pktinfo], [
+AC_CHECK_TYPE([struct in_pktinfo], [
   AC_CHECK_TYPES([struct icmphdr], [
     IRDP=true
   ], [
@@ -2474,22 +2444,13 @@ AC_CHECK_DECLS([be32enc, be32dec], [], [], [
         #ifdef HAVE_SYS_ENDIAN_H
         #include <sys/endian.h>
         #endif
-        #ifdef HAVE_ENDIAN_H
         #include <endian.h>
-        #endif
 ])
 
 dnl --------------------------------------
 dnl checking for clock_time monotonic struct and call
 dnl --------------------------------------
-AC_CHECK_DECL([CLOCK_MONOTONIC],
-	[AC_CHECK_LIB([rt], [clock_gettime], [LIBS="$LIBS -lrt"])
-	 AC_DEFINE([HAVE_CLOCK_MONOTONIC], [1], [Have monotonic clock])
-], [AC_MSG_RESULT([no])], [FRR_INCLUDES])
-
-AC_CHECK_DECL([CLOCK_THREAD_CPUTIME_ID], [
-	 AC_DEFINE([HAVE_CLOCK_THREAD_CPUTIME_ID], [1], [Have cpu-time clock])
-], [AC_MSG_RESULT([no])], [FRR_INCLUDES])
+AC_CHECK_LIB([rt], [clock_gettime], [LIBS="$LIBS -lrt"])
 
 AC_SEARCH_LIBS([clock_nanosleep], [rt], [
   AC_DEFINE([HAVE_CLOCK_NANOSLEEP], [1], [Have clock_nanosleep()])

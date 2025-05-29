@@ -46,7 +46,7 @@ DEFINE_MTYPE(ZEBRA, VLAN_CHANGE_ARR, "Vlan Change Array");
  * are made. The minor version (at least) should be updated when new APIs
  * are introduced.
  */
-static uint32_t zdplane_version = MAKE_FRRVERSION(2, 0, 0);
+static uint32_t zdplane_version = MAKE_FRRVERSION(2, 1, 0);
 
 /* Control for collection of extra interface info with route updates; a plugin
  * can enable the extra info via a dplane api.
@@ -3602,8 +3602,6 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 		     !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED) &&
 		     !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED)))
 			return ENOENT;
-
-		re->nhe_installed_id = nhe->id;
 	}
 #endif /* HAVE_NETLINK */
 
@@ -6590,6 +6588,14 @@ int dplane_provider_work_ready(void)
 }
 
 /*
+ * Enqueue a context list to zebra main.
+ */
+void dplane_provider_enqueue_ctx_list_to_zebra(struct dplane_ctx_list_head *batch_list)
+{
+	(zdplane_info.dg_results_cb)(batch_list);
+}
+
+/*
  * Enqueue a context directly to zebra main.
  */
 void dplane_provider_enqueue_to_zebra(struct zebra_dplane_ctx *ctx)
@@ -7323,8 +7329,8 @@ static void dplane_check_shutdown_status(struct event *event)
 		zns_info_list_del(&zdplane_info.dg_zns_list, zi);
 
 		if (zdplane_info.dg_master) {
-			EVENT_OFF(zi->t_read);
-			EVENT_OFF(zi->t_request);
+			event_cancel(&zi->t_read);
+			event_cancel(&zi->t_request);
 		}
 
 		XFREE(MTYPE_DP_NS, zi);

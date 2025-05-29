@@ -20,6 +20,7 @@
 #include "routing_nb.h"
 #include "affinitymap.h"
 #include "zebra/zebra_cli.h"
+#include "srv6.h"
 
 /* mgmt options, we use GNU getopt library. */
 static const struct option longopts[] = {
@@ -81,7 +82,7 @@ static void sighup(void)
 }
 
 /* SIGINT handler. */
-static __attribute__((__noreturn__)) void sigint(void)
+static FRR_NORETURN void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 	assert(mm->terminating == false);
@@ -107,7 +108,7 @@ static void sigusr1(void)
  * Zebra route removal and protocol teardown are not meant to be done here.
  * For example, "retain_mode" may be set.
  */
-static __attribute__((__noreturn__)) void mgmt_exit(int status)
+static FRR_NORETURN void mgmt_exit(int status)
 {
 	/* it only makes sense for this to be called on a clean exit */
 	assert(status == 0);
@@ -195,6 +196,7 @@ static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 	&zebra_route_map_info,
 	&ietf_key_chain_cli_info,
 	&ietf_key_chain_deviation_info,
+	&ietf_srv6_types_info,
 
 #ifdef HAVE_RIPD
 	&frr_ripd_cli_info,

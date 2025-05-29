@@ -181,8 +181,8 @@ vbprintfrr(struct fbuf *cb_in, const char *fmt0, va_list ap)
 	struct fbuf cb_copy, *cb;
 	struct fmt_outpos *opos;
 
-	static const char xdigs_lower[16] = "0123456789abcdef";
-	static const char xdigs_upper[16] = "0123456789ABCDEF";
+	static const char *xdigs_lower = "0123456789abcdef";
+	static const char *xdigs_upper = "0123456789ABCDEF";
 
 	/* BEWARE, these `goto error' on error. */
 #define	PRINT(ptr, len) { \
@@ -556,23 +556,23 @@ reswitch:	switch (ch) {
 		case 'G':
 			if (flags & LONGDBL) {
 				long double arg = GETARG(long double);
-				char fmt[6] = "%.*L";
-				fmt[4] = ch;
-				fmt[5] = '\0';
+				char lfmt[6] = "%.*L";
+				lfmt[4] = ch;
+				lfmt[5] = '\0';
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"
-				snprintf(buf, sizeof(buf), fmt, prec, arg);
+				snprintf(buf, sizeof(buf), lfmt, prec, arg);
 #pragma GCC diagnostic pop
 			} else {
 				double arg = GETARG(double);
-				char fmt[5] = "%.*";
-				fmt[3] = ch;
-				fmt[4] = '\0';
+				char lfmt[5] = "%.*";
+				lfmt[3] = ch;
+				lfmt[4] = '\0';
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"
-				snprintf(buf, sizeof(buf), fmt, prec, arg);
+				snprintf(buf, sizeof(buf), lfmt, prec, arg);
 #pragma GCC diagnostic pop
 			}
 			cp = buf;

@@ -9,6 +9,10 @@
 
 #include <zebra.h>
 
+#ifndef __linux__
+#include <net/if_dl.h>
+#endif
+
 #include "ldpd.h"
 #include "ldpe.h"
 #include "log.h"
@@ -627,7 +631,7 @@ session_shutdown(struct nbr *nbr, uint32_t status, uint32_t msg_id,
 	switch (nbr->state) {
 	case NBR_STA_PRESENT:
 		if (nbr_pending_connect(nbr))
-			EVENT_OFF(nbr->ev_connect);
+			event_cancel(&nbr->ev_connect);
 		break;
 	case NBR_STA_INITIAL:
 	case NBR_STA_OPENREC:
@@ -731,7 +735,7 @@ tcp_close(struct tcp_conn *tcp)
 	evbuf_clear(&tcp->wbuf);
 
 	if (tcp->nbr) {
-		EVENT_OFF(tcp->rev);
+		event_cancel(&tcp->rev);
 		free(tcp->rbuf);
 		tcp->nbr->tcp = NULL;
 	}
@@ -763,7 +767,7 @@ pending_conn_new(int fd, int af, union ldpd_addr *addr)
 void
 pending_conn_del(struct pending_conn *pconn)
 {
-	EVENT_OFF(pconn->ev_timeout);
+	event_cancel(&pconn->ev_timeout);
 	TAILQ_REMOVE(&global.pending_conns, pconn, entry);
 	free(pconn);
 }

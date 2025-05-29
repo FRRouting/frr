@@ -461,6 +461,9 @@ _Static_assert(sizeof(_uint64_t) == 8 && sizeof(_int64_t) == 8,
 #define _DATA_SECTION(name) __attribute__((section(".data." name)))
 #endif
 
+/* Wrapper for the 'noreturn' metadata */
+#define FRR_NORETURN __attribute__((noreturn))
+
 #ifdef __cplusplus
 }
 #endif

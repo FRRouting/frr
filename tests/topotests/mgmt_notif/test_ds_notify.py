@@ -46,22 +46,29 @@ def tgen(request):
 
 
 def get_op_and_json(output):
+    values = []
     op = ""
     path = ""
     data = ""
     for line in output.split("\n"):
         if not line:
+            break
+        m = re.match("#OP=([A-Z]*): (.*)", line)
+        if op and m:
+            values.append((op, path, data))
+            data = ""
+            path = ""
+            op = ""
+        if not op and m:
+            op = m.group(1)
+            path = m.group(2)
             continue
-        if not op:
-            m = re.match("#OP=([A-Z]*): (.*)", line)
-            if m:
-                op = m.group(1)
-                path = m.group(2)
-                continue
         data += line + "\n"
-    if not op:
+    if op:
+        values.append((op, path, data))
+    if not values:
         assert False, f"No notifcation op present in:\n{output}"
-    return op, path, data
+    return values
 
 
 def test_frontend_datastore_notification(tgen):
@@ -79,7 +86,12 @@ def test_frontend_datastore_notification(tgen):
 
     # Start our FE client in the background
     p = r1.popen(
-        [FE_CLIENT, "--datastore", "--listen=/frr-interface:lib/interface/state"]
+        [
+            FE_CLIENT,
+            "--datastore",
+            "--notify-count=2",
+            "--listen=/frr-interface:lib/interface/state",
+        ]
     )
     assert waitline(p.stderr, "Connected", timeout=10)
 
@@ -90,7 +102,8 @@ def test_frontend_datastore_notification(tgen):
     try:
         # Wait for FE client to exit
         output, error = p.communicate(timeout=10)
-        op, path, data = get_op_and_json(output)
+        notifs = get_op_and_json(output)
+        op, path, data = notifs[1]
 
         assert op == "REPLACE"
         assert path.startswith("/frr-interface:lib/interface[name='r1-eth0']/state")
@@ -120,6 +133,9 @@ def test_backend_datastore_update(tgen):
     if rc:
         pytest.skip("No mgmtd_testc")
 
+    # Watch the mgmtd log for the BE subscribing
+    mlogp = r1.popen(["/usr/bin/tail", "-n0", "-f", f"{r1.rundir}/mgmtd.log"])
+
     # Start our BE client in the background
     p = r1.popen(
         [
@@ -131,7 +147,8 @@ def test_backend_datastore_update(tgen):
             "/frr-interface:lib/interface",
         ]
     )
-    assert waitline(p.stderr, "Got SUBSCR_REPLY success 1", timeout=10)
+    assert waitline(mlogp.stdout, 'now known as "mgmtd-testc"', timeout=10)
+    mlogp.kill()
 
     r1.cmd_raises("ip link set r1-eth0 mtu 1200")
     try:
@@ -140,7 +157,8 @@ def test_backend_datastore_update(tgen):
         )
 
         output, error = p.communicate(timeout=10)
-        op, path, data = get_op_and_json(output)
+        notifs = get_op_and_json(output)
+        op, path, data = notifs[0]
         jsout = json.loads(data)
         result = json_cmp(jsout, expected)
         assert result is None
@@ -163,6 +181,9 @@ def test_backend_datastore_add_delete(tgen):
     if rc:
         pytest.skip("No mgmtd_testc")
 
+    # Watch the mgmtd log for the BE subscribing
+    mlogp = r1.popen(["/usr/bin/tail", "-n0", "-f", f"{r1.rundir}/mgmtd.log"])
+
     # Start our BE client in the background
     p = r1.popen(
         [
@@ -175,7 +196,8 @@ def test_backend_datastore_add_delete(tgen):
             "/frr-interface:lib/interface",
         ]
     )
-    assert waitline(p.stderr, "Got SUBSCR_REPLY success 1", timeout=10)
+    assert waitline(mlogp.stdout, 'now known as "mgmtd-testc"', timeout=10)
+    mlogp.kill()
 
     r1.cmd_raises('vtysh -c "conf t" -c "int foobar"')
     try:

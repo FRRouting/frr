@@ -38,10 +38,10 @@ from lib.topogen import Topogen, get_topogen
 from lib.common_config import (
     required_linux_kernel_version,
 )
-from lib.topolog import logger
 
 import json
 import functools
+import subprocess
 
 # Global that must be set on a failure to stop subsequent tests from being run
 fatal_error = ""
@@ -420,9 +420,9 @@ def route_get_nhg_id(route_str):
 
     test_func = functools.partial(get_func, route_str)
     _, nhg_id = topotest.run_and_expect_type(test_func, int, count=30, wait=1)
-    if nhg_id == None:
+    if nhg_id is None:
         fatal_error = "Nexthop Group ID not found for route {}".format(route_str)
-        assert nhg_id != None, fatal_error
+        assert nhg_id is not None, fatal_error
     else:
         return nhg_id
 
@@ -710,7 +710,10 @@ def test_rip_status():
         refTableFile = "{}/r{}/rip_status.ref".format(thisDir, i)
         if os.path.isfile(refTableFile):
             # Read expected result from file
-            expected = open(refTableFile).read().rstrip()
+            with open(refTableFile) as file:
+                expected = file.read().rstrip()
+            # Drop trailing whitespaces for each line
+            expected = "\n".join(line.rstrip() for line in expected.splitlines())
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
@@ -724,6 +727,8 @@ def test_rip_status():
             actual = re.sub(r"in [0-9]+ seconds", "in XX seconds", actual)
             # Drop time in last update
             actual = re.sub(r" [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", " XX:XX:XX", actual)
+            # Drop trailing whitespaces for each line
+            actual = "\n".join(line.rstrip() for line in actual.splitlines())
             # Fix newlines (make them all the same)
             actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
 
@@ -771,7 +776,10 @@ def test_ripng_status():
         refTableFile = "{}/r{}/ripng_status.ref".format(thisDir, i)
         if os.path.isfile(refTableFile):
             # Read expected result from file
-            expected = open(refTableFile).read().rstrip()
+            with open(refTableFile) as file:
+                expected = file.read().rstrip()
+            # Drop trailing whitespaces for each line
+            expected = "\n".join(line.rstrip() for line in expected.splitlines())
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
@@ -787,6 +795,8 @@ def test_ripng_status():
             actual = re.sub(r"in [0-9]+ seconds", "in XX seconds", actual)
             # Drop time in last update
             actual = re.sub(r" [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", " XX:XX:XX", actual)
+            # Drop trailing whitespaces for each line
+            actual = "\n".join(line.rstrip() for line in actual.splitlines())
             # Fix newlines (make them all the same)
             actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
 
@@ -834,7 +844,8 @@ def test_ospfv2_interfaces():
         refTableFile = "{}/r{}/show_ip_ospf_interface.ref".format(thisDir, i)
         if os.path.isfile(refTableFile):
             # Read expected result from file
-            expected = open(refTableFile).read().rstrip()
+            with open(refTableFile) as file:
+                expected = file.read().rstrip()
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
@@ -916,7 +927,8 @@ def test_isis_interfaces():
         refTableFile = "{}/r{}/show_isis_interface_detail.ref".format(thisDir, i)
         if os.path.isfile(refTableFile):
             # Read expected result from file
-            expected = open(refTableFile).read().rstrip()
+            with open(refTableFile) as file:
+                expected = file.read().rstrip()
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
@@ -979,7 +991,8 @@ def test_bgp_summary():
         refTableFile = "{}/r{}/show_ip_bgp_summary.ref".format(thisDir, i)
         if os.path.isfile(refTableFile):
             # Read expected result from file
-            expected_original = open(refTableFile).read().rstrip()
+            with open(refTableFile) as file:
+                expected_original = file.read().rstrip()
 
             for arguments in [
                 "",
@@ -1152,7 +1165,8 @@ def test_bgp_ipv6_summary():
         refTableFile = "{}/r{}/show_bgp_ipv6_summary.ref".format(thisDir, i)
         if os.path.isfile(refTableFile):
             # Read expected result from file
-            expected = open(refTableFile).read().rstrip()
+            with open(refTableFile) as file:
+                expected = file.read().rstrip()
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
@@ -1244,7 +1258,8 @@ def test_nht():
 
     for i in range(1, 2):
         nhtFile = "{}/r{}/ip_nht.ref".format(thisDir, i)
-        expected = open(nhtFile).read().rstrip()
+        with open(nhtFile) as file:
+            expected = file.read().rstrip()
         expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
         actual = (
@@ -1266,7 +1281,8 @@ def test_nht():
             print("show ip nht is ok\n")
 
         nhtFile = "{}/r{}/ipv6_nht.ref".format(thisDir, i)
-        expected = open(nhtFile).read().rstrip()
+        with open(nhtFile) as file:
+            expected = file.read().rstrip()
         expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
         actual = (
@@ -1306,7 +1322,8 @@ def test_bgp_ipv4():
         for refTableFile in glob.glob("{}/r{}/show_bgp_ipv4*.ref".format(thisDir, i)):
             if os.path.isfile(refTableFile):
                 # Read expected result from file
-                expected = open(refTableFile).read().rstrip()
+                with open(refTableFile) as file:
+                    expected = file.read().rstrip()
                 # Fix newlines (make them all the same)
                 expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
@@ -1377,7 +1394,8 @@ def test_bgp_ipv6():
         for refTableFile in glob.glob("{}/r{}/show_bgp_ipv6*.ref".format(thisDir, i)):
             if os.path.isfile(refTableFile):
                 # Read expected result from file
-                expected = open(refTableFile).read().rstrip()
+                with open(refTableFile) as file:
+                    expected = file.read().rstrip()
                 # Fix newlines (make them all the same)
                 expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
@@ -1444,7 +1462,8 @@ def test_route_map():
     for i in range(1, 2):
         refroutemap = "{}/r{}/show_route_map.ref".format(thisDir, i)
         if os.path.isfile(refroutemap):
-            expected = open(refroutemap).read().rstrip()
+            with open(refroutemap) as file:
+                expected = file.read().rstrip()
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
             actual = (
@@ -1649,7 +1668,8 @@ def test_mpls_interfaces():
         refTableFile = "{}/r{}/show_mpls_ldp_interface.ref".format(thisDir, i)
         if os.path.isfile(refTableFile):
             # Read expected result from file
-            expected = open(refTableFile).read().rstrip()
+            with open(refTableFile) as file:
+                expected = file.read().rstrip()
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
@@ -1813,6 +1833,69 @@ def test_interface_stuff():
     rc, o, e = net["r1"].cmd_status('vtysh -c "show interface description vrf default"')
     logger.info(o)
     assert rc == 0
+
+
+def test_pbr_table():
+    global fatal_error
+    net = get_topogen().net
+
+    # Skip if previous fatal error condition is raised
+    if fatal_error != "":
+        pytest.skip(fatal_error)
+
+    print("\n\n** Verifying PBR table default route")
+    print("******************************************\n")
+
+    # Get the route table output
+    output = net["r1"].cmd('vtysh -c "show ip route table 10000 nexthop"').rstrip()
+
+    # Check for default route (0.0.0.0/0)
+    if "0.0.0.0/0" not in output:
+        fatal_error = "Default route not found in PBR table 10000"
+        assert False, fatal_error
+
+    print("Default route found in PBR table 10000")
+
+
+def test_vtysh_timeout():
+    "Test vtysh idle session timeout feature."
+
+    global fatal_error
+    tgen = get_topogen()
+    net = tgen.net
+
+    # Skip if previous fatal error condition is raised
+    if fatal_error != "":
+        pytest.skip(fatal_error)
+    r1 = tgen.gears["r1"]
+
+    timeout = 20
+    logger.info("Testing vtysh with idle timeout of {} seconds".format(timeout))
+
+    p1 = None
+    p1 = r1.popen(
+        ["vtysh", "--exec-timeout", str(timeout)],
+        encoding=None,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+
+    # Wait for a while, with a bit of buffer time
+    errmsg = None
+    try:
+        p1.wait(timeout + 10)
+        retcode = p1.returncode
+        if retcode == None:
+            p1.terminate()
+            errmsg = "Vtysh timeout failed after {} seconds".format(timeout + 10)
+    except Exception as e:
+        errmsg = "Vtysh timeout failed after {} seconds".format(timeout + 10)
+
+    if errmsg != None:
+        assert None, errmsg
+
+    logger.info("Vtysh idle timeout test passed")
 
 
 def test_shutdown_check_stderr():

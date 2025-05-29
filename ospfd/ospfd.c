@@ -59,9 +59,6 @@ struct ospf_master *om;
 
 unsigned short ospf_instance;
 
-extern struct zclient *zclient;
-extern struct zclient *zclient_sync;
-
 /* OSPF config processing timer thread */
 struct event *t_ospf_cfg;
 
@@ -648,8 +645,8 @@ void ospf_terminate(void)
 	 * One or more ospf_finish()'s may have deferred shutdown to a timer
 	 * thread
 	 */
-	zclient_stop(zclient);
-	zclient_free(zclient);
+	zclient_stop(ospf_zclient);
+	zclient_free(ospf_zclient);
 	zclient_stop(zclient_sync);
 	zclient_free(zclient_sync);
 
@@ -734,7 +731,7 @@ static void ospf_finish_final(struct ospf *ospf)
 	/* Clear static neighbors */
 	for (rn = route_top(ospf->nbr_nbma); rn; rn = route_next(rn))
 		if ((nbr_nbma = rn->info)) {
-			EVENT_OFF(nbr_nbma->t_poll);
+			event_cancel(&nbr_nbma->t_poll);
 
 			if (nbr_nbma->nbr) {
 				nbr_nbma->nbr->nbr_nbma = NULL;
@@ -857,24 +854,24 @@ static void ospf_finish_final(struct ospf *ospf)
 	}
 
 	/* Cancel all timers. */
-	EVENT_OFF(ospf->t_read);
-	EVENT_OFF(ospf->t_write);
-	EVENT_OFF(ospf->t_spf_calc);
-	EVENT_OFF(ospf->t_ase_calc);
-	EVENT_OFF(ospf->t_maxage);
-	EVENT_OFF(ospf->t_maxage_walker);
-	EVENT_OFF(ospf->t_deferred_shutdown);
-	EVENT_OFF(ospf->t_abr_task);
-	EVENT_OFF(ospf->t_abr_fr);
-	EVENT_OFF(ospf->t_asbr_check);
-	EVENT_OFF(ospf->t_asbr_redist_update);
-	EVENT_OFF(ospf->t_distribute_update);
-	EVENT_OFF(ospf->t_lsa_refresher);
-	EVENT_OFF(ospf->t_opaque_lsa_self);
-	EVENT_OFF(ospf->t_sr_update);
-	EVENT_OFF(ospf->t_default_routemap_timer);
-	EVENT_OFF(ospf->t_external_aggr);
-	EVENT_OFF(ospf->gr_info.t_grace_period);
+	event_cancel(&ospf->t_read);
+	event_cancel(&ospf->t_write);
+	event_cancel(&ospf->t_spf_calc);
+	event_cancel(&ospf->t_ase_calc);
+	event_cancel(&ospf->t_maxage);
+	event_cancel(&ospf->t_maxage_walker);
+	event_cancel(&ospf->t_deferred_shutdown);
+	event_cancel(&ospf->t_abr_task);
+	event_cancel(&ospf->t_abr_fr);
+	event_cancel(&ospf->t_asbr_check);
+	event_cancel(&ospf->t_asbr_redist_update);
+	event_cancel(&ospf->t_distribute_update);
+	event_cancel(&ospf->t_lsa_refresher);
+	event_cancel(&ospf->t_opaque_lsa_self);
+	event_cancel(&ospf->t_sr_update);
+	event_cancel(&ospf->t_default_routemap_timer);
+	event_cancel(&ospf->t_external_aggr);
+	event_cancel(&ospf->gr_info.t_grace_period);
 
 	route_table_finish(ospf->rt_aggr_tbl);
 
@@ -999,8 +996,8 @@ static void ospf_area_free(struct ospf_area *area)
 		free(IMPORT_NAME(area));
 
 	/* Cancel timer. */
-	EVENT_OFF(area->t_stub_router);
-	EVENT_OFF(area->t_opaque_lsa_self);
+	event_cancel(&area->t_stub_router);
+	event_cancel(&area->t_opaque_lsa_self);
 
 	if (OSPF_IS_AREA_BACKBONE(area))
 		area->ospf->backbone = NULL;
@@ -1462,7 +1459,7 @@ void ospf_ls_upd_queue_empty(struct ospf_interface *oi)
 		}
 
 	/* remove update event */
-	EVENT_OFF(oi->t_ls_upd_event);
+	event_cancel(&oi->t_ls_upd_event);
 }
 
 void ospf_if_update(struct ospf *ospf, struct interface *ifp)
@@ -1907,7 +1904,7 @@ int ospf_timers_refresh_set(struct ospf *ospf, int interval)
 		    - (monotime(NULL) - ospf->lsa_refresher_started);
 
 	if (time_left > interval) {
-		EVENT_OFF(ospf->t_lsa_refresher);
+		event_cancel(&ospf->t_lsa_refresher);
 		event_add_timer(master, ospf_lsa_refresh_walker, ospf, interval,
 				&ospf->t_lsa_refresher);
 	}
@@ -1924,7 +1921,7 @@ int ospf_timers_refresh_unset(struct ospf *ospf)
 		    - (monotime(NULL) - ospf->lsa_refresher_started);
 
 	if (time_left > OSPF_LSA_REFRESH_INTERVAL_DEFAULT) {
-		EVENT_OFF(ospf->t_lsa_refresher);
+		event_cancel(&ospf->t_lsa_refresher);
 		ospf->t_lsa_refresher = NULL;
 		event_add_timer(master, ospf_lsa_refresh_walker, ospf,
 				OSPF_LSA_REFRESH_INTERVAL_DEFAULT,
@@ -1976,7 +1973,7 @@ static void ospf_nbr_nbma_delete(struct ospf *ospf,
 
 static void ospf_nbr_nbma_down(struct ospf_nbr_nbma *nbr_nbma)
 {
-	EVENT_OFF(nbr_nbma->t_poll);
+	event_cancel(&nbr_nbma->t_poll);
 
 	if (nbr_nbma->nbr) {
 		nbr_nbma->nbr->nbr_nbma = NULL;
@@ -2165,7 +2162,7 @@ int ospf_nbr_nbma_poll_interval_set(struct ospf *ospf, struct in_addr nbr_addr,
 	if (nbr_nbma->v_poll != interval) {
 		nbr_nbma->v_poll = interval;
 		if (nbr_nbma->oi && ospf_if_is_up(nbr_nbma->oi)) {
-			EVENT_OFF(nbr_nbma->t_poll);
+			event_cancel(&nbr_nbma->t_poll);
 			OSPF_POLL_TIMER_ON(nbr_nbma->t_poll, ospf_poll_timer,
 					   nbr_nbma->v_poll);
 		}
@@ -2214,13 +2211,13 @@ void ospf_update_bufsize(struct ospf *ospf, uint32_t recvsize,
 		ospf_sock_bufsize_update(ospf, ospf->fd, type);
 }
 
-void ospf_master_init(struct event_loop *master)
+void ospf_master_init(struct event_loop *mst)
 {
 	memset(&ospf_master, 0, sizeof(ospf_master));
 
 	om = &ospf_master;
 	om->ospf = list_new();
-	om->master = master;
+	om->master = mst;
 }
 
 /* Link OSPF instance to VRF. */
@@ -2273,20 +2270,20 @@ static void ospf_set_redist_vrf_bitmaps(struct ospf *ospf, bool set)
 				"%s: setting redist vrf %d bitmap for type %d",
 				__func__, ospf->vrf_id, type);
 		if (set)
-			vrf_bitmap_set(&zclient->redist[AFI_IP][type],
+			vrf_bitmap_set(&ospf_zclient->redist[AFI_IP][type],
 				       ospf->vrf_id);
 		else
-			vrf_bitmap_unset(&zclient->redist[AFI_IP][type],
+			vrf_bitmap_unset(&ospf_zclient->redist[AFI_IP][type],
 					 ospf->vrf_id);
 	}
 
 	red_list = ospf->redist[DEFAULT_ROUTE];
 	if (red_list) {
 		if (set)
-			vrf_bitmap_set(&zclient->default_information[AFI_IP],
+			vrf_bitmap_set(&ospf_zclient->default_information[AFI_IP],
 				       ospf->vrf_id);
 		else
-			vrf_bitmap_unset(&zclient->default_information[AFI_IP],
+			vrf_bitmap_unset(&ospf_zclient->default_information[AFI_IP],
 					 ospf->vrf_id);
 	}
 }
@@ -2360,7 +2357,7 @@ static int ospf_vrf_disable(struct vrf *vrf)
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug("%s: ospf old_vrf_id %d unlinked", __func__,
 				   old_vrf_id);
-		EVENT_OFF(ospf->t_read);
+		event_cancel(&ospf->t_read);
 		close(ospf->fd);
 		ospf->fd = -1;
 	}

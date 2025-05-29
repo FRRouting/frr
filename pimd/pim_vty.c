@@ -26,6 +26,7 @@
 #include "pim_rp.h"
 #include "pim_msdp.h"
 #include "pim_ssm.h"
+#include "pim_dm.h"
 #include "pim_bfd.h"
 #include "pim_bsm.h"
 #include "pim_vxlan.h"
@@ -180,6 +181,7 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 {
 	int writes = 0;
 	struct pim_ssm *ssm = pim->ssm_info;
+	struct pim_dm *dm = pim->dm_info;
 
 #if PIM_IPV == 4
 	writes += pim_msdp_peer_config_write(vty, pim);
@@ -245,6 +247,10 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 		vty_out(vty, " ssm prefix-list %s\n", ssm->plist_name);
 		++writes;
 	}
+	if (dm->plist_name) {
+		vty_out(vty, " dm prefix-list %s\n", dm->plist_name);
+		++writes;
+	}
 	if (pim->register_plist) {
 		vty_out(vty, " register-accept-list %s\n", pim->register_plist);
 		++writes;
@@ -288,6 +294,12 @@ static int gm_config_write(struct vty *vty, int writes,
 	/* IF ip igmp */
 	if (pim_ifp->gm_enable) {
 		vty_out(vty, " ip igmp\n");
+		++writes;
+	}
+
+	/* IF ip igmp require-router-alert */
+	if (pim_ifp->gmp_require_ra) {
+		vty_out(vty, " ip igmp require-router-alert\n");
 		++writes;
 	}
 
@@ -380,6 +392,12 @@ static int gm_config_write(struct vty *vty, int writes,
 		++writes;
 	}
 
+	/* IF ip igmp require-router-alert */
+	if (pim_ifp->gmp_require_ra) {
+		vty_out(vty, " ipv6 mld require-router-alert\n");
+		++writes;
+	}
+
 	if (pim_ifp->mld_version != MLD_DEFAULT_VERSION)
 		vty_out(vty, " ipv6 mld version %d\n", pim_ifp->mld_version);
 
@@ -453,7 +471,12 @@ int pim_config_write(struct vty *vty, int writes, struct interface *ifp,
 	struct pim_interface *pim_ifp = ifp->info;
 
 	if (pim_ifp->pim_enable) {
-		vty_out(vty, " " PIM_AF_NAME " pim\n");
+		if (pim_ifp->pim_mode == PIM_MODE_DENSE)
+			vty_out(vty, " " PIM_AF_NAME " pim dm\n");
+		else if (pim_ifp->pim_mode == PIM_MODE_SPARSE_DENSE)
+			vty_out(vty, " " PIM_AF_NAME " pim sm-dm\n");
+		else
+			vty_out(vty, " " PIM_AF_NAME " pim\n");
 		++writes;
 	}
 

@@ -241,17 +241,16 @@ extern int mgmt_txn_send_get_req(uint64_t txn_id, uint64_t req_id,
  *	flags: option flags for the request.
  *	wd_options: LYD_PRINT_WD_* flags for the result.
  *	simple_xpath: true if xpath is simple (only key predicates).
+ *	ylib: libyang tree for yang-library module to be merged.
  *	xpath: The xpath to get the tree from.
  *
  * Return:
  *	0 on success.
  */
-extern int mgmt_txn_send_get_tree_oper(uint64_t txn_id, uint64_t req_id,
-				       uint64_t clients,
-				       Mgmtd__DatastoreId ds_id,
-				       LYD_FORMAT result_type, uint8_t flags,
-				       uint32_t wd_options, bool simple_xpath,
-				       const char *xpath);
+extern int mgmt_txn_send_get_tree(uint64_t txn_id, uint64_t req_id, uint64_t clients,
+				  Mgmtd__DatastoreId ds_id, LYD_FORMAT result_type, uint8_t flags,
+				  uint32_t wd_options, bool simple_xpath, struct lyd_node **ylib,
+				  const char *xpath);
 
 /**
  * Send edit request.
@@ -300,12 +299,16 @@ extern int mgmt_txn_send_rpc(uint64_t txn_id, uint64_t req_id, uint64_t clients,
 /**
  * mgmt_txn_send_notify_selectors() - Send NOTIFY SELECT request.
  * @req_id: FE client request identifier.
- * @clients: Bitmask of clients to send RPC to.
+ * @session_id: If non-zero the message will get sent as a `get_only` vs modifing
+ *	        the selectors in the backend, and the get result will be sent
+ *              back to the given session.
+ * @clients: Bitmask of backend clients to send message to.
  * @selectors: Array of selectors or NULL to resend all selectors to BE clients.
  *
  * Returns 0 on success.
  */
-extern int mgmt_txn_send_notify_selectors(uint64_t req_id, uint64_t clients, const char **selectors);
+extern int mgmt_txn_send_notify_selectors(uint64_t req_id, uint64_t session_id, uint64_t clients,
+					  const char **selectors);
 
 /*
  * Notifiy backend adapter on connection.
@@ -324,10 +327,8 @@ mgmt_txn_notify_be_txn_reply(uint64_t txn_id, bool create, bool success,
 /*
  * Reply to backend adapater with config data create request.
  */
-extern int
-mgmt_txn_notify_be_cfgdata_reply(uint64_t txn_id, bool success,
-				     char *error_if_any,
-				     struct mgmt_be_client_adapter *adapter);
+extern int mgmt_txn_notify_be_cfg_reply(uint64_t txn_id, bool success, const char *error_if_any,
+					struct mgmt_be_client_adapter *adapter);
 
 /*
  * Reply to backend adapater with config data validate request.

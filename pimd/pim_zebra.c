@@ -38,7 +38,7 @@
 #undef PIM_DEBUG_IFADDR_DUMP
 #define PIM_DEBUG_IFADDR_DUMP
 
-struct zclient *zclient;
+struct zclient *pim_zclient;
 
 
 /* Router-id update message from zebra. */
@@ -349,16 +349,16 @@ static void pim_zebra_vxlan_replay(void)
 	struct stream *s = NULL;
 
 	/* Check socket. */
-	if (!zclient || zclient->sock < 0)
+	if (!pim_zclient || pim_zclient->sock < 0)
 		return;
 
-	s = zclient->obuf;
+	s = pim_zclient->obuf;
 	stream_reset(s);
 
 	zclient_create_header(s, ZEBRA_VXLAN_SG_REPLAY, VRF_DEFAULT);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
-	zclient_send_message(zclient);
+	zclient_send_message(pim_zclient);
 }
 
 void pim_scan_oil(struct pim_instance *pim)
@@ -448,14 +448,14 @@ static zclient_handler *const pim_handlers[] = {
 void pim_zebra_init(void)
 {
 	/* Socket for receiving updates from Zebra daemon */
-	zclient = zclient_new(router->master, &zclient_options_default,
-			      pim_handlers, array_size(pim_handlers));
+	pim_zclient = zclient_new(router->master, &zclient_options_default,
+				  pim_handlers, array_size(pim_handlers));
 
-	zclient->zebra_capabilities = pim_zebra_capabilities;
-	zclient->zebra_connected = pim_zebra_connected;
-	zclient->nexthop_update = pim_nexthop_update;
+	pim_zclient->zebra_capabilities = pim_zebra_capabilities;
+	pim_zclient->zebra_connected = pim_zebra_connected;
+	pim_zclient->nexthop_update = pim_nexthop_update;
 
-	zclient_init(zclient, ZEBRA_ROUTE_PIM, 0, &pimd_privs);
+	zclient_init(pim_zclient, ZEBRA_ROUTE_PIM, 0, &pimd_privs);
 	if (PIM_DEBUG_PIM_TRACE) {
 		zlog_notice("%s: zclient socket initialized", __func__);
 	}
@@ -508,8 +508,8 @@ void pim_zebra_zclient_update(struct vty *vty)
 {
 	vty_out(vty, "Zclient update socket: ");
 
-	if (zclient) {
-		vty_out(vty, "%d failures=%d\n", zclient->sock, zclient->fail);
+	if (pim_zclient) {
+		vty_out(vty, "%d failures=%d\n", pim_zclient->sock, pim_zclient->fail);
 	} else {
 		vty_out(vty, "<null zclient>\n");
 	}
@@ -517,8 +517,8 @@ void pim_zebra_zclient_update(struct vty *vty)
 
 struct zclient *pim_zebra_zclient_get(void)
 {
-	if (zclient)
-		return zclient;
+	if (pim_zclient)
+		return pim_zclient;
 	else
 		return NULL;
 }
@@ -526,5 +526,5 @@ struct zclient *pim_zebra_zclient_get(void)
 void pim_zebra_interface_set_master(struct interface *vrf,
 				    struct interface *ifp)
 {
-	zclient_interface_set_master(zclient, vrf, ifp);
+	zclient_interface_set_master(pim_zclient, vrf, ifp);
 }

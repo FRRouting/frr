@@ -17,33 +17,15 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <ctype.h>
-#ifdef HAVE_STROPTS_H
-#include <stropts.h>
-#endif /* HAVE_STROPTS_H */
 #include <sys/types.h>
 #include <sys/param.h>
-#ifdef HAVE_SYS_SYSCTL_H
-#ifdef GNU_LINUX
-#include <linux/types.h>
-#else
-#include <sys/sysctl.h>
-#endif
-#endif /* HAVE_SYS_SYSCTL_H */
-#ifdef HAVE_SYS_CONF_H
-#include <sys/conf.h>
-#endif /* HAVE_SYS_CONF_H */
-#ifdef HAVE_SYS_KSYM_H
-#include <sys/ksym.h>
-#endif /* HAVE_SYS_KSYM_H */
 #include <sys/time.h>
 #include <time.h>
 #include <inttypes.h>
 #ifdef HAVE_SYS_ENDIAN_H
 #include <sys/endian.h>
 #endif
-#ifdef HAVE_ENDIAN_H
 #include <endian.h>
-#endif
 
 /* misc include group */
 #include <stdarg.h>
@@ -52,36 +34,13 @@
 
 #include <sys/socket.h>
 
-#ifdef HAVE_SYS_SOCKIO_H
-#include <sys/sockio.h>
-#endif /* HAVE_SYS_SOCKIO_H */
-
-#ifndef HAVE_LIBCRYPT
-#ifdef HAVE_LIBCRYPTO
-#include <openssl/des.h>
-#      define crypt DES_crypt
-#endif
-#endif
-
 #include "openbsd-tree.h"
 
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
 
-#ifdef HAVE_NET_NETOPT_H
-#include <net/netopt.h>
-#endif /* HAVE_NET_NETOPT_H */
-
 #include <net/if.h>
-
-#ifdef HAVE_NET_IF_DL_H
-#include <net/if_dl.h>
-#endif /* HAVE_NET_IF_DL_H */
-
-#ifdef HAVE_NET_IF_VAR_H
-#include <net/if_var.h>
-#endif /* HAVE_NET_IF_VAR_H */
 
 #ifndef HAVE_NETLINK
 #define RT_TABLE_MAIN		0
@@ -91,21 +50,9 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 
-#ifdef HAVE_INET_ND_H
-#include <inet/nd.h>
-#endif /* HAVE_INET_ND_H */
-
 #ifdef HAVE_NETINET_IN_VAR_H
 #include <netinet/in_var.h>
 #endif /* HAVE_NETINET_IN_VAR_H */
-
-#ifdef HAVE_NETINET6_IN6_VAR_H
-#include <netinet6/in6_var.h>
-#endif /* HAVE_NETINET6_IN6_VAR_H */
-
-#ifdef HAVE_NETINET_IN6_VAR_H
-#include <netinet/in6_var.h>
-#endif /* HAVE_NETINET_IN6_VAR_H */
 
 #ifdef HAVE_NETINET6_IN_H
 #include <netinet6/in.h>
@@ -137,19 +84,6 @@
 
 #ifdef __cplusplus
 extern "C" {
-#endif
-
-#ifndef HAVE_STRLCAT
-size_t strlcat(char *__restrict dest,
-	       const char *__restrict src, size_t destsize);
-#endif
-#ifndef HAVE_STRLCPY
-size_t strlcpy(char *__restrict dest,
-	       const char *__restrict src, size_t destsize);
-#endif
-
-#ifndef HAVE_EXPLICIT_BZERO
-void explicit_bzero(void *buf, size_t len);
 #endif
 
 /*
@@ -184,17 +118,6 @@ void explicit_bzero(void *buf, size_t len);
 #define CMSG_LEN(l)         (_CMSG_DATA_ALIGN(sizeof(struct cmsghdr)) + (l))
 #warning "assuming 4-byte alignment for CMSG_LEN"
 #endif /* CMSG_LEN */
-
-
-/*  The definition of struct in_pktinfo is missing in old version of
-    GLIBC 2.1 (Redhat 6.1).  */
-#if defined(GNU_LINUX) && !defined(HAVE_STRUCT_IN_PKTINFO)
-struct in_pktinfo {
-	int ipi_ifindex;
-	struct in_addr ipi_spec_dst;
-	struct in_addr ipi_addr;
-};
-#endif
 
 /*
  * IP_HDRINCL / struct ip byte order

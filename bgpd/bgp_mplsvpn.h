@@ -278,13 +278,14 @@ static inline void vpn_leak_postchange(enum vpn_policy_direction direction,
 		}
 
 		if (bgp_vrf->vpn_policy[afi].tovpn_sid_index == 0 &&
-		    !CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags,
-				BGP_VPN_POLICY_TOVPN_SID_AUTO) &&
+		    !CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO) &&
 		    bgp_vrf->tovpn_sid_index == 0 &&
-		    !CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_TOVPN_SID_AUTO))
+		    !CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_TOVPN_SID_AUTO) &&
+		    !CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT))
 			delete_vrf_tovpn_sid(bgp_vpn, bgp_vrf, afi);
 
-		if (!bgp_vrf->vpn_policy[afi].tovpn_sid && !bgp_vrf->tovpn_sid)
+		if (CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT) ||
+		    (!bgp_vrf->vpn_policy[afi].tovpn_sid && !bgp_vrf->tovpn_sid))
 			ensure_vrf_tovpn_sid(bgp_vpn, bgp_vrf, afi);
 
 		if ((!bgp_vrf->vpn_policy[afi].tovpn_sid &&
@@ -340,6 +341,38 @@ static inline bool is_pi_family_vpn(struct bgp_path_info *pi)
 {
 	return (is_pi_family_matching(pi, AFI_IP, SAFI_MPLS_VPN) ||
 		is_pi_family_matching(pi, AFI_IP6, SAFI_MPLS_VPN));
+}
+
+/*
+ * If you are using SRv6 VPN instead of MPLS, it need to check
+ * the SID allocation. If the sid is not allocated, the rib
+ * will be invalid.
+ * If the SID per VRF is not available, also consider the rib as
+ * invalid.
+ */
+static inline bool is_pi_srv6_valid(struct bgp_path_info *pi, struct bgp *bgp_nexthop, afi_t afi,
+				    safi_t safi)
+{
+	if (!pi->attr->srv6_l3vpn && !pi->attr->srv6_vpn)
+		return false;
+
+	/* imported paths from VPN: srv6 enabled and nht reachability
+	 * are enough to know if that path is valid
+	 */
+	if (safi == SAFI_UNICAST)
+		return true;
+
+	if (bgp_nexthop->vpn_policy[afi].tovpn_sid == NULL && bgp_nexthop->tovpn_sid == NULL)
+		return false;
+
+	if (bgp_nexthop->tovpn_sid_index == 0 &&
+	    !CHECK_FLAG(bgp_nexthop->vrf_flags, BGP_VRF_TOVPN_SID_AUTO) &&
+	    !CHECK_FLAG(bgp_nexthop->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT) &&
+	    bgp_nexthop->vpn_policy[afi].tovpn_sid_index == 0 &&
+	    !CHECK_FLAG(bgp_nexthop->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO))
+		return false;
+
+	return true;
 }
 
 extern void vpn_policy_routemap_event(const char *rmap_name);

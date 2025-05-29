@@ -30,6 +30,7 @@
 #include "pim_bfd.h"
 #include "pim_register.h"
 #include "pim_oil.h"
+#include "pim_dm.h"
 
 static void dr_election_by_addr(struct interface *ifp)
 {
@@ -222,7 +223,7 @@ void pim_neighbor_timer_reset(struct pim_neighbor *neigh, uint16_t holdtime)
 {
 	neigh->holdtime = holdtime;
 
-	EVENT_OFF(neigh->t_expire_timer);
+	event_cancel(&neigh->t_expire_timer);
 
 	/*
 	  0xFFFF is request for no holdtime
@@ -261,7 +262,7 @@ static void on_neighbor_jp_timer(struct event *t)
 
 static void pim_neighbor_start_jp_timer(struct pim_neighbor *neigh)
 {
-	EVENT_OFF(neigh->jp_timer);
+	event_cancel(&neigh->jp_timer);
 	event_add_timer(router->master, on_neighbor_jp_timer, neigh,
 			router->t_periodic, &neigh->jp_timer);
 }
@@ -275,6 +276,7 @@ pim_neighbor_new(struct interface *ifp, pim_addr source_addr,
 {
 	struct pim_interface *pim_ifp;
 	struct pim_neighbor *neigh;
+	struct channel_oil *c_oil;
 
 	assert(ifp);
 	pim_ifp = ifp->info;
@@ -342,6 +344,16 @@ pim_neighbor_new(struct interface *ifp, pim_addr source_addr,
 	// Register PIM Neighbor with BFD
 	pim_bfd_info_nbr_create(pim_ifp, neigh);
 
+	/* flood to the new neighor if needed */
+	if (HAVE_DENSE_MODE(pim_ifp->pim_mode)) {
+		frr_each (rb_pim_oil, &pim_ifp->pim->channel_oil_head, c_oil) {
+			if (pim_is_grp_dm(pim_ifp->pim, *oil_mcastgrp(c_oil)) && c_oil->installed &&
+			    !oil_if_has(c_oil, pim_ifp->mroute_vif_index)) {
+				oil_if_set(c_oil, pim_ifp->mroute_vif_index, 1);
+				pim_upstream_mroute_update(c_oil, __func__);
+			}
+		}
+	}
 	return neigh;
 }
 
@@ -377,7 +389,7 @@ void pim_neighbor_free(struct pim_neighbor *neigh)
 	delete_prefix_list(neigh);
 
 	list_delete(&neigh->upstream_jp_agg);
-	EVENT_OFF(neigh->jp_timer);
+	event_cancel(&neigh->jp_timer);
 
 	bfd_sess_free(&neigh->bfd_session);
 
@@ -581,7 +593,7 @@ void pim_neighbor_delete(struct interface *ifp, struct pim_neighbor *neigh,
 	zlog_notice("PIM NEIGHBOR DOWN: neighbor %pPA on interface %s: %s",
 		    &neigh->source_addr, ifp->name, delete_message);
 
-	EVENT_OFF(neigh->t_expire_timer);
+	event_cancel(&neigh->t_expire_timer);
 
 	pim_if_assert_on_neighbor_down(ifp, neigh->source_addr);
 

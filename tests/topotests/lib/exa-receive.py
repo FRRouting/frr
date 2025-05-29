@@ -19,8 +19,23 @@ parser.add_argument(
 parser.add_argument("peer", type=int, help="The peer number")
 args = parser.parse_args()
 
-savepath = os.path.join(args.logdir, "peer{}-received.log".format(args.peer))
-routesavefile = open(savepath, "w")
+# Ensure log directory exists
+logdir = args.logdir
+if not os.path.exists(logdir):
+    try:
+        # Create a new log directory
+        os.makedirs(logdir)
+    except OSError as e:
+        print(f"Error in creating log directory: {e}")
+        exit(1)
+
+savepath = os.path.join(logdir, f"peer{args.peer}-received.log")
+
+try:
+    routesavefile = open(savepath, "w")
+except IOError as e:
+    print(f"Error in opening log file: {e}")
+    exit(1)
 
 while True:
     try:

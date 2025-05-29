@@ -12,6 +12,10 @@
 
 #include <zebra.h>
 
+#ifndef __linux__
+#include <net/if_dl.h>
+#endif
+
 #include "frrevent.h"
 #include "memory.h"
 #include "linklist.h"
@@ -532,8 +536,8 @@ void eigrp_read(struct event *thread)
 		return;
 
 	/* Self-originated packet should be discarded silently. */
-	if (eigrp_if_lookup_by_local_addr(eigrp, NULL, iph->ip_src)
-	    || (IPV4_ADDR_SAME(&srcaddr, &ei->address.u.prefix4))) {
+	if (eigrp_if_lookup_by_local_addr(eigrp, ifp, iph->ip_src) ||
+	    (IPV4_ADDR_SAME(&srcaddr, &ei->address.u.prefix4))) {
 		if (IS_DEBUG_EIGRP_TRANSMIT(0, RECV))
 			zlog_debug(
 				"eigrp_read[%pI4]: Dropping self-originated packet",
@@ -923,7 +927,7 @@ void eigrp_packet_free(struct eigrp_packet *ep)
 	if (ep->s)
 		stream_free(ep->s);
 
-	EVENT_OFF(ep->t_retrans_timer);
+	event_cancel(&ep->t_retrans_timer);
 
 	XFREE(MTYPE_EIGRP_PACKET, ep);
 }
@@ -1110,7 +1114,7 @@ struct TLV_IPv4_Internal_type *eigrp_read_ipv4_tlv(struct stream *s)
 
 	tlv->prefix_length = stream_getc(s);
 
-	destination_tmp = stream_getc(s) << 24;
+	destination_tmp = (uint32_t)stream_getc(s) << 24;
 	if (tlv->prefix_length > 8)
 		destination_tmp |= stream_getc(s) << 16;
 	if (tlv->prefix_length > 16)
@@ -1129,7 +1133,7 @@ uint16_t eigrp_add_internalTLV_to_stream(struct stream *s,
 	uint16_t length;
 
 	stream_putw(s, EIGRP_TLV_IPv4_INT);
-	switch (pe->destination->prefixlen) {
+	switch (pe->destination.prefixlen) {
 	case 0:
 	case 1:
 	case 2:
@@ -1176,8 +1180,8 @@ uint16_t eigrp_add_internalTLV_to_stream(struct stream *s,
 		stream_putw(s, length);
 		break;
 	default:
-		flog_err(EC_LIB_DEVELOPMENT, "%s: Unexpected prefix length: %d",
-			 __func__, pe->destination->prefixlen);
+		flog_err(EC_LIB_DEVELOPMENT, "%s: Unexpected prefix length: %d", __func__,
+			 pe->destination.prefixlen);
 		return 0;
 	}
 	stream_putl(s, 0x00000000);
@@ -1194,15 +1198,15 @@ uint16_t eigrp_add_internalTLV_to_stream(struct stream *s,
 	stream_putc(s, pe->reported_metric.tag);
 	stream_putc(s, pe->reported_metric.flags);
 
-	stream_putc(s, pe->destination->prefixlen);
+	stream_putc(s, pe->destination.prefixlen);
 
-	stream_putc(s, (ntohl(pe->destination->u.prefix4.s_addr) >> 24) & 0xFF);
-	if (pe->destination->prefixlen > 8)
-		stream_putc(s, (ntohl(pe->destination->u.prefix4.s_addr) >> 16) & 0xFF);
-	if (pe->destination->prefixlen > 16)
-		stream_putc(s, (ntohl(pe->destination->u.prefix4.s_addr) >> 8) & 0xFF);
-	if (pe->destination->prefixlen > 24)
-		stream_putc(s, ntohl(pe->destination->u.prefix4.s_addr) & 0xFF);
+	stream_putc(s, (ntohl(pe->destination.u.prefix4.s_addr) >> 24) & 0xFF);
+	if (pe->destination.prefixlen > 8)
+		stream_putc(s, (ntohl(pe->destination.u.prefix4.s_addr) >> 16) & 0xFF);
+	if (pe->destination.prefixlen > 16)
+		stream_putc(s, (ntohl(pe->destination.u.prefix4.s_addr) >> 8) & 0xFF);
+	if (pe->destination.prefixlen > 24)
+		stream_putc(s, ntohl(pe->destination.u.prefix4.s_addr) & 0xFF);
 
 	return length;
 }

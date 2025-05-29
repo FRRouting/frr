@@ -283,18 +283,18 @@ static void ism_timer_set(struct ospf_interface *oi)
 		   interface parameters must be set to initial values, and
 		   timers are
 		   reset also. */
-		EVENT_OFF(oi->t_hello);
-		EVENT_OFF(oi->t_wait);
-		EVENT_OFF(oi->t_ls_ack_delayed);
-		EVENT_OFF(oi->gr.hello_delay.t_grace_send);
+		event_cancel(&oi->t_hello);
+		event_cancel(&oi->t_wait);
+		event_cancel(&oi->t_ls_ack_delayed);
+		event_cancel(&oi->gr.hello_delay.t_grace_send);
 		break;
 	case ISM_Loopback:
 		/* In this state, the interface may be looped back and will be
 		   unavailable for regular data traffic. */
-		EVENT_OFF(oi->t_hello);
-		EVENT_OFF(oi->t_wait);
-		EVENT_OFF(oi->t_ls_ack_delayed);
-		EVENT_OFF(oi->gr.hello_delay.t_grace_send);
+		event_cancel(&oi->t_hello);
+		event_cancel(&oi->t_wait);
+		event_cancel(&oi->t_ls_ack_delayed);
+		event_cancel(&oi->gr.hello_delay.t_grace_send);
 		break;
 	case ISM_Waiting:
 		/* The router is trying to determine the identity of DRouter and
@@ -304,7 +304,7 @@ static void ism_timer_set(struct ospf_interface *oi)
 		OSPF_ISM_TIMER_MSEC_ON(oi->t_hello, ospf_hello_timer, 1);
 		OSPF_ISM_TIMER_ON(oi->t_wait, ospf_wait_timer,
 				  OSPF_IF_PARAM(oi, v_wait));
-		EVENT_OFF(oi->t_ls_ack_delayed);
+		event_cancel(&oi->t_ls_ack_delayed);
 		break;
 	case ISM_PointToPoint:
 		/* The interface connects to a physical Point-to-point network
@@ -313,7 +313,7 @@ static void ism_timer_set(struct ospf_interface *oi)
 		   neighboring router. Hello packets are also sent. */
 		/* send first hello immediately */
 		OSPF_ISM_TIMER_MSEC_ON(oi->t_hello, ospf_hello_timer, 1);
-		EVENT_OFF(oi->t_wait);
+		event_cancel(&oi->t_wait);
 		break;
 	case ISM_DROther:
 		/* The network type of the interface is broadcast or NBMA
@@ -321,21 +321,21 @@ static void ism_timer_set(struct ospf_interface *oi)
 		   and the router itself is neither Designated Router nor
 		   Backup Designated Router. */
 		OSPF_HELLO_TIMER_ON(oi);
-		EVENT_OFF(oi->t_wait);
+		event_cancel(&oi->t_wait);
 		break;
 	case ISM_Backup:
 		/* The network type of the interface is broadcast os NBMA
 		   network,
 		   and the router is Backup Designated Router. */
 		OSPF_HELLO_TIMER_ON(oi);
-		EVENT_OFF(oi->t_wait);
+		event_cancel(&oi->t_wait);
 		break;
 	case ISM_DR:
 		/* The network type of the interface is broadcast or NBMA
 		   network,
 		   and the router is Designated Router. */
 		OSPF_HELLO_TIMER_ON(oi);
-		EVENT_OFF(oi->t_wait);
+		event_cancel(&oi->t_wait);
 		break;
 	}
 }

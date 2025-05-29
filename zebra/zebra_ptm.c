@@ -140,9 +140,9 @@ void zebra_ptm_finish(void)
 		free(ptm_cb.in_data);
 
 	/* Cancel events. */
-	EVENT_OFF(ptm_cb.t_read);
-	EVENT_OFF(ptm_cb.t_write);
-	EVENT_OFF(ptm_cb.t_timer);
+	event_cancel(&ptm_cb.t_read);
+	event_cancel(&ptm_cb.t_write);
+	event_cancel(&ptm_cb.t_timer);
 
 	if (ptm_cb.wb)
 		buffer_free(ptm_cb.wb);
@@ -196,7 +196,7 @@ static int zebra_ptm_send_message(char *data, int size)
 				ptm_cb.reconnect_time, &ptm_cb.t_timer);
 		return -1;
 	case BUFFER_EMPTY:
-		EVENT_OFF(ptm_cb.t_write);
+		event_cancel(&ptm_cb.t_write);
 		break;
 	case BUFFER_PENDING:
 		event_add_write(zrouter.master, zebra_ptm_flush_messages, NULL,

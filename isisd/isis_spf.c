@@ -1195,7 +1195,7 @@ end:
 	    && !spftree->area->attached_bit_rcv_ignore
 	    && (spftree->area->is_type & IS_LEVEL_1)
 	    && !isis_level2_adj_up(spftree->area)) {
-		struct prefix_pair ip_info = { {0} };
+		memset(&ip_info, 0, sizeof(ip_info));
 		if (IS_DEBUG_RTE_EVENTS)
 			zlog_debug("ISIS-Spf (%pLS): add default %s route",
 				   lsp->hdr.lsp_id,
@@ -2123,7 +2123,7 @@ static void isis_run_spf_cb(struct event *thread)
 	}
 
 	if (have_run)
-		area->spf_run_count[level]++;
+		area->spf_run_count[level - 1]++;
 
 	isis_area_verify_routes(area);
 
@@ -2178,7 +2178,7 @@ int _isis_spf_schedule(struct isis_area *area, int level,
 			area->area_tag, level, diff, func, file, line);
 	}
 
-	EVENT_OFF(area->t_rlfa_rib_update);
+	event_cancel(&area->t_rlfa_rib_update);
 	if (area->spf_delay_ietf[level - 1]) {
 		/* Need to call schedule function also if spf delay is running
 		 * to

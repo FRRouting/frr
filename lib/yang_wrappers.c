@@ -15,26 +15,6 @@
 #include "printfrr.h"
 
 
-#define YANG_DNODE_XPATH_GET_VALUE(dnode, xpath_fmt)                           \
-	({                                                                     \
-		va_list __ap;                                                  \
-		va_start(__ap, (xpath_fmt));                                   \
-		const struct lyd_value *__dvalue =                             \
-			yang_dnode_xpath_get_value(dnode, xpath_fmt, __ap);    \
-		va_end(__ap);                                                  \
-		__dvalue;                                                      \
-	})
-
-#define YANG_DNODE_XPATH_GET_CANON(dnode, xpath_fmt)                           \
-	({                                                                     \
-		va_list __ap;                                                  \
-		va_start(__ap, (xpath_fmt));                                   \
-		const char *__canon =                                          \
-			yang_dnode_xpath_get_canon(dnode, xpath_fmt, __ap);    \
-		va_end(__ap);                                                  \
-		__canon;                                                       \
-	})
-
 #define YANG_DNODE_GET_ASSERT(dnode, xpath)                                    \
 	do {                                                                   \
 		if ((dnode) == NULL) {                                         \
@@ -45,22 +25,39 @@
 		}                                                              \
 	} while (0)
 
+/* Wrappers for repetitive varargs stanzas */
+#define YANG_DNODE_GET_VALUE                                                   \
+	va_list ap;                                                            \
+                                                                               \
+	va_start(ap, xpath_fmt);                                               \
+	dvalue = yang_dnode_xpath_get_value(dnode, xpath_fmt, ap);             \
+	va_end(ap);
+
+
+#define YANG_DNODE_GET_CANON                                                   \
+	va_list ap;                                                            \
+                                                                               \
+	va_start(ap, xpath_fmt);                                               \
+	canon = yang_dnode_xpath_get_canon(dnode, xpath_fmt, ap);              \
+	va_end(ap);
+
+
 PRINTFRR(2, 0)
 static inline const char *
 yang_dnode_xpath_get_canon(const struct lyd_node *dnode, const char *xpath_fmt,
 			   va_list ap)
 {
-	const struct lyd_node_term *__dleaf =
-		(const struct lyd_node_term *)dnode;
-	assert(__dleaf);
+	const struct lyd_node_term *dleaf = (const struct lyd_node_term *)dnode;
+
+	assert(dleaf);
 	if (xpath_fmt) {
-		char __xpath[XPATH_MAXLEN];
-		vsnprintf(__xpath, sizeof(__xpath), xpath_fmt, ap);
-		__dleaf = (const struct lyd_node_term *)yang_dnode_get(dnode,
-								       __xpath);
-		YANG_DNODE_GET_ASSERT(__dleaf, __xpath);
+		char xpath[XPATH_MAXLEN];
+
+		vsnprintf(xpath, sizeof(xpath), xpath_fmt, ap);
+		dleaf = (const struct lyd_node_term *)yang_dnode_get(dnode, xpath);
+		YANG_DNODE_GET_ASSERT(dleaf, xpath);
 	}
-	return lyd_get_value(&__dleaf->node);
+	return lyd_get_value(&dleaf->node);
 }
 
 PRINTFRR(2, 0)
@@ -68,20 +65,22 @@ static inline const struct lyd_value *
 yang_dnode_xpath_get_value(const struct lyd_node *dnode, const char *xpath_fmt,
 			   va_list ap)
 {
-	const struct lyd_node_term *__dleaf =
-		(const struct lyd_node_term *)dnode;
-	assert(__dleaf);
+	const struct lyd_node_term *dleaf = (const struct lyd_node_term *)dnode;
+	const struct lyd_value *dvalue;
+
+	assert(dleaf);
 	if (xpath_fmt) {
-		char __xpath[XPATH_MAXLEN];
-		vsnprintf(__xpath, sizeof(__xpath), xpath_fmt, ap);
-		__dleaf = (const struct lyd_node_term *)yang_dnode_get(dnode,
-								       __xpath);
-		YANG_DNODE_GET_ASSERT(__dleaf, __xpath);
+		char _xpath[XPATH_MAXLEN];
+
+		vsnprintf(_xpath, sizeof(_xpath), xpath_fmt, ap);
+		dleaf = (const struct lyd_node_term *)yang_dnode_get(dnode, _xpath);
+		YANG_DNODE_GET_ASSERT(dleaf, _xpath);
 	}
-	const struct lyd_value *__dvalue = &__dleaf->value;
-	if (__dvalue->realtype->basetype == LY_TYPE_UNION)
-		__dvalue = &__dvalue->subvalue->value;
-	return __dvalue;
+	dvalue = &dleaf->value;
+
+	if (dvalue->realtype->basetype == LY_TYPE_UNION)
+		dvalue = &dvalue->subvalue->value;
+	return dvalue;
 }
 
 static const char *yang_get_default_value(const char *xpath)
@@ -120,8 +119,11 @@ bool yang_dnode_get_bool(const struct lyd_node *dnode, const char *xpath_fmt,
 			 ...)
 {
 	const struct lyd_value *dvalue;
-	dvalue = YANG_DNODE_XPATH_GET_VALUE(dnode, xpath_fmt);
+
+	YANG_DNODE_GET_VALUE;
+
 	assert(dvalue->realtype->basetype == LY_TYPE_BOOL);
+
 	return dvalue->boolean;
 }
 
@@ -174,7 +176,8 @@ double yang_dnode_get_dec64(const struct lyd_node *dnode, const char *xpath_fmt,
 	const struct lysc_type_dec *dectype;
 	const struct lyd_value *dvalue;
 
-	dvalue = YANG_DNODE_XPATH_GET_VALUE(dnode, xpath_fmt);
+	YANG_DNODE_GET_VALUE;
+
 	dectype = (const struct lysc_type_dec *)dvalue->realtype;
 	assert(dectype->basetype == LY_TYPE_DEC64);
 	assert(dectype->fraction_digits < sizeof(denom) / sizeof(*denom));
@@ -272,7 +275,8 @@ int yang_dnode_get_enum(const struct lyd_node *dnode, const char *xpath_fmt,
 {
 	const struct lyd_value *dvalue;
 
-	dvalue = YANG_DNODE_XPATH_GET_VALUE(dnode, xpath_fmt);
+	YANG_DNODE_GET_VALUE;
+
 	assert(dvalue->realtype->basetype == LY_TYPE_ENUM);
 	assert(dvalue->enum_item->flags & LYS_SET_VALUE);
 	return dvalue->enum_item->value;
@@ -312,7 +316,9 @@ int8_t yang_dnode_get_int8(const struct lyd_node *dnode, const char *xpath_fmt,
 			   ...)
 {
 	const struct lyd_value *dvalue;
-	dvalue = YANG_DNODE_XPATH_GET_VALUE(dnode, xpath_fmt);
+
+	YANG_DNODE_GET_VALUE;
+
 	assert(dvalue->realtype->basetype == LY_TYPE_INT8);
 	return dvalue->int8;
 }
@@ -351,7 +357,9 @@ int16_t yang_dnode_get_int16(const struct lyd_node *dnode,
 			     const char *xpath_fmt, ...)
 {
 	const struct lyd_value *dvalue;
-	dvalue = YANG_DNODE_XPATH_GET_VALUE(dnode, xpath_fmt);
+
+	YANG_DNODE_GET_VALUE;
+
 	assert(dvalue->realtype->basetype == LY_TYPE_INT16);
 	return dvalue->int16;
 }
@@ -390,7 +398,9 @@ int32_t yang_dnode_get_int32(const struct lyd_node *dnode,
 			     const char *xpath_fmt, ...)
 {
 	const struct lyd_value *dvalue;
-	dvalue = YANG_DNODE_XPATH_GET_VALUE(dnode, xpath_fmt);
+
+	YANG_DNODE_GET_VALUE;
+
 	assert(dvalue->realtype->basetype == LY_TYPE_INT32);
 	return dvalue->int32;
 }
@@ -429,7 +439,9 @@ int64_t yang_dnode_get_int64(const struct lyd_node *dnode,
 			     const char *xpath_fmt, ...)
 {
 	const struct lyd_value *dvalue;
-	dvalue = YANG_DNODE_XPATH_GET_VALUE(dnode, xpath_fmt);
+
+	YANG_DNODE_GET_VALUE;
+
 	assert(dvalue->realtype->basetype == LY_TYPE_INT64);
 	return dvalue->int64;
 }
@@ -468,7 +480,9 @@ uint8_t yang_dnode_get_uint8(const struct lyd_node *dnode,
 			     const char *xpath_fmt, ...)
 {
 	const struct lyd_value *dvalue;
-	dvalue = YANG_DNODE_XPATH_GET_VALUE(dnode, xpath_fmt);
+
+	YANG_DNODE_GET_VALUE;
+
 	assert(dvalue->realtype->basetype == LY_TYPE_UINT8);
 	return dvalue->uint8;
 }
@@ -507,7 +521,9 @@ uint16_t yang_dnode_get_uint16(const struct lyd_node *dnode,
 			       const char *xpath_fmt, ...)
 {
 	const struct lyd_value *dvalue;
-	dvalue = YANG_DNODE_XPATH_GET_VALUE(dnode, xpath_fmt);
+
+	YANG_DNODE_GET_VALUE;
+
 	assert(dvalue->realtype->basetype == LY_TYPE_UINT16);
 	return dvalue->uint16;
 }
@@ -546,7 +562,9 @@ uint32_t yang_dnode_get_uint32(const struct lyd_node *dnode,
 			       const char *xpath_fmt, ...)
 {
 	const struct lyd_value *dvalue;
-	dvalue = YANG_DNODE_XPATH_GET_VALUE(dnode, xpath_fmt);
+
+	YANG_DNODE_GET_VALUE;
+
 	assert(dvalue->realtype->basetype == LY_TYPE_UINT32);
 	return dvalue->uint32;
 }
@@ -585,7 +603,9 @@ uint64_t yang_dnode_get_uint64(const struct lyd_node *dnode,
 			       const char *xpath_fmt, ...)
 {
 	const struct lyd_value *dvalue;
-	dvalue = YANG_DNODE_XPATH_GET_VALUE(dnode, xpath_fmt);
+
+	YANG_DNODE_GET_VALUE;
+
 	assert(dvalue->realtype->basetype == LY_TYPE_UINT64);
 	return dvalue->uint64;
 }
@@ -617,14 +637,21 @@ struct yang_data *yang_data_new_string(const char *xpath, const char *value)
 const char *yang_dnode_get_string(const struct lyd_node *dnode,
 				  const char *xpath_fmt, ...)
 {
-	return YANG_DNODE_XPATH_GET_CANON(dnode, xpath_fmt);
+	const char *canon;
+
+	YANG_DNODE_GET_CANON;
+
+	return canon;
 }
 
 void yang_dnode_get_string_buf(char *buf, size_t size,
 			       const struct lyd_node *dnode,
 			       const char *xpath_fmt, ...)
 {
-	const char *canon = YANG_DNODE_XPATH_GET_CANON(dnode, xpath_fmt);
+	const char *canon;
+
+	YANG_DNODE_GET_CANON;
+
 	if (strlcpy(buf, canon, size) >= size) {
 		char xpath[XPATH_MAXLEN];
 
@@ -701,7 +728,8 @@ size_t yang_dnode_get_binary_buf(char *buf, size_t size,
 	char *value_str;
 	struct base64_decodestate s;
 
-	canon = YANG_DNODE_XPATH_GET_CANON(dnode, xpath_fmt);
+	YANG_DNODE_GET_CANON;
+
 	cannon_len = strlen(canon);
 	decode_len = cannon_len + 1;
 	value_str = (char *)malloc(decode_len);
@@ -776,14 +804,16 @@ void yang_dnode_get_prefix(struct prefix *prefix, const struct lyd_node *dnode,
 			   const char *xpath_fmt, ...)
 {
 	const char *canon;
+
+	/* XXX ip_prefix is a native type now in ly2, leverage? */
+	YANG_DNODE_GET_CANON;
+
 	/*
 	 * Initialize prefix to avoid static analyzer complaints about
 	 * uninitialized memory.
 	 */
 	memset(prefix, 0, sizeof(*prefix));
 
-	/* XXX ip_prefix is a native type now in ly2, leverage? */
-	canon = YANG_DNODE_XPATH_GET_CANON(dnode, xpath_fmt);
 	(void)str2prefix(canon, prefix);
 }
 
@@ -821,8 +851,11 @@ struct yang_data *yang_data_new_ipv4(const char *xpath,
 void yang_dnode_get_ipv4(struct in_addr *addr, const struct lyd_node *dnode,
 			 const char *xpath_fmt, ...)
 {
+	const char *canon;
+
 	/* XXX libyang2 IPv4 address is a native type now in ly2 */
-	const char *canon = YANG_DNODE_XPATH_GET_CANON(dnode, xpath_fmt);
+	YANG_DNODE_GET_CANON;
+
 	(void)inet_pton(AF_INET, canon, addr);
 }
 
@@ -864,8 +897,11 @@ void yang_dnode_get_ipv4p(union prefixptr prefix, const struct lyd_node *dnode,
 			  const char *xpath_fmt, ...)
 {
 	struct prefix_ipv4 *prefix4 = prefix.p4;
+	const char *canon;
+
+	YANG_DNODE_GET_CANON;
+
 	/* XXX libyang2: ipv4/6 address is a native type now in ly2 */
-	const char *canon = YANG_DNODE_XPATH_GET_CANON(dnode, xpath_fmt);
 	(void)str2prefix_ipv4(canon, prefix4);
 }
 
@@ -903,8 +939,11 @@ struct yang_data *yang_data_new_ipv6(const char *xpath,
 void yang_dnode_get_ipv6(struct in6_addr *addr, const struct lyd_node *dnode,
 			 const char *xpath_fmt, ...)
 {
+	const char *canon;
+
 	/* XXX libyang2: IPv6 address is a native type now, leverage. */
-	const char *canon = YANG_DNODE_XPATH_GET_CANON(dnode, xpath_fmt);
+	YANG_DNODE_GET_CANON;
+
 	(void)inet_pton(AF_INET6, canon, addr);
 }
 
@@ -946,9 +985,11 @@ void yang_dnode_get_ipv6p(union prefixptr prefix, const struct lyd_node *dnode,
 			  const char *xpath_fmt, ...)
 {
 	struct prefix_ipv6 *prefix6 = prefix.p6;
+	const char *canon;
 
 	/* XXX IPv6 address is a native type now in ly2 -- can we leverage? */
-	const char *canon = YANG_DNODE_XPATH_GET_CANON(dnode, xpath_fmt);
+	YANG_DNODE_GET_CANON;
+
 	(void)str2prefix_ipv6(canon, prefix6);
 }
 
@@ -986,8 +1027,11 @@ struct yang_data *yang_data_new_ip(const char *xpath, const struct ipaddr *addr)
 void yang_dnode_get_ip(struct ipaddr *addr, const struct lyd_node *dnode,
 		       const char *xpath_fmt, ...)
 {
+	const char *canon;
+
 	/* XXX IPv4 address could be a plugin type now in ly2, leverage? */
-	const char *canon = YANG_DNODE_XPATH_GET_CANON(dnode, xpath_fmt);
+	YANG_DNODE_GET_CANON;
+
 	(void)str2ipaddr(canon, addr);
 }
 
@@ -1022,7 +1066,10 @@ void yang_str2mac(const char *value, struct ethaddr *mac)
 void yang_dnode_get_mac(struct ethaddr *mac, const struct lyd_node *dnode,
 			const char *xpath_fmt, ...)
 {
-	const char *canon = YANG_DNODE_XPATH_GET_CANON(dnode, xpath_fmt);
+	const char *canon;
+
+	YANG_DNODE_GET_CANON;
+
 	(void)prefix_str2mac(canon, mac);
 }
 
@@ -1049,9 +1096,11 @@ struct yang_data *yang_data_new_date_and_time(const char *xpath, time_t time, bo
 struct timespec yang_dnode_get_date_and_timespec(const struct lyd_node *dnode,
 						 const char *xpath_fmt, ...)
 {
-	const char *canon = YANG_DNODE_XPATH_GET_CANON(dnode, xpath_fmt);
+	const char *canon;
 	struct timespec ts;
 	LY_ERR err;
+
+	YANG_DNODE_GET_CANON;
 
 	err = ly_time_str2ts(canon, &ts);
 	assert(!err);
@@ -1062,9 +1111,11 @@ struct timespec yang_dnode_get_date_and_timespec(const struct lyd_node *dnode,
 time_t yang_dnode_get_date_and_time(const struct lyd_node *dnode,
 				    const char *xpath_fmt, ...)
 {
-	const char *canon = YANG_DNODE_XPATH_GET_CANON(dnode, xpath_fmt);
+	const char *canon;
 	time_t time;
 	LY_ERR err;
+
+	YANG_DNODE_GET_CANON;
 
 	err = ly_time_str2time(canon, &time, NULL);
 	assert(!err);
@@ -1075,8 +1126,10 @@ time_t yang_dnode_get_date_and_time(const struct lyd_node *dnode,
 float yang_dnode_get_bandwidth_ieee_float32(const struct lyd_node *dnode,
 					    const char *xpath_fmt, ...)
 {
-	const char *canon = YANG_DNODE_XPATH_GET_CANON(dnode, xpath_fmt);
+	const char *canon;
 	float value;
+
+	YANG_DNODE_GET_CANON;
 
 	assert(sscanf(canon, "%a", &value) == 1);
 

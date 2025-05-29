@@ -45,7 +45,7 @@
 #include "isisd/isis_sr.h"
 #include "isisd/isis_ldp_sync.h"
 
-struct zclient *zclient;
+struct zclient *isis_zclient;
 static struct zclient *zclient_sync;
 
 /* Router-id update message from zebra. */
@@ -254,7 +254,7 @@ void isis_zebra_route_add_route(struct isis *isis, struct prefix *prefix,
 	struct zapi_route api;
 	int count = 0;
 
-	if (zclient->sock < 0)
+	if (isis_zclient->sock < 0)
 		return;
 
 	/* Uninstall the route if it doesn't have any valid nexthop. */
@@ -295,7 +295,7 @@ void isis_zebra_route_add_route(struct isis *isis, struct prefix *prefix,
 		return;
 	api.nexthop_num = count;
 
-	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
+	zclient_route_send(ZEBRA_ROUTE_ADD, isis_zclient, &api);
 }
 
 void isis_zebra_route_del_route(struct isis *isis,
@@ -305,7 +305,7 @@ void isis_zebra_route_del_route(struct isis *isis,
 {
 	struct zapi_route api;
 
-	if (zclient->sock < 0)
+	if (isis_zclient->sock < 0)
 		return;
 
 	if (!CHECK_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED))
@@ -321,7 +321,7 @@ void isis_zebra_route_del_route(struct isis *isis,
 		SET_FLAG(api.message, ZAPI_MESSAGE_SRCPFX);
 	}
 
-	zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
+	zclient_route_send(ZEBRA_ROUTE_DELETE, isis_zclient, &api);
 }
 
 /**
@@ -388,7 +388,7 @@ void isis_zebra_prefix_sid_install(struct isis_area *area,
 	}
 
 	/* Send message to zebra. */
-	(void)zebra_send_mpls_labels(zclient, ZEBRA_MPLS_LABELS_REPLACE, &zl);
+	(void)zebra_send_mpls_labels(isis_zclient, ZEBRA_MPLS_LABELS_REPLACE, &zl);
 }
 
 /**
@@ -415,7 +415,7 @@ void isis_zebra_prefix_sid_uninstall(struct isis_area *area,
 	zl.local_label = psid->label;
 
 	/* Send message to zebra. */
-	(void)zebra_send_mpls_labels(zclient, ZEBRA_MPLS_LABELS_DELETE, &zl);
+	(void)zebra_send_mpls_labels(isis_zclient, ZEBRA_MPLS_LABELS_DELETE, &zl);
 }
 
 /**
@@ -471,7 +471,7 @@ void isis_zebra_send_adjacency_sid(int cmd, const struct sr_adjacency *sra)
 		}
 	}
 
-	(void)zebra_send_mpls_labels(zclient, cmd, &zl);
+	(void)zebra_send_mpls_labels(isis_zclient, cmd, &zl);
 }
 
 static int isis_zebra_read(ZAPI_CALLBACK_ARGS)
@@ -523,9 +523,9 @@ void isis_zebra_redistribute_set(afi_t afi, int type, vrf_id_t vrf_id,
 {
 	if (type == DEFAULT_ROUTE)
 		zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_ADD,
-					     zclient, afi, vrf_id);
+					     isis_zclient, afi, vrf_id);
 	else
-		zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, afi, type,
+		zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, isis_zclient, afi, type,
 				     tableid, vrf_id);
 }
 
@@ -534,9 +534,9 @@ void isis_zebra_redistribute_unset(afi_t afi, int type, vrf_id_t vrf_id,
 {
 	if (type == DEFAULT_ROUTE)
 		zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_DELETE,
-					     zclient, afi, vrf_id);
+					     isis_zclient, afi, vrf_id);
 	else
-		zclient_redistribute(ZEBRA_REDISTRIBUTE_DELETE, zclient, afi,
+		zclient_redistribute(ZEBRA_REDISTRIBUTE_DELETE, isis_zclient, afi,
 				     type, tableid, vrf_id);
 }
 
@@ -549,7 +549,7 @@ int isis_zebra_rlfa_register(struct isis_spftree *spftree, struct rlfa *rlfa)
 	struct zapi_rlfa_request zr = {};
 	int ret;
 
-	if (!zclient)
+	if (!isis_zclient)
 		return 0;
 
 	zr.igp.vrf_id = area->isis->vrf_id;
@@ -565,7 +565,7 @@ int isis_zebra_rlfa_register(struct isis_spftree *spftree, struct rlfa *rlfa)
 	zlog_debug("ISIS-LFA: registering RLFA %pFX@%pI4 with LDP",
 		   &rlfa->prefix, &rlfa->pq_address);
 
-	ret = zclient_send_opaque_unicast(zclient, LDP_RLFA_REGISTER,
+	ret = zclient_send_opaque_unicast(isis_zclient, LDP_RLFA_REGISTER,
 					  ZEBRA_ROUTE_LDP, 0, 0,
 					  (const uint8_t *)&zr, sizeof(zr));
 	if (ret == ZCLIENT_SEND_FAILURE) {
@@ -585,8 +585,8 @@ void isis_zebra_rlfa_unregister_all(struct isis_spftree *spftree)
 	struct zapi_rlfa_igp igp = {};
 	int ret;
 
-	if (!zclient || spftree->type != SPF_TYPE_FORWARD
-	    || CHECK_FLAG(spftree->flags, F_SPFTREE_NO_ADJACENCIES))
+	if (!isis_zclient || spftree->type != SPF_TYPE_FORWARD ||
+	    CHECK_FLAG(spftree->flags, F_SPFTREE_NO_ADJACENCIES))
 		return;
 
 	if (IS_DEBUG_LFA)
@@ -599,7 +599,7 @@ void isis_zebra_rlfa_unregister_all(struct isis_spftree *spftree)
 	igp.isis.spf.level = spftree->level;
 	igp.isis.spf.run_id = spftree->runcount;
 
-	ret = zclient_send_opaque_unicast(zclient, LDP_RLFA_UNREGISTER_ALL,
+	ret = zclient_send_opaque_unicast(isis_zclient, LDP_RLFA_UNREGISTER_ALL,
 					  ZEBRA_ROUTE_LDP, 0, 0,
 					  (const uint8_t *)&igp, sizeof(igp));
 	if (ret == ZCLIENT_SEND_FAILURE)
@@ -669,6 +669,7 @@ void isis_zebra_request_srv6_sid_endx(struct isis_adjacency *adj)
 
 	ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_X;
 	ctx.nh6 = nexthop;
+	ctx.ifindex = circuit->interface->ifindex;
 	ret = isis_zebra_request_srv6_sid(&ctx, &sid_value,
 					  area->srv6db.config.srv6_locator_name);
 	if (!ret) {
@@ -774,27 +775,27 @@ int isis_zebra_label_manager_connect(void)
 
 void isis_zebra_vrf_register(struct isis *isis)
 {
-	if (!zclient || zclient->sock < 0 || !isis)
+	if (!isis_zclient || isis_zclient->sock < 0 || !isis)
 		return;
 
 	if (isis->vrf_id != VRF_UNKNOWN) {
 		if (IS_DEBUG_EVENTS)
 			zlog_debug("%s: Register VRF %s id %u", __func__,
 				   isis->name, isis->vrf_id);
-		zclient_send_reg_requests(zclient, isis->vrf_id);
+		zclient_send_reg_requests(isis_zclient, isis->vrf_id);
 	}
 }
 
 void isis_zebra_vrf_deregister(struct isis *isis)
 {
-	if (!zclient || zclient->sock < 0 || !isis)
+	if (!isis_zclient || isis_zclient->sock < 0 || !isis)
 		return;
 
 	if (isis->vrf_id != VRF_UNKNOWN) {
 		if (IS_DEBUG_EVENTS)
 			zlog_debug("%s: Deregister VRF %s id %u", __func__,
 				   isis->name, isis->vrf_id);
-		zclient_send_dereg_requests(zclient, isis->vrf_id);
+		zclient_send_dereg_requests(isis_zclient, isis->vrf_id);
 	}
 }
 
@@ -820,9 +821,9 @@ int isis_zebra_ls_register(bool up)
 	int rc;
 
 	if (up)
-		rc = ls_register(zclient, true);
+		rc = ls_register(isis_zclient, true);
 	else
-		rc = ls_unregister(zclient, true);
+		rc = ls_unregister(isis_zclient, true);
 
 	return rc;
 }
@@ -934,7 +935,7 @@ static void isis_zebra_send_localsid(int cmd, const struct in6_addr *sid,
 	memcpy(&api.prefix, &p, sizeof(p));
 
 	if (cmd == ZEBRA_ROUTE_DELETE)
-		return (void)zclient_route_send(ZEBRA_ROUTE_DELETE, zclient,
+		return (void)zclient_route_send(ZEBRA_ROUTE_DELETE, isis_zclient,
 						&api);
 
 	SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
@@ -952,7 +953,7 @@ static void isis_zebra_send_localsid(int cmd, const struct in6_addr *sid,
 
 	api.nexthop_num = 1;
 
-	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
+	zclient_route_send(ZEBRA_ROUTE_ADD, isis_zclient, &api);
 }
 
 /**
@@ -980,12 +981,25 @@ void isis_zebra_srv6_sid_install(struct isis_area *area,
 		action = ZEBRA_SEG6_LOCAL_ACTION_END;
 		prefixlen = IPV6_MAX_BITLEN;
 		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_PSP:
+		action = ZEBRA_SEG6_LOCAL_ACTION_END;
+		prefixlen = IPV6_MAX_BITLEN;
+		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_PSP);
+		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID:
 		action = ZEBRA_SEG6_LOCAL_ACTION_END;
 		prefixlen = sid->locator->block_bits_length +
 			    sid->locator->node_bits_length;
 		SET_SRV6_FLV_OP(ctx.flv.flv_ops,
 				ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
+		ctx.flv.lcblock_len = sid->locator->block_bits_length;
+		ctx.flv.lcnode_func_len = sid->locator->node_bits_length;
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP:
+		action = ZEBRA_SEG6_LOCAL_ACTION_END;
+		prefixlen = sid->locator->block_bits_length + sid->locator->node_bits_length;
+		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
+		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_PSP);
 		ctx.flv.lcblock_len = sid->locator->block_bits_length;
 		ctx.flv.lcnode_func_len = sid->locator->node_bits_length;
 		break;
@@ -999,14 +1013,16 @@ void isis_zebra_srv6_sid_install(struct isis_area *area,
 	case SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID:
 	case SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID:
 	case SRV6_ENDPOINT_BEHAVIOR_OPAQUE:
-	case SRV6_ENDPOINT_BEHAVIOR_END_PSP:
 	case SRV6_ENDPOINT_BEHAVIOR_END_PSP_USD:
-	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP:
 	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP_USD:
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_PSP:
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_PSP_USD:
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID_PSP:
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID_PSP_USD:
+	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS:
+	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_RED:
+	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_NEXT_CSID:
+	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_RED_NEXT_CSID:
 	default:
 		zlog_err(
 			"ISIS-SRv6 (%s): unsupported SRv6 endpoint behavior %u",
@@ -1048,9 +1064,11 @@ void isis_zebra_srv6_sid_uninstall(struct isis_area *area,
 
 	switch (sid->behavior) {
 	case SRV6_ENDPOINT_BEHAVIOR_END:
+	case SRV6_ENDPOINT_BEHAVIOR_END_PSP:
 		prefixlen = IPV6_MAX_BITLEN;
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID:
+	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP:
 		prefixlen = sid->locator->block_bits_length +
 			    sid->locator->node_bits_length;
 		break;
@@ -1064,14 +1082,16 @@ void isis_zebra_srv6_sid_uninstall(struct isis_area *area,
 	case SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID:
 	case SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID:
 	case SRV6_ENDPOINT_BEHAVIOR_OPAQUE:
-	case SRV6_ENDPOINT_BEHAVIOR_END_PSP:
 	case SRV6_ENDPOINT_BEHAVIOR_END_PSP_USD:
-	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP:
 	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP_USD:
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_PSP:
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_PSP_USD:
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID_PSP:
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID_PSP_USD:
+	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS:
+	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_RED:
+	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_NEXT_CSID:
+	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_RED_NEXT_CSID:
 	default:
 		zlog_err(
 			"ISIS-SRv6 (%s): unsupported SRv6 endpoint behavior %u",
@@ -1145,6 +1165,10 @@ void isis_zebra_srv6_adj_sid_install(struct srv6_adjacency *sra)
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_PSP_USD:
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID_PSP:
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID_PSP_USD:
+	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS:
+	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_RED:
+	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_NEXT_CSID:
+	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_RED_NEXT_CSID:
 	default:
 		zlog_err(
 			"ISIS-SRv6 (%s): unsupported SRv6 endpoint behavior %u",
@@ -1199,6 +1223,10 @@ void isis_zebra_srv6_adj_sid_uninstall(struct srv6_adjacency *sra)
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_PSP_USD:
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID_PSP:
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID_PSP_USD:
+	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS:
+	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_RED:
+	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_NEXT_CSID:
+	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_RED_NEXT_CSID:
 	default:
 		zlog_err(
 			"ISIS-SRv6 (%s): unsupported SRv6 endpoint behavior %u",
@@ -1372,7 +1400,7 @@ static int isis_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
  */
 int isis_zebra_srv6_manager_get_locator_chunk(const char *name)
 {
-	return srv6_manager_get_locator_chunk(zclient, name);
+	return srv6_manager_get_locator_chunk(isis_zclient, name);
 }
 
 
@@ -1385,7 +1413,7 @@ int isis_zebra_srv6_manager_get_locator_chunk(const char *name)
  */
 int isis_zebra_srv6_manager_release_locator_chunk(const char *name)
 {
-	return srv6_manager_release_locator_chunk(zclient, name);
+	return srv6_manager_release_locator_chunk(isis_zclient, name);
 }
 
 /**
@@ -1403,7 +1431,7 @@ int isis_zebra_srv6_manager_get_locator(const char *name)
 	 * Send the Get Locator request to the SRv6 Manager and return the
 	 * result
 	 */
-	return srv6_manager_get_locator(zclient, name);
+	return srv6_manager_get_locator(isis_zclient, name);
 }
 
 /**
@@ -1434,7 +1462,7 @@ bool isis_zebra_request_srv6_sid(const struct srv6_sid_ctx *ctx,
 	 * Send the Get SRv6 SID request to the SRv6 Manager and check the
 	 * result
 	 */
-	ret = srv6_manager_get_sid(zclient, ctx, sid_value, locator_name, NULL);
+	ret = srv6_manager_get_sid(isis_zclient, ctx, sid_value, locator_name, NULL);
 	if (ret < 0) {
 		zlog_warn("%s: error getting SRv6 SID!", __func__);
 		return false;
@@ -1462,7 +1490,7 @@ void isis_zebra_release_srv6_sid(const struct srv6_sid_ctx *ctx)
 	 * Send the Release SRv6 SID request to the SRv6 Manager and check the
 	 * result
 	 */
-	ret = srv6_manager_release_sid(zclient, ctx);
+	ret = srv6_manager_release_sid(isis_zclient, ctx);
 	if (ret < 0) {
 		zlog_warn("%s: error releasing SRv6 SID!", __func__);
 		return;
@@ -1533,14 +1561,12 @@ static int isis_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 					isis_zebra_srv6_sid_uninstall(area, sid);
 					listnode_delete(area->srv6db.srv6_sids,
 							sid);
+					isis_srv6_sid_free(sid);
 				}
 
 				/* Allocate new SRv6 End SID */
-				behavior =
-					(CHECK_FLAG(locator->flags,
-						    SRV6_LOCATOR_USID))
-						? SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID
-						: SRV6_ENDPOINT_BEHAVIOR_END;
+				behavior = SRV6_BEHAVIOR_CODEPOINT(SRV6_ENDPOINT_BEHAVIOR_END,
+								   locator->flags);
 				sid = isis_srv6_sid_alloc(area,
 							  area->srv6db
 								  .srv6_locator,
@@ -1631,16 +1657,16 @@ static zclient_handler *const isis_handlers[] = {
 	[ZEBRA_SRV6_SID_NOTIFY] = isis_zebra_srv6_sid_notify,
 };
 
-void isis_zebra_init(struct event_loop *master, int instance)
+void isis_zebra_init(struct event_loop *mst, int instance)
 {
 	/* Initialize asynchronous zclient. */
-	zclient = zclient_new(master, &zclient_options_default, isis_handlers,
+	isis_zclient = zclient_new(mst, &zclient_options_default, isis_handlers,
 			      array_size(isis_handlers));
-	zclient_init(zclient, PROTO_TYPE, 0, &isisd_privs);
-	zclient->zebra_connected = isis_zebra_connected;
+	zclient_init(isis_zclient, PROTO_TYPE, 0, &isisd_privs);
+	isis_zclient->zebra_connected = isis_zebra_connected;
 
 	/* Initialize special zclient for synchronous message exchanges. */
-	zclient_sync = zclient_new(master, &zclient_options_sync, NULL, 0);
+	zclient_sync = zclient_new(mst, &zclient_options_sync, NULL, 0);
 	zclient_sync->sock = -1;
 	zclient_sync->redist_default = ZEBRA_ROUTE_ISIS;
 	zclient_sync->instance = instance;
@@ -1654,11 +1680,11 @@ void isis_zebra_init(struct event_loop *master, int instance)
 
 void isis_zebra_stop(void)
 {
-	zclient_unregister_opaque(zclient, LDP_RLFA_LABELS);
-	zclient_unregister_opaque(zclient, LDP_IGP_SYNC_IF_STATE_UPDATE);
-	zclient_unregister_opaque(zclient, LDP_IGP_SYNC_ANNOUNCE_UPDATE);
+	zclient_unregister_opaque(isis_zclient, LDP_RLFA_LABELS);
+	zclient_unregister_opaque(isis_zclient, LDP_IGP_SYNC_IF_STATE_UPDATE);
+	zclient_unregister_opaque(isis_zclient, LDP_IGP_SYNC_ANNOUNCE_UPDATE);
 	zclient_stop(zclient_sync);
 	zclient_free(zclient_sync);
-	zclient_stop(zclient);
-	zclient_free(zclient);
+	zclient_stop(isis_zclient);
+	zclient_free(isis_zclient);
 }

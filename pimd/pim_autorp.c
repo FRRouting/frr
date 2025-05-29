@@ -113,10 +113,33 @@ static void pim_autorp_free(struct pim_autorp *autorp)
 		XFREE(MTYPE_PIM_AUTORP_ANNOUNCE, autorp->announce_pkt);
 }
 
+static bool autorp_is_pim_interface(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+
+	return (CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE) && pim_ifp && pim_ifp->pim_enable &&
+		(!pim_ifp->pim_passive_enable));
+}
+
+static bool pim_autorp_should_enable_socket(struct pim_autorp *autorp)
+{
+	struct interface *ifp;
+
+	/* Only enable the socket if there are any PIM enabled interfaces */
+	FOR_ALL_INTERFACES (autorp->pim->vrf, ifp) {
+		if (autorp_is_pim_interface(ifp))
+			return true;
+	}
+	return false;
+}
+
 static bool pim_autorp_should_close(struct pim_autorp *autorp)
 {
-	/* If discovery or mapping agent is active, then we need the socket open */
-	return !autorp->do_discovery && !autorp->send_rp_discovery;
+	/* If discovery or mapping agent is active, then we need the socket open. We also want to leave
+	 * the socket open if there are any pim interfaces and we have an announcement packet to send.
+	 */
+	return !autorp->do_discovery && !autorp->send_rp_discovery &&
+	       !(pim_autorp_should_enable_socket(autorp) && autorp->announce_timer != NULL);
 }
 
 static bool pim_autorp_join_groups(struct interface *ifp)
@@ -283,8 +306,8 @@ static bool autorp_recv_announcement(struct pim_autorp *autorp, uint8_t rpcnt, u
 		/* Ignore RP's limited to PIM version 1 or with an unknown version */
 		if (rp->pimver == AUTORP_PIM_V1 || rp->pimver == AUTORP_PIM_VUNKNOWN) {
 			if (PIM_DEBUG_AUTORP)
-				zlog_debug("%s: Ignoring unsupported PIM version (%u) in AutoRP Announcement for RP %pI4",
-					   __func__, rp->pimver, (in_addr_t *)&(rp->addr));
+				zlog_debug("%s: Ignoring unsupported PIM version (%u) in AutoRP Announcement for RP %pPA",
+					   __func__, rp->pimver, &rp_addr);
 			/* Update the offset to skip past the groups advertised for this RP */
 			offset += (AUTORP_GRPLEN * rp->grpcnt);
 			continue;
@@ -293,14 +316,14 @@ static bool autorp_recv_announcement(struct pim_autorp *autorp, uint8_t rpcnt, u
 		if (rp->grpcnt == 0) {
 			/* No groups?? */
 			if (PIM_DEBUG_AUTORP)
-				zlog_debug("%s: Announcement message has no groups for RP %pI4",
-					   __func__, (in_addr_t *)&(rp->addr));
+				zlog_debug("%s: Announcement message has no groups for RP %pPA",
+					   __func__, &rp_addr);
 			continue;
 		}
 
 		if ((buf_size - offset) < AUTORP_GRPLEN) {
-			zlog_warn("%s: Buffer underrun parsing groups for RP %pI4", __func__,
-				  (in_addr_t *)&(rp->addr));
+			zlog_warn("%s: Buffer underrun parsing groups for RP %pPA", __func__,
+				  &rp_addr);
 			return false;
 		}
 
@@ -684,8 +707,14 @@ static void autorp_send_discovery_on(struct pim_autorp *autorp)
 	int interval = 5;
 
 	/* Make sure the socket is open and ready */
-	if (!pim_autorp_socket_enable(autorp)) {
-		zlog_err("%s: AutoRP failed to open socket", __func__);
+	if (pim_autorp_should_enable_socket(autorp)) {
+		if (!pim_autorp_socket_enable(autorp)) {
+			zlog_err("%s: AutoRP failed to open socket", __func__);
+			return;
+		}
+	} else {
+		if (PIM_DEBUG_AUTORP)
+			zlog_debug("%s: No PIM interfaces, not enabling socket", __func__);
 		return;
 	}
 
@@ -765,14 +794,14 @@ static bool autorp_recv_discovery(struct pim_autorp *autorp, uint8_t rpcnt, uint
 		rp_addr.s_addr = rp->addr;
 
 		if (PIM_DEBUG_AUTORP)
-			zlog_debug("%s: Parsing RP %pI4 (grpcnt=%u)", __func__,
-				   (in_addr_t *)&rp->addr, rp->grpcnt);
+			zlog_debug("%s: Parsing RP %pPA (grpcnt=%u)", __func__, &rp_addr,
+				   rp->grpcnt);
 
 		/* Ignore RP's limited to PIM version 1 or with an unknown version */
 		if (rp->pimver == AUTORP_PIM_V1 || rp->pimver == AUTORP_PIM_VUNKNOWN) {
 			if (PIM_DEBUG_AUTORP)
 				zlog_debug("%s: Ignoring unsupported PIM version in AutoRP Discovery for RP %pI4",
-					   __func__, (in_addr_t *)&(rp->addr));
+					   __func__, &rp_addr);
 			/* Update the offset to skip past the groups advertised for this RP */
 			offset += (AUTORP_GRPLEN * rp->grpcnt);
 			continue;
@@ -781,17 +810,16 @@ static bool autorp_recv_discovery(struct pim_autorp *autorp, uint8_t rpcnt, uint
 		if (rp->grpcnt == 0) {
 			/* No groups?? */
 			if (PIM_DEBUG_AUTORP)
-				zlog_debug("%s: Discovery message has no groups for RP %pI4",
-					   __func__, (in_addr_t *)&(rp->addr));
+				zlog_debug("%s: Discovery message has no groups for RP %pPA",
+					   __func__, &rp_addr);
 			continue;
 		}
 
 		/* Make sure there is enough buffer to parse all the groups */
 		if ((buf_size - offset) < (AUTORP_GRPLEN * rp->grpcnt)) {
 			if (PIM_DEBUG_AUTORP)
-				zlog_debug("%s: Buffer underrun parsing groups for RP %pI4 (%u < %u)",
-					   __func__, (in_addr_t *)&(rp->addr),
-					   (uint32_t)(buf_size - offset),
+				zlog_debug("%s: Buffer underrun parsing groups for RP %pPA (%u < %u)",
+					   __func__, &rp_addr, (uint32_t)(buf_size - offset),
 					   (uint32_t)(AUTORP_GRPLEN * rp->grpcnt));
 			return false;
 		}
@@ -809,8 +837,7 @@ static bool autorp_recv_discovery(struct pim_autorp *autorp, uint8_t rpcnt, uint
 
 			if (PIM_DEBUG_AUTORP)
 				zlog_debug("%s: Parsing group %s%pFX for RP %pI4", __func__,
-					   (grp->negprefix ? "!" : ""), &grppfix,
-					   (in_addr_t *)&rp->addr);
+					   (grp->negprefix ? "!" : ""), &grppfix, &rp_addr);
 
 			if (!pim_autorp_add_rp(autorp, rp_addr, grppfix, NULL, holdtime))
 				success = false;
@@ -856,9 +883,9 @@ static bool autorp_recv_discovery(struct pim_autorp *autorp, uint8_t rpcnt, uint
 				prefix_list_entry_update_finish(ple);
 
 				if (PIM_DEBUG_AUTORP)
-					zlog_debug("%s: Parsing group %s%pFX for RP %pI4", __func__,
+					zlog_debug("%s: Parsing group %s%pFX for RP %pPA", __func__,
 						   (grp->negprefix ? "!" : ""), &ple->prefix,
-						   (in_addr_t *)&rp->addr);
+						   &rp_addr);
 			}
 
 			if (!pim_autorp_add_rp(autorp, rp_addr, grppfix, plname, holdtime))
@@ -964,6 +991,7 @@ err:
 	return;
 }
 
+static void pim_autorp_new_announcement(struct pim_instance *pim);
 static bool pim_autorp_socket_enable(struct pim_autorp *autorp)
 {
 	int fd;
@@ -1006,9 +1034,19 @@ static bool pim_autorp_socket_enable(struct pim_autorp *autorp)
 	if (PIM_DEBUG_AUTORP)
 		zlog_debug("%s: AutoRP socket enabled (fd=%u)", __func__, fd);
 
+	if (autorp->do_discovery)
+		autorp_read_on(autorp);
+
+	if (autorp->send_rp_discovery)
+		autorp_send_discovery_on(autorp);
+
+	/* Try to build a new announcement to make sure the send timer is enabled */
+	pim_autorp_new_announcement(autorp->pim);
+
 	return true;
 }
 
+static void autorp_announcement_off(struct pim_autorp *autorp);
 static bool pim_autorp_socket_disable(struct pim_autorp *autorp)
 {
 	/* Return early if socket is already disabled */
@@ -1022,6 +1060,8 @@ static bool pim_autorp_socket_disable(struct pim_autorp *autorp)
 		return false;
 	}
 
+	autorp_send_discovery_off(autorp);
+	autorp_announcement_off(autorp);
 	autorp_read_off(autorp);
 	autorp->sock = -1;
 
@@ -1058,8 +1098,7 @@ static void autorp_send_announcement(struct event *evt)
 			/* Only send on active interfaces with full pim enabled, non-passive
 			 * and have a primary address set.
 			 */
-			if (CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE) && pim_ifp &&
-			    pim_ifp->pim_enable && !pim_ifp->pim_passive_enable &&
+			if (autorp_is_pim_interface(ifp) &&
 			    !pim_addr_is_any(pim_ifp->primary_address)) {
 				if (setsockopt(autorp->sock, IPPROTO_IP, IP_MULTICAST_IF,
 					       &(pim_ifp->primary_address),
@@ -1108,6 +1147,10 @@ static void autorp_announcement_off(struct pim_autorp *autorp)
 		if (PIM_DEBUG_AUTORP)
 			zlog_debug("%s: AutoRP announcement sending disabled", __func__);
 	event_cancel(&(autorp->announce_timer));
+
+	/* Close the socket if we need to */
+	if (pim_autorp_should_close(autorp) && !pim_autorp_socket_disable(autorp))
+		zlog_warn("%s: AutoRP failed to close socket", __func__);
 }
 
 /* Pack the groups of the RP
@@ -1279,8 +1322,20 @@ static void pim_autorp_new_announcement(struct pim_instance *pim)
 	autorp->announce_pkt_sz += sizeof(struct autorp_pkt_hdr);
 
 	/* Only turn on the announcement timer if we have a packet to send */
-	if (autorp->announce_pkt_sz >= MIN_AUTORP_PKT_SZ)
+	if (autorp->announce_pkt_sz >= MIN_AUTORP_PKT_SZ) {
+		/* We are sending an announcement, but discovery could be off, so make sure the socket is open */
+		if (pim_autorp_should_enable_socket(autorp)) {
+			if (!pim_autorp_socket_enable(autorp)) {
+				zlog_err("%s: AutoRP failed to open socket", __func__);
+				return;
+			}
+		} else {
+			if (PIM_DEBUG_AUTORP)
+				zlog_debug("%s: No PIM interfaces, not enabling socket", __func__);
+			return;
+		}
 		autorp_announcement_on(autorp);
+	}
 }
 
 void pim_autorp_prefix_list_update(struct pim_instance *pim, struct prefix_list *plist)
@@ -1453,10 +1508,15 @@ void pim_autorp_add_ifp(struct interface *ifp)
 	struct pim_interface *pim_ifp;
 
 	pim_ifp = ifp->info;
-	if (CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE) && pim_ifp && pim_ifp->pim_enable) {
+	if (autorp_is_pim_interface(ifp)) {
 		pim = pim_ifp->pim;
-		if (pim && pim->autorp &&
-		    (pim->autorp->do_discovery || pim->autorp->send_rp_discovery)) {
+		if (pim && pim->autorp && !pim_autorp_should_close(pim->autorp)) {
+			/* Make sure the socket is open and ready */
+			if (!pim_autorp_socket_enable(pim->autorp)) {
+				zlog_err("%s: AutoRP failed to open socket", __func__);
+				return;
+			}
+
 			if (PIM_DEBUG_AUTORP)
 				zlog_debug("%s: Adding interface %s to AutoRP, joining AutoRP groups",
 					   __func__, ifp->name);
@@ -1475,11 +1535,13 @@ void pim_autorp_rm_ifp(struct interface *ifp)
 	 */
 	struct pim_instance *pim;
 	struct pim_interface *pim_ifp;
+	struct pim_autorp *autorp = NULL;
 
 	pim_ifp = ifp->info;
 	if (CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE) && pim_ifp) {
 		pim = pim_ifp->pim;
 		if (pim && pim->autorp) {
+			autorp = pim->autorp;
 			if (PIM_DEBUG_AUTORP)
 				zlog_debug("%s: Removing interface %s from AutoRP, leaving AutoRP groups",
 					   __func__, ifp->name);
@@ -1487,6 +1549,11 @@ void pim_autorp_rm_ifp(struct interface *ifp)
 				zlog_warn("Could not leave AutoRP groups, errno=%d, %s", errno,
 					  safe_strerror(errno));
 		}
+	}
+
+	if (autorp != NULL && !pim_autorp_should_enable_socket(autorp)) {
+		/* Removed the last pim enabled interface, close the socket */
+		pim_autorp_socket_disable(autorp);
 	}
 }
 
@@ -1500,8 +1567,14 @@ void pim_autorp_start_discovery(struct pim_instance *pim)
 	autorp->do_discovery = true;
 
 	/* Make sure the socket is open and ready */
-	if (!pim_autorp_socket_enable(autorp)) {
-		zlog_err("%s: AutoRP failed to open socket", __func__);
+	if (pim_autorp_should_enable_socket(autorp)) {
+		if (!pim_autorp_socket_enable(autorp)) {
+			zlog_err("%s: AutoRP failed to open socket", __func__);
+			return;
+		}
+	} else {
+		if (PIM_DEBUG_AUTORP)
+			zlog_debug("%s: No PIM interfaces, not enabling socket", __func__);
 		return;
 	}
 

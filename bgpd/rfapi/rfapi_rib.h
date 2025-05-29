@@ -138,4 +138,7 @@ extern int rfapi_rib_key_cmp(const void *k1, const void *k2);
 
 extern void rfapiAdbFree(struct rfapi_adb *adb);
 
+extern void rfapi_rib_init(void);
+extern void rfapi_rib_terminate(void);
+
 #endif /* QUAGGA_HGP_RFAPI_RIB_H */

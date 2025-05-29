@@ -269,6 +269,14 @@ int lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_lifetime_m
 	struct nb_cb_modify_args *args);
 int lib_interface_zebra_ipv6_router_advertisements_dnssl_dnssl_domain_lifetime_destroy(
 	struct nb_cb_destroy_args *args);
+int lib_interface_zebra_ipv6_router_advertisements_pref64_pref64_prefix_create(
+	struct nb_cb_create_args *args);
+int lib_interface_zebra_ipv6_router_advertisements_pref64_pref64_prefix_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_zebra_ipv6_router_advertisements_pref64_pref64_prefix_lifetime_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_zebra_ipv6_router_advertisements_pref64_pref64_prefix_lifetime_destroy(
+	struct nb_cb_destroy_args *args);
 #endif /* defined(HAVE_RTADV) */
 #if HAVE_BFDD == 0
 int lib_interface_zebra_ptm_enable_modify(struct nb_cb_modify_args *args);
@@ -452,6 +460,9 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_srv6_segs_stack_e
 	struct nb_cb_get_elem_args *args);
 struct yang_data *
 lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_srv6_segs_stack_entry_seg_get_elem(
+	struct nb_cb_get_elem_args *args);
+struct yang_data *
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_srv6_segs_stack_encap_behavior_get_elem(
 	struct nb_cb_get_elem_args *args);
 const void *
 lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_mpls_label_stack_entry_get_next(

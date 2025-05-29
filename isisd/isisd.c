@@ -187,12 +187,12 @@ struct isis *isis_lookup_by_sysid(const uint8_t *sysid)
 	return NULL;
 }
 
-void isis_master_init(struct event_loop *master)
+void isis_master_init(struct event_loop *mst)
 {
 	memset(&isis_master, 0, sizeof(isis_master));
 	im = &isis_master;
 	im->isis = list_new();
-	im->master = master;
+	im->master = mst;
 }
 
 void isis_master_terminate(void)
@@ -582,10 +582,10 @@ void isis_area_destroy(struct isis_area *area)
 
 	if (area->spf_timer[0])
 		isis_spf_timer_free(EVENT_ARG(area->spf_timer[0]));
-	EVENT_OFF(area->spf_timer[0]);
+	event_cancel(&area->spf_timer[0]);
 	if (area->spf_timer[1])
 		isis_spf_timer_free(EVENT_ARG(area->spf_timer[1]));
-	EVENT_OFF(area->spf_timer[1]);
+	event_cancel(&area->spf_timer[1]);
 
 	spf_backoff_free(area->spf_delay_ietf[0]);
 	spf_backoff_free(area->spf_delay_ietf[1]);
@@ -614,10 +614,10 @@ void isis_area_destroy(struct isis_area *area)
 	isis_lfa_tiebreakers_clear(area, ISIS_LEVEL1);
 	isis_lfa_tiebreakers_clear(area, ISIS_LEVEL2);
 
-	EVENT_OFF(area->t_tick);
-	EVENT_OFF(area->t_lsp_refresh[0]);
-	EVENT_OFF(area->t_lsp_refresh[1]);
-	EVENT_OFF(area->t_rlfa_rib_update);
+	event_cancel(&area->t_tick);
+	event_cancel(&area->t_lsp_refresh[0]);
+	event_cancel(&area->t_lsp_refresh[1]);
+	event_cancel(&area->t_rlfa_rib_update);
 
 	event_cancel_event(master, area);
 
@@ -694,24 +694,24 @@ static void isis_set_redist_vrf_bitmaps(struct isis *isis, bool set)
 						if (type == DEFAULT_ROUTE) {
 							if (set)
 								vrf_bitmap_set(
-									&zclient->default_information
+									&isis_zclient->default_information
 										 [afi],
 									isis->vrf_id);
 							else
 								vrf_bitmap_unset(
-									&zclient->default_information
+									&isis_zclient->default_information
 										 [afi],
 									isis->vrf_id);
 						} else {
 							if (set)
 								vrf_bitmap_set(
-									&zclient->redist
+									&isis_zclient->redist
 										 [afi]
 										 [type],
 									isis->vrf_id);
 							else
 								vrf_bitmap_unset(
-									&zclient->redist
+									&isis_zclient->redist
 										 [afi]
 										 [type],
 									isis->vrf_id);
@@ -2379,6 +2379,7 @@ static const char *pdu_counter_index_to_name_json(enum pdu_counter_index index)
 	}
 
 	assert(!"Reached end of function where we are not expecting to");
+	return "DEV ESCAPE";
 }
 
 static void common_isis_summary_json(struct json_object *json,
@@ -3210,12 +3211,12 @@ static void area_resign_level(struct isis_area *area, int level)
 	if (area->spf_timer[level - 1])
 		isis_spf_timer_free(EVENT_ARG(area->spf_timer[level - 1]));
 
-	EVENT_OFF(area->spf_timer[level - 1]);
+	event_cancel(&area->spf_timer[level - 1]);
 
 	sched_debug(
 		"ISIS (%s): Resigned from L%d - canceling LSP regeneration timer.",
 		area->area_tag, level);
-	EVENT_OFF(area->t_lsp_refresh[level - 1]);
+	event_cancel(&area->t_lsp_refresh[level - 1]);
 	area->lsp_regenerate_pending[level - 1] = 0;
 }
 
@@ -3304,7 +3305,7 @@ void isis_area_overload_bit_set(struct isis_area *area, bool overload_bit)
 		} else {
 			/* Cancel overload on startup timer if it's running */
 			if (area->t_overload_on_startup_timer) {
-				EVENT_OFF(area->t_overload_on_startup_timer);
+				event_cancel(&area->t_overload_on_startup_timer);
 				area->t_overload_on_startup_timer = NULL;
 			}
 		}

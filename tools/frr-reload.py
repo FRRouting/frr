@@ -1698,6 +1698,7 @@ def ignore_unconfigurable_lines(lines_to_add, lines_to_del):
     those commands from lines_to_del.
     """
     lines_to_del_to_del = []
+    lines_to_del_to_add = []
 
     for ctx_keys, line in lines_to_del:
         # The integrated-vtysh-config one is technically "no"able but if we did
@@ -1719,9 +1720,30 @@ def ignore_unconfigurable_lines(lines_to_add, lines_to_del):
         ):
             log.info(f'"{ctx_keys[-1]}" cannot be removed')
             lines_to_del_to_del.append((ctx_keys, line))
+        # Handle segment-routing srv6 locators and formats commands
+        #  - Ignore "no formats" and "no locators" command
+        #  - replace "no prefix" under locator XYZ as "no locator XYZ"
+        elif (
+            len(ctx_keys) > 2
+            and ctx_keys[0].startswith("segment-routing")
+            and ctx_keys[1].startswith("srv6")
+            and ctx_keys[2] in {"locators", "formats"}
+        ):
+            is_top_level = len(ctx_keys) == 3 and not line
+            if ctx_keys[2] == "formats" and is_top_level:
+                lines_to_del_to_del.append((ctx_keys, line))
+            elif ctx_keys[2] == "locators":
+                if is_top_level:
+                    lines_to_del_to_del.append((ctx_keys, line))
+                elif len(ctx_keys) == 4 and line and line.startswith("prefix "):
+                    lines_to_del_to_del.append((ctx_keys, line))
+                    lines_to_del_to_add.append((ctx_keys[:-1] + (ctx_keys[-1],), None))
 
     for ctx_keys, line in lines_to_del_to_del:
         lines_to_del.remove((ctx_keys, line))
+
+    for ctx_keys, line in lines_to_del_to_add:
+        lines_to_del.append((ctx_keys, line))
 
     return (lines_to_add, lines_to_del)
 
@@ -2113,12 +2135,17 @@ if __name__ == "__main__":
         help="Use logfmt as log format",
         default=False,
     )
+    parser.add_argument(
+        "--logfile",
+        help="logfile for frr-reload",
+        default="/var/log/frr/frr-reload.log",
+    )
 
     args = parser.parse_args()
 
     # Logging
     # For --test log to stdout
-    # For --reload log to /var/log/frr/frr-reload.log
+    # For --reload log to --logfile (default: "/var/log/frr/frr-reload.log")
     # If --logfmt, use the logfmt format
     formatter = logging.Formatter("%(asctime)s %(levelname)5s: %(message)s")
     handler = logging.StreamHandler()
@@ -2133,9 +2160,9 @@ if __name__ == "__main__":
             logging.WARNING, "\033[91m%s\033[0m" % logging.getLevelName(logging.WARNING)
         )
     if args.reload:
-        if not os.path.isdir("/var/log/frr/"):
-            os.makedirs("/var/log/frr/", mode=0o0755)
-        handler = logging.FileHandler("/var/log/frr/frr-reload.log")
+        if not os.path.isdir(os.path.dirname(args.logfile)):
+            os.makedirs(os.path.dirname(args.logfile), mode=0o0755)
+        handler = logging.FileHandler(args.logfile)
     if args.stdout:
         handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(formatter)

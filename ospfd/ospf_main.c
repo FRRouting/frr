@@ -99,7 +99,7 @@ static void sighup(void)
 }
 
 /* SIGINT / SIGTERM handler. */
-static void sigint(void)
+static FRR_NORETURN void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 	bfd_protocol_integration_set_shutdown(true);
@@ -182,7 +182,7 @@ static void ospf_config_finish(struct event *t)
 
 static void ospf_config_start(void)
 {
-	EVENT_OFF(t_ospf_cfg);
+	event_cancel(&t_ospf_cfg);
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("ospfd config start callback received.");
 	event_add_timer(master, ospf_config_finish, NULL,
@@ -194,7 +194,7 @@ static void ospf_config_end(void)
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("ospfd config end callback received.");
 
-	EVENT_OFF(t_ospf_cfg);
+	event_cancel(&t_ospf_cfg);
 }
 
 /* OSPFd main routine. */
@@ -219,8 +219,6 @@ int main(int argc, char **argv)
 			ospfd_di.instance = ospf_instance = atoi(optarg);
 			if (ospf_instance < 1)
 				exit(0);
-			break;
-		case 0:
 			break;
 #ifdef SUPPORT_OSPF_API
 		case 'a':

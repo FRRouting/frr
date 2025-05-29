@@ -15,16 +15,6 @@
 #include "log.h"
 #include "frrlua.h"
 #include "frrscript.h"
-#ifdef HAVE_LIBPCRE2_POSIX
-#ifndef _FRR_PCRE2_POSIX
-#define _FRR_PCRE2_POSIX
-#include <pcre2posix.h>
-#endif /* _FRR_PCRE2_POSIX */
-#elif defined(HAVE_LIBPCREPOSIX)
-#include <pcreposix.h>
-#else
-#include <regex.h>
-#endif /* HAVE_LIBPCRE2_POSIX */
 #include "buffer.h"
 #include "sockunion.h"
 #include "hash.h"
@@ -2615,6 +2605,9 @@ route_set_aspath_exclude(void *rule, const struct prefix *dummy, void *object)
 		path->attr->aspath =
 			aspath_filter_exclude_acl(new_path,
 						  ase->exclude_aspath_acl);
+	else
+		aspath_free(new_path);
+
 	return RMAP_OKAY;
 }
 
@@ -4931,7 +4924,7 @@ static void bgp_route_map_mark_update(const char *rmap_name)
 	/* If new update is received before the current timer timed out,
 	 * turn it off and start a new timer.
 	 */
-	EVENT_OFF(bm->t_rmap_update);
+	event_cancel(&bm->t_rmap_update);
 
 	/* rmap_update_timer of 0 means don't do route updates */
 	if (bm->rmap_update_timer) {
@@ -5593,7 +5586,7 @@ DEFUN_YANG (match_probability,
 
 DEFUN_YANG (no_match_probability,
 	    no_match_probability_cmd,
-	    "no match probability [(1-99)]",
+	    "no match probability [(0-100)]",
 	    NO_STR
 	    MATCH_STR
 	    "Match portion of routes defined by percentage value\n"

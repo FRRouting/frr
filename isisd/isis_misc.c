@@ -172,27 +172,6 @@ char *nlpid2string(struct nlpids *nlpids)
 	return nlpidstring;
 }
 
-/*
- * Returns 0 on error, IS-IS Circuit Type on ok
- */
-int string2circuit_t(const char *str)
-{
-
-	if (!str)
-		return 0;
-
-	if (!strcmp(str, "level-1"))
-		return IS_LEVEL_1;
-
-	if (!strcmp(str, "level-2-only") || !strcmp(str, "level-2"))
-		return IS_LEVEL_2;
-
-	if (!strcmp(str, "level-1-2"))
-		return IS_LEVEL_1_AND_2;
-
-	return 0;
-}
-
 const char *circuit_state2string(int state)
 {
 
@@ -234,24 +213,6 @@ const char *circuit_t2string(int circuit_t)
 		return "L2";
 	case IS_LEVEL_1_AND_2:
 		return "L1L2";
-	default:
-		return "??";
-	}
-
-	return NULL; /* not reached */
-}
-
-const char *syst2string(int type)
-{
-	switch (type) {
-	case ISIS_SYSTYPE_ES:
-		return "ES";
-	case ISIS_SYSTYPE_IS:
-		return "IS";
-	case ISIS_SYSTYPE_L1_IS:
-		return "1";
-	case ISIS_SYSTYPE_L2_IS:
-		return "2";
 	default:
 		return "??";
 	}
@@ -349,16 +310,6 @@ unsigned long isis_jitter(unsigned long timer, unsigned long jitter)
 	timer = timer - (k * j / RANDOM_SPREAD);
 
 	return timer;
-}
-
-struct in_addr newprefix2inaddr(uint8_t *prefix_start, uint8_t prefix_masklen)
-{
-	memset(&new_prefix, 0, sizeof(new_prefix));
-	memcpy(&new_prefix, prefix_start,
-	       (prefix_masklen & 0x3F)
-		       ? ((((prefix_masklen & 0x3F) - 1) >> 3) + 1)
-		       : 0);
-	return new_prefix;
 }
 
 /*
@@ -472,26 +423,6 @@ void log_multiline(int priority, const char *prefix, const char *format, ...)
 
 	if (p != shortbuf)
 		XFREE(MTYPE_TMP, p);
-}
-
-char *log_uptime(time_t uptime, char *buf, size_t nbuf)
-{
-	struct tm tm;
-	time_t difftime = time(NULL);
-	difftime -= uptime;
-	gmtime_r(&difftime, &tm);
-
-	if (difftime < ONE_DAY_SECOND)
-		snprintf(buf, nbuf, "%02d:%02d:%02d", tm.tm_hour, tm.tm_min,
-			 tm.tm_sec);
-	else if (difftime < ONE_WEEK_SECOND)
-		snprintf(buf, nbuf, "%dd%02dh%02dm", tm.tm_yday, tm.tm_hour,
-			 tm.tm_min);
-	else
-		snprintf(buf, nbuf, "%02dw%dd%02dh", tm.tm_yday / 7,
-			 tm.tm_yday - ((tm.tm_yday / 7) * 7), tm.tm_hour);
-
-	return buf;
 }
 
 void vty_multiline(struct vty *vty, const char *prefix, const char *format, ...)

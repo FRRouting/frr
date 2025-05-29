@@ -459,7 +459,7 @@ void zebra_ns_notify_close(void)
 		fd = zebra_netns_notify_current->u.fd;
 
 	if (zebra_netns_notify_current->master != NULL)
-		EVENT_OFF(zebra_netns_notify_current);
+		event_cancel(&zebra_netns_notify_current);
 
 	/* auto-removal of notify items */
 	if (fd > 0)

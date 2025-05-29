@@ -63,11 +63,13 @@ if_new(const char *name)
 	iface->ipv4.af = AF_INET;
 	iface->ipv4.iface = iface;
 	iface->ipv4.enabled = 0;
+	iface->ipv4.disable_establish_hello = 0;
 
 	/* ipv6 */
 	iface->ipv6.af = AF_INET6;
 	iface->ipv6.iface = iface;
 	iface->ipv6.enabled = 0;
+	iface->ipv6.disable_establish_hello = 0;
 
 	return (iface);
 }
@@ -454,7 +456,7 @@ static void if_hello_timer(struct event *thread)
 static void
 if_start_hello_timer(struct iface_af *ia)
 {
-	EVENT_OFF(ia->hello_timer);
+	event_cancel(&ia->hello_timer);
 	event_add_timer(master, if_hello_timer, ia, if_get_hello_interval(ia),
 			&ia->hello_timer);
 }
@@ -462,7 +464,7 @@ if_start_hello_timer(struct iface_af *ia)
 static void
 if_stop_hello_timer(struct iface_af *ia)
 {
-	EVENT_OFF(ia->hello_timer);
+	event_cancel(&ia->hello_timer);
 }
 
 struct ctl_iface *
@@ -728,7 +730,7 @@ static void start_wait_for_ldp_sync_timer(struct iface *iface)
 	if (iface->ldp_sync.wait_for_sync_timer)
 		return;
 
-	EVENT_OFF(iface->ldp_sync.wait_for_sync_timer);
+	event_cancel(&iface->ldp_sync.wait_for_sync_timer);
 	event_add_timer(master, iface_wait_for_ldp_sync_timer, iface,
 			if_get_wait_for_sync_interval(),
 			&iface->ldp_sync.wait_for_sync_timer);
@@ -736,7 +738,7 @@ static void start_wait_for_ldp_sync_timer(struct iface *iface)
 
 static void stop_wait_for_ldp_sync_timer(struct iface *iface)
 {
-	EVENT_OFF(iface->ldp_sync.wait_for_sync_timer);
+	event_cancel(&iface->ldp_sync.wait_for_sync_timer);
 }
 
 static int

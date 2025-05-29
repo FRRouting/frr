@@ -53,8 +53,8 @@ static void clear_ripng_route(struct ripng *ripng)
 		}
 
 		if (rinfo) {
-			EVENT_OFF(rinfo->t_timeout);
-			EVENT_OFF(rinfo->t_garbage_collect);
+			event_cancel(&rinfo->t_timeout);
+			event_cancel(&rinfo->t_garbage_collect);
 			listnode_delete(list, rinfo);
 			ripng_info_free(rinfo);
 		}

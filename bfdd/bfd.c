@@ -755,26 +755,7 @@ void ptm_sbfd_echo_sess_dn(struct bfd_session *bfd, uint8_t diag)
 static struct bfd_session *bfd_find_disc(struct sockaddr_any *sa,
 					 uint32_t ldisc)
 {
-	struct bfd_session *bs;
-
-	bs = bfd_id_lookup(ldisc);
-	if (bs == NULL)
-		return NULL;
-
-	switch (bs->key.family) {
-	case AF_INET:
-		if (memcmp(&sa->sa_sin.sin_addr, &bs->key.peer,
-			   sizeof(sa->sa_sin.sin_addr)))
-			return NULL;
-		break;
-	case AF_INET6:
-		if (memcmp(&sa->sa_sin6.sin6_addr, &bs->key.peer,
-			   sizeof(sa->sa_sin6.sin6_addr)))
-			return NULL;
-		break;
-	}
-
-	return bs;
+	return bfd_id_lookup(ldisc);
 }
 
 struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp,
@@ -1458,6 +1439,8 @@ void bs_echo_timer_handler(struct bfd_session *bs)
  */
 void bs_final_handler(struct bfd_session *bs)
 {
+	uint64_t old_xmt_TO = bs->xmt_TO;
+
 	/* Start using our new timers. */
 	bs->cur_timers.desired_min_tx = bs->timers.desired_min_tx;
 	bs->cur_timers.required_min_rx = bs->timers.required_min_rx;
@@ -1485,6 +1468,12 @@ void bs_final_handler(struct bfd_session *bs)
 		bs->xmt_TO = bs->timers.desired_min_tx;
 	else
 		bs->xmt_TO = bs->remote_timers.required_min_rx;
+	
+	/* Only apply increased transmission interval after Poll Sequence */
+	if (bs->ses_state == PTM_BFD_UP && bs->xmt_TO > old_xmt_TO) {
+		bs->xmt_TO = old_xmt_TO;  /* Keep old timing until Poll Sequence done */
+		return;
+	}
 
 	/* Apply new transmission timer immediately. */
 	ptm_bfd_start_xmt_timer(bs, false);
@@ -1564,6 +1553,7 @@ void bfd_set_shutdown(struct bfd_session *bs, bool shutdown)
 			return;
 
 		SET_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN);
+		bs->local_diag = BD_ADMIN_DOWN;
 
 		/* Handle data plane shutdown case. */
 		if (bs->bdc) {
@@ -2452,13 +2442,13 @@ static int bfd_vrf_disable(struct vrf *vrf)
 		zlog_debug("VRF disable %s id %d", vrf->name, vrf->vrf_id);
 
 	/* Disable read/write poll triggering. */
-	EVENT_OFF(bvrf->bg_ev[0]);
-	EVENT_OFF(bvrf->bg_ev[1]);
-	EVENT_OFF(bvrf->bg_ev[2]);
-	EVENT_OFF(bvrf->bg_ev[3]);
-	EVENT_OFF(bvrf->bg_ev[4]);
-	EVENT_OFF(bvrf->bg_ev[5]);
-	EVENT_OFF(bvrf->bg_ev[6]);
+	event_cancel(&bvrf->bg_ev[0]);
+	event_cancel(&bvrf->bg_ev[1]);
+	event_cancel(&bvrf->bg_ev[2]);
+	event_cancel(&bvrf->bg_ev[3]);
+	event_cancel(&bvrf->bg_ev[4]);
+	event_cancel(&bvrf->bg_ev[5]);
+	event_cancel(&bvrf->bg_ev[6]);
 
 	/* Close all descriptors. */
 	socket_close(&bvrf->bg_echo);
@@ -2536,7 +2526,7 @@ void sbfd_reflector_free(const uint32_t discr)
 	return;
 }
 
-void sbfd_reflector_flush()
+void sbfd_reflector_flush(void)
 {
 	sbfd_discr_iterate(_sbfd_reflector_free, NULL);
 	return;

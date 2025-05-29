@@ -145,8 +145,9 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool gm, bool pim,
 	       pim_ifp->gm_default_query_interval);
 
 	pim_ifp->pim_enable = pim;
-	pim_ifp->pim_passive_enable = false;
+	pim_ifp->pim_mode = PIM_MODE_SPARSE;
 	pim_ifp->gm_enable = gm;
+	pim_ifp->gm_proxy = false;
 
 	pim_ifp->gm_join_list = NULL;
 	pim_ifp->static_group_list = NULL;
@@ -194,8 +195,17 @@ void pim_if_delete(struct interface *ifp)
 	assert(pim_ifp);
 
 	pim_ifp->pim->mcast_if_count--;
-	if (pim_ifp->gm_join_list)
+	if (pim_ifp->gm_join_list) {
 		pim_if_gm_join_del_all(ifp);
+		/*
+		 * Sometimes gm_join_del_all does not delete them all
+		 * and as such it's not actually freed.  Let's
+		 * just clean this up if it wasn't to prevent
+		 * the problem.
+		 */
+		if (pim_ifp->gm_join_list)
+			list_delete(&pim_ifp->gm_join_list);
+	}
 
 	if (pim_ifp->static_group_list)
 		pim_if_static_group_del_all(ifp);
@@ -1436,10 +1446,8 @@ int pim_if_gm_join_del(struct interface *ifp, pim_addr group_addr,
 	}
 	listnode_delete(pim_ifp->gm_join_list, ij);
 	gm_join_free(ij);
-	if (listcount(pim_ifp->gm_join_list) < 1) {
+	if (listcount(pim_ifp->gm_join_list) < 1)
 		list_delete(&pim_ifp->gm_join_list);
-		pim_ifp->gm_join_list = 0;
-	}
 
 	return 0;
 }
@@ -2017,11 +2025,11 @@ void pim_pim_interface_delete(struct interface *ifp)
 	if (!pim_ifp)
 		return;
 
+	pim_ifp->pim_enable = false;
+
 #if PIM_IPV == 4
 	pim_autorp_rm_ifp(ifp);
 #endif
-
-	pim_ifp->pim_enable = false;
 
 	pim_if_membership_clear(ifp);
 
@@ -2057,4 +2065,21 @@ void pim_gm_interface_delete(struct interface *ifp)
 
 	if (!pim_ifp->pim_enable)
 		pim_if_delete(ifp);
+}
+
+
+const char *pim_mod_str(enum pim_iface_mode mode)
+{
+	switch (mode) {
+	case PIM_MODE_SPARSE:
+		return "SPARSE";
+	case PIM_MODE_DENSE:
+		return "DENSE";
+	case PIM_MODE_SPARSE_DENSE:
+		return "SPARSE_DENSE";
+	case PIM_MODE_SSM:
+		return "SSM";
+	}
+
+	return "";
 }

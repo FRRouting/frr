@@ -265,7 +265,7 @@ static int process_p2p_hello(struct iih_info *iih)
 				      adj);
 
 	/* lets take care of the expiry */
-	EVENT_OFF(adj->t_expire);
+	event_cancel(&adj->t_expire);
 	event_add_timer(master, isis_adj_expire, adj, (long)adj->hold_time,
 			&adj->t_expire);
 
@@ -528,7 +528,7 @@ static int process_lan_hello(struct iih_info *iih)
 				      adj);
 
 	/* lets take care of the expiry */
-	EVENT_OFF(adj->t_expire);
+	event_cancel(&adj->t_expire);
 	event_add_timer(master, isis_adj_expire, adj, (long)adj->hold_time,
 			&adj->t_expire);
 
@@ -2116,7 +2116,7 @@ static void _send_hello_sched(struct isis_circuit *circuit,
 		if (event_timer_remain_msec(*threadp) < (unsigned long)delay)
 			return;
 
-		EVENT_OFF(*threadp);
+		event_cancel(&*threadp);
 	}
 
 	event_add_timer_msec(master, send_hello_cb,

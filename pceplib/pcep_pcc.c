@@ -47,11 +47,11 @@ struct cmd_line_args {
 };
 
 bool pcc_active_ = true;
-pcep_session *session = NULL;
-struct cmd_line_args *cmd_line_args = NULL;
+pcep_session *g_session = NULL;
+struct cmd_line_args *g_cmd_line_args = NULL;
 /* pcep_event callback variables */
 bool pcep_event_condition = false;
-struct pcep_event *event = NULL;
+struct pcep_event *g_event = NULL;
 pthread_mutex_t pcep_event_mutex;
 pthread_cond_t pcep_event_cond_var;
 
@@ -180,7 +180,7 @@ void handle_signal_action(int sig_number)
 	if (sig_number == SIGINT) {
 		pcep_log(LOG_INFO, "%s: SIGINT was caught!", __func__);
 		pcc_active_ = false;
-		if (cmd_line_args->eventpoll == false) {
+		if (g_cmd_line_args->eventpoll == false) {
 			pthread_mutex_lock(&pcep_event_mutex);
 			pcep_event_condition = true;
 			pthread_cond_signal(&pcep_event_cond_var);
@@ -189,12 +189,12 @@ void handle_signal_action(int sig_number)
 	} else if (sig_number == SIGUSR1) {
 		pcep_log(LOG_INFO, "%s: SIGUSR1 was caught, dumping counters",
 			 __func__);
-		dump_pcep_session_counters(session);
+		dump_pcep_session_counters(g_session);
 		pceplib_memory_dump();
 	} else if (sig_number == SIGUSR2) {
 		pcep_log(LOG_INFO, "%s: SIGUSR2 was caught, reseting counters",
 			 __func__);
-		reset_pcep_session_counters(session);
+		reset_pcep_session_counters(g_session);
 	}
 }
 
@@ -377,7 +377,7 @@ void pcep_event_callback(void *cb_data, pcep_event *e)
 	pcep_log(LOG_NOTICE, "%s: [%ld-%ld] pcep_event_callback", __func__,
 		 time(NULL), pthread_self());
 	pthread_mutex_lock(&pcep_event_mutex);
-	event = e;
+	g_event = e;
 	pcep_event_condition = true;
 	pthread_cond_signal(&pcep_event_cond_var);
 	pthread_mutex_unlock(&pcep_event_mutex);
@@ -388,14 +388,14 @@ int main(int argc, char **argv)
 	pcep_log(LOG_NOTICE, "%s: [%ld-%ld] starting pcc_pcep example client",
 		 __func__, time(NULL), pthread_self());
 
-	cmd_line_args = get_cmdline_args(argc, argv);
-	if (cmd_line_args == NULL) {
+	g_cmd_line_args = get_cmdline_args(argc, argv);
+	if (g_cmd_line_args == NULL) {
 		return -1;
 	}
 
 	setup_signals();
 
-	if (cmd_line_args->eventpoll == false) {
+	if (g_cmd_line_args->eventpoll == false) {
 		struct pceplib_infra_config infra_config;
 		memset(&infra_config, 0, sizeof(infra_config));
 		infra_config.pcep_event_func = pcep_event_callback;
@@ -415,31 +415,31 @@ int main(int argc, char **argv)
 
 	pcep_configuration *config = create_default_pcep_configuration();
 	config->pcep_msg_versioning->draft_ietf_pce_segment_routing_07 = true;
-	config->src_pcep_port = cmd_line_args->src_tcp_port;
+	config->src_pcep_port = g_cmd_line_args->src_tcp_port;
 	config->is_tcp_auth_md5 = true;
 
-	strlcpy(config->tcp_authentication_str, cmd_line_args->tcp_md5_str,
+	strlcpy(config->tcp_authentication_str, g_cmd_line_args->tcp_md5_str,
 		sizeof(config->tcp_authentication_str));
 
-	int af = (cmd_line_args->is_ipv6 ? AF_INET6 : AF_INET);
+	int af = (g_cmd_line_args->is_ipv6 ? AF_INET6 : AF_INET);
 	struct hostent *host_info =
-		gethostbyname2(cmd_line_args->dest_ip_str, af);
+		gethostbyname2(g_cmd_line_args->dest_ip_str, af);
 	if (host_info == NULL) {
 		pcep_log(LOG_ERR, "%s: Error getting IP address.", __func__);
 		return -1;
 	}
 
-	if (cmd_line_args->is_ipv6) {
+	if (g_cmd_line_args->is_ipv6) {
 		struct in6_addr host_address;
 		memcpy(&host_address, host_info->h_addr, host_info->h_length);
-		session = connect_pce_ipv6(config, &host_address);
+		g_session = connect_pce_ipv6(config, &host_address);
 	} else {
 		struct in_addr host_address;
 		memcpy(&host_address, host_info->h_addr, host_info->h_length);
-		session = connect_pce(config, &host_address);
+		g_session = connect_pce(config, &host_address);
 	}
 
-	if (session == NULL) {
+	if (g_session == NULL) {
 		pcep_log(LOG_WARNING, "%s: Error in connect_pce.", __func__);
 		destroy_pcep_configuration(config);
 		return -1;
@@ -447,12 +447,12 @@ int main(int argc, char **argv)
 
 	sleep(2);
 
-	send_pce_report_message(session);
+	send_pce_report_message(g_session);
 	/*send_pce_path_request_message(session);*/
 
 	/* Wait for pcep_event's either by polling the event queue or by
 	 * callback */
-	if (cmd_line_args->eventpoll == true) {
+	if (g_cmd_line_args->eventpoll == true) {
 		/* Poll the pcep_event queue*/
 		while (pcc_active_) {
 			if (event_queue_is_empty() == false) {
@@ -479,8 +479,8 @@ int main(int argc, char **argv)
 
 			/* Check if we have been interrupted by SIGINT */
 			if (pcc_active_) {
-				print_queue_event(event);
-				destroy_pcep_event(event);
+				print_queue_event(g_event);
+				destroy_pcep_event(g_event);
 			}
 
 			pcep_event_condition = false;
@@ -492,9 +492,9 @@ int main(int argc, char **argv)
 	}
 
 	pcep_log(LOG_NOTICE, "%s: Disconnecting from PCE", __func__);
-	disconnect_pce(session);
+	disconnect_pce(g_session);
 	destroy_pcep_configuration(config);
-	free(cmd_line_args);
+	free(g_cmd_line_args);
 
 	if (!destroy_pcc()) {
 		pcep_log(LOG_NOTICE, "%s: Error stopping PCC.", __func__);

@@ -11,17 +11,14 @@
 #include <lib/version.h>
 #include <sys/types.h>
 #include <sys/types.h>
-#ifdef HAVE_LIBPCRE2_POSIX
-#ifndef _FRR_PCRE2_POSIX
-#define _FRR_PCRE2_POSIX
-#include <pcre2posix.h>
-#endif /* _FRR_PCRE2_POSIX */
-#elif defined(HAVE_LIBPCREPOSIX)
-#include <pcreposix.h>
-#else
-#include <regex.h>
-#endif /* HAVE_LIBPCRE2_POSIX */
 #include <stdio.h>
+
+#ifndef HAVE_LIBCRYPT
+#ifdef HAVE_LIBCRYPTO
+#include <openssl/des.h>
+#define crypt DES_crypt
+#endif
+#endif
 
 #include "debug.h"
 #include "linklist.h"
@@ -44,6 +41,7 @@
 #include "printfrr.h"
 #include "json.h"
 #include "sockopt.h"
+#include "frregex_real.h"
 
 #include <arpa/telnet.h>
 #include <termios.h>
@@ -56,6 +54,7 @@ DEFINE_MTYPE_STATIC(LIB, VTY, "VTY");
 DEFINE_MTYPE_STATIC(LIB, VTY_SERV, "VTY server");
 DEFINE_MTYPE_STATIC(LIB, VTY_OUT_BUF, "VTY output buffer");
 DEFINE_MTYPE_STATIC(LIB, VTY_HIST, "VTY history");
+DEFINE_MTYPE_STATIC(LIB, VTY_REGEX, "VTY filter regex");
 
 DECLARE_DLIST(vtys, struct vty, itm);
 
@@ -232,18 +231,20 @@ bool vty_set_include(struct vty *vty, const char *regexp)
 
 	if (!regexp) {
 		if (vty->filter) {
-			regfree(&vty->include);
+			regfree(&vty->include->real);
+			XFREE(MTYPE_VTY_REGEX, vty->include);
 			vty->filter = false;
 		}
 		return true;
 	}
 
-	errcode = regcomp(&vty->include, regexp,
-			  REG_EXTENDED | REG_NEWLINE | REG_NOSUB);
+	vty->include = XCALLOC(MTYPE_VTY_REGEX, sizeof(*vty->include));
+	errcode = regcomp(&vty->include->real, regexp, REG_EXTENDED | REG_NEWLINE | REG_NOSUB);
 	if (errcode) {
 		ret = false;
-		regerror(errcode, &vty->include, errbuf, sizeof(errbuf));
+		regerror(errcode, &vty->include->real, errbuf, sizeof(errbuf));
 		vty_out(vty, "%% Regex compilation error: %s\n", errbuf);
+		XFREE(MTYPE_VTY_REGEX, vty->include);
 	} else {
 		vty->filter = true;
 	}
@@ -292,7 +293,7 @@ int vty_out(struct vty *vty, const char *format, ...)
 			buffer_reset(vty->lbuf);
 			XFREE(MTYPE_TMP, lines->index[0]);
 			vector_set_index(lines, 0, bstr);
-			frrstr_filter_vec(lines, &vty->include);
+			frrstr_filter_vec(lines, vty->include);
 			vector_compact(lines);
 			/*
 			 * Consider the string "foo\n". If the regex is an empty string
@@ -1653,7 +1654,7 @@ static void vty_flush(struct event *thread)
 
 	/* Tempolary disable read thread. */
 	if (vty->lines == 0)
-		EVENT_OFF(vty->t_read);
+		event_cancel(&vty->t_read);
 
 	/* Function execution continue. */
 	erase = ((vty->status == VTY_MORE || vty->status == VTY_MORELINE));
@@ -1841,9 +1842,9 @@ void vty_stdio_suspend(void)
 	if (!stdio_vty)
 		return;
 
-	EVENT_OFF(stdio_vty->t_write);
-	EVENT_OFF(stdio_vty->t_read);
-	EVENT_OFF(stdio_vty->t_timeout);
+	event_cancel(&stdio_vty->t_write);
+	event_cancel(&stdio_vty->t_read);
+	event_cancel(&stdio_vty->t_timeout);
 
 	if (stdio_termios)
 		tcsetattr(0, TCSANOW, &stdio_orig_termios);
@@ -2503,7 +2504,7 @@ void vty_serv_stop(void)
 	struct vty_serv *vtyserv;
 
 	while ((vtyserv = vtyservs_pop(vty_servs))) {
-		EVENT_OFF(vtyserv->t_accept);
+		event_cancel(&vtyserv->t_accept);
 		close(vtyserv->sock);
 		XFREE(MTYPE_VTY_SERV, vtyserv);
 	}
@@ -2549,9 +2550,9 @@ void vty_close(struct vty *vty)
 	}
 
 	/* Cancel threads.*/
-	EVENT_OFF(vty->t_read);
-	EVENT_OFF(vty->t_write);
-	EVENT_OFF(vty->t_timeout);
+	event_cancel(&vty->t_read);
+	event_cancel(&vty->t_write);
+	event_cancel(&vty->t_timeout);
 
 	if (vty->pass_fd != -1) {
 		close(vty->pass_fd);
@@ -3086,7 +3087,7 @@ static void vty_event(enum vty_event event, struct vty *vty)
 
 		/* Time out treatment. */
 		if (vty->v_timeout) {
-			EVENT_OFF(vty->t_timeout);
+			event_cancel(&vty->t_timeout);
 			event_add_timer(vty_master, vty_timeout, vty,
 					vty->v_timeout, &vty->t_timeout);
 		}
@@ -3096,7 +3097,7 @@ static void vty_event(enum vty_event event, struct vty *vty)
 				&vty->t_write);
 		break;
 	case VTY_TIMEOUT_RESET:
-		EVENT_OFF(vty->t_timeout);
+		event_cancel(&vty->t_timeout);
 		if (vty->v_timeout)
 			event_add_timer(vty_master, vty_timeout, vty,
 					vty->v_timeout, &vty->t_timeout);

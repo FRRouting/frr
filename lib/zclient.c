@@ -257,9 +257,9 @@ void zclient_stop(struct zclient *zclient)
 		zlog_debug("zclient %p stopped", zclient);
 
 	/* Stop threads. */
-	EVENT_OFF(zclient->t_read);
-	EVENT_OFF(zclient->t_connect);
-	EVENT_OFF(zclient->t_write);
+	event_cancel(&zclient->t_read);
+	event_cancel(&zclient->t_connect);
+	event_cancel(&zclient->t_write);
 
 	/* Reset streams. */
 	stream_reset(zclient->ibuf);
@@ -393,7 +393,7 @@ enum zclient_send_status zclient_send_message(struct zclient *zclient)
 			 __func__, zclient->sock);
 		return zclient_failed(zclient);
 	case BUFFER_EMPTY:
-		EVENT_OFF(zclient->t_write);
+		event_cancel(&zclient->t_write);
 		return ZCLIENT_SEND_SUCCESS;
 	case BUFFER_PENDING:
 		event_add_write(zclient->master, zclient_flush_data, zclient,
@@ -961,6 +961,12 @@ static int zapi_nexthop_srv6_cmp(const struct zapi_nexthop *next1,
 	if (ret != 0)
 		return ret;
 
+	if (next1->srv6_encap_behavior > next2->srv6_encap_behavior)
+		return 1;
+
+	if (next1->srv6_encap_behavior < next2->srv6_encap_behavior)
+		return -1;
+
 	if (next1->seg6local_action > next2->seg6local_action)
 		return 1;
 
@@ -1182,6 +1188,7 @@ int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 		stream_putc(s, api_nh->seg_num);
 		stream_put(s, &api_nh->seg6_segs[0],
 			   api_nh->seg_num * sizeof(struct in6_addr));
+		stream_putl(s, api_nh->srv6_encap_behavior);
 	}
 done:
 	return ret;
@@ -1275,8 +1282,8 @@ static int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 		return -1;
 	}
 
-	if (api_nhg->nexthop_num >= MULTIPATH_NUM ||
-	    api_nhg->backup_nexthop_num >= MULTIPATH_NUM) {
+	if (api_nhg->nexthop_num > MULTIPATH_NUM ||
+	    api_nhg->backup_nexthop_num > MULTIPATH_NUM) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
 			 "%s: zapi NHG encode with invalid input", __func__);
 		return -1;
@@ -1576,6 +1583,8 @@ int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 
 		STREAM_GET(&api_nh->seg6_segs[0], s,
 			   api_nh->seg_num * sizeof(struct in6_addr));
+
+		STREAM_GETL(s, api_nh->srv6_encap_behavior);
 	}
 
 	/* Success */
@@ -2350,7 +2359,7 @@ struct nexthop *nexthop_from_zapi_nexthop(const struct zapi_nexthop *znh)
 					   &znh->seg6local_ctx);
 
 	if (znh->seg_num && !sid_zero_ipv6(znh->seg6_segs))
-		nexthop_add_srv6_seg6(n, &znh->seg6_segs[0], znh->seg_num);
+		nexthop_add_srv6_seg6(n, &znh->seg6_segs[0], znh->seg_num, znh->srv6_encap_behavior);
 
 	return n;
 }
@@ -2419,6 +2428,7 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 				memcpy(&znh->seg6_segs[i],
 				       &nh->nh_srv6->seg6_segs->seg[i],
 				       sizeof(struct in6_addr));
+			znh->srv6_encap_behavior = nh->nh_srv6->seg6_segs->encap_behavior;
 		}
 	}
 
@@ -3014,7 +3024,7 @@ size_t zebra_interface_link_params_write(struct stream *s,
 	size_t w, nb_ext_adm_grp;
 	struct if_link_params *iflp;
 	int i;
-
+	size_t j;
 
 	if (s == NULL || ifp == NULL)
 		return 0;
@@ -3045,8 +3055,8 @@ size_t zebra_interface_link_params_write(struct stream *s,
 	/* Extended Administrative Group */
 	nb_ext_adm_grp = admin_group_nb_words(&iflp->ext_admin_grp);
 	w += stream_putc(s, nb_ext_adm_grp);
-	for (size_t i = 0; i < nb_ext_adm_grp; i++)
-		stream_putl(s, admin_group_get_offset(&iflp->ext_admin_grp, i));
+	for (j = 0; j < nb_ext_adm_grp; j++)
+		stream_putl(s, admin_group_get_offset(&iflp->ext_admin_grp, j));
 
 	w += stream_putl(s, iflp->rmt_as);
 	w += stream_put_in_addr(s, &iflp->rmt_ip);

@@ -176,8 +176,7 @@ lde_init(struct ldpd_init *init)
 	zclient_sync_init();
 }
 
-static void
-lde_shutdown(void)
+static FRR_NORETURN void lde_shutdown(void)
 {
 	/* close pipes */
 	if (iev_ldpe) {
@@ -400,8 +399,8 @@ static void lde_dispatch_imsg(struct event *thread)
 		imsg_event_add(iev);
 	else {
 		/* this pipe is dead, so remove the event handlers and exit */
-		EVENT_OFF(iev->ev_read);
-		EVENT_OFF(iev->ev_write);
+		event_cancel(&iev->ev_read);
+		event_cancel(&iev->ev_write);
 		lde_shutdown();
 	}
 }
@@ -538,8 +537,8 @@ static void lde_dispatch_parent(struct event *thread)
 			    sizeof(struct ldpd_init))
 				fatalx("INIT imsg with wrong len");
 
-			memcpy(&init, imsg.data, sizeof(init));
-			lde_init(&init);
+			memcpy(&ldp_init, imsg.data, sizeof(ldp_init));
+			lde_init(&ldp_init);
 			break;
 		case IMSG_AGENTX_ENABLED:
 			ldp_agentx_enabled();
@@ -678,8 +677,8 @@ static void lde_dispatch_parent(struct event *thread)
 		imsg_event_add(iev);
 	else {
 		/* this pipe is dead, so remove the event handlers and exit */
-		EVENT_OFF(iev->ev_read);
-		EVENT_OFF(iev->ev_write);
+		event_cancel(&iev->ev_read);
+		event_cancel(&iev->ev_write);
 		lde_shutdown();
 	}
 }

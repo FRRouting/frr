@@ -212,8 +212,8 @@ static int bgp_evpn_es_route_install(struct bgp *bgp,
 		bgp_dest_lock_node((struct bgp_dest *)parent_pi->net);
 		bgp_path_info_add(dest, pi);
 	} else {
-		if (attrhash_cmp(pi->attr, parent_pi->attr)
-				&& !CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)) {
+		if (!CHECK_FLAG(pi->flags, BGP_PATH_REMOVED) &&
+		    attrhash_cmp(pi->attr, parent_pi->attr)) {
 			bgp_dest_unlock_node(dest);
 			return 0;
 		}
@@ -274,7 +274,7 @@ static int bgp_evpn_es_route_uninstall(struct bgp *bgp, struct bgp_evpn_es *es,
 	}
 
 	/* Mark entry for deletion */
-	bgp_path_info_delete(dest, pi);
+	bgp_path_info_mark_for_delete(dest, pi);
 
 	/* Perform route selection and update zebra, if required. */
 	ret = bgp_evpn_es_route_select_install(bgp, es, dest, pi);
@@ -327,7 +327,7 @@ static void bgp_evpn_es_route_del_all(struct bgp *bgp, struct bgp_evpn_es *es)
 	     dest = bgp_route_next(dest)) {
 		for (pi = bgp_dest_get_bgp_path_info(dest);
 		     (pi != NULL) && (nextpi = pi->next, 1); pi = nextpi) {
-			bgp_path_info_delete(dest, pi);
+			bgp_path_info_mark_for_delete(dest, pi);
 			dest = bgp_path_info_reap(dest, pi);
 
 			assert(dest);
@@ -421,8 +421,7 @@ int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 		bgp_path_info_add(dest, tmp_pi);
 	} else {
 		tmp_pi = local_pi;
-		if (attrhash_cmp(tmp_pi->attr, attr)
-				&& !CHECK_FLAG(tmp_pi->flags, BGP_PATH_REMOVED))
+		if (!CHECK_FLAG(tmp_pi->flags, BGP_PATH_REMOVED) && attrhash_cmp(tmp_pi->attr, attr))
 			*route_changed = 0;
 		else {
 			/* The attribute has changed.
@@ -1388,7 +1387,7 @@ bgp_zebra_send_remote_es_vtep(struct bgp *bgp, struct bgp_evpn_es_vtep *es_vtep,
 	uint32_t flags = 0;
 
 	/* Check socket. */
-	if (!zclient || zclient->sock < 0) {
+	if (!bgp_zclient || bgp_zclient->sock < 0) {
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: No zclient or zclient->sock exists",
 				   __func__);
@@ -1406,7 +1405,7 @@ bgp_zebra_send_remote_es_vtep(struct bgp *bgp, struct bgp_evpn_es_vtep *es_vtep,
 	if (CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ESR))
 		SET_FLAG(flags, ZAPI_ES_VTEP_FLAG_ESR_RXED);
 
-	s = zclient->obuf;
+	s = bgp_zclient->obuf;
 	stream_reset(s);
 
 	zclient_create_header(s,
@@ -1428,7 +1427,7 @@ bgp_zebra_send_remote_es_vtep(struct bgp *bgp, struct bgp_evpn_es_vtep *es_vtep,
 
 	frrtrace(3, frr_bgp, evpn_mh_vtep_zsend, add, es, es_vtep);
 
-	return zclient_send_message(zclient);
+	return zclient_send_message(bgp_zclient);
 }
 
 static enum zclient_send_status bgp_evpn_es_vtep_re_eval_active(
@@ -2877,7 +2876,7 @@ static void bgp_evpn_l3nhg_zebra_add_v4_or_v6(struct bgp_evpn_es_vrf *es_vrf,
 	if (!api_nhg.nexthop_num)
 		return;
 
-	zclient_nhg_send(zclient, ZEBRA_NHG_ADD, &api_nhg);
+	zclient_nhg_send(bgp_zclient, ZEBRA_NHG_ADD, &api_nhg);
 }
 
 static bool bgp_evpn_l3nhg_zebra_ok(struct bgp_evpn_es_vrf *es_vrf)
@@ -2886,7 +2885,7 @@ static bool bgp_evpn_l3nhg_zebra_ok(struct bgp_evpn_es_vrf *es_vrf)
 		return false;
 
 	/* Check socket. */
-	if (!zclient || zclient->sock < 0)
+	if (!bgp_zclient || bgp_zclient->sock < 0)
 		return false;
 
 	return true;
@@ -2921,7 +2920,7 @@ static void bgp_evpn_l3nhg_zebra_del_v4_or_v6(struct bgp_evpn_es_vrf *es_vrf,
 	frrtrace(4, frr_bgp, evpn_mh_nhg_zsend, false, v4_nhg, api_nhg.id,
 		 es_vrf);
 
-	zclient_nhg_send(zclient, ZEBRA_NHG_DEL, &api_nhg);
+	zclient_nhg_send(bgp_zclient, ZEBRA_NHG_DEL, &api_nhg);
 }
 
 static void bgp_evpn_l3nhg_zebra_del(struct bgp_evpn_es_vrf *es_vrf)
@@ -4477,7 +4476,7 @@ static void bgp_evpn_nh_zebra_update_send(struct bgp_evpn_nh *nh, bool add)
 	struct bgp *bgp_vrf = nh->bgp_vrf;
 
 	/* Check socket. */
-	if (!zclient || zclient->sock < 0)
+	if (!bgp_zclient || bgp_zclient->sock < 0)
 		return;
 
 	/* Don't try to register if Zebra doesn't know of this instance. */
@@ -4488,7 +4487,7 @@ static void bgp_evpn_nh_zebra_update_send(struct bgp_evpn_nh *nh, bool add)
 		return;
 	}
 
-	s = zclient->obuf;
+	s = bgp_zclient->obuf;
 	stream_reset(s);
 
 	zclient_create_header(
@@ -4513,7 +4512,7 @@ static void bgp_evpn_nh_zebra_update_send(struct bgp_evpn_nh *nh, bool add)
 
 	frrtrace(2, frr_bgp, evpn_mh_nh_rmac_zsend, add, nh);
 
-	zclient_send_message(zclient);
+	zclient_send_message(bgp_zclient);
 }
 
 static void bgp_evpn_nh_zebra_update(struct bgp_evpn_nh *nh, bool add)
@@ -5015,7 +5014,7 @@ void bgp_evpn_mh_finish(void)
 		bgp_evpn_es_local_info_clear(es, true);
 	}
 	if (bgp_mh_info->t_cons_check)
-		EVENT_OFF(bgp_mh_info->t_cons_check);
+		event_cancel(&bgp_mh_info->t_cons_check);
 	list_delete(&bgp_mh_info->local_es_list);
 	list_delete(&bgp_mh_info->pend_es_list);
 	list_delete(&bgp_mh_info->ead_es_export_rtl);

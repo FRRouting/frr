@@ -415,6 +415,11 @@ static int ptm_bfd_process_echo_pkt(struct bfd_vrf_global *bvrf, int s)
 
 void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 {
+	/* Check for passive mode with zero discriminator */
+	if (bfd->discrs.remote_discr == 0 && 
+		CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_PASSIVE))
+		return;
+
 	struct bfd_pkt cp = {};
 
 	/* Set fields according to section 6.5.7 */
@@ -738,31 +743,31 @@ ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 static void bfd_sd_reschedule(struct bfd_vrf_global *bvrf, int sd)
 {
 	if (sd == bvrf->bg_shop) {
-		EVENT_OFF(bvrf->bg_ev[0]);
+		event_cancel(&bvrf->bg_ev[0]);
 		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop,
 			       &bvrf->bg_ev[0]);
 	} else if (sd == bvrf->bg_mhop) {
-		EVENT_OFF(bvrf->bg_ev[1]);
+		event_cancel(&bvrf->bg_ev[1]);
 		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop,
 			       &bvrf->bg_ev[1]);
 	} else if (sd == bvrf->bg_shop6) {
-		EVENT_OFF(bvrf->bg_ev[2]);
+		event_cancel(&bvrf->bg_ev[2]);
 		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop6,
 			       &bvrf->bg_ev[2]);
 	} else if (sd == bvrf->bg_mhop6) {
-		EVENT_OFF(bvrf->bg_ev[3]);
+		event_cancel(&bvrf->bg_ev[3]);
 		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop6,
 			       &bvrf->bg_ev[3]);
 	} else if (sd == bvrf->bg_echo) {
-		EVENT_OFF(bvrf->bg_ev[4]);
+		event_cancel(&bvrf->bg_ev[4]);
 		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echo,
 			       &bvrf->bg_ev[4]);
 	} else if (sd == bvrf->bg_echov6) {
-		EVENT_OFF(bvrf->bg_ev[5]);
+		event_cancel(&bvrf->bg_ev[5]);
 		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echov6,
 			       &bvrf->bg_ev[5]);
 	} else if (sd == bvrf->bg_initv6) {
-		EVENT_OFF(bvrf->bg_ev[6]);
+		event_cancel(&bvrf->bg_ev[6]);
 		event_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_initv6, &bvrf->bg_ev[6]);
 	}
 }

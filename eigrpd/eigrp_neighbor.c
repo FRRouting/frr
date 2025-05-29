@@ -41,6 +41,21 @@
 
 DEFINE_MTYPE_STATIC(EIGRPD, EIGRP_NEIGHBOR, "EIGRP neighbor");
 
+int eigrp_nbr_comp(const struct eigrp_neighbor *a, const struct eigrp_neighbor *b)
+{
+	if (a->src.s_addr == b->src.s_addr)
+		return 0;
+	else if (a->src.s_addr < b->src.s_addr)
+		return -1;
+
+	return 1;
+}
+
+uint32_t eigrp_nbr_hash(const struct eigrp_neighbor *a)
+{
+	return a->src.s_addr;
+}
+
 struct eigrp_neighbor *eigrp_nbr_new(struct eigrp_interface *ei)
 {
 	struct eigrp_neighbor *nbr;
@@ -80,17 +95,18 @@ struct eigrp_neighbor *eigrp_nbr_get(struct eigrp_interface *ei,
 				     struct eigrp_header *eigrph,
 				     struct ip *iph)
 {
-	struct eigrp_neighbor *nbr;
-	struct listnode *node, *nnode;
+	struct eigrp_neighbor lookup, *nbr;
 
-	for (ALL_LIST_ELEMENTS(ei->nbrs, node, nnode, nbr)) {
-		if (iph->ip_src.s_addr == nbr->src.s_addr) {
-			return nbr;
-		}
+	lookup.src = iph->ip_src;
+	lookup.ei = ei;
+
+	nbr = eigrp_nbr_hash_find(&ei->nbr_hash_head, &lookup);
+	if (nbr) {
+		return nbr;
 	}
 
 	nbr = eigrp_nbr_add(ei, eigrph, iph);
-	listnode_add(ei->nbrs, nbr);
+	eigrp_nbr_hash_add(&ei->nbr_hash_head, nbr);
 
 	return nbr;
 }
@@ -110,16 +126,12 @@ struct eigrp_neighbor *eigrp_nbr_get(struct eigrp_interface *ei,
 struct eigrp_neighbor *eigrp_nbr_lookup_by_addr(struct eigrp_interface *ei,
 						struct in_addr *addr)
 {
-	struct eigrp_neighbor *nbr;
-	struct listnode *node, *nnode;
+	struct eigrp_neighbor lookup, *nbr;
 
-	for (ALL_LIST_ELEMENTS(ei->nbrs, node, nnode, nbr)) {
-		if (addr->s_addr == nbr->src.s_addr) {
-			return nbr;
-		}
-	}
+	lookup.src = *addr;
+	nbr = eigrp_nbr_hash_find(&ei->nbr_hash_head, &lookup);
 
-	return NULL;
+	return nbr;
 }
 
 /**
@@ -138,17 +150,15 @@ struct eigrp_neighbor *eigrp_nbr_lookup_by_addr_process(struct eigrp *eigrp,
 							struct in_addr nbr_addr)
 {
 	struct eigrp_interface *ei;
-	struct listnode *node, *node2, *nnode2;
-	struct eigrp_neighbor *nbr;
+	struct eigrp_neighbor lookup, *nbr;
 
 	/* iterate over all eigrp interfaces */
-	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, ei)) {
+	frr_each (eigrp_interface_hash, &eigrp->eifs, ei) {
 		/* iterate over all neighbors on eigrp interface */
-		for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr)) {
-			/* compare if neighbor address is same as arg address */
-			if (nbr->src.s_addr == nbr_addr.s_addr) {
-				return nbr;
-			}
+		lookup.src = nbr_addr;
+		nbr = eigrp_nbr_hash_find(&ei->nbr_hash_head, &lookup);
+		if (nbr) {
+			return nbr;
 		}
 	}
 
@@ -167,10 +177,10 @@ void eigrp_nbr_delete(struct eigrp_neighbor *nbr)
 	event_cancel_event(master, nbr);
 	eigrp_fifo_free(nbr->multicast_queue);
 	eigrp_fifo_free(nbr->retrans_queue);
-	EVENT_OFF(nbr->t_holddown);
+	event_cancel(&nbr->t_holddown);
 
 	if (nbr->ei)
-		listnode_delete(nbr->ei->nbrs, nbr);
+		eigrp_nbr_hash_del(&nbr->ei->nbr_hash_head, nbr);
 	XFREE(MTYPE_EIGRP_NEIGHBOR, nbr);
 }
 
@@ -210,7 +220,7 @@ void eigrp_nbr_state_set(struct eigrp_neighbor *nbr, uint8_t state)
 
 		// hold time..
 		nbr->v_holddown = EIGRP_HOLD_INTERVAL_DEFAULT;
-		EVENT_OFF(nbr->t_holddown);
+		event_cancel(&nbr->t_holddown);
 
 		/* out with the old */
 		if (nbr->multicast_queue)
@@ -252,7 +262,7 @@ void eigrp_nbr_state_update(struct eigrp_neighbor *nbr)
 	switch (nbr->state) {
 	case EIGRP_NEIGHBOR_DOWN: {
 		/*Start Hold Down Timer for neighbor*/
-		//     EVENT_OFF(nbr->t_holddown);
+		//     event_cancel(&nbr->t_holddown);
 		//     EVENT_TIMER_ON(master, nbr->t_holddown,
 		//     holddown_timer_expired,
 		//     nbr, nbr->v_holddown);
@@ -260,14 +270,14 @@ void eigrp_nbr_state_update(struct eigrp_neighbor *nbr)
 	}
 	case EIGRP_NEIGHBOR_PENDING: {
 		/*Reset Hold Down Timer for neighbor*/
-		EVENT_OFF(nbr->t_holddown);
+		event_cancel(&nbr->t_holddown);
 		event_add_timer(master, holddown_timer_expired, nbr,
 				nbr->v_holddown, &nbr->t_holddown);
 		break;
 	}
 	case EIGRP_NEIGHBOR_UP: {
 		/*Reset Hold Down Timer for neighbor*/
-		EVENT_OFF(nbr->t_holddown);
+		event_cancel(&nbr->t_holddown);
 		event_add_timer(master, holddown_timer_expired, nbr,
 				nbr->v_holddown, &nbr->t_holddown);
 		break;
@@ -278,18 +288,12 @@ void eigrp_nbr_state_update(struct eigrp_neighbor *nbr)
 int eigrp_nbr_count_get(struct eigrp *eigrp)
 {
 	struct eigrp_interface *iface;
-	struct listnode *node, *node2, *nnode2;
-	struct eigrp_neighbor *nbr;
 	uint32_t counter;
 
 	counter = 0;
-	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, iface)) {
-		for (ALL_LIST_ELEMENTS(iface->nbrs, node2, nnode2, nbr)) {
-			if (nbr->state == EIGRP_NEIGHBOR_UP) {
-				counter++;
-			}
-		}
-	}
+	frr_each (eigrp_interface_hash, &eigrp->eifs, iface)
+		counter += eigrp_nbr_hash_count(&iface->nbr_hash_head);
+
 	return counter;
 }
 

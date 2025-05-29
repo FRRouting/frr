@@ -108,8 +108,8 @@ babel_config_write (struct vty *vty)
     /* list redistributed protocols */
     for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
         for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-		if (i != zclient->redist_default &&
-		    vrf_bitmap_check(&zclient->redist[afi][i], VRF_DEFAULT)) {
+		if (i != babel_zclient->redist_default &&
+		    vrf_bitmap_check(&babel_zclient->redist[afi][i], VRF_DEFAULT)) {
 			vty_out(vty, " redistribute %s %s\n",
 				(afi == AFI_IP) ? "ipv4" : "ipv6",
 				zebra_route_string(i));
@@ -183,6 +183,10 @@ static void babel_read_protocol(struct event *thread)
             flog_err_sys(EC_LIB_SOCKET, "recv: %s", safe_strerror(errno));
         }
     } else {
+        if(ntohs(sin6.sin6_port) != BABEL_PORT) {
+            return;
+        }
+
         FOR_ALL_INTERFACES(vrf, ifp) {
             if(!if_up(ifp))
                 continue;
@@ -212,7 +216,8 @@ static void babel_init_routing_process(struct event *thread)
     babel_main_loop(thread);/* this function self-add to the t_update thread */
 }
 
-/* fill "myid" with an unique id (only if myid != {0}). */
+/* fill "myid" with an unique id (only if myid != {0} and myid != {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}). */
 static void
 babel_get_myid(void)
 {
@@ -222,7 +227,7 @@ babel_get_myid(void)
     int i;
 
     /* if we already have an id (from state file), we return. */
-    if (memcmp(myid, zeroes, 8) != 0) {
+    if (memcmp(myid, zeroes, 8) != 0 && memcmp(myid, ones, 8) != 0) {
         return;
     }
 

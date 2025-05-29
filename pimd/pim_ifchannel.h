@@ -80,6 +80,7 @@ struct pim_ifchannel {
 	char sg_str[PIM_SG_LEN];
 	struct interface *interface; /* backpointer to interface */
 	uint32_t flags;
+	uint16_t prune_holdtime;
 
 	/* IGMPv3 determined interface has local members for (S,G) ? */
 	enum pim_ifmembership local_ifmembership;

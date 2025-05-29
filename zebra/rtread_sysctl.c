@@ -10,6 +10,8 @@
 
 #if !defined(GNU_LINUX)
 
+#include <sys/sysctl.h>
+
 #include "memory.h"
 #include "log.h"
 #include "vrf.h"

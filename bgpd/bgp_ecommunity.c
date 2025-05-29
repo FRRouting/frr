@@ -577,7 +577,7 @@ static const char *ecommunity_gettoken(const char *str, void *eval_ptr,
 	char buf[INET_ADDRSTRLEN + 1];
 	struct ecommunity_val *eval = (struct ecommunity_val *)eval_ptr;
 	uint64_t tmp_as = 0;
-	static const char str_color[5] = "color";
+	static const char *str_color = "color";
 	const char *ptr_color;
 	bool val_color_set = false;
 
@@ -1441,14 +1441,14 @@ static char *_ecommunity_ecom2str(struct ecommunity *ecom, int format, int filte
 				snprintf(encbuf, sizeof(encbuf), "FS:action %s",
 					 action);
 			} else if (sub_type == ECOMMUNITY_TRAFFIC_RATE) {
-				union traffic_rate data;
+				union traffic_rate rate;
 
-				data.rate_byte[3] = *(pnt+2);
-				data.rate_byte[2] = *(pnt+3);
-				data.rate_byte[1] = *(pnt+4);
-				data.rate_byte[0] = *(pnt+5);
+				rate.rate_byte[3] = *(pnt + 2);
+				rate.rate_byte[2] = *(pnt + 3);
+				rate.rate_byte[1] = *(pnt + 4);
+				rate.rate_byte[0] = *(pnt + 5);
 				snprintf(encbuf, sizeof(encbuf), "FS:rate %f",
-					 data.rate_float);
+					 rate.rate_float);
 			} else if (sub_type == ECOMMUNITY_TRAFFIC_MARKING) {
 				snprintf(encbuf, sizeof(encbuf),
 					 "FS:marking %u", *(pnt + 5));
@@ -1710,6 +1710,46 @@ bool ecommunity_strip_non_transitive(struct ecommunity *ecom)
 	ecom->size -= found;
 
 	return true;
+}
+
+/*
+ * Filter source Extended Communities Attribute. May return NULL if the result
+ * is empty, or the source ecommunity, if not modified.
+ */
+struct ecommunity *ecommunity_filter(struct ecommunity *ecom,
+				     bool (*filter)(uint8_t *, uint8_t, void *), void *arg)
+{
+	struct ecommunity *new;
+	uint8_t *new_val, *p, *q;
+	uint32_t c, new_size;
+
+	if (!ecom || !ecom->size)
+		return NULL;
+
+	new_val = XMALLOC(MTYPE_ECOMMUNITY_VAL, ecom->size * ecom->unit_size);
+	new_size = 0;
+	for (c = 0, p = ecom->val, q = new_val; c < ecom->size; c++, p += ecom->unit_size) {
+		if (filter(p, ecom->unit_size, arg)) {
+			memcpy(q, p, ecom->unit_size);
+			q += ecom->unit_size;
+			new_size++;
+		}
+	}
+	if (!new_size) {
+		XFREE(MTYPE_ECOMMUNITY_VAL, new_val);
+		return NULL;
+	}
+	if (new_size == ecom->size) {
+		XFREE(MTYPE_ECOMMUNITY_VAL, new_val);
+		return ecom;
+	}
+
+	new = XCALLOC(MTYPE_ECOMMUNITY, sizeof(struct ecommunity));
+	new->size = new_size;
+	new->unit_size = ecom->unit_size;
+	new->val = new_val;
+
+	return new;
 }
 
 /*

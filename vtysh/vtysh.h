@@ -149,10 +149,15 @@ void vtysh_config_init(void);
 void suid_on(void);
 void suid_off(void);
 
+/* Handle exec-timeout config changes */
+#define VTYSH_EXEC_TIMEOUT_MAX 1000 * 1000
+void vtysh_exec_timeout_config(uint32_t tsecs);
+uint32_t vtysh_get_exec_timeout(void);
+
 /* Child process execution flag. */
 extern int execute_flag;
 
-extern struct vty *vty;
+extern struct vty *gvty;
 
 extern int user_mode;
 

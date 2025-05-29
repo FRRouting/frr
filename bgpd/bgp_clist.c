@@ -12,6 +12,7 @@
 #include "filter.h"
 #include "stream.h"
 #include "frrstr.h"
+#include "frregex_real.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_community.h"
@@ -506,7 +507,7 @@ static char *community_str_get(struct community *com, int i)
 
 /* Internal function to perform regular expression match for
  * a single community. */
-static bool community_regexp_include(regex_t *reg, struct community *com, int i)
+static bool community_regexp_include(struct frregex *reg, struct community *com, int i)
 {
 	char *str;
 	int rv;
@@ -519,7 +520,7 @@ static bool community_regexp_include(regex_t *reg, struct community *com, int i)
 		str = community_str_get(com, i);
 
 	/* Regular expression match.  */
-	rv = regexec(reg, str, 0, NULL, 0);
+	rv = regexec(&reg->real, str, 0, NULL, 0);
 
 	XFREE(MTYPE_COMMUNITY_STR, str);
 
@@ -528,7 +529,7 @@ static bool community_regexp_include(regex_t *reg, struct community *com, int i)
 
 /* Internal function to perform regular expression match for community
    attribute.  */
-static bool community_regexp_match(struct community *com, regex_t *reg)
+static bool community_regexp_match(struct community *com, struct frregex *reg)
 {
 	const char *str;
 	char *regstr;
@@ -549,7 +550,7 @@ static bool community_regexp_match(struct community *com, regex_t *reg)
 	regstr = translate_alias ? bgp_alias2community_str(str) : (char *)str;
 
 	/* Regular expression match.  */
-	rv = regexec(reg, regstr, 0, NULL, 0);
+	rv = regexec(&reg->real, regstr, 0, NULL, 0);
 
 	/* This is allocated by frrstr_join(), and needs to be freed
 	 * only if it was created.
@@ -593,8 +594,7 @@ static char *lcommunity_str_get(struct lcommunity *lcom, int i)
 
 /* Internal function to perform regular expression match for
  * a single community. */
-static bool lcommunity_regexp_include(regex_t *reg, struct lcommunity *lcom,
-				      int i)
+static bool lcommunity_regexp_include(struct frregex *reg, struct lcommunity *lcom, int i)
 {
 	char *str;
 
@@ -606,7 +606,7 @@ static bool lcommunity_regexp_include(regex_t *reg, struct lcommunity *lcom,
 		str = lcommunity_str_get(lcom, i);
 
 	/* Regular expression match.  */
-	if (regexec(reg, str, 0, NULL, 0) == 0) {
+	if (regexec(&reg->real, str, 0, NULL, 0) == 0) {
 		XFREE(MTYPE_LCOMMUNITY_STR, str);
 		return true;
 	}
@@ -617,7 +617,7 @@ static bool lcommunity_regexp_include(regex_t *reg, struct lcommunity *lcom,
 }
 
 /* Internal function to perform regular expression match for a single ecommunity. */
-static bool ecommunity_regexp_include(regex_t *reg, struct ecommunity *ecom, int i)
+static bool ecommunity_regexp_include(struct frregex *reg, struct ecommunity *ecom, int i)
 {
 	char *str;
 
@@ -629,7 +629,7 @@ static bool ecommunity_regexp_include(regex_t *reg, struct ecommunity *ecom, int
 		str = ecommunity_str_get(ecom, i);
 
 	/* Regular expression match.  */
-	if (regexec(reg, str, 0, NULL, 0) == 0) {
+	if (regexec(&reg->real, str, 0, NULL, 0) == 0) {
 		XFREE(MTYPE_ECOMMUNITY_STR, str);
 		return true;
 	}
@@ -639,7 +639,7 @@ static bool ecommunity_regexp_include(regex_t *reg, struct ecommunity *ecom, int
 	return false;
 }
 
-static bool lcommunity_regexp_match(struct lcommunity *com, regex_t *reg)
+static bool lcommunity_regexp_match(struct lcommunity *com, struct frregex *reg)
 {
 	const char *str;
 	char *regstr;
@@ -660,7 +660,7 @@ static bool lcommunity_regexp_match(struct lcommunity *com, regex_t *reg)
 	regstr = translate_alias ? bgp_alias2community_str(str) : (char *)str;
 
 	/* Regular expression match.  */
-	rv = regexec(reg, regstr, 0, NULL, 0);
+	rv = regexec(&reg->real, regstr, 0, NULL, 0);
 
 	/* This is allocated by frrstr_join(), and needs to be freed
 	 * only if it was created.
@@ -672,7 +672,7 @@ static bool lcommunity_regexp_match(struct lcommunity *com, regex_t *reg)
 }
 
 
-static bool ecommunity_regexp_match(struct ecommunity *ecom, regex_t *reg)
+static bool ecommunity_regexp_match(struct ecommunity *ecom, struct frregex *reg)
 {
 	const char *str;
 
@@ -684,7 +684,7 @@ static bool ecommunity_regexp_match(struct ecommunity *ecom, regex_t *reg)
 		str = ecommunity_str(ecom);
 
 	/* Regular expression match.  */
-	if (regexec(reg, str, 0, NULL, 0) == 0)
+	if (regexec(&reg->real, str, 0, NULL, 0) == 0)
 		return true;
 
 	/* No match.  */
@@ -913,7 +913,7 @@ int community_list_set(struct community_list_handler *ch, const char *name,
 	struct community_entry *entry = NULL;
 	struct community_list *list;
 	struct community *com = NULL;
-	regex_t *regex = NULL;
+	struct frregex *regex = NULL;
 	int64_t seqnum = COMMUNITY_SEQ_NUMBER_AUTO;
 
 	if (seq)
@@ -1141,7 +1141,7 @@ bool lcommunity_list_valid(const char *community, int style)
 	char **splits, **communities;
 	char *endptr;
 	int num, num_communities;
-	regex_t *regres;
+	struct frregex *regres;
 	int invalid = 0;
 
 	frrstr_split(community, " ", &communities, &num_communities);
@@ -1197,7 +1197,7 @@ int lcommunity_list_set(struct community_list_handler *ch, const char *name,
 	struct community_entry *entry = NULL;
 	struct community_list *list;
 	struct lcommunity *lcom = NULL;
-	regex_t *regex = NULL;
+	struct frregex *regex = NULL;
 	int64_t seqnum = COMMUNITY_SEQ_NUMBER_AUTO;
 
 	if (seq)
@@ -1262,7 +1262,7 @@ void lcommunity_list_unset(struct community_list_handler *ch, const char *name,
 	struct community_entry *entry = NULL;
 	struct community_list *list;
 	struct lcommunity *lcom = NULL;
-	regex_t *regex = NULL;
+	struct frregex *regex = NULL;
 
 	/* Lookup community list.  */
 	list = community_list_lookup(ch, name, 0, LARGE_COMMUNITY_LIST_MASTER);
@@ -1310,7 +1310,7 @@ int extcommunity_list_set(struct community_list_handler *ch, const char *name,
 	struct community_entry *entry = NULL;
 	struct community_list *list;
 	struct ecommunity *ecom = NULL;
-	regex_t *regex = NULL;
+	struct frregex *regex = NULL;
 	int64_t seqnum = COMMUNITY_SEQ_NUMBER_AUTO;
 
 	if (seq)

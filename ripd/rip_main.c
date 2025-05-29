@@ -69,7 +69,7 @@ static void sighup(void)
 }
 
 /* SIGINT handler. */
-static void sigint(void)
+static FRR_NORETURN void sigint(void)
 {
 	struct vrf *vrf;
 
@@ -94,6 +94,7 @@ static void sigint(void)
 	rip_zclient_stop();
 
 	route_map_finish();
+	prefix_list_reset();
 
 	keychain_terminate();
 	frr_fini();
@@ -181,8 +182,6 @@ int main(int argc, char **argv)
 			break;
 
 		switch (opt) {
-		case 0:
-			break;
 		default:
 			frr_help_exit(1);
 		}

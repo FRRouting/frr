@@ -44,6 +44,7 @@ dist_yangmodels_DATA += yang/ietf/ietf-key-chain.yang
 dist_yangmodels_DATA += yang/ietf/ietf-netconf-acm.yang
 dist_yangmodels_DATA += yang/ietf/ietf-netconf.yang
 dist_yangmodels_DATA += yang/ietf/ietf-netconf-with-defaults.yang
+dist_yangmodels_DATA += yang/ietf/ietf-srv6-types.yang
 
 if BFDD
 dist_yangmodels_DATA += yang/frr-bfdd.yang

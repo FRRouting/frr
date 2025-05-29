@@ -25,7 +25,7 @@
 #include "libfrr.h"
 #include "zlog_live.h"
 
-static void	 ldpe_shutdown(void);
+static FRR_NORETURN void ldpe_shutdown(void);
 static void ldpe_dispatch_main(struct event *thread);
 static void ldpe_dispatch_lde(struct event *thread);
 #ifdef __OpenBSD__
@@ -66,8 +66,7 @@ struct zebra_privs_t ldpe_privs =
 };
 
 /* SIGINT / SIGTERM handler. */
-static void
-sigint(void)
+static FRR_NORETURN void sigint(void)
 {
 	ldpe_shutdown();
 }
@@ -182,8 +181,7 @@ ldpe_init(struct ldpd_init *init)
 	accept_init();
 }
 
-static void
-ldpe_shutdown(void)
+static FRR_NORETURN void ldpe_shutdown(void)
 {
 	struct if_addr		*if_addr;
 	struct adj		*adj;
@@ -205,7 +203,7 @@ ldpe_shutdown(void)
 
 #ifdef __OpenBSD__
 	if (sysdep.no_pfkey == 0) {
-		EVENT_OFF(pfkey_ev);
+		event_cancel(&pfkey_ev);
 		close(global.pfkeysock);
 	}
 #endif
@@ -373,8 +371,8 @@ static void ldpe_dispatch_main(struct event *thread)
 			if (imsg.hdr.len != IMSG_HEADER_SIZE + sizeof(struct ldpd_init))
 				fatalx("INIT imsg with wrong len");
 
-			memcpy(&init, imsg.data, sizeof(init));
-			ldpe_init(&init);
+			memcpy(&ldp_init, imsg.data, sizeof(ldp_init));
+			ldpe_init(&ldp_init);
 			break;
 		case IMSG_AGENTX_ENABLED:
 			ldp_agentx_enabled();
@@ -606,8 +604,8 @@ static void ldpe_dispatch_main(struct event *thread)
 		imsg_event_add(iev);
 	else {
 		/* this pipe is dead, so remove the event handlers and exit */
-		EVENT_OFF(iev->ev_read);
-		EVENT_OFF(iev->ev_write);
+		event_cancel(&iev->ev_read);
+		event_cancel(&iev->ev_write);
 		ldpe_shutdown();
 	}
 }
@@ -739,8 +737,8 @@ static void ldpe_dispatch_lde(struct event *thread)
 		imsg_event_add(iev);
 	else {
 		/* this pipe is dead, so remove the event handlers and exit */
-		EVENT_OFF(iev->ev_read);
-		EVENT_OFF(iev->ev_write);
+		event_cancel(&iev->ev_read);
+		event_cancel(&iev->ev_write);
 		ldpe_shutdown();
 	}
 }
@@ -790,14 +788,14 @@ ldpe_close_sockets(int af)
 	af_global = ldp_af_global_get(&global, af);
 
 	/* discovery socket */
-	EVENT_OFF(af_global->disc_ev);
+	event_cancel(&af_global->disc_ev);
 	if (af_global->ldp_disc_socket != -1) {
 		close(af_global->ldp_disc_socket);
 		af_global->ldp_disc_socket = -1;
 	}
 
 	/* extended discovery socket */
-	EVENT_OFF(af_global->edisc_ev);
+	event_cancel(&af_global->edisc_ev);
 	if (af_global->ldp_edisc_socket != -1) {
 		close(af_global->ldp_edisc_socket);
 		af_global->ldp_edisc_socket = -1;

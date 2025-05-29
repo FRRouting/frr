@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: ISC
 import frrtest
 
 class TestXref(frrtest.TestMultiOut):

@@ -548,7 +548,7 @@ static void _bfd_sess_send(struct event *t)
 static void _bfd_sess_remove(struct bfd_session_params *bsp)
 {
 	/* Cancel any pending installation request. */
-	EVENT_OFF(bsp->installev);
+	event_cancel(&bsp->installev);
 
 	/* Not installed, nothing to do. */
 	if (!bsp->installed)
@@ -905,7 +905,7 @@ int zclient_bfd_session_replay(ZAPI_CALLBACK_ARGS)
 		bsp->installed = false;
 
 		/* Cancel any pending installation request. */
-		EVENT_OFF(bsp->installev);
+		event_cancel(&bsp->installev);
 
 		/* Ask for installation. */
 		bsp->lastev = BSE_INSTALL;
@@ -1354,4 +1354,9 @@ bool bfd_session_is_down(const struct bfd_session_params *session)
 {
 	return session->bss.state == BSS_DOWN ||
 	       session->bss.state == BSS_ADMIN_DOWN;
+}
+
+bool bfd_session_is_admin_down(const struct bfd_session_params *session)
+{
+	return session->bss.state == BSS_ADMIN_DOWN;
 }

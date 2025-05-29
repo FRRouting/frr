@@ -30,7 +30,7 @@ unsigned short myseqno = 0;
 #define PARSE_OK         1     // Successfully parsed and processed
 #define PARSE_IGNORED    0     // Ignored TLV or no action needed
 #define PARSE_MALFORMED -1     // Malformed packet or serious error
-
+#define RESERVED 0
 static int unicast_buffered = 0;
 static unsigned char *unicast_buffer = NULL;
 struct neighbour *unicast_neighbour = NULL;
@@ -56,7 +56,17 @@ static const unsigned char tlv_min_length[MESSAGE_MAX + 1] =
 static bool
 known_ae(int ae)
 {
-    return ae <= 4;
+    return ae <= 3;
+}
+
+static inline bool
+is_all_zero(const unsigned char *data, int len) {
+    for (int j = 0; j < len; j++) {
+        if (data[j] != 0) {
+            return false;
+        }
+    }
+    return true;
 }
 
 /* Parse a network prefix, encoded in the somewhat baroque compressed
@@ -155,7 +165,11 @@ static int parse_update_subtlv(const unsigned char *a, int alen,
 		       "Received Mandatory bit set but this FRR version is not prepared to handle it at this point");
 		return PARSE_IGNORED;
 	} else if (type == SUBTLV_PADN) {
-		/* Nothing. */
+        if (!is_all_zero(a + i + 2, len)) {
+            debugf(BABEL_DEBUG_COMMON,
+                   "Received pad%d with non zero MBZ field.",
+                   len);
+        }
 	} else if (type == SUBTLV_DIVERSITY) {
 		if (len > DIVERSITY_HOPS) {
 			flog_err(
@@ -219,7 +233,11 @@ parse_hello_subtlv(const unsigned char *a, int alen,
 		       "Received subtlv with Mandatory bit, this version of FRR is not prepared to handle this currently");
 		return PARSE_IGNORED;
 	} else if (type == SUBTLV_PADN) {
-		/* Nothing to do. */
+        if (!is_all_zero(a + i + 2, len)) {
+            debugf(BABEL_DEBUG_COMMON,
+                   "Received pad%d with non zero MBZ field.",
+                   len);
+        }
 	} else if (type == SUBTLV_TIMESTAMP) {
 		if (len >= 4) {
 			DO_NTOHL(*hello_send_us, a + i + 2);
@@ -277,7 +295,11 @@ parse_ihu_subtlv(const unsigned char *a, int alen,
                    "Ignoring subtlv with Mandatory bit: Not supported");
             return PARSE_IGNORED;
         } else if(type == SUBTLV_PADN) {
-            /* Nothing to do. */
+            if (!is_all_zero(a + i + 2, len)) {
+                debugf(BABEL_DEBUG_COMMON,
+                    "Received pad%d with non zero MBZ field.",
+                    len);
+            }
         } else if(type == SUBTLV_TIMESTAMP) {
             if(len >= 8) {
                 DO_NTOHL(*hello_send_us, a + i + 2);
@@ -306,7 +328,7 @@ parse_request_subtlv(int ae, const unsigned char *a, int alen,
     int have_src_prefix = 0;
 
     while(i < alen) {
-        type = a[0];
+        type = a[i];
         if(type == SUBTLV_PAD1) {
             i++;
             continue;
@@ -457,6 +479,14 @@ parse_packet(const unsigned char *from, struct interface *ifp,
         return;
     }
 
+    if (v4mapped(from)) {
+        memcpy(v4_nh, from, 16);
+        have_v4_nh = 1;
+    } else {
+        memcpy(v6_nh, from, 16);
+        have_v6_nh = 1;
+    }
+
     i = 0;
     while(i < bodylen) {
         message = packet + 4 + i;
@@ -470,12 +500,23 @@ parse_packet(const unsigned char *from, struct interface *ifp,
         len = message[1];
 
         if(type == MESSAGE_PADN) {
+            if (!is_all_zero(message + 2, len)) {
+                debugf(BABEL_DEBUG_COMMON,
+                    "Received pad%d with non zero MBZ field.",
+                    len);
+            }
             debugf(BABEL_DEBUG_COMMON,"Received pad%d from %s on %s.",
                    len, format_address(from), ifp->name);
         } else if(type == MESSAGE_ACK_REQ) {
-            unsigned short nonce, interval;
+            unsigned short nonce, interval, Reserved;
+            DO_NTOHS(Reserved, message + 2);
             DO_NTOHS(nonce, message + 4);
             DO_NTOHS(interval, message + 6);
+            if (Reserved != RESERVED) {
+               debugf(BABEL_DEBUG_COMMON,"Received ack-req (%04X %d) with non zero Reserved from %s on %s.",
+                   nonce, interval, format_address(from), ifp->name);
+               goto done;
+            }
             debugf(BABEL_DEBUG_COMMON,"Received ack-req (%04X %d) from %s on %s.",
                    nonce, interval, format_address(from), ifp->name);
             send_ack(neigh, nonce, interval);
@@ -542,8 +583,15 @@ parse_packet(const unsigned char *from, struct interface *ifp,
 		}
         } else if(type == MESSAGE_IHU) {
             unsigned short txcost, interval;
+            unsigned char Reserved;
             unsigned char address[16];
             int rc;
+            Reserved = message[3];
+            if (Reserved != RESERVED) {
+               debugf(BABEL_DEBUG_COMMON,"Received ihu with non zero Reserved from %s on %s.",
+                   format_address(from), ifp->name);
+               goto done;
+            }
             DO_NTOHS(txcost, message + 4);
             DO_NTOHS(interval, message + 6);
             rc = network_address(message[2], message + 8, len - 6, address);
@@ -579,6 +627,13 @@ parse_packet(const unsigned char *from, struct interface *ifp,
         } else if(type == MESSAGE_NH) {
             unsigned char nh[16];
             int rc;
+            if(message[2] != 1 && message[2] != 3) {
+                debugf(BABEL_DEBUG_COMMON,"Received NH with incorrect AE %d.",
+                       message[2]);
+                have_v4_nh = 0;
+                have_v6_nh = 0;
+                goto fail;
+            }
             rc = network_address(message[2], message + 4, len - 2, nh);
             if(rc <= 0) {
                 have_v4_nh = 0;
@@ -601,6 +656,20 @@ parse_packet(const unsigned char *from, struct interface *ifp,
             unsigned char channels[DIVERSITY_HOPS];
             unsigned short interval, seqno, metric;
             int rc, parsed_len;
+
+            // Basic sanity check on length
+            if (len < 10) {
+                if (len < 2 || (message[3] & 0x80)) {
+                    have_v4_prefix = have_v6_prefix = 0;
+                }
+                goto fail;
+            }
+
+            if(!known_ae(message[2])) {
+                debugf(BABEL_DEBUG_COMMON,"Received update with unknown AE %d. Ignoring.",
+                       message[2]);
+                goto done;
+            }
 
             DO_NTOHS(interval, message + 6);
             DO_NTOHS(seqno, message + 8);
@@ -640,7 +709,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                 }
                 have_router_id = 1;
             }
-            if(!have_router_id && message[2] != 0) {
+            if(metric < INFINITY && !have_router_id && message[2] != 0) {
                 flog_err(EC_BABEL_PACKET,
 			  "Received prefix with no router id.");
                 goto fail;
@@ -652,9 +721,15 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                    format_address(from), ifp->name);
 
             if(message[2] == 0) {
-                if(metric < 0xFFFF) {
+                if(metric < INFINITY) {
                     flog_err(EC_BABEL_PACKET,
-			      "Received wildcard update with finite metric.");
+			     "Received wildcard update with finite metric.");
+                    goto done;
+                }
+                // Add check for Plen and Omitted
+                if(message[4] != 0 || message[5] != 0) {
+                    flog_err(EC_BABEL_PACKET,
+                             "Received wildcard retraction with non-zero Plen or Omitted.");
                     goto done;
                 }
                 retract_neighbour_routes(neigh);
@@ -726,6 +801,10 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                 memcpy(src_prefix, zeroes, 16);
                 src_plen = 0;
             }
+            if(message[6] == 0) {
+                debugf(BABEL_DEBUG_COMMON, "Received seqno request with invalid hop count 0");
+                goto done;
+            }
             rc = parse_request_subtlv(message[2], message + 4 + rc,
                                       len - 2 - rc, src_prefix, &src_plen);
             if(rc < 0)
@@ -737,6 +816,11 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                     /* Wildcard requests don't carry a source prefix. */
                     flog_err(EC_BABEL_PACKET,
 			      "Received source-specific wildcard request.");
+                    goto done;
+                }
+                if(message[3] != 0) {
+                    flog_err(EC_BABEL_PACKET,
+                             "Ignoring request with AE=0 and non-zero Plen");
                     goto done;
                 }
                 /* If a neighbour is requesting a full route dump from us,
@@ -754,8 +838,14 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                 send_update(neigh->ifp, 0, prefix, plen);
             }
         } else if(type == MESSAGE_MH_REQUEST) {
-            unsigned char prefix[16], plen;
+            unsigned char prefix[16], plen, Reserved;
             unsigned short seqno;
+            Reserved = message[7];
+            if (Reserved != RESERVED) {
+               debugf(BABEL_DEBUG_COMMON,"Received request with non zero Reserved from %s on %s.",
+                   format_address(from), ifp->name);
+               goto done;
+            }
             int rc;
             DO_NTOHS(seqno, message + 4);
             rc = network_prefix(message[2], message[3], 0,
@@ -767,6 +857,10 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                    format_prefix(prefix, plen),
                    format_address(from), ifp->name,
                    format_eui64(message + 8), seqno);
+            if(message[6] == 0) {
+                debugf(BABEL_DEBUG_COMMON, "Received request with invalid hop count 0");
+                goto done;
+            }
             handle_request(neigh, prefix, plen, message[6], seqno, message + 8);
         } else {
             debugf(BABEL_DEBUG_COMMON,"Received unknown packet type %d from %s on %s.",
@@ -1938,8 +2032,14 @@ handle_request(struct neighbour *neigh, const unsigned char *prefix,
         /* We were about to forward a request to its requestor.  Try to
            find a different neighbour to forward the request to. */
         struct babel_route *other_route;
+        /* First try feasible routes as required by RFC */
+        other_route = find_best_route(prefix, plen, 1, neigh);
 
-        other_route = find_best_route(prefix, plen, 0, neigh);
+        if(!other_route || route_metric(other_route) >= INFINITY) {
+            /* If no feasible route found, try non-feasible routes */
+            other_route = find_best_route(prefix, plen, 0, neigh);
+        }
+        
         if(other_route && route_metric(other_route) < INFINITY)
             successor = other_route->neigh;
     }

@@ -148,7 +148,7 @@ void sighup(void)
 }
 
 /* SIGINT handler. */
-__attribute__((__noreturn__)) void sigint(void)
+FRR_NORETURN void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 	assert(bm->terminating == false);
@@ -160,6 +160,14 @@ __attribute__((__noreturn__)) void sigint(void)
 	bgp_terminate();
 
 	bgp_exit(0);
+
+	/*
+	 * This is being done after bgp_exit because items may be removed
+	 * from the connection_fifo
+	 */
+	peer_connection_fifo_fini(&bm->connection_fifo);
+	event_cancel(&bm->e_process_packet);
+	pthread_mutex_destroy(&bm->peer_connection_mtx);
 
 	exit(0);
 }
@@ -177,7 +185,7 @@ void sigusr1(void)
   Zebra route removal and protocol teardown are not meant to be done here.
   For example, "retain_mode" may be set.
 */
-static __attribute__((__noreturn__)) void bgp_exit(int status)
+static FRR_NORETURN void bgp_exit(int status)
 {
 	struct bgp *bgp, *bgp_default, *bgp_evpn;
 	struct listnode *node, *nnode;

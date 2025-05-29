@@ -235,8 +235,9 @@ static int nb_node_validate_cb(const struct nb_node *nb_node,
 	 * depends on context (e.g. some daemons might augment "frr-interface"
 	 * while others don't).
 	 */
-	if (!valid && callback_implemented && operation != NB_CB_GET_NEXT
-	    && operation != NB_CB_GET_KEYS && operation != NB_CB_LOOKUP_ENTRY)
+	if (!valid && callback_implemented && operation != NB_CB_GET_NEXT &&
+	    operation != NB_CB_GET_KEYS && operation != NB_CB_LIST_ENTRY_DONE &&
+	    operation != NB_CB_LOOKUP_ENTRY)
 		flog_warn(EC_LIB_NB_CB_UNNEEDED,
 			  "unneeded '%s' callback for '%s'",
 			  nb_cb_operation_name(operation), nb_node->xpath);
@@ -283,6 +284,8 @@ static unsigned int nb_node_validate_cbs(const struct nb_node *nb_node)
 				     state_optional);
 	error += nb_node_validate_cb(nb_node, NB_CB_GET_KEYS, !!nb_node->cbs.get_keys,
 				     state_optional);
+	error += nb_node_validate_cb(nb_node, NB_CB_LIST_ENTRY_DONE, !!nb_node->cbs.list_entry_done,
+				     true);
 	error += nb_node_validate_cb(nb_node, NB_CB_LOOKUP_ENTRY, !!nb_node->cbs.lookup_entry,
 				     state_optional);
 	error += nb_node_validate_cb(nb_node, NB_CB_RPC, !!nb_node->cbs.rpc,
@@ -739,9 +742,7 @@ static LY_ERR dnode_create(struct nb_config *candidate, const char *xpath, const
 }
 
 int nb_candidate_edit(struct nb_config *candidate, const struct nb_node *nb_node,
-		      enum nb_operation operation, const char *xpath,
-		      const struct yang_data *previous,
-		      const struct yang_data *data)
+		      enum nb_operation operation, const char *xpath, const char *value)
 {
 	struct lyd_node *dnode, *dep_dnode, *old_dnode;
 	char dep_xpath[XPATH_MAXLEN];
@@ -755,8 +756,7 @@ int nb_candidate_edit(struct nb_config *candidate, const struct nb_node *nb_node
 		options = LYD_NEW_PATH_UPDATE;
 		fallthrough;
 	case NB_OP_CREATE_EXCL:
-		err = dnode_create(candidate, xpath, data->value, options,
-				   &dnode);
+		err = dnode_create(candidate, xpath, value, options, &dnode);
 		if (err) {
 			return err;
 		} else if (dnode) {
@@ -805,8 +805,7 @@ int nb_candidate_edit(struct nb_config *candidate, const struct nb_node *nb_node
 			parent = lyd_parent(old_dnode);
 			lyd_unlink_tree(old_dnode);
 		}
-		err = dnode_create(candidate, xpath, data->value, options,
-				   &dnode);
+		err = dnode_create(candidate, xpath, value, options, &dnode);
 		if (!err && dnode && !old_dnode) {
 			/* create dependency if the node didn't exist */
 			nb_node = dnode->schema->priv;
@@ -1099,6 +1098,7 @@ const char *nb_operation_name(enum nb_operation operation)
 	}
 
 	assert(!"Reached end of function we should never hit");
+	return "DEV ESCAPE";
 }
 
 bool nb_is_operation_allowed(struct nb_node *nb_node, enum nb_operation oper)
@@ -1111,13 +1111,59 @@ bool nb_is_operation_allowed(struct nb_node *nb_node, enum nb_operation oper)
 	return true;
 }
 
-void nb_candidate_edit_config_changes(struct nb_config *candidate_config,
-				      struct nb_cfg_change cfg_changes[],
-				      size_t num_cfg_changes,
-				      const char *xpath_base, bool in_backend,
-				      char *err_buf, int err_bufsize,
-				      bool *error)
+enum nb_change_result nb_candidate_edit_config_change(struct nb_config *candidate_config,
+						      enum nb_operation operation, const char *xpath,
+						      const char *value, bool in_backend)
 {
+	struct nb_node *nb_node;
+	enum nb_error ret;
+
+	/* Find the northbound node associated to the data path. */
+	nb_node = nb_node_find(xpath);
+	if (!nb_node) {
+		if (in_backend) {
+			DEBUGD(&nb_dbg_cbs_config, "%s: ignoring non-handled path: %s", __func__,
+			       xpath);
+			return NB_CHANGE_OK;
+		}
+		flog_warn(EC_LIB_YANG_UNKNOWN_DATA_PATH, "%s: unknown data path: %s", __func__,
+			  xpath);
+		return NB_CHANGE_ERR_CONT;
+	}
+
+	/* Find if the node to be edited is not a key node */
+	if (!nb_is_operation_allowed(nb_node, operation)) {
+		zlog_err("xpath: %s points to key node", xpath);
+		return NB_CHANGE_ERR;
+	}
+
+	/* If the value is not set, get the default if it exists. */
+	/* XXX what about presence containers? */
+	if (value == NULL)
+		value = yang_snode_get_default(nb_node->snode);
+
+	/*
+	 * Ignore "not found" errors when editing the candidate configuration.
+	 * [XXX chopps: why?, and then why not check for NB_ERR_NOTFOUND]
+	 */
+	ret = nb_candidate_edit(candidate_config, nb_node, operation, xpath, value);
+	if (ret != NB_OK) {
+		flog_warn(EC_LIB_NB_CANDIDATE_EDIT_ERROR,
+			  "%s: failed to edit candidate configuration: operation [%s] xpath [%s]",
+			  __func__, nb_operation_name(operation), xpath);
+		return NB_CHANGE_ERR_CONT;
+	}
+
+	return NB_CHANGE_OK;
+}
+
+void nb_candidate_edit_config_changes(struct nb_config *candidate_config,
+				      struct nb_cfg_change cfg_changes[], size_t num_cfg_changes,
+				      const char *xpath_base, bool in_backend, char *err_buf,
+				      int err_bufsize, bool *error)
+{
+	enum nb_change_result result = NB_CHANGE_OK;
+
 	if (error)
 		*error = false;
 
@@ -1127,76 +1173,32 @@ void nb_candidate_edit_config_changes(struct nb_config *candidate_config,
 	/* Edit candidate configuration. */
 	for (size_t i = 0; i < num_cfg_changes; i++) {
 		struct nb_cfg_change *change = &cfg_changes[i];
-		struct nb_node *nb_node;
 		char *change_xpath = change->xpath;
 		char xpath[XPATH_MAXLEN];
-		const char *value;
-		struct yang_data *data;
-		int ret;
 
 		memset(xpath, 0, sizeof(xpath));
 		/* If change xpath is relative, prepend base xpath. */
+		/* XXX shouldn't this be change_xpath[0] != '/'? */
 		if (change_xpath[0] == '.') {
 			strlcpy(xpath, xpath_base, sizeof(xpath));
 			change_xpath++; /* skip '.' */
 		}
 		strlcat(xpath, change_xpath, sizeof(xpath));
 
-		/* Find the northbound node associated to the data path. */
-		nb_node = nb_node_find(xpath);
-		if (!nb_node) {
-			if (in_backend)
-				DEBUGD(&nb_dbg_cbs_config,
-				       "%s: ignoring non-handled path: %s",
-				       __func__, xpath);
-			else {
-				flog_warn(EC_LIB_YANG_UNKNOWN_DATA_PATH,
-					  "%s: unknown data path: %s", __func__,
-					  xpath);
-				if (error)
-					*error = true;
-			}
-			continue;
-		}
-		/* Find if the node to be edited is not a key node */
-		if (!nb_is_operation_allowed(nb_node, change->operation)) {
-			zlog_err(" Xpath %s points to key node", xpath);
-			if (error)
-				*error = true;
+		result = nb_candidate_edit_config_change(candidate_config, change->operation, xpath,
+							 change->value, in_backend);
+		if (result != NB_CHANGE_OK)
+			*error = true;
+		if (result == NB_CHANGE_ERR)
 			break;
-		}
-
-		/* If the value is not set, get the default if it exists. */
-		value = change->value;
-		if (value == NULL)
-			value = yang_snode_get_default(nb_node->snode);
-		data = yang_data_new(xpath, value);
-
-		/*
-		 * Ignore "not found" errors when editing the candidate
-		 * configuration.
-		 */
-		ret = nb_candidate_edit(candidate_config, nb_node,
-					change->operation, xpath, NULL, data);
-		yang_data_free(data);
-		if (ret != NB_OK) {
-			flog_warn(
-				EC_LIB_NB_CANDIDATE_EDIT_ERROR,
-				"%s: failed to edit candidate configuration: operation [%s] xpath [%s]",
-				__func__, nb_operation_name(change->operation),
-				xpath);
-			if (error)
-				*error = true;
-			continue;
-		}
 	}
-
 	if (error && *error) {
 		char buf[BUFSIZ];
 
-		snprintf(err_buf, err_bufsize,
-			 "%% Failed to edit configuration.\n\n%s",
+		snprintf(err_buf, err_bufsize, "%% Failed to edit configuration.\n\n%s",
 			 yang_print_errors(ly_native_ctx, buf, sizeof(buf)));
+		if (error)
+			*error = true;
 	}
 }
 
@@ -1806,6 +1808,19 @@ int nb_callback_get_keys(const struct nb_node *nb_node, const void *list_entry,
 	return nb_node->cbs.get_keys(&args);
 }
 
+void nb_callback_list_entry_done(const struct nb_node *nb_node, const void *parent_list_entry,
+				 const void *list_entry)
+{
+	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_IGNORE_CFG_CBS) || !nb_node->cbs.list_entry_done)
+		return;
+
+	DEBUGD(&nb_dbg_cbs_state,
+	       "northbound callback (list_entry_done): node [%s] parent_list_entry [%p] list_entry [%p]",
+	       nb_node->xpath, parent_list_entry, list_entry);
+
+	nb_node->cbs.list_entry_done(parent_list_entry, list_entry);
+}
+
 const void *nb_callback_lookup_entry(const struct nb_node *nb_node,
 				     const void *parent_list_entry,
 				     const struct yang_list_keys *keys)
@@ -1943,6 +1958,7 @@ static int nb_callback_configuration(struct nb_context *context,
 	case NB_CB_GET_ELEM:
 	case NB_CB_GET_NEXT:
 	case NB_CB_GET_KEYS:
+	case NB_CB_LIST_ENTRY_DONE:
 	case NB_CB_LOOKUP_ENTRY:
 	case NB_CB_RPC:
 	case NB_CB_NOTIFY:
@@ -2322,6 +2338,7 @@ bool nb_cb_operation_is_valid(enum nb_cb_operation operation,
 		}
 		return true;
 	case NB_CB_GET_KEYS:
+	case NB_CB_LIST_ENTRY_DONE:
 	case NB_CB_LOOKUP_ENTRY:
 		switch (snode->nodetype) {
 		case LYS_LIST:
@@ -2602,6 +2619,7 @@ const char *nb_event_name(enum nb_event event)
 	}
 
 	assert(!"Reached end of function we should never hit");
+	return "DEV ESCAPE";
 }
 
 const char *nb_cb_operation_name(enum nb_cb_operation operation)
@@ -2625,6 +2643,8 @@ const char *nb_cb_operation_name(enum nb_cb_operation operation)
 		return "get_next";
 	case NB_CB_GET_KEYS:
 		return "get_keys";
+	case NB_CB_LIST_ENTRY_DONE:
+		return "list_entry_done";
 	case NB_CB_LOOKUP_ENTRY:
 		return "lookup_entry";
 	case NB_CB_RPC:
@@ -2634,6 +2654,7 @@ const char *nb_cb_operation_name(enum nb_cb_operation operation)
 	}
 
 	assert(!"Reached end of function we should never hit");
+	return "DEV ESCAPE";
 }
 
 const char *nb_err_name(enum nb_error error)
@@ -2662,6 +2683,7 @@ const char *nb_err_name(enum nb_error error)
 	}
 
 	assert(!"Reached end of function we should never hit");
+	return "DEV ESCAPE";
 }
 
 const char *nb_client_name(enum nb_client client)
@@ -2684,6 +2706,7 @@ const char *nb_client_name(enum nb_client client)
 	}
 
 	assert(!"Reached end of function we should never hit");
+	return "DEV ESCAPE";
 }
 
 static void nb_load_callbacks(const struct frr_yang_module_info *module)

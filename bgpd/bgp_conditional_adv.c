@@ -354,7 +354,7 @@ void bgp_conditional_adv_disable(struct peer *peer, afi_t afi, safi_t safi)
 	}
 
 	/* Last filter removed. So cancel conditional routes polling thread. */
-	EVENT_OFF(bgp->t_condition_check);
+	event_cancel(&bgp->t_condition_check);
 }
 
 static void peer_advertise_map_filter_update(struct peer *peer, afi_t afi,

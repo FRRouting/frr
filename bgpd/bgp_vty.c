@@ -29,6 +29,7 @@
 #include "filter.h"
 #include "frrstr.h"
 #include "asn.h"
+#include "frregex_real.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr_evpn.h"
@@ -594,6 +595,7 @@ static const char *get_bgp_default_af_flag(afi_t afi, safi_t safi)
 	/* all AFIs are accounted for above, so this shouldn't happen */
 
 	assert(!"Reached end of function where we did not expect to");
+	return "DEV ESCAPE";
 }
 
 int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
@@ -1111,8 +1113,11 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 	int ret = 0;
 	bool found = false;
 	struct peer *peer;
+	bool afi_safi_unspec = false;
 
 	VTY_BGP_GR_DEFINE_LOOP_VARIABLE;
+
+	afi_safi_unspec = ((afi == AFI_UNSPEC) && (safi == SAFI_UNSPEC));
 
 	/* Clear all neighbors. */
 	/*
@@ -1121,6 +1126,8 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 	 * doppelganger
 	 */
 	if (sort == clear_all) {
+		if (afi_safi_unspec)
+			bgp_clearing_batch_begin(bgp);
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 
 			bgp_peer_gr_flags_update(peer);
@@ -1147,6 +1154,8 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 		if (stype == BGP_CLEAR_SOFT_NONE)
 			bgp->update_delay_over = 0;
 
+		if (afi_safi_unspec)
+			bgp_clearing_batch_end_event_start(bgp);
 		return CMD_SUCCESS;
 	}
 
@@ -1202,6 +1211,8 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			return CMD_WARNING;
 		}
 
+		if (afi_safi_unspec)
+			bgp_clearing_batch_begin(bgp);
 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
 			ret = bgp_peer_clear(peer, afi, safi, &nnode, stype);
 
@@ -1210,6 +1221,8 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			else
 				found = true;
 		}
+		if (afi_safi_unspec)
+			bgp_clearing_batch_end_event_start(bgp);
 
 		if (!found)
 			vty_out(vty,
@@ -1221,6 +1234,8 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 
 	/* Clear all external (eBGP) neighbors. */
 	if (sort == clear_external) {
+		if (afi_safi_unspec)
+			bgp_clearing_batch_begin(bgp);
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 			if (peer->sort == BGP_PEER_IBGP)
 				continue;
@@ -1245,7 +1260,8 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			   && bgp->present_zebra_gr_state == ZEBRA_GR_ENABLE) {
 			bgp_zebra_send_capabilities(bgp, true);
 		}
-
+		if (afi_safi_unspec)
+			bgp_clearing_batch_end_event_start(bgp);
 		if (!found)
 			vty_out(vty,
 				"%% BGP: No external %s peer is configured\n",
@@ -1263,6 +1279,8 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			return CMD_WARNING;
 		}
 
+		if (afi_safi_unspec)
+			bgp_clearing_batch_begin(bgp);
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 			if (peer->as != as)
 				continue;
@@ -1288,6 +1306,8 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			bgp_zebra_send_capabilities(bgp, true);
 		}
 
+		if (afi_safi_unspec)
+			bgp_clearing_batch_end_event_start(bgp);
 		if (!found)
 			vty_out(vty,
 				"%% BGP: No %s peer is configured with AS %s\n",
@@ -1475,27 +1495,6 @@ DEFUN_HIDDEN (no_bgp_local_mac,
 		return CMD_WARNING;
 	}
 
-	return CMD_SUCCESS;
-}
-
-#if CONFDATE > 20250514
-CPP_NOTICE("Remove no_synchronization_cmd, no_auto_summary_cmd commands")
-#endif
-DEFUN (no_synchronization,
-       no_synchronization_cmd,
-       "no synchronization",
-       NO_STR
-       "Perform IGP synchronization\n")
-{
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_auto_summary,
-       no_auto_summary_cmd,
-       "no auto-summary",
-       NO_STR
-       "Enable automatic network number summarization\n")
-{
 	return CMD_SUCCESS;
 }
 
@@ -1691,7 +1690,7 @@ DEFUN (no_router_bgp,
 				argv[idx_asn]->arg);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-		if (argc > 4 && strncmp(argv[4]->arg, "vrf", 3) == 0) {
+		if (argc > 4 && (strmatch(argv[4]->arg, "vrf") || strmatch(argv[4]->arg, "view"))) {
 			name = argv[idx_vrf]->arg;
 			if (strmatch(argv[idx_vrf - 1]->text, "vrf")
 			    && strmatch(name, VRF_DEFAULT_NAME))
@@ -2268,7 +2267,7 @@ DEFUN (no_bgp_maxmed_onstartup,
 
 	/* Cancel max-med onstartup if its on */
 	if (bgp->t_maxmed_onstartup) {
-		EVENT_OFF(bgp->t_maxmed_onstartup);
+		event_cancel(&bgp->t_maxmed_onstartup);
 		bgp->maxmed_onstartup_over = 1;
 	}
 
@@ -7362,6 +7361,26 @@ DEFPY(neighbor_extended_link_bw,
 	return ret;
 }
 
+DEFPY(neighbor_nhc_attribute,
+      neighbor_nhc_attribute_cmd,
+      "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor send-nexthop-characteristics",
+      NO_STR
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Send BGP Next Hop Dependent Characteristics Attribute\n")
+{
+	struct peer *peer;
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (no)
+		return peer_flag_unset_vty(vty, neighbor, PEER_FLAG_SEND_NHC_ATTRIBUTE);
+
+	return peer_flag_set_vty(vty, neighbor, PEER_FLAG_SEND_NHC_ATTRIBUTE);
+}
+
 /* disable-link-bw-encoding-ieee */
 DEFUN(neighbor_disable_link_bw_encoding_ieee,
       neighbor_disable_link_bw_encoding_ieee_cmd,
@@ -8075,7 +8094,7 @@ DEFUN (bgp_set_route_map_delay_timer,
 		 * fired.
 		 */
 		if (!rmap_delay_timer && bm->t_rmap_update) {
-			EVENT_OFF(bm->t_rmap_update);
+			event_cancel(&bm->t_rmap_update);
 			event_execute(bm->master, bgp_route_map_update_timer,
 				      NULL, 0, NULL);
 		}
@@ -8487,7 +8506,7 @@ DEFPY (bgp_def_originate_eval,
 	bgp->rmap_def_originate_eval_timer = no ? 0 : timer;
 
 	if (bgp->t_rmap_def_originate_eval)
-		EVENT_OFF(bgp->t_rmap_def_originate_eval);
+		event_cancel(&bgp->t_rmap_def_originate_eval);
 
 	return CMD_SUCCESS;
 }
@@ -10138,17 +10157,20 @@ DEFPY (af_sid_vpn_export,
 
 DEFPY (bgp_sid_vpn_export,
        bgp_sid_vpn_export_cmd,
-       "[no] sid vpn per-vrf export <(1-1048575)$sid_idx|auto$sid_auto>",
+       "[no] sid vpn per-vrf export <(1-1048575)$sid_idx|auto$sid_auto|explicit$sid_explicit X:X::X:X$sid_value>",
        NO_STR
        "sid value for VRF\n"
        "Between current vrf and vpn\n"
        "sid per-VRF (both IPv4 and IPv6 address families)\n"
        "For routes leaked from current vrf to vpn\n"
        "Sid allocation index\n"
-       "Automatically assign a label\n")
+       "Automatically assign a label\n"
+       "Explicitly assign a sid value\n"
+       "Sid value\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int debug;
+	struct in6_addr *tovpn_sid_explicit = NULL;
 
 	debug = (BGP_DEBUG(vpn, VPN_LEAK_TO_VRF) |
 		 BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF));
@@ -10156,13 +10178,16 @@ DEFPY (bgp_sid_vpn_export,
 	if (no) {
 		/* when per-VRF SID is not set, do nothing */
 		if (bgp->tovpn_sid_index == 0 &&
-		    !CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO))
+		    !CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO) &&
+		    !CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT))
 			return CMD_SUCCESS;
 
 		sid_idx = 0;
 		sid_auto = false;
+		sid_explicit = false;
 		bgp->tovpn_sid_index = 0;
 		UNSET_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO);
+		UNSET_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT);
 	}
 
 	if (bgp->vpn_policy[AFI_IP].tovpn_sid_index != 0 ||
@@ -10179,18 +10204,28 @@ DEFPY (bgp_sid_vpn_export,
 
 	/* skip when it's already configured */
 	if ((sid_idx != 0 && bgp->tovpn_sid_index != 0) ||
-	    (sid_auto && CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO)))
+	    (sid_auto && CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO)) ||
+	    (sid_explicit && CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT)))
 		return CMD_SUCCESS;
 
 	/*
-	 * mode change between sid_idx and sid_auto isn't supported.
+	 * mode change among sid_idx, sid_auto and sid_explicit isn't supported.
 	 * user must negate sid vpn export when they want to change the mode
 	 */
 	if ((sid_auto && bgp->tovpn_sid_index != 0) ||
-	    (sid_idx != 0 &&
-	     CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO))) {
-		vty_out(vty, "it's already configured as %s.\n",
-			sid_auto ? "auto-mode" : "idx-mode");
+	    (sid_auto && CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT)) ||
+	    (sid_idx != 0 && CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO)) ||
+	    (sid_idx != 0 && CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT)) ||
+	    (sid_explicit && bgp->tovpn_sid_index != 0) ||
+	    (sid_explicit && CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO))) {
+		vty_out(vty, "it's already configured as ");
+		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO))
+			vty_out(vty, "auto-mode.\n");
+		else if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT))
+			vty_out(vty, "explicit-mode.\n");
+		else if (sid_idx != 0)
+			vty_out(vty, "idx-mode.\n");
+
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -10211,6 +10246,15 @@ DEFPY (bgp_sid_vpn_export,
 			zlog_debug("%s: idx %ld per-vrf sid alloc.", __func__,
 				   sid_idx);
 		bgp->tovpn_sid_index = sid_idx;
+	} else if (sid_explicit) {
+		/* SID allocation explicit-mode */
+		tovpn_sid_explicit = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
+		memcpy(tovpn_sid_explicit, &sid_value, sizeof(struct in6_addr));
+		bgp->tovpn_sid_explicit = tovpn_sid_explicit;
+
+		if (debug)
+			zlog_debug("%s: explicit per-vrf sid alloc.", __func__);
+		SET_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT);
 	}
 
 	/* post-change */
@@ -10899,6 +10943,53 @@ DEFUN (no_bgp_segment_routing_srv6,
 	return CMD_SUCCESS;
 }
 
+DEFPY (bgp_srv6_encap_behavior,
+       bgp_srv6_encap_behavior_cmd,
+       "[no$no] encap-behavior <H_Encaps|H_Encaps_Red>$encap_behavior",
+       NO_STR
+       "Configure SRv6 encap mode\n"
+       "H.Encaps\n"
+       "H.Encaps.Red\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	enum srv6_headend_behavior srv6_encap_behavior;
+	struct bgp *bgp_inst;
+	struct listnode *node;
+
+	bgp = bgp_get_default();
+	if (!bgp)
+		return CMD_SUCCESS;
+
+	if (strmatch(encap_behavior, "H_Encaps_Red"))
+		srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS_RED;
+	else
+		srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
+
+	if (no && ((srv6_encap_behavior != bgp->srv6_encap_behavior) ||
+		   (srv6_encap_behavior == SRV6_HEADEND_BEHAVIOR_H_ENCAPS)))
+		return CMD_SUCCESS;
+	else if (no == NULL && srv6_encap_behavior == bgp->srv6_encap_behavior)
+		return CMD_SUCCESS;
+
+	if (no)
+		bgp->srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
+	else
+		bgp->srv6_encap_behavior = srv6_encap_behavior;
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_inst)) {
+		if (!bgp_fibupd_safi(SAFI_UNICAST))
+			continue;
+
+		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP, bgp, false);
+		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP6, bgp, false);
+
+		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP, bgp, true);
+		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP6, bgp, true);
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFPY (bgp_srv6_locator,
        bgp_srv6_locator_cmd,
        "locator NAME$name",
@@ -11062,7 +11153,6 @@ static int bgp_clear_prefix(struct vty *vty, const char *view_name,
 		return CMD_WARNING;
 	}
 
-	match.family = afi2family(afi);
 	rib = bgp->rib[afi][safi];
 
 	if (safi == SAFI_MPLS_VPN) {
@@ -11486,7 +11576,7 @@ DEFPY (show_bgp_vrfs,
 		json_vrfs = json_object_new_object();
 
 	for (ALL_LIST_ELEMENTS_RO(inst, node, bgp)) {
-		const char *name;
+		const char *bname;
 
 		/* Skip Views. */
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
@@ -11505,18 +11595,18 @@ DEFPY (show_bgp_vrfs,
 			json_vrf = json_object_new_object();
 
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
-			name = VRF_DEFAULT_NAME;
+			bname = VRF_DEFAULT_NAME;
 			type = "DFLT";
 		} else {
-			name = bgp->name;
+			bname = bgp->name;
 			type = "VRF";
 		}
 
-		show_bgp_vrfs_detail_common(vty, bgp, json_vrf, name, type,
+		show_bgp_vrfs_detail_common(vty, bgp, json_vrf, bname, type,
 					    false);
 
 		if (uj)
-			json_object_object_add(json_vrfs, name, json_vrf);
+			json_object_object_add(json_vrfs, bname, json_vrf);
 	}
 
 	if (uj) {
@@ -11801,9 +11891,8 @@ DEFUN (show_bgp_memory,
 
 	/* Other */
 	if ((count = mtype_stats_alloc(MTYPE_BGP_REGEXP)))
-		vty_out(vty, "%ld compiled regexes, using %s of memory\n",
-			count, mtype_memstr(memstrbuf, sizeof(memstrbuf),
-					    count * sizeof(regex_t)));
+		vty_out(vty, "%ld compiled regexes, using %s of memory\n", count,
+			mtype_memstr(memstrbuf, sizeof(memstrbuf), count * sizeof(struct frregex)));
 	return CMD_SUCCESS;
 }
 
@@ -14071,9 +14160,14 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 					? "Advertise"
 					: "Withdraw");
 
-		/* Receive prefix count */
-		vty_out(vty, "  %u accepted prefixes\n",
-			p->pcount[afi][safi]);
+		/* Receive and sent prefix count, if available */
+		paf = peer_af_find(p, afi, safi);
+		if (paf && PAF_SUBGRP(paf))
+			vty_out(vty, "  %u accepted, %u sent prefixes\n",
+				p->pcount[afi][safi], PAF_SUBGRP(paf)->scount);
+		else
+			vty_out(vty, "  %u accepted prefixes\n",
+				p->pcount[afi][safi]);
 
 		/* maximum-prefix-out */
 		if (CHECK_FLAG(p->af_flags[afi][safi],
@@ -18333,6 +18427,34 @@ DEFUN(no_neighbor_tcp_mss, no_neighbor_tcp_mss_cmd,
 	return peer_tcp_mss_vty(vty, argv[peer_index]->arg, NULL);
 }
 
+DEFPY(neighbor_ip_transparent,
+      neighbor_ip_transparent_cmd,
+      "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor ip-transparent",
+      NO_STR
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Enable IP_TRANSPARENT on the BGP TCP socket\n")
+{
+	struct peer *peer;
+	int ret;
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (!peergroup_flag_check(peer, PEER_FLAG_UPDATE_SOURCE)) {
+		vty_out(vty, "%% Missing update-source\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (no)
+		ret = peer_flag_unset_vty(vty, neighbor, PEER_FLAG_IP_TRANSPARENT);
+	else
+		ret = peer_flag_set_vty(vty, neighbor, PEER_FLAG_IP_TRANSPARENT);
+
+	return bgp_vty_return(vty, ret);
+}
+
 DEFPY(bgp_retain_route_target, bgp_retain_route_target_cmd,
       "[no$no] bgp retain route-target all",
       NO_STR BGP_STR
@@ -18430,12 +18552,23 @@ static bool peergroup_filter_check(struct peer *peer, afi_t afi, safi_t safi,
 				   uint8_t type, int direct)
 {
 	struct bgp_filter *filter;
+	filter = &peer->filter[afi][safi];
 
-	if (peer_group_active(peer))
+	if (peer_group_active(peer)) {
+		/* This is required because the filter_override stores only the filter type.
+		 * To determine whether exist-map or non-exist-map is configured along with adv-map filter,
+		 * 'advmap.condition == direct' is evaluated where 'direct' should be passed appropriately by the caller */
+		if (type == PEER_FT_ADVERTISE_MAP) {
+			if (CHECK_FLAG(peer->filter_override[afi][safi][RMAP_OUT], type)) {
+				/* Only return true if the condition matches what we're checking for */
+				return (filter->advmap.condition == direct);
+			}
+			return false;
+		}
 		return !!CHECK_FLAG(peer->filter_override[afi][safi][direct],
 				    type);
+	}
 
-	filter = &peer->filter[afi][safi];
 	switch (type) {
 	case PEER_FT_DISTRIBUTE_LIST:
 		return !!(filter->dlist[direct].name);
@@ -18922,6 +19055,10 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 				peer->update_if);
 	}
 
+	/* ip-transparent on/off */
+	if (peergroup_flag_check(peer, PEER_FLAG_IP_TRANSPARENT))
+		vty_out(vty, " neighbor %s ip-transparent\n", addr);
+
 	/* advertisement-interval */
 	if (peergroup_flag_check(peer, PEER_FLAG_ROUTEADV))
 		vty_out(vty, " neighbor %s advertisement-interval %u\n", addr,
@@ -19071,6 +19208,9 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 				addr);
 		}
 	}
+
+	if (peergroup_flag_check(peer, PEER_FLAG_SEND_NHC_ATTRIBUTE))
+		vty_out(vty, " neighbor %s send-nexthop-characteristics\n", addr);
 }
 
 /* BGP peer configuration display function. */
@@ -20003,12 +20143,18 @@ int bgp_config_write(struct vty *vty)
 			if (strlen(bgp->srv6_locator_name))
 				vty_out(vty, "  locator %s\n",
 					bgp->srv6_locator_name);
+			if (bgp->srv6_encap_behavior != SRV6_HEADEND_BEHAVIOR_H_ENCAPS)
+				vty_out(vty, "  encap-behavior %s\n",
+					srv6_headend_behavior2str(bgp->srv6_encap_behavior, true));
 			vty_endframe(vty, " exit\n");
 		}
 
 		tovpn_sid_index = bgp->tovpn_sid_index;
 		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO)) {
 			vty_out(vty, " sid vpn per-vrf export auto\n");
+		} else if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT)) {
+			vty_out(vty, " sid vpn per-vrf export explicit %pI6\n",
+				bgp->tovpn_sid_explicit);
 		} else if (tovpn_sid_index != 0) {
 			vty_out(vty, " sid vpn per-vrf export %d\n",
 				tovpn_sid_index);
@@ -20271,7 +20417,7 @@ static void bgp_config_end_timeout(struct event *t)
 
 static void bgp_config_start(void)
 {
-	EVENT_OFF(t_bgp_cfg);
+	event_cancel(&t_bgp_cfg);
 	event_add_timer(bm->master, bgp_config_end_timeout, NULL,
 			BGP_PRE_CONFIG_MAX_WAIT_SECONDS, &t_bgp_cfg);
 }
@@ -20295,7 +20441,7 @@ static void bgp_config_end(void)
 	if (!bgp_config_inprocess())
 		return;
 
-	EVENT_OFF(t_bgp_cfg);
+	event_cancel(&t_bgp_cfg);
 
 	/* Start a new timer to make sure we don't send EoR
 	 * before route-maps are processed.
@@ -20565,13 +20711,6 @@ void bgp_vty_init(void)
 	install_element(CONFIG_NODE, &bgp_graceful_restart_rib_stale_time_cmd);
 	install_element(CONFIG_NODE,
 			&no_bgp_graceful_restart_rib_stale_time_cmd);
-
-#if CONFDATE > 20250514
-	CPP_NOTICE("Remove no_synchronization_cmd, no_auto_summary_cmd commands")
-#endif
-	/* Dummy commands (Currently not supported) */
-	install_element(BGP_NODE, &no_synchronization_cmd);
-	install_element(BGP_NODE, &no_auto_summary_cmd);
 
 	/* "router bgp" commands. */
 	install_element(CONFIG_NODE, &router_bgp_cmd);
@@ -21533,6 +21672,8 @@ void bgp_vty_init(void)
 
 	install_element(BGP_NODE, &neighbor_extended_link_bw_cmd);
 
+	install_element(BGP_NODE, &neighbor_nhc_attribute_cmd);
+
 	/* "neighbor extended-optional-parameters" commands.  */
 	install_element(BGP_NODE, &neighbor_extended_optional_parameters_cmd);
 	install_element(BGP_NODE,
@@ -22111,12 +22252,15 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &neighbor_tcp_mss_cmd);
 	install_element(BGP_NODE, &no_neighbor_tcp_mss_cmd);
 
+	install_element(BGP_NODE, &neighbor_ip_transparent_cmd);
+
 	/* srv6 commands */
 	install_element(VIEW_NODE, &show_bgp_srv6_cmd);
 	install_element(BGP_NODE, &bgp_segment_routing_srv6_cmd);
 	install_element(BGP_NODE, &no_bgp_segment_routing_srv6_cmd);
 	install_element(BGP_SRV6_NODE, &bgp_srv6_locator_cmd);
 	install_element(BGP_SRV6_NODE, &no_bgp_srv6_locator_cmd);
+	install_element(BGP_SRV6_NODE, &bgp_srv6_encap_behavior_cmd);
 	install_element(BGP_IPV4_NODE, &af_sid_vpn_export_cmd);
 	install_element(BGP_IPV6_NODE, &af_sid_vpn_export_cmd);
 	install_element(BGP_NODE, &bgp_sid_vpn_export_cmd);

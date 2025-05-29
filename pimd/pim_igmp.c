@@ -27,6 +27,8 @@
 #include "pim_time.h"
 #include "pim_ssm.h"
 #include "pim_tib.h"
+#include "pim_pim.h"
+#include "pim_dm.h"
 
 static void group_timer_off(struct gm_group *group);
 static void pim_igmp_general_query(struct event *t);
@@ -379,7 +381,7 @@ void pim_igmp_other_querier_timer_on(struct gm_sock *igmp)
 				"Querier %s resetting TIMER event for Other-Querier-Present",
 				ifaddr_str);
 		}
-		EVENT_OFF(igmp->t_other_querier_timer);
+		event_cancel(&igmp->t_other_querier_timer);
 	} else {
 		/*
 		  We are the current querier, then stop sending general queries:
@@ -441,7 +443,7 @@ void pim_igmp_other_querier_timer_off(struct gm_sock *igmp)
 				ifaddr_str, igmp->fd, igmp->interface->name);
 		}
 	}
-	EVENT_OFF(igmp->t_other_querier_timer);
+	event_cancel(&igmp->t_other_querier_timer);
 }
 
 int igmp_validate_checksum(char *igmp_msg, int igmp_msg_len)
@@ -726,18 +728,54 @@ bool pim_igmp_verify_header(struct ip *ip_hdr, size_t len, size_t *hlen)
 	return true;
 }
 
+static bool ip_check_hopopts_ra(const uint8_t *options, size_t options_len)
+{
+	if (options_len < 4)
+		return false;
+
+	/*
+	 * The values 148 and 4 were translated from the bits sequence
+	 * from RFC 2113 Section 2.1. Syntax.
+	 */
+	if (options[0] != 148)
+		return false;
+	if (options[1] != 4)
+		return false;
+	if (options[2] != 0 && options[3] != 0)
+		return false;
+
+	return true;
+}
+
 int pim_igmp_packet(struct gm_sock *igmp, char *buf, size_t len)
 {
+	const struct pim_interface *pim_interface = igmp->interface->info;
 	struct ip *ip_hdr = (struct ip *)buf;
 	size_t ip_hlen; /* ip header length in bytes */
 	char *igmp_msg;
 	int igmp_msg_len;
 	int msg_type;
+	bool router_alert;
 	char from_str[INET_ADDRSTRLEN];
 	char to_str[INET_ADDRSTRLEN];
 
 	if (!pim_igmp_verify_header(ip_hdr, len, &ip_hlen))
 		return -1;
+
+	if (ip_hlen > sizeof(struct ip)) {
+		const uint8_t *ip_options = (const uint8_t *)(ip_hdr + 1);
+		size_t ip_options_len = ip_hlen - sizeof(struct ip);
+
+		router_alert = ip_check_hopopts_ra(ip_options, ip_options_len);
+	} else
+		router_alert = false;
+
+	if (pim_interface->gmp_require_ra && !router_alert) {
+		if (PIM_DEBUG_GM_PACKETS)
+			zlog_debug("discarding IGMP packet from %pI4 on %s due to Router Alert option missing",
+				   &ip_hdr->ip_src, igmp->interface->name);
+		return -1;
+	}
 
 	igmp_msg = buf + ip_hlen;
 	igmp_msg_len = len - ip_hlen;
@@ -885,7 +923,7 @@ void pim_igmp_general_query_off(struct gm_sock *igmp)
 				ifaddr_str, igmp->fd, igmp->interface->name);
 		}
 	}
-	EVENT_OFF(igmp->t_igmp_query_timer);
+	event_cancel(&igmp->t_igmp_query_timer);
 }
 
 /* Issue IGMP general query */
@@ -955,7 +993,7 @@ static void sock_close(struct gm_sock *igmp)
 				igmp->interface->name);
 		}
 	}
-	EVENT_OFF(igmp->t_igmp_read);
+	event_cancel(&igmp->t_igmp_read);
 
 	if (close(igmp->fd)) {
 		flog_err(
@@ -1032,7 +1070,10 @@ void igmp_group_delete(struct gm_group *group)
 	struct listnode *src_node;
 	struct listnode *src_nextnode;
 	struct gm_source *src;
-	struct pim_interface *pim_ifp = group->interface->info;
+	struct interface *ifp = group->interface;
+	struct pim_interface *pim_ifp = ifp->info;
+	struct channel_oil *c_oil;
+
 
 	if (PIM_DEBUG_GM_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
@@ -1047,7 +1088,7 @@ void igmp_group_delete(struct gm_group *group)
 		igmp_source_delete(src);
 	}
 
-	EVENT_OFF(group->t_group_query_retransmit_timer);
+	event_cancel(&group->t_group_query_retransmit_timer);
 
 	group_timer_off(group);
 	igmp_group_count_decr(pim_ifp);
@@ -1055,6 +1096,18 @@ void igmp_group_delete(struct gm_group *group)
 	hash_release(pim_ifp->gm_group_hash, group);
 
 	igmp_group_free(group);
+	/* dm: check if we need to send a prune message */
+	if (pim_ifp->pim_neighbor_list->count == 0 && !pim_dm_check_gm_group_list(ifp)) {
+		frr_each (rb_pim_oil, &pim_ifp->pim->channel_oil_head, c_oil) {
+			if (pim_iface_grp_dm(pim_ifp, *oil_mcastgrp(c_oil)) && c_oil->installed &&
+			    !pim_upstream_up_connected(c_oil->up)) {
+				event_cancel(&c_oil->up->t_graft_timer);
+				PIM_UPSTREAM_DM_SET_PRUNE(c_oil->up->flags);
+				pim_dm_prune_send(c_oil->up->rpf, c_oil->up, 0);
+				prune_timer_start(c_oil->up);
+			}
+		}
+	}
 }
 
 void igmp_group_delete_empty_include(struct gm_group *group)
@@ -1350,7 +1403,7 @@ static void group_timer_off(struct gm_group *group)
 		zlog_debug("Cancelling TIMER event for group %s on %s",
 			   group_str, group->interface->name);
 	}
-	EVENT_OFF(group->t_group_timer);
+	event_cancel(&group->t_group_timer);
 }
 
 void igmp_group_timer_on(struct gm_group *group, long interval_msec,
@@ -1397,6 +1450,7 @@ struct gm_group *igmp_add_group_by_addr(struct gm_sock *igmp,
 {
 	struct gm_group *group;
 	struct pim_interface *pim_ifp = igmp->interface->info;
+	struct channel_oil *c_oil;
 
 	group = find_group_by_addr(igmp, group_addr);
 	if (group) {
@@ -1481,6 +1535,20 @@ struct gm_group *igmp_add_group_by_addr(struct gm_sock *igmp,
 
 	/* Any source (*,G) is forwarded only if mode is EXCLUDE {empty} */
 	igmp_anysource_forward_stop(group);
+
+	/* dm: check is we need to send a graft message */
+	if (pim_ifp->pim_neighbor_list->count > 0 || pim_iface_grp_dm(pim_ifp, group->group_addr)) {
+		frr_each (rb_pim_oil, &pim_ifp->pim->channel_oil_head, c_oil) {
+			if (pim_iface_grp_dm(pim_ifp, *oil_mcastgrp(c_oil)) && c_oil->installed &&
+			    pim_upstream_up_connected(c_oil->up) &&
+			    PIM_UPSTREAM_DM_TEST_PRUNE(c_oil->up->flags)) {
+				PIM_UPSTREAM_DM_UNSET_PRUNE(c_oil->up->flags);
+				event_cancel(&c_oil->up->t_prune_timer);
+				pim_dm_graft_send(c_oil->up->rpf, c_oil->up);
+				graft_timer_start(c_oil->up);
+			}
+		}
+	}
 
 	return group;
 }

@@ -79,11 +79,6 @@ void lm_release_chunk_call(struct zserv *client, uint32_t start,
 			   uint32_t end);
 int lm_write_label_block_config_call(struct vty *vty, struct zebra_vrf *zvrf);
 
-/* API for an external LM to return responses for requests */
-int lm_client_connect_response(uint8_t proto, uint16_t instance,
-			       uint32_t session_id, vrf_id_t vrf_id,
-			       uint8_t result);
-
 /* convenience function to allocate an lmc to be consumed by the above API */
 struct label_manager_chunk *
 create_label_chunk(uint8_t proto, unsigned short instance, uint32_t session_id,
@@ -114,7 +109,6 @@ int release_label_chunk(uint8_t proto, unsigned short instance,
 			uint32_t session_id, uint32_t start, uint32_t end);
 int lm_client_disconnect_cb(struct zserv *client);
 int release_daemon_label_chunks(struct zserv *client);
-void label_manager_close(void);
 
 #ifdef __cplusplus
 }

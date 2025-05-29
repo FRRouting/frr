@@ -88,7 +88,6 @@ enum bgp_show_adj_route_type {
 #define BGP_NLRI_PARSE_ERROR_EVPN_TYPE4_SIZE -9
 #define BGP_NLRI_PARSE_ERROR_EVPN_TYPE5_SIZE -10
 #define BGP_NLRI_PARSE_ERROR_FLOWSPEC_IPV6_NOT_SUPPORTED -11
-#define BGP_NLRI_PARSE_ERROR_FLOWSPEC_NLRI_SIZELIMIT -12
 #define BGP_NLRI_PARSE_ERROR_FLOWSPEC_BAD_FORMAT -13
 #define BGP_NLRI_PARSE_ERROR_ADDRESS_FAMILY -14
 #define BGP_NLRI_PARSE_ERROR_EVPN_TYPE1_SIZE -15
@@ -779,6 +778,9 @@ extern void bgp_soft_reconfig_table_task_cancel(const struct bgp *bgp,
 extern bool bgp_soft_reconfig_in(struct peer *peer, afi_t afi, safi_t safi);
 extern void bgp_clear_route(struct peer *, afi_t, safi_t);
 extern void bgp_clear_route_all(struct peer *);
+/* Clear routes for a batch of peers */
+void bgp_clear_route_batch(struct bgp_clearing_info *cinfo);
+
 extern void bgp_clear_adj_in(struct peer *, afi_t, safi_t);
 extern void bgp_clear_stale_route(struct peer *, afi_t, safi_t);
 extern void bgp_set_stale_route(struct peer *peer, afi_t afi, safi_t safi);
@@ -798,8 +800,7 @@ extern void bgp_path_info_add(struct bgp_dest *dest, struct bgp_path_info *pi);
 extern void bgp_path_info_extra_free(struct bgp_path_info_extra **extra);
 extern struct bgp_dest *bgp_path_info_reap(struct bgp_dest *dest,
 					   struct bgp_path_info *pi);
-extern void bgp_path_info_delete(struct bgp_dest *dest,
-				 struct bgp_path_info *pi);
+extern void bgp_path_info_mark_for_delete(struct bgp_dest *dest, struct bgp_path_info *pi);
 extern struct bgp_path_info_extra *
 bgp_path_info_extra_get(struct bgp_path_info *path);
 extern struct bgp_path_info_extra *bgp_evpn_path_info_extra_get(struct bgp_path_info *path);
@@ -907,7 +908,8 @@ extern struct bgp_path_info *info_make(int type, int sub_type,
 				       struct bgp_dest *dest);
 
 extern void route_vty_out(struct vty *vty, const struct prefix *p,
-			  struct bgp_path_info *path, int display, safi_t safi,
+			  struct bgp_path_info *path, int display,
+			  struct attr *attr, safi_t safi,
 			  json_object *json_paths, bool wide);
 extern void route_vty_out_tag(struct vty *vty, const struct prefix *p,
 			      struct bgp_path_info *path, int display,
@@ -933,9 +935,6 @@ extern bool subgroup_announce_check(struct bgp_dest *dest,
 				    struct update_subgroup *subgrp,
 				    const struct prefix *p, struct attr *attr,
 				    struct attr *post_attr);
-
-extern void bgp_peer_clear_node_queue_drain_immediate(struct peer *peer);
-extern void bgp_process_queues_drain_immediate(void);
 
 /* for encap/vpn */
 extern struct bgp_dest *bgp_safi_node_lookup(struct bgp_table *table,

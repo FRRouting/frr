@@ -19,6 +19,7 @@ Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
 #include "memory.h"
 #include "libfrr.h"
 #include "lib_errors.h"
+#include "plist.h"
 
 #include "babel_main.h"
 #include "babeld.h"
@@ -33,9 +34,9 @@ Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
 #include "babel_zebra.h"
 #include "babel_errors.h"
 
-static void babel_fail(void);
+static FRR_NORETURN void babel_fail(void);
 static void babel_init_random(void);
-static void babel_exit_properly(void);
+static FRR_NORETURN void babel_exit_properly(void);
 static void babel_save_state_file(void);
 
 
@@ -84,8 +85,7 @@ struct zebra_privs_t babeld_privs =
     .cap_num_i = 0
 };
 
-static void
-babel_sigexit(void)
+static FRR_NORETURN void babel_sigexit(void)
 {
     zlog_notice("Terminating on signal");
 
@@ -207,8 +207,7 @@ main(int argc, char **argv)
     return 0;
 }
 
-static void
-babel_fail(void)
+static FRR_NORETURN void babel_fail(void)
 {
     exit(1);
 }
@@ -296,8 +295,7 @@ fini:
     return ;
 }
 
-static void
-babel_exit_properly(void)
+static FRR_NORETURN void babel_exit_properly(void)
 {
     debugf(BABEL_DEBUG_COMMON, "Exiting...");
     usleep(roughly(10000));
@@ -313,6 +311,7 @@ babel_exit_properly(void)
     debugf(BABEL_DEBUG_COMMON, "Done.");
 
     vrf_terminate();
+    prefix_list_reset();
     frr_fini();
 
     exit(0);

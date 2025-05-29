@@ -749,11 +749,11 @@ void sr_adj_sid_add_single(struct isis_adjacency *adj, int family, bool backup,
 
 		sra->backup_nexthops = list_new();
 		for (ALL_LIST_ELEMENTS_RO(nexthops, node, vadj)) {
-			struct isis_adjacency *adj = vadj->sadj->adj;
+			struct isis_adjacency *tadj = vadj->sadj->adj;
 			struct mpls_label_stack *label_stack;
 
 			label_stack = vadj->label_stack;
-			adjinfo2nexthop(family, sra->backup_nexthops, adj, NULL,
+			adjinfo2nexthop(family, sra->backup_nexthops, tadj, NULL,
 					label_stack);
 		}
 	}
@@ -1274,7 +1274,7 @@ void isis_sr_stop(struct isis_area *area)
 		 area->area_tag);
 
 	/* Disable any re-attempt to connect to Label Manager */
-	EVENT_OFF(srdb->t_start_lm);
+	event_cancel(&srdb->t_start_lm);
 
 	/* Uninstall all local Adjacency-SIDs. */
 	for (ALL_LIST_ELEMENTS(area->srdb.adj_sids, node, nnode, sra))

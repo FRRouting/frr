@@ -27,7 +27,7 @@ static struct rip_peer *rip_peer_new(void)
 void rip_peer_free(struct rip_peer *peer)
 {
 	bfd_sess_free(&peer->bfd_session);
-	EVENT_OFF(peer->t_timeout);
+	event_cancel(&peer->t_timeout);
 	XFREE(MTYPE_RIP_PEER, peer);
 }
 
@@ -74,7 +74,7 @@ static struct rip_peer *rip_peer_get(struct rip *rip, struct rip_interface *ri,
 	peer = rip_peer_lookup(rip, addr);
 
 	if (peer) {
-		EVENT_OFF(peer->t_timeout);
+		event_cancel(&peer->t_timeout);
 	} else {
 		peer = rip_peer_new();
 		peer->rip = rip;
@@ -189,8 +189,8 @@ void rip_peer_delete_routes(const struct rip_peer *peer)
 				continue;
 
 			if (listcount(list) == 1) {
-				EVENT_OFF(route_entry->t_timeout);
-				EVENT_OFF(route_entry->t_garbage_collect);
+				event_cancel(&route_entry->t_timeout);
+				event_cancel(&route_entry->t_garbage_collect);
 				listnode_delete(list, route_entry);
 				if (list_isempty(list)) {
 					list_delete((struct list **)&route_node

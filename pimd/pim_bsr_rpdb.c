@@ -428,7 +428,7 @@ void pim_crp_nht_update(struct pim_instance *pim, struct pim_nexthop_cache *pnc)
 
 static void pim_crp_free(struct pim_instance *pim, struct bsr_crp_rp *rp)
 {
-	EVENT_OFF(rp->t_hold);
+	event_cancel(&rp->t_hold);
 	pim_nht_candrp_del(pim, rp->addr);
 	bsr_crp_rp_groups_fini(rp->groups);
 
@@ -455,6 +455,8 @@ int pim_crp_process(struct interface *ifp, pim_sgaddr *src_dst, uint8_t *buf,
 	struct pim_interface *pim_ifp = NULL;
 	struct pim_instance *pim;
 	struct bsm_scope *scope;
+	size_t ngroups;
+	pim_addr rpaddr = {};
 
 	pim_ifp = ifp->info;
 	if (!pim_ifp) {
@@ -505,20 +507,19 @@ int pim_crp_process(struct interface *ifp, pim_sgaddr *src_dst, uint8_t *buf,
 	/* ignore trailing data */
 	(void)buf;
 
-	size_t ngroups = crp_hdr->prefix_cnt;
+	ngroups = crp_hdr->prefix_cnt;
+	rpaddr = crp_hdr->rp_addr.addr;
 
 	if (remain < ngroups * sizeof(struct pim_encoded_group_ipv4)) {
 		if (PIM_DEBUG_BSM)
 			zlog_debug("truncated Candidate-RP advertisement for RP %pPA from %pPA (too short for %zu groups)",
-				   (pim_addr *)&crp_hdr->rp_addr.addr,
-				   &src_dst->src, ngroups);
+				   &rpaddr, &src_dst->src, ngroups);
 		return -1;
 	}
 
 	if (PIM_DEBUG_BSM)
 		zlog_debug("Candidate-RP: %pPA, prio=%u (from %pPA, %zu groups)",
-			   (pim_addr *)&crp_hdr->rp_addr.addr, crp_hdr->rp_prio,
-			   &src_dst->src, ngroups);
+			   (pim_addr *)&rpaddr, crp_hdr->rp_prio, &src_dst->src, ngroups);
 
 
 	struct bsr_crp_rp *rp, ref;
@@ -529,16 +530,14 @@ int pim_crp_process(struct interface *ifp, pim_sgaddr *src_dst, uint8_t *buf,
 	if (!rp) {
 		if (bsr_crp_rps_count(scope->ebsr_rps) >= bsr_max_rps) {
 			zlog_err("BSR: number of tracked Candidate RPs (%zu) exceeds DoS-protection limit (%zu), dropping advertisement for RP %pPA (packet source %pPA)",
-				 bsr_crp_rps_count(scope->ebsr_rps),
-				 bsr_max_rps, (pim_addr *)&crp_hdr->rp_addr.addr,
-				 &src_dst->src);
+				 bsr_crp_rps_count(scope->ebsr_rps), bsr_max_rps,
+				 (pim_addr *)&rpaddr, &src_dst->src);
 			return -1;
 		}
 
 		if (PIM_DEBUG_BSM)
 			zlog_debug("new Candidate-RP: %pPA (from %pPA)",
-				   (pim_addr *)&crp_hdr->rp_addr.addr,
-				   &src_dst->src);
+				   (pim_addr *)&rpaddr, &src_dst->src);
 
 		rp = XCALLOC(MTYPE_PIM_BSR_CRP, sizeof(*rp));
 		rp->scope = scope;
@@ -554,7 +553,7 @@ int pim_crp_process(struct interface *ifp, pim_sgaddr *src_dst, uint8_t *buf,
 	rp->seen_last = monotime(NULL);
 	rp->holdtime = ntohs(crp_hdr->rp_holdtime);
 
-	EVENT_OFF(rp->t_hold);
+	event_cancel(&rp->t_hold);
 	event_add_timer(router->master, pim_crp_expire, rp,
 			ntohs(crp_hdr->rp_holdtime), &rp->t_hold);
 

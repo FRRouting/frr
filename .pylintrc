@@ -1,5 +1,5 @@
 [MASTER]
-init-hook="import sys; sys.path.insert(0, '..')"
+init-hook="import sys; sys.path.extend(['..', 'tests/topotests']);"
 signature-mutators=common_config.retry,retry
 
 [FORMAT]

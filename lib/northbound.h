@@ -50,10 +50,9 @@ struct nb_yang_xpath {
 	} tags[NB_MAX_NUM_XPATH_TAGS];
 };
 
-#define NB_YANG_XPATH_KEY(__xpath, __indx1, __indx2)                           \
-	((__xpath->num_tags > __indx1) &&                                      \
-			 (__xpath->tags[__indx1].num_keys > __indx2)           \
-		 ? &__xpath->tags[__indx1].keys[__indx2]                       \
+#define NB_YANG_XPATH_KEY(_xpath, _indx1, _indx2)                                                  \
+	(((_xpath)->num_tags > (_indx1)) && ((_xpath)->tags[(_indx1)].num_keys > (_indx2))         \
+		 ? &(_xpath)->tags[(_indx1)].keys[(_indx2)]                                        \
 		 : NULL)
 
 /* Northbound events. */
@@ -98,6 +97,7 @@ enum nb_cb_operation {
 	NB_CB_GET_ELEM,
 	NB_CB_GET_NEXT,
 	NB_CB_GET_KEYS,
+	NB_CB_LIST_ENTRY_DONE,
 	NB_CB_LOOKUP_ENTRY,
 	NB_CB_RPC,
 	NB_CB_NOTIFY,
@@ -518,6 +518,24 @@ struct nb_callbacks {
 	/*
 	 * Operational data callback for YANG lists.
 	 *
+	 * This callback function is called to cleanup any resources that may be
+	 * held by a backend opaque `list_entry` value (e.g., a lock). It is
+	 * called when the northbound code is done using a `list_entry` value it
+	 * obtained using the lookup_entry() callback. It is also called on the
+	 * `list_entry` returned from the get_next() or lookup_next() callbacks
+	 * if the iteration aborts before walking to the end of the list. The
+	 * intention is to allow any resources (e.g., a lock) to now be
+	 * released.
+	 *
+	 * args
+	 *    parent_list_entry - pointer to the parent list entry
+	 *    list_entry - value returned previously from `lookup_entry()`
+	 */
+	void (*list_entry_done)(const void *parent_list_entry, const void *list_entry);
+
+	/*
+	 * Operational data callback for YANG lists.
+	 *
 	 * The callback function should return a list entry based on the list
 	 * keys given as a parameter. Keyless lists don't need to implement this
 	 * callback.
@@ -883,6 +901,8 @@ extern int nb_callback_get_keys(const struct nb_node *nb_node,
 extern const void *nb_callback_lookup_entry(const struct nb_node *nb_node,
 					    const void *parent_list_entry,
 					    const struct yang_list_keys *keys);
+extern void nb_callback_list_entry_done(const struct nb_node *nb_node,
+					const void *parent_list_entry, const void *list_entry);
 extern const void *nb_callback_lookup_node_entry(struct lyd_node *node,
 						 const void *parent_list_entry);
 extern const void *nb_callback_lookup_next(const struct nb_node *nb_node,
@@ -1037,22 +1057,15 @@ extern bool nb_is_operation_allowed(struct nb_node *nb_node,
  * xpath
  *    XPath of the configuration node being edited.
  *
- * previous
- *    Previous value of the configuration node. Should be used only when the
- *    operation is NB_OP_MOVE, otherwise this parameter is ignored.
- *
- * data
+ * value
  *    New value of the configuration node.
  *
  * Returns:
  *    - NB_OK on success.
  *    - NB_ERR for other errors.
  */
-extern int nb_candidate_edit(struct nb_config *candidate,
-			     const struct nb_node *nb_node,
-			     enum nb_operation operation, const char *xpath,
-			     const struct yang_data *previous,
-			     const struct yang_data *data);
+extern int nb_candidate_edit(struct nb_config *candidate, const struct nb_node *nb_node,
+			     enum nb_operation operation, const char *xpath, const char *value);
 
 /*
  * Edit a candidate configuration. Value is given as JSON/XML.
@@ -1121,6 +1134,36 @@ extern void nb_config_diff_created(const struct lyd_node *dnode, uint32_t *seq,
  *    true if the candidate is outdated, false otherwise.
  */
 extern bool nb_candidate_needs_update(const struct nb_config *candidate);
+
+
+enum nb_change_result {
+	NB_CHANGE_OK,
+	NB_CHANGE_ERR,
+	NB_CHANGE_ERR_CONT,
+};
+
+/*
+ * Edit candidate configuration given single change.
+ *
+ * candidate_config
+ *    Candidate configuration to edit.
+ *
+ * operation
+ *    The type of change.
+ *
+ * xpath
+ *     Absolute xpath of the configuration node being edited.
+ *
+ * value
+ *    New value of the configuration node.
+ *
+ * in_backend
+ *    If true then ignore errors due to schema non-presence.
+ */
+extern enum nb_change_result nb_candidate_edit_config_change(struct nb_config *candidate_config,
+							     enum nb_operation operation,
+							     const char *xpath, const char *value,
+							     bool in_backend);
 
 /*
  * Edit candidate configuration changes.
@@ -1875,6 +1918,15 @@ void nb_notif_delete(const char *path);
  * @replace: true to replace existing set otherwise append.
  */
 extern void nb_notif_set_filters(const char **selectors, bool replace);
+
+
+/**
+ * nb_notif_get_state() - request state dump be sent to mgmtd
+ * @selectors: darr array of xpath strings to do get operations on returning
+ *		the state as notification data.
+ * @refer_id: send in the refer_id field of the returned notification data.
+ */
+extern void nb_notif_get_state(const char **selectors, uint64_t refer_id);
 
 /**
  * nb_notif_enable_multi_thread() - enable use of multiple threads with nb_notif

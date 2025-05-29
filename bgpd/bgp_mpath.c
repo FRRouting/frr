@@ -12,7 +12,6 @@
 
 #include "command.h"
 #include "prefix.h"
-#include "linklist.h"
 #include "sockunion.h"
 #include "memory.h"
 #include "queue.h"
@@ -492,7 +491,7 @@ void bgp_path_info_mpath_update(struct bgp *bgp, struct bgp_dest *dest,
 			}
 
 			if (debug)
-				zlog_debug("%pBD(%s): Mpath count %u is equal to maximum paths allowed, finished comparision for MPATHS",
+				zlog_debug("%pBD(%s): Mpath count %u is equal to maximum paths allowed, finished comparison for MPATHS",
 					   dest, bgp->name_pretty, mpath_count);
 
 			break;
