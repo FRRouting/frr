@@ -274,6 +274,15 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 
 		up->channel_oil->cc.pktcnt++;
 
+		/* Detect if the rpf for the source is different from the interface the packet was received on.
+		 * In this case, we need to prune immediately
+		 */
+		if (!up->rpf.source_nexthop.interface ||
+		    up->rpf.source_nexthop.interface->ifindex != ifp->ifindex) {
+			pim_dm_prune_wrongif(ifp, sg, up);
+			return 0;
+		}
+
 		// resolve mfcc_parent prior to mroute_add in channel_add_oif
 		if (up->rpf.source_nexthop.interface &&
 		    *oil_incoming_vif(up->channel_oil) >= MAXVIFS) {
@@ -559,6 +568,11 @@ int pim_mroute_msg_wrongvif(int fd, struct interface *ifp, const kernmsg *msg)
 					__func__, &star_g, ifp->name);
 			return -3;
 		}
+	}
+
+	if (pim_iface_grp_dm(pim_ifp, sg.grp)) {
+		pim_dm_prune_wrongif(ifp, sg, ch->upstream);
+		return 0;
 	}
 
 	/*
