@@ -601,6 +601,40 @@ void zebra_evpn_sync_neigh_del(struct zebra_neigh *n)
 		zlog_debug("sync-neigh del vni %u ip %pIA mac %pEA f 0x%x",
 			   n->zevpn->vni, &n->ip, &n->emac, n->flags);
 
+	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_ES_PEER_ACTIVE)) {
+		struct zebra_ns *zns = NULL;
+		struct interface *ifp = NULL;
+
+		if (n->zevpn && n->zevpn->vxlan_if && n->zevpn->vxlan_if->vrf) {
+			struct zebra_vrf *zvrf = n->zevpn->vxlan_if->vrf->info;
+			if (zvrf)
+				zns = zvrf->zns;
+		}
+
+		if (zns)
+			ifp = if_lookup_by_index_per_ns(zns, n->ifindex);
+
+		/* Only start the hold timer if the local interface is operative.
+		   If the interface is down, ES_PEER_ACTIVE will stay until
+		   the interface comes up and BGP provides a new update.*/
+
+		if (ifp && if_is_operative(ifp)) {
+			zebra_evpn_neigh_start_hold_timer(n);
+		} else {
+			if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH) {
+				char if_name_buf[64] = "unknown";
+				if (ifp)
+					strlcpy(if_name_buf, ifp->name, sizeof(if_name_buf));
+				else if (n->ifindex != 0)
+					snprintf(if_name_buf, sizeof(if_name_buf), "ifindex %d",
+						 n->ifindex);
+
+				zlog_debug("sync-neigh vni %u ip %pIA DEL: ifp %s (idx %d) is not operative, not starting hold_timer for ES_PEER_ACTIVE flag 0x%x",
+					   n->zevpn->vni, &n->ip, if_name_buf, n->ifindex, n->flags);
+			}
+		}
+	}
+
 	old_n_static = zebra_evpn_neigh_is_static(n);
 	UNSET_FLAG(n->flags, ZEBRA_NEIGH_ES_PEER_PROXY);
 	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_ES_PEER_ACTIVE))
