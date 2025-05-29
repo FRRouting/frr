@@ -128,6 +128,35 @@ void pim_dm_graft_send(struct pim_rpf rpf, struct pim_upstream *up)
 	list_delete_all_node(&groups);
 }
 
+/* Send a prune immediately to all neighbors on a interface.
+ * Used when a packet is received on the wrong interface.
+ */
+void pim_dm_prune_wrongif(struct interface *ifp, pim_sgaddr sg, struct pim_upstream *up)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct pim_rpf rpf;
+	struct listnode *neighnode;
+	struct pim_neighbor *neigh;
+
+	if (!up)
+		return;
+
+	/* Prune because it came in on the wrong interface */
+	event_cancel(&up->t_graft_timer);
+	PIM_UPSTREAM_DM_SET_PRUNE(up->flags);
+
+	/* Prune to each neighbor on the received interface */
+	rpf.source_nexthop.interface = ifp;
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_neighbor_list, neighnode, neigh)) {
+		rpf.source_nexthop.mrib_nexthop_addr = neigh->source_addr;
+		if (PIM_DEBUG_PIM_J_P)
+			zlog_debug("%s: Sending immediate prune for (S,G)=%pSG to neighbor %pPA on interface %s",
+				   __func__, &up->sg, &neigh->source_addr, ifp->name);
+		pim_dm_prune_send(rpf, up, 0);
+		prune_timer_start(up);
+	}
+}
+
 void pim_dm_prune_send(struct pim_rpf rpf, struct pim_upstream *up, bool is_join)
 {
 	struct list groups, sources;
