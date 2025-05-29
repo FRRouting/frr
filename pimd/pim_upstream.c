@@ -2239,7 +2239,7 @@ bool pim_upstream_up_connected(struct pim_upstream *up)
 		    ifp->ifindex != up->rpf.source_nexthop.interface->ifindex &&
 		    oil_if_has(up->channel_oil, pim_ifp->mroute_vif_index))
 			return true;
-		if (pim_dm_check_prune(ifp, up->sg.grp))
+		if (pim_gm_has_igmp_join(ifp, up->sg.grp))
 			return true;
 	}
 	return false;
