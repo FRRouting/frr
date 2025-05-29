@@ -176,7 +176,7 @@ bool pim_dm_check_gm_group_list(struct interface *ifp)
 }
 
 /* Returns true if this interface has an IGMP for this group */
-bool pim_dm_check_prune(struct interface *ifp, pim_addr group_addr)
+bool pim_gm_has_igmp_join(struct interface *ifp, pim_addr group_addr)
 {
 	struct listnode *node;
 	struct listnode *nextnode;
@@ -285,7 +285,7 @@ void pim_dm_recv_prune(struct interface *ifp, struct pim_neighbor *neigh, uint16
 				sg_connected = true;
 				break;
 			}
-			if (pim_dm_check_prune(ifp2, sg->grp)) {
+			if (pim_gm_has_igmp_join(ifp2, sg->grp)) {
 				sg_connected = true;
 				break;
 			}
