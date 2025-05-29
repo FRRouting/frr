@@ -140,7 +140,7 @@ If you prefer to manually build FRR, then use the following suggested config:
        --enable-user=frr \
        --enable-group=frr \
        --enable-vty-group=frrvty \
-       --enable-snmp=agentx \
+       --enable-snmp \
        --with-pkg-extra-version=-my-manual-build
 
 And create ``frr`` user and ``frrvty`` group as follows:
