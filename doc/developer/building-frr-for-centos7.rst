@@ -61,7 +61,7 @@ an example.)
         --libdir=/usr/lib/frr \
         --libexecdir=/usr/lib/frr \
         --with-moduledir=/usr/lib/frr/modules \
-        --enable-snmp=agentx \
+        --enable-snmp \
         --enable-multipath=64 \
         --enable-user=frr \
         --enable-group=frr \

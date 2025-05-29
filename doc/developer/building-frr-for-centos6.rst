@@ -165,7 +165,7 @@ an example.)
         --libexecdir=/usr/lib/frr \
         --with-moduledir=/usr/lib/frr/modules \
         --disable-pimd \
-        --enable-snmp=agentx \
+        --enable-snmp \
         --enable-multipath=64 \
         --enable-user=frr \
         --enable-group=frr \

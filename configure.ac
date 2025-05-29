@@ -2014,42 +2014,38 @@ dnl ##########################################################################
 dnl ------------------
 dnl check Net-SNMP library
 dnl ------------------
+SNMP=false
 if test "$enable_snmp" != "" -a "$enable_snmp" != "no"; then
-   AC_PATH_TOOL([NETSNMP_CONFIG], [net-snmp-config], [no])
-   if test "$NETSNMP_CONFIG" = "no"; then
-      AC_MSG_ERROR([--enable-snmp given but unable to find net-snmp-config])
-   fi
-   SNMP_LIBS="`${NETSNMP_CONFIG} --agent-libs`"
-   SNMP_CFLAGS="`${NETSNMP_CONFIG} --base-cflags`"
-   # net-snmp lists all of its own dependencies.  we absolutely do not want that
-   # among other things we avoid a GPL vs. OpenSSL license conflict here
-   for removelib in crypto ssl sensors pci wrap; do
-     SNMP_LIBS="`echo $SNMP_LIBS | sed -e 's/-l'$removelib'/ /g'`"
-   done
-   AC_MSG_CHECKING([whether we can link to Net-SNMP])
-   AC_LINK_IFELSE_FLAGS([$SNMP_CFLAGS], [$SNMP_LIBS], [AC_LANG_PROGRAM([
+  PKG_CHECK_MODULES([SNMP], [netsnmp-agent], [
+    dnl all set, nothing to do
+  ], [
+    AC_PATH_TOOL([NETSNMP_CONFIG], [net-snmp-config], [no])
+    if test "$NETSNMP_CONFIG" = "no"; then
+      AC_MSG_ERROR([--enable-snmp given but unable to find netsnmp-agent pkgconfig or net-snmp-config])
+    fi
+    SNMP_LIBS="`${NETSNMP_CONFIG} --agent-libs`"
+    SNMP_CFLAGS="`${NETSNMP_CONFIG} --base-cflags`"
+    # net-snmp lists all of its own dependencies.  we absolutely do not want that
+    # among other things we avoid a GPL vs. OpenSSL license conflict here
+    for removelib in crypto ssl sensors pci wrap; do
+      SNMP_LIBS="`echo $SNMP_LIBS | sed -e 's/-l'$removelib'/ /g'`"
+    done
+    AC_MSG_CHECKING([whether we can link to Net-SNMP])
+    AC_LINK_IFELSE_FLAGS([$SNMP_CFLAGS], [$SNMP_LIBS], [
+      AC_LANG_PROGRAM([
 int main(void);
-],
-[
+], [
 {
   return 0;
 }
-])], [
-     AC_MSG_RESULT([no])
-     AC_MSG_ERROR([--enable-snmp given but not usable])])
-   case "${enable_snmp}" in
-     yes)
-      SNMP_METHOD=agentx
-      ;;
-     agentx)
-      SNMP_METHOD="${enable_snmp}"
-      ;;
-     *)
-      AC_MSG_ERROR([--enable-snmp given with an unknown method (${enable_snmp}). Use yes or agentx])
-      ;;
-   esac
-   AH_TEMPLATE([SNMP_AGENTX], [Use SNMP AgentX to interface with snmpd])
-   AC_DEFINE_UNQUOTED(AS_TR_CPP(SNMP_${SNMP_METHOD}),,[SNMP method to interface with snmpd])
+])
+    ], [
+      AC_MSG_RESULT([no])
+      AC_MSG_ERROR([SNMP libraries found but failed to link])
+    ])
+  ])
+  SNMP=true
+  AC_DEFINE([SNMP_AGENTX], [1], [Enable AgentX SNMP modules])
 fi
 AC_SUBST([SNMP_LIBS])
 AC_SUBST([SNMP_CFLAGS])
@@ -2766,7 +2762,7 @@ AM_CONDITIONAL([GRPC], [test "$enable_grpc" = "yes"])
 AM_CONDITIONAL([ZEROMQ], [test "$ZEROMQ" = "true"])
 dnl plugins
 AM_CONDITIONAL([RPKI], [test "$RPKI" = "true"])
-AM_CONDITIONAL([SNMP], [test "$SNMP_METHOD" = "agentx"])
+AM_CONDITIONAL([SNMP], [$SNMP])
 AM_CONDITIONAL([IRDP], [$IRDP])
 AM_CONDITIONAL([FPM], [test "$enable_fpm" = "yes"])
 AM_CONDITIONAL([HAVE_PROTOBUF], [test "$enable_protobuf" != "no"])

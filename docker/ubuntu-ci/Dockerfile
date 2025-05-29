@@ -125,7 +125,7 @@ RUN cd ~/frr && \
        --enable-config-rollbacks \
        --enable-grpc \
        --enable-vty-group=frrvty \
-       --enable-snmp=agentx \
+       --enable-snmp \
        --enable-scripting \
        --with-pkg-extra-version=-my-manual-build && \
     make -j $(nproc) && \
