@@ -1218,6 +1218,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
     # Quite possibly the most confusing (while accurate) variable names in history
     lines_to_add_to_del = []
     lines_to_del_to_del = []
+    lines_to_add_vrf_no_static_route = []
 
     index = -1
     for ctx_keys, line in lines_to_del:
@@ -1638,7 +1639,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
         if ctx_keys[0].startswith("vrf ") and line:
             if line.startswith("ip route") or line.startswith("ipv6 route"):
                 add_cmd = "no " + line
-                lines_to_add.append((ctx_keys, add_cmd))
+                lines_to_add_vrf_no_static_route.append((ctx_keys, add_cmd))
                 lines_to_del_to_del.append((ctx_keys, line))
 
         if not deleted:
@@ -1676,6 +1677,8 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                     if found_add_line:
                         lines_to_del_to_del.append((ctx_keys, line))
                         lines_to_add_to_del.append((tmp_ctx_keys, line))
+
+    lines_to_add = lines_to_add_vrf_no_static_route + lines_to_add
 
     for ctx_keys, line in lines_to_del_to_del:
         try:
