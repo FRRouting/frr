@@ -160,7 +160,6 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 	pim_sgaddr sg;
 	bool desync = false;
 	bool update_oil = false;
-	bool endpoint_join = false;
 	bool dodense = false;
 	int flags = PIM_UPSTREAM_FLAG_MASK_SRC_STREAM;
 	struct interface *ifp2 = NULL;
@@ -290,28 +289,29 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 				continue;
 
 			/* Flood if has neighbors or IGMP join */
-			if (pim_ifp2->pim_neighbor_list->count) {
+			if (pim_ifp2->pim_neighbor_list->count ||
+			    pim_gm_has_igmp_join(ifp2, sg.grp)) {
 				oil_if_set(up->channel_oil, pim_ifp2->mroute_vif_index, 1);
 				update_oil = true;
-			} else if (pim_dm_check_prune(ifp2, sg.grp)) {
-				oil_if_set(up->channel_oil, pim_ifp2->mroute_vif_index, 1);
-				update_oil = true;
-				/* LHR join should not run a prune timer */
-				endpoint_join = true;
 			}
 		}
 
 		if (update_oil || desync) {
 			PIM_UPSTREAM_DM_SET_INTERFACE(up->flags);
-
+			PIM_UPSTREAM_FLAG_UNSET_USE_RPT(up->flags);
+			PIM_UPSTREAM_FLAG_UNSET_DR_JOIN_DESIRED(up->flags);
 			pim_upstream_mroute_update(up->channel_oil, __func__);
-			/* dm: if the router is an originator send state refresh */
-			if (PIM_UPSTREAM_FLAG_TEST_FHR(up->flags)) {
-				up->pim->staterefresh_counter = 0;
-				pim_send_staterefresh(up);
-				staterefresh_timer_start(up);
-			}
-		} else if (!endpoint_join) {
+		}
+
+		/* If the router is an originator send state refresh */
+		if (update_oil && PIM_UPSTREAM_FLAG_TEST_FHR(up->flags)) {
+			up->pim->staterefresh_counter = 0;
+			pim_send_staterefresh(up);
+			staterefresh_timer_start(up);
+		}
+
+		/* We have no where to flood this traffic, prune it */
+		if (!update_oil) {
 			PIM_UPSTREAM_DM_SET_PRUNE(up->flags);
 			pim_dm_prune_send(up->rpf, up, 0);
 			prune_timer_start(up);

@@ -27,7 +27,7 @@ void pim_dm_change_iif_mode(struct interface *ifp, enum pim_iface_mode mode);
 void pim_dm_graft_send(struct pim_rpf rpf, struct pim_upstream *up);
 void pim_dm_prune_send(struct pim_rpf rpf, struct pim_upstream *up, bool is_join);
 bool pim_dm_check_gm_group_list(struct interface *ifp);
-bool pim_dm_check_prune(struct interface *ifp, pim_addr group_addr);
+bool pim_gm_has_igmp_join(struct interface *ifp, pim_addr group_addr);
 void pim_dm_recv_graft(struct interface *ifp, pim_sgaddr *sg);
 void pim_dm_recv_prune(struct interface *ifp, struct pim_neighbor *neigh, uint16_t holdtime,
 		       pim_addr upstream, pim_sgaddr *sg, uint8_t source_flags);
