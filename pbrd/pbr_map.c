@@ -271,8 +271,11 @@ void pbr_map_policy_interface_update(const struct interface *ifp, bool state_up)
 	struct listnode *node, *inode;
 	struct pbr_map_interface *pmi;
 
-	if (pbr_map_policy_interface_update_common(ifp, &pbr_ifp, &pbrm))
+	if (pbr_map_policy_interface_update_common(ifp, &pbr_ifp, &pbrm)) {
+		if (!state_up)
+			pbr_if_del((struct interface *)ifp);
 		return;
+	}
 
 	DEBUGD(&pbr_dbg_map, "%s: %s %s rules on interface %s", __func__,
 	       pbr_ifp->mapname, (state_up ? "installing" : "removing"),
