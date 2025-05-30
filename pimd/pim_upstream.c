@@ -1015,8 +1015,8 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	/* Set up->upstream_addr as INADDR_ANY, if RP is not
 	 * configured and retain the upstream data structure
 	 */
-	if (!pim_rp_set_upstream_addr(pim, &up->upstream_addr, sg->src,
-				      sg->grp)) {
+	if (!pim_rp_set_upstream_addr(pim, &up->upstream_addr, sg->src, sg->grp) &&
+	    pim_is_grp_dm(pim, sg->grp)) {
 		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug("%s: Received a (*,G) with no RP configured",
 				   __func__);
@@ -2239,7 +2239,7 @@ bool pim_upstream_up_connected(struct pim_upstream *up)
 		    ifp->ifindex != up->rpf.source_nexthop.interface->ifindex &&
 		    oil_if_has(up->channel_oil, pim_ifp->mroute_vif_index))
 			return true;
-		if (pim_dm_check_prune(ifp, up->sg.grp))
+		if (pim_gm_has_igmp_join(ifp, up->sg.grp))
 			return true;
 	}
 	return false;
