@@ -1136,15 +1136,28 @@ static int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
 		return -1;
 	}
 
-	if (rtm->rtm_flags & RTM_F_CLONED)
+	if (rtm->rtm_flags & RTM_F_CLONED) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("Route rtm_type: %s(%d) is CLONED intentionally ignoring",
+				   nl_rttype_to_str(rtm->rtm_type), rtm->rtm_type);
 		return 0;
-	if (rtm->rtm_protocol == RTPROT_REDIRECT)
+	}
+	if (rtm->rtm_protocol == RTPROT_REDIRECT) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("Route rtm_type: %s(%d) is RTPROT_REDIRECT intentionally ignoring",
+				   nl_rttype_to_str(rtm->rtm_type), rtm->rtm_type);
+
 		return 0;
+	}
 
 	/* We don't care about change notifications for the MPLS table. */
 	/* TODO: Revisit this. */
-	if (rtm->rtm_family == AF_MPLS)
+	if (rtm->rtm_family == AF_MPLS) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("Route rtm_type: %s(%d) is MPLS intentionally ignoring",
+				   nl_rttype_to_str(rtm->rtm_type), rtm->rtm_type);
 		return 0;
+	}
 
 	netlink_parse_rtattr(tb, RTA_MAX, RTM_RTA(rtm), len);
 
@@ -1164,6 +1177,9 @@ static int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
 	/* Finish parsing the core route info */
 	ret = netlink_route_read_unicast_ctx(h, ns_id, tb, ctx);
 	if (ret < 0) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("Route rtm_type: %s(%d) netlink_route_read_unicast_ctx failed intentionally ignoring",
+				   nl_rttype_to_str(rtm->rtm_type), rtm->rtm_type);
 		ret = 0;
 		goto done;
 	}
@@ -1189,6 +1205,10 @@ static int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
 	if (vrf_id == VRF_DEFAULT) {
 		if (!is_zebra_valid_kernel_table(table)
 		    && !is_zebra_main_routing_table(table)) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug("Route rtm_type: %s(%d) unable to parse table received %u, ignoring",
+					   nl_rttype_to_str(rtm->rtm_type), rtm->rtm_type, table);
+
 			ret = 0;
 			goto done;
 		}
