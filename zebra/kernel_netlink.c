@@ -555,7 +555,7 @@ static void netlink_install_filter(int sock, uint32_t pid, uint32_t dplane_pid)
 		 *       nlmsg_pid == dplane_pid) {
 		 *       if (the incoming nlmsg_type ==
 		 *           RTM_NEWADDR || RTM_DELADDR || RTM_NEWNETCONF ||
-		 *           RTM_DELNETCONF)
+		 *           RTM_DELNETCONF || RTM_NEWNEIGH
 		 *           keep this message
 		 *       else
 		 *           skip this message
@@ -574,7 +574,7 @@ static void netlink_install_filter(int sock, uint32_t pid, uint32_t dplane_pid)
 		/*
 		 * 2: Compare to dplane pid
 		 */
-		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htonl(dplane_pid), 0, 6),
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htonl(dplane_pid), 0, 7),
 		/*
 		 * 3: Load the nlmsg_type into BPF register
 		 */
@@ -583,27 +583,29 @@ static void netlink_install_filter(int sock, uint32_t pid, uint32_t dplane_pid)
 		/*
 		 * 4: Compare to RTM_NEWADDR
 		 */
-		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htons(RTM_NEWADDR), 4, 0),
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htons(RTM_NEWADDR), 5, 0),
 		/*
 		 * 5: Compare to RTM_DELADDR
 		 */
-		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htons(RTM_DELADDR), 3, 0),
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htons(RTM_DELADDR), 4, 0),
 		/*
 		 * 6: Compare to RTM_NEWNETCONF
 		 */
-		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htons(RTM_NEWNETCONF), 2,
-			 0),
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htons(RTM_NEWNETCONF), 3, 0),
 		/*
 		 * 7: Compare to RTM_DELNETCONF
 		 */
-		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htons(RTM_DELNETCONF), 1,
-			 0),
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htons(RTM_DELNETCONF), 2, 0),
 		/*
-		 * 8: This is the end state of we want to skip the
+		 * 8: Compare to RTM_NEWNEIGH
+		 */
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htons(RTM_NEWNEIGH), 1, 0),
+		/*
+		 * 9: This is the end state of we want to skip the
 		 *    message
 		 */
 		BPF_STMT(BPF_RET | BPF_K, 0),
-		/* 9: This is the end state of we want to keep
+		/* 10: This is the end state of we want to keep
 		 *     the message
 		 */
 		BPF_STMT(BPF_RET | BPF_K, 0xffff),
