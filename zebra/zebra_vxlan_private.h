@@ -40,7 +40,7 @@ struct zebra_l3vni {
 	struct interface *bridge_if;
 
 	/* Local IP */
-	struct in_addr local_vtep_ip;
+	struct ipaddr local_vtep_ip;
 
 	/* kernel interface for l3vni */
 	struct interface *vxlan_if;
@@ -253,10 +253,8 @@ extern void zebra_vxlan_sync_mac_dp_install(struct zebra_mac *mac,
 					    bool force_clear_static,
 					    const char *caller);
 extern bool zebra_evpn_do_dup_addr_detect(struct zebra_vrf *zvrf);
-extern void zebra_vxlan_sg_ref(struct in_addr local_vtep_ip,
-			       struct in_addr mcast_grp);
-extern void zebra_vxlan_sg_deref(struct in_addr local_vtep_ip,
-				 struct in_addr mcast_grp);
+extern void zebra_vxlan_sg_ref(struct ipaddr *local_vtep_ip, struct in_addr mcast_grp);
+extern void zebra_vxlan_sg_deref(struct ipaddr *local_vtep_ip, struct in_addr mcast_grp);
 extern void zebra_vxlan_process_l3vni_oper_up(struct zebra_l3vni *zl3vni);
 extern void zebra_vxlan_process_l3vni_oper_down(struct zebra_l3vni *zl3vni);
 extern int zebra_evpn_vxlan_del(struct zebra_evpn *zevpn);
