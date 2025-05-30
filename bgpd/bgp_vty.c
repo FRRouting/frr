@@ -9279,12 +9279,15 @@ DEFUN (no_neighbor_addpath_tx_all_paths,
 {
 	int idx_peer = 2;
 	struct peer *peer;
+	safi_t safi = bgp_node_safi(vty);
 
 	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	if (peer->addpath_type[bgp_node_afi(vty)][bgp_node_safi(vty)] != BGP_ADDPATH_ALL) {
+	if (safi == SAFI_LABELED_UNICAST)
+		safi = SAFI_UNICAST;
+	if (peer->addpath_type[bgp_node_afi(vty)][safi] != BGP_ADDPATH_ALL) {
 		vty_out(vty,
 			"%% Peer not currently configured to transmit all paths.");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -9376,13 +9379,15 @@ DEFUN (no_neighbor_addpath_tx_bestpath_per_as,
 {
 	int idx_peer = 2;
 	struct peer *peer;
+	safi_t safi = bgp_node_safi(vty);
 
 	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	if (peer->addpath_type[bgp_node_afi(vty)][bgp_node_safi(vty)]
-	    != BGP_ADDPATH_BEST_PER_AS) {
+	if (safi == SAFI_LABELED_UNICAST)
+		safi = SAFI_UNICAST;
+	if (peer->addpath_type[bgp_node_afi(vty)][safi] != BGP_ADDPATH_BEST_PER_AS) {
 		vty_out(vty,
 			"%% Peer not currently configured to transmit all best path per as.");
 		return CMD_WARNING_CONFIG_FAILED;
