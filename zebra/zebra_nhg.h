@@ -390,7 +390,7 @@ extern void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx);
 
 
 /* Sweep the nhg hash tables for old entries on restart */
-extern void zebra_nhg_sweep_table(struct hash *hash);
+extern void zebra_nhg_sweep_table(struct hash *hash, bool stale_sweep);
 
 /*
  * We are shutting down but the nexthops should be kept

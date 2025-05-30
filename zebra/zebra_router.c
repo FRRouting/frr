@@ -180,7 +180,7 @@ void zebra_router_sweep_route(void)
 
 void zebra_router_sweep_nhgs(void)
 {
-	zebra_nhg_sweep_table(zrouter.nhgs_id);
+	zebra_nhg_sweep_table(zrouter.nhgs_id, false);
 }
 
 static void zebra_router_free_table(struct zebra_router_table *zrt)
