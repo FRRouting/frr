@@ -2081,6 +2081,18 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 					VRF_LOGNAME(vrf),
 					dplane_ctx_get_vrf(ctx), rn, re);
 		} else {
+			/*
+			 * Currently FRR expects a second async dplane ctx for the asic_offloaded
+			 * case, where FRR gets the result of the offload success failure
+			 * But if we are asic_offloaded and the first response fails we
+			 * know that the dplane provider has not successfully sent the route
+			 * operation at all to the dplane and as such we will never get
+			 * a second async response to the request.  In this case we know
+			 * that we should just mark it as no longer queued at all.
+			 */
+			if (zrouter.asic_offloaded && status == ZEBRA_DPLANE_REQUEST_FAILURE)
+				UNSET_FLAG(re->status, ROUTE_ENTRY_QUEUED);
+
 			if (!zrouter.asic_offloaded ||
 			    (CHECK_FLAG(re->flags, ZEBRA_FLAG_OFFLOADED) ||
 			     CHECK_FLAG(re->flags,
