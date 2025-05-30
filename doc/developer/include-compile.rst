@@ -19,7 +19,7 @@ obtained by running ``./configure -h``. The options shown below are examples.
        --with-moduledir=\${prefix}/lib/frr/modules \
        --enable-configfile-mask=0640 \
        --enable-logfile-mask=0640 \
-       --enable-snmp=agentx \
+       --enable-snmp \
        --enable-multipath=64 \
        --enable-user=frr \
        --enable-group=frr \

@@ -1183,7 +1183,6 @@ static void lib_interface_zebra_evpn_mh_uplink_cli_write(
 		vty_out(vty, " no evpn mh uplink\n");
 }
 
-#if defined(HAVE_RTADV)
 DEFPY_YANG (ipv6_nd_ra_fast_retrans,
 	ipv6_nd_ra_fast_retrans_cmd,
 	"[no] ipv6 nd ra-fast-retrans",
@@ -1924,7 +1923,6 @@ static void lib_interface_zebra_ipv6_router_advertisements_pref64_pref64_prefix_
 
 	vty_out(vty, "\n");
 }
-#endif /* HAVE_RTADV */
 
 #if HAVE_BFDD == 0
 DEFPY_YANG (zebra_ptm_enable_if,
@@ -2763,9 +2761,7 @@ const char *features[] = {
 #if HAVE_BFDD == 0
 	"ptm-bfd",
 #endif
-#if defined(HAVE_RTADV)
 	"ipv6-router-advertisements",
-#endif
 	NULL
 };
 
@@ -2910,7 +2906,6 @@ const struct frr_yang_module_info frr_zebra_cli_info = {
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/evpn-mh/uplink",
 			.cbs.cli_show = lib_interface_zebra_evpn_mh_uplink_cli_write,
 		},
-#if defined(HAVE_RTADV)
 		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/send-advertisements",
 			.cbs.cli_show = lib_interface_zebra_ipv6_router_advertisements_send_advertisements_cli_write,
@@ -2987,7 +2982,6 @@ const struct frr_yang_module_info frr_zebra_cli_info = {
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/pref64/pref64-prefix",
 			.cbs.cli_show = lib_interface_zebra_ipv6_router_advertisements_pref64_pref64_prefix_cli_write,
 		},
-#endif /* defined(HAVE_RTADV) */
 #if HAVE_BFDD == 0
 		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ptm-enable",
@@ -3083,7 +3077,6 @@ void zebra_cli_init(void)
 	install_element(INTERFACE_NODE, &zebra_evpn_es_bypass_cmd);
 	install_element(INTERFACE_NODE, &zebra_evpn_mh_uplink_cmd);
 
-#if defined(HAVE_RTADV)
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_fast_retrans_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_retrans_interval_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_hop_limit_cmd);
@@ -3103,7 +3096,6 @@ void zebra_cli_init(void)
 	install_element(INTERFACE_NODE, &ipv6_nd_rdnss_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_dnssl_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_pref64_cmd);
-#endif
 #if HAVE_BFDD == 0
 	install_element(INTERFACE_NODE, &zebra_ptm_enable_if_cmd);
 #endif

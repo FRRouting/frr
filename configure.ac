@@ -837,8 +837,6 @@ AC_ARG_ENABLE([logfile_mask],
   AS_HELP_STRING([--enable-logfile-mask=ARG], [set mask for log files]))
 AC_ARG_ENABLE([realms],
   AS_HELP_STRING([--enable-realms], [enable REALMS support under Linux]))
-AC_ARG_ENABLE([rtadv],
-  AS_HELP_STRING([--disable-rtadv], [disable IPV6 router advertisement feature]))
 AC_ARG_ENABLE([irdp],
   AS_HELP_STRING([--enable-irdp], [enable IRDP server support in zebra]))
 AC_ARG_ENABLE([capabilities],
@@ -846,7 +844,9 @@ AC_ARG_ENABLE([capabilities],
 AC_ARG_ENABLE([gcc_ultra_verbose],
   AS_HELP_STRING([--enable-gcc-ultra-verbose], [enable ultra verbose GCC warnings]))
 AC_ARG_ENABLE([backtrace],
-  AS_HELP_STRING([--disable-backtrace], [disable crash backtraces (default autodetect)]))
+  AS_HELP_STRING([--disable-backtrace], [disable crash backtraces (default autodetect)])
+AS_HELP_STRING([--enable-backtrace=<execinfo|libunwind>], [select specific backtrace library])
+)
 AC_ARG_ENABLE([pcreposix],
   AS_HELP_STRING([--enable-pcreposix], [enable using PCRE Posix libs for regex functions]))
 AC_ARG_ENABLE([pcre2posix],
@@ -1002,14 +1002,6 @@ AC_SUBST([PYSPHINX])
 #
 if test "$enable_oldvpn_commands" = "yes"; then
    AC_DEFINE([KEEP_OLD_VPN_COMMANDS], [1], [Define for compiling with old vpn commands])
-fi
-
-AC_MSG_CHECKING([if zebra should be configurable to send Route Advertisements])
-if test "$enable_rtadv" != "no"; then
-  AC_MSG_RESULT([yes])
-  AC_DEFINE([HAVE_RTADV], [1], [Enable IPv6 Routing Advertisement support])
-else
-  AC_MSG_RESULT([no])
 fi
 
 if test "$enable_user" = "no"; then
@@ -2012,42 +2004,38 @@ dnl ##########################################################################
 dnl ------------------
 dnl check Net-SNMP library
 dnl ------------------
+SNMP=false
 if test "$enable_snmp" != "" -a "$enable_snmp" != "no"; then
-   AC_PATH_TOOL([NETSNMP_CONFIG], [net-snmp-config], [no])
-   if test "$NETSNMP_CONFIG" = "no"; then
-      AC_MSG_ERROR([--enable-snmp given but unable to find net-snmp-config])
-   fi
-   SNMP_LIBS="`${NETSNMP_CONFIG} --agent-libs`"
-   SNMP_CFLAGS="`${NETSNMP_CONFIG} --base-cflags`"
-   # net-snmp lists all of its own dependencies.  we absolutely do not want that
-   # among other things we avoid a GPL vs. OpenSSL license conflict here
-   for removelib in crypto ssl sensors pci wrap; do
-     SNMP_LIBS="`echo $SNMP_LIBS | sed -e 's/-l'$removelib'/ /g'`"
-   done
-   AC_MSG_CHECKING([whether we can link to Net-SNMP])
-   AC_LINK_IFELSE_FLAGS([$SNMP_CFLAGS], [$SNMP_LIBS], [AC_LANG_PROGRAM([
+  PKG_CHECK_MODULES([SNMP], [netsnmp-agent], [
+    dnl all set, nothing to do
+  ], [
+    AC_PATH_TOOL([NETSNMP_CONFIG], [net-snmp-config], [no])
+    if test "$NETSNMP_CONFIG" = "no"; then
+      AC_MSG_ERROR([--enable-snmp given but unable to find netsnmp-agent pkgconfig or net-snmp-config])
+    fi
+    SNMP_LIBS="`${NETSNMP_CONFIG} --agent-libs`"
+    SNMP_CFLAGS="`${NETSNMP_CONFIG} --base-cflags`"
+    # net-snmp lists all of its own dependencies.  we absolutely do not want that
+    # among other things we avoid a GPL vs. OpenSSL license conflict here
+    for removelib in crypto ssl sensors pci wrap; do
+      SNMP_LIBS="`echo $SNMP_LIBS | sed -e 's/-l'$removelib'/ /g'`"
+    done
+    AC_MSG_CHECKING([whether we can link to Net-SNMP])
+    AC_LINK_IFELSE_FLAGS([$SNMP_CFLAGS], [$SNMP_LIBS], [
+      AC_LANG_PROGRAM([
 int main(void);
-],
-[
+], [
 {
   return 0;
 }
-])], [
-     AC_MSG_RESULT([no])
-     AC_MSG_ERROR([--enable-snmp given but not usable])])
-   case "${enable_snmp}" in
-     yes)
-      SNMP_METHOD=agentx
-      ;;
-     agentx)
-      SNMP_METHOD="${enable_snmp}"
-      ;;
-     *)
-      AC_MSG_ERROR([--enable-snmp given with an unknown method (${enable_snmp}). Use yes or agentx])
-      ;;
-   esac
-   AH_TEMPLATE([SNMP_AGENTX], [Use SNMP AgentX to interface with snmpd])
-   AC_DEFINE_UNQUOTED(AS_TR_CPP(SNMP_${SNMP_METHOD}),,[SNMP method to interface with snmpd])
+])
+    ], [
+      AC_MSG_RESULT([no])
+      AC_MSG_ERROR([SNMP libraries found but failed to link])
+    ])
+  ])
+  SNMP=true
+  AC_DEFINE([SNMP_AGENTX], [1], [Enable AgentX SNMP modules])
 fi
 AC_SUBST([SNMP_LIBS])
 AC_SUBST([SNMP_CFLAGS])
@@ -2586,36 +2574,47 @@ AC_SUBST([LIBCAP])
 dnl ---------------------------
 dnl check for glibc 'backtrace'
 dnl ---------------------------
+backtrace_ok=false
 if test "$enable_backtrace" != "no" ; then
-  backtrace_ok=no
-  PKG_CHECK_MODULES([UNWIND], [libunwind], [
-    AC_DEFINE([HAVE_LIBUNWIND], [1], [libunwind])
-    backtrace_ok=yes
-  ], [
-    true
-  ])
-
-  if test "$backtrace_ok" = "no"; then
-    AC_CHECK_HEADER([libunwind.h], [
-      AC_SEARCH_LIBS([unw_getcontext], [unwind], [
-        AC_DEFINE([HAVE_LIBUNWIND], [1], [libunwind])
-        backtrace_ok=yes
+  case "x$enable_backtrace" in
+  x|xyes|xexecinfo|xlibunwind)
+    ;;
+  *)
+    AC_MSG_FAILURE([invalid argument ${enable_backtrace} for --enable-backtrace])
+    ;;
+  esac
+  if test "$enable_backtrace" != "execinfo"; then
+    PKG_CHECK_MODULES([UNWIND], [libunwind], [
+      AC_DEFINE([HAVE_LIBUNWIND], [1], [libunwind])
+      backtrace_ok=true
+    ], [
+      AC_CHECK_HEADER([libunwind.h], [
+        AC_SEARCH_LIBS([unw_getcontext], [unwind], [
+          AC_DEFINE([HAVE_LIBUNWIND], [1], [libunwind])
+          backtrace_ok=true
+        ])
       ])
     ])
+    if test "$enable_backtrace" = "libunwind" -a "$backtrace_ok" = "false"; then
+      AC_MSG_FAILURE([libunwind backtraces explicitly requested but not found])
+    fi
   fi
 
-  if test "$backtrace_ok" = "no"; then
+  if test "$backtrace_ok" = "false"; then
     AC_CHECK_HEADER([execinfo.h], [
       AC_SEARCH_LIBS([backtrace], [execinfo], [
         AC_DEFINE([HAVE_GLIBC_BACKTRACE], [1], [Glibc backtrace])
-        backtrace_ok=yes
-      ],, [-lm])
+        backtrace_ok=true
+      ], [], [-lm])
     ])
+    if test "$enable_backtrace" = "execinfo" -a "$backtrace_ok" = "false"; then
+      AC_MSG_FAILURE([glibc/execinfo backtraces explicitly requested but not found])
+    fi
   fi
 
-  if test "$enable_backtrace" = "yes" -a "$backtrace_ok" = "no"; then
+  if test "$enable_backtrace" != "" -a "$backtrace_ok" = "false"; then
     dnl user explicitly requested backtrace but we failed to find support
-    AC_MSG_FAILURE([failed to find backtrace or libunwind support])
+    AC_MSG_FAILURE([failed to find glibc/execinfo backtrace or libunwind])
   fi
 fi
 
@@ -2753,7 +2752,7 @@ AM_CONDITIONAL([GRPC], [test "$enable_grpc" = "yes"])
 AM_CONDITIONAL([ZEROMQ], [test "$ZEROMQ" = "true"])
 dnl plugins
 AM_CONDITIONAL([RPKI], [test "$RPKI" = "true"])
-AM_CONDITIONAL([SNMP], [test "$SNMP_METHOD" = "agentx"])
+AM_CONDITIONAL([SNMP], [$SNMP])
 AM_CONDITIONAL([IRDP], [$IRDP])
 AM_CONDITIONAL([FPM], [test "$enable_fpm" = "yes"])
 AM_CONDITIONAL([HAVE_PROTOBUF], [test "$enable_protobuf" != "no"])
@@ -2929,6 +2928,10 @@ if test "$enable_doc" != "no" -a "$frr_py_mod_sphinx" = "false"; then
 fi
 if test "$frr_py_mod_pytest" = "false"; then
   AC_MSG_WARN([pytest is missing, unit tests cannot be performed])
+fi
+if test "$backtrace_ok" = "false"; then
+  AC_MSG_WARN([^])
+  AC_MSG_WARN([building FRR without crash/assert backtraces. This is NOT RECOMMENDED.])
 fi
 
 if $path_warn_banner; then

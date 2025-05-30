@@ -20,8 +20,6 @@ extern "C" {
 struct interface;
 struct zebra_if;
 
-#if defined(HAVE_RTADV)
-
 PREDECL_SORTLIST_UNIQ(adv_if_list);
 /* Structure which hold status of router advertisement. */
 struct rtadv {
@@ -456,51 +454,6 @@ void rtadv_pref64_reset(struct zebra_if *zif, struct pref64_adv *item);
 void ipv6_nd_suppress_ra_set(struct interface *ifp,
 			     enum ipv6_nd_suppress_ra_status status);
 void ipv6_nd_interval_set(struct interface *ifp, uint32_t interval);
-
-#else /* !HAVE_RTADV */
-struct rtadv {
-	/* empty structs aren't valid ISO C */
-	char dummy;
-};
-
-struct rtadvconf {
-	/* same again, empty structs aren't valid ISO C */
-	char dummy;
-};
-
-static inline void rtadv_vrf_init(struct zebra_vrf *zvrf)
-{
-}
-static inline void rtadv_vrf_terminate(struct zebra_vrf *zvrf)
-{
-}
-static inline void rtadv_cmd_init(void)
-{
-}
-static inline void rtadv_if_init(struct zebra_if *zif)
-{
-}
-static inline void rtadv_if_up(struct zebra_if *zif)
-{
-}
-static inline void rtadv_if_fini(struct zebra_if *zif)
-{
-}
-static inline void rtadv_add_prefix(struct zebra_if *zif,
-				    const struct prefix_ipv6 *p)
-{
-}
-static inline void rtadv_delete_prefix(struct zebra_if *zif,
-				       const struct prefix *p)
-{
-}
-static inline void rtadv_stop_ra(struct interface *ifp, bool if_down_event)
-{
-}
-static inline void rtadv_stop_ra_all(void)
-{
-}
-#endif
 
 extern void zebra_interface_radv_disable(ZAPI_HANDLER_ARGS);
 extern void zebra_interface_radv_enable(ZAPI_HANDLER_ARGS);
