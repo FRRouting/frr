@@ -3611,8 +3611,25 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 static int zebra_nhg_sweep_entry(struct hash_bucket *bucket, void *arg)
 {
 	struct nhg_hash_entry *nhe = NULL;
+	bool *stale_sweep = (bool *)arg;
 
 	nhe = (struct nhg_hash_entry *)bucket->data;
+
+	/*
+	 * We are in the zebra shutdown path and all the NHGs would have been
+	 * cleaned up by now. Check if any NHG is still present in the hash and
+	 * it has timer running. If yes, we need to uninstall it from kernel as
+	 * it was meant to be uninstalled after the timer expires.
+	 * This is required to avoid stale NHG in kernel as it is not being
+	 * referenced by anyone.
+	 */
+	if (stale_sweep && *stale_sweep) {
+		if (event_is_scheduled(nhe->timer)) {
+			zebra_nhg_decrement_ref(nhe);
+			return HASHWALK_ABORT;
+		}
+		return HASHWALK_CONTINUE;
+	}
 
 	/*
 	 * same logic as with routes.
@@ -3647,7 +3664,7 @@ static int zebra_nhg_sweep_entry(struct hash_bucket *bucket, void *arg)
 	return HASHWALK_CONTINUE;
 }
 
-void zebra_nhg_sweep_table(struct hash *hash)
+void zebra_nhg_sweep_table(struct hash *hash, bool stale_sweep)
 {
 	uint32_t count;
 
@@ -3665,7 +3682,7 @@ void zebra_nhg_sweep_table(struct hash *hash)
 	 */
 	do {
 		count = hashcount(hash);
-		hash_walk(hash, zebra_nhg_sweep_entry, NULL);
+		hash_walk(hash, zebra_nhg_sweep_entry, &stale_sweep);
 	} while (count != hashcount(hash));
 }
 

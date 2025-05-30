@@ -210,6 +210,9 @@ static void sigint(void)
 	 * with the 'finalize' function.
 	 */
 	zebra_dplane_finish();
+
+	/* Clean up if any stale NHGs present */
+	zebra_nhg_sweep_table(zrouter.nhgs_id, true);
 }
 
 /*
