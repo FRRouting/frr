@@ -2429,6 +2429,9 @@ DEFPY(show_ipv6_pim_ssm_range,
 	if (vrf == NULL)
 		vrf = vrf_lookup_by_id(VRF_DEFAULT);
 
+	if (!vrf)
+		return CMD_WARNING;
+
 	pim = vrf->info;
 	ssm = pim->ssm_info;
 	range_str = ssm->plist_name ? ssm->plist_name : PIM6_SSM_STANDARD_RANGE;
@@ -2463,6 +2466,9 @@ DEFPY(show_ipv6_pim_group_type,
 		vrf = vrf_lookup_by_name(vrf_name);
 	if (vrf == NULL)
 		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+
+	if (!vrf)
+		return CMD_WARNING;
 
 	pim = vrf->info;
 	if (pim_is_group_ff00_8(group))
