@@ -252,12 +252,22 @@ options from the list below.
    compiler is detected as gcc, but giving an explicit enable/disable is
    suggested.
 
+.. option:: --enable-backtrace[=<execinfo|libunwind>]
+
+   Select a specific backtrace library (recommended for building packages,
+   to avoid accidentally using the other one without noticing.) ``execinfo``
+   refers to glibc's ``backtrace()`` call, which is also available on some BSD
+   systems as ``libexecinfo``. Of ``libunwind``, multiple variants exist; the
+   standalone one originally created by HP is recommended but the version
+   included in LLVM should also work.
+
+   Default is to enable backtraces, look for libunwind first and fall back to
+   execinfo if libunwind is unavailable.
+
 .. option:: --disable-backtrace
 
-   Controls backtrace support for the crash handlers. This is autodetected by
-   default. Using the switch will enforce the requested behaviour, failing with
-   an error if support is requested but not available.  On BSD systems, this
-   needs libexecinfo, while on glibc support for this is part of libc itself.
+   Explicitly disable support for built-in backtraces on crashes/assert
+   failures.  This is **not recommended**.
 
 .. option:: --enable-dev-build
 

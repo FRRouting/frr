@@ -846,7 +846,9 @@ AC_ARG_ENABLE([capabilities],
 AC_ARG_ENABLE([gcc_ultra_verbose],
   AS_HELP_STRING([--enable-gcc-ultra-verbose], [enable ultra verbose GCC warnings]))
 AC_ARG_ENABLE([backtrace],
-  AS_HELP_STRING([--disable-backtrace], [disable crash backtraces (default autodetect)]))
+  AS_HELP_STRING([--disable-backtrace], [disable crash backtraces (default autodetect)])
+AS_HELP_STRING([--enable-backtrace=<execinfo|libunwind>], [select specific backtrace library])
+)
 AC_ARG_ENABLE([pcreposix],
   AS_HELP_STRING([--enable-pcreposix], [enable using PCRE Posix libs for regex functions]))
 AC_ARG_ENABLE([pcre2posix],
@@ -2586,36 +2588,47 @@ AC_SUBST([LIBCAP])
 dnl ---------------------------
 dnl check for glibc 'backtrace'
 dnl ---------------------------
+backtrace_ok=false
 if test "$enable_backtrace" != "no" ; then
-  backtrace_ok=no
-  PKG_CHECK_MODULES([UNWIND], [libunwind], [
-    AC_DEFINE([HAVE_LIBUNWIND], [1], [libunwind])
-    backtrace_ok=yes
-  ], [
-    true
-  ])
-
-  if test "$backtrace_ok" = "no"; then
-    AC_CHECK_HEADER([libunwind.h], [
-      AC_SEARCH_LIBS([unw_getcontext], [unwind], [
-        AC_DEFINE([HAVE_LIBUNWIND], [1], [libunwind])
-        backtrace_ok=yes
+  case "x$enable_backtrace" in
+  x|xyes|xexecinfo|xlibunwind)
+    ;;
+  *)
+    AC_MSG_FAILURE([invalid argument ${enable_backtrace} for --enable-backtrace])
+    ;;
+  esac
+  if test "$enable_backtrace" != "execinfo"; then
+    PKG_CHECK_MODULES([UNWIND], [libunwind], [
+      AC_DEFINE([HAVE_LIBUNWIND], [1], [libunwind])
+      backtrace_ok=true
+    ], [
+      AC_CHECK_HEADER([libunwind.h], [
+        AC_SEARCH_LIBS([unw_getcontext], [unwind], [
+          AC_DEFINE([HAVE_LIBUNWIND], [1], [libunwind])
+          backtrace_ok=true
+        ])
       ])
     ])
+    if test "$enable_backtrace" = "libunwind" -a "$backtrace_ok" = "false"; then
+      AC_MSG_FAILURE([libunwind backtraces explicitly requested but not found])
+    fi
   fi
 
-  if test "$backtrace_ok" = "no"; then
+  if test "$backtrace_ok" = "false"; then
     AC_CHECK_HEADER([execinfo.h], [
       AC_SEARCH_LIBS([backtrace], [execinfo], [
         AC_DEFINE([HAVE_GLIBC_BACKTRACE], [1], [Glibc backtrace])
-        backtrace_ok=yes
-      ],, [-lm])
+        backtrace_ok=true
+      ], [], [-lm])
     ])
+    if test "$enable_backtrace" = "execinfo" -a "$backtrace_ok" = "false"; then
+      AC_MSG_FAILURE([glibc/execinfo backtraces explicitly requested but not found])
+    fi
   fi
 
-  if test "$enable_backtrace" = "yes" -a "$backtrace_ok" = "no"; then
+  if test "$enable_backtrace" != "" -a "$backtrace_ok" = "false"; then
     dnl user explicitly requested backtrace but we failed to find support
-    AC_MSG_FAILURE([failed to find backtrace or libunwind support])
+    AC_MSG_FAILURE([failed to find glibc/execinfo backtrace or libunwind])
   fi
 fi
 
@@ -2929,6 +2942,10 @@ if test "$enable_doc" != "no" -a "$frr_py_mod_sphinx" = "false"; then
 fi
 if test "$frr_py_mod_pytest" = "false"; then
   AC_MSG_WARN([pytest is missing, unit tests cannot be performed])
+fi
+if test "$backtrace_ok" = "false"; then
+  AC_MSG_WARN([^])
+  AC_MSG_WARN([building FRR without crash/assert backtraces. This is NOT RECOMMENDED.])
 fi
 
 if $path_warn_banner; then
