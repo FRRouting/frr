@@ -4117,3 +4117,21 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 		}
 	}
 }
+
+static void zebra_nhg_sweep_stale_entry(struct hash_bucket *bucket, void *arg)
+{
+	struct nhg_hash_entry *nhe = bucket->data;
+
+	/*
+	 * We are in the shutdown path and this NHG has timer running.
+	 * This means that the NHG is not being referenced by anyone and
+	 * should be uninstalled from kernel.
+	 */
+	if (event_is_scheduled(nhe->timer))
+		zebra_nhg_decrement_ref(nhe);
+}
+
+void zebra_nhg_sweep_stale(void)
+{
+	hash_iterate(zrouter.nhgs_id, zebra_nhg_sweep_stale_entry, NULL);
+}
