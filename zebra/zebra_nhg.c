@@ -4117,3 +4117,38 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 		}
 	}
 }
+
+static int zebra_nhg_sweep_stale_entry(struct hash_bucket *bucket, void *arg)
+{
+	struct nhg_hash_entry *nhe = bucket->data;
+
+	/*
+	 * We are in the shutdown path and this NHG has timer running.
+	 * This means that the NHG is not being referenced by anyone and
+	 * should be uninstalled from kernel.
+	 */
+	if (event_is_scheduled(nhe->timer)) {
+		zebra_nhg_decrement_ref(nhe);
+		return HASHWALK_ABORT;
+	}
+	return HASHWALK_CONTINUE;
+}
+
+void zebra_nhg_sweep_stale(void)
+{
+	uint32_t count;
+
+	/*
+	 * We are in the zebra shutdown path. All the NHGs would have been
+	 * cleaned up by now. Check if any NHG is still present in the hash and
+	 * it has timer running. If yes, we need to uninstall it from kernel as
+	 * it was meant to be uninstalled after the timer expires.
+	 * This is required to avoid stale NHG in kernel. we use hash_walk with
+	 * HASHWALK_ABORT to handle the situation where decrementing references
+	 * causes cascading deletions that can free multiple hash entries.
+	 */
+	do {
+		count = hashcount(zrouter.nhgs_id);
+		hash_walk(zrouter.nhgs_id, zebra_nhg_sweep_stale_entry, NULL);
+	} while (count != hashcount(zrouter.nhgs_id));
+}
