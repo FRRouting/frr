@@ -837,8 +837,6 @@ AC_ARG_ENABLE([logfile_mask],
   AS_HELP_STRING([--enable-logfile-mask=ARG], [set mask for log files]))
 AC_ARG_ENABLE([realms],
   AS_HELP_STRING([--enable-realms], [enable REALMS support under Linux]))
-AC_ARG_ENABLE([rtadv],
-  AS_HELP_STRING([--disable-rtadv], [disable IPV6 router advertisement feature]))
 AC_ARG_ENABLE([irdp],
   AS_HELP_STRING([--enable-irdp], [enable IRDP server support in zebra]))
 AC_ARG_ENABLE([capabilities],
@@ -1004,14 +1002,6 @@ AC_SUBST([PYSPHINX])
 #
 if test "$enable_oldvpn_commands" = "yes"; then
    AC_DEFINE([KEEP_OLD_VPN_COMMANDS], [1], [Define for compiling with old vpn commands])
-fi
-
-AC_MSG_CHECKING([if zebra should be configurable to send Route Advertisements])
-if test "$enable_rtadv" != "no"; then
-  AC_MSG_RESULT([yes])
-  AC_DEFINE([HAVE_RTADV], [1], [Enable IPv6 Routing Advertisement support])
-else
-  AC_MSG_RESULT([no])
 fi
 
 if test "$enable_user" = "no"; then
