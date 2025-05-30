@@ -2194,6 +2194,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 			if (re) {
 				SET_FLAG(re->status, ROUTE_ENTRY_FAILED);
 				UNSET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
+				UNSET_FLAG(re->status, ROUTE_ENTRY_QUEUED);
 			} if (old_re)
 				SET_FLAG(old_re->status, ROUTE_ENTRY_FAILED);
 			if (re)
