@@ -22,6 +22,7 @@
 #include "pim_dm.h"
 #include "pim_igmp.h"
 #include "pim_join.h"
+#include "pim_util.h"
 
 static void pim_dm_range_reevaluate(struct pim_instance *pim)
 {
@@ -373,6 +374,14 @@ bool pim_is_grp_dm(struct pim_instance *pim, pim_addr group_addr)
 {
 	struct pim_rpf *rpg;
 
+#if PIM_IPV == 4
+	if (pim_is_group_224_0_0_0_24(group_addr))
+		return false;
+#else
+	if (ipv6_mcast_reserved(&group_addr))
+		return false;
+#endif
+
 	/* check if it is an SSM group */
 	if (pim_is_grp_ssm(pim, group_addr))
 		return false;
@@ -394,6 +403,14 @@ bool pim_iface_grp_dm(struct pim_interface *pim_ifp, pim_addr group_addr)
 
 	if (!pim_ifp || !HAVE_DENSE_MODE(pim_ifp->pim_mode))
 		return false;
+
+#if PIM_IPV == 4
+	if (pim_is_group_224_0_0_0_24(group_addr))
+		return false;
+#else
+	if (ipv6_mcast_reserved(&group_addr))
+		return false;
+#endif
 
 	pim = pim_ifp->pim;
 	if (pim_is_grp_ssm(pim, group_addr))
