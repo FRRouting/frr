@@ -218,11 +218,9 @@ int mgmt_fe_send_setcfg_req(struct mgmt_fe_client *client, uint64_t session_id,
 	return mgmt_fe_client_send_msg(client, &fe_msg, false);
 }
 
-int mgmt_fe_send_commitcfg_req(struct mgmt_fe_client *client,
-			       uint64_t session_id, uint64_t req_id,
-			       Mgmtd__DatastoreId src_ds_id,
-			       Mgmtd__DatastoreId dest_ds_id,
-			       bool validate_only, bool abort)
+int mgmt_fe_send_commitcfg_req(struct mgmt_fe_client *client, uint64_t session_id, uint64_t req_id,
+			       Mgmtd__DatastoreId src_ds_id, Mgmtd__DatastoreId dest_ds_id,
+			       bool validate_only, bool abort, bool unlock)
 {
 	(void)req_id;
 	Mgmtd__FeMessage fe_msg;
@@ -235,6 +233,7 @@ int mgmt_fe_send_commitcfg_req(struct mgmt_fe_client *client,
 	commitcfg_req.req_id = req_id;
 	commitcfg_req.validate_only = validate_only;
 	commitcfg_req.abort = abort;
+	commitcfg_req.unlock = unlock;
 
 	mgmtd__fe_message__init(&fe_msg);
 	fe_msg.message_case = MGMTD__FE_MESSAGE__MESSAGE_COMMCFG_REQ;
@@ -482,16 +481,18 @@ static int mgmt_fe_client_handle_msg(struct mgmt_fe_client *client,
 
 		if (session && session->client &&
 		    session->client->cbs.commit_config_notify)
-			(*session->client->cbs.commit_config_notify)(
-				client, client->user_data, session->client_id,
-				fe_msg->commcfg_reply->session_id,
-				session->user_ctx,
-				fe_msg->commcfg_reply->req_id,
-				fe_msg->commcfg_reply->success,
-				fe_msg->commcfg_reply->src_ds_id,
-				fe_msg->commcfg_reply->dst_ds_id,
-				fe_msg->commcfg_reply->validate_only,
-				fe_msg->commcfg_reply->error_if_any);
+			(*session->client->cbs
+				  .commit_config_notify)(client, client->user_data,
+							 session->client_id,
+							 fe_msg->commcfg_reply->session_id,
+							 session->user_ctx,
+							 fe_msg->commcfg_reply->req_id,
+							 fe_msg->commcfg_reply->success,
+							 fe_msg->commcfg_reply->src_ds_id,
+							 fe_msg->commcfg_reply->dst_ds_id,
+							 fe_msg->commcfg_reply->validate_only,
+							 fe_msg->commcfg_reply->unlock,
+							 fe_msg->commcfg_reply->error_if_any);
 		break;
 	case MGMTD__FE_MESSAGE__MESSAGE_GET_REPLY:
 		debug_fe_client("Got GET_REPLY for session-id %" PRIu64,
