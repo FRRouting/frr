@@ -71,6 +71,7 @@ struct pim_router {
 	uint32_t debugs;
 
 	int t_periodic;
+	int t_prune_limit;
 	struct pim_assert_metric infinite_assert_metric;
 	long rpf_cache_refresh_delay_msec;
 	uint32_t register_suppress_time;
