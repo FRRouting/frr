@@ -1387,6 +1387,9 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 					 peer->last_reset == PEER_DOWN_MULTIHOP_CHANGE))
 			bfd_sess_uninstall(peer->bfd_config->session);
 
+		if (peer->bfd_config)
+			event_cancel(&peer->bfd_config->t_hold_timer);
+
 		/* Notify BGP conditional advertisement process */
 		peer->advmap_table_change = true;
 
@@ -2194,6 +2197,10 @@ bgp_establish(struct peer_connection *connection)
 	}
 	/* assign update-group/subgroup */
 	update_group_adjust_peer_afs(peer);
+
+	/* Stop BFD Strict mode Hold-Timer */
+	if (peer->bfd_config)
+		event_cancel(&peer->bfd_config->t_hold_timer);
 
 	/* graceful restart */
 	UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
