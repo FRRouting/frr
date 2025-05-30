@@ -260,6 +260,7 @@ struct pim_upstream {
 	struct event *t_prune_timer;
 	struct event *t_staterefresh_timer;
 	struct event *t_graft_timer;
+	struct event *t_prune_limit_timer;
 
 	/*
 	 * RST(S,G)
@@ -381,6 +382,8 @@ void join_timer_start(struct pim_upstream *up);
 void staterefresh_timer_start(struct pim_upstream *up);
 void graft_timer_start(struct pim_upstream *up);
 void prune_timer_start(struct pim_upstream *up);
+void prune_limit_timer_start(struct pim_upstream *up);
+bool should_limit_prune(struct pim_upstream *up);
 int pim_upstream_compare(const struct pim_upstream *up1,
 			 const struct pim_upstream *up2);
 DECLARE_RBTREE_UNIQ(rb_pim_upstream, struct pim_upstream, upstream_rb,
