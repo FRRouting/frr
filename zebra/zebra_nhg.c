@@ -4050,6 +4050,14 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 
 	frr_each (nhg_connected_tree, &zif->nhg_dependents, rb_node_dep) {
 		/*
+		 * If this nhe has 'initial delay' flag set, we should not install this
+		 * in kernel in case of any interface events. Zebra created this entry
+		 * while processing the kernel/connected routes, just to pretend
+		 * the successful kernel install of this NHG
+		 */
+		if (CHECK_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL))
+			continue;
+		/*
 		 * The nexthop associated with this was set as !ACTIVE
 		 * so we need to turn it back to active when we get to
 		 * this point again
@@ -4108,4 +4116,22 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 			}
 		}
 	}
+}
+
+static void zebra_nhg_sweep_stale_entry(struct hash_bucket *bucket, void *arg)
+{
+	struct nhg_hash_entry *nhe = bucket->data;
+
+	/*
+	 * We are in the shutdown path and this NHG has timer running.
+	 * This means that the NHG is not being referenced by anyone and
+	 * should be uninstalled from kernel.
+	 */
+	if (event_is_scheduled(nhe->timer))
+		zebra_nhg_decrement_ref(nhe);
+}
+
+void zebra_nhg_sweep_stale(void)
+{
+	hash_iterate(zrouter.nhgs_id, zebra_nhg_sweep_stale_entry, NULL);
 }
