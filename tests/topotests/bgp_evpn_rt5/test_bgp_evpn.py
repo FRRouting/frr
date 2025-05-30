@@ -11,6 +11,8 @@
 """
 test_bgp_evpn.py: Test the FRR BGP daemon with BGP IPv6 interface
 with route advertisements on a separate netns.
+- R1 and R2 are EVPN vteps.
+- CE1 stands for two IP endpoints which distribute addresses imported via R2 in EVPN L3.
 """
 
 import json
@@ -37,6 +39,8 @@ from lib.topolog import logger
 
 pytestmark = [pytest.mark.bgpd]
 
+R2_VRF_UNDERLAY = None
+
 
 def build_topo(tgen):
     "Build function"
@@ -52,13 +56,20 @@ def build_topo(tgen):
 
     connect_routers(tgen, "rr", "r1")
     connect_routers(tgen, "rr", "r2")
+    connect_routers(tgen, "r2", "ce1")
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
+    global R2_VRF_UNDERLAY
 
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
+
+    if "vrf_underlay" in mod.__name__:
+        R2_VRF_UNDERLAY = "vrf-evpn"
+    else:
+        R2_VRF_UNDERLAY = None
 
     router_list = tgen.routers()
 
@@ -70,6 +81,19 @@ def setup_module(mod):
             )
         )
         return pytest.skip("Skipping BGP EVPN RT5 NETNS Test. Kernel not supported")
+
+    if R2_VRF_UNDERLAY:
+        tgen.gears["r2"].cmd(
+            """
+            ip link add vrf-evpn type vrf table 150
+            ip link set dev vrf-evpn up
+            ip link add loopevpn type dummy
+            ip link set dev loopevpn master vrf-evpn
+            ip link set dev loopevpn up
+            ip link set dev eth-rr master vrf-evpn
+            ip link set dev eth-rr up
+            """
+        )
 
     r1 = tgen.net["r1"]
     for vrf in (101, 102):
@@ -115,11 +139,41 @@ ip link set vxlan-{0} up type bridge_slave learning off flood off mcast_flood of
             )
         )
 
+    for vrf_id in (141, 142):
+        tgen.gears["r2"].cmd(
+            f"""
+            ip link add vrf-{vrf_id} type vrf table {vrf_id}
+            ip link set dev vrf-{vrf_id} up
+            ip link add loop{vrf_id} type dummy
+            ip link set dev loop{vrf_id} master vrf-{vrf_id}
+            ip link set dev loop{vrf_id} up
+            ip link add link eth-ce1 name eth-ce1.{vrf_id} type vlan id {vrf_id}
+            ip link set dev eth-ce1.{vrf_id} master vrf-{vrf_id}
+            ip link set dev eth-ce1.{vrf_id} up
+            """
+        )
+        tgen.gears["ce1"].cmd(
+            f"""
+            ip link add vrf-{vrf_id} type vrf table {vrf_id}
+            ip link set dev vrf-{vrf_id} up
+            ip link add loop{vrf_id} type dummy
+            ip link set dev loop{vrf_id} master vrf-{vrf_id}
+            ip link set dev loop{vrf_id} up
+            ip link add link eth-r2 name eth-r2.{vrf_id} type vlan id {vrf_id}
+            ip link set dev eth-r2.{vrf_id} master vrf-{vrf_id}
+            ip link set dev eth-r2.{vrf_id} up
+            """
+        )
+
     for rname, router in tgen.routers().items():
         logger.info("Loading router %s" % rname)
         if rname == "r1":
             router.use_netns_vrf()
-        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
+        if rname == "r2" and R2_VRF_UNDERLAY:
+            frr_config = f"{rname}/frr_vrf_underlay.conf"
+        else:
+            frr_config = f"{rname}/frr.conf"
+        router.load_frr_config(os.path.join(CWD, frr_config))
 
     # Initialize all routers.
     tgen.start_router()
@@ -288,6 +342,74 @@ def test_bgp_vrf_routes():
         for rname in ("r1", "r2"):
             router = tgen.gears[rname]
             _test_bgp_vrf_routes(router, vrf)
+
+
+def test_evpn_unconfigure_evpn():
+    """
+    Unconfigure R2 with advertise-all-vni on vrf-evpn instance
+    Ensure that local L2VPN EVPN entries are removed
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    logger.info("==== r2, unconfigure advertise-all-vni from BGP EVPN instance")
+    router = tgen.gears["r2"]
+    vrf_to_write = f" vrf {R2_VRF_UNDERLAY}" if R2_VRF_UNDERLAY else ""
+    router.vtysh_cmd(
+        f"""
+        configure terminal
+        router bgp 65000{vrf_to_write}
+        address-family l2vpn evpn
+        no advertise-all-vni
+        exit-address-family
+        exit
+        """
+    )
+    expected = {}
+    test_func = partial(
+        topotest.router_json_cmp,
+        router,
+        "show bgp l2vpn evpn json",
+        expected,
+        exact=True,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assertmsg = '"{}" JSON output mismatches'.format(router.name)
+    assert result is None, assertmsg
+
+
+def test_evpn_reconfigure_evpn():
+    """
+    reconfigure R2 with advertise-all-vni on vrf-evpn instance
+    Ensure that L2VPN EVPN entries are correctly learned
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    logger.info("==== r2, reconfigure advertise-all-vni from BGP EVPN instance")
+    router = tgen.gears["r2"]
+    vrf_to_write = f" vrf {R2_VRF_UNDERLAY}" if R2_VRF_UNDERLAY else ""
+    router.vtysh_cmd(
+        f"""
+        configure terminal
+        router bgp 65000{vrf_to_write}
+        address-family l2vpn evpn
+        advertise-all-vni
+        exit-address-family
+        exit
+        """
+    )
+    json_file = "{}/r2/bgp_l2vpn_evpn_routes.json".format(CWD)
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp,
+        router,
+        "show bgp l2vpn evpn json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assertmsg = '"{}" JSON output mismatches'.format(router.name)
+    assert result is None, assertmsg
 
 
 def test_router_check_ip():
@@ -574,11 +696,125 @@ def test_evpn_restore_ipv4():
     _test_router_check_evpn_contexts(tgen.gears["r1"])
 
 
-def _get_established_epoch(router, peer):
+def test_evpn_enable_ce_importation():
+    """
+    Reconfigure IPv6 networks
+    Unshutdown BGP CE neighbors
+    Ensure R1 receives 10 EVPN prefixes
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tgen.gears["r2"].vtysh_cmd(
+        """
+        configure terminal
+        router bgp 65000 vrf vrf-142
+        no neighbor 192.168.105.61 shutdown
+        exit
+        router bgp 65000 vrf vrf-141
+        no neighbor 192.168.106.61 shutdown
+        exit
+        """
+    )
+    router = tgen.gears["r1"]
+    json_file = "{}/{}/bgp_l2vpn_evpn_routes_source_vrf_all.json".format(
+        CWD, router.name
+    )
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp,
+        router,
+        "show bgp l2vpn evpn json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assertmsg = '"{}" JSON output mismatches'.format(router.name)
+    assert result is None, assertmsg
+
+
+def test_evpn_enable_routemap_with_source_vrf_filtering():
+    """
+    Reapply the route-map with source-vrf filtering applied:
+    - filtering vrf-141 only for ipv4 network
+    - filtering vrf-142 only for ipv6 network
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tgen.gears["r2"].vtysh_cmd(
+        """
+        configure terminal
+        route-map rmap4 permit 3
+         match source-vrf vrf-141
+        exit
+        route-map rmap4 deny 4
+         match source-vrf vrf-142
+        exit
+        route-map rmap6 permit 3
+         match source-vrf vrf-142
+        exit
+        route-map rmap6 deny 4
+         match source-vrf vrf-141
+        exit
+        router bgp 65000 vrf vrf-101
+         address-family l2vpn evpn
+          advertise ipv4 unicast route-map rmap4
+          advertise ipv6 unicast route-map rmap6
+        """
+    )
+    router = tgen.gears["r1"]
+    json_file = "{}/{}/bgp_l2vpn_evpn_routes_source_vrf_filtering.json".format(
+        CWD, router.name
+    )
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp,
+        router,
+        "show bgp l2vpn evpn json",
+        expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assertmsg = '"{}" JSON output mismatches'.format(router.name)
+    assert result is None, assertmsg
+
+
+def test_evpn_disable_ce_importation():
+    """
+    Reconfigure IPv6 networks
+    Unshutdown BGP CE neighbors
+    Ensure R1 receives 10 EVPN prefixes
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tgen.gears["r2"].vtysh_cmd(
+        """
+        configure terminal
+        router bgp 65000 vrf vrf-142
+         neighbor 192.168.105.61 shutdown
+        exit
+        router bgp 65000 vrf vrf-141
+         neighbor 192.168.106.61 shutdown
+        exit
+        router bgp 65000 vrf vrf-101
+         address-family l2vpn evpn
+          no advertise ipv4 unicast route-map rmap4
+          no advertise ipv6 unicast route-map rmap6
+          advertise ipv4 unicast
+          advertise ipv6 unicast
+        """
+    )
+
+
+def _get_established_epoch(router, peer, vrf=None):
     """
     Get the established epoch for a peer
     """
-    output = router.vtysh_cmd(f"show bgp neighbor {peer} json", isjson=True)
+    vrf_arg = f" vrf {vrf}" if vrf else ""
+    output = router.vtysh_cmd(f"show bgp{vrf_arg} neighbor {peer} json", isjson=True)
     assert peer in output, "peer not found"
     peer_info = output[peer]
     assert "bgpState" in peer_info, "peer state not found"
@@ -587,11 +823,12 @@ def _get_established_epoch(router, peer):
     return peer_info["bgpTimerUpEstablishedEpoch"]
 
 
-def _check_established_epoch_differ(router, peer, last_established_epoch):
+def _check_established_epoch_differ(router, peer, last_established_epoch, vrf=None):
     """
     Check that the established epoch has changed
     """
-    output = router.vtysh_cmd(f"show bgp neighbor {peer} json", isjson=True)
+    vrf_arg = f" vrf {vrf}" if vrf else ""
+    output = router.vtysh_cmd(f"show bgp{vrf_arg} neighbor {peer} json", isjson=True)
     assert peer in output, "peer not found"
     peer_info = output[peer]
     assert "bgpState" in peer_info, "peer state not found"
@@ -606,16 +843,13 @@ def _check_established_epoch_differ(router, peer, last_established_epoch):
     return None
 
 
-def _test_epoch_after_clear(router, peer, last_established_epoch):
+def _test_epoch_after_clear(router, peer, last_established_epoch, vrf=None):
     """
     Checking that the established epoch has changed and the peer is in Established state again after clear
     Without this, the second session is cleared as well on slower systems (like CI)
     """
     test_func = partial(
-        _check_established_epoch_differ,
-        router,
-        peer,
-        last_established_epoch,
+        _check_established_epoch_differ, router, peer, last_established_epoch, vrf=vrf
     )
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert (
@@ -688,9 +922,13 @@ def test_evpn_multipath():
         },
         "r2": {
             "raw_config": [
-                "interface eth-rr",
+                "interface eth-rr {0}".format(
+                    f"vrf {R2_VRF_UNDERLAY}" if R2_VRF_UNDERLAY else ""
+                ),
                 "ip address 192.168.102.2/24",
-                "router bgp 65000",
+                "router bgp 65000 {0}".format(
+                    f"vrf {R2_VRF_UNDERLAY}" if R2_VRF_UNDERLAY else ""
+                ),
                 "neighbor 192.168.102.101 remote-as 65000",
                 "neighbor 192.168.102.101 capability extended-nexthop",
                 "neighbor 192.168.102.101 update-source 192.168.102.2",
@@ -744,7 +982,9 @@ configure terminal
         r2_addr = "192.168.2.2" if i % 2 == 0 else "192.168.102.2"
 
         # Retrieving the last established epoch from the r2 to check against
-        last_established_epoch = _get_established_epoch(r2, rr_addr)
+        last_established_epoch = _get_established_epoch(
+            r2, rr_addr, vrf=R2_VRF_UNDERLAY if R2_VRF_UNDERLAY else None
+        )
         if last_established_epoch is None:
             assert False, "Failed to retrieve established epoch for peer {}".format(
                 rr_addr
@@ -752,7 +992,12 @@ configure terminal
 
         rr.vtysh_cmd("clear bgp {0}".format(r2_addr))
 
-        _test_epoch_after_clear(r2, rr_addr, last_established_epoch)
+        _test_epoch_after_clear(
+            r2,
+            rr_addr,
+            last_established_epoch,
+            vrf=R2_VRF_UNDERLAY if R2_VRF_UNDERLAY else None,
+        )
         _test_wait_for_multipath_convergence(r2, expected_paths=2)
         _test_rmac_present(r2)
         _test_router_check_evpn_next_hop(expected_paths=2)
@@ -787,7 +1032,9 @@ def test_shutdown_multipath_check_next_hops():
         },
         "r2": {
             "raw_config": [
-                "router bgp 65000",
+                "router bgp 65000 {0}".format(
+                    f"vrf {R2_VRF_UNDERLAY}" if R2_VRF_UNDERLAY else ""
+                ),
                 "neighbor 192.168.102.101 shutdown",
             ]
         },
