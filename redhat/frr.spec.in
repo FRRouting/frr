@@ -27,7 +27,6 @@
 %{!?with_pimd:          %global  with_pimd          1 }
 %{!?with_pim6d:         %global  with_pim6d         1 }
 %{!?with_vrrpd:         %global  with_vrrpd         1 }
-%{!?with_rtadv:         %global  with_rtadv         1 }
 %{!?with_watchfrr:      %global  with_watchfrr      1 }
 %{!?with_pathd:         %global  with_pathd         1 }
 %{!?with_grpc:          %global  with_grpc          0 }
@@ -373,11 +372,6 @@ CFLAGS="%{optflags} -DINET_NTOP_NO_OVERRIDE"
     --enable-ospfapi \
 %else
     --disable-ospfapi \
-%endif
-%if %{with_rtadv}
-    --enable-rtadv \
-%else
-    --disable-rtadv \
 %endif
 %if %{with_ldpd}
     --enable-ldpd \

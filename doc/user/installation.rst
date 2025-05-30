@@ -241,10 +241,6 @@ options from the list below.
 
    Enable IRDP server support. This is deprecated.
 
-.. option:: --disable-rtadv
-
-   Disable support IPV6 router advertisement in zebra.
-
 .. option:: --enable-gcc-rdynamic
 
    Pass the ``-rdynamic`` option to the linker driver.  This is in most cases

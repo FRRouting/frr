@@ -5,7 +5,7 @@
 # builds some git commit of FRR in some different configurations
 # usage: buildtest.sh [commit [configurations...]]
 
-basecfg="--prefix=/usr --enable-user=frr --enable-group=frr --enable-vty-group=frr --enable-configfile-mask=0660 --enable-logfile-mask=0640 --enable-vtysh --sysconfdir=/etc --localstatedir=/var --libdir=/usr/lib64/frr  --enable-rtadv --disable-static --enable-isisd --enable-multipath=0 --enable-pimd --enable-werror"
+basecfg="--prefix=/usr --enable-user=frr --enable-group=frr --enable-vty-group=frr --enable-configfile-mask=0660 --enable-logfile-mask=0640 --enable-vtysh --sysconfdir=/etc --localstatedir=/var --libdir=/usr/lib64/frr  --disable-static --enable-isisd --enable-multipath=0 --enable-pimd --enable-werror"
 
 configs_base="gcc|$basecfg"
 
