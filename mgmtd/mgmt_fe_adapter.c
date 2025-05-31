@@ -1108,14 +1108,6 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 		     fe_msg->get_req->session_id, adapter->name);
 		mgmt_fe_session_handle_get_req_msg(session, fe_msg->get_req);
 		break;
-	case MGMTD__FE_MESSAGE__MESSAGE_NOTIFY_DATA_REQ:
-	case MGMTD__FE_MESSAGE__MESSAGE_REGNOTIFY_REQ:
-		_log_err("Got unhandled message of type %u from '%s'", fe_msg->message_case,
-			 adapter->name);
-		/*
-		 * TODO: Add handling code in future.
-		 */
-		break;
 	/*
 	 * NOTE: The following messages are always sent from MGMTD to
 	 * Frontend clients only and/or need not be handled on MGMTd.

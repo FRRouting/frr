@@ -346,40 +346,6 @@ extern int mgmt_fe_send_get_req(struct mgmt_fe_client *client,
 
 
 /*
- * Send NOTIFY_REGISTER_REQ to MGMTD daemon.
- *
- * lib_hndl
- *    Client library handler.
- *
- * session_id
- *    Client session ID.
- *
- * req_id
- *    Client request ID.
- *
- * ds_id
- *    Datastore ID.
- *
- * register_req
- *    TRUE if registering, FALSE otherwise.
- *
- * data_req
- *    Details of the YANG notification data.
- *
- * num_reqs
- *    Number of data requests.
- *
- * Returns:
- *    0 on success, otherwise msg_conn_send_msg() return values.
- */
-extern int mgmt_fe_send_regnotify_req(struct mgmt_fe_client *client,
-				      uint64_t session_id, uint64_t req_id,
-				      Mgmtd__DatastoreId ds_id,
-				      bool register_req,
-				      Mgmtd__YangDataXPath **data_req,
-				      int num_reqs);
-
-/*
  * Send GET-DATA to MGMTD daemon.
  *
  * client

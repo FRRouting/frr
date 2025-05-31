@@ -273,30 +273,6 @@ int mgmt_fe_send_get_req(struct mgmt_fe_client *client, uint64_t session_id,
 	return mgmt_fe_client_send_msg(client, &fe_msg, false);
 }
 
-int mgmt_fe_send_regnotify_req(struct mgmt_fe_client *client,
-			       uint64_t session_id, uint64_t req_id,
-			       Mgmtd__DatastoreId ds_id, bool register_req,
-			       Mgmtd__YangDataXPath *data_req[],
-			       int num_data_reqs)
-{
-	(void)req_id;
-	Mgmtd__FeMessage fe_msg;
-	Mgmtd__FeRegisterNotifyReq regntfy_req;
-
-	mgmtd__fe_register_notify_req__init(&regntfy_req);
-	regntfy_req.session_id = session_id;
-	regntfy_req.ds_id = ds_id;
-	regntfy_req.register_req = register_req;
-	regntfy_req.data_xpath = data_req;
-	regntfy_req.n_data_xpath = (size_t)num_data_reqs;
-
-	mgmtd__fe_message__init(&fe_msg);
-	fe_msg.message_case = MGMTD__FE_MESSAGE__MESSAGE_REGNOTIFY_REQ;
-	fe_msg.regnotify_req = &regntfy_req;
-
-	return mgmt_fe_client_send_msg(client, &fe_msg, false);
-}
-
 /*
  * Send get-data request.
  */
@@ -521,12 +497,6 @@ static int mgmt_fe_client_handle_msg(struct mgmt_fe_client *client,
 					? fe_msg->get_reply->data->next_indx
 					: 0,
 				fe_msg->get_reply->error_if_any);
-		break;
-	case MGMTD__FE_MESSAGE__MESSAGE_NOTIFY_DATA_REQ:
-	case MGMTD__FE_MESSAGE__MESSAGE_REGNOTIFY_REQ:
-		/*
-		 * TODO: Add handling code in future.
-		 */
 		break;
 	/*
 	 * NOTE: The following messages are always sent from Frontend
