@@ -53,7 +53,7 @@
 
 #### Version String tweak
 # Remove invalid characters form version string and replace with _
-%{expand: %%global rpmversion %(echo '@VERSION@' | tr [:blank:]- _ )}
+%{expand: %%global frrmajorversion %(echo '@VERSION@' | tr [:blank:]- _ )}
 %define         frrversion   @VERSION@
 
 #### Check for systemd or init.d (upstart)
@@ -169,7 +169,7 @@
 
 Summary: Routing daemon
 Name:           frr
-Version:        %{rpmversion}
+Version:        %{frrmajorversion}
 Release:        %{release_rev}%{?dist}
 License:        GPLv2+
 Group:          System Environment/Daemons
