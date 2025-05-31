@@ -178,19 +178,6 @@ mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id, Mgmtd__Datasto
 				struct mgmt_ds_ctx *src_ds_ctx, bool validate_only, bool abort,
 				bool implicit, bool unlock, struct mgmt_edit_req *edit);
 
-/*
- * Send get-{cfg,data} request to be processed later in transaction.
- *
- * Is get-config if cfg_root is provided and the config is gathered locally,
- * otherwise it's get-data and data is fetched from backedn clients.
- */
-extern int mgmt_txn_send_get_req(uint64_t txn_id, uint64_t req_id,
-				 Mgmtd__DatastoreId ds_id,
-				 struct nb_config *cfg_root,
-				 Mgmtd__YangGetDataReq **data_req,
-				 size_t num_reqs);
-
-
 /**
  * Send get-tree to the backend `clients`.
  *

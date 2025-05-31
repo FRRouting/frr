@@ -216,34 +216,6 @@ int mgmt_fe_send_commitcfg_req(struct mgmt_fe_client *client, uint64_t session_i
 	return mgmt_fe_client_send_msg(client, &fe_msg, false);
 }
 
-int mgmt_fe_send_get_req(struct mgmt_fe_client *client, uint64_t session_id,
-			 uint64_t req_id, bool is_config,
-			 Mgmtd__DatastoreId ds_id,
-			 Mgmtd__YangGetDataReq *data_req[], int num_data_reqs)
-{
-	(void)req_id;
-	Mgmtd__FeMessage fe_msg;
-	Mgmtd__FeGetReq getcfg_req;
-
-	mgmtd__fe_get_req__init(&getcfg_req);
-	getcfg_req.session_id = session_id;
-	getcfg_req.config = is_config;
-	getcfg_req.ds_id = ds_id;
-	getcfg_req.req_id = req_id;
-	getcfg_req.data = data_req;
-	getcfg_req.n_data = (size_t)num_data_reqs;
-
-	mgmtd__fe_message__init(&fe_msg);
-	fe_msg.message_case = MGMTD__FE_MESSAGE__MESSAGE_GET_REQ;
-	fe_msg.get_req = &getcfg_req;
-
-	debug_fe_client("Sending GET_REQ (iscfg %d) message for DS:%s session-id %" PRIu64
-			" (#xpaths:%d)",
-			is_config, dsid2name(ds_id), session_id, num_data_reqs);
-
-	return mgmt_fe_client_send_msg(client, &fe_msg, false);
-}
-
 /*
  * Send get-data request.
  */
@@ -423,34 +395,6 @@ static int mgmt_fe_client_handle_msg(struct mgmt_fe_client *client,
 							 fe_msg->commcfg_reply->unlock,
 							 fe_msg->commcfg_reply->error_if_any);
 		break;
-	case MGMTD__FE_MESSAGE__MESSAGE_GET_REPLY:
-		debug_fe_client("Got GET_REPLY for session-id %" PRIu64,
-				fe_msg->get_reply->session_id);
-
-		session =
-			mgmt_fe_find_session_by_session_id(client,
-							   fe_msg->get_reply
-								   ->session_id);
-
-		if (session && session->client &&
-		    session->client->cbs.get_data_notify)
-			(*session->client->cbs.get_data_notify)(
-				client, client->user_data, session->client_id,
-				fe_msg->get_reply->session_id,
-				session->user_ctx, fe_msg->get_reply->req_id,
-				fe_msg->get_reply->success,
-				fe_msg->get_reply->ds_id,
-				fe_msg->get_reply->data
-					? fe_msg->get_reply->data->data
-					: NULL,
-				fe_msg->get_reply->data
-					? fe_msg->get_reply->data->n_data
-					: 0,
-				fe_msg->get_reply->data
-					? fe_msg->get_reply->data->next_indx
-					: 0,
-				fe_msg->get_reply->error_if_any);
-		break;
 	/*
 	 * NOTE: The following messages are always sent from Frontend
 	 * clients to MGMTd only and/or need not be handled here.
@@ -459,7 +403,6 @@ static int mgmt_fe_client_handle_msg(struct mgmt_fe_client *client,
 	case MGMTD__FE_MESSAGE__MESSAGE_SESSION_REQ:
 	case MGMTD__FE_MESSAGE__MESSAGE_LOCKDS_REQ:
 	case MGMTD__FE_MESSAGE__MESSAGE_COMMCFG_REQ:
-	case MGMTD__FE_MESSAGE__MESSAGE_GET_REQ:
 	case MGMTD__FE_MESSAGE__MESSAGE__NOT_SET:
 	default:
 		/*

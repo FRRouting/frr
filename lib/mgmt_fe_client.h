@@ -82,19 +82,6 @@ struct mgmt_fe_client_cbs {
 				     Mgmtd__DatastoreId src_ds_id, Mgmtd__DatastoreId dst_ds_id,
 				     bool validate_only, bool unlock, char *errmsg_if_any);
 
-	int (*get_data_notify)(struct mgmt_fe_client *client,
-			       uintptr_t user_data, uint64_t client_id,
-			       uintptr_t session_id,
-			       uintptr_t user_session_client, uint64_t req_id,
-			       bool success, Mgmtd__DatastoreId ds_id,
-			       Mgmtd__YangData **yang_data, size_t num_data,
-			       int next_key, char *errmsg_if_any);
-
-	int (*data_notify)(uint64_t client_id, uint64_t session_id,
-			   uintptr_t user_data, uint64_t req_id,
-			   Mgmtd__DatastoreId ds_id,
-			   Mgmtd__YangData **yang_data, size_t num_data);
-
 	/* Called when get-tree result is returned */
 	int (*get_tree_notify)(struct mgmt_fe_client *client,
 			       uintptr_t user_data, uint64_t client_id,
@@ -262,42 +249,6 @@ extern int mgmt_fe_send_commitcfg_req(struct mgmt_fe_client *client, uint64_t se
 				      uint64_t req_id, Mgmtd__DatastoreId src_ds_id,
 				      Mgmtd__DatastoreId dst_ds_id, bool validate_only, bool abort,
 				      bool unlock);
-
-/*
- * Send GET_REQ to MGMTD for one or more config data item(s).
- *
- * If is_config is true gets config from the MGMTD datastore, otherwise
- * operational state is queried from the backend clients.
- *
- * lib_hndl
- *    Client library handler.
- *
- * session_id
- *    Client session ID.
- *
- * is_config
- *    True if get-config else get-data.
- *
- * req_id
- *    Client request ID.
- *
- * ds_id
- *    Datastore ID (Running/Candidate)
- *
- * data_req
- *    Get xpaths requested.
- *
- * num_req
- *    Number of get xpath requests.
- *
- * Returns:
- *    0 on success, otherwise msg_conn_send_msg() return values.
- */
-extern int mgmt_fe_send_get_req(struct mgmt_fe_client *client,
-				uint64_t session_id, uint64_t req_id,
-				bool is_config, Mgmtd__DatastoreId ds_id,
-				Mgmtd__YangGetDataReq **data_req, int num_reqs);
-
 
 /*
  * Send GET-DATA to MGMTD daemon.
