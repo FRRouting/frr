@@ -76,14 +76,6 @@ struct mgmt_fe_client_cbs {
 			       bool lock_ds, bool success,
 			       Mgmtd__DatastoreId ds_id, char *errmsg_if_any);
 
-	void (*set_config_notify)(struct mgmt_fe_client *client,
-				  uintptr_t user_data, uint64_t client_id,
-				  uintptr_t session_id,
-				  uintptr_t user_session_client,
-				  uint64_t req_id, bool success,
-				  Mgmtd__DatastoreId ds_id, bool implcit_commit,
-				  char *errmsg_if_any);
-
 	void (*commit_config_notify)(struct mgmt_fe_client *client, uintptr_t user_data,
 				     uint64_t client_id, uintptr_t session_id,
 				     uintptr_t user_session_client, uint64_t req_id, bool success,
@@ -235,44 +227,6 @@ extern int mgmt_fe_send_lockds_req(struct mgmt_fe_client *client,
 				   uint64_t session_id, uint64_t req_id,
 				   Mgmtd__DatastoreId ds_id, bool lock_ds,
 				   bool scok);
-
-/*
- * Send SET_CONFIG_REQ to MGMTD for one or more config data(s).
- *
- * lib_hndl
- *    Client library handler.
- *
- * session_id
- *    Client session ID.
- *
- * req_id
- *    Client request ID.
- *
- * ds_id
- *    Datastore ID (Running/Candidate/Oper/Startup)
- *
- * conf_req
- *    Details regarding the SET_CONFIG_REQ.
- *
- * num_req
- *    Number of config requests.
- *
- * implcit commit
- *    TRUE for implicit commit, FALSE otherwise.
- *
- * dst_ds_id
- *    Destination Datastore ID where data needs to be set.
- *
- * Returns:
- *    0 on success, otherwise msg_conn_send_msg() return values.
- */
-
-extern int mgmt_fe_send_setcfg_req(struct mgmt_fe_client *client,
-				   uint64_t session_id, uint64_t req_id,
-				   Mgmtd__DatastoreId ds_id,
-				   Mgmtd__YangCfgDataReq **config_req,
-				   int num_req, bool implicit_commit,
-				   Mgmtd__DatastoreId dst_ds_id);
 
 /*
  * Send SET_COMMMIT_REQ to MGMTD for one or more config data(s).

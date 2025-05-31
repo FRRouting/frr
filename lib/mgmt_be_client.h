@@ -24,22 +24,6 @@ extern "C" {
 #define MGMTD_BE_MAX_NUM_MSG_WRITE 1000
 #define MGMTD_BE_MAX_MSG_LEN	   (64 * 1024)
 
-#define MGMTD_MAX_CFG_CHANGES_IN_BATCH                                         \
-	((10 * MGMTD_BE_MAX_MSG_LEN) /                                         \
-	 (MGMTD_MAX_XPATH_LEN + MGMTD_MAX_YANG_VALUE_LEN))
-
-/*
- * MGMTD_BE_MSG_MAX_LEN must be used 80%
- * since there is overhead of google protobuf
- * that gets added to sent message
- */
-#define MGMTD_BE_CFGDATA_PACKING_EFFICIENCY 0.8
-#define MGMTD_BE_CFGDATA_MAX_MSG_LEN                                           \
-	(MGMTD_BE_MAX_MSG_LEN * MGMTD_BE_CFGDATA_PACKING_EFFICIENCY)
-
-#define MGMTD_BE_MAX_BATCH_IDS_IN_REQ                                          \
-	(MGMTD_BE_MAX_MSG_LEN - 128) / sizeof(uint64_t)
-
 #define MGMTD_BE_CONTAINER_NODE_VAL "<<container>>"
 
 /***************************************************************
