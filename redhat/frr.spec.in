@@ -525,7 +525,11 @@ install -d -m750 %{buildroot}%{_runstatedir}/frr
 
 %if 0%{?rhel} > 7 || 0%{?fedora} > 29
 # avoid `ERROR: ambiguous python shebang in` errors
+%if 0%{?rhel} < 10
 pathfix.py -pni "%{__python3} %{py3_shbang_opts}" %{buildroot}/usr/lib/frr/*.py
+%else
+%py3_shebang_fix %{buildroot}/usr/lib/frr/*.py
+%endif
 %py_byte_compile %{__python3} %{buildroot}/usr/lib/frr/*.py
 %else
 # remove ospfclient.py (if present) as it requires > python36
