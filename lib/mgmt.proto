@@ -19,10 +19,6 @@ package mgmtd;
 // Common Sub-Messages
 //
 
-message YangDataXPath {
-  required string xpath = 1;
-}
-
 message YangDataValue {
   oneof value {
     //
@@ -181,18 +177,6 @@ message FeGetReply {
   optional YangDataReply data = 7;
 }
 
-message FeNotifyDataReq {
-  repeated YangData data = 1;
-}
-
-message FeRegisterNotifyReq {
-  required uint64 session_id = 1;
-  required DatastoreId ds_id = 2;
-  required bool register_req = 3;
-  required uint64 req_id = 4;
-  repeated YangDataXPath data_xpath = 5;
-}
-
 message FeMessage {
   oneof message {
     FeRegisterReq register_req = 2;
@@ -206,7 +190,5 @@ message FeMessage {
     FeCommitConfigReply commcfg_reply = 10;
     FeGetReq get_req = 11;
     FeGetReply get_reply = 12;
-    FeNotifyDataReq notify_data_req = 15;
-    FeRegisterNotifyReq regnotify_req = 16;
   }
 }
