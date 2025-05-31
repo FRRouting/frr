@@ -16,49 +16,6 @@ syntax = "proto2";
 package mgmtd;
 
 //
-// Common Sub-Messages
-//
-
-message YangDataValue {
-  oneof value {
-    //
-    // NOTE: For now let's use stringized value ONLY.
-    // We will enhance it later to pass native-format
-    // if needed.
-    //
-    // bool bool_val = 2;
-    // double double_val = 3;
-    // float float_val = 4;
-    // string string_val = 5;
-    // bytes bytes_val = 6;
-    // int32 int32_val = 7;
-    // int64 int64_val = 8;
-    // uint32 uint32_val = 9;
-    // uint64 uint64_val = 10;
-    // int32 int8_val = 11;
-    // uint32 uint8_val = 12;
-    // int32 int16_val = 13;
-    // uint32 uint16_val = 14;
-    string encoded_str_val = 100;
-  }
-}
-
-message YangData {
-  required string xpath = 1;
-  optional YangDataValue value = 2;
-}
-
-message YangGetDataReq {
-  required YangData data = 1;
-  required int64 next_indx = 2;
-}
-
-message YangDataReply {
-  repeated YangData data = 1;
-  required int64 next_indx = 2;
-}
-
-//
 // Frontend Interface Messages
 //
 
@@ -127,24 +84,6 @@ message FeCommitConfigReply {
   optional string error_if_any = 9;
 }
 
-message FeGetReq {
-  required uint64 session_id = 1;
-  required bool config = 2;
-  required DatastoreId ds_id = 3;
-  required uint64 req_id = 4;
-  repeated YangGetDataReq data = 5;
-}
-
-message FeGetReply {
-  required uint64 session_id = 1;
-  required bool config = 2;
-  required DatastoreId ds_id = 3;
-  required uint64 req_id = 4;
-  required bool success = 5;
-  optional string error_if_any = 6;
-  optional YangDataReply data = 7;
-}
-
 message FeMessage {
   oneof message {
     FeRegisterReq register_req = 2;
@@ -154,7 +93,5 @@ message FeMessage {
     FeLockDsReply lockds_reply = 6;
     FeCommitConfigReq commcfg_req = 9;
     FeCommitConfigReply commcfg_reply = 10;
-    FeGetReq get_req = 11;
-    FeGetReply get_reply = 12;
   }
 }

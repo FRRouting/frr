@@ -83,15 +83,6 @@ extern int mgmt_fe_send_commit_cfg_reply(uint64_t session_id, uint64_t txn_id,
 					 uint64_t req_id, bool validate_only, bool unlock,
 					 enum mgmt_result result, const char *error_if_any);
 
-/*
- * Send get-config/get-data reply to the frontend client.
- */
-extern int mgmt_fe_send_get_reply(uint64_t session_id, uint64_t txn_id,
-				  Mgmtd__DatastoreId ds_id, uint64_t req_id,
-				  enum mgmt_result result,
-				  Mgmtd__YangDataReply *data_resp,
-				  const char *error_if_any);
-
 /**
  * Send get-tree data reply back to client.
  *

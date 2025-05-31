@@ -635,7 +635,6 @@ void mgmt_vty_init(void)
 	install_element(VIEW_NODE, &show_mgmt_fe_adapter_cmd);
 	install_element(VIEW_NODE, &show_mgmt_txn_cmd);
 	install_element(VIEW_NODE, &show_mgmt_ds_cmd);
-	install_element(VIEW_NODE, &show_mgmt_get_config_cmd);
 	install_element(VIEW_NODE, &show_mgmt_get_data_cmd);
 	install_element(VIEW_NODE, &show_mgmt_dump_data_cmd);
 	install_element(VIEW_NODE, &show_mgmt_map_xpath_cmd);

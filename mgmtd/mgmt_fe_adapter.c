@@ -483,41 +483,6 @@ static int fe_adapter_send_commit_cfg_reply(struct mgmt_fe_session_ctx *session,
 	return fe_adapter_send_msg(session->adapter, &fe_msg, false);
 }
 
-static int fe_adapter_send_get_reply(struct mgmt_fe_session_ctx *session,
-				     Mgmtd__DatastoreId ds_id, uint64_t req_id,
-				     bool success, Mgmtd__YangDataReply *data,
-				     const char *error_if_any)
-{
-	Mgmtd__FeMessage fe_msg;
-	Mgmtd__FeGetReply get_reply;
-
-	assert(session->adapter);
-
-	mgmtd__fe_get_reply__init(&get_reply);
-	get_reply.session_id = session->session_id;
-	get_reply.ds_id = ds_id;
-	get_reply.req_id = req_id;
-	get_reply.success = success;
-	get_reply.data = data;
-	if (error_if_any)
-		get_reply.error_if_any = (char *)error_if_any;
-
-	mgmtd__fe_message__init(&fe_msg);
-	fe_msg.message_case = MGMTD__FE_MESSAGE__MESSAGE_GET_REPLY;
-	fe_msg.get_reply = &get_reply;
-
-	_dbg("Sending GET_REPLY message to MGMTD Frontend client '%s'", session->adapter->name);
-
-	/*
-	 * Cleanup the SHOW transaction associated with this session.
-	 */
-	if (session->txn_id && (!success || (data && data->next_indx < 0)))
-		mgmt_fe_session_register_event(session,
-					       MGMTD_FE_SESSION_SHOW_TXN_CLNUP);
-
-	return fe_adapter_send_msg(session->adapter, &fe_msg, false);
-}
-
 static int fe_adapter_conn_send_error(struct msg_conn *conn,
 				      uint64_t session_id, uint64_t req_id,
 				      bool short_circuit_ok, int16_t error,
@@ -710,75 +675,6 @@ mgmt_fe_session_handle_lockds_req_msg(struct mgmt_fe_session_ctx *session,
 	return 0;
 }
 
-static int mgmt_fe_session_handle_get_req_msg(struct mgmt_fe_session_ctx *session,
-					      Mgmtd__FeGetReq *get_req)
-{
-	struct mgmt_ds_ctx *ds_ctx;
-	struct nb_config *cfg_root = NULL;
-	Mgmtd__DatastoreId ds_id = get_req->ds_id;
-	uint64_t req_id = get_req->req_id;
-
-	if (ds_id != MGMTD_DS_CANDIDATE && ds_id != MGMTD_DS_RUNNING) {
-		fe_adapter_send_get_reply(session, ds_id, req_id, false, NULL,
-					  "get-req on unsupported datastore");
-		return 0;
-	}
-	ds_ctx = mgmt_ds_get_ctx_by_id(mm, ds_id);
-	assert(ds_ctx);
-
-	if (session->txn_id == MGMTD_TXN_ID_NONE) {
-		/*
-		 * Start a SHOW Transaction (if not started already)
-		 */
-		session->txn_id = mgmt_create_txn(session->session_id,
-						  MGMTD_TXN_TYPE_SHOW);
-		if (session->txn_id == MGMTD_SESSION_ID_NONE) {
-			fe_adapter_send_get_reply(session, ds_id, req_id, false,
-						  NULL,
-						  "Failed to create a Show transaction!");
-			return -1;
-		}
-
-		_dbg("Created new show txn-id: %" PRIu64 " for session-id: %" PRIu64,
-		     session->txn_id, session->session_id);
-	} else {
-		fe_adapter_send_get_reply(session, ds_id, req_id, false, NULL,
-					  "Request processing for GET failed!");
-		_dbg("Transaction in progress txn-id: %" PRIu64 " for session-id: %" PRIu64,
-		     session->txn_id, session->session_id);
-		return -1;
-	}
-
-	/*
-	 * Get a copy of the datastore config root, avoids locking.
-	 */
-	cfg_root = nb_config_dup(mgmt_ds_get_nb_config(ds_ctx));
-
-	/*
-	 * Create a GET request under the transaction.
-	 */
-	if (mgmt_txn_send_get_req(session->txn_id, req_id, ds_id, cfg_root,
-				  get_req->data, get_req->n_data)) {
-		fe_adapter_send_get_reply(session, ds_id, req_id, false, NULL,
-					  "Request processing for GET failed!");
-
-		goto failed;
-	}
-
-	return 0;
-failed:
-	if (cfg_root)
-		nb_config_free(cfg_root);
-	/*
-	 * Destroy the transaction created recently.
-	 */
-	if (session->txn_id != MGMTD_TXN_ID_NONE)
-		mgmt_destroy_txn(&session->txn_id);
-
-	return -1;
-}
-
-
 static int mgmt_fe_session_handle_commit_config_req_msg(
 	struct mgmt_fe_session_ctx *session,
 	Mgmtd__FeCommitConfigReq *commcfg_req)
@@ -924,13 +820,6 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 		mgmt_fe_session_handle_commit_config_req_msg(
 			session, fe_msg->commcfg_req);
 		break;
-	case MGMTD__FE_MESSAGE__MESSAGE_GET_REQ:
-		session = mgmt_session_id2ctx(fe_msg->get_req->session_id);
-		_dbg("Got GET_REQ for DS:%s (xpaths: %d) on session-id %" PRIu64 " from '%s'",
-		     mgmt_ds_id2name(fe_msg->get_req->ds_id), (int)fe_msg->get_req->n_data,
-		     fe_msg->get_req->session_id, adapter->name);
-		mgmt_fe_session_handle_get_req_msg(session, fe_msg->get_req);
-		break;
 	/*
 	 * NOTE: The following messages are always sent from MGMTD to
 	 * Frontend clients only and/or need not be handled on MGMTd.
@@ -938,7 +827,6 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 	case MGMTD__FE_MESSAGE__MESSAGE_SESSION_REPLY:
 	case MGMTD__FE_MESSAGE__MESSAGE_LOCKDS_REPLY:
 	case MGMTD__FE_MESSAGE__MESSAGE_COMMCFG_REPLY:
-	case MGMTD__FE_MESSAGE__MESSAGE_GET_REPLY:
 	case MGMTD__FE_MESSAGE__MESSAGE__NOT_SET:
 	default:
 		/*
@@ -2041,23 +1929,6 @@ int mgmt_fe_send_commit_cfg_reply(uint64_t session_id, uint64_t txn_id, Mgmtd__D
 
 	return fe_adapter_send_commit_cfg_reply(session, src_ds_id, dst_ds_id, req_id, result,
 						validate_only, unlock, error_if_any);
-}
-
-int mgmt_fe_send_get_reply(uint64_t session_id, uint64_t txn_id,
-			   Mgmtd__DatastoreId ds_id, uint64_t req_id,
-			   enum mgmt_result result,
-			   Mgmtd__YangDataReply *data_resp,
-			   const char *error_if_any)
-{
-	struct mgmt_fe_session_ctx *session;
-
-	session = mgmt_session_id2ctx(session_id);
-	if (!session || session->txn_id != txn_id)
-		return -1;
-
-	return fe_adapter_send_get_reply(session, ds_id, req_id,
-					 result == MGMTD_SUCCESS, data_resp,
-					 error_if_any);
 }
 
 int mgmt_fe_adapter_send_tree_data(uint64_t session_id, uint64_t txn_id,

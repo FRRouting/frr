@@ -76,7 +76,6 @@ struct nb_config *vty_mgmt_candidate_config;
 static struct mgmt_fe_client *mgmt_fe_client;
 static bool mgmt_fe_connected;
 static uint64_t mgmt_client_id_next;
-static uint64_t mgmt_last_req_id = UINT64_MAX;
 
 PREDECL_DLIST(vtyservs);
 
@@ -3644,49 +3643,6 @@ static void vty_mgmt_commit_config_result_notified(struct mgmt_fe_client *client
 					      : CMD_WARNING_CONFIG_FAILED);
 }
 
-static int vty_mgmt_get_data_result_notified(
-	struct mgmt_fe_client *client, uintptr_t usr_data, uint64_t client_id,
-	uintptr_t session_id, uintptr_t session_ctx, uint64_t req_id,
-	bool success, Mgmtd__DatastoreId ds_id, Mgmtd__YangData **yang_data,
-	size_t num_data, int next_key, char *errmsg_if_any)
-{
-	struct vty *vty;
-	size_t indx;
-
-	vty = (struct vty *)session_ctx;
-
-	if (!success) {
-		zlog_err("GET_DATA request for client 0x%" PRIx64
-			 " failed, Error: '%s'",
-			 client_id, errmsg_if_any ? errmsg_if_any : "Unknown");
-		vty_out(vty, "ERROR: GET_DATA request failed, Error: %s\n",
-			errmsg_if_any ? errmsg_if_any : "Unknown");
-		vty_mgmt_resume_response(vty, CMD_WARNING);
-		return -1;
-	}
-
-	debug_fe_client("GET_DATA request succeeded, client 0x%" PRIx64
-			" req-id %" PRIu64 "%s%s",
-			client_id, req_id, errmsg_if_any ? ": " : "",
-			errmsg_if_any ?: "");
-
-	if (req_id != mgmt_last_req_id) {
-		mgmt_last_req_id = req_id;
-		vty_out(vty, "[\n");
-	}
-
-	for (indx = 0; indx < num_data; indx++) {
-		vty_out(vty, "  \"%s\": \"%s\"\n", yang_data[indx]->xpath,
-			yang_data[indx]->value->encoded_str_val);
-	}
-	if (next_key < 0) {
-		vty_out(vty, "]\n");
-		vty_mgmt_resume_response(vty, CMD_SUCCESS);
-	}
-
-	return 0;
-}
-
 static ssize_t vty_mgmt_libyang_print(void *user_data, const void *buf,
 				      size_t count)
 {
@@ -3939,7 +3895,6 @@ static struct mgmt_fe_client_cbs mgmt_cbs = {
 	.client_session_notify = vty_mgmt_session_notify,
 	.lock_ds_notify = vty_mgmt_ds_lock_notified,
 	.commit_config_notify = vty_mgmt_commit_config_result_notified,
-	.get_data_notify = vty_mgmt_get_data_result_notified,
 	.get_tree_notify = vty_mgmt_get_tree_result_notified,
 	.edit_notify = vty_mgmt_edit_result_notified,
 	.rpc_notify = vty_mgmt_rpc_result_notified,
@@ -4060,40 +4015,6 @@ int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only, bool abort,
 		vty->mgmt_req_pending_cmd = "MESSAGE_COMMCFG_REQ";
 		vty->mgmt_num_pending_setcfg = 0;
 	}
-
-	return 0;
-}
-
-int vty_mgmt_send_get_req(struct vty *vty, bool is_config,
-			  Mgmtd__DatastoreId datastore, const char **xpath_list,
-			  int num_req)
-{
-	Mgmtd__YangData yang_data[VTY_MAXCFGCHANGES];
-	Mgmtd__YangGetDataReq get_req[VTY_MAXCFGCHANGES];
-	Mgmtd__YangGetDataReq *getreq[VTY_MAXCFGCHANGES];
-	int i;
-
-	vty->mgmt_req_id++;
-
-	for (i = 0; i < num_req; i++) {
-		mgmt_yang_get_data_req_init(&get_req[i]);
-		mgmt_yang_data_init(&yang_data[i]);
-
-		yang_data->xpath = (char *)xpath_list[i];
-
-		get_req[i].data = &yang_data[i];
-		getreq[i] = &get_req[i];
-	}
-	if (mgmt_fe_send_get_req(mgmt_fe_client, vty->mgmt_session_id,
-				 vty->mgmt_req_id, is_config, datastore, getreq,
-				 num_req)) {
-		zlog_err("Failed to send GET- to MGMTD for req-id %" PRIu64 ".",
-			 vty->mgmt_req_id);
-		vty_out(vty, "Failed to send GET-CONFIG to MGMTD!\n");
-		return -1;
-	}
-
-	vty->mgmt_req_pending_cmd = "MESSAGE_GETCFG_REQ";
 
 	return 0;
 }
