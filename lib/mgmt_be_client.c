@@ -29,23 +29,6 @@ DEFINE_MTYPE_STATIC(LIB, MGMTD_BE_BATCH, "backend transaction batch data");
 DEFINE_MTYPE_STATIC(LIB, MGMTD_BE_TXN, "backend transaction data");
 DEFINE_MTYPE_STATIC(LIB, MGMTD_BE_GT_CB_ARGS, "backend get-tree cb args");
 
-enum mgmt_be_txn_event {
-	MGMTD_BE_TXN_PROC_SETCFG = 1,
-	MGMTD_BE_TXN_PROC_GETCFG,
-};
-
-struct mgmt_be_set_cfg_req {
-	struct nb_cfg_change cfg_changes[MGMTD_MAX_CFG_CHANGES_IN_BATCH];
-	uint16_t num_cfg_changes;
-};
-
-struct mgmt_be_txn_req {
-	enum mgmt_be_txn_event event;
-	union {
-		struct mgmt_be_set_cfg_req set_cfg;
-	} req;
-};
-
 struct be_oper_iter_arg {
 	struct lyd_node *root; /* the tree we are building */
 	struct lyd_node *hint; /* last node added */
