@@ -189,35 +189,6 @@ int mgmt_fe_send_lockds_req(struct mgmt_fe_client *client, uint64_t session_id,
 	return mgmt_fe_client_send_msg(client, &fe_msg, scok);
 }
 
-int mgmt_fe_send_setcfg_req(struct mgmt_fe_client *client, uint64_t session_id,
-			    uint64_t req_id, Mgmtd__DatastoreId ds_id,
-			    Mgmtd__YangCfgDataReq **data_req, int num_data_reqs,
-			    bool implicit_commit, Mgmtd__DatastoreId dst_ds_id)
-{
-	(void)req_id;
-	Mgmtd__FeMessage fe_msg;
-	Mgmtd__FeSetConfigReq setcfg_req;
-
-	mgmtd__fe_set_config_req__init(&setcfg_req);
-	setcfg_req.session_id = session_id;
-	setcfg_req.ds_id = ds_id;
-	setcfg_req.req_id = req_id;
-	setcfg_req.data = data_req;
-	setcfg_req.n_data = (size_t)num_data_reqs;
-	setcfg_req.implicit_commit = implicit_commit;
-	setcfg_req.commit_ds_id = dst_ds_id;
-
-	mgmtd__fe_message__init(&fe_msg);
-	fe_msg.message_case = MGMTD__FE_MESSAGE__MESSAGE_SETCFG_REQ;
-	fe_msg.setcfg_req = &setcfg_req;
-
-	debug_fe_client("Sending SET_CONFIG_REQ message for DS:%s session-id %" PRIu64
-			" (#xpaths:%d)",
-			dsid2name(ds_id), session_id, num_data_reqs);
-
-	return mgmt_fe_client_send_msg(client, &fe_msg, false);
-}
-
 int mgmt_fe_send_commitcfg_req(struct mgmt_fe_client *client, uint64_t session_id, uint64_t req_id,
 			       Mgmtd__DatastoreId src_ds_id, Mgmtd__DatastoreId dest_ds_id,
 			       bool validate_only, bool abort, bool unlock)
@@ -430,24 +401,6 @@ static int mgmt_fe_client_handle_msg(struct mgmt_fe_client *client,
 				fe_msg->lockds_reply->ds_id,
 				fe_msg->lockds_reply->error_if_any);
 		break;
-	case MGMTD__FE_MESSAGE__MESSAGE_SETCFG_REPLY:
-		debug_fe_client("Got SETCFG_REPLY for session-id %" PRIu64,
-				fe_msg->setcfg_reply->session_id);
-
-		session = mgmt_fe_find_session_by_session_id(
-			client, fe_msg->setcfg_reply->session_id);
-
-		if (session && session->client &&
-		    session->client->cbs.set_config_notify)
-			(*session->client->cbs.set_config_notify)(
-				client, client->user_data, session->client_id,
-				fe_msg->setcfg_reply->session_id,
-				session->user_ctx, fe_msg->setcfg_reply->req_id,
-				fe_msg->setcfg_reply->success,
-				fe_msg->setcfg_reply->ds_id,
-				fe_msg->setcfg_reply->implicit_commit,
-				fe_msg->setcfg_reply->error_if_any);
-		break;
 	case MGMTD__FE_MESSAGE__MESSAGE_COMMCFG_REPLY:
 		debug_fe_client("Got COMMCFG_REPLY for session-id %" PRIu64,
 				fe_msg->commcfg_reply->session_id);
@@ -505,7 +458,6 @@ static int mgmt_fe_client_handle_msg(struct mgmt_fe_client *client,
 	case MGMTD__FE_MESSAGE__MESSAGE_REGISTER_REQ:
 	case MGMTD__FE_MESSAGE__MESSAGE_SESSION_REQ:
 	case MGMTD__FE_MESSAGE__MESSAGE_LOCKDS_REQ:
-	case MGMTD__FE_MESSAGE__MESSAGE_SETCFG_REQ:
 	case MGMTD__FE_MESSAGE__MESSAGE_COMMCFG_REQ:
 	case MGMTD__FE_MESSAGE__MESSAGE_GET_REQ:
 	case MGMTD__FE_MESSAGE__MESSAGE__NOT_SET:

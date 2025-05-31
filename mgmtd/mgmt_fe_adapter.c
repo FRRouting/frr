@@ -230,23 +230,6 @@ mgmt_fe_session_show_txn_cleanup(struct mgmt_fe_session_ctx *session)
 }
 
 static void
-mgmt_fe_adapter_compute_set_cfg_timers(struct mgmt_setcfg_stats *setcfg_stats)
-{
-	setcfg_stats->last_exec_tm = timeval_elapsed(setcfg_stats->last_end,
-						     setcfg_stats->last_start);
-	if (setcfg_stats->last_exec_tm > setcfg_stats->max_tm)
-		setcfg_stats->max_tm = setcfg_stats->last_exec_tm;
-
-	if (setcfg_stats->last_exec_tm < setcfg_stats->min_tm)
-		setcfg_stats->min_tm = setcfg_stats->last_exec_tm;
-
-	setcfg_stats->avg_tm =
-		(((setcfg_stats->avg_tm * (setcfg_stats->set_cfg_count - 1))
-		  + setcfg_stats->last_exec_tm)
-		 / setcfg_stats->set_cfg_count);
-}
-
-static void
 mgmt_fe_session_compute_commit_timers(struct mgmt_commit_stats *cmt_stats)
 {
 	cmt_stats->last_exec_tm =
@@ -451,51 +434,6 @@ static int fe_adapter_send_lockds_reply(struct mgmt_fe_session_ctx *session,
 	     session->adapter->name, scok);
 
 	return fe_adapter_send_msg(session->adapter, &fe_msg, scok);
-}
-
-static int fe_adapter_send_set_cfg_reply(struct mgmt_fe_session_ctx *session,
-					 Mgmtd__DatastoreId ds_id,
-					 uint64_t req_id, bool success,
-					 const char *error_if_any,
-					 bool implicit_commit)
-{
-	Mgmtd__FeMessage fe_msg;
-	Mgmtd__FeSetConfigReply setcfg_reply;
-
-	assert(session->adapter);
-
-	if (implicit_commit && session->cfg_txn_id)
-		mgmt_fe_session_register_event(
-			session, MGMTD_FE_SESSION_CFG_TXN_CLNUP);
-
-	mgmtd__fe_set_config_reply__init(&setcfg_reply);
-	setcfg_reply.session_id = session->session_id;
-	setcfg_reply.ds_id = ds_id;
-	setcfg_reply.req_id = req_id;
-	setcfg_reply.success = success;
-	setcfg_reply.implicit_commit = implicit_commit;
-	if (error_if_any)
-		setcfg_reply.error_if_any = (char *)error_if_any;
-
-	mgmtd__fe_message__init(&fe_msg);
-	fe_msg.message_case = MGMTD__FE_MESSAGE__MESSAGE_SETCFG_REPLY;
-	fe_msg.setcfg_reply = &setcfg_reply;
-
-	_dbg("Sending SETCFG_REPLY message to MGMTD Frontend client '%s'", session->adapter->name);
-
-	if (implicit_commit) {
-		if (mm->perf_stats_en)
-			gettimeofday(&session->adapter->cmt_stats.last_end,
-				     NULL);
-		mgmt_fe_session_compute_commit_timers(
-			&session->adapter->cmt_stats);
-	}
-
-	if (mm->perf_stats_en)
-		gettimeofday(&session->adapter->setcfg_stats.last_end, NULL);
-	mgmt_fe_adapter_compute_set_cfg_timers(&session->adapter->setcfg_stats);
-
-	return fe_adapter_send_msg(session->adapter, &fe_msg, false);
 }
 
 static int fe_adapter_send_commit_cfg_reply(struct mgmt_fe_session_ctx *session,
@@ -772,107 +710,6 @@ mgmt_fe_session_handle_lockds_req_msg(struct mgmt_fe_session_ctx *session,
 	return 0;
 }
 
-/*
- * TODO: this function has too many conditionals relating to complex error
- * conditions. It needs to be simplified and these complex error conditions
- * probably need to just disconnect the client with a suitably loud log message.
- */
-static int
-mgmt_fe_session_handle_setcfg_req_msg(struct mgmt_fe_session_ctx *session,
-					  Mgmtd__FeSetConfigReq *setcfg_req)
-{
-	struct mgmt_ds_ctx *ds_ctx, *dst_ds_ctx = NULL;
-	bool txn_created = false;
-
-	if (mm->perf_stats_en)
-		gettimeofday(&session->adapter->setcfg_stats.last_start, NULL);
-
-	/* MGMTD currently only supports editing the candidate DS. */
-	if (setcfg_req->ds_id != MGMTD_DS_CANDIDATE) {
-		fe_adapter_send_set_cfg_reply(
-			session, setcfg_req->ds_id, setcfg_req->req_id, false,
-			"Set-Config on datastores other than Candidate DS not supported",
-			setcfg_req->implicit_commit);
-		return 0;
-	}
-	ds_ctx = mgmt_ds_get_ctx_by_id(mm, setcfg_req->ds_id);
-	assert(ds_ctx);
-
-	/* MGMTD currently only supports targetting the running DS. */
-	if (setcfg_req->implicit_commit &&
-	    setcfg_req->commit_ds_id != MGMTD_DS_RUNNING) {
-		fe_adapter_send_set_cfg_reply(
-			session, setcfg_req->ds_id, setcfg_req->req_id, false,
-			"Implicit commit on datastores other than running DS not supported",
-			setcfg_req->implicit_commit);
-		return 0;
-	}
-	dst_ds_ctx = mgmt_ds_get_ctx_by_id(mm, setcfg_req->commit_ds_id);
-	assert(dst_ds_ctx);
-
-	/* User should have write lock to change the DS */
-	if (!session->ds_locked[setcfg_req->ds_id]) {
-		fe_adapter_send_set_cfg_reply(session, setcfg_req->ds_id,
-					      setcfg_req->req_id, false,
-					      "Candidate DS is not locked",
-					      setcfg_req->implicit_commit);
-		return 0;
-	}
-
-	if (session->cfg_txn_id == MGMTD_TXN_ID_NONE) {
-		/* Start a CONFIG Transaction (if not started already) */
-		session->cfg_txn_id = mgmt_create_txn(session->session_id,
-						      MGMTD_TXN_TYPE_CONFIG);
-		if (session->cfg_txn_id == MGMTD_SESSION_ID_NONE) {
-			fe_adapter_send_set_cfg_reply(
-				session, setcfg_req->ds_id, setcfg_req->req_id,
-				false,
-				"Failed to create a Configuration session!",
-				setcfg_req->implicit_commit);
-			return 0;
-		}
-		txn_created = true;
-
-		_dbg("Created new Config txn-id: %" PRIu64 " for session-id %" PRIu64,
-		     session->cfg_txn_id, session->session_id);
-	} else {
-		_dbg("Config txn-id: %" PRIu64 " for session-id: %" PRIu64 " already created",
-		     session->cfg_txn_id, session->session_id);
-
-		if (setcfg_req->implicit_commit) {
-			/*
-			 * In this scenario need to skip cleanup of the txn,
-			 * so setting implicit commit to false.
-			 */
-			fe_adapter_send_set_cfg_reply(
-				session, setcfg_req->ds_id, setcfg_req->req_id,
-				false,
-				"A Configuration transaction is already in progress!",
-				false);
-			return 0;
-		}
-	}
-
-	/* Create the SETConfig request under the transaction. */
-	if (mgmt_txn_send_set_config_req(session->cfg_txn_id, setcfg_req->req_id,
-					 setcfg_req->ds_id, ds_ctx,
-					 setcfg_req->data, setcfg_req->n_data,
-					 setcfg_req->implicit_commit,
-					 setcfg_req->commit_ds_id,
-					 dst_ds_ctx) != 0) {
-		fe_adapter_send_set_cfg_reply(session, setcfg_req->ds_id,
-					      setcfg_req->req_id, false,
-					      "Request processing for SET-CONFIG failed!",
-					      setcfg_req->implicit_commit);
-
-		/* delete transaction if we just created it */
-		if (txn_created)
-			mgmt_destroy_txn(&session->cfg_txn_id);
-	}
-
-	return 0;
-}
-
 static int mgmt_fe_session_handle_get_req_msg(struct mgmt_fe_session_ctx *session,
 					      Mgmtd__FeGetReq *get_req)
 {
@@ -1075,20 +912,6 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 		mgmt_fe_session_handle_lockds_req_msg(
 			session, fe_msg->lockds_req);
 		break;
-	case MGMTD__FE_MESSAGE__MESSAGE_SETCFG_REQ:
-		session = mgmt_session_id2ctx(
-				fe_msg->setcfg_req->session_id);
-		session->adapter->setcfg_stats.set_cfg_count++;
-		_dbg("Got SETCFG_REQ (%d Xpaths, Implicit:%c) on DS:%s for session-id %" PRIu64
-		     " from '%s'",
-		     (int)fe_msg->setcfg_req->n_data,
-		     fe_msg->setcfg_req->implicit_commit ? 'T' : 'F',
-		     mgmt_ds_id2name(fe_msg->setcfg_req->ds_id), fe_msg->setcfg_req->session_id,
-		     adapter->name);
-
-		mgmt_fe_session_handle_setcfg_req_msg(
-			session, fe_msg->setcfg_req);
-		break;
 	case MGMTD__FE_MESSAGE__MESSAGE_COMMCFG_REQ:
 		session = mgmt_session_id2ctx(
 				fe_msg->commcfg_req->session_id);
@@ -1114,7 +937,6 @@ mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
 	 */
 	case MGMTD__FE_MESSAGE__MESSAGE_SESSION_REPLY:
 	case MGMTD__FE_MESSAGE__MESSAGE_LOCKDS_REPLY:
-	case MGMTD__FE_MESSAGE__MESSAGE_SETCFG_REPLY:
 	case MGMTD__FE_MESSAGE__MESSAGE_COMMCFG_REPLY:
 	case MGMTD__FE_MESSAGE__MESSAGE_GET_REPLY:
 	case MGMTD__FE_MESSAGE__MESSAGE__NOT_SET:
@@ -2201,33 +2023,10 @@ struct msg_conn *mgmt_fe_create_adapter(int conn_fd, union sockunion *from)
 		adapter->conn->debug = DEBUG_MODE_CHECK(&mgmt_debug_fe,
 							DEBUG_MODE_ALL);
 
-		adapter->setcfg_stats.min_tm = ULONG_MAX;
 		adapter->cmt_stats.min_tm = ULONG_MAX;
 		_dbg("Added new MGMTD Frontend adapter '%s'", adapter->name);
 	}
 	return adapter->conn;
-}
-
-int mgmt_fe_send_set_cfg_reply(uint64_t session_id, uint64_t txn_id,
-				   Mgmtd__DatastoreId ds_id, uint64_t req_id,
-				   enum mgmt_result result,
-				   const char *error_if_any,
-				   bool implicit_commit)
-{
-	struct mgmt_fe_session_ctx *session;
-
-	session = mgmt_session_id2ctx(session_id);
-	if (!session || session->cfg_txn_id != txn_id) {
-		if (session)
-			_log_err("txn-id doesn't match, session txn-id is %" PRIu64
-				 " current txnid: %" PRIu64,
-				 session->cfg_txn_id, txn_id);
-		return -1;
-	}
-
-	return fe_adapter_send_set_cfg_reply(session, ds_id, req_id,
-					     result == MGMTD_SUCCESS,
-					     error_if_any, implicit_commit);
 }
 
 int mgmt_fe_send_commit_cfg_reply(uint64_t session_id, uint64_t txn_id, Mgmtd__DatastoreId src_ds_id,
@@ -2372,18 +2171,6 @@ int mgmt_fe_adapter_txn_error(uint64_t txn_id, uint64_t req_id,
 	return ret;
 }
 
-
-struct mgmt_setcfg_stats *mgmt_fe_get_session_setcfg_stats(uint64_t session_id)
-{
-	struct mgmt_fe_session_ctx *session;
-
-	session = mgmt_session_id2ctx(session_id);
-	if (!session || !session->adapter)
-		return NULL;
-
-	return &session->adapter->setcfg_stats;
-}
-
 struct mgmt_commit_stats *
 mgmt_fe_get_session_commit_stats(uint64_t session_id)
 {
@@ -2468,35 +2255,6 @@ mgmt_fe_adapter_cmt_stats_write(struct vty *vty,
 	}
 }
 
-static void
-mgmt_fe_adapter_setcfg_stats_write(struct vty *vty,
-				       struct mgmt_fe_client_adapter *adapter)
-{
-	char buf[MGMT_LONG_TIME_MAX_LEN];
-
-	if (!mm->perf_stats_en)
-		return;
-
-	vty_out(vty, "    Num-Set-Cfg: \t\t\t%lu\n",
-		adapter->setcfg_stats.set_cfg_count);
-	if (mm->perf_stats_en && adapter->setcfg_stats.set_cfg_count > 0) {
-		vty_out(vty, "    Max-Set-Cfg-Duration: \t\t%lu uSec\n",
-			adapter->setcfg_stats.max_tm);
-		vty_out(vty, "    Min-Set-Cfg-Duration: \t\t%lu uSec\n",
-			adapter->setcfg_stats.min_tm);
-		vty_out(vty, "    Avg-Set-Cfg-Duration: \t\t%lu uSec\n",
-			adapter->setcfg_stats.avg_tm);
-		vty_out(vty, "    Last-Set-Cfg-Details:\n");
-		vty_out(vty, "      Set-Cfg Start: \t\t\t%s\n",
-			mgmt_realtime_to_string(
-				&adapter->setcfg_stats.last_start, buf,
-				sizeof(buf)));
-		vty_out(vty, "      Set-Cfg End: \t\t\t%s\n",
-			mgmt_realtime_to_string(&adapter->setcfg_stats.last_end,
-						buf, sizeof(buf)));
-	}
-}
-
 void mgmt_fe_adapter_status_write(struct vty *vty, bool detail)
 {
 	struct mgmt_fe_client_adapter *adapter;
@@ -2510,7 +2268,6 @@ void mgmt_fe_adapter_status_write(struct vty *vty, bool detail)
 		vty_out(vty, "  Client: \t\t\t\t%s\n", adapter->name);
 		vty_out(vty, "    Conn-FD: \t\t\t\t%d\n", adapter->conn->fd);
 		if (detail) {
-			mgmt_fe_adapter_setcfg_stats_write(vty, adapter);
 			mgmt_fe_adapter_cmt_stats_write(vty, adapter);
 		}
 		vty_out(vty, "    Sessions\n");
@@ -2557,8 +2314,6 @@ void mgmt_fe_adapter_reset_perf_stats(struct vty *vty)
 	struct mgmt_fe_session_ctx *session;
 
 	FOREACH_ADAPTER_IN_LIST (adapter) {
-		memset(&adapter->setcfg_stats, 0,
-		       sizeof(adapter->setcfg_stats));
 		FOREACH_SESSION_IN_LIST (adapter, session) {
 			memset(&adapter->cmt_stats, 0,
 			       sizeof(adapter->cmt_stats));

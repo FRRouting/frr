@@ -3607,40 +3607,6 @@ static void vty_mgmt_ds_lock_notified(struct mgmt_fe_client *client,
 	}
 }
 
-static void vty_mgmt_set_config_result_notified(
-	struct mgmt_fe_client *client, uintptr_t usr_data, uint64_t client_id,
-	uintptr_t session_id, uintptr_t session_ctx, uint64_t req_id,
-	bool success, Mgmtd__DatastoreId ds_id, bool implicit_commit,
-	char *errmsg_if_any)
-{
-	struct vty *vty;
-
-	vty = (struct vty *)session_ctx;
-
-	if (!success) {
-		zlog_err("SET_CONFIG request for client 0x%" PRIx64
-			 " failed, Error: '%s'",
-			 client_id, errmsg_if_any ? errmsg_if_any : "Unknown");
-		vty_out(vty, "%% Configuration failed.\n\n");
-		if (errmsg_if_any)
-			vty_out(vty, "%s\n", errmsg_if_any);
-	} else {
-		debug_fe_client("SET_CONFIG request for client 0x%" PRIx64
-				" req-id %" PRIu64 " was successfull%s%s",
-				client_id, req_id, errmsg_if_any ? ": " : "",
-				errmsg_if_any ?: "");
-	}
-
-	if (implicit_commit) {
-		/* In this case the changes have been applied, we are done */
-		vty_mgmt_unlock_candidate_inline(vty);
-		vty_mgmt_unlock_running_inline(vty);
-	}
-
-	vty_mgmt_resume_response(vty, success ? CMD_SUCCESS
-					      : CMD_WARNING_CONFIG_FAILED);
-}
-
 static void vty_mgmt_commit_config_result_notified(struct mgmt_fe_client *client, uintptr_t usr_data,
 						   uint64_t client_id, uintptr_t session_id,
 						   uintptr_t session_ctx, uint64_t req_id,
@@ -3972,7 +3938,6 @@ static struct mgmt_fe_client_cbs mgmt_cbs = {
 	.client_connect_notify = vty_mgmt_server_connected,
 	.client_session_notify = vty_mgmt_session_notify,
 	.lock_ds_notify = vty_mgmt_ds_lock_notified,
-	.set_config_notify = vty_mgmt_set_config_result_notified,
 	.commit_config_notify = vty_mgmt_commit_config_result_notified,
 	.get_data_notify = vty_mgmt_get_data_result_notified,
 	.get_tree_notify = vty_mgmt_get_tree_result_notified,
@@ -4026,7 +3991,6 @@ int vty_mgmt_send_lockds_req(struct vty *vty, Mgmtd__DatastoreId ds_id,
 	return 0;
 }
 
-#if 1
 int vty_mgmt_send_config_data(struct vty *vty, const char *xpath_base,
 			      bool implicit_commit)
 {
@@ -4079,134 +4043,6 @@ error:
 
 	return CMD_SUCCESS;
 }
-#else
-int vty_mgmt_send_config_data(struct vty *vty, const char *xpath_base, bool implicit_commit)
-{
-	Mgmtd__YangDataValue value[VTY_MAXCFGCHANGES];
-	Mgmtd__YangData cfg_data[VTY_MAXCFGCHANGES];
-	Mgmtd__YangCfgDataReq cfg_req[VTY_MAXCFGCHANGES];
-	Mgmtd__YangCfgDataReq *cfgreq[VTY_MAXCFGCHANGES] = {0};
-	char xpath[VTY_MAXCFGCHANGES][XPATH_MAXLEN];
-	char *change_xpath;
-	size_t indx;
-
-	if (vty->type == VTY_FILE) {
-		/*
-		 * if this is a config file read we will not send any of the
-		 * changes until we are done reading the file and have modified
-		 * the local candidate DS.
-		 */
-		/* no-one else should be sending data right now */
-		assert(!vty->mgmt_num_pending_setcfg);
-		return 0;
-	}
-
-	/* If we are FE client and we have a vty then we have a session */
-	assert(mgmt_fe_client && vty->mgmt_client_id && vty->mgmt_session_id);
-
-	if (!vty->num_cfg_changes)
-		return 0;
-
-	/* grab the candidate and running lock prior to sending implicit commit
-	 * command
-	 */
-	if (implicit_commit) {
-		if (vty_mgmt_lock_candidate_inline(vty)) {
-			vty_out(vty,
-				"%% command failed, could not lock candidate DS\n");
-			return -1;
-		} else if (vty_mgmt_lock_running_inline(vty)) {
-			vty_out(vty,
-				"%% command failed, could not lock running DS\n");
-			vty_mgmt_unlock_candidate_inline(vty);
-			return -1;
-		}
-	}
-
-	if (xpath_base == NULL)
-		xpath_base = "";
-
-	for (indx = 0; indx < vty->num_cfg_changes; indx++) {
-		mgmt_yang_data_init(&cfg_data[indx]);
-
-		if (vty->cfg_changes[indx].value) {
-			mgmt_yang_data_value_init(&value[indx]);
-			value[indx].encoded_str_val =
-				(char *)vty->cfg_changes[indx].value;
-			value[indx].value_case =
-				MGMTD__YANG_DATA_VALUE__VALUE_ENCODED_STR_VAL;
-			cfg_data[indx].value = &value[indx];
-		}
-
-		change_xpath = vty->cfg_changes[indx].xpath;
-
-		memset(xpath[indx], 0, sizeof(xpath[indx]));
-		/* If change xpath is relative, prepend base xpath. */
-		if (change_xpath[0] == '.') {
-			strlcpy(xpath[indx], xpath_base, sizeof(xpath[indx]));
-			change_xpath++; /* skip '.' */
-		}
-		strlcat(xpath[indx], change_xpath, sizeof(xpath[indx]));
-
-		cfg_data[indx].xpath = xpath[indx];
-
-		mgmt_yang_cfg_data_req_init(&cfg_req[indx]);
-		cfg_req[indx].data = &cfg_data[indx];
-		switch (vty->cfg_changes[indx].operation) {
-		case NB_OP_DELETE:
-			cfg_req[indx].req_type =
-				MGMTD__CFG_DATA_REQ_TYPE__DELETE_DATA;
-			break;
-
-		case NB_OP_DESTROY:
-			cfg_req[indx].req_type =
-				MGMTD__CFG_DATA_REQ_TYPE__REMOVE_DATA;
-			break;
-
-		case NB_OP_CREATE_EXCL:
-			cfg_req[indx].req_type =
-				MGMTD__CFG_DATA_REQ_TYPE__CREATE_DATA;
-			break;
-
-		case NB_OP_REPLACE:
-			cfg_req[indx].req_type =
-				MGMTD__CFG_DATA_REQ_TYPE__REPLACE_DATA;
-			break;
-
-		case NB_OP_CREATE:
-		case NB_OP_MODIFY:
-		case NB_OP_MOVE:
-			cfg_req[indx].req_type =
-				MGMTD__CFG_DATA_REQ_TYPE__SET_DATA;
-			break;
-		default:
-			assertf(false,
-				"Invalid operation type for send config: %d",
-				vty->cfg_changes[indx].operation);
-			/*NOTREACHED*/
-			abort();
-		}
-
-		cfgreq[indx] = &cfg_req[indx];
-	}
-	if (!indx)
-		return 0;
-
-	vty->mgmt_req_id++;
-	if (mgmt_fe_send_setcfg_req(mgmt_fe_client, vty->mgmt_session_id,
-				    vty->mgmt_req_id, MGMTD_DS_CANDIDATE,
-				    cfgreq, indx, implicit_commit,
-				    MGMTD_DS_RUNNING)) {
-		zlog_err("Failed to send %zu config xpaths to mgmtd", indx);
-		vty_out(vty, "%% Failed to send commands to mgmtd\n");
-		return -1;
-	}
-
-	vty->mgmt_req_pending_cmd = "MESSAGE_SETCFG_REQ";
-
-	return 0;
-}
-#endif
 
 int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only, bool abort, bool unlock)
 {

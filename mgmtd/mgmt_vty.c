@@ -304,26 +304,6 @@ DEFPY(mgmt_rpc, mgmt_rpc_cmd,
 	return vty_mgmt_send_rpc_req(vty, format, xpath, data);
 }
 
-DEFPY(show_mgmt_get_config, show_mgmt_get_config_cmd,
-      "show mgmt get-config [candidate|operational|running]$dsname WORD$path",
-      SHOW_STR MGMTD_STR
-      "Get configuration data from a specific configuration datastore\n"
-      "Candidate datastore (default)\n"
-      "Operational datastore\n"
-      "Running datastore\n"
-      "XPath expression specifying the YANG data path\n")
-{
-	const char *xpath_list[VTY_MAXCFGCHANGES] = {0};
-	Mgmtd__DatastoreId datastore = MGMTD_DS_CANDIDATE;
-
-	if (dsname)
-		datastore = mgmt_ds_name2id(dsname);
-
-	xpath_list[0] = path;
-	vty_mgmt_send_get_req(vty, true, datastore, xpath_list, 1);
-	return CMD_SUCCESS;
-}
-
 DEFPY(show_mgmt_get_data, show_mgmt_get_data_cmd,
       "show mgmt get-data WORD$path [datastore <candidate|running|operational>$ds] [with-config|only-config]$content [exact]$exact [with-defaults <trim|all-tag|all>$wd] [json|xml]$fmt",
       SHOW_STR

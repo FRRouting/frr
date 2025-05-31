@@ -43,24 +43,6 @@ enum mgmt_be_client_id {
 #define MGMTD_BE_CLIENT_ID_MIN	0
 
 
-enum mgmt_be_req_type {
-	MGMTD_BE_REQ_NONE = 0,
-	MGMTD_BE_REQ_CFG_VALIDATE,
-	MGMTD_BE_REQ_CFG_APPLY,
-	MGMTD_BE_REQ_DATA_GET_ELEM,
-	MGMTD_BE_REQ_DATA_GET_NEXT
-};
-
-struct mgmt_be_cfgreq {
-	Mgmtd__YangCfgDataReq **cfgdata_reqs;
-	size_t num_reqs;
-};
-
-struct mgmt_be_datareq {
-	Mgmtd__YangGetDataReq **getdata_reqs;
-	size_t num_reqs;
-};
-
 PREDECL_LIST(mgmt_be_adapters);
 PREDECL_LIST(mgmt_txn_badapters);
 

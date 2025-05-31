@@ -48,20 +48,6 @@ message YangData {
   optional YangDataValue value = 2;
 }
 
-enum CfgDataReqType {
-  REQ_TYPE_NONE = 0;
-  SET_DATA = 1;
-  REMOVE_DATA = 2;
-  CREATE_DATA = 3;
-  DELETE_DATA = 4;
-  REPLACE_DATA = 5;
-}
-
-message YangCfgDataReq {
-  required YangData data = 1;
-  required CfgDataReqType req_type = 2;
-}
-
 message YangGetDataReq {
   required YangData data = 1;
   required int64 next_indx = 2;
@@ -119,24 +105,6 @@ message FeLockDsReply {
   optional string error_if_any = 6;
 }
 
-message FeSetConfigReq {
-  required uint64 session_id = 1;
-  required DatastoreId ds_id = 2;
-  required uint64 req_id = 3;
-  repeated YangCfgDataReq data = 4;
-  required bool implicit_commit = 5;
-  required DatastoreId commit_ds_id = 6;
-}
-
-message FeSetConfigReply {
-  required uint64 session_id = 1;
-  required DatastoreId ds_id = 2;
-  required uint64 req_id = 3;
-  required bool success = 4;
-  required bool implicit_commit = 5;
-  optional string error_if_any = 6;
-}
-
 message FeCommitConfigReq {
   required uint64 session_id = 1;
   required DatastoreId src_ds_id = 2;
@@ -184,8 +152,6 @@ message FeMessage {
     FeSessionReply session_reply = 4;
     FeLockDsReq lockds_req = 5;
     FeLockDsReply lockds_reply = 6;
-    FeSetConfigReq setcfg_req = 7;
-    FeSetConfigReply setcfg_reply = 8;
     FeCommitConfigReq commcfg_req = 9;
     FeCommitConfigReply commcfg_reply = 10;
     FeGetReq get_req = 11;
