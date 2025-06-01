@@ -140,47 +140,6 @@ extern uint64_t mgmt_create_txn(uint64_t session_id, enum mgmt_txn_type type);
 extern void mgmt_destroy_txn(uint64_t *txn_id);
 
 /*
- * Send set-config request to be processed later in transaction.
- *
- * txn_id
- *    Unique transaction identifier.
- *
- * req_id
- *    Unique transaction request identifier.
- *
- * ds_id
- *    Datastore ID.
- *
- * ds_hndl
- *    Datastore handle.
- *
- * cfg_req
- *    Config requests.
- *
- * num_req
- *    Number of config requests.
- *
- * implicit_commit
- *    TRUE if the commit is implicit, FALSE otherwise.
- *
- * dst_ds_id
- *    Destination datastore ID.
- *
- * dst_ds_handle
- *    Destination datastore handle.
- *
- * Returns:
- *    0 on success, -1 on failures.
- */
-extern int mgmt_txn_send_set_config_req(uint64_t txn_id, uint64_t req_id,
-					 Mgmtd__DatastoreId ds_id,
-					 struct mgmt_ds_ctx *ds_ctx,
-					 Mgmtd__YangCfgDataReq **cfg_req,
-					 size_t num_req, bool implicit_commit,
-					 Mgmtd__DatastoreId dst_ds_id,
-					 struct mgmt_ds_ctx *dst_ds_ctx);
-
-/*
  * Send commit-config request to be processed later in transaction.
  *
  * txn_id
@@ -218,19 +177,6 @@ mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id, Mgmtd__Datasto
 				struct mgmt_ds_ctx *dst_ds_ctx, Mgmtd__DatastoreId dst_ds_id,
 				struct mgmt_ds_ctx *src_ds_ctx, bool validate_only, bool abort,
 				bool implicit, bool unlock, struct mgmt_edit_req *edit);
-
-/*
- * Send get-{cfg,data} request to be processed later in transaction.
- *
- * Is get-config if cfg_root is provided and the config is gathered locally,
- * otherwise it's get-data and data is fetched from backedn clients.
- */
-extern int mgmt_txn_send_get_req(uint64_t txn_id, uint64_t req_id,
-				 Mgmtd__DatastoreId ds_id,
-				 struct nb_config *cfg_root,
-				 Mgmtd__YangGetDataReq **data_req,
-				 size_t num_reqs);
-
 
 /**
  * Send get-tree to the backend `clients`.

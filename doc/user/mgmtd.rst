@@ -369,11 +369,6 @@ MGMT Show commands
 
     Shows the list of transaction and bunch of information about the transaction.
 
-.. clicmd:: show mgmt get-config [candidate|running] XPATH
-
-    This command uses the GET_CONFIG operation over the MGMT Frontend interface and
-    returns the xpaths and values of the nodes of the subtree pointed by the <xpath>.
-
 .. clicmd:: show mgmt get-data [candidate|operation|running] XPATH
 
     This command uses the GET_DATA operation over the MGMT Frontend interface and

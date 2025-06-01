@@ -24,32 +24,17 @@
 #define MGMTD_TXN_UNLOCK(txn, in_hash_free) mgmt_txn_unlock(txn, in_hash_free, __FILE__, __LINE__)
 
 enum mgmt_txn_req_type {
-	MGMTD_TXN_PROC_SETCFG = 1,
-	MGMTD_TXN_PROC_COMMITCFG,
-	MGMTD_TXN_PROC_GETCFG,
+	MGMTD_TXN_PROC_COMMITCFG = 1,
 	MGMTD_TXN_PROC_GETTREE,
 	MGMTD_TXN_PROC_RPC,
 };
 
 enum mgmt_txn_frr_event {
-	MGMTD_TXN_EVENT_SETCFG = 1,
-	MGMTD_TXN_EVENT_GETCFG,
-	MGMTD_TXN_EVENT_COMMITCFG,
+	MGMTD_TXN_EVENT_COMMITCFG = 1,
 	MGMTD_TXN_EVENT_COMMITCFG_TIMEOUT,
 };
 
 PREDECL_LIST(mgmt_txn_reqs);
-
-struct mgmt_set_cfg_req {
-	Mgmtd__DatastoreId ds_id;
-	struct mgmt_ds_ctx *ds_ctx;
-	struct nb_cfg_change cfg_changes[MGMTD_MAX_CFG_CHANGES_IN_BATCH];
-	uint16_t num_cfg_changes;
-	bool implicit_commit;
-	Mgmtd__DatastoreId dst_ds_id;
-	struct mgmt_ds_ctx *dst_ds_ctx;
-	struct mgmt_setcfg_stats *setcfg_stats;
-};
 
 enum mgmt_commit_phase {
 	MGMTD_COMMIT_PHASE_PREPARE_CFG = 0,
@@ -134,34 +119,6 @@ struct mgmt_commit_cfg_req {
 	struct mgmt_commit_stats *cmt_stats;
 };
 
-struct mgmt_get_data_reply {
-	/* Buffer space for preparing data reply */
-	int num_reply;
-	int last_batch;
-	Mgmtd__YangDataReply data_reply;
-	Mgmtd__YangData reply_data[MGMTD_MAX_NUM_DATA_REPLY_IN_BATCH];
-	Mgmtd__YangData *reply_datap[MGMTD_MAX_NUM_DATA_REPLY_IN_BATCH];
-	Mgmtd__YangDataValue reply_value[MGMTD_MAX_NUM_DATA_REPLY_IN_BATCH];
-	char *reply_xpathp[MGMTD_MAX_NUM_DATA_REPLY_IN_BATCH];
-};
-
-struct mgmt_get_data_req {
-	Mgmtd__DatastoreId ds_id;
-	struct nb_config *cfg_root;
-	char *xpaths[MGMTD_MAX_NUM_DATA_REQ_IN_BATCH];
-	int num_xpaths;
-
-	/*
-	 * Buffer space for preparing reply.
-	 * NOTE: Should only be malloc-ed on demand to reduce
-	 * memory footprint. Freed up via mgmt_trx_req_free()
-	 */
-	struct mgmt_get_data_reply *reply;
-
-	int total_reply;
-};
-
-
 struct txn_req_get_tree {
 	char *xpath;	       /* xpath of tree to get */
 	uint64_t sent_clients; /* Bitmask of clients sent req to */
@@ -188,8 +145,6 @@ struct mgmt_txn_req {
 	enum mgmt_txn_req_type req_type;
 	uint64_t req_id;
 	union {
-		struct mgmt_set_cfg_req *set_cfg;
-		struct mgmt_get_data_req *get_data;
 		struct txn_req_get_tree *get_tree;
 		struct txn_req_rpc *rpc;
 		struct mgmt_commit_cfg_req commit_cfg;
@@ -210,10 +165,7 @@ struct mgmt_txn_ctx {
 
 	/* struct mgmt_master *mm; */
 
-	struct event *proc_set_cfg;
 	struct event *proc_comm_cfg;
-	struct event *proc_get_cfg;
-	struct event *proc_get_data;
 	struct event *proc_get_tree;
 	struct event *comm_cfg_timeout;
 	struct event *get_tree_timeout;
@@ -232,20 +184,6 @@ struct mgmt_txn_ctx {
 	 * a transaction is of only 1 type?
 	 */
 
-	/*
-	 * List of pending set-config requests for a given
-	 * transaction/session. Just one list for requests
-	 * not processed at all. There's no backend interaction
-	 * involved.
-	 */
-	struct mgmt_txn_reqs_head set_cfg_reqs;
-	/*
-	 * List of pending get-config requests for a given
-	 * transaction/session. Just one list for requests
-	 * not processed at all. There's no backend interaction
-	 * involved.
-	 */
-	struct mgmt_txn_reqs_head get_cfg_reqs;
 	/*
 	 * List of pending get-tree requests.
 	 */
@@ -303,15 +241,6 @@ static struct mgmt_txn_req *mgmt_txn_req_alloc(struct mgmt_txn_ctx *txn, uint64_
 	txn_req->req_type = req_type;
 
 	switch (txn_req->req_type) {
-	case MGMTD_TXN_PROC_SETCFG:
-		txn_req->req.set_cfg = XCALLOC(MTYPE_MGMTD_TXN_SETCFG_REQ,
-					       sizeof(struct mgmt_set_cfg_req));
-		assert(txn_req->req.set_cfg);
-		mgmt_txn_reqs_add_tail(&txn->set_cfg_reqs, txn_req);
-		_dbg("Added a new SETCFG req-id: %" PRIu64 " txn-id: %" PRIu64
-		     ", session-id: %" PRIu64,
-		     txn_req->req_id, txn->txn_id, txn->session_id);
-		break;
 	case MGMTD_TXN_PROC_COMMITCFG:
 		txn->commit_cfg_req = txn_req;
 		_dbg("Added a new COMMITCFG req-id: %" PRIu64 " txn-id: %" PRIu64
@@ -319,16 +248,6 @@ static struct mgmt_txn_req *mgmt_txn_req_alloc(struct mgmt_txn_ctx *txn, uint64_
 		     txn_req->req_id, txn->txn_id, txn->session_id);
 
 		txn_req->req.commit_cfg.phase = MGMTD_COMMIT_PHASE_PREPARE_CFG;
-		break;
-	case MGMTD_TXN_PROC_GETCFG:
-		txn_req->req.get_data =
-			XCALLOC(MTYPE_MGMTD_TXN_GETDATA_REQ,
-				sizeof(struct mgmt_get_data_req));
-		assert(txn_req->req.get_data);
-		mgmt_txn_reqs_add_tail(&txn->get_cfg_reqs, txn_req);
-		_dbg("Added a new GETCFG req-id: %" PRIu64 " txn-id: %" PRIu64
-		     " session-id: %" PRIu64,
-		     txn_req->req_id, txn->txn_id, txn->session_id);
 		break;
 	case MGMTD_TXN_PROC_GETTREE:
 		txn_req->req.get_tree = XCALLOC(MTYPE_MGMTD_TXN_GETTREE_REQ,
@@ -355,26 +274,13 @@ static struct mgmt_txn_req *mgmt_txn_req_alloc(struct mgmt_txn_ctx *txn, uint64_
 
 static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 {
-	int indx;
 	struct mgmt_txn_reqs_head *req_list = NULL;
 	enum mgmt_be_client_id id;
 	struct mgmt_be_client_adapter *adapter;
 	struct mgmt_commit_cfg_req *ccreq;
-	struct mgmt_set_cfg_req *set_cfg;
 	bool cleanup;
 
 	switch ((*txn_req)->req_type) {
-	case MGMTD_TXN_PROC_SETCFG:
-		set_cfg = (*txn_req)->req.set_cfg;
-		for (indx = 0; indx < set_cfg->num_cfg_changes; indx++) {
-			if (set_cfg->cfg_changes[indx].value)
-				free((void *)set_cfg->cfg_changes[indx].value);
-		}
-		req_list = &(*txn_req)->txn->set_cfg_reqs;
-		_dbg("Deleting SETCFG req-id: %" PRIu64 " txn-id: %" PRIu64, (*txn_req)->req_id,
-		     (*txn_req)->txn->txn_id);
-		XFREE(MTYPE_MGMTD_TXN_SETCFG_REQ, (*txn_req)->req.set_cfg);
-		break;
 	case MGMTD_TXN_PROC_COMMITCFG:
 		_dbg("Deleting COMMITCFG req-id: %" PRIu64 " txn-id: %" PRIu64, (*txn_req)->req_id,
 		     (*txn_req)->txn->txn_id);
@@ -407,25 +313,6 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 							    adapter);
 		}
 		break;
-	case MGMTD_TXN_PROC_GETCFG:
-		for (indx = 0; indx < (*txn_req)->req.get_data->num_xpaths;
-		     indx++) {
-			if ((*txn_req)->req.get_data->xpaths[indx])
-				free((void *)(*txn_req)
-					     ->req.get_data->xpaths[indx]);
-		}
-		req_list = &(*txn_req)->txn->get_cfg_reqs;
-		_dbg("Deleting GETCFG req-id: %" PRIu64 " txn-id: %" PRIu64, (*txn_req)->req_id,
-		     (*txn_req)->txn->txn_id);
-		if ((*txn_req)->req.get_data->reply)
-			XFREE(MTYPE_MGMTD_TXN_GETDATA_REPLY,
-			      (*txn_req)->req.get_data->reply);
-
-		if ((*txn_req)->req.get_data->cfg_root)
-			nb_config_free((*txn_req)->req.get_data->cfg_root);
-
-		XFREE(MTYPE_MGMTD_TXN_GETDATA_REQ, (*txn_req)->req.get_data);
-		break;
 	case MGMTD_TXN_PROC_GETTREE:
 		_dbg("Deleting GETTREE req-id: %" PRIu64 " of txn-id: %" PRIu64, (*txn_req)->req_id,
 		     (*txn_req)->txn->txn_id);
@@ -456,130 +343,6 @@ static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
 	*txn_req = NULL;
 }
 
-static void mgmt_txn_process_set_cfg(struct event *thread)
-{
-	struct mgmt_txn_ctx *txn;
-	struct mgmt_txn_req *txn_req;
-	struct mgmt_ds_ctx *ds_ctx;
-	struct nb_config *nb_config;
-	char err_buf[1024];
-	bool error;
-	int num_processed = 0;
-	size_t left;
-	struct mgmt_commit_stats *cmt_stats;
-	int ret = 0;
-
-	txn = (struct mgmt_txn_ctx *)EVENT_ARG(thread);
-	assert(txn);
-	cmt_stats = mgmt_fe_get_session_commit_stats(txn->session_id);
-
-	_dbg("Processing %zu SET_CONFIG requests txn-id:%" PRIu64 " session-id: %" PRIu64,
-	     mgmt_txn_reqs_count(&txn->set_cfg_reqs), txn->txn_id, txn->session_id);
-
-	FOREACH_TXN_REQ_IN_LIST (&txn->set_cfg_reqs, txn_req) {
-		assert(txn_req->req_type == MGMTD_TXN_PROC_SETCFG);
-		ds_ctx = txn_req->req.set_cfg->ds_ctx;
-		if (!ds_ctx) {
-			mgmt_fe_send_set_cfg_reply(txn->session_id, txn->txn_id,
-						   txn_req->req.set_cfg->ds_id,
-						   txn_req->req_id,
-						   MGMTD_INTERNAL_ERROR,
-						   "No such datastore!",
-						   txn_req->req.set_cfg
-							   ->implicit_commit);
-			goto mgmt_txn_process_set_cfg_done;
-		}
-
-		nb_config = mgmt_ds_get_nb_config(ds_ctx);
-		if (!nb_config) {
-			mgmt_fe_send_set_cfg_reply(txn->session_id, txn->txn_id,
-						   txn_req->req.set_cfg->ds_id,
-						   txn_req->req_id,
-						   MGMTD_INTERNAL_ERROR,
-						   "Unable to retrieve DS Config Tree!",
-						   txn_req->req.set_cfg
-							   ->implicit_commit);
-			goto mgmt_txn_process_set_cfg_done;
-		}
-
-		error = false;
-		nb_candidate_edit_config_changes(nb_config,
-						 txn_req->req.set_cfg->cfg_changes,
-						 (size_t)txn_req->req.set_cfg
-							 ->num_cfg_changes,
-						 NULL, false, err_buf,
-						 sizeof(err_buf), &error);
-		if (error) {
-			mgmt_fe_send_set_cfg_reply(txn->session_id, txn->txn_id,
-						   txn_req->req.set_cfg->ds_id,
-						   txn_req->req_id,
-						   MGMTD_INTERNAL_ERROR, err_buf,
-						   txn_req->req.set_cfg
-							   ->implicit_commit);
-			goto mgmt_txn_process_set_cfg_done;
-		}
-
-		if (txn_req->req.set_cfg->implicit_commit) {
-			assert(mgmt_txn_reqs_count(&txn->set_cfg_reqs) == 1);
-			assert(txn_req->req.set_cfg->dst_ds_ctx);
-
-			/* We expect the user to have locked the DST DS */
-			if (!mgmt_ds_is_locked(txn_req->req.set_cfg->dst_ds_ctx,
-					       txn->session_id)) {
-				_log_err("DS %u not locked for implicit commit txn-id: %" PRIu64
-					 " session-id: %" PRIu64 " err: %s",
-					 txn_req->req.set_cfg->dst_ds_id, txn->txn_id,
-					 txn->session_id, strerror(ret));
-				mgmt_fe_send_set_cfg_reply(
-					txn->session_id, txn->txn_id,
-					txn_req->req.set_cfg->ds_id,
-					txn_req->req_id, MGMTD_DS_LOCK_FAILED,
-					"running DS not locked for implicit commit",
-					txn_req->req.set_cfg->implicit_commit);
-				goto mgmt_txn_process_set_cfg_done;
-			}
-
-			mgmt_txn_send_commit_config_req(txn->txn_id, txn_req->req_id,
-							txn_req->req.set_cfg->ds_id,
-							txn_req->req.set_cfg->ds_ctx,
-							txn_req->req.set_cfg->dst_ds_id,
-							txn_req->req.set_cfg->dst_ds_ctx, false,
-							false, true, false, NULL);
-
-			if (mm->perf_stats_en)
-				gettimeofday(&cmt_stats->last_start, NULL);
-			cmt_stats->commit_cnt++;
-		} else if (mgmt_fe_send_set_cfg_reply(txn->session_id,
-						      txn->txn_id,
-						      txn_req->req.set_cfg->ds_id,
-						      txn_req->req_id,
-						      MGMTD_SUCCESS, NULL,
-						      false) != 0) {
-			_log_err("Failed to send SET_CONFIG_REPLY txn-id %" PRIu64
-				 " session-id: %" PRIu64,
-				 txn->txn_id, txn->session_id);
-		}
-
-mgmt_txn_process_set_cfg_done:
-
-		/*
-		 * Note: The following will remove it from the list as well.
-		 */
-		mgmt_txn_req_free(&txn_req);
-
-		num_processed++;
-		if (num_processed == MGMTD_TXN_MAX_NUM_SETCFG_PROC)
-			break;
-	}
-
-	left = mgmt_txn_reqs_count(&txn->set_cfg_reqs);
-	if (left) {
-		_dbg("Processed maximum number of Set-Config requests (%d/%d/%d). Rescheduling for rest.",
-		     num_processed, MGMTD_TXN_MAX_NUM_SETCFG_PROC, (int)left);
-		mgmt_txn_register_event(txn, MGMTD_TXN_EVENT_SETCFG);
-	}
-}
-
 static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 					  enum mgmt_result result,
 					  const char *error_if_any)
@@ -607,20 +370,6 @@ static int mgmt_txn_send_commit_cfg_reply(struct mgmt_txn_ctx *txn,
 					  error_if_any) != 0) {
 		_log_err("Failed to send COMMIT-CONFIG-REPLY txn-id: %" PRIu64
 			 " session-id: %" PRIu64,
-			 txn->txn_id, txn->session_id);
-	}
-
-	if (!txn->commit_cfg_req->req.commit_cfg.edit &&
-	    txn->commit_cfg_req->req.commit_cfg.implicit && txn->session_id &&
-	    !txn->commit_cfg_req->req.commit_cfg.rollback &&
-	    mgmt_fe_send_set_cfg_reply(txn->session_id, txn->txn_id,
-				       txn->commit_cfg_req->req.commit_cfg
-					       .src_ds_id,
-				       txn->commit_cfg_req->req_id,
-				       success ? MGMTD_SUCCESS
-					       : MGMTD_INTERNAL_ERROR,
-				       error_if_any, true) != 0) {
-		_log_err("Failed to send SET-CONFIG-REPLY txn-id: %" PRIu64 " session-id: %" PRIu64,
 			 txn->txn_id, txn->session_id);
 	}
 
@@ -1382,246 +1131,6 @@ static void mgmt_txn_process_commit_cfg(struct event *thread)
 	}
 }
 
-static void mgmt_init_get_data_reply(struct mgmt_get_data_reply *get_reply)
-{
-	size_t indx;
-
-	for (indx = 0; indx < array_size(get_reply->reply_data); indx++)
-		get_reply->reply_datap[indx] = &get_reply->reply_data[indx];
-}
-
-static void mgmt_reset_get_data_reply(struct mgmt_get_data_reply *get_reply)
-{
-	int indx;
-
-	for (indx = 0; indx < get_reply->num_reply; indx++) {
-		if (get_reply->reply_xpathp[indx]) {
-			free(get_reply->reply_xpathp[indx]);
-			get_reply->reply_xpathp[indx] = 0;
-		}
-		if (get_reply->reply_data[indx].xpath) {
-			free(get_reply->reply_data[indx].xpath);
-			get_reply->reply_data[indx].xpath = 0;
-		}
-	}
-
-	get_reply->num_reply = 0;
-	memset(&get_reply->data_reply, 0, sizeof(get_reply->data_reply));
-	memset(&get_reply->reply_data, 0, sizeof(get_reply->reply_data));
-	memset(&get_reply->reply_datap, 0, sizeof(get_reply->reply_datap));
-
-	memset(&get_reply->reply_value, 0, sizeof(get_reply->reply_value));
-
-	mgmt_init_get_data_reply(get_reply);
-}
-
-static void mgmt_reset_get_data_reply_buf(struct mgmt_get_data_req *get_data)
-{
-	if (get_data->reply)
-		mgmt_reset_get_data_reply(get_data->reply);
-}
-
-static void mgmt_txn_send_getcfg_reply_data(struct mgmt_txn_req *txn_req,
-					    struct mgmt_get_data_req *get_req)
-{
-	struct mgmt_get_data_reply *get_reply;
-	Mgmtd__YangDataReply *data_reply;
-
-	get_reply = get_req->reply;
-	if (!get_reply)
-		return;
-
-	data_reply = &get_reply->data_reply;
-	mgmt_yang_data_reply_init(data_reply);
-	data_reply->n_data = get_reply->num_reply;
-	data_reply->data = get_reply->reply_datap;
-	data_reply->next_indx = (!get_reply->last_batch ? get_req->total_reply
-							: -1);
-
-	_dbg("Sending %zu Get-Config/Data replies next-index:%" PRId64, data_reply->n_data,
-	     data_reply->next_indx);
-
-	switch (txn_req->req_type) {
-	case MGMTD_TXN_PROC_GETCFG:
-		if (mgmt_fe_send_get_reply(txn_req->txn->session_id,
-					   txn_req->txn->txn_id, get_req->ds_id,
-					   txn_req->req_id, MGMTD_SUCCESS,
-					   data_reply, NULL) != 0) {
-			_log_err("Failed to send GET-CONFIG-REPLY txn-id: %" PRIu64
-				 " session-id: %" PRIu64 " req-id: %" PRIu64,
-				 txn_req->txn->txn_id, txn_req->txn->session_id, txn_req->req_id);
-		}
-		break;
-	case MGMTD_TXN_PROC_SETCFG:
-	case MGMTD_TXN_PROC_COMMITCFG:
-	case MGMTD_TXN_PROC_GETTREE:
-	case MGMTD_TXN_PROC_RPC:
-		_log_err("Invalid Txn-Req-Type %u", txn_req->req_type);
-		break;
-	}
-
-	/*
-	 * Reset reply buffer for next reply.
-	 */
-	mgmt_reset_get_data_reply_buf(get_req);
-}
-
-static void txn_iter_get_config_data_cb(const char *xpath, struct lyd_node *node,
-					struct nb_node *nb_node, void *ctx)
-{
-	struct mgmt_txn_req *txn_req;
-	struct mgmt_get_data_req *get_req;
-	struct mgmt_get_data_reply *get_reply;
-	Mgmtd__YangData *data;
-	Mgmtd__YangDataValue *data_value;
-
-	txn_req = (struct mgmt_txn_req *)ctx;
-	if (!txn_req)
-		return;
-
-	if (!(node->schema->nodetype & LYD_NODE_TERM))
-		return;
-
-	assert(txn_req->req_type == MGMTD_TXN_PROC_GETCFG);
-
-	get_req = txn_req->req.get_data;
-	assert(get_req);
-	get_reply = get_req->reply;
-	data = &get_reply->reply_data[get_reply->num_reply];
-	data_value = &get_reply->reply_value[get_reply->num_reply];
-
-	mgmt_yang_data_init(data);
-	data->xpath = strdup(xpath);
-	mgmt_yang_data_value_init(data_value);
-	data_value->value_case = MGMTD__YANG_DATA_VALUE__VALUE_ENCODED_STR_VAL;
-	data_value->encoded_str_val = (char *)lyd_get_value(node);
-	data->value = data_value;
-
-	get_reply->num_reply++;
-	get_req->total_reply++;
-	_dbg(" [%d] XPATH: '%s', Value: '%s'", get_req->total_reply, data->xpath,
-	     data_value->encoded_str_val);
-
-	if (get_reply->num_reply == MGMTD_MAX_NUM_DATA_REPLY_IN_BATCH)
-		mgmt_txn_send_getcfg_reply_data(txn_req, get_req);
-}
-
-static int mgmt_txn_get_config(struct mgmt_txn_ctx *txn,
-			       struct mgmt_txn_req *txn_req,
-			       struct nb_config *root)
-{
-	int indx;
-	struct mgmt_get_data_req *get_data;
-	struct mgmt_get_data_reply *get_reply;
-
-	get_data = txn_req->req.get_data;
-
-	if (!get_data->reply) {
-		get_data->reply = XCALLOC(MTYPE_MGMTD_TXN_GETDATA_REPLY,
-					  sizeof(struct mgmt_get_data_reply));
-		if (!get_data->reply) {
-			mgmt_fe_send_get_reply(
-				txn->session_id, txn->txn_id, get_data->ds_id,
-				txn_req->req_id, MGMTD_INTERNAL_ERROR, NULL,
-				"Internal error: Unable to allocate reply buffers!");
-			goto mgmt_txn_get_config_failed;
-		}
-	}
-
-	/*
-	 * Read data contents from the DS and respond back directly.
-	 * No need to go to backend for getting data.
-	 */
-	get_reply = get_data->reply;
-	for (indx = 0; indx < get_data->num_xpaths; indx++) {
-		_dbg("Trying to get all data under '%s'", get_data->xpaths[indx]);
-		mgmt_init_get_data_reply(get_reply);
-		/*
-		 * mgmt_ds_iter_data works on path prefixes, but the user may
-		 * want to also use an xpath regexp we need to add this
-		 * functionality.
-		 */
-		if (mgmt_ds_iter_data(get_data->ds_id, root,
-				      get_data->xpaths[indx],
-				      txn_iter_get_config_data_cb,
-				      (void *)txn_req) == -1) {
-			_dbg("Invalid Xpath '%s", get_data->xpaths[indx]);
-			mgmt_fe_send_get_reply(txn->session_id, txn->txn_id,
-					       get_data->ds_id, txn_req->req_id,
-					       MGMTD_INTERNAL_ERROR, NULL,
-					       "Invalid xpath");
-			goto mgmt_txn_get_config_failed;
-		}
-		_dbg("Got %d remaining data-replies for xpath '%s'", get_reply->num_reply,
-		     get_data->xpaths[indx]);
-		get_reply->last_batch = true;
-		mgmt_txn_send_getcfg_reply_data(txn_req, get_data);
-	}
-
-mgmt_txn_get_config_failed:
-
-	/*
-	 * Delete the txn request. It will also remove it from request
-	 * list.
-	 */
-	mgmt_txn_req_free(&txn_req);
-
-	return 0;
-}
-
-static void mgmt_txn_process_get_cfg(struct event *thread)
-{
-	struct mgmt_txn_ctx *txn;
-	struct mgmt_txn_req *txn_req;
-	struct nb_config *cfg_root;
-	int num_processed = 0;
-	bool error;
-
-	txn = (struct mgmt_txn_ctx *)EVENT_ARG(thread);
-	assert(txn);
-
-	_dbg("Processing %zu GET_CONFIG requests txn-id: %" PRIu64 " session-id: %" PRIu64,
-	     mgmt_txn_reqs_count(&txn->get_cfg_reqs), txn->txn_id, txn->session_id);
-
-	FOREACH_TXN_REQ_IN_LIST (&txn->get_cfg_reqs, txn_req) {
-		error = false;
-		assert(txn_req->req_type == MGMTD_TXN_PROC_GETCFG);
-		cfg_root = txn_req->req.get_data->cfg_root;
-		assert(cfg_root);
-
-		if (mgmt_txn_get_config(txn, txn_req, cfg_root) != 0) {
-			_log_err("Unable to retrieve config from DS %d txn-id: %" PRIu64
-				 " session-id: %" PRIu64 " req-id: %" PRIu64,
-				 txn_req->req.get_data->ds_id, txn->txn_id, txn->session_id,
-				 txn_req->req_id);
-			error = true;
-		}
-
-		if (error) {
-			/*
-			 * Delete the txn request.
-			 * Note: The following will remove it from the list
-			 * as well.
-			 */
-			mgmt_txn_req_free(&txn_req);
-		}
-
-		/*
-		 * Else the transaction would have been already deleted or
-		 * moved to corresponding pending list. No need to delete it.
-		 */
-		num_processed++;
-		if (num_processed == MGMTD_TXN_MAX_NUM_GETCFG_PROC)
-			break;
-	}
-
-	if (mgmt_txn_reqs_count(&txn->get_cfg_reqs)) {
-		_dbg("Processed maximum number of Get-Config requests (%d/%d). Rescheduling for rest.",
-		     num_processed, MGMTD_TXN_MAX_NUM_GETCFG_PROC);
-		mgmt_txn_register_event(txn, MGMTD_TXN_EVENT_GETCFG);
-	}
-}
-
 static struct mgmt_txn_ctx *
 mgmt_fe_find_txn_by_session_id(struct mgmt_master *cm, uint64_t session_id,
 			       enum mgmt_txn_type type)
@@ -1654,8 +1163,6 @@ static struct mgmt_txn_ctx *mgmt_txn_create_new(uint64_t session_id,
 		txn->type = type;
 		mgmt_txns_add_tail(&mgmt_txn_mm->txn_list, txn);
 		/* TODO: why do we need N lists for one transaction */
-		mgmt_txn_reqs_init(&txn->set_cfg_reqs);
-		mgmt_txn_reqs_init(&txn->get_cfg_reqs);
 		mgmt_txn_reqs_init(&txn->get_tree_reqs);
 		mgmt_txn_reqs_init(&txn->rpc_reqs);
 		txn->commit_cfg_req = NULL;
@@ -1762,8 +1269,6 @@ static void mgmt_txn_unlock(struct mgmt_txn_ctx **txn, bool in_hash_free, const 
 		if ((*txn)->type == MGMTD_TXN_TYPE_CONFIG)
 			if (mgmt_txn_mm->cfg_txn == *txn)
 				mgmt_txn_mm->cfg_txn = NULL;
-		event_cancel(&(*txn)->proc_get_cfg);
-		event_cancel(&(*txn)->proc_get_data);
 		event_cancel(&(*txn)->proc_comm_cfg);
 		event_cancel(&(*txn)->comm_cfg_timeout);
 		event_cancel(&(*txn)->get_tree_timeout);
@@ -1807,17 +1312,9 @@ static void mgmt_txn_register_event(struct mgmt_txn_ctx *txn, enum mgmt_txn_frr_
 	assert(mgmt_txn_mm && mgmt_txn_tm);
 
 	switch (event) {
-	case MGMTD_TXN_EVENT_SETCFG:
-		event_add_timer_tv(mgmt_txn_tm, mgmt_txn_process_set_cfg, txn,
-				   &tv, &txn->proc_set_cfg);
-		break;
 	case MGMTD_TXN_EVENT_COMMITCFG:
 		event_add_timer_tv(mgmt_txn_tm, mgmt_txn_process_commit_cfg,
 				   txn, &tv, &txn->proc_comm_cfg);
-		break;
-	case MGMTD_TXN_EVENT_GETCFG:
-		event_add_timer_tv(mgmt_txn_tm, mgmt_txn_process_get_cfg, txn,
-				   &tv, &txn->proc_get_cfg);
 		break;
 	case MGMTD_TXN_EVENT_COMMITCFG_TIMEOUT:
 		event_add_timer(mgmt_txn_tm, mgmt_txn_cfg_commit_timedout, txn,
@@ -1874,95 +1371,6 @@ void mgmt_destroy_txn(uint64_t *txn_id)
 
 	mgmt_txn_delete(&txn, false);
 	*txn_id = MGMTD_TXN_ID_NONE;
-}
-
-int mgmt_txn_send_set_config_req(uint64_t txn_id, uint64_t req_id,
-				 Mgmtd__DatastoreId ds_id,
-				 struct mgmt_ds_ctx *ds_ctx,
-				 Mgmtd__YangCfgDataReq **cfg_req,
-				 size_t num_req, bool implicit_commit,
-				 Mgmtd__DatastoreId dst_ds_id,
-				 struct mgmt_ds_ctx *dst_ds_ctx)
-{
-	struct mgmt_txn_ctx *txn;
-	struct mgmt_txn_req *txn_req;
-	size_t indx;
-	uint16_t *num_chgs;
-	struct nb_cfg_change *cfg_chg;
-	struct nb_node *node;
-
-	txn = mgmt_txn_id2ctx(txn_id);
-	if (!txn)
-		return -1;
-
-	if (implicit_commit && mgmt_txn_reqs_count(&txn->set_cfg_reqs)) {
-		_log_err("For implicit commit config only one SETCFG-REQ can be allowed!");
-		return -1;
-	}
-
-	txn_req = mgmt_txn_req_alloc(txn, req_id, MGMTD_TXN_PROC_SETCFG);
-	txn_req->req.set_cfg->ds_id = ds_id;
-	txn_req->req.set_cfg->ds_ctx = ds_ctx;
-	num_chgs = &txn_req->req.set_cfg->num_cfg_changes;
-	for (indx = 0; indx < num_req; indx++) {
-		cfg_chg = &txn_req->req.set_cfg->cfg_changes[*num_chgs];
-
-		switch (cfg_req[indx]->req_type) {
-		case MGMTD__CFG_DATA_REQ_TYPE__DELETE_DATA:
-			cfg_chg->operation = NB_OP_DELETE;
-			break;
-		case MGMTD__CFG_DATA_REQ_TYPE__REMOVE_DATA:
-			cfg_chg->operation = NB_OP_DESTROY;
-			break;
-		case MGMTD__CFG_DATA_REQ_TYPE__SET_DATA:
-			/*
-			 * For backward compatibility, we need to allow creating
-			 * *new* list keys with SET_DATA operation. NB_OP_MODIFY
-			 * is not allowed for keys, so use NB_OP_CREATE_EXCL.
-			 */
-			node = nb_node_find(cfg_req[indx]->data->xpath);
-			if (node && lysc_is_key(node->snode))
-				cfg_chg->operation = NB_OP_CREATE_EXCL;
-			else
-				cfg_chg->operation = NB_OP_MODIFY;
-			break;
-		case MGMTD__CFG_DATA_REQ_TYPE__CREATE_DATA:
-			cfg_chg->operation = NB_OP_CREATE_EXCL;
-			break;
-		case MGMTD__CFG_DATA_REQ_TYPE__REPLACE_DATA:
-			cfg_chg->operation = NB_OP_REPLACE;
-			break;
-		case MGMTD__CFG_DATA_REQ_TYPE__REQ_TYPE_NONE:
-		case _MGMTD__CFG_DATA_REQ_TYPE_IS_INT_SIZE:
-		default:
-			continue;
-		}
-
-		_dbg("XPath: '%s', Value: '%s'", cfg_req[indx]->data->xpath,
-		     (cfg_req[indx]->data->value && cfg_req[indx]->data->value->encoded_str_val
-			      ? cfg_req[indx]->data->value->encoded_str_val
-			      : "NULL"));
-		strlcpy(cfg_chg->xpath, cfg_req[indx]->data->xpath,
-			sizeof(cfg_chg->xpath));
-		cfg_chg->value =
-			(cfg_req[indx]->data->value &&
-					 cfg_req[indx]->data->value->encoded_str_val
-				 ? strdup(cfg_req[indx]
-						  ->data->value->encoded_str_val)
-				 : NULL);
-		if (cfg_chg->value)
-			_dbg("Allocated value at %p ==> '%s'", cfg_chg->value, cfg_chg->value);
-
-		(*num_chgs)++;
-	}
-	txn_req->req.set_cfg->implicit_commit = implicit_commit;
-	txn_req->req.set_cfg->dst_ds_id = dst_ds_id;
-	txn_req->req.set_cfg->dst_ds_ctx = dst_ds_ctx;
-	txn_req->req.set_cfg->setcfg_stats =
-		mgmt_fe_get_session_setcfg_stats(txn->session_id);
-	mgmt_txn_register_event(txn, MGMTD_TXN_EVENT_SETCFG);
-
-	return 0;
 }
 
 int mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id, Mgmtd__DatastoreId src_ds_id,
@@ -2218,36 +1626,6 @@ int mgmt_txn_notify_be_cfg_apply_reply(uint64_t txn_id, bool success,
 
 	return 0;
 }
-
-int mgmt_txn_send_get_req(uint64_t txn_id, uint64_t req_id,
-			  Mgmtd__DatastoreId ds_id, struct nb_config *cfg_root,
-			  Mgmtd__YangGetDataReq **data_req, size_t num_reqs)
-{
-	struct mgmt_txn_ctx *txn;
-	struct mgmt_txn_req *txn_req;
-	size_t indx;
-
-	txn = mgmt_txn_id2ctx(txn_id);
-	if (!txn)
-		return -1;
-
-	txn_req = mgmt_txn_req_alloc(txn, req_id, MGMTD_TXN_PROC_GETCFG);
-	txn_req->req.get_data->ds_id = ds_id;
-	txn_req->req.get_data->cfg_root = cfg_root;
-	for (indx = 0;
-	     indx < num_reqs && indx < MGMTD_MAX_NUM_DATA_REPLY_IN_BATCH;
-	     indx++) {
-		_dbg("XPath: '%s'", data_req[indx]->data->xpath);
-		txn_req->req.get_data->xpaths[indx] =
-			strdup(data_req[indx]->data->xpath);
-		txn_req->req.get_data->num_xpaths++;
-	}
-
-	mgmt_txn_register_event(txn, MGMTD_TXN_EVENT_GETCFG);
-
-	return 0;
-}
-
 
 /**
  * Send get-tree requests to each client indicated in `clients` bitmask, which
@@ -2610,9 +1988,7 @@ int mgmt_txn_notify_error(struct mgmt_be_client_adapter *adapter,
 		return txn_rpc_done(txn, txn_req);
 
 	/* non-native message events */
-	case MGMTD_TXN_PROC_SETCFG:
 	case MGMTD_TXN_PROC_COMMITCFG:
-	case MGMTD_TXN_PROC_GETCFG:
 	default:
 		assert(!"non-native req type in native error path");
 		return -1;
