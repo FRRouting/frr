@@ -173,6 +173,10 @@ DECLARE_MTYPE(MSG_NATIVE_CFG_REQ);
 DECLARE_MTYPE(MSG_NATIVE_CFG_REPLY);
 DECLARE_MTYPE(MSG_NATIVE_CFG_APPLY_REQ);
 DECLARE_MTYPE(MSG_NATIVE_CFG_APPLY_REPLY);
+DECLARE_MTYPE(MSG_NATIVE_LOCK);
+DECLARE_MTYPE(MSG_NATIVE_LOCK_REPLY);
+DECLARE_MTYPE(MSG_NATIVE_COMMIT);
+DECLARE_MTYPE(MSG_NATIVE_COMMIT_REPLY);
 
 /*
  * Native message codes
@@ -189,6 +193,10 @@ DECLARE_MTYPE(MSG_NATIVE_CFG_APPLY_REPLY);
 #define MGMT_MSG_CODE_NOTIFY_SELECT 9 /* Public API */
 #define MGMT_MSG_CODE_SESSION_REQ   10 /* Public API */
 #define MGMT_MSG_CODE_SESSION_REPLY 11 /* Public API */
+#define MGMT_MSG_CODE_LOCK	    19 /* Public API */
+#define MGMT_MSG_CODE_LOCK_REPLY    20 /* Public API */
+#define MGMT_MSG_CODE_COMMIT	    21 /* Public API */
+#define MGMT_MSG_CODE_COMMIT_REPLY  22 /* Public API */
 
 /* Derived from protobuf messages to remove protobuf dependency */
 #define MGMT_MSG_CODE_SUBSCRIBE	      12 /* BE only, non-public API */
@@ -202,9 +210,9 @@ DECLARE_MTYPE(MSG_NATIVE_CFG_APPLY_REPLY);
 /*
  * Datastores
  */
-#define MGMT_MSG_DATASTORE_STARTUP     0
-#define MGMT_MSG_DATASTORE_CANDIDATE   1
-#define MGMT_MSG_DATASTORE_RUNNING     2
+#define MGMT_MSG_DATASTORE_NONE	       0
+#define MGMT_MSG_DATASTORE_RUNNING     1
+#define MGMT_MSG_DATASTORE_CANDIDATE   2
 #define MGMT_MSG_DATASTORE_OPERATIONAL 3
 
 /*
@@ -527,6 +535,73 @@ struct mgmt_msg_session_reply {
 	struct mgmt_msg_header;
 	uint8_t created;
 	uint8_t resv2[7];
+};
+
+/**
+ * struct mgmt_msg_lock - Set or clear a lock on a datastore.
+ *
+ * @refer_id: The session-id that will own (or release) the lock.
+ * @datastore: the datastore to lock or unlock.
+ * @lock: true to lock, false to unlock.
+ */
+struct mgmt_msg_lock {
+	struct mgmt_msg_header;
+	uint8_t datastore; /* MGMT_MSG_DATASTORE_* */
+	uint8_t lock;	   /* True to lock, false to unlock */
+	uint8_t resv2[6];
+};
+
+/**
+ * struct mgmt_msg_lock_reply - Reply to lock message.
+ *
+ * @refer_id: The session-id that will own (or release) the lock.
+ * @datastore: the datastore to lock or unlock.
+ * @lock: true if locked, false if unlocked.
+ */
+struct mgmt_msg_lock_reply {
+	struct mgmt_msg_header;
+	uint8_t datastore; /* MGMT_MSG_DATASTORE_* */
+	uint8_t lock;	   /* True if locked, false to unlocked */
+	uint8_t resv2[6];
+};
+
+#define MGMT_MSG_COMMIT_APPLY	 0
+#define MGMT_MSG_COMMIT_ABORT	 1
+#define MGMT_MSG_COMMIT_VALIDATE 2
+/**
+ * struct mgmt_msg_commit - Set or clear a commit on a datastore.
+ *
+ * @refer_id: The session-id that will own (or release) the commit.
+ * @source: the datastore to commit from, abort changes or validate changes.
+ * @target: the datastore to commit into.
+ * @action: apply, abort, or validate the changes from source to target.
+ * @unlock: value passed to reply message.
+ */
+struct mgmt_msg_commit {
+	struct mgmt_msg_header;
+	uint8_t source; /* MGMT_MSG_DATASTORE_* */
+	uint8_t target; /* MGMT_MSG_DATASTORE_* */
+	uint8_t action; /* MGMT_MSG_COMMIT_* */
+	uint8_t unlock;
+	uint8_t resv2[4];
+};
+
+/**
+ * struct mgmt_msg_commit_reply - Reply to commit message.
+ *
+ * @refer_id: The session-id that will own (or release) the commit.
+ * @source: the datastore committed from, or the changes aborted or validated.
+ * @target: the datastore committed into.
+ * @action: action taken, i.e., apply, abort, or validate.
+ * @unlock: true indicates receiver should unlock the datastores.
+ */
+struct mgmt_msg_commit_reply {
+	struct mgmt_msg_header;
+	uint8_t source; /* MGMT_MSG_DATASTORE_* */
+	uint8_t target; /* MGMT_MSG_DATASTORE_* */
+	uint8_t action; /* MGMT_MSG_COMMIT_* */
+	uint8_t unlock;
+	uint8_t resv2[4];
 };
 
 /**

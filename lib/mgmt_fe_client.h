@@ -46,6 +46,11 @@ extern "C" {
 #define MGMTD_DS_OPERATIONAL MGMTD__DATASTORE_ID__OPERATIONAL_DS
 #define MGMTD_DS_MAX_ID MGMTD_DS_OPERATIONAL + 1
 
+_Static_assert(MGMTD_DS_NONE == MGMT_MSG_DATASTORE_NONE, "Datastore ID mismatch");
+_Static_assert(MGMTD_DS_RUNNING == MGMT_MSG_DATASTORE_RUNNING, "Datastore ID mismatch");
+_Static_assert(MGMTD_DS_CANDIDATE == MGMT_MSG_DATASTORE_CANDIDATE, "Datastore ID mismatch");
+_Static_assert(MGMTD_DS_OPERATIONAL == MGMT_MSG_DATASTORE_OPERATIONAL, "Datastore ID mismatch");
+
 struct mgmt_fe_client;
 
 
