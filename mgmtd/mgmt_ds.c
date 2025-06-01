@@ -217,18 +217,28 @@ bool mgmt_ds_is_config(struct mgmt_ds_ctx *ds_ctx)
 	return ds_ctx->config_ds;
 }
 
-bool mgmt_ds_is_locked(struct mgmt_ds_ctx *ds_ctx, uint64_t session_id)
+bool mgmt_ds_is_locked(struct mgmt_ds_ctx *ds_ctx, uint64_t *session_id)
 {
-	assert(ds_ctx);
-	return (ds_ctx->locked && ds_ctx->vty_session_id == session_id);
+	if (!ds_ctx || !ds_ctx->locked)
+		return false;
+
+	if (session_id)
+		*session_id = ds_ctx->vty_session_id;
+	return true;
 }
 
 int mgmt_ds_lock(struct mgmt_ds_ctx *ds_ctx, uint64_t session_id)
 {
 	assert(ds_ctx);
 
-	if (ds_ctx->locked)
+	if (ds_ctx->locked) {
+		_log_err("lock already taken on DS:%s by session-id %Lu",
+			 mgmt_ds_id2name(ds_ctx->ds_id), ds_ctx->vty_session_id);
 		return EBUSY;
+	}
+
+	_dbg("obtaining lock on DS:%s for session-id %Lu", mgmt_ds_id2name(ds_ctx->ds_id),
+	     session_id);
 
 	ds_ctx->locked = true;
 	ds_ctx->vty_session_id = session_id;
@@ -239,11 +249,14 @@ void mgmt_ds_unlock(struct mgmt_ds_ctx *ds_ctx)
 {
 	assert(ds_ctx);
 	if (!ds_ctx->locked)
-		zlog_warn(
-			"%s: WARNING: unlock on unlocked in DS:%s last session-id %" PRIu64,
-			__func__, mgmt_ds_id2name(ds_ctx->ds_id),
-			ds_ctx->vty_session_id);
+		_log_err("unlock on unlocked in DS:%s last session-id %Lu",
+			 mgmt_ds_id2name(ds_ctx->ds_id), ds_ctx->vty_session_id);
+	else
+		_dbg("releasing lock on DS:%s for session-id %Lu", mgmt_ds_id2name(ds_ctx->ds_id),
+		     ds_ctx->vty_session_id);
+
 	ds_ctx->locked = 0;
+	ds_ctx->vty_session_id = MGMTD_SESSION_ID_NONE;
 }
 
 int mgmt_ds_copy_dss(struct mgmt_ds_ctx *dst, struct mgmt_ds_ctx *src, bool updt_cmt_rec)

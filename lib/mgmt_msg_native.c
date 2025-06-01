@@ -29,7 +29,10 @@ DEFINE_MTYPE(MSG_NATIVE, MSG_NATIVE_CFG_REQ, "native cfg-req msg");
 DEFINE_MTYPE(MSG_NATIVE, MSG_NATIVE_CFG_REPLY, "native cfg-reply msg");
 DEFINE_MTYPE(MSG_NATIVE, MSG_NATIVE_CFG_APPLY_REQ, "native cfg-act-req msg");
 DEFINE_MTYPE(MSG_NATIVE, MSG_NATIVE_CFG_APPLY_REPLY, "native cfg-act-reply msg");
-
+DEFINE_MTYPE(MSG_NATIVE, MSG_NATIVE_LOCK, "native lock msg");
+DEFINE_MTYPE(MSG_NATIVE, MSG_NATIVE_LOCK_REPLY, "native lock-reply msg");
+DEFINE_MTYPE(MSG_NATIVE, MSG_NATIVE_COMMIT, "native commit msg");
+DEFINE_MTYPE(MSG_NATIVE, MSG_NATIVE_COMMIT_REPLY, "native commit-reply msg");
 
 size_t mgmt_msg_min_sizes[] = {
 	[MGMT_MSG_CODE_ERROR] = sizeof(struct mgmt_msg_error),
@@ -51,6 +54,10 @@ size_t mgmt_msg_min_sizes[] = {
 	[MGMT_MSG_CODE_CFG_REPLY] = sizeof(struct mgmt_msg_cfg_reply),
 	[MGMT_MSG_CODE_CFG_APPLY_REQ] = sizeof(struct mgmt_msg_cfg_apply_req),
 	[MGMT_MSG_CODE_CFG_APPLY_REPLY] = sizeof(struct mgmt_msg_cfg_apply_reply),
+	[MGMT_MSG_CODE_LOCK] = sizeof(struct mgmt_msg_lock),
+	[MGMT_MSG_CODE_LOCK_REPLY] = sizeof(struct mgmt_msg_lock_reply),
+	[MGMT_MSG_CODE_COMMIT] = sizeof(struct mgmt_msg_commit),
+	[MGMT_MSG_CODE_COMMIT_REPLY] = sizeof(struct mgmt_msg_commit_reply),
 };
 size_t nmgmt_msg_min_sizes = sizeof(mgmt_msg_min_sizes) /
 			     sizeof(*mgmt_msg_min_sizes);

@@ -38,60 +38,10 @@ message FeSessionReply {
   required uint64 session_id = 4;
 }
 
-enum DatastoreId {
-  DS_NONE = 0;
-  RUNNING_DS = 1;
-  CANDIDATE_DS = 2;
-  OPERATIONAL_DS = 3;
-  STARTUP_DS = 4;
-}
-
-message FeLockDsReq {
-  required uint64 session_id = 1;
-  required uint64 req_id = 2;
-  required DatastoreId ds_id = 3;
-  required bool lock = 4;
-}
-
-message FeLockDsReply {
-  required uint64 session_id = 1;
-  required uint64 req_id = 2;
-  required DatastoreId ds_id = 3;
-  required bool lock = 4;
-  required bool success = 5;
-  optional string error_if_any = 6;
-}
-
-message FeCommitConfigReq {
-  required uint64 session_id = 1;
-  required DatastoreId src_ds_id = 2;
-  required DatastoreId dst_ds_id = 3;
-  required uint64 req_id = 4;
-  required bool validate_only = 5;
-  required bool abort = 6;
-  required bool unlock = 7;
-}
-
-message FeCommitConfigReply {
-  required uint64 session_id = 1;
-  required DatastoreId src_ds_id = 2;
-  required DatastoreId dst_ds_id = 3;
-  required uint64 req_id = 4;
-  required bool validate_only = 5;
-  required bool success = 6;
-  required bool abort = 7;
-  required bool unlock = 8;
-  optional string error_if_any = 9;
-}
-
 message FeMessage {
   oneof message {
     FeRegisterReq register_req = 2;
     FeSessionReq session_req = 3;
     FeSessionReply session_reply = 4;
-    FeLockDsReq lockds_req = 5;
-    FeLockDsReply lockds_reply = 6;
-    FeCommitConfigReq commcfg_req = 9;
-    FeCommitConfigReply commcfg_reply = 10;
   }
 }

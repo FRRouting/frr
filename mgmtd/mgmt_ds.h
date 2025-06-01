@@ -179,9 +179,10 @@ extern struct mgmt_ds_ctx *mgmt_ds_get_ctx_by_id(struct mgmt_master *mm,
 extern bool mgmt_ds_is_config(struct mgmt_ds_ctx *ds_ctx);
 
 /*
- * Check if a given datastore is locked by a given session
+ * Check if a given datastore is locked by a session, if so return that session
+ * ID if session_id is not NULL.
  */
-extern bool mgmt_ds_is_locked(struct mgmt_ds_ctx *ds_ctx, uint64_t session_id);
+extern bool mgmt_ds_is_locked(struct mgmt_ds_ctx *ds_ctx, uint64_t *session_id);
 
 /*
  * Acquire write lock to a ds given a ds_handle
