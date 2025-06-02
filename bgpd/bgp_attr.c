@@ -2593,9 +2593,6 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 			if (!peer->nexthop.ifp) {
 				zlog_warn("%s sent a v6 global attribute but address is a V6 LL and there's no peer interface information. Hence, withdrawing",
 					  peer->host);
-				if (PEER_HAS_LINK_LOCAL_CAPABILITY(peer))
-					bgp_notify_send(peer->connection, BGP_NOTIFY_UPDATE_ERR,
-							BGP_NOTIFY_UPDATE_UNREACH_NEXT_HOP);
 				return BGP_ATTR_PARSE_WITHDRAW;
 			}
 			attr->nh_ifindex = peer->nexthop.ifp->ifindex;
@@ -3662,9 +3659,6 @@ static int bgp_attr_nhc(struct bgp_attr_parser_args *args)
 			if (!peer->nexthop.ifp) {
 				zlog_warn("%pBP sent a v6 global attribute but address is a V6 LL and there's no peer interface information. Hence, withdrawing",
 					  peer);
-				if (PEER_HAS_LINK_LOCAL_CAPABILITY(peer))
-					bgp_notify_send(peer->connection, BGP_NOTIFY_UPDATE_ERR,
-							BGP_NOTIFY_UPDATE_UNREACH_NEXT_HOP);
 				return BGP_ATTR_PARSE_PROCEED;
 			}
 		}
