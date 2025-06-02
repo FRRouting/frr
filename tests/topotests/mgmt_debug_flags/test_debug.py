@@ -11,6 +11,8 @@
 """
 Test static route functionality
 """
+import time
+
 import pytest
 from lib.common_config import step
 from lib.topogen import Topogen
@@ -46,6 +48,8 @@ def test_client_debug_enable(tgen):
     watch_staticd_log = WatchLog(r1.net.rundir / "staticd.log")
 
     def __test_debug(r1, on):
+        time.sleep(1)
+
         watch_mgmtd_log.snapshot()
         watch_staticd_log.snapshot()
 
@@ -53,15 +57,13 @@ def test_client_debug_enable(tgen):
         r1.vtysh_cmd("conf t\nip route 11.11.11.11/32 1.1.1.2")
         r1.vtysh_cmd("conf t\nno ip route 11.11.11.11/32 1.1.1.2")
 
-        import time
-
         time.sleep(1)
 
         new_mgmt_logs = watch_mgmtd_log.snapshot()
         new_be_logs = watch_staticd_log.snapshot()
 
-        fe_cl_msg = "Sending COMMIT_CONFIG_REQ"
-        fe_ad_msg = "Got COMMCFG_REQ"
+        fe_cl_msg = "Sending COMMIT "
+        fe_ad_msg = "Got COMMIT "
         be_ad_msg = "Sending CFG_REQ"
         be_cl_msg = "Got CFG_APPLY_REQ"
 
