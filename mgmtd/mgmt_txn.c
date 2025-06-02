@@ -69,9 +69,9 @@ struct mgmt_edit_req {
 };
 
 struct mgmt_commit_cfg_req {
-	Mgmtd__DatastoreId src_ds_id;
+	enum mgmt_ds_id src_ds_id;
 	struct mgmt_ds_ctx *src_ds_ctx;
-	Mgmtd__DatastoreId dst_ds_id;
+	enum mgmt_ds_id dst_ds_id;
 	struct mgmt_ds_ctx *dst_ds_ctx;
 	uint32_t nb_txn_id;
 	uint8_t validate_only : 1;
@@ -1373,8 +1373,8 @@ void mgmt_destroy_txn(uint64_t *txn_id)
 	*txn_id = MGMTD_TXN_ID_NONE;
 }
 
-int mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id, Mgmtd__DatastoreId src_ds_id,
-				    struct mgmt_ds_ctx *src_ds_ctx, Mgmtd__DatastoreId dst_ds_id,
+int mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id, enum mgmt_ds_id src_ds_id,
+				    struct mgmt_ds_ctx *src_ds_ctx, enum mgmt_ds_id dst_ds_id,
 				    struct mgmt_ds_ctx *dst_ds_ctx, bool validate_only, bool abort,
 				    bool implicit, bool unlock, struct mgmt_edit_req *edit)
 {
@@ -1431,8 +1431,11 @@ int mgmt_txn_notify_be_adapter_conn(struct mgmt_be_client_adapter *adapter,
 		 * Lock the running datastore to prevent any changes while we
 		 * are initializing the backend.
 		 */
-		if (mgmt_ds_lock(ds_ctx, 0) != 0)
+		if (mgmt_ds_lock(ds_ctx, 0) != 0) {
+			_dbg("Failed to lock DS:%s for init of BE adapter '%s'",
+			     mgmt_ds_id2name(MGMTD_DS_RUNNING), adapter->name);
 			return -1;
+		}
 
 		/* Get config for this single backend client */
 		mgmt_be_get_adapter_config(adapter, &adapter_cfgs);
@@ -1632,7 +1635,7 @@ int mgmt_txn_notify_be_cfg_apply_reply(uint64_t txn_id, bool success,
  * has registered operational state that matches the given `xpath`
  */
 int mgmt_txn_send_get_tree(uint64_t txn_id, uint64_t req_id, uint64_t clients,
-			   Mgmtd__DatastoreId ds_id, LYD_FORMAT result_type, uint8_t flags,
+			   enum mgmt_ds_id ds_id, LYD_FORMAT result_type, uint8_t flags,
 			   uint32_t wd_options, bool simple_xpath, struct lyd_node **ylib,
 			   const char *xpath)
 {
@@ -1765,12 +1768,11 @@ state:
 	return 0;
 }
 
-int mgmt_txn_send_edit(uint64_t txn_id, uint64_t req_id,
-		       Mgmtd__DatastoreId ds_id, struct mgmt_ds_ctx *ds_ctx,
-		       Mgmtd__DatastoreId commit_ds_id,
-		       struct mgmt_ds_ctx *commit_ds_ctx, bool unlock,
-		       bool commit, LYD_FORMAT request_type, uint8_t flags,
-		       uint8_t operation, const char *xpath, const char *data)
+int mgmt_txn_send_edit(uint64_t txn_id, uint64_t req_id, enum mgmt_ds_id ds_id,
+		       struct mgmt_ds_ctx *ds_ctx, enum mgmt_ds_id commit_ds_id,
+		       struct mgmt_ds_ctx *commit_ds_ctx, bool unlock, bool commit,
+		       LYD_FORMAT request_type, uint8_t flags, uint8_t operation,
+		       const char *xpath, const char *data)
 {
 	struct mgmt_txn_ctx *txn;
 	struct mgmt_edit_req *edit;

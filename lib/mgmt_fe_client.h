@@ -40,17 +40,6 @@ extern "C" {
 
 #define MGMTD_CLIENT_ID_NONE 0
 
-#define MGMTD_DS_NONE MGMTD__DATASTORE_ID__DS_NONE
-#define MGMTD_DS_RUNNING MGMTD__DATASTORE_ID__RUNNING_DS
-#define MGMTD_DS_CANDIDATE MGMTD__DATASTORE_ID__CANDIDATE_DS
-#define MGMTD_DS_OPERATIONAL MGMTD__DATASTORE_ID__OPERATIONAL_DS
-#define MGMTD_DS_MAX_ID MGMTD_DS_OPERATIONAL + 1
-
-_Static_assert(MGMTD_DS_NONE == MGMT_MSG_DATASTORE_NONE, "Datastore ID mismatch");
-_Static_assert(MGMTD_DS_RUNNING == MGMT_MSG_DATASTORE_RUNNING, "Datastore ID mismatch");
-_Static_assert(MGMTD_DS_CANDIDATE == MGMT_MSG_DATASTORE_CANDIDATE, "Datastore ID mismatch");
-_Static_assert(MGMTD_DS_OPERATIONAL == MGMT_MSG_DATASTORE_OPERATIONAL, "Datastore ID mismatch");
-
 struct mgmt_fe_client;
 
 
@@ -74,26 +63,22 @@ struct mgmt_fe_client_cbs {
 				      uintptr_t session_id,
 				      uintptr_t user_session_client);
 
-	void (*lock_ds_notify)(struct mgmt_fe_client *client,
-			       uintptr_t user_data, uint64_t client_id,
-			       uintptr_t session_id,
-			       uintptr_t user_session_client, uint64_t req_id,
-			       bool lock_ds, bool success,
-			       Mgmtd__DatastoreId ds_id, char *errmsg_if_any);
+	void (*lock_ds_notify)(struct mgmt_fe_client *client, uintptr_t user_data,
+			       uint64_t client_id, uintptr_t session_id,
+			       uintptr_t user_session_client, uint64_t req_id, bool lock_ds,
+			       bool success, enum mgmt_ds_id ds_id, char *errmsg_if_any);
 
 	void (*commit_config_notify)(struct mgmt_fe_client *client, uintptr_t user_data,
 				     uint64_t client_id, uintptr_t session_id,
 				     uintptr_t user_session_client, uint64_t req_id, bool success,
-				     Mgmtd__DatastoreId src_ds_id, Mgmtd__DatastoreId dst_ds_id,
+				     enum mgmt_ds_id src_ds_id, enum mgmt_ds_id dst_ds_id,
 				     bool validate_only, bool unlock, char *errmsg_if_any);
 
 	/* Called when get-tree result is returned */
-	int (*get_tree_notify)(struct mgmt_fe_client *client,
-			       uintptr_t user_data, uint64_t client_id,
-			       uint64_t session_id, uintptr_t session_ctx,
-			       uint64_t req_id, Mgmtd__DatastoreId ds_id,
-			       LYD_FORMAT result_type, void *result, size_t len,
-			       int partial_error);
+	int (*get_tree_notify)(struct mgmt_fe_client *client, uintptr_t user_data,
+			       uint64_t client_id, uint64_t session_id, uintptr_t session_ctx,
+			       uint64_t req_id, enum mgmt_ds_id ds_id, LYD_FORMAT result_type,
+			       void *result, size_t len, int partial_error);
 
 	/* Called when edit result is returned */
 	int (*edit_notify)(struct mgmt_fe_client *client, uintptr_t user_data,
@@ -215,10 +200,8 @@ mgmt_fe_destroy_client_session(struct mgmt_fe_client *client,
  * Returns:
  *    0 on success, otherwise msg_conn_send_msg() return values.
  */
-extern int mgmt_fe_send_lockds_req(struct mgmt_fe_client *client,
-				   uint64_t session_id, uint64_t req_id,
-				   Mgmtd__DatastoreId ds_id, bool lock_ds,
-				   bool scok);
+extern int mgmt_fe_send_lockds_req(struct mgmt_fe_client *client, uint64_t session_id,
+				   uint64_t req_id, enum mgmt_ds_id ds_id, bool lock_ds, bool scok);
 
 /*
  * Send SET_COMMMIT_REQ to MGMTD for one or more config data(s).
@@ -251,8 +234,8 @@ extern int mgmt_fe_send_lockds_req(struct mgmt_fe_client *client,
  *    0 on success, otherwise msg_conn_send_msg() return values.
  */
 extern int mgmt_fe_send_commitcfg_req(struct mgmt_fe_client *client, uint64_t session_id,
-				      uint64_t req_id, Mgmtd__DatastoreId src_ds_id,
-				      Mgmtd__DatastoreId dst_ds_id, bool validate_only, bool abort,
+				      uint64_t req_id, enum mgmt_ds_id src_ds_id,
+				      enum mgmt_ds_id dst_ds_id, bool validate_only, bool abort,
 				      bool unlock);
 
 /*

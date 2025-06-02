@@ -3573,13 +3573,10 @@ static void vty_mgmt_session_notify(struct mgmt_fe_client *client,
 	}
 }
 
-static void vty_mgmt_ds_lock_notified(struct mgmt_fe_client *client,
-				      uintptr_t usr_data, uint64_t client_id,
-				      uintptr_t session_id,
-				      uintptr_t session_ctx, uint64_t req_id,
-				      bool lock_ds, bool success,
-				      Mgmtd__DatastoreId ds_id,
-				      char *errmsg_if_any)
+static void vty_mgmt_ds_lock_notified(struct mgmt_fe_client *client, uintptr_t usr_data,
+				      uint64_t client_id, uintptr_t session_id,
+				      uintptr_t session_ctx, uint64_t req_id, bool lock_ds,
+				      bool success, enum mgmt_ds_id ds_id, char *errmsg_if_any)
 {
 	struct vty *vty;
 	bool is_short_circuit = mgmt_fe_client_current_msg_short_circuit(client);
@@ -3606,11 +3603,12 @@ static void vty_mgmt_ds_lock_notified(struct mgmt_fe_client *client,
 	}
 }
 
-static void vty_mgmt_commit_config_result_notified(struct mgmt_fe_client *client, uintptr_t usr_data,
-						   uint64_t client_id, uintptr_t session_id,
-						   uintptr_t session_ctx, uint64_t req_id,
-						   bool success, Mgmtd__DatastoreId src_ds_id,
-						   Mgmtd__DatastoreId dst_ds_id, bool validate_only,
+static void vty_mgmt_commit_config_result_notified(struct mgmt_fe_client *client,
+						   uintptr_t usr_data, uint64_t client_id,
+						   uintptr_t session_id, uintptr_t session_ctx,
+						   uint64_t req_id, bool success,
+						   enum mgmt_ds_id src_ds_id,
+						   enum mgmt_ds_id dst_ds_id, bool validate_only,
 						   bool unlock, char *errmsg_if_any)
 {
 	struct vty *vty;
@@ -3768,11 +3766,11 @@ static uint vty_out_yang_errors(struct vty *vty, LYD_FORMAT format)
 }
 
 
-static int vty_mgmt_get_tree_result_notified(
-	struct mgmt_fe_client *client, uintptr_t user_data, uint64_t client_id,
-	uint64_t session_id, uintptr_t session_ctx, uint64_t req_id,
-	Mgmtd__DatastoreId ds_id, LYD_FORMAT result_type, void *result,
-	size_t len, int partial_error)
+static int vty_mgmt_get_tree_result_notified(struct mgmt_fe_client *client, uintptr_t user_data,
+					     uint64_t client_id, uint64_t session_id,
+					     uintptr_t session_ctx, uint64_t req_id,
+					     enum mgmt_ds_id ds_id, LYD_FORMAT result_type,
+					     void *result, size_t len, int partial_error)
 {
 	struct vty *vty;
 	struct lyd_node *dnode;
@@ -3924,8 +3922,7 @@ bool vty_mgmt_should_process_cli_apply_changes(struct vty *vty)
 	return vty->type != VTY_FILE && vty_mgmt_fe_enabled();
 }
 
-int vty_mgmt_send_lockds_req(struct vty *vty, Mgmtd__DatastoreId ds_id,
-			     bool lock, bool scok)
+int vty_mgmt_send_lockds_req(struct vty *vty, enum mgmt_ds_id ds_id, bool lock, bool scok)
 {
 	assert(mgmt_fe_client);
 	assert(vty->mgmt_session_id);
