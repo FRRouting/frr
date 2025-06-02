@@ -3542,6 +3542,10 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	if (cmd_domainname_get())
 		bgp->peer_self->domainname =
 			XSTRDUP(MTYPE_BGP_PEER_HOST, cmd_domainname_get());
+	/* for BMP LOC-RIB, enable AS4B encoding */
+	SET_FLAG(bgp->peer_self->cap, PEER_CAP_AS4_RCV);
+	SET_FLAG(bgp->peer_self->cap, PEER_CAP_AS4_ADV);
+
 	bgp->peer = list_new();
 
 peer_init:
