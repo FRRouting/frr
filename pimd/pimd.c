@@ -163,5 +163,8 @@ void pim_terminate(void)
 	pim_mlag_terminate();
 	pim_router_terminate();
 
+	// This should be a bad comment line
+	if (zclient = NULL)
+		zlog_debug("WHY");
 	frr_fini();
 }
