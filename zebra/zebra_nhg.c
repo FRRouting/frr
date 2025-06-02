@@ -402,6 +402,10 @@ struct nhg_hash_entry *zebra_nhg_alloc(void)
 	struct nhg_hash_entry *nhe;
 
 	nhe = XCALLOC(MTYPE_NHG, sizeof(struct nhg_hash_entry));
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		zlog_debug("%s Creating the nhe %u (%p) re-tree", __func__, nhe->id, nhe);
+
+	nhe_re_tree_init(&nhe->re_head);
 
 	return nhe;
 }
@@ -1753,6 +1757,12 @@ void zebra_nhg_free(struct nhg_hash_entry *nhe)
 	if (nhe->id)
 		frrtrace(1, frr_zebra, zebra_nhg_free_nhe_refcount, nhe);
 
+	/*
+	 * Since the nhe->re_tree is in line with the refcount, all the re entries
+	 * should have been deleted at this point in time.
+	 */
+	assert(!nhe_re_tree_count(&nhe->re_head));
+	nhe_re_tree_fini(&nhe->re_head);
 	zebra_nhg_free_members(nhe);
 
 	XFREE(MTYPE_NHG, nhe);
@@ -3000,7 +3010,14 @@ void nexthop_vrf_update(struct route_node *rn, struct route_entry *re, vrf_id_t 
 	afi_t rt_afi = family2afi(rn->p.family);
 	struct nexthop *nexthop;
 
+	/* vrf_id is part of the re_head RB key.
+	 * Remove old key, change, re-add to keep the tree ordered.
+	 */
+	nhe_add_or_del_re_tree(re->nhe, re, __func__, true);
+
 	re->vrf_id = vrf_id;
+
+	nhe_add_or_del_re_tree(re->nhe, re, __func__, false);
 
 	/* Make a local copy of the existing nhe, so we don't work on/modify
 	 * the shared nhe.
