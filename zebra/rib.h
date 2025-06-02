@@ -179,7 +179,22 @@ struct route_entry {
 	time_t uptime;
 
 	struct re_opaque *opaque;
+
+	/* Selected re using an nhe are in its re RB tree */
+	struct nhe_re_tree_item re_item;
 };
+
+static int route_entry_cmp(const struct route_entry *re1, const struct route_entry *re2)
+{
+	if ((uintptr_t)re1 > (uintptr_t)re2)
+		return 1;
+	else if ((uintptr_t)re1 < (uintptr_t)re2)
+		return -1;
+
+	return 0;
+}
+
+DECLARE_RBTREE_UNIQ(nhe_re_tree, struct route_entry, re_item, route_entry_cmp);
 
 #define RIB_SYSTEM_ROUTE(R) RSYSTEM_ROUTE((R)->type)
 
@@ -638,6 +653,9 @@ extern uint32_t zebra_rib_dplane_results_max(void);
 extern pid_t zebra_pid;
 
 extern uint32_t rt_table_main_id;
+
+extern void nhe_add_or_del_re_tree(struct nhg_hash_entry *nhe, struct route_entry *re_to_oper,
+				   const char *caller, bool is_del);
 
 void route_entry_dump_nh(const struct route_entry *re, const char *straddr,
 			 const struct vrf *re_vrf,
