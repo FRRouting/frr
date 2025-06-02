@@ -1164,8 +1164,7 @@ void nb_candidate_edit_config_changes(struct nb_config *candidate_config,
 {
 	enum nb_change_result result = NB_CHANGE_OK;
 
-	if (error)
-		*error = false;
+	*error = false;
 
 	if (xpath_base == NULL)
 		xpath_base = "";
@@ -1192,13 +1191,11 @@ void nb_candidate_edit_config_changes(struct nb_config *candidate_config,
 		if (result == NB_CHANGE_ERR)
 			break;
 	}
-	if (error && *error) {
+	if (*error) {
 		char buf[BUFSIZ];
 
 		snprintf(err_buf, err_bufsize, "%% Failed to edit configuration.\n\n%s",
 			 yang_print_errors(ly_native_ctx, buf, sizeof(buf)));
-		if (error)
-			*error = true;
 	}
 }
 
