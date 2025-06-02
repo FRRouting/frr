@@ -58,9 +58,9 @@ struct debug mgmt_dbg_fe_client = {
 /* NOTE: only one client per proc for now. */
 static struct mgmt_fe_client *__fe_client;
 
-static inline const char *dsid2name(Mgmtd__DatastoreId id)
+static inline const char *dsid2name(enum mgmt_ds_id id)
 {
-	switch ((int)id) {
+	switch (id) {
 	case MGMTD_DS_NONE:
 		return "none";
 	case MGMTD_DS_RUNNING:
@@ -200,7 +200,7 @@ static int mgmt_fe_send_session_req(struct mgmt_fe_client *client,
 }
 
 int mgmt_fe_send_lockds_req(struct mgmt_fe_client *client, uint64_t session_id, uint64_t req_id,
-			    Mgmtd__DatastoreId ds_id, bool lock, bool scok)
+			    enum mgmt_ds_id ds_id, bool lock, bool scok)
 {
 	struct mgmt_msg_lock *msg;
 	int ret = 0;
@@ -228,7 +228,7 @@ int mgmt_fe_send_lockds_req(struct mgmt_fe_client *client, uint64_t session_id, 
 }
 
 int mgmt_fe_send_commitcfg_req(struct mgmt_fe_client *client, uint64_t session_id, uint64_t req_id,
-			       Mgmtd__DatastoreId src_ds_id, Mgmtd__DatastoreId dest_ds_id,
+			       enum mgmt_ds_id src_ds_id, enum mgmt_ds_id dest_ds_id,
 			       bool validate_only, bool abort, bool unlock)
 {
 	struct mgmt_msg_commit *msg;

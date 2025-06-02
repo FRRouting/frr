@@ -388,7 +388,7 @@ DEFPY(show_mgmt_dump_data,
       "xml output\n")
 {
 	struct mgmt_ds_ctx *ds_ctx;
-	Mgmtd__DatastoreId datastore = MGMTD_DS_CANDIDATE;
+	enum mgmt_ds_id datastore = MGMTD_DS_CANDIDATE;
 	LYD_FORMAT format = fmt[0] == 'j' ? LYD_JSON : LYD_XML;
 	FILE *f = NULL;
 
@@ -471,7 +471,7 @@ DEFPY(mgmt_save_config,
       "Running datastore\n"
       "Full path of the file\n")
 {
-	Mgmtd__DatastoreId datastore = mgmt_ds_name2id(dsname);
+	enum mgmt_ds_id datastore = mgmt_ds_name2id(dsname);
 	struct mgmt_ds_ctx *ds_ctx;
 	FILE *f;
 

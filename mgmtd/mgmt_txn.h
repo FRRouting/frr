@@ -173,8 +173,8 @@ extern void mgmt_destroy_txn(uint64_t *txn_id);
  *    0 on success, -1 on failures.
  */
 extern int
-mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id, Mgmtd__DatastoreId src_ds_id,
-				struct mgmt_ds_ctx *dst_ds_ctx, Mgmtd__DatastoreId dst_ds_id,
+mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id, enum mgmt_ds_id src_ds_id,
+				struct mgmt_ds_ctx *dst_ds_ctx, enum mgmt_ds_id dst_ds_id,
 				struct mgmt_ds_ctx *src_ds_ctx, bool validate_only, bool abort,
 				bool implicit, bool unlock, struct mgmt_edit_req *edit);
 
@@ -197,7 +197,7 @@ mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id, Mgmtd__Datasto
  *	0 on success.
  */
 extern int mgmt_txn_send_get_tree(uint64_t txn_id, uint64_t req_id, uint64_t clients,
-				  Mgmtd__DatastoreId ds_id, LYD_FORMAT result_type, uint8_t flags,
+				  enum mgmt_ds_id ds_id, LYD_FORMAT result_type, uint8_t flags,
 				  uint32_t wd_options, bool simple_xpath, struct lyd_node **ylib,
 				  const char *xpath);
 
@@ -219,12 +219,11 @@ extern int mgmt_txn_send_get_tree(uint64_t txn_id, uint64_t req_id, uint64_t cli
  *	xpath: The xpath of data node to edit.
  *	data: The data tree.
  */
-extern int
-mgmt_txn_send_edit(uint64_t txn_id, uint64_t req_id, Mgmtd__DatastoreId ds_id,
-		   struct mgmt_ds_ctx *ds_ctx, Mgmtd__DatastoreId commit_ds_id,
-		   struct mgmt_ds_ctx *commit_ds_ctx, bool unlock, bool commit,
-		   LYD_FORMAT request_type, uint8_t flags, uint8_t operation,
-		   const char *xpath, const char *data);
+extern int mgmt_txn_send_edit(uint64_t txn_id, uint64_t req_id, enum mgmt_ds_id ds_id,
+			      struct mgmt_ds_ctx *ds_ctx, enum mgmt_ds_id commit_ds_id,
+			      struct mgmt_ds_ctx *commit_ds_ctx, bool unlock, bool commit,
+			      LYD_FORMAT request_type, uint8_t flags, uint8_t operation,
+			      const char *xpath, const char *data);
 
 /**
  * Send RPC request.

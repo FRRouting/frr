@@ -171,10 +171,8 @@ static void
 mgmt_fe_session_register_event(struct mgmt_fe_session_ctx *session,
 				   enum mgmt_session_event event);
 
-static int
-mgmt_fe_session_write_lock_ds(Mgmtd__DatastoreId ds_id,
-				  struct mgmt_ds_ctx *ds_ctx,
-				  struct mgmt_fe_session_ctx *session)
+static int mgmt_fe_session_write_lock_ds(enum mgmt_ds_id ds_id, struct mgmt_ds_ctx *ds_ctx,
+					 struct mgmt_fe_session_ctx *session)
 {
 	if (session->ds_locked[ds_id])
 		zlog_warn("multiple lock taken by session-id: %" PRIu64
@@ -182,8 +180,9 @@ mgmt_fe_session_write_lock_ds(Mgmtd__DatastoreId ds_id,
 			  session->session_id, mgmt_ds_id2name(ds_id));
 	else {
 		if (mgmt_ds_lock(ds_ctx, session->session_id)) {
-			_dbg("Failed to lock the DS:%s for session-id: %" PRIu64 " from %s!",
-			     mgmt_ds_id2name(ds_id), session->session_id, session->adapter->name);
+			_log_err("Failed to lock the DS:%s for session-id: %" PRIu64 " from %s!",
+				 mgmt_ds_id2name(ds_id), session->session_id,
+				 session->adapter->name);
 			return -1;
 		}
 
@@ -195,8 +194,7 @@ mgmt_fe_session_write_lock_ds(Mgmtd__DatastoreId ds_id,
 	return 0;
 }
 
-static void mgmt_fe_session_unlock_ds(Mgmtd__DatastoreId ds_id,
-				      struct mgmt_ds_ctx *ds_ctx,
+static void mgmt_fe_session_unlock_ds(enum mgmt_ds_id ds_id, struct mgmt_ds_ctx *ds_ctx,
 				      struct mgmt_fe_session_ctx *session)
 {
 	if (!session->ds_locked[ds_id])
@@ -247,7 +245,7 @@ mgmt_fe_session_compute_commit_timers(struct mgmt_commit_stats *cmt_stats)
 
 static void mgmt_fe_cleanup_session(struct mgmt_fe_session_ctx **sessionp)
 {
-	Mgmtd__DatastoreId ds_id;
+	enum mgmt_ds_id ds_id;
 	struct mgmt_ds_ctx *ds_ctx;
 	struct mgmt_fe_session_ctx *session = *sessionp;
 
@@ -1017,7 +1015,7 @@ static void fe_adapter_handle_get_data(struct mgmt_fe_session_ctx *session, void
 	const struct lysc_node **snodes = NULL;
 	struct lyd_node *ylib = NULL;
 	uint64_t req_id = msg->req_id;
-	Mgmtd__DatastoreId ds_id;
+	enum mgmt_ds_id ds_id;
 	uint64_t clients = 0;
 	uint32_t wd_options;
 	bool in_oper = false;
@@ -1164,7 +1162,7 @@ done:
 static void fe_adapter_handle_edit(struct mgmt_fe_session_ctx *session, void *_msg, size_t msg_len)
 {
 	struct mgmt_msg_edit *msg = _msg;
-	Mgmtd__DatastoreId ds_id, rds_id;
+	enum mgmt_ds_id ds_id, rds_id;
 	struct mgmt_ds_ctx *ds_ctx, *rds_ctx;
 	const char *xpath, *data;
 	bool lock, commit;
@@ -1871,8 +1869,8 @@ struct msg_conn *mgmt_fe_create_adapter(int conn_fd, union sockunion *from)
 	return adapter->conn;
 }
 
-int mgmt_fe_send_commit_cfg_reply(uint64_t session_id, uint64_t txn_id, Mgmtd__DatastoreId src_ds_id,
-				  Mgmtd__DatastoreId dst_ds_id, uint64_t req_id, bool validate_only,
+int mgmt_fe_send_commit_cfg_reply(uint64_t session_id, uint64_t txn_id, enum mgmt_ds_id src_ds_id,
+				  enum mgmt_ds_id dst_ds_id, uint64_t req_id, bool validate_only,
 				  bool unlock, enum mgmt_result result, const char *error_if_any)
 {
 	struct mgmt_fe_session_ctx *session;
@@ -1953,7 +1951,7 @@ int mgmt_fe_adapter_send_edit_reply(uint64_t session_id, uint64_t txn_id,
 				    int16_t error, const char *errstr)
 {
 	struct mgmt_fe_session_ctx *session;
-	Mgmtd__DatastoreId ds_id, rds_id;
+	enum mgmt_ds_id ds_id, rds_id;
 	struct mgmt_ds_ctx *ds_ctx, *rds_ctx;
 	int ret;
 
@@ -2105,7 +2103,7 @@ void mgmt_fe_adapter_status_write(struct vty *vty, bool detail)
 {
 	struct mgmt_fe_client_adapter *adapter;
 	struct mgmt_fe_session_ctx *session;
-	Mgmtd__DatastoreId ds_id;
+	enum mgmt_ds_id ds_id;
 	bool locked = false;
 
 	vty_out(vty, "MGMTD Frontend Adpaters\n");

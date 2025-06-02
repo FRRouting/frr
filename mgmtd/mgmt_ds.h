@@ -51,7 +51,7 @@ extern const char *mgmt_ds_names[MGMTD_DS_MAX_ID + 1];
  * Returns:
  *    Datastore name.
  */
-static inline const char *mgmt_ds_id2name(Mgmtd__DatastoreId id)
+static inline const char *mgmt_ds_id2name(enum mgmt_ds_id id)
 {
 	if (id > MGMTD_DS_MAX_ID)
 		id = MGMTD_DS_MAX_ID;
@@ -67,9 +67,9 @@ static inline const char *mgmt_ds_id2name(Mgmtd__DatastoreId id)
  * Returns:
  *    Datastore ID.
  */
-static inline Mgmtd__DatastoreId mgmt_ds_name2id(const char *name)
+static inline enum mgmt_ds_id mgmt_ds_name2id(const char *name)
 {
-	Mgmtd__DatastoreId id;
+	enum mgmt_ds_id id;
 
 	FOREACH_MGMTD_DS_ID (id) {
 		if (!strncmp(mgmt_ds_names[id], name, MGMTD_DS_NAME_MAX_LEN))
@@ -84,7 +84,7 @@ static inline Mgmtd__DatastoreId mgmt_ds_name2id(const char *name)
  *
  * similar to above funtion.
  */
-static inline Mgmtd__DatastoreId mgmt_get_ds_id_by_name(const char *ds_name)
+static inline enum mgmt_ds_id mgmt_get_ds_id_by_name(const char *ds_name)
 {
 	if (!strncmp(ds_name, "candidate", sizeof("candidate")))
 		return MGMTD_DS_CANDIDATE;
@@ -170,8 +170,7 @@ extern void mgmt_ds_destroy(void);
  * Returns:
  *    Datastore context (Holds info about ID, lock, root node etc).
  */
-extern struct mgmt_ds_ctx *mgmt_ds_get_ctx_by_id(struct mgmt_master *mm,
-						   Mgmtd__DatastoreId ds_id);
+extern struct mgmt_ds_ctx *mgmt_ds_get_ctx_by_id(struct mgmt_master *mm, enum mgmt_ds_id ds_id);
 
 /*
  * Check if a given datastore is config ds
@@ -253,12 +252,10 @@ extern int mgmt_ds_delete_data_nodes(struct mgmt_ds_ctx *ds_ctx,
  * Returns:
  *    0 on success, -1 on failure.
  */
-extern int mgmt_ds_iter_data(
-	Mgmtd__DatastoreId ds_id, struct nb_config *root,
-	const char *base_xpath,
-	void (*mgmt_ds_node_iter_fn)(const char *xpath, struct lyd_node *node,
-				     struct nb_node *nb_node, void *ctx),
-	void *ctx);
+extern int mgmt_ds_iter_data(enum mgmt_ds_id ds_id, struct nb_config *root, const char *base_xpath,
+			     void (*mgmt_ds_node_iter_fn)(const char *xpath, struct lyd_node *node,
+							  struct nb_node *nb_node, void *ctx),
+			     void *ctx);
 
 /*
  * Load config to datastore from a file.
