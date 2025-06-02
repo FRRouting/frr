@@ -182,8 +182,10 @@ mgmt_fe_session_write_lock_ds(Mgmtd__DatastoreId ds_id,
 			  session->session_id, mgmt_ds_id2name(ds_id));
 	else {
 		if (mgmt_ds_lock(ds_ctx, session->session_id)) {
-			_dbg("Failed to lock the DS:%s for session-id: %" PRIu64 " from %s!",
-			     mgmt_ds_id2name(ds_id), session->session_id, session->adapter->name);
+			_log_err("Failed to lock the DS:%s for session-id: %" PRIu64 " from %s!",
+				 mgmt_ds_id2name(ds_id), session->session_id,
+				 session->adapter->name);
+			assert(false);
 			return -1;
 		}
 
