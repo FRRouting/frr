@@ -489,6 +489,10 @@ int route_entry_update_nhe(struct route_entry *re,
 
 	if (new_nhghe == NULL) {
 		old_nhg = re->nhe;
+		if (old_nhg) {
+			/* Delete the re from the old nhe->re_head first */
+			nhe_add_or_del_re_tree(old_nhg, re, __func__, true);
+		}
 
 		re->nhe_id = 0;
 		re->nhe_installed_id = 0;
@@ -499,11 +503,19 @@ int route_entry_update_nhe(struct route_entry *re,
 	if ((re->nhe_id != 0) && re->nhe && (re->nhe != new_nhghe)) {
 		/* Capture previous nhg, if any */
 		old_nhg = re->nhe;
+		if (old_nhg) {
+			/* Delete the re from the old nhe->re_head first */
+			nhe_add_or_del_re_tree(old_nhg, re, __func__, true);
+		}
 
 		route_entry_attach_ref(re, new_nhghe);
-	} else if (!re->nhe)
+		/* Add the re to the new nhe->re_head */
+		nhe_add_or_del_re_tree(new_nhghe, re, __func__, false);
+	} else if (!re->nhe) {
 		/* This is the first time it's being attached */
 		route_entry_attach_ref(re, new_nhghe);
+		nhe_add_or_del_re_tree(new_nhghe, re, __func__, false);
+	}
 
 done:
 	/* Detach / deref previous nhg */
@@ -1993,6 +2005,40 @@ done:
 	return rn;
 }
 
+
+/* Add or Deletes a re to the nhe->re_tree head */
+void nhe_add_or_del_re_tree(struct nhg_hash_entry *nhe, struct route_entry *re, const char *caller,
+			    bool is_del)
+{
+	uint32_t b_count = 0, a_count = 0;
+
+	b_count = nhe_re_tree_count(&nhe->re_head);
+	if (is_del) {
+		if (b_count && nhe->re_head.rr.rbt_root) {
+			nhe_re_tree_del(&nhe->re_head, re);
+			a_count = nhe_re_tree_count(&nhe->re_head);
+			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+				zlog_debug("%s: Deleted re %p (%pRN %s) from nhe %p (%pNG) called from %s count %u->%u rbt_root %p",
+					   __func__, re, re->rn, zebra_route_string(re->type), nhe,
+					   nhe, caller, b_count, a_count, nhe->re_head.rr.rbt_root);
+
+			if (!nhe_re_tree_count(&nhe->re_head)) {
+				if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+					zlog_debug("%s: Initializing the nhe %p re_tree head, rbt_root %p",
+						   __func__, nhe, nhe->re_head.rr.rbt_root);
+
+				nhe_re_tree_init(&nhe->re_head);
+			}
+		}
+	} else {
+		nhe_re_tree_add(&nhe->re_head, re);
+		a_count = nhe_re_tree_count(&nhe->re_head);
+		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+			zlog_debug("%s Added re %p (%pRN %s) for nhe %p (%pNG) called from %s count %u->%u rbt_root %p",
+				   __func__, re, re->rn, zebra_route_string(re->type), nhe, nhe,
+				   caller, b_count, a_count, nhe->re_head.rr.rbt_root);
+	}
+}
 
 
 /*
@@ -4211,18 +4257,18 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 	assert(rn && re);
 
 	if (IS_ZEBRA_DEBUG_RIB)
-		rnode_debug(rn, re->vrf_id, "rn %p, re %p", (void *)rn,
-			    (void *)re);
+		rnode_debug(rn, re->vrf_id, "%s: rn %p, re %p nhe %p", __func__, (void *)rn,
+			    (void *)re, re->nhe);
 
 	dest = rib_dest_from_rnode(rn);
 
-	re->rn = NULL;
 	re_list_del(&dest->routes, re);
 
 	if (dest->selected_fib == re)
 		dest->selected_fib = NULL;
 
 	rib_re_nhg_free(re);
+	re->rn = NULL;
 
 	zebra_rib_route_entry_free(re);
 }
