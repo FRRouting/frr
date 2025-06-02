@@ -65,10 +65,12 @@ else
   for file in ${tmp1}/*; do
     echo "$checkpatch $file > $file _cp"
     $checkpatch $file > "$file"_cp 2> /dev/null
+    echo "checkpatch returned: $?"
   done
   for file in ${tmp2}/*; do
     echo "$checkpatch $file > $file _cp"
     $checkpatch $file > "$file"_cp 2> /dev/null
+    echo "checkpatch returned: $?"
   done
   echo "Done."
   for file in ${tmp1}/*_cp; do
