@@ -67,7 +67,7 @@ RUN echo '%_smp_mflags %( echo "-j$(/usr/bin/getconf _NPROCESSORS_ONLN)"; )' >> 
     && ./configure \
 	--enable-multipath=256 \
         --enable-rpki \
-        --enable-snmp=agentx \
+        --enable-snmp \
         --enable-numeric-version \
         --with-pkg-extra-version="_git$PKGVER" \
     && make dist \

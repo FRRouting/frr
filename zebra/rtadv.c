@@ -51,8 +51,6 @@ static uint32_t interfaces_configured_for_ra_from_bgp;
 
 #define MAX_CHARS_PER_LINE 1024
 
-#if defined(HAVE_RTADV)
-
 #include "zebra/rtadv_clippy.c"
 
 DEFINE_MTYPE_STATIC(ZEBRA, RTADV_PREFIX, "Router Advertisement Prefix");
@@ -2269,38 +2267,6 @@ bool rtadv_compiled_in(void)
 {
 	return true;
 }
-
-#else /* !HAVE_RTADV */
-/*
- * If the end user does not have RADV enabled we should
- * handle this better
- */
-void zebra_interface_radv_disable(ZAPI_HANDLER_ARGS)
-{
-	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug(
-			"Received %s command, but ZEBRA is not compiled with Router Advertisements on",
-			zserv_command_string(hdr->command));
-
-	return;
-}
-
-void zebra_interface_radv_enable(ZAPI_HANDLER_ARGS)
-{
-	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug(
-			"Received %s command, but ZEBRA is not compiled with Router Advertisements on",
-			zserv_command_string(hdr->command));
-
-	return;
-}
-
-bool rtadv_compiled_in(void)
-{
-	return false;
-}
-
-#endif /* HAVE_RTADV */
 
 uint32_t rtadv_get_interfaces_configured_from_bgp(void)
 {

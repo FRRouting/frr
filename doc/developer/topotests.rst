@@ -140,7 +140,7 @@ If you prefer to manually build FRR, then use the following suggested config:
        --enable-user=frr \
        --enable-group=frr \
        --enable-vty-group=frrvty \
-       --enable-snmp=agentx \
+       --enable-snmp \
        --with-pkg-extra-version=-my-manual-build
 
 And create ``frr`` user and ``frrvty`` group as follows:
@@ -404,7 +404,7 @@ for ``master`` branch:
        --localstatedir=/var \
        --sbindir=/usr/lib/frr --bindir=/usr/lib/frr \
        --with-moduledir=/usr/lib/frr/modules \
-       --enable-multipath=0 --enable-rtadv \
+       --enable-multipath=0 \
        --enable-tcp-zebra --enable-fpm --enable-pimd \
        --enable-sharpd
    make
