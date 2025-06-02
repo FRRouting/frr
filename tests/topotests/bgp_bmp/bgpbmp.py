@@ -4,7 +4,7 @@
 # Copyright 2023, 6wind
 import json
 import os
-from functools import partial
+from functools import partial, reduce
 
 from lib import topotest
 from lib.bgp import bgp_configure_prefixes
@@ -205,6 +205,54 @@ def bmp_check_for_prefixes(
         )
 
     return topotest.json_cmp(actual, expected, exact=True)
+
+
+def bmp_check_for_addpath_tx(prefixes, policy, bmp_collector, bmp_log_file, nexthops):
+    """
+    For each prefix in the prefix list, check its addpath tx id and its nexthop.
+    """
+
+    messages = get_bmp_messages(bmp_collector, bmp_log_file)
+
+    for i in range(len(prefixes)):
+        prefix = prefixes[i]
+        p_messages = list(filter(lambda m: m.get("ip_prefix") == prefix, messages))
+        p_messages = list(filter(lambda m: m["policy"] == policy, p_messages))
+
+        if not messages:
+            return "No bmp log for %s" % prefix
+
+        nexthop_key = "bgp_nexthop"
+        # nexthop key is diffrent for MP_REACH_NLRI
+        if ":" in prefix:
+            nexthop_key = "nxhp_ip"
+
+        t_nexthop = nexthops[i]
+
+        addpath_ids = set()
+        for nexthop in t_nexthop:
+            m_nexthop = list(filter(lambda m: m.get(nexthop_key) == nexthop, messages))
+            if not m_nexthop:
+                return "prefix %s does not have %s as nexthop" % (prefix, nexthop)
+
+            m_nexthop = reduce(
+                lambda m1, m2: m1 if m1["seq"] > m2["seq"] else m2, m_nexthop
+            )
+            if m_nexthop.get("path_id", 0) == 0:
+                return "prefix %s, nexthop %s have a null addpath tx id" % (
+                    prefix,
+                    nexthop,
+                )
+
+            if m_nexthop["path_id"] in addpath_ids:
+                return "same addpath tx id %d for prefix %s " % (
+                    m_nexthop["path_id"],
+                    prefix,
+                )
+
+            addpath_ids.add(m_nexthop["path_id"])
+
+    return True
 
 
 def bmp_check_for_peer_message(

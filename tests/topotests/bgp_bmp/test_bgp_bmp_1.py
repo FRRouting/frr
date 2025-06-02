@@ -13,18 +13,21 @@ test_bgp_bmp.py: Test BGP BMP functionalities
     | BMP1 |------------|  R1  |-------+-------|  R2  |
     |      |            |      |       |       |      |
     +------+            +------+       |       +------+
-                                       |
-                                       |       +------+
-                                       |       |      |
-                                       +-------|  R3  |
-                                               | ecmp |
-                                               +------+
+                            |          |
+                            |          |       +------+
+                            |          |       |      |
+                        +------+       +-------|  R3  |
+                        |      |               | ecmp |
+                        |  R4  |               +------+
+                        |      |
+                        +------+
 
 Setup three routers R1 and R3 with one link configured with IPv4 and
 IPv6 addresses.
 Configure BGP to exchange prefixes from R2 and R3 to R1.
 R3 is only used in the multi-path test, it announces the same as R2 to R1 to
 have the R2 prefixes be ECMP paths in R1.
+R4 is in addpath tx test where R2 and R3ecmp announce the same prefixes to R1.
 Setup a link between R1 and the BMP server, activate the BMP feature in R1
 and ensure the monitored BGP sessions logs are well present on the BMP server.
 """
@@ -46,6 +49,7 @@ from lib import topotest
 from lib.bgp import verify_bgp_convergence_from_running_config
 from lib.bgp import bgp_configure_prefixes
 from .bgpbmp import (
+    bmp_check_for_addpath_tx,
     bmp_check_for_prefixes,
     bmp_check_for_peer_message,
     bmp_update_seq,
@@ -70,6 +74,7 @@ def build_topo(tgen):
     tgen.add_router("r1")
     tgen.add_router("r2")
     tgen.add_router("r3ecmp")
+    tgen.add_router("r4")
     tgen.add_bmp_server("bmp1", ip="192.0.2.10", defaultRoute="via 192.0.2.1")
 
     switch = tgen.add_switch("s1")
@@ -80,6 +85,10 @@ def build_topo(tgen):
     switch.add_link(tgen.gears["r1"], nodeif="r1-eth1")
     switch.add_link(tgen.gears["r2"], nodeif="r2-eth0")
     switch.add_link(tgen.gears["r3ecmp"], nodeif="r3ecmp-eth0")
+
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["r1"], nodeif="r1-eth2")
+    switch.add_link(tgen.gears["r4"], nodeif="r4-eth0")
 
 
 def setup_module(mod):
@@ -250,6 +259,74 @@ def test_bmp_bgp_multipath():
 
     logger.info("*** Multipath unicast prefixes loc-rib logging ***")
     multipath_unicast_prefixes(LOC_RIB, step=3)
+
+
+def test_tx_addpath_id():
+    """
+    Test the addpath tx of bmp rib out.
+    Configure the same ipv4/6 prefix on R2 and R3ecmp that is redistributed to R1
+    and check the bmp rib out log on redistribution to R4.
+    """
+
+    logger.info("*** Activating peering with R4 with addpath tx enabled")
+    tgen = get_topogen()
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        router bgp 65501
+        neighbor 192.169.0.4 remote-as 65501
+        neighbor 192:169::4 remote-as 65501
+        address-family ipv4 unicast
+        neighbor 192.169.0.4 addpath-tx-all-paths
+        no neighbor 192:169::4 activate
+        exit-address-family
+        address-family ipv6 unicast
+        neighbor 192:169::4 activate
+        neighbor 192:169::4 addpath-tx-all-paths
+        """
+    )
+
+    bgp_configure_prefixes(
+        tgen.gears["r3ecmp"],
+        65502,
+        "unicast",
+        ["7.7.7.7/32", "7:7:7::7/128"],
+        None,
+        update=True,
+    )
+
+    bgp_configure_prefixes(
+        tgen.gears["r2"],
+        65502,
+        "unicast",
+        ["7.7.7.7/32", "7:7:7::7/128"],
+        None,
+        update=True,
+    )
+
+    logger.info("*** [R2, R3ecmp] -> R1 -> R4, check rib-out-pre-policy logging ***")
+    test_func = partial(
+        bmp_check_for_addpath_tx,
+        ["7.7.7.7/32", "7:7:7::7/128"],
+        "rib-out-pre-policy",
+        tgen.gears["bmp1"],
+        os.path.join(tgen.logdir, "bmp1/bmp.log"),
+        [("192.168.0.2", "192.168.0.3"), ("192:168::2", "192:168::3")],
+    )
+    success, msg = topotest.run_and_expect(test_func, True, count=30, wait=1)
+    assert success, "bmp addpath rib-out-pre-policy failed for : %s" % msg
+
+    logger.info("*** [R2, R3ecmp] -> R1 -> R4, check rib-out-post-policy logging ***")
+    test_func = partial(
+        bmp_check_for_addpath_tx,
+        ["7.7.7.7/32", "7:7:7::7/128"],
+        "rib-out-post-policy",
+        tgen.gears["bmp1"],
+        os.path.join(tgen.logdir, "bmp1/bmp.log"),
+        [("192.168.0.2", "192.168.0.3"), ("192:168::2", "192:168::3")],
+    )
+    success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
+    assert success, "bmp addpath rib-out-post-policy failed for %s" % msg
 
 
 def test_peer_down():
