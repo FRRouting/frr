@@ -651,11 +651,37 @@ def test_nexthop_groups():
         nhg_id
     )
 
+    ## TBD: This is a seperately tracked issue #18784
+    tgen = get_topogen()
+    tgen.gears["r1"].vtysh_cmd("configure\nno ip route 6.6.6.0/24 1.1.1.1")
+
+    def _check_route_removed():
+        output = net["r1"].cmd("ip route show 6.6.6.0/24")
+        if "6.6.6.0/24" in output:
+            return False
+        return True
+
+    _, result = topotest.run_and_expect(_check_route_removed, True, count=30, wait=1)
+    if not result:
+        output = net["r1"].cmd("ip route show 6.6.6.0/24")
+        assert (
+            False
+        ), "Route 6.6.6.0/24 was not removed after unconfiguration. Current output:\n{}".format(
+            output
+        )
+
     ## Validate NHG's installed in kernel has same nexthops with Interface flaps
+    logger.info(
+        "Validate NHG's installed in kernel has same nexthops with some Interface flaps(eth1-4)"
+    )
     pre_out = net["r1"].cmd('ip route show | grep "5.5.5.1"')
     pre_nhg = re.search(r"nhid\s+(\d+)", pre_out)
     pre_nh_show = net["r1"].cmd("ip next show id {}".format(pre_nhg.group(1)))
     pre_total_nhs = len((re.search(r"group ([\d/]+)", pre_nh_show)).group(1).split("/"))
+
+    # Get pre-flap route count
+    pre_route_count = net["r1"].cmd("ip route show | wc -l")
+    pre_route6_count = net["r1"].cmd("ip -6 route show | wc -l")
 
     net["r1"].cmd(
         "ip link set r1-eth1 down;ip link set r1-eth2 down;ip link set r1-eth3 down;ip link set r1-eth4 down"
@@ -664,23 +690,135 @@ def test_nexthop_groups():
     net["r1"].cmd(
         "ip link set r1-eth1 up;ip link set r1-eth2 up;ip link set r1-eth3 up;ip link set r1-eth4 up"
     )
-    sleep(5)
 
-    post_out = net["r1"].cmd('ip route show | grep "5.5.5.1"')
-    post_nhg = re.search(r"nhid\s+(\d+)", post_out)
-    post_nh_show = net["r1"].cmd("ip next show id {}".format(post_nhg.group(1)))
-    post_total_nhs = len(
-        (re.search(r"group ([\d/]+)", post_nh_show)).group(1).split("/")
-    )
+    def _check_routes_stable():
+        post_out = net["r1"].cmd('ip route show | grep "5.5.5.1"')
+        if not post_out:
+            return False
+        post_nhg = re.search(r"nhid\s+(\d+)", post_out)
+        if not post_nhg:
+            return False
+        post_nh_show = net["r1"].cmd("ip next show id {}".format(post_nhg.group(1)))
+        post_total_nhs = len(
+            (re.search(r"group ([\d/]+)", post_nh_show)).group(1).split("/")
+        )
+        if post_total_nhs != pre_total_nhs:
+            return False
 
-    assert (
-        post_total_nhs == pre_total_nhs
-    ), "Expected same nexthops(pre-{}: post-{}) in NHG (pre-{}:post-{}) after few Interface flaps".format(
-        pre_total_nhs, post_total_nhs, pre_nhg.group(1), post_nhg.group(1)
+        # Check total route counts
+        post_route_count = net["r1"].cmd("ip route show | wc -l")
+        post_route6_count = net["r1"].cmd("ip -6 route show | wc -l")
+        return (
+            post_route_count == pre_route_count
+            and post_route6_count == pre_route6_count
+        )
+
+    _, result = topotest.run_and_expect(_check_routes_stable, True, count=30, wait=1)
+    if not result:
+        post_out = net["r1"].cmd('ip route show | grep "5.5.5.1"')
+        post_nhg = re.search(r"nhid\s+(\d+)", post_out)
+        post_nh_show = net["r1"].cmd("ip next show id {}".format(post_nhg.group(1)))
+        post_total_nhs = len(
+            (re.search(r"group ([\d/]+)", post_nh_show)).group(1).split("/")
+        )
+        post_route_count = net["r1"].cmd("ip route show | wc -l")
+        post_route6_count = net["r1"].cmd("ip -6 route show | wc -l")
+
+        assert (
+            False
+        ), "Expected same nexthops(pre-{}: post-{}) in NHG (pre-{}:post-{}) and route counts after interface flaps. IPv4: pre-{} post-{}, IPv6: pre-{} post-{}".format(
+            pre_total_nhs,
+            post_total_nhs,
+            pre_nhg.group(1),
+            post_nhg.group(1),
+            pre_route_count,
+            post_route_count,
+            pre_route6_count,
+            post_route6_count,
+        )
+
+    ## Validate route re-install post ip nexthop flush
+    logger.info("Validate route re-install post ip nexthop flush")
+    pre_route = net["r1"].cmd("ip route show | wc -l")
+    pre_route6 = net["r1"].cmd("ip -6 route show | wc -l")
+
+    post_out = net["r1"].cmd("ip next flush")
+
+    def _check_current_route_counts():
+        post_route = net["r1"].cmd("ip route show | wc -l")
+        post_route6 = net["r1"].cmd("ip -6 route show | wc -l")
+        if post_route != pre_route or post_route6 != pre_route6:
+            return False
+        return True
+
+    result_tuple = topotest.run_and_expect(
+        _check_current_route_counts, True, count=30, wait=1
     )
+    _, result = result_tuple
+    if not result:
+        post_route = net["r1"].cmd("ip route show | wc -l")
+        post_route6 = net["r1"].cmd("ip -6 route show | wc -l")
+        assert (
+            False
+        ), "Expected same ipv6 routes(pre-{}: post-{}) and ipv4 route count(pre-{}:post-{}) after nexthop flush".format(
+            pre_route6, post_route6, pre_route, post_route
+        )
+
+    ## Validate route re-install post nexthop delete an ID
+    logger.info("Validate route re-install post nexthop delete an ID")
+    nhg_id = route_get_nhg_id("6.6.6.1/32")
+    pre_output = net["r1"].cmd(
+        'vtysh -c "show nexthop-group rib {} routes"'.format(nhg_id)
+    )
+    post_out = net["r1"].cmd("ip nexthop del id {}".format(nhg_id))
+
+    def _check_nhg_routes():
+        post_output = net["r1"].cmd(
+            'vtysh -c "show nexthop-group rib {} routes"'.format(nhg_id)
+        )
+        return post_output == pre_output
+
+    _, result = topotest.run_and_expect(_check_nhg_routes, True, count=30, wait=1)
+    if not result:
+        post_output = net["r1"].cmd(
+            'vtysh -c "show nexthop-group rib {} routes"'.format(nhg_id)
+        )
+        assert (
+            False
+        ), "Expected same pre and post routes after nhg {} delete from kernel\nPre:\n{}\nPost:\n{}".format(
+            nhg_id, pre_output, post_output
+        )
+
+    ## Validate route re-install after quick interface flaps of rt1-eth(1-8)
+    logger.info("Validate route re-install after quick interface flaps of rt1-eth(1-8)")
+    pre_route = net["r1"].cmd("ip route show | wc -l")
+    pre_route6 = net["r1"].cmd("ip -6 route show | wc -l")
+
+    interfaces = range(1, 9)
+    cmds = [f"ip link set r1-eth{i} down; ip link set r1-eth{i} up" for i in interfaces]
+    net["r1"].cmd(" ; ".join(cmds))
+
+    def _check_current_route_counts_after_flap():
+        post_route = net["r1"].cmd("ip route show | wc -l")
+        post_route6 = net["r1"].cmd("ip -6 route show | wc -l")
+        if post_route != pre_route or post_route6 != pre_route6:
+            return False
+        return True
+
+    result_tuple = topotest.run_and_expect(
+        _check_current_route_counts_after_flap, True, count=30, wait=1
+    )
+    _, result = result_tuple
+    if not result:
+        post_route = net["r1"].cmd("ip route show | wc -l")
+        post_route6 = net["r1"].cmd("ip -6 route show | wc -l")
+        assert (
+            False
+        ), "Expected same ipv6 routes(pre-{}: post-{}) and route count(pre-{}:post-{}) after quick interface flaps of rt1-eth(1-8)".format(
+            pre_route6, post_route6, pre_route, post_route
+        )
 
     ## Remove all NHG routes
-
     net["r1"].cmd('vtysh -c "sharp remove routes 2.2.2.1 1"')
     net["r1"].cmd('vtysh -c "sharp remove routes 2.2.2.2 1"')
     net["r1"].cmd('vtysh -c "sharp remove routes 3.3.3.1 1"')
@@ -689,7 +827,6 @@ def test_nexthop_groups():
     net["r1"].cmd('vtysh -c "sharp remove routes 4.4.4.2 1"')
     net["r1"].cmd('vtysh -c "sharp remove routes 5.5.5.1 1"')
     net["r1"].cmd('vtysh -c "sharp remove routes 6.6.6.1 4"')
-    net["r1"].cmd('vtysh -c "c t" -c "no ip route 6.6.6.0/24 1.1.1.1"')
 
 
 def test_rip_status():
@@ -716,41 +853,70 @@ def test_rip_status():
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
-            # Actual output from router
-            actual = (
-                net["r{}".format(i)]
-                .cmd('vtysh -c "show ip rip status" 2> /dev/null')
-                .rstrip()
-            )
-            # Drop time in next due
-            actual = re.sub(r"in [0-9]+ seconds", "in XX seconds", actual)
-            # Drop time in last update
-            actual = re.sub(r" [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", " XX:XX:XX", actual)
-            # Drop trailing whitespaces for each line
-            actual = "\n".join(line.rstrip() for line in actual.splitlines())
-            # Fix newlines (make them all the same)
-            actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+            def _check_rip_status():
+                # Actual output from router
+                actual = (
+                    net["r{}".format(i)]
+                    .cmd('vtysh -c "show ip rip status" 2> /dev/null')
+                    .rstrip()
+                )
+                # Drop time in next due
+                actual = re.sub(r"in [0-9]+ seconds", "in XX seconds", actual)
+                # Drop time in last update
+                actual = re.sub(
+                    r" [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", " XX:XX:XX", actual
+                )
+                # Drop trailing whitespaces for each line
+                actual = "\n".join(line.rstrip() for line in actual.splitlines())
+                # Fix newlines (make them all the same)
+                actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
 
-            # Generate Diff
-            diff = topotest.get_textdiff(
-                actual,
-                expected,
-                title1="actual IP RIP status",
-                title2="expected IP RIP status",
-            )
+                # Generate Diff
+                diff = topotest.get_textdiff(
+                    actual,
+                    expected,
+                    title1="actual IP RIP status",
+                    title2="expected IP RIP status",
+                )
 
-            # Empty string if it matches, otherwise diff contains unified diff
-            if diff:
+                if diff:
+                    return False
+                return True
+
+            # Try for 30 seconds with 1 second intervals
+            _, result = topotest.run_and_expect(
+                _check_rip_status, True, count=30, wait=1
+            )
+            if not result:
+                actual = (
+                    net["r{}".format(i)]
+                    .cmd('vtysh -c "show ip rip status" 2> /dev/null')
+                    .rstrip()
+                )
+                actual = re.sub(r"in [0-9]+ seconds", "in XX seconds", actual)
+                actual = re.sub(
+                    r" [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", " XX:XX:XX", actual
+                )
+                actual = "\n".join(line.rstrip() for line in actual.splitlines())
+                actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+                diff = topotest.get_textdiff(
+                    actual,
+                    expected,
+                    title1="actual IP RIP status",
+                    title2="expected IP RIP status",
+                )
                 sys.stderr.write(
-                    "r{} failed IP RIP status check:\n{}\n".format(i, diff)
+                    "r{} failed IP RIP status check after retries:\n{}\n".format(
+                        i, diff
+                    )
                 )
                 failures += 1
             else:
                 print("r{} ok".format(i))
 
-            assert failures == 0, "IP RIP status failed for router r{}:\n{}".format(
-                i, diff
-            )
+            assert (
+                failures == 0
+            ), "IP RIP status failed for router r{} after retries".format(i)
 
     # Make sure that all daemons are running
     for i in range(1, 2):
@@ -782,43 +948,77 @@ def test_ripng_status():
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
-            # Actual output from router
-            actual = (
-                net["r{}".format(i)]
-                .cmd('vtysh -c "show ipv6 ripng status" 2> /dev/null')
-                .rstrip()
-            )
-            # Mask out Link-Local mac address portion. They are random...
-            actual = re.sub(r" fe80::[0-9a-f:]+", " fe80::XXXX:XXXX:XXXX:XXXX", actual)
-            # Drop time in next due
-            actual = re.sub(r"in [0-9]+ seconds", "in XX seconds", actual)
-            # Drop time in last update
-            actual = re.sub(r" [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", " XX:XX:XX", actual)
-            # Drop trailing whitespaces for each line
-            actual = "\n".join(line.rstrip() for line in actual.splitlines())
-            # Fix newlines (make them all the same)
-            actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+            def _check_ripng_status():
+                # Actual output from router
+                actual = (
+                    net["r{}".format(i)]
+                    .cmd('vtysh -c "show ipv6 ripng status" 2> /dev/null')
+                    .rstrip()
+                )
+                # Mask out Link-Local mac address portion. They are random...
+                actual = re.sub(
+                    r" fe80::[0-9a-f:]+", " fe80::XXXX:XXXX:XXXX:XXXX", actual
+                )
+                # Drop time in next due
+                actual = re.sub(r"in [0-9]+ seconds", "in XX seconds", actual)
+                # Drop time in last update
+                actual = re.sub(
+                    r" [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", " XX:XX:XX", actual
+                )
+                # Drop trailing whitespaces for each line
+                actual = "\n".join(line.rstrip() for line in actual.splitlines())
+                # Fix newlines (make them all the same)
+                actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
 
-            # Generate Diff
-            diff = topotest.get_textdiff(
-                actual,
-                expected,
-                title1="actual IPv6 RIPng status",
-                title2="expected IPv6 RIPng status",
-            )
+                # Generate Diff
+                diff = topotest.get_textdiff(
+                    actual,
+                    expected,
+                    title1="actual IPv6 RIPng status",
+                    title2="expected IPv6 RIPng status",
+                )
 
-            # Empty string if it matches, otherwise diff contains unified diff
-            if diff:
+                if diff:
+                    return False
+                return True
+
+            # Try for 30 seconds with 1 second intervals
+            _, result = topotest.run_and_expect(
+                _check_ripng_status, True, count=30, wait=1
+            )
+            if not result:
+                actual = (
+                    net["r{}".format(i)]
+                    .cmd('vtysh -c "show ipv6 ripng status" 2> /dev/null')
+                    .rstrip()
+                )
+                actual = re.sub(
+                    r" fe80::[0-9a-f:]+", " fe80::XXXX:XXXX:XXXX:XXXX", actual
+                )
+                actual = re.sub(r"in [0-9]+ seconds", "in XX seconds", actual)
+                actual = re.sub(
+                    r" [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", " XX:XX:XX", actual
+                )
+                actual = "\n".join(line.rstrip() for line in actual.splitlines())
+                actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+                diff = topotest.get_textdiff(
+                    actual,
+                    expected,
+                    title1="actual IPv6 RIPng status",
+                    title2="expected IPv6 RIPng status",
+                )
                 sys.stderr.write(
-                    "r{} failed IPv6 RIPng status check:\n{}\n".format(i, diff)
+                    "r{} failed IPv6 RIPng status check after retries:\n{}\n".format(
+                        i, diff
+                    )
                 )
                 failures += 1
             else:
                 print("r{} ok".format(i))
 
-            assert failures == 0, "IPv6 RIPng status failed for router r{}:\n{}".format(
-                i, diff
-            )
+            assert (
+                failures == 0
+            ), "IPv6 RIPng status failed for router r{} after retries".format(i)
 
     # Make sure that all daemons are running
     for i in range(1, 2):
@@ -848,42 +1048,79 @@ def test_ospfv2_interfaces():
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
-            # Actual output from router
-            actual = (
-                net["r{}".format(i)]
-                .cmd('vtysh -c "show ip ospf interface" 2> /dev/null')
-                .rstrip()
-            )
-            # Mask out Bandwidth portion. They may change..
-            actual = re.sub(r"BW [0-9]+ Mbit", "BW XX Mbit", actual)
-            actual = re.sub(r"ifindex [0-9]+", "ifindex X", actual)
+            def _check_ospf_interfaces():
+                # Actual output from router
+                actual = (
+                    net["r{}".format(i)]
+                    .cmd('vtysh -c "show ip ospf interface" 2> /dev/null')
+                    .rstrip()
+                )
+                # Mask out Bandwidth portion. They may change..
+                actual = re.sub(r"BW [0-9]+ Mbit", "BW XX Mbit", actual)
+                actual = re.sub(r"ifindex [0-9]+", "ifindex X", actual)
 
-            # Drop time in next due
-            actual = re.sub(r"Hello due in [0-9\.]+s", "Hello due in XX.XXXs", actual)
-            actual = re.sub(
-                r"Hello due in [0-9\.]+ usecs", "Hello due in XX.XXXs", actual
-            )
-            # Fix 'MTU mismatch detection: enabled' vs 'MTU mismatch detection:enabled' - accept both
-            actual = re.sub(
-                r"MTU mismatch detection:([a-z]+.*)",
-                r"MTU mismatch detection: \1",
-                actual,
-            )
-            # Fix newlines (make them all the same)
-            actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+                # Drop time in next due
+                actual = re.sub(
+                    r"Hello due in [0-9\.]+s", "Hello due in XX.XXXs", actual
+                )
+                actual = re.sub(
+                    r"Hello due in [0-9\.]+ usecs", "Hello due in XX.XXXs", actual
+                )
+                # Fix 'MTU mismatch detection: enabled' vs 'MTU mismatch detection:enabled' - accept both
+                actual = re.sub(
+                    r"MTU mismatch detection:([a-z]+.*)",
+                    r"MTU mismatch detection: \1",
+                    actual,
+                )
+                # Fix newlines (make them all the same)
+                actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
 
-            # Generate Diff
-            diff = topotest.get_textdiff(
-                actual,
-                expected,
-                title1="actual SHOW IP OSPF INTERFACE",
-                title2="expected SHOW IP OSPF INTERFACE",
-            )
+                # Generate Diff
+                diff = topotest.get_textdiff(
+                    actual,
+                    expected,
+                    title1="actual SHOW IP OSPF INTERFACE",
+                    title2="expected SHOW IP OSPF INTERFACE",
+                )
 
-            # Empty string if it matches, otherwise diff contains unified diff
-            if diff:
+                if diff:
+                    return False
+                return True
+
+            # Try for 30 seconds with 1 second intervals
+            _, result = topotest.run_and_expect(
+                _check_ospf_interfaces, True, count=30, wait=1
+            )
+            if not result:
+                actual = (
+                    net["r{}".format(i)]
+                    .cmd('vtysh -c "show ip ospf interface" 2> /dev/null')
+                    .rstrip()
+                )
+                actual = re.sub(r"BW [0-9]+ Mbit", "BW XX Mbit", actual)
+                actual = re.sub(r"ifindex [0-9]+", "ifindex X", actual)
+                actual = re.sub(
+                    r"Hello due in [0-9\.]+s", "Hello due in XX.XXXs", actual
+                )
+                actual = re.sub(
+                    r"Hello due in [0-9\.]+ usecs", "Hello due in XX.XXXs", actual
+                )
+                actual = re.sub(
+                    r"MTU mismatch detection:([a-z]+.*)",
+                    r"MTU mismatch detection: \1",
+                    actual,
+                )
+                actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+                diff = topotest.get_textdiff(
+                    actual,
+                    expected,
+                    title1="actual SHOW IP OSPF INTERFACE",
+                    title2="expected SHOW IP OSPF INTERFACE",
+                )
                 sys.stderr.write(
-                    "r{} failed SHOW IP OSPF INTERFACE check:\n{}\n".format(i, diff)
+                    "r{} failed SHOW IP OSPF INTERFACE check after retries:\n{}\n".format(
+                        i, diff
+                    )
                 )
                 failures += 1
             else:
@@ -901,7 +1138,7 @@ def test_ospfv2_interfaces():
 
             assert (
                 failures == 0
-            ), "SHOW IP OSPF INTERFACE failed for router r{}:\n{}".format(i, diff)
+            ), "SHOW IP OSPF INTERFACE failed for router r{} after retries".format(i)
 
     # Make sure that all daemons are running
     for i in range(1, 2):
@@ -931,33 +1168,62 @@ def test_isis_interfaces():
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
-            # Actual output from router
-            actual = (
-                net["r{}".format(i)]
-                .cmd('vtysh -c "show isis interface detail" 2> /dev/null')
-                .rstrip()
-            )
-            # Mask out Link-Local mac address portion. They are random...
-            actual = re.sub(r"fe80::[0-9a-f:]+", "fe80::XXXX:XXXX:XXXX:XXXX", actual)
-            # Mask out SNPA mac address portion. They are random...
-            actual = re.sub(r"SNPA: [0-9a-f\.]+", "SNPA: XXXX.XXXX.XXXX", actual)
-            # Mask out Circuit ID number
-            actual = re.sub(r"Circuit Id: 0x[0-9a-f]+", "Circuit Id: 0xXX", actual)
-            # Fix newlines (make them all the same)
-            actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+            def _check_isis_interfaces():
+                # Actual output from router
+                actual = (
+                    net["r{}".format(i)]
+                    .cmd('vtysh -c "show isis interface detail" 2> /dev/null')
+                    .rstrip()
+                )
+                # Mask out Link-Local mac address portion. They are random...
+                actual = re.sub(
+                    r"fe80::[0-9a-f:]+", "fe80::XXXX:XXXX:XXXX:XXXX", actual
+                )
+                # Mask out SNPA mac address portion. They are random...
+                actual = re.sub(r"SNPA: [0-9a-f\.]+", "SNPA: XXXX.XXXX.XXXX", actual)
+                # Mask out Circuit ID number
+                actual = re.sub(r"Circuit Id: 0x[0-9a-f]+", "Circuit Id: 0xXX", actual)
+                # Fix newlines (make them all the same)
+                actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
 
-            # Generate Diff
-            diff = topotest.get_textdiff(
-                actual,
-                expected,
-                title1="actual SHOW ISIS INTERFACE DETAIL",
-                title2="expected SHOW ISIS OSPF6 INTERFACE DETAIL",
-            )
+                # Generate Diff
+                diff = topotest.get_textdiff(
+                    actual,
+                    expected,
+                    title1="actual SHOW ISIS INTERFACE DETAIL",
+                    title2="expected SHOW ISIS OSPF6 INTERFACE DETAIL",
+                )
 
-            # Empty string if it matches, otherwise diff contains unified diff
-            if diff:
+                if diff:
+                    return False
+                return True
+
+            # Try for 30 seconds with 1 second intervals
+            _, result = topotest.run_and_expect(
+                _check_isis_interfaces, True, count=30, wait=1
+            )
+            if not result:
+                actual = (
+                    net["r{}".format(i)]
+                    .cmd('vtysh -c "show isis interface detail" 2> /dev/null')
+                    .rstrip()
+                )
+                actual = re.sub(
+                    r"fe80::[0-9a-f:]+", "fe80::XXXX:XXXX:XXXX:XXXX", actual
+                )
+                actual = re.sub(r"SNPA: [0-9a-f\.]+", "SNPA: XXXX.XXXX.XXXX", actual)
+                actual = re.sub(r"Circuit Id: 0x[0-9a-f]+", "Circuit Id: 0xXX", actual)
+                actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+                diff = topotest.get_textdiff(
+                    actual,
+                    expected,
+                    title1="actual SHOW ISIS INTERFACE DETAIL",
+                    title2="expected SHOW ISIS OSPF6 INTERFACE DETAIL",
+                )
                 sys.stderr.write(
-                    "r{} failed SHOW ISIS INTERFACE DETAIL check:\n{}\n".format(i, diff)
+                    "r{} failed SHOW ISIS INTERFACE DETAIL check after retries:\n{}\n".format(
+                        i, diff
+                    )
                 )
                 failures += 1
             else:
@@ -965,7 +1231,9 @@ def test_isis_interfaces():
 
             assert (
                 failures == 0
-            ), "SHOW ISIS INTERFACE DETAIL failed for router r{}:\n{}".format(i, diff)
+            ), "SHOW ISIS INTERFACE DETAIL failed for router r{} after retries".format(
+                i
+            )
 
     # Make sure that all daemons are running
     for i in range(1, 2):
