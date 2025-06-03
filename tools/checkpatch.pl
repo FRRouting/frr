@@ -564,6 +564,7 @@ our $Iterators	= qr{
 			SUBGRP_FOREACH_ADJ|SUBGRP_FOREACH_ADJ_SAFE|
 			AF_FOREACH|FOREACH_AFI_SAFI|FOREACH_SAFI|
                         FOREACH_BE_CLIENT_BITS|FOREACH_MGMTD_BE_CLIENT_ID|
+                        FOREACH_SESSION_IN_LIST|
 			LSDB_LOOP
 		  }x;
 
@@ -615,6 +616,8 @@ our $logFunctions = qr{(?x:
 	WARN(?:_RATELIMIT|_ONCE|)|
 	panic|
 	MODULE_[A-Z_]+|
+	(?:debug|log_err)_(?:b|f)e_client|
+	_(?:dbg|log_err)|
 	seq_vprintf|seq_printf|seq_puts
 )};
 
