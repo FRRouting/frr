@@ -9,12 +9,12 @@
 """
 test_isis_srv6_topo1.py:
 
-                         +---------+
-                         |         |
-                         |   RT1   |
-                         | 1.1.1.1 |
-                         |         |
-                         +---------+
+                         +---------+     +---------+
+                         |         |     |         |
+                         |   RT1   +-----|  CPE    |
+                         | 1.1.1.1 |     |  SRC    |
+                         |         |     |         |
+                         +---------+     +---------+
                               |eth-sw1
                               |
                               |
@@ -44,18 +44,18 @@ test_isis_srv6_topo1.py:
               |          |   RT6   |           |
               +----------+ 6.6.6.6 +-----------+
                   eth-rt4|         |eth-rt5
-                         +---------+
-                              |eth-dst (.1)
-                              |
-                              |10.0.10.0/24
-                              |
-                              |eth-rt6 (.2)
-                         +---------+
-                         |         |
-                         |   DST   |
-                         | 9.9.9.2 |
-                         |         |
-                         +---------+
+                         +-+-------+
+                           |  |eth-dst (.1)
+                           |  |
+               +-----------+  |10.0.10.0/24
+               |              |
+               |              |eth-rt6 (.2)
+          +----+----+    +---------+
+          |         |    |         |
+          |  CPE    |    |   DST   |
+          |  DST    |    | 9.9.9.2 |
+          |         |    |         |
+          +---------+    +---------+
 
 """
 
@@ -92,6 +92,8 @@ def build_topo(tgen):
     tgen.add_router("rt5")
     tgen.add_router("rt6")
     tgen.add_router("dst")
+    tgen.add_router("cpe-src")
+    tgen.add_router("cpe-dst")
 
     # Define connections
     switch = tgen.add_switch("s1")
@@ -130,6 +132,14 @@ def build_topo(tgen):
     switch = tgen.add_switch("s9")
     switch.add_link(tgen.gears["rt6"], nodeif="eth-dst")
     switch.add_link(tgen.gears["dst"], nodeif="eth-rt6")
+
+    switch = tgen.add_switch("s10")
+    switch.add_link(tgen.gears["rt6"], nodeif="eth-cpe-dst")
+    switch.add_link(tgen.gears["cpe-dst"], nodeif="eth-rt6")
+
+    switch = tgen.add_switch("s11")
+    switch.add_link(tgen.gears["rt1"], nodeif="eth-cpe-src")
+    switch.add_link(tgen.gears["cpe-src"], nodeif="eth-rt1")
 
     # Add dummy interface for SRv6
     create_interface_in_kernel(
@@ -180,6 +190,19 @@ def build_topo(tgen):
         netmask="128",
         create=True,
     )
+    for rname in ("rt1", "rt6"):
+        ifname = "eth-cpe-src" if rname == "rt1" else "eth-cpe-dst"
+        tgen.gears[rname].run("sysctl net.vrf.strict_mode=1")
+        tgen.gears[rname].run("ip link add vrf10 type vrf table 10")
+        tgen.gears[rname].run("ip link set vrf10 up")
+        tgen.gears[rname].run(f"ip link set dev {ifname} master vrf10")
+        tgen.gears[rname].run(f"ip link set dev {ifname} up")
+        tgen.gears[rname].run(
+            "ip route add table 10 unreachable default metric 4278198272"
+        )
+        tgen.gears[rname].run(
+            "ip -6 route add table 10 unreachable default metric 4278198272"
+        )
 
 
 def setup_module(mod):
@@ -205,6 +228,14 @@ def setup_module(mod):
         if os.path.exists("{}/sharpd.conf".format(rname)):
             router.load_config(
                 TopoRouter.RD_SHARP, os.path.join(CWD, "{}/sharpd.conf".format(rname))
+            )
+        if rname in ("cpe-src", "cpe-dst"):
+            router.load_config(
+                TopoRouter.RD_STATIC, os.path.join(CWD, "{}/zebra.conf".format(rname))
+            )
+        if rname in ("rt1", "rt6"):
+            router.load_config(
+                TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
             )
 
     # Start routers
