@@ -71,7 +71,9 @@ def savepid():
         fd = os.open(pid_file, flags, mode)
     except OSError:
         try:
-            pid = open(pid_file, "r").readline().strip()
+            with open(pid_file, "r") as file_fd:
+                pid = file_fd.readline().strip()
+
             if check_pid(int(pid)):
                 timestamp_print(
                     f"PID file already exists and program still running {pid_file}\n"
@@ -80,9 +82,10 @@ def savepid():
             else:
                 # If pid is not running, reopen file without O_EXCL
                 fd = os.open(pid_file, flags ^ os.O_EXCL, mode)
-        except (OSError, IOError, ValueError):
+                os.close(fd)
+        except (OSError, IOError, ValueError) as err:
             timestamp_print(
-                f"issue accessing PID file {pid_file} (most likely permission or ownership)\n"
+                f"issue accessing PID file {pid_file} (most likely permission or ownership): {err}\n"
             )
             return False
 
