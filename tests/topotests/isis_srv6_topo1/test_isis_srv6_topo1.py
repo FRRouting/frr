@@ -71,6 +71,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
+from lib.checkping import check_ping
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.common_config import (
@@ -1170,6 +1171,23 @@ def test_ping_step9():
         pytest.skip(tgen.errors)
 
     check_ping6("rt1", "fc00:0:9::1", True)
+
+
+def test_ping_step10():
+    logger.info("Test (step 10): verify ping between VPN")
+    tgen = get_topogen()
+
+    # Required linux kernel version for this suite to run.
+    result = required_linux_kernel_version("6.1")
+    if result is not True:
+        pytest.skip("Kernel requirements are not met, kernel version should be >=6.1")
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    check_ping6("cpe-src", "fd00:200::100", True)
+    check_ping("cpe-src", "10.200.0.100", True, 10, 0.5)
 
 
 # Memory leak test template
