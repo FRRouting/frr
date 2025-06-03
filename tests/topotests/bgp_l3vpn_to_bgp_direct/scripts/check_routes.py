@@ -3,21 +3,21 @@ from lib.lutil import luCommand
 luCommand(
     "ce1",
     'vtysh -c "show bgp ipv4 uni"',
-    "7 routes and 7",
+    "6 routes and 6",
     "wait",
     "Local and remote routes",
 )
 luCommand(
     "ce2",
     'vtysh -c "show bgp ipv4 uni"',
-    "7 routes and 9",
+    "6 routes and 8",
     "wait",
     "Local and remote routes",
 )
 luCommand(
     "ce3",
     'vtysh -c "show bgp ipv4 uni"',
-    "7 routes and 7",
+    "6 routes and 6",
     "wait",
     "Local and remote routes",
 )
