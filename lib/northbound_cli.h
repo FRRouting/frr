@@ -81,6 +81,8 @@ extern int nb_cli_apply_changes_clear_pending(struct vty *vty,
  */
 extern int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt,
 				...) PRINTFRR(2, 3);
+extern int nb_cli_apply_changes_pending(struct vty *vty, const char *xpath_base_fmt,
+				...) PRINTFRR(2, 3);
 
 /*
  * Execute a YANG RPC or Action.

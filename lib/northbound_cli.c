@@ -245,6 +245,53 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 	return nb_cli_apply_changes_internal(vty, xpath_base_abs, false);
 }
 
+int nb_cli_apply_changes_pending(struct vty *vty, const char *xpath_base_fmt, ...)
+{
+	char xpath_base_abs[XPATH_MAXLEN] = {};
+	char xpath_base[XPATH_MAXLEN] = {};
+	bool implicit_commit;
+	bool error = false;
+	char buf[BUFSIZ];
+	int ret;
+
+	/* Parse the base XPath format string. */
+	if (xpath_base_fmt) {
+		va_list ap;
+
+		va_start(ap, xpath_base_fmt);
+		vsnprintf(xpath_base, sizeof(xpath_base), xpath_base_fmt, ap);
+		va_end(ap);
+	}
+
+	create_xpath_base_abs(vty, xpath_base_abs, sizeof(xpath_base_abs),
+			      xpath_base);
+
+	if (vty_mgmt_should_process_cli_apply_changes(vty)) {
+		VTY_CHECK_XPATH;
+
+		if (vty->type == VTY_FILE)
+			return CMD_SUCCESS;
+
+		implicit_commit = vty_needs_implicit_commit(vty);
+		ret = vty_mgmt_send_config_data(vty, xpath_base_abs,
+						implicit_commit);
+		if (ret >= 0 && !implicit_commit)
+			vty->mgmt_num_pending_setcfg++;
+		return ret;
+	}
+
+	nb_candidate_edit_config_changes(vty->candidate_config, vty->cfg_changes,
+					 vty->num_cfg_changes, xpath_base_abs,
+					 false, buf, sizeof(buf), &error);
+
+	if (error) {
+		vty_out(vty, "%s", buf);
+	}
+
+	return nb_cli_schedule_command(vty);
+}
+
+
 int nb_cli_apply_changes_clear_pending(struct vty *vty,
 				       const char *xpath_base_fmt, ...)
 {
