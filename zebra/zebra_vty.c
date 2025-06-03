@@ -471,6 +471,17 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 
 		vty_out(vty, "  Last update %s ago\n", buf);
 
+		/* Display route flags and status */
+		char flags_buf[128];
+		char status_buf[128];
+
+		zclient_dump_route_flags(re->flags, flags_buf, sizeof(flags_buf));
+		_dump_re_status(re, status_buf, sizeof(status_buf));
+		if (flags_buf[0] != '\0')
+			vty_out(vty, "  Flags: %s\n", flags_buf);
+		if (status_buf[0] != '\0')
+			vty_out(vty, "  Status: %s\n", status_buf);
+
 		if (show_ng) {
 			vty_out(vty, "  Nexthop Group ID: %u\n", re->nhe_id);
 			if (re->nhe_installed_id != 0
@@ -746,7 +757,16 @@ static void vty_show_ip_route_detail_json(struct vty *vty,
 		 */
 		if (use_fib && re != dest->selected_fib)
 			continue;
+
 		vty_show_ip_route(vty, rn, re, json_prefix, use_fib, false);
+
+		/* Add flags and status to the last object */
+		json_object *json_route =
+			json_object_array_get_idx(json_prefix,
+						  json_object_array_length(json_prefix) - 1);
+
+		json_object_int_add(json_route, "flags", re->flags);
+		json_object_int_add(json_route, "status", re->status);
 	}
 
 	prefix2str(&rn->p, buf, sizeof(buf));
