@@ -1166,6 +1166,42 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 			else
 				vty_out(vty, ", Initial Delay");
 		}
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED)) {
+			if (json)
+				json_object_boolean_true_add(json, "queued");
+			else
+				vty_out(vty, ", Queued");
+		}
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE)) {
+			if (json)
+				json_object_boolean_true_add(json, "recursive");
+			else
+				vty_out(vty, ", Recursive");
+		}
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_BACKUP)) {
+			if (json)
+				json_object_boolean_true_add(json, "backup");
+			else
+				vty_out(vty, ", Backup");
+		}
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_PROTO_RELEASED)) {
+			if (json)
+				json_object_boolean_true_add(json, "protoReleased");
+			else
+				vty_out(vty, ", Proto Released");
+		}
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_KEEP_AROUND)) {
+			if (json)
+				json_object_boolean_true_add(json, "keepAround");
+			else
+				vty_out(vty, ", Keep Around");
+		}
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_FPM)) {
+			if (json)
+				json_object_boolean_true_add(json, "fpm");
+			else
+				vty_out(vty, ", FPM");
+		}
 		if (!json)
 			vty_out(vty, "\n");
 	}
