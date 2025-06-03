@@ -35,6 +35,25 @@ DEFINE_MTYPE_STATIC(BGPD, BFD_CONFIG, "BFD configuration data");
 
 extern struct zclient *bgp_zclient;
 
+/* BFD Strict mode Hold timer expire */
+static void bgp_bfd_strict_holdtime_expire(struct event *event)
+{
+	struct peer *peer = EVENT_ARG(event);
+	struct peer_connection *connection = peer->connection;
+
+	if (bgp_debug_neighbor_events(peer))
+		zlog_debug("%pBP BFD Strict mode Hold timer expire for %s", peer,
+			   bgp_peer_get_connection_direction(connection));
+
+	peer->last_reset = PEER_DOWN_BFD_DOWN;
+	SET_FLAG(peer->sflags, PEER_STATUS_BFD_STRICT_HOLD_TIME_EXPIRED);
+
+	if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status))
+		bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE, BGP_NOTIFY_CEASE_BFD_DOWN);
+
+	BGP_EVENT_ADD(peer->connection, BGP_Stop);
+}
+
 static void bfd_session_status_update(struct bfd_session_params *bsp,
 				      const struct bfd_session_status *bss,
 				      void *arg)
@@ -66,13 +85,19 @@ static void bfd_session_status_update(struct bfd_session_params *bsp,
 		 * when the source address is changed, e.g. 0.0.0.0 -> 10.0.0.1.
 		 */
 		if (bss->last_event > peer->uptime) {
-			peer->last_reset = PEER_DOWN_BFD_DOWN;
-			/* rfc9384 */
-			if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status))
-				bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
-						BGP_NOTIFY_CEASE_BFD_DOWN);
+			if (!peer->holdtime) {
+				event_add_timer(bm->master, bgp_bfd_strict_holdtime_expire, peer,
+						peer->bfd_config->hold_time,
+						&peer->bfd_config->t_hold_timer);
+			} else {
+				peer->last_reset = PEER_DOWN_BFD_DOWN;
+				/* rfc9384 */
+				if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status))
+					bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
+							BGP_NOTIFY_CEASE_BFD_DOWN);
 
-			BGP_EVENT_ADD(peer->connection, BGP_Stop);
+				BGP_EVENT_ADD(peer->connection, BGP_Stop);
+			}
 		}
 	}
 
@@ -294,6 +319,7 @@ static void bgp_peer_bfd_reset(struct peer *p)
 	p->bfd_config->detection_multiplier = BFD_DEF_DETECT_MULT;
 	p->bfd_config->min_rx = BFD_DEF_MIN_RX;
 	p->bfd_config->min_tx = BFD_DEF_MIN_TX;
+	p->bfd_config->hold_time = BFD_DEF_STRICT_HOLD_TIME;
 	p->bfd_config->cbit = false;
 	p->bfd_config->profile[0] = 0;
 }
@@ -383,6 +409,7 @@ static void bgp_group_configure_bfd(struct peer *p)
 	p->bfd_config->detection_multiplier = BFD_DEF_DETECT_MULT;
 	p->bfd_config->min_rx = BFD_DEF_MIN_RX;
 	p->bfd_config->min_tx = BFD_DEF_MIN_TX;
+	p->bfd_config->hold_time = BFD_DEF_STRICT_HOLD_TIME;
 
 	for (ALL_LIST_ELEMENTS_RO(p->group->peer, n, pn))
 		bgp_peer_configure_bfd(pn, false);
@@ -449,8 +476,13 @@ void bgp_bfd_peer_config_write(struct vty *vty, struct peer *peer, const char *a
 		vty_out(vty, " neighbor %s bfd check-control-plane-failure\n",
 			addr);
 
-	if (peergroup_flag_check(peer, PEER_FLAG_BFD_STRICT))
-		vty_out(vty, " neighbor %s bfd strict\n", addr);
+	if (peergroup_flag_check(peer, PEER_FLAG_BFD_STRICT)) {
+		if (peer->bfd_config->hold_time != BFD_DEF_STRICT_HOLD_TIME)
+			vty_out(vty, " neighbor %s bfd strict hold-time %u\n", addr,
+				peer->bfd_config->hold_time);
+		else
+			vty_out(vty, " neighbor %s bfd strict\n", addr);
+	}
 }
 
 /*
@@ -586,6 +618,40 @@ DEFPY (neighbor_bfd_strict,
 		return peer_flag_unset(peer, PEER_FLAG_BFD_STRICT);
 
 	return peer_flag_set(peer, PEER_FLAG_BFD_STRICT);
+}
+
+DEFPY (neighbor_bfd_strict_hold_time,
+       neighbor_bfd_strict_hold_time_cmd,
+       "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor bfd strict hold-time ![(1-4294967295)$hold_time]",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "BFD support\n"
+       "Strict mode\n"
+       "BFD Hold time in seconds\n"
+       "Seconds to wait before declaring BFD session down\n")
+{
+	struct peer *peer;
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
+		bgp_group_configure_bfd(peer);
+	else
+		bgp_peer_configure_bfd(peer, true);
+
+	event_cancel(&peer->bfd_config->t_hold_timer);
+
+	if (no)
+		peer->bfd_config->hold_time = BFD_DEF_STRICT_HOLD_TIME;
+	else
+		peer->bfd_config->hold_time = hold_time;
+
+	bgp_peer_config_apply(peer, peer->group);
+
+	return CMD_SUCCESS;
 }
 
 DEFUN (neighbor_bfd_check_controlplane_failure,
@@ -742,6 +808,7 @@ void bgp_bfd_init(struct event_loop *tm)
 	install_element(BGP_NODE, &neighbor_bfd_param_cmd);
 	install_element(BGP_NODE, &neighbor_bfd_check_controlplane_failure_cmd);
 	install_element(BGP_NODE, &neighbor_bfd_strict_cmd);
+	install_element(BGP_NODE, &neighbor_bfd_strict_hold_time_cmd);
 	install_element(BGP_NODE, &no_neighbor_bfd_cmd);
 
 #if HAVE_BFDD > 0

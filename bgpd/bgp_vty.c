@@ -16104,6 +16104,14 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 						    p->rtt_keepalive_rcv);
 			}
 		}
+		if (p->bfd_config) {
+			json_object_int_add(json_neigh, "bfdHoldTimerExpireInMsecs",
+					    event_timer_remain_second(p->bfd_config->t_hold_timer) *
+						    1000);
+			json_object_boolean_add(json_neigh, "bfdHoldTimerExpired",
+						!!CHECK_FLAG(p->sflags,
+							     PEER_STATUS_BFD_STRICT_HOLD_TIME_EXPIRED));
+		}
 		if (p->connection->t_start)
 			json_object_int_add(json_neigh,
 					    "nextStartTimerDueInMsecs",
@@ -16164,6 +16172,12 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 				p->v_routeadv,
 				event_timer_remain_second(
 					p->connection->t_routeadv));
+
+		if (p->bfd_config)
+			vty_out(vty, "BFD Hold Time (interval %u) timer expires in %ld seconds\n",
+				p->bfd_config->hold_time,
+				event_timer_remain_second(p->bfd_config->t_hold_timer));
+
 		if (p->password)
 			vty_out(vty, "Peer Authentication Enabled\n");
 
