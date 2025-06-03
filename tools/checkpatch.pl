@@ -3806,8 +3806,9 @@ sub process {
 
 # at the beginning of a line any tabs must come first and anything
 # more than $tabsize must use tabs.
-		if ($rawline =~ /^\+\s* \t\s*\S/ ||
-		    $rawline =~ /^\+\s*        \s*/) {
+		if (($rawline =~ /^\+\s* \t\s*\S/ ||
+		     $rawline =~ /^\+\s*        \s*/) &&
+		    $rawline !~ /^\+\s*\\$/) {
 			my $herevet = "$here\n" . cat_vet($rawline) . "\n";
 			$rpt_cleaners = 1;
 			if (ERROR("CODE_INDENT",
@@ -4053,7 +4054,9 @@ sub process {
 #  1) within comments
 #  2) indented preprocessor commands
 #  3) hanging labels
-		if ($rawline =~ /^\+ / && $line !~ /^\+ *(?:$;|#|$Ident:)/)  {
+#  4) empty lines in multi-line macros
+		if ($rawline =~ /^\+ / && $line !~ /^\+ *(?:$;|#|$Ident:)/ &&
+		    $rawline !~ /^\+\s+\\$/) {
 			my $herevet = "$here\n" . cat_vet($rawline) . "\n";
 			if (WARN("LEADING_SPACE",
 				 "please, no spaces at the start of a line\n" . $herevet) &&
