@@ -652,45 +652,1251 @@ def test_nexthop_groups():
         nhg_id
     )
 
+    ## TBD: This is a seperately tracked issue #18784
+    tgen = get_topogen()
+    router = tgen.gears["r1"]
+    router.vtysh_cmd("configure\nno ip route 6.6.6.0/24 1.1.1.1")
+
+    def _check_route_removed():
+        output = router.cmd("ip route show 6.6.6.0/24")
+        if "6.6.6.0/24" in output:
+            return False
+        return True
+
+    _, result = topotest.run_and_expect(_check_route_removed, True, count=30, wait=1)
+    if not result:
+        output = router.cmd("ip route show 6.6.6.0/24")
+        assert (
+            False
+        ), "Route 6.6.6.0/24 was not removed after unconfiguration. Current output:\n{}".format(
+            output
+        )
+
+    # For interfaces r1-eth1 to r1-eth8,
+    # DOWN - validate the NHG dependency nexthops are marked inactive
+    # UP   - validate the NHG dependency nexthops are marked active
+    router.vtysh_cmd("configure\nzebra nexthop-group keep 1")
+
+    test_interfaces = ["r1-eth{}".format(i) for i in range(1, 9)]
+
+    interface_addresses = {}
+    for interface in test_interfaces:
+        addr_output = router.cmd(
+            "ip addr show {} | grep -E 'inet [0-9]+\.' | awk '{{print $2}}' | cut -d/ -f1".format(
+                interface
+            )
+        )
+        addresses = [addr.strip() for addr in addr_output.split("\n") if addr.strip()]
+        if addresses:
+            interface_addresses[interface] = addresses
+            logger.info("Interface {} has addresses: {}".format(interface, addresses))
+
+    for interface in test_interfaces:
+        logger.info("=" * 80)
+        logger.info(
+            "*** Test {} down - validate nexthops using {} are marked inactive ***".format(
+                interface, interface
+            )
+        )
+        logger.info("=" * 80)
+
+        router.cmd("ip link set {} down".format(interface))
+        sleep(1)
+
+        def _check_nhg_inactive_nexthops_for_interface():
+            all_nhgs_output = router.vtysh_cmd("show nexthop-group rib")
+
+            nhg_ids = re.findall(r"ID: (\d+)", all_nhgs_output)
+
+            affected_nhgs = []
+            validation_errors = []
+            total_affected_nexthops = 0
+
+            interface_ips = set()
+
+            interface_addr_patterns = []
+            if interface in interface_addresses:
+                for addr in interface_addresses[interface]:
+                    addr_parts = addr.split(".")
+                    if len(addr_parts) == 4:
+                        pattern_base = "\.".join(addr_parts[:3])  # e.g., "1\.1\.1"
+                        interface_addr_patterns.append(pattern_base + r"\.[0-9]+")
+
+            for nhg_id in nhg_ids:
+                nhg_detail = router.vtysh_cmd(
+                    "show nexthop-group rib {}".format(nhg_id)
+                )
+
+                if "Time to Deletion:" in nhg_detail:
+                    continue
+
+                # Parse NHG details
+                lines = nhg_detail.split("\n")
+                for line in lines:
+                    if (
+                        "via" in line
+                        and line.strip().startswith("via")
+                        and interface in line
+                    ):
+                        for pattern in interface_addr_patterns:
+                            ip_match = re.search(
+                                r"via ({})".format(pattern), line.strip()
+                            )
+                            if ip_match:
+                                interface_ips.add(ip_match.group(1))
+
+            logger.info(
+                "Found interface IPs using {}: {}".format(
+                    interface, sorted(list(interface_ips))
+                )
+            )
+
+            for nhg_id in nhg_ids:
+                nhg_detail = router.vtysh_cmd(
+                    "show nexthop-group rib {}".format(nhg_id)
+                )
+
+                if "Time to Deletion:" in nhg_detail:
+                    continue
+
+                # Parse NHG details
+                lines = nhg_detail.split("\n")
+                dependents = []
+                depends = []
+                affected_nexthops = []
+                all_nexthops = []
+                nhg_valid = False
+
+                for line in lines:
+                    if "Dependents:" in line:
+                        deps_match = re.findall(r"\((\d+)\)", line)
+                        dependents = deps_match
+                    elif "Depends:" in line:
+                        deps_match = re.findall(r"\((\d+)\)", line)
+                        depends = deps_match
+                    elif "Valid" in line and "ID:" not in line:
+                        nhg_valid = True
+                    elif "via" in line and line.strip().startswith("via"):
+                        all_nexthops.append(line.strip())
+
+                        should_be_inactive = False
+
+                        if interface in line:
+                            should_be_inactive = True
+                        else:
+                            for pattern in interface_addr_patterns:
+                                ip_match = re.search(
+                                    r"via ({})".format(pattern), line.strip()
+                                )
+                                if ip_match and ip_match.group(1) in interface_ips:
+                                    should_be_inactive = True
+                                    break
+
+                        if should_be_inactive:
+                            affected_nexthops.append(line.strip())
+                            total_affected_nexthops += 1
+                            if interface in line:
+                                if "inactive" not in line:
+                                    validation_errors.append(
+                                        "NHG {}: direct nexthop using DOWN interface {} should be inactive: {}".format(
+                                            nhg_id, interface, line.strip()
+                                        )
+                                    )
+                            else:
+                                if "inactive" in line:
+                                    validation_errors.append(
+                                        "NHG {}: recursive nexthop affected by DOWN interface {} should NOT show inactive directly: {}".format(
+                                            nhg_id, interface, line.strip()
+                                        )
+                                    )
+
+                if affected_nexthops:
+                    status = "Valid" if nhg_valid else "Invalid"
+                    dep_str = ",".join(dependents) if dependents else "None"
+                    depends_str = ",".join(depends) if depends else "None"
+                    affected_nhgs.append(
+                        {
+                            "id": nhg_id,
+                            "status": status,
+                            "dependents": dep_str,
+                            "depends": depends_str,
+                            "affected_nexthops": affected_nexthops,
+                            "all_nexthops": all_nexthops,
+                        }
+                    )
+
+            # Log results
+            if affected_nhgs:
+                logger.info(
+                    "Found {} NHGs with {} total nexthops affected by {}:".format(
+                        len(affected_nhgs), total_affected_nexthops, interface
+                    )
+                )
+                for nhg in affected_nhgs:
+                    logger.info(
+                        "  NHG {} ({}) - {} total nexthop(s), {} affected by {}, dependents: {} ({}), depends: {} ({})".format(
+                            nhg["id"],
+                            nhg["status"],
+                            len(nhg["all_nexthops"]),
+                            len(nhg["affected_nexthops"]),
+                            interface,
+                            nhg["dependents"],
+                            len(nhg["dependents"].split(","))
+                            if nhg["dependents"] != "None"
+                            else 0,
+                            nhg["depends"],
+                            len(nhg["depends"].split(","))
+                            if nhg["depends"] != "None"
+                            else 0,
+                        )
+                    )
+                    logger.info("    All nexthops:")
+                    for nh in nhg["all_nexthops"]:
+                        if nh in nhg["affected_nexthops"]:
+                            state = (
+                                "✓ INACTIVE"
+                                if "inactive" in nh
+                                else "✗ ACTIVE (ERROR!)"
+                            )
+                            logger.info(
+                                "      {} {} [AFFECTED BY {}]".format(
+                                    state, nh, interface.upper()
+                                )
+                            )
+                        else:
+                            state = "○ INACTIVE" if "inactive" in nh else "○ ACTIVE"
+                            logger.info("      {} {}".format(state, nh))
+            else:
+                logger.info("No NHGs found affected by {}".format(interface))
+
+            if validation_errors:
+                logger.error("VALIDATION FAILURES when {} is DOWN:".format(interface))
+                for error in validation_errors:
+                    logger.error("  {}".format(error))
+                return False
+
+            logger.info(
+                "✓ All nexthops affected by DOWN interface {} are correctly marked inactive".format(
+                    interface
+                )
+            )
+            return True
+
+        _, result = topotest.run_and_expect(
+            _check_nhg_inactive_nexthops_for_interface, True, count=30, wait=1
+        )
+        if not result:
+            all_nhgs_output = router.vtysh_cmd("show nexthop-group rib")
+            assert (
+                False
+            ), "Expected nexthops using {} to be marked inactive when interface is down. NHG output:\n{}".format(
+                interface, all_nhgs_output
+            )
+
+        # Bring the interface back up for subsequent tests
+        logger.info("=" * 80)
+        logger.info(
+            "*** Test {} UP - validate nexthops using {} are marked active ***".format(
+                interface, interface
+            )
+        )
+        logger.info("=" * 80)
+        router.cmd("ip link set {} up".format(interface))
+        sleep(1)
+
+        def _check_nhg_active_nexthops_for_interface():
+            all_nhgs_output = router.vtysh_cmd("show nexthop-group rib")
+
+            nhg_ids = re.findall(r"ID: (\d+)", all_nhgs_output)
+            affected_nhgs = []
+            validation_errors = []
+            total_affected_nexthops = 0
+
+            interface_ips = set()
+
+            interface_addr_patterns = []
+            if interface in interface_addresses:
+                for addr in interface_addresses[interface]:
+                    addr_parts = addr.split(".")
+                    if len(addr_parts) == 4:
+                        pattern_base = "\.".join(addr_parts[:3])  # e.g., "1\.1\.1"
+                        interface_addr_patterns.append(pattern_base + r"\.[0-9]+")
+
+            for nhg_id in nhg_ids:
+                nhg_detail = router.vtysh_cmd(
+                    "show nexthop-group rib {}".format(nhg_id)
+                )
+
+                if "Time to Deletion:" in nhg_detail:
+                    continue
+
+                # Parse NHG details
+                lines = nhg_detail.split("\n")
+                for line in lines:
+                    if (
+                        "via" in line
+                        and line.strip().startswith("via")
+                        and interface in line
+                    ):
+                        for pattern in interface_addr_patterns:
+                            ip_match = re.search(
+                                r"via ({})".format(pattern), line.strip()
+                            )
+                            if ip_match:
+                                interface_ips.add(ip_match.group(1))
+
+            logger.info(
+                "Found interface IPs using {}: {}".format(
+                    interface, sorted(list(interface_ips))
+                )
+            )
+
+            for nhg_id in nhg_ids:
+                nhg_detail = router.vtysh_cmd(
+                    "show nexthop-group rib {}".format(nhg_id)
+                )
+
+                if "Time to Deletion:" in nhg_detail:
+                    continue
+
+                # Parse NHG details
+                lines = nhg_detail.split("\n")
+                dependents = []
+                depends = []
+                affected_nexthops = []
+                all_nexthops = []
+                nhg_valid = False
+
+                for line in lines:
+                    if "Dependents:" in line:
+                        deps_match = re.findall(r"\((\d+)\)", line)
+                        dependents = deps_match
+                    elif "Depends:" in line:
+                        deps_match = re.findall(r"\((\d+)\)", line)
+                        depends = deps_match
+                    elif "Valid" in line and "ID:" not in line:
+                        nhg_valid = True
+                    elif "via" in line and line.strip().startswith("via"):
+                        all_nexthops.append(line.strip())
+
+                        should_be_active = False
+
+                        if interface in line:
+                            should_be_active = True
+                        else:
+                            for pattern in interface_addr_patterns:
+                                ip_match = re.search(
+                                    r"via ({})".format(pattern), line.strip()
+                                )
+                                if ip_match and ip_match.group(1) in interface_ips:
+                                    should_be_active = True
+                                    break
+
+                        if should_be_active:
+                            affected_nexthops.append(line.strip())
+                            total_affected_nexthops += 1
+                            if interface in line:
+                                if "inactive" in line:
+                                    validation_errors.append(
+                                        "NHG {}: direct nexthop using UP interface {} should NOT be inactive: {}".format(
+                                            nhg_id, interface, line.strip()
+                                        )
+                                    )
+                            else:
+                                if "inactive" in line:
+                                    validation_errors.append(
+                                        "NHG {}: recursive nexthop affected by UP interface {} should NOT show inactive directly: {}".format(
+                                            nhg_id, interface, line.strip()
+                                        )
+                                    )
+
+                if affected_nexthops:
+                    status = "Valid" if nhg_valid else "Invalid"
+                    dep_str = ",".join(dependents) if dependents else "None"
+                    depends_str = ",".join(depends) if depends else "None"
+                    affected_nhgs.append(
+                        {
+                            "id": nhg_id,
+                            "status": status,
+                            "dependents": dep_str,
+                            "depends": depends_str,
+                            "affected_nexthops": affected_nexthops,
+                            "all_nexthops": all_nexthops,
+                        }
+                    )
+
+            # Log results
+            if affected_nhgs:
+                logger.info(
+                    "Found {} NHGs with {} total nexthops affected by {}:".format(
+                        len(affected_nhgs), total_affected_nexthops, interface
+                    )
+                )
+                for nhg in affected_nhgs:
+                    logger.info(
+                        "  NHG {} ({}) - {} total nexthop(s), {} affected by {}, dependents: {} ({}), depends: {} ({})".format(
+                            nhg["id"],
+                            nhg["status"],
+                            len(nhg["all_nexthops"]),
+                            len(nhg["affected_nexthops"]),
+                            interface,
+                            nhg["dependents"],
+                            len(nhg["dependents"].split(","))
+                            if nhg["dependents"] != "None"
+                            else 0,
+                            nhg["depends"],
+                            len(nhg["depends"].split(","))
+                            if nhg["depends"] != "None"
+                            else 0,
+                        )
+                    )
+                    logger.info("    All nexthops:")
+                    for nh in nhg["all_nexthops"]:
+                        if nh in nhg["affected_nexthops"]:
+                            state = (
+                                "✓ ACTIVE"
+                                if "inactive" not in nh
+                                else "✗ INACTIVE (ERROR!)"
+                            )
+                            logger.info(
+                                "      {} {} [AFFECTED BY {}]".format(
+                                    state, nh, interface.upper()
+                                )
+                            )
+                        else:
+                            state = "○ ACTIVE" if "inactive" not in nh else "○ INACTIVE"
+                            logger.info("      {} {}".format(state, nh))
+            else:
+                logger.info("No NHGs found affected by {}".format(interface))
+
+            if validation_errors:
+                logger.error("VALIDATION FAILURES when {} is UP:".format(interface))
+                for error in validation_errors:
+                    logger.error("  {}".format(error))
+                return False
+
+            logger.info(
+                "✓ All nexthops affected by UP interface {} are correctly marked active".format(
+                    interface
+                )
+            )
+            return True
+
+        _, result = topotest.run_and_expect(
+            _check_nhg_active_nexthops_for_interface, True, count=30, wait=1
+        )
+        if not result:
+            all_nhgs_output = router.vtysh_cmd("show nexthop-group rib")
+            assert (
+                False
+            ), "Expected nexthops using {} to be marked active when interface is up. NHG output:\n{}".format(
+                interface, all_nhgs_output
+            )
+
+        logger.info("Test {} completed successfully".format(interface))
+
+    # Multi-interface dependency testing
+    logger.info("=" * 80)
+    logger.info("*** Multi-Interface NHG Dependency Testing ***")
+    logger.info("=" * 80)
+
+    # Define interface pairs for iterative testing
+    interface_pairs = [
+        ("r1-eth1", "r1-eth2"),
+        ("r1-eth3", "r1-eth4"),
+        ("r1-eth5", "r1-eth6"),
+        ("r1-eth7", "r1-eth8"),
+    ]
+
+    # Iter 1-4: Test interface pairs
+    for i, (intf1, intf2) in enumerate(interface_pairs, 1):
+        logger.info("=" * 80)
+        logger.info(
+            "*** Iter-{}: Testing interfaces {} and {} ***".format(i, intf1, intf2)
+        )
+        logger.info("=" * 80)
+
+        # Bring interfaces down
+        logger.info("=" * 80)
+        logger.info("*** Testing DOWN: Interfaces {} and {} ***".format(intf1, intf2))
+        logger.info("=" * 80)
+        router.cmd("ip link set {} down".format(intf1))
+        router.cmd("ip link set {} down".format(intf2))
+        sleep(2)
+
+        def _check_nhg_inactive_nexthops_for_pair():
+            all_nhgs_output = router.vtysh_cmd("show nexthop-group rib")
+            nhg_ids = re.findall(r"ID: (\d+)", all_nhgs_output)
+
+            # Get all IPs on the interfaces
+            intf1_ips = []
+            intf2_ips = []
+
+            # Get IPs for intf1
+            intf1_output = router.cmd("ip addr show {}".format(intf1))
+            for line in intf1_output.split("\n"):
+                if "inet " in line and not "127.0.0.1" in line:
+                    ip_match = re.search(r"inet (\d+\.\d+\.\d+\.\d+)", line)
+                    if ip_match:
+                        intf1_ips.append(ip_match.group(1))
+
+            # Get IPs for intf2
+            intf2_output = router.cmd("ip addr show {}".format(intf2))
+            for line in intf2_output.split("\n"):
+                if "inet " in line and not "127.0.0.1" in line:
+                    ip_match = re.search(r"inet (\d+\.\d+\.\d+\.\d+)", line)
+                    if ip_match:
+                        intf2_ips.append(ip_match.group(1))
+
+            all_target_ips = intf1_ips + intf2_ips
+            logger.info(
+                "Found interface IPs using {} and {}: {}".format(
+                    intf1, intf2, sorted(all_target_ips)
+                )
+            )
+
+            affected_nhgs = []
+            validation_errors = []
+            total_affected_nexthops = 0
+
+            for nhg_id in nhg_ids:
+                nhg_detail = router.vtysh_cmd(
+                    "show nexthop-group rib {}".format(nhg_id)
+                )
+
+                if "Time to Deletion:" in nhg_detail:
+                    continue
+
+                # Parse NHG details
+                lines = nhg_detail.split("\n")
+                dependents = []
+                depends = []
+                affected_nexthops = []
+                all_nexthops = []
+                nhg_valid = False
+
+                for line in lines:
+                    if "Dependents:" in line:
+                        deps_match = re.findall(r"\((\d+)\)", line)
+                        dependents = deps_match
+                    elif "Depends:" in line:
+                        deps_match = re.findall(r"\((\d+)\)", line)
+                        depends = deps_match
+                    elif "Valid" in line and "ID:" not in line:
+                        nhg_valid = True
+                    elif "via" in line and line.strip().startswith("via"):
+                        all_nexthops.append(line.strip())
+
+                        should_be_inactive = False
+
+                        # Check if nexthop uses either interface directly
+                        if intf1 in line or intf2 in line:
+                            should_be_inactive = True
+                        else:
+                            # Check if nexthop uses IPs on either interface (recursive)
+                            for ip in all_target_ips:
+                                if "via {}".format(ip) in line:
+                                    should_be_inactive = True
+                                    break
+
+                        if should_be_inactive:
+                            affected_nexthops.append(line.strip())
+                            total_affected_nexthops += 1
+                            if (
+                                intf1 in line or intf2 in line
+                            ) and "inactive" not in line:
+                                validation_errors.append(
+                                    "NHG {}: direct nexthop using DOWN interfaces {} or {} should be inactive: {}".format(
+                                        nhg_id, intf1, intf2, line.strip()
+                                    )
+                                )
+
+                if affected_nexthops:
+                    status = "Valid" if nhg_valid else "Invalid"
+                    dep_str = ",".join(dependents) if dependents else "None"
+                    depends_str = ",".join(depends) if depends else "None"
+                    affected_nhgs.append(
+                        {
+                            "id": nhg_id,
+                            "status": status,
+                            "dependents": dep_str,
+                            "depends": depends_str,
+                            "affected_nexthops": affected_nexthops,
+                            "all_nexthops": all_nexthops,
+                        }
+                    )
+
+            # Log results
+            if affected_nhgs:
+                logger.info(
+                    "Found {} NHGs with {} total nexthops affected by {} and {}:".format(
+                        len(affected_nhgs), total_affected_nexthops, intf1, intf2
+                    )
+                )
+                for nhg in affected_nhgs:
+                    logger.info(
+                        "  NHG {} ({}) - {} total nexthop(s), {} affected by {} and {}, dependents: {} ({}), depends: {} ({})".format(
+                            nhg["id"],
+                            nhg["status"],
+                            len(nhg["all_nexthops"]),
+                            len(nhg["affected_nexthops"]),
+                            intf1,
+                            intf2,
+                            nhg["dependents"],
+                            len(nhg["dependents"].split(","))
+                            if nhg["dependents"] != "None"
+                            else 0,
+                            nhg["depends"],
+                            len(nhg["depends"].split(","))
+                            if nhg["depends"] != "None"
+                            else 0,
+                        )
+                    )
+                    logger.info("    All nexthops:")
+                    for nh in nhg["all_nexthops"]:
+                        if nh in nhg["affected_nexthops"]:
+                            state = (
+                                "✓ INACTIVE"
+                                if "inactive" in nh
+                                else "✗ ACTIVE (ERROR!)"
+                            )
+                            logger.info(
+                                "      {} {} [AFFECTED BY {} OR {}]".format(
+                                    state, nh, intf1.upper(), intf2.upper()
+                                )
+                            )
+                        else:
+                            state = "○ INACTIVE" if "inactive" in nh else "○ ACTIVE"
+                            logger.info("      {} {}".format(state, nh))
+            else:
+                logger.info("No NHGs found affected by {} and {}".format(intf1, intf2))
+
+            if validation_errors:
+                logger.error(
+                    "VALIDATION FAILURES when {} and {} are DOWN:".format(intf1, intf2)
+                )
+                for error in validation_errors:
+                    logger.error("  {}".format(error))
+                return False
+
+            logger.info(
+                "✓ All nexthops affected by {} and {} DOWN are correctly marked inactive".format(
+                    intf1, intf2
+                )
+            )
+            return True
+
+        _, result = topotest.run_and_expect(
+            _check_nhg_inactive_nexthops_for_pair, True, count=30, wait=1
+        )
+        if not result:
+            all_nhgs_output = router.vtysh_cmd("show nexthop-group rib")
+            assert (
+                False
+            ), "Expected nexthops using {} and {} to be marked inactive when interfaces are down. NHG output:\n{}".format(
+                intf1, intf2, all_nhgs_output
+            )
+
+        # Bring interfaces up
+        logger.info("=" * 80)
+        logger.info("*** Testing UP: Interfaces {} and {} ***".format(intf1, intf2))
+        logger.info("=" * 80)
+        router.cmd("ip link set {} up".format(intf1))
+        router.cmd("ip link set {} up".format(intf2))
+        sleep(3)
+
+        def _check_nhg_active_nexthops_for_pair():
+            all_nhgs_output = router.vtysh_cmd("show nexthop-group rib")
+            nhg_ids = re.findall(r"ID: (\d+)", all_nhgs_output)
+
+            # Get all IPs on the interfaces
+            intf1_ips = []
+            intf2_ips = []
+
+            # Get IPs for intf1
+            intf1_output = router.cmd("ip addr show {}".format(intf1))
+            for line in intf1_output.split("\n"):
+                if "inet " in line and not "127.0.0.1" in line:
+                    ip_match = re.search(r"inet (\d+\.\d+\.\d+\.\d+)", line)
+                    if ip_match:
+                        intf1_ips.append(ip_match.group(1))
+
+            # Get IPs for intf2
+            intf2_output = router.cmd("ip addr show {}".format(intf2))
+            for line in intf2_output.split("\n"):
+                if "inet " in line and not "127.0.0.1" in line:
+                    ip_match = re.search(r"inet (\d+\.\d+\.\d+\.\d+)", line)
+                    if ip_match:
+                        intf2_ips.append(ip_match.group(1))
+
+            all_target_ips = intf1_ips + intf2_ips
+            logger.info(
+                "Found interface IPs using {} and {}: {}".format(
+                    intf1, intf2, sorted(all_target_ips)
+                )
+            )
+
+            affected_nhgs = []
+            validation_errors = []
+            total_affected_nexthops = 0
+
+            for nhg_id in nhg_ids:
+                nhg_detail = router.vtysh_cmd(
+                    "show nexthop-group rib {}".format(nhg_id)
+                )
+
+                if "Time to Deletion:" in nhg_detail:
+                    continue
+
+                # Parse NHG details
+                lines = nhg_detail.split("\n")
+                dependents = []
+                depends = []
+                affected_nexthops = []
+                all_nexthops = []
+                nhg_valid = False
+
+                for line in lines:
+                    if "Dependents:" in line:
+                        deps_match = re.findall(r"\((\d+)\)", line)
+                        dependents = deps_match
+                    elif "Depends:" in line:
+                        deps_match = re.findall(r"\((\d+)\)", line)
+                        depends = deps_match
+                    elif "Valid" in line and "ID:" not in line:
+                        nhg_valid = True
+                    elif "via" in line and line.strip().startswith("via"):
+                        all_nexthops.append(line.strip())
+
+                        should_be_active = False
+
+                        # Check if nexthop uses either interface directly
+                        if intf1 in line or intf2 in line:
+                            should_be_active = True
+                        else:
+                            # Check if nexthop uses IPs on either interface (recursive)
+                            for ip in all_target_ips:
+                                if "via {}".format(ip) in line:
+                                    should_be_active = True
+                                    break
+
+                        if should_be_active:
+                            affected_nexthops.append(line.strip())
+                            total_affected_nexthops += 1
+                            if (intf1 in line or intf2 in line) and "inactive" in line:
+                                validation_errors.append(
+                                    "NHG {}: direct nexthop using UP interfaces {} or {} should be active: {}".format(
+                                        nhg_id, intf1, intf2, line.strip()
+                                    )
+                                )
+
+                if affected_nexthops:
+                    status = "Valid" if nhg_valid else "Invalid"
+                    dep_str = ",".join(dependents) if dependents else "None"
+                    depends_str = ",".join(depends) if depends else "None"
+                    affected_nhgs.append(
+                        {
+                            "id": nhg_id,
+                            "status": status,
+                            "dependents": dep_str,
+                            "depends": depends_str,
+                            "affected_nexthops": affected_nexthops,
+                            "all_nexthops": all_nexthops,
+                        }
+                    )
+
+            # Log results
+            if affected_nhgs:
+                logger.info(
+                    "Found {} NHGs with {} total nexthops affected by {} and {}:".format(
+                        len(affected_nhgs), total_affected_nexthops, intf1, intf2
+                    )
+                )
+                for nhg in affected_nhgs:
+                    logger.info(
+                        "  NHG {} ({}) - {} total nexthop(s), {} affected by {} and {}, dependents: {} ({}), depends: {} ({})".format(
+                            nhg["id"],
+                            nhg["status"],
+                            len(nhg["all_nexthops"]),
+                            len(nhg["affected_nexthops"]),
+                            intf1,
+                            intf2,
+                            nhg["dependents"],
+                            len(nhg["dependents"].split(","))
+                            if nhg["dependents"] != "None"
+                            else 0,
+                            nhg["depends"],
+                            len(nhg["depends"].split(","))
+                            if nhg["depends"] != "None"
+                            else 0,
+                        )
+                    )
+                    logger.info("    All nexthops:")
+                    for nh in nhg["all_nexthops"]:
+                        if nh in nhg["affected_nexthops"]:
+                            state = (
+                                "✓ ACTIVE"
+                                if "inactive" not in nh
+                                else "✗ INACTIVE (ERROR!)"
+                            )
+                            logger.info(
+                                "      {} {} [AFFECTED BY {} OR {}]".format(
+                                    state, nh, intf1.upper(), intf2.upper()
+                                )
+                            )
+                        else:
+                            state = "○ INACTIVE" if "inactive" in nh else "○ ACTIVE"
+                            logger.info("      {} {}".format(state, nh))
+            else:
+                logger.info("No NHGs found affected by {} and {}".format(intf1, intf2))
+
+            if validation_errors:
+                logger.error(
+                    "VALIDATION FAILURES when {} and {} are UP:".format(intf1, intf2)
+                )
+                for error in validation_errors:
+                    logger.error("  {}".format(error))
+                return False
+
+            logger.info(
+                "✓ All nexthops affected by {} and {} UP are correctly marked active".format(
+                    intf1, intf2
+                )
+            )
+            return True
+
+        _, result = topotest.run_and_expect(
+            _check_nhg_active_nexthops_for_pair, True, count=30, wait=1
+        )
+        if not result:
+            all_nhgs_output = router.vtysh_cmd("show nexthop-group rib")
+            assert (
+                False
+            ), "Expected nexthops using {} and {} to be marked active when interfaces are up. NHG output:\n{}".format(
+                intf1, intf2, all_nhgs_output
+            )
+
+        logger.info(
+            "Iter-{}: {} and {} test completed successfully".format(i, intf1, intf2)
+        )
+
     ## Validate NHG's installed in kernel has same nexthops with Interface flaps
-    pre_out = net["r1"].cmd('ip route show | grep "5.5.5.1"')
+    logger.info("=" * 80)
+    logger.info(
+        "*** NHG's installed in kernel has same nexthops with Interface flaps ***"
+    )
+    logger.info("=" * 80)
+    pre_out = router.cmd('ip route show | grep "5.5.5.1"')
     pre_nhg = re.search(r"nhid\s+(\d+)", pre_out)
-    pre_nh_show = net["r1"].cmd("ip next show id {}".format(pre_nhg.group(1)))
+    pre_nh_show = router.cmd("ip next show id {}".format(pre_nhg.group(1)))
     pre_total_nhs = len((re.search(r"group ([\d/]+)", pre_nh_show)).group(1).split("/"))
 
-    net["r1"].cmd(
+    router.cmd(
         "ip link set r1-eth1 down;ip link set r1-eth2 down;ip link set r1-eth3 down;ip link set r1-eth4 down"
     )
     sleep(1)
-    net["r1"].cmd(
+    router.cmd(
         "ip link set r1-eth1 up;ip link set r1-eth2 up;ip link set r1-eth3 up;ip link set r1-eth4 up"
     )
-    sleep(5)
 
-    post_out = net["r1"].cmd('ip route show | grep "5.5.5.1"')
-    post_nhg = re.search(r"nhid\s+(\d+)", post_out)
-    post_nh_show = net["r1"].cmd("ip next show id {}".format(post_nhg.group(1)))
-    post_total_nhs = len(
-        (re.search(r"group ([\d/]+)", post_nh_show)).group(1).split("/")
+    def _check_nexthops_stable():
+        post_out = router.cmd('ip route show | grep "5.5.5.1"')
+        if not post_out:
+            return False
+        post_nhg = re.search(r"nhid\s+(\d+)", post_out)
+        if not post_nhg:
+            return False
+        post_nh_show = router.cmd("ip next show id {}".format(post_nhg.group(1)))
+        post_total_nhs = len(
+            (re.search(r"group ([\d/]+)", post_nh_show)).group(1).split("/")
+        )
+        return post_total_nhs == pre_total_nhs
+
+    _, result = topotest.run_and_expect(_check_nexthops_stable, True, count=30, wait=1)
+    if not result:
+        post_out = router.cmd('ip route show | grep "5.5.5.1"')
+        post_nhg = re.search(r"nhid\s+(\d+)", post_out)
+        post_nh_show = router.cmd("ip next show id {}".format(post_nhg.group(1)))
+        post_total_nhs = len(
+            (re.search(r"group ([\d/]+)", post_nh_show)).group(1).split("/")
+        )
+
+        assert (
+            False
+        ), "Expected same nexthops(pre-{}: post-{}) in NHG (pre-{}:post-{}) after few Interface flaps".format(
+            pre_total_nhs, post_total_nhs, pre_nhg.group(1), post_nhg.group(1)
+        )
+
+    ## Validate route re-install post nexthop delete an ID
+    logger.info("=" * 80)
+    logger.info("*** Validate route re-install post nexthop delete an ID ***")
+    logger.info("=" * 80)
+    nhg_id = route_get_nhg_id("6.6.6.1/32")
+    pre_output = router.cmd(
+        'vtysh -c "show nexthop-group rib {} routes"'.format(nhg_id)
     )
+    post_out = router.cmd("ip nexthop del id {}".format(nhg_id))
 
-    assert (
-        post_total_nhs == pre_total_nhs
-    ), "Expected same nexthops(pre-{}: post-{}) in NHG (pre-{}:post-{}) after few Interface flaps".format(
-        pre_total_nhs, post_total_nhs, pre_nhg.group(1), post_nhg.group(1)
+    def _check_nhg_routes():
+        post_output = router.cmd(
+            'vtysh -c "show nexthop-group rib {} routes"'.format(nhg_id)
+        )
+        return post_output == pre_output
+
+    _, result = topotest.run_and_expect(_check_nhg_routes, True, count=30, wait=1)
+    if not result:
+        post_output = router.cmd(
+            'vtysh -c "show nexthop-group rib {} routes"'.format(nhg_id)
+        )
+        assert (
+            False
+        ), "Expected same pre and post routes after nhg {} delete from kernel\nPre:\n{}\nPost:\n{}".format(
+            nhg_id, pre_output, post_output
+        )
+
+    # Iter 5: All interfaces down
+    logger.info("=" * 80)
+    logger.info("*** Iter-5: Testing ALL interfaces down ***")
+    logger.info("=" * 80)
+    all_interfaces = [
+        "r1-eth1",
+        "r1-eth2",
+        "r1-eth3",
+        "r1-eth4",
+        "r1-eth5",
+        "r1-eth6",
+        "r1-eth7",
+        "r1-eth8",
+    ]
+
+    # Bring all interfaces down
+    for intf in all_interfaces:
+        router.cmd("ip link set {} down".format(intf))
+    sleep(2)
+
+    def _check_nhg_inactive_nexthops_for_all_interfaces():
+        all_nhgs_output = router.vtysh_cmd("show nexthop-group rib")
+        nhg_ids = re.findall(r"ID: (\d+)", all_nhgs_output)
+
+        # Get all IPs on all interfaces
+        all_target_ips = []
+        for intf in all_interfaces:
+            intf_output = router.cmd("ip addr show {}".format(intf))
+            for line in intf_output.split("\n"):
+                if "inet " in line and not "127.0.0.1" in line:
+                    ip_match = re.search(r"inet (\d+\.\d+\.\d+\.\d+)", line)
+                    if ip_match:
+                        all_target_ips.append(ip_match.group(1))
+
+        logger.info(
+            "Found interface IPs on ALL interfaces: {}".format(sorted(all_target_ips))
+        )
+
+        affected_nhgs = []
+        validation_errors = []
+        total_affected_nexthops = 0
+
+        for nhg_id in nhg_ids:
+            nhg_detail = router.vtysh_cmd("show nexthop-group rib {}".format(nhg_id))
+
+            if "Time to Deletion:" in nhg_detail:
+                continue
+
+            # Parse NHG details
+            lines = nhg_detail.split("\n")
+            dependents = []
+            depends = []
+            affected_nexthops = []
+            all_nexthops = []
+            nhg_valid = False
+
+            for line in lines:
+                if "Dependents:" in line:
+                    deps_match = re.findall(r"\((\d+)\)", line)
+                    dependents = deps_match
+                elif "Depends:" in line:
+                    deps_match = re.findall(r"\((\d+)\)", line)
+                    depends = deps_match
+                elif "Valid" in line and "ID:" not in line:
+                    nhg_valid = True
+                elif "via" in line and line.strip().startswith("via"):
+                    all_nexthops.append(line.strip())
+
+                    should_be_inactive = False
+
+                    # Check if nexthop uses any interface directly
+                    for intf in all_interfaces:
+                        if intf in line:
+                            should_be_inactive = True
+                            break
+
+                    if not should_be_inactive:
+                        # Check if nexthop uses IPs on any interface (recursive)
+                        for ip in all_target_ips:
+                            if "via {}".format(ip) in line:
+                                should_be_inactive = True
+                                break
+
+                    if should_be_inactive:
+                        affected_nexthops.append(line.strip())
+                        total_affected_nexthops += 1
+                        # Check if direct nexthop should be inactive
+                        is_direct = any(intf in line for intf in all_interfaces)
+                        if is_direct and "inactive" not in line:
+                            validation_errors.append(
+                                "NHG {}: direct nexthop using DOWN interfaces should be inactive: {}".format(
+                                    nhg_id, line.strip()
+                                )
+                            )
+
+            if affected_nexthops:
+                status = "Valid" if nhg_valid else "Invalid"
+                dep_str = ",".join(dependents) if dependents else "None"
+                depends_str = ",".join(depends) if depends else "None"
+                affected_nhgs.append(
+                    {
+                        "id": nhg_id,
+                        "status": status,
+                        "dependents": dep_str,
+                        "depends": depends_str,
+                        "affected_nexthops": affected_nexthops,
+                        "all_nexthops": all_nexthops,
+                    }
+                )
+
+        # Log results
+        if affected_nhgs:
+            logger.info(
+                "Found {} NHGs with {} total nexthops affected by ALL DOWN interfaces:".format(
+                    len(affected_nhgs), total_affected_nexthops
+                )
+            )
+            for nhg in affected_nhgs:
+                logger.info(
+                    "  NHG {} ({}) - {} total nexthop(s), {} affected by ALL interfaces, dependents: {} ({}), depends: {} ({})".format(
+                        nhg["id"],
+                        nhg["status"],
+                        len(nhg["all_nexthops"]),
+                        len(nhg["affected_nexthops"]),
+                        nhg["dependents"],
+                        len(nhg["dependents"].split(","))
+                        if nhg["dependents"] != "None"
+                        else 0,
+                        nhg["depends"],
+                        len(nhg["depends"].split(","))
+                        if nhg["depends"] != "None"
+                        else 0,
+                    )
+                )
+                logger.info("    All nexthops:")
+                for nh in nhg["all_nexthops"]:
+                    if nh in nhg["affected_nexthops"]:
+                        state = (
+                            "✓ INACTIVE" if "inactive" in nh else "✗ ACTIVE (ERROR!)"
+                        )
+                        logger.info(
+                            "      {} {} [AFFECTED BY ALL INTERFACES]".format(state, nh)
+                        )
+                    else:
+                        state = "○ INACTIVE" if "inactive" in nh else "○ ACTIVE"
+                        logger.info("      {} {}".format(state, nh))
+        else:
+            logger.info("No NHGs found affected by ALL interfaces")
+
+        if validation_errors:
+            logger.error("VALIDATION FAILURES when ALL interfaces are DOWN:")
+            for error in validation_errors:
+                logger.error("  {}".format(error))
+            return False
+
+        logger.info(
+            "✓ All nexthops affected by ALL DOWN interfaces are correctly marked inactive"
+        )
+        return True
+
+    _, result = topotest.run_and_expect(
+        _check_nhg_inactive_nexthops_for_all_interfaces, True, count=30, wait=1
     )
+    if not result:
+        all_nhgs_output = router.vtysh_cmd("show nexthop-group rib")
+        assert (
+            False
+        ), "Expected all nexthops to be marked inactive when ALL interfaces are down. NHG output:\n{}".format(
+            all_nhgs_output
+        )
 
+    # Bring all interfaces up
+    for intf in all_interfaces:
+        router.cmd("ip link set {} up".format(intf))
+    sleep(2)
+
+    def _check_nhg_active_nexthops_for_all_interfaces():
+        all_nhgs_output = router.vtysh_cmd("show nexthop-group rib")
+        nhg_ids = re.findall(r"ID: (\d+)", all_nhgs_output)
+
+        # Get all IPs on all interfaces
+        all_target_ips = []
+        for intf in all_interfaces:
+            intf_output = router.cmd("ip addr show {}".format(intf))
+            for line in intf_output.split("\n"):
+                if "inet " in line and not "127.0.0.1" in line:
+                    ip_match = re.search(r"inet (\d+\.\d+\.\d+\.\d+)", line)
+                    if ip_match:
+                        all_target_ips.append(ip_match.group(1))
+
+        logger.info(
+            "Found interface IPs on ALL interfaces: {}".format(sorted(all_target_ips))
+        )
+
+        affected_nhgs = []
+        validation_errors = []
+        total_affected_nexthops = 0
+
+        for nhg_id in nhg_ids:
+            nhg_detail = router.vtysh_cmd("show nexthop-group rib {}".format(nhg_id))
+
+            if "Time to Deletion:" in nhg_detail:
+                continue
+
+            # Parse NHG details
+            lines = nhg_detail.split("\n")
+            dependents = []
+            depends = []
+            affected_nexthops = []
+            all_nexthops = []
+            nhg_valid = False
+
+            for line in lines:
+                if "Dependents:" in line:
+                    deps_match = re.findall(r"\((\d+)\)", line)
+                    dependents = deps_match
+                elif "Depends:" in line:
+                    deps_match = re.findall(r"\((\d+)\)", line)
+                    depends = deps_match
+                elif "Valid" in line and "ID:" not in line:
+                    nhg_valid = True
+                elif "via" in line and line.strip().startswith("via"):
+                    all_nexthops.append(line.strip())
+
+                    should_be_active = False
+
+                    # Check if nexthop uses any interface directly
+                    for intf in all_interfaces:
+                        if intf in line:
+                            should_be_active = True
+                            break
+
+                    if not should_be_active:
+                        # Check if nexthop uses IPs on any interface (recursive)
+                        for ip in all_target_ips:
+                            if "via {}".format(ip) in line:
+                                should_be_active = True
+                                break
+
+                    if should_be_active:
+                        affected_nexthops.append(line.strip())
+                        total_affected_nexthops += 1
+                        # Check if direct nexthop should be active
+                        is_direct = any(intf in line for intf in all_interfaces)
+                        if is_direct and "inactive" in line:
+                            validation_errors.append(
+                                "NHG {}: direct nexthop using UP interfaces should be active: {}".format(
+                                    nhg_id, line.strip()
+                                )
+                            )
+
+            if affected_nexthops:
+                status = "Valid" if nhg_valid else "Invalid"
+                dep_str = ",".join(dependents) if dependents else "None"
+                depends_str = ",".join(depends) if depends else "None"
+                affected_nhgs.append(
+                    {
+                        "id": nhg_id,
+                        "status": status,
+                        "dependents": dep_str,
+                        "depends": depends_str,
+                        "affected_nexthops": affected_nexthops,
+                        "all_nexthops": all_nexthops,
+                    }
+                )
+
+        # Log results
+        if affected_nhgs:
+            logger.info(
+                "Found {} NHGs with {} total nexthops affected by ALL UP interfaces:".format(
+                    len(affected_nhgs), total_affected_nexthops
+                )
+            )
+            for nhg in affected_nhgs:
+                logger.info(
+                    "  NHG {} ({}) - {} total nexthop(s), {} affected by ALL interfaces, dependents: {} ({}), depends: {} ({})".format(
+                        nhg["id"],
+                        nhg["status"],
+                        len(nhg["all_nexthops"]),
+                        len(nhg["affected_nexthops"]),
+                        nhg["dependents"],
+                        len(nhg["dependents"].split(","))
+                        if nhg["dependents"] != "None"
+                        else 0,
+                        nhg["depends"],
+                        len(nhg["depends"].split(","))
+                        if nhg["depends"] != "None"
+                        else 0,
+                    )
+                )
+                logger.info("    All nexthops:")
+                for nh in nhg["all_nexthops"]:
+                    if nh in nhg["affected_nexthops"]:
+                        state = (
+                            "✓ ACTIVE"
+                            if "inactive" not in nh
+                            else "✗ INACTIVE (ERROR!)"
+                        )
+                        logger.info(
+                            "      {} {} [AFFECTED BY ALL INTERFACES]".format(state, nh)
+                        )
+                    else:
+                        state = "○ INACTIVE" if "inactive" in nh else "○ ACTIVE"
+                        logger.info("      {} {}".format(state, nh))
+        else:
+            logger.info("No NHGs found affected by ALL interfaces")
+
+        if validation_errors:
+            logger.error("VALIDATION FAILURES when ALL interfaces are UP:")
+            for error in validation_errors:
+                logger.error("  {}".format(error))
+            return False
+
+        logger.info(
+            "✓ All nexthops affected by ALL UP interfaces are correctly marked active"
+        )
+        return True
+
+    _, result = topotest.run_and_expect(
+        _check_nhg_active_nexthops_for_all_interfaces, True, count=30, wait=1
+    )
+    if not result:
+        all_nhgs_output = router.vtysh_cmd("show nexthop-group rib")
+        assert (
+            False
+        ), "Expected all nexthops to be marked active when ALL interfaces are up. NHG output:\n{}".format(
+            all_nhgs_output
+        )
+
+    logger.info("Iter-5: ALL interfaces test completed successfully")
+
+    router.vtysh_cmd("configure\nno zebra nexthop-group keep 1")
+
+    logger.info("Removing all sharp routes")
     ## Remove all NHG routes
-
-    net["r1"].cmd('vtysh -c "sharp remove routes 2.2.2.1 1"')
-    net["r1"].cmd('vtysh -c "sharp remove routes 2.2.2.2 1"')
-    net["r1"].cmd('vtysh -c "sharp remove routes 3.3.3.1 1"')
-    net["r1"].cmd('vtysh -c "sharp remove routes 3.3.3.2 1"')
-    net["r1"].cmd('vtysh -c "sharp remove routes 4.4.4.1 1"')
-    net["r1"].cmd('vtysh -c "sharp remove routes 4.4.4.2 1"')
-    net["r1"].cmd('vtysh -c "sharp remove routes 5.5.5.1 1"')
-    net["r1"].cmd('vtysh -c "sharp remove routes 6.6.6.1 4"')
-    net["r1"].cmd('vtysh -c "c t" -c "no ip route 6.6.6.0/24 1.1.1.1"')
+    router.cmd('vtysh -c "sharp remove routes 2.2.2.1 1"')
+    router.cmd('vtysh -c "sharp remove routes 2.2.2.2 1"')
+    router.cmd('vtysh -c "sharp remove routes 3.3.3.1 1"')
+    router.cmd('vtysh -c "sharp remove routes 3.3.3.2 1"')
+    router.cmd('vtysh -c "sharp remove routes 4.4.4.1 1"')
+    router.cmd('vtysh -c "sharp remove routes 4.4.4.2 1"')
+    router.cmd('vtysh -c "sharp remove routes 5.5.5.1 1"')
+    router.cmd('vtysh -c "sharp remove routes 6.6.6.1 4"')
 
 
 def test_rip_status():
@@ -717,41 +1923,70 @@ def test_rip_status():
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
-            # Actual output from router
-            actual = (
-                net["r{}".format(i)]
-                .cmd('vtysh -c "show ip rip status" 2> /dev/null')
-                .rstrip()
-            )
-            # Drop time in next due
-            actual = re.sub(r"in [0-9]+ seconds", "in XX seconds", actual)
-            # Drop time in last update
-            actual = re.sub(r" [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", " XX:XX:XX", actual)
-            # Drop trailing whitespaces for each line
-            actual = "\n".join(line.rstrip() for line in actual.splitlines())
-            # Fix newlines (make them all the same)
-            actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+            def _check_rip_status():
+                # Actual output from router
+                actual = (
+                    net["r{}".format(i)]
+                    .cmd('vtysh -c "show ip rip status" 2> /dev/null')
+                    .rstrip()
+                )
+                # Drop time in next due
+                actual = re.sub(r"in [0-9]+ seconds", "in XX seconds", actual)
+                # Drop time in last update
+                actual = re.sub(
+                    r" [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", " XX:XX:XX", actual
+                )
+                # Drop trailing whitespaces for each line
+                actual = "\n".join(line.rstrip() for line in actual.splitlines())
+                # Fix newlines (make them all the same)
+                actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
 
-            # Generate Diff
-            diff = topotest.get_textdiff(
-                actual,
-                expected,
-                title1="actual IP RIP status",
-                title2="expected IP RIP status",
-            )
+                # Generate Diff
+                diff = topotest.get_textdiff(
+                    actual,
+                    expected,
+                    title1="actual IP RIP status",
+                    title2="expected IP RIP status",
+                )
 
-            # Empty string if it matches, otherwise diff contains unified diff
-            if diff:
+                if diff:
+                    return False
+                return True
+
+            # Try for 30 seconds with 1 second intervals
+            _, result = topotest.run_and_expect(
+                _check_rip_status, True, count=30, wait=1
+            )
+            if not result:
+                actual = (
+                    net["r{}".format(i)]
+                    .cmd('vtysh -c "show ip rip status" 2> /dev/null')
+                    .rstrip()
+                )
+                actual = re.sub(r"in [0-9]+ seconds", "in XX seconds", actual)
+                actual = re.sub(
+                    r" [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", " XX:XX:XX", actual
+                )
+                actual = "\n".join(line.rstrip() for line in actual.splitlines())
+                actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+                diff = topotest.get_textdiff(
+                    actual,
+                    expected,
+                    title1="actual IP RIP status",
+                    title2="expected IP RIP status",
+                )
                 sys.stderr.write(
-                    "r{} failed IP RIP status check:\n{}\n".format(i, diff)
+                    "r{} failed IP RIP status check after retries:\n{}\n".format(
+                        i, diff
+                    )
                 )
                 failures += 1
             else:
                 print("r{} ok".format(i))
 
-            assert failures == 0, "IP RIP status failed for router r{}:\n{}".format(
-                i, diff
-            )
+            assert (
+                failures == 0
+            ), "IP RIP status failed for router r{} after retries".format(i)
 
     # Make sure that all daemons are running
     for i in range(1, 2):
@@ -783,43 +2018,77 @@ def test_ripng_status():
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
-            # Actual output from router
-            actual = (
-                net["r{}".format(i)]
-                .cmd('vtysh -c "show ipv6 ripng status" 2> /dev/null')
-                .rstrip()
-            )
-            # Mask out Link-Local mac address portion. They are random...
-            actual = re.sub(r" fe80::[0-9a-f:]+", " fe80::XXXX:XXXX:XXXX:XXXX", actual)
-            # Drop time in next due
-            actual = re.sub(r"in [0-9]+ seconds", "in XX seconds", actual)
-            # Drop time in last update
-            actual = re.sub(r" [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", " XX:XX:XX", actual)
-            # Drop trailing whitespaces for each line
-            actual = "\n".join(line.rstrip() for line in actual.splitlines())
-            # Fix newlines (make them all the same)
-            actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+            def _check_ripng_status():
+                # Actual output from router
+                actual = (
+                    net["r{}".format(i)]
+                    .cmd('vtysh -c "show ipv6 ripng status" 2> /dev/null')
+                    .rstrip()
+                )
+                # Mask out Link-Local mac address portion. They are random...
+                actual = re.sub(
+                    r" fe80::[0-9a-f:]+", " fe80::XXXX:XXXX:XXXX:XXXX", actual
+                )
+                # Drop time in next due
+                actual = re.sub(r"in [0-9]+ seconds", "in XX seconds", actual)
+                # Drop time in last update
+                actual = re.sub(
+                    r" [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", " XX:XX:XX", actual
+                )
+                # Drop trailing whitespaces for each line
+                actual = "\n".join(line.rstrip() for line in actual.splitlines())
+                # Fix newlines (make them all the same)
+                actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
 
-            # Generate Diff
-            diff = topotest.get_textdiff(
-                actual,
-                expected,
-                title1="actual IPv6 RIPng status",
-                title2="expected IPv6 RIPng status",
-            )
+                # Generate Diff
+                diff = topotest.get_textdiff(
+                    actual,
+                    expected,
+                    title1="actual IPv6 RIPng status",
+                    title2="expected IPv6 RIPng status",
+                )
 
-            # Empty string if it matches, otherwise diff contains unified diff
-            if diff:
+                if diff:
+                    return False
+                return True
+
+            # Try for 30 seconds with 1 second intervals
+            _, result = topotest.run_and_expect(
+                _check_ripng_status, True, count=30, wait=1
+            )
+            if not result:
+                actual = (
+                    net["r{}".format(i)]
+                    .cmd('vtysh -c "show ipv6 ripng status" 2> /dev/null')
+                    .rstrip()
+                )
+                actual = re.sub(
+                    r" fe80::[0-9a-f:]+", " fe80::XXXX:XXXX:XXXX:XXXX", actual
+                )
+                actual = re.sub(r"in [0-9]+ seconds", "in XX seconds", actual)
+                actual = re.sub(
+                    r" [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", " XX:XX:XX", actual
+                )
+                actual = "\n".join(line.rstrip() for line in actual.splitlines())
+                actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+                diff = topotest.get_textdiff(
+                    actual,
+                    expected,
+                    title1="actual IPv6 RIPng status",
+                    title2="expected IPv6 RIPng status",
+                )
                 sys.stderr.write(
-                    "r{} failed IPv6 RIPng status check:\n{}\n".format(i, diff)
+                    "r{} failed IPv6 RIPng status check after retries:\n{}\n".format(
+                        i, diff
+                    )
                 )
                 failures += 1
             else:
                 print("r{} ok".format(i))
 
-            assert failures == 0, "IPv6 RIPng status failed for router r{}:\n{}".format(
-                i, diff
-            )
+            assert (
+                failures == 0
+            ), "IPv6 RIPng status failed for router r{} after retries".format(i)
 
     # Make sure that all daemons are running
     for i in range(1, 2):
@@ -849,42 +2118,79 @@ def test_ospfv2_interfaces():
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
-            # Actual output from router
-            actual = (
-                net["r{}".format(i)]
-                .cmd('vtysh -c "show ip ospf interface" 2> /dev/null')
-                .rstrip()
-            )
-            # Mask out Bandwidth portion. They may change..
-            actual = re.sub(r"BW [0-9]+ Mbit", "BW XX Mbit", actual)
-            actual = re.sub(r"ifindex [0-9]+", "ifindex X", actual)
+            def _check_ospf_interfaces():
+                # Actual output from router
+                actual = (
+                    net["r{}".format(i)]
+                    .cmd('vtysh -c "show ip ospf interface" 2> /dev/null')
+                    .rstrip()
+                )
+                # Mask out Bandwidth portion. They may change..
+                actual = re.sub(r"BW [0-9]+ Mbit", "BW XX Mbit", actual)
+                actual = re.sub(r"ifindex [0-9]+", "ifindex X", actual)
 
-            # Drop time in next due
-            actual = re.sub(r"Hello due in [0-9\.]+s", "Hello due in XX.XXXs", actual)
-            actual = re.sub(
-                r"Hello due in [0-9\.]+ usecs", "Hello due in XX.XXXs", actual
-            )
-            # Fix 'MTU mismatch detection: enabled' vs 'MTU mismatch detection:enabled' - accept both
-            actual = re.sub(
-                r"MTU mismatch detection:([a-z]+.*)",
-                r"MTU mismatch detection: \1",
-                actual,
-            )
-            # Fix newlines (make them all the same)
-            actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+                # Drop time in next due
+                actual = re.sub(
+                    r"Hello due in [0-9\.]+s", "Hello due in XX.XXXs", actual
+                )
+                actual = re.sub(
+                    r"Hello due in [0-9\.]+ usecs", "Hello due in XX.XXXs", actual
+                )
+                # Fix 'MTU mismatch detection: enabled' vs 'MTU mismatch detection:enabled' - accept both
+                actual = re.sub(
+                    r"MTU mismatch detection:([a-z]+.*)",
+                    r"MTU mismatch detection: \1",
+                    actual,
+                )
+                # Fix newlines (make them all the same)
+                actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
 
-            # Generate Diff
-            diff = topotest.get_textdiff(
-                actual,
-                expected,
-                title1="actual SHOW IP OSPF INTERFACE",
-                title2="expected SHOW IP OSPF INTERFACE",
-            )
+                # Generate Diff
+                diff = topotest.get_textdiff(
+                    actual,
+                    expected,
+                    title1="actual SHOW IP OSPF INTERFACE",
+                    title2="expected SHOW IP OSPF INTERFACE",
+                )
 
-            # Empty string if it matches, otherwise diff contains unified diff
-            if diff:
+                if diff:
+                    return False
+                return True
+
+            # Try for 30 seconds with 1 second intervals
+            _, result = topotest.run_and_expect(
+                _check_ospf_interfaces, True, count=30, wait=1
+            )
+            if not result:
+                actual = (
+                    net["r{}".format(i)]
+                    .cmd('vtysh -c "show ip ospf interface" 2> /dev/null')
+                    .rstrip()
+                )
+                actual = re.sub(r"BW [0-9]+ Mbit", "BW XX Mbit", actual)
+                actual = re.sub(r"ifindex [0-9]+", "ifindex X", actual)
+                actual = re.sub(
+                    r"Hello due in [0-9\.]+s", "Hello due in XX.XXXs", actual
+                )
+                actual = re.sub(
+                    r"Hello due in [0-9\.]+ usecs", "Hello due in XX.XXXs", actual
+                )
+                actual = re.sub(
+                    r"MTU mismatch detection:([a-z]+.*)",
+                    r"MTU mismatch detection: \1",
+                    actual,
+                )
+                actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+                diff = topotest.get_textdiff(
+                    actual,
+                    expected,
+                    title1="actual SHOW IP OSPF INTERFACE",
+                    title2="expected SHOW IP OSPF INTERFACE",
+                )
                 sys.stderr.write(
-                    "r{} failed SHOW IP OSPF INTERFACE check:\n{}\n".format(i, diff)
+                    "r{} failed SHOW IP OSPF INTERFACE check after retries:\n{}\n".format(
+                        i, diff
+                    )
                 )
                 failures += 1
             else:
@@ -902,7 +2208,7 @@ def test_ospfv2_interfaces():
 
             assert (
                 failures == 0
-            ), "SHOW IP OSPF INTERFACE failed for router r{}:\n{}".format(i, diff)
+            ), "SHOW IP OSPF INTERFACE failed for router r{} after retries".format(i)
 
     # Make sure that all daemons are running
     for i in range(1, 2):
@@ -932,33 +2238,62 @@ def test_isis_interfaces():
             # Fix newlines (make them all the same)
             expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
-            # Actual output from router
-            actual = (
-                net["r{}".format(i)]
-                .cmd('vtysh -c "show isis interface detail" 2> /dev/null')
-                .rstrip()
-            )
-            # Mask out Link-Local mac address portion. They are random...
-            actual = re.sub(r"fe80::[0-9a-f:]+", "fe80::XXXX:XXXX:XXXX:XXXX", actual)
-            # Mask out SNPA mac address portion. They are random...
-            actual = re.sub(r"SNPA: [0-9a-f\.]+", "SNPA: XXXX.XXXX.XXXX", actual)
-            # Mask out Circuit ID number
-            actual = re.sub(r"Circuit Id: 0x[0-9a-f]+", "Circuit Id: 0xXX", actual)
-            # Fix newlines (make them all the same)
-            actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+            def _check_isis_interfaces():
+                # Actual output from router
+                actual = (
+                    net["r{}".format(i)]
+                    .cmd('vtysh -c "show isis interface detail" 2> /dev/null')
+                    .rstrip()
+                )
+                # Mask out Link-Local mac address portion. They are random...
+                actual = re.sub(
+                    r"fe80::[0-9a-f:]+", "fe80::XXXX:XXXX:XXXX:XXXX", actual
+                )
+                # Mask out SNPA mac address portion. They are random...
+                actual = re.sub(r"SNPA: [0-9a-f\.]+", "SNPA: XXXX.XXXX.XXXX", actual)
+                # Mask out Circuit ID number
+                actual = re.sub(r"Circuit Id: 0x[0-9a-f]+", "Circuit Id: 0xXX", actual)
+                # Fix newlines (make them all the same)
+                actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
 
-            # Generate Diff
-            diff = topotest.get_textdiff(
-                actual,
-                expected,
-                title1="actual SHOW ISIS INTERFACE DETAIL",
-                title2="expected SHOW ISIS OSPF6 INTERFACE DETAIL",
-            )
+                # Generate Diff
+                diff = topotest.get_textdiff(
+                    actual,
+                    expected,
+                    title1="actual SHOW ISIS INTERFACE DETAIL",
+                    title2="expected SHOW ISIS OSPF6 INTERFACE DETAIL",
+                )
 
-            # Empty string if it matches, otherwise diff contains unified diff
-            if diff:
+                if diff:
+                    return False
+                return True
+
+            # Try for 30 seconds with 1 second intervals
+            _, result = topotest.run_and_expect(
+                _check_isis_interfaces, True, count=30, wait=1
+            )
+            if not result:
+                actual = (
+                    net["r{}".format(i)]
+                    .cmd('vtysh -c "show isis interface detail" 2> /dev/null')
+                    .rstrip()
+                )
+                actual = re.sub(
+                    r"fe80::[0-9a-f:]+", "fe80::XXXX:XXXX:XXXX:XXXX", actual
+                )
+                actual = re.sub(r"SNPA: [0-9a-f\.]+", "SNPA: XXXX.XXXX.XXXX", actual)
+                actual = re.sub(r"Circuit Id: 0x[0-9a-f]+", "Circuit Id: 0xXX", actual)
+                actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
+                diff = topotest.get_textdiff(
+                    actual,
+                    expected,
+                    title1="actual SHOW ISIS INTERFACE DETAIL",
+                    title2="expected SHOW ISIS OSPF6 INTERFACE DETAIL",
+                )
                 sys.stderr.write(
-                    "r{} failed SHOW ISIS INTERFACE DETAIL check:\n{}\n".format(i, diff)
+                    "r{} failed SHOW ISIS INTERFACE DETAIL check after retries:\n{}\n".format(
+                        i, diff
+                    )
                 )
                 failures += 1
             else:
@@ -966,7 +2301,9 @@ def test_isis_interfaces():
 
             assert (
                 failures == 0
-            ), "SHOW ISIS INTERFACE DETAIL failed for router r{}:\n{}".format(i, diff)
+            ), "SHOW ISIS INTERFACE DETAIL failed for router r{} after retries".format(
+                i
+            )
 
     # Make sure that all daemons are running
     for i in range(1, 2):
@@ -1645,6 +2982,172 @@ def test_nexthop_group_replace():
 
     # Verify it updated. We can just check install and ecmp count here.
     verify_route_nexthop_group("3.3.3.1/32", False, 3)
+
+
+def test_nexthop_flush_and_interface_flaps():
+    global fatal_error
+    net = get_topogen().net
+    tgen = get_topogen()
+    router = tgen.gears["r1"]
+
+    # Skip if previous fatal error condition is raised
+    if fatal_error != "":
+        pytest.skip(fatal_error)
+
+    logger.info("\n\n** Verifying Nexthop Flush and Interface Flaps")
+    logger.info("******************************************\n")
+
+    # Configure NHGs and routes for testing
+    logger.info("=" * 80)
+    logger.info("*** Configuring test routes with specific NHGs ***")
+    logger.info("=" * 80)
+
+    # Configure static routes with direct interface nexthops
+    prefixes = [
+        "20.1.1.0/24",
+        "20.1.3.0/24",
+        "20.1.5.0/24",
+        "20.1.7.0/24",
+        "20.1.9.0/24",
+        "20.1.11.0/24",
+        "20.1.13.0/24",
+    ]
+    interfaces = [
+        "r1-eth1",
+        "r1-eth2",
+        "r1-eth3",
+        "r1-eth4",
+        "r1-eth5",
+        "r1-eth6",
+        "r1-eth7",
+        "r1-eth8",
+    ]
+
+    # Configure routes - each prefix gets 2-8 interfaces based on pattern
+    for i, prefix in enumerate(prefixes):
+        if i < 4:  # First 4 prefixes (1,3,5,7) get 2 interfaces each
+            router.cmd(
+                f'vtysh -c "configure terminal" -c "ip route {prefix} {interfaces[i*2]}" -c "exit"'
+            )
+            router.cmd(
+                f'vtysh -c "configure terminal" -c "ip route {prefix} {interfaces[i*2+1]}" -c "exit"'
+            )
+        elif i == 4:  # 20.1.9.0/24 gets 4 interfaces (eth1-4)
+            for j in range(4):
+                router.cmd(
+                    f'vtysh -c "configure terminal" -c "ip route {prefix} {interfaces[j]}" -c "exit"'
+                )
+        elif i == 5:  # 20.1.11.0/24 gets 4 interfaces (eth5-8)
+            for j in range(4, 8):
+                router.cmd(
+                    f'vtysh -c "configure terminal" -c "ip route {prefix} {interfaces[j]}" -c "exit"'
+                )
+        else:  # 20.1.13.0/24 gets all 8 interfaces
+            for iface in interfaces:
+                router.cmd(
+                    f'vtysh -c "configure terminal" -c "ip route {prefix} {iface}" -c "exit"'
+                )
+
+    # Verify routes are installed
+    def _verify_routes_installed():
+        routes = router.cmd('vtysh -c "show ip route"')
+        for prefix in prefixes:
+            if prefix not in routes:
+                return False
+        return True
+
+    _, result = topotest.run_and_expect(
+        _verify_routes_installed, True, count=30, wait=1
+    )
+    assert result, "Failed to install test routes"
+
+    ## Validate route re-install post ip nexthop flush
+    logger.info("=" * 80)
+    logger.info("*** Validate route re-install post ip nexthop flush ***")
+    logger.info("=" * 80)
+    pre_route = router.cmd("ip route show | wc -l")
+    pre_route6 = router.cmd("ip -6 route show | wc -l")
+
+    post_out = router.cmd("ip next flush")
+
+    def _check_current_route_counts():
+        post_route = router.cmd("ip route show | wc -l")
+        post_route6 = router.cmd("ip -6 route show | wc -l")
+        if post_route != pre_route or post_route6 != pre_route6:
+            return False
+        return True
+
+    result_tuple = topotest.run_and_expect(
+        _check_current_route_counts, True, count=30, wait=1
+    )
+    _, result = result_tuple
+    if not result:
+        post_route = router.cmd("ip route show | wc -l")
+        post_route6 = router.cmd("ip -6 route show | wc -l")
+        assert (
+            False
+        ), "Expected same ipv6 routes(pre-{}: post-{}) and ipv4 route count(pre-{}:post-{}) after nexthop flush".format(
+            pre_route6, post_route6, pre_route, post_route
+        )
+
+    ## Validate route re-install after quick interface flaps of rt1-eth(1-8)
+    logger.info("=" * 80)
+    logger.info(
+        "*** Validate route re-install after quick interface flaps of rt1-eth(1-8) ***"
+    )
+    logger.info("=" * 80)
+    pre_route = router.cmd("ip route show | wc -l")
+    pre_route6 = router.cmd("ip -6 route show | wc -l")
+
+    interfaces = range(1, 9)
+    cmds = [f"ip link set r1-eth{i} down; ip link set r1-eth{i} up" for i in interfaces]
+    router.cmd(" ; ".join(cmds))
+
+    def _check_current_route_counts_after_flap():
+        post_route = router.cmd("ip route show | wc -l")
+        post_route6 = router.cmd("ip -6 route show | wc -l")
+        if post_route != pre_route or post_route6 != pre_route6:
+            return False
+        return True
+
+    result_tuple = topotest.run_and_expect(
+        _check_current_route_counts_after_flap, True, count=30, wait=1
+    )
+    _, result = result_tuple
+    if not result:
+        post_route = router.cmd("ip route show | wc -l")
+        post_route6 = router.cmd("ip -6 route show | wc -l")
+        assert (
+            False
+        ), "Expected same ipv6 routes(pre-{}: post-{}) and route count(pre-{}:post-{}) after quick interface flaps of rt1-eth(1-8)".format(
+            pre_route6, post_route6, pre_route, post_route
+        )
+
+    # Clean up static routes - remove each route with its interfaces
+    logger.info("*** Cleaning up test static routes ***")
+    for i, prefix in enumerate(prefixes):
+        if i < 4:  # First 4 prefixes (1,3,5,7) with 2 interfaces each
+            router.cmd(
+                f'vtysh -c "configure terminal" -c "no ip route {prefix} {interfaces[i*2]}" -c "exit"'
+            )
+            router.cmd(
+                f'vtysh -c "configure terminal" -c "no ip route {prefix} {interfaces[i*2+1]}" -c "exit"'
+            )
+        elif i == 4:  # 20.1.9.0/24 with interfaces eth1-4
+            for j in range(4):
+                router.cmd(
+                    f'vtysh -c "configure terminal" -c "no ip route {prefix} {interfaces[j]}" -c "exit"'
+                )
+        elif i == 5:  # 20.1.11.0/24 with interfaces eth5-8
+            for j in range(4, 8):
+                router.cmd(
+                    f'vtysh -c "configure terminal" -c "no ip route {prefix} {interfaces[j]}" -c "exit"'
+                )
+        else:  # 20.1.13.0/24 with all 8 interfaces
+            for iface in interfaces:
+                router.cmd(
+                    f'vtysh -c "configure terminal" -c "no ip route {prefix} {iface}" -c "exit"'
+                )
 
 
 def test_mpls_interfaces():
