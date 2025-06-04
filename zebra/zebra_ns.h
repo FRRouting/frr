@@ -7,15 +7,19 @@
 #if !defined(__ZEBRA_NS_H__)
 #define __ZEBRA_NS_H__
 
-#include <lib/ns.h>
-#include <lib/vrf.h>
+#include <stddef.h>
+#include <stdint.h>
 
-#include "zebra/rib.h"
-#include "zebra/zebra_vrf.h"
+#include "lib/typesafe.h"
+#include "lib/if.h"
+#include "lib/ns.h"
+#include "lib/vrf.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+struct zebra_dplane_ctx;
 
 #ifdef HAVE_NETLINK
 #include <linux/netlink.h>

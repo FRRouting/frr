@@ -12,6 +12,7 @@
 #include "lib_errors.h"
 
 #include "zebra/rt.h"
+#include "zebra/zebra_ns.h"
 #include "zebra/zebra_dplane.h"
 #include "zebra/zebra_errors.h"
 
