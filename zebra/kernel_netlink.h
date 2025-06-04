@@ -6,11 +6,27 @@
 #ifndef _ZEBRA_KERNEL_NETLINK_H
 #define _ZEBRA_KERNEL_NETLINK_H
 
+#ifdef HAVE_NETLINK
+
+#include <stddef.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <sys/types.h>
+#include <linux/netlink.h>
+
+#include "lib/ns.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#ifdef HAVE_NETLINK
+struct nlsock;
+struct rtattr;
+struct rtnexthop;
+struct vty;
+struct zebra_dplane_ctx;
+struct zebra_dplane_info;
+struct zebra_ns;
 
 #define RTM_NHA(h)                                                             \
 	((struct rtattr *)(((char *)(h)) + NLMSG_ALIGN(sizeof(struct nhmsg))))
@@ -137,10 +153,11 @@ extern void netlink_set_batch_buffer_size(uint32_t size, uint32_t threshold,
 					  bool set);
 
 extern struct nlsock *kernel_netlink_nlsock_lookup(int sock);
-#endif /* HAVE_NETLINK */
 
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* HAVE_NETLINK */
 
 #endif /* _ZEBRA_KERNEL_NETLINK_H */

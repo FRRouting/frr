@@ -7,15 +7,22 @@
 #ifndef _ZEBRA_GE_NETLINK_H
 #define _ZEBRA_GE_NETLINK_H
 
-#include "zebra_dplane.h"
-
 #ifdef HAVE_NETLINK
 
+#include <stddef.h>
+#include <sys/types.h>
+#include <linux/netlink.h>
 #include <linux/genetlink.h>
+
+#include "lib/ns.h"
+#include "zebra/kernel_netlink.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+struct zebra_dplane_ctx;
+struct zebra_ns;
 
 /* Generic Netlink request message */
 struct genl_request {
