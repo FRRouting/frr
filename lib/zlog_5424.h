@@ -8,7 +8,7 @@
 
 #include <sys/stat.h>
 
-#include "typerb.h"
+#include "lib/typesafe.h"
 #include "zlog.h"
 #include "zlog_targets.h"
 #include "qobj.h"
