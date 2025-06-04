@@ -67,8 +67,16 @@ def setup_module(mod):
     tgen.gears["r1"].run("sysctl net.vrf.strict_mode=1")
     tgen.gears["r1"].run("ip link add vrf10 type vrf table 10")
     tgen.gears["r1"].run("ip link set vrf10 up")
+    tgen.gears["r1"].run("ip route add table 10 unreachable default metric 4278198272")
+    tgen.gears["r1"].run(
+        "ip -6 route add table 10 unreachable default metric 4278198272"
+    )
     tgen.gears["r1"].run("ip link add vrf20 type vrf table 20")
     tgen.gears["r1"].run("ip link set vrf20 up")
+    tgen.gears["r1"].run("ip route add table 20 unreachable default metric 4278198272")
+    tgen.gears["r1"].run(
+        "ip -6 route add table 20 unreachable default metric 4278198272"
+    )
     tgen.gears["r1"].run("ip link set eth1 master vrf10")
     tgen.gears["r1"].run("ip link set eth2 master vrf10")
     tgen.gears["r1"].run("ip link set eth3 master vrf20")
@@ -76,8 +84,16 @@ def setup_module(mod):
     tgen.gears["r2"].run("sysctl net.vrf.strict_mode=1")
     tgen.gears["r2"].run("ip link add vrf10 type vrf table 10")
     tgen.gears["r2"].run("ip link set vrf10 up")
+    tgen.gears["r2"].run("ip route add table 10 unreachable default metric 4278198272")
+    tgen.gears["r2"].run(
+        "ip -6 route add table 10 unreachable default metric 4278198272"
+    )
     tgen.gears["r2"].run("ip link add vrf20 type vrf table 20")
     tgen.gears["r2"].run("ip link set vrf20 up")
+    tgen.gears["r2"].run("ip route add table 20 unreachable default metric 4278198272")
+    tgen.gears["r2"].run(
+        "ip -6 route add table 20 unreachable default metric 4278198272"
+    )
     tgen.gears["r2"].run("ip link set eth1 master vrf10")
     tgen.gears["r2"].run("ip link set eth2 master vrf20")
     tgen.gears["r2"].run("ip link set eth3 master vrf20")
