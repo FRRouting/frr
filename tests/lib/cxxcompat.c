@@ -79,7 +79,6 @@
 #include "lib/termtable.h"
 #include "frrevent.h"
 #include "lib/typesafe.h"
-#include "lib/typerb.h"
 #include "lib/vector.h"
 #include "lib/vlan.h"
 #include "lib/vrf.h"

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: ISC
+// IWYU pragma: private, include "lib/typesafe.h"
 /*
  * The following Red-Black tree implementation is based off code with
  * original copyright:
@@ -10,8 +11,10 @@
 #define _FRR_TYPERB_H
 
 #ifndef _TYPESAFE_EXPAND_MACROS
+#include <stdbool.h>
 #include <string.h>
-#include "typesafe.h"
+
+#include "lib/compiler.h"
 #endif /* _TYPESAFE_EXPAND_MACROS */
 
 #ifdef __cplusplus
