@@ -124,6 +124,7 @@ RUN cd ~/frr && \
        --enable-group=frr \
        --enable-config-rollbacks \
        --enable-grpc \
+       --enable-protobuf \
        --enable-vty-group=frrvty \
        --enable-snmp \
        --enable-scripting \
