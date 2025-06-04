@@ -44,7 +44,7 @@ pytestmark = [pytest.mark.bgpd, pytest.mark.bfdd]
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    return common_setup_module({}, mod)
+    return common_setup_module({"r1": "bgpd_passive.conf"}, mod)
 
 
 def teardown_module(_mod):
@@ -70,7 +70,7 @@ def test_bfd_loss_intermediate():
     Assert that BGP notices the BFD link down failure.
     The BGP entries should be flushed as the C-bit is set in both directions.
     """
-    return common_bfd_loss_intermediate({})
+    return common_bfd_loss_intermediate({"r1": "peers_down_passive.json"})
 
 
 def test_bfd_comes_back_again():
