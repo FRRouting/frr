@@ -1229,6 +1229,23 @@ static void zebra_nhg_handle_install(struct nhg_hash_entry *nhe, bool install)
 
 	frr_each_safe (nhg_connected_tree, &nhe->nhg_dependents, rb_node_dep) {
 		zebra_nhg_set_valid(rb_node_dep->nhe, true);
+
+		/*
+		 * In case of singletons, set the flags such that the NHG dependents
+		 * are force installed so that zebra and kernel are in sync.
+		 */
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID) &&
+		    CHECK_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_VALID) &&
+		    ZEBRA_NHG_IS_SINGLETON(nhe)) {
+			UNSET_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_QUEUED);
+			SET_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_REINSTALL);
+
+			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+				zlog_debug("%s: nhe %p (%pNG) (flags 0x%x) is singleton. Hence reinstalling its dependents %p (%pNG) (flags 0x%x)",
+					   __func__, nhe, nhe, nhe->flags, rb_node_dep->nhe,
+					   rb_node_dep->nhe, rb_node_dep->nhe->flags);
+		}
+
 		/* install dependent NHG into kernel */
 		if (install) {
 			if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED) &&
