@@ -483,6 +483,17 @@ bool nexthop_same_no_labels(const struct nexthop *nh1,
 	return true;
 }
 
+bool nexthop_same_no_weight(const struct nexthop *nh1, const struct nexthop *nh2)
+{
+	if (nh1 == nh2)
+		return true;
+
+	if (!nh1 || !nh2)
+		return false;
+
+	return (nexthop_cmp_no_weight(nh1, nh2) == 0);
+}
+
 /*
  * Allocate a new nexthop object and initialize it from various args.
  */
