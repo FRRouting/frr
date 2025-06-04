@@ -16,7 +16,6 @@
 #include "libfrr.h"
 #include "mgmt_msg.h"
 #include "mgmt_msg_native.h"
-#include "mgmt_pb.h"
 #include "mgmtd/mgmt.h"
 #include "mgmtd/mgmt_memory.h"
 #include "mgmt_be_client.h"

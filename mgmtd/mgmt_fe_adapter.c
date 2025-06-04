@@ -16,7 +16,6 @@
 #include "mgmt_fe_client.h"
 #include "mgmt_msg.h"
 #include "mgmt_msg_native.h"
-#include "mgmt_pb.h"
 #include "hash.h"
 #include "jhash.h"
 #include "mgmtd/mgmt.h"
@@ -369,41 +368,6 @@ static int fe_adapter_send_native_msg(struct mgmt_fe_client_adapter *adapter,
 				 len, NULL, short_circuit_ok);
 }
 
-static int fe_adapter_send_msg(struct mgmt_fe_client_adapter *adapter,
-			       Mgmtd__FeMessage *fe_msg, bool short_circuit_ok)
-{
-	return msg_conn_send_msg(
-		adapter->conn, MGMT_MSG_VERSION_PROTOBUF, fe_msg,
-		mgmtd__fe_message__get_packed_size(fe_msg),
-		(size_t(*)(void *, void *))mgmtd__fe_message__pack,
-		short_circuit_ok);
-}
-
-static int fe_adapter_send_session_reply(struct mgmt_fe_client_adapter *adapter,
-					 struct mgmt_fe_session_ctx *session,
-					 bool create, bool success)
-{
-	Mgmtd__FeMessage fe_msg;
-	Mgmtd__FeSessionReply session_reply;
-
-	mgmtd__fe_session_reply__init(&session_reply);
-	session_reply.create = create;
-	if (create) {
-		session_reply.has_client_conn_id = 1;
-		session_reply.client_conn_id = session->client_id;
-	}
-	session_reply.session_id = session->session_id;
-	session_reply.success = success;
-
-	mgmtd__fe_message__init(&fe_msg);
-	fe_msg.message_case = MGMTD__FE_MESSAGE__MESSAGE_SESSION_REPLY;
-	fe_msg.session_reply = &session_reply;
-
-	_dbg("Sending SESSION_REPLY message to MGMTD Frontend client '%s'", adapter->name);
-
-	return fe_adapter_send_msg(adapter, &fe_msg, true);
-}
-
 static int fe_adapter_conn_send_error(struct msg_conn *conn,
 				      uint64_t session_id, uint64_t req_id,
 				      bool short_circuit_ok, int16_t error,
@@ -517,92 +481,6 @@ static int mgmt_fe_adapter_notify_disconnect(struct msg_conn *conn)
 	_dbg("notify disconnect for client adapter '%s'", adapter->name);
 
 	mgmt_fe_adapter_delete(adapter);
-
-	return 0;
-}
-
-/*
- * Purge any old connections that share the same client name with `adapter`
- */
-static void
-mgmt_fe_adapter_cleanup_old_conn(struct mgmt_fe_client_adapter *adapter)
-{
-	struct mgmt_fe_client_adapter *old;
-
-	FOREACH_ADAPTER_IN_LIST (old) {
-		if (old == adapter)
-			continue;
-		if (strncmp(adapter->name, old->name, sizeof(adapter->name)))
-			continue;
-
-		_dbg("Client '%s' (FD:%d) seems to have reconnected. Removing old connection (FD:%d)",
-		     adapter->name, adapter->conn->fd, old->conn->fd);
-		msg_conn_disconnect(old->conn, false);
-	}
-}
-
-static int
-mgmt_fe_adapter_handle_msg(struct mgmt_fe_client_adapter *adapter,
-			       Mgmtd__FeMessage *fe_msg)
-{
-	struct mgmt_fe_session_ctx *session;
-
-	/*
-	 * protobuf-c adds a max size enum with an internal, and changing by
-	 * version, name; cast to an int to avoid unhandled enum warnings
-	 */
-	switch ((int)fe_msg->message_case) {
-	case MGMTD__FE_MESSAGE__MESSAGE_REGISTER_REQ:
-		_dbg("Got REGISTER_REQ from '%s'", fe_msg->register_req->client_name);
-
-		if (strlen(fe_msg->register_req->client_name)) {
-			strlcpy(adapter->name,
-				fe_msg->register_req->client_name,
-				sizeof(adapter->name));
-			mgmt_fe_adapter_cleanup_old_conn(adapter);
-		}
-		break;
-	case MGMTD__FE_MESSAGE__MESSAGE_SESSION_REQ:
-		if (fe_msg->session_req->create
-		    && fe_msg->session_req->id_case
-			== MGMTD__FE_SESSION_REQ__ID_CLIENT_CONN_ID) {
-			_dbg("Got SESSION_REQ (create) for client-id %" PRIu64 " from '%s'",
-			     fe_msg->session_req->client_conn_id, adapter->name);
-
-			session = mgmt_fe_create_session(adapter, DEFAULT_NOTIFY_FORMAT,
-							 fe_msg->session_req->client_conn_id);
-			assert(session); /* clang-analyzer fails to look in the above to see same assert. :( */
-			fe_adapter_send_session_reply(adapter, session, true,
-						      session ? true : false);
-		} else if (
-			!fe_msg->session_req->create
-			&& fe_msg->session_req->id_case
-				== MGMTD__FE_SESSION_REQ__ID_SESSION_ID) {
-			_dbg("Got SESSION_REQ (destroy) for session-id %" PRIu64 "from '%s'",
-			     fe_msg->session_req->session_id, adapter->name);
-
-			session = mgmt_session_id2ctx(
-				fe_msg->session_req->session_id);
-			fe_adapter_send_session_reply(adapter, session, false,
-						      true);
-			mgmt_fe_cleanup_session(&session);
-		}
-		break;
-	/*
-	 * NOTE: The following messages are always sent from MGMTD to
-	 * Frontend clients only and/or need not be handled on MGMTd.
-	 */
-	case MGMTD__FE_MESSAGE__MESSAGE_SESSION_REPLY:
-	case MGMTD__FE_MESSAGE__MESSAGE__NOT_SET:
-	default:
-		/*
-		 * A 'default' case is being added contrary to the
-		 * FRR code guidelines to take care of build
-		 * failures on certain build systems (courtesy of
-		 * the proto-c package).
-		 */
-		break;
-	}
 
 	return 0;
 }
@@ -1555,7 +1433,6 @@ static void mgmt_fe_adapter_process_msg(uint8_t version, uint8_t *data,
 					size_t len, struct msg_conn *conn)
 {
 	struct mgmt_fe_client_adapter *adapter = conn->user;
-	Mgmtd__FeMessage *fe_msg;
 
 	if (version == MGMT_MSG_VERSION_NATIVE) {
 		struct mgmt_msg_header *msg = (typeof(msg))data;
@@ -1567,15 +1444,7 @@ static void mgmt_fe_adapter_process_msg(uint8_t version, uint8_t *data,
 		return;
 	}
 
-	fe_msg = mgmtd__fe_message__unpack(NULL, len, data);
-	if (!fe_msg) {
-		_dbg("Failed to decode %zu bytes for adapter: %s", len, adapter->name);
-		return;
-	}
-	_dbg("Decoded %zu bytes of message: %u from adapter: %s", len, fe_msg->message_case,
-	     adapter->name);
-	(void)mgmt_fe_adapter_handle_msg(adapter, fe_msg);
-	mgmtd__fe_message__free_unpacked(fe_msg, NULL);
+	_log_err("Protobuf not supported for frontend messages (adapter: %s)", adapter->name);
 }
 
 
