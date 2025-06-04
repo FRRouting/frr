@@ -8,12 +8,21 @@
 #define PIM_UPSTREAM_H
 
 #include <zebra.h>
-#include <prefix.h>
-#include "plist.h"
 
-#include "pim_rpf.h"
-#include "pim_str.h"
-#include "pim_ifchannel.h"
+#include <stddef.h>
+#include <stdbool.h>
+#include <stdint.h>
+
+#include "lib/typesafe.h"
+
+#include "pimd/pim_addr.h"
+#include "pimd/pim_rpf.h"
+#include "pimd/pim_str.h"
+
+struct interface;
+struct pim_ifchannel;
+struct pim_instance;
+struct prefix_list;
 
 #define PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED         (1 << 0)
 #define PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED_UPDATED (1 << 1)
