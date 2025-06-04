@@ -9,6 +9,7 @@
 #include "lib/mlag.h"
 
 #include "zebra/zebra_ns.h"
+#include "zebra/zebra_vrf.h"
 
 #ifdef __cplusplus
 extern "C" {
