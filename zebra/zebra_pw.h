@@ -6,18 +6,23 @@
 #ifndef ZEBRA_PW_H_
 #define ZEBRA_PW_H_
 
+#include <stdint.h>
 #include <net/if.h>
 #include <netinet/in.h>
 
 #include "lib/hook.h"
 #include "lib/qobj.h"
+#include "lib/if.h"
 #include "lib/pw.h"
-
-#include "zebra/zebra_vrf.h"
+#include "lib/nexthop.h"
+#include "lib/openbsd-tree.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+struct zebra_dplane_ctx;
+struct zebra_vrf;
 
 #define PW_INSTALL_RETRY_INTERVAL	30
 
