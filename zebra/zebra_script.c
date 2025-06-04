@@ -10,6 +10,15 @@
 
 #ifdef HAVE_SCRIPTING
 
+#include <lua.h>
+
+#include "lib/frrlua.h"
+#include "lib/frrscript.h"
+
+#include "zebra/rib.h"
+#include "zebra/zebra_dplane.h"
+#include "zebra/zebra_pbr.h"
+
 void zebra_script_init(void)
 {
 	frrscript_names_add_function_name(ZEBRA_ON_RIB_PROCESS_HOOK_CALL);

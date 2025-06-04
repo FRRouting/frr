@@ -6,8 +6,13 @@
 
 #include <zebra.h>
 
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
+
 #include "lib/frrscript.h"
 #include "lib/frrlua.h"
+#include "lib/hash.h"
 
 int main(int argc, char **argv)
 {

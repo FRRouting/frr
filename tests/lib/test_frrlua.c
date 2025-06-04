@@ -5,9 +5,17 @@
  */
 
 #include <zebra.h>
-#include "string.h"
-#include "stdio.h"
+
+#include <string.h>
+#include <stdio.h>
+
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
+
 #include "lib/frrlua.h"
+#include "lib/sockunion.h"
+#include "lib/prefix.h"
 
 static void test_encode_decode(void)
 {
