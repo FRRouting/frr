@@ -785,9 +785,63 @@ pointer".
    **DO NOT APPLY AN SPDX HEADER WHEN THE LICENSE IS UNCLEAR, UNLESS YOU HAVE
    CHECKED WITH *ALL* SIGNIFICANT AUTHORS.**
 
-Please to keep ``#include <zebra.h>``.  The absolute first header included in
-any C file **must** be either ``zebra.h`` or ``config.h`` (with HAVE_CONFIG_H
-guard.)
+
+``#include`` statements and ``extern "C" {``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Due to organic development over about 30 years, ``#include`` statements in
+the FRR codebase are incredibly inconsistent.  There is one strict rule:
+The absolute **first header included in any C file must be either** ``zebra.h``
+**or** ``config.h`` (with HAVE_CONFIG_H guard.)
+
+Other than this, the following are "aspirational":
+
+- never use ``#include <...>`` (angle brackets) for headers in FRR's source
+  tree;  it should always be ``#include "..."``
+
+   - exception: ``<zebra.h>``
+   - either acceptable: ``"assert.h"``/``<assert.h>`` (since this file
+     intentionally replaces a system header with the same name)
+
+- use the full path relative to source root, i.e. ``#include "lib/if.h"`` or
+  ``#include "zebra/rib.h"``
+
+   - exception (again): ``<zebra.h>``
+   - exception (again): ``"assert.h"``/``<assert.h>`` (since this file
+     intentionally replaces a system header with the same name)
+   - among the "aspirations" here, this is the most inconsistent across the
+     codebase
+
+- the order of includes should be, with a blank line inbetween each group:
+
+   1. (source files only:) ``<zebra.h>`` or ``"config.h"``
+   2. system includes, e.g. ``<stdint.h>``
+   3. includes from FRR's library, e.g. ``"lib/if.h"``
+   4. includes from the daemon, e.g. ``"zebra/rib.h"``
+   5. (headers only:) ``extern "C" {`` - **never place this before an**
+      ``#include`` **statement**
+   6. (headers only:) forward declarations of structs, e.g. ``struct interface;``
+
+   Note that the ``extern "C"`` block is only necessary for headers that might
+   be used from C++ code, i.e. primarily files in ``lib/`` and ``zebra/``.
+
+- ``zebra.h`` (or ``config.h``) should only be included from ``.c`` files, not
+  from headers.  One of them is required to be the first include anyway.
+
+- do not add FRR-specific declarations/definitions to ``zebra.h``.  That file
+  is intended primarily as an "include multiplexer" for system header files.
+  The fact that it currently contains FRR specific bits is a bug, not a
+  feature, and might hopefully get tackled at some point.
+
+  The function of ``zebra.h`` is similar to a PCH (pre-compiled header),
+  except investigation has shown no real build time benefit from actually
+  using it as a PCH, so it was never integrated into the build as such.
+
+- in header files, if struct forward declarations can be used to replace
+  ``#include`` statements, that is preferable.
+
+- self-reliancy for header files (e.g. having them include everything they use)
+  is appreciated.
 
 
 Adding Copyright Claims to Existing Files
