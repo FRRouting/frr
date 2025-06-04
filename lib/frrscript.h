@@ -6,19 +6,38 @@
 #ifndef __FRRSCRIPT_H__
 #define __FRRSCRIPT_H__
 
-#include <zebra.h>
 
 #ifdef HAVE_SCRIPTING
 
+#include <stddef.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <sys/param.h>
+
 #include <lua.h>
-#include <nexthop.h>
-#include <nexthop_group.h>
-#include "frrlua.h"
+
+#include "assert.h"
+#include "lib/compiler.h"
+#include "lib/typesafe.h"
+
+/* include-what-you-use doesn't quite seem to understand _Generic, and these
+ * headers are only needed for the functions used there
+ *
+ * (not great to have a bgpd/ file included from lib/, but not much that can
+ * be done about that for the time being.)
+ */
+// IWYU pragma: begin_keep
+#include "lib/frrlua.h"
 #include "bgpd/bgp_script.h" // for peer and attr encoders/decoders
+
+#include "lib/zlog.h"
+// IWYU pragma: end_keep
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+struct vty;
 
 /* Forward declarations */
 struct zebra_dplane_ctx;

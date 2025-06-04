@@ -21,6 +21,7 @@
 #include "termtable.h"
 #include "affinitymap.h"
 #include "frrdistance.h"
+#include "lib/frrscript.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/zserv.h"

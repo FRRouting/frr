@@ -9,12 +9,15 @@
 
 #include <stdarg.h>
 #include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
 
 #include "frrscript.h"
 #include "frrlua.h"
 #include "memory.h"
 #include "hash.h"
 #include "log.h"
+#include "lib/vty.h"
 
 
 DEFINE_MTYPE_STATIC(LIB, SCRIPT, "Scripting");

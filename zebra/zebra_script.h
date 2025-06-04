@@ -7,13 +7,12 @@
 #ifndef _ZEBRA_SCRIPT_H
 #define _ZEBRA_SCRIPT_H
 
-#include "zebra.h"
-#include "zebra/zebra_dplane.h"
-#include "zebra/zebra_pbr.h"
-
 #ifdef HAVE_SCRIPTING
 
-#include "frrlua.h"
+#include <lua.h>
+
+struct nh_grp;
+struct zebra_dplane_ctx;
 
 void zebra_script_init(void);
 

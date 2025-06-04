@@ -11,10 +11,17 @@
 
 #ifdef HAVE_SCRIPTING
 
-#include "prefix.h"
-#include "frrlua.h"
-#include "log.h"
-#include "buffer.h"
+#include <lauxlib.h>
+#include <lua.h>
+#include <lualib.h>
+
+#include "lib/prefix.h"
+#include "lib/buffer.h"
+#include "lib/frrlua.h"
+#include "lib/if.h"
+#include "lib/log.h"
+#include "lib/nexthop.h"
+#include "lib/nexthop_group.h"
 
 DEFINE_MTYPE(LIB, SCRIPT_RES, "Scripting results");
 
