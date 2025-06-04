@@ -13,7 +13,6 @@ extern "C" {
 #endif
 
 #include "northbound.h"
-#include "mgmt_pb.h"
 #include "mgmt_defines.h"
 
 /***************************************************************
