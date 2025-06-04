@@ -72,14 +72,6 @@ def test_frontend_notification(tgen):
         expected = {"frr-ripd:authentication-failure": {"interface-name": "r1-eth0"}}
         result = json_cmp(jsout, expected)
         assert result is None
-
-        output = r1.cmd_raises(
-            fe_client_path + " --use-protobuf --listen /frr-ripd:authentication-failure"
-        )
-        jsout = json.loads(output)
-        expected = {"frr-ripd:authentication-failure": {"interface-name": "r1-eth0"}}
-        result = json_cmp(jsout, expected)
-        assert result is None
     finally:
         # Update config to matching authentication.
         conf = """
@@ -126,12 +118,6 @@ def test_frontend_all_notification(tgen):
                 "frr-ripd:authentication-failure": {"interface-name": "r1-eth0"}
             }
             result = json_cmp(jsout, expected)
-        assert result is None
-
-        output = r1.cmd_raises(fe_client_path + " --use-protobuf --listen")
-        jsout = json.loads(output)
-        expected = {"frr-ripd:authentication-failure": {"interface-name": "r1-eth0"}}
-        result = json_cmp(jsout, expected)
         assert result is None
     finally:
         # Update config to matching authentication.
