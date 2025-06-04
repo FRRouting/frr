@@ -194,6 +194,10 @@ enum nhg_type {
 
 #define PROTO_OWNED(NHE) (NHE->id >= ZEBRA_NHG_PROTO_LOWER)
 
+/* Tells if the NHG is singleton */
+#define ZEBRA_NHG_IS_SINGLETON(NHE)                                                                \
+	(NHE->nhg.nexthop && !NHE->nhg.nexthop->next && !NHE->nhg.nexthop->resolved &&             \
+	 NHE->nhg.nexthop->ifindex)
 /*
  * Backup nexthops: this is a group object itself, so
  * that the backup nexthops can use the same code as a normal object.
