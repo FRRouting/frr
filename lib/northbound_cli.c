@@ -242,7 +242,7 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 		return ret;
 	}
 
-	return nb_cli_apply_changes_internal(vty, xpath_base_abs, false);
+	return nb_cli_apply_changes_internal(vty, xpath_base_abs, true);
 }
 
 int nb_cli_apply_changes_pending(struct vty *vty, const char *xpath_base_fmt, ...)
