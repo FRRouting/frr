@@ -1061,8 +1061,39 @@ static void zebra_nhg_set_invalid(struct nhg_hash_entry *nhe)
 		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
 
 	/* Update validity of nexthops depending on it */
+<<<<<<< HEAD
 	frr_each(nhg_connected_tree, &nhe->nhg_dependents, rb_node_dep)
 		zebra_nhg_check_valid(rb_node_dep->nhe);
+=======
+	frr_each (nhg_connected_tree, &nhe->nhg_dependents, rb_node_dep) {
+		dependent_valid = valid;
+		if (!valid) {
+			/*
+			 * Grab the first nexthop from the depending nexthop group
+			 * then let's find the nexthop in that group that matches
+			 * my individual nexthop and mark it as no longer ACTIVE
+			 */
+			struct nexthop *nexthop = rb_node_dep->nhe->nhg.nexthop;
+
+			while (nexthop) {
+				if (nexthop_same_no_weight(nexthop, nhe->nhg.nexthop)) {
+					/* Invalid Nexthop */
+					UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+				} else {
+					/*
+					 * If other nexthops in the nexthop
+					 * group are valid then we can continue
+					 * to use this nexthop group as valid
+					 */
+					if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+						dependent_valid = true;
+				}
+				nexthop = nexthop->next;
+			}
+		}
+		zebra_nhg_set_valid(rb_node_dep->nhe, dependent_valid);
+	}
+>>>>>>> ed3aab64d (zebra: mark singleton nexthops inactive/active on link state changes for wecmp)
 }
 
 void zebra_nhg_check_valid(struct nhg_hash_entry *nhe)
@@ -3688,6 +3719,19 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 			frr_each_safe (nhg_connected_tree,
 				       &rb_node_dep->nhe->nhg_dependents,
 				       rb_node_dependent) {
+<<<<<<< HEAD
+=======
+				struct nexthop *nhop_dependent =
+					rb_node_dependent->nhe->nhg.nexthop;
+
+				while (nhop_dependent && !nexthop_same_no_weight(nhop_dependent, nh))
+					nhop_dependent = nhop_dependent->next;
+
+				if (nhop_dependent)
+					SET_FLAG(nhop_dependent->flags,
+						 NEXTHOP_FLAG_ACTIVE);
+
+>>>>>>> ed3aab64d (zebra: mark singleton nexthops inactive/active on link state changes for wecmp)
 				if (IS_ZEBRA_DEBUG_NHG)
 					zlog_debug(
 						"%s dependent nhe %pNG unset installed flag",
