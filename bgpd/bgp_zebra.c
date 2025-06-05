@@ -1222,11 +1222,11 @@ static bool bgp_zebra_use_nhop_weighted(struct bgp *bgp, struct attr *attr,
 	return true;
 }
 
-static void bgp_zebra_announce_parse_nexthop(
-	struct bgp_path_info *info, const struct prefix *p, struct bgp *bgp,
-	struct zapi_route *api, unsigned int *valid_nh_count, afi_t afi,
-	safi_t safi, uint32_t *nhg_id, uint32_t *metric, route_tag_t *tag,
-	bool *allow_recursion)
+static void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info, const struct prefix *p,
+					     struct bgp *bgp, struct zapi_route *api,
+					     unsigned int *valid_nh_count, afi_t afi, safi_t safi,
+					     uint32_t *nhg_id, uint32_t *metric, route_tag_t *tag,
+					     bool *allow_recursion, int *srv6_nh_index)
 {
 	struct zapi_nexthop *api_nh;
 	int nh_family;
@@ -1436,10 +1436,49 @@ static void bgp_zebra_announce_parse_nexthop(
 
 			api_nh->seg_num = 1;
 			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6);
+			if (srv6_nh_index)
+				*srv6_nh_index = *valid_nh_count;
 		}
 
 		(*valid_nh_count)++;
 	}
+}
+
+static bool bgp_zebra_has_srv6_sid_nexthop(struct bgp_dest *dest, struct bgp_path_info *info,
+					   struct bgp *bgp, struct in6_addr *sid)
+{
+	struct zapi_route api = { 0 };
+	struct zapi_nexthop *api_nh;
+	unsigned int valid_nh_count;
+	struct bgp_table *table = bgp_dest_table(dest);
+	const struct prefix *p = bgp_dest_get_prefix(dest);
+	uint32_t nhg_id = 0;
+	struct peer *peer;
+	bool allow_recursion = false;
+	route_tag_t tag;
+	uint32_t metric;
+	int srv6_nh_index = -1;
+
+	peer = info->peer;
+	tag = info->attr->tag;
+
+	if ((peer->sort == BGP_PEER_EBGP && peer->ttl != BGP_DEFAULT_TTL) ||
+	    CHECK_FLAG(peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK) ||
+	    CHECK_FLAG(bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
+		allow_recursion = true;
+
+	/* Metric is currently based on the best-path only */
+	metric = info->attr->med;
+
+	bgp_zebra_announce_parse_nexthop(info, p, bgp, &api, &valid_nh_count, table->afi,
+					 table->safi, &nhg_id, &metric, &tag, &allow_recursion,
+					 &srv6_nh_index);
+	if (srv6_nh_index < 0)
+		return false;
+	api_nh = &api.nexthops[srv6_nh_index];
+	IPV6_ADDR_COPY(sid, &api_nh->seg6_segs[0]);
+
+	return true;
 }
 
 static void bgp_debug_zebra_nh(struct zapi_route *api)
@@ -1508,6 +1547,22 @@ static void bgp_debug_zebra_nh(struct zapi_route *api)
 	}
 }
 
+static enum zclient_send_status bgp_zebra_withdraw_actual_route_to_srv6_sid(struct bgp_dest *dest,
+									    struct bgp *bgp,
+									    struct zapi_route *api,
+									    struct in6_addr *sid)
+{
+	const struct prefix *p = bgp_dest_get_prefix(dest);
+
+	IPV6_ADDR_COPY(&api->prefix.u.prefix6, sid);
+	api->prefix.family = AF_INET6;
+	api->prefix.prefixlen = IPV6_MAX_BITLEN;
+	if (bgp_debug_zebra(p))
+		zlog_debug("Tx route delete %s (table id %u) %pFX", bgp->name_pretty, api->tableid,
+			   &api->prefix);
+	return zclient_route_send(ZEBRA_ROUTE_DELETE, bgp_zclient, api);
+}
+
 static enum zclient_send_status
 bgp_zebra_announce_actual(struct bgp_dest *dest, struct bgp_path_info *info,
 			  struct bgp *bgp)
@@ -1523,6 +1578,9 @@ bgp_zebra_announce_actual(struct bgp_dest *dest, struct bgp_path_info *info,
 	uint32_t nhg_id = 0;
 	struct bgp_table *table = bgp_dest_table(dest);
 	const struct prefix *p = bgp_dest_get_prefix(dest);
+	enum zclient_send_status ret;
+	int srv6_nh_index = -1;
+	struct zapi_nexthop *api_nh;
 
 	if (table->safi == SAFI_FLOWSPEC) {
 		bgp_pbr_update_entry(bgp, p, info, table->afi, table->safi,
@@ -1569,9 +1627,9 @@ bgp_zebra_announce_actual(struct bgp_dest *dest, struct bgp_path_info *info,
 	/* Metric is currently based on the best-path only */
 	metric = info->attr->med;
 
-	bgp_zebra_announce_parse_nexthop(info, p, bgp, &api, &valid_nh_count,
-					 table->afi, table->safi, &nhg_id,
-					 &metric, &tag, &allow_recursion);
+	bgp_zebra_announce_parse_nexthop(info, p, bgp, &api, &valid_nh_count, table->afi,
+					 table->safi, &nhg_id, &metric, &tag, &allow_recursion,
+					 &srv6_nh_index);
 
 	if (CHECK_FLAG(bm->flags, BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA)) {
 		struct bgp_zebra_opaque bzo = {};
@@ -1638,8 +1696,37 @@ bgp_zebra_announce_actual(struct bgp_dest *dest, struct bgp_path_info *info,
 		zlog_debug("%s: %pFX: announcing to zebra (recursion %sset)",
 			   __func__, p, (allow_recursion ? "" : "NOT "));
 	}
+	ret = zclient_route_send(ZEBRA_ROUTE_ADD, bgp_zclient, &api);
+	if (ret == ZCLIENT_SEND_FAILURE)
+		return ret;
+	if (srv6_nh_index >= 0) {
+		/* SRv6 encapsulation : after SRv6 encapsulation,
+		 * A route lookup on the same vrf looks for a path for the SID
+		 * Append a second route to reach that SID address.
+		 */
+		api_nh = &api.nexthops[srv6_nh_index];
+		IPV6_ADDR_COPY(&api.prefix.u.prefix6, &api_nh->seg6_segs[0]);
 
-	return zclient_route_send(ZEBRA_ROUTE_ADD, bgp_zclient, &api);
+		api.prefix.family = AF_INET6;
+		api.prefix.prefixlen = IPV6_MAX_BITLEN;
+		api_nh->seg_num = 0;
+		api_nh->label_num = 0;
+		UNSET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6);
+		UNSET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL);
+
+		if (bgp_debug_zebra(p)) {
+			zlog_debug("Tx route add %s (table id %u) %pFX metric %u tag %" ROUTE_TAG_PRI
+				   " count %d nhg %d",
+				   bgp->name_pretty, api.tableid, &api.prefix, api.metric, api.tag,
+				   api.nexthop_num, nhg_id);
+			bgp_debug_zebra_nh(&api);
+
+			zlog_debug("%s: %pFX: announcing to zebra (recursion %sset)", __func__, p,
+				   (allow_recursion ? "" : "NOT "));
+		}
+		ret = zclient_route_send(ZEBRA_ROUTE_ADD, bgp_zclient, &api);
+	}
+	return ret;
 }
 
 
@@ -1713,6 +1800,8 @@ enum zclient_send_status bgp_zebra_withdraw_actual(struct bgp_dest *dest,
 	struct peer *peer;
 	struct bgp_table *table = bgp_dest_table(dest);
 	const struct prefix *p = bgp_dest_get_prefix(dest);
+	enum zclient_send_status status;
+	struct in6_addr sid = { 0 };
 
 	if (table->safi == SAFI_FLOWSPEC) {
 		peer = info->peer;
@@ -1736,7 +1825,10 @@ enum zclient_send_status bgp_zebra_withdraw_actual(struct bgp_dest *dest,
 		zlog_debug("Tx route delete %s (table id %u) %pFX",
 			   bgp->name_pretty, api.tableid, &api.prefix);
 
-	return zclient_route_send(ZEBRA_ROUTE_DELETE, bgp_zclient, &api);
+	status = zclient_route_send(ZEBRA_ROUTE_DELETE, bgp_zclient, &api);
+	if (status != ZCLIENT_SEND_FAILURE && bgp_zebra_has_srv6_sid_nexthop(dest, info, bgp, &sid))
+		status = bgp_zebra_withdraw_actual_route_to_srv6_sid(dest, bgp, &api, &sid);
+	return status;
 }
 
 /*
