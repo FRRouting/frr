@@ -14202,8 +14202,192 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 	}
 }
 
-static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
+static void bgp_show_peer_status(struct vty *vty, struct peer *p, bool use_json,
+				 json_object *json_neigh)
+{
+	char timebuf[BGP_UPTIME_LEN];
+
+	if (use_json)
+		json_object_string_add(
+			json_neigh, "bgpState",
+			lookup_msg(bgp_status_msg, p->connection->status, NULL));
+	else
+		vty_out(vty, "  BGP state = %s",
+			lookup_msg(bgp_status_msg, p->connection->status, NULL));
+
+	if (p->connection->status == Established) {
+		if (use_json) {
+			time_t uptime;
+			time_t epoch_tbuf;
+
+			uptime = monotime(NULL);
+			uptime -= p->uptime;
+			epoch_tbuf = time(NULL) - uptime;
+
+			json_object_int_add(json_neigh, "bgpTimerUpMsec",
+					    uptime * 1000);
+			json_object_string_add(json_neigh, "bgpTimerUpString",
+					       peer_uptime(p->uptime, timebuf,
+							   BGP_UPTIME_LEN, 0,
+							   NULL));
+			json_object_int_add(json_neigh,
+					    "bgpTimerUpEstablishedEpoch",
+					    epoch_tbuf);
+		} else
+			vty_out(vty, ", up for %8s",
+				peer_uptime(p->uptime, timebuf, BGP_UPTIME_LEN,
+					    0, NULL));
+	} else if (p->connection->status == Active) {
+		if (use_json) {
+			if (CHECK_FLAG(p->flags, PEER_FLAG_PASSIVE))
+				json_object_string_add(json_neigh, "bgpStateIs",
+						       "passive");
+			else if (CHECK_FLAG(p->sflags, PEER_STATUS_NSF_WAIT))
+				json_object_string_add(json_neigh, "bgpStateIs",
+						       "passiveNSF");
+		} else {
+			if (CHECK_FLAG(p->flags, PEER_FLAG_PASSIVE))
+				vty_out(vty, " (passive)");
+			else if (CHECK_FLAG(p->sflags, PEER_STATUS_NSF_WAIT))
+				vty_out(vty, " (NSF passive)");
+		}
+	}
+	if (!use_json)
+		vty_out(vty, "\n");
+}
+
+static void bgp_show_peer_brief(struct vty *vty, struct peer *p, bool use_json,
 			  json_object *json)
+{
+	struct bgp *bgp = p->bgp;
+	int len = 0;
+	int neighbor_col_default_width = 16;
+	struct peer_af *paf;
+	const char *afi_safi = NULL;
+	uint32_t peer_pcount = 0, peer_scount = 0;
+	bool is_first_afi_safi = true;
+	json_object *json_neigh = NULL, *json_addr_family_info = NULL;
+	char timebuf[BGP_UPTIME_LEN];
+	char dn_flag[2];
+	afi_t afi;
+	safi_t safi;
+
+	memset(dn_flag, '\0', sizeof(dn_flag));
+	if (!p->conf_if && peer_dynamic_neighbor(p))
+		dn_flag[0] = '*';
+
+	if (use_json) {
+		json_neigh = json_object_new_object();
+		if (p->hostname)
+			json_object_string_add(json_neigh, "hostname",
+					       p->hostname);
+		else
+			json_object_string_add(json_neigh, "hostname",
+					       "Unknown");
+		json_object_int_add(json_neigh, "remoteAs", p->as);
+		if (p->change_local_as)
+			json_object_int_add(json_neigh, "localAs",
+					    p->change_local_as);
+		else
+			json_object_int_add(json_neigh, "localAs",
+					    p->local_as);
+
+		json_object_string_add(
+			json_neigh, "lastResetDueTo",
+			peer_down_str[(int)p->last_reset]);
+		bgp_show_peer_status(vty, p, use_json, json_neigh);
+		time_t uptime;
+		struct tm tm;
+
+		uptime = monotime(NULL);
+		uptime -= p->resettime;
+		gmtime_r(&uptime, &tm);
+
+		json_object_int_add(json_neigh, "lastResetTimerMsecs",
+				    (tm.tm_sec * 1000) +
+					    (tm.tm_min * 60000) +
+					    (tm.tm_hour * 3600000));
+
+		json_object *json_stat = json_object_new_object();
+		json_object_int_add(json_stat, "totalSent",
+				    PEER_TOTAL_TX(p));
+		json_object_int_add(json_stat, "totalRecv",
+				    PEER_TOTAL_RX(p));
+		json_object_object_add(json_neigh, "messageStats",
+				       json_stat);
+
+		json_addr_family_info = json_object_new_object();
+		json_object_object_add(json_neigh, "addressFamilyInfo",
+				       json_addr_family_info);
+
+		if (p->conf_if) /* Configured interface name. */
+			json_object_object_add(json, p->conf_if,
+					       json_neigh);
+		else /* Configured IP address. */
+			json_object_object_add(json, p->host,
+					       json_neigh);
+	} else {
+		if (p->hostname &&
+		    CHECK_FLAG(bgp->flags, BGP_FLAG_SHOW_HOSTNAME))
+			len = vty_out(vty, "%s%s(%s)", dn_flag,
+				      p->hostname, p->host);
+		else
+			len = vty_out(vty, "%s%s", dn_flag, p->host);
+
+		/* pad the neighbor column with spaces */
+		if (len < neighbor_col_default_width)
+			vty_out(vty, "%*s",
+				neighbor_col_default_width - len, " ");
+		vty_out(vty, "%10u %9u %9u %10s %12s ", p->as,
+			PEER_TOTAL_RX(p), PEER_TOTAL_TX(p),
+			peer_uptime(p->resettime, timebuf,
+				    BGP_UPTIME_LEN, 0, NULL),
+			lookup_msg(bgp_status_msg, p->connection->status, NULL));
+	}
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (p->afc[afi][safi]) {
+			paf = peer_af_find(p, afi, safi);
+			peer_pcount = p->pcount[afi][safi];
+			peer_scount = ((paf && PAF_SUBGRP(paf))
+					       ? PAF_SUBGRP(paf)->scount
+					       : 0);
+
+			if (!use_json) {
+				afi_safi = get_afi_safi_str(afi, safi,
+							    false);
+				if (is_first_afi_safi) {
+					vty_out(vty, "%16s %9u %9u\n",
+						afi_safi, peer_pcount,
+						peer_scount);
+					is_first_afi_safi = false;
+				} else
+					vty_out(vty,
+						"%70s %16s %9u %9u\n",
+						" ", afi_safi,
+						peer_pcount,
+						peer_scount);
+			} else {
+				afi_safi = get_afi_safi_str(afi, safi,
+							    true);
+				json_object *json_addr =
+					json_object_new_object();
+				json_object_int_add(
+					json_addr,
+					"acceptedPrefixCounter",
+					peer_pcount);
+				json_object_int_add(json_addr,
+						    "sentPrefixCounter",
+						    peer_scount);
+				json_object_object_add(
+					json_addr_family_info, afi_safi,
+					json_addr);
+			}
+		}
+	}
+}
+
+static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
+			  json_object *json, bool brief)
 {
 	struct bgp *bgp;
 	char timebuf[BGP_UPTIME_LEN];
@@ -14220,6 +14404,11 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 
 	if (use_json)
 		json_neigh = json_object_new_object();
+
+	if (brief) {
+		bgp_show_peer_brief(vty, p, use_json, json);
+		return;
+	}
 
 	memset(dn_flag, '\0', sizeof(dn_flag));
 	if (!p->conf_if && peer_dynamic_neighbor(p))
@@ -16285,7 +16474,7 @@ static int bgp_show_neighbor_graceful_restart(struct vty *vty, struct bgp *bgp,
 static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 			     enum show_type type, union sockunion *su,
 			     const char *conf_if, bool use_json,
-			     json_object *json)
+			     json_object *json, bool brief)
 {
 	struct listnode *node, *nnode;
 	struct peer *peer;
@@ -16293,6 +16482,7 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 	bool nbr_output = false;
 	afi_t afi = AFI_MAX;
 	safi_t safi = SAFI_MAX;
+	bool is_first = true;
 
 	if (type == show_ipv4_peer || type == show_ipv4_all) {
 		afi = AFI_IP;
@@ -16304,9 +16494,13 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
 			continue;
 
+		else if (brief && is_first && !use_json) {
+			vty_out(vty, BGP_SHOW_NEIGHBORS_BRIEF_HEADER);
+			is_first = false;
+		}
 		switch (type) {
 		case show_all:
-			bgp_show_peer(vty, peer, use_json, json);
+			bgp_show_peer(vty, peer, use_json, json, brief);
 			nbr_output = true;
 			break;
 		case show_peer:
@@ -16317,13 +16511,13 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 					&& !strcmp(peer->hostname, conf_if))) {
 					find = 1;
 					bgp_show_peer(vty, peer, use_json,
-						      json);
+						      json, brief);
 				}
 			} else {
 				if (sockunion_same(&peer->connection->su, su)) {
 					find = 1;
 					bgp_show_peer(vty, peer, use_json,
-						      json);
+						      json, brief);
 				}
 			}
 			break;
@@ -16338,7 +16532,7 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 							&& !strcmp(peer->hostname, conf_if))) {
 							find = 1;
 							bgp_show_peer(vty, peer, use_json,
-								      json);
+								      json, brief);
 							break;
 						}
 					} else {
@@ -16347,7 +16541,7 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 								   su)) {
 							find = 1;
 							bgp_show_peer(vty, peer, use_json,
-								      json);
+								      json, brief);
 							break;
 						}
 					}
@@ -16358,7 +16552,7 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 		case show_ipv6_all:
 			FOREACH_SAFI (safi) {
 				if (peer->afc[afi][safi]) {
-					bgp_show_peer(vty, peer, use_json, json);
+					bgp_show_peer(vty, peer, use_json, json, brief);
 					nbr_output = true;
 					break;
 				}
@@ -16415,7 +16609,7 @@ static void bgp_show_neighbor_graceful_restart_vty(struct vty *vty, struct bgp *
 static void bgp_show_all_instances_neighbors_vty(struct vty *vty,
 						 enum show_type type,
 						 const char *ip_str,
-						 bool use_json)
+						 bool use_json, bool brief)
 {
 	struct listnode *node, *nnode;
 	struct bgp *bgp;
@@ -16476,13 +16670,13 @@ static void bgp_show_all_instances_neighbors_vty(struct vty *vty,
 			ret = str2sockunion(ip_str, &su);
 			if (ret < 0)
 				bgp_show_neighbor(vty, bgp, type, NULL, ip_str,
-						  use_json, json);
+						  use_json, json, brief);
 			else
 				bgp_show_neighbor(vty, bgp, type, &su, NULL,
-						  use_json, json);
+						  use_json, json, brief);
 		} else {
 			bgp_show_neighbor(vty, bgp, type, NULL, NULL,
-					  use_json, json);
+					  use_json, json, brief);
 		}
 		json_object_free(json);
 		json = NULL;
@@ -16496,7 +16690,7 @@ static void bgp_show_all_instances_neighbors_vty(struct vty *vty,
 
 static int bgp_show_neighbor_vty(struct vty *vty, const char *name,
 				 enum show_type type, const char *ip_str,
-				 bool use_json)
+				 bool use_json, bool brief)
 {
 	int ret;
 	struct bgp *bgp;
@@ -16506,7 +16700,7 @@ static int bgp_show_neighbor_vty(struct vty *vty, const char *name,
 	if (name) {
 		if (strmatch(name, "all")) {
 			bgp_show_all_instances_neighbors_vty(vty, type, ip_str,
-							     use_json);
+							     use_json, brief);
 			return CMD_SUCCESS;
 		} else {
 			bgp = bgp_lookup_by_name(name);
@@ -16531,13 +16725,13 @@ static int bgp_show_neighbor_vty(struct vty *vty, const char *name,
 			ret = str2sockunion(ip_str, &su);
 			if (ret < 0)
 				bgp_show_neighbor(vty, bgp, type, NULL, ip_str,
-						  use_json, json);
+						  use_json, json, brief);
 			else
 				bgp_show_neighbor(vty, bgp, type, &su, NULL,
-						  use_json, json);
+						  use_json, json, brief);
 		} else {
 			bgp_show_neighbor(vty, bgp, type, NULL, NULL, use_json,
-					  json);
+					  json, brief);
 		}
 		json_object_free(json);
 	} else {
@@ -16590,7 +16784,7 @@ DEFPY (show_ip_bgp_neighbors_graceful_restart,
 /* "show [ip] bgp neighbors" commands.  */
 DEFUN (show_ip_bgp_neighbors,
        show_ip_bgp_neighbors_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6>] neighbors [<A.B.C.D|X:X::X:X|WORD>] [json]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6>] neighbors [<A.B.C.D|X:X::X:X|WORD>] [brief] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -16601,12 +16795,14 @@ DEFUN (show_ip_bgp_neighbors,
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
        "Neighbor on BGP configured interface\n"
+	   "Shorten the information on BGP neighbors\n"
        JSON_STR)
 {
 	char *vrf = NULL;
 	char *sh_arg = NULL;
 	enum show_type sh_type;
 	afi_t afi = AFI_MAX;
+	bool brief = false;
 
 	bool uj = use_json(argc, argv);
 
@@ -16646,7 +16842,10 @@ DEFUN (show_ip_bgp_neighbors,
 		sh_type = show_ipv6_peer;
 	}
 
-	return bgp_show_neighbor_vty(vty, vrf, sh_type, sh_arg, uj);
+	if (argv_find(argv, argc, "brief", &idx))
+		brief = true;
+
+	return bgp_show_neighbor_vty(vty, vrf, sh_type, sh_arg, uj, brief);
 }
 
 /* Show BGP's AS paths internal data.  There are both `show [ip] bgp

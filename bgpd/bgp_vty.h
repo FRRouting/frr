@@ -55,6 +55,10 @@ FRR_CFG_DEFAULT_ULONG(BGP_CONNECT_RETRY,
 	"V         AS    LocalAS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc\n"
 #define BGP_SHOW_SUMMARY_HEADER_FAILED "EstdCnt DropCnt ResetTime Reason\n"
 
+
+#define BGP_SHOW_NEIGHBORS_BRIEF_HEADER                                        \
+	"\nNeighbor                AS   MsgRcvd   MsgSent  ResetTime        State         Afi/Safi    PfxRcd    PfxSnt\n"
+
 #define BGP_SHOW_PEER_GR_CAPABILITY(vty, p, json)                              \
 	do {                                                                   \
 		bgp_show_neighbor_graceful_restart_local_mode(vty, p, json);   \
