@@ -1406,7 +1406,8 @@ static int zebra_sr_config(struct vty *vty)
 			vty_out(vty, "   locator %s\n", locator->name);
 			vty_out(vty, "    prefix %s/%u", str,
 				locator->prefix.prefixlen);
-			if (locator->block_bits_length)
+			if (locator->block_bits_length !=
+			    locator->prefix.prefixlen - ZEBRA_SRV6_LOCATOR_NODE_LENGTH)
 				vty_out(vty, " block-len %u",
 					locator->block_bits_length);
 			if (locator->node_bits_length != ZEBRA_SRV6_LOCATOR_NODE_LENGTH)
