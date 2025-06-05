@@ -10,7 +10,7 @@
 
 #ifdef HAVE_SCRIPTING
 
-#include "frrlua.h"
+#include <lua.h>
 
 /*
  * Initialize scripting stuff.

@@ -17,6 +17,7 @@
 
 #include "pim_igmp.h"
 #include "pim_upstream.h"
+#include "pim_ifchannel.h"
 #include "bfd.h"
 #include "pim_str.h"
 

@@ -16,6 +16,7 @@
 #include "vty.h"
 #include "memory.h"
 #include "mpls.h"
+#include "zebra/rib.h"
 #include "zebra/zserv.h"
 #include "zebra/zebra_vrf.h"
 #include "hook.h"

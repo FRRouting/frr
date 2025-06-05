@@ -6,20 +6,27 @@
 #ifndef __FRRLUA_H__
 #define __FRRLUA_H__
 
-#include <zebra.h>
 
 #ifdef HAVE_SCRIPTING
 
-#include <lua.h>
-#include <lualib.h>
-#include <lauxlib.h>
+#include <netinet/in.h>
 
-#include "prefix.h"
-#include "frrscript.h"
+#include <lua.h>
+
+#include "lib/memory.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+struct interface;
+struct prefix;
+struct ipaddr;
+struct ethaddr;
+union sockunion;
+struct nexthop_group;
+struct nexthop;
+struct buffer;
 
 DECLARE_MTYPE(SCRIPT_RES);
 

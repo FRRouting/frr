@@ -25,7 +25,7 @@
 #include "memory.h"
 #include "frrcu.h"
 #include "printfrr.h"
-#include "typerb.h"
+#include "lib/typesafe.h"
 #include "frr_pthread.h"
 #include "command.h"
 #include "monotime.h"

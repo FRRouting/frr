@@ -9,13 +9,16 @@
 
 #include <zebra.h>
 
-#include "if.h"
-#include "prefix.h"
+#include <stdbool.h>
+#include <stdint.h>
 
-#include "pim_assert.h"
+#include "lib/openbsd-tree.h"
 
-struct pim_ifchannel;
-#include "pim_upstream.h"
+#include "pimd/pim_addr.h"
+#include "pimd/pim_str.h"
+#include "pimd/pim_assert.h"
+
+struct interface;
 
 enum pim_ifmembership { PIM_IFMEMBERSHIP_NOINFO, PIM_IFMEMBERSHIP_INCLUDE };
 
