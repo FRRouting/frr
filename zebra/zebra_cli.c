@@ -2533,7 +2533,7 @@ DEFPY_YANG(
 		xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, length_str);
 
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes_pending(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -2551,7 +2551,7 @@ DEFPY_YANG(
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes_pending(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -2574,7 +2574,7 @@ DEFPY_YANG(
 		xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, length_str);
 
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes_pending(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -2592,7 +2592,7 @@ DEFPY_YANG(
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes_pending(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -2615,7 +2615,7 @@ DEFPY_YANG(
 		xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, length_str);
 
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes_pending(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -2633,7 +2633,7 @@ DEFPY_YANG(
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes_pending(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -2653,7 +2653,7 @@ DEFPY_YANG(
 		 xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, proto);
 
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes_pending(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -2669,7 +2669,7 @@ DEFPY_YANG(
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes_pending(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -2689,7 +2689,7 @@ DEFPY_YANG(
 		 xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, instance_str);
 
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes_pending(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -2704,7 +2704,7 @@ DEFPY_YANG(
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes_pending(vty, NULL);
 }
 
 /* set functions */
@@ -2738,7 +2738,7 @@ DEFPY_YANG(
 				      addrv6_str);
 	}
 
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes_pending(vty, NULL);
 }
 
 DEFPY_YANG(
@@ -2755,7 +2755,7 @@ DEFPY_YANG(
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes_pending(vty, NULL);
 }
 
 const char *frr_zebra_features[] = {

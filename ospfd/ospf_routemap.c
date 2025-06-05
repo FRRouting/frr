@@ -665,7 +665,7 @@ DEFUN_YANG (set_metric_type,
 	snprintf(xpath_value, sizeof(xpath_value),
 		 "%s/rmap-set-action/frr-ospf-route-map:metric-type", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, ext);
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes_pending(vty, NULL);
 }
 
 DEFUN_YANG (no_set_metric_type,
@@ -681,7 +681,7 @@ DEFUN_YANG (no_set_metric_type,
 		"./set-action[action='frr-ospf-route-map:metric-type']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes_pending(vty, NULL);
 }
 
 /* Route-map init */
