@@ -22,6 +22,7 @@
 #include "pim_dm.h"
 #include "pim_igmp.h"
 #include "pim_join.h"
+#include "pim_util.h"
 
 static void pim_dm_range_reevaluate(struct pim_instance *pim)
 {
@@ -127,6 +128,42 @@ void pim_dm_graft_send(struct pim_rpf rpf, struct pim_upstream *up)
 	list_delete_all_node(&groups);
 }
 
+/* Send a prune immediately to all neighbors on a interface.
+ * Used when a packet is received on the wrong interface.
+ */
+void pim_dm_prune_wrongif(struct interface *ifp, pim_sgaddr sg, struct pim_upstream *up)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+
+	if (!up)
+		return;
+
+	if (should_limit_prune(up))
+		return;
+
+	/* Just in case, cancel any possible graft timer */
+	event_cancel(&up->t_graft_timer);
+
+	PIM_UPSTREAM_DM_SET_PRUNE(up->flags);
+
+	/* Prune to each neighbor on the received interface */
+	if (pim_ifp->pim_neighbor_list->count > 0) {
+		struct listnode *neighnode;
+		struct pim_neighbor *neigh;
+		struct pim_rpf rpf;
+
+		rpf.source_nexthop.interface = ifp;
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_neighbor_list, neighnode, neigh)) {
+			rpf.source_nexthop.mrib_nexthop_addr = neigh->source_addr;
+			if (PIM_DEBUG_PIM_J_P)
+				zlog_debug("%s: Sending immediate prune for (S,G)=%pSG to neighbor %pPA on interface %s",
+					   __func__, &up->sg, &neigh->source_addr, ifp->name);
+			pim_dm_prune_send(rpf, up, 0);
+		}
+		prune_limit_timer_start(up);
+	}
+}
+
 void pim_dm_prune_send(struct pim_rpf rpf, struct pim_upstream *up, bool is_join)
 {
 	struct list groups, sources;
@@ -175,7 +212,7 @@ bool pim_dm_check_gm_group_list(struct interface *ifp)
 }
 
 /* Returns true if this interface has an IGMP for this group */
-bool pim_dm_check_prune(struct interface *ifp, pim_addr group_addr)
+bool pim_gm_has_igmp_join(struct interface *ifp, pim_addr group_addr)
 {
 	struct listnode *node;
 	struct listnode *nextnode;
@@ -284,7 +321,7 @@ void pim_dm_recv_prune(struct interface *ifp, struct pim_neighbor *neigh, uint16
 				sg_connected = true;
 				break;
 			}
-			if (pim_dm_check_prune(ifp2, sg->grp)) {
+			if (pim_gm_has_igmp_join(ifp2, sg->grp)) {
 				sg_connected = true;
 				break;
 			}
@@ -373,6 +410,14 @@ bool pim_is_grp_dm(struct pim_instance *pim, pim_addr group_addr)
 {
 	struct pim_rpf *rpg;
 
+#if PIM_IPV == 4
+	if (pim_is_group_224_0_0_0_24(group_addr))
+		return false;
+#else
+	if (ipv6_mcast_reserved(&group_addr))
+		return false;
+#endif
+
 	/* check if it is an SSM group */
 	if (pim_is_grp_ssm(pim, group_addr))
 		return false;
@@ -394,6 +439,14 @@ bool pim_iface_grp_dm(struct pim_interface *pim_ifp, pim_addr group_addr)
 
 	if (!pim_ifp || !HAVE_DENSE_MODE(pim_ifp->pim_mode))
 		return false;
+
+#if PIM_IPV == 4
+	if (pim_is_group_224_0_0_0_24(group_addr))
+		return false;
+#else
+	if (ipv6_mcast_reserved(&group_addr))
+		return false;
+#endif
 
 	pim = pim_ifp->pim;
 	if (pim_is_grp_ssm(pim, group_addr))

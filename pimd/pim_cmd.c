@@ -6605,6 +6605,35 @@ DEFUN (no_debug_autorp,
 	return CMD_SUCCESS;
 }
 
+DEFPY (debug_graft,
+       debug_graft_cmd,
+       "[no] debug pim graft",
+       NO_STR
+       DEBUG_STR
+       DEBUG_PIM_STR
+       DEBUG_PIM_GRAFT_STR)
+{
+	if (!!no)
+		PIM_DO_DEBUG_GRAFT;
+	else
+		PIM_DONT_DEBUG_GRAFT;
+	return CMD_SUCCESS;
+}
+
+DEFPY (debug_state_refresh,
+       debug_state_refresh_cmd,
+       "[no] debug pim state-refresh",
+       NO_STR
+       DEBUG_STR
+       DEBUG_PIM_STR
+       DEBUG_PIM_STATE_REFRESH_STR)
+{
+	if (!!no)
+		PIM_DO_DEBUG_STATE_REFRESH;
+	else
+		PIM_DONT_DEBUG_STATE_REFRESH;
+	return CMD_SUCCESS;
+}
 
 DEFUN_NOSH (show_debugging_pim,
 	    show_debugging_pim_cmd,
@@ -9375,6 +9404,10 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &no_debug_bsm_cmd);
 	install_element(CONFIG_NODE, &debug_autorp_cmd);
 	install_element(CONFIG_NODE, &no_debug_autorp_cmd);
+	install_element(ENABLE_NODE, &debug_graft_cmd);
+	install_element(CONFIG_NODE, &debug_graft_cmd);
+	install_element(ENABLE_NODE, &debug_state_refresh_cmd);
+	install_element(CONFIG_NODE, &debug_state_refresh_cmd);
 
 	install_element(CONFIG_NODE, &ip_igmp_group_watermark_cmd);
 	install_element(VRF_NODE, &ip_igmp_group_watermark_cmd);

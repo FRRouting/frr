@@ -177,6 +177,7 @@ static void pim_upstream_timers_stop(struct pim_upstream *up)
 	event_cancel(&up->t_prune_timer);
 	event_cancel(&up->t_staterefresh_timer);
 	event_cancel(&up->t_graft_timer);
+	event_cancel(&up->t_prune_limit_timer);
 }
 
 struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
@@ -410,6 +411,16 @@ static void on_prune_timer(struct event *t)
 	prune_timer_start(up);
 }
 
+static void on_prune_limit_timer(struct event *t)
+{
+	struct pim_upstream *up;
+
+	up = EVENT_ARG(t);
+	if (PIM_DEBUG_PIM_J_P)
+		zlog_debug("%s: Prune limit timer expired for upstream (s,g)=%pSG", __func__,
+			   &up->sg);
+}
+
 
 static void on_join_timer(struct event *t)
 {
@@ -483,6 +494,21 @@ void prune_timer_start(struct pim_upstream *up)
 				&up->t_prune_timer);
 	}
 	pim_jp_agg_upstream_verification(up, true);
+}
+
+void prune_limit_timer_start(struct pim_upstream *up)
+{
+	event_cancel(&up->t_prune_limit_timer);
+	event_add_timer(router->master, on_prune_limit_timer, up, router->t_prune_limit,
+			&up->t_prune_limit_timer);
+	if (PIM_DEBUG_PIM_J_P)
+		zlog_debug("%s: Started Prune limit timer (%ds) for upstream (s,g)=%pSG", __func__,
+			   router->t_prune_limit, &up->sg);
+}
+
+bool should_limit_prune(struct pim_upstream *up)
+{
+	return event_is_scheduled(up->t_prune_limit_timer);
 }
 
 void graft_timer_start(struct pim_upstream *up)
@@ -1015,8 +1041,8 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	/* Set up->upstream_addr as INADDR_ANY, if RP is not
 	 * configured and retain the upstream data structure
 	 */
-	if (!pim_rp_set_upstream_addr(pim, &up->upstream_addr, sg->src,
-				      sg->grp)) {
+	if (!pim_rp_set_upstream_addr(pim, &up->upstream_addr, sg->src, sg->grp) &&
+	    pim_is_grp_dm(pim, sg->grp)) {
 		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug("%s: Received a (*,G) with no RP configured",
 				   __func__);
@@ -2239,7 +2265,7 @@ bool pim_upstream_up_connected(struct pim_upstream *up)
 		    ifp->ifindex != up->rpf.source_nexthop.interface->ifindex &&
 		    oil_if_has(up->channel_oil, pim_ifp->mroute_vif_index))
 			return true;
-		if (pim_dm_check_prune(ifp, up->sg.grp))
+		if (pim_gm_has_igmp_join(ifp, up->sg.grp))
 			return true;
 	}
 	return false;
