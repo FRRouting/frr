@@ -7122,6 +7122,7 @@ static void bgp_cleanup_table(struct bgp *bgp, struct bgp_table *table, safi_t s
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest))
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = next) {
 			const struct prefix *p = bgp_dest_get_prefix(dest);
+			struct bgp_adj_in *ain, *ain_next;
 
 			next = pi->next;
 
@@ -7140,12 +7141,24 @@ static void bgp_cleanup_table(struct bgp *bgp, struct bgp_table *table, safi_t s
 					bgp_zebra_withdraw_actual(dest, pi, bgp);
 			}
 
+			ain = dest->adj_in;
+			while (ain) {
+				ain_next = ain->next;
+				bgp_adj_in_remove(&dest, ain);
+				ain = ain_next;
+			}
+			dest->adj_in = NULL;
+
 			dest = bgp_path_info_reap(dest, pi);
 			assert(dest);
 		}
 }
 
-/* Delete all kernel routes. */
+/*
+ * Delete all routes associated with all tables as that
+ * we are going through a shutdown.  Just make things go
+ * away
+ */
 void bgp_cleanup_routes(struct bgp *bgp)
 {
 	safi_t safi;
