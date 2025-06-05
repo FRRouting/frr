@@ -1409,7 +1409,7 @@ static int zebra_sr_config(struct vty *vty)
 			if (locator->block_bits_length)
 				vty_out(vty, " block-len %u",
 					locator->block_bits_length);
-			if (locator->node_bits_length)
+			if (locator->node_bits_length != ZEBRA_SRV6_LOCATOR_NODE_LENGTH)
 				vty_out(vty, " node-len %u",
 					locator->node_bits_length);
 
