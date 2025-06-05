@@ -22,14 +22,9 @@
 
 /* include-what-you-use doesn't quite seem to understand _Generic, and these
  * headers are only needed for the functions used there
- *
- * (not great to have a bgpd/ file included from lib/, but not much that can
- * be done about that for the time being.)
  */
 // IWYU pragma: begin_keep
 #include "lib/frrlua.h"
-#include "bgpd/bgp_script.h" // for peer and attr encoders/decoders
-
 #include "lib/zlog.h"
 // IWYU pragma: end_keep
 
@@ -45,6 +40,12 @@ extern void lua_pushzebra_dplane_ctx(lua_State *L,
 				     const struct zebra_dplane_ctx *ctx);
 extern void lua_decode_zebra_dplane_ctx(lua_State *L, int idx,
 					struct zebra_dplane_ctx *ctx);
+/* From bgp */
+struct peer;
+struct attr;
+void lua_pushpeer(lua_State *L, const struct peer *peer);
+void lua_pushattr(lua_State *L, const struct attr *attr);
+void lua_decode_attr(lua_State *L, int idx, struct attr *attr);
 
 /*
  * Script name hash
