@@ -48,10 +48,9 @@ struct mgmt_fe_client {
 #define FOREACH_SESSION_IN_LIST(client, session)                               \
 	frr_each_safe (mgmt_sessions, &(client)->sessions, (session))
 
-struct debug mgmt_dbg_fe_client = {
-	.conf = "debug mgmt client frontend",
-	.desc = "Management frontend client operations"
-};
+struct debug mgmt_dbg_fe_client = { .flags = DEBUG_MODE_ALL,
+				    .conf = "debug mgmt client frontend",
+				    .desc = "Management frontend client operations" };
 
 /* NOTE: only one client per proc for now. */
 static struct mgmt_fe_client *__fe_client;

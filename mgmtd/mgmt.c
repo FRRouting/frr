@@ -15,13 +15,17 @@
 #include "mgmtd/mgmt_history.h"
 #include "mgmtd/mgmt_memory.h"
 
-struct debug mgmt_debug_be = { .conf = "debug mgmt backend",
+struct debug mgmt_debug_be = { .flags = DEBUG_MODE_ALL,
+			       .conf = "debug mgmt backend",
 			       .desc = "Management backend adapter" };
-struct debug mgmt_debug_ds = { .conf = "debug mgmt datastore",
+struct debug mgmt_debug_ds = { .flags = DEBUG_MODE_ALL,
+			       .conf = "debug mgmt datastore",
 			       .desc = "Management datastore" };
-struct debug mgmt_debug_fe = { .conf = "debug mgmt frontend",
+struct debug mgmt_debug_fe = { .flags = DEBUG_MODE_ALL,
+			       .conf = "debug mgmt frontend",
 			       .desc = "Management frontend adapter" };
-struct debug mgmt_debug_txn = { .conf = "debug mgmt transaction",
+struct debug mgmt_debug_txn = { .flags = DEBUG_MODE_ALL,
+				.conf = "debug mgmt transaction",
 				.desc = "Management transaction" };
 
 /* MGMTD process wide configuration.  */

@@ -227,8 +227,14 @@ int mgmt_ds_lock(struct mgmt_ds_ctx *ds_ctx, uint64_t session_id)
 {
 	assert(ds_ctx);
 
-	if (ds_ctx->locked)
+	if (ds_ctx->locked) {
+		zlog_err("%s: ERROR: lock already taken on DS:%s by session-id %Lu", __func__,
+			 mgmt_ds_id2name(ds_ctx->ds_id), ds_ctx->vty_session_id);
 		return EBUSY;
+	}
+
+	zlog_debug("%s: DEBUG: XXX obtaining lock on DS:%s for session-id %Lu", __func__,
+		   mgmt_ds_id2name(ds_ctx->ds_id), session_id);
 
 	ds_ctx->locked = true;
 	ds_ctx->vty_session_id = session_id;
