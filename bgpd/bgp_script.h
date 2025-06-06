@@ -17,6 +17,11 @@
  */
 void bgp_script_init(void);
 
+/*
+ * Note that the common lib/frrscript.h has forward-refs to some of these
+ * apis; if these change, please ensure those refs are updated too.
+ */
+
 /* Forward references */
 struct peer;
 struct attr;
