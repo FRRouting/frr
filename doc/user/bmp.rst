@@ -50,8 +50,6 @@ The `BMP` implementation in FRR has the following properties:
 
 - monitoring peers that have BGP **add-path** enabled on will have the following behaviour:
   - route mirroring functions as intended, messages are copied verbatim
-  - the add-path ID is always included in route monitoring messages
-  - routes from peers without add-path have the "default" 0 path-id included
   - the received path-id will be included for Adj-RIB-In and Local-RIB
 
 - monitoring peers with :rfc:`5549` extended next-hops has not been tested.
