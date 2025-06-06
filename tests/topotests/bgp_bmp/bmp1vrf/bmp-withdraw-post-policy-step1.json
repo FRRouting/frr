@@ -10,8 +10,7 @@
                 "peer_distinguisher": "444:1",
                 "peer_ip": "192.168.0.2",
                 "peer_type": "route distinguisher instance",
-                "policy": "rib-in-post-policy",
-                "path_id": 0
+                "policy": "rib-in-post-policy"
             },
             "2001::1111/128": {
                 "afi": 2,
@@ -25,7 +24,6 @@
                 "peer_type": "route distinguisher instance",
                 "policy": "rib-in-post-policy",
                 "safi": 1
-                "path_id": 0
             }
         }
     }
