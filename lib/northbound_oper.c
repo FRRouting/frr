@@ -1260,7 +1260,7 @@ static enum nb_error _walk(struct nb_op_yield_state *ys, bool is_resume)
 	const void *parent_list_entry = NULL;
 	const void *list_entry = NULL;
 	struct nb_op_node_info *ni, *pni;
-	struct lyd_node *node;
+	struct lyd_node *node = NULL;
 	struct nb_node *nn;
 	char *xpath_child = NULL;
 	// bool at_query_base;

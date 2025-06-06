@@ -858,6 +858,8 @@ static int process_lsp(uint8_t pdu_type, struct isis_circuit *circuit,
 	size_t pdu_end = stream_get_endp(circuit->rcv_stream);
 	char raw_pdu[pdu_end - pdu_start];
 
+	memset(raw_pdu, 0, sizeof(raw_pdu));
+
 	stream_get_from(raw_pdu, circuit->rcv_stream, pdu_start,
 			pdu_end - pdu_start);
 
@@ -965,7 +967,7 @@ static int process_lsp(uint8_t pdu_type, struct isis_circuit *circuit,
 
 	struct isis_tlvs *tlvs = NULL;
 	int retval = ISIS_WARNING;
-	const char *error_log;
+	const char *error_log = NULL;
 
 	if (isis_unpack_tlvs(STREAM_READABLE(circuit->rcv_stream),
 			     circuit->rcv_stream, &tlvs, &error_log)) {
@@ -1674,6 +1676,8 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 	size_t pdu_end = stream_get_endp(circuit->rcv_stream);
 	char raw_pdu[pdu_end - pdu_start];
 
+	memset(raw_pdu, 0, sizeof(raw_pdu));
+
 	stream_get_from(raw_pdu, circuit->rcv_stream, pdu_start,
 			pdu_end - pdu_start);
 
@@ -1846,8 +1850,8 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 
 void isis_receive(struct event *event)
 {
-	struct isis_circuit *circuit;
-	uint8_t ssnpa[ETH_ALEN];
+	struct isis_circuit *circuit = NULL;
+	uint8_t ssnpa[ETH_ALEN] = { 0 };
 
 	/*
 	 * Get the circuit
