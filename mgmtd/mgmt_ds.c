@@ -344,7 +344,7 @@ int mgmt_ds_copy_dss(struct mgmt_ds_ctx *dst, struct mgmt_ds_ctx *src, bool updt
 
 int mgmt_ds_dump_ds_to_file(char *file_name, struct mgmt_ds_ctx *ds_ctx)
 {
-	struct ly_out *out;
+	struct ly_out *out = NULL;
 	int ret = 0;
 
 	if (ly_out_new_filepath(file_name, &out) == LY_SUCCESS) {
@@ -389,6 +389,7 @@ static int mgmt_walk_ds_nodes(
 	if (!base_dnode)
 		return -1;
 
+	xpath[0] = '\0';
 	_dbg("           search base schema: '%s'",
 	     lysc_path(base_dnode->schema, LYSC_PATH_LOG, xpath, sizeof(xpath)));
 
@@ -461,6 +462,7 @@ int mgmt_ds_delete_data_nodes(struct mgmt_ds_ctx *ds_ctx, const char *xpath)
 		return NB_ERR_NOT_FOUND;
 	/* destroy dependant */
 	if (nb_node && nb_node->dep_cbs.get_dependant_xpath) {
+		dep_xpath[0] = '\0';
 		nb_node->dep_cbs.get_dependant_xpath(dnode, dep_xpath);
 
 		dep_dnode = yang_dnode_get(
@@ -516,6 +518,7 @@ int mgmt_ds_iter_data(enum mgmt_ds_id ds_id, struct nb_config *root, const char 
 	if (!root)
 		return -1;
 
+	xpath[0] = '\0';
 	strlcpy(xpath, base_xpath, sizeof(xpath));
 	mgmt_remove_trailing_separator(xpath, '/');
 
@@ -552,15 +555,16 @@ int mgmt_ds_iter_data(enum mgmt_ds_id ds_id, struct nb_config *root, const char 
 void mgmt_ds_dump_tree(struct vty *vty, struct mgmt_ds_ctx *ds_ctx,
 		       const char *xpath, FILE *f, LYD_FORMAT format)
 {
-	struct ly_out *out;
-	char *str;
-	char base_xpath[MGMTD_MAX_XPATH_LEN] = {0};
+	struct ly_out *out = NULL;
+	char *str = NULL;
+	char base_xpath[MGMTD_MAX_XPATH_LEN];
 
 	if (!ds_ctx) {
 		vty_out(vty, "    >>>>> Datastore Not Initialized!\n");
 		return;
 	}
 
+	base_xpath[0] = '\0';
 	if (xpath) {
 		strlcpy(base_xpath, xpath, MGMTD_MAX_XPATH_LEN);
 		mgmt_remove_trailing_separator(base_xpath, '/');

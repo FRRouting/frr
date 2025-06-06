@@ -637,7 +637,7 @@ void zebra_ptm_bfd_dst_register(ZAPI_HANDLER_ARGS)
 	unsigned int min_rx_timer;
 	unsigned int min_tx_timer;
 	char if_name[IFNAMSIZ];
-	uint8_t len;
+	uint8_t len = 0;
 	void *out_ctxt;
 	char buf[INET6_ADDRSTRLEN];
 	char tmp_buf[64];

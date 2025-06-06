@@ -1114,7 +1114,7 @@ static void lib_interface_zebra_evpn_mh_type_3_system_mac_cli_write(
 	struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
 	char buf[ETHER_ADDR_STRLEN];
-	struct ethaddr mac;
+	struct ethaddr mac = { 0 };
 
 	yang_dnode_get_mac(&mac, dnode, NULL);
 

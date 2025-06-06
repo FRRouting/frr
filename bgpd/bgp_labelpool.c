@@ -569,7 +569,7 @@ static void bgp_sync_label_manager(struct event *e)
 	struct lp_fifo *lf;
 
 	while ((lf = lp_fifo_pop(&lp->requests))) {
-		struct lp_lcb *lcb;
+		struct lp_lcb *lcb = NULL;
 		void *labelid = lf->lcb.labelid;
 
 		if (skiplist_search(lp->ledger, labelid, (void **)&lcb)) {

@@ -1331,7 +1331,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 
 	/* Clear all neighbors belonging to a specific AS. */
 	if (sort == clear_as) {
-		as_t as;
+		as_t as = 0;
 
 		if (!asn_str2asn(arg, &as)) {
 			vty_out(vty, "%% BGP: No such AS %s\n", arg);
@@ -1595,7 +1595,7 @@ DEFUN_NOSH (router_bgp,
 	int idx_asnotation_kind = 4;
 	enum asnotation_mode asnotation = ASNOTATION_UNDEFINED;
 	int ret;
-	as_t as;
+	as_t as = 0;
 	struct bgp *bgp = NULL;
 	const char *name = NULL;
 	enum bgp_instance_type inst_type;
@@ -1739,8 +1739,8 @@ DEFUN (no_router_bgp,
 {
 	int idx_asn = 3;
 	int idx_vrf = 5;
-	as_t as;
-	struct bgp *bgp;
+	as_t as = 0;
+	struct bgp *bgp = NULL;
 	const char *name = NULL;
 
 	// "no router bgp" without an ASN
@@ -2127,7 +2127,7 @@ DEFUN (bgp_confederation_identifier,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_number = 3;
-	as_t as;
+	as_t as = 0;
 
 	if (!asn_str2asn(argv[idx_number]->arg, &as)) {
 		vty_out(vty, "%% BGP: No such AS %s\n", argv[idx_number]->arg);
@@ -2164,7 +2164,7 @@ DEFUN (bgp_confederation_peers,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_asn = 3;
-	as_t as;
+	as_t as = 0;
 	int i;
 
 	for (i = idx_asn; i < argc; i++) {
@@ -2190,7 +2190,7 @@ DEFUN (no_bgp_confederation_peers,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_asn = 4;
-	as_t as;
+	as_t as = 0;
 	int i;
 
 	for (i = idx_asn; i < argc; i++) {
@@ -5125,7 +5125,7 @@ static int peer_remote_as_vty(struct vty *vty, const char *peer_str,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int ret;
-	as_t as;
+	as_t as = 0;
 	enum peer_asn_type as_type = AS_SPECIFIED;
 	union sockunion su;
 
@@ -5728,7 +5728,7 @@ DEFUN (neighbor_local_as,
 	int idx_number = 3;
 	struct peer *peer;
 	int ret;
-	as_t as;
+	as_t as = 0;
 
 	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
 	if (!peer)
@@ -5757,7 +5757,7 @@ DEFUN (neighbor_local_as_no_prepend,
 	int idx_number = 3;
 	struct peer *peer;
 	int ret;
-	as_t as;
+	as_t as = 0;
 
 	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
 	if (!peer)
@@ -5788,7 +5788,7 @@ DEFPY (neighbor_local_as_no_prepend_replace_as,
 	int idx_number = 3;
 	struct peer *peer;
 	int ret;
-	as_t as;
+	as_t as = 0;
 
 	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
 	if (!peer)
@@ -5972,7 +5972,7 @@ DEFUN (neighbor_set_peer_group,
 	int idx_peer = 1;
 	int idx_word = 3;
 	int ret;
-	as_t as;
+	as_t as = 0;
 	union sockunion su;
 	struct peer *peer;
 	struct peer_group *group;

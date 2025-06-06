@@ -91,7 +91,7 @@ int str2prefix_rd(const char *str, struct prefix_rd *prd)
 	struct stream *s = NULL;
 	char *half = NULL;
 	struct in_addr addr;
-	as_t as_val;
+	as_t as_val = 0;
 
 	prd->family = AF_UNSPEC;
 	prd->prefixlen = 64;
