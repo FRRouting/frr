@@ -10,8 +10,7 @@
                 "peer_distinguisher": "0:0",
                 "peer_ip": "192.168.0.2",
                 "peer_type": "global instance",
-                "policy": "rib-in-post-policy",
-                "path_id": 0
+                "policy": "rib-in-post-policy"
             },
             "2001::1111/128": {
                 "afi": 2,
@@ -24,8 +23,7 @@
                 "peer_ip": "192:168::2",
                 "peer_type": "global instance",
                 "policy": "rib-in-post-policy",
-                "safi": 1,
-                "path_id": 0
+                "safi": 1
             }
         }
     }

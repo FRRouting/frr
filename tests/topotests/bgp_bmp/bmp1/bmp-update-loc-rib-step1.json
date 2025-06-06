@@ -12,8 +12,7 @@
                 "peer_bgp_id": "192.168.0.1",
                 "peer_distinguisher": "0:0",
                 "peer_type": "loc-rib instance",
-                "policy": "loc-rib",
-                "path_id": 0
+                "policy": "loc-rib"
             },
             "2001::1111/128": {
                 "afi": 2,
@@ -28,8 +27,7 @@
                 "peer_distinguisher": "0:0",
                 "peer_type": "loc-rib instance",
                 "policy": "loc-rib",
-                "safi": 1,
-                "path_id": 0
+                "safi": 1
             }
         }
     }
