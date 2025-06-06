@@ -968,11 +968,22 @@ int pathd_srv6_encap_behavior_segment_list_modify(struct nb_cb_modify_args *args
 	srv6_encap_behavior_str = yang_dnode_get_string(args->dnode, NULL);
 
 	path_srv6_set_encap_type_segment_list_str(srv6_encap_behavior_str);
+	/* walk over current segment-lists to update srv6 encapsulation type */
+	path_srv6_encap_behavior_changed(path_srv6_get_encap_type_segment_list());
+
 	return NB_OK;
 }
 
 int pathd_srv6_encap_behavior_segment_list_destroy(struct nb_cb_destroy_args *args)
 {
+	enum srv6_headend_behavior old_encap_behavior;
+
+	old_encap_behavior = path_srv6_get_encap_type_segment_list();
 	path_srv6_set_encap_type_segment_list_str("ietf-types:H.Encaps");
+
+	if (old_encap_behavior != SRV6_HEADEND_BEHAVIOR_H_ENCAPS)
+		/* walk over current segment-lists to update H_Encaps */
+		path_srv6_encap_behavior_changed(SRV6_HEADEND_BEHAVIOR_H_ENCAPS);
+
 	return NB_OK;
 }

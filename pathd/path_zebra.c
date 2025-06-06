@@ -433,6 +433,37 @@ static int path_zebra_router_id_update(ZAPI_CALLBACK_ARGS)
 }
 
 /**
+ * srv6 default encap behavior is changed on pathd
+ */
+void path_srv6_encap_behavior_changed(enum srv6_headend_behavior new_encap_behavior)
+{
+	struct srte_policy *policy;
+
+	RB_FOREACH (policy, srte_policy_head, &srte_policies) {
+		struct srte_candidate *candidate;
+		struct srte_segment_list *segment_list;
+
+		if (policy->encap_behavior == new_encap_behavior)
+			continue;
+		/* update  encap_behavior in policy config */
+		policy->encap_behavior = new_encap_behavior;
+
+		candidate = policy->best_candidate;
+
+		if (!candidate)
+			continue;
+
+		segment_list = candidate->lsp->segment_list;
+		if (!segment_list)
+			continue;
+
+		/* update encap_behavior in installed srte policy */
+		if (path_zebra_segment_list_srv6(segment_list))
+			path_zebra_add_srv6_policy_internal(policy);
+	}
+}
+
+/**
  * Disconnect from NHT
  */
 void path_nht_removed(struct srte_candidate *candidate)

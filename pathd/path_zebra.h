@@ -35,6 +35,7 @@ void path_zebra_srv6_manager_get_sid(struct srv6_sid_ctx *ctx,
 struct path_locator_ctx *
 path_zebra_locator_ctx_lookup_by_name(const char *locator_name);
 void path_zebra_process_srv6_bsid(bool allocate);
-
+/* for srv6 encap behavior reconfiguration */
+void path_srv6_encap_behavior_changed(enum srv6_headend_behavior new_encap_behavior);
 
 #endif /* _FRR_PATH_MPLS_H_ */

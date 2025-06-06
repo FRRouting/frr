@@ -330,7 +330,7 @@ struct srte_policy *srte_policy_add(uint32_t color, struct ipaddr *endpoint,
 	policy->endpoint = *endpoint;
 	policy->binding_sid = MPLS_LABEL_NONE;
 	policy->protocol_origin = origin;
-	policy->encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
+	policy->encap_behavior = path_srv6_get_encap_type_segment_list();
 	if (originator != NULL)
 		strlcpy(policy->originator, originator,
 			sizeof(policy->originator));
