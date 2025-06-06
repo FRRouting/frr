@@ -720,7 +720,7 @@ void nb_config_diff(const struct nb_config *config1,
 static LY_ERR dnode_create(struct nb_config *candidate, const char *xpath, const char *value,
 			   uint32_t options, struct lyd_node **new_dnode)
 {
-	struct lyd_node *dnode;
+	struct lyd_node *dnode = NULL;
 	LY_ERR err;
 
 	err = yang_new_path2(candidate->dnode, ly_native_ctx, xpath, value, 0, 0, options, NULL,
@@ -2414,9 +2414,9 @@ DEFINE_HOOK(nb_notification_send, (const char *xpath, struct list *arguments),
 int nb_notification_send(const char *xpath, struct list *arguments)
 {
 	struct lyd_node *root = NULL;
-	struct lyd_node *dnode;
-	struct yang_data *data;
-	struct listnode *ln;
+	struct lyd_node *dnode = NULL;
+	struct yang_data *data = NULL;
+	struct listnode *ln = NULL;
 	LY_ERR err;
 	int ret;
 

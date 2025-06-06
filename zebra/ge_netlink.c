@@ -225,7 +225,7 @@ netlink_put_sr_tunsrc_set_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx
 {
 	enum dplane_op_e op;
 	struct zebra_ns *zns;
-	struct genl_request req;
+	struct genl_request req = { 0 };
 
 	op = dplane_ctx_get_op(ctx);
 	assert(op == DPLANE_OP_SRV6_ENCAP_SRCADDR_SET);
@@ -296,7 +296,7 @@ int netlink_sr_tunsrc_reply_read(struct nlmsghdr *h, ns_id_t ns_id, int startup)
  */
 static int netlink_request_sr_tunsrc(struct zebra_ns *zns)
 {
-	struct genl_request req;
+	struct genl_request req = { 0 };
 
 	if (zns->ge_netlink_cmd.sock < 0)
 		return -1;

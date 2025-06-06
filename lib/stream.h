@@ -410,47 +410,47 @@ static inline uint8_t *ptr_get_be16(uint8_t *ptr, uint16_t *out)
  * the stream functions but we need a transition
  * plan.
  */
-#define STREAM_GETC(S, P)                                                      \
-	do {                                                                   \
-		uint8_t _pval;                                                 \
-		if (!stream_getc2((S), &_pval))                                \
-			goto stream_failure;                                   \
-		(P) = _pval;                                                   \
+#define STREAM_GETC(S, P)                                                                         \
+	do {                                                                                      \
+		uint8_t _pval = 0;                                                                \
+		if (!stream_getc2((S), &_pval))                                                   \
+			goto stream_failure;                                                      \
+		(P) = _pval;                                                                      \
 	} while (0)
 
-#define STREAM_GETW(S, P)                                                      \
-	do {                                                                   \
-		uint16_t _pval;                                                \
-		if (!stream_getw2((S), &_pval))                                \
-			goto stream_failure;                                   \
-		(P) = _pval;                                                   \
+#define STREAM_GETW(S, P)                                                                         \
+	do {                                                                                      \
+		uint16_t _pval = 0;                                                               \
+		if (!stream_getw2((S), &_pval))                                                   \
+			goto stream_failure;                                                      \
+		(P) = _pval;                                                                      \
 	} while (0)
 
-#define STREAM_GETL(S, P)                                                      \
-	do {                                                                   \
-		uint32_t _pval;                                                \
-		if (!stream_getl2((S), &_pval))                                \
-			goto stream_failure;                                   \
-		(P) = _pval;                                                   \
+#define STREAM_GETL(S, P)                                                                         \
+	do {                                                                                      \
+		uint32_t _pval = 0;                                                               \
+		if (!stream_getl2((S), &_pval))                                                   \
+			goto stream_failure;                                                      \
+		(P) = _pval;                                                                      \
 	} while (0)
 
-#define STREAM_GETF(S, P)                                                      \
-	do {                                                                   \
-		union {                                                        \
-			float r;                                               \
-			uint32_t d;                                            \
-		} _pval;                                                       \
-		if (!stream_getl2((S), &_pval.d))                              \
-			goto stream_failure;                                   \
-		(P) = _pval.r;                                                 \
+#define STREAM_GETF(S, P)                                                                         \
+	do {                                                                                      \
+		union {                                                                           \
+			float r;                                                                  \
+			uint32_t d;                                                               \
+		} _pval = { 0 };                                                                  \
+		if (!stream_getl2((S), &_pval.d))                                                 \
+			goto stream_failure;                                                      \
+		(P) = _pval.r;                                                                    \
 	} while (0)
 
-#define STREAM_GETQ(S, P)                                                      \
-	do {                                                                   \
-		uint64_t _pval;                                                \
-		if (!stream_getq2((S), &_pval))                                \
-			goto stream_failure;                                   \
-		(P) = _pval;                                                   \
+#define STREAM_GETQ(S, P)                                                                         \
+	do {                                                                                      \
+		uint64_t _pval = 0;                                                               \
+		if (!stream_getq2((S), &_pval))                                                   \
+			goto stream_failure;                                                      \
+		(P) = _pval;                                                                      \
 	} while (0)
 
 #define STREAM_GET_IPADDR(S, P)                                                \

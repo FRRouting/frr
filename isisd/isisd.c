@@ -3379,9 +3379,9 @@ void isis_restart_write_overload_time(struct isis_area *isis_area,
 				      uint32_t overload_time)
 {
 	const char *area_name;
-	json_object *json;
-	json_object *json_areas;
-	json_object *json_area;
+	json_object *json = NULL;
+	json_object *json_areas = NULL;
+	json_object *json_area = NULL;
 
 	json = frr_daemon_state_load();
 	area_name = isis_area->area_tag;
@@ -3411,9 +3411,9 @@ uint32_t isis_restart_read_overload_time(struct isis_area *isis_area)
 {
 	const char *area_name;
 	json_object *json;
-	json_object *json_areas;
-	json_object *json_area;
-	json_object *json_overload_time;
+	json_object *json_areas = NULL;
+	json_object *json_area = NULL;
+	json_object *json_overload_time = NULL;
 	uint32_t overload_time = 0;
 
 	area_name = isis_area->area_tag;

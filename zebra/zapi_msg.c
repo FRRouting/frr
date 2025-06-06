@@ -2150,7 +2150,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	struct nhg_backup_info *bnhg = NULL;
 	int ret;
 	vrf_id_t vrf_id;
-	struct nhg_hash_entry nhe, *n = NULL;
+	struct nhg_hash_entry nhe = { 0 }, *n = NULL;
 
 	s = msg;
 	if (zapi_route_decode(s, &api) < 0) {
@@ -3097,7 +3097,7 @@ static void zread_srv6_manager_get_srv6_sid(struct zserv *client,
 	char locator[SRV6_LOCNAME_SIZE] = { 0 };
 	uint16_t len;
 	struct zebra_srv6_sid *sid = NULL;
-	uint8_t flags;
+	uint8_t flags = 0;
 	bool is_localonly = false;
 
 	/* Get input stream */
@@ -3178,7 +3178,7 @@ static void zread_srv6_manager_get_locator(struct zserv *client,
 					   struct stream *msg)
 {
 	struct stream *s = msg;
-	uint16_t len;
+	uint16_t len = 0;
 	char locator_name[SRV6_LOCNAME_SIZE] = { 0 };
 	struct srv6_locator *locator = NULL;
 

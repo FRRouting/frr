@@ -1864,7 +1864,7 @@ static bool zapi_decode_sockunion(struct stream *s, union sockunion *su)
 {
 	uint8_t family;
 	size_t addrlen;
-	uint8_t buf[sizeof(union sockunion)];
+	uint8_t buf[sizeof(union sockunion)] = { 0 };
 
 	memset(su, 0, sizeof(*su));
 
@@ -2346,7 +2346,7 @@ bool zapi_srv6_sid_notify_decode(struct stream *s, struct srv6_sid_ctx *ctx,
 				 char **p_locator_name)
 {
 	uint32_t f, wf;
-	uint16_t len;
+	uint16_t len = 0;
 	static char locator_name[SRV6_LOCNAME_SIZE];
 
 	STREAM_GET(note, s, sizeof(*note));

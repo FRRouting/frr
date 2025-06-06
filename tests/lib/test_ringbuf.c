@@ -47,7 +47,7 @@ int main(int argc, char **argv)
 
 	/* copy stack garbage to buffer */
 	printf("Validating big write...\n");
-	uint8_t compost[BUFSIZ];
+	uint8_t compost[BUFSIZ] = { 0 };
 	assert(ringbuf_put(soil, &compost, sizeof(compost)) == BUFSIZ);
 
 	validate_state(soil, BUFSIZ, BUFSIZ);
