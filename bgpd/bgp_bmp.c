@@ -1346,6 +1346,7 @@ static struct stream *bmp_update(const struct prefix *p, struct prefix_rd *prd,
 				 uint32_t addpath_id, struct peer *peer, struct attr *attr,
 				 afi_t afi, safi_t safi, mpls_label_t *label, uint32_t num_labels)
 {
+	bool addpath_capable = addpath_id != IDALLOC_INVALID;
 	struct bpacket_attr_vec_arr vecarr;
 	struct stream *s;
 	size_t attrlen_pos = 0, mpattrlen_pos = 0;
@@ -1365,14 +1366,16 @@ static struct stream *bmp_update(const struct prefix *p, struct prefix_rd *prd,
 
 	/* 5: Encode all the attributes, except MP_REACH_NLRI attr. */
 	total_attr_len = bgp_packet_attribute(NULL, peer, s, attr, &vecarr, NULL, afi, safi, peer,
-					      NULL, NULL, 0, safi != SAFI_MPLS_VPN, addpath_id,
-					      NULL);
+					      NULL, NULL, 0, addpath_capable, addpath_id, NULL);
 
 	/* space check? */
 
 	/* peer_cap_enhe & add-path removed */
 	if (afi == AFI_IP && safi == SAFI_UNICAST)
-		stream_put_prefix_addpath(s, p, 1, addpath_id);
+		if (addpath_capable)
+			stream_put_prefix_addpath(s, p, 1, addpath_id);
+		else
+			stream_put_prefix(s, p);
 	else {
 		size_t p1 = stream_get_endp(s);
 
@@ -1380,8 +1383,8 @@ static struct stream *bmp_update(const struct prefix *p, struct prefix_rd *prd,
 
 		mpattrlen_pos = bgp_packet_mpattr_start(s, peer, afi, safi,
 				&vecarr, attr);
-		bgp_packet_mpattr_prefix(s, afi, safi, p, prd, label, num_labels,
-					 safi != SAFI_MPLS_VPN, addpath_id, attr);
+		bgp_packet_mpattr_prefix(s, afi, safi, p, prd, label, num_labels, addpath_capable,
+					 addpath_id, attr);
 		bgp_packet_mpattr_end(s, mpattrlen_pos);
 		total_attr_len += stream_get_endp(s) - p1;
 	}
@@ -1397,6 +1400,7 @@ static struct stream *bmp_update(const struct prefix *p, struct prefix_rd *prd,
 static struct stream *bmp_withdraw(const struct prefix *p, struct prefix_rd *prd,
 				   uint32_t addpath_id, afi_t afi, safi_t safi)
 {
+	bool addpath_capable = addpath_id != IDALLOC_INVALID;
 	struct stream *s;
 	size_t attrlen_pos = 0, mp_start, mplen_pos;
 	bgp_size_t total_attr_len = 0;
@@ -1408,7 +1412,10 @@ static struct stream *bmp_withdraw(const struct prefix *p, struct prefix_rd *prd
 	stream_putw(s, 0);
 
 	if (afi == AFI_IP && safi == SAFI_UNICAST) {
-		stream_put_prefix_addpath(s, p, 1, addpath_id);
+		if (addpath_capable)
+			stream_put_prefix_addpath(s, p, 1, addpath_id);
+		else
+			stream_put_prefix(s, p);
 		unfeasible_len = stream_get_endp(s) - BGP_HEADER_SIZE
 				 - BGP_UNFEASIBLE_LEN;
 		stream_putw_at(s, BGP_HEADER_SIZE, unfeasible_len);
@@ -1420,7 +1427,7 @@ static struct stream *bmp_withdraw(const struct prefix *p, struct prefix_rd *prd
 		mp_start = stream_get_endp(s);
 		mplen_pos = bgp_packet_mpunreach_start(s, afi, safi);
 
-		bgp_packet_mpunreach_prefix(s, p, afi, safi, prd, NULL, 0, safi != SAFI_MPLS_VPN,
+		bgp_packet_mpunreach_prefix(s, p, afi, safi, prd, NULL, 0, addpath_capable,
 					    addpath_id, NULL);
 		/* Set the mp_unreach attr's length */
 		bgp_packet_mpunreach_end(s, mplen_pos);
