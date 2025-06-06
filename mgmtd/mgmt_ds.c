@@ -19,7 +19,7 @@
 #define _log_err(fmt, ...) zlog_err("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)
 
 struct mgmt_ds_ctx {
-	Mgmtd__DatastoreId ds_id;
+	enum mgmt_ds_id ds_id;
 
 	bool locked;
 	uint64_t vty_session_id; /* Owner of the lock or 0 */
@@ -39,6 +39,13 @@ const char *mgmt_ds_names[MGMTD_DS_MAX_ID + 1] = {
 	MGMTD_DS_NAME_OPERATIONAL, /* MGMTD_DS_OPERATIONAL */
 	"Unknown/Invalid",	 /* MGMTD_DS_ID_MAX */
 };
+
+/* Make sure that the datastore IDs match with the ones in mgmt_msg_native.h */
+_Static_assert(MGMTD_DS_NONE == MGMT_MSG_DATASTORE_NONE, "Datastore ID mismatch");
+_Static_assert(MGMTD_DS_RUNNING == MGMT_MSG_DATASTORE_RUNNING, "Datastore ID mismatch");
+_Static_assert(MGMTD_DS_CANDIDATE == MGMT_MSG_DATASTORE_CANDIDATE, "Datastore ID mismatch");
+_Static_assert(MGMTD_DS_OPERATIONAL == MGMT_MSG_DATASTORE_OPERATIONAL, "Datastore ID mismatch");
+
 
 static struct mgmt_master *mgmt_ds_mm;
 static struct mgmt_ds_ctx running, candidate, oper;
@@ -191,7 +198,7 @@ void mgmt_ds_destroy(void)
 	oper.root.dnode_root = NULL;
 }
 
-struct mgmt_ds_ctx *mgmt_ds_get_ctx_by_id(struct mgmt_master *m, Mgmtd__DatastoreId ds_id)
+struct mgmt_ds_ctx *mgmt_ds_get_ctx_by_id(struct mgmt_master *m, enum mgmt_ds_id ds_id)
 {
 	switch (ds_id) {
 	case MGMTD_DS_CANDIDATE:
@@ -201,8 +208,6 @@ struct mgmt_ds_ctx *mgmt_ds_get_ctx_by_id(struct mgmt_master *m, Mgmtd__Datastor
 	case MGMTD_DS_OPERATIONAL:
 		return (m->oper_ds);
 	case MGMTD_DS_NONE:
-	case MGMTD__DATASTORE_ID__STARTUP_DS:
-	case _MGMTD__DATASTORE_ID_IS_INT_SIZE:
 		return 0;
 	}
 
@@ -217,18 +222,28 @@ bool mgmt_ds_is_config(struct mgmt_ds_ctx *ds_ctx)
 	return ds_ctx->config_ds;
 }
 
-bool mgmt_ds_is_locked(struct mgmt_ds_ctx *ds_ctx, uint64_t session_id)
+bool mgmt_ds_is_locked(struct mgmt_ds_ctx *ds_ctx, uint64_t *session_id)
 {
-	assert(ds_ctx);
-	return (ds_ctx->locked && ds_ctx->vty_session_id == session_id);
+	if (!ds_ctx || !ds_ctx->locked)
+		return false;
+
+	if (session_id)
+		*session_id = ds_ctx->vty_session_id;
+	return true;
 }
 
 int mgmt_ds_lock(struct mgmt_ds_ctx *ds_ctx, uint64_t session_id)
 {
 	assert(ds_ctx);
 
-	if (ds_ctx->locked)
+	if (ds_ctx->locked) {
+		_log_err("lock already taken on DS:%s by session-id %Lu",
+			 mgmt_ds_id2name(ds_ctx->ds_id), ds_ctx->vty_session_id);
 		return EBUSY;
+	}
+
+	_dbg("obtaining lock on DS:%s for session-id %Lu", mgmt_ds_id2name(ds_ctx->ds_id),
+	     session_id);
 
 	ds_ctx->locked = true;
 	ds_ctx->vty_session_id = session_id;
@@ -239,11 +254,14 @@ void mgmt_ds_unlock(struct mgmt_ds_ctx *ds_ctx)
 {
 	assert(ds_ctx);
 	if (!ds_ctx->locked)
-		zlog_warn(
-			"%s: WARNING: unlock on unlocked in DS:%s last session-id %" PRIu64,
-			__func__, mgmt_ds_id2name(ds_ctx->ds_id),
-			ds_ctx->vty_session_id);
+		_log_err("unlock on unlocked in DS:%s last session-id %Lu",
+			 mgmt_ds_id2name(ds_ctx->ds_id), ds_ctx->vty_session_id);
+	else
+		_dbg("releasing lock on DS:%s for session-id %Lu", mgmt_ds_id2name(ds_ctx->ds_id),
+		     ds_ctx->vty_session_id);
+
 	ds_ctx->locked = 0;
+	ds_ctx->vty_session_id = MGMTD_SESSION_ID_NONE;
 }
 
 int mgmt_ds_copy_dss(struct mgmt_ds_ctx *dst, struct mgmt_ds_ctx *src, bool updt_cmt_rec)
@@ -418,12 +436,9 @@ int mgmt_ds_load_config_from_file(struct mgmt_ds_ctx *dst,
 	return 0;
 }
 
-int mgmt_ds_iter_data(Mgmtd__DatastoreId ds_id, struct nb_config *root,
-		      const char *base_xpath,
-		      void (*mgmt_ds_node_iter_fn)(const char *xpath,
-						   struct lyd_node *node,
-						   struct nb_node *nb_node,
-						   void *ctx),
+int mgmt_ds_iter_data(enum mgmt_ds_id ds_id, struct nb_config *root, const char *base_xpath,
+		      void (*mgmt_ds_node_iter_fn)(const char *xpath, struct lyd_node *node,
+						   struct nb_node *nb_node, void *ctx),
 		      void *ctx)
 {
 	int ret = 0;

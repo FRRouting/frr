@@ -79,7 +79,7 @@ extern struct msg_conn *mgmt_fe_create_adapter(int conn_fd,
  * Send commit-config reply to the frontend client.
  */
 extern int mgmt_fe_send_commit_cfg_reply(uint64_t session_id, uint64_t txn_id,
-					 Mgmtd__DatastoreId src_ds_id, Mgmtd__DatastoreId dst_ds_id,
+					 enum mgmt_ds_id src_ds_id, enum mgmt_ds_id dst_ds_id,
 					 uint64_t req_id, bool validate_only, bool unlock,
 					 enum mgmt_result result, const char *error_if_any);
 
