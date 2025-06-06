@@ -9,8 +9,7 @@
                 "peer_bgp_id": "192.168.0.1",
                 "peer_distinguisher": "0:0",
                 "peer_type": "loc-rib instance",
-                "policy": "loc-rib",
-                "path_id": 0
+                "policy": "loc-rib"
             },
             "172.16.3.0/31": {
                 "bmp_log_type": "withdraw",
@@ -20,8 +19,7 @@
                 "peer_bgp_id": "192.168.0.1",
                 "peer_distinguisher": "0:0",
                 "peer_type": "loc-rib instance",
-                "policy": "loc-rib",
-                "path_id": 0
+                "policy": "loc-rib"
             }
         }
     }
