@@ -282,8 +282,8 @@ struct prefix_fs {
 struct prefix_sg {
 	uint8_t family;
 	uint16_t prefixlen;
-	struct ipaddr src __attribute__((aligned(8)));
-	struct in_addr grp;
+	struct ipaddr src;
+	struct ipaddr grp;
 };
 
 /* clang-format off */
