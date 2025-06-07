@@ -23,6 +23,7 @@ dist_yangmodels_DATA += yang/frr-affinity-map.yang
 dist_yangmodels_DATA += yang/frr-backend.yang
 dist_yangmodels_DATA += yang/frr-filter.yang
 dist_yangmodels_DATA += yang/frr-host.yang
+dist_yangmodels_DATA += yang/frr-logging.yang
 dist_yangmodels_DATA += yang/frr-module-translator.yang
 dist_yangmodels_DATA += yang/frr-nexthop.yang
 dist_yangmodels_DATA += yang/frr-test-module.yang
@@ -46,6 +47,7 @@ dist_yangmodels_DATA += yang/ietf/ietf-netconf-acm.yang
 dist_yangmodels_DATA += yang/ietf/ietf-netconf.yang
 dist_yangmodels_DATA += yang/ietf/ietf-netconf-with-defaults.yang
 dist_yangmodels_DATA += yang/ietf/ietf-srv6-types.yang
+dist_yangmodels_DATA += yang/ietf/ietf-syslog-types.yang
 
 if BFDD
 dist_yangmodels_DATA += yang/frr-bfdd.yang

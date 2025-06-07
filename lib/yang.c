@@ -99,6 +99,7 @@ static const char *const frr_native_modules[] = {
 	"frr-host",
 	"frr-interface",
 	"frr-isisd",
+	"frr-logging",
 	"frr-nexthop",
 	"frr-pathd",
 	"frr-ripd",
@@ -108,6 +109,7 @@ static const char *const frr_native_modules[] = {
 	"frr-vrf",
 	"frr-vrrpd",
 	"frr-zebra",
+	"ietf-syslog-types",
 };
 /* clang-format on */
 

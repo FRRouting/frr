@@ -152,6 +152,7 @@ nodist_lib_libfrr_la_SOURCES = \
 	yang/frr-host.yang.c \
 	yang/frr-if-rmap.yang.c \
 	yang/frr-interface.yang.c \
+	yang/frr-logging.yang.c \
 	yang/frr-route-map.yang.c \
 	yang/frr-route-types.yang.c \
 	yang/frr-vrf.yang.c \
@@ -159,6 +160,7 @@ nodist_lib_libfrr_la_SOURCES = \
 	yang/frr-nexthop.yang.c \
 	yang/ietf/frr-deviations-ietf-key-chain.yang.c \
 	yang/ietf/ietf-routing-types.yang.c \
+	yang/ietf/ietf-syslog-types.yang.c \
 	yang/ietf/ietf-netconf-acm.yang.c \
 	yang/ietf/ietf-key-chain.yang.c \
 	yang/ietf/ietf-interfaces.yang.c \
