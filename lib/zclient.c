@@ -3526,8 +3526,8 @@ int srv6_manager_get_locator(struct zclient *zclient, const char *locator_name)
  * @result 0 on success, -1 otherwise
  */
 int srv6_manager_get_sid(struct zclient *zclient, const struct srv6_sid_ctx *ctx,
-			 struct in6_addr *sid_value, const char *locator_name,
-			 uint32_t *sid_func)
+			 struct in6_addr *sid_value, const char *locator_name, uint32_t *sid_func,
+			 bool is_localonly)
 {
 	struct stream *s;
 	uint8_t flags = 0;
@@ -3558,6 +3558,8 @@ int srv6_manager_get_sid(struct zclient *zclient, const struct srv6_sid_ctx *ctx
 		SET_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_SID_VALUE);
 	if (locator_name)
 		SET_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_LOCATOR);
+	if (is_localonly)
+		SET_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_IS_LOCALONLY);
 	stream_putc(s, flags);
 
 	/* SRv6 SID value */
@@ -3585,10 +3587,12 @@ int srv6_manager_get_sid(struct zclient *zclient, const struct srv6_sid_ctx *ctx
  * @param ctx Context associated with the SRv6 SID to be removed
  * @result 0 on success, -1 otherwise
  */
-int srv6_manager_release_sid(struct zclient *zclient,
-			     const struct srv6_sid_ctx *ctx)
+int srv6_manager_release_sid(struct zclient *zclient, const struct srv6_sid_ctx *ctx,
+			     const char *locator_name, bool is_localonly)
 {
 	struct stream *s;
+	uint8_t flags = 0;
+	size_t len;
 	char buf[256];
 
 	if (zclient->sock < 0) {
@@ -3610,6 +3614,20 @@ int srv6_manager_release_sid(struct zclient *zclient,
 
 	/* Context associated with the SRv6 SID */
 	stream_put(s, ctx, sizeof(struct srv6_sid_ctx));
+
+	/* Flags */
+	if (locator_name)
+		SET_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_LOCATOR);
+	if (is_localonly)
+		SET_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_IS_LOCALONLY);
+	stream_putc(s, flags);
+
+	/* SRv6 locator */
+	if (CHECK_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_LOCATOR)) {
+		len = strlen(locator_name);
+		stream_putw(s, len);
+		stream_put(s, locator_name, len);
+	}
 
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
