@@ -185,10 +185,10 @@ nb_op_create_yield_state(const char *xpath, struct yang_translator *translator,
 
 static void nb_op_reset_yield_state(struct nb_op_yield_state *ys)
 {
-	darr_setlen(ys->query_tokens, 0);
-	darr_setlen(ys->non_specific_predicate, 0);
-	darr_setlen(ys->query_tokstr, 0);
-	darr_setlen(ys->schema_path, 0);
+	darr_reset(ys->query_tokens);
+	darr_reset(ys->non_specific_predicate);
+	darr_reset(ys->query_tokstr);
+	darr_reset(ys->schema_path);
 	/* need to cleanup resources, so pop these individually */
 	while (darr_len(ys->node_infos))
 		ys_pop_inner(ys);
