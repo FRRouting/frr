@@ -472,8 +472,7 @@ am__v_CLIPPY_1 =
 
 CLIPPY_DEPS = $(CLIPPY) $(top_srcdir)/python/clidef.py
 
-SUFFIXES += _clippy.c
-.c_clippy.c:
+%_clippy.c: %.c
 	$(AM_V_CLIPPY) $(CLIPPY) $(top_srcdir)/python/clidef.py -o $@ $<
 
 # xrelfo, the ELF xref extractor
@@ -485,7 +484,6 @@ am__v_XRELFO_1 =
 
 XRELFO_FLAGS = -Wlog-format -Wlog-args
 
-SUFFIXES += .xref
 %.xref: % $(CLIPPY)
 	$(AM_V_XRELFO) $(CLIPPY) $(top_srcdir)/python/xrelfo.py $(WERROR) $(XRELFO_FLAGS) -o $@ $<
 
@@ -525,9 +523,9 @@ nodist_vtysh_vtysh_SOURCES = vtysh/vtysh_cmd.c $(vtysh_cmd_split)
 CLEANFILES += vtysh/vtysh_cmd.c $(vtysh_cmd_split)
 
 ## automake's "ylwrap" is a great piece of GNU software... not.
-.l.c:
+%.c: %.l
 	$(AM_V_LEX)$(am__skiplex) $(LEXCOMPILE) $<
-.y.c:
+%.c: %.y
 	$(AM_V_YACC)$(am__skipyacc) $(YACCCOMPILE) $<
 
 #
