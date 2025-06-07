@@ -22,7 +22,7 @@ jobs:
           fetch-depth: 1
       - name: Build docker image
         run: |
-          docker build -t frr-x86-ubuntu22 -f docker/ubuntu-ci/Dockerfile .
+          docker build --no-cache -t frr-x86-ubuntu22 -f docker/ubuntu-ci/Dockerfile .
           docker save --output /tmp/frr-x86-ubuntu22.tar frr-x86-ubuntu22
       - name: Upload docker image artifact
         uses: actions/upload-artifact@v4
@@ -171,7 +171,7 @@ jobs:
           fetch-depth: 1
       - name: Build docker image
         run: |
-          docker build -t frr-arm-ubuntu22 -f docker/ubuntu-ci/Dockerfile .
+          docker build --no-cache -t frr-arm-ubuntu22 -f docker/ubuntu-ci/Dockerfile .
           docker save --output /tmp/frr-arm-ubuntu22.tar frr-arm-ubuntu22
       - name: Upload docker image artifact
         uses: actions/upload-artifact@v4
