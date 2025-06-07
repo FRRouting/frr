@@ -102,6 +102,66 @@ def test_bgp_peer_group():
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Failed bgp convergence in r1"
 
+    def _bgp_peer_group_brief_configured():
+        output = json.loads(
+            tgen.gears["r1"].vtysh_cmd("show bgp neighbors brief json")
+        )
+        expected = {
+            "r1-eth0": {
+                "hostname": "r2",
+                "remoteAs": 65002,
+                "localAs": 65001,
+                "bgpState": "Established",
+                "addressFamilyInfo": {
+                    "ipv4Unicast": {
+                        "acceptedPrefixCounter": 0,
+                        "sentPrefixCounter": 0,
+                    }
+                },
+            },
+            "192.168.255.3": {
+                "hostname": "r3",
+                "remoteAs": 65003,
+                "localAs": 65001,
+                "bgpState": "Established",
+                "addressFamilyInfo": {
+                    "ipv4Unicast": {
+                        "acceptedPrefixCounter": 0,
+                        "sentPrefixCounter": 0,
+                    }
+                },
+            },
+            "192.168.251.2": {
+                "hostname": "r2",
+                "remoteAs": 65002,
+                "localAs": 65001,
+                "bgpState": "Established",
+                "addressFamilyInfo": {
+                    "ipv4Unicast": {
+                        "acceptedPrefixCounter": 0,
+                        "sentPrefixCounter": 0,
+                    }
+                },
+            },
+            "192.168.252.2": {
+                "hostname": "r4",
+                "remoteAs": 65004,
+                "localAs": 65554,
+                "bgpState": "Established",
+                "addressFamilyInfo": {
+                    "ipv4Unicast": {
+                        "acceptedPrefixCounter": 0,
+                        "sentPrefixCounter": 0,
+                    }
+                },
+            },
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_bgp_peer_group_brief_configured)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Failed bgp convergence in r1 for brief output"
+
     def _bgp_peer_group_check_advertised_routes():
         output = json.loads(
             tgen.gears["r3"].vtysh_cmd("show ip bgp neighbor PG advertised-routes json")
