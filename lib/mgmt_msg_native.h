@@ -766,10 +766,11 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
  *
  * Return: A `msg_type` object created using a dynamic_array.
  */
-#define mgmt_msg_native_alloc_msg(msg_type, var_len, mem_type)                                     \
-	({                                                                                         \
-		uint8_t *_nam_buf = NULL;                                                          \
-		(msg_type *)darr_append_nz_mt(_nam_buf, sizeof(msg_type) + (var_len), mem_type);   \
+#define mgmt_msg_native_alloc_msg(msg_type, var_len, mem_type)                                    \
+	({                                                                                        \
+		uint8_t *_nam_buf = NULL;                                                         \
+		darr_append_nz_mt(_nam_buf, sizeof(msg_type) + (var_len), mem_type);              \
+		(msg_type *)_nam_buf;                                                             \
 	})
 
 /**
