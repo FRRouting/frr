@@ -1791,6 +1791,7 @@ static bool alloc_srv6_sid_func_dynamic(struct zebra_srv6_sid_block *block,
  *
  * @param sid SID returned
  * @param ctx Context for which the SID has been requested
+ * @param locator Parent locator of the SID
  * @param sid_value specific SRv6 SID value (i.e. IPv6 address) to be
  * allocated explicitly
  * @param is_localonly SID is local-only
@@ -1799,11 +1800,12 @@ static bool alloc_srv6_sid_func_dynamic(struct zebra_srv6_sid_block *block,
  * 1 if a new SID has been allocated or the existing SID value has changed, -1 if an error occurred
  */
 static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx,
-				 struct in6_addr *sid_value, bool is_localonly)
+				 struct srv6_locator *locator, struct in6_addr *sid_value,
+				 bool is_localonly)
 {
 	struct zebra_srv6_sid_ctx *zctx = NULL;
 	uint32_t sid_func = 0, sid_func_wide = 0;
-	struct srv6_locator *locator = NULL;
+	struct srv6_locator *loc = NULL;
 	struct zebra_srv6_sid_block *block = NULL;
 	char buf[256];
 
@@ -1811,11 +1813,14 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid, struct srv6_sid_ct
 		return -1;
 
 	/* Get parent locator and function of the provided SID */
-	if (!zebra_srv6_sid_decompose(sid_value, &block, &locator, &sid_func, &sid_func_wide)) {
+	if (!zebra_srv6_sid_decompose(sid_value, &block, &loc, &sid_func, &sid_func_wide)) {
 		zlog_err("%s: invalid SM request arguments: parent block/locator not found for SID %pI6",
 			 __func__, sid_value);
 		return -1;
 	}
+
+	if (!locator)
+		locator = loc;
 
 	/* Check if we already have a SID associated with the provided context */
 	zctx = zebra_srv6_sid_ctx_lookup(ctx, block);
@@ -2020,7 +2025,7 @@ int get_srv6_sid(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx, struct i
 		 const char *locator_name, bool is_localonly)
 {
 	int ret = -1;
-	struct srv6_locator *locator;
+	struct srv6_locator *locator = NULL;
 	char buf[256];
 	struct nhg_connected *rb_node_dep = NULL;
 	struct listnode *node;
@@ -2082,13 +2087,22 @@ int get_srv6_sid(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx, struct i
 		 * Explicit SID allocation: allocate a specific SID value
 		 */
 
+		if (locator_name) {
+			locator = zebra_srv6_locator_lookup(locator_name);
+			if (!locator) {
+				zlog_err("%s: invalid SM request arguments: SRv6 locator '%s' does not exist",
+					 __func__, locator_name);
+				return -1;
+			}
+		}
+
 		if (!sid_value) {
 			zlog_err("%s: invalid SM request arguments: missing SRv6 SID value, necessary for explicit allocation",
 				 __func__);
 			return -1;
 		}
 
-		ret = get_srv6_sid_explicit(sid, ctx, sid_value, is_localonly);
+		ret = get_srv6_sid_explicit(sid, ctx, locator, sid_value, is_localonly);
 	} else {
 		/*
 		 * Dynamic SID allocation: allocate any available SID value
