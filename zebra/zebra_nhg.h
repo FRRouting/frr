@@ -26,6 +26,7 @@ struct nh_grp {
 };
 
 PREDECL_RBTREE_UNIQ(nhg_connected_tree);
+PREDECL_RBTREE_UNIQ(nhe_re_tree);
 
 /*
  * Hashtables containing nhg entries is in `zebra_router`.
@@ -171,6 +172,9 @@ struct nhg_hash_entry {
  * chooses this NHG then we can install it then.
  */
 #define NEXTHOP_GROUP_INITIAL_DELAY_INSTALL (1 << 9)
+
+	/* Head of rb_tree of route_entries(re's)*/
+	struct nhe_re_tree_head re_head;
 };
 
 /* Upper 4 bits of the NHG are reserved for indicating the NHG type */
@@ -190,6 +194,10 @@ enum nhg_type {
 
 #define PROTO_OWNED(NHE) (NHE->id >= ZEBRA_NHG_PROTO_LOWER)
 
+/* Tells if the NHG is singleton */
+#define ZEBRA_NHG_IS_SINGLETON(NHE)                                                                \
+	(NHE->nhg.nexthop && !NHE->nhg.nexthop->next && !NHE->nhg.nexthop->resolved &&             \
+	 NHE->nhg.nexthop->ifindex)
 /*
  * Backup nexthops: this is a group object itself, so
  * that the backup nexthops can use the same code as a normal object.

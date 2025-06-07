@@ -398,6 +398,10 @@ struct nhg_hash_entry *zebra_nhg_alloc(void)
 	struct nhg_hash_entry *nhe;
 
 	nhe = XCALLOC(MTYPE_NHG, sizeof(struct nhg_hash_entry));
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		zlog_debug("%s Creating the nhe %u (%p) re-tree", __func__, nhe->id, nhe);
+
+	nhe_re_tree_init(&nhe->re_head);
 
 	return nhe;
 }
@@ -463,7 +467,7 @@ static void *zebra_nhg_hash_alloc(void *arg)
 		if (ifp)
 			zebra_nhg_set_if(nhe, ifp);
 		else {
-			if (IS_ZEBRA_DEBUG_NHG)
+			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 				zlog_debug(
 					"Failed to lookup an interface with ifindex=%d in vrf=%u for NHE %pNG",
 					nhe->nhg.nexthop->ifindex,
@@ -1059,6 +1063,36 @@ static struct nhg_ctx *nhg_ctx_init(uint32_t id, struct nexthop *nh, struct nh_g
 	return ctx;
 }
 
+/* Unset all the re's INSTALLED flag which uses the nhe */
+static void zebra_nhg_unset_installed_for_routes(struct nhg_hash_entry *nhe, const char *caller)
+{
+	struct route_entry *re = NULL;
+	struct route_entry *re_dep = NULL;
+	struct nhg_connected *rb_node_dep = NULL;
+
+	frr_each (nhe_re_tree, &nhe->re_head, re) {
+		if (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED)) {
+			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+				zlog_debug("Caller %s: Unsetting INSTALLED flag for route %pFX using NHG (%pNG)",
+					   caller, &re->rn->p, nhe);
+
+			UNSET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
+		}
+	}
+
+	frr_each (nhg_connected_tree, &nhe->nhg_dependents, rb_node_dep) {
+		frr_each (nhe_re_tree, &rb_node_dep->nhe->re_head, re_dep) {
+			if (CHECK_FLAG(re_dep->status, ROUTE_ENTRY_INSTALLED)) {
+				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+					zlog_debug("Caller %s: Unsetting INSTALLED flag for route %pFX using Dependent NHG (%pNG) of (%pNG)",
+						   caller, &re_dep->rn->p, rb_node_dep->nhe, nhe);
+
+				UNSET_FLAG(re_dep->status, ROUTE_ENTRY_INSTALLED);
+			}
+		}
+	}
+}
+
 static void zebra_nhg_set_valid(struct nhg_hash_entry *nhe, bool valid)
 {
 	struct nhg_connected *rb_node_dep;
@@ -1072,8 +1106,11 @@ static void zebra_nhg_set_valid(struct nhg_hash_entry *nhe, bool valid)
 		/* If we're in shutdown, this interface event needs to clean
 		 * up installed NHGs, so don't clear that flag directly.
 		 */
-		if (!zebra_router_in_shutdown())
+		if (!zebra_router_in_shutdown()) {
 			UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+			/* Handles route re-install for quick interface flaps */
+			zebra_nhg_unset_installed_for_routes(nhe, __func__);
+		}
 	}
 
 	/* Update validity of nexthops depending on it */
@@ -1112,13 +1149,8 @@ void zebra_nhg_check_valid(struct nhg_hash_entry *nhe)
 	struct nhg_connected *rb_node_dep = NULL;
 	bool valid = false;
 
-	/*
-	 * If I have other nhe's depending on me, or I have nothing
-	 * I am depending on then this is a
-	 * singleton nhe so set this nexthops flag as appropriate.
-	 */
-	if (nhg_connected_tree_count(&nhe->nhg_depends) ||
-	    nhg_connected_tree_count(&nhe->nhg_dependents) == 0) {
+	/* Singleton means i have dependents but no depends */
+	if (ZEBRA_NHG_IS_SINGLETON(nhe)) {
 		UNSET_FLAG(nhe->nhg.nexthop->flags, NEXTHOP_FLAG_FIB);
 		UNSET_FLAG(nhe->nhg.nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 	}
@@ -1180,10 +1212,8 @@ static void nhg_handle_install_one(struct nhg_connected *node)
 
 		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 			zlog_debug("%s nh id %u (flags 0x%x) associated dependents NHG %pNG (flags 0x%x) Re-install",
-				   __func__, node->nhe->id,
-				   node->nhe->flags,
-				   rb_node_indirect_dep->nhe,
-				   rb_node_indirect_dep->nhe->flags);
+				   __func__, node->nhe->id, node->nhe->flags,
+				   rb_node_indirect_dep->nhe, rb_node_indirect_dep->nhe->flags);
 
 		zebra_nhg_install_kernel(rb_node_indirect_dep->nhe,
 					 ZEBRA_ROUTE_MAX);
@@ -1198,6 +1228,22 @@ static void zebra_nhg_handle_install(struct nhg_hash_entry *nhe, bool install)
 
 	frr_each_safe (nhg_connected_tree, &nhe->nhg_dependents, rb_node_dep) {
 		zebra_nhg_set_valid(rb_node_dep->nhe, true);
+		/*
+		 * In case of singletons, set the flags such that the NHG dependents
+		 * are force installed so that zebra and kernel are in sync.
+		 */
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID) &&
+		    CHECK_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_VALID) &&
+		    ZEBRA_NHG_IS_SINGLETON(nhe)) {
+			UNSET_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_QUEUED);
+			SET_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_REINSTALL);
+
+			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+				zlog_debug("%s: nhe %p (%pNG) (flags 0x%x) is singleton. Hence reinstalling its dependents %p (%pNG) (flags 0x%x)",
+					   __func__, nhe, nhe, nhe->flags, rb_node_dep->nhe,
+					   rb_node_dep->nhe, rb_node_dep->nhe->flags);
+		}
+
 		/* install dependent NHG into kernel */
 		if (install) {
 			if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED) &&
@@ -1228,6 +1274,9 @@ static void zebra_nhg_handle_kernel_state_change(struct nhg_hash_entry *nhe,
 			EC_ZEBRA_NHG_SYNC,
 			"Kernel %s a nexthop group with ID (%pNG) that we are still using for a route, sending it back down",
 			(is_delete ? "deleted" : "updated"), nhe);
+
+		/* Handles route re-install for ip nexthop del <id>/flush  */
+		zebra_nhg_unset_installed_for_routes(nhe, __func__);
 
 		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
 		zebra_nhg_install_kernel(nhe, ZEBRA_ROUTE_MAX);
@@ -1703,8 +1752,8 @@ void zebra_nhg_free(struct nhg_hash_entry *nhe)
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL) {
 		/* Group or singleton? */
 		if (nhe->nhg.nexthop && nhe->nhg.nexthop->next)
-			zlog_debug("%s: nhe %p (%pNG), refcnt %d", __func__,
-				   nhe, nhe, nhe->refcnt);
+			zlog_debug("%s: nhe %p (%pNG) flags (0x%x), refcnt %d", __func__, nhe, nhe,
+				   nhe->flags, nhe->refcnt);
 		else
 			zlog_debug("%s: nhe %p (%pNG), refcnt %d, NH %pNHv",
 				   __func__, nhe, nhe, nhe->refcnt,
@@ -1713,6 +1762,12 @@ void zebra_nhg_free(struct nhg_hash_entry *nhe)
 
 	event_cancel(&nhe->timer);
 
+	/*
+	 * Since the nhe->re_tree is in line with the refcount, all the re entries
+	 * should have been deleted at this point in time.
+	 */
+	assert(!nhe_re_tree_count(&nhe->re_head));
+	nhe_re_tree_fini(&nhe->re_head);
 	zebra_nhg_free_members(nhe);
 
 	XFREE(MTYPE_NHG, nhe);
@@ -3266,8 +3321,9 @@ backups_done:
 								old_re->nhe);
 
 		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-			zlog_debug("%s: re %p CHANGED: nhe %p (%pNG) => new_nhe %p (%pNG) rib_find_nhe returned %p (%pNG) refcnt: %d",
-				   __func__, re, re->nhe, re->nhe, new_nhe, new_nhe, remove, remove,
+			zlog_debug("%s: re %p CHANGED: nhe %p (%pNG) flags (0x%x) => new_nhe %p (%pNG) flags (0x%x) rib_find_nhe returned %p (%pNG) flags (0x%x) refcnt: %d",
+				   __func__, re, re->nhe, re->nhe, re->nhe->flags, new_nhe, new_nhe,
+				   new_nhe->flags, remove, remove, remove->flags,
 				   remove ? remove->refcnt : 0);
 
 		/*
@@ -3453,8 +3509,8 @@ void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe, uint8_t type)
 
 	if (zebra_nhg_set_valid_if_active(nhe)) {
 		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-			zlog_debug("%s: valid flag set for nh %pNG", __func__,
-				   nhe);
+			zlog_debug("%s: valid flag set for nh %pNG flags (0x%x)", __func__, nhe,
+				   nhe->flags);
 	}
 
 	if ((type != ZEBRA_ROUTE_CONNECT && type != ZEBRA_ROUTE_LOCAL &&
@@ -3529,6 +3585,25 @@ void zebra_nhg_uninstall_kernel(struct nhg_hash_entry *nhe)
 	zebra_nhg_handle_uninstall(nhe);
 }
 
+/* Helper function to handle route installation for all routes in an NHE */
+static void zebra_nhg_install_route_entries(struct nhg_hash_entry *nhe)
+{
+	struct route_entry *re = NULL;
+
+	frr_each (nhe_re_tree, &nhe->re_head, re) {
+		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED) &&
+		    !CHECK_FLAG(re->status, ROUTE_ENTRY_QUEUED) &&
+		    !CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED)) {
+			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+				zlog_debug("%s Route re-install for re %p (%pRN, %s) flags 0x%x on nhe %p (%pNG) flags 0x%x",
+					   __func__, re, re->rn, zebra_route_string(re->type),
+					   re->flags, nhe, nhe, nhe->flags);
+
+			rib_install_kernel(re->rn, re, NULL);
+		}
+	}
+}
+
 void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 {
 	enum dplane_op_e op;
@@ -3558,7 +3633,7 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 		nhe = zebra_nhg_lookup_id(id);
 
 		if (!nhe) {
-			if (IS_ZEBRA_DEBUG_NHG)
+			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 				zlog_debug("%s operation performed on Nexthop ID (%u) in the kernel, that we no longer have in our table",
 					   dplane_op2str(op), id);
 
@@ -3571,6 +3646,40 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 		case ZEBRA_DPLANE_REQUEST_SUCCESS:
 			SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
 			zebra_nhg_handle_install(nhe, true);
+
+			/*
+			 * In cases such as quick Interface flaps/kernel nexthop related
+			 * triggers (ip nexthop flush/ip nexthop del id <>), reinstall all
+			 * the routes which the nhe has at this moment.
+			 * The remainder new routes will anyway be successful since the NHG
+			 * is now installed.
+			 */
+			zebra_nhg_install_route_entries(nhe);
+			/*
+			 * Also handle route entries for recursive NHE dependents as well
+			 * that are not installed. For Ex:
+			 *    Routing entry for 3.3.3.1/32
+			 *       Nexthop Group ID: 114
+			 *       Installed Nexthop Group ID: 115
+			 *
+			 * In the above case, all re's of interest point to 114 but 115 is
+			 * what gets installed in kernel. So upon NH flush, 115 gets
+			 * reinstalled which has no re's.
+			 * So we need to walk the re's of recursive NHE dependents as well.
+			 */
+			struct nhg_connected *rb_node_dep = NULL;
+			frr_each (nhg_connected_tree, &nhe->nhg_dependents, rb_node_dep) {
+				struct nhg_hash_entry *dep_nhe = rb_node_dep->nhe;
+
+				if (CHECK_FLAG(dep_nhe->flags, NEXTHOP_GROUP_RECURSIVE)) {
+					if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+						zlog_debug("%s Route re-install for nhe's %p (%pNG) flags 0x%x recursive NHE dependent %p (%pNG) flags 0x%x",
+							   __func__, nhe, nhe, nhe->flags, dep_nhe,
+							   dep_nhe, dep_nhe->flags);
+
+					zebra_nhg_install_route_entries(dep_nhe);
+				}
+			}
 
 			/* If daemon nhg, send it an update */
 			if (PROTO_OWNED(nhe))
@@ -4059,9 +4168,9 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 
 		if (zebra_nhg_set_valid_if_active(rb_node_dep->nhe)) {
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-				zlog_debug(
-					"%s: Setting the valid flag for nhe %pNG, interface: %s",
-					__func__, rb_node_dep->nhe, ifp->name);
+				zlog_debug("%s: Setting the valid flag for nhe %pNG flags (0x%x), interface: %s",
+					   __func__, rb_node_dep->nhe, rb_node_dep->nhe->flags,
+					   ifp->name);
 		}
 
 		/* Check for singleton NHG associated to interface */
@@ -4069,7 +4178,7 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 		    zebra_nhg_depends_is_empty(rb_node_dep->nhe)) {
 			struct nhg_connected *rb_node_dependent;
 
-			if (IS_ZEBRA_DEBUG_NHG)
+			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 				zlog_debug(
 					"%s install nhe %pNG nh type %u flags 0x%x",
 					__func__, rb_node_dep->nhe, nh->type,
@@ -4099,10 +4208,11 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 					SET_FLAG(nhop_dependent->flags,
 						 NEXTHOP_FLAG_ACTIVE);
 
-				if (IS_ZEBRA_DEBUG_NHG)
-					zlog_debug("%s dependent nhe %pNG Setting Reinstall flag",
-						   __func__,
-						   rb_node_dependent->nhe);
+				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+					zlog_debug("%s dependent nhe (%pNG) flags (0x%x) Setting Reinstall flag",
+						   __func__, rb_node_dependent->nhe,
+						   rb_node_dependent->nhe->flags);
+
 				SET_FLAG(rb_node_dependent->nhe->flags,
 					 NEXTHOP_GROUP_REINSTALL);
 			}
