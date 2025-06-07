@@ -1413,33 +1413,34 @@ dnl ##########################################################################
 # Logic for protobuf support.
 #
 PROTO3=false
-# Enable Protobuf by default at all times.
-# Check for protoc & protoc-c
-# protoc is not required, it's only for a "be nice" helper target
-AC_CHECK_PROGS([PROTOC], [protoc], [/bin/false])
-
-AC_CHECK_PROGS([PROTOC_C], [protoc-c], [/bin/false])
-if test "$PROTOC_C" = "/bin/false"; then
-  AC_MSG_FAILURE([protobuf requested but protoc-c not found.  Install protobuf-c.])
-fi
-
-PKG_CHECK_MODULES([PROTOBUF_C], [libprotobuf-c >= 1.1.0],, [
-  AC_MSG_FAILURE([minimum version (1.1.0) of libprotobuf-c not found.  Install minimum required version of protobuf-c.])
-])
-
-if test "$enable_protobuf3" = "yes"; then
-  PROTO3=true
-  AC_CHECK_HEADER([google/protobuf-c/protobuf-c.h],
-                  [AC_CHECK_DECLS(PROTOBUF_C_LABEL_NONE,
-                                  AC_DEFINE([HAVE_PROTOBUF_VERSION_3],
-                                            [1], [Have Protobuf version 3]),
-                                  [PROTO3=false],
-                                  [#include <google/protobuf-c/protobuf-c.h>])],
-                  [PROTO3=false && AC_MSG_FAILURE([protobuf3 requested but protobuf-c.h not found.  Install protobuf-c.])])
-fi
-
 if test "$enable_protobuf" != "no"; then
-  AC_DEFINE([HAVE_PROTOBUF], [1], [protobuf])
+  AC_CHECK_PROGS([PROTOC], [protoc], [/bin/false])
+  AC_CHECK_PROGS([PROTOC_C], [protoc-c], [/bin/false])
+  PKG_CHECK_MODULES([PROTOBUF_C], [libprotobuf-c >= 1.3.0], [PROTO3=true], [PROTO3=false])
+
+  if test "$PROTOC_C" != "/bin/false" && test "$PROTO3" != "false"; then
+    AC_DEFINE([HAVE_PROTOBUF], [1], [protobuf])
+    dnl
+    dnl The libprotobuf-c >= 1.3.0 check replaces an older check for a symbol
+    dnl that shows up in libprotobuf-c 1.3.0. Also previously this check was
+    dnl only done when a non-existent flag (`--enable-protobuf3`) was specified
+    dnl (i.e., never).
+    dnl
+    dnl Finally this seems misnamed (why not PROTOBUF_C_13?), but the users of
+    dnl this flag should address this.
+    dnl
+    AC_DEFINE([HAVE_PROTOBUF_VERSION_3], [1], [Have libprotobuf-c version 1.3])
+  fi
+
+  # Require things if the user explicitly requested protobuf
+  if test "$enable_protobuf" = "yes"; then
+    if test "$PROTOC_C" = "/bin/false"; then
+      AC_MSG_FAILURE([protobuf requested but protoc-c not found.  Install protobuf-c])
+    fi
+    if test "$PROTO3" = "false"; then
+      AC_MSG_FAILURE([protobuf requested but libprotobuf-c > 1.3.0 not found])
+    fi
+  fi
 fi
 #
 # End of logic for protobuf support.
@@ -2913,7 +2914,7 @@ group to run as         : ${enable_group}
 group for vty sockets   : ${enable_vty_group}
 config file mask        : ${enable_configfile_mask}
 log file mask           : ${enable_logfile_mask}
-zebra protobuf enabled  : ${enable_protobuf:-no}
+zebra protobuf enabled  : ${enable_protobuf:-yes}
 vici socket path        : ${vici_socket}
 
 The above user and group must have read/write access to the state file

@@ -13,7 +13,6 @@
 #include "mgmt_fe_client.h"
 #include "mgmt_msg.h"
 #include "mgmt_msg_native.h"
-#include "mgmt_pb.h"
 #include "network.h"
 #include "stream.h"
 #include "sockopt.h"
@@ -350,77 +349,6 @@ int mgmt_fe_send_rpc_req(struct mgmt_fe_client *client, uint64_t session_id,
 	return ret;
 }
 
-static int mgmt_fe_client_handle_msg(struct mgmt_fe_client *client,
-				     Mgmtd__FeMessage *fe_msg)
-{
-	struct mgmt_fe_client_session *session = NULL;
-
-	/*
-	 * protobuf-c adds a max size enum with an internal, and changing by
-	 * version, name; cast to an int to avoid unhandled enum warnings
-	 */
-	switch ((int)fe_msg->message_case) {
-	case MGMTD__FE_MESSAGE__MESSAGE_SESSION_REPLY:
-		assert(false);
-		if (fe_msg->session_reply->create &&
-		    fe_msg->session_reply->has_client_conn_id) {
-			debug_fe_client("Got SESSION_REPLY (create) for client-id %" PRIu64
-					" with session-id: %" PRIu64,
-					fe_msg->session_reply->client_conn_id,
-					fe_msg->session_reply->session_id);
-
-			session = mgmt_fe_find_session_by_client_id(
-				client, fe_msg->session_reply->client_conn_id);
-
-			if (session && fe_msg->session_reply->success) {
-				debug_fe_client("Session Created for client-id %" PRIu64,
-						fe_msg->session_reply
-							->client_conn_id);
-				session->session_id =
-					fe_msg->session_reply->session_id;
-			} else {
-				log_err_fe_client(
-					"Session Create failed for client-id %" PRIu64,
-					fe_msg->session_reply->client_conn_id);
-			}
-		} else if (!fe_msg->session_reply->create) {
-			debug_fe_client("Got SESSION_REPLY (destroy) for session-id %" PRIu64,
-					fe_msg->session_reply->session_id);
-
-			session = mgmt_fe_find_session_by_session_id(
-				client, fe_msg->session_req->session_id);
-		}
-
-		/* The session state may be deleted by the callback */
-		if (session && session->client &&
-		    session->client->cbs.client_session_notify)
-			(*session->client->cbs.client_session_notify)(
-				client, client->user_data, session->client_id,
-				fe_msg->session_reply->create,
-				fe_msg->session_reply->success,
-				fe_msg->session_reply->session_id,
-				session->user_ctx);
-		break;
-	/*
-	 * NOTE: The following messages are always sent from Frontend
-	 * clients to MGMTd only and/or need not be handled here.
-	 */
-	case MGMTD__FE_MESSAGE__MESSAGE_REGISTER_REQ:
-	case MGMTD__FE_MESSAGE__MESSAGE_SESSION_REQ:
-	case MGMTD__FE_MESSAGE__MESSAGE__NOT_SET:
-	default:
-		/*
-		 * A 'default' case is being added contrary to the
-		 * FRR code guidelines to take care of build
-		 * failures on certain build systems (courtesy of
-		 * the proto-c package).
-		 */
-		break;
-	}
-
-	return 0;
-}
-
 /*
  * Handle a native encoded message
  */
@@ -716,7 +644,6 @@ static void mgmt_fe_client_process_msg(uint8_t version, uint8_t *data,
 {
 	struct mgmt_fe_client *client;
 	struct msg_client *msg_client;
-	Mgmtd__FeMessage *fe_msg;
 
 	msg_client = container_of(conn, struct msg_client, conn);
 	client = container_of(msg_client, struct mgmt_fe_client, client);
@@ -732,15 +659,8 @@ static void mgmt_fe_client_process_msg(uint8_t version, uint8_t *data,
 		return;
 	}
 
-	fe_msg = mgmtd__fe_message__unpack(NULL, len, data);
-	if (!fe_msg) {
-		debug_fe_client("Failed to decode %zu bytes from server.", len);
-		return;
-	}
-	debug_fe_client("Decoded %zu bytes of message(msg: %u/%u) from server",
-			len, fe_msg->message_case, fe_msg->message_case);
-	(void)mgmt_fe_client_handle_msg(client, fe_msg);
-	mgmtd__fe_message__free_unpacked(fe_msg, NULL);
+	log_err_fe_client("Protobuf no longer used in backend API");
+	msg_conn_disconnect(&client->client.conn, true);
 }
 
 static int _notify_connect_disconnect(struct msg_client *msg_client,

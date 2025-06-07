@@ -12,7 +12,6 @@
 extern "C" {
 #endif
 
-#include "mgmt_pb.h"
 #include "frrevent.h"
 #include "mgmt_defines.h"
 #include "mgmt_msg_native.h"
