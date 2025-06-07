@@ -171,6 +171,11 @@ struct nhg_hash_entry {
  * chooses this NHG then we can install it then.
  */
 #define NEXTHOP_GROUP_INITIAL_DELAY_INSTALL (1 << 9)
+
+/*
+ * Recursion requested/allowed
+ */
+#define NEXTHOP_GROUP_RECURSION_REQ (1 << 10)
 };
 
 /* Upper 4 bits of the NHG are reserved for indicating the NHG type */
@@ -225,7 +230,7 @@ struct nhg_ctx {
 	afi_t afi;
 
 	/*
-	 * This should only ever be ZEBRA_ROUTE_NHG unless we get a a kernel
+	 * This should only ever be ZEBRA_ROUTE_NHG unless we get a kernel
 	 * created nexthop not made by us.
 	 */
 	int type;
@@ -343,14 +348,13 @@ zebra_nhg_rib_find_nhe(struct nhg_hash_entry *rt_nhe, afi_t rt_afi);
  */
 
 /*
- * Add NHE. If already exists, Replace.
+ * Add NHE using id and info from 'nhe'. If id already exists, replace. The
+ * caller's data isn't touched - it's just used to locate or create an nhe
+ * internally.
  *
- * Returns allocated NHE on success, otherwise NULL.
+ * Returns > 0 on success, otherwise < 0.
  */
-struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
-					   uint16_t instance, uint32_t session,
-					   struct nexthop_group *nhg,
-					   afi_t afi);
+struct nhg_hash_entry *zebra_nhe_proto_add(struct nhg_hash_entry *nhe);
 
 /*
  * Del NHE.
@@ -406,6 +410,9 @@ extern int nexthop_active_update(struct route_node *rn, struct route_entry *re,
 				 struct route_entry *old_re);
 
 extern const char *zebra_nhg_afi2str(struct nhg_hash_entry *nhe);
+
+/* Determine nhg address-family, with special rules for singletons */
+afi_t zebra_nhg_get_afi(const struct nexthop_group *nhg, afi_t route_afi);
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pNG" (const struct nhg_hash_entry *)
