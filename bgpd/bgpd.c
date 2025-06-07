@@ -4145,6 +4145,7 @@ int bgp_delete(struct bgp *bgp)
 	 */
 	bgp->tovpn_sid_index = 0;
 	UNSET_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO);
+	UNSET_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT);
 	delete_vrf_tovpn_sid_per_vrf(bgp_default, bgp);
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		bgp->vpn_policy[afi].tovpn_sid_index = 0;
