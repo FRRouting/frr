@@ -1,5 +1,5 @@
 {
-    "pre-policy": {
+    "rib-in-pre-policy": {
         "update": {
             "172.31.0.15/32": {
                 "afi": 1,
@@ -16,7 +16,7 @@
                 "peer_distinguisher": "0:0",
                 "peer_ip": "192.168.0.2",
                 "peer_type": "global instance",
-                "policy": "pre-policy",
+                "policy": "rib-in-pre-policy",
                 "rd": "444:2",
                 "safi": 128
             },
@@ -36,7 +36,7 @@
                 "peer_distinguisher": "0:0",
                 "peer_ip": "192:168::2",
                 "peer_type": "global instance",
-                "policy": "pre-policy",
+                "policy": "rib-in-pre-policy",
                 "rd": "555:2",
                 "safi": 128
             }
