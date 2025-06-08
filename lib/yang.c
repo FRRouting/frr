@@ -95,18 +95,21 @@ static LY_ERR yang_module_imp_clb(const char *mod_name, const char *mod_rev,
 
 /* clang-format off */
 static const char *const frr_native_modules[] = {
-	"frr-interface",
-	"frr-vrf",
-	"frr-routing",
 	"frr-affinity-map",
-	"frr-route-map",
+	"frr-host",
+	"frr-interface",
+	"frr-isisd",
+	"frr-logging",
 	"frr-nexthop",
+	"frr-pathd",
 	"frr-ripd",
 	"frr-ripngd",
-	"frr-isisd",
+	"frr-route-map",
+	"frr-routing",
+	"frr-vrf",
 	"frr-vrrpd",
 	"frr-zebra",
-	"frr-pathd",
+	"ietf-syslog-types",
 };
 /* clang-format on */
 

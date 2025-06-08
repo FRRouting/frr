@@ -21,7 +21,8 @@ static bool f_new_cbs;
 static void __attribute__((noreturn)) usage(int status)
 {
 	extern const char *__progname;
-	fprintf(stderr, "usage: %s [-h] [-n] [-s] [-p path]* MODULE\n", __progname);
+	fprintf(stderr, "usage: %s [-h] [-n] [-s] [-p path]* [LOAD-MODULE ...] MODULE\n",
+		__progname);
 	exit(status);
 }
 
@@ -481,7 +482,7 @@ int main(int argc, char *argv[])
 	}
 	argc -= optind;
 	argv += optind;
-	if (argc != 1)
+	if (argc < 1)
 		usage(EXIT_FAILURE);
 
 	yang_init(false, true, false);
@@ -495,10 +496,14 @@ int main(int argc, char *argv[])
 	/* Load all FRR native models to ensure all augmentations are loaded. */
 	yang_module_load_all();
 
-	module = yang_module_find(argv[0]);
-	if (!module)
-		/* Non-native FRR module (e.g. modules from unit tests). */
-		module = yang_module_load(argv[0], NULL);
+	while (argc) {
+		module = yang_module_find(argv[0]);
+		if (!module)
+			/* Non-native FRR module (e.g. modules from unit tests). */
+			module = yang_module_load(argv[0], NULL);
+		argc--;
+		argv++;
+	}
 
 	yang_init_loading_complete();
 
