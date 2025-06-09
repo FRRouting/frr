@@ -422,6 +422,11 @@ struct srte_policy {
 
 	/* SRP id for PcInitiated support */
 	int srp_id;
+
+	/*
+	 * Reflect the srv6 encapsulation behavior, when used
+	 */
+	enum srv6_headend_behavior encap_behavior;
 };
 RB_HEAD(srte_policy_head, srte_policy);
 RB_PROTOTYPE(srte_policy_head, srte_policy, entry, srte_policy_compare)
