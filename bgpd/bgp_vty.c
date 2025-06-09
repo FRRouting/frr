@@ -16823,15 +16823,16 @@ static int bgp_show_neighbor_graceful_restart_afi_all(struct vty *vty, struct bg
 }
 /* Graceful Restart */
 
-DEFUN (show_ip_bgp_attr_info,
+DEFPY (show_ip_bgp_attr_info,
        show_ip_bgp_attr_info_cmd,
-       "show [ip] bgp attribute-info",
+       "show [ip] bgp attribute-info [summary$summary]",
        SHOW_STR
        IP_STR
        BGP_STR
-       "List all bgp attribute information\n")
+       "List all bgp attribute information\n"
+       "Display summary of BGP attributes\n")
 {
-	attr_show_all(vty);
+	attr_show_all(vty, summary);
 	return CMD_SUCCESS;
 }
 

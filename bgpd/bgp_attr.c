@@ -1060,12 +1060,24 @@ static void attrhash_finish(void)
 	hash_clean_and_free(&attrhash, attr_vfree);
 }
 
-static void attr_show_all_iterator(struct hash_bucket *bucket, struct vty *vty)
+static void attr_show_all_iterator(struct hash_bucket *bucket, void *args[])
 {
 	struct attr *attr = bucket->data;
 	struct in6_addr *sid = NULL;
 	struct bgp_nhc *nhc = bgp_attr_get_nhc(attr);
 	struct bgp_nhc_tlv *tlv = NULL;
+	struct vty *vty = args[0];
+	uint32_t *counters = args[1];
+	bool summary = *(bool *)args[2];
+	unsigned int i;
+
+	for (i = 1; i <= BGP_ATTR_MAX; i++) {
+		if (CHECK_FLAG(attr->flag, 1ULL << (i - 1)))
+			counters[i]++;
+	}
+
+	if (summary)
+		return;
 
 	if (attr->srv6_l3vpn)
 		sid = &attr->srv6_l3vpn->sid;
@@ -1099,11 +1111,35 @@ static void attr_show_all_iterator(struct hash_bucket *bucket, struct vty *vty)
 	}
 }
 
-void attr_show_all(struct vty *vty)
+void attr_show_all(struct vty *vty, bool summary)
 {
-	hash_iterate(attrhash, (void (*)(struct hash_bucket *,
-					 void *))attr_show_all_iterator,
-		     vty);
+	unsigned int i;
+	void *args[3];
+	uint32_t counters[256] = { 0 };
+
+	args[0] = vty;
+	args[1] = &counters;
+	args[2] = &summary;
+
+	hash_iterate(attrhash, (void (*)(struct hash_bucket *, void *))attr_show_all_iterator,
+		     args);
+
+	if (summary) {
+		const char *str;
+
+		vty_out(vty, "Total attributes: %lu\n", attr_count());
+		vty_out(vty, "Attributes:\n");
+		for (i = 1; i <= BGP_ATTR_MAX; i++) {
+			if (!counters[i])
+				continue;
+
+			str = lookup_msg(attr_str, i, "");
+			if (!strlen(str))
+				continue;
+
+			vty_out(vty, " %s (%d): %u\n", str, i, counters[i]);
+		}
+	}
 }
 
 static void *bgp_attr_hash_alloc(void *p)
