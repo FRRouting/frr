@@ -393,6 +393,8 @@ BGP
   :t:`Long-Lived Graceful Restart for BGP. J. Uttaro, E. Chen, B. Decraene, J. Scudder. November 2023.`
 - :rfc:`9687`
   :t:`Border Gateway Protocol 4 (BGP-4) Send Hold Timer. J. Snijders, B. Cartwright-Cox, Y. Qu. November 2024.`
+- :rfc:`9774`
+  :t:`Deprecation of AS_SET and AS_CONFED_SET in BGP. W. Kumari, K. Sriram, L. Hannachi, J. Haas. May 2025.`
 
 OSPF
 ----
