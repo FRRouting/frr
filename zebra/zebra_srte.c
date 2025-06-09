@@ -304,12 +304,11 @@ static void zebra_sr_policy_update(struct zebra_sr_policy *policy,
 		       sizeof(mpls_label_t) * policy->segment_list.label_num);
 
 	segment_list_srv6_changed =
-		policy->segment_list.srv6_segs.num_segs !=
-			old_tunnel->srv6_segs.num_segs ||
-		memcmp(policy->segment_list.srv6_segs.segs,
-		       old_tunnel->srv6_segs.segs,
-		       sizeof(struct in6_addr) *
-			       policy->segment_list.srv6_segs.num_segs);
+		policy->segment_list.srv6_segs.num_segs != old_tunnel->srv6_segs.num_segs ||
+		policy->segment_list.srv6_segs.encap_behavior !=
+			old_tunnel->srv6_segs.encap_behavior ||
+		memcmp(policy->segment_list.srv6_segs.segs, old_tunnel->srv6_segs.segs,
+		       sizeof(struct in6_addr) * policy->segment_list.srv6_segs.num_segs);
 
 	/* Re-install label stack if necessary. */
 	if (bsid_mpls_changed || segment_list_mpls_changed) {

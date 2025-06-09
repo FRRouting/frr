@@ -91,6 +91,7 @@ enum seg6local_flavor_op {
 #define SRV6_SEG_STRLEN 1024
 
 struct seg6_segs {
+	enum srv6_headend_behavior encap_behavior;
 	size_t num_segs;
 	struct in6_addr segs[256];
 };

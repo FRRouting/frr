@@ -1866,7 +1866,7 @@ static struct nexthop *nexthop_set_resolved(afi_t afi,
 		if (!sid_zero_ipv6(&policy->segment_list.srv6_segs.segs[0])) {
 			nexthop_add_srv6_seg6(resolved_hop, &policy->segment_list.srv6_segs.segs[0],
 					      policy->segment_list.srv6_segs.num_segs,
-					      SRV6_HEADEND_BEHAVIOR_H_ENCAPS);
+					      policy->segment_list.srv6_segs.encap_behavior);
 		}
 	} else if (nexthop->nh_srv6) {
 		if (nexthop->nh_srv6->seg6local_action !=

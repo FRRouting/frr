@@ -581,6 +581,7 @@ static struct zapi_nexthop *path_zebra_fill_zapi_sr_policy(
 	} else {
 		zp->segment_list.type = ZEBRA_SR_SRV6_SRTE;
 		zp->segment_list.local_label = MPLS_LABEL_NONE;
+		zp->segment_list.encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
 		zp->segment_list.srv6_segs.num_segs = 0;
 		RB_FOREACH (segment, srte_segment_entry_head,
 			    &segment_list->segments)

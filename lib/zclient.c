@@ -4067,9 +4067,11 @@ int zapi_sr_policy_encode(struct stream *s, int cmd, struct zapi_sr_policy *zp)
 	}
 
 	stream_putw(s, zt->srv6_segs.num_segs);
-	if (zt->srv6_segs.num_segs)
+	if (zt->srv6_segs.num_segs) {
 		stream_put(s, &zt->srv6_segs.segs[0],
 			   zt->srv6_segs.num_segs * sizeof(struct in6_addr));
+		stream_putl(s, zt->srv6_segs.encap_behavior);
+	}
 
 	stream_putw(s, zt->nexthop_resolved_num);
 
@@ -4134,9 +4136,11 @@ int zapi_sr_policy_decode(struct stream *s, struct zapi_sr_policy *zp)
 			 __func__, zt->srv6_segs.num_segs, SRV6_MAX_SEGS);
 		return -1;
 	}
-	if (zt->srv6_segs.num_segs)
+	if (zt->srv6_segs.num_segs) {
 		STREAM_GET(&zt->srv6_segs.segs[0], s,
 			   zt->srv6_segs.num_segs * sizeof(struct in6_addr));
+		STREAM_GETL(s, zt->srv6_segs.encap_behavior);
+	}
 
 	STREAM_GETW(s, zt->nexthop_resolved_num);
 	if (zt->nexthop_resolved_num > MULTIPATH_NUM) {
