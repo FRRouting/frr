@@ -448,7 +448,7 @@ extern void bgp_evpn_es_vrf_show(struct vty *vty, bool uj,
 				 struct bgp_evpn_es *es);
 extern void bgp_evpn_es_vrf_show_esi(struct vty *vty, esi_t *esi, bool uj);
 extern void bgp_evpn_switch_ead_evi_rx(void);
-extern bool bgp_evpn_es_add_l3_ecomm_ok(esi_t *esi);
+extern bool bgp_evpn_es_add_l3_attrs_ok(esi_t *esi);
 extern void bgp_evpn_es_vrf_use_nhg(struct bgp *bgp_vrf, esi_t *esi,
 				    bool *use_l3nhg, bool *is_l3nhg_active,
 				    struct bgp_evpn_es_vrf **es_vrf_p);
