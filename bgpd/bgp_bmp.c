@@ -2210,6 +2210,7 @@ static bool bmp_wrqueue_ribout(struct bmp *bmp, struct pullwr *pullwr)
 	struct peer *peer;
 	struct bgp_dest *bn = NULL;
 	bool written = false;
+	uint8_t bpi_num_labels;
 
 	bqe = bmp_pull_ribout(bmp);
 	if (!bqe)
@@ -2255,7 +2256,7 @@ static bool bmp_wrqueue_ribout(struct bmp *bmp, struct pullwr *pullwr)
 				break;
 		}
 
-		uint8_t bpi_num_labels = BGP_PATH_INFO_NUM_LABELS(bpi);
+		bpi_num_labels = BGP_PATH_INFO_NUM_LABELS(bpi);
 
 		bmp_monitor(bmp, peer, BMP_PEER_FLAG_O, bmp_get_peer_type(peer), &bqe->p, prd,
 			    bpi ? bpi->attr : NULL, afi, safi, addpath_tx_id, (time_t)(-1L),
@@ -2277,10 +2278,11 @@ static bool bmp_wrqueue_ribout(struct bmp *bmp, struct pullwr *pullwr)
 							  : NULL
 				      : NULL;
 
-		/* TODO: set label here when adjout supports labels */
+		bpi_num_labels = adj && adj->labels ? adj->labels->num_labels : 0;
+
 		bmp_monitor(bmp, peer, BMP_PEER_FLAG_L | BMP_PEER_FLAG_O, bmp_get_peer_type(peer),
 			    &bqe->p, prd, advertised_attr, afi, safi, addpath_tx_id, (time_t)(-1L),
-			    NULL, 0);
+			    bpi_num_labels ? adj->labels->label : NULL, bpi_num_labels);
 
 		written = true;
 	}
