@@ -4616,6 +4616,13 @@ incoming/outgoing directions.
 
    Display statistics of routes of all the afi and safi.
 
+.. clicmd:: show bgp attribute-info [summary]
+
+   This command displays information about the attributes. If ``summary`` is
+   specified, it will display a summary of the attributes, including the
+   attribute type, the number of occurrences, and the total size of the
+   attributes in the BGP table.
+
 .. clicmd:: show [ip] bgp [afi] [safi] [all] cidr-only [wide|json]
 
    Display routes with non-natural netmasks.
