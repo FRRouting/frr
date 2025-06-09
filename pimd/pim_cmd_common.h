@@ -150,6 +150,7 @@ void show_mroute_summary(struct pim_instance *pim, struct vty *vty,
 			 json_object *json);
 int clear_ip_mroute_count_command(struct vty *vty, const char *name);
 struct vrf *pim_cmd_lookup(struct vty *vty, const char *name);
+struct vrf *pim_cmd_lookup_json(struct vty *vty, const char *name, bool uj);
 struct vrf *pim_cmd_lookup_vrf(struct vty *vty, struct cmd_token *argv[],
 			       const int argc, int *idx, bool uj);
 void clear_mroute(struct pim_instance *pim);
