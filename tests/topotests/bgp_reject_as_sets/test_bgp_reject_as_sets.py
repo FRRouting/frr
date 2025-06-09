@@ -133,6 +133,7 @@ def test_bgp_reject_as_sets():
                     },
                     "aggregatorAs": 65002,
                     "aggregatorId": "192.168.255.1",
+                    "atomicAggregate": True,
                 }
             ]
         }
