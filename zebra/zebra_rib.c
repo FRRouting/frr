@@ -4543,6 +4543,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 {
 	int ret;
 	struct nhg_hash_entry nhe, *n;
+	struct zebra_vrf *zvrf;
 
 	if (!re)
 		return -1;
@@ -4581,17 +4582,32 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 		ifp = if_lookup_prefix(p, re->vrf_id);
 		if (ifp) {
 			connected = connected_lookup_prefix(ifp, p);
+			zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
 
-			if (connected && !CHECK_FLAG(connected->flags,
-						     ZEBRA_IFA_NOPREFIXROUTE)) {
-				zebra_nhg_free(n);
-				zebra_rib_route_entry_free(re);
-				return -1;
+			/*
+			 * Ok so we need to check that the route received is not
+			 * gonna cover up a connected route.  In some cases the
+			 * kernel has a route for the connected and in some cases
+			 * it does not.  Since FRR auto-creates a connected route
+			 * we must do the right thing here by creating the connected
+			 * route or not.  The exception is that if the re->table
+			 * specified is for some random non vrf or default table
+			 * than there is no possibility for connected routes.
+			 * We should accept those routes in the specified table
+			 * no matter what.  Since FRR will not have connected routes
+			 * in them.
+			 */
+			if (re->table == zvrf->table_id || re->table == RT_TABLE_MAIN) {
+				if (connected &&
+				    !CHECK_FLAG(connected->flags, ZEBRA_IFA_NOPREFIXROUTE)) {
+					zebra_nhg_free(n);
+					zebra_rib_route_entry_free(re);
+					return -1;
+				}
+
+				if (ng && ng->nexthop && ifp->ifindex == ng->nexthop->ifindex)
+					re->type = ZEBRA_ROUTE_CONNECT;
 			}
-
-			if (ng && ng->nexthop &&
-			    ifp->ifindex == ng->nexthop->ifindex)
-				re->type = ZEBRA_ROUTE_CONNECT;
 		}
 	}
 
