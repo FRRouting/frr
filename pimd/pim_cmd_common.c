@@ -4358,6 +4358,25 @@ struct vrf *pim_cmd_lookup(struct vty *vty, const char *name)
 	return vrf;
 }
 
+struct vrf *pim_cmd_lookup_json(struct vty *vty, const char *name, bool uj)
+{
+	struct vrf *vrf;
+
+	if (name)
+		vrf = vrf_lookup_by_name(name);
+	else
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+
+	if (!vrf) {
+		if (uj)
+			vty_json_empty(vty, NULL);
+		else
+			vty_out(vty, "Specified VRF: %s does not exist\n", name);
+	}
+
+	return vrf;
+}
+
 struct vrf *pim_cmd_lookup_vrf(struct vty *vty, struct cmd_token *argv[],
 			       const int argc, int *idx, bool uj)
 {

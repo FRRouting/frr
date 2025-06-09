@@ -209,8 +209,7 @@ int pim_mroute_msg_nocache(int fd, struct interface *ifp, const kernmsg *msg)
 			if (!rpg) {
 				if (PIM_DEBUG_MROUTE)
 					zlog_debug("%s: no RPF for packet to %pSG", ifp->name, &sg);
-			}
-			if (pim_rpf_addr_is_inaddr_any(rpg)) {
+			} else if (pim_rpf_addr_is_inaddr_any(rpg)) {
 				if (PIM_DEBUG_MROUTE)
 					zlog_debug("%s: null RPF for packet to %pSG", ifp->name,
 						   &sg);

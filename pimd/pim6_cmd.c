@@ -2422,12 +2422,10 @@ DEFPY(show_ipv6_pim_ssm_range,
 	struct pim_instance *pim;
 	const char *range_str;
 	struct pim_ssm *ssm;
-	struct vrf *vrf = NULL;
+	struct vrf *vrf = pim_cmd_lookup_json(vty, vrf_name, !!json);
 
-	if (vrf_name)
-		vrf = vrf_lookup_by_name(vrf_name);
-	if (vrf == NULL)
-		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	if (!vrf || !vrf->info)
+		return CMD_WARNING;
 
 	pim = vrf->info;
 	ssm = pim->ssm_info;
@@ -2457,12 +2455,10 @@ DEFPY(show_ipv6_pim_group_type,
 {
 	struct pim_instance *pim;
 	const char *type_str;
-	struct vrf *vrf = NULL;
+	struct vrf *vrf = pim_cmd_lookup_json(vty, vrf_name, !!json);
 
-	if (vrf_name)
-		vrf = vrf_lookup_by_name(vrf_name);
-	if (vrf == NULL)
-		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	if (!vrf || !vrf->info)
+		return CMD_WARNING;
 
 	pim = vrf->info;
 	if (pim_is_group_ff00_8(group))
