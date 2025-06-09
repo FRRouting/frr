@@ -2643,8 +2643,6 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		 * aggregation as described in Section 5.2. In consistent brief aggregation,
 		 * the AGGREGATOR and ATOMIC_AGGREGATE Path Attributes are included, but the
 		 * AS_PATH does not have AS_SET or AS_CONFED_SET path segment types.
-		 * The ATOMIC_AGGREGATE Path Attribute is subsequently attached to the BGP
-		 * route, if AS_SETs are dropped.
 		 */
 		if (attr->aspath->refcnt)
 			aspath_new = aspath_dup(attr->aspath);
@@ -2652,6 +2650,12 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			aspath_new = attr->aspath;
 
 		attr->aspath = aspath_delete_as_set_seq(aspath_new);
+
+		/* rfc9774 says:
+		 * The ATOMIC_AGGREGATE Path Attribute is subsequently attached
+		 * to the BGP route, if AS_SETs are dropped.
+		 */
+		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE));
 	}
 
 	/* If neighbor soo is configured, then check if the route has
