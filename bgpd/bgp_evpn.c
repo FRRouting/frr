@@ -2182,7 +2182,7 @@ evpn_cleanup_local_non_best_route(struct bgp *bgp, struct bgpevpn *vpn,
 	return bgp_path_info_reap(dest, local_pi);
 }
 
-static inline bool bgp_evpn_route_add_l3_ecomm_ok(struct bgpevpn *vpn,
+static inline bool bgp_evpn_route_add_l3_attrs_ok(struct bgpevpn *vpn,
 						  const struct prefix_evpn *p,
 						  esi_t *esi)
 {
@@ -2192,7 +2192,7 @@ static inline bool bgp_evpn_route_add_l3_ecomm_ok(struct bgpevpn *vpn,
 		       && !IN6_IS_ADDR_LINKLOCAL(
 			       &p->prefix.macip_addr.ip.ipaddr_v6)))
 	       && CHECK_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS)
-	       && bgpevpn_get_l3vni(vpn) && bgp_evpn_es_add_l3_ecomm_ok(esi);
+	       && bgpevpn_get_l3vni(vpn) && bgp_evpn_es_add_l3_attrs_ok(esi);
 }
 
 /*
@@ -2206,7 +2206,7 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	struct bgp_dest *dest;
 	struct attr attr;
 	struct attr *attr_new;
-	int add_l3_ecomm = 0;
+	bool add_l3_attrs = false;
 	struct bgp_path_info *pi;
 	afi_t afi = AFI_L2VPN;
 	safi_t safi = SAFI_EVPN;
@@ -2266,12 +2266,12 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 
 	vni2label(vpn->vni, &(attr.label));
 
-	/* Include L3 VNI related RTs and RMAC for type-2 routes, if they're
-	 * IPv4 or IPv6 global addresses and we're advertising L3VNI with
-	 * these routes.
+	/* Include L3 VNI related attributes (RTs, RMAC and MPLS Label2)
+	 * for type-2 routes, if they're IPv4 or IPv6 global addresses and
+	 * we're advertising L3VNI with these routes.
 	 */
-	add_l3_ecomm =
-		bgp_evpn_route_add_l3_ecomm_ok(vpn, p,
+	add_l3_attrs =
+		bgp_evpn_route_add_l3_attrs_ok(vpn, p,
 					       CHECK_FLAG(attr.es_flags,
 							  ATTR_ES_IS_LOCAL)
 						       ? &attr.esi
@@ -2281,7 +2281,7 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 		macvrf_soo = bgp->evpn_info->soo;
 
 	/* Set up extended community. */
-	build_evpn_route_extcomm(vpn, &attr, add_l3_ecomm, macvrf_soo);
+	build_evpn_route_extcomm(vpn, &attr, add_l3_attrs, macvrf_soo);
 
 	/* First, create (or fetch) route node within the VNI.
 	 * NOTE: There is no RD here.
@@ -2494,7 +2494,7 @@ void bgp_evpn_update_type2_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 	struct attr attr;
 	struct attr *attr_new;
 	uint32_t seq;
-	int add_l3_ecomm = 0;
+	bool add_l3_attrs = false;
 	struct bgp_dest *global_dest;
 	struct bgp_path_info *global_pi;
 	struct prefix_evpn evp;
@@ -2544,8 +2544,8 @@ void bgp_evpn_update_type2_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 	/* Add L3 VNI RTs and RMAC for non IPv6 link-local if
 	 * using L3 VNI for type-2 routes also.
 	 */
-	add_l3_ecomm =
-		bgp_evpn_route_add_l3_ecomm_ok(vpn, &evp,
+	add_l3_attrs =
+		bgp_evpn_route_add_l3_attrs_ok(vpn, &evp,
 					       CHECK_FLAG(attr.es_flags,
 							  ATTR_ES_IS_LOCAL)
 						       ? &attr.esi
@@ -2555,7 +2555,7 @@ void bgp_evpn_update_type2_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 		macvrf_soo = bgp->evpn_info->soo;
 
 	/* Set up extended community. */
-	build_evpn_route_extcomm(vpn, &attr, add_l3_ecomm, macvrf_soo);
+	build_evpn_route_extcomm(vpn, &attr, add_l3_attrs, macvrf_soo);
 	seq = mac_mobility_seqnum(local_pi->attr);
 
 	if (bgp_debug_zebra(NULL)) {
