@@ -1950,6 +1950,29 @@ static void update_evpn_route_entry_sync_info(struct bgp *bgp,
 }
 
 /*
+ * Check if the route is a type-2 MAC-IP route with a valid global address
+ * (IPv4 or non-link-local IPv6) and the VPN has a valid L3 VNI configured.
+ */
+static inline bool bgp_evpn_is_macip_with_l3vni(struct bgpevpn *vpn, const struct prefix_evpn *p)
+{
+	return p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE &&
+	       (is_evpn_prefix_ipaddr_v4(p) ||
+		(is_evpn_prefix_ipaddr_v6(p) &&
+		 !IN6_IS_ADDR_LINKLOCAL(&p->prefix.macip_addr.ip.ipaddr_v6))) &&
+	       CHECK_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS) && bgpevpn_get_l3vni(vpn);
+}
+
+/*
+ * While adding l3-attrs such as rmac and l3 RTs we need an added check for ES
+ * as well along with checking for mac-ip with l3vni.
+ */
+static inline bool bgp_evpn_route_add_l3_attrs_ok(struct bgpevpn *vpn, const struct prefix_evpn *p,
+						  esi_t *esi)
+{
+	return bgp_evpn_is_macip_with_l3vni(vpn, p) && bgp_evpn_es_add_l3_attrs_ok(esi);
+}
+
+/*
  * Create or update EVPN route entry. This could be in the VNI route tables
  * or the global route table.
  */
@@ -2017,8 +2040,7 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 		 * Only attach second label if we are advertising two labels for
 		 * type-2 routes.
 		 */
-		if (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE
-		    && CHECK_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS)) {
+		if (bgp_evpn_is_macip_with_l3vni(vpn, evp)) {
 			vni_t l3vni;
 
 			l3vni = bgpevpn_get_l3vni(vpn);
@@ -2057,9 +2079,7 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 			 */
 			vni2label(vpn->vni, &bgp_labels.label[0]);
 			bgp_labels.num_labels = 1;
-			if (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE
-			    && CHECK_FLAG(vpn->flags,
-					  VNI_FLAG_USE_TWO_LABELS)) {
+			if (bgp_evpn_is_macip_with_l3vni(vpn, evp)) {
 				vni_t l3vni;
 
 				l3vni = bgpevpn_get_l3vni(vpn);
@@ -2180,17 +2200,6 @@ evpn_cleanup_local_non_best_route(struct bgp *bgp, struct bgpevpn *vpn,
 	evpn_zebra_reinstall_best_route(bgp, vpn, dest);
 
 	return bgp_path_info_reap(dest, local_pi);
-}
-
-static inline bool bgp_evpn_route_add_l3_attrs_ok(struct bgpevpn *vpn, const struct prefix_evpn *p,
-						  esi_t *esi)
-{
-	return p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE &&
-	       (is_evpn_prefix_ipaddr_v4(p) ||
-		(is_evpn_prefix_ipaddr_v6(p) &&
-		 !IN6_IS_ADDR_LINKLOCAL(&p->prefix.macip_addr.ip.ipaddr_v6))) &&
-	       CHECK_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS) && bgpevpn_get_l3vni(vpn) &&
-	       bgp_evpn_es_add_l3_attrs_ok(esi);
 }
 
 /*
