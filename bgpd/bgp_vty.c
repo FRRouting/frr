@@ -4718,6 +4718,24 @@ static struct peer_group *listen_range_exists(struct bgp *bgp,
 	return NULL;
 }
 
+static void bgp_need_listening(struct bgp *bgp, struct vty *vty)
+{
+	struct listnode *node;
+	struct bgp_listener *listener;
+
+	for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, listener)) {
+		if (listener->bgp == bgp)
+			break;
+	}
+	if (listener == NULL) {
+		struct vrf *vrf;
+
+		SET_FLAG(bgp->flags, BGP_FLAG_VRF_MAY_LISTEN);
+		vrf = bgp_vrf_lookup_by_instance_type(bgp);
+		bgp_handle_socket(bgp, vrf, VRF_UNKNOWN, true);
+	}
+}
+
 DEFUN (bgp_listen_range,
        bgp_listen_range_cmd,
        "bgp listen range <A.B.C.D/M|X:X::X:X/M> peer-group PGNAME",
@@ -4783,6 +4801,9 @@ DEFUN (bgp_listen_range,
 		vty_out(vty, "%% Configure the peer-group first\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
+
+	/* if need start listening */
+	bgp_need_listening(bgp, vty);
 
 	ret = peer_group_listen_range_add(group, &range);
 	return bgp_vty_return(vty, ret);
@@ -4935,6 +4956,8 @@ static int peer_remote_as_vty(struct vty *vty, const char *peer_str,
 					"%% Create the peer-group or interface first\n");
 				return CMD_WARNING_CONFIG_FAILED;
 			}
+			/* if need start listening */
+			bgp_need_listening(bgp, vty);
 			return CMD_SUCCESS;
 		}
 	} else {
@@ -4943,6 +4966,9 @@ static int peer_remote_as_vty(struct vty *vty, const char *peer_str,
 				"%% Can not configure the local system as neighbor\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
+
+		/* if need start listening */
+		bgp_need_listening(bgp, vty);
 		ret = peer_remote_as(bgp, &su, NULL, &as, as_type, as_str);
 	}
 
