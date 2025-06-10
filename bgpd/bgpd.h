@@ -534,6 +534,7 @@ struct bgp {
 #define BGP_FLAG_RTC_EOR_MARKER		 (1ULL << 40)
 #define BGP_FLAG_VRF_MAY_LISTEN		 (1ULL << 44)
 
+
 	/* BGP default address-families.
 	 * New peers inherit enabled afi/safis from bgp instance.
 	 */
