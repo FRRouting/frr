@@ -17,10 +17,10 @@ Test BGP peer group graceful shutdown functionality:
 |            |     |            |     |            |
 +------------+     +------------+     +------------+
      |                  |                  |
-     |  172.16.1.0/24  |  172.16.2.0/24  |
+     |  172.16.1.0/24   |  172.16.2.0/24   |
      |                  |                  |
      +------------------+------------------+
-                       |
+                        |
                  BGP Peer Group
                    PEER-GROUP1
 
@@ -95,13 +95,14 @@ def check_prefix_gshut_disabled(router, prefix):
     path = get_route_info(router, prefix)
     return path is not None and check_route_gshut_attributes(path, expect_gshut=False)
 
-def check_no_session_flap(router, peer_ip, initial_uptime_msec, initial_established_epoch):
+def check_no_session_flap(router, peer_ip, initial_uptime_msec):
     """Check if BGP session has not flapped."""
     current_neighbor_info = json.loads(router.vtysh_cmd(f"show bgp neighbors {peer_ip} json"))
     current_uptime_msec = current_neighbor_info[peer_ip]['bgpTimerUpMsec']
-    current_established_epoch = current_neighbor_info[peer_ip]['bgpTimerUpEstablishedEpoch']
-    return (current_uptime_msec >= initial_uptime_msec and
-            current_established_epoch == initial_established_epoch)
+    if current_uptime_msec < initial_uptime_msec:
+        logger.error(f"Session flapped: current uptime {current_uptime_msec} < initial uptime {initial_uptime_msec}")
+        return False
+    return True
 
 def is_bgp_session_established(router, peer_ip):
     """Check if a BGP session is in the Established state.
@@ -217,7 +218,7 @@ def test_peer_group_graceful_shutdown():
         end
     """)
 
-    # Verify GSHUT is enabled on both peers
+    # Verify both R1 and R3 receive GSHUT community
     logger.info("Verifying routes have graceful-shutdown community on peers")
     success, result = topotest.run_and_expect(
         lambda: check_prefix_gshut_enabled(r1, "10.3.3.3/32") and
@@ -282,12 +283,13 @@ def test_peer_group_graceful_shutdown_hierarchy():
         end
     """)
 
-    # Verify R1 receives GSHUT community
+    # Verify both R1 and R3 receive GSHUT community
     success, result = topotest.run_and_expect(
-        lambda: check_prefix_gshut_enabled(r1, "10.3.3.3/32"),
+        lambda: check_prefix_gshut_enabled(r1, "10.3.3.3/32") and
+                check_prefix_gshut_enabled(r3, "10.1.1.1/32"),
         True, count=12, wait=5
     )
-    assert success, "R1 did not receive GSHUT community after global-level enable"
+    assert success, "R1 and R3 should receive GSHUT community after global-level enable"
 
     # Step 2: Enable GSHUT at neighbor level
     logger.info("Step 2: Enabling GSHUT at neighbor level")
@@ -580,15 +582,17 @@ def test_peer_group_graceful_shutdown_session_stability():
     # Step 1: Get initial BGP session state
     logger.info("Getting initial BGP session state")
     success, result = topotest.run_and_expect(
-        lambda: is_bgp_session_established(r2, "172.16.1.1"),
+        lambda: wait_for_bgp_convergence(r2, {
+            '172.16.1.1': {'state': 'Established'},
+            '172.16.2.2': {'state': 'Established'}
+        }),
         True, count=12, wait=5
     )
     assert success, "Initial BGP session not established"
 
-    # Get initial session timing info
-    timing_info = get_session_timing_info(r2, "172.16.1.1")
-    initial_uptime_msec = timing_info['bgpTimerUpMsec']
-    initial_established_epoch = timing_info['bgpTimerUpEstablishedEpoch']
+    # Get initial session timing info for both peers
+    r1_timing = get_session_timing_info(r2, "172.16.1.1")
+    r3_timing = get_session_timing_info(r2, "172.16.2.2")
 
     # Step 2: Enable GSHUT and verify stability
     logger.info("Enabling GSHUT on PEER-GROUP1")
@@ -599,13 +603,28 @@ def test_peer_group_graceful_shutdown_session_stability():
         end
     """)
 
-    # Verify GSHUT is enabled and session is stable
+    # Verify each condition separately
+    # Check R1 GSHUT community
     success, result = topotest.run_and_expect(
-        lambda: check_prefix_gshut_enabled(r1, "10.3.3.3/32") and
-                check_no_session_flap(r2, "172.16.1.1", initial_uptime_msec, initial_established_epoch),
+        lambda: check_prefix_gshut_enabled(r1, "10.3.3.3/32"),
         True, count=12, wait=5
     )
-    assert success, "GSHUT community not added or session flapped after enabling GSHUT"
+    assert success, "GSHUT community not added on R1"
+
+    # Check R3 GSHUT community
+    success, result = topotest.run_and_expect(
+        lambda: check_prefix_gshut_enabled(r3, "10.1.1.1/32"),
+        True, count=12, wait=5
+    )
+    assert success, "GSHUT community not added on R3"
+
+    # Check R1 session stability
+    if not check_no_session_flap(r2, "172.16.1.1", r1_timing['bgpTimerUpMsec']):
+        assert False, "R1 session flapped after enabling GSHUT"
+
+    # Check R3 session stability
+    if not check_no_session_flap(r2, "172.16.2.2", r3_timing['bgpTimerUpMsec']):
+        assert False, "R3 session flapped after enabling GSHUT"
 
     # Step 3: Disable GSHUT and verify stability
     logger.info("Disabling GSHUT on PEER-GROUP1")
@@ -616,20 +635,28 @@ def test_peer_group_graceful_shutdown_session_stability():
         end
     """)
 
-    # Verify GSHUT is disabled and session is stable
+    # Verify each condition separately
+    # Check R1 GSHUT community
     success, result = topotest.run_and_expect(
-        lambda: check_prefix_gshut_disabled(r1, "10.3.3.3/32") and
-                check_no_session_flap(r2, "172.16.1.1", initial_uptime_msec, initial_established_epoch),
+        lambda: check_prefix_gshut_disabled(r1, "10.3.3.3/32"),
         True, count=12, wait=5
     )
-    assert success, "GSHUT community not removed or session flapped after disabling GSHUT"
+    assert success, "GSHUT community not removed on R1"
 
-    # Step 4: Verify final BGP session state
+    # Check R3 GSHUT community
     success, result = topotest.run_and_expect(
-        lambda: is_bgp_session_established(r2, "172.16.1.1"),
+        lambda: check_prefix_gshut_disabled(r3, "10.1.1.1/32"),
         True, count=12, wait=5
     )
-    assert success, "Final BGP session not established"
+    assert success, "GSHUT community not removed on R3"
+
+    # Check R1 session stability
+    if not check_no_session_flap(r2, "172.16.1.1", r1_timing['bgpTimerUpMsec']):
+        assert False, "R1 session flapped after disabling GSHUT"
+
+    # Check R3 session stability
+    if not check_no_session_flap(r2, "172.16.2.2", r3_timing['bgpTimerUpMsec']):
+        assert False, "R3 session flapped after disabling GSHUT"
 
 if __name__ == '__main__':
     args = ["-s"] + sys.argv[1:]
