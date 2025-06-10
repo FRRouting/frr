@@ -399,7 +399,7 @@ extern void bgp_dump_routes_attr(struct stream *s, struct bgp_path_info *bpi,
 				 const struct prefix *p);
 extern bool attrhash_cmp(const void *arg1, const void *arg2);
 extern unsigned int attrhash_key_make(const void *p);
-extern void attr_show_all(struct vty *vty);
+extern void attr_show_all(struct vty *vty, bool summary);
 extern unsigned long int attr_count(void);
 extern unsigned long int attr_unknown_count(void);
 extern void bgp_path_attribute_discard_vty(struct vty *vty, struct peer *peer,
