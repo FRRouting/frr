@@ -78,6 +78,8 @@ module frr-pim-rp {
 
   typedef plist-ref {
     type string;
+    description
+      "Type definition for prefix list references.";
   }
 
   /*
@@ -124,10 +126,15 @@ module frr-pim-rp {
   } // static-rp-container
 
   grouping embedded-rp-group {
+    description
+      "Grouping for embedded RP configurations.";
+
     container embedded-rp {
       description "Embedded RP configurations.";
 
       leaf enable {
+        type boolean;
+        default "false";
         description
           "Toggle embedded RP state:
 
@@ -135,11 +142,10 @@ module frr-pim-rp {
            will be preferred over any static or dynamic RP configuration.
 
            When disabled the packet will be processed as usual.";
-        type boolean;
-        default "false";
       }
 
       leaf group-list {
+        type plist-ref;
         description
           "Restrict embedded RP prefix ranges.
 
@@ -147,14 +153,13 @@ module frr-pim-rp {
            range as embedded RP. When a group prefix list is configured
            and group does not match one of its permit entries it will
            be treated as regular multicast group.";
-        type plist-ref;
       }
 
       leaf maximum-rps {
-        description
-          "Maximum allowed number of RPs to learn.";
         type uint32;
         default 25;
+        description
+          "Maximum allowed number of RPs to learn.";
       }
     } // embedded-rp container
   } // embedded-rp group
@@ -222,6 +227,9 @@ module frr-pim-rp {
       } // candidate-rp-list
 
       container mapping-agent {
+        description
+          "AutoRP mapping agent configuration data.";
+
         leaf send-rp-discovery {
           type boolean;
           default false;
@@ -255,19 +263,27 @@ module frr-pim-rp {
         }
 
         choice source-address-or-interface {
-          description "Source address to use for mapping agent operation";
           default if-loopback;
+          description "Source address to use for mapping agent operation";
           leaf address {
             type inet:ip-address;
+            description
+              "Source IP address for mapping agent operation.";
           }
           leaf interface {
             type frr-interface:interface-ref;
+            description
+              "Interface to use for mapping agent operation.";
           }
           leaf if-loopback {
             type empty;
+            description
+              "Loopback interface for mapping agent operation.";
           }
           leaf if-any {
             type empty;
+            description
+              "Any interface for mapping agent operation.";
           }
         }
       } // mapping-agent
