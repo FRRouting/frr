@@ -303,7 +303,7 @@ void pim_dm_recv_prune(struct interface *ifp, struct pim_neighbor *neigh, uint16
 		return;
 
 	sg_connected = false;
-	vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	vrf = up->pim->vrf;
 
 	if (pim_iface_grp_dm(pim_ifp, group_addr) &&
 	    oil_if_has(up->channel_oil, pim_ifp->mroute_vif_index)) {

@@ -272,7 +272,6 @@ void pim_send_staterefresh(struct pim_upstream *up)
 	uint8_t pim_msg[1000];
 	uint8_t p, n;
 	int pim_msg_size;
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp, *ifp2 = NULL;
 	struct pim_interface *pim_ifp2;
 	struct pim_ifchannel *ch;
@@ -294,7 +293,7 @@ void pim_send_staterefresh(struct pim_upstream *up)
 		n = 1;
 		up->pim->staterefresh_counter = 0;
 	}
-	FOR_ALL_INTERFACES (vrf, ifp2) {
+	FOR_ALL_INTERFACES (ifp->vrf, ifp2) {
 		pim_ifp2 = ifp2->info;
 
 		if (!pim_ifp2 || !pim_ifp2->pim_enable ||
