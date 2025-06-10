@@ -208,6 +208,7 @@ struct vty {
 	/* Timeout seconds and thread. */
 	unsigned long v_timeout;
 	struct event *t_timeout;
+	struct event *t_close;
 
 	/* What address is this vty comming from. */
 	char address[SU_ADDRSTRLEN];
