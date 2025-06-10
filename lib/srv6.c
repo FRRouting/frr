@@ -150,7 +150,11 @@ static char *seg6local_flavors2str(char *str, size_t size,
 
 	len += snprintf(str + len, size - len, "(");
 	if (CHECK_SRV6_FLV_OP(flv_info->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_PSP)) {
-		len += snprintf(str + len, size - len, "%sPSP", first ? "" : "/");
+		/*
+		 * First is never null for this one.  If you reorder ensure
+		 * that we properly touch first here in the snprintf
+		 */
+		len += snprintf(str + len, size - len, "%sPSP", "");
 		first = false;
 	}
 	if (CHECK_SRV6_FLV_OP(flv_info->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_USP)) {
