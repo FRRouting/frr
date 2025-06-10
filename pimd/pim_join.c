@@ -283,6 +283,12 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 				msg_num_joined_sources, msg_num_pruned_sources,
 				&src_addr, ifp->name);
 
+		remain = (pastend - buf) / sizeof(pim_encoded_source);
+		if (msg_num_joined_sources > remain) {
+			zlog_warn("%s: short join buffer for source list: size=%d minimum=%d from %pPA on %s",
+				  __func__, remain, msg_num_joined_sources, &src_addr, ifp->name);
+			return -6;
+		}
 		/* boundary check */
 		group_filtered = pim_is_group_filtered(pim_ifp, &sg.grp, NULL);
 
@@ -309,6 +315,13 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 					pim_ifchannel_set_star_g_join_state(
 						starg_ch, 0, 1);
 			}
+		}
+
+		remain = (pastend - buf) / sizeof(pim_encoded_source);
+		if (msg_num_pruned_sources > remain) {
+			zlog_warn("%s: short prune buffer for source list: size=%d minimum=%d from %pPA on %s",
+				  __func__, remain, msg_num_pruned_sources, &src_addr, ifp->name);
+			return -6;
 		}
 
 		/* Scan pruned sources */
@@ -434,8 +447,8 @@ int pim_graft_recv(struct interface *ifp, struct pim_neighbor *neigh, pim_addr s
 	++buf;
 	++buf;
 
-	if (PIM_DEBUG_PIM_J_P)
-		zlog_debug("%s: join/prune upstream=%pPAs groups=%d holdtime=%d from %pPA on %s",
+	if (PIM_DEBUG_GRAFT)
+		zlog_debug("%s: graft upstream=%pPAs groups=%d holdtime=%d from %pPA on %s",
 			   __func__, &msg_upstream_addr, msg_num_groups, msg_holdtime, &src_addr,
 			   ifp->name);
 
@@ -446,7 +459,7 @@ int pim_graft_recv(struct interface *ifp, struct pim_neighbor *neigh, pim_addr s
 		uint16_t msg_num_joined_sources;
 		uint16_t msg_num_pruned_sources;
 		int source;
-		bool filtered = false;
+		bool group_filtered = false;
 
 		memset(&sg, 0, sizeof(sg));
 		addr_offset = pim_parse_addr_group(&sg, buf, pastend - buf);
@@ -457,7 +470,7 @@ int pim_graft_recv(struct interface *ifp, struct pim_neighbor *neigh, pim_addr s
 
 		remain = pastend - buf;
 		if (remain < 4) {
-			zlog_warn("%s: short join/prune buffer for source list: size=%d minimum=%d from %pPA on %s",
+			zlog_warn("%s: short graft buffer for source list: size=%d minimum=%d from %pPA on %s",
 				  __func__, remain, 4, &src_addr, ifp->name);
 			return -6;
 		}
@@ -467,13 +480,21 @@ int pim_graft_recv(struct interface *ifp, struct pim_neighbor *neigh, pim_addr s
 		msg_num_pruned_sources = ntohs(*(const uint16_t *)buf);
 		buf += 2;
 
-		if (PIM_DEBUG_PIM_J_P)
-			zlog_debug("%s: join/prune upstream=%pPAs group=%pPA/32 join_src=%d prune_src=%d from %pPA on %s",
+		if (PIM_DEBUG_GRAFT)
+			zlog_debug("%s: graft upstream=%pPAs group=%pPA/32 join_src=%d prune_src=%d from %pPA on %s",
 				   __func__, &msg_upstream_addr, &sg.grp, msg_num_joined_sources,
 				   msg_num_pruned_sources, &src_addr, ifp->name);
 
-		/* boundary check */
-		filtered = pim_is_group_filtered(pim_ifp, &sg.grp, &sg.src);
+		remain = (pastend - buf) / sizeof(pim_encoded_source);
+		if (msg_num_joined_sources > remain) {
+			zlog_warn("%s: short graft join buffer for source list: remaining=%d minimum=%d from %pPA on %s",
+				  __func__, remain, msg_num_joined_sources, &src_addr, ifp->name);
+			return -6;
+		}
+
+		/* sanity and boundary check */
+		group_filtered = !pim_addr_is_multicast(sg.grp) ||
+				 pim_is_group_filtered(pim_ifp, &sg.grp, &sg.src);
 
 		/* Scan joined sources */
 		for (source = 0; source < msg_num_joined_sources; ++source) {
@@ -484,9 +505,10 @@ int pim_graft_recv(struct interface *ifp, struct pim_neighbor *neigh, pim_addr s
 
 			buf += addr_offset;
 
-			/* if we are filtering this group, skip the join */
-			if (filtered)
+			/* if we are filtering this group or (S,G), skip the graft */
+			if (group_filtered || pim_is_group_filtered(pim_ifp, &sg.grp, &sg.src))
 				continue;
+
 			if (pim_msg_type == PIM_MSG_TYPE_GRAFT)
 				pim_dm_recv_graft(ifp, &sg);
 			else if (pim_msg_type == PIM_MSG_TYPE_GRAFT_ACK) {
@@ -495,6 +517,26 @@ int pim_graft_recv(struct interface *ifp, struct pim_neighbor *neigh, pim_addr s
 					event_cancel(&up->t_graft_timer);
 			}
 		}
+
+		/* Graft msg shouldn't have prune, but just in case, skip and log */
+		if (msg_num_pruned_sources) {
+			remain = (pastend - buf) / sizeof(pim_encoded_source);
+			if (msg_num_pruned_sources > remain) {
+				zlog_warn("%s: short graft prune buffer for source list: remaining=%d minimum=%d from %pPA on %s",
+					  __func__, remain, msg_num_pruned_sources, &src_addr,
+					  ifp->name);
+				return -6;
+			}
+
+			if (PIM_DEBUG_GRAFT)
+				zlog_debug("%s: ignore prune in graft msg, upstream=%pPAs group=%pPA/32 join_src=%d prune_src=%d from %pPA on %s",
+					   __func__, &msg_upstream_addr, &sg.grp,
+					   msg_num_joined_sources, msg_num_pruned_sources,
+					   &src_addr, ifp->name);
+
+			buf += msg_num_pruned_sources * sizeof(pim_encoded_source);
+		}
+
 	} /* scan groups */
 
 	return 0;
