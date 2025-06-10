@@ -66,8 +66,9 @@ enum vty_event {
 #ifdef VTYSH
 	VTYSH_SERV,
 	VTYSH_READ,
-	VTYSH_WRITE
+	VTYSH_WRITE,
 #endif /* VTYSH */
+	VTY_CLOSED,
 };
 
 struct nb_config *vty_mgmt_candidate_config;
@@ -1674,7 +1675,8 @@ static void vty_flush(struct event *thread)
 			  vty->fd, vty->wfd);
 		buffer_reset(vty->lbuf);
 		buffer_reset(vty->obuf);
-		vty_close(vty);
+		/* schedule a prioritary event so that at next scheduling, vty will be freed */
+		vty_event(VTY_CLOSED, vty);
 		return;
 	case BUFFER_EMPTY:
 		if (vty->status == VTY_CLOSE)
@@ -1844,6 +1846,7 @@ void vty_stdio_suspend(void)
 	EVENT_OFF(stdio_vty->t_write);
 	EVENT_OFF(stdio_vty->t_read);
 	EVENT_OFF(stdio_vty->t_timeout);
+	EVENT_OFF(stdio_vty->t_close);
 
 	if (stdio_termios)
 		tcsetattr(0, TCSANOW, &stdio_orig_termios);
@@ -2250,7 +2253,8 @@ static int vtysh_flush(struct vty *vty)
 			 __func__, vty->fd);
 		buffer_reset(vty->lbuf);
 		buffer_reset(vty->obuf);
-		vty_close(vty);
+		/* schedule a prioritary event so that at next scheduling, vty will be freed */
+		vty_event(VTY_CLOSED, vty);
 		return -1;
 	case BUFFER_EMPTY:
 		vty->vty_buf_size_accumulated = 0;
@@ -2554,6 +2558,14 @@ static void vty_cmd_delete(void *arg)
 	XFREE(MTYPE_TMP, cmd);
 }
 
+static void vty_closed(struct event *thread)
+{
+	struct vty *vty;
+
+	vty = EVENT_ARG(thread);
+	vty_close(vty);
+}
+
 /* Close vty interface.  Warning: call this only from functions that
    will be careful not to access the vty afterwards (since it has
    now been freed).  This is safest from top-level functions (called
@@ -2592,6 +2604,7 @@ void vty_close(struct vty *vty)
 	EVENT_OFF(vty->t_read);
 	EVENT_OFF(vty->t_write);
 	EVENT_OFF(vty->t_timeout);
+	EVENT_OFF(vty->t_close);
 
 	if (vty->pass_fd != -1) {
 		close(vty->pass_fd);
@@ -3107,6 +3120,7 @@ static void vty_event_serv(enum vty_event event, struct vty_serv *vty_serv)
 	case VTY_TIMEOUT_RESET:
 	case VTYSH_READ:
 	case VTYSH_WRITE:
+	case VTY_CLOSED:
 		assert(!"vty_event_serv() called incorrectly");
 	}
 }
@@ -3144,6 +3158,15 @@ static void vty_event(enum vty_event event, struct vty *vty)
 		if (vty->v_timeout)
 			event_add_timer(vty_master, vty_timeout, vty,
 					vty->v_timeout, &vty->t_timeout);
+		break;
+	case VTY_CLOSED:
+		if (vty->status == VTY_CLOSE)
+			/* prevent from programming an other close event */
+			break;
+		/* this value indicate caller that vty is about to close and should not be used */
+		vty->status = VTY_CLOSE;
+		EVENT_OFF(vty->t_close);
+		event_add_event(vty_master, vty_closed, vty, 0, &vty->t_close);
 		break;
 	case VTY_SERV:
 	case VTYSH_SERV:
