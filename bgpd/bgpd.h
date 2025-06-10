@@ -667,6 +667,7 @@ struct bgp {
 #define BGP_FLAG_L3VNI_SCHEDULE_FOR_INSTALL (1ULL << 41)
 #define BGP_FLAG_L3VNI_SCHEDULE_FOR_DELETE  (1ULL << 42)
 #define BGP_FLAG_LINK_LOCAL_CAPABILITY	    (1ULL << 43)
+#define BGP_FLAG_VRF_MAY_LISTEN		    (1ULL << 44)
 
 	/* BGP default address-families.
 	 * New peers inherit enabled afi/safis from bgp instance.
