@@ -182,7 +182,8 @@ struct nhrp_cie_header *nhrp_cie_pull(struct zbuf *zb,
 	if (!cie)
 		return NULL;
 
-	if (cie->nbma_address_len + cie->nbma_subaddress_len > 0) {
+	if (cie->nbma_address_len + cie->nbma_subaddress_len > 0 &&
+	    cie->nbma_address_len + cie->nbma_subaddress_len <= zbuf_used(zb)) {
 		sockunion_set(nbma, afi2family(htons(hdr->afnum)),
 			      zbuf_pulln(zb,
 					 cie->nbma_address_len
@@ -192,7 +193,7 @@ struct nhrp_cie_header *nhrp_cie_pull(struct zbuf *zb,
 		sockunion_family(nbma) = AF_UNSPEC;
 	}
 
-	if (cie->protocol_address_len) {
+	if (cie->protocol_address_len && cie->protocol_address_len <= zbuf_used(zb)) {
 		sockunion_set(proto, proto2family(htons(hdr->protocol_type)),
 			      zbuf_pulln(zb, cie->protocol_address_len),
 			      cie->protocol_address_len);
