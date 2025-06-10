@@ -1374,6 +1374,60 @@ DEFPY(no_srv6_sid_format_explicit,
 	return CMD_SUCCESS;
 }
 
+/* Helper function to check if a SID format is using the default config */
+static bool has_default_sid_format_config(struct srv6_sid_format *format)
+{
+	bool has_default_config = true;
+
+	switch (format->type) {
+	case SRV6_SID_FORMAT_TYPE_USID:
+		if (format->config.usid.lib_start != SRV6_SID_FORMAT_USID_F3216_LIB_START)
+			has_default_config = false;
+
+		if (format->config.usid.elib_start != SRV6_SID_FORMAT_USID_F3216_ELIB_START)
+			has_default_config = false;
+
+		if (format->config.usid.elib_end != SRV6_SID_FORMAT_USID_F3216_ELIB_END)
+			has_default_config = false;
+
+		if (format->config.usid.wlib_start != SRV6_SID_FORMAT_USID_F3216_WLIB_START)
+			has_default_config = false;
+
+		if (format->config.usid.wlib_end != SRV6_SID_FORMAT_USID_F3216_WLIB_END)
+			has_default_config = false;
+
+		if (format->config.usid.ewlib_start != SRV6_SID_FORMAT_USID_F3216_EWLIB_START)
+			has_default_config = false;
+
+		break;
+
+	case SRV6_SID_FORMAT_TYPE_UNCOMPRESSED:
+		if (format->config.uncompressed.explicit_start !=
+		    SRV6_SID_FORMAT_UNCOMPRESSED_F4024_EXPLICIT_RANGE_START)
+			has_default_config = false;
+
+		break;
+
+	case SRV6_SID_FORMAT_TYPE_UNSPEC:
+		break;
+	}
+
+	return has_default_config;
+}
+
+/* Helper function to check if all SID formats are using the default config */
+static bool has_default_sid_format_config_all(void)
+{
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	struct listnode *node;
+	struct srv6_sid_format *format;
+
+	for (ALL_LIST_ELEMENTS_RO(srv6->sid_formats, node, format))
+		if (!has_default_sid_format_config(format))
+			return false;
+
+	return true;
+}
 static int zebra_sr_config(struct vty *vty)
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
@@ -1434,50 +1488,55 @@ static int zebra_sr_config(struct vty *vty)
 		}
 		vty_out(vty, "  exit\n");
 		vty_out(vty, "  !\n");
-		vty_out(vty, "  formats\n");
-		for (ALL_LIST_ELEMENTS_RO(srv6->sid_formats, node, format)) {
-			if (format->type == SRV6_SID_FORMAT_TYPE_UNCOMPRESSED) {
-				vty_out(vty, "   format %s\n", format->name);
-				if (format->config.uncompressed.explicit_start !=
-				    SRV6_SID_FORMAT_UNCOMPRESSED_F4024_EXPLICIT_RANGE_START)
-					vty_out(vty, "    explicit start %u\n",
-						format->config.uncompressed
-							.explicit_start);
+
+		if (!has_default_sid_format_config_all()) {
+			vty_out(vty, "  formats\n");
+			for (ALL_LIST_ELEMENTS_RO(srv6->sid_formats, node, format)) {
+				if (has_default_sid_format_config(format))
+					/* This SID format is using the default config, skipping */
+					continue;
+
+				if (format->type == SRV6_SID_FORMAT_TYPE_UNCOMPRESSED) {
+					vty_out(vty, "   format %s\n", format->name);
+					if (format->config.uncompressed.explicit_start !=
+					    SRV6_SID_FORMAT_UNCOMPRESSED_F4024_EXPLICIT_RANGE_START)
+						vty_out(vty, "    explicit start %u\n",
+							format->config.uncompressed.explicit_start);
+				}
+				if (format->type == SRV6_SID_FORMAT_TYPE_USID) {
+					vty_out(vty, "   format %s\n", format->name);
+					if (format->config.usid.lib_start !=
+					    SRV6_SID_FORMAT_USID_F3216_LIB_START)
+						vty_out(vty, "    local-id-block start %u\n",
+							format->config.usid.lib_start);
+					if (format->config.usid.elib_start !=
+						    SRV6_SID_FORMAT_USID_F3216_ELIB_START ||
+					    format->config.usid.elib_end !=
+						    SRV6_SID_FORMAT_USID_F3216_ELIB_END)
+						vty_out(vty,
+							"    local-id-block explicit start %u end %u\n",
+							format->config.usid.elib_start,
+							format->config.usid.elib_end);
+					if (format->config.usid.wlib_start !=
+						    SRV6_SID_FORMAT_USID_F3216_WLIB_START ||
+					    format->config.usid.wlib_end !=
+						    SRV6_SID_FORMAT_USID_F3216_WLIB_END)
+						vty_out(vty,
+							"    wide-local-id-block start %u end %u\n",
+							format->config.usid.wlib_start,
+							format->config.usid.wlib_end);
+					if (format->config.usid.ewlib_start !=
+					    SRV6_SID_FORMAT_USID_F3216_EWLIB_START)
+						vty_out(vty,
+							"    wide-local-id-block explicit start %u\n",
+							format->config.usid.ewlib_start);
+				}
+				vty_out(vty, "   exit\n");
+				vty_out(vty, "   !\n");
 			}
-			if (format->type == SRV6_SID_FORMAT_TYPE_USID) {
-				vty_out(vty, "   format %s\n", format->name);
-				if (format->config.usid.lib_start !=
-				    SRV6_SID_FORMAT_USID_F3216_LIB_START)
-					vty_out(vty,
-						"    local-id-block start %u\n",
-						format->config.usid.lib_start);
-				if (format->config.usid.elib_start !=
-					    SRV6_SID_FORMAT_USID_F3216_ELIB_START ||
-				    format->config.usid.elib_end !=
-					    SRV6_SID_FORMAT_USID_F3216_ELIB_END)
-					vty_out(vty,
-						"    local-id-block explicit start %u end %u\n",
-						format->config.usid.elib_start,
-						format->config.usid.elib_end);
-				if (format->config.usid.wlib_start !=
-					    SRV6_SID_FORMAT_USID_F3216_WLIB_START ||
-				    format->config.usid.wlib_end !=
-					    SRV6_SID_FORMAT_USID_F3216_WLIB_END)
-					vty_out(vty,
-						"    wide-local-id-block start %u end %u\n",
-						format->config.usid.wlib_start,
-						format->config.usid.wlib_end);
-				if (format->config.usid.ewlib_start !=
-				    SRV6_SID_FORMAT_USID_F3216_EWLIB_START)
-					vty_out(vty,
-						"    wide-local-id-block explicit start %u\n",
-						format->config.usid.ewlib_start);
-			}
-			vty_out(vty, "   exit\n");
-			vty_out(vty, "   !\n");
+			vty_out(vty, "  exit\n");
+			vty_out(vty, "  !\n");
 		}
-		vty_out(vty, "  exit\n");
-		vty_out(vty, "  !\n");
 		vty_out(vty, " exit\n");
 		vty_out(vty, " !\n");
 	}
