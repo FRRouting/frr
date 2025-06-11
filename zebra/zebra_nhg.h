@@ -194,6 +194,18 @@ enum nhg_type {
 
 #define PROTO_OWNED(NHE) (NHE->id >= ZEBRA_NHG_PROTO_LOWER)
 
+/* return TRUE if the NHG is Singleton */
+#define ZEBRA_NHG_IS_SINGLETON(NHE) (NHE->nhg.nexthop && !NHE->nhg.nexthop->next)
+
+/* return TRUE if the NHG is Direct Singleton */
+#define ZEBRA_NHG_IS_DIRECT_SINGLETON(NHE)                                                        \
+	(ZEBRA_NHG_IS_SINGLETON(NHE) && NHE->nhg.nexthop->ifindex &&                              \
+	 !CHECK_FLAG(NHE->nhg.nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+
+/* return TRUE if the NHG is Recursive Singleton */
+#define ZEBRA_NHG_IS_RECURSIVE_SINGLETON(NHE)                                                     \
+	(ZEBRA_NHG_IS_SINGLETON(NHE) &&                                                           \
+	 CHECK_FLAG(NHE->nhg.nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 /*
  * Backup nexthops: this is a group object itself, so
  * that the backup nexthops can use the same code as a normal object.
