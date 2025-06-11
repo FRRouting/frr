@@ -4481,6 +4481,13 @@ static void bgp_process_internal(struct bgp *bgp, struct bgp_dest *dest,
 		return;
 	}
 
+	if (CHECK_FLAG(dest->flags, BGP_NODE_NHT_RESOLVED_NODE)) {
+		if (BGP_DEBUG(update, UPDATE_OUT))
+			zlog_debug("Early route processing triggered by NHT for route %pBD",
+				   dest);
+		early_process = true;
+	}
+
 	/* all unlocked in process_subq_xxx functions */
 	bgp_table_lock(bgp_dest_table(dest));
 
@@ -12344,6 +12351,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			json_object_boolean_true_add(json_path, "fibInstalled");
 		if (CHECK_FLAG(bn->flags, BGP_NODE_FIB_INSTALL_PENDING))
 			json_object_boolean_true_add(json_path, "fibPending");
+		if (CHECK_FLAG(bn->flags, BGP_NODE_NHT_RESOLVED_NODE))
+			json_object_boolean_true_add(json_path, "earlyProcessing");
 
 		if (json_nexthop_global || json_nexthop_ll) {
 			json_nexthops = json_object_new_array();
