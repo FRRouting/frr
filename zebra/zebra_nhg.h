@@ -190,6 +190,9 @@ enum nhg_type {
 
 #define PROTO_OWNED(NHE) (NHE->id >= ZEBRA_NHG_PROTO_LOWER)
 
+/* Wrapper macro for zebra-specific usage */
+#define ZEBRA_NHG_IS_SINGLETON(NHE) NHG_IS_SINGLETON(&((NHE)->nhg))
+
 /*
  * Backup nexthops: this is a group object itself, so
  * that the backup nexthops can use the same code as a normal object.
