@@ -458,8 +458,7 @@ static void *zebra_nhg_hash_alloc(void *arg)
 	 *
 	 * A proto-owned ID is always a group.
 	 */
-	if (!PROTO_OWNED(nhe) && nhe->nhg.nexthop && !nhe->nhg.nexthop->next
-	    && !nhe->nhg.nexthop->resolved && nhe->nhg.nexthop->ifindex) {
+	if (!PROTO_OWNED(nhe) && ZEBRA_NHG_IS_DIRECT_SINGLETON(nhe)) {
 		struct interface *ifp = NULL;
 
 		ifp = if_lookup_by_index(nhe->nhg.nexthop->ifindex,
@@ -835,8 +834,7 @@ static bool zebra_nhe_find(struct nhg_hash_entry **nhe, /* return value */
 	nh = backup_nhe->nhg.nexthop;
 
 	/* Singleton recursive NH */
-	if (nh->next == NULL &&
-	    CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE)) {
+	if (ZEBRA_NHG_IS_RECURSIVE_SINGLETON(backup_nhe)) {
 		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 			zlog_debug("%s: backup depend NH %pNHv (R)",
 				   __func__, nh);
@@ -1150,13 +1148,8 @@ void zebra_nhg_check_valid(struct nhg_hash_entry *nhe)
 	struct nhg_connected *rb_node_dep = NULL;
 	bool valid = false;
 
-	/*
-	 * If I have other nhe's depending on me, or I have nothing
-	 * I am depending on then this is a
-	 * singleton nhe so set this nexthops flag as appropriate.
-	 */
-	if (nhg_connected_tree_count(&nhe->nhg_depends) ||
-	    nhg_connected_tree_count(&nhe->nhg_dependents) == 0) {
+	/* Singleton means it has no depends and has only dependents */
+	if (ZEBRA_NHG_IS_SINGLETON(nhe)) {
 		UNSET_FLAG(nhe->nhg.nexthop->flags, NEXTHOP_FLAG_FIB);
 		UNSET_FLAG(nhe->nhg.nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 	}
@@ -1742,14 +1735,13 @@ static void zebra_nhg_free_members(struct nhg_hash_entry *nhe)
 void zebra_nhg_free(struct nhg_hash_entry *nhe)
 {
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL) {
-		/* Group or singleton? */
-		if (nhe->nhg.nexthop && nhe->nhg.nexthop->next)
-			zlog_debug("%s: nhe %p (%pNG) flags (0x%x), refcnt %d", __func__, nhe, nhe,
-				   nhe->flags, nhe->refcnt);
-		else
+		if (ZEBRA_NHG_IS_SINGLETON(nhe))
 			zlog_debug("%s: nhe %p (%pNG), refcnt %d, NH %pNHv",
 				   __func__, nhe, nhe, nhe->refcnt,
 				   nhe->nhg.nexthop);
+		else
+			zlog_debug("%s: nhe %p (%pNG) flags (0x%x), refcnt %d", __func__, nhe, nhe,
+				   nhe->flags, nhe->refcnt);
 	}
 
 	event_cancel(&nhe->timer);
@@ -1773,14 +1765,13 @@ void zebra_nhg_hash_free(void *p)
 	struct nhg_hash_entry *nhe = p;
 
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL) {
-		/* Group or singleton? */
-		if (nhe->nhg.nexthop && nhe->nhg.nexthop->next)
-			zlog_debug("%s: nhe %p (%u), refcnt %d", __func__, nhe,
-				   nhe->id, nhe->refcnt);
-		else
+		if (ZEBRA_NHG_IS_SINGLETON(nhe))
 			zlog_debug("%s: nhe %p (%pNG), refcnt %d, NH %pNHv",
 				   __func__, nhe, nhe, nhe->refcnt,
 				   nhe->nhg.nexthop);
+		else
+			zlog_debug("%s: nhe %p (%u), refcnt %d", __func__, nhe, nhe->id,
+				   nhe->refcnt);
 	}
 
 	event_cancel(&nhe->timer);
@@ -4167,8 +4158,7 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 		}
 
 		/* Check for singleton NHG associated to interface */
-		if (!nexthop_is_blackhole(nh) &&
-		    zebra_nhg_depends_is_empty(rb_node_dep->nhe)) {
+		if (!nexthop_is_blackhole(nh) && ZEBRA_NHG_IS_SINGLETON(rb_node_dep->nhe)) {
 			struct nhg_connected *rb_node_dependent;
 
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
