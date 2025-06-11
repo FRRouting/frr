@@ -33,6 +33,10 @@ class Node(LinuxNamespace):
 
         super().__init__(name, **nkwargs)
 
+        # Create a new mounted FS for tracking nested network namespaces created by the
+        # user with `ip netns add`
+        self.tmpfs_mount("/run/netns")
+
         self.rundir = self.unet.rundir.joinpath(self.name)
 
     def cmd(self, cmd, **kwargs):
