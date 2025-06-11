@@ -153,6 +153,9 @@ extern uint8_t nexthop_group_nexthop_num(const struct nexthop_group *nhg);
 extern uint8_t
 nexthop_group_active_nexthop_num(const struct nexthop_group *nhg);
 
+/* Return TRUE if the NHG is Singleton (has only one nexthop) */
+#define NHG_IS_SINGLETON(nhg) ((nhg)->nexthop && !(nhg)->nexthop->next)
+
 extern bool nexthop_group_has_label(const struct nexthop_group *nhg);
 
 #ifdef __cplusplus
