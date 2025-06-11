@@ -472,6 +472,10 @@ def test_addpath_id():
         m_type="withdraw",
     )
     success, ret2 = topotest.run_and_expect_type(test_func, dict, count=30, wait=1)
+    if (ret2 != ret1):
+        bmp_check_for_addpath(["7.7.7.7/32", "7:7:7::7/128"], "rib-out-pre-policy",
+                              tgen.gears["bmp1"], os.path.join(tgen.logdir, "bmp1/bmp.log"),
+                              [], "192.169.0.4", m_type="withdraw", debug=True)
     assert ret2 == ret1, "bmp addpath rib-out-pre-policy failed for %s" % ret2
 
     logger.info(

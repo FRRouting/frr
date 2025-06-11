@@ -200,6 +200,7 @@ static void pullwr_run(struct event *t)
 
 	monotime(&t0);
 
+	zlog_err("pullwr run");
 	do {
 		lastvalid = pullwr->valid - 1;
 		while (pullwr->valid < pullwr->thresh
@@ -221,6 +222,7 @@ static void pullwr_run(struct event *t)
 			 * data in, and we have nothing more queued, so we go
 			 * into idle, i.e. no calling event_add_write()
 			 */
+			zlog_err("pullwr: valid = 0; ret");
 			pullwr_resize(pullwr, 0);
 			return;
 		}

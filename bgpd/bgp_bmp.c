@@ -1509,6 +1509,9 @@ static void bmp_monitor(struct bmp *bmp, struct peer *peer, uint8_t flags, uint8
 			stream_get_endp(hdr) + stream_get_endp(msg));
 
 	bmp->cnt_update++;
+	if (!attr)
+		zlog_err("write withraw for %pFX, peer %p, addpath_id %u",
+			 p, peer, addpath_id);
 	pullwr_write_stream(bmp->pullwr, hdr);
 	pullwr_write_stream(bmp->pullwr, msg);
 	stream_free(hdr);
@@ -2299,6 +2302,9 @@ static bool bmp_wrqueue_ribout(struct bmp *bmp, struct pullwr *pullwr)
 			if (CHECK_FLAG(bpi->flags, BGP_PATH_SELECTED | BGP_PATH_MULTIPATH))
 				break;
 		}
+		if (!bpi)
+			zlog_err("adj out pre: bmp_queue_entry %p, withdraw %pFX, addpath_id %u",
+				 bqe, &bqe->p, addpath_tx_id);
 
 		bpi_num_labels = BGP_PATH_INFO_NUM_LABELS(bpi);
 
@@ -2319,6 +2325,9 @@ static bool bmp_wrqueue_ribout(struct bmp *bmp, struct pullwr *pullwr)
 		/* advertised attributes (NULL if withdrawn) */
 		advertised_attr = adj && adj->adv && adj->adv->baa ? adj->adv->baa->attr : NULL;
 
+		if (!advertised_attr)
+			zlog_err("adj out post: bqe %p, withdraw %pFX, addpath_id %u",
+				 bqe, &bqe->p, addpath_tx_id);
 		bpi_num_labels = adj && adj->labels ? adj->labels->num_labels : 0;
 
 		bmp_monitor(bmp, peer, BMP_PEER_FLAG_L | BMP_PEER_FLAG_O, bmp_get_peer_type(peer),
@@ -4397,6 +4406,9 @@ static int bmp_adj_out_changed(struct update_subgroup *subgrp, struct bgp_dest *
 		/* because of withdraw we don't have the path right away,
 		 * look it up in bmp locked paths
 		 */
+		if (withdraw)
+			zlog_err("adj out pre changed withdraw for %pBD, addpath_id %u",
+				  dest, addpath_id);
 		if (withdraw && !locked_path) {
 			{ /* scope lock the vars declared by lookup */
 				BMP_LBPI_LOOKUP_DEST(head, prev, lbpi, dest, SUBGRP_INST(subgrp),
@@ -4432,9 +4444,14 @@ static int bmp_adj_out_changed(struct update_subgroup *subgrp, struct bgp_dest *
 		if (locked_path &&
 		    !subgroup_announce_check(dest, locked_path, subgrp, bgp_dest_get_prefix(dest),
 					     &dummy_attr, NULL, BGP_ANNCHK_SPECIAL_PREPOLICY)) {
+			zlog_err("dropped adj out pre policy bmp log for %pBD", dest);
 			return 0;
 		}
 	}
+
+	if (post_policy && withdraw)
+		zlog_err("adj out post changed withdraw for %pBD, addpath_id %u",
+			 dest, addpath_id);
 
 	struct listnode *node;
 	struct bmp_targets *bt;
@@ -4475,6 +4492,8 @@ static int bmp_adj_out_changed(struct update_subgroup *subgrp, struct bgp_dest *
 				if (!new_item)
 					continue;
 
+				zlog_err("new bmp_queue_entry %p, peer %p, addpath_id %u, dest %pBD",
+					 new_item, peer, addpath_id, dest);
 				frr_each (bmp_session, &bt->sessions, bmp) {
 					if (!bmp->mon_out_queuepos)
 						bmp->mon_out_queuepos = new_item;

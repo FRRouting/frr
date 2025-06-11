@@ -215,6 +215,7 @@ def bmp_check_for_addpath(
     peer_bgp_id,
     id_per_prefix=True,
     m_type="update",
+    debug=False
 ):
     """
     For each prefix in the prefix list, check its addpath id.
@@ -225,6 +226,9 @@ def bmp_check_for_addpath(
 
     messages = get_bmp_messages(bmp_collector, bmp_log_file)
     addpath_set = {4: set(), 6: set()}
+    if debug:
+        logger.info("messages: %s", messages)
+
 
     for i in range(len(prefixes)):
         addpath_ids = addpath_set[4]
@@ -253,7 +257,11 @@ def bmp_check_for_addpath(
             nexthop_key = "nxhp_ip"
 
         if m_type == "withdraw":
+            if debug:
+                logger.info("withdraw messages: %s", p_messages)
             for m in p_messages:
+                if debug:
+                    logger.info("add path_id %d for %s" % (m["path_id"], prefix))
                 addpath_ids.add(m["path_id"])
 
             continue

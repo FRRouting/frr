@@ -48,6 +48,7 @@ def log2file(logs, log_file):
     """
     with open(log_file, "a") as f:
         f.write(json.dumps(logs) + "\n")
+        f.flush()
 
 
 def timestamp_print(message, file=sys.stderr):
