@@ -13841,11 +13841,7 @@ DEFUN(show_ip_bgp_afi_safi_statistics, show_ip_bgp_afi_safi_statistics_cmd,
 
 	if (uj) {
 		json = json_object_new_object();
-		json_object_object_add(json, get_afi_safi_str(afi, safi, true),
-				       json_afi_safi);
-		json_object_int_add(json, "bgpBestPathCalls", bgp->bestpath_runs);
-		json_object_int_add(json, "bgpNodeOnQueue", bgp->node_already_on_queue);
-		json_object_int_add(json, "bgpNodeDeferredOnQueue", bgp->node_deferred_on_queue);
+		json_object_object_add(json, get_afi_safi_str(afi, safi, true), json_afi_safi);
 		vty_json(vty, json);
 	}
 	return ret;
@@ -14709,6 +14705,12 @@ static int bgp_table_stats_single(struct vty *vty, struct bgp *bgp, afi_t afi,
 			get_afi_safi_str(afi, safi, false), bgp->name_pretty);
 	else
 		json_object_string_add(json, "instance", bgp->name_pretty);
+
+	if (json) {
+		json_object_int_add(json, "bgpBestPathCalls", bgp->bestpath_runs);
+		json_object_int_add(json, "bgpNodeOnQueue", bgp->node_already_on_queue);
+		json_object_int_add(json, "bgpNodeDeferredOnQueue", bgp->node_deferred_on_queue);
+	}
 
 	/* labeled-unicast routes live in the unicast table */
 	if (safi == SAFI_LABELED_UNICAST)
