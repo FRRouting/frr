@@ -85,15 +85,14 @@ def get_bmp_messages(bmp_collector, bmp_log_file):
     Read the BMP logging messages.
     """
     messages = []
-    text_output = bmp_collector.run(f"cat {bmp_log_file}")
 
-    for m in text_output.splitlines():
-        # some output in the bash can break the message decoding
-        try:
-            messages.append(json.loads(m))
-        except Exception as e:
-            logger.warning(str(e) + " message: {}".format(str(m)))
-            continue
+    with open(bmp_log_file, "r") as f:
+        for m in f:
+            try:
+                messages.append(json.loads(m.strip()))
+            except Exception as e:
+                logger.warning(str(e) + " message: {}".format(str(m)))
+                continue
 
     if not messages:
         logger.error("Bad BMP log format, check your BMP server")
