@@ -20,7 +20,13 @@ pytestmark = [pytest.mark.bgpd]
 
 
 def setup_module(mod):
-    topodef = {"s1": ("r1", "r2"), "s2": ("r2", "r3", "r4", "r5")}
+    topodef = {
+        "s1": ("r1", "r2"),
+        "s2": ("r2", "r3", "r4", "r5"),
+        "s3": ("r1", "r6"),
+        "s4": ("r6", "r7"),
+        "s5": ("r6", "r8"),
+    }
     tgen = Topogen(topodef, mod.__name__)
     tgen.start_topology()
 
@@ -68,12 +74,29 @@ def test_bgp_nhc():
                                     "afi": "ipv4",
                                 }
                             ],
-                        }
+                        },
+                        {
+                            "aspath": {
+                                "string": "65006 65007",
+                            },
+                            "valid": True,
+                            "nextNextHopNodes": [
+                                "10.254.0.7",
+                                "10.254.0.8",
+                            ],
+                            "nexthops": [
+                                {
+                                    "ip": "10.255.16.6",
+                                    "hostname": "r6",
+                                    "afi": "ipv4",
+                                }
+                            ],
+                        },
                     ],
                 }
             },
             "totalRoutes": 1,
-            "totalPaths": 1,
+            "totalPaths": 2,
         }
 
         return topotest.json_cmp(output, expected)
