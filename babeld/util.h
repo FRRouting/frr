@@ -21,7 +21,7 @@ DECLARE_MGROUP(BABELD);
 	} while (0)
 #define DO_NTOHL(_d, _s)                                                                          \
 	do {                                                                                      \
-		_d = ntohl(*(const unsigned *)(_s));                                              \
+		_d = ntohl(*(const uint32_t *)(_s));                                              \
 	} while (0)
 #define DO_HTONS(_d, _s)                                                                          \
 	do {                                                                                      \
@@ -29,7 +29,7 @@ DECLARE_MGROUP(BABELD);
 	} while (0)
 #define DO_HTONL(_d, _s)                                                                          \
 	do {                                                                                      \
-		*(unsigned *)(_d) = htonl(_s);                                                    \
+		*(uint32_t *)(_d) = htonl(_s);                                                    \
 	} while (0)
 /* Some versions of gcc seem to be buggy, and ignore the packed attribute.
    Disable this code until the issue is clarified. */
