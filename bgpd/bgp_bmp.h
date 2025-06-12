@@ -249,11 +249,13 @@ struct bmp_targets {
 	 * - IPv6 / unicast & multicast & VPN
 	 * - L2VPN / EVPN
 	 */
-#define BMP_MON_IN_PREPOLICY   (1 << 0)
-#define BMP_MON_IN_POSTPOLICY  (1 << 1)
-#define BMP_MON_LOC_RIB	       (1 << 2)
-#define BMP_MON_OUT_PREPOLICY  (1 << 3)
-#define BMP_MON_OUT_POSTPOLICY (1 << 4)
+#define BMP_MON_IN_PREPOLICY	     (1 << 0)
+#define BMP_MON_IN_POSTPOLICY	     (1 << 1)
+#define BMP_MON_LOC_RIB		     (1 << 2)
+#define BMP_MON_OUT_PREPOLICY	     (1 << 3)
+#define BMP_MON_OUT_POSTPOLICY	     (1 << 4)
+#define BMP_MON_IN_PREPOLICY_LEGACY  (1 << 5)
+#define BMP_MON_IN_POSTPOLICY_LEGACY (1 << 6)
 
 
 	uint8_t afimon[AFI_MAX][SAFI_MAX];
