@@ -50,7 +50,7 @@ void timeval_minus(struct timeval *d, const struct timeval *s1, const struct tim
 	}
 }
 
-unsigned timeval_minus_msec(const struct timeval *s1, const struct timeval *s2)
+uint32_t timeval_minus_msec(const struct timeval *s1, const struct timeval *s2)
 {
 	if (s1->tv_sec < s2->tv_sec)
 		return 0;

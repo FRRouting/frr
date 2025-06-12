@@ -903,7 +903,6 @@ install:
 		send_triggered_update(route, installed->src, route_metric(installed));
 	else
 		send_update(NULL, 1, route->src->prefix, route->src->plen);
-	return;
 }
 
 void retract_neighbour_routes(struct neighbour *neigh)
@@ -940,7 +939,7 @@ void send_triggered_update(struct babel_route *route, struct source *oldsrc, uns
 
 	if (route->src != oldsrc || (oldmetric < INFINITY && newmetric >= INFINITY))
 		/* Switching sources can cause transient routing loops.
-           Retractions can cause blackholes. */
+		   Retractions can cause blackholes. */
 		urgent = 2;
 	else if (newmetric > oldmetric && oldmetric < 6 * 256 && diff >= 512)
 		/* Route getting significantly worse */
@@ -954,7 +953,7 @@ void send_triggered_update(struct babel_route *route, struct source *oldsrc, uns
 		urgent = 0;
 	else if (newmetric < oldmetric && diff < 1024)
 		/* Route getting better.  This may be a transient fluctuation, so
-           don't advertise it to avoid making routes unfeasible later on. */
+		   don't advertise it to avoid making routes unfeasible later on. */
 		return;
 	else if (diff < 384)
 		/* Don't fret about trivialities */

@@ -148,12 +148,12 @@ static bool parse_update_subtlv(const unsigned char *a, int alen, unsigned char 
 
 		if (CHECK_FLAG(type, SUBTLV_MANDATORY)) {
 			/*
-		 * RFC 8966 - 4.4
-		 * If the mandatory bit is set, then the whole enclosing
-		 * TLV MUST be silently ignored (except for updating the
-		 * parser state by a Router-Id, Next Hop, or Update TLV,
-		 * as described in the next section).
-		 */
+			 * RFC 8966 - 4.4
+			 * If the mandatory bit is set, then the whole enclosing
+			 * TLV MUST be silently ignored (except for updating the
+			 * parser state by a Router-Id, Next Hop, or Update TLV,
+			 * as described in the next section).
+			 */
 			debugf(BABEL_DEBUG_COMMON,
 			       "Received Mandatory bit set but this FRR version is not prepared to handle it at this point");
 			return true;
@@ -208,12 +208,12 @@ static int parse_hello_subtlv(const unsigned char *a, int alen, unsigned int *he
 
 		if (CHECK_FLAG(type, SUBTLV_MANDATORY)) {
 			/*
-		 * RFC 8966 4.4
-		 * If the mandatory bit is set, then the whole enclosing
-		 * TLV MUST be silently ignored (except for updating the
-		 * parser state by a Router-Id, Next Hop, or Update TLV, as
-		 * described in the next section).
-		 */
+			 * RFC 8966 4.4
+			 * If the mandatory bit is set, then the whole enclosing
+			 * TLV MUST be silently ignored (except for updating the
+			 * parser state by a Router-Id, Next Hop, or Update TLV, as
+			 * described in the next section).
+			 */
 			debugf(BABEL_DEBUG_COMMON,
 			       "Received subtlv with Mandatory bit, this version of FRR is not prepared to handle this currently");
 			return -2;
@@ -487,10 +487,10 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 			DO_NTOHS(flags, message + 2);
 
 			/*
-		 * RFC 8966 Appendix F
-		 * TL;DR -> Please ignore Unicast hellos until FRR's
-		 * BABEL is brought up to date
-		 */
+			 * RFC 8966 Appendix F
+			 * TL;DR -> Please ignore Unicast hellos until FRR's
+			 * BABEL is brought up to date
+			 */
 			if (CHECK_FLAG(flags, BABEL_UNICAST_HELLO)) {
 				debugf(BABEL_DEBUG_COMMON,
 				       "Received Unicast Hello from %s on %s that FRR is not prepared to understand yet",
@@ -504,10 +504,10 @@ void parse_packet(const unsigned char *from, struct interface *ifp, const unsign
 			       interval, format_address(from), ifp->name);
 
 			/*
-		 * RFC 8966 Appendix F
-		 * TL;DR -> Please ignore any Hello packets with the interval
-		 * field set to 0
-		 */
+			 * RFC 8966 Appendix F
+			 * TL;DR -> Please ignore any Hello packets with the interval
+			 * field set to 0
+			 */
 			if (interval == 0) {
 				debugf(BABEL_DEBUG_COMMON,
 				       "Received hello from %s on %s should be ignored as that this version of FRR does not know how to properly handle interval == 0",
@@ -851,7 +851,6 @@ fail:
 		update_neighbour_metric(neigh, changed);
 		neigh->rtt_time = babel_now;
 	}
-	return;
 }
 
 /* Under normal circumstances, there are enough moderation mechanisms
@@ -861,11 +860,13 @@ fail:
 static int check_bucket(struct interface *ifp)
 {
 	babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
+
 	if (babel_ifp->bucket == 0) {
 		int seconds = babel_now.tv_sec - babel_ifp->bucket_time;
-		if (seconds > 0) {
+
+		if (seconds > 0)
 			babel_ifp->bucket = MIN(BUCKET_TOKENS_MAX, seconds * BUCKET_TOKENS_PER_SEC);
-		}
+
 		/* Reset bucket time unconditionally, in case clock is stepped. */
 		babel_ifp->bucket_time = babel_now.tv_sec;
 	}
@@ -891,12 +892,13 @@ static int fill_rtt_message(struct interface *ifp)
 			time = time_us(babel_now);
 			DO_HTONL(babel_ifp->sendbuf + babel_ifp->buffered_hello + 10, time);
 			return 1;
-		} else {
-			flog_err(EC_BABEL_PACKET,
-				 "No space left for timestamp sub-TLV (this shouldn't happen)");
-			return -1;
 		}
+
+		flog_err(EC_BABEL_PACKET,
+			 "No space left for timestamp sub-TLV (this shouldn't happen)");
+		return -1;
 	}
+
 	return 0;
 }
 
@@ -975,6 +977,7 @@ static void schedule_unicast_flush(unsigned msecs)
 static void ensure_space(struct interface *ifp, int space)
 {
 	babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
+
 	if (babel_ifp->bufsize - babel_ifp->buffered < space)
 		flushbuf(ifp);
 }
@@ -1081,6 +1084,7 @@ static void accumulate_unicast_bytes(struct neighbour *neigh, const unsigned cha
 void send_ack(struct neighbour *neigh, unsigned short nonce, unsigned short interval)
 {
 	int rc;
+
 	debugf(BABEL_DEBUG_COMMON, "Sending ack (%04x) to %s on %s.", nonce,
 	       format_address(neigh->address), neigh->ifp->name);
 	rc = start_unicast_message(neigh, MESSAGE_ACK, 2);

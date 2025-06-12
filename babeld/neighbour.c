@@ -262,17 +262,17 @@ unsigned neighbour_rxcost(struct neighbour *neigh)
 		if (delay >= 40000)
 			cost = (cost * (delay - 20000) + 10000) / 20000;
 		return MIN(cost, INFINITY);
-	} else {
-		/* To lose one hello is a misfortune, to lose two is carelessness. */
-		if (CHECK_FLAG(reach, 0xC000) == 0xC000)
-			return babel_get_if_nfo(neigh->ifp)->cost;
-		else if (CHECK_FLAG(reach, 0xC000) == 0)
-			return INFINITY;
-		else if (CHECK_FLAG(reach, 0x2000))
-			return babel_get_if_nfo(neigh->ifp)->cost;
-		else
-			return INFINITY;
 	}
+
+	/* To lose one hello is a misfortune, to lose two is carelessness. */
+	if (CHECK_FLAG(reach, 0xC000) == 0xC000)
+		return babel_get_if_nfo(neigh->ifp)->cost;
+	else if (CHECK_FLAG(reach, 0xC000) == 0)
+		return INFINITY;
+	else if (CHECK_FLAG(reach, 0x2000))
+		return babel_get_if_nfo(neigh->ifp)->cost;
+	else
+		return INFINITY;
 }
 
 unsigned neighbour_rttcost(struct neighbour *neigh)

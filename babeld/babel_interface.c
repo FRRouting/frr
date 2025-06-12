@@ -223,8 +223,8 @@ DEFUN (babel_network,
 	/* Given string is:               */
 	if (ret)			 /* an IPv4 or v6 network */
 		return CMD_ERR_NO_MATCH; /* not implemented yet */
-	else				 /* an interface name     */
-		ret = babel_enable_if_add(argv[1]->arg);
+
+	ret = babel_enable_if_add(argv[1]->arg);
 
 	if (ret < 0) {
 		vty_out(vty, "There is same network configuration %s\n", argv[1]->arg);
@@ -250,8 +250,8 @@ DEFUN (no_babel_network,
 	/* Given string is:               */
 	if (ret)			 /* an IPv4 or v6 network */
 		return CMD_ERR_NO_MATCH; /* not implemented yet */
-	else				 /* an interface name     */
-		ret = babel_enable_if_delete(argv[2]->arg);
+
+	ret = babel_enable_if_delete(argv[2]->arg);
 
 	if (ret < 0) {
 		vty_out(vty, "can't find network %s\n", argv[2]->arg);
@@ -534,7 +534,7 @@ DEFPY (babel_set_channel,
 
 /* This should be no more than half the hello interval, so that hellos
    aren't sent late.  The result is in milliseconds. */
-unsigned jitter(babel_interface_nfo *babel_ifp, int urgent)
+uint32_t jitter(babel_interface_nfo *babel_ifp, int urgent)
 {
 	unsigned interval;
 
@@ -547,7 +547,7 @@ unsigned jitter(babel_interface_nfo *babel_ifp, int urgent)
 	return roughly(interval) / 4;
 }
 
-unsigned update_jitter(babel_interface_nfo *babel_ifp, int urgent)
+uint32_t update_jitter(babel_interface_nfo *babel_ifp, int urgent)
 {
 	unsigned interval;
 
@@ -1200,6 +1200,7 @@ static int interface_config_write(struct vty *vty)
 		if (ifp->desc)
 			vty_out(vty, " description %s\n", ifp->desc);
 		babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
+
 		assert(babel_ifp != NULL);
 		/* wireless is the default*/
 		if (CHECK_FLAG(babel_ifp->flags, BABEL_IF_WIRED)) {

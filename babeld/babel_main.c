@@ -272,7 +272,6 @@ void babel_load_state_file(void)
 fini:
 	if (fd >= 0)
 		close(fd);
-	return;
 }
 
 static FRR_NORETURN void babel_exit_properly(void)
