@@ -43,6 +43,7 @@ lib_libfrr_la_SOURCES = \
 	lib/grammar_sandbox.c \
 	lib/graph.c \
 	lib/hash.c \
+	lib/host_nb.c \
 	lib/hook.c \
 	lib/id_alloc.c \
 	lib/if.c \
@@ -147,6 +148,7 @@ nodist_lib_libfrr_la_SOURCES = \
 	yang/frr-affinity-map.yang.c \
 	yang/frr-backend.yang.c \
 	yang/frr-filter.yang.c \
+	yang/frr-host.yang.c \
 	yang/frr-if-rmap.yang.c \
 	yang/frr-interface.yang.c \
 	yang/frr-route-map.yang.c \
@@ -226,6 +228,7 @@ pkginclude_HEADERS += \
 	lib/graph.h \
 	lib/hash.h \
 	lib/hook.h \
+	lib/host_nb.h \
 	lib/iana_afi.h \
 	lib/id_alloc.h \
 	lib/if.h \
