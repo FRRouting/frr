@@ -3823,6 +3823,42 @@ DEFPY(bmp_monitor_cfg, bmp_monitor_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY_ATTR(
+	bmp_monitor_cfg_legacy, bmp_monitor_cmd_legacy,
+	"[no] bmp monitor <ipv4|ipv6|l2vpn>$afi_str <unicast|multicast|evpn|vpn>$safi_str <pre-policy|post-policy>$policy",
+	NO_STR BMP_STR "Send BMP route monitoring messages\n" BGP_AF_STR BGP_AF_STR BGP_AF_STR
+	BGP_AF_STR BGP_AF_STR BGP_AF_STR BGP_AF_STR
+	"Send state before rib-in policy and filter processing\n"
+	"Send state after rib-in decision process is applied\n",
+	CMD_ATTR_YANG | CMD_ATTR_HIDDEN)
+{
+	uint8_t flag, prev;
+	afi_t afi = bgp_vty_afi_from_str(afi_str);
+	safi_t safi = bgp_vty_safi_from_str(safi_str);
+
+	VTY_DECLVAR_CONTEXT_SUB(bmp_targets, bt);
+	struct bmp *bmp;
+
+	if (policy[1] == 'r')
+		flag = BMP_MON_IN_PREPOLICY | BMP_MON_IN_PREPOLICY_LEGACY;
+	else
+		flag = BMP_MON_IN_POSTPOLICY | BMP_MON_IN_POSTPOLICY_LEGACY;
+
+	prev = bt->afimon[afi][safi];
+	if (no)
+		UNSET_FLAG(bt->afimon[afi][safi], flag);
+	else
+		SET_FLAG(bt->afimon[afi][safi], flag);
+
+	if (prev == bt->afimon[afi][safi])
+		return CMD_SUCCESS;
+
+	frr_each (bmp_session, &bt->sessions, bmp)
+		bmp_update_syncro(bmp, afi, safi, NULL);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(bmp_mirror_cfg,
       bmp_mirror_cmd,
       "[no] bmp mirror",
@@ -3908,6 +3944,7 @@ DEFPY(bmp_startup_delay_cfg, bmp_startup_delay_cmd,
 /* show the classic 'show bmp' information */
 static void bmp_show_bmp(struct vty *vty)
 {
+	const char *in_pre_str = "", *in_post_str = "", *locrib_str, *out_pre_str, *out_post_str;
 	struct bmp_bgp *bmpbgp;
 	struct bmp_targets *bt;
 	struct bmp_listener *bl;
@@ -3949,25 +3986,24 @@ static void bmp_show_bmp(struct vty *vty)
 				if (!afimon_flag)
 					continue;
 
-				const char *in_pre_str = CHECK_FLAG(afimon_flag,
-								    BMP_MON_IN_PREPOLICY)
-								 ? "rib-in pre-policy "
-								 : "";
-				const char *in_post_str = CHECK_FLAG(afimon_flag,
-								     BMP_MON_IN_POSTPOLICY)
-								  ? "rib-in post-policy "
-								  : "";
-				const char *locrib_str = CHECK_FLAG(afimon_flag, BMP_MON_LOC_RIB)
-								 ? "loc-rib "
-								 : "";
-				const char *out_pre_str = CHECK_FLAG(afimon_flag,
-								     BMP_MON_OUT_PREPOLICY)
-								  ? "rib-out pre-policy "
-								  : "";
-				const char *out_post_str = CHECK_FLAG(afimon_flag,
-								      BMP_MON_OUT_POSTPOLICY)
-								   ? "rib-out post-policy "
-								   : "";
+				if (CHECK_FLAG(afimon_flag, BMP_MON_IN_PREPOLICY_LEGACY))
+					in_pre_str = "pre-policy ";
+				else if (CHECK_FLAG(afimon_flag, BMP_MON_IN_PREPOLICY))
+					in_pre_str = "rib-in pre-policy ";
+
+				if (CHECK_FLAG(afimon_flag, BMP_MON_IN_POSTPOLICY_LEGACY))
+					in_post_str = "post-policy ";
+				else if (CHECK_FLAG(afimon_flag, BMP_MON_IN_POSTPOLICY))
+					in_post_str = "rib-in post-policy ";
+
+				locrib_str = CHECK_FLAG(afimon_flag, BMP_MON_LOC_RIB) ? "loc-rib "
+										      : "";
+				out_pre_str = CHECK_FLAG(afimon_flag, BMP_MON_OUT_PREPOLICY)
+						      ? "rib-out pre-policy "
+						      : "";
+				out_post_str = CHECK_FLAG(afimon_flag, BMP_MON_OUT_POSTPOLICY)
+						       ? "rib-out post-policy "
+						       : "";
 
 				vty_out(vty, "    Route Monitoring %s %s %s%s%s%s%s\n",
 					afi2str(afi), safi2str(safi), in_pre_str, in_post_str,
@@ -4139,10 +4175,17 @@ static int bmp_config_write(struct bgp *bgp, struct vty *vty)
 			vty_out(vty, "  bmp mirror\n");
 
 		FOREACH_AFI_SAFI (afi, safi) {
-			if (CHECK_FLAG(bt->afimon[afi][safi], BMP_MON_IN_PREPOLICY))
+			if (CHECK_FLAG(bt->afimon[afi][safi], BMP_MON_IN_PREPOLICY_LEGACY))
+				vty_out(vty, " bmp monitor %s %s pre-policy\n", afi2str_lower(afi),
+					safi2str(safi));
+			else if (CHECK_FLAG(bt->afimon[afi][safi], BMP_MON_IN_PREPOLICY))
 				vty_out(vty, "  bmp monitor %s %s rib-in pre-policy\n",
 					afi2str_lower(afi), safi2str(safi));
-			if (CHECK_FLAG(bt->afimon[afi][safi], BMP_MON_IN_POSTPOLICY))
+
+			if (CHECK_FLAG(bt->afimon[afi][safi], BMP_MON_IN_POSTPOLICY_LEGACY))
+				vty_out(vty, "  bmp monitor %s %s post-policy\n",
+					afi2str_lower(afi), safi2str(safi));
+			else if (CHECK_FLAG(bt->afimon[afi][safi], BMP_MON_IN_POSTPOLICY))
 				vty_out(vty, "  bmp monitor %s %s rib-in post-policy\n",
 					afi2str_lower(afi), safi2str(safi));
 			if (CHECK_FLAG(bt->afimon[afi][safi], BMP_MON_LOC_RIB))
@@ -4196,6 +4239,7 @@ static int bgp_bmp_init(struct event_loop *tm)
 	install_element(BMP_NODE, &bmp_stats_send_experimental_cmd);
 	install_element(BMP_NODE, &bmp_stats_cmd);
 	install_element(BMP_NODE, &bmp_monitor_cmd);
+	install_element(BMP_NODE, &bmp_monitor_cmd_legacy);
 	install_element(BMP_NODE, &bmp_mirror_cmd);
 	install_element(BMP_NODE, &bmp_import_vrf_cmd);
 
