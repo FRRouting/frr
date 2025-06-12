@@ -1266,7 +1266,7 @@ struct aspath *aspath_replace_regex_asn(struct aspath *aspath,
 
 	while (cur_seg) {
 		cur_as_list = acl_list;
-		while (cur_as_list) {
+		if (cur_as_list) {
 			cur_as_filter = cur_as_list->head;
 			while (cur_as_filter) {
 				for (i = 0; i < cur_seg->length; i++) {
@@ -1279,7 +1279,6 @@ struct aspath *aspath_replace_regex_asn(struct aspath *aspath,
 				}
 				cur_as_filter = cur_as_filter->next;
 			}
-			cur_as_list = cur_as_list->next;
 		}
 		cur_seg = cur_seg->next;
 	}
