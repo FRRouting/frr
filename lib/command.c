@@ -2591,14 +2591,6 @@ void cmd_init(int terminal)
 		install_element(CONFIG_NODE, &service_terminal_length_cmd);
 		install_element(CONFIG_NODE, &no_service_terminal_length_cmd);
 
-		/*
-		 * Better to not do this for only non-mgmtd converted daemons,
-		 * but it works anyway b/c vtysh is configured to not send the
-		 * `host` CLI commands to BE mgmtd enabled daemons (see
-		 * VTYSH_NON_MGMTD in vtysh.h and vtysh.c).
-		 */
-		host_cli_init();
-
 		log_cmd_init();
 		vrf_install_commands();
 	}
