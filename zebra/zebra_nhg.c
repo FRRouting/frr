@@ -274,7 +274,7 @@ static void zebra_nhg_dependents_release(struct nhg_hash_entry *nhe)
 	frr_each_safe(nhg_connected_tree, &nhe->nhg_dependents, rb_node_dep) {
 		zebra_nhg_depends_del(rb_node_dep->nhe, nhe);
 		/* recheck validity of the dependent */
-		zebra_nhg_check_valid(rb_node_dep->nhe);
+		zebra_nhg_check_valid_with_dependency_propagation(rb_node_dep->nhe, false);
 	}
 }
 
@@ -1092,77 +1092,256 @@ static void zebra_nhg_unset_installed_for_routes(struct nhg_hash_entry *nhe, con
 	}
 }
 
-static void zebra_nhg_set_valid(struct nhg_hash_entry *nhe, bool valid)
+/*
+ * Helper func to propagate singleton nexthop state changes to a dependent NHG
+ * Walk all dependents of a singleton NHG and propagate ACTIVE and VALID flags.
+ * This function recursively walks through all NHGs that depend on the singleton
+ * and compares each nexthop with the singleton, propagating flags accordingly.
+ *
+ * For example, if singleton(91) has dependents: 90, 89, 111, etc.
+ * This function will:
+ * - Compare singleton(91) with nexthops in 90, 89, 111, etc.
+ * - Walk dependents of those dependents recursively
+ * - Propagate ACTIVE/INACTIVE and VALID/INVALID flags based on singleton state
+ */
+static void zebra_nhg_propagate_singleton_to_dependent(struct nhg_hash_entry *dependent_nhe,
+						       struct nexthop *singleton_nh,
+						       bool singleton_active)
 {
-	struct nhg_connected *rb_node_dep;
-	bool dependent_valid = valid;
+	struct nexthop *resolved_nh;
+	bool any_active = false;
+	bool was_modified = false;
 
-	if (valid)
-		SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
-	else {
-		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
+	if (!dependent_nhe->nhg.nexthop)
+		return;
 
-		/* If we're in shutdown, this interface event needs to clean
-		 * up installed NHGs, so don't clear that flag directly.
-		 */
-		if (!zebra_router_in_shutdown()) {
-			UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
-			/* Handles route re-install for quick interface flaps */
-			zebra_nhg_unset_installed_for_routes(nhe, __func__);
-		}
-	}
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		zlog_debug("%s: Propagating singleton's nexthop (%pNHv) state (active=%s) to %p (%pNG)",
+			   __func__, singleton_nh, singleton_active ? "yes" : "no", dependent_nhe,
+			   dependent_nhe);
 
-	/* Update validity of nexthops depending on it */
-	frr_each (nhg_connected_tree, &nhe->nhg_dependents, rb_node_dep) {
-		dependent_valid = valid;
-		if (!valid) {
-			/*
-			 * Grab the first nexthop from the depending nexthop group
-			 * then let's find the nexthop in that group that matches
-			 * my individual nexthop and mark it as no longer ACTIVE
-			 */
-			struct nexthop *nexthop = rb_node_dep->nhe->nhg.nexthop;
+	/* Compare singleton nexthop with all resolved nexthops in dependent */
+	for (ALL_NEXTHOPS(dependent_nhe->nhg, resolved_nh)) {
+		if (nexthop_same(resolved_nh, singleton_nh)) {
+			const char *action = NULL;
 
-			while (nexthop) {
-				if (nexthop_same(nexthop, nhe->nhg.nexthop)) {
-					/* Invalid Nexthop */
-					UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
-				} else {
-					/*
-					 * If other nexthops in the nexthop
-					 * group are valid then we can continue
-					 * to use this nexthop group as valid
-					 */
-					if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
-						dependent_valid = true;
+			/* Found matching nexthop - update its active state */
+			if (singleton_active) {
+				if (!CHECK_FLAG(resolved_nh->flags, NEXTHOP_FLAG_ACTIVE)) {
+					SET_FLAG(resolved_nh->flags, NEXTHOP_FLAG_ACTIVE);
+					action = "Setting";
 				}
-				nexthop = nexthop->next;
+			} else {
+				if (CHECK_FLAG(resolved_nh->flags, NEXTHOP_FLAG_ACTIVE)) {
+					UNSET_FLAG(resolved_nh->flags, NEXTHOP_FLAG_ACTIVE);
+					UNSET_FLAG(resolved_nh->flags, NEXTHOP_FLAG_FIB);
+					action = "Unsetting";
+				}
+			}
+
+			if (action) {
+				was_modified = true;
+				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+					zlog_debug("%s: %s ACTIVE flag on matching nexthop (%pNHv) in %p (%pNG) flags (0x%x)",
+						   __func__, action, resolved_nh, dependent_nhe,
+						   dependent_nhe, dependent_nhe->flags);
 			}
 		}
-		zebra_nhg_set_valid(rb_node_dep->nhe, dependent_valid);
-	}
-}
-
-void zebra_nhg_check_valid(struct nhg_hash_entry *nhe)
-{
-	struct nhg_connected *rb_node_dep = NULL;
-	bool valid = false;
-
-	/* Singleton means it has no depends and has only dependents */
-	if (ZEBRA_NHG_IS_SINGLETON(nhe)) {
-		UNSET_FLAG(nhe->nhg.nexthop->flags, NEXTHOP_FLAG_FIB);
-		UNSET_FLAG(nhe->nhg.nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 	}
 
-	/* If anthing else in the group is valid, the group is valid */
-	frr_each(nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
-		if (CHECK_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_VALID)) {
-			valid = true;
+	/* Check if any nexthop in this dependent is still active (after updates) */
+	for (ALL_NEXTHOPS(dependent_nhe->nhg, resolved_nh)) {
+		if (CHECK_FLAG(resolved_nh->flags, NEXTHOP_FLAG_ACTIVE)) {
+			any_active = true;
 			break;
 		}
 	}
 
-	zebra_nhg_set_valid(nhe, valid);
+	/* For recursive/group NHGs, also check if any dependencies are valid */
+	bool any_depend_valid = false;
+
+	if (!ZEBRA_NHG_IS_SINGLETON(dependent_nhe)) {
+		struct nhg_connected *dep_node;
+
+		frr_each (nhg_connected_tree, &dependent_nhe->nhg_depends, dep_node) {
+			if (CHECK_FLAG(dep_node->nhe->flags, NEXTHOP_GROUP_VALID)) {
+				any_depend_valid = true;
+				break;
+			}
+		}
+	}
+
+	/* Update NHG validity based on both nexthop states and dependency validity */
+	bool should_be_valid = any_active &&
+			       (ZEBRA_NHG_IS_SINGLETON(dependent_nhe) || any_depend_valid);
+
+	const char *action = NULL;
+
+	if (!should_be_valid) {
+		if (CHECK_FLAG(dependent_nhe->flags, NEXTHOP_GROUP_VALID)) {
+			UNSET_FLAG(dependent_nhe->flags, NEXTHOP_GROUP_VALID);
+			if (!zebra_router_in_shutdown()) {
+				UNSET_FLAG(dependent_nhe->flags, NEXTHOP_GROUP_INSTALLED);
+				zebra_nhg_unset_installed_for_routes(dependent_nhe, __func__);
+			}
+			action = "Invalidated";
+		}
+	} else {
+		if (!CHECK_FLAG(dependent_nhe->flags, NEXTHOP_GROUP_VALID)) {
+			SET_FLAG(dependent_nhe->flags, NEXTHOP_GROUP_VALID);
+			action = "Validated";
+		}
+	}
+
+	if (action) {
+		was_modified = true;
+		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+			zlog_debug("%s: %s %p (%pNG) flags (0x%x) (any_active=%s, any_depend_valid=%s)",
+				   __func__, action, dependent_nhe, dependent_nhe,
+				   dependent_nhe->flags, any_active ? "yes" : "no",
+				   any_depend_valid ? "yes" : "no");
+	}
+
+	/* If this dependent was modified, recursively propagate to its dependents */
+	if (was_modified) {
+		struct nhg_connected *rb_node_dep;
+
+		frr_each (nhg_connected_tree, &dependent_nhe->nhg_dependents, rb_node_dep) {
+			zebra_nhg_propagate_singleton_to_dependent(rb_node_dep->nhe, singleton_nh,
+								   singleton_active);
+		}
+	}
+}
+
+/* Updates the active/valid state of a nexthop group and recursively propagates
+ * these changes to all dependent nexthop groups in the dependency tree.
+ * It handles both singleton nexthops (direct) and group/recursive nexthops,
+ * ensuring route installation consistency when interface states change.
+ *
+ * Singletons, we go up the chain to propogate the ACTIVE(NH) and VALID(NHG).
+ * GROUPS, we go up the dependency chain to propogate VALID(NHG)
+ *
+ * Callers:
+ * CASE-1: For SINGLETON only (set_active True)
+ *    - zebra_interface_nhg_reinstall
+ * When intf comes up, we want to set the singelton NH ACTIVE and the NHG VALID.
+ * Propogate this throughtout the entire dependency chain accordingly
+ *
+ * CASE-2: For SINGLETON only (set_active false)
+ *    - if_down_nhg_dependents
+ *    - if_nhg_dependents_release
+ * Both these cases are when intf is deleted/down. Since the singleton will
+ * have ACTIVE(NH) & VALID(NHG) Unset, we propogate this to the entire
+ * dependency chain to unset the nexthops ACTIVE and unset VALID on NHG's if
+ * all NHs are not ACTIVE.
+ *
+ * CASE-3: For SINGLETON and GROUPS (set_active True)
+ *     - zebra_nhg_handle_install
+ * When a NHG is installed into the kernel, as part of handling the result, we
+ * try to install its dependents as well (if conditions are met).
+ * But before we try to install the dependents, we want to ensure we propogate
+ * the VALID flags up the dependency chain. Breaks the chain walk when we find
+ * some NHG which is already VALID.
+ *
+ * CASE-4: For SINGLETON and GROUPS (set_active false)
+ *    - zebra_nhg_dependents_release
+ * When a NHG is to be released, we can have a group or a Recursive singleton
+ * (Not direct singleton) when we come here.
+ *    4a) For Recursive singleton, we follow CASE-2
+ *    4b) For Groups, similar to CASE-3, except we check to see if any depends
+ *        is valid.
+ *        - If none are valid, we unset the VALID and continue propogation
+ *          until we hit a NHG in a chain which is VALID and stop.
+ *        Otherwise, do nothing and exit since the ones above in the dependency
+ *        chain must already be VALID.
+ */
+void zebra_nhg_check_valid_with_dependency_propagation(struct nhg_hash_entry *nhe, bool set_active)
+{
+	struct nhg_connected *rb_node_dep = NULL;
+
+	/* Process singleton NHGs first */
+	if (ZEBRA_NHG_IS_SINGLETON(nhe)) {
+		struct nexthop *nh = nhe->nhg.nexthop;
+
+		/* Set or unset the ACTIVE flag based on the parameter */
+		if (set_active) {
+			SET_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE);
+			SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
+			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+				zlog_debug("%s: Setting ACTIVE for nh (%pNHv)and VALID flags for singleton %p (%pNG) flags (0x%x)",
+					   __func__, nh, nhe, nhe, nhe->flags);
+		} else {
+			UNSET_FLAG(nh->flags, NEXTHOP_FLAG_FIB);
+			UNSET_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE);
+			/* When interface goes down, singleton is no longer installed in kernel */
+			UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
+			if (!zebra_router_in_shutdown()) {
+				UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+				zebra_nhg_unset_installed_for_routes(nhe, __func__);
+			}
+
+			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+				zlog_debug("%s: Unsetting ACTIVE for nh (%pNHv) and INSTALLED flags for singleton %p (%pNG) flags (0x%x)",
+					   __func__, nh, nhe, nhe, nhe->flags);
+		}
+
+		/* Propagate singleton state changes to ALL dependents recursively */
+		frr_each (nhg_connected_tree, &nhe->nhg_dependents, rb_node_dep) {
+			zebra_nhg_propagate_singleton_to_dependent(rb_node_dep->nhe, nh,
+								   CHECK_FLAG(nh->flags,
+									      NEXTHOP_FLAG_ACTIVE));
+		}
+	} else {
+		/* For non-singletons (group/recursive), process the group itself first, then propagate */
+		bool valid = false;
+
+		if (set_active) {
+			if (!CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID)) {
+				SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
+				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+					zlog_debug("%s: Setting VALID flag for group %p (%pNG) flags (0x%x) (has valid dependencies)",
+						   __func__, nhe, nhe, nhe->flags);
+
+				/* Now recursively propagate to all dependents */
+				frr_each (nhg_connected_tree, &nhe->nhg_dependents, rb_node_dep)
+					zebra_nhg_check_valid_with_dependency_propagation(rb_node_dep
+												  ->nhe,
+											  set_active);
+			}
+		} else {
+			/* Check if any dependency is still valid to make this group valid */
+			frr_each (nhg_connected_tree, &nhe->nhg_depends, rb_node_dep) {
+				if (CHECK_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_VALID)) {
+					valid = true;
+					break;
+				}
+			}
+
+			if (!valid) {
+				/* No valid dependencies left, invalidate this group */
+				UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
+				if (!zebra_router_in_shutdown()) {
+					UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+					zebra_nhg_unset_installed_for_routes(nhe, __func__);
+				}
+
+				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+					zlog_debug("%s: Unsetting VALID and INSTALLED flags for NHG %p (%pNG) flags (0x%x) (no valid dependencies)",
+						   __func__, nhe, nhe, nhe->flags);
+
+				/* Now recursively propagate to all dependents */
+				frr_each (nhg_connected_tree, &nhe->nhg_dependents, rb_node_dep)
+					zebra_nhg_check_valid_with_dependency_propagation(rb_node_dep
+												  ->nhe,
+											  set_active);
+			} else {
+				/* set_active = false but still have valid dependencies, keep this group valid */
+				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+					zlog_debug("%s: Keeping NHG %p (%pNG) flags (0x%x) VALID (still has valid dependencies)",
+						   __func__, nhe, nhe, nhe->flags);
+			}
+		}
+	}
 }
 
 static void zebra_nhg_release_all_deps(struct nhg_hash_entry *nhe)
@@ -1228,7 +1407,7 @@ static void zebra_nhg_handle_install(struct nhg_hash_entry *nhe, bool install)
 	struct nhg_connected *rb_node_dep;
 
 	frr_each_safe (nhg_connected_tree, &nhe->nhg_dependents, rb_node_dep) {
-		zebra_nhg_set_valid(rb_node_dep->nhe, true);
+		zebra_nhg_check_valid_with_dependency_propagation(rb_node_dep->nhe, true);
 
 		/*
 		 * In case of singletons, set the flags such that the NHG dependents
@@ -4160,29 +4339,21 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 
 	frr_each (nhg_connected_tree, &zif->nhg_dependents, rb_node_dep) {
 		/*
-		 * The nexthop associated with this was set as !ACTIVE
-		 * so we need to turn it back to active when we get to
-		 * this point again
+		 * The nexthop associated with this was set as !ACTIVE. So, we need to
+		 * turn it back to active when we get to this point again
+		 * Using dependency propogation for singletons to ensure proper flag
+		 * propogations.
 		 */
-		SET_FLAG(rb_node_dep->nhe->nhg.nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+		zebra_nhg_check_valid_with_dependency_propagation(rb_node_dep->nhe, true);
 		nh = rb_node_dep->nhe->nhg.nexthop;
 
-		if (zebra_nhg_set_valid_if_active(rb_node_dep->nhe)) {
-			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-				zlog_debug("%s: Setting the valid flag for nhe %pNG flags (0x%x), interface: %s",
-					   __func__, rb_node_dep->nhe, rb_node_dep->nhe->flags,
-					   ifp->name);
-		}
-
-		/* Check for singleton NHG associated to interface */
-		if (!nexthop_is_blackhole(nh) && ZEBRA_NHG_IS_SINGLETON(rb_node_dep->nhe)) {
+		if (!nexthop_is_blackhole(nh)) {
 			struct nhg_connected *rb_node_dependent;
 
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-				zlog_debug(
-					"%s install nhe %pNG nh type %u flags 0x%x",
-					__func__, rb_node_dep->nhe, nh->type,
-					rb_node_dep->nhe->flags);
+				zlog_debug("%s install nhe %p %pNG nh type %u flags 0x%x",
+					   __func__, rb_node_dep->nhe, rb_node_dep->nhe, nh->type,
+					   rb_node_dep->nhe->flags);
 			zebra_nhg_install_kernel(rb_node_dep->nhe,
 						 ZEBRA_ROUTE_MAX);
 
@@ -4191,26 +4362,12 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 				       NEXTHOP_GROUP_INSTALLED))
 				continue;
 
-			/* mark dependent uninstalled; when interface associated
-			 * singleton is installed, install dependent
-			 */
-			frr_each_safe (nhg_connected_tree,
-				       &rb_node_dep->nhe->nhg_dependents,
+			frr_each_safe (nhg_connected_tree, &rb_node_dep->nhe->nhg_dependents,
 				       rb_node_dependent) {
-				struct nexthop *nhop_dependent =
-					rb_node_dependent->nhe->nhg.nexthop;
-
-				while (nhop_dependent &&
-				       !nexthop_same(nhop_dependent, nh))
-					nhop_dependent = nhop_dependent->next;
-
-				if (nhop_dependent)
-					SET_FLAG(nhop_dependent->flags,
-						 NEXTHOP_FLAG_ACTIVE);
-
 				if (IS_ZEBRA_DEBUG_NHG_DETAIL)
-					zlog_debug("%s dependent nhe (%pNG) flags (0x%x) Setting Reinstall flag",
+					zlog_debug("%s dependent nhe %p (%pNG) flags (0x%x) Setting Reinstall flag",
 						   __func__, rb_node_dependent->nhe,
+						   rb_node_dependent->nhe,
 						   rb_node_dependent->nhe->flags);
 
 				SET_FLAG(rb_node_dependent->nhe->flags,

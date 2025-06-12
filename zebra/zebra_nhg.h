@@ -389,8 +389,9 @@ unsigned long zebra_nhg_score_proto(int type);
 extern void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe);
 extern void zebra_nhg_increment_ref(struct nhg_hash_entry *nhe);
 
-/* Check validity of nhe, if invalid will update dependents as well */
-extern void zebra_nhg_check_valid(struct nhg_hash_entry *nhe);
+/* Check validity with dependency propagation for NHGs(singleton/Group) */
+extern void zebra_nhg_check_valid_with_dependency_propagation(struct nhg_hash_entry *nhe,
+							      bool set_active);
 
 /* Convert nhe depends to a grp context that can be passed around safely */
 extern uint16_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe, int size);
