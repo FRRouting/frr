@@ -173,6 +173,10 @@ static void ospf6_area_stub_update(struct ospf6_area *area)
 	}
 
 	OSPF6_ROUTER_LSA_SCHEDULE(area);
+	/* Happens implicitly via OSPF6_ROUTER_LSA_SCHEDULE(), but
+	 * let's make it explicit
+	 */
+	ospf6_schedule_abr_task(area->ospf6);
 }
 
 static int ospf6_area_stub_set(struct ospf6 *ospf6, struct ospf6_area *area)
@@ -203,7 +207,7 @@ static void ospf6_area_no_summary_set(struct ospf6 *ospf6,
 		if (!area->no_summary) {
 			area->no_summary = 1;
 			ospf6_abr_range_reset_cost(ospf6);
-			ospf6_abr_prefix_resummarize(ospf6);
+			ospf6_schedule_abr_task(ospf6);
 		}
 	}
 }
@@ -215,7 +219,7 @@ static void ospf6_area_no_summary_unset(struct ospf6 *ospf6,
 		if (area->no_summary) {
 			area->no_summary = 0;
 			ospf6_abr_range_reset_cost(ospf6);
-			ospf6_abr_prefix_resummarize(ospf6);
+			ospf6_schedule_abr_task(ospf6);
 		}
 	}
 }
@@ -602,7 +606,7 @@ DEFUN (area_range,
 
 	if (ospf6_check_and_set_router_abr(ospf6)) {
 		/* Redo summaries if required */
-		ospf6_abr_prefix_resummarize(ospf6);
+		ospf6_schedule_abr_task(ospf6);
 	}
 
 	return CMD_SUCCESS;
@@ -627,7 +631,7 @@ DEFUN (no_area_range,
 	int ret;
 	struct ospf6_area *oa;
 	struct prefix prefix;
-	struct ospf6_route *range, *route;
+	struct ospf6_route *range;
 
 	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 
@@ -649,14 +653,7 @@ DEFUN (no_area_range,
 	if (ospf6_check_and_set_router_abr(oa->ospf6)) {
 		/* Blow away the aggregated LSA and route */
 		SET_FLAG(range->flag, OSPF6_ROUTE_REMOVE);
-
-		/* Redo summaries if required */
-		for (route = ospf6_route_head(oa->ospf6->route_table); route;
-		     route = ospf6_route_next(route))
-			ospf6_abr_originate_summary(route, oa->ospf6);
-
-		/* purge the old aggregated summary LSA */
-		ospf6_abr_originate_summary(range, oa->ospf6);
+		ospf6_schedule_abr_task(oa->ospf6);
 	}
 	ospf6_route_remove(range, oa->range_table);
 
@@ -1412,10 +1409,8 @@ DEFPY(ospf6_area_nssa, ospf6_area_nssa_cmd,
 	else
 		ospf6_area_no_summary_unset(ospf6, area);
 
-	if (ospf6_check_and_set_router_abr(ospf6)) {
-		ospf6_abr_defaults_to_stub(ospf6);
-		ospf6_abr_nssa_type_7_defaults(ospf6);
-	}
+	if (ospf6_check_and_set_router_abr(ospf6))
+		ospf6_schedule_abr_task(ospf6);
 
 	return CMD_SUCCESS;
 }
