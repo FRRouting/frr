@@ -2325,21 +2325,6 @@ DEFUN (no_banner_motd,
 	return CMD_SUCCESS;
 }
 
-DEFUN(allow_reserved_ranges, allow_reserved_ranges_cmd, "allow-reserved-ranges",
-      "Allow using IPv4 (Class E) reserved IP space\n")
-{
-	host.allow_reserved_ranges = true;
-	return CMD_SUCCESS;
-}
-
-DEFUN(no_allow_reserved_ranges, no_allow_reserved_ranges_cmd,
-      "no allow-reserved-ranges",
-      NO_STR "Allow using IPv4 (Class E) reserved IP space\n")
-{
-	host.allow_reserved_ranges = false;
-	return CMD_SUCCESS;
-}
-
 int cmd_find_cmds(struct vty *vty, struct cmd_token **argv, int argc)
 {
 	const struct cmd_node *node;
@@ -2605,8 +2590,14 @@ void cmd_init(int terminal)
 		install_element(CONFIG_NODE, &no_banner_motd_cmd);
 		install_element(CONFIG_NODE, &service_terminal_length_cmd);
 		install_element(CONFIG_NODE, &no_service_terminal_length_cmd);
-		install_element(CONFIG_NODE, &allow_reserved_ranges_cmd);
-		install_element(CONFIG_NODE, &no_allow_reserved_ranges_cmd);
+
+		/*
+		 * Better to not do this for only non-mgmtd converted daemons,
+		 * but it works anyway b/c vtysh is configured to not send the
+		 * `host` CLI commands to BE mgmtd enabled daemons (see
+		 * VTYSH_NON_MGMTD in vtysh.h and vtysh.c).
+		 */
+		host_cli_init();
 
 		log_cmd_init();
 		vrf_install_commands();
