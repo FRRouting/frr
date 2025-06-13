@@ -36,7 +36,8 @@ def tgen(request):
 @retry(retry_timeout=10)
 def scan_log(log, regex):
     log.update_content()
-    assert re.search(regex, log.from_mark(log.last_snap_mark))
+    new_content = log.from_mark(log.last_snap_mark)
+    assert re.search(regex, new_content)
 
 
 def test_log(tgen):
