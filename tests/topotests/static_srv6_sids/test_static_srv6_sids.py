@@ -402,6 +402,47 @@ def test_srv6_static_sids_srv6_reenable():
     check_srv6_static_sids(router, "expected_srv6_sids.json")
 
 
+def test_srv6_static_sids_interface_down_up():
+    """
+    Test SRv6 route behavior when sr0 interface goes down and up
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+
+    def _check_srv6_static_sids(router, expected_route_file):
+        logger.info("checking zebra srv6 static sids")
+        output = json.loads(router.vtysh_cmd("show ipv6 route static json"))
+        expected = open_json_file("{}/{}".format(CWD, expected_route_file))
+        return topotest.json_cmp(output, expected)
+
+    def check_srv6_static_sids(router, expected_file):
+        func = functools.partial(_check_srv6_static_sids, router, expected_file)
+        _, result = topotest.run_and_expect(func, None, count=15, wait=1)
+        assert result is None, "Failed"
+
+    # First verify initial state
+    logger.info("Verifying initial SRv6 routes")
+    check_srv6_static_sids(router, "expected_srv6_sids.json")
+
+    # Bring down sr0 interface using ip link
+    logger.info("Bringing down sr0 interface using ip link")
+    router.run("ip link set sr0 down")
+
+    # Verify routes using sr0 are removed
+    logger.info("Verifying routes using sr0 are removed")
+    check_srv6_static_sids(router, "expected_srv6_sids_interface_down.json")
+
+    # Bring up sr0 interface using ip link
+    logger.info("Bringing up sr0 interface using ip link")
+    router.run("ip link set sr0 up")
+
+    # Verify routes are restored
+    logger.info("Verifying routes are restored")
+    check_srv6_static_sids(router, "expected_srv6_sids.json")
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
