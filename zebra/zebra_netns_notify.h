@@ -15,8 +15,6 @@ extern void zebra_ns_notify_init(void);
 extern void zebra_ns_notify_parse(void);
 extern void zebra_ns_notify_close(void);
 
-extern struct zebra_privs_t zserv_privs;
-
 #ifdef __cplusplus
 }
 #endif
