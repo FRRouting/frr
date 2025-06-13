@@ -43,6 +43,7 @@ lib_libfrr_la_SOURCES = \
 	lib/grammar_sandbox.c \
 	lib/graph.c \
 	lib/hash.c \
+	lib/host_cli.c \
 	lib/host_nb.c \
 	lib/hook.c \
 	lib/id_alloc.c \
@@ -173,6 +174,7 @@ endif
 
 clippy_scan += \
 	lib/affinitymap_cli.c \
+	lib/host_cli.c \
 	lib/if.c \
 	lib/filter_cli.c \
 	lib/if_rmap.c \
