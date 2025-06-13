@@ -1966,8 +1966,15 @@ static void pim_upstream_register_probe_timer(struct event *t)
 		if (PIM_DEBUG_PIM_REG)
 			zlog_debug("cannot send Null register for %pSG, no path to RP",
 				   &up->sg);
-	} else
+	} else {
+		up->reg_state = PIM_REG_JOIN_PENDING;
+		if (PIM_DEBUG_PIM_TRACE) {
+			char state_str[PIM_REG_STATE_STR_LEN];
+			zlog_debug("%s: (S,G)=%s reg_state=%s", __func__, up->sg_str,
+				   pim_reg_state2str(up->reg_state, state_str, sizeof(state_str)));
+		}
 		pim_null_register_send(up);
+	}
 
 	pim_upstream_start_register_stop_timer(up);
 }
