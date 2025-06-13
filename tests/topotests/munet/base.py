@@ -2730,12 +2730,6 @@ class BaseMunet(LinuxNamespace):
 
         self.hosts[name] = cls(name, unet=self, **kwargs)
 
-        # Create a new mounted FS for tracking nested network namespaces creatd by the
-        # user with `ip netns add`
-
-        # XXX why is this failing with podman???
-        # self.hosts[name].tmpfs_mount("/run/netns")
-
         return self.hosts[name]
 
     def add_link(self, node1, node2, if1, if2, mtu=None, **intf_constraints):
