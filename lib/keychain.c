@@ -253,12 +253,12 @@ enum keychain_hash_algo keychain_get_algo_id_by_name(const char *name)
 #ifdef CRYPTO_INTERNAL
 	if (!strncmp(name, "hmac-sha-2", 10))
 		return KEYCHAIN_ALGO_HMAC_SHA256;
-	else if (!strncmp(name, "m", 1))
+	else if (!strncmp(name, "md5", 3))
 		return KEYCHAIN_ALGO_MD5;
 	else
 		return KEYCHAIN_ALGO_NULL;
 #else
-	if (!strncmp(name, "m", 1))
+	if (!strncmp(name, "md5", 1))
 		return KEYCHAIN_ALGO_MD5;
 	else if (!strncmp(name, "hmac-sha-1", 10))
 		return KEYCHAIN_ALGO_HMAC_SHA1;

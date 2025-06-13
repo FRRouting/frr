@@ -118,8 +118,9 @@ DEFPY_YANG(
       cryptographic_algorithm,
       cryptographic_algorithm_cmd,
       "cryptographic-algorithm "
-      "<md5|hmac-sha-1|hmac-sha-256|hmac-sha-384|hmac-sha-512>$algo",
+      "<null|md5|hmac-sha-1|hmac-sha-256|hmac-sha-384|hmac-sha-512>$algo",
       "Cryptographic-algorithm\n"
+      "Use cleartext password\n"
       "Use MD5 algorithm\n"
       "Use HMAC-SHA-1 algorithm\n"
       "Use HMAC-SHA-256 algorithm\n"
@@ -134,9 +135,10 @@ DEFPY_YANG(
       no_cryptographic_algorithm,
       no_cryptographic_algorithm_cmd,
       "no cryptographic-algorithm "
-      "[<md5|hmac-sha-1|hmac-sha-256|hmac-sha-384|hmac-sha-512>$algo]",
+      "[<null|md5|hmac-sha-1|hmac-sha-256|hmac-sha-384|hmac-sha-512>$algo]",
       NO_STR
       "Cryptographic-algorithm\n"
+      "Use cleartext password\n"
       "Use MD5 algorithm\n"
       "Use HMAC-SHA-1 algorithm\n"
       "Use HMAC-SHA-256 algorithm\n"
