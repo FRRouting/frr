@@ -237,6 +237,10 @@ async def execute_test(
     try:
         passed, failed, e = tc.execute()
     except uapi.CLIOnErrorError as error:
+        if error.desc != "":
+            print(f"\n== CLI ON ERROR: {error.desc} ==")
+        else:
+            print("\n== CLI ON ERROR: *NO DESCRIPTION PROVIDED* ==")
         await async_cli(unet)
         passed, failed, e = 0, 0, error
 

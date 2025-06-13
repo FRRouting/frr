@@ -762,7 +762,10 @@ class L3NodeMixin(NodeMixin):
             self.cmd_raises("sysctl -w net.ipv6.conf.all.disable_ipv6=0")
             self.cmd_raises("sysctl -w net.ipv6.conf.all.forwarding=1")
 
-        self.next_p2p_network = ipaddress.ip_network(f"10.254.{self.id}.0/31")
+        assert self.id < 0xFF * (0xFF - 0x7F)  # Beyond this, ipv4 address is invalid
+        self.next_p2p_network = ipaddress.ip_network(
+            f"10.254.{self.id & 0xFF}.{(self.id & 0x7F00) >> 7}/31"
+        )
         self.next_p2p_network6 = ipaddress.ip_network(f"fcff:ffff:{self.id:02x}::/127")
 
         self.loopback_ip = None
@@ -1239,6 +1242,11 @@ class L3NamespaceNode(L3NodeMixin, LinuxNamespace):
         #     kwargs,
         # )
         super().__init__(name, pid=pid, **kwargs)
+
+        # Create a new mounted FS for tracking nested network namespaces creatd by the
+        # user with `ip netns add`
+        self.tmpfs_mount("/run/netns")
+
         super().pytest_hook_open_shell()
 
     async def _async_delete(self):
@@ -2673,18 +2681,29 @@ users:
         if self.disk_created:
             password = cc.get("initial-password", password)
 
+        expects = cc.get("expects")
+        if expects is not None:
+            for expect_str in expects:
+                expect_str.replace("%NAME%", str(self.name))
+        sends = cc.get("sends")
+        if sends is not None:
+            for send_str in sends:
+                send_str.replace("%NAME%", str(self.name))
+
         #
         # Connect to the console socket, retrying
         #
         prompt = cc.get("prompt")
+        if prompt is not None:
+            prompt.replace("%NAME%", str(self.name))
         cons = await self._opencons(
             *confiles,
             prompt=prompt,
             is_bourne=not bool(prompt),
             user=cc.get("user", "root"),
             password=password,
-            expects=cc.get("expects"),
-            sends=cc.get("sends"),
+            expects=expects,
+            sends=sends,
             timeout=int(cc.get("timeout", 60)),
         )
         self.conrepl = cons[0]
@@ -3110,6 +3129,7 @@ ff02::2\tip6-allrouters
             # p2p link
             assert node1.name in self.hosts
             assert node1.name in self.hosts
+            assert c1 and c2
             isp2p = True
 
         if "name" not in c1:

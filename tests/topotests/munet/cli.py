@@ -182,9 +182,7 @@ def host_cmd_split(unet, line, toplevel):
     if not csplit:
         return hosts, "", "", True
 
-    i = line.index(csplit[0])
-    i += len(csplit[0])
-    return hosts, csplit[0], line[i:].strip(), banner
+    return hosts, csplit[0], ' '.join(csplit[1:]), banner
 
 
 def win_cmd_host_split(unet, cmd, kinds, defall):
