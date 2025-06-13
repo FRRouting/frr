@@ -2756,7 +2756,7 @@ void nb_init(struct event_loop *tm,
 	     const struct frr_yang_module_info *const modules[],
 	     size_t nmodules, bool db_enabled, bool load_library)
 {
-	struct yang_module *loaded[nmodules + 1];
+	struct yang_module *loaded[nmodules + 2];
 
 	/*
 	 * Currently using this explicit compile feature in libyang2 leads to
@@ -2772,6 +2772,9 @@ void nb_init(struct event_loop *tm,
 
 	yang_init(true, explicit_compile, load_library);
 
+	/* needed for frr-logging */
+	assert(yang_module_load("ietf-syslog-types", NULL));
+
 	/* Load YANG modules and their corresponding northbound callbacks. */
 	for (size_t i = 0; i < nmodules; i++) {
 		DEBUGD(&nb_dbg_events, "northbound: loading %s.yang",
@@ -2784,6 +2787,13 @@ void nb_init(struct event_loop *tm,
 	if (!yang_module_find("frr-host")) {
 		loaded[nmodules] = yang_module_load("frr-host", NULL);
 		loaded[nmodules]->frr_info = &frr_host_nb_info;
+		nmodules++;
+	}
+
+	/* Load the host module if it is not already. */
+	if (!yang_module_find("frr-logging")) {
+		loaded[nmodules] = yang_module_load("frr-logging", NULL);
+		loaded[nmodules]->frr_info = &frr_logging_nb_info;
 		nmodules++;
 	}
 

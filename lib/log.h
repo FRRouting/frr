@@ -172,6 +172,9 @@ struct timestamp_control {
 	"Local use\n"                                                          \
 	"Local use\n"
 
+
+extern const struct frr_yang_module_info frr_logging_nb_info;
+
 #ifdef __cplusplus
 }
 #endif
