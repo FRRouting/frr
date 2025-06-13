@@ -179,6 +179,7 @@ conf
         """
 conf
  bgp as-path access-list TER permit 3
+ bgp as-path access-list ZTER permit 2
  route-map r2 permit 10
   set as-path replace as-path-access-list TER
     """
