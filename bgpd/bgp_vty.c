@@ -19829,9 +19829,9 @@ int bgp_config_write(struct vty *vty)
 			vty_out(vty,
 				" bgp labeled-unicast ipv6-explicit-null\n");
 
-		/* draft-ietf-idr-deprecate-as-set-confed-set */
-		if (bgp->reject_as_sets)
-			vty_out(vty, " bgp reject-as-sets\n");
+		/* rfc9774 */
+		if (!bgp->reject_as_sets)
+			vty_out(vty, " no bgp reject-as-sets\n");
 
 		/* Suppress duplicate updates if the route actually not changed
 		 */
