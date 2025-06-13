@@ -112,6 +112,7 @@ from lib.common_config import (
     start_topology,
     kill_router_daemons,
     start_router_daemons,
+    start_router_daemons_gr,
     verify_rib,
     check_address_types,
     write_test_footer,
@@ -1034,7 +1035,8 @@ def test_BGP_GR_TC_4_p0(request):
         )
 
     logger.info("[Phase 5] : R2 is about to come up now  ")
-    start_router_daemons(tgen, "r2", ["bgpd"])
+
+    start_router_daemons_gr(tgen, "r2", ["bgpd"])
 
     logger.info("[Phase 4] : R2 is UP now, so time to collect GR stats  ")
 
@@ -1200,15 +1202,16 @@ def test_BGP_GR_TC_5_1_2_p1(request):
             tc_name, result
         )
 
+        # Verify that the Rbit is be set to false
         result = verify_r_bit(tgen, topo, addr_type, input_dict, dut="r1", peer="r2")
-        assert result is True, "Testcase {} : Failed \n Error {}".format(
+        assert result is not True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
         )
 
     logger.info("[Phase 2] : Restart BGPd on router R2.  ")
     kill_router_daemons(tgen, "r2", ["bgpd"])
 
-    start_router_daemons(tgen, "r2", ["bgpd"])
+    start_router_daemons_gr(tgen, "r2", ["bgpd"])
 
     logger.info("[Phase 4] : R2 is UP now, so time to collect GR stats  ")
 
