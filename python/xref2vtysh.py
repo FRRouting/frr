@@ -42,6 +42,7 @@ daemon_flags = {
     "lib/mgmt_be_client.c": "VTYSH_MGMT_BACKEND",
     "lib/mgmt_fe_client.c": "VTYSH_MGMT_FRONTEND",
     "lib/lib_vty.c": "VTYSH_ALL",
+    "lib/log_cli.c": "VTYSH_NON_MGMTD",
     "lib/log_vty.c": "VTYSH_ALL",
     "lib/nexthop_group.c": "VTYSH_NH_GROUP",
     "lib/resolver.c": "VTYSH_NHRPD|VTYSH_BGPD",

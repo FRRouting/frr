@@ -68,6 +68,7 @@ static const char *const zebra_config_xpaths[] = {
 	"/frr-affinity-map:lib",
 	"/frr-filter:lib",
 	"/frr-host:host",
+	"/frr-logging:logging",
 	"/frr-route-map:lib",
 	"/frr-zebra:zebra",
 	"/frr-interface:lib",
@@ -94,6 +95,7 @@ static const char *const mgmtd_testc_oper_xpaths[] = {
 static const char *const ripd_config_xpaths[] = {
 	"/frr-filter:lib",
 	"/frr-host:host",
+	"/frr-logging:logging",
 	"/frr-interface:lib/interface",
 	"/frr-ripd:ripd",
 	"/frr-route-map:lib",
@@ -117,6 +119,7 @@ static const char *const ripd_rpc_xpaths[] = {
 static const char *const ripngd_config_xpaths[] = {
 	"/frr-filter:lib",
 	"/frr-host:host",
+	"/frr-logging:logging",
 	"/frr-interface:lib/interface",
 	"/frr-ripngd:ripngd",
 	"/frr-route-map:lib",
@@ -137,6 +140,7 @@ static const char *const ripngd_rpc_xpaths[] = {
 #ifdef HAVE_STATICD
 static const char *const staticd_config_xpaths[] = {
 	"/frr-host:host",
+	"/frr-logging:logging",
 	"/frr-vrf:lib",
 	"/frr-interface:lib",
 	"/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd",

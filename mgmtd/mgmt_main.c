@@ -7,20 +7,21 @@
  */
 
 #include <zebra.h>
-#include "lib/version.h"
-#include "routemap.h"
+#include "affinitymap.h"
 #include "filter.h"
-#include "keychain.h"
-#include "libfrr.h"
 #include "frr_pthread.h"
+#include "keychain.h"
+#include "lib/version.h"
+#include "libfrr.h"
+#include "log_vty.h"
 #include "mgmtd/mgmt.h"
 #include "mgmtd/mgmt_ds.h"
 #include "ripd/rip_nb.h"
 #include "ripngd/ripng_nb.h"
+#include "routemap.h"
 #include "routing_nb.h"
-#include "affinitymap.h"
-#include "zebra/zebra_cli.h"
 #include "srv6.h"
+#include "zebra/zebra_cli.h"
 
 /* mgmt options, we use GNU getopt library. */
 static const struct option longopts[] = {
@@ -180,6 +181,7 @@ static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 	&frr_filter_cli_info,
 	&frr_host_cli_info,
 	&frr_interface_cli_info,
+	&frr_logging_cli_info,
 	&frr_route_map_cli_info,
 	&frr_routing_cli_info,
 	&frr_vrf_cli_info,
