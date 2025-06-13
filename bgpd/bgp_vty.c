@@ -4718,6 +4718,52 @@ static struct peer_group *listen_range_exists(struct bgp *bgp,
 	return NULL;
 }
 
+/*
+ * Check if there is no neighbors nor listening range on bgp
+ */
+static void bgp_may_stop_listening(struct bgp *bgp, struct vty *vty)
+{
+	struct listnode *node, *nnode;
+	struct peer_group *group;
+	struct vrf *vrf;
+	afi_t afi;
+
+	for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group)) {
+		for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+			if (!list_isempty(group->listen_range[afi]))
+				return;
+		}
+	}
+
+	if (!list_isempty(bgp->peer))
+		return;
+
+	vrf = bgp_vrf_lookup_by_instance_type(bgp);
+	bgp_handle_socket(bgp, vrf, VRF_UNKNOWN, false);
+	UNSET_FLAG(bgp->flags, BGP_FLAG_VRF_MAY_LISTEN);
+}
+
+
+static void bgp_need_listening(struct bgp *bgp, struct vty *vty)
+{
+	struct listnode *node;
+	struct bgp_listener *listener;
+
+	if (bgp->name) {
+		for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, listener)) {
+			if (listener->bgp == bgp)
+				break;
+		}
+		if (listener == NULL) {
+			struct vrf *vrf;
+
+			SET_FLAG(bgp->flags, BGP_FLAG_VRF_MAY_LISTEN);
+			vrf = bgp_vrf_lookup_by_instance_type(bgp);
+			bgp_handle_socket(bgp, vrf, VRF_UNKNOWN, true);
+		}
+	}
+}
+
 DEFUN (bgp_listen_range,
        bgp_listen_range_cmd,
        "bgp listen range <A.B.C.D/M|X:X::X:X/M> peer-group PGNAME",
@@ -4784,6 +4830,10 @@ DEFUN (bgp_listen_range,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	/* if need start listening */
+	if (bgp->name)
+		bgp_need_listening(bgp, vty);
+
 	ret = peer_group_listen_range_add(group, &range);
 	return bgp_vty_return(vty, ret);
 }
@@ -4836,6 +4886,12 @@ DEFUN (no_bgp_listen_range,
 	}
 
 	ret = peer_group_listen_range_del(group, &range);
+
+	/*
+	 * if need stop listening
+	 */
+	bgp_may_stop_listening(bgp, vty);
+
 	return bgp_vty_return(vty, ret);
 }
 
@@ -4935,7 +4991,9 @@ static int peer_remote_as_vty(struct vty *vty, const char *peer_str,
 					"%% Create the peer-group or interface first\n");
 				return CMD_WARNING_CONFIG_FAILED;
 			}
-			return CMD_SUCCESS;
+			/* if need start listening */
+			if (bgp->name)
+				bgp_need_listening(bgp, vty);
 		}
 	} else {
 		if (peer_address_self_check(bgp, &su)) {
@@ -4943,6 +5001,10 @@ static int peer_remote_as_vty(struct vty *vty, const char *peer_str,
 				"%% Can not configure the local system as neighbor\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
+
+		/* if need start listening */
+		if (bgp->name)
+			bgp_need_listening(bgp, vty);
 		ret = peer_remote_as(bgp, &su, NULL, &as, as_type, as_str);
 	}
 
@@ -5373,6 +5435,10 @@ DEFUN (no_neighbor,
 		}
 	}
 
+	/*
+	 * if need stop listening
+	 */
+	bgp_may_stop_listening(bgp, vty);
 	return CMD_SUCCESS;
 }
 
