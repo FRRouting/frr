@@ -139,7 +139,7 @@ FRR_DAEMON_INFO(staticd, STATIC,
 	.yang_modules = staticd_yang_modules,
 	.n_yang_modules = array_size(staticd_yang_modules),
 
-	.flags = FRR_NO_SPLIT_CONFIG,
+	.flags = FRR_NO_SPLIT_CONFIG | FRR_MGMTD_BACKEND,
 );
 /* clang-format on */
 
