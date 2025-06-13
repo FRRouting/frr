@@ -155,11 +155,14 @@ static int _nexthop_cmp_no_labels(const struct nexthop *next1,
 	if (next1->vrf_id > next2->vrf_id)
 		return 1;
 
-	if (next1->type < next2->type)
-		return -1;
+	if (!(CHECK_FLAG(next1->flags, NEXTHOP_FLAG_RECURSIVE) ||
+	      CHECK_FLAG(next2->flags, NEXTHOP_FLAG_RECURSIVE))) {
+		if (next1->type < next2->type)
+			return -1;
 
-	if (next1->type > next2->type)
-		return 1;
+		if (next1->type > next2->type)
+			return 1;
+	}
 
 	if (use_weight) {
 		if (next1->weight < next2->weight)

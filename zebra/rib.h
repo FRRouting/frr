@@ -80,6 +80,9 @@ struct route_entry {
 	/* Link list. */
 	struct re_list_item next;
 
+	/* Back pointer to route node */
+	struct route_node *rn;
+
 	/* Nexthop group, shared/refcounted, based on the nexthop(s)
 	 * provided by the owner of the route
 	 */
@@ -175,7 +178,34 @@ struct route_entry {
 	 */
 	struct nexthop_group fib_ng;
 	struct nexthop_group fib_backup_ng;
+
+	/* Selected re using an nhe are in its re RB tree */
+	struct nhe_re_tree_item re_item;
 };
+
+static int route_entry_cmp(const struct route_entry *re1, const struct route_entry *re2)
+{
+	/* Compare VRF first - most likely to be different */
+	if (re1->vrf_id != re2->vrf_id)
+		return (re1->vrf_id - re2->vrf_id);
+
+	/* Compare protocol type - next most likely differentiator */
+	if (re1->type != re2->type)
+		return (re1->type - re2->type);
+
+	/* Compare instance */
+	if (re1->instance != re2->instance)
+		return (re1->instance - re2->instance);
+
+	if (re1 > re2)
+		return 1;
+	else if (re1 < re2)
+		return -1;
+
+	return 0;
+}
+
+DECLARE_RBTREE_UNIQ(nhe_re_tree, struct route_entry, re_item, route_entry_cmp);
 
 #define RIB_SYSTEM_ROUTE(R) RSYSTEM_ROUTE((R)->type)
 
@@ -653,12 +683,17 @@ extern pid_t zebra_pid;
 
 extern uint32_t rt_table_main_id;
 
+extern void nhe_add_or_del_re_tree(struct nhg_hash_entry *nhe, struct route_entry *re_to_oper,
+				   const char *caller, bool is_del);
+
 void route_entry_dump_nh(const struct route_entry *re, const char *straddr,
 			 const struct vrf *re_vrf,
 			 const struct nexthop *nexthop);
 
 /* Name of hook calls */
 #define ZEBRA_ON_RIB_PROCESS_HOOK_CALL "on_rib_process_dplane_results"
+
+extern char *_dump_re_status(const struct route_entry *re, char *buf, size_t len);
 
 #ifdef __cplusplus
 }
