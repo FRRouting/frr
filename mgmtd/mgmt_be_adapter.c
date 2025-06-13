@@ -63,9 +63,11 @@ struct mgmt_be_xpath_map {
  * above map as well.
  */
 
+/* clang-format off */
 static const char *const zebra_config_xpaths[] = {
 	"/frr-affinity-map:lib",
 	"/frr-filter:lib",
+	"/frr-host:host",
 	"/frr-route-map:lib",
 	"/frr-zebra:zebra",
 	"/frr-interface:lib",
@@ -91,6 +93,7 @@ static const char *const mgmtd_testc_oper_xpaths[] = {
 #ifdef HAVE_RIPD
 static const char *const ripd_config_xpaths[] = {
 	"/frr-filter:lib",
+	"/frr-host:host",
 	"/frr-interface:lib/interface",
 	"/frr-ripd:ripd",
 	"/frr-route-map:lib",
@@ -113,6 +116,7 @@ static const char *const ripd_rpc_xpaths[] = {
 #ifdef HAVE_RIPNGD
 static const char *const ripngd_config_xpaths[] = {
 	"/frr-filter:lib",
+	"/frr-host:host",
 	"/frr-interface:lib/interface",
 	"/frr-ripngd:ripngd",
 	"/frr-route-map:lib",
@@ -132,6 +136,7 @@ static const char *const ripngd_rpc_xpaths[] = {
 
 #ifdef HAVE_STATICD
 static const char *const staticd_config_xpaths[] = {
+	"/frr-host:host",
 	"/frr-vrf:lib",
 	"/frr-interface:lib",
 	"/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd",
@@ -143,6 +148,7 @@ static const char *const staticd_oper_xpaths[] = {
 	NULL,
 };
 #endif
+/* clang-format on */
 
 static const char *const *be_client_config_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
 	[MGMTD_BE_CLIENT_ID_ZEBRA] = zebra_config_xpaths,

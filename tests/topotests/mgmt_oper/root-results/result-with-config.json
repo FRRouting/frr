@@ -228,6 +228,11 @@
             "namespace": "http://frrouting.org/yang/vrf"
           },
           {
+            "name": "frr-host",
+            "revision": "rubout",
+            "namespace": "http://frrouting.org/yang/host"
+          },
+          {
             "name": "frr-route-map",
             "revision": "rubout",
             "namespace": "http://frrouting.org/yang/route-map"
@@ -374,7 +379,7 @@
         ]
       }
     ],
-    "content-id": "107"
+    "content-id": "109"
   },
   "ietf-yang-library:modules-state": {
     "module-set-id": "rubout",
@@ -450,6 +455,12 @@
         "revision": "rubout",
         "namespace": "urn:ietf:params:xml:ns:yang:ietf-interfaces",
         "conformance-type": "import"
+      },
+      {
+        "name": "frr-host",
+        "revision": "rubout",
+        "namespace": "http://frrouting.org/yang/host",
+        "conformance-type": "implement"
       },
       {
         "name": "frr-route-map",

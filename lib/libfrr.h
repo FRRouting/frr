@@ -51,6 +51,11 @@ extern "C" {
  * normally only be done from mgmtd.
  */
 #define FRR_LOAD_YANG_LIBRARY (1 << 8)
+/* Set FRR_MGMTD_BACKEND to indicate that this daemon is a backend
+ * for mgmtd. This will affect various initializations for CLI handling
+ * etc.
+ */
+#define FRR_MGMTD_BACKEND (1 << 9)
 
 PREDECL_DLIST(log_args);
 struct log_arg {

@@ -874,6 +874,7 @@ int lib_interface_zebra_ipv4_addrs_create(struct nb_cb_create_args *args)
 	struct interface *ifp;
 	struct prefix p;
 	const char *label = NULL;
+	bool martian_ok;
 
 	p.family = AF_INET;
 	yang_dnode_get_ipv4(&p.u.prefix4, args->dnode, "ip");
@@ -884,9 +885,10 @@ int lib_interface_zebra_ipv4_addrs_create(struct nb_cb_create_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		if (ipv4_martian(&p.u.prefix4)) {
-			snprintfrr(args->errmsg, args->errmsg_len,
-				   "invalid address %pFX", &p);
+		martian_ok = yang_dnode_get_bool(args->dnode,
+						 "/frr-host:host/allow-reserved-ranges");
+		if (!martian_ok && ipv4_martian(&p.u.prefix4)) {
+			snprintfrr(args->errmsg, args->errmsg_len, "invalid address %pFX", &p);
 			return NB_ERR_VALIDATION;
 		}
 		break;

@@ -3500,20 +3500,6 @@ DEFUN(vtysh_debug_uid_backtrace,
 	return err;
 }
 
-DEFUNSH(VTYSH_ALL, vtysh_allow_reserved_ranges, vtysh_allow_reserved_ranges_cmd,
-	"allow-reserved-ranges",
-	"Allow using IPv4 (Class E) reserved IP space\n")
-{
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_ALL, no_vtysh_allow_reserved_ranges,
-	no_vtysh_allow_reserved_ranges_cmd, "no allow-reserved-ranges",
-	NO_STR "Allow using IPv4 (Class E) reserved IP space\n")
-{
-	return CMD_SUCCESS;
-}
-
 DEFUNSH(VTYSH_ALL, vtysh_service_password_encrypt,
 	vtysh_service_password_encrypt_cmd, "service password-encryption",
 	"Set up miscellaneous service\n"
@@ -5680,9 +5666,6 @@ void vtysh_init_vty(void)
 
 	install_element(CONFIG_NODE, &vtysh_service_password_encrypt_cmd);
 	install_element(CONFIG_NODE, &no_vtysh_service_password_encrypt_cmd);
-
-	install_element(CONFIG_NODE, &vtysh_allow_reserved_ranges_cmd);
-	install_element(CONFIG_NODE, &no_vtysh_allow_reserved_ranges_cmd);
 
 	install_element(CONFIG_NODE, &vtysh_password_cmd);
 	install_element(CONFIG_NODE, &no_vtysh_password_cmd);

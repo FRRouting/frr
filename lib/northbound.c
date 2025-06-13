@@ -7,6 +7,7 @@
 #include <zebra.h>
 
 #include "darr.h"
+#include "host_nb.h"
 #include "libfrr.h"
 #include "log.h"
 #include "lib_errors.h"
@@ -2755,7 +2756,7 @@ void nb_init(struct event_loop *tm,
 	     const struct frr_yang_module_info *const modules[],
 	     size_t nmodules, bool db_enabled, bool load_library)
 {
-	struct yang_module *loaded[nmodules];
+	struct yang_module *loaded[nmodules + 1];
 
 	/*
 	 * Currently using this explicit compile feature in libyang2 leads to
@@ -2779,14 +2780,21 @@ void nb_init(struct event_loop *tm,
 		loaded[i]->frr_info = modules[i];
 	}
 
+	/* Load the host module if it is not already. */
+	if (!yang_module_find("frr-host")) {
+		loaded[nmodules] = yang_module_load("frr-host", NULL);
+		loaded[nmodules]->frr_info = &frr_host_nb_info;
+		nmodules++;
+	}
+
 	if (explicit_compile)
 		yang_init_loading_complete();
 
 	/* Initialize the compiled nodes with northbound data */
 	for (size_t i = 0; i < nmodules; i++) {
 		yang_snodes_iterate(loaded[i]->info, nb_node_new_cb, 0,
-				    (void *)modules[i]);
-		nb_load_callbacks(modules[i]);
+				    (void *)loaded[i]->frr_info);
+		nb_load_callbacks(loaded[i]->frr_info);
 	}
 
 	/* Validate northbound callbacks. */

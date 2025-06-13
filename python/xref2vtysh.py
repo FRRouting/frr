@@ -11,15 +11,14 @@ non-negligible amount of time (0.5s on average systems, more on e.g. slow ARMs)
 since serializing and deserializing JSON is a significant bottleneck in this.
 """
 
-import sys
-import os
-import re
-import pathlib
 import argparse
-from collections import defaultdict
 import difflib
-
 import json
+import os
+import pathlib
+import re
+import sys
+from collections import defaultdict
 
 try:
     import ujson as json  # type: ignore
@@ -37,6 +36,7 @@ daemon_flags = {
     "lib/libagentx.c": "VTYSH_ISISD|VTYSH_RIPD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA",
     "lib/filter.c": "VTYSH_ACL_SHOW",
     "lib/filter_cli.c": "VTYSH_ACL_CONFIG",
+    "lib/host_cli.c": "VTYSH_NON_MGMTD",
     "lib/if.c": "VTYSH_INTERFACE",
     "lib/keychain_cli.c": "VTYSH_KEYS",
     "lib/mgmt_be_client.c": "VTYSH_MGMT_BACKEND",

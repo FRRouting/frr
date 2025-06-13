@@ -305,7 +305,7 @@ FRR_DAEMON_INFO(zebra, ZEBRA,
 	.proghelp =
 		"Daemon which manages kernel routing table management and\nredistribution between different routing protocols.",
 
-	.flags = FRR_NO_ZCLIENT,
+	.flags = FRR_NO_ZCLIENT | FRR_MGMTD_BACKEND,
 
 	.signals = zebra_signals,
 	.n_signals = array_size(zebra_signals),
