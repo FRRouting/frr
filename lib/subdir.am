@@ -66,7 +66,9 @@ lib_libfrr_la_SOURCES = \
 	lib/linklist.c \
 	lib/link_state.c \
 	lib/log.c \
+	lib/log_cli.c \
 	lib/log_filter.c \
+	lib/log_nb.c \
 	lib/log_vty.c \
 	lib/md5.c \
 	lib/memory.c \
@@ -181,6 +183,7 @@ clippy_scan += \
 	lib/filter_cli.c \
 	lib/if_rmap.c \
 	lib/keychain_cli.c \
+	lib/log_cli.c \
 	lib/log_vty.c \
 	lib/mgmt_be_client.c \
 	lib/mgmt_fe_client.c \
