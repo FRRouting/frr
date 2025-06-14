@@ -60,6 +60,8 @@ struct wide_lib {
 	struct list *func_released;
 };
 
+PREDECL_DLIST(zebra_srv6_sid_ctx_list);
+
 /*
  * SRv6 SID block.
  *
@@ -115,7 +117,7 @@ struct zebra_srv6_sid_block {
 	} u;
 
 	/* SRv6 SIDs */
-	struct list *sids;
+	struct zebra_srv6_sid_ctx_list_head sids;
 };
 
 /**
@@ -223,7 +225,11 @@ struct zebra_srv6_sid_ctx {
 
 	/* SID associated with the context. */
 	struct zebra_srv6_sid *sid;
+
+	struct zebra_srv6_sid_ctx_list_item item;
 };
+
+DECLARE_DLIST(zebra_srv6_sid_ctx_list, struct zebra_srv6_sid_ctx, item);
 
 /* SRv6 instance structure. */
 struct zebra_srv6 {
