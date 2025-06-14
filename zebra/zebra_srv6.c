@@ -169,9 +169,8 @@ struct zebra_srv6_sid_ctx *zebra_srv6_sid_ctx_lookup(const struct srv6_sid_ctx *
 						     struct zebra_srv6_sid_block *block)
 {
 	struct zebra_srv6_sid_ctx *zctx;
-	struct listnode *node;
 
-	for (ALL_LIST_ELEMENTS_RO(block->sids, node, zctx))
+	frr_each (zebra_srv6_sid_ctx_list, &block->sids, zctx)
 		if (memcmp(&zctx->ctx, ctx, sizeof(struct srv6_sid_ctx)) == 0)
 			return zctx;
 
@@ -228,7 +227,7 @@ static void zebra_srv6_sid_entry_del_by_locator(struct zebra_srv6_sid *sid,
 		}
 
 	if (zebra_srv6_sid_entry_list_count(&sid->entries) == 0) {
-		listnode_delete(block->sids, sid->ctx);
+		zebra_srv6_sid_ctx_list_del(&block->sids, sid->ctx);
 		zebra_srv6_sid_ctx_free(sid->ctx);
 
 		zebra_srv6_sid_free(sid);
@@ -237,7 +236,6 @@ static void zebra_srv6_sid_entry_del_by_locator(struct zebra_srv6_sid *sid,
 
 void zebra_srv6_sid_entry_del_by_locator_all_sids(struct srv6_locator *locator)
 {
-	struct listnode *node, *nnode;
 	struct zebra_srv6_sid_ctx *ctx;
 	struct zebra_srv6_sid_block *block;
 
@@ -246,7 +244,7 @@ void zebra_srv6_sid_entry_del_by_locator_all_sids(struct srv6_locator *locator)
 
 	block = locator->sid_block;
 
-	for (ALL_LIST_ELEMENTS(block->sids, node, nnode, ctx))
+	frr_each_safe (zebra_srv6_sid_ctx_list, &block->sids, ctx)
 		zebra_srv6_sid_entry_del_by_locator(ctx->sid, locator);
 }
 
@@ -467,8 +465,7 @@ zebra_srv6_sid_block_alloc(struct srv6_sid_format *format,
 	block->prefix = *prefix;
 
 	/* Init list to store SRv6 SIDs */
-	block->sids = list_new();
-	block->sids->del = delete_zebra_srv6_sid_ctx;
+	zebra_srv6_sid_ctx_list_init(&block->sids);
 
 	if (format) {
 		if (format->type == SRV6_SID_FORMAT_TYPE_USID) {
@@ -599,21 +596,20 @@ static void zebra_srv6_sid_block_refcnt_increment(struct zebra_srv6_sid_block *b
 static void zebra_srv6_sid_block_refcnt_decrement(struct zebra_srv6_sid_block *block)
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
-	struct listnode *node, *nnode;
 	struct zebra_srv6_sid_ctx *zctx;
 
 	assert(block->refcnt > 0);
 
 	block->refcnt--;
 	if (block->refcnt == 0) {
-		for (ALL_LIST_ELEMENTS(block->sids, node, nnode, zctx)) {
+		frr_each_safe (zebra_srv6_sid_ctx_list, &block->sids, zctx) {
 			if (zctx->sid)
 				zebra_srv6_sid_free(zctx->sid);
 
-			listnode_delete(block->sids, zctx);
+			zebra_srv6_sid_ctx_list_del(&block->sids, zctx);
 			zebra_srv6_sid_ctx_free(zctx);
 		}
-		list_delete(&block->sids);
+		zebra_srv6_sid_ctx_list_fini(&block->sids);
 		listnode_delete(srv6->sid_blocks, block);
 		zebra_srv6_sid_block_free(block);
 	}
@@ -856,7 +852,7 @@ void zebra_srv6_sid_client_del_all(struct zebra_srv6_sid *sid, struct zserv *cli
 		release_srv6_sid_func(sid->ctx);
 
 		/* Remove the SID context from the list and free memory */
-		listnode_delete(block->sids, sid->ctx);
+		zebra_srv6_sid_ctx_list_del(&block->sids, sid->ctx);
 		zebra_srv6_sid_ctx_free(sid->ctx);
 
 		/* Free the SID */
@@ -1895,7 +1891,7 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid, struct srv6_sid_ct
 		(*sid)->wide_func = sid_func_wide;
 		(*sid)->ctx = zctx;
 		zctx->sid = *sid;
-		listnode_add(block->sids, zctx);
+		zebra_srv6_sid_ctx_list_add_tail(&block->sids, zctx);
 	}
 
 	zebra_srv6_sid_entry_add(*sid, locator->name, sid_value, is_localonly);
@@ -1990,7 +1986,7 @@ static int get_srv6_sid_dynamic(struct zebra_srv6_sid **sid, struct srv6_sid_ctx
 	}
 	(*sid)->ctx = zctx;
 	zctx->sid = *sid;
-	listnode_add(block->sids, zctx);
+	zebra_srv6_sid_ctx_list_add_tail(&block->sids, zctx);
 
 	zebra_srv6_sid_entry_add(*sid, locator->name, &sid_value, is_localonly);
 
@@ -2568,7 +2564,7 @@ int release_srv6_sid(struct zserv *client, struct zebra_srv6_sid_ctx *zctx,
 		zctx->sid = NULL;
 
 		/* Remove the SID context from the list and free memory */
-		listnode_delete(block->sids, zctx);
+		zebra_srv6_sid_ctx_list_del(&block->sids, zctx);
 		zebra_srv6_sid_ctx_free(zctx);
 	}
 
@@ -2686,7 +2682,6 @@ static int srv6_manager_get_sid_internal(struct zebra_srv6_sid **sid, struct zse
 int release_daemon_srv6_sids(struct zserv *client)
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
-	struct listnode *node, *nnode;
 	struct listnode *node_block;
 	struct zebra_srv6_sid_ctx *ctx;
 	int count = 0;
@@ -2699,7 +2694,7 @@ int release_daemon_srv6_sids(struct zserv *client)
 
 	/* Iterate over the SIDs and release SIDs used by the client daemon */
 	for (ALL_LIST_ELEMENTS_RO(srv6->sid_blocks, node_block, block))
-		for (ALL_LIST_ELEMENTS(block->sids, node, nnode, ctx))
+		frr_each_safe (zebra_srv6_sid_ctx_list, &block->sids, ctx)
 			zebra_srv6_sid_client_del_all(ctx->sid, client);
 
 	if (IS_ZEBRA_DEBUG_SRV6)
@@ -2722,7 +2717,6 @@ static int srv6_manager_release_sid_internal(struct zserv *client, struct srv6_s
 {
 	int ret = -1;
 	struct zebra_srv6_sid_ctx *zctx;
-	struct listnode *node, *nnode;
 	char buf[256];
 	struct srv6_locator *locator = NULL;
 	struct in6_addr sid_value = {};
@@ -2748,7 +2742,7 @@ static int srv6_manager_release_sid_internal(struct zserv *client, struct srv6_s
 	block = locator->sid_block;
 
 	/* Lookup Zebra SID context and release it */
-	for (ALL_LIST_ELEMENTS(block->sids, node, nnode, zctx))
+	frr_each_safe (zebra_srv6_sid_ctx_list, &block->sids, zctx)
 		if (memcmp(&zctx->ctx, ctx, sizeof(struct srv6_sid_ctx)) == 0) {
 			if (zctx->sid) {
 				entry = zebra_srv6_sid_entry_lookup(zctx->sid, locator->name,
@@ -2798,16 +2792,16 @@ void zebra_srv6_terminate(void)
 			block = listnode_head(g_srv6.sid_blocks);
 
 			/* Free SRv6 SIDs */
-			while (listcount(block->sids)) {
-				sid_ctx = listnode_head(block->sids);
+			while (zebra_srv6_sid_ctx_list_count(&block->sids)) {
+				sid_ctx = zebra_srv6_sid_ctx_list_first(&block->sids);
 
 				zebra_srv6_sid_free(sid_ctx->sid);
 
-				listnode_delete(block->sids, sid_ctx);
+				zebra_srv6_sid_ctx_list_del(&block->sids, sid_ctx);
 				zebra_srv6_sid_ctx_free(sid_ctx);
 			}
 
-			list_delete(&block->sids);
+			zebra_srv6_sid_ctx_list_fini(&block->sids);
 
 			listnode_delete(g_srv6.sid_blocks, block);
 			zebra_srv6_sid_block_free(block);
