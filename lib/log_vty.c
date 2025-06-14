@@ -169,6 +169,38 @@ void log_show_syslog(struct vty *vty)
 			zlog_progname);
 }
 
+DEFPY(send_log,
+      send_log_cmd,
+      "send log [level <emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>$levelarg] LINE...",
+      "Send message\n"
+      "Send log message\n"
+      "Level of log message\n"
+      LOG_LEVEL_DESC
+      "Log message to send\n")
+{
+	const char *buf = vty->buf;
+	int level = log_default_lvl;
+
+	if (levelarg) {
+		/* this checks using first 2 chars so works for both priority and severity */
+		level = log_level_match(levelarg);
+		assert(level != ZLOG_DISABLED);
+	}
+
+	/* find start of LINE in `buf` */
+	while (*buf && isspace(*buf))
+		buf++;
+	for (; *buf && (*argv)->type != VARIABLE_TKN; argv++) {
+		while (*buf && !isspace(*buf))
+			buf++;
+		while (*buf && isspace(*buf))
+			buf++;
+	}
+
+	zlog(level, "%s", buf);
+	return CMD_SUCCESS;
+}
+
 DEFUN_NOSH (show_logging,
 	    show_logging_cmd,
 	    "show logging",
@@ -963,6 +995,7 @@ __attribute__((_CONSTRUCTOR(475))) static void log_vty_preinit(void)
 
 void log_cmd_init(void)
 {
+	install_element(VIEW_NODE, &send_log_cmd);
 	install_element(VIEW_NODE, &show_logging_cmd);
 	install_element(ENABLE_NODE, &clear_log_cmdline_cmd);
 

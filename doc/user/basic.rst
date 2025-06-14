@@ -718,6 +718,12 @@ Terminal Mode Commands
    currently configured value (if the leaf is optional it will only show
    if it was created or has a default value).
 
+.. clicmd:: send log [level LEVEL] MESSAGE
+
+   Send MESSAGE to the log. If LEVEL is specified that is the level the
+   message will be logged at. LEVEL can be one emergencies, alerts, critical,
+   errors, warnings, notifications, informational, or debugging.
+
 .. _common-invocation-options:
 
 Common Invocation Options
