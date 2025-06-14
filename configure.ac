@@ -1816,13 +1816,7 @@ AS_IF([test "$enable_bgpd" != "no"], [
 ])
 
 AS_IF([test "$enable_mgmtd" != "no"], [
-
   AC_DEFINE([HAVE_MGMTD], [1], [mgmtd])
-
-  # Enable MGMTD local validations
-  AS_IF([test "$enable_mgmtd_local_validations" == "yes"], [
-    AC_DEFINE([MGMTD_LOCAL_VALIDATIONS_ENABLED], [1], [Enable mgmtd local validations.])
-  ])
 ])
 
 AS_IF([test "$enable_mgmtd_test_be_client" = "yes"], [
