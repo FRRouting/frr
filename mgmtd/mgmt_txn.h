@@ -27,20 +27,6 @@
 
 #define MGMTD_TXN_ID_NONE 0
 
-/*
- * The following definition enables local validation of config
- * on the MGMTD process by loading client-defined NB callbacks
- * and calling them locally before sening CNFG_APPLY_REQ to
- * backend for actual apply of configuration on internal state
- * of the backend application.
- *
- * #define MGMTD_LOCAL_VALIDATIONS_ENABLED
- *
- * Note: Enabled by default in configure.ac, if this needs to be
- * disabled then pass --enable-mgmtd-local-validations=no to
- * the list of arguments passed to ./configure
- */
-
 PREDECL_LIST(mgmt_txns);
 
 struct mgmt_master;
