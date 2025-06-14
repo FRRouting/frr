@@ -208,6 +208,18 @@ DEFPY_YANG (config_log_record_priority,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG (config_log_record_severity,
+       config_log_record_severity_cmd,
+       "[no] log record-severity",
+	NO_STR
+       "Logging control\n"
+       "Log the severity of the message within the message\n")
+{
+	nb_cli_enqueue_change(vty, "/frr-logging:logging/record-severity", NB_OP_MODIFY,
+			      no ? "false" : "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFPY_YANG (config_log_timestamp_precision,
        config_log_timestamp_precision_cmd,
        "log timestamp precision (0-6)",
@@ -345,6 +357,7 @@ void log_cli_init(void)
 	install_element(CONFIG_NODE, &config_log_facility_cmd);
 	install_element(CONFIG_NODE, &no_config_log_facility_cmd);
 	install_element(CONFIG_NODE, &config_log_record_priority_cmd);
+	install_element(CONFIG_NODE, &config_log_record_severity_cmd);
 	install_element(CONFIG_NODE, &config_log_timestamp_precision_cmd);
 	install_element(CONFIG_NODE, &no_config_log_timestamp_precision_cmd);
 	install_element(CONFIG_NODE, &config_log_ec_cmd);
@@ -429,6 +442,17 @@ static void logging_record_priority_cli_write(struct vty *vty, const struct lyd_
 	else if (show_defaults)
 		vty_out(vty, "no log record-priority\n");
 }
+
+static void logging_record_severity_cli_write(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	bool enable = yang_dnode_get_bool(dnode, NULL);
+
+	if (enable)
+		vty_out(vty, "log record-severity\n");
+	else if (show_defaults)
+		vty_out(vty, "no log record-severity\n");
+}
+
 static void logging_timestamp_precision_cli_write(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
 	const char *prec = yang_dnode_get_string(dnode, NULL);
@@ -482,6 +506,7 @@ const struct frr_yang_module_info frr_logging_cli_info = {
 		{ .xpath = "/frr-logging:logging/daemon-file/filename", .cbs.cli_show = logging_daemon_file_filename_cli_write },
 		{ .xpath = "/frr-logging:logging/facility", .cbs.cli_show = logging_facility_cli_write },
 		{ .xpath = "/frr-logging:logging/record-priority", .cbs.cli_show = logging_record_priority_cli_write },
+		{ .xpath = "/frr-logging:logging/record-severity", .cbs.cli_show = logging_record_severity_cli_write },
 		{ .xpath = "/frr-logging:logging/timestamp-precision", .cbs.cli_show = logging_timestamp_precision_cli_write },
 		{ .xpath = "/frr-logging:logging/error-category", .cbs.cli_show = logging_error_category_cli_write },
 		{ .xpath = "/frr-logging:logging/unique-id", .cbs.cli_show = logging_unique_id_cli_write },

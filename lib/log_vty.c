@@ -264,6 +264,7 @@ DEFUN_NOSH (show_logging,
 	vty_out(vty, "Protocol name: %s\n", zlog_protoname);
 	vty_out(vty, "Record priority: %s\n",
 		(zt_file.record_priority ? "enabled" : "disabled"));
+	vty_out(vty, "Record severity: %s\n", (zt_file.record_severity ? "enabled" : "disabled"));
 	vty_out(vty, "Timestamp precision: %d\n", zt_file.ts_subsec);
 
 	hook_call(zlog_cli_show, vty);
