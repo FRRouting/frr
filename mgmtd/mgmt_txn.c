@@ -717,38 +717,6 @@ static int mgmt_txn_prepare_config(struct mgmt_txn_ctx *txn)
 		goto mgmt_txn_prepare_config_done;
 	}
 
-#ifdef MGMTD_LOCAL_VALIDATIONS_ENABLED
-	if (mm->perf_stats_en)
-		gettimeofday(&txn->commit_cfg_req->req.commit_cfg.cmt_stats
-				      ->validate_start,
-			     NULL);
-	/*
-	 * Perform application level validations locally on the MGMTD
-	 * process by calling application specific validation routines
-	 * loaded onto MGMTD process using libraries.
-	 */
-	nb_ctx.client = NB_CLIENT_MGMTD_SERVER;
-	nb_ctx.user = (void *)txn;
-	ret = nb_candidate_validate_code(&nb_ctx, nb_config, &changes, err_buf,
-					 sizeof(err_buf) - 1);
-	if (ret != NB_OK) {
-		if (strncmp(err_buf, " ", strlen(err_buf)) == 0)
-			strlcpy(err_buf, "Validation failed", sizeof(err_buf));
-		(void)mgmt_txn_send_commit_cfg_reply(txn, MGMTD_INVALID_PARAM,
-						     err_buf);
-		ret = -1;
-		goto mgmt_txn_prepare_config_done;
-	}
-
-	if (txn->commit_cfg_req->req.commit_cfg.validate_only) {
-		/*
-		 * This was a validate-only COMMIT request return success.
-		 */
-		(void)mgmt_txn_send_commit_cfg_reply(txn, MGMTD_SUCCESS, NULL);
-		goto mgmt_txn_prepare_config_done;
-	}
-#endif /* ifdef MGMTD_LOCAL_VALIDATIONS_ENABLED */
-
 mgmt_txn_prep_config_validation_done:
 
 	if (mm->perf_stats_en)
