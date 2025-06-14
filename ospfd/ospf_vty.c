@@ -11567,6 +11567,70 @@ static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf,
 	return CMD_SUCCESS;
 }
 
+static int show_ip_ospf_route_common_royal(struct vty *vty, struct ospf *ospf,
+				     json_object *json, uint8_t use_vrf,
+				     bool detail)
+{
+	json_object *json_vrf = NULL;
+
+	if (ospf->instance)
+		vty_out(vty, "\nOSPF Instance: %d\n\n", ospf->instance);
+
+
+	if (json) {
+		if (use_vrf)
+			json_vrf = json_object_new_object();
+		else
+			json_vrf = json;
+	}
+
+	ospf_show_vrf_name(ospf, vty, json_vrf, use_vrf);
+
+	if (ospf->new_table == NULL) {
+		if (json) {
+			if (use_vrf)
+				json_object_free(json_vrf);
+		} else {
+			vty_out(vty, "No OSPF routing information existi Royal\n");
+		}
+		return CMD_SUCCESS;
+	}
+
+	if (detail && json == NULL) {
+		vty_out(vty, "Codes: N  - network     T - transitive\n");
+		vty_out(vty, "       IA - inter-area  E - external route\n");
+		vty_out(vty, "       D  - destination R - router\n\n");
+	}
+
+	/* Show Network routes. */
+	show_ip_ospf_route_network(vty, ospf, ospf->new_table, json_vrf,
+				   detail);
+
+	/* Show Router routes. */
+	show_ip_ospf_route_router(vty, ospf, ospf->new_rtrs, json_vrf);
+
+	/* Show Router routes. */
+	if (ospf->all_rtrs)
+		show_ip_ospf_route_router(vty, ospf, ospf->all_rtrs, json_vrf);
+
+	/* Show AS External routes. */
+	show_ip_ospf_route_external(vty, ospf, ospf->old_external_route,
+				    json_vrf, detail);
+
+	if (json) {
+		if (use_vrf) {
+			// json_object_object_add(json_vrf, "areas",
+			// json_areas);
+			json_object_object_add(json, ospf_get_name(ospf),
+					       json_vrf);
+		}
+	} else {
+		vty_out(vty, "\n");
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_ip_ospf_route,
        show_ip_ospf_route_cmd,
 	"show ip ospf [vrf <NAME|all>] route [detail] [json]",
@@ -11650,6 +11714,147 @@ DEFUN (show_ip_ospf_route,
 
 	if (ospf) {
 		ret = show_ip_ospf_route_common(vty, ospf, json, use_vrf,
+						detail);
+		/* Keep Non-pretty format */
+		if (uj)
+			vty_out(vty, "%s\n",
+				json_object_to_json_string_ext(
+					json, JSON_C_TO_STRING_NOSLASHESCAPE));
+	}
+
+	if (uj)
+		json_object_free(json);
+
+	return ret;
+}
+
+DEFUN (show_ip_ospf_route_cmd_venkat,
+       show_ip_ospf_route_cmd_venkat_cmd,
+       "show ip ospf venkat route [detail] [json]",
+       SHOW_STR
+       IP_STR
+       "OSPF information\n"
+       "Custom Venkat OSPF route display\n"
+       "OSPF routing table\n"
+       "Detailed information\n"
+       JSON_STR)
+{
+	struct ospf *ospf = NULL;
+	int ret = CMD_SUCCESS;
+	int idx = 0;
+	bool uj = use_json(argc, argv);
+	bool detail = false;
+	json_object *json = NULL;
+
+	if (uj)
+		json = json_object_new_object();
+
+	if (argv_find(argv, argc, "detail", &idx))
+		detail = true;
+
+	/* Lookup OSPF default instance */
+	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	if (ospf == NULL || !ospf->oi_running) {
+		if (uj)
+			vty_json(vty, json);
+		else
+			vty_out(vty, "%% OSPF is not enabled in vrf default\n");
+		return CMD_SUCCESS;
+	}
+
+	ret = show_ip_ospf_route_common(vty, ospf, json, 0 /* use_vrf */, detail);
+
+	if (uj)
+		vty_out(vty, "%s\n",
+			 json_object_to_json_string_ext(json, JSON_C_TO_STRING_NOSLASHESCAPE));
+
+	if (uj)
+		json_object_free(json);
+
+	return ret;
+}
+DEFUN (show_ip_ospf_route_royal,
+       show_ip_ospf_route_cmd_royal_cmd,
+	"show ip ospf royal route [detail] [json]",
+	SHOW_STR
+	IP_STR
+	"OSPF information\n"
+	"Custom Royal OSPF route display\n"
+	"OSPF routing table\n"
+	"Detailed information\n"
+	JSON_STR)
+{
+	struct ospf *ospf = NULL;
+	struct listnode *node = NULL;
+	char *vrf_name = NULL;
+	bool all_vrf = false;
+	int ret = CMD_SUCCESS;
+	int inst = 0;
+	int idx = 0;
+	int idx_vrf = 0;
+	uint8_t use_vrf = 0;
+	bool uj = use_json(argc, argv);
+	bool detail = false;
+	json_object *json = NULL;
+
+	if (uj)
+		json = json_object_new_object();
+
+	if (argv_find(argv, argc, "detail", &idx))
+		detail = true;
+
+	OSPF_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+
+	/* vrf input is provided could be all or specific vrf*/
+	if (vrf_name) {
+		bool ospf_output = false;
+
+		use_vrf = 1;
+
+		if (all_vrf) {
+			for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
+				if (!ospf->oi_running)
+					continue;
+				ospf_output = true;
+				ret = show_ip_ospf_route_common_royal(
+					vty, ospf, json, use_vrf, detail);
+			}
+
+			if (uj) {
+				/* Keep Non-pretty format */
+				vty_json(vty, json);
+			} else if (!ospf_output)
+				vty_out(vty, "%% OSPF is not enabled\n");
+
+			return ret;
+		}
+		ospf = ospf_lookup_by_inst_name(inst, vrf_name);
+		if (ospf == NULL || !ospf->oi_running) {
+			if (uj)
+				vty_json(vty, json);
+			else
+				vty_out(vty,
+					"%% OSPF is not enabled in vrf Venkat's %s\n",
+					vrf_name);
+
+			return CMD_SUCCESS;
+		}
+	} else {
+		/* Display default ospf (instance 0) info */
+		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+		if (ospf == NULL || !ospf->oi_running) {
+			if (uj)
+				vty_json(vty, json);
+			else
+				vty_out(vty,
+					"%% OSPF is not enabled in vrf Royal's default\n");
+
+			return CMD_SUCCESS;
+		}
+	}
+
+	if (ospf) {
+		ret = show_ip_ospf_route_common_royal(vty, ospf, json, use_vrf,
 						detail);
 		/* Keep Non-pretty format */
 		if (uj)
@@ -13122,6 +13327,8 @@ void ospf_vty_show_init(void)
 
 	/* "show ip ospf route" commands. */
 	install_element(VIEW_NODE, &show_ip_ospf_route_cmd);
+        install_element(VIEW_NODE, &show_ip_ospf_route_cmd_venkat_cmd);
+        install_element(VIEW_NODE, &show_ip_ospf_route_cmd_royal_cmd);
 	install_element(VIEW_NODE, &show_ip_ospf_border_routers_cmd);
 	install_element(VIEW_NODE, &show_ip_ospf_reachable_routers_cmd);
 
