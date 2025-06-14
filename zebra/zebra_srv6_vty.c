@@ -571,7 +571,6 @@ static void do_show_srv6_sid_all(struct vty *vty, json_object **json, struct srv
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
 	struct zebra_srv6_sid_ctx *ctx;
-	struct listnode *node;
 	struct ttable *tt;
 	struct zebra_srv6_sid_block *block;
 	struct listnode *node_block;
@@ -579,7 +578,7 @@ static void do_show_srv6_sid_all(struct vty *vty, json_object **json, struct srv
 
 	if (json) {
 		for (ALL_LIST_ELEMENTS_RO(srv6->sid_blocks, node_block, block)) {
-			for (ALL_LIST_ELEMENTS_RO(block->sids, node, ctx)) {
+			frr_each (zebra_srv6_sid_ctx_list, &block->sids, ctx) {
 				/* Skip contexts not associated with any SID */
 				if (!ctx->sid)
 					continue;
@@ -603,7 +602,7 @@ static void do_show_srv6_sid_all(struct vty *vty, json_object **json, struct srv
 		ttable_rowseps(tt, 0, BOTTOM, true, '-');
 
 		for (ALL_LIST_ELEMENTS_RO(srv6->sid_blocks, node_block, block)) {
-			for (ALL_LIST_ELEMENTS_RO(block->sids, node, ctx)) {
+			frr_each (zebra_srv6_sid_ctx_list, &block->sids, ctx) {
 				/* Skip contexts not associated with any SID */
 				if (!ctx->sid)
 					continue;
@@ -650,7 +649,6 @@ DEFPY (show_srv6_sid,
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
 	struct srv6_locator *locator = NULL;
 	struct zebra_srv6_sid_ctx *sid_ctx = NULL, *c;
-	struct listnode *node;
 	json_object *json = NULL;
 	bool found = false;
 	struct zebra_srv6_sid_entry *entry;
@@ -673,7 +671,7 @@ DEFPY (show_srv6_sid,
 
 	if (!IPV6_ADDR_SAME(&sid_value, &in6addr_any)) {
 		for (ALL_LIST_ELEMENTS_RO(srv6->sid_blocks, node_block, block)) {
-			for (ALL_LIST_ELEMENTS_RO(block->sids, node, c)) {
+			frr_each (zebra_srv6_sid_ctx_list, &block->sids, c) {
 				if (!c->sid)
 					continue;
 
@@ -758,14 +756,14 @@ DEFUN (no_srv6,
 		if (block) {
 			block->refcnt--;
 			if (block->refcnt == 0) {
-				for (ALL_LIST_ELEMENTS(block->sids, node, nnode, ctx)) {
+				frr_each_safe (zebra_srv6_sid_ctx_list, &block->sids, ctx) {
 					if (ctx->sid)
 						zebra_srv6_sid_free(ctx->sid);
 
-					listnode_delete(block->sids, ctx);
+					zebra_srv6_sid_ctx_list_del(&block->sids, ctx);
 					zebra_srv6_sid_ctx_free(ctx);
 				}
-				list_delete(&block->sids);
+				zebra_srv6_sid_ctx_list_fini(&block->sids);
 				listnode_delete(srv6->sid_blocks, block);
 				zebra_srv6_sid_block_free(block);
 			}
@@ -819,7 +817,6 @@ DEFUN (no_srv6_locator,
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
 	struct zebra_srv6_sid_block *block;
-	struct listnode *node, *nnode;
 	struct zebra_srv6_sid_ctx *ctx;
 	struct srv6_locator *locator = zebra_srv6_locator_lookup(argv[2]->arg);
 	struct zebra_srv6_sid_entry *entry;
@@ -830,7 +827,7 @@ DEFUN (no_srv6_locator,
 	}
 
 	block = locator->sid_block;
-	for (ALL_LIST_ELEMENTS(block->sids, node, nnode, ctx)) {
+	frr_each_safe (zebra_srv6_sid_ctx_list, &block->sids, ctx) {
 		if (!ctx->sid)
 			continue;
 
@@ -843,7 +840,7 @@ DEFUN (no_srv6_locator,
 		if (zebra_srv6_sid_entry_list_count(&ctx->sid->entries) == 0) {
 			zebra_srv6_sid_free(ctx->sid);
 
-			listnode_delete(block->sids, ctx);
+			zebra_srv6_sid_ctx_list_del(&block->sids, ctx);
 			zebra_srv6_sid_ctx_free(ctx);
 		}
 	}
@@ -852,14 +849,14 @@ DEFUN (no_srv6_locator,
 	if (block) {
 		block->refcnt--;
 		if (block->refcnt == 0) {
-			for (ALL_LIST_ELEMENTS(block->sids, node, nnode, ctx)) {
+			frr_each_safe (zebra_srv6_sid_ctx_list, &block->sids, ctx) {
 				if (ctx->sid)
 					zebra_srv6_sid_free(ctx->sid);
 
-				listnode_delete(block->sids, ctx);
+				zebra_srv6_sid_ctx_list_del(&block->sids, ctx);
 				zebra_srv6_sid_ctx_free(ctx);
 			}
-			list_delete(&block->sids);
+			zebra_srv6_sid_ctx_list_fini(&block->sids);
 			listnode_delete(srv6->sid_blocks, block);
 			zebra_srv6_sid_block_free(block);
 		}
