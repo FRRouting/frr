@@ -506,6 +506,29 @@ static int logging_record_priority_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
+/*
+ * XPath: /frr-logging:logging/record-severity
+ */
+static int logging_record_severity_modify(struct nb_cb_modify_args *args)
+{
+	bool val;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	val = yang_dnode_get_bool(args->dnode, NULL);
+	zt_file.record_severity = val;
+	zlog_file_set_other(&zt_file);
+	if (!stdout_journald_in_use) {
+		zt_stdout_file.record_severity = val;
+		zlog_file_set_other(&zt_stdout_file);
+	}
+	zt_filterfile.parent.record_severity = val;
+	zlog_file_set_other(&zt_filterfile.parent);
+
+	return NB_OK;
+}
+
 
 /*
  * XPath: /frr-logging:logging/timestamp-precision
@@ -727,6 +750,12 @@ const struct frr_yang_module_info frr_logging_nb_info = {
 			.xpath = "/frr-logging:logging/record-priority",
 			.cbs = {
 				.modify = logging_record_priority_modify,
+			}
+		},
+		{
+			.xpath = "/frr-logging:logging/record-severity",
+			.cbs = {
+				.modify = logging_record_severity_modify,
 			}
 		},
 		{
