@@ -718,6 +718,12 @@ Terminal Mode Commands
    currently configured value (if the leaf is optional it will only show
    if it was created or has a default value).
 
+.. clicmd:: send log [severity SEVERITY] MESSAGE
+
+   Send MESSAGE to the log. If severity is specified that is the level the
+   message will be logged at. SEVERITY can be one of the syslog levels (i.e.
+   debug, info, notice, warning, error, critical, alert, emergency).
+
 .. _common-invocation-options:
 
 Common Invocation Options
