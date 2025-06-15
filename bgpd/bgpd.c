@@ -3307,6 +3307,7 @@ int peer_group_listen_range_del(struct peer_group *group, struct prefix *range)
 	if (group->conf->password)
 		bgp_md5_unset_prefix(group->bgp, prefix);
 
+	prefix_free(&prefix);
 	return 0;
 }
 
@@ -3790,6 +3791,7 @@ int bgp_handle_socket(struct bgp *bgp, struct vrf *vrf, vrf_id_t old_vrf_id,
 	/* Create BGP server socket, if listen mode not disabled */
 	if (!bgp || bgp_option_check(BGP_OPT_NO_LISTEN))
 		return 0;
+
 	if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF) {
 		/*
 		 * suppress vrf socket
@@ -3800,6 +3802,8 @@ int bgp_handle_socket(struct bgp *bgp, struct vrf *vrf, vrf_id_t old_vrf_id,
 		}
 		if (vrf == NULL)
 			return BGP_ERR_INVALID_VALUE;
+		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_VRF_MAY_LISTEN))
+			return 0;
 		/* do nothing
 		 * if vrf_id did not change
 		 */
