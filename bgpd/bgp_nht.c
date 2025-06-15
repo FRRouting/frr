@@ -581,6 +581,37 @@ void bgp_delete_connected_nexthop(afi_t afi, struct peer *peer)
 	}
 }
 
+static void bgp_bnc_mark_nht_important(struct bgp_nexthop_cache *bnc, struct zapi_route *nhr)
+{
+	struct bgp *bgp = bnc->bgp;
+	afi_t afi = family2afi(nhr->prefix.family);
+	struct bgp_table *table = bgp->rib[afi][nhr->safi];
+	struct bgp_dest *dest;
+
+	if (nhr->type != ZEBRA_ROUTE_BGP)
+		return;
+
+	if (!table)
+		return;
+
+	/*
+	 * If the old resolved prefix is the same as the new resolved prefix
+	 * nothing to mark here, move along
+	 */
+	if (prefix_same(&bnc->resolved_prefix, &nhr->prefix))
+		return;
+
+	dest = bgp_afi_node_get(table, afi, nhr->safi, &bnc->resolved_prefix, NULL);
+	if (dest)
+		UNSET_FLAG(dest->flags, BGP_NODE_NHT_RESOLVED_NODE);
+
+	dest = bgp_afi_node_get(table, afi, nhr->safi, &nhr->prefix, NULL);
+	if (!dest)
+		return;
+
+	SET_FLAG(dest->flags, BGP_NODE_NHT_RESOLVED_NODE);
+}
+
 static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 				       struct zapi_route *nhr,
 				       bool import_check)
@@ -599,14 +630,15 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 	if (BGP_DEBUG(nht, NHT)) {
 		char bnc_buf[BNC_FLAG_DUMP_SIZE];
 
-		zlog_debug(
-			"%s(%u): Rcvd NH update %pFX(%u)(%u) - metric %d/%d #nhops %d/%d flags %s",
-			bnc->bgp->name_pretty, bnc->bgp->vrf_id, &nhr->prefix,
-			bnc->ifindex_ipv6_ll, bnc->srte_color, nhr->metric,
-			bnc->metric, nhr->nexthop_num, bnc->nexthop_num,
-			bgp_nexthop_dump_bnc_flags(bnc, bnc_buf,
-						   sizeof(bnc_buf)));
+		zlog_debug("%s(%u): Rcvd NH update %pFX(%u)(%u) - metric %d/%d #nhops %d/%d flags %s redistributing protocol %s",
+			   bnc->bgp->name_pretty, bnc->bgp->vrf_id, &nhr->prefix,
+			   bnc->ifindex_ipv6_ll, bnc->srte_color, nhr->metric, bnc->metric,
+			   nhr->nexthop_num, bnc->nexthop_num,
+			   bgp_nexthop_dump_bnc_flags(bnc, bnc_buf, sizeof(bnc_buf)),
+			   zebra_route_string(nhr->type));
 	}
+
+	bgp_bnc_mark_nht_important(bnc, nhr);
 
 	if (nhr->metric != bnc->metric)
 		SET_FLAG(bnc->change_flags, BGP_NEXTHOP_METRIC_CHANGED);
