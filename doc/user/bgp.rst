@@ -539,6 +539,8 @@ Reject routes with AS_SET or AS_CONFED_SET types
 
    The aggregated routes are not sent to the contributing neighbors.
 
+   It's defined under RFC 9774 and it's enabled by default.
+
 .. seealso::
    https://datatracker.ietf.org/doc/html/draft-ietf-idr-deprecate-as-set-confed-set
 
