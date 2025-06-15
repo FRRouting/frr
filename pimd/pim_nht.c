@@ -778,19 +778,20 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 		 * "check cache or get immediate result." But until that can
 		 * be worked in, here's a copy of the code below :(
 		 */
-		struct pim_zlookup_nexthop nexthop_tab[router->multipath];
 		ifindex_t i;
 		int num_ifindex;
+		struct zclient_next_hop_args args = {
+			.address = bsr_addr,
+			.pim = pim,
+		};
 
-		memset(nexthop_tab, 0, sizeof(nexthop_tab));
-		num_ifindex = zclient_lookup_nexthop(pim, nexthop_tab, router->multipath, bsr_addr,
-						     PIMADDR_ANY, PIM_NEXTHOP_LOOKUP_MAX);
+		num_ifindex = zclient_lookup_nexthop(&args, PIM_NEXTHOP_LOOKUP_MAX);
 
 		if (num_ifindex <= 0)
 			return false;
 
 		for (i = 0; i < num_ifindex; i++) {
-			struct pim_zlookup_nexthop *znh = &nexthop_tab[i];
+			struct pim_zlookup_nexthop *znh = &args.next_hops[i];
 
 			/* pim_zlookup_nexthop has no ->type */
 
@@ -1247,7 +1248,6 @@ bool pim_nht_lookup_ecmp(struct pim_instance *pim, struct pim_nexthop *nexthop, 
 			 struct prefix *grp, bool neighbor_needed)
 {
 	struct pim_nexthop_cache *pnc;
-	struct pim_zlookup_nexthop nexthop_tab[router->multipath];
 	int num_ifindex;
 	bool found = false;
 	uint16_t i = 0;
@@ -1255,6 +1255,15 @@ bool pim_nht_lookup_ecmp(struct pim_instance *pim, struct pim_nexthop *nexthop, 
 	uint32_t mod_val = 0;
 	uint32_t num_nbrs = 0;
 	pim_addr group;
+	struct zclient_next_hop_args args = {
+		.pim = pim,
+		.address = src,
+#if PIM_IPV == 4
+		.group = grp->u.prefix4,
+#else
+		.group = grp->u.prefix6,
+#endif
+	};
 
 	group = pim_addr_from_prefix(grp);
 
@@ -1268,9 +1277,7 @@ bool pim_nht_lookup_ecmp(struct pim_instance *pim, struct pim_nexthop *nexthop, 
 			return pim_ecmp_nexthop_search(pim, pnc, nexthop, src, grp, neighbor_needed);
 	}
 
-	memset(nexthop_tab, 0, sizeof(struct pim_zlookup_nexthop) * router->multipath);
-	num_ifindex = zclient_lookup_nexthop(pim, nexthop_tab, router->multipath, src, group,
-					     PIM_NEXTHOP_LOOKUP_MAX);
+	num_ifindex = zclient_lookup_nexthop(&args, PIM_NEXTHOP_LOOKUP_MAX);
 	if (num_ifindex < 1) {
 		if (PIM_DEBUG_PIM_NHT)
 			zlog_warn("%s: could not find nexthop ifindex for address %pPA(%s)",
@@ -1281,12 +1288,13 @@ bool pim_nht_lookup_ecmp(struct pim_instance *pim, struct pim_nexthop *nexthop, 
 	/* Count the number of neighbors for ECMP computation */
 	for (i = 0; i < num_ifindex; i++) {
 		struct pim_neighbor *nbr;
-		struct interface *ifp = if_lookup_by_index(nexthop_tab[i].ifindex, pim->vrf->vrf_id);
+		struct interface *ifp = if_lookup_by_index(args.next_hops[i].ifindex,
+							   pim->vrf->vrf_id);
 
 		if (!ifp)
 			continue;
 
-		nbr = pim_neighbor_find(ifp, nexthop_tab[i].nexthop_addr, true);
+		nbr = pim_neighbor_find(ifp, args.next_hops[i].nexthop_addr, true);
 		if (nbr || pim_if_connected_to_source(ifp, src))
 			num_nbrs++;
 	}
@@ -1312,12 +1320,13 @@ bool pim_nht_lookup_ecmp(struct pim_instance *pim, struct pim_nexthop *nexthop, 
 	for (i = 0; i < num_ifindex && !found; i++) {
 		struct pim_neighbor *nbr = NULL;
 		struct pim_interface *pim_ifp;
-		struct interface *ifp = if_lookup_by_index(nexthop_tab[i].ifindex, pim->vrf->vrf_id);
+		struct interface *ifp = if_lookup_by_index(args.next_hops[i].ifindex,
+							   pim->vrf->vrf_id);
 
 		if (!ifp) {
 			if (PIM_DEBUG_PIM_NHT)
 				zlog_debug("%s %s: could not find interface for ifindex %d (address %pPA(%s))",
-					   __FILE__, __func__, nexthop_tab[i].ifindex, &src,
+					   __FILE__, __func__, args.next_hops[i].ifindex, &src,
 					   pim->vrf->name);
 			if (i == mod_val)
 				mod_val++;
@@ -1330,21 +1339,21 @@ bool pim_nht_lookup_ecmp(struct pim_instance *pim, struct pim_nexthop *nexthop, 
 			if (PIM_DEBUG_PIM_NHT)
 				zlog_debug("%s: pim not enabled on input interface %s(%s) (ifindex=%d, RPF for source %pPA)",
 					   __func__, ifp->name, pim->vrf->name,
-					   nexthop_tab[i].ifindex, &src);
+					   args.next_hops[i].ifindex, &src);
 			if (i == mod_val)
 				mod_val++;
 			continue;
 		}
 
 		if (neighbor_needed && !pim_if_connected_to_source(ifp, src)) {
-			nbr = pim_neighbor_find(ifp, nexthop_tab[i].nexthop_addr, true);
+			nbr = pim_neighbor_find(ifp, args.next_hops[i].nexthop_addr, true);
 			if (PIM_DEBUG_PIM_NHT_DETAIL)
 				zlog_debug("ifp name: %s(%s), pim nbr: %p", ifp->name,
 					   pim->vrf->name, nbr);
 			if (!nbr && !if_is_loopback(ifp)) {
 				if (PIM_DEBUG_PIM_NHT)
 					zlog_debug("%s: NBR (%pPA) not found on input interface %s(%s) (RPF for source %pPA)",
-						   __func__, &nexthop_tab[i].nexthop_addr,
+						   __func__, &args.next_hops[i].nexthop_addr,
 						   ifp->name, pim->vrf->name, &src);
 				if (i == mod_val)
 					mod_val++;
@@ -1355,14 +1364,14 @@ bool pim_nht_lookup_ecmp(struct pim_instance *pim, struct pim_nexthop *nexthop, 
 		if (i == mod_val) {
 			if (PIM_DEBUG_PIM_NHT)
 				zlog_debug("%s: found nhop %pPA for addr %pPA interface %s(%s) metric %d dist %d",
-					   __func__, &nexthop_tab[i].nexthop_addr, &src, ifp->name,
-					   pim->vrf->name, nexthop_tab[i].route_metric,
-					   nexthop_tab[i].protocol_distance);
+					   __func__, &args.next_hops[i].nexthop_addr, &src,
+					   ifp->name, pim->vrf->name, args.next_hops[i].route_metric,
+					   args.next_hops[i].protocol_distance);
 			/* update nexthop data */
 			nexthop->interface = ifp;
-			nexthop->mrib_nexthop_addr = nexthop_tab[i].nexthop_addr;
-			nexthop->mrib_metric_preference = nexthop_tab[i].protocol_distance;
-			nexthop->mrib_route_metric = nexthop_tab[i].route_metric;
+			nexthop->mrib_nexthop_addr = args.next_hops[i].nexthop_addr;
+			nexthop->mrib_metric_preference = args.next_hops[i].protocol_distance;
+			nexthop->mrib_route_metric = args.next_hops[i].route_metric;
 			nexthop->last_lookup = src;
 			nexthop->last_lookup_time = pim_time_monotonic_usec();
 			nexthop->nbr = nbr;
@@ -1376,7 +1385,6 @@ bool pim_nht_lookup_ecmp(struct pim_instance *pim, struct pim_nexthop *nexthop, 
 bool pim_nht_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop, pim_addr addr,
 		    pim_addr group, bool neighbor_needed)
 {
-	struct pim_zlookup_nexthop nexthop_tab[router->multipath];
 	struct pim_neighbor *nbr = NULL;
 	int num_ifindex;
 	struct interface *ifp = NULL;
@@ -1384,6 +1392,11 @@ bool pim_nht_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop, pim_a
 	bool found = false;
 	int i = 0;
 	struct pim_interface *pim_ifp;
+	struct zclient_next_hop_args args = {
+		.pim = pim,
+		.address = addr,
+		.group = group,
+	};
 
 #if PIM_IPV == 4
 	/*
@@ -1409,9 +1422,7 @@ bool pim_nht_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop, pim_a
 		zlog_debug("%s: Looking up: %pPAs, last lookup time: %lld, %" PRId64, __func__,
 			   &addr, nexthop->last_lookup_time, pim->last_route_change_time);
 
-	memset(nexthop_tab, 0, sizeof(struct pim_zlookup_nexthop) * router->multipath);
-	num_ifindex = zclient_lookup_nexthop(pim, nexthop_tab, router->multipath, addr, group,
-					     PIM_NEXTHOP_LOOKUP_MAX);
+	num_ifindex = zclient_lookup_nexthop(&args, PIM_NEXTHOP_LOOKUP_MAX);
 	if (num_ifindex < 1) {
 		if (PIM_DEBUG_PIM_NHT)
 			zlog_debug("%s: could not find nexthop ifindex for address %pPAs", __func__,
@@ -1420,7 +1431,7 @@ bool pim_nht_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop, pim_a
 	}
 
 	while (!found && (i < num_ifindex)) {
-		first_ifindex = nexthop_tab[i].ifindex;
+		first_ifindex = args.next_hops[i].ifindex;
 
 		ifp = if_lookup_by_index(first_ifindex, pim->vrf->vrf_id);
 		if (!ifp) {
@@ -1438,7 +1449,7 @@ bool pim_nht_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop, pim_a
 					   __func__, ifp->name, first_ifindex, &addr);
 			i++;
 		} else if (neighbor_needed && !pim_if_connected_to_source(ifp, addr)) {
-			nbr = pim_neighbor_find(ifp, nexthop_tab[i].nexthop_addr, true);
+			nbr = pim_neighbor_find(ifp, args.next_hops[i].nexthop_addr, true);
 			if (PIM_DEBUG_PIM_TRACE_DETAIL)
 				zlog_debug("ifp name: %s, pim nbr: %p", ifp->name, nbr);
 			if (!nbr && !if_is_loopback(ifp))
@@ -1452,15 +1463,109 @@ bool pim_nht_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop, pim_a
 	if (found) {
 		if (PIM_DEBUG_ZEBRA)
 			zlog_debug("%s: found nexthop %pPAs for address %pPAs: interface %s ifindex=%d metric=%d pref=%d",
-				   __func__, &nexthop_tab[i].nexthop_addr, &addr, ifp->name,
-				   first_ifindex, nexthop_tab[i].route_metric,
-				   nexthop_tab[i].protocol_distance);
+				   __func__, &args.next_hops[i].nexthop_addr, &addr, ifp->name,
+				   first_ifindex, args.next_hops[i].route_metric,
+				   args.next_hops[i].protocol_distance);
 
 		/* update nexthop data */
 		nexthop->interface = ifp;
-		nexthop->mrib_nexthop_addr = nexthop_tab[i].nexthop_addr;
-		nexthop->mrib_metric_preference = nexthop_tab[i].protocol_distance;
-		nexthop->mrib_route_metric = nexthop_tab[i].route_metric;
+		nexthop->mrib_nexthop_addr = args.next_hops[i].nexthop_addr;
+		nexthop->mrib_metric_preference = args.next_hops[i].protocol_distance;
+		nexthop->mrib_route_metric = args.next_hops[i].route_metric;
+		nexthop->last_lookup = addr;
+		nexthop->last_lookup_time = pim_time_monotonic_usec();
+		nexthop->nbr = nbr;
+		return true;
+	} else
+		return false;
+}
+
+bool pim_bgp_nht_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop, pim_addr addr,
+			pim_addr group, uint32_t *asn)
+{
+	struct pim_neighbor *nbr = NULL;
+	int num_ifindex;
+	struct interface *ifp = NULL;
+	ifindex_t first_ifindex = 0;
+	bool found = false;
+	int i = 0;
+	struct pim_interface *pim_ifp;
+	struct zclient_next_hop_args args = {
+		.pim = pim,
+		.address = addr,
+		.group = group,
+	};
+
+#if PIM_IPV == 4
+	/*
+	 * We should not attempt to lookup a
+	 * 255.255.255.255 address, since
+	 * it will never work
+	 */
+	if (pim_addr_is_any(addr))
+		return false;
+#endif
+
+	if ((!pim_addr_cmp(nexthop->last_lookup, addr)) &&
+	    (nexthop->last_lookup_time > pim->last_route_change_time)) {
+		if (PIM_DEBUG_PIM_NHT)
+			zlog_debug("%s: Using last lookup for %pPAs at %lld, %" PRId64 " addr %pPAs",
+				   __func__, &addr, nexthop->last_lookup_time,
+				   pim->last_route_change_time, &nexthop->mrib_nexthop_addr);
+		pim->nexthop_lookups_avoided++;
+		return true;
+	}
+
+	if (PIM_DEBUG_PIM_NHT)
+		zlog_debug("%s: Looking up: %pPAs, last lookup time: %lld, %" PRId64, __func__,
+			   &addr, nexthop->last_lookup_time, pim->last_route_change_time);
+
+	num_ifindex = zclient_lookup_nexthop(&args, PIM_NEXTHOP_LOOKUP_MAX);
+	if (num_ifindex < 1) {
+		if (PIM_DEBUG_PIM_NHT)
+			zlog_debug("%s: could not find nexthop ifindex for address %pPAs", __func__,
+				   &addr);
+		return false;
+	}
+
+	/* Check the eBGP AS number if needed */
+	if (asn != NULL && args.route_type == ZEBRA_ROUTE_BGP)
+		*asn = args.asn;
+
+	while (!found && (i < num_ifindex)) {
+		first_ifindex = args.next_hops[i].ifindex;
+
+		ifp = if_lookup_by_index(first_ifindex, pim->vrf->vrf_id);
+		if (!ifp) {
+			if (PIM_DEBUG_ZEBRA)
+				zlog_debug("%s: could not find interface for ifindex %d (address %pPAs)",
+					   __func__, first_ifindex, &addr);
+			i++;
+			continue;
+		}
+
+		pim_ifp = ifp->info;
+		if (!pim_ifp || !pim_ifp->pim_enable) {
+			if (PIM_DEBUG_ZEBRA)
+				zlog_debug("%s: pim not enabled on input interface %s (ifindex=%d, RPF for source %pPAs)",
+					   __func__, ifp->name, first_ifindex, &addr);
+			i++;
+		} else
+			found = true;
+	}
+
+	if (found) {
+		if (PIM_DEBUG_ZEBRA)
+			zlog_debug("%s: found nexthop %pPAs for address %pPAs: interface %s ifindex=%d metric=%d pref=%d",
+				   __func__, &args.next_hops[i].nexthop_addr, &addr, ifp->name,
+				   first_ifindex, args.next_hops[i].route_metric,
+				   args.next_hops[i].protocol_distance);
+
+		/* update nexthop data */
+		nexthop->interface = ifp;
+		nexthop->mrib_nexthop_addr = args.next_hops[i].nexthop_addr;
+		nexthop->mrib_metric_preference = args.next_hops[i].protocol_distance;
+		nexthop->mrib_route_metric = args.next_hops[i].route_metric;
 		nexthop->last_lookup = addr;
 		nexthop->last_lookup_time = pim_time_monotonic_usec();
 		nexthop->nbr = nbr;
