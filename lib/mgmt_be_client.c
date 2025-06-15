@@ -529,11 +529,7 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn, const char **con
 	gettimeofday(&prep_nb_cfg_start, NULL);
 	err = nb_candidate_commit_prepare(nb_ctx, client_ctx->candidate_config,
 					  "MGMTD Backend Txn", &txn->nb_txn,
-#ifdef MGMTD_LOCAL_VALIDATIONS_ENABLED
-					  true, true,
-#else
 					  false, true,
-#endif
 					  err_buf, sizeof(err_buf) - 1);
 	if (err != NB_OK) {
 		err_buf[sizeof(err_buf) - 1] = 0;

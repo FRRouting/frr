@@ -1934,12 +1934,6 @@ mgmt_fe_adapter_cmt_stats_write(struct vty *vty,
 				mgmt_realtime_to_string(
 					&adapter->cmt_stats.last_start, buf,
 					sizeof(buf)));
-#ifdef MGMTD_LOCAL_VALIDATIONS_ENABLED
-			vty_out(vty, "        Config-Validate Start: \t\t%s\n",
-				mgmt_realtime_to_string(
-					&adapter->cmt_stats.validate_start, buf,
-					sizeof(buf)));
-#endif
 			vty_out(vty, "        Prep-Config Start: \t\t%s\n",
 				mgmt_realtime_to_string(
 					&adapter->cmt_stats.prep_cfg_start, buf,
