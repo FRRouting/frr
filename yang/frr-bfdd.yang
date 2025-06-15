@@ -234,7 +234,7 @@ module frr-bfdd {
 
     leaf required-echo-receive-interval {
       type uint32 {
-          range "0 | 10000..max";
+          range "0..10000 | 10000..max";
       }
       units microseconds;
       default 50000;
