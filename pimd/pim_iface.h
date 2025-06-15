@@ -20,6 +20,7 @@
 #include "pim_ifchannel.h"
 #include "bfd.h"
 #include "pim_str.h"
+#include "pim_routemap.h"
 
 #define PIM_IF_IS_DELETED(ifp) ((ifp)->ifindex == IFINDEX_INTERNAL)
 
@@ -122,6 +123,9 @@ struct pim_interface {
 
 	/* IGMPv2 only/MLDv1 only immediate leave */
 	bool gmp_immediate_leave;
+
+	/* NB: multicast_rmap is only applied for (S,G) data */
+	struct pim_filter_ref gmp_filter;
 
 	int pim_sock_fd;		/* PIM socket file descriptor */
 	struct event *t_pim_sock_read;	/* thread for reading PIM socket */
