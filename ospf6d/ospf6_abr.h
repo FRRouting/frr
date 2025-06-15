@@ -11,6 +11,8 @@
 /* for struct ospf6_prefix */
 #include "ospf6_proto.h"
 
+#define OSPF6_ABR_TASK_DELAY 5
+
 /* Debug option */
 extern unsigned char conf_debug_ospf6_abr;
 #define OSPF6_DEBUG_ABR_ON() (conf_debug_ospf6_abr = 1)
@@ -44,7 +46,10 @@ extern void ospf6_abr_examin_brouter(uint32_t router_id,
 				     struct ospf6_route *route,
 				     struct ospf6 *ospf6);
 extern void ospf6_abr_range_reset_cost(struct ospf6 *ospf6);
-extern void ospf6_abr_prefix_resummarize(struct ospf6 *ospf6);
+
+extern void ospf6_abr_task(struct ospf6 *ospf6);
+extern void ospf6_schedule_abr_task(struct ospf6 *ospf6);
+extern void ospf6_execute_abr_task(struct ospf6 *ospf6);
 
 extern int config_write_ospf6_debug_abr(struct vty *vty);
 extern void install_element_ospf6_debug_abr(void);
@@ -58,7 +63,6 @@ extern void ospf6_abr_old_path_update(struct ospf6_route *old_route,
 extern void ospf6_abr_init(void);
 extern void ospf6_abr_range_update(struct ospf6_route *range,
 				   struct ospf6 *ospf6);
-extern void ospf6_abr_remove_unapproved_summaries(struct ospf6 *ospf6);
 extern int ospf6_ls_origin_same(struct ospf6_path *o_path,
 				struct ospf6_path *r_path);
 
