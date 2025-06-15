@@ -1186,6 +1186,14 @@ BGP GR Show Commands
    This command will display information about the neighbors graceful-restart status
 
 
+BGP Show Neighbors Brief Command
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. clicmd:: show bgp [<ipv4|ipv6>] [<view|vrf> VRF] neighbors [<A.B.C.D|X:X::X:X|WORD>] [brief] [json]
+
+   This command will display brief information about the neighbors when brief option is included
+
+
 Long-lived Graceful Restart
 ---------------------------
 
