@@ -33,6 +33,8 @@ Control/Utility functions:
 
     - :py:func:`test`
 
+    - :py:func:`pause`
+
 Test scripts are located by the :command:`mutest` command by their name.  The name of a
 test script should take the form ``mutest_TESTNAME.py`` where ``TESTNAME`` is replaced
 with a user chosen name for the test case.
@@ -86,6 +88,9 @@ class ScriptError(Exception):
 class CLIOnErrorError(Exception):
     """Enter CLI after error."""
 
+    def __init__(self, desc=""):
+        self.desc = desc
+
 
 def pause_test(desc=""):
     isatty = sys.stdout.isatty()
@@ -97,8 +102,12 @@ def pause_test(desc=""):
     while True:
         if desc:
             print(f"\n== PAUSING: {desc} ==")
+        else:
+            print("\n== PAUSING: *NO DESCRIPTION PROVIDED* ==")
         try:
-            user = input('PAUSED, "cli" for CLI, "pdb" to debug, "Enter" to continue: ')
+            user = input(
+                'PAUSED, type "cli" for CLI, "pdb" to debug, or press [Enter] to continue: '
+            )
         except EOFError:
             print("^D...continuing")
             break
@@ -107,6 +116,9 @@ def pause_test(desc=""):
             raise CLIOnErrorError()
         if user == "pdb":
             breakpoint()  # pylint: disable=W1515
+            break
+        elif user == "Enter" or user == "enter":
+            break
         elif user:
             print(f'Unrecognized input: "{user}"')
         else:
@@ -116,10 +128,11 @@ def pause_test(desc=""):
 def act_on_result(success, args, desc=""):
     if args.pause:
         pause_test(desc)
-    elif success:
+    elif success or len(desc) == 0:
+        # No success on description-less steps are not considered errors.
         return
     if args.cli_on_error:
-        raise CLIOnErrorError()
+        raise CLIOnErrorError(desc)
     if args.pause_on_error:
         pause_test(desc)
 
@@ -568,7 +581,11 @@ class TestCase:
             json_diff = json.loads(deep_diff.to_json())
         else:
             deep_diff = json_cmp(
-                expect, js, ignore_order=True, cutoff_intersection_for_pairs=1
+                expect,
+                js,
+                ignore_order=True,
+                cutoff_intersection_for_pairs=1,
+                cutoff_distance_for_pairs=1,
             )
             # Convert DeepDiff completely into dicts or lists at all levels
             json_diff = json.loads(deep_diff.to_json())
@@ -579,8 +596,7 @@ class TestCase:
             if (new_items := json_diff.get("iterable_item_added")) is not None:
                 new_item_paths = list(new_items.keys())
                 for path in new_item_paths:
-                    if type(new_items[path]) is dict:
-                        del new_items[path]
+                    del new_items[path]
                 if len(new_items) == 0:
                     del json_diff["iterable_item_added"]
 
@@ -741,6 +757,19 @@ class TestCase:
         self.__in_section = True
         self.oplogf("   section setting __in_section to True")
         self.__print_header(self.info.tag, desc, add_nl)
+
+    def pause(self):
+        """See :py:func:`~munet.mutest.userapi.pause`.
+
+        :meta private:
+        """
+        self.logf(
+            "#%s.%s:%s:PAUSE",
+            self.tag,
+            self.steps + 1,
+            self.info.path,
+        )
+        pause_test("mutest paused")
 
     def step(self, target: str, cmd: str) -> str:
         """See :py:func:`~munet.mutest.userapi.step`.
@@ -1007,6 +1036,11 @@ def get_target(name: str) -> Commander:
     return TestCase.g_tc.targets[name]
 
 
+def pause():
+    """Pause the mutest and allow a user to either enter pdb or the cli."""
+    return TestCase.g_tc.pause()
+
+
 def step(target: str, cmd: str) -> str:
     """Execute a ``cmd`` on a ``target`` and return the output.
 
@@ -1076,7 +1110,8 @@ def match_step(
         target: the target to execute the ``cmd`` on.
         cmd: string to execut on the ``target``.
         match: regex to match against output.
-        desc: description of test, if no description then no result is logged.
+        desc: description of test, if no description then step failure is not
+            considered an error and no result is logged.
         expect_fail: if True then succeed when the regexp doesn't match.
         flags: python regex flags to modify matching behavior
         exact_match: if True then ``match`` must be exactly matched somewhere
@@ -1111,7 +1146,8 @@ def match_step_json(
         cmd: string to execut on the ``target``.
         match: A json ``str``, object (``dict``), or array (``list``) to compare
             against the json output from ``cmd``.
-        desc: description of test, if no description then no result is logged.
+        desc: description of test, if no description then step failure is not
+            considered an error and no result is logged.
         expect_fail: if True then succeed if the a json doesn't match.
         exact_match: if True then the json must exactly match.
 
@@ -1155,7 +1191,8 @@ def wait_step(
             specified the value is calculated from the timeout value so that on
             average the cmd will execute 10 times. The minimum calculated interval
             is .25s, shorter values can be passed explicitly.
-        desc: description of test, if no description then no result is logged.
+        desc: description of test, if no description then step failure is not
+            considered an error and no result is logged.
         expect_fail: if True then succeed when the regexp *doesn't* match.
         flags: python regex flags to modify matching behavior
         exact_match: if True then ``match`` must be exactly matched somewhere
@@ -1192,7 +1229,8 @@ def wait_step_json(
         cmd: string to execut on the ``target``.
         match: A json object, json array, or str representation of json to compare
             against json output from ``cmd``.
-        desc: description of test, if no description then no result is logged.
+        desc: description of test, if no description then step failure is not
+            considered an error and no result is logged.
         timeout: The number of seconds to repeat the ``cmd`` looking for a match
             (or non-match if ``expect_fail`` is True).
         interval: The number of seconds between running the ``cmd``. If not
