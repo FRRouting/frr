@@ -661,6 +661,9 @@ extern void command_setup_early_logging(const char *dest, const char *level);
  */
 extern void cmd_show_lib_debugs(struct vty *vty);
 
+extern const struct frr_yang_module_info frr_host_cli_info;
+extern void host_cli_init(void);
+
 #ifdef __cplusplus
 }
 #endif
