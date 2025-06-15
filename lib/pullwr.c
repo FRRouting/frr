@@ -84,6 +84,18 @@ void pullwr_bump(struct pullwr *pullwr)
 	event_add_timer(pullwr->tm, pullwr_run, pullwr, 0, &pullwr->writer);
 }
 
+/* call this function to schedule a pullwr_bump after a certain timeout
+ *
+ * uint32_t timeout is the wait time before pullwr_bump, in milliseconds
+ */
+void pullwr_timeout(struct pullwr *pullwr, uint32_t timeout)
+{
+	if (pullwr->writer)
+		return;
+
+	event_add_timer_msec(pullwr->tm, pullwr_run, pullwr, timeout, &pullwr->writer);
+}
+
 static size_t pullwr_iov(struct pullwr *pullwr, struct iovec *iov)
 {
 	size_t len1;
@@ -188,6 +200,7 @@ static void pullwr_run(struct event *t)
 
 	monotime(&t0);
 
+	zlog_err("pullwr run");
 	do {
 		lastvalid = pullwr->valid - 1;
 		while (pullwr->valid < pullwr->thresh
@@ -209,6 +222,7 @@ static void pullwr_run(struct event *t)
 			 * data in, and we have nothing more queued, so we go
 			 * into idle, i.e. no calling event_add_write()
 			 */
+			zlog_err("pullwr: valid = 0; ret");
 			pullwr_resize(pullwr, 0);
 			return;
 		}

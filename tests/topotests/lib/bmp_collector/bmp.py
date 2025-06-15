@@ -48,6 +48,7 @@ def log2file(logs, log_file):
     """
     with open(log_file, "a") as f:
         f.write(json.dumps(logs) + "\n")
+        f.flush()
 
 
 def timestamp_print(message, file=sys.stderr):
@@ -281,7 +282,11 @@ class BMPPerPeerMessage:
             is_as_path = bool(peer_flags & IS_AS_PATH)
             is_post_policy = bool(peer_flags & IS_POST_POLICY)
             is_ipv6 = bool(peer_flags & IS_IPV6)
-            msg["policy"] = "post-policy" if is_post_policy else "pre-policy"
+            msg["policy"] = (
+                ("rib-out" if is_adj_rib_out else "rib-in")
+                + "-"
+                + ("post-policy" if is_post_policy else "pre-policy")
+            )
             msg["ipv6"] = is_ipv6
             msg["peer_ip"] = bin2str_ipaddress(peer_address, is_ipv6)
 
