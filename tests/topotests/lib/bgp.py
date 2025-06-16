@@ -353,6 +353,13 @@ def __create_bgp_global(tgen, input_dict, router, build=False):
         elif bgp_always_compare_med == False:
             config_data.append("no bgp always-compare-med")
 
+    if "bgp_accept_as_sets" in bgp_data:
+        bgp_accept_as_sets = bgp_data["bgp_accept_as_sets"]
+        if bgp_accept_as_sets == True:
+            config_data.append("no bgp reject-as-sets")
+        elif bgp_accept_as_sets == False:
+            config_data.append("bgp reject-as-sets")
+
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return config_data
 
