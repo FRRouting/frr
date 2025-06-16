@@ -50,6 +50,9 @@ void static_ifp_srv6_sids_update(struct interface *ifp, bool is_up)
 	 */
 	for (ALL_LIST_ELEMENTS_RO(srv6_sids, node, sid)) {
 		if ((strcmp(sid->attributes.vrf_name, ifp->name) == 0) ||
+		    ((sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_X ||
+		      sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID) &&
+		     strcmp(sid->attributes.ifname, ifp->name) == 0) ||
 		    (strncmp(ifp->name, DEFAULT_SRV6_IFNAME, sizeof(ifp->name)) == 0 &&
 		     (sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END ||
 		      sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID))) {
