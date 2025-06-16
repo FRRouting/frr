@@ -493,7 +493,7 @@ static void logging_uid_backtrace_cli_write(struct vty *vty, const struct lyd_no
 	vty_out(vty, "debug unique-id %s backtrace\n", yang_dnode_get_string(dnode, "uid"));
 }
 
-const struct frr_yang_module_info frr_logging_cli_info = {
+struct frr_yang_module_info frr_logging_cli_info = {
 	.name = "frr-logging",
 	.ignore_cfg_cbs = true,
 	.nodes = {
@@ -515,3 +515,19 @@ const struct frr_yang_module_info frr_logging_cli_info = {
 		{ .xpath = NULL },
 	}
 };
+
+void frr_logging_merge_cli_to_nb_info(void)
+{
+	int i, j;
+
+	for (i = 0; frr_logging_cli_info.nodes[i].xpath != NULL; i++) {
+		for (j = 0; frr_logging_nb_info.nodes[j].xpath != NULL; j++) {
+			if (!strcmp(frr_logging_cli_info.nodes[i].xpath, frr_logging_nb_info.nodes[j].xpath)) {
+				frr_logging_nb_info.nodes[j].cbs.cli_show = frr_logging_cli_info.nodes[i].cbs.cli_show;
+				break;
+			}
+		}
+		/* Make sure we found one */
+		assert(frr_logging_nb_info.nodes[j].xpath != NULL);
+	}
+}

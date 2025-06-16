@@ -659,7 +659,7 @@ static int logging_uid_backtrace_destroy(struct nb_cb_destroy_args *args)
 }
 
 /* clang-format off */
-const struct frr_yang_module_info frr_logging_nb_info = {
+struct frr_yang_module_info frr_logging_nb_info = {
 	.name = "frr-logging",
 	.nodes = {
 		{

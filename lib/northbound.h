@@ -738,7 +738,7 @@ struct frr_yang_module_info {
 	void (*unlock_tree)(const struct lyd_node *tree, void *user_lock);
 
 	/* Northbound callbacks. */
-	const struct {
+	struct {
 		/* Data path of this YANG node. */
 		const char *xpath;
 
@@ -1391,6 +1391,17 @@ extern int nb_candidate_commit_prepare(struct nb_context context,
 				       bool skip_validate,
 				       bool ignore_zero_change, char *errmsg,
 				       size_t errmsg_len);
+
+
+/*
+ * This function is used externally by mgmtd which has already calculated
+ * changes and just needs to run the process for itself without interacting with
+ * it's own candidate config which has all the backend client changes in it.
+ */
+extern int nb_changes_commit_prepare(struct nb_context context, struct nb_config_cbs changes,
+				     const char *comment, struct nb_config *candidate_config,
+				     struct nb_transaction **transaction, char *errmsg,
+				     size_t errmsg_len);
 
 /*
  * Abort a previously created configuration transaction, releasing all resources
