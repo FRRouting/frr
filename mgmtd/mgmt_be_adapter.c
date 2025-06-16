@@ -217,6 +217,14 @@ static struct mgmt_be_adapters_head mgmt_be_adapters;
 static struct mgmt_be_client_adapter
 	*mgmt_be_adapters_by_id[MGMTD_BE_CLIENT_ID_MAX];
 
+/*
+ * Mgmtd has it's own special "interested-in" xpath maps since it's not actually
+ * a backend client of itself.
+ */
+static const char *const mgmtd_config_xpaths[] = {
+	"/frr-logging:logging",
+};
+
 
 /* Forward declarations */
 static void
@@ -937,6 +945,20 @@ uint64_t mgmt_be_interested_clients(const char *xpath,
 			_dbg("Cient: %s: subscribed", mgmt_be_client_id2name(id));
 	}
 	return clients;
+}
+
+bool mgmt_is_mgmtd_interested(const char *xpath)
+{
+	const char *const *match = mgmtd_config_xpaths;
+	const char *const *ematch = match + array_size(mgmtd_config_xpaths);
+
+	for (; match < ematch; match++) {
+		if (mgmt_be_xpath_prefix(*match, xpath)) {
+			_dbg("mgmtd: subscribed to %s", xpath);
+			return true;
+		}
+	}
+	return false;
 }
 
 /**

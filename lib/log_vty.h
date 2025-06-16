@@ -48,7 +48,7 @@ extern bool stdout_journald_in_use;
 
 void log_stdout_apply_level(void);
 
-extern const struct frr_yang_module_info frr_logging_cli_info;
+extern struct frr_yang_module_info frr_logging_cli_info;
 
 #ifdef __cplusplus
 }

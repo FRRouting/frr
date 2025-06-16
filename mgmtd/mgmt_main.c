@@ -181,7 +181,7 @@ static const struct frr_yang_module_info *const mgmt_yang_modules[] = {
 	&frr_filter_cli_info,
 	&frr_host_cli_info,
 	&frr_interface_cli_info,
-	&frr_logging_cli_info,
+	&frr_logging_nb_info,
 	&frr_route_map_cli_info,
 	&frr_routing_cli_info,
 	&frr_vrf_cli_info,
@@ -241,6 +241,8 @@ int main(int argc, char **argv)
 {
 	int opt;
 	int buffer_size = MGMTD_SOCKET_BUF_SIZE;
+
+	frr_logging_merge_cli_to_nb_info();
 
 	frr_preinit(&mgmtd_di, argc, argv);
 	frr_opt_add("s:n" DEPRECATED_OPTIONS, longopts,
