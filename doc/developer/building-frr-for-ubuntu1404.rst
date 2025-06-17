@@ -50,6 +50,7 @@ Install FRR configuration files
    sudo install -m 640 -o frr -g frr tools/etc/frr/frr.conf /etc/frr/frr.conf
    sudo install -m 640 -o frr -g frr tools/etc/frr/daemons.conf /etc/frr/daemons.conf
    sudo install -m 640 -o frr -g frr tools/etc/frr/daemons /etc/frr/daemons
+   sudo install -m 640 -o frr -g frr tools/etc/frr/support_bundle_commands.conf /etc/frr/support_bundle_commands.conf
 
 Tweak sysctls
 ^^^^^^^^^^^^^
