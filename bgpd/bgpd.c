@@ -1519,6 +1519,7 @@ int bgp_peer_gr_init(struct peer *peer)
 static void bgp_srv6_init(struct bgp *bgp)
 {
 	bgp->srv6_enabled = false;
+	bgp->install_sid_routes = false;
 	bgp->srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
 	memset(bgp->srv6_locator_name, 0, sizeof(bgp->srv6_locator_name));
 	bgp->srv6_locator_chunks = list_new();

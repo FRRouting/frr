@@ -1560,6 +1560,7 @@ static enum zclient_send_status bgp_zebra_withdraw_actual_route_to_srv6_sid(stru
 	if (bgp_debug_zebra(p))
 		zlog_debug("Tx route delete %s (table id %u) %pFX", bgp->name_pretty, api->tableid,
 			   &api->prefix);
+	UNSET_FLAG(dest->flags, BGP_NODE_HANDLE_ROUTE_SID);
 	return zclient_route_send(ZEBRA_ROUTE_DELETE, bgp_zclient, api);
 }
 
@@ -1699,6 +1700,16 @@ bgp_zebra_announce_actual(struct bgp_dest *dest, struct bgp_path_info *info,
 	ret = zclient_route_send(ZEBRA_ROUTE_ADD, bgp_zclient, &api);
 	if (ret == ZCLIENT_SEND_FAILURE)
 		return ret;
+	if (bgp->install_sid_routes == false) {
+		if (CHECK_FLAG(dest->flags, BGP_NODE_HANDLE_ROUTE_SID) && srv6_nh_index >= 0) {
+			/* flush current srv6_sid_cache contexts */
+			api.nexthop_num = 0;
+			api_nh = &api.nexthops[srv6_nh_index];
+			ret = bgp_zebra_withdraw_actual_route_to_srv6_sid(dest, bgp, &api,
+									  &api_nh->seg6_segs[0]);
+		}
+		return ret;
+	}
 	if (srv6_nh_index >= 0) {
 		/* SRv6 encapsulation : after SRv6 encapsulation,
 		 * A route lookup on the same vrf looks for a path for the SID
@@ -1826,7 +1837,9 @@ enum zclient_send_status bgp_zebra_withdraw_actual(struct bgp_dest *dest,
 			   bgp->name_pretty, api.tableid, &api.prefix);
 
 	status = zclient_route_send(ZEBRA_ROUTE_DELETE, bgp_zclient, &api);
-	if (status != ZCLIENT_SEND_FAILURE && bgp_zebra_has_srv6_sid_nexthop(dest, info, bgp, &sid))
+	if (status != ZCLIENT_SEND_FAILURE &&
+	    (bgp->install_sid_routes || CHECK_FLAG(dest->flags, BGP_NODE_HANDLE_ROUTE_SID)) &&
+	    bgp_zebra_has_srv6_sid_nexthop(dest, info, bgp, &sid))
 		status = bgp_zebra_withdraw_actual_route_to_srv6_sid(dest, bgp, &api, &sid);
 	return status;
 }
@@ -2409,7 +2422,8 @@ void bgp_zclient_reset(void)
 	zclient_reset(bgp_zclient);
 }
 
-void bgp_zebra_update_srv6_encap_routes(struct bgp *bgp, afi_t afi, struct bgp *from_bgp, bool add)
+void bgp_zebra_update_srv6_encap_routes(struct bgp *bgp, afi_t afi, struct bgp *from_bgp, bool add,
+					bool handle_sid_route)
 {
 	struct bgp_table *table;
 	struct bgp_dest *dest;
@@ -2437,8 +2451,11 @@ void bgp_zebra_update_srv6_encap_routes(struct bgp *bgp, afi_t afi, struct bgp *
 				continue;
 
 			if ((pi->attr->srv6_l3vpn && !sid_zero_ipv6(&pi->attr->srv6_l3vpn->sid)) ||
-			    (pi->attr->srv6_vpn && !sid_zero_ipv6(&pi->attr->srv6_vpn->sid)))
+			    (pi->attr->srv6_vpn && !sid_zero_ipv6(&pi->attr->srv6_vpn->sid))) {
+				if (handle_sid_route)
+					SET_FLAG(dest->flags, BGP_NODE_HANDLE_ROUTE_SID);
 				bgp_zebra_route_install(dest, pi, bgp, add, NULL, false);
+			}
 		}
 	}
 }
