@@ -28,7 +28,7 @@
                         "fc00:0:2::",
                         "fc00:0:6::"
                     ],
-                    "srv6EncapBehavior": "H.Encaps.Red"
+                    "srv6EncapBehavior": "H.Encaps"
                 }
             ]
         }

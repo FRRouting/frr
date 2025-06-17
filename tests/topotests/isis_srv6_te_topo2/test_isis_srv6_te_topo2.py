@@ -297,9 +297,10 @@ def test_srv6_locator_step1():
             "step1/show_srv6_locator_table.ref",
         )
 
-def test_srv6_end_b6_encaps_within_locator_srv6_sid_manager():
+
+def test_srv6_configure_srte_policy_to_static_route():
     logger.info(
-        "Test (step 4): verify SRv6 Locator-based END.B6.Encaps with srv6-sid-manager"
+        "Test (step 2): Apply policy to color 1, endpoint fc00:0:6::, check resulting route"
     )
     tgen = get_topogen()
 
@@ -323,6 +324,60 @@ def test_srv6_end_b6_encaps_within_locator_srv6_sid_manager():
         exit
         """
     )
+    for rname in ["rt1"]:
+        router_compare_json_output(
+            rname,
+            "show ipv6 route static json",
+            "step2/show_srv6_route.ref",
+        )
+
+
+#
+# Step 3
+#
+# Test SRv6 TE Policy activated. with H.Encaps instruction
+#
+
+
+def test_srv6_te_policy_activated_with_hencaps():
+    logger.info(
+        "Test (step 3): verify SRv6 TE policy activated with H.Encaps instruction"
+    )
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    tgen.gears["rt1"].vtysh_cmd(
+        """
+        configure
+        segment-routing
+        traffic-eng
+        no srv6-encap-behavior segment-list H_Encaps_Red
+        exit
+        exit
+        exit
+        """
+    )
+
+    for rname in ["rt1"]:
+        router_compare_json_output(
+            rname,
+            "show ipv6 route static json",
+            "step3/show_srv6_route.ref",
+        )
+
+
+def test_srv6_end_b6_encaps_within_locator_srv6_sid_manager():
+    logger.info(
+        "Test (step 4): verify SRv6 Locator-based END.B6.Encaps with srv6-sid-manager"
+    )
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
 
     tgen.gears["rt2"].vtysh_cmd(
         """
