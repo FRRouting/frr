@@ -153,6 +153,13 @@ And create ``frr`` user and ``frrvty`` group as follows:
       --gecos "FRRouting suite" --shell /bin/false frr
    usermod -G frrvty frr
 
+Finally copy the support bundle config file over into it's appropriate place:
+
+.. code:: shell
+
+   sudo cp tools/etc/frr/support_bundle_commands.conf /etc/frr/
+
+
 Executing Tests
 ---------------
 
