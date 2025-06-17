@@ -3421,6 +3421,13 @@ L3VPN SRv6
    there are no other specific options, then the segment-routing-header is removed,
    and only the IPv6 header is appended to the original packet.
 
+.. clicmd:: install-routes-to-sids
+
+   When an L3VPN SRv6 route is installed, packets are SRv6 encapsulated, and submitted
+   against the same VRF routing table. If an SRv6 backbone with IS-IS is used, the
+   route to reach the SID is unknown in that L3VPN, and packet may be dropped. Use
+   this command to to reach the SID used in L3VPN SRv6 routes.
+
 L3VPN SRv6 SID reachability
 ---------------------------
 
