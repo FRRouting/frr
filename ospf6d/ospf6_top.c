@@ -40,7 +40,6 @@
 #include "ospf6_tlv.h"
 #include "ospf6_gr.h"
 #include "lib/json.h"
-#include "ospf6_nssa.h"
 #include "ospf6_auth_trailer.h"
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_TOP, "OSPF6 top");
@@ -270,7 +269,7 @@ static void ospf6_top_route_hook_add(struct ospf6_route *route)
 		return;
 	}
 
-	ospf6_abr_originate_summary(route, ospf6);
+	ospf6_schedule_abr_task(ospf6);
 	ospf6_zebra_route_update_add(route, ospf6);
 }
 
@@ -294,7 +293,7 @@ static void ospf6_top_route_hook_remove(struct ospf6_route *route)
 	}
 
 	route->flag |= OSPF6_ROUTE_REMOVE;
-	ospf6_abr_originate_summary(route, ospf6);
+	ospf6_schedule_abr_task(ospf6);
 	ospf6_zebra_route_update_remove(route, ospf6);
 }
 
@@ -318,7 +317,7 @@ static void ospf6_top_brouter_hook_add(struct ospf6_route *route)
 	ospf6_abr_examin_brouter(ADV_ROUTER_IN_PREFIX(&route->prefix), route,
 				 ospf6);
 	ospf6_asbr_lsentry_add(route, ospf6);
-	ospf6_abr_originate_summary(route, ospf6);
+	ospf6_schedule_abr_task(ospf6);
 }
 
 static void ospf6_top_brouter_hook_remove(struct ospf6_route *route)
@@ -342,7 +341,7 @@ static void ospf6_top_brouter_hook_remove(struct ospf6_route *route)
 	ospf6_abr_examin_brouter(ADV_ROUTER_IN_PREFIX(&route->prefix), route,
 				 ospf6);
 	ospf6_asbr_lsentry_remove(route, ospf6);
-	ospf6_abr_originate_summary(route, ospf6);
+	ospf6_schedule_abr_task(ospf6);
 }
 
 static struct ospf6 *ospf6_create(const char *name)
