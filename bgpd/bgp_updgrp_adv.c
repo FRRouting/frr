@@ -576,40 +576,53 @@ bool bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 	 * at egress, neighbors will see duplicate UPDATES despite
 	 * the route wasn't changed actually.
 	 * Do not suppress BGP UPDATES for route-refresh.
+	 *
+	 * Do not suppress BGP UPDATES if there's an pending WITHDRAW. Consider:
+	 *
+	 *     UPDATE(1) - UPDATE(2) - WITHDRAW - UPDATE(2')
+	 *
+	 * Don't suppress UPDATE(2') when WITHDRAW is pending in advertisement
+	 * FIFO, otherwise it will eventually get withdrawn.
+	 * We can't simply remove the WITHDRAW from FIFO either, because
+	 * UPDATE(2) could have been superseded by the WITHDRAW, and we need to
+	 * make sure the route is advertised with latest attributes.
 	 */
-	if (likely(CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_DUPLICATES)))
-		attr_hash = attrhash_key_make(attr);
+	if (!(adj->adv && !adj->adv->baa)) {
+		if (likely(CHECK_FLAG(bgp->flags,
+				      BGP_FLAG_SUPPRESS_DUPLICATES)))
+			attr_hash = attrhash_key_make(attr);
 
-	if (!CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES) &&
-	    attr_hash && adj->attr_hash == attr_hash &&
-	    bgp_labels_cmp(path->extra ? path->extra->labels : NULL,
-			   adj->labels)) {
-		if (BGP_DEBUG(update, UPDATE_OUT)) {
-			char attr_str[BUFSIZ] = {0};
+		if (!CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES) &&
+		    attr_hash && adj->attr_hash == attr_hash &&
+		    bgp_labels_cmp(path->extra ? path->extra->labels : NULL,
+				   adj->labels)) {
+			if (BGP_DEBUG(update, UPDATE_OUT)) {
+				char attr_str[BUFSIZ] = {0};
 
-			bgp_dump_attr(attr, attr_str, sizeof(attr_str));
+				bgp_dump_attr(attr, attr_str, sizeof(attr_str));
 
-			zlog_debug("%s suppress UPDATE %pBD w/ attr: %s", peer->host, dest,
-				   attr_str);
+				zlog_debug("%s suppress UPDATE %pBD w/ attr: %s",
+					   peer->host, dest, attr_str);
+			}
+
+			/*
+			 * If BGP is skipping sending this value to it's peers
+			 * the version number should be updated just like it
+			 * would if it sent the data.  Why?  Because update
+			 * groups will not be coalesced until such time that
+			 * the version numbers are the same.
+			 *
+			 * Imagine a scenario with say 2 peers and they come
+			 * up and are placed in the same update group.  Then
+			 * a new peer comes up a bit later.  Then a prefix is
+			 * flapped that we decide for the first 2 peers are
+			 * mapped to and we decide not to send the data to
+			 * it.  Then unless more network changes happen we
+			 * will never be able to coalesce the 3rd peer down
+			 */
+			subgrp->version = MAX(subgrp->version, dest->version);
+			return false;
 		}
-
-		/*
-		 * If BGP is skipping sending this value to it's peers
-		 * the version number should be updated just like it
-		 * would if it sent the data.  Why?  Because update
-		 * groups will not be coalesced until such time that
-		 * the version numbers are the same.
-		 *
-		 * Imagine a scenario with say 2 peers and they come
-		 * up and are placed in the same update group.  Then
-		 * a new peer comes up a bit later.  Then a prefix is
-		 * flapped that we decide for the first 2 peers are
-		 * mapped to and we decide not to send the data to
-		 * it.  Then unless more network changes happen we
-		 * will never be able to coalesce the 3rd peer down
-		 */
-		subgrp->version = MAX(subgrp->version, dest->version);
-		return false;
 	}
 
 	if (adj->adv)
