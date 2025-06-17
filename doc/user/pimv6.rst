@@ -301,6 +301,22 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    10 deciseconds. 'no' form of this command is used to to configure back to the
    default value.
 
+.. clicmd:: ipv6 mld route-map ROUTE-MAP
+
+   Apply the indicated route map to filter incoming IGMP joins.
+
+   The following match statements can be used:
+
+   * match ipv6 multicast-group X:X::X:X
+
+   * match ipv6 multicast-group prefix-list IPV6-PREFIX-LIST
+
+   * match ipv6 multicast-source X:X::X:X
+
+   * match ipv6 multicast-source prefix-list IPV6-PREFIX-LIST
+
+   * match multicast-interface INTERFACE-NAME
+
 .. clicmd:: ipv6 mroute INTERFACE X:X::X:X [Y:Y::Y:Y]
 
    Set a static multicast route for a traffic coming on the current interface to
