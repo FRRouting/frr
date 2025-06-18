@@ -21,6 +21,9 @@ module frr-pathd {
   import frr-vrf {
     prefix frr-vrf;
   }
+  import ietf-srv6-types {
+    prefix srv6-types;
+  }
 
   organization
     "Free Range Routing";
@@ -68,6 +71,13 @@ module frr-pathd {
           type boolean;
           default false;
           description "Set it to true if SID manager should be used.";
+      }
+      leaf srv6-encap-behavior-segment-list {
+        type identityref {
+          base srv6-types:srv6-headend-type;
+        }
+        description
+          "The SRv6 Headend Behavior for the segment-list encap.";
       }
       list segment-list {
         key "name";
