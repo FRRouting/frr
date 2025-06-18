@@ -204,7 +204,9 @@ int nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 	} else {
 		state = (cmd == ZEBRA_NEIGH_ADDED) ? ndm_state
 						   : ZEBRA_NEIGH_STATE_FAILED;
-		nhrp_cache_set_used(c, state == ZEBRA_NEIGH_STATE_REACHABLE);
+		if (ndm_state != ZEBRA_NEIGH_STATE_STALE)
+			nhrp_cache_set_used(c,
+					    state == ZEBRA_NEIGH_STATE_REACHABLE);
 	}
 	return 0;
 }
