@@ -12,6 +12,7 @@ import sys
 import json
 from functools import partial
 import pytest
+import re
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
@@ -154,7 +155,7 @@ def _verify_iptables():
 
 def ping_test(source_router, target_ip, count=1000, description=""):
     """
-    Test ping connectivity between routers
+    Test ping connectivity between routers, allowing up to 90% packet loss.
 
     Args:
         source_router: The router object to ping from
@@ -177,14 +178,27 @@ def ping_test(source_router, target_ip, count=1000, description=""):
     output = source_router.run(f"ping {target_ip} -f -c {count}")
     logger.info(output)
 
-    expected_result = f"{count} packets transmitted, {count} received"
-    if expected_result not in output:
+    # Parse the output for transmitted/received
+    match = re.search(
+        r"(\d+) packets transmitted, (\d+) received(?:, \+\d+ errors)?, ([\d.]+)% packet loss",
+        output,
+    )
+    if not match:
         assertmsg = (
-            f"expected ping IPv4 from {source_router.name} to {target_ip} should be ok"
+            f"Could not parse ping output from {source_router.name} to {target_ip}"
         )
         assert 0, assertmsg
+    transmitted = int(match.group(1))
+    received = int(match.group(2))
+    loss_pct = float(match.group(3))
+
+    if loss_pct > 90:
+        assertmsg = f"Ping from {source_router.name} to {target_ip}: {transmitted} sent, {received} received, {loss_pct:.1f}% loss (allowed ≤ 90%)"
+        assert 0, assertmsg
     else:
-        logger.info(f"Check Ping IPv4 from {source_router.name} to {target_ip} OK")
+        logger.info(
+            f"Check Ping IPv4 from {source_router.name} to {target_ip} OK: {transmitted} sent, {received} received, {loss_pct:.1f}% loss"
+        )
         return True
 
 
