@@ -1325,6 +1325,30 @@ def test_check_l3vrf_routes_presence_after_all_network_readded_step14():
     )
 
 
+def test_check_l3vrf_routes_disappear_after_unconfiguring_route_install_step15():
+    logger.info(
+        "Test (step 15): verify SID routes disappear when install-routes-to-sids disappear"
+    )
+    tgen = get_topogen()
+
+    logger.info("Disabling on bgp vrf vrf10 from rt1 the install-routes-to-sid command")
+    tgen.gears["rt1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65500 vrf vrf10
+           segment-routing srv6
+            no install-routes-to-sids
+        """
+    )
+    for prefix in ("fc00:0:6:3c::/128", "fc00:0:6:3d::/128"):
+        # Check prefix from rt1 is not present
+        test_func = functools.partial(
+            check_show_ip_prefix_not_found, tgen.gears["rt1"], "ipv6", "vrf10", prefix
+        )
+        success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
+        assert success, f"rt1, prefix {prefix} did not disappear"
+
+
 # Memory leak test template
 def test_memory_leak():
     "Run the memory leak test and report results."
