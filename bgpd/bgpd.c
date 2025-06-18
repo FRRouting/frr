@@ -81,6 +81,7 @@
 #include "bgp_trace.h"
 
 DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
+DEFINE_MTYPE_STATIC(BGPD, SRV6_SID_CACHE, "Srv6 SID cache entry");
 DEFINE_QOBJ_TYPE(bgp_master);
 DEFINE_QOBJ_TYPE(bgp);
 DEFINE_QOBJ_TYPE(peer);
@@ -1526,6 +1527,66 @@ static void bgp_srv6_init(struct bgp *bgp)
 	bgp->srv6_locator_chunks->del = srv6_locator_chunk_list_free;
 	bgp->srv6_functions = list_new();
 	bgp->srv6_functions->del = (void (*)(void *))srv6_function_free;
+	bgp_srv6_sid_cache_init(&bgp->srv6_sid_table);
+}
+
+extern int bgp_srv6_sid_cache_cmp(const struct bgp_srv6_sid_cache *a,
+				  const struct bgp_srv6_sid_cache *b)
+{
+	return IPV6_ADDR_CMP(&a->sid, &b->sid);
+}
+
+static struct bgp_srv6_sid_cache *bgp_srv6_sid_new(struct bgp_srv6_sid_cache_head *tree,
+						   struct in6_addr *sid)
+{
+	struct bgp_srv6_sid_cache *bssc;
+	afi_t afi;
+
+	bssc = XCALLOC(MTYPE_SRV6_SID_CACHE, sizeof(struct bgp_srv6_sid_cache));
+	IPV6_ADDR_COPY(&bssc->sid, sid);
+	for (afi = AFI_IP; afi < AFI_MAX; afi++)
+		bssc->table[afi] = route_table_init();
+
+	bgp_srv6_sid_cache_add(tree, bssc);
+	return bssc;
+}
+
+void bgp_srv6_sid_free(struct bgp_srv6_sid_cache *bssc)
+{
+	afi_t afi;
+
+	bgp_srv6_sid_cache_del(&bssc->bgp->srv6_sid_table, bssc);
+
+	for (afi = AFI_IP; afi < AFI_MAX; afi++)
+		route_table_finish(bssc->table[afi]);
+
+	XFREE(MTYPE_SRV6_SID_CACHE, bssc);
+}
+
+struct bgp_srv6_sid_cache *bgp_srv6_sid_find(struct bgp_srv6_sid_cache_head *tree,
+					     struct in6_addr *sid)
+{
+	struct bgp_srv6_sid_cache bssc = {};
+
+	if (!tree)
+		return NULL;
+
+	IPV6_ADDR_COPY(&bssc.sid, sid);
+	return bgp_srv6_sid_cache_find(tree, &bssc);
+}
+
+struct bgp_srv6_sid_cache *bgp_srv6_sid_get(struct bgp *bgp, struct in6_addr *sid)
+{
+	struct bgp_srv6_sid_cache_head *tree = &bgp->srv6_sid_table;
+	struct bgp_srv6_sid_cache *p_bssc;
+
+	p_bssc = bgp_srv6_sid_find(tree, sid);
+	if (p_bssc)
+		return p_bssc;
+	p_bssc = bgp_srv6_sid_new(tree, sid);
+	if (p_bssc)
+		p_bssc->bgp = bgp;
+	return p_bssc;
 }
 
 static void bgp_srv6_cleanup(struct bgp *bgp)
@@ -1564,6 +1625,7 @@ static void bgp_srv6_cleanup(struct bgp *bgp)
 		list_delete(&bgp->srv6_locator_chunks);
 	if (bgp->srv6_functions)
 		list_delete(&bgp->srv6_functions);
+	bgp_srv6_sid_cache_fini(&bgp->srv6_sid_table);
 
 	srv6_locator_free(bgp->srv6_locator);
 	bgp->srv6_locator = NULL;
