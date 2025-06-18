@@ -292,6 +292,17 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack,
 
 	zrouter.nhg_keep = ZEBRA_DEFAULT_NHG_KEEP_TIMER;
 
+<<<<<<< HEAD
+=======
+	/* Initialize the red-black tree for router tables */
+	RB_INIT(zebra_router_table_head, &zrouter.tables);
+
+	/*Init V6 RA batching stuffs*/
+	zrouter.ra_wheel = wheel_init(zrouter.master, RTADV_TIMER_WHEEL_PERIOD_MS,
+				      RTADV_TIMER_WHEEL_SLOTS_NO, interface_hash_key, process_rtadv,
+				      NULL);
+
+>>>>>>> 183783aa7 (zebra: Initialize RB tree for router tables)
 	zebra_vxlan_init();
 	zebra_mlag_init();
 	zebra_neigh_init();
