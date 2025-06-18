@@ -1553,6 +1553,28 @@ static enum zclient_send_status bgp_zebra_withdraw_actual_route_to_srv6_sid(stru
 									    struct in6_addr *sid)
 {
 	const struct prefix *p = bgp_dest_get_prefix(dest);
+	struct bgp_table *table = bgp_dest_table(dest);
+	struct bgp_srv6_sid_cache *bssc;
+	struct route_node *rn;
+
+	bssc = bgp_srv6_sid_find(&bgp->srv6_sid_table, sid);
+	if (!bssc)
+		return ZCLIENT_SEND_SUCCESS;
+	rn = route_node_lookup_maynull(bssc->table[table->afi], p);
+	if (rn) {
+		/* remove that prefix from the table.
+		 * The first unlock if for calling lookup_maynull
+		 * The second unlock is to really remove the node
+		 */
+		route_unlock_node(rn);
+		route_unlock_node(rn);
+		bssc->path_count--;
+	}
+	if (bssc->path_count > 0)
+		/* if path counter is greater than one,
+		 * this means route is still used
+		 */
+		return ZCLIENT_SEND_SUCCESS;
 
 	IPV6_ADDR_COPY(&api->prefix.u.prefix6, sid);
 	api->prefix.family = AF_INET6;
@@ -1560,6 +1582,7 @@ static enum zclient_send_status bgp_zebra_withdraw_actual_route_to_srv6_sid(stru
 	if (bgp_debug_zebra(p))
 		zlog_debug("Tx route delete %s (table id %u) %pFX", bgp->name_pretty, api->tableid,
 			   &api->prefix);
+	bgp_srv6_sid_free(bssc);
 	UNSET_FLAG(dest->flags, BGP_NODE_HANDLE_ROUTE_SID);
 	return zclient_route_send(ZEBRA_ROUTE_DELETE, bgp_zclient, api);
 }
@@ -1711,11 +1734,30 @@ bgp_zebra_announce_actual(struct bgp_dest *dest, struct bgp_path_info *info,
 		return ret;
 	}
 	if (srv6_nh_index >= 0) {
+		struct bgp_srv6_sid_cache *bssc;
+		struct route_node *rn;
+
+		api_nh = &api.nexthops[srv6_nh_index];
 		/* SRv6 encapsulation : after SRv6 encapsulation,
 		 * A route lookup on the same vrf looks for a path for the SID
 		 * Append a second route to reach that SID address.
 		 */
-		api_nh = &api.nexthops[srv6_nh_index];
+		bssc = bgp_srv6_sid_get(bgp, &api_nh->seg6_segs[0]);
+		if (!bssc)
+			return ret;
+		rn = route_node_lookup_maynull(bssc->table[table->afi], p);
+		if (rn)
+			route_unlock_node(rn);
+		else {
+			route_node_get(bssc->table[table->afi], p);
+			bssc->path_count++;
+		}
+		if (bssc->path_count > 1)
+			/* if path counter is greater than one,
+			 * this means route already installed
+			 */
+			return ret;
+
 		IPV6_ADDR_COPY(&api.prefix.u.prefix6, &api_nh->seg6_segs[0]);
 
 		api.prefix.family = AF_INET6;

@@ -483,6 +483,36 @@ struct bgp_clearing_info {
 /* Batch has 'inner' resume info set */
 #define BGP_CLEARING_INFO_FLAG_INNER (1 << 2)
 
+struct bgp_srv6_sid_cache;
+PREDECL_RBTREE_UNIQ(bgp_srv6_sid_cache);
+
+extern int bgp_srv6_sid_cache_cmp(const struct bgp_srv6_sid_cache *a,
+				  const struct bgp_srv6_sid_cache *b);
+
+struct bgp_srv6_sid_cache {
+	/* RB-tree entry. */
+	struct bgp_srv6_sid_cache_item entry;
+
+	/* the SID reachability */
+	struct in6_addr sid;
+
+	/* number of path_vrfs */
+	unsigned int path_count;
+
+	/* backpointer bgp instance */
+	struct bgp *bgp;
+
+	struct route_table *table[AFI_MAX];
+};
+
+DECLARE_RBTREE_UNIQ(bgp_srv6_sid_cache, struct bgp_srv6_sid_cache, entry, bgp_srv6_sid_cache_cmp);
+
+void bgp_srv6_sid_free(struct bgp_srv6_sid_cache *bssc);
+
+struct bgp_srv6_sid_cache *bgp_srv6_sid_get(struct bgp *bgp, struct in6_addr *sid);
+struct bgp_srv6_sid_cache *bgp_srv6_sid_find(struct bgp_srv6_sid_cache_head *tree,
+					     struct in6_addr *sid);
+
 /* BGP instance structure.  */
 struct bgp {
 	/* AS number of this BGP instance.  */
@@ -959,6 +989,8 @@ struct bgp {
 	char srv6_locator_name[SRV6_LOCNAME_SIZE];
 	enum srv6_headend_behavior srv6_encap_behavior;
 	bool install_sid_routes;
+	/* Tree for additional IPv6 routes to reach SIDs */
+	struct bgp_srv6_sid_cache_head srv6_sid_table;
 	struct srv6_locator *srv6_locator;
 	struct list *srv6_locator_chunks;
 	struct list *srv6_functions;
