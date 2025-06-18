@@ -152,6 +152,42 @@ def _verify_iptables():
     return True if rc == 0 else False
 
 
+def ping_test(source_router, target_ip, count=1000, description=""):
+    """
+    Test ping connectivity between routers
+
+    Args:
+        source_router: The router object to ping from
+        target_ip: The IP address to ping
+        count: Number of ping packets to send (default: 1000)
+        description: Optional description for logging
+
+    Returns:
+        bool: True if ping successful, False otherwise
+    """
+    tgen = get_topogen()
+
+    if description:
+        logger.info(
+            f"Check Ping IPv4 from {source_router.name} to {target_ip} - {description}"
+        )
+    else:
+        logger.info(f"Check Ping IPv4 from {source_router.name} to {target_ip}")
+
+    output = source_router.run(f"ping {target_ip} -f -c {count}")
+    logger.info(output)
+
+    expected_result = f"{count} packets transmitted, {count} received"
+    if expected_result not in output:
+        assertmsg = (
+            f"expected ping IPv4 from {source_router.name} to {target_ip} should be ok"
+        )
+        assert 0, assertmsg
+    else:
+        logger.info(f"Check Ping IPv4 from {source_router.name} to {target_ip} OK")
+        return True
+
+
 def setup_module(mod):
     logger.info("NHRP Redundant NHS:\n {}".format(TOPOLOGY))
 
@@ -231,52 +267,14 @@ def test_protocols_convergence():
 
     # Test connectivity from 1 NHRP server to all clients
     nhs1 = tgen.gears["nhs1"]
-    logger.info("Check Ping IPv4 from  nhs1 to nhc1 = 172.16.1.4)")
-    output = nhs1.run("ping 172.16.1.4 -f -c 1000")
-    logger.info(output)
-    if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = "expected ping IPv4 from nhs1 to nhc1 should be ok"
-        assert 0, assertmsg
-    else:
-        logger.info("Check Ping IPv4 from nhs1 to nhc1 OK")
-
-    logger.info("Check Ping IPv4 from  nhs1 to nhc2 = 172.16.1.5)")
-    output = nhs1.run("ping 172.16.1.5 -f -c 1000")
-    logger.info(output)
-    if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = "expected ping IPv4 from nhs1 to nhc2 should be ok"
-        assert 0, assertmsg
-    else:
-        logger.info("Check Ping IPv4 from nhs1 to nhc2 OK")
+    ping_test(nhs1, "172.16.1.4", 1000, "nhc1")
+    ping_test(nhs1, "172.16.1.5", 1000, "nhc2")
 
     # Test connectivity from 1 NHRP client to all servers
     nhc1 = tgen.gears["nhc1"]
-    logger.info("Check Ping IPv4 from  nhc1 to nhs1 = 172.16.1.1)")
-    output = nhc1.run("ping 172.16.1.1 -f -c 1000")
-    logger.info(output)
-    if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = "expected ping IPv4 from nhc1 to nhs1 should be ok"
-        assert 0, assertmsg
-    else:
-        logger.info("Check Ping IPv4 from nhc1 to nhs1 OK")
-
-    logger.info("Check Ping IPv4 from  nhc1 to nhs2 = 172.16.1.2)")
-    output = nhc1.run("ping 172.16.1.2 -f -c 1000")
-    logger.info(output)
-    if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = "expected ping IPv4 from nhc1 to nhs2 should be ok"
-        assert 0, assertmsg
-    else:
-        logger.info("Check Ping IPv4 from nhc1 to nhs2 OK")
-
-    logger.info("Check Ping IPv4 from  nhc1 to nhs3 = 172.16.1.3)")
-    output = nhc1.run("ping 172.16.1.3 -f -c 1000")
-    logger.info(output)
-    if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = "expected ping IPv4 from nhc1 to nhs3 should be ok"
-        assert 0, assertmsg
-    else:
-        logger.info("Check Ping IPv4 from nhc1 to nhs3 OK")
+    ping_test(nhc1, "172.16.1.1", 1000, "nhs1")
+    ping_test(nhc1, "172.16.1.2", 1000, "nhs2")
+    ping_test(nhc1, "172.16.1.3", 1000, "nhs3")
 
 
 @retry(retry_timeout=30, initial_wait=5)
@@ -286,15 +284,7 @@ def verify_shortcut_path():
     """
     tgen = get_topogen()
     host = tgen.gears["host"]
-    logger.info("Check Ping IPv4 from  host to nhc2 = 10.5.5.5")
-
-    output = host.run("ping 10.5.5.5 -f -c 1000")
-    logger.info(output)
-    if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = "expected ping IPv4 from host to nhc2 should be ok"
-        assert 0, assertmsg
-    else:
-        logger.info("Check Ping IPv4 from host to nhc2 OK")
+    ping_test(host, "10.5.5.5", 1000, "nhc2")
 
 
 def test_redundancy_shortcut():
@@ -330,15 +320,7 @@ def test_redundancy_shortcut():
 
     # Initiate shortcut by pinging between clients
     host = tgen.gears["host"]
-    logger.info("Check Ping IPv4 from  host to nhc2 via shortcut = 10.5.5.5")
-
-    output = host.run("ping 10.5.5.5 -f -c 1000")
-    logger.info(output)
-    if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = "expected ping IPv4 from host to nhc2 via shortcut should be ok"
-        assert 0, assertmsg
-    else:
-        logger.info("Check Ping IPv4 from host to nhc2 via shortcut OK")
+    ping_test(host, "10.5.5.5", 1000, "nhc2 via shortcut")
 
     # Now check that NHRP shortcut route installed
     json_file = "{}/{}/nhrp_route_shortcut.json".format(CWD, nhc1.name)
@@ -446,15 +428,7 @@ def test_redundancy_shortcut_backup():
 
     # Verify shortcut is still active
     host = tgen.gears["host"]
-    logger.info("Check Ping IPv4 from  host to nhc2 via shortcut = 10.5.5.5")
-
-    output = host.run("ping 10.5.5.5 -f -c 1000")
-    logger.info(output)
-    if "1000 packets transmitted, 1000 received" not in output:
-        assertmsg = "expected ping IPv4 from host to nhc2 via shortcut should be ok"
-        assert 0, assertmsg
-    else:
-        logger.info("Check Ping IPv4 from host to nhc2 via shortcut OK")
+    ping_test(host, "10.5.5.5", 1000, "nhc2 via shortcut")
 
     # Verify shortcut is present in routing table
     json_file = "{}/{}/nhrp_route_shortcut_nhs1_down.json".format(CWD, nhc1.name)
