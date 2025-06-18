@@ -1011,6 +1011,10 @@ Clear commands reset various variables.
 
    Use this command to set/unset MD5 authentication.
 
+.. clicmd:: clear ip msdp [vrf all|vrf VRF_NAME] peer [A.B.C.D] counters
+
+   Reset the MSDP peer(s) statistic counters.
+
 
 PIM EVPN configuration
 ======================
