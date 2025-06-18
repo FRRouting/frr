@@ -202,6 +202,7 @@ def bmp_check_for_peer_message(
     is_rd_instance=False,
     peer_bgp_id=None,
     peer_distinguisher=None,
+    policy=None,
 ):
     """
     Check for the presence of a peer up message for the peer
@@ -227,6 +228,11 @@ def bmp_check_for_peer_message(
             continue
         if peer_bgp_id and m["peer_bgp_id"] != peer_bgp_id:
             continue
+        if policy and m["policy"] != policy:
+            if m["policy"] == "loc-rib":
+                continue
+            return f"Got {m['peer_bgp_id']} {bmp_log_type} {m['policy']}, \
+                expecting {policy}"
         if (
             "peer_ip" in m.keys()
             and m["peer_ip"] != "0.0.0.0"
