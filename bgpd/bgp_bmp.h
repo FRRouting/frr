@@ -260,6 +260,8 @@ struct bmp_targets {
 
 
 	uint8_t afimon[AFI_MAX][SAFI_MAX];
+	bool post_peer_notif;
+	bool post_stats;
 	bool mirror;
 
 	struct bmp_actives_head actives;

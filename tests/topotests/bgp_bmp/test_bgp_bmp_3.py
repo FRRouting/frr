@@ -742,6 +742,52 @@ def test_peer_down_locrib():
     assert success, "Checking the BMP peer down message has failed !."
 
 
+def test_custom_peer_hdr():
+    """
+    Check custom peer header for peer notification and stats report messages.
+    """
+
+    tgen = get_topogen()
+    tgen.gears["r1import"].vtysh_cmd(
+        """
+        configure terminal
+        router bgp 65501
+        bmp targets bmp1
+        bmp custom-peer-header post-policy peer-notif
+        exit
+        bgp router-id 1.1.1.1
+        """
+    )
+
+    logger.info("checking for BMP peers down post-policy messages")
+    test_func = partial(
+        bmp_check_for_peer_message,
+        ["192.168.0.2"],
+        "peer down",
+        tgen.gears["bmp1import"],
+        os.path.join(tgen.logdir, "bmp1import", "bmp.log"),
+        bmp_seq_context,
+        policy="rib-in-post-policy",
+    )
+    success, ret = topotest.run_and_expect(test_func, True, count=30, wait=1)
+    assert success, f"Check BMP peers down message post-policy has failed for \
+        {ret}"
+
+    logger.info("checking for BMP peers up post-policy messages")
+    test_func = partial(
+        bmp_check_for_peer_message,
+        ["192.168.0.2"],
+        "peer up",
+        tgen.gears["bmp1import"],
+        os.path.join(tgen.logdir, "bmp1import", "bmp.log"),
+        bmp_seq_context,
+        policy="rib-in-post-policy",
+    )
+    success, ret = topotest.run_and_expect(test_func, True, count=30, wait=1)
+    assert success, f"Check BMP peers up message post-policy has failed for \
+        {ret}"
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
