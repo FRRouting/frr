@@ -251,6 +251,14 @@ def teardown_module():
     tgen.stop_topology()
 
 
+def check_show_ip_prefix_not_found(router, ipversion, vrfname, prefix):
+    output = json.loads(
+        router.vtysh_cmd(f"show {ipversion} route vrf {vrfname} {prefix} json")
+    )
+    expected = {}
+    return topotest.json_cmp(output, expected, exact=True)
+
+
 def router_compare_json_output(rname, command, reference):
     "Compare router JSON output"
 
@@ -1188,6 +1196,133 @@ def test_ping_step10():
 
     check_ping6("cpe-src", "fd00:200::100", True)
     check_ping("cpe-src", "10.200.0.100", True, 10, 0.5)
+
+
+def test_check_l3vrf_routes_presence_step11():
+    logger.info("Test (step 11): verify L3VPN routes presence on rt1 and rt6")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info(
+        "Configuring 10.201.0.0/24 and fd00:201::/64 addresses from eth-cpe-dst on rt6"
+    )
+    tgen.gears["rt6"].vtysh_cmd(
+        """
+        configure terminal
+         interface eth-cpe-dst vrf vrf10
+          ip address 10.201.0.6/24
+          ipv6 address fd00:201::6/64
+        """
+    )
+
+    logger.info(
+        "Configuring 10.101.0.0/24 and fd00:101::/64 addresses from eth-cpe-dst on rt1"
+    )
+    tgen.gears["rt1"].vtysh_cmd(
+        """
+        configure terminal
+         interface eth-cpe-src vrf vrf10
+          ip address 10.101.0.6/24
+          ipv6 address fd00:101::6/64
+        """
+    )
+
+    for rname in ["rt1", "rt6"]:
+        router_compare_json_output(
+            rname, "show ipv6 route vrf vrf10 bgp json", "step11/show_ipv6_route.ref"
+        )
+
+
+def test_check_l3vrf_routes_presence_after_one_network_removal_step12():
+    logger.info("Test (step 12): verify routes to SID presence between VPN")
+    tgen = get_topogen()
+
+    logger.info(
+        "Unconfiguring 10.201.0.0/24 and fd00:201::/64 addresses from eth-cpe-dst on rt6"
+    )
+    tgen.gears["rt6"].vtysh_cmd(
+        """
+        configure terminal
+         interface eth-cpe-dst vrf vrf10
+          no ip address 10.201.0.6/24
+          no ipv6 address fd00:201::6/64
+        """
+    )
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Check prefix from rt1 is not present
+    test_func = functools.partial(
+        check_show_ip_prefix_not_found,
+        tgen.gears["rt1"],
+        "ipv6",
+        "vrf10",
+        "fd00:201::/64",
+    )
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
+    assert success, "rt1, prefix fd00:201::/64 did not disappear"
+
+    # check routes to sid are still present
+    router_compare_json_output(
+        "rt1", "show ipv6 route vrf vrf10 bgp json", "step12/show_ipv6_route.ref"
+    )
+
+
+def test_check_l3vrf_routes_presence_after_all_network_removal_step13():
+    logger.info(
+        "Test (step 13): verify SID routes disappear when all BGP updates withdrawn"
+    )
+    tgen = get_topogen()
+
+    logger.info("Unconfiguring all addresses from eth-cpe-dst on rt6")
+    tgen.gears["rt6"].vtysh_cmd(
+        """
+        configure terminal
+         interface eth-cpe-dst vrf vrf10
+          no ip address 10.200.0.6/24
+          no ipv6 address fd00:200::6/64
+        """
+    )
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for prefix in ("fc00:0:6:3c::/128", "fc00:0:6:3d::/128", "fd00:200::/64"):
+        # Check prefix from rt1 is not present
+        test_func = functools.partial(
+            check_show_ip_prefix_not_found, tgen.gears["rt1"], "ipv6", "vrf10", prefix
+        )
+        success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
+        assert success, f"rt1, prefix {prefix} did not disappear"
+
+
+def test_check_l3vrf_routes_presence_after_all_network_readded_step14():
+    logger.info(
+        "Test (step 14): verify SID routes re-appear when all BGP updates re-added"
+    )
+    tgen = get_topogen()
+
+    logger.info("re-configuring all addresses from eth-cpe-dst on rt6")
+    tgen.gears["rt6"].vtysh_cmd(
+        """
+        configure terminal
+         interface eth-cpe-dst vrf vrf10
+          ip address 10.200.0.6/24
+          ipv6 address fd00:200::6/64
+          ip address 10.201.0.6/24
+          ipv6 address fd00:201::6/64
+        """
+    )
+    # check routes to sid are still present
+    router_compare_json_output(
+        "rt1", "show ipv6 route vrf vrf10 bgp json", "step14/show_ipv6_route.ref"
+    )
 
 
 # Memory leak test template
