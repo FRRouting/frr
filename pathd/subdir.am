@@ -32,6 +32,7 @@ pathd_libpath_a_SOURCES = \
 	pathd/path_tsrte_config.c \
 	pathd/path_zebra.c \
 	pathd/pathd.c \
+	pathd/path_srv6.c \
 	# end
 
 clippy_scan += \

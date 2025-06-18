@@ -1467,8 +1467,7 @@ int config_write_segment_routing(struct vty *vty)
 
 	path_ted_config_write(vty);
 
-	if (srv6_use_sid_manager)
-		vty_out(vty, "  use-srv6-sid-manager\n");
+	path_srv6_show_running(vty);
 
 	yang_dnode_iterate(config_write_dnode, vty, running_config->dnode,
 			   "/frr-pathd:pathd/srte/frr-pathd-triggered-srte:policy-label-blocks");

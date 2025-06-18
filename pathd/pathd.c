@@ -1408,6 +1408,7 @@ void pathd_shutdown(void)
 	path_ted_teardown();
 	srte_clean_zebra();
 	path_flex_algo_finish();
+	path_srv6_destroy();
 	frr_fini();
 }
 
@@ -1600,9 +1601,4 @@ int32_t srte_ted_do_query_type_f(struct srte_segment_entry *entry,
 		srte_segment_set_local_modification(entry->segment_list, entry,
 						    ted_sid);
 	return status;
-}
-
-void path_srv6_init(void)
-{
-	srv6_use_sid_manager = false;
 }

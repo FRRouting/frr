@@ -562,4 +562,19 @@ int32_t srte_ted_do_query_type_e(struct srte_segment_entry *entry,
  */
 int32_t srte_ted_do_query_type_f(struct srte_segment_entry *entry,
 				 struct ipaddr *local, struct ipaddr *remote);
+
+/**
+ * Destroy srv6 encap behavior settings
+ *
+ * @return		void
+ */
+extern void path_srv6_destroy(void);
+
+/**
+ * Display the running-configuration
+ *
+ * @param entry		vty
+ * @return		void
+ */
+extern void path_srv6_show_running(struct vty *vty);
 #endif /* _FRR_PATHD_H_ */
