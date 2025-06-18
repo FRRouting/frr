@@ -131,7 +131,8 @@ RUN cd ~/frr && \
        --enable-scripting \
        --with-pkg-extra-version=-my-manual-build && \
     make -j $(nproc) && \
-    sudo make install
+    sudo make install && \
+    sudo cp tools/etc/frr/support_bundle_commands.conf /etc/frr
 
 RUN cd ~/frr && make check || true
 
