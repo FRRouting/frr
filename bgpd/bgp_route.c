@@ -12466,6 +12466,13 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 			continue;
 
 		display = 0;
+
+		if (vty->status == VTY_CLOSE)
+			/* if an error happens during vty_out, a rescheduling
+			 * must be forced. stop the loop asap by leaving the calling command
+			 */
+			break;
+
 		if (use_json)
 			json_paths = json_object_new_array();
 		else
