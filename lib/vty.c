@@ -197,7 +197,7 @@ void vty_mgmt_resume_response(struct vty *vty, int ret)
 	}
 
 	if (vty->status == VTY_CLOSE)
-		vty_close(vty);
+		return;
 	else if (vty->type != VTY_FILE)
 		vty_event(VTYSH_READ, vty);
 	else
@@ -1402,8 +1402,6 @@ static int vty_execute(struct vty *vty)
 
 	if (status != VTY_CLOSE && vty->status != VTY_CLOSE)
 		vty_prompt(vty);
-	else if (status == VTY_CLOSE)
-		vty_close(vty);
 
 	return ret;
 }
@@ -2478,9 +2476,7 @@ static void vtysh_read(struct event *thread)
 		}
 	}
 
-	if (vty->status == VTY_CLOSE)
-		vty_close(vty);
-	else
+	if (vty->status != VTY_CLOSE)
 		vty_event(VTYSH_READ, vty);
 }
 
