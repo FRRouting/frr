@@ -45,6 +45,14 @@ struct vty_cfg_change {
 
 PREDECL_DLIST(vtys);
 
+enum vty_status {
+	VTY_NORMAL,
+	VTY_CLOSE,
+	VTY_MORE,
+	VTY_MORELINE,
+	VTY_PASSFD,
+};
+
 /* VTY struct. */
 struct vty {
 	struct vtys_item itm;
@@ -161,13 +169,7 @@ struct vty {
 	unsigned char escape;
 
 	/* Current vty status. */
-	enum {
-		VTY_NORMAL,
-		VTY_CLOSE,
-		VTY_MORE,
-		VTY_MORELINE,
-		VTY_PASSFD,
-	} status;
+	enum vty_status status;
 
 	/* vtysh socket/fd passing (for terminal monitor) */
 	int pass_fd;
