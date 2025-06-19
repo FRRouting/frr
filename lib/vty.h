@@ -395,7 +395,6 @@ extern FILE *vty_open_config(const char *config_file, char *config_default_dir);
 extern bool vty_read_config(struct nb_config *config, const char *config_file,
 			    char *config_default_dir);
 extern void vty_read_file(struct nb_config *config, FILE *confp);
-extern void vty_read_file_finish(struct vty *vty, struct nb_config *config);
 extern void vty_time_print(struct vty *, int);
 extern void vty_serv_start(const char *, unsigned short, const char *);
 extern void vty_serv_stop(void);

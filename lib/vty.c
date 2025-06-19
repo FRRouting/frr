@@ -91,6 +91,7 @@ struct vty_serv {
 
 DECLARE_DLIST(vtyservs, struct vty_serv, itm);
 
+static void vty_read_file_finish(struct vty *vty, struct nb_config *config);
 static void vty_event_serv(enum vty_event event, struct vty_serv *);
 static void vty_event(enum vty_event, struct vty *);
 static int vtysh_flush(struct vty *vty);
@@ -2340,10 +2341,9 @@ bool mgmt_vty_read_configs(void)
 
 	vty->pending_allowed = false;
 
-	if (!count)
-		vty_close(vty);
-	else
+	if (count)
 		vty_read_file_finish(vty, NULL);
+	vty_close(vty);
 
 	zlog_info("mgmtd: finished reading config files");
 
@@ -2667,9 +2667,10 @@ void vty_read_file(struct nb_config *config, FILE *confp)
 	(void)config_from_file(vty, confp, &line_num);
 
 	vty_read_file_finish(vty, config);
+	vty_close(vty);
 }
 
-void vty_read_file_finish(struct vty *vty, struct nb_config *config)
+static void vty_read_file_finish(struct vty *vty, struct nb_config *config)
 {
 	struct vty_error *ve;
 	struct listnode *node;
@@ -2738,8 +2739,6 @@ void vty_read_file_finish(struct vty *vty, struct nb_config *config)
 				"%s: failed to read configuration file: %s (%s)",
 				__func__, nb_err_name(ret), errmsg);
 	}
-
-	vty_close(vty);
 }
 
 static FILE *vty_use_backup_config(const char *fullpath)
