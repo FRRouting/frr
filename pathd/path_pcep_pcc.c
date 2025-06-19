@@ -143,7 +143,11 @@ DECLARE_HASH(req_map, struct req_map_data, mi, req_map_cmp, req_map_hash);
 static inline int req_entry_compare(const struct req_entry *a,
 				    const struct req_entry *b)
 {
-	return a->path->req_id - b->path->req_id;
+	if (a->path->req_id > b->path->req_id)
+		return 1;
+	if (a->path->req_id < b->path->req_id)
+		return -1;
+	return 0;
 }
 RB_GENERATE(req_entry_head, req_entry, entry, req_entry_compare)
 
