@@ -1859,11 +1859,16 @@ class Router(Node):
 
         # Get global bundle data
         if not self.path_exists("/etc/frr/support_bundle_commands.conf"):
+            logger.info(
+                "No support bundle commands.conf found in %s namespace, copying them over", self.name
+            )
             # Copy global value if was covered by namespace mount
             bundle_data = ""
             if os.path.exists("/etc/frr/support_bundle_commands.conf"):
                 with open("/etc/frr/support_bundle_commands.conf", "r") as rf:
                     bundle_data = rf.read()
+            else:
+                logger.warning("No support bundle commands.conf found, please install them on this system")
             self.cmd_raises(
                 "cat > /etc/frr/support_bundle_commands.conf",
                 stdin=bundle_data,
