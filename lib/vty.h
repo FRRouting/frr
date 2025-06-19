@@ -434,6 +434,7 @@ extern int vty_mgmt_send_rpc_req(struct vty *vty, LYD_FORMAT request_type,
 				 const char *xpath, const char *data);
 extern int vty_mgmt_send_lockds_req(struct vty *vty, enum mgmt_ds_id ds_id, bool lock, bool scok);
 extern void vty_mgmt_resume_response(struct vty *vty, int ret);
+extern void vty_event_closed(struct vty *vty);
 
 static inline bool vty_needs_implicit_commit(struct vty *vty)
 {

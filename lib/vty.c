@@ -3128,6 +3128,11 @@ static void vty_event(enum vty_event event, struct vty *vty)
 	}
 }
 
+void vty_event_closed(struct vty *vty)
+{
+	vty_event(VTY_CLOSED, vty);
+}
+
 DEFUN_NOSH (config_who,
        config_who_cmd,
        "who",
