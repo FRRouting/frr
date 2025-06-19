@@ -517,11 +517,12 @@ static void vty_do_window_size(struct vty *vty)
 }
 
 /* Authentication of vty */
-static void vty_auth(struct vty *vty, char *buf)
+static enum vty_status vty_auth(struct vty *vty, char *buf)
 {
 	char *passwd = NULL;
 	enum node_type next_node = 0;
 	int fail;
+	enum vty_status status = VTY_NORMAL;
 
 	switch (vty->node) {
 	case AUTH_NODE:
@@ -560,16 +561,17 @@ static void vty_auth(struct vty *vty, char *buf)
 			if (vty->node == AUTH_NODE) {
 				vty_out(vty,
 					"%% Bad passwords, too many failures!\n");
-				vty->status = VTY_CLOSE;
+				status = VTY_CLOSE;
 			} else {
 				/* AUTH_ENABLE_NODE */
 				vty->fail = 0;
 				vty_out(vty,
 					"%% Bad enable passwords, too many failures!\n");
-				vty->status = VTY_CLOSE;
+				status = VTY_CLOSE;
 			}
 		}
 	}
+	return status;
 }
 
 /* Command execution over the vty interface. */
@@ -1378,13 +1380,14 @@ static int vty_telnet_option(struct vty *vty, unsigned char *buf, int nbytes)
 static int vty_execute(struct vty *vty)
 {
 	int ret;
+	enum vty_status status = VTY_NORMAL;
 
 	ret = CMD_SUCCESS;
 
 	switch (vty->node) {
 	case AUTH_NODE:
 	case AUTH_ENABLE_NODE:
-		vty_auth(vty, vty->buf);
+		status = vty_auth(vty, vty->buf);
 		break;
 	default:
 		ret = vty_command(vty, vty->buf);
@@ -1397,8 +1400,10 @@ static int vty_execute(struct vty *vty)
 	vty->cp = vty->length = 0;
 	vty_clear_buf(vty);
 
-	if (vty->status != VTY_CLOSE)
+	if (status != VTY_CLOSE && vty->status != VTY_CLOSE)
 		vty_prompt(vty);
+	else if (status == VTY_CLOSE)
+		vty_close(vty);
 
 	return ret;
 }
@@ -1448,6 +1453,7 @@ static void vty_read(struct event *thread)
 	int i;
 	int nbytes;
 	unsigned char buf[VTY_READ_BUFSIZ];
+	enum vty_status status = VTY_NORMAL;
 
 	struct vty *vty = EVENT_ARG(thread);
 
@@ -1465,7 +1471,7 @@ static void vty_read(struct event *thread)
 			buffer_reset(vty->obuf);
 			buffer_reset(vty->lbuf);
 		}
-		vty->status = VTY_CLOSE;
+		status = VTY_CLOSE;
 	}
 
 	for (i = 0; i < nbytes; i++) {
@@ -1637,7 +1643,7 @@ static void vty_read(struct event *thread)
 	}
 
 	/* Check status. */
-	if (vty->status == VTY_CLOSE)
+	if (status == VTY_CLOSE)
 		vty_close(vty);
 	else {
 		vty_event(VTY_WRITE, vty);
@@ -1679,9 +1685,7 @@ static void vty_flush(struct event *thread)
 		vty_event(VTY_CLOSED, vty);
 		return;
 	case BUFFER_EMPTY:
-		if (vty->status == VTY_CLOSE)
-			vty_close(vty);
-		else {
+		if (vty->status != VTY_CLOSE) {
 			vty->status = VTY_NORMAL;
 			if (vty->lines == 0)
 				vty_event(VTY_READ, vty);
