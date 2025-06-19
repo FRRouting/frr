@@ -1784,7 +1784,6 @@ static struct vty *vty_create(int vty_sock, union sockunion *su)
 		/* Vty is not available if password isn't set. */
 		if (host.password == NULL && host.password_encrypt == NULL) {
 			vty_out(vty, "Vty password is not set.\n");
-			vty->status = VTY_CLOSE;
 			vty_close(vty);
 			return NULL;
 		}
@@ -2636,7 +2635,6 @@ static void vty_timeout(struct event *thread)
 	vty_out(vty, "\nVty connection is timed out.\n");
 
 	/* Close connection. */
-	vty->status = VTY_CLOSE;
 	vty_close(vty);
 }
 
@@ -3479,7 +3477,6 @@ void vty_reset(void)
 	frr_each_safe (vtys, vty_sessions, vty) {
 		buffer_reset(vty->lbuf);
 		buffer_reset(vty->obuf);
-		vty->status = VTY_CLOSE;
 		vty_close(vty);
 	}
 
@@ -4167,7 +4164,6 @@ void vty_terminate(void)
 	frr_each_safe (vtys, vtysh_sessions, vty) {
 		buffer_reset(vty->lbuf);
 		buffer_reset(vty->obuf);
-		vty->status = VTY_CLOSE;
 		vty_close(vty);
 	}
 
