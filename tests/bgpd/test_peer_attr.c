@@ -931,6 +931,7 @@ static void test_finish(struct test *test)
 
 	/* Cleanup allocated memory. */
 	if (test->vty) {
+		/* keep syncro vty closure to avoid mem leak */
 		vty_close(test->vty);
 		test->vty = NULL;
 	}

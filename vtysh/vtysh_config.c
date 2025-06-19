@@ -625,6 +625,7 @@ static int vtysh_read_file(FILE *confp, bool dry_run)
 	vtysh_execute_no_pager("end");
 	vtysh_execute_no_pager("disable");
 
+	/* keep syncro vty closure to avoid : lib/event.c:1108: _event_add_event(): assertion (m != NULL) failed */
 	vty_close(lvty);
 
 	return (saved_ret);

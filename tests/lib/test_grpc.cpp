@@ -147,6 +147,7 @@ static void static_startup(void)
 static void static_shutdown(void)
 {
 	hook_call(test_grpc_fini);
+	/* keep syncro vty closure to avoid mem leak */
 	vty_close(vty);
 	vrf_terminate();
 	vty_terminate();

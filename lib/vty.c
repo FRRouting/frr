@@ -1884,6 +1884,7 @@ void vty_stdio_close(void)
 {
 	if (!stdio_vty)
 		return;
+	/* keep syncro vty closure to avoid mem leak */
 	vty_close(stdio_vty);
 }
 
@@ -3481,6 +3482,7 @@ void vty_reset(void)
 	frr_each_safe (vtys, vty_sessions, vty) {
 		buffer_reset(vty->lbuf);
 		buffer_reset(vty->obuf);
+		/* keep syncro vty closure to avoid mem leak */
 		vty_close(vty);
 	}
 
@@ -4168,6 +4170,7 @@ void vty_terminate(void)
 	frr_each_safe (vtys, vtysh_sessions, vty) {
 		buffer_reset(vty->lbuf);
 		buffer_reset(vty->obuf);
+		/* keep syncro vty closure to avoid mem leak */
 		vty_close(vty);
 	}
 
