@@ -3308,6 +3308,7 @@ int peer_group_listen_range_del(struct peer_group *group, struct prefix *range)
 	if (group->conf->password)
 		bgp_md5_unset_prefix(group->bgp, prefix);
 
+	prefix_free(&prefix);
 	return 0;
 }
 
