@@ -954,3 +954,25 @@ int pathd_srv6_use_sid_manager_modify(struct nb_cb_modify_args *args)
 
 	return NB_OK;
 }
+
+/*
+ * XPath: /frr-pathd:pathd/srte/srv6-encap-behavior-segment-list
+ */
+int pathd_srv6_encap_behavior_segment_list_modify(struct nb_cb_modify_args *args)
+{
+	const char *srv6_encap_behavior_str;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	srv6_encap_behavior_str = yang_dnode_get_string(args->dnode, NULL);
+
+	path_srv6_set_encap_type_segment_list_str(srv6_encap_behavior_str);
+	return NB_OK;
+}
+
+int pathd_srv6_encap_behavior_segment_list_destroy(struct nb_cb_destroy_args *args)
+{
+	path_srv6_set_encap_type_segment_list_str("ietf-types:H.Encaps");
+	return NB_OK;
+}

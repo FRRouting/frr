@@ -99,6 +99,7 @@ static const struct frr_yang_module_info *pathd_yang_modules[] = {
 	&frr_pathd_info,
 	&frr_pathd_flexalgo_info,
 	&frr_pathd_triggered_srte_info,
+	&ietf_srv6_types_info,
 };
 
 /* clang-format off */

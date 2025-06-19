@@ -696,6 +696,58 @@ DEFPY_YANG(
 	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, no ? "false" : "true");
 	return nb_cli_apply_changes(vty, NULL);
 }
+
+/*
+ * XPath: /frr-pathd:pathd/srte/srv6-encap-behavior-segment-list
+ */
+DEFPY_YANG(
+	srte_srv6_encap_behavior_segment_list,
+	srte_srv6_encap_behavior_segment_list_cmd,
+	"[no] srv6-encap-behavior segment-list <H_Encaps|H_Encaps_Red>$encap_behavior",
+	NO_STR
+	"Configure SRv6 encap headend behavior\n"
+	"Configure SRv6 encap mode for segment-lists\n"
+	"H.Encaps\n"
+	"H.Encaps.Red\n")
+{
+	char xpath[XPATH_MAXLEN];
+	const char *srv6_encap_behavior_str = "ietf-srv6-types:H.Encaps";
+	enum srv6_headend_behavior srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
+	enum srv6_headend_behavior srv6_current_encap_behavior;
+
+	snprintf(xpath, sizeof(xpath), "/frr-pathd:pathd/srte/srv6-encap-behavior-segment-list");
+
+	if (encap_behavior) {
+		if (strmatch(encap_behavior, "H_Encaps")) {
+			srv6_encap_behavior_str = "ietf-srv6-types:H.Encaps";
+			srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
+		} else if (strmatch(encap_behavior, "H_Encaps_Red")) {
+			srv6_encap_behavior_str = "ietf-srv6-types:H.Encaps.Red";
+			srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS_RED;
+		} else {
+			vty_out(vty, "%% Unsupported encap behavior: %s\n", encap_behavior);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	srv6_current_encap_behavior = path_srv6_get_encap_type_segment_list();
+	if (no && srv6_current_encap_behavior != srv6_encap_behavior) {
+		vty_out(vty, "%% Can not negate %s, different from current\n",
+			srv6_encap_behavior_str);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if (no == NULL && srv6_current_encap_behavior == srv6_encap_behavior) {
+		vty_out(vty, "%% encap-behavior already configured for %s.\n",
+			srv6_encap_behavior_str);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if (no)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, srv6_encap_behavior_str);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 /*
  * XPath: /frr-pathd:pathd/policy
  */
@@ -1527,6 +1579,7 @@ void path_cli_init(void)
 	install_default(SR_POLICY_NODE);
 	install_default(SR_CANDIDATE_DYN_NODE);
 	install_element(SR_TRAFFIC_ENG_NODE, &srte_use_srv6_sid_manager_cmd);
+	install_element(SR_TRAFFIC_ENG_NODE, &srte_srv6_encap_behavior_segment_list_cmd);
 
 	install_element(ENABLE_NODE, &show_debugging_pathd_cmd);
 	install_element(ENABLE_NODE, &show_srte_policy_cmd);

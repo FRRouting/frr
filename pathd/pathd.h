@@ -14,6 +14,7 @@
 #include "lib/prefix.h"
 #include "lib/zclient.h"
 #include "lib/zapi_fae.h" /* for ZAPI_FAE_ISIS_AREA_SIZE */
+#include "lib/srv6.h"	  /* for enum srv6_headend_behavior */
 
 #define PATH_SID_ERROR 1
 #define PATH_SID_NO_ERROR 0
@@ -569,6 +570,21 @@ int32_t srte_ted_do_query_type_f(struct srte_segment_entry *entry,
  * @return		void
  */
 extern void path_srv6_destroy(void);
+
+/**
+ * Get current headend behavior for encap-type for segment-list
+ *
+ * @return      void
+ */
+extern enum srv6_headend_behavior path_srv6_get_encap_type_segment_list(void);
+
+/**
+ * Set headend behavior for encap-type for segment-list
+ *
+ * @param entry srv6_encap_behavior_str: the encapsulation type
+ * @return      void
+ */
+extern void path_srv6_set_encap_type_segment_list_str(const char *srv6_encap_behavior_str);
 
 /**
  * Display the running-configuration

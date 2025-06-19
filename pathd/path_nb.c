@@ -307,6 +307,13 @@ const struct frr_yang_module_info frr_pathd_info = {
 			}
 		},
 		{
+			.xpath = "/frr-pathd:pathd/srte/srv6-encap-behavior-segment-list",
+			.cbs = {
+				.modify = pathd_srv6_encap_behavior_segment_list_modify,
+				.destroy = pathd_srv6_encap_behavior_segment_list_destroy
+			}
+		},
+		{
 			.xpath = "/frr-pathd:pathd/srte/policy/candidate-path/constraints/objective-function/required",
 			.cbs = {.modify = dummy_modify}
 		},
