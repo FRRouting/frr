@@ -3051,7 +3051,7 @@ int vty_config_node_exit(struct vty *vty)
 	 */
 	if (vty->type == VTY_FILE && vty->status != VTY_CLOSE) {
 		vty_out(vty, "exit from config node while reading config file");
-		vty->status = VTY_CLOSE;
+		vty_close(vty);
 	}
 
 	return 1;

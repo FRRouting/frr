@@ -1397,7 +1397,7 @@ static int root_on_exit(struct vty *vty)
 	if (vty_shell(vty))
 		exit(0);
 	else
-		vty->status = VTY_CLOSE;
+		vty_close(vty);
 	return 0;
 }
 
