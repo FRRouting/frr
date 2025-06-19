@@ -1397,7 +1397,7 @@ static int root_on_exit(struct vty *vty)
 	if (vty_shell(vty))
 		exit(0);
 	else
-		vty_close(vty);
+		vty_event_closed(vty);
 	return 0;
 }
 
@@ -1735,7 +1735,7 @@ static int file_write_config(struct vty *vty)
 	vty_time_print(file_vty, 1);
 	vty_out(file_vty, "!\n");
 	vty_write_config(file_vty);
-	vty_close(file_vty);
+	vty_event_closed(file_vty);
 
 	if (stat(config_file, &conf_stat) >= 0) {
 		if (unlink(config_file_sav) != 0)
