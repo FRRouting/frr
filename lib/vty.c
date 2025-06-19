@@ -1643,7 +1643,7 @@ static void vty_read(struct event *thread)
 
 	/* Check status. */
 	if (status == VTY_CLOSE)
-		vty_close(vty);
+		vty_event(VTY_CLOSED, vty);
 	else {
 		vty_event(VTY_WRITE, vty);
 		vty_event(VTY_READ, vty);
@@ -1787,7 +1787,7 @@ static struct vty *vty_create(int vty_sock, union sockunion *su)
 		/* Vty is not available if password isn't set. */
 		if (host.password == NULL && host.password_encrypt == NULL) {
 			vty_out(vty, "Vty password is not set.\n");
-			vty_close(vty);
+			vty_event(VTY_CLOSED, vty);
 			return NULL;
 		}
 	}
@@ -2344,7 +2344,7 @@ bool mgmt_vty_read_configs(void)
 
 	if (count)
 		vty_read_file_finish(vty, NULL);
-	vty_close(vty);
+	vty_event(VTY_CLOSED, vty);
 
 	zlog_info("mgmtd: finished reading config files");
 
@@ -2390,7 +2390,7 @@ static void vtysh_read(struct event *thread)
 		}
 		buffer_reset(vty->lbuf);
 		buffer_reset(vty->obuf);
-		vty_close(vty);
+		vty_event(VTY_CLOSED, vty);
 #ifdef VTYSH_DEBUG
 		printf("close vtysh\n");
 #endif /* VTYSH_DEBUG */
@@ -2636,7 +2636,7 @@ static void vty_timeout(struct event *thread)
 	vty_out(vty, "\nVty connection is timed out.\n");
 
 	/* Close connection. */
-	vty_close(vty);
+	vty_event(VTY_CLOSED, vty);
 }
 
 /* Read up configuration file from file_name. */
@@ -2668,7 +2668,7 @@ void vty_read_file(struct nb_config *config, FILE *confp)
 	(void)config_from_file(vty, confp, &line_num);
 
 	vty_read_file_finish(vty, config);
-	vty_close(vty);
+	vty_event(VTY_CLOSED, vty);
 }
 
 static void vty_read_file_finish(struct vty *vty, struct nb_config *config)
@@ -3047,7 +3047,7 @@ int vty_config_node_exit(struct vty *vty)
 	 */
 	if (vty->type == VTY_FILE && vty->status != VTY_CLOSE) {
 		vty_out(vty, "exit from config node while reading config file");
-		vty_close(vty);
+		vty_event(VTY_CLOSED, vty);
 	}
 
 	return 1;
@@ -3595,7 +3595,7 @@ static void vty_mgmt_session_notify(struct mgmt_fe_client *client,
 		vty->mgmt_session_id = 0;
 		/* We may come here by way of vty_close() and short-circuits */
 		if (vty->status != VTY_CLOSE)
-			vty_close(vty);
+			vty_event(VTY_CLOSED, vty);
 	}
 }
 
