@@ -396,6 +396,7 @@ int main(int argc, char **argv)
 	}
 	fprintf(stderr, "\nDone.\n");
 
+	/* keep syncro vty closure to avoid mem leak */
 	vty_close(vty);
 	prng_free(prng);
 	test_terminate();

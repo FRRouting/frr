@@ -67,8 +67,9 @@ enum vty_event {
 #ifdef VTYSH
 	VTYSH_SERV,
 	VTYSH_READ,
-	VTYSH_WRITE
+	VTYSH_WRITE,
 #endif /* VTYSH */
+	VTY_CLOSED,
 };
 
 struct nb_config *vty_mgmt_candidate_config;
@@ -90,6 +91,7 @@ struct vty_serv {
 
 DECLARE_DLIST(vtyservs, struct vty_serv, itm);
 
+static void vty_read_file_finish(struct vty *vty, struct nb_config *config);
 static void vty_event_serv(enum vty_event event, struct vty_serv *);
 static void vty_event(enum vty_event, struct vty *);
 static int vtysh_flush(struct vty *vty);
@@ -196,7 +198,7 @@ void vty_mgmt_resume_response(struct vty *vty, int ret)
 	}
 
 	if (vty->status == VTY_CLOSE)
-		vty_close(vty);
+		return;
 	else if (vty->type != VTY_FILE)
 		vty_event(VTYSH_READ, vty);
 	else
@@ -516,11 +518,12 @@ static void vty_do_window_size(struct vty *vty)
 }
 
 /* Authentication of vty */
-static void vty_auth(struct vty *vty, char *buf)
+static enum vty_status vty_auth(struct vty *vty, char *buf)
 {
 	char *passwd = NULL;
 	enum node_type next_node = 0;
 	int fail;
+	enum vty_status status = VTY_NORMAL;
 
 	switch (vty->node) {
 	case AUTH_NODE:
@@ -559,16 +562,17 @@ static void vty_auth(struct vty *vty, char *buf)
 			if (vty->node == AUTH_NODE) {
 				vty_out(vty,
 					"%% Bad passwords, too many failures!\n");
-				vty->status = VTY_CLOSE;
+				status = VTY_CLOSE;
 			} else {
 				/* AUTH_ENABLE_NODE */
 				vty->fail = 0;
 				vty_out(vty,
 					"%% Bad enable passwords, too many failures!\n");
-				vty->status = VTY_CLOSE;
+				status = VTY_CLOSE;
 			}
 		}
 	}
+	return status;
 }
 
 /* Command execution over the vty interface. */
@@ -1377,13 +1381,14 @@ static int vty_telnet_option(struct vty *vty, unsigned char *buf, int nbytes)
 static int vty_execute(struct vty *vty)
 {
 	int ret;
+	enum vty_status status = VTY_NORMAL;
 
 	ret = CMD_SUCCESS;
 
 	switch (vty->node) {
 	case AUTH_NODE:
 	case AUTH_ENABLE_NODE:
-		vty_auth(vty, vty->buf);
+		status = vty_auth(vty, vty->buf);
 		break;
 	default:
 		ret = vty_command(vty, vty->buf);
@@ -1396,7 +1401,7 @@ static int vty_execute(struct vty *vty)
 	vty->cp = vty->length = 0;
 	vty_clear_buf(vty);
 
-	if (vty->status != VTY_CLOSE)
+	if (status != VTY_CLOSE && vty->status != VTY_CLOSE)
 		vty_prompt(vty);
 
 	return ret;
@@ -1447,6 +1452,8 @@ static void vty_read(struct event *thread)
 	int i;
 	int nbytes;
 	unsigned char buf[VTY_READ_BUFSIZ];
+	enum vty_status status = VTY_NORMAL;
+	buffer_status_t flushrc;
 
 	struct vty *vty = EVENT_ARG(thread);
 
@@ -1464,7 +1471,7 @@ static void vty_read(struct event *thread)
 			buffer_reset(vty->obuf);
 			buffer_reset(vty->lbuf);
 		}
-		vty->status = VTY_CLOSE;
+		status = VTY_CLOSE;
 	}
 
 	for (i = 0; i < nbytes; i++) {
@@ -1603,8 +1610,16 @@ static void vty_read(struct event *thread)
 			fallthrough;
 		case '\n':
 			vty_out(vty, "\n");
-			buffer_flush_available(vty->obuf, vty->wfd);
-			vty_execute(vty);
+			flushrc = buffer_flush_available(vty->obuf, vty->wfd);
+			if (flushrc == BUFFER_ERROR) {
+				zlog_info("buffer_flush failed on vty client fd %d/%d, closing",
+					  vty->fd, vty->wfd);
+				buffer_reset(vty->lbuf);
+				buffer_reset(vty->obuf);
+				/* schedule a prioritary event so that at next scheduling, vty will be freed */
+				vty_event(VTY_CLOSED, vty);
+			} else
+				vty_execute(vty);
 
 			if (vty->pass_fd != -1) {
 				close(vty->pass_fd);
@@ -1636,8 +1651,8 @@ static void vty_read(struct event *thread)
 	}
 
 	/* Check status. */
-	if (vty->status == VTY_CLOSE)
-		vty_close(vty);
+	if (status == VTY_CLOSE)
+		vty_event(VTY_CLOSED, vty);
 	else {
 		vty_event(VTY_WRITE, vty);
 		vty_event(VTY_READ, vty);
@@ -1674,12 +1689,11 @@ static void vty_flush(struct event *thread)
 			  vty->fd, vty->wfd);
 		buffer_reset(vty->lbuf);
 		buffer_reset(vty->obuf);
-		vty_close(vty);
+		/* schedule a prioritary event so that at next scheduling, vty will be freed */
+		vty_event(VTY_CLOSED, vty);
 		return;
 	case BUFFER_EMPTY:
-		if (vty->status == VTY_CLOSE)
-			vty_close(vty);
-		else {
+		if (vty->status != VTY_CLOSE) {
 			vty->status = VTY_NORMAL;
 			if (vty->lines == 0)
 				vty_event(VTY_READ, vty);
@@ -1782,8 +1796,7 @@ static struct vty *vty_create(int vty_sock, union sockunion *su)
 		/* Vty is not available if password isn't set. */
 		if (host.password == NULL && host.password_encrypt == NULL) {
 			vty_out(vty, "Vty password is not set.\n");
-			vty->status = VTY_CLOSE;
-			vty_close(vty);
+			vty_event(VTY_CLOSED, vty);
 			return NULL;
 		}
 	}
@@ -1844,6 +1857,7 @@ void vty_stdio_suspend(void)
 	event_cancel(&stdio_vty->t_write);
 	event_cancel(&stdio_vty->t_read);
 	event_cancel(&stdio_vty->t_timeout);
+	event_cancel(&stdio_vty->t_close);
 
 	if (stdio_termios)
 		tcsetattr(0, TCSANOW, &stdio_orig_termios);
@@ -1879,6 +1893,7 @@ void vty_stdio_close(void)
 {
 	if (!stdio_vty)
 		return;
+	/* keep syncro vty closure to avoid mem leak */
 	vty_close(stdio_vty);
 }
 
@@ -2257,7 +2272,8 @@ static int vtysh_flush(struct vty *vty)
 			 __func__, vty->fd);
 		buffer_reset(vty->lbuf);
 		buffer_reset(vty->obuf);
-		vty_close(vty);
+		/* schedule a prioritary event so that at next scheduling, vty will be freed */
+		vty_event(VTY_CLOSED, vty);
 		return -1;
 	case BUFFER_EMPTY:
 		vty->vty_buf_size_accumulated = 0;
@@ -2335,10 +2351,9 @@ bool mgmt_vty_read_configs(void)
 
 	vty->pending_allowed = false;
 
-	if (!count)
-		vty_close(vty);
-	else
+	if (count)
 		vty_read_file_finish(vty, NULL);
+	vty_event(VTY_CLOSED, vty);
 
 	zlog_info("mgmtd: finished reading config files");
 
@@ -2384,7 +2399,7 @@ static void vtysh_read(struct event *thread)
 		}
 		buffer_reset(vty->lbuf);
 		buffer_reset(vty->obuf);
-		vty_close(vty);
+		vty_event(VTY_CLOSED, vty);
 #ifdef VTYSH_DEBUG
 		printf("close vtysh\n");
 #endif /* VTYSH_DEBUG */
@@ -2471,9 +2486,7 @@ static void vtysh_read(struct event *thread)
 		}
 	}
 
-	if (vty->status == VTY_CLOSE)
-		vty_close(vty);
-	else
+	if (vty->status != VTY_CLOSE)
 		vty_event(VTYSH_READ, vty);
 }
 
@@ -2519,6 +2532,14 @@ static void vty_error_delete(void *arg)
 	XFREE(MTYPE_TMP, ve);
 }
 
+static void vty_closed(struct event *thread)
+{
+	struct vty *vty;
+
+	vty = EVENT_ARG(thread);
+	vty_close(vty);
+}
+
 /* Close vty interface.  Warning: call this only from functions that
    will be careful not to access the vty afterwards (since it has
    now been freed).  This is safest from top-level functions (called
@@ -2552,6 +2573,7 @@ void vty_close(struct vty *vty)
 	event_cancel(&vty->t_read);
 	event_cancel(&vty->t_write);
 	event_cancel(&vty->t_timeout);
+	event_cancel(&vty->t_close);
 
 	if (vty->pass_fd != -1) {
 		close(vty->pass_fd);
@@ -2623,8 +2645,7 @@ static void vty_timeout(struct event *thread)
 	vty_out(vty, "\nVty connection is timed out.\n");
 
 	/* Close connection. */
-	vty->status = VTY_CLOSE;
-	vty_close(vty);
+	vty_event(VTY_CLOSED, vty);
 }
 
 /* Read up configuration file from file_name. */
@@ -2656,9 +2677,10 @@ void vty_read_file(struct nb_config *config, FILE *confp)
 	(void)config_from_file(vty, confp, &line_num);
 
 	vty_read_file_finish(vty, config);
+	vty_event(VTY_CLOSED, vty);
 }
 
-void vty_read_file_finish(struct vty *vty, struct nb_config *config)
+static void vty_read_file_finish(struct vty *vty, struct nb_config *config)
 {
 	struct vty_error *ve;
 	struct listnode *node;
@@ -2727,8 +2749,6 @@ void vty_read_file_finish(struct vty *vty, struct nb_config *config)
 				"%s: failed to read configuration file: %s (%s)",
 				__func__, nb_err_name(ret), errmsg);
 	}
-
-	vty_close(vty);
 }
 
 static FILE *vty_use_backup_config(const char *fullpath)
@@ -3036,7 +3056,7 @@ int vty_config_node_exit(struct vty *vty)
 	 */
 	if (vty->type == VTY_FILE && vty->status != VTY_CLOSE) {
 		vty_out(vty, "exit from config node while reading config file");
-		vty->status = VTY_CLOSE;
+		vty_event(VTY_CLOSED, vty);
 	}
 
 	return 1;
@@ -3063,6 +3083,7 @@ static void vty_event_serv(enum vty_event event, struct vty_serv *vty_serv)
 	case VTY_TIMEOUT_RESET:
 	case VTYSH_READ:
 	case VTYSH_WRITE:
+	case VTY_CLOSED:
 		assert(!"vty_event_serv() called incorrectly");
 	}
 }
@@ -3101,10 +3122,24 @@ static void vty_event(enum vty_event event, struct vty *vty)
 			event_add_timer(vty_master, vty_timeout, vty,
 					vty->v_timeout, &vty->t_timeout);
 		break;
+	case VTY_CLOSED:
+		if (vty->status == VTY_CLOSE)
+			/* prevent from programming an other close event */
+			break;
+		/* this value indicate caller that vty is about to close and should not be used */
+		vty->status = VTY_CLOSE;
+		event_cancel(&vty->t_close);
+		event_add_event(vty_master, vty_closed, vty, 0, &vty->t_close);
+		break;
 	case VTY_SERV:
 	case VTYSH_SERV:
 		assert(!"vty_event() called incorrectly");
 	}
+}
+
+void vty_event_closed(struct vty *vty)
+{
+	vty_event(VTY_CLOSED, vty);
 }
 
 DEFUN_NOSH (config_who,
@@ -3456,7 +3491,7 @@ void vty_reset(void)
 	frr_each_safe (vtys, vty_sessions, vty) {
 		buffer_reset(vty->lbuf);
 		buffer_reset(vty->obuf);
-		vty->status = VTY_CLOSE;
+		/* keep syncro vty closure to avoid mem leak */
 		vty_close(vty);
 	}
 
@@ -3569,7 +3604,7 @@ static void vty_mgmt_session_notify(struct mgmt_fe_client *client,
 		vty->mgmt_session_id = 0;
 		/* We may come here by way of vty_close() and short-circuits */
 		if (vty->status != VTY_CLOSE)
-			vty_close(vty);
+			vty_event(VTY_CLOSED, vty);
 	}
 }
 
@@ -4144,7 +4179,7 @@ void vty_terminate(void)
 	frr_each_safe (vtys, vtysh_sessions, vty) {
 		buffer_reset(vty->lbuf);
 		buffer_reset(vty->obuf);
-		vty->status = VTY_CLOSE;
+		/* keep syncro vty closure to avoid mem leak */
 		vty_close(vty);
 	}
 

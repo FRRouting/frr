@@ -808,7 +808,7 @@ static int nb_write_config(struct nb_config *config, enum nb_cfg_format format,
 	if (config)
 		ret = nb_cli_show_config(file_vty, config, format, translator,
 					 false);
-	vty_close(file_vty);
+	vty_event_closed(file_vty);
 
 	return ret;
 }
