@@ -73,6 +73,7 @@ extern void ospf_spf_calculate_areas(struct ospf *ospf,
 				     struct route_table *all_rtrs,
 				     struct route_table *new_rtrs);
 extern void ospf_rtrs_free(struct route_table *);
+extern void ospf_vertex_free(void *data);
 extern void ospf_spf_cleanup(struct vertex *spf, struct list *vertex_list);
 extern void ospf_spf_copy(struct vertex *vertex, struct list *vertex_list);
 extern void ospf_spf_remove_resource(struct vertex *vertex,
