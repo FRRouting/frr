@@ -3542,11 +3542,16 @@ static int bmp_bgp_attribute_updated(struct bgp *bgp, bool withdraw)
 	struct bmp_targets *bt;
 	struct listnode *node;
 	struct bmp_imported_bgp *bib;
-	struct stream *s = bmp_peerstate(bgp->peer_self, withdraw);
+	struct stream *s;
 	struct bmp *bmp;
 	afi_t afi;
 	safi_t safi;
 
+	/* update peer_self->router_id */
+	if (withdraw == false)
+		bgp->peer_self->local_id = bgp->router_id;
+
+	s = bmp_peerstate(bgp->peer_self, withdraw);
 	if (!s)
 		return 0;
 
