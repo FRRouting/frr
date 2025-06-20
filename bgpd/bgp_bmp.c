@@ -2223,7 +2223,7 @@ static void bmp_bgp_peer_vrf(struct bmp_bgp_peer *bbpeer, struct bgp *bgp)
 		send_holdtime = peer->bgp->default_holdtime;
 
 	/* for loc-rib, AS used is always the one from the current BGP instance */
-	s = bgp_open_make(peer, send_holdtime, bgp->as, &peer->local_id);
+	s = bgp_open_make(peer, send_holdtime, bgp->as, &bgp->router_id);
 	open_len = stream_get_endp(s);
 
 	bbpeer->open_rx_len = open_len;
@@ -2235,7 +2235,7 @@ static void bmp_bgp_peer_vrf(struct bmp_bgp_peer *bbpeer, struct bgp *bgp)
 	stream_free(s);
 
 	/* rfc9069#section-5.2 : Received OPEN Message: Repeat of the same sent OPEN message */
-	s = bgp_open_make(peer, send_holdtime, bgp->as, &peer->local_id);
+	s = bgp_open_make(peer, send_holdtime, bgp->as, &bgp->router_id);
 	open_len = stream_get_endp(s);
 	bbpeer->open_tx_len = open_len;
 	if (bbpeer->open_tx)
