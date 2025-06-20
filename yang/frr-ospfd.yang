@@ -3,6 +3,10 @@ module frr-ospfd {
   namespace "http://frrouting.org/yang/ospfd";
   prefix frr-ospfd;
 
+  import frr-vrf {
+    prefix frr-vrf;
+  }
+
   import frr-routing {
     prefix frr-rt;
   }
@@ -33,6 +37,11 @@ module frr-ospfd {
      This YANG module augments the basic routing with additional
      OSPF information";
 
+  revision 2025-06-19 {
+    description
+      "Update revision";
+  }
+
   revision 2020-07-21 {
     description
       "Initial revision.";
@@ -61,6 +70,14 @@ module frr-ospfd {
     description "OSPF Area ID.";
   }
 
+  typedef ospf-metric {
+    type uint32 {
+      range "0 .. 16777214";
+    }
+    description
+      "OSPF Metric - 24-bit unsigned integer.";
+  }
+
   grouping nssa-grouping {
     container nssa {
       presence "Present if the nssa is enabled";
@@ -71,25 +88,58 @@ module frr-ospfd {
           "Do not inject inter-area routes into nssa";
       }
 
-      leaf translate-always {
+      leaf translator-role {
+        type enumeration {
+          enum "never" {
+            value 0;
+            description "Configure NSSA-ABR to never translate.";
+          }
+          enum "condidate" {
+            value 1;
+            description "Configure NSSA-ABR for translate election (default).";
+          }
+          enum "always" {
+            value 2;
+            description "Configure NSSA-ABR to always translate.";
+          }
+        }
+
+        default "condidate";
+      }	
+
+      leaf default-originate {
         type boolean;
-        default "false";
-        description
-          "NSSA-ABR to always translate";
+        default false;
+      }
+      
+      container default-metric {
+
+	when "../default-originate = 'true'";
+
+        leaf metric {
+          type ospf-metric;
+          description "OSPF default metric.";
+        }
+
+        leaf metric-type {
+          type enumeration {
+            enum "type-1" {
+              value 1;
+            }
+            enum "type-2" {
+              value 2;
+            }
+          }
+          description
+            "Metric type (1/2).";
+        }
       }
 
-      leaf translate-candidate {
-        type boolean;
-        default "false";
-        description
-          "NSSA-ABR for translate election";
-      }
-
-      leaf translate-never {
-        type boolean;
-        default "false";
-        description
-          "NSSA-ABR to never translate";
+      leaf suppress-fa {
+	type boolean;
+	default "false";
+	  description
+	    "Suppress forwarding address";
       }
     }
   }
@@ -149,65 +199,72 @@ module frr-ospfd {
   }
 
   grouping shortcut-grouping {
-    container shortcut {
-      leaf default {
-        type boolean;
-        default "false";
-        description
-          "Default shortcutting behavior";
-      }
-
-      leaf disable {
-        type boolean;
-        description
-          "Disable shortcutting through the area";
-      }
-
-      leaf enable {
-        type boolean;
-        description
-          "Enable shortcutting through the area";
+    leaf shortcut-mode {
+      type enumeration {
+	enum "default" {
+	  value 0;
+	  description
+            "Default shortcutting behavior";
+	}
+	enum "enable" {
+	  value 1;
+	  description
+            "Enable shortcutting through the area";
+	}
+	enum "disable" {
+	  value 2;
+	  description
+            "Disable shortcutting through the area";
+	}
       }
     }
   }
 
   grouping authentication-group {
     container authentication {
-      presence "Enable authentication.";
-      description
-        "Enable authentication on this virtual link.";
-      leaf message-digest {
-        type boolean;
-        description
-          "Use message-digest authentication.";
+      leaf type {
+        type enumeration {
+          enum "null" {
+            value 0;
+            description "Null authentication.";
+          }
+          enum "simple" {
+            value 1;
+            description "Simple password authentication.";
+          }
+          enum "cryptographic" {
+            value 2;
+            description "Cryptographic authentication.";
+          }
+        }
       }
 
-      leaf null {
-        type boolean;
-        description
-          "Use null authentication.";
-      }
-    }
-
-    list message-digest-key {
-      key "key-id";
-      leaf key-id {
-        type uint8;
-        description
-          "Key id";
-      }
-
-      leaf mds-key {
+      leaf password {
         type string;
         description
-          "The OSPF password.";
+          "The simple authentication password.";
       }
-    }
 
-    leaf authentication-key {
-      type string;
-      description
-        "The OSPF password.";
+      list message-digest-key {
+        key "key-id";
+        leaf key-id {
+          type uint8;
+          description
+            "Key id";
+        }
+
+        leaf mds-key {
+          type string;
+          description
+            "The OSPF password.";
+        }
+      }
+
+      leaf key-chain {
+        type string;
+        description
+          "Key-chain name.";
+      }
     }
   }
 
@@ -253,6 +310,15 @@ module frr-ospfd {
           units "seconds";
           description
             "Time between retransmitting lost link state advertisements.";
+        }
+
+        leaf retransmit-window {
+          type uint16 {
+            range "20..1000";
+          }
+          units "microseconds";
+          description
+            "Set number of milliseconds in the window for neighbor LSA retransmission";
         }
 
         leaf transmit-delay {
@@ -322,6 +388,12 @@ module frr-ospfd {
           }
         }
 
+        leaf flood-reduction {
+	  type boolean;
+	  description
+	    "Enable flood reduction for area";
+	}
+
         uses nssa-grouping;
 
         uses range-grouping;
@@ -367,9 +439,7 @@ module frr-ospfd {
     }
 
     leaf default-metric {
-      type uint32 {
-        range "0..16777214";
-      }
+      type ospf-metric;
       description
         "Metric of redistributed routes.";
     }
@@ -387,13 +457,15 @@ module frr-ospfd {
         case as {
           leaf as {
             type boolean;
+            default "false";
             description
               "Enable the Router Information functionality with AS flooding scope.";
           }
         }
         case area {
           leaf area {
-            type ospf-area-id;
+            type boolean;
+	    default "false";
             description
             "Enable the Router Information functionality with Area flooding scope.";
           }
@@ -404,9 +476,7 @@ module frr-ospfd {
 
   grouping metric-common-group {
     leaf metric {
-      type uint32 {
-        range "0..16777214";
-      }
+      type ospf-metric;
       description
         "OSPF default metric.";
     }
@@ -433,16 +503,23 @@ module frr-ospfd {
 
   grouping default-info-group {
     container default-information {
-      leaf originate {
-        type boolean;
-        description
-          "Advertise a default route";
-      }
 
-      leaf always {
-        type boolean;
-        description
-          "Always advertise default route.";
+      leaf originate {
+        type enumeration {
+          enum "none" {
+            value 0;
+          }
+          enum "zebra" {
+            value 1;
+	    description
+	      "Advertise a default route";
+          }
+          enum "always" {
+            value 2;
+            description
+	      "Always advertise default route.";
+          }
+        }
       }
 
       uses metric-common-group;
@@ -618,6 +695,29 @@ module frr-ospfd {
           "Enable the RFC 1583 compatibility flag.";
       }
 
+      leaf send-extra-data {
+        type boolean;
+        default "false";
+        description
+          "Enable the Send-extra-data flag.";
+      }
+
+      leaf maxage-delay {
+        type uint32 {
+          range "0..60";
+        }
+        description
+           "Config OSPF lsa maxage delay timer.";
+      }
+
+      leaf lsa-refresh {
+        type uint16 {
+          range "120..1800";
+        }
+        description
+           "Config OSPF lsa refresh timer.";
+      }
+
       leaf router-id {
         type inet:ipv4-address;
         description
@@ -665,13 +765,27 @@ module frr-ospfd {
             "LSA delay between transmissions.";
         }
 
-        leaf spf {
-          type uint32 {
-            range "0..600000";
-          }
-          units "milliseconds";
+        container spf {
           description
             "Delay from first change received till SPF calculation.";
+          leaf delay {
+            type uint32 {
+              range "0..600000";
+            }
+            units "msec";
+          }
+          leaf hold {
+            type uint32 {
+              range "0..600000";
+            }
+            units "msec";
+          }
+          leaf max {
+            type uint32 {
+              range "0..600000";
+            }
+            units "msec";
+          }
         }
       }
     }
@@ -728,6 +842,7 @@ module frr-ospfd {
 
       leaf on {
         type boolean;
+	default "false";
         description
           "Enable Segment Routing.";
       }
@@ -842,6 +957,23 @@ module frr-ospfd {
         "OSPF area ID.";
     }
 
+    container capability {
+      leaf opaque {
+        type boolean;
+        default "false";
+        description
+          "Enable the Opaque-LSA capability (RFC2370)";
+      }
+    }
+
+    leaf passive {
+      type boolean;
+      default "false";
+      description
+        "Control whether interfaces are in the passive mode
+         by default or not.";
+    }
+
     uses authentication-group;
 
     leaf cost {
@@ -887,6 +1019,28 @@ module frr-ospfd {
         "Time between retransmitting lost link state advertisements.";
     }
 
+    leaf retransmit-window {
+      type uint16 {
+        range "20..1000";
+      }
+      units "microseconds";
+      description
+        "Set number of milliseconds in the window for neighbor LSA retransmission";
+    }
+
+    container graceful-restart {
+      description "Operational graceful restart information.";
+
+      leaf hello-delay {
+        type uint16 {
+          range "1..1800";
+        }
+        units "seconds";
+        description
+          "Graceful-restart delay in seconds";
+      }
+    }
+
     leaf transmit-delay {
       type uint16 {
         range "1..65535";
@@ -898,6 +1052,7 @@ module frr-ospfd {
 
     leaf mtu-ignore {
       type boolean;
+      default "false";
       description
         "Disable MTU mismatch detection on this interface.";
     }
@@ -909,6 +1064,84 @@ module frr-ospfd {
     }
   }
 
+  grouping interface-ospf-network {
+    container network {
+      leaf type {
+        type enumeration {
+          enum "p2p" {
+            value 1;
+          }
+          enum "broadcost" {
+            value 2;
+          }
+          enum "non-broadcast" {
+            value 3;
+          }
+          enum "p2mp" {
+            value 4;
+          }
+        }
+      }
+
+      container p2mp {
+        when "../type = 'p2mp'";
+        leaf delay-reflood {
+          type boolean;
+          default "false";
+        }
+        leaf non-broadcast {
+          type boolean;
+          default "false";
+        }
+      }
+
+      container p2p {
+        when "../type = 'p2p'";
+        leaf dmvpn {
+          type boolean;
+          default "false";
+        }
+      }
+    }  
+  }
+
+  grouping interface-ospf-mpls {
+    container mpls {
+      container ldp-sync {
+        leaf enable {
+          type boolean;
+          default "false";
+          description
+            "Enable MPLS LDP-SYNC";
+        }
+        leaf holddown {
+          type uint16 {
+            range "0..10000";
+          }
+          description
+            "Time to wait for LDP-SYNC to occur before restoring interface cost";
+        }
+      }
+    }
+  }
+
+  grouping interface-ospf-bfd {
+    container bfd-monitoring {
+      leaf enable {
+        type boolean;
+        default "false";
+        description
+          "Enable interface bfd for ospf.";
+      }
+
+      leaf profile {
+        type string;
+        description
+          "Let BFD use a pre-configured profile.";
+      }
+    }   
+  }
+
   grouping interface-ospf-group {
     list instance {
       key "id";
@@ -918,29 +1151,11 @@ module frr-ospfd {
           "OSPF instance ID.";
       }
 
-      leaf bfd {
-        type boolean;
-        default "false";
-        description
-          "BFD support.";
-      }
+      uses interface-ospf-bfd;
 
-      leaf network {
-        type enumeration {
-          enum "broadcast" {
-            value 1;
-          }
-          enum "non-broadcast" {
-            value 2;
-          }
-          enum "point-to-multipoint" {
-            value 3;
-          }
-          enum "point-to-point" {
-            value 4;
-          }
-        }
-      }
+      uses interface-ospf-network;
+
+      uses interface-ospf-mpls;
 
       uses interface-ospf-attribute-group;
 
@@ -957,12 +1172,22 @@ module frr-ospfd {
     }
   }
 
-  augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol" {
-    container ospf {
-      when "../frr-rt:type = 'frr-ospfd:ospf'" {
+  container ospf {
+    list instance {
+      key "id vrf";
+      description
+        "OSPF protocol instance data.";
+
+      leaf id {
+        type uint16;
         description
-          "This container is only valid for the 'OSPF' routing
-           protocol.";
+          "Multip instance id for ospf.";
+      }
+
+      leaf vrf {
+        type frr-vrf:vrf-ref;
+        description
+          "VRF name.";
       }
 
       uses route-ospf-leaf-attributes;
@@ -999,6 +1224,57 @@ module frr-ospfd {
       description
         "OSPF interface parameters.";
       uses interface-ospf-group;
+    }
+  }
+
+  /*
+   * RPCs
+   */
+  rpc clear-ospf-process {
+    description
+      "Reset OSPF Process.";
+
+    input {
+      leaf id {
+        type uint16;
+        description
+          "Ospf instance id.";
+      }
+    }
+  }
+
+  rpc clear-ospf-neighbor {
+    description
+      "Reset OSPF Neighbor.";
+
+    input {
+      leaf id {
+        type uint16;
+        description
+          "Ospf instance id.";
+      }
+      leaf address {
+        type inet:ip-address;
+        description "Neighbor address.";
+      }
+    }
+  }
+
+  rpc clear-ospf-interface {
+    description
+      "Reset ospf interface.";
+
+    input {
+      leaf vrf {
+        type frr-vrf:vrf-ref;
+        description
+          "VRF name identifying a specific OSPF instance.";
+      }
+      leaf ifname {
+        type string;
+        description
+          "Ospf Interface Name";
+      }
     }
   }
 }
