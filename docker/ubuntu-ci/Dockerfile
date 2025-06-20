@@ -81,8 +81,9 @@ RUN apt update && apt upgrade -y && \
     rm -f /usr/lib/python3.*/EXTERNALLY-MANAGED && \
     python3 -m pip install wheel && \
     bash -c "PV=($(pkg-config --modversion protobuf | tr '.' ' ')); if (( PV[0] == 3 && PV[1] < 19 )); then python3 -m pip install 'protobuf<4' grpcio grpcio-tools; else python3 -m pip install 'protobuf>=4' grpcio grpcio-tools; fi" && \
-    python3 -m pip install 'pytest>=6.2.4' 'pytest-xdist>=2.3.0' && \
+    python3 -m pip install 'pytest>=6.2.4' 'pytest-xdist>=3.6.1' 'pytest-asyncio>=0.25.3' && \
     python3 -m pip install 'scapy>=2.4.5' && \
+    python3 -m pip install pyyaml && \
     python3 -m pip install xmltodict && \
     python3 -m pip install git+https://github.com/Exa-Networks/exabgp@0659057837cd6c6351579e9f0fa47e9fb7de7311
 
