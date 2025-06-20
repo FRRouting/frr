@@ -1664,7 +1664,7 @@ bool ecommunity_strip(struct ecommunity *ecom, uint8_t type,
 static bool ecommunity_non_transitive(uint8_t type)
 {
 	return (CHECK_FLAG(type, ECOMMUNITY_FLAG_NON_TRANSITIVE) ||
-		CHECK_FLAG(type, ECOMMUNITY_ENCODE_IP_NON_TRANS) ||
+		type == ECOMMUNITY_ENCODE_IP_NON_TRANS ||
 		type == ECOMMUNITY_ENCODE_OPAQUE_NON_TRANS);
 }
 
