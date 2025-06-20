@@ -15,6 +15,7 @@ const struct frr_yang_module_info frr_ospfd_info = {
 		{
 			.xpath = "/frr-interface:lib/interface/frr-ospfd:ospf/instance",
 			.cbs = {
+				.cli_show = cli_show_ospf_instance,
 				.create = lib_interface_ospf_instance_create,
 				.destroy = lib_interface_ospf_instance_destroy,
 			}
@@ -1001,12 +1002,6 @@ const struct frr_yang_module_info frr_ospfd_info = {
 const struct frr_yang_module_info frr_ospfd_cli_info = {
 	.name = "frr-ospfd",
 	.nodes = {
-		{
-			.xpath = "/frr-ospfd:ospf/instance",
-			.cbs = {
-				.cli_show = cli_show_ospf_instance,
-			}
-		},
 		{
 			.xpath = "/frr-ospfd:ospf/instance/auto-cost-reference-bandwidth",
 			.cbs = {

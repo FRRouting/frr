@@ -28,36 +28,69 @@
 #include "ospfd/ospf_ism.h"
 #include "ospfd/ospf_ldp_sync.h"
 
+#define OSPF_INSTANCE_MATCH(instance)                                                              \
+	do {                                                                                       \
+		if (instance != ospf_instance) {                                                   \
+			snprintfrr(args->errmsg, args->errmsg_len,                                 \
+				   "Ospf instance is not matched\n");                              \
+			return NB_ERR_VALIDATION;                                                  \
+		}                                                                                  \
+	} while (0);
+
+
 /*
  * XPath: /frr-ospfd:ospf/instance
  */
 int ospf_instance_create(struct nb_cb_create_args *args)
 {
+	struct ospf *ospf;
+	bool created = false;
+	uint16_t instance;
+	const char *vrf_name;
+
+	instance = yang_dnode_get_uint16(args->dnode, "id");
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+
+		OSPF_INSTANCE_MATCH(instance);
+
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+
+		vrf_name = yang_dnode_get_string(args->dnode, "vrf");
+
+		ospf = ospf_get(instance, vrf_name, &created);
+		if (created)
+			nb_running_set_entry(args->dnode, ospf);
 		break;
 	}
 
 	return NB_OK;
 }
 
-void cli_show_ospf_instance(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
-{
-	/* TODO: this cli callback is optional; the cli output may not need to be done at each node. */
-}
-
 int ospf_instance_destroy(struct nb_cb_destroy_args *args)
 {
+	struct ospf *ospf;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+
+		OSPF_INSTANCE_MATCH(yang_dnode_get_uint16(args->dnode, "id"));
+
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+
+		ospf = nb_running_unset_entry(args->dnode);
+		if (ospf->gr_info.restart_support)
+			ospf_gr_nvm_delete(ospf);
+		ospf_finish(ospf);
 		break;
 	}
 

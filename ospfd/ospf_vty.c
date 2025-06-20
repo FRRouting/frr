@@ -127,37 +127,6 @@ int ospf_oi_count(struct interface *ifp)
 		all_vrf = strmatch(vrf_name, "all");                           \
 	}
 
-static int ospf_router_cmd_parse(struct vty *vty, struct cmd_token *argv[],
-				 const int argc, unsigned short *instance,
-				 const char **vrf_name)
-{
-	int idx_vrf = 0, idx_inst = 0;
-
-	*instance = 0;
-	if (argv_find(argv, argc, "(1-65535)", &idx_inst)) {
-		if (ospf_instance == 0) {
-			vty_out(vty,
-				"%% OSPF is not running in instance mode\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-
-		*instance = strtoul(argv[idx_inst]->arg, NULL, 10);
-	}
-
-	*vrf_name = VRF_DEFAULT_NAME;
-	if (argv_find(argv, argc, "vrf", &idx_vrf)) {
-		if (ospf_instance != 0) {
-			vty_out(vty,
-				"%% VRF is not supported in instance mode\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-
-		*vrf_name = argv[idx_vrf + 1]->arg;
-	}
-
-	return CMD_SUCCESS;
-}
-
 static void ospf_show_vrf_name(struct ospf *ospf, struct vty *vty,
 			       json_object *json, uint8_t use_vrf)
 {
@@ -172,80 +141,6 @@ static void ospf_show_vrf_name(struct ospf *ospf, struct vty *vty,
 }
 
 #include "ospfd/ospf_vty_clippy.c"
-
-DEFUN_NOSH (router_ospf,
-       router_ospf_cmd,
-       "router ospf [{(1-65535)|vrf NAME}]",
-       "Enable a routing process\n"
-       "Start OSPF configuration\n"
-       "Instance ID\n"
-       VRF_CMD_HELP_STR)
-{
-	unsigned short instance;
-	const char *vrf_name;
-	bool created = false;
-	struct ospf *ospf;
-	int ret;
-
-	ret = ospf_router_cmd_parse(vty, argv, argc, &instance, &vrf_name);
-	if (ret != CMD_SUCCESS)
-		return ret;
-
-	if (instance != ospf_instance) {
-		VTY_PUSH_CONTEXT_NULL(OSPF_NODE);
-		return CMD_NOT_MY_INSTANCE;
-	}
-
-	ospf = ospf_get(instance, vrf_name, &created);
-
-	if (created)
-		if (DFLT_OSPF_LOG_ADJACENCY_CHANGES)
-			SET_FLAG(ospf->config, OSPF_LOG_ADJACENCY_CHANGES);
-
-	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug(
-			"Config command 'router ospf %d' received, vrf %s id %u oi_running %u",
-			ospf->instance, ospf_get_name(ospf), ospf->vrf_id,
-			ospf->oi_running);
-
-	VTY_PUSH_CONTEXT(OSPF_NODE, ospf);
-
-	return ret;
-}
-
-DEFUN (no_router_ospf,
-       no_router_ospf_cmd,
-       "no router ospf [{(1-65535)|vrf NAME}]",
-       NO_STR
-       "Enable a routing process\n"
-       "Start OSPF configuration\n"
-       "Instance ID\n"
-       VRF_CMD_HELP_STR)
-{
-	unsigned short instance;
-	const char *vrf_name;
-	struct ospf *ospf;
-	int ret;
-
-	ret = ospf_router_cmd_parse(vty, argv, argc, &instance, &vrf_name);
-	if (ret != CMD_SUCCESS)
-		return ret;
-
-	if (instance != ospf_instance)
-		return CMD_NOT_MY_INSTANCE;
-
-	ospf = ospf_lookup(instance, vrf_name);
-	if (ospf) {
-		if (ospf->gr_info.restart_support)
-			ospf_gr_nvm_delete(ospf);
-
-		ospf_finish(ospf);
-	} else
-		ret = CMD_WARNING_CONFIG_FAILED;
-
-	return ret;
-}
-
 
 DEFPY (ospf_router_id,
        ospf_router_id_cmd,
@@ -13604,11 +13499,6 @@ void ospf_vty_init(void)
 {
 	/* Install ospf top node. */
 	install_node(&ospf_node);
-
-	/* "router ospf" commands. */
-	install_element(CONFIG_NODE, &router_ospf_cmd);
-	install_element(CONFIG_NODE, &no_router_ospf_cmd);
-
 
 	install_default(OSPF_NODE);
 
