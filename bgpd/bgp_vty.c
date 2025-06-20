@@ -11019,13 +11019,34 @@ DEFPY (bgp_srv6_encap_behavior,
 		if (!bgp_fibupd_safi(SAFI_UNICAST))
 			continue;
 
-		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP, bgp, false);
-		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP6, bgp, false);
+		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP, bgp, false, false);
+		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP6, bgp, false, false);
 
-		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP, bgp, true);
-		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP6, bgp, true);
+		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP, bgp, true, false);
+		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP6, bgp, true, false);
 	}
 
+	return CMD_SUCCESS;
+}
+
+DEFPY (bgp_srv6_install_routes_to_sids,
+       bgp_srv6_install_routes_to_sids_cmd,
+       "[no$no] install-routes-to-sids",
+       NO_STR
+       "Install automatically routes to reach SIDs\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (bgp->install_sid_routes != !no) {
+		bgp->install_sid_routes = !no;
+
+		if (!bgp_fibupd_safi(SAFI_UNICAST))
+			return CMD_SUCCESS;
+
+		/* reinstall BGP SID routes */
+		bgp_zebra_update_srv6_encap_routes(bgp, AFI_IP, bgp_get_default(), true, true);
+		bgp_zebra_update_srv6_encap_routes(bgp, AFI_IP6, bgp_get_default(), true, true);
+	}
 	return CMD_SUCCESS;
 }
 
@@ -20186,6 +20207,8 @@ int bgp_config_write(struct vty *vty)
 			if (bgp->srv6_encap_behavior != SRV6_HEADEND_BEHAVIOR_H_ENCAPS)
 				vty_out(vty, "  encap-behavior %s\n",
 					srv6_headend_behavior2str(bgp->srv6_encap_behavior, true));
+			if (bgp->install_sid_routes)
+				vty_out(vty, "  install-routes-to-sids\n");
 			vty_endframe(vty, " exit\n");
 		}
 
@@ -22301,6 +22324,7 @@ void bgp_vty_init(void)
 	install_element(BGP_SRV6_NODE, &bgp_srv6_locator_cmd);
 	install_element(BGP_SRV6_NODE, &no_bgp_srv6_locator_cmd);
 	install_element(BGP_SRV6_NODE, &bgp_srv6_encap_behavior_cmd);
+	install_element(BGP_SRV6_NODE, &bgp_srv6_install_routes_to_sids_cmd);
 	install_element(BGP_IPV4_NODE, &af_sid_vpn_export_cmd);
 	install_element(BGP_IPV6_NODE, &af_sid_vpn_export_cmd);
 	install_element(BGP_NODE, &bgp_sid_vpn_export_cmd);
