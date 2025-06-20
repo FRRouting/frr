@@ -5886,7 +5886,7 @@ static int zebra_vxlan_sg_send(struct zebra_vrf *zvrf,
 	 * There is currently no support for IPv6 VTEPs with PIM.
 	 */
 	stream_put(s, &sg->src.ipaddr_v4, IPV4_MAX_BYTELEN);
-	stream_put(s, &sg->grp.s_addr, IPV4_MAX_BYTELEN);
+	stream_put(s, &sg->grp.ipaddr_v4, IPV4_MAX_BYTELEN);
 
 	/* Write packet size. */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -5912,9 +5912,9 @@ static unsigned int zebra_vxlan_sg_hash_key_make(const void *p)
 
 	if (IS_IPADDR_V4(&vxlan_sg->sg.src)) {
 		return (jhash_2words(vxlan_sg->sg.src.ipaddr_v4.s_addr,
-				     vxlan_sg->sg.grp.s_addr, 0));
+				     vxlan_sg->sg.grp.ipaddr_v4.s_addr, 0));
 	} else {
-		hash1 = jhash_1word(vxlan_sg->sg.grp.s_addr, 0);
+		hash1 = jhash_1word(vxlan_sg->sg.grp.ipaddr_v4.s_addr, 0);
 		return jhash2(vxlan_sg->sg.src.ipaddr_v6.s6_addr32,
 			      array_size(vxlan_sg->sg.src.ipaddr_v6.s6_addr32),
 			      hash1);
@@ -5927,7 +5927,7 @@ static bool zebra_vxlan_sg_hash_eq(const void *p1, const void *p2)
 	const struct zebra_vxlan_sg *sg2 = p2;
 
 	return (ipaddr_is_same(&sg1->sg.src, &sg2->sg.src) &&
-		(sg1->sg.grp.s_addr == sg2->sg.grp.s_addr));
+		(sg1->sg.grp.ipaddr_v4.s_addr == sg2->sg.grp.ipaddr_v4.s_addr));
 }
 
 static struct zebra_vxlan_sg *zebra_vxlan_sg_new(struct zebra_vrf *zvrf,
@@ -5976,7 +5976,7 @@ static struct zebra_vxlan_sg *zebra_vxlan_sg_add(struct zebra_vrf *zvrf,
 	 */
 	if (!ipaddr_is_zero(&sg->src)) {
 		memset(&sip, 0, sizeof(sip));
-		parent = zebra_vxlan_sg_do_ref(zvrf, &sip, sg->grp);
+		parent = zebra_vxlan_sg_do_ref(zvrf, &sip, sg->grp.ipaddr_v4);
 		if (!parent)
 			return NULL;
 	}
@@ -6001,7 +6001,7 @@ static void zebra_vxlan_sg_del(struct zebra_vxlan_sg *vxlan_sg)
 	 */
 	if (!ipaddr_is_zero(&vxlan_sg->sg.src)) {
 		memset(&sip, 0, sizeof(sip));
-		zebra_vxlan_sg_do_deref(zvrf, &sip, vxlan_sg->sg.grp);
+		zebra_vxlan_sg_do_deref(zvrf, &sip, vxlan_sg->sg.grp.ipaddr_v4);
 	}
 
 	zebra_vxlan_sg_send(zvrf, &vxlan_sg->sg, vxlan_sg->sg_str,
@@ -6025,7 +6025,7 @@ static void zebra_vxlan_sg_do_deref(struct zebra_vrf *zvrf,
 	sg.family = AF_INET;
 	sg.prefixlen = IPV4_MAX_BYTELEN;
 	sg.src = *sip;
-	sg.grp = mcast_grp;
+	sg.grp.ipaddr_v4 = mcast_grp;
 	vxlan_sg = zebra_vxlan_sg_find(zvrf, &sg);
 	if (!vxlan_sg)
 		return;
@@ -6047,7 +6047,7 @@ zebra_vxlan_sg_do_ref(struct zebra_vrf *zvrf, const struct ipaddr *sip,
 	sg.family = AF_INET;
 	sg.prefixlen = IPV4_MAX_BYTELEN;
 	sg.src = *sip;
-	sg.grp = mcast_grp;
+	sg.grp.ipaddr_v4 = mcast_grp;
 	vxlan_sg = zebra_vxlan_sg_add(zvrf, &sg);
 	if (vxlan_sg)
 		++vxlan_sg->ref_cnt;
