@@ -387,7 +387,7 @@ void zebra_evpn_sync_neigh_static_chg(struct zebra_neigh *n, bool old_n_static,
 	if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
 		zlog_debug(
 			"sync-neigh ref-chg vni %u ip %pIA mac %pEA f 0x%x %d%s%s%s%s by %s",
-			n->zevpn->vni, &n->ip, &n->emac, n->flags,
+			n->zevpn ? n->zevpn->vni : 0, &n->ip, &n->emac, n->flags,
 			mac->sync_neigh_cnt,
 			old_n_static ? " old_n_static" : "",
 			new_n_static ? " new_n_static" : "",
@@ -424,7 +424,7 @@ static void zebra_evpn_neigh_hold_exp_cb(struct event *t)
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
 		zlog_debug("sync-neigh vni %u ip %pIA mac %pEA 0x%x hold expired",
-			   n->zevpn->vni, &n->ip, &n->emac, n->flags);
+			   n->zevpn ? n->zevpn->vni : 0, &n->ip, &n->emac, n->flags);
 
 	/* re-program the local neigh in the dataplane if the neigh is no
 	 * longer static
@@ -645,7 +645,7 @@ void zebra_evpn_sync_neigh_del(struct zebra_neigh *n)
 		zebra_evpn_neigh_start_hold_timer(n);
 	new_n_static = zebra_evpn_neigh_is_static(n);
 
-	if (old_n_static != new_n_static)
+	if (old_n_static != new_n_static && n->zevpn)
 		zebra_evpn_sync_neigh_static_chg(
 			n, old_n_static, new_n_static, false /*defer-dp*/,
 			false /*defer_mac_dp*/, __func__);
