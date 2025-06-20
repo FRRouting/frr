@@ -1587,6 +1587,100 @@ bool ecommunity_strip(struct ecommunity *ecom, uint8_t type,
 	return true;
 }
 
+<<<<<<< HEAD
+=======
+static bool ecommunity_non_transitive(uint8_t type)
+{
+	return (CHECK_FLAG(type, ECOMMUNITY_FLAG_NON_TRANSITIVE) ||
+		type == ECOMMUNITY_ENCODE_IP_NON_TRANS ||
+		type == ECOMMUNITY_ENCODE_OPAQUE_NON_TRANS);
+}
+
+/* Delete all non-transitive extended communities */
+bool ecommunity_strip_non_transitive(struct ecommunity *ecom)
+{
+	uint8_t *p, *q, *new;
+	uint32_t c, found = 0;
+
+	if (!ecom || !ecom->val)
+		return false;
+
+	/* Certain extended communities like the Route Target can be present
+	 * multiple times, handle that.
+	 */
+	c = 0;
+	for (p = ecom->val; c < ecom->size; p += ecom->unit_size, c++)
+		if (ecommunity_non_transitive(*p))
+			found++;
+
+	if (!found)
+		return false;
+
+	/* Handle the case where everything needs to be stripped. */
+	if (found == ecom->size) {
+		XFREE(MTYPE_ECOMMUNITY_VAL, ecom->val);
+		ecom->size = 0;
+		return true;
+	}
+
+	/* Strip extended communities with non-transitive flag set */
+	new = XMALLOC(MTYPE_ECOMMUNITY_VAL, (ecom->size - found) * ecom->unit_size);
+	q = new;
+	for (c = 0, p = ecom->val; c < ecom->size; c++, p += ecom->unit_size) {
+		if (!ecommunity_non_transitive(*p)) {
+			memcpy(q, p, ecom->unit_size);
+			q += ecom->unit_size;
+		}
+	}
+
+	XFREE(MTYPE_ECOMMUNITY_VAL, ecom->val);
+	ecom->val = new;
+	ecom->size -= found;
+
+	return true;
+}
+
+/*
+ * Filter source Extended Communities Attribute. May return NULL if the result
+ * is empty, or the source ecommunity, if not modified.
+ */
+struct ecommunity *ecommunity_filter(struct ecommunity *ecom,
+				     bool (*filter)(uint8_t *, uint8_t, void *), void *arg)
+{
+	struct ecommunity *new;
+	uint8_t *new_val, *p, *q;
+	uint32_t c, new_size;
+
+	if (!ecom || !ecom->size)
+		return NULL;
+
+	new_val = XMALLOC(MTYPE_ECOMMUNITY_VAL, ecom->size * ecom->unit_size);
+	new_size = 0;
+	for (c = 0, p = ecom->val, q = new_val; c < ecom->size; c++, p += ecom->unit_size) {
+		if (filter(p, ecom->unit_size, arg)) {
+			memcpy(q, p, ecom->unit_size);
+			q += ecom->unit_size;
+			new_size++;
+		}
+	}
+	if (!new_size) {
+		XFREE(MTYPE_ECOMMUNITY_VAL, new_val);
+		return NULL;
+	}
+	if (new_size == ecom->size) {
+		XFREE(MTYPE_ECOMMUNITY_VAL, new_val);
+		return ecom;
+	}
+
+	new = XCALLOC(MTYPE_ECOMMUNITY, sizeof(struct ecommunity));
+	new->size = new_size;
+	new->unit_size = ecom->unit_size;
+	new->val = new_val;
+
+	return new;
+}
+
+>>>>>>> 954e66221 (bgpd: Fix incorrect stripping of transitive extended communities due to bad type match)
 /*
  * Remove specified extended community value from extended community.
  * Returns 1 if value was present (and hence, removed), 0 otherwise.
