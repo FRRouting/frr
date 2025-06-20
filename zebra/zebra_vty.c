@@ -471,6 +471,17 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 
 		vty_out(vty, "  Last update %s ago\n", buf);
 
+		/* Display route flags and status */
+		char flags_buf[128];
+		char status_buf[128];
+
+		zclient_dump_route_flags(re->flags, flags_buf, sizeof(flags_buf));
+		_dump_re_status(re, status_buf, sizeof(status_buf));
+		if (flags_buf[0] != '\0')
+			vty_out(vty, "  Flags: %s\n", flags_buf);
+		if (status_buf[0] != '\0')
+			vty_out(vty, "  Status: %s\n", status_buf);
+
 		if (show_ng) {
 			vty_out(vty, "  Nexthop Group ID: %u\n", re->nhe_id);
 			if (re->nhe_installed_id != 0
@@ -746,7 +757,16 @@ static void vty_show_ip_route_detail_json(struct vty *vty,
 		 */
 		if (use_fib && re != dest->selected_fib)
 			continue;
+
 		vty_show_ip_route(vty, rn, re, json_prefix, use_fib, false);
+
+		/* Add flags and status to the last object */
+		json_object *json_route =
+			json_object_array_get_idx(json_prefix,
+						  json_object_array_length(json_prefix) - 1);
+
+		json_object_int_add(json_route, "flags", re->flags);
+		json_object_int_add(json_route, "status", re->status);
 	}
 
 	prefix2str(&rn->p, buf, sizeof(buf));
@@ -1146,6 +1166,42 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 			else
 				vty_out(vty, ", Initial Delay");
 		}
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED)) {
+			if (json)
+				json_object_boolean_true_add(json, "queued");
+			else
+				vty_out(vty, ", Queued");
+		}
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE)) {
+			if (json)
+				json_object_boolean_true_add(json, "recursive");
+			else
+				vty_out(vty, ", Recursive");
+		}
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_BACKUP)) {
+			if (json)
+				json_object_boolean_true_add(json, "backup");
+			else
+				vty_out(vty, ", Backup");
+		}
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_PROTO_RELEASED)) {
+			if (json)
+				json_object_boolean_true_add(json, "protoReleased");
+			else
+				vty_out(vty, ", Proto Released");
+		}
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_KEEP_AROUND)) {
+			if (json)
+				json_object_boolean_true_add(json, "keepAround");
+			else
+				vty_out(vty, ", Keep Around");
+		}
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_FPM)) {
+			if (json)
+				json_object_boolean_true_add(json, "fpm");
+			else
+				vty_out(vty, ", FPM");
+		}
 		if (!json)
 			vty_out(vty, "\n");
 	}
@@ -1446,11 +1502,12 @@ DEFPY (show_interface_nexthop_group,
 
 DEFPY(show_nexthop_group,
       show_nexthop_group_cmd,
-      "show nexthop-group rib <(0-4294967295)$id|[singleton <ip$v4|ipv6$v6>] [<kernel|zebra|bgp|sharp>$type_str] [vrf <NAME$vrf_name|all$vrf_all>]> [json]",
+      "show nexthop-group rib <(0-4294967295)$id [routes$routes]|[singleton <ip$v4|ipv6$v6>] [<kernel|zebra|bgp|sharp>$type_str] [vrf <NAME$vrf_name|all$vrf_all>]> [json]",
       SHOW_STR
       "Show Nexthop Groups\n"
       "RIB information\n"
       "Nexthop Group ID\n"
+      "Show routes using this nexthop group\n"
       "Show Singleton Nexthop-Groups\n"
       IP_STR
       IP6_STR
@@ -1461,19 +1518,92 @@ DEFPY(show_nexthop_group,
       VRF_FULL_CMD_HELP_STR
       JSON_STR)
 {
-
 	struct zebra_vrf *zvrf = NULL;
 	afi_t afi = AFI_UNSPEC;
 	int type = 0;
 	bool uj = use_json(argc, argv);
 	json_object *json = NULL;
 	json_object *json_vrf = NULL;
+	struct route_entry *re = NULL;
 
 	if (uj)
 		json = json_object_new_object();
 
-	if (id)
-		return show_nexthop_group_id_cmd_helper(vty, id, json);
+	if (id) {
+		struct nhg_hash_entry *nhe = zebra_nhg_lookup_id(id);
+
+		if (!nhe) {
+			vty_out(vty, "%% Can't find nexthop group %lu\n", id);
+			return CMD_WARNING;
+		}
+
+		if (routes) {
+			if (uj) {
+				json_object *json_routes = json_object_new_array();
+
+				frr_each (nhe_re_tree, &nhe->re_head, re) {
+					json_object *json_route = json_object_new_object();
+					char buf[PREFIX_STRLEN];
+					const char *proto_name;
+					struct rib_table_info *info =
+						route_table_get_info(re->rn->table);
+
+					prefix2str(&re->rn->p, buf, sizeof(buf));
+					proto_name = zebra_route_string(re->type);
+
+					json_object_string_add(json_route, "prefix", buf);
+					json_object_boolean_add(json_route, "installed",
+								CHECK_FLAG(re->flags,
+									   ZEBRA_FLAG_SELECTED));
+					json_object_string_add(json_route, "protocol", proto_name);
+					if (info) {
+						json_object_string_add(json_route, "afi",
+								       afi2str(info->afi));
+						json_object_string_add(json_route, "safi",
+								       safi2str(info->safi));
+					} else {
+						json_object_string_add(json_route, "afi",
+								       "unknown");
+						json_object_string_add(json_route, "safi",
+								       "unknown");
+					}
+					json_object_array_add(json_routes, json_route);
+				}
+
+				json_object_object_add(json, "routes", json_routes);
+				vty_json(vty, json);
+			} else {
+				vty_out(vty, "Routes using nexthop group %lu:\n", id);
+
+				vty_out(vty,
+					"Route Entry                    Status          Protocol    AFI      SAFI\n");
+				vty_out(vty,
+					"------------------------------ --------------- ----------  -------  -------\n");
+
+				frr_each (nhe_re_tree, &nhe->re_head, re) {
+					char buf[PREFIX_STRLEN];
+					const char *proto_name;
+					struct rib_table_info *info =
+						route_table_get_info(re->rn->table);
+
+					prefix2str(&re->rn->p, buf, sizeof(buf));
+					proto_name = zebra_route_string(re->type);
+
+					vty_out(vty, "%-30s %-14s  %-12s  %-7s  %-7s\n", buf,
+						CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED)
+							? "installed"
+							: "not installed",
+						proto_name, info ? afi2str(info->afi) : "unknown",
+						info ? safi2str(info->safi) : "unknown");
+				}
+			}
+
+			return CMD_SUCCESS;
+		}
+
+		show_nexthop_group_id_cmd_helper(vty, id, uj ? json : NULL);
+		return CMD_SUCCESS;
+	}
 
 	if (v4)
 		afi = AFI_IP;
