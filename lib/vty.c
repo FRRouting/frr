@@ -1453,6 +1453,7 @@ static void vty_read(struct event *thread)
 	int nbytes;
 	unsigned char buf[VTY_READ_BUFSIZ];
 	enum vty_status status = VTY_NORMAL;
+	buffer_status_t flushrc;
 
 	struct vty *vty = EVENT_ARG(thread);
 
@@ -1609,8 +1610,16 @@ static void vty_read(struct event *thread)
 			fallthrough;
 		case '\n':
 			vty_out(vty, "\n");
-			buffer_flush_available(vty->obuf, vty->wfd);
-			vty_execute(vty);
+			flushrc = buffer_flush_available(vty->obuf, vty->wfd);
+			if (flushrc == BUFFER_ERROR) {
+				zlog_info("buffer_flush failed on vty client fd %d/%d, closing",
+					  vty->fd, vty->wfd);
+				buffer_reset(vty->lbuf);
+				buffer_reset(vty->obuf);
+				/* schedule a prioritary event so that at next scheduling, vty will be freed */
+				vty_event(VTY_CLOSED, vty);
+			} else
+				vty_execute(vty);
 
 			if (vty->pass_fd != -1) {
 				close(vty->pass_fd);
