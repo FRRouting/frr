@@ -686,7 +686,7 @@ def test_custom_peer_hdr():
         policy="post-policy"
     )
     success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
-    assert False, f"Check BMP peers uo message post-policy has failed for \
+    assert success, f"Check BMP peers uo message post-policy has failed for \
         {ret}"
 
 
