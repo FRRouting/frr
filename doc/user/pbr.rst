@@ -22,7 +22,7 @@ Starting PBR
 :abbr:`PBR` supports all the common FRR daemon start options, which are
 documented elsewhere.
 
-.. _nexthop-groups:
+.. _pbr-nexthop-groups:
 
 PBR Nexthop Groups
 ==================
