@@ -27,6 +27,7 @@ struct zlog_cfg_file {
 	int prio_min;
 	char ts_subsec;
 	bool record_priority;
+	bool record_severity;
 
 	/* call zlog_file_set_filename/fd() to change this */
 	char *filename;

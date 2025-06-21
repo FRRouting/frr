@@ -35,8 +35,15 @@ struct zlt_fd {
 
 	char ts_subsec;
 	bool record_priority;
+	bool record_severity;
 
 	struct rcu_head_close head_close;
+};
+
+static const char *const severity_names[] = {
+	[LOG_EMERG] = "EMERG: ", [LOG_ALERT] = "ALERT: ",  [LOG_CRIT] = "CRIT: ",
+	[LOG_ERR] = "ERROR: ",	 [LOG_WARNING] = "WARN: ", [LOG_NOTICE] = "NOTICE: ",
+	[LOG_INFO] = "INFO: ",	 [LOG_DEBUG] = "DEBUG: ",
 };
 
 static const char * const prionames[] = {
@@ -85,6 +92,13 @@ void zlog_fd(struct zlog_target *zt, struct zlog_msg *msgs[], size_t nmsgs)
 
 			iovpos++;
 
+			if (zte->record_severity) {
+				iov[iovpos].iov_base = (char *)severity_names[prio];
+				iov[iovpos].iov_len = strlen(iov[iovpos].iov_base);
+
+				iovpos++;
+			}
+
 			if (zte->record_priority) {
 				iov[iovpos].iov_base = (char *)prionames[prio];
 				iov[iovpos].iov_len =
@@ -127,24 +141,31 @@ static void zlog_fd_sigsafe(struct zlog_target *zt, const char *text,
 			    size_t len)
 {
 	struct zlt_fd *zte = container_of(zt, struct zlt_fd, zt);
-	struct iovec iov[4];
-	int fd;
+	struct iovec iov[5];
+	int fd, i = 0;
 
-	iov[0].iov_base = (char *)prionames[LOG_CRIT];
-	iov[0].iov_len = zte->record_priority ? strlen(iov[0].iov_base) : 0;
+	if (zte->record_severity) {
+		iov[i].iov_base = (char *)severity_names[LOG_CRIT];
+		iov[i++].iov_len = strlen(iov[0].iov_base);
+	}
 
-	iov[1].iov_base = zlog_prefix;
-	iov[1].iov_len = zlog_prefixsz;
+	if (zte->record_priority) {
+		iov[i].iov_base = (char *)prionames[LOG_CRIT];
+		iov[i++].iov_len = strlen(iov[0].iov_base);
+	}
 
-	iov[2].iov_base = (char *)text;
-	iov[2].iov_len = len;
+	iov[i].iov_base = zlog_prefix;
+	iov[i++].iov_len = zlog_prefixsz;
 
-	iov[3].iov_base = (char *)"\n";
-	iov[3].iov_len = 1;
+	iov[i].iov_base = (char *)text;
+	iov[i++].iov_len = len;
+
+	iov[i].iov_base = (char *)"\n";
+	iov[i++].iov_len = 1;
 
 	fd = atomic_load_explicit(&zte->fd, memory_order_relaxed);
 
-	writev(fd, iov, array_size(iov));
+	writev(fd, iov, i);
 }
 
 /*
@@ -215,6 +236,7 @@ static bool zlog_file_cycle(struct zlog_cfg_file *zcf)
 
 		zlt->fd = fd;
 		zlt->record_priority = zcf->record_priority;
+		zlt->record_severity = zcf->record_severity;
 		zlt->ts_subsec = zcf->ts_subsec;
 
 		zlt->zt.prio_min = zcf->prio_min;

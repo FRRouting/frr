@@ -1366,6 +1366,14 @@ int nb_candidate_commit_prepare(struct nb_context context,
 		return NB_ERR_VALIDATION;
 	}
 
+	return nb_changes_commit_prepare(context, changes, comment, candidate, transaction, errmsg,
+					 errmsg_len);
+}
+
+int nb_changes_commit_prepare(struct nb_context context, struct nb_config_cbs changes,
+			      const char *comment, struct nb_config *candidate,
+			      struct nb_transaction **transaction, char *errmsg, size_t errmsg_len)
+{
 	/*
 	 * Re-use an existing transaction if provided. Else allocate a new one.
 	 */
@@ -1396,13 +1404,22 @@ void nb_candidate_commit_apply(struct nb_transaction *transaction,
 			       bool save_transaction, uint32_t *transaction_id,
 			       char *errmsg, size_t errmsg_len)
 {
-	(void)nb_transaction_process(NB_EV_APPLY, transaction, errmsg,
-				     errmsg_len);
+	int err;
+
+	err = nb_transaction_process(NB_EV_APPLY, transaction, errmsg, errmsg_len);
+	if (err != NB_OK) {
+		flog_warn(EC_LIB_NB_CB_CONFIG_APPLY, "%s: failed to apply transaction: %s",
+			  __func__, errmsg);
+		return;
+	}
+
 	nb_transaction_apply_finish(transaction, errmsg, errmsg_len);
 
-	/* Replace running by candidate. */
-	transaction->config->version++;
-	nb_config_replace(running_config, transaction->config, true);
+	if (transaction->config) {
+		/* Replace running by candidate. */
+		transaction->config->version++;
+		nb_config_replace(running_config, transaction->config, true);
+	}
 
 	/* Record transaction. */
 	if (save_transaction && nb_db_enabled
@@ -2131,8 +2148,21 @@ nb_apply_finish_cb_find(struct nb_config_cbs *cbs,
 static void nb_transaction_apply_finish(struct nb_transaction *transaction,
 					char *errmsg, size_t errmsg_len)
 {
+	struct nb_config *candidate_config = transaction->config;
 	struct nb_config_cbs cbs;
 	struct nb_config_cb *cb;
+
+	/*
+	 * When mgmtd is processing its local config changes transaction->config
+	 * will be NULL (so that running DS is not replaced using it early when
+	 * local apply is done -- running is updated after backends client
+	 * processing is done). We do need its candidate config though for the
+	 * destroy case below.
+	 */
+	if (!candidate_config) {
+		assert(vty_mgmt_candidate_config);
+		candidate_config = vty_mgmt_candidate_config;
+	}
 
 	/* Initialize tree of 'apply_finish' callbacks. */
 	RB_INIT(nb_config_cbs, &cbs);
@@ -2162,8 +2192,7 @@ static void nb_transaction_apply_finish(struct nb_transaction *transaction,
 			 * configuration that is being committed.
 			 */
 			yang_dnode_get_path(dnode, xpath, sizeof(xpath));
-			dnode = yang_dnode_get(transaction->config->dnode,
-					       xpath);
+			dnode = yang_dnode_get(candidate_config->dnode, xpath);
 		}
 		while (dnode) {
 			struct nb_node *nb_node;
@@ -2756,7 +2785,7 @@ void nb_init(struct event_loop *tm,
 	     const struct frr_yang_module_info *const modules[],
 	     size_t nmodules, bool db_enabled, bool load_library)
 {
-	struct yang_module *loaded[nmodules + 1];
+	struct yang_module *loaded[nmodules + 2];
 
 	/*
 	 * Currently using this explicit compile feature in libyang2 leads to
@@ -2772,6 +2801,9 @@ void nb_init(struct event_loop *tm,
 
 	yang_init(true, explicit_compile, load_library);
 
+	/* needed for frr-logging */
+	assert(yang_module_load("ietf-syslog-types", NULL));
+
 	/* Load YANG modules and their corresponding northbound callbacks. */
 	for (size_t i = 0; i < nmodules; i++) {
 		DEBUGD(&nb_dbg_events, "northbound: loading %s.yang",
@@ -2784,6 +2816,13 @@ void nb_init(struct event_loop *tm,
 	if (!yang_module_find("frr-host")) {
 		loaded[nmodules] = yang_module_load("frr-host", NULL);
 		loaded[nmodules]->frr_info = &frr_host_nb_info;
+		nmodules++;
+	}
+
+	/* Load the host module if it is not already. */
+	if (!yang_module_find("frr-logging")) {
+		loaded[nmodules] = yang_module_load("frr-logging", NULL);
+		loaded[nmodules]->frr_info = &frr_logging_nb_info;
 		nmodules++;
 	}
 

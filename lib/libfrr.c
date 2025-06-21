@@ -821,8 +821,10 @@ struct event_loop *frr_init(void)
 		cmd_init(-1);
 	else {
 		cmd_init(1);
-		if (!(di->flags & FRR_MGMTD_BACKEND))
+		if (!(di->flags & FRR_MGMTD_BACKEND)) {
 			host_cli_init();
+			log_cli_init();
+		}
 	}
 
 	vty_init(master, di->log_always);

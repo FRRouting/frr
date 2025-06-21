@@ -68,6 +68,7 @@ static const char *const zebra_config_xpaths[] = {
 	"/frr-affinity-map:lib",
 	"/frr-filter:lib",
 	"/frr-host:host",
+	"/frr-logging:logging",
 	"/frr-route-map:lib",
 	"/frr-zebra:zebra",
 	"/frr-interface:lib",
@@ -94,6 +95,7 @@ static const char *const mgmtd_testc_oper_xpaths[] = {
 static const char *const ripd_config_xpaths[] = {
 	"/frr-filter:lib",
 	"/frr-host:host",
+	"/frr-logging:logging",
 	"/frr-interface:lib/interface",
 	"/frr-ripd:ripd",
 	"/frr-route-map:lib",
@@ -117,6 +119,7 @@ static const char *const ripd_rpc_xpaths[] = {
 static const char *const ripngd_config_xpaths[] = {
 	"/frr-filter:lib",
 	"/frr-host:host",
+	"/frr-logging:logging",
 	"/frr-interface:lib/interface",
 	"/frr-ripngd:ripngd",
 	"/frr-route-map:lib",
@@ -137,6 +140,7 @@ static const char *const ripngd_rpc_xpaths[] = {
 #ifdef HAVE_STATICD
 static const char *const staticd_config_xpaths[] = {
 	"/frr-host:host",
+	"/frr-logging:logging",
 	"/frr-vrf:lib",
 	"/frr-interface:lib",
 	"/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd",
@@ -212,6 +216,14 @@ static struct mgmt_be_adapters_head mgmt_be_adapters;
 
 static struct mgmt_be_client_adapter
 	*mgmt_be_adapters_by_id[MGMTD_BE_CLIENT_ID_MAX];
+
+/*
+ * Mgmtd has it's own special "interested-in" xpath maps since it's not actually
+ * a backend client of itself.
+ */
+static const char *const mgmtd_config_xpaths[] = {
+	"/frr-logging:logging",
+};
 
 
 /* Forward declarations */
@@ -933,6 +945,20 @@ uint64_t mgmt_be_interested_clients(const char *xpath,
 			_dbg("Cient: %s: subscribed", mgmt_be_client_id2name(id));
 	}
 	return clients;
+}
+
+bool mgmt_is_mgmtd_interested(const char *xpath)
+{
+	const char *const *match = mgmtd_config_xpaths;
+	const char *const *ematch = match + array_size(mgmtd_config_xpaths);
+
+	for (; match < ematch; match++) {
+		if (mgmt_be_xpath_prefix(*match, xpath)) {
+			_dbg("mgmtd: subscribed to %s", xpath);
+			return true;
+		}
+	}
+	return false;
 }
 
 /**
