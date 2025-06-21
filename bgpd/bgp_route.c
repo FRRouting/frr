@@ -4473,14 +4473,6 @@ static void bgp_process_internal(struct bgp *bgp, struct bgp_dest *dest,
 		return;
 	}
 
-	if (CHECK_FLAG(dest->flags, BGP_NODE_SOFT_RECONFIG)) {
-		if (BGP_DEBUG(update, UPDATE_OUT))
-			zlog_debug(
-				"Soft reconfigure table in progress for route %p",
-				dest);
-		return;
-	}
-
 	if (CHECK_FLAG(dest->flags, BGP_NODE_NHT_RESOLVED_NODE)) {
 		if (BGP_DEBUG(update, UPDATE_OUT))
 			zlog_debug("Early route processing triggered by NHT for route %pBD",
