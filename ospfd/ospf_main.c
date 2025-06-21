@@ -47,6 +47,9 @@
 #include "ospfd/ospf_routemap_nb.h"
 #include "ospfd/ospf_apiserver.h"
 
+#include "ospfd/ospf_nb.h"
+#include "ospfd/ospf_cli.h"
+
 #define OSPFD_STATE_NAME	 "%s/ospfd.json", frr_libstatedir
 #define OSPFD_INST_STATE_NAME(i) "%s/ospfd-%d.json", frr_libstatedir, i
 
@@ -141,6 +144,7 @@ static const struct frr_yang_module_info *const ospfd_yang_modules[] = {
 	&frr_ospf_route_map_info,
 	&ietf_key_chain_info,
 	&ietf_key_chain_deviation_info,
+	&frr_ospfd_info,
 };
 
 /* actual paths filled in main() */
@@ -288,6 +292,9 @@ int main(int argc, char **argv)
 	ospf_vty_init();
 	ospf_vty_show_init();
 	ospf_vty_clear_init();
+
+	/* OSPF cli inits. */
+	ospf_cli_init();
 
 	/* OSPF BFD init */
 	ospf_bfd_init(master);
