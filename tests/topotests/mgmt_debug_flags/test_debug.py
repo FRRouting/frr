@@ -16,6 +16,7 @@ import time
 import pytest
 from lib.common_config import step
 from lib.topogen import Topogen
+from munet.testing.util import retry
 from munet.watchlog import WatchLog
 
 pytestmark = [pytest.mark.staticd, pytest.mark.mgmtd]
@@ -50,33 +51,48 @@ def test_client_debug_enable(tgen):
     def __test_debug(r1, on):
         time.sleep(1)
 
+        @retry(retry_timeout=10, retry_sleep=0.25)
+        def __scan_log(log, items):
+            log.update_content()
+            content = log.from_mark(log.last_snap_mark)
+            for item in items:
+                if item not in content:
+                    return f"{item} not found in {log.path}:{content}"
+
+        def __scan_log_notfound(log, items, delay=2):
+            time.sleep(delay)
+            log.update_content()
+            content = log.from_mark(log.last_snap_mark)
+            for item in items:
+                if item in content:
+                    return f"{item} found in {log.path}:{content}"
+
         watch_mgmtd_log.snapshot()
         watch_staticd_log.snapshot()
 
-        # Add ip route and remove look for debug.
+        # Add ip route and look for debug.
         r1.vtysh_cmd("conf t\nip route 11.11.11.11/32 1.1.1.2")
-        r1.vtysh_cmd("conf t\nno ip route 11.11.11.11/32 1.1.1.2")
+        try:
+            fe_cl_msg = "Sending COMMIT "
+            fe_ad_msg = "Got COMMIT "
+            be_ad_msg = "Sending CFG_REQ"
+            be_cl_msg = "Got CFG_APPLY_REQ"
 
-        time.sleep(1)
-
-        new_mgmt_logs = watch_mgmtd_log.snapshot()
-        new_be_logs = watch_staticd_log.snapshot()
-
-        fe_cl_msg = "Sending COMMIT "
-        fe_ad_msg = "Got COMMIT "
-        be_ad_msg = "Sending CFG_REQ"
-        be_cl_msg = "Got CFG_APPLY_REQ"
-
-        if on:
-            assert fe_cl_msg in new_mgmt_logs
-            assert fe_ad_msg in new_mgmt_logs
-            assert be_ad_msg in new_mgmt_logs
-            assert be_cl_msg in new_be_logs
-        else:
-            assert fe_cl_msg not in new_mgmt_logs
-            assert fe_ad_msg not in new_mgmt_logs
-            assert be_ad_msg not in new_mgmt_logs
-            assert be_cl_msg not in new_be_logs
+            if on:
+                error = __scan_log(watch_mgmtd_log, [fe_cl_msg, fe_ad_msg, be_ad_msg])
+                assert not error, error
+                error = __scan_log(watch_staticd_log, [be_cl_msg])
+                assert not error, error
+            else:
+                error = __scan_log_notfound(
+                    watch_mgmtd_log, [fe_cl_msg, fe_ad_msg, be_ad_msg]
+                )
+                assert not error, error
+                error = __scan_log_notfound(watch_staticd_log, [be_cl_msg])
+                assert not error, error
+        finally:
+            # Remove ip route to cleanup
+            r1.vtysh_cmd("conf t\nno ip route 11.11.11.11/32 1.1.1.2")
 
     step("test debug off")
     __test_debug(r1, False)
