@@ -41,7 +41,7 @@ def scan_log(log, regex):
 
 def test_log(tgen):
     r1 = tgen.net.hosts["r1"]
-    log = WatchLog(r1.rundir / "staticd.log")
+    log = WatchLog(r1.rundir / "frr.log")
 
     s = "Foo  Bar  Baz"
     assert s not in log.snapshot()
