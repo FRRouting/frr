@@ -1385,22 +1385,22 @@ static bool has_default_sid_format_config(struct srv6_sid_format *format)
 
 	switch (format->type) {
 	case SRV6_SID_FORMAT_TYPE_USID:
-		if (format->config.usid.lib_start != SRV6_SID_FORMAT_USID_F3216_LIB_START)
+		if (format->config.usid.lib_start != SRV6_SID_FORMAT_USID_DEFAULT_LIB_START)
 			has_default_config = false;
 
-		if (format->config.usid.elib_start != SRV6_SID_FORMAT_USID_F3216_ELIB_START)
+		if (format->config.usid.elib_start != SRV6_SID_FORMAT_USID_DEFAULT_ELIB_START)
 			has_default_config = false;
 
-		if (format->config.usid.elib_end != SRV6_SID_FORMAT_USID_F3216_ELIB_END)
+		if (format->config.usid.elib_end != SRV6_SID_FORMAT_USID_DEFAULT_ELIB_END)
 			has_default_config = false;
 
-		if (format->config.usid.wlib_start != SRV6_SID_FORMAT_USID_F3216_WLIB_START)
+		if (format->config.usid.wlib_start != SRV6_SID_FORMAT_USID_DEFAULT_WLIB_START)
 			has_default_config = false;
 
-		if (format->config.usid.wlib_end != SRV6_SID_FORMAT_USID_F3216_WLIB_END)
+		if (format->config.usid.wlib_end != SRV6_SID_FORMAT_USID_DEFAULT_WLIB_END)
 			has_default_config = false;
 
-		if (format->config.usid.ewlib_start != SRV6_SID_FORMAT_USID_F3216_EWLIB_START)
+		if (format->config.usid.ewlib_start != SRV6_SID_FORMAT_USID_DEFAULT_EWLIB_START)
 			has_default_config = false;
 
 		break;
@@ -1510,27 +1510,27 @@ static int zebra_sr_config(struct vty *vty)
 				if (format->type == SRV6_SID_FORMAT_TYPE_USID) {
 					vty_out(vty, "   format %s\n", format->name);
 					if (format->config.usid.lib_start !=
-					    SRV6_SID_FORMAT_USID_F3216_LIB_START)
+					    SRV6_SID_FORMAT_USID_DEFAULT_LIB_START)
 						vty_out(vty, "    local-id-block start %u\n",
 							format->config.usid.lib_start);
 					if (format->config.usid.elib_start !=
-						    SRV6_SID_FORMAT_USID_F3216_ELIB_START ||
+						    SRV6_SID_FORMAT_USID_DEFAULT_ELIB_START ||
 					    format->config.usid.elib_end !=
-						    SRV6_SID_FORMAT_USID_F3216_ELIB_END)
+						    SRV6_SID_FORMAT_USID_DEFAULT_ELIB_END)
 						vty_out(vty,
 							"    local-id-block explicit start %u end %u\n",
 							format->config.usid.elib_start,
 							format->config.usid.elib_end);
 					if (format->config.usid.wlib_start !=
-						    SRV6_SID_FORMAT_USID_F3216_WLIB_START ||
+						    SRV6_SID_FORMAT_USID_DEFAULT_WLIB_START ||
 					    format->config.usid.wlib_end !=
-						    SRV6_SID_FORMAT_USID_F3216_WLIB_END)
+						    SRV6_SID_FORMAT_USID_DEFAULT_WLIB_END)
 						vty_out(vty,
 							"    wide-local-id-block start %u end %u\n",
 							format->config.usid.wlib_start,
 							format->config.usid.wlib_end);
 					if (format->config.usid.ewlib_start !=
-					    SRV6_SID_FORMAT_USID_F3216_EWLIB_START)
+					    SRV6_SID_FORMAT_USID_DEFAULT_EWLIB_START)
 						vty_out(vty,
 							"    wide-local-id-block explicit start %u\n",
 							format->config.usid.ewlib_start);
