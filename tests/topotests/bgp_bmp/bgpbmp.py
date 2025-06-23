@@ -202,6 +202,8 @@ def bmp_check_for_peer_message(
     is_rd_instance=False,
     peer_bgp_id=None,
     peer_distinguisher=None,
+    bgp_open_as=None,
+    bgp_open_bgp_id=None,
 ):
     """
     Check for the presence of a peer up message for the peer
@@ -227,6 +229,25 @@ def bmp_check_for_peer_message(
             continue
         if peer_bgp_id and m["peer_bgp_id"] != peer_bgp_id:
             continue
+        if bgp_open_as:
+            if not m.get("open_tx", {}).get("my_as", None):
+                continue
+            if m["open_tx"]["my_as"] != bgp_open_as:
+                continue
+            if not m.get("open_rx", {}).get("my_as", None):
+                continue
+            if m["open_rx"]["my_as"] != bgp_open_as:
+                continue
+
+        if bgp_open_bgp_id:
+            if not m.get("open_tx", {}).get("bgp_id", None):
+                continue
+            if m["open_tx"]["bgp_id"] != bgp_open_bgp_id:
+                continue
+            if not m.get("open_rx", {}).get("bgp_id", None):
+                continue
+            if m["open_rx"]["bgp_id"] != bgp_open_bgp_id:
+                continue
         if (
             "peer_ip" in m.keys()
             and m["peer_ip"] != "0.0.0.0"
