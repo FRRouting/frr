@@ -875,13 +875,44 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Wed Mar 19 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+* Mon Jun 23 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
 
-* Tue Mar 18 2025 Martin Winter <mwinter@opensourcerouting.org> 10.4-dev
-- Change docs and rpki to conditional package builds
+* Mon Jun 23 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> 10.5-dev
+- FRR Development 10.5
 
-* Thu Oct 10 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.3-dev
-- FRR 10.3 Development
+* Mon Mar 10 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.3
+- Major highlights:
+-   Lua 5.4 support
+-   Fixed CVE-2024-55553
+-   New match community-count BGP command to limit communities count
+-   New set metric igp|aigp BGP command to inject IGP metric as MED into BGP
+-   New bgp ipv6-auto-ra BGP command
+-   Optimize BGP EVPN L2VNI/L3VIN remote routes processing
+-   Respect non-transitive BGP extended communities between direct peers
+-   Drop deprecated bgp network import-check exact command
+-   Handle BGP ENHE (Extended Next Hop Encoding) capability via dynamic capability
+-   Implement BGP connect backoff retry
+-   Implement an ability to import BMP information from a separate BGP instance
+-   Add support of BGP color extended community color-only types
+-   Implement SBFD
+-   Add support for SRv6 static SIDs
+-   Implement embedded-rp for PIMv6
+-   Implement AutoRP mapping-agent for PIM
+-   Implement MSDP peer SA limiting
+
+* Tue Nov 12 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.2
+- Major highlights:
+-   PIM candidate BSR/RP [#16438]
+-   Static IGMP join without an IGMP report [1#6450]
+-   PIM AutoRP discovery/announcements [#16634]
+-   IGMP proxy [#16861]
+-   SRv6 SID Manager [#15604]
+-   Add `bgp ipv6-auto-ra` command [#16354]
+-   Implement `neighbor x remote-as auto` for BGP [#16345]
+-   Implement `bgp dual-as` for BGP [#16816]
+-   Implement BGP-wide configuration for graceful restart [#16099]
+-   Handle kernel routes appropriately (should fix recent NOPREFIXROUTE issue) [#16300]
+-   Add `cisco-authentication` password support for NHRP [#16172]
 
 * Fri Jul 26 2024 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.1
 - Breaking changes
