@@ -110,6 +110,12 @@
       }
     ]
   },
+  "frr-logging:logging": {
+    "file": {
+      "filename": "frr.log"
+    },
+    "timestamp-precision": 6
+  },
   "frr-routing:routing": {
     "control-plane-protocols": {
       "control-plane-protocol": [
@@ -213,6 +219,11 @@
             "namespace": "urn:ietf:params:xml:ns:yang:ietf-yang-library"
           },
           {
+            "name": "ietf-syslog-types",
+            "revision": "rubout",
+            "namespace": "urn:ietf:params:xml:ns:yang:ietf-syslog-types"
+          },
+          {
             "name": "frr-filter",
             "revision": "rubout",
             "namespace": "http://frrouting.org/yang/filter"
@@ -231,6 +242,11 @@
             "name": "frr-host",
             "revision": "rubout",
             "namespace": "http://frrouting.org/yang/host"
+          },
+          {
+            "name": "frr-logging",
+            "revision": "rubout",
+            "namespace": "http://frrouting.org/yang/frr-logging"
           },
           {
             "name": "frr-route-map",
@@ -379,7 +395,7 @@
         ]
       }
     ],
-    "content-id": "109"
+    "content-id": "114"
   },
   "ietf-yang-library:modules-state": {
     "module-set-id": "rubout",
@@ -433,6 +449,12 @@
         "conformance-type": "implement"
       },
       {
+        "name": "ietf-syslog-types",
+        "revision": "rubout",
+        "namespace": "urn:ietf:params:xml:ns:yang:ietf-syslog-types",
+        "conformance-type": "implement"
+      },
+      {
         "name": "frr-filter",
         "revision": "rubout",
         "namespace": "http://frrouting.org/yang/filter",
@@ -460,6 +482,12 @@
         "name": "frr-host",
         "revision": "rubout",
         "namespace": "http://frrouting.org/yang/host",
+        "conformance-type": "implement"
+      },
+      {
+        "name": "frr-logging",
+        "revision": "rubout",
+        "namespace": "http://frrouting.org/yang/frr-logging",
         "conformance-type": "implement"
       },
       {
