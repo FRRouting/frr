@@ -15,6 +15,7 @@ from pathlib import Path
 
 class MatchFoundError(Exception):
     """An error raised when a match is not found."""
+
     def __init__(self, watchlog, match):
         self.watchlog = watchlog
         self.match = match
@@ -139,12 +140,16 @@ class WatchLog:
 
         If ``mark`` is None then return content since last ``set_mark`` was called.
 
+        If the file has been replaced (inode changes) then the marks will reset to 0.
+
         Args:
             mark: the mark in the content to return file content from.
 
         Return:
             returns the content between ``mark`` and the end of content.
         """
+        if mark is None:
+            mark = self.last_user_mark
         return self.content[mark:]
 
     def set_mark(self):
@@ -156,8 +161,8 @@ class WatchLog:
     def snapshot(self):
         """Update the file content and return new text.
 
-        Returns any new text added since the last snapshot,
-        also updates the snapshot mark.
+        Returns any new text added since the last snapshot and updates the snapshot
+        mark.
 
         Return:
             Newly added text.
@@ -168,3 +173,15 @@ class WatchLog:
         last_mark = self.last_snap_mark
         self.last_snap_mark = len(self.content)
         return self.content[last_mark:]
+
+    def snapshot_refresh(self):
+        """Update the file content and return the snapshot with this new content.
+
+        If the file has been replaced (inode changes) then the marks will reset to 0.
+
+        Return:
+            returns the content from the last snapshot plus any new content
+            added since ``snapshot()`` was called.
+        """
+        self.update_content()
+        return self.from_mark(self.last_snap_mark)

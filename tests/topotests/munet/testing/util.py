@@ -59,7 +59,9 @@ def pause_test(desc=""):
     asyncio.run(async_pause_test(desc))
 
 
-def retry(retry_timeout, initial_wait=0, retry_sleep=2, expected=True):
+def retry(
+    retry_timeout, initial_wait=0, retry_sleep=2, expected=True, assert_is_except=True
+):
     """Retry decorated function until it returns None, raises an exception, or timeout.
 
     * `retry_timeout`: Retry for at least this many seconds; after waiting
@@ -68,12 +70,19 @@ def retry(retry_timeout, initial_wait=0, retry_sleep=2, expected=True):
     * `retry_sleep`: The time to sleep between retries.
     * `expected`: if False then the return logic is inverted, except for exceptions,
                   (i.e., a non None ends the retry loop, and returns that value)
+    * `assert_is_except`: If True (the default) then an AssertionError raised by the
+                         wrapped function will be treated as an excpetion. If False then
+                         an assertion raised by the wrapped fucntion is treated as
+                         non-None result it is treated as an exception. This is
+                         important for handling the expected=False case. Exceptions are
+                         always treated as failures even when expected is False.
     """
 
     def _retry(func):
         @functools.wraps(func)
         def func_retry(*args, **kwargs):
             # Allow the wrapped function's args to override the fixtures
+            _assert_is_except = kwargs.pop("assert_is_except", assert_is_except)
             _retry_sleep = float(kwargs.pop("retry_sleep", retry_sleep))
             _retry_timeout = kwargs.pop("retry_timeout", retry_timeout)
             _expected = kwargs.pop("expected", expected)
@@ -90,13 +99,19 @@ def retry(retry_timeout, initial_wait=0, retry_sleep=2, expected=True):
                 seconds_left = (retry_until - datetime.datetime.now()).total_seconds()
                 try:
                     try:
-                        ret = func(*args, seconds_left=seconds_left, **kwargs)
-                    except TypeError as error:
-                        if "seconds_left" not in str(error):
+                        try:
+                            ret = func(*args, seconds_left=seconds_left, **kwargs)
+                        except TypeError as error:
+                            if "seconds_left" not in str(error):
+                                raise
+                            ret = func(*args, **kwargs)
+                    except AssertionError as error:
+                        if _assert_is_except:
                             raise
-                        ret = func(*args, **kwargs)
-
-                    logging.debug("Function returned %s", ret)
+                        logging.info('Function returned assertion: "%s"', error)
+                        ret = error
+                    else:
+                        logging.debug("Function returned %s", ret)
 
                     positive_result = ret is None
                     if _expected == positive_result:
