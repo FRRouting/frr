@@ -752,7 +752,7 @@ void ptm_sbfd_echo_sess_dn(struct bfd_session *bfd, uint8_t diag)
 	}
 }
 
-static struct bfd_session *bfd_find_disc(struct sockaddr_any *sa,
+static struct bfd_session *bfd_find_disc(struct sockaddr_any *sa __attribute__((__unused__)),
 					 uint32_t ldisc)
 {
 	return bfd_id_lookup(ldisc);
