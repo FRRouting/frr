@@ -650,7 +650,7 @@ static int zsend_nexthop_lookup(struct zserv *client, struct ipaddr *addr, struc
 	struct nexthop *nexthop;
 
 	/* Get output stream. */
-	s = stream_new(ZEBRA_SMALL_PACKET_SIZE);
+	s = stream_new(ZEBRA_SMALL_PACKET_SIZE + ZAPI_MESSAGE_OPAQUE_LENGTH);
 	stream_reset(s);
 
 	/* Fill in result. */
@@ -663,6 +663,12 @@ static int zsend_nexthop_lookup(struct zserv *client, struct ipaddr *addr, struc
 		stream_putc(s, re->distance);
 		stream_putl(s, re->metric);
 		stream_putw(s, rn->p.prefixlen);
+		stream_putl(s, re->type);
+		if (re->opaque && re->opaque->length > 0) {
+			stream_putl(s, re->opaque->length);
+			stream_put(s, re->opaque->data, re->opaque->length);
+		} else
+			stream_putl(s, 0);
 
 		num = 0;
 		/* remember position for nexthop_num */
@@ -682,6 +688,8 @@ static int zsend_nexthop_lookup(struct zserv *client, struct ipaddr *addr, struc
 		stream_putl(s, 0); /* metric */
 		stream_putw(s, 0); /* prefix len */
 		stream_putw(s, 0); /* nexthop_num */
+		stream_putl(s, 0); /* route type */
+		stream_putl(s, 0); /* opaque data length */
 	}
 
 	stream_putw_at(s, 0, stream_get_endp(s));
