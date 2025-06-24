@@ -76,15 +76,17 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
-def _check_explicit_srv6_sid_allocated(router, expected_sid_file):
+def _check_explicit_srv6_sid_allocated(router, expected_sid_file, exact=False):
     logger.info("checking bgp explicit srv6 sid allocated in sending end")
     output = json.loads(router.vtysh_cmd("show segment-routing srv6 sid json"))
     expected = open_json_file("{}/{}".format(CWD, expected_sid_file))
-    return topotest.json_cmp(output, expected)
+    return topotest.json_cmp(output, expected, exact=exact)
 
 
-def check_explicit_srv6_sid_allocated(router, expected_file):
-    func = functools.partial(_check_explicit_srv6_sid_allocated, router, expected_file)
+def check_explicit_srv6_sid_allocated(router, expected_file, exact=False):
+    func = functools.partial(
+        _check_explicit_srv6_sid_allocated, router, expected_file, exact=exact
+    )
     _, result = topotest.run_and_expect(func, None, count=15, wait=1)
     assert result is None, "Failed"
 
@@ -160,7 +162,7 @@ def check_rcvd_zebra_vrf_srv6_sid(router, vrf_name, expected_file):
 # Configure 'sid vpn per-vrf export explicit X:X::X:X' in vrf and
 # check whether zebra allocates the explicit SRv6 SIDs.
 # By command 'show segment-routing srv6 sid json'
-def test_explicit_srv6_sid_allocated():
+def test_explicit_srv6_sid_per_vrf_allocated():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -249,6 +251,39 @@ def test_rcvd_zebra_vrf_srv6_sid():
     )
     check_rcvd_zebra_vrf_srv6_sid(
         router, "Vrf20", "expected_rcvd_zebra_vrf_srv6_sid_2.json"
+    )
+
+
+# Configure 'no sid vpn per-vrf export explicit X:X::X:X' in vrf and
+# check whether zebra allocates the explicit SRv6 SIDs.
+# By command 'show segment-routing srv6 sid json'
+def test_explicit_srv6_sid_per_vrf_disabled():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+
+    router.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65001 vrf Vrf10
+          no sid vpn per-vrf export explicit 2001:db8:1:1:1000::
+        """
+    )
+    router.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65001 vrf Vrf20
+          no sid vpn per-vrf export explicit 2001:db8:1:1:2000::
+        """
+    )
+
+    # FOR DEVELOPER:
+    # If you want to stop some specific line and start interactive shell,
+    # please use tgen.mininet_cli() to start it.
+    logger.info("--6--Test for bgp explicit srv6 sid disabled in zebra")
+    check_explicit_srv6_sid_allocated(
+        router, "expected_explicit_srv6_sid_disabled.json", exact=True
     )
 
 
