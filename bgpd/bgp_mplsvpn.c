@@ -910,7 +910,7 @@ void ensure_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 
 	/* skip when sid value isn't set for explicit-mode */
 	if (is_tovpn_sid_explicit && !bgp_vrf->tovpn_sid_explicit) {
-		zlog_err("%s: explicit-mode seleted without sid value.", __func__);
+		zlog_err("%s: explicit-mode selected without sid value.", __func__);
 		return;
 	}
 
