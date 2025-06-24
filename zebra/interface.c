@@ -35,6 +35,7 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_nhg.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZINFO, "Zebra Interface Information");
 
@@ -178,7 +179,7 @@ static void if_down_nhg_dependents(const struct interface *ifp)
 	struct zebra_if *zif = (struct zebra_if *)ifp->info;
 
 	frr_each(nhg_connected_tree, &zif->nhg_dependents, rb_node_dep)
-		zebra_nhg_check_valid(rb_node_dep->nhe);
+		zebra_nhg_check_valid_with_dependency_propagation(rb_node_dep->nhe, false);
 }
 
 static void if_nhg_dependents_release(const struct interface *ifp)
@@ -188,7 +189,7 @@ static void if_nhg_dependents_release(const struct interface *ifp)
 
 	frr_each(nhg_connected_tree, &zif->nhg_dependents, rb_node_dep) {
 		rb_node_dep->nhe->ifp = NULL; /* Null it out */
-		zebra_nhg_check_valid(rb_node_dep->nhe);
+		zebra_nhg_check_valid_with_dependency_propagation(rb_node_dep->nhe, false);
 		if (CHECK_FLAG(rb_node_dep->nhe->flags,
 			       NEXTHOP_GROUP_KEEP_AROUND) &&
 		    rb_node_dep->nhe->refcnt == 1)
