@@ -76,6 +76,87 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
+def _check_explicit_srv6_sid_allocated(router, expected_sid_file):
+    logger.info("checking bgp explicit srv6 sid allocated in sending end")
+    output = json.loads(router.vtysh_cmd("show segment-routing srv6 sid json"))
+    expected = open_json_file("{}/{}".format(CWD, expected_sid_file))
+    return topotest.json_cmp(output, expected)
+
+
+def check_explicit_srv6_sid_allocated(router, expected_file):
+    func = functools.partial(_check_explicit_srv6_sid_allocated, router, expected_file)
+    _, result = topotest.run_and_expect(func, None, count=15, wait=1)
+    assert result is None, "Failed"
+
+
+def _check_sent_bgp_vpn_srv6_sid(router, expected_route_file):
+    logger.info("checking bgp vpn route with SRv6 SIDs in sending end")
+    output = json.loads(router.vtysh_cmd("show bgp ipv4 vpn 192.168.1.0/24 json"))
+    expected = open_json_file("{}/{}".format(CWD, expected_route_file))
+    return topotest.json_cmp(output, expected)
+
+
+def check_sent_bgp_vpn_srv6_sid(router, expected_file):
+    func = functools.partial(_check_sent_bgp_vpn_srv6_sid, router, expected_file)
+    _, result = topotest.run_and_expect(func, None, count=15, wait=1)
+    assert result is None, "Failed"
+
+
+def _check_rcvd_bgp_vpn_srv6_sid(router, expected_route_file):
+    logger.info("checking bgp ipv4 vpn route with SRv6 SIDs in receiving end")
+    output = json.loads(router.vtysh_cmd("show bgp ipv4 vpn 192.168.1.0/24 json"))
+    expected = open_json_file("{}/{}".format(CWD, expected_route_file))
+    return topotest.json_cmp(output, expected)
+
+
+def check_rcvd_bgp_vpn_srv6_sid(router, expected_file):
+    func = functools.partial(_check_rcvd_bgp_vpn_srv6_sid, router, expected_file)
+    _, result = topotest.run_and_expect(func, None, count=15, wait=1)
+    assert result is None, "Failed"
+
+
+def _check_rcvd_bgp_vrf_srv6_sid(router, vrf_name, expected_route_file):
+    logger.info(
+        "checking bgp vrf {} ipv4 route with SRv6 SIDs in receiving end".format(
+            vrf_name
+        )
+    )
+    output = json.loads(
+        router.vtysh_cmd("show bgp vrf {} ipv4 192.168.1.0/24 json".format(vrf_name))
+    )
+    expected = open_json_file("{}/{}".format(CWD, expected_route_file))
+    return topotest.json_cmp(output, expected)
+
+
+def check_rcvd_bgp_vrf_srv6_sid(router, vrf_name, expected_file):
+    func = functools.partial(
+        _check_rcvd_bgp_vrf_srv6_sid, router, vrf_name, expected_file
+    )
+    _, result = topotest.run_and_expect(func, None, count=15, wait=1)
+    assert result is None, "Failed"
+
+
+def _check_rcvd_zebra_vrf_srv6_sid(router, vrf_name, expected_route_file):
+    logger.info(
+        "checking zebra vrf {} ipv4 route with SRv6 SIDs in receiving end".format(
+            vrf_name
+        )
+    )
+    output = json.loads(
+        router.vtysh_cmd("show ip route vrf {} 192.168.1.0/24 json".format(vrf_name))
+    )
+    expected = open_json_file("{}/{}".format(CWD, expected_route_file))
+    return topotest.json_cmp(output, expected)
+
+
+def check_rcvd_zebra_vrf_srv6_sid(router, vrf_name, expected_file):
+    func = functools.partial(
+        _check_rcvd_zebra_vrf_srv6_sid, router, vrf_name, expected_file
+    )
+    _, result = topotest.run_and_expect(func, None, count=15, wait=1)
+    assert result is None, "Failed"
+
+
 # Configure 'sid vpn per-vrf export explicit X:X::X:X' in vrf and
 # check whether zebra allocates the explicit SRv6 SIDs.
 # By command 'show segment-routing srv6 sid json'
@@ -84,17 +165,6 @@ def test_explicit_srv6_sid_allocated():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
     router = tgen.gears["r1"]
-
-    def _check_explicit_srv6_sid_allocated(router, expected_sid_file):
-        logger.info("checking bgp explicit srv6 sid allocated in sending end")
-        output = json.loads(router.vtysh_cmd("show segment-routing srv6 sid json"))
-        expected = open_json_file("{}/{}".format(CWD, expected_sid_file))
-        return topotest.json_cmp(output, expected)
-
-    def check_explicit_srv6_sid_allocated(router, expected_file):
-        func = functools.partial(_check_explicit_srv6_sid_allocated, router, expected_file)
-        _, result = topotest.run_and_expect(func, None, count=15, wait=1)
-        assert result is None, "Failed"
 
     router.vtysh_cmd(
         """
@@ -115,7 +185,9 @@ def test_explicit_srv6_sid_allocated():
     # If you want to stop some specific line and start interactive shell,
     # please use tgen.mininet_cli() to start it.
     logger.info("--1--Test for bgp explicit srv6 sid allocated in zebra")
-    check_explicit_srv6_sid_allocated(router, "expected_explicit_srv6_sid_allocated.json")
+    check_explicit_srv6_sid_allocated(
+        router, "expected_explicit_srv6_sid_allocated.json"
+    )
 
 
 # Check whether bgp vpn route contains the static SRv6 SIDs
@@ -126,17 +198,6 @@ def test_sent_bgp_vpn_srv6_sid():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
     router = tgen.gears["r1"]
-
-    def _check_sent_bgp_vpn_srv6_sid(router, expected_route_file):
-        logger.info("checking bgp vpn route with SRv6 SIDs in sending end")
-        output = json.loads(router.vtysh_cmd("show bgp ipv4 vpn 192.168.1.0/24 json"))
-        expected = open_json_file("{}/{}".format(CWD, expected_route_file))
-        return topotest.json_cmp(output, expected)
-
-    def check_sent_bgp_vpn_srv6_sid(router, expected_file):
-        func = functools.partial(_check_sent_bgp_vpn_srv6_sid, router, expected_file)
-        _, result = topotest.run_and_expect(func, None, count=15, wait=1)
-        assert result is None, "Failed"
 
     # FOR DEVELOPER:
     # If you want to stop some specific line and start interactive shell,
@@ -153,17 +214,6 @@ def test_rcvd_bgp_vpn_srv6_sid():
         pytest.skip(tgen.errors)
     router = tgen.gears["r2"]
 
-    def _check_rcvd_bgp_vpn_srv6_sid(router, expected_route_file):
-        logger.info("checking bgp ipv4 vpn route with SRv6 SIDs in receiving end")
-        output = json.loads(router.vtysh_cmd("show bgp ipv4 vpn 192.168.1.0/24 json"))
-        expected = open_json_file("{}/{}".format(CWD, expected_route_file))
-        return topotest.json_cmp(output, expected)
-
-    def check_rcvd_bgp_vpn_srv6_sid(router, expected_file):
-        func = functools.partial(_check_rcvd_bgp_vpn_srv6_sid, router, expected_file)
-        _, result = topotest.run_and_expect(func, None, count=15, wait=1)
-        assert result is None, "Failed"
-
     logger.info("--3--Test for SRv6 SID in bgp vpn in receiving end")
     check_rcvd_bgp_vpn_srv6_sid(router, "expected_rcvd_bgp_vpn_srv6_sid.json")
 
@@ -176,20 +226,13 @@ def test_rcvd_bgp_vrf_srv6_sid():
         pytest.skip(tgen.errors)
     router = tgen.gears["r2"]
 
-    def _check_rcvd_bgp_vrf_srv6_sid(router, vrf_name, expected_route_file):
-        logger.info("checking bgp vrf {} ipv4 route with SRv6 SIDs in receiving end".format(vrf_name))
-        output = json.loads(router.vtysh_cmd("show bgp vrf {} ipv4 192.168.1.0/24 json".format(vrf_name)))
-        expected = open_json_file("{}/{}".format(CWD, expected_route_file))
-        return topotest.json_cmp(output, expected)
-
-    def check_rcvd_bgp_vrf_srv6_sid(router, vrf_name, expected_file):
-        func = functools.partial(_check_rcvd_bgp_vrf_srv6_sid, router, vrf_name, expected_file)
-        _, result = topotest.run_and_expect(func, None, count=15, wait=1)
-        assert result is None, "Failed"
-
     logger.info("--4--Test for SRv6 SIDs in bgp vrf route in receiving end")
-    check_rcvd_bgp_vrf_srv6_sid(router, "Vrf10", "expected_rcvd_bgp_vrf_srv6_sid_1.json")
-    check_rcvd_bgp_vrf_srv6_sid(router, "Vrf20", "expected_rcvd_bgp_vrf_srv6_sid_2.json")
+    check_rcvd_bgp_vrf_srv6_sid(
+        router, "Vrf10", "expected_rcvd_bgp_vrf_srv6_sid_1.json"
+    )
+    check_rcvd_bgp_vrf_srv6_sid(
+        router, "Vrf20", "expected_rcvd_bgp_vrf_srv6_sid_2.json"
+    )
 
 
 # Check SRv6 SIDs in zebra vrf route in receiving end.
@@ -200,20 +243,13 @@ def test_rcvd_zebra_vrf_srv6_sid():
         pytest.skip(tgen.errors)
     router = tgen.gears["r2"]
 
-    def _check_rcvd_zebra_vrf_srv6_sid(router, vrf_name, expected_route_file):
-        logger.info("checking zebra vrf {} ipv4 route with SRv6 SIDs in receiving end".format(vrf_name))
-        output = json.loads(router.vtysh_cmd("show ip route vrf {} 192.168.1.0/24 json".format(vrf_name)))
-        expected = open_json_file("{}/{}".format(CWD, expected_route_file))
-        return topotest.json_cmp(output, expected)
-
-    def check_rcvd_zebra_vrf_srv6_sid(router, vrf_name, expected_file):
-        func = functools.partial(_check_rcvd_zebra_vrf_srv6_sid, router, vrf_name, expected_file)
-        _, result = topotest.run_and_expect(func, None, count=15, wait=1)
-        assert result is None, "Failed"
-
     logger.info("--5--Test for SRv6 SIDs in zebra vrf route in receiving end")
-    check_rcvd_zebra_vrf_srv6_sid(router, "Vrf10", "expected_rcvd_zebra_vrf_srv6_sid_1.json")
-    check_rcvd_zebra_vrf_srv6_sid(router, "Vrf20", "expected_rcvd_zebra_vrf_srv6_sid_2.json")
+    check_rcvd_zebra_vrf_srv6_sid(
+        router, "Vrf10", "expected_rcvd_zebra_vrf_srv6_sid_1.json"
+    )
+    check_rcvd_zebra_vrf_srv6_sid(
+        router, "Vrf20", "expected_rcvd_zebra_vrf_srv6_sid_2.json"
+    )
 
 
 if __name__ == "__main__":
