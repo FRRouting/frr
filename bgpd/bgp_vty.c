@@ -10242,8 +10242,8 @@ DEFPY (af_sid_vpn_export,
 		return CMD_SUCCESS;
 	}
 
-	if (bgp->tovpn_sid_index != 0 ||
-	    CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO)) {
+	if (bgp->tovpn_sid_index != 0 || CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO) ||
+	    CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT)) {
 		vty_out(vty,
 			"per-vrf sid and per-af sid are mutually exclusive\n"
 			"Failed: per-vrf sid is configured. Remove per-vrf sid before configuring per-af sid\n");
