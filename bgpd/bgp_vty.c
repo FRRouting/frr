@@ -10194,19 +10194,22 @@ DEFPY (af_label_vpn_export,
 
 DEFPY (af_sid_vpn_export,
        af_sid_vpn_export_cmd,
-       "[no] sid vpn export <(1-1048575)$sid_idx|auto$sid_auto>",
+       "[no] sid vpn export <(1-1048575)$sid_idx|auto$sid_auto|explicit$sid_explicit X:X::X:X$sid_value>",
        NO_STR
        "sid value for VRF\n"
        "Between current address-family and vpn\n"
        "For routes leaked from current address-family to vpn\n"
        "Sid allocation index\n"
-       "Automatically assign a label\n")
+       "Automatically assign a label\n"
+       "Explicitly assign a sid value\n"
+       "Sid value\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	afi_t afi;
 	int debug = 0;
 	int idx = 0;
 	bool yes = true;
+	struct in6_addr *tovpn_sid_explicit = NULL;
 
 	if (argv_find(argv, argc, "no", &idx))
 		yes = false;
@@ -10220,8 +10223,8 @@ DEFPY (af_sid_vpn_export,
 	if (!yes) {
 		/* when SID is not set, do nothing */
 		if ((bgp->vpn_policy[afi].tovpn_sid_index == 0) &&
-		    !CHECK_FLAG(bgp->vpn_policy[afi].flags,
-				BGP_VPN_POLICY_TOVPN_SID_AUTO))
+		    !CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO) &&
+		    !CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_EXPLICIT))
 			return CMD_SUCCESS;
 
 		/* pre-change */
@@ -10230,6 +10233,7 @@ DEFPY (af_sid_vpn_export,
 		bgp->vpn_policy[afi].tovpn_sid_index = 0;
 		UNSET_FLAG(bgp->vpn_policy[afi].flags,
 			   BGP_VPN_POLICY_TOVPN_SID_AUTO);
+		UNSET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_EXPLICIT);
 
 		/* post-change */
 		vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi,
@@ -10247,20 +10251,27 @@ DEFPY (af_sid_vpn_export,
 	}
 
 	/* skip when it's already configured */
-	if ((sid_idx != 0 && bgp->vpn_policy[afi].tovpn_sid_index != 0)
-	    || (sid_auto && CHECK_FLAG(bgp->vpn_policy[afi].flags,
-				       BGP_VPN_POLICY_TOVPN_SID_AUTO)))
+	if ((sid_idx != 0 && bgp->vpn_policy[afi].tovpn_sid_index != 0) ||
+	    (sid_auto && CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO)) ||
+	    (sid_explicit &&
+	     CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_EXPLICIT)))
 		return CMD_SUCCESS;
 
 	/*
 	 * mode change between sid_idx and sid_auto isn't supported.
 	 * user must negate sid vpn export when they want to change the mode
 	 */
-	if (sid_auto && bgp->vpn_policy[afi].tovpn_sid_index != 0) {
-		vty_out(vty, "it's already configured as idx-mode.\n",
+	if ((sid_auto || sid_explicit) && bgp->vpn_policy[afi].tovpn_sid_index != 0) {
+		vty_out(vty, "it's already configured as idx-mode.\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
-	if (sid_idx != 0 && CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO)) {
+	if ((sid_auto || sid_idx != 0) &&
+	    CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VRF_TOVPN_SID_EXPLICIT)) {
+		vty_out(vty, "it's already configured as explicit-mode.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if ((sid_idx != 0 || sid_explicit) &&
+	    CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VRF_TOVPN_SID_AUTO)) {
 		vty_out(vty, "it's already configured as auto-mode.\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -10280,6 +10291,16 @@ DEFPY (af_sid_vpn_export,
 		if (debug)
 			zlog_debug("%s: idx %ld sid alloc.", __func__, sid_idx);
 		bgp->vpn_policy[afi].tovpn_sid_index = sid_idx;
+	} else if (sid_explicit) {
+		/* SID allocation explicit-mode */
+		tovpn_sid_explicit = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
+		IPV6_ADDR_COPY(tovpn_sid_explicit, &sid_value);
+		bgp->vpn_policy[afi].tovpn_sid_explicit = tovpn_sid_explicit;
+
+		if (debug)
+			zlog_debug("%s: explicit per-address-family afi %s sid alloc.", __func__,
+				   afi2str(afi));
+		SET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_EXPLICIT);
 	}
 
 	/* post-change */
@@ -18791,6 +18812,9 @@ static void bgp_vpn_policy_config_write_afi(struct vty *vty, struct bgp *bgp,
 	if (CHECK_FLAG(bgp->vpn_policy[afi].flags,
 		       BGP_VPN_POLICY_TOVPN_SID_AUTO)) {
 		vty_out(vty, "%*ssid vpn export %s\n", indent, "", "auto");
+	} else if (CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_EXPLICIT)) {
+		vty_out(vty, "%*ssid vpn export explicit %pI6\n", indent, "",
+			bgp->vpn_policy[afi].tovpn_sid_explicit);
 	} else if (tovpn_sid_index != 0) {
 		vty_out(vty, "%*ssid vpn export %d\n", indent, "",
 			tovpn_sid_index);

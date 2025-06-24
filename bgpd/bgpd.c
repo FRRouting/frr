@@ -1544,6 +1544,8 @@ static void bgp_srv6_cleanup(struct bgp *bgp)
 			XFREE(MTYPE_BGP_SRV6_SID,
 			      bgp->vpn_policy[afi].tovpn_sid);
 		}
+		if (bgp->vpn_policy[afi].tovpn_sid_explicit)
+			XFREE(MTYPE_BGP_SRV6_SID, bgp->vpn_policy[afi].tovpn_sid_explicit);
 	}
 
 	if (bgp->tovpn_sid_locator != NULL) {
