@@ -195,7 +195,7 @@ def test_explicit_srv6_sid_per_vrf_allocated():
 # Check whether bgp vpn route contains the static SRv6 SIDs
 # in sending end.
 # By command 'show bgp ipv4 vpn X.X.X.X/M json'
-def test_sent_bgp_vpn_srv6_sid():
+def _test_sent_bgp_vpn_srv6_sid(step):
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
@@ -204,31 +204,41 @@ def test_sent_bgp_vpn_srv6_sid():
     # FOR DEVELOPER:
     # If you want to stop some specific line and start interactive shell,
     # please use tgen.mininet_cli() to start it.
-    logger.info("--2--Test for bgp explicit SRv6 SIDs in bgp vpn route in sending end")
+    logger.info(
+        f"--{step}--Test for bgp explicit SRv6 SIDs in bgp vpn route in sending end"
+    )
     check_sent_bgp_vpn_srv6_sid(router, "expected_sent_bgp_vpn_srv6_sid.json")
+
+
+def test_sent_bgp_vpn_srv6_sid():
+    _test_sent_bgp_vpn_srv6_sid(2)
 
 
 # Check SRv6 SIDs in bgp vpn route in receiving end.
 # By command 'show bgp ipv4 vpn json X.X.X.X/M json'
-def test_rcvd_bgp_vpn_srv6_sid():
+def _test_rcvd_bgp_vpn_srv6_sid(step):
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
     router = tgen.gears["r2"]
 
-    logger.info("--3--Test for SRv6 SID in bgp vpn in receiving end")
+    logger.info(f"--{step}--Test for SRv6 SID in bgp vpn in receiving end")
     check_rcvd_bgp_vpn_srv6_sid(router, "expected_rcvd_bgp_vpn_srv6_sid.json")
+
+
+def test_rcvd_bgp_vpn_srv6_sid():
+    _test_rcvd_bgp_vpn_srv6_sid(3)
 
 
 # Check SRv6 SIDs in bgp vrf route in receiving end.
 # By command 'show bgp vrf VrfName ipv4 X.X.X.X/M json'
-def test_rcvd_bgp_vrf_srv6_sid():
+def _test_rcvd_bgp_vrf_srv6_sid(step):
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
     router = tgen.gears["r2"]
 
-    logger.info("--4--Test for SRv6 SIDs in bgp vrf route in receiving end")
+    logger.info(f"--{step}--Test for SRv6 SIDs in bgp vrf route in receiving end")
     check_rcvd_bgp_vrf_srv6_sid(
         router, "Vrf10", "expected_rcvd_bgp_vrf_srv6_sid_1.json"
     )
@@ -237,21 +247,29 @@ def test_rcvd_bgp_vrf_srv6_sid():
     )
 
 
+def test_rcvd_bgp_vrf_srv6_sid():
+    _test_rcvd_bgp_vrf_srv6_sid(4)
+
+
 # Check SRv6 SIDs in zebra vrf route in receiving end.
 # By command 'show ip route vrf VrfName X.X.X.X/M json'
-def test_rcvd_zebra_vrf_srv6_sid():
+def _test_rcvd_zebra_vrf_srv6_sid(step):
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
     router = tgen.gears["r2"]
 
-    logger.info("--5--Test for SRv6 SIDs in zebra vrf route in receiving end")
+    logger.info(f"--{step}--Test for SRv6 SIDs in zebra vrf route in receiving end")
     check_rcvd_zebra_vrf_srv6_sid(
         router, "Vrf10", "expected_rcvd_zebra_vrf_srv6_sid_1.json"
     )
     check_rcvd_zebra_vrf_srv6_sid(
         router, "Vrf20", "expected_rcvd_zebra_vrf_srv6_sid_2.json"
     )
+
+
+def test_rcvd_zebra_vrf_srv6_sid():
+    _test_rcvd_zebra_vrf_srv6_sid(5)
 
 
 # Configure 'no sid vpn per-vrf export explicit X:X::X:X' in vrf and
@@ -282,6 +300,98 @@ def test_explicit_srv6_sid_per_vrf_disabled():
     # If you want to stop some specific line and start interactive shell,
     # please use tgen.mininet_cli() to start it.
     logger.info("--6--Test for bgp explicit srv6 sid disabled in zebra")
+    check_explicit_srv6_sid_allocated(
+        router, "expected_explicit_srv6_sid_disabled.json", exact=True
+    )
+
+
+# Configure 'sid vpn export explicit X:X::X:X' in ipv4 address-family and
+# check whether zebra allocates the explicit SRv6 SIDs.
+# By command 'show segment-routing srv6 sid json'
+def test_explicit_srv6_sid_per_af_allocated():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+
+    router.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65001 vrf Vrf10
+          address-family ipv4 unicast
+           sid vpn export explicit 2001:db8:1:1:1000::
+          exit-address-family
+        """
+    )
+    router.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65001 vrf Vrf20
+          address-family ipv4 unicast
+           sid vpn export explicit 2001:db8:1:1:2000::
+          exit-address-family
+        """
+    )
+
+    # FOR DEVELOPER:
+    # If you want to stop some specific line and start interactive shell,
+    # please use tgen.mininet_cli() to start it.
+    logger.info("--7--Test for bgp explicit srv6 sid allocated in zebra")
+    check_explicit_srv6_sid_allocated(
+        router, "expected_explicit_srv6_sid_per_af_allocated.json"
+    )
+
+
+def test_sent_bgp_vpn_srv6_per_af_sid():
+    _test_sent_bgp_vpn_srv6_sid(8)
+
+
+def test_rcvd_bgp_vpn_srv6_per_af_sid():
+    _test_rcvd_bgp_vpn_srv6_sid(9)
+
+
+# Check SRv6 SIDs in bgp vrf route in receiving end.
+# By command 'show bgp vrf VrfName ipv4 X.X.X.X/M json'
+def test_rcvd_bgp_vrf_srv6_per_af_sid():
+    _test_rcvd_bgp_vrf_srv6_sid(10)
+
+
+# Check SRv6 SIDs in zebra vrf route in receiving end.
+# By command 'show ip route vrf VrfName X.X.X.X/M json'
+def test_rcvd_zebra_vrf_srv6_per_af_sid():
+    _test_rcvd_zebra_vrf_srv6_sid(11)
+
+
+# Configure 'no sid vpn export explicit X:X::X:X' in af and
+# check whether zebra allocates the explicit SRv6 SIDs.
+# By command 'show segment-routing srv6 sid json'
+def test_explicit_srv6_sid_per_af_disabled():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+
+    router.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65001 vrf Vrf10
+          address-family ipv4 unicast
+           no sid vpn export explicit 2001:db8:1:1:1000::
+        """
+    )
+    router.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65001 vrf Vrf20
+          address-family ipv4 unicast
+           no sid vpn export explicit 2001:db8:1:1:2000::
+        """
+    )
+
+    # FOR DEVELOPER:
+    # If you want to stop some specific line and start interactive shell,
+    # please use tgen.mininet_cli() to start it.
+    logger.info("--12--Test for bgp explicit srv6 sid disabled in zebra")
     check_explicit_srv6_sid_allocated(
         router, "expected_explicit_srv6_sid_disabled.json", exact=True
     )
