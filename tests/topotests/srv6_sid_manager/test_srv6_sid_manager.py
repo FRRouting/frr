@@ -396,8 +396,8 @@ def test_ping():
         pytest.skip(tgen.errors)
 
     # Setup encap route on rt1, decap route on rt2
-    # tgen.gears["rt1"].vtysh_cmd("sharp install seg6-routes fc00:0:9::1 nexthop-seg6 2001:db8:1::2 encap fc00:0:2:6:fe00:: 1")
-    tgen.gears["rt1"].cmd("ip -6 r a fc00:0:9::1/128 encap seg6 mode encap segs fc00:0:2:6:fe00:: via 2001:db8:1::2")
+    # tgen.gears["rt1"].vtysh_cmd("sharp install seg6-routes fc00:0:9::1 nexthop-seg6 2001:db8:1::2 encap fc00:0:2:6:0:fe00:: 1")
+    tgen.gears["rt1"].cmd("ip -6 r a fc00:0:9::1/128 encap seg6 mode encap segs fc00:0:2:6:0:fe00:: via 2001:db8:1::2")
     # tgen.gears["rt6"].vtysh_cmd("sharp install seg6local-routes fc00:0:f00d:: nexthop-seg6local eth-dst End_DT6 254 1")
     tgen.gears["rt6"].cmd("ip -6 r a fc00:0:9::1/128 via 2001:db8:10::2 vrf vrf10")
     tgen.gears["dst"].cmd("ip -6 r a 2001:db8:1::1/128 via 2001:db8:10::1")
