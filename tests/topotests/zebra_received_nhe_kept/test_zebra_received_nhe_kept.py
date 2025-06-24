@@ -11,20 +11,17 @@
 test_zebra_received_nhe_kept.py: Test of Zebra Next Hop Entry Kept
 """
 
-import os
-import sys
-import pytest
 import json
-from functools import partial
+import sys
 
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
+import pytest
+from lib.common_config import step
+from lib.topogen import Topogen, get_topogen
+from lib.topolog import logger
+from munet.testing.util import retry
 
 # pylint: disable=C0413
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.topolog import logger
-from lib.common_config import step
 
 
 def build_topo(tgen):
@@ -46,7 +43,7 @@ def setup_module(mod):
     # For all registered routers, load the zebra configuration file
     for rname, router in tgen.routers().items():
         logger.info("Loading router %s" % rname)
-        router.load_frr_config(os.path.join(CWD, "{}/frr.conf".format(rname)))
+        router.load_frr_config("frr.conf")
 
     # After loading the configurations, this function loads configured daemons.
     tgen.start_router()
@@ -68,36 +65,40 @@ def test_zebra_received_nhe_kept():
 
     r1 = tgen.gears["r1"]
 
-    step("Get the route information")
-    # Get the route information
-    route_info = r1.vtysh_cmd("show ip route json")
-    route_json = json.loads(route_info)
+    @retry(retry_timeout=10, retry_sleep=0.25)
+    def _check_zebra_routes():
+        # Get the route information
+        route_info = r1.vtysh_cmd("show ip route json")
+        route_json = json.loads(route_info)
 
-    # Get the NHG ID for 10.0.0.1
-    nhg_id = None
-    for prefix, route in route_json.items():
-        if prefix == "10.0.0.1/32":
-            nhg_id = route[0].get("receivedNexthopGroupId")
-            break
+        # Get the NHG ID for 10.0.0.1
+        nhg_id = None
+        for prefix, route in route_json.items():
+            if prefix == "10.0.0.1/32":
+                nhg_id = route[0].get("receivedNexthopGroupId")
+                break
 
-    step("Verify all routes 10.0.0.1-.5 have the same NHG ID {}".format(nhg_id))
-    # Verify all routes 10.0.0.1-.5 have the same NHG ID
-    for i in range(1, 6):
-        prefix = f"10.0.0.{i}/32"
-        assert prefix in route_json, f"Route {prefix} not found"
-        route = route_json[prefix][0]
-        assert (
-            "receivedNexthopGroupId" in route
-        ), f"Route {prefix} missing receivedNexthopGroupId"
-        assert (
-            route["receivedNexthopGroupId"] == nhg_id
-        ), f"Route {prefix} has different NHG ID"
+        logger.info(
+            "Verify all routes 10.0.0.1-.5 have the same NHG ID {}".format(nhg_id)
+        )
+        for i in range(1, 6):
+            prefix = f"10.0.0.{i}/32"
+            assert prefix in route_json, f"Route {prefix} not found"
+            route = route_json[prefix][0]
+            assert (
+                "receivedNexthopGroupId" in route
+            ), f"Route {prefix} missing receivedNexthopGroupId"
+            assert (
+                route["receivedNexthopGroupId"] == nhg_id
+            ), f"Route {prefix} has different NHG ID"
 
-    step("Verify NHG {} has refcount of 10".format(nhg_id))
-    # Get the NHG information
-    nhg_info = r1.vtysh_cmd("show nexthop-group rib {} json".format(nhg_id))
-    nhg_json = json.loads(nhg_info)
-    assert nhg_json[str(nhg_id)]["refCount"] == 10, "NHG refcount is not 10"
+        # Get the NHG information
+        logger.info("Verify NHG {} has refcount of 10".format(nhg_id))
+        nhg_info = r1.vtysh_cmd("show nexthop-group rib {} json".format(nhg_id))
+        nhg_json = json.loads(nhg_info)
+        assert nhg_json[str(nhg_id)]["refCount"] == 10, "NHG refcount is not 10"
+
+    assert not _check_zebra_routes()
 
 
 def test_zebra_received_nhe_kept_remove_routes():
