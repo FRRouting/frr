@@ -782,6 +782,7 @@ void ensure_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 	struct in6_addr tovpn_sid = {};
 	uint32_t tovpn_sid_index = 0;
 	bool tovpn_sid_auto = false;
+	bool is_tovpn_sid_explicit = false;
 	struct srv6_sid_ctx ctx = {};
 	uint32_t sid_func;
 
@@ -810,25 +811,38 @@ void ensure_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 	tovpn_sid_index = bgp_vrf->vpn_policy[afi].tovpn_sid_index;
 	tovpn_sid_auto = CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags,
 				    BGP_VPN_POLICY_TOVPN_SID_AUTO);
+	is_tovpn_sid_explicit = CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags,
+					   BGP_VPN_POLICY_TOVPN_SID_EXPLICIT);
 
 	/* skip when VPN isn't configured on vrf-instance */
-	if (tovpn_sid_index == 0 && !tovpn_sid_auto)
+	if (tovpn_sid_index == 0 && !tovpn_sid_auto && !is_tovpn_sid_explicit)
 		return;
 
-	/* check invalid case both configured index and auto */
-	if (tovpn_sid_index != 0 && tovpn_sid_auto) {
-		zlog_err("%s: index-mode and auto-mode both selected. ignored.",
+	/* check invalid case more than one mode configured
+	 * among index, auto and explicit
+	 */
+	if ((tovpn_sid_index != 0 && tovpn_sid_auto) ||
+	    (tovpn_sid_index != 0 && is_tovpn_sid_explicit) ||
+	    (tovpn_sid_auto && is_tovpn_sid_explicit)) {
+		zlog_err("%s: more than one mode selected among index-mode, auto-mode and explicit-mode. ignored.",
 			 __func__);
 		return;
 	}
 
-	if (!tovpn_sid_auto) {
+	/* skip when sid value isn't set for explicit-mode */
+	if (is_tovpn_sid_explicit && !bgp_vrf->vpn_policy[afi].tovpn_sid_explicit) {
+		zlog_err("%s: explicit-mode selected without sid value.", __func__);
+		return;
+	}
+	if (!tovpn_sid_auto && !is_tovpn_sid_explicit) {
 		if (!srv6_sid_compose(&tovpn_sid, bgp_vpn->srv6_locator,
 				      tovpn_sid_index)) {
 			zlog_err("%s: failed to compose sid for vrf %s: afi %s",
 				 __func__, bgp_vrf->name_pretty, afi2str(afi));
 			return;
 		}
+	} else if (is_tovpn_sid_explicit) {
+		tovpn_sid = *(bgp_vrf->vpn_policy[afi].tovpn_sid_explicit);
 	}
 
 	ctx.vrf_id = bgp_vrf->vrf_id;
@@ -925,8 +939,8 @@ void ensure_vrf_tovpn_sid(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi)
 {
 	/* per-af sid */
 	if (bgp_vrf->vpn_policy[afi].tovpn_sid_index != 0 ||
-	    CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags,
-		       BGP_VPN_POLICY_TOVPN_SID_AUTO))
+	    CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO) ||
+	    CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_EXPLICIT))
 		return ensure_vrf_tovpn_sid_per_af(bgp_vpn, bgp_vrf, afi);
 
 	/* per-vrf sid */
@@ -942,6 +956,7 @@ void delete_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF);
 	uint32_t tovpn_sid_index = 0;
 	bool tovpn_sid_auto = false;
+	bool is_tovpn_sid_explicit = false;
 	struct srv6_sid_ctx ctx = {};
 
 	if (debug)
@@ -951,9 +966,10 @@ void delete_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 	tovpn_sid_index = bgp_vrf->vpn_policy[afi].tovpn_sid_index;
 	tovpn_sid_auto = CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags,
 				    BGP_VPN_POLICY_TOVPN_SID_AUTO);
+	is_tovpn_sid_explicit = CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT);
 
 	/* skip when VPN is configured on vrf-instance */
-	if (tovpn_sid_index != 0 || tovpn_sid_auto)
+	if (tovpn_sid_index != 0 || tovpn_sid_auto || is_tovpn_sid_explicit)
 		return;
 
 	if (bgp_vrf->vrf_id == VRF_UNKNOWN) {
@@ -972,6 +988,10 @@ void delete_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 		sid_unregister(bgp_vpn, bgp_vrf->vpn_policy[afi].tovpn_sid);
 		XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[afi].tovpn_sid);
 	}
+
+	if (bgp_vrf->vpn_policy[afi].tovpn_sid_explicit)
+		XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[afi].tovpn_sid_explicit);
+
 	bgp_vrf->vpn_policy[afi].tovpn_sid_transpose_label = 0;
 
 	srv6_locator_free(bgp_vrf->vpn_policy[afi].tovpn_sid_locator);
