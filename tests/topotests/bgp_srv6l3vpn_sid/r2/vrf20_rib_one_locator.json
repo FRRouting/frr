@@ -20,38 +20,6 @@
       ]
     }
   ],
-  "2001:5::\/64":[
-    {
-      "prefix":"2001:5::\/64",
-      "protocol":"bgp",
-      "vrfName":"vrf20",
-      "selected":true,
-      "destSelected":true,
-      "distance":20,
-      "metric":0,
-      "installed":true,
-      "table":20,
-      "nexthops":[
-        {
-          "flags":3,
-          "fib":true,
-          "afi":"ipv6",
-          "vrf":"default",
-          "active":true,
-          "labels":[
-            16
-          ],
-          "weight":1,
-          "seg6local":{
-            "action":"unspec"
-          },
-          "seg6":{
-            "segs":"2002:db8:1:1:1::"
-          }
-        }
-      ]
-    }
-  ],
   "2001:6::\/64":[
     {
       "prefix":"2001:6::\/64",
