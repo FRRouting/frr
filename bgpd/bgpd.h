@@ -955,7 +955,6 @@ struct bgp {
 	struct event *t_condition_check;
 
 	/* BGP VPN SRv6 backend */
-	bool srv6_enabled;
 	char srv6_locator_name[SRV6_LOCNAME_SIZE];
 	enum srv6_headend_behavior srv6_encap_behavior;
 	struct srv6_locator *srv6_locator;
@@ -3109,6 +3108,8 @@ void bgp_clearing_batch_completed(struct bgp_clearing_info *cinfo);
 void bgp_clearing_batch_begin(struct bgp *bgp);
 /* End a new batch of peers to clear */
 void bgp_clearing_batch_end_event_start(struct bgp *bgp);
+
+bool bgp_srv6_locator_is_configured(struct bgp *bgp);
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 /* clang-format off */
