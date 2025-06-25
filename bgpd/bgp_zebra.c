@@ -3625,9 +3625,15 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 		tmp_prefix.prefixlen = IPV6_MAX_BITLEN;
 		tmp_prefix.prefix = sid_addr;
 
-		if (!prefix_match((struct prefix *)&bgp->srv6_locator->prefix,
-				  (struct prefix *)&tmp_prefix))
+		if (!prefix_match((struct prefix *)&locator_bgp->prefix,
+				  (struct prefix *)&tmp_prefix)) {
+			/* locator may have changed - release the SID */
+			if (BGP_DEBUG(zebra, ZEBRA))
+				zlog_debug("SRv6 SID %pI6 %s : locator prefix mismatch (%s)",
+					   &sid_addr, srv6_sid_ctx2str(buf, sizeof(buf), &ctx),
+					   locator_bgp->name);
 			return -1;
+		}
 
 		/* Get label */
 		uint8_t func_len = bgp->srv6_locator->function_bits_length;
