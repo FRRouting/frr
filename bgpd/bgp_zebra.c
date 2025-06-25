@@ -3613,9 +3613,11 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 				   srv6_sid_ctx2str(buf, sizeof(buf), &ctx));
 
 		if (strcmp(locator_bgp->name, loc_name) != 0) {
-			zlog_err("%s(%d): %s, SRv6 Locator name unmatch %s:%s", bgp->name_pretty,
-				 bgp->vrf_id, __func__, locator_bgp->name, loc_name);
-			return 0;
+			zlog_err("%s(%d): %s, SRv6 Locator name unmatch %s:%s, releasing it.",
+				 bgp->name_pretty, bgp->vrf_id, __func__, locator_bgp->name,
+				 loc_name);
+			bgp_zebra_release_srv6_sid(&ctx, loc_name);
+			return -1;
 		}
 
 		/* Verify that the received SID belongs to the configured locator */
@@ -3627,9 +3629,10 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 				  (struct prefix *)&tmp_prefix)) {
 			/* locator may have changed - release the SID */
 			if (BGP_DEBUG(zebra, ZEBRA))
-				zlog_debug("SRv6 SID %pI6 %s : locator prefix mismatch (%s:%pFX)",
+				zlog_debug("SRv6 SID %pI6 %s : locator prefix mismatch (%s:%pFX), releasing it.",
 					   &sid_addr, srv6_sid_ctx2str(buf, sizeof(buf), &ctx),
 					   locator_bgp->name, &locator_bgp->prefix);
+			bgp_zebra_release_srv6_sid(&ctx, loc_name);
 			return -1;
 		}
 
@@ -3687,10 +3690,9 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 		} else {
 			srv6_locator_free(locator);
 			if (BGP_DEBUG(zebra, ZEBRA))
-				zlog_debug("Unsupported behavior. Not assigned SRv6 SID: %s %pI6",
-					   srv6_sid_ctx2str(buf, sizeof(buf),
-							    &ctx),
-					   &sid_addr);
+				zlog_debug("Unsupported behavior. Not assigned SRv6 SID: %s %pI6, releasing it.",
+					   srv6_sid_ctx2str(buf, sizeof(buf), &ctx), &sid_addr);
+			bgp_zebra_release_srv6_sid(&ctx, loc_name);
 			return -1;
 		}
 
@@ -3757,6 +3759,7 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 					   srv6_sid_ctx2str(buf, sizeof(buf),
 							    &ctx),
 					   &sid_addr);
+			bgp_zebra_release_srv6_sid(&ctx, loc_name);
 			return -1;
 		}
 
