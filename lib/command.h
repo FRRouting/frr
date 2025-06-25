@@ -159,6 +159,7 @@ enum node_type {
 	SRV6_ENCAP_NODE,		 /* SRv6 encapsulation node */
 	SRV6_SID_FORMATS_NODE,		 /* SRv6 SID formats config node */
 	SRV6_SID_FORMAT_USID_F3216_NODE,		 /* SRv6 uSID f3216 format config node */
+	SRV6_SID_FORMAT_USID_F4816_NODE,		 /* SRv6 uSID f4816 format config node */
 	SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NODE,		 /* SRv6 uncompressed f4024 format config node */
 	VTY_NODE,		 /* Vty node. */
 	FPM_NODE,		 /* Dataplane FPM node. */

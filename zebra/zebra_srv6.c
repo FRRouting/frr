@@ -355,6 +355,34 @@ static struct srv6_sid_format *create_srv6_sid_format_usid_f3216(void)
 }
 
 /*
+ * Helper function to create the SRv6 compressed format `usid-f4816`.
+ */
+static struct srv6_sid_format *create_srv6_sid_format_usid_f4816(void)
+{
+	struct srv6_sid_format *format = NULL;
+
+	format = srv6_sid_format_alloc(SRV6_SID_FORMAT_USID_F4816_NAME);
+
+	format->type = SRV6_SID_FORMAT_TYPE_USID;
+
+	/* Define block/node/function length */
+	format->block_len = SRV6_SID_FORMAT_USID_F4816_BLOCK_LEN;
+	format->node_len = SRV6_SID_FORMAT_USID_F4816_NODE_LEN;
+	format->function_len = SRV6_SID_FORMAT_USID_F4816_FUNCTION_LEN;
+	format->argument_len = SRV6_SID_FORMAT_USID_F4816_ARGUMENT_LEN;
+
+	/* Define the ranges from which the SID function can be allocated */
+	format->config.usid.lib_start = SRV6_SID_FORMAT_USID_F4816_LIB_START;
+	format->config.usid.elib_start = SRV6_SID_FORMAT_USID_F4816_ELIB_START;
+	format->config.usid.elib_end = SRV6_SID_FORMAT_USID_F4816_ELIB_END;
+	format->config.usid.wlib_start = SRV6_SID_FORMAT_USID_F4816_WLIB_START;
+	format->config.usid.wlib_end = SRV6_SID_FORMAT_USID_F4816_WLIB_END;
+	format->config.usid.ewlib_start = SRV6_SID_FORMAT_USID_F4816_EWLIB_START;
+
+	return format;
+}
+
+/*
  * Helper function to create the SRv6 uncompressed format.
  */
 static struct srv6_sid_format *create_srv6_sid_format_uncompressed(void)
@@ -710,6 +738,7 @@ struct zebra_srv6 *zebra_srv6_get_default(void)
 {
 	static bool first_execution = true;
 	struct srv6_sid_format *format_usidf3216;
+	struct srv6_sid_format *format_usidf4816;
 	struct srv6_sid_format *format_uncompressed;
 
 	if (first_execution) {
@@ -723,6 +752,10 @@ struct zebra_srv6 *zebra_srv6_get_default(void)
 		/* Create SID format `usid-f3216` */
 		format_usidf3216 = create_srv6_sid_format_usid_f3216();
 		srv6_sid_format_register(format_usidf3216);
+
+		/* Create SID format `usid-f4816` */
+		format_usidf4816 = create_srv6_sid_format_usid_f4816();
+		srv6_sid_format_register(format_usidf4816);
 
 		/* Create SID format `uncompressed` */
 		format_uncompressed = create_srv6_sid_format_uncompressed();
