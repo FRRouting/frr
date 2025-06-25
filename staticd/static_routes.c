@@ -341,11 +341,8 @@ void static_delete_nexthop(struct static_nexthop *nh)
 	XFREE(MTYPE_STATIC_NEXTHOP, nh);
 }
 
-static void static_ifindex_update_nh(struct interface *ifp, bool up,
-				     struct route_node *rn,
-				     struct static_path *pn,
-				     struct static_nexthop *nh,
-				     struct static_vrf *svrf, safi_t safi)
+static void static_ifindex_update_nh(struct interface *ifp, bool up, struct static_path *pn,
+				     struct static_nexthop *nh)
 {
 	if (!nh->ifname[0])
 		return;
@@ -419,9 +416,7 @@ static void static_ifindex_update_af(struct interface *ifp, bool up, afi_t afi,
 			frr_each(static_path_list, &si->path_list, pn) {
 				frr_each(static_nexthop_list,
 					  &pn->nexthop_list, nh) {
-					static_ifindex_update_nh(ifp, up, rn,
-								 pn, nh, svrf,
-								 safi);
+					static_ifindex_update_nh(ifp, up, pn, nh);
 				}
 			}
 		}
