@@ -3547,7 +3547,7 @@ static int bgp_zebra_process_srv6_locator_internal(struct srv6_locator *locator)
 static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 {
 	struct bgp *bgp = bgp_get_default();
-	struct srv6_locator *locator;
+	struct srv6_locator *locator, *locator_bgp;
 	struct srv6_sid_ctx ctx;
 	struct in6_addr sid_addr;
 	enum zapi_srv6_sid_notify note;
@@ -3559,11 +3559,13 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	struct prefix_ipv6 tmp_prefix;
 	uint32_t sid_func;
 	bool found = false;
+	char *loc_name;
 
 	if (!bgp || !bgp_srv6_locator_is_configured(bgp))
 		return -1;
 
-	if (!bgp_srv6_locator_lookup(bgp)) {
+	locator_bgp = bgp_srv6_locator_lookup(bgp);
+	if (!locator_bgp) {
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: ignoring SRv6 SID notify: locator not set",
 				   __func__);
@@ -3571,16 +3573,16 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	}
 
 	/* Decode the received notification message */
-	if (!zapi_srv6_sid_notify_decode(zclient->ibuf, &ctx, &sid_addr,
-					 &sid_func, NULL, &note, NULL)) {
+	if (!zapi_srv6_sid_notify_decode(zclient->ibuf, &ctx, &sid_addr, &sid_func, NULL, &note,
+					 &loc_name)) {
 		zlog_err("%s : error in msg decode", __func__);
 		return -1;
 	}
 
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("%s: received SRv6 SID notify: ctx %s sid_value %pI6 %s",
-			   __func__, srv6_sid_ctx2str(buf, sizeof(buf), &ctx),
-			   &sid_addr, zapi_srv6_sid_notify2str(note));
+		zlog_debug("%s: received SRv6 SID notify: ctx %s sid_value %pI6 %s, locator %s",
+			   __func__, srv6_sid_ctx2str(buf, sizeof(buf), &ctx), &sid_addr,
+			   zapi_srv6_sid_notify2str(note), loc_name);
 
 	/* Get the BGP instance for which the SID has been requested, if any */
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp_vrf)) {
@@ -3609,6 +3611,14 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("SRv6 SID %pI6 %s : ALLOCATED", &sid_addr,
 				   srv6_sid_ctx2str(buf, sizeof(buf), &ctx));
+
+		if (!strmatch(locator_bgp->name, loc_name)) {
+			if (BGP_DEBUG(zebra, ZEBRA))
+				zlog_debug("%s(%d): %s, SRv6 Locator name unmatch %s:%s",
+					   bgp->name_pretty, bgp->vrf_id, __func__,
+					   locator_bgp->name, loc_name);
+			return -1;
+		}
 
 		/* Verify that the received SID belongs to the configured locator */
 		tmp_prefix.family = AF_INET6;
