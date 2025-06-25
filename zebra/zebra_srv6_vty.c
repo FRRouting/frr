@@ -83,6 +83,11 @@ static struct cmd_node srv6_sid_format_usid_f3216_node = {
 	.prompt = "%s(config-srv6-format)# "
 };
 
+static struct cmd_node srv6_sid_format_usid_f4816_node = { .name = "srv6-format-usid-f4816",
+							   .node = SRV6_SID_FORMAT_USID_F4816_NODE,
+							   .parent_node = SRV6_SID_FORMATS_NODE,
+							   .prompt = "%s(config-srv6-format)# " };
+
 static struct cmd_node srv6_sid_format_uncompressed_f4024_node = {
 	.name = "srv6-format-uncompressed-f4024",
 	.node = SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NODE,
@@ -825,6 +830,9 @@ DEFPY (locator_prefix,
 			expected_prefixlen =
 				SRV6_SID_FORMAT_USID_F3216_BLOCK_LEN +
 				SRV6_SID_FORMAT_USID_F3216_NODE_LEN;
+		else if (strmatch(format->name, SRV6_SID_FORMAT_USID_F4816_NAME))
+			expected_prefixlen = SRV6_SID_FORMAT_USID_F4816_BLOCK_LEN +
+					     SRV6_SID_FORMAT_USID_F4816_NODE_LEN;
 		else if (strmatch(format->name,
 				  SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NAME))
 			expected_prefixlen =
@@ -982,9 +990,10 @@ DEFPY (locator_flavor_psp,
 
 DEFPY(locator_sid_format,
       locator_sid_format_cmd,
-      "format <usid-f3216|uncompressed-f4024>$format",
+      "format <usid-f3216|usid-f4816|uncompressed-f4024>$format",
       "Configure SRv6 SID format\n"
       "Specify usid-f3216 format\n"
+      "Specify usid-f4816 format\n"
       "Specify uncompressed-f4024 format\n")
 {
 	VTY_DECLVAR_CONTEXT(srv6_locator, locator);
@@ -995,6 +1004,9 @@ DEFPY(locator_sid_format,
 	if (strmatch(format, SRV6_SID_FORMAT_USID_F3216_NAME))
 		expected_prefixlen = SRV6_SID_FORMAT_USID_F3216_BLOCK_LEN +
 				     SRV6_SID_FORMAT_USID_F3216_NODE_LEN;
+	else if (strmatch(format, SRV6_SID_FORMAT_USID_F4816_NAME))
+		expected_prefixlen = SRV6_SID_FORMAT_USID_F4816_BLOCK_LEN +
+				     SRV6_SID_FORMAT_USID_F4816_NODE_LEN;
 	else if (strmatch(format, SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NAME))
 		expected_prefixlen =
 			SRV6_SID_FORMAT_UNCOMPRESSED_F4024_BLOCK_LEN +
@@ -1127,6 +1139,46 @@ DEFUN(no_srv6_sid_format_f3216_usid,
 	return CMD_SUCCESS;
 }
 
+DEFUN_NOSH (srv6_sid_format_f4816_usid,
+            srv6_sid_format_f4816_usid_cmd,
+            "format usid-f4816",
+            "Configure SRv6 SID format\n"
+            "Configure the uSID f4816 format\n")
+{
+	struct srv6_sid_format *format;
+
+	format = srv6_sid_format_lookup(SRV6_SID_FORMAT_USID_F4816_NAME);
+	assert(format);
+
+	VTY_PUSH_CONTEXT(SRV6_SID_FORMAT_USID_F4816_NODE, format);
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_srv6_sid_format_f4816_usid,
+      no_srv6_sid_format_f4816_usid_cmd,
+      "no format usid-f4816",
+      NO_STR
+      "Configure SRv6 SID format\n"
+      "Configure the uSID f4816 format\n")
+{
+	struct srv6_sid_format *format;
+
+	format = srv6_sid_format_lookup(SRV6_SID_FORMAT_USID_F4816_NAME);
+	assert(format);
+
+	format->config.usid.lib_start = SRV6_SID_FORMAT_USID_F4816_LIB_START;
+	format->config.usid.elib_start = SRV6_SID_FORMAT_USID_F4816_ELIB_START;
+	format->config.usid.elib_end = SRV6_SID_FORMAT_USID_F4816_ELIB_END;
+	format->config.usid.wlib_start = SRV6_SID_FORMAT_USID_F4816_WLIB_START;
+	format->config.usid.wlib_end = SRV6_SID_FORMAT_USID_F4816_WLIB_END;
+	format->config.usid.ewlib_start = SRV6_SID_FORMAT_USID_F4816_EWLIB_START;
+
+	/* Notify zclients that the format has changed */
+	zebra_srv6_sid_format_changed_cb(format);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN_NOSH (srv6_sid_format_f4024_uncompressed,
             srv6_sid_format_uncompressed_cmd,
             "format uncompressed-f4024",
@@ -1193,6 +1245,8 @@ DEFPY(no_srv6_sid_format_usid_lib,
 	if (strmatch(format->name, SRV6_SID_FORMAT_USID_F3216_NAME))
 		format->config.usid.lib_start =
 			SRV6_SID_FORMAT_USID_F3216_LIB_START;
+	else if (strmatch(format->name, SRV6_SID_FORMAT_USID_F4816_NAME))
+		format->config.usid.lib_start = SRV6_SID_FORMAT_USID_F4816_LIB_START;
 	else
 		assert(0);
 
@@ -1241,6 +1295,9 @@ DEFPY(no_srv6_sid_format_usid_lib_explicit,
 			SRV6_SID_FORMAT_USID_F3216_ELIB_START;
 		format->config.usid.elib_end =
 			SRV6_SID_FORMAT_USID_F3216_ELIB_END;
+	} else if (strmatch(format->name, SRV6_SID_FORMAT_USID_F4816_NAME)) {
+		format->config.usid.elib_start = SRV6_SID_FORMAT_USID_F4816_ELIB_START;
+		format->config.usid.elib_end = SRV6_SID_FORMAT_USID_F4816_ELIB_END;
 	} else {
 		assert(0);
 	}
@@ -1288,6 +1345,10 @@ DEFPY(no_srv6_sid_format_usid_wlib,
 			SRV6_SID_FORMAT_USID_F3216_WLIB_START;
 		format->config.usid.wlib_end =
 			SRV6_SID_FORMAT_USID_F3216_WLIB_END;
+	}
+	if (strmatch(format->name, SRV6_SID_FORMAT_USID_F4816_NAME)) {
+		format->config.usid.wlib_start = SRV6_SID_FORMAT_USID_F4816_WLIB_START;
+		format->config.usid.wlib_end = SRV6_SID_FORMAT_USID_F4816_WLIB_END;
 	} else {
 		assert(0);
 	}
@@ -1330,6 +1391,8 @@ DEFPY(no_srv6_sid_format_usid_wide_lib_explicit,
 	if (strmatch(format->name, SRV6_SID_FORMAT_USID_F3216_NAME))
 		format->config.usid.ewlib_start =
 			SRV6_SID_FORMAT_USID_F3216_EWLIB_START;
+	else if (strmatch(format->name, SRV6_SID_FORMAT_USID_F4816_NAME))
+		format->config.usid.ewlib_start = SRV6_SID_FORMAT_USID_F4816_EWLIB_START;
 	else
 		assert(0);
 
@@ -1383,8 +1446,7 @@ static bool has_default_sid_format_config(struct srv6_sid_format *format)
 {
 	bool has_default_config = true;
 
-	switch (format->type) {
-	case SRV6_SID_FORMAT_TYPE_USID:
+	if (strmatch(format->name, SRV6_SID_FORMAT_USID_F3216_NAME)) {
 		if (format->config.usid.lib_start != SRV6_SID_FORMAT_USID_F3216_LIB_START)
 			has_default_config = false;
 
@@ -1402,18 +1464,28 @@ static bool has_default_sid_format_config(struct srv6_sid_format *format)
 
 		if (format->config.usid.ewlib_start != SRV6_SID_FORMAT_USID_F3216_EWLIB_START)
 			has_default_config = false;
+	} else if (strmatch(format->name, SRV6_SID_FORMAT_USID_F4816_NAME)) {
+		if (format->config.usid.lib_start != SRV6_SID_FORMAT_USID_F4816_LIB_START)
+			has_default_config = false;
 
-		break;
+		if (format->config.usid.elib_start != SRV6_SID_FORMAT_USID_F4816_ELIB_START)
+			has_default_config = false;
 
-	case SRV6_SID_FORMAT_TYPE_UNCOMPRESSED:
+		if (format->config.usid.elib_end != SRV6_SID_FORMAT_USID_F4816_ELIB_END)
+			has_default_config = false;
+
+		if (format->config.usid.wlib_start != SRV6_SID_FORMAT_USID_F4816_WLIB_START)
+			has_default_config = false;
+
+		if (format->config.usid.wlib_end != SRV6_SID_FORMAT_USID_F4816_WLIB_END)
+			has_default_config = false;
+
+		if (format->config.usid.ewlib_start != SRV6_SID_FORMAT_USID_F4816_EWLIB_START)
+			has_default_config = false;
+	} else if (strmatch(format->name, SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NAME)) {
 		if (format->config.uncompressed.explicit_start !=
 		    SRV6_SID_FORMAT_UNCOMPRESSED_F4024_EXPLICIT_RANGE_START)
 			has_default_config = false;
-
-		break;
-
-	case SRV6_SID_FORMAT_TYPE_UNSPEC:
-		break;
 	}
 
 	return has_default_config;
@@ -1500,14 +1572,14 @@ static int zebra_sr_config(struct vty *vty)
 					/* This SID format is using the default config, skipping */
 					continue;
 
-				if (format->type == SRV6_SID_FORMAT_TYPE_UNCOMPRESSED) {
+				if (strmatch(format->name,
+					     SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NAME)) {
 					vty_out(vty, "   format %s\n", format->name);
 					if (format->config.uncompressed.explicit_start !=
 					    SRV6_SID_FORMAT_UNCOMPRESSED_F4024_EXPLICIT_RANGE_START)
 						vty_out(vty, "    explicit start %u\n",
 							format->config.uncompressed.explicit_start);
-				}
-				if (format->type == SRV6_SID_FORMAT_TYPE_USID) {
+				} else if (strmatch(format->name, SRV6_SID_FORMAT_USID_F3216_NAME)) {
 					vty_out(vty, "   format %s\n", format->name);
 					if (format->config.usid.lib_start !=
 					    SRV6_SID_FORMAT_USID_F3216_LIB_START)
@@ -1531,6 +1603,33 @@ static int zebra_sr_config(struct vty *vty)
 							format->config.usid.wlib_end);
 					if (format->config.usid.ewlib_start !=
 					    SRV6_SID_FORMAT_USID_F3216_EWLIB_START)
+						vty_out(vty,
+							"    wide-local-id-block explicit start %u\n",
+							format->config.usid.ewlib_start);
+				} else if (strmatch(format->name, SRV6_SID_FORMAT_USID_F4816_NAME)) {
+					vty_out(vty, "   format %s\n", format->name);
+					if (format->config.usid.lib_start !=
+					    SRV6_SID_FORMAT_USID_F4816_LIB_START)
+						vty_out(vty, "    local-id-block start %u\n",
+							format->config.usid.lib_start);
+					if (format->config.usid.elib_start !=
+						    SRV6_SID_FORMAT_USID_F4816_ELIB_START ||
+					    format->config.usid.elib_end !=
+						    SRV6_SID_FORMAT_USID_F4816_ELIB_END)
+						vty_out(vty,
+							"    local-id-block explicit start %u end %u\n",
+							format->config.usid.elib_start,
+							format->config.usid.elib_end);
+					if (format->config.usid.wlib_start !=
+						    SRV6_SID_FORMAT_USID_F4816_WLIB_START ||
+					    format->config.usid.wlib_end !=
+						    SRV6_SID_FORMAT_USID_F4816_WLIB_END)
+						vty_out(vty,
+							"    wide-local-id-block start %u end %u\n",
+							format->config.usid.wlib_start,
+							format->config.usid.wlib_end);
+					if (format->config.usid.ewlib_start !=
+					    SRV6_SID_FORMAT_USID_F4816_EWLIB_START)
 						vty_out(vty,
 							"    wide-local-id-block explicit start %u\n",
 							format->config.usid.ewlib_start);
@@ -1561,6 +1660,7 @@ void zebra_srv6_vty_init(void)
 	install_node(&srv6_encap_node);
 	install_node(&srv6_sid_formats_node);
 	install_node(&srv6_sid_format_usid_f3216_node);
+	install_node(&srv6_sid_format_usid_f4816_node);
 	install_node(&srv6_sid_format_uncompressed_f4024_node);
 	install_default(SEGMENT_ROUTING_NODE);
 	install_default(SRV6_NODE);
@@ -1569,6 +1669,7 @@ void zebra_srv6_vty_init(void)
 	install_default(SRV6_ENCAP_NODE);
 	install_default(SRV6_SID_FORMATS_NODE);
 	install_default(SRV6_SID_FORMAT_USID_F3216_NODE);
+	install_default(SRV6_SID_FORMAT_USID_F4816_NODE);
 	install_default(SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NODE);
 
 	/* Command for change node */
@@ -1581,10 +1682,12 @@ void zebra_srv6_vty_init(void)
 	install_element(SRV6_LOCS_NODE, &srv6_locator_cmd);
 	install_element(SRV6_LOCS_NODE, &no_srv6_locator_cmd);
 	install_element(SRV6_SID_FORMATS_NODE, &srv6_sid_format_f3216_usid_cmd);
+	install_element(SRV6_SID_FORMATS_NODE, &srv6_sid_format_f4816_usid_cmd);
 	install_element(SRV6_SID_FORMATS_NODE,
 			&srv6_sid_format_uncompressed_cmd);
 	install_element(SRV6_SID_FORMATS_NODE,
 			&no_srv6_sid_format_f3216_usid_cmd);
+	install_element(SRV6_SID_FORMATS_NODE, &no_srv6_sid_format_f4816_usid_cmd);
 	install_element(SRV6_SID_FORMATS_NODE,
 			&no_srv6_sid_format_f4024_uncompressed_cmd);
 
@@ -1611,6 +1714,16 @@ void zebra_srv6_vty_init(void)
 	install_element(SRV6_SID_FORMAT_USID_F3216_NODE,
 			&srv6_sid_format_usid_wide_lib_explicit_cmd);
 	install_element(SRV6_SID_FORMAT_USID_F3216_NODE,
+			&no_srv6_sid_format_usid_wide_lib_explicit_cmd);
+	install_element(SRV6_SID_FORMAT_USID_F4816_NODE, &srv6_sid_format_usid_lib_cmd);
+	install_element(SRV6_SID_FORMAT_USID_F4816_NODE, &no_srv6_sid_format_usid_lib_cmd);
+	install_element(SRV6_SID_FORMAT_USID_F4816_NODE, &srv6_sid_format_usid_lib_explicit_cmd);
+	install_element(SRV6_SID_FORMAT_USID_F4816_NODE, &no_srv6_sid_format_usid_lib_explicit_cmd);
+	install_element(SRV6_SID_FORMAT_USID_F4816_NODE, &srv6_sid_format_usid_wlib_cmd);
+	install_element(SRV6_SID_FORMAT_USID_F4816_NODE, &no_srv6_sid_format_usid_wlib_cmd);
+	install_element(SRV6_SID_FORMAT_USID_F4816_NODE,
+			&srv6_sid_format_usid_wide_lib_explicit_cmd);
+	install_element(SRV6_SID_FORMAT_USID_F4816_NODE,
 			&no_srv6_sid_format_usid_wide_lib_explicit_cmd);
 	install_element(SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NODE,
 			&srv6_sid_format_explicit_cmd);
