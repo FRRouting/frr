@@ -2376,7 +2376,7 @@ void bgp_zebra_instance_register(struct bgp *bgp)
 	 * Request SRv6 locator information from Zebra, if SRv6 is enabled
 	 * and a locator is configured for this BGP instance.
 	 */
-	if (bgp_srv6_locator_is_configured(bgp) && !bgp->srv6_locator)
+	if (bgp_srv6_locator_is_configured(bgp) && !bgp_srv6_locator_lookup(bgp))
 		bgp_zebra_srv6_manager_get_locator(bgp->srv6_locator_name);
 }
 
@@ -3563,7 +3563,7 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	if (!bgp || !bgp_srv6_locator_is_configured(bgp))
 		return -1;
 
-	if (!bgp->srv6_locator) {
+	if (!bgp_srv6_locator_lookup(bgp)) {
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: ignoring SRv6 SID notify: locator not set",
 				   __func__);

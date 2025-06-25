@@ -798,7 +798,7 @@ void ensure_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 	 * skip when bgp vpn instance ins't allocated
 	 * or srv6 locator isn't allocated
 	 */
-	if (!bgp_vpn || !bgp_vpn->srv6_locator)
+	if (!bgp_vpn || !bgp_srv6_locator_lookup(bgp_vpn))
 		return;
 
 	if (bgp_vrf->vrf_id == VRF_UNKNOWN) {
@@ -848,10 +848,10 @@ void ensure_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 	ctx.vrf_id = bgp_vrf->vrf_id;
 	ctx.behavior = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
 				     : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
-	if (!bgp_zebra_request_srv6_sid(&ctx, &tovpn_sid,
-					bgp_vpn->srv6_locator_name, &sid_func)) {
-		zlog_err("%s: failed to request sid for vrf %s: afi %s",
-			 __func__, bgp_vrf->name_pretty, afi2str(afi));
+	if (!bgp_zebra_request_srv6_sid(&ctx, &tovpn_sid, bgp_srv6_locator_lookup(bgp_vpn)->name,
+					&sid_func)) {
+		zlog_err("%s: failed to request sid for vrf %s: afi %s", __func__,
+			 bgp_vrf->name_pretty, afi2str(afi));
 		return;
 	}
 }
@@ -878,7 +878,7 @@ void ensure_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 	 * skip when bgp vpn instance ins't allocated
 	 * or srv6 locator isn't allocated
 	 */
-	if (!bgp_vpn || !bgp_vpn->srv6_locator)
+	if (!bgp_vpn || !bgp_srv6_locator_lookup(bgp_vpn))
 		return;
 
 	if (bgp_vrf->vrf_id == VRF_UNKNOWN) {
@@ -915,7 +915,7 @@ void ensure_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 	}
 
 	if (!tovpn_sid_auto && !is_tovpn_sid_explicit) {
-		if (!srv6_sid_compose(&tovpn_sid, bgp_vpn->srv6_locator,
+		if (!srv6_sid_compose(&tovpn_sid, bgp_srv6_locator_lookup(bgp_vpn),
 				      bgp_vrf->tovpn_sid_index)) {
 			zlog_err("%s: failed to compose new sid for vrf %s",
 				 __func__, bgp_vrf->name_pretty);
@@ -927,8 +927,8 @@ void ensure_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 
 	ctx.vrf_id = bgp_vrf->vrf_id;
 	ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
-	if (!bgp_zebra_request_srv6_sid(&ctx, &tovpn_sid,
-					bgp_vpn->srv6_locator_name, &sid_func)) {
+	if (!bgp_zebra_request_srv6_sid(&ctx, &tovpn_sid, bgp_srv6_locator_lookup(bgp_vpn)->name,
+					&sid_func)) {
 		zlog_err("%s: failed to request new sid for vrf %s", __func__,
 			 bgp_vrf->name_pretty);
 		return;
