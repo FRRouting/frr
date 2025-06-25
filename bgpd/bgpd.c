@@ -1575,6 +1575,11 @@ bool bgp_srv6_locator_is_configured(struct bgp *bgp)
 	return (bgp->srv6_locator_name[0] != '\0');
 }
 
+struct srv6_locator *bgp_srv6_locator_lookup(struct bgp *bgp)
+{
+	return bgp->srv6_locator;
+}
+
 /* Allocate new peer object, implicitely locked.  */
 struct peer *peer_new(struct bgp *bgp)
 {
