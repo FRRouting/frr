@@ -11071,7 +11071,6 @@ DEFUN_NOSH (bgp_segment_routing_srv6,
             "Segment-Routing SRv6 configuration\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp->srv6_enabled = true;
 	vty->node = BGP_SRV6_NODE;
 	return CMD_SUCCESS;
 }
@@ -11110,7 +11109,6 @@ DEFUN (no_bgp_segment_routing_srv6,
 		bgp_segment_routing_srv6_hencaps_refresh(bgp);
 	}
 
-	bgp->srv6_enabled = false;
 	return CMD_SUCCESS;
 }
 
@@ -20305,7 +20303,8 @@ int bgp_config_write(struct vty *vty)
 		if (bgp->fast_convergence)
 			vty_out(vty, " bgp fast-convergence\n");
 
-		if (bgp->srv6_enabled) {
+		if (bgp_srv6_locator_is_configured(bgp) ||
+		    bgp->srv6_encap_behavior != SRV6_HEADEND_BEHAVIOR_H_ENCAPS) {
 			vty_frame(vty, " !\n segment-routing srv6\n");
 			if (strlen(bgp->srv6_locator_name))
 				vty_out(vty, "  locator %s\n",
