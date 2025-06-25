@@ -1,0 +1,768 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * June 19 2025, fenglie <fengleiljx@gmail.com>
+ *
+ */
+#ifndef _FRR_OSPF_NB_H_
+#define _FRR_OSPF_NB_H_
+
+#include "northbound.h"
+
+extern const struct frr_yang_module_info frr_ospfd_info;
+
+int ospf_instance_create(struct nb_cb_create_args *args);
+int ospf_instance_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_auto_cost_reference_bandwidth_modify(struct nb_cb_modify_args *args);
+int ospf_instance_auto_cost_reference_bandwidth_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_use_arp_modify(struct nb_cb_modify_args *args);
+int ospf_instance_default_metric_modify(struct nb_cb_modify_args *args);
+int ospf_instance_default_metric_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_flood_reduction_modify(struct nb_cb_modify_args *args);
+int ospf_instance_maximum_paths_modify(struct nb_cb_modify_args *args);
+int ospf_instance_maximum_paths_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_external_route_aggregation_timer_modify(struct nb_cb_modify_args *args);
+int ospf_instance_external_route_aggregation_timer_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_external_route_aggregation_address_create(struct nb_cb_create_args *args);
+int ospf_instance_external_route_aggregation_address_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_external_route_aggregation_address_tag_modify(struct nb_cb_modify_args *args);
+int ospf_instance_external_route_aggregation_address_tag_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_external_route_aggregation_address_not_advertise_modify(
+	struct nb_cb_modify_args *args);
+int ospf_instance_socket_buffer_all_modify(struct nb_cb_modify_args *args);
+int ospf_instance_socket_buffer_all_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_socket_buffer_recv_modify(struct nb_cb_modify_args *args);
+int ospf_instance_socket_buffer_recv_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_socket_buffer_send_modify(struct nb_cb_modify_args *args);
+int ospf_instance_socket_buffer_send_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_socket_enable_interface_modify(struct nb_cb_modify_args *args);
+int ospf_instance_log_adjacency_change_modify(struct nb_cb_modify_args *args);
+int ospf_instance_log_adjacency_detail_modify(struct nb_cb_modify_args *args);
+int ospf_instance_fast_reroute_ti_lfa_modify(struct nb_cb_modify_args *args);
+int ospf_instance_fast_reroute_node_protection_modify(struct nb_cb_modify_args *args);
+int ospf_instance_fast_reroute_node_protection_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_router_info_as_modify(struct nb_cb_modify_args *args);
+int ospf_instance_router_info_as_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_router_info_area_modify(struct nb_cb_modify_args *args);
+int ospf_instance_router_info_area_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_default_information_originate_modify(struct nb_cb_modify_args *args);
+int ospf_instance_default_information_originate_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_default_information_metric_modify(struct nb_cb_modify_args *args);
+int ospf_instance_default_information_metric_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_default_information_metric_type_modify(struct nb_cb_modify_args *args);
+int ospf_instance_default_information_metric_type_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_default_information_route_map_modify(struct nb_cb_modify_args *args);
+int ospf_instance_default_information_route_map_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_redistribute_create(struct nb_cb_create_args *args);
+int ospf_instance_redistribute_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_redistribute_metric_modify(struct nb_cb_modify_args *args);
+int ospf_instance_redistribute_metric_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_redistribute_metric_type_modify(struct nb_cb_modify_args *args);
+int ospf_instance_redistribute_metric_type_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_redistribute_route_map_modify(struct nb_cb_modify_args *args);
+int ospf_instance_redistribute_route_map_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_distance_admin_value_modify(struct nb_cb_modify_args *args);
+int ospf_instance_distance_admin_value_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_distance_ospf_external_modify(struct nb_cb_modify_args *args);
+int ospf_instance_distance_ospf_external_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_distance_ospf_inter_area_modify(struct nb_cb_modify_args *args);
+int ospf_instance_distance_ospf_inter_area_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_distance_ospf_intra_area_modify(struct nb_cb_modify_args *args);
+int ospf_instance_distance_ospf_intra_area_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_distribute_list_dlist_create(struct nb_cb_create_args *args);
+int ospf_instance_distribute_list_dlist_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_max_metric_router_lsa_administrative_modify(struct nb_cb_modify_args *args);
+int ospf_instance_max_metric_router_lsa_on_shutdown_modify(struct nb_cb_modify_args *args);
+int ospf_instance_max_metric_router_lsa_on_shutdown_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_max_metric_router_lsa_on_startup_modify(struct nb_cb_modify_args *args);
+int ospf_instance_max_metric_router_lsa_on_startup_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_mpls_te_on_modify(struct nb_cb_modify_args *args);
+int ospf_instance_mpls_te_export_modify(struct nb_cb_modify_args *args);
+int ospf_instance_mpls_te_router_address_modify(struct nb_cb_modify_args *args);
+int ospf_instance_mpls_te_router_address_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_mpls_te_inter_as_as_modify(struct nb_cb_modify_args *args);
+int ospf_instance_mpls_te_inter_as_area_modify(struct nb_cb_modify_args *args);
+int ospf_instance_mpls_te_inter_as_area_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_ospf_abr_type_modify(struct nb_cb_modify_args *args);
+int ospf_instance_ospf_abr_type_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_ospf_opaque_lsa_modify(struct nb_cb_modify_args *args);
+int ospf_instance_ospf_rfc1583compatibility_modify(struct nb_cb_modify_args *args);
+int ospf_instance_ospf_send_extra_data_modify(struct nb_cb_modify_args *args);
+int ospf_instance_ospf_maxage_delay_modify(struct nb_cb_modify_args *args);
+int ospf_instance_ospf_maxage_delay_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_ospf_lsa_refresh_modify(struct nb_cb_modify_args *args);
+int ospf_instance_ospf_lsa_refresh_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_ospf_router_id_modify(struct nb_cb_modify_args *args);
+int ospf_instance_ospf_router_id_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_ospf_write_multiplier_modify(struct nb_cb_modify_args *args);
+int ospf_instance_ospf_write_multiplier_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_timers_refresh_interval_modify(struct nb_cb_modify_args *args);
+int ospf_instance_timers_refresh_interval_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_timers_lsa_min_arrival_modify(struct nb_cb_modify_args *args);
+int ospf_instance_timers_lsa_min_arrival_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_timers_throttle_lsa_all_modify(struct nb_cb_modify_args *args);
+int ospf_instance_timers_throttle_lsa_all_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_timers_throttle_spf_delay_modify(struct nb_cb_modify_args *args);
+int ospf_instance_timers_throttle_spf_delay_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_timers_throttle_spf_hold_modify(struct nb_cb_modify_args *args);
+int ospf_instance_timers_throttle_spf_hold_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_timers_throttle_spf_max_modify(struct nb_cb_modify_args *args);
+int ospf_instance_timers_throttle_spf_max_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_segment_routing_global_block_lower_bound_modify(struct nb_cb_modify_args *args);
+int ospf_instance_segment_routing_global_block_upper_bound_modify(struct nb_cb_modify_args *args);
+int ospf_instance_segment_routing_srlb_lower_bound_modify(struct nb_cb_modify_args *args);
+int ospf_instance_segment_routing_srlb_upper_bound_modify(struct nb_cb_modify_args *args);
+int ospf_instance_segment_routing_node_msd_modify(struct nb_cb_modify_args *args);
+int ospf_instance_segment_routing_node_msd_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_segment_routing_on_modify(struct nb_cb_modify_args *args);
+int ospf_instance_segment_routing_on_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_segment_routing_prefix_sid_create(struct nb_cb_create_args *args);
+int ospf_instance_segment_routing_prefix_sid_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_segment_routing_prefix_sid_prefix_modify(struct nb_cb_modify_args *args);
+int ospf_instance_segment_routing_prefix_sid_prefix_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_segment_routing_prefix_sid_last_hop_behavior_modify(
+	struct nb_cb_modify_args *args);
+int ospf_instance_neighbor_create(struct nb_cb_create_args *args);
+int ospf_instance_neighbor_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_neighbor_priority_modify(struct nb_cb_modify_args *args);
+int ospf_instance_neighbor_priority_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_neighbor_poll_interval_modify(struct nb_cb_modify_args *args);
+int ospf_instance_neighbor_poll_interval_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_network_create(struct nb_cb_create_args *args);
+int ospf_instance_network_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_network_area_modify(struct nb_cb_modify_args *args);
+int ospf_instance_network_area_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_passive_interface_create(struct nb_cb_create_args *args);
+int ospf_instance_passive_interface_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_passive_interface_address_modify(struct nb_cb_modify_args *args);
+int ospf_instance_passive_interface_address_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_pce_address_modify(struct nb_cb_modify_args *args);
+int ospf_instance_pce_address_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_pce_domain_as_modify(struct nb_cb_modify_args *args);
+int ospf_instance_pce_domain_as_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_pce_flags_modify(struct nb_cb_modify_args *args);
+int ospf_instance_pce_flags_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_pce_neighbor_as_modify(struct nb_cb_modify_args *args);
+int ospf_instance_pce_neighbor_as_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_pce_scope_modify(struct nb_cb_modify_args *args);
+int ospf_instance_pce_scope_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_graceful_restart_helper_enable_modify(struct nb_cb_modify_args *args);
+int ospf_instance_graceful_restart_helper_advertise_id_modify(struct nb_cb_modify_args *args);
+int ospf_instance_graceful_restart_helper_advertise_id_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_graceful_restart_helper_planned_only_modify(struct nb_cb_modify_args *args);
+int ospf_instance_graceful_restart_helper_strict_lsa_checking_modify(struct nb_cb_modify_args *args);
+int ospf_instance_graceful_restart_helper_grace_timer_modify(struct nb_cb_modify_args *args);
+int ospf_instance_graceful_restart_helper_grace_timer_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_graceful_restart_grace_period_modify(struct nb_cb_modify_args *args);
+int ospf_instance_graceful_restart_grace_period_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_mpls_ldp_sync_enable_modify(struct nb_cb_modify_args *args);
+int ospf_instance_mpls_ldp_sync_holddown_modify(struct nb_cb_modify_args *args);
+int ospf_instance_mpls_ldp_sync_holddown_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_areas_area_create(struct nb_cb_create_args *args);
+int ospf_instance_areas_area_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_areas_area_authentication_create(struct nb_cb_create_args *args);
+int ospf_instance_areas_area_authentication_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_areas_area_authentication_message_digest_modify(struct nb_cb_modify_args *args);
+int ospf_instance_areas_area_authentication_message_digest_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_areas_area_default_cost_modify(struct nb_cb_modify_args *args);
+int ospf_instance_areas_area_default_cost_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_areas_area_export_list_modify(struct nb_cb_modify_args *args);
+int ospf_instance_areas_area_export_list_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_areas_area_import_list_modify(struct nb_cb_modify_args *args);
+int ospf_instance_areas_area_import_list_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_areas_area_filter_list_prefix_modify(struct nb_cb_modify_args *args);
+int ospf_instance_areas_area_filter_list_prefix_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_areas_area_filter_list_in_modify(struct nb_cb_modify_args *args);
+int ospf_instance_areas_area_filter_list_in_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_areas_area_filter_list_out_modify(struct nb_cb_modify_args *args);
+int ospf_instance_areas_area_filter_list_out_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_areas_area_flood_reduction_modify(struct nb_cb_modify_args *args);
+int ospf_instance_areas_area_flood_reduction_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_areas_area_nssa_create(struct nb_cb_create_args *args);
+int ospf_instance_areas_area_nssa_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_areas_area_nssa_no_summary_modify(struct nb_cb_modify_args *args);
+int ospf_instance_areas_area_nssa_translator_role_modify(struct nb_cb_modify_args *args);
+int ospf_instance_areas_area_nssa_default_originate_modify(struct nb_cb_modify_args *args);
+int ospf_instance_areas_area_nssa_default_metric_metric_modify(struct nb_cb_modify_args *args);
+int ospf_instance_areas_area_nssa_default_metric_metric_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_areas_area_nssa_default_metric_metric_type_modify(struct nb_cb_modify_args *args);
+int ospf_instance_areas_area_nssa_default_metric_metric_type_destroy(
+	struct nb_cb_destroy_args *args);
+int ospf_instance_areas_area_nssa_suppress_fa_modify(struct nb_cb_modify_args *args);
+int ospf_instance_areas_area_ranges_range_create(struct nb_cb_create_args *args);
+int ospf_instance_areas_area_ranges_range_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_areas_area_ranges_range_advertise_modify(struct nb_cb_modify_args *args);
+int ospf_instance_areas_area_ranges_range_not_advertise_modify(struct nb_cb_modify_args *args);
+int ospf_instance_areas_area_ranges_range_cost_modify(struct nb_cb_modify_args *args);
+int ospf_instance_areas_area_ranges_range_cost_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_areas_area_ranges_range_substitute_modify(struct nb_cb_modify_args *args);
+int ospf_instance_areas_area_ranges_range_substitute_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_areas_area_stub_create(struct nb_cb_create_args *args);
+int ospf_instance_areas_area_stub_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_areas_area_stub_no_summary_modify(struct nb_cb_modify_args *args);
+int ospf_instance_areas_area_shortcut_mode_modify(struct nb_cb_modify_args *args);
+int ospf_instance_areas_area_shortcut_mode_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_areas_area_virtual_link_create(struct nb_cb_create_args *args);
+int ospf_instance_areas_area_virtual_link_destroy(struct nb_cb_destroy_args *args);
+int ospf_instance_areas_area_virtual_link_authentication_type_modify(struct nb_cb_modify_args *args);
+int ospf_instance_areas_area_virtual_link_authentication_type_destroy(
+	struct nb_cb_destroy_args *args);
+int ospf_instance_areas_area_virtual_link_authentication_password_modify(
+	struct nb_cb_modify_args *args);
+int ospf_instance_areas_area_virtual_link_authentication_password_destroy(
+	struct nb_cb_destroy_args *args);
+int ospf_instance_areas_area_virtual_link_authentication_message_digest_key_create(
+	struct nb_cb_create_args *args);
+int ospf_instance_areas_area_virtual_link_authentication_message_digest_key_destroy(
+	struct nb_cb_destroy_args *args);
+int ospf_instance_areas_area_virtual_link_authentication_message_digest_key_mds_key_modify(
+	struct nb_cb_modify_args *args);
+int ospf_instance_areas_area_virtual_link_authentication_message_digest_key_mds_key_destroy(
+	struct nb_cb_destroy_args *args);
+int ospf_instance_areas_area_virtual_link_authentication_key_chain_modify(
+	struct nb_cb_modify_args *args);
+int ospf_instance_areas_area_virtual_link_authentication_key_chain_destroy(
+	struct nb_cb_destroy_args *args);
+int ospf_instance_areas_area_virtual_link_timers_dead_interval_modify(
+	struct nb_cb_modify_args *args);
+int ospf_instance_areas_area_virtual_link_timers_dead_interval_destroy(
+	struct nb_cb_destroy_args *args);
+int ospf_instance_areas_area_virtual_link_timers_hello_interval_modify(
+	struct nb_cb_modify_args *args);
+int ospf_instance_areas_area_virtual_link_timers_hello_interval_destroy(
+	struct nb_cb_destroy_args *args);
+int ospf_instance_areas_area_virtual_link_timers_retransmit_interval_modify(
+	struct nb_cb_modify_args *args);
+int ospf_instance_areas_area_virtual_link_timers_retransmit_interval_destroy(
+	struct nb_cb_destroy_args *args);
+int ospf_instance_areas_area_virtual_link_timers_retransmit_window_modify(
+	struct nb_cb_modify_args *args);
+int ospf_instance_areas_area_virtual_link_timers_retransmit_window_destroy(
+	struct nb_cb_destroy_args *args);
+int ospf_instance_areas_area_virtual_link_timers_transmit_delay_modify(
+	struct nb_cb_modify_args *args);
+int ospf_instance_areas_area_virtual_link_timers_transmit_delay_destroy(
+	struct nb_cb_destroy_args *args);
+
+int lib_interface_ospf_instance_create(struct nb_cb_create_args *args);
+int lib_interface_ospf_instance_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_bfd_monitoring_enable_modify(struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_bfd_monitoring_profile_modify(struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_bfd_monitoring_profile_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_network_type_modify(struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_network_type_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_network_p2mp_delay_reflood_modify(struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_network_p2mp_non_broadcast_modify(struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_network_p2p_dmvpn_modify(struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_mpls_ldp_sync_enable_modify(struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_mpls_ldp_sync_holddown_modify(struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_mpls_ldp_sync_holddown_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_area_modify(struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_area_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_capability_opaque_modify(struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_passive_modify(struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_authentication_type_modify(struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_authentication_type_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_authentication_password_modify(struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_authentication_password_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_authentication_message_digest_key_create(
+	struct nb_cb_create_args *args);
+int lib_interface_ospf_instance_authentication_message_digest_key_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_authentication_message_digest_key_mds_key_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_authentication_message_digest_key_mds_key_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_authentication_key_chain_modify(struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_authentication_key_chain_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_cost_modify(struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_cost_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_dead_interval_interval_modify(struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_dead_interval_interval_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_dead_interval_minimal_hello_multiplier_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_dead_interval_minimal_hello_multiplier_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_hello_interval_modify(struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_hello_interval_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_retransmit_interval_modify(struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_retransmit_interval_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_retransmit_window_modify(struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_retransmit_window_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_graceful_restart_hello_delay_modify(struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_graceful_restart_hello_delay_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_transmit_delay_modify(struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_transmit_delay_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_mtu_ignore_modify(struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_priority_modify(struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_priority_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_interface_address_create(struct nb_cb_create_args *args);
+int lib_interface_ospf_instance_interface_address_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_interface_address_area_modify(struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_interface_address_area_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_interface_address_capability_opaque_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_interface_address_passive_modify(struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_interface_address_authentication_type_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_interface_address_authentication_type_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_interface_address_authentication_password_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_interface_address_authentication_password_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_interface_address_authentication_message_digest_key_create(
+	struct nb_cb_create_args *args);
+int lib_interface_ospf_instance_interface_address_authentication_message_digest_key_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_interface_address_authentication_message_digest_key_mds_key_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_interface_address_authentication_message_digest_key_mds_key_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_interface_address_authentication_key_chain_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_interface_address_authentication_key_chain_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_interface_address_cost_modify(struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_interface_address_cost_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_interface_address_dead_interval_interval_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_interface_address_dead_interval_interval_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_interface_address_dead_interval_minimal_hello_multiplier_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_interface_address_dead_interval_minimal_hello_multiplier_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_interface_address_hello_interval_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_interface_address_hello_interval_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_interface_address_retransmit_interval_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_interface_address_retransmit_interval_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_interface_address_retransmit_window_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_interface_address_retransmit_window_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_interface_address_graceful_restart_hello_delay_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_interface_address_graceful_restart_hello_delay_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_interface_address_transmit_delay_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_interface_address_transmit_delay_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_ospf_instance_interface_address_mtu_ignore_modify(struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_interface_address_priority_modify(struct nb_cb_modify_args *args);
+int lib_interface_ospf_instance_interface_address_priority_destroy(struct nb_cb_destroy_args *args);
+
+/* Optional 'cli_show' callbacks. */
+void cli_show_ospf_instance(struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_ospf_instance_end(struct vty *vty, const struct lyd_node *dnode);
+void cli_show_ospf_instance_auto_cost_reference_bandwidth(struct vty *vty,
+							  const struct lyd_node *dnode,
+							  bool show_defaults);
+void cli_show_ospf_instance_use_arp(struct vty *vty, const struct lyd_node *dnode,
+				    bool show_defaults);
+void cli_show_ospf_instance_default_metric(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults);
+void cli_show_ospf_instance_flood_reduction(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults);
+void cli_show_ospf_instance_maximum_paths(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults);
+void cli_show_ospf_instance_external_route_aggregation_timer(struct vty *vty,
+							     const struct lyd_node *dnode,
+							     bool show_defaults);
+void cli_show_ospf_instance_external_route_aggregation_address(struct vty *vty,
+							       const struct lyd_node *dnode,
+							       bool show_defaults);
+void cli_show_ospf_instance_external_route_aggregation_address_tag(struct vty *vty,
+								   const struct lyd_node *dnode,
+								   bool show_defaults);
+void cli_show_ospf_instance_external_route_aggregation_address_not_advertise(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_ospf_instance_socket_buffer_all(struct vty *vty, const struct lyd_node *dnode,
+					      bool show_defaults);
+void cli_show_ospf_instance_socket_buffer_recv(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults);
+void cli_show_ospf_instance_socket_buffer_send(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults);
+void cli_show_ospf_instance_socket_enable_interface(struct vty *vty, const struct lyd_node *dnode,
+						    bool show_defaults);
+void cli_show_ospf_instance_log_adjacency_change(struct vty *vty, const struct lyd_node *dnode,
+						 bool show_defaults);
+void cli_show_ospf_instance_log_adjacency_detail(struct vty *vty, const struct lyd_node *dnode,
+						 bool show_defaults);
+void cli_show_ospf_instance_fast_reroute_ti_lfa(struct vty *vty, const struct lyd_node *dnode,
+						bool show_defaults);
+void cli_show_ospf_instance_fast_reroute_node_protection(struct vty *vty,
+							 const struct lyd_node *dnode,
+							 bool show_defaults);
+void cli_show_ospf_instance_router_info_as(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults);
+void cli_show_ospf_instance_router_info_area(struct vty *vty, const struct lyd_node *dnode,
+					     bool show_defaults);
+void cli_show_ospf_instance_default_information_originate(struct vty *vty,
+							  const struct lyd_node *dnode,
+							  bool show_defaults);
+void cli_show_ospf_instance_default_information_metric(struct vty *vty,
+						       const struct lyd_node *dnode,
+						       bool show_defaults);
+void cli_show_ospf_instance_default_information_metric_type(struct vty *vty,
+							    const struct lyd_node *dnode,
+							    bool show_defaults);
+void cli_show_ospf_instance_default_information_route_map(struct vty *vty,
+							  const struct lyd_node *dnode,
+							  bool show_defaults);
+void cli_show_ospf_instance_redistribute(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults);
+void cli_show_ospf_instance_redistribute_metric(struct vty *vty, const struct lyd_node *dnode,
+						bool show_defaults);
+void cli_show_ospf_instance_redistribute_metric_type(struct vty *vty, const struct lyd_node *dnode,
+						     bool show_defaults);
+void cli_show_ospf_instance_redistribute_route_map(struct vty *vty, const struct lyd_node *dnode,
+						   bool show_defaults);
+void cli_show_ospf_instance_distance_admin_value(struct vty *vty, const struct lyd_node *dnode,
+						 bool show_defaults);
+void cli_show_ospf_instance_distance_ospf_external(struct vty *vty, const struct lyd_node *dnode,
+						   bool show_defaults);
+void cli_show_ospf_instance_distance_ospf_inter_area(struct vty *vty, const struct lyd_node *dnode,
+						     bool show_defaults);
+void cli_show_ospf_instance_distance_ospf_intra_area(struct vty *vty, const struct lyd_node *dnode,
+						     bool show_defaults);
+void cli_show_ospf_instance_distribute_list_dlist(struct vty *vty, const struct lyd_node *dnode,
+						  bool show_defaults);
+void cli_show_ospf_instance_max_metric_router_lsa_administrative(struct vty *vty,
+								 const struct lyd_node *dnode,
+								 bool show_defaults);
+void cli_show_ospf_instance_max_metric_router_lsa_on_shutdown(struct vty *vty,
+							      const struct lyd_node *dnode,
+							      bool show_defaults);
+void cli_show_ospf_instance_max_metric_router_lsa_on_startup(struct vty *vty,
+							     const struct lyd_node *dnode,
+							     bool show_defaults);
+void cli_show_ospf_instance_mpls_te_on(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults);
+void cli_show_ospf_instance_mpls_te_export(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults);
+void cli_show_ospf_instance_mpls_te_router_address(struct vty *vty, const struct lyd_node *dnode,
+						   bool show_defaults);
+void cli_show_ospf_instance_mpls_te_inter_as_as(struct vty *vty, const struct lyd_node *dnode,
+						bool show_defaults);
+void cli_show_ospf_instance_mpls_te_inter_as_area(struct vty *vty, const struct lyd_node *dnode,
+						  bool show_defaults);
+void cli_show_ospf_instance_ospf_abr_type(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults);
+void cli_show_ospf_instance_ospf_opaque_lsa(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults);
+void cli_show_ospf_instance_ospf_rfc1583compatibility(struct vty *vty, const struct lyd_node *dnode,
+						      bool show_defaults);
+void cli_show_ospf_instance_ospf_send_extra_data(struct vty *vty, const struct lyd_node *dnode,
+						 bool show_defaults);
+void cli_show_ospf_instance_ospf_maxage_delay(struct vty *vty, const struct lyd_node *dnode,
+					      bool show_defaults);
+void cli_show_ospf_instance_ospf_lsa_refresh(struct vty *vty, const struct lyd_node *dnode,
+					     bool show_defaults);
+void cli_show_ospf_instance_ospf_router_id(struct vty *vty, const struct lyd_node *dnode,
+					   bool show_defaults);
+void cli_show_ospf_instance_ospf_write_multiplier(struct vty *vty, const struct lyd_node *dnode,
+						  bool show_defaults);
+void cli_show_ospf_instance_timers_refresh_interval(struct vty *vty, const struct lyd_node *dnode,
+						    bool show_defaults);
+void cli_show_ospf_instance_timers_lsa_min_arrival(struct vty *vty, const struct lyd_node *dnode,
+						   bool show_defaults);
+void cli_show_ospf_instance_timers_throttle_lsa_all(struct vty *vty, const struct lyd_node *dnode,
+						    bool show_defaults);
+void cli_show_ospf_instance_timers_throttle_spf_delay(struct vty *vty, const struct lyd_node *dnode,
+						      bool show_defaults);
+void cli_show_ospf_instance_timers_throttle_spf_hold(struct vty *vty, const struct lyd_node *dnode,
+						     bool show_defaults);
+void cli_show_ospf_instance_timers_throttle_spf_max(struct vty *vty, const struct lyd_node *dnode,
+						    bool show_defaults);
+void cli_show_ospf_instance_segment_routing_global_block_lower_bound(struct vty *vty,
+								     const struct lyd_node *dnode,
+								     bool show_defaults);
+void cli_show_ospf_instance_segment_routing_global_block_upper_bound(struct vty *vty,
+								     const struct lyd_node *dnode,
+								     bool show_defaults);
+void cli_show_ospf_instance_segment_routing_srlb_lower_bound(struct vty *vty,
+							     const struct lyd_node *dnode,
+							     bool show_defaults);
+void cli_show_ospf_instance_segment_routing_srlb_upper_bound(struct vty *vty,
+							     const struct lyd_node *dnode,
+							     bool show_defaults);
+void cli_show_ospf_instance_segment_routing_node_msd(struct vty *vty, const struct lyd_node *dnode,
+						     bool show_defaults);
+void cli_show_ospf_instance_segment_routing_on(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults);
+void cli_show_ospf_instance_segment_routing_prefix_sid(struct vty *vty,
+						       const struct lyd_node *dnode,
+						       bool show_defaults);
+void cli_show_ospf_instance_segment_routing_prefix_sid_prefix(struct vty *vty,
+							      const struct lyd_node *dnode,
+							      bool show_defaults);
+void cli_show_ospf_instance_segment_routing_prefix_sid_last_hop_behavior(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_ospf_instance_neighbor(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults);
+void cli_show_ospf_instance_neighbor_priority(struct vty *vty, const struct lyd_node *dnode,
+					      bool show_defaults);
+void cli_show_ospf_instance_neighbor_poll_interval(struct vty *vty, const struct lyd_node *dnode,
+						   bool show_defaults);
+void cli_show_ospf_instance_network(struct vty *vty, const struct lyd_node *dnode,
+				    bool show_defaults);
+void cli_show_ospf_instance_network_area(struct vty *vty, const struct lyd_node *dnode,
+					 bool show_defaults);
+void cli_show_ospf_instance_passive_interface(struct vty *vty, const struct lyd_node *dnode,
+					      bool show_defaults);
+void cli_show_ospf_instance_passive_interface_address(struct vty *vty, const struct lyd_node *dnode,
+						      bool show_defaults);
+void cli_show_ospf_instance_pce_address(struct vty *vty, const struct lyd_node *dnode,
+					bool show_defaults);
+void cli_show_ospf_instance_pce_domain_as(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults);
+void cli_show_ospf_instance_pce_flags(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults);
+void cli_show_ospf_instance_pce_neighbor_as(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults);
+void cli_show_ospf_instance_pce_scope(struct vty *vty, const struct lyd_node *dnode,
+				      bool show_defaults);
+void cli_show_ospf_instance_graceful_restart_helper_enable(struct vty *vty,
+							   const struct lyd_node *dnode,
+							   bool show_defaults);
+void cli_show_ospf_instance_graceful_restart_helper_advertise_id(struct vty *vty,
+								 const struct lyd_node *dnode,
+								 bool show_defaults);
+void cli_show_ospf_instance_graceful_restart_helper_planned_only(struct vty *vty,
+								 const struct lyd_node *dnode,
+								 bool show_defaults);
+void cli_show_ospf_instance_graceful_restart_helper_strict_lsa_checking(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_ospf_instance_graceful_restart_helper_grace_timer(struct vty *vty,
+								const struct lyd_node *dnode,
+								bool show_defaults);
+void cli_show_ospf_instance_graceful_restart_grace_period(struct vty *vty,
+							  const struct lyd_node *dnode,
+							  bool show_defaults);
+void cli_show_ospf_instance_mpls_ldp_sync_enable(struct vty *vty, const struct lyd_node *dnode,
+						 bool show_defaults);
+void cli_show_ospf_instance_mpls_ldp_sync_holddown(struct vty *vty, const struct lyd_node *dnode,
+						   bool show_defaults);
+void cli_show_ospf_instance_areas_area(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_defaults);
+void cli_show_ospf_instance_areas_area_authentication(struct vty *vty, const struct lyd_node *dnode,
+						      bool show_defaults);
+void cli_show_ospf_instance_areas_area_authentication_message_digest(struct vty *vty,
+								     const struct lyd_node *dnode,
+								     bool show_defaults);
+void cli_show_ospf_instance_areas_area_default_cost(struct vty *vty, const struct lyd_node *dnode,
+						    bool show_defaults);
+void cli_show_ospf_instance_areas_area_export_list(struct vty *vty, const struct lyd_node *dnode,
+						   bool show_defaults);
+void cli_show_ospf_instance_areas_area_import_list(struct vty *vty, const struct lyd_node *dnode,
+						   bool show_defaults);
+void cli_show_ospf_instance_areas_area_filter_list_prefix(struct vty *vty,
+							  const struct lyd_node *dnode,
+							  bool show_defaults);
+void cli_show_ospf_instance_areas_area_filter_list_in(struct vty *vty, const struct lyd_node *dnode,
+						      bool show_defaults);
+void cli_show_ospf_instance_areas_area_filter_list_out(struct vty *vty,
+						       const struct lyd_node *dnode,
+						       bool show_defaults);
+void cli_show_ospf_instance_areas_area_flood_reduction(struct vty *vty,
+						       const struct lyd_node *dnode,
+						       bool show_defaults);
+void cli_show_ospf_instance_areas_area_nssa(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults);
+void cli_show_ospf_instance_areas_area_nssa_no_summary(struct vty *vty,
+						       const struct lyd_node *dnode,
+						       bool show_defaults);
+
+void cli_show_ospf_instance_areas_area_nssa_translator_role(struct vty *vty,
+							    const struct lyd_node *dnode,
+							    bool show_defaults);
+void cli_show_ospf_instance_areas_area_nssa_default_originate(struct vty *vty,
+							      const struct lyd_node *dnode,
+							      bool show_defaults);
+void cli_show_ospf_instance_areas_area_nssa_default_metric_metric(struct vty *vty,
+								  const struct lyd_node *dnode,
+								  bool show_defaults);
+void cli_show_ospf_instance_areas_area_nssa_default_metric_metric_type(struct vty *vty,
+								       const struct lyd_node *dnode,
+								       bool show_defaults);
+void cli_show_ospf_instance_areas_area_nssa_suppress_fa(struct vty *vty,
+							const struct lyd_node *dnode,
+							bool show_defaults);
+
+void cli_show_ospf_instance_areas_area_ranges_range(struct vty *vty, const struct lyd_node *dnode,
+						    bool show_defaults);
+void cli_show_ospf_instance_areas_area_ranges_range_advertise(struct vty *vty,
+							      const struct lyd_node *dnode,
+							      bool show_defaults);
+void cli_show_ospf_instance_areas_area_ranges_range_not_advertise(struct vty *vty,
+								  const struct lyd_node *dnode,
+								  bool show_defaults);
+void cli_show_ospf_instance_areas_area_ranges_range_cost(struct vty *vty,
+							 const struct lyd_node *dnode,
+							 bool show_defaults);
+void cli_show_ospf_instance_areas_area_ranges_range_substitute(struct vty *vty,
+							       const struct lyd_node *dnode,
+							       bool show_defaults);
+void cli_show_ospf_instance_areas_area_stub(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults);
+void cli_show_ospf_instance_areas_area_stub_no_summary(struct vty *vty,
+						       const struct lyd_node *dnode,
+						       bool show_defaults);
+void cli_show_ospf_instance_areas_area_shortcut_mode(struct vty *vty, const struct lyd_node *dnode,
+						     bool show_defaults);
+void cli_show_ospf_instance_areas_area_virtual_link(struct vty *vty, const struct lyd_node *dnode,
+						    bool show_defaults);
+void cli_show_ospf_instance_areas_area_virtual_link_authentication_type(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_ospf_instance_areas_area_virtual_link_authentication_password(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_ospf_instance_areas_area_virtual_link_authentication_message_digest_key(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_ospf_instance_areas_area_virtual_link_authentication_message_digest_key_mds_key(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_ospf_instance_areas_area_virtual_link_authentication_key_chain(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_ospf_instance_areas_area_virtual_link_timers_dead_interval(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_ospf_instance_areas_area_virtual_link_timers_hello_interval(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_ospf_instance_areas_area_virtual_link_timers_retransmit_interval(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_ospf_instance_areas_area_virtual_link_timers_retransmit_window(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_ospf_instance_areas_area_virtual_link_timers_transmit_delay(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+
+void cli_show_lib_interface_ospf_instance(struct vty *vty, const struct lyd_node *dnode,
+					  bool show_defaults);
+void cli_show_lib_interface_ospf_instance_end(struct vty *vty, const struct lyd_node *dnode);
+void cli_show_lib_interface_ospf_instance_bfd_monitoring_enable(struct vty *vty,
+								const struct lyd_node *dnode,
+								bool show_defaults);
+void cli_show_lib_interface_ospf_instance_bfd_monitoring_profile(struct vty *vty,
+								 const struct lyd_node *dnode,
+								 bool show_defaults);
+void cli_show_lib_interface_ospf_instance_network_type(struct vty *vty,
+						       const struct lyd_node *dnode,
+						       bool show_defaults);
+void cli_show_lib_interface_ospf_instance_network_p2mp_delay_reflood(struct vty *vty,
+								     const struct lyd_node *dnode,
+								     bool show_defaults);
+void cli_show_lib_interface_ospf_instance_network_p2mp_non_broadcast(struct vty *vty,
+								     const struct lyd_node *dnode,
+								     bool show_defaults);
+void cli_show_lib_interface_ospf_instance_network_p2p_dmvpn(struct vty *vty,
+							    const struct lyd_node *dnode,
+							    bool show_defaults);
+void cli_show_lib_interface_ospf_instance_mpls_ldp_sync_enable(struct vty *vty,
+							       const struct lyd_node *dnode,
+							       bool show_defaults);
+void cli_show_lib_interface_ospf_instance_mpls_ldp_sync_holddown(struct vty *vty,
+								 const struct lyd_node *dnode,
+								 bool show_defaults);
+void cli_show_lib_interface_ospf_instance_area(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults);
+void cli_show_lib_interface_ospf_instance_capability_opaque(struct vty *vty,
+							    const struct lyd_node *dnode,
+							    bool show_defaults);
+void cli_show_lib_interface_ospf_instance_passive(struct vty *vty, const struct lyd_node *dnode,
+						  bool show_defaults);
+void cli_show_lib_interface_ospf_instance_authentication_type(struct vty *vty,
+							      const struct lyd_node *dnode,
+							      bool show_defaults);
+void cli_show_lib_interface_ospf_instance_authentication_password(struct vty *vty,
+								  const struct lyd_node *dnode,
+								  bool show_defaults);
+void cli_show_lib_interface_ospf_instance_authentication_message_digest_key(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_lib_interface_ospf_instance_authentication_message_digest_key_mds_key(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_lib_interface_ospf_instance_authentication_key_chain(struct vty *vty,
+								   const struct lyd_node *dnode,
+								   bool show_defaults);
+void cli_show_lib_interface_ospf_instance_cost(struct vty *vty, const struct lyd_node *dnode,
+					       bool show_defaults);
+void cli_show_lib_interface_ospf_instance_dead_interval_interval(struct vty *vty,
+								 const struct lyd_node *dnode,
+								 bool show_defaults);
+void cli_show_lib_interface_ospf_instance_dead_interval_minimal_hello_multiplier(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_lib_interface_ospf_instance_hello_interval(struct vty *vty,
+							 const struct lyd_node *dnode,
+							 bool show_defaults);
+void cli_show_lib_interface_ospf_instance_retransmit_interval(struct vty *vty,
+							      const struct lyd_node *dnode,
+							      bool show_defaults);
+void cli_show_lib_interface_ospf_instance_retransmit_window(struct vty *vty,
+							    const struct lyd_node *dnode,
+							    bool show_defaults);
+void cli_show_lib_interface_ospf_instance_graceful_restart_hello_delay(struct vty *vty,
+								       const struct lyd_node *dnode,
+								       bool show_defaults);
+void cli_show_lib_interface_ospf_instance_transmit_delay(struct vty *vty,
+							 const struct lyd_node *dnode,
+							 bool show_defaults);
+void cli_show_lib_interface_ospf_instance_mtu_ignore(struct vty *vty, const struct lyd_node *dnode,
+						     bool show_defaults);
+void cli_show_lib_interface_ospf_instance_priority(struct vty *vty, const struct lyd_node *dnode,
+						   bool show_defaults);
+void cli_show_lib_interface_ospf_instance_interface_address(struct vty *vty,
+							    const struct lyd_node *dnode,
+							    bool show_defaults);
+void cli_show_lib_interface_ospf_instance_interface_address_area(struct vty *vty,
+								 const struct lyd_node *dnode,
+								 bool show_defaults);
+void cli_show_lib_interface_ospf_instance_interface_address_capability_opaque(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_lib_interface_ospf_instance_interface_address_passive(struct vty *vty,
+								    const struct lyd_node *dnode,
+								    bool show_defaults);
+void cli_show_lib_interface_ospf_instance_interface_address_authentication_type(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_lib_interface_ospf_instance_interface_address_authentication_password(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_lib_interface_ospf_instance_interface_address_authentication_message_digest_key(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_lib_interface_ospf_instance_interface_address_authentication_message_digest_key_mds_key(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_lib_interface_ospf_instance_interface_address_authentication_key_chain(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_lib_interface_ospf_instance_interface_address_cost(struct vty *vty,
+								 const struct lyd_node *dnode,
+								 bool show_defaults);
+void cli_show_lib_interface_ospf_instance_interface_address_dead_interval_interval(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_lib_interface_ospf_instance_interface_address_dead_interval_minimal_hello_multiplier(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_lib_interface_ospf_instance_interface_address_hello_interval(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_lib_interface_ospf_instance_interface_address_retransmit_interval(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_lib_interface_ospf_instance_interface_address_retransmit_window(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_lib_interface_ospf_instance_interface_address_graceful_restart_hello_delay(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_lib_interface_ospf_instance_interface_address_transmit_delay(
+	struct vty *vty, const struct lyd_node *dnode, bool show_defaults);
+void cli_show_lib_interface_ospf_instance_interface_address_mtu_ignore(struct vty *vty,
+								       const struct lyd_node *dnode,
+								       bool show_defaults);
+void cli_show_lib_interface_ospf_instance_interface_address_priority(struct vty *vty,
+								     const struct lyd_node *dnode,
+								     bool show_defaults);
+
+int clear_ospf_process_rpc(struct nb_cb_rpc_args *args);
+int clear_ospf_neighbor_rpc(struct nb_cb_rpc_args *args);
+int clear_ospf_interface_rpc(struct nb_cb_rpc_args *args);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif

@@ -57,6 +57,10 @@ ospfd_libfrrospf_a_SOURCES = \
 	ospfd/ospfd.c \
 	ospfd/ospf_gr_helper.c \
 	ospfd/ospf_auth.c \
+	ospfd/ospf_cli.c \
+	ospfd/ospf_nb.c \
+	ospfd/ospf_nb_config.c \
+	ospfd/ospf_nb_rpcs.c \
 	# end
 
 if OSPFD
@@ -80,6 +84,7 @@ clippy_scan += \
 	ospfd/ospf_ldp_sync.c \
 	ospfd/ospf_dump.c \
 	ospfd/ospf_gr.c \
+	ospfd/ospf_cli.c \
 	# end
 
 noinst_HEADERS += \
@@ -108,6 +113,8 @@ noinst_HEADERS += \
 	ospfd/ospf_vty.h \
 	ospfd/ospf_zebra.h \
 	ospfd/ospf_auth.h \
+	ospfd/ospf_nb.h \
+	ospfd/ospf_cli.h \
 	# end
 
 ospfd_ospfd_LDADD = ospfd/libfrrospf.a ospfd/libfrrospfclient.a lib/libfrr.la $(LIBCAP) $(LIBM)
