@@ -1162,7 +1162,7 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 	 * If the SID per VRF is not available, also consider the rib as
 	 * invalid.
 	 */
-	if (to_bgp->srv6_enabled && nh_valid)
+	if (bgp_srv6_locator_is_configured(to_bgp) && nh_valid)
 		nh_valid = is_pi_srv6_valid(bpi, bgp_nexthop, afi, safi);
 
 	if (debug)
