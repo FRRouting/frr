@@ -1519,7 +1519,6 @@ int bgp_peer_gr_init(struct peer *peer)
 
 static void bgp_srv6_init(struct bgp *bgp)
 {
-	bgp->srv6_enabled = false;
 	bgp->srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
 	memset(bgp->srv6_locator_name, 0, sizeof(bgp->srv6_locator_name));
 	bgp->srv6_locator_chunks = list_new();
@@ -1569,6 +1568,11 @@ static void bgp_srv6_cleanup(struct bgp *bgp)
 
 	srv6_locator_free(bgp->srv6_locator);
 	bgp->srv6_locator = NULL;
+}
+
+bool bgp_srv6_locator_is_configured(struct bgp *bgp)
+{
+	return (bgp->srv6_locator_name[0] != '\0');
 }
 
 /* Allocate new peer object, implicitely locked.  */

@@ -1079,7 +1079,8 @@ static bool make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p,
 		break;
 	case AFI_IP6:
 		p->family = AF_INET6;
-		if (bgp && bgp->srv6_locator && bgp->srv6_enabled && pi->attr->srv6_l3vpn) {
+		if (bgp && bgp_srv6_locator_is_configured(bgp) && bgp->srv6_locator &&
+		    pi->attr->srv6_l3vpn) {
 			tmp_prefix.family = AF_INET6;
 			tmp_prefix.prefixlen = IPV6_MAX_BITLEN;
 			tmp_prefix.prefix = pi->attr->srv6_l3vpn->sid;

@@ -2376,7 +2376,7 @@ void bgp_zebra_instance_register(struct bgp *bgp)
 	 * Request SRv6 locator information from Zebra, if SRv6 is enabled
 	 * and a locator is configured for this BGP instance.
 	 */
-	if (bgp->srv6_enabled && bgp->srv6_locator_name[0] != '\0' && !bgp->srv6_locator)
+	if (bgp_srv6_locator_is_configured(bgp) && !bgp->srv6_locator)
 		bgp_zebra_srv6_manager_get_locator(bgp->srv6_locator_name);
 }
 
@@ -3513,7 +3513,7 @@ static int bgp_zebra_process_srv6_locator_internal(struct srv6_locator *locator)
 {
 	struct bgp *bgp = bgp_get_default();
 
-	if (!bgp || !bgp->srv6_enabled || !locator)
+	if (!bgp || !bgp_srv6_locator_is_configured(bgp) || !locator)
 		return -1;
 
 	/*
@@ -3560,7 +3560,7 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	uint32_t sid_func;
 	bool found = false;
 
-	if (!bgp || !bgp->srv6_enabled)
+	if (!bgp || !bgp_srv6_locator_is_configured(bgp))
 		return -1;
 
 	if (!bgp->srv6_locator) {
@@ -3770,7 +3770,7 @@ static int bgp_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
 	struct srv6_locator loc = {};
 	struct bgp *bgp = bgp_get_default();
 
-	if (!bgp || !bgp->srv6_enabled)
+	if (!bgp || !bgp_srv6_locator_is_configured(bgp))
 		return 0;
 
 	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
