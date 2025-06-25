@@ -801,7 +801,7 @@ void ensure_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 	if (!bgp_vpn)
 		return;
 
-	locator_bgp = bgp_srv6_locator_lookup(bgp_vpn);
+	locator_bgp = bgp_srv6_locator_lookup(bgp_vrf, bgp_vpn);
 	/*
 	 * skip when bgp srv6 locator isn't allocated
 	 */
@@ -878,7 +878,7 @@ void ensure_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 	if (!bgp_vpn)
 		return;
 
-	locator_bgp = bgp_srv6_locator_lookup(bgp_vpn);
+	locator_bgp = bgp_srv6_locator_lookup(bgp_vrf, bgp_vpn);
 	/*
 	 * skip when bgp srv6 locator isn't allocated
 	 */
@@ -919,7 +919,7 @@ void ensure_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 	}
 
 	if (!tovpn_sid_auto && !is_tovpn_sid_explicit) {
-		if (!srv6_sid_compose(&tovpn_sid, bgp_srv6_locator_lookup(bgp_vpn),
+		if (!srv6_sid_compose(&tovpn_sid, bgp_srv6_locator_lookup(bgp_vrf, bgp_vpn),
 				      bgp_vrf->tovpn_sid_index)) {
 			zlog_err("%s: failed to compose new sid for vrf %s",
 				 __func__, bgp_vrf->name_pretty);
@@ -1162,7 +1162,9 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 	 * If the SID per VRF is not available, also consider the rib as
 	 * invalid.
 	 */
-	if (bgp_srv6_locator_is_configured(to_bgp) && nh_valid)
+	if ((bgp_srv6_locator_is_configured(to_bgp) ||
+	     bgp_srv6_locator_is_configured(bgp_nexthop)) &&
+	    nh_valid)
 		nh_valid = is_pi_srv6_valid(bpi, bgp_nexthop, afi, safi);
 
 	if (debug)
