@@ -821,7 +821,6 @@ struct bgp {
 	struct event *t_condition_check;
 
 	/* BGP VPN SRv6 backend */
-	bool srv6_enabled;
 	char srv6_locator_name[SRV6_LOCNAME_SIZE];
 	enum srv6_headend_behavior srv6_encap_behavior;
 	struct srv6_locator *srv6_locator;
@@ -2845,6 +2844,8 @@ extern bool bgp_path_attribute_treat_as_withdraw(struct peer *peer, char *buf,
 						 size_t size);
 
 extern void srv6_function_free(struct bgp_srv6_function *func);
+
+bool bgp_srv6_locator_is_configured(struct bgp *bgp);
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 /* clang-format off */
