@@ -1931,6 +1931,48 @@ static void bmp_stat_put_u64(struct stream *s, size_t *cnt, uint16_t type,
 	(*cnt)++;
 }
 
+static void bmp_stats_peer(struct peer *peer, struct bmp_targets *bt)
+{
+	size_t count = 0, count_pos, len;
+	uint64_t peer_distinguisher = 0;
+	uint8_t peer_type_flag;
+	struct stream *s;
+	struct timeval tv;
+
+	peer_type_flag = bmp_get_peer_type(peer);
+	if (bmp_get_peer_distinguisher(peer->bgp, AFI_UNSPEC, peer_type_flag, &peer_distinguisher)) {
+		zlog_warn("skipping bmp message for peer %s: can't get peer distinguisher",
+			  peer->host);
+		return;
+	}
+
+	s = stream_new(BGP_MAX_PACKET_SIZE);
+	bmp_common_hdr(s, BMP_VERSION_3, BMP_TYPE_STATISTICS_REPORT);
+	gettimeofday(&tv, NULL);
+	bmp_per_peer_hdr(s, bt->bgp, peer, 0, peer_type_flag, peer_distinguisher, &tv);
+
+	count_pos = stream_get_endp(s);
+	stream_putl(s, 0);
+
+	bmp_stat_put_u32(s, &count, BMP_STATS_PFX_REJECTED, peer->stat_pfx_filter);
+	bmp_stat_put_u32(s, &count, BMP_STATS_UPD_LOOP_ASPATH, peer->stat_pfx_aspath_loop);
+	bmp_stat_put_u32(s, &count, BMP_STATS_UPD_LOOP_ORIGINATOR, peer->stat_pfx_originator_loop);
+	bmp_stat_put_u32(s, &count, BMP_STATS_UPD_LOOP_CLUSTER, peer->stat_pfx_cluster_loop);
+	bmp_stat_put_u32(s, &count, BMP_STATS_PFX_DUP_WITHDRAW, peer->stat_pfx_dup_withdraw);
+	bmp_stat_put_u32(s, &count, BMP_STATS_UPD_7606_WITHDRAW, peer->stat_pfx_withdraw);
+	if (bt->stats_send_experimental)
+		bmp_stat_put_u32(s, &count, BMP_STATS_FRR_NH_INVALID, peer->stat_pfx_nh_invalid);
+	bmp_stat_put_u64(s, &count, BMP_STATS_SIZE_ADJ_RIB_IN, peer->stat_pfx_adj_rib_in);
+	bmp_stat_put_u64(s, &count, BMP_STATS_SIZE_LOC_RIB, peer->stat_pfx_loc_rib);
+
+	stream_putl_at(s, count_pos, count);
+
+	len = stream_get_endp(s);
+	stream_putl_at(s, BMP_LENGTH_POS, len);
+
+	bmp_send_all(bt->bmpbgp, s);
+}
+
 static void bmp_stats(struct event *thread)
 {
 	struct bmp_targets *bt = EVENT_ARG(thread);
@@ -1940,6 +1982,7 @@ static void bmp_stats(struct event *thread)
 	if (bt->stat_msec)
 		event_add_timer_msec(bm->master, bmp_stats, bt, bt->stat_msec, &bt->t_stats);
 
+	bmp_stats_peer(bt->bgp->peer_self, bt);
 	bmp_stats_per_instance(bt->bgp, bt);
 	frr_each (bmp_imported_bgps, &bt->imported_bgps, bib) {
 		bgp = bgp_lookup_by_name(bib->name);
@@ -1950,61 +1993,16 @@ static void bmp_stats(struct event *thread)
 
 static void bmp_stats_per_instance(struct bgp *bgp, struct bmp_targets *bt)
 {
-	struct stream *s;
 	struct peer *peer;
 	struct listnode *node;
-	struct timeval tv;
-	uint8_t peer_type_flag;
-	uint64_t peer_distinguisher = 0;
-
-	gettimeofday(&tv, NULL);
 
 	/* Walk down all peers */
 	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
-		size_t count = 0, count_pos, len;
 
 		if (!peer_established(peer->connection))
 			continue;
 
-		s = stream_new(BGP_MAX_PACKET_SIZE);
-		bmp_common_hdr(s, BMP_VERSION_3, BMP_TYPE_STATISTICS_REPORT);
-		peer_type_flag = bmp_get_peer_type(peer);
-		if (bmp_get_peer_distinguisher(peer->bgp, AFI_UNSPEC, peer_type_flag,
-					       &peer_distinguisher)) {
-			zlog_warn("skipping bmp message for peer %s: can't get peer distinguisher",
-				  peer->host);
-			continue;
-		}
-		bmp_per_peer_hdr(s, bt->bgp, peer, 0, peer_type_flag, peer_distinguisher, &tv);
-
-		count_pos = stream_get_endp(s);
-		stream_putl(s, 0);
-
-		bmp_stat_put_u32(s, &count, BMP_STATS_PFX_REJECTED,
-				peer->stat_pfx_filter);
-		bmp_stat_put_u32(s, &count, BMP_STATS_UPD_LOOP_ASPATH,
-				peer->stat_pfx_aspath_loop);
-		bmp_stat_put_u32(s, &count, BMP_STATS_UPD_LOOP_ORIGINATOR,
-				peer->stat_pfx_originator_loop);
-		bmp_stat_put_u32(s, &count, BMP_STATS_UPD_LOOP_CLUSTER,
-				peer->stat_pfx_cluster_loop);
-		bmp_stat_put_u32(s, &count, BMP_STATS_PFX_DUP_WITHDRAW,
-				peer->stat_pfx_dup_withdraw);
-		bmp_stat_put_u32(s, &count, BMP_STATS_UPD_7606_WITHDRAW, peer->stat_pfx_withdraw);
-		if (bt->stats_send_experimental)
-			bmp_stat_put_u32(s, &count, BMP_STATS_FRR_NH_INVALID,
-					 peer->stat_pfx_nh_invalid);
-		bmp_stat_put_u64(s, &count, BMP_STATS_SIZE_ADJ_RIB_IN,
-				 peer->stat_pfx_adj_rib_in);
-		bmp_stat_put_u64(s, &count, BMP_STATS_SIZE_LOC_RIB,
-				 peer->stat_pfx_loc_rib);
-
-		stream_putl_at(s, count_pos, count);
-
-		len = stream_get_endp(s);
-		stream_putl_at(s, BMP_LENGTH_POS, len);
-
-		bmp_send_all(bt->bmpbgp, s);
+		bmp_stats_peer(peer, bt);
 	}
 }
 
