@@ -3456,15 +3456,26 @@ is accomplished via the following command in the context of a VRF:
 
    Enables a SRv6 SID to be attached to a route exported from the current
    unicast VRF to VPN. A single SID is used for both IPv4 and IPv6 address
-   families. If you want to set a SID for only IPv4 address family or IPv6
-   address family, you need to use the command ``sid vpn export <(1..1048575)|auto|explicit X:X::X:X>``
-   in the context of an address-family. If the value specified is ``auto``,
-   the SID value is automatically assigned from a pool maintained by the Zebra
-   daemon. If the value specified is ``explicit X:X::X:X``, SID allocation
-   with the explicit value is requested from the Zebra daemon.
-   If Zebra is not running, or if this command is not configured, or if SID
-   allocation is failed, automatic or explicit SID assignment will not complete,
-   which will block corresponding route export.
+   families. If the value specified is ``auto``, the SID value is
+   automatically assigned from a pool maintained by the Zebra daemon. If the
+   value specified is ``explicit X:X::X:X``, SID allocation with the explicit
+   value is requested from the Zebra daemon. If Zebra is not running, or if
+   this command is not configured, or if SID allocation is failed, automatic
+   or explicit SID assignment will not complete, which will block corresponding
+   route export.
+
+
+.. clicmd:: sid vpn export <(1..1048575)|auto|explicit X:X::X:X>
+
+   If you want to set a SID for only IPv4 address family or IPv6 address
+   family, the above command can be executed in the context of an
+   address-family. If the value specified is ``auto``, the SID value is
+   automatically assigned from a pool maintained by the Zebra daemon. If the
+   value specified is ``explicit X:X::X:X``, SID allocation with the explicit
+   value is requested from the Zebra daemon. If Zebra is not running, or if
+   this command is not configured, or if SID allocation is failed, automatic
+   or explicit SID assignment will not complete, which will block corresponding
+   route export.
 
 .. _bgp-evpn:
 
