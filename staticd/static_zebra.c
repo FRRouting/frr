@@ -838,19 +838,48 @@ void static_zebra_srv6_sid_uninstall(struct static_srv6_sid *sid)
 	}
 
 	switch (sid->behavior) {
-	case SRV6_ENDPOINT_BEHAVIOR_END:
 	case SRV6_ENDPOINT_BEHAVIOR_END_PSP:
-	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID:
+		action = ZEBRA_SEG6_LOCAL_ACTION_END;
+		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_PSP);
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END:
+		action = ZEBRA_SEG6_LOCAL_ACTION_END;
+		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP:
+		action = ZEBRA_SEG6_LOCAL_ACTION_END;
+		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
+		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_PSP);
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID:
+		action = ZEBRA_SEG6_LOCAL_ACTION_END;
+		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_DT6:
-	case SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID:
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
 		vrf = vrf_lookup_by_name(sid->attributes.vrf_name);
 		if (!vrf_is_enabled(vrf)) {
 			zlog_warn("Failed to install SID %pFX: VRF %s is inactive", &sid->addr,
 				  sid->attributes.vrf_name);
 			return;
 		}
+		ctx.table = vrf->data.l.table_id;
+		ifp = if_get_vrf_loopback(vrf->vrf_id);
+		if (!ifp) {
+			zlog_warn("Failed to install SID %pFX: failed to get loopback for vrf %s",
+				  &sid->addr, sid->attributes.vrf_name);
+			return;
+		}
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID:
+		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+		vrf = vrf_lookup_by_name(sid->attributes.vrf_name);
+		if (!vrf_is_enabled(vrf)) {
+			zlog_warn("Failed to install SID %pFX: VRF %s is inactive", &sid->addr,
+				  sid->attributes.vrf_name);
+			return;
+		}
+		ctx.table = vrf->data.l.table_id;
 		ifp = if_get_vrf_loopback(vrf->vrf_id);
 		if (!ifp) {
 			zlog_warn("Failed to install SID %pFX: failed to get loopback for vrf %s",
@@ -859,13 +888,31 @@ void static_zebra_srv6_sid_uninstall(struct static_srv6_sid *sid)
 		}
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_DT4:
-	case SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID:
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_DT4;
 		vrf = vrf_lookup_by_name(sid->attributes.vrf_name);
 		if (!vrf_is_enabled(vrf)) {
 			zlog_warn("Failed to install SID %pFX: VRF %s is inactive", &sid->addr,
 				  sid->attributes.vrf_name);
 			return;
 		}
+		ctx.table = vrf->data.l.table_id;
+		ifp = if_get_vrf_loopback(vrf->vrf_id);
+		if (!ifp) {
+			zlog_warn("Failed to install SID %pFX: failed to get loopback for vrf %s",
+				  &sid->addr, sid->attributes.vrf_name);
+			return;
+		}
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID:
+		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_DT4;
+		vrf = vrf_lookup_by_name(sid->attributes.vrf_name);
+		if (!vrf_is_enabled(vrf)) {
+			zlog_warn("Failed to install SID %pFX: VRF %s is inactive", &sid->addr,
+				  sid->attributes.vrf_name);
+			return;
+		}
+		ctx.table = vrf->data.l.table_id;
 		ifp = if_get_vrf_loopback(vrf->vrf_id);
 		if (!ifp) {
 			zlog_warn("Failed to install SID %pFX: failed to get loopback for vrf %s",
@@ -874,13 +921,31 @@ void static_zebra_srv6_sid_uninstall(struct static_srv6_sid *sid)
 		}
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_DT46:
-	case SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID:
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
 		vrf = vrf_lookup_by_name(sid->attributes.vrf_name);
 		if (!vrf_is_enabled(vrf)) {
 			zlog_warn("Failed to install SID %pFX: VRF %s is inactive", &sid->addr,
 				  sid->attributes.vrf_name);
 			return;
 		}
+		ctx.table = vrf->data.l.table_id;
+		ifp = if_get_vrf_loopback(vrf->vrf_id);
+		if (!ifp) {
+			zlog_warn("Failed to install SID %pFX: failed to get loopback for vrf %s",
+				  &sid->addr, sid->attributes.vrf_name);
+			return;
+		}
+		break;
+	case SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID:
+		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
+		vrf = vrf_lookup_by_name(sid->attributes.vrf_name);
+		if (!vrf_is_enabled(vrf)) {
+			zlog_warn("Failed to install SID %pFX: VRF %s is inactive", &sid->addr,
+				  sid->attributes.vrf_name);
+			return;
+		}
+		ctx.table = vrf->data.l.table_id;
 		ifp = if_get_vrf_loopback(vrf->vrf_id);
 		if (!ifp) {
 			zlog_warn("Failed to install SID %pFX: failed to get loopback for vrf %s",
@@ -889,6 +954,7 @@ void static_zebra_srv6_sid_uninstall(struct static_srv6_sid *sid)
 		}
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID:
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_X;
 		ctx.nh6 = sid->attributes.nh6;
 		ifp = if_lookup_by_name(sid->attributes.ifname, VRF_DEFAULT);
 		if (!ifp) {
@@ -896,6 +962,7 @@ void static_zebra_srv6_sid_uninstall(struct static_srv6_sid *sid)
 				  &sid->addr, sid->attributes.ifname);
 			return;
 		}
+		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_PSP_USD:
 	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP_USD:
@@ -904,12 +971,12 @@ void static_zebra_srv6_sid_uninstall(struct static_srv6_sid *sid)
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_PSP_USD:
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID_PSP:
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID_PSP_USD:
-	case SRV6_ENDPOINT_BEHAVIOR_OPAQUE:
-	case SRV6_ENDPOINT_BEHAVIOR_RESERVED:
 	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS:
 	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_RED:
 	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_NEXT_CSID:
 	case SRV6_ENDPOINT_BEHAVIOR_END_B6_ENCAPS_RED_NEXT_CSID:
+	case SRV6_ENDPOINT_BEHAVIOR_OPAQUE:
+	case SRV6_ENDPOINT_BEHAVIOR_RESERVED:
 		zlog_warn("unsupported behavior: %u", sid->behavior);
 		break;
 	}
@@ -948,6 +1015,9 @@ void static_zebra_srv6_sid_uninstall(struct static_srv6_sid *sid)
 		ctx.node_len = sid->locator->node_bits_length;
 
 	ctx.function_len = sid->addr.prefixlen - (ctx.block_len + ctx.node_len);
+
+	ctx.flv.lcblock_len = sid->locator->block_bits_length;
+	ctx.flv.lcnode_func_len = ctx.node_len + ctx.function_len;
 
 	static_zebra_send_localsid(ZEBRA_ROUTE_DELETE, &sid->addr.prefix, sid->addr.prefixlen,
 				   ifp->ifindex, action, &ctx);
