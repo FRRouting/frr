@@ -1162,11 +1162,26 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 	 * If the SID per VRF is not available, also consider the rib as
 	 * invalid.
 	 */
+	if (!nh_valid)
+		return nh_valid;
 	if ((bgp_srv6_locator_is_configured(to_bgp) ||
 	     bgp_srv6_locator_is_configured(bgp_nexthop)) &&
-	    nh_valid)
+	    (bpi->attr->srv6_l3vpn || bpi->attr->srv6_vpn))
+		/* If bpi has SRv6 VPN options, it needs to check the SID allocation
+		 * If the SID is not allocated, the rib will be invalid
+		 * If the SID per VRF is not available, also consider the rib as invalid
+		 */
 		nh_valid = is_pi_srv6_valid(bpi, bgp_nexthop, afi, safi);
-
+	else if ((!bpi->attr->srv6_l3vpn && !bpi->attr->srv6_vpn) &&
+		 (!bpi->extra->labels || bpi->extra->labels->num_labels == 0 ||
+		  (bpi->extra->labels->num_labels == 1 &&
+		   decode_label(&bpi->extra->labels->label[0]) == MPLS_LABEL_IMPLICIT_NULL)))
+		/* If bpi has no MPLS VPN options, or the output label is implicit-null
+		 * The entry should be considered as invalid
+		 * If the entry is for vrf-to-vrf importation, the entry will still be considered
+		 * If the entry is for bgp advertisement, then prevent from sending empty BGP VPN prefix
+	         */
+		return false;
 	if (debug)
 		zlog_debug("%s: %pFX nexthop is %svalid (in %s)", __func__, p,
 			   (nh_valid ? "" : "not "), bgp_nexthop->name_pretty);

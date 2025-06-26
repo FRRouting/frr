@@ -353,9 +353,6 @@ static inline bool is_pi_family_vpn(struct bgp_path_info *pi)
 static inline bool is_pi_srv6_valid(struct bgp_path_info *pi, struct bgp *bgp_nexthop, afi_t afi,
 				    safi_t safi)
 {
-	if (!pi->attr->srv6_l3vpn && !pi->attr->srv6_vpn)
-		return false;
-
 	/* imported paths from VPN: srv6 enabled and nht reachability
 	 * are enough to know if that path is valid
 	 */
