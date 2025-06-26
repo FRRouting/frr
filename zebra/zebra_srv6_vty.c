@@ -340,7 +340,8 @@ static const char *show_srv6_sid_seg6_context(char *str, size_t size, const stru
 	return str;
 }
 
-static void do_show_srv6_sid_line(struct ttable *tt, struct zebra_srv6_sid *sid)
+static void do_show_srv6_sid_line(struct ttable *tt, struct zebra_srv6_sid *sid,
+				  struct srv6_locator *locator)
 {
 	struct zserv *client;
 	char clients[256];
@@ -353,6 +354,8 @@ static void do_show_srv6_sid_line(struct ttable *tt, struct zebra_srv6_sid *sid)
 	int ret;
 
 	frr_each_safe (zebra_srv6_sid_entry_list, &sid->entries, entry) {
+		if (locator && locator != entry->locator)
+			continue;
 		/* Zclients */
 		if (zebra_srv6_sid_client_list_count(&entry->clients_list)) {
 			bool first = true;
@@ -532,7 +535,7 @@ static void do_show_srv6_sid_specific(struct vty *vty, json_object **json,
 				return;
 		}
 
-		do_show_srv6_sid_line(tt, sid_ctx->sid);
+		do_show_srv6_sid_line(tt, sid_ctx->sid, locator);
 
 		ttable_colseps(tt, 1, RIGHT, true, ' ');
 		ttable_colseps(tt, 2, LEFT, true, ' ');
@@ -601,8 +604,7 @@ static void do_show_srv6_sid_all(struct vty *vty, json_object **json, struct srv
 				    !zebra_srv6_sid_entry_lookup(ctx->sid, locator->name, false) &&
 				    !zebra_srv6_sid_entry_lookup(ctx->sid, locator->name, true))
 					continue;
-
-				do_show_srv6_sid_line(tt, ctx->sid);
+				do_show_srv6_sid_line(tt, ctx->sid, locator);
 			}
 		}
 
