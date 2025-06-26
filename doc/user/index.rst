@@ -15,7 +15,7 @@ FRR is distributed under GPLv2, with development modeled after the Linux
 kernel. Anyone may contribute features, bug fixes, tools, documentation
 updates, or anything else.
 
-FRR is a fork of `Quagga <http://www.quagga.net/>`_.
+FRR is a fork of the Quagga project.
 
 .. toctree::
    :maxdepth: 2
