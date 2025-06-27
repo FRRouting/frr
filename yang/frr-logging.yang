@@ -1,0 +1,197 @@
+// SPDX-License-Identifier: BSD-2-Clause
+module frr-logging {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/frr-logging";
+  prefix frr-logging;
+
+  import ietf-syslog-types {
+    prefix syslogtypes;
+  }
+
+  organization
+    "FRRouting";
+  contact
+    "FRR Users List:       <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This module defines logging configuration for FRR.
+
+     Copyright 2025 LabN Consulting L.L.C
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
+
+  revision 2025-06-07 {
+    description "Initial revision.";
+    reference "FRRouting";
+  }
+
+  typedef syslog-format {
+    type enumeration {
+      enum rfc5424 {
+        description "RFC5424 syslog format.";
+      }
+      enum rfc3164 {
+        description "RFC3164 syslog format.";
+      }
+      enum local-syslogd {
+        description "Local syslogd format without hostname.";
+      }
+      enum journald {
+        description "systemd journald native format.";
+      }
+    }
+    description "Log message formatting.";
+  }
+
+  container logging {
+    description "Logging configuration.";
+
+    container stdout {
+      presence "Enable stdout logging";
+      description "Logging to stdout.";
+      leaf level {
+        type syslogtypes:severity;
+        default debug;
+        description "Lowest level for which to log to stdout.";
+      }
+    }
+
+    container syslog {
+      presence "Enable syslog logging";
+      description "Logging to syslog.";
+      leaf level {
+        type syslogtypes:severity;
+        default debug;
+        description "Lowest level for which to log to syslog.";
+      }
+    }
+
+    container file {
+      description "Logging to a file.";
+      leaf filename {
+        type string;
+        description "Log filename.";
+      }
+      leaf level {
+        type syslogtypes:severity;
+        default debug;
+        description "Lowest level for which to log to the file.";
+      }
+    }
+
+    container filtered-file {
+      description
+        "Log messages to a file, filtering out messages that match any of the
+         filter-text entries.";
+      leaf filename {
+        type string;
+        description "Log filename.";
+      }
+      leaf level {
+        type syslogtypes:severity;
+        default debug;
+        description "Lowest level for which to log to the filtered file.";
+      }
+    }
+
+    leaf-list filter-text {
+      type string;
+      description "Log message filters.";
+    }
+
+    list daemon-file {
+      key daemon;
+      description "Per-daemon log files.";
+      leaf daemon {
+        type string;
+        description "Name of the daemon.";
+      }
+      leaf filename {
+        type string;
+        mandatory true;
+        description "Log filename.";
+      }
+      leaf level {
+        type syslogtypes:severity;
+        default debug;
+        description "Lowest level for which to log to the daemon log file.";
+      }
+    }
+
+    leaf facility {
+      type identityref {
+        base syslogtypes:syslog-facility;
+      }
+      default syslogtypes:daemon;
+      description "Syslog facility.";
+    }
+
+    leaf record-priority {
+      type boolean;
+      default false;
+      description "Include priority tag in non-syslog messages.";
+    }
+
+    leaf record-severity {
+      type boolean;
+      default false;
+      description "Include severity tag in non-syslog messages.";
+    }
+
+    leaf timestamp-precision {
+      type uint8 {
+        range 0..6;
+      }
+      default 0;
+      description "Timestamp precision for log messages.";
+    }
+
+    leaf error-category {
+      type boolean;
+      default true;
+      description "Prefix log messages with error category.";
+    }
+
+    leaf unique-id {
+      type boolean;
+      default true;
+      description "Prefix log messages with unique identifier.";
+    }
+
+    leaf immediate-mode {
+      type boolean;
+      default false;
+      description "Use unbuffered log output.";
+    }
+
+    list uid-backtrace {
+      key uid;
+      description "Log message IDs with backtraces enabled.";
+      leaf uid {
+        type string;
+        description "Unique log message identifier.";
+      }
+    }
+  }
+}

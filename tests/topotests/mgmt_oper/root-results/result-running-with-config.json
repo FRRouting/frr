@@ -39,6 +39,12 @@
       }
     ]
   },
+  "frr-logging:logging": {
+    "file": {
+      "filename": "frr.log"
+    },
+    "timestamp-precision": 6
+  },
   "frr-routing:routing": {
     "control-plane-protocols": {
       "control-plane-protocol": [

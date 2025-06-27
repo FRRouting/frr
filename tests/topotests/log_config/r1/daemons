@@ -1,0 +1,10 @@
+ospfd=1
+staticd=1
+vtysh_enable=1
+watchfrr_enable=1
+zebra=1
+
+mgmtd_options="--log=file:mgmtd.log     > mgmtd.out   2> mgmtd.err"
+ospfd_options="--log=file:ospfd.log     > ospfd.out   2> ospfd.err"
+staticd_options="--log=file:staticd.log > staticd.out 2> staticd.err"
+zebra_options="--log=file:zebra.log     > zebra.out   2> zebra.err"

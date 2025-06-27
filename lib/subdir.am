@@ -66,7 +66,9 @@ lib_libfrr_la_SOURCES = \
 	lib/linklist.c \
 	lib/link_state.c \
 	lib/log.c \
+	lib/log_cli.c \
 	lib/log_filter.c \
+	lib/log_nb.c \
 	lib/log_vty.c \
 	lib/md5.c \
 	lib/memory.c \
@@ -152,6 +154,7 @@ nodist_lib_libfrr_la_SOURCES = \
 	yang/frr-host.yang.c \
 	yang/frr-if-rmap.yang.c \
 	yang/frr-interface.yang.c \
+	yang/frr-logging.yang.c \
 	yang/frr-route-map.yang.c \
 	yang/frr-route-types.yang.c \
 	yang/frr-vrf.yang.c \
@@ -159,6 +162,7 @@ nodist_lib_libfrr_la_SOURCES = \
 	yang/frr-nexthop.yang.c \
 	yang/ietf/frr-deviations-ietf-key-chain.yang.c \
 	yang/ietf/ietf-routing-types.yang.c \
+	yang/ietf/ietf-syslog-types.yang.c \
 	yang/ietf/ietf-netconf-acm.yang.c \
 	yang/ietf/ietf-key-chain.yang.c \
 	yang/ietf/ietf-interfaces.yang.c \
@@ -179,6 +183,7 @@ clippy_scan += \
 	lib/filter_cli.c \
 	lib/if_rmap.c \
 	lib/keychain_cli.c \
+	lib/log_cli.c \
 	lib/log_vty.c \
 	lib/mgmt_be_client.c \
 	lib/mgmt_fe_client.c \

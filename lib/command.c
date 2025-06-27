@@ -490,7 +490,6 @@ static int config_write_host(struct vty *vty)
 				vty_out(vty, "enable password %s\n",
 					host.enable);
 		}
-		log_config_write(vty);
 
 		if (!cputime_enabled)
 			vty_out(vty, "no service cputime-stats\n");
