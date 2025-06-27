@@ -153,6 +153,19 @@ The following commands are available for independent of a specific cache server.
    source A.B.C.D
       Source address of the RPKI connection to access cache server.
 
+.. _configuring-rpki-neighbors:
+
+Configuring RPKI neighbors
+--------------------------
+
+.. clicmd:: neighbor PEER rpki strict
+
+   Enable RPKI strict mode for the specified neighbor. If strict mode is enabled,
+   the router will not establish a BGP session with the neighbor until the RPKI cache
+   server is connected.
+
+   Default: disabled.
+
 .. _validating-bgp-updates:
 
 Validating BGP Updates
