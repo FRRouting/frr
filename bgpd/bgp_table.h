@@ -99,6 +99,7 @@ struct bgp_dest {
 #define BGP_NODE_SCHEDULE_FOR_INSTALL	(1 << 10)
 #define BGP_NODE_SCHEDULE_FOR_DELETE	(1 << 11)
 #define BGP_NODE_NHT_RESOLVED_NODE	(1 << 12)
+#define BGP_NODE_HANDLE_ROUTE_SID	(1 << 13)
 
 	struct bgp_addpath_node_data tx_addpath;
 
