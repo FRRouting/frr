@@ -155,6 +155,7 @@ static enum route_map_cmd_result_t route_match(void *rule,
 					       void *object);
 static void *route_match_compile(const char *arg);
 static void revalidate_bgp_node(struct bgp_dest *dest, afi_t afi, safi_t safi);
+static struct rpki_vrf *get_rpki_vrf(const char *vrfname);
 
 static bool rpki_debug_conf, rpki_debug_term;
 
@@ -545,6 +546,35 @@ inline bool is_stopping(struct rpki_vrf *rpki_vrf)
 	return rpki_vrf->rtr_is_stopping;
 }
 
+static int bgp_rpki_is_connected(const char *vrf_name)
+{
+	struct rtr_mgr_group *group;
+	struct listnode *cache_node;
+	struct cache *cache;
+	struct rpki_vrf *rpki_vrf;
+
+	rpki_vrf = get_rpki_vrf(vrf_name);
+	if (!rpki_vrf)
+		return 0;
+
+	if (!is_running(rpki_vrf))
+		return 0;
+
+	if (!is_synchronized(rpki_vrf))
+		return 0;
+
+	group = get_connected_group(rpki_vrf);
+	if (!group)
+		return 0;
+
+	for (ALL_LIST_ELEMENTS_RO(rpki_vrf->cache_list, cache_node, cache)) {
+		if (cache->rtr_socket->state == RTR_ESTABLISHED)
+			return 1;
+	}
+
+	return 0;
+}
+
 static void pfx_record_to_prefix(struct pfx_record *record,
 				 struct prefix *prefix)
 {
@@ -835,6 +865,7 @@ static int bgp_rpki_module_init(void)
 	lrtr_set_alloc_functions(malloc_wrapper, realloc_wrapper, free_wrapper);
 
 	hook_register(bgp_rpki_prefix_status, rpki_validate_prefix);
+	hook_register(bgp_rpki_connection_status, bgp_rpki_is_connected);
 	hook_register(frr_late_init, bgp_rpki_init);
 	hook_register(frr_early_fini, bgp_rpki_fini);
 	hook_register(bgp_hook_config_write_debug, &bgp_rpki_write_debug);

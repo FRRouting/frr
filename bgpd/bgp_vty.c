@@ -6155,6 +6155,28 @@ DEFPY(neighbor_capability_link_local,
 	return ret;
 }
 
+/* RPKI strict mode */
+DEFPY(neighbor_rpki_strict,
+      neighbor_rpki_strict_cmd,
+      "[no$no] neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor rpki strict",
+      NO_STR
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "RPKI configuration\n"
+      "Strict mode\n")
+{
+	struct peer *peer;
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (no)
+		return peer_flag_unset(peer, PEER_FLAG_RPKI_STRICT);
+
+	return peer_flag_set(peer, PEER_FLAG_RPKI_STRICT);
+}
+
 static int peer_af_flag_modify_vty(struct vty *vty, const char *peer_str,
 				   afi_t afi, safi_t safi, uint64_t flag,
 				   int set)
@@ -19172,6 +19194,9 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 				addr);
 	}
 
+	if (peergroup_flag_check(peer, PEER_FLAG_RPKI_STRICT))
+		vty_out(vty, " neighbor %s rpki strict\n", addr);
+
 	/* capability link-local */
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_LINK_LOCAL_CAPABILITY)) {
 		if (!peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_LINK_LOCAL))
@@ -21666,6 +21691,9 @@ void bgp_vty_init(void)
 
 	/* "neighbor capability link-local" commands.*/
 	install_element(BGP_NODE, &neighbor_capability_link_local_cmd);
+
+	/* neighbor rpki ... commands. */
+	install_element(BGP_NODE, &neighbor_rpki_strict_cmd);
 
 	/* "neighbor capability orf prefix-list" commands.*/
 	install_element(BGP_NODE, &neighbor_capability_orf_prefix_hidden_cmd);

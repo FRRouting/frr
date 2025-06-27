@@ -1704,6 +1704,7 @@ struct peer {
 /* https://datatracker.ietf.org/doc/html/draft-ietf-idr-entropy-label */
 #define PEER_FLAG_SEND_NHC_ATTRIBUTE (1ULL << 44)
 #define PEER_FLAG_IP_TRANSPARENT     (1ULL << 45) /* ip-transparent */
+#define PEER_FLAG_RPKI_STRICT	     (1ULL << 46) /* RPKI strict mode */
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
@@ -2026,6 +2027,7 @@ struct peer {
 #define PEER_DOWN_SUPPRESS_FIB_PENDING	 36U /* Suppress fib pending changed */
 #define PEER_DOWN_PASSWORD_CHANGE	 37U /* neighbor password command */
 #define PEER_DOWN_ROUTER_ID_ZERO	 38U /* router-id is 0.0.0.0 */
+#define PEER_DOWN_RPKI_DOWN		 39U /* RPKI cache is not connected due to strict mode */
 	/*
 	 * Remember to update peer_down_str in bgp_fsm.c when you add
 	 * a new value to the last_reset reason
@@ -3070,6 +3072,7 @@ DECLARE_HOOK(bgp_rpki_prefix_status,
 	     (struct peer * peer, struct attr *attr,
 	      const struct prefix *prefix),
 	     (peer, attr, prefix));
+DECLARE_HOOK(bgp_rpki_connection_status, (const char *vrf_name), (vrf_name));
 
 void peer_nsf_stop(struct peer *peer);
 
