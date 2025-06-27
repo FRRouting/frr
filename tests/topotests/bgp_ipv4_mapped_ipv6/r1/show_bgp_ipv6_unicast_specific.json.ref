@@ -1,0 +1,41 @@
+{
+  "prefix": "::ffff:200.100.222.111/128",
+  "version": 1,
+  "paths": [
+    {
+      "aspath": {
+        "string": "Local",
+        "segments": [],
+        "length": 0
+      },
+      "origin": "IGP",
+      "metric": 0,
+      "weight": 32768,
+      "valid": true,
+      "version": 1,
+      "sourced": true,
+      "local": true,
+      "bestpath": {
+        "overall": true,
+        "selectionReason": "First path received"
+      },
+      "nexthops": [
+        {
+          "ip": "::",
+          "hostname": "r1",
+          "afi": "ipv6",
+          "scope": "global",
+          "linkLocalOnly": false,
+          "length": 16,
+          "metric": 0,
+          "accessible": true,
+          "used": true
+        }
+      ],
+      "peer": {
+        "peerId": "::",
+        "routerId": "10.254.254.1"
+      }
+    }
+  ]
+}
