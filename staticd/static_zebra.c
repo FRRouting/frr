@@ -654,14 +654,10 @@ void static_zebra_srv6_sid_install(struct static_srv6_sid *sid)
 		action = ZEBRA_SEG6_LOCAL_ACTION_END;
 		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_PSP);
-		ctx.flv.lcblock_len = sid->locator->block_bits_length;
-		ctx.flv.lcnode_func_len = sid->locator->node_bits_length;
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID:
 		action = ZEBRA_SEG6_LOCAL_ACTION_END;
 		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
-		ctx.flv.lcblock_len = sid->locator->block_bits_length;
-		ctx.flv.lcnode_func_len = sid->locator->node_bits_length;
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_DT6:
 		action = ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
@@ -772,8 +768,6 @@ void static_zebra_srv6_sid_install(struct static_srv6_sid *sid)
 			return;
 		}
 		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
-		ctx.flv.lcblock_len = sid->locator->block_bits_length;
-		ctx.flv.lcnode_func_len = sid->locator->node_bits_length;
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_PSP_USD:
 	case SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID_PSP_USD:
@@ -801,6 +795,9 @@ void static_zebra_srv6_sid_install(struct static_srv6_sid *sid)
 		ctx.node_len = sid->locator->node_bits_length;
 
 	ctx.function_len = sid->addr.prefixlen - (ctx.block_len + ctx.node_len);
+
+	ctx.flv.lcblock_len = sid->locator->block_bits_length;
+	ctx.flv.lcnode_func_len = ctx.node_len + ctx.function_len;
 
 	/* Attach the SID to the SRv6 interface */
 	if (!ifp) {
@@ -982,6 +979,23 @@ static bool static_zebra_sid_locator_block_check(struct static_srv6_sid *sid)
 	return true;
 }
 
+static bool is_srv6_sid_localonly(const struct static_srv6_sid *sid)
+{
+	struct prefix_ipv6 block = {};
+	struct prefix_ipv6 locator = {};
+
+	block = sid->locator->prefix;
+	block.prefixlen = sid->locator->block_bits_length;
+	apply_mask(&block);
+
+	locator = sid->locator->prefix;
+
+	if (prefix_match(&block, &sid->addr) && !prefix_match(&locator, &sid->addr))
+		return true;
+
+	return false;
+}
+
 extern void static_zebra_request_srv6_sid(struct static_srv6_sid *sid)
 {
 	struct srv6_sid_ctx ctx = {};
@@ -1077,7 +1091,7 @@ extern void static_zebra_request_srv6_sid(struct static_srv6_sid *sid)
 
 	/* Request SRv6 SID from SID Manager */
 	ret = srv6_manager_get_sid(static_zclient, &ctx, &sid->addr.prefix, sid->locator->name,
-				   NULL);
+				   NULL, is_srv6_sid_localonly(sid));
 	if (ret < 0)
 		zlog_warn("%s: error getting SRv6 SID!", __func__);
 }
@@ -1088,6 +1102,7 @@ extern void static_zebra_release_srv6_sid(struct static_srv6_sid *sid)
 	struct vrf *vrf;
 	int ret = 0;
 	struct interface *ifp;
+	bool is_localonly;
 
 	if (!sid || !CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID))
 		return;
@@ -1167,8 +1182,10 @@ extern void static_zebra_release_srv6_sid(struct static_srv6_sid *sid)
 		return;
 	}
 
+	is_localonly = is_srv6_sid_localonly(sid);
+
 	/* remove the SRv6 SID from the zebra RIB */
-	ret = srv6_manager_release_sid(static_zclient, &ctx);
+	ret = srv6_manager_release_sid(static_zclient, &ctx, sid->locator->name, is_localonly);
 	if (ret == ZCLIENT_SEND_FAILURE)
 		flog_err(EC_LIB_ZAPI_SOCKET, "zclient_send_get_srv6_sid() delete failed: %s",
 			 safe_strerror(errno));
