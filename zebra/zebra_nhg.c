@@ -350,6 +350,61 @@ zebra_nhg_connect_depends(struct nhg_hash_entry *nhe,
 	}
 }
 
+/*
+ * Determine nhg address-family, with special rules for singletons
+ */
+afi_t zebra_nhg_get_afi(const struct nexthop_group *nhg, afi_t route_afi)
+{
+	afi_t afi = AF_UNSPEC, last_afi = AF_UNSPEC;
+	const struct nexthop *nh;
+	bool all_same = true;
+
+	nh = nhg->nexthop;
+
+	/* There are some special rules that apply to nexthops' AFIs. */
+	while (nh) {
+		switch (nh->type) {
+			/*
+			 * This switch case handles setting the afi different
+			 * for ipv4/v6 routes. Ifindex nexthop
+			 * objects cannot be ambiguous, they must be Address
+			 * Family specific as that the kernel relies on these
+			 * for some reason.  blackholes can be v6 because the
+			 * v4 kernel infrastructure allows the usage of v6
+			 * blackholes in this case.   if we get here, we will
+			 * either use the AF of the route, or the one we got
+			 * passed from here from the kernel.
+			 */
+		case NEXTHOP_TYPE_IFINDEX:
+			afi = route_afi;
+			break;
+		case NEXTHOP_TYPE_BLACKHOLE:
+			afi = AFI_IP6;
+			break;
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
+		case NEXTHOP_TYPE_IPV4:
+			afi = AFI_IP;
+			break;
+		case NEXTHOP_TYPE_IPV6_IFINDEX:
+		case NEXTHOP_TYPE_IPV6:
+			afi = AFI_IP6;
+			break;
+		}
+
+		if (last_afi != AF_UNSPEC && last_afi != afi)
+			all_same = false;
+
+		last_afi = afi;
+		nh = nh->next;
+	}
+
+	if (!all_same)
+		zlog_warn("Not all Nexthops had equivalent AFIs; "
+			  "something is seriously wrong");
+
+	return afi;
+}
+
 /* Init an nhe, for use in a hash lookup for example */
 void zebra_nhe_init(struct nhg_hash_entry *nhe, afi_t afi,
 		    const struct nexthop *nh)
@@ -2794,6 +2849,72 @@ skip_check:
 	return CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 }
 
+
+/* This function verifies reachability of one given nexthop in an incoming
+ * protocol daemon's nhg. The result is unconditionally stored
+ * in nexthop->flags field. The nexthop->ifindex will be updated
+ * appropriately as well.
+ *
+ * The return value is the final value of 'ACTIVE' flag.
+ */
+static unsigned int nhg_nexthop_active_check(struct nexthop *nexthop,
+					     struct nhg_hash_entry *nhe)
+{
+	uint32_t mtu = 0;
+	vrf_id_t vrf_id;
+	uint32_t flags = 0;
+
+	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+		zlog_debug("%s: nhe %u, nexthop %pNHv", __func__, nhe->id,
+			   nexthop);
+
+	/* Map flags for use in the nexthop check */
+	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSION_REQ))
+		SET_FLAG(flags, ZEBRA_FLAG_ALLOW_RECURSION);
+
+	vrf_id = nexthop->vrf_id;
+
+	switch (nexthop->type) {
+	case NEXTHOP_TYPE_IFINDEX:
+		if (nexthop_active(nexthop, nhe, NULL, nhe->type, flags, &mtu,
+				   vrf_id))
+			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+		else
+			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+		break;
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		if (nexthop_active(nexthop, nhe, NULL, nhe->type, flags, &mtu,
+				   vrf_id))
+			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+		else
+			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+		break;
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		if (nexthop_active(nexthop, nhe, NULL, nhe->type, flags, &mtu,
+				   vrf_id))
+			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+		else
+			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+		break;
+	case NEXTHOP_TYPE_BLACKHOLE:
+		SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+		break;
+	default:
+		break;
+	}
+
+	if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE)) {
+		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+			zlog_debug("        %s: Unable to find active nexthop",
+				   __func__);
+		return 0;
+	}
+
+	return CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+}
+
 /* Helper function called after resolution to walk nhg rb trees
  * and toggle the NEXTHOP_GROUP_VALID flag if the nexthop
  * is active on singleton NHEs.
@@ -2954,6 +3075,70 @@ static uint32_t nexthop_list_active_update(struct route_node *rn,
 	return counter;
 }
 
+
+/*
+ * Process a list of nexthops, given an nhe, determining
+ * whether each one is ACTIVE/installable at this time.
+ */
+static uint32_t nhg_nexthop_list_active_update(struct nhg_hash_entry *nhe,
+					       bool is_backup, bool *change_p)
+{
+	unsigned int prev_active, new_active;
+	ifindex_t prev_index;
+	uint32_t counter = 0;
+	struct nexthop *nexthop;
+	struct nexthop_group *nhg = &nhe->nhg;
+
+	nexthop = nhg->nexthop;
+
+	/*
+	 * In the route-entry path, there's a call to
+	 * nexthop_list_set_evpn_dvni() to work with evpn routes
+	 * and their nexthops. Without a route here, we aren't making
+	 * that call.
+	 */
+
+	/* Process nexthops one-by-one */
+	for (; nexthop; nexthop = nexthop->next) {
+		prev_active = CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+		prev_index = nexthop->ifindex;
+
+		/* Include the containing nhe for primary nexthops: if there's
+		 * recursive resolution, we capture the backup info also.
+		 */
+		new_active = nhg_nexthop_active_check(nexthop,
+						      (is_backup ? NULL : nhe));
+
+		/*
+		 * We need to respect the multipath_num here
+		 * as that what we should be able to install from
+		 * a multipath perspective should not be a data plane
+		 * decision point.
+		 */
+		if (new_active && counter >= zrouter.multipath_num) {
+			struct nexthop *nh;
+
+			/* Set it and its resolved nexthop as inactive. */
+			for (nh = nexthop; nh; nh = nh->resolved)
+				UNSET_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE);
+
+			new_active = 0;
+		}
+
+		if (new_active)
+			counter++;
+
+		/* Check for changes to the nexthop
+		 * TODO -- is this enough of a check? we should probably be
+		 * making more-detailed "change" tests, in case the details of
+		 * a singleton nexthop change.
+		 */
+		if (prev_active != new_active || prev_index != nexthop->ifindex)
+			(*change_p) = true;
+	}
+
+	return counter;
+}
 
 static uint32_t proto_nhg_nexthop_active_update(struct nexthop_group *nhg)
 {
@@ -3207,6 +3392,13 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re,
 	struct nhg_hash_entry *curr_nhe, *remove;
 	uint32_t curr_active = 0, backup_active = 0;
 
+	/*
+	 * TODO -- examine this path, in case we want incoming routes to
+	 * trigger checks for proto nhgs also.
+	 * Maybe we can split the rn/re parts of the active check into
+	 * their own function, so we can run those parts separately from
+	 * the nexthop checking when we're processing an re.
+	 */
 	if (PROTO_OWNED(re->nhe))
 		return proto_nhg_nexthop_active_update(&re->nhe->nhg);
 
@@ -3754,75 +3946,46 @@ bool zebra_nhg_proto_nexthops_only(void)
 	return proto_nexthops_only;
 }
 
-/* Add NHE from upper level proto */
-struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
-					   uint16_t instance, uint32_t session,
-					   struct nexthop_group *nhg, afi_t afi)
+/*
+ * Add NHE from upper level proto/daemon
+ */
+struct nhg_hash_entry *zebra_nhe_proto_add(struct nhg_hash_entry *nhe)
 {
 	struct nhg_hash_entry lookup;
 	struct nhg_hash_entry *new, *old;
 	struct nhg_connected *rb_node_dep = NULL;
-	struct nexthop *newhop;
 	bool replace = false;
 	int ret = 0;
+	const struct nexthop_group *nhg;
+	uint32_t count = 0;
+	bool change_p = false;
 
-	if (!nhg->nexthop) {
+	if (nhe)
+		nhg = &nhe->nhg;
+
+	if (!nhe || !nhg->nexthop) {
 		if (IS_ZEBRA_DEBUG_NHG)
 			zlog_debug("%s: id %u, no nexthops passed to add",
-				   __func__, id);
+				   __func__, (nhe ? nhe->id : 0));
 		return NULL;
 	}
 
-
-	/* Set nexthop list as active, since they wont go through rib
-	 * processing.
-	 *
-	 * Assuming valid/onlink for now.
-	 *
-	 * Once resolution is figured out, we won't need this!
+	/* Evaluate nexthops, determine whether active, perform
+	 * recursive resolution if requested by the daemon.
 	 */
-	for (ALL_NEXTHOPS_PTR(nhg, newhop)) {
-		if (CHECK_FLAG(newhop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
-			if (IS_ZEBRA_DEBUG_NHG)
-				zlog_debug(
-					"%s: id %u, backup nexthops not supported",
-					__func__, id);
-			return NULL;
-		}
+	count = nhg_nexthop_list_active_update(nhe, false, &change_p);
 
-		if (newhop->type == NEXTHOP_TYPE_BLACKHOLE) {
-			if (IS_ZEBRA_DEBUG_NHG)
-				zlog_debug(
-					"%s: id %u, blackhole nexthop not supported",
-					__func__, id);
-			return NULL;
-		}
+	if (IS_ZEBRA_DEBUG_NHG)
+		zlog_debug("%s: %pNG => count %u%s", __func__, nhe, count,
+			   (change_p ? ", changed" : ""));
 
-		if (newhop->type == NEXTHOP_TYPE_IFINDEX) {
-			if (IS_ZEBRA_DEBUG_NHG)
-				zlog_debug(
-					"%s: id %u, nexthop without gateway not supported",
-					__func__, id);
-			return NULL;
-		}
-
-		if (!newhop->ifindex) {
-			if (IS_ZEBRA_DEBUG_NHG)
-				zlog_debug(
-					"%s: id %u, nexthop without ifindex is not supported",
-					__func__, id);
-			return NULL;
-		}
-		SET_FLAG(newhop->flags, NEXTHOP_FLAG_ACTIVE);
-	}
-
-	zebra_nhe_init(&lookup, afi, nhg->nexthop);
+	zebra_nhe_init(&lookup, nhe->afi, nhg->nexthop);
 	lookup.nhg.nexthop = nhg->nexthop;
 	lookup.nhg.nhgr = nhg->nhgr;
-	lookup.id = id;
-	lookup.type = type;
+	lookup.id = nhe->id;
+	lookup.type = nhe->type;
 
-	old = zebra_nhg_lookup_id(id);
+	old = zebra_nhg_lookup_id(nhe->id);
 
 	if (old) {
 		/*
@@ -3838,13 +4001,20 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 		zebra_nhg_release_all_deps(old);
 	}
 
-	new = zebra_nhg_rib_find_nhe(&lookup, afi);
+	new = zebra_nhg_rib_find_nhe(&lookup, nhe->afi);
 
 	zebra_nhg_increment_ref(new);
 
 	/* Capture zapi client info */
-	new->zapi_instance = instance;
-	new->zapi_session = session;
+	new->zapi_instance = nhe->zapi_instance;
+	new->zapi_session = nhe->zapi_session;
+
+	/*
+	 * If we have valid nexthops to install, ok to proceed and
+	 * install/update.
+	 * If not, if we had routes using the nhg, we need to get them fixed
+	 * to match the current status of the nhg.
+	 */
 
 	zebra_nhg_set_valid_if_active(new);
 
