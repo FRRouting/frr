@@ -1377,9 +1377,8 @@ static void fpm_enqueue_rmac_table(struct hash_bucket *bucket, void *arg)
 
 	dplane_ctx_reset(fra->ctx);
 	dplane_ctx_set_op(fra->ctx, DPLANE_OP_MAC_INSTALL);
-	dplane_mac_init(fra->ctx, fra->zl3vni->vxlan_if,
-			zif->brslave_info.br_if, vid, &zrmac->macaddr, vni->vni,
-			zrmac->fwd_info.r_vtep_ip, sticky, 0 /*nhg*/,
+	dplane_mac_init(fra->ctx, fra->zl3vni->vxlan_if, zif->brslave_info.br_if, vid,
+			&zrmac->macaddr, vni->vni, &zrmac->fwd_info.r_vtep_ip, sticky, 0 /*nhg*/,
 			0 /*update_flags*/);
 	if (fpm_nl_enqueue(fra->fnc, fra->ctx) == -1) {
 		event_add_timer(zrouter.master, fpm_rmac_send, fra->fnc, 1,

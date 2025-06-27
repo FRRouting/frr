@@ -351,6 +351,26 @@ In the examples below, each arrowed token needs a doc string.
    "command <foo|bar> [example]"
     ^        ^   ^     ^
 
+If a token is missing a docstring, a compile-time warning will be emitted in the form:
+
+::
+
+    Ran out of docstring while parsing 'show example address <A.B.C.D|X:x::x:X>$address> [json]'
+
+The code that emitted the warning is below, it was missing a help string for the IPv6 version of the IP address.
+
+::
+
+    DEFPY(show_example_address show_example_address_cmd,
+      "show example address <A.B.C.D|X:X::X:X>$address> [json]",
+      SHOW_STR
+      EXAMPLE_STR
+      ADDRESS_HELP_STR
+      "IP Address\n"
+      "IPv4 address\n"
+      JSON_STR)
+
+
 DEFPY
 ^^^^^
 ``DEFPY(...)`` is an enhanced version of ``DEFUN()`` which is preprocessed by
