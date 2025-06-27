@@ -201,9 +201,9 @@
       ]
     }
   ],
-  "fc00:0:6::\/48":[
+  "fc00:0:6::\/64":[
     {
-      "prefix":"fc00:0:6::\/48",
+      "prefix":"fc00:0:6::\/64",
       "protocol":"isis",
       "selected":true,
       "destSelected":true,
@@ -223,9 +223,9 @@
       ]
     }
   ],
-  "fc00:0:6:e000::\/64":[
+  "fc00:0:6:0:e000::\/80":[
     {
-      "prefix":"fc00:0:6:e000::\/64",
+      "prefix":"fc00:0:6:0:e000::\/80",
       "protocol":"isis",
       "selected":true,
       "destSelected":true,
@@ -244,9 +244,9 @@
       ]
     }
   ],
-  "fc00:0:6:e001::\/64":[
+  "fc00:0:6:0:e001::\/80":[
     {
-      "prefix":"fc00:0:6:e001::\/64",
+      "prefix":"fc00:0:6:0:e001::\/80",
       "protocol":"isis",
       "selected":true,
       "destSelected":true,
@@ -265,9 +265,9 @@
       ]
     }
   ],
-  "fc00:0:6:fe00::\/128":[
+  "fc00:0:6:0:fe00::\/128":[
     {
-      "prefix":"fc00:0:6:fe00::\/128",
+      "prefix":"fc00:0:6:0:fe00::\/128",
       "protocol":"bgp",
       "selected":true,
       "destSelected":true,
@@ -287,9 +287,9 @@
       ]
     }
   ],
-  "fc00:0:6:fe01::\/128":[
+  "fc00:0:6:0:fe01::\/128":[
     {
-      "prefix":"fc00:0:6:fe01::\/128",
+      "prefix":"fc00:0:6:0:fe01::\/128",
       "protocol":"bgp",
       "selected":true,
       "destSelected":true,

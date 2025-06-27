@@ -50,7 +50,7 @@
           "active": true,
           "weight": 1,
           "seg6": {
-            "segs": "fc00:0:6:fe00::"
+            "segs": "fc00:0:6:0:fe00::"
           }
         }
       ],

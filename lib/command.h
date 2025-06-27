@@ -180,6 +180,7 @@ enum node_type {
 	RPKI_VRF_NODE,  /* RPKI node for VRF */
 	PIM_NODE,		 /* PIM protocol mode */
 	PIM6_NODE,		 /* PIM protocol for IPv6 mode */
+	SRV6_SID_FORMAT_USID_F4024_NODE,		 /* SRv6 uSID f4024 format config node */
 	NODE_TYPE_MAX, /* maximum */
 };
 /* clang-format on */

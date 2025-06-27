@@ -1098,9 +1098,10 @@ and this section also helps that case.
 .. clicmd:: format NAME
 
    Specify the SID allocation schema for the SIDs allocated from this locator. Currently,
-   FRR supports supports the following allocation schemas:
+   FRR supports the following allocation schemas:
 
    - `usid-f3216`
+   - `usid-f4024`
    - `uncompressed`
 
 ::
@@ -1112,6 +1113,10 @@ and this section also helps that case.
    router(config-srv6-locators)# locator loc1
    router(config-srv6-locator)# prefix fc00:0:1::/48
    router(config-srv6-locator)# format usid-f3216
+   router(config-srv6-locator)# exit
+   router(config-srv6-locators)# locator loc2
+   router(config-srv6-locator)# prefix fc01:0:1::/64
+   router(config-srv6-locator)# format usid-f4024
 
    router(config-srv6-locator)# show run
    ...
@@ -1121,7 +1126,14 @@ and this section also helps that case.
       locator loc1
        prefix fc00:0:1::/48
        format usid-f3216
+      exit
       !
+      locator loc1
+       prefix fc01:0:1::/64
+       format usid-f4016
+      exit
+      !
+     exit
    ...
 
 .. clicmd:: encapsulation
@@ -1139,10 +1151,6 @@ and this section also helps that case.
 .. clicmd:: format NAME
 
    Configure SRv6 SID format.
-
-.. clicmd:: compressed usid
-
-   Enable SRv6 uSID compression and configure SRv6 uSID compression parameters.
 
 .. clicmd:: local-id-block start START
 
@@ -1167,23 +1175,33 @@ and this section also helps that case.
    router(config-sr)# srv6
    router(config-srv6)# formats
    router(config-srv6-formats)# format usid-f3216
-   router(config-srv6-format)# compressed usid
-   router(config-srv6-format-usid)# local-id-block start 0xD000
-   router(config-srv6-format-usid)# local-id-block explicit start 0xF000 end 0xFDFF
-   router(config-srv6-format-usid)# wide-local-id-block start 0xFFF4 end 0xFFF5
-   router(config-srv6-format-usid)# wide-local-id-block explicit start 0xFFF4
-
-   router(config-srv6-locator)# show run
+   router(config-srv6-format)# local-id-block start 53248
+   router(config-srv6-format)# local-id-block explicit start 61440 end 65023
+   router(config-srv6-format)# wide-local-id-block start 65524 end 65525
+   router(config-srv6-format)# wide-local-id-block explicit start 65524
+   router(config-srv6-format)# exit
+   router(config-srv6-formats)# format usid-f4024
+   router(config-srv6-format)# local-id-block start 53248
+   router(config-srv6-format)# local-id-block explicit start 61440 end 65023
+   router(config-srv6-format)# wide-local-id-block start 65524 end 65525
+   router(config-srv6-format)# wide-local-id-block explicit start 65524
+   router(config-srv6-format)# end
+   router# show run
    ...
    segment-routing
     srv6
      formats
       format usid-f3216
-       compressed usid
-        local-id-block start 0xD000
-        local-id-block explicit start 0xF000 end 0xFDFF
-        wide-local-id-block start 0xFFF4 end 0xFFF5
-        wide-local-id-block explicit start 0xFFF4
+       local-id-block start 53248
+       local-id-block explicit start 61440 end 65023
+       wide-local-id-block start 65524 end 65525
+       wide-local-id-block explicit start 65524
+      !
+      format usid-f4024
+       local-id-block start 53248
+       local-id-block explicit start 61440 end 65023
+       wide-local-id-block start 65524 end 65525
+       wide-local-id-block explicit start 65524
       !
    ...
 
