@@ -799,28 +799,28 @@ int vtysh_mark_file(const char *filename)
 				fprintf(stderr, "line %d: Warning...: %s\n",
 					lineno, vty->buf);
 			fclose(confp);
-			vty_close(vty);
+			vty_event_closed(vty);
 			XFREE(MTYPE_VTYSH_CMD, vty_buf_copy);
 			return ret;
 		case CMD_ERR_AMBIGUOUS:
 			fprintf(stderr, "line %d: %% Ambiguous command: %s\n",
 				lineno, vty->buf);
 			fclose(confp);
-			vty_close(vty);
+			vty_event_closed(vty);
 			XFREE(MTYPE_VTYSH_CMD, vty_buf_copy);
 			return CMD_ERR_AMBIGUOUS;
 		case CMD_ERR_NO_MATCH:
 			fprintf(stderr, "line %d: %% Unknown command: %s\n",
 				lineno, vty->buf);
 			fclose(confp);
-			vty_close(vty);
+			vty_event_closed(vty);
 			XFREE(MTYPE_VTYSH_CMD, vty_buf_copy);
 			return CMD_ERR_NO_MATCH;
 		case CMD_ERR_INCOMPLETE:
 			fprintf(stderr, "line %d: %% Command incomplete: %s\n",
 				lineno, vty->buf);
 			fclose(confp);
-			vty_close(vty);
+			vty_event_closed(vty);
 			XFREE(MTYPE_VTYSH_CMD, vty_buf_copy);
 			return CMD_ERR_INCOMPLETE;
 		case CMD_SUCCESS:
@@ -846,7 +846,7 @@ int vtysh_mark_file(const char *filename)
 	}
 	/* This is the end */
 	vty_out(vty, "\nend\n");
-	vty_close(vty);
+	vty_event_closed(vty);
 	XFREE(MTYPE_VTYSH_CMD, vty_buf_copy);
 
 	if (closefp)

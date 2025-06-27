@@ -45,6 +45,14 @@ struct vty_cfg_change {
 
 PREDECL_DLIST(vtys);
 
+enum vty_status {
+	VTY_NORMAL,
+	VTY_CLOSE,
+	VTY_MORE,
+	VTY_MORELINE,
+	VTY_PASSFD,
+};
+
 /* VTY struct. */
 struct vty {
 	struct vtys_item itm;
@@ -161,13 +169,7 @@ struct vty {
 	unsigned char escape;
 
 	/* Current vty status. */
-	enum {
-		VTY_NORMAL,
-		VTY_CLOSE,
-		VTY_MORE,
-		VTY_MORELINE,
-		VTY_PASSFD,
-	} status;
+	enum vty_status status;
 
 	/* vtysh socket/fd passing (for terminal monitor) */
 	int pass_fd;
@@ -208,6 +210,7 @@ struct vty {
 	/* Timeout seconds and thread. */
 	unsigned long v_timeout;
 	struct event *t_timeout;
+	struct event *t_close;
 
 	/* What address is this vty comming from. */
 	char address[SU_ADDRSTRLEN];
@@ -392,7 +395,6 @@ extern FILE *vty_open_config(const char *config_file, char *config_default_dir);
 extern bool vty_read_config(struct nb_config *config, const char *config_file,
 			    char *config_default_dir);
 extern void vty_read_file(struct nb_config *config, FILE *confp);
-extern void vty_read_file_finish(struct vty *vty, struct nb_config *config);
 extern void vty_time_print(struct vty *, int);
 extern void vty_serv_start(const char *, unsigned short, const char *);
 extern void vty_serv_stop(void);
@@ -431,6 +433,7 @@ extern int vty_mgmt_send_rpc_req(struct vty *vty, LYD_FORMAT request_type,
 				 const char *xpath, const char *data);
 extern int vty_mgmt_send_lockds_req(struct vty *vty, enum mgmt_ds_id ds_id, bool lock, bool scok);
 extern void vty_mgmt_resume_response(struct vty *vty, int ret);
+extern void vty_event_closed(struct vty *vty);
 
 static inline bool vty_needs_implicit_commit(struct vty *vty)
 {
