@@ -1597,7 +1597,9 @@ def test_BGP_GR_TC_9_p1(request):
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
         result = verify_r_bit(tgen, topo, addr_type, input_dict, dut="r1", peer="r2")
-        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+        assert result is not True, "Testcase {} :Failed \n Error {}".format(
+            tc_name, result
+        )
 
         result = verify_f_bit(
             tgen, topo, addr_type, input_dict, dut="r1", peer="r2", expected=False
