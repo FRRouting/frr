@@ -8,6 +8,7 @@
 #define _FRR_PIM_NB_H_
 
 extern const struct frr_yang_module_info frr_pim_info;
+extern const struct frr_yang_module_info frr_pim_route_map_info;
 extern const struct frr_yang_module_info frr_pim_rp_info;
 extern const struct frr_yang_module_info frr_pim_candidate_info;
 extern const struct frr_yang_module_info frr_gmp_info;
@@ -170,6 +171,14 @@ int lib_interface_pim_address_family_mroute_oif_modify(
 int lib_interface_pim_address_family_mroute_oif_destroy(
 	struct nb_cb_destroy_args *args);
 
+/* frr-pim-route-map prototypes */
+int pim_route_map_match_source_modify(struct nb_cb_modify_args *args);
+int pim_route_map_match_source_v6_modify(struct nb_cb_modify_args *args);
+int pim_route_map_match_group_modify(struct nb_cb_modify_args *args);
+int pim_route_map_match_group_v6_modify(struct nb_cb_modify_args *args);
+int pim_route_map_match_interface_modify(struct nb_cb_modify_args *args);
+int pim_route_map_match_list_name_modify(struct nb_cb_modify_args *args);
+
 /* frr-pim-rp prototypes*/
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_static_rp_rp_list_create(
 	struct nb_cb_create_args *args);
@@ -300,6 +309,8 @@ int lib_interface_gm_max_sources_modify(struct nb_cb_modify_args *args);
 int lib_interface_gm_max_groups_modify(struct nb_cb_modify_args *args);
 int lib_interface_gmp_immediate_leave_modify(struct nb_cb_modify_args *args);
 int lib_interface_gmp_require_router_alert_modify(struct nb_cb_modify_args *args);
+int lib_interface_gm_rmap_modify(struct nb_cb_modify_args *args);
+int lib_interface_gm_rmap_destroy(struct nb_cb_destroy_args *args);
 
 /*
  * Callback registered with routing_nb lib to validate only

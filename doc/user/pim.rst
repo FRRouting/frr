@@ -529,6 +529,21 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    be forwarded on the given interface if the traffic matches the group address
    and optionally the source address.
 
+.. clicmd:: ip igmp route-map ROUTE-MAP
+
+   Apply the indicated route map to filter incoming IGMP joins.
+
+   The following match statements can be used:
+
+   * match ip multicast-group A.B.C.D
+
+   * match ip multicast-group prefix-list IPV4-PREFIX-LIST
+
+   * match ip multicast-source A.B.C.D
+
+   * match ip multicast-source prefix-list IPV4-PREFIX-LIST
+
+   * match multicast-interface INTERFACE-NAME
 
 .. seealso::
 
