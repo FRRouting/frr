@@ -342,7 +342,7 @@ static const char *show_srv6_sid_seg6_context(char *str, size_t size, const stru
 }
 
 static void do_show_srv6_sid_line(struct ttable *tt, struct zebra_srv6_sid *sid,
-				  struct srv6_locator *locator)
+				  struct in6_addr *sid_value, struct srv6_locator *locator)
 {
 	struct zserv *client;
 	char clients[256];
@@ -357,6 +357,10 @@ static void do_show_srv6_sid_line(struct ttable *tt, struct zebra_srv6_sid *sid,
 	frr_each_safe (zebra_srv6_sid_entry_list, &sid->entries, entry) {
 		if (locator && locator != entry->locator)
 			continue;
+
+		if (sid_value && !sid_same(sid_value, &entry->sid_value))
+			continue;
+
 		/* Zclients */
 		if (zebra_srv6_sid_client_list_count(&entry->clients_list)) {
 			bool first = true;
@@ -414,7 +418,7 @@ static void do_show_srv6_sid_line(struct ttable *tt, struct zebra_srv6_sid *sid,
 }
 
 static void do_show_srv6_sid_json(struct vty *vty, json_object **json, struct srv6_locator *locator,
-				  struct zebra_srv6_sid_ctx *sid_ctx)
+				  struct zebra_srv6_sid_ctx *sid_ctx, struct in6_addr *sid_value)
 {
 	json_object *json_sid_ctx = NULL;
 	json_object *json_sid = NULL;
@@ -433,7 +437,10 @@ static void do_show_srv6_sid_json(struct vty *vty, json_object **json, struct sr
 
 	frr_each (zebra_srv6_sid_entry_list, &sid_ctx->sid->entries, entry) {
 		if (locator && entry->locator != locator)
-			return;
+			continue;
+
+		if (sid_value && !sid_same(sid_value, &entry->sid_value))
+			continue;
 
 		json_sid = json_object_new_object();
 		json_sid_ctx = json_object_new_object();
@@ -502,14 +509,15 @@ static void do_show_srv6_sid_json(struct vty *vty, json_object **json, struct sr
 
 static void do_show_srv6_sid_specific(struct vty *vty, json_object **json,
 				      struct srv6_locator *locator,
-				      struct zebra_srv6_sid_ctx *sid_ctx)
+				      struct zebra_srv6_sid_ctx *sid_ctx,
+				      struct in6_addr *sid_value)
 {
 	struct ttable *tt;
 	struct zebra_srv6_sid_entry *entry;
 	bool found = false;
 
 	if (json) {
-		do_show_srv6_sid_json(vty, json, locator, sid_ctx);
+		do_show_srv6_sid_json(vty, json, locator, sid_ctx, sid_value);
 	} else {
 		/* Prepare table. */
 		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
@@ -536,7 +544,7 @@ static void do_show_srv6_sid_specific(struct vty *vty, json_object **json,
 				return;
 		}
 
-		do_show_srv6_sid_line(tt, sid_ctx->sid, locator);
+		do_show_srv6_sid_line(tt, sid_ctx->sid, sid_value, locator);
 
 		ttable_colseps(tt, 1, RIGHT, true, ' ');
 		ttable_colseps(tt, 2, LEFT, true, ' ');
@@ -582,7 +590,7 @@ static void do_show_srv6_sid_all(struct vty *vty, json_object **json, struct srv
 				    !zebra_srv6_sid_entry_lookup(ctx->sid, locator->name, true))
 					continue;
 
-				do_show_srv6_sid_json(vty, json, locator, ctx);
+				do_show_srv6_sid_json(vty, json, locator, ctx, NULL);
 			}
 		}
 	} else {
@@ -605,7 +613,7 @@ static void do_show_srv6_sid_all(struct vty *vty, json_object **json, struct srv
 				    !zebra_srv6_sid_entry_lookup(ctx->sid, locator->name, false) &&
 				    !zebra_srv6_sid_entry_lookup(ctx->sid, locator->name, true))
 					continue;
-				do_show_srv6_sid_line(tt, ctx->sid, locator);
+				do_show_srv6_sid_line(tt, ctx->sid, NULL, locator);
 			}
 		}
 
@@ -704,8 +712,8 @@ DEFPY (show_srv6_sid,
 		}
 	}
 
-	if (sid_ctx)
-		do_show_srv6_sid_specific(vty, uj ? &json : NULL, locator, sid_ctx);
+	if (!IPV6_ADDR_SAME(&sid_value, &in6addr_any))
+		do_show_srv6_sid_specific(vty, uj ? &json : NULL, locator, sid_ctx, &sid_value);
 	else
 		do_show_srv6_sid_all(vty, uj ? &json : NULL, locator);
 
