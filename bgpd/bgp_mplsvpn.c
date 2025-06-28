@@ -534,7 +534,7 @@ void vpn_leak_zebra_vrf_sid_withdraw_per_af(struct bgp *bgp, afi_t afi)
 	ctx.vrf_id = bgp->vrf_id;
 	ctx.behavior = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
 				     : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
-	bgp_zebra_release_srv6_sid(&ctx);
+	bgp_zebra_release_srv6_sid(&ctx, bgp->vpn_policy[afi].tovpn_sid_locator->name);
 }
 
 /*
@@ -576,7 +576,7 @@ void vpn_leak_zebra_vrf_sid_withdraw_per_vrf(struct bgp *bgp)
 
 	ctx.vrf_id = bgp->vrf_id;
 	ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
-	bgp_zebra_release_srv6_sid(&ctx);
+	bgp_zebra_release_srv6_sid(&ctx, bgp->tovpn_sid_locator->name);
 }
 
 /*
@@ -963,19 +963,19 @@ void delete_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 		return;
 	}
 
-	srv6_locator_free(bgp_vrf->vpn_policy[afi].tovpn_sid_locator);
-	bgp_vrf->vpn_policy[afi].tovpn_sid_locator = NULL;
-
 	if (bgp_vrf->vpn_policy[afi].tovpn_sid) {
 		ctx.vrf_id = bgp_vrf->vrf_id;
 		ctx.behavior = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
 					     : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
-		bgp_zebra_release_srv6_sid(&ctx);
+		bgp_zebra_release_srv6_sid(&ctx, bgp_vrf->vpn_policy[afi].tovpn_sid_locator->name);
 
 		sid_unregister(bgp_vpn, bgp_vrf->vpn_policy[afi].tovpn_sid);
 		XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[afi].tovpn_sid);
 	}
 	bgp_vrf->vpn_policy[afi].tovpn_sid_transpose_label = 0;
+
+	srv6_locator_free(bgp_vrf->vpn_policy[afi].tovpn_sid_locator);
+	bgp_vrf->vpn_policy[afi].tovpn_sid_locator = NULL;
 }
 
 void delete_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
@@ -1006,13 +1006,10 @@ void delete_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 		return;
 	}
 
-	srv6_locator_free(bgp_vrf->tovpn_sid_locator);
-	bgp_vrf->tovpn_sid_locator = NULL;
-
 	if (bgp_vrf->tovpn_sid) {
 		ctx.vrf_id = bgp_vrf->vrf_id;
 		ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
-		bgp_zebra_release_srv6_sid(&ctx);
+		bgp_zebra_release_srv6_sid(&ctx, bgp_vrf->tovpn_sid_locator->name);
 
 		sid_unregister(bgp_vpn, bgp_vrf->tovpn_sid);
 		XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
@@ -1021,6 +1018,9 @@ void delete_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 		XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid_explicit);
 	}
 	bgp_vrf->tovpn_sid_transpose_label = 0;
+
+	srv6_locator_free(bgp_vrf->tovpn_sid_locator);
+	bgp_vrf->tovpn_sid_locator = NULL;
 }
 
 void delete_vrf_tovpn_sid(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi)

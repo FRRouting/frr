@@ -29,6 +29,19 @@
 #define SRV6_SID_FORMAT_USID_F3216_WLIB_END	0xFFF7
 #define SRV6_SID_FORMAT_USID_F3216_EWLIB_START	0xFFF7
 
+/* Default config for SRv6 SID `usid-f4816` format */
+#define SRV6_SID_FORMAT_USID_F4816_NAME		"usid-f4816"
+#define SRV6_SID_FORMAT_USID_F4816_BLOCK_LEN	48
+#define SRV6_SID_FORMAT_USID_F4816_NODE_LEN	16
+#define SRV6_SID_FORMAT_USID_F4816_FUNCTION_LEN 16
+#define SRV6_SID_FORMAT_USID_F4816_ARGUMENT_LEN 0
+#define SRV6_SID_FORMAT_USID_F4816_LIB_START	0xE000
+#define SRV6_SID_FORMAT_USID_F4816_ELIB_START	0xFE00
+#define SRV6_SID_FORMAT_USID_F4816_ELIB_END	0xFEFF
+#define SRV6_SID_FORMAT_USID_F4816_WLIB_START	0xFFF0
+#define SRV6_SID_FORMAT_USID_F4816_WLIB_END	0xFFF7
+#define SRV6_SID_FORMAT_USID_F4816_EWLIB_START	0xFFF7
+
 /* Default config for SRv6 SID `uncompressed` format */
 #define SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NAME			"uncompressed-f4024"
 #define SRV6_SID_FORMAT_UNCOMPRESSED_F4024_BLOCK_LEN		40
@@ -46,6 +59,8 @@ struct wide_lib {
 	struct list *func_allocated;
 	struct list *func_released;
 };
+
+PREDECL_DLIST(zebra_srv6_sid_ctx_list);
 
 /*
  * SRv6 SID block.
@@ -100,6 +115,9 @@ struct zebra_srv6_sid_block {
 			struct list *func_released;
 		} uncompressed;
 	} u;
+
+	/* SRv6 SIDs */
+	struct zebra_srv6_sid_ctx_list_head sids;
 };
 
 /**
@@ -139,6 +157,27 @@ srv6_sid_alloc_mode2str(enum srv6_sid_alloc_mode alloc_mode)
 	}
 }
 
+PREDECL_DLIST(zebra_srv6_sid_client_list);
+
+struct zebra_srv6_sid_client {
+	struct zserv *client;
+
+	struct zebra_srv6_sid_client_list_item item;
+};
+
+DECLARE_DLIST(zebra_srv6_sid_client_list, struct zebra_srv6_sid_client, item);
+
+PREDECL_DLIST(zebra_srv6_sid_entry_list);
+
+struct zebra_srv6_sid_entry {
+	struct zebra_srv6_sid_client_list_head clients_list;
+	struct srv6_locator *locator;
+	struct in6_addr sid_value;
+	bool is_localonly;
+
+	struct zebra_srv6_sid_entry_list_item item;
+};
+
 /* SRv6 SID instance. */
 struct zebra_srv6_sid {
 	/*
@@ -146,12 +185,6 @@ struct zebra_srv6_sid {
 	 * Defines behavior and attributes of the SID.
 	 */
 	struct zebra_srv6_sid_ctx *ctx;
-
-	/* SID value (e.g. fc00:0:1:e000::) */
-	struct in6_addr value;
-
-	/* Pointer to the SRv6 locator from which the SID has been allocated */
-	struct srv6_locator *locator;
 
 	/* Pointer to the SRv6 block from which the SID has been allocated */
 	struct zebra_srv6_sid_block *block;
@@ -169,9 +202,11 @@ struct zebra_srv6_sid {
 	/* SID allocation mode: dynamic or explicit */
 	enum srv6_sid_alloc_mode alloc_mode;
 
-	/* List of clients that are using the SID */
-	struct list *client_list;
+	/* List of SID entries allocated for this SID */
+	struct zebra_srv6_sid_entry_list_head entries;
 };
+
+DECLARE_DLIST(zebra_srv6_sid_entry_list, struct zebra_srv6_sid_entry, item);
 
 /*
  * Zebra SRv6 SID context.
@@ -190,7 +225,11 @@ struct zebra_srv6_sid_ctx {
 
 	/* SID associated with the context. */
 	struct zebra_srv6_sid *sid;
+
+	struct zebra_srv6_sid_ctx_list_item item;
 };
+
+DECLARE_DLIST(zebra_srv6_sid_ctx_list, struct zebra_srv6_sid_ctx, item);
 
 /* SRv6 instance structure. */
 struct zebra_srv6 {
@@ -201,9 +240,6 @@ struct zebra_srv6 {
 
 	/* SRv6 SID formats */
 	struct list *sid_formats;
-
-	/* SRv6 SIDs */
-	struct list *sids;
 
 	/* SRv6 SID blocks */
 	struct list *sid_blocks;
@@ -232,12 +268,13 @@ DECLARE_HOOK(srv6_manager_release_chunk,
 	     (client, locator_name, vrf_id));
 
 DECLARE_HOOK(srv6_manager_get_sid,
-	     (struct zebra_srv6_sid **sid, struct zserv *client,
-	      struct srv6_sid_ctx *ctx, struct in6_addr *sid_value,
-	      const char *locator_name),
-	     (sid, client, ctx, sid_value, locator_name));
+	     (struct zebra_srv6_sid **sid, struct zserv *client, struct srv6_sid_ctx *ctx,
+	      struct in6_addr *sid_value, const char *locator_name, bool is_localonly),
+	     (sid, client, ctx, sid_value, locator_name, is_localonly));
 DECLARE_HOOK(srv6_manager_release_sid,
-	     (struct zserv *client, struct srv6_sid_ctx *ctx), (client, ctx));
+	     (struct zserv *client, struct srv6_sid_ctx *ctx, const char *locator_name,
+	      bool is_localonly),
+	     (client, ctx, locator_name, is_localonly));
 DECLARE_HOOK(srv6_manager_get_locator,
 	     (struct srv6_locator **locator, struct zserv *client,
 	      const char *locator_name),
@@ -288,31 +325,50 @@ extern void zebra_srv6_sid_block_free(struct zebra_srv6_sid_block *block);
 extern void delete_zebra_srv6_sid_block(void *val);
 extern struct zebra_srv6_sid_block *
 zebra_srv6_sid_block_lookup(struct prefix_ipv6 *prefix);
+void zebra_srv6_sid_locator_block_alloc(struct srv6_locator *locator);
+void zebra_srv6_sid_locator_block_release(struct srv6_locator *locator);
 
-extern struct zebra_srv6_sid *
-zebra_srv6_sid_alloc(struct zebra_srv6_sid_ctx *ctx, struct in6_addr *sid_value,
-		     struct srv6_locator *locator,
-		     struct zebra_srv6_sid_block *sid_block, uint32_t sid_func,
-		     enum srv6_sid_alloc_mode alloc_mode);
+extern struct zebra_srv6_sid *zebra_srv6_sid_alloc(struct zebra_srv6_sid_ctx *ctx,
+						   struct srv6_locator *locator,
+						   struct zebra_srv6_sid_block *sid_block,
+						   uint32_t sid_func,
+						   enum srv6_sid_alloc_mode alloc_mode);
 extern void zebra_srv6_sid_free(struct zebra_srv6_sid *sid);
 extern void delete_zebra_srv6_sid(void *val);
 
-extern void srv6_manager_get_sid_call(struct zebra_srv6_sid **sid,
-				      struct zserv *client,
-				      struct srv6_sid_ctx *ctx,
-				      struct in6_addr *sid_value,
-				      const char *locator_name);
-extern void srv6_manager_release_sid_call(struct zserv *client,
-					  struct srv6_sid_ctx *ctx);
+struct zebra_srv6_sid_entry *zebra_srv6_sid_entry_alloc(void);
+void zebra_srv6_sid_entry_free(struct zebra_srv6_sid_entry *client);
+struct zebra_srv6_sid_client *zebra_srv6_sid_client_lookup(struct zebra_srv6_sid *sid,
+							   struct zebra_srv6_sid_entry *entry,
+							   struct zserv *client);
+struct zebra_srv6_sid_entry *zebra_srv6_sid_entry_lookup(struct zebra_srv6_sid *sid,
+							 const char *locator_name,
+							 bool is_localonly);
+void zebra_srv6_sid_client_del_all(struct zebra_srv6_sid *sid, struct zserv *client);
+void zebra_srv6_sid_client_del(struct zebra_srv6_sid *sid, struct zebra_srv6_sid_entry *entry,
+			       struct zebra_srv6_sid_client *sclient);
+void zebra_srv6_sid_entry_del_by_locator_all_sids(struct srv6_locator *locator);
+void zebra_srv6_sid_client_add(struct zebra_srv6_sid *sid, bool is_localonly,
+			       struct srv6_locator *locator, struct zserv *client);
+struct zebra_srv6_sid_entry *zebra_srv6_sid_entry_add(struct zebra_srv6_sid *sid,
+						      const char *locator_name,
+						      struct in6_addr *sid_value,
+						      bool is_localonly);
+
+extern void srv6_manager_get_sid_call(struct zebra_srv6_sid **sid, struct zserv *client,
+				      struct srv6_sid_ctx *ctx, struct in6_addr *sid_value,
+				      const char *locator_name, bool is_localonly);
+extern void srv6_manager_release_sid_call(struct zserv *client, struct srv6_sid_ctx *ctx,
+					  const char *locator_name, bool is_localonly);
 
 extern void srv6_manager_get_locator_call(struct srv6_locator **locator,
 					  struct zserv *client,
 					  const char *locator_name);
 
 extern int get_srv6_sid(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx,
-			struct in6_addr *sid_value, const char *locator_name);
-extern int release_srv6_sid(struct zserv *client,
-			    struct zebra_srv6_sid_ctx *zctx);
+			struct in6_addr *sid_value, const char *locator_name, bool is_localonly);
+extern int release_srv6_sid(struct zserv *client, struct zebra_srv6_sid_ctx *zctx,
+			    struct srv6_locator *locator, bool is_localonly);
 extern int release_daemon_srv6_sids(struct zserv *client);
 extern int srv6_manager_get_sid_response(struct zebra_srv6_sid *sid,
 					 struct zserv *client);
@@ -320,5 +376,7 @@ extern int srv6_manager_get_sid_response(struct zebra_srv6_sid *sid,
 extern struct zebra_srv6_sid_ctx *zebra_srv6_sid_ctx_alloc(void);
 extern void zebra_srv6_sid_ctx_free(struct zebra_srv6_sid_ctx *ctx);
 extern void delete_zebra_srv6_sid_ctx(void *val);
+extern struct zebra_srv6_sid_ctx *zebra_srv6_sid_ctx_lookup(const struct srv6_sid_ctx *ctx,
+							    struct zebra_srv6_sid_block *block);
 
 #endif /* _ZEBRA_SRV6_H */
