@@ -22,6 +22,16 @@ extern struct zclient *bgp_zclient;
 /* Default weight for next hop, if doing weighted ECMP. */
 #define BGP_ZEBRA_DEFAULT_NHOP_WEIGHT 1
 
+/*
+ * Check if the path is eligible for annoucing to zebra.
+ */
+static inline bool bgp_zebra_announce_eligible(struct bgp_path_info *pi)
+{
+	return (pi->type == ZEBRA_ROUTE_BGP) &&
+	       ((pi->sub_type == BGP_ROUTE_NORMAL) || (pi->sub_type == BGP_ROUTE_AGGREGATE) ||
+		(pi->sub_type == BGP_ROUTE_IMPORTED));
+}
+
 extern void bgp_zebra_init(struct event_loop *master, unsigned short instance);
 extern void bgp_if_init(void);
 extern void bgp_zebra_init_tm_connect(struct bgp *bgp);
