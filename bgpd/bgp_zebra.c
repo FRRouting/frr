@@ -1663,9 +1663,7 @@ void bgp_zebra_announce_table(struct bgp *bgp, afi_t afi, safi_t safi)
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest))
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
 			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED) &&
-			    (pi->type == ZEBRA_ROUTE_BGP && (pi->sub_type == BGP_ROUTE_NORMAL ||
-							     pi->sub_type == BGP_ROUTE_AGGREGATE ||
-							     pi->sub_type == BGP_ROUTE_IMPORTED))) {
+			    bgp_zebra_announce_eligible(pi)) {
 				bool is_add = true;
 
 				if (bgp->table_map[afi][safi].name) {
