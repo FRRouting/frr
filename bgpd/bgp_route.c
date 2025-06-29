@@ -3863,6 +3863,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 
 				if (new_select->type == ZEBRA_ROUTE_BGP
 				    && (new_select->sub_type == BGP_ROUTE_NORMAL
+					|| new_select->sub_type	== BGP_ROUTE_AGGREGATE
 					|| new_select->sub_type
 						   == BGP_ROUTE_IMPORTED))
 					bgp_zebra_route_install(dest, old_select,
