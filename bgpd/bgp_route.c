@@ -3409,6 +3409,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 #endif
 			if (bgp_fibupd_safi(safi)
 			    && !bgp_option_check(BGP_OPT_NO_FIB)) {
+<<<<<<< HEAD
 
 				if (new_select->type == ZEBRA_ROUTE_BGP
 				    && (new_select->sub_type == BGP_ROUTE_NORMAL
@@ -3418,6 +3419,12 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 
 					bgp_zebra_announce(dest, p, old_select,
 							   bgp, afi, safi);
+=======
+				if (bgp_zebra_announce_eligible(new_select))
+					bgp_zebra_route_install(dest, old_select,
+								bgp, true, NULL,
+								false);
+>>>>>>> 21573cc6f (bgpd: unify the type/subtype check for announcing to zebra)
 			}
 		}
 
@@ -3520,6 +3527,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	/* FIB update. */
 	if (bgp_fibupd_safi(safi) && (bgp->inst_type != BGP_INSTANCE_TYPE_VIEW)
 	    && !bgp_option_check(BGP_OPT_NO_FIB)) {
+<<<<<<< HEAD
 
 		if (new_select && new_select->type == ZEBRA_ROUTE_BGP
 		    && (new_select->sub_type == BGP_ROUTE_NORMAL
@@ -3536,12 +3544,14 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 						   safi);
 
 			bgp_zebra_announce(dest, p, new_select, bgp, afi, safi);
+=======
+		if (new_select && bgp_zebra_announce_eligible(new_select)) {
+			bgp_zebra_route_install(dest, new_select, bgp, true,
+						NULL, false);
+>>>>>>> 21573cc6f (bgpd: unify the type/subtype check for announcing to zebra)
 		} else {
 			/* Withdraw the route from the kernel. */
-			if (old_select && old_select->type == ZEBRA_ROUTE_BGP
-			    && (old_select->sub_type == BGP_ROUTE_NORMAL
-				|| old_select->sub_type == BGP_ROUTE_AGGREGATE
-				|| old_select->sub_type == BGP_ROUTE_IMPORTED))
+			if (old_select && bgp_zebra_announce_eligible(old_select))
 
 				bgp_zebra_withdraw(p, old_select, bgp, afi,
 						   safi);
@@ -6063,12 +6073,8 @@ static void bgp_cleanup_table(struct bgp *bgp, struct bgp_table *table,
 				bgp_evpn_unimport_route(bgp, AFI_L2VPN,
 							SAFI_EVPN, p, pi);
 
-			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)
-			    && pi->type == ZEBRA_ROUTE_BGP
-			    && (pi->sub_type == BGP_ROUTE_NORMAL
-				|| pi->sub_type == BGP_ROUTE_AGGREGATE
-				|| pi->sub_type == BGP_ROUTE_IMPORTED)) {
-
+			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED) &&
+			    bgp_zebra_announce_eligible(pi)) {
 				if (bgp_fibupd_safi(safi))
 					bgp_zebra_withdraw(p, pi, bgp, afi,
 							   safi);

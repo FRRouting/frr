@@ -1687,10 +1687,14 @@ void bgp_zebra_announce_table(struct bgp *bgp, afi_t afi, safi_t safi)
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
 			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED) &&
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 			    (pi->type == ZEBRA_ROUTE_BGP && (pi->sub_type == BGP_ROUTE_NORMAL ||
 							     pi->sub_type == BGP_ROUTE_AGGREGATE ||
 							     pi->sub_type == BGP_ROUTE_IMPORTED))) {
+=======
+			    bgp_zebra_announce_eligible(pi)) {
+>>>>>>> 21573cc6f (bgpd: unify the type/subtype check for announcing to zebra)
 				bool is_add = true;
 >>>>>>> e1819cee3 (bgpd: add missing BGP_ROUTE_AGGREGATE for announcing to zebra)
 
