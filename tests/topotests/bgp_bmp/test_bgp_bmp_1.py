@@ -430,6 +430,178 @@ def test_addpath_id_unicast():
     assert success, "bmp addpath rib-out-post-policy failed for %s" % ret
 
 
+def test_addpath_id_vpn():
+    """
+    Test the vpn addpath bmp log.
+    Activate vpn addpath on [R3ecmp, R2] -> R1 and R1 -> R4.
+    Check [R2, R3ecm] -> R1 -> R4 addpath bmp log.
+    """
+
+    logger.info("*** Activating [R2, R3ecmp] -> R1 -> R4 vpn addpath peering ***")
+    tgen = get_topogen()
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+        router bgp 65501
+        bmp target bmp1
+         bmp monitor ipv4 vpn rib-out pre-policy
+         bmp monitor ipv4 vpn rib-out post-policy
+         bmp monitor ipv6 vpn rib-out pre-policy
+         bmp monitor ipv6 vpn rib-out post-policy
+        exit
+        address-family ipv4 vpn
+         neighbor 192.168.0.3 activate
+         neighbor 192.168.0.3 soft-reconfiguration inbound
+         neighbor 192.169.0.4 activate
+         neighbor 192.169.0.4 soft-reconfiguration inbound
+         neighbor 192.169.0.4 addpath-tx-all-paths
+        exit-address-family
+        address-family ipv6 vpn
+         neighbor 192:168::3 activate
+         neighbor 192:168::3 soft-reconfiguration inbound
+         neighbor 192:169::4 activate
+         neighbor 192:169::4 addpath-tx-all-paths
+        exit-address-family
+        """
+    )
+    tgen.gears["r4"].vtysh_cmd(
+        """
+        configure terminal
+        router bgp 65501
+        address-family ipv4 vpn
+         neighbor 192.169.0.1 activate
+        exit-address-family
+        address-family ipv6 vpn
+         neighbor 192:169::1 activate
+        exit-address-family
+        """
+    )
+    tgen.gears["r2"].vtysh_cmd(
+        """
+        configure terminal
+        router bgp 65502
+        address-family ipv4 vpn
+         neighbor 192.168.0.1 addpath-tx-all-paths
+        exit-address-family
+        address-family ipv6 vpn
+         neighbor 192:168::1 addpath-tx-all-paths
+        exit-address-family
+        address-family ipv4 unicast
+         export vpn
+         rd vpn export 65502:2
+         rt vpn expor 65502:22
+        exit-address-family
+        address-family ipv6 unicast
+         export vpn
+         rd vpn export 65502:2
+         rt vpn expor 65502:22
+        exit-address-family
+        """
+    )
+    tgen.gears["r3ecmp"].vtysh_cmd(
+        """
+        configure terminal
+        router bgp 65502
+        address-family ipv4 vpn
+         neighbor 192.168.0.1 activate
+         neighbor 192.168.0.1 addpath-tx-all-paths
+        exit-address-family
+        address-family ipv6 vpn
+         neighbor 192:168::1 activate
+         neighbor 192:168::1 addpath-tx-all-paths
+        exit-address-family
+        address-family ipv4 unicast
+         export vpn
+         rd vpn export 65502:3
+         rt vpn expor 65502:33
+        exit-address-family
+        address-family ipv6 unicast
+         export vpn
+         rd vpn export 65502:3
+         rt vpn expor 65502:33
+        exit-address-family
+        """
+    )
+
+    logger.info("*** [R2, R3ecmp] -> R1 -> R4, check rib-in-pre-policy logging ***")
+    test_func = partial(
+        bmp_check_for_addpath,
+        ["172.17.7.7/32", "fd00:7:7:7::7/128"],
+        "rib-in-pre-policy",
+        tgen.gears["bmp1"],
+        os.path.join(tgen.logdir, "bmp1/bmp.log"),
+        [("192.168.0.2", "192.168.0.3"), ("192:168::2", "192:168::3")],
+        None,
+        bmp_seq_context,
+        id_per_prefix=False,
+        safi=128,
+    )
+    success, ret = topotest.run_and_expect_type(test_func, dict, count=30, wait=1)
+    assert success, "bmp addpath rib-in-pre-policy failed for : %s" % ret
+
+    logger.info("*** [R2, R3ecmp] -> R1 -> R4, check rib-in-post-policy logging ***")
+    test_func = partial(
+        bmp_check_for_addpath,
+        ["172.17.7.7/32", "fd00:7:7:7::7/128"],
+        "rib-in-post-policy",
+        tgen.gears["bmp1"],
+        os.path.join(tgen.logdir, "bmp1/bmp.log"),
+        [("192.168.0.2", "192.168.0.3"), ("192:168::2", "192:168::3")],
+        None,
+        bmp_seq_context,
+        id_per_prefix=False,
+        safi=128,
+    )
+    success, ret = topotest.run_and_expect_type(test_func, dict, count=30, wait=1)
+    assert success, "bmp addpath rib-in-post-policy failed for : %s" % ret
+
+    logger.info("*** [R2, R3ecmp] -> R1 -> R4, check loc-rib logging ***")
+    test_func = partial(
+        bmp_check_for_addpath,
+        ["172.17.7.7/32", "fd00:7:7:7::7/128"],
+        "loc-rib",
+        tgen.gears["bmp1"],
+        os.path.join(tgen.logdir, "bmp1/bmp.log"),
+        [("192.168.0.2", "192.168.0.3"), ("192:168::2", "192:168::3")],
+        None,
+        bmp_seq_context,
+        id_per_prefix=False,
+        safi=128,
+    )
+    success, ret = topotest.run_and_expect_type(test_func, dict, count=30, wait=1)
+    assert success, "bmp addpath loc-rib-policy failed for : %s" % ret
+
+    logger.info("*** [R2, R3ecmp] -> R1 -> R4, check rib-out-pre-policy logging ***")
+    test_func = partial(
+        bmp_check_for_addpath,
+        ["172.17.7.7/32", "fd00:7:7:7::7/128"],
+        "rib-out-pre-policy",
+        tgen.gears["bmp1"],
+        os.path.join(tgen.logdir, "bmp1/bmp.log"),
+        [("192.168.0.2", "192.168.0.3"), ("192:168::2", "192:168::3")],
+        "192.169.0.4",
+        bmp_seq_context,
+        safi=128,
+    )
+    success, ret = topotest.run_and_expect_type(test_func, dict, count=30, wait=1)
+    assert success, "bmp vpn addpath rib-out-pre-policy failed for %s" % ret
+
+    logger.info("*** [R2, R3ecmp] -> R1 -> R4, check rib-out-post-policy logging ***")
+    test_func = partial(
+        bmp_check_for_addpath,
+        ["172.17.7.7/32", "fd00:7:7:7::7/128"],
+        "rib-out-post-policy",
+        tgen.gears["bmp1"],
+        os.path.join(tgen.logdir, "bmp1/bmp.log"),
+        [("192.168.0.2", "192.168.0.3"), ("192:168::2", "192:168::3")],
+        "192.169.0.4",
+        bmp_seq_context,
+        safi=128,
+    )
+    success, ret = topotest.run_and_expect_type(test_func, dict, count=30, wait=1)
+    assert success, "bmp vpn addpath rib-out-post-policy failed for %s" % ret
+
+
 def test_peer_down():
     """
     Checking for BMP peers down messages
