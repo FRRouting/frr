@@ -12936,7 +12936,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			IPV6_ADDR_COPY(&sid_transposed, sid_tmp);
 			transpose_sid(&sid_transposed, label_sid,
 				      path->attr->srv6_l3service->transposition_offset,
-				      path->attr->srv6_l3service->transposition_len);
+				      path->attr->srv6_l3service->transposition_len,
+				      BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL);
 			json_object_string_addf(json_path, "remoteTransposedSid", "%pI6",
 						&sid_transposed);
 			json_object_string_addf(json_path, "remoteSid", "%pI6",

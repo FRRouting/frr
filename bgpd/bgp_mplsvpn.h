@@ -30,6 +30,7 @@
 	"   Network          Next Hop      EthTag    Overlay Index   RouterMac\n"
 
 #define BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL 20
+#define BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_BGP	  32
 
 extern void bgp_mplsvpn_init(void);
 extern void bgp_mplsvpn_path_nh_label_unlink(struct bgp_path_info *pi);
@@ -87,8 +88,8 @@ extern void delete_vrf_tovpn_sid_per_vrf(struct bgp *vpn, struct bgp *vrf);
 extern void ensure_vrf_tovpn_sid_per_af(struct bgp *vpn, struct bgp *vrf,
 					afi_t afi);
 extern void ensure_vrf_tovpn_sid_per_vrf(struct bgp *vpn, struct bgp *vrf);
-extern void transpose_sid(struct in6_addr *sid, uint32_t label, uint8_t offset,
-			  uint8_t size);
+extern void transpose_sid(struct in6_addr *sid, uint32_t label, uint8_t offset, uint8_t size,
+			  uint8_t size_max);
 extern void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp, const char *import_name,
 				afi_t afi, safi_t safi);
 void vrf_unimport_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp, const char *import_name,

@@ -10546,7 +10546,7 @@ DEFPY (af_label_vpn_export,
 
 DEFPY (af_sid_vpn_export,
        af_sid_vpn_export_cmd,
-       "[no] sid vpn export <(1-1048575)$sid_idx|auto$sid_auto|explicit$sid_explicit X:X::X:X$sid_value>",
+       "[no] sid vpn export <(1-4294967295)$sid_idx|auto$sid_auto|explicit$sid_explicit X:X::X:X$sid_value>",
        NO_STR
        "sid value for VRF\n"
        "Between current address-family and vpn\n"
@@ -10667,7 +10667,7 @@ DEFPY (af_sid_vpn_export,
 
 DEFPY (bgp_sid_vpn_export,
        bgp_sid_vpn_export_cmd,
-       "[no] sid vpn per-vrf export <(1-1048575)$sid_idx|auto$sid_auto|explicit$sid_explicit X:X::X:X$sid_value>",
+       "[no] sid vpn per-vrf export <(1-4294967295)$sid_idx|auto$sid_auto|explicit$sid_explicit X:X::X:X$sid_value>",
        NO_STR
        "sid value for VRF\n"
        "Between current vrf and vpn\n"
