@@ -1529,10 +1529,11 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_rmap_onmatch_goto, no_rmap_onmatch_goto_cmd,
-	"no on-match goto",
+	"no on-match goto [(1-65535)$rm_num]",
 	NO_STR
 	"Exit policy on matches\n"
-	"Goto Clause number\n")
+	"Goto Clause number\n"
+	"Number\n")
 {
 	nb_cli_enqueue_change(vty, "./exit-policy", NB_OP_DESTROY, NULL);
 
