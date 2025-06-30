@@ -99,6 +99,7 @@ def build_topo(tgen):
     tgen.add_router("ce4")
     tgen.add_router("ce5")
     tgen.add_router("ce6")
+    tgen.add_router("ce7")
     tgen.add_router("dst2")
 
     # Define connections
@@ -149,6 +150,7 @@ def build_topo(tgen):
     tgen.add_link(tgen.gears["ce4"], tgen.gears["rt6"], "eth-rt6", "eth-ce4")
     tgen.add_link(tgen.gears["ce5"], tgen.gears["rt1"], "eth-rt1", "eth-ce5")
     tgen.add_link(tgen.gears["ce6"], tgen.gears["rt6"], "eth-rt6", "eth-ce6")
+    tgen.add_link(tgen.gears["ce7"], tgen.gears["rt5"], "eth-rt5", "eth-ce7")
 
     tgen.gears["rt1"].run("ip link add vrf10 type vrf table 10")
     tgen.gears["rt1"].run("ip link set vrf10 up")
@@ -161,6 +163,9 @@ def build_topo(tgen):
     tgen.gears["rt5"].run("ip link add vrf10 type vrf table 10")
     tgen.gears["rt5"].run("ip link set vrf10 up")
     tgen.gears["rt5"].run("ip link set eth-dst2 master vrf10")
+    tgen.gears["rt5"].run("ip link add vrf20 type vrf table 20")
+    tgen.gears["rt5"].run("ip link set vrf20 up")
+    tgen.gears["rt5"].run("ip link set eth-ce7 master vrf20")
 
     tgen.gears["rt6"].run("ip link add vrf10 type vrf table 10")
     tgen.gears["rt6"].run("ip link set vrf10 up")
