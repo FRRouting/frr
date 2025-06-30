@@ -1089,7 +1089,8 @@ static bool make_prefix(int afi, safi_t safi, struct bgp_path_info *pi, struct p
 					      pi->attr->srv6_l3vpn
 						      ->transposition_offset,
 					      pi->attr->srv6_l3vpn
-						      ->transposition_len);
+						      ->transposition_len,
+					      BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL);
 			} else
 				IPV6_ADDR_COPY(&(p->u.prefix6),
 					       &(pi->attr->srv6_l3vpn->sid));
