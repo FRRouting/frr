@@ -353,7 +353,7 @@ int vty_out(struct vty *vty, const char *format, ...)
 		 * put the data of collective vty->obuf Linked List items on the
 		 * socket and free the vty->obuf data.
 		 */
-		if (vty->vty_buf_size_accumulated >= vty->buf_size_intermediate) {
+		if (vty->vty_buf_size_accumulated >= VTY_MAX_INTERMEDIATE_FLUSH) {
 			vty->vty_buf_size_accumulated = 0;
 			vtysh_flush(vty);
 		}
@@ -2174,13 +2174,6 @@ static void vtysh_accept(struct event *thread)
 #endif /* VTYSH_DEBUG */
 
 	vty = vty_new();
-
-	vty->buf_size_set = ret;
-	if (vty->buf_size_set < VTY_MAX_INTERMEDIATE_FLUSH)
-		vty->buf_size_intermediate = vty->buf_size_set / 2;
-	else
-		vty->buf_size_intermediate = VTY_MAX_INTERMEDIATE_FLUSH;
-
 	vty->fd = sock;
 	vty->wfd = sock;
 	vty->type = VTY_SHELL_SERV;
