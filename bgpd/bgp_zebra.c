@@ -3660,10 +3660,10 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 
 		/* Get label */
 		uint8_t func_len = locator_bgp->function_bits_length;
-		uint8_t shift_len = BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH -
-				    func_len;
+		mpls_label_t label = MPLS_LABEL_IMPLICIT_NULL;
 
-		int label = sid_func << shift_len;
+		if (BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH >= func_len)
+			label = sid_func << (BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH - func_len);
 
 		/* Un-export VPN to VRF routes */
 		vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp,
