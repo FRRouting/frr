@@ -1460,7 +1460,8 @@ static void bgp_zebra_announce_parse_nexthop(
 
 				transpose_sid(&api_nh->seg6_segs[0], nh_label,
 					      mpinfo->attr->srv6_l3service->transposition_offset,
-					      mpinfo->attr->srv6_l3service->transposition_len);
+					      mpinfo->attr->srv6_l3service->transposition_len,
+					      BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL);
 			}
 
 			api_nh->seg_num = 1;
