@@ -1111,7 +1111,8 @@ static bool make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p,
 				transpose_sid(&p->u.prefix6,
 					      decode_label(&pi->extra->labels->label[0]),
 					      pi->attr->srv6_l3service->transposition_offset,
-					      pi->attr->srv6_l3service->transposition_len);
+					      pi->attr->srv6_l3service->transposition_len,
+					      BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL);
 			} else
 				IPV6_ADDR_COPY(&(p->u.prefix6), &(pi->attr->srv6_l3service->sid));
 		} else if (is_bgp_static) {
