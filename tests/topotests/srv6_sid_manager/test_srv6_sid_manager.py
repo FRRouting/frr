@@ -29,12 +29,12 @@ test_srv6_sid_manager.py:
   10.0.2.0/24|  |10.0.3.0/24      10.0.4.0/24|  |10.0.5.0/24
              |  |                            |  |
     eth-rt2-1|  |eth-rt2-2          eth-rt3-1|  |eth-rt3-2
-         +---------+                     +---------+
-         |         |                     |         |
-         |   RT4   |     10.0.6.0/24     |   RT5   |
-         | 4.4.4.4 +---------------------+ 5.5.5.5 |
-         |         |eth-rt5       eth-rt4|         |
-         +---------+                     +---------+
+         +---------+                     +---------+             +---------+
+         |         |                     |         |             |         |
+         |   RT4   |     10.0.6.0/24     |   RT5   |eth-dst2     |   DST2  |
+         | 4.4.4.4 +---------------------+ 5.5.5.5 |-------------+ 9.9.9.5 |
+         |         |eth-rt5       eth-rt4|         |      eth-rt5|         |
+         +---------+                     +---------+             +---------+
        eth-rt6|                                |eth-rt6
               |                                |
    10.0.7.0/24|                                |10.0.8.0/24
@@ -99,6 +99,7 @@ def build_topo(tgen):
     tgen.add_router("ce4")
     tgen.add_router("ce5")
     tgen.add_router("ce6")
+    tgen.add_router("dst2")
 
     # Define connections
     switch = tgen.add_switch("s1")
@@ -138,6 +139,10 @@ def build_topo(tgen):
     switch.add_link(tgen.gears["rt6"], nodeif="eth-dst")
     switch.add_link(tgen.gears["dst"], nodeif="eth-rt6")
 
+    switch = tgen.add_switch("s10")
+    switch.add_link(tgen.gears["rt5"], nodeif="eth-dst2")
+    switch.add_link(tgen.gears["dst2"], nodeif="eth-rt5")
+
     tgen.add_link(tgen.gears["ce1"], tgen.gears["rt1"], "eth-rt1", "eth-ce1")
     tgen.add_link(tgen.gears["ce2"], tgen.gears["rt6"], "eth-rt6", "eth-ce2")
     tgen.add_link(tgen.gears["ce3"], tgen.gears["rt1"], "eth-rt1", "eth-ce3")
@@ -152,6 +157,10 @@ def build_topo(tgen):
     tgen.gears["rt1"].run("ip link set eth-ce1 master vrf10")
     tgen.gears["rt1"].run("ip link set eth-ce3 master vrf10")
     tgen.gears["rt1"].run("ip link set eth-ce5 master vrf20")
+
+    tgen.gears["rt5"].run("ip link add vrf10 type vrf table 10")
+    tgen.gears["rt5"].run("ip link set vrf10 up")
+    tgen.gears["rt5"].run("ip link set eth-dst2 master vrf10")
 
     tgen.gears["rt6"].run("ip link add vrf10 type vrf table 10")
     tgen.gears["rt6"].run("ip link set vrf10 up")
