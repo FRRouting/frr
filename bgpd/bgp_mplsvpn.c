@@ -709,12 +709,11 @@ static bool srv6_sid_compose(struct in6_addr *sid_value,
 	if (!locator || !sid_value)
 		return false;
 
-	if (locator->function_bits_length >
-	    BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH) {
+	if (locator->function_bits_length > BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL) {
 		if (debug)
 			zlog_debug("%s: invalid SRv6 Locator (%pFX): Function Length must be less or equal to %d",
 				   __func__, &locator->prefix,
-				   BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH);
+				   BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL);
 		return false;
 	}
 
@@ -749,7 +748,7 @@ static bool srv6_sid_compose(struct in6_addr *sid_value,
 	 * 20-bit label.
 	 */
 	func_len = locator->function_bits_length;
-	shift_len = BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH - func_len;
+	shift_len = BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL - func_len;
 
 	label = sid_func << shift_len;
 	if (label < MPLS_LABEL_UNRESERVED_MIN) {
@@ -1745,7 +1744,7 @@ static bool vpn_leak_from_vrf_fill_srv6(struct attr *attr, struct bgp *from_bgp,
 		attr->srv6_l3vpn->arg_len =
 			from_bgp->vpn_policy[afi].tovpn_sid_locator->argument_bits_length;
 		if (from_bgp->vpn_policy[afi].tovpn_sid_locator->function_bits_length >
-		    BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH) {
+		    BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL) {
 			attr->srv6_l3vpn->transposition_len = 0;
 			attr->srv6_l3vpn->transposition_offset = 0;
 			IPV6_ADDR_COPY(&attr->srv6_l3vpn->sid, from_bgp->vpn_policy[afi].tovpn_sid);
@@ -1775,7 +1774,7 @@ static bool vpn_leak_from_vrf_fill_srv6(struct attr *attr, struct bgp *from_bgp,
 		attr->srv6_l3vpn->func_len = from_bgp->tovpn_sid_locator->function_bits_length;
 		attr->srv6_l3vpn->arg_len = from_bgp->tovpn_sid_locator->argument_bits_length;
 		if (from_bgp->tovpn_sid_locator->function_bits_length >
-		    BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH) {
+		    BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL) {
 			attr->srv6_l3vpn->transposition_len = 0;
 			attr->srv6_l3vpn->transposition_offset = 0;
 			IPV6_ADDR_COPY(&attr->srv6_l3vpn->sid, from_bgp->tovpn_sid);
