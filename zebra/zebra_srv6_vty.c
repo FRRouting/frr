@@ -949,19 +949,6 @@ DEFPY (locator_prefix,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	/*
-	 * Currently, the SID transposition algorithm implemented in bgpd
-	 * handles incorrectly the SRv6 locators with function length greater
-	 * than 20 bits. To prevent issues, we currently limit the function
-	 * length to 20 bits.
-	 * This limit will be removed when the bgpd SID transposition is fixed.
-	 */
-	if (func_bit_len > 20) {
-		vty_out(vty,
-			"%% currently func_bit_len > 20 is not supported\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
 	locator->block_bits_length = block_bit_len;
 	locator->node_bits_length = node_bit_len;
 	locator->function_bits_length = func_bit_len;
