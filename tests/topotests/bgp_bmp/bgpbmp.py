@@ -267,6 +267,7 @@ def bmp_check_for_addpath(
     peer_bgp_id,
     id_per_prefix=True,
     m_type="update",
+    safi=None,
 ):
     """
     For each prefix in the prefix list, check its addpath id.
@@ -295,12 +296,15 @@ def bmp_check_for_addpath(
                 filter(lambda m: m["peer_bgp_id"] == peer_bgp_id, p_messages)
             )
 
+        if safi:
+            p_messages = list(filter(lambda m: m.get("safi") == safi, p_messages))
+
         if not p_messages:
             return "No bmp log for %s" % prefix
 
         nexthop_key = "bgp_nexthop"
         # nexthop key is diffrent for MP_REACH_NLRI
-        if ":" in prefix:
+        if ":" in prefix or safi:
             addpath_ids = addpath_set[6]
             nexthop_key = "nxhp_ip"
 
@@ -453,7 +457,9 @@ def _test_prefixes(
     vrf = f"vrf {vrf_check}" if vrf_check else ""
 
     for type in (BMP_UPDATE, BMP_WITHDRAW):
-        bmp_update_seq(tgen.gears[bmp], os.path.join(tgen.logdir, bmp, "bmp.log"), seq_context)
+        bmp_update_seq(
+            tgen.gears[bmp], os.path.join(tgen.logdir, bmp, "bmp.log"), seq_context
+        )
 
         bgp_configure_prefixes(
             tgen.gears[r_conf],
@@ -498,7 +504,7 @@ def _test_prefixes(
             f"{cur_dir}/{bmp}",
             UPDATE_EXPECTED_JSON,
             LOC_RIB,
-            seq_context
+            seq_context,
         )
         success, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
         assert success, "Checking the updated prefixes has failed ! %s" % res
