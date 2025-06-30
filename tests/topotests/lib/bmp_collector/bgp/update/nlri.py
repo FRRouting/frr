@@ -48,9 +48,7 @@ class NlriIPv4Unicast:
     def parse(data):
         """parses prefixes from withdrawn_routes or nrli data"""
 
-        # we have an add-path id, this check is simpler than the unnecessary (i think?)
-        # detect_addpath_prefix_ipv46(data, max_bit_length=32) procedure
-        if len(data) > 5:
+        if detect_add_path_prefix46(data, 32):
             (addpath_id, prefix_len) = struct.unpack_from("!IB", data)
             addpath_id = {"path_id": addpath_id}
             prefix = padding(data[5:], 4)
@@ -68,70 +66,56 @@ class NlriIPv4Unicast:
 # ------------------------------------------------------------------------------
 
 """
-this is the addpath detection from wireshark, not perfect but works in our use cases
-
-static int detect_add_path_prefix46(tvbuff_t *tvb, gint offset, gint end, gint max_bit_length)
-in packet-bgp.c BGP dissector from Wireshark
+From Scapy: https://github.com/secdev/scapy/blob/master/scapy/contrib/bgp.py
 """
 
 
-def detect_addpath_prefix_ipv46(data, max_bit_length):
-    end = len(data)
+def detect_add_path_prefix46(s, max_bit_length):
+    """
+    Detect IPv4/IPv6 prefixes conform to BGP Additional Path but NOT conform
+    to standard BGP..
 
-    # proof by contradiction
-    # assuming this a well-formatted add-path prefix
-    # if we find an error it means there was no path-id, or a badly formatted one
-    # prefix length would be right after path id
-    # (i don't understand why they loop this check in range(4, end, 4) in Wireshark)
-    offset = 4
-    prefix_len = data[offset]
+    This is an adapted version of wireshark's detect_add_path_prefix46
+    https://github.com/wireshark/wireshark/blob/ed9e958a2ed506220fdab320738f1f96a3c2ffbb/epan/dissectors/packet-bgp.c#L2905
+    Kudos to them !
+    """
 
-    # the prefix length is bigger than the maximum allowed size
-    if prefix_len > max_bit_length:
-        return False
+    def orb(x):
+        # type: (Union[int, str, bytes]) -> int
+        """Return ord(x) when not already an int."""
+        if isinstance(x, int):
+            return x
+        return ord(x)
 
-    addr_len = (prefix_len + 7) // 8
-    offset += 1 + addr_len
-
-    # the prefix length announces a prefix bigger than what we have
-    if offset > end:
-        return False
-
-    # the prefix length tells us that the last byte will have more some 0 padding bits
-    # and those bits are not set to 0
-    if prefix_len % 8 > 0 and data[offset - 1] & (0xFF >> (prefix_len % 8)) > 0:
-        return False
-
-    # proof by contradiction
-    # assuming there is not an add-path prefix, and this is well formatted
-    # if we find an error it may mean there was a path-id
-    # assuming there is no add-path path-id
-    offset = 0
-    while offset < end:
-        # prefix length would be first
-        prefix_len = data[offset]
-
-        # prefix length is zero and we have more than one byte of address so maybe this was a path-id
-        if prefix_len == 0 and end - offset > 1:
+    # Must be compatible with BGP Additional Path
+    i = 0
+    while i + 4 < len(s):
+        i += 4
+        prefix_len = orb(s[i])
+        if prefix_len > max_bit_length:
+            return False
+        addr_len = (prefix_len + 7) // 8
+        i += 1 + addr_len
+        if i > len(s):
+            return False
+        if prefix_len % 8:
+            if orb(s[i - 1]) & (0xFF >> (prefix_len % 8)):
+                return False
+    # Must NOT be compatible with standard BGP
+    i = 0
+    while i + 4 < len(s):
+        prefix_len = orb(s[i])
+        if prefix_len == 0 and len(s) > 1:
             return True
-
-        # invalid prefix length so maybe this was a path-id
         if prefix_len > max_bit_length:
             return True
-
         addr_len = (prefix_len + 7) // 8
-        offset += 1 + addr_len
-
-        # the prefix length announces a prefix bigger than what we have
-        if offset > end:
-            return True  # maybe this was a path-id
-
-        # the prefix length tells us that the last byte will have more some 0 padding bits
-        # and those bits are not set to 0
-        if prefix_len % 8 > 0 and data[offset - 1] & (0xFF >> (prefix_len % 8)) > 0:
-            return True  # maybe it was a path-id
-
-    # we don't know if it's add-path so let's say no
+        i += 1 + addr_len
+        if i > len(s):
+            return True
+        if prefix_len % 8:
+            if orb(s[i - 1]) & (0xFF >> (prefix_len % 8)):
+                return True
     return False
 
 
@@ -141,7 +125,7 @@ class NlriIPv6Unicast:
         """parses prefixes from withdrawn_routes or nrli data"""
 
         # we have an add-path id
-        if detect_addpath_prefix_ipv46(data, max_bit_length=128):
+        if detect_add_path_prefix46(data, max_bit_length=128):
             (addpath_id, prefix_len) = struct.unpack_from("!IB", data)
             addpath_id = {"path_id": addpath_id}
             prefix = padding(data[5:], 16)
@@ -159,11 +143,21 @@ class NlriIPv6Unicast:
 # ------------------------------------------------------------------------------
 class NlriIPv4Vpn:
     UNPACK_STR = "!B3s8s"
+    UNPACK_STR_ADDPATH = "!IB3s8s"
 
     @classmethod
     def parse(cls, data):
-        (bit_len, label, rd) = struct.unpack_from(cls.UNPACK_STR, data)
-        offset = struct.calcsize(cls.UNPACK_STR)
+        # ipv4 prefix length 32 + label and rd length 88
+        if detect_add_path_prefix46(data, max_bit_length=120):
+            (addpath_id, bit_len, label, rd) = struct.unpack_from(
+                cls.UNPACK_STR_ADDPATH, data
+            )
+            addpath_id = {"path_id": addpath_id}
+            offset = struct.calcsize(cls.UNPACK_STR_ADDPATH)
+        else:
+            (bit_len, label, rd) = struct.unpack_from(cls.UNPACK_STR, data)
+            offset = struct.calcsize(cls.UNPACK_STR)
+            addpath_id = {}
 
         ipv4 = padding(data[offset:], 4)
         # prefix_len = total_bits_len - label_bits_len - rd_bits_len
@@ -172,18 +166,29 @@ class NlriIPv4Vpn:
             "label": decode_label(label),
             "rd": str(RouteDistinguisher(rd)),
             "ip_prefix": f"{ipaddress.IPv4Address(ipv4)}/{prefix_len}",
+            **addpath_id,
         }
 
 
 # ------------------------------------------------------------------------------
 class NlriIPv6Vpn:
     UNPACK_STR = "!B3s8s"
+    UNPACK_STR_ADDPATH = "!IB3s8s"
 
     @classmethod
     def parse(cls, data):
         # rfc 3107, 8227
-        (bit_len, label, rd) = struct.unpack_from(cls.UNPACK_STR, data)
-        offset = struct.calcsize(cls.UNPACK_STR)
+        # ipv6 prefix length 128 + label and rd length 88
+        if detect_add_path_prefix46(data, max_bit_length=216):
+            (addpath_id, bit_len, label, rd) = struct.unpack_from(
+                cls.UNPACK_STR_ADDPATH, data
+            )
+            addpath_id = {"path_id": addpath_id}
+            offset = struct.calcsize(cls.UNPACK_STR_ADDPATH)
+        else:
+            (bit_len, label, rd) = struct.unpack_from(cls.UNPACK_STR, data)
+            offset = struct.calcsize(cls.UNPACK_STR)
+            addpath_id = {}
 
         ipv6 = padding(data[offset:], 16)
         prefix_len = bit_len - 3 * 8 - 8 * 8
@@ -191,6 +196,7 @@ class NlriIPv6Vpn:
             "label": decode_label(label),
             "rd": str(RouteDistinguisher(rd)),
             "ip_prefix": f"{ipaddress.IPv6Address(ipv6)}/{prefix_len}",
+            **addpath_id,
         }
 
 
