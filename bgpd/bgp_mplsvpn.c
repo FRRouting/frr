@@ -1744,15 +1744,20 @@ static bool vpn_leak_from_vrf_fill_srv6(struct attr *attr, struct bgp *from_bgp,
 			from_bgp->vpn_policy[afi].tovpn_sid_locator->function_bits_length;
 		attr->srv6_l3vpn->arg_len =
 			from_bgp->vpn_policy[afi].tovpn_sid_locator->argument_bits_length;
-		attr->srv6_l3vpn->transposition_len =
-			from_bgp->vpn_policy[afi].tovpn_sid_locator->function_bits_length;
-		attr->srv6_l3vpn->transposition_offset =
-			from_bgp->vpn_policy[afi].tovpn_sid_locator->block_bits_length +
-			from_bgp->vpn_policy[afi].tovpn_sid_locator->node_bits_length;
-		;
-		memcpy(&attr->srv6_l3vpn->sid,
-		       &from_bgp->vpn_policy[afi].tovpn_sid_locator->prefix.prefix,
-		       sizeof(struct in6_addr));
+		if (from_bgp->vpn_policy[afi].tovpn_sid_locator->function_bits_length >
+		    BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH) {
+			attr->srv6_l3vpn->transposition_len = 0;
+			attr->srv6_l3vpn->transposition_offset = 0;
+			IPV6_ADDR_COPY(&attr->srv6_l3vpn->sid, from_bgp->vpn_policy[afi].tovpn_sid);
+		} else {
+			attr->srv6_l3vpn->transposition_len =
+				from_bgp->vpn_policy[afi].tovpn_sid_locator->function_bits_length;
+			attr->srv6_l3vpn->transposition_offset =
+				from_bgp->vpn_policy[afi].tovpn_sid_locator->block_bits_length +
+				from_bgp->vpn_policy[afi].tovpn_sid_locator->node_bits_length;
+			IPV6_ADDR_COPY(&attr->srv6_l3vpn->sid,
+				       &from_bgp->vpn_policy[afi].tovpn_sid_locator->prefix.prefix);
+		}
 		return true;
 	}
 	if (from_bgp->tovpn_sid_locator) {
@@ -1769,13 +1774,20 @@ static bool vpn_leak_from_vrf_fill_srv6(struct attr *attr, struct bgp *from_bgp,
 		attr->srv6_l3vpn->loc_node_len = from_bgp->tovpn_sid_locator->node_bits_length;
 		attr->srv6_l3vpn->func_len = from_bgp->tovpn_sid_locator->function_bits_length;
 		attr->srv6_l3vpn->arg_len = from_bgp->tovpn_sid_locator->argument_bits_length;
-		attr->srv6_l3vpn->transposition_len =
-			from_bgp->tovpn_sid_locator->function_bits_length;
-		attr->srv6_l3vpn->transposition_offset =
-			from_bgp->tovpn_sid_locator->block_bits_length +
-			from_bgp->tovpn_sid_locator->node_bits_length;
-		memcpy(&attr->srv6_l3vpn->sid, &from_bgp->tovpn_sid_locator->prefix.prefix,
-		       sizeof(struct in6_addr));
+		if (from_bgp->tovpn_sid_locator->function_bits_length >
+		    BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH) {
+			attr->srv6_l3vpn->transposition_len = 0;
+			attr->srv6_l3vpn->transposition_offset = 0;
+			IPV6_ADDR_COPY(&attr->srv6_l3vpn->sid, from_bgp->tovpn_sid);
+		} else {
+			attr->srv6_l3vpn->transposition_len =
+				from_bgp->tovpn_sid_locator->function_bits_length;
+			attr->srv6_l3vpn->transposition_offset =
+				from_bgp->tovpn_sid_locator->block_bits_length +
+				from_bgp->tovpn_sid_locator->node_bits_length;
+			IPV6_ADDR_COPY(&attr->srv6_l3vpn->sid,
+				       &from_bgp->tovpn_sid_locator->prefix.prefix);
+		}
 		return true;
 	}
 	return false;
