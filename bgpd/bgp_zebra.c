@@ -3761,8 +3761,9 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 		uint8_t func_len = locator_bgp->function_bits_length;
 		mpls_label_t label = MPLS_LABEL_IMPLICIT_NULL;
 
-		if (BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH >= func_len)
-			label = sid_func << (BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH - func_len);
+		if (func_len <= BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL)
+			label = sid_func
+				<< (BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL - func_len);
 
 		/* Un-export VPN to VRF routes */
 		if (is_srv6_vpn_enabled(bgp_vrf)) {
