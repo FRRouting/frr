@@ -244,12 +244,18 @@ void ospf6_gr_restart_enter(struct ospf6 *ospf6,
 			    time_t timestamp)
 {
 	unsigned long remaining_time;
+	time_t now;
 
 	ospf6->gr_info.restart_in_progress = true;
 	ospf6->gr_info.reason = reason;
 
 	/* Schedule grace period timeout. */
-	remaining_time = timestamp - time(NULL);
+	now = time(NULL);
+	if (timestamp <= now)
+		remaining_time = 0;
+	else
+		remaining_time = timestamp - now;
+
 	if (IS_DEBUG_OSPF6_GR)
 		zlog_debug(
 			"GR: remaining time until grace period expires: %lu(s)",
