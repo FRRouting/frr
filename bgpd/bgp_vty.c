@@ -11076,6 +11076,22 @@ DEFUN_NOSH (bgp_segment_routing_srv6,
 	return CMD_SUCCESS;
 }
 
+static void bgp_segment_routing_srv6_hencaps_refresh(struct bgp *bgp)
+{
+	struct bgp *bgp_inst;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_inst)) {
+		if (!bgp_fibupd_safi(SAFI_UNICAST))
+			continue;
+
+		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP, bgp, false);
+		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP6, bgp, false);
+
+		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP, bgp, true);
+		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP6, bgp, true);
+	}
+}
 DEFUN (no_bgp_segment_routing_srv6,
        no_bgp_segment_routing_srv6_cmd,
        "no segment-routing srv6",
@@ -11088,6 +11104,11 @@ DEFUN (no_bgp_segment_routing_srv6,
 	if (strlen(bgp->srv6_locator_name) > 0)
 		if (bgp_srv6_locator_unset(bgp) < 0)
 			return CMD_WARNING_CONFIG_FAILED;
+
+	if (bgp->srv6_encap_behavior != SRV6_HEADEND_BEHAVIOR_H_ENCAPS) {
+		bgp->srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
+		bgp_segment_routing_srv6_hencaps_refresh(bgp);
+	}
 
 	bgp->srv6_enabled = false;
 	return CMD_SUCCESS;
@@ -11103,8 +11124,6 @@ DEFPY (bgp_srv6_encap_behavior,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	enum srv6_headend_behavior srv6_encap_behavior;
-	struct bgp *bgp_inst;
-	struct listnode *node;
 
 	bgp = bgp_get_default();
 	if (!bgp)
@@ -11126,16 +11145,7 @@ DEFPY (bgp_srv6_encap_behavior,
 	else
 		bgp->srv6_encap_behavior = srv6_encap_behavior;
 
-	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_inst)) {
-		if (!bgp_fibupd_safi(SAFI_UNICAST))
-			continue;
-
-		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP, bgp, false);
-		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP6, bgp, false);
-
-		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP, bgp, true);
-		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP6, bgp, true);
-	}
+	bgp_segment_routing_srv6_hencaps_refresh(bgp);
 
 	return CMD_SUCCESS;
 }
