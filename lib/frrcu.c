@@ -514,20 +514,28 @@ void rcu_shutdown(void)
 
 void rcu_enqueue(struct rcu_head *rh, const struct rcu_action *action)
 {
+	struct rcu_thread *rt;
+
 	/* refer to rcu_bump() for why we need to hold RCU when adding items
 	 * to rcu_heads
 	 */
-	rcu_assert_read_locked();
-
 	rh->action = action;
 
 	if (!rcu_active) {
 		rcu_do(rh);
 		return;
 	}
-	rcu_heads_add_tail(&rcu_heads, rh);
-	atomic_store_explicit(&rcu_dirty, seqlock_cur(&rcu_seq),
-			      memory_order_relaxed);
+
+	rt = rcu_self();
+	if (unlikely(rt == &rcu_thread_rcu)) {
+		rcu_bump();
+		rcu_heads_add_tail(&rcu_heads, rh);
+	} else {
+		assert(rt && rt->depth && seqlock_held(&rt->rcu));
+
+		rcu_heads_add_tail(&rcu_heads, rh);
+		atomic_store_explicit(&rcu_dirty, seqlock_cur(&rcu_seq), memory_order_relaxed);
+	}
 }
 
 void rcu_close(struct rcu_head_close *rhc, int fd)
