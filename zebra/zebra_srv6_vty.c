@@ -700,7 +700,7 @@ DEFPY (show_srv6_sid,
 				break;
 			}
 		}
-		if (!sid_ctx->sid || !found) {
+		if (!found) {
 			if (uj)
 				vty_json(vty, json); /* Return empty json */
 			else
