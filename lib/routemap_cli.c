@@ -1490,6 +1490,11 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 			yang_dnode_get_string(
 				dnode,
 				"./rmap-set-action/frr-bgp-route-map:l3vpn-nexthop-encapsulation"));
+	} else if (IS_SET_BGP_PREFIX_SID_SRV6_FUNCTION_LENGTH(action)) {
+		vty_out(vty, " set prefix-sid srv6 function-length %s\n",
+			yang_dnode_get_string(
+				dnode,
+				"./rmap-set-action/frr-bgp-route-map:prefix-sid-srv6-function-length"));
 	}
 }
 

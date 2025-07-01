@@ -451,6 +451,13 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 			}
 		},
 		{
+			.xpath = "/frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:prefix-sid-srv6-function-length",
+			.cbs = {
+				.modify = lib_route_map_entry_set_action_rmap_set_action_prefix_sid_srv6_function_length_modify,
+				.destroy = lib_route_map_entry_set_action_rmap_set_action_prefix_sid_srv6_function_length_destroy,
+			}
+		},
+		{
 			.xpath = NULL,
 		},
 	}

@@ -2250,6 +2250,67 @@ static const struct route_map_rule_cmd
 		route_set_l3vpn_nexthop_encapsulation_compile,
 		route_set_l3vpn_nexthop_encapsulation_free};
 
+/* `set prefix-sid srv6 function-length VAL' */
+
+/* Set nexthop to object */
+struct rmap_prefix_sid_srv6_function_length_set {
+	uint8_t value;
+};
+
+static enum route_map_cmd_result_t
+route_set_prefix_sid_srv6_function_length(void *rule, const struct prefix *prefix, void *object)
+{
+	struct rmap_prefix_sid_srv6_function_length_set *rins = rule;
+	struct bgp_path_info *path;
+	struct bgp_attr_srv6_l3vpn *srv6_l3vpn_old, *srv6_l3vpn_new;
+
+	path = object;
+
+	if (!path->attr || !path->attr->srv6_l3vpn)
+		return RMAP_OKAY;
+
+	if (rins->value == path->attr->srv6_l3vpn->func_len)
+		return RMAP_OKAY;
+	srv6_l3vpn_old = path->attr->srv6_l3vpn;
+	if (srv6_l3vpn_old->refcnt)
+		srv6_l3vpn_new = bgp_attr_srv6_l3vpn_dup(srv6_l3vpn_old);
+	else
+		srv6_l3vpn_new = srv6_l3vpn_old;
+
+	srv6_l3vpn_new->func_len = rins->value;
+
+	path->attr->srv6_l3vpn = bgp_attr_srv6_l3vpn_intern(srv6_l3vpn_new);
+	if (srv6_l3vpn_old->refcnt == 0)
+		bgp_attr_srv6_l3vpn_free(srv6_l3vpn_old);
+	return RMAP_OKAY;
+}
+
+/* Route map `prefix-sid srv6 function-length' compile function. */
+static void *route_set_prefix_sid_srv6_function_length_compile(const char *arg)
+{
+	struct rmap_prefix_sid_srv6_function_length_set *rins;
+
+	rins = XCALLOC(MTYPE_ROUTE_MAP_COMPILED,
+		       sizeof(struct rmap_l3vpn_nexthop_encapsulation_set));
+
+	rins->value = atoi(arg);
+
+	return rins;
+}
+
+/* Free route map's compiled `ip nexthop' value. */
+static void route_set_prefix_sid_srv6_function_length_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Route map commands for 'prefix-sid srv6 function-length' command. */
+static const struct route_map_rule_cmd route_set_prefix_sid_srv6_function_length_cmd = {
+	"prefix-sid srv6 function-length", route_set_prefix_sid_srv6_function_length,
+	route_set_prefix_sid_srv6_function_length_compile,
+	route_set_prefix_sid_srv6_function_length_free
+};
+
 /* `set local-preference LOCAL_PREF' */
 
 /* Set local preference. */
@@ -6188,6 +6249,34 @@ DEFPY_YANG(set_l3vpn_nexthop_encapsulation, set_l3vpn_nexthop_encapsulation_cmd,
 	return nb_cli_apply_changes_pending(vty, NULL);
 }
 
+DEFPY_YANG(set_psid_srv6_function_length, set_psid_srv6_function_length_cmd,
+	   "[no] set prefix-sid srv6 function-length (0-64)",
+	   NO_STR SET_STR
+	   "Prefix SID operations\n"
+	   "Segment Routing SRv6\n"
+	   "Update function length value\n"
+	   "Value of function length in bits\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-prefix-sid-srv6-function-length']";
+	const char *xpath_value =
+		"./set-action[action='frr-bgp-route-map:set-prefix-sid-srv6-function-length']/rmap-set-action/frr-bgp-route-map:prefix-sid-srv6-function-length";
+	enum nb_operation operation;
+
+	if (no)
+		operation = NB_OP_DESTROY;
+	else
+		operation = NB_OP_CREATE;
+
+	nb_cli_enqueue_change(vty, xpath, operation, NULL);
+	if (operation == NB_OP_DESTROY)
+		return nb_cli_apply_changes(vty, NULL);
+
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[4]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFUN_YANG (set_local_pref,
 	    set_local_pref_cmd,
 	    "set local-preference WORD",
@@ -8031,6 +8120,7 @@ void bgp_route_map_init(void)
 	route_map_install_set(&route_set_tag_cmd);
 	route_map_install_set(&route_set_label_index_cmd);
 	route_map_install_set(&route_set_l3vpn_nexthop_encapsulation_cmd);
+	route_map_install_set(&route_set_prefix_sid_srv6_function_length_cmd);
 
 	install_element(RMAP_NODE, &match_peer_cmd);
 	install_element(RMAP_NODE, &match_peer_local_cmd);
@@ -8150,6 +8240,7 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &set_originator_id_cmd);
 	install_element(RMAP_NODE, &no_set_originator_id_cmd);
 	install_element(RMAP_NODE, &set_l3vpn_nexthop_encapsulation_cmd);
+	install_element(RMAP_NODE, &set_psid_srv6_function_length_cmd);
 
 	route_map_install_match(&route_match_ipv6_address_cmd);
 	route_map_install_match(&route_match_ipv6_next_hop_cmd);

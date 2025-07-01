@@ -632,6 +632,24 @@ void bgp_attr_srv6_l3vpn_free(struct bgp_attr_srv6_l3vpn *l3vpn)
 	XFREE(MTYPE_BGP_SRV6_L3VPN, l3vpn);
 }
 
+struct bgp_attr_srv6_l3vpn *bgp_attr_srv6_l3vpn_dup(struct bgp_attr_srv6_l3vpn *srv6_l3vpn)
+{
+	struct bgp_attr_srv6_l3vpn *new;
+
+	new = XCALLOC(MTYPE_BGP_SRV6_L3VPN, sizeof(*srv6_l3vpn));
+	new->sid_flags = srv6_l3vpn->sid_flags;
+	new->endpoint_behavior = srv6_l3vpn->endpoint_behavior;
+	memcpy(&new->sid, &srv6_l3vpn->sid, sizeof(struct in6_addr));
+	;
+	new->loc_block_len = srv6_l3vpn->loc_block_len;
+	new->loc_node_len = srv6_l3vpn->loc_node_len;
+	new->func_len = srv6_l3vpn->func_len;
+	new->arg_len = srv6_l3vpn->arg_len;
+	new->transposition_len = srv6_l3vpn->transposition_len;
+	new->transposition_offset = srv6_l3vpn->transposition_offset;
+	return new;
+}
+
 struct bgp_attr_srv6_l3vpn *bgp_attr_srv6_l3vpn_intern(struct bgp_attr_srv6_l3vpn *l3vpn)
 {
 	struct bgp_attr_srv6_l3vpn *find;

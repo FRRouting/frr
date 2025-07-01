@@ -27,6 +27,10 @@ module frr-bgp-route-map {
     prefix frr-route-types;
   }
 
+  import ietf-srv6-types {
+    prefix srv6-types;
+  }
+
   organization
     "Free Range Routing";
   contact
@@ -380,6 +384,12 @@ identity set-extcommunity-color {
     base frr-route-map:rmap-set-type;
     description
       "Accept L3VPN traffic over other than LSP encapsulation";
+  }
+
+  identity set-prefix-sid-srv6-function-length {
+    base frr-route-map:rmap-set-type;
+    description
+      "Override SRv6 function-length parameter of BGP prefix sid attribute";
   }
 
   grouping extcommunity-non-transitive-types {
@@ -1180,6 +1190,19 @@ identity set-extcommunity-color {
               "GRE protocol";
           }
         }
+      }
+    }
+    case prefix-sid-srv6-function-length {
+      when
+      "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:set-prefix-sid-srv6-function-length')";
+      description
+        "Set SRv6 function length value of prefix SID attribute";
+      leaf prefix-sid-srv6-function-length {
+        type srv6-types:srv6-sid-func-len {
+          range "0..64";
+        }
+        description
+          "Set the function-len of BGP prefix SID SRv6 SSTLV option";
       }
     }
   }

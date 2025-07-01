@@ -391,6 +391,7 @@ bgp_attr_parse(struct peer *peer, struct attr *attr, bgp_size_t size,
 extern struct attr *bgp_attr_intern(struct attr *attr);
 extern struct bgp_attr_srv6_l3vpn *bgp_attr_srv6_l3vpn_intern(struct bgp_attr_srv6_l3vpn *l3vpn);
 extern void bgp_attr_srv6_l3vpn_free(struct bgp_attr_srv6_l3vpn *l3vpn);
+extern struct bgp_attr_srv6_l3vpn *bgp_attr_srv6_l3vpn_dup(struct bgp_attr_srv6_l3vpn *srv6_l3vpn);
 extern void bgp_attr_unintern_sub(struct attr *attr);
 extern void bgp_attr_unintern(struct attr **pattr);
 extern void bgp_attr_flush(struct attr *attr);
