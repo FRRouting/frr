@@ -390,6 +390,16 @@ def test_srv6_locator():
 def test_vpn_rib():
     check_rib("rt1", "show bgp ipv6 vpn json", "rt1/vpnv6_rib.ref")
     check_rib("rt6", "show bgp ipv6 vpn json", "rt6/vpnv6_rib.ref")
+    check_rib(
+        "rt5",
+        "show bgp ipv6 vpn 2001:db9:10::/64 json",
+        "rt5/vpnv6_rib_2001_db9_rib.ref",
+    )
+    check_rib(
+        "rt1",
+        "show bgp ipv6 vpn 2001:db9:10::/64 json",
+        "rt1/vpnv6_rib_2001_db9_rib.ref",
+    )
     check_rib("rt1", "show ipv6 route vrf vrf10 json", "rt1/vrf10_rib.ref")
     check_rib("rt1", "show ipv6 route vrf vrf20 json", "rt1/vrf20_rib.ref")
     check_rib("rt6", "show ipv6 route vrf vrf10 json", "rt6/vrf10_rib.ref")
@@ -426,6 +436,30 @@ def test_ping():
 
     # Try to ping dst from rt1
     check_ping("rt1", "fc00:0:9::1", True, 10, 1)
+
+
+def test_unconfigure_rmap_override_func_len():
+    logger.info(
+        "Test: Unconfigure on rt5 the route-map that overrides the function length"
+    )
+    get_topogen().gears["rt5"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 5
+           address-family ipv6 vpn
+            no neighbor fc00:0:1::1 route-map rmap out
+        """
+    )
+    get_topogen().gears["rt1"].vtysh_cmd(
+        """
+        clear bgp ipv6 vpn *
+        """
+    )
+    check_rib(
+        "rt1",
+        "show bgp ipv6 vpn 2001:db9:10::/64 json",
+        "rt1/vpnv6_rib_2001_db9_func32_rib.ref",
+    )
 
 
 # Memory leak test template
