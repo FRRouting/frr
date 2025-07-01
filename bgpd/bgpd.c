@@ -1519,6 +1519,7 @@ static void bgp_srv6_init(struct bgp *bgp)
 	bgp->srv6_locator_chunks->del = srv6_locator_chunk_list_free;
 	bgp->srv6_functions = list_new();
 	bgp->srv6_functions->del = (void (*)(void *))srv6_function_free;
+	bgp->srv6_only = true;
 }
 
 static void bgp_srv6_cleanup(struct bgp *bgp)

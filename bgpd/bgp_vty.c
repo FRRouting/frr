@@ -11213,6 +11213,29 @@ DEFPY (bgp_srv6_locator,
 	return CMD_SUCCESS;
 }
 
+DEFPY (bgp_srv6_only,
+       bgp_srv6_only_cmd,
+       "[no] srv6-only",
+       NO_STR
+       "Only allow SRv6 and disallow MPLS routes\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (!no == bgp->srv6_only)
+		return CMD_SUCCESS;
+
+	/* pre-change */
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(), bgp);
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(), bgp);
+
+	bgp->srv6_only = !no;
+
+	/* post-change */
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(), bgp);
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(), bgp);
+	return CMD_SUCCESS;
+}
+
 DEFPY (no_bgp_srv6_locator,
        no_bgp_srv6_locator_cmd,
        "no locator NAME$name",
@@ -20236,7 +20259,7 @@ int bgp_config_write(struct vty *vty)
 		if (bgp->fast_convergence)
 			vty_out(vty, " bgp fast-convergence\n");
 
-		if (bgp_srv6_locator_is_configured(bgp) ||
+		if (bgp_srv6_locator_is_configured(bgp) || bgp->srv6_only == false ||
 		    bgp->srv6_encap_behavior != SRV6_HEADEND_BEHAVIOR_H_ENCAPS) {
 			vty_frame(vty, " !\n segment-routing srv6\n");
 			if (strlen(bgp->srv6_locator_name))
@@ -20245,6 +20268,9 @@ int bgp_config_write(struct vty *vty)
 			if (bgp->srv6_encap_behavior != SRV6_HEADEND_BEHAVIOR_H_ENCAPS)
 				vty_out(vty, "  encap-behavior %s\n",
 					srv6_headend_behavior2str(bgp->srv6_encap_behavior, true));
+			if (bgp->srv6_only == false)
+				vty_out(vty, "  no srv6-only\n");
+
 			vty_endframe(vty, " exit\n");
 		}
 
@@ -22370,6 +22396,7 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &no_bgp_segment_routing_srv6_cmd);
 	install_element(BGP_SRV6_NODE, &bgp_srv6_locator_cmd);
 	install_element(BGP_SRV6_NODE, &no_bgp_srv6_locator_cmd);
+	install_element(BGP_SRV6_NODE, &bgp_srv6_only_cmd);
 	install_element(BGP_SRV6_NODE, &bgp_srv6_encap_behavior_cmd);
 	install_element(BGP_IPV4_NODE, &af_sid_vpn_export_cmd);
 	install_element(BGP_IPV6_NODE, &af_sid_vpn_export_cmd);
