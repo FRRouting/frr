@@ -2747,6 +2747,9 @@ static int srv6_manager_release_sid_internal(struct zserv *client, struct srv6_s
 			if (zctx->sid) {
 				entry = zebra_srv6_sid_entry_lookup(zctx->sid, locator->name,
 								    is_localonly);
+				if (!entry)
+					break;
+
 				sid_value = entry->sid_value;
 			}
 
