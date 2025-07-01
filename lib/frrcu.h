@@ -171,6 +171,63 @@ extern void rcu_enqueue(struct rcu_head *head, const struct rcu_action *action);
 
 extern void rcu_close(struct rcu_head_close *head, int fd);
 
+/* information about current thread in RCU
+ *
+ * This should be used very sparingly;  in general if you need to look at this
+ * in some code it's a sign something might be designed wrong.  It's exposed
+ * for use by the lock-free data structures to prevent worst-case degenerate
+ * behavior (specifically when one thread is lagging behind very far, rcu_free
+ * calls won't get executed and memory can balloon.)
+ *
+ * If the current thread isn't holding RCU, seq_local won't have the
+ * SEQLOCK_HELD bit set; use seq_local & SEQLOCK_HELD to check.
+ *
+ * seq_local is (if held) guaranteed <= seq_head, but note this is wrapping
+ * sequence counter math
+ */
+struct rcu_local_state {
+	uint32_t seq_head;
+	uint32_t seq_local;
+};
+
+struct rcu_local_state rcu_local_state(void);
+
+/* a few numbers to get insight into RCU operations */
+struct rcu_stats {
+	/* maybe don't read the rest of the struct if this is false %-) */
+	bool rcu_active;
+
+	/* if showing things to the user, maybe divide the seq_* numbers by
+	 * SEQLOCK_INCR (=4); the low 2 bits are used as flags.
+	 * Also note these numbers wrap at 2^32.
+	 */
+
+	/* current RCU (head) generation counter */
+	uint32_t seq_head;
+
+	/* how far the oldest thread is lagging behind.  This can be negative
+	 * in rare circumstances, if things are progressing while we're
+	 * reading them.  This is only intended for display/debug, so it's
+	 * a simple "limited-effort readout".
+	 */
+	int32_t seq_delta;
+
+	/* number of threads currently holding RCU read lock */
+	size_t holding;
+
+	/* length of pending RCU operations queue */
+	size_t qlen;
+
+	/* total number of RCU operations completed
+	 * (during the lifetime of the entire process, may overflow)
+	 *
+	 * read non-atomically, may sometimes return garbage
+	 */
+	size_t completed;
+};
+
+extern void rcu_stats(struct rcu_stats *stats);
+
 #ifdef __cplusplus
 }
 #endif

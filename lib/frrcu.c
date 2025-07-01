@@ -114,6 +114,9 @@ static pthread_t rcu_pthread;
 static pthread_key_t rcu_thread_key;
 static bool rcu_active;
 
+/* only updated on RCU thread */
+static size_t rcu_ops_completed;
+
 static void rcu_start(void);
 static void rcu_bump(void);
 
@@ -453,6 +456,7 @@ static void *rcu_main(void *arg)
 			}
 
 		while ((rh = rcu_heads_pop(&rcu_heads))) {
+			rcu_ops_completed++;
 			if (rh->action->type == RCUA_NEXT)
 				break;
 			else if (rh->action->type == RCUA_END)
@@ -542,4 +546,58 @@ void rcu_close(struct rcu_head_close *rhc, int fd)
 {
 	rhc->fd = fd;
 	rcu_enqueue(&rhc->rcu_head, &rcua_close);
+}
+
+struct rcu_local_state rcu_local_state(void)
+{
+	/* Although it can't break things, this order is "more correct" than
+	 * the other way around.  We never want to return a head sequence
+	 * number that is smaller than our own.  Which can't happen anyway,
+	 * since we're talking about _our own_ thread, so the local number
+	 * can't change under our feet, and global will be >= that.  But let's
+	 * do the "correct-est" thing either way.
+	 */
+	struct rcu_local_state ret;
+
+	ret.seq_local = seqlock_cur(&rcu_self()->rcu);
+	ret.seq_head = seqlock_cur(&rcu_seq);
+	return ret;
+}
+
+void rcu_stats(struct rcu_stats *out)
+{
+	struct rcu_thread *rt;
+	int32_t delta = 0;
+	size_t holding = 0;
+
+	if (!rcu_active) {
+		memset(out, 0, sizeof(*out));
+		return;
+	}
+
+	out->rcu_active = true;
+
+	/* and now we do it in the wrong order because this is only for
+	 * display/debug and it can't easily be sequenced "properly" across
+	 * multiple threads
+	 */
+	out->seq_head = seqlock_cur(&rcu_seq);
+	frr_each (rcu_threads, &rcu_threads, rt) {
+		uint32_t val = seqlock_cur(&rt->rcu);
+
+		if (!(val & SEQLOCK_HELD))
+			continue;
+
+		holding++;
+
+		/* need to handle counter wraparound here, hence the slightly
+		 * 'odd' subtraction + MAX()
+		 */
+		val = out->seq_head - val;
+		delta = MAX(delta, (int32_t)val);
+	}
+	out->seq_delta = delta;
+	out->holding = holding;
+	out->qlen = rcu_heads_count(&rcu_heads);
+	out->completed = *(volatile typeof(rcu_ops_completed) *)&rcu_ops_completed;
 }

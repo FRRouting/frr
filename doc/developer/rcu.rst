@@ -206,6 +206,28 @@ atomic ops & datastructures with other types of locking, e.g. rwlocks.
    anymore.  Same as :c:func:`rcu_free`, except it calls ``close`` instead of
    ``free``.
 
+
+State/stats
+^^^^^^^^^^^
+
+.. c:function:: struct rcu_local_state rcu_local_state(void)
+
+   Retrieve RCU state for edge-case handling, e.g. in lock free data
+   structures.  Refer to header file for details.
+
+   .. warning::
+
+      This should only be used if absolutely necessary, and not for "standard"
+      code paths.  It is only exported to avoid worst-case degenerate cases,
+      in particular memory ballooning in cases of long RCU delays.
+
+.. c:function:: void rcu_stats(struct rcu_stats *out)
+
+   Retrieve some numbers & counters for insight into RCU operation.  Only
+   suitable for display and debug purposes, may return inconsistent data at
+   some points.
+
+
 Internals
 ^^^^^^^^^
 
