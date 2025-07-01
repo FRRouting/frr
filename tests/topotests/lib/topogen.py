@@ -88,7 +88,7 @@ def get_exabgp_cmd(commander=None):
 
     def exacmd_version_ok(exacmd):
         logger.debug("checking %s for exabgp version >= 4.2.11", exacmd)
-        _, stdout, _ = commander.cmd_status(exacmd + " -v", warn=False)
+        _, stdout, _ = commander.cmd_status(exacmd + " --version", warn=False)
         m = re.search(r"ExaBGP\s*:\s*((\d+)\.(\d+)(?:\.(\d+))?)", stdout)
         if not m:
             return False
