@@ -10256,11 +10256,12 @@ DEFPY (af_sid_vpn_export,
 	 * mode change between sid_idx and sid_auto isn't supported.
 	 * user must negate sid vpn export when they want to change the mode
 	 */
-	if ((sid_auto && bgp->vpn_policy[afi].tovpn_sid_index != 0)
-	    || (sid_idx != 0 && CHECK_FLAG(bgp->vpn_policy[afi].flags,
-					   BGP_VPN_POLICY_TOVPN_SID_AUTO))) {
-		vty_out(vty, "it's already configured as %s.\n",
-			sid_auto ? "auto-mode" : "idx-mode");
+	if (sid_auto && bgp->vpn_policy[afi].tovpn_sid_index != 0) {
+		vty_out(vty, "it's already configured as idx-mode.\n",
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if (sid_idx != 0 && CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO)) {
+		vty_out(vty, "it's already configured as auto-mode.\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -10344,20 +10345,16 @@ DEFPY (bgp_sid_vpn_export,
 	 * mode change among sid_idx, sid_auto and sid_explicit isn't supported.
 	 * user must negate sid vpn export when they want to change the mode
 	 */
-	if ((sid_auto && bgp->tovpn_sid_index != 0) ||
-	    (sid_auto && CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT)) ||
-	    (sid_idx != 0 && CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO)) ||
-	    (sid_idx != 0 && CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT)) ||
-	    (sid_explicit && bgp->tovpn_sid_index != 0) ||
-	    (sid_explicit && CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO))) {
-		vty_out(vty, "it's already configured as ");
-		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO))
-			vty_out(vty, "auto-mode.\n");
-		else if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT))
-			vty_out(vty, "explicit-mode.\n");
-		else if (sid_idx != 0)
-			vty_out(vty, "idx-mode.\n");
-
+	if ((sid_auto || sid_explicit) && bgp->tovpn_sid_index != 0) {
+		vty_out(vty, "it's already configured as idx-mode.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if ((sid_auto || sid_idx != 0) && CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT)) {
+		vty_out(vty, "it's already configured as explicit-mode.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if ((sid_idx != 0 || sid_explicit) && CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO)) {
+		vty_out(vty, "it's already configured as auto-mode.\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
