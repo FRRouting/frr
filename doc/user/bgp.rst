@@ -3424,6 +3424,15 @@ L3VPN SRv6
    there are no other specific options, then the segment-routing-header is removed,
    and only the IPv6 header is appended to the original packet.
 
+.. clicmd:: srv6-only
+
+   By default, if any SRv6 locator is configured, BGP assumes exported L3VPN updates
+   rely on an SRv6 dataplane. Consequently, any BGP update without an SRv6 prefix SID
+   attribute will not be considered as valid. Use the ``no srv6-only`` command under
+   the ``segment-routing srv6`` node of the instance where the BGP updates originate:
+   this command will also consider BGP updates with no srv6 options, thus making possible
+   to have both MPLS and SRv6 updates.
+
 L3VPN SRv6 SID reachability
 ---------------------------
 
