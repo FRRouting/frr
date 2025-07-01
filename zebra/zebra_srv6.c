@@ -1847,25 +1847,23 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid, struct srv6_sid_ct
 		 * If we already have a SID associated with this context, we need to
 		 * deallocate the current SID function before allocating the new one
 		 */
-		if (zctx->sid) {
-			if (IS_ZEBRA_DEBUG_SRV6)
-				zlog_debug("%s: ctx %s already associated with SID %u, releasing SID",
-					   __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx),
-					   zctx->sid->func);
+		if (IS_ZEBRA_DEBUG_SRV6)
+			zlog_debug("%s: ctx %s already associated with SID %u, releasing SID",
+				   __func__, srv6_sid_ctx2str(buf, sizeof(buf), ctx),
+				   zctx->sid->func);
 
-			release_srv6_sid_func(zctx);
+		release_srv6_sid_func(zctx);
 
-			zebra_srv6_sid_clients_release_notify_all(zctx->sid);
-			zebra_srv6_sid_entry_delete_all(zctx->sid);
+		zebra_srv6_sid_clients_release_notify_all(zctx->sid);
+		zebra_srv6_sid_entry_delete_all(zctx->sid);
 
-			zctx->sid->block = block;
-			zctx->sid->func = sid_func;
-			zctx->sid->wide_func = sid_func_wide;
-			zctx->sid->alloc_mode = SRV6_SID_ALLOC_MODE_EXPLICIT;
+		zctx->sid->block = block;
+		zctx->sid->func = sid_func;
+		zctx->sid->wide_func = sid_func_wide;
+		zctx->sid->alloc_mode = SRV6_SID_ALLOC_MODE_EXPLICIT;
 
-			*sid = zctx->sid;
-			(*sid)->ctx = zctx;
-		}
+		*sid = zctx->sid;
+		(*sid)->ctx = zctx;
 	} else {
 		/* Allocate an explicit SID function for the SID */
 		if (ctx->behavior != ZEBRA_SEG6_LOCAL_ACTION_END)
