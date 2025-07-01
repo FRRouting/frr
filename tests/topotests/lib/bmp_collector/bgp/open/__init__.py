@@ -31,6 +31,6 @@ class BGPOpen:
             "version": version,
             "my_as": my_as,
             "hold_time": hold_time,
-            "bgp_id": ipaddress.ip_address(bgp_id),
+            "bgp_id": str(ipaddress.IPv4Address(bgp_id)),
             "optional_params_len": optional_params_len,
         }

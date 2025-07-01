@@ -563,6 +563,8 @@ def test_bgp_routerid_changed():
         os.path.join(tgen.logdir, "bmp1import", "bmp.log"),
         is_rd_instance=True,
         peer_bgp_id="192.168.1.77",
+        bgp_open_as=65501,
+        bgp_open_bgp_id="192.168.1.77",
     )
     success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
     assert (
