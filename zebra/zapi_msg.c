@@ -3066,6 +3066,7 @@ static void zread_srv6_manager_get_srv6_sid(struct zserv *client,
 	uint16_t len;
 	struct zebra_srv6_sid *sid = NULL;
 	uint8_t flags;
+	bool is_localonly = false;
 
 	/* Get input stream */
 	s = msg;
@@ -3081,9 +3082,12 @@ static void zread_srv6_manager_get_srv6_sid(struct zserv *client,
 		STREAM_GETW(s, len);
 		STREAM_GET(locator, s, len);
 	}
+	if (CHECK_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_IS_LOCALONLY))
+		is_localonly = true;
+
 
 	/* Call hook to get a SID using wrapper */
-	srv6_manager_get_sid_call(&sid, client, &ctx, sid_value_ptr, locator);
+	srv6_manager_get_sid_call(&sid, client, &ctx, sid_value_ptr, locator, is_localonly);
 
 stream_failure:
 	return;
@@ -3100,15 +3104,33 @@ static void zread_srv6_manager_release_srv6_sid(struct zserv *client,
 {
 	struct stream *s;
 	struct srv6_sid_ctx ctx = {};
+	char locator[SRV6_LOCNAME_SIZE] = { 0 };
+	uint16_t len;
+	uint8_t flags;
+	bool is_localonly = false;
 
 	/* Get input stream */
 	s = msg;
 
 	/* Get data */
 	STREAM_GET(&ctx, s, sizeof(struct srv6_sid_ctx));
+	STREAM_GETC(s, flags);
+	if (CHECK_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_LOCATOR)) {
+		STREAM_GETW(s, len);
+
+		if (len > SRV6_LOCNAME_SIZE) {
+			zlog_warn("Received locator name length (%u) exceeds maximum length (%u)",
+				  len, SRV6_LOCNAME_SIZE);
+			goto stream_failure;
+		}
+
+		STREAM_GET(locator, s, len);
+	}
+	if (CHECK_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_IS_LOCALONLY))
+		is_localonly = true;
 
 	/* Call hook to release a SID using wrapper */
-	srv6_manager_release_sid_call(client, &ctx);
+	srv6_manager_release_sid_call(client, &ctx, locator, is_localonly);
 
 stream_failure:
 	return;
