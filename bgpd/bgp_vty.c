@@ -18575,7 +18575,7 @@ DEFPY(neighbor_ip_transparent,
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	if (!peergroup_flag_check(peer, PEER_FLAG_UPDATE_SOURCE)) {
+	if (!no && !peergroup_flag_check(peer, PEER_FLAG_UPDATE_SOURCE)) {
 		vty_out(vty, "%% Missing update-source\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
