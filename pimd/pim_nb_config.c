@@ -2013,6 +2013,51 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_re
 }
 
 /*
+ * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/pim-join-route-map
+ */
+int pim_join_route_map_modify(struct nb_cb_modify_args *args)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		pim_filter_ref_set_rmap(&pim->join_filter,
+					yang_dnode_get_string(args->dnode, NULL));
+		break;
+	}
+
+	return NB_OK;
+}
+
+int pim_join_route_map_detroy(struct nb_cb_destroy_args *args)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		pim_filter_ref_set_rmap(&pim->join_filter, NULL);
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/mcast-rpf-lookup
  */
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_mcast_rpf_lookup_create(

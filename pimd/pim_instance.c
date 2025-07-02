@@ -71,6 +71,8 @@ static void pim_instance_terminate(struct pim_instance *pim)
 	XFREE(MTYPE_PIM_PLIST_NAME, pim->spt.plist);
 	XFREE(MTYPE_PIM_PLIST_NAME, pim->register_plist);
 
+	pim_filter_ref_fini(&pim->join_filter);
+
 	pim->vrf = NULL;
 	XFREE(MTYPE_PIM_PIM_INSTANCE, pim);
 }
@@ -132,6 +134,8 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 #if PIM_IPV == 4
 	pim_autorp_init(pim);
 #endif
+
+	pim_filter_ref_init(&pim->join_filter);
 
 	return pim;
 }
