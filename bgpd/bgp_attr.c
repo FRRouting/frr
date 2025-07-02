@@ -798,19 +798,19 @@ static void *srv6_l3service_hash_alloc(void *p)
 	return p;
 }
 
-static void srv6_l3service_free(struct bgp_attr_srv6_l3service *l3service)
+void bgp_attr_srv6_l3service_free(struct bgp_attr_srv6_l3service *l3service)
 {
 	XFREE(MTYPE_BGP_SRV6_L3SERVICE, l3service);
 }
 
-static struct bgp_attr_srv6_l3service *
-srv6_l3service_intern(struct bgp_attr_srv6_l3service *l3service)
+struct bgp_attr_srv6_l3service *
+bgp_attr_srv6_l3service_intern(struct bgp_attr_srv6_l3service *l3service)
 {
 	struct bgp_attr_srv6_l3service *find;
 
 	find = hash_get(srv6_l3service_hash, l3service, srv6_l3service_hash_alloc);
 	if (find != l3service)
-		srv6_l3service_free(l3service);
+		bgp_attr_srv6_l3service_free(l3service);
 	find->refcnt++;
 	return find;
 }
@@ -827,7 +827,7 @@ static void srv6_l3service_unintern(struct bgp_attr_srv6_l3service **l3servicep)
 
 	if (l3service->refcnt == 0) {
 		hash_release(srv6_l3service_hash, l3service);
-		srv6_l3service_free(l3service);
+		bgp_attr_srv6_l3service_free(l3service);
 		*l3servicep = NULL;
 	}
 }
@@ -950,7 +950,7 @@ static void srv6_init(void)
 
 static void srv6_finish(void)
 {
-	hash_clean_and_free(&srv6_l3service_hash, (void (*)(void *))srv6_l3service_free);
+	hash_clean_and_free(&srv6_l3service_hash, (void (*)(void *))bgp_attr_srv6_l3service_free);
 	hash_clean_and_free(&srv6_vpn_hash, (void (*)(void *))srv6_vpn_free);
 }
 
@@ -1314,7 +1314,7 @@ struct attr *bgp_attr_intern(struct attr *attr)
 
 	if (attr->srv6_l3service) {
 		if (!attr->srv6_l3service->refcnt)
-			attr->srv6_l3service = srv6_l3service_intern(attr->srv6_l3service);
+			attr->srv6_l3service = bgp_attr_srv6_l3service_intern(attr->srv6_l3service);
 		else
 			attr->srv6_l3service->refcnt++;
 	}
@@ -1668,7 +1668,7 @@ void bgp_attr_flush(struct attr *attr)
 		attr->encap_subtlvs = NULL;
 	}
 	if (attr->srv6_l3service && !attr->srv6_l3service->refcnt) {
-		srv6_l3service_free(attr->srv6_l3service);
+		bgp_attr_srv6_l3service_free(attr->srv6_l3service);
 		attr->srv6_l3service = NULL;
 	}
 	if (attr->srv6_vpn && !attr->srv6_vpn->refcnt) {
@@ -3395,7 +3395,7 @@ bgp_attr_srv6_service(struct bgp_attr_parser_args *args)
 				return err;
 		}
 
-		attr->srv6_l3service = srv6_l3service_intern(attr->srv6_l3service);
+		attr->srv6_l3service = bgp_attr_srv6_l3service_intern(attr->srv6_l3service);
 	}
 
 	/* Placeholder code for unsupported type */
