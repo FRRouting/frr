@@ -5054,6 +5054,31 @@ Segment-Routing IPv6
      vpn_policy[AFI_IP].tovpn_sid: none
      vpn_policy[AFI_IP6].tovpn_sid: 2001:db8:1:1::200
 
+.. clicmd:: show bgp ipv6 vpn detail
+
+The SID can be advertised along with other SRv6 fields in the BGP prefix sid
+attribute defined in RFC-9252. The below output displays the SRv6 SID structure
+Sub-Sub-TLV, as per chapter 3.2.1. The `[32 16 32 0 0 0]` values respectively
+stand for the locator block length, node length, function length, argument
+length, and the transposition length and offset.
+
+.. code-block:: frr
+
+   r1# show bgp ipv6 vpn 2001:db9:10::/64
+   BGP routing table entry for 5:10:2001:db9:10::/64, version 2
+   not allocated
+   Paths: (1 available, best #1)
+     Advertised to peers:
+     fc00:0:1::1
+     Local
+       :: from :: (5.5.5.5) vrf vrf10(8) announce-nh-self
+         Origin incomplete, metric 0, weight 32768, valid, sourced, local, best (First path received)
+         Extended Community: RT:99:99
+         Originator: 5.5.5.5
+         Remote label: 3
+         Remote SID: fc05:0:5:cece:2345::, sid structure=[32 16 32 0 0 0]
+         Last update: Wed Jul  2 09:53:59 2025
+
 AS-notation support
 -------------------
 
