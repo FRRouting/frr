@@ -324,9 +324,7 @@ static inline void encode_node_target(struct in_addr *node_id,
 	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 	 */
 	memset(eval, 0, sizeof(*eval));
-	eval->val[0] = ECOMMUNITY_ENCODE_IP;
-	if (!trans)
-		eval->val[0] |= ECOMMUNITY_ENCODE_IP_NON_TRANS;
+	eval->val[0] = trans ? ECOMMUNITY_ENCODE_IP : ECOMMUNITY_ENCODE_IP_NON_TRANS;
 	eval->val[1] = ECOMMUNITY_NODE_TARGET;
 	memcpy(&eval->val[2], node_id, sizeof(*node_id));
 	eval->val[6] = ECOMMUNITY_NODE_TARGET_RESERVED;

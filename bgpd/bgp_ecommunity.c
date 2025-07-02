@@ -1475,7 +1475,7 @@ static char *_ecommunity_ecom2str(struct ecommunity *ecom, int format, int filte
 					 (color_type & 0x2) >> 1, color_type & 0x1, color);
 			} else
 				unk_ecom = true;
-		} else if (CHECK_FLAG(type, ECOMMUNITY_ENCODE_IP_NON_TRANS)) {
+		} else if (type == ECOMMUNITY_ENCODE_IP_NON_TRANS) {
 			sub_type = *pnt++;
 			if (sub_type == ECOMMUNITY_NODE_TARGET)
 				ecommunity_node_target_str(
