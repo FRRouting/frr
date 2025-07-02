@@ -283,6 +283,11 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 
 	writes += pim_lookup_mode_write(pim, vty);
 
+	if (pim->join_filter.rmapname) {
+		vty_out(vty, " join-filter route-map %s\n", pim->join_filter.rmapname);
+		++writes;
+	}
+
 	return writes;
 }
 

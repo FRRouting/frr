@@ -15,6 +15,7 @@
 #include "pim_bsm.h"
 #include "pim_vxlan_instance.h"
 #include "pim_oil.h"
+#include "pim_routemap.h"
 #include "pim_upstream.h"
 #include "pim_mroute.h"
 #include "pim_autorp.h"
@@ -210,6 +211,9 @@ struct pim_instance {
 #define PIM_MSDP_LOG_NEIGHBOR_EVENTS 0x01
 /** Log SA event messages. */
 #define PIM_MSDP_LOG_SA_EVENTS 0x02
+
+	/* Filter on received PIM joins */
+	struct pim_filter_ref join_filter;
 
 	bool stopping;
 
