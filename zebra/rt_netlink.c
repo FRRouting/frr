@@ -4454,6 +4454,7 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	bool dp_static = false;
 	int l2_len = 0;
 	enum dplane_op_e op;
+	uint8_t rtprot = RTPROT_UNSPEC;
 
 	if (h->nlmsg_type != RTM_NEWNEIGH && h->nlmsg_type != RTM_DELNEIGH &&
 	    h->nlmsg_type != RTM_GETNEIGH) {
@@ -4553,7 +4554,10 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 
 		dplane_ctx_neigh_set_mac(ctx, &mac);
 
-		is_ext = !!(ndm->ndm_flags & NTF_EXT_LEARNED);
+		if (tb[NDA_PROTOCOL])
+			rtprot = *(__u8 *)RTA_DATA(tb[NDA_PROTOCOL]);
+
+		is_ext = !!(ndm->ndm_flags & NTF_EXT_LEARNED) && rtprot == RTPROT_ZEBRA;
 		is_router = !!(ndm->ndm_flags & NTF_ROUTER);
 
 		if (tb[NDA_EXT_FLAGS]) {
