@@ -12116,14 +12116,44 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	/* Remote SID */
 	if ((path->attr->srv6_l3vpn || path->attr->srv6_vpn) &&
 	    safi != SAFI_EVPN) {
+		json_object *json_sid_attr;
 		struct in6_addr *sid_tmp =
 			path->attr->srv6_l3vpn ? (&path->attr->srv6_l3vpn->sid)
 					       : (&path->attr->srv6_vpn->sid);
-		if (json_paths)
+
+		if (json_paths) {
 			json_object_string_addf(json_path, "remoteSid", "%pI6",
 						sid_tmp);
-		else
-			vty_out(vty, "      Remote SID: %pI6\n", sid_tmp);
+			if (path->attr->srv6_l3vpn) {
+				json_sid_attr = json_object_new_object();
+				json_object_object_add(json_path, "remoteSidStructure",
+						       json_sid_attr);
+				json_object_int_add(json_sid_attr, "locatorBlockLen",
+						    path->attr->srv6_l3vpn->loc_block_len);
+				json_object_int_add(json_sid_attr, "locatorNodeLen",
+						    path->attr->srv6_l3vpn->loc_node_len);
+				json_object_int_add(json_sid_attr, "functionLen",
+						    path->attr->srv6_l3vpn->func_len);
+				json_object_int_add(json_sid_attr, "argumentLen",
+						    path->attr->srv6_l3vpn->arg_len);
+				json_object_int_add(json_sid_attr, "transpositionLen",
+						    path->attr->srv6_l3vpn->transposition_len);
+				json_object_int_add(json_sid_attr, "transpositionOffset",
+						    path->attr->srv6_l3vpn->transposition_offset);
+			}
+		} else {
+			vty_out(vty, "      Remote SID: %pI6", sid_tmp);
+			if (path->attr->srv6_l3vpn) {
+				vty_out(vty, ", sid structure=[%u %u %u %u %u %u]",
+					path->attr->srv6_l3vpn->loc_block_len,
+					path->attr->srv6_l3vpn->loc_node_len,
+					path->attr->srv6_l3vpn->func_len,
+					path->attr->srv6_l3vpn->arg_len,
+					path->attr->srv6_l3vpn->transposition_len,
+					path->attr->srv6_l3vpn->transposition_offset);
+			}
+			vty_out(vty, "\n");
+		}
 	}
 
 	/* Label Index */
