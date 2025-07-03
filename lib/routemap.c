@@ -2463,8 +2463,7 @@ static void route_map_pentry_process_dependency(struct hash_bucket *bucket,
 			continue;
 
 		for (match = match_list->head; match; match = match->next) {
-			if (strcmp(match->rule_str, pentry_dep->plist_name)
-			    == 0) {
+			if (rulecmp(match->rule_str, pentry_dep->plist_name) == 0) {
 				if (IS_RULE_IPv4_PREFIX_LIST(match->cmd->str)
 				    && family == AF_INET) {
 					route_map_pentry_update(
