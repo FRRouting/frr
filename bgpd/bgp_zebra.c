@@ -3530,6 +3530,8 @@ static int bgp_zebra_process_srv6_locator_internal(struct srv6_locator *locator,
 		  locator->function_bits_length, locator->argument_bits_length);
 
 	/* Store the locator in the BGP instance */
+	if (bgp->srv6_locator)
+		srv6_locator_free(bgp->srv6_locator);
 	bgp->srv6_locator = srv6_locator_alloc(locator->name);
 	srv6_locator_copy(bgp->srv6_locator, locator);
 
