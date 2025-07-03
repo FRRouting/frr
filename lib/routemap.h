@@ -302,8 +302,6 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(C, "frr-bgp-route-map:evpn-default-route"))
 #define IS_MATCH_EVPN_VNI(C)                                                   \
 	(strmatch(C, "frr-bgp-route-map:evpn-vni"))
-#define IS_MATCH_EVPN_DEFAULT_ROUTE(C)                                         \
-	(strmatch(C, "frr-bgp-route-map:evpn-default-route"))
 #define IS_MATCH_EVPN_RD(C)                                                    \
 	(strmatch(C, "frr-bgp-route-map:evpn-rd"))
 #define IS_MATCH_ROUTE_SRC(C)                                                  \

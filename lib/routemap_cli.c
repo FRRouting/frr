@@ -789,11 +789,6 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 			yang_dnode_get_string(
 				dnode,
 				"./rmap-match-condition/frr-bgp-route-map:evpn-vni"));
-	} else if (IS_MATCH_EVPN_DEFAULT_ROUTE(condition)) {
-		vty_out(vty, " match evpn default-route %s\n",
-			yang_dnode_get_string(
-				dnode,
-				"./rmap-match-condition/frr-bgp-route-map:evpn-default-route"));
 	} else if (IS_MATCH_EVPN_RD(condition)) {
 		vty_out(vty, " match evpn rd %s\n",
 			yang_dnode_get_string(
