@@ -193,6 +193,31 @@ static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 		static_nht_mark_state(&p, src_pp, safi, vrf_id, STATIC_NOT_INSTALLED);
 		zlog_warn("%s: Route %pFX failed to install for table: %u",
 			  __func__, &p, table_id);
+
+		/* Handle SRv6 SID route install failures */
+		if (p.family == AF_INET6 && srv6_sids) {
+			struct static_srv6_sid *sid;
+			struct listnode *node;
+
+			/* Look up SID by comparing fields directly */
+			for (ALL_LIST_ELEMENTS_RO(srv6_sids, node, sid)) {
+				if (sid->addr.family == AF_INET6 &&
+				    sid->addr.prefixlen == p.prefixlen &&
+				    memcmp(&sid->addr.prefix, &p.u.prefix6,
+					   sizeof(struct in6_addr)) == 0) {
+					if (CHECK_FLAG(sid->flags,
+						       STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA)) {
+						DEBUGD(&static_dbg_srv6,
+						       "%s: SRv6 SID %pFX route install failed, clearing SENT_TO_ZEBRA flag",
+						       __func__, &sid->addr);
+						UNSET_FLAG(sid->flags,
+							   STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
+					}
+					break;
+				}
+			}
+		}
+
 		break;
 	case ZAPI_ROUTE_BETTER_ADMIN_WON:
 		static_nht_mark_state(&p, src_pp, safi, vrf_id, STATIC_NOT_INSTALLED);
