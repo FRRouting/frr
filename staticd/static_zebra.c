@@ -136,7 +136,27 @@ static int interface_address_delete(ZAPI_CALLBACK_ARGS)
 
 static int static_ifp_up(struct interface *ifp)
 {
+	struct listnode *node;
+	struct static_srv6_sid *sid;
+
 	static_ifindex_update(ifp, true);
+
+	/* Re-queue SIDs that need peer LL confirmation for this interface */
+	if (srv6_sids) {
+		for (ALL_LIST_ELEMENTS_RO(srv6_sids, node, sid)) {
+			if (static_srv6_ua_needs_ra(sid) &&
+			    strcmp(sid->attributes.ifname, ifp->name) == 0 &&
+			    !CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID) &&
+			    !static_ua_sid_is_queued_for_peer_ll(sid) &&
+			    !static_peer_ll_confirmation_received(ifp)) {
+				DEBUGD(&static_dbg_srv6,
+				       "%s: Interface %s up, re-queuing SID %pFX for peer LL confirmation",
+				       __func__, ifp->name, &sid->addr);
+
+				static_queue_ua_sid_allocation_after_peer_ll(sid);
+			}
+		}
+	}
 
 	static_ifp_srv6_sids_update(ifp, true);
 
