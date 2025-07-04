@@ -2846,7 +2846,7 @@ extern bool bgp_path_attribute_treat_as_withdraw(struct peer *peer, char *buf,
 extern void srv6_function_free(struct bgp_srv6_function *func);
 
 bool bgp_srv6_locator_is_configured(struct bgp *bgp);
-struct srv6_locator *bgp_srv6_locator_lookup(struct bgp *bgp);
+struct srv6_locator *bgp_srv6_locator_lookup(struct bgp *bgp_vrf, struct bgp *bgp);
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 /* clang-format off */
