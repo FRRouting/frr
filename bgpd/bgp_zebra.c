@@ -3661,8 +3661,7 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 			XFREE(MTYPE_BGP_SRV6_SID,
 			      bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid);
 			if (bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator) {
-				srv6_locator_free(bgp->vpn_policy[AFI_IP6]
-							  .tovpn_sid_locator);
+				srv6_locator_free(bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator);
 				bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator =
 					NULL;
 			}
@@ -3676,8 +3675,7 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 			XFREE(MTYPE_BGP_SRV6_SID,
 			      bgp_vrf->vpn_policy[AFI_IP].tovpn_sid);
 			if (bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator) {
-				srv6_locator_free(bgp->vpn_policy[AFI_IP]
-							  .tovpn_sid_locator);
+				srv6_locator_free(bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator);
 				bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator =
 					NULL;
 			}
