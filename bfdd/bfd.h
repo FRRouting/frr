@@ -16,6 +16,7 @@
 
 #include "lib/hash.h"
 #include "lib/libfrr.h"
+#include "lib/frrstr.h"
 #include "lib/qobj.h"
 #include "lib/queue.h"
 #include "lib/vrf.h"
@@ -706,7 +707,7 @@ void bfd_session_apply(struct bfd_session *bs);
 /* BFD hash data structures interface */
 void bfd_initialize(void);
 void bfd_shutdown(void);
-void bfd_vrf_init(void);
+void bfd_vrf_init(void *context);
 void bfd_vrf_terminate(void);
 struct bfd_vrf_global *bfd_vrf_look_by_session(struct bfd_session *bfd);
 struct bfd_session *bfd_id_lookup(uint32_t id);
