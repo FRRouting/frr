@@ -10,6 +10,7 @@ for the multicast group we subscribed to.
 """
 
 import argparse
+import ctypes
 import json
 import ipaddress
 import os
@@ -89,6 +90,26 @@ def group_source_req(ifindex, group, source):
     return mreq + group_bytes + source_bytes + struct.pack("<4x")
 
 
+def group_source_req_32bit(ifindex, group, source):
+    "Packs the information into 'struct group_source_req' format."
+    mreq = struct.pack("<I", ifindex)
+    group_bytes = (
+        struct.pack("<HHI", socket.AF_INET6, 0, 0)
+        + group.packed
+        + struct.pack("<I", 0)
+    )
+    group_bytes += struct.pack(f"<{128 - len(group_bytes)}x")
+
+    source_bytes = (
+        struct.pack("<HHI", socket.AF_INET6, 0, 0)
+        + source.packed
+        + struct.pack("<I", 0)
+    )
+    source_bytes += struct.pack(f"<{128 - len(source_bytes)}x")
+
+    return mreq + group_bytes + source_bytes
+
+
 def multicast_join(sock, ifindex, group, port, source=None):
     "Joins a multicast group."
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -106,8 +127,10 @@ def multicast_join(sock, ifindex, group, port, source=None):
             mreq = group.packed + struct.pack("@I", ifindex)
             opt = socket.IPV6_JOIN_GROUP
         else:
-            mreq = group_source_req(ifindex, group, ipaddress.ip_address(source))
-            print(mreq)
+            if ctypes.sizeof(ctypes.c_voidp) == 4:
+                mreq = group_source_req_32bit(ifindex, group, ipaddress.ip_address(source))
+            else:
+                mreq = group_source_req(ifindex, group, ipaddress.ip_address(source))
             opt = 46
 
     sock.bind((str(group), port))
