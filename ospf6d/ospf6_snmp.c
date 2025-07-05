@@ -186,6 +186,16 @@
 #define IPADDRESS   ASN_IPADDRESS
 #define STRING      ASN_OCTET_STR
 
+/* OSPFv3 MIB Interface State Values */
+#define OSPF6_SNMP_MIB_INTERFACE_DOWN          1
+#define OSPF6_SNMP_MIB_INTERFACE_LOOPBACK      2
+#define OSPF6_SNMP_MIB_INTERFACE_WAITING       3
+#define OSPF6_SNMP_MIB_INTERFACE_POINTTOPOINT  4
+#define OSPF6_SNMP_MIB_INTERFACE_DR            5
+#define OSPF6_SNMP_MIB_INTERFACE_BDR           6
+#define OSPF6_SNMP_MIB_INTERFACE_DROTHER       7
+#define OSPF6_SNMP_MIB_INTERFACE_UNKNOWN       8
+
 /* For return values e.g. SNMP_INTEGER macro */
 SNMP_LOCAL_VARIABLES
 
@@ -1023,6 +1033,36 @@ static uint8_t *ospfv3WwLsdbEntry(struct variable *v, oid *name, size_t *length,
 	return NULL;
 }
 
+/*
+ * Map OSPFv3 internal interface states to OSPFv3 MIB state values
+ *
+ * This function converts the internal interface state values used by OSPFv3
+ * into the corresponding values defined in the OSPFv3 Management Information
+ * Base (MIB). The MIB defines specific states for interfaces, which are
+ * used by SNMP to monitor and manage OSPFv3 networks.
+ */
+static uint8_t ospf6_snmp_interface_state(uint8_t state)
+{
+	switch (state) {
+	case OSPF6_INTERFACE_DOWN:
+		return OSPF6_SNMP_MIB_INTERFACE_DOWN;
+	case OSPF6_INTERFACE_LOOPBACK:
+		return OSPF6_SNMP_MIB_INTERFACE_LOOPBACK;
+	case OSPF6_INTERFACE_WAITING:
+		return OSPF6_SNMP_MIB_INTERFACE_WAITING;
+	case OSPF6_INTERFACE_POINTTOPOINT:
+		return OSPF6_SNMP_MIB_INTERFACE_POINTTOPOINT;
+	case OSPF6_INTERFACE_DR:
+		return OSPF6_SNMP_MIB_INTERFACE_DR;
+	case OSPF6_INTERFACE_BDR:
+		return OSPF6_SNMP_MIB_INTERFACE_BDR;
+	case OSPF6_INTERFACE_DROTHER:
+		return OSPF6_SNMP_MIB_INTERFACE_DROTHER;
+	default:
+		return OSPF6_SNMP_MIB_INTERFACE_UNKNOWN;
+	}
+}
+
 static uint8_t *ospfv3IfEntry(struct variable *v, oid *name, size_t *length,
 			      int exact, size_t *var_len,
 			      WriteMethod **write_method)
@@ -1144,7 +1184,7 @@ static uint8_t *ospfv3IfEntry(struct variable *v, oid *name, size_t *length,
 		/* No support for NBMA */
 		break;
 	case OSPFv3IFSTATE:
-		return SNMP_INTEGER(oi->state);
+		return SNMP_INTEGER(ospf6_snmp_interface_state(oi->state));
 	case OSPFv3IFDESIGNATEDROUTER:
 		return SNMP_INTEGER(ntohl(oi->drouter));
 	case OSPFv3IFBACKUPDESIGNATEDROUTER:
