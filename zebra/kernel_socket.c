@@ -1346,7 +1346,7 @@ static void kernel_read(struct event *thread)
 			 *  There is no good way to
 			 *  recover zebra at this point.
 			 */
-			exit(-1);
+			frr_exit_with_buffer_flush(-1);
 #endif
 		}
 		if (errno != EAGAIN && errno != EWOULDBLOCK)

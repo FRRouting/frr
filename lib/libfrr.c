@@ -1498,3 +1498,10 @@ bool frr_is_daemon(void)
 
 	return false;
 }
+
+FRR_NORETURN void frr_exit_with_buffer_flush(int status)
+{
+	zlog_tls_buffer_flush();
+	exit(status);
+}
+
