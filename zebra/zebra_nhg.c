@@ -1088,7 +1088,7 @@ static void zebra_nhg_set_valid(struct nhg_hash_entry *nhe, bool valid)
 			struct nexthop *nexthop = rb_node_dep->nhe->nhg.nexthop;
 
 			while (nexthop) {
-				if (nexthop_same(nexthop, nhe->nhg.nexthop)) {
+				if (nexthop_same_no_weight(nexthop, nhe->nhg.nexthop)) {
 					/* Invalid Nexthop */
 					UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 				} else {
@@ -4116,8 +4116,7 @@ void zebra_interface_nhg_reinstall(struct interface *ifp)
 				struct nexthop *nhop_dependent =
 					rb_node_dependent->nhe->nhg.nexthop;
 
-				while (nhop_dependent &&
-				       !nexthop_same(nhop_dependent, nh))
+				while (nhop_dependent && !nexthop_same_no_weight(nhop_dependent, nh))
 					nhop_dependent = nhop_dependent->next;
 
 				if (nhop_dependent)
