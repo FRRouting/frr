@@ -1799,6 +1799,7 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 		memset(&info, 0, sizeof(info));
 		info.peer = to_bgp->peer_self;
 		info.attr = &static_attr;
+		info.type = path_vrf->type;
 		ret = route_map_apply(from_bgp->vpn_policy[afi]
 					      .rmap[BGP_VPN_POLICY_DIR_TOVPN],
 				      p, &info);
@@ -2477,6 +2478,7 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	/* to */
 		info.peer = to_bgp->peer_self;
 		info.attr = &static_attr;
 		info.extra = path_vpn->extra; /* Used for source-vrf filter */
+		info.type = path_vpn->type;
 		ret = route_map_apply(to_bgp->vpn_policy[afi]
 					      .rmap[BGP_VPN_POLICY_DIR_FROMVPN],
 				      p, &info);
