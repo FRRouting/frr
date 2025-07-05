@@ -1577,18 +1577,14 @@ int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 static struct bgp_path_info *bgp_evpn_route_get_local_path(
 		struct bgp *bgp, struct bgp_dest *dest)
 {
-	struct bgp_path_info *tmp_pi;
-	struct bgp_path_info *local_pi = NULL;
+	struct bgp_path_info *pi = NULL;
 
-	for (tmp_pi = bgp_dest_get_bgp_path_info(dest); tmp_pi;
-			tmp_pi = tmp_pi->next) {
-		if (bgp_evpn_is_path_local(bgp, tmp_pi)) {
-			local_pi = tmp_pi;
-			break;
-		}
+	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+		if (bgp_evpn_is_path_local(bgp, pi))
+			return pi;
 	}
 
-	return local_pi;
+	return NULL;
 }
 
 static int update_evpn_type5_route_entry(struct bgp *bgp_evpn,
@@ -1954,6 +1950,29 @@ static void update_evpn_route_entry_sync_info(struct bgp *bgp,
 }
 
 /*
+ * Check if the route is a type-2 MAC-IP route with a valid global address
+ * (IPv4 or non-link-local IPv6) and the VPN has a valid L3 VNI configured.
+ */
+static inline bool bgp_evpn_is_macip_with_l3vni(struct bgpevpn *vpn, const struct prefix_evpn *p)
+{
+	return p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE &&
+	       (is_evpn_prefix_ipaddr_v4(p) ||
+		(is_evpn_prefix_ipaddr_v6(p) &&
+		 !IN6_IS_ADDR_LINKLOCAL(&p->prefix.macip_addr.ip.ipaddr_v6))) &&
+	       CHECK_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS) && bgpevpn_get_l3vni(vpn);
+}
+
+/*
+ * While adding l3-attrs such as rmac and l3 RTs we need an added check for ES
+ * as well along with checking for mac-ip with l3vni.
+ */
+static inline bool bgp_evpn_route_add_l3_attrs_ok(struct bgpevpn *vpn, const struct prefix_evpn *p,
+						  esi_t *esi)
+{
+	return bgp_evpn_is_macip_with_l3vni(vpn, p) && bgp_evpn_es_add_l3_attrs_ok(esi);
+}
+
+/*
  * Create or update EVPN route entry. This could be in the VNI route tables
  * or the global route table.
  */
@@ -2021,8 +2040,7 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 		 * Only attach second label if we are advertising two labels for
 		 * type-2 routes.
 		 */
-		if (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE
-		    && CHECK_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS)) {
+		if (bgp_evpn_is_macip_with_l3vni(vpn, evp)) {
 			vni_t l3vni;
 
 			l3vni = bgpevpn_get_l3vni(vpn);
@@ -2061,9 +2079,7 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 			 */
 			vni2label(vpn->vni, &bgp_labels.label[0]);
 			bgp_labels.num_labels = 1;
-			if (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE
-			    && CHECK_FLAG(vpn->flags,
-					  VNI_FLAG_USE_TWO_LABELS)) {
+			if (bgp_evpn_is_macip_with_l3vni(vpn, evp)) {
 				vni_t l3vni;
 
 				l3vni = bgpevpn_get_l3vni(vpn);
@@ -2186,19 +2202,6 @@ evpn_cleanup_local_non_best_route(struct bgp *bgp, struct bgpevpn *vpn,
 	return bgp_path_info_reap(dest, local_pi);
 }
 
-static inline bool bgp_evpn_route_add_l3_ecomm_ok(struct bgpevpn *vpn,
-						  const struct prefix_evpn *p,
-						  esi_t *esi)
-{
-	return p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE
-	       && (is_evpn_prefix_ipaddr_v4(p)
-		   || (is_evpn_prefix_ipaddr_v6(p)
-		       && !IN6_IS_ADDR_LINKLOCAL(
-			       &p->prefix.macip_addr.ip.ipaddr_v6)))
-	       && CHECK_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS)
-	       && bgpevpn_get_l3vni(vpn) && bgp_evpn_es_add_l3_ecomm_ok(esi);
-}
-
 /*
  * Create or update EVPN route (of type based on prefix) for specified VNI
  * and schedule for processing.
@@ -2210,7 +2213,7 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	struct bgp_dest *dest;
 	struct attr attr;
 	struct attr *attr_new;
-	int add_l3_ecomm = 0;
+	bool add_l3_attrs = false;
 	struct bgp_path_info *pi;
 	afi_t afi = AFI_L2VPN;
 	safi_t safi = SAFI_EVPN;
@@ -2270,22 +2273,20 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 
 	vni2label(vpn->vni, &(attr.label));
 
-	/* Include L3 VNI related RTs and RMAC for type-2 routes, if they're
-	 * IPv4 or IPv6 global addresses and we're advertising L3VNI with
-	 * these routes.
+	/* Include L3 VNI related attributes (RTs, RMAC and MPLS Label2)
+	 * for type-2 routes, if they're IPv4 or IPv6 global addresses and
+	 * we're advertising L3VNI with these routes.
 	 */
-	add_l3_ecomm =
-		bgp_evpn_route_add_l3_ecomm_ok(vpn, p,
-					       CHECK_FLAG(attr.es_flags,
-							  ATTR_ES_IS_LOCAL)
-						       ? &attr.esi
-						       : NULL);
+	add_l3_attrs = bgp_evpn_route_add_l3_attrs_ok(vpn, p,
+						      CHECK_FLAG(attr.es_flags, ATTR_ES_IS_LOCAL)
+							      ? &attr.esi
+							      : NULL);
 
 	if (bgp->evpn_info)
 		macvrf_soo = bgp->evpn_info->soo;
 
 	/* Set up extended community. */
-	build_evpn_route_extcomm(vpn, &attr, add_l3_ecomm, macvrf_soo);
+	build_evpn_route_extcomm(vpn, &attr, add_l3_attrs, macvrf_soo);
 
 	/* First, create (or fetch) route node within the VNI.
 	 * NOTE: There is no RD here.
@@ -2389,17 +2390,14 @@ void delete_evpn_route_entry(struct bgp *bgp, afi_t afi, safi_t safi,
 				    struct bgp_dest *dest,
 				    struct bgp_path_info **pi)
 {
-	struct bgp_path_info *tmp_pi;
+	struct bgp_path_info *tmp_pi = NULL;
 
 	*pi = NULL;
 
 	/* Now, find matching route. */
-	for (tmp_pi = bgp_dest_get_bgp_path_info(dest); tmp_pi;
-	     tmp_pi = tmp_pi->next)
-		if (tmp_pi->peer == bgp->peer_self
-		    && tmp_pi->type == ZEBRA_ROUTE_BGP
-		    && tmp_pi->sub_type == BGP_ROUTE_STATIC)
-			break;
+	tmp_pi = bgp_evpn_route_get_local_path(bgp, dest);
+	if (!tmp_pi)
+		return;
 
 	*pi = tmp_pi;
 
@@ -2501,7 +2499,7 @@ void bgp_evpn_update_type2_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 	struct attr attr;
 	struct attr *attr_new;
 	uint32_t seq;
-	int add_l3_ecomm = 0;
+	bool add_l3_attrs = false;
 	struct bgp_dest *global_dest;
 	struct bgp_path_info *global_pi;
 	struct prefix_evpn evp;
@@ -2551,18 +2549,16 @@ void bgp_evpn_update_type2_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 	/* Add L3 VNI RTs and RMAC for non IPv6 link-local if
 	 * using L3 VNI for type-2 routes also.
 	 */
-	add_l3_ecomm =
-		bgp_evpn_route_add_l3_ecomm_ok(vpn, &evp,
-					       CHECK_FLAG(attr.es_flags,
-							  ATTR_ES_IS_LOCAL)
-						       ? &attr.esi
-						       : NULL);
+	add_l3_attrs = bgp_evpn_route_add_l3_attrs_ok(vpn, &evp,
+						      CHECK_FLAG(attr.es_flags, ATTR_ES_IS_LOCAL)
+							      ? &attr.esi
+							      : NULL);
 
 	if (bgp->evpn_info)
 		macvrf_soo = bgp->evpn_info->soo;
 
 	/* Set up extended community. */
-	build_evpn_route_extcomm(vpn, &attr, add_l3_ecomm, macvrf_soo);
+	build_evpn_route_extcomm(vpn, &attr, add_l3_attrs, macvrf_soo);
 	seq = mac_mobility_seqnum(local_pi->attr);
 
 	if (bgp_debug_zebra(NULL)) {
@@ -2664,14 +2660,7 @@ static void update_type2_route(struct bgp *bgp, struct bgpevpn *vpn,
 		return;
 
 	/* Identify local route. */
-	for (tmp_pi = bgp_dest_get_bgp_path_info(dest); tmp_pi;
-	     tmp_pi = tmp_pi->next) {
-		if (tmp_pi->peer == bgp->peer_self &&
-		    tmp_pi->type == ZEBRA_ROUTE_BGP &&
-		    tmp_pi->sub_type == BGP_ROUTE_STATIC)
-			break;
-	}
-
+	tmp_pi = bgp_evpn_route_get_local_path(bgp, dest);
 	if (!tmp_pi)
 		return;
 
@@ -4653,10 +4642,7 @@ static void update_advertise_vni_route(struct bgp *bgp, struct bgpevpn *vpn,
 	    evp->prefix.route_type != BGP_EVPN_AD_ROUTE)
 		return;
 
-	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
-		if (pi->peer == bgp->peer_self && pi->type == ZEBRA_ROUTE_BGP &&
-		    pi->sub_type == BGP_ROUTE_STATIC)
-			break;
+	pi = bgp_evpn_route_get_local_path(bgp, dest);
 	if (!pi)
 		return;
 
@@ -4711,7 +4697,7 @@ static void update_advertise_vni_route(struct bgp *bgp, struct bgpevpn *vpn,
 }
 
 /*
- * Update and advertise local routes for a VNI. Invoked upon router-id
+ * Update and advertise local routes for a VNI. Invoked upon router-id/RD
  * change. Note that the processing is done only on the global route table
  * using routes that already exist in the per-VNI table.
  */
@@ -4736,11 +4722,7 @@ static void update_advertise_vni_routes(struct bgp *bgp, struct bgpevpn *vpn)
 		dest = bgp_evpn_vni_node_lookup(vpn, &p, NULL);
 		if (!dest) /* unexpected */
 			return;
-		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
-			if (pi->peer == bgp->peer_self &&
-			    pi->type == ZEBRA_ROUTE_BGP
-			    && pi->sub_type == BGP_ROUTE_STATIC)
-				break;
+		pi = bgp_evpn_route_get_local_path(bgp, dest);
 		if (!pi) {
 			bgp_dest_unlock_node(dest);
 			return;
