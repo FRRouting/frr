@@ -8038,6 +8038,7 @@ static int ospf_vty_dead_interval_set(struct vty *vty, const char *interval_str,
 	struct ospf_if_params *params;
 	struct ospf_interface *oi;
 	struct route_node *rn;
+	int time_remaining;
 
 	params = IF_DEF_PARAMS(ifp);
 
@@ -8091,6 +8092,38 @@ static int ospf_vty_dead_interval_set(struct vty *vty, const char *interval_str,
 				ospf_nbr_timer_update(oi);
 	}
 
+	/*Update wait timer.*/
+	if (nbr_str) {
+		struct ospf *ospf = NULL;
+		ospf = ifp->vrf->info;
+		if (ospf) {
+			oi = ospf_if_lookup_by_local_addr(ospf, ifp, addr);
+			if (oi) {
+				time_remaining = seconds - event_timer_remain_second(oi->t_wait);
+				EVENT_OFF(oi->t_wait);
+				if (time_remaining > 0)
+					OSPF_ISM_TIMER_ON(oi->t_wait, ospf_wait_timer,
+							  time_remaining);
+				else
+					ospf_wait_timer(oi->t_wait);
+			}
+		}
+	} else {
+		for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+			oi = rn->info;
+			if (oi) {
+				time_remaining = seconds - event_timer_remain_second(oi->t_wait);
+				EVENT_OFF(oi->t_wait);
+				if (time_remaining > 0)
+					OSPF_ISM_TIMER_ON(oi->t_wait, ospf_wait_timer,
+							  time_remaining);
+				else
+					ospf_wait_timer(oi->t_wait);
+			}
+		}
+	}
+
+
 	if (params->fast_hello != OSPF_FAST_HELLO_DEFAULT)
 		ospf_reset_hello_timer(ifp, addr, false);
 	return CMD_SUCCESS;
@@ -8139,6 +8172,7 @@ DEFUN (ip_ospf_dead_interval_minimal,
 {
 	int idx_number = 5;
 	int idx_ipv4 = 6;
+
 	if (argc == 7)
 		return ospf_vty_dead_interval_set(
 			vty, NULL, argv[idx_ipv4]->arg, argv[idx_number]->arg);
