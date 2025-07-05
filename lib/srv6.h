@@ -10,6 +10,7 @@
 #include <zebra.h>
 #include "prefix.h"
 #include "json.h"
+#include "vrf.h"
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -496,7 +497,8 @@ static inline const char *srv6_sid_ctx2str(char *str, size_t size,
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DT6:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DT4:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DT46:
-		snprintf(str + len, size - len, " vrf_id %u", ctx->vrf_id);
+		snprintf(str + len, size - len, " vrf_id %u (%s)", ctx->vrf_id,
+			 vrf_id_to_name(ctx->vrf_id));
 		break;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:

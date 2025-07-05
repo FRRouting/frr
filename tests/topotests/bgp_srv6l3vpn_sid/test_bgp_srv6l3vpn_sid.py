@@ -432,6 +432,52 @@ def test_sid_per_vrf_manual():
     check_ping("ce1", "192.168.2.2", False, 10, 0.5)
 
 
+def test_sid_suppress_locator_vrf20():
+    check_rib("r2", "show ipv6 route vrf vrf20 json", "r2/vrf20_rib.json")
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1 vrf vrf20
+          no segment-routing srv6
+        """
+    )
+    # 2001:5::/64 should not be present
+    check_rib("r2", "show ipv6 route vrf vrf20 json", "r2/vrf20_rib_one_locator.json")
+
+
+def test_sid_suppress_locator_vrf_default():
+    """
+    Test that no IPv6 vpn prefixes can be advertised to R2 except for 2001::5
+    """
+    check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_2.json")
+    check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_2.json")
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1
+          no segment-routing srv6
+        """
+    )
+    check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_unselected.json")
+    check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_unselected.json")
+
+
+def test_sid_add_locator_vrf_10():
+    """
+    Test that no IPv6 vpn prefixes can be advertised to R2
+    """
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1 vrf vrf10
+          segment-routing srv6
+           locator loc2
+        """
+    )
+    # 2001:1::/64 and 2001:3::/64 should be present
+    check_rib("r2", "show ipv6 route vrf vrf10 json", "r2/vrf10_rib_one_locator.json")
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

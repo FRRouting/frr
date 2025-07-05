@@ -1,36 +1,15 @@
 {
-  "2001:4::\/64":[
+  "2001:1::\/64":[
     {
-      "prefix":"2001:4::\/64",
-      "protocol":"connected",
-      "vrfName":"vrf20",
-      "selected":true,
-      "destSelected":true,
-      "distance":0,
-      "metric":0,
-      "installed":true,
-      "table":20,
-      "nexthops":[
-        {
-          "flags":3,
-          "fib":true,
-          "directlyConnected":true,
-          "active":true
-        }
-      ]
-    }
-  ],
-  "2001:5::\/64":[
-    {
-      "prefix":"2001:5::\/64",
+      "prefix":"2001:1::\/64",
       "protocol":"bgp",
-      "vrfName":"vrf20",
+      "vrfName":"vrf10",
       "selected":true,
       "destSelected":true,
       "distance":20,
       "metric":0,
       "installed":true,
-      "table":20,
+      "table":10,
       "nexthops":[
         {
           "flags":3,
@@ -39,36 +18,68 @@
           "vrf":"default",
           "active":true,
           "labels":[
-            16
+            32
           ],
           "weight":1,
           "seg6local":{
             "action":"unspec"
           },
           "seg6":{
-            "segs":"2002:db8:1:1:1::"
+            "segs":"2002:db8:1:1:2::"
           }
         }
       ]
     }
   ],
-  "2001:6::\/64":[
+  "2001:2::\/64":[
     {
-      "prefix":"2001:6::\/64",
+      "prefix":"2001:2::\/64",
       "protocol":"connected",
-      "vrfName":"vrf20",
+      "vrfName":"vrf10",
       "selected":true,
       "destSelected":true,
       "distance":0,
       "metric":0,
       "installed":true,
-      "table":20,
+      "table":10,
       "nexthops":[
         {
           "flags":3,
           "fib":true,
           "directlyConnected":true,
           "active":true
+        }
+      ]
+    }
+  ],
+  "2001:3::\/64":[
+    {
+      "prefix":"2001:3::\/64",
+      "protocol":"bgp",
+      "vrfName":"vrf10",
+      "selected":true,
+      "destSelected":true,
+      "distance":20,
+      "metric":0,
+      "installed":true,
+      "table":10,
+      "nexthops":[
+        {
+          "flags":3,
+          "fib":true,
+          "afi":"ipv6",
+          "vrf":"default",
+          "active":true,
+          "labels":[
+            32
+          ],
+          "weight":1,
+          "seg6local":{
+            "action":"unspec"
+          },
+          "seg6":{
+            "segs":"2002:db8:1:1:2::"
+          }
         }
       ]
     }
@@ -77,28 +88,11 @@
     {
       "prefix":"fe80::\/64",
       "protocol":"connected",
-      "vrfName":"vrf20",
+      "vrfName":"vrf10",
       "distance":0,
       "metric":0,
       "installed":true,
-      "table":20,
-      "nexthops":[
-        {
-          "flags":3,
-          "fib":true,
-          "directlyConnected":true,
-          "active":true
-        }
-      ]
-    },
-    {
-      "prefix":"fe80::\/64",
-      "protocol":"connected",
-      "vrfName":"vrf20",
-      "distance":0,
-      "metric":0,
-      "installed":true,
-      "table":20,
+      "table":10,
       "nexthops":[
         {
           "flags":3,
