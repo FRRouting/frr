@@ -343,7 +343,7 @@ void zebra_l2_vxlanif_add_update(struct interface *ifp,
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.old_vtep_ip = zif->l2info.vxl.vtep_ip;
 
-	if (!IPV4_ADDR_SAME(&ctx.old_vtep_ip, &vxlan_info->vtep_ip)) {
+	if (!ipaddr_is_same(&ctx.old_vtep_ip, &vxlan_info->vtep_ip)) {
 		SET_FLAG(chgflags, ZEBRA_VXLIF_LOCAL_IP_CHANGE);
 		zif->l2info.vxl.vtep_ip = vxlan_info->vtep_ip;
 	}
