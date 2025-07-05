@@ -15,6 +15,7 @@
 #include "stream.h"
 #include "log.h"
 #include "sockopt.h"
+#include "mgmt_be_client.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -2112,4 +2113,7 @@ void ospf_debug_init(void)
 	install_element(CONFIG_NODE, &no_debug_ospf_instance_event_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_instance_nssa_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_cmd);
+
+	/* Init mgmtd backend client debug commands. */
+	mgmt_be_client_lib_vty_init();
 }
