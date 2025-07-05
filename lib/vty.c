@@ -346,17 +346,8 @@ int vty_out(struct vty *vty, const char *format, ...)
 	case VTY_SHELL_SERV:
 	case VTY_FILE:
 	default:
-		vty->vty_buf_size_accumulated += strlen(filtered);
 		/* print without crlf replacement */
 		buffer_put(vty->obuf, (uint8_t *)filtered, strlen(filtered));
-		/* For every chunk of memory, we invoke vtysh_flush where we
-		 * put the data of collective vty->obuf Linked List items on the
-		 * socket and free the vty->obuf data.
-		 */
-		if (vty->vty_buf_size_accumulated >= vty->buf_size_intermediate) {
-			vty->vty_buf_size_accumulated = 0;
-			vtysh_flush(vty);
-		}
 		break;
 	}
 
@@ -2174,13 +2165,6 @@ static void vtysh_accept(struct event *thread)
 #endif /* VTYSH_DEBUG */
 
 	vty = vty_new();
-
-	vty->buf_size_set = ret;
-	if (vty->buf_size_set < VTY_MAX_INTERMEDIATE_FLUSH)
-		vty->buf_size_intermediate = vty->buf_size_set / 2;
-	else
-		vty->buf_size_intermediate = VTY_MAX_INTERMEDIATE_FLUSH;
-
 	vty->fd = sock;
 	vty->wfd = sock;
 	vty->type = VTY_SHELL_SERV;
@@ -2260,7 +2244,6 @@ static int vtysh_flush(struct vty *vty)
 		vty_close(vty);
 		return -1;
 	case BUFFER_EMPTY:
-		vty->vty_buf_size_accumulated = 0;
 		break;
 	}
 	return 0;
