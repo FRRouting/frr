@@ -2367,7 +2367,7 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 			flog_err(EC_LIB_DEVELOPMENT,
 				 "%s: unknown address-family: %u", __func__,
 				 afi);
-			exit(1);
+			frr_exit_with_buffer_flush(1);
 		}
 
 		policy = zebra_sr_policy_find(nexthop->srte_color, &endpoint);

@@ -940,7 +940,7 @@ static int netlink_recv_msg(struct nlsock *nl, struct msghdr *msg)
 		 * In this case we are screwed. There is no good way to recover
 		 * zebra at this point.
 		 */
-		exit(-1);
+		frr_exit_with_buffer_flush(-1);
 	}
 
 	if (status == 0) {
@@ -1794,7 +1794,7 @@ void kernel_init(struct zebra_ns *zns)
 			   NETLINK_ROUTE) < 0) {
 		zlog_err("Failure to create %s socket",
 			 zns->netlink.name);
-		exit(-1);
+		frr_exit_with_buffer_flush(-1);
 	}
 
 	kernel_netlink_nlsock_insert(&zns->netlink);
@@ -1806,7 +1806,7 @@ void kernel_init(struct zebra_ns *zns)
 			   NETLINK_ROUTE) < 0) {
 		zlog_err("Failure to create %s socket",
 			 zns->netlink_cmd.name);
-		exit(-1);
+		frr_exit_with_buffer_flush(-1);
 	}
 
 	kernel_netlink_nlsock_insert(&zns->netlink_cmd);
@@ -1820,7 +1820,7 @@ void kernel_init(struct zebra_ns *zns)
 			   NETLINK_ROUTE) < 0) {
 		zlog_err("Failure to create %s socket",
 			 zns->netlink_dplane_out.name);
-		exit(-1);
+		frr_exit_with_buffer_flush(-1);
 	}
 
 	kernel_netlink_nlsock_insert(&zns->netlink_dplane_out);
@@ -1834,7 +1834,7 @@ void kernel_init(struct zebra_ns *zns)
 			   zns->ns_id, NETLINK_ROUTE) < 0) {
 		zlog_err("Failure to create %s socket",
 			 zns->netlink_dplane_in.name);
-		exit(-1);
+		frr_exit_with_buffer_flush(-1);
 	}
 
 	kernel_netlink_nlsock_insert(&zns->netlink_dplane_in);

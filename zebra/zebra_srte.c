@@ -129,7 +129,7 @@ static int zebra_sr_policy_notify_update_client(struct zebra_sr_policy *policy,
 		flog_warn(EC_LIB_DEVELOPMENT,
 			  "%s: unknown policy endpoint address family: %u",
 			  __func__, policy->endpoint.ipa_type);
-		exit(1);
+		frr_exit_with_buffer_flush(1);
 	}
 	stream_putl(s, policy->color);
 
@@ -191,7 +191,7 @@ static void zebra_sr_policy_notify_update(struct zebra_sr_policy *policy)
 		flog_warn(EC_LIB_DEVELOPMENT,
 			  "%s: unknown policy endpoint address family: %u",
 			  __func__, policy->endpoint.ipa_type);
-		exit(1);
+		frr_exit_with_buffer_flush(1);
 	}
 
 	rnh = zebra_lookup_rnh(&p, zvrf_id(zvrf), SAFI_UNICAST);
