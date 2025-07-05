@@ -2340,6 +2340,58 @@ static void bfd_profile_detach(struct bfd_profile *bp)
 	hash_iterate(bfd_key_hash, _bfd_profile_detach, bp);
 }
 
+/* Permited vrfs data / related functions. */
+struct perm_vrfs_data {
+	char **vrf_list;
+	int count;
+};
+
+struct perm_vrfs_data perm_vrfs = {
+	.vrf_list = NULL,
+	.count = 0,
+};
+
+static void create_perm_vrfs_list(void *context)
+{
+	if (!context) {
+		return;
+	}
+
+	const char *perm_vrfs_str = (const char *)context;
+	const char *delim = ",";
+
+	frrstr_split(perm_vrfs_str, delim, &perm_vrfs.vrf_list, &perm_vrfs.count);
+}
+
+static void cleanup_perm_vrf_list(void)
+{
+	if (!perm_vrfs.count) {
+		return;
+	}
+
+	for (int i = 0; i < perm_vrfs.count; i++) {
+		free(perm_vrfs.vrf_list[i]);
+	}
+
+	free(perm_vrfs.vrf_list);
+}
+
+
+static bool is_vrf_permitted(const char *vrf_name)
+{
+	if (!perm_vrfs.count) {
+		return true;
+	}
+
+	for (int i = 0; i < perm_vrfs.count; i++) {
+		if (strcmp(perm_vrfs.vrf_list[i], vrf_name) == 0) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 /*
  * VRF related functions.
  */
@@ -2386,6 +2438,10 @@ static int bfd_vrf_enable(struct vrf *vrf)
 	/* Don't open sockets when using data plane */
 	if (bglobal.bg_use_dplane)
 		goto skip_sockets;
+
+	if (!is_vrf_permitted(vrf->name)) {
+		return 0;
+	}
 
 	if (bvrf->bg_shop == -1)
 		bvrf->bg_shop = bp_udp_shop(vrf);
@@ -2462,13 +2518,15 @@ static int bfd_vrf_disable(struct vrf *vrf)
 	return 0;
 }
 
-void bfd_vrf_init(void)
+void bfd_vrf_init(void *context)
 {
+	create_perm_vrfs_list(context);
 	vrf_init(bfd_vrf_new, bfd_vrf_enable, bfd_vrf_disable, bfd_vrf_delete);
 }
 
 void bfd_vrf_terminate(void)
 {
+	cleanup_perm_vrf_list();
 	vrf_terminate();
 }
 
