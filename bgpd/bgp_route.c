@@ -10264,7 +10264,7 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 
 			len = wide ? (41 - len) : (16 - len);
 			if (len < 1)
-				vty_out(vty, "\n%*s", 36, " ");
+				vty_out(vty, "\n%*s", 38, " ");
 			else
 				vty_out(vty, "%*s", len, " ");
 		}
@@ -10297,7 +10297,7 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 
 			len = wide ? (41 - len) : (16 - len);
 			if (len < 1)
-				vty_out(vty, "\n%*s", 36, " ");
+				vty_out(vty, "\n%*s", 38, " ");
 			else
 				vty_out(vty, "%*s", len, " ");
 		}
@@ -10333,7 +10333,7 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 
 				len = wide ? (41 - len) : (16 - len);
 				if (len < 1)
-					vty_out(vty, "\n%*s", 36, " ");
+					vty_out(vty, "\n%*s", 38, " ");
 				else
 					vty_out(vty, "%*s", len, " ");
 			}
@@ -10364,7 +10364,7 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 
 			len = wide ? (41 - len) : (16 - len);
 			if (len < 1)
-				vty_out(vty, "\n%*s", 36, " ");
+				vty_out(vty, "\n%*s", 38, " ");
 			else
 				vty_out(vty, "%*s", len, " ");
 		}
@@ -10447,7 +10447,7 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 					len = wide ? (41 - len) : (16 - len);
 
 					if (len < 1)
-						vty_out(vty, "\n%*s", 36, " ");
+						vty_out(vty, "\n%*s", 38, " ");
 					else
 						vty_out(vty, "%*s", len, " ");
 				} else {
@@ -10466,7 +10466,7 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 					len = wide ? (41 - len) : (16 - len);
 
 					if (len < 1)
-						vty_out(vty, "\n%*s", 36, " ");
+						vty_out(vty, "\n%*s", 38, " ");
 					else
 						vty_out(vty, "%*s", len, " ");
 				}
@@ -10484,7 +10484,7 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 				len = wide ? (41 - len) : (16 - len);
 
 				if (len < 1)
-					vty_out(vty, "\n%*s", 36, " ");
+					vty_out(vty, "\n%*s", 38, " ");
 				else
 					vty_out(vty, "%*s", len, " ");
 			}
@@ -10720,7 +10720,7 @@ void route_vty_out_tmp(struct vty *vty, struct bgp *bgp, struct bgp_dest *dest,
 					      &attr->mp_nexthop_global);
 				len = wide ? (41 - len) : (16 - len);
 				if (len < 1)
-					vty_out(vty, "\n%*s", 36, " ");
+					vty_out(vty, "\n%*s", 38, " ");
 				else
 					vty_out(vty, "%*s", len, " ");
 			}
