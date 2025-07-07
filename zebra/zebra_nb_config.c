@@ -27,6 +27,7 @@
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_ptm.h"
 #include "zebra/router-id.h"
+#include "zebra/zebra_neigh.h"
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/table_manager.h"
@@ -2561,6 +2562,41 @@ int lib_interface_zebra_evpn_mh_uplink_modify(struct nb_cb_modify_args *args)
 	uplink = yang_dnode_get_bool(args->dnode, NULL);
 	zebra_evpn_mh_uplink_cfg_update(ifp->info, uplink);
 
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/host-routes
+ */
+int lib_interface_zebra_host_routes_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct zebra_if *zif;
+	bool curr_p, set_p;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	zif = ifp->info;
+
+	set_p = yang_dnode_get_bool(args->dnode, NULL);
+
+	curr_p = false;
+	if (CHECK_FLAG(zif->flags, ZIF_FLAG_HOST_ROUTES))
+		curr_p = true;
+
+	if (set_p == curr_p)
+		goto done;
+
+	if (set_p)
+		SET_FLAG(zif->flags, ZIF_FLAG_HOST_ROUTES);
+	else
+		UNSET_FLAG(zif->flags, ZIF_FLAG_HOST_ROUTES);
+
+	zebra_neigh_enable_host_routes(ifp, set_p);
+
+done:
 	return NB_OK;
 }
 

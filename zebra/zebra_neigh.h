@@ -62,4 +62,8 @@ extern void zebra_neigh_deref(struct zebra_pbr_rule *rule);
 extern void zebra_neigh_ref(ns_id_t ns_id, int ifindex, struct ipaddr *ip,
 			    struct zebra_pbr_rule *rule);
 void zebra_neigh_dplane_update(struct zebra_dplane_ctx *ctx);
+
+/* Change to host-routes config on an interface */
+void zebra_neigh_enable_host_routes(const struct interface *ifp, bool enable);
+
 #endif /* _ZEBRA_NEIGH_H */

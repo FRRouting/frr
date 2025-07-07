@@ -346,6 +346,52 @@ void zebra_neigh_ref(ns_id_t ns_id, int ifindex, struct ipaddr *ip, struct zebra
 	listnode_add(n->pbr_rule_list, &rule->action.neigh_listnode);
 }
 
+/*
+ * Change to host-routes config on an interface
+ */
+void zebra_neigh_enable_host_routes(const struct interface *ifp, bool enable)
+{
+	struct zebra_neigh_ent *n, tmp = {};
+	struct zebra_ns *zns = zebra_ns_lookup(ifp->vrf->vrf_id);
+	int ret;
+
+	/* Locate any neighbor entries for 'ifp'; manage host-routes
+	 * if needed.
+	 */
+
+	tmp.ns_id = zns->ns_id;
+	tmp.ifindex = ifp->ifindex;
+
+	n = RB_NFIND(zebra_neigh_rb_head, &zneigh_info->neigh_rb_tree, &tmp);
+	if (n == NULL)
+		goto done;
+
+	/* Iterate */
+	while (n != NULL) {
+		if (n->ns_id != zns->ns_id || n->ifindex != ifp->ifindex) {
+			/* No more matches */
+			break;
+		}
+
+		if (enable) {
+			if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_ENT_ACTIVE) &&
+			    !CHECK_FLAG(n->flags, ZEBRA_NEIGH_ENT_ROUTE)) {
+				ret = rib_add_host_route(&(n->ip), ifp, 0 /*flags*/);
+				if (ret >= 0)
+					SET_FLAG(n->flags, ZEBRA_NEIGH_ENT_ROUTE);
+			}
+		} else if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_ENT_ROUTE)) {
+			rib_del_host_route(&(n->ip), ifp, 0);
+			UNSET_FLAG(n->flags, ZEBRA_NEIGH_ENT_ROUTE);
+		}
+
+		n = RB_NEXT(zebra_neigh_rb_head, n);
+	}
+
+done:
+	return;
+}
+
 static void zebra_neigh_show_one(struct vty *vty, const struct zebra_neigh_ent *n,
 				 json_object *json_neigh)
 {

@@ -603,6 +603,11 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/host-routes",
+			.cbs.modify = lib_interface_zebra_host_routes_modify,
+		},
+
+		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/send-advertisements",
 			.cbs = {
 				.modify = lib_interface_zebra_ipv6_router_advertisements_send_advertisements_modify,

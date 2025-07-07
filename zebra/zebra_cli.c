@@ -1421,6 +1421,36 @@ static void lib_interface_zebra_evpn_mh_uplink_cli_write(
 		vty_out(vty, " no evpn mh uplink\n");
 }
 
+DEFPY_YANG (zif_host_routes,
+	    zif_host_routes_cmd,
+	    "[no] host-routes-enable",
+	    NO_STR
+	    "Manage host routes for local neighbors\n")
+{
+	if (!no)
+		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/host-routes",
+				      NB_OP_MODIFY, "true");
+	else
+		nb_cli_enqueue_change(vty, "./frr-zebra:zebra/host-routes",
+				      NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+static void lib_interface_zebra_host_routes_cli_write(
+	struct vty *vty,
+	const struct lyd_node *dnode,
+	bool show_defaults)
+{
+	bool set_p;
+
+	set_p = yang_dnode_get_bool(dnode, NULL);
+
+	if (set_p)
+		vty_out(vty, " host-routes-enable\n");
+	else if (show_defaults)
+		vty_out(vty, " no host-routes-enable\n");
+}
+
 DEFPY_YANG (ipv6_nd_ra_fast_retrans,
 	ipv6_nd_ra_fast_retrans_cmd,
 	"[no] ipv6 nd ra-fast-retrans",
@@ -3169,6 +3199,10 @@ const struct frr_yang_module_info frr_zebra_cli_info = {
 			.cbs.cli_show = lib_interface_zebra_evpn_mh_uplink_cli_write,
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/host-routes",
+			.cbs.cli_show = lib_interface_zebra_host_routes_cli_write,
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/send-advertisements",
 			.cbs.cli_show = lib_interface_zebra_ipv6_router_advertisements_send_advertisements_cli_write,
 		},
@@ -3338,6 +3372,8 @@ void zebra_cli_init(void)
 	install_element(INTERFACE_NODE, &zebra_evpn_es_pref_cmd);
 	install_element(INTERFACE_NODE, &zebra_evpn_es_bypass_cmd);
 	install_element(INTERFACE_NODE, &zebra_evpn_mh_uplink_cmd);
+
+	install_element(INTERFACE_NODE, &zif_host_routes_cmd);
 
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_fast_retrans_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_ra_retrans_interval_cmd);

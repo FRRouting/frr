@@ -4184,25 +4184,6 @@ void if_ipv6_address_uninstall(struct interface *ifp, struct prefix *prefix)
 	UNSET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
 }
 
-DEFPY (zif_host_routes,
-       zif_host_routes_cmd,
-       "[no] host-routes-enable",
-       NO_STR
-       "Manage host routes for local neighbors\n")
-{
-	struct zebra_if *zif;
-
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	zif = ifp->info;
-
-	if (no)
-		UNSET_FLAG(zif->flags, ZIF_FLAG_HOST_ROUTES);
-	else
-		SET_FLAG(zif->flags, ZIF_FLAG_HOST_ROUTES);
-
-	return CMD_SUCCESS;
-}
-
 /* Allocate and initialize interface vector. */
 void zebra_if_init(void)
 {
@@ -4217,6 +4198,4 @@ void zebra_if_init(void)
 
 	install_element(ENABLE_NODE, &show_interface_desc_cmd);
 	install_element(ENABLE_NODE, &show_interface_desc_vrf_all_cmd);
-
-	install_element(INTERFACE_NODE, &zif_host_routes_cmd);
 }
