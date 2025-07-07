@@ -50,6 +50,7 @@ def build_topo(tgen):
     tgen.add_router("c21")
     tgen.add_router("c22")
     tgen.add_router("c31")
+    tgen.add_router("c32")
 
     tgen.add_link(tgen.gears["r1"], tgen.gears["r2"], "eth10", "eth10")
     tgen.add_link(tgen.gears["r1"], tgen.gears["c11"], "eth2", "eth10")
@@ -58,6 +59,7 @@ def build_topo(tgen):
     tgen.add_link(tgen.gears["r2"], tgen.gears["c22"], "eth2", "eth10")
     tgen.add_link(tgen.gears["r1"], tgen.gears["r3"], "eth20", "eth10")
     tgen.add_link(tgen.gears["r3"], tgen.gears["c31"], "eth1", "eth10")
+    tgen.add_link(tgen.gears["r3"], tgen.gears["c32"], "eth2", "eth10")
 
 
 def setup_module(mod):
@@ -426,6 +428,44 @@ def test_explicit_srv6_sid_explicit_wide():
     )
     check_explicit_srv6_sid_allocated(
         router, "expected_explicit_srv6_sid_wide_allocated.json"
+    )
+
+
+# Configure 'sid vpn per-vrf export 4294442578'
+# this value stands for FFF7FE52
+# Demonstrate that when using a func-bits of 32 bits, then
+# By command 'show segment-routing srv6 sid json' dumps 2 SIDs
+def test_explicit_srv6_sid_explicit_wide_index():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r3"]
+
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator MAIN
+              no format usid-f3216
+              behavior usid
+              prefix 2001:db8:3:2::/48 block-len 32 node-len 16 func-bits 32
+              end
+        configure terminal
+         router bgp 65003 vrf Vrf20
+           sid vpn per-vrf export 4294442578
+        """
+    )
+
+    # FOR DEVELOPER:
+    # If you want to stop some specific line and start interactive shell,
+    # please use tgen.mininet_cli() to start it.
+    logger.info(
+        "--14--Test for bgp explicit srv6 sid with wide func allocated twice in zebra"
+    )
+    check_explicit_srv6_sid_allocated(
+        router, "expected_explicit_srv6_sid_wide_allocated_2.json"
     )
 
 
