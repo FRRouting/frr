@@ -13,6 +13,7 @@ import pytest
 import json
 from lib.topogen import Topogen
 from lib.topolog import logger
+from lib import topotest
 
 
 pytestmark = [pytest.mark.mgmtd]
@@ -81,25 +82,31 @@ def test_zebra_operationalr(tgen):
     # Turn off IPv6 forwarding
     r1.vtysh_cmd("configure terminal\nno ipv6 forwarding\nexit")
 
-    # Get updated state
-    output = json.loads(r1.vtysh_cmd("show mgmt get-data /frr-zebra:zebra"))
-    new_state = output["frr-zebra:zebra"]["state"]
+    # Get updated state with timeout for state transition
+    def check_ipv6_forwarding_disabled():
+        output = json.loads(r1.vtysh_cmd("show mgmt get-data /frr-zebra:zebra"))
+        new_state = output["frr-zebra:zebra"]["state"]
+        return new_state["ipv6-forwarding"] is False
 
-    # Verify IPv6 forwarding is now off
-    assert (
-        new_state["ipv6-forwarding"] is False
-    ), "IPv6 forwarding should be False after disabling"
+    _, result = topotest.run_and_expect(
+        check_ipv6_forwarding_disabled, True, count=30, wait=1
+    )
+    assert result is True, "IPv6 forwarding should be False after disabling"
 
     # Restore original state if it was enabled
     if initial_ipv6_state:
         r1.vtysh_cmd("configure terminal\nipv6 forwarding\nexit")
 
-        # Verify state is restored
-        output = json.loads(r1.vtysh_cmd("show mgmt get-data /frr-zebra:zebra"))
-        final_state = output["frr-zebra:zebra"]["state"]
-        assert (
-            final_state["ipv6-forwarding"] is True
-        ), "IPv6 forwarding should be restored to True"
+        # Verify state is restored with timeout
+        def check_ipv6_forwarding_restored():
+            output = json.loads(r1.vtysh_cmd("show mgmt get-data /frr-zebra:zebra"))
+            final_state = output["frr-zebra:zebra"]["state"]
+            return final_state["ipv6-forwarding"] is True
+
+        _, result = topotest.run_and_expect(
+            check_ipv6_forwarding_restored, True, count=30, wait=1
+        )
+        assert result is True, "IPv6 forwarding should be restored to True"
 
 
 if __name__ == "__main__":
