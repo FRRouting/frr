@@ -3319,6 +3319,37 @@ is accomplished via the following command in the context of a VRF:
    or explicit SID assignment will not complete, which will block corresponding
    route export.
 
+Flexible SID allocation to 32 bits
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Some device vendors propose to allocate range of SIDs by using the WIDE lib.
+This is what is implemented by using the explicit SID functionality, and
+by using the ``usid-f3216`` format. The below ``fff7:fe50`` SID value is
+granted, even if the func-bits part is only 16 bit, because of the locator
+format.
+
+.. code-block:: frr
+
+   r1(router-bgp)# sid vpn per-vrf export explicit 2001:db8:3:fff7:fe50::
+   r1(router-bgp)# end
+   r1# show bgp segment-routing srv6
+    SID                     Behavior    Context        Daemon/Instance    Locator    AllocationType
+    ----------------------------------  -------------  -----------------  ---------  ----------------
+    2001:db8:3:fff7:fe50::  uDT46       VRF 'Vrf10'    bgp(0)             MAIN       explicit
+
+But using the ``index`` allocation mechanism is not possible, since there
+is a control on the index value, regarding the func-bits size. It is possible to
+increase the length of the func-bits value in the locator, but an other problem
+may happen when exporting the prefix SID of the BGP updates to other product vendors:
+the func-bits length is passed as sub-sub-option from the Prefix-SID attribute.
+To circumvent this problem, a new route-map command is possible so that the func-bits
+value of the prefix SID attribute can be overriden.
+
+.. clicmd:: set prefix-sid srv6 function-length (0-64)
+
+Using this command to force the exported function length to be set to 32, will help
+interoperating with usid-f3216 vendors.
+
 .. _bgp-evpn:
 
 Ethernet Virtual Network - EVPN
