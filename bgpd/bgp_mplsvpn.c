@@ -1959,7 +1959,7 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 	static_attr.originator_id = to_bgp->router_id;
 
 	/* Set SID for SRv6 VPN */
-	if (from_bgp->vpn_policy[afi].tovpn_sid_locator) {
+	if (from_bgp->vpn_policy[afi].tovpn_sid_locator && from_bgp->vpn_policy[afi].tovpn_sid) {
 		struct srv6_locator *locator =
 			from_bgp->vpn_policy[afi].tovpn_sid_locator;
 
@@ -2005,7 +2005,7 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 			       &from_bgp->vpn_policy[afi].tovpn_sid_locator->prefix.prefix,
 			       sizeof(struct in6_addr));
 		}
-	} else if (from_bgp->tovpn_sid_locator) {
+	} else if (from_bgp->tovpn_sid_locator && from_bgp->tovpn_sid) {
 		struct srv6_locator *locator = from_bgp->tovpn_sid_locator;
 
 		encode_label(from_bgp->tovpn_sid_transpose_label, &label);
