@@ -1,0 +1,34 @@
+{
+    "2001:db8:3:fff7:fe50::":{
+      "sid":"2001:db8:3:fff7:fe50::",
+      "behavior":"uDT46",
+      "context":{
+        "vrfName":"Vrf10",
+        "table":10
+      },
+      "locator":"MAIN",
+      "allocationMode":"explicit",
+      "clients":[
+        {
+          "protocol":"bgp",
+          "instance":0
+        }
+      ]
+    },
+    "2001:db8:3:fff7:fe52::":{
+      "sid":"2001:db8:3:fff7:fe52::",
+      "behavior":"uDT46",
+      "context":{
+        "vrfName":"Vrf20",
+        "table":20
+      },
+      "locator":"MAIN",
+      "allocationMode":"explicit",
+      "clients":[
+        {
+          "protocol":"bgp",
+          "instance":0
+        }
+      ]
+    }
+}
