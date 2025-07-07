@@ -235,15 +235,19 @@ def setup_module(mod):
 
     # For all registered routers, load the zebra and isis configuration files
     for rname, router in tgen.routers().items():
-        router.load_config(TopoRouter.RD_ZEBRA,
-                           os.path.join(CWD, '{}/zebra.conf'.format(rname)))
-        router.load_config(TopoRouter.RD_ISIS,
-                           os.path.join(CWD, '{}/isisd.conf'.format(rname)))
-        router.load_config(TopoRouter.RD_BGP,
-                           os.path.join(CWD, '{}/bgpd.conf'.format(rname)))
-        if (os.path.exists('{}/sharpd.conf'.format(rname))):
-            router.load_config(TopoRouter.RD_SHARP,
-                            os.path.join(CWD, '{}/sharpd.conf'.format(rname)))
+        router.load_config(
+            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
+        )
+        router.load_config(
+            TopoRouter.RD_ISIS, os.path.join(CWD, "{}/isisd.conf".format(rname))
+        )
+        router.load_config(
+            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
+        )
+        if os.path.exists("{}/sharpd.conf".format(rname)):
+            router.load_config(
+                TopoRouter.RD_SHARP, os.path.join(CWD, "{}/sharpd.conf".format(rname))
+            )
 
     # Start routers
     tgen.start_router()
@@ -267,7 +271,9 @@ def router_compare_json_output(rname, command, reference):
     expected = json.loads(open(filename).read())
 
     # Run test function until we get an result. Wait at most 60 seconds.
-    test_func = functools.partial(topotest.router_json_cmp, tgen.gears[rname], command, expected)
+    test_func = functools.partial(
+        topotest.router_json_cmp, tgen.gears[rname], command, expected
+    )
     _, diff = topotest.run_and_expect(test_func, None, count=120, wait=0.5)
     assertmsg = '"{}" JSON output mismatches the expected result'.format(rname)
     assert diff is None, assertmsg
@@ -341,9 +347,7 @@ def test_rib_ipv6():
         pytest.skip(tgen.errors)
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
-        router_compare_json_output(
-            rname, "show ipv6 route json", "show_ipv6_route.ref"
-        )
+        router_compare_json_output(rname, "show ipv6 route json", "show_ipv6_route.ref")
 
 
 def test_srv6_locator():
@@ -356,8 +360,10 @@ def test_srv6_locator():
 
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
         router_compare_json_output(
-            rname, "show segment-routing srv6 locator json", "show_srv6_locator_table.ref"
-         )
+            rname,
+            "show segment-routing srv6 locator json",
+            "show_srv6_locator_table.ref",
+        )
 
 
 def test_vpn_rib():
@@ -390,7 +396,9 @@ def test_ping():
 
     # Setup encap route on rt1, decap route on rt2
     # tgen.gears["rt1"].vtysh_cmd("sharp install seg6-routes fc00:0:9::1 nexthop-seg6 2001:db8:1::2 encap fc00:0:2:6:fe00:: 1")
-    tgen.gears["rt1"].cmd("ip -6 r a fc00:0:9::1/128 encap seg6 mode encap segs fc00:0:2:6:fe00:: via 2001:db8:1::2")
+    tgen.gears["rt1"].cmd(
+        "ip -6 r a fc00:0:9::1/128 encap seg6 mode encap segs fc00:0:2:6:fe00:: via 2001:db8:1::2"
+    )
     # tgen.gears["rt6"].vtysh_cmd("sharp install seg6local-routes fc00:0:f00d:: nexthop-seg6local eth-dst End_DT6 254 1")
     tgen.gears["rt6"].cmd("ip -6 r a fc00:0:9::1/128 via 2001:db8:10::2 vrf vrf10")
     tgen.gears["dst"].cmd("ip -6 r a 2001:db8:1::1/128 via 2001:db8:10::1")
