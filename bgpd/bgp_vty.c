@@ -18829,8 +18829,7 @@ static void bgp_vpn_policy_config_write_afi(struct vty *vty, struct bgp *bgp,
 		vty_out(vty, "%*ssid vpn export explicit %pI6\n", indent, "",
 			bgp->vpn_policy[afi].tovpn_sid_explicit);
 	} else if (tovpn_sid_index != 0) {
-		vty_out(vty, "%*ssid vpn export %d\n", indent, "",
-			tovpn_sid_index);
+		vty_out(vty, "%*ssid vpn export %u\n", indent, "", tovpn_sid_index);
 	}
 
 	if (CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_RD_SET))
@@ -20327,8 +20326,7 @@ int bgp_config_write(struct vty *vty)
 			vty_out(vty, " sid vpn per-vrf export explicit %pI6\n",
 				bgp->tovpn_sid_explicit);
 		} else if (tovpn_sid_index != 0) {
-			vty_out(vty, " sid vpn per-vrf export %d\n",
-				tovpn_sid_index);
+			vty_out(vty, " sid vpn per-vrf export %u\n", tovpn_sid_index);
 		}
 
 		/* IPv4 unicast configuration.  */
