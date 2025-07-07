@@ -1724,7 +1724,7 @@ static bool vpn_leak_from_vrf_fill_srv6(struct attr *attr, struct bgp *from_bgp,
 					mpls_label_t *label)
 {
 	/* Set SID for SRv6 VPN */
-	if (from_bgp->vpn_policy[afi].tovpn_sid_locator) {
+	if (from_bgp->vpn_policy[afi].tovpn_sid_locator && from_bgp->vpn_policy[afi].tovpn_sid) {
 		struct srv6_locator *locator = from_bgp->vpn_policy[afi].tovpn_sid_locator;
 
 		encode_label(from_bgp->vpn_policy[afi].tovpn_sid_transpose_label, label);
@@ -1763,7 +1763,7 @@ static bool vpn_leak_from_vrf_fill_srv6(struct attr *attr, struct bgp *from_bgp,
 		}
 		return true;
 	}
-	if (from_bgp->tovpn_sid_locator) {
+	if (from_bgp->tovpn_sid_locator && from_bgp->tovpn_sid) {
 		struct srv6_locator *locator = from_bgp->tovpn_sid_locator;
 
 		encode_label(from_bgp->tovpn_sid_transpose_label, label);
