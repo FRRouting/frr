@@ -43,17 +43,21 @@ def open_json_file(filename):
 def build_topo(tgen):
     tgen.add_router("r1")
     tgen.add_router("r2")
+    tgen.add_router("r3")
 
     tgen.add_router("c11")
     tgen.add_router("c12")
     tgen.add_router("c21")
     tgen.add_router("c22")
+    tgen.add_router("c31")
 
     tgen.add_link(tgen.gears["r1"], tgen.gears["r2"], "eth10", "eth10")
     tgen.add_link(tgen.gears["r1"], tgen.gears["c11"], "eth2", "eth10")
     tgen.add_link(tgen.gears["r1"], tgen.gears["c12"], "eth3", "eth10")
     tgen.add_link(tgen.gears["r2"], tgen.gears["c21"], "eth1", "eth10")
     tgen.add_link(tgen.gears["r2"], tgen.gears["c22"], "eth2", "eth10")
+    tgen.add_link(tgen.gears["r1"], tgen.gears["r3"], "eth20", "eth10")
+    tgen.add_link(tgen.gears["r3"], tgen.gears["c31"], "eth1", "eth10")
 
 
 def setup_module(mod):
@@ -394,6 +398,34 @@ def test_explicit_srv6_sid_per_af_disabled():
     logger.info("--12--Test for bgp explicit srv6 sid disabled in zebra")
     check_explicit_srv6_sid_allocated(
         router, "expected_explicit_srv6_sid_disabled.json", exact=True
+    )
+
+
+# Configure 'sid vpn per-vrf export explicit X:X::X:X'
+# using wide func specifics
+# By command 'show segment-routing srv6 sid json'
+def test_explicit_srv6_sid_explicit_wide():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r3"]
+
+    router.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65003 vrf Vrf10
+           sid vpn per-vrf export explicit 2001:db8:3:fff7:fe50::
+        """
+    )
+
+    # FOR DEVELOPER:
+    # If you want to stop some specific line and start interactive shell,
+    # please use tgen.mininet_cli() to start it.
+    logger.info(
+        "--13--Test for bgp explicit srv6 sid with wide func allocated in zebra"
+    )
+    check_explicit_srv6_sid_allocated(
+        router, "expected_explicit_srv6_sid_wide_allocated.json"
     )
 
 
