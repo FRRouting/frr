@@ -1924,6 +1924,9 @@ static int bgp_attr_aspath(struct bgp_attr_parser_args *args)
 		flog_err(EC_BGP_ATTR_MAL_AS_PATH,
 			 "AS_SET and AS_CONFED_SET are deprecated from %pBP",
 			 peer);
+		if (attr->aspath)
+			zlog_warn("`bgp reject-as-sets` is enabled, and AS-path (%s) contains AS_SET/AS_CONFED_SET",
+				  attr->aspath->str);
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_MAL_AS_PATH,
 					  0);
 	}
@@ -2028,6 +2031,9 @@ static int bgp_attr_as4_path(struct bgp_attr_parser_args *args,
 		flog_err(EC_BGP_ATTR_MAL_AS_PATH,
 			 "AS_SET and AS_CONFED_SET are deprecated from %pBP",
 			 peer);
+		if (attr->aspath)
+			zlog_warn("`bgp reject-as-sets` is enabled, and AS-path (%s) contains AS_SET/AS_CONFED_SET",
+				  attr->aspath->str);
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_MAL_AS_PATH,
 					  0);
 	}
