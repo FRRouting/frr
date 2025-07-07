@@ -2936,6 +2936,7 @@ static inline bool peer_dynamic_neighbor_no_nsf(struct peer *peer)
 
 static inline int peer_cap_enhe(struct peer *peer, afi_t afi, safi_t safi)
 {
+	assert(peer);
 	return (CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ENHE_AF_NEGO));
 }
 
