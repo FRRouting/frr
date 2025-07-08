@@ -6977,6 +6977,7 @@ int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
 	struct bgp *bgp = peer->bgp;
 	struct peer *member;
 	struct listnode *node, *nnode;
+	bool same_as_str = false;
 
 	if (bgp->as == as)
 		return BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS;
@@ -6994,8 +6995,11 @@ int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
 	peer_flag_modify(peer, PEER_FLAG_LOCAL_AS_REPLACE_AS, replace_as);
 	peer_flag_modify(peer, PEER_FLAG_DUAL_AS, dual_as);
 
+	same_as_str = as_str && peer->change_local_as_pretty &&
+		      !strcmp(as_str, peer->change_local_as_pretty);
+
 	if (peer->change_local_as == as && old_no_prepend == no_prepend &&
-	    old_replace_as == replace_as && old_dual_as == dual_as)
+	    old_replace_as == replace_as && old_dual_as == dual_as && same_as_str)
 		return 0;
 	peer->change_local_as = as;
 	if (as_str) {
