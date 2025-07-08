@@ -622,7 +622,7 @@ static int ospf_abr_translate_nssa(struct ospf_area *area, struct ospf_lsa *lsa)
 
 	if (CHECK_FLAG(lsa->flags, OSPF_LSA_IN_MAXAGE)) {
 		/* if type-7 is removed, remove old translated type-5 lsa */
-		if (old) {
+		if (old && ospf_lsa_more_recent(lsa, old) > 0) {
 			UNSET_FLAG(old->flags, OSPF_LSA_APPROVED);
 			if (IS_DEBUG_OSPF_NSSA)
 				zlog_debug(

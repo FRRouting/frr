@@ -2181,6 +2181,16 @@ struct ospf_lsa *ospf_translated_nssa_refresh(struct ospf *ospf,
 		return NULL;
 	}
 
+	/*
+	 * If we already have a Type-5 LSA that is more recent than the NSSA
+	 * LSA, skip translating the Type-7 LSA.
+	 */
+	if (type5 && ospf_lsa_more_recent(type5, type7) > 0) {
+		zlog_debug("%s: Type-5 LSA (LSA Id %pI4) in LSDB is more recent", __func__,
+			   &type5->data->id);
+		return NULL;
+	}
+
 	extold = (struct as_external_lsa *)type5->data;
 	if (type7->area->suppress_fa == 1) {
 		if (extold->e[0].fwd_addr.s_addr == 0)
