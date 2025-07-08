@@ -64,6 +64,7 @@
 #include "zebra/netconf_netlink.h"
 #include "zebra/zebra_trace.h"
 #include "lib/netlink_parser.h"
+#include "zebra/zebra_dplane.h"
 
 extern struct zebra_privs_t zserv_privs;
 
@@ -1449,6 +1450,25 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	dplane_ctx_set_ifp_startup(ctx, startup);
 	dplane_ctx_set_ifp_family(ctx, ifi->ifi_family);
 	dplane_ctx_set_intf_txqlen(ctx, txqlen);
+	dplane_ctx_set_ifp_altnames(ctx);
+
+	if (tb[IFLA_PROP_LIST]) {
+		struct rtattr *i, *proplist = tb[IFLA_PROP_LIST];
+		int rem = RTA_PAYLOAD(proplist);
+
+
+		for (i = RTA_DATA(proplist); RTA_OK(i, rem); i = RTA_NEXT(i, rem)) {
+			const char *altname;
+
+			if (i->rta_type != IFLA_ALT_IFNAME)
+				continue;
+
+			altname = (const char *)RTA_DATA(i);
+
+			dplane_ctx_add_ifp_altname(ctx, altname);
+		}
+	}
+
 
 	/* We are interested in some AF_BRIDGE notifications. */
 #ifndef AF_BRIDGE

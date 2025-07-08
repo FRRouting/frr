@@ -35,6 +35,7 @@
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_trace.h"
+#include "zebra/zebra_dplane.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZINFO, "Zebra Interface Information");
 
@@ -206,6 +207,8 @@ static int if_zebra_delete_hook(struct interface *ifp)
 {
 	struct zebra_if *zebra_if;
 	struct zebra_l2info_bond *bond;
+	struct altname *item;
+
 
 	if (ifp->info) {
 		zebra_if = ifp->info;
@@ -237,6 +240,13 @@ static int if_zebra_delete_hook(struct interface *ifp)
 		zebra_ns_unlink_ifp(ifp);
 
 		XFREE(MTYPE_ZIF_DESC, zebra_if->desc);
+
+		/* Clean up altnames list */
+		while (!RB_EMPTY(altnames_head, &ifp->altnames)) {
+			item = RB_ROOT(altnames_head, &ifp->altnames);
+			RB_REMOVE(altnames_head, &ifp->altnames, item);
+			XFREE(MTYPE_LIB_ALTNAME, item);
+		}
 
 		event_cancel(&zebra_if->speed_update);
 
@@ -2011,6 +2021,9 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 		char *desc;
 		uint8_t family;
 		uint64_t change_flags;
+		struct altname *item;
+		struct altname *current_name;
+		struct altnames_dplane_head altnames;
 
 		/* If VRF, create or update the VRF structure itself. */
 		if (zif_type == ZEBRA_IF_VRF && !vrf_is_backend_netns())
@@ -2305,6 +2318,32 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 						IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(
 							zif));
 			}
+		}
+		/* Update altnames */
+		altnames = dplane_ctx_get_ifp_altnames(ctx);
+
+		/* Clean up altnames list */
+		while (!RB_EMPTY(altnames_head, &ifp->altnames)) {
+			item = RB_ROOT(altnames_head, &ifp->altnames);
+			RB_REMOVE(altnames_head, &ifp->altnames, item);
+			XFREE(MTYPE_LIB_ALTNAME, item);
+		}
+
+		RB_INIT(altnames_head, &ifp->altnames);
+
+		frr_each_safe(altnames_dplane, &altnames, current_name) {
+			struct altname *to_insert;
+			struct altname *altname_inserted;
+
+			to_insert = XCALLOC(MTYPE_LIB_ALTNAME, sizeof(*to_insert));
+			strlcpy(to_insert->name, current_name->name, sizeof(to_insert->name));
+
+			altname_inserted = RB_INSERT(altnames_head, &ifp->altnames,
+								     to_insert);
+			if (altname_inserted)
+				flog_err(EC_LIB_INTERFACE,
+					 "%s(%s): corruption detected -- altname with this name exists already in interface %s!",
+					 __func__, to_insert->name, ifp->name);
 		}
 
 		zif = ifp->info;
@@ -2814,6 +2853,21 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 		vty_out(vty, "\n");
 	}
 
+	/* Display altnames if any */
+	if (!RB_EMPTY(altnames_head, &ifp->altnames)) {
+		struct altname *altname;
+		bool first = true;
+
+		vty_out(vty, "  Altnames: ");
+		RB_FOREACH (altname, altnames_head, &ifp->altnames) {
+			if (!first)
+				vty_out(vty, ", ");
+			vty_out(vty, "%s", altname->name);
+			first = false;
+		}
+		vty_out(vty, "\n");
+	}
+
 	/* Bandwidth in Mbps */
 	if (ifp->bandwidth != 0) {
 		vty_out(vty, "  bandwidth %u Mbps", ifp->bandwidth);
@@ -3208,6 +3262,17 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 			strlcat(hwbuf, buf, sizeof(hwbuf));
 		}
 		json_object_string_add(json_if, "hardwareAddress", hwbuf);
+	}
+
+	/* Display altnames if any */
+	if (!RB_EMPTY(altnames_head, &ifp->altnames)) {
+		json_object *json_altnames = json_object_new_array();
+		struct altname *altname;
+
+		RB_FOREACH (altname, altnames_head, &ifp->altnames)
+			json_object_array_add(json_altnames, json_object_new_string(altname->name));
+
+		json_object_object_add(json_if, "altNames", json_altnames);
 	}
 
 	/* Bandwidth in Mbps */
