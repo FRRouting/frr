@@ -7180,7 +7180,7 @@ DEFUN_YANG(no_set_ecommunity_none, no_set_ecommunity_none_cmd,
 
 DEFUN_YANG (set_ecommunity_lb,
 	    set_ecommunity_lb_cmd,
-	    "set extcommunity bandwidth <(1-4294967295)|cumulative|num-multipaths> [non-transitive]",
+	    "set extcommunity bandwidth <(0-4294967295)|cumulative|num-multipaths> [non-transitive]",
 	    SET_STR
 	    "BGP extended community attribute\n"
 	    "Link bandwidth extended community\n"
@@ -7234,7 +7234,7 @@ DEFUN_YANG (set_ecommunity_lb,
 
 DEFUN_YANG (no_set_ecommunity_lb,
 	    no_set_ecommunity_lb_cmd,
-	    "no set extcommunity bandwidth <(1-4294967295)|cumulative|num-multipaths> [non-transitive]",
+	    "no set extcommunity bandwidth <(0-4294967295)|cumulative|num-multipaths> [non-transitive]",
 	    NO_STR
 	    SET_STR
 	    "BGP extended community attribute\n"
