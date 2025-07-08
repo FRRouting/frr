@@ -39,6 +39,7 @@ DEFINE_MTYPE_STATIC(LIB, CONNECTED, "Connected");
 DEFINE_MTYPE_STATIC(LIB, NBR_CONNECTED, "Neighbor Connected");
 DEFINE_MTYPE(LIB, CONNECTED_LABEL, "Connected interface label");
 DEFINE_MTYPE_STATIC(LIB, IF_LINK_PARAMS, "Informational Link Parameters");
+DEFINE_MTYPE(LIB, LIB_ALTNAME, "Interface altname");
 
 static void if_set_name(struct interface *ifp, const char *name);
 static struct interface *if_lookup_by_ifindex(ifindex_t ifindex,
@@ -48,6 +49,7 @@ static int if_cmp_index_func(const struct interface *ifp1,
 			     const struct interface *ifp2);
 RB_GENERATE(if_name_head, interface, name_entry, if_cmp_func);
 RB_GENERATE(if_index_head, interface, index_entry, if_cmp_index_func);
+RB_GENERATE(altnames_head, altname, entry, altname_cmp_func);
 
 DEFINE_QOBJ_TYPE(interface);
 
@@ -138,6 +140,11 @@ int if_cmp_name_func(const char *p1, const char *p2)
 int if_cmp_func(const struct interface *ifp1, const struct interface *ifp2)
 {
 	return if_cmp_name_func(ifp1->name, ifp2->name);
+}
+
+int altname_cmp_func(const struct altname *alt1, const struct altname *alt2)
+{
+	return strcmp(alt1->name, alt2->name);
 }
 
 static int if_cmp_index_func(const struct interface *ifp1,
@@ -375,6 +382,7 @@ void if_delete(struct interface **ifp)
 {
 	struct interface *ptr = *ifp;
 	struct vrf *vrf = ptr->vrf;
+	struct altname *item;
 
 	IFNAME_RB_REMOVE(vrf, ptr);
 	if (ptr->ifindex != IFINDEX_INTERNAL)
@@ -388,6 +396,13 @@ void if_delete(struct interface **ifp)
 	if_link_params_free(ptr);
 
 	XFREE(MTYPE_IFDESC, ptr->desc);
+
+	/* Clean up altnames list */
+	while (!RB_EMPTY(altnames_head, &ptr->altnames)) {
+		item = RB_ROOT(altnames_head, &ptr->altnames);
+		RB_REMOVE(altnames_head, &ptr->altnames, item);
+		XFREE(MTYPE_LIB_ALTNAME, item);
+	}
 
 	if_update_state_remove(ptr);
 
