@@ -422,6 +422,18 @@ static struct test_peer_attr test_peer_attrs[] = {
 			| PEER_FLAG_MED_UNCHANGED,
 	},
 	{
+		.cmd = "encapsulation-mpls",
+		.families[0] = {.afi = AFI_IP, .safi = SAFI_MPLS_VPN},
+		.families[1] = {.afi = AFI_IP6, .safi = SAFI_MPLS_VPN},
+		.u.flag = PEER_FLAG_CONFIG_ENCAPSULATION_MPLS,
+	},
+	{
+		.cmd = "encapsulation-srv6",
+		.families[0] = {.afi = AFI_IP, .safi = SAFI_MPLS_VPN},
+		.families[1] = {.afi = AFI_IP6, .safi = SAFI_MPLS_VPN},
+		.u.flag = PEER_FLAG_CONFIG_ENCAPSULATION_SRV6,
+	},
+	{
 		.cmd = "capability orf prefix-list send",
 		.u.flag = PEER_FLAG_ORF_PREFIX_SM,
 	},
