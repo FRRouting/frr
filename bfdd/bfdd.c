@@ -131,14 +131,15 @@ FRR_DAEMON_INFO(bfdd, BFD,
 	.yang_modules = bfdd_yang_modules,
 	.n_yang_modules = array_size(bfdd_yang_modules),
 );
-/* clang-format on */
 
 #define OPTION_DPLANEADDR 2000
+#define OPTION_VRF_LIST	  20001
 static const struct option longopts[] = {
-	{"dplaneaddr", required_argument, NULL, OPTION_DPLANEADDR},
-	{0}
+	{ "dplaneaddr", required_argument, NULL, OPTION_DPLANEADDR },
+	{ "vrfs", required_argument, NULL, OPTION_VRF_LIST },
+	{ 0 }
 };
-
+/* clang-format on */
 
 /*
  * BFD daemon related code.
@@ -327,6 +328,7 @@ static void bg_init(void)
 int main(int argc, char *argv[])
 {
 	char dplane_addr[512];
+	char *perm_vrfs = NULL;
 	int opt;
 
 	bglobal.bg_use_dplane = false;
@@ -336,7 +338,8 @@ int main(int argc, char *argv[])
 
 	frr_preinit(&bfdd_di, argc, argv);
 	frr_opt_add("", longopts,
-		    "      --dplaneaddr   Specify BFD data plane address\n");
+		    "      --dplaneaddr   Specify BFD data plane address\n"
+		    "      ---vrfs <vrf-list>  Comma-separated VRFs to monitor\n");
 
 	while (true) {
 		opt = frr_getopt(argc, argv, NULL);
@@ -347,6 +350,10 @@ int main(int argc, char *argv[])
 		case OPTION_DPLANEADDR:
 			strlcpy(dplane_addr, optarg, sizeof(dplane_addr));
 			bglobal.bg_use_dplane = true;
+			break;
+
+		case OPTION_VRF_LIST:
+			perm_vrfs = XSTRDUP(MTYPE_TMP, optarg);
 			break;
 
 		default:
@@ -360,7 +367,7 @@ int main(int argc, char *argv[])
 	/* Initialize BFD data structures. */
 	bfd_initialize();
 
-	bfd_vrf_init();
+	bfd_vrf_init(perm_vrfs);
 
 	access_list_init();
 	prefix_list_init();
@@ -377,6 +384,9 @@ int main(int argc, char *argv[])
 	/* Initialize BFD data plane listening socket. */
 	if (bglobal.bg_use_dplane)
 		distributed_bfd_init(dplane_addr);
+
+	if (perm_vrfs)
+		free(perm_vrfs);
 
 	frr_run(master);
 	/* NOTREACHED */
