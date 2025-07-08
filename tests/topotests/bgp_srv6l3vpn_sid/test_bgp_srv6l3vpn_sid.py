@@ -643,6 +643,83 @@ def test_sid_add_vrf_30_readd_srv6_keep_mpls():
     )
 
 
+def test_sid_add_peer_srv6_filtered():
+    """
+    Configure peer 2001::2 with encapsulation-srv6
+    Test that SRv6 prefixes only are sent to r2 (2001::8 will not be present)
+    """
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1
+          address-family ipv6 vpn
+           neighbor 2001::2 addpath-tx-all-paths
+           neighbor 2001::2 encapsulation-srv6
+          exit-address-family
+        """
+    )
+    check_rib(
+        "r2", "show bgp ipv6 vpn 2001:8::/64 json", "r2/vpnv6_rib_2001_8_srv6.json"
+    )
+
+
+def test_sid_add_peer_srv6_not_filtered():
+    """
+    Unconfigure peer 2001::2 with encapsulation-srv6
+    Test that SRv6 and MPLS prefixes are sent to r2 (2001::8 will be present)
+    """
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1
+          address-family ipv6 vpn
+           no neighbor 2001::2 encapsulation-srv6
+          exit-address-family
+        """
+    )
+    check_rib(
+        "r2", "show bgp ipv6 vpn 2001:8::/64 json", "r2/vpnv6_rib_2001_8_mpls_srv6.json"
+    )
+
+
+def test_sid_add_peer_mpls_filtered():
+    """
+    configure peer 2001::2 with encapsulation-mpls
+    Test that MPLS prefixes are sent to r2 (2001::1 and 2001::3 will not be present)
+    """
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1
+          address-family ipv6 vpn
+           neighbor 2001::2 encapsulation-mpls
+          exit-address-family
+        """
+    )
+    check_rib(
+        "r2", "show bgp ipv6 vpn 2001:8::/64 json", "r2/vpnv6_rib_2001_8_mpls.json"
+    )
+
+
+def test_sid_add_peer_mpls_not_filtered():
+    """
+    Unconfigure peer 2001::2 with encapsulation-mpls
+    Test that MPLS and SRv6 prefixes are sent to r2 (2001::1 2001::3 will be present)
+    """
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1
+          address-family ipv6 vpn
+           no neighbor 2001::2 encapsulation-mpls
+          exit-address-family
+        """
+    )
+    check_rib(
+        "r2", "show bgp ipv6 vpn 2001:8::/64 json", "r2/vpnv6_rib_2001_8_mpls_srv6.json"
+    )
+
+
 def test_sid_add_vrf_30_srv6_only():
     """
     Test that VPN prefix is valid, after unconfiguring MPLS
