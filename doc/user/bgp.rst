@@ -3359,6 +3359,17 @@ value of the prefix SID attribute can be overriden.
 Using this command to force the exported function length to be set to 32, will help
 interoperating with usid-f3216 vendors.
 
+Filtering SRv6/MPLS per neighbor
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. clicmd:: neighbor X:X::X:X <encapsulation-srv6|encapsulation-mpls>
+
+   For a given peer, it is possible to filter out outgoing MPLS L3VPN BGP updates
+   to SRv6-only capable peers, by using the following command under ``ipv4 vpn``
+   or ``ipv6 vpn`` address-family. Only BGP updates with SRv6 prefix SID option
+   will be sent. Reversely, the ``encapsulation-mpls`` command can be used to
+   filter out SRv6 L3VPN BGP updates, and keep MPLS L3VPN BGP updates.
+
 .. _bgp-evpn:
 
 Ethernet Virtual Network - EVPN
