@@ -490,6 +490,23 @@ ifindex_t ifname2ifindex(const char *name, vrf_id_t vrf_id)
 		       : IFINDEX_INTERNAL;
 }
 
+static struct interface *if_lookup_by_altname_vrf(const char *name, struct vrf *vrf)
+{
+	struct interface *ifp;
+
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+		struct altname altname;
+
+		strlcpy(altname.name, name, sizeof(altname.name));
+		/* Check altnames */
+		struct altname *result = RB_FIND(altnames_head, &ifp->altnames, &altname);
+
+		if (result != NULL)
+			return ifp;
+	}
+	return NULL;
+}
+
 /* Interface existence check by interface name. */
 struct interface *if_lookup_by_name(const char *name, vrf_id_t vrf_id)
 {
@@ -500,7 +517,15 @@ struct interface *if_lookup_by_name(const char *name, vrf_id_t vrf_id)
 		return NULL;
 
 	strlcpy(if_tmp.name, name, sizeof(if_tmp.name));
-	return RB_FIND(if_name_head, &vrf->ifaces_by_name, &if_tmp);
+
+	/* Search by the primary name of the interface */
+	struct interface *ifp = RB_FIND(if_name_head, &vrf->ifaces_by_name, &if_tmp);
+
+	if (ifp)
+		return ifp;
+
+	/* If nothing has been found, search through all altnames */
+	return if_lookup_by_altname_vrf(name, vrf);
 }
 
 struct interface *if_lookup_by_name_vrf(const char *name, struct vrf *vrf)
@@ -511,7 +536,15 @@ struct interface *if_lookup_by_name_vrf(const char *name, struct vrf *vrf)
 		return NULL;
 
 	strlcpy(if_tmp.name, name, sizeof(if_tmp.name));
-	return RB_FIND(if_name_head, &vrf->ifaces_by_name, &if_tmp);
+
+	/* Search by the primary name of the interface */
+	struct interface *ifp = RB_FIND(if_name_head, &vrf->ifaces_by_name, &if_tmp);
+
+	if (ifp)
+		return ifp;
+
+	/* If nothing has been found, search through all altnames */
+	return if_lookup_by_altname_vrf(name, vrf);
 }
 
 static struct interface *if_lookup_by_name_all_vrf(const char *name)
@@ -1272,7 +1305,16 @@ static int vrfname_by_ifname(const char *ifname, const char **vrfname)
 			if (strmatch(ifp->name, ifname)) {
 				*vrfname = vrf->name;
 				count++;
+				continue;
 			}
+			/* Check altnames */
+			struct altname altname;
+
+			strlcpy(altname.name, ifname, sizeof(altname.name));
+			struct altname *result = RB_FIND(altnames_head, &ifp->altnames, &altname);
+
+			if (result != NULL)
+				count++;
 		}
 	}
 

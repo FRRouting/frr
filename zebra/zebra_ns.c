@@ -117,7 +117,7 @@ struct interface *zebra_ns_lookup_ifp(struct zebra_ns *zns, uint32_t ifindex)
 	return ifp;
 }
 
-static int lookup_ifp_name_cb(struct interface *ifp, void *arg);
+static int lookup_ifp_name_altname_cb(struct interface *ifp, void *arg);
 
 struct ifp_name_ctx {
 	const char *ifname;
@@ -130,16 +130,30 @@ struct interface *zebra_ns_lookup_ifp_name(struct zebra_ns *zns, const char *ifn
 
 	/* Hand context struct into walker function for use in its callback */
 	ctx.ifname = ifname;
-	zebra_ns_ifp_walk(zns, lookup_ifp_name_cb, &ctx);
+	zebra_ns_ifp_walk(zns, lookup_ifp_name_altname_cb, &ctx);
 
 	return ctx.ifp;
 }
 
-static int lookup_ifp_name_cb(struct interface *ifp, void *arg)
+/* Callback function to lookup interface by name or altname */
+static int lookup_ifp_name_altname_cb(struct interface *ifp, void *arg)
 {
 	struct ifp_name_ctx *pctx = arg;
 
+	/* Check primary name first */
 	if (strcmp(ifp->name, pctx->ifname) == 0) {
+		pctx->ifp = ifp;
+		return NS_WALK_STOP;
+	}
+
+	/* Check altnames */
+	struct altname altname;
+
+	strlcpy(altname.name, pctx->ifname, sizeof(altname.name));
+
+	struct altname *result = RB_FIND(altnames_head, &ifp->altnames, &altname);
+
+	if (result != NULL) {
 		pctx->ifp = ifp;
 		return NS_WALK_STOP;
 	}
