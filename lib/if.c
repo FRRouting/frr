@@ -489,28 +489,71 @@ ifindex_t ifname2ifindex(const char *name, vrf_id_t vrf_id)
 		       : IFINDEX_INTERNAL;
 }
 
+static struct interface *if_lookup_by_altname_vrf(const char *name, struct vrf *vrf)
+{
+	struct interface *ifp;
+
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+		struct altname altname;
+
+		strlcpy(altname.name, name, sizeof(altname.name));
+		/* Check altnames */
+		struct altname *result = RB_FIND(altnames_head, &ifp->altnames, &altname);
+
+		if (result != NULL)
+			return ifp;
+	}
+	return NULL;
+}
+
 /* Interface existence check by interface name. */
 struct interface *if_lookup_by_name(const char *name, vrf_id_t vrf_id)
 {
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct interface if_tmp;
+	struct interface *ifp;
 
-	if (!vrf || !name || strnlen(name, IFNAMSIZ) == IFNAMSIZ)
+	if (!vrf || !name || (!ENABLE_TRANSPARENT_ALTNAMES && strnlen(name, IFNAMSIZ) == IFNAMSIZ))
 		return NULL;
 
 	strlcpy(if_tmp.name, name, sizeof(if_tmp.name));
-	return RB_FIND(if_name_head, &vrf->ifaces_by_name, &if_tmp);
+
+	/* Search by the primary name of the interface */
+	ifp = RB_FIND(if_name_head, &vrf->ifaces_by_name, &if_tmp);
+
+	if (ifp)
+		return ifp;
+
+	if (ENABLE_TRANSPARENT_ALTNAMES) {
+		/* If nothing has been found, search through all altnames */
+		return if_lookup_by_altname_vrf(name, vrf);
+	} else {
+		return NULL;
+	}
 }
 
 struct interface *if_lookup_by_name_vrf(const char *name, struct vrf *vrf)
 {
 	struct interface if_tmp;
+	struct interface *ifp;
 
-	if (!name || strnlen(name, IFNAMSIZ) == IFNAMSIZ)
+	if (!name || (!ENABLE_TRANSPARENT_ALTNAMES && strnlen(name, IFNAMSIZ) == IFNAMSIZ))
 		return NULL;
 
 	strlcpy(if_tmp.name, name, sizeof(if_tmp.name));
-	return RB_FIND(if_name_head, &vrf->ifaces_by_name, &if_tmp);
+
+	/* Search by the primary name of the interface */
+	ifp = RB_FIND(if_name_head, &vrf->ifaces_by_name, &if_tmp);
+
+	if (ifp)
+		return ifp;
+
+	if (ENABLE_TRANSPARENT_ALTNAMES) {
+		/* If nothing has been found, search through all altnames */
+		return if_lookup_by_altname_vrf(name, vrf);
+	} else {
+		return NULL;
+	}
 }
 
 static struct interface *if_lookup_by_name_all_vrf(const char *name)
@@ -518,7 +561,7 @@ static struct interface *if_lookup_by_name_all_vrf(const char *name)
 	struct vrf *vrf;
 	struct interface *ifp;
 
-	if (!name || strnlen(name, IFNAMSIZ) == IFNAMSIZ)
+	if (!name || (!ENABLE_TRANSPARENT_ALTNAMES && strnlen(name, IFNAMSIZ) == IFNAMSIZ))
 		return NULL;
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
@@ -1271,6 +1314,16 @@ static int vrfname_by_ifname(const char *ifname, const char **vrfname)
 			if (strmatch(ifp->name, ifname)) {
 				*vrfname = vrf->name;
 				count++;
+				continue;
+			}
+			if (ENABLE_TRANSPARENT_ALTNAMES) {
+				struct altname altname;
+				/* Check altnames */
+				strlcpy(altname.name, ifname, sizeof(altname.name));
+				struct altname *result = RB_FIND(altnames_head, &ifp->altnames, &altname);
+
+				if (result != NULL)
+					count++;
 			}
 		}
 	}
@@ -1568,7 +1621,7 @@ static int lib_interface_create(struct nb_cb_create_args *args)
 
 			netns_ifname_split(ifname, ifname_ns, vrfname_ns);
 
-			if (strlen(ifname_ns) > 16) {
+			if (!ENABLE_TRANSPARENT_ALTNAMES && strlen(ifname_ns) > 16) {
 				snprintf(
 					args->errmsg, args->errmsg_len,
 					"Maximum interface name length is 16 characters");
@@ -1581,7 +1634,7 @@ static int lib_interface_create(struct nb_cb_create_args *args)
 				return NB_ERR_VALIDATION;
 			}
 		} else {
-			if (strlen(ifname) > 16) {
+			if (!ENABLE_TRANSPARENT_ALTNAMES && strlen(ifname) > 16) {
 				snprintf(
 					args->errmsg, args->errmsg_len,
 					"Maximum interface name length is 16 characters");
