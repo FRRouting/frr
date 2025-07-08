@@ -79,6 +79,14 @@ may also be specified (:ref:`common-invocation-options`).
    When using UNIX sockets don't forget to check the file permissions
    before attempting to use it.
 
+.. option:: --vrfs <vrf-list>
+
+   Configure which VRFs the BFD daemon will listen. By default BFD
+   listens on all VRFs present in the system, including the default VRF.
+   Default VRF must be specified as "default".
+
+   For example:
+      ``--vrfs public,vrf1,vrf2``
 
 .. _bfd-commands:
 
