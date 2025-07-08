@@ -3489,6 +3489,18 @@ is accomplished via the following command in the context of a VRF:
    or explicit SID assignment will not complete, which will block corresponding
    route export.
 
+Filtering SRv6/MPLS per neighbor
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. clicmd:: neighbor X:X::X:X <encapsulation-tx-srv6|encapsulation-tx-mpls>
+
+   For a given peer, it is possible to filter out outgoing MPLS L3VPN BGP updates
+   to SRv6-only capable peers, by using the ``encapsulation-tx-srv6`` command
+   under ``ipv4 vpn`` or ``ipv6 vpn`` address-family. Only BGP updates with SRv6
+   prefix SID option will be sent. Reversely, the ``encapsulation-tx-mpls``
+   command can be used to filter out SRv6 L3VPN BGP updates, and keep MPLS L3VPN
+   BGP updates.
+
 .. _bgp-evpn:
 
 Ethernet Virtual Network - EVPN
