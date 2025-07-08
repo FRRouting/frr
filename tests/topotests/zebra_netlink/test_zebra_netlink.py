@@ -103,6 +103,24 @@ def test_zebra_netlink_batching(tgen):
     r1.vtysh_cmd("sharp remove routes 2.1.3.7 " + str(count))
 
 
+def test_zebra_altnames(tgen):
+    "Test zebra altnames."
+    logger.info("Test zebra altnames")
+
+    r1 = tgen.gears["r1"]
+    r1.run("ip link property add dev r1-eth0 altname eno1")
+
+    entry = {"r1-eth0": {"altNames": ["eno1"]}}
+    ok = topotest.router_json_cmp_retry(r1, "show int json", entry, False, 30)
+    assert ok, "Altname 1 not visible"
+
+    r1.run("ip link property add dev r1-eth0 altname thisaltnameislongerthan15chars")
+
+    entry = {"r1-eth0": {"altNames": ["eno1", "thisaltnameislongerthan15chars"]}}
+    ok = topotest.router_json_cmp_retry(r1, "show int json", entry, False, 30)
+    assert ok, "Altname 2 not visible"
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
