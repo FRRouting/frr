@@ -24,6 +24,7 @@ DEFINE_MTYPE_STATIC(BFDD, BFDD_PROFILE, "long-lived profile memory");
 DEFINE_MTYPE_STATIC(BFDD, BFDD_SESSION_OBSERVER, "Session observer");
 DEFINE_MTYPE_STATIC(BFDD, BFDD_VRF, "BFD VRF");
 DEFINE_MTYPE_STATIC(BFDD, SBFD_REFLECTOR, "SBFD REFLECTOR");
+DEFINE_MTYPE_STATIC(BFDD, BFD_PERM_VRF, "BFD perm vrf data");
 
 /*
  * Prototypes
@@ -55,6 +56,19 @@ struct in6_addr zero_addr;
 
 /** BFD profiles list. */
 struct bfdproflist bplist;
+
+/*
+ * Data structures and functions for managing
+ * permitted VRFs for BFD sessions.
+ */
+static unsigned int bfd_perm_vrfs_hash_do(const struct bfd_perm_vrf *vrf);
+static bool bfd_perm_vrfs_hash_cmp(const struct bfd_perm_vrf *vrf1,
+				   const struct bfd_perm_vrf *vrf2);
+static void destroy_bfd_perm_vrfs_data(void);
+
+DECLARE_HASH(bfd_perm_vrfs, struct bfd_perm_vrf, itm, bfd_perm_vrfs_hash_cmp,
+	     bfd_perm_vrfs_hash_do);
+struct bfd_perm_vrfs_head bfd_perm_vrfs;
 
 /*
  * Functions
@@ -1980,6 +1994,19 @@ static bool sbfd_discr_hash_cmp(const void *n1, const void *n2)
 }
 
 /*
+ * BFD permitted vrfs data structures.
+ */
+static unsigned int bfd_perm_vrfs_hash_do(const struct bfd_perm_vrf *vrf)
+{
+	return string_hash_make(vrf->vrf_name);
+}
+
+static bool bfd_perm_vrfs_hash_cmp(const struct bfd_perm_vrf *vrf1, const struct bfd_perm_vrf *vrf2)
+{
+	return strmatch(vrf1->vrf_name, vrf2->vrf_name);
+}
+
+/*
  * Hash public interface / exported functions.
  */
 
@@ -2009,6 +2036,13 @@ struct sbfd_reflector *sbfd_discr_lookup(uint32_t discr)
 	sr.discr = discr;
 
 	return hash_lookup(sbfd_rflt_hash, &sr);
+}
+
+static struct bfd_perm_vrf *_bfd_perm_vrf_find(const char *vrf_name)
+{
+	struct bfd_perm_vrf ref = { .vrf_name = (char *)vrf_name };
+
+	return bfd_perm_vrfs_find(&bfd_perm_vrfs, &ref);
 }
 
 /*
@@ -2138,6 +2172,8 @@ void bfd_shutdown(void)
 	hash_free(bfd_id_hash);
 	hash_free(bfd_key_hash);
 	hash_free(sbfd_rflt_hash);
+
+	destroy_bfd_perm_vrfs_data();
 
 	/* Free all profile allocations. */
 	while ((bp = TAILQ_FIRST(&bplist)) != NULL)
@@ -2341,6 +2377,62 @@ static void bfd_profile_detach(struct bfd_profile *bp)
 }
 
 /*
+ * Permitted VRFs related functions.
+ */
+
+static bool bfd_vrf_is_perm(const char *vrf_name)
+{
+	if (!bfd_perm_vrfs_count(&bfd_perm_vrfs))
+		return true;
+
+	return _bfd_perm_vrf_find(vrf_name) ? true : false;
+}
+
+static void insert_bfd_perm_vrf(const char *vrf_name)
+{
+	struct bfd_perm_vrf *vrf_item;
+
+	vrf_item = _bfd_perm_vrf_find(vrf_name);
+
+	if (vrf_item)
+		return;
+
+	vrf_item = XCALLOC(MTYPE_BFD_PERM_VRF, sizeof(*vrf_item));
+	vrf_item->vrf_name = XSTRDUP(MTYPE_TMP, vrf_name);
+
+	bfd_perm_vrfs_add(&bfd_perm_vrfs, vrf_item);
+}
+
+static void init_bfd_perm_vrfs_data(const char *context)
+{
+	bfd_perm_vrfs_init(&bfd_perm_vrfs);
+
+	if (!context || *context == '\0')
+		return;
+
+	const char *delim = ",";
+	char **vrfs_list;
+	int num;
+
+	frrstr_split(context, delim, &vrfs_list, &num);
+
+	for (int i = 0; i < num; i++)
+		insert_bfd_perm_vrf(vrfs_list[i]);
+
+	XFREE(MTYPE_TMP, vrfs_list);
+}
+
+static void destroy_bfd_perm_vrfs_data(void)
+{
+	struct bfd_perm_vrf *vrf_item;
+
+	frr_each_safe (bfd_perm_vrfs, &bfd_perm_vrfs, vrf_item) {
+		XFREE(MTYPE_TMP, vrf_item->vrf_name);
+		XFREE(MTYPE_BFD_PERM_VRF, vrf_item);
+	}
+}
+
+/*
  * VRF related functions.
  */
 static int bfd_vrf_new(struct vrf *vrf)
@@ -2386,6 +2478,9 @@ static int bfd_vrf_enable(struct vrf *vrf)
 	/* Don't open sockets when using data plane */
 	if (bglobal.bg_use_dplane)
 		goto skip_sockets;
+
+	if (!bfd_vrf_is_perm(vrf->name))
+		return 0;
 
 	if (bvrf->bg_shop == -1)
 		bvrf->bg_shop = bp_udp_shop(vrf);
@@ -2462,8 +2557,9 @@ static int bfd_vrf_disable(struct vrf *vrf)
 	return 0;
 }
 
-void bfd_vrf_init(void)
+void bfd_vrf_init(const char *context)
 {
+	init_bfd_perm_vrfs_data(context);
 	vrf_init(bfd_vrf_new, bfd_vrf_enable, bfd_vrf_disable, bfd_vrf_delete);
 }
 

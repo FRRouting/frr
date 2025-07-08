@@ -16,6 +16,7 @@
 
 #include "lib/hash.h"
 #include "lib/libfrr.h"
+#include "lib/frrstr.h"
 #include "lib/qobj.h"
 #include "lib/queue.h"
 #include "lib/vrf.h"
@@ -706,7 +707,7 @@ void bfd_session_apply(struct bfd_session *bs);
 /* BFD hash data structures interface */
 void bfd_initialize(void);
 void bfd_shutdown(void);
-void bfd_vrf_init(void);
+void bfd_vrf_init(const char *context);
 void bfd_vrf_terminate(void);
 struct bfd_vrf_global *bfd_vrf_look_by_session(struct bfd_session *bfd);
 struct bfd_session *bfd_id_lookup(uint32_t id);
@@ -889,4 +890,13 @@ void sbfd_echo_state_handler(struct bfd_session *bs, int nstate);
 void sbfd_initiator_state_handler(struct bfd_session *bs, int nstate);
 
 struct bfd_session *bfd_session_get_by_name(const char *name);
+
+/*
+ * Permitted VRF Configuration for BFD Sessions.
+ */
+PREDECL_HASH(bfd_perm_vrfs);
+struct bfd_perm_vrf {
+	struct bfd_perm_vrfs_item itm;
+	char *vrf_name;
+};
 #endif /* _BFD_H_ */
