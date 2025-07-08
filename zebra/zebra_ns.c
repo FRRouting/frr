@@ -144,6 +144,8 @@ struct interface *zebra_ns_lookup_ifp_name(struct zebra_ns *zns, const char *ifn
 static int lookup_ifp_name_cb(struct interface *ifp, void *arg)
 {
 	struct ifp_name_ctx *pctx = arg;
+	struct altname altname;
+	struct altname *result;
 
 	if (strcmp(ifp->name, pctx->ifname) == 0) {
 		pctx->ifp = ifp;
