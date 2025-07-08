@@ -44,6 +44,7 @@ from .bgpbmp import (
     bmp_check_for_peer_message,
     bmp_update_seq,
     bmp_reset_seq,
+    BMPSequenceContext,
 )
 
 
@@ -58,6 +59,9 @@ LOC_RIB = "loc-rib"
 
 UPDATE_EXPECTED_JSON = False
 DEBUG_PCAP = False
+
+# Create a global BMP sequence context for this test module
+bmp_seq_context = BMPSequenceContext()
 
 
 def build_topo(tgen):
@@ -83,7 +87,7 @@ ip link set vrf1 up
 ip link set r1vrf-eth1 master vrf1
 """
     )
-    bmp_reset_seq()
+    bmp_reset_seq(bmp_seq_context)
     if DEBUG_PCAP:
         pcap_file = os.path.join(tgen.logdir, "r1vrf/bmp.pcap")
         tgen.gears["r1vrf"].run(
@@ -130,7 +134,9 @@ def _test_prefixes(policy, step=1):
 
     for type in ("update", "withdraw"):
         bmp_update_seq(
-            tgen.gears["bmp1vrf"], os.path.join(tgen.logdir, "bmp1vrf", "bmp.log")
+            tgen.gears["bmp1vrf"],
+            os.path.join(tgen.logdir, "bmp1vrf", "bmp.log"),
+            bmp_seq_context,
         )
 
         # add prefixes
@@ -171,6 +177,7 @@ def _test_prefixes(policy, step=1):
             f"{CWD}/bmp1vrf",
             UPDATE_EXPECTED_JSON,
             LOC_RIB,
+            bmp_seq_context,
         )
         success, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
         assert success, "Checking the updated prefixes has failed ! %s" % res
@@ -210,6 +217,7 @@ def test_peer_up():
         "peer up",
         tgen.gears["bmp1vrf"],
         os.path.join(tgen.logdir, "bmp1vrf", "bmp.log"),
+        bmp_seq_context,
         is_rd_instance=True,
     )
     success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
@@ -246,6 +254,7 @@ def test_peer_down():
         "peer down",
         tgen.gears["bmp1vrf"],
         os.path.join(tgen.logdir, "bmp1vrf", "bmp.log"),
+        bmp_seq_context,
         is_rd_instance=True,
     )
     success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
@@ -269,6 +278,7 @@ def test_bgp_instance_flapping():
         "peer down",
         tgen.gears["bmp1vrf"],
         os.path.join(tgen.logdir, "bmp1vrf", "bmp.log"),
+        bmp_seq_context,
         is_rd_instance=True,
     )
     success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
@@ -283,6 +293,7 @@ def test_bgp_instance_flapping():
         "peer up",
         tgen.gears["bmp1vrf"],
         os.path.join(tgen.logdir, "bmp1vrf", "bmp.log"),
+        bmp_seq_context,
         is_rd_instance=True,
     )
     success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
@@ -314,6 +325,7 @@ def test_bgp_routerid_changed():
         "peer down",
         tgen.gears["bmp1vrf"],
         os.path.join(tgen.logdir, "bmp1vrf", "bmp.log"),
+        bmp_seq_context,
         is_rd_instance=True,
     )
     success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
@@ -330,6 +342,7 @@ def test_bgp_routerid_changed():
         "peer up",
         tgen.gears["bmp1vrf"],
         os.path.join(tgen.logdir, "bmp1vrf", "bmp.log"),
+        bmp_seq_context,
         is_rd_instance=True,
         peer_bgp_id="192.168.1.77",
     )
@@ -346,7 +359,9 @@ def test_reconfigure_route_distinguisher_vrf1():
     tgen = get_topogen()
 
     bmp_update_seq(
-        tgen.gears["bmp1vrf"], os.path.join(tgen.logdir, "bmp1vrf", "bmp.log")
+        tgen.gears["bmp1vrf"],
+        os.path.join(tgen.logdir, "bmp1vrf", "bmp.log"),
+        bmp_seq_context,
     )
     peers = ["0.0.0.0"]
 
@@ -370,6 +385,7 @@ def test_reconfigure_route_distinguisher_vrf1():
         "peer down",
         tgen.gears["bmp1vrf"],
         os.path.join(tgen.logdir, "bmp1vrf", "bmp.log"),
+        bmp_seq_context,
         is_rd_instance=True,
         peer_distinguisher="444:1",
     )
@@ -387,6 +403,7 @@ def test_reconfigure_route_distinguisher_vrf1():
         "peer up",
         tgen.gears["bmp1vrf"],
         os.path.join(tgen.logdir, "bmp1vrf", "bmp.log"),
+        bmp_seq_context,
         is_rd_instance=True,
         peer_bgp_id="192.168.1.77",
         peer_distinguisher="666:22",
@@ -406,6 +423,7 @@ def test_reconfigure_route_distinguisher_vrf1():
         "peer up",
         tgen.gears["bmp1vrf"],
         os.path.join(tgen.logdir, "bmp1vrf", "bmp.log"),
+        bmp_seq_context,
         is_rd_instance=True,
         peer_distinguisher="666:22",
     )

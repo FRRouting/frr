@@ -50,6 +50,7 @@ from .bgpbmp import (
     bmp_get_seq,
     bmp_update_seq,
     bmp_reset_seq,
+    BMPSequenceContext,
 )
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
@@ -62,6 +63,9 @@ LOC_RIB = "loc-rib"
 
 UPDATE_EXPECTED_JSON = False
 DEBUG_PCAP = False
+
+# Create a global BMP sequence context for this test module
+bmp_seq_context = BMPSequenceContext()
 
 SEQ_BACKUP = 0
 
@@ -97,7 +101,7 @@ ip link set r1import-eth2 master vrf1
         """
     )
 
-    bmp_reset_seq()
+    bmp_reset_seq(bmp_seq_context)
     if DEBUG_PCAP:
         tgen.gears["r1import"].run("rm /tmp/bmp.pcap")
         tgen.gears["r1import"].run(
@@ -153,6 +157,7 @@ def _test_prefixes_syncro(policy, vrf=None, step=1, bmp_name="bmp1import"):
         f"{CWD}/{bmp_name}",
         UPDATE_EXPECTED_JSON,
         LOC_RIB,
+        bmp_seq_context,
     )
     success, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert success, "Checking the updated prefixes has failed ! %s" % res
@@ -172,7 +177,9 @@ def _test_prefixes(policy, vrf=None, step=0):
 
     for type in ("update", "withdraw"):
         bmp_update_seq(
-            tgen.gears["bmp1import"], os.path.join(tgen.logdir, "bmp1import", "bmp.log")
+            tgen.gears["bmp1import"],
+            os.path.join(tgen.logdir, "bmp1import", "bmp.log"),
+            bmp_seq_context,
         )
 
         bgp_configure_prefixes(
@@ -217,6 +224,7 @@ def _test_prefixes(policy, vrf=None, step=0):
             f"{CWD}/bmp1import",
             UPDATE_EXPECTED_JSON,
             LOC_RIB,
+            bmp_seq_context,
         )
         success, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
         assert success, "Checking the updated prefixes has failed ! %s" % res
@@ -241,6 +249,7 @@ def _test_peer_up(check_locrib=True, bmp_name="bmp1import"):
         "peer up",
         tgen.gears[bmp_name],
         os.path.join(tgen.logdir, bmp_name, "bmp.log"),
+        bmp_seq_context,
         is_rd_instance=True,
     )
     success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
@@ -334,8 +343,9 @@ def test_bmp_collector_bmp2_connect():
 
 
 def test_bmp2_peer_up_start():
-    SEQ_BACKUP = bmp_get_seq()
-    bmp_reset_seq()
+    global SEQ_BACKUP
+    SEQ_BACKUP = bmp_get_seq(bmp_seq_context)
+    bmp_reset_seq(bmp_seq_context)
     _test_peer_up(bmp_name="bmp2import")
 
 
@@ -350,7 +360,7 @@ def test_bmp2_bgp_unicast():
     logger.info("*** Unicast prefixes loc-rib logging ***")
     _test_prefixes_syncro(LOC_RIB, vrf="vrf1", bmp_name="bmp2import")
 
-    bmp_reset_seq(seq_param=SEQ_BACKUP)
+    bmp_reset_seq(bmp_seq_context, seq_param=SEQ_BACKUP)
 
 
 def test_r1import_del_networks():
@@ -375,6 +385,7 @@ def test_peer_down():
         "peer down",
         tgen.gears["bmp1import"],
         os.path.join(tgen.logdir, "bmp1import", "bmp.log"),
+        bmp_seq_context,
     )
     success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
     assert success, "Checking the updated prefixes has been failed !."
@@ -444,7 +455,9 @@ def test_reconfigure_route_distinguisher_vrf1():
     tgen = get_topogen()
 
     bmp_update_seq(
-        tgen.gears["bmp1import"], os.path.join(tgen.logdir, "bmp1import", "bmp.log")
+        tgen.gears["bmp1import"],
+        os.path.join(tgen.logdir, "bmp1import", "bmp.log"),
+        bmp_seq_context,
     )
     peers = ["0.0.0.0"]
 
@@ -468,6 +481,7 @@ def test_reconfigure_route_distinguisher_vrf1():
         "peer down",
         tgen.gears["bmp1import"],
         os.path.join(tgen.logdir, "bmp1import", "bmp.log"),
+        bmp_seq_context,
         is_rd_instance=True,
         peer_distinguisher="444:1",
     )
@@ -485,6 +499,7 @@ def test_reconfigure_route_distinguisher_vrf1():
         "peer up",
         tgen.gears["bmp1import"],
         os.path.join(tgen.logdir, "bmp1import", "bmp.log"),
+        bmp_seq_context,
         is_rd_instance=True,
         peer_distinguisher="666:22",
     )
@@ -503,6 +518,7 @@ def test_reconfigure_route_distinguisher_vrf1():
         "peer up",
         tgen.gears["bmp1import"],
         os.path.join(tgen.logdir, "bmp1import", "bmp.log"),
+        bmp_seq_context,
         is_rd_instance=True,
         peer_distinguisher="666:22",
     )
@@ -544,6 +560,7 @@ def test_bgp_routerid_changed():
         "peer down",
         tgen.gears["bmp1import"],
         os.path.join(tgen.logdir, "bmp1import", "bmp.log"),
+        bmp_seq_context,
         is_rd_instance=True,
         peer_bgp_id="192.168.0.1",
     )
@@ -561,6 +578,7 @@ def test_bgp_routerid_changed():
         "peer up",
         tgen.gears["bmp1import"],
         os.path.join(tgen.logdir, "bmp1import", "bmp.log"),
+        bmp_seq_context,
         is_rd_instance=True,
         peer_bgp_id="192.168.1.77",
         bgp_open_as=65501,
@@ -591,6 +609,7 @@ def test_bgp_instance_flapping():
         "peer down",
         tgen.gears["bmp1import"],
         os.path.join(tgen.logdir, "bmp1import", "bmp.log"),
+        bmp_seq_context,
         is_rd_instance=True,
     )
     success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
@@ -605,6 +624,7 @@ def test_bgp_instance_flapping():
         "peer up",
         tgen.gears["bmp1import"],
         os.path.join(tgen.logdir, "bmp1import", "bmp.log"),
+        bmp_seq_context,
         is_rd_instance=True,
     )
     success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
@@ -643,6 +663,7 @@ def test_peer_down_locrib():
         "peer down",
         tgen.gears["bmp1import"],
         os.path.join(tgen.logdir, "bmp1import", "bmp.log"),
+        bmp_seq_context,
     )
     success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
     assert success, "Checking the BMP peer down message has failed !."
