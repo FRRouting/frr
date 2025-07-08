@@ -141,15 +141,30 @@ struct interface *zebra_ns_lookup_ifp_name(struct zebra_ns *zns, const char *ifn
 	return ctx.ifp;
 }
 
+/* Callback function to lookup interface by name (or altname if ENABLE_TRANSPARENT_ALTNAMES is enabled) */
 static int lookup_ifp_name_cb(struct interface *ifp, void *arg)
 {
 	struct ifp_name_ctx *pctx = arg;
-	struct altname altname;
-	struct altname *result;
 
+	/* Check primary name first */
 	if (strcmp(ifp->name, pctx->ifname) == 0) {
 		pctx->ifp = ifp;
 		return NS_WALK_STOP;
+	}
+
+	/* Check altnames */
+	if (ENABLE_TRANSPARENT_ALTNAMES) {
+		struct altname altname;
+		struct altname *result;
+
+		strlcpy(altname.name, pctx->ifname, sizeof(altname.name));
+
+		result = RB_FIND(altnames_head, &ifp->altnames, &altname);
+
+		if (result != NULL) {
+			pctx->ifp = ifp;
+			return NS_WALK_STOP;
+		}
 	}
 
 	return NS_WALK_CONTINUE;
