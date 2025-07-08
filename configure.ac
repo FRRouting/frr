@@ -2011,6 +2011,12 @@ else
   AC_DEFINE([DISABLE_BGP_ANNOUNCE], [0], [Disable BGP installation to zebra])
 fi
 
+if test "$enable_transparent_altnames" = "yes";then
+  AC_DEFINE([ENABLE_TRANSPARENT_ALTNAMES], [1], [Enable transparent interface altnames])
+else
+  AC_DEFINE([ENABLE_TRANSPARENT_ALTNAMES], [0], [Disable transparent interface altnames])
+fi
+
 if test "$enable_bgp_vnc" != "no";then
   AC_DEFINE([ENABLE_BGP_VNC], [1], [Enable BGP VNC support])
 fi
