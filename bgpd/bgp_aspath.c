@@ -585,7 +585,7 @@ static void aspath_make_str_count(struct aspath *as, bool make_json)
 			as->str_len = 0;
 			json_object_free(as->json);
 			as->json = NULL;
-
+			json_object_free(jaspath_segments);
 			return;
 		}
 
