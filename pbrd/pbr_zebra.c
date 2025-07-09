@@ -521,7 +521,7 @@ static bool pbr_encode_pbr_map_sequence(struct stream *s,
 	r.priority = pbrms->ruleno;
 	r.unique = pbrms->unique;
 
-	r.family = pbrms->family;
+	r.family = family;
 
 	/* filter */
 	r.filter.filter_bm = pbrms->filter_bm;
