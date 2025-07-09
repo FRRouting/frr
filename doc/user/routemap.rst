@@ -374,6 +374,10 @@ Route Map Set Command
 
    Accept L3VPN traffic over GRE encapsulation.
 
+.. clicmd:: set l3vpn encapsulation prefer-srv6
+
+   Prefer SRv6 encapsulation over MPLS, when available.
+
 .. _route-map-call-command:
 
 Route Map Call Command

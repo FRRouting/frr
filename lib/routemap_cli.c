@@ -1523,7 +1523,8 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 			yang_dnode_get_string(
 				dnode,
 				"./rmap-set-action/frr-bgp-route-map:l3vpn-nexthop-encapsulation"));
-	}
+	} else if (IS_SET_BGP_L3VPN_ENCAPSULATION_PREFER_SRV6(action))
+		vty_out(vty, " set l3vpn encapsulation prefer-srv6\n");
 }
 
 DEFPY_YANG(

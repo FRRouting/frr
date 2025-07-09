@@ -3497,6 +3497,19 @@ Filtering SRv6/MPLS per neighbor
    will be sent. Reversely, the ``encapsulation-mpls`` command can be used to
    filter out SRv6 L3VPN BGP updates, and keep MPLS L3VPN BGP updates.
 
+Filtering SRv6/MPLS per service
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. clicmd:: set l3vpn encapsulation prefer-srv6
+
+   When exporting L3VPN update, the created BGP path will use the MPLS encapsulation
+   if any label has been configured: the usage of the ``label vpn export auto`` command
+   illustrates this scenario. However it is also possible to benefit from SRv6
+   encapsulation by allocating a SID (for example, with the ``sid vpn export auto``
+   command. If both commands are used, by default, MPLS encapsulation will be chosen.
+   To change this behaviour, use the ``route-map vpn export`` command to prefer SRv6
+   encapsulation, and exporting an SRv6 update.
+
 .. _bgp-evpn:
 
 Ethernet Virtual Network - EVPN

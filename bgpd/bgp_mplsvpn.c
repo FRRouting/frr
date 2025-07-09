@@ -1979,8 +1979,10 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 		nexthop_self_flag = 1;
 	}
 
-	if (CHECK_FLAG(from_bgp->vpn_policy[afi].flags,
-		       BGP_VPN_POLICY_TOVPN_LABEL_PER_NEXTHOP))
+	if (CHECK_FLAG(static_attr.rmap_change_flags, BATTR_RMAP_L3VPN_ENCAPSULATION_PREFER_SRV6))
+		label_val = MPLS_LABEL_NONE;
+	else if (CHECK_FLAG(from_bgp->vpn_policy[afi].flags,
+			    BGP_VPN_POLICY_TOVPN_LABEL_PER_NEXTHOP))
 		/* per nexthop label mode */
 		label_val = vpn_leak_from_vrf_get_per_nexthop_label(
 			afi, path_vrf, from_bgp, to_bgp);
