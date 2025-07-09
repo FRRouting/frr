@@ -1839,6 +1839,7 @@ void static_zebra_init(void)
 	hook_register_prio(if_up, 0, static_ifp_up);
 	hook_register_prio(if_down, 0, static_ifp_down);
 	hook_register_prio(if_unreal, 0, static_ifp_destroy);
+	hook_register_prio(if_del, 0, static_ifp_destroy);
 
 	static_zclient = zclient_new(master, &zclient_options_default, static_handlers,
 				     array_size(static_handlers));
