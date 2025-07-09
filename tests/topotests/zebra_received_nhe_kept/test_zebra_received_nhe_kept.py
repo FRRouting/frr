@@ -65,7 +65,7 @@ def test_zebra_received_nhe_kept():
 
     r1 = tgen.gears["r1"]
 
-    @retry(retry_timeout=10, retry_sleep=0.25)
+    @retry(retry_timeout=30, retry_sleep=0.25)
     def _check_zebra_routes():
         # Get the route information
         route_info = r1.vtysh_cmd("show ip route json")

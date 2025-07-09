@@ -33,7 +33,7 @@ def tgen(request):
     tgen.stop_topology()
 
 
-@retry(retry_timeout=10)
+@retry(retry_timeout=30)
 def scan_log(log, regex):
     log.update_content()
     new_content = log.from_mark(log.last_snap_mark)

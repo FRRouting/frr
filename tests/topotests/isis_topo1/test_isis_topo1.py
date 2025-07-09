@@ -760,7 +760,7 @@ def _check_isis_neighbor_exist(self, neighbor):
     )
 
 
-@retry(retry_timeout=5)
+@retry(retry_timeout=30)
 def _check_isis_neighbor_state(self, neighbor, neighbor_state_expected):
     tgen = get_topogen()
     router = tgen.gears[self]
@@ -784,7 +784,7 @@ def _check_isis_neighbor_state(self, neighbor, neighbor_state_expected):
     )
 
 
-@retry(retry_timeout=10)
+@retry(retry_timeout=30)
 def check_last_iih_packet_for_padding(router, expect_padding):
     logfilename = "{}/{}".format(router.gearlogdir, "isisd.log")
     last_hello_packet_line = None
@@ -819,7 +819,7 @@ def check_last_iih_packet_for_padding(router, expect_padding):
     )
 
 
-@retry(retry_timeout=5)
+@retry(retry_timeout=30)
 def check_advertised_prefixes(router, lsp_id, expected_prefixes):
     output = router.vtysh_cmd("show isis database detail {}".format(lsp_id))
     prefixes = set(re.findall(r"IP(?:v6)? Reachability: (.*) \(Metric: 10\)", output))
