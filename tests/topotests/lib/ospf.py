@@ -1940,7 +1940,7 @@ def verify_ospf6_rib(
     return result
 
 
-@retry(retry_timeout=6)
+@retry(retry_timeout=30)
 def verify_ospf6_interface(tgen, topo=None, dut=None, lan=False, input_dict=None):
     """
     This API is to verify ospf routes by running

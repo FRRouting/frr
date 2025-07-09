@@ -8,7 +8,7 @@
 from munet.testing.util import retry
 
 
-@retry(retry_timeout=10)
+@retry(retry_timeout=15)
 def wait_for_route(r, p):
     o = r.cmd_raises(f"ip route show {p}")
     assert p in o

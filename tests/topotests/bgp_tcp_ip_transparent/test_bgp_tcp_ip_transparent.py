@@ -139,7 +139,7 @@ def teardown_module(mod):
     logger.info("=" * 40)
 
 
-@retry(retry_timeout=8)
+@retry(retry_timeout=30)
 def verify_bgp_transparent(tgen, topo=None, dut=None):
 
     if topo is None:

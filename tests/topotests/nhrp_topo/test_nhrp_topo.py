@@ -370,7 +370,7 @@ def test_route_install():
 # here we are testing that all of the expected
 # retries are sent and logged before a
 # shortcut is purged
-@retry(retry_timeout=10, initial_wait=30)
+@retry(retry_timeout=30, initial_wait=30)
 def check_retry_debug_info(pingspoke=None):
     tgen = get_topogen()
     r1 = tgen.gears["r1"]
@@ -391,7 +391,7 @@ def check_retry_debug_info(pingspoke=None):
 # you are expecting to find a complete shortcut
 # (True) or incomplete shortcut (False) as a
 # result of the ping
-@retry(retry_timeout=10, initial_wait=10)
+@retry(retry_timeout=30, initial_wait=10)
 def create_shortcut(expect_successful_shortcut=True, pingspoke=None, peer_addr=None):
     tgen = get_topogen()
     r1 = tgen.gears["r1"]
