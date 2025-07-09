@@ -40,8 +40,6 @@
             "hostname":"r2",
             "afi":"ipv6",
             "scope":"global",
-            "linkLocalOnly":false,
-            "length":24,
             "metric":0,
             "accessible":true,
             "used":true
