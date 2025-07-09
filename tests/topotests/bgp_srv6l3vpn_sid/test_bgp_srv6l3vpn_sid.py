@@ -668,6 +668,49 @@ def test_sid_add_peer_mpls_nof_filtered():
     check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_4.json")
 
 
+def test_sid_add_prefer_srv6_to_mpls():
+    """
+    configure vrf30 so that SRv6 is preferred over MPLS
+    Test that 2001:8:: prefix has SRv6 option and is selected
+    """
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         route-map rmap permit 1
+          set l3vpn encapsulation prefer-srv6
+         exit
+         router bgp 1 vrf vrf30
+          address-family ipv6 unicast
+           route-map vpn export rmap
+        """
+    )
+    # exported vpn prefix is exported and selected
+    # exported vpn prefix has srv6 options
+    check_rib(
+        "r1", "show bgp ipv6 vpn 2001:8::/64 json", "r1/vpnv6_rib_2001_8_srv6.json"
+    )
+
+
+def test_sid_add_undo_prefer_srv6_to_mpls():
+    """
+    unconfigure vrf30 so that SRv6 is preferred over MPLS
+    Test that 2001:8:: prefix has SRv6 option and is selected
+    """
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1 vrf vrf30
+          address-family ipv6 unicast
+           no route-map vpn export rmap
+        """
+    )
+    # exported vpn prefix is exported and selected
+    # exported vpn prefix has mpls options
+    check_rib(
+        "r1", "show bgp ipv6 vpn 2001:8::/64 json", "r1/vpnv6_rib_2001_8_mpls.json"
+    )
+
+
 def test_sid_add_vrf_30_srv6_only():
     """
     Test that VPN prefix is valid, after unconfiguring MPLS
