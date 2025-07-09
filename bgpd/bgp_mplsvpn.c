@@ -785,6 +785,7 @@ void ensure_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 	bool is_tovpn_sid_explicit = false;
 	struct srv6_sid_ctx ctx = {};
 	uint32_t sid_func;
+	struct srv6_locator *locator_bgp;
 
 	if (debug)
 		zlog_debug("%s: try to allocate new SID for vrf %s: afi %s",
@@ -798,7 +799,14 @@ void ensure_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 	 * skip when bgp vpn instance ins't allocated
 	 * or srv6 locator isn't allocated
 	 */
-	if (!bgp_vpn || !bgp_vpn->srv6_locator)
+	if (!bgp_vpn)
+		return;
+
+	locator_bgp = bgp_srv6_locator_lookup(bgp_vrf, bgp_vpn);
+	/*
+	 * skip when bgp srv6 locator isn't allocated
+	 */
+	if (!locator_bgp)
 		return;
 
 	if (bgp_vrf->vrf_id == VRF_UNKNOWN) {
@@ -835,8 +843,7 @@ void ensure_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 		return;
 	}
 	if (!tovpn_sid_auto && !is_tovpn_sid_explicit) {
-		if (!srv6_sid_compose(&tovpn_sid, bgp_vpn->srv6_locator,
-				      tovpn_sid_index)) {
+		if (!srv6_sid_compose(&tovpn_sid, locator_bgp, tovpn_sid_index)) {
 			zlog_err("%s: failed to compose sid for vrf %s: afi %s",
 				 __func__, bgp_vrf->name_pretty, afi2str(afi));
 			return;
@@ -848,12 +855,14 @@ void ensure_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 	ctx.vrf_id = bgp_vrf->vrf_id;
 	ctx.behavior = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
 				     : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
-	if (!bgp_zebra_request_srv6_sid(&ctx, &tovpn_sid,
-					bgp_vpn->srv6_locator_name, &sid_func)) {
-		zlog_err("%s: failed to request sid for vrf %s: afi %s",
-			 __func__, bgp_vrf->name_pretty, afi2str(afi));
+	if (!bgp_zebra_request_srv6_sid(&ctx, &tovpn_sid, locator_bgp->name, &sid_func)) {
+		zlog_err("%s: failed to request sid for vrf %s: afi %s", __func__,
+			 bgp_vrf->name_pretty, afi2str(afi));
 		return;
 	}
+	if (debug)
+		zlog_debug("%s: allocating new SID for vrf %s: afi %s, locator %s", __func__,
+			   bgp_vrf->name_pretty, afi2str(afi), locator_bgp->name);
 }
 
 void ensure_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
@@ -865,6 +874,7 @@ void ensure_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 	bool is_tovpn_sid_explicit = false;
 	struct srv6_sid_ctx ctx = {};
 	uint32_t sid_func;
+	struct srv6_locator *locator_bgp;
 
 	if (debug)
 		zlog_debug("%s: try to allocate new SID for vrf %s", __func__,
@@ -878,7 +888,14 @@ void ensure_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 	 * skip when bgp vpn instance ins't allocated
 	 * or srv6 locator isn't allocated
 	 */
-	if (!bgp_vpn || !bgp_vpn->srv6_locator)
+	if (!bgp_vpn)
+		return;
+
+	locator_bgp = bgp_srv6_locator_lookup(bgp_vrf, bgp_vpn);
+	/*
+	 * skip when bgp srv6 locator isn't allocated
+	 */
+	if (!locator_bgp)
 		return;
 
 	if (bgp_vrf->vrf_id == VRF_UNKNOWN) {
@@ -915,8 +932,7 @@ void ensure_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 	}
 
 	if (!tovpn_sid_auto && !is_tovpn_sid_explicit) {
-		if (!srv6_sid_compose(&tovpn_sid, bgp_vpn->srv6_locator,
-				      bgp_vrf->tovpn_sid_index)) {
+		if (!srv6_sid_compose(&tovpn_sid, locator_bgp, bgp_vrf->tovpn_sid_index)) {
 			zlog_err("%s: failed to compose new sid for vrf %s",
 				 __func__, bgp_vrf->name_pretty);
 			return;
@@ -927,12 +943,14 @@ void ensure_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 
 	ctx.vrf_id = bgp_vrf->vrf_id;
 	ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
-	if (!bgp_zebra_request_srv6_sid(&ctx, &tovpn_sid,
-					bgp_vpn->srv6_locator_name, &sid_func)) {
+	if (!bgp_zebra_request_srv6_sid(&ctx, &tovpn_sid, locator_bgp->name, &sid_func)) {
 		zlog_err("%s: failed to request new sid for vrf %s", __func__,
 			 bgp_vrf->name_pretty);
 		return;
 	}
+	if (debug)
+		zlog_debug("%s: allocating new SID for vrf %s, locator %s", __func__,
+			   bgp_vrf->name_pretty, locator_bgp->name);
 }
 
 void ensure_vrf_tovpn_sid(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi)
@@ -1162,7 +1180,9 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 	 * If the SID per VRF is not available, also consider the rib as
 	 * invalid.
 	 */
-	if (to_bgp->srv6_enabled && nh_valid)
+	if ((bgp_srv6_locator_is_configured(to_bgp) ||
+	     bgp_srv6_locator_is_configured(bgp_nexthop)) &&
+	    nh_valid)
 		nh_valid = is_pi_srv6_valid(bpi, bgp_nexthop, afi, safi);
 
 	if (debug)

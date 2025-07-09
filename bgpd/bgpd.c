@@ -1519,7 +1519,6 @@ int bgp_peer_gr_init(struct peer *peer)
 
 static void bgp_srv6_init(struct bgp *bgp)
 {
-	bgp->srv6_enabled = false;
 	bgp->srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
 	memset(bgp->srv6_locator_name, 0, sizeof(bgp->srv6_locator_name));
 	bgp->srv6_locator_chunks = list_new();
@@ -1569,6 +1568,29 @@ static void bgp_srv6_cleanup(struct bgp *bgp)
 
 	srv6_locator_free(bgp->srv6_locator);
 	bgp->srv6_locator = NULL;
+}
+
+bool bgp_srv6_locator_is_configured(struct bgp *bgp)
+{
+	return (bgp->srv6_locator_name[0] != '\0');
+}
+
+/**
+ * Return the SRv6 locator used for exported path from bgp_vrf
+ *
+ * @param bgp_vrf BGP VRF instance
+ * @param bgp default BGP instance
+ * @return srv6_locator
+ * If bgp_vrf has any locator available, return it
+ * otherwise fallback to the default VRF.
+ */
+struct srv6_locator *bgp_srv6_locator_lookup(struct bgp *bgp_vrf, struct bgp *bgp)
+{
+	if (bgp_vrf && bgp_vrf->srv6_locator)
+		return bgp_vrf->srv6_locator;
+	if (bgp && bgp->srv6_locator)
+		return bgp->srv6_locator;
+	return NULL;
 }
 
 /* Allocate new peer object, implicitely locked.  */
