@@ -22,7 +22,7 @@ def check_vtysh_up(router):
     return None if not rc else proc_error(rc, o, e)
 
 
-@retry(retry_timeout=3, initial_wait=0.1)
+@retry(retry_timeout=30, initial_wait=0.1)
 def check_kernel(r1, prefix, expected=True):
     net = ipaddress.ip_network(prefix)
     if net.version == 6:

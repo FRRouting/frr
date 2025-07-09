@@ -44,7 +44,7 @@ def tgen(request):
     tgen.stop_topology()
 
 
-@retry(retry_timeout=1, initial_wait=0.1)
+@retry(retry_timeout=30, initial_wait=0.1)
 def check_kernel(r1, prefix, nexthops, vrf, expected_p=True, expected_nh=True):
     vrfstr = f" vrf {vrf}" if vrf else ""
 

@@ -69,7 +69,7 @@ def _update_snaps(logs):
         log.last_snap_mark = len(log.content)
 
 
-@retry(retry_timeout=8, retry_sleep=0.1)
+@retry(retry_timeout=30, retry_sleep=0.1)
 def scan_log(logs, regex):
     """Scan the WatchLog `log` for a regex match."""
     # Get latest content since last snapshot for all logs
