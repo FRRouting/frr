@@ -13684,11 +13684,6 @@ static void bgp_show_neighbor_graceful_restart_time(struct vty *vty,
 			vty_out(vty, "      Restart Time Remaining(sec): %ld\n",
 				event_timer_remain_second(
 					p->connection->t_gr_restart));
-		if (p->connection->t_gr_restart != NULL) {
-			vty_out(vty, "      Restart Time Remaining(sec): %ld\n",
-				event_timer_remain_second(
-					p->connection->t_gr_restart));
-		}
 	}
 }
 
