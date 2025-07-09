@@ -532,26 +532,23 @@ void bgp_delete_connected_nexthop(afi_t afi, struct peer *peer)
 	if (!peer)
 		return;
 
-	/*
-	 * In case the below check evaluates true and if
-	 * the bnc has not been freed at this point, then
-	 * we might have to do something similar to what's
-	 * done in bgp_unlink_nexthop_by_peer(). Since
-	 * bgp_unlink_nexthop_by_peer() loops through the
-	 * nodes of V6 nexthop cache to find the bnc, it is
-	 * currently not being called here.
-	 */
-	if (!sockunion2hostprefix(&peer->connection->su, &p))
-		return;
-	/*
-	 * Gather the ifindex for if up/down events to be
-	 * tagged into this fun
-	 */
-	if (afi == AFI_IP6 &&
-	    IN6_IS_ADDR_LINKLOCAL(&peer->connection->su.sin6.sin6_addr))
-		ifindex = peer->connection->su.sin6.sin6_scope_id;
-	bnc = bnc_find(&peer->bgp->nexthop_cache_table[family2afi(p.family)],
-		       &p, 0, ifindex);
+	if (!sockunion2hostprefix(&peer->connection->su, &p)) {
+		/*
+		 * If peer->connection->su is cleared before peer deletion,
+		 * find the bnc whose nht_info matches the peer and free it.
+		 */
+		bnc = bgp_find_ipv6_nexthop_matching_peer(peer);
+	} else {
+		/*
+		 * Gather the ifindex for if up/down events to be
+		 * tagged into this fun
+		 */
+		if (afi == AFI_IP6 && IN6_IS_ADDR_LINKLOCAL(&peer->connection->su.sin6.sin6_addr))
+			ifindex = peer->connection->su.sin6.sin6_scope_id;
+		bnc = bnc_find(&peer->bgp->nexthop_cache_table[family2afi(p.family)], &p, 0,
+			       ifindex);
+	}
+
 	if (!bnc) {
 		if (BGP_DEBUG(nht, NHT))
 			zlog_debug(
