@@ -74,9 +74,14 @@ def expect_ospfv3_routes(router, routes, wait=5, type=None, detail=False):
         else:
             cmd = "show ipv6 ospf6 route {} detail json".format(type)
 
+    # Convert routes to array format to match new JSON structure
+    routes_array = {}
+    for prefix, route_data in routes.items():
+        routes_array[prefix] = [route_data]
+
     logger.info("waiting OSPFv3 router '{}' route".format(router))
     test_func = partial(
-        topotest.router_json_cmp, tgen.gears[router], cmd, {"routes": routes}
+        topotest.router_json_cmp, tgen.gears[router], cmd, {"routes": routes_array}
     )
     _, result = topotest.run_and_expect(test_func, None, count=wait, wait=1)
     assertmsg = '"{}" convergence failure'.format(router)
@@ -95,7 +100,11 @@ def dont_expect_route(router, unexpected_route, type=None):
 
     output = tgen.gears[router].vtysh_cmd(cmd, isjson=True)
     if unexpected_route in output["routes"]:
-        return output["routes"][unexpected_route]
+        # Routes are now arrays, so return the first element if it exists
+        routes_array = output["routes"][unexpected_route]
+        if isinstance(routes_array, list) and len(routes_array) > 0:
+            return routes_array[0]
+        return routes_array
     return None
 
 
@@ -344,10 +353,23 @@ def test_nssa_lsa_type7():
         output = tgen.gears["r4"].vtysh_cmd(
             "show ipv6 ospf6 database type-7 detail json", isjson=True
         )
-        for lsa in output["areaScopedLinkStateDb"][0]["lsa"]:
-            if lsa["prefix"] == unexpected_lsa["prefix"]:
-                if lsa["forwardingAddress"] == unexpected_lsa["forwardingAddress"]:
-                    return lsa
+        # Check if areaScopedLinkStateDb exists and has elements
+        if (
+            "areaScopedLinkStateDb" not in output
+            or len(output["areaScopedLinkStateDb"]) == 0
+        ):
+            return None
+
+        # Check each area for the LSA
+        for area in output["areaScopedLinkStateDb"]:
+            if "lsa" in area:
+                for lsa in area["lsa"]:
+                    if lsa["prefix"] == unexpected_lsa["prefix"]:
+                        if (
+                            lsa["forwardingAddress"]
+                            == unexpected_lsa["forwardingAddress"]
+                        ):
+                            return lsa
         return None
 
     logger.info("Expecting LSA type-7 and OSPFv3 route 2001:db8:100::/64 to go away")
