@@ -1,6 +1,6 @@
 {
   "routes":{
-    "2001:db8:1000::1\/128":{
+    "2001:db8:1000::1\/128":[{
       "isBestRoute":false,
       "destinationType":"N",
       "pathType":"E2",
@@ -9,8 +9,8 @@
           "interfaceName":"eth-rt6"
         }
       ]
-    },
-    "2001:db8:1000::2\/128":{
+    }],
+    "2001:db8:1000::2\/128":[{
       "isBestRoute":true,
       "destinationType":"N",
       "pathType":"IE",
@@ -19,8 +19,8 @@
           "interfaceName":"eth-rt6"
         }
       ]
-    },
-    "2001:db8:1000::3\/128":{
+    }],
+    "2001:db8:1000::3\/128":[{
       "isBestRoute":true,
       "destinationType":"N",
       "pathType":"IE",
@@ -29,8 +29,8 @@
           "interfaceName":"eth-rt6"
         }
       ]
-    },
-    "2001:db8:1000::4\/128":{
+    }],
+    "2001:db8:1000::4\/128":[{
       "isBestRoute":true,
       "destinationType":"N",
       "pathType":"IE",
@@ -39,8 +39,8 @@
           "interfaceName":"eth-rt6"
         }
       ]
-    },
-    "2001:db8:1000::5\/128":{
+    }],
+    "2001:db8:1000::5\/128":[{
       "isBestRoute":true,
       "destinationType":"N",
       "pathType":"IE",
@@ -49,8 +49,8 @@
           "interfaceName":"eth-rt6"
         }
       ]
-    },
-    "2001:db8:1000::6\/128":{
+    }],
+    "2001:db8:1000::6\/128":[{
       "isBestRoute":true,
       "destinationType":"N",
       "pathType":"IE",
@@ -59,8 +59,8 @@
           "interfaceName":"eth-rt6"
         }
       ]
-    },
-    "2001:db8:1000::7\/128":{
+    }],
+    "2001:db8:1000::7\/128":[{
       "isBestRoute":true,
       "destinationType":"N",
       "pathType":"IA",
@@ -69,6 +69,6 @@
           "interfaceName":"lo"
         }
       ]
-    }
+    }]
   }
 }
