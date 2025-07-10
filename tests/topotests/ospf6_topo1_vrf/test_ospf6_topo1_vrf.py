@@ -79,7 +79,7 @@ from lib.topotest import iproute2_is_vrf_capable
 from lib.common_config import required_linux_kernel_version
 
 
-pytestmark = [pytest.mark.ospfd]
+pytestmark = [pytest.mark.ospf6d]
 
 
 def build_topo(tgen):
