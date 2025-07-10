@@ -346,7 +346,7 @@ static const char *show_srv6_sid_seg6_context(char *str, size_t size, const stru
 }
 
 static void do_show_srv6_sid_line(struct ttable *tt, struct zebra_srv6_sid *sid,
-				  struct in6_addr *sid_value, struct srv6_locator *locator)
+				  const struct in6_addr *sid_value, struct srv6_locator *locator)
 {
 	struct zserv *client;
 	char clients[256];
@@ -421,8 +421,80 @@ static void do_show_srv6_sid_line(struct ttable *tt, struct zebra_srv6_sid *sid,
 	}
 }
 
+static void do_show_srv6_sid_legacy_json(struct vty *vty, json_object **json,
+					 struct srv6_locator *locator,
+					 struct zebra_srv6_sid_ctx *sid_ctx,
+					 const struct in6_addr *sid_value)
+{
+	json_object *json_sid = NULL;
+	struct vrf *vrf;
+	struct interface *ifp;
+	struct zserv *client;
+	struct zebra_srv6_sid_client *sclient;
+	struct zebra_srv6_sid_entry *entry;
+
+	if (!sid_ctx || !sid_ctx->sid)
+		return;
+
+	frr_each (zebra_srv6_sid_entry_list, &sid_ctx->sid->entries, entry) {
+		if (locator && entry->locator != locator)
+			continue;
+
+		if (sid_value && !sid_same(sid_value, &entry->sid_value))
+			continue;
+
+		json_sid = json_object_new_object();
+
+		json_object_string_addf(json_sid, "sid", "%pI6", &entry->sid_value);
+		if ((entry->locator->sid_format &&
+		     entry->locator->sid_format->type == SRV6_SID_FORMAT_TYPE_USID) ||
+		    (!entry->locator->sid_format &&
+		     CHECK_FLAG(entry->locator->flags, SRV6_LOCATOR_USID))) {
+			json_object_string_add(json_sid, "behavior",
+					       show_srv6_sid_seg6_action(sid_ctx->ctx.behavior));
+		} else {
+			json_object_string_add(json_sid, "behavior",
+					       seg6local_action2str(sid_ctx->ctx.behavior));
+		}
+
+		if (sid_ctx->ctx.vrf_id) {
+			vrf = vrf_lookup_by_id(sid_ctx->ctx.vrf_id);
+			if (vrf)
+				json_object_string_addf(json_sid, "context", "VRF '%s'", vrf->name);
+		}
+		if (sid_ctx->ctx.ifindex) {
+			RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+				ifp = if_lookup_by_index(sid_ctx->ctx.ifindex, vrf->vrf_id);
+				if (ifp)
+					json_object_string_addf(json_sid, "context",
+								"Interface '%s'", ifp->name);
+			}
+		}
+		if (memcmp(&sid_ctx->ctx.nh6, &in6addr_any, sizeof(struct in6_addr)) != 0) {
+			json_object_string_addf(json_sid, "context", "Endpoint '%pI6' Color '%u'",
+						&sid_ctx->ctx.nh6, sid_ctx->ctx.color);
+		}
+		json_object_string_add(json_sid, "locator", entry->locator->name);
+		json_object_string_add(json_sid, "allocationType",
+				       srv6_sid_alloc_mode2str(sid_ctx->sid->alloc_mode));
+
+		/* Zclients */
+		if (zebra_srv6_sid_client_list_count(&entry->clients_list)) {
+			frr_each_safe (zebra_srv6_sid_client_list, &entry->clients_list, sclient) {
+				client = sclient->client;
+				json_object_string_addf(json_sid, "daemons", "%s(%u)",
+							zebra_route_string(client->proto),
+							client->instance);
+				break;
+			}
+		}
+		json_object_array_add(*json, json_sid);
+	}
+}
+
 static void do_show_srv6_sid_json(struct vty *vty, json_object **json, struct srv6_locator *locator,
-				  struct zebra_srv6_sid_ctx *sid_ctx, struct in6_addr *sid_value)
+				  struct zebra_srv6_sid_ctx *sid_ctx,
+				  const struct in6_addr *sid_value)
 {
 	json_object *json_sid_ctx = NULL;
 	json_object *json_sid = NULL;
@@ -514,14 +586,17 @@ static void do_show_srv6_sid_json(struct vty *vty, json_object **json, struct sr
 static void do_show_srv6_sid_specific(struct vty *vty, json_object **json,
 				      struct srv6_locator *locator,
 				      struct zebra_srv6_sid_ctx *sid_ctx,
-				      struct in6_addr *sid_value)
+				      const struct in6_addr *sid_value, bool legacy)
 {
 	struct ttable *tt;
 	struct zebra_srv6_sid_entry *entry;
 	bool found = false;
 
 	if (json) {
-		do_show_srv6_sid_json(vty, json, locator, sid_ctx, sid_value);
+		if (legacy)
+			do_show_srv6_sid_legacy_json(vty, json, locator, sid_ctx, sid_value);
+		else
+			do_show_srv6_sid_json(vty, json, locator, sid_ctx, sid_value);
 	} else {
 		/* Prepare table. */
 		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
@@ -571,7 +646,8 @@ static void do_show_srv6_sid_specific(struct vty *vty, json_object **json,
 	}
 }
 
-static void do_show_srv6_sid_all(struct vty *vty, json_object **json, struct srv6_locator *locator)
+static void do_show_srv6_sid_all(struct vty *vty, json_object **json, struct srv6_locator *locator,
+				 bool legacy)
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
 	struct zebra_srv6_sid_ctx *ctx;
@@ -593,7 +669,10 @@ static void do_show_srv6_sid_all(struct vty *vty, json_object **json, struct srv
 				    !zebra_srv6_sid_entry_lookup(ctx->sid, locator->name, true))
 					continue;
 
-				do_show_srv6_sid_json(vty, json, locator, ctx, NULL);
+				if (legacy)
+					do_show_srv6_sid_legacy_json(vty, json, locator, ctx, NULL);
+				else
+					do_show_srv6_sid_json(vty, json, locator, ctx, NULL);
 			}
 		}
 	} else {
@@ -637,20 +716,9 @@ static void do_show_srv6_sid_all(struct vty *vty, json_object **json, struct srv
 	}
 }
 
-DEFPY (show_srv6_sid,
-       show_srv6_sid_cmd,
-       "show segment-routing srv6 [locator NAME$locator_name] sid [X:X::X:X$sid_value] [detail$detail] [json]",
-       SHOW_STR
-       "Segment Routing\n"
-       "Segment Routing SRv6\n"
-       "Locator Information\n"
-       "Locator Name\n"
-       "SID\n"
-       "SID value\n"
-       "Detailed information\n"
-       JSON_STR)
+static int show_srv6_sid_custom(struct vty *vty, const char *locator_name,
+				const struct in6_addr *sid_value, bool detail, bool uj, bool legacy)
 {
-	bool uj = use_json(argc, argv);
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
 	struct srv6_locator *locator = NULL;
 	struct zebra_srv6_sid_ctx *sid_ctx = NULL, *c;
@@ -660,28 +728,30 @@ DEFPY (show_srv6_sid,
 	struct zebra_srv6_sid_block *block = NULL;
 	struct listnode *node_block;
 
-	if (uj)
+	if (uj && !legacy)
 		json = json_object_new_object();
 
 	if (locator_name) {
 		locator = zebra_srv6_locator_lookup(locator_name);
 		if (!locator) {
-			if (uj)
+			if (uj) {
+				if (legacy)
+					json = json_object_new_object();
 				vty_json(vty, json); /* Return empty json */
-			else
+			} else
 				vty_out(vty, "%% Can't find the SRv6 locator\n");
 			return CMD_WARNING;
 		}
 	}
 
-	if (!IPV6_ADDR_SAME(&sid_value, &in6addr_any)) {
+	if (!IPV6_ADDR_SAME(sid_value, &in6addr_any)) {
 		for (ALL_LIST_ELEMENTS_RO(srv6->sid_blocks, node_block, block)) {
 			frr_each (zebra_srv6_sid_ctx_list, &block->sids, c) {
 				if (!c->sid)
 					continue;
 
 				frr_each_safe (zebra_srv6_sid_entry_list, &c->sid->entries, entry) {
-					if (IPV6_ADDR_SAME(&entry->sid_value, &sid_value)) {
+					if (IPV6_ADDR_SAME(&entry->sid_value, sid_value)) {
 						sid_ctx = c;
 						break;
 					}
@@ -715,15 +785,53 @@ DEFPY (show_srv6_sid,
 		}
 	}
 
-	if (!IPV6_ADDR_SAME(&sid_value, &in6addr_any))
-		do_show_srv6_sid_specific(vty, uj ? &json : NULL, locator, sid_ctx, &sid_value);
+	if (legacy)
+		json = json_object_new_array();
+	if (!IPV6_ADDR_SAME(sid_value, &in6addr_any))
+		do_show_srv6_sid_specific(vty, uj ? &json : NULL, locator, sid_ctx, sid_value,
+					  legacy);
 	else
-		do_show_srv6_sid_all(vty, uj ? &json : NULL, locator);
+		do_show_srv6_sid_all(vty, uj ? &json : NULL, locator, legacy);
 
 	if (uj)
 		vty_json(vty, json);
 
 	return CMD_SUCCESS;
+}
+
+DEFPY (show_srv6_sid_new,
+       show_srv6_sid_new_cmd,
+       "show segment-routing srv6 new [locator NAME$locator_name] sid [X:X::X:X$sid_value] [detail$detail] [json]",
+       SHOW_STR
+       "Segment Routing\n"
+       "Segment Routing SRv6\n"
+       "New format command\n"
+       "Locator Information\n"
+       "Locator Name\n"
+       "SID\n"
+       "SID value\n"
+       "Detailed information\n"
+       JSON_STR)
+{
+	return show_srv6_sid_custom(vty, locator_name, &sid_value, detail, use_json(argc, argv),
+				    false);
+}
+
+DEFPY (show_srv6_sid,
+       show_srv6_sid_cmd,
+       "show segment-routing srv6 [locator NAME$locator_name] sid [X:X::X:X$sid_value] [detail$detail] [json]",
+       SHOW_STR
+       "Segment Routing\n"
+       "Segment Routing SRv6\n"
+       "Locator Information\n"
+       "Locator Name\n"
+       "SID\n"
+       "SID value\n"
+       "Detailed information\n"
+       JSON_STR)
+{
+	return show_srv6_sid_custom(vty, locator_name, &sid_value, detail, use_json(argc, argv),
+				    true);
 }
 
 DEFUN_NOSH (segment_routing,
@@ -1795,4 +1903,5 @@ void zebra_srv6_vty_init(void)
 	install_element(VIEW_NODE, &show_srv6_locator_detail_cmd);
 	install_element(VIEW_NODE, &show_srv6_manager_cmd);
 	install_element(VIEW_NODE, &show_srv6_sid_cmd);
+	install_element(VIEW_NODE, &show_srv6_sid_new_cmd);
 }
