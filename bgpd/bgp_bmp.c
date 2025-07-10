@@ -1977,7 +1977,8 @@ static void bmp_stats_peer(struct peer *peer, struct bmp_targets *bt)
 	s = stream_new(BGP_MAX_PACKET_SIZE);
 	bmp_common_hdr(s, BMP_VERSION_3, BMP_TYPE_STATISTICS_REPORT);
 	gettimeofday(&tv, NULL);
-	bmp_per_peer_hdr(s, bt->bgp, peer, 0, peer_type_flag, peer_distinguisher, &tv);
+	bmp_per_peer_hdr(s, bt->bgp, peer,  bt->post_stats ? BMP_PEER_FLAG_L : 0,
+			 peer_type_flag, peer_distinguisher, &tv);
 
 	count_pos = stream_get_endp(s);
 	stream_putl(s, 0);
