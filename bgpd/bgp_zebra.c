@@ -1291,6 +1291,17 @@ static void bgp_zebra_announce_parse_nexthop(
 		 * in some situations.
 		 */
 		if (do_wt_ecmp) {
+			/* Extended communities are exported/imported correctly
+			 * between VRFs, but we need to extract the actual link-bandwidth
+			 * value from the extended communities.
+			 */
+			(void)ecommunity_linkbw_present(bgp_attr_get_ecommunity(mpinfo->attr),
+							&mpinfo->attr->link_bw);
+			/* Fallback to IPv6 address-specific extended community */
+			if (!mpinfo->attr->link_bw)
+				(void)ecommunity_linkbw_present(bgp_attr_get_ipv6_ecommunity(
+									mpinfo->attr),
+								&mpinfo->attr->link_bw);
 			if (!bgp_zebra_use_nhop_weighted(bgp, mpinfo->attr,
 							 &nh_weight))
 				continue;
