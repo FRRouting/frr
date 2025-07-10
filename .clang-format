@@ -161,7 +161,6 @@ IndentWrappedFunctionNames: false
 JavaScriptQuotes: Leave
 JavaScriptWrapImports: true
 KeepEmptyLinesAtTheStartOfBlocks: false
-KeepEmptyLinesAtEOF: true
 MacroBlockBegin: ''
 MacroBlockEnd: ''
 ## Linux: MaxEmptyLinesToKeep: 1
