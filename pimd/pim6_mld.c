@@ -623,6 +623,7 @@ static bool gm_packet_sg_drop(struct gm_packet_sg *item)
 			continue;
 
 		gm_packet_sg_subs_del(excl_item->sg->subs_negative, excl_item);
+		gm_sg_update(excl_item->sg, true);
 		excl_item->sg = NULL;
 		pkt->n_active--;
 
