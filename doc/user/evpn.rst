@@ -162,6 +162,8 @@ The VTEP-IP (100.64.0.1) needs to be reachable by other VTEPs in the EVPN
 environment in order for VXLAN decapsulation to function. In this example we
 will advertise our local VTEP-IP using BGP (via the ``network`` statement), but
 static routes or other routing protocols like IS-IS or OSPF can also be used.
+The VTEP-IP can be either an IPv4 or IPv6 address for Singlehomed deployments.
+Only IPv4 is presently supported for Multihomed deployments.
 
 In order to enable EVPN for a BGP instance, we must use the command
 ``advertise-all-vni``. In this example we will be using the default VRF to
@@ -250,6 +252,7 @@ environment described above.
 Some high-level config considerations:
 
 * The local VTEP-IP should always be set to a reachable IP on the lo device.
+* The local VTEP-IP can be either an IPv4 or IPv6 address.
 * An L3VNI should always have an SVI (aka the L3-SVI).
 * An L3-SVI should not be assigned an IP address, link-local or otherwise.
 

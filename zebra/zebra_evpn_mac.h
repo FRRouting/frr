@@ -84,7 +84,7 @@ struct zebra_mac {
 			vlanid_t vid;
 		} local;
 
-		struct in_addr r_vtep_ip;
+		struct ipaddr r_vtep_ip;
 	} fwd_info;
 
 	/* Local or remote ES */
@@ -148,7 +148,7 @@ struct mac_walk_ctx {
 #define DEL_REMOTE_MAC_FROM_VTEP 0x4
 #define SHOW_REMOTE_MAC_FROM_VTEP 0x8
 
-	struct in_addr r_vtep_ip; /* To walk MACs from specific VTEP */
+	struct ipaddr r_vtep_ip; /* To walk MACs from specific VTEP */
 
 	struct vty *vty;	  /* Used by VTY handlers */
 	uint32_t count;		  /* Used by VTY handlers */
@@ -242,11 +242,9 @@ void zebra_evpn_rem_mac_del(struct zebra_evpn *zevi, struct zebra_mac *mac);
 void zebra_evpn_print_dad_mac_hash(struct hash_bucket *bucket, void *ctxt);
 void zebra_evpn_print_dad_mac_hash_detail(struct hash_bucket *bucket,
 					  void *ctxt);
-int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn,
-				    struct zebra_vrf *zvrf,
-				    const struct ethaddr *macaddr,
-				    struct in_addr vtep_ip, uint8_t flags,
-				    uint32_t seq, const esi_t *esi);
+int zebra_evpn_mac_remote_macip_add(struct zebra_evpn *zevpn, struct zebra_vrf *zvrf,
+				    const struct ethaddr *macaddr, struct ipaddr *vtep_ip,
+				    uint8_t flags, uint32_t seq, const esi_t *esi);
 
 int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 				    struct zebra_evpn *zevpn,

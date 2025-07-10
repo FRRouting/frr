@@ -387,7 +387,7 @@ uint32_t kernel_get_speed(struct interface *ifp, int *error)
 	return ifp->speed;
 }
 
-int kernel_upd_mac_nh(uint32_t nh_id, struct in_addr vtep_ip)
+int kernel_upd_mac_nh(uint32_t nh_id, struct ipaddr *vtep_ip)
 {
 	return 0;
 }
