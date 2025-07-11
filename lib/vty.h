@@ -43,6 +43,15 @@ struct vty_cfg_change {
 	const char *value;
 };
 
+/* Current vty status. */
+enum vty_status {
+	VTY_NORMAL,
+	VTY_CLOSE,
+	VTY_MORE,
+	VTY_MORELINE,
+	VTY_PASSFD,
+};
+
 PREDECL_DLIST(vtys);
 
 /* VTY struct. */
@@ -161,13 +170,7 @@ struct vty {
 	unsigned char escape;
 
 	/* Current vty status. */
-	enum {
-		VTY_NORMAL,
-		VTY_CLOSE,
-		VTY_MORE,
-		VTY_MORELINE,
-		VTY_PASSFD,
-	} status;
+	enum vty_status status;
 
 	/* vtysh socket/fd passing (for terminal monitor) */
 	int pass_fd;
@@ -228,6 +231,13 @@ struct vty {
 	uintptr_t mgmt_req_pending_data;
 	bool mgmt_locked_candidate_ds;
 	bool mgmt_locked_running_ds;
+	/* Incremental write/flush limit and current accumulator. When
+	 * producing large outputs, we try to avoid buffering the entire
+	 * output, sending incremental output periodically
+	 * as the application code produces it.
+	 */
+	size_t vty_buf_threshold;
+	size_t vty_buf_size_accum;
 };
 
 static inline void vty_push_context(struct vty *vty, int node, uint64_t id)
@@ -425,9 +435,16 @@ extern int vty_mgmt_send_rpc_req(struct vty *vty, LYD_FORMAT request_type,
 extern int vty_mgmt_send_lockds_req(struct vty *vty, enum mgmt_ds_id ds_id, bool lock, bool scok);
 extern void vty_mgmt_resume_response(struct vty *vty, int ret);
 
-static inline bool vty_needs_implicit_commit(struct vty *vty)
+static inline bool vty_needs_implicit_commit(const struct vty *vty)
 {
 	return frr_get_cli_mode() == FRR_CLI_CLASSIC && !vty->pending_allowed;
+}
+
+/* Applications can check vty status */
+static inline bool vty_is_closed(const struct vty *vty)
+{
+	return (vty == NULL || vty->status == VTY_CLOSE || vty->fd < 0 ||
+		vty->wfd < 0);
 }
 
 #ifdef __cplusplus

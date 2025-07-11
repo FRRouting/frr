@@ -125,6 +125,9 @@ static char integrate_default[] = SYSCONFDIR INTEGRATE_DEFAULT_CONFIG;
 bool vty_log_commands;
 static bool vty_log_commands_perm;
 
+/* Vty incremental flush threshold size */
+static const int VTY_MAX_INCREMENTAL_FLUSH = 1024 * 128;
+
 char const *const mgmt_daemons[] = {
 	"zebra",
 #ifdef HAVE_RIPD
@@ -261,6 +264,11 @@ int vty_out(struct vty *vty, const char *format, ...)
 	char *filtered;
 	/* format string may contain %m, keep errno intact for printfrr */
 	int saved_errno = errno;
+	size_t filt_len;
+
+	/* If this vty has failed, just return */
+	if (vty->status == VTY_CLOSE)
+		return -1;
 
 	if (vty->frame_pos) {
 		vty->frame_pos = 0;
@@ -346,8 +354,18 @@ int vty_out(struct vty *vty, const char *format, ...)
 	case VTY_SHELL_SERV:
 	case VTY_FILE:
 	default:
+		filt_len = strlen(filtered);
+		vty->vty_buf_size_accum += filt_len;
 		/* print without crlf replacement */
-		buffer_put(vty->obuf, (uint8_t *)filtered, strlen(filtered));
+		buffer_put(vty->obuf, (uint8_t *)filtered, filt_len);
+
+		/* If we've reached the incremental threshold, try
+		 * to flush buffered output.
+		 */
+		if (vty->vty_buf_size_accum >= vty->vty_buf_threshold) {
+			vty->vty_buf_size_accum = 0;
+			vtysh_flush(vty);
+		}
 		break;
 	}
 
@@ -360,7 +378,10 @@ done:
 	if (p != buf)
 		XFREE(MTYPE_VTY_OUT_BUF, p);
 
-	return len;
+	if (vty->status == VTY_CLOSE)
+		return -1;
+	else
+		return len;
 }
 
 static int vty_json_helper(struct vty *vty, struct json_object *json,
@@ -370,6 +391,11 @@ static int vty_json_helper(struct vty *vty, struct json_object *json,
 
 	if (!json)
 		return CMD_SUCCESS;
+
+	if (vty_is_closed(vty)) {
+		json_object_free(json);
+		return CMD_ERR_NOTHING_TODO;
+	}
 
 	text = json_object_to_json_string_ext(
 		json, options);
@@ -2165,6 +2191,13 @@ static void vtysh_accept(struct event *thread)
 #endif /* VTYSH_DEBUG */
 
 	vty = vty_new();
+
+	/* Capture incremental write threshold */
+	if (ret < VTY_MAX_INCREMENTAL_FLUSH)
+		vty->vty_buf_threshold = ret / 2;
+	else
+		vty->vty_buf_threshold = VTY_MAX_INCREMENTAL_FLUSH;
+
 	vty->fd = sock;
 	vty->wfd = sock;
 	vty->type = VTY_SHELL_SERV;
@@ -2241,9 +2274,16 @@ static int vtysh_flush(struct vty *vty)
 			 __func__, vty->fd);
 		buffer_reset(vty->lbuf);
 		buffer_reset(vty->obuf);
-		vty_close(vty);
+
+		/* Set error status. The vty may be in the middle of
+		 * application code that may not be prepared to handle
+		 * an error, so we'll defer cleanup until the app handler
+		 * returns.
+		 */
+		vty->status = VTY_CLOSE;
 		return -1;
 	case BUFFER_EMPTY:
+		vty->vty_buf_size_accum = 0;
 		break;
 	}
 	return 0;
@@ -2449,7 +2489,11 @@ static void vtysh_read(struct event *thread)
 				if (!vty->t_write && (vtysh_flush(vty) < 0))
 					/* Try to flush results; exit if a write
 					 * error occurs. */
-					return;
+					break;
+
+				/* If we encountered an error, break now */
+				if (vty->status == VTY_CLOSE)
+					break;
 			}
 		}
 	}
@@ -4112,7 +4156,7 @@ void vty_terminate(void)
 
 	if (mgmt_fe_client) {
 		mgmt_fe_client_destroy(mgmt_fe_client);
-		mgmt_fe_client = 0;
+		mgmt_fe_client = NULL;
 	}
 
 	memset(vty_cwd, 0x00, sizeof(vty_cwd));
