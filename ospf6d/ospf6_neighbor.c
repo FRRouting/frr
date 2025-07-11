@@ -1410,14 +1410,15 @@ static int ospf6_neighbor_show_common(struct vty *vty, int argc,
 	json_object *json = NULL;
 
 	showfunc = ospf6_neighbor_show_detail;
-	if (uj)
-		json = json_object_new_object();
 
 	if ((inet_pton(AF_INET, argv[idx_ipv4]->arg, &router_id)) != 1) {
 		vty_out(vty, "Router-ID is not parsable: %s\n",
 			argv[idx_ipv4]->arg);
 		return CMD_SUCCESS;
 	}
+
+	if (uj)
+		json = json_object_new_object();
 
 	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, i, oa))
 		for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi))

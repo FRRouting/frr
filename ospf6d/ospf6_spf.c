@@ -746,11 +746,7 @@ void ospf6_spf_display_subtree(struct vty *vty, const char *prefix, int rest,
 	}
 
 	len = strlen(prefix) + 4;
-	next_prefix = (char *)malloc(len);
-	if (next_prefix == NULL) {
-		vty_out(vty, "malloc failed\n");
-		return;
-	}
+	next_prefix = XMALLOC(MTYPE_TMP, len);
 	snprintf(next_prefix, len, "%s%s", prefix, (rest ? "|  " : "   "));
 
 	restnum = listcount(v->child_list);
@@ -776,7 +772,7 @@ void ospf6_spf_display_subtree(struct vty *vty, const char *prefix, int rest,
 		else
 			json_object_free(json_childs);
 	}
-	free(next_prefix);
+	XFREE(MTYPE_TMP, next_prefix);
 }
 
 DEFUN (debug_ospf6_spf_process,
