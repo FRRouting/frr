@@ -1919,9 +1919,6 @@ void zebra_evpn_print_neigh_hash(struct hash_bucket *bucket, void *ctxt)
 	json_evpn = wctx->json;
 	n = (struct zebra_neigh *)bucket->data;
 
-	if (json_evpn)
-		json_row = json_object_new_object();
-
 	prefix_mac2str(&n->emac, buf1, sizeof(buf1));
 	ipaddr2str(&n->ip, buf2, sizeof(buf2));
 	state_str = IS_ZEBRA_NEIGH_ACTIVE(n) ? "active" : "inactive";
@@ -1936,6 +1933,8 @@ void zebra_evpn_print_neigh_hash(struct hash_bucket *bucket, void *ctxt)
                     sizeof(flags_buf)), state_str, buf1,
                     "", n->loc_seq, n->rem_seq);
 		} else {
+			json_row = json_object_new_object();
+
 			json_object_string_add(json_row, "type", "local");
 			json_object_string_add(json_row, "state", state_str);
 			json_object_string_add(json_row, "mac", buf1);
@@ -1977,6 +1976,8 @@ void zebra_evpn_print_neigh_hash(struct hash_bucket *bucket, void *ctxt)
 				n->mac->es ? n->mac->es->esi_str : addr_buf,
 				n->loc_seq, n->rem_seq);
 		} else {
+			json_row = json_object_new_object();
+
 			json_object_string_add(json_row, "type", "remote");
 			json_object_string_add(json_row, "state", state_str);
 			json_object_string_add(json_row, "mac", buf1);

@@ -846,15 +846,15 @@ void zebra_evpn_print_mac_hash(struct hash_bucket *bucket, void *ctxt)
 
 	prefix_mac2str(&mac->macaddr, buf1, sizeof(buf1));
 
-	if (json_mac_hdr)
-		json_mac = json_object_new_object();
-
 	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL)) {
 		struct interface *ifp;
 		vlanid_t vid;
 
 		if (wctx->flags & SHOW_REMOTE_MAC_FROM_VTEP)
 			return;
+
+		if (json_mac_hdr)
+			json_mac = json_object_new_object();
 
 		zebra_evpn_mac_get_access_info(mac, &ifp, &vid);
 		if (json_mac_hdr == NULL) {
@@ -922,6 +922,8 @@ void zebra_evpn_print_mac_hash(struct hash_bucket *bucket, void *ctxt)
 				mac->es ? mac->es->esi_str : addr_buf, "",
 				mac->loc_seq, mac->rem_seq);
 		} else {
+			json_mac = json_object_new_object();
+
 			json_object_string_add(json_mac, "type", "remote");
 			if (mac->es)
 				json_object_string_add(json_mac, "remoteEs",

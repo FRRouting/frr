@@ -474,6 +474,7 @@ static void zevpn_print_mac_hash_all_evpn(struct hash_bucket *bucket, void *ctxt
 
 	if (!num_macs) {
 		if (json) {
+			json_object_free(json_mac); /* Unused */
 			json_object_int_add(json_evpn, "numMacs", num_macs);
 			json_object_object_add(json, vni_str, json_evpn);
 		}
@@ -494,6 +495,8 @@ static void zevpn_print_mac_hash_all_evpn(struct hash_bucket *bucket, void *ctxt
 	if (json) {
 		if (wctx->count)
 			json_object_object_add(json_evpn, "macs", json_mac);
+		else
+			json_object_free(json_mac);
 		json_object_object_add(json, vni_str, json_evpn);
 	}
 }
