@@ -422,7 +422,7 @@ int zebra_ns_init(void)
 	if (!default_ns) {
 		flog_err(EC_ZEBRA_NS_NO_DEFAULT,
 			 "%s: failed to find default ns", __func__);
-		exit(EXIT_FAILURE); /* This is non-recoverable */
+		frr_exit_with_buffer_flush(EXIT_FAILURE); /* This is non-recoverable */
 	}
 
 	/* Do any needed per-NS data structure allocation. */

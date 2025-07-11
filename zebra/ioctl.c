@@ -51,7 +51,7 @@ int if_ioctl(unsigned long request, caddr_t buffer)
 		if (sock < 0) {
 			zlog_err("Cannot create UDP socket: %s",
 				 safe_strerror(errno));
-			exit(1);
+			frr_exit_with_buffer_flush(1);
 		}
 		if ((ret = ioctl(sock, request, buffer)) < 0)
 			err = errno;
@@ -78,7 +78,7 @@ int vrf_if_ioctl(unsigned long request, caddr_t buffer, vrf_id_t vrf_id)
 		if (sock < 0) {
 			zlog_err("Cannot create UDP socket: %s",
 				 safe_strerror(errno));
-			exit(1);
+			frr_exit_with_buffer_flush(1);
 		}
 		ret = vrf_ioctl(vrf_id, sock, request, buffer);
 		if (ret < 0)
@@ -105,7 +105,7 @@ static int if_ioctl_ipv6(unsigned long request, caddr_t buffer)
 		if (sock < 0) {
 			zlog_err("Cannot create IPv6 datagram socket: %s",
 				 safe_strerror(errno));
-			exit(1);
+			frr_exit_with_buffer_flush(1);
 		}
 
 		if ((ret = ioctl(sock, request, buffer)) < 0)

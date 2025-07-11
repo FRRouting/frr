@@ -285,6 +285,8 @@ extern bool debug_memstats_at_exit;
 
 const char *frr_vers2str(uint32_t version, char *buf, int buflen);
 
+void frr_exit_with_buffer_flush(int status);
+
 #ifdef __cplusplus
 }
 #endif

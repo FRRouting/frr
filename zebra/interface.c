@@ -1469,14 +1469,14 @@ static void interface_vrf_change(enum dplane_op_e op, ifindex_t ifindex,
 				flog_err(EC_ZEBRA_VRF_NOT_FOUND,
 					 "VRF %s id %u does not exist", name,
 					 ifindex);
-				exit(-1);
+				frr_exit_with_buffer_flush(-1);
 			}
 
 			if (vrf && strcmp(name, vrf->name)) {
 				flog_err(EC_ZEBRA_VRF_MISCONFIGURED,
 					 "VRF %s id %u table id overlaps existing vrf %s(%d), misconfiguration exiting",
 					 name, ifindex, vrf->name, vrf->vrf_id);
-				exit(-1);
+				frr_exit_with_buffer_flush(-1);
 			}
 		}
 
