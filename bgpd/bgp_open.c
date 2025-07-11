@@ -1603,7 +1603,7 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 	rcapp = stream_get_endp(s);
 	stream_putc(s, 0);
 	restart_time = bgp->restart_time;
-	if (peer->bgp->t_startup || bgp_in_graceful_restart()) {
+	if (bgp_in_graceful_restart()) {
 		SET_FLAG(restart_time, GRACEFUL_RESTART_R_BIT);
 		SET_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_ADV);
 	}
@@ -1635,6 +1635,8 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 			bool f_bit = false;
 
 			if (!peer->afc[afi][safi])
+				continue;
+			if (!bgp_gr_supported_for_afi_safi(afi, safi))
 				continue;
 
 			/* Convert AFI, SAFI to values for
