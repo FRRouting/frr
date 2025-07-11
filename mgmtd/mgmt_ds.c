@@ -514,15 +514,21 @@ void mgmt_ds_dump_tree(struct vty *vty, struct mgmt_ds_ctx *ds_ctx,
 
 void mgmt_ds_status_write_one(struct vty *vty, struct mgmt_ds_ctx *ds_ctx)
 {
+	uint64_t session_id;
+	bool locked;
+
 	if (!ds_ctx) {
 		vty_out(vty, "    >>>>> Datastore Not Initialized!\n");
 		return;
 	}
 
+	locked = mgmt_ds_is_locked(ds_ctx, &session_id);
 	vty_out(vty, "  DS: %s\n", mgmt_ds_id2name(ds_ctx->ds_id));
 	vty_out(vty, "    DS-Hndl: \t\t\t%p\n", ds_ctx);
 	vty_out(vty, "    Config: \t\t\t%s\n",
 		ds_ctx->config_ds ? "True" : "False");
+	vty_out(vty, "    Locked: \t\t\t%s Session-ID: %Lu\n", locked ? "True" : "False",
+		locked ? session_id : 0);
 }
 
 void mgmt_ds_status_write(struct vty *vty)
