@@ -230,6 +230,9 @@ struct nhrp_cache {
 	unsigned route_installed : 1;
 	unsigned nhrp_route_installed : 1;
 
+	uint32_t nb_incomplete_rcv;
+	uint8_t nb_purge;
+
 	struct notifier_block peer_notifier;
 	struct notifier_block newpeer_notifier;
 	struct notifier_list notifier_list;
@@ -435,6 +438,9 @@ void nhrp_shortcut_foreach(afi_t afi,
 			   void *ctx);
 void nhrp_shortcut_purge(struct nhrp_shortcut *s, int force);
 void nhrp_shortcut_prefix_change(const struct prefix *p, int deleted);
+
+void clear_nhrp_cache(struct nhrp_cache *c, void *data);
+
 
 void nhrp_cache_interface_del(struct interface *ifp);
 void nhrp_cache_config_free(struct nhrp_cache_config *c);

@@ -1082,7 +1082,7 @@ DEFUN(show_dmvpn, show_dmvpn_cmd,
 	return CMD_SUCCESS;
 }
 
-static void clear_nhrp_cache(struct nhrp_cache *c, void *data)
+void clear_nhrp_cache(struct nhrp_cache *c, void *data)
 {
 	struct info_ctx *ctx = data;
 	if (c->cur.type <= NHRP_CACHE_DYNAMIC) {

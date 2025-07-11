@@ -46,6 +46,40 @@ void netlink_set_nflog_group(int nlgroup)
 	}
 }
 
+static void nhrp_treat_arp_fail(struct nhrp_cache *c)
+{
+	uint32_t cur_thresh;
+
+	c->nb_incomplete_rcv++;
+	debugf(NHRP_DEBUG_KERNEL, "Netlink neighbour state incomplete received %i, %i",
+	       c->nb_purge ,c->nb_incomplete_rcv);
+	/*
+	 * avoid to have too many purges
+	 */
+	cur_thresh = 2 << c->nb_purge;
+
+	/* partial purge */
+	if (c->nb_incomplete_rcv >= cur_thresh) {
+		struct prefix p;
+
+		/* purge remote address */
+		clear_nhrp_cache(c, NULL);
+		c->nb_incomplete_rcv = 0;
+		c->nb_purge++;
+		if (c->nb_purge>10)
+			c->nb_purge = 0;
+		/* get prefix */
+		if (!sockunion2hostprefix(&c->remote_addr, &p))
+			return;
+
+		debugf(NHRP_DEBUG_KERNEL, "Netlink: address %pFX flushed from cache",
+		       &p);
+	}
+
+	return;
+}
+
+
 int nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 {
 	union sockunion addr = {}, lladdr = {};
@@ -108,6 +142,8 @@ int nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS)
 		if (ndm_state != ZEBRA_NEIGH_STATE_STALE)
 			nhrp_cache_set_used(
 				c, state == ZEBRA_NEIGH_STATE_REACHABLE);
+		if (cmd == ZEBRA_NEIGH_GET && ndm_state == ZEBRA_NEIGH_STATE_INCOMPLETE)
+			nhrp_treat_arp_fail(c);
 	}
 	return 0;
 }
