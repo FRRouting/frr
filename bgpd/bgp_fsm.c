@@ -933,6 +933,12 @@ void bgp_update_delay_end(struct bgp *bgp)
 	 * mode.
 	 */
 	work_queue_unplug(bgp->process_queue);
+
+	/* Re-announce the routes once the update-delay timer expires.
+	 * This is needed to ensure that the routes are re-advertised to the
+	 * peers after the update-delay is over. E.g. default-originate.
+	 */
+	update_group_announce(bgp);
 }
 
 /**
