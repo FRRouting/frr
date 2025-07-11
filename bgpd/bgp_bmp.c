@@ -84,6 +84,7 @@ DEFINE_QOBJ_TYPE(bmp_targets);
 
 /* module startup time for the startup-delay */
 static struct timeval bmp_startup_time = { 0 };
+static bool bmp_startup_done = false;
 
 /* compute the time in millis since the bmp_startup_time recorded */
 static uint32_t bmp_time_since_startup(struct timeval *delay)
@@ -1039,6 +1040,9 @@ static int bmp_mirror_packet(struct peer *peer, uint8_t type, bgp_size_t size,
 	struct bmp *bmp;
 	struct bgp *bgp_vrf;
 	struct listnode *node;
+
+	if (!bmp_startup_done)
+		return 0;
 
 	frrtrace(3, frr_bgp, bmp_mirror_packet, peer, type, packet);
 
@@ -2527,6 +2531,7 @@ static void bmp_wrfill(struct bmp *bmp, struct pullwr *pullwr)
 
 		zlog_info("bmp: Startup timeout expired, time since startup is %" PRIu32 "ms",
 			  timeout_ms);
+		bmp_startup_done = true;
 		bmp->state = BMP_PeerUp;
 
 		/* start BMP_PeerUp mode now */
@@ -2640,6 +2645,9 @@ static int bmp_process_ribinpre(struct bgp *bgp, afi_t afi, safi_t safi, struct 
 	struct bgp *bgp_vrf;
 	struct listnode *node;
 
+	if (!bmp_startup_done)
+		return 0;
+
 	if (frrtrace_enabled(frr_bgp, bmp_process_ribinpre)) {
 		char pfxprint[PREFIX2STR_BUFFER];
 
@@ -2730,6 +2738,9 @@ static int bmp_process_ribinpost(struct bgp *bgp, afi_t afi, safi_t safi, struct
 	struct listnode *node;
 	struct bgp *bgp_vrf;
 	struct bmp *bmp;
+
+	if (!bmp_startup_done)
+		return 0;
 
 	if (frrtrace_enabled(frr_bgp, bmp_process_ribinpre)) {
 		char pfxprint[PREFIX2STR_BUFFER];
@@ -3350,12 +3361,16 @@ static struct bmp_imported_bgp *bmp_imported_bgp_find(struct bmp_targets *bt, ch
 
 static void bmp_send_all_bgp(struct peer *peer, bool down)
 {
-	struct bmp_bgp *bmpbgp = bmp_bgp_find(peer->bgp);
+	struct bmp_bgp *bmpbgp;
 	struct bgp *bgp_vrf;
 	struct listnode *node;
 	struct stream *s = NULL;
 	struct bmp_targets *bt;
 
+	if (!bmp_startup_done)
+		return;
+
+	bmpbgp = bmp_bgp_find(peer->bgp);
 	s = bmp_peerstate(peer, down);
 	if (!s)
 		return;
@@ -4537,6 +4552,9 @@ static int bmp_route_update(struct bgp *bgp, afi_t afi, safi_t safi,
 	struct bgp *bgp_vrf;
 	struct listnode *node;
 
+	if (!bmp_startup_done)
+		return 0;
+
 	/* lock the bpi in case of withdraw for rib-out pre-policy
 	 * do this unconditionally because bmp_path_unlock hook will always be
 	 * called whether rib-out mon is configured or not and this avoids
@@ -4631,8 +4649,9 @@ static int bmp_adj_out_changed(struct update_subgroup *subgrp, struct bgp_dest *
 			       struct bgp_path_info *locked_path, uint32_t addpath_id,
 			       struct attr *attr, bool post_policy, bool withdraw)
 {
-	if (!subgrp)
+	if (!bmp_startup_done || !subgrp)
 		return 0;
+
 
 	/* for rib-out pre-policy we need to run bgp conditions check to know
 	 * if a path is in adj-rib-out pre or not
@@ -4817,11 +4836,17 @@ static int bmp_bgp_attribute_updated(struct bgp *bgp, bool withdraw)
 
 static int bmp_routerid_update(struct bgp *bgp, bool withdraw)
 {
+	if (!bmp_startup_done)
+		return 0;
+
 	return bmp_bgp_attribute_updated(bgp, withdraw);
 }
 
 static int bmp_route_distinguisher_update(struct bgp *bgp, afi_t afi, bool preconfig)
 {
+	if (!bmp_startup_done)
+		return 0;
+
 	return bmp_bgp_attribute_updated(bgp, preconfig);
 }
 
@@ -4885,6 +4910,9 @@ static void _bmp_vrf_state_changed_internal(struct bgp *bgp, enum bmp_vrf_state 
  */
 static int bmp_vrf_state_changed(struct bgp *bgp)
 {
+	if (!bmp_startup_done)
+		return 0;
+
 	_bmp_vrf_state_changed_internal(bgp, vrf_state_unknown);
 
 	return 0;
@@ -4896,6 +4924,9 @@ static int bmp_vrf_state_changed(struct bgp *bgp)
 static int bmp_vrf_itf_state_changed(struct bgp *bgp, struct interface *itf)
 {
 	enum bmp_vrf_state new_state;
+
+	if (!bmp_startup_done)
+		return 0;
 
 	/* if the update is not about the vrf device double-check
 	 * the zebra status of the vrf
