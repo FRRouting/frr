@@ -2329,6 +2329,45 @@ static const struct route_map_rule_cmd
 		route_set_l3vpn_nexthop_encapsulation_compile,
 		route_set_l3vpn_nexthop_encapsulation_free};
 
+
+/* `set l3vpn next-hop encapsulation prefer-srv6' */
+
+static enum route_map_cmd_result_t
+route_set_l3vpn_encapsulation_prefer_srv6(void *rule, const struct prefix *prefix, void *object)
+{
+	struct bgp_path_info *path;
+
+	/* Fetch routemap's rule information. */
+	path = object;
+
+	SET_FLAG(path->attr->rmap_change_flags, BATTR_RMAP_L3VPN_ENCAPSULATION_PREFER_SRV6);
+	return RMAP_OKAY;
+}
+
+/* Route map `l3vpn encapsulation prefer-srv6' compile function. */
+static void *route_set_l3vpn_encapsulation_prefer_srv6_compile(const char *arg)
+{
+	int *rins = NULL;
+
+	rins = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(int));
+	*rins = 1;
+
+	return rins;
+}
+
+/* Free route map's compiled `ip nexthop' value. */
+static void route_set_l3vpn_encapsulation_prefer_srv6_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Route map commands for l3vpn encapsulation prefer-srv6. */
+static const struct route_map_rule_cmd route_set_l3vpn_encapsulation_prefer_srv6_cmd = {
+	"l3vpn encapsulation prefer-srv6", route_set_l3vpn_encapsulation_prefer_srv6,
+	route_set_l3vpn_encapsulation_prefer_srv6_compile,
+	route_set_l3vpn_encapsulation_prefer_srv6_free
+};
+
 /* `set local-preference LOCAL_PREF' */
 
 /* Set local preference. */
@@ -6273,6 +6312,27 @@ DEFUN_YANG (no_set_distance,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG(set_l3vpn_encapsulation_prefer_srv6, set_l3vpn_encapsulation_prefer_srv6_cmd,
+	   "[no] set l3vpn encapsulation prefer-srv6",
+	   NO_STR SET_STR
+	   "L3VPN operations\n"
+	   "Encapsulation options (for BGP only)\n"
+	   "Prefer SRv6 encapsulation over MPLS encapsulation\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-l3vpn-encapsulation-prefer-srv6']";
+	const char *xpath_value =
+		"./set-action[action='frr-bgp-route-map:set-l3vpn-encapsulation-prefer-srv6']/rmap-set-action/frr-bgp-route-map:l3vpn-encapsulation-prefer-srv6";
+
+	if (no)
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	else {
+		nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, "true");
+	}
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFPY_YANG(set_l3vpn_nexthop_encapsulation, set_l3vpn_nexthop_encapsulation_cmd,
 	   "[no] set l3vpn next-hop encapsulation gre",
 	   NO_STR SET_STR
@@ -8137,6 +8197,7 @@ void bgp_route_map_init(void)
 	route_map_install_set(&route_set_tag_cmd);
 	route_map_install_set(&route_set_label_index_cmd);
 	route_map_install_set(&route_set_l3vpn_nexthop_encapsulation_cmd);
+	route_map_install_set(&route_set_l3vpn_encapsulation_prefer_srv6_cmd);
 
 	install_element(RMAP_NODE, &match_peer_cmd);
 	install_element(RMAP_NODE, &match_peer_local_cmd);
@@ -8259,6 +8320,7 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &set_originator_id_cmd);
 	install_element(RMAP_NODE, &no_set_originator_id_cmd);
 	install_element(RMAP_NODE, &set_l3vpn_nexthop_encapsulation_cmd);
+	install_element(RMAP_NODE, &set_l3vpn_encapsulation_prefer_srv6_cmd);
 
 	route_map_install_match(&route_match_ipv6_address_cmd);
 	route_map_install_match(&route_match_ipv6_next_hop_cmd);

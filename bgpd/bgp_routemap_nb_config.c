@@ -3538,3 +3538,58 @@ int lib_route_map_entry_set_action_rmap_set_action_l3vpn_nexthop_encapsulation_d
 
 	return NB_OK;
 }
+
+/*
+ * XPath:
+ * /frr-route-map:lib/route-map/entry/set-action/rmap-set-action/l3vpn-encapsulation-prefer-srv6
+ */
+int lib_route_map_entry_set_action_rmap_set_action_l3vpn_encapsulation_prefer_srv6_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct routemap_hook_context *rhc;
+	int rv = CMD_SUCCESS;
+	bool value;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		/* Add configuration. */
+		rhc = nb_running_get_entry(args->dnode, NULL, true);
+		value = yang_dnode_get_bool(args->dnode, NULL);
+
+		rhc->rhc_shook = generic_set_delete;
+		rhc->rhc_event = RMAP_EVENT_SET_DELETED;
+
+		if (value) {
+			rhc->rhc_rule = "l3vpn encapsulation prefer-srv6";
+
+			rv = generic_set_add(rhc->rhc_rmi, rhc->rhc_rule, NULL, args->errmsg,
+					     args->errmsg_len);
+		}
+
+		if (rv != CMD_SUCCESS) {
+			rhc->rhc_shook = NULL;
+			return NB_ERR_INCONSISTENCY;
+		}
+	}
+
+	return NB_OK;
+}
+
+int lib_route_map_entry_set_action_rmap_set_action_l3vpn_encapsulation_prefer_srv6_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		return lib_route_map_entry_set_destroy(args);
+	}
+
+	return NB_OK;
+}

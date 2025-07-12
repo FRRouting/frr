@@ -39,21 +39,21 @@ from lib.checkping import check_ping
 
 def build_topo(tgen):
     r"""
-     CE1     CE3      CE5
-    (eth0)  (eth0)   (eth0)
-      :2      :2      :2
-       |       |       |
-   192.168.1.0 |       |
-      /24      |       |
-      2001:   2001:   2001:
-     1::/64  3::/64  5::/64
-       |       |       |
-      :1      :1      :1
-   +-(eth1)--(eth2)---(eth3)-+
-   |     \   /          |    |
-   |    (vrf10)     (vrf20)  |
-   |             R1          |
-   +----------(eth0)---------+
+     CE1     CE3      CE5     CE7
+    (eth0)  (eth0)   (eth0)  (eth0)
+      :2      :2      :2      :2
+       |       |       |       |
+   192.168.1.0 |       |       |
+      /24      |       |       |
+      2001:   2001:   2001:   2001:
+     1::/64  3::/64  5::/64  8::/64
+       |       |       |       |
+      :1      :1      :1      :1
+   +-(eth1)--(eth2)---(eth3)--(eth4)-+
+   |     \   /          |       |    |
+   |    (vrf10)     (vrf20)  (vrf30) |
+   |             R1                  |
+   +----------(eth0)-----------------+
                 :1
                 |
             2001::/64
@@ -87,6 +87,7 @@ def build_topo(tgen):
     tgen.add_router("ce4")
     tgen.add_router("ce5")
     tgen.add_router("ce6")
+    tgen.add_router("ce7")
 
     tgen.add_link(tgen.gears["r1"], tgen.gears["r2"], "eth0", "eth0")
     tgen.add_link(tgen.gears["ce1"], tgen.gears["r1"], "eth0", "eth1")
@@ -95,6 +96,7 @@ def build_topo(tgen):
     tgen.add_link(tgen.gears["ce4"], tgen.gears["r2"], "eth0", "eth2")
     tgen.add_link(tgen.gears["ce5"], tgen.gears["r1"], "eth0", "eth3")
     tgen.add_link(tgen.gears["ce6"], tgen.gears["r2"], "eth0", "eth3")
+    tgen.add_link(tgen.gears["ce7"], tgen.gears["r1"], "eth0", "eth4")
 
 
 def setup_module(mod):
@@ -118,9 +120,12 @@ def setup_module(mod):
     tgen.gears["r1"].run("ip link set vrf10 up")
     tgen.gears["r1"].run("ip link add vrf20 type vrf table 20")
     tgen.gears["r1"].run("ip link set vrf20 up")
+    tgen.gears["r1"].run("ip link add vrf30 type vrf table 30")
+    tgen.gears["r1"].run("ip link set vrf30 up")
     tgen.gears["r1"].run("ip link set eth1 master vrf10")
     tgen.gears["r1"].run("ip link set eth2 master vrf10")
     tgen.gears["r1"].run("ip link set eth3 master vrf20")
+    tgen.gears["r1"].run("ip link set eth4 master vrf30")
     tgen.gears["r1"].run("sysctl net.vrf.strict_mode=1")
     tgen.gears["r1"].run("sysctl net.ipv4.conf.default.rp_filter=0")
     tgen.gears["r1"].run("sysctl net.ipv4.conf.all.rp_filter=0")
@@ -478,6 +483,253 @@ def test_sid_add_locator_vrf_10():
     )
     # 2001:1::/64 and 2001:3::/64 should be present
     check_rib("r2", "show ipv6 route vrf vrf10 json", "r2/vrf10_rib_one_locator.json")
+
+
+def test_sid_vrf_30_basic_config():
+    """
+    Test that VPN prefix is valid, after configuring the VRF with no label
+    """
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1 vrf vrf30
+          segment-routing srv6
+           no srv6-only
+          !
+          bgp router-id 192.0.2.1
+          no bgp ebgp-requires-policy
+          no bgp default ipv4-unicast
+          address-family ipv6 unicast
+           rd vpn export 1:30
+           rt vpn both 55:55
+           import vpn
+           export vpn
+           redistribute connected
+          exit-address-family
+        """
+    )
+    # exported vpn prefix is exported and selected with MPLS label set to 3
+    check_rib(
+        "r1",
+        "show bgp ipv6 vpn 2001:8::/64 json",
+        "r1/vpnv6_rib_2001_8_valid_with_label_3.json",
+    )
+
+
+def test_sid_vrf_30_mpls():
+    """
+    Test that VPN prefix is valid, after configuring the MPLS
+    """
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1 vrf vrf30
+          address-family ipv6 unicast
+           label vpn export auto
+          exit-address-family
+        """
+    )
+    # exported vpn prefix is exported and selected
+    check_rib(
+        "r1", "show bgp ipv6 vpn 2001:8::/64 json", "r1/vpnv6_rib_2001_8_mpls.json"
+    )
+
+
+def test_sid_add_vrf_30_no_mpls():
+    """
+    Test that VPN prefix is invalid, after unconfiguring the MPLS
+    """
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1 vrf vrf30
+          address-family ipv6 unicast
+           no label vpn export auto
+          exit-address-family
+        """
+    )
+    # exported vpn prefix is exported and selected with MPLS label set to 3
+    check_rib(
+        "r1",
+        "show bgp ipv6 vpn 2001:8::/64 json",
+        "r1/vpnv6_rib_2001_8_valid_with_label_3.json",
+    )
+
+
+def test_sid_add_vrf_30_srv6():
+    """
+    Test that VPN prefix is valid, after configuring SRv6
+    """
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1 vrf vrf30
+          segment-routing srv6
+           locator loc2
+          exit
+          address-family ipv6 unicast
+           sid vpn export auto
+          exit-address-family
+        """
+    )
+    # exported vpn prefix is exported and selected
+    # exported vpn prefix has srv6 options
+    check_rib(
+        "r1", "show bgp ipv6 vpn 2001:8::/64 json", "r1/vpnv6_rib_2001_8_srv6.json"
+    )
+
+
+def test_sid_add_vrf_30_srv6_and_mpls():
+    """
+    Test that VPN prefix is valid, after configuring both SRv6 and MPLS
+    Test that MPLS is the chosen dataplane
+    """
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1 vrf vrf30
+          address-family ipv6 unicast
+           label vpn export auto
+          exit-address-family
+        """
+    )
+    # exported vpn prefix is exported and selected
+    # exported vpn prefix has no srv6 options, and mpls value
+    check_rib(
+        "r1", "show bgp ipv6 vpn 2001:8::/64 json", "r1/vpnv6_rib_2001_8_mpls.json"
+    )
+
+
+def test_sid_add_peer_srv6_filtered():
+    """
+    Configure peer 2001::2 with encapsulation-srv6
+    Test that SRv6 prefixes only are sent to r2 (2001::8 will not be present)
+    """
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1
+          address-family ipv6 vpn
+           neighbor 2001::2 encapsulation-srv6
+          exit-address-family
+        """
+    )
+    check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_3.json")
+
+
+def test_sid_add_peer_srv6_not_filtered():
+    """
+    Unconfigure peer 2001::2 with encapsulation-srv6
+    Test that SRv6 and MPLS prefixes are sent to r2 (2001::8 will be present)
+    """
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1
+          address-family ipv6 vpn
+           no neighbor 2001::2 encapsulation-srv6
+          exit-address-family
+        """
+    )
+    check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_4.json")
+
+
+def test_sid_add_peer_mpls_filtered():
+    """
+    configure peer 2001::2 with encapsulation-mpls
+    Test that MPLS prefixes are sent to r2 (2001::1 and 2001::3 will not be present)
+    """
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1
+          address-family ipv6 vpn
+           neighbor 2001::2 encapsulation-mpls
+          exit-address-family
+        """
+    )
+    check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_5.json")
+
+
+def test_sid_add_peer_mpls_nof_filtered():
+    """
+    Unconfigure peer 2001::2 with encapsulation-mpls
+    Test that MPLS and SRv6 prefixes are sent to r2 (2001::1 2001::3 will be present)
+    """
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1
+          address-family ipv6 vpn
+           no neighbor 2001::2 encapsulation-mpls
+          exit-address-family
+        """
+    )
+    check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_4.json")
+
+
+def test_sid_add_prefer_srv6_to_mpls():
+    """
+    configure vrf30 so that SRv6 is preferred over MPLS
+    Test that 2001:8:: prefix has SRv6 option and is selected
+    """
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         route-map rmap permit 1
+          set l3vpn encapsulation prefer-srv6
+         exit
+         router bgp 1 vrf vrf30
+          address-family ipv6 unicast
+           route-map vpn export rmap
+        """
+    )
+    # exported vpn prefix is exported and selected
+    # exported vpn prefix has srv6 options
+    check_rib(
+        "r1", "show bgp ipv6 vpn 2001:8::/64 json", "r1/vpnv6_rib_2001_8_srv6.json"
+    )
+
+
+def test_sid_add_undo_prefer_srv6_to_mpls():
+    """
+    unconfigure vrf30 so that SRv6 is preferred over MPLS
+    Test that 2001:8:: prefix has SRv6 option and is selected
+    """
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1 vrf vrf30
+          address-family ipv6 unicast
+           no route-map vpn export rmap
+        """
+    )
+    # exported vpn prefix is exported and selected
+    # exported vpn prefix has mpls options
+    check_rib(
+        "r1", "show bgp ipv6 vpn 2001:8::/64 json", "r1/vpnv6_rib_2001_8_mpls.json"
+    )
+
+
+def test_sid_add_vrf_30_srv6_only():
+    """
+    Test that VPN prefix is valid, after unconfiguring MPLS
+    Test that SRv6 is the chosen dataplane
+    """
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1 vrf vrf30
+          address-family ipv6 unicast
+           no label vpn export auto
+          exit-address-family
+        """
+    )
+    # exported vpn prefix is exported and selected
+    # exported vpn prefix has srv6 options
+    check_rib(
+        "r1", "show bgp ipv6 vpn 2001:8::/64 json", "r1/vpnv6_rib_2001_8_srv6.json"
+    )
 
 
 if __name__ == "__main__":

@@ -391,6 +391,12 @@ identity set-extcommunity-color {
       "Accept L3VPN traffic over other than LSP encapsulation";
   }
 
+  identity set-l3vpn-encapsulation-prefer-srv6 {
+    base frr-route-map:rmap-set-type;
+    description
+      "Prefer L3VPN SRv6 encapsulation over MPLS encapsulation";
+  }
+
   grouping extcommunity-non-transitive-types {
     description
       "Defines a grouping for non-transitive extended community types";
@@ -1369,6 +1375,17 @@ identity set-extcommunity-color {
         }
         description
           "Specify L3VPN traffic over other than LSP encapsulation value";
+      }
+    }
+    case l3vpn-encapsulation-prefer-srv6 {
+      when
+      "derived-from-or-self(../frr-route-map:action, 'frr-bgp-route-map:set-l3vpn-encapsulation-prefer-srv6')";
+      description
+        "Prefer L3VPN SRv6 encapsulation over MPLS encapsulation";
+      leaf l3vpn-encapsulation-prefer-srv6 {
+        type boolean;
+        description
+          "Specifies whether to prefer SRv6 encapsulation or MPLS encapsulation when available";
       }
     }
   }
