@@ -1822,6 +1822,36 @@ class Router(Node):
             self.run_in_window("vtysh", title="vt-%s" % self.name)
 
         if self.unified_config:
+
+            # Check that none of the datastores are locked before proceeding
+            def check_datastores_unlocked():
+                """Check that all datastores are unlocked"""
+                try:
+                    logger.info("Checking datastores on router %s", self.name)
+                    output = self.cmd("vtysh -c 'show mgmt datastore all'")
+                    # Check if any datastore is locked
+                    for line in output.splitlines():
+                        logger.info("Line: %s", line)
+                        if "Locked:" in line and "True" in line:
+                            logger.info("Datastore is locked on router %s", self.name)
+                            return False
+                    logger.info("Datastores are unlocked on router %s", self.name)
+                    return True
+                except Exception:
+                    # If command fails, assume datastores are unlocked
+                    return True
+
+            # Use run_and_expect to wait for datastores to be unlocked
+            result, _ = run_and_expect(
+                check_datastores_unlocked, True, count=30, wait=1
+            )
+            if not result:
+                logger.error(
+                    "Datastores are still locked on router %s, cannot proceed with config load",
+                    self.name,
+                )
+                return "Datastores are locked, cannot proceed with config load"
+
             self.cmd("vtysh -f /etc/frr/frr.conf")
 
         return status
@@ -2286,6 +2316,18 @@ class Router(Node):
             output = self.cmd("vtysh -c 'show zebra client summary'")
             return daemon in output
 
+        def _check_connected_to_mgmtd(self, daemon):
+            if (
+                daemon == "staticd"
+                or daemon == "zebra"
+                or daemon == "ripd"
+                or daemon == "ripngd"
+            ):
+                output = self.cmd("vtysh -c 'show mgmt backend-adapter all'")
+                return daemon in output
+            else:
+                return True
+
         # Start mgmtd first
         if "mgmtd" in daemons_list:
             start_daemon("mgmtd")
@@ -2305,6 +2347,14 @@ class Router(Node):
             # Wait till zebra is up and running to some
             # very small extent before moving on
             _check_daemons_running(check_daemon_files)
+            ok, _ = run_and_expect(
+                lambda: _check_connected_to_mgmtd(self, daemon="zebra"),
+                True,
+                count=30,
+                wait=1,
+            )
+            if not ok:
+                assert False, "zebra failed to connect to mgmtd"
 
         # Start staticd next if required
         if "staticd" in daemons_list:
@@ -2321,6 +2371,14 @@ class Router(Node):
                 )
                 if not ok:
                     assert False, "staticd failed to connect to zebra"
+                ok, _ = run_and_expect(
+                    lambda: _check_connected_to_mgmtd(self, daemon="staticd"),
+                    True,
+                    count=30,
+                    wait=1,
+                )
+                if not ok:
+                    assert False, "staticd failed to connect to mgmtd"
 
         if "snmpd" in daemons_list:
             # Give zerbra a chance to configure interface addresses that snmpd daemon
@@ -2358,7 +2416,14 @@ class Router(Node):
                 )
                 if not ok:
                     assert False, f"{daemon} failed to connect to zebra"
-
+                ok, _ = run_and_expect(
+                    lambda: _check_connected_to_mgmtd(self, daemon=daemon),
+                    True,
+                    count=30,
+                    wait=1,
+                )
+                if not ok:
+                    assert False, f"{daemon} failed to connect to mgmtd"
         # Check if daemons are running.
         _check_daemons_running(check_daemon_files)
 
