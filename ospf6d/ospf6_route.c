@@ -1579,9 +1579,6 @@ int ospf6_route_table_show(struct vty *vty, int argc_start, int argc,
 
 	memset(&prefix, 0, sizeof(prefix));
 
-	if (use_json)
-		json = json_object_new_object();
-
 	for (i = argc_start; i < arg_end; i++) {
 		if (strmatch(argv[i]->text, "summary")) {
 			summary++;
@@ -1625,14 +1622,14 @@ int ospf6_route_table_show(struct vty *vty, int argc_start, int argc,
 				slash++;
 			continue;
 		}
-		if (use_json)
-			json_object_string_add(json, "malformedArgument",
-					       argv[i]->arg);
-		else
+		if (!use_json)
 			vty_out(vty, "Malformed argument: %s\n", argv[i]->arg);
 
 		return CMD_SUCCESS;
 	}
+
+	if (use_json)
+		json = json_object_new_object();
 
 	/* Give summary of this route table */
 	if (summary) {
