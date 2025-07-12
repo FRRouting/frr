@@ -3819,6 +3819,8 @@ void ospf_flush_self_originated_lsas_now(struct ospf *ospf)
 			ospf_lsa_flush_schedule(ospf, lsa);
 		LSDB_LOOP (ASBR_SUMMARY_LSDB(area), rn, lsa)
 			ospf_lsa_flush_schedule(ospf, lsa);
+		LSDB_LOOP (NSSA_LSDB(area), rn, lsa)
+			ospf_lsa_flush_schedule(ospf, lsa);
 		LSDB_LOOP (OPAQUE_LINK_LSDB(area), rn, lsa)
 			ospf_lsa_flush_schedule(ospf, lsa);
 		LSDB_LOOP (OPAQUE_AREA_LSDB(area), rn, lsa)
