@@ -15992,6 +15992,12 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 							"updateSource", "%pSU",
 							p->update_source);
 		}
+
+		/* update-delay timer */
+		json_object_int_add(json_neigh, "bgpUpdateDelayTimerMsecs",
+				    bgp->v_update_delay * 1000);
+		json_object_int_add(json_neigh, "bgpUpdateDelayTimerMsecsRemaining",
+				    event_timer_remain_second(bgp->t_update_delay) * 1000);
 	} else {
 		/* advertisement-interval */
 		vty_out(vty,
