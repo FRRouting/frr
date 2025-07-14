@@ -1898,8 +1898,11 @@ static int bgp_input_modifier(struct peer *peer, const struct prefix *p,
 		if (rmap == NULL)
 			return RMAP_DENY;
 	} else {
-		if (ROUTE_MAP_IN_NAME(filter)) {
-			rmap = ROUTE_MAP_IN(filter);
+		const char *rmap_in_name = NULL;
+
+		rmap_in_name = ROUTE_MAP_IN_NAME(filter);
+		if (rmap_in_name) {
+			rmap = route_map_lookup_by_name(rmap_in_name);
 
 			if (rmap == NULL)
 				return RMAP_DENY;
