@@ -197,8 +197,13 @@ static int show_nht_rm(struct vty *vty, int af_type, const char *vrf_all,
 		       const char *vrf_name, bool use_json)
 {
 	struct zebra_vrf *zvrf;
+	vrf_id_t vrf_id = VRF_DEFAULT;
 	json_object *json = NULL;
 	json_object *json_vrfs = NULL;
+
+	/* Check for single vrf name. Note that this macro returns on error. */
+	if (vrf_all == NULL && vrf_name != NULL)
+		VRF_GET_ID(vrf_id, vrf_name, false);
 
 	if (use_json) {
 		json = json_object_new_object();
@@ -236,10 +241,6 @@ static int show_nht_rm(struct vty *vty, int af_type, const char *vrf_all,
 	} else {
 		json_object *json_proto = NULL;
 		json_object *json_vrf = NULL;
-		vrf_id_t vrf_id = VRF_DEFAULT;
-
-		if (vrf_name)
-			VRF_GET_ID(vrf_id, vrf_name, false);
 
 		zvrf = zebra_vrf_lookup_by_id(vrf_id);
 		if (!zvrf) {
