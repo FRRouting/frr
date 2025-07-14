@@ -973,9 +973,6 @@ DEFPY (show_ip_nht,
 	struct zebra_vrf *zvrf;
 	bool resolve_via_default = false;
 
-	if (uj)
-		json = json_object_new_object();
-
 	if (vrf_all) {
 		struct vrf *vrf;
 
@@ -987,6 +984,7 @@ DEFPY (show_ip_nht,
 						: zvrf->zebra_rnh_ipv6_default_route;
 
 				if (uj) {
+					json = json_object_new_object();
 					json_vrf = json_object_new_object();
 					json_nexthop = json_object_new_object();
 					json_object_object_add(json,
@@ -1024,11 +1022,8 @@ DEFPY (show_ip_nht,
 	memset(&prefix, 0, sizeof(prefix));
 	if (addr) {
 		p = sockunion2hostprefix(addr, &prefix);
-		if (!p) {
-			if (uj)
-				json_object_free(json);
+		if (!p)
 			return CMD_WARNING;
-		}
 	}
 
 	zvrf = zebra_vrf_lookup_by_id(vrf_id);
@@ -1037,8 +1032,10 @@ DEFPY (show_ip_nht,
 				      : zvrf->zebra_rnh_ipv6_default_route;
 
 	if (uj) {
+		json = json_object_new_object();
 		json_vrf = json_object_new_object();
 		json_nexthop = json_object_new_object();
+
 		if (vrf_name)
 			json_object_object_add(json, vrf_name, json_vrf);
 		else
