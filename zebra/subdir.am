@@ -6,9 +6,6 @@ if ZEBRA
 sbin_PROGRAMS += zebra/zebra
 vtysh_daemons += zebra
 
-if IRDP
-module_LTLIBRARIES += zebra/zebra_irdp.la
-endif
 if SNMP
 module_LTLIBRARIES += zebra/zebra_snmp.la
 endif
@@ -142,7 +139,6 @@ noinst_HEADERS += \
 	zebra/interface.h \
 	zebra/ioctl.h \
 	zebra/ipforward.h \
-	zebra/irdp.h \
 	zebra/kernel_netlink.h \
 	zebra/kernel_socket.h \
 	zebra/label_manager.h \
@@ -204,12 +200,6 @@ noinst_HEADERS += \
 	zebra/dpdk/zebra_dplane_dpdk_private.h \
 	# end
 
-zebra_zebra_irdp_la_SOURCES = \
-	zebra/irdp_interface.c \
-	zebra/irdp_main.c \
-	zebra/irdp_packet.c \
-	# end
-zebra_zebra_irdp_la_LDFLAGS = $(MODULE_LDFLAGS)
 
 zebra_zebra_snmp_la_SOURCES = zebra/zebra_snmp.c
 zebra_zebra_snmp_la_CFLAGS = $(AM_CFLAGS) $(SNMP_CFLAGS) -std=gnu11

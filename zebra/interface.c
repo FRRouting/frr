@@ -28,7 +28,6 @@
 #include "zebra/zebra_router.h"
 #include "zebra/redistribute.h"
 #include "zebra/debug.h"
-#include "zebra/irdp.h"
 #include "zebra/zebra_ptm.h"
 #include "zebra/rt_netlink.h"
 #include "zebra/if_netlink.h"
@@ -467,9 +466,6 @@ void if_addr_wakeup(struct interface *ifp)
 					 * or during runtime when the interface
 					 * is added to the kernel)
 					 *
-					 * XXX: IRDP code is calling here via
-					 * if_add_update - this seems
-					 * somewhat weird.
 					 * XXX: RUNNING is not a settable flag
 					 * on any system
 					 * I (paulj) am aware of.

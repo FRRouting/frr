@@ -34,7 +34,6 @@
 #include "zebra/zserv.h"
 #include "zebra/debug.h"
 #include "zebra/router-id.h"
-#include "zebra/irdp.h"
 #include "zebra/rtadv.h"
 #include "zebra/zebra_ptm.h"
 #include "zebra/zebra_ns.h"
