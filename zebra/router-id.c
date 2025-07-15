@@ -258,7 +258,8 @@ DEFUN (show_ip_router_id,
 	is_ipv6 = argv_find(argv, argc, "ipv6", &idx);
 
 	if (argv_find(argv, argc, "NAME", &idx)) {
-		VRF_GET_ID(vrf_id, argv[idx]->arg, false);
+		if (!vrf_get_id(vty, &vrf_id, argv[idx]->arg, false))
+			return CMD_WARNING;
 		vrf_name = argv[idx]->arg;
 	}
 
