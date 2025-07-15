@@ -57,6 +57,8 @@ static void gm_sg_timer_start(struct gm_if *gm_ifp, struct gm_sg *sg,
 #define log_pkt_src(msg)                                                       \
 	"[MLD %s:%s %pI6] " msg, gm_ifp->ifp->vrf->name, gm_ifp->ifp->name,    \
 		&pkt_src->sin6_addr
+#define log_pkt_dst(msg)                                                       \
+	"[MLD %s:%s %pI6] " msg, gm_ifp->ifp->vrf->name, gm_ifp->ifp->name, pkt_dst
 #define log_sg(sg, msg)                                                        \
 	"[MLD %s:%s %pSG] " msg, sg->iface->ifp->vrf->name,                    \
 		sg->iface->ifp->name, &sg->sgaddr
@@ -1040,9 +1042,8 @@ static void gm_handle_v2_report(struct gm_if *gm_ifp,
 		gm_packet_free(pkt);
 }
 
-static void gm_handle_v1_report(struct gm_if *gm_ifp,
-				const struct sockaddr_in6 *pkt_src, char *data,
-				size_t len)
+static void gm_handle_v1_report(struct gm_if *gm_ifp, const struct sockaddr_in6 *pkt_src,
+				pim_addr *pkt_dst, char *data, size_t len)
 {
 	struct mld_v1_pkt *hdr;
 	struct gm_packet_state *pkt;
@@ -1061,6 +1062,14 @@ static void gm_handle_v1_report(struct gm_if *gm_ifp,
 	gm_ifp->stats.rx_old_report++;
 
 	hdr = (struct mld_v1_pkt *)data;
+	if (pim_addr_cmp(hdr->grp, *pkt_dst)) {
+		if (PIM_DEBUG_GM_PACKETS)
+			zlog_debug(log_pkt_dst(
+					   "malformed MLDv1 report (destination address should be %pI6)"),
+				   &hdr->grp);
+		gm_ifp->stats.rx_drop_malformed++;
+		return;
+	}
 
 	if (gm_sg_filter_match(gm_ifp, PIMADDR_ANY, hdr->grp))
 		return;
@@ -1709,7 +1718,7 @@ static void gm_rx_process(struct gm_if *gm_ifp,
 		gm_handle_query(gm_ifp, pkt_src, pkt_dst, data, pktlen);
 		break;
 	case ICMP6_MLD_V1_REPORT:
-		gm_handle_v1_report(gm_ifp, pkt_src, data, pktlen);
+		gm_handle_v1_report(gm_ifp, pkt_src, pkt_dst, data, pktlen);
 		break;
 	case ICMP6_MLD_V1_DONE:
 		gm_handle_v1_leave(gm_ifp, pkt_src, data, pktlen);
