@@ -1892,21 +1892,13 @@ static int bgp_input_modifier(struct peer *peer, const struct prefix *p,
 	if (peer->weight[afi][safi])
 		attr->weight = peer->weight[afi][safi];
 
+	if (!rmap_name)
+		rmap_name = ROUTE_MAP_IN_NAME(filter);
+
 	if (rmap_name) {
 		rmap = route_map_lookup_by_name(rmap_name);
-
-		if (rmap == NULL)
+		if (!rmap)
 			return RMAP_DENY;
-	} else {
-		const char *rmap_in_name = NULL;
-
-		rmap_in_name = ROUTE_MAP_IN_NAME(filter);
-		if (rmap_in_name) {
-			rmap = route_map_lookup_by_name(rmap_in_name);
-
-			if (rmap == NULL)
-				return RMAP_DENY;
-		}
 	}
 
 	/* Route map apply. */
