@@ -70,6 +70,10 @@
         "sourced":true,
         "local":true,
         "multipath":true,
+        "bestpath": {
+          "overall": true,
+          "selectionReason": "MPLS over SRv6"
+        },
         "extendedCommunity":{
           "string":"RT:55:55"
         },
