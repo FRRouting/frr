@@ -837,8 +837,6 @@ AC_ARG_ENABLE([logfile_mask],
   AS_HELP_STRING([--enable-logfile-mask=ARG], [set mask for log files]))
 AC_ARG_ENABLE([realms],
   AS_HELP_STRING([--enable-realms], [enable REALMS support under Linux]))
-AC_ARG_ENABLE([irdp],
-  AS_HELP_STRING([--enable-irdp], [enable IRDP server support in zebra]))
 AC_ARG_ENABLE([capabilities],
   AS_HELP_STRING([--disable-capabilities], [disable using POSIX capabilities]))
 AC_ARG_ENABLE([gcc_ultra_verbose],
@@ -2308,32 +2306,6 @@ AC_CHECK_MEMBERS([struct sockaddr.sa_len,
 	struct nd_opt_adv_interval.nd_opt_ai_type],
 	[], [], FRR_INCLUDES)
 
-dnl ---------------------------
-dnl IRDP/pktinfo/icmphdr checks
-dnl ---------------------------
-
-AC_CHECK_TYPE([struct in_pktinfo], [
-  AC_CHECK_TYPES([struct icmphdr], [
-    IRDP=true
-  ], [
-    IRDP=false
-  ], [FRR_INCLUDES])
-], [
-  IRDP=false
-], [FRR_INCLUDES])
-
-case "${enable_irdp}" in
-yes)
-  $IRDP || AC_MSG_ERROR(['IRDP requires in_pktinfo at the moment!'])
-  ;;
-no)
-  IRDP=false
-  ;;
-*)
-  IRDP=false
-  ;;
-esac
-
 
 dnl -----------------------
 dnl checking for IP_PKTINFO
@@ -2748,7 +2720,6 @@ AM_CONDITIONAL([ZEROMQ], [test "$ZEROMQ" = "true"])
 dnl plugins
 AM_CONDITIONAL([RPKI], [test "$RPKI" = "true"])
 AM_CONDITIONAL([SNMP], [$SNMP])
-AM_CONDITIONAL([IRDP], [$IRDP])
 AM_CONDITIONAL([FPM], [test "$enable_fpm" = "yes"])
 AM_CONDITIONAL([HAVE_PROTOBUF], [test "$enable_protobuf" != "no"])
 AM_CONDITIONAL([HAVE_PROTOBUF3], [$PROTO3])
