@@ -2008,20 +2008,20 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 	SET_FLAG(static_attr.flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID));
 	static_attr.originator_id = to_bgp->router_id;
 
+	if (debug && bgp_attr_get_ecommunity(&static_attr)) {
+		char *s = ecommunity_ecom2str(bgp_attr_get_ecommunity(&static_attr),
+					      ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+
+		zlog_debug("%s: static_attr.ecommunity{%s}", __func__, s);
+		XFREE(MTYPE_ECOMMUNITY_STR, s);
+	}
+
 	/* Set SID for SRv6 VPN */
 	vpn_leak_from_vrf_fill_srv6(&static_attr, from_bgp, afi, &label);
 
 	new_attr = bgp_attr_intern(
 		&static_attr);	/* hashed refcounted everything */
 	bgp_attr_flush(&static_attr); /* free locally-allocated parts */
-
-	if (debug && bgp_attr_get_ecommunity(new_attr)) {
-		char *s = ecommunity_ecom2str(bgp_attr_get_ecommunity(new_attr),
-					      ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
-
-		zlog_debug("%s: new_attr->ecommunity{%s}", __func__, s);
-		XFREE(MTYPE_ECOMMUNITY_STR, s);
-	}
 
 	/* Now new_attr is an allocated interned attr */
 
