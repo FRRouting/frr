@@ -1158,8 +1158,12 @@ static void bgp_evpn_local_type1_evi_route_add(struct bgp *bgp,
 			&es->esi, es->originator_ip);
 
 	for (ALL_LIST_ELEMENTS_RO(es->es_evi_list, evi_node, es_evi)) {
-		if (!CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_LOCAL))
+		if (!CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_LOCAL)) {
+			if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
+				zlog_debug("es %s vni %d not set to local", es->esi_str,
+					   es_evi->vpn ? es_evi->vpn->vni : 0);
 			continue;
+		}
 		bgp_evpn_ead_evi_route_update(bgp, es, es_evi->vpn, &p);
 	}
 }
@@ -2214,8 +2218,7 @@ static void bgp_evpn_mac_update_on_es_local_chg(struct bgp_evpn_es *es,
 	}
 }
 
-static void bgp_evpn_local_es_deactivate(struct bgp *bgp,
-					 struct bgp_evpn_es *es)
+static void bgp_evpn_local_es_flush_esr_and_ead_routes(struct bgp *bgp, struct bgp_evpn_es *es)
 {
 	struct prefix_evpn p;
 	int ret;
@@ -2236,7 +2239,11 @@ static void bgp_evpn_local_es_deactivate(struct bgp *bgp,
 
 	/* withdraw EAD-ES */
 	bgp_evpn_ead_es_route_delete(bgp, es);
+}
 
+static void bgp_evpn_local_es_deactivate(struct bgp *bgp, struct bgp_evpn_es *es)
+{
+	bgp_evpn_local_es_flush_esr_and_ead_routes(bgp, es);
 	bgp_evpn_mac_update_on_es_oper_chg(es);
 }
 
@@ -2288,10 +2295,9 @@ static void bgp_evpn_local_es_activate(struct bgp *bgp, struct bgp_evpn_es *es,
 }
 
 /* Process ES link oper-up by generating ES-EAD and ESR */
-static void bgp_evpn_local_es_up(struct bgp *bgp, struct bgp_evpn_es *es,
-				 bool regen_esr)
+static void bgp_evpn_local_es_up(struct bgp *bgp, struct bgp_evpn_es *es, bool regen_esr,
+				 bool regen_ead)
 {
-	bool regen_ead = false;
 	bool active = false;
 
 	if (!CHECK_FLAG(es->flags, BGP_EVPNES_OPER_UP)) {
@@ -2410,12 +2416,17 @@ int bgp_evpn_local_es_add(struct bgp *bgp, esi_t *esi,
 	struct bgp_evpn_es *es;
 	bool new_es = true;
 	bool regen_esr = false;
+	bool regen_ead = false;
+	struct in_addr old_originator_ip;
+	bool flush_old_routes = false;
 
+	memset(&old_originator_ip, 0, sizeof(old_originator_ip));
 	/* create the new es */
 	es = bgp_evpn_es_find(esi);
 	if (es) {
 		if (CHECK_FLAG(es->flags, BGP_EVPNES_LOCAL))
 			new_es = false;
+		old_originator_ip = es->originator_ip; // Save old IP
 	} else
 		es = bgp_evpn_es_new(bgp, esi);
 
@@ -2423,6 +2434,24 @@ int bgp_evpn_local_es_add(struct bgp *bgp, esi_t *esi,
 		zlog_debug("add local es %s orig-ip %pI4 df_pref %u %s",
 			   es->esi_str, &originator_ip, df_pref,
 			   bypass ? "bypass" : "");
+
+	// Check if originator IP has changed
+	if (!new_es && !IPV4_ADDR_SAME(&old_originator_ip, &originator_ip)) {
+		regen_esr = true; // Trigger ESR regeneration for IP change
+		regen_ead = true;
+		if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
+			zlog_debug("add local es %s old-orig-ip %pI4 orig-ip %pI4 df_pref %u %s oper_up:%d",
+				   es->esi_str, &old_originator_ip, &originator_ip, df_pref,
+				   bypass ? "bypass" : "", oper_up);
+		flush_old_routes = true; // Need to flush old routes
+	}
+
+	/*
+	 * on local es, flush old esr and ead routes
+	 * belonging old VTEP IP before updating originator IP
+	 */
+	if (flush_old_routes && bgp_evpn_local_es_is_active(es))
+		bgp_evpn_local_es_flush_esr_and_ead_routes(bgp, es);
 
 	es->originator_ip = originator_ip;
 	if (df_pref != es->df_pref) {
@@ -2449,7 +2478,7 @@ int bgp_evpn_local_es_add(struct bgp *bgp, esi_t *esi,
 	 * can be generated even if the link is inactive.
 	 */
 	if (oper_up)
-		bgp_evpn_local_es_up(bgp, es, regen_esr);
+		bgp_evpn_local_es_up(bgp, es, regen_esr, regen_ead);
 	else
 		bgp_evpn_local_es_down(bgp, es);
 
@@ -3497,6 +3526,7 @@ bgp_evpn_es_evi_vtep_re_eval_active(struct bgp *bgp,
 			   evi_vtep->es_evi->es->esi_str,
 			   evi_vtep->es_evi->vpn->vni, &evi_vtep->vtep_ip,
 			   new_active ? "active" : "inactive");
+
 
 	/* add VTEP to parent es */
 	if (new_active) {
