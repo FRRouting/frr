@@ -279,6 +279,8 @@ DECLARE_LIST(re_list, struct route_entry, next);
 
 #define RIB_DEST_UPDATE_LSPS   (1 << (ZEBRA_MAX_QINDEX + 3))
 
+#define RIB_DEST_FORCE_RNH (1 << (ZEBRA_MAX_QINDEX + 4))
+
 /*
  * Macro to iterate over each route for a destination (prefix).
  */
