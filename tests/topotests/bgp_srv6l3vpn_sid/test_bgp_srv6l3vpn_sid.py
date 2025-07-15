@@ -598,6 +598,9 @@ def test_sid_add_vrf_30_srv6_and_mpls():
         "show bgp ipv6 vpn 2001:8::/64 json",
         "r1/vpnv6_rib_2001_8_srv6_and_mpls.json",
     )
+    check_rib(
+        "r2", "show bgp ipv6 vpn 2001:8::/64 json", "r2/vpnv6_rib_2001_8_mpls.json"
+    )
 
 
 def test_sid_add_vrf_30_remove_srv6_keep_mpls():
@@ -619,6 +622,9 @@ def test_sid_add_vrf_30_remove_srv6_keep_mpls():
     check_rib(
         "r1", "show bgp ipv6 vpn 2001:8::/64 json", "r1/vpnv6_rib_2001_8_mpls.json"
     )
+    check_rib(
+        "r2", "show bgp ipv6 vpn 2001:8::/64 json", "r2/vpnv6_rib_2001_8_mpls.json"
+    )
 
 
 def test_sid_add_vrf_30_readd_srv6_keep_mpls():
@@ -639,6 +645,9 @@ def test_sid_add_vrf_30_readd_srv6_keep_mpls():
         "r1",
         "show bgp ipv6 vpn 2001:8::/64 json",
         "r1/vpnv6_rib_2001_8_srv6_and_mpls.json",
+    )
+    check_rib(
+        "r2", "show bgp ipv6 vpn 2001:8::/64 json", "r2/vpnv6_rib_2001_8_mpls.json"
     )
 
 
