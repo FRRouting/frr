@@ -15992,11 +15992,21 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 							"updateSource", "%pSU",
 							p->update_source);
 		}
+
+		/* update-delay timer */
+		json_object_int_add(json_neigh, "bgpUpdateDelayTimerMsecs",
+				    bgp->v_update_delay * 1000);
+		json_object_int_add(json_neigh, "bgpUpdateDelayTimerMsecsRemaining",
+				    event_timer_remain_second(bgp->t_update_delay) * 1000);
 	} else {
 		/* advertisement-interval */
 		vty_out(vty,
 			"  Minimum time between advertisement runs is %d seconds\n",
 			p->v_routeadv);
+
+		/* update delay timer */
+		vty_out(vty, "  Update delay timer is %u seconds (remaining: %lu)\n",
+			bgp->v_update_delay, event_timer_remain_second(bgp->t_update_delay));
 
 		/* Update-source. */
 		if (p->update_if || p->update_source) {
