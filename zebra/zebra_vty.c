@@ -1016,8 +1016,10 @@ DEFPY (show_ip_nht,
 
 		return CMD_SUCCESS;
 	}
-	if (vrf_name)
-		VRF_GET_ID(vrf_id, vrf_name, false);
+	if (vrf_name) {
+		if (!vrf_get_id(vty, &vrf_id, vrf_name, false))
+			return CMD_WARNING;
+	}
 
 	memset(&prefix, 0, sizeof(prefix));
 	if (addr) {
@@ -1703,8 +1705,10 @@ DEFPY (show_route,
 	} else {
 		vrf_id_t vrf_id = VRF_DEFAULT;
 
-		if (vrf_name)
-			VRF_GET_ID(vrf_id, vrf_name, !!json);
+		if (vrf_name) {
+			if (!vrf_get_id(vty, &vrf_id, vrf_name, !!json))
+				return CMD_WARNING;
+		}
 		vrf = vrf_lookup_by_id(vrf_id);
 		if (!vrf)
 			return CMD_SUCCESS;
@@ -1872,8 +1876,10 @@ DEFPY (show_route_detail,
 	} else {
 		vrf_id_t vrf_id = VRF_DEFAULT;
 
-		if (vrf_name)
-			VRF_GET_ID(vrf_id, vrf_name, false);
+		if (vrf_name) {
+			if (!vrf_get_id(vty, &vrf_id, vrf_name, false))
+				return CMD_WARNING;
+		}
 
 		if (table_id)
 			table = zebra_vrf_lookup_table_with_table_id(afi, safi, vrf_id, table_id);
@@ -1972,8 +1978,10 @@ DEFPY (show_route_summary,
 	} else {
 		vrf_id_t vrf_id = VRF_DEFAULT;
 
-		if (vrf_name)
-			VRF_GET_ID(vrf_id, vrf_name, false);
+		if (vrf_name) {
+			if (!vrf_get_id(vty, &vrf_id, vrf_name, false))
+				return CMD_WARNING;
+		}
 
 		if (table_id == 0)
 			table = zebra_vrf_table(afi, safi, vrf_id);
@@ -2025,8 +2033,10 @@ DEFPY_HIDDEN (show_route_zebra_dump,
 	} else {
 		vrf_id_t vrf_id = VRF_DEFAULT;
 
-		if (vrf_name)
-			VRF_GET_ID(vrf_id, vrf_name, false);
+		if (vrf_name) {
+			if (!vrf_get_id(vty, &vrf_id, vrf_name, false))
+				return CMD_WARNING;
+		}
 
 		table = zebra_vrf_table(afi, safi, vrf_id);
 

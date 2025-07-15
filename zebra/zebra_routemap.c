@@ -179,8 +179,10 @@ static int show_proto_rm(struct vty *vty, int af_type, const char *vrf_all,
 	} else {
 		vrf_id_t vrf_id = VRF_DEFAULT;
 
-		if (vrf_name)
-			VRF_GET_ID(vrf_id, vrf_name, false);
+		if (vrf_name) {
+			if (!vrf_get_id(vty, &vrf_id, vrf_name, false))
+				return CMD_WARNING;
+		}
 
 		zvrf = zebra_vrf_lookup_by_id(vrf_id);
 		if (!zvrf)
@@ -202,8 +204,10 @@ static int show_nht_rm(struct vty *vty, int af_type, const char *vrf_all,
 	json_object *json_vrfs = NULL;
 
 	/* Check for single vrf name. Note that this macro returns on error. */
-	if (vrf_all == NULL && vrf_name != NULL)
-		VRF_GET_ID(vrf_id, vrf_name, false);
+	if (vrf_all == NULL && vrf_name != NULL) {
+		if (!vrf_get_id(vty, &vrf_id, vrf_name, false))
+			return CMD_WARNING;
+	}
 
 	if (use_json) {
 		json = json_object_new_object();
