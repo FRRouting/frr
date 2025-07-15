@@ -3431,7 +3431,12 @@ L3VPN SRv6
    attribute will not be considered as valid. Use the ``no srv6-only`` command under
    the ``segment-routing srv6`` node of the instance where the BGP updates originate:
    this command will also consider BGP updates with no srv6 options, thus making possible
-   to have both MPLS and SRv6 updates.
+   to have both MPLS and SRv6 updates. Under those conditions, unless a route-map changes
+   the selection rules, both prefixes will be considered multipath, and the MPLS VPN path
+   will be the selected one. Without the add-path functionality enabled, the MPLS VPN path
+   will be advertised to the remote peer; otherwise, both MPLS and SRv6 paths will be
+   advertised.
+
 
 L3VPN SRv6 SID reachability
 ---------------------------
