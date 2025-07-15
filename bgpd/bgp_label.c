@@ -596,6 +596,32 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 	return BGP_NLRI_PARSE_OK;
 }
 
+uint32_t decode_label(mpls_label_t *label_pnt)
+{
+	uint32_t l;
+	uint8_t *pnt = (uint8_t *)label_pnt;
+
+	l = ((uint32_t)*pnt++ << 12);
+	l |= (uint32_t)*pnt++ << 4;
+	l |= (uint32_t)((*pnt & 0xf0) >> 4);
+	return l;
+}
+
+void encode_label(mpls_label_t label, mpls_label_t *label_pnt)
+{
+	uint8_t *pnt = (uint8_t *)label_pnt;
+
+	if (pnt == NULL)
+		return;
+	if (label == BGP_PREVENT_VRF_2_VRF_LEAK) {
+		*label_pnt = label;
+		return;
+	}
+	*pnt++ = (label >> 12) & 0xff;
+	*pnt++ = (label >> 4) & 0xff;
+	*pnt++ = ((label << 4) + 1) & 0xff; /* S=1 */
+}
+
 bool bgp_labels_same(const mpls_label_t *tbl_a, const uint8_t num_labels_a,
 		     const mpls_label_t *tbl_b, const uint8_t num_labels_b)
 {
