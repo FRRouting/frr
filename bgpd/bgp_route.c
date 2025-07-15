@@ -4540,6 +4540,8 @@ static uint32_t bgp_filtered_routes_count(struct peer *peer, afi_t afi,
 
 			attr = *ain->attr;
 
+			filtered = false;
+
 			if (bgp_input_filter(peer, rn_p, &attr, afi, safi)
 			    == FILTER_DENY)
 				filtered = true;
