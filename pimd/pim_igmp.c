@@ -824,7 +824,7 @@ int pim_igmp_packet(struct gm_sock *igmp, char *buf, size_t len)
 					   igmp_msg, igmp_msg_len);
 
 	case PIM_IGMP_V2_MEMBERSHIP_REPORT:
-		return igmp_v2_recv_report(igmp, ip_hdr->ip_src, from_str,
+		return igmp_v2_recv_report(igmp, ip_hdr->ip_src, ip_hdr->ip_dst, from_str,
 					   igmp_msg, igmp_msg_len);
 
 	case PIM_IGMP_V1_MEMBERSHIP_REPORT:
