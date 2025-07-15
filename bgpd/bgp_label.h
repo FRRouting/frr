@@ -50,6 +50,7 @@ extern bool bgp_labels_same(const mpls_label_t *tbl_a,
 			    const uint8_t num_labels_a,
 			    const mpls_label_t *tbl_b,
 			    const uint8_t num_labels_b);
+extern bool bgp_labels_is_implicit_null(struct bgp_path_info *pi);
 
 static inline int bgp_labeled_safi(safi_t safi)
 {
