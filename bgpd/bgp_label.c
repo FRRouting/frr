@@ -638,3 +638,12 @@ bool bgp_labels_same(const mpls_label_t *tbl_a, const uint8_t num_labels_a,
 	}
 	return true;
 }
+
+bool bgp_labels_is_implicit_null(struct bgp_path_info *pi)
+{
+	if (BGP_PATH_INFO_NUM_LABELS(pi) != 1)
+		return false;
+	if (decode_label(&pi->extra->labels->label[0]) == MPLS_LABEL_IMPLICIT_NULL)
+		return true;
+	return false;
+}
