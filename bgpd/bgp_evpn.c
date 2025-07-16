@@ -2829,6 +2829,9 @@ static void delete_all_vni_routes(struct bgp *bgp, struct bgpevpn *vpn)
 static int bgp_evpn_vni_flood_mode_get(struct bgp *bgp,
 					struct bgpevpn *vpn)
 {
+	if (vpn->vxlan_flood_ctrl != bgp->vxlan_flood_ctrl)
+		return vpn->vxlan_flood_ctrl;
+
 	/* if flooding has been globally disabled per-vni mode is
 	 * not relevant
 	 */
@@ -4841,15 +4844,19 @@ static void withdraw_router_id_vni(struct hash_bucket *bucket, struct bgp *bgp)
  * Create RT-3 for a VNI and schedule for processing and advertisement.
  * This is invoked upon flooding mode changing to head-end replication.
  */
-static void create_advertise_type3(struct hash_bucket *bucket, void *data)
+static void create_advertise_type3(struct hash_bucket *bucket, void *data[])
 {
 	struct bgpevpn *vpn = bucket->data;
-	struct bgp *bgp = data;
+	struct bgp *bgp = data[0];
+	struct bgpevpn *evpn = data[1];
 	struct prefix_evpn p;
 
 	if (!vpn || !is_vni_live(vpn) ||
 		bgp_evpn_vni_flood_mode_get(bgp, vpn)
 					!= VXLAN_FLOOD_HEAD_END_REPL)
+		return;
+
+	if (evpn && vpn->vni != evpn->vni)
 		return;
 
 	build_evpn_type3_prefix(&p, vpn->originator_ip);
@@ -4862,13 +4869,20 @@ static void create_advertise_type3(struct hash_bucket *bucket, void *data)
  * Delete RT-3 for a VNI and schedule for processing and withdrawal.
  * This is invoked upon flooding mode changing to drop BUM packets.
  */
-static void delete_withdraw_type3(struct hash_bucket *bucket, void *data)
+static void delete_withdraw_type3(struct hash_bucket *bucket, void *data[])
 {
 	struct bgpevpn *vpn = bucket->data;
-	struct bgp *bgp = data;
+	struct bgp *bgp = data[0];
+	struct bgpevpn *evpn = data[1];
 	struct prefix_evpn p;
 
 	if (!vpn || !is_vni_live(vpn))
+		return;
+
+	if (evpn && vpn->vni != evpn->vni)
+		return;
+
+	if (!evpn && bgp_evpn_vni_flood_mode_get(bgp, vpn) != VXLAN_FLOOD_DISABLED)
 		return;
 
 	build_evpn_type3_prefix(&p, vpn->originator_ip);
@@ -6515,6 +6529,9 @@ struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
 	vpn->mcast_grp = mcast_grp;
 	vpn->svi_ifindex = svi_ifindex;
 
+	/* Inherit BUM handling from a global one */
+	vpn->vxlan_flood_ctrl = bgp->vxlan_flood_ctrl;
+
 	/* Initialize route-target import and export lists */
 	vpn->import_rtl = list_new();
 	vpn->import_rtl->cmp =
@@ -7510,17 +7527,42 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
  * need to advertise local VNIs as EVPN RT-3 wheras, if BUM packets are
  * to be dropped, the RT-3s must be withdrawn.
  */
-void bgp_evpn_flood_control_change(struct bgp *bgp)
+void bgp_evpn_flood_control_change(struct bgp *bgp, struct bgpevpn *evpn)
 {
-	zlog_info("L2VPN EVPN BUM handling is %s",
-		  bgp->vxlan_flood_ctrl == VXLAN_FLOOD_HEAD_END_REPL ?
-		  "Flooding" : "Flooding Disabled");
+	void *args[2];
 
-	bgp_zebra_vxlan_flood_control(bgp, bgp->vxlan_flood_ctrl);
-	if (bgp->vxlan_flood_ctrl == VXLAN_FLOOD_HEAD_END_REPL)
-		hash_iterate(bgp->vnihash, create_advertise_type3, bgp);
-	else if (bgp->vxlan_flood_ctrl == VXLAN_FLOOD_DISABLED)
-		hash_iterate(bgp->vnihash, delete_withdraw_type3, bgp);
+	args[0] = bgp;
+	args[1] = evpn;
+
+	if (!evpn) {
+		zlog_info("L2VPN EVPN BUM handling is %s",
+			  bgp->vxlan_flood_ctrl == VXLAN_FLOOD_HEAD_END_REPL ? "Flooding"
+									     : "Flooding Disabled");
+
+		bgp_zebra_vxlan_flood_control(bgp, NULL);
+		if (bgp->vxlan_flood_ctrl == VXLAN_FLOOD_HEAD_END_REPL)
+			hash_iterate(bgp->vnihash,
+				     (void (*)(struct hash_bucket *, void *))create_advertise_type3,
+				     args);
+		else if (bgp->vxlan_flood_ctrl == VXLAN_FLOOD_DISABLED)
+			hash_iterate(bgp->vnihash,
+				     (void (*)(struct hash_bucket *, void *))delete_withdraw_type3,
+				     args);
+
+		return;
+	}
+
+	zlog_info("L2VPN EVPN BUM handling for VNI %u is %s", evpn->vni,
+		  evpn->vxlan_flood_ctrl == VXLAN_FLOOD_HEAD_END_REPL ? "Flooding"
+								      : "Flooding Disabled");
+
+	bgp_zebra_vxlan_flood_control(bgp, evpn);
+	if (evpn->vxlan_flood_ctrl == VXLAN_FLOOD_HEAD_END_REPL)
+		hash_iterate(bgp->vnihash,
+			     (void (*)(struct hash_bucket *, void *))create_advertise_type3, args);
+	else if (evpn->vxlan_flood_ctrl == VXLAN_FLOOD_DISABLED)
+		hash_iterate(bgp->vnihash,
+			     (void (*)(struct hash_bucket *, void *))delete_withdraw_type3, args);
 }
 
 /*

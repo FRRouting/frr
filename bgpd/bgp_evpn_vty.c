@@ -3577,6 +3577,13 @@ static void write_vni_config(struct vty *vty, struct bgpevpn *vpn)
 		if (is_rd_configured(vpn))
 			vty_out(vty, "   rd %s\n", vpn->prd_pretty);
 
+		if (vpn->vxlan_flood_ctrl != vpn->bgp_vrf->vxlan_flood_ctrl) {
+			if (vpn->vxlan_flood_ctrl == VXLAN_FLOOD_DISABLED)
+				vty_out(vty, "   flooding disable\n");
+			else if (vpn->vxlan_flood_ctrl == VXLAN_FLOOD_HEAD_END_REPL)
+				vty_out(vty, "   flooding head-end-replication\n");
+		}
+
 		if (is_import_rt_configured(vpn)) {
 			for (ALL_LIST_ELEMENTS(vpn->import_rtl, node, nnode,
 					       ecom)) {
@@ -3639,7 +3646,7 @@ DEFPY(bgp_evpn_flood_control,
 		return CMD_SUCCESS;
 
 	bgp->vxlan_flood_ctrl = flood_ctrl;
-	bgp_evpn_flood_control_change(bgp);
+	bgp_evpn_flood_control_change(bgp, NULL);
 
 	return CMD_SUCCESS;
 }
@@ -6211,6 +6218,40 @@ ALIAS_HIDDEN(show_bgp_l2vpn_evpn_import_rt, show_bgp_evpn_import_rt_cmd,
 	     "show bgp evpn import-rt",
 	     SHOW_STR BGP_STR EVPN_HELP_STR "Show import route target\n")
 
+DEFPY(bgp_evpn_flood_control_vni,
+      bgp_evpn_flood_control_vni_cmd,
+      "[no$no] flooding <disable$disable|head-end-replication$her>",
+      NO_STR
+      "Specify handling for BUM packets\n"
+      "Do not flood any BUM packets\n"
+      "Flood BUM packets using head-end replication\n")
+{
+	struct bgpevpn *evpn = NULL;
+	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+	enum vxlan_flood_control flood_ctrl = VXLAN_FLOOD_INHERIT_GLOBAL;
+
+	if (vty->node == BGP_EVPN_VNI_NODE)
+		evpn = VTY_GET_CONTEXT_SUB(bgpevpn);
+
+	if (!evpn)
+		return CMD_WARNING;
+
+	if (disable && !no)
+		flood_ctrl = VXLAN_FLOOD_DISABLED;
+	else if (her || no)
+		flood_ctrl = VXLAN_FLOOD_HEAD_END_REPL;
+	else
+		return CMD_WARNING;
+
+	if (evpn->vxlan_flood_ctrl == flood_ctrl)
+		return CMD_SUCCESS;
+
+	evpn->vxlan_flood_ctrl = flood_ctrl;
+	bgp_evpn_flood_control_change(bgp, evpn);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN_NOSH (bgp_evpn_vni,
             bgp_evpn_vni_cmd,
             "vni " CMD_VNI_RANGE,
@@ -7638,6 +7679,7 @@ void bgp_ethernetvpn_init(void)
 	install_element(BGP_EVPN_NODE, &bgp_evpn_vni_cmd);
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_vni_cmd);
 	install_element(BGP_EVPN_VNI_NODE, &exit_vni_cmd);
+	install_element(BGP_EVPN_VNI_NODE, &bgp_evpn_flood_control_vni_cmd);
 	install_element(BGP_EVPN_VNI_NODE, &bgp_evpn_vni_rd_cmd);
 	install_element(BGP_EVPN_VNI_NODE, &no_bgp_evpn_vni_rd_cmd);
 	install_element(BGP_EVPN_VNI_NODE, &no_bgp_evpn_vni_rd_without_val_cmd);

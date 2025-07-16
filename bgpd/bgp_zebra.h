@@ -101,8 +101,7 @@ extern int bgp_zebra_advertise_svi_macip(struct bgp *bgp, int advertise,
 					 vni_t vni);
 extern int bgp_zebra_advertise_all_vni(struct bgp *bgp, int advertise);
 extern int bgp_zebra_dup_addr_detection(struct bgp *bgp);
-extern int bgp_zebra_vxlan_flood_control(struct bgp *bgp,
-					 enum vxlan_flood_control flood_ctrl);
+extern int bgp_zebra_vxlan_flood_control(struct bgp *bgp, struct bgpevpn *evpn);
 
 extern int bgp_zebra_num_connects(void);
 
