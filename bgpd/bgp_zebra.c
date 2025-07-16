@@ -2672,8 +2672,7 @@ int bgp_zebra_advertise_gw_macip(struct bgp *bgp, int advertise, vni_t vni)
 	return zclient_send_message(zclient);
 }
 
-int bgp_zebra_vxlan_flood_control(struct bgp *bgp,
-				  enum vxlan_flood_control flood_ctrl)
+int bgp_zebra_vxlan_flood_control(struct bgp *bgp, struct bgpevpn *evpn)
 {
 	struct stream *s;
 
@@ -2694,7 +2693,8 @@ int bgp_zebra_vxlan_flood_control(struct bgp *bgp,
 	stream_reset(s);
 
 	zclient_create_header(s, ZEBRA_VXLAN_FLOOD_CONTROL, bgp->vrf_id);
-	stream_putc(s, flood_ctrl);
+	stream_putc(s, evpn ? evpn->vxlan_flood_ctrl : bgp->vxlan_flood_ctrl);
+	stream_putl(s, evpn ? evpn->vni : VNI_MAX);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	return zclient_send_message(zclient);
