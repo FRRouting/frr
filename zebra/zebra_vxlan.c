@@ -5336,6 +5336,7 @@ int zebra_vxlan_vrf_delete(struct zebra_vrf *zvrf)
 void zebra_vxlan_flood_control(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
+	vni_t vni = 0;
 	enum vxlan_flood_control flood_ctrl;
 
 	if (!EVPN_ENABLED(zvrf)) {
@@ -5346,10 +5347,19 @@ void zebra_vxlan_flood_control(ZAPI_HANDLER_ARGS)
 
 	s = msg;
 	STREAM_GETC(s, flood_ctrl);
+	STREAM_GETL(s, vni);
 
-	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("EVPN flood control %u, currently %u",
+	if (IS_ZEBRA_DEBUG_VXLAN) {
+		if (vni == VNI_MAX)
+			zlog_debug("EVPN flood control %u, currently %u",
 			   flood_ctrl, zvrf->vxlan_flood_ctrl);
+		else
+			zlog_debug("EVPN flood control %u for VNI %u, currently %u",
+			   flood_ctrl, vni, zvrf->vxlan_flood_ctrl);
+	}
+
+	if (vni != VNI_MAX && zvrf->l3vni != vni)
+		return;
 
 	if (zvrf->vxlan_flood_ctrl == flood_ctrl)
 		return;
