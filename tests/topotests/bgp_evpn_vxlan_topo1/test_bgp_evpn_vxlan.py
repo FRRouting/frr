@@ -15,6 +15,7 @@ test_bgp_evpn_vxlan.py: Test VXLAN EVPN MAC a route signalling over BGP.
 import os
 import sys
 import json
+import re
 from functools import partial
 from time import sleep
 import pytest
@@ -420,6 +421,26 @@ def test_ip_pe2_learn():
     host2.run("ping -c1 10.10.1.3")
     ip_learn_test(tgen, host2, pe2, pe1, "10.10.1.56")
     # tgen.mininet_cli()
+
+
+def test_ip_neigh_extern_learn():
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    host1 = tgen.gears["host2"]
+    host2 = tgen.gears["host2"]
+    pe1 = tgen.gears["PE1"]
+    pe2 = tgen.gears["PE2"]
+
+    h2_neigh = pe2.cmd('ip neigh | grep 10.10.1.56')
+    h2_mac = re.match(r'.* (([0-9a-f]:?){12}) .*', h2_neigh).group(1)
+    host2.cmd('ip address del 10.10.1.56/24 dev host2-eth0')
+    pe2.cmd(f'ip neigh del 10.10.1.56 dev br101 lladdr {h2_mac}')
+    pe2.cmd(f'ip neigh add 10.10.1.57 dev br101 lladdr {h2_mac} nud reachable extern_learn')
+    host2.cmd('ip address add 10.10.1.57/24 dev host2-eth0')
+    ip_learn_test(tgen, host2, pe2, pe1, "10.10.1.57")
 
 
 def test_memory_leak():
