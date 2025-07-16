@@ -171,9 +171,13 @@ subgrp_announce_addpath_best_selected(struct bgp_dest *dest,
 			if (listnode_lookup(list, pi))
 				subgroup_process_announce_selected(
 					subgrp, pi, dest, afi, safi, id);
-			else
+			else {
+				if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
+					continue;
+
 				subgroup_process_announce_selected(
 					subgrp, NULL, dest, afi, safi, id);
+			}
 		} else {
 			subgroup_process_announce_selected(subgrp, pi, dest,
 							   afi, safi, id);
