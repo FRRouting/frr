@@ -3857,8 +3857,8 @@ static void bgp_zebra_process_srv6_locator_delete_per_bgp(struct srv6_locator *l
 	struct prefix_ipv6 tmp_prefi;
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
-		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
-			/* TODO: accept SRv6 entries on default VRF */
+		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF &&
+		    bgp_vrf->inst_type != BGP_INSTANCE_TYPE_DEFAULT)
 			continue;
 
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF && bgp_vrf != bgp)
@@ -3907,8 +3907,8 @@ static void bgp_zebra_process_srv6_locator_delete_per_bgp(struct srv6_locator *l
 
 	// refresh tovpn_sid and tovpn_sid_locator
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
-		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
-			/* TODO: accept SRv6 entries on default VRF */
+		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF &&
+		    bgp_vrf->inst_type != BGP_INSTANCE_TYPE_DEFAULT)
 			continue;
 
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF && bgp != bgp_vrf)
