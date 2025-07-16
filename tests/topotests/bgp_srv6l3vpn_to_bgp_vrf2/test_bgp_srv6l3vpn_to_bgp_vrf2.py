@@ -37,6 +37,8 @@ def build_topo(tgen):
     tgen.add_router("ce4")
     tgen.add_router("ce5")
     tgen.add_router("ce6")
+    tgen.add_router("ce7")
+    tgen.add_router("ce8")
 
     tgen.add_link(tgen.gears["r1"], tgen.gears["r2"], "eth0", "eth0")
     tgen.add_link(tgen.gears["ce1"], tgen.gears["r1"], "eth0", "eth1")
@@ -45,6 +47,8 @@ def build_topo(tgen):
     tgen.add_link(tgen.gears["ce4"], tgen.gears["r2"], "eth0", "eth2")
     tgen.add_link(tgen.gears["ce5"], tgen.gears["r1"], "eth0", "eth3")
     tgen.add_link(tgen.gears["ce6"], tgen.gears["r2"], "eth0", "eth3")
+    tgen.add_link(tgen.gears["ce7"], tgen.gears["r1"], "eth0", "eth4")
+    tgen.add_link(tgen.gears["ce8"], tgen.gears["r2"], "eth0", "eth4")
 
 
 def setup_module(mod):
@@ -65,6 +69,10 @@ def setup_module(mod):
         )
 
     tgen.gears["r1"].run("sysctl net.vrf.strict_mode=1")
+    tgen.gears["r1"].run("ip link add vrfdefault type vrf table 254")
+    tgen.gears["r1"].run("ip link set vrfdefault up")
+    tgen.gears["r1"].run("ip link add sr0 type dummy")
+    tgen.gears["r1"].run("ip link set sr0 up")
     tgen.gears["r1"].run("ip link add vrf10 type vrf table 10")
     tgen.gears["r1"].run("ip link set vrf10 up")
     tgen.gears["r1"].run("ip route add table 10 unreachable default metric 4278198272")
@@ -82,6 +90,10 @@ def setup_module(mod):
     tgen.gears["r1"].run("ip link set eth3 master vrf20")
 
     tgen.gears["r2"].run("sysctl net.vrf.strict_mode=1")
+    tgen.gears["r2"].run("ip link add vrfdefault type vrf table 254")
+    tgen.gears["r2"].run("ip link set vrfdefault up")
+    tgen.gears["r2"].run("ip link add sr0 type dummy")
+    tgen.gears["r2"].run("ip link set sr0 up")
     tgen.gears["r2"].run("ip link add vrf10 type vrf table 10")
     tgen.gears["r2"].run("ip link set vrf10 up")
     tgen.gears["r2"].run("ip route add table 10 unreachable default metric 4278198272")
@@ -155,6 +167,8 @@ def test_ping():
     check_ping("ce4", "192.168.3.2", False, 10, 0.5)
     check_ping("ce4", "192.168.5.2", True, 10, 0.5)
     check_ping("ce4", "192.168.6.2", True, 10, 0.5)
+    check_ping("ce7", "192.168.8.2", True, 10, 0.5)
+    check_ping("ce8", "192.168.7.2", True, 10, 0.5)
 
 
 if __name__ == "__main__":
