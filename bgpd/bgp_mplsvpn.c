@@ -2273,8 +2273,7 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	/* to */
 					  struct peer *from)
 {
 	const struct prefix *p = bgp_dest_get_prefix(path_vpn->net);
-	afi_t afi = family2afi(p->family);
-
+	afi_t afi;
 	struct attr static_attr = {0};
 	struct attr *new_attr = NULL;
 	struct bgp_dest *bn;
@@ -2296,6 +2295,9 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	/* to */
 
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_TO_VRF);
 
+	if (!p)
+		return;
+	afi = family2afi(p->family);
 	if (!vpn_leak_from_vpn_active(to_bgp, afi, &debugmsg)) {
 		if (debug)
 			zlog_debug(
