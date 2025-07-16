@@ -807,7 +807,7 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 	/* Unlock route node - we don't need to lock when walking the tree. */
 	route_unlock_node(rn);
 
-	if (CHECK_FLAG(rnh->flags, ZEBRA_NHT_IPV4_MAPPED) || is_6pe)
+	if (CHECK_FLAG(rnh->flags, ZEBRA_NHT_IPV4_MAPPED) && is_6pe)
 		return rnh_6pe_resolve_nexthop_entry(zvrf, &nrn->p, prn, rn,
 						     rnh);
 
