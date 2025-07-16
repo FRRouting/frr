@@ -2254,9 +2254,6 @@ static struct bgp *bgp_lookup_by_rd(struct bgp_path_info *bpi,
 		return NULL;
 
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
-		if (bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
-			continue;
-
 		if (!CHECK_FLAG(bgp->vpn_policy[afi].flags,
 				BGP_VPN_POLICY_TOVPN_RD_SET))
 			continue;
