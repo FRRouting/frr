@@ -849,10 +849,23 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Mon Jun 23 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+* Tue Nov 04 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
 
-* Mon Jun 23 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> 10.5-dev
+* Tue Nov 04 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> 10.5-dev
 - FRR Development 10.5
+
+* Wed Jul 16 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.4
+- Major highlights:
+-   BGP BFD Strict-Mode
+-   BGP Link-Local Next Hop Capability [draft-ietf-idr-linklocal-capability]
+-   BGP Transparent mode
+-   BGP Next Hop Dependent Characteristics Attribute [draft-ietf-idr-entropy-label]
+-   IGMP and MLD group/source limits
+-   PIM dense and sparse-dense mode support [RFC3973]
+-   IGMPv2/MLDv1 immediate leave
+-   v4-via-v6 nexthop support for static routes
+-   Timeout for vtysh
+-   Discover PREF64 in Router Advertisements [RFC8781]
 
 * Mon Mar 10 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.3
 - Major highlights:
