@@ -3520,8 +3520,17 @@ static void evpn_set_advertise_all_vni(struct bgp *bgp)
  */
 static void evpn_unset_advertise_all_vni(struct bgp *bgp)
 {
+	bgp_set_evpn(bgp_get_default());
+
+	/* When setting back the EVPN instance to be the default instance, we effectively block
+	 * other VRFs from begin the EVPN VRF.
+	 * Let's make it so that `no advertise-all-vni` in the default BGP instance that did not
+	 * really have it "unlocks" EVPN for other VRFs by setting the EVPN pointer to NULL.
+	 */
+	if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT && !bgp->advertise_all_vni)
+		bgp_set_evpn(NULL);
+
 	bgp->advertise_all_vni = 0;
-	bgp_set_evpn(NULL);
 	bgp_zebra_advertise_all_vni(bgp, bgp->advertise_all_vni);
 	bgp_evpn_cleanup_on_disable(bgp);
 }

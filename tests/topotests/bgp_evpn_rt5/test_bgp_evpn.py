@@ -347,7 +347,8 @@ def test_bgp_vrf_routes():
 def test_evpn_unconfigure_evpn():
     """
     Unconfigure R2 with advertise-all-vni on vrf-evpn instance
-    Ensure that local L2VPN EVPN entries are removed
+    Ensure that local L2VPN EVPN entries are removed, but we keep those from
+    other BGP speakers.
     """
     tgen = get_topogen()
     if tgen.routers_have_failure():
@@ -365,7 +366,12 @@ def test_evpn_unconfigure_evpn():
         exit
         """
     )
-    expected = {}
+    # show bgp l2vpn evpn routes is broken for vrfs when not vtep, we can't see the prefixes
+    if R2_VRF_UNDERLAY:
+        expected = {"numPrefix": 0, "totalPrefix": 0}
+    else:
+        json_file = "{}/r2/bgp_l2vpn_evpn_routes_no_local.json".format(CWD)
+        expected = json.loads(open(json_file).read())
     test_func = partial(
         topotest.router_json_cmp,
         router,
@@ -388,17 +394,25 @@ def test_evpn_reconfigure_evpn():
         pytest.skip(tgen.errors)
     logger.info("==== r2, reconfigure advertise-all-vni from BGP EVPN instance")
     router = tgen.gears["r2"]
-    vrf_to_write = f" vrf {R2_VRF_UNDERLAY}" if R2_VRF_UNDERLAY else ""
-    router.vtysh_cmd(
-        f"""
-        configure terminal
-        router bgp 65000{vrf_to_write}
-        address-family l2vpn evpn
-        advertise-all-vni
-        exit-address-family
-        exit
+    if R2_VRF_UNDERLAY:
+        # we first have to unconfigure EVPN in the default VRF to move it to another VRF
+        cmd = f"""
+        conf t
+          router bgp 65000
+            address-family l2vpn evpn
+              no advertise-all-vni
+          router bgp 65000 vrf {R2_VRF_UNDERLAY}
+            address-family l2vpn evpn
+              advertise-all-vni
         """
-    )
+    else:
+        cmd = f"""
+        conf t
+          router bgp 65000
+            address-family l2vpn evpn
+              advertise-all-vni
+        """
+    router.vtysh_cmd(cmd)
     json_file = "{}/r2/bgp_l2vpn_evpn_routes.json".format(CWD)
     expected = json.loads(open(json_file).read())
     test_func = partial(
