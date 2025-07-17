@@ -495,7 +495,7 @@ static void zebra_gr_delete_stale_info_client(struct event *event)
 	if (gac->info->stale_client)
 		zebra_gr_delete_stale_client(gac->info);
 
-	XFREE(MTYPE_TMP, gac);
+	XFREE(MTYPE_ZEBRA_GR, gac);
 }
 
 static void zebra_gr_delete_stale_route_table_afi(struct event *event)
