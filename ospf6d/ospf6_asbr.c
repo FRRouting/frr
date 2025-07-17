@@ -1516,8 +1516,9 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 
 		if (nexthop_num && nexthop) {
 			ospf6_route_add_nexthop(match, ifindex, nexthop);
-			ospf6_external_lsa_fwd_addr_set(ospf6, nexthop,
-							&info->forwarding);
+			/* Only set the forwarding address if not explicitly configured */
+			if (IN6_IS_ADDR_UNSPECIFIED(&tinfo.forwarding))
+				ospf6_external_lsa_fwd_addr_set(ospf6, nexthop, &info->forwarding);
 		} else
 			ospf6_route_add_nexthop(match, ifindex, NULL);
 
@@ -1564,8 +1565,9 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 	info->type = type;
 	if (nexthop_num && nexthop) {
 		ospf6_route_add_nexthop(route, ifindex, nexthop);
-		ospf6_external_lsa_fwd_addr_set(ospf6, nexthop,
-						&info->forwarding);
+		/* Only set the forwarding address if not explicitly configured */
+		if (IN6_IS_ADDR_UNSPECIFIED(&tinfo.forwarding))
+			ospf6_external_lsa_fwd_addr_set(ospf6, nexthop, &info->forwarding);
 	} else
 		ospf6_route_add_nexthop(route, ifindex, NULL);
 
