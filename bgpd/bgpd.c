@@ -3541,6 +3541,12 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 				   name, bgp->as_pretty);
 	}
 
+	/* Default the EVPN VRF to the default one */
+	if (inst_type == BGP_INSTANCE_TYPE_DEFAULT && !bgp_master.bgp_evpn) {
+		bgp_lock(bgp);
+		bm->bgp_evpn = bgp;
+	}
+
 	bgp_lock(bgp);
 
 	bgp->allow_martian = false;
