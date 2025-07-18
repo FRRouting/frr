@@ -270,10 +270,10 @@ Stage 3 - Publish
    .. code-block:: console
 
       # The number of commits
-      % git log --oneline --no-merges base_8.2...base_8.1 | wc -l
+      % git log --oneline --no-merges frr-10.4.0...frr-10.3.0 | wc -l
 
       # The number of commiters
-      % git shortlog --summary --no-merges base_8.2...base_8.1 | wc -l
+      % git shortlog --summary --no-merges frr-10.4.0...frr-10.3.0 | wc -l
 
    Make sure to add a link to the GitHub releases page at the top.
 
