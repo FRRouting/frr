@@ -25,6 +25,7 @@ extern "C" {
 #endif
 
 DECLARE_MTYPE(VLAN_CHANGE_ARR);
+DECLARE_MTYPE(ZEBRA_ALTNAME);
 
 /* Retrieve the dataplane API version number; see libfrr.h to decode major,
  * minor, sub version values.
@@ -293,6 +294,9 @@ PREDECL_DLIST(dplane_ctx_list);
 /* Declare a type for (optional) extended interface info objects. */
 PREDECL_DLIST(dplane_intf_extra_list);
 
+RB_HEAD(altnames_dplane_head, altname);
+RB_PROTOTYPE(altnames_dplane_head, altname, entry, altname_cmp_func);
+
 /* Allocate a context object */
 struct zebra_dplane_ctx *dplane_ctx_alloc(void);
 
@@ -473,6 +477,11 @@ void dplane_ctx_set_ifp_bridge_vlan_info_array(
 	struct zebra_dplane_bridge_vlan_info_array *bvarray);
 const struct zebra_dplane_bridge_vlan_info_array *
 dplane_ctx_get_ifp_bridge_vlan_info_array(const struct zebra_dplane_ctx *ctx);
+
+/* Interface alternative names */
+void dplane_ctx_set_ifp_altnames(struct zebra_dplane_ctx *ctx);
+int dplane_ctx_add_ifp_altnames(struct zebra_dplane_ctx *ctx, const char *altname);
+struct altnames_dplane_head dplane_ctx_get_ifp_altnames(const struct zebra_dplane_ctx *ctx);
 
 /* Retrieve last/current provider id */
 uint32_t dplane_ctx_get_provider(const struct zebra_dplane_ctx *ctx);
