@@ -1,0 +1,60 @@
+{
+  "routes": {
+    "::ffff:192.168.2.1/128": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "selectionReason": "First path received",
+        "pathFrom": "external",
+        "prefix": "::ffff:192.168.2.1",
+        "prefixLen": 128,
+        "network": "::ffff:192.168.2.1/128",
+        "version": 2,
+        "metric": 0,
+        "weight": 32768,
+        "peerId": "(unspec)",
+        "path": "",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "::",
+            "hostname": "r1",
+            "afi": "ipv6",
+            "scope": "global",
+            "linkLocalOnly": false,
+            "length": 16,
+            "used": true
+          }
+        ]
+      }
+    ],
+    "::ffff:200.100.222.111/128": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "selectionReason": "First path received",
+        "pathFrom": "external",
+        "prefix": "::ffff:200.100.222.111",
+        "prefixLen": 128,
+        "network": "::ffff:200.100.222.111/128",
+        "version": 1,
+        "metric": 0,
+        "weight": 32768,
+        "peerId": "(unspec)",
+        "path": "",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "ip": "::",
+            "hostname": "r1",
+            "afi": "ipv6",
+            "scope": "global",
+            "linkLocalOnly": false,
+            "length": 16,
+            "used": true
+          }
+        ]
+      }
+    ]
+  }
+}
