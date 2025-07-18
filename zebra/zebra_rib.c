@@ -5342,7 +5342,9 @@ static void rib_process_dplane_results(struct event *event)
 			case DPLANE_OP_FDB_READ:
 			case DPLANE_OP_NEIGH_READ:
 			case DPLANE_OP_TC_QDISC_READ:
+			case DPLANE_OP_PROVIDER_REFRESH:
 				break;
+
 			} /* Dispatch by op code */
 
 			dplane_ctx_fini(&ctx);

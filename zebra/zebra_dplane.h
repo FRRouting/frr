@@ -219,6 +219,7 @@ enum dplane_op_e {
 	/* Source address for SRv6 encapsulation */
 	DPLANE_OP_SRV6_ENCAP_SRCADDR_SET,
 
+
 	/* EVPN FDB/neighbor reads */
 	DPLANE_OP_FDB_READ,
 	DPLANE_OP_NEIGH_READ,
@@ -226,6 +227,9 @@ enum dplane_op_e {
 	/* Traffic control qdisc read */
 	DPLANE_OP_TC_QDISC_READ,
 	DPLANE_OP_TC_QDISC_NOTIFY,
+
+	/* Refresh provider */
+	DPLANE_OP_PROVIDER_REFRESH
 };
 
 /* Operational status of Bridge Ports */

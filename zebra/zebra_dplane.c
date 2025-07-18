@@ -975,6 +975,7 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_INTF_SPEED_GET:
 	case DPLANE_OP_STARTUP_STAGE:
 	case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
+	case DPLANE_OP_PROVIDER_REFRESH:
 		break;
 	case DPLANE_OP_VLAN_INSTALL:
 		if (ctx->u.vlan_info.vlan_array)
@@ -1298,6 +1299,8 @@ const char *dplane_op2str(enum dplane_op_e op)
 		return "TC_QDISC_READ";
 	case DPLANE_OP_TC_QDISC_NOTIFY:
 		return "TC_QDISC_NOTIFY";
+	case DPLANE_OP_PROVIDER_REFRESH:
+		return "PROVIDER_REFRESH";
 	}
 
 	return "UNKNOWN";
@@ -7464,6 +7467,8 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 				   : "del",
 			   dplane_ctx_tc_qdisc_notify_get_major_handle(ctx),
 			   dplane_ctx_get_startup(ctx));
+	case DPLANE_OP_PROVIDER_REFRESH:
+		zlog_debug("Got provider refresh request");
 		break;
 	}
 }
@@ -7646,6 +7651,7 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 
 	case DPLANE_OP_NONE:
 	case DPLANE_OP_STARTUP_STAGE:
+	case DPLANE_OP_PROVIDER_REFRESH:
 		if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
 			atomic_fetch_add_explicit(&zdplane_info.dg_other_errors,
 						  1, memory_order_relaxed);
