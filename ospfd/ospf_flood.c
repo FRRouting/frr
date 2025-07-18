@@ -498,6 +498,12 @@ int ospf_flood(struct ospf *ospf, struct ospf_neighbor *nbr,
 	if (!(new = ospf_lsa_install(ospf, oi, new)))
 		return -1; /* unknown LSA type or any other error condition */
 
+	/* Acknowledge the receipt of the LSA by sending a Link State
+	   Acknowledgment packet back out the receiving interface.
+	   This must be done before any operations that might free the LSA. */
+	if (lsa_ack_flag)
+		ospf_flood_delayed_lsa_ack(nbr, new);
+
 	/* check if the installed LSA is an indication LSA */
 	if (ospf_check_indication_lsa(new) && !IS_LSA_SELF(new) &&
 	    !IS_LSA_MAXAGE(new)) {
@@ -546,11 +552,6 @@ int ospf_flood(struct ospf *ospf, struct ospf_neighbor *nbr,
 			}
 		}
 	}
-
-	/* Acknowledge the receipt of the LSA by sending a Link State
-	   Acknowledgment packet back out the receiving interface. */
-	if (lsa_ack_flag)
-		ospf_flood_delayed_lsa_ack(nbr, new);
 
 	/* If this new LSA indicates that it was originated by the
 	   receiving router itself, the router must take special action,
