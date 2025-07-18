@@ -219,6 +219,7 @@ enum dplane_op_e {
 	/* Source address for SRv6 encapsulation */
 	DPLANE_OP_SRV6_ENCAP_SRCADDR_SET,
 
+
 	/* EVPN FDB/neighbor reads */
 	DPLANE_OP_FDB_READ,
 	DPLANE_OP_NEIGH_READ,
@@ -230,6 +231,9 @@ enum dplane_op_e {
 	/* EVPN-MH FDB (L2) nexthop update */
 	DPLANE_OP_NH_FDB_INSTALL,
 	DPLANE_OP_NH_FDB_DELETE,
+
+	/* Refresh provider */
+	DPLANE_OP_PROVIDER_REFRESH
 };
 
 /* Operational status of Bridge Ports */
