@@ -5,10 +5,10 @@ tools/etc/logrotate.d/frr etc/logrotate.d/
 tools/frr-reload usr/lib/frr/
 usr/bin/mtracebis
 usr/bin/vtysh
-usr/lib/*/frr/libfrr.*
-usr/lib/*/frr/libfrrcares.*
-usr/lib/*/frr/libfrrospfapiclient.*
-usr/lib/*/frr/libmgmt_be_nb.*
+usr/lib/*/frr/libfrr.so.*
+usr/lib/*/frr/libfrrcares.so.*
+usr/lib/*/frr/libfrrospfapiclient.so.*
+usr/lib/*/frr/libmgmt_be_nb.so.*
 usr/lib/*/frr/modules/bgpd_bmp.so
 usr/lib/*/frr/modules/dplane_fpm_nl.so
 usr/lib/*/frr/modules/zebra_cumulus_mlag.so
