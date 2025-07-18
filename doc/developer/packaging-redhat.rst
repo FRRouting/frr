@@ -3,6 +3,8 @@
 Packaging Red Hat
 =================
 
+**DUMMY TEST**
+
 Tested on CentOS 6, CentOS 7, Rocky 8 and Fedora 24.
 
 1. On CentOS 6, refer to :ref:`building-centos6` for details on installing
