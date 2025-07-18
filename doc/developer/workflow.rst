@@ -171,15 +171,42 @@ For reference, the expected release schedule according to the above is:
 
 Here is the hint on how to get the dates easily:
 
-   .. code-block:: console
+   .. code-block:: bash
 
-      ~$ # Release date is 2023-11-07 (First Tuesday each March/July/November)
-      ~$ date +%F --date='2023-11-07 -42 days' # Next freeze date
-      2023-09-26
-      ~$ date +%F --date='2023-11-07 -28 days' # Next dev/X.Y date
-      2023-10-10
-      ~$ date +%F --date='2023-11-07 -14 days' # Next RC date
-      2023-10-24
+      #!/bin/bash
+
+      # ./release-dates.sh [year]
+      # E.g.: ./release-dates.sh 2026
+      year="${1:-$(date +%Y)}"
+
+      first_tuesday() {
+         local year=$1
+         local month=$2
+         for day in {1..7}; do
+            weekday=$(date -d "$year-$month-$day" +%u)
+            if [[ $weekday -eq 2 ]]; then
+                  date -d "$year-$month-$day" +%Y-%m-%d
+                  return
+            fi
+         done
+      }
+
+      echo "Release Schedule for ${year}"
+      echo "-------------------------"
+
+      for month in 3 7 11; do
+         release_date=$(first_tuesday "$year" $month)
+         rc_date=$(date -d "$release_date -2 weeks" +%Y-%m-%d)
+         dev_date=$(date -d "$release_date -4 weeks" +%Y-%m-%d)
+         freeze_date=$(date -d "$release_date -6 weeks" +%Y-%m-%d)
+
+         echo ""
+         echo "Release Month: $(date -d "$release_date" +%B)"
+         echo "  Freeze date:     $freeze_date"
+         echo "  dev/X.Y.Z date:  $dev_date"
+         echo "  RC date:         $rc_date"
+         echo "  Release date:    $release_date"
+      done
 
 Each release is managed by one or more volunteer release managers from the FRR
 community.  These release managers are expected to handle the branch for a period
