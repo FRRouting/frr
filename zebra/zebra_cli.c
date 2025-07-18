@@ -64,9 +64,9 @@ static void zebra_ip_forwarding_cli_write(struct vty *vty, const struct lyd_node
 	bool enabled = yang_dnode_get_bool(dnode, NULL);
 
 	if (!enabled)
-		vty_out(vty, "no ip forwrding\n");
+		vty_out(vty, "no ip forwarding\n");
 	else if (show_defaults)
-		vty_out(vty, "ip forwrding\n");
+		vty_out(vty, "ip forwarding\n");
 }
 
 DEFPY_YANG (ipv6_forwarding,
@@ -88,9 +88,9 @@ static void zebra_ipv6_forwarding_cli_write(struct vty *vty, const struct lyd_no
 	bool enabled = yang_dnode_get_bool(dnode, NULL);
 
 	if (!enabled)
-		vty_out(vty, "no ipv6 forwrding\n");
+		vty_out(vty, "no ipv6 forwarding\n");
 	else if (show_defaults)
-		vty_out(vty, "ipv6 forwrding\n");
+		vty_out(vty, "ipv6 forwarding\n");
 }
 
 DEFPY_YANG (zebra_route_map_timer,
