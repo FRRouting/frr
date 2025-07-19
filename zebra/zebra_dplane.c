@@ -7467,6 +7467,8 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 				   : "del",
 			   dplane_ctx_tc_qdisc_notify_get_major_handle(ctx),
 			   dplane_ctx_get_startup(ctx));
+		break;
+
 	case DPLANE_OP_PROVIDER_REFRESH:
 		zlog_debug("Got provider refresh request");
 		break;
@@ -8569,6 +8571,18 @@ void zebra_dplane_startup_stage(ns_id_t ns_id,
 
 	dplane_provider_enqueue_to_zebra(ctx);
 }
+
+void zebra_dplane_provider_refresh(uint32_t zd_provider)
+{
+	struct zebra_dplane_ctx *ctx = dplane_ctx_alloc();
+
+	ctx->zd_op = DPLANE_OP_PROVIDER_REFRESH;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_QUEUED;
+	ctx->zd_provider = zd_provider;
+
+	dplane_provider_enqueue_to_zebra(ctx);
+}
+
 /*
  * Initialize the dataplane module at startup; called by zebra rib_init()
  */

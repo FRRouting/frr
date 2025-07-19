@@ -1411,6 +1411,8 @@ void zebra_dplane_shutdown(void);
 void zebra_dplane_startup_stage(ns_id_t ns_id,
 				enum zebra_dplane_startup_notifications spot);
 
+void zebra_dplane_provider_refresh(uint32_t zd_provider);
+
 enum zebra_dplane_startup_notifications
 dplane_ctx_get_startup_spot(struct zebra_dplane_ctx *ctx);
 
