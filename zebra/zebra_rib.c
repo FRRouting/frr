@@ -4997,6 +4997,197 @@ void rib_sweep_route(struct event *t)
 	zebra_evpn_stale_entries_cleanup(zrouter.startup_time);
 }
 
+/* Refresh: all RIB routes */
+static void rib_refresh_routes_all(void)
+{
+	zlog_debug("Refreshing rib routes...");
+	struct route_node *rn;
+	struct route_table *rt;
+	rib_dest_t *dest;
+	rib_tables_iter_t rt_iter;
+
+	rt_iter.state = RIB_TABLES_ITER_S_INIT;
+	while ((rt = rib_tables_iter_next(&rt_iter))) {
+		for (rn = route_top(rt); rn; rn = srcdest_route_next(rn)) {
+			dest = rib_dest_from_rnode(rn);
+			if (dest == NULL || !dest->selected_fib)
+				continue;
+			dplane_route_add(rn, dest->selected_fib);
+		}
+	}
+}
+
+/* Refresh: l3vni rmacs */
+static void rib_refresh_l3vni_rmac_table(struct hash_bucket *bucket, void *arg)
+{
+	struct zebra_l3vni *zl3vni = arg;
+	struct zebra_vxlan_vni *vni;
+	struct interface *br_ifp;
+	struct zebra_if *br_zif;
+	struct zebra_if *zif;
+	vlanid_t vid;
+	bool sticky;
+	struct interface *vxlan_if;
+	struct zebra_mac *zrmac = bucket->data;
+
+	// mirror install path: only remote MACs
+	if (!CHECK_FLAG(zrmac->flags, ZEBRA_MAC_REMOTE) ||
+	    !CHECK_FLAG(zrmac->flags, ZEBRA_MAC_REMOTE_RMAC)) {
+		return;
+	}
+
+	vxlan_if = zl3vni->vxlan_if;
+	if (!vxlan_if)
+		return;
+
+	zif = vxlan_if->info;
+	if (!zif)
+		return;
+
+	br_ifp = zif->brslave_info.br_if;
+	if (!br_ifp)
+		return;
+
+	br_zif = (struct zebra_if *)(br_ifp->info);
+	if (!br_zif)
+		return;
+
+	vni = zebra_vxlan_if_vni_find(zif, zl3vni->vni);
+	if (!vni)
+		return;
+
+
+	vid = IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif) ? vni->access_vlan : 0;
+	sticky = !!CHECK_FLAG(zrmac->flags, (ZEBRA_MAC_STICKY | ZEBRA_MAC_REMOTE_DEF_GW));
+
+	dplane_rem_mac_add(zif->ifp, br_zif->ifp, vid, &zrmac->macaddr, vni->vni,
+			   &zrmac->fwd_info.r_vtep_ip, sticky, 0, 0);
+}
+static void rib_refresh_l3vni(struct hash_bucket *bucket, void *arg)
+{
+	struct zebra_l3vni *zl3vni = bucket->data;
+
+	zlog_debug("Refreshing rmac table for vni %u...(%lu macs)", zl3vni->vni,
+		   zl3vni->rmac_table->count);
+	hash_iterate(zl3vni->rmac_table, rib_refresh_l3vni_rmac_table, zl3vni);
+}
+static void rib_refresh_rmacs(void)
+{
+	zlog_debug("Refreshing l3vni table (%lu vnis)...", zrouter.l3vni_table->count);
+	hash_iterate(zrouter.l3vni_table, rib_refresh_l3vni, NULL);
+}
+
+/* Refresh: interface addresses */
+static void rib_refresh_interface_address(struct interface *ifp)
+{
+	/* addresses  */
+	struct connected *ifc;
+
+	frr_each (if_connected, ifp->connected, ifc) {
+		if (ifc->address != NULL) {
+			zlog_debug("Refreshing address %pFX on interface %s", ifc->address,
+				   ifp->name);
+			dplane_intf_addr_set(ifp, ifc);
+		}
+	}
+}
+static void rib_refresh_interface_addresses(void)
+{
+	struct vrf *vrf;
+	struct interface *ifp;
+
+	zlog_debug("Refreshing interface addresses...");
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			rib_refresh_interface_address(ifp);
+		}
+}
+
+/* Refresh: interfaces */
+static void rib_refresh_interfaces(void)
+{
+	struct vrf *vrf;
+	struct interface *ifp;
+
+	zlog_debug("Refreshing interfaces...");
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			zlog_debug("Interface %s vrf %s(%u) index %d metric %d mtu %d mtu6 %d %s",
+				   ifp->name, ifp->vrf->name, ifp->vrf->vrf_id, ifp->ifindex,
+				   ifp->metric, ifp->mtu, ifp->mtu6, if_flag_dump(ifp->flags));
+
+			dplane_intf_update(ifp);
+		}
+}
+
+/* log refreshed lsps */
+static void log_lsp_refresh(struct zebra_lsp *lsp)
+{
+	if (!lsp->best_nhlfe) {
+		zlog_debug("Omitting refresh of LSP for label %u: no best nhlfe",
+			   lsp->ile.in_label);
+	} else {
+		char nh_buff[BUFSIZ] = "";
+		char labels_buff[BUFSIZ] = "";
+		struct nexthop *nexthop = lsp->best_nhlfe ? lsp->best_nhlfe->nexthop : NULL;
+		struct mpls_label_stack *nh_label = nexthop ? nexthop->nh_label : NULL;
+
+		if (nexthop)
+			nexthop2str(nexthop, nh_buff, sizeof(nh_buff));
+
+		if (nh_label) {
+			for (int n = 0; n < nh_label->num_labels; n++) {
+				char label[BUFSIZ] = "";
+
+				label2str(nh_label->label[n], 0, label, sizeof(label));
+				if (n)
+					strlcat(labels_buff, "/", sizeof(labels_buff));
+				strlcat(labels_buff, label, sizeof(labels_buff));
+			}
+		}
+		zlog_debug("Refreshing LSP for label: %u (num-ecmp: %u) best is next-hop: %s labels: %s",
+			   lsp->ile.in_label, lsp->num_ecmp, nh_buff, labels_buff);
+	}
+}
+
+/* Refresh: lsps */
+static void rib_refresh_lsp(struct hash_bucket *bucket, void *arg)
+{
+	struct zebra_lsp *lsp = bucket->data;
+
+	if (!lsp->best_nhlfe) {
+		zlog_debug("Omitting refresh of LSP for label: %u num-ecmp: %u: no best nhlfe",
+			   lsp->ile.in_label, lsp->num_ecmp);
+	} else {
+		log_lsp_refresh(lsp);
+		dplane_lsp_add(lsp);
+	}
+}
+static void rib_refresh_lsps(void)
+{
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
+
+	if (zvrf && zvrf->lsp_table) {
+		zlog_debug("Refreshing LSPs...");
+		hash_iterate(zvrf->lsp_table, rib_refresh_lsp, NULL);
+	}
+}
+
+/* Refresh dplane provider(s) */
+void rib_provider_refresh(uint32_t refresh_flags)
+{
+	if (CHECK_FLAG(refresh_flags, DPLANE_REFRESH_INTERFACES))
+		rib_refresh_interfaces();
+	if (CHECK_FLAG(refresh_flags, DPLANE_REFRESH_IFADDRS))
+		rib_refresh_interface_addresses();
+	if (CHECK_FLAG(refresh_flags, DPLANE_REFRESH_L3VNI_RMAC))
+		rib_refresh_rmacs();
+	if (CHECK_FLAG(refresh_flags, DPLANE_REFRESH_RIB))
+		rib_refresh_routes_all();
+	if (CHECK_FLAG(refresh_flags, DPLANE_REFRESH_LSPS))
+		rib_refresh_lsps();
+}
+
 /* Remove specific by protocol routes from 'table'. */
 unsigned long rib_score_proto_table(uint8_t proto, unsigned short instance,
 				    struct route_table *table)
@@ -5347,6 +5538,7 @@ static void rib_process_dplane_results(struct event *event)
 			case DPLANE_OP_PROVIDER_REFRESH:
 				zlog_debug("Got request to refresh from provider %u",
 					   dplane_ctx_get_provider(ctx));
+				rib_provider_refresh(dplane_ctx_get_refresh_flags(ctx));
 				break;
 
 			} /* Dispatch by op code */

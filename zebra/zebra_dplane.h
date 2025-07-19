@@ -239,6 +239,7 @@ enum dplane_op_e {
 #define ZEBRA_DPLANE_BR_STATE_FORWARDING 0x08
 #define ZEBRA_DPLANE_BR_STATE_BLOCKING	 0x10
 
+
 /*
  * The vxlan/evpn neighbor management code needs some values to use
  * when programming neighbor changes. Offer some platform-neutral values
@@ -279,9 +280,10 @@ enum dplane_op_e {
 #define DPLANE_REFRESH_L3VNI_RMAC (1 << 1)
 #define DPLANE_REFRESH_INTERFACES (1 << 2)
 #define DPLANE_REFRESH_IFADDRS	  (1 << 3)
+#define DPLANE_REFRESH_LSPS	  (1 << 4)
 #define DPLANE_REFRESH_ALL                                                                        \
 	(DPLANE_REFRESH_RIB | DPLANE_REFRESH_L3VNI_RMAC | DPLANE_REFRESH_INTERFACES |             \
-	 DPLANE_REFRESH_IFADDRS)
+	 DPLANE_REFRESH_IFADDRS | DPLANE_REFRESH_LSPS)
 
 
 /* Definitions for the dplane 'netconf' apis, corresponding to the netlink
@@ -478,6 +480,8 @@ void dplane_ctx_set_ifp_speed_set(struct zebra_dplane_ctx *ctx, bool set);
 bool dplane_ctx_get_ifp_speed_set(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_ifp_speed(struct zebra_dplane_ctx *ctx, uint32_t speed);
 uint32_t dplane_ctx_get_ifp_speed(const struct zebra_dplane_ctx *ctx);
+
+uint32_t dplane_ctx_get_refresh_flags(struct zebra_dplane_ctx *ctx);
 
 /*
  * These defines mirror the values for bridge values in linux

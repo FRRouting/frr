@@ -8561,6 +8561,11 @@ dplane_ctx_get_startup_spot(struct zebra_dplane_ctx *ctx)
 	return ctx->u.spot;
 }
 
+uint32_t dplane_ctx_get_refresh_flags(struct zebra_dplane_ctx *ctx)
+{
+	return ctx->refresh_flags;
+}
+
 void zebra_dplane_startup_stage(ns_id_t ns_id,
 				enum zebra_dplane_startup_notifications spot)
 {
