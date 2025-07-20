@@ -875,9 +875,9 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Wed Jul 16 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+* Sun Jul 20 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
 
-* Wed Jul 16 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.4
+* Sun Jul 20 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.4
 - Major highlights:
 -   BGP BFD Strict-Mode
 -   BGP Link-Local Next Hop Capability [draft-ietf-idr-linklocal-capability]
