@@ -101,7 +101,7 @@ March/July/November.  Walking backwards from this date:
 
    Part of unfreezing master is editing the ``AC_INIT`` statement in
    :file:`configure.ac` to reflect the new development version that master
-   now refers to.  This is accompanied by a ``frr-X.Y-dev`` tag on master,
+   now refers to.  This is accompanied by a ``frr-X.Y.Z-dev`` tag on master,
    which should always be on the first commit on master *after* the stable
    branch was forked (even if that is not the edit to ``AC_INIT``; it's more
    important to have it on the very first commit on master after the fork.)
@@ -119,17 +119,17 @@ March/July/November.  Walking backwards from this date:
 
         % git checkout master
         % git pull upstream master
-        % git checkout -b dev/8.2
-        % git tag base_8.2
-        % git push upstream base_8.2
-        % git push upstream dev/8.2
+        % git checkout -b dev/10.5
+        % git tag base_10.5
+        % git push upstream base_10.5
+        % git push upstream dev/10.5
         % git checkout master
-        % sed -i 's/8.2-dev/8.3-dev/' configure.ac
+        % sed -i 's/10.4.0-dev/10.5.0-dev/' configure.ac
         % git add configure.ac
-        % git commit -s -m "build: FRR 8.3 development version"
-        % git tag -a frr-8.3-dev -m "frr-8.3-dev"
+        % git commit -s -m "build: FRR 10.5.0 development version"
+        % git tag -a frr-10.5.0-dev -m "frr-10.5.0-dev"
         % git push upstream master
-        % git push upstream frr-8.3-dev
+        % git push upstream frr-10.5.0-dev
 
    In this step, we also have to update package versions to reflect
    the development version. Versions need to be updated using
@@ -144,7 +144,7 @@ March/July/November.  Walking backwards from this date:
    the next freeze, dev/X.Y, RC, and release phases are scheduled. This should
    go in the ``master`` branch.
 
- - 2 weeks earlier, a ``frr-X.Y-rc`` release candidate is tagged.
+ - 2 weeks earlier, a ``frr-X.Y.Z-rc`` release candidate is tagged.
 
      .. code-block:: console
 
@@ -152,9 +152,9 @@ March/July/November.  Walking backwards from this date:
         upstream  git@github.com:frrouting/frr (fetch)
         upstream  git@github.com:frrouting/frr (push)
 
-        % git checkout dev/8.2
-        % git tag frr-8.2-rc
-        % git push upstream frr-8.2-rc
+        % git checkout dev/10.5
+        % git tag frr-10.5.0-rc
+        % git push upstream frr-10.5.0-rc
 
  - on release date, the branch is renamed to ``stable/MAJOR.MINOR``.
 
