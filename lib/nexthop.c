@@ -1411,6 +1411,10 @@ void nexthop_json_helper(json_object *json_nexthop,
 			}
 		}
 	}
+
+	if (nexthop->resolved_via > 0)
+		json_object_int_add(json_nexthop, "resolvedVia",
+				    nexthop->resolved_via);
 }
 
 /*

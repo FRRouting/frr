@@ -324,6 +324,9 @@ static void show_nexthop_detail_helper(struct vty *vty,
 		for (i = 1; i < nexthop->backup_num; i++)
 			vty_out(vty, ",%d", nexthop->backup_idx[i]);
 	}
+
+	if (nexthop->resolved_via > 0)
+		vty_out(vty, ", res via %u", nexthop->resolved_via);
 }
 
 static void zebra_show_ip_route_opaque(struct vty *vty, struct route_entry *re,
