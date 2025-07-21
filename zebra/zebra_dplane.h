@@ -274,6 +274,16 @@ enum dplane_op_e {
 
 #define DPLANE_BR_PORT_NON_DF (1 << 0)
 
+/* Refresh bitmap bits: indicate what to refresh  */
+#define DPLANE_REFRESH_RIB	  (1 << 0)
+#define DPLANE_REFRESH_L3VNI_RMAC (1 << 1)
+#define DPLANE_REFRESH_INTERFACES (1 << 2)
+#define DPLANE_REFRESH_IFADDRS	  (1 << 3)
+#define DPLANE_REFRESH_ALL                                                                        \
+	(DPLANE_REFRESH_RIB | DPLANE_REFRESH_L3VNI_RMAC | DPLANE_REFRESH_INTERFACES |             \
+	 DPLANE_REFRESH_IFADDRS)
+
+
 /* Definitions for the dplane 'netconf' apis, corresponding to the netlink
  * NETCONF api.
  * Sadly, netlink sends incremental updates, so its messages may contain
@@ -1411,7 +1421,7 @@ void zebra_dplane_shutdown(void);
 void zebra_dplane_startup_stage(ns_id_t ns_id,
 				enum zebra_dplane_startup_notifications spot);
 
-void zebra_dplane_provider_refresh(uint32_t zd_provider);
+void zebra_dplane_provider_refresh(uint32_t zd_provider, uint32_t refresh_flags);
 
 enum zebra_dplane_startup_notifications
 dplane_ctx_get_startup_spot(struct zebra_dplane_ctx *ctx);
