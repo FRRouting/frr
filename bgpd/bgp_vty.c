@@ -9800,6 +9800,140 @@ DEFPY(no_neighbor_path_attribute_treat_as_withdraw,
 	return CMD_SUCCESS;
 }
 
+DEFPY (neighbor_encap_srv6,
+       neighbor_encap_srv6_cmd,
+       "[no] neighbor <X:X::X:X|WORD>$neighbor <tx-encap-srv6|tx-encap-srv6-strict>$encap",
+       NO_STR
+       NEIGHBOR_STR
+       "Neighbor IPv6 address\n"
+       "Neighbor tag\n"
+       "Advertise SRv6 paths to a neighbor\n"
+       "Advertise only SRv6 paths to a neighbor\n")
+{
+	int ret;
+	afi_t afi;
+	uint64_t flag;
+	struct peer *peer;
+	safi_t safi = SAFI_UNICAST;
+
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	afi = bgp_node_afi(vty);
+	if (strncmp(encap, "tx-encap-srv6-strict", 20))
+		flag = PEER_FLAG_CONFIG_ENCAPSULATION_SRV6;
+	else
+		flag = PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_STRICT;
+
+	if (peergroup_af_flag_check(peer, afi, safi, flag)) {
+		if (!no) {
+			vty_out(vty, "%% Peer currently already configured.");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		ret = peer_af_flag_unset_vty(vty, neighbor, afi, safi, flag);
+	} else {
+		if (no) {
+			vty_out(vty, "%% Peer is not configured.");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		ret = peer_af_flag_set_vty(vty, neighbor, afi, safi, flag);
+	}
+
+	return ret;
+}
+
+DEFPY (sid_export,
+       sid_export_cmd,
+       "[no] sid export auto [route-map RMAP$rmap_str]",
+       NO_STR
+       "Sid value for VRF\n"
+       "Encapsulation SRv6 Over GRT\n"
+       "Specify route-map name\n"
+       "Automatically assign a label\n"
+       "Name of route-map\n")
+{
+	uint64_t flag;
+	uint32_t sid_func;
+	struct bgp *bgp_vrf;
+	struct listnode *node;
+	struct srv6_sid_ctx ctx = {};
+	struct in6_addr grt_sid = {};
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	afi_t afi = bgp_node_afi(vty);
+	struct srv6_locator *locator_bgp;
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
+		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
+			continue;
+
+		if (is_srv6_vpn_afi_enabled(bgp, afi)) {
+			vty_out(vty,
+				"sid vpn per afi is configured.\n"
+				"Remove it first before configuring encapsulation SRv6 over GRT");
+
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		if (is_srv6_vpn_vrf_enabled(bgp)) {
+			vty_out(vty,
+				"sid vpn per-vrf is configured.\n"
+				"Remove it first before configuring encapsulation SRv6 over GRT.\n");
+
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	if (afi == AFI_IP)
+		flag = BGP_FLAG_SRV6GRT_IPV4_SID_AUTO;
+	else
+		flag = BGP_FLAG_SRV6GRT_IPV6_SID_AUTO;
+
+	if (no) {
+		if (!CHECK_FLAG(bgp->flags, flag))
+			return CMD_SUCCESS;
+		if (bgp->grt_rmap_name[afi])
+			XFREE(MTYPE_ROUTE_MAP_NAME, bgp->grt_rmap_name[afi]);
+
+		UNSET_FLAG(bgp->flags, flag);
+		bgp_srv6_grt_sid_withdraw(bgp, afi);
+
+		return CMD_SUCCESS;
+	}
+
+	/* configured */
+	if (CHECK_FLAG(bgp->flags, flag)) {
+		/* no rmap change */
+		if (!rmap_str ||
+		    (bgp->grt_rmap_name[afi] && !strcmp(rmap_str, bgp->grt_rmap_name[afi])))
+			return CMD_SUCCESS;
+
+		/* apply route-map change */
+		bgp_srv6_grt_announce(bgp, afi);
+
+		return CMD_SUCCESS;
+	}
+	if (rmap_str)
+		bgp->grt_rmap_name[afi] = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_str);
+
+	SET_FLAG(bgp->flags, flag);
+	/* request srv6 sid. */
+	ctx.vrf_id = bgp->vrf_id;
+	ctx.behavior = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
+				     : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+	locator_bgp = bgp_srv6_locator_lookup(bgp, NULL);
+
+	if (!bgp_zebra_request_srv6_sid(&ctx, &grt_sid, locator_bgp->name, &sid_func)) {
+		zlog_err("%s: failed to request sid for bgp %s: afi %s", __func__,
+			 bgp->name_pretty, afi2str(afi));
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(neighbor_damp,
       neighbor_damp_cmd,
       "neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor dampening [(1-45)$half [(1-20000)$reuse (1-20000)$suppress (1-255)$max]]",
@@ -10242,8 +10376,15 @@ DEFPY (af_sid_vpn_export,
 
 	if (is_srv6_vpn_vrf_enabled(bgp)) {
 		vty_out(vty,
-			"per-vrf sid and per-af sid are mutually exclusive\n"
+			"sid vpn per-vrf sid and per-af sid are mutually exclusive\n"
 			"Failed: per-vrf sid is configured. Remove per-vrf sid before configuring per-af sid\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (is_srv6_grt_enabled(bgp, afi)) {
+		vty_out(vty, "sid export is configured on unicast\n"
+			     "Remove it before configuring sid vpn");
+
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -10345,6 +10486,14 @@ DEFPY (bgp_sid_vpn_export,
 		vty_out(vty,
 			"per-vrf sid and per-af sid are mutually exclusive\n"
 			"Failed: per-af sid is configured. Remove per-af sid before configuring per-vrf sid\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (is_srv6_grt_enabled(bgp, AFI_IP) ||
+	    is_srv6_grt_enabled(bgp, AFI_IP6)) {
+		vty_out(vty, "sid export is configured on unicast\n"
+			     "Remove it before configuring sid vpn");
+
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -11251,6 +11400,8 @@ DEFPY (show_bgp_srv6,
 		vty_out(vty, "  vpn_policy[AFI_IP6].tovpn_sid: %pI6\n",
 			bgp->vpn_policy[AFI_IP6].tovpn_sid);
 		vty_out(vty, "  per-vrf tovpn_sid: %pI6\n", bgp->tovpn_sid);
+		vty_out(vty, "  grt_sid[AFI_IP]: %pI6\n", bgp->grt_sid[AFI_IP]);
+		vty_out(vty, "  grt_sid[AFI_IP6]: %pI6\n", bgp->grt_sid[AFI_IP6]);
 	}
 
 	return CMD_SUCCESS;
@@ -19458,6 +19609,11 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 		}
 	}
 
+	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_STRICT))
+		vty_out(vty, "  neighbor %s tx-encap-srv6-strict\n", addr);
+	else if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CONFIG_ENCAPSULATION_SRV6))
+		vty_out(vty, "  neighbor %s tx-encap-srv6\n", addr);
+
 	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_DISABLE_ADDPATH_RX))
 		vty_out(vty, "  neighbor %s disable-addpath-rx\n", addr);
 
@@ -19794,6 +19950,11 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 				     bgp->vpn_policy[afi].import_vrf, node,
 				     name))
 				vty_out(vty, "  import vrf %s\n", name);
+		}
+		if CHECK_FLAG (bgp->flags, afi == AFI_IP ? BGP_FLAG_SRV6GRT_IPV4_SID_AUTO
+							 : BGP_FLAG_SRV6GRT_IPV6_SID_AUTO) {
+			vty_out(vty, "  sid export auto %s\n",
+				bgp->grt_rmap_name[afi] ? bgp->grt_rmap_name[afi] : "");
 		}
 	}
 
@@ -22437,6 +22598,10 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV4_NODE, &af_sid_vpn_export_cmd);
 	install_element(BGP_IPV6_NODE, &af_sid_vpn_export_cmd);
 	install_element(BGP_NODE, &bgp_sid_vpn_export_cmd);
+	install_element(BGP_IPV4_NODE, &neighbor_encap_srv6_cmd);
+	install_element(BGP_IPV4_NODE, &sid_export_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_encap_srv6_cmd);
+	install_element(BGP_IPV6_NODE, &sid_export_cmd);
 	install_element(BGP_NODE, &no_bgp_sid_vpn_export_cmd);
 
 	bgp_vty_if_init();

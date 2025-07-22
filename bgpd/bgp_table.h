@@ -86,6 +86,8 @@ struct bgp_dest {
 
 	mpls_label_t local_label;
 
+	struct bgp_srv6_l3service *srv6_grt;
+
 	uint16_t flags;
 #define BGP_NODE_PROCESS_SCHEDULED	(1 << 0)
 #define BGP_NODE_USER_CLEAR             (1 << 1)

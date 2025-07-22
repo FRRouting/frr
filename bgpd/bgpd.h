@@ -670,6 +670,9 @@ struct bgp {
 #define BGP_FLAG_L3VNI_SCHEDULE_FOR_DELETE  (1ULL << 42)
 #define BGP_FLAG_LINK_LOCAL_CAPABILITY	    (1ULL << 43)
 #define BGP_FLAG_VRF_MAY_LISTEN		    (1ULL << 44)
+/* For BGP SRv6 over GRT */
+#define BGP_FLAG_SRV6GRT_IPV4_SID_AUTO (1ULL << 45)
+#define BGP_FLAG_SRV6GRT_IPV6_SID_AUTO (1ULL << 46)
 
 	/* BGP default address-families.
 	 * New peers inherit enabled afi/safis from bgp instance.
@@ -957,7 +960,8 @@ struct bgp {
 	uint32_t condition_filter_count;
 	struct event *t_condition_check;
 
-	/* BGP VPN SRv6 backend */
+
+	/* BGP L3 service VPN SRv6 backend */
 	char srv6_locator_name[SRV6_LOCNAME_SIZE];
 	enum srv6_headend_behavior srv6_encap_behavior;
 	struct srv6_locator *srv6_locator;
@@ -969,6 +973,15 @@ struct bgp {
 	struct srv6_locator *tovpn_sid_locator;
 	uint32_t tovpn_sid_transpose_label;
 	struct in6_addr *tovpn_zebra_vrf_sid_last_sent;
+
+	/* BGP L3 service GRT SRv6 backend */
+	uint32_t grt_sid_index[AFI_MAX]; /* unset => set to 0 */
+	struct in6_addr *grt_sid[AFI_MAX];
+	struct in6_addr *grt_sid_explicit[AFI_MAX];
+	struct srv6_locator *grt_sid_locator[AFI_MAX];
+	uint32_t grt_sid_transpose_label[AFI_MAX];
+	struct in6_addr *grt_zebra_vrf_sid_last_sent[AFI_MAX];
+	char *grt_rmap_name[AFI_MAX];
 
 	/* TCP keepalive parameters for BGP connection */
 	uint16_t tcp_keepalive_idle;
@@ -1779,6 +1792,8 @@ struct peer {
 #define PEER_FLAG_SEND_EXT_COMMUNITY_RPKI (1ULL << 29)
 #define PEER_FLAG_ADDPATH_RX_PATHS_LIMIT (1ULL << 30)
 #define PEER_FLAG_CONFIG_DAMPENING (1ULL << 31)
+#define PEER_FLAG_CONFIG_ENCAPSULATION_SRV6	   (1ULL << 32)
+#define PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_STRICT (1ULL << 33)
 #define PEER_FLAG_ACCEPT_OWN (1ULL << 63)
 
 	enum bgp_addpath_strat addpath_type[AFI_MAX][SAFI_MAX];

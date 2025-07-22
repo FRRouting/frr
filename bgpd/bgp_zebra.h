@@ -135,6 +135,11 @@ extern int bgp_zebra_stale_timer_update(struct bgp *bgp);
 extern int bgp_zebra_srv6_manager_get_locator_chunk(const char *name);
 extern int bgp_zebra_srv6_manager_release_locator_chunk(const char *name);
 extern int bgp_zebra_srv6_manager_get_locator(const char *name);
+bool is_srv6_grt_enabled(struct bgp *bgp, afi_t afi);
+extern void bgp_srv6_grt_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest *dest,
+					struct bgp_path_info *bpi);
+extern void bgp_srv6_grt_announce(struct bgp *bgp, afi_t afi);
+extern void bgp_srv6_grt_sid_withdraw(struct bgp *bgp, afi_t afi);
 extern bool bgp_zebra_request_srv6_sid(const struct srv6_sid_ctx *ctx,
 				       struct in6_addr *sid_value,
 				       const char *locator_name,

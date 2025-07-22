@@ -2224,6 +2224,12 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		samepeer_safe = 1;
 	}
 
+	if (safi == SAFI_UNICAST &&
+	    CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_STRICT) &&
+	    (!pi->attr->srv6_l3service && !dest->srv6_grt)) {
+		return false;
+	}
+
 	/* With addpath we may be asked to TX all kinds of paths so make sure
 	 * pi is valid */
 	if (!CHECK_FLAG(pi->flags, BGP_PATH_VALID)
@@ -3820,6 +3826,12 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 			   afi, safi);
 	old_select = old_and_new.old;
 	new_select = old_and_new.new;
+
+	if (safi == SAFI_UNICAST &&
+	    CHECK_FLAG(bgp->flags, afi == AFI_IP ? BGP_FLAG_SRV6GRT_IPV4_SID_AUTO
+						 : BGP_FLAG_SRV6GRT_IPV4_SID_AUTO) &&
+	    new_select)
+		bgp_srv6_grt_register_route(bgp, afi, dest, new_select);
 
 	if (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST)
 		/* label unicast path :
