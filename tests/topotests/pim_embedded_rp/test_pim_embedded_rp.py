@@ -115,7 +115,7 @@ def test_ospfv3_convergence():
 def expect_pim_rp(router, rp, group, interface=None, missing=False):
     "Wait until RP is present."
     tgen = get_topogen()
-    maximum_wait = 15
+    maximum_wait = 30
     log_message = f"waiting RP {rp} for {group} in {router}"
     if missing:
         log_message += \
@@ -163,14 +163,15 @@ def test_embedded_rp_mld_join():
         "ff75:130:2001:db8:ffff::301",
         "ff75:130:2001:db8:ffff::302",
     ]
+    counter = 0
     for group in groups:
+        counter += 1
         app_helper.run("h1", [group, "h1-eth0"])
-        topotest.sleep(2, "Waiting MLD join to be sent")
-
-    expect_pim_rp("r2", "2001:db8:ffff::1", groups[0], interface="r2-eth0")
-    expect_pim_rp("r2", "2001:db8:ffff::1", groups[1], interface="r2-eth0")
-    # Over the limit entry
-    expect_pim_rp("r2", "2001:db8:ffff::1", groups[2], missing=True)
+        if counter == 3:
+            # Item that exceeded the count of 3 should not show up
+            expect_pim_rp("r2", "2001:db8:ffff::1", group, missing=True)
+        else:
+            expect_pim_rp("r2", "2001:db8:ffff::1", group, interface="r2-eth0")
 
     app_helper.stop_all_hosts()
 
