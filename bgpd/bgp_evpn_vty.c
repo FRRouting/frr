@@ -3521,7 +3521,7 @@ static void evpn_set_advertise_all_vni(struct bgp *bgp)
 static void evpn_unset_advertise_all_vni(struct bgp *bgp)
 {
 	bgp->advertise_all_vni = 0;
-	bgp_set_evpn(NULL);
+	bgp_set_evpn(bgp_get_default());
 	bgp_zebra_advertise_all_vni(bgp, bgp->advertise_all_vni);
 	bgp_evpn_cleanup_on_disable(bgp);
 }
@@ -3744,14 +3744,9 @@ DEFUN (no_bgp_evpn_advertise_all_vni,
        "Advertise All local VNIs\n")
 {
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
-	struct bgp *bgp_evpn = NULL;
 
 	if (!bgp)
 		return CMD_WARNING;
-	bgp_evpn = bgp_get_evpn();
-	if (!bgp_evpn || bgp_evpn != bgp)
-		return CMD_SUCCESS;
-
 	evpn_unset_advertise_all_vni(bgp);
 	return CMD_SUCCESS;
 }
