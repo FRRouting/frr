@@ -4181,9 +4181,10 @@ DEFUN (vtysh_copy_to_running,
 	int ret;
 	const char *fname = argv[1]->arg;
 
-	ret = vtysh_apply_config(fname, true, false);
+	/* Don't fork, no dry-run */
+	ret = vtysh_apply_config(fname, false, false);
 
-	/* Return to enable mode - the 'read_config' api leaves us up a level */
+	/* Return to enable mode - the 'apply_config' api leaves us up a level */
 	vtysh_execute_no_pager("enable");
 
 	return ret;
