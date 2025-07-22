@@ -118,8 +118,7 @@ def expect_pim_rp(router, rp, group, interface=None, missing=False):
     maximum_wait = 30
     log_message = f"waiting RP {rp} for {group} in {router}"
     if missing:
-        log_message += \
-            f" to be missing ({maximum_wait} seconds maximum)"
+        log_message += f" to be missing ({maximum_wait} seconds maximum)"
 
     logger.info(log_message)
 
@@ -131,10 +130,9 @@ def expect_pim_rp(router, rp, group, interface=None, missing=False):
         topotest.router_json_cmp,
         tgen.gears[router],
         f"show ipv6 pim rp-info json",
-        expected
+        expected,
     )
-    _, result = topotest.run_and_expect(
-        test_func, None, count=maximum_wait, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=maximum_wait, wait=1)
     if missing:
         assert result is not None, f'"{router}" convergence failure'
     else:
@@ -223,7 +221,7 @@ def test_embedded_rp_spt_switch():
         topotest.router_json_cmp,
         tgen.gears["r1"],
         f"show ipv6 pim state json",
-        {group: {"*": {}, source: {}}}
+        {group: {"*": {}, source: {}}},
     )
     _, result = topotest.run_and_expect(test_func, None, count=10, wait=8)
     assert result is None, '"r1" convergence failure'
@@ -234,7 +232,7 @@ def test_embedded_rp_spt_switch():
         topotest.router_json_cmp,
         tgen.gears["r2"],
         f"show ipv6 pim state json",
-        {group: {source: {"r2-eth2": {"r2-eth1": {}}}}}
+        {group: {source: {"r2-eth2": {"r2-eth1": {}}}}},
     )
     _, result = topotest.run_and_expect(test_func, None, count=10, wait=8)
     assert result is None, '"r2" convergence failure'
@@ -245,7 +243,7 @@ def test_embedded_rp_spt_switch():
         topotest.router_json_cmp,
         tgen.gears["r3"],
         f"show ipv6 pim state json",
-        {group: {source: {"r3-eth1": {"r3-eth2": {}}}}}
+        {group: {source: {"r3-eth1": {"r3-eth2": {}}}}},
     )
     _, result = topotest.run_and_expect(test_func, None, count=10, wait=8)
     assert result is None, '"r3" convergence failure'
