@@ -339,6 +339,11 @@ static int zebra_vrf_delete(struct vrf *vrf)
 	otable_fini(&zvrf->other_tables);
 	XFREE(MTYPE_ZEBRA_VRF, zvrf);
 
+	if (vrf->ns_ctxt) {
+		ns_delete(vrf->ns_ctxt);
+		vrf->ns_ctxt = NULL;
+	}
+
 	vrf->info = NULL;
 
 	return 0;
