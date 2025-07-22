@@ -498,6 +498,13 @@ int ospf_flood(struct ospf *ospf, struct ospf_neighbor *nbr,
 	if (!(new = ospf_lsa_install(ospf, oi, new)))
 		return -1; /* unknown LSA type or any other error condition */
 
+	/*
+	 * It is possible that the new lsa is freed before we get to the
+	 * lock from the need to send a receipt.  So let's lock the lsa
+	 * here for the duration of the function.
+	 */
+	ospf_lsa_lock(new);
+
 	/* check if the installed LSA is an indication LSA */
 	if (ospf_check_indication_lsa(new) && !IS_LSA_SELF(new) &&
 	    !IS_LSA_MAXAGE(new)) {
@@ -562,6 +569,7 @@ int ospf_flood(struct ospf *ospf, struct ospf_neighbor *nbr,
 		/* Update statistics value for OSPF-MIB. */
 		ospf->rx_lsa_count++;
 
+	ospf_lsa_unlock(&new);
 	return 0;
 }
 
