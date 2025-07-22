@@ -17461,7 +17461,7 @@ static int bgp_show_one_peer_group(struct vty *vty, struct peer_group *group,
 	const char *peer_status;
 	int lr_count;
 	int dynamic;
-	bool af_cfgd;
+	bool af_cfgd = false;
 	json_object *json_peer_group = NULL;
 	json_object *json_peer_group_afc = NULL;
 	json_object *json_peer_group_members = NULL;
