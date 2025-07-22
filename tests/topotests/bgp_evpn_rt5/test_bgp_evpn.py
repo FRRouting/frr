@@ -604,7 +604,9 @@ def _get_established_epoch(router, peer, vrf=None):
     Get the established epoch for a peer
     """
     vrf_arg = f" vrf {vrf}" if vrf else ""
-    output = router.vtysh_cmd(f"show bgp{vrf_arg} neighbor {peer} json", isjson=True)
+    output = router.vtysh_cmd(
+        f"show bgp{vrf_arg} neighbor {peer} json", isjson=True
+    )
     assert peer in output, "peer not found"
     peer_info = output[peer]
     assert "bgpState" in peer_info, "peer state not found"
@@ -618,7 +620,9 @@ def _check_established_epoch_differ(router, peer, last_established_epoch, vrf=No
     Check that the established epoch has changed
     """
     vrf_arg = f" vrf {vrf}" if vrf else ""
-    output = router.vtysh_cmd(f"show bgp{vrf_arg} neighbor {peer} json", isjson=True)
+    output = router.vtysh_cmd(
+        f"show bgp{vrf_arg} neighbor {peer} json", isjson=True
+    )
     assert peer in output, "peer not found"
     peer_info = output[peer]
     assert "bgpState" in peer_info, "peer state not found"
@@ -639,7 +643,11 @@ def _test_epoch_after_clear(router, peer, last_established_epoch, vrf=None):
     Without this, the second session is cleared as well on slower systems (like CI)
     """
     test_func = partial(
-        _check_established_epoch_differ, router, peer, last_established_epoch, vrf=vrf
+        _check_established_epoch_differ,
+        router,
+        peer,
+        last_established_epoch,
+        vrf=vrf
     )
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
     assert (
