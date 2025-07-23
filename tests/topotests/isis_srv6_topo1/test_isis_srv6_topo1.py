@@ -78,6 +78,7 @@ from lib.common_config import (
     required_linux_kernel_version,
     create_interface_in_kernel,
 )
+from lib.checkping import check_ping
 
 pytestmark = [pytest.mark.isisd, pytest.mark.sharpd]
 
@@ -238,39 +239,6 @@ def router_compare_json_output(rname, command, reference):
     assert diff is None, assertmsg
 
 
-def check_ping6(name, dest_addr, expect_connected):
-    def _check(name, dest_addr, expect_connected):
-        tgen = get_topogen()
-        output = tgen.gears[name].run("ping6 {} -c 20".format(dest_addr))
-        logger.info(output)
-
-        # Extract packet loss percentage from output
-        import re
-
-        loss_match = re.search(r"(\d+)% packet loss", output)
-        if not loss_match:
-            return "ping fail - could not parse packet loss"
-
-        loss_percent = int(loss_match.group(1))
-
-        if expect_connected:
-            # When expecting connectivity, allow at most 10% packet loss
-            return None if loss_percent <= 10 else "ping fail - too much packet loss"
-        else:
-            # When expecting no connectivity, allow at most 90% packet loss
-            return None if loss_percent <= 90 else "ping fail - unexpected connectivity"
-
-    logger.info(
-        "[+] check {} {} (expect_connected: {})".format(
-            name, dest_addr, expect_connected
-        )
-    )
-    tgen = get_topogen()
-    func = functools.partial(_check, name, dest_addr, expect_connected)
-    success, result = topotest.run_and_expect(func, None, count=10, wait=1)
-    assert result is None, "Failed"
-
-
 #
 # Step 1
 #
@@ -361,7 +329,7 @@ def test_ping_step1():
     )
 
     # Try to ping dst from rt1
-    check_ping6("rt1", "fc00:0:9::1", True)
+    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
 
 
 #
@@ -462,7 +430,7 @@ def test_ping_step2():
         pytest.skip(tgen.errors)
 
     # ping should pass because route to fc00:0:2:6:f00d:: is still valid
-    check_ping6("rt1", "fc00:0:9::1", True)
+    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
 
 
 #
@@ -564,7 +532,7 @@ def test_ping_step3():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_ping6("rt1", "fc00:0:9::1", True)
+    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
 
 
 #
@@ -663,7 +631,7 @@ def test_ping_step4():
         pytest.skip(tgen.errors)
 
     # ping should pass because route to fc00:0:2:6:f00d:: is still valid
-    check_ping6("rt1", "fc00:0:9::1", True)
+    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
 
 
 #
@@ -761,7 +729,7 @@ def test_ping_step5():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_ping6("rt1", "fc00:0:9::1", True)
+    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
 
 
 #
@@ -859,7 +827,7 @@ def test_ping_step6():
         pytest.skip(tgen.errors)
 
     # ping should pass because route to fc00:0:2:6:f00d:: is still valid
-    check_ping6("rt1", "fc00:0:9::1", True)
+    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
 
 
 #
@@ -957,7 +925,7 @@ def test_ping_step7():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_ping6("rt1", "fc00:0:9::1", True)
+    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
 
 
 #
@@ -1055,7 +1023,7 @@ def test_ping_step8():
         pytest.skip(tgen.errors)
 
     # ping should pass because route to fc00:0:2:6:f00d:: is still valid
-    check_ping6("rt1", "fc00:0:9::1", True)
+    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
 
 
 #
@@ -1156,7 +1124,7 @@ def test_ping_step9():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_ping6("rt1", "fc00:0:9::1", True)
+    check_ping("rt1", "fc00:0:9::1", True, 10, 1)
 
 
 # Memory leak test template
