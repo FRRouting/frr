@@ -339,7 +339,7 @@ void eigrp_hello_receive(struct eigrp *eigrp, struct ip *iph,
 			   &nbr->src);
 
 	size -= EIGRP_HEADER_LEN;
-	if (size < 0)
+	if (size < EIGRP_TLV_HDR_LENGTH)
 		return;
 
 	tlv_header = (struct eigrp_tlv_hdr_type *)eigrph->tlv;
@@ -348,10 +348,7 @@ void eigrp_hello_receive(struct eigrp *eigrp, struct ip *iph,
 		type = ntohs(tlv_header->type);
 		length = ntohs(tlv_header->length);
 
-		/* Validate length against packet size */
-		if (length > size)
-			return;
-
+		/* Validate tlv length */
 		if ((length > 0) && (length <= size)) {
 			if (IS_DEBUG_EIGRP_PACKET(0, RECV))
 				zlog_debug(
@@ -393,13 +390,15 @@ void eigrp_hello_receive(struct eigrp *eigrp, struct ip *iph,
 			default:
 				break;
 			}
+		} else {
+			return;
 		}
 
 		tlv_header = (struct eigrp_tlv_hdr_type *)(((char *)tlv_header)
 							   + length);
 		size -= length;
 
-	} while (size > 0);
+	} while (size >= EIGRP_TLV_HDR_LENGTH);
 
 
 	/*If received packet is hello with Parameter TLV*/
