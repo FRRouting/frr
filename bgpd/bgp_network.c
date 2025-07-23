@@ -169,9 +169,20 @@ int bgp_md5_set_prefix(struct bgp *bgp, struct prefix *p, const char *password)
 	/* Set or unset the password on the listen socket(s). */
 	frr_with_privs(&bgpd_privs) {
 		for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, listener))
-			if (listener->su.sa.sa_family == p->family
-			    && ((bgp->vrf_id == VRF_DEFAULT)
-				|| (listener->bgp == bgp))) {
+			/* Match listener socket for the incoming BGP instance if:
+			 * 1. Address family matches (IPv4/IPv6)
+			 * 2. AND either:
+			 *    - incoming BGP instance is in default VRF
+			 *      and listener has no BGP instance(default vrf)
+			 *    - OR listener's BGP instance matches the
+			 *      incoming BGP instance(non-default vrf)
+			 * [Note: listener->bgp is always NULL for default VRF.
+			 *        listener socket could be shared among multiple
+			 *        BGP instances within the same VRF.]
+			 */
+			if (listener->su.sa.sa_family == p->family &&
+			    ((bgp->vrf_id == VRF_DEFAULT && !listener->bgp) ||
+			     (listener->bgp == bgp))) {
 				prefix2sockunion(p, &su);
 				ret = bgp_md5_set_socket(listener->fd, &su,
 							 p->prefixlen,
