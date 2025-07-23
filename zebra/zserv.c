@@ -1383,6 +1383,7 @@ DEFUN (show_zebra_client,
 {
 	struct zserv *client;
 
+	assert(0);
 	frr_each (zserv_client_list, &zrouter.client_list, client) {
 		zebra_show_client_detail(vty, client);
 		/* Show GR info if present */
