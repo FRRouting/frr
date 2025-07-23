@@ -35,6 +35,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.common_config import step
+from lib.checkping import check_ping
 
 pytestmark = [pytest.mark.bgpd]
 
@@ -178,25 +179,7 @@ def test_zebra_fec_nexthop_resolution_ping():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    def _check_ping_launch():
-        r1 = tgen.gears["r1"]
-
-        ping_launch = "ping 192.0.2.7 -I 192.0.2.1 -c 1"
-        selected_lines = r1.run(ping_launch).splitlines()[-2:-1]
-        rtx_stats = "".join(selected_lines[0].split(",")[0:3])
-        current = topotest.normalize_text(rtx_stats)
-
-        expected_stats = "1 packets transmitted 1 received 0% packet loss"
-        expected = topotest.normalize_text(expected_stats)
-
-        if current == expected:
-            return None
-
-        return False
-
-    test_func2 = functools.partial(_check_ping_launch)
-    _, result2 = topotest.run_and_expect(test_func2, None, count=60, wait=1)
-    assert result2 is None, "Failed to verify the fec_nexthop_resolution: ping"
+    check_ping("r1", "192.0.2.7", True, 60, 1, "192.0.2.1")
 
 
 def test_zebra_fec_nexthop_resolution_table():
