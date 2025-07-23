@@ -27,6 +27,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+from lib.checkping import check_ping
 
 
 pytestmark = [pytest.mark.bgpd]
@@ -165,21 +166,8 @@ def test_traffic_connectivity():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    def _check_ping(name, dest_addr, src_addr):
-        tgen = get_topogen()
-        output = tgen.gears[name].run(
-            "ping {} -c 1 -w 1 -I {}".format(dest_addr, src_addr)
-        )
-        logger.info(output)
-        if " 0% packet loss" not in output:
-            return True
-
     logger.info("r1, check ping 192.168.2.2 from 192.168.2.1 is OK")
-    tgen = get_topogen()
-    func = functools.partial(_check_ping, "r1", "192.168.2.2", "192.168.2.1")
-    # tgen.mininet_cli()
-    _, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
-    assert result is None, "r1, ping to 192.168.2.2 from 192.168.2.1 fails"
+    check_ping("r1", "192.168.2.2", True, 10, 0.5, "192.168.2.1")
 
 
 def test_memory_leak():
