@@ -1892,18 +1892,13 @@ static int bgp_input_modifier(struct peer *peer, const struct prefix *p,
 	if (peer->weight[afi][safi])
 		attr->weight = peer->weight[afi][safi];
 
+	if (!rmap_name)
+		rmap_name = ROUTE_MAP_IN_NAME(filter);
+
 	if (rmap_name) {
 		rmap = route_map_lookup_by_name(rmap_name);
-
-		if (rmap == NULL)
+		if (!rmap)
 			return RMAP_DENY;
-	} else {
-		if (ROUTE_MAP_IN_NAME(filter)) {
-			rmap = ROUTE_MAP_IN(filter);
-
-			if (rmap == NULL)
-				return RMAP_DENY;
-		}
 	}
 
 	/* Route map apply. */
@@ -4539,6 +4534,8 @@ static uint32_t bgp_filtered_routes_count(struct peer *peer, afi_t afi,
 			const struct prefix *rn_p = bgp_dest_get_prefix(dest);
 
 			attr = *ain->attr;
+
+			filtered = false;
 
 			if (bgp_input_filter(peer, rn_p, &attr, afi, safi)
 			    == FILTER_DENY)
@@ -9812,9 +9809,9 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 
 		bgp_path_info_add(bn, new);
 		bgp_aggregate_increment(bgp, p, new, afi, SAFI_UNICAST);
-		bgp_dest_unlock_node(bn);
 		SET_FLAG(bn->flags, BGP_NODE_FIB_INSTALLED);
 		bgp_process(bgp, bn, new, afi, SAFI_UNICAST);
+		bgp_dest_unlock_node(bn);
 
 		if ((bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
 		    || (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)) {

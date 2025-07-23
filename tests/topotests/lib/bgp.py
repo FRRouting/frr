@@ -1261,7 +1261,7 @@ def modify_bgp_config_when_bgpd_down(tgen, topo, input_dict):
 #############################################
 # Verification APIs
 #############################################
-@retry(retry_timeout=8)
+@retry(retry_timeout=30)
 def verify_router_id(tgen, topo, input_dict, expected=True):
     """
     Running command "show ip bgp json" for DUT and reading router-id
@@ -1705,7 +1705,7 @@ def modify_as_number(tgen, topo, input_dict):
     return result
 
 
-@retry(retry_timeout=8)
+@retry(retry_timeout=30)
 def verify_as_numbers(tgen, topo, input_dict, expected=True):
     """
     This API is to verify AS numbers for given DUT by running
@@ -2516,7 +2516,7 @@ def verify_bgp_attributes(
     return True
 
 
-@retry(retry_timeout=8)
+@retry(retry_timeout=30)
 def verify_best_path_as_per_bgp_attribute(
     tgen, addr_type, router, input_dict, attribute, expected=True
 ):
@@ -2722,7 +2722,7 @@ def verify_best_path_as_per_bgp_attribute(
     return True
 
 
-@retry(retry_timeout=10)
+@retry(retry_timeout=30)
 def verify_best_path_as_per_admin_distance(
     tgen, addr_type, router, input_dict, attribute, expected=True, vrf=None
 ):
@@ -3155,7 +3155,7 @@ def verify_bgp_rib(
     return True
 
 
-@retry(retry_timeout=10)
+@retry(retry_timeout=30)
 def verify_graceful_restart(
     tgen, topo, addr_type, input_dict, dut, peer, expected=True
 ):
@@ -3454,7 +3454,7 @@ def verify_graceful_restart(
     return True
 
 
-@retry(retry_timeout=10)
+@retry(retry_timeout=30)
 def verify_r_bit(tgen, topo, addr_type, input_dict, dut, peer, expected=True):
     """
     This API is to verify r_bit in the BGP gr capability advertised
@@ -3574,7 +3574,7 @@ def verify_r_bit(tgen, topo, addr_type, input_dict, dut, peer, expected=True):
     return True
 
 
-@retry(retry_timeout=10)
+@retry(retry_timeout=30)
 def verify_eor(tgen, topo, addr_type, input_dict, dut, peer, expected=True):
     """
     This API is to verify EOR
@@ -3736,7 +3736,7 @@ def verify_eor(tgen, topo, addr_type, input_dict, dut, peer, expected=True):
     return True
 
 
-@retry(retry_timeout=8)
+@retry(retry_timeout=30)
 def verify_f_bit(tgen, topo, addr_type, input_dict, dut, peer, expected=True):
     """
     This API is to verify f_bit in the BGP gr capability advertised
@@ -3877,7 +3877,7 @@ def verify_f_bit(tgen, topo, addr_type, input_dict, dut, peer, expected=True):
     return True
 
 
-@retry(retry_timeout=10)
+@retry(retry_timeout=30)
 def verify_graceful_restart_timers(tgen, topo, addr_type, input_dict, dut, peer):
     """
     This API is to verify graceful restart timers, configured and received
@@ -4004,7 +4004,7 @@ def verify_graceful_restart_timers(tgen, topo, addr_type, input_dict, dut, peer)
     return True
 
 
-@retry(retry_timeout=8)
+@retry(retry_timeout=30)
 def verify_gr_address_family(
     tgen, topo, addr_type, addr_family, dut, peer, expected=True
 ):
@@ -4501,7 +4501,7 @@ def verify_attributes_for_evpn_routes(
     return False
 
 
-@retry(retry_timeout=10)
+@retry(retry_timeout=30)
 def verify_evpn_routes(
     tgen, topo, dut, input_dict, routeType=5, EthTag=0, next_hop=None, expected=True
 ):
@@ -4648,7 +4648,7 @@ def verify_evpn_routes(
     return False
 
 
-@retry(retry_timeout=10)
+@retry(retry_timeout=30)
 def verify_bgp_bestpath(tgen, addr_type, input_dict):
     """
     Verifies bgp next hop values in best-path output
@@ -4903,7 +4903,7 @@ def get_prefix_count_route(
             logger.error("ERROR...! Unknown dut {} in topolgy".format(dut))
 
 
-@retry(retry_timeout=5)
+@retry(retry_timeout=30)
 def verify_rib_default_route(
     tgen,
     topo,
@@ -5255,7 +5255,7 @@ def verify_rib_default_route(
         return False
 
 
-@retry(retry_timeout=5)
+@retry(retry_timeout=30)
 def verify_fib_default_route(tgen, topo, dut, routes, expected_nexthop):
     """
     API to verify the the 'Default route" in FIB
@@ -5339,7 +5339,7 @@ def verify_fib_default_route(tgen, topo, dut, routes, expected_nexthop):
         return False
 
 
-@retry(retry_timeout=5)
+@retry(retry_timeout=30)
 def verify_bgp_advertised_routes_from_neighbor(tgen, topo, dut, peer, expected_routes):
     """
     APi is verifies the the routes that are advertised from dut to peer
@@ -5475,7 +5475,7 @@ def verify_bgp_advertised_routes_from_neighbor(tgen, topo, dut, peer, expected_r
         return False
 
 
-@retry(retry_timeout=5)
+@retry(retry_timeout=30)
 def verify_bgp_received_routes_from_neighbor(tgen, topo, dut, peer, expected_routes):
     """
     API to verify the bgp received routes

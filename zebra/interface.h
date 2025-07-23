@@ -56,8 +56,6 @@ enum zebra_slave_iftype {
 	ZEBRA_IF_SLAVE_OTHER,  /* Something else - e.g., bond slave */
 };
 
-struct irdp_interface;
-
 /* Ethernet segment info used for setting up EVPN multihoming */
 struct zebra_evpn_es;
 struct zebra_es_if_info {
@@ -150,8 +148,6 @@ struct zebra_if {
 
 	struct rtadvconf rtadv;
 	unsigned int ra_sent, ra_rcvd;
-
-	struct irdp_interface *irdp;
 
 #ifdef HAVE_STRUCT_SOCKADDR_DL
 	union {

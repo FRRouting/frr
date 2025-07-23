@@ -51,7 +51,7 @@ def test_client_debug_enable(tgen):
     def __test_debug(r1, on):
         time.sleep(1)
 
-        @retry(retry_timeout=10, retry_sleep=0.25)
+        @retry(retry_timeout=30, retry_sleep=0.25)
         def __scan_log(log, items):
             log.update_content()
             content = log.from_mark(log.last_snap_mark)

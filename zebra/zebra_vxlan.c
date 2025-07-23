@@ -474,6 +474,7 @@ static void zevpn_print_mac_hash_all_evpn(struct hash_bucket *bucket, void *ctxt
 
 	if (!num_macs) {
 		if (json) {
+			json_object_free(json_mac); /* Unused */
 			json_object_int_add(json_evpn, "numMacs", num_macs);
 			json_object_object_add(json, vni_str, json_evpn);
 		}
@@ -494,6 +495,8 @@ static void zevpn_print_mac_hash_all_evpn(struct hash_bucket *bucket, void *ctxt
 	if (json) {
 		if (wctx->count)
 			json_object_object_add(json_evpn, "macs", json_mac);
+		else
+			json_object_free(json_mac);
 		json_object_object_add(json, vni_str, json_evpn);
 	}
 }
@@ -6020,7 +6023,7 @@ static void zebra_vxlan_sg_do_deref(struct zebra_vrf *zvrf,
 				    const struct in_addr mcast_grp)
 {
 	struct zebra_vxlan_sg *vxlan_sg;
-	struct prefix_sg sg;
+	struct prefix_sg sg = { 0 };
 
 	sg.family = AF_INET;
 	sg.prefixlen = IPV4_MAX_BYTELEN;
@@ -6042,7 +6045,7 @@ zebra_vxlan_sg_do_ref(struct zebra_vrf *zvrf, const struct ipaddr *sip,
 		      const struct in_addr mcast_grp)
 {
 	struct zebra_vxlan_sg *vxlan_sg;
-	struct prefix_sg sg;
+	struct prefix_sg sg = { 0 };
 
 	sg.family = AF_INET;
 	sg.prefixlen = IPV4_MAX_BYTELEN;

@@ -2063,7 +2063,7 @@ static void bgp_evpn_es_remote_info_re_eval(struct bgp_evpn_es *es)
 /* If ES is present and local it needs to be active/oper-up for
  * including L3 EC
  */
-bool bgp_evpn_es_add_l3_ecomm_ok(esi_t *esi)
+bool bgp_evpn_es_add_l3_attrs_ok(esi_t *esi)
 {
 	struct bgp_evpn_es *es;
 

@@ -143,9 +143,13 @@ subgrp_announce_addpath_best_selected(struct bgp_dest *dest,
 			if (listnode_lookup(list, pi))
 				subgroup_process_announce_selected(
 					subgrp, pi, dest, afi, safi, id);
-			else
+			else {
+				if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
+					continue;
+
 				subgroup_process_announce_selected(
 					subgrp, NULL, dest, afi, safi, id);
+			}
 		} else {
 			/* No Paths-Limit involved */
 			if (!paths_limit) {
@@ -906,6 +910,9 @@ void subgroup_default_originate(struct update_subgroup *subgrp, bool withdraw)
 
 	bgp = peer->bgp;
 	from = bgp->peer_self;
+
+	if (bgp_update_delay_active(peer->bgp))
+		return;
 
 	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_IGP);
 

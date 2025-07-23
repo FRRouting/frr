@@ -76,7 +76,7 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 
-pytestmark = [pytest.mark.ospfd]
+pytestmark = [pytest.mark.ospf6d]
 
 
 def build_topo(tgen):

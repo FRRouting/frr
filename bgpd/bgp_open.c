@@ -108,6 +108,7 @@ void bgp_capability_vty_out(struct vty *vty, struct peer *peer, bool use_json,
 	struct capability_mp_data mpc;
 	struct capability_header *hdr;
 	json_object *json_cap = NULL;
+	bool status_ok = true;
 
 	if (use_json)
 		json_cap = json_object_new_object();
@@ -116,12 +117,16 @@ void bgp_capability_vty_out(struct vty *vty, struct peer *peer, bool use_json,
 	end = pnt + peer->notify.length;
 
 	while (pnt < end) {
-		if (pnt + sizeof(struct capability_mp_data) + 2 > end)
-			return;
+		if (pnt + sizeof(struct capability_mp_data) + 2 > end) {
+			status_ok = false;
+			break;
+		}
 
 		hdr = (struct capability_header *)pnt;
-		if (pnt + hdr->length + 2 > end)
-			return;
+		if (pnt + hdr->length + 2 > end) {
+			status_ok = false;
+			break;
+		}
 
 		memcpy(&mpc, pnt + 2, sizeof(struct capability_mp_data));
 
@@ -283,9 +288,14 @@ void bgp_capability_vty_out(struct vty *vty, struct peer *peer, bool use_json,
 		}
 		pnt += hdr->length + 2;
 	}
-	if (use_json)
-		json_object_object_add(json_neigh, "capabilityErrors",
-				       json_cap);
+
+	if (status_ok) {
+		if (use_json)
+			json_object_object_add(json_neigh, "capabilityErrors",
+					       json_cap);
+	} else if (json_cap) {
+		json_object_free(json_cap);
+	}
 }
 
 static void bgp_capability_mp_data(struct stream *s,

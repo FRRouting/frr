@@ -237,10 +237,6 @@ options from the list below.
    assigned to the realm. See the tc man page.  This option is currently not
    compatible with the usage of nexthop groups in the linux kernel itself.
 
-.. option:: --enable-irdp
-
-   Enable IRDP server support. This is deprecated.
-
 .. option:: --enable-gcc-rdynamic
 
    Pass the ``-rdynamic`` option to the linker driver.  This is in most cases

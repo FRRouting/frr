@@ -101,7 +101,7 @@ March/July/November.  Walking backwards from this date:
 
    Part of unfreezing master is editing the ``AC_INIT`` statement in
    :file:`configure.ac` to reflect the new development version that master
-   now refers to.  This is accompanied by a ``frr-X.Y-dev`` tag on master,
+   now refers to.  This is accompanied by a ``frr-X.Y.Z-dev`` tag on master,
    which should always be on the first commit on master *after* the stable
    branch was forked (even if that is not the edit to ``AC_INIT``; it's more
    important to have it on the very first commit on master after the fork.)
@@ -119,17 +119,17 @@ March/July/November.  Walking backwards from this date:
 
         % git checkout master
         % git pull upstream master
-        % git checkout -b dev/8.2
-        % git tag base_8.2
-        % git push upstream base_8.2
-        % git push upstream dev/8.2
+        % git checkout -b dev/10.5
+        % git tag base_10.5
+        % git push upstream base_10.5
+        % git push upstream dev/10.5
         % git checkout master
-        % sed -i 's/8.2-dev/8.3-dev/' configure.ac
+        % sed -i 's/10.4.0-dev/10.5.0-dev/' configure.ac
         % git add configure.ac
-        % git commit -s -m "build: FRR 8.3 development version"
-        % git tag -a frr-8.3-dev -m "frr-8.3-dev"
+        % git commit -s -m "build: FRR 10.5.0 development version"
+        % git tag -a frr-10.5.0-dev -m "frr-10.5.0-dev"
         % git push upstream master
-        % git push upstream frr-8.3-dev
+        % git push upstream frr-10.5.0-dev
 
    In this step, we also have to update package versions to reflect
    the development version. Versions need to be updated using
@@ -144,7 +144,7 @@ March/July/November.  Walking backwards from this date:
    the next freeze, dev/X.Y, RC, and release phases are scheduled. This should
    go in the ``master`` branch.
 
- - 2 weeks earlier, a ``frr-X.Y-rc`` release candidate is tagged.
+ - 2 weeks earlier, a ``frr-X.Y.Z-rc`` release candidate is tagged.
 
      .. code-block:: console
 
@@ -152,9 +152,9 @@ March/July/November.  Walking backwards from this date:
         upstream  git@github.com:frrouting/frr (fetch)
         upstream  git@github.com:frrouting/frr (push)
 
-        % git checkout dev/8.2
-        % git tag frr-8.2-rc
-        % git push upstream frr-8.2-rc
+        % git checkout dev/10.5
+        % git tag frr-10.5.0-rc
+        % git push upstream frr-10.5.0-rc
 
  - on release date, the branch is renamed to ``stable/MAJOR.MINOR``.
 
@@ -171,15 +171,42 @@ For reference, the expected release schedule according to the above is:
 
 Here is the hint on how to get the dates easily:
 
-   .. code-block:: console
+   .. code-block:: bash
 
-      ~$ # Release date is 2023-11-07 (First Tuesday each March/July/November)
-      ~$ date +%F --date='2023-11-07 -42 days' # Next freeze date
-      2023-09-26
-      ~$ date +%F --date='2023-11-07 -28 days' # Next dev/X.Y date
-      2023-10-10
-      ~$ date +%F --date='2023-11-07 -14 days' # Next RC date
-      2023-10-24
+      #!/bin/bash
+
+      # ./release-dates.sh [year]
+      # E.g.: ./release-dates.sh 2026
+      year="${1:-$(date +%Y)}"
+
+      first_tuesday() {
+         local year=$1
+         local month=$2
+         for day in {1..7}; do
+            weekday=$(date -d "$year-$month-$day" +%u)
+            if [[ $weekday -eq 2 ]]; then
+                  date -d "$year-$month-$day" +%Y-%m-%d
+                  return
+            fi
+         done
+      }
+
+      echo "Release Schedule for ${year}"
+      echo "-------------------------"
+
+      for month in 3 7 11; do
+         release_date=$(first_tuesday "$year" $month)
+         rc_date=$(date -d "$release_date -2 weeks" +%Y-%m-%d)
+         dev_date=$(date -d "$release_date -4 weeks" +%Y-%m-%d)
+         freeze_date=$(date -d "$release_date -6 weeks" +%Y-%m-%d)
+
+         echo ""
+         echo "Release Month: $(date -d "$release_date" +%B)"
+         echo "  Freeze date:     $freeze_date"
+         echo "  dev/X.Y.Z date:  $dev_date"
+         echo "  RC date:         $rc_date"
+         echo "  Release date:    $release_date"
+      done
 
 Each release is managed by one or more volunteer release managers from the FRR
 community.  These release managers are expected to handle the branch for a period

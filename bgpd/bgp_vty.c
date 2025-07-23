@@ -11071,11 +11071,26 @@ DEFUN_NOSH (bgp_segment_routing_srv6,
             "Segment-Routing SRv6 configuration\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp->srv6_enabled = true;
 	vty->node = BGP_SRV6_NODE;
 	return CMD_SUCCESS;
 }
 
+static void bgp_segment_routing_srv6_hencaps_refresh(struct bgp *bgp)
+{
+	struct bgp *bgp_inst;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_inst)) {
+		if (!bgp_fibupd_safi(SAFI_UNICAST))
+			continue;
+
+		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP, bgp, false);
+		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP6, bgp, false);
+
+		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP, bgp, true);
+		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP6, bgp, true);
+	}
+}
 DEFUN (no_bgp_segment_routing_srv6,
        no_bgp_segment_routing_srv6_cmd,
        "no segment-routing srv6",
@@ -11089,7 +11104,11 @@ DEFUN (no_bgp_segment_routing_srv6,
 		if (bgp_srv6_locator_unset(bgp) < 0)
 			return CMD_WARNING_CONFIG_FAILED;
 
-	bgp->srv6_enabled = false;
+	if (bgp->srv6_encap_behavior != SRV6_HEADEND_BEHAVIOR_H_ENCAPS) {
+		bgp->srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
+		bgp_segment_routing_srv6_hencaps_refresh(bgp);
+	}
+
 	return CMD_SUCCESS;
 }
 
@@ -11103,8 +11122,6 @@ DEFPY (bgp_srv6_encap_behavior,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	enum srv6_headend_behavior srv6_encap_behavior;
-	struct bgp *bgp_inst;
-	struct listnode *node;
 
 	bgp = bgp_get_default();
 	if (!bgp)
@@ -11126,16 +11143,7 @@ DEFPY (bgp_srv6_encap_behavior,
 	else
 		bgp->srv6_encap_behavior = srv6_encap_behavior;
 
-	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_inst)) {
-		if (!bgp_fibupd_safi(SAFI_UNICAST))
-			continue;
-
-		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP, bgp, false);
-		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP6, bgp, false);
-
-		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP, bgp, true);
-		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP6, bgp, true);
-	}
+	bgp_segment_routing_srv6_hencaps_refresh(bgp);
 
 	return CMD_SUCCESS;
 }
@@ -13676,11 +13684,6 @@ static void bgp_show_neighbor_graceful_restart_time(struct vty *vty,
 			vty_out(vty, "      Restart Time Remaining(sec): %ld\n",
 				event_timer_remain_second(
 					p->connection->t_gr_restart));
-		if (p->connection->t_gr_restart != NULL) {
-			vty_out(vty, "      Restart Time Remaining(sec): %ld\n",
-				event_timer_remain_second(
-					p->connection->t_gr_restart));
-		}
 	}
 }
 
@@ -15989,11 +15992,21 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 							"updateSource", "%pSU",
 							p->update_source);
 		}
+
+		/* update-delay timer */
+		json_object_int_add(json_neigh, "bgpUpdateDelayTimerMsecs",
+				    bgp->v_update_delay * 1000);
+		json_object_int_add(json_neigh, "bgpUpdateDelayTimerMsecsRemaining",
+				    event_timer_remain_second(bgp->t_update_delay) * 1000);
 	} else {
 		/* advertisement-interval */
 		vty_out(vty,
 			"  Minimum time between advertisement runs is %d seconds\n",
 			p->v_routeadv);
+
+		/* update delay timer */
+		vty_out(vty, "  Update delay timer is %u seconds (remaining: %lu)\n",
+			bgp->v_update_delay, event_timer_remain_second(bgp->t_update_delay));
 
 		/* Update-source. */
 		if (p->update_if || p->update_source) {
@@ -17448,7 +17461,7 @@ static int bgp_show_one_peer_group(struct vty *vty, struct peer_group *group,
 	const char *peer_status;
 	int lr_count;
 	int dynamic;
-	bool af_cfgd;
+	bool af_cfgd = false;
 	json_object *json_peer_group = NULL;
 	json_object *json_peer_group_afc = NULL;
 	json_object *json_peer_group_members = NULL;
@@ -20295,7 +20308,8 @@ int bgp_config_write(struct vty *vty)
 		if (bgp->fast_convergence)
 			vty_out(vty, " bgp fast-convergence\n");
 
-		if (bgp->srv6_enabled) {
+		if (bgp_srv6_locator_is_configured(bgp) ||
+		    bgp->srv6_encap_behavior != SRV6_HEADEND_BEHAVIOR_H_ENCAPS) {
 			vty_frame(vty, " !\n segment-routing srv6\n");
 			if (strlen(bgp->srv6_locator_name))
 				vty_out(vty, "  locator %s\n",
