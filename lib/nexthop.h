@@ -241,6 +241,7 @@ extern bool nexthop_same(const struct nexthop *nh1, const struct nexthop *nh2);
 extern bool nexthop_same_no_ifindex(const struct nexthop *nh1, const struct nexthop *nh2);
 extern bool nexthop_same_no_labels(const struct nexthop *nh1,
 				   const struct nexthop *nh2);
+extern bool nexthop_same_no_weight(const struct nexthop *nh1, const struct nexthop *nh2);
 extern int nexthop_cmp(const struct nexthop *nh1, const struct nexthop *nh2);
 extern int nexthop_cmp_no_weight(const struct nexthop *nh1,
 				 const struct nexthop *nh2);
