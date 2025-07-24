@@ -107,9 +107,11 @@ def teardown_module(mod):
     get_topogen().stop_topology()
 
 
-def _converge_fn(router: TopoRouter, command: str, expected: dict):
+def _converge_fn(router: TopoRouter, command: str, expected: dict, not_vtep: bool = False):
     def _converge() -> Optional[json_cmp_result]:
         output: str = router.vtysh_cmd(command)
+        if not_vtep:
+            assert output is not "", "Could not access the EVPN RIB on non-VTEP speaker."
         return topotest.json_cmp(json.loads(output), expected)
     return functools.partial(_converge)
 
@@ -248,7 +250,7 @@ def test_bgp_evpn_rt5_addpath_basic():
         "numPrefix": 1,
         "numPaths": 2,
     }
-    f = _converge_fn(tgen.gears["rr"], "show bgp l2vpn evpn route detail type prefix json", expected)
+    f = _converge_fn(tgen.gears["rr"], "show bgp l2vpn evpn route detail type prefix json", expected, not_vtep=True)
     _, result = topotest.run_and_expect(f, None, count=60, wait=1)
     assert result is None, "All EVPN paths should be present in RR"
 
@@ -414,7 +416,7 @@ def test_bgp_evpn_rt5_addpath_withdraw():
         "numPrefix": 1,
         "numPaths": 1,
     }
-    f = _converge_fn(tgen.gears["rr"], "show bgp l2vpn evpn route detail type prefix json", expected)
+    f = _converge_fn(tgen.gears["rr"], "show bgp l2vpn evpn route detail type prefix json", expected, not_vtep=True)
     _, result = topotest.run_and_expect(f, None, count=60, wait=1)
     assert result is None, "Path through C1 should be absent from EVPN on the RR"
 
@@ -726,7 +728,7 @@ def test_bgp_evpn_rt5_addpath_route_map():
         "numPrefix": 1,
         "numPaths": 2,
     }
-    f = _converge_fn(tgen.gears["rr"], "show bgp l2vpn evpn route detail type prefix json", expected)
+    f = _converge_fn(tgen.gears["rr"], "show bgp l2vpn evpn route detail type prefix json", expected, not_vtep=True)
     _, result = topotest.run_and_expect(f, None, count=60, wait=1)
     assert result is None, "All paths, including non-best should be transmitted in EVPN"
 
@@ -1054,7 +1056,7 @@ def test_bgp_evpn_rt5_addpath_disable_addpath_rx():
 
     logger.info("Check EVPN routes on RR")
     expected = {"numPrefix": 1, "numPaths": 2}
-    f = _converge_fn(tgen.gears["rr"], "show bgp l2vpn evpn route detail type prefix json", expected)
+    f = _converge_fn(tgen.gears["rr"], "show bgp l2vpn evpn route detail type prefix json", expected, not_vtep=True)
     assert result is None, "All should still be sent by R1"
 
     logger.info("Check EVPN routes on R2")
