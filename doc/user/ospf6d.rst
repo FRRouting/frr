@@ -19,9 +19,35 @@ Configuration Commands
 
 .. clicmd:: router ospf6 [vrf NAME]
 
+   Enable OSPFv3.
+
 .. clicmd:: ospf6 router-id A.B.C.D
 
    Set router's Router-ID.
+
+.. clicmd:: log-adjacency-changes [detail]
+
+   Log changes in adjacency state. The optional `detail` parameter logs all state changes.
+
+.. clicmd:: ospf6 send-extra-data zebra
+
+   Send extra data to zebra for display/use.
+
+.. clicmd:: timers lsa min-arrival (0-600000)
+
+   Set minimum delay in receiving new version of a LSA in milliseconds.
+
+.. clicmd:: distance (1-255)
+
+   Set administrative distance for OSPFv3 routes.
+
+.. clicmd:: distance ospf6 {intra-area|inter-area|external} (1-255)
+
+   Set administrative distance for specific OSPFv3 route types.
+
+.. clicmd:: stub-router administrative
+
+   Make router a stub router administratively applied for an indefinite period.
 
 .. clicmd:: timers throttle spf (0-600000) (0-600000) (0-600000)
 
@@ -335,6 +361,22 @@ OSPF6 interface
    <https://mailarchive.ietf.org/arch/msg/ospf/8GAbr4qSMMt5J7SvAcZQ1H7ARhk/>`_
    for context.
 
+.. clicmd:: ipv6 ospf6 ifmtu (1-65535)
+
+   Set interface MTU for OSPFv3.
+
+.. clicmd:: ipv6 ospf6 passive
+
+   Suppress routing updates on an interface.
+
+.. clicmd:: ipv6 ospf6 mtu-ignore
+
+   Ignore MTU mismatch on interface.
+
+.. clicmd:: ipv6 ospf6 advertise-prefix-list PREFIXLIST6_NAME
+
+   Advertise prefix list on interface.
+
 OSPF6 point-to-point and point-to-multipoint operation
 ======================================================
 
@@ -444,7 +486,6 @@ of OSPFv3 routers.
    to use the interface's cost value (which may be automatically calculated
    based on link bandwidth.)  Note that costs are directional in OSPF and the
    reverse direction must be set on the other router.
-
 
 OSPF6 route-map
 ===============
@@ -844,7 +885,7 @@ Showing OSPF6 information
 .. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] redistribute [json]
 
    Shows the routes which are redistributed by the router. JSON output can
-   be obtained by appending 'json' at the end.
+   be obtained by appending 'json' to the end.
 
 .. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] route [<intra-area|inter-area|external-1|external-2|X:X::X:X|X:X::X:X/M|detail|summary>] [json]
 
@@ -877,6 +918,10 @@ Showing OSPF6 information
 
    This command shows the graceful-restart helper details including helper
    configuration parameters.
+
+.. clicmd:: show debugging ospf6
+
+   Show debugging status for OSPFv3.
 
 .. _ospf6-debugging:
 
@@ -941,6 +986,15 @@ The following debug commands are supported:
 .. clicmd:: debug ospf6 graceful-restart
 
    Toggle OSPFv3 graceful-restart helper debugging messages.
+
+.. clicmd:: debug ospf6 event
+
+   Toggle OSPFv3 event debugging messages.
+
+.. clicmd:: debug ospf6 authentication [<tx|rx>]
+
+   Toggle OSPFv3 authentication trailer debugging messages. Optionally specify
+   transmission or reception direction.
 
 Sample configuration
 ====================
