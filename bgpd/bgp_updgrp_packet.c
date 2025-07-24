@@ -537,7 +537,7 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 		}
 
 		if (nhlen == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL ||
-		    nhlen == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL || ll_nexthop_only) {
+		    nhlen == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL) {
 			stream_get_from(&v6nhlocal, s, offset_nhlocal,
 					IPV6_MAX_BYTELEN);
 			if (IN6_IS_ADDR_UNSPECIFIED(&v6nhlocal)) {
@@ -546,7 +546,14 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			}
 		}
 
-		if (lnh_modified && ll_nexthop_only) {
+		/* If link-local next-hop capability is negotiated, then
+		 * we have to ensure that the link-local next-hop is set
+		 * to the peer's link-local address, and not the `::`.
+		 * Here it comes as nhlen == 16 (not 32).
+		 */
+		if (nhlen == BGP_ATTR_NHLEN_IPV6_GLOBAL &&
+		    IN6_IS_ADDR_LINKLOCAL(&peer->nexthop.v6_local) && ll_nexthop_only) {
+			mod_v6nhl = &peer->nexthop.v6_local;
 			stream_put_in6_addr_at(s, offset_nhlocal, mod_v6nhl);
 		} else {
 			if (gnh_modified)
@@ -557,7 +564,7 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 
 		if (bgp_debug_update(peer, NULL, NULL, 0)) {
 			if (nhlen == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL ||
-			    nhlen == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL || ll_nexthop_only)
+			    nhlen == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL)
 				zlog_debug(
 					"u%" PRIu64 ":s%" PRIu64
 					" %s send UPDATE w/ mp_nexthops %pI6, %pI6%s",
@@ -567,6 +574,11 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 					(nhlen == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL
 						 ? " and RD"
 						 : ""));
+			else if (nhlen == BGP_ATTR_NHLEN_IPV6_GLOBAL && ll_nexthop_only)
+				zlog_debug("u%" PRIu64 ":s%" PRIu64
+					   " %s send UPDATE w/ mp_nexthop (link-local only) %pI6",
+					   PAF_SUBGRP(paf)->update_group->id, PAF_SUBGRP(paf)->id,
+					   peer->host, mod_v6nhl);
 			else
 				zlog_debug(
 					"u%" PRIu64 ":s%" PRIu64
