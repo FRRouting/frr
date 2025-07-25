@@ -24,6 +24,7 @@
 #define SRV6_SID_FORMAT_NAME_SIZE 512
 
 #define DEFAULT_SRV6_IFNAME "sr0"
+#define DEFAULT_VRF_SRV6_IFNAME "vrfdefault"
 
 #ifdef __cplusplus
 extern "C" {
