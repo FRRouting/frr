@@ -109,6 +109,7 @@ from lib.common_config import (
     start_topology,
     kill_router_daemons,
     start_router_daemons,
+    start_router_daemons_gr,
     verify_rib,
     check_address_types,
     write_test_footer,
@@ -546,12 +547,12 @@ def test_BGP_GR_chaos_28_p1(request):
     logger.info("[Step 3] : Start BGPd daemon on R1..")
 
     # Start BGPd daemon on R1
-    start_router_daemons(tgen, "r1", ["bgpd"])
+    start_router_daemons_gr(tgen, "r1", ["bgpd"])
 
     logger.info("[Step 4] : Start BGPd daemon on R3..")
 
     # Start BGPd daemon on R3
-    start_router_daemons(tgen, "r3", ["bgpd"])
+    start_router_daemons_gr(tgen, "r3", ["bgpd"])
 
     # Verify r_bit
     for addr_type in ADDR_TYPES:
