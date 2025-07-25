@@ -10387,7 +10387,7 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 			json_object_string_add(json_nexthop_global, "scope",
 					       ll_nexthop ? "link-local" : "global");
 			json_object_boolean_add(json_nexthop_global, "linkLocalOnly",
-						ll_nexthop_only);
+						ll_nexthop && ll_nexthop_only);
 			json_object_int_add(json_nexthop_global, "length", attr->mp_nexthop_len);
 
 			/* We display both LL & GL if both have been
@@ -11544,7 +11544,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			json_object_string_add(json_nexthop_global, "scope",
 					       ll_nexthop ? "link-local" : "global");
 			json_object_boolean_add(json_nexthop_global, "linkLocalOnly",
-						ll_nexthop_only);
+						ll_nexthop && ll_nexthop_only);
 			json_object_int_add(json_nexthop_global, "length", attr->mp_nexthop_len);
 		} else {
 			if (nexthop_hostname)
