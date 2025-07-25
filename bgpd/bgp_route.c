@@ -16447,7 +16447,7 @@ void bgp_address_family_distance_delete(void)
 			bgp_distance_free(bdistance);
 
 			bgp_dest_set_bgp_distance_info(dest, NULL);
-			bgp_dest_unlock_node(dest);
+			dest = bgp_dest_unlock_node(dest);
 		}
 	}
 }
