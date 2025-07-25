@@ -62,6 +62,10 @@ void zebra_interface_bfd_update(struct interface *ifp, struct prefix *dp,
 		if (!IS_BFD_ENABLED_PROTOCOL(client->proto))
 			continue;
 
+		/* Do not send unsolicited messages to synchronous clients. */
+		if (client->synchronous)
+			continue;
+
 		/* Notify to the protocol daemons. */
 		zsend_interface_bfd_update(ZEBRA_INTERFACE_BFD_DEST_UPDATE,
 					   client, ifp, dp, sp, status, vrf_id);
@@ -89,6 +93,10 @@ void zebra_bfd_peer_replay_req(void)
 
 	frr_each (zserv_client_list, &zrouter.client_list, client) {
 		if (!IS_BFD_ENABLED_PROTOCOL(client->proto))
+			continue;
+
+		/* Do not send unsolicited messages to synchronous clients. */
+		if (client->synchronous)
 			continue;
 
 		/* Notify to the protocol daemons. */
