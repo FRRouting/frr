@@ -219,6 +219,7 @@ static void static_bfd_show_nexthop_json(struct vty *vty,
 {
 	const struct prefix *dst_p, *src_p;
 	struct json_object *jo_nh;
+	char buf[INET6_ADDRSTRLEN];
 
 	jo_nh = json_object_new_object();
 
@@ -228,8 +229,16 @@ static void static_bfd_show_nexthop_json(struct vty *vty,
 
 	json_object_string_addf(jo_nh, "prefix", "%pFX", dst_p);
 	json_object_string_add(jo_nh, "vrf", sn->nh_vrfname);
-
 	json_object_boolean_add(jo_nh, "installed", !sn->path_down);
+
+	/* Add peer address based on nexthop type */
+	if (sn->type == STATIC_IPV4_GATEWAY || sn->type == STATIC_IPV4_GATEWAY_IFNAME) {
+		inet_ntop(AF_INET, &sn->addr.ipv4, buf, sizeof(buf));
+		json_object_string_add(jo_nh, "peer", buf);
+	} else if (sn->type == STATIC_IPV6_GATEWAY || sn->type == STATIC_IPV6_GATEWAY_IFNAME) {
+		inet_ntop(AF_INET6, &sn->addr.ipv6, buf, sizeof(buf));
+		json_object_string_add(jo_nh, "peer", buf);
+	}
 
 	json_object_array_add(jo, jo_nh);
 }
