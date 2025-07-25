@@ -44,6 +44,7 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.common_config import required_linux_kernel_version
+from lib.checkping import check_ping
 
 """
 test_sbfd_topo1.py: test simple sbfd with IPv6 encap. RT1 is sbfd Initiator, RT2 is sbfd Reflector
@@ -150,7 +151,7 @@ def test_sbfd_config_check():
 
     # config sbfd
     r1 = tgen.net['r1']
-    r1.cmd("ping -c 5 2001::20")
+    check_ping("r1", "2001::20", True, 10, 1)
     r1.cmd("vtysh -c 'config t' -c 'bfd' -c 'peer 2001::20 bfd-mode sbfd-init bfd-name 2-44 local-address 2001::10 remote-discr 1234'")
 
     r2 = tgen.net['r2']
