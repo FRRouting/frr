@@ -61,6 +61,7 @@ enum bgp_path_selection_reason {
 	bgp_path_selection_local_configured,
 	bgp_path_selection_neighbor_ip,
 	bgp_path_selection_default,
+	bgp_path_selection_mpls_over_srv6,
 };
 
 struct bgp_dest {
