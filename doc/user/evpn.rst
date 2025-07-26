@@ -506,12 +506,12 @@ This completes the necessary configuration for an L2VNI.
 .. _evpn-vlan-filtering-bridge-single-vxlan-device:
 
 VLAN Filtering Bridge and Single VXLAN Device
--------------------------------------------------
+---------------------------------------------
 
 In contrast to traditional bridges, each with its own VXLAN device, an EVPN
 deployment with a single VXLAN device (SVD) uses a single bridge and a single 
-VXLAN interface with that bridge as its master. We'll use `100.64.0.1` as our 
-local VTEP endpoint, so add that address to the `lo` device.
+VXLAN interface with that bridge as its master. We'll use ``100.64.0.1`` as our 
+local VTEP endpoint, so add that address to the ``lo`` device.
 
 .. code-block:: shell
 
@@ -519,17 +519,17 @@ local VTEP endpoint, so add that address to the `lo` device.
 
 Then create our root bridge and VXLAN device. These devices will service all 
 VNIs, both L2VNIs and L3VNIs included. The bridge must be VLAN aware, i.e., 
-`vlan_filtering 1`. It's best to set no default pvid to prevent accidentally
+``vlan_filtering 1``. It's best to set no default pvid to prevent accidentally
 bridging two unrelated networks.
 
 .. code-block:: shell
 
-   ip link add vxbr0 type bridge vlan_filtering 1 vlan_default_pvid 0
+   ip link add br0 type bridge vlan_filtering 1 vlan_default_pvid 0
    # the key setting for SVD configuration is "external"
    # "vnifilter" isn't strictly necessary but is correct
-   ip link add vx0 type vxlan dstport 4789 local 100.64.0.1 nolearning external vnifilter
-   ip link set vxbr0 addrgenmode none
-   ip link set vx0 addrgenmode none master vxbr0
+   ip link add vxlan0 type vxlan dstport 4789 local 100.64.0.1 nolearning external vnifilter
+   ip link set br0 addrgenmode none
+   ip link set vxlan0 addrgenmode none master br0
 
 We will also choose a unique MAC address per VTEP which will be advertised along
 with each Type-2 route advertising an IP address, and each Type-5 route. This 
@@ -537,19 +537,19 @@ is called the `routermac` and supports symmetric routing.
 
 .. code-block:: shell
 
-   ip link set vxbr0 address 11:22:33:44:55:66
-   ip link set vx0 address 11:22:33:44:55:66
-   ip link set vxbr0 up
-   ip link set vx0 up
+   ip link set br0 address 11:22:33:44:55:66
+   ip link set vxlan0 address 11:22:33:44:55:66
+   ip link set br0 up
+   ip link set vxlan0 up
 
 Lastly, the vlan_tunnel setting allows creation of a mapping between a VNI (global
-identifier) and a VLAN (local identifier). To function, this requires the `external`
+identifier) and a VLAN (local identifier). To function, this requires the ``external``
 setting when creating the VXLAN device.
 
 .. code-block:: shell
 
    #and the last key setting for SVD here is "vlan_tunnel"
-   bridge link set dev vx0 vlan_tunnel on neigh_suppress on learning off
+   bridge link set dev vxlan0 vlan_tunnel on neigh_suppress on learning off
 
 And also create our vrfs.
 
@@ -584,22 +584,22 @@ bindings.
    # Choose any arbitrary VLAN for L3VNIs, since it never leaves the device
    # as long as it doesn't collide with another VLAN. It's used solely to
    # bind into a routing table (VRF)
-   bridge vlan add dev vxbr0 vid 1100 self
-   bridge vlan add dev vx0 vid 1100
-   bridge vni add dev vx0 vni 100 # add vni if using vnifilter
-   bridge vlan add dev vx0 vid 1100 tunnel_info id 100 # map vlan to vni
-   ip link add vrf1br link vxbr0 type vlan id 1100 # create vlan on top of bridge
+   bridge vlan add dev br0 vid 1100 self
+   bridge vlan add dev vxlan0 vid 1100
+   bridge vni add dev vxlan0 vni 100 # add vni if using vnifilter
+   bridge vlan add dev vxlan0 vid 1100 tunnel_info id 100 # map vlan to vni
+   ip link add vrf1br link br0 type vlan id 1100 # create vlan on top of bridge
    ip link set vrf1br address 11:22:33:44:55:66 addrgenmode none # set L3VNI devices to routermac and no address
    ip link set vrf1br master vrf1 # bind the device to the correct VRF, no address for L3VNI
 
    #############################
    ## ip-vrf vrf2 / l3vni 200 ##
    #############################
-   bridge vlan add dev vxbr0 vid 1200 self
-   bridge vlan add dev vx0 vid 1200
-   bridge vni add dev vx0 vni 200
-   bridge vlan add dev vx0 vid 1200 tunnel_info id 200
-   ip link add vrf2br link vxbr0 type vlan id 1200
+   bridge vlan add dev br0 vid 1200 self
+   bridge vlan add dev vxlan0 vid 1200
+   bridge vni add dev vxlan0 vni 200
+   bridge vlan add dev vxlan0 vid 1200 tunnel_info id 200
+   ip link add vrf2br link br0 type vlan id 1200
    ip link set vrf2br address 11:22:33:44:55:66 addrgenmode none
    ip link set vrf2br master vrf2
 
@@ -614,11 +614,11 @@ bindings.
    ###############
    ## l2vni 110 ##
    ###############
-   bridge vlan add dev vxbr0 vid 10 self
-   bridge vlan add dev vx0 vid 10
-   bridge vni add dev vx0 vni 110
-   bridge vlan add dev vx0 vid 10 tunnel_info id 110
-   ip link add vlan10 link vxbr0 type vlan id 10
+   bridge vlan add dev br0 vid 10 self
+   bridge vlan add dev vxlan0 vid 10
+   bridge vni add dev vxlan0 vni 110
+   bridge vlan add dev vxlan0 vid 10 tunnel_info id 110
+   ip link add vlan10 link br0 type vlan id 10
    ip link set vlan10 master vrf1 # bind L2VNI to L3VNI (vrf1)
    ip link set vlan10 addr aa:bb:cc:00:00:6e # unique MAC per L2VNI+VTEP combo (or use anycast MAC, see below)
    ip addr add 10.0.10.1/24 dev vlan10 # shared gateway IP per L2VNI, on all VTEPs
@@ -628,11 +628,11 @@ bindings.
    ###############
    ## l2vni 220 ##
    ###############
-   bridge vlan add dev vxbr0 vid 20 self
-   bridge vlan add dev vx0 vid 20
-   bridge vni add dev vx0 vni 220
-   bridge vlan add dev vx0 vid 20 tunnel_info id 220
-   ip link add vlan20 link vxbr0 type vlan id 20
+   bridge vlan add dev br0 vid 20 self
+   bridge vlan add dev vxlan0 vid 20
+   bridge vni add dev vxlan0 vni 220
+   bridge vlan add dev vxlan0 vid 20 tunnel_info id 220
+   ip link add vlan20 link br0 type vlan id 20
    ip link set vlan20 master vrf2 # bind L2VNI to L3VNI (vrf2)
    ip link set vlan20 addr aa:bb:cc:00:00:dc
    ip addr add 10.0.20.1/24 dev vlan20
@@ -642,11 +642,11 @@ bindings.
    ###############
    ## l2vni 330 ##
    ###############
-   bridge vlan add dev vxbr0 vid 30 self
-   bridge vlan add dev vx0 vid 30
-   bridge vni add dev vx0 vni 330
-   bridge vlan add dev vx0 vid 30 tunnel_info id 330
-   ip link add vlan30 link vxbr0 type vlan id 30
+   bridge vlan add dev br0 vid 30 self
+   bridge vlan add dev vxlan0 vid 30
+   bridge vni add dev vxlan0 vni 330
+   bridge vlan add dev vxlan0 vid 30 tunnel_info id 330
+   ip link add vlan30 link br0 type vlan id 30
    ip link set vlan30 master vrf3 # bind L2VNI to vrf3 (no L3VNI)
    ip link set vlan30 addr aa:bb:cc:00:01:4a
    ip addr add 10.0.30.1/24 dev vlan30
@@ -656,11 +656,11 @@ bindings.
    ###############
    ## l2vni 440 ##
    ###############
-   bridge vlan add dev vxbr0 vid 40 self
-   bridge vlan add dev vx0 vid 40
-   bridge vni add dev vx0 vni 440
-   bridge vlan add dev vx0 vid 40 tunnel_info id 440
-   ip link add vlan40 link vxbr0 type vlan id 40
+   bridge vlan add dev br0 vid 40 self
+   bridge vlan add dev vxlan0 vid 40
+   bridge vni add dev vxlan0 vni 440
+   bridge vlan add dev vxlan0 vid 40 tunnel_info id 440
+   ip link add vlan40 link br0 type vlan id 40
    # vlan40 is not enslaved to any VRF, so it's in the default VRF
    ip link set vlan40 addr aa:bb:cc:00:01:b8
    ip addr add 10.0.40.1/24 dev vlan40
@@ -670,11 +670,11 @@ bindings.
    ###############
    ## l2vni 550 ##
    ###############
-   bridge vlan add dev vxbr0 vid 50 self
-   bridge vlan add dev vx0 vid 50
-   bridge vni add dev vx0 vni 550
-   bridge vlan add dev vx0 vid 50 tunnel_info id 550
-   ip link add vlan50 link vxbr0 type vlan id 50
+   bridge vlan add dev br0 vid 50 self
+   bridge vlan add dev vxlan0 vid 50
+   bridge vni add dev vxlan0 vni 550
+   bridge vlan add dev vxlan0 vid 50 tunnel_info id 550
+   ip link add vlan50 link br0 type vlan id 50
    # vlan50 is L2-only (no routing)
    ip link set vlan50 addr aa:bb:cc:00:02:26
    # no IP address for unrouted L2VNI
@@ -691,31 +691,31 @@ be akin to access ports.
    ###################################
    ## l2vni 110 / eth10 access port ##
    ###################################
-   ip link set eth10 master vxbr0
+   ip link set eth10 master br0
    bridge vlan add dev eth10 vid 10 pvid untagged
 
    ###################################
    ## l2vni 220 / eth20 access port ##
    ###################################
-   ip link set eth20 master vxbr0
+   ip link set eth20 master br0
    bridge vlan add dev eth20 vid 20 pvid untagged
 
    ###################################
    ## l2vni 330 / eth30 access port ##
    ###################################
-   ip link set eth30 master vxbr0
+   ip link set eth30 master br0
    bridge vlan add dev eth30 vid 30 pvid untagged
 
    ###################################
    ## l2vni 440 / eth40 access port ##
    ###################################
-   ip link set eth40 master vxbr0
+   ip link set eth40 master br0
    bridge vlan add dev eth40 vid 40 pvid untagged
 
    ###################################
    ## l2vni 550 / eth50 access port ##
    ###################################
-   ip link set eth50 master vxbr0
+   ip link set eth50 master br0
    bridge vlan add dev eth50 vid 50 pvid untagged
 
 You can also use a trunk port if preferred, or any combination of trunk
@@ -723,7 +723,7 @@ and access ports.
 
 .. code-block:: shell
 
-   ip link set eth0 master vxbr0
+   ip link set eth0 master br0
    bridge vlan add dev eth0 vid 10
    bridge vlan add dev eth0 vid 20
    bridge vlan add dev eth0 vid 30
@@ -749,20 +749,25 @@ Here's how to configure L2VNIs with anycast gateways:
 
 .. code-block:: shell
 
+   # Create a macvlan device from L2VNI to serve as anycast gateway
+   ip link add vlan10agw link vlan10 type macvlan mode private
    # Example for L2VNI 110 with anycast MAC aa:bb:cc:dd:ee:ff
-   ip link set vlan10 addr aa:bb:cc:dd:ee:ff  # same MAC on all VTEPs
-   ip addr add 10.0.10.1/24 dev vlan10
-   ip addr add 2001:db8:0:10::1/64 dev vlan10
+   ip link set vlan10agw addr aa:bb:cc:dd:ee:ff  # same MAC on all VTEPs
+   ip addr add 10.0.10.1/24 dev vlan10agw
+   ip addr add 2001:db8:0:10::1/64 dev vlan10agw
+
+   # You may set unique address(es) on the L2VNI if it needs to be reachable in the overlay
+   ip addr add 10.0.0.10/32 dev vlan10
    
    # Critical: add local FDB entry to prevent anycast MAC from going over overlay
-   bridge fdb add aa:bb:cc:dd:ee:ff dev vxbr0 self local
+   bridge fdb add aa:bb:cc:dd:ee:ff dev br0 self local
    
-   ip link set vlan10 up
+   ip link set vlan10agw up
 
 Repeat this pattern for all L2VNIs using anycast gateways. The key differences
 from the non-anycast configuration are:
 
-* All VTEPs use the same MAC address for each L2VNI SVI
+* For each L2VNI, create a macvlan device which uses the same MAC address across all VTEPs
 * Each VTEP must have a local FDB entry for the anycast MAC
 * No risk of duplicate address detection (DAD) issues
 
