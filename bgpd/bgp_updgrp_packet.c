@@ -551,9 +551,7 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 		 * to the peer's link-local address, and not the `::`.
 		 * Here it comes as nhlen == 16 (not 32).
 		 */
-		bool use_ll_nexthop_only = (nhlen == BGP_ATTR_NHLEN_IPV6_GLOBAL &&
-					    IN6_IS_ADDR_LINKLOCAL(&peer->nexthop.v6_local) &&
-					    ll_nexthop_only);
+		bool use_ll_nexthop_only = (nhlen == BGP_ATTR_NHLEN_IPV6_GLOBAL && ll_nexthop_only);
 
 		if (use_ll_nexthop_only) {
 			mod_v6nhl = &peer->nexthop.v6_local;
