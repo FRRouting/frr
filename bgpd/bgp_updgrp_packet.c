@@ -447,7 +447,8 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 		int gnh_modified, lnh_modified;
 		size_t offset_nhglobal = vec->offset + 1;
 		size_t offset_nhlocal = vec->offset + 1;
-		bool ll_nexthop_only = PEER_HAS_LINK_LOCAL_CAPABILITY(peer);
+		bool ll_nexthop_only = (nhlen == BGP_ATTR_NHLEN_IPV6_GLOBAL &&
+					PEER_HAS_LINK_LOCAL_CAPABILITY(peer));
 
 		gnh_modified = lnh_modified = 0;
 		mod_v6nhg = &v6nhglobal;
@@ -551,9 +552,7 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 		 * to the peer's link-local address, and not the `::`.
 		 * Here it comes as nhlen == 16 (not 32).
 		 */
-		bool use_ll_nexthop_only = (nhlen == BGP_ATTR_NHLEN_IPV6_GLOBAL && ll_nexthop_only);
-
-		if (use_ll_nexthop_only) {
+		if (ll_nexthop_only) {
 			mod_v6nhl = &peer->nexthop.v6_local;
 			stream_put_in6_addr_at(s, offset_nhlocal, mod_v6nhl);
 		} else {
@@ -575,7 +574,7 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 					(nhlen == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL
 						 ? " and RD"
 						 : ""));
-			else if (use_ll_nexthop_only)
+			else if (ll_nexthop_only)
 				zlog_debug("u%" PRIu64 ":s%" PRIu64
 					   " %s send UPDATE w/ mp_nexthop (link-local only) %pI6",
 					   PAF_SUBGRP(paf)->update_group->id, PAF_SUBGRP(paf)->id,
