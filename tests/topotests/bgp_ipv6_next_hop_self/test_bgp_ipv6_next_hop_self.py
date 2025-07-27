@@ -22,7 +22,7 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 
 
 def setup_module(mod):
-    topodef = {"s1": ("r1", "r2"), "s2": ("r1", "r3")}
+    topodef = {"s1": ("r1", "r2", "r4"), "s2": ("r1", "r3")}
     tgen = Topogen(topodef, mod.__name__)
     tgen.start_topology()
 
@@ -53,8 +53,9 @@ def test_bgp_ipv6_next_hop_self():
         pytest.skip(tgen.errors)
 
     r2 = tgen.gears["r2"]
+    r4 = tgen.gears["r4"]
 
-    def _bgp_converge():
+    def _bgp_check_routes_r2():
         output = json.loads(r2.vtysh_cmd("show bgp json"))
         expected = {
             "routes": {
@@ -86,6 +87,78 @@ def test_bgp_ipv6_next_hop_self():
                         ],
                     }
                 ],
+                "2001:db8:1::22/128": [
+                    {
+                        "nexthops": [
+                            {
+                                "ip": "::",
+                                "hostname": "r2",
+                                "afi": "ipv6",
+                                "scope": "global",
+                                "linkLocalOnly": False,
+                                "length": 16,
+                            }
+                        ],
+                    }
+                ],
+                "2001:db8:cafe:1::/64": [
+                    {
+                        "nexthops": [
+                            {
+                                "ip": "2001:db8:1::1",
+                                "hostname": "r1",
+                                "afi": "ipv6",
+                                "scope": "global",
+                                "linkLocalOnly": False,
+                                "length": 16,
+                            }
+                        ],
+                    }
+                ],
+            },
+            "totalRoutes": 4,
+            "totalPaths": 4,
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(
+        _bgp_check_routes_r2,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=2)
+    assert result is None, "Can't see expected IPv6 routes in BGP table of r2"
+
+    def _bgp_check_routes_r4():
+        output = json.loads(r4.vtysh_cmd("show bgp json"))
+        expected = {
+            "routes": {
+                "2001:db8:1::1/128": [
+                    {
+                        "nexthops": [
+                            {
+                                "ip": "2001:db8:1::1",
+                                "hostname": "r1",
+                                "afi": "ipv6",
+                                "scope": "global",
+                                "linkLocalOnly": False,
+                                "length": 16,
+                            }
+                        ],
+                    }
+                ],
+                "2001:db8:1::22/128": [
+                    {
+                        "nexthops": [
+                            {
+                                "ip": "2001:db8:1::2",
+                                "hostname": "r1",
+                                "afi": "ipv6",
+                                "scope": "global",
+                                "linkLocalOnly": False,
+                                "length": 16,
+                            }
+                        ],
+                    }
+                ],
                 "2001:db8:cafe:1::/64": [
                     {
                         "nexthops": [
@@ -107,10 +180,10 @@ def test_bgp_ipv6_next_hop_self():
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(
-        _bgp_converge,
+        _bgp_check_routes_r4,
     )
-    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
-    assert result is None, "Can't see expected IPv6 routes"
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=2)
+    assert result is None, "Can't see expected IPv6 routes in BGP table of r4"
 
 
 if __name__ == "__main__":
