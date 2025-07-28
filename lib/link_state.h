@@ -877,6 +877,10 @@ struct ls_message {
 	uint8_t event;		/* Message Event: Sync, Add, Update, Delete */
 	uint8_t type;		/* Message Data Type: Node, Attribute, Prefix */
 	struct ls_node_id remote_id;	/* Remote Link State Node ID */
+
+	/* Please update the get_max_ls_msg_size() helper if you add a new
+	 * struct to this message container.
+	 */
 	union {
 		struct ls_node *node;		/* Link State Node */
 		struct ls_attributes *attr;	/* Link State Attributes */
