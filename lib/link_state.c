@@ -1678,6 +1678,20 @@ static int ls_format_msg(struct stream *s, struct ls_message *msg)
 	return -1;
 }
 
+/* Help to compute zapi message size based on the ls_xxx structs' data */
+static size_t get_max_ls_msg_size(void)
+{
+	size_t max = sizeof(struct ls_node);
+
+	if (max < sizeof(struct ls_attributes))
+		max = sizeof(struct ls_attributes);
+
+	if (max < sizeof(struct ls_prefix))
+		max = sizeof(struct ls_prefix);
+
+	return max;
+}
+
 int ls_send_msg(struct zclient *zclient, struct ls_message *msg,
 		struct zapi_opaque_reg_info *dst)
 {
@@ -1690,7 +1704,7 @@ int ls_send_msg(struct zclient *zclient, struct ls_message *msg,
 
 	/* Check buffer size */
 	if (STREAM_SIZE(zclient->obuf) <
-	    (ZEBRA_HEADER_SIZE + sizeof(uint32_t) + sizeof(msg)))
+	    (ZEBRA_HEADER_SIZE + sizeof(uint32_t) + get_max_ls_msg_size()))
 		return -1;
 
 	/* Init the message, then encode the data inline. */
