@@ -109,7 +109,48 @@ def test_converge_protocols():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    topotest.sleep(5, "Waiting for BGP_RR_IBGP convergence")
+    # Check that BGP neighbor on tor2 has come up
+    tor2 = tgen.gears["tor2"]
+
+    # Expected BGP summary output for tor2
+    expected_bgp_summary = {
+        "routerId": "192.168.6.2",
+        "as": 99,
+        "peerCount": 1,
+        "peers": {
+            "192.168.4.3": {
+                "hostname": "spine1",
+                "remoteAs": 99,
+                "localAs": 99,
+                "outq": 0,
+                "inq": 0,
+                "pfxRcd": 4,
+                "pfxSnt": 3,
+                "state": "Established",
+                "peerState": "OK",
+                "idType": "ipv4",
+            }
+        },
+        "failedPeers": 0,
+        "displayedPeers": 1,
+        "totalPeers": 1,
+        "dynamicPeers": 0,
+        "bestPath": {"multiPathRelax": "false"},
+    }
+
+    # Create a test function that checks BGP neighbor state
+    def test_bgp_neighbor_up():
+        return topotest.router_json_cmp(
+            tor2, "show bgp ipv4 uni summ json", expected_bgp_summary
+        )
+
+    # Use run_and_expect to wait for BGP neighbor to come up
+    success, result = topotest.run_and_expect(
+        test_bgp_neighbor_up, None, count=30, wait=1
+    )
+
+    assertmsg = "BGP neighbor on tor2 failed to come up"
+    assert success, assertmsg
 
 
 def test_bgp_rr_ibgp_routes():
@@ -134,14 +175,22 @@ def test_zebra_ipv4_routingTable():
 
     router_list = tgen.routers().values()
     for router in router_list:
-        output = router.vtysh_cmd("show ip route json", isjson=True)
         refTableFile = "{}/{}/show_ip_route.json_ref".format(CWD, router.name)
         expected = json.loads(open(refTableFile).read())
+
+        # Create a test function that compares router output with expected JSON
+        def test_router_routes():
+            return topotest.router_json_cmp(router, "show ip route json", expected)
+
+        # Use run_and_expect to wait for the routes to match expected output
+        success, result = topotest.run_and_expect(
+            test_router_routes, None, count=30, wait=1
+        )
 
         assertmsg = "Zebra IPv4 Routing Table verification failed for router {}".format(
             router.name
         )
-        assert topotest.json_cmp(output, expected) is None, assertmsg
+        assert success, assertmsg
 
 
 def test_shutdown_check_stderr():
