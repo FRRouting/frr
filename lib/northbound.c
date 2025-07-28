@@ -2296,7 +2296,7 @@ bool nb_cb_operation_is_valid(enum nb_cb_operation operation,
 			 * Only optional leafs can be deleted, or leafs whose
 			 * parent is a case statement.
 			 */
-			if (snode->parent->nodetype == LYS_CASE)
+			if (snode->parent && snode->parent->nodetype == LYS_CASE)
 				return true;
 			if (sleaf->when)
 				return true;
