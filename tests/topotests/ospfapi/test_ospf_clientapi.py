@@ -1681,6 +1681,32 @@ def _test_opaque_link_local_lsa_crash(tgen, apibin):
         step("Bring r1-eth0 back up and verify there is no crash")
         r1.vtysh_multicmd("conf t\ninterface r1-eth0\nno shut")
 
+        # Verify that the neighbor has come back up
+        step("Verify neighbor has come back up")
+        expected_neighbor = {
+            "neighbors": {
+                "2.0.0.0": [
+                    {
+                        "nbrState": "Full/DR",
+                        "nbrPriority": 1,
+                        "converged": "Full",
+                        "role": "DR",
+                        "ifaceAddress": "10.0.1.2",
+                        "ifaceName": "r1-eth0:10.0.1.1",
+                    }
+                ]
+            }
+        }
+        test_func = partial(
+            topotest.router_json_cmp,
+            r1,
+            "show ip ospf neigh json",
+            expected_neighbor,
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        assertmsg = "r1 OSPF neighbor has not come back up after interface restart"
+        assert result is None, assertmsg
+
         step("Add another link-local opaque LSA for r1-eth0")
         pread = r1.popen([apibin, "-v", "add,9,10.0.1.1,230,1,feedaceecafebeef"])
 
