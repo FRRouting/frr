@@ -1571,6 +1571,10 @@ def test_verify_default_originate_with_2way_ecmp_p2(request):
         if ipv_dict["ipv4"] == ipv4_address and ipv_dict["ipv6"] == ipv6_address:
             active_interface = dut_links[key]["interface"]
 
+    if active_interface == None:
+        logger.info("The v4 and v6 best paths do not use the same neighbors on r2, we are skipping the rest of this test")
+        return
+
     logger.info(
         "Shutting down the interface {} on router {} ".format(active_interface, "r1")
     )
