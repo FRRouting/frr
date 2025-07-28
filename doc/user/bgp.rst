@@ -5002,6 +5002,12 @@ Displaying Update Group Information
 
    Display Information about update-group events in FRR.
 
+.. clicmd:: show [ip] bgp l2vpn evpn update-groups [subgroup-id (1-1000)] [json]
+
+   Display information about L2VPN EVPN update-groups being used.
+   If subgroup-id is specified, only display information about that particular
+   subgroup. The optional json parameter formats the output as JSON.
+
 Displaying Nexthop Information
 ------------------------------
 .. clicmd:: show [ip] bgp [<view|vrf> VIEWVRFNAME] nexthop ipv4 [A.B.C.D] [detail] [json]
