@@ -2248,7 +2248,7 @@ class LinuxNamespace(Commander, InterfaceMixin):
                     f"mkdir {tmpmnt} && mount --rbind /sys/fs/cgroup {tmpmnt}"
                 )
                 rc = o = e = None
-                for i in range(0, 10):
+                for i in range(0, 30):
                     rc, o, e = self.cmd_status_nsonly(
                         "mount -t sysfs sysfs /sys", warn=False
                     )
@@ -2260,6 +2260,8 @@ class LinuxNamespace(Commander, InterfaceMixin):
                     )
                     time_mod.sleep(1)
                 else:
+                    rc1, o1, e1 = self.cmd_status_nsonly("dmesg", warn=False)
+                    self.logger.debug("DMESG: %s", o1)
                     raise Exception(cmd_error(rc, o, e))
 
                 self.cmd_status_nsonly(
