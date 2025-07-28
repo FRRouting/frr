@@ -6993,7 +6993,7 @@ static void bgp_evpn_l3vni_remote_route_processing(struct bgp *bgp, bool install
 	 */
 	if (zebra_l3_vni_count(&bm->zebra_l3_vni_head))
 		event_add_timer_msec(bm->master, bgp_zebra_process_remote_routes_for_l3vrf, NULL,
-				     20, &bm->t_bgp_zebra_l3_vni);
+				     10, &bm->t_bgp_zebra_l3_vni);
 	else
 		event_add_event(bm->master, bgp_zebra_process_remote_routes_for_l3vrf, NULL, 0,
 				&bm->t_bgp_zebra_l3_vni);
@@ -7302,7 +7302,7 @@ static void bgp_evpn_l2vni_remote_route_processing(struct bgpevpn *vpn)
 	 */
 	if (zebra_l2_vni_count(&bm->zebra_l2_vni_head))
 		event_add_timer_msec(bm->master, bgp_zebra_process_remote_routes_for_l2vni, NULL,
-				     20, &bm->t_bgp_zebra_l2_vni);
+				     10, &bm->t_bgp_zebra_l2_vni);
 	else
 		event_add_event(bm->master, bgp_zebra_process_remote_routes_for_l2vni, NULL, 0,
 				&bm->t_bgp_zebra_l2_vni);
