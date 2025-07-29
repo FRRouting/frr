@@ -34,6 +34,7 @@ enum vxlan_flood_control {
 	VXLAN_FLOOD_DISABLED,
 	VXLAN_FLOOD_PIM_SM,
 	VXLAN_FLOOD_INHERIT_GLOBAL,
+	VXLAN_FLOOD_NONE,
 };
 
 #ifdef __cplusplus
