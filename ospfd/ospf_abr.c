@@ -1964,12 +1964,16 @@ static void ospf_abr_manage_discard_routes(struct ospf *ospf, bool nssa)
 	struct ospf_area *area;
 
 	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area)) {
+		struct route_table *table;
 		struct route_table *ranges;
 
-		if (nssa)
+		if (nssa) {
+			table = ospf->old_external_route;
 			ranges = area->nssa_ranges;
-		else
+		} else {
+			table = ospf->new_table;
 			ranges = area->ranges;
+		}
 
 		for (rn = route_top(ranges); rn; rn = route_next(rn)) {
 			struct ospf_area_range *range;
@@ -1981,13 +1985,11 @@ static void ospf_abr_manage_discard_routes(struct ospf *ospf, bool nssa)
 			if (ospf_area_range_active(range)
 			    && CHECK_FLAG(range->flags,
 					  OSPF_AREA_RANGE_ADVERTISE))
-				ospf_add_discard_route(
-					ospf, ospf->new_table, area,
-					(struct prefix_ipv4 *)&rn->p, nssa);
+				ospf_add_discard_route(ospf, table, area,
+						       (struct prefix_ipv4 *)&rn->p, nssa);
 			else
-				ospf_delete_discard_route(
-					ospf, ospf->new_table,
-					(struct prefix_ipv4 *)&rn->p, nssa);
+				ospf_delete_discard_route(ospf, table,
+							  (struct prefix_ipv4 *)&rn->p, nssa);
 		}
 	}
 }
