@@ -696,7 +696,8 @@ static void ospf_abr_translate_nssa_range(struct ospf *ospf,
 						LSA_REFRESH_FORCE, true);
 	else
 		lsa = ospf_external_lsa_originate(ospf, &ei);
-	SET_FLAG(lsa->flags, OSPF_LSA_LOCAL_XLT);
+	if (lsa)
+		SET_FLAG(lsa->flags, OSPF_LSA_LOCAL_XLT);
 }
 
 void ospf_abr_announce_network_to_area(struct prefix_ipv4 *p, uint32_t cost,
