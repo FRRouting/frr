@@ -1019,7 +1019,7 @@ int ospf_add_discard_route(struct ospf *ospf, struct route_table *rt,
 			   bool nssa)
 {
 	struct route_node *rn;
-	struct ospf_route * or, *new_or;
+	struct ospf_route *new_or;
 
 	rn = route_node_get(rt, (struct prefix *)p);
 
@@ -1031,9 +1031,9 @@ int ospf_add_discard_route(struct ospf *ospf, struct route_table *rt,
 
 	if (rn->info) /* If the route to the same destination is found */
 	{
-		route_unlock_node(rn);
+		struct ospf_route *or = rn->info;
 
-		or = rn->info;
+		route_unlock_node(rn);
 
 		if (!nssa && or->path_type == OSPF_PATH_INTRA_AREA) {
 			if (IS_DEBUG_OSPF_EVENT)
@@ -1044,9 +1044,7 @@ int ospf_add_discard_route(struct ospf *ospf, struct route_table *rt,
 
 		if (or->type == OSPF_DESTINATION_DISCARD) {
 			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"%s: discard entry already installed",
-					__func__);
+				zlog_debug("%s: discard entry already installed", __func__);
 			return 0;
 		}
 
@@ -1077,7 +1075,7 @@ void ospf_delete_discard_route(struct ospf *ospf, struct route_table *rt,
 			       struct prefix_ipv4 *p, bool nssa)
 {
 	struct route_node *rn;
-	struct ospf_route * or ;
+	struct ospf_route *or;
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: deleting %pFX", __func__, p);
@@ -1091,12 +1089,6 @@ void ospf_delete_discard_route(struct ospf *ospf, struct route_table *rt,
 	}
 
 	or = rn->info;
-
-	if (!nssa && or->path_type == OSPF_PATH_INTRA_AREA) {
-		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("%s: an intra-area route exists", __func__);
-		return;
-	}
 
 	if (or->type != OSPF_DESTINATION_DISCARD) {
 		if (IS_DEBUG_OSPF_EVENT)
