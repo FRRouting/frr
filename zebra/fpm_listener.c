@@ -652,7 +652,7 @@ static int parse_nexthop_msg(struct nlmsghdr *hdr)
 	struct rtattr *tb[NHA_MAX + 1] = {};
 	int len;
 	uint32_t nhgid = 0;
-	uint8_t nhg_count = 0;
+	uint16_t nhg_count = 0;
 	const char *err_msg = NULL;
 	char protocol_str[32] = "Unknown";
 	char nexthop_buf[16192] = "";
@@ -926,7 +926,7 @@ static void handle_nexthop_update(struct nlmsghdr *hdr, struct nhmsg *nhmsg, str
 	struct fpm_nhg *existing;
 	struct fpm_nhg lookup = { 0 };
 	uint32_t nhgid = 0;
-	uint8_t nhg_count = 0;
+	uint16_t nhg_count = 0;
 
 	/* Get Nexthop Group ID */
 	if (tb[NHA_ID])
