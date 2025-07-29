@@ -33,6 +33,7 @@ enum vxlan_flood_control {
 	VXLAN_FLOOD_HEAD_END_REPL = 0,
 	VXLAN_FLOOD_DISABLED,
 	VXLAN_FLOOD_PIM_SM,
+	VXLAN_FLOOD_NONE,
 };
 
 #ifdef __cplusplus

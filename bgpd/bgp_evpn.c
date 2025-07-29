@@ -2834,7 +2834,11 @@ static int bgp_evpn_vni_flood_mode_get(struct bgp *bgp,
 			   vrf_id_to_name(vpn->bgp_vrf->vrf_id), vpn->vni, vpn->vxlan_flood_ctrl,
 			   bgp->vxlan_flood_ctrl);
 
-	if (vpn->vxlan_flood_ctrl != bgp->vxlan_flood_ctrl)
+	/* If per-VNI flood mode is not none and differs from global mode,
+	 * use per-VNI mode.
+	 */
+	if (vpn->vxlan_flood_ctrl != VXLAN_FLOOD_NONE &&
+	    vpn->vxlan_flood_ctrl != bgp->vxlan_flood_ctrl)
 		return vpn->vxlan_flood_ctrl;
 
 	/* if flooding has been globally disabled per-vni mode is
@@ -6533,9 +6537,7 @@ struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
 	vpn->tenant_vrf_id = tenant_vrf_id;
 	vpn->mcast_grp = mcast_grp;
 	vpn->svi_ifindex = svi_ifindex;
-
-	/* Inherit BUM handling from a global one */
-	vpn->vxlan_flood_ctrl = bgp->vxlan_flood_ctrl;
+	vpn->vxlan_flood_ctrl = VXLAN_FLOOD_NONE;
 
 	/* Initialize route-target import and export lists */
 	vpn->import_rtl = list_new();
