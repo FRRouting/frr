@@ -1035,8 +1035,8 @@ bgp_zebra_send_remote_vtep(struct bgp *bgp, struct bgpevpn *vpn,
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	if (bgp_debug_zebra(NULL))
-		zlog_debug("Tx %s Remote VTEP, VNI %u remote VTEP %pI4",
-			   add ? "ADD" : "DEL", (vpn ? vpn->vni : 0),
+		zlog_debug("Tx %s Remote VTEP, VNI %u (flood control %d) remote VTEP %pI4",
+			   add ? "ADD" : "DEL", (vpn ? vpn->vni : 0), flood_control,
 			   &p->prefix.imet_addr.ip.ipaddr_v4);
 
 	frrtrace(3, frr_bgp, evpn_bum_vtep_zsend, add, vpn, p);
