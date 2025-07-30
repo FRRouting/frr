@@ -604,27 +604,6 @@ def test_topology_setup():
             False
         ), "Full topology convergence failed - routes not properly learned from both spines after 2 minutes"
 
-    # === PHASE 3: STEADY STATE VERIFICATION ===
-    step("STEP 3: Verifying steady state nexthop group")
-
-    def check_nhg_present():
-        nhg_output = net["leaf1"].cmd("ip -j nexthop show group")
-        try:
-            nhg_groups = json.loads(nhg_output)
-            logger.info(f"Found {len(nhg_groups)} nexthop groups")
-            return len(nhg_groups) >= 1
-        except json.JSONDecodeError:
-            return False
-
-    success, result = topotest.run_and_expect(
-        check_nhg_present,
-        True,
-        count=60,
-        wait=1,
-    )
-
-    assert success, "Expected at least 1 nexthop group in steady state"
-
     # Comprehensive verification of NHG and routes
     primary_nhid, route_count, nhid_count, ecmp_paths = verify_nhg_and_routes(
         net, "INITIAL STATE", expected_ecmp_paths=64
