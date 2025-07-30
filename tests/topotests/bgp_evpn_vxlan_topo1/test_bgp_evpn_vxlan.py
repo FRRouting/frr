@@ -324,23 +324,24 @@ def ip_learn_test(tgen, host, local, remote, ip_addr):
     print(host_output)
 
     # check we have a local association between the MAC and IP
-    local_output = local.vtysh_cmd("show evpn mac vni 101 mac {} json".format(mac))
-    print(local_output)
-    local_output_json = json.loads(local_output)
-    mac_type = local_output_json[mac]["type"]
+    def check_local_ip_learned():
+        local_output = local.vtysh_cmd("show evpn mac vni 101 mac {} json".format(mac))
+        print(local_output)
+        local_output_json = json.loads(local_output)
+        mac_type = local_output_json[mac]["type"]
+
+        if local_output_json[mac]["neighbors"] == "none":
+            return False
+
+        learned_ip = local_output_json[mac]["neighbors"]["active"][0]
+
+        if mac_type == "local" and learned_ip == ip_addr:
+            return True
+        return False
+
+    _, result = topotest.run_and_expect(check_local_ip_learned, True, count=30, wait=1)
     assertmsg = "Failed to learn local IP address on host {}".format(host.name)
-    assert local_output_json[mac]["neighbors"] != "none", assertmsg
-    learned_ip = local_output_json[mac]["neighbors"]["active"][0]
-
-    assertmsg = "local learned mac wrong type: {} ".format(mac_type)
-    assert mac_type == "local", assertmsg
-
-    assertmsg = (
-        "learned address mismatch with configured address host: {} learned: {}".format(
-            ip_addr, learned_ip
-        )
-    )
-    assert ip_addr == learned_ip, assertmsg
+    assert result, assertmsg
 
     # now lets check the remote
     count = 0
