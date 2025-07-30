@@ -50,6 +50,7 @@ static const struct message zvtep_flood_str[] = {
 	{VXLAN_FLOOD_DISABLED, VXLAN_FLOOD_STR_NO_INFO},
 	{VXLAN_FLOOD_PIM_SM, "PIM-SM"},
 	{VXLAN_FLOOD_HEAD_END_REPL, "HER"},
+	{VXLAN_FLOOD_NONE, "None"},
 	{0}
 };
 
