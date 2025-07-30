@@ -303,7 +303,7 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
 
 .. clicmd:: ipv6 mld route-map ROUTE-MAP
 
-   Apply the indicated route map to filter incoming IGMP joins.
+   Apply the indicated route map to filter incoming MLD joins.
 
    The following match statements can be used:
 
