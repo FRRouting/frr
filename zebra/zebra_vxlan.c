@@ -4786,6 +4786,10 @@ void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni,
 
 	zvtep = zebra_evpn_vtep_find(zevpn, &vtep_ip);
 	if (zvtep) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: VTEP %pI4 already exists for VNI %u flood_control %d (received flood_control %d)",
+				   __func__, &vtep_ip, vni, zvtep->flood_control, flood_control);
+
 		/* If the remote VTEP already exists check if
 		 * the flood mode has changed
 		 */
@@ -4800,6 +4804,10 @@ void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni,
 			zebra_evpn_vtep_install(zevpn, zvtep);
 		}
 	} else {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: VTEP %pI4 does not exist for VNI %u flood_control %d, adding it",
+				   __func__, &vtep_ip, vni, flood_control);
+
 		zvtep = zebra_evpn_vtep_add(zevpn, &vtep_ip, flood_control);
 		if (zvtep)
 			zebra_evpn_vtep_install(zevpn, zvtep);
