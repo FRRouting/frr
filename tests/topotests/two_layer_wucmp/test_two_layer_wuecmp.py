@@ -495,7 +495,24 @@ def test_topology_setup():
             logger.info("Failed to parse ECMP count (waiting for convergence)")
             return False
 
-        # 5. Verify routes are learned from both spine1 and spine2
+        # 5. Verify that the weight of each nexthop in the nexthop group is 254
+        nhg_output = net["leaf1"].cmd(
+            f'vtysh -c "show nexthop-group rib {nhid}" | grep "via" | grep -v "inactive"'
+        )
+        if not nhg_output:
+            logger.info("No nexthop output found (waiting for convergence)")
+            return False
+
+        # Check that all nexthops have weight 254
+        lines = nhg_output.strip().split("\n")
+        for line in lines:
+            if "weight" not in line or "weight 254" not in line:
+                logger.info(
+                    f"Nexthop without weight 254 found: {line} (waiting for convergence)"
+                )
+                return False
+
+        # 6. Verify routes are learned from both spine1 and spine2
         spine1_paths = (
             net["leaf1"]
             .cmd(
@@ -531,7 +548,7 @@ def test_topology_setup():
             return False
 
         logger.info(
-            f"Full convergence: {kernel_count} routes, NHID {nhid}, {ecmp_paths} ECMP paths ({spine1_count} via spine1, {spine2_count} via spine2)"
+            f"Full convergence: {kernel_count} routes, NHID {nhid}, {ecmp_paths} ECMP paths ({spine1_count} via spine1, {spine2_count} via spine2), all nexthops have weight 254"
         )
         return True
 
