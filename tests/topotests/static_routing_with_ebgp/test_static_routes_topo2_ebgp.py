@@ -227,13 +227,13 @@ def test_static_rte_with_8ecmp_nh_p1_tc9_ebgp(request):
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
     NEXT_HOP_IP = populate_nh()
-    step("Configure 8 interfaces / links between R1 and R2")
-    step("Configure 8 interfaces / links between R2 and R3")
-    step("Configure 8 IBGP IPv4 peering between R2 and R3 router.")
+    step("TC9: Configure 8 interfaces / links between R1 and R2")
+    step("TC9: Configure 8 interfaces / links between R2 and R3")
+    step("TC9: Configure 8 IBGP IPv4 peering between R2 and R3 router.")
     reset_config_on_routers(tgen)
 
     step(
-        "Configure 8 IPv4 static route in R2 with 8 next hop"
+        "TC9: Configure 8 IPv4 static route in R2 with 8 next hop"
         "N1(21.1.1.2) , N2(22.1.1.2) , N3(23.1.1.2) , N4(24.1.1.2) ,"
         "N5(25.1.1.2) , N6(26.1.1.2) , N7(27.1.1.2) , N8(28.1.1.2) ,"
         "Static route next-hop present on R1"
@@ -283,7 +283,7 @@ def test_static_rte_with_8ecmp_nh_p1_tc9_ebgp(request):
             result is True
         ), "Testcase {} : Failed \nError: Routes are  missing in RIB".format(tc_name)
 
-    step("Configure redistribute static in BGP on R2 router")
+    step("TC9: Configure redistribute static in BGP on R2 router")
     for addr_type in ADDR_TYPES:
         input_dict_2 = {
             "r2": {
@@ -309,13 +309,13 @@ def test_static_rte_with_8ecmp_nh_p1_tc9_ebgp(request):
         ), "Testcase {} : Failed \nError: Routes are  missing in RIB".format(tc_name)
 
     step(
-        "Remove the static route configured with nexthop N1 to N8, one"
+        "TC9: Remove the static route configured with nexthop N1 to N8, one"
         "by one from running config"
     )
     dut = "r2"
     protocol = "static"
     step(
-        "After removing the static route with N1 to N8 one by one , "
+        "TC9: After removing the static route with N1 to N8 one by one , "
         "verify that entry is removed from RIB and FIB of R3 "
     )
     for addr_type in ADDR_TYPES:
@@ -338,7 +338,7 @@ def test_static_rte_with_8ecmp_nh_p1_tc9_ebgp(request):
             )
 
             step(
-                "After removing the static route with N1 to N8 one by one , "
+                "TC9: After removing the static route with N1 to N8 one by one , "
                 "verify that entry is removed from RIB and FIB of R3 "
             )
             nh = NEXT_HOP_IP["nh" + str(nhp)][addr_type]
@@ -357,7 +357,7 @@ def test_static_rte_with_8ecmp_nh_p1_tc9_ebgp(request):
                 tc_name
             )
 
-    step("Configure the static route with nexthop N1 to N8, one by one")
+    step("TC9: Configure the static route with nexthop N1 to N8, one by one")
     for addr_type in ADDR_TYPES:
         for nhp in range(1, 9):
             input_dict_4 = {
@@ -385,23 +385,23 @@ def test_static_rte_with_8ecmp_nh_p1_tc9_ebgp(request):
             ), "Testcase {} : Failed\nError: Routes are  missing in RIB".format(tc_name)
 
     protocol = "static"
-    step("Random shut of the nexthop interfaces")
+    step("TC9: Random shut of the nexthop interfaces")
     randnum = random.randint(0, 7)
     # Shutdown interface
     dut = "r2"
     step(
-        " interface which is about to be shut no shut between r1 and r2 is  %s",
+        "TC9: Interface which is about to be shut no shut between r1 and r2 is  %s",
         topo["routers"]["r2"]["links"]["r1-link{}".format(randnum)]["interface"],
     )
     intf = topo["routers"]["r2"]["links"]["r1-link{}".format(randnum)]["interface"]
     shutdown_bringup_interface(tgen, dut, intf, False)
 
-    step("Random no shut of the nexthop interfaces")
+    step("TC9: Random no shut of the nexthop interfaces")
     # Bringup interface
     shutdown_bringup_interface(tgen, dut, intf, True)
 
     step(
-        "After random shut/no shut of nexthop , only that "
+        "TC9: After random shut/no shut of nexthop , only that "
         "nexthop deleted/added from all the routes , other nexthop remain "
         "unchanged"
     )
@@ -430,7 +430,7 @@ def test_static_rte_with_8ecmp_nh_p1_tc9_ebgp(request):
         result is True
     ), "Testcase {} : Failed \nError: Routes are  missing in RIB".format(tc_name)
 
-    step("Remove random static route with all the nexthop")
+    step("TC9: Remove random static route with all the nexthop")
     dut = "r2"
     randnum = random.randint(1, 7)
     for addr_type in ADDR_TYPES:
@@ -452,7 +452,7 @@ def test_static_rte_with_8ecmp_nh_p1_tc9_ebgp(request):
         )
 
         step(
-            "After delete of random route , that route only got deleted from"
+            "TC9: After delete of random route , that route only got deleted from"
             " RIB/FIB other route are showing properly"
         )
         nh = NEXT_HOP_IP["nh{}".format(randnum)][addr_type]
@@ -486,13 +486,13 @@ def test_static_rte_with_8ecmp_nh_p1_tc9_ebgp(request):
             tc_name, result
         )
 
-    step("Reload the FRR router")
+    step("TC9: Reload the FRR router")
     # stop/start -> restart FRR router and verify
     stop_router(tgen, "r2")
     start_router(tgen, "r2")
 
     step(
-        "After reload of FRR router , static route "
+        "TC9: After reload of FRR router , static route "
         "installed in RIB and FIB properly ."
     )
     for addr_type in ADDR_TYPES:
@@ -523,7 +523,7 @@ def test_static_rte_with_8ecmp_nh_p1_tc9_ebgp(request):
             result is True
         ), "Testcase {} : Failed \nError: Routes are  missing in RIB".format(tc_name)
 
-    step("Remove the redistribute static knob")
+    step("TC9: Remove the redistribute static knob")
     for addr_type in ADDR_TYPES:
         input_dict_2 = {
             "r2": {
@@ -546,7 +546,7 @@ def test_static_rte_with_8ecmp_nh_p1_tc9_ebgp(request):
         )
 
         step(
-            "After removing the BGP neighbor or redistribute static knob , "
+            "TC9: After removing the BGP neighbor or redistribute static knob , "
             "verify route got clear from RIB and FIB of R3 routes "
         )
         dut = "r3"
@@ -576,13 +576,13 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc6_ebgp(request):
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    step("Configure 8 interfaces / links between R1 and R2 ,")
-    step("Configure 8 interlaces/links between R2 and R3")
+    step("TC6: Configure 8 interfaces / links between R1 and R2 for IBGP test")
+    step("TC6: Configure 8 interlaces/links between R2 and R3 for IBGP test")
     step(
-        "Configure IBGP IPv4 peering over loopback interface between"
-        "R2 and R3 router."
+        "TC6: Configure IBGP IPv4 peering over loopback interface between"
+        "R2 and R3 router for IBGP test."
     )
-    step("Configure redistribute static in BGP on R2 router")
+    step("TC6: Configure redistribute static in BGP on R2 router for IBGP test")
     reset_config_on_routers(tgen)
     NEXT_HOP_IP = populate_nh()
     nh_all = {}
@@ -591,7 +591,7 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc6_ebgp(request):
         for nhp in range(1, 9):
             nh_all[addr_type].append(NEXT_HOP_IP["nh" + str(nhp)][addr_type])
     step(
-        "Configure IPv4 static route in R2 with 8 next hop"
+        "TC6: Configure IPv4 static route in R2 with 8 next hop"
         "N1(21.1.1.2) AD 10, N2(22.1.1.2) AD 20, N3(23.1.1.2) AD 30,"
         "N4(24.1.1.2) AD 40, N5(25.1.1.2) AD 50, N6(26.1.1.2) AD 60,"
         "N7(27.1.1.2) AD 70, N8(28.1.1.2) AD 80, Static route next-hop"
@@ -618,7 +618,7 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc6_ebgp(request):
         logger.info("Verifying %s routes on r2", addr_type)
 
         step(
-            "On R2, static route installed in RIB using "
+            "TC6: On R2, static route installed in RIB using "
             "show ip route with 8 next hop , lowest AD nexthop is active"
         )
         input_dict_4 = {
@@ -661,7 +661,7 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc6_ebgp(request):
         ), "Testcase {} : Failed \nError: Routes   are missing in RIB".format(tc_name)
 
     step(
-        "Remove the static route configured with nexthop N1 to N8, one"
+        "TC6: Remove the static route configured with nexthop N1 to N8, one"
         "by one from running config"
     )
 
@@ -705,7 +705,7 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc6_ebgp(request):
         result is not True
     ), "Testcase {} : Failed \nError: Routes are  still present in RIB".format(tc_name)
 
-    step("Configure the static route with nexthop N1 to N8, one by one")
+    step("TC6: Configure the static route with nexthop N1 to N8, one by one")
 
     for addr_type in ADDR_TYPES:
         # add static routes
@@ -728,7 +728,7 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc6_ebgp(request):
         )
 
     step(
-        " After configuring them, route is always active with lowest AD"
+        "TC6: After configuring them, route is always active with lowest AD"
         " value and all the nexthop populated in RIB and FIB again"
     )
     for addr_type in ADDR_TYPES:
@@ -770,7 +770,7 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc6_ebgp(request):
             result is not True
         ), "Testcase {} : Failed \nError: Routes   are missing in RIB".format(tc_name)
 
-    step("Random shut of the nexthop interfaces")
+    step("TC6: Random shut of the nexthop interfaces")
     randnum = random.randint(0, 7)
     for addr_type in ADDR_TYPES:
         intf = topo["routers"]["r2"]["links"]["r1-link" + str(randnum)]["interface"]
@@ -801,7 +801,7 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc6_ebgp(request):
             tc_name
         )
 
-    step("Random no shut of the nexthop interfaces")
+    step("TC6: Random no shut of the nexthop interfaces")
     for addr_type in ADDR_TYPES:
         intf = topo["routers"]["r2"]["links"]["r1-link" + str(randnum)]["interface"]
         shutdown_bringup_interface(tgen, dut, intf, True)
@@ -831,7 +831,7 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc6_ebgp(request):
             result is True
         ), "Testcase {}: Failed \n  Error: Routes are missing in RIB".format(tc_name)
 
-    step("Reload the FRR router")
+    step("TC6: Reload the FRR router")
     # stop/start -> restart FRR router and verify
     stop_router(tgen, "r2")
 
@@ -861,14 +861,14 @@ def test_static_route_8nh_diff_AD_ebgp_ecmp_p1_tc8_ebgp(request):
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    step("Configure 8 interfaces / links between R1 and R2")
-    step("Configure 8 interlaces/links between R2 and R3")
-    step("Configure 8 EBGP IPv4 peering between R2 and R3")
+    step("TC8: Configure 8 interfaces / links between R1 and R2 for EBGP test")
+    step("TC8: Configure 8 interlaces/links between R2 and R3 for EBGP test")
+    step("TC8: Configure 8 EBGP IPv4 peering between R2 and R3 for EBGP test")
 
     reset_config_on_routers(tgen)
     NEXT_HOP_IP = populate_nh()
 
-    step("Configure redistribute static in BGP on R2 router")
+    step("TC8: Configure redistribute static in BGP on R2 router for EBGP test")
     for addr_type in ADDR_TYPES:
         input_dict_2 = {
             "r2": {
@@ -1005,7 +1005,7 @@ def test_static_route_8nh_diff_AD_ebgp_ecmp_p1_tc8_ebgp(request):
         result is not True
     ), "Testcase {} : Failed \nError: Routes are  still present in RIB".format(tc_name)
 
-    step("Configure the static route with nexthop N1 to N8, one by one")
+    step("TC8: Configure the static route with nexthop N1 to N8, one by one")
 
     for addr_type in ADDR_TYPES:
         # add static routes
@@ -1028,7 +1028,7 @@ def test_static_route_8nh_diff_AD_ebgp_ecmp_p1_tc8_ebgp(request):
         )
 
     step(
-        " After configuring them, route is always active with lowest AD"
+        "TC8: After configuring them, route is always active with lowest AD"
         " value and all the nexthop populated in RIB and FIB again"
     )
     for addr_type in ADDR_TYPES:
@@ -1069,7 +1069,7 @@ def test_static_route_8nh_diff_AD_ebgp_ecmp_p1_tc8_ebgp(request):
             result is not True
         ), "Testcase {} : Failed \nError: Routes   are missing in RIB".format(tc_name)
 
-    step("Random shut of the nexthop interfaces")
+    step("TC8: Random shut of the nexthop interfaces")
     randnum = random.randint(0, 7)
     for addr_type in ADDR_TYPES:
         intf = topo["routers"]["r2"]["links"]["r1-link" + str(randnum)]["interface"]
@@ -1100,7 +1100,7 @@ def test_static_route_8nh_diff_AD_ebgp_ecmp_p1_tc8_ebgp(request):
             tc_name
         )
 
-    step("Random no shut of the nexthop interfaces")
+    step("TC8: Random no shut of the nexthop interfaces")
     for addr_type in ADDR_TYPES:
         intf = topo["routers"]["r2"]["links"]["r1-link" + str(randnum)]["interface"]
         shutdown_bringup_interface(tgen, dut, intf, True)
@@ -1115,7 +1115,7 @@ def test_static_route_8nh_diff_AD_ebgp_ecmp_p1_tc8_ebgp(request):
     dut = "r2"
     protocol = "static"
 
-    step("Reload the FRR router")
+    step("TC8: Reload the FRR router")
     # stop/start -> restart FRR router and verify
     stop_router(tgen, "r2")
 
@@ -1227,7 +1227,7 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc10_ebgp(request):
             result is True
         ), "Testcase {} : Failed \nError: Routes are  missing in RIB".format(tc_name)
 
-        step("Verify that highest AD nexthop are inactive")
+        step("TC10: Verify that highest AD nexthop are inactive")
         nh = []
         for nhp in range(2, 9):
             nh.append(NEXT_HOP_IP["nh" + str(nhp)][addr_type])
@@ -1246,7 +1246,7 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc10_ebgp(request):
             result is not True
         ), "Testcase {} : Failed \nError: Routes   are missing in RIB".format(tc_name)
 
-    step("Configure redistribute static in BGP on R2 router")
+    step("TC10: Configure redistribute static in BGP on R2 router")
     for addr_type in ADDR_TYPES:
         input_dict_2 = {
             "r2": {
@@ -1312,7 +1312,7 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc10_ebgp(request):
             tc_name
         )
 
-    step("Configure the static route with nexthop N1 to N8, one by one")
+    step("TC10: Configure the static route with nexthop N1 to N8, one by one")
     for addr_type in ADDR_TYPES:
         # add static routes
         for nhp in range(1, 9):
@@ -1335,7 +1335,7 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc10_ebgp(request):
         )
 
     step(
-        " After configuring them, route is always active with lowest AD"
+        "TC10: After configuring them, route is always active with lowest AD"
         " value and all the nexthop populated in RIB and FIB again"
     )
     for addr_type in ADDR_TYPES:
@@ -1349,7 +1349,7 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc10_ebgp(request):
             "lowest AD  is missing in RIB".format(tc_name)
         )
 
-    step("Random shut of the nexthop interfaces")
+    step("TC10: Random shut of the nexthop interfaces")
     randnum = random.randint(0, 7)
     for addr_type in ADDR_TYPES:
         intf = topo["routers"]["r2"]["links"]["r1-link" + str(randnum)]["interface"]
@@ -1380,7 +1380,7 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc10_ebgp(request):
             tc_name
         )
 
-    step("Random no shut of the nexthop interfaces")
+    step("TC10: Random no shut of the nexthop interfaces")
     for addr_type in ADDR_TYPES:
         intf = topo["routers"]["r2"]["links"]["r1-link" + str(randnum)]["interface"]
         shutdown_bringup_interface(tgen, dut, intf, True)
@@ -1392,7 +1392,7 @@ def test_static_route_8nh_diff_AD_bgp_ecmp_p1_tc10_ebgp(request):
             result is True
         ), "Testcase {} : Failed \n Error: Routes are missing in RIB".format(tc_name)
 
-    step("Remove random static route with all the nexthop")
+    step("TC10: Remove random static route with all the nexthop")
     for addr_type in ADDR_TYPES:
         # delete static routes
         for nhp in range(1, 9):
@@ -1578,7 +1578,7 @@ def test_static_route_delete_p0_tc11_ebgp(request):
             result is True
         ), "Testcase {} : Failed \nError: Routes are  missing in RIB".format(tc_name)
 
-        step("Verify that highest AD nexthop are inactive")
+        step("TC11: Verify that highest AD nexthop are inactive")
         nh = []
         for nhp in range(2, 9):
             nh.append(NEXT_HOP_IP["nh" + str(nhp)][addr_type])
@@ -1596,7 +1596,7 @@ def test_static_route_delete_p0_tc11_ebgp(request):
             result is not True
         ), "Testcase {} : Failed \nError: Routes   are missing in RIB".format(tc_name)
 
-    step("Configure redistribute static in BGP on R2 router")
+    step("TC11: Configure redistribute static in BGP on R2 router")
     for addr_type in ADDR_TYPES:
         input_dict_2 = {
             "r2": {
@@ -1614,7 +1614,7 @@ def test_static_route_delete_p0_tc11_ebgp(request):
             tc_name, result
         )
 
-    step("Remove the redistribute static knob")
+    step("TC11: Remove the redistribute static knob")
     for addr_type in ADDR_TYPES:
         input_dict_2 = {
             "r2": {

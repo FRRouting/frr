@@ -45,21 +45,82 @@ Currently ripngd supports the following commands:
    Control how many ECMP paths RIPng can inject for the same prefix. If specified
    without a number, a maximum is taken (compiled with ``--enable-multipath``).
 
+.. clicmd:: default-information originate
+
+   Distribute default route information.
+
+.. clicmd:: default-metric (1-16)
+
+   Set a metric of redistribute routes.
+
+.. clicmd:: offset-list ACCESSLIST6_NAME <in|out> (0-16) [IFNAME]
+
+   Modify RIPng metric based on access-list. The access-list is applied to
+   incoming or outgoing updates, optionally on a specific interface.
+
+.. clicmd:: passive-interface IFNAME
+
+   Suppress routing updates on an interface.
+
+.. clicmd:: redistribute PROTOCOL [{metric (0-16)|route-map RMAP_NAME}]
+
+   Redistribute routes from other protocols into RIPng. Optionally specify
+   metric or route-map for the redistributed routes.
+
+.. clicmd:: aggregate-address X:X::X:X/M
+
+   Set aggregate RIPng route announcement.
+
+.. clicmd:: timers basic (1-65535) (1-65535) (1-65535)
+
+   Set RIPng timers for update, timeout, and garbage collection intervals.
+
+.. clicmd:: ipv6 distribute-list ACCESSLIST6_NAME <in|out> [IFNAME]
+
+   Filter networks in routing updates using access-list. Can be applied to
+   incoming or outgoing updates, optionally on a specific interface.
+
+.. clicmd:: ipv6 distribute-list prefix PREFIXLIST6_NAME <in|out> [IFNAME]
+
+   Filter networks in routing updates using prefix-list. Can be applied to
+   incoming or outgoing updates, optionally on a specific interface.
+
 .. _ripngd-terminal-mode-commands:
 
 ripngd Terminal Mode Commands
 =============================
 
+.. clicmd:: show ipv6 ripng [vrf NAME]
+
+   Show RIPng routes.
+
 .. clicmd:: show ipv6 ripng [vrf NAME] status
+
+   Show RIPng status and configuration.
 
 .. clicmd:: show debugging ripng
 
+   Show debugging status for RIPng.
+
 .. clicmd:: debug ripng events
+
+   Debug RIPng events.
 
 .. clicmd:: debug ripng packet
 
+   Debug RIPng packet processing.
+
+.. clicmd:: debug ripng packet <recv|send>
+
+   Debug specific packet direction (receive or send).
+
 .. clicmd:: debug ripng zebra
 
+   Debug RIPng and zebra communication.
+
+.. clicmd:: clear ipv6 ripng [vrf WORD]
+
+   Clear RIPng routes.
 
 ripngd Filtering Commands
 =========================
@@ -140,6 +201,15 @@ functionality.
 
    Set a tag on the matched route.
 
+.. _ripng-interface-commands:
+
+RIPng Interface Commands
+========================
+
+.. clicmd:: ipv6 ripng split-horizon [poisoned-reverse]
+
+   Configure split horizon on the interface. The optional `poisoned-reverse`
+   parameter enables poisoned reverse split horizon.
 
 Sample configuration
 ====================

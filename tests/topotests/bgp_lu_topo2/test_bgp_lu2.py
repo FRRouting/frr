@@ -28,6 +28,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+from lib.checkping import check_ping
 
 # Required to instantiate the topology builder class.
 
@@ -174,23 +175,17 @@ def test_ping():
 
     #
     logger.info("Ping from R2 to R3")
-    router = tgen.gears["R2"]
-    output = router.run("ping -c 4 -w 4 {}".format("10.0.1.3"))
-    assert " 0% packet loss" in output, "Ping R2->R3 FAILED"
+    check_ping("R2", "10.0.1.3", True, 10, 1)
     logger.info("Ping from R2 to R3 ... success")
 
     #
     logger.info("Ping from R4 to R2")
-    router = tgen.gears["R4"]
-    output = router.run("ping -c 4 -w 4 {}".format("10.0.0.2"))
-    assert " 0% packet loss" in output, "Ping R4->R2 FAILED"
+    check_ping("R4", "10.0.0.2", True, 10, 1)
     logger.info("Ping from R4 to R2 ... success")
 
     #
     logger.info("Ping from R4 to R3")
-    router = tgen.gears["R4"]
-    output = router.run("ping -c 4 -w 4 {}".format("10.0.1.3"))
-    assert " 0% packet loss" in output, "Ping R4->R3 FAILED"
+    check_ping("R4", "10.0.1.3", True, 10, 1)
     logger.info("Ping from R4 to R3 ... success")
 
 

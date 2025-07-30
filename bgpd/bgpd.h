@@ -3138,9 +3138,10 @@ struct srv6_locator *bgp_srv6_locator_lookup(struct bgp *bgp_vrf, struct bgp *bg
 	 !(_afi == AFI_IP && _safi == SAFI_MPLS_VPN) &&                        \
 	 !(_afi == AFI_IP6 && _safi == SAFI_MPLS_VPN))
 
-#define PEER_HAS_LINK_LOCAL_CAPABILITY(_peer)                                                      \
-	(CHECK_FLAG(_peer->flags, PEER_FLAG_CAPABILITY_LINK_LOCAL) &&                              \
-	 CHECK_FLAG(_peer->cap, PEER_CAP_LINK_LOCAL_ADV) &&                                        \
-	 CHECK_FLAG(_peer->cap, PEER_CAP_LINK_LOCAL_RCV))
+#define PEER_HAS_LINK_LOCAL_CAPABILITY(_peer)                                                     \
+	(CHECK_FLAG(_peer->flags, PEER_FLAG_CAPABILITY_LINK_LOCAL) &&                             \
+	 CHECK_FLAG(_peer->cap, PEER_CAP_LINK_LOCAL_ADV) &&                                       \
+	 CHECK_FLAG(_peer->cap, PEER_CAP_LINK_LOCAL_RCV) &&                                       \
+	 IN6_IS_ADDR_LINKLOCAL(&_peer->nexthop.v6_local))
 
 #endif /* _QUAGGA_BGPD_H */

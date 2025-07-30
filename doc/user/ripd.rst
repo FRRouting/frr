@@ -164,6 +164,11 @@ RIP Configuration
    Control how many ECMP paths RIP can inject for the same prefix. If specified
    without a number, a maximum is taken (compiled with ``--enable-multipath``).
 
+.. clicmd:: bfd default-profile BFDPROF
+
+   Set the default BFD profile to use for all RIP peers. This profile will be
+   used when no specific profile is configured on an interface.
+
 .. _rip-version-control:
 
 RIP Version Control
@@ -212,6 +217,11 @@ discussion on the security implications of RIPv1 see :ref:`rip-authentication`.
 
    Default: Accept packets according to the global setting (both 1 and 2).
 
+.. clicmd:: ip rip v2-broadcast
+
+   Send IP broadcast v2 update on this interface. This command enables
+   broadcasting of RIPv2 packets instead of multicasting.
+
 
 .. _how-to-announce-rip-route:
 
@@ -242,7 +252,7 @@ Filtering RIP Routes
 
 RIP routes can be filtered by a distribute-list.
 
-.. clicmd:: distribute-list [prefix] LIST <in|out> IFNAME
+.. clicmd:: distribute-list [prefix] LIST <in|out> [IFNAME]
 
    You can apply access lists to the interface with a `distribute-list` command.
    If prefix is specified LIST is a prefix-list.  If prefix is not specified
@@ -316,6 +326,23 @@ Distance value is used in zebra daemon. Default RIP distance is 120.
    Set default RIP distance to specified value when the route's source IP
    address matches the specified prefix and the specified access-list.
 
+.. _rip-bfd-support:
+
+RIP BFD Support
+===============
+
+RIP supports Bidirectional Forwarding Detection (BFD) for faster detection of
+link failures. BFD can be enabled globally with a default profile or on
+individual interfaces.
+
+.. clicmd:: ip rip bfd
+
+   Enable BFD monitoring for RIP peers on this interface.
+
+.. clicmd:: ip rip bfd profile BFDPROF
+
+   Use a specific BFD profile for RIP peers on this interface.
+   
 .. _rip-route-map:
 
 RIP route-map
@@ -514,6 +541,17 @@ for routes redistributed into RIP.
      Routing Information Sources:
        Gateway    BadPackets BadRoutes  Distance Last Update
 
+.. _rip-clear-commands:
+
+RIP Clear Commands
+==================
+
+.. clicmd:: clear ip rip [vrf NAME]
+
+   Clear RIP routes from the IP routing table and routes redistributed into
+   the RIP protocol. If a VRF name is specified, only routes in that VRF
+   will be cleared. If no VRF is specified, all RIP routes in all VRFs
+   will be cleared.
 
 RIP Debug Commands
 ==================
