@@ -29,7 +29,7 @@ a static prefix and gateway, with several possible forms.
 
 .. clicmd:: ip route NETWORK GATEWAY [DISTANCE] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
 
-.. clicmd:: ip route NETWORK IFNAME [DISTANCE] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
+.. clicmd:: ip route NETWORK [dhcp-gateway] IFNAME [DISTANCE] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
 
 .. clicmd:: ip route NETWORK GATEWAY IFNAME [DISTANCE] [onlink] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
 
@@ -76,6 +76,37 @@ a static prefix and gateway, with several possible forms.
    that destination longest-prefix match is "more important" than source
    LPM, e.g.  ``2001:db8:1::/64 from 2001:db8::/48`` will win over
    ``2001:db8::/48 from 2001:db8:1::/64`` if both match.
+
+   If ``dhcp-gateway`` is specified, nexthop will be the DHCP router gateway of IFNAME interface.
+   Currently only dhclient is supported. For this to work properly set lease path prefix and
+   suffix:
+
+   .. code-block:: frr
+
+       static-route-dhcp-gateway dhclient-lease-path-prefix LEASEPREFIX
+       static-route-dhcp-gateway dhclient-lease-path-suffix LEASESUFFIX
+
+   Lease file than has path `LEASEPREFIX IFNAME LEASESUFFIX`. E. g. with
+   LEASEPREFIX = `/var/run/dhclient/dhclient_` and suffix LEASESUFFIX =
+   `.lease` (these values are defaults) the resulting lease file path for
+   interface `eth0` will be `/var/run/dhclient/dhclient_eth0.lease`.
+
+   There are two options how FRR can watch for updates of DHCP gateway IP.
+
+   Dhclient hook can call FRR command
+
+   .. code-block:: frr
+
+      static-route-dhcp-gateway update
+
+   Or periodic polling can be set up via option:
+
+   .. code-block:: frr
+
+      static-route-dhcp-gateway poll-period PERIOD-SECONDS
+
+   If PERIOD-SECONDS is 0, polling is disabled (default)
+
 
 .. _multiple-route-command:
 

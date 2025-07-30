@@ -52,6 +52,7 @@ enum static_nh_type {
 	STATIC_IPV6_GATEWAY,
 	STATIC_IPV6_GATEWAY_IFNAME,
 	STATIC_BLACKHOLE,
+	STATIC_IPV4_IFNAME_DHCP_GATEWAY,
 };
 
 /*
@@ -191,6 +192,9 @@ static inline void static_get_nh_type(enum static_nh_type stype, char *type,
 		break;
 	case STATIC_IPV6_GATEWAY_IFNAME:
 		strlcpy(type, "ip6-ifindex", size);
+		break;
+	case STATIC_IPV4_IFNAME_DHCP_GATEWAY:
+		strlcpy(type, "ip4-dhcp-gateway", size);
 		break;
 	};
 }

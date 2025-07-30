@@ -58,16 +58,13 @@ static inline int
 static_next_hop_type_to_family(const struct static_nexthop *sn)
 {
 	switch (sn->type) {
+	case STATIC_IPV4_IFNAME_DHCP_GATEWAY:
 	case STATIC_IPV4_GATEWAY_IFNAME:
-	case STATIC_IPV6_GATEWAY_IFNAME:
 	case STATIC_IPV4_GATEWAY:
+		return AF_INET;
+	case STATIC_IPV6_GATEWAY_IFNAME:
 	case STATIC_IPV6_GATEWAY:
-		if (sn->type == STATIC_IPV4_GATEWAY ||
-		    sn->type == STATIC_IPV4_GATEWAY_IFNAME)
-			return AF_INET;
-		else
-			return AF_INET6;
-		break;
+		return AF_INET6;
 	case STATIC_IFNAME:
 	case STATIC_BLACKHOLE:
 	default:
@@ -102,8 +99,8 @@ void static_next_hop_bfd_monitor_enable(struct static_nexthop *sn,
 	if (family == AF_UNSPEC)
 		return;
 
-	if (sn->type == STATIC_IPV4_GATEWAY_IFNAME ||
-	    sn->type == STATIC_IPV6_GATEWAY_IFNAME)
+	if (sn->type == STATIC_IPV4_GATEWAY_IFNAME || sn->type == STATIC_IPV6_GATEWAY_IFNAME ||
+	    sn->type == STATIC_IPV4_IFNAME_DHCP_GATEWAY)
 		use_interface = true;
 
 	/* Reconfigure or allocate new memory. */
@@ -232,7 +229,8 @@ static void static_bfd_show_nexthop_json(struct vty *vty,
 	json_object_boolean_add(jo_nh, "installed", !sn->path_down);
 
 	/* Add peer address based on nexthop type */
-	if (sn->type == STATIC_IPV4_GATEWAY || sn->type == STATIC_IPV4_GATEWAY_IFNAME)
+	if (sn->type == STATIC_IPV4_GATEWAY || sn->type == STATIC_IPV4_GATEWAY_IFNAME ||
+	    sn->type == STATIC_IPV4_IFNAME_DHCP_GATEWAY)
 		json_object_string_addf(jo_nh, "peer", "%pI4", &sn->addr.ipv4);
 	else if (sn->type == STATIC_IPV6_GATEWAY || sn->type == STATIC_IPV6_GATEWAY_IFNAME)
 		json_object_string_addf(jo_nh, "peer", "%pI6", &sn->addr.ipv6);
@@ -311,8 +309,8 @@ static void static_bfd_show_nexthop(struct vty *vty,
 		return;
 	}
 
-	if (sn->type == STATIC_IPV4_GATEWAY ||
-	    sn->type == STATIC_IPV4_GATEWAY_IFNAME)
+	if (sn->type == STATIC_IPV4_GATEWAY || sn->type == STATIC_IPV4_GATEWAY_IFNAME ||
+	    sn->type == STATIC_IPV4_IFNAME_DHCP_GATEWAY)
 		vty_out(vty, " peer %pI4", &sn->addr.ipv4);
 	else if (sn->type == STATIC_IPV6_GATEWAY ||
 		 sn->type == STATIC_IPV6_GATEWAY_IFNAME)

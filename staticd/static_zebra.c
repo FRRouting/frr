@@ -301,6 +301,7 @@ static bool static_zebra_nht_get_prefix(const struct static_nexthop *nh,
 
 	case STATIC_IPV4_GATEWAY:
 	case STATIC_IPV4_GATEWAY_IFNAME:
+	case STATIC_IPV4_IFNAME_DHCP_GATEWAY:
 		p->family = AF_INET;
 		p->prefixlen = IPV4_MAX_BITLEN;
 		p->u.prefix4 = nh->addr.ipv4;
@@ -475,6 +476,7 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 			api_nh->ifindex = nh->ifindex;
 			api_nh->type = NEXTHOP_TYPE_IFINDEX;
 			break;
+		case STATIC_IPV4_IFNAME_DHCP_GATEWAY:
 		case STATIC_IPV4_GATEWAY:
 			if (!nh->nh_valid)
 				continue;

@@ -20,6 +20,7 @@
 #include "static_routes.h"
 #include "static_zebra.h"
 #include "static_debug.h"
+#include "static_dhcpgw.h"
 
 DEFINE_MGROUP(STATIC, "staticd");
 
@@ -123,6 +124,7 @@ bool static_add_nexthop_validate(const char *nh_vrf_name,
 	switch (type) {
 	case STATIC_IPV4_GATEWAY:
 	case STATIC_IPV4_GATEWAY_IFNAME:
+	case STATIC_IPV4_IFNAME_DHCP_GATEWAY:
 		if (if_address_is_local(&ipaddr->ipaddr_v4, AF_INET,
 					vrf->vrf_id))
 			return false;
@@ -226,6 +228,9 @@ static_add_nexthop(struct static_path *pn, enum static_nh_type type,
 	case STATIC_IPV6_GATEWAY_IFNAME:
 		nh->addr.ipv6 = ipaddr->ipaddr_v6;
 		break;
+	case STATIC_IPV4_IFNAME_DHCP_GATEWAY:
+		static_dhcpgw_add_nexthop_watch(nh);
+		break;
 	case STATIC_IFNAME:
 	case STATIC_BLACKHOLE:
 		break;
@@ -260,6 +265,7 @@ static_add_nexthop(struct static_path *pn, enum static_nh_type type,
 	case STATIC_IPV6_GATEWAY:
 	case STATIC_BLACKHOLE:
 		break;
+	case STATIC_IPV4_IFNAME_DHCP_GATEWAY:
 	case STATIC_IPV4_GATEWAY_IFNAME:
 	case STATIC_IPV6_GATEWAY_IFNAME:
 	case STATIC_IFNAME:
@@ -300,6 +306,7 @@ void static_install_nexthop(struct static_nexthop *nh)
 		break;
 	case STATIC_IPV4_GATEWAY_IFNAME:
 	case STATIC_IPV6_GATEWAY_IFNAME:
+	case STATIC_IPV4_IFNAME_DHCP_GATEWAY:
 		static_zebra_nht_register(nh, true);
 		break;
 	case STATIC_BLACKHOLE:
@@ -309,7 +316,6 @@ void static_install_nexthop(struct static_nexthop *nh)
 		ifp = if_lookup_by_name(nh->ifname, nh->nh_vrf_id);
 		if (ifp && ifp->ifindex != IFINDEX_INTERNAL)
 			static_install_path(pn);
-
 		break;
 	}
 }
@@ -329,6 +335,9 @@ void static_delete_nexthop(struct static_nexthop *nh)
 {
 	struct static_path *pn = nh->pn;
 	struct route_node *rn = pn->rn;
+
+	if (nh->type == STATIC_IPV4_IFNAME_DHCP_GATEWAY)
+		static_dhcpgw_del_nexthop_watch(nh);
 
 	static_nexthop_list_del(&(pn->nexthop_list), nh);
 	/* Remove BFD session/configuration if any. */
@@ -655,6 +664,9 @@ void static_get_nh_str(struct static_nexthop *nh, char *nexthop, size_t size)
 	case STATIC_IPV6_GATEWAY_IFNAME:
 		snprintfrr(nexthop, size, "ip6-ifindex : %pI6 : %s",
 			   &nh->addr.ipv6, nh->ifname);
+		break;
+	case STATIC_IPV4_IFNAME_DHCP_GATEWAY:
+		snprintfrr(nexthop, size, "ip4-dhcp-gateway : %s", nh->ifname);
 		break;
 	};
 }

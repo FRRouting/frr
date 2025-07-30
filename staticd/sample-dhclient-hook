@@ -1,0 +1,13 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# DHCP gateway related functions
+# Copyright (C) 2025 VyOS Inc.
+# Kyrylo Yatsenko
+
+# Try to inform FRR of any events that can change ip or DHCP state
+case "${reason}" in
+    BOUND|RENEW|REBIND|REBOOT|EXPIRE|FAIL|STOP|RELEASE)
+        vtysh -c 'static-route-dhcp-gateway update'
+        ;;
+esac

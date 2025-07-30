@@ -468,8 +468,9 @@ static int static_nexthop_onlink_modify(struct nb_cb_modify_args *args)
 	switch (args->event) {
 	case NB_EV_VALIDATE:
 		nh_type = yang_dnode_get_enum(args->dnode, "../nh-type");
-		if ((nh_type != STATIC_IPV4_GATEWAY_IFNAME)
-		    && (nh_type != STATIC_IPV6_GATEWAY_IFNAME)) {
+		if ((nh_type != STATIC_IPV4_GATEWAY_IFNAME) &&
+		    (nh_type != STATIC_IPV6_GATEWAY_IFNAME) &&
+		    (nh_type != STATIC_IPV4_IFNAME_DHCP_GATEWAY)) {
 			snprintf(
 				args->errmsg, args->errmsg_len,
 				"nexthop type is not the ipv4 or ipv6 interface type");
