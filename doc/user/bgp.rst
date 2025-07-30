@@ -1877,7 +1877,10 @@ Configuring Peers
 
    The ``dual-as`` keyword is used to configure the neighbor to establish a peering
    session using the real autonomous-system number (``router bgp ASN``) or by using
-   the autonomous system number configured with the ``local-as``.
+   the autonomous system number configured with the ``local-as``.  If ``dual-as`` is
+   used be aware of connection collision ordering and attempt to configure this system
+   with a higher ip address so that this connection is preferred.  As that the other
+   side will reject the incoming connection.
 
    This command is only allowed for eBGP peers.
 

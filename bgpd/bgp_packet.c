@@ -1654,6 +1654,9 @@ static int bgp_collision_detect(struct peer_connection *connection,
 	 */
 	if (peer_established(other) ||
 	    other->status == Clearing) {
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("New connection starting from %pI4 but a competing connection is already in established or clearing",
+				   &remote_id.s_addr);
 		bgp_notify_send(connection, BGP_NOTIFY_CEASE,
 				BGP_NOTIFY_CEASE_COLLISION_RESOLUTION);
 		return -1;
@@ -1691,6 +1694,9 @@ static int bgp_collision_detect(struct peer_connection *connection,
 					BGP_NOTIFY_CEASE_COLLISION_RESOLUTION);
 			return 1;
 		} else {
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("New Connection received, but existing connection from %pI4 will win collision detection so dropping this new connection",
+					   &remote_id.s_addr);
 			bgp_notify_send(connection, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_COLLISION_RESOLUTION);
 			return -1;
