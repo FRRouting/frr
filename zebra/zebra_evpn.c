@@ -1304,14 +1304,20 @@ int zebra_evpn_vtep_uninstall(struct zebra_evpn *zevpn, struct in_addr *vtep_ip)
  * Install or uninstall flood entries in the kernel corresponding to
  * remote VTEPs. This is invoked upon change to BUM handling.
  */
-void zebra_evpn_handle_flooding_remote_vteps(struct hash_bucket *bucket,
-					     void *zvrf)
+void zebra_evpn_handle_flooding_remote_vteps(struct hash_bucket *bucket, void *args[])
 {
 	struct zebra_evpn *zevpn;
 	struct zebra_vtep *zvtep;
+	vni_t vni = *(vni_t *)args[0];
 
 	zevpn = (struct zebra_evpn *)bucket->data;
 	if (!zevpn)
+		return;
+
+	/* If this is a per-VNI flooding change, then check if this is the right VNI.
+	 * Ignore if it's a global change.
+	 */
+	if (vni != VNI_MAX && zevpn->vni != vni)
 		return;
 
 	for (zvtep = zevpn->vteps; zvtep; zvtep = zvtep->next) {
