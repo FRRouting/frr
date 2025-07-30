@@ -224,6 +224,22 @@ PIM Routers
    never do SM over. This command is vrf aware, to configure for a vrf, specify
    the vrf in the router pim block.
 
+.. clicmd:: join-filter route-map RMAP_NAME
+
+   Specify a route-map name to use for filtering incoming PIM joins.
+
+   The following route-map match statements can be used:
+
+   * match ip multicast-group A.B.C.D
+
+   * match ip multicast-group prefix-list IPV4-PREFIX-LIST
+
+   * match ip multicast-source A.B.C.D
+
+   * match ip multicast-source prefix-list IPV4-PREFIX-LIST
+
+   * match multicast-interface INTERFACE-NAME
+
 .. clicmd:: rpf-lookup-mode MODE [group-list PREFIX_LIST] [source-list PREFIX_LIST]
 
    MODE sets the method used to perform RPF lookups. Supported modes:
