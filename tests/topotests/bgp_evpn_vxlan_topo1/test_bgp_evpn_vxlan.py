@@ -16,7 +16,6 @@ import os
 import sys
 import json
 from functools import partial
-from time import sleep
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -344,9 +343,7 @@ def ip_learn_test(tgen, host, local, remote, ip_addr):
     assert result, assertmsg
 
     # now lets check the remote
-    count = 0
-    converged = False
-    while count < 30:
+    def check_remote_ip_learned():
         remote_output = remote.vtysh_cmd(
             "show evpn mac vni 101 mac {} json".format(mac)
         )
@@ -359,19 +356,21 @@ def ip_learn_test(tgen, host, local, remote, ip_addr):
                 remote_output_json[mac]["neighbors"]["active"]
                 or remote_output_json[mac]["neighbors"]["inactive"]
             ):
-                converged = True
-                break
-        count += 1
-        sleep(1)
+                # Store the data for later use
+                check_remote_ip_learned.remote_output_json = remote_output_json
+                check_remote_ip_learned.type = type
+                return True
+        return False
 
-    print("tries: {}".format(count))
+    _, result = topotest.run_and_expect(check_remote_ip_learned, True, count=30, wait=1)
     assertmsg = "{} remote learned mac no address: {} ".format(host.name, mac)
-    # some debug for this failure
-    if not converged == True:
-        log_output = remote.run("cat zebra.log")
-        print(log_output)
 
-    assert converged == True, assertmsg
+    assert result, assertmsg
+
+    # Get the data from the successful check
+    remote_output_json = check_remote_ip_learned.remote_output_json
+    type = check_remote_ip_learned.type
+
     if remote_output_json[mac]["neighbors"]["active"]:
         learned_ip = remote_output_json[mac]["neighbors"]["active"][0]
     else:
