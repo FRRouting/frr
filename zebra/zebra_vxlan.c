@@ -5390,9 +5390,6 @@ void zebra_vxlan_flood_control(ZAPI_HANDLER_ARGS)
 				   vni, zvrf->vxlan_flood_ctrl);
 	}
 
-	if (zvrf->vxlan_flood_ctrl == flood_ctrl)
-		return;
-
 	zvrf->vxlan_flood_ctrl = flood_ctrl;
 
 	args[0] = &vni;
