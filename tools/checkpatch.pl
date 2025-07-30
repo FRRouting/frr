@@ -1366,6 +1366,7 @@ sub top_of_kernel_tree {
 		"COPYING", "configure.ac", "Makefile.am",
 		"README.md", "doc", "lib", "vtysh", "watchfrr", "tests",
 		"zebra", "bgpd", "ospfd", "ospf6d", "isisd", "staticd",
+		"dhcpgwd",
 
 	);
 

@@ -23,6 +23,7 @@
    frr-ripngd
    frr-sharpd
    frr-staticd
+   frr-dhcpgwd
    frr-watchfrr
    frr-zebra
    frr-vrrpd

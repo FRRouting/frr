@@ -19,7 +19,7 @@ ie for `ospf6d` (OSPFv3):
 
 The daemons are: `ripd`, `ripngd`, `ospfd`, `ospf6d`, `isisd`, `bgpd`, 
 `pimd`, `pim6d`, `ldpd`, `eigrpd`, `babeld`, `nhrpd`, `bfdd`, `vrrpd`,
-`pbrd`, `pathd`, `fabricd`, `staticd`, `zebra`
+`pbrd`, `pathd`, `fabricd`, `staticd`, `dhcpgwd` `zebra`
 
 Commands defined by this snap
 -----------------------------
@@ -67,6 +67,8 @@ depend on them). These are mainly intended to debug the Snap
         Starts pbrd daemon in foreground
 - `frr.staticd-debug`:
         Starts staticd daemon in foreground
+- `frr.dhcpgwd-debug`:
+        Starts dhcpgwd daemon in foreground
 - `frr.bfdd-debug`:
         Starts bfdd daemon in foreground
 - `frr.fabricd-debug`:

@@ -1,0 +1,40 @@
+#
+# dhcpgwd
+#
+
+if DHCPGWD
+noinst_LIBRARIES += dhcpgwd/libdhcpgw.a
+sbin_PROGRAMS += dhcpgwd/dhcpgwd dhcpgwd/update-dhcp-gw
+vtysh_daemons += dhcpgwd
+man8 += $(MANBUILD)/frr-dhcpgwd.8
+endif
+
+dhcpgwd_libdhcpgw_a_SOURCES = \
+	dhcpgwd/dhcpgw_debug.c \
+	dhcpgwd/dhcpgw_vty.c \
+    dhcpgwd/dhcpgw_state.c \
+    dhcpgwd/dhcpgw_routes.c \
+	# end
+
+noinst_HEADERS += \
+	dhcpgwd/dhcpgw_debug.h \
+	dhcpgwd/dhcpgw_vty.h \
+    dhcpgwd/dhcpgw_state.h \
+    dhcpgwd/dhcpgw_routes.h \
+	# end
+
+clippy_scan += \
+	dhcpgwd/dhcpgw_vty.c \
+	# end
+
+dhcpgwd_dhcpgwd_SOURCES = dhcpgwd/dhcpgw_main.c
+dhcpgwd_dhcpgwd_LDADD = dhcpgwd/libdhcpgw.a lib/libfrr.la $(LIBCAP) $(LIBYANG_LIBS)
+
+dhcpgwd_update_dhcp_gw_SOURCES = dhcpgwd/update_dhcp_gw.c
+dhcpgwd_update_dhcp_gw_LDADD = dhcpgwd/libdhcpgw.a lib/libfrr.la
+
+sbin_SCRIPTS += \
+	dhcpgwd/sample-dhclient-hook \
+	dhcpgwd/sample-dhcpcd-hook \
+	dhcpgwd/sample-udhcpc-hook \
+	# end

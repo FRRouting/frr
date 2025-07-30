@@ -27,6 +27,7 @@
 #include "ripd/rip_nb.h"
 #include "ripngd/ripng_nb.h"
 #include "staticd/static_vty.h"
+#include "dhcpgwd/dhcpgw_vty.h"
 #include "zebra/zebra_cli.h"
 
 extern struct frr_daemon_info *mgmt_daemon_info;
@@ -623,6 +624,9 @@ void mgmt_vty_init(void)
 #endif
 #ifdef HAVE_STATICD
 	static_vty_init();
+#endif
+#ifdef HAVE_DHCPGWD
+	dhcpgw_vty_init();
 #endif
 
 	event_add_event(mm->master, mgmt_config_read_in, NULL, 0,

@@ -1,0 +1,20 @@
+#!/bin/sh
+
+set -e -x
+
+if ! [ -e $SNAP_DATA/dhcpgwd.conf ]; then
+    if [ -e $SNAP_DATA/zebra.conf ]; then
+        # if we have a zebra.conf, but no dhcpgwd conf, then we use
+        # this file as the default config for dhcpgwd
+        cp $SNAP_DATA/zebra.conf $SNAP_DATA/dhcpgwd.conf
+    else
+        # new config, start with template
+        cp $SNAP/etc/frr/dhcpgwd.conf $SNAP_DATA/dhcpgwd.conf
+    fi
+fi
+exec $SNAP/sbin/dhcpgwd \
+    -f $SNAP_DATA/dhcpgwd.conf \
+    --pid_file $SNAP_DATA/dhcpgwd.pid \
+    --socket $SNAP_DATA/zsock \
+    --vty_socket $SNAP_DATA
+

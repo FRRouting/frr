@@ -139,6 +139,9 @@ char const *const mgmt_daemons[] = {
 #ifdef HAVE_STATICD
 	"staticd",
 #endif
+#ifdef HAVE_DHCPGWD
+	"dhcpgwd",
+#endif
 };
 uint mgmt_daemons_count = array_size(mgmt_daemons);
 

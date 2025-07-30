@@ -38,6 +38,9 @@ enum mgmt_be_client_id {
 #ifdef HAVE_STATICD
 	MGMTD_BE_CLIENT_ID_STATICD,
 #endif
+#ifdef HAVE_DHCPGWD
+	MGMTD_BE_CLIENT_ID_DHCPGWD,
+#endif
 	MGMTD_BE_CLIENT_ID_MAX
 };
 #define MGMTD_BE_CLIENT_ID_MIN	0
