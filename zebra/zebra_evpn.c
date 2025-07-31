@@ -46,13 +46,11 @@ DEFINE_MTYPE_STATIC(ZEBRA, ZEVPN_VTEP, "VNI remote VTEP");
 /* PMSI strings. */
 #define VXLAN_FLOOD_STR_NO_INFO "-"
 #define VXLAN_FLOOD_STR_DEFAULT VXLAN_FLOOD_STR_NO_INFO
-static const struct message zvtep_flood_str[] = {
-	{VXLAN_FLOOD_DISABLED, VXLAN_FLOOD_STR_NO_INFO},
-	{VXLAN_FLOOD_PIM_SM, "PIM-SM"},
-	{VXLAN_FLOOD_HEAD_END_REPL, "HER"},
-	{VXLAN_FLOOD_NONE, "None"},
-	{0}
-};
+static const struct message zvtep_flood_str[] = { { VXLAN_FLOOD_DISABLED, VXLAN_FLOOD_STR_NO_INFO },
+						  { VXLAN_FLOOD_PIM_SM, "PIM-SM" },
+						  { VXLAN_FLOOD_HEAD_END_REPL, "HER" },
+						  { VXLAN_FLOOD_INHERIT_GLOBAL, "Inherit Global" },
+						  { 0 } };
 
 int advertise_gw_macip_enabled(struct zebra_evpn *zevpn)
 {
