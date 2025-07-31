@@ -108,7 +108,7 @@ def test_capabilities(tgen):
     logging.debug("grpc output: %s", output)
 
     modules = sorted(re.findall('name: "([^"]+)"', output))
-    expected = ["frr-backend", "frr-interface", "frr-routing", "frr-staticd", "frr-vrf"]
+    expected = ["frr-backend", "frr-host", "frr-interface", "frr-logging", "frr-routing", "frr-staticd", "frr-vrf", "ietf-srv6-types", "ietf-syslog-types"]
     assert modules == expected
 
     encodings = sorted(re.findall("supported_encodings: (.*)", output))
@@ -149,6 +149,13 @@ def test_get_config(tgen):
         }
       }
     ]
+  },
+  "frr-logging:logging": {
+    "file": {
+      "filename": "mgmtd.log"
+    },
+    "record-priority": true,
+    "timestamp-precision": 6
   }
 } """
     )
