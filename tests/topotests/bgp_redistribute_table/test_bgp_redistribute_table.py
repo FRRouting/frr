@@ -228,7 +228,7 @@ def test_step5_no_redistribute_table_2200():
         pytest.skip(tgen.errors)
 
     tgen.gears["r2"].vtysh_cmd(
-        "configure terminal\nrouter bgp 65501\naddress-family ipv4 unicast\nno redistribute table-direct\n"
+        "configure terminal\nrouter bgp 65501\naddress-family ipv4 unicast\nno redistribute table-direct 2200\n"
     )
 
     step("r2, check that the 'redistribute' command is not configured")
