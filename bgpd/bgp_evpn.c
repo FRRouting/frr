@@ -84,6 +84,23 @@ static struct in_addr zero_vtep_ip;
 
 static uint32_t bgp_evpn_addpath_id_for_path(const struct bgp *bgp, const struct bgp_path_info *pi,
 					     afi_t afi);
+
+static const char *vxlan_flood_control_str(enum vxlan_flood_control flood_ctrl)
+{
+	switch (flood_ctrl) {
+	case VXLAN_FLOOD_HEAD_END_REPL:
+		return "Flooding";
+	case VXLAN_FLOOD_DISABLED:
+		return "Disabled";
+	case VXLAN_FLOOD_PIM_SM:
+		return "PIM-SM";
+	case VXLAN_FLOOD_INHERIT_GLOBAL:
+		return "Inherit Global";
+	default:
+		return "unknown";
+	}
+}
+
 /*
  * Private functions.
  */
@@ -2882,10 +2899,10 @@ static int bgp_evpn_vni_flood_mode_get(struct bgp *bgp,
 			   vpn->bgp_vrf ? vrf_id_to_name(vpn->bgp_vrf->vrf_id) : "UNKNOWN",
 			   vpn->vni, vpn->vxlan_flood_ctrl, bgp->vxlan_flood_ctrl);
 
-	/* If per-VNI flood mode is not none and differs from global mode,
+	/* If per-VNI flood mode is set and differs from global mode,
 	 * use per-VNI mode.
 	 */
-	if (vpn->vxlan_flood_ctrl != VXLAN_FLOOD_NONE &&
+	if (vpn->vxlan_flood_ctrl != VXLAN_FLOOD_INHERIT_GLOBAL &&
 	    vpn->vxlan_flood_ctrl != bgp->vxlan_flood_ctrl)
 		return vpn->vxlan_flood_ctrl;
 
@@ -6573,7 +6590,7 @@ struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
 	vpn->tenant_vrf_id = tenant_vrf_id;
 	vpn->mcast_grp = mcast_grp;
 	vpn->svi_ifindex = svi_ifindex;
-	vpn->vxlan_flood_ctrl = VXLAN_FLOOD_NONE;
+	vpn->vxlan_flood_ctrl = VXLAN_FLOOD_INHERIT_GLOBAL;
 
 	/* Initialize route-target import and export lists */
 	vpn->import_rtl = list_new();
@@ -7554,8 +7571,7 @@ void bgp_evpn_flood_control_change(struct bgp *bgp, struct bgpevpn *evpn)
 
 	if (!evpn) {
 		zlog_info("L2VPN EVPN BUM handling is %s",
-			  bgp->vxlan_flood_ctrl == VXLAN_FLOOD_HEAD_END_REPL ? "Flooding"
-									     : "Flooding Disabled");
+			  vxlan_flood_control_str(bgp->vxlan_flood_ctrl));
 
 		bgp_zebra_vxlan_flood_control(bgp, NULL);
 		if (bgp->vxlan_flood_ctrl == VXLAN_FLOOD_HEAD_END_REPL)
@@ -7571,11 +7587,11 @@ void bgp_evpn_flood_control_change(struct bgp *bgp, struct bgpevpn *evpn)
 	}
 
 	zlog_info("L2VPN EVPN BUM handling for VNI %u is %s", evpn->vni,
-		  evpn->vxlan_flood_ctrl == VXLAN_FLOOD_HEAD_END_REPL ? "Flooding"
-								      : "Flooding Disabled");
+		  vxlan_flood_control_str(evpn->vxlan_flood_ctrl));
 
 	bgp_zebra_vxlan_flood_control(bgp, evpn);
-	if (evpn->vxlan_flood_ctrl == VXLAN_FLOOD_HEAD_END_REPL)
+	if (evpn->vxlan_flood_ctrl == VXLAN_FLOOD_HEAD_END_REPL ||
+	    evpn->vxlan_flood_ctrl == VXLAN_FLOOD_INHERIT_GLOBAL)
 		hash_iterate(bgp->vnihash,
 			     (void (*)(struct hash_bucket *, void *))create_advertise_type3, args);
 	else if (evpn->vxlan_flood_ctrl == VXLAN_FLOOD_DISABLED)
