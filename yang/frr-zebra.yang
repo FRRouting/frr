@@ -161,6 +161,12 @@ module frr-zebra {
       "Zebra interface type gre.";
   }
 
+  identity zif-dummy {
+    base zebra-interface-type;
+    description
+      "Zebra interface type dummy.";
+  }
+
   // End of ip6-route
   /*
    * VxLAN Network Identifier type
