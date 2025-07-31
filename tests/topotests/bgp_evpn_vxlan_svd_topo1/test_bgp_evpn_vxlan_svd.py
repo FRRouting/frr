@@ -446,20 +446,22 @@ def ip_learn_test(tgen, host, local, remote, ip_addr):
     # check we have a local association between the MAC and IP
     def check_local_ip_learned():
         try:
-            local_output = local.vtysh_cmd("show evpn mac vni 101 mac {} json".format(mac))
+            local_output = local.vtysh_cmd(
+                "show evpn mac vni 101 mac {} json".format(mac)
+            )
             # print(local_output)
             local_output_json = json.loads(local_output)
             mac_type = local_output_json[mac]["type"]
             if local_output_json[mac]["neighbors"] == "none":
                 return False
             learned_ip = local_output_json[mac]["neighbors"]["active"][0]
-            
+
             if mac_type != "local":
                 return False
-                
+
             if ip_addr != learned_ip:
                 return False
-                
+
             return True
         except (KeyError, IndexError, json.JSONDecodeError):
             return False
@@ -499,11 +501,9 @@ def ip_learn_test(tgen, host, local, remote, ip_addr):
         # print(log_output)
 
     assert result, assertmsg
-    
+
     # Now verify the learned IP details
-    remote_output = remote.vtysh_cmd(
-        "show evpn mac vni 101 mac {} json".format(mac)
-    )
+    remote_output = remote.vtysh_cmd("show evpn mac vni 101 mac {} json".format(mac))
     remote_output_json = json.loads(remote_output)
     type = remote_output_json[mac]["type"]
     if remote_output_json[mac]["neighbors"]["active"]:
