@@ -6236,12 +6236,14 @@ DEFPY(bgp_evpn_flood_control_vni,
 	if (!evpn)
 		return CMD_WARNING;
 
-	if (disable && !no)
-		flood_ctrl = VXLAN_FLOOD_DISABLED;
-	else if (her)
-		flood_ctrl = VXLAN_FLOOD_HEAD_END_REPL;
-	else
+	if (no) {
 		flood_ctrl = VXLAN_FLOOD_INHERIT_GLOBAL;
+	} else {
+		if (disable)
+			flood_ctrl = VXLAN_FLOOD_DISABLED;
+		else if (her)
+			flood_ctrl = VXLAN_FLOOD_HEAD_END_REPL;
+	}
 
 	if (evpn->vxlan_flood_ctrl == flood_ctrl)
 		return CMD_SUCCESS;
