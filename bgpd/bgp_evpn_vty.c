@@ -6241,7 +6241,7 @@ DEFPY(bgp_evpn_flood_control_vni,
 	else if (her)
 		flood_ctrl = VXLAN_FLOOD_HEAD_END_REPL;
 	else
-		flood_ctrl = VXLAN_FLOOD_NONE;
+		flood_ctrl = VXLAN_FLOOD_INHERIT_GLOBAL;
 
 	if (evpn->vxlan_flood_ctrl == flood_ctrl)
 		return CMD_SUCCESS;

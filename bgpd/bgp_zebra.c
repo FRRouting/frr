@@ -2539,7 +2539,7 @@ int bgp_zebra_vxlan_flood_control(struct bgp *bgp, struct bgpevpn *evpn)
 {
 	struct stream *s;
 	vni_t vni = evpn ? evpn->vni : VNI_MAX;
-	int flood_control = (evpn && evpn->vxlan_flood_ctrl != VXLAN_FLOOD_NONE)
+	int flood_control = (evpn && evpn->vxlan_flood_ctrl != VXLAN_FLOOD_INHERIT_GLOBAL)
 				    ? evpn->vxlan_flood_ctrl
 				    : bgp->vxlan_flood_ctrl;
 
