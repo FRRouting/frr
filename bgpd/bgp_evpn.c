@@ -4876,9 +4876,7 @@ static void create_advertise_type3(struct hash_bucket *bucket, void *data[])
 	struct bgpevpn *evpn = data[1];
 	struct prefix_evpn p;
 
-	if (!vpn || !is_vni_live(vpn) ||
-		bgp_evpn_vni_flood_mode_get(bgp, vpn)
-					!= VXLAN_FLOOD_HEAD_END_REPL)
+	if (!vpn || !is_vni_live(vpn))
 		return;
 
 	if (evpn && vpn->vni != evpn->vni)
@@ -7578,11 +7576,10 @@ void bgp_evpn_flood_control_change(struct bgp *bgp, struct bgpevpn *evpn)
 		  vxlan_flood_control_str(evpn->vxlan_flood_ctrl));
 
 	bgp_zebra_vxlan_flood_control(bgp, evpn);
-	if (evpn->vxlan_flood_ctrl == VXLAN_FLOOD_HEAD_END_REPL ||
-	    evpn->vxlan_flood_ctrl == VXLAN_FLOOD_INHERIT_GLOBAL)
+	if (bgp_evpn_vni_flood_mode_get(bgp, evpn) == VXLAN_FLOOD_HEAD_END_REPL)
 		hash_iterate(bgp->vnihash,
 			     (void (*)(struct hash_bucket *, void *))create_advertise_type3, args);
-	else if (evpn->vxlan_flood_ctrl == VXLAN_FLOOD_DISABLED)
+	else if (bgp_evpn_vni_flood_mode_get(bgp, evpn) == VXLAN_FLOOD_DISABLED)
 		hash_iterate(bgp->vnihash,
 			     (void (*)(struct hash_bucket *, void *))delete_withdraw_type3, args);
 }
