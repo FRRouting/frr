@@ -3020,6 +3020,11 @@ static void zread_srv6_manager_get_locator_chunk(struct zserv *client,
 
 	/* Get data. */
 	STREAM_GETW(s, len);
+	if (len > SRV6_LOCNAME_SIZE) {
+		zlog_warn("%s: SRv6 locator name length %u exceeds maximum %d", __func__, len,
+			  SRV6_LOCNAME_SIZE);
+		goto stream_failure;
+	}
 	STREAM_GET(locator_name, s, len);
 
 	/* call hook to get a chunk using wrapper */
@@ -3040,6 +3045,11 @@ static void zread_srv6_manager_release_locator_chunk(struct zserv *client,
 
 	/* Get data. */
 	STREAM_GETW(s, len);
+	if (len > SRV6_LOCNAME_SIZE) {
+		zlog_warn("%s: SRv6 locator name length %u exceeds maximum %d", __func__, len,
+			  SRV6_LOCNAME_SIZE);
+		goto stream_failure;
+	}
 	STREAM_GET(locator_name, s, len);
 
 	/* call hook to release a chunk using wrapper */
