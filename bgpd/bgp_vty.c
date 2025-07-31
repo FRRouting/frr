@@ -10865,6 +10865,11 @@ DEFPY (bgp_imexport_vpn,
 
 	if (argv_find(argv, argc, "no", &idx))
 		yes = false;
+	else {
+		afi = vpn_policy_getafi(vty, bgp, false);
+		if (afi == AFI_MAX)
+			return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	if (BGP_INSTANCE_TYPE_VRF != bgp->inst_type &&
 		BGP_INSTANCE_TYPE_DEFAULT != bgp->inst_type) {
