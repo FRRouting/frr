@@ -2087,7 +2087,6 @@ dnl gRPC
 dnl ---------------
 if test "$enable_grpc" = "yes"; then
   AC_LANG_PUSH([C++])
-  AX_CXX_COMPILE_STDCXX([11], [ext])
   PKG_CHECK_MODULES([GRPC], [grpc >= 6.0.0 grpc++ >= 1.16.1 protobuf >= 3.6.1 ], [
     AC_CHECK_PROGS([PROTOC], [protoc], [/bin/false])
     if test "$PROTOC" = "/bin/false"; then
