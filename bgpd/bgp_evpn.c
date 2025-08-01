@@ -3910,6 +3910,13 @@ int bgp_evpn_route_entry_install_if_vrf_match(struct bgp *bgp_vrf,
 	const struct prefix_evpn *evp =
 		(const struct prefix_evpn *)bgp_dest_get_prefix(pi->net);
 
+	/* Consider "valid" remote routes applicable for
+	 * this VRF.
+	 */
+	if (!(CHECK_FLAG(pi->flags, BGP_PATH_VALID) && pi->type == ZEBRA_ROUTE_BGP &&
+	      pi->sub_type == BGP_ROUTE_NORMAL))
+		return 0;
+
 	if (is_route_matching_for_vrf(bgp_vrf, pi)) {
 		if (bgp_evpn_route_rmac_self_check(bgp_vrf, evp, pi))
 			return 0;
