@@ -1894,10 +1894,15 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid, struct srv6_sid_ct
 
 	zebra_srv6_sid_entry_add(*sid, locator->name, sid_value, is_localonly);
 
-	if (IS_ZEBRA_DEBUG_SRV6)
+	if (!IS_ZEBRA_DEBUG_SRV6)
+		return 1;
+	if ((*sid)->wide_func == 0)
 		zlog_debug("%s: allocated explicit SRv6 SID function %u for context %s", __func__,
 			   (*sid)->func, srv6_sid_ctx2str(buf, sizeof(buf), ctx));
-
+	else
+		zlog_debug("%s: allocated explicit SRv6 SID function %u (wide SID %u) for context %s",
+			   __func__, (*sid)->func, (*sid)->wide_func,
+			   srv6_sid_ctx2str(buf, sizeof(buf), ctx));
 	return 1;
 }
 
