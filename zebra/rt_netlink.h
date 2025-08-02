@@ -100,7 +100,6 @@ extern int netlink_macfdb_read_specific_mac(struct zebra_ns *zns,
 					    uint16_t vid);
 extern int netlink_neigh_read_specific_ip(const struct ipaddr *ip,
 					  struct interface *vlan_if);
-
 struct nl_batch;
 extern enum netlink_msg_status
 netlink_put_route_update_msg(struct nl_batch *bth,
