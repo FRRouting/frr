@@ -880,7 +880,10 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 %changelog
 
-* Fri May 30 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+* Sat Aug 02 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> - %{version}
+
+* Sat Aug 02 2025 Donatas Abraitis <donatas@opensourcerouting.org> - 10.3.2
+- New upstream release 10.3.2
 
 * Fri May 30 2025 Jafar Al-Gharaibeh <jafar@atcorp.com> - 10.3.1
 - New upstream release 10.3.1
