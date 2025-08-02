@@ -22,7 +22,7 @@
                 {
                     "metric": 0,
                     "parent": "r1(4)",
-                    "type": "IP internal",
+                    "type": "IP TE",
                     "vertex": "10.0.20.0/24"
                 },
                 {
@@ -40,14 +40,6 @@
                     "parent": "r3(4)",
                     "type": "IP TE",
                     "vertex": "10.0.10.0/24"
-                },
-                {
-                    "interface": "r1-eth0",
-                    "metric": 10,
-                    "nextHop": "r3",
-                    "parent": "r3(4)",
-                    "type": "IP TE",
-                    "vertex": "10.0.20.0/24"
                 },
                 {
                     "interface": "r1-eth0",
