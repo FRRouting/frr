@@ -350,8 +350,6 @@ static void *fpt_run(void *arg)
 	struct frr_pthread *fpt = arg;
 	fpt->master->owner = pthread_self();
 
-	zlog_tls_buffer_init();
-
 	int sleeper[2];
 	pipe(sleeper);
 	event_add_read(fpt->master, &fpt_dummy, NULL, sleeper[0], NULL);
