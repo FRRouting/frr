@@ -7649,6 +7649,7 @@ void zebra_dplane_shutdown(void)
 {
 	struct zebra_dplane_provider *dp;
 	struct zebra_dplane_ctx *ctx;
+	struct dplane_zns_info *zi;
 
 	if (IS_ZEBRA_DEBUG_DPLANE)
 		zlog_debug("Zebra dataplane shutdown called");
@@ -7683,6 +7684,14 @@ void zebra_dplane_shutdown(void)
 		XFREE(MTYPE_DP_PROV, dp);
 
 		dp = dplane_prov_list_first(&zdplane_info.dg_providers);
+	}
+
+	/* Clean up namespace info entries */
+	zi = zns_info_list_first(&zdplane_info.dg_zns_list);
+	while (zi) {
+		zns_info_list_del(&zdplane_info.dg_zns_list, zi);
+		XFREE(MTYPE_DP_NS, zi);
+		zi = zns_info_list_first(&zdplane_info.dg_zns_list);
 	}
 
 	/* TODO -- Clean queue(s), free memory */
