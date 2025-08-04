@@ -896,7 +896,7 @@ static bool community_list_dup_check(struct community_list *list,
 		case COMMUNITY_LIST_EXPANDED:
 		case EXTCOMMUNITY_LIST_EXPANDED:
 		case LARGE_COMMUNITY_LIST_EXPANDED:
-			if (strcmp(entry->config, new->config) == 0)
+			if (new->config && (strcmp(entry->config, new->config) == 0))
 				return true;
 			break;
 		default:
