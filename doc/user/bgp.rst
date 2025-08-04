@@ -3522,6 +3522,21 @@ default VRF. The command to enable EVPN for a BGP instance is
 
 A more comprehensive configuration example can be found in the :ref:`evpn` page.
 
+.. _bgp-evpn-bum-handling:
+
+EVPN BUM Handling
+^^^^^^^^^^^^^^^^^
+
+.. clicmd:: flooding <disable|head-end-replication>
+
+This command controls the handling of BUM (Broadcast, Unknown Unicast, and
+Multicast) traffic in EVPN. The default behavior is to flood BUM traffic
+across all VTEPs in the EVPN instance. BUM traffic can also be handled
+per VNI by entering ``vni`` context first.
+
+When ``disable`` is configured, BUM traffic will not be flooded for an arbitrary
+VNI or globally.
+
 .. _bgp-evpn-l3-route-targets:
 
 EVPN L3 Route-Targets
