@@ -638,6 +638,9 @@ netlink_bridge_vxlan_vlan_vni_map_update(struct zebra_dplane_ctx *ctx,
 	if (count) {
 		vniarray->count = count;
 		dplane_ctx_set_ifp_vxlan_vni_array(ctx, vniarray);
+	} else if (vniarray) {
+		/* Free allocated memory if count is 0 */
+		XFREE(MTYPE_TMP, vniarray);
 	}
 	return 0;
 }
@@ -705,6 +708,9 @@ static void netlink_bridge_vlan_update(struct zebra_dplane_ctx *ctx,
 	if (count) {
 		bvarray->count = count;
 		dplane_ctx_set_ifp_bridge_vlan_info_array(ctx, bvarray);
+	} else if (bvarray) {
+		/* Free allocated memory if count is 0 */
+		XFREE(MTYPE_TMP, bvarray);
 	}
 }
 
@@ -1749,8 +1755,13 @@ int netlink_vlan_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 				   bvm->ifindex, ns_id);
 
 		dplane_provider_enqueue_to_zebra(ctx);
-	} else
+	} else {
+		if (vlan_array) {
+			/* Free allocated memory if count is 0 */
+			XFREE(MTYPE_VLAN_CHANGE_ARR, vlan_array);
+		}
 		dplane_ctx_fini(&ctx);
+	}
 
 
 	return 0;
