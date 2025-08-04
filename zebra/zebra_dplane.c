@@ -7706,6 +7706,23 @@ void zebra_dplane_shutdown(void)
 	}
 	DPLANE_UNLOCK();
 
+	/* Clean up any startup stage contexts in provider queues */
+	frr_each (dplane_prov_list, &zdplane_info.dg_providers, dp) {
+		/* Clean in-queue contexts */
+		ctx = dplane_ctx_list_pop(&dp->dp_ctx_in_list);
+		while (ctx) {
+			dplane_ctx_free(&ctx);
+			ctx = dplane_ctx_list_pop(&dp->dp_ctx_in_list);
+		}
+
+		/* Clean out-queue contexts */
+		ctx = dplane_ctx_list_pop(&dp->dp_ctx_out_list);
+		while (ctx) {
+			dplane_ctx_free(&ctx);
+			ctx = dplane_ctx_list_pop(&dp->dp_ctx_out_list);
+		}
+	}
+
 	/* Destroy global mutex */
 	pthread_mutex_destroy(&zdplane_info.dg_mutex);
 }
