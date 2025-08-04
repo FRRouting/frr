@@ -7679,6 +7679,7 @@ void zebra_dplane_shutdown(void)
 	dp = dplane_prov_list_first(&zdplane_info.dg_providers);
 	while (dp) {
 		dplane_prov_list_del(&zdplane_info.dg_providers, dp);
+		pthread_mutex_destroy(&dp->dp_mutex);
 		XFREE(MTYPE_DP_PROV, dp);
 
 		dp = dplane_prov_list_first(&zdplane_info.dg_providers);
@@ -7695,6 +7696,9 @@ void zebra_dplane_shutdown(void)
 		}
 	}
 	DPLANE_UNLOCK();
+
+	/* Destroy global mutex */
+	pthread_mutex_destroy(&zdplane_info.dg_mutex);
 }
 
 /*
