@@ -3587,7 +3587,7 @@ DEFPY(bgp_evpn_flood_control,
 		return CMD_SUCCESS;
 
 	bgp->vxlan_flood_ctrl = flood_ctrl;
-	bgp_evpn_flood_control_change(bgp, NULL);
+	bgp_evpn_flood_control_change(bgp);
 
 	return CMD_SUCCESS;
 }
@@ -6214,7 +6214,7 @@ DEFPY(bgp_evpn_flood_control_vni,
 		return CMD_SUCCESS;
 
 	evpn->vxlan_flood_ctrl = flood_ctrl;
-	bgp_evpn_flood_control_change(bgp, evpn);
+	bgp_evpn_flood_control_change(bgp);
 
 	return CMD_SUCCESS;
 }
