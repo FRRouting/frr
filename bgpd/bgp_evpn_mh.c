@@ -69,6 +69,7 @@ esi_t zero_esi_buf, *zero_esi = &zero_esi_buf;
 static void bgp_evpn_run_consistency_checks(struct event *t);
 static void bgp_evpn_path_nh_info_free(struct bgp_path_evpn_nh_info *nh_info);
 static void bgp_evpn_path_nh_unlink(struct bgp_path_evpn_nh_info *nh_info);
+static void bgp_evpn_es_vrf_delete(struct bgp_evpn_es_vrf *es_vrf);
 
 /******************************************************************************
  * per-ES (Ethernet Segment) routing table
@@ -1970,9 +1971,22 @@ static void bgp_evpn_es_free(struct bgp_evpn_es *es, const char *caller)
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
 		zlog_debug("%s: es %s free", caller, es->esi_str);
 
+	/* Clean up any remaining ES-VRFs */
+	if (es->es_vrf_list) {
+		struct listnode *node, *next;
+		struct bgp_evpn_es_vrf *es_vrf;
+
+		for (ALL_LIST_ELEMENTS(es->es_vrf_list, node, next, es_vrf)) {
+			if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
+				zlog_debug("es %s vrf %u cleanup with evi ref_cnt %d", es->esi_str,
+					   es_vrf->bgp_vrf->vrf_id, es_vrf->ref_cnt);
+			bgp_evpn_es_vrf_delete(es_vrf);
+		}
+		list_delete(&es->es_vrf_list);
+	}
+
 	/* cleanup resources maintained against the ES */
 	list_delete(&es->es_evi_list);
-	list_delete(&es->es_vrf_list);
 	list_delete(&es->es_vtep_list);
 	list_delete(&es->macip_evi_path_list);
 	list_delete(&es->macip_global_path_list);
@@ -3021,6 +3035,8 @@ static struct bgp_evpn_es_vrf *bgp_evpn_es_vrf_create(struct bgp_evpn_es *es,
 
 	es_vrf->es = es;
 	es_vrf->bgp_vrf = bgp_vrf;
+	es_vrf->ref_cnt = 0;
+	es_vrf->flags = 0;
 
 	/* insert into the VRF-ESI rb tree */
 	RB_INSERT(bgp_es_vrf_rb_head, &bgp_vrf->es_vrf_rb_tree, es_vrf);
@@ -3093,7 +3109,7 @@ void bgp_evpn_es_vrf_deref(struct bgp_evpn_es_evi *es_evi)
 			   es_vrf->bgp_vrf->vrf_id);
 
 	es_evi->es_vrf = NULL;
-	if (es_vrf->ref_cnt)
+	if (es_vrf->ref_cnt > 0)
 		--es_vrf->ref_cnt;
 
 	if (!es_vrf->ref_cnt)
@@ -3130,6 +3146,10 @@ void bgp_evpn_es_vrf_ref(struct bgp_evpn_es_evi *es_evi, struct bgp *bgp_vrf)
 
 	es_evi->es_vrf = es_vrf;
 	++es_vrf->ref_cnt;
+
+	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
+		zlog_debug("es-vrf %s vrf %u evi ref_cnt incremented to %d", es_vrf->es->esi_str,
+			   es_vrf->bgp_vrf->vrf_id, es_vrf->ref_cnt);
 }
 
 /* When the L2-VNI is associated with a L3-VNI/VRF update all the
