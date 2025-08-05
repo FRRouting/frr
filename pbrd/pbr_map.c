@@ -78,18 +78,15 @@ static int pbr_map_interface_compare(const struct pbr_map_interface *pmi1,
 
 static void pbr_map_interface_list_delete(struct pbr_map_interface *pmi)
 {
-	struct pbr_map_interface *pmi_int;
-	struct listnode *node, *nnode;
-	struct pbr_map *pbrm;
+	/* Free pbr_map_interface memory only - zebra updates are handled separately
+	 * during sequence deletion to avoid redundant notifications
+	 */
 
-	RB_FOREACH (pbrm, pbr_map_entry_head, &pbr_maps) {
-		for (ALL_LIST_ELEMENTS(pbrm->incoming, node, nnode, pmi_int)) {
-			if (pmi == pmi_int) {
-				pbr_map_policy_delete(pbrm, pmi);
-				return;
-			}
-		}
-	}
+	struct pbr_map *pbrm = pmi->pbrm;
+
+	if (pbrm)
+		bf_release_index(pbrm->ifi_bitfield, pmi->install_bit);
+	XFREE(MTYPE_PBR_MAP_INTERFACE, pmi);
 }
 
 static bool pbrms_is_installed(const struct pbr_map_sequence *pbrms,
@@ -364,15 +361,20 @@ extern void pbr_map_delete(struct pbr_map_sequence *pbrms)
 		XFREE(MTYPE_TMP, pbrms->nhgrp_name);
 
 	prefix_free(&pbrms->dst);
+	prefix_free(&pbrms->src);
+
+	/* If this is the last sequence in the map, delete the entire map */
+	if (pbrm->seqnumbers->count == 1) {
+		list_delete(&pbrm->incoming);
+		bf_free(pbrm->ifi_bitfield);
+		list_delete(&pbrm->seqnumbers);
+		RB_REMOVE(pbr_map_entry_head, &pbr_maps, pbrm);
+		XFREE(MTYPE_PBR_MAP, pbrm);
+		return;
+	}
 
 	listnode_delete(pbrm->seqnumbers, pbrms);
-
-	if (pbrm->seqnumbers->count == 0) {
-		RB_REMOVE(pbr_map_entry_head, &pbr_maps, pbrm);
-
-		bf_free(pbrm->ifi_bitfield);
-		XFREE(MTYPE_PBR_MAP, pbrm);
-	}
+	pbr_map_sequence_delete(pbrms);
 }
 
 static void pbr_map_delete_common(struct pbr_map_sequence *pbrms)
@@ -516,8 +518,7 @@ struct pbr_map_sequence *pbrms_get(const char *name, uint32_t seqno)
 		pbrm->incoming = list_new();
 		pbrm->incoming->cmp =
 			(int (*)(void *, void *))pbr_map_interface_compare;
-		pbrm->incoming->del =
-			(void (*)(void *))pbr_map_interface_list_delete;
+		pbrm->incoming->del = (void (*)(void *))pbr_map_interface_list_delete;
 
 		RB_INSERT(pbr_map_entry_head, &pbr_maps, pbrm);
 
