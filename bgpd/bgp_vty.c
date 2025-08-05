@@ -1705,13 +1705,7 @@ DEFUN (no_router_bgp,
 		}
 
 		if (bgp->l3vni) {
-			if (CHECK_FLAG(bgp->flags, BGP_FLAG_L3VNI_SCHEDULE_FOR_DELETE))
-				vty_out(vty,
-					"%% L3VNI %u is scheduled to be deleted. Please give it few secs and retry the command\n",
-					bgp->l3vni);
-			else
-				vty_out(vty, "%% Please unconfigure l3vni %u\n", bgp->l3vni);
-
+			vty_out(vty, "%% Please unconfigure l3vni %u\n", bgp->l3vni);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 
