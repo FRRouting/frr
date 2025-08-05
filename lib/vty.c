@@ -77,6 +77,9 @@ static struct mgmt_fe_client *mgmt_fe_client;
 static bool mgmt_fe_connected;
 static uint64_t mgmt_client_id_next;
 
+/* Master of the tasks. */
+static struct event_loop *vty_master;
+
 PREDECL_DLIST(vtyservs);
 
 struct vty_serv {
@@ -223,6 +226,70 @@ void vty_endframe(struct vty *vty, const char *endtext)
 	if (vty->frame_pos == 0 && endtext)
 		vty_out(vty, "%s", endtext);
 	vty->frame_pos = 0;
+}
+
+/*
+ * Callback function for yield/resume; call through to application's
+ * callback.
+ */
+static void yield_resume_cb(struct event *event)
+{
+	struct vty *vty = EVENT_ARG(event);
+	struct vty_yield_resume_s ctx;
+
+	/* Capture application callback info */
+	ctx = vty->yield_resume;
+
+	/* Clear vty's yield callback info */
+	memset(&(vty->yield_resume), 0, sizeof(struct vty_yield_resume_s));
+
+	/* Call through to application */
+	ctx.app_cb(vty, ctx.arg);
+}
+
+/*
+ * Application process wants to yield while sending results/replies.
+ * We'll schedule a task to resume, and call the application's callback.
+ */
+bool vty_yield(struct vty *vty, void (*func)(struct vty *vty, void *arg),
+	       void *arg)
+{
+	/* Clear vty's yield callback info */
+	memset(&(vty->yield_resume), 0, sizeof(struct vty_yield_resume_s));
+
+	vty->yield_resume.app_cb = func;
+	vty->yield_resume.arg = arg;
+
+	event_add_event(vty_master, yield_resume_cb, vty, 0,
+			&vty->yield_resume.t_resume);
+
+	/* Ensure reading new requests is disabled */
+	event_cancel(&vty->t_read);
+
+	return true;
+}
+
+/*
+ *
+ */
+static void yield_finish_internal(struct vty *vty)
+{
+	event_cancel(&(vty->yield_resume.t_resume));
+
+	/* Clear vty's yield callback info */
+	memset(&(vty->yield_resume), 0, sizeof(struct vty_yield_resume_s));
+}
+
+/*
+ * Yield/resume is complete; cancel any scheduled resume task, and return
+ * to normal vty operation (turn on reads, e.g.)
+ */
+void vty_yield_finish(struct vty *vty)
+{
+	yield_finish_internal(vty);
+
+	if (vty->status != VTY_CLOSE)
+		vty_event(VTYSH_READ, vty);
 }
 
 bool vty_set_include(struct vty *vty, const char *regexp)
@@ -1464,8 +1531,8 @@ static void vty_read(struct event *thread)
 	int i;
 	int nbytes;
 	unsigned char buf[VTY_READ_BUFSIZ];
-
 	struct vty *vty = EVENT_ARG(thread);
+	int ret = 0;
 
 	/* Read raw data from socket */
 	if ((nbytes = read(vty->fd, buf, VTY_READ_BUFSIZ)) <= 0) {
@@ -1503,7 +1570,6 @@ static void vty_read(struct event *thread)
 
 		if (vty->iac) {
 			/* In case of telnet command */
-			int ret = 0;
 			ret = vty_telnet_option(vty, buf + i, nbytes - i);
 			vty->iac = 0;
 			i += ret;
@@ -1621,7 +1687,7 @@ static void vty_read(struct event *thread)
 		case '\n':
 			vty_out(vty, "\n");
 			buffer_flush_available(vty->obuf, vty->wfd);
-			vty_execute(vty);
+			ret = vty_execute(vty);
 
 			if (vty->pass_fd != -1) {
 				close(vty->pass_fd);
@@ -1657,7 +1723,10 @@ static void vty_read(struct event *thread)
 		vty_close(vty);
 	else {
 		vty_event(VTY_WRITE, vty);
-		vty_event(VTY_READ, vty);
+
+		/* Don't re-start reads if application wants to yield */
+		if (!event_is_scheduled(vty->yield_resume.t_resume))
+			vty_event(VTY_READ, vty);
 	}
 }
 
@@ -1668,7 +1737,7 @@ static void vty_flush(struct event *thread)
 	buffer_status_t flushrc;
 	struct vty *vty = EVENT_ARG(thread);
 
-	/* Tempolary disable read thread. */
+	/* Temporarily disable reads. */
 	if (vty->lines == 0)
 		event_cancel(&vty->t_read);
 
@@ -2557,6 +2626,14 @@ void vty_close(struct vty *vty)
 
 	vty->status = VTY_CLOSE;
 
+	/* If application was doing yield/resume, notify it by calling
+	 * its callback with a NULL vty argument.
+	 */
+	if (vty->yield_resume.app_cb) {
+		(vty->yield_resume.app_cb)(NULL, vty->yield_resume.arg);
+		yield_finish_internal(vty);
+	}
+
 	/*
 	 * If we reach here with pending config to commit we will be losing it
 	 * so warn the user.
@@ -2886,6 +2963,7 @@ FILE *vty_open_config(const char *config_file, char *config_default_dir)
 		}
 #endif /* VTYSH */
 		confp = fopen(config_default_dir, "r");
+
 		if (confp == NULL) {
 			flog_err(
 				EC_LIB_SYSTEM_CALL,
@@ -3068,9 +3146,6 @@ int vty_config_node_exit(struct vty *vty)
 
 	return 1;
 }
-
-/* Master of the threads. */
-static struct event_loop *vty_master;
 
 static void vty_event_serv(enum vty_event event, struct vty_serv *vty_serv)
 {
