@@ -1068,7 +1068,6 @@ void frr_config_fork(void)
 	if (!di->pid_file)
 		di->pid_file = pidfile_default;
 	pid_output(di->pid_file);
-	zlog_tls_buffer_init();
 }
 
 static void frr_check_detach(void)
