@@ -464,6 +464,7 @@ int zebra_rib_queue_evpn_rem_vtep_del(vrf_id_t vrf_id, vni_t vni,
 
 extern void meta_queue_free(struct meta_queue *mq, struct zebra_vrf *zvrf);
 extern int zebra_rib_labeled_unicast(struct route_entry *re);
+extern void rib_meta_queue_early_route_cleanup(const struct prefix *p, int route_type);
 extern struct route_table *rib_table_ipv6;
 
 extern void rib_unlink(struct route_node *rn, struct route_entry *re);
