@@ -81,6 +81,22 @@ static struct in_addr zero_vtep_ip;
 
 static void bgp_evpn_local_l3vni_del_post_processing(struct bgp *bgp_vrf);
 
+static const char *vxlan_flood_control_str(enum vxlan_flood_control flood_ctrl)
+{
+	switch (flood_ctrl) {
+	case VXLAN_FLOOD_HEAD_END_REPL:
+		return "Flooding";
+	case VXLAN_FLOOD_DISABLED:
+		return "Disabled";
+	case VXLAN_FLOOD_PIM_SM:
+		return "PIM-SM";
+	case VXLAN_FLOOD_INHERIT_GLOBAL:
+		return "Inherit Global";
+	default:
+		return "unknown";
+	}
+}
+
 /*
  * Private functions.
  */
@@ -1035,8 +1051,8 @@ bgp_zebra_send_remote_vtep(struct bgp *bgp, struct bgpevpn *vpn,
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	if (bgp_debug_zebra(NULL))
-		zlog_debug("Tx %s Remote VTEP, VNI %u remote VTEP %pI4",
-			   add ? "ADD" : "DEL", (vpn ? vpn->vni : 0),
+		zlog_debug("Tx %s Remote VTEP, VNI %u (flood control %d) remote VTEP %pI4",
+			   add ? "ADD" : "DEL", (vpn ? vpn->vni : 0), flood_control,
 			   &p->prefix.imet_addr.ip.ipaddr_v4);
 
 	frrtrace(3, frr_bgp, evpn_bum_vtep_zsend, add, vpn, p);
@@ -2829,6 +2845,18 @@ static void delete_all_vni_routes(struct bgp *bgp, struct bgpevpn *vpn)
 static int bgp_evpn_vni_flood_mode_get(struct bgp *bgp,
 					struct bgpevpn *vpn)
 {
+	if (bgp_debug_zebra(NULL))
+		zlog_debug("VRF %s vni %u flood mode %d (global flood mode %d)",
+			   vrf_id_to_name(vpn->bgp_vrf->vrf_id), vpn->vni, vpn->vxlan_flood_ctrl,
+			   bgp->vxlan_flood_ctrl);
+
+	/* If per-VNI flood mode is set and differs from global mode,
+	 * use per-VNI mode.
+	 */
+	if (vpn->vxlan_flood_ctrl != VXLAN_FLOOD_INHERIT_GLOBAL &&
+	    vpn->vxlan_flood_ctrl != bgp->vxlan_flood_ctrl)
+		return vpn->vxlan_flood_ctrl;
+
 	/* if flooding has been globally disabled per-vni mode is
 	 * not relevant
 	 */
@@ -4837,42 +4865,38 @@ static void withdraw_router_id_vni(struct hash_bucket *bucket, struct bgp *bgp)
 	delete_withdraw_vni_routes(bgp, vpn);
 }
 
-/*
- * Create RT-3 for a VNI and schedule for processing and advertisement.
- * This is invoked upon flooding mode changing to head-end replication.
- */
-static void create_advertise_type3(struct hash_bucket *bucket, void *data)
+static void advertise_withdraw_type3(struct hash_bucket *bucket, void *data)
 {
 	struct bgpevpn *vpn = bucket->data;
 	struct bgp *bgp = data;
 	struct prefix_evpn p;
-
-	if (!vpn || !is_vni_live(vpn) ||
-		bgp_evpn_vni_flood_mode_get(bgp, vpn)
-					!= VXLAN_FLOOD_HEAD_END_REPL)
-		return;
-
-	build_evpn_type3_prefix(&p, vpn->originator_ip);
-	if (update_evpn_route(bgp, vpn, &p, 0, 0, NULL))
-		flog_err(EC_BGP_EVPN_ROUTE_CREATE,
-			 "Type3 route creation failure for VNI %u", vpn->vni);
-}
-
-/*
- * Delete RT-3 for a VNI and schedule for processing and withdrawal.
- * This is invoked upon flooding mode changing to drop BUM packets.
- */
-static void delete_withdraw_type3(struct hash_bucket *bucket, void *data)
-{
-	struct bgpevpn *vpn = bucket->data;
-	struct bgp *bgp = data;
-	struct prefix_evpn p;
+	int flood_control;
 
 	if (!vpn || !is_vni_live(vpn))
 		return;
 
-	build_evpn_type3_prefix(&p, vpn->originator_ip);
-	delete_evpn_route(bgp, vpn, &p);
+	zlog_info("L2VPN EVPN BUM handling for VNI %u is %s", vpn->vni,
+		  vxlan_flood_control_str(vpn->vxlan_flood_ctrl));
+
+	bgp_zebra_vxlan_flood_control(bgp, vpn);
+
+	flood_control = bgp_evpn_vni_flood_mode_get(bgp, vpn);
+
+	/* Create RT-3 for a VNI and schedule for processing and advertisement.
+	 * This is invoked upon flooding mode changing to head-end replication.
+	 */
+	if (flood_control == VXLAN_FLOOD_HEAD_END_REPL) {
+		build_evpn_type3_prefix(&p, vpn->originator_ip);
+		if (update_evpn_route(bgp, vpn, &p, 0, 0, NULL))
+			flog_err(EC_BGP_EVPN_ROUTE_CREATE,
+				 "Type3 route creation failure for VNI %u", vpn->vni);
+	} else if (flood_control == VXLAN_FLOOD_DISABLED) {
+		/* Delete RT-3 for a VNI and schedule for processing and withdrawal.
+		 * This is invoked upon flooding mode changing to drop BUM packets.
+		 */
+		build_evpn_type3_prefix(&p, vpn->originator_ip);
+		delete_evpn_route(bgp, vpn, &p);
+	}
 }
 
 /*
@@ -6514,6 +6538,7 @@ struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
 	vpn->tenant_vrf_id = tenant_vrf_id;
 	vpn->mcast_grp = mcast_grp;
 	vpn->svi_ifindex = svi_ifindex;
+	vpn->vxlan_flood_ctrl = VXLAN_FLOOD_INHERIT_GLOBAL;
 
 	/* Initialize route-target import and export lists */
 	vpn->import_rtl = list_new();
@@ -7512,15 +7537,7 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
  */
 void bgp_evpn_flood_control_change(struct bgp *bgp)
 {
-	zlog_info("L2VPN EVPN BUM handling is %s",
-		  bgp->vxlan_flood_ctrl == VXLAN_FLOOD_HEAD_END_REPL ?
-		  "Flooding" : "Flooding Disabled");
-
-	bgp_zebra_vxlan_flood_control(bgp, bgp->vxlan_flood_ctrl);
-	if (bgp->vxlan_flood_ctrl == VXLAN_FLOOD_HEAD_END_REPL)
-		hash_iterate(bgp->vnihash, create_advertise_type3, bgp);
-	else if (bgp->vxlan_flood_ctrl == VXLAN_FLOOD_DISABLED)
-		hash_iterate(bgp->vnihash, delete_withdraw_type3, bgp);
+	hash_iterate(bgp->vnihash, advertise_withdraw_type3, bgp);
 }
 
 /*

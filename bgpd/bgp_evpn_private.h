@@ -118,6 +118,8 @@ struct bgpevpn {
 
 	struct zebra_l2_vni_item zl2vni;
 
+	enum vxlan_flood_control vxlan_flood_ctrl;
+
 	QOBJ_FIELDS;
 };
 
