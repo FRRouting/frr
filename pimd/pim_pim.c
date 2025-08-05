@@ -737,7 +737,7 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 	if (ifp) {
 		struct pim_interface *pim_ifp = ifp->info;
 
-		if (pim_ifp->pim_passive_enable) {
+		if (pim_ifp && pim_ifp->pim_passive_enable) {
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug("skip sending PIM message on passive interface %s",
 					   ifp->name);

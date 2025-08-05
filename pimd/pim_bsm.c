@@ -1913,6 +1913,11 @@ void pim_cand_bsr_apply(struct bsm_scope *scope)
 
 static void pim_cand_rp_adv_stop_maybe(struct bsm_scope *scope)
 {
+	struct interface *ifp = NULL;
+
+	if (scope->pim->vrf->vrf_id)
+		ifp = if_lookup_by_name(scope->pim->vrf->name, scope->pim->vrf->vrf_id);
+
 	/* actual check whether stop should be sent - covers address
 	 * changes as well as run_addr = 0.0.0.0 (C-RP shutdown)
 	 */
@@ -1951,8 +1956,8 @@ static void pim_cand_rp_adv_stop_maybe(struct bsm_scope *scope)
 	pim_msg_build_header(PIMADDR_ANY, scope->current_bsr, buf, sizeof(buf),
 			     PIM_MSG_TYPE_CANDIDATE, false);
 
-	if (pim_msg_send(scope->unicast_sock, PIMADDR_ANY, scope->current_bsr,
-			 buf, sizeof(buf), NULL)) {
+	if (pim_msg_send(scope->unicast_sock, PIMADDR_ANY, scope->current_bsr, buf, sizeof(buf),
+			 ifp)) {
 		zlog_warn("failed to send Cand-RP message: %m");
 	}
 
@@ -1963,6 +1968,10 @@ static void pim_cand_rp_adv(struct event *t)
 {
 	struct bsm_scope *scope = EVENT_ARG(t);
 	int next_msec;
+	struct interface *ifp = NULL;
+
+	if (scope->pim->vrf->vrf_id)
+		ifp = if_lookup_by_name(scope->pim->vrf->name, scope->pim->vrf->vrf_id);
 
 	pim_cand_rp_adv_stop_maybe(scope);
 
@@ -2025,8 +2034,8 @@ static void pim_cand_rp_adv(struct event *t)
 	pim_msg_build_header(scope->cand_rp_addrsel.run_addr, scope->current_bsr,
 			     buf, sizeof(buf), PIM_MSG_TYPE_CANDIDATE, false);
 
-	if (pim_msg_send(scope->unicast_sock, scope->cand_rp_addrsel.run_addr,
-			 scope->current_bsr, buf, sizeof(buf), NULL)) {
+	if (pim_msg_send(scope->unicast_sock, scope->cand_rp_addrsel.run_addr, scope->current_bsr,
+			 buf, sizeof(buf), ifp)) {
 		zlog_warn("failed to send Cand-RP message: %m");
 	}
 
