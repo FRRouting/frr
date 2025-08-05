@@ -640,6 +640,7 @@ static void pbr_nht_release_individual_nexthop(struct pbr_map_sequence *pbrms)
 	hash_release(pnhgc->nhh, pnhc);
 	pbr_nh_delete(&pnhc);
 	pbr_nht_uninstall_nexthop_group(pnhgc, *pbrms->nhg, nh_type);
+	pbr_map_check_nh_group_change(pnhgc->name);
 
 	hash_release(pbr_nhg_hash, pnhgc);
 	pbr_nhgc_delete(pnhgc);
