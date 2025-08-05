@@ -7300,14 +7300,6 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni, vrf_id_t vrf_id)
 		return -1;
 	}
 
-	if (!bgp_vrf->l3vni) {
-		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("Returning from %s since VNI %u is already deleted", __func__,
-				   l3vni);
-
-		return -1;
-	}
-
 	/*
 	 * Move all the l3vni_delete operation post the remote route
 	 * installation processing i.e. add the L3VNI DELETE item on the
