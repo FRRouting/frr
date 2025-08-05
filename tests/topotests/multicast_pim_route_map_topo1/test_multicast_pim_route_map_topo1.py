@@ -239,6 +239,11 @@ def test_pim6_route_map():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+    # Workaround:
+    # If PIMv6 is not converged r1 will never send the PIMv6 join
+    # to neighbor.
+    topotest.sleep(10, "Waiting for PIMv6 convergence")
+
     tgen.gears["r1"].vtysh_cmd("""
     configure terminal
     interface r1-eth1
