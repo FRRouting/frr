@@ -4451,6 +4451,38 @@ static int rib_meta_queue_early_route_add(struct meta_queue *mq, void *data)
 	return 0;
 }
 
+void rib_meta_queue_early_route_cleanup(const struct prefix *p, int route_type)
+{
+	struct listnode *node, *nnode;
+	struct zebra_early_route *ere;
+
+	/* Iterate through the early route subqueue */
+	for (ALL_LIST_ELEMENTS(zrouter.mq->subq[META_QUEUE_EARLY_ROUTE], node, nnode, ere)) {
+		/* Check if this entry matches the prefix and route type */
+		if (prefix_same(&ere->p, p) && ere->re->type == route_type) {
+			/* Remove from the list */
+			list_delete_node(zrouter.mq->subq[META_QUEUE_EARLY_ROUTE], node);
+
+			/* Update counters */
+			zrouter.mq->size--;
+			atomic_fetch_sub_explicit(&zrouter.mq->total_metaq, 1,
+						  memory_order_relaxed);
+			atomic_fetch_sub_explicit(&zrouter.mq->total_subq[META_QUEUE_EARLY_ROUTE],
+						  1, memory_order_relaxed);
+
+			/* Free the early route memory */
+			early_route_memory_free(ere);
+
+			if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
+				struct vrf *vrf = vrf_lookup_by_id(ere->re->vrf_id);
+
+				zlog_debug("Route %pFX(%s) type %d removed from early route queue",
+					   p, VRF_LOGNAME(vrf), route_type);
+			}
+		}
+	}
+}
+
 int rib_add_gr_run(afi_t afi, vrf_id_t vrf_id, uint8_t proto, uint8_t instance,
 		   time_t restart_time)
 {
