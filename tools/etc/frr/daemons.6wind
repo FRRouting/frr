@@ -40,7 +40,7 @@ pmd=yes
 #
 vtysh_enable=yes
 mgmtd_options="  -A 127.0.0.1"
-zebra_options="  -A 127.0.0.1 --retain --keep_kernel -M snmp -M wrap_script --nl-bufsize 134217728"
+zebra_options="  -A 127.0.0.1 --retain --keep_kernel -M snmp -M wrap_script --nl-bufsize 134217728 -F vsr-6wind"
 bgpd_options="   -A 127.0.0.1 -M snmp -M rpki -M bmp"
 ospfd_options="  -A 127.0.0.1 -M snmp"
 ospf6d_options=" -A ::1 -M snmp"
