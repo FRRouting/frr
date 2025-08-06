@@ -1574,7 +1574,7 @@ int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 
 	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6)) {
 		STREAM_GETC(s, api_nh->seg_num);
-		if (api_nh->seg_num > SRV6_MAX_SIDS) {
+		if (api_nh->seg_num > SRV6_MAX_SEGS) {
 			flog_err(EC_LIB_ZAPI_ENCODE,
 				 "%s: invalid number of SRv6 Segs (%u)",
 				 __func__, api_nh->seg_num);
