@@ -8423,10 +8423,6 @@ static void bgp_aggregate_install(
 		attr = bgp_attr_aggregate_intern(bgp, origin, aspath, community, ecommunity,
 						 lcommunity, aggregate, atomic_aggregate, p);
 		if (!attr) {
-			aspath_free(aspath);
-			community_free(&community);
-			ecommunity_free(&ecommunity);
-			lcommunity_free(&lcommunity);
 			bgp_dest_unlock_node(dest);
 			bgp_aggregate_delete(bgp, p, afi, safi, aggregate);
 			if (debug)
