@@ -47,11 +47,14 @@ struct bgp_nhc {
 /* TLV values: */
 /* draft-wang-idr-next-next-hop-nodes */
 #define BGP_ATTR_NHC_TLV_NNHN 2
+/* draft-ietf-idr-entropy-label */
+#define BGP_ATTR_NHC_TLV_BGPID 3
 
 extern void bgp_nhc_tlv_add(struct bgp_nhc *nhc, struct bgp_nhc_tlv *tlv);
 extern struct bgp_nhc_tlv *bgp_nhc_tlv_find(struct bgp_nhc *nhc, uint16_t code);
 extern void bgp_nhc_tlv_free(struct bgp_nhc_tlv *tlv);
 extern void bgp_nhc_tlvs_free(struct bgp_nhc_tlv *tlv);
 extern void bgp_nhc_free(struct bgp_nhc *bnc);
+extern struct bgp_nhc_tlv *bgp_nhc_tlv_new(uint16_t code, uint16_t length, const void *value);
 
 #endif /* _FRR_BGP_NHC_H */
