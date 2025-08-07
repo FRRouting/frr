@@ -21,6 +21,7 @@ import re
 import sys
 import pytest
 import json
+import functools
 from time import sleep
 
 from lib.common_config import (
@@ -256,7 +257,7 @@ def test_bgp_route_cleanup():
     ipv4_nexthop = ipv4_match.group(1)
     ipv6_nexthop = ipv6_match.group(1)
 
-    print(f"\nUsing nexthops: IPv4={ipv4_nexthop}, IPv6={ipv6_nexthop}")
+    logger.info(f"Using nexthops: IPv4={ipv4_nexthop}, IPv6={ipv6_nexthop}")
 
     # Install IPv4 routes
     ipv4_cmd = f"vtysh -c 'sharp install routes 39.99.0.0 nexthop {ipv4_nexthop} {expected_route_count}'"
@@ -266,138 +267,301 @@ def test_bgp_route_cleanup():
     ipv6_cmd = f"vtysh -c 'sharp install routes 2100:cafe:: nexthop {ipv6_nexthop} {expected_route_count}'"
     net["r1"].cmd(ipv6_cmd)
 
-    # Initialize actual counts
-    ipv4_actual_count = 0
-    ipv6_actual_count = 0
-    max_attempts = 12  # 60 seconds max (12 * 5)
-    attempt = 0
-
-    # Wait until both IPv4 and IPv6 routes are installed
-    while (
-        ipv4_actual_count != expected_route_count
-        or ipv6_actual_count != expected_route_count
-    ) and attempt < max_attempts:
-        sleep(5)
-        attempt += 1
-
-        # Get current IPv4 route count
+    # Function to check route installation
+    def _check_routes_installed():
         ipv4_count_str = (
             net["r2"]
             .cmd('vtysh -c "show bgp ipv4 unicast" | grep "39.99" | wc -l')
             .rstrip()
         )
-
-        # Get current IPv6 route count
         ipv6_count_str = (
             net["r2"]
             .cmd('vtysh -c "show bgp ipv6 unicast" | grep "cafe" | wc -l')
             .rstrip()
         )
 
-        try:
-            ipv4_actual_count = int(ipv4_count_str)
-        except ValueError:
-            ipv4_actual_count = 0
+        ipv4_actual_count = int(ipv4_count_str) if ipv4_count_str.isdigit() else 0
+        ipv6_actual_count = int(ipv6_count_str) if ipv6_count_str.isdigit() else 0
 
-        try:
-            ipv6_actual_count = int(ipv6_count_str)
-        except ValueError:
-            ipv6_actual_count = 0
+        return (
+            ipv4_actual_count == expected_route_count
+            and ipv6_actual_count == expected_route_count
+        )
 
-        print(f"Attempt {attempt}")
-        print(f"IPv4 Routes found: {ipv4_actual_count} / {expected_route_count}")
-        print(f"IPv6 Routes found: {ipv6_actual_count} / {expected_route_count}")
+    # Wait for routes to be installed
+    test_func = functools.partial(_check_routes_installed)
+    success, result = topotest.run_and_expect(test_func, True, count=12, wait=5)
 
-    # Verify we have the expected number of routes
-    if ipv4_actual_count != expected_route_count:
+    if not success:
+        # Get final counts for error reporting
+        ipv4_count_str = (
+            net["r2"]
+            .cmd('vtysh -c "show bgp ipv4 unicast" | grep "39.99" | wc -l')
+            .rstrip()
+        )
+        ipv6_count_str = (
+            net["r2"]
+            .cmd('vtysh -c "show bgp ipv6 unicast" | grep "cafe" | wc -l')
+            .rstrip()
+        )
+        ipv4_actual = int(ipv4_count_str) if ipv4_count_str.isdigit() else 0
+        ipv6_actual = int(ipv6_count_str) if ipv6_count_str.isdigit() else 0
+
+        if ipv4_actual != expected_route_count:
+            sys.stderr.write(
+                f"Failed to install expected IPv4 routes: got {ipv4_actual}, expected {expected_route_count}\n"
+            )
+            failures += 1
+        if ipv6_actual != expected_route_count:
+            sys.stderr.write(
+                f"Failed to install expected IPv6 routes: got {ipv6_actual}, expected {expected_route_count}\n"
+            )
+            failures += 1
+    else:
+        logger.info("Routes successfully installed")
+
+    # Configure BGP timers for faster convergence
+    logger.info("Setting BGP keepalive=3, hold=10 for faster convergence")
+
+    # Configure BGP timers on both routers
+    for router_name in ["r1", "r2"]:
+        router = net[router_name]
+        timer_config = ["conf", "router bgp", "timers bgp 3 10", "exit", "exit"]
+
+        cmd = "vtysh"
+        for config_line in timer_config:
+            cmd += f' -c "{config_line}"'
+
+        router.cmd(cmd)
+
+    # Clear BGP sessions on r2 to make timer changes effective
+    net["r2"].cmd('vtysh -c "clear bgp *"')
+
+    # Function to check if BGP sessions are established
+    def _check_bgp_timers_applied():
+        bgp_summary = net["r1"].cmd('vtysh -c "show bgp summary json"')
+        summary_data = json.loads(bgp_summary)
+        ipv4_peers = summary_data.get("ipv4Unicast", {}).get("peers", {})
+
+        established_count = 0
+        for peer_intf, peer_info in ipv4_peers.items():
+            if peer_info.get("state") == "Established":
+                established_count += 1
+
+        return established_count > 0
+
+    # Wait for BGP sessions to stabilize with new timers
+    test_func = functools.partial(_check_bgp_timers_applied)
+    success_timers, _ = topotest.run_and_expect(test_func, True, count=20, wait=2)
+
+    if not success_timers:
+        logger.info("Warning: BGP sessions may still be converging after timer change")
+
+    # Test interface shutdown/restoration
+    logger.info("Testing interface shutdown/restoration")
+
+    # Known interfaces: r1-eth0 to r1-eth514
+    interfaces = [f"r1-eth{i}" for i in range(515)]
+
+    # Phase 1: Shutdown all interfaces
+    for interface in interfaces:
+        net["r1"].cmd(f"ip link set {interface} down")
+
+    # Define test functions for route checking
+    def _check_ipv4_routes_removed():
+        ipv4_count_str = (
+            net["r2"]
+            .cmd('vtysh -c "show bgp ipv4 unicast" | grep "39.99" | wc -l')
+            .rstrip()
+        )
+        count = int(ipv4_count_str) if ipv4_count_str.isdigit() else 0
+        return count == 0
+
+    def _check_ipv6_routes_removed():
+        ipv6_count_str = (
+            net["r2"]
+            .cmd('vtysh -c "show bgp ipv6 unicast" | grep "cafe" | wc -l')
+            .rstrip()
+        )
+        count = int(ipv6_count_str) if ipv6_count_str.isdigit() else 0
+        return count == 0
+
+    # Wait for IPv4 routes to be removed
+    test_func = functools.partial(_check_ipv4_routes_removed)
+    success_ipv4, _ = topotest.run_and_expect(test_func, True, count=15, wait=2)
+
+    if not success_ipv4:
+        sys.stderr.write("Interface down test failed - IPv4 routes not removed\n")
+        failures += 1
+
+    # Wait for IPv6 routes to be removed
+    test_func = functools.partial(_check_ipv6_routes_removed)
+    success_ipv6, _ = topotest.run_and_expect(test_func, True, count=15, wait=2)
+
+    if not success_ipv6:
+        sys.stderr.write("Interface down test failed - IPv6 routes not removed\n")
+        failures += 1
+
+    # Phase 2: Bring interfaces back up
+    for interface in interfaces:
+        net["r1"].cmd(f"ip link set {interface} up")
+
+    # Define test functions for route restoration checking
+    def _check_ipv4_routes_restored():
+        ipv4_count_str = (
+            net["r2"]
+            .cmd('vtysh -c "show bgp ipv4 unicast" | grep "39.99" | wc -l')
+            .rstrip()
+        )
+        count = int(ipv4_count_str) if ipv4_count_str.isdigit() else 0
+        return count == expected_route_count
+
+    def _check_ipv6_routes_restored():
+        ipv6_count_str = (
+            net["r2"]
+            .cmd('vtysh -c "show bgp ipv6 unicast" | grep "cafe" | wc -l')
+            .rstrip()
+        )
+        count = int(ipv6_count_str) if ipv6_count_str.isdigit() else 0
+        return count == expected_route_count
+
+    # Wait for IPv4 routes to be restored
+    test_func = functools.partial(_check_ipv4_routes_restored)
+    success_ipv4_restore, _ = topotest.run_and_expect(test_func, True, count=30, wait=3)
+
+    if not success_ipv4_restore:
+        sys.stderr.write("Interface restore test failed - IPv4 routes not restored\n")
+        failures += 1
+
+    # Wait for IPv6 routes to be restored
+    test_func = functools.partial(_check_ipv6_routes_restored)
+    success_ipv6_restore, _ = topotest.run_and_expect(test_func, True, count=30, wait=3)
+
+    if not success_ipv6_restore:
+        sys.stderr.write("Interface restore test failed - IPv6 routes not restored\n")
+        failures += 1
+
+    # BGP Graceful Restart test with interface down on r2
+    logger.info("Testing BGP Graceful Restart")
+
+    # Enable BGP Graceful Restart on r2
+    gr_config_commands = ["conf", "router bgp", "bgp graceful-restart", "exit", "exit"]
+
+    gr_cmd = "vtysh"
+    for config_line in gr_config_commands:
+        gr_cmd += f' -c "{config_line}"'
+
+    net["r2"].cmd(gr_cmd)
+    net["r2"].cmd('vtysh -c "clear bgp *"')
+
+    # Function to check if GR is enabled
+    def _check_gr_enabled_r2():
+        neighbor_output = net["r2"].cmd('vtysh -c "show bgp neighbors r2-eth200"')
+        return "Local GR Mode: Restart*" in neighbor_output
+
+    # Wait for GR configuration to take effect
+    test_func = functools.partial(_check_gr_enabled_r2)
+    topotest.run_and_expect(test_func, True, count=5, wait=1)
+
+    # Get list of interfaces on r2
+    r2_interfaces = [f"r2-eth{i}" for i in range(515)]
+
+    # Phase 1: Shutdown interfaces on r2
+    for interface in r2_interfaces:
+        net["r2"].cmd(f"ip link set {interface} down")
+
+    # Wait for routes to be deleted (even with GR, routes should be deleted when interfaces go down)
+    test_func = functools.partial(_check_ipv4_routes_removed)
+    success_ipv4_deleted, _ = topotest.run_and_expect(test_func, True, count=10, wait=1)
+
+    if not success_ipv4_deleted:
         sys.stderr.write(
-            f"Failed to install expected IPv4 routes: got {ipv4_actual_count}, expected {expected_route_count}\n"
+            "GR interface down test failed - IPv4 routes not deleted from r2\n"
         )
         failures += 1
-    else:
-        print("IPv4 routes successfully installed")
 
-    if ipv6_actual_count != expected_route_count:
+    test_func = functools.partial(_check_ipv6_routes_removed)
+    success_ipv6_deleted, _ = topotest.run_and_expect(test_func, True, count=10, wait=1)
+
+    if not success_ipv6_deleted:
         sys.stderr.write(
-            f"Failed to install expected IPv6 routes: got {ipv6_actual_count}, expected {expected_route_count}\n"
+            "GR interface down test failed - IPv6 routes not deleted from r2\n"
         )
         failures += 1
-    else:
-        print("IPv6 routes successfully installed")
+
+    # Phase 2: Bring r2 interfaces back up
+    for interface in r2_interfaces:
+        net["r2"].cmd(f"ip link set {interface} up")
+
+    # Wait for route restoration
+    test_func = functools.partial(_check_ipv4_routes_restored)
+    success_ipv4_restore, _ = topotest.run_and_expect(test_func, True, count=30, wait=3)
+
+    if not success_ipv4_restore:
+        sys.stderr.write(
+            "GR interface recovery test failed - IPv4 routes not restored on r2\n"
+        )
+        failures += 1
+
+    test_func = functools.partial(_check_ipv6_routes_restored)
+    success_ipv6_restore, _ = topotest.run_and_expect(test_func, True, count=30, wait=3)
+
+    if not success_ipv6_restore:
+        sys.stderr.write(
+            "GR interface recovery test failed - IPv6 routes not restored on r2\n"
+        )
+        failures += 1
 
     # Stop bgpd in r1 to trigger deletion of routes in r2
     kill_router_daemons(get_topogen(), "r1", ["bgpd"])
 
-    # Initialize variables for post-removal check
-    # Start with the original count
-    ipv4_final_count = expected_route_count
-    ipv6_final_count = expected_route_count
-    expected_final_count = 0
-    attempt = 0
-    max_removal_attempts = 12
-
-    # Wait until both IPv4 and IPv6 routes are fully removed
-    while (
-        ipv4_final_count != expected_final_count
-        or ipv6_final_count != expected_final_count
-    ) and attempt < max_removal_attempts:
-        sleep(5)
-        attempt += 1
-
-        # Get current IPv4 route count
+    # Function to check final route removal
+    def _check_final_routes_removed():
         ipv4_count_str = (
             net["r2"]
             .cmd('vtysh -c "show bgp ipv4 unicast" | grep "39.99" | wc -l')
             .rstrip()
         )
-
-        # Get current IPv6 route count
         ipv6_count_str = (
             net["r2"]
             .cmd('vtysh -c "show bgp ipv6 unicast" | grep "cafe" | wc -l')
             .rstrip()
         )
 
-        try:
-            ipv4_final_count = int(ipv4_count_str)
-        except ValueError:
-            ipv4_final_count = 0
+        ipv4_count = int(ipv4_count_str) if ipv4_count_str.isdigit() else 0
+        ipv6_count = int(ipv6_count_str) if ipv6_count_str.isdigit() else 0
 
-        try:
-            ipv6_final_count = int(ipv6_count_str)
-        except ValueError:
-            ipv6_final_count = 0
+        return ipv4_count == 0 and ipv6_count == 0
 
-        print(f"Route Removal Attempt {attempt}")
-        print(f"IPv4 Routes remaining: {ipv4_final_count} / {expected_final_count}")
-        print(f"IPv6 Routes remaining: {ipv6_final_count} / {expected_final_count}")
+    # Wait for final route removal
+    test_func = functools.partial(_check_final_routes_removed)
+    success_final, _ = topotest.run_and_expect(test_func, True, count=12, wait=5)
 
-        # If both are already at expected count, break early
-        if (
-            ipv4_final_count == expected_final_count
-            and ipv6_final_count == expected_final_count
-        ):
-            print("All routes successfully removed")
-            break
-
-    # Final verification
-    if ipv4_final_count != expected_final_count:
-        sys.stderr.write(
-            f"Failed to remove IPv4 routes after {max_removal_attempts} attempts: "
-            f"{ipv4_final_count} routes still present\n"
+    if not success_final:
+        # Get final counts for error reporting
+        ipv4_count_str = (
+            net["r2"]
+            .cmd('vtysh -c "show bgp ipv4 unicast" | grep "39.99" | wc -l')
+            .rstrip()
         )
-        failures += 1
-    else:
-        print("IPv4 routes successfully removed")
-
-    if ipv6_final_count != expected_final_count:
-        sys.stderr.write(
-            f"Failed to remove IPv6 routes after {max_removal_attempts} attempts: "
-            f"{ipv6_final_count} routes still present\n"
+        ipv6_count_str = (
+            net["r2"]
+            .cmd('vtysh -c "show bgp ipv6 unicast" | grep "cafe" | wc -l')
+            .rstrip()
         )
-        failures += 1
-    else:
-        print("IPv6 routes successfully removed")
+        ipv4_final = int(ipv4_count_str) if ipv4_count_str.isdigit() else 0
+        ipv6_final = int(ipv6_count_str) if ipv6_count_str.isdigit() else 0
+
+        if ipv4_final != 0:
+            sys.stderr.write(
+                f"Failed to remove IPv4 routes: {ipv4_final} routes still present\n"
+            )
+            failures += 1
+        if ipv6_final != 0:
+            sys.stderr.write(
+                f"Failed to remove IPv6 routes: {ipv6_final} routes still present\n"
+            )
+            failures += 1
 
     start_router_daemons(get_topogen(), "r1", ["bgpd"])
     assert failures == 0, f"Test failed with {failures} failures"
