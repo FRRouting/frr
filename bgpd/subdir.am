@@ -163,6 +163,7 @@ noinst_HEADERS += \
 	bgpd/bgpd.h \
 	bgpd/bgp_trace.h \
 	bgpd/bgp_nhg.h \
+	bgpd/bgp_attr_srv6.h \
 	\
 	bgpd/rfapi/bgp_rfapi_cfg.h \
 	bgpd/rfapi/rfapi_import.h \
