@@ -133,7 +133,7 @@ static bool bgp_isvalid_nexthop_for_l3vpn(struct bgp_nexthop_cache *bnc,
 	if (bgp_zebra_num_connects() == 0)
 		return 1;
 
-	if (path->attr->srv6_l3vpn || path->attr->srv6_vpn) {
+	if (path->attr->srv6_l3service || path->attr->srv6_vpn) {
 		/* In the case of SRv6-VPN, we need to track the reachability to the
 		 * SID (in other words, IPv6 address). We check that the SID is
 		 * available in the BGP update; then if it is available, we check
@@ -1075,10 +1075,10 @@ static bool make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p,
 		break;
 	case AFI_IP6:
 		p->family = AF_INET6;
-		if (pi->attr->srv6_l3vpn) {
+		if (pi->attr->srv6_l3service) {
 			tmp_prefix.family = AF_INET6;
 			tmp_prefix.prefixlen = IPV6_MAX_BITLEN;
-			tmp_prefix.prefix = pi->attr->srv6_l3vpn->sid;
+			tmp_prefix.prefix = pi->attr->srv6_l3service->sid;
 			if (bgp_nexthop->vpn_policy[afi].tovpn_sid_locator &&
 			    bgp_nexthop->vpn_policy[afi].tovpn_sid)
 				local_sid = prefix_match(&bgp_nexthop->vpn_policy[afi]
@@ -1088,17 +1088,17 @@ static bool make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p,
 				local_sid = prefix_match(&bgp_nexthop->tovpn_sid_locator->prefix,
 							 &tmp_prefix);
 		}
-		if (local_sid == false && pi->attr->srv6_l3vpn) {
+		if (local_sid == false && pi->attr->srv6_l3service) {
 			p->prefixlen = IPV6_MAX_BITLEN;
-			if (pi->attr->srv6_l3vpn->transposition_len != 0 &&
+			if (pi->attr->srv6_l3service->transposition_len != 0 &&
 			    BGP_PATH_INFO_NUM_LABELS(pi)) {
-				IPV6_ADDR_COPY(&p->u.prefix6, &pi->attr->srv6_l3vpn->sid);
+				IPV6_ADDR_COPY(&p->u.prefix6, &pi->attr->srv6_l3service->sid);
 				transpose_sid(&p->u.prefix6,
 					      decode_label(&pi->extra->labels->label[0]),
-					      pi->attr->srv6_l3vpn->transposition_offset,
-					      pi->attr->srv6_l3vpn->transposition_len);
+					      pi->attr->srv6_l3service->transposition_offset,
+					      pi->attr->srv6_l3service->transposition_len);
 			} else
-				IPV6_ADDR_COPY(&(p->u.prefix6), &(pi->attr->srv6_l3vpn->sid));
+				IPV6_ADDR_COPY(&(p->u.prefix6), &(pi->attr->srv6_l3service->sid));
 		} else if (is_bgp_static) {
 			p->u.prefix6 = p_orig->u.prefix6;
 			p->prefixlen = p_orig->prefixlen;
