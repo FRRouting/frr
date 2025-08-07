@@ -12,6 +12,7 @@
 #include "linklist.h"
 #include "bgpd.h"
 #include "bgp_advertise.h"
+#include "bgp_srv6.h"
 
 struct bgp_table {
 	/* table belongs to this instance */

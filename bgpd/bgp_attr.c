@@ -736,15 +736,14 @@ static void *srv6_l3vpn_hash_alloc(void *p)
 	return p;
 }
 
-static void srv6_l3vpn_free(struct bgp_attr_srv6_l3vpn *l3vpn)
+static void srv6_l3vpn_free(struct bgp_srv6_l3service *l3vpn)
 {
-	XFREE(MTYPE_BGP_SRV6_L3VPN, l3vpn);
+	XFREE(MTYPE_BGP_SRV6_L3SERVICE, l3vpn);
 }
 
-static struct bgp_attr_srv6_l3vpn *
-srv6_l3vpn_intern(struct bgp_attr_srv6_l3vpn *l3vpn)
+static struct bgp_srv6_l3service *srv6_l3vpn_intern(struct bgp_srv6_l3service *l3vpn)
 {
-	struct bgp_attr_srv6_l3vpn *find;
+	struct bgp_srv6_l3service *find;
 
 	find = hash_get(srv6_l3vpn_hash, l3vpn, srv6_l3vpn_hash_alloc);
 	if (find != l3vpn)
@@ -753,9 +752,9 @@ srv6_l3vpn_intern(struct bgp_attr_srv6_l3vpn *l3vpn)
 	return find;
 }
 
-static void srv6_l3vpn_unintern(struct bgp_attr_srv6_l3vpn **l3vpnp)
+static void srv6_l3vpn_unintern(struct bgp_srv6_l3service **l3vpnp)
 {
-	struct bgp_attr_srv6_l3vpn *l3vpn = *l3vpnp;
+	struct bgp_srv6_l3service *l3vpn = *l3vpnp;
 
 	if (!*l3vpnp)
 		return;
@@ -810,7 +809,7 @@ static void srv6_vpn_unintern(struct bgp_attr_srv6_vpn **vpnp)
 
 static uint32_t srv6_l3vpn_hash_key_make(const void *p)
 {
-	const struct bgp_attr_srv6_l3vpn *l3vpn = p;
+	const struct bgp_srv6_l3service *l3vpn = p;
 	uint32_t key = 0;
 
 	key = jhash(&l3vpn->sid, 16, key);
@@ -822,8 +821,8 @@ static uint32_t srv6_l3vpn_hash_key_make(const void *p)
 
 static bool srv6_l3vpn_hash_cmp(const void *p1, const void *p2)
 {
-	const struct bgp_attr_srv6_l3vpn *l3vpn1 = p1;
-	const struct bgp_attr_srv6_l3vpn *l3vpn2 = p2;
+	const struct bgp_srv6_l3service *l3vpn1 = p1;
+	const struct bgp_srv6_l3service *l3vpn2 = p2;
 
 	return sid_same(&l3vpn1->sid, &l3vpn2->sid)
 	       && l3vpn1->sid_flags == l3vpn2->sid_flags
@@ -836,8 +835,8 @@ static bool srv6_l3vpn_hash_cmp(const void *p1, const void *p2)
 	       && l3vpn1->transposition_offset == l3vpn2->transposition_offset;
 }
 
-static bool srv6_l3vpn_same(const struct bgp_attr_srv6_l3vpn *h1,
-			    const struct bgp_attr_srv6_l3vpn *h2)
+static bool srv6_l3vpn_same(const struct bgp_srv6_l3service *h1,
+			    const struct bgp_srv6_l3service *h2)
 {
 	if (h1 == h2)
 		return true;
@@ -963,8 +962,8 @@ unsigned int attrhash_key_make(const void *p)
 		MIX(transit_hash_key_make(bgp_attr_get_transit(attr)));
 	if (attr->encap_subtlvs)
 		MIX(encap_hash_key_make(attr->encap_subtlvs));
-	if (attr->srv6_l3vpn)
-		MIX(srv6_l3vpn_hash_key_make(attr->srv6_l3vpn));
+	if (attr->srv6_l3service)
+		MIX(srv6_l3vpn_hash_key_make(attr->srv6_l3service));
 	if (bgp_attr_get_evpn_overlay(attr))
 		MIX(evpn_overlay_hash_key_make(bgp_attr_get_evpn_overlay(attr)));
 	if (attr->srv6_vpn)
@@ -1029,7 +1028,7 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    attr1->nh_ifindex == attr2->nh_ifindex &&
 		    attr1->nh_lla_ifindex == attr2->nh_lla_ifindex &&
 		    attr1->nh_flags == attr2->nh_flags && attr1->distance == attr2->distance &&
-		    srv6_l3vpn_same(attr1->srv6_l3vpn, attr2->srv6_l3vpn) &&
+		    srv6_l3vpn_same(attr1->srv6_l3service, attr2->srv6_l3service) &&
 		    srv6_vpn_same(attr1->srv6_vpn, attr2->srv6_vpn) &&
 		    attr1->srte_color == attr2->srte_color && attr1->nh_type == attr2->nh_type &&
 		    attr1->bh_type == attr2->bh_type && attr1->otc == attr2->otc &&
@@ -1079,8 +1078,8 @@ static void attr_show_all_iterator(struct hash_bucket *bucket, void *args[])
 	if (summary)
 		return;
 
-	if (attr->srv6_l3vpn)
-		sid = &attr->srv6_l3vpn->sid;
+	if (attr->srv6_l3service)
+		sid = &attr->srv6_l3service->sid;
 	else if (attr->srv6_vpn)
 		sid = &attr->srv6_vpn->sid;
 
@@ -1249,11 +1248,11 @@ struct attr *bgp_attr_intern(struct attr *attr)
 			bre->refcnt++;
 	}
 
-	if (attr->srv6_l3vpn) {
-		if (!attr->srv6_l3vpn->refcnt)
-			attr->srv6_l3vpn = srv6_l3vpn_intern(attr->srv6_l3vpn);
+	if (attr->srv6_l3service) {
+		if (!attr->srv6_l3service->refcnt)
+			attr->srv6_l3service = srv6_l3vpn_intern(attr->srv6_l3service);
 		else
-			attr->srv6_l3vpn->refcnt++;
+			attr->srv6_l3service->refcnt++;
 	}
 	if (attr->srv6_vpn) {
 		if (!attr->srv6_vpn->refcnt)
@@ -1491,7 +1490,7 @@ void bgp_attr_unintern_sub(struct attr *attr)
 	bgp_attr_set_vnc_subtlvs(attr, NULL);
 #endif
 
-	srv6_l3vpn_unintern(&attr->srv6_l3vpn);
+	srv6_l3vpn_unintern(&attr->srv6_l3service);
 	srv6_vpn_unintern(&attr->srv6_vpn);
 
 	bre = bgp_attr_get_evpn_overlay(attr);
@@ -1572,9 +1571,9 @@ void bgp_attr_flush(struct attr *attr)
 		encap_free(attr->encap_subtlvs);
 		attr->encap_subtlvs = NULL;
 	}
-	if (attr->srv6_l3vpn && !attr->srv6_l3vpn->refcnt) {
-		srv6_l3vpn_free(attr->srv6_l3vpn);
-		attr->srv6_l3vpn = NULL;
+	if (attr->srv6_l3service && !attr->srv6_l3service->refcnt) {
+		srv6_l3vpn_free(attr->srv6_l3service);
+		attr->srv6_l3service = NULL;
 	}
 	if (attr->srv6_vpn && !attr->srv6_vpn->refcnt) {
 		srv6_vpn_free(attr->srv6_vpn);
@@ -3156,12 +3155,12 @@ bgp_attr_srv6_service_data(struct bgp_attr_parser_args *args)
 				transposition_offset);
 		}
 
-		attr->srv6_l3vpn->loc_block_len = loc_block_len;
-		attr->srv6_l3vpn->loc_node_len = loc_node_len;
-		attr->srv6_l3vpn->func_len = func_len;
-		attr->srv6_l3vpn->arg_len = arg_len;
-		attr->srv6_l3vpn->transposition_len = transposition_len;
-		attr->srv6_l3vpn->transposition_offset = transposition_offset;
+		attr->srv6_l3service->loc_block_len = loc_block_len;
+		attr->srv6_l3service->loc_node_len = loc_node_len;
+		attr->srv6_l3service->func_len = func_len;
+		attr->srv6_l3service->arg_len = arg_len;
+		attr->srv6_l3service->transposition_len = transposition_len;
+		attr->srv6_l3service->transposition_offset = transposition_offset;
 	}
 
 	else {
@@ -3237,23 +3236,23 @@ bgp_attr_srv6_service(struct bgp_attr_parser_args *args)
 				endpoint_behavior);
 
 		/* Configure from Info */
-		if (attr->srv6_l3vpn) {
+		if (attr->srv6_l3service) {
 			flog_err(EC_BGP_ATTRIBUTE_REPEATED,
 				 "Prefix SID SRv6 L3VPN field repeated");
 			return bgp_attr_malformed(
 				args, BGP_NOTIFY_UPDATE_MAL_ATTR, args->total);
 		}
-		attr->srv6_l3vpn = XCALLOC(MTYPE_BGP_SRV6_L3VPN,
-					   sizeof(struct bgp_attr_srv6_l3vpn));
-		sid_copy(&attr->srv6_l3vpn->sid, &ipv6_sid);
-		attr->srv6_l3vpn->sid_flags = sid_flags;
-		attr->srv6_l3vpn->endpoint_behavior = endpoint_behavior;
-		attr->srv6_l3vpn->loc_block_len = 0;
-		attr->srv6_l3vpn->loc_node_len = 0;
-		attr->srv6_l3vpn->func_len = 0;
-		attr->srv6_l3vpn->arg_len = 0;
-		attr->srv6_l3vpn->transposition_len = 0;
-		attr->srv6_l3vpn->transposition_offset = 0;
+		attr->srv6_l3service = XCALLOC(MTYPE_BGP_SRV6_L3SERVICE,
+					       sizeof(struct bgp_srv6_l3service));
+		sid_copy(&attr->srv6_l3service->sid, &ipv6_sid);
+		attr->srv6_l3service->sid_flags = sid_flags;
+		attr->srv6_l3service->endpoint_behavior = endpoint_behavior;
+		attr->srv6_l3service->loc_block_len = 0;
+		attr->srv6_l3service->loc_node_len = 0;
+		attr->srv6_l3service->func_len = 0;
+		attr->srv6_l3service->arg_len = 0;
+		attr->srv6_l3service->transposition_len = 0;
+		attr->srv6_l3service->transposition_offset = 0;
 
 		// Sub-Sub-TLV found
 		if (length > BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH) {
@@ -3263,7 +3262,7 @@ bgp_attr_srv6_service(struct bgp_attr_parser_args *args)
 				return err;
 		}
 
-		attr->srv6_l3vpn = srv6_l3vpn_intern(attr->srv6_l3vpn);
+		attr->srv6_l3service = srv6_l3vpn_intern(attr->srv6_l3service);
 	}
 
 	/* Placeholder code for unsupported type */
@@ -5248,7 +5247,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 
 	/* SRv6 Service Information Attribute. */
 	if ((afi == AFI_IP || afi == AFI_IP6) && safi == SAFI_MPLS_VPN) {
-		if (attr->srv6_l3vpn) {
+		if (attr->srv6_l3service) {
 			uint8_t subtlv_len =
 				BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE_LENGTH
 				+ BGP_ATTR_MIN_LEN
@@ -5265,11 +5264,11 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 			stream_putc(s, BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO);
 			stream_putw(s, subtlv_len);
 			stream_putc(s, 0);      /* reserved */
-			stream_put(s, &attr->srv6_l3vpn->sid,
-				   sizeof(attr->srv6_l3vpn->sid)); /* sid */
+			stream_put(s, &attr->srv6_l3service->sid,
+				   sizeof(attr->srv6_l3service->sid)); /* sid */
 			stream_putc(s, 0);      /* sid_flags */
 			stream_putw(s,
-				    attr->srv6_l3vpn
+				    attr->srv6_l3service
 					    ->endpoint_behavior); /* endpoint */
 			stream_putc(s, 0);      /* reserved */
 			stream_putc(
@@ -5278,12 +5277,12 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 			stream_putw(
 				s,
 				BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE_LENGTH);
-			stream_putc(s, attr->srv6_l3vpn->loc_block_len);
-			stream_putc(s, attr->srv6_l3vpn->loc_node_len);
-			stream_putc(s, attr->srv6_l3vpn->func_len);
-			stream_putc(s, attr->srv6_l3vpn->arg_len);
-			stream_putc(s, attr->srv6_l3vpn->transposition_len);
-			stream_putc(s, attr->srv6_l3vpn->transposition_offset);
+			stream_putc(s, attr->srv6_l3service->loc_block_len);
+			stream_putc(s, attr->srv6_l3service->loc_node_len);
+			stream_putc(s, attr->srv6_l3service->func_len);
+			stream_putc(s, attr->srv6_l3service->arg_len);
+			stream_putc(s, attr->srv6_l3service->transposition_len);
+			stream_putc(s, attr->srv6_l3service->transposition_offset);
 		} else if (attr->srv6_vpn) {
 			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL
 					       | BGP_ATTR_FLAG_TRANS);
