@@ -2269,26 +2269,26 @@ route_set_prefix_sid_srv6_function_length(void *rule, const struct prefix *prefi
 {
 	struct rmap_prefix_sid_srv6_function_length_set *rins = rule;
 	struct bgp_path_info *path;
-	struct bgp_attr_srv6_l3vpn *srv6_l3vpn_old, *srv6_l3vpn_new;
+	struct bgp_attr_srv6_l3service *srv6_l3service_old, *srv6_l3service_new;
 
 	path = object;
 
-	if (!path->attr || !path->attr->srv6_l3vpn)
+	if (!path->attr || !path->attr->srv6_l3service)
 		return RMAP_OKAY;
 
-	if (rins->value == path->attr->srv6_l3vpn->func_len)
+	if (rins->value == path->attr->srv6_l3service->func_len)
 		return RMAP_OKAY;
-	srv6_l3vpn_old = path->attr->srv6_l3vpn;
-	if (srv6_l3vpn_old->refcnt)
-		srv6_l3vpn_new = bgp_attr_srv6_l3vpn_dup(srv6_l3vpn_old);
+	srv6_l3service_old = path->attr->srv6_l3service;
+	if (srv6_l3service_old->refcnt)
+		srv6_l3service_new = bgp_attr_srv6_l3service_dup(srv6_l3service_old);
 	else
-		srv6_l3vpn_new = srv6_l3vpn_old;
+		srv6_l3service_new = srv6_l3service_old;
 
-	srv6_l3vpn_new->func_len = rins->value;
+	srv6_l3service_new->func_len = rins->value;
 
-	path->attr->srv6_l3vpn = bgp_attr_srv6_l3vpn_intern(srv6_l3vpn_new);
-	if (srv6_l3vpn_old->refcnt == 0)
-		bgp_attr_srv6_l3vpn_free(srv6_l3vpn_old);
+	path->attr->srv6_l3service = bgp_attr_srv6_l3service_intern(srv6_l3service_new);
+	if (srv6_l3service_old->refcnt == 0)
+		bgp_attr_srv6_l3service_free(srv6_l3service_old);
 	return RMAP_OKAY;
 }
 
@@ -4587,7 +4587,7 @@ route_match_vpn_dataplane(void *rule, const struct prefix *prefix, void *object)
 		return RMAP_MATCH;
 
 	if (*bgp_encap_type == BGP_ENCAP_TYPE_SRV6 &&
-	    (path_vpn->attr->srv6_l3vpn || path_vpn->attr->srv6_vpn))
+	    (path_vpn->attr->srv6_l3service || path_vpn->attr->srv6_vpn))
 		return RMAP_MATCH;
 
 	return RMAP_NOMATCH;
