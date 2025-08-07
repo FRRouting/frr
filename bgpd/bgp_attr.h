@@ -9,6 +9,7 @@
 #include "mpls.h"
 #include "bgp_attr_evpn.h"
 #include "bgpd/bgp_encap_types.h"
+#include "bgpd/bgp_attr_srv6.h"
 #include "srte.h"
 
 /* Simple bit mapping. */
@@ -116,24 +117,6 @@ struct bgp_attr_srv6_vpn {
 	unsigned long refcnt;
 	uint8_t sid_flags;
 	struct in6_addr sid;
-};
-
-/*
- * Prefix-SID type-5
- * SRv6-L3VPN-Service-TLV
- * draft-dawra-idr-srv6-vpn-05
- */
-struct bgp_attr_srv6_l3vpn {
-	unsigned long refcnt;
-	uint8_t sid_flags;
-	uint16_t endpoint_behavior;
-	struct in6_addr sid;
-	uint8_t loc_block_len;
-	uint8_t loc_node_len;
-	uint8_t func_len;
-	uint8_t arg_len;
-	uint8_t transposition_len;
-	uint8_t transposition_offset;
 };
 
 /* BGP core attribute structure. */
@@ -269,8 +252,8 @@ struct attr {
 	/* SRv6 VPN SID */
 	struct bgp_attr_srv6_vpn *srv6_vpn;
 
-	/* SRv6 L3VPN SID */
-	struct bgp_attr_srv6_l3vpn *srv6_l3vpn;
+	/* SRv6 L3 service SID */
+	struct bgp_attr_srv6_l3service *srv6_l3service;
 
 	struct bgp_attr_encap_subtlv *encap_subtlvs; /* rfc5512 */
 
