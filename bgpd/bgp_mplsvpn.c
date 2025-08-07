@@ -956,15 +956,11 @@ void ensure_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 void ensure_vrf_tovpn_sid(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi)
 {
 	/* per-af sid */
-	if (bgp_vrf->vpn_policy[afi].tovpn_sid_index != 0 ||
-	    CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO) ||
-	    CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_EXPLICIT))
+	if (is_srv6_vpn_afi_enabled(bgp_vrf, afi))
 		return ensure_vrf_tovpn_sid_per_af(bgp_vpn, bgp_vrf, afi);
 
 	/* per-vrf sid */
-	if (bgp_vrf->tovpn_sid_index != 0 ||
-	    CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_TOVPN_SID_AUTO) ||
-	    CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT))
+	if (is_srv6_vpn_vrf_enabled(bgp_vrf))
 		return ensure_vrf_tovpn_sid_per_vrf(bgp_vpn, bgp_vrf);
 }
 
@@ -1065,6 +1061,36 @@ void delete_vrf_tovpn_sid(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi)
 {
 	delete_vrf_tovpn_sid_per_af(bgp_vpn, bgp_vrf, afi);
 	delete_vrf_tovpn_sid_per_vrf(bgp_vpn, bgp_vrf);
+}
+
+bool is_srv6_vpn_afi_enabled(struct bgp *bgp, afi_t afi)
+{
+	if (CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO) ||
+	    CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_EXPLICIT) ||
+	    bgp->vpn_policy[afi].tovpn_sid_index)
+		return true;
+
+	return false;
+}
+
+bool is_srv6_vpn_vrf_enabled(struct bgp *bgp)
+{
+	if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO) ||
+	    CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT) || bgp->tovpn_sid_index)
+		return true;
+
+	return false;
+}
+
+bool is_srv6_vpn_enabled(struct bgp *bgp)
+{
+	if (is_srv6_vpn_vrf_enabled(bgp))
+		return true;
+
+	if (is_srv6_vpn_afi_enabled(bgp, AFI_IP) || is_srv6_vpn_afi_enabled(bgp, AFI_IP6))
+		return true;
+
+	return false;
 }
 
 /*

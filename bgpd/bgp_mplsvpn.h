@@ -458,5 +458,8 @@ void bgp_mplsvpn_nexthop_init(void);
 extern void sid_register(struct bgp *bgp, const struct in6_addr *sid,
 			 const char *locator_name);
 extern void sid_unregister(struct bgp *bgp, const struct in6_addr *sid);
+extern bool is_srv6_vpn_enabled(struct bgp *bgp);
+extern bool is_srv6_vpn_afi_enabled(struct bgp *bgp, afi_t afi);
+extern bool is_srv6_vpn_vrf_enabled(struct bgp *bgp);
 
 #endif /* _QUAGGA_BGP_MPLSVPN_H */
