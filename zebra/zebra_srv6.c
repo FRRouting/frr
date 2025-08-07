@@ -1513,6 +1513,12 @@ static bool alloc_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
 			} else if ((sid_func >= ewlib_start) &&
 				   (sid_func <= ewlib_end)) {
 				/* The SID function has to be allocated from the EWLIB range */
+				if (sid_func - wlib_start >= (wlib_end - wlib_start + 1)) {
+					zlog_err("%s: SID function index %u is out of bounds for wide_lib array (size: %u)",
+						 __func__, sid_func - wlib_start,
+						 (wlib_end - wlib_start + 1));
+					return false;
+				}
 
 				/* Ensure that the requested SID function has not already been taken */
 				for (ALL_LIST_ELEMENTS_RO(block->u.usid
