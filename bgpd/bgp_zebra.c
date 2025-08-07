@@ -1421,22 +1421,22 @@ static void bgp_zebra_announce_parse_nexthop(
 
 		api_nh->weight = nh_weight;
 
-		if (((mpinfo->attr->srv6_l3vpn &&
-		      !sid_zero_ipv6(&mpinfo->attr->srv6_l3vpn->sid)) ||
+		if (((mpinfo->attr->srv6_l3service &&
+		      !sid_zero_ipv6(&mpinfo->attr->srv6_l3service->sid)) ||
 		     (mpinfo->attr->srv6_vpn &&
 		      !sid_zero_ipv6(&mpinfo->attr->srv6_vpn->sid))) &&
 		    !is_evpn && bgp_is_valid_label(&labels[0])) {
 			struct in6_addr *sid_tmp =
-				mpinfo->attr->srv6_l3vpn
-					? (&mpinfo->attr->srv6_l3vpn->sid)
+				mpinfo->attr->srv6_l3service
+					? (&mpinfo->attr->srv6_l3service->sid)
 					: (&mpinfo->attr->srv6_vpn->sid);
 
 			memcpy(&api_nh->seg6_segs[0], sid_tmp,
 			       sizeof(api_nh->seg6_segs[0]));
 			api_nh->srv6_encap_behavior = bgp_orig->srv6_encap_behavior;
 
-			if (mpinfo->attr->srv6_l3vpn &&
-			    mpinfo->attr->srv6_l3vpn->transposition_len != 0) {
+			if (mpinfo->attr->srv6_l3service &&
+			    mpinfo->attr->srv6_l3service->transposition_len != 0) {
 				mpls_lse_decode(labels[0], &nh_label, &ttl,
 						&exp, &bos);
 
@@ -1448,10 +1448,8 @@ static void bgp_zebra_announce_parse_nexthop(
 				}
 
 				transpose_sid(&api_nh->seg6_segs[0], nh_label,
-					      mpinfo->attr->srv6_l3vpn
-						      ->transposition_offset,
-					      mpinfo->attr->srv6_l3vpn
-						      ->transposition_len);
+					      mpinfo->attr->srv6_l3service->transposition_offset,
+					      mpinfo->attr->srv6_l3service->transposition_len);
 			}
 
 			api_nh->seg_num = 1;
@@ -2376,7 +2374,8 @@ void bgp_zebra_update_srv6_encap_routes(struct bgp *bgp, afi_t afi, struct bgp *
 			if (pi->extra->vrfleak->bgp_orig != from_bgp)
 				continue;
 
-			if ((pi->attr->srv6_l3vpn && !sid_zero_ipv6(&pi->attr->srv6_l3vpn->sid)) ||
+			if ((pi->attr->srv6_l3service &&
+			     !sid_zero_ipv6(&pi->attr->srv6_l3service->sid)) ||
 			    (pi->attr->srv6_vpn && !sid_zero_ipv6(&pi->attr->srv6_vpn->sid)))
 				bgp_zebra_route_install(dest, pi, bgp, add, NULL, false);
 		}

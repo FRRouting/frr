@@ -4588,7 +4588,7 @@ route_match_vpn_dataplane(void *rule, const struct prefix *prefix, void *object)
 		return RMAP_MATCH;
 
 	if (*bgp_encap_type == BGP_ENCAP_TYPE_SRV6 &&
-	    (path_vpn->attr->srv6_l3vpn || path_vpn->attr->srv6_vpn))
+	    (path_vpn->attr->srv6_l3service || path_vpn->attr->srv6_vpn))
 		return RMAP_MATCH;
 
 	return RMAP_NOMATCH;
