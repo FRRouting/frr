@@ -36,3 +36,4 @@ Building FRR
    building-docker
    cross-compiling
    building-doc
+   building-tcmalloc
