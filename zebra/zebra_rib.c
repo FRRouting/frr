@@ -5087,7 +5087,7 @@ static void rib_refresh_interface_address(struct interface *ifp)
 		if (ifc->address != NULL) {
 			zlog_debug("Refreshing address %pFX on interface %s", ifc->address,
 				   ifp->name);
-			dplane_intf_addr_set(ifp, ifc);
+			dplane_intf_addr_refresh(ifp, ifc);
 		}
 	}
 }
@@ -5116,7 +5116,7 @@ static void rib_refresh_interfaces(void)
 				   ifp->name, ifp->vrf->name, ifp->vrf->vrf_id, ifp->ifindex,
 				   ifp->metric, ifp->mtu, ifp->mtu6, if_flag_dump(ifp->flags));
 
-			dplane_intf_update(ifp);
+			dplane_intf_refresh(ifp);
 		}
 }
 

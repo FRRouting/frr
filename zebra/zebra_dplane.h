@@ -1033,13 +1033,15 @@ enum zebra_dplane_result dplane_intf_addr_set(const struct interface *ifp,
 					      const struct connected *ifc);
 enum zebra_dplane_result dplane_intf_addr_unset(const struct interface *ifp,
 						const struct connected *ifc);
-
+enum zebra_dplane_result dplane_intf_addr_refresh(const struct interface *ifp,
+						  const struct connected *ifc);
 /*
  * Enqueue interface link changes for the dataplane.
  */
 enum zebra_dplane_result dplane_intf_add(const struct interface *ifp);
 enum zebra_dplane_result dplane_intf_update(const struct interface *ifp);
 enum zebra_dplane_result dplane_intf_speed_get(const struct interface *ifp);
+enum zebra_dplane_result dplane_intf_refresh(const struct interface *ifp);
 
 /*
  * Enqueue tc link changes for the dataplane.
