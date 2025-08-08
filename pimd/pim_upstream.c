@@ -584,8 +584,7 @@ void pim_update_suppress_timers(uint32_t suppress_time)
 	unsigned int old_rp_ka_time;
 
 	/* stash the old one so we know which values were manually configured */
-	old_rp_ka_time =  (3 * router->register_suppress_time
-			   + router->register_probe_time);
+	old_rp_ka_time = MIN(PIM_RP_KEEPALIVE_PERIOD, UINT16_MAX);
 	router->register_suppress_time = suppress_time;
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
@@ -595,7 +594,7 @@ void pim_update_suppress_timers(uint32_t suppress_time)
 
 		/* Only adjust if not manually configured */
 		if (pim->rp_keep_alive_time == old_rp_ka_time)
-			pim->rp_keep_alive_time = PIM_RP_KEEPALIVE_PERIOD;
+			pim->rp_keep_alive_time = MIN(PIM_RP_KEEPALIVE_PERIOD, UINT16_MAX);
 	}
 }
 
