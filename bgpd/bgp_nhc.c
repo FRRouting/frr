@@ -23,6 +23,20 @@ void bgp_nhc_tlv_add(struct bgp_nhc *nhc, struct bgp_nhc_tlv *tlv)
 	nhc->tlvs_length += tlv->length + BGP_NHC_TLV_MIN_LEN;
 }
 
+struct bgp_nhc_tlv *bgp_nhc_tlv_new(uint16_t code, uint16_t length, const void *value)
+{
+	struct bgp_nhc_tlv *tlv;
+
+	tlv = XCALLOC(MTYPE_BGP_NHC_TLV, sizeof(struct bgp_nhc_tlv) + IPV4_MAX_BYTELEN);
+	tlv->code = code;
+	tlv->length = length;
+	tlv->value = XCALLOC(MTYPE_BGP_NHC_TLV_VAL, length);
+
+	memcpy(tlv->value, value, length);
+
+	return tlv;
+}
+
 struct bgp_nhc_tlv *bgp_nhc_tlv_find(struct bgp_nhc *nhc, uint16_t code)
 {
 	struct bgp_nhc_tlv *tlv = NULL;
@@ -35,7 +49,7 @@ struct bgp_nhc_tlv *bgp_nhc_tlv_find(struct bgp_nhc *nhc, uint16_t code)
 			return tlv;
 	}
 
-	return tlv;
+	return NULL;
 }
 
 void bgp_nhc_tlv_free(struct bgp_nhc_tlv *tlv)
