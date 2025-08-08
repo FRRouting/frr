@@ -238,9 +238,8 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 		vty_out(vty, " keep-alive-timer %d\n", pim->keep_alive_time);
 		++writes;
 	}
-	if (pim->rp_keep_alive_time != (unsigned int)PIM_RP_KEEPALIVE_PERIOD) {
-		vty_out(vty, " rp keep-alive-timer %d\n",
-			pim->rp_keep_alive_time);
+	if (pim->rp_keep_alive_time != MIN(PIM_RP_KEEPALIVE_PERIOD, UINT16_MAX)) {
+		vty_out(vty, " rp keep-alive-timer %d\n", pim->rp_keep_alive_time);
 		++writes;
 	}
 	if (ssm->plist_name) {
