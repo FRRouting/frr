@@ -154,6 +154,27 @@ def test_clear_bgplu():
     check_labelpool(r2)
 
 
+def test_adjin_table():
+    "Check adjin table while soft-reconfiguration inbound is enabled"
+
+    tgen = get_topogen()
+    r1 = tgen.gears["R1"]
+
+    def check_adjin_count():
+        output = json.loads(
+            r1.vtysh_cmd(
+                "show bgp ipv4 labeled-unicast neighbors 10.0.0.2 received-routes json"
+            )
+        )
+
+        return output.get("totalPrefixCounter", 0) > 0
+
+    test_func = partial(check_adjin_count)
+    success, result = topotest.run_and_expect(test_func, True, count=20, wait=1)
+
+    assert success, "labeled-unicast Adj-in table is empty"
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
