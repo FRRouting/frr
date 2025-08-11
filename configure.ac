@@ -1367,6 +1367,7 @@ dnl ---------------
 AC_CHECK_FUNCS([ \
 	strlcat strlcpy \
 	getgrouplist \
+	getloadavg \
 	openat \
 	unlinkat \
 	posix_fallocate \
