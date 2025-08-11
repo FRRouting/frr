@@ -33,6 +33,8 @@
 DEFINE_MTYPE_STATIC(ZEBRA, ZNEIGH_INFO, "Zebra neigh table");
 DEFINE_MTYPE_STATIC(ZEBRA, ZNEIGH_ENT, "Zebra neigh entry");
 
+static const char ipv4_ll_buf[16] = "169.254.0.1";
+
 static int zebra_neigh_rb_cmp(const struct zebra_neigh_ent *n1,
 			      const struct zebra_neigh_ent *n2)
 {
@@ -285,4 +287,58 @@ void zebra_neigh_terminate(void)
 			 next)
 		zebra_neigh_free(n);
 	XFREE(MTYPE_ZNEIGH_INFO, zneigh_info);
+}
+
+/*
+ * In the event the kernel deletes ipv4 link-local neighbor entries created for
+ * 5549 support, re-install them.
+ */
+static void zebra_neigh_handle_5549(uint32_t ndm_family, uint32_t ndm_state, struct zebra_if *zif,
+				    struct interface *ifp, struct ipaddr *ip, bool handle_failed)
+{
+	if (ndm_family != AF_INET)
+		return;
+
+	if (!zif->v6_2_v4_ll_neigh_entry)
+		return;
+
+	struct in_addr ipv4_ll;
+
+	inet_pton(AF_INET, ipv4_ll_buf, &ipv4_ll);
+
+	if (ipv4_ll.s_addr != ip->ip._v4_addr.s_addr)
+		return;
+
+	if (handle_failed && ndm_state & ZEBRA_NUD_FAILED) {
+		zlog_info("Neighbor Entry for %s has entered a failed state, not reinstalling",
+			  ifp->name);
+		return;
+	}
+
+	if_nbr_ipv6ll_to_ipv4ll_neigh_update(ifp, &zif->v6_2_v4_ll_addr6, true);
+}
+
+/* Is vni mcast group */
+static bool is_mac_vni_mcast_group(struct ethaddr *mac, vni_t vni, struct in_addr grp_addr)
+{
+	if (!vni)
+		return false;
+
+	if (!is_zero_mac(mac))
+		return false;
+
+	if (!IN_MULTICAST(ntohl(grp_addr.s_addr)))
+		return false;
+
+	return true;
+}
+
+static int zebra_nbr_entry_state_to_zclient(int nbr_state)
+{
+	/* an exact match is done between
+	 * - zebra neighbor state values: NDM_XXX (see in linux/neighbour.h)
+	 * - zclient neighbor state values: ZEBRA_NEIGH_STATE_XXX
+	 *  (see in lib/zclient.h)
+	 */
+	return nbr_state;
 }
