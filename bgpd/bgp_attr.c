@@ -1628,6 +1628,19 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 		zlog_debug("%s: attributes: %s", __func__, str);
 	}
 
+	/* If the Length of Next Hop Network Address field of the MP_REACH
+	 * attribute is inconsistent with that which was expected, the attribute
+	 * is considered malformed.  Since the next hop precedes the NLRI field
+	 * in the attribute, in this case it will not be possible to reliably
+	 * locate the NLRI; thus, the "session reset" or "AFI/SAFI disable"
+	 * approach MUST be used.
+	 */
+	if (args->type == BGP_ATTR_MP_REACH_NLRI || args->type == BGP_ATTR_MP_UNREACH_NLRI) {
+		bgp_notify_send_with_data(peer->connection, BGP_NOTIFY_UPDATE_ERR, subcode,
+					  notify_datap, length);
+		return BGP_ATTR_PARSE_ERROR;
+	}
+
 	/* Adjust the stream getp to the end of the attribute, in case we can
 	 * still proceed but the caller hasn't read all the attribute.
 	 */
@@ -1678,10 +1691,8 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 		return BGP_ATTR_PARSE_WITHDRAW;
 	case BGP_ATTR_MP_REACH_NLRI:
 	case BGP_ATTR_MP_UNREACH_NLRI:
-		bgp_notify_send_with_data(peer->connection,
-					  BGP_NOTIFY_UPDATE_ERR, subcode,
-					  notify_datap, length);
-		return BGP_ATTR_PARSE_ERROR;
+		/* This will never hit, because it's checked already above */
+		break;
 	default:
 		/* Unknown attributes, that are handled by this function
 		 * should be treated as withdraw, to prevent one more CVE
