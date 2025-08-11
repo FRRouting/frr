@@ -49,6 +49,7 @@
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_dplane.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_neigh.h"
 #include "zebra/zebra_script.h"
 
 DEFINE_MGROUP(ZEBRA, "zebra");
@@ -5255,14 +5256,8 @@ static void rib_process_dplane_results(struct event *thread)
 			/* Some op codes not handled here */
 			case DPLANE_OP_ADDR_INSTALL:
 			case DPLANE_OP_ADDR_UNINSTALL:
-			case DPLANE_OP_NEIGH_INSTALL:
-			case DPLANE_OP_NEIGH_UPDATE:
-			case DPLANE_OP_NEIGH_DELETE:
-			case DPLANE_OP_NEIGH_IP_INSTALL:
-			case DPLANE_OP_NEIGH_IP_DELETE:
 			case DPLANE_OP_VTEP_ADD:
 			case DPLANE_OP_VTEP_DELETE:
-			case DPLANE_OP_NEIGH_DISCOVER:
 			case DPLANE_OP_BR_PORT_UPDATE:
 			case DPLANE_OP_NEIGH_TABLE_UPDATE:
 			case DPLANE_OP_GRE_SET:
@@ -5275,6 +5270,15 @@ static void rib_process_dplane_results(struct event *thread)
 
 			case DPLANE_OP_VLAN_INSTALL:
 				zebra_vlan_dplane_result(ctx);
+				break;
+
+			case DPLANE_OP_NEIGH_IP_INSTALL:
+			case DPLANE_OP_NEIGH_IP_DELETE:
+			case DPLANE_OP_NEIGH_INSTALL:
+			case DPLANE_OP_NEIGH_UPDATE:
+			case DPLANE_OP_NEIGH_DELETE:
+			case DPLANE_OP_NEIGH_DISCOVER:
+				zebra_neigh_dplane_update(ctx);
 				break;
 			} /* Dispatch by op code */
 
