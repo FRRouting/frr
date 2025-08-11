@@ -271,6 +271,8 @@ static int ospf6_zebra_read_route(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	ifindex = api.nexthops[0].ifindex;
+	if (!ifindex && cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD)
+		return 0;
 	if (api.nexthops[0].type == NEXTHOP_TYPE_IPV6
 	    || api.nexthops[0].type == NEXTHOP_TYPE_IPV6_IFINDEX)
 		nexthop = &api.nexthops[0].gate.ipv6;
