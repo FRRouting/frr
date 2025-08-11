@@ -147,22 +147,6 @@ static bool is_proto_nhg(uint32_t id, int type)
 	return false;
 }
 
-/* Is vni mcast group */
-static bool is_mac_vni_mcast_group(struct ethaddr *mac, vni_t vni,
-				   struct in_addr grp_addr)
-{
-	if (!vni)
-		return false;
-
-	if (!is_zero_mac(mac))
-		return false;
-
-	if (!IN_MULTICAST(ntohl(grp_addr.s_addr)))
-		return false;
-
-	return true;
-}
-
 /*
  * The ipv4_ll data structure is used for all 5549
  * additions to the kernel.  Let's figure out the
@@ -4558,47 +4542,12 @@ ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, void *data,
 	return total;
 }
 
-/*
- * In the event the kernel deletes ipv4 link-local neighbor entries created for
- * 5549 support, re-install them.
- */
-static void netlink_handle_5549(struct ndmsg *ndm, struct zebra_if *zif,
-				struct interface *ifp, struct ipaddr *ip,
-				bool handle_failed)
-{
-	if (ndm->ndm_family != AF_INET)
-		return;
-
-	if (!zif->v6_2_v4_ll_neigh_entry)
-		return;
-
-	if (ipv4_ll.s_addr != ip->ip._v4_addr.s_addr)
-		return;
-
-	if (handle_failed && ndm->ndm_state & NUD_FAILED) {
-		zlog_info("Neighbor Entry for %s has entered a failed state, not reinstalling",
-			  ifp->name);
-		return;
-	}
-
-	if_nbr_ipv6ll_to_ipv4ll_neigh_update(ifp, &zif->v6_2_v4_ll_addr6, true);
-}
-
 #define NUD_VALID                                                              \
 	(NUD_PERMANENT | NUD_NOARP | NUD_REACHABLE | NUD_PROBE | NUD_STALE     \
 	 | NUD_DELAY)
 #define NUD_LOCAL_ACTIVE                                                 \
 	(NUD_PERMANENT | NUD_NOARP | NUD_REACHABLE)
 
-static int netlink_nbr_entry_state_to_zclient(int nbr_state)
-{
-	/* an exact match is done between
-	 * - netlink neighbor state values: NDM_XXX (see in linux/neighbour.h)
-	 * - zclient neighbor state values: ZEBRA_NEIGH_STATE_XXX
-	 *  (see in lib/zclient.h)
-	 */
-	return nbr_state;
-}
 static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 {
 	struct ndmsg *ndm;
