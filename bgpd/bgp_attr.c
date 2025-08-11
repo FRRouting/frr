@@ -1628,14 +1628,6 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 		zlog_debug("%s: attributes: %s", __func__, str);
 	}
 
-	/* Only relax error handling for eBGP peers */
-	if (peer->sort != BGP_PEER_EBGP) {
-		bgp_notify_send_with_data(peer->connection,
-					  BGP_NOTIFY_UPDATE_ERR, subcode,
-					  notify_datap, length);
-		return BGP_ATTR_PARSE_ERROR;
-	}
-
 	/* Adjust the stream getp to the end of the attribute, in case we can
 	 * still proceed but the caller hasn't read all the attribute.
 	 */
