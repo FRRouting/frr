@@ -834,13 +834,14 @@ class TopoRouter(TopoGear):
         self.logger.info('check capability {} for "{}"'.format(param, daemonstr))
         return self.net.checkCapability(daemonstr, param)
 
-    def load_frr_config(self, source, daemons=None):
+    def load_frr_config(self, source, daemons=None, extra_daemons=None):
         """
-        Loads the unified configuration file source
-        Start the daemons in the list
-        If daemons is None, try to infer daemons from the config file
-        `daemons` is a tuple (daemon, param) of daemons to start, e.g.:
-        (TopoRouter.RD_ZEBRA, "-s 90000000").
+        Loads the unified configuration file source.  Start the daemons in the list.  If
+        `daemons` is None, try to infer daemons from the config file.  `daemons` is a
+        either a tuple (daemon, param) or a daemon name string of daemons to start,
+        e.g.: (TopoRouter.RD_ZEBRA, "-s 90000000").  If `extra_daemons` is not None, it
+        is a list of either tuple (daemon, param) or daemon name string to use in
+        addition to the daemons inferred from the config file.
         """
         source_path = self.load_config(self.RD_FRR, source)
         if not daemons:
@@ -870,10 +871,19 @@ class TopoRouter(TopoGear):
                             for inst in instances:
                                 if inst != "":
                                     self.load_config(daemon, "", None, inst)
-
+            if extra_daemons is not None:
+                for item in extra_daemons:
+                    if isinstance(item, str):
+                        daemon, param = item, None
+                    else:
+                        daemon, param = item
+                    self.load_config(daemon, "", param)
         else:
             for item in daemons:
-                daemon, param = item
+                if isinstance(item, str):
+                    daemon, param = item, None
+                else:
+                    daemon, param = item
                 self.load_config(daemon, "", param)
 
     def load_config(self, daemon, source=None, param=None, instance=None):
@@ -893,7 +903,9 @@ class TopoRouter(TopoGear):
         all routers.
         """
         daemonstr = self.RD.get(daemon)
-        self.logger.debug('loading "{}" configuration: {}'.format(daemonstr, source))
+        if daemonstr is None:
+            daemonstr = daemon
+        self.logger.info('loading "{}" configuration: {}'.format(daemonstr, source))
         return self.net.loadConf(daemonstr, source, param, instance)
 
     def check_router_running(self):
