@@ -35,6 +35,7 @@
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_advertise.h"
 #include "bgpd/bgp_addpath.h"
+#include "bgpd/bgp_nhc.h"
 
 
 /********************
