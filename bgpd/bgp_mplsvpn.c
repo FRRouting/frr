@@ -1653,7 +1653,7 @@ vpn_leak_from_vrf_get_per_nexthop_label(afi_t afi, struct bgp_path_info *pi,
 		 * fallback to per-vrf label.
 		 */
 		bgp_mplsvpn_path_nh_label_unlink(pi);
-		return from_bgp->vpn_policy[afi].tovpn_label;
+		return bgp_mplsvpn_get_vpn_label(&from_bgp->vpn_policy[afi]);
 	}
 
 	return _vpn_leak_from_vrf_get_per_nexthop_label(pi, to_bgp, from_bgp,
