@@ -1337,6 +1337,12 @@ static void rtadv_prefix_reset(struct zebra_if *zif, struct rtadv_prefix *rp,
 			if (rprefix->AdvPrefixCreate == PREFIX_SRC_BOTH) {
 				rprefix->AdvPrefixCreate = PREFIX_SRC_MANUAL;
 				return;
+			} else if (rprefix->AdvPrefixCreate == PREFIX_SRC_MANUAL) {
+				/*
+				 * The address might not be added, so jump
+				 * out here.
+				 */
+				return;
 			}
 		}
 
