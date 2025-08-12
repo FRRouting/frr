@@ -4786,6 +4786,10 @@ void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni,
 
 	zvtep = zebra_evpn_vtep_find(zevpn, &vtep_ip);
 	if (zvtep) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: VTEP %pI4 already exists for VNI %u flood_control %d (received flood_control %d)",
+				   __func__, &vtep_ip, vni, zvtep->flood_control, flood_control);
+
 		/* If the remote VTEP already exists check if
 		 * the flood mode has changed
 		 */
@@ -4800,6 +4804,10 @@ void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni,
 			zebra_evpn_vtep_install(zevpn, zvtep);
 		}
 	} else {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: VTEP %pI4 does not exist for VNI %u flood_control %d, adding it",
+				   __func__, &vtep_ip, vni, flood_control);
+
 		zvtep = zebra_evpn_vtep_add(zevpn, &vtep_ip, flood_control);
 		if (zvtep)
 			zebra_evpn_vtep_install(zevpn, zvtep);
@@ -5336,7 +5344,9 @@ int zebra_vxlan_vrf_delete(struct zebra_vrf *zvrf)
 void zebra_vxlan_flood_control(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s;
+	vni_t vni = 0;
 	enum vxlan_flood_control flood_ctrl;
+	void *args[2];
 
 	if (!EVPN_ENABLED(zvrf)) {
 		zlog_err("EVPN flood control for non-EVPN VRF %u",
@@ -5346,21 +5356,28 @@ void zebra_vxlan_flood_control(ZAPI_HANDLER_ARGS)
 
 	s = msg;
 	STREAM_GETC(s, flood_ctrl);
+	STREAM_GETL(s, vni);
 
-	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("EVPN flood control %u, currently %u",
-			   flood_ctrl, zvrf->vxlan_flood_ctrl);
-
-	if (zvrf->vxlan_flood_ctrl == flood_ctrl)
-		return;
+	if (IS_ZEBRA_DEBUG_VXLAN) {
+		if (vni == VNI_MAX)
+			zlog_debug("EVPN flood control %u, currently %u", flood_ctrl,
+				   zvrf->vxlan_flood_ctrl);
+		else
+			zlog_debug("EVPN flood control %u for VNI %u, currently %u", flood_ctrl,
+				   vni, zvrf->vxlan_flood_ctrl);
+	}
 
 	zvrf->vxlan_flood_ctrl = flood_ctrl;
+
+	args[0] = &vni;
+	args[1] = zvrf;
 
 	/* Install or uninstall flood entries corresponding to
 	 * remote VTEPs.
 	 */
-	hash_iterate(zvrf->evpn_table, zebra_evpn_handle_flooding_remote_vteps,
-		     zvrf);
+	hash_iterate(zvrf->evpn_table,
+		     (void (*)(struct hash_bucket *, void *))zebra_evpn_handle_flooding_remote_vteps,
+		     args);
 
 stream_failure:
 	return;
