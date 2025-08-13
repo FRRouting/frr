@@ -154,6 +154,70 @@ def test_zebra_srv6_encap_src_addr_set(tgen):
     )
 
 
+def test_zebra_srv6_encap_src_addr_no_srv6(tgen):
+    """
+    Verify the SRv6 encapsulation source address is reset after running
+    'no srv6' command.
+    """
+
+    logger.info(
+        "Verify the SRv6 encapsulation source address is reset after"
+        "running 'no srv6' command"
+    )
+    r1 = tgen.gears["r1"]
+
+    r1.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          no srv6
+        """
+    )
+
+    json_file = "{}/r1/expected_srv6_encap_src_addr_unset.json".format(CWD)
+    expected = json.loads(open(json_file).read())
+
+    ok = topotest.router_json_cmp_retry(
+        r1, "show segment-routing srv6 manager json", expected, retry_timeout=15
+    )
+    assert ok, '"r1" JSON output mismatches'
+
+    router_compare_json_output(
+        "r1", "ip --json sr tunsrc show", "ip_tunsrc_show_unset.json"
+    )
+
+
+def test_zebra_srv6_encap_src_addr_set_again(tgen):
+    """
+    Verify the SRv6 encapsulation source address can be set again.
+    """
+
+    logger.info("Verify the SRv6 encapsulation source address can be set again.")
+    r1 = tgen.gears["r1"]
+
+    r1.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           encapsulation
+            source-address fc00:0:1::1
+        """
+    )
+
+    json_file = "{}/r1/expected_srv6_encap_src_addr_set.json".format(CWD)
+    expected = json.loads(open(json_file).read())
+
+    ok = topotest.router_json_cmp_retry(
+        r1, "show segment-routing srv6 manager json", expected, retry_timeout=15
+    )
+    assert ok, '"r1" JSON output mismatches'
+
+    router_compare_json_output(
+        "r1", "ip --json sr tunsrc show", "ip_tunsrc_show_set.json"
+    )
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
