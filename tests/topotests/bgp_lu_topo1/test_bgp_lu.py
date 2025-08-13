@@ -158,6 +158,9 @@ def test_adjin_table():
     "Check adjin table while soft-reconfiguration inbound is enabled"
 
     tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     r1 = tgen.gears["R1"]
 
     def check_adjin_count():
