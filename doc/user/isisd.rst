@@ -814,20 +814,20 @@ An SRv6 configuration:
    !
    !
    interface eth0
-   ipv6 router isis FOO
-   ip router isis FOO
-   isis hello-interval 5
+    ipv6 router isis FOO
+    ip router isis FOO
+    isis hello-interval 5
    !
    interface eth1
-   ip router isis FOO
+    ip router isis FOO
    !
    !
    router isis FOO
-   net 49.0001.1111.1111.1111.00
-   is-type level-2-only
-   metric-style wide
-   segment-routing srv6
-      locator loc1
+    net 49.0001.1111.1111.1111.00
+    is-type level-2-only
+    metric-style wide
+    segment-routing srv6
+     locator loc1
    !
    line vty
 
