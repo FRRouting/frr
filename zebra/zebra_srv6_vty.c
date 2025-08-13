@@ -771,6 +771,11 @@ DEFUN (no_srv6,
 
 		zebra_srv6_locator_delete(locator);
 	}
+
+	/* Unset SRv6 encapsulation source address */
+	zebra_srv6_encap_src_addr_unset();
+	dplane_srv6_encap_srcaddr_set(&in6addr_any, NS_DEFAULT);
+
 	return CMD_SUCCESS;
 }
 
