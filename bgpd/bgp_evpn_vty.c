@@ -6233,6 +6233,9 @@ DEFPY(bgp_evpn_flood_control_vni,
 	if (vty->node == BGP_EVPN_VNI_NODE)
 		evpn = VTY_GET_CONTEXT_SUB(bgpevpn);
 
+	if (!bgp)
+		return CMD_WARNING;
+
 	if (!evpn)
 		return CMD_WARNING;
 
