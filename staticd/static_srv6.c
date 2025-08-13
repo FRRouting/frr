@@ -40,9 +40,9 @@ void static_ifp_srv6_sids_update(struct interface *ifp, bool is_up)
 	if (!srv6_sids || !ifp)
 		return;
 
-	DEBUGD(&static_dbg_srv6, "%s: Interface %s %s. %s SIDs that depend on the interface",
-	       __func__, (is_up) ? "enabled" : "disabled", (is_up) ? "Removing" : "disabled",
-	       ifp->name);
+	DEBUGD(&static_dbg_srv6,
+	       "%s: Received %s event for interface '%s': %s dependent SRv6 SIDs", __func__,
+	       (is_up) ? "UP" : "DOWN", ifp->name, (is_up) ? "installing" : "uninstalling");
 
 	/*
 	 * iterate over the list of SRv6 SIDs and remove the SIDs that use this
