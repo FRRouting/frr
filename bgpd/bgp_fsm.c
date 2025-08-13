@@ -42,6 +42,7 @@
 #include "bgpd/bgp_io.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_vty.h"
+#include "bgpd/bgp_trace.h"
 
 DEFINE_HOOK(peer_backward_transition, (struct peer * peer), (peer));
 DEFINE_HOOK(peer_status_changed, (struct peer * peer), (peer));
@@ -482,6 +483,7 @@ static void bgp_start_timer(struct event *event)
 	struct peer_connection *connection = EVENT_ARG(event);
 	struct peer *peer = connection->peer;
 
+	frrtrace(2, frr_bgp, session_state_change, peer, 1);
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] Timer (start timer expire for %s).", peer->host,
 			   bgp_peer_get_connection_direction(connection));
@@ -502,6 +504,7 @@ static void bgp_connect_timer(struct event *event)
 	assert(!connection->t_write);
 	assert(!connection->t_read);
 
+	frrtrace(2, frr_bgp, session_state_change, peer, 2);
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] Timer (connect timer (%us) expire for %s)", peer->host,
 			   peer->v_connect, bgp_peer_get_connection_direction(connection));
@@ -523,6 +526,7 @@ static void bgp_holdtime_timer(struct event *event)
 	struct peer_connection *connection = EVENT_ARG(event);
 	struct peer *peer = connection->peer;
 
+	frrtrace(2, frr_bgp, session_state_change, peer, 3);
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] Timer (holdtime timer expire for %s)", peer->host,
 			   bgp_peer_get_connection_direction(connection));
@@ -555,6 +559,7 @@ void bgp_routeadv_timer(struct event *event)
 	struct peer_connection *connection = EVENT_ARG(event);
 	struct peer *peer = connection->peer;
 
+	frrtrace(2, frr_bgp, session_state_change, peer, 4);
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] Timer (routeadv timer expire for %s)", peer->host,
 			   bgp_peer_get_connection_direction(connection));
@@ -575,6 +580,7 @@ void bgp_delayopen_timer(struct event *event)
 	struct peer_connection *connection = EVENT_ARG(event);
 	struct peer *peer = connection->peer;
 
+	frrtrace(2, frr_bgp, session_state_change, peer, 5);
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] Timer (DelayOpentimer expire for %s)", peer->host,
 			   bgp_peer_get_connection_direction(connection));
@@ -2041,6 +2047,7 @@ bgp_connect_success_w_delayopen(struct peer_connection *connection)
 		BGP_TIMER_ON(peer->connection->t_delayopen, bgp_delayopen_timer,
 			     peer->v_delayopen);
 
+	frrtrace(2, frr_bgp, session_state_change, peer, 6);
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] BGP OPEN message delayed for %d seconds for connection %s",
 			   peer->host, peer->delayopen,
@@ -2102,6 +2109,7 @@ static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 	bgp_peer_conf_if_to_su_update(connection);
 
 	if (connection->su.sa.sa_family == AF_UNSPEC) {
+		frrtrace(2, frr_bgp, session_state_change, peer, 7);
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s [FSM] Unable to get neighbor's IP address, waiting... for %s",
 				   peer->host, bgp_peer_get_connection_direction(connection));
@@ -2159,6 +2167,7 @@ static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 	 */
 	if (!bgp_peer_reg_with_nht(peer)) {
 		if (bgp_zebra_num_connects()) {
+			frrtrace(2, frr_bgp, session_state_change, peer, 8);
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug("%s [FSM] Waiting for NHT, no path to neighbor present for %s",
 					   peer->host,
@@ -2175,6 +2184,7 @@ static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 	assert(!CHECK_FLAG(connection->thread_flags, PEER_THREAD_READS_ON));
 	status = bgp_connect(connection);
 
+	frrtrace(2, frr_bgp, connection_attempt, peer, status);
 	switch (status) {
 	case connect_error:
 		if (bgp_debug_neighbor_events(peer))
@@ -2274,6 +2284,7 @@ bgp_fsm_holdtime_expire(struct peer_connection *connection)
 {
 	struct peer *peer = connection->peer;
 
+	frrtrace(2, frr_bgp, session_state_change, peer, 9);
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] Hold timer expire for %s", peer->host,
 			   bgp_peer_get_connection_direction(connection));
@@ -2824,6 +2835,10 @@ int bgp_event_update(struct peer_connection *connection,
 
 	/* Logging this event. */
 	next = FSM[connection->status - 1][event - 1].next_state;
+
+	if (connection->status != next)
+		frrtrace(2, frr_bgp, fsm_event, peer, event, connection->status, next,
+			 connection->fd);
 
 	if (bgp_debug_neighbor_events(peer) && connection->status != next)
 		zlog_debug("%s [FSM] %s (%s->%s), fd %d for %s", peer->host, bgp_event_str[event],
