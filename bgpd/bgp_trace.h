@@ -676,6 +676,55 @@ TRACEPOINT_EVENT(
 )
 TRACEPOINT_LOGLEVEL(frr_bgp, gr_bgp_state, TRACE_INFO)
 
+TRACEPOINT_EVENT(
+	frr_bgp,
+	session_state_change,
+	TP_ARGS(struct peer *, peer, uint8_t, location),
+	TP_FIELDS(
+		ctf_string(peer, PEER_HOSTNAME(peer))
+		ctf_integer(uint8_t, location, location)
+		ctf_integer(enum bgp_fsm_status, old_status, peer->connection->ostatus)
+		ctf_integer(enum bgp_fsm_status, new_status, peer->connection->status)
+		ctf_integer(enum bgp_fsm_events, event, peer->cur_event)
+		ctf_integer(uint32_t, vrf_id, peer->bgp->vrf_id)
+		ctf_integer(int, fd, peer->connection->fd)
+		ctf_integer(uint32_t, established_peers, peer->bgp->established_peers)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_bgp, session_state_change, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	connection_attempt,
+	TP_ARGS(struct peer *, peer, int, status),
+	TP_FIELDS(
+		ctf_string(peer, PEER_HOSTNAME(peer))
+		ctf_integer(int, status, status)
+		ctf_integer(enum bgp_fsm_status, current_status, peer->connection->status)
+		ctf_integer(uint32_t, vrf_id, peer->bgp->vrf_id)
+		ctf_integer(int, fd, peer->connection->fd)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_bgp, connection_attempt, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	fsm_event,
+	TP_ARGS(struct peer *, peer, enum bgp_fsm_events, event, enum bgp_fsm_status, current_status, enum bgp_fsm_status, next_status, int, fd),
+	TP_FIELDS(
+		ctf_string(peer, PEER_HOSTNAME(peer))
+		ctf_integer(enum bgp_fsm_events, event, event)
+		ctf_integer(enum bgp_fsm_status, current_status, current_status)
+		ctf_integer(enum bgp_fsm_status, next_status, next_status)
+		ctf_integer(int, fd, fd)
+		ctf_integer(uint32_t, vrf_id, peer->bgp->vrf_id)
+	)
+)
+
+TRACEPOINT_LOGLEVEL(frr_bgp, fsm_event, TRACE_INFO)
+
 /* clang-format on */
 
 #include <lttng/tracepoint-event.h>
