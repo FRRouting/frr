@@ -6195,6 +6195,48 @@ ALIAS_HIDDEN(show_bgp_l2vpn_evpn_import_rt, show_bgp_evpn_import_rt_cmd,
 	     "show bgp evpn import-rt",
 	     SHOW_STR BGP_STR EVPN_HELP_STR "Show import route target\n")
 
+<<<<<<< HEAD
+=======
+DEFPY(bgp_evpn_flood_control_vni,
+      bgp_evpn_flood_control_vni_cmd,
+      "[no$no] flooding <disable$disable|head-end-replication$her>",
+      NO_STR
+      "Specify handling for BUM packets\n"
+      "Do not flood any BUM packets\n"
+      "Flood BUM packets using head-end replication\n")
+{
+	struct bgpevpn *evpn = NULL;
+	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+	enum vxlan_flood_control flood_ctrl = VXLAN_FLOOD_INHERIT_GLOBAL;
+
+	if (vty->node == BGP_EVPN_VNI_NODE)
+		evpn = VTY_GET_CONTEXT_SUB(bgpevpn);
+
+	if (!bgp)
+		return CMD_WARNING;
+
+	if (!evpn)
+		return CMD_WARNING;
+
+	if (no) {
+		flood_ctrl = VXLAN_FLOOD_INHERIT_GLOBAL;
+	} else {
+		if (disable)
+			flood_ctrl = VXLAN_FLOOD_DISABLED;
+		else if (her)
+			flood_ctrl = VXLAN_FLOOD_HEAD_END_REPL;
+	}
+
+	if (evpn->vxlan_flood_ctrl == flood_ctrl)
+		return CMD_SUCCESS;
+
+	evpn->vxlan_flood_ctrl = flood_ctrl;
+	bgp_evpn_flood_control_change(bgp);
+
+	return CMD_SUCCESS;
+}
+
+>>>>>>> 0254c5103 (bgpd: Make sure `bgp` is not NULL when changing flooding type per-VNI)
 DEFUN_NOSH (bgp_evpn_vni,
             bgp_evpn_vni_cmd,
             "vni " CMD_VNI_RANGE,
