@@ -238,6 +238,9 @@ struct dplane_intf_info {
 	uint32_t flags;
 	uint32_t change_flags;
 
+	bool speed_set;
+	uint32_t speed;
+
 	bool protodown;
 	bool protodown_set;
 	bool pd_reason_val;
@@ -1796,6 +1799,34 @@ void dplane_ctx_set_ifp_zif_type(struct zebra_dplane_ctx *ctx,
 	DPLANE_CTX_VALID(ctx);
 
 	ctx->u.intf.zif_type = zif_type;
+}
+
+void dplane_ctx_set_ifp_speed_set(struct zebra_dplane_ctx *ctx, bool set)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.intf.speed_set = set;
+}
+
+bool dplane_ctx_get_ifp_speed_set(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.intf.speed_set;
+}
+
+void dplane_ctx_set_ifp_speed(struct zebra_dplane_ctx *ctx, uint32_t speed)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.intf.speed = speed;
+}
+
+uint32_t dplane_ctx_get_ifp_speed(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.intf.speed;
 }
 
 void dplane_ctx_set_ifname(struct zebra_dplane_ctx *ctx, const char *ifname)

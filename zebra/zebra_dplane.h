@@ -437,6 +437,10 @@ uint8_t dplane_ctx_get_ifp_family(const struct zebra_dplane_ctx *ctx);
 struct zebra_vxlan_vni_array;
 void dplane_ctx_set_ifp_vxlan_vni_array(struct zebra_dplane_ctx *ctx,
 					struct zebra_vxlan_vni_array *vniarray);
+void dplane_ctx_set_ifp_speed_set(struct zebra_dplane_ctx *ctx, bool set);
+bool dplane_ctx_get_ifp_speed_set(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_ifp_speed(struct zebra_dplane_ctx *ctx, uint32_t speed);
+uint32_t dplane_ctx_get_ifp_speed(const struct zebra_dplane_ctx *ctx);
 
 /*
  * These defines mirror the values for bridge values in linux
