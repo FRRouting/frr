@@ -1,0 +1,3 @@
+CLEANFILES    += pkgconfig/frr.pc
+pkgconfigdir   = $(libdir)/pkgconfig
+pkgconfig_DATA = pkgconfig/frr.pc

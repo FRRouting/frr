@@ -1,0 +1,19 @@
+#
+# the following are provided so you can line up installation paths.
+# note you can access them with e.g. "pkgconf --variable=moduledir"
+#
+moduledir="@e_moduledir@"
+prefix="@prefix@"
+includedir=${prefix}/include/frr
+#
+# these are needed to make the build work
+#
+multipath_num="@MULTIPATH_NUM@"
+
+Name: @PACKAGE@
+Description: FRRouting packaged-source-tree build support
+URL: @PACKAGE_BUGREPORT@
+Version: @PACKAGE_VERSION@
+Cflags: -I${includedir} -I${includedir}/lib		 \
+	-fms-extensions -DMULTIPATH_NUM=${multipath_num} \
+	-Wno-missing-field-initializers -Wno-unused-parameter
