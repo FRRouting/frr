@@ -2036,8 +2036,8 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 		uint32_t mtu;
 		ns_id_t link_nsid;
 		struct zebra_if *zif;
-		bool protodown, protodown_set, startup;
-		uint32_t rc_bitfield;
+		bool protodown, protodown_set, startup, speed_set;
+		uint32_t rc_bitfield, speed;
 		uint8_t old_hw_addr[INTERFACE_HWADDR_MAX];
 		char *desc;
 		uint8_t family;
@@ -2069,6 +2069,8 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 		family = dplane_ctx_get_ifp_family(ctx);
 		change_flags = dplane_ctx_get_ifp_change_flags(ctx);
 		cchanges = dplane_ctx_get_intf_carrier_changes(ctx);
+		speed_set = dplane_ctx_get_ifp_speed_set(ctx);
+		speed = dplane_ctx_get_ifp_speed(ctx);
 
 #ifndef AF_BRIDGE
 		/*
@@ -2107,7 +2109,9 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 			if_update_state_mtu(ifp, mtu);
 			if_update_state_mtu6(ifp, mtu);
 			if_update_state_metric(ifp, 0);
-			if_update_state_speed(ifp, kernel_get_speed(ifp, NULL));
+			if (!speed_set)
+				speed = kernel_get_speed(ifp, NULL);
+			if_update_state_speed(ifp, speed);
 			ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
 			ifp->txqlen = dplane_ctx_get_intf_txqlen(ctx);
 
@@ -2211,6 +2215,8 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 			if_update_state_mtu(ifp, mtu);
 			if_update_state_mtu6(ifp, mtu);
 			if_update_state_metric(ifp, 0);
+			if (speed_set)
+				if_update_state_speed(ifp, speed);
 			ifp->txqlen = dplane_ctx_get_intf_txqlen(ctx);
 
 			/*
