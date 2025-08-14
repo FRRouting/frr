@@ -1498,8 +1498,9 @@ int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	if (!(h->nlmsg_type == RTM_NEWROUTE || h->nlmsg_type == RTM_DELROUTE)) {
 		/* If this is not route add/delete message print warning. */
-		zlog_debug("Kernel message: %s NS %u",
-			   nl_msg_type_to_str(h->nlmsg_type), ns_id);
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("Kernel message: %s NS %u", nl_msg_type_to_str(h->nlmsg_type),
+				   ns_id);
 		return 0;
 	}
 
