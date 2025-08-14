@@ -385,6 +385,25 @@ static inline bool is_pi_srv6_valid(struct bgp_path_info *pi, struct bgp *bgp_ne
 	return true;
 }
 
+static inline bool is_srv6_vpn_afi_enabled(struct bgp *bgp, afi_t afi)
+{
+	if (CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO) ||
+	    CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_EXPLICIT) ||
+	    bgp->vpn_policy[afi].tovpn_sid_index)
+		return true;
+
+	return false;
+}
+
+static inline bool is_srv6_vpn_vrf_enabled(struct bgp *bgp)
+{
+	if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO) ||
+	    CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT) || bgp->tovpn_sid_index)
+		return true;
+
+	return false;
+}
+
 extern void vpn_policy_routemap_event(const char *rmap_name);
 
 extern vrf_id_t get_first_vrf_for_redirect_with_rt(struct ecommunity *eckey);
