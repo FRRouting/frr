@@ -484,6 +484,7 @@ static int zebra_sr_config(struct vty *vty)
 			vty_out(vty, "  encapsulation\n");
 			vty_out(vty, "   source-address %pI6\n",
 				&srv6->encap_src_addr);
+			vty_out(vty, "  exit\n");
 		}
 		vty_out(vty, "  locators\n");
 		for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
