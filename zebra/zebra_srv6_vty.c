@@ -1602,6 +1602,7 @@ static int zebra_sr_config(struct vty *vty)
 			vty_out(vty, "  encapsulation\n");
 			vty_out(vty, "   source-address %pI6\n",
 				&srv6->encap_src_addr);
+			vty_out(vty, "  exit\n");
 		}
 	}
 	if (srv6 && zebra_srv6_is_enable()) {
