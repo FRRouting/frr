@@ -163,10 +163,12 @@ static int if_zebra_new_hook(struct interface *ifp)
 	 * of seconds and ask again.  Hopefully it's all settled
 	 * down upon startup.
 	 */
-	zebra_if->speed_update_count = 0;
-	event_add_timer(zrouter.master, if_zebra_speed_update, ifp, 15,
-			&zebra_if->speed_update);
-	event_ignore_late_timer(zebra_if->speed_update);
+	if (ZEBRA_IF_SPEED_KERNEL(zebra_if)) {
+		zebra_if->speed_update_count = 0;
+		event_add_timer(zrouter.master, if_zebra_speed_update, ifp, 15,
+				&zebra_if->speed_update);
+		event_ignore_late_timer(zebra_if->speed_update);
+	}
 
 	return 0;
 }
@@ -966,9 +968,10 @@ void if_up(struct interface *ifp, bool install_connected)
 	if (zif->flags & ZIF_FLAG_EVPN_MH_UPLINK)
 		zebra_evpn_mh_uplink_oper_update(zif);
 
-	event_add_timer(zrouter.master, if_zebra_speed_update, ifp, 0,
-			&zif->speed_update);
-	event_ignore_late_timer(zif->speed_update);
+	if (ZEBRA_IF_SPEED_KERNEL(zif)) {
+		event_add_timer(zrouter.master, if_zebra_speed_update, ifp, 0, &zif->speed_update);
+		event_ignore_late_timer(zif->speed_update);
+	}
 
 	if_addr_wakeup(ifp);
 
@@ -1924,8 +1927,8 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 		uint32_t mtu;
 		ns_id_t link_nsid;
 		struct zebra_if *zif;
-		bool protodown, protodown_set, startup;
-		uint32_t rc_bitfield;
+		bool protodown, protodown_set, startup, speed_set;
+		uint32_t rc_bitfield, speed;
 		uint8_t old_hw_addr[INTERFACE_HWADDR_MAX];
 		char *desc;
 		uint8_t family;
@@ -1950,6 +1953,8 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 		startup = dplane_ctx_get_ifp_startup(ctx);
 		desc = dplane_ctx_get_ifp_desc(ctx);
 		family = dplane_ctx_get_ifp_family(ctx);
+		speed_set = dplane_ctx_get_ifp_speed_set(ctx);
+		speed = dplane_ctx_get_ifp_speed(ctx);
 
 #ifndef AF_BRIDGE
 		/*
@@ -1985,7 +1990,11 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 			if_update_state_mtu(ifp, mtu);
 			if_update_state_mtu6(ifp, mtu);
 			if_update_state_metric(ifp, 0);
-			if_update_state_speed(ifp, kernel_get_speed(ifp, NULL));
+			if (!speed_set) {
+				speed = kernel_get_speed(ifp, NULL);
+				ifp->flags |= ZIF_FLAG_SPEED_KERNEL;
+			}
+			if_update_state_speed(ifp, speed);
 			ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
 			ifp->txqlen = dplane_ctx_get_intf_txqlen(ctx);
 
@@ -2072,6 +2081,9 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 			zebra_if_set_ziftype(ifp, zif_type, zif_slave_type);
 
 			memcpy(old_hw_addr, ifp->hw_addr, INTERFACE_HWADDR_MAX);
+
+			if (speed_set)
+				if_update_state_speed(ifp, speed);
 
 			/* Update link. */
 			zebra_if_update_link(ifp, link_ifindex, link_nsid);
