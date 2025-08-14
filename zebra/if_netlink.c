@@ -1278,8 +1278,9 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	if (!(h->nlmsg_type == RTM_NEWLINK || h->nlmsg_type == RTM_DELLINK)) {
 		/* If this is not link add/delete message so print warning. */
-		zlog_debug("%s: wrong kernel message %s", __func__,
-			   nl_msg_type_to_str(h->nlmsg_type));
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: wrong kernel message %s", __func__,
+				   nl_msg_type_to_str(h->nlmsg_type));
 		return 0;
 	}
 
