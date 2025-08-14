@@ -10350,9 +10350,7 @@ DEFPY (af_sid_vpn_export,
 
 	if (!yes) {
 		/* when SID is not set, do nothing */
-		if ((bgp->vpn_policy[afi].tovpn_sid_index == 0) &&
-		    !CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO) &&
-		    !CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_EXPLICIT))
+		if (!is_srv6_vpn_afi_enabled(bgp, afi))
 			return CMD_SUCCESS;
 
 		/* pre-change */
@@ -10370,8 +10368,7 @@ DEFPY (af_sid_vpn_export,
 		return CMD_SUCCESS;
 	}
 
-	if (bgp->tovpn_sid_index != 0 || CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO) ||
-	    CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT)) {
+	if (is_srv6_vpn_vrf_enabled(bgp)) {
 		vty_out(vty,
 			"per-vrf sid and per-af sid are mutually exclusive\n"
 			"Failed: per-vrf sid is configured. Remove per-vrf sid before configuring per-af sid\n");
@@ -10459,9 +10456,7 @@ DEFPY (bgp_sid_vpn_export,
 
 	if (no) {
 		/* when per-VRF SID is not set, do nothing */
-		if (bgp->tovpn_sid_index == 0 &&
-		    !CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO) &&
-		    !CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT))
+		if (!is_srv6_vpn_vrf_enabled(bgp))
 			return CMD_SUCCESS;
 
 		sid_idx = 0;
@@ -10472,12 +10467,7 @@ DEFPY (bgp_sid_vpn_export,
 		UNSET_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT);
 	}
 
-	if (bgp->vpn_policy[AFI_IP].tovpn_sid_index != 0 ||
-	    CHECK_FLAG(bgp->vpn_policy[AFI_IP].flags,
-		       BGP_VPN_POLICY_TOVPN_SID_AUTO) ||
-	    bgp->vpn_policy[AFI_IP6].tovpn_sid_index != 0 ||
-	    CHECK_FLAG(bgp->vpn_policy[AFI_IP6].flags,
-		       BGP_VPN_POLICY_TOVPN_SID_AUTO)) {
+	if (is_srv6_vpn_afi_enabled(bgp, AFI_IP) || is_srv6_vpn_afi_enabled(bgp, AFI_IP6)) {
 		vty_out(vty,
 			"per-vrf sid and per-af sid are mutually exclusive\n"
 			"Failed: per-af sid is configured. Remove per-af sid before configuring per-vrf sid\n");
