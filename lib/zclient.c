@@ -528,9 +528,17 @@ enum zclient_send_status zclient_send_localsid(struct zclient *zclient,
 	struct prefix_ipv6 p = {};
 	struct zapi_route api = {};
 	struct zapi_nexthop *znh;
-	struct interface *ifp;
+	struct interface *ifp = NULL;
+	struct vrf *vrf;
 
-	ifp = if_get_vrf_loopback(vrf_id);
+	if (vrf_id == VRF_DEFAULT)
+		vrf = vrf_lookup_by_name(DEFAULT_VRF_SRV6_IFNAME);
+	else
+		vrf = vrf_lookup_by_id(vrf_id);
+
+	if (vrf)
+		ifp = if_lookup_by_name_vrf(vrf->name, vrf);
+
 	if (ifp == NULL)
 		return ZCLIENT_SEND_FAILURE;
 
