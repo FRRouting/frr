@@ -25,6 +25,21 @@ struct list *srv6_sids;
 DEFINE_MTYPE_STATIC(STATIC, STATIC_SRV6_LOCATOR, "Static SRv6 locator");
 DEFINE_MTYPE_STATIC(STATIC, STATIC_SRV6_SID, "Static SRv6 SID");
 
+static bool is_sid_update_required(struct interface *ifp, struct static_srv6_sid *sid)
+{
+	if ((strcmp(sid->attributes.vrf_name, ifp->name) == 0) ||
+	    ((sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_X ||
+	      sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID) &&
+	     strcmp(sid->attributes.ifname, ifp->name) == 0) ||
+	    (strncmp(ifp->name, DEFAULT_SRV6_IFNAME, sizeof(ifp->name)) == 0 &&
+	     (sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END ||
+	      sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID))) {
+		return true;
+	}
+
+	return false;
+}
+
 /*
  * When an interface is enabled in the kernel, go through all the static SRv6 SIDs in
  * the system that use this interface and install/remove them in the zebra RIB.
@@ -49,13 +64,7 @@ void static_ifp_srv6_sids_update(struct interface *ifp, bool is_up)
 	 * VRF from the zebra RIB
 	 */
 	for (ALL_LIST_ELEMENTS_RO(srv6_sids, node, sid)) {
-		if ((strcmp(sid->attributes.vrf_name, ifp->name) == 0) ||
-		    ((sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_X ||
-		      sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID) &&
-		     strcmp(sid->attributes.ifname, ifp->name) == 0) ||
-		    (strncmp(ifp->name, DEFAULT_SRV6_IFNAME, sizeof(ifp->name)) == 0 &&
-		     (sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END ||
-		      sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID))) {
+		if (is_sid_update_required(ifp, sid)) {
 			if (is_up) {
 				static_zebra_srv6_sid_install(sid);
 				SET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
