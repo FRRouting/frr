@@ -1525,6 +1525,7 @@ static void bgp_srv6_init(struct bgp *bgp)
 	bgp->srv6_locator_chunks->del = srv6_locator_chunk_list_free;
 	bgp->srv6_functions = list_new();
 	bgp->srv6_functions->del = (void (*)(void *))srv6_function_free;
+	bgp->srv6_only = true;
 }
 
 static void bgp_srv6_cleanup(struct bgp *bgp)
@@ -5053,6 +5054,8 @@ static const struct peer_flag_action peer_af_flag_action_list[] = {
 	{ PEER_FLAG_ACCEPT_OWN, 0, peer_change_reset },
 	{ PEER_FLAG_SEND_EXT_COMMUNITY_RPKI, 1, peer_change_reset_out },
 	{ PEER_FLAG_ADDPATH_RX_PATHS_LIMIT, 0, peer_change_none },
+	{ PEER_FLAG_CONFIG_ENCAPSULATION_SRV6, 1, peer_change_reset_out },
+	{ PEER_FLAG_CONFIG_ENCAPSULATION_MPLS, 1, peer_change_reset_out },
 	{ 0, 0, 0 }
 };
 
