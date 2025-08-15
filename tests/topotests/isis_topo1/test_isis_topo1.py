@@ -454,7 +454,7 @@ def test_isis_overload_on_startup():
 
     tgen = get_topogen()
     net = get_topogen().net
-    overload_time = 120
+    overload_time = 30
 
     # Don't run this test if we have any failure.
     if tgen.routers_have_failure():
