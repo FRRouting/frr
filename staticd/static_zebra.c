@@ -557,68 +557,6 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 }
 
 /**
- * Send SRv6 SID to ZEBRA for installation or deletion.
- *
- * @param cmd		ZEBRA_ROUTE_ADD or ZEBRA_ROUTE_DELETE
- * @param sid		SRv6 SID to install or delete
- * @param prefixlen	Prefix length
- * @param oif		Outgoing interface
- * @param action	SID action
- * @param context	SID context
- */
-static void static_zebra_send_localsid(int cmd, const struct in6_addr *sid, uint16_t prefixlen,
-				       ifindex_t oif, enum seg6local_action_t action,
-				       const struct seg6local_context *context)
-{
-	struct prefix_ipv6 p = {};
-	struct zapi_route api = {};
-	struct zapi_nexthop *znh;
-
-	if (cmd != ZEBRA_ROUTE_ADD && cmd != ZEBRA_ROUTE_DELETE) {
-		flog_warn(EC_LIB_DEVELOPMENT, "%s: wrong ZEBRA command", __func__);
-		return;
-	}
-
-	if (prefixlen > IPV6_MAX_BITLEN) {
-		flog_warn(EC_LIB_DEVELOPMENT, "%s: wrong prefixlen %u", __func__, prefixlen);
-		return;
-	}
-
-	DEBUGD(&static_dbg_srv6, "%s:  |- %s SRv6 SID %pI6 behavior %s", __func__,
-	       cmd == ZEBRA_ROUTE_ADD ? "Add" : "Delete", sid, seg6local_action2str(action));
-
-	p.family = AF_INET6;
-	p.prefixlen = prefixlen;
-	p.prefix = *sid;
-
-	api.vrf_id = VRF_DEFAULT;
-	api.type = ZEBRA_ROUTE_STATIC;
-	api.instance = 0;
-	api.safi = SAFI_UNICAST;
-	memcpy(&api.prefix, &p, sizeof(p));
-
-	if (cmd == ZEBRA_ROUTE_DELETE)
-		return (void)zclient_route_send(ZEBRA_ROUTE_DELETE, static_zclient, &api);
-
-	SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
-	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-
-	znh = &api.nexthops[0];
-
-	memset(znh, 0, sizeof(*znh));
-
-	znh->type = NEXTHOP_TYPE_IFINDEX;
-	znh->ifindex = oif;
-	SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL);
-	znh->seg6local_action = action;
-	memcpy(&znh->seg6local_ctx, context, sizeof(struct seg6local_context));
-
-	api.nexthop_num = 1;
-
-	zclient_route_send(ZEBRA_ROUTE_ADD, static_zclient, &api);
-}
-
-/**
  * Install SRv6 SID in the forwarding plane through Zebra.
  *
  * @param sid		SRv6 SID
@@ -810,8 +748,8 @@ void static_zebra_srv6_sid_install(struct static_srv6_sid *sid)
 	}
 
 	/* Send the SID to zebra */
-	static_zebra_send_localsid(ZEBRA_ROUTE_ADD, &sid->addr.prefix, sid->addr.prefixlen,
-				   ifp->ifindex, action, &ctx);
+	zclient_send_localsid(static_zclient, ZEBRA_ROUTE_ADD, &sid->addr.prefix,
+			      sid->addr.prefixlen, ifp->ifindex, action, &ctx);
 
 	SET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
 }
@@ -1019,8 +957,8 @@ void static_zebra_srv6_sid_uninstall(struct static_srv6_sid *sid)
 	ctx.flv.lcblock_len = sid->locator->block_bits_length;
 	ctx.flv.lcnode_func_len = ctx.node_len + ctx.function_len;
 
-	static_zebra_send_localsid(ZEBRA_ROUTE_DELETE, &sid->addr.prefix, sid->addr.prefixlen,
-				   ifp->ifindex, action, &ctx);
+	zclient_send_localsid(static_zclient, ZEBRA_ROUTE_DELETE, &sid->addr.prefix,
+			      sid->addr.prefixlen, ifp->ifindex, action, &ctx);
 
 	UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
 }

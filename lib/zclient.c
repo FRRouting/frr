@@ -520,22 +520,28 @@ enum zclient_send_status zclient_send_vrf_label(struct zclient *zclient,
 	return zclient_send_message(zclient);
 }
 
-enum zclient_send_status zclient_send_localsid(struct zclient *zclient,
-		const struct in6_addr *sid, vrf_id_t vrf_id,
-		enum seg6local_action_t action,
-		const struct seg6local_context *context)
+enum zclient_send_status zclient_send_localsid(struct zclient *zclient, uint8_t cmd,
+					       const struct in6_addr *sid, uint16_t prefixlen,
+					       ifindex_t oif, enum seg6local_action_t action,
+					       const struct seg6local_context *context)
 {
 	struct prefix_ipv6 p = {};
 	struct zapi_route api = {};
 	struct zapi_nexthop *znh;
 	struct interface *ifp;
 
-	ifp = if_get_vrf_loopback(vrf_id);
-	if (ifp == NULL)
+	if (prefixlen > IPV6_MAX_BITLEN) {
+		flog_warn(EC_LIB_DEVELOPMENT, "%s: wrong prefixlen %u", __func__, prefixlen);
 		return ZCLIENT_SEND_FAILURE;
+	}
+
+	if (zclient_debug)
+		zlog_debug("%s:  |- %s SRv6 SID %pI6 behavior %s", __func__,
+			   cmd != ZEBRA_ROUTE_ADD ? "Add" : "Delete", sid,
+			   seg6local_action2str(action));
 
 	p.family = AF_INET6;
-	p.prefixlen = IPV6_MAX_BITLEN;
+	p.prefixlen = prefixlen;
 	p.prefix = *sid;
 
 	api.vrf_id = VRF_DEFAULT;
@@ -544,7 +550,7 @@ enum zclient_send_status zclient_send_localsid(struct zclient *zclient,
 	api.safi = SAFI_UNICAST;
 	memcpy(&api.prefix, &p, sizeof(p));
 
-	if (action == ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
+	if (cmd == ZEBRA_ROUTE_DELETE)
 		return zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
 
 	SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
