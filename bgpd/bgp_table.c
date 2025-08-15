@@ -77,6 +77,8 @@ const char *bgp_dest_get_prefix_str(struct bgp_dest *dest)
  */
 inline struct bgp_dest *bgp_dest_unlock_node(struct bgp_dest *dest)
 {
+	struct bgp_adj_in *ain, *ain_next;
+
 	frrtrace(1, frr_bgp, bgp_dest_unlock, dest);
 	bgp_delete_listnode(dest);
 	struct route_node *rn = bgp_dest_to_rnode(dest);
@@ -88,6 +90,22 @@ inline struct bgp_dest *bgp_dest_unlock_node(struct bgp_dest *dest)
 						   &dest->tx_addpath, rt->afi,
 						   rt->safi);
 		}
+
+		/*
+		 * We are destroying this node.  At this point in time
+		 * we may have adj_in data hung off this node, but
+		 * we do not want to leave them around as that the adj_in
+		 * structures have peer locks being held.  Let's cleanup
+		 * the peer locks if there are any.
+		 */
+		ain = dest->adj_in;
+		while (ain) {
+			ain_next = ain->next;
+			bgp_adj_in_remove(&dest, ain);
+			ain = ain_next;
+		}
+		dest->adj_in = NULL;
+
 		XFREE(MTYPE_BGP_NODE, dest);
 		dest = NULL;
 		rn->info = NULL;
