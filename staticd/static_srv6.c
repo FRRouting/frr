@@ -25,18 +25,69 @@ struct list *srv6_sids;
 DEFINE_MTYPE_STATIC(STATIC, STATIC_SRV6_LOCATOR, "Static SRv6 locator");
 DEFINE_MTYPE_STATIC(STATIC, STATIC_SRV6_SID, "Static SRv6 SID");
 
+/*
+ * Determines if the specified SID needs to be installed or removed
+ * due to a state change (up/down) on the provided interface.
+ *
+ * Returns:
+ *   - true  : The SID is dependent on this interface and should be updated
+ *             (installed or uninstalled) when the interface changes state.
+ *   - false : The SID does not depend on this interface; no update needed.
+ */
 static bool is_sid_update_required(struct interface *ifp, struct static_srv6_sid *sid)
 {
-	if ((strcmp(sid->attributes.vrf_name, ifp->name) == 0) ||
-	    ((sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_X ||
-	      sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID) &&
-	     strcmp(sid->attributes.ifname, ifp->name) == 0) ||
-	    (strncmp(ifp->name, DEFAULT_SRV6_IFNAME, sizeof(ifp->name)) == 0 &&
-	     (sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END ||
-	      sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID))) {
-		return true;
+	/* Check if the SID's behavior is one of the uDT* variants. */
+	bool is_udt = (sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT6 ||
+		       sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID ||
+		       sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT4 ||
+		       sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID ||
+		       sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT46 ||
+		       sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID);
+
+	/* Check if the SID's behavior is one of the uDT4/uDT46 variants. */
+	bool is_udt4_or_udt46 = (sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT4 ||
+				 sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID ||
+				 sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT46 ||
+				 sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID);
+
+	/* Check if the SID's behavior is one of the uA variants. */
+	bool is_ua = (sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_X ||
+		      sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID);
+
+	/* Check if the SID's behavior is one of the uN variants. */
+	bool is_un = (sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END ||
+		      sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID);
+
+	/* Check if the SID requires an update based on behavior and behavior-specific attributes */
+
+	if (is_un) {
+		/*
+		 * 1. SID is uN. uN SIDs are attached to 'sr0'.
+		 *    Therefore, an update is needed if the provided interface 'ifp' is 'sr0'.
+		 */
+		if (strmatch(ifp->name, DEFAULT_SRV6_IFNAME))
+			return true;
 	}
 
+	if (is_ua) {
+		/*
+		 * 2. SID is uA. uA SIDs are associated with a specific interface defined in their attributes.
+		 *    Therefore, an update is needed if the provided interface 'ifp' matches the SID's associated interface.
+		 */
+		if (strmatch(sid->attributes.ifname, ifp->name))
+			return true;
+	}
+
+	if (is_udt) {
+		/*
+		 * 3a. SID is uDT*. uDT* SIDs are associated with a VRF interface defined in their attributes.
+		 *     Therefore, an update is needed if the provided interface 'ifp' matches the SID's associated VRF.
+		 */
+		if (strmatch(sid->attributes.vrf_name, ifp->name))
+			return true;
+	}
+
+	/* No dependency found */
 	return false;
 }
 
@@ -64,14 +115,15 @@ void static_ifp_srv6_sids_update(struct interface *ifp, bool is_up)
 	 * VRF from the zebra RIB
 	 */
 	for (ALL_LIST_ELEMENTS_RO(srv6_sids, node, sid)) {
-		if (is_sid_update_required(ifp, sid)) {
-			if (is_up) {
-				static_zebra_srv6_sid_install(sid);
-				SET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
-			} else {
-				static_zebra_srv6_sid_uninstall(sid);
-				UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
-			}
+		if (!is_sid_update_required(ifp, sid))
+			continue;
+
+		if (is_up) {
+			static_zebra_srv6_sid_install(sid);
+			SET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
+		} else {
+			static_zebra_srv6_sid_uninstall(sid);
+			UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
 		}
 	}
 }
