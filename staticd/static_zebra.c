@@ -543,6 +543,7 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 }
 
 /**
+<<<<<<< HEAD
  * Send SRv6 SID to ZEBRA for installation or deletion.
  *
  * @param cmd		ZEBRA_ROUTE_ADD or ZEBRA_ROUTE_DELETE
@@ -605,6 +606,8 @@ static void static_zebra_send_localsid(int cmd, const struct in6_addr *sid, uint
 }
 
 /**
+=======
+>>>>>>> efc9ba4ba (*: Generalize `zclient_send_localsid` and move to `lib/`)
  * Install SRv6 SID in the forwarding plane through Zebra.
  *
  * @param sid		SRv6 SID
@@ -718,8 +721,8 @@ void static_zebra_srv6_sid_install(struct static_srv6_sid *sid)
 	}
 
 	/* Send the SID to zebra */
-	static_zebra_send_localsid(ZEBRA_ROUTE_ADD, &sid->addr.prefix, sid->addr.prefixlen,
-				   ifp->ifindex, action, &ctx);
+	zclient_send_localsid(static_zclient, ZEBRA_ROUTE_ADD, &sid->addr.prefix,
+			      sid->addr.prefixlen, ifp->ifindex, action, &ctx);
 
 	SET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
 }
@@ -837,8 +840,16 @@ void static_zebra_srv6_sid_uninstall(struct static_srv6_sid *sid)
 
 	ctx.function_len = sid->addr.prefixlen - (ctx.block_len + ctx.node_len);
 
+<<<<<<< HEAD
 	static_zebra_send_localsid(ZEBRA_ROUTE_DELETE, &sid->addr.prefix, sid->addr.prefixlen,
 				   ifp->ifindex, action, &ctx);
+=======
+	ctx.flv.lcblock_len = sid->locator->block_bits_length;
+	ctx.flv.lcnode_func_len = ctx.node_len + ctx.function_len;
+
+	zclient_send_localsid(static_zclient, ZEBRA_ROUTE_DELETE, &sid->addr.prefix,
+			      sid->addr.prefixlen, ifp->ifindex, action, &ctx);
+>>>>>>> efc9ba4ba (*: Generalize `zclient_send_localsid` and move to `lib/`)
 
 	UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
 }

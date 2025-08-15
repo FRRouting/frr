@@ -889,6 +889,7 @@ static int isis_zebra_client_close_notify(ZAPI_CALLBACK_ARGS)
 }
 
 /**
+<<<<<<< HEAD
  * Send SRv6 SID to ZEBRA for installation or deletion.
  *
  * @param cmd		ZEBRA_ROUTE_ADD or ZEBRA_ROUTE_DELETE
@@ -956,6 +957,8 @@ static void isis_zebra_send_localsid(int cmd, const struct in6_addr *sid,
 }
 
 /**
+=======
+>>>>>>> efc9ba4ba (*: Generalize `zclient_send_localsid` and move to `lib/`)
  * Install SRv6 SID in the forwarding plane through Zebra.
  *
  * @param area		IS-IS area
@@ -1016,8 +1019,8 @@ void isis_zebra_srv6_sid_install(struct isis_area *area,
 	}
 
 	/* Send the SID to zebra */
-	isis_zebra_send_localsid(ZEBRA_ROUTE_ADD, &sid->sid, prefixlen,
-				 ifp->ifindex, action, &ctx);
+	zclient_send_localsid(isis_zclient, ZEBRA_ROUTE_ADD, &sid->sid, prefixlen, ifp->ifindex,
+			      action, &ctx);
 }
 
 /**
@@ -1072,8 +1075,8 @@ void isis_zebra_srv6_sid_uninstall(struct isis_area *area,
 	}
 
 	/* Send delete request to zebra */
-	isis_zebra_send_localsid(ZEBRA_ROUTE_DELETE, &sid->sid, prefixlen,
-				 ifp->ifindex, action, NULL);
+	zclient_send_localsid(isis_zclient, ZEBRA_ROUTE_DELETE, &sid->sid, prefixlen, ifp->ifindex,
+			      action, NULL);
 }
 
 void isis_zebra_srv6_adj_sid_install(struct srv6_adjacency *sra)
@@ -1130,8 +1133,8 @@ void isis_zebra_srv6_adj_sid_install(struct srv6_adjacency *sra)
 
 	ifp = sra->adj->circuit->interface;
 
-	isis_zebra_send_localsid(ZEBRA_ROUTE_ADD, &sra->sid, prefixlen,
-				 ifp->ifindex, action, &ctx);
+	zclient_send_localsid(isis_zclient, ZEBRA_ROUTE_ADD, &sra->sid, prefixlen, ifp->ifindex,
+			      action, &ctx);
 }
 
 void isis_zebra_srv6_adj_sid_uninstall(struct srv6_adjacency *sra)
@@ -1179,8 +1182,8 @@ void isis_zebra_srv6_adj_sid_uninstall(struct srv6_adjacency *sra)
 	sr_debug("ISIS-SRv6 (%s): delete End.X SID %pI6", area->area_tag,
 		 &sra->sid);
 
-	isis_zebra_send_localsid(ZEBRA_ROUTE_DELETE, &sra->sid, prefixlen,
-				 ifp->ifindex, action, NULL);
+	zclient_send_localsid(isis_zclient, ZEBRA_ROUTE_DELETE, &sra->sid, prefixlen, ifp->ifindex,
+			      action, NULL);
 }
 
 /**
