@@ -197,5 +197,128 @@
 				}
 			]
 		}
+	],
+	"fcbb:bbbb:1:fe60::/64": [
+		{
+			"prefix": "fcbb:bbbb:1:fe60::/64",
+			"prefixLen": 64,
+			"protocol": "static",
+			"vrfId": 0,
+			"vrfName": "default",
+			"selected": true,
+			"destSelected": true,
+			"distance": 1,
+			"metric": 0,
+			"installed": true,
+			"table": 254,
+			"internalStatus": 16,
+			"internalFlags": 9,
+			"internalNextHopNum": 1,
+			"internalNextHopActiveNum": 1,
+			"nexthops": [
+				{
+					"flags": 3,
+					"fib": true,
+					"directlyConnected": true,
+					"interfaceName": "sr0",
+					"active": true,
+					"weight": 1,
+					"seg6local": {
+						"action": "uDT4",
+						"sidStructure": {
+							"blockLen": 32,
+							"nodeLen": 16,
+							"funcLen": 16,
+							"argLen": 0
+						}
+					},
+					"seg6localContext": {
+						"table": 254
+					}
+				}
+			]
+		}
+	],
+	"fcbb:bbbb:1:fe70::/64": [
+		{
+			"prefix": "fcbb:bbbb:1:fe70::/64",
+			"prefixLen": 64,
+			"protocol": "static",
+			"vrfId": 0,
+			"vrfName": "default",
+			"selected": true,
+			"destSelected": true,
+			"distance": 1,
+			"metric": 0,
+			"installed": true,
+			"table": 254,
+			"internalStatus": 16,
+			"internalFlags": 9,
+			"internalNextHopNum": 1,
+			"internalNextHopActiveNum": 1,
+			"nexthops": [
+				{
+					"flags": 3,
+					"fib": true,
+					"directlyConnected": true,
+					"interfaceName": "sr0",
+					"active": true,
+					"weight": 1,
+					"seg6local": {
+						"action": "uDT6",
+						"sidStructure": {
+							"blockLen": 32,
+							"nodeLen": 16,
+							"funcLen": 16,
+							"argLen": 0
+						}
+					},
+					"seg6localContext": {
+						"table": 254
+					}
+				}
+			]
+		}
+	],
+	"fcbb:bbbb:1:fe80::/64": [
+		{
+			"prefix": "fcbb:bbbb:1:fe80::/64",
+			"prefixLen": 64,
+			"protocol": "static",
+			"vrfId": 0,
+			"vrfName": "default",
+			"selected": true,
+			"destSelected": true,
+			"distance": 1,
+			"metric": 0,
+			"installed": true,
+			"table": 254,
+			"internalStatus": 16,
+			"internalFlags": 9,
+			"internalNextHopNum": 1,
+			"internalNextHopActiveNum": 1,
+			"nexthops": [
+				{
+					"flags": 3,
+					"fib": true,
+					"directlyConnected": true,
+					"interfaceName": "sr0",
+					"active": true,
+					"weight": 1,
+					"seg6local": {
+						"action": "uDT46",
+						"sidStructure": {
+							"blockLen": 32,
+							"nodeLen": 16,
+							"funcLen": 16,
+							"argLen": 0
+						}
+					},
+					"seg6localContext": {
+						"table": 254
+					}
+				}
+			]
+		}
 	]
 }

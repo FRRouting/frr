@@ -972,10 +972,11 @@ extern enum zclient_send_status
 zclient_send_vrf_label(struct zclient *zclient, vrf_id_t vrf_id, afi_t afi,
 		       mpls_label_t label, enum lsp_types_t ltype);
 
-extern enum zclient_send_status
-zclient_send_localsid(struct zclient *zclient, const struct in6_addr *sid,
-		      vrf_id_t vrf_id, enum seg6local_action_t action,
-		      const struct seg6local_context *context);
+extern enum zclient_send_status zclient_send_localsid(struct zclient *zclient, uint8_t cmd,
+						      const struct in6_addr *sid,
+						      uint16_t prefixlen, ifindex_t oif,
+						      enum seg6local_action_t action,
+						      const struct seg6local_context *context);
 
 extern void zclient_send_reg_requests(struct zclient *, vrf_id_t);
 extern void zclient_send_dereg_requests(struct zclient *, vrf_id_t);
