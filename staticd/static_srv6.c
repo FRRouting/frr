@@ -85,6 +85,15 @@ static bool is_sid_update_required(struct interface *ifp, struct static_srv6_sid
 		 */
 		if (strmatch(sid->attributes.vrf_name, ifp->name))
 			return true;
+
+		/*
+		 * 3b. SID is uDT* and is associated with the default VRF.
+		 *     When associated with the default VRF, uDT* SIDs are attached to 'sr0'.
+		 *     Therefore, an update is needed if the provided interface 'ifp' is 'sr0'.
+		 */
+		if (strmatch(ifp->name, DEFAULT_SRV6_IFNAME) &&
+		    strmatch(sid->attributes.vrf_name, VRF_DEFAULT_NAME))
+			return true;
 	}
 
 	/* No dependency found */
