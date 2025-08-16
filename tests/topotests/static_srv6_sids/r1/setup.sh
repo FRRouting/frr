@@ -10,4 +10,15 @@ ip link set Vrf20 up
 ip link add Vrf30 type vrf table 30
 ip link set Vrf30 up
 
+<<<<<<< HEAD
+=======
+ip link add Vrf40 type vrf table 40
+ip link set Vrf40 up
+
+# VRF associated with main routing table,
+# required for SRv6 uDT4/uDT46 SIDs
+ip link add vrfdefault type vrf table main
+ip link set vrfdefault up
+
+>>>>>>> 2115ba3e9 (tests: Verify SRv6 SID installation for default VRF in staticd)
 sysctl -w net.vrf.strict_mode=1
