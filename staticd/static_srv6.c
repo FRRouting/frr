@@ -94,6 +94,17 @@ static bool is_sid_update_required(struct interface *ifp, struct static_srv6_sid
 		if (strmatch(ifp->name, DEFAULT_SRV6_IFNAME) &&
 		    strmatch(sid->attributes.vrf_name, VRF_DEFAULT_NAME))
 			return true;
+
+		/*
+		 * 3c. SID is uDT4 or uDT46 and is associated with the default VRF.
+		 *     These SIDs rely on any VRF bound to the main routing table (table ID 254) for
+		 *     decapsulation and forwarding.
+		 *     Therefore, an update is needed if the provided interface 'ifp' is a VRF interface
+		 *     bound to the main routing table.
+		 */
+		if (is_udt4_or_udt46 && strmatch(sid->attributes.vrf_name, VRF_DEFAULT_NAME) &&
+		    (ifp->vrf->data.l.table_id == 254))
+			return true;
 	}
 
 	/* No dependency found */
