@@ -141,6 +141,11 @@ void static_ifp_srv6_sids_update(struct interface *ifp, bool is_up)
 		if (is_up && !CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID)) {
 			static_zebra_request_srv6_sid(sid);
 		} else if (is_up && CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID)) {
+			if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA)) {
+				static_zebra_srv6_sid_uninstall(sid);
+				UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
+			}
+
 			static_zebra_srv6_sid_install(sid);
 			SET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
 		} else {
