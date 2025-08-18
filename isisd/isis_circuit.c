@@ -1702,6 +1702,36 @@ void isis_reset_hello_timer(struct isis_circuit *circuit)
 	}
 }
 
+/*
+ * Return all IP-Addresses defined on this circuit. If there are no
+ * addresses defined (unnumbered interface) search for other addresses
+ * on the loopback interface.
+ */
+struct list *isis_circuit_ip_addrs(struct isis_circuit *circuit)
+{
+	if (listcount(circuit->ip_addrs))
+		return circuit->ip_addrs;
+
+	if (!fabricd || !circuit->area || !circuit->area->circuit_list)
+		return NULL;
+
+	struct listnode *node;
+	struct isis_circuit *c;
+
+	for (ALL_LIST_ELEMENTS_RO(circuit->area->circuit_list, node, c)) {
+		if (c->circ_type != CIRCUIT_T_LOOPBACK)
+			continue;
+
+		if (!listcount(c->ip_addrs))
+			return NULL;
+
+		return c->ip_addrs;
+	}
+
+	return NULL;
+}
+
+
 void isis_circuit_init(void)
 {
 	/* Initialize Zebra interface data structure */

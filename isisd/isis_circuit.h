@@ -235,6 +235,8 @@ int isis_circuit_mt_enabled_set(struct isis_circuit *circuit, uint16_t mtid,
 /* Reset ISIS hello timer and send immediate hello */
 void isis_reset_hello_timer(struct isis_circuit *circuit);
 
+struct list *isis_circuit_ip_addrs(struct isis_circuit *circuit);
+
 #ifdef FABRICD
 DECLARE_HOOK(isis_circuit_config_write,
 	    (struct isis_circuit *circuit, struct vty *vty),
