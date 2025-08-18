@@ -556,6 +556,8 @@ static void do_show_srv6_sid_json(struct vty *vty, json_object **json, struct sr
 		if (memcmp(&sid_ctx->ctx.nh6, &in6addr_any, sizeof(struct in6_addr)) != 0) {
 			json_object_string_addf(json_sid_ctx, "nexthopIpv6Address", "%pI6",
 						&sid_ctx->ctx.nh6);
+			if (sid_ctx->ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP)
+				json_object_int_add(json_sid_ctx, "color", sid_ctx->ctx.color);
 		}
 		json_object_object_add(json_sid, "context", json_sid_ctx);
 
