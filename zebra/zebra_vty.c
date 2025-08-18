@@ -57,6 +57,7 @@
 /* context to manage show output in multiple tables or vrfs */
 struct route_show_ctx {
 	bool multi;       /* dump multiple tables or vrf */
+	bool all_vrf;
 	bool header_done; /* common header already displayed */
 	bool allocated;	  /* malloc'd (vs on-stack) */
 
@@ -861,6 +862,7 @@ static int do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf, struct 
 	const struct prefix_ipv6 *src_pfx;
 	const struct prefix *pfx;
 	int ret = CMD_SUCCESS;
+	bool do_yield = ctx->all_vrf; /* TODO -- remove this */
 
 	/*
 	 * ctx->multi indicates if we are dumping multiple tables or vrfs.
@@ -955,7 +957,7 @@ static int do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf, struct 
 		}
 
 		/* Time to yield? */
-		if (ctx->curr_counter > show_yield_limit) {
+		if (do_yield && (ctx->curr_counter > show_yield_limit)) {
 			ctx->total_counter += ctx->curr_counter;
 			ctx->curr_counter = 0;
 
@@ -1901,6 +1903,7 @@ DEFPY (show_route,
 					0, !!ng);
 
 				ctx.multi = (vrf_all || table_all);
+				ctx.all_vrf = true;
 
 				do_show_ip_route_all_ctx(vty, &ctx);
 			} else {
