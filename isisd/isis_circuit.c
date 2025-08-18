@@ -1713,7 +1713,7 @@ struct list *isis_circuit_ip_addrs(struct isis_circuit *circuit)
 	if (listcount(circuit->ip_addrs))
 		return circuit->ip_addrs;
 
-	if (!fabricd || !circuit->area || !circuit->area->circuit_list)
+	if (!circuit->area || !circuit->area->circuit_list)
 		return NULL;
 
 	struct listnode *node;
