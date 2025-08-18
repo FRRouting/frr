@@ -1300,6 +1300,7 @@ void frr_fini(void)
 	frrmod_terminate();
 
 	log_memstats(di->name, debug_memstats_at_exit);
+	zlog_tmpdir_fini();
 }
 
 struct json_object *frr_daemon_state_load(void)

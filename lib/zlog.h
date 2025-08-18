@@ -283,6 +283,9 @@ bool zlog_get_immediate_mode(void);
 
 extern const char *zlog_priority_str(int priority);
 
+/* Remove temp dirs at shutdown */
+void zlog_tmpdir_fini(void);
+
 #ifdef __cplusplus
 }
 #endif
