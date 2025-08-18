@@ -173,8 +173,6 @@ static int isis_zebra_add_nexthops(struct isis *isis, struct list *nexthops,
 
 		zapi_nexthop_init(api_nh);
 
-		if (fabricd)
-			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
 		api_nh->vrf_id = isis->vrf_id;
 
 		switch (nexthop->family) {
@@ -203,6 +201,27 @@ static int isis_zebra_add_nexthops(struct isis *isis, struct list *nexthops,
 		}
 
 		api_nh->ifindex = nexthop->ifindex;
+
+		/*
+		 * Force ONLINK when the egress interface is unnumbered
+		 * (has no IP addresses), so the kernel skips the nexthop
+		 * reachability check. Also keep the existing fabricd
+		 * behavior.
+		 */
+		if (fabricd) {
+			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
+		} else {
+			struct interface *ifp;
+
+			ifp = if_lookup_by_index(nexthop->ifindex, isis->vrf_id);
+			if (ifp) {
+				struct isis_circuit *circuit;
+
+				circuit = circuit_scan_by_ifp(ifp);
+				if (circuit && listcount(circuit->ip_addrs) == 0)
+					SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
+			}
+		}
 
 		/* Add MPLS label(s). */
 		if (nexthop->label_stack) {
