@@ -1151,7 +1151,13 @@ out_warn:
 void zlog_fini(void)
 {
 	hook_call(zlog_fini);
+}
 
+/*
+ * Remove the process's temp log dir, at shutdown
+ */
+void zlog_tmpdir_fini(void)
+{
 	if (zlog_tmpdirfd >= 0) {
 		close(zlog_tmpdirfd);
 		zlog_tmpdirfd = -1;
