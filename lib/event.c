@@ -1924,7 +1924,11 @@ static void event_tardy_warn(struct event *thread, unsigned long since_us)
 	double loadavg[3];
 	int rv;
 
+#ifdef HAVE_GETLOADAVG
 	rv = getloadavg(loadavg, array_size(loadavg));
+#else
+	rv = -1;
+#endif
 	if (rv < 0)
 		bprintfrr(&fb, "not available");
 	else {
