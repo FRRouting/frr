@@ -719,30 +719,6 @@ void fabricd_trigger_csnp(struct isis_area *area, bool circuit_scoped)
 	}
 }
 
-struct list *fabricd_ip_addrs(struct isis_circuit *circuit)
-{
-	if (listcount(circuit->ip_addrs))
-		return circuit->ip_addrs;
-
-	if (!fabricd || !circuit->area || !circuit->area->circuit_list)
-		return NULL;
-
-	struct listnode *node;
-	struct isis_circuit *c;
-
-	for (ALL_LIST_ELEMENTS_RO(circuit->area->circuit_list, node, c)) {
-		if (c->circ_type != CIRCUIT_T_LOOPBACK)
-			continue;
-
-		if (!listcount(c->ip_addrs))
-			return NULL;
-
-		return c->ip_addrs;
-	}
-
-	return NULL;
-}
-
 void fabricd_lsp_free(struct isis_lsp *lsp)
 {
 	XFREE(MTYPE_FABRICD_FLOODING_INFO, lsp->flooding_interface);
