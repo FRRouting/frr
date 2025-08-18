@@ -367,8 +367,6 @@ extern void srv6_manager_get_locator_call(struct srv6_locator **locator,
 					  struct zserv *client,
 					  const char *locator_name);
 
-extern int get_srv6_sid(struct zebra_srv6_sid **sid, struct srv6_sid_ctx *ctx,
-			struct in6_addr *sid_value, const char *locator_name, bool is_localonly);
 extern int release_srv6_sid(struct zserv *client, struct zebra_srv6_sid_ctx *zctx,
 			    struct srv6_locator *locator, bool is_localonly);
 extern int release_daemon_srv6_sids(struct zserv *client);
