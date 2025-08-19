@@ -141,7 +141,10 @@ struct zebra_architectural_values {
 	 */
 	bool asic_notification_nexthop_control;
 	bool nexthop_weight_is_16bit;
-
+	/*
+	 * Is zebra operating in Kernel MAC-EXT-LEARN mode
+	 */
+	bool kernel_mac_ext_learn;
 };
 
 struct zebra_router {
@@ -253,7 +256,7 @@ extern struct zebra_router zrouter;
 extern uint32_t rcvbufsize;
 
 extern void zebra_router_init(bool asic_offload, bool notify_on_ack, bool v6_with_v4_nexthop,
-			      bool nexthop_weight_16_bit);
+			      bool nexthop_weight_16_bit, bool kernel_mac_ext_learn);
 extern void zebra_router_cleanup(void);
 extern void zebra_router_terminate(void);
 
