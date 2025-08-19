@@ -15,6 +15,7 @@
 #include "zebra_mlag.h"
 #include "zebra_nhg.h"
 #include "zebra_neigh.h"
+#include "zebra_evpn.h"
 #include "zebra/zebra_tc.h"
 #include "debug.h"
 #include "zebra_script.h"
@@ -282,7 +283,7 @@ bool zebra_router_notify_on_ack(void)
 }
 
 void zebra_router_init(bool asic_offload, bool notify_on_ack, bool v6_with_v4_nexthop,
-		       bool nexthop_weight_16_bit)
+		       bool nexthop_weight_16_bit, bool kernel_mac_ext_learn)
 {
 	zrouter.sequence_num = 0;
 
@@ -343,6 +344,7 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack, bool v6_with_v4_ne
 	zrouter.zav.notify_on_ack = notify_on_ack;
 	zrouter.zav.v6_with_v4_nexthop = v6_with_v4_nexthop;
 	zrouter.zav.nexthop_weight_is_16bit = nexthop_weight_16_bit;
+	zrouter.zav.kernel_mac_ext_learn = kernel_mac_ext_learn;
 
 	/*
 	 * If you start using asic_notification_nexthop_control
