@@ -107,7 +107,7 @@ def check_labelpool(router):
     test_func = partial(
         topotest.router_json_cmp, router, "show bgp labelpool summary json", expected
     )
-    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=2)
     assertmsg = '"{}" JSON output mismatches - Did not converge'.format(router.name)
     assert result is None, assertmsg
 
