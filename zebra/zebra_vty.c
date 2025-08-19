@@ -3786,7 +3786,7 @@ DEFUN (show_zebra,
 #endif
 
 	ttable_add_row(table, "v6 with v4 nexthop|%s",
-		       zrouter.v6_with_v4_nexthop ? "Used" : "Unavaliable");
+		       zrouter.v6_with_v4_nexthop ? "Used" : "Unavailable");
 
 	ttable_add_row(table, "ASIC offload|%s",
 		       zrouter.asic_offloaded ? "Used" : "Unavailable");
