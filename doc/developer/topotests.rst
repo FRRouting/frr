@@ -22,6 +22,10 @@ Tshark is only required if you enable any packet captures on test runs.
 
 Valgrind is only required if you enable valgrind on test runs.
 
+Using multipath values of 256 is recommended due to tests starting to utilize
+greater values of ecmp.  There are some tests that require 512 but they are
+not part of the regular run of CI.
+
 Installing Topotest Requirements
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -141,6 +145,7 @@ If you prefer to manually build FRR, then use the following suggested config:
        --enable-group=frr \
        --enable-vty-group=frrvty \
        --enable-snmp \
+       --enable-multipath=256 \
        --with-pkg-extra-version=-my-manual-build
 
 And create ``frr`` user and ``frrvty`` group as follows:
