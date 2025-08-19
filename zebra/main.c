@@ -79,6 +79,7 @@ uint32_t rt_table_main_id = RT_TABLE_MAIN;
 #define OPTION_V6_RR_SEMANTICS 2000
 #define OPTION_ASIC_OFFLOAD    2001
 #define OPTION_V6_WITH_V4_NEXTHOP 2002
+#define OPTION_KERNEL_EXT_LEARN	  2003
 
 /* Command line options. */
 const struct option longopts[] = {
@@ -89,6 +90,7 @@ const struct option longopts[] = {
 	{ "retain", no_argument, NULL, 'r' },
 	{ "asic-offload", optional_argument, NULL, OPTION_ASIC_OFFLOAD },
 	{ "v6-with-v4-nexthops", no_argument, NULL, OPTION_V6_WITH_V4_NEXTHOP },
+	{ "kernel-ext-learn", optional_argument, NULL, OPTION_KERNEL_EXT_LEARN },
 #ifdef HAVE_NETLINK
 	{ "vrfwnetns", no_argument, NULL, 'n' },
 	{ "nl-bufsize", required_argument, NULL, 's' },
@@ -356,6 +358,7 @@ int main(int argc, char **argv)
 	bool asic_offload = false;
 	bool v6_with_v4_nexthop = false;
 	bool notify_on_ack = true;
+	bool kernel_ext_learn = false;
 
 	zserv_path = NULL;
 
@@ -377,6 +380,7 @@ int main(int argc, char **argv)
 		    "  -r, --retain              When program terminates, retain added route by zebra.\n"
 		    "  -A, --asic-offload        FRR is interacting with an asic underneath the linux kernel\n"
 		    "      --v6-with-v4-nexthops Underlying dataplane supports v6 routes with v4 nexthops\n"
+		    "      --kernel-ext-learn    Enable kernel extended learning\n"
 #ifdef HAVE_NETLINK
 		    "  -s, --nl-bufsize          Set netlink receive buffer size\n"
 		    "  -n, --vrfwnetns           Use NetNS as VRF backend (deprecated, use -w)\n"
@@ -438,6 +442,9 @@ int main(int argc, char **argv)
 		case 'R':
 			rt_table_main_id = atoi(optarg);
 			break;
+		case OPTION_KERNEL_EXT_LEARN:
+			kernel_ext_learn = true;
+			break;
 #ifdef HAVE_NETLINK
 		case 'n':
 			fprintf(stderr,
@@ -467,7 +474,7 @@ int main(int argc, char **argv)
 
 	/* Zebra related initialize. */
 	libagentx_init();
-	zebra_router_init(asic_offload, notify_on_ack, v6_with_v4_nexthop);
+	zebra_router_init(asic_offload, notify_on_ack, v6_with_v4_nexthop, kernel_ext_learn);
 	zserv_init();
 	zebra_rib_init();
 	zebra_if_init();
