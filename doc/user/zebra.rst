@@ -103,6 +103,14 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
    the upper level daemons that can install v6 routes with v4
    nexthops.
 
+.. option:: --kernel-ext-learn
+
+   Signal to zebra that its operating in kernel external learn mode.
+   MAC learning and Aging in this mode, is done by the Hardware.
+   Kernel MAC aging is disabled. Both Control plane and Data Plane
+   learnt MAC are programmed as 'extern_learn'.
+   ARP/ND Suppression is not supported in this mode.
+
 .. _interface-commands:
 
 Configuration Addresses behaviour

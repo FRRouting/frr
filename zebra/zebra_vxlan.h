@@ -40,6 +40,12 @@ is_vxlan_flooding_head_end(void)
 	return (zvrf->vxlan_flood_ctrl == VXLAN_FLOOD_HEAD_END_REPL);
 }
 
+/* static function returning if the EXT-LEARN mode is set */
+static inline bool zebra_mac_ext_learn_mode(void)
+{
+	return zrouter.kernel_ext_learn;
+}
+
 /* VxLAN interface change flags of interest. */
 #define ZEBRA_VXLIF_LOCAL_IP_CHANGE     (1 << 0)
 #define ZEBRA_VXLIF_MASTER_CHANGE       (1 << 1)
