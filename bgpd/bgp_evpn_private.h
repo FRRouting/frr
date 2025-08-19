@@ -723,9 +723,8 @@ extern struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
 extern void bgp_evpn_free(struct bgp *bgp, struct bgpevpn *vpn);
 extern bool bgp_evpn_lookup_l3vni_l2vni_table(vni_t vni);
 extern int update_routes_for_vni(struct bgp *bgp, struct bgpevpn *vpn);
-extern void delete_evpn_route_entry(struct bgp *bgp, afi_t afi, safi_t safi,
-				    struct bgp_dest *dest,
-				    struct bgp_path_info **pi);
+extern struct bgp_path_info *delete_evpn_route_entry(struct bgp *bgp, afi_t afi, safi_t safi,
+						     struct bgp_dest *dest, uint32_t addpaht_id);
 int vni_list_cmp(void *p1, void *p2);
 extern int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 				     struct bgp_dest *dest,

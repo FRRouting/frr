@@ -9,6 +9,7 @@
 #endif
 
 #include "bgp_addpath.h"
+#include "bgp_evpn.h"
 #include "bgp_route.h"
 
 static const struct bgp_addpath_strategy_names strat_names[BGP_ADDPATH_MAX] = {
@@ -220,7 +221,7 @@ static void bgp_addpath_flush_type(struct bgp *bgp, afi_t afi, safi_t safi,
 
 	for (dest = bgp_table_top(bgp->rib[afi][safi]); dest;
 	     dest = bgp_route_next(dest)) {
-		if (safi == SAFI_MPLS_VPN) {
+		if (safi == SAFI_MPLS_VPN || safi == SAFI_EVPN) {
 			struct bgp_table *table;
 
 			table = bgp_dest_get_bgp_table_info(dest);
@@ -290,7 +291,7 @@ static void bgp_addpath_populate_type(struct bgp *bgp, afi_t afi, safi_t safi,
 	     dest = bgp_route_next(dest)) {
 		struct bgp_path_info *bi;
 
-		if (safi == SAFI_MPLS_VPN) {
+		if (safi == SAFI_MPLS_VPN || safi == SAFI_EVPN) {
 			struct bgp_table *table;
 
 			table = bgp_dest_get_bgp_table_info(dest);
@@ -340,6 +341,13 @@ void bgp_addpath_type_changed(struct bgp *bgp)
 				peer_count[afi][safi][type] += 1;
 				bgp->tx_addpath.total_peercount[afi][safi] += 1;
 			}
+		}
+	}
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (advertise_type5_routes_multipath(bgp, afi) && safi == SAFI_UNICAST) {
+			peer_count[afi][safi][BGP_ADDPATH_ALL] += 1;
+			bgp->tx_addpath.total_peercount[afi][safi] += 1;
 		}
 	}
 

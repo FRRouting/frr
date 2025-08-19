@@ -21,24 +21,31 @@ static inline int is_evpn_enabled(void)
 	return bgp ? EVPN_ENABLED(bgp) : 0;
 }
 
-static inline int advertise_type5_routes(struct bgp *bgp_vrf,
-					 afi_t afi)
+static inline int advertise_type5_routes_bestpath(const struct bgp *bgp_vrf, afi_t afi)
 {
+	uint16_t flags = bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN];
+
 	if (!bgp_vrf->l3vni)
 		return 0;
 
-	if ((afi == AFI_IP)
-	    && ((CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
-			    BGP_L2VPN_EVPN_ADV_IPV4_UNICAST))
-		|| (CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
-			       BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_GW_IP))))
+	if (afi == AFI_IP && CHECK_FLAG(flags, BGP_L2VPN_EVPN_ADV_IPV4_UNICAST))
+		return 1;
+	if (afi == AFI_IP6 && CHECK_FLAG(flags, BGP_L2VPN_EVPN_ADV_IPV6_UNICAST))
 		return 1;
 
-	if ((afi == AFI_IP6)
-	    && ((CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
-			    BGP_L2VPN_EVPN_ADV_IPV6_UNICAST))
-		|| (CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
-			       BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_GW_IP))))
+	return 0;
+}
+
+static inline int advertise_type5_routes_multipath(const struct bgp *bgp_vrf, afi_t afi)
+{
+	uint16_t flags = bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN];
+
+	if (!bgp_vrf->l3vni)
+		return 0;
+
+	if (afi == AFI_IP && CHECK_FLAG(flags, BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_GW_IP))
+		return 1;
+	if (afi == AFI_IP6 && CHECK_FLAG(flags, BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_GW_IP))
 		return 1;
 
 	return 0;
@@ -102,13 +109,11 @@ static inline bool evpn_resolve_overlay_index(void)
 	return bgp ? bgp->resolve_overlay_index : false;
 }
 
-extern void bgp_evpn_advertise_type5_route(struct bgp *bgp_vrf,
-					   const struct prefix *p,
-					   struct attr *src_attr, afi_t afi,
-					   safi_t safi);
-extern void bgp_evpn_withdraw_type5_route(struct bgp *bgp_vrf,
-					  const struct prefix *p, afi_t afi,
-					  safi_t safi);
+extern void bgp_evpn_advertise_type5_route(struct bgp *bgp_vrf, const struct prefix *p,
+					   struct attr *src_attr, afi_t afi, safi_t safi,
+					   uint32_t addpath_id);
+extern void bgp_evpn_withdraw_type5_route(struct bgp *bgp_vrf, const struct prefix *p, afi_t afi,
+					  safi_t safi, uint32_t addpath_id);
 extern void bgp_evpn_withdraw_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 					   safi_t safi);
 extern void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,
@@ -131,6 +136,10 @@ extern int bgp_evpn_import_route(struct bgp *bgp, afi_t afi, safi_t safi,
 extern int bgp_evpn_unimport_route(struct bgp *bgp, afi_t afi, safi_t safi,
 				   const struct prefix *p,
 				   struct bgp_path_info *ri);
+extern void bgp_evpn_export_type5_route(struct bgp *bgp, struct bgp_dest *dest,
+					struct bgp_path_info *pi, afi_t afi, safi_t safi);
+extern void bgp_evpn_unexport_type5_route(struct bgp *bgp, const struct bgp_dest *dest,
+					  const struct bgp_path_info *pi, afi_t afi, safi_t safi);
 extern void
 bgp_reimport_evpn_routes_upon_macvrf_soo_change(struct bgp *bgp,
 						struct ecommunity *old_soo,
