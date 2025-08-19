@@ -201,6 +201,10 @@ static int pim_vrf_enable(struct vrf *vrf)
 		break;
 	}
 
+	frr_with_privs (&pimd_privs) {
+		vrf_bind(pim->vrf->vrf_id, pim->global_scope.unicast_sock, NULL);
+	}
+
 	return 0;
 }
 

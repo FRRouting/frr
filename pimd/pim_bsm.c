@@ -292,10 +292,6 @@ void pim_bsm_proc_init(struct pim_instance *pim)
 
 	pim_socket_ip_hdr(scope->unicast_sock);
 
-	frr_with_privs (&pimd_privs) {
-		vrf_bind(pim->vrf->vrf_id, scope->unicast_sock, NULL);
-	}
-
 	event_add_read(router->master, bsm_unicast_sock_read, scope,
 		       scope->unicast_sock, &scope->unicast_read);
 }
