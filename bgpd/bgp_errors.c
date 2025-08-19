@@ -486,6 +486,12 @@ static struct log_ref ferr_bgp_err[] = {
 		.suggestion = "Check connectivity to the peer and that it is not overloaded",
 	},
 	{
+		.code = EC_BGP_PATH_WITHOUT_LABEL,
+		.title = "Label not found for path",
+		.description = "BGP could not find the label for the specified path_info",
+		.suggestion = "Most likely a bug. This should never happen. Please try to build a reproducer and report.",
+	},
+	{
 		.code = END_FERR,
 	}
 };
