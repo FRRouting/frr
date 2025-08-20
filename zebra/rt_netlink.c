@@ -4009,6 +4009,7 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	vni_t vni = 0;
 	uint32_t nhg_id = 0;
 	enum dplane_op_e op;
+	uint8_t proto = RTPROT_UNSPEC;
 
 	ndm = NLMSG_DATA(h);
 
@@ -4036,6 +4037,9 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	}
 
 	memcpy(&mac, RTA_DATA(tb[NDA_LLADDR]), ETH_ALEN);
+
+	if (tb[NDA_PROTOCOL])
+		proto = *(uint8_t *)RTA_DATA(tb[NDA_PROTOCOL]);
 
 	if (tb[NDA_VLAN]) {
 		vid_present = 1;
@@ -4082,12 +4086,10 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 		vni = *(vni_t *)RTA_DATA(tb[NDA_SRC_VNI]);
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug(
-			"Rx %s AF_BRIDGE IF %u%s st 0x%x fl 0x%x MAC %pEA%s nhg %d vni %d",
-			nl_msg_type_to_str(h->nlmsg_type), ndm->ndm_ifindex,
-			vid_present ? vid_buf : "", ndm->ndm_state,
-			ndm->ndm_flags, &mac, dst_present ? dst_buf : "",
-			nhg_id, vni);
+		zlog_debug("Rx %s AF_BRIDGE IF %u%s st 0x%x fl 0x%x MAC %pEA%s nhg %d vni %d proto %u",
+			   nl_msg_type_to_str(h->nlmsg_type), ndm->ndm_ifindex,
+			   vid_present ? vid_buf : "", ndm->ndm_state, ndm->ndm_flags, &mac,
+			   dst_present ? dst_buf : "", nhg_id, vni, proto);
 
 	sticky = !!(ndm->ndm_flags & NTF_STICKY);
 
@@ -4095,6 +4097,19 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("        Filtered due to filter vlan: %d",
 				   filter_vlan);
+		return 0;
+	}
+
+	if (proto == RTPROT_ZEBRA) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("        Dropping entry because of protocol zebra");
+		return 0;
+	}
+
+	if (zebra_mac_ext_learn_mode() && !(ndm->ndm_flags & NTF_EXT_LEARNED)) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("        Should drop entry due to missing extern learn, FLAGS = 0x%x",
+				   ndm->ndm_flags);
 		return 0;
 	}
 
@@ -4110,7 +4125,6 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	dplane_ctx_set_ns_id(ctx, ns_id);
 	dplane_ctx_set_ifindex(ctx, ndm->ndm_ifindex);
 	dplane_ctx_mac_set_addr(ctx, &mac);
-	dplane_ctx_mac_set_nhg_id(ctx, nhg_id);
 	dplane_ctx_mac_set_ndm_state(ctx, ndm->ndm_state);
 	dplane_ctx_mac_set_ndm_flags(ctx, ndm->ndm_flags);
 	dplane_ctx_mac_set_dst_present(ctx, dst_present);
@@ -4350,6 +4364,7 @@ ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, void *data,
 	uint32_t update_flags;
 	bool nfy = false;
 	uint8_t nfy_flags = 0;
+	uint32_t nda_ext_flags = 0;
 	int proto = RTPROT_ZEBRA;
 
 	if (dplane_ctx_get_type(ctx) != 0)
@@ -4361,33 +4376,72 @@ ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, void *data,
 	flags = NTF_MASTER;
 	state = NUD_REACHABLE;
 
-	update_flags = dplane_ctx_mac_get_update_flags(ctx);
-	if (update_flags & DPLANE_MAC_REMOTE) {
-		flags |= NTF_SELF;
+	if (zebra_mac_ext_learn_mode()) {
+		/* Update from zebra to kernel are always treated the same way:
+		 * we are not relying on kernel to keep track of local vs remote
+		 * and we are not using any form of ageing from it
+		 */
 		if (dplane_ctx_mac_is_sticky(ctx)) {
-			/* NUD_NOARP prevents the entry from expiring */
-			state |= NUD_NOARP;
 			/* sticky the entry from moving */
 			flags |= NTF_STICKY;
-		} else {
-			flags |= NTF_EXT_LEARNED;
-		}
-		/* if it was static-local previously we need to clear the
-		 * notify flags on replace with remote
-		 */
-		if (update_flags & DPLANE_MAC_WAS_STATIC)
-			nfy = true;
-	} else {
-		/* local mac */
-		if (update_flags & DPLANE_MAC_SET_STATIC) {
-			nfy_flags |= FDB_NOTIFY_BIT;
+			/* NUD_NOARP: it will not time out, update or change in any way.
+			 * Translate in bridge static entry in kernel. Apply to ARP/ND.
+			 * It prevents ARP move.
+			 */
 			state |= NUD_NOARP;
 		}
+		/* NTF_EXT_LEARNED:  to indicate that they are external mac
+		 * entries. The bridge will skip ageing FDB entries marked with
+		 * NTF_EXT_LEARNED and it is the responsibility of the port
+		 * driver/device to age out these entries.
+		 * On Interface down, entries are flushed
+		 */
+		flags |= NTF_EXT_LEARNED;
+		/*
+		 * NTF_SELF is required by the kernel in order to program the VxLAN
+		 * driver with all of the destination information.
+		 *
+		 * The linux kernel stores FDB information in two places for VxLAN:
+		 * 1) Bridge FDB: MAC + VLAN -> VxLAN IF/VNI
+		 * 2) VxLAN FDB: MAC + VNI -> VxLAN IF + Destination (VTEP or NHG)
+		 *
+		 * It is also needed to trigger remote to sync mobility of a MAC to properly
+		 * update the kernel bridge and vxlan fdb tables.
+		 */
+		update_flags = dplane_ctx_mac_get_update_flags(ctx);
+		if (update_flags & DPLANE_MAC_REMOTE)
+			flags |= NTF_SELF;
+		if (update_flags & DPLANE_MAC_SET_STATIC)
+			nda_ext_flags |= NTF_E_MH_PEER_SYNC;
+	} else {
+		update_flags = dplane_ctx_mac_get_update_flags(ctx);
+		if (update_flags & DPLANE_MAC_REMOTE) {
+			flags |= NTF_SELF;
+			if (dplane_ctx_mac_is_sticky(ctx)) {
+				/* NUD_NOARP prevents the entry from expiring */
+				state |= NUD_NOARP;
+				/* sticky the entry from moving */
+				flags |= NTF_STICKY;
+			} else {
+				flags |= NTF_EXT_LEARNED;
+			}
+			/* if it was static-local previously we need to clear the
+			 * notify flags on replace with remote
+			 */
+			if (update_flags & DPLANE_MAC_WAS_STATIC)
+				nfy = true;
+		} else {
+			/* local mac */
+			if (update_flags & DPLANE_MAC_SET_STATIC) {
+				nfy_flags |= FDB_NOTIFY_BIT;
+				state |= NUD_NOARP;
+			}
 
-		if (update_flags & DPLANE_MAC_SET_INACTIVE)
-			nfy_flags |= FDB_NOTIFY_INACTIVE_BIT;
+			if (update_flags & DPLANE_MAC_SET_INACTIVE)
+				nfy_flags |= FDB_NOTIFY_INACTIVE_BIT;
 
-		nfy = true;
+			nfy = true;
+		}
 	}
 
 	nhg_id = dplane_ctx_mac_get_nhg_id(ctx);
@@ -4403,19 +4457,16 @@ ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, void *data,
 		else
 			vid_buf[0] = '\0';
 
-		zlog_debug(
-			"Tx %s family %s IF %s(%u)%s %sMAC %pEA dst %pIA nhg %u%s%s%s%s%s",
-			nl_msg_type_to_str(cmd), nl_family_to_str(AF_BRIDGE),
-			dplane_ctx_get_ifname(ctx), dplane_ctx_get_ifindex(ctx),
-			vid_buf, dplane_ctx_mac_is_sticky(ctx) ? "sticky " : "",
-			mac, &vtep_ip, nhg_id,
-			(update_flags & DPLANE_MAC_REMOTE) ? " rem" : "",
-			(update_flags & DPLANE_MAC_WAS_STATIC) ? " clr_sync"
-							       : "",
-			(update_flags & DPLANE_MAC_SET_STATIC) ? " static" : "",
-			(update_flags & DPLANE_MAC_SET_INACTIVE) ? " inactive"
-								 : "",
-			nfy ? " nfy" : "");
+		zlog_debug("Tx %s family %s IF %s(%u)%s %sMAC %pEA dst %pIA nhg %u%s%s%s%s%s%s",
+			   nl_msg_type_to_str(cmd), nl_family_to_str(AF_BRIDGE),
+			   dplane_ctx_get_ifname(ctx), dplane_ctx_get_ifindex(ctx), vid_buf,
+			   dplane_ctx_mac_is_sticky(ctx) ? "sticky " : "", mac, &vtep_ip, nhg_id,
+			   (update_flags & DPLANE_MAC_REMOTE) ? " rem" : "",
+			   (update_flags & DPLANE_MAC_WAS_STATIC) ? " clr_sync" : "",
+			   (update_flags & DPLANE_MAC_SET_STATIC) ? " static" : "",
+			   (update_flags & DPLANE_MAC_SET_INACTIVE) ? " inactive" : "",
+			   (nda_ext_flags & NTF_E_MH_PEER_SYNC) ? " peer-sync" : "",
+			   nfy ? " nfy" : "");
 	}
 
 	total = netlink_neigh_update_msg_encode(
