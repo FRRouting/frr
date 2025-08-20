@@ -3982,7 +3982,7 @@ vrf_id_t get_first_vrf_for_redirect_with_rt(struct ecommunity *eckey)
  * This function gets called when the default instance ("router bgp NNN")
  * is created.
  */
-void vpn_leak_postchange_all(void)
+void vpn_leak_postchange_all(struct bgp *filter_opt_bgp)
 {
 	struct listnode *next;
 	struct bgp *bgp;
@@ -3999,6 +3999,9 @@ void vpn_leak_postchange_all(void)
 		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO))
 			continue;
 
+		if (filter_opt_bgp && filter_opt_bgp != bgp)
+			continue;
+
 		vpn_leak_postchange(
 			BGP_VPN_POLICY_DIR_TOVPN,
 			AFI_IP,
@@ -4011,7 +4014,6 @@ void vpn_leak_postchange_all(void)
 			bgp_default,
 			bgp);
 	}
-
 	/* Now, do any importing to VRFs from the single VPN RIB */
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, next, bgp)) {
 
@@ -4019,6 +4021,9 @@ void vpn_leak_postchange_all(void)
 			continue;
 
 		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO))
+			continue;
+
+		if (filter_opt_bgp && filter_opt_bgp != bgp)
 			continue;
 
 		vpn_leak_postchange(
