@@ -96,6 +96,8 @@ for (my $c = 0; $c < @protos; $c++) {
 }
 pop @protos;
 
+printf "#define %-32s %d\n", "ZEBRA_ROUTE_ERROR", 255;
+
 sub codelist {
 	my (@protos) = @_;
 	my (@lines) = ();
