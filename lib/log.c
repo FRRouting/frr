@@ -547,7 +547,7 @@ int proto_name2num(const char *s)
 int proto_redistnum(int afi, const char *s)
 {
 	if (!s)
-		return -1;
+		return ZEBRA_ROUTE_ERROR;
 
 	if (afi == AFI_IP) {
 		if (strmatch(s, "kernel"))
@@ -619,7 +619,7 @@ int proto_redistnum(int afi, const char *s)
 		else if (strmatch(s, "table-direct"))
 			return ZEBRA_ROUTE_TABLE_DIRECT;
 	}
-	return -1;
+	return ZEBRA_ROUTE_ERROR;
 }
 
 void zlog_hexdump(const void *mem, size_t len)
