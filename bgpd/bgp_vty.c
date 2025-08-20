@@ -17600,10 +17600,10 @@ DEFUN (bgp_redistribute_ipv4,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_protocol = 1;
-	int type;
+	uint8_t type;
 
 	type = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
-	if (type < 0) {
+	if (type == ZEBRA_ROUTE_ERROR) {
 		vty_out(vty, "%% Invalid route type\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -17628,14 +17628,14 @@ DEFUN (bgp_redistribute_ipv4_rmap,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_protocol = 1;
 	int idx_word = 3;
-	int type;
+	uint8_t type;
 	struct bgp_redist *red;
 	bool changed;
 	struct route_map *route_map = route_map_lookup_warn_noexist(
 		vty, argv[idx_word]->arg);
 
 	type = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
-	if (type < 0) {
+	if (type == ZEBRA_ROUTE_ERROR) {
 		vty_out(vty, "%% Invalid route type\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -17664,13 +17664,13 @@ DEFUN (bgp_redistribute_ipv4_metric,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_protocol = 1;
 	int idx_number = 3;
-	int type;
+	uint8_t type;
 	uint32_t metric;
 	struct bgp_redist *red;
 	bool changed;
 
 	type = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
-	if (type < 0) {
+	if (type == ZEBRA_ROUTE_ERROR) {
 		vty_out(vty, "%% Invalid route type\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -17702,7 +17702,7 @@ DEFUN (bgp_redistribute_ipv4_rmap_metric,
 	int idx_protocol = 1;
 	int idx_word = 3;
 	int idx_number = 5;
-	int type;
+	uint8_t type;
 	uint32_t metric;
 	struct bgp_redist *red;
 	bool changed;
@@ -17710,7 +17710,7 @@ DEFUN (bgp_redistribute_ipv4_rmap_metric,
 		route_map_lookup_warn_noexist(vty, argv[idx_word]->arg);
 
 	type = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
-	if (type < 0) {
+	if (type == ZEBRA_ROUTE_ERROR) {
 		vty_out(vty, "%% Invalid route type\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -17748,7 +17748,7 @@ DEFUN (bgp_redistribute_ipv4_metric_rmap,
 	int idx_protocol = 1;
 	int idx_number = 3;
 	int idx_word = 5;
-	int type;
+	uint8_t type;
 	uint32_t metric;
 	struct bgp_redist *red;
 	bool changed;
@@ -17756,7 +17756,7 @@ DEFUN (bgp_redistribute_ipv4_metric_rmap,
 		route_map_lookup_warn_noexist(vty, argv[idx_word]->arg);
 
 	type = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
-	if (type < 0) {
+	if (type == ZEBRA_ROUTE_ERROR) {
 		vty_out(vty, "%% Invalid route type\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -18151,10 +18151,10 @@ DEFUN (no_bgp_redistribute_ipv4,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_protocol = 2;
-	int type;
+	uint8_t type;
 
 	type = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
-	if (type < 0) {
+	if (type == ZEBRA_ROUTE_ERROR) {
 		vty_out(vty, "%% Invalid route type\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -18181,10 +18181,10 @@ DEFUN (bgp_redistribute_ipv6,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_protocol = 1;
-	int type;
+	uint8_t type;
 
 	type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
-	if (type < 0) {
+	if (type == ZEBRA_ROUTE_ERROR) {
 		vty_out(vty, "%% Invalid route type\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -18204,14 +18204,14 @@ DEFUN (bgp_redistribute_ipv6_rmap,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_protocol = 1;
 	int idx_word = 3;
-	int type;
+	uint8_t type;
 	struct bgp_redist *red;
 	bool changed;
 	struct route_map *route_map =
 		route_map_lookup_warn_noexist(vty, argv[idx_word]->arg);
 
 	type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
-	if (type < 0) {
+	if (type == ZEBRA_ROUTE_ERROR) {
 		vty_out(vty, "%% Invalid route type\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -18233,13 +18233,13 @@ DEFUN (bgp_redistribute_ipv6_metric,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_protocol = 1;
 	int idx_number = 3;
-	int type;
+	uint8_t type;
 	uint32_t metric;
 	struct bgp_redist *red;
 	bool changed;
 
 	type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
-	if (type < 0) {
+	if (type == ZEBRA_ROUTE_ERROR) {
 		vty_out(vty, "%% Invalid route type\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -18264,7 +18264,7 @@ DEFUN (bgp_redistribute_ipv6_rmap_metric,
 	int idx_protocol = 1;
 	int idx_word = 3;
 	int idx_number = 5;
-	int type;
+	uint8_t type;
 	uint32_t metric;
 	struct bgp_redist *red;
 	bool changed;
@@ -18272,7 +18272,7 @@ DEFUN (bgp_redistribute_ipv6_rmap_metric,
 		route_map_lookup_warn_noexist(vty, argv[idx_word]->arg);
 
 	type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
-	if (type < 0) {
+	if (type == ZEBRA_ROUTE_ERROR) {
 		vty_out(vty, "%% Invalid route type\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -18370,7 +18370,7 @@ DEFUN (bgp_redistribute_ipv6_metric_rmap,
 	int idx_protocol = 1;
 	int idx_number = 3;
 	int idx_word = 5;
-	int type;
+	uint8_t type;
 	uint32_t metric;
 	struct bgp_redist *red;
 	bool changed;
@@ -18378,7 +18378,7 @@ DEFUN (bgp_redistribute_ipv6_metric_rmap,
 		route_map_lookup_warn_noexist(vty, argv[idx_word]->arg);
 
 	type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
-	if (type < 0) {
+	if (type == ZEBRA_ROUTE_ERROR) {
 		vty_out(vty, "%% Invalid route type\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -18405,10 +18405,10 @@ DEFUN (no_bgp_redistribute_ipv6,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_protocol = 2;
-	int type;
+	uint8_t type;
 
 	type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
-	if (type < 0) {
+	if (type == ZEBRA_ROUTE_ERROR) {
 		vty_out(vty, "%% Invalid route type\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}

@@ -70,11 +70,19 @@ DEFUN (babel_redistribute_type,
        "Redistribute IPv6 routes\n"
        FRR_IP6_REDIST_HELP_STR_BABELD)
 {
+<<<<<<< HEAD
     int negate = 0;
     int family;
     int afi;
     int type;
     int idx = 0;
+=======
+	int negate = 0;
+	int family;
+	int afi;
+	uint8_t type;
+	int idx = 0;
+>>>>>>> 755a879be (*: Convert proto_redistnum to return a uint8_t)
 
     if (argv_find(argv, argc, "no", &idx))
         negate = 1;
@@ -87,11 +95,19 @@ DEFUN (babel_redistribute_type,
     if (!afi)
         return CMD_WARNING_CONFIG_FAILED;
 
+<<<<<<< HEAD
     type = proto_redistnum(afi, argv[idx + 2]->text);
     if (type < 0) {
         vty_out (vty, "Invalid type %s\n", argv[idx + 2]->arg);
         return CMD_WARNING_CONFIG_FAILED;
     }
+=======
+	type = proto_redistnum(afi, argv[idx + 2]->text);
+	if (type == ZEBRA_ROUTE_ERROR) {
+		vty_out(vty, "Invalid type %s\n", argv[idx + 2]->arg);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+>>>>>>> 755a879be (*: Convert proto_redistnum to return a uint8_t)
 
     if (!negate)
         zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, babel_zclient, afi, type, 0, VRF_DEFAULT);

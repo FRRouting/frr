@@ -544,7 +544,7 @@ int proto_name2num(const char *s)
 	return -1;
 }
 
-int proto_redistnum(int afi, const char *s)
+uint8_t proto_redistnum(int afi, const char *s)
 {
 	if (!s)
 		return ZEBRA_ROUTE_ERROR;

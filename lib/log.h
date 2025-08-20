@@ -110,7 +110,7 @@ extern int proto_name2num(const char *s);
 /* Map redistribute X argument to protocol number.
  * unlike proto_name2num, this accepts shorthands and takes
  * an AFI value to restrict input */
-extern int proto_redistnum(int afi, const char *s);
+extern uint8_t proto_redistnum(int afi, const char *s);
 
 extern const char *zserv_command_string(unsigned int command);
 extern const char *zserv_gr_client_cap_string(unsigned int zcc);
