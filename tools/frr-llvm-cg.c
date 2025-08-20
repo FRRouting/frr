@@ -57,7 +57,7 @@ static struct json_object *js_get_or_make(struct json_object *parent,
 {
 	struct json_object *ret;
 
-	ret = json_object_object_get(parent, key);
+	json_object_object_get_ex(parent, key, &ret);
 	if (ret)
 		return ret;
 	ret = maker();
@@ -769,7 +769,7 @@ static void process_fn(struct json_object *funcs,
 
 	name = strndup(name_c, name_len);
 
-	js_func = json_object_object_get(funcs, name);
+	json_object_object_get_ex(funcs, name, &js_func);
 	if (js_func) {
 		unsigned file_len = 0;
 		const char *file = LLVMGetDebugLocFilename(function, &file_len);
