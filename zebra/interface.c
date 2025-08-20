@@ -2665,6 +2665,8 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 	vty_out(vty, "  Multicast config is %s\n", if_zebra_data_state(zebra_if->multicast));
 
 	vty_out(vty, "  Shutdown config is %s\n", if_zebra_data_state(zebra_if->shutdown));
+	if (CHECK_FLAG(zebra_if->rtadv.ra_configured, BGP_RA_CONFIGURED))
+		vty_out(vty, "  BGP has configured RA\n");
 
 	/* Hardware address. */
 	vty_out(vty, "  Type: %s\n", if_link_type_str(ifp->ll_type));
@@ -3016,6 +3018,8 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 	json_object_boolean_add(json_if, "linkDownV6", zebra_if->linkdownv6);
 	json_object_boolean_add(json_if, "mcForwardingV4", zebra_if->v4mcast_on);
 	json_object_boolean_add(json_if, "mcForwardingV6", zebra_if->v6mcast_on);
+	json_object_boolean_add(json_if, "bgpRAConfigured",
+				CHECK_FLAG(zebra_if->rtadv.ra_configured, BGP_RA_CONFIGURED));
 
 	json_object_string_add(json_if, "multicastConfig", if_zebra_data_state(zebra_if->multicast));
 
