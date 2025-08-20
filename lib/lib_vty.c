@@ -34,12 +34,26 @@
 #if defined(HAVE_MALLINFO2) || defined(HAVE_MALLINFO)
 static int show_memory_mallinfo(struct vty *vty)
 {
+	char buf[MTYPE_MEMSTR_LEN];
 #if defined(HAVE_MALLINFO2)
 	struct mallinfo2 minfo = mallinfo2();
 #elif defined(HAVE_MALLINFO)
 	struct mallinfo minfo = mallinfo();
+
+	/* If any 'int' values have rolled over, coerce them back */
+	if (minfo.arena < 0)
+		minfo.arena = 0x7fffffff;
+	if (minfo.hblkhd < 0)
+		minfo.hblkhd = 0x7fffffff;
+	if (minfo.usmblks < 0)
+		minfo.usmblks = 0x7fffffff;
+	if (minfo.uordblks < 0)
+		minfo.uordblks = 0x7fffffff;
+	if (minfo.fsmblks < 0)
+		minfo.fsmblks = 0x7fffffff;
+	if (minfo.fordblks < 0)
+		minfo.fordblks = 0x7fffffff;
 #endif
-	char buf[MTYPE_MEMSTR_LEN];
 
 	vty_out(vty, "System allocator statistics:\n");
 	vty_out(vty, "  Total heap allocated:  %s\n",
@@ -305,7 +319,7 @@ void lib_cmd_init(void)
  */
 const char *mtype_memstr(char *buf, size_t len, unsigned long bytes)
 {
-	unsigned int m, k;
+	unsigned int g, m, k;
 
 	/* easy cases */
 	if (!bytes)
@@ -313,20 +327,15 @@ const char *mtype_memstr(char *buf, size_t len, unsigned long bytes)
 	if (bytes == 1)
 		return "1 byte";
 
-	/*
-	 * When we pass the 2gb barrier mallinfo() can no longer report
-	 * correct data so it just does something odd...
-	 * Reporting like Terrabytes of data.  Which makes users...
-	 * edgy.. yes edgy that's the term for it.
-	 * So let's just give up gracefully
-	 */
-	if (bytes > 0x7fffffff)
-		return "> 2GB";
-
+	g = bytes >> 30;
 	m = bytes >> 20;
 	k = bytes >> 10;
 
-	if (m > 10) {
+	if (g > 10) {
+		if (bytes & (1 << 29))
+			g++;
+		snprintf(buf, len, "%d GB", g);
+	} else if (m > 10) {
 		if (bytes & (1 << 19))
 			m++;
 		snprintf(buf, len, "%d MiB", m);
