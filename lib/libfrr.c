@@ -74,6 +74,9 @@ static struct option comb_lo[64];
 static struct option *comb_next_lo = &comb_lo[0];
 static char comb_helpstr[4096];
 
+static void frr_memory_init(struct event_loop *loop);
+static void frr_memory_fini(void);
+
 struct optspec {
 	const char *optstr;
 	const char *helpstr;
@@ -847,6 +850,8 @@ struct event_loop *frr_init(void)
 			  "%s: failed to initialize northbound database",
 			  __func__);
 
+	frr_memory_init(master);
+
 	return master;
 }
 
@@ -1261,6 +1266,8 @@ void frr_fini(void)
 {
 	hook_call(frr_fini);
 
+	frr_memory_fini();
+
 	vty_terminate();
 	cmd_terminate();
 	nb_terminate();
@@ -1506,3 +1513,93 @@ FRR_NORETURN void frr_exit_with_buffer_flush(int status)
 	exit(status);
 }
 
+/*
+ * Special code for tcmalloc mem lib, releasing free mem back to the OS.
+ */
+static struct event *t_mem_release_event;
+
+#ifdef HAVE_TCMALLOC
+
+#define FRR_MEM_RELEASE_MB_DEFAULT 1 /* In MB/sec */
+#define FRR_MEM_RELEASE_THRESHOLD  20 * 1024 * 1024
+#define FRR_MEM_RELEASE_TIMEOUT    10 /* Seconds */
+
+static uint32_t mem_release_mb = FRR_MEM_RELEASE_MB_DEFAULT;
+static uint32_t mem_release_timeout = FRR_MEM_RELEASE_TIMEOUT;
+
+#include "gperftools/tcmalloc.h"
+#include "gperftools/malloc_extension_c.h"
+
+/* Timer handler to release free mem */
+static void tcmalloc_timer(struct event *event)
+{
+	size_t release, sval;
+
+	if (mem_release_timeout == 0)
+		return;
+
+	/* Schedule again */
+	event_add_timer(master, tcmalloc_timer, NULL, mem_release_timeout,
+				&t_mem_release_event);
+
+	MallocExtension_GetNumericProperty("tcmalloc.pageheap_free_bytes", &sval);
+
+	/* Check mem stats, release mem if we're over the threshold */
+	if (sval > FRR_MEM_RELEASE_THRESHOLD) {
+		release = mem_release_mb * 1024 * 1024 * mem_release_timeout;
+		MallocExtension_ReleaseToSystem(release);
+	}
+}
+
+/* Handle config changes */
+void frr_mem_release_config(uint32_t rate)
+{
+	if (rate != mem_release_mb)
+		event_cancel(&t_mem_release_event);
+
+	mem_release_mb = rate;
+	if (mem_release_mb > 0)
+		/* Schedule */
+		event_add_timer(master, tcmalloc_timer, NULL, mem_release_timeout,
+				&t_mem_release_event);
+}
+
+static int frr_tcmalloc_lib_init(struct event_loop *loop)
+{
+	/* Using tcmalloc memory-release functions: configure periodic
+	 * task to release free memory back to the OS.
+	 */
+
+	/* Disabled (via config?) */
+	if (mem_release_mb == 0)
+		return 0;
+
+	event_add_timer(master, tcmalloc_timer, NULL, mem_release_timeout,
+			&t_mem_release_event);
+
+	return 0;
+}
+
+#else
+/* No-op */
+void frr_mem_release_config(uint32_t rate)
+{
+	/* No-op */
+}
+
+#endif /* HAVE_TCMALLOC */
+
+/* Init memory-related functions for some platforms */
+static void frr_memory_init(struct event_loop *loop)
+{
+#ifdef HAVE_TCMALLOC
+	/* Register for post-config callback */
+	hook_register(frr_config_post, frr_tcmalloc_lib_init);
+#endif
+}
+
+/* De-init memory-related functions for some platforms */
+static void frr_memory_fini(void)
+{
+	event_cancel(&t_mem_release_event);
+}

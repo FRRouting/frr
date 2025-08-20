@@ -894,6 +894,24 @@ AC_ARG_ENABLE([version_build_config],
 AC_ARG_ENABLE([python_runtime],
   AS_HELP_STRING([--disable-python-runtime], [do not install python scripts or have python runtime dependency]))
 
+##
+## gperftools tcmalloc version, more complete than "minimal"
+##
+AC_ARG_ENABLE(gperf-tcmalloc,
+	AS_HELP_STRING([--enable-gperf-tcmalloc], [Use gperftools tcmalloc]),
+[case "${enableval}" in
+  yes)
+  AC_MSG_CHECKING([for gperftools tcmalloc])
+  AC_CHECK_LIB([tcmalloc], [MallocExtension_ReleaseToSystem], [
+gperf_tcmalloc_enabled=true
+LIBS="$LIBS -ltcmalloc"
+AC_DEFINE([HAVE_TCMALLOC], [1], [Enable tcmalloc])
+  ], [AC_MSG_ERROR([tcmalloc specified but libtcmalloc not found, or missing apis])])
+ ;;
+  no)  gperf_tcmalloc_enabled=false ;;
+  *) AC_MSG_ERROR([bad value ${enableval} for --enable-gperf-tcmalloc]) ;;
+esac],[gperf_tcmalloc_enabled=false])
+
 #if openssl, else use the internal
 AS_IF([test "$with_crypto" = "openssl"], [
 AC_CHECK_LIB([crypto], [EVP_DigestInit], [LIBS="$LIBS -lcrypto"], [], [])
