@@ -324,6 +324,9 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
 			continue;
 
+		if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF && bgp_vrf != bgp)
+			continue;
+
 		/* refresh vpnv4 tovpn_sid */
 		XFREE(MTYPE_BGP_SRV6_SID,
 		      bgp_vrf->vpn_policy[AFI_IP].tovpn_sid);
@@ -337,11 +340,19 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 	}
 
 	/* update vpn bgp processes */
-	vpn_leak_postchange_all();
+	if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+		vpn_leak_postchange_all();
+	else {
+		vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(), bgp);
+		vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(), bgp);
+	}
 
 	/* refresh tovpn_sid_locator */
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
 		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
+			continue;
+
+		if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF && bgp_vrf != bgp)
 			continue;
 
 		/* refresh vpnv4 tovpn_sid_locator */
@@ -365,6 +376,13 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 	if (bgp->srv6_locator) {
 		srv6_locator_free(bgp->srv6_locator);
 		bgp->srv6_locator = NULL;
+	}
+
+	/* update vrf bgp processes */
+	if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF) {
+		vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(), bgp);
+
+		vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(), bgp);
 	}
 
 	return 0;
