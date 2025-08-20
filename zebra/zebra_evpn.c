@@ -52,6 +52,25 @@ static const struct message zvtep_flood_str[] = { { VXLAN_FLOOD_DISABLED, VXLAN_
 						  { VXLAN_FLOOD_INHERIT_GLOBAL, "Inherit Global" },
 						  { 0 } };
 
+/* Global variable for ARP/ND suppression with default enable */
+static bool zebra_evpn_do_arp_nd_suppress = true;
+
+/*
+ * Set or unset ARP/ND suppression
+ */
+void zebra_evpn_set_arp_nd_suppress(bool set_default)
+{
+	zebra_evpn_do_arp_nd_suppress = set_default;
+}
+
+/*
+ * get the ARP/ND suppression status
+ */
+bool zebra_evpn_get_arp_nd_suppress(void)
+{
+	return zebra_evpn_do_arp_nd_suppress;
+}
+
 int advertise_gw_macip_enabled(struct zebra_evpn *zevpn)
 {
 	struct zebra_vrf *zvrf;

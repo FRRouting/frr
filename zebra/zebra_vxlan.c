@@ -3905,6 +3905,7 @@ void zebra_vxlan_print_evpn(struct vty *vty, bool uj)
 				    zvrf->dad_freeze_time);
 		json_object_boolean_add(json, "isDetectionFreeze",
 					zvrf->dad_freeze);
+		json_object_boolean_add(json, "arpNdSuppress", zebra_evpn_get_arp_nd_suppress());
 		zebra_evpn_mh_json(json);
 	} else {
 		vty_out(vty, "L2 VNIs: %u\n", num_l2vnis);
@@ -3928,6 +3929,8 @@ void zebra_vxlan_print_evpn(struct vty *vty, bool uj)
 				vty_out(vty, "  Detection freeze %s\n",
 					"permanent");
 		}
+		vty_out(vty, "EVPN ARP/ND Suppress: %s\n",
+			zebra_evpn_get_arp_nd_suppress() ? "Yes" : "No");
 		zebra_evpn_mh_print(vty);
 	}
 
