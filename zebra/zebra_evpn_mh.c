@@ -59,6 +59,8 @@ static void zebra_evpn_mh_update_protodown_es(struct zebra_evpn_es *es,
 					      bool resync_dplane);
 static void zebra_evpn_mh_clear_protodown_es(struct zebra_evpn_es *es);
 static void zebra_evpn_mh_startup_delay_timer_start(const char *rc);
+static void zebra_evpn_es_bypass_update_macs(struct zebra_evpn_es *es, struct interface *ifp,
+					     bool bypass);
 
 esi_t zero_esi_buf, *zero_esi = &zero_esi_buf;
 
@@ -2101,8 +2103,7 @@ static void zebra_evpn_es_setup_evis(struct zebra_evpn_es *es)
 	}
 }
 
-static void zebra_evpn_flush_local_mac(struct zebra_mac *mac,
-				       struct interface *ifp)
+void zebra_evpn_flush_local_mac(struct zebra_mac *mac, struct interface *ifp)
 {
 	vlanid_t vid;
 	struct zebra_if *zif;
@@ -2322,7 +2323,14 @@ static void zebra_evpn_es_local_info_set(struct zebra_evpn_es *es,
 	/* if there any local macs referring to the ES as dest we
 	 * need to clear the contents and start over
 	 */
-	zebra_evpn_es_flush_local_macs(es, zif->ifp, true);
+	if (zebra_mac_ext_learn_mode()) {
+		/* Note: though bypass route is called, but its effectively clearing all
+		 * macs
+		 */
+		zebra_evpn_es_bypass_update_macs(es, zif->ifp, false);
+	} else {
+		zebra_evpn_es_flush_local_macs(es, zif->ifp, true);
+	}
 
 	/* inherit EVPN protodown flags on the access port */
 	zebra_evpn_mh_update_protodown_es(es, true /*resync_dplane*/);
