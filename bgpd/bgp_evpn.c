@@ -3526,6 +3526,11 @@ static int install_evpn_route_entry_in_vni_ip(struct bgp *bgp,
 
 	ret = install_evpn_route_entry_in_vni_common(bgp, vpn, p, dest,
 						     parent_pi);
+	if (ret) {
+		flog_err(EC_BGP_EVPN_FAIL,
+			 "%s (%u): Failed to install EVPN %pFX route in VNI %u IP table",
+			 vrf_id_to_name(bgp->vrf_id), bgp->vrf_id, p, vpn->vni);
+	}
 
 	bgp_dest_unlock_node(dest);
 
@@ -3552,6 +3557,11 @@ static int install_evpn_route_entry_in_vni_mac(struct bgp *bgp,
 
 	ret = install_evpn_route_entry_in_vni_common(bgp, vpn, p, dest,
 						     parent_pi);
+	if (ret) {
+		flog_err(EC_BGP_EVPN_FAIL,
+			 "%s (%u): Failed to install EVPN %pFX route in VNI %u MAC table",
+			 vrf_id_to_name(bgp->vrf_id), bgp->vrf_id, p, vpn->vni);
+	}
 
 	bgp_dest_unlock_node(dest);
 
