@@ -1445,20 +1445,21 @@ int zebra_evpn_sync_mac_dp_install(struct zebra_mac *mac, bool set_inactive,
 		return 0;
 	}
 
-	if (IS_ZEBRA_DEBUG_EVPN_MH_MAC) {
-		char mac_buf[MAC_BUF_SIZE];
+	if (!zebra_mac_ext_learn_mode() || CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL_INACTIVE)) {
+		/* For Extern Only mode:
+		 *  Update the dataplane only when the MAC is inactive
+		 */
+		if (IS_ZEBRA_DEBUG_EVPN_MH_MAC) {
+			char mac_buf[MAC_BUF_SIZE];
 
-		zlog_debug("dp-install sync-mac vni %u mac %pEA es %s %s%s%s",
-			   zevpn->vni, &mac->macaddr,
-			   mac->es ? mac->es->esi_str : "-",
-			   zebra_evpn_zebra_mac_flag_dump(mac, mac_buf,
-							  sizeof(mac_buf)),
-			   set_static ? "static " : "",
-			   set_inactive ? "inactive " : "");
+			zlog_debug("dp-install sync-mac vni %u mac %pEA es %s %s%s%s", zevpn->vni,
+				   &mac->macaddr, mac->es ? mac->es->esi_str : "-",
+				   zebra_evpn_zebra_mac_flag_dump(mac, mac_buf, sizeof(mac_buf)),
+				   set_static ? "static " : "", set_inactive ? "inactive " : "");
+		}
+		dplane_local_mac_add(ifp, br_ifp, vid, &mac->macaddr, sticky, set_static,
+				     set_inactive);
 	}
-
-	dplane_local_mac_add(ifp, br_ifp, vid, &mac->macaddr, sticky,
-			     set_static, set_inactive);
 	return 0;
 }
 
@@ -1512,16 +1513,23 @@ static void zebra_evpn_mac_hold_exp_cb(struct event *t)
 							  sizeof(mac_buf)));
 	}
 
-	/* re-program the local mac in the dataplane if the mac is no
-	 * longer static
-	 */
-	if (old_static != new_static)
-		zebra_evpn_sync_mac_dp_install(mac, false, false, __func__);
+	if (zebra_mac_ext_learn_mode()) {
+		vlanid_t vid;
+		struct interface *ifp;
+		/* Upon expiry, MAC is delete from DP. */
+		zebra_evpn_mac_get_access_info(mac, &ifp, &vid);
+		zebra_evpn_flush_local_mac(mac, ifp);
+	} else {
+		/* re-program the local mac in the dataplane if the mac is no
+		 * longer static
+		 */
+		if (old_static != new_static)
+			zebra_evpn_sync_mac_dp_install(mac, false, false, __func__);
 
-	/* inform bgp if needed */
-	if (old_bgp_ready != new_bgp_ready)
-		zebra_evpn_mac_send_add_del_to_client(mac, old_bgp_ready,
-						      new_bgp_ready);
+		/* inform bgp if needed */
+		if (old_bgp_ready != new_bgp_ready)
+			zebra_evpn_mac_send_add_del_to_client(mac, old_bgp_ready, new_bgp_ready);
+	}
 }
 
 static inline void zebra_evpn_mac_start_hold_timer(struct zebra_mac *mac)
@@ -1581,7 +1589,15 @@ void zebra_evpn_sync_mac_del(struct zebra_mac *mac)
 		zebra_evpn_mac_start_hold_timer(mac);
 	new_static = zebra_evpn_mac_is_static(mac);
 
-	if (old_static != new_static)
+	if (zebra_mac_ext_learn_mode() && !new_static &&
+	    CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL_INACTIVE)) {
+		/* Clear the MAC from Peer Proxy, as no age out will happen for extern mode */
+		struct interface *ifp;
+		vlanid_t vid;
+
+		zebra_evpn_mac_get_access_info(mac, &ifp, &vid);
+		zebra_evpn_flush_local_mac(mac, ifp);
+	} else if (old_static != new_static)
 		/* program the local mac in the kernel */
 		zebra_evpn_sync_mac_dp_install(mac, false, false, __func__);
 }
@@ -1793,8 +1809,16 @@ struct zebra_mac *zebra_evpn_proc_sync_mac_update(struct zebra_evpn *zevpn,
 		if (old_static != new_static)
 			inform_dataplane = true;
 
-		old_bgp_ready = zebra_evpn_mac_is_ready_for_bgp(old_flags);
-		new_bgp_ready = zebra_evpn_mac_is_ready_for_bgp(mac->flags);
+		/* when going from peer-active to peer-proxy, nothing should be happening
+		 * Route is maintain in BGP
+		 */
+		if (zebra_mac_ext_learn_mode() && CHECK_FLAG(new_flags, ZEBRA_MAC_ES_PEER_PROXY)) {
+			old_bgp_ready = false;
+			new_bgp_ready = false;
+		} else {
+			old_bgp_ready = zebra_evpn_mac_is_ready_for_bgp(old_flags);
+			new_bgp_ready = zebra_evpn_mac_is_ready_for_bgp(mac->flags);
+		}
 		if (old_bgp_ready != new_bgp_ready)
 			inform_bgp = true;
 	}
@@ -2374,7 +2398,9 @@ int zebra_evpn_del_local_mac(struct zebra_evpn *zevpn, struct zebra_mac *mac,
 							      new_bgp_ready);
 		}
 
-		/* re-install the inactive entry in the kernel */
+		/* In EXT-LEARN mode as well, the MAC will be reprogrammed as static,
+		 * post age out, until proxy is withdrawn
+		 */
 		zebra_evpn_sync_mac_dp_install(mac, true, false, __func__);
 
 		return 0;

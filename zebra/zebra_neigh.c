@@ -589,6 +589,12 @@ static void zebra_neigh_macfdb_update(struct zebra_dplane_ctx *ctx)
 		}
 
 		if (IS_ZEBRA_IF_VXLAN(ifp)) {
+			/* In mac-extern-learn mode the Linux kernel should never give us an entry
+			 * with VxLAN info
+			 */
+			if (zebra_mac_ext_learn_mode())
+				return;
+
 			if (!dst_present)
 				return;
 
@@ -602,6 +608,14 @@ static void zebra_neigh_macfdb_update(struct zebra_dplane_ctx *ctx)
 			zebra_vxlan_dp_network_mac_add(ifp, br_if, &mac, vid, vni, nhg_id, sticky,
 						       !!(ndm_flags & ZEBRA_NTF_EXT_LEARNED));
 			return;
+		}
+		if (zebra_mac_ext_learn_mode()) {
+			if (!if_is_operative(ifp)) {
+				if (IS_ZEBRA_DEBUG_KERNEL)
+					zlog_debug("Interface %s(%u) not operative:Ignore Mac update",
+						   ifp->name, ifp->ifindex);
+				return;
+			}
 		}
 
 		zebra_vxlan_local_mac_add_update(ifp, br_if, &mac, vid, sticky, local_inactive,
