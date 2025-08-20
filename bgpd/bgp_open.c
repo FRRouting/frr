@@ -1477,8 +1477,7 @@ int bgp_open_option_parse(struct peer *peer, uint16_t length,
 
 	/* Extended Message Support */
 	peer->max_packet_size =
-		(CHECK_FLAG(peer->cap, PEER_CAP_EXTENDED_MESSAGE_RCV)
-		 && CHECK_FLAG(peer->cap, PEER_CAP_EXTENDED_MESSAGE_ADV))
+		CHECK_FLAG(peer->cap, PEER_CAP_EXTENDED_MESSAGE_RCV)
 			? BGP_EXTENDED_MESSAGE_MAX_PACKET_SIZE
 			: BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE;
 
