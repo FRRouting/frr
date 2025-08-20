@@ -66,7 +66,7 @@ DEFUN (babel_redistribute_type,
 	int negate = 0;
 	int family;
 	int afi;
-	int type;
+	uint8_t type;
 	int idx = 0;
 
 	if (argv_find(argv, argc, "no", &idx))
@@ -81,7 +81,7 @@ DEFUN (babel_redistribute_type,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	type = proto_redistnum(afi, argv[idx + 2]->text);
-	if (type < 0) {
+	if (type == ZEBRA_ROUTE_ERROR) {
 		vty_out(vty, "Invalid type %s\n", argv[idx + 2]->arg);
 		return CMD_WARNING_CONFIG_FAILED;
 	}

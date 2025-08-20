@@ -651,7 +651,7 @@ DEFUN (isis_redistribute,
 	VTY_DECLVAR_CONTEXT(isis_area, area);
 	int family;
 	int afi;
-	int type;
+	uint8_t type;
 	int level;
 	unsigned long metric = 0;
 	const char *routemap = NULL;
@@ -665,7 +665,7 @@ DEFUN (isis_redistribute,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	type = proto_redistnum(afi, argv[idx_protocol]->text);
-	if (type < 0)
+	if (type == ZEBRA_ROUTE_ERROR)
 		return CMD_WARNING_CONFIG_FAILED;
 
 	level = 2;
@@ -715,7 +715,7 @@ DEFUN (no_isis_redistribute,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	type = proto_redistnum(afi, argv[idx_protocol]->text);
-	if (type < 0)
+	if (type == ZEBRA_ROUTE_ERROR)
 		return CMD_WARNING_CONFIG_FAILED;
 
 	level = 2;

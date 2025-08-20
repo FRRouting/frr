@@ -1461,7 +1461,7 @@ DEFPY(show_nexthop_group,
 
 	struct zebra_vrf *zvrf = NULL;
 	afi_t afi = AFI_UNSPEC;
-	int type = 0;
+	uint8_t type = 0;
 	bool uj = use_json(argc, argv);
 	json_object *json = NULL;
 	json_object *json_vrf = NULL;
@@ -1479,7 +1479,7 @@ DEFPY(show_nexthop_group,
 
 	if (type_str) {
 		type = proto_redistnum((afi ? afi : AFI_IP), type_str);
-		if (type < 0) {
+		if (type == ZEBRA_ROUTE_ERROR) {
 			/* assume zebra */
 			type = ZEBRA_ROUTE_NHG;
 		}
@@ -1657,7 +1657,7 @@ DEFPY (show_route,
 	safi_t safi = mrib ? SAFI_MULTICAST : SAFI_UNICAST;
 	bool first_vrf_json = true;
 	struct vrf *vrf;
-	int type = 0;
+	uint8_t type = 0;
 	struct zebra_vrf *zvrf;
 	struct route_show_ctx ctx = {
 		.multi = vrf_all || table_all,
@@ -1676,7 +1676,7 @@ DEFPY (show_route,
 	}
 	if (type_str) {
 		type = proto_redistnum(afi, type_str);
-		if (type < 0) {
+		if (type == ZEBRA_ROUTE_ERROR) {
 			vty_out(vty, "Unknown route type\n");
 			return CMD_WARNING;
 		}

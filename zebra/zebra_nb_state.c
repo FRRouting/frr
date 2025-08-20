@@ -446,7 +446,7 @@ const void *lib_vrf_zebra_ribs_rib_route_route_entry_lookup_entry(
 {
 	struct route_node *rn = (struct route_node *)args->parent_list_entry;
 	struct route_entry *re = NULL;
-	int proto_type = 0;
+	uint8_t proto_type = 0;
 	afi_t afi;
 
 	afi = family2afi(rn->p.family);

@@ -64,7 +64,7 @@ DEFPY(watch_redistribute, watch_redistribute_cmd,
       FRR_REDIST_HELP_STR_SHARPD)
 {
 	struct vrf *vrf;
-	int source;
+	uint8_t source;
 
 	if (!vrf_name)
 		vrf_name = VRF_DEFAULT_NAME;
@@ -838,7 +838,7 @@ DEFPY (sharp_lsp_prefix_v4, sharp_lsp_prefix_v4_cmd,
 	struct nexthop_group_cmd *backup_nhgc = NULL;
 	struct nexthop_group *backup_nhg = NULL;
 	struct prefix p = {};
-	int type = 0;
+	uint8_t type = 0;
 	bool update_p;
 
 	update_p = (update != NULL);
@@ -850,7 +850,7 @@ DEFPY (sharp_lsp_prefix_v4, sharp_lsp_prefix_v4_cmd,
 		p.u.prefix4 = pfx->prefix;
 
 		type = proto_redistnum(AFI_IP, type_str);
-		if (type < 0) {
+		if (type == ZEBRA_ROUTE_ERROR) {
 			vty_out(vty, "%%  Unknown route type '%s'\n", type_str);
 			return CMD_WARNING;
 		}
@@ -916,7 +916,7 @@ DEFPY(sharp_remove_lsp_prefix_v4, sharp_remove_lsp_prefix_v4_cmd,
 {
 	struct nexthop_group_cmd *nhgc = NULL;
 	struct prefix p = {};
-	int type = 0;
+	uint8_t type = 0;
 	struct nexthop_group *nhg = NULL;
 
 	/* We're offered a v4 prefix */
@@ -926,7 +926,7 @@ DEFPY(sharp_remove_lsp_prefix_v4, sharp_remove_lsp_prefix_v4_cmd,
 		p.u.prefix4 = pfx->prefix;
 
 		type = proto_redistnum(AFI_IP, type_str);
-		if (type < 0) {
+		if (type == ZEBRA_ROUTE_ERROR) {
 			vty_out(vty, "%%  Unknown route type '%s'\n", type_str);
 			return CMD_WARNING;
 		}
@@ -1037,7 +1037,7 @@ DEFPY (send_opaque_unicast,
        "Session ID\n"
        "Number of messages to send\n")
 {
-	uint32_t proto;
+	uint8_t proto;
 
 	proto = proto_redistnum(AFI_IP, proto_str);
 
@@ -1064,7 +1064,7 @@ DEFPY (send_opaque_reg,
        "Opaque sub-type code\n"
        "Opaque sub-type code\n")
 {
-	int proto;
+	uint8_t proto;
 
 	proto = proto_redistnum(AFI_IP, proto_str);
 
