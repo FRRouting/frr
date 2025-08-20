@@ -10,7 +10,7 @@ Installation and Setup
 
 Topotests run under python3.
 
-Tested with Ubuntu 22.04,Ubuntu 20.04, and Debian 12.
+Tested with Ubuntu 22.04/24.04, and Debian 12/13.
 
 Python protobuf version < 4 is required b/c python protobuf >= 4 requires a
 protoc >= 3.19, and older package versions are shipped by in the above distros.
@@ -89,7 +89,7 @@ SNMP Utilities Installation
 
 To run SNMP test you need to install SNMP utilities and MIBs. Unfortunately
 there are some errors in the upstream MIBS which need to be patched up. The
-following steps will get you there on Ubuntu 20.04.
+following steps will get you there on Ubuntu 22.04/24.04.
 
 .. code:: shell
 
@@ -101,6 +101,18 @@ following steps will get you there on Ubuntu 20.04.
    wget https://raw.githubusercontent.com/FRRouting/frr-mibs/main/ietf/SNMPv2-PDU -O /usr/share/snmp/mibs/ietf/SNMPv2-PDU
    wget https://raw.githubusercontent.com/FRRouting/frr-mibs/main/ietf/IPATM-IPMC-MIB -O /usr/share/snmp/mibs/ietf/IPATM-IPMC-MIB
    wget https://www.iana.org/assignments/ianastoragemediatype-mib/ianastoragemediatype-mib -O /usr/share/snmp/mibs/iana/IANA-STORAGE-MEDIA-TYPE-MIB
+
+   # Ubuntu 24.04 and Debian 13 only
+   wget https://www.iana.org/assignments/ianasmf-mib/ianasmf-mib -O /usr/share/snmp/mibs/iana/IANA-SMF-MIB
+   wget https://www.iana.org/assignments/ianaentity-mib/ianaentity-mib -O /usr/share/snmp/mibs/iana/IANA-ENTITY-MIB
+   wget https://www.iana.org/assignments/ianapowerstateset-mib/ianapowerstateset-mib -O /usr/share/snmp/mibs/iana/IANAPowerStateSet-MIB
+   wget https://www.iana.org/assignments/ianaolsrv2linkmetrictype-mib/ianaolsrv2linkmetrictype-mib -O /usr/share/snmp/mibs/iana/IANA-OLSRv2-LINK-METRIC-TYPE-MIB
+   wget https://www.iana.org/assignments/ianaenergyrelation-mib/ianaenergyrelation-mib -O /usr/share/snmp/mibs/iana/IANA-ENERGY-RELATION-MIB
+   wget https://www.iana.org/assignments/ianabfdtcstd-mib/ianabfdtcstd-mib -O /usr/share/snmp/mibs/iana/IANA-BFD-TC-STD-MIB
+   wget https://www.iana.org/assignments/ianastoragemediatype-mib/ianastoragemediatype-mib -O /usr/share/snmp/mibs/iana/IANA-STORAGE-MEDIA-TYPE-MIB
+   wget https://www.ieee802.org/1/files/public/MIBs/IEEE8021-CFM-MIB.mib -O /usr/share/snmp/mibs/IEEE8021-CFM-MIB
+   wget https://www.ieee802.org/1/files/public/MIBs/LLDP-MIB-200505060000Z.mib -O /usr/share/snmp/mibs/LLDP-MIB
+
    edit /etc/snmp/snmp.conf to look like this
    # As the snmp packages come without MIB files due to license reasons, loading
    # of MIBs is disabled by default. If you added the MIBs you can reenable
