@@ -36,6 +36,10 @@ struct zebra_evpn_show {
 	bool use_json;
 };
 
+/* Function to control ARP/ND suppression */
+void zebra_evpn_set_arp_nd_suppress(bool set_default);
+bool zebra_evpn_get_arp_nd_suppress(void);
+
 /*
  * VTEP info
  *

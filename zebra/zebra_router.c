@@ -341,6 +341,12 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack, bool v6_with_v4_ne
 	zrouter.notify_on_ack = notify_on_ack;
 	zrouter.v6_with_v4_nexthop = v6_with_v4_nexthop;
 	zrouter.kernel_ext_learn = kernel_ext_learn;
+	if (kernel_ext_learn == true) {
+		/* with kernel_ext_learn mode on, ARP/ND suppression is
+		 * not supported
+		 */
+		zebra_evpn_set_arp_nd_suppress(false);
+	}
 
 	/*
 	 * If you start using asic_notification_nexthop_control
