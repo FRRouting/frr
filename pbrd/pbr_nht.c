@@ -559,8 +559,7 @@ void pbr_nht_set_seq_nhg(struct pbr_map_sequence *pbrms, const char *name)
 	pbr_nht_set_seq_nhg_data(pbrms, nhgc);
 }
 
-void pbr_nht_add_individual_nexthop(struct pbr_map_sequence *pbrms,
-				    const struct nexthop *nhop)
+bool pbr_nht_add_individual_nexthop(struct pbr_map_sequence *pbrms, const struct nexthop *nhop)
 {
 	struct pbr_nexthop_group_cache *pnhgc;
 	struct pbr_nexthop_group_cache find;
@@ -568,6 +567,12 @@ void pbr_nht_add_individual_nexthop(struct pbr_map_sequence *pbrms,
 	struct pbr_nexthop_cache lookup = {};
 	struct nexthop *nh;
 	char buf[PBR_NHC_NAMELEN];
+
+	if (!pbr_nht_has_unallocated_table()) {
+		zlog_warn("%s: Exhausted all table identifiers; cannot create nexthop-group cache",
+			  __func__);
+		return false;
+	}
 
 	pbrms->nhg = nexthop_group_new();
 	pbrms->internal_nhg_name = XSTRDUP(
@@ -583,13 +588,6 @@ void pbr_nht_add_individual_nexthop(struct pbr_map_sequence *pbrms,
 
 	memset(&find, 0, sizeof(find));
 	strlcpy(find.name, pbrms->internal_nhg_name, sizeof(find.name));
-
-	if (!pbr_nht_has_unallocated_table()) {
-		zlog_warn(
-			"%s: Exhausted all table identifiers; cannot create nexthop-group cache for nexthop-group '%s'",
-			__func__, find.name);
-		return;
-	}
 
 	pnhgc = hash_get(pbr_nhg_hash, &find, pbr_nhgc_alloc);
 
@@ -613,6 +611,8 @@ void pbr_nht_add_individual_nexthop(struct pbr_map_sequence *pbrms,
 				sizeof(pnhc->intf_name));
 	}
 	pbr_nht_install_nexthop_group(pnhgc, *pbrms->nhg);
+
+	return true;
 }
 
 static void pbr_nht_release_individual_nexthop(struct pbr_map_sequence *pbrms)
