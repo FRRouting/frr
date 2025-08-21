@@ -3640,8 +3640,18 @@ static void bgp_lu_handle_label_allocation(struct bgp *bgp,
 {
 	mpls_label_t mpls_label_null;
 
+	zlog_debug("%pBD new: %p old: %p allocate mpls labels: %d",
+		   dest, new_select, old_select, bgp->allocate_mpls_labels[afi][SAFI_UNICAST]);
+
 	if (bgp->allocate_mpls_labels[afi][SAFI_UNICAST]) {
 		if (new_select) {
+			zlog_debug("   label differs: %u subtypes %d %d, valid label: %d registered for label %d label requested %d",
+				   bgp_label_index_differs(new_select, old_select ? old_select : new_select),
+				   new_select->sub_type, old_select ? old_select->sub_type : -1,
+				   bgp_is_valid_label(&dest->local_label),
+				   CHECK_FLAG(dest->flags, BGP_NODE_REGISTERED_FOR_LABEL),
+				   CHECK_FLAG(dest->flags, BGP_NODE_LABEL_REQUESTED));
+
 			if (!old_select ||
 			    bgp_label_index_differs(new_select, old_select) ||
 			    new_select->sub_type != old_select->sub_type ||
@@ -3653,6 +3663,8 @@ static void bgp_lu_handle_label_allocation(struct bgp *bgp,
 				mpls_label_null = MPLS_LABEL_IMPLICIT_NULL;
 				if (bgp_lu_need_null_label(bgp, new_select, afi,
 							   &mpls_label_null)) {
+					zlog_debug("   need null label?");
+
 					if (CHECK_FLAG(
 						    dest->flags,
 						    BGP_NODE_REGISTERED_FOR_LABEL) ||

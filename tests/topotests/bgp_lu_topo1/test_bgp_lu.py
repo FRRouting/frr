@@ -140,6 +140,9 @@ def test_clear_bgplu():
     r1 = tgen.gears["R1"]
     r2 = tgen.gears["R2"]
 
+    # TODO debug
+    r1.vtysh_cmd("debug bgp bestpath 11.0.1.250/32")
+
     r1.vtysh_cmd("clear bgp 10.0.0.2")
     check_labelpool(r1)
     check_labelpool(r2)
