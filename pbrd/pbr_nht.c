@@ -582,8 +582,7 @@ void pbr_nht_add_individual_nexthop(struct pbr_map_sequence *pbrms,
 	nexthop_group_add_sorted(pbrms->nhg, nh);
 
 	memset(&find, 0, sizeof(find));
-	pbr_nht_nexthop_make_name(pbrms->parent->name, PBR_NHC_NAMELEN,
-				  pbrms->seqno, find.name);
+	strlcpy(find.name, pbrms->internal_nhg_name, sizeof(find.name));
 
 	if (!pbr_nht_has_unallocated_table()) {
 		zlog_warn(
@@ -591,9 +590,6 @@ void pbr_nht_add_individual_nexthop(struct pbr_map_sequence *pbrms,
 			__func__, find.name);
 		return;
 	}
-
-	if (!pbrms->internal_nhg_name)
-		pbrms->internal_nhg_name = XSTRDUP(MTYPE_TMP, find.name);
 
 	pnhgc = hash_get(pbr_nhg_hash, &find, pbr_nhgc_alloc);
 
