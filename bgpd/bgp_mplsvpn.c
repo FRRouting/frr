@@ -4233,8 +4233,7 @@ void bgp_vpn_release_label(struct bgp *bgp, afi_t afi, bool reset)
 	if (CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_LABEL_PER_NEXTHOP))
 		return;
 
-	bgp_lp_release(LP_TYPE_VRF, &bgp->vpn_policy[afi], bgp->vpn_policy[afi].tovpn_label);
-	bgp->vpn_policy[afi].tovpn_label = MPLS_LABEL_NONE;
+	bgp_vpn_lp_release(&bgp->vpn_policy[afi], bgp->vpn_policy[afi].tovpn_label);
 
 	if (reset)
 		UNSET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_LABEL_AUTO);
@@ -4337,7 +4336,7 @@ void bgp_mplsvpn_nh_label_bind_free(
 	if (bmnc->new_label != MPLS_INVALID_LABEL) {
 		bgp_mplsvpn_nh_label_bind_send_nexthop_label(
 			bmnc, ZEBRA_MPLS_LABELS_DELETE);
-		bgp_lp_release(LP_TYPE_BGP_L3VPN_BIND, bmnc, bmnc->new_label);
+		bgp_vpn_nh_lp_release(bmnc, bmnc->new_label);
 	}
 	bgp_mplsvpn_nh_label_bind_cache_del(
 		&bmnc->bgp_vpn->mplsvpn_nh_label_bind, bmnc);
