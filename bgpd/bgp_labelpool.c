@@ -19,6 +19,7 @@
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_labelpool.h"
+#include "bgpd/bgp_label.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_errors.h"
 #include "bgpd/bgp_route.h"
@@ -466,10 +467,8 @@ void bgp_lp_get(int type, void *labelid, vrf_id_t vrf_id,
 			&bm->t_bgp_sync_label_manager);
 }
 
-void bgp_lp_release(
-	int		type,
-	void		*labelid,
-	mpls_label_t	label)
+/* Common label release code */
+static void bgp_lp_release(int type, void *labelid, mpls_label_t label)
 {
 	struct lp_lcb *lcb;
 
@@ -517,6 +516,42 @@ void bgp_lp_release(
 			}
 		}
 	}
+}
+
+/*
+ * Public typed release api
+ */
+void bgp_lu_lp_release(struct bgp_dest *dest, mpls_label_t label)
+{
+	bgp_lp_release(LP_TYPE_BGP_LU, dest, label);
+	bgp_unset_valid_label(&dest->local_label);
+}
+
+/*
+ * Typed release api
+ */
+static void bgp_nh_lp_release(struct bgp_label_per_nexthop_cache *blnc,
+			      mpls_label_t label)
+{
+	bgp_lp_release(LP_TYPE_NEXTHOP, blnc, label);
+}
+
+/*
+ * Public typed release api
+ */
+void bgp_vpn_lp_release(struct vpn_policy *policy, mpls_label_t label)
+{
+	bgp_lp_release(LP_TYPE_VRF, policy, label);
+	policy->tovpn_label = MPLS_LABEL_NONE;
+}
+
+/*
+ * Public typed release api
+ */
+void bgp_vpn_nh_lp_release(struct bgp_mplsvpn_nh_label_bind_cache *bmnc,
+			   mpls_label_t label)
+{
+	bgp_lp_release(LP_TYPE_BGP_L3VPN_BIND, bmnc, label);
 }
 
 static void bgp_sync_label_manager(struct event *e)
@@ -1739,7 +1774,7 @@ void bgp_label_per_nexthop_free(struct bgp_label_per_nexthop_cache *blnc)
 					     blnc->label, blnc->nh->ifindex,
 					     blnc->nh->vrf_id, ZEBRA_LSP_BGP,
 					     &blnc->nexthop, 0, NULL);
-		bgp_lp_release(LP_TYPE_NEXTHOP, blnc, blnc->label);
+		bgp_nh_lp_release(blnc, blnc->label);
 	}
 	bgp_label_per_nexthop_cache_del(blnc->tree, blnc);
 	if (blnc->nh)
