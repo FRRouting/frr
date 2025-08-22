@@ -1170,7 +1170,7 @@ void ospf6_route_show(struct vty *vty, struct ospf6_route *route,
 				       json_array_next_hops);
 
 		/* Check if we already have an array for this destination */
-		json_routes_array = json_object_object_get(json_routes, destination);
+		json_object_object_get_ex(json_routes, destination, &json_routes_array);
 		if (json_routes_array == NULL) {
 			/* First route for this destination, create new array */
 			json_routes_array = json_object_new_array();
@@ -1369,7 +1369,7 @@ void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route,
 				       json_array_next_hops);
 
 		/* Check if we already have an array for this destination */
-		json_routes_array = json_object_object_get(json_routes, destination);
+		json_object_object_get_ex(json_routes, destination, &json_routes_array);
 		if (json_routes_array == NULL) {
 			/* First route for this destination, create new array */
 			json_routes_array = json_object_new_array();
