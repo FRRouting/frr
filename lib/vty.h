@@ -403,6 +403,7 @@ extern bool vty_set_include(struct vty *vty, const char *regexp);
  */
 extern int vty_json(struct vty *vty, struct json_object *json);
 extern int vty_json_no_pretty(struct vty *vty, struct json_object *json);
+extern int vty_json_no_pretty_batch_flush(struct vty *vty, struct json_object *json);
 void vty_json_key(struct vty *vty, const char *key, bool *first_key);
 void vty_json_close(struct vty *vty, bool first_key);
 extern void vty_json_empty(struct vty *vty, struct json_object *json);
@@ -475,8 +476,7 @@ static inline bool vty_is_closed(const struct vty *vty)
  * If the vty is being closed or deleted, we'll call the callback with a NULL
  * 'vty', so the application can clean up, free memory, if necessary.
  */
-bool vty_yield(struct vty *vty, void (*func)(struct vty *vty, void *arg),
-	       void *arg);
+bool vty_yield(struct vty *vty, void (*func)(struct vty *vty, void *arg), void *arg);
 
 /*
  * Yield/resume is complete; cancel any scheduled resume task, and return

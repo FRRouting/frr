@@ -78,6 +78,14 @@ void buffer_free(struct buffer *b)
 	XFREE(MTYPE_BUFFER, b);
 }
 
+/* Returns 1 if there is no pending data in the buffer.  Otherwise returns 0. */
+int buffer_empty(struct buffer *b)
+{
+	if (b->tail)
+		return 0;
+	return 1;
+}
+
 /* Make string clone. */
 char *buffer_getstr(struct buffer *b)
 {
