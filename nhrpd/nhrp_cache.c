@@ -126,14 +126,12 @@ struct nhrp_cache_config *nhrp_cache_config_get(struct interface *ifp,
 	struct nhrp_interface *nifp = ifp->info;
 	struct nhrp_cache_config key;
 
-	if (!nifp->cache_config_hash) {
+	if (!nifp->cache_config_hash)
 		nifp->cache_config_hash =
 			hash_create(nhrp_cache_config_protocol_key,
 				    nhrp_cache_config_protocol_cmp,
 				    "NHRP Config Cache");
-		if (!nifp->cache_config_hash)
-			return NULL;
-	}
+
 	key.remote_addr = *remote_addr;
 	key.ifp = ifp;
 
@@ -182,13 +180,9 @@ struct nhrp_cache *nhrp_cache_get(struct interface *ifp,
 	struct nhrp_interface *nifp = ifp->info;
 	struct nhrp_cache key;
 
-	if (!nifp->cache_hash) {
-		nifp->cache_hash =
-			hash_create(nhrp_cache_protocol_key,
-				    nhrp_cache_protocol_cmp, "NHRP Cache");
-		if (!nifp->cache_hash)
-			return NULL;
-	}
+	if (!nifp->cache_hash)
+		nifp->cache_hash = hash_create(nhrp_cache_protocol_key, nhrp_cache_protocol_cmp,
+					       "NHRP Cache");
 
 	key.remote_addr = *remote_addr;
 	key.ifp = ifp;
