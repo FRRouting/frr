@@ -274,14 +274,12 @@ static void yield_resume_cb(struct event *event)
  * Application process wants to yield while sending results/replies.
  * We'll schedule a task to resume, and call the application's callback.
  */
-bool vty_yield(struct vty *vty, void (*func)(struct vty *vty, void *arg),
-	       void *arg)
+bool vty_yield(struct vty *vty, void (*func)(struct vty *vty, void *arg), void *arg)
 {
 	vty->yield_resume.app_cb = func;
 	vty->yield_resume.arg = arg;
 
-	event_add_event(vty_master, yield_resume_cb, vty, 0,
-			&vty->yield_resume.t_resume);
+	event_add_event(vty_master, yield_resume_cb, vty, 0, &vty->yield_resume.t_resume);
 
 	/* Ensure reading new input is disabled */
 	event_cancel(&vty->t_read);
@@ -315,7 +313,6 @@ void vty_yield_finish(struct vty *vty)
 {
 	if (vty->status != VTY_CLOSE) {
 		if (vty->type == VTY_SHELL_SERV) {
-
 			/* Send end-of-output marker and resume normal processing */
 			vty_resume_response(vty, CMD_SUCCESS);
 			vty_event(VTYSH_READ, vty);
@@ -486,6 +483,28 @@ done:
 		return len;
 }
 
+/*	Writes JSON to vty during iteration
+ *	Differs from vty_json_helper by omitting the '\n' at the end
+ */
+static int vty_json_batch_flush_helper(struct vty *vty, struct json_object *json, uint32_t options)
+{
+	const char *text;
+
+	if (!json)
+		return CMD_SUCCESS;
+
+	if (vty_is_closed(vty)) {
+		json_object_free(json);
+		return CMD_ERR_NOTHING_TODO;
+	}
+
+	text = json_object_to_json_string_ext(json, options);
+	vty_out(vty, "%s", text);
+	json_object_free(json);
+
+	return CMD_SUCCESS;
+}
+
 static int vty_json_helper(struct vty *vty, struct json_object *json,
 			   uint32_t options)
 {
@@ -512,6 +531,11 @@ int vty_json(struct vty *vty, struct json_object *json)
 	return vty_json_helper(vty, json,
 			       JSON_C_TO_STRING_PRETTY |
 				       JSON_C_TO_STRING_NOSLASHESCAPE);
+}
+
+int vty_json_no_pretty_batch_flush(struct vty *vty, struct json_object *json)
+{
+	return vty_json_batch_flush_helper(vty, json, JSON_C_TO_STRING_NOSLASHESCAPE);
 }
 
 int vty_json_no_pretty(struct vty *vty, struct json_object *json)
@@ -745,6 +769,9 @@ static int vty_command(struct vty *vty, char *buf)
 	ret = cmd_execute(vty, buf, NULL, 0);
 
 	GETRUSAGE(&after);
+
+	if (ret == CMD_YIELD)
+		return ret;
 
 	walltime = event_consumed_time(&after, &before, &cputime);
 
@@ -2571,7 +2598,7 @@ static void vtysh_read(struct event *thread)
 				 * - other commands in "buf" will be ditched
 				 * - input during pending config-write is
 				 * "unsupported" */
-				if (ret == CMD_SUSPEND)
+				if (ret == CMD_SUSPEND || ret == CMD_YIELD)
 					break;
 
 				/* with new infra we need to stop response till
@@ -4300,4 +4327,12 @@ void vty_terminate(void)
 	vtys_init(vtysh_sessions);
 
 	vty_serv_stop();
+}
+
+/* Checks whether obuf still has free space,
+ * i.e., whether the number of used chunks is below the threshold.
+ */
+bool vty_obuf_has_space(struct vty *vty)
+{
+	return buffer_chunks_used(vty->obuf) < VTY_OBUF_LIMIT;
 }
