@@ -3719,14 +3719,13 @@ DEFPY_YANG_NOSH(flex_algo, flex_algo_cmd, "flex-algo (128-255)$algorithm",
 	int ret;
 	char xpath[XPATH_MAXLEN + 37];
 
-	snprintf(xpath, sizeof(xpath),
-		 "%s/flex-algos/flex-algo[flex-algo='%ld']", VTY_CURR_XPATH,
-		 algorithm);
+	snprintfrr(xpath, sizeof(xpath), "%s/flex-algos/flex-algo[flex-algo='%" PRId64 "']",
+		   VTY_CURR_XPATH, algorithm);
 
 	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
 
-	ret = nb_cli_apply_changes(
-		vty, "./flex-algos/flex-algo[flex-algo='%ld']", algorithm);
+	ret = nb_cli_apply_changes(vty, "./flex-algos/flex-algo[flex-algo='%" PRId64 "']",
+				   algorithm);
 	if (ret == CMD_SUCCESS)
 		VTY_PUSH_XPATH(ISIS_FLEX_ALGO_NODE, xpath);
 
@@ -3740,18 +3739,18 @@ DEFPY_YANG(no_flex_algo, no_flex_algo_cmd, "no flex-algo (128-255)$algorithm",
 {
 	char xpath[XPATH_MAXLEN + 37];
 
-	snprintf(xpath, sizeof(xpath),
-		 "%s/flex-algos/flex-algo[flex-algo='%ld']", VTY_CURR_XPATH,
-		 algorithm);
+	snprintfrr(xpath, sizeof(xpath), "%s/flex-algos/flex-algo[flex-algo='%'" PRId64 "']",
+		   VTY_CURR_XPATH, algorithm);
 
 	if (!yang_dnode_exists(vty->candidate_config->dnode, xpath)) {
-		vty_out(vty, "ISIS flex-algo %ld isn't exist.\n", algorithm);
+		vty_out(vty, "ISIS flex-algo %" PRId64 " isn't exist.\n", algorithm);
 		return CMD_ERR_NO_MATCH;
 	}
 
 	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
-	return nb_cli_apply_changes_clear_pending(
-		vty, "./flex-algos/flex-algo[flex-algo='%ld']", algorithm);
+	return nb_cli_apply_changes_clear_pending(vty,
+						  "./flex-algos/flex-algo[flex-algo='%" PRId64 "']",
+						  algorithm);
 }
 
 DEFPY_YANG(advertise_definition, advertise_definition_cmd,

@@ -40,13 +40,13 @@ class StringHandler(RenderHandler):
     canassert = True
 
 
-class LongHandler(RenderHandler):
-    argtype = "long"
-    decl = Template("long $varname = 0;")
+class Int64Handler(RenderHandler):
+    argtype = "int64_t"
+    decl = Template("int64_t $varname = 0;")
     code = Template(
         """\
 char *_end;
-$varname = strtol(argv[_i]->arg, &_end, 10);
+$varname = strtoll(argv[_i]->arg, &_end, 10);
 _fail = (_end == argv[_i]->arg) || (*_end != '\\0');"""
     )
 
@@ -151,7 +151,7 @@ def mix_handlers(handlers):
 handlers = {
     "WORD_TKN": StringHandler,
     "VARIABLE_TKN": StringHandler,
-    "RANGE_TKN": LongHandler,
+    "RANGE_TKN": Int64Handler,
     "IPV4_TKN": IP4Handler,
     "IPV4_PREFIX_TKN": Prefix4Handler,
     "IPV6_TKN": IP6Handler,
