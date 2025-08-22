@@ -334,8 +334,6 @@ static bool autorp_recv_announcement(struct pim_autorp *autorp, uint8_t rpcnt, u
 		if (trp == NULL) {
 			/* RP was brand new, finish initializing */
 			ma_rp->autorp = autorp;
-			ma_rp->holdtime = holdtime;
-			ma_rp->hold_timer = NULL;
 			ma_rp->grplist[0] = '\0';
 			memset(&(ma_rp->grp), 0, sizeof(ma_rp->grp));
 			pim_autorp_grppfix_init(&ma_rp->grp_pfix_list);
@@ -350,6 +348,7 @@ static bool autorp_recv_announcement(struct pim_autorp *autorp, uint8_t rpcnt, u
 			pim_autorp_grppfix_free(&ma_rp->grp_pfix_list);
 		}
 
+		ma_rp->holdtime = holdtime;
 		/* Cancel any existing timer and restart it */
 		event_cancel(&ma_rp->hold_timer);
 		if (holdtime > 0)
