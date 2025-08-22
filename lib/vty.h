@@ -31,6 +31,8 @@ struct frregex;
 
 #define VTY_MAXCFGCHANGES 16
 
+#define VTY_OBUF_LIMIT ((size_t)20)
+
 struct vty_error {
 	char error_buf[VTY_BUFSIZ];
 	uint32_t line_num;
@@ -403,6 +405,7 @@ extern bool vty_set_include(struct vty *vty, const char *regexp);
  */
 extern int vty_json(struct vty *vty, struct json_object *json);
 extern int vty_json_no_pretty(struct vty *vty, struct json_object *json);
+extern int vty_json_no_pretty_batch_flush(struct vty *vty, struct json_object *json);
 void vty_json_key(struct vty *vty, const char *key, bool *first_key);
 void vty_json_close(struct vty *vty, bool first_key);
 extern void vty_json_empty(struct vty *vty, struct json_object *json);
@@ -467,8 +470,7 @@ extern int (*nb_cli_rpc_mgmt_cb)(struct vty *vty, const char *xpath, const struc
  * If the vty is being closed or deleted, we'll call the callback with a NULL
  * 'vty', so the application can clean up, free memory, if necessary.
  */
-bool vty_yield(struct vty *vty, void (*func)(struct vty *vty, void *arg),
-	       void *arg);
+bool vty_yield(struct vty *vty, void (*func)(struct vty *vty, void *arg), void *arg);
 
 /*
  * Yield/resume is complete; cancel any scheduled resume task, and return
@@ -478,6 +480,8 @@ bool vty_yield(struct vty *vty, void (*func)(struct vty *vty, void *arg),
  * cleaned-up any context, memory, etc.
  */
 void vty_yield_finish(struct vty *vty, int retcode);
+
+extern bool vty_obuf_has_space(struct vty *vty);
 
 #ifdef __cplusplus
 }

@@ -12,6 +12,7 @@
 #include "lib/printfrr.h"
 #include "lib/vxlan.h"
 #include "stream.h"
+#include "lib/buffer.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -3185,29 +3186,37 @@ static void evpn_show_route_rd_all_macip(struct vty *vty, struct bgp *bgp,
  * Display BGP EVPN routing table - all routes (vty handler).
  * If 'type' is non-zero, only routes matching that type are shown.
  */
-static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
-				 json_object *json, int detail, bool self_orig)
+int evpn_show_all_routes_core(struct vty *vty, struct show_bgp *args)
 {
-	struct bgp_dest *rd_dest;
+	struct bgp *bgp = args->bgp;
+	int type = args->type;
+	json_object *json = args->json;
+	int detail = args->detail;
+	bool self_orig = args->self_orig;
+
+	struct bgp_dest *rd_dest = args->rd_dest;
 	struct bgp_table *table;
-	struct bgp_dest *dest;
+	struct bgp_dest *dest = args->dest;
 	struct bgp_path_info *pi;
-	int header = detail ? 0 : 1;
-	int rd_header;
+	int header = 0;
+	int rd_header = 0;
 	afi_t afi;
 	safi_t safi;
-	uint32_t prefix_cnt, path_cnt;
-	int first = true;
+	uint32_t prefix_cnt = args->prefix_cnt, path_cnt = args->path_cnt;
+	int first = false;
 
 	afi = AFI_L2VPN;
 	safi = SAFI_EVPN;
-	prefix_cnt = path_cnt = 0;
 
+	if (rd_dest == NULL) {
+		header = detail ? 0 : 1;
+		first = true;
+		rd_dest = bgp_table_top(bgp->rib[afi][safi]);
+	}
 	/* EVPN routing table is a 2-level table with the first level being
 	 * the RD.
 	 */
-	for (rd_dest = bgp_table_top(bgp->rib[afi][safi]); rd_dest;
-	     rd_dest = bgp_route_next(rd_dest)) {
+	for (; rd_dest; rd_dest = bgp_route_next(rd_dest)) {
 		char rd_str[RD_ADDRSTRLEN];
 		json_object *json_rd = NULL; /* contains routes for an RD */
 		int add_rd_to_json = 0;
@@ -3222,21 +3231,27 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 		prefix_rd2str((struct prefix_rd *)rd_destp, rd_str,
 			      sizeof(rd_str), bgp->asnotation);
 
-		if (json) {
-			if (first) {
-				vty_out(vty, "\"%s\":", rd_str);
-				first = false;
-			} else {
-				vty_out(vty, ",\"%s\":", rd_str);
-			}
+		if (json)
 			json_rd = json_object_new_object();
-		}
 
-		rd_header = 1;
+		if (dest == NULL) {
+			if (json) {
+				if (first) {
+					vty_out(vty, "\"%s\":", rd_str);
+					first = false;
+				} else
+					vty_out(vty, ",\"%s\":", rd_str);
+			}
+			rd_header = 1;
+			dest = bgp_table_top(table);
+		} else
+			add_rd_to_json = args->add_rd_to_json;
 
 		/* Display all prefixes for an RD */
-		for (dest = bgp_table_top(table); dest;
-		     dest = bgp_route_next(dest)) {
+		for (; dest; dest = bgp_route_next(dest)) {
+			if (!vty_obuf_has_space(vty))
+				break;
+
 			json_object *json_prefix =
 				NULL; /* contains prefix under a RD */
 			json_object *json_paths =
@@ -3344,6 +3359,14 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 			}
 		}
 
+		if (dest != NULL) {
+			if (json && add_rd_to_json)
+				vty_json_no_pretty_batch_flush(vty, json_rd);
+			args->add_rd_to_json = add_rd_to_json;
+			break;
+		}
+
+
 		if (json) {
 			if (add_rd_to_json) {
 				vty_json_no_pretty(vty, json_rd);
@@ -3353,6 +3376,14 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 			}
 		}
 	}
+
+	args->prefix_cnt = prefix_cnt;
+	args->path_cnt = path_cnt;
+	args->rd_dest = rd_dest;
+	args->dest = dest;
+
+	if (rd_dest != NULL)
+		return CMD_YIELD;
 
 	if (json) {
 		/* at least one prefix was printed */
@@ -3370,6 +3401,41 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 				type ? " (of requested type)" : "");
 		}
 	}
+
+	if (json) {
+		vty_out(vty, "}\n");
+		json_object_free(json);
+	}
+
+	return CMD_SUCCESS;
+}
+
+static int evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type, json_object *json,
+				int detail, bool self_orig)
+{
+	struct show_bgp *args = XCALLOC(MTYPE_TMP, sizeof(struct show_bgp));
+
+	*args = (struct show_bgp){ .bgp = bgp,
+				   .type = type,
+				   .json = json,
+				   .detail = detail,
+				   .self_orig = self_orig,
+				   .dest = NULL,
+				   .rd_dest = NULL,
+				   .prefix_cnt = 0,
+				   .path_cnt = 0,
+				   .add_rd_to_json = 0,
+				   .func = &evpn_show_all_routes_core };
+
+	int ret = evpn_show_all_routes_core(vty, args);
+
+	if (ret == CMD_YIELD)
+		vty_yield(vty, bgp_show_cb, args);
+
+	if (ret == CMD_SUCCESS)
+		XFREE(MTYPE_TMP, args);
+
+	return ret;
 }
 
 int bgp_evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
@@ -3382,14 +3448,7 @@ int bgp_evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 		vty_out(vty, "{\n");
 	}
 
-	evpn_show_all_routes(vty, bgp, type, json, detail, false);
-
-	if (use_json) {
-		vty_out(vty, "}\n");
-		json_object_free(json);
-	}
-
-	return CMD_SUCCESS;
+	return evpn_show_all_routes(vty, bgp, type, json, detail, false);
 }
 
 /*
@@ -4988,14 +5047,7 @@ DEFUN(show_bgp_l2vpn_evpn_route,
 	if (argv_find(argv, argc, BGP_SELF_ORIG_CMD_STR, &arg_idx))
 		self_orig = true;
 
-	evpn_show_all_routes(vty, bgp, type, json, detail, self_orig);
-
-	if (uj) {
-		vty_out(vty, "}\n");
-		json_object_free(json);
-	}
-
-	return CMD_SUCCESS;
+	return evpn_show_all_routes(vty, bgp, type, json, detail, self_orig);
 }
 
 /*
@@ -5055,16 +5107,10 @@ DEFUN(show_bgp_l2vpn_evpn_route_rd,
 		if (uj)
 			vty_out(vty, "{\n");
 
-		evpn_show_all_routes(vty, bgp, type, json, 1, false);
-
-		if (uj) {
-			vty_out(vty, "}\n");
-			json_object_free(json);
-			return CMD_SUCCESS;
-		}
-	} else {
-		evpn_show_route_rd(vty, bgp, &prd, type, json);
+		return evpn_show_all_routes(vty, bgp, type, json, 1, false);
 	}
+
+	evpn_show_route_rd(vty, bgp, &prd, type, json);
 
 	if (uj)
 		vty_json(vty, json);

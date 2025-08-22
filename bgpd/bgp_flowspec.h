@@ -26,6 +26,8 @@ extern int bgp_show_table_flowspec(struct vty *vty, struct bgp *bgp, afi_t afi,
 				   unsigned long *output_cum,
 				   unsigned long *total_cum);
 
+extern int bgp_show_table_flowspec_core(struct vty *vty, struct show_bgp *args);
+
 extern void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 				   char *return_string, int format,
 				   json_object *json_path,

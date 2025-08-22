@@ -512,6 +512,40 @@ struct bgp_aggregate {
 	/** Suppress map route map pointer. */
 	struct route_map *suppress_map;
 };
+/* Stores intermediate state required for asynchronous iteration. */
+struct show_bgp {
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	struct bgp_table *table;
+	struct bgp_table *itable;
+	enum bgp_show_type type;
+	void *output_arg;
+	const char *rd;
+	int is_last;
+	uint16_t show_flags;
+	enum rpki_states rpki_target_state;
+	struct bgp_dest *dest;
+	unsigned long output_cum;
+	unsigned long total_cum;
+	unsigned long json_header_depth;
+	int (*func)(struct vty *vty, struct show_bgp *args);
+	struct prefix_rd *prd_match;
+	struct bgp_dest *rd_dest;
+	struct bgp_dest *rd_dest_next;
+	bool use_json;
+	json_object *json;
+	int detail;
+	bool self_orig;
+	uint32_t prefix_cnt;
+	uint32_t path_cnt;
+	bool uj;
+	bool first;
+	char *community;
+	int match_p;
+	struct listnode *node;
+	int add_rd_to_json;
+};
 
 #define BGP_NEXTHOP_AFI_FROM_NHLEN(nhlen)                                      \
 	((nhlen) < IPV4_MAX_BYTELEN                                            \
@@ -756,6 +790,8 @@ DECLARE_HOOK(bgp_route_update,
 #define BGP_SHOW_OPT_TERSE (1 << 8)
 #define BGP_SHOW_OPT_ROUTES_DETAIL (1 << 9)
 #define BGP_SHOW_OPT_INTERNAL_DATA (1 << 10)
+
+extern void bgp_show_cb(struct vty *vty, void *arg);
 
 /* Prototypes. */
 extern void bgp_rib_remove(struct bgp_dest *dest, struct bgp_path_info *pi,
