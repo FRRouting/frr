@@ -1925,8 +1925,7 @@ DEFPY(rpki_cache_tcp, rpki_cache_tcp_cmd,
 	for (ALL_LIST_ELEMENTS_RO(rpki_vrf->cache_list, cache_node,
 				  current_cache)) {
 		if (current_cache->preference == preference) {
-			vty_out(vty,
-				"Cache with preference %ld is already configured\n",
+			vty_out(vty, "Cache with preference %" PRId64 " is already configured\n",
 				preference);
 			return CMD_WARNING;
 		}
@@ -1984,8 +1983,7 @@ DEFPY(rpki_cache_ssh, rpki_cache_ssh_cmd,
 	for (ALL_LIST_ELEMENTS_RO(rpki_vrf->cache_list, cache_node,
 				  current_cache)) {
 		if (current_cache->preference == preference) {
-			vty_out(vty,
-				"Cache with preference %ld is already configured\n",
+			vty_out(vty, "Cache with preference %" PRId64 " is already configured\n",
 				preference);
 			return CMD_WARNING;
 		}
@@ -2047,8 +2045,7 @@ DEFPY (no_rpki_cache,
 	cache_list = rpki_vrf->cache_list;
 	cache_p = find_cache(preference, cache_list);
 	if (!rpki_vrf || !cache_p) {
-		vty_out(vty, "Could not find cache with preference %ld\n",
-			preference);
+		vty_out(vty, "Could not find cache with preference %" PRId64 "\n", preference);
 		return CMD_WARNING;
 	}
 
@@ -2057,8 +2054,7 @@ DEFPY (no_rpki_cache,
 	} else if (is_running(rpki_vrf)) {
 		if (rtr_mgr_remove_group(rpki_vrf->rtr_config, preference) ==
 		    RTR_ERROR) {
-			vty_out(vty,
-				"Could not remove cache with preference %ld\n",
+			vty_out(vty, "Could not remove cache with preference %" PRId64 "\n",
 				preference);
 			return CMD_WARNING;
 		}
