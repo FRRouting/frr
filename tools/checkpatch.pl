@@ -758,6 +758,7 @@ our @typeList = (
 	qr{float},
 	qr{double},
 	qr{bool},
+	qr{FILE},
 	qr{struct\s+$Ident},
 	qr{union\s+$Ident},
 	qr{enum\s+$Ident},
