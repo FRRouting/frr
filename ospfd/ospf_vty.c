@@ -9221,7 +9221,7 @@ DEFUN (ospf_redistribute_source,
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx_protocol = 1;
-	int source;
+	uint8_t source;
 	int type = -1;
 	int metric = -1;
 	struct ospf_redist *red;
@@ -9230,7 +9230,7 @@ DEFUN (ospf_redistribute_source,
 
 	/* Get distribute source. */
 	source = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
-	if (source < 0)
+	if (source == ZEBRA_ROUTE_ERROR)
 		return CMD_WARNING_CONFIG_FAILED;
 
 	/* Get metric value. */
@@ -9281,11 +9281,11 @@ DEFUN (no_ospf_redistribute_source,
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx_protocol = 2;
-	int source;
+	uint8_t source;
 	struct ospf_redist *red;
 
 	source = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
-	if (source < 0)
+	if (source == ZEBRA_ROUTE_ERROR)
 		return CMD_WARNING_CONFIG_FAILED;
 
 	red = ospf_redist_lookup(ospf, source, 0);
@@ -9317,7 +9317,7 @@ DEFUN (ospf_redistribute_instance_source,
 	int idx_ospf_table = 1;
 	int idx_number = 2;
 	int idx = 3;
-	int source;
+	uint8_t source;
 	int type = -1;
 	int metric = -1;
 	unsigned short instance;
@@ -9326,7 +9326,7 @@ DEFUN (ospf_redistribute_instance_source,
 
 	source = proto_redistnum(AFI_IP, argv[idx_ospf_table]->text);
 
-	if (source < 0) {
+	if (source == ZEBRA_ROUTE_ERROR) {
 		vty_out(vty, "Unknown instance redistribution\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -9396,7 +9396,7 @@ DEFUN (no_ospf_redistribute_instance_source,
 	int idx_number = 3;
 	unsigned int instance;
 	struct ospf_redist *red;
-	int source;
+	uint8_t source;
 
 	source = proto_redistnum(AFI_IP, argv[idx_ospf_table]->text);
 
@@ -9433,13 +9433,13 @@ DEFUN (ospf_distribute_list_out,
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx_word = 1;
-	int source;
+	uint8_t source;
 
 	char *proto = argv[argc - 1]->text;
 
 	/* Get distribute source. */
 	source = proto_redistnum(AFI_IP, proto);
-	if (source < 0)
+	if (source == ZEBRA_ROUTE_ERROR)
 		return CMD_WARNING_CONFIG_FAILED;
 
 	return ospf_distribute_list_out_set(ospf, source, argv[idx_word]->arg);
@@ -9456,11 +9456,11 @@ DEFUN (no_ospf_distribute_list_out,
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx_word = 2;
-	int source;
+	uint8_t source;
 
 	char *proto = argv[argc - 1]->text;
 	source = proto_redistnum(AFI_IP, proto);
-	if (source < 0)
+	if (source == ZEBRA_ROUTE_ERROR)
 		return CMD_WARNING_CONFIG_FAILED;
 
 	return ospf_distribute_list_out_unset(ospf, source,

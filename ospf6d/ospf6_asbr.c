@@ -1707,7 +1707,7 @@ DEFPY (ospf6_redistribute,
        "Route map reference\n"
        "Route map name\n")
 {
-	int type;
+	uint8_t type;
 	struct ospf6_redist *red;
 	int idx_protocol = 1;
 	char *proto = argv[idx_protocol]->text;
@@ -1715,7 +1715,7 @@ DEFPY (ospf6_redistribute,
 	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 
 	type = proto_redistnum(AFI_IP6, proto);
-	if (type < 0)
+	if (type == ZEBRA_ROUTE_ERROR)
 		return CMD_WARNING_CONFIG_FAILED;
 
 	if (!metric_str)
@@ -1762,7 +1762,7 @@ DEFUN (no_ospf6_redistribute,
        "Route map reference\n"
        "Route map name\n")
 {
-	int type;
+	uint8_t type;
 	struct ospf6_redist *red;
 	int idx_protocol = 2;
 	char *proto = argv[idx_protocol]->text;
@@ -1770,7 +1770,7 @@ DEFUN (no_ospf6_redistribute,
 	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 
 	type = proto_redistnum(AFI_IP6, proto);
-	if (type < 0)
+	if (type == ZEBRA_ROUTE_ERROR)
 		return CMD_WARNING_CONFIG_FAILED;
 
 	red = ospf6_redist_lookup(ospf6, type, 0);
