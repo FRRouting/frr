@@ -30,7 +30,7 @@
 #define VRRP_IP_STR "Virtual Router IP address\n"
 #define VRRP_VERSION_STR "VRRP protocol version\n"
 
-#define VRRP_XPATH_ENTRY VRRP_XPATH "[virtual-router-id='%ld']"
+#define VRRP_XPATH_ENTRY VRRP_XPATH "[virtual-router-id='%" PRId64 "']"
 
 /* clang-format off */
 
@@ -48,7 +48,7 @@ DEFPY_YANG(vrrp_vrid,
 {
 	char valbuf[20];
 
-	snprintf(valbuf, sizeof(valbuf), "%ld", version ? version : vd.version);
+	snprintfrr(valbuf, sizeof(valbuf), "%" PRId64, version ? version : vd.version);
 
 	if (no)
 		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
@@ -152,7 +152,7 @@ DEFPY_YANG(vrrp_advertisement_interval,
 
 	/* all internal computations are in centiseconds */
 	advertisement_interval /= CS2MS;
-	snprintf(val, sizeof(val), "%ld", advertisement_interval);
+	snprintfrr(val, sizeof(val),  "%" PRId64, advertisement_interval);
 	nb_cli_enqueue_change(vty, "./advertisement-interval", NB_OP_MODIFY,
 			      val);
 
