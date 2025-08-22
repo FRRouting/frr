@@ -1926,7 +1926,7 @@ DEFPY(rpki_cache_tcp, rpki_cache_tcp_cmd,
 				  current_cache)) {
 		if (current_cache->preference == preference) {
 			vty_out(vty,
-				"Cache with preference %ld is already configured\n",
+				"Cache with preference %lld is already configured\n",
 				preference);
 			return CMD_WARNING;
 		}
@@ -1985,7 +1985,7 @@ DEFPY(rpki_cache_ssh, rpki_cache_ssh_cmd,
 				  current_cache)) {
 		if (current_cache->preference == preference) {
 			vty_out(vty,
-				"Cache with preference %ld is already configured\n",
+				"Cache with preference %lld is already configured\n",
 				preference);
 			return CMD_WARNING;
 		}
@@ -2047,7 +2047,7 @@ DEFPY (no_rpki_cache,
 	cache_list = rpki_vrf->cache_list;
 	cache_p = find_cache(preference, cache_list);
 	if (!rpki_vrf || !cache_p) {
-		vty_out(vty, "Could not find cache with preference %ld\n",
+		vty_out(vty, "Could not find cache with preference %lld\n",
 			preference);
 		return CMD_WARNING;
 	}
@@ -2058,7 +2058,7 @@ DEFPY (no_rpki_cache,
 		if (rtr_mgr_remove_group(rpki_vrf->rtr_config, preference) ==
 		    RTR_ERROR) {
 			vty_out(vty,
-				"Could not remove cache with preference %ld\n",
+				"Could not remove cache with preference %lld\n",
 				preference);
 			return CMD_WARNING;
 		}
