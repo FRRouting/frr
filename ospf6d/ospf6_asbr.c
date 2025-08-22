@@ -1728,18 +1728,16 @@ DEFPY (ospf6_redistribute,
 		red = ospf6_redist_add(ospf6, type, 0);
 	} else {
 		/* Check if nothing has changed. */
-		if (red->dmetric.value == metric
-		    && red->dmetric.type == metric_type
-		    && ((!ROUTEMAP_NAME(red) && !rmap_str)
-			|| (ROUTEMAP_NAME(red) && rmap_str
-			    && strmatch(ROUTEMAP_NAME(red), rmap_str))))
+		if (red->dmetric.value == (int)metric && red->dmetric.type == (int)metric_type &&
+		    ((!ROUTEMAP_NAME(red) && !rmap_str) ||
+		     (ROUTEMAP_NAME(red) && rmap_str && strmatch(ROUTEMAP_NAME(red), rmap_str))))
 			return CMD_SUCCESS;
 
 		ospf6_asbr_redistribute_unset(ospf6, red, type);
 	}
 
-	red->dmetric.value = metric;
-	red->dmetric.type = metric_type;
+	red->dmetric.value = (int)metric;
+	red->dmetric.type = (int)metric_type;
 	if (rmap_str)
 		ospf6_asbr_routemap_set(red, rmap_str);
 	else
@@ -1966,14 +1964,13 @@ DEFPY (ospf6_default_route_originate,
 		sameRtmap = true;
 
 	/* Don't allow if the same lsa is already originated. */
-	if ((sameRtmap) && (red->dmetric.type == mtype)
-	    && (red->dmetric.value == mval)
-	    && (cur_originate == default_originate))
+	if ((sameRtmap) && (red->dmetric.type == (int)mtype) && (red->dmetric.value == (int)mval) &&
+	    (cur_originate == default_originate))
 		return CMD_SUCCESS;
 
 	/* Updating Metric details */
-	red->dmetric.type = mtype;
-	red->dmetric.value = mval;
+	red->dmetric.type = (int)mtype;
+	red->dmetric.value = (int)mval;
 
 	/* updating route map details */
 	if (rtmap)

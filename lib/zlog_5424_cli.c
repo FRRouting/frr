@@ -499,8 +499,8 @@ DEFPY(log_5424_destination_fd,
 	else if (fd2)
 		fd = 2;
 
-	if (cfg->cfg.dst == ZLOG_5424_DST_FD && cfg->cfg.fd == fd &&
-	    cfg->cfg.active && cfg->cfg.fmt == fmtv)
+	if (cfg->cfg.dst == ZLOG_5424_DST_FD && cfg->cfg.fd == (int)fd && cfg->cfg.active &&
+	    cfg->cfg.fmt == fmtv)
 		return CMD_SUCCESS;
 
 	clear_dst(cfg);
