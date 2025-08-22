@@ -3786,7 +3786,7 @@ DEFUN (show_zebra,
 #endif
 
 	ttable_add_row(table, "v6 with v4 nexthop|%s",
-		       zrouter.v6_with_v4_nexthop ? "Used" : "Unavaliable");
+		       zrouter.v6_with_v4_nexthop ? "Used" : "Unavailable");
 
 	ttable_add_row(table, "ASIC offload|%s",
 		       zrouter.asic_offloaded ? "Used" : "Unavailable");
@@ -3829,6 +3829,8 @@ DEFUN (show_zebra,
 		       zrouter.all_mc_forwardingv6 ? "On" : "Off");
 	ttable_add_row(table, "v6 Default MC Forwarding|%s",
 		       zrouter.default_mc_forwardingv6 ? "On" : "Off");
+	ttable_add_row(table, "Backup Nexthops Installed|%s",
+		       zrouter.backup_nhs_installed ? "Yes" : "No");
 
 	out = ttable_dump(table, "\n");
 	vty_out(vty, "%s\n", out);
