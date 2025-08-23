@@ -66,7 +66,9 @@ static void pim_autorp_rp_free(struct pim_autorp_rp *rp, bool installed)
 	if (installed) {
 		if (pim_rp_del(rp->autorp->pim, rp->addr, rp->grp,
 			       (strlen(rp->grplist) ? rp->grplist : NULL), RP_SRC_AUTORP)) {
-			zlog_warn("%s: Failed to delete RP %pI4", __func__, &rp->addr);
+			if (PIM_DEBUG_AUTORP)
+				zlog_debug("%s: Failed to delete RP %pI4, it may have been replaced and already deleted.",
+					   __func__, &rp->addr);
 		}
 
 		if (strlen(rp->grplist)) {
