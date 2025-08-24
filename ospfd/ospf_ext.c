@@ -1705,11 +1705,15 @@ static void ospf_ext_lsa_schedule(struct ext_itf *exti, enum lsa_opcode op)
  * ------------------------------------
  */
 
+/* Check NULL for vty. If vty is not available, dump info via zlog */
 #define check_tlv_size(size, msg)                                              \
 	do {                                                                   \
 		if (ntohs(tlvh->length) != size) {                             \
-			vty_out(vty, "  Wrong %s TLV size: %d(%d). Abort!\n",  \
-				msg, ntohs(tlvh->length), size);               \
+			if (vty != NULL)                         \
+				vty_out(vty, "  Wrong %s TLV size: %d(%d). Abort!\n",  \
+					msg, ntohs(tlvh->length), size);               \
+			else                                              \
+				zlog_debug("    Wrong %s TLV size: %d(%d). Abort!", msg, ntohs(tlvh->length), size);    \
 			return size + TLV_HDR_SIZE;                            \
 		}                                                              \
 	} while (0)
