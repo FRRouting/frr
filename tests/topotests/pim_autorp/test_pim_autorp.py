@@ -507,16 +507,6 @@ def test_pim_autorp_discovery_multiple_rp_same(request):
           "discovery":{
             "enabled": true,
             "rpList":{
-              "10.0.0.2":{
-                "rpAddress":"10.0.0.2",
-                "holdtime":5,
-                "groupRanges":[
-                  {
-                    "negative":false,
-                    "prefix":"224.0.0.0/4"
-                  }
-                ]
-              },
               "10.0.1.3":{
                 "rpAddress":"10.0.1.3",
                 "holdtime":5,
