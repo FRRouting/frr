@@ -1253,7 +1253,7 @@ void ospf_opaque_config_write_debug(struct vty *vty)
 
 void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa,
 			     json_object *json)
-{
+{	
 	struct lsa_header *lsah = lsa->data;
 	uint32_t lsid = ntohl(lsah->id.s_addr);
 	uint8_t opaque_type = GET_OPAQUE_TYPE(lsid);
@@ -1314,6 +1314,16 @@ void ospf_opaque_lsa_dump(struct stream *s, uint16_t length)
 	struct ospf_lsa lsa = {};
 
 	lsa.data = (struct lsa_header *)stream_pnt(s);
+	/*
+	 * Check if lsa.data is NULL to prevent null pointer 
+	 * dereferencing in show_opaque_info_detail 
+	 * when parsing the LSA. 
+	 */
+	if (!lsa.data) {
+		zlog_warn("opaque_lsa_dump: NULL lsa.data pointer.");
+		return;
+	}
+
 	lsa.size = length;
 	show_opaque_info_detail(NULL, &lsa, NULL);
 	return;
