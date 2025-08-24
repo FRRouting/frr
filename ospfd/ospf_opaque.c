@@ -1253,7 +1253,7 @@ void ospf_opaque_config_write_debug(struct vty *vty)
 
 void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa,
 			     json_object *json)
-{	
+{
 	struct lsa_header *lsah = lsa->data;
 	uint32_t lsid = ntohl(lsah->id.s_addr);
 	uint8_t opaque_type = GET_OPAQUE_TYPE(lsid);
@@ -1303,16 +1303,15 @@ void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa,
 
 	/* Call individual output functions. */
 	/*
-	 * Implement proper validation to ensure functab 
+	 * Implement proper validation to ensure functab
 	 * and functab->show_opaque_info are not null.
 	 */
 	functab = ospf_opaque_functab_lookup(lsa);
 	if (functab) {
-		if (functab->show_opaque_info) {
+		if (functab->show_opaque_info)
 			functab->show_opaque_info(vty, jopaque, lsa);
-		} else {
+		else
 			zlog_warn("functab found but show_opaque_info is NULL");
-		}
 	} else {
 		zlog_warn("ospf_opaque_functab_lookup returned NULL");
 	}
@@ -1325,9 +1324,9 @@ void ospf_opaque_lsa_dump(struct stream *s, uint16_t length)
 
 	lsa.data = (struct lsa_header *)stream_pnt(s);
 	/*
-	 * Check if lsa.data is NULL to prevent null pointer 
-	 * dereferencing in show_opaque_info_detail 
-	 * when parsing the LSA. 
+	 * Check if lsa.data is NULL to prevent null pointer
+	 * dereferencing in show_opaque_info_detail
+	 * when parsing the LSA.
 	 */
 	if (!lsa.data) {
 		zlog_warn("opaque_lsa_dump: NULL lsa.data pointer.");
