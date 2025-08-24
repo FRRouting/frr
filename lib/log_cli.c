@@ -353,10 +353,6 @@ DEFPY_YANG (clear_log_cmdline,
 	    "Logging control\n"
 	    "Disable log targets specified at startup by --log option\n")
 {
-	/* run local in mgmtd, as it doesn't handle RPCs yet */
-	if (vty_mgmt_fe_enabled())
-		clear_cmdline_targets();
-
 	return nb_cli_rpc(vty, "/frr-logging:clear-cmdline-targets", NULL);
 }
 
