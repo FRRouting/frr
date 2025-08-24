@@ -1262,6 +1262,11 @@ void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa,
 	json_object *jopaque = NULL;
 	int len, lenValid;
 
+	if (!lsah) {
+		zlog_warn("opaque_lsa_dump: NULL lsa.data pointer.");
+		return;
+	}
+
 	/* Switch output functionality by vty address. */
 	if (vty != NULL) {
 		if (!json) {
