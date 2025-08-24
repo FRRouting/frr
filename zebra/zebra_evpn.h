@@ -18,6 +18,7 @@
 #include "zebra/zebra_l2.h"
 #include "zebra/interface.h"
 #include "zebra/zebra_vxlan.h"
+#include "zebra/zebra_vxlan_if.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,6 +35,10 @@ struct zebra_evpn_show {
 	struct zebra_vrf *zvrf;
 	bool use_json;
 };
+
+/* Function to control ARP/ND suppression */
+void zebra_evpn_set_arp_nd_suppress(bool set_default);
+bool zebra_evpn_get_arp_nd_suppress(void);
 
 /*
  * VTEP info

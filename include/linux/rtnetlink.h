@@ -308,7 +308,7 @@ enum {
 #define RTPROT_OSPF		188	/* OSPF Routes */
 #define RTPROT_RIP		189	/* RIP Routes */
 #define RTPROT_EIGRP		192	/* EIGRP Routes */
-
+#define RTPROT_HW		193	/* Hardware Routes */
 /* rtm_scope
 
    Really it is not scope, but sort of distance to the destination.
