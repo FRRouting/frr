@@ -194,4 +194,8 @@ module frr-logging {
       }
     }
   }
+  rpc clear-cmdline-targets {
+    description
+      "Clear command line logging targets.";
+  }
 }

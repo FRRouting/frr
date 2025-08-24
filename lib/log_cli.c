@@ -345,6 +345,21 @@ DEFPY_YANG (log_immediate_mode,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+
+DEFPY_YANG (clear_log_cmdline,
+	    clear_log_cmdline_cmd,
+	    "clear log cmdline-targets",
+	    CLEAR_STR
+	    "Logging control\n"
+	    "Disable log targets specified at startup by --log option\n")
+{
+	/* run local in mgmtd, as it doesn't handle RPCs yet */
+	if (vty_mgmt_fe_enabled())
+		clear_cmdline_targets();
+
+	return nb_cli_rpc(vty, "/frr-logging:clear-cmdline-targets", NULL);
+}
+
 void log_cli_init(void)
 {
 	install_element(CONFIG_NODE, &config_log_stdout_cmd);
@@ -370,6 +385,8 @@ void log_cli_init(void)
 	install_element(CONFIG_NODE, &log_immediate_mode_cmd);
 
 	install_element(CONFIG_NODE, &debug_uid_backtrace_cmd);
+
+	install_element(ENABLE_NODE, &clear_log_cmdline_cmd);
 }
 
 
