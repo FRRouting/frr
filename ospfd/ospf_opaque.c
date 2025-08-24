@@ -1302,10 +1302,20 @@ void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa,
 	}
 
 	/* Call individual output functions. */
-	if ((functab = ospf_opaque_functab_lookup(lsa)) != NULL)
-		if (functab->show_opaque_info != NULL)
-			(*functab->show_opaque_info)(vty, jopaque, lsa);
-
+	/*
+	 * Implement proper validation to ensure functab 
+	 * and functab->show_opaque_info are not null.
+	 */
+	functab = ospf_opaque_functab_lookup(lsa);
+	if (functab) {
+		if (functab->show_opaque_info) {
+			functab->show_opaque_info(vty, jopaque, lsa);
+		} else {
+			zlog_warn("functab found but show_opaque_info is NULL");
+		}
+	} else {
+		zlog_warn("ospf_opaque_functab_lookup returned NULL");
+	}
 	return;
 }
 
