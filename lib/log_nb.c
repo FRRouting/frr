@@ -658,10 +658,27 @@ static int logging_uid_backtrace_destroy(struct nb_cb_destroy_args *args)
 	return NB_OK;
 }
 
+
+/*
+ * XPath: /frr-logging:logging/clear-cmdline-targets
+ */
+static int clear_cmdline_targets_rpc(struct nb_cb_rpc_args *args)
+{
+	clear_cmdline_targets();
+	return NB_OK;
+}
+
+
 /* clang-format off */
 struct frr_yang_module_info frr_logging_nb_info = {
 	.name = "frr-logging",
 	.nodes = {
+		{
+			.xpath = "/frr-logging:clear-cmdline-targets",
+			.cbs = {
+				.rpc = clear_cmdline_targets_rpc,
+			}
+		},
 		{
 			.xpath = "/frr-logging:logging/stdout",
 			.cbs = {

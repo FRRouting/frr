@@ -84,6 +84,11 @@ static const char *const zebra_oper_xpaths[] = {
 	NULL,
 };
 
+static const char *const zebra_rpc_xpaths[] = {
+	"/frr-logging",
+	NULL,
+};
+
 #ifdef HAVE_MGMTD_TESTC
 static const char *const mgmtd_testc_oper_xpaths[] = {
 	"/frr-backend:clients",
@@ -111,6 +116,7 @@ static const char *const ripd_oper_xpaths[] = {
 };
 static const char *const ripd_rpc_xpaths[] = {
 	"/frr-ripd",
+	"/frr-logging",
 	NULL,
 };
 #endif
@@ -133,6 +139,7 @@ static const char *const ripngd_oper_xpaths[] = {
 };
 static const char *const ripngd_rpc_xpaths[] = {
 	"/frr-ripngd",
+	"/frr-logging",
 	NULL,
 };
 #endif
@@ -146,9 +153,12 @@ static const char *const staticd_config_xpaths[] = {
 	"/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd",
 	NULL,
 };
-
 static const char *const staticd_oper_xpaths[] = {
 	"/frr-backend:clients",
+	NULL,
+};
+static const char *const staticd_rpc_xpaths[] = {
+	"/frr-logging",
 	NULL,
 };
 #endif
@@ -193,6 +203,10 @@ static const char *const *be_client_rpc_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
 #ifdef HAVE_RIPNGD
 	[MGMTD_BE_CLIENT_ID_RIPNGD] = ripngd_rpc_xpaths,
 #endif
+#ifdef HAVE_STATICD
+	[MGMTD_BE_CLIENT_ID_STATICD] = staticd_rpc_xpaths,
+#endif
+	[MGMTD_BE_CLIENT_ID_ZEBRA] = zebra_rpc_xpaths,
 };
 
 /*

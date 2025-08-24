@@ -13,6 +13,7 @@
 #include "lib/zlog_targets.h"
 #include "lib/zlog_5424.h"
 #include "lib/lib_errors.h"
+#include "lib/northbound_cli.h"
 #include "lib/printfrr.h"
 #include "lib/systemd.h"
 #include "lib/vtysh_daemons.h"
@@ -181,6 +182,18 @@ void log_show_syslog(struct vty *vty)
 			zlog_progname);
 }
 
+void clear_cmdline_targets(void)
+{
+	zt_file_cmdline.prio_min = ZLOG_DISABLED;
+	zlog_file_set_other(&zt_file_cmdline);
+
+	log_cmdline_syslog_lvl = ZLOG_DISABLED;
+	zlog_syslog_set_prio_min(ZLOG_MAXLVL(log_config_syslog_lvl, log_cmdline_syslog_lvl));
+
+	log_cmdline_stdout_lvl = ZLOG_DISABLED;
+	log_stdout_apply_level();
+}
+
 DEFPY(send_log,
       send_log_cmd,
       "send log [level <emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>$levelarg] LINE...",
@@ -308,26 +321,6 @@ DEFPY_NOSH (debug_uid_backtrace,
 	return CMD_SUCCESS;
 }
 
-DEFUN (clear_log_cmdline,
-       clear_log_cmdline_cmd,
-       "clear log cmdline-targets",
-       CLEAR_STR
-       "Logging control\n"
-       "Disable log targets specified at startup by --log option\n")
-{
-	zt_file_cmdline.prio_min = ZLOG_DISABLED;
-	zlog_file_set_other(&zt_file_cmdline);
-
-	log_cmdline_syslog_lvl = ZLOG_DISABLED;
-	zlog_syslog_set_prio_min(ZLOG_MAXLVL(log_config_syslog_lvl,
-					     log_cmdline_syslog_lvl));
-
-	log_cmdline_stdout_lvl = ZLOG_DISABLED;
-	log_stdout_apply_level();
-
-	return CMD_SUCCESS;
-}
-
 /* Show log filter */
 DEFPY (show_log_filter,
        show_log_filter_cmd,
@@ -393,7 +386,6 @@ void log_cmd_init(void)
 {
 	install_element(VIEW_NODE, &send_log_cmd);
 	install_element(VIEW_NODE, &show_logging_cmd);
-	install_element(ENABLE_NODE, &clear_log_cmdline_cmd);
 	install_element(VIEW_NODE, &show_log_filter_cmd);
 	install_element(ENABLE_NODE, &debug_uid_backtrace_cmd);
 
