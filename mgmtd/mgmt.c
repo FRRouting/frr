@@ -30,6 +30,8 @@ static struct mgmt_master mgmt_master;
 /* MGMTD process wide configuration pointer to export.  */
 struct mgmt_master *mm;
 
+struct mgmt_be_client *mgmt_be_client;
+
 void mgmt_master_init(struct event_loop *master, const int buffer_size)
 {
 	memset(&mgmt_master, 0, sizeof(struct mgmt_master));
@@ -82,10 +84,13 @@ void mgmt_init(void)
 	 * on the above 2 events to run prior to any `accept` event from here.
 	 */
 	mgmt_be_adapter_init(mm->master);
+
+	mgmt_be_client = mgmt_be_client_create("mgmtd", NULL, 0, mm->master);
 }
 
 void mgmt_terminate(void)
 {
+	mgmt_be_client_destroy(mgmt_be_client);
 	mgmt_fe_adapter_destroy();
 	mgmt_be_adapter_destroy();
 	mgmt_txn_destroy();
