@@ -13,4 +13,7 @@ void bgp_srv6_unicast_ensure_afi_sid(struct bgp *bgp, afi_t afi);
 void bgp_srv6_unicast_sid_withdraw(struct bgp *bgp, afi_t afi);
 void bgp_srv6_unicast_sid_update(struct bgp *bgp, afi_t afi);
 void bgp_srv6_unicast_delete(struct bgp *bgp, afi_t afi);
+void bgp_srv6_unicast_unregister_route(struct bgp_dest *dest);
+void bgp_srv6_unicast_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest *dest,
+				     struct bgp_path_info *bpi);
 #endif /* _BGP_SRV6_H_ */

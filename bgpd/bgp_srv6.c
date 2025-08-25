@@ -203,3 +203,76 @@ void bgp_srv6_unicast_sid_update(struct bgp *bgp, afi_t afi)
 	bgp->unicast_zebra_vrf_sid_last_sent[afi] = unicast_sid_ls;
 }
 
+void bgp_srv6_unicast_unregister_route(struct bgp_dest *dest)
+{
+	XFREE(MTYPE_BGP_SRV6_L3SERVICE, dest->srv6_unicast);
+	dest->srv6_unicast = NULL;
+}
+
+void bgp_srv6_unicast_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest *dest,
+				     struct bgp_path_info *bpi)
+{
+	struct attr attr_tmp;
+	const struct prefix *p;
+	struct route_map *rmap;
+	route_map_result_t ret;
+	struct bgp_path_info info;
+	struct srv6_locator *locator;
+
+	if (!bpi) {
+		if (dest->srv6_unicast)
+			bgp_srv6_unicast_unregister_route(dest);
+
+		return;
+	}
+
+	if (bpi->attr->srv6_l3service)
+		return;
+
+	if (!bgp->unicast_sid_locator[afi])
+		return;
+
+	if (bgp->srv6_unicast_rmap_name[afi]) {
+		rmap = route_map_lookup_by_name(bgp->srv6_unicast_rmap_name[afi]);
+		if (rmap) {
+			attr_tmp = *bpi->attr;
+			info.attr = &attr_tmp;
+			info.peer = bgp->peer_self;
+			memset(&info, 0, sizeof(info));
+			p = bgp_dest_get_prefix(bpi->net);
+
+			ret = route_map_apply(rmap, p, &info);
+
+			if (ret == RMAP_DENYMATCH) {
+				if (dest->srv6_unicast)
+					bgp_srv6_unicast_unregister_route(dest);
+				zlog_debug("srv6 unicast prefix %pBD denied", dest);
+				return;
+			}
+		} else {
+			zlog_warn("route-map %s was no found, ignored",
+				  bgp->srv6_unicast_rmap_name[afi]);
+		}
+	}
+
+	if (dest->srv6_unicast && sid_same(bgp->unicast_sid[afi], &dest->srv6_unicast->sid))
+		return;
+
+	locator = bgp->unicast_sid_locator[afi];
+	dest->srv6_unicast = XCALLOC(MTYPE_BGP_SRV6_L3SERVICE,
+				     sizeof(struct bgp_attr_srv6_l3service));
+	dest->srv6_unicast->sid_flags = 0x00;
+	dest->srv6_unicast->endpoint_behavior =
+			afi == AFI_IP ? (CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID)
+						 ? SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID
+						 : SRV6_ENDPOINT_BEHAVIOR_END_DT4)
+				      : (CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID)
+						 ? SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID
+						 : SRV6_ENDPOINT_BEHAVIOR_END_DT6);
+	dest->srv6_unicast->loc_block_len = locator->block_bits_length;
+	dest->srv6_unicast->loc_node_len = locator->node_bits_length;
+	dest->srv6_unicast->func_len = locator->function_bits_length;
+	dest->srv6_unicast->arg_len = locator->argument_bits_length;
+	memcpy(&dest->srv6_unicast->sid, bgp->unicast_sid[afi],
+	       sizeof(struct in6_addr));
+}

@@ -12,6 +12,7 @@
 #include "linklist.h"
 #include "bgpd.h"
 #include "bgp_advertise.h"
+#include "bgp_attr_srv6.h"
 
 struct bgp_table {
 	/* table belongs to this instance */
@@ -84,6 +85,8 @@ struct bgp_dest {
 	uint64_t version;
 
 	mpls_label_t local_label;
+
+	struct bgp_attr_srv6_l3service *srv6_unicast;
 
 	uint16_t flags;
 #define BGP_NODE_PROCESS_SCHEDULED	(1 << 0)
