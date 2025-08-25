@@ -39,14 +39,14 @@
           "vrf":"default",
           "active":true,
           "labels":[
-            32
+            48
           ],
           "weight":1,
           "seg6local":{
             "action":"unspec"
           },
           "seg6":{
-            "segs":"2001:db8:1:1:2::"
+            "segs":"2001:db8:1:1:3::"
           }
         }
       ]
