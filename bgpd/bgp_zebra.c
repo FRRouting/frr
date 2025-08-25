@@ -1255,6 +1255,11 @@ static void bgp_zebra_announce_parse_nexthop(
 	uint32_t ttl = 0;
 	uint32_t bos = 0;
 	uint32_t exp = 0;
+	bool is_srv6_unicast = peergroup_af_flag_check(info->peer, afi, SAFI_UNICAST,
+						       PEER_FLAG_CONFIG_ENCAPSULATION_SRV6) ||
+			       peergroup_af_flag_check(info->peer, afi, SAFI_UNICAST,
+						       PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_STRICT);
+
 	struct bgp_route_evpn *bre = NULL;
 
 	/* Determine if we're doing weighted ECMP or not */
@@ -1263,9 +1268,11 @@ static void bgp_zebra_announce_parse_nexthop(
 	/*
 	 * vrf leaking support (will have only one nexthop)
 	 */
-	if (info->extra && info->extra->vrfleak &&
-	    info->extra->vrfleak->bgp_orig)
+	if (info->extra && info->extra->vrfleak && info->extra->vrfleak->bgp_orig) {
 		nh_othervrf = 1;
+		/* route leak is not supported for SRv6 over unicast */
+		is_srv6_unicast = false;
+	}
 
 	/* EVPN MAC-IP routes are installed with a L3 NHG id */
 	if (nhg_id && bgp_evpn_path_es_use_nhg(bgp, info, nhg_id)) {
@@ -1425,19 +1432,17 @@ static void bgp_zebra_announce_parse_nexthop(
 
 		if (((mpinfo->attr->srv6_l3service &&
 		      !sid_zero_ipv6(&mpinfo->attr->srv6_l3service->sid)) ||
-		     (mpinfo->attr->srv6_vpn &&
-		      !sid_zero_ipv6(&mpinfo->attr->srv6_vpn->sid))) &&
-		    !is_evpn && bgp_is_valid_label(&labels[0])) {
-			struct in6_addr *sid_tmp =
-				mpinfo->attr->srv6_l3service
-					? (&mpinfo->attr->srv6_l3service->sid)
-					: (&mpinfo->attr->srv6_vpn->sid);
+		     (mpinfo->attr->srv6_vpn && !sid_zero_ipv6(&mpinfo->attr->srv6_vpn->sid))) &&
+		    !is_evpn && (is_srv6_unicast || bgp_is_valid_label(&labels[0]))) {
+			struct in6_addr *sid_tmp = mpinfo->attr->srv6_l3service
+							   ? (&mpinfo->attr->srv6_l3service->sid)
+							   : (&mpinfo->attr->srv6_vpn->sid);
 
 			memcpy(&api_nh->seg6_segs[0], sid_tmp,
 			       sizeof(api_nh->seg6_segs[0]));
 			api_nh->srv6_encap_behavior = bgp_orig->srv6_encap_behavior;
 
-			if (mpinfo->attr->srv6_l3service &&
+			if (mpinfo->attr->srv6_l3service && !is_srv6_unicast &&
 			    mpinfo->attr->srv6_l3service->transposition_len != 0) {
 				mpls_lse_decode(labels[0], &nh_label, &ttl,
 						&exp, &bos);
