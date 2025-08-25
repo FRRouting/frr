@@ -1,0 +1,35 @@
+{%- if not nodesum %}
+{%-   macro nodesum(item) %}
+  <div class="e_always" onclick="raw_expand(this, event);">{{ item.result.outcome }} after {{ "%.2f"|format(item.result.duration) }}s</div>
+  <div class="e_hide">
+    {{ item.result.location }}
+  </div>
+{%-   endmacro %}
+{%- endif %}
+{%- macro main(item) %}
+  <div class="node
+    {{- " node-failed" if item.result.failed else "" }}
+    {{- " node-passed" if item.result.passed else "" }}">
+    <h2 class="nodeid" id="i{{ item.idx }}">{{ item.nodeid_rel }}</h2>
+    <div class="nodesum e_cont">
+      {{ nodesum(item) }}
+    </div>
+    <div class="itemdetails" id="i{{ item.idx }}d">
+      <div class="timetable">
+      </div>
+    </div>
+    {%- if item.result.failed %}
+    {%- set longrepr = item.result.longrepr %}
+      <div class="failinfo">
+        {%- for erepr, exc, _ in longrepr.chain %}
+          <pre>{{ erepr }}</pre>
+        {%- endfor %}
+      </div>
+    {%- endif %}
+  </div>
+{%- endmacro %}
+{%- macro header(item) %}
+  <dt class="node-tocentry
+    {{- " node-failed" if item.result.failed else "" }}
+    {{- " node-passed" if item.result.passed else "" }}"><a href="#i{{ item.idx }}" onclick="return anchorclick(event);">{{ item.nodeid_rel }}</a></dt>
+{%- endmacro %}
