@@ -765,6 +765,8 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	bool old_proxy;
 	bool new_proxy;
 	bool new_origin, exist_origin;
+	bool new_srv6, exist_srv6;
+	bool new_mpls, exist_mpls;
 	struct bgp_path_info *bpi_ultimate;
 	struct peer *peer_new, *peer_exist;
 
@@ -1146,7 +1148,12 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 
 	/* Here if these are imported routes then get ultimate pi for
 	 * path compare.
+	 * Just before, learn if it is an MPLS or SRv6 path.
 	 */
+	new_srv6 = new->attr->srv6_l3vpn;
+	exist_srv6 = exist->attr->srv6_l3vpn;
+	new_mpls = BGP_PATH_INFO_NUM_LABELS(new) && !bgp_labels_is_implicit_null(new);
+	exist_mpls = BGP_PATH_INFO_NUM_LABELS(exist) && !bgp_labels_is_implicit_null(exist);
 	new = bgp_get_imported_bpi_ultimate(new);
 	exist = bgp_get_imported_bpi_ultimate(exist);
 	newattr = new->attr;
@@ -1597,8 +1604,25 @@ int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 
 	/* locally configured routes to advertise do not have su_remote */
 	if (peer_new->connection->su_remote == NULL) {
-		*reason = bgp_path_selection_local_configured;
-		return 0;
+		if (peer_exist->connection->su_remote) {
+			*reason = bgp_path_selection_local_configured;
+			return 0;
+		}
+		/* MPLS route should win over SRv6 */
+		if (new_srv6 && !exist_srv6 && exist_mpls) {
+			*reason = bgp_path_selection_mpls_over_srv6;
+			if (debug)
+				zlog_debug("%s: %s loses to %s due to MPLS is selected over SRv6",
+					   pfx_buf, new_buf, exist_buf);
+			return 0;
+		}
+		if (exist_srv6 && !new_srv6 && new_mpls) {
+			*reason = bgp_path_selection_mpls_over_srv6;
+			if (debug)
+				zlog_debug("%s: %s wins over %s due to MPLS is selected over SRv6",
+					   pfx_buf, new_buf, exist_buf);
+			return 1;
+		}
 	}
 
 	if (peer_exist->connection->su_remote == NULL) {
@@ -2619,6 +2643,16 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			return false;
 		}
 	}
+
+	if (safi == SAFI_MPLS_VPN &&
+	    CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CONFIG_ENCAPSULATION_SRV6) &&
+	    !pi->attr->srv6_l3vpn && !pi->attr->srv6_vpn)
+		return false;
+
+	if (safi == SAFI_MPLS_VPN &&
+	    CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CONFIG_ENCAPSULATION_MPLS) &&
+	    (pi->attr->srv6_l3vpn || pi->attr->srv6_vpn))
+		return false;
 
 	bgp_peer_remove_private_as(bgp, afi, safi, peer, attr);
 	bgp_peer_as_override(bgp, afi, safi, peer, attr);
@@ -10109,6 +10143,8 @@ const char *bgp_path_selection_reason2str(enum bgp_path_selection_reason reason)
 		return "Neighbor IP";
 	case bgp_path_selection_default:
 		return "Nothing left to compare";
+	case bgp_path_selection_mpls_over_srv6:
+		return "MPLS over SRv6";
 	}
 	return "Invalid (internal error)";
 }
