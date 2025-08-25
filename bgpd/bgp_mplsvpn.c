@@ -722,8 +722,7 @@ static bool sid_exist(struct bgp *bgp, const struct in6_addr *sid)
  * @param sid_func Function part of the SID
  * @return True if success, False otherwise
  */
-static bool srv6_sid_compose(struct in6_addr *sid_value,
-			     struct srv6_locator *locator, uint32_t sid_func)
+bool srv6_sid_compose(struct in6_addr *sid_value, struct srv6_locator *locator, uint32_t sid_func)
 {
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_LABEL);
 	int label = 0;
@@ -1098,6 +1097,17 @@ bool is_srv6_vpn_vrf_enabled(struct bgp *bgp)
 {
 	if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO) ||
 	    CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT) || bgp->tovpn_sid_index)
+		return true;
+
+	return false;
+}
+
+bool is_srv6_vpn_enabled(struct bgp *bgp)
+{
+	if (is_srv6_vpn_vrf_enabled(bgp))
+		return true;
+
+	if (is_srv6_vpn_afi_enabled(bgp, AFI_IP) || is_srv6_vpn_afi_enabled(bgp, AFI_IP6))
 		return true;
 
 	return false;

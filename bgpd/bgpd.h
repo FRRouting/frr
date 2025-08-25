@@ -706,6 +706,8 @@ struct bgp {
 #define BGP_CONFIG_VRF_TO_VRF_EXPORT (1 << 10)
 /* vpnvx retain flag */
 #define BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL (1 << 11)
+/* SRv6 unicast flag */
+#define BGP_CONFIG_SRV6_UNICAST_SID_AUTO (1 << 12)
 
 	/* BGP per AF peer count */
 	uint32_t af_peer_count[AFI_MAX][SAFI_MAX];
@@ -957,7 +959,8 @@ struct bgp {
 	uint32_t condition_filter_count;
 	struct event *t_condition_check;
 
-	/* BGP VPN SRv6 backend */
+
+	/* BGP L3 service VPN SRv6 backend */
 	char srv6_locator_name[SRV6_LOCNAME_SIZE];
 	enum srv6_headend_behavior srv6_encap_behavior;
 	struct srv6_locator *srv6_locator;
@@ -969,6 +972,14 @@ struct bgp {
 	struct srv6_locator *tovpn_sid_locator;
 	uint32_t tovpn_sid_transpose_label;
 	struct in6_addr *tovpn_zebra_vrf_sid_last_sent;
+
+	/* BGP L3 service IPv4/v6 SRv6 backend */
+	uint32_t unicast_sid_index[AFI_MAX]; /* unset => set to 0 */
+	struct in6_addr *unicast_sid_explicit[AFI_MAX];
+	struct in6_addr *unicast_sid[AFI_MAX];
+	struct srv6_locator *unicast_sid_locator[AFI_MAX];
+	struct in6_addr *unicast_zebra_vrf_sid_last_sent[AFI_MAX];
+	char *srv6_unicast_rmap_name[AFI_MAX];
 
 	/* TCP keepalive parameters for BGP connection */
 	uint16_t tcp_keepalive_idle;
