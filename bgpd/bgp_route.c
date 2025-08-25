@@ -64,6 +64,7 @@
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_rpki.h"
+#include "bgpd/bgp_srv6.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -3850,6 +3851,9 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	old_select = old_and_new.old;
 	new_select = old_and_new.new;
 
+	if (safi == SAFI_UNICAST && is_srv6_unicast_enabled(bgp, afi))
+		bgp_srv6_unicast_register_route(bgp, afi, dest, new_select);
+
 	if (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST)
 		/* label unicast path :
 		 * Do we need to allocate or free labels?
@@ -7363,7 +7367,10 @@ static void bgp_cleanup_table(struct bgp *bgp, struct bgp_table *table, afi_t af
 	struct bgp_path_info *pi;
 	struct bgp_path_info *next;
 
-	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest))
+	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
+		if (dest->srv6_unicast)
+			bgp_srv6_unicast_unregister_route(dest);
+
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = next) {
 			const struct prefix *p = bgp_dest_get_prefix(dest);
 
@@ -7387,6 +7394,7 @@ static void bgp_cleanup_table(struct bgp *bgp, struct bgp_table *table, afi_t af
 			dest = bgp_path_info_reap(dest, pi);
 			assert(dest);
 		}
+	}
 }
 
 /* Delete all kernel routes. */
@@ -8260,6 +8268,9 @@ void bgp_static_delete(struct bgp *bgp)
 	FOREACH_AFI_SAFI (afi, safi)
 		for (dest = bgp_table_top(bgp->static_routes[afi][safi]); dest;
 		     dest = bgp_route_next(dest)) {
+			if (dest->srv6_unicast)
+				bgp_srv6_unicast_unregister_route(dest);
+
 			if (!bgp_dest_has_bgp_path_info_data(dest))
 				continue;
 
@@ -10190,6 +10201,9 @@ void bgp_redistribute_withdraw(struct bgp *bgp, afi_t afi, int type,
 	table = bgp->rib[afi][SAFI_UNICAST];
 
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
+		if (dest->srv6_unicast)
+			bgp_srv6_unicast_unregister_route(dest);
+
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
 			if (pi->peer == bgp->peer_self && pi->type == type
 			    && pi->instance == instance)
@@ -13445,6 +13459,7 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 	int no_peer = 0;
 	int first = 1;
 	int has_valid_label = 0;
+	struct bgp_attr_srv6_l3service *srv6_l3service;
 	mpls_label_t label = 0;
 	json_object *json_adv_to = NULL;
 	uint32_t ttl = 0;
@@ -13454,6 +13469,7 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 	mpls_lse_decode(dest->local_label, &label, &ttl, &exp, &bos);
 
 	has_valid_label = bgp_is_valid_label(&dest->local_label);
+	srv6_l3service = dest->srv6_unicast;
 
 	if (safi == SAFI_EVPN) {
 		if (!json) {
@@ -13507,6 +13523,18 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 				json_object_int_add(json, "localLabel", label);
 		} else
 			vty_out(vty, "Local label: %d\n", label);
+	}
+
+	if (srv6_l3service) {
+		if (json) {
+			if (incremental_print)
+				vty_out(vty, "\"localSID\": \"%pI6\",\n", &srv6_l3service->sid);
+			else
+				json_object_string_addf(json, "localSID", "%pI6",
+							&srv6_l3service->sid);
+		} else {
+			vty_out(vty, "Local SID: %pI6\n", &srv6_l3service->sid);
+		}
 	}
 
 	if (!json)
