@@ -873,7 +873,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 			 * attr. */
 			total_attr_len = bgp_packet_attribute(
 				NULL, peer, s, adv->baa->attr, &vecarr, NULL,
-				afi, safi, from, NULL, NULL, 0, 0, 0, path);
+				afi, safi, from, NULL, NULL, 0, dest->srv6_unicast, 0, 0, path);
 
 			space_remaining =
 				STREAM_CONCAT_REMAIN(s, snlri, STREAM_SIZE(s))
@@ -1294,7 +1294,7 @@ void subgroup_default_update_packet(struct update_subgroup *subgrp,
 	total_attr_len =
 		bgp_packet_attribute(NULL, peer, s, attr, &vecarr, &p, afi,
 				     safi, from, NULL, &label, num_labels,
-				     addpath_capable,
+				     NULL,  addpath_capable,
 				     BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE,
 				     NULL);
 

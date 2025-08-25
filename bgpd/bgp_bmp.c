@@ -1391,7 +1391,8 @@ static struct stream *bmp_update(const struct prefix *p, struct prefix_rd *prd,
 
 	/* 5: Encode all the attributes, except MP_REACH_NLRI attr. */
 	total_attr_len = bgp_packet_attribute(NULL, peer, s, attr, &vecarr, NULL, afi, safi, peer,
-					      NULL, NULL, 0, addpath_capable, addpath_id, NULL);
+					      NULL, NULL, 0, NULL, addpath_capable, addpath_id,
+					      NULL);
 
 	/* space check? */
 
