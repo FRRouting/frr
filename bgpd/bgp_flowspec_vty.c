@@ -407,21 +407,29 @@ void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 	}
 }
 
-int bgp_show_table_flowspec(struct vty *vty, struct bgp *bgp, afi_t afi,
-			    struct bgp_table *table, enum bgp_show_type type,
-			    void *output_arg, bool use_json, int is_last,
-			    unsigned long *output_cum, unsigned long *total_cum)
+int bgp_show_table_flowspec_core(struct vty *vty, struct show_bgp *args)
 {
+	struct bgp_table *table = args->table;
+	enum bgp_show_type type = args->type;
+	bool use_json = args->use_json;
 	struct bgp_path_info *pi;
-	struct bgp_dest *dest;
-	unsigned long total_count = 0;
+	struct bgp_dest *dest = args->dest;
+	unsigned long total_count = args->total_cum;
 	json_object *json_paths = NULL;
 	int display = NLRI_STRING_FORMAT_LARGE;
+	unsigned int count = 0;
 
-	if (type != bgp_show_type_detail)
-		return CMD_SUCCESS;
+	if (dest == NULL) {
+		if (type != bgp_show_type_detail)
+			return CMD_SUCCESS;
+		dest = bgp_table_top(table);
+	}
 
-	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
+	for (; dest; dest = bgp_route_next(dest)) {
+		if (count >= route_output_threshold)
+			break;
+		++count;
+
 		pi = bgp_dest_get_bgp_path_info(dest);
 		if (pi == NULL)
 			continue;
@@ -439,11 +447,55 @@ int bgp_show_table_flowspec(struct vty *vty, struct bgp *bgp, afi_t afi,
 			json_paths = NULL;
 		}
 	}
+
+	args->dest = dest;
+
+	if (dest != NULL) {
+		args->total_cum = total_count;
+		return CMD_YIELD;
+	}
+
+
 	if (total_count && !use_json)
 		vty_out(vty,
 			"\nDisplayed %ld flowspec entries\n",
 			total_count);
 	return CMD_SUCCESS;
+}
+
+int bgp_show_table_flowspec(struct vty *vty, struct bgp *bgp, afi_t afi, struct bgp_table *table,
+			enum bgp_show_type type, void *output_arg, bool use_json, int is_last,
+			unsigned long *output_cum, unsigned long *total_cum)
+{
+	struct show_bgp *args = XCALLOC(MTYPE_TMP, sizeof(struct show_bgp));
+
+	*args = (struct show_bgp) {
+		.bgp = bgp,
+		.afi = afi,
+		.table = table,
+		.type = type,
+		.output_arg = output_arg,
+		.use_json = use_json,
+		.is_last = is_last,
+		.dest = NULL,
+		.output_cum = 0,
+		.total_cum = 0,
+		.func = &bgp_show_table_flowspec_core };
+
+	if (output_cum)
+		args->output_cum = *output_cum;
+	if (total_cum)
+		args->total_cum = *total_cum;
+
+	int ret = bgp_show_table_flowspec_core(vty, args);
+
+	if (ret == CMD_YIELD)
+		vty_yield(vty, bgp_show_cb, args);
+
+	if (ret == CMD_SUCCESS)
+		XFREE(MTYPE_TMP, args);
+
+	return ret;
 }
 
 DEFUN (debug_bgp_flowspec,
