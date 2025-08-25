@@ -1,2 +1,5 @@
-{}
-
+{
+  "frr-backend:clients": null,
+  "frr-interface:lib": null,
+  "frr-logging:logging": null
+}
