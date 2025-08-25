@@ -275,3 +275,59 @@ void bgp_srv6_unicast_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest
 	memcpy(&dest->srv6_unicast->sid, bgp->srv6_unicast[afi].sid,
 	       sizeof(struct in6_addr));
 }
+
+void bgp_srv6_unicast_announce(struct bgp *bgp, afi_t afi)
+{
+	struct peer *peer;
+	struct bgp_dest *pdest;
+	struct bgp_path_info *bpi;
+	safi_t safi = SAFI_UNICAST;
+	struct listnode *node, *nnode;
+
+	if (!bgp->srv6_unicast[afi].sid_locator)
+		return;
+
+	for (pdest = bgp_table_top(bgp->rib[afi][safi]); pdest; pdest = bgp_route_next(pdest)) {
+		for (bpi = bgp_dest_get_bgp_path_info(pdest); bpi; bpi = bpi->next) {
+			if (!CHECK_FLAG(bpi->flags, BGP_PATH_SELECTED))
+				continue;
+
+			if (bpi->attr->srv6_l3service)
+				continue;
+
+			bgp_srv6_unicast_register_route(bgp, afi, pdest, bpi);
+			break;
+		}
+	}
+
+	/* force to resend all routes */
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+		if (peergroup_af_flag_check(peer, afi, safi,
+					    PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX) ||
+		    peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_SRV6))
+			bgp_announce_route(peer, afi, safi, true);
+	}
+}
+
+void bgp_srv6_unicast_withdraw(struct bgp *bgp, afi_t afi)
+{
+	struct peer *peer;
+	struct bgp_dest *pdest;
+	safi_t safi = SAFI_UNICAST;
+	struct listnode *node, *nnode;
+
+	for (pdest = bgp_table_top(bgp->rib[afi][safi]); pdest; pdest = bgp_route_next(pdest)) {
+		if (!pdest->srv6_unicast)
+			continue;
+
+		bgp_srv6_unicast_unregister_route(pdest);
+	}
+
+	/* force to resend all routes */
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+		if (peergroup_af_flag_check(peer, afi, safi,
+					    PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX) ||
+		    peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_SRV6))
+			bgp_announce_route(peer, afi, safi, true);
+	}
+}

@@ -2226,6 +2226,12 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		samepeer_safe = 1;
 	}
 
+	if (safi == SAFI_UNICAST &&
+	    CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CONFIG_ENCAPSULATION_SRV6) &&
+	    (!pi->attr->srv6_l3service && !dest->srv6_unicast)) {
+		return false;
+	}
+
 	/* With addpath we may be asked to TX all kinds of paths so make sure
 	 * pi is valid */
 	if (!CHECK_FLAG(pi->flags, BGP_PATH_VALID)

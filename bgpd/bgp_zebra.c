@@ -3774,6 +3774,7 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 		/* SRv6 unicast */
 		if (is_srv6_unicast_enabled(bgp_vrf, afi)) {
 			bgp_srv6_unicast_sid_update(bgp_vrf, afi);
+			bgp_srv6_unicast_announce(bgp_vrf, afi);
 		}
 
 		break;
@@ -3856,6 +3857,9 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 
 		/* Export VPN to VRF routes*/
 		vpn_leak_postchange_all();
+		bgp_srv6_unicast_withdraw(bgp_vrf, ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT4
+							   ? AFI_IP
+							   : AFI_IP6);
 		break;
 	case ZAPI_SRV6_SID_FAIL_ALLOC:
 		if (BGP_DEBUG(zebra, ZEBRA))

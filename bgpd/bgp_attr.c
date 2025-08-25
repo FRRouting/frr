@@ -4938,8 +4938,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 				struct attr *attr, struct bpacket_attr_vec_arr *vecarr,
 				struct prefix *p, afi_t afi, safi_t safi, struct peer *from,
 				struct prefix_rd *prd, mpls_label_t *label, uint8_t num_labels,
-				bool addpath_capable, uint32_t addpath_tx_id,
-				struct bgp_path_info *bpi)
+				struct bgp_attr_srv6_l3service *srv6_unicast, bool addpath_capable,
+				uint32_t addpath_tx_id, struct bgp_path_info *bpi)
 {
 	size_t cp;
 	size_t aspath_sizep;
@@ -5279,8 +5279,21 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 	}
 
 	/* SRv6 Service Information Attribute. */
-	if ((afi == AFI_IP || afi == AFI_IP6) && safi == SAFI_MPLS_VPN) {
-		if (attr->srv6_l3service) {
+	if ((afi == AFI_IP || afi == AFI_IP6)) {
+		struct bgp_attr_srv6_l3service *srv6_l3service = NULL;
+
+		if (safi == SAFI_MPLS_VPN && attr->srv6_l3service)
+			srv6_l3service = attr->srv6_l3service;
+		else if (peer_af_flag_check(peer, afi, safi,
+					    PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX) ||
+			 peer_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_SRV6)) {
+			if (attr->srv6_l3service)
+				srv6_l3service = attr->srv6_l3service;
+			else
+				srv6_l3service = srv6_unicast;
+		}
+
+		if (srv6_l3service) {
 			uint8_t subtlv_len =
 				BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE_LENGTH
 				+ BGP_ATTR_MIN_LEN
@@ -5297,12 +5310,9 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 			stream_putc(s, BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO);
 			stream_putw(s, subtlv_len);
 			stream_putc(s, 0);      /* reserved */
-			stream_put(s, &attr->srv6_l3service->sid,
-				   sizeof(attr->srv6_l3service->sid)); /* sid */
+			stream_put(s, &srv6_l3service->sid, sizeof(srv6_l3service->sid)); /* sid */
 			stream_putc(s, 0);      /* sid_flags */
-			stream_putw(s,
-				    attr->srv6_l3service
-					    ->endpoint_behavior); /* endpoint */
+			stream_putw(s, srv6_l3service->endpoint_behavior); /* endpoint */
 			stream_putc(s, 0);      /* reserved */
 			stream_putc(
 				s,
@@ -5310,12 +5320,12 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 			stream_putw(
 				s,
 				BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE_LENGTH);
-			stream_putc(s, attr->srv6_l3service->loc_block_len);
-			stream_putc(s, attr->srv6_l3service->loc_node_len);
-			stream_putc(s, attr->srv6_l3service->func_len);
-			stream_putc(s, attr->srv6_l3service->arg_len);
-			stream_putc(s, attr->srv6_l3service->transposition_len);
-			stream_putc(s, attr->srv6_l3service->transposition_offset);
+			stream_putc(s, srv6_l3service->loc_block_len);
+			stream_putc(s, srv6_l3service->loc_node_len);
+			stream_putc(s, srv6_l3service->func_len);
+			stream_putc(s, srv6_l3service->arg_len);
+			stream_putc(s, srv6_l3service->transposition_len);
+			stream_putc(s, srv6_l3service->transposition_offset);
 		} else if (attr->srv6_vpn) {
 			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL
 					       | BGP_ATTR_FLAG_TRANS);

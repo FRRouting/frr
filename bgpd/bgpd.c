@@ -5139,6 +5139,7 @@ static const struct peer_flag_action peer_af_flag_action_list[] = {
 	{ PEER_FLAG_SEND_EXT_COMMUNITY_RPKI, 1, peer_change_reset_out },
 	{ PEER_FLAG_ADDPATH_RX_PATHS_LIMIT, 0, peer_change_none },
 	{ PEER_FLAG_CONFIG_ENCAPSULATION_SRV6, 0, peer_change_best_path },
+	{ PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX, 0, peer_change_best_path },
 	{ PEER_FLAG_CONFIG_ENCAPSULATION_MPLS, 0, peer_change_best_path },
 	{ 0, 0, 0 }
 };
