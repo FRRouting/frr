@@ -225,7 +225,7 @@ int main(int argc, char **argv, char **envp)
 	/*eigrp_route_map_init();
 	  route_map_add_hook (eigrp_rmap_update);
 	  route_map_delete_hook (eigrp_rmap_update);*/
-	/*if_rmap_init (EIGRP_NODE); */
+	/* intall eigrp related routemap cmds in eigrp_cli.c */
 
 	frr_config_fork();
 	frr_run(master);
