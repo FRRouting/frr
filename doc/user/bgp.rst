@@ -3417,24 +3417,29 @@ the next-hop attribute). The labeled L3VPN routes received on this interface are
 re-advertised with local labels and an MPLS table swap entry is set to bind
 the local label to the received label.
 
-.. _bgp-l3vpn-srv6:
+.. _bgp-l3-service-over-srv6:
 
-L3VPN SRv6
-----------
+BGP-Based L3 Service over SRv6
+------------------------------
+
+This https://www.ietf.org/rfc/rfc9252#name-bgp-based-l3-service-over-s explains
+the use SRv6 backend for BGP VPNs and Global tables.
+
+Note: A VRF can have at most one L3 service enabled simultaneously.
 
 .. clicmd:: segment-routing srv6
 
-   Use SRv6 backend with BGP L3VPN, and go to its configuration node.
+   Use SRv6 backend with BGP Global IPv4/6 or IPv4/6 VPN, go to its configuration node.
 
 .. clicmd:: locator NAME
 
-   Specify the SRv6 locator to be used for SRv6 L3VPN. The Locator name must
+   Specify the SRv6 locator to be used for SRv6 L3 service. The Locator name must
    be set in zebra, but user can set it in any order.
 
 .. clicmd:: encap-behavior <H_Encaps|H_Encaps_Red>
 
-   Specify the encapsulation instruction to use for incoming BGP L3VPN SRv6 routes
-   to install to RIB. By default, a segment-routing-header is added, in addition to
+   Specify the encapsulation instruction to use for incoming BGP SRv6 routes to
+   install to RIB. By default, a segment-routing-header is added, in addition to
    the IPv6 header. With `H_Encaps_Red`, if the number of segments is only 1, and
    there are no other specific options, then the segment-routing-header is removed,
    and only the IPv6 header is appended to the original packet.
@@ -3448,15 +3453,13 @@ L3VPN SRv6
    this command will also consider BGP updates with no srv6 options, thus making possible
    to have both MPLS and SRv6 updates.
 
-L3VPN SRv6 SID reachability
----------------------------
+SRv6 SID reachability for L3 service
+------------------------------------
 
-In the context of IPv4 L3VPN over SRv6 specific usecase, 2001:db8:12::2
-is the peer IPv6 address of r2, and 2001:db8:2:2:: is the SRv6 SID
-advertised by router r2 for prefix P. On r1, the SID reachability is
-checked in order to install the prefix P. The below output indicates
-that the 2001:db8:2:2:: prefix is valid.
-
+In the context of IPv4 over SRv6 specific usecase, 2001:db8:12::2 is the peer
+IPv6 address of r2, and 2001:db8:2:2:: is the SRv6 SID advertised by router r2
+for prefix P. On r1, the SID reachability is checked in order to install the
+prefix P. The below output indicates that the 2001:db8:2:2:: prefix is valid.
 
 .. code-block:: frr
 
@@ -3473,8 +3476,8 @@ that the 2001:db8:2:2:: prefix is valid.
      Last update: Tue Nov 14 10:36:26 2023
      Paths:
 
-General configuration
-^^^^^^^^^^^^^^^^^^^^^
+L3VPN SRv6 configuration
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 Configuration of the SRv6 SID used to advertise a L3VPN for both IPv4 and IPv6
 is accomplished via the following command in the context of a VRF:
@@ -3519,6 +3522,34 @@ Filtering SRv6/MPLS per neighbor
    command can be used to invalidate incoming MPLS BGP updates from a given peer.
    Reversely, the ``encapsulation-mpls`` command can be used to invalidate
    incoming SRv6 BGP updates from a given peer.
+
+Global IPv4/6 SRv6 configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Configuration of the SRv6 SID used to advertise the Global IPv4/v6 Table is
+accomplished via the following command, which lives under ``address-family ipv4
+unicast``/``address-family ipv6 unicast`` only in the default VRF:
+
+.. clicmd:: sid export <(1..1048575)|auto|explicit X:X::X:X> [route-map RNAME]
+   Enables a SRv6 SID to be attached to routes in the current unicast
+   address-family, received routes that already have a SID attached are ignored.
+   If the value is ``auto``, the SID value is automatically assigned
+   from a pool maintained by the zebra daemon. If the value specified is
+   ``explicit X:X::X:X``, SID allocation with the explicit value is requested
+   from the zebra daemon. If zebra is not running, or if this command is not
+   configured or if SID allocation is failed, automatic or explicit SID
+   assignment will not complete, which will block corresponding routes SID
+   assignment.
+   If the ``route-map RNAME`` is configured, routes are filtered according to
+   its rules.
+
+.. clicmd:: neighbor <X:X::X:X|WORD> <encapsulation-srv6|encapsulation-srv6-relax>
+   Enables SRv6 for neighbor in the current unicast address family, this allows
+   sending BGP prefix-sid attribute to this neighbor.
+   If ``encapsulation-srv6`` is enabled, only BGP prefix-sid is sent to this
+   neighbor.
+   If ``encapsulation-srv6-relax`` is enabled, BGP prefix and prefix-sid both are
+   sent to this neighbor.
 
 .. _bgp-evpn:
 
