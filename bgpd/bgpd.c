@@ -78,6 +78,7 @@
 #include "bgpd/bgp_evpn_private.h"
 #include "bgpd/bgp_evpn_mh.h"
 #include "bgpd/bgp_mac.h"
+#include "bgpd/bgp_srv6.h"
 #include "bgp_trace.h"
 
 DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
@@ -1525,6 +1526,10 @@ static void bgp_srv6_init(struct bgp *bgp)
 	bgp->srv6_locator_chunks->del = srv6_locator_chunk_list_free;
 	bgp->srv6_functions = list_new();
 	bgp->srv6_functions->del = (void (*)(void *))srv6_function_free;
+	memset(bgp->srv6_unicast_rmap_name, 0, sizeof(bgp->srv6_unicast_rmap_name));
+	memset(bgp->unicast_sid_explicit, 0, sizeof(bgp->unicast_sid_explicit));
+	memset(bgp->unicast_zebra_vrf_sid_last_sent, 0,
+	       sizeof(bgp->unicast_zebra_vrf_sid_last_sent));
 }
 
 static void bgp_srv6_cleanup(struct bgp *bgp)
@@ -1545,6 +1550,17 @@ static void bgp_srv6_cleanup(struct bgp *bgp)
 		}
 		if (bgp->vpn_policy[afi].tovpn_sid_explicit)
 			XFREE(MTYPE_BGP_SRV6_SID, bgp->vpn_policy[afi].tovpn_sid_explicit);
+
+		if (bgp->unicast_sid_locator[afi]) {
+			srv6_locator_free(bgp->unicast_sid_locator[afi]);
+			bgp->unicast_sid_locator[afi] = NULL;
+		}
+		if (bgp->unicast_zebra_vrf_sid_last_sent[afi])
+			XFREE(MTYPE_BGP_SRV6_SID, bgp->unicast_zebra_vrf_sid_last_sent[afi]);
+		if (bgp->unicast_sid[afi])
+			XFREE(MTYPE_BGP_SRV6_SID, bgp->unicast_sid[afi]);
+		if (bgp->unicast_sid_explicit[afi])
+			XFREE(MTYPE_BGP_SRV6_SID, bgp->unicast_sid_explicit[afi]);
 	}
 
 	if (bgp->tovpn_sid_locator != NULL) {
@@ -4187,7 +4203,8 @@ int bgp_delete(struct bgp *bgp)
 
 	/*
 	 * Release SRv6 SIDs, like it's done in `vpn_leak_postchange()`
-	 * and bgp_sid_vpn_export_cmd/af_sid_vpn_export_cmd commands.
+	 * and bgp_sid_vpn_export_cmd/af_sid_vpn_export_cmd/af_sid_export
+	 * commands.
 	 */
 	bgp->tovpn_sid_index = 0;
 	UNSET_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO);
@@ -4199,6 +4216,9 @@ int bgp_delete(struct bgp *bgp)
 		delete_vrf_tovpn_sid_per_af(bgp_default, bgp, afi);
 
 		vpn_leak_zebra_vrf_sid_withdraw(bgp, afi);
+
+		/* SRv6 unicast */
+		bgp_srv6_unicast_delete(bgp_default, afi);
 	}
 
 	/* release auto vpn labels */
