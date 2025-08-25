@@ -363,9 +363,11 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 	if (bgp->vrf_id == VRF_DEFAULT) {
 		if (is_srv6_unicast_enabled(bgp, AFI_IP)) {
 			bgp_srv6_unicast_sid_withdraw(bgp, AFI_IP);
+			bgp_srv6_unicast_withdraw(bgp, AFI_IP);
 		}
 		if (is_srv6_unicast_enabled(bgp, AFI_IP6)) {
 			bgp_srv6_unicast_sid_withdraw(bgp, AFI_IP6);
+			bgp_srv6_unicast_withdraw(bgp, AFI_IP6);
 		}
 	}
 
@@ -9811,6 +9813,52 @@ DEFPY(no_neighbor_path_attribute_treat_as_withdraw,
 	return CMD_SUCCESS;
 }
 
+DEFPY(neighbor_encap_srv6,
+      neighbor_encap_srv6_cmd,
+      "[no] neighbor <X:X::X:X|WORD>$neighbor <encapsulation-srv6|encapsulation-srv6-strict>$encap",
+      NO_STR
+      NEIGHBOR_STR
+      "Neighbor IPv6 address\n"
+      "Neighbor tag\n"
+      "Advertise SRv6 paths to a neighbor\n"
+      "Advertise only SRv6 paths to a neighbor\n")
+{
+	int ret;
+	afi_t afi;
+	uint64_t flag;
+	struct peer *peer;
+	safi_t safi = SAFI_UNICAST;
+
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	afi = bgp_node_afi(vty);
+	if (strncmp(encap, "encapsulation-srv6-strict", 25))
+		flag = PEER_FLAG_CONFIG_ENCAPSULATION_SRV6;
+	else
+		flag = PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_STRICT;
+
+	if (peergroup_af_flag_check(peer, afi, safi, flag)) {
+		if (!no) {
+			vty_out(vty, "%% Peer currently already configured.");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		ret = peer_af_flag_unset_vty(vty, neighbor, afi, safi, flag);
+	} else {
+		if (no) {
+			vty_out(vty, "%% Peer is not configured.");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		ret = peer_af_flag_set_vty(vty, neighbor, afi, safi, flag);
+	}
+
+	return ret;
+}
+
 DEFPY(sid_export,
       sid_export_cmd,
       "[no] sid export <(1-1048575)$sid_idx|auto$sid_auto|explicit$sid_explicit X:X::X:X$sid_value> [route-map RMAP$rmap_str]",
@@ -9888,6 +9936,7 @@ DEFPY(sid_export,
 			return CMD_SUCCESS;
 
 		/* apply route-map change */
+		bgp_srv6_unicast_announce(bgp, afi);
 
 		return CMD_SUCCESS;
 	}
@@ -19603,6 +19652,11 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 		}
 	}
 
+	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_STRICT))
+		vty_out(vty, "  neighbor %s encapsulation-srv6-strict\n", addr);
+	else if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_SRV6))
+		vty_out(vty, "  neighbor %s encapsulation-srv6\n", addr);
+
 	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_DISABLE_ADDPATH_RX))
 		vty_out(vty, "  neighbor %s disable-addpath-rx\n", addr);
 
@@ -22602,6 +22656,8 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &bgp_sid_vpn_export_cmd);
 	install_element(BGP_IPV4_NODE, &sid_export_cmd);
 	install_element(BGP_IPV6_NODE, &sid_export_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_encap_srv6_cmd);
+	install_element(BGP_IPV4_NODE, &neighbor_encap_srv6_cmd);
 	install_element(BGP_NODE, &no_bgp_sid_vpn_export_cmd);
 
 	bgp_vty_if_init();
