@@ -3936,7 +3936,7 @@ DEFPY (no_dup_addr_detection,
 		}
 
 		if (time_val) {
-			if (bgp_vrf->evpn_info->dad_time != time_val) {
+			if (bgp_vrf->evpn_info->dad_time != (int)time_val) {
 				vty_out(vty,
 				"%% Value does not match with config\n");
 				return CMD_SUCCESS;
