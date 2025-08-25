@@ -377,12 +377,12 @@ extern struct attr *bgp_attr_aggregate_intern(
 	struct community *community, struct ecommunity *ecommunity,
 	struct lcommunity *lcommunity, struct bgp_aggregate *aggregate,
 	uint8_t atomic_aggregate, const struct prefix *p);
-extern bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct stream *s,
-				       struct attr *attr, struct bpacket_attr_vec_arr *vecarr,
-				       struct prefix *p, afi_t afi, safi_t safi, struct peer *from,
-				       struct prefix_rd *prd, mpls_label_t *label,
-				       uint8_t num_labels, bool addpath_capable,
-				       uint32_t addpath_tx_id, struct bgp_path_info *bpi);
+extern bgp_size_t
+bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct stream *s, struct attr *attr,
+		     struct bpacket_attr_vec_arr *vecarr, struct prefix *p, afi_t afi, safi_t safi,
+		     struct peer *from, struct prefix_rd *prd, mpls_label_t *label,
+		     uint8_t num_labels, struct bgp_attr_srv6_l3service *srv6_unicast,
+		     bool addpath_capable, uint32_t addpath_tx_id, struct bgp_path_info *bpi);
 extern void bgp_dump_routes_attr(struct stream *s, struct bgp_path_info *bpi,
 				 const struct prefix *p);
 extern bool attrhash_cmp(const void *arg1, const void *arg2);

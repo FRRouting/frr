@@ -300,6 +300,7 @@ static void bgp_srv6_sids_unset(struct bgp *bgp)
 	/* withdraw srv6 unicast and refresh srv6 unicast sid locator */
 	if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
 		if (is_srv6_unicast_enabled(bgp, AFI_IP)) {
+			bgp_srv6_unicast_withdraw(bgp, AFI_IP);
 			bgp_srv6_unicast_sid_withdraw(bgp, AFI_IP);
 			/* locator deleted after this call, free the sid */
 			XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[AFI_IP].sid);
@@ -307,6 +308,7 @@ static void bgp_srv6_sids_unset(struct bgp *bgp)
 			bgp->srv6_unicast[AFI_IP].sid_locator = NULL;
 		}
 		if (is_srv6_unicast_enabled(bgp, AFI_IP6)) {
+			bgp_srv6_unicast_withdraw(bgp, AFI_IP6);
 			bgp_srv6_unicast_sid_withdraw(bgp, AFI_IP6);
 			/* locator deleted after this call, free the sid */
 			XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[AFI_IP6].sid);
@@ -9944,6 +9946,55 @@ DEFPY(no_neighbor_path_attribute_treat_as_withdraw,
 	return CMD_SUCCESS;
 }
 
+DEFPY(neighbor_encap_srv6,
+      neighbor_encap_srv6_cmd,
+      "[no] neighbor <X:X::X:X|WORD>$neighbor <encapsulation-srv6|encapsulation-srv6-relax>$encap",
+      NO_STR
+      NEIGHBOR_STR
+      "Neighbor IPv6 address\n"
+      "Neighbor tag\n"
+      "Advertise routes with SRv6 prefix SID to the neighbor\n"
+      "Advertise routes with and without SRv6 prefix SID the neighbor\n")
+{
+	int ret;
+	afi_t afi;
+	uint64_t flag;
+	struct peer *peer;
+	safi_t safi = SAFI_UNICAST;
+
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	afi = bgp_node_afi(vty);
+	if (strncmp(encap, "encapsulation-srv6-relax", 25))
+		flag = PEER_FLAG_CONFIG_ENCAPSULATION_SRV6;
+	else
+		flag = PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX;
+
+	if (no) {
+		if (!peergroup_af_flag_check(peer, afi, safi, flag)) {
+			vty_out(vty, "%% Peer is not configured.\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		ret = peer_af_flag_unset_vty(vty, neighbor, afi, safi, flag);
+
+		return ret;
+	}
+
+	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_SRV6) ||
+	    peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX)) {
+		vty_out(vty, "%% Peer is already configured, unset it first.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ret = peer_af_flag_set_vty(vty, neighbor, afi, safi, flag);
+
+	return ret;
+}
+
 DEFPY(sid_export,
       sid_export_cmd,
       "[no] sid export <(1-1048575)$sid_idx|auto$sid_auto|explicit$sid_explicit X:X::X:X$sid_value> [route-map RMAP$rmap_str]",
@@ -10013,7 +10064,8 @@ DEFPY(sid_export,
 				  !strcmp(rmap_str, bgp->srv6_unicast[afi].rmap_name)))
 			return CMD_SUCCESS;
 
-		/* TODO: apply route-map change */
+		/* apply route-map change */
+		bgp_srv6_unicast_announce(bgp, afi);
 
 		return CMD_SUCCESS;
 	}
@@ -19835,6 +19887,9 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 	/* encapsulation-srv6|encapsulation-mpls */
 	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_SRV6))
 		vty_out(vty, "  neighbor %s encapsulation-srv6\n", addr);
+	else if (peergroup_af_flag_check(peer, afi, safi,
+					 PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX))
+		vty_out(vty, "  neighbor %s encapsulation-srv6-relax\n", addr);
 	else if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_MPLS))
 		vty_out(vty, "  neighbor %s encapsulation-mpls\n", addr);
 
@@ -22667,6 +22722,8 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &bgp_sid_vpn_export_cmd);
 	install_element(BGP_IPV4_NODE, &sid_export_cmd);
 	install_element(BGP_IPV6_NODE, &sid_export_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_encap_srv6_cmd);
+	install_element(BGP_IPV4_NODE, &neighbor_encap_srv6_cmd);
 	install_element(BGP_NODE, &no_bgp_sid_vpn_export_cmd);
 
 	bgp_vty_if_init();
