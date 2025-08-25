@@ -171,8 +171,14 @@ extern void _hook_unregister(struct hook *hook, void *funcptr, void *arg,
 #define hook_call(hookname, ...) hook_call_##hookname(__VA_ARGS__)
 
 /* helpers to add the void * arg */
+#ifndef __cplusplus
 #define HOOK_ADDDEF(...) (void *hookarg , ## __VA_ARGS__)
 #define HOOK_ADDARG(...) (hookarg , ## __VA_ARGS__)
+#else
+/* apparently the preprocessor behaves differently in C++ mode... */
+#define HOOK_ADDDEF(...) (void *hookarg __VA_OPT__(, )##__VA_ARGS__)
+#define HOOK_ADDARG(...) (hookarg __VA_OPT__(, )##__VA_ARGS__)
+#endif
 
 /* and another helper to convert () into (void) to get a proper prototype */
 #define _SKIP_10(x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, ret, ...) ret
