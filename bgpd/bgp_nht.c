@@ -1087,6 +1087,11 @@ static bool make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p,
 			else if (bgp_nexthop->tovpn_sid_locator && bgp_nexthop->tovpn_sid)
 				local_sid = prefix_match(&bgp_nexthop->tovpn_sid_locator->prefix,
 							 &tmp_prefix);
+			else if (bgp_nexthop->srv6_unicast[afi].sid_locator &&
+				 bgp_nexthop->srv6_unicast[afi].sid)
+				local_sid = prefix_match(&bgp_nexthop->srv6_unicast[afi]
+								  .sid_locator->prefix,
+							 &tmp_prefix);
 		}
 		if (local_sid == false && pi->attr->srv6_l3service) {
 			p->prefixlen = IPV6_MAX_BITLEN;
