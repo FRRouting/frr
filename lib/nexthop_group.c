@@ -703,6 +703,30 @@ DEFPY(no_nexthop_group_resilience,
 	return CMD_SUCCESS;
 }
 
+DEFPY(nexthop_group_recursive,
+      nexthop_group_recursive_cmd,
+      "[no] recursive",
+      NO_STR
+      "Allow recursive resolution\n")
+{
+	VTY_DECLVAR_CONTEXT(nexthop_group_cmd, nhgc);
+	uint32_t flags;
+
+	flags = nhgc->flags;
+
+	if (no)
+		UNSET_FLAG(nhgc->flags, NHG_CMD_FLAG_RECURSIVE);
+	else
+		SET_FLAG(nhgc->flags, NHG_CMD_FLAG_RECURSIVE);
+
+	if (flags != nhgc->flags) {
+		if (nhg_hooks.modify)
+			nhg_hooks.modify(nhgc);
+	}
+
+	return CMD_SUCCESS;
+}
+
 static void nexthop_group_save_nhop(struct nexthop_group_cmd *nhgc,
 				    const char *nhvrf_name,
 				    const union sockunion *addr,
@@ -1169,6 +1193,10 @@ static int nexthop_group_write(struct vty *vty)
 
 		vty_out(vty, "nexthop-group %s\n", nhgc->name);
 
+		/* Flags */
+		if (CHECK_FLAG(nhgc->flags, NHG_CMD_FLAG_RECURSIVE))
+			vty_out(vty, " recursive\n");
+
 		if (nhgc->nhg.nhgr.buckets)
 			vty_out(vty,
 				" resilient buckets %u idle-timer %u unbalanced-timer %u\n",
@@ -1372,6 +1400,8 @@ void nexthop_group_init(void (*new)(const char *name),
 
 	install_element(NH_GROUP_NODE, &nexthop_group_resilience_cmd);
 	install_element(NH_GROUP_NODE, &no_nexthop_group_resilience_cmd);
+
+	install_element(NH_GROUP_NODE, &nexthop_group_recursive_cmd);
 
 	memset(&nhg_hooks, 0, sizeof(nhg_hooks));
 
