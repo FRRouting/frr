@@ -187,6 +187,8 @@ static const struct message bgp_notify_fsm_msg[] = {
 const char *const bgp_origin_str[] = {"i", "e", "?"};
 const char *const bgp_origin_long_str[] = {"IGP", "EGP", "incomplete"};
 
+const char *const bgp_global_gr_mode_str[] = { "Helper", "Restarter", "Disabled", "Invalid" };
+
 static void bgp_debug_print_evpn_prefix(struct vty *vty, const char *desc,
 					struct prefix *p);
 /* Given a string return a pointer the corresponding peer structure */
