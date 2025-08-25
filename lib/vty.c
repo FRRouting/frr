@@ -77,6 +77,9 @@ static struct mgmt_fe_client *mgmt_fe_client;
 static bool mgmt_fe_connected;
 static uint64_t mgmt_client_id_next;
 
+/* Master of the tasks. */
+static struct event_loop *vty_master;
+
 PREDECL_DLIST(vtyservs);
 
 struct vty_serv {
@@ -171,10 +174,42 @@ static int vty_mgmt_unlock_running_inline(struct vty *vty)
 	return vty->mgmt_locked_running_ds ? -1 : 0;
 }
 
-void vty_mgmt_resume_response(struct vty *vty, int ret)
+/*
+ * Resume normal vtysh event loop after suspending - this can be through mgmtd/nb
+ * processing, or yield/resume.
+ */
+static int vty_resume_response(struct vty *vty, int retcode)
 {
 	uint8_t header[4] = {0, 0, 0, 0};
+	int ret = 0;
 
+	if (vty->type != VTY_FILE) {
+		/* Send end-of-output marker */
+		header[3] = retcode;
+		buffer_put(vty->obuf, header, 4);
+
+		/* Try to flush results; exit if a write error occurs */
+		if (vty->t_write == NULL) {
+			if (vtysh_flush(vty) < 0) {
+				zlog_err("failed to vtysh_flush");
+				return -1;
+			}
+		}
+	}
+
+	/* Resume reading if possible */
+	if (vty->status == VTY_CLOSE)
+		vty_close(vty);
+	else if (vty->type != VTY_FILE)
+		vty_event(VTYSH_READ, vty);
+	else
+		ret = -1;
+
+	return ret;
+}
+
+void vty_mgmt_resume_response(struct vty *vty, int ret)
+{
 	if (!vty->mgmt_req_pending_cmd) {
 		zlog_err(
 			"vty resume response called without mgmt_req_pending_cmd");
@@ -188,23 +223,10 @@ void vty_mgmt_resume_response(struct vty *vty, int ret)
 
 	vty->mgmt_req_pending_cmd = NULL;
 
-	if (vty->type != VTY_FILE) {
-		header[3] = ret;
-		buffer_put(vty->obuf, header, 4);
-		if (!vty->t_write && (vtysh_flush(vty) < 0)) {
-			zlog_err("failed to vtysh_flush");
-			/* Try to flush results; exit if a write error occurs */
-			return;
-		}
-	}
-
-	if (vty->status == VTY_CLOSE)
-		vty_close(vty);
-	else if (vty->type != VTY_FILE)
-		vty_event(VTYSH_READ, vty);
-	else
+	if (vty_resume_response(vty, ret) < 0) {
 		/* should we assert here? */
 		zlog_err("mgmtd: unexpected resume while reading config file");
+	}
 }
 
 void vty_frame(struct vty *vty, const char *format, ...)
@@ -223,6 +245,86 @@ void vty_endframe(struct vty *vty, const char *endtext)
 	if (vty->frame_pos == 0 && endtext)
 		vty_out(vty, "%s", endtext);
 	vty->frame_pos = 0;
+}
+
+/*
+ * Callback function for yield/resume; call through to application's
+ * callback.
+ */
+static void yield_resume_cb(struct event *event)
+{
+	struct vty *vty = EVENT_ARG(event);
+	struct vty_yield_resume_s ctx;
+
+	/* Capture application callback info */
+	ctx = vty->yield_resume;
+
+	/* Clear vty's yield callback info before calling into the application:
+	 * the application may call the "finish" or the "yield" api, so we can't
+	 * make any assumptions about the state of the 'vty' info after calling in.
+	 */
+	vty->yield_resume.app_cb = NULL;
+	vty->yield_resume.arg = NULL;
+
+	/* Call through to application */
+	ctx.app_cb(vty, ctx.arg);
+}
+
+/*
+ * Application process wants to yield while sending results/replies.
+ * We'll schedule a task to resume, and call the application's callback.
+ */
+bool vty_yield(struct vty *vty, void (*func)(struct vty *vty, void *arg),
+	       void *arg)
+{
+	vty->yield_resume.app_cb = func;
+	vty->yield_resume.arg = arg;
+
+	event_add_event(vty_master, yield_resume_cb, vty, 0,
+			&vty->yield_resume.t_resume);
+
+	/* Ensure reading new input is disabled */
+	event_cancel(&vty->t_read);
+
+	/* Try to send buffered output */
+	if (vty->type == VTY_SHELL_SERV)
+		vtysh_flush(vty);
+	else
+		vty_event(VTY_WRITE, vty);
+
+	return true;
+}
+
+/*
+ *
+ */
+static void yield_finish_internal(struct vty *vty)
+{
+	event_cancel(&(vty->yield_resume.t_resume));
+
+	/* Clear vty's yield/resume callback info */
+	vty->yield_resume.app_cb = NULL;
+	vty->yield_resume.arg = NULL;
+}
+
+/*
+ * Yield/resume is complete; cancel any scheduled resume task, and return
+ * to normal vty operation (turn on reads, e.g.)
+ */
+void vty_yield_finish(struct vty *vty)
+{
+	if (vty->status != VTY_CLOSE) {
+		if (vty->type == VTY_SHELL_SERV) {
+
+			/* Send end-of-output marker and resume normal processing */
+			vty_resume_response(vty, CMD_SUCCESS);
+			vty_event(VTYSH_READ, vty);
+		} else {
+			vty_event(VTY_READ, vty);
+		}
+
+		yield_finish_internal(vty);
+	}
 }
 
 bool vty_set_include(struct vty *vty, const char *regexp)
@@ -1668,7 +1770,7 @@ static void vty_flush(struct event *thread)
 	buffer_status_t flushrc;
 	struct vty *vty = EVENT_ARG(thread);
 
-	/* Tempolary disable read thread. */
+	/* Temporarily disable reads. */
 	if (vty->lines == 0)
 		event_cancel(&vty->t_read);
 
@@ -2429,10 +2531,11 @@ static void vtysh_read(struct event *thread)
 			if (*p == '\0') {
 				/* Pass this line to parser. */
 				ret = vty_execute(vty);
-/* Note that vty_execute clears the command buffer and resets
-   vty->length to 0. */
+				/* Note that vty_execute clears the command buffer and
+				 * resets vty->length to 0.
+				 */
 
-/* Return result. */
+				/* Return result. */
 #ifdef VTYSH_DEBUG
 				printf("result: %d\n", ret);
 				printf("vtysh node: %d\n", vty->node);
@@ -2481,6 +2584,12 @@ static void vtysh_read(struct event *thread)
 					return;
 				}
 
+				/* If the application has asked to yield during
+				 * processing, don't continue reading.
+				 */
+				if (event_is_scheduled(vty->yield_resume.t_resume))
+					break;
+
 				/* warning: watchfrr hardcodes this result write
 				 */
 				header[3] = ret;
@@ -2497,6 +2606,12 @@ static void vtysh_read(struct event *thread)
 			}
 		}
 	}
+
+	/* If the application has asked to yield during
+	 * processing, don't continue reading.
+	 */
+	if (event_is_scheduled(vty->yield_resume.t_resume))
+		return;
 
 	if (vty->status == VTY_CLOSE)
 		vty_close(vty);
@@ -2556,6 +2671,14 @@ void vty_close(struct vty *vty)
 	bool was_stdio = false;
 
 	vty->status = VTY_CLOSE;
+
+	/* If application was doing yield/resume, notify it by calling
+	 * its callback with a NULL vty argument.
+	 */
+	if (vty->yield_resume.app_cb) {
+		(vty->yield_resume.app_cb)(NULL, vty->yield_resume.arg);
+		yield_finish_internal(vty);
+	}
 
 	/*
 	 * If we reach here with pending config to commit we will be losing it
@@ -2886,6 +3009,7 @@ FILE *vty_open_config(const char *config_file, char *config_default_dir)
 		}
 #endif /* VTYSH */
 		confp = fopen(config_default_dir, "r");
+
 		if (confp == NULL) {
 			flog_err(
 				EC_LIB_SYSTEM_CALL,
@@ -3068,9 +3192,6 @@ int vty_config_node_exit(struct vty *vty)
 
 	return 1;
 }
-
-/* Master of the threads. */
-static struct event_loop *vty_master;
 
 static void vty_event_serv(enum vty_event event, struct vty_serv *vty_serv)
 {
