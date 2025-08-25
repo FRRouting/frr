@@ -24,6 +24,7 @@ man_RSTFILES = \
 	doc/manpages/frr-ripngd.rst \
 	doc/manpages/frr-sharpd.rst \
 	doc/manpages/frr-staticd.rst \
+	doc/manpages/frr-dhcpgwd.rst \
 	doc/manpages/frr-vrrpd.rst \
 	doc/manpages/frr-watchfrr.rst \
 	doc/manpages/frr-zebra.rst \

@@ -34,7 +34,8 @@ extern struct event_loop *master;
 #define VTYSH_VRRPD     0x40000
 #define VTYSH_PATHD     0x80000
 #define VTYSH_PIM6D     0x100000
-#define VTYSH_MGMTD 0x200000
+#define VTYSH_MGMTD	0x200000
+#define VTYSH_DHCPGWD	0x400000
 
 #define VTYSH_RCV_BUF_MAX 16777216
 
@@ -177,6 +178,6 @@ struct vtysh_client {
 	uint32_t lost_msgs;
 };
 
-extern struct vtysh_client vtysh_client[22];
+extern struct vtysh_client vtysh_client[23];
 
 #endif /* VTYSH_H */

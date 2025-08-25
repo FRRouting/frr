@@ -1,2 +1,4 @@
 # Create the /run/frr directory at boot or from systemd-tmpfiles on install
 d /run/frr 0755 frr frr
+d /run/frr/dhcpgw-state 0755 frr frr
+z /usr/lib/frr/update-dhcp-gw 4755 frr frr

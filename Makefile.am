@@ -203,6 +203,7 @@ include sharpd/subdir.am
 include pimd/subdir.am
 include pbrd/subdir.am
 include staticd/subdir.am
+include dhcpgwd/subdir.am
 include bfdd/subdir.am
 include yang/subdir.am
 include yang/libyang_plugins/subdir.am
@@ -266,6 +267,7 @@ EXTRA_DIST += \
 	bgpd/Makefile \
 	bgpd/rfp-example/librfp/Makefile \
 	bgpd/rfp-example/rfptest/Makefile \
+	dhcpgwd/Makefile \
 	doc/Makefile \
 	doc/developer/Makefile \
 	doc/manpages/Makefile \
