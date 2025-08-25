@@ -268,6 +268,11 @@ struct dplane_mac_info {
 	bool is_sticky;
 	uint32_t nhg_id;
 	uint32_t update_flags;
+	int dst_present;
+	bool local_inactive;
+	bool dp_static;
+	uint16_t ndm_state;
+	uint8_t ndm_flags;
 };
 
 /*
@@ -283,6 +288,13 @@ struct dplane_neigh_info {
 	uint32_t flags;
 	uint16_t state;
 	uint32_t update_flags;
+	uint32_t ndm_family;
+	bool is_ext;
+	bool is_router;
+	bool local_inactive;
+	bool dp_static;
+	int l2_len;
+	union sockunion link_layer_ipv4;
 };
 
 /*
@@ -2815,6 +2827,121 @@ ifindex_t dplane_ctx_mac_get_br_ifindex(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.macinfo.br_ifindex;
 }
 
+void dplane_ctx_mac_set_addr(struct zebra_dplane_ctx *ctx, const struct ethaddr *mac)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.macinfo.mac = *mac;
+}
+
+void dplane_ctx_mac_set_vid(struct zebra_dplane_ctx *ctx, vlanid_t vid)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.macinfo.vid = vid;
+}
+
+void dplane_ctx_mac_set_vni(struct zebra_dplane_ctx *ctx, vni_t vni)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.macinfo.vni = vni;
+}
+
+void dplane_ctx_mac_set_dst_present(struct zebra_dplane_ctx *ctx, uint32_t dst_present)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.macinfo.dst_present = dst_present;
+}
+
+uint32_t dplane_ctx_mac_get_dst_present(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.macinfo.dst_present;
+}
+
+void dplane_ctx_mac_set_nhg_id(struct zebra_dplane_ctx *ctx, uint32_t nhg_id)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.macinfo.nhg_id = nhg_id;
+}
+
+
+void dplane_ctx_mac_set_is_sticky(struct zebra_dplane_ctx *ctx, bool is_sticky)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.macinfo.is_sticky = is_sticky;
+}
+
+
+void dplane_ctx_mac_set_local_inactive(struct zebra_dplane_ctx *ctx, bool local_inactive)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.macinfo.local_inactive = local_inactive;
+}
+
+bool dplane_ctx_mac_get_local_inactive(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.macinfo.local_inactive;
+}
+
+void dplane_ctx_mac_set_dp_static(struct zebra_dplane_ctx *ctx, bool dp_static)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.macinfo.dp_static = dp_static;
+}
+
+bool dplane_ctx_mac_get_dp_static(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.macinfo.dp_static;
+}
+
+void dplane_ctx_mac_set_vtep_ip(struct zebra_dplane_ctx *ctx, const struct in_addr *vtep_ip)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.macinfo.vtep_ip = *vtep_ip;
+}
+
+
+void dplane_ctx_mac_set_ndm_state(struct zebra_dplane_ctx *ctx, uint16_t ndm_state)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.macinfo.ndm_state = ndm_state;
+}
+
+uint16_t dplane_ctx_mac_get_ndm_state(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.macinfo.ndm_state;
+}
+
+void dplane_ctx_mac_set_ndm_flags(struct zebra_dplane_ctx *ctx, uint8_t ndm_flags)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.macinfo.ndm_flags = ndm_flags;
+}
+
+uint8_t dplane_ctx_mac_get_ndm_flags(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.macinfo.ndm_flags;
+}
+
 /* Accessors for neighbor information */
 const struct ipaddr *dplane_ctx_neigh_get_ipaddr(
 	const struct zebra_dplane_ctx *ctx)
@@ -2859,6 +2986,133 @@ uint32_t dplane_ctx_neigh_get_update_flags(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 	return ctx->u.neigh.update_flags;
+}
+
+void dplane_ctx_neigh_set_ipaddr(struct zebra_dplane_ctx *ctx, struct ipaddr *ip)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.neigh.ip_addr = *ip;
+}
+
+void dplane_ctx_neigh_set_mac(struct zebra_dplane_ctx *ctx, const struct ethaddr *mac)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.neigh.link.mac = *mac;
+}
+
+void dplane_ctx_neigh_set_is_ext(struct zebra_dplane_ctx *ctx, bool is_ext)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.neigh.is_ext = is_ext;
+}
+
+bool dplane_ctx_neigh_get_is_ext(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.neigh.is_ext;
+}
+
+void dplane_ctx_neigh_set_is_router(struct zebra_dplane_ctx *ctx, bool is_router)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.neigh.is_router = is_router;
+}
+
+bool dplane_ctx_neigh_get_is_router(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.neigh.is_router;
+}
+
+void dplane_ctx_neigh_set_local_inactive(struct zebra_dplane_ctx *ctx, bool local_inactive)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.neigh.local_inactive = local_inactive;
+}
+
+bool dplane_ctx_neigh_get_local_inactive(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.neigh.local_inactive;
+}
+
+void dplane_ctx_neigh_set_dp_static(struct zebra_dplane_ctx *ctx, bool dp_static)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.neigh.dp_static = dp_static;
+}
+
+bool dplane_ctx_neigh_get_dp_static(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.neigh.dp_static;
+}
+
+void dplane_ctx_neigh_set_l2_len(struct zebra_dplane_ctx *ctx, int l2_len)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.neigh.l2_len = l2_len;
+}
+
+int dplane_ctx_neigh_get_l2_len(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.neigh.l2_len;
+}
+
+void dplane_ctx_neigh_set_ndm_state(struct zebra_dplane_ctx *ctx, uint16_t ndm_state)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.neigh.state = ndm_state;
+}
+
+uint16_t dplane_ctx_neigh_get_ndm_state(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.neigh.state;
+}
+
+void dplane_ctx_neigh_set_ndm_family(struct zebra_dplane_ctx *ctx, uint32_t ndm_family)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.neigh.ndm_family = ndm_family;
+}
+
+uint32_t dplane_ctx_neigh_get_ndm_family(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.neigh.ndm_family;
+}
+
+void dplane_ctx_neigh_set_link_layer_ipv4(struct zebra_dplane_ctx *ctx,
+					  union sockunion link_layer_ipv4)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.neigh.link_layer_ipv4 = link_layer_ipv4;
+}
+
+union sockunion dplane_ctx_neigh_get_link_layer_ipv4(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.neigh.link_layer_ipv4;
 }
 
 /* Accessor for GRE set */
