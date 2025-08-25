@@ -79,6 +79,7 @@
 #include "bgpd/bgp_evpn_mh.h"
 #include "bgpd/bgp_mac.h"
 #include "bgpd/bgp_trace.h"
+#include "bgpd/bgp_srv6.h"
 
 DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
 DEFINE_QOBJ_TYPE(bgp_master);
@@ -1526,6 +1527,7 @@ static void bgp_srv6_init(struct bgp *bgp)
 	bgp->srv6_functions = list_new();
 	bgp->srv6_functions->del = (void (*)(void *))srv6_function_free;
 	bgp->srv6_only = true;
+	memset(bgp->srv6_unicast, 0, sizeof(bgp->srv6_unicast));
 }
 
 static void bgp_srv6_cleanup(struct bgp *bgp)
@@ -1546,6 +1548,17 @@ static void bgp_srv6_cleanup(struct bgp *bgp)
 		}
 		if (bgp->vpn_policy[afi].tovpn_sid_explicit)
 			XFREE(MTYPE_BGP_SRV6_SID, bgp->vpn_policy[afi].tovpn_sid_explicit);
+
+		if (bgp->srv6_unicast[afi].sid_locator) {
+			srv6_locator_free(bgp->srv6_unicast[afi].sid_locator);
+			bgp->srv6_unicast[afi].sid_locator = NULL;
+		}
+		if (bgp->srv6_unicast[afi].zebra_sid_last_sent)
+			XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[afi].zebra_sid_last_sent);
+		if (bgp->srv6_unicast[afi].sid)
+			XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[afi].sid);
+		if (bgp->srv6_unicast[afi].sid_explicit)
+			XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[afi].sid_explicit);
 	}
 
 	if (bgp->tovpn_sid_locator != NULL) {
@@ -4190,7 +4203,8 @@ int bgp_delete(struct bgp *bgp)
 
 	/*
 	 * Release SRv6 SIDs, like it's done in `vpn_leak_postchange()`
-	 * and bgp_sid_vpn_export_cmd/af_sid_vpn_export_cmd commands.
+	 * and bgp_sid_vpn_export_cmd/af_sid_vpn_export_cmd/af_sid_export
+	 * commands.
 	 */
 	bgp->tovpn_sid_index = 0;
 	UNSET_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO);
@@ -4202,6 +4216,9 @@ int bgp_delete(struct bgp *bgp)
 		delete_vrf_tovpn_sid_per_af(bgp_default, bgp, afi);
 
 		vpn_leak_zebra_vrf_sid_withdraw(bgp, afi);
+
+		/* SRv6 unicast */
+		bgp_srv6_unicast_delete(bgp_default, afi);
 	}
 
 	/* release auto vpn labels */
