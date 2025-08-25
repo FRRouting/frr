@@ -261,6 +261,15 @@ enum vpn_policy_direction {
 	BGP_VPN_POLICY_DIR_MAX = 2
 };
 
+struct srv6_policy {
+	uint32_t sid_index; /* unset => set to 0 */
+	struct in6_addr *sid_explicit;
+	struct in6_addr *sid;
+	struct srv6_locator *sid_locator;
+	struct in6_addr *zebra_sid_last_sent;
+	char *rmap_name;
+};
+
 struct vpn_policy {
 	struct bgp *bgp; /* parent */
 	afi_t afi;
@@ -701,6 +710,8 @@ struct bgp {
 #define BGP_CONFIG_VRF_TO_VRF_EXPORT (1 << 10)
 /* vpnvx retain flag */
 #define BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL (1 << 11)
+/* SRv6 unicast flag */
+#define BGP_CONFIG_SRV6_UNICAST_SID_AUTO (1 << 12)
 
 	/* BGP per AF peer count */
 	uint32_t af_peer_count[AFI_MAX][SAFI_MAX];
@@ -952,7 +963,8 @@ struct bgp {
 	uint32_t condition_filter_count;
 	struct event *t_condition_check;
 
-	/* BGP VPN SRv6 backend */
+
+	/* BGP L3 service VPN SRv6 backend */
 	char srv6_locator_name[SRV6_LOCNAME_SIZE];
 	enum srv6_headend_behavior srv6_encap_behavior;
 	struct srv6_locator *srv6_locator;
@@ -965,6 +977,9 @@ struct bgp {
 	uint32_t tovpn_sid_transpose_label;
 	struct in6_addr *tovpn_zebra_vrf_sid_last_sent;
 	bool srv6_only;
+
+	/* BGP L3 service IPv4/v6 SRv6 backend */
+	struct srv6_policy srv6_unicast[AFI_MAX];
 
 	/* TCP keepalive parameters for BGP connection */
 	uint16_t tcp_keepalive_idle;

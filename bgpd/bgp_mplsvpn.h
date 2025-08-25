@@ -93,6 +93,7 @@ extern void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 				afi_t afi, safi_t safi);
 void vrf_unimport_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 			   afi_t afi, safi_t safi);
+bool srv6_sid_compose(struct in6_addr *sid_value, struct srv6_locator *locator, uint32_t sid_func);
 
 static inline bool is_bgp_vrf_mplsvpn(struct bgp *bgp)
 {
@@ -399,6 +400,17 @@ static inline bool is_srv6_vpn_vrf_enabled(struct bgp *bgp)
 {
 	if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_AUTO) ||
 	    CHECK_FLAG(bgp->vrf_flags, BGP_VRF_TOVPN_SID_EXPLICIT) || bgp->tovpn_sid_index)
+		return true;
+
+	return false;
+}
+
+static inline bool is_srv6_vpn_enabled(struct bgp *bgp)
+{
+	if (is_srv6_vpn_vrf_enabled(bgp))
+		return true;
+
+	if (is_srv6_vpn_afi_enabled(bgp, AFI_IP) || is_srv6_vpn_afi_enabled(bgp, AFI_IP6))
 		return true;
 
 	return false;

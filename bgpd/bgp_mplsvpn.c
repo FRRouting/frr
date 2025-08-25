@@ -697,8 +697,7 @@ static bool sid_exist(struct bgp *bgp, const struct in6_addr *sid)
  * @param sid_func Function part of the SID
  * @return True if success, False otherwise
  */
-static bool srv6_sid_compose(struct in6_addr *sid_value,
-			     struct srv6_locator *locator, uint32_t sid_func)
+bool srv6_sid_compose(struct in6_addr *sid_value, struct srv6_locator *locator, uint32_t sid_func)
 {
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_LABEL);
 	int label = 0;
