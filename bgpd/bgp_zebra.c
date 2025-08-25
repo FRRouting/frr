@@ -1261,6 +1261,7 @@ static void bgp_zebra_announce_parse_nexthop(
 	uint32_t ttl = 0;
 	uint32_t bos = 0;
 	uint32_t exp = 0;
+
 	struct bgp_route_evpn *bre = NULL;
 
 	/* Determine if we're doing weighted ECMP or not */
@@ -1269,8 +1270,7 @@ static void bgp_zebra_announce_parse_nexthop(
 	/*
 	 * vrf leaking support (will have only one nexthop)
 	 */
-	if (info->extra && info->extra->vrfleak &&
-	    info->extra->vrfleak->bgp_orig)
+	if (info->extra && info->extra->vrfleak && info->extra->vrfleak->bgp_orig)
 		nh_othervrf = 1;
 
 	/* EVPN MAC-IP routes are installed with a L3 NHG id */
@@ -1436,19 +1436,17 @@ static void bgp_zebra_announce_parse_nexthop(
 
 		if (((mpinfo->attr->srv6_l3service &&
 		      !sid_zero_ipv6(&mpinfo->attr->srv6_l3service->sid)) ||
-		     (mpinfo->attr->srv6_vpn &&
-		      !sid_zero_ipv6(&mpinfo->attr->srv6_vpn->sid))) &&
-		    !is_evpn && bgp_is_valid_label(&labels[0])) {
-			struct in6_addr *sid_tmp =
-				mpinfo->attr->srv6_l3service
-					? (&mpinfo->attr->srv6_l3service->sid)
-					: (&mpinfo->attr->srv6_vpn->sid);
+		     (mpinfo->attr->srv6_vpn && !sid_zero_ipv6(&mpinfo->attr->srv6_vpn->sid))) &&
+		    !is_evpn) {
+			struct in6_addr *sid_tmp = mpinfo->attr->srv6_l3service
+							   ? (&mpinfo->attr->srv6_l3service->sid)
+							   : (&mpinfo->attr->srv6_vpn->sid);
 
 			memcpy(&api_nh->seg6_segs[0], sid_tmp,
 			       sizeof(api_nh->seg6_segs[0]));
 			api_nh->srv6_encap_behavior = bgp_orig->srv6_encap_behavior;
 
-			if (mpinfo->attr->srv6_l3service &&
+			if (mpinfo->attr->srv6_l3service && bgp_is_valid_label(&labels[0]) &&
 			    mpinfo->attr->srv6_l3service->transposition_len != 0) {
 				mpls_lse_decode(labels[0], &nh_label, &ttl,
 						&exp, &bos);
