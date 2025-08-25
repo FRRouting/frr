@@ -1215,7 +1215,7 @@ DEFPY(
 	"end discriminator\n")
 {
 	struct sbfd_reflector *sr;
-	int32_t i;
+	uint32_t i;
 
 	if (end_discr == 0) {
 		if (start_discr == 0) {
