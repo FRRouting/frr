@@ -638,7 +638,7 @@ def check_mac(dut, vni, mac, m_type, esi, intf, ping_gw=False, tgen=None):
         tmp_esi = info.get("esi", "")
         tmp_m_type = info.get("type", "")
         tmp_intf = info.get("intf", "") if tmp_m_type == "local" else ""
-        if tmp_esi == esi and tmp_m_type == m_type and intf == intf:
+        if tmp_esi == esi and tmp_m_type == m_type and tmp_intf == intf:
             return None
 
     return "invalid vni %d mac %s expected esi %s, %s m_type %s and intf %s out %s" % (
