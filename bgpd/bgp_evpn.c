@@ -1615,7 +1615,8 @@ static struct bgp_path_info *bgp_evpn_route_get_local_path(struct bgp *bgp, stru
 }
 
 static int update_evpn_type5_route_entry(struct bgp *bgp_evpn, struct bgp *bgp_vrf, afi_t afi,
-					 safi_t safi, struct bgp_dest *dest, struct attr *attr,
+					 safi_t safi, struct bgp_dest *dest,
+					 struct bgp_path_info *originator, struct attr *attr,
 					 int *route_changed, struct bgp_path_info **entry,
 					 uint32_t addpath_id)
 {
@@ -1665,7 +1666,8 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_evpn, struct bgp *bgp_v
 			SET_FLAG(pi->flags, BGP_PATH_MULTIPATH);
 
 		/* Type-5 routes advertise the L3-VNI */
-		bgp_path_info_extra_get(pi);
+		bgp_evpn_path_info_extra_get(pi);
+		pi->extra->evpn->type5_originator = originator;
 		vni2label(bgp_vrf->l3vni, &bgp_labels.label[0]);
 		bgp_labels.num_labels = 1;
 		if (!bgp_path_info_labels_same(pi, &bgp_labels.label[0],
@@ -1683,6 +1685,11 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_evpn, struct bgp *bgp_v
 	} else {
 		tmp_pi = local_pi;
 		if (!attrhash_cmp(tmp_pi->attr, attr)) {
+			if (originator != local_pi->extra->evpn->type5_originator)
+				zlog_warn(
+					"Changing the originator of a type5 route, this is not right");
+
+			local_pi->extra->evpn->type5_originator = originator;
 
 			/* attribute changed */
 			*route_changed = 1;
@@ -1718,9 +1725,9 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_evpn, struct bgp *bgp_v
 }
 
 /* update evpn type-5 route entry */
-static int update_evpn_type5_route(struct bgp *bgp_vrf, struct prefix_evpn *evp,
-				   struct attr *src_attr, afi_t src_afi, safi_t src_safi,
-				   uint32_t addpath_id)
+static int update_evpn_type5_route(struct bgp *bgp_vrf, struct bgp_path_info *originator,
+				   struct prefix_evpn *evp, struct attr *src_attr, afi_t src_afi,
+				   safi_t src_safi, uint32_t addpath_id)
 {
 	afi_t afi = AFI_L2VPN;
 	safi_t safi = SAFI_EVPN;
@@ -1819,8 +1826,8 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct prefix_evpn *evp,
 	assert(dest);
 
 	/* create or update the route entry within the route node */
-	update_evpn_type5_route_entry(bgp_evpn, bgp_vrf, afi, safi, dest, &attr, &route_changed,
-				      &pi, addpath_id);
+	update_evpn_type5_route_entry(bgp_evpn, bgp_vrf, afi, safi, dest, originator, &attr,
+				      &route_changed, &pi, addpath_id);
 
 	/* schedule for processing and unlock node */
 	if (route_changed) {
@@ -4497,8 +4504,8 @@ static void delete_withdraw_vrf_routes(struct bgp *bgp_vrf)
 {
 	/* Delete ipv4 default route and withdraw from peers */
 	if (evpn_default_originate_set(bgp_vrf, AFI_IP, SAFI_UNICAST))
-		bgp_evpn_install_uninstall_default_route(bgp_vrf, AFI_IP,
-							 SAFI_UNICAST, false);
+		bgp_evpn_install_uninstall_default_route(bgp_vrf, AFI_IP, SAFI_UNICAST, NULL,
+							 false);
 
 	/* delete all ipv4 routes and withdraw from peers */
 	if (advertise_type5_routes_bestpath(bgp_vrf, AFI_IP) ||
@@ -4507,8 +4514,8 @@ static void delete_withdraw_vrf_routes(struct bgp *bgp_vrf)
 
 	/* Delete ipv6 default route and withdraw from peers */
 	if (evpn_default_originate_set(bgp_vrf, AFI_IP6, SAFI_UNICAST))
-		bgp_evpn_install_uninstall_default_route(bgp_vrf, AFI_IP6,
-							 SAFI_UNICAST, false);
+		bgp_evpn_install_uninstall_default_route(bgp_vrf, AFI_IP6, SAFI_UNICAST, NULL,
+							 false);
 
 	/* delete all ipv6 routes and withdraw from peers */
 	if (advertise_type5_routes_bestpath(bgp_vrf, AFI_IP6) ||
@@ -4535,8 +4542,7 @@ void update_advertise_vrf_routes(struct bgp *bgp_vrf)
 
 	/* update ipv4 default route and withdraw from peers */
 	if (evpn_default_originate_set(bgp_vrf, AFI_IP, SAFI_UNICAST))
-		bgp_evpn_install_uninstall_default_route(bgp_vrf, AFI_IP,
-							 SAFI_UNICAST, true);
+		bgp_evpn_install_uninstall_default_route(bgp_vrf, AFI_IP, SAFI_UNICAST, NULL, true);
 
 	/* update all ipv6 routes */
 	if (advertise_type5_routes_bestpath(bgp_vrf, AFI_IP6) ||
@@ -4545,9 +4551,8 @@ void update_advertise_vrf_routes(struct bgp *bgp_vrf)
 
 	/* update ipv6 default route and withdraw from peers */
 	if (evpn_default_originate_set(bgp_vrf, AFI_IP6, SAFI_UNICAST))
-		bgp_evpn_install_uninstall_default_route(bgp_vrf, AFI_IP6,
-							 SAFI_UNICAST, true);
-
+		bgp_evpn_install_uninstall_default_route(bgp_vrf, AFI_IP6, SAFI_UNICAST, NULL,
+							 true);
 }
 
 /*
@@ -5471,8 +5476,8 @@ void bgp_evpn_withdraw_type5_routes(struct bgp *bgp_vrf, afi_t afi, safi_t safi)
 /*
  * evpn - enable advertisement of default g/w
  */
-void bgp_evpn_install_uninstall_default_route(struct bgp *bgp_vrf, afi_t afi,
-					      safi_t safi, bool add)
+void bgp_evpn_install_uninstall_default_route(struct bgp *bgp_vrf, afi_t afi, safi_t safi,
+					      struct bgp_path_info *originator, bool add)
 {
 	struct prefix ip_prefix;
 
@@ -5481,7 +5486,7 @@ void bgp_evpn_install_uninstall_default_route(struct bgp *bgp_vrf, afi_t afi,
 	ip_prefix.family = afi2family(afi);
 
 	if (add)
-		bgp_evpn_advertise_type5_route(bgp_vrf, &ip_prefix, NULL, afi, safi, 0);
+		bgp_evpn_advertise_type5_route(bgp_vrf, originator, &ip_prefix, NULL, afi, safi, 0);
 	else
 		bgp_evpn_withdraw_type5_route(bgp_vrf, &ip_prefix, afi, safi, 0);
 }
@@ -5493,15 +5498,15 @@ void bgp_evpn_install_uninstall_default_route(struct bgp *bgp_vrf, afi_t afi,
  * path in the case of the attr. In the case of a local prefix (when we
  * are advertising local subnets), the src_attr will be NULL.
  */
-void bgp_evpn_advertise_type5_route(struct bgp *bgp_vrf, const struct prefix *p,
-				    struct attr *src_attr, afi_t afi, safi_t safi,
-				    uint32_t addpath_id)
+void bgp_evpn_advertise_type5_route(struct bgp *bgp_vrf, struct bgp_path_info *originator,
+				    const struct prefix *p, struct attr *src_attr, afi_t afi,
+				    safi_t safi, uint32_t addpath_id)
 {
 	int ret = 0;
 	struct prefix_evpn evp;
 
 	build_type5_prefix_from_ip_prefix(&evp, p);
-	ret = update_evpn_type5_route(bgp_vrf, &evp, src_attr, afi, safi, addpath_id);
+	ret = update_evpn_type5_route(bgp_vrf, originator, &evp, src_attr, afi, safi, addpath_id);
 	if (ret)
 		flog_err(EC_BGP_EVPN_ROUTE_CREATE,
 			 "%u: Failed to create type-5 route for prefix %pFX",
@@ -6531,7 +6536,7 @@ void bgp_evpn_export_type5_route(struct bgp *bgp, struct bgp_dest *dest, struct 
 
 	addpath_id = bgp_evpn_addpath_id_for_path(bgp, pi, afi);
 	if (!bgp->adv_cmd_rmap[afi][safi].map) {
-		bgp_evpn_advertise_type5_route(bgp, prefix, pi->attr, afi, safi, addpath_id);
+		bgp_evpn_advertise_type5_route(bgp, pi, prefix, pi->attr, afi, safi, addpath_id);
 		return;
 	}
 
@@ -6546,7 +6551,7 @@ void bgp_evpn_export_type5_route(struct bgp *bgp, struct bgp_dest *dest, struct 
 		bgp_attr_flush(&tmp_attr);
 		return;
 	}
-	bgp_evpn_advertise_type5_route(bgp, prefix, &tmp_attr, afi, safi, addpath_id);
+	bgp_evpn_advertise_type5_route(bgp, pi, prefix, &tmp_attr, afi, safi, addpath_id);
 }
 
 /*
