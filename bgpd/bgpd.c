@@ -3123,6 +3123,15 @@ int peer_group_remote_as(struct bgp *bgp, const char *group_name, as_t *as,
 	peer_as_change(group->conf, *as, as_type, as_str);
 
 	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
+		/*
+		 * Re-initiate RA for BGP unnumbered peers when peer group gets
+		 * remote-as configured. This ensures RA is restored after
+		 * peer_group_remote_as_delete() terminated it
+		 */
+		if (peer->conf_if && peer->ifp &&
+		    CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE))
+			bgp_zebra_initiate_radv(peer->bgp, peer);
+
 		if (((peer->as_type == AS_SPECIFIED) && peer->as != *as) ||
 		    (peer->as_type != as_type)) {
 			peer_as_change(peer, *as, as_type, as_str);
