@@ -3601,9 +3601,11 @@ static void bgp_process_evpn_route_injection(struct bgp *bgp, afi_t afi,
 				bgp_attr_flush(&dummy_attr);
 				bgp_evpn_withdraw_type5_route(bgp, p, afi, safi, 0);
 			} else
-				bgp_evpn_advertise_type5_route(bgp, p, &dummy_attr, afi, safi, 0);
+				bgp_evpn_advertise_type5_route(bgp, new_select, p, &dummy_attr,
+							       afi, safi, 0);
 		} else {
-			bgp_evpn_advertise_type5_route(bgp, p, new_select->attr, afi, safi, 0);
+			bgp_evpn_advertise_type5_route(bgp, new_select, p, new_select->attr, afi,
+						       safi, 0);
 		}
 	} else if (advertise_type5_routes_bestpath(bgp, afi) && old_select &&
 		   is_route_injectable_into_evpn(old_select))
