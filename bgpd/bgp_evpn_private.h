@@ -675,9 +675,8 @@ static inline bool bgp_evpn_is_path_local(struct bgp *bgp,
 			&& pi->sub_type == BGP_ROUTE_STATIC);
 }
 
-extern void bgp_evpn_install_uninstall_default_route(struct bgp *bgp_vrf,
-						     afi_t afi, safi_t safi,
-						     bool add);
+extern void bgp_evpn_install_uninstall_default_route(struct bgp *bgp_vrf, afi_t afi, safi_t safi,
+						     struct bgp_path_info *originator, bool add);
 extern void evpn_rt_delete_auto(struct bgp *bgp, vni_t vni, struct list *rtl,
 				bool is_l3);
 extern void bgp_evpn_configure_export_rt_for_vrf(struct bgp *bgp_vrf,
