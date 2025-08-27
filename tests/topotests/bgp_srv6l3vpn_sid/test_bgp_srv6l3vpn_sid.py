@@ -458,9 +458,10 @@ def test_sid_suppress_locator_vrf_default():
           no segment-routing srv6
         """
     )
-    # 2001:5::/64 should be removed, r2 should have 3 entries only
+    # r2 should have 3 entries
     check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_unselected.json")
-    # 2001:5::/64 should be present, along with prefixes from vrf10
+
+    # no vpn prefixes from r1 are exported
     check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_unselected.json")
 
 
