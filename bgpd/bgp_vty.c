@@ -11221,18 +11221,19 @@ DEFPY (no_bgp_srv6_locator,
 
 DEFPY (show_bgp_srv6,
        show_bgp_srv6_cmd,
-       "show bgp segment-routing srv6",
+       "show bgp [<view|vrf> VIEWVRFNAME$vrf] segment-routing srv6",
        SHOW_STR
        BGP_STR
+       BGP_INSTANCE_HELP_STR
        "BGP Segment Routing\n"
        "BGP Segment Routing SRv6\n")
 {
-	struct bgp *bgp;
+	struct bgp *bgp, *bgp_inst;
 	struct listnode *node;
 	struct srv6_locator_chunk *chunk;
 	struct bgp_srv6_function *func;
 
-	bgp = bgp_get_default();
+	bgp = vrf ? bgp_lookup_by_name(vrf) : bgp_get_default();
 	if (!bgp)
 		return CMD_SUCCESS;
 
@@ -11265,15 +11266,17 @@ DEFPY (show_bgp_srv6,
 	}
 
 	vty_out(vty, "bgps:\n");
-	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
-		vty_out(vty, "- name: %s\n",
-			bgp->name ? bgp->name : "default");
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_inst)) {
+		if (bgp != bgp_get_default() && bgp_inst != bgp)
+			continue;
+
+		vty_out(vty, "- name: %s\n", bgp_inst->name ? bgp_inst->name : "default");
 
 		vty_out(vty, "  vpn_policy[AFI_IP].tovpn_sid: %pI6\n",
-			bgp->vpn_policy[AFI_IP].tovpn_sid);
+			bgp_inst->vpn_policy[AFI_IP].tovpn_sid);
 		vty_out(vty, "  vpn_policy[AFI_IP6].tovpn_sid: %pI6\n",
-			bgp->vpn_policy[AFI_IP6].tovpn_sid);
-		vty_out(vty, "  per-vrf tovpn_sid: %pI6\n", bgp->tovpn_sid);
+			bgp_inst->vpn_policy[AFI_IP6].tovpn_sid);
+		vty_out(vty, "  per-vrf tovpn_sid: %pI6\n", bgp_inst->tovpn_sid);
 	}
 
 	return CMD_SUCCESS;
