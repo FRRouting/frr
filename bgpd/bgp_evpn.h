@@ -112,8 +112,10 @@ static inline bool evpn_resolve_overlay_index(void)
 extern void bgp_evpn_advertise_type5_route(struct bgp *bgp_vrf, struct bgp_path_info *originator,
 					   const struct prefix *p, struct attr *src_attr,
 					   afi_t afi, safi_t safi, uint32_t addpath_id);
-extern void bgp_evpn_withdraw_type5_route(struct bgp *bgp_vrf, const struct prefix *p, afi_t afi,
-					  safi_t safi, uint32_t addpath_id);
+extern void bgp_evpn_withdraw_type5_route(struct bgp *bgp_vrf,
+					  const struct bgp_path_info *originator,
+					  const struct prefix *p, afi_t afi, safi_t safi,
+					  uint32_t addpath_id);
 extern void bgp_evpn_withdraw_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 					   safi_t safi);
 extern void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,

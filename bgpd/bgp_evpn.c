@@ -1439,7 +1439,7 @@ static void evpn_delete_old_local_route(struct bgp *bgp, struct bgpevpn *vpn,
 		&vpn->prd, old_local);
 	if (global_dest) {
 		/* Delete route entry in the global EVPN table. */
-		pi = delete_evpn_route_entry(bgp, afi, safi, global_dest, 0);
+		pi = delete_evpn_route_entry(bgp, afi, safi, global_dest, NULL, 0);
 
 		/* Schedule for processing - withdraws to peers happen from
 		 * this table.
@@ -1609,8 +1609,13 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_evpn, struct bgp *bgp_v
 
 	*route_changed = 0;
 
-	/* See if this is an update of an existing route, or a new add. */
-	local_pi = bgp_evpn_route_get_local_path(bgp_evpn, dest, addpath_id);
+	for (local_pi = bgp_dest_get_bgp_path_info(dest); local_pi; local_pi = local_pi->next) {
+		if (!bgp_evpn_is_path_local(bgp_evpn, local_pi))
+			continue;
+
+		if (local_pi->extra->evpn->type5_originator == originator)
+			break;
+	}
 
 	static_attr = *attr;
 
@@ -2414,12 +2419,23 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
  * The entry can be in ESI/VNI table or the global table.
  */
 struct bgp_path_info *delete_evpn_route_entry(struct bgp *bgp, afi_t afi, safi_t safi,
-					      struct bgp_dest *dest, uint32_t addpath_id)
+					      struct bgp_dest *dest,
+					      const struct bgp_path_info *originator,
+					      uint32_t addpath_id)
 {
 	struct bgp_path_info *pi = NULL;
 
 	/* Now, find matching route. */
-	pi = bgp_evpn_route_get_local_path(bgp, dest, addpath_id);
+	if (originator) {
+		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+			if (!bgp_evpn_is_path_local(bgp, pi))
+				continue;
+
+			if (pi->extra->evpn->type5_originator == originator)
+				break;
+		}
+	} else
+		pi = bgp_evpn_route_get_local_path(bgp, dest, addpath_id);
 
 	/* Mark route for delete. */
 	if (pi)
@@ -2429,8 +2445,8 @@ struct bgp_path_info *delete_evpn_route_entry(struct bgp *bgp, afi_t afi, safi_t
 }
 
 /* Delete EVPN type5 route */
-static int delete_evpn_type5_route(struct bgp *bgp_vrf, struct prefix_evpn *evp,
-				   uint32_t addpath_id)
+static int delete_evpn_type5_route(struct bgp *bgp_vrf, const struct bgp_path_info *originator,
+				   struct prefix_evpn *evp, uint32_t addpath_id)
 {
 	afi_t afi = AFI_L2VPN;
 	safi_t safi = SAFI_EVPN;
@@ -2450,7 +2466,7 @@ static int delete_evpn_type5_route(struct bgp *bgp_vrf, struct prefix_evpn *evp,
 
 	frrtrace(2, frr_bgp, evpn_withdraw_type5, bgp_vrf->vrf_id, evp);
 
-	pi = delete_evpn_route_entry(bgp_evpn, afi, safi, dest, addpath_id);
+	pi = delete_evpn_route_entry(bgp_evpn, afi, safi, dest, originator, addpath_id);
 	if (pi)
 		bgp_process(bgp_evpn, dest, afi, safi);
 	bgp_dest_unlock_node(dest);
@@ -2486,7 +2502,7 @@ static int delete_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 						  &vpn->prd, NULL);
 	if (global_dest) {
 		/* Delete route entry in the global EVPN table. */
-		pi = delete_evpn_route_entry(bgp, afi, safi, global_dest, 0);
+		pi = delete_evpn_route_entry(bgp, afi, safi, global_dest, NULL, 0);
 
 		/* Schedule for processing - withdraws to peers happen from
 		 * this table.
@@ -2503,7 +2519,7 @@ static int delete_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 
 	/* Delete route entry in the VNI route table. This can just be removed.
 	 */
-	pi = delete_evpn_route_entry(bgp, afi, safi, dest, 0);
+	pi = delete_evpn_route_entry(bgp, afi, safi, dest, NULL, 0);
 	if (pi) {
 		dest = bgp_path_info_reap(dest, pi);
 		assert(dest);
@@ -2754,7 +2770,7 @@ static void delete_global_type2_routes(struct bgp *bgp, struct bgpevpn *vpn)
 			if (evp->prefix.route_type != BGP_EVPN_MAC_IP_ROUTE)
 				continue;
 
-			pi = delete_evpn_route_entry(bgp, afi, safi, dest, 0);
+			pi = delete_evpn_route_entry(bgp, afi, safi, dest, NULL, 0);
 			if (pi) {
 				bgp_process(bgp, dest, afi, safi);
 				if (!is_evpn_prefix_ipaddr_none(evp))
@@ -2781,7 +2797,7 @@ static struct bgp_dest *delete_vni_type2_route(struct bgp *bgp,
 	if (evp->prefix.route_type != BGP_EVPN_MAC_IP_ROUTE)
 		return dest;
 
-	pi = delete_evpn_route_entry(bgp, afi, safi, dest, 0);
+	pi = delete_evpn_route_entry(bgp, afi, safi, dest, NULL, 0);
 
 	/* Route entry in local table gets deleted immediately. */
 	if (pi)
@@ -4775,7 +4791,7 @@ static int delete_withdraw_vni_routes(struct bgp *bgp, struct bgpevpn *vpn)
 						  &vpn->prd, NULL);
 	if (global_dest) {
 		/* Delete route entry in the global EVPN table. */
-		pi = delete_evpn_route_entry(bgp, afi, safi, global_dest, 0);
+		pi = delete_evpn_route_entry(bgp, afi, safi, global_dest, NULL, 0);
 
 		/* Schedule for processing - withdraws to peers happen from
 		 * this table.
@@ -5484,14 +5500,15 @@ static void update_autort_l3vni(struct bgp *bgp)
  */
 
 /* withdraw type-5 route corresponding to ip prefix */
-void bgp_evpn_withdraw_type5_route(struct bgp *bgp_vrf, const struct prefix *p, afi_t afi,
-				   safi_t safi, uint32_t addpath_id)
+void bgp_evpn_withdraw_type5_route(struct bgp *bgp_vrf, const struct bgp_path_info *originator,
+				   const struct prefix *p, afi_t afi, safi_t safi,
+				   uint32_t addpath_id)
 {
 	int ret = 0;
 	struct prefix_evpn evp;
 
 	build_type5_prefix_from_ip_prefix(&evp, p);
-	ret = delete_evpn_type5_route(bgp_vrf, &evp, addpath_id);
+	ret = delete_evpn_type5_route(bgp_vrf, originator, &evp, addpath_id);
 	if (ret)
 		flog_err(
 			EC_BGP_EVPN_ROUTE_DELETE,
@@ -5516,7 +5533,7 @@ void bgp_evpn_withdraw_type5_routes(struct bgp *bgp_vrf, afi_t afi, safi_t safi)
 			if (!is_route_injectable_into_evpn(pi))
 				continue;
 			addpath_id = bgp_evpn_addpath_id_for_path(bgp_vrf, pi, afi);
-			bgp_evpn_withdraw_type5_route(bgp_vrf, bgp_dest_get_prefix(dest), afi,
+			bgp_evpn_withdraw_type5_route(bgp_vrf, pi, bgp_dest_get_prefix(dest), afi,
 						      safi, addpath_id);
 
 			if (advertise_type5_routes_bestpath(bgp_vrf, afi))
@@ -5540,7 +5557,7 @@ void bgp_evpn_install_uninstall_default_route(struct bgp *bgp_vrf, afi_t afi, sa
 	if (add)
 		bgp_evpn_advertise_type5_route(bgp_vrf, originator, &ip_prefix, NULL, afi, safi, 0);
 	else
-		bgp_evpn_withdraw_type5_route(bgp_vrf, &ip_prefix, afi, safi, 0);
+		bgp_evpn_withdraw_type5_route(bgp_vrf, originator, &ip_prefix, afi, safi, 0);
 }
 
 
@@ -6615,7 +6632,7 @@ void bgp_evpn_unexport_type5_route(struct bgp *bgp, const struct bgp_dest *dest,
 	uint32_t addpath_id;
 
 	addpath_id = bgp_evpn_addpath_id_for_path(bgp, pi, afi);
-	bgp_evpn_withdraw_type5_route(bgp, prefix, afi, safi, addpath_id);
+	bgp_evpn_withdraw_type5_route(bgp, pi, prefix, afi, safi, addpath_id);
 }
 
 /* Refresh previously-discarded EVPN routes carrying "self" MAC-VRF SoO.
@@ -8160,7 +8177,8 @@ void bgp_aggr_supp_withdraw_from_evpn(struct bgp *bgp, afi_t afi, safi_t safi)
 					continue;
 
 				addpath_id = bgp_evpn_addpath_id_for_path(bgp, pi, afi);
-				bgp_evpn_withdraw_type5_route(bgp, dest_p, afi, safi, addpath_id);
+				bgp_evpn_withdraw_type5_route(bgp, NULL, dest_p, afi, safi,
+							      addpath_id);
 			}
 		}
 	}
