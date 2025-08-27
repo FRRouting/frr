@@ -7,6 +7,7 @@
 
 #include <pthread.h>
 #include "lib/frratomic.h"
+#include "lib/hook.h"
 
 #include "zebra_router.h"
 #include "zebra_pbr.h"
@@ -25,6 +26,8 @@ DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_RT_TABLE, "Zebra VRF table");
 struct zebra_router zrouter = {
 	.zav.multipath_num = MULTIPATH_NUM,
 };
+
+DEFINE_HOOK(nos_initialize_data, (struct zebra_architectural_values *zav), (zav));
 
 static inline int
 zebra_router_table_entry_compare(const struct zebra_router_table *e1,
@@ -353,6 +356,8 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack, bool v6_with_v4_ne
 	zrouter.zav.asic_notification_nexthop_control = false;
 
 	zrouter.backup_nhs_installed = false;
+
+	hook_call(nos_initialize_data, &zrouter.zav);
 
 	if (!zrouter.zav.nexthop_weight_is_16bit)
 		zrouter.nexthop_weight_scale_value = 254;
