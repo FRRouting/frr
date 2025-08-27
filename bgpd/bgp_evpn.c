@@ -2848,8 +2848,8 @@ static int bgp_evpn_vni_flood_mode_get(struct bgp *bgp,
 {
 	if (bgp_debug_zebra(NULL))
 		zlog_debug("VRF %s vni %u flood mode %d (global flood mode %d)",
-			   vrf_id_to_name(vpn->bgp_vrf->vrf_id), vpn->vni, vpn->vxlan_flood_ctrl,
-			   bgp->vxlan_flood_ctrl);
+			   vpn->bgp_vrf ? vrf_id_to_name(vpn->bgp_vrf->vrf_id) : "UNKNOWN",
+			   vpn->vni, vpn->vxlan_flood_ctrl, bgp->vxlan_flood_ctrl);
 
 	/* If per-VNI flood mode is set and differs from global mode,
 	 * use per-VNI mode.
