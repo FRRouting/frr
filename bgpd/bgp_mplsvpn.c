@@ -1024,7 +1024,10 @@ void delete_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 					     : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
 		bgp_zebra_release_srv6_sid(&ctx, bgp_vrf->vpn_policy[afi].tovpn_sid_locator->name);
 
-		sid_unregister(bgp_vpn, bgp_vrf->vpn_policy[afi].tovpn_sid);
+		if (bgp_vrf->srv6_locator)
+			sid_unregister(bgp_vrf, bgp_vrf->vpn_policy[afi].tovpn_sid);
+		else
+			sid_unregister(bgp_vpn, bgp_vrf->vpn_policy[afi].tovpn_sid);
 		XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[afi].tovpn_sid);
 	}
 
@@ -1070,7 +1073,10 @@ void delete_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 		ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
 		bgp_zebra_release_srv6_sid(&ctx, bgp_vrf->tovpn_sid_locator->name);
 
-		sid_unregister(bgp_vpn, bgp_vrf->tovpn_sid);
+		if (bgp_vrf->srv6_locator)
+			sid_unregister(bgp_vrf, bgp_vrf->tovpn_sid);
+		else
+			sid_unregister(bgp_vpn, bgp_vrf->tovpn_sid);
 		XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
 	}
 	if (bgp_vrf->tovpn_sid_explicit) {
