@@ -55,7 +55,9 @@ def test_oper_root(tgen):
         for cm in config_mods:
             fcm = "-" + cm if cm else ""
             cmd_cm = " " + cm if cm else ""
-            query_results.append(("/*", f"root-results/result{fds}{fcm}.json", cmd_ds + cmd_cm))
+            query_results.append(
+                ("/*", f"root-results/result{fds}{fcm}.json", cmd_ds + cmd_cm)
+            )
 
     r1 = tgen.gears["r1"].net
     check_kernel_32(r1, "11.11.11.11", 1, "")
@@ -65,18 +67,19 @@ def test_oper_root(tgen):
 to_gen_new_results = """
 scriptdir=~chopps/w/frr/tests/topotests/mgmt_oper
 resdir=${scriptdir}/root-results
-vtysh -c 'show mgmt get-data /*'                > ${resdir}/result.json
-vtysh -c 'show mgmt get-data /* with-config'    > ${resdir}/result-with-config.json
-vtysh -c 'show mgmt get-data /* only-config'    > ${resdir}/result-only-config.json
-vtysh -c 'show mgmt get-data /* datastore candidate'                > ${resdir}/result-candidate.json
-vtysh -c 'show mgmt get-data /* datastore candidate with-config'    > ${resdir}/result-candidate-with-config.json
-vtysh -c 'show mgmt get-data /* datastore candidate only-config'    > ${resdir}/result-candidate-only-config.json
-vtysh -c 'show mgmt get-data /* datastore running'                > ${resdir}/result-running.json
-vtysh -c 'show mgmt get-data /* datastore running with-config'    > ${resdir}/result-running-with-config.json
-vtysh -c 'show mgmt get-data /* datastore running only-config'    > ${resdir}/result-running-only-config.json
-vtysh -c 'show mgmt get-data /* datastore operational'                > ${resdir}/result-operational.json
-vtysh -c 'show mgmt get-data /* datastore operational with-config'    > ${resdir}/result-operational-with-config.json
-vtysh -c 'show mgmt get-data /* datastore operational only-config'    > ${resdir}/result-operational-only-config.json
+filter='jq pick(.["frr-backend:clients","frr-interface:lib","frr-logging:logging"])'
+vtysh -c 'show mgmt get-data /*'                | $filter > ${resdir}/result.json
+vtysh -c 'show mgmt get-data /* with-config'    | $filter > ${resdir}/result-with-config.json
+vtysh -c 'show mgmt get-data /* only-config'    | $filter > ${resdir}/result-only-config.json
+vtysh -c 'show mgmt get-data /* datastore candidate'                | $filter > ${resdir}/result-candidate.json
+vtysh -c 'show mgmt get-data /* datastore candidate with-config'    | $filter > ${resdir}/result-candidate-with-config.json
+vtysh -c 'show mgmt get-data /* datastore candidate only-config'    | $filter > ${resdir}/result-candidate-only-config.json
+vtysh -c 'show mgmt get-data /* datastore running'                | $filter > ${resdir}/result-running.json
+vtysh -c 'show mgmt get-data /* datastore running with-config'    | $filter > ${resdir}/result-running-with-config.json
+vtysh -c 'show mgmt get-data /* datastore running only-config'    | $filter > ${resdir}/result-running-only-config.json
+vtysh -c 'show mgmt get-data /* datastore operational'                | $filter > ${resdir}/result-operational.json
+vtysh -c 'show mgmt get-data /* datastore operational with-config'    | $filter > ${resdir}/result-operational-with-config.json
+vtysh -c 'show mgmt get-data /* datastore operational only-config'    | $filter > ${resdir}/result-operational-only-config.json
 
 scriptdir=~chopps/w/frr/tests/topotests/mgmt_oper
 resdir=${scriptdir}/root-results
