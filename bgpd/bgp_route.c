@@ -3599,7 +3599,14 @@ static void bgp_process_evpn_route_injection(struct bgp *bgp, afi_t afi,
 
 			if (ret == RMAP_DENYMATCH) {
 				bgp_attr_flush(&dummy_attr);
-				bgp_evpn_withdraw_type5_route(bgp, p, afi, safi, 0);
+				/*
+				 * I believe it is possible that a new routemap can be applied at the
+				 * same time that a route update happens that causes us to have to
+				 * remove both the old and new selects.
+				 * Very Unlikely though, but let's cover our caluntas
+				 */
+				bgp_evpn_withdraw_type5_route(bgp, old_select, p, afi, safi, 0);
+				bgp_evpn_withdraw_type5_route(bgp, new_select, p, afi, safi, 0);
 			} else
 				bgp_evpn_advertise_type5_route(bgp, new_select, p, &dummy_attr,
 							       afi, safi, 0);
@@ -3609,7 +3616,7 @@ static void bgp_process_evpn_route_injection(struct bgp *bgp, afi_t afi,
 		}
 	} else if (advertise_type5_routes_bestpath(bgp, afi) && old_select &&
 		   is_route_injectable_into_evpn(old_select))
-		bgp_evpn_withdraw_type5_route(bgp, p, afi, safi, 0);
+		bgp_evpn_withdraw_type5_route(bgp, old_select, p, afi, safi, 0);
 }
 
 /*
