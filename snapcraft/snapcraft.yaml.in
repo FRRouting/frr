@@ -128,6 +128,13 @@ apps:
             - network
             - network-bind
             - network-control
+    dhcpgwd:
+        command: bin/dhcpgwd-service
+        daemon: simple
+        plugs:
+            - network
+            - network-bind
+            - network-control
     bfdd:
         command: bin/bfdd-service
         daemon: simple
@@ -244,6 +251,12 @@ apps:
             - network-control
     staticd-debug:
         command: sbin/staticd -f $SNAP_DATA/staticd.conf --pid_file $SNAP_DATA/staticd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
+        plugs:
+            - network
+            - network-bind
+            - network-control
+    dhcpgwd-debug:
+        command: sbin/dhcpgwd -f $SNAP_DATA/dhcpgwd.conf --pid_file $SNAP_DATA/dhcpgwd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
         plugs:
             - network
             - network-bind
@@ -408,6 +421,7 @@ parts:
             pathd.conf.default: etc/frr/pathd.conf.default
             vtysh.conf.default: etc/frr/vtysh.conf.default
             staticd.conf.default: etc/frr/staticd.conf.default
+            dhcpgwd.conf.default: etc/frr/dhcpgwd.conf.default
     frr-scripts:
         plugin: make
         source: scripts

@@ -1,0 +1,16 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# DHCP gateway related functions
+# Copyright (C) 2025 VyOS Inc.
+# Kyrylo Yatsenko
+
+if [ $if_up = true ] ; then
+    arg_state='up'
+    arg_gateway_ip=$new_routers
+else
+    arg_state='down'
+    arg_gateway_ip=''
+fi
+
+@e_sbindir@/update-dhcp-gw $interface $arg_state $arg_gateway_ip
