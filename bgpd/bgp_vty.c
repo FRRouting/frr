@@ -292,13 +292,34 @@ static const char *get_afi_safi_json_str(afi_t afi, safi_t safi)
 	return "Unknown";
 }
 
-/* unset srv6 locator */
-static int bgp_srv6_locator_unset(struct bgp *bgp)
+static void bgp_srv6_sids_unset(struct bgp *bgp)
 {
 	struct listnode *node, *nnode;
 	struct srv6_locator_chunk *chunk;
 	struct bgp_srv6_function *func;
 	struct bgp *bgp_vrf;
+	struct srv6_sid_ctx ctx = {};
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
+		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
+			/* TODO: accept SRv6 entries on default VRF */
+			continue;
+
+		if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF && bgp_vrf != bgp)
+			continue;
+
+		if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT && bgp != bgp_vrf &&
+		    bgp_vrf->srv6_locator)
+			/* bgp_vrf has an active locator, we have to keep it */
+			continue;
+
+		if (bgp_vrf->vpn_policy[AFI_IP].tovpn_sid)
+			vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(),
+					   bgp_vrf);
+		if (bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid)
+			vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(),
+					   bgp_vrf);
+	}
 
 	/* refresh chunks */
 	for (ALL_LIST_ELEMENTS(bgp->srv6_locator_chunks, node, nnode, chunk)) {
@@ -318,26 +339,41 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 			/* TODO: accept SRv6 entries on default VRF */
 			continue;
 
-		/* refresh vpnv4 tovpn_sid */
-		XFREE(MTYPE_BGP_SRV6_SID,
-		      bgp_vrf->vpn_policy[AFI_IP].tovpn_sid);
-
-		/* refresh vpnv6 tovpn_sid */
-		XFREE(MTYPE_BGP_SRV6_SID,
-		      bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid);
-
-		/* refresh per-vrf tovpn_sid */
-		XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
-	}
-
-	/* update vpn bgp processes */
-	vpn_leak_postchange_all();
-
-	/* refresh tovpn_sid_locator */
-	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
-		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
-			/* TODO: accept SRv6 entries on default VRF */
+		if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF && bgp_vrf != bgp)
 			continue;
+
+		if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT && bgp != bgp_vrf &&
+		    bgp_vrf->srv6_locator)
+			/* bgp_vrf has an active locator, we have to keep it */
+			continue;
+
+		ctx.vrf_id = bgp_vrf->vrf_id;
+
+		if (bgp_vrf->vpn_policy[AFI_IP].tovpn_sid) {
+			/* release vpnv4 tovpn_sid */
+			ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT4;
+			bgp_zebra_release_srv6_sid(&ctx, bgp_vrf->vpn_policy[AFI_IP]
+								 .tovpn_sid_locator->name);
+			/* refresh vpnv4 tovpn_sid */
+			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[AFI_IP].tovpn_sid);
+		}
+
+		if (bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid) {
+			/* release vpnv6 tovpn_sid */
+			ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+			bgp_zebra_release_srv6_sid(&ctx, bgp_vrf->vpn_policy[AFI_IP6]
+								 .tovpn_sid_locator->name);
+			/* refresh vpnv6 tovpn_sid */
+			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid);
+		}
+
+		if (bgp_vrf->tovpn_sid) {
+			/* release vpnvx tovpn_sid */
+			ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
+			bgp_zebra_release_srv6_sid(&ctx, bgp_vrf->tovpn_sid_locator->name);
+			/* refresh per-vrf tovpn_sid */
+			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
+		}
 
 		/* refresh vpnv4 tovpn_sid_locator */
 		srv6_locator_free(bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator);
@@ -352,6 +388,13 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 		srv6_locator_free(bgp_vrf->tovpn_sid_locator);
 		bgp_vrf->tovpn_sid_locator = NULL;
 	}
+}
+
+/* unset srv6 locator */
+static int bgp_srv6_locator_unset(struct bgp *bgp)
+{
+	/* clear function, sids */
+	bgp_srv6_sids_unset(bgp);
 
 	/* clear locator name */
 	memset(bgp->srv6_locator_name, 0, sizeof(bgp->srv6_locator_name));
@@ -361,7 +404,7 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 		srv6_locator_free(bgp->srv6_locator);
 		bgp->srv6_locator = NULL;
 	}
-
+	vpn_leak_postchange_all();
 	return 0;
 }
 
@@ -11157,6 +11200,8 @@ DEFPY (bgp_srv6_locator,
 		vty_out(vty, "srv6 locator is already configured\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
+
+	bgp_srv6_sids_unset(bgp);
 
 	snprintf(bgp->srv6_locator_name,
 		 sizeof(bgp->srv6_locator_name), "%s", name);
