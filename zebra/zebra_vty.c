@@ -3561,12 +3561,13 @@ DEFPY (ip_zebra_import_table_distance,
 		distance = ZEBRA_TABLE_DISTANCE_DEFAULT;
 
 	if (!is_zebra_valid_kernel_table(table_id)) {
-		vty_out(vty, "Invalid routing table ID, %ld. Must be in range 1-252\n", table_id);
+		vty_out(vty, "Invalid routing table ID, %lld. Must be in range 1-252\n", table_id);
 		return CMD_WARNING;
 	}
 
 	if (is_zebra_main_routing_table(table_id)) {
-		vty_out(vty, "Invalid routing table ID, %ld. Must be non-default table\n", table_id);
+		vty_out(vty, "Invalid routing table ID, %lld. Must be non-default table\n",
+			table_id);
 		return CMD_WARNING;
 	}
 
@@ -3651,7 +3652,8 @@ DEFPY (no_ip_zebra_import_table,
 	}
 
 	if (is_zebra_main_routing_table(table_id)) {
-		vty_out(vty, "Invalid routing table ID, %ld. Must be non-default table\n", table_id);
+		vty_out(vty, "Invalid routing table ID, %lld. Must be non-default table\n",
+			table_id);
 		return CMD_WARNING;
 	}
 
