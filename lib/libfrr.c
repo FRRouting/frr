@@ -757,8 +757,8 @@ struct event_loop *frr_init(void)
 	snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s%s.pid",
 		 frr_runstatedir, di->name, p_instance);
 #ifdef HAVE_SQLITE3
-	snprintf(dbfile_default, sizeof(dbfile_default), "%s/%s%s%s.db",
-		 frr_libstatedir, p_pathspace, di->name, p_instance);
+	snprintf(dbfile_default, sizeof(dbfile_default), "%s/%s%s.db", frr_libstatedir, di->name,
+		 p_instance);
 #endif
 
 	zprivs_preinit(di->privs);
