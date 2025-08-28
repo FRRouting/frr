@@ -57,9 +57,11 @@
 /* context to manage show output in multiple tables or vrfs */
 struct route_show_ctx {
 	bool multi;       /* dump multiple tables or vrf */
+	bool all_table;
 	bool all_vrf;
 	bool header_done; /* common header already displayed */
 	bool allocated;	  /* malloc'd (vs on-stack) */
+	uint32_t yield_count;
 
 	safi_t safi;
 	afi_t afi;
@@ -92,8 +94,7 @@ struct route_show_ctx {
 	uint32_t total_counter;
 	uint32_t curr_counter;
 
-	afi_t last_afi;
-	safi_t last_safi;
+	bool top_level_json;
 	vrf_id_t last_vrfid;
 	uint32_t last_tableid;
 	bool last_first_json;
@@ -109,12 +110,8 @@ static struct route_show_ctx *resume_show_ctx;
 /* Max routes to show before yielding */
 uint32_t show_yield_limit = 1000;
 
-static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi, safi_t safi,
-			    bool use_fib, bool use_json, route_tag_t tag,
-			    const struct prefix *longer_prefix_p, bool supernets_only, int type,
-			    unsigned short ospf_instance_id, uint32_t tableid, bool show_ng,
-			    bool show_nhg_summary, bool ecmp_gt, bool ecmp_lt, bool ecmp_eq,
-			    uint16_t ecmp_count, struct route_show_ctx *ctx);
+static int do_show_ip_route_ctx(struct vty *vty, struct zebra_vrf *zvrf,
+				struct route_show_ctx *ctx);
 static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 				     int mcast, bool use_fib, bool show_ng);
 static void vty_show_ip_route_summary(struct vty *vty, struct route_table *table,
@@ -138,6 +135,11 @@ static void show_ip_route_nht_dump(struct vty *vty,
 				   const struct route_node *rn,
 				   const struct route_entry *re,
 				   unsigned int num);
+/* Yield/resume show output */
+static int do_show_ip_route_all_ctx(struct vty *vty, struct route_show_ctx *ctx);
+static void zebra_vty_yield_finish(struct vty *vty, int retcode);
+static void show_route_ctx_update_zvrf(struct route_show_ctx *ctx, struct zebra_vrf *zvrf);
+
 
 static char re_status_output_char(const struct route_entry *re,
 				  const struct nexthop *nhop,
@@ -862,11 +864,95 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn, struct rou
 }
 
 /*
- * Callback for yield/resume cycles during show command output.
+ * Resume show output for all-vrf variants
+ */
+static void do_show_route_vrf_all(struct vty *vty, struct route_show_ctx *ctx)
+{
+	int ret = CMD_SUCCESS;
+	struct vrf *vrf;
+	struct vrf finder = {};
+	struct zebra_vrf *zvrf;
+
+	if (ctx->resuming) {
+		/* Recover vrf */
+		strlcpy(finder.name, ctx->vrf_name, sizeof(finder.name));
+		vrf = RB_NFIND(vrf_name_head, &vrfs_by_name, &finder);
+		if (vrf == NULL || vrf->vrf_id != ctx->last_vrfid) {
+			ret = CMD_WARNING;
+			goto done;
+		}
+	} else {
+		ctx->top_level_json = true;
+		vrf = RB_MIN(vrf_name_head, &vrfs_by_name);
+	}
+
+	while (vrf) {
+		if ((zvrf = vrf->info) == NULL || (zvrf->table[ctx->afi][ctx->safi] == NULL))
+			continue;
+
+		show_route_ctx_update_zvrf(ctx, zvrf);
+
+		/* There's an outer layer of container for json output */
+		if (ctx->use_json)
+			vty_json_key(vty, zvrf_name(zvrf), &ctx->top_level_json);
+
+		/* All route tables or one/main table? */
+		if (ctx->all_table)
+			ret = do_show_ip_route_all_ctx(vty, ctx);
+		else
+			ret = do_show_ip_route_ctx(vty, zvrf, ctx);
+
+		if (ret != CMD_SUCCESS)
+			break;
+
+		vrf = RB_NEXT(vrf_name_head, vrf);
+	}
+
+	/* Close top-level json container on success */
+	if (ret == CMD_SUCCESS && ctx->use_json)
+		vty_json_close(vty, ctx->top_level_json);
+
+done:
+	/* If we're not yielding, we're done */
+	if (ret != CMD_YIELD)
+		zebra_vty_yield_finish(vty, ret);
+}
+
+/*
+ * Resume show output for single-vrf variants
+ */
+static void resume_show_one_vrf(struct vty *vty, struct route_show_ctx *ctx)
+{
+	int ret;
+	struct zebra_vrf *zvrf;
+
+	/* Support all-tables and single afi/safi variants within the vrf */
+	if (ctx->all_table) {
+		ret = do_show_ip_route_all_ctx(vty, ctx);
+	} else {
+		/* Need to lookup vrf - can't continue if it's been deleted */
+		zvrf = zebra_vrf_lookup_by_name(ctx->vrf_name);
+		if (zvrf == NULL) {
+			ret = CMD_WARNING;
+			goto done;
+		}
+
+		ret = do_show_ip_route_ctx(vty, zvrf, ctx);
+	}
+
+done:
+	/* If we're not yielding, we're done */
+	if (ret != CMD_YIELD)
+		zebra_vty_yield_finish(vty, ret);
+}
+
+/*
+ * Callback from vty lib for yield/resume cycles during show command output. This
+ * dispatches to various handlers, who are responsible for cleanup.
  */
 static void show_resume_cb(struct vty *vty, void *arg)
 {
-	/* Check 'vty' - will be NULL if this is a cleanup notification */
+	/* Check 'vty' - will be NULL if this is an error/cleanup notification */
 	if (vty == NULL) {
 		if (arg == resume_show_ctx)
 			resume_show_ctx = NULL;
@@ -875,7 +961,29 @@ static void show_resume_cb(struct vty *vty, void *arg)
 	}
 
 	/* Ok to continue */
+	assert(arg == resume_show_ctx);
 
+	resume_show_ctx->resuming = true;
+
+	if (resume_show_ctx->all_vrf)
+		do_show_route_vrf_all(vty, resume_show_ctx);
+	else
+		resume_show_one_vrf(vty, resume_show_ctx);
+
+	/* At this point, the callback just returns: the handler has either
+	 * scheduled a yield, or has finished processing.
+	 */
+}
+
+/*
+ * Check for and clean up at the end of a yield/resume sequence
+ */
+static void zebra_vty_yield_finish(struct vty *vty, int retcode)
+{
+	if (resume_show_ctx && resume_show_ctx->yield_count > 0) {
+		vty_yield_finish(vty, retcode);
+		XFREE(MTYPE_TMP, resume_show_ctx);
+	}
 }
 
 /*
@@ -944,6 +1052,7 @@ static void zebra_vty_display_vrf_header(struct vty *vty, struct zebra_vrf *zvrf
 	}
 }
 
+/* TODO -- convert to using 'ctx' struct */
 static int do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 				struct route_table *table, afi_t afi, safi_t safi, bool use_fib,
 				route_tag_t tag, const struct prefix *longer_prefix_p,
@@ -955,16 +1064,14 @@ static int do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 	struct route_node *rn;
 	struct route_entry *re;
 	bool first_json = true;
-	int first = 1;
+	bool first = true;
 	rib_dest_t *dest;
 	json_object *json_prefix = NULL;
 	uint32_t addr;
 	char buf[BUFSIZ];
 	const struct rib_table_info *zinfo = table->info;
-	const struct prefix_ipv6 *src_pfx;
 	const struct prefix *pfx;
 	int ret = CMD_SUCCESS;
-	bool do_yield = ctx->all_vrf; /* TODO -- remove this */
 
 	/*
 	 * ctx->multi indicates if we are dumping multiple tables or vrfs.
@@ -979,18 +1086,27 @@ static int do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 
 	/* Determine whether we're resuming an iteration, or starting one */
 	if (ctx->resuming) {
-		src_pfx = NULL;
-		if (ctx->last_src_prefix.prefixlen > 0)
-			src_pfx = &(ctx->last_src_prefix);
-		rn = srcdest_rnode_lookup(table, &(ctx->last_prefix), src_pfx);
-		/* TODO -- decide whether to advance to "next" here or not */
+		rn = route_node_lookup(table, &(ctx->last_prefix));
+		if (rn == NULL)
+			rn = route_table_get_next(table, &(ctx->last_prefix));
 
+		/* Advance to next if necessary -- "last_prefix" was already displayed */
+		if (rn != NULL && prefix_same(&rn->p, &(ctx->last_prefix)))
+			rn = srcdest_route_next(rn);
+
+		first_json = ctx->last_first_json;
+
+		/* Reset */
+		ctx->resuming = false;
+
+		/* Don't emit header line(s) */
+		first = false;
 	} else {
 		rn = route_top(table);
 	}
 
 	/* Show all routes. */
-	for ( ; rn; rn = srcdest_route_next(rn)) {
+	for (; rn; rn = srcdest_route_next(rn)) {
 		dest = rib_dest_from_rnode(rn);
 
 		if (longer_prefix_p && !prefix_match(longer_prefix_p, &rn->p))
@@ -1041,7 +1157,7 @@ static int do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 					vty_out(vty, "\n");
 				zebra_vty_display_vrf_header(vty, zvrf, tableid, afi, safi);
 				ctx->header_done = true;
-				first = 0;
+				first = false;
 			}
 
 			vty_show_ip_route(vty, rn, re, json_prefix, use_fib, show_ng,
@@ -1049,6 +1165,9 @@ static int do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 					  ecmp_count);
 			ctx->curr_counter++;
 		} /* for each re in rn */
+
+		/* Counting prefixes */
+		ctx->curr_counter++;
 
 		if (json_prefix) {
 			/* Only output if array has elements */
@@ -1064,21 +1183,17 @@ static int do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 		}
 
 		/* Time to yield? */
-		if (do_yield && (ctx->curr_counter > show_yield_limit)) {
+		if (ctx->curr_counter > show_yield_limit) {
 			ctx->total_counter += ctx->curr_counter;
 			ctx->curr_counter = 0;
 
 			/* Capture info needed for resume */
 			if (ctx != resume_show_ctx) {
-				resume_show_ctx =
-					XCALLOC(MTYPE_TMP,
-						sizeof(struct route_show_ctx));
-
+				resume_show_ctx = XCALLOC(MTYPE_TMP,
+							  sizeof(struct route_show_ctx));
 				*resume_show_ctx = *ctx;
 			}
 
-			resume_show_ctx->last_afi = afi;
-			resume_show_ctx->last_safi = SAFI_UNICAST;
 			resume_show_ctx->last_vrfid = zvrf->vrf->vrf_id;
 			resume_show_ctx->last_tableid = zinfo->table_id;
 			resume_show_ctx->last_first_json = first_json;
@@ -1091,6 +1206,10 @@ static int do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 				       sizeof(resume_show_ctx->last_src_prefix));
 
 			ret = CMD_YIELD;
+
+			/* Must un-ref the route-node */
+			route_unlock_node(rn);
+
 			break;
 		}
 	} /* for each rn in table */
@@ -1106,70 +1225,49 @@ static int do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 	return ret;
 }
 
-static void do_show_ip_route_all(struct vty *vty, struct zebra_vrf *zvrf, afi_t afi, safi_t safi,
-				 bool use_fib, bool use_json, route_tag_t tag,
-				 const struct prefix *longer_prefix_p, bool supernets_only,
-				 int type, unsigned short ospf_instance_id, bool show_ng,
-				 bool show_nhg_summary, bool ecmp_gt, bool ecmp_lt, bool ecmp_eq,
-				 uint16_t ecmp_count, struct route_show_ctx *ctx)
-{
-	struct zebra_router_table *zrt;
-	struct rib_table_info *info;
-
-	RB_FOREACH (zrt, zebra_router_table_head,
-		    &zrouter.tables) {
-		info = route_table_get_info(zrt->table);
-
-		if (zvrf != info->zvrf)
-			continue;
-		if (zrt->afi != afi || zrt->safi != safi)
-			continue;
-
-		do_show_ip_route(vty, zvrf_name(zvrf), afi, safi, use_fib, use_json, tag,
-				 longer_prefix_p, supernets_only, type, ospf_instance_id,
-				 zrt->tableid, show_ng, show_nhg_summary, ecmp_gt, ecmp_lt,
-				 ecmp_eq, ecmp_count, ctx);
-	}
-}
-
 /*
  * Show routes for all tables in the vrf indicated by 'ctx'
  */
-static void do_show_ip_route_all_ctx(struct vty *vty, struct route_show_ctx *ctx)
+static int do_show_ip_route_all_ctx(struct vty *vty, struct route_show_ctx *ctx)
 {
 	struct zebra_router_table *zrt;
 	struct rib_table_info *info;
-	const struct prefix *longer_prefix_p = NULL;
 	struct zebra_router_table finder = {};
-	int ret = CMD_SUCCESS;
-
-	if (ctx->longer_prefix.prefixlen > 0)
-		longer_prefix_p = &ctx->longer_prefix;
+	struct zebra_vrf *zvrf;
+	int ret = CMD_WARNING;
 
 	/* Locate starting point if we're resuming an iteration; otherwise start
 	 * with the first table.
 	 */
 	if (ctx->resuming) {
+		/* Need to lookup vrf - can't continue if it's been deleted */
+		zvrf = zebra_vrf_lookup_by_name(ctx->vrf_name);
+		if (zvrf == NULL)
+			goto done;
+
+		/* Locate table; can't continue if table doesn't exist */
 		finder.tableid = ctx->last_tableid;
 		zrt = RB_NFIND(zebra_router_table_head, &zrouter.tables, &finder);
+		if (zrt == NULL || zrt->tableid != ctx->last_tableid)
+			goto done;
 	} else {
+		zvrf = ctx->zvrf;
 		zrt = RB_MIN(zebra_router_table_head, &zrouter.tables);
 	}
 
+	/* Reset status */
+	ret = CMD_SUCCESS;
+
+	/* Iterate through route tables until we finish, or yield */
 	while (zrt != NULL) {
 		info = route_table_get_info(zrt->table);
 
-		if (ctx->zvrf != info->zvrf)
+		if (zvrf != info->zvrf)
 			continue;
-		if (zrt->afi != ctx->afi || zrt->safi != SAFI_UNICAST)
+		if (zrt->afi != ctx->afi || zrt->safi != ctx->safi)
 			continue;
 
-		ret = do_show_ip_route(vty, zvrf_name(ctx->zvrf), ctx->afi,
-				       ctx->safi, ctx->use_fib, ctx->use_json,
-				       ctx->tag, longer_prefix_p, ctx->supernets_only,
-				       ctx->type, ctx->ospf_instance_id, zrt->tableid,
-				       ctx->show_nhg, ctx->show_nhg_summary, ctx->ecmp_gt,
-				       ctx->ecmp_lt, ctx->ecmp_eq, ctx->ecmp_count, ctx);
+		ret = do_show_ip_route_ctx(vty, zvrf, ctx);
 
 		if (ret != CMD_SUCCESS)
 			break;
@@ -1177,14 +1275,25 @@ static void do_show_ip_route_all_ctx(struct vty *vty, struct route_show_ctx *ctx
 		zrt = RB_NEXT(zebra_router_table_head, zrt);
 	}
 
-	/* Capture iteration context if we're going to yield */
-	if (ret == CMD_YIELD) {
-		/* Schedule the yield - the lower level of the iteration needs to have
-		 * set up the resume params like last table, last vrf,
-		 * last prefix seen, etc.
-		 */
-		vty_yield(vty, show_resume_cb, resume_show_ctx);
+done:
+	if (ret != CMD_YIELD) {
+		/* Clean up context if we're done */
+		zebra_vty_yield_finish(vty, ret);
 	}
+
+	return ret;
+}
+
+/*
+ * Update current vrf in vty show context
+ */
+static void show_route_ctx_update_zvrf(struct route_show_ctx *ctx, struct zebra_vrf *zvrf)
+{
+	ctx->zvrf = zvrf;
+	if (zvrf)
+		strlcpy(ctx->vrf_name, zvrf->vrf->name, sizeof(ctx->vrf_name));
+	else
+		ctx->vrf_name[0] = '\0';
 }
 
 /*
@@ -1211,59 +1320,89 @@ static void show_route_ctx_setup(struct route_show_ctx *ctx,
 	ctx->ospf_instance_id = instance_id;
 	ctx->tableid = tableid;
 	ctx->show_nhg = show_nhg;
-	ctx->zvrf = zvrf;
 	ctx->show_nhg_summary = show_nhg_summary;
 	ctx->ecmp_gt = ecmp_gt;
 	ctx->ecmp_lt = ecmp_lt;
 	ctx->ecmp_eq = ecmp_eq;
 	ctx->ecmp_count = ecmp_count;
 
+	show_route_ctx_update_zvrf(ctx, zvrf);
+
 	if (longer_prefix_p)
 		prefix_copy(&(ctx->longer_prefix), longer_prefix_p);
 
 }
 
-static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi, safi_t safi,
-			    bool use_fib, bool use_json, route_tag_t tag,
-			    const struct prefix *longer_prefix_p, bool supernets_only, int type,
-			    unsigned short ospf_instance_id, uint32_t tableid, bool show_ng,
-			    bool show_nhg_summary, bool ecmp_gt, bool ecmp_lt, bool ecmp_eq,
-			    uint16_t ecmp_count, struct route_show_ctx *ctx)
+/*
+ * Show one table, using the params in 'ctx' to filter what's displayed
+ */
+static int do_show_ip_route_ctx(struct vty *vty, struct zebra_vrf *zvrf,
+				struct route_show_ctx *ctx)
 {
 	struct route_table *table;
-	struct zebra_vrf *zvrf = NULL;
+	const struct prefix *longer_prefix_p = NULL;
+	int ret;
 
-	if (!(zvrf = zebra_vrf_lookup_by_name(vrf_name))) {
-		if (use_json)
+	/* Locate starting point if we're resuming an iteration; otherwise start
+	 * with the first table.
+	 */
+
+	/* TODO -- error handling in resume path: deleted/inactive vrf, deleted table */
+
+	if (zvrf == NULL) {
+		if (ctx->use_json)
 			vty_out(vty, "{}\n");
 		else
-			vty_out(vty, "vrf %s not defined\n", vrf_name);
+			vty_out(vty, "vrf not defined\n");
 		return CMD_SUCCESS;
 	}
 
 	if (zvrf_id(zvrf) == VRF_UNKNOWN) {
-		if (use_json)
+		if (ctx->use_json)
 			vty_out(vty, "{}\n");
 		else
-			vty_out(vty, "vrf %s inactive\n", vrf_name);
+			vty_out(vty, "vrf %s inactive\n", zvrf_name(zvrf));
 		return CMD_SUCCESS;
 	}
 
-	if (tableid)
-		table = zebra_router_find_table(zvrf, tableid, afi, safi);
+	if (ctx->tableid != 0)
+		table = zebra_router_find_table(zvrf, ctx->tableid, ctx->afi, ctx->safi);
 	else
-		table = zebra_vrf_table(afi, safi, zvrf_id(zvrf));
+		table = zebra_vrf_table(ctx->afi, ctx->safi, zvrf_id(zvrf));
+
 	if (!table) {
-		if (use_json)
+		if (ctx->use_json)
 			vty_out(vty, "{}\n");
 		return CMD_SUCCESS;
 	}
 
-	do_show_route_helper(vty, zvrf, table, afi, safi, use_fib, tag, longer_prefix_p,
-			     supernets_only, type, ospf_instance_id, use_json, tableid, show_ng,
-			     show_nhg_summary, ecmp_gt, ecmp_lt, ecmp_eq, ecmp_count, ctx);
+	if (ctx->longer_prefix.prefixlen > 0)
+		longer_prefix_p = &ctx->longer_prefix;
 
-	return CMD_SUCCESS;
+	/* TODO -- convert to using only 'ctx' */
+	ret = do_show_route_helper(vty, zvrf, table, ctx->afi, ctx->safi, ctx->use_fib,
+				   ctx->tag, longer_prefix_p,
+				   ctx->supernets_only, ctx->type, ctx->ospf_instance_id,
+				   ctx->use_json, ctx->tableid, ctx->show_nhg,
+				   ctx->show_nhg_summary, ctx->ecmp_gt, ctx->ecmp_lt,
+				   ctx->ecmp_eq, ctx->ecmp_count, ctx);
+
+	/* Capture iteration context if we're going to yield */
+	if (ret == CMD_YIELD) {
+		/* Schedule the yield - the lower level of the iteration needs to have
+		 * set up the resume params like last table, last vrf,
+		 * last prefix seen, etc.
+		 */
+		resume_show_ctx->yield_count++;
+		vty_yield(vty, show_resume_cb, resume_show_ctx);
+	} else if (ctx->all_table || ctx->all_vrf) {
+		/* Outer loop will handle */
+	} else {
+		/* Done with this vrf loop, finish */
+		zebra_vty_yield_finish(vty, CMD_SUCCESS);
+	}
+
+	return ret;
 }
 
 DEFPY (show_ip_nht,
@@ -1990,13 +2129,11 @@ DEFPY (show_route,
 {
 	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
 	safi_t safi = mrib ? SAFI_MULTICAST : SAFI_UNICAST;
-	bool first_vrf_json = true;
 	struct vrf *vrf;
 	uint8_t type = 0;
 	struct zebra_vrf *zvrf;
-	struct route_show_ctx ctx = {
-		.multi = vrf_all || table_all,
-	};
+	vrf_id_t vrf_id = VRF_DEFAULT;
+	struct route_show_ctx ctx = {};
 
 	if (!vrf_is_backend_netns()) {
 		if ((vrf_all || vrf_name) && (table || table_all)) {
@@ -2017,98 +2154,23 @@ DEFPY (show_route,
 		}
 	}
 
-	/* Handle nexthop-group summary separately */
-	if (ng && ng_summary) {
-		if (vrf_all) {
-			RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-				zvrf = vrf->info;
-				if (zvrf == NULL || zvrf->table[afi][safi] == NULL)
-					continue;
+	/* Set up show context struct with parameters from cli */
+	show_route_ctx_setup(&ctx, NULL, afi, safi, !!fib, !!json, tag,
+			     (prefix_str ? prefix : NULL), !!supernets_only, type,
+			     ospf_instance_id, table, !!ng, !!ng_summary, !!ecmp_gt, !!ecmp_lt,
+			     !!ecmp_eq, ecmp_count ? ecmp_count : 0);
 
-				if (json)
-					vty_json_key(vty, zvrf_name(zvrf), &first_vrf_json);
+	ctx.multi = (vrf_all || table_all);
+	if (table_all)
+		ctx.all_table = true;
 
-				if (table_all)
-					do_show_ip_route_all(vty, zvrf, afi, safi, !!fib, !!json,
-							     tag, prefix_str ? prefix : NULL,
-							     !!supernets_only, type,
-							     ospf_instance_id, !!ng, true,
-							     !!ecmp_gt, !!ecmp_lt, !!ecmp_eq,
-							     ecmp_count ? ecmp_count : 0, &ctx);
-				else
-					do_show_ip_route(vty, zvrf_name(zvrf), afi, safi, !!fib,
-							 !!json, tag, prefix_str ? prefix : NULL,
-							 !!supernets_only, type, ospf_instance_id,
-							 table, false, true, !!ecmp_gt, !!ecmp_lt,
-							 !!ecmp_eq, ecmp_count ? ecmp_count : 0,
-							 &ctx);
-			}
-			if (json)
-				vty_json_close(vty, first_vrf_json);
-		} else {
-			vrf_id_t vrf_id = VRF_DEFAULT;
-
-			if (vrf_name) {
-				if (!vrf_get_id(vty, &vrf_id, vrf_name, !!json))
-					return CMD_WARNING;
-			}
-			vrf = vrf_lookup_by_id(vrf_id);
-			if (!vrf)
-				return CMD_SUCCESS;
-
-			zvrf = vrf->info;
-			if (!zvrf)
-				return CMD_SUCCESS;
-
-			if (table_all)
-				do_show_ip_route_all(vty, zvrf, afi, safi, !!fib, !!json, tag,
-						     prefix_str ? prefix : NULL, !!supernets_only,
-						     type, ospf_instance_id, !!ng, true, !!ecmp_gt,
-						     !!ecmp_lt, !!ecmp_eq,
-						     ecmp_count ? ecmp_count : 0, &ctx);
-			else
-				do_show_ip_route(vty, vrf->name, afi, safi, !!fib, !!json, tag,
-						 prefix_str ? prefix : NULL, !!supernets_only,
-						 type, ospf_instance_id, table, false, true,
-						 !!ecmp_gt, !!ecmp_lt, !!ecmp_eq,
-						 ecmp_count ? ecmp_count : 0, &ctx);
-		}
-
-		return CMD_SUCCESS;
-	}
-
-	/* Normal route display */
 	if (vrf_all) {
-		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-			zvrf = vrf->info;
-			if (zvrf == NULL || zvrf->table[afi][safi] == NULL)
-				continue;
-			if (json)
-				vty_json_key(vty, zvrf_name(zvrf),
-					     &first_vrf_json);
-			if (table_all) {
-				show_route_ctx_setup(
-					&ctx, zvrf, afi, safi, !!fib,
-					!!json,	tag, (prefix_str ? prefix : NULL),
-					!!supernets_only, type,	ospf_instance_id,
-					0, !!ng, false, false, false, false, 0);
+		ctx.all_vrf = true;
 
-				ctx.multi = (vrf_all || table_all);
-				ctx.all_vrf = true;
 
-				do_show_ip_route_all_ctx(vty, &ctx);
-			} else {
-				do_show_ip_route(vty, zvrf_name(zvrf), afi, safi, !!fib, !!json,
-						 tag, prefix_str ? prefix : NULL, !!supernets_only,
-						 type, ospf_instance_id, table, !!ng, false, false,
-						 false, false, 0, &ctx);
-			}
-		}
-		if (json)
-			vty_json_close(vty, first_vrf_json);
+		/* This handler deals with vrf iteration, and with yield/resume */
+		do_show_route_vrf_all(vty, &ctx);
 	} else {
-		vrf_id_t vrf_id = VRF_DEFAULT;
-
 		if (vrf_name) {
 			if (!vrf_get_id(vty, &vrf_id, vrf_name, !!json))
 				return CMD_WARNING;
@@ -2121,16 +2183,12 @@ DEFPY (show_route,
 		if (!zvrf)
 			return CMD_SUCCESS;
 
+		show_route_ctx_update_zvrf(&ctx, zvrf);
+
 		if (table_all)
-			do_show_ip_route_all(vty, zvrf, afi, safi, !!fib, !!json, tag,
-					     prefix_str ? prefix : NULL, !!supernets_only, type,
-					     ospf_instance_id, !!ng, false, false, false, false, 0,
-					     &ctx);
+			do_show_ip_route_all_ctx(vty, &ctx);
 		else
-			do_show_ip_route(vty, vrf->name, afi, safi, !!fib, !!json, tag,
-					 prefix_str ? prefix : NULL, !!supernets_only, type,
-					 ospf_instance_id, table, !!ng, false, false, false, false,
-					 0, &ctx);
+			do_show_ip_route_ctx(vty, zvrf, &ctx);
 	}
 
 	return CMD_SUCCESS;
