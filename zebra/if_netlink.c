@@ -476,7 +476,6 @@ static int netlink_extract_vxlan_info(struct rtattr *link_data,
 	uint8_t svd = 0;
 	struct rtattr *attr[IFLA_VXLAN_MAX + 1];
 	vni_t vni_in_msg;
-	struct in_addr vtep_ip_in_msg;
 	ifindex_t ifindex_link;
 
 	memset(vxl_info, 0, sizeof(*vxl_info));
@@ -508,14 +507,22 @@ static int netlink_extract_vxlan_info(struct rtattr *link_data,
 		vxl_info->vni_info.iftype = ZEBRA_VXLAN_IF_SVD;
 	}
 
-	if (!attr[IFLA_VXLAN_LOCAL]) {
+
+	if (attr[IFLA_VXLAN_LOCAL]) {
+		vxl_info->vtep_ip.ipaddr_v4 = *(struct in_addr *)RTA_DATA(attr[IFLA_VXLAN_LOCAL]);
+		SET_IPADDR_V4(&vxl_info->vtep_ip);
+		zlog_debug("IFLA_VXLAN_LOCAL VXLAN IF message, local address V4: %pIA",
+			   &vxl_info->vtep_ip);
+	} else if (attr[IFLA_VXLAN_LOCAL6]) {
+		IPV6_ADDR_COPY(&vxl_info->vtep_ip.ipaddr_v6,
+			       (struct in6_addr *)RTA_DATA(attr[IFLA_VXLAN_LOCAL6]));
+		SET_IPADDR_V6(&vxl_info->vtep_ip);
+		zlog_debug("IFLA_VXLAN_LOCAL VXLAN IF message, local address V6: %pIA",
+			   &vxl_info->vtep_ip);
+	} else {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
 				"IFLA_VXLAN_LOCAL missing from VXLAN IF message");
-	} else {
-		vtep_ip_in_msg =
-			*(struct in_addr *)RTA_DATA(attr[IFLA_VXLAN_LOCAL]);
-		vxl_info->vtep_ip = vtep_ip_in_msg;
 	}
 
 	if (attr[IFLA_VXLAN_GROUP]) {
