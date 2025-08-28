@@ -76,6 +76,50 @@ static const struct route_map_rule_cmd route_match_metric_cmd = {
 	route_match_metric_free
 };
 
+
+/* `match metric <proto> [range METRIC] METRIC' */
+/* Match function return 1 if match is success else return zero. */
+static enum route_map_cmd_result_t
+route_match_metric_detail(void *rule, const struct prefix *prefix, void *object)
+{
+	struct route_map_metric_compiled *mc;
+	uint32_t check;
+	struct rip_info *rinfo;
+
+	mc = rule;
+	rinfo = object;
+	check = rinfo->metric;
+
+	/* Route type */
+	if (mc->proto != rinfo->type)
+		return RMAP_NOMATCH;
+	
+	if (mc->external) {
+		if (rinfo->external_metric)
+			check = rinfo->external_metric;
+		else
+			return RMAP_NOMATCH;
+	}
+	
+	/* Metric (optional range) */	
+	if (mc->range) {
+		if (mc->min_metric > check || mc->max_metric < check)
+			return RMAP_NOMATCH;
+	} else if (mc->metric != check) {
+		return RMAP_NOMATCH;
+	}
+
+	return RMAP_MATCH;
+}
+
+/* Route map commands for metric detail matching. */
+static const struct route_map_rule_cmd route_match_metric_detail_cmd = {
+	"metric detail",
+	route_match_metric_detail,
+	route_map_rule_metric_detail_compile,
+	route_map_rule_metric_detail_free,
+};
+
 /* `match interface IFNAME' */
 /* Match function return 1 if match is success else return zero. */
 static enum route_map_cmd_result_t
@@ -554,6 +598,9 @@ void rip_route_map_init(void)
 	route_map_match_metric_hook(generic_match_add);
 	route_map_no_match_metric_hook(generic_match_delete);
 
+	route_map_match_metric_detail_hook(generic_match_add);
+	route_map_no_match_metric_detail_hook(generic_match_delete);
+
 	route_map_match_tag_hook(generic_match_add);
 	route_map_no_match_tag_hook(generic_match_delete);
 
@@ -567,6 +614,7 @@ void rip_route_map_init(void)
 	route_map_no_set_tag_hook(generic_set_delete);
 
 	route_map_install_match(&route_match_metric_cmd);
+	route_map_install_match(&route_match_metric_detail_cmd);
 	route_map_install_match(&route_match_interface_cmd);
 	route_map_install_match(&route_match_ip_next_hop_cmd);
 	route_map_install_match(&route_match_ip_next_hop_prefix_list_cmd);
