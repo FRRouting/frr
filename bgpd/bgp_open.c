@@ -566,10 +566,8 @@ static int bgp_capability_restart(struct peer *peer,
 		} else {
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug("%pBP F-bit %s for %s", peer,
-					   CHECK_FLAG(peer->af_cap[afi][safi],
-						      PEER_CAP_RESTART_AF_PRESERVE_RCV)
-						   ? "SET"
-						   : "NOT-SET",
+					   CHECK_FLAG(flag, GRACEFUL_RESTART_F_BIT) ? "SET"
+										    : "NOT-SET",
 					   get_afi_safi_str(afi, safi, false));
 
 			SET_FLAG(peer->af_cap[afi][safi],
@@ -1645,6 +1643,8 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 			bool f_bit = false;
 
 			if (!peer->afc[afi][safi])
+				continue;
+			if (!bgp_gr_supported_for_afi_safi(afi, safi))
 				continue;
 
 			/* Convert AFI, SAFI to values for
