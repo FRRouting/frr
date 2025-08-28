@@ -53,7 +53,7 @@ from lib.bgp import (
 def check_port_179_open(vrf):
     tgen = get_topogen()
     r1 = tgen.gears["r1"]
-    output = r1.cmd("ss -tuplen | grep :179 ")
+    output = r1.cmd("ss -tuplen | grep ':179 '")
     logger.info(output)
     if vrf == "default":
         match = re.search("0.0.0.0", output)
