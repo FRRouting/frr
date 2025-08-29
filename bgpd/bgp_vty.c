@@ -9490,6 +9490,56 @@ DEFPY (neighbor_encapsulation_srv6_or_mpls_tx,
 	return CMD_WARNING_CONFIG_FAILED;
 }
 
+/* "neighbor encapsulation-rx-srv6|encapsulation-rx-mpls" */
+DEFPY (neighbor_encapsulation_srv6_or_mpls_rx,
+       neighbor_encapsulation_srv6_or_mpls_rx_cmd,
+       "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$peer_str <encapsulation-rx-srv6$srv6|encapsulation-rx-mpls$mpls>",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Validate incoming L3VPN updates with SRv6 prefix SID\n"
+       "Validate incoming L3VPN updates with MPLS prefix SID\n")
+{
+	struct peer *peer;
+	afi_t afi = bgp_node_afi(vty);
+	safi_t safi = bgp_node_safi(vty);
+	int ret;
+
+	peer = peer_and_group_lookup_vty(vty, peer_str);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (srv6) {
+		if (peergroup_af_flag_check(peer, afi, safi,
+					    PEER_FLAG_CONFIG_ENCAPSULATION_RX_MPLS)) {
+			vty_out(vty, "%% Peer currently configured with MPLS.\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		if (no)
+			ret = peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+						     PEER_FLAG_CONFIG_ENCAPSULATION_RX_SRV6);
+		else
+			ret = peer_af_flag_set_vty(vty, peer_str, afi, safi,
+						   PEER_FLAG_CONFIG_ENCAPSULATION_RX_SRV6);
+		return ret;
+	}
+	if (mpls) {
+		if (peergroup_af_flag_check(peer, afi, safi,
+					    PEER_FLAG_CONFIG_ENCAPSULATION_RX_SRV6)) {
+			vty_out(vty, "%% Peer currently configured with SRv6.\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		if (no)
+			ret = peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+						     PEER_FLAG_CONFIG_ENCAPSULATION_RX_MPLS);
+		else
+			ret = peer_af_flag_set_vty(vty, peer_str, afi, safi,
+						   PEER_FLAG_CONFIG_ENCAPSULATION_RX_MPLS);
+		return ret;
+	}
+	return CMD_WARNING_CONFIG_FAILED;
+}
+
 /* disable-addpath-rx */
 DEFUN(neighbor_disable_addpath_rx,
       neighbor_disable_addpath_rx_cmd,
@@ -19652,6 +19702,12 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 	else if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_TX_MPLS))
 		vty_out(vty, "  neighbor %s encapsulation-tx-mpls\n", addr);
 
+	/* encapsulation-rx-srv6|encapsulation-rx-mpls */
+	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_RX_SRV6))
+		vty_out(vty, "  neighbor %s encapsulation-rx-srv6\n", addr);
+	else if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_RX_MPLS))
+		vty_out(vty, "  neighbor %s encapsulation-rx-mpls\n", addr);
+
 	/* Filter. */
 	bgp_config_write_filter(vty, peer, afi, safi);
 
@@ -21937,6 +21993,10 @@ void bgp_vty_init(void)
 	/* "neighbor encapsulation-tx-srv6|encapsulation-tx-mpls" commands. */
 	install_element(BGP_VPNV4_NODE, &neighbor_encapsulation_srv6_or_mpls_tx_cmd);
 	install_element(BGP_VPNV6_NODE, &neighbor_encapsulation_srv6_or_mpls_tx_cmd);
+
+	/* "neighbor encapsulation-rx-srv6|encapsulation-rx-mpls" commands. */
+	install_element(BGP_VPNV4_NODE, &neighbor_encapsulation_srv6_or_mpls_rx_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_encapsulation_srv6_or_mpls_rx_cmd);
 
 	/* "neighbor override-capability" commands. */
 	install_element(BGP_NODE, &neighbor_override_capability_cmd);

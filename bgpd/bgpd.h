@@ -1770,6 +1770,8 @@ struct peer {
 #define PEER_FLAG_CONFIG_DAMPENING (1ULL << 31)
 #define PEER_FLAG_CONFIG_ENCAPSULATION_TX_SRV6	(1ULL << 32)
 #define PEER_FLAG_CONFIG_ENCAPSULATION_TX_MPLS	(1ULL << 33)
+#define PEER_FLAG_CONFIG_ENCAPSULATION_RX_SRV6	(1ULL << 34)
+#define PEER_FLAG_CONFIG_ENCAPSULATION_RX_MPLS	(1ULL << 35)
 #define PEER_FLAG_ACCEPT_OWN (1ULL << 63)
 
 	enum bgp_addpath_strat addpath_type[AFI_MAX][SAFI_MAX];
@@ -2426,6 +2428,7 @@ enum peer_change_type {
 	peer_change_reset,
 	peer_change_reset_in,
 	peer_change_reset_out,
+	peer_change_path_valid,
 };
 
 /* Enumeration of martian ("self") entry types.

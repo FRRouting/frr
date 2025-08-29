@@ -3501,6 +3501,14 @@ Filtering SRv6/MPLS per neighbor
    command can be used to filter out SRv6 L3VPN BGP updates, and keep MPLS L3VPN
    BGP updates.
 
+.. clicmd:: neighbor X:X::X:X <encapsulation-rx-srv6|encapsulation-rx-mpls>
+
+   For a given peer, it is possible to check as valid or invalid incoming L3VPN
+   BGP updates according to their nature: MPLS or SRv6. The ``encapsulation-rx-srv6``
+   command can be used to invalidate incoming MPLS BGP updates from a given peer.
+   Reversely, the ``encapsulation-rx-mpls`` command can be used to invalidate
+   incoming SRv6 BGP updates from a given peer.
+
 .. _bgp-evpn:
 
 Ethernet Virtual Network - EVPN

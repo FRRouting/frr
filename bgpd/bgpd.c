@@ -121,6 +121,8 @@ unsigned int bgp_suppress_fib_count;
 static void bgp_if_finish(struct bgp *bgp);
 static void peer_drop_dynamic_neighbor(struct peer *peer);
 
+static void peer_vpn_encapsulation_change(struct peer *peer, afi_t afi);
+
 extern struct zclient *bgp_zclient;
 
 static bool bgp_has_remaining_instances(const struct bgp *bgp)
@@ -4912,6 +4914,34 @@ bool peer_afc_advertised(struct peer *peer)
 	return false;
 }
 
+static void peer_vpn_encapsulation_change(struct peer *peer, afi_t afi)
+{
+	struct bgp_dest *dest;
+	struct bgp_path_info *pi;
+	const struct prefix *bgp_nht_param_prefix;
+	const struct prefix *p;
+
+	for (dest = bgp_table_top(peer->bgp->rib[afi][SAFI_MPLS_VPN]); dest;
+	     dest = bgp_route_next(dest)) {
+		p = bgp_dest_get_prefix(dest);
+		if (CHECK_FLAG(peer->af_flags[afi][SAFI_MPLS_VPN], PEER_FLAG_REFLECTOR_CLIENT))
+			bgp_nht_param_prefix = NULL;
+		else
+			bgp_nht_param_prefix = p;
+		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+			if (pi->peer != peer)
+				continue;
+			bgp_update_check_valid_flags(peer->bgp, peer, dest, p, afi, SAFI_MPLS_VPN,
+						     pi, pi->attr, bgp_nht_param_prefix,
+						     peergroup_af_flag_check(peer, afi,
+									     SAFI_MPLS_VPN,
+									     PEER_FLAG_ACCEPT_OWN));
+			bgp_process(peer->bgp, dest, bgp_dest_get_bgp_path_info(dest), afi,
+				    SAFI_MPLS_VPN);
+		}
+	}
+}
+
 void peer_change_action(struct peer *peer, afi_t afi, safi_t safi,
 			       enum peer_change_type type)
 {
@@ -4954,7 +4984,8 @@ void peer_change_action(struct peer *peer, afi_t afi, safi_t safi,
 
 		update_group_adjust_peer(paf);
 		bgp_announce_route(peer, afi, safi, false);
-	}
+	} else if (type == peer_change_path_valid && safi == SAFI_MPLS_VPN)
+		peer_vpn_encapsulation_change(peer, afi);
 }
 
 struct peer_flag_action {
@@ -5046,6 +5077,8 @@ static const struct peer_flag_action peer_af_flag_action_list[] = {
 	{ PEER_FLAG_ADDPATH_RX_PATHS_LIMIT, 0, peer_change_none },
 	{ PEER_FLAG_CONFIG_ENCAPSULATION_TX_SRV6, 1, peer_change_reset_out },
 	{ PEER_FLAG_CONFIG_ENCAPSULATION_TX_MPLS, 1, peer_change_reset_out },
+	{ PEER_FLAG_CONFIG_ENCAPSULATION_RX_SRV6, 0, peer_change_path_valid },
+	{ PEER_FLAG_CONFIG_ENCAPSULATION_RX_MPLS, 0, peer_change_path_valid },
 	{ 0, 0, 0 }
 };
 
