@@ -3499,6 +3499,11 @@ Filtering SRv6/MPLS per neighbor
    or ``ipv6 vpn`` address-family. Only BGP updates with SRv6 prefix SID option
    will be sent. Reversely, the ``encapsulation-mpls`` command can be used to
    filter out SRv6 L3VPN BGP updates, and keep MPLS L3VPN BGP updates.
+   The same command is used to check as valid or invalid incoming L3VPN BGP
+   updates according to their nature: MPLS or SRv6. The ``encapsulation-srv6``
+   command can be used to invalidate incoming MPLS BGP updates from a given peer.
+   Reversely, the ``encapsulation-mpls`` command can be used to invalidate
+   incoming SRv6 BGP updates from a given peer.
 
 .. _bgp-evpn:
 

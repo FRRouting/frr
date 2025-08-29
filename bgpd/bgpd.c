@@ -121,6 +121,8 @@ unsigned int bgp_suppress_fib_count;
 static void bgp_if_finish(struct bgp *bgp);
 static void peer_drop_dynamic_neighbor(struct peer *peer);
 
+static void peer_vpn_change_bestpath(struct peer *peer, afi_t afi);
+
 extern struct zclient *bgp_zclient;
 
 static bool bgp_has_remaining_instances(const struct bgp *bgp)
@@ -4921,6 +4923,48 @@ bool peer_afc_advertised(struct peer *peer)
 	return false;
 }
 
+static void peer_vpn_change_bestpath(struct peer *peer, afi_t afi)
+{
+	struct bgp_dest *dest, *dest_vpn;
+	struct bgp_path_info *pi;
+	const struct prefix *bgp_nht_param_prefix;
+	const struct prefix *p;
+	struct bgp_table *table;
+	bool match_peer;
+
+	for (dest_vpn = bgp_table_top(peer->bgp->rib[afi][SAFI_MPLS_VPN]); dest_vpn;
+	     dest_vpn = bgp_route_next(dest_vpn)) {
+		table = bgp_dest_get_bgp_table_info(dest_vpn);
+		if (!table)
+			continue;
+		for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
+			p = bgp_dest_get_prefix(dest);
+			if (CHECK_FLAG(peer->af_flags[afi][SAFI_MPLS_VPN],
+				       PEER_FLAG_REFLECTOR_CLIENT))
+				bgp_nht_param_prefix = NULL;
+			else
+				bgp_nht_param_prefix = p;
+			match_peer = false;
+			for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+				if (pi->peer == NULL || pi->peer != peer)
+					continue;
+				match_peer = true;
+				bgp_update_check_valid_flags(peer->bgp, peer, dest, p, afi,
+							     SAFI_MPLS_VPN, pi, pi->attr,
+							     bgp_nht_param_prefix,
+							     peergroup_af_flag_check(peer, afi,
+										     SAFI_MPLS_VPN,
+										     PEER_FLAG_ACCEPT_OWN));
+			}
+			if (match_peer) {
+				SET_FLAG(dest->flags, BGP_NODE_USER_CLEAR);
+				bgp_process(peer->bgp, dest, bgp_dest_get_bgp_path_info(dest), afi,
+					    SAFI_MPLS_VPN);
+			}
+		}
+	}
+}
+
 void peer_change_action(struct peer *peer, afi_t afi, safi_t safi,
 			       enum peer_change_type type)
 {
@@ -4955,7 +4999,11 @@ void peer_change_action(struct peer *peer, afi_t afi, safi_t safi,
 
 			peer_notify_config_change(peer->connection);
 		}
-	} else if (type == peer_change_reset_out) {
+	}
+	if (type == peer_change_best_path && safi == SAFI_MPLS_VPN)
+		/* re-run best path on incomin BGP updated from peer */
+		peer_vpn_change_bestpath(peer, afi);
+	if (type == peer_change_reset_out || type == peer_change_best_path) {
 		paf = peer_af_find(peer, afi, safi);
 		if (paf && paf->subgroup)
 			SET_FLAG(paf->subgroup->sflags,
@@ -5053,8 +5101,8 @@ static const struct peer_flag_action peer_af_flag_action_list[] = {
 	{ PEER_FLAG_ACCEPT_OWN, 0, peer_change_reset },
 	{ PEER_FLAG_SEND_EXT_COMMUNITY_RPKI, 1, peer_change_reset_out },
 	{ PEER_FLAG_ADDPATH_RX_PATHS_LIMIT, 0, peer_change_none },
-	{ PEER_FLAG_CONFIG_ENCAPSULATION_SRV6, 1, peer_change_reset_out },
-	{ PEER_FLAG_CONFIG_ENCAPSULATION_MPLS, 1, peer_change_reset_out },
+	{ PEER_FLAG_CONFIG_ENCAPSULATION_SRV6, 0, peer_change_best_path },
+	{ PEER_FLAG_CONFIG_ENCAPSULATION_MPLS, 0, peer_change_best_path },
 	{ 0, 0, 0 }
 };
 
@@ -5067,6 +5115,7 @@ static int peer_flag_action_set(const struct peer_flag_action *action_list,
 	int found = 0;
 	int reset_in = 0;
 	int reset_out = 0;
+	int bestpath_rerun = 0;
 	const struct peer_flag_action *match = NULL;
 
 	/* Check peer's frag action.  */
@@ -5087,6 +5136,8 @@ static int peer_flag_action_set(const struct peer_flag_action *action_list,
 				reset_in = 1;
 				reset_out = 1;
 			}
+			if (match->type == peer_change_best_path)
+				bestpath_rerun = 1;
 			if (match->not_for_member)
 				action->not_for_member = 1;
 		}
@@ -5099,6 +5150,8 @@ static int peer_flag_action_set(const struct peer_flag_action *action_list,
 		action->type = peer_change_reset_in;
 	else if (reset_out)
 		action->type = peer_change_reset_out;
+	else if (bestpath_rerun)
+		action->type = peer_change_best_path;
 	else
 		action->type = peer_change_none;
 

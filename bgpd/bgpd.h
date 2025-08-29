@@ -2438,6 +2438,7 @@ enum peer_change_type {
 	peer_change_reset,
 	peer_change_reset_in,
 	peer_change_reset_out,
+	peer_change_best_path,
 };
 
 /* Enumeration of martian ("self") entry types.
