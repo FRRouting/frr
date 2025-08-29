@@ -54,6 +54,8 @@
 #define DEFAULT_START_CMD	WATCHFRR_SH_PATH " start %s"
 #define DEFAULT_STOP_CMD	WATCHFRR_SH_PATH " stop %s"
 
+#define ABORT_RESTART_CMD WATCHFRR_SH_PATH " signal SIGABRT %s"
+
 #define PING_TOKEN	"PING"
 
 DEFINE_MGROUP(WATCHFRR, "watchfrr");
@@ -225,6 +227,18 @@ void watchfrr_set_ignore_daemon(struct vty *vty, const char *dname, bool ignore)
 	} else
 		vty_out(vty, "%s is not configured for running at the moment",
 			dname);
+}
+
+void watchfrr_set_restart_sig(struct vty *vty, const char *sigstr)
+{
+	/* 'interrupt' */
+	if (strncmp(sigstr, "i", 1) == 0)
+		gs.restart_command = DEFAULT_RESTART_CMD;
+	/* 'abort' */
+	else if (strncmp(sigstr, "a", 1) == 0)
+		gs.restart_command = ABORT_RESTART_CMD;
+	else
+		vty_out(vty, "invalid or unsupported restart-signal\n");
 }
 
 static void printhelp(FILE *target)
@@ -1088,6 +1102,9 @@ void watchfrr_status(struct vty *vty)
 					- (intmax_t)delay.tv_sec,
 				(intmax_t)dmn->restart.interval);
 	}
+	vty_out(vty, "watchfrr restart-signal: %s\n",
+		strmatch(gs.restart_command, ABORT_RESTART_CMD) ? "abort"
+								: "interrupt");
 }
 
 static FRR_NORETURN void sigint(void)
