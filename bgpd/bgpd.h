@@ -499,7 +499,7 @@ struct bgp {
 
 	/* BGP peer. */
 	struct list *peer;
-	struct hash *peerhash;
+	struct hash *connectionhash;
 
 	/* BGP peer group.  */
 	struct list *group;

@@ -1003,18 +1003,21 @@ int peer_cmp(struct peer *p1, struct peer *p2)
 	return sockunion_cmp(&p1->connection->su, &p2->connection->su);
 }
 
-static unsigned int peer_hash_key_make(const void *p)
+static unsigned int connection_hash_key_make(const void *p)
 {
-	const struct peer *peer = p;
-	return sockunion_hash(&peer->connection->su);
+	const struct peer_connection *connection = p;
+
+	return sockunion_hash(&connection->su);
 }
 
-static bool peer_hash_same(const void *p1, const void *p2)
+static bool connection_hash_same(const void *p1, const void *p2)
 {
-	const struct peer *peer1 = p1;
-	const struct peer *peer2 = p2;
+	const struct peer_connection *c1 = p1;
+	const struct peer_connection *c2 = p2;
+	const struct peer *peer1 = c1->peer;
+	const struct peer *peer2 = c2->peer;
 
-	return (sockunion_same(&peer1->connection->su, &peer2->connection->su) &&
+	return (sockunion_same(&c1->su, &c2->su) &&
 		CHECK_FLAG(peer1->flags, PEER_FLAG_CONFIG_NODE) ==
 			CHECK_FLAG(peer2->flags, PEER_FLAG_CONFIG_NODE));
 }
@@ -1950,12 +1953,11 @@ void bgp_peer_conf_if_to_su_update(struct peer_connection *connection)
 			 * su if needed.
 			 */
 			connection->su = old_su;
-			hash_release(peer->bgp->peerhash, peer);
+			hash_release(peer->bgp->connectionhash, connection);
 			listnode_delete(peer->bgp->peer, peer);
 
 			connection->su = new_su;
-			(void)hash_get(peer->bgp->peerhash, peer,
-				       hash_alloc_intern);
+			(void)hash_get(peer->bgp->connectionhash, connection, hash_alloc_intern);
 			listnode_add_sort(peer->bgp->peer, peer);
 		}
 	}
@@ -2063,7 +2065,7 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 	if (config_node)
 		SET_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
 
-	(void)hash_get(bgp->peerhash, peer, hash_alloc_intern);
+	(void)hash_get(bgp->connectionhash, peer->connection, hash_alloc_intern);
 
 	/* Adjust update-group coalesce timer heuristics for # peers. */
 	if (bgp->heuristic_coalesce) {
@@ -2127,7 +2129,7 @@ struct peer *peer_create_accept(struct bgp *bgp)
 
 	peer = peer_lock(peer); /* bgp peer list reference */
 	listnode_add_sort(bgp->peer, peer);
-	(void)hash_get(bgp->peerhash, peer, hash_alloc_intern);
+	(void)hash_get(bgp->connectionhash, peer->connection, hash_alloc_intern);
 
 	return peer;
 }
@@ -2856,7 +2858,7 @@ int peer_delete(struct peer *peer)
 		 * it's in there or not.
 		 */
 		list_delete_node(bgp->peer, pn);
-		hash_release(bgp->peerhash, peer);
+		hash_release(bgp->connectionhash, peer->connection);
 		peer_unlock(peer); /* bgp peer list reference */
 	}
 
@@ -3586,9 +3588,9 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 
 peer_init:
 	bgp->peer->cmp = (int (*)(void *, void *))peer_cmp;
-	bgp->peerhash = hash_create(peer_hash_key_make, peer_hash_same,
-				    "BGP Peer Hash");
-	bgp->peerhash->max_size = BGP_PEER_MAX_HASH_SIZE;
+	bgp->connectionhash = hash_create(connection_hash_key_make, connection_hash_same,
+					  "BGP Peer Hash");
+	bgp->connectionhash->max_size = BGP_PEER_MAX_HASH_SIZE;
 
 	if (!hidden)
 		bgp->group = list_new();
@@ -4461,9 +4463,9 @@ void bgp_free(struct bgp *bgp)
 	list_delete(&bgp->group);
 	list_delete(&bgp->peer);
 
-	if (bgp->peerhash) {
-		hash_free(bgp->peerhash);
-		bgp->peerhash = NULL;
+	if (bgp->connectionhash) {
+		hash_free(bgp->connectionhash);
+		bgp->connectionhash = NULL;
 	}
 
 	FOREACH_AFI_SAFI (afi, safi) {
@@ -4593,13 +4595,14 @@ struct peer *peer_lookup_by_hostname(struct bgp *bgp, const char *hostname)
 
 struct peer *peer_lookup(struct bgp *bgp, union sockunion *su)
 {
-	struct peer *peer = NULL;
 	struct peer tmp_peer;
 	struct peer_connection connection;
+	struct peer_connection *c = NULL;
 
 	memset(&connection, 0, sizeof(struct peer_connection));
 	memset(&tmp_peer, 0, sizeof(struct peer));
 	tmp_peer.connection = &connection;
+	connection.peer = &tmp_peer;
 
 	/*
 	 * We do not want to find the doppelganger peer so search for the peer
@@ -4611,18 +4614,18 @@ struct peer *peer_lookup(struct bgp *bgp, union sockunion *su)
 	connection.su = *su;
 
 	if (bgp != NULL) {
-		peer = hash_lookup(bgp->peerhash, &tmp_peer);
+		c = hash_lookup(bgp->connectionhash, &connection);
 	} else if (bm->bgp != NULL) {
 		struct listnode *bgpnode, *nbgpnode;
 
 		for (ALL_LIST_ELEMENTS(bm->bgp, bgpnode, nbgpnode, bgp)) {
-			peer = hash_lookup(bgp->peerhash, &tmp_peer);
-			if (peer)
+			c = hash_lookup(bgp->connectionhash, &connection);
+			if (c)
 				break;
 		}
 	}
 
-	return peer;
+	return c ? c->peer : NULL;
 }
 
 struct peer *peer_create_bind_dynamic_neighbor(struct bgp *bgp,
