@@ -17235,12 +17235,13 @@ DEFUN (clear_ip_bgp_dampening_address_mask,
 				    NULL, 0);
 }
 
-static void show_bgp_peerhash_entry(struct hash_bucket *bucket, void *arg)
+static void show_bgp_connectionhash_entry(struct hash_bucket *bucket, void *arg)
 {
-       struct vty *vty = arg;
-       struct peer *peer = bucket->data;
+	struct vty *vty = arg;
+	struct peer_connection *connection = bucket->data;
+	struct peer *peer = connection->peer;
 
-       vty_out(vty, "\tPeer: %s %pSU\n", peer->host, &peer->connection->su);
+	vty_out(vty, "\tPeer: %s %pSU\n", peer->host, &peer->connection->su);
 }
 
 DEFUN (show_bgp_listeners,
@@ -17268,8 +17269,7 @@ DEFUN (show_bgp_peerhash,
 
        for (ALL_LIST_ELEMENTS_RO(instances, node, bgp)) {
 	       vty_out(vty, "BGP: %s\n", bgp->name_pretty);
-	       hash_iterate(bgp->peerhash, show_bgp_peerhash_entry,
-                            vty);
+	       hash_iterate(bgp->connectionhash, show_bgp_connectionhash_entry, vty);
        }
 
        return CMD_SUCCESS;
