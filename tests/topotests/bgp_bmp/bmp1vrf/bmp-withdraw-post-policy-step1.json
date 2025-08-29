@@ -1,5 +1,5 @@
 {
-    "post-policy": {
+    "rib-in-post-policy": {
         "withdraw": {
             "172.31.0.15/32": {
                 "bmp_log_type": "withdraw",
@@ -10,19 +10,19 @@
                 "peer_distinguisher": "444:1",
                 "peer_ip": "192.168.0.2",
                 "peer_type": "route distinguisher instance",
-                "policy": "post-policy"
+                "policy": "rib-in-post-policy"
             },
-            "2111::1111/128": {
+            "2001::1111/128": {
                 "afi": 2,
                 "bmp_log_type": "withdraw",
-                "ip_prefix": "2111::1111/128",
+                "ip_prefix": "2001::1111/128",
                 "ipv6": true,
                 "peer_asn": 65502,
                 "peer_bgp_id": "192.168.0.2",
                 "peer_distinguisher": "555:1",
                 "peer_ip": "192:168::2",
                 "peer_type": "route distinguisher instance",
-                "policy": "post-policy",
+                "policy": "rib-in-post-policy",
                 "safi": 1
             }
         }

@@ -86,6 +86,7 @@ extern void pullwr_cfg(struct pullwr *pullwr, int64_t max_spin_usec,
 		       size_t write_threshold);
 
 extern void pullwr_bump(struct pullwr *pullwr);
+extern void pullwr_timeout(struct pullwr *pullwr, uint32_t timeout);
 extern void pullwr_write(struct pullwr *pullwr,
 		const void *data, size_t len);
 
