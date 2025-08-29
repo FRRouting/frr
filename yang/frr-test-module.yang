@@ -158,4 +158,22 @@ module frr-test-module {
       }
     }
   }
+  rpc rpc-no-args {
+    description "An rpc with no arguments.";
+  }
+  rpc rpc-both-args {
+    description "A rpc with both input and output arguments.";
+    input {
+      leaf data {
+        type string;
+        description "data input to rpc_no_output.";
+      }
+    }
+    output {
+      leaf result {
+        type string;
+        description "result of RPC.";
+      }
+    }
+  }
 }
