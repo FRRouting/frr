@@ -204,7 +204,10 @@ test# show yang operational-data /frr-test-module:frr-test-module/c2cont/c2value
     }
   }
 }
-test# test rpc
+test# test action
 vrf testname data testdata
+test# test rpc-no-args
+test# test rpc-both-args
+result in-data-out
 test# 
 end.

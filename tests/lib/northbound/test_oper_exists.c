@@ -186,6 +186,14 @@ const struct frr_yang_module_info frr_test_module_info = {
 			.cbs.rpc = __rpc_return_ok,
 		},
 		{
+			.xpath = "/frr-test-module:rpc-no-args",
+			.cbs.rpc = __rpc_return_ok,
+		},
+		{
+			.xpath = "/frr-test-module:rpc-both-args",
+			.cbs.rpc = __rpc_return_ok,
+		},
+		{
 			.xpath = NULL,
 		},
 	}
