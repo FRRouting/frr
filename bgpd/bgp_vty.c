@@ -299,13 +299,13 @@ static const char *get_afi_safi_json_str(afi_t afi, safi_t safi)
 	return "Unknown";
 }
 
-/* unset srv6 locator */
-static int bgp_srv6_locator_unset(struct bgp *bgp)
+static void bgp_srv6_sids_unset(struct bgp *bgp)
 {
 	struct listnode *node, *nnode;
 	struct srv6_locator_chunk *chunk;
 	struct bgp_srv6_function *func;
 	struct bgp *bgp_vrf;
+	struct srv6_sid_ctx ctx = {};
 
 	/* refresh chunks */
 	for (ALL_LIST_ELEMENTS(bgp->srv6_locator_chunks, node, nnode, chunk)) {
@@ -324,24 +324,44 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
 			continue;
 
-		/* refresh vpnv4 tovpn_sid */
-		XFREE(MTYPE_BGP_SRV6_SID,
-		      bgp_vrf->vpn_policy[AFI_IP].tovpn_sid);
+		if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF && bgp_vrf != bgp)
+			continue;
 
-		/* refresh vpnv6 tovpn_sid */
-		XFREE(MTYPE_BGP_SRV6_SID,
-		      bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid);
+		ctx.vrf_id = bgp_vrf->vrf_id;
 
-		/* refresh per-vrf tovpn_sid */
-		XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
+		if (bgp_vrf->vpn_policy[AFI_IP].tovpn_sid) {
+			/* release vpnv4 tovpn_sid */
+			ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT4;
+			bgp_zebra_release_srv6_sid(&ctx, bgp_vrf->vpn_policy[AFI_IP]
+								 .tovpn_sid_locator->name);
+			/* refresh vpnv4 tovpn_sid */
+			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[AFI_IP].tovpn_sid);
+		}
+
+		if (bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid) {
+			/* release vpnv6 tovpn_sid */
+			ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+			bgp_zebra_release_srv6_sid(&ctx, bgp_vrf->vpn_policy[AFI_IP6]
+								 .tovpn_sid_locator->name);
+			/* refresh vpnv6 tovpn_sid */
+			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid);
+		}
+
+		if (bgp_vrf->tovpn_sid) {
+			/* release vpnvx tovpn_sid */
+			ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
+			bgp_zebra_release_srv6_sid(&ctx, bgp_vrf->tovpn_sid_locator->name);
+			/* refresh per-vrf tovpn_sid */
+			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
+		}
 	}
-
-	/* update vpn bgp processes */
-	vpn_leak_postchange_all();
 
 	/* refresh tovpn_sid_locator */
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
 		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
+			continue;
+
+		if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF && bgp_vrf != bgp)
 			continue;
 
 		/* refresh vpnv4 tovpn_sid_locator */
@@ -357,6 +377,13 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 		srv6_locator_free(bgp_vrf->tovpn_sid_locator);
 		bgp_vrf->tovpn_sid_locator = NULL;
 	}
+}
+
+/* unset srv6 locator */
+static int bgp_srv6_locator_unset(struct bgp *bgp)
+{
+	/* clear function, sids */
+	bgp_srv6_sids_unset(bgp);
 
 	/* clear locator name */
 	memset(bgp->srv6_locator_name, 0, sizeof(bgp->srv6_locator_name));
@@ -366,6 +393,12 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 		srv6_locator_free(bgp->srv6_locator);
 		bgp->srv6_locator = NULL;
 	}
+
+	/* update vpn bgp processes */
+	if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+		vpn_leak_postchange_all(NULL);
+	else
+		vpn_leak_postchange_all(bgp);
 
 	return 0;
 }
@@ -1612,7 +1645,7 @@ DEFUN_NOSH (router_bgp,
 		 * earlier "router bgp X vrf FOO" blocks.
 		 */
 		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-			vpn_leak_postchange_all();
+			vpn_leak_postchange_all(NULL);
 
 		if (inst_type == BGP_INSTANCE_TYPE_VRF || IS_BGP_INSTANCE_HIDDEN(bgp)) {
 			bgp_vpn_leak_export(bgp);
@@ -11168,6 +11201,8 @@ DEFPY (bgp_srv6_locator,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	bgp_srv6_sids_unset(bgp);
+
 	snprintf(bgp->srv6_locator_name,
 		 sizeof(bgp->srv6_locator_name), "%s", name);
 
@@ -11206,18 +11241,19 @@ DEFPY (no_bgp_srv6_locator,
 
 DEFPY (show_bgp_srv6,
        show_bgp_srv6_cmd,
-       "show bgp segment-routing srv6",
+       "show bgp [<view|vrf> VIEWVRFNAME$vrf] segment-routing srv6",
        SHOW_STR
        BGP_STR
+       BGP_INSTANCE_HELP_STR
        "BGP Segment Routing\n"
        "BGP Segment Routing SRv6\n")
 {
-	struct bgp *bgp;
+	struct bgp *bgp, *bgp_inst;
 	struct listnode *node;
 	struct srv6_locator_chunk *chunk;
 	struct bgp_srv6_function *func;
 
-	bgp = bgp_get_default();
+	bgp = vrf ? bgp_lookup_by_name(vrf) : bgp_get_default();
 	if (!bgp)
 		return CMD_SUCCESS;
 
@@ -11250,15 +11286,17 @@ DEFPY (show_bgp_srv6,
 	}
 
 	vty_out(vty, "bgps:\n");
-	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
-		vty_out(vty, "- name: %s\n",
-			bgp->name ? bgp->name : "default");
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_inst)) {
+		if (bgp != bgp_get_default() && bgp_inst != bgp)
+			continue;
+
+		vty_out(vty, "- name: %s\n", bgp_inst->name ? bgp_inst->name : "default");
 
 		vty_out(vty, "  vpn_policy[AFI_IP].tovpn_sid: %pI6\n",
-			bgp->vpn_policy[AFI_IP].tovpn_sid);
+			bgp_inst->vpn_policy[AFI_IP].tovpn_sid);
 		vty_out(vty, "  vpn_policy[AFI_IP6].tovpn_sid: %pI6\n",
-			bgp->vpn_policy[AFI_IP6].tovpn_sid);
-		vty_out(vty, "  per-vrf tovpn_sid: %pI6\n", bgp->tovpn_sid);
+			bgp_inst->vpn_policy[AFI_IP6].tovpn_sid);
+		vty_out(vty, "  per-vrf tovpn_sid: %pI6\n", bgp_inst->tovpn_sid);
 	}
 
 	return CMD_SUCCESS;

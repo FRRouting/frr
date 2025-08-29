@@ -1024,7 +1024,10 @@ void delete_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 					     : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
 		bgp_zebra_release_srv6_sid(&ctx, bgp_vrf->vpn_policy[afi].tovpn_sid_locator->name);
 
-		sid_unregister(bgp_vpn, bgp_vrf->vpn_policy[afi].tovpn_sid);
+		if (bgp_vrf->srv6_locator)
+			sid_unregister(bgp_vrf, bgp_vrf->vpn_policy[afi].tovpn_sid);
+		else
+			sid_unregister(bgp_vpn, bgp_vrf->vpn_policy[afi].tovpn_sid);
 		XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[afi].tovpn_sid);
 	}
 
@@ -1070,7 +1073,10 @@ void delete_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 		ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
 		bgp_zebra_release_srv6_sid(&ctx, bgp_vrf->tovpn_sid_locator->name);
 
-		sid_unregister(bgp_vpn, bgp_vrf->tovpn_sid);
+		if (bgp_vrf->srv6_locator)
+			sid_unregister(bgp_vrf, bgp_vrf->tovpn_sid);
+		else
+			sid_unregister(bgp_vpn, bgp_vrf->tovpn_sid);
 		XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
 	}
 	if (bgp_vrf->tovpn_sid_explicit) {
@@ -3982,7 +3988,7 @@ vrf_id_t get_first_vrf_for_redirect_with_rt(struct ecommunity *eckey)
  * This function gets called when the default instance ("router bgp NNN")
  * is created.
  */
-void vpn_leak_postchange_all(void)
+void vpn_leak_postchange_all(struct bgp *filter_opt_bgp)
 {
 	struct listnode *next;
 	struct bgp *bgp;
@@ -3999,6 +4005,9 @@ void vpn_leak_postchange_all(void)
 		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO))
 			continue;
 
+		if (filter_opt_bgp && filter_opt_bgp != bgp)
+			continue;
+
 		vpn_leak_postchange(
 			BGP_VPN_POLICY_DIR_TOVPN,
 			AFI_IP,
@@ -4011,7 +4020,6 @@ void vpn_leak_postchange_all(void)
 			bgp_default,
 			bgp);
 	}
-
 	/* Now, do any importing to VRFs from the single VPN RIB */
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, next, bgp)) {
 
@@ -4019,6 +4027,9 @@ void vpn_leak_postchange_all(void)
 			continue;
 
 		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO))
+			continue;
+
+		if (filter_opt_bgp && filter_opt_bgp != bgp)
 			continue;
 
 		vpn_leak_postchange(

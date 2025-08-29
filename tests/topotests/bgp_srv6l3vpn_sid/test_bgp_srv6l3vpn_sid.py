@@ -458,8 +458,31 @@ def test_sid_suppress_locator_vrf_default():
           no segment-routing srv6
         """
     )
-    # 2001:5::/64 should be removed, r2 should have 3 entries only
+    # 2001:5::/64 should be removed, r2 should have 6 entries
     check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_unselected.json")
+
+    # and 2001:5 prefix has only the label 3 (it it no more an SRv6 update)
+    def _check(address):
+        tgen = get_topogen()
+        router = tgen.gears["r2"]
+        output = router.vtysh_cmd(f"show bgp ipv6 vpn {address}")
+        logger.info(f"polling")
+        found_label = False
+        found_sid = False
+        for line in output.splitlines():
+            if "Remote label: 3" in line:
+                found_label = True
+            if "Remote SID:" in line:
+                found_sid = True
+        if found_label and not found_sid:
+            return None
+        return "Not found"
+
+    logger.info("check 2001::5 has label 3 value on r2, and no SID present")
+    tgen = get_topogen()
+    func = functools.partial(_check, "2001:5::")
+    _, result = topotest.run_and_expect(func, None, count=30, wait=0.5)
+
     # 2001:5::/64 should be present, along with prefixes from vrf10
     check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_unselected.json")
 
