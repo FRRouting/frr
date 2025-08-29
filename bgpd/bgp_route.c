@@ -4931,14 +4931,17 @@ static bool bgp_accept_own(struct peer *peer, afi_t afi, safi_t safi,
 
 /* update path flags: accept own, and valid flag.
  * - accept_own flag is marked if valid flag is marked
- * - valid flag is marked if reachability check is ok
+ * - valid flag is marked:
+ *   - if reachability check is ok, and
+ *   - if safi is SAFI_MPLS_VPN, and encapsulation-[mpls-srv6] matches incoming path
+ * - valid flag is unmarked:
+ *   - if reachability check is nok or
+ *   - if safi is SAFI_MPLS_VPN, check encapsulation-[mpls-srv6] does not match incoming path
  */
-static inline void bgp_update_check_valid_flags(struct bgp *bgp, struct peer *peer,
-						struct bgp_dest *dest, const struct prefix *p,
-						afi_t afi, safi_t safi, struct bgp_path_info *pi,
-						struct attr *attr_new,
-						const struct prefix *bgp_nht_param_prefix,
-						bool accept_own)
+void bgp_update_check_valid_flags(struct bgp *bgp, struct peer *peer, struct bgp_dest *dest,
+				  const struct prefix *p, afi_t afi, safi_t safi,
+				  struct bgp_path_info *pi, struct attr *attr_new,
+				  const struct prefix *bgp_nht_param_prefix, bool accept_own)
 {
 	bool connected;
 	afi_t nh_afi;
@@ -4971,8 +4974,44 @@ static inline void bgp_update_check_valid_flags(struct bgp *bgp, struct peer *pe
 		    CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD)) {
 			if (accept_own)
 				bgp_path_info_set_flag(dest, pi, BGP_PATH_ACCEPT_OWN);
-
-			bgp_path_info_set_flag(dest, pi, BGP_PATH_VALID);
+			if (pi->peer && pi->peer->bgp->peer_self != pi->peer &&
+			    safi == SAFI_MPLS_VPN) {
+				if (pi->attr->srv6_l3vpn || pi->attr->srv6_vpn) {
+					if (peergroup_af_flag_check(peer, afi, SAFI_MPLS_VPN,
+								    PEER_FLAG_CONFIG_ENCAPSULATION_SRV6) ||
+					    !peergroup_af_flag_check(peer, afi, SAFI_MPLS_VPN,
+								     PEER_FLAG_CONFIG_ENCAPSULATION_MPLS))
+						/* incoming BGP L3VPN SRv6 path is marked active only if SRv6 is accepted in config
+						 * or if MPLS constraint is not configured
+						 */
+						bgp_path_info_set_flag(dest, pi, BGP_PATH_VALID);
+					else if (!peergroup_af_flag_check(peer, afi, SAFI_MPLS_VPN,
+									  PEER_FLAG_CONFIG_ENCAPSULATION_SRV6) &&
+						 peergroup_af_flag_check(peer, afi, SAFI_MPLS_VPN,
+									 PEER_FLAG_CONFIG_ENCAPSULATION_MPLS))
+						/* incoming BGP L3VPN SRv6 path is marked inactive only if SRv6 is not configured
+						 * and if MPLS constraint is configured
+						 */
+						bgp_path_info_unset_flag(dest, pi, BGP_PATH_VALID);
+				} else if (peergroup_af_flag_check(peer, afi, SAFI_MPLS_VPN,
+								   PEER_FLAG_CONFIG_ENCAPSULATION_MPLS) ||
+					   !peergroup_af_flag_check(peer, afi, SAFI_MPLS_VPN,
+								    PEER_FLAG_CONFIG_ENCAPSULATION_SRV6)) {
+					/* incoming BGP L3VPN MPLS path is marked active only if MPLS constraint is configured
+					 * or if SRv6 constraint is not configured
+					 */
+					bgp_path_info_set_flag(dest, pi, BGP_PATH_VALID);
+				} else if (!peergroup_af_flag_check(peer, afi, SAFI_MPLS_VPN,
+								    PEER_FLAG_CONFIG_ENCAPSULATION_MPLS) &&
+					   peergroup_af_flag_check(peer, afi, SAFI_MPLS_VPN,
+								   PEER_FLAG_CONFIG_ENCAPSULATION_SRV6))
+					/* incoming BGP L3VPN MPLS path is marked inactive only if MPLS is not configured
+					 * and if SRv6 constraint is configured
+					 */
+					bgp_path_info_unset_flag(dest, pi, BGP_PATH_VALID);
+			} else
+				/* other case - no MPLS or SRv6 configured per peer - enable status */
+				bgp_path_info_set_flag(dest, pi, BGP_PATH_VALID);
 		} else {
 			if (BGP_DEBUG(nht, NHT)) {
 				zlog_debug("%s(%pI4): NH unresolved for existing %pFX pi %p flags 0x%x",
