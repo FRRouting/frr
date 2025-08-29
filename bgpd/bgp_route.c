@@ -5270,6 +5270,24 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		goto filtered;
 	}
 
+
+	if (safi == SAFI_MPLS_VPN) {
+		if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CONFIG_ENCAPSULATION_SRV6) &&
+		    !attr->srv6_l3vpn && !attr->srv6_vpn) {
+			peer->stat_pfx_filter++;
+			reason = "srv6-needed;";
+			bgp_attr_flush(&new_attr);
+			goto filtered;
+		}
+		if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CONFIG_ENCAPSULATION_MPLS) &&
+		    (attr->srv6_l3vpn || attr->srv6_vpn)) {
+			peer->stat_pfx_filter++;
+			reason = "mpls-needed;";
+			bgp_attr_flush(&new_attr);
+			goto filtered;
+		}
+	}
+
 	if (pi && pi->attr->rmap_table_id != new_attr.rmap_table_id) {
 		if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
 			/* remove from RIB previous entry */
