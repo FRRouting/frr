@@ -448,6 +448,17 @@ AH_VERBATIM([OpenBSD], [
 #endif
 ])
 
+dnl Debian 8.3.0-6 has a broken -Wdiscarded-qualifiers
+dnl Gentoo 7.5.0 and 8.4.0 are both fine, so either it's gcc 8.3 or Debian's
+dnl meddling.  I'm guessing the latter.  (2025-01-27 equinox)
+AC_MSG_CHECKING([whether $CC is a broken Debian GCC 8.3])
+if $CC -v 2>&1 | grep -q -E '^gcc.*Debian 8\.3\.'; then
+  AC_MSG_RESULT([yes])
+  CFLAGS="$CFLAGS -Wno-discarded-qualifiers"
+else
+  AC_MSG_RESULT([no])
+fi
+
 dnl always want these CFLAGS
 AC_C_FLAG([-fms-extensions], [
   AC_MSG_ERROR([$CC does not support unnamed struct fields (-fms-extensions)])
