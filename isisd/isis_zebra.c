@@ -890,73 +890,6 @@ static int isis_zebra_client_close_notify(ZAPI_CALLBACK_ARGS)
 }
 
 /**
- * Send SRv6 SID to ZEBRA for installation or deletion.
- *
- * @param cmd		ZEBRA_ROUTE_ADD or ZEBRA_ROUTE_DELETE
- * @param sid		SRv6 SID to install or delete
- * @param prefixlen	Prefix length
- * @param oif		Outgoing interface
- * @param action	SID action
- * @param context	SID context
- */
-static void isis_zebra_send_localsid(int cmd, const struct in6_addr *sid,
-				     uint16_t prefixlen, ifindex_t oif,
-				     enum seg6local_action_t action,
-				     const struct seg6local_context *context)
-{
-	struct prefix_ipv6 p = {};
-	struct zapi_route api = {};
-	struct zapi_nexthop *znh;
-
-	if (cmd != ZEBRA_ROUTE_ADD && cmd != ZEBRA_ROUTE_DELETE) {
-		flog_warn(EC_LIB_DEVELOPMENT, "%s: wrong ZEBRA command",
-			  __func__);
-		return;
-	}
-
-	if (prefixlen > IPV6_MAX_BITLEN) {
-		flog_warn(EC_LIB_DEVELOPMENT, "%s: wrong prefixlen %u",
-			  __func__, prefixlen);
-		return;
-	}
-
-	sr_debug("  |- %s SRv6 SID %pI6 behavior %s",
-		 cmd == ZEBRA_ROUTE_ADD ? "Add" : "Delete", sid,
-		 seg6local_action2str(action));
-
-	p.family = AF_INET6;
-	p.prefixlen = prefixlen;
-	p.prefix = *sid;
-
-	api.vrf_id = VRF_DEFAULT;
-	api.type = PROTO_TYPE;
-	api.instance = 0;
-	api.safi = SAFI_UNICAST;
-	memcpy(&api.prefix, &p, sizeof(p));
-
-	if (cmd == ZEBRA_ROUTE_DELETE)
-		return (void)zclient_route_send(ZEBRA_ROUTE_DELETE, isis_zclient,
-						&api);
-
-	SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
-	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-
-	znh = &api.nexthops[0];
-
-	memset(znh, 0, sizeof(*znh));
-
-	znh->type = NEXTHOP_TYPE_IFINDEX;
-	znh->ifindex = oif;
-	SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL);
-	znh->seg6local_action = action;
-	memcpy(&znh->seg6local_ctx, context, sizeof(struct seg6local_context));
-
-	api.nexthop_num = 1;
-
-	zclient_route_send(ZEBRA_ROUTE_ADD, isis_zclient, &api);
-}
-
-/**
  * Install SRv6 SID in the forwarding plane through Zebra.
  *
  * @param area		IS-IS area
@@ -1040,8 +973,8 @@ void isis_zebra_srv6_sid_install(struct isis_area *area,
 	}
 
 	/* Send the SID to zebra */
-	isis_zebra_send_localsid(ZEBRA_ROUTE_ADD, &sid->sid, prefixlen,
-				 ifp->ifindex, action, &ctx);
+	zclient_send_localsid(isis_zclient, ZEBRA_ROUTE_ADD, &sid->sid, prefixlen, ifp->ifindex,
+			      action, &ctx);
 }
 
 /**
@@ -1108,8 +1041,8 @@ void isis_zebra_srv6_sid_uninstall(struct isis_area *area,
 	}
 
 	/* Send delete request to zebra */
-	isis_zebra_send_localsid(ZEBRA_ROUTE_DELETE, &sid->sid, prefixlen,
-				 ifp->ifindex, action, NULL);
+	zclient_send_localsid(isis_zclient, ZEBRA_ROUTE_DELETE, &sid->sid, prefixlen, ifp->ifindex,
+			      action, NULL);
 }
 
 void isis_zebra_srv6_adj_sid_install(struct srv6_adjacency *sra)
@@ -1178,8 +1111,8 @@ void isis_zebra_srv6_adj_sid_install(struct srv6_adjacency *sra)
 
 	ifp = sra->adj->circuit->interface;
 
-	isis_zebra_send_localsid(ZEBRA_ROUTE_ADD, &sra->sid, prefixlen,
-				 ifp->ifindex, action, &ctx);
+	zclient_send_localsid(isis_zclient, ZEBRA_ROUTE_ADD, &sra->sid, prefixlen, ifp->ifindex,
+			      action, &ctx);
 }
 
 void isis_zebra_srv6_adj_sid_uninstall(struct srv6_adjacency *sra)
@@ -1239,8 +1172,8 @@ void isis_zebra_srv6_adj_sid_uninstall(struct srv6_adjacency *sra)
 	sr_debug("ISIS-SRv6 (%s): delete End.X SID %pI6", area->area_tag,
 		 &sra->sid);
 
-	isis_zebra_send_localsid(ZEBRA_ROUTE_DELETE, &sra->sid, prefixlen,
-				 ifp->ifindex, action, NULL);
+	zclient_send_localsid(isis_zclient, ZEBRA_ROUTE_DELETE, &sra->sid, prefixlen, ifp->ifindex,
+			      action, NULL);
 }
 
 /**
