@@ -736,6 +736,8 @@ extern LY_ERR yang_parse_notification(const char *xpath, LYD_FORMAT format,
  */
 LY_ERR yang_parse_rpc(const char *xpath, LYD_FORMAT format, const char *data,
 		      bool reply, struct lyd_node **rpc);
+LY_ERR yang_parse_restconf_rpc(const char *xpath, LYD_FORMAT format, const char *data, bool reply,
+			       struct lyd_node **rpc);
 
 /*
  * "Print" the yang tree in `root` into dynamic sized array.
@@ -748,8 +750,7 @@ LY_ERR yang_parse_rpc(const char *xpath, LYD_FORMAT format, const char *data,
  * Return:
  *	A darr dynamic array with the "printed" output or NULL on failure.
  */
-extern uint8_t *yang_print_tree(const struct lyd_node *root, LYD_FORMAT format,
-				uint32_t options);
+extern uint8_t *yang_print_tree(const struct lyd_node *root, LYD_FORMAT format, uint32_t options);
 
 
 /**
