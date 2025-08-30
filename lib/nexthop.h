@@ -98,7 +98,7 @@ struct nexthop {
 	char _hash_end[0];
 
 	/* Weight of the nexthop ( for unequal cost ECMP ) */
-	uint8_t weight;
+	uint16_t weight;
 
 	uint16_t flags;
 #define NEXTHOP_FLAG_ACTIVE     (1 << 0) /* This nexthop is alive. */
