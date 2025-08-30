@@ -33,6 +33,11 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
    route and the route types in this case will show up as a static route
    with an admin distance of 255.
 
+.. option:: -a, --allow_delete
+
+   Allow other processes to delete zebra routes. This option enables zebra to
+   accept route deletion requests from external processes.
+
 .. option:: -r, --retain
 
    When program terminates, do not flush routes installed by *zebra* from the
@@ -102,6 +107,18 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
    by the underlying dataplane.  This will be communicated to
    the upper level daemons that can install v6 routes with v4
    nexthops.
+
+.. option:: --nexthop-weight-16-bit
+
+   Use 16 bit nexthop weights instead of 8 bit weights. This option
+   allows for more granular control over nexthop load balancing when
+   using ECMP routes.  The underlying dataplane must support 16 bit
+   weighted ECMP nexthop groups.
+
+   Weighted values for either the 8 bit or the 16 bit choices are
+   scaled to ratios based upon the relative weights of the nexthops.
+   8 bit values are scaled to a range of 1-254 and 16 bit values are
+   scaled to a range of 1-65534.
 
 .. _interface-commands:
 
