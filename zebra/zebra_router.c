@@ -278,8 +278,8 @@ bool zebra_router_notify_on_ack(void)
 	return !zrouter.asic_offloaded || zrouter.notify_on_ack;
 }
 
-void zebra_router_init(bool asic_offload, bool notify_on_ack,
-		       bool v6_with_v4_nexthop)
+void zebra_router_init(bool asic_offload, bool notify_on_ack, bool v6_with_v4_nexthop,
+		       bool nexthop_weight_16_bit)
 {
 	zrouter.sequence_num = 0;
 
@@ -339,6 +339,8 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack,
 	zrouter.asic_offloaded = asic_offload;
 	zrouter.notify_on_ack = notify_on_ack;
 	zrouter.v6_with_v4_nexthop = v6_with_v4_nexthop;
+	zrouter.nexthop_weight_is_16bit = nexthop_weight_16_bit;
+
 	/*
 	 * If you start using asic_notification_nexthop_control
 	 * come talk to the FRR community about what you are doing
@@ -350,7 +352,10 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack,
 #endif
 	zrouter.asic_notification_nexthop_control = false;
 
-	zrouter.nexthop_weight_scale_value = 254;
+	if (!zrouter.nexthop_weight_is_16bit)
+		zrouter.nexthop_weight_scale_value = 254;
+	else
+		zrouter.nexthop_weight_scale_value = 0xFFFF - 1;
 
 	zrouter.backup_nhs_installed = false;
 

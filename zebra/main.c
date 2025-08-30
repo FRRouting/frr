@@ -79,6 +79,7 @@ uint32_t rt_table_main_id = RT_TABLE_MAIN;
 #define OPTION_V6_RR_SEMANTICS 2000
 #define OPTION_ASIC_OFFLOAD    2001
 #define OPTION_V6_WITH_V4_NEXTHOP 2002
+#define OPTION_NEXTHOP_WEIGHT_16_BIT 2003
 
 /* Command line options. */
 const struct option longopts[] = {
@@ -89,6 +90,7 @@ const struct option longopts[] = {
 	{ "retain", no_argument, NULL, 'r' },
 	{ "asic-offload", optional_argument, NULL, OPTION_ASIC_OFFLOAD },
 	{ "v6-with-v4-nexthops", no_argument, NULL, OPTION_V6_WITH_V4_NEXTHOP },
+	{ "nexthop-weight-16-bit", no_argument, NULL, OPTION_NEXTHOP_WEIGHT_16_BIT },
 #ifdef HAVE_NETLINK
 	{ "vrfwnetns", no_argument, NULL, 'n' },
 	{ "nl-bufsize", required_argument, NULL, 's' },
@@ -356,6 +358,7 @@ int main(int argc, char **argv)
 	bool asic_offload = false;
 	bool v6_with_v4_nexthop = false;
 	bool notify_on_ack = true;
+	bool nexthop_weight_16_bit = false;
 
 	zserv_path = NULL;
 
@@ -370,21 +373,22 @@ int main(int argc, char **argv)
 #endif
 		    ,
 		    longopts,
-		    "  -b, --batch               Runs in batch mode\n"
-		    "  -a, --allow_delete        Allow other processes to delete zebra routes\n"
-		    "  -z, --socket              Set path of zebra socket\n"
-		    "  -e, --ecmp                Specify ECMP to use.\n"
-		    "  -r, --retain              When program terminates, retain added route by zebra.\n"
-		    "  -A, --asic-offload        FRR is interacting with an asic underneath the linux kernel\n"
-		    "      --v6-with-v4-nexthops Underlying dataplane supports v6 routes with v4 nexthops\n"
+		    "  -b, --batch                 Runs in batch mode\n"
+		    "  -a, --allow_delete          Allow other processes to delete zebra routes\n"
+		    "  -z, --socket                Set path of zebra socket\n"
+		    "  -e, --ecmp                  Specify ECMP to use.\n"
+		    "  -r, --retain                When program terminates, retain added route by zebra.\n"
+		    "  -A, --asic-offload          FRR is interacting with an asic underneath the linux kernel\n"
+		    "      --v6-with-v4-nexthops   Underlying dataplane supports v6 routes with v4 nexthops\n"
+		    "      --nexthop-weight-16-bit Use 16 bit nexthop weights instead of 8\n"
 #ifdef HAVE_NETLINK
-		    "  -s, --nl-bufsize          Set netlink receive buffer size\n"
-		    "  -n, --vrfwnetns           Use NetNS as VRF backend (deprecated, use -w)\n"
-		    "      --v6-rr-semantics     Use v6 RR semantics\n"
+		    "  -s, --nl-bufsize            Set netlink receive buffer size\n"
+		    "  -n, --vrfwnetns             Use NetNS as VRF backend (deprecated, use -w)\n"
+		    "      --v6-rr-semantics       Use v6 RR semantics\n"
 #else
-		    "  -s,                       Set kernel socket receive buffer size\n"
+		    "  -s,                         Set kernel socket receive buffer size\n"
 #endif /* HAVE_NETLINK */
-		    "  -R, --routing-table       Set kernel routing table\n");
+		    "  -R, --routing-table         Set kernel routing table\n");
 
 	while (1) {
 		int opt = frr_getopt(argc, argv, NULL);
@@ -458,6 +462,9 @@ int main(int argc, char **argv)
 			v6_with_v4_nexthop = true;
 			break;
 #endif /* HAVE_NETLINK */
+		case OPTION_NEXTHOP_WEIGHT_16_BIT:
+			nexthop_weight_16_bit = true;
+			break;
 		default:
 			frr_help_exit(1);
 		}
@@ -467,7 +474,7 @@ int main(int argc, char **argv)
 
 	/* Zebra related initialize. */
 	libagentx_init();
-	zebra_router_init(asic_offload, notify_on_ack, v6_with_v4_nexthop);
+	zebra_router_init(asic_offload, notify_on_ack, v6_with_v4_nexthop, nexthop_weight_16_bit);
 	zserv_init();
 	zebra_rib_init();
 	zebra_if_init();

@@ -2955,7 +2955,14 @@ static bool _netlink_nexthop_build_group(struct nlmsghdr *n, size_t req_size, ui
 	if (count) {
 		for (int i = 0; i < count; i++) {
 			grp[i].id = z_grp[i].id;
-			grp[i].weight = z_grp[i].weight - 1;
+			if (zrouter.nexthop_weight_is_16bit) {
+				uint16_t weight = z_grp[i].weight - 1;
+
+				grp[i].id = z_grp[i].id;
+				grp[i].weight = weight & 0xFF;
+				grp[i].weight_high = weight >> 8;
+			} else
+				grp[i].weight = z_grp[i].weight - 1;
 
 			if (IS_ZEBRA_DEBUG_KERNEL) {
 				if (i == 0)
@@ -3645,8 +3652,14 @@ static int netlink_nexthop_process_group(struct rtattr **tb,
 	}
 
 	for (int i = 0; ((i < count) && (i < z_grp_size)); i++) {
+		uint16_t weight;
+
 		z_grp[i].id = n_grp[i].id;
-		z_grp[i].weight = n_grp[i].weight + 1;
+		if (zrouter.nexthop_weight_is_16bit)
+			weight = n_grp[i].weight_high << 8 | n_grp[i].weight;
+		else
+			weight = n_grp[i].weight;
+		z_grp[i].weight = weight + 1;
 	}
 
 	memset(nhgr, 0, sizeof(*nhgr));
