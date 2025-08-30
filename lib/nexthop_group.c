@@ -879,7 +879,7 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 	   nexthop-vrf NAME$vrf_name \
 	   |label WORD \
 	   |vni (1-16777215) \
-           |weight (1-255) \
+           |weight (1-4294967295) \
            |backup-idx WORD \
 	}]",
       NO_STR
