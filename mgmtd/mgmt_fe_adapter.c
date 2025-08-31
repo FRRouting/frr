@@ -1247,7 +1247,8 @@ done:
 /* ----------- */
 
 static int fe_session_send_rpc_reply(struct mgmt_fe_session_ctx *session, uint64_t req_id,
-				     uint8_t result_type, const struct lyd_node *result)
+				     uint8_t result_type, bool restconf,
+				     const struct lyd_node *result)
 {
 	struct mgmt_msg_rpc_reply *msg;
 	uint8_t **darrp = NULL;
@@ -1258,6 +1259,7 @@ static int fe_session_send_rpc_reply(struct mgmt_fe_session_ctx *session, uint64
 	msg->req_id = req_id;
 	msg->code = MGMT_MSG_CODE_RPC_REPLY;
 	msg->result_type = result_type;
+	msg->restconf = restconf;
 
 	if (result) {
 		darrp = mgmt_msg_native_get_darrp(msg);
@@ -1282,7 +1284,8 @@ done:
 }
 
 void mgmt_fe_adapter_send_rpc_reply(uint64_t session_id, uint64_t txn_id, uint64_t req_id,
-				    LYD_FORMAT result_type, const struct lyd_node *result)
+				    LYD_FORMAT result_type, bool restconf,
+				    const struct lyd_node *result)
 {
 	struct mgmt_fe_session_ctx *session;
 
@@ -1293,7 +1296,7 @@ void mgmt_fe_adapter_send_rpc_reply(uint64_t session_id, uint64_t txn_id, uint64
 	/* XXXchopps why do we care about this? Why not allow multple? */
 	assert(session->txn_id == txn_id);
 
-	if (fe_session_send_rpc_reply(session, req_id, result_type, result))
+	if (fe_session_send_rpc_reply(session, req_id, result_type, restconf, result))
 		fe_session_send_error(session, req_id, false, -EIO, "Failed sending RPC reply");
 
 	mgmt_destroy_txn(&session->txn_id);
@@ -1360,8 +1363,8 @@ static void fe_session_handle_rpc(struct mgmt_fe_session_ctx *session, void *_ms
 	     session->session_id);
 
 	/* Create an RPC request under the transaction */
-	mgmt_txn_send_rpc(session->txn_id, req_id, clients, msg->request_type, xpath, data,
-			  mgmt_msg_native_data_len_decode(msg, msg_len));
+	mgmt_txn_send_rpc(session->txn_id, req_id, clients, msg->request_type, msg->restconf,
+			  xpath, data, mgmt_msg_native_data_len_decode(msg, msg_len));
 }
 
 /* -------------------- */

@@ -467,12 +467,15 @@ _Static_assert(sizeof(struct mgmt_msg_rpc) == offsetof(struct mgmt_msg_rpc, data
  * struct mgmt_msg_rpc_reply - RPC/action reply.
  *
  * @result_type: ``LYD_FORMAT`` for the @data.
+ * @restconf: If true the and tree data is present it is in RESTCONF format
+ * (i.e., the topmost node is `output`)
  * @data: the tree data for the reply.
  */
 struct mgmt_msg_rpc_reply {
 	struct mgmt_msg_header;
 	uint8_t result_type;
-	uint8_t resv2[7];
+	uint8_t restconf;
+	uint8_t resv2[6];
 
 	alignas(8) char data[];
 };

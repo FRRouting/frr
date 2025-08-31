@@ -45,6 +45,7 @@ struct txn_req_rpc {
 	uint64_t clients;      /* Bitmask of clients sent req to */
 	uint64_t clients_wait; /* Bitmask of clients waiting for reply from */
 	uint8_t result_type;   /* LYD_FORMAT for results */
+	uint8_t restconf;      /* if restconf formatted data */
 	struct lyd_node *client_results; /* result tree from clients */
 };
 #define as_rpc(txn_req)                                                                           \
@@ -433,7 +434,8 @@ static void txn_rpc_done(struct txn_req_rpc *rpc)
 					  txn_req->err_info);
 	else
 		mgmt_fe_adapter_send_rpc_reply(txn->session_id, txn->txn_id, req_id,
-					       rpc->result_type, rpc->client_results);
+					       rpc->result_type, rpc->restconf,
+					       rpc->client_results);
 
 	/* we're done with the request */
 	txn_req_free(txn_req);
@@ -521,7 +523,7 @@ void mgmt_txn_handle_rpc_reply(struct mgmt_be_client_adapter *adapter,
 }
 
 void mgmt_txn_send_rpc(uint64_t txn_id, uint64_t req_id, uint64_t clients, LYD_FORMAT result_type,
-		       const char *xpath, const char *data, size_t data_len)
+		       bool restconf, const char *xpath, const char *data, size_t data_len)
 {
 	struct mgmt_be_client_adapter *adapter;
 	struct mgmt_txn *txn;
@@ -536,6 +538,7 @@ void mgmt_txn_send_rpc(uint64_t txn_id, uint64_t req_id, uint64_t clients, LYD_F
 	rpc = txn_req_rpc_alloc(txn, req_id);
 	rpc->xpath = XSTRDUP(MTYPE_MGMTD_XPATH, xpath);
 	rpc->result_type = result_type;
+	rpc->restconf = restconf;
 
 	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_rpc, 0,
 					MTYPE_MSG_NATIVE_RPC);
@@ -543,6 +546,7 @@ void mgmt_txn_send_rpc(uint64_t txn_id, uint64_t req_id, uint64_t clients, LYD_F
 	msg->req_id = req_id;
 	msg->code = MGMT_MSG_CODE_RPC;
 	msg->request_type = result_type;
+	msg->restconf = restconf;
 
 	mgmt_msg_native_xpath_encode(msg, xpath);
 	if (data)
