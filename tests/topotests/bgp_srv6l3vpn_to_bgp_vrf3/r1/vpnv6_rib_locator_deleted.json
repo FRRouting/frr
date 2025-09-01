@@ -9,7 +9,9 @@
       "1:10": {
         "2001:1::/64": [
           {
-            "multipath": true,
+            "valid": true,
+            "bestpath": true,
+            "selectionReason": "First path received",
             "pathFrom": "external",
             "prefix": "2001:1::",
             "prefixLen": 64,
@@ -33,7 +35,9 @@
         ],
         "2001:3::/64": [
           {
-            "multipath": true,
+            "valid": true,
+            "bestpath": true,
+            "selectionReason": "First path received",
             "pathFrom": "external",
             "prefix": "2001:3::",
             "prefixLen": 64,
@@ -59,7 +63,9 @@
       "1:20": {
         "2001:5::/64": [
           {
-            "multipath": true,
+            "valid": true,
+            "bestpath": true,
+            "selectionReason": "First path received",
             "pathFrom": "external",
             "prefix": "2001:5::",
             "prefixLen": 64,
