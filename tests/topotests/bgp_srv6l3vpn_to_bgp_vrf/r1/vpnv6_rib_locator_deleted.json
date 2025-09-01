@@ -6,102 +6,6 @@
   "localAS": 65500,
   "routes": {
     "routeDistinguishers": {
-      "1:10": {
-        "2001:1::/64": [
-          {
-            "pathFrom": "external",
-            "prefix": "2001:1::",
-            "prefixLen": 64,
-            "network": "2001:1::/64",
-            "metric": 0,
-            "weight": 32768,
-            "peerId": "(unspec)",
-            "path": "",
-            "origin": "incomplete",
-            "announceNexthopSelf": true,
-            "nhVrfName": "vrf10",
-            "nexthops": [
-              {
-                "ip": "::",
-                "hostname": "r1",
-                "afi": "ipv6",
-                "used": true
-              }
-            ]
-          }
-        ],
-        "2001:3::/64": [
-          {
-            "pathFrom": "external",
-            "prefix": "2001:3::",
-            "prefixLen": 64,
-            "network": "2001:3::/64",
-            "metric": 0,
-            "weight": 32768,
-            "peerId": "(unspec)",
-            "path": "",
-            "origin": "incomplete",
-            "announceNexthopSelf": true,
-            "nhVrfName": "vrf10",
-            "nexthops": [
-              {
-                "ip": "::",
-                "hostname": "r1",
-                "afi": "ipv6",
-                "used": true
-              }
-            ]
-          }
-        ],
-        "2011:1::/64": [
-          {
-            "pathFrom": "external",
-            "prefix": "2011:1::",
-            "prefixLen": 64,
-            "network": "2011:1::/64",
-            "metric": 0,
-            "weight": 0,
-            "peerId": "(unspec)",
-            "path": "",
-            "origin": "IGP",
-            "announceNexthopSelf": true,
-            "nhVrfName": "vrf10",
-            "nexthops": [
-              {
-                "ip": "2001:1::2",
-                "hostname": "r1",
-                "afi": "ipv6",
-                "used": true
-              }
-            ]
-          }
-        ]
-      },
-      "1:20": {
-        "2001:5::/64": [
-          {
-            "pathFrom": "external",
-            "prefix": "2001:5::",
-            "prefixLen": 64,
-            "network": "2001:5::/64",
-            "metric": 0,
-            "weight": 32768,
-            "peerId": "(unspec)",
-            "path": "",
-            "origin": "incomplete",
-            "announceNexthopSelf": true,
-            "nhVrfName": "vrf20",
-            "nexthops": [
-              {
-                "ip": "::",
-                "hostname": "r1",
-                "afi": "ipv6",
-                "used": true
-              }
-            ]
-          }
-        ]
-      },
       "2:10": {
         "2001:2::/64": [
           {
@@ -180,6 +84,6 @@
       }
     }
   },
-  "totalRoutes": 7,
-  "totalPaths": 7
+  "totalRoutes": 3,
+  "totalPaths": 3
 }
