@@ -406,6 +406,49 @@ static void lde_dispatch_imsg(struct event *thread)
 }
 
 /* ARGSUSED */
+static void lde_send_all_klabel(struct iface *iface)
+{
+	struct fec *fec;
+	struct fec_node *fn;
+	struct fec_nh *fnh;
+	struct lde_map *me;
+	struct lde_nbr *ln;
+
+	RB_FOREACH (ln, nbr_tree, &lde_nbrs) {
+		RB_FOREACH (fec, fec_tree, &ln->recv_map) {
+			switch (fec->type) {
+			case FEC_TYPE_IPV4:
+				break;
+			case FEC_TYPE_IPV6:
+				break;
+			case FEC_TYPE_PWID:
+			default:
+				continue;
+			}
+
+			fn = (struct fec_node *)fec_find(&ft, fec);
+			if (fn == NULL) {
+				/* shouldn't happen */
+				continue;
+			}
+
+			LIST_FOREACH (fnh, &fn->nexthops, entry) {
+				if (fnh->ifindex != iface->ifindex)
+					continue;
+
+				if (lde_address_find(ln, fnh->af, &fnh->nexthop) == NULL)
+					continue;
+
+				me = (struct lde_map *)fec;
+				fnh->remote_label = me->map.label;
+				lde_send_change_klabel(fn, fnh);
+				break;
+			}
+		}
+	}
+}
+
+/* ARGSUSED */
 static void lde_dispatch_parent(struct event *thread)
 {
 	static struct ldpd_conf	*nconf;
@@ -454,8 +497,11 @@ static void lde_dispatch_parent(struct event *thread)
 				if_update_info(iface, kif);
 
 				/* if up see if any labels need to be updated */
-				if (kif->operative)
+				if (kif->operative) {
 					lde_route_update(iface, AF_UNSPEC);
+					lde_send_all_klabel(iface);
+				}
+
 				break;
 			}
 
