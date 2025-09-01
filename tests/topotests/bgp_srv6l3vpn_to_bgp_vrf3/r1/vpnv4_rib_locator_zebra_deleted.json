@@ -1,26 +1,25 @@
 {
   "vrfId": 0,
   "vrfName": "default",
-  "routerId": "2.2.2.2",
+  "routerId": "1.1.1.1",
   "defaultLocPrf": 100,
-  "localAS": 2,
+  "localAS": 1,
   "routes": {
     "routeDistinguishers": {
       "1:10": {
-        "2001:1::/64": [
-          {
-            "valid": true,
-            "bestpath": true,
-            "selectionReason": "First path received",
+        "192.168.1.0/24": [
+            {
+            "multipath": true,
             "pathFrom": "external",
-            "prefix": "2001:1::",
-            "prefixLen": 64,
-            "network": "2001:1::/64",
+            "prefix": "192.168.1.0",
+            "prefixLen": 24,
+            "network": "192.168.1.0/24",
             "metric": 0,
-            "weight": 0,
-            "peerId": "2001::1",
-            "path": "1",
+            "weight": 32768,
+            "peerId": "(unspec)",
+            "path": "",
             "origin": "incomplete",
+            "nhVrfName": "vrf10",
             "nexthops": [
               {
                 "ip": "2001::1",
@@ -31,20 +30,19 @@
             ]
           }
         ],
-        "2001:3::/64": [
+        "192.168.3.0/24": [
           {
-            "valid": true,
-            "bestpath": true,
-            "selectionReason": "First path received",
+            "multipath": true,
             "pathFrom": "external",
-            "prefix": "2001:3::",
-            "prefixLen": 64,
-            "network": "2001:3::/64",
+            "prefix": "192.168.3.0",
+            "prefixLen": 24,
+            "network": "192.168.3.0/24",
             "metric": 0,
-            "weight": 0,
-            "peerId": "2001::1",
-            "path": "1",
+            "weight": 32768,
+            "peerId": "(unspec)",
+            "path": "",
             "origin": "incomplete",
+            "nhVrfName": "vrf10",
             "nexthops": [
               {
                 "ip": "2001::1",
@@ -57,20 +55,19 @@
         ]
       },
       "1:20": {
-        "2001:5::/64": [
+        "192.168.5.0/24": [
           {
-            "valid": true,
-            "bestpath": true,
-            "selectionReason": "First path received",
+            "multipath": true,
             "pathFrom": "external",
-            "prefix": "2001:5::",
-            "prefixLen": 64,
-            "network": "2001:5::/64",
+            "prefix": "192.168.5.0",
+            "prefixLen": 24,
+            "network": "192.168.5.0/24",
             "metric": 0,
-            "weight": 0,
-            "peerId": "2001::1",
-            "path": "1",
+            "weight": 32768,
+            "peerId": "(unspec)",
+            "path": "",
             "origin": "incomplete",
+            "nhVrfName": "vrf20",
             "nexthops": [
               {
                 "ip": "2001::1",
@@ -83,25 +80,23 @@
         ]
       },
       "2:10": {
-        "2001:2::/64": [
+        "192.168.2.0/24": [
           {
             "valid": true,
             "bestpath": true,
             "selectionReason": "First path received",
             "pathFrom": "external",
-            "prefix": "2001:2::",
-            "prefixLen": 64,
-            "network": "2001:2::/64",
+            "prefix": "192.168.2.0",
+            "prefixLen": 24,
+            "network": "192.168.2.0/24",
             "metric": 0,
-            "weight": 32768,
-            "peerId": "(unspec)",
-            "path": "",
+            "weight": 0,
+            "peerId": "2001::2",
+            "path": "2",
             "origin": "incomplete",
-            "announceNexthopSelf": true,
-            "nhVrfName": "vrf10",
             "nexthops": [
               {
-                "ip": "::",
+                "ip": "2001::2",
                 "hostname": "r2",
                 "afi": "ipv6",
                 "used": true
@@ -111,25 +106,23 @@
         ]
       },
       "2:20": {
-        "2001:4::/64": [
+        "192.168.4.0/24": [
           {
             "valid": true,
             "bestpath": true,
             "selectionReason": "First path received",
             "pathFrom": "external",
-            "prefix": "2001:4::",
-            "prefixLen": 64,
-            "network": "2001:4::/64",
+            "prefix": "192.168.4.0",
+            "prefixLen": 24,
+            "network": "192.168.4.0/24",
             "metric": 0,
-            "weight": 32768,
-            "peerId": "(unspec)",
-            "path": "",
+            "weight": 0,
+            "peerId": "2001::2",
+            "path": "2",
             "origin": "incomplete",
-            "announceNexthopSelf": true,
-            "nhVrfName": "vrf20",
             "nexthops": [
               {
-                "ip": "::",
+                "ip": "2001::2",
                 "hostname": "r2",
                 "afi": "ipv6",
                 "used": true
@@ -137,25 +130,23 @@
             ]
           }
         ],
-        "2001:6::/64": [
-          {
+        "192.168.6.0/24": [
+             {
             "valid": true,
             "bestpath": true,
             "selectionReason": "First path received",
             "pathFrom": "external",
-            "prefix": "2001:6::",
-            "prefixLen": 64,
-            "network": "2001:6::/64",
+            "prefix": "192.168.6.0",
+            "prefixLen": 24,
+            "network": "192.168.6.0/24",
             "metric": 0,
-            "weight": 32768,
-            "peerId": "(unspec)",
-            "path": "",
+            "weight": 0,
+            "peerId": "2001::2",
+            "path": "2",
             "origin": "incomplete",
-            "announceNexthopSelf": true,
-            "nhVrfName": "vrf20",
             "nexthops": [
               {
-                "ip": "::",
+                "ip": "2001::2",
                 "hostname": "r2",
                 "afi": "ipv6",
                 "used": true
