@@ -5166,7 +5166,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		}
 
 	/* Do not accept a host route that matches a local address. */
-	if (((safi == SAFI_UNICAST) || (safi == SAFI_LABELED_UNICAST)) && is_host_route(p)) {
+	if (safi == SAFI_UNICAST && is_host_route(p)) {
 		if (bgp_hostroute_self(bgp, p)) {
 			reason = "host route matches a local address";
 			goto filtered;
