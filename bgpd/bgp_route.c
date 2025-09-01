@@ -5165,10 +5165,18 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			goto filtered;
 		}
 
-	/* Do not accept a host route that matches a local address. */
-	if (safi == SAFI_UNICAST && is_host_route(p)) {
-		if (bgp_hostroute_self(bgp, p)) {
+	if (safi == SAFI_UNICAST) {
+		/* Do not accept a host route that matches a local address. */
+		if (is_host_route(p) && bgp_hostroute_self(bgp, p)) {
 			reason = "host route matches a local address";
+			goto filtered;
+		}
+
+		/* only BGP prefix-sid from this neighbor */
+		if (CHECK_FLAG(peer->af_flags[afi][safi],
+			       PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_STRICT) &&
+		    (!attr->srv6_l3service && !dest->srv6_unicast)) {
+			reason = "only BGP prefix-sid is accepted";
 			goto filtered;
 		}
 	}
