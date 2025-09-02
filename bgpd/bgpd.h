@@ -20,7 +20,6 @@
 
 PREDECL_LIST(zebra_announce);
 PREDECL_LIST(zebra_l2_vni);
-PREDECL_LIST(zebra_l3_vni);
 
 /* For union sockunion.  */
 #include "queue.h"
@@ -222,10 +221,6 @@ struct bgp_master {
 	struct event *t_bgp_zebra_l2_vni;
 	/* To preserve ordering of processing of L2 VNIs in BGP */
 	struct zebra_l2_vni_head zebra_l2_vni_head;
-
-	struct event *t_bgp_zebra_l3_vni;
-	/* To preserve ordering of processing of BGP-VRFs for L3 VNIs */
-	struct zebra_l3_vni_head zebra_l3_vni_head;
 
 	/* ID value for peer clearing batches */
 	uint32_t peer_clearing_batch_id;
@@ -665,9 +660,7 @@ struct bgp {
 #define BGP_FLAG_VNI_DOWN		 (1ULL << 38)
 #define BGP_FLAG_INSTANCE_HIDDEN	 (1ULL << 39)
 /* Prohibit BGP from enabling IPv6 RA on interfaces */
-#define BGP_FLAG_IPV6_NO_AUTO_RA (1ULL << 40)
-#define BGP_FLAG_L3VNI_SCHEDULE_FOR_INSTALL (1ULL << 41)
-#define BGP_FLAG_L3VNI_SCHEDULE_FOR_DELETE  (1ULL << 42)
+#define BGP_FLAG_IPV6_NO_AUTO_RA	    (1ULL << 40)
 #define BGP_FLAG_LINK_LOCAL_CAPABILITY	    (1ULL << 43)
 #define BGP_FLAG_VRF_MAY_LISTEN		    (1ULL << 44)
 
@@ -1004,13 +997,9 @@ struct bgp {
 	uint64_t node_already_on_queue;
 	uint64_t node_deferred_on_queue;
 
-	struct zebra_l3_vni_item zl3vni;
-
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(bgp);
-
-DECLARE_LIST(zebra_l3_vni, struct bgp, zl3vni);
 
 struct bgp_interface {
 #define BGP_INTERFACE_MPLS_BGP_FORWARDING (1 << 0)
