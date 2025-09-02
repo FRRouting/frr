@@ -605,7 +605,7 @@ show_nbr_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
 			nbr_state_name(nbr->nbr_state), addr);
 		if (strlen(addr) > 15)
 			vty_out(vty, "\n%48s", " ");
-		vty_out (vty, " %8s\n", log_time(nbr->uptime));
+		vty_out(vty, " %-8s\n", log_time(nbr->uptime));
 		break;
 	case IMSG_CTL_END:
 		return (1);
@@ -2027,8 +2027,8 @@ ldp_vty_show_neighbor(struct vty *vty, const char *lsr_id, int capabilities,
 		params.detail = 1;
 
 	if (!params.detail && !params.json)
-		vty_out (vty, "%-4s %-15s %-11s %-15s %8s\n",
-		    "AF", "ID", "State", "Remote Address","Uptime");
+		vty_out(vty, "%-4s %-15s %-11s %-15s %-8s\n", "AF", "ID", "State",
+			"Remote Address", "Uptime");
 
 	imsg_compose(&ibuf, IMSG_CTL_SHOW_NBR, 0, 0, -1, NULL, 0);
 	return (ldp_vty_dispatch(vty, &ibuf, SHOW_NBR, &params));
