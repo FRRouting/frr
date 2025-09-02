@@ -346,6 +346,8 @@ struct graceful_restart_info {
 	struct event *t_select_deferral;
 	/* Routes Deferred */
 	uint32_t gr_deferred;
+	/* Routes waiting for install */
+	uint32_t gr_route_wfi_cnt;
 	/* Best route select */
 	struct event *t_route_select;
 	/* AFI, SAFI enabled */
