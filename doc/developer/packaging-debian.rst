@@ -70,6 +70,9 @@ buster.)
      +----------------+-------------------+-----------------------------------------+
      | pkg.frr.grpc   | pkg.frr.nogrpc    | builds with grpc support (default: no)  |
      +----------------+-------------------+-----------------------------------------+
+     | pkg.frr.asan   | pkg.frr.noasan    | builds with --enable-address-sanitizer  |
+     |                |                   | (default: disabled)                     |
+     +----------------+-------------------+-----------------------------------------+
 
    * the ``-uc -us`` options to disable signing the packages with your GPG key
 
