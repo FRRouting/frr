@@ -1438,6 +1438,37 @@ char *evpn_es_df_alg2str(uint8_t df_alg, char *buf, int buf_len)
 	return buf;
 }
 
+bool ipv4_ietf_unicast_valid(const struct in_addr *addr)
+{
+	/* New reserved ranges:
+	 * draft-schoen-intarea-unicast-0
+	 * draft-schoen-intarea-unicast-127
+	 * draft-schoen-intarea-unicast-240
+	 */
+	in_addr_t ip = ntohl(addr->s_addr);
+
+	/* draft-schoen-intarea-unicast-0 */
+	if (ip == INADDR_ANY)
+		return false;
+
+	/* draft-schoen-intarea-unicast-240 */
+	if (IPV4_CLASS_E(ip))
+		return true;
+
+	/* draft-schoen-intarea-unicast-127 */
+	if (IPV4_NET127(ip)) {
+		if (!IPV4_NET127_16(ip) && ip != INADDR_LOOPBACK)
+			return true;
+		else
+			return false;
+	}
+
+	if (IPV4_CLASS_D(ip))
+		return false;
+
+	return true;
+}
+
 bool ipv4_unicast_valid(const struct in_addr *addr)
 {
 	in_addr_t ip = ntohl(addr->s_addr);
