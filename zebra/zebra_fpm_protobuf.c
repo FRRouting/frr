@@ -159,7 +159,7 @@ static Fpm__AddRoute *create_add_route_message(qpb_allocator_t *allocator,
 	 */
 	num_nhs = 0;
 	for (ALL_NEXTHOPS(re->nhe->nhg, nexthop)) {
-		if (num_nhs >= zrouter.multipath_num)
+		if (num_nhs >= zrouter.zav.multipath_num)
 			break;
 
 		if (num_nhs >= array_size(nexthops))
