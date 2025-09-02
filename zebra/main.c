@@ -413,7 +413,7 @@ int main(int argc, char **argv)
 					MULTIPATH_NUM);
 				return 1;
 			}
-			zrouter.multipath_num = parsed_multipath;
+			zrouter.zav.multipath_num = parsed_multipath;
 			break;
 		}
 		case 'z':
@@ -445,7 +445,7 @@ int main(int argc, char **argv)
 			vrf_configure_backend(VRF_BACKEND_NETNS);
 			break;
 		case OPTION_V6_RR_SEMANTICS:
-			zrouter.v6_rr_semantics = true;
+			zrouter.zav.v6_rr_semantics = true;
 			break;
 		case OPTION_ASIC_OFFLOAD:
 			if (!strcmp(optarg, "notify_on_offload"))

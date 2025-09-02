@@ -1181,7 +1181,7 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_weight_get_elem(
  */
 struct yang_data *zebra_max_multipath_get_elem(struct nb_cb_get_elem_args *args)
 {
-	return yang_data_new_uint16(args->xpath, zrouter.multipath_num);
+	return yang_data_new_uint16(args->xpath, zrouter.zav.multipath_num);
 }
 
 /*
