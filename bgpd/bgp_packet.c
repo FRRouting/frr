@@ -2540,12 +2540,14 @@ static int bgp_update_receive(struct peer_connection *connection,
 							gr_info->eor_required,
 							"EOR RCV",
 							gr_info->eor_received);
-					if (gr_info->t_select_deferral) {
-						void *info = EVENT_ARG(
-							gr_info->t_select_deferral);
-						XFREE(MTYPE_TMP, info);
+					if (!BGP_SUPPRESS_FIB_ENABLED(peer->bgp)) {
+						if (gr_info->t_select_deferral) {
+							void *info = EVENT_ARG(
+								gr_info->t_select_deferral);
+							XFREE(MTYPE_TMP, info);
+						}
+						event_cancel(&gr_info->t_select_deferral);
 					}
-					event_cancel(&gr_info->t_select_deferral);
 					gr_info->eor_required = 0;
 					gr_info->eor_received = 0;
 					/* Best path selection */
