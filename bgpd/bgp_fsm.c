@@ -847,6 +847,20 @@ static void bgp_graceful_deferral_timer_expire(struct event *thread)
 	safi = info->safi;
 	bgp = info->bgp;
 
+	/* Check if graceful restart deferral completion is needed */
+	if (BGP_SUPPRESS_FIB_ENABLED(bgp) &&
+	    (bgp->gr_info[afi][safi].eor_required == bgp->gr_info[afi][safi].eor_received) &&
+	    !bgp->gr_info[afi][safi].gr_deferred && bgp->gr_route_sync_pending) {
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug("%s: Triggering GR deferral completion from timer expiry for %s",
+				   bgp->name_pretty, get_afi_safi_str(afi, safi, false));
+		bgp->gr_info[afi][safi].eor_required = 0;
+		bgp->gr_info[afi][safi].eor_received = 0;
+		XFREE(MTYPE_TMP, info);
+		bgp_process_gr_deferral_complete(bgp, afi, safi);
+		return;
+	}
+
 	if (BGP_DEBUG(update, UPDATE_OUT))
 		zlog_debug(
 			"afi %d, safi %d : graceful restart deferral timer expired",

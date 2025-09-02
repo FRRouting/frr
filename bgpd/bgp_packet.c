@@ -2246,6 +2246,35 @@ static void bgp_refresh_stalepath_timer_expire(struct event *thread)
 	bgp_timer_set(peer->connection);
 }
 
+/*
+ * Handle EOR (End-of-RIB) for graceful restart.
+ * If EOR received from all peers and selection deferral timer is running,
+ * cancel the timer and invoke the best path calculation.
+ */
+static void bgp_gr_handle_eor(struct peer *peer, afi_t afi, safi_t safi,
+			      struct graceful_restart_info *gr_info)
+{
+	if (gr_info->eor_required != gr_info->eor_received)
+		return;
+
+	if (bgp_debug_neighbor_events(peer))
+		zlog_debug("%s %d, %s %d", "EOR REQ", gr_info->eor_required, "EOR RCV",
+			   gr_info->eor_received);
+
+	if (!BGP_SUPPRESS_FIB_ENABLED(peer->bgp)) {
+		if (gr_info->t_select_deferral) {
+			void *info = EVENT_ARG(gr_info->t_select_deferral);
+
+			XFREE(MTYPE_TMP, info);
+		}
+		event_cancel(&gr_info->t_select_deferral);
+	}
+	gr_info->eor_required = 0;
+	gr_info->eor_received = 0;
+	/* Best path selection */
+	bgp_best_path_select_defer(peer->bgp, afi, safi);
+}
+
 /**
  * Process BGP UPDATE message for peer.
  *
@@ -2527,31 +2556,7 @@ static int bgp_update_receive(struct peer_connection *connection,
 				gr_info = &(peer->bgp->gr_info[afi][safi]);
 				if (restart)
 					gr_info->eor_received++;
-				/* If EOR received from all peers and selection
-				 * deferral timer is running, cancel the timer
-				 * and invoke the best path calculation
-				 */
-				if (gr_info->eor_required
-				    == gr_info->eor_received) {
-					if (bgp_debug_neighbor_events(peer))
-						zlog_debug(
-							"%s %d, %s %d",
-							"EOR REQ",
-							gr_info->eor_required,
-							"EOR RCV",
-							gr_info->eor_received);
-					if (gr_info->t_select_deferral) {
-						void *info = EVENT_ARG(
-							gr_info->t_select_deferral);
-						XFREE(MTYPE_TMP, info);
-					}
-					event_cancel(&gr_info->t_select_deferral);
-					gr_info->eor_required = 0;
-					gr_info->eor_received = 0;
-					/* Best path selection */
-					bgp_best_path_select_defer(peer->bgp,
-								   afi, safi);
-				}
+				bgp_gr_handle_eor(peer, afi, safi, gr_info);
 			}
 
 			/* NSF delete stale route */
