@@ -1601,17 +1601,15 @@ stream_failure:
 bool zserv_nexthop_num_warn(const char *caller, const struct prefix *p,
 			    const unsigned int nexthop_num)
 {
-	if (nexthop_num > zrouter.multipath_num) {
+	if (nexthop_num > zrouter.zav.multipath_num) {
 		char buff[PREFIX2STR_BUFFER];
 
 		if (p)
 			prefix2str(p, buff, sizeof(buff));
 
-		flog_warn(
-			EC_ZEBRA_MORE_NH_THAN_MULTIPATH,
-			"%s: Prefix %s has %d nexthops, but we can only use the first %d",
-			caller, (p ? buff : "(NULL)"), nexthop_num,
-			zrouter.multipath_num);
+		flog_warn(EC_ZEBRA_MORE_NH_THAN_MULTIPATH,
+			  "%s: Prefix %s has %d nexthops, but we can only use the first %d",
+			  caller, (p ? buff : "(NULL)"), nexthop_num, zrouter.zav.multipath_num);
 		return true;
 	}
 
@@ -2431,9 +2429,9 @@ static void zsend_capabilities(struct zserv *client, struct zebra_vrf *zvrf)
 	zclient_create_header(s, ZEBRA_CAPABILITIES, zvrf->vrf->vrf_id);
 	stream_putl(s, vrf_get_backend());
 	stream_putc(s, mpls_enabled);
-	stream_putl(s, zrouter.multipath_num);
+	stream_putl(s, zrouter.zav.multipath_num);
 	stream_putc(s, zebra_mlag_get_role());
-	stream_putc(s, zrouter.v6_with_v4_nexthop);
+	stream_putc(s, zrouter.zav.v6_with_v4_nexthop);
 	stream_putc(s, zrouter.graceful_restart);
 	stream_putw_at(s, 0, stream_get_endp(s));
 	zserv_send_message(client, s);

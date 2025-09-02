@@ -1377,7 +1377,7 @@ next_rta:
 		for (i = 0; i < count; i++) {
 			uint16_t weight;
 
-			if (zrouter.nexthop_weight_is_16bit)
+			if (zrouter.zav.nexthop_weight_is_16bit)
 				weight = nhgrp[i].weight_high << 8 | nhgrp[i].weight;
 			else
 				weight = nhgrp[i].weight;

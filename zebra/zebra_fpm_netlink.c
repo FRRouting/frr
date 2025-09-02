@@ -285,7 +285,7 @@ static int netlink_route_info_fill(struct netlink_route_info *ri, int cmd,
 	ri->metric = &re->metric;
 
 	for (ALL_NEXTHOPS(re->nhe->nhg, nexthop)) {
-		if (ri->num_nhs >= zrouter.multipath_num)
+		if (ri->num_nhs >= zrouter.zav.multipath_num)
 			break;
 
 		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))

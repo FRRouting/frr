@@ -108,16 +108,13 @@ static char re_status_output_char(const struct route_entry *re,
 				star_p = true;
 		}
 
-		if (zrouter.asic_offloaded &&
-		    CHECK_FLAG(re->status, ROUTE_ENTRY_QUEUED))
+		if (zrouter.zav.asic_offloaded && CHECK_FLAG(re->status, ROUTE_ENTRY_QUEUED))
 			return 'q';
 
-		if (zrouter.asic_offloaded
-		    && CHECK_FLAG(re->flags, ZEBRA_FLAG_TRAPPED))
+		if (zrouter.zav.asic_offloaded && CHECK_FLAG(re->flags, ZEBRA_FLAG_TRAPPED))
 			return 't';
 
-		if (zrouter.asic_offloaded
-		    && CHECK_FLAG(re->flags, ZEBRA_FLAG_OFFLOAD_FAILED))
+		if (zrouter.zav.asic_offloaded && CHECK_FLAG(re->flags, ZEBRA_FLAG_OFFLOAD_FAILED))
 			return 'o';
 
 		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_OUTOFSYNC))
@@ -3733,7 +3730,7 @@ static inline bool zebra_vty_v6_rr_semantics_used(void)
 	if (zebra_nhg_kernel_nexthops_enabled())
 		return true;
 
-	if (zrouter.v6_rr_semantics)
+	if (zrouter.zav.v6_rr_semantics)
 		return true;
 
 	return false;
@@ -3765,7 +3762,7 @@ DEFUN (show_zebra,
 
 	ttable_rowseps(table, 0, BOTTOM, true, '-');
 	ttable_add_row(table, "OS|%s(%s)", cmd_system_get(), cmd_release_get());
-	ttable_add_row(table, "ECMP Maximum|%d", zrouter.multipath_num);
+	ttable_add_row(table, "ECMP Maximum|%d", zrouter.zav.multipath_num);
 	ttable_add_row(table, "v4 Forwarding|%s", ipforward() ? "On" : "Off");
 	ttable_add_row(table, "v6 Forwarding|%s",
 		       ipforward_ipv6() ? "On" : "Off");
@@ -3776,7 +3773,7 @@ DEFUN (show_zebra,
 		       zebra_vty_v6_rr_semantics_used() ? "Replace"
 							: "Delete then Add");
 	ttable_add_row(table, "Nexthop weight is 16 bits|%s",
-		       zrouter.nexthop_weight_is_16bit ? "Yes" : "No");
+		       zrouter.zav.nexthop_weight_is_16bit ? "Yes" : "No");
 
 #ifdef GNU_LINUX
 	if (!vrf_is_backend_netns())
@@ -3788,10 +3785,10 @@ DEFUN (show_zebra,
 #endif
 
 	ttable_add_row(table, "v6 with v4 nexthop|%s",
-		       zrouter.v6_with_v4_nexthop ? "Used" : "Unavailable");
+		       zrouter.zav.v6_with_v4_nexthop ? "Used" : "Unavailable");
 
 	ttable_add_row(table, "ASIC offload|%s",
-		       zrouter.asic_offloaded ? "Used" : "Unavailable");
+		       zrouter.zav.asic_offloaded ? "Used" : "Unavailable");
 
 	/*
 	 * Do not display this unless someone is actually using it
@@ -3799,7 +3796,7 @@ DEFUN (show_zebra,
 	 * Why this distinction?  I think this is effectively dead code
 	 * and should not be exposed.  Maybe someone proves me wrong.
 	 */
-	if (zrouter.asic_notification_nexthop_control)
+	if (zrouter.zav.asic_notification_nexthop_control)
 		ttable_add_row(table, "ASIC offload and nexthop control|Used");
 
 	ttable_add_row(table, "RA|%s",
@@ -3810,7 +3807,7 @@ DEFUN (show_zebra,
 			       : "BGP is not using");
 
 	ttable_add_row(table, "Kernel NHG|%s",
-		       zrouter.supports_nhgs ? "Available" : "Unavailable");
+		       zrouter.zav.supports_nhgs ? "Available" : "Unavailable");
 
 	ttable_add_row(table, "Allow Non FRR route deletion|%s",
 		       zrouter.allow_delete ? "Yes" : "No");
