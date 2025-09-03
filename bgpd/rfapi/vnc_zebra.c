@@ -362,7 +362,7 @@ static void vnc_zebra_route_msg(const struct prefix *p, unsigned int nhp_count,
 		return;
 	}
 
-	memset(&api, 0, sizeof(api));
+	zapi_route_init(&api);
 	api.vrf_id = VRF_DEFAULT;
 	api.type = ZEBRA_ROUTE_VNC;
 	api.safi = SAFI_UNICAST;
@@ -374,6 +374,8 @@ static void vnc_zebra_route_msg(const struct prefix *p, unsigned int nhp_count,
 	for (i = 0; i < api.nexthop_num; i++) {
 
 		api_nh = &api.nexthops[i];
+		zapi_nexthop_init(api_nh);
+
 		api_nh->vrf_id = VRF_DEFAULT;
 		switch (p->family) {
 		case AF_INET:

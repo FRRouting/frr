@@ -195,7 +195,7 @@ void eigrp_zebra_route_add(struct eigrp *eigrp, struct prefix *p,
 	if (!eigrp_zclient->redist[AFI_IP][ZEBRA_ROUTE_EIGRP])
 		return;
 
-	memset(&api, 0, sizeof(api));
+	zapi_route_init(&api);
 	api.vrf_id = eigrp->vrf_id;
 	api.type = ZEBRA_ROUTE_EIGRP;
 	api.safi = SAFI_UNICAST;
@@ -210,6 +210,8 @@ void eigrp_zebra_route_add(struct eigrp *eigrp, struct prefix *p,
 		if (count >= MULTIPATH_NUM)
 			break;
 		api_nh = &api.nexthops[count];
+		zapi_nexthop_init(api_nh);
+
 		api_nh->vrf_id = eigrp->vrf_id;
 		if (te->adv_router->src.s_addr) {
 			api_nh->gate.ipv4 = te->adv_router->src;
@@ -236,7 +238,7 @@ void eigrp_zebra_route_delete(struct eigrp *eigrp, struct prefix *p)
 	if (!eigrp_zclient->redist[AFI_IP][ZEBRA_ROUTE_EIGRP])
 		return;
 
-	memset(&api, 0, sizeof(api));
+	zapi_route_init(&api);
 	api.vrf_id = eigrp->vrf_id;
 	api.type = ZEBRA_ROUTE_EIGRP;
 	api.safi = SAFI_UNICAST;
