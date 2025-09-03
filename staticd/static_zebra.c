@@ -421,7 +421,7 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 	p = src_pp = NULL;
 	srcdest_rnode_prefixes(rn, &p, &src_pp);
 
-	memset(&api, 0, sizeof(api));
+	zapi_route_init(&api);
 	api.vrf_id = si->svrf->vrf->vrf_id;
 	api.type = ZEBRA_ROUTE_STATIC;
 	api.safi = si->safi;
@@ -458,6 +458,7 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 		if (nh->path_down)
 			continue;
 
+		zapi_nexthop_init(api_nh);
 		api_nh->vrf_id = nh->nh_vrf_id;
 		if (nh->onlink)
 			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);

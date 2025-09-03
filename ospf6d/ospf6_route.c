@@ -339,6 +339,8 @@ void ospf6_route_zebra_copy_nexthops(struct ospf6_route *route,
 			if (i >= entries)
 				return;
 
+			zapi_nexthop_init(&nexthops[i]);
+
 			nexthops[i].vrf_id = vrf_id;
 			nexthops[i].type = nh->type;
 

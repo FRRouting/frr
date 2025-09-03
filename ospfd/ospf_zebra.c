@@ -173,6 +173,8 @@ static void ospf_zebra_add_nexthop(struct ospf *ospf, struct ospf_path *path,
 	/* TI-LFA backup path label stack comes first, if present */
 	if (path->srni.backup_label_stack) {
 		api_nh_backup = &api->backup_nexthops[api->backup_nexthop_num];
+		zapi_nexthop_init(api_nh_backup);
+
 		api_nh_backup->vrf_id = ospf->vrf_id;
 
 		api_nh_backup->type = NEXTHOP_TYPE_IPV4;
@@ -189,6 +191,7 @@ static void ospf_zebra_add_nexthop(struct ospf *ospf, struct ospf_path *path,
 
 	/* And here comes the primary nexthop */
 	api_nh = &api->nexthops[api->nexthop_num];
+	zapi_nexthop_init(api_nh);
 #ifdef HAVE_NETLINK
 	if (path->unnumbered
 	    || (path->nexthop.s_addr != INADDR_ANY && path->ifindex != 0)) {
@@ -267,7 +270,7 @@ void ospf_zebra_add(struct ospf *ospf, struct prefix_ipv4 *p,
 		return;
 	}
 
-	memset(&api, 0, sizeof(api));
+	zapi_route_init(&api);
 	api.vrf_id = ospf->vrf_id;
 	api.type = ZEBRA_ROUTE_OSPF;
 	api.instance = ospf->instance;
@@ -357,7 +360,7 @@ void ospf_zebra_delete(struct ospf *ospf, struct prefix_ipv4 *p,
 		return;
 	}
 
-	memset(&api, 0, sizeof(api));
+	zapi_route_init(&api);
 	api.vrf_id = ospf->vrf_id;
 	api.type = ZEBRA_ROUTE_OSPF;
 	api.instance = ospf->instance;
@@ -382,7 +385,7 @@ void ospf_zebra_add_discard(struct ospf *ospf, struct prefix_ipv4 *p)
 		return;
 	}
 
-	memset(&api, 0, sizeof(api));
+	zapi_route_init(&api);
 	api.vrf_id = ospf->vrf_id;
 	api.type = ZEBRA_ROUTE_OSPF;
 	api.instance = ospf->instance;
@@ -408,7 +411,7 @@ void ospf_zebra_delete_discard(struct ospf *ospf, struct prefix_ipv4 *p)
 		return;
 	}
 
-	memset(&api, 0, sizeof(api));
+	zapi_route_init(&api);
 	api.vrf_id = ospf->vrf_id;
 	api.type = ZEBRA_ROUTE_OSPF;
 	api.instance = ospf->instance;
