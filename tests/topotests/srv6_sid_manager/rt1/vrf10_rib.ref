@@ -42,7 +42,7 @@
       "internalNextHopActiveNum": 3,
       "nexthops": [
         {
-          "flags": 3,
+          "flags": 11,
           "fib": true,
           "afi": "ipv6",
           "interfaceName": "eth-sw1",
