@@ -47,10 +47,10 @@ static void zebra_gr_delete_stale_route_table_afi(struct event *event);
 /*
  * Debug macros.
  */
-#define LOG_GR(msg, ...)                                                       \
-	do {                                                                   \
-		if (IS_ZEBRA_DEBUG_EVENT)                                      \
-			zlog_debug(msg, ##__VA_ARGS__);                        \
+#define LOG_GR(msg, ...)                                                                          \
+	do {                                                                                      \
+		if (IS_ZEBRA_DEBUG_EVENT)                                                         \
+			zlog_debug("GR " msg, ##__VA_ARGS__);                                     \
 	} while (0)
 
 /*
@@ -452,6 +452,9 @@ static void zebra_gr_route_stale_delete_timer_expiry(struct event *thread)
 		client = (struct zserv *)info->client_ptr;
 	else
 		client = (struct zserv *)info->stale_client_ptr;
+
+	LOG_GR("%s: Cleaning up stale routes for client %s vrf %s(%u) ", __func__,
+	       zebra_route_string(client->proto), VRF_LOGNAME(vrf), info->vrf_id);
 
 	cnt = zebra_gr_delete_stale_routes(info);
 
