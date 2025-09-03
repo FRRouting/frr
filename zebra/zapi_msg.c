@@ -517,8 +517,9 @@ int zsend_redistribute_route(int cmd, struct zserv *client, const struct route_n
 	uint16_t count = 0;
 	afi_t afi;
 
+	zapi_route_init(&api);
 	srcdest_rnode_prefixes(rn, &p, &src_p);
-	memset(&api, 0, sizeof(api));
+
 	api.vrf_id = re->vrf_id;
 	api.type = re->type;
 	api.safi = SAFI_UNICAST;
@@ -563,6 +564,8 @@ int zsend_redistribute_route(int cmd, struct zserv *client, const struct route_n
 			continue;
 
 		api_nh = &api.nexthops[count];
+		zapi_nexthop_init(api_nh);
+
 		api_nh->vrf_id = nexthop->vrf_id;
 		api_nh->type = nexthop->type;
 		api_nh->weight = nexthop->weight;
