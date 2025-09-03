@@ -46,23 +46,53 @@ def test_oper_simple(tgen):
         pytest.skip(tgen.errors)
 
     query_results = [
+        # Interfaces
         (
-            # Non-key query with key specific selection
-            '/frr-interface:lib/interface[name="r1-eth0"]/vrf',
-            "simple-results/result-intf-eth0-vrf.json",
+            # interface root query
+            "/frr-interface:lib",
+            "simple-results/result-intf.json",
         ),
-        # Test machines will have different sets of interfaces so the test results will
-        # vary and need to be generated dynamically before this test is re-enabled
-        # (
-        #     # Key query on generic list
-        #     "/frr-interface:lib/interface/name",
-        #     "simple-results/result-intf-name.json",
-        # ),
+        (
+            # interface generic interface query
+            "/frr-interface:lib/interface",
+            "simple-results/result-intf-intf.json",
+        ),
+        (
+            # Key query on generic list
+            "/frr-interface:lib/interface/name",
+            "simple-results/result-intf-name.json",
+        ),
+        (
+            # Container query on generic list
+            "/frr-interface:lib/interface/state",
+            "simple-results/result-intf-state.json",
+        ),
+        (
+            # Leaf of Container query on generic list
+            "/frr-interface:lib/interface/state/mtu",
+            "simple-results/result-intf-state-mtu.json",
+        ),
         (
             # Key query with key specific selection
             '/frr-interface:lib/interface[name="r1-eth0"]/name',
             "simple-results/result-intf-eth0-name.json",
         ),
+        (
+            # Non-key query with key specific selection
+            '/frr-interface:lib/interface[name="r1-eth0"]/vrf',
+            "simple-results/result-intf-eth0-vrf.json",
+        ),
+        (
+            # Container query with key specific selection
+            '/frr-interface:lib/interface[name="r1-eth0"]/state',
+            "simple-results/result-intf-eth0-state.json",
+        ),
+        (
+            # Leaf of container query with key specific selection
+            '/frr-interface:lib/interface[name="r1-eth0"]/state/mtu',
+            "simple-results/result-intf-eth0-state-mtu.json",
+        ),
+        # VRF
         ("/frr-vrf:lib", "simple-results/result-lib.json"),
         ("/frr-vrf:lib/vrf", "simple-results/result-lib-vrf-nokey.json"),
         (
@@ -137,15 +167,6 @@ def test_oper_simple(tgen):
             "simple-results/result-intf-eth0-description-exact.json",
             "with-config exact",
         ),
-        # Interface state
-        (
-            '/frr-interface:lib/interface[name="r1-eth0"]/state',
-            "simple-results/result-intf-state.json",
-        ),
-        (
-            '/frr-interface:lib/interface[name="r1-eth0"]/state/mtu',
-            "simple-results/result-intf-state-mtu.json",
-        ),
         # with-defaults
         (
             '/frr-interface:lib/interface[name="r1-eth0"]/frr-zebra:zebra/evpn-mh',
@@ -178,9 +199,22 @@ def test_oper_simple(tgen):
     do_oper_test(tgen, query_results)
 
 
-to_gen_new_results = """
+to_gen_new_results = r"""
 scriptdir=~chopps/w/frr/tests/topotests/mgmt_oper
 resdir=${scriptdir}/simple-results
+
+# Interfaces
+filter() { jq 'with_entries(select(.key | IN("frr-vrf:lib", "frr-interface:lib"))) | if .["frr-interface:lib"] then .["frr-interface:lib"].interface |= map(select(.name | IN("gre0", "gretap0", "erspan0") | not)) else . end' "$@"; }
+vtysh -c 'show mgmt get-data /frr-interface:lib' | filter > ${resdir}/result-intf.json
+vtysh -c 'show mgmt get-data /frr-interface:lib/interface' | filter > ${resdir}/result-intf-intf.json
+vtysh -c 'show mgmt get-data /frr-interface:lib/interface/name' | filter > ${resdir}/result-intf-name.json
+vtysh -c 'show mgmt get-data /frr-interface:lib/interface/state' | filter > ${resdir}/result-intf-state.json
+vtysh -c 'show mgmt get-data /frr-interface:lib/interface/state/mtu' | filter > ${resdir}/result-intf-state-mtu.json
+vtysh -c 'show mgmt get-data /frr-interface:lib/interface[name="r1-eth0"]/name' | filter > ${resdir}/result-intf-eth0-name.json
+vtysh -c 'show mgmt get-data /frr-interface:lib/interface[name="r1-eth0"]/vrf' | filter > ${resdir}/result-intf-eth0-vrf.json
+vtysh -c 'show mgmt get-data /frr-interface:lib/interface[name="r1-eth0"]/state' | filter > ${resdir}/result-intf-eth0-state.json
+vtysh -c 'show mgmt get-data /frr-interface:lib/interface[name="r1-eth0"]/state/mtu' | filter > ${resdir}/result-intf-eth0-state-mtu.json
+# VRF
 vtysh -c 'show mgmt get-data /frr-vrf:lib'      > ${resdir}/result-lib.json
 vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf'  > ${resdir}/result-lib-vrf-nokey.json
 vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="default"]'  > ${resdir}/result-lib-vrf-default.json
@@ -190,14 +224,30 @@ vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra/ri
 vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra/ribs/rib' > ${resdir}/result-ribs-rib-nokeys.json
 vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra/ribs/rib[afi-safi-name="frr-routing:ipv4-unicast"][table-id="254"]' > ${resdir}/result-ribs-rib-ipv4-unicast.json
 vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra/ribs/rib[afi-safi-name="frr-routing:ipv4-unicast"][table-id="254"]/route' > ${resdir}/result-ribs-rib-route-nokey.json
-
-vtysh -c 'show mgmt get-data /frr-interface:lib/interface[name="r1-eth0"]/state' > ${resdir}/result-intf-state.json
-vtysh -c 'show mgmt get-data /frr-interface:lib/interface[name="r1-eth0"]/state/mtu' > ${resdir}/result-intf-state-mtu.json
+# Missing entry
+vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra/ribs/rib[afi-safi-name="frr-routing:ipv4-unicast"][table-id="254"]/route[prefix="1.1.0.0/24"]' > ${resdir}/result-empty.json
+# Leaf reference
+vtysh -c 'show mgmt get-data /frr-vrf:lib/vrf[name="default"]/frr-zebra:zebra/ribs/rib[afi-safi-name="frr-routing:ipv4-unicast"][table-id="254"]/route[prefix="1.1.1.0/24"]/route-entry[protocol="connected"]/metric' | filter > ${resdir}/result-singleton-metric.json
+vtysh -c 'show mgmt get-data /frr-interface:lib/interface[name="r1-eth0"] with-config' | filter > ${resdir}/result-intf-eth0-with-config.json
+vtysh -c 'show mgmt get-data /frr-interface:lib/interface[name="r1-eth0"] only-config' | filter > ${resdir}/result-intf-eth0-only-config.json
+vtysh -c 'show mgmt get-data /frr-interface:lib/interface/description with-config' | filter > ${resdir}/result-intf-description.json
+vtysh -c 'show mgmt get-data /frr-interface:lib/interface[name="r1-eth0"] exact' > ${resdir}/result-intf-eth0-exact.json
+vtysh -c 'show mgmt get-data /frr-interface:lib/interface[name="r1-eth0"]/description with-config exact' > ${resdir}/result-intf-eth0-description-exact.json
+# with-defaults
+vtysh -c 'show mgmt get-data /frr-interface:lib/interface[name="r1-eth0"]/frr-zebra:zebra/evpn-mh with-config exact' > ${resdir}/result-intf-eth0-wd-explicit.json
+# This next different output based on libyang2 or libyang3 -- regen by hand
+# vtysh -c 'show mgmt get-data /frr-interface:lib/interface[name="r1-eth0"]/frr-zebra:zebra/evpn-mh with-config exact with-defaults trim'
+echo '{"frr-zebra:evpn-mh":{}}' > ${resdir}/result-intf-eth0-wd-trim-empty-label.json
+echo '{}' > ${resdir}/result-intf-eth0-wd-trim.json
+vtysh -c 'show mgmt get-data /frr-interface:lib/interface[name="r1-eth0"]/frr-zebra:zebra/evpn-mh with-config exact with-defaults all' > ${restdir}/result-intf-eth0-wd-all.json
+vtysh -c 'show mgmt get-data /frr-interface:lib/interface[name="r1-eth0"]/frr-zebra:zebra/evpn-mh with-config exact with-defaults all-tag' > ${resdir}/result-intf-eth0-wd-all-tag.json
 
 scriptdir=~chopps/w/frr/tests/topotests/mgmt_oper
 resdir=${scriptdir}/simple-results
+
 for f in ${resdir}/result*.json; do
    sed -i -e 's/"\(phy-address\|revision\|uptime\)": ".*"/"\1": "rubout"/' $f
+   sed -i -e 's/"\(candidate\|running\)-config-version": ".*"/"\1-config-version": "rubout"/' $f
    sed -i -e 's/"\(id\|if-index\|mtu\|mtu6\|speed\)": [0-9][0-9]*/"\1": "rubout"/' $f
    sed -i -e 's,"vrf": "[0-9]*","vrf": "rubout",' $f
    sed -i -e 's,"module-set-id": "[0-9]*","module-set-id": "rubout",' $f

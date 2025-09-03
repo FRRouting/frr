@@ -64,7 +64,7 @@ def test_oper_root(tgen):
     do_oper_test(tgen, query_results, exact=False)
 
 
-to_gen_new_results = """
+to_gen_new_results = r"""
 scriptdir=~chopps/w/frr/tests/topotests/mgmt_oper
 resdir=${scriptdir}/root-results
 filter='jq pick(.["frr-backend:clients","frr-interface:lib","frr-logging:logging"])'
