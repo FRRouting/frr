@@ -241,6 +241,8 @@ static void route_add_helper(struct zapi_route *api, struct nexthop_group nhg,
 	i = 0;
 	for (ALL_NEXTHOPS(nhg, nhop)) {
 		api_nh = &api->nexthops[i];
+		zapi_nexthop_init(api_nh);
+
 		api_nh->vrf_id = nhop->vrf_id;
 		api_nh->type = nhop->type;
 		api_nh->weight = nhop->weight;
@@ -284,7 +286,7 @@ void route_add(struct pbr_nexthop_group_cache *pnhgc, struct nexthop_group nhg,
 {
 	struct zapi_route api;
 
-	memset(&api, 0, sizeof(api));
+	zapi_route_init(&api);
 
 	DEBUGD(&pbr_dbg_zebra, "%s %pFX for Table: %d", __func__, &api.prefix, pnhgc->table_id);
 
@@ -331,7 +333,7 @@ void route_delete(struct pbr_nexthop_group_cache *pnhgc, afi_t afi)
 
 	DEBUGD(&pbr_dbg_zebra, "%s for Table: %d", __func__, pnhgc->table_id);
 
-	memset(&api, 0, sizeof(api));
+	zapi_route_init(&api);
 	api.vrf_id = VRF_DEFAULT;
 	api.type = ZEBRA_ROUTE_PBR;
 	api.safi = SAFI_UNICAST;
