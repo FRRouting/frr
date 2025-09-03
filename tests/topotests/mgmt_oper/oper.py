@@ -6,6 +6,7 @@
 # Copyright (c) 2023, LabN Consulting, L.L.C.
 #
 
+import copy
 import datetime
 import ipaddress
 import json
@@ -62,6 +63,22 @@ def disable_debug(router):
     router.vtysh_cmd("no debug northbound callbacks configuration")
 
 
+def clean_json(j):
+    rm_if_re = r"span|gre|sit|tnl|tun|vti"
+    j = copy.deepcopy(j)
+    try:
+        iflist = j["frr-interface:lib"]["interface"]
+    except KeyError:
+        pass
+    except Exception as e:
+        logging.error("Error cleaning json: %s", e)
+    else:
+        nl = sorted(iflist, key=lambda x: x["name"])
+        nl = [x for x in nl if re.search(rm_if_re, x["name"]) is None]
+        j["frr-interface:lib"]["interface"] = nl
+    return j
+
+
 @retry(retry_timeout=30, initial_wait=0.1)
 def _do_oper_test(tgen, qr, exact, seconds_left=None):
     r1 = tgen.gears["r1"].net
@@ -106,6 +123,11 @@ def _do_oper_test(tgen, qr, exact, seconds_left=None):
         diag("FILE: {}".format(qr[1]))
         raise
 
+    # Remove values that are inconsistent between machines
+    ojson = clean_json(ojson)
+    ejson = clean_json(ejson)
+    ejson_alt = clean_json(ejson_alt) if ejson_alt is not None else None
+
     if dd_json_cmp:
         cmpout = json_cmp(ojson, ejson, exact_match=exact)
         if cmpout and ejson_alt is not None:
@@ -146,6 +168,10 @@ def do_oper_test(tgen, query_results, exact=True):
         if reset:
             reset = False
         ret = _do_oper_test(tgen, qr, exact=exact)
+        if ret is not None:
+            logger = logging.getLogger("name")
+            logger.setLevel(logging.level)
+
         assert ret is None, "Unexpected diff: " + str(ret)
 
 
