@@ -598,13 +598,6 @@ struct zapi_route {
 	struct prefix prefix;
 	struct prefix_ipv6 src_prefix;
 
-	uint16_t nexthop_num;
-	struct zapi_nexthop nexthops[MULTIPATH_NUM];
-
-	/* Support backup routes for IP FRR, TI-LFA, traffic engineering */
-	uint16_t backup_nexthop_num;
-	struct zapi_nexthop backup_nexthops[MULTIPATH_NUM];
-
 	uint32_t nhgid;
 
 	uint8_t distance;
@@ -621,6 +614,23 @@ struct zapi_route {
 
 	/* SR-TE color (used for nexthop updates only). */
 	uint32_t srte_color;
+
+	/*
+	 * Note well: this field marks the end of the part of the struct
+	 * that is memset to zero to initialize. We avoid memset of the entire
+	 * struct because that can be very expensive if we have a large ecmp
+	 * scale. We hand-init the counters associated with the large
+	 * embedded fields.
+	 * If you add an attribute before this one, it will be memset;
+	 * if you add a very large field, everyone will suffer.
+	 */
+
+	uint16_t nexthop_num;
+	struct zapi_nexthop nexthops[MULTIPATH_NUM];
+
+	/* Support backup routes for IP FRR, TI-LFA, traffic engineering */
+	uint16_t backup_nexthop_num;
+	struct zapi_nexthop backup_nexthops[MULTIPATH_NUM];
 
 #define ZAPI_MESSAGE_OPAQUE_LENGTH 1024
 	struct {
@@ -1166,6 +1176,13 @@ zclient_send_rnh(struct zclient *zclient, int command, const struct prefix *p,
 		 vrf_id_t vrf_id);
 int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 			uint32_t api_flags, uint32_t api_message);
+
+/* Init apis for the route and nexthop: these are more efficient than
+ * blind memset, so ... use them.
+ */
+void zapi_route_init(struct zapi_route *zr);
+void zapi_nexthop_init(struct zapi_nexthop *znh);
+
 extern int zapi_route_encode(uint8_t, struct stream *, struct zapi_route *);
 extern int zapi_route_decode(struct stream *s, struct zapi_route *api);
 extern int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
@@ -1227,6 +1244,7 @@ static inline void zapi_route_set_blackhole(struct zapi_route *api,
 					    enum blackhole_type bh_type)
 {
 	api->nexthop_num = 1;
+	zapi_nexthop_init(&api->nexthops[0]);
 	api->nexthops[0].type = NEXTHOP_TYPE_BLACKHOLE;
 	api->nexthops[0].vrf_id = VRF_DEFAULT;
 	api->nexthops[0].bh_type = bh_type;
