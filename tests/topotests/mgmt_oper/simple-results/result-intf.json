@@ -3,6 +3,7 @@
     "interface": [
       {
         "name": "lo",
+        "vrf": "default",
         "state": {
           "if-index": "rubout",
           "mtu": "rubout",
@@ -10,10 +11,18 @@
           "speed": "rubout",
           "metric": 0,
           "phy-address": "rubout"
+        },
+        "frr-zebra:zebra": {
+          "state": {
+            "up-count": 0,
+            "down-count": 0,
+            "zif-type": "zif-other"
+          }
         }
       },
       {
         "name": "lo-red",
+        "vrf": "red",
         "state": {
           "if-index": "rubout",
           "mtu": "rubout",
@@ -21,10 +30,18 @@
           "speed": "rubout",
           "metric": 0,
           "phy-address": "rubout"
+        },
+        "frr-zebra:zebra": {
+          "state": {
+            "up-count": 0,
+            "down-count": 0,
+            "zif-type": "zif-dummy"
+          }
         }
       },
       {
         "name": "r1-eth0",
+        "vrf": "default",
         "state": {
           "if-index": "rubout",
           "mtu": "rubout",
@@ -32,10 +49,18 @@
           "speed": "rubout",
           "metric": 0,
           "phy-address": "rubout"
+        },
+        "frr-zebra:zebra": {
+          "state": {
+            "up-count": 0,
+            "down-count": 0,
+            "zif-type": "zif-veth"
+          }
         }
       },
       {
         "name": "r1-eth1",
+        "vrf": "red",
         "state": {
           "if-index": "rubout",
           "mtu": "rubout",
@@ -43,10 +68,18 @@
           "speed": "rubout",
           "metric": 0,
           "phy-address": "rubout"
+        },
+        "frr-zebra:zebra": {
+          "state": {
+            "up-count": 0,
+            "down-count": 0,
+            "zif-type": "zif-veth"
+          }
         }
       },
       {
         "name": "red",
+        "vrf": "red",
         "state": {
           "if-index": "rubout",
           "mtu": "rubout",
@@ -54,6 +87,13 @@
           "speed": "rubout",
           "metric": 0,
           "phy-address": "rubout"
+        },
+        "frr-zebra:zebra": {
+          "state": {
+            "up-count": 0,
+            "down-count": 0,
+            "zif-type": "zif-vrf"
+          }
         }
       }
     ]
