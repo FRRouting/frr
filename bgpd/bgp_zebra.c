@@ -1307,7 +1307,10 @@ static void bgp_zebra_announce_parse_nexthop(
 				continue;
 		}
 		api_nh = &api->nexthops[*valid_nh_count];
-
+		/*
+		 * memset the zapi_nexthop struct here to avoid uninitialized fields.
+		 */
+		memset(api_nh, 0, sizeof(*api_nh));
 		api_nh->srte_color = bgp_attr_get_color(info->attr);
 
 		if (bgp_debug_zebra(&api->prefix)) {
@@ -1524,7 +1527,7 @@ bgp_zebra_announce_actual(struct bgp_dest *dest, struct bgp_path_info *info,
 			  struct bgp *bgp)
 {
 	struct bgp_path_info *bpi_ultimate;
-	struct zapi_route api = { 0 };
+	struct zapi_route api;
 	unsigned int valid_nh_count = 0;
 	bool allow_recursion = false;
 	uint8_t distance;
@@ -1541,7 +1544,23 @@ bgp_zebra_announce_actual(struct bgp_dest *dest, struct bgp_path_info *info,
 		return ZCLIENT_SEND_SUCCESS;
 	}
 
-	/* Make Zebra API structure. */
+	/* Make Zebra API structure without zeroing large arrays. */
+	api.message = 0;
+	api.flags = 0;
+	api.instance = 0;
+	api.nexthop_num = 0;
+	api.backup_nexthop_num = 0;
+	api.nhgid = 0;
+	api.distance = 0;
+	api.metric = 0;
+	api.tag = 0;
+	api.mtu = 0;
+	api.tableid = 0;
+	api.srte_color = 0;
+	api.opaque.length = 0;
+	api.src_prefix.prefixlen = 0;
+	api.prefix.prefixlen = 0;
+
 	api.vrf_id = bgp->vrf_id;
 	api.type = ZEBRA_ROUTE_BGP;
 	api.safi = table->safi;
@@ -1620,9 +1639,14 @@ bgp_zebra_announce_actual(struct bgp_dest *dest, struct bgp_path_info *info,
 	 * install a Null0 route in the RIB, so overwrite
 	 * what was written into api with a blackhole route
 	 */
-	if (info->sub_type == BGP_ROUTE_AGGREGATE)
+	if (info->sub_type == BGP_ROUTE_AGGREGATE) {
+		/*
+		 * Clear the first nexthop entry to avoid leaking stale fields
+		 * (labels, flags, SRv6) before programming a blackhole nexthop.
+		 */
+		memset(&api.nexthops[0], 0, sizeof(api.nexthops[0]));
 		zapi_route_set_blackhole(&api, BLACKHOLE_NULL);
-	else
+	} else
 		api.nexthop_num = valid_nh_count;
 
 	SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);

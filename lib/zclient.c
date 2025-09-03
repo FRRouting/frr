@@ -1640,8 +1640,22 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 	struct zapi_nexthop *api_nh;
 	int i;
 
-	memset(api, 0, sizeof(*api));
-
+	/* Initialize only required fields to avoid zeroing large arrays. */
+	api->message = 0;
+	api->flags = 0;
+	api->instance = 0;
+	api->nexthop_num = 0;
+	api->backup_nexthop_num = 0;
+	api->nhgid = 0;
+	api->distance = 0;
+	api->metric = 0;
+	api->tag = 0;
+	api->mtu = 0;
+	api->tableid = 0;
+	api->srte_color = 0;
+	api->opaque.length = 0;
+	api->src_prefix.prefixlen = 0;
+	api->prefix.prefixlen = 0;
 	/* Type, flags, message. */
 	STREAM_GETC(s, api->type);
 	if (api->type >= ZEBRA_ROUTE_MAX) {
@@ -1730,9 +1744,11 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 
 		for (i = 0; i < api->nexthop_num; i++) {
 			api_nh = &api->nexthops[i];
+			/* Ensure clean defaults for flags, label, counters etc. */
+			memset(api_nh, 0, sizeof(*api_nh));
 
 			if (zapi_nexthop_decode(s, api_nh, api->flags,
-						api->message)
+					api->message)
 			    != 0)
 				return -1;
 		}
@@ -1750,9 +1766,11 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 
 		for (i = 0; i < api->backup_nexthop_num; i++) {
 			api_nh = &api->backup_nexthops[i];
+			/* Ensure clean defaults for flags, label, counters etc. */
+			memset(api_nh, 0, sizeof(*api_nh));
 
 			if (zapi_nexthop_decode(s, api_nh, api->flags,
-						api->message)
+					api->message)
 			    != 0)
 				return -1;
 		}
