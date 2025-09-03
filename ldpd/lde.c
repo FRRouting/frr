@@ -2444,6 +2444,8 @@ void lde_route_update_release(struct iface *iface, int af)
 				continue;
 
 			SET_FLAG(fnh->flags, F_FEC_NH_NO_LDP);
+			lde_send_delete_klabel(fn, fnh);
+
 			RB_FOREACH(ln, nbr_tree, &lde_nbrs)
 				lde_send_labelwithdraw(ln, fn, NULL, NULL);
 			lde_free_label(fn->local_label);
