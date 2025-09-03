@@ -34,7 +34,7 @@ static void rip_zebra_ipv4_send(struct rip *rip, struct route_node *rp,
 	struct rip_info *rinfo = NULL;
 	uint32_t count = 0;
 
-	memset(&api, 0, sizeof(api));
+	zapi_route_init(&api);
 	api.vrf_id = rip->vrf->vrf_id;
 	api.type = ZEBRA_ROUTE_RIP;
 	api.safi = SAFI_UNICAST;
@@ -44,6 +44,8 @@ static void rip_zebra_ipv4_send(struct rip *rip, struct route_node *rp,
 		if (count >= zebra_ecmp_count)
 			break;
 		api_nh = &api.nexthops[count];
+		zapi_nexthop_init(api_nh);
+
 		api_nh->vrf_id = rip->vrf->vrf_id;
 		api_nh->gate = rinfo->nh.gate;
 		api_nh->type = NEXTHOP_TYPE_IPV4;
