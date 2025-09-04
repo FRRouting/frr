@@ -596,8 +596,7 @@ struct bgp {
 	char update_delay_peers_resume_time[64];
 	uint32_t established;
 	uint32_t restarted_peers;
-	uint32_t implicit_eors;
-	uint32_t explicit_eors;
+	uint32_t received_eors;
 #define BGP_UPDATE_DELAY_DEFAULT 0
 
 	/* Reference bandwidth for BGP link-bandwidth. Used when

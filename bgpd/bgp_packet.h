@@ -71,7 +71,6 @@ extern int bgp_nlri_parse(struct peer *peer, struct attr *attr,
 			  struct bgp_nlri *nlri, bool mp_withdraw);
 
 extern void bgp_update_restarted_peers(struct peer *peer);
-extern void bgp_update_implicit_eors(struct peer *peer);
 extern void bgp_check_update_delay(struct bgp *peer);
 
 extern int bgp_packet_set_marker(struct stream *s, uint8_t type);

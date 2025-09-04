@@ -207,12 +207,10 @@ void bgp_check_update_delay(struct bgp *bgp)
 	struct peer *peer = NULL;
 
 	if (bgp_debug_neighbor_events(peer))
-		zlog_debug("Checking update delay, T: %d R: %d I:%d E: %d",
-			   bgp->established, bgp->restarted_peers,
-			   bgp->implicit_eors, bgp->explicit_eors);
+		zlog_debug("Checking update delay, T: %d R: %d E: %d", bgp->established,
+			   bgp->restarted_peers, bgp->received_eors);
 
-	if (bgp->established
-	    <= bgp->restarted_peers + bgp->implicit_eors + bgp->explicit_eors) {
+	if (bgp->established <= bgp->restarted_peers + bgp->received_eors) {
 		/*
 		 * This is an extra sanity check to make sure we wait for all
 		 * the eligible configured peers. This check is performed if
@@ -237,10 +235,8 @@ void bgp_check_update_delay(struct bgp *bgp)
 				}
 			}
 
-		zlog_info(
-			"Update delay ended, restarted: %d, EORs implicit: %d, explicit: %d",
-			bgp->restarted_peers, bgp->implicit_eors,
-			bgp->explicit_eors);
+		zlog_info("Update delay ended, restarted: %d, EORs: %d", bgp->restarted_peers,
+			  bgp->received_eors);
 		bgp_update_delay_end(bgp);
 	}
 }
@@ -262,29 +258,6 @@ void bgp_update_restarted_peers(struct peer *peer)
 	if (peer_established(peer->connection)) {
 		peer->update_delay_over = 1;
 		peer->bgp->restarted_peers++;
-		bgp_check_update_delay(peer->bgp);
-	}
-}
-
-/*
- * Called as peer receives a keep-alive. Determines if this occurence can be
- * taken as an implicit EOR for this peer.
- * NOTE: The very first keep-alive after the Established state of a peer is
- * considered implicit EOR for the update-delay purposes
- */
-void bgp_update_implicit_eors(struct peer *peer)
-{
-	if (!bgp_update_delay_active(peer->bgp))
-		return; /* BGP update delay has ended */
-	if (peer->update_delay_over)
-		return; /* This peer has already been considered */
-
-	if (bgp_debug_neighbor_events(peer))
-		zlog_debug("Peer %s: Checking implicit EORs", peer->host);
-
-	if (peer_established(peer->connection)) {
-		peer->update_delay_over = 1;
-		peer->bgp->implicit_eors++;
 		bgp_check_update_delay(peer->bgp);
 	}
 }
@@ -319,7 +292,7 @@ static void bgp_update_explicit_eors(struct peer *peer)
 	}
 
 	peer->update_delay_over = 1;
-	peer->bgp->explicit_eors++;
+	peer->bgp->received_eors++;
 	bgp_check_update_delay(peer->bgp);
 }
 
@@ -2193,8 +2166,6 @@ static int bgp_keepalive_receive(struct peer_connection *connection,
 {
 	if (bgp_debug_keepalive(peer))
 		zlog_debug("%s KEEPALIVE rcvd", peer->host);
-
-	bgp_update_implicit_eors(peer);
 
 	peer->rtt = sockopt_tcp_rtt(connection->fd);
 
