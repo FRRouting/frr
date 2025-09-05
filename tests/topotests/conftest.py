@@ -265,6 +265,12 @@ def pytest_addoption(parser):
         help="Spawn vtysh on all routers on test failure",
     )
 
+    parser.addoption(
+        "--ignore-backtraces",
+        action="store_true",
+        help="Ignore backtrace detection during test execution",
+    )
+
 
 def check_for_valgrind_memleaks():
     assert topotest.g_pytest_config.option.valgrind_memleaks
@@ -469,7 +475,8 @@ def pytest_runtest_call(item: pytest.Item) -> None:
     # Let the default pytest_runtest_call execute the test function
     yield
 
-    check_for_backtraces()
+    if not item.config.option.ignore_backtraces:
+        check_for_backtraces()
     check_for_core_dumps()
 
     # Check for leaks if requested
