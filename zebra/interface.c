@@ -71,7 +71,7 @@ static void if_zebra_speed_update(struct event *event)
 
 	zif->speed_checked++;
 
-	new_speed = kernel_get_speed(ifp, &error);
+	new_speed = kernel_get_speed(ifp->vrf->vrf_id, ifp->name, &error);
 
 	/* error may indicate vrf not available or
 	 * interfaces not available.
@@ -2093,7 +2093,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 			if_update_state_mtu6(ifp, mtu);
 			if_update_state_metric(ifp, 0);
 			if (!speed_set)
-				speed = kernel_get_speed(ifp, NULL);
+				speed = kernel_get_speed(ifp->vrf->vrf_id, ifp->name, NULL);
 			if_update_state_speed(ifp, speed);
 			ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
 			ifp->txqlen = dplane_ctx_get_intf_txqlen(ctx);

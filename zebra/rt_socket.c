@@ -23,6 +23,7 @@
 #include "lib_errors.h"
 
 #include "zebra/debug.h"
+#include "zebra/interface.h"
 #include "zebra/rib.h"
 #include "zebra/rt.h"
 #include "zebra/kernel_socket.h"
@@ -383,9 +384,12 @@ extern int kernel_interface_set_master(struct interface *master,
 	return 0;
 }
 
-uint32_t kernel_get_speed(struct interface *ifp, int *error)
+uint32_t kernel_get_speed(vrf_id_t vrf_id, const char *ifname, int *error)
 {
-	return ifp->speed;
+	if (error)
+		*error = INTERFACE_SPEED_ERROR_READ;
+
+	return 0;
 }
 
 int kernel_upd_mac_nh(uint32_t nh_id, struct ipaddr *vtep_ip)
