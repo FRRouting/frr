@@ -25,6 +25,8 @@ struct buffer {
 
 	/* Size of each buffer_data chunk. */
 	size_t size;
+
+	size_t chunks_used;
 };
 
 /* Data container. */
@@ -67,6 +69,8 @@ struct buffer *buffer_new(size_t size)
 		}
 		b->size = default_size;
 	}
+
+	b->chunks_used = 0;
 
 	return b;
 }
@@ -118,6 +122,7 @@ void buffer_reset(struct buffer *b)
 		BUFFER_DATA_FREE(data);
 	}
 	b->head = b->tail = NULL;
+	b->chunks_used = 0;
 }
 
 /* Add buffer_data to the end of buffer. */
@@ -135,6 +140,7 @@ static struct buffer_data *buffer_add(struct buffer *b)
 	else
 		b->head = d;
 	b->tail = d;
+	++b->chunks_used;
 
 	return d;
 }
@@ -376,6 +382,7 @@ buffer_status_t buffer_flush_window(struct buffer *b, int fd, int width,
 		if (!(b->head = (del = b->head)->next))
 			b->tail = NULL;
 		BUFFER_DATA_FREE(del);
+		--b->chunks_used;
 	}
 
 	if (iov != small_iov)
@@ -450,6 +457,7 @@ in one shot. */
 		if (!(b->head = d->next))
 			b->tail = NULL;
 		BUFFER_DATA_FREE(d);
+		--b->chunks_used;
 	}
 
 	return b->head ? BUFFER_PENDING : BUFFER_EMPTY;
@@ -488,4 +496,10 @@ buffer_status_t buffer_write(struct buffer *b, int fd, const void *p,
 				   size - written);
 	}
 	return b->head ? BUFFER_PENDING : BUFFER_EMPTY;
+}
+
+/* Returns the number of used chunks. */
+size_t buffer_chunks_used(const struct buffer *b)
+{
+	return b->chunks_used;
 }
