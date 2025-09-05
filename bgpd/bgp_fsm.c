@@ -898,8 +898,7 @@ void bgp_update_delay_end(struct bgp *bgp)
 	bgp->update_delay_over = 1;
 	bgp->established = 0;
 	bgp->restarted_peers = 0;
-	bgp->implicit_eors = 0;
-	bgp->explicit_eors = 0;
+	bgp->received_eors = 0;
 
 	frr_timestamp(3, bgp->update_delay_end_time,
 		      sizeof(bgp->update_delay_end_time));
