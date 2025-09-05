@@ -88,6 +88,8 @@ extern buffer_status_t buffer_flush_all(struct buffer *b, int fd);
 extern buffer_status_t buffer_flush_window(struct buffer *b, int fd, int width,
 					   int height, int erase, int no_more);
 
+extern size_t buffer_chunks_used(const struct buffer *b);
+
 #ifdef __cplusplus
 }
 #endif
