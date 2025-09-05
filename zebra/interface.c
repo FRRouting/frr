@@ -63,20 +63,32 @@ static const char *if_zebra_data_state(uint8_t state)
 static void if_zebra_speed_update(struct event *thread)
 {
 	struct interface *ifp = EVENT_ARG(thread);
-	struct zebra_if *zif = ifp->info;
+
+	dplane_intf_speed(ifp);
+}
+
+static void zebra_if_speed_update_ctx(struct zebra_dplane_ctx *ctx,
+				      struct interface *ifp)
+{
+	enum zebra_dplane_result dp_res;
+	struct zebra_if *zif;
+	bool speed_set, changed = false;
 	uint32_t new_speed;
-	bool changed = false;
-	int error = 0;
 
-	new_speed = kernel_get_speed(ifp, &error);
+	if (!ifp)
+		return;
+	zif = ifp->info;
 
+	dp_res = dplane_ctx_get_status(ctx);
 	/* error may indicate vrf not available or
 	 * interfaces not available.
 	 * note that loopback & virtual interfaces can return 0 as speed
 	 */
-	if (error == INTERFACE_SPEED_ERROR_READ)
+	if (dp_res == ZEBRA_DPLANE_REQUEST_FAILURE)
 		return;
 
+	speed_set = dplane_ctx_get_ifp_speed_set(ctx);
+	new_speed = speed_set ? dplane_ctx_get_ifp_speed(ctx) : 0;
 	if (new_speed != ifp->speed) {
 		zlog_info("%s: %s old speed: %u new speed: %u", __func__,
 			  ifp->name, ifp->speed, new_speed);
@@ -85,7 +97,7 @@ static void if_zebra_speed_update(struct event *thread)
 		changed = true;
 	}
 
-	if (changed || error == INTERFACE_SPEED_ERROR_UNKNOWN) {
+	if (changed || !speed_set) {
 #define SPEED_UPDATE_SLEEP_TIME 5
 #define SPEED_UPDATE_COUNT_MAX (4 * 60 / SPEED_UPDATE_SLEEP_TIME)
 		/*
@@ -100,7 +112,7 @@ static void if_zebra_speed_update(struct event *thread)
 		 * to not update the system to keep track of that.  This
 		 * is far simpler to just stop trying after 4 minutes
 		 */
-		if (error == INTERFACE_SPEED_ERROR_UNKNOWN &&
+		if (!speed_set &&
 		    zif->speed_update_count == SPEED_UPDATE_COUNT_MAX)
 			return;
 
@@ -109,6 +121,56 @@ static void if_zebra_speed_update(struct event *thread)
 				SPEED_UPDATE_SLEEP_TIME, &zif->speed_update);
 		event_ignore_late_timer(zif->speed_update);
 	}
+}
+
+void zebra_if_speed_process(struct zebra_dplane_ctx *ctx)
+{
+	const char *name = dplane_ctx_get_ifname(ctx);
+	ns_id_t ns_id = dplane_ctx_get_ns_id(ctx);
+	struct interface *ifp;
+	struct zebra_ns *zns;
+	uint32_t speed;
+	int error;
+
+	dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
+
+	zns = zebra_ns_lookup(ns_id);
+	if (!zns) {
+		zlog_err("ns %u not found; dropping speed request", ns_id);
+		goto err;
+	}
+
+	ifp = if_lookup_by_name_per_ns(zns, name);
+	if (ifp == NULL) {
+		ifindex_t ifindex = dplane_ctx_get_ifindex(ctx);
+
+		zlog_err("interface not found: %s(%u); dropping speed request",
+			 name, ifindex);
+		goto err;
+	}
+
+	speed = kernel_get_speed(ifp, &error);
+	switch (error) {
+	case 0:
+		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
+		dplane_ctx_set_ifp_speed(ctx, speed);
+		dplane_ctx_set_ifp_speed_set(ctx, true);
+		return;
+	case INTERFACE_SPEED_ERROR_UNKNOWN:
+		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
+		dplane_ctx_set_ifp_speed_set(ctx, false);
+		return;
+	case INTERFACE_SPEED_ERROR_READ:
+		/* INTERFACE_SPEED_ERROR_READ: means no device, no vrf */
+		break;
+	default:
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("kernel_get_speed returns an unkwnown error %u", error);
+		break;
+	}
+
+err:
+	dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
 }
 
 static void zebra_if_node_destroy(route_table_delegate_t *delegate,
@@ -1988,7 +2050,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 			if_update_state_mtu6(ifp, mtu);
 			if_update_state_metric(ifp, 0);
 			if (!speed_set)
-				speed = kernel_get_speed(ifp, NULL);
+				speed = 0;
 			if_update_state_speed(ifp, speed);
 			ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
 			ifp->txqlen = dplane_ctx_get_intf_txqlen(ctx);
@@ -2244,6 +2306,8 @@ void zebra_if_dplane_result(struct zebra_dplane_ctx *ctx)
 			zebra_if_update_ctx(ctx, ifp);
 	} else if (op == DPLANE_OP_INTF_NETCONFIG) {
 		zebra_if_netconf_update_ctx(ctx, ifp, ifindex);
+	} else if (op == DPLANE_OP_INTF_SPEED) {
+		zebra_if_speed_update_ctx(ctx, ifp);
 	}
 }
 
