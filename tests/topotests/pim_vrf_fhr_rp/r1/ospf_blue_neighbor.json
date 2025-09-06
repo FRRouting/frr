@@ -1,0 +1,15 @@
+{
+  "blue":{
+    "vrfName":"blue",
+    "neighbors":{
+      "192.168.0.11":[
+        {
+          "nbrPriority":10,
+          "converged":"Full",
+          "ifaceAddress":"192.168.101.11",
+          "ifaceName":"r1-eth1:192.168.101.1"
+        }
+      ]
+    }
+  }
+}
