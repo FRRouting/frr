@@ -5240,6 +5240,7 @@ static void rib_process_dplane_results(struct event *thread)
 			case DPLANE_OP_INTF_UPDATE:
 			case DPLANE_OP_INTF_DELETE:
 			case DPLANE_OP_INTF_NETCONFIG:
+			case DPLANE_OP_INTF_SPEED:
 				zebra_if_dplane_result(ctx);
 				break;
 
