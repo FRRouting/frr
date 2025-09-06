@@ -11850,10 +11850,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	/* Line2 display Next-hop, Neighbor, Router-id */
 	/* Display the nexthop */
 
-	if ((p->family == AF_INET || p->family == AF_ETHERNET ||
-	     p->family == AF_EVPN) &&
-	    (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP || safi == SAFI_EVPN ||
-	     !BGP_ATTR_MP_NEXTHOP_LEN_IP6(attr))) {
+	if ((p->family == AF_INET || p->family == AF_ETHERNET || p->family == AF_EVPN) &&
+	    (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP || !BGP_ATTR_MP_NEXTHOP_LEN_IP6(attr))) {
 		if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP
 		    || safi == SAFI_EVPN) {
 			if (json_paths) {
