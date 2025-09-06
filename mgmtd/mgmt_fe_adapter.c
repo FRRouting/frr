@@ -842,10 +842,16 @@ static void fe_session_handle_get_data(struct mgmt_fe_session_ctx *session, void
 					      "Error getting yang-library data, session-id: %" PRIu64
 					      " error: %s",
 					      session->session_id, ly_last_errmsg());
+			goto done;
 		} else if (nb_oper_is_yang_lib_query(msg->xpath)) {
+			struct lyd_node *result;
+
 			yang_lyd_trim_xpath(&ylib, msg->xpath);
+			result = ylib;
+			if (CHECK_FLAG(msg->flags, GET_DATA_FLAG_EXACT))
+				result = yang_dnode_get(result, msg->xpath);
 			(void)fe_session_send_tree_data(session, req_id, false, msg->result_type,
-							wd_options, ylib, 0);
+							wd_options, result, 0);
 			goto done;
 		}
 	}
