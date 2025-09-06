@@ -1334,6 +1334,7 @@ static int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 
 	stream_putw(s, api_nhg->proto);
 	stream_putl(s, api_nhg->id);
+	stream_putl(s, api_nhg->flags);
 
 	stream_putw(s, api_nhg->resilience.buckets);
 	stream_putl(s, api_nhg->resilience.idle_timer);
