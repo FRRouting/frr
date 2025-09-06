@@ -116,7 +116,19 @@ RUN mkdir -p /etc/apt/keyrings && \
     curl -s -o /etc/apt/keyrings/frrouting.gpg https://deb.frrouting.org/frr/keys.gpg && \
     echo deb '[signed-by=/etc/apt/keyrings/frrouting.gpg]' https://deb.frrouting.org/frr \
         $(lsb_release -s -c) "frr-stable" > /etc/apt/sources.list.d/frr.list && \
-    apt-get update && apt-get install -y librtr-dev libyang2-dev libyang2-tools
+    apt-get update && apt-get install -y librtr-dev
+
+# build and install libyang3
+RUN cd && pwd && ls -al && \
+    git clone https://github.com/CESNET/libyang.git && \
+    cd libyang && \
+    git checkout v3.13.6 && \
+    mkdir build; cd build && \
+    cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr \
+    -DCMAKE_BUILD_TYPE:String="Debug" .. && \
+    make -j $(nproc) && \
+    sudo make install
+RUN python3 -m pip install libyang
 
 USER frr:frr
 
