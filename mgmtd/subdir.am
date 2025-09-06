@@ -105,3 +105,11 @@ nodist_mgmtd_libmgmt_be_nb_la_SOURCES += \
 	# end
 endif
 
+if DHCPGWD
+nodist_mgmtd_libmgmt_be_nb_la_SOURCES += \
+	dhcpgwd/dhcpgw_debug.c \
+	dhcpgwd/dhcpgw_state.c \
+	dhcpgwd/dhcpgw_vty.c \
+	dhcpgwd/dhcpgw_routes.c \
+	# end
+endif

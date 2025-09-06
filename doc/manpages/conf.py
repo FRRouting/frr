@@ -325,6 +325,7 @@ man_pages = [
     ("frr-sharpd", "frr-sharpd", fwfrr.format("a SHARP"), [], 8),
     ("frr-staticd", "frr-staticd", fwfrr.format("a static route manager"), [], 8),
     ("frr-vrrpd", "frr-vrrpd", fwfrr.format("a VRRP"), [], 8),
+    ("frr-dhcpgwd", "frr-dhcpgwd", fwfrr.format("DHCP gateway routes"), [], 8),
     (
         "frr-watchfrr",
         "frr-watchfrr",
