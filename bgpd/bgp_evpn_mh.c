@@ -517,7 +517,7 @@ static int bgp_evpn_mh_route_delete(struct bgp *bgp, struct bgp_evpn_es *es,
 	if (global_dest) {
 
 		/* Delete route entry in the global EVPN table. */
-		pi = delete_evpn_route_entry(bgp, afi, safi, global_dest, 0);
+		pi = delete_evpn_route_entry(bgp, afi, safi, global_dest, NULL, 0);
 
 		/* Schedule for processing - withdraws to peers happen from
 		 * this table.
@@ -531,7 +531,7 @@ static int bgp_evpn_mh_route_delete(struct bgp *bgp, struct bgp_evpn_es *es,
 	 * Delete route entry in the ESI or VNI routing table.
 	 * This can just be removed.
 	 */
-	pi = delete_evpn_route_entry(bgp, afi, safi, dest, 0);
+	pi = delete_evpn_route_entry(bgp, afi, safi, dest, NULL, 0);
 	if (pi)
 		dest = bgp_path_info_reap(dest, pi);
 
@@ -572,7 +572,7 @@ int delete_global_ead_evi_routes(struct bgp *bgp, struct bgpevpn *vpn)
 			if (evp->prefix.route_type != BGP_EVPN_AD_ROUTE)
 				continue;
 
-			pi = delete_evpn_route_entry(bgp, afi, safi, bd, 0);
+			pi = delete_evpn_route_entry(bgp, afi, safi, bd, NULL, 0);
 			if (pi)
 				bgp_process(bgp, bd, pi, afi, safi);
 		}
