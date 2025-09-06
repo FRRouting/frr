@@ -3928,6 +3928,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 		 * Ensure that on uninstall that the INSTALL_PENDING
 		 * is no longer set
 		 */
+		bgp_dest_decrement_gr_fib_install_count(dest);
 		UNSET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);
 	}
 
@@ -3997,12 +3998,97 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 }
 
 /* Process the routes with the flag BGP_NODE_SELECT_DEFER set */
+static void bgp_process_gr_deferral_complete(struct bgp *bgp, afi_t afi, safi_t safi)
+{
+	bool route_sync_pending = false;
+
+	bgp_send_delayed_eor(bgp);
+	/* Send route processing complete message to RIB */
+	bgp_zebra_update(bgp, afi, safi,
+			 ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE);
+	bgp->gr_info[afi][safi].route_sync = true;
+
+	/* If this instance is all done, check for GR completion overall */
+	FOREACH_AFI_SAFI_NSF (afi, safi) {
+		if (bgp->gr_info[afi][safi].af_enabled &&
+		    !bgp->gr_info[afi][safi].route_sync) {
+			route_sync_pending = true;
+			break;
+		}
+	}
+
+	if (!route_sync_pending) {
+		bgp->gr_route_sync_pending = false;
+		bgp_update_gr_completion();
+	}
+}
+
+/* This function increments gr_route_wfi_cnt if needed based on BGP_NODE_FIB_INSTALL_PENDING flag */
+void bgp_dest_increment_gr_fib_install_count(struct bgp_dest *dest)
+{
+	struct bgp_table *table = NULL;
+	struct bgp *bgp = NULL;
+	afi_t afi = 0;
+	safi_t safi = 0;
+
+	table = bgp_dest_table(dest);
+	if (!table)
+		return;
+
+	bgp = table->bgp;
+	afi = table->afi;
+	safi = table->safi;
+
+	if (BGP_SUPPRESS_FIB_ENABLED(bgp) && bgp_in_graceful_restart() &&
+	    !CHECK_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING)) {
+		bgp->gr_info[afi][safi].gr_route_wfi_cnt++;
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug("%s: GR route waiting for install count incremented to %u for %s (prefix: %pBD)",
+				   bgp->name_pretty, bgp->gr_info[afi][safi].gr_route_wfi_cnt,
+				   get_afi_safi_str(afi, safi, false), dest);
+	}
+}
+
+/* This function decrements gr_route_wfi_cnt if needed based on BGP_NODE_FIB_INSTALL_PENDING flag */
+void bgp_dest_decrement_gr_fib_install_count(struct bgp_dest *dest)
+{
+	struct bgp_table *table = NULL;
+	struct bgp *bgp = NULL;
+	afi_t afi = 0;
+	safi_t safi = 0;
+
+	table = bgp_dest_table(dest);
+	if (!table)
+		return;
+
+	bgp = table->bgp;
+	afi = table->afi;
+	safi = table->safi;
+
+	if (BGP_SUPPRESS_FIB_ENABLED(bgp) && bgp_in_graceful_restart() && CHECK_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING) && bgp->gr_info[afi][safi].gr_route_wfi_cnt > 0) {
+		bgp->gr_info[afi][safi].gr_route_wfi_cnt--;
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug("%s: GR route waiting for install count decremented to %u for %s (prefix: %pBD)",
+				   bgp->name_pretty, bgp->gr_info[afi][safi].gr_route_wfi_cnt,
+				   get_afi_safi_str(afi, safi, false), dest);
+	}
+
+	/* Check if graceful restart deferral completion is needed */
+	if (!bgp->gr_info[afi][safi].gr_deferred &&
+	    !bgp->gr_info[afi][safi].gr_route_wfi_cnt &&
+	    bgp->gr_route_sync_pending) {
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug("%s: Triggering GR deferral completion from FIB notification for %s",
+				   bgp->name_pretty, get_afi_safi_str(afi, safi, false));
+		bgp_process_gr_deferral_complete(bgp, afi, safi);
+	}
+}
+
 void bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi)
 {
 	struct bgp_dest *dest;
 	int cnt = 0;
 	struct afi_safi_info *thread_info;
-	bool route_sync_pending = false;
 
 	if (bgp->gr_info[afi][safi].t_route_select) {
 		struct event *t = bgp->gr_info[afi][safi].t_route_select;
@@ -4041,24 +4127,8 @@ void bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi)
 
 	/* Send EOR message when all routes are processed */
 	if (!bgp->gr_info[afi][safi].gr_deferred) {
-		bgp_send_delayed_eor(bgp);
-		/* Send route processing complete message to RIB */
-		bgp_zebra_update(bgp, afi, safi,
-				 ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE);
-		bgp->gr_info[afi][safi].route_sync = true;
-
-		/* If this instance is all done, check for GR completion overall */
-		FOREACH_AFI_SAFI_NSF (afi, safi) {
-			if (bgp->gr_info[afi][safi].af_enabled &&
-			    !bgp->gr_info[afi][safi].route_sync) {
-				route_sync_pending = true;
-				break;
-			}
-		}
-
-		if (!route_sync_pending) {
-			bgp->gr_route_sync_pending = false;
-			bgp_update_gr_completion();
+		if (!BGP_SUPPRESS_FIB_ENABLED(bgp) || !bgp->gr_info[afi][safi].gr_route_wfi_cnt) {
+			bgp_process_gr_deferral_complete(bgp, afi, safi);
 		}
 		return;
 	}
