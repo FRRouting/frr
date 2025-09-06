@@ -44,10 +44,13 @@ extern mpls_label_t bgp_adv_label(struct bgp_dest *dest,
 
 extern int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 				struct bgp_nlri *packet);
+extern uint32_t decode_label(mpls_label_t *label);
+extern void encode_label(mpls_label_t label_in, mpls_label_t *label_out);
 extern bool bgp_labels_same(const mpls_label_t *tbl_a,
 			    const uint8_t num_labels_a,
 			    const mpls_label_t *tbl_b,
 			    const uint8_t num_labels_b);
+extern bool bgp_labels_is_implicit_null(struct bgp_path_info *pi);
 
 static inline int bgp_labeled_safi(safi_t safi)
 {
