@@ -328,7 +328,8 @@ static void zebra_neigh_handle_5549(uint32_t ndm_family, uint32_t ndm_state, str
 }
 
 /* Is vni mcast group */
-static bool is_mac_vni_mcast_group(struct ethaddr *mac, vni_t vni, struct in_addr grp_addr)
+static bool is_mac_vni_mcast_group(struct ethaddr *mac, vni_t vni,
+				   const struct ipaddr *grp_addr)
 {
 	if (!vni)
 		return false;
@@ -336,10 +337,7 @@ static bool is_mac_vni_mcast_group(struct ethaddr *mac, vni_t vni, struct in_add
 	if (!is_zero_mac(mac))
 		return false;
 
-	if (!IN_MULTICAST(ntohl(grp_addr.s_addr)))
-		return false;
-
-	return true;
+	return ipaddr_is_mcast(grp_addr);
 }
 
 static int zebra_nbr_entry_state_to_zclient(int nbr_state)
@@ -516,7 +514,7 @@ static void zebra_neigh_macfdb_update(struct zebra_dplane_ctx *ctx)
 	ifindex_t vni;
 	struct zebra_vxlan_vni *vnip;
 	struct ethaddr mac;
-	struct in_addr vtep_ip;
+	const struct ipaddr *vtep_ip;
 	bool sticky;
 	bool local_inactive;
 	bool dp_static;
@@ -563,7 +561,7 @@ static void zebra_neigh_macfdb_update(struct zebra_dplane_ctx *ctx)
 	}
 
 	mac = *dplane_ctx_mac_get_addr(ctx);
-	vtep_ip = *dplane_ctx_mac_get_vtep_ip(ctx);
+	vtep_ip = dplane_ctx_mac_get_vtep_ip(ctx);
 
 	/* Check if this is a mcast group update (svd case) */
 	vni_mcast_grp = is_mac_vni_mcast_group(&mac, vni, vtep_ip);
@@ -595,7 +593,9 @@ static void zebra_neigh_macfdb_update(struct zebra_dplane_ctx *ctx)
 				return;
 
 			if (vni_mcast_grp) {
-				zebra_vxlan_if_vni_mcast_group_add_update(ifp, vni, &vtep_ip);
+				/* PIM does not yet support IPV6 */
+				zebra_vxlan_if_vni_mcast_group_add_update(
+					ifp, vni, (struct in_addr *)&vtep_ip->ipaddr_v4.s_addr);
 				return;
 			}
 
@@ -624,12 +624,14 @@ static void zebra_neigh_macfdb_update(struct zebra_dplane_ctx *ctx)
 
 	if (dst_present) {
 		if (vni_mcast_grp) {
-			zebra_vxlan_if_vni_mcast_group_del(ifp, vni, &vtep_ip);
+			/* PIM does not yet support IPV6 */
+			zebra_vxlan_if_vni_mcast_group_del(
+				ifp, vni, (struct in_addr *)&vtep_ip->ipaddr_v4.s_addr);
 			return;
 		}
 
 		if (is_zero_mac(&mac) && vni) {
-			zebra_vxlan_check_readd_vtep(ifp, vni, vtep_ip);
+			zebra_vxlan_check_readd_vtep(ifp, vni, (struct ipaddr *)vtep_ip);
 			return;
 		}
 		return;
