@@ -624,6 +624,67 @@ def test_zebra_ipv4_routingTable():
         assert fatal_error == "", fatal_error
 
 
+# Use r1 and r2 to test route with changing ldp configuration
+def test_zebra_ipv4_routingtable_with_ldp():
+    global fatal_error
+    router = get_topogen().gears
+
+    # Skip if previous fatal error condition is raised
+    if fatal_error != "":
+        pytest.skip(fatal_error)
+
+    print("\n\n** Verifying Zebra IPv4 Routing Table With LDP")
+
+    router["r1"].vtysh_cmd("config \n mpls ldp \n addr ipv4 \n no int r1-eth0 \n end")
+
+    def show_route_without_ldp():
+        output = json.loads(router["r1"].vtysh_cmd("show ip route json"))
+        expected = {"2.2.2.2/32": [{"nexthops": [{"ip": "10.0.1.2"}]}]}
+        return topotest.json_cmp(output, expected)
+
+    # Make sure no label in route
+    test_func = partial(show_route_without_ldp)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    assert result is None, "r1: wrongly with label in route!\n{}".format(result)
+
+    # r1: with both target and link config, r2: with only targeted config
+    router["r2"].vtysh_cmd("config \n mpls ldp \n addr ipv4 \n no int r2-eth0 \n end")
+    router["r2"].vtysh_cmd(
+        "config \n mpls ldp \n addr ipv4 \n neighbor 1.1.1.1 targeted \n end"
+    )
+    router["r1"].vtysh_cmd(
+        "config \n mpls ldp \n addr ipv4 \n neighbor 2.2.2.2 targeted \n end"
+    )
+    router["r1"].vtysh_cmd("config \n mpls ldp \n addr ipv4 \n int r1-eth0 \n end")
+
+    def show_route_with_ldp():
+        output = json.loads(router["r1"].vtysh_cmd("show ip route json"))
+        expected = {"2.2.2.2/32": [{"nexthops": [{"labels": [3]}]}]}
+        return topotest.json_cmp(output, expected)
+
+    # Make sure with label in route
+    test_func = partial(show_route_with_ldp)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    assert result is None, "r1: wrongly without label with route!"
+
+    # Restore the configurations of r1 and r2 to their original state and
+    # continue with the subsequent tests.
+    router["r2"].vtysh_cmd(
+        "config \n mpls ldp \n addr ipv4 \n no neighbor 1.1.1.1 targeted \n end"
+    )
+    router["r2"].vtysh_cmd("config \n mpls ldp \n addr ipv4 \n int r2-eth0 \n end")
+    router["r1"].vtysh_cmd(
+        "config \n mpls ldp \n addr ipv4 \n no neighbor 2.2.2.2 targeted \n end"
+    )
+
+    sleep(5)
+
+    # Make sure with label in route with their original state
+    test_func = partial(show_route_with_ldp)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    assert result is None, "r1: wrongly without label with route!"
+
+
 def test_mpls_table():
     global fatal_error
     net = get_topogen().net
