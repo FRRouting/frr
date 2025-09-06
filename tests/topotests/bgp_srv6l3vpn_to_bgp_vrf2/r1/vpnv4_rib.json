@@ -85,6 +85,33 @@
           }
         ]
       },
+      "1:30": {
+        "192.168.7.0/24": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "selectionReason": "First path received",
+            "pathFrom": "external",
+            "prefix": "192.168.7.0",
+            "prefixLen": 24,
+            "network": "192.168.7.0/24",
+            "metric": 0,
+            "weight": 32768,
+            "peerId": "(unspec)",
+            "path": "",
+            "origin": "incomplete",
+            "nhVrfName": "default",
+            "nexthops": [
+              {
+                "ip": "2001::1",
+                "hostname": "r1",
+                "afi": "ipv6",
+                "used": true
+              }
+            ]
+          }
+        ]
+      },
       "2:10": {
         "192.168.2.0/24": [
           {
@@ -145,6 +172,32 @@
             "prefix": "192.168.6.0",
             "prefixLen": 24,
             "network": "192.168.6.0/24",
+            "metric": 0,
+            "weight": 0,
+            "peerId": "2001::2",
+            "path": "2",
+            "origin": "incomplete",
+            "nexthops": [
+              {
+                "ip": "2001::2",
+                "hostname": "r2",
+                "afi": "ipv6",
+                "used": true
+              }
+            ]
+          }
+        ]
+      },
+      "2:30": {
+        "192.168.8.0/24": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "selectionReason": "First path received",
+            "pathFrom": "external",
+            "prefix": "192.168.8.0",
+            "prefixLen": 24,
+            "network": "192.168.8.0/24",
             "metric": 0,
             "weight": 0,
             "peerId": "2001::2",
