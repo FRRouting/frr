@@ -933,7 +933,7 @@ enum zclient_send_status zclient_send_rnh(struct zclient *zclient, int command,
 	stream_putc(s, (resolve_via_def) ? 1 : 0);
 	stream_putw(s, safi);
 	stream_putw(s, PREFIX_FAMILY(p));
-	stream_putc(s, p->prefixlen);
+	stream_putw(s, p->prefixlen);
 	switch (PREFIX_FAMILY(p)) {
 	case AF_INET:
 		stream_put_in_addr(s, &p->u.prefix4);
