@@ -593,6 +593,25 @@ Here's an example of launching ``vtysh`` on routers ``rt1`` and ``rt2``.
 
    sudo -E pytest --vtysh=rt1,rt2 all-protocol-startup
 
+Ignoring Backtrace Detection
+""""""""""""""""""""""""""""
+
+By default, topotests automatically check for backtraces in daemon log files after
+each test execution. If backtraces are detected, the test will fail. However, in
+some scenarios you may want to disable this automatic backtrace detection.
+
+To disable backtrace detection during test execution, use the ``--ignore-backtraces``
+CLI option:
+
+.. code:: shell
+
+   sudo -E pytest --ignore-backtraces all-protocol-startup
+
+This option is useful when:
+- Running tests in environments where backtraces are expected or acceptable
+- Debugging specific issues where backtrace detection interferes with test execution
+- Running tests with known issues that produce backtraces but are not critical
+
 .. _debug_with_gdb:
 
 Debugging with GDB
