@@ -3775,6 +3775,8 @@ DEFUN (show_zebra,
 	ttable_add_row(table, "v6 Route Replace Semantics|%s",
 		       zebra_vty_v6_rr_semantics_used() ? "Replace"
 							: "Delete then Add");
+	ttable_add_row(table, "Nexthop weight is 16 bits|%s",
+		       zrouter.nexthop_weight_is_16bit ? "Yes" : "No");
 
 #ifdef GNU_LINUX
 	if (!vrf_is_backend_netns())
