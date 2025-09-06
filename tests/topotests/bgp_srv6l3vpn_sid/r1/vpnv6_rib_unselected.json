@@ -5,79 +5,6 @@
   "localAS": 1,
   "routes": {
     "routeDistinguishers": {
-      "1:10": {
-        "2001:1::/64": [
-          {
-            "pathFrom": "external",
-            "prefix": "2001:1::",
-            "prefixLen": 64,
-            "network": "2001:1::/64",
-            "metric": 0,
-            "weight": 32768,
-            "peerId": "(unspec)",
-            "path": "",
-            "origin": "incomplete",
-            "announceNexthopSelf": true,
-            "nhVrfName": "vrf10",
-            "nexthops": [
-              {
-                "ip": "::",
-                "hostname": "r1",
-                "afi": "ipv6",
-                "used": true
-              }
-            ]
-          }
-        ],
-        "2001:3::/64": [
-          {
-            "pathFrom": "external",
-            "prefix": "2001:3::",
-            "prefixLen": 64,
-            "network": "2001:3::/64",
-            "metric": 0,
-            "weight": 32768,
-            "peerId": "(unspec)",
-            "path": "",
-            "origin": "incomplete",
-            "announceNexthopSelf": true,
-            "nhVrfName": "vrf10",
-            "nexthops": [
-              {
-                "ip": "::",
-                "hostname": "r1",
-                "afi": "ipv6",
-                "used": true
-              }
-            ]
-          }
-        ]
-      },
-      "1:20": {
-        "2001:5::/64": [
-          {
-            "pathFrom": "external",
-            "prefix": "2001:5::",
-            "prefixLen": 64,
-            "network": "2001:5::/64",
-            "metric": 0,
-            "weight": 32768,
-            "peerId": "(unspec)",
-            "path": "",
-            "origin": "incomplete",
-            "announceNexthopSelf": true,
-            "nhVrfName": "vrf20",
-            "nexthops": [
-              {
-                "ip": "::",
-                "hostname": "r1",
-                "afi": "ipv6",
-                "used": true
-              }
-            ]
-          }
-        ]
-      },
       "2:20": {
         "2001:4::/64": [
           {
@@ -130,6 +57,6 @@
       }
     }
   },
-  "totalRoutes": 5,
-  "totalPaths": 5
+  "totalRoutes": 2,
+  "totalPaths": 2
 }
