@@ -64,6 +64,14 @@ extern ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx,
 extern int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup);
 extern int netlink_route_read(struct zebra_ns *zns);
 
+/* Parse nexthop attributes from a netlink message. */
+extern struct nexthop parse_nexthop_unicast(ns_id_t ns_id, unsigned rtm_flags, struct rtattr **tb,
+			  enum blackhole_type bh_type, int index, void *prefsrc,
+		      void *gate, afi_t afi, vrf_id_t vrf_id);
+extern uint16_t parse_multipath_nexthops_unicast(ns_id_t ns_id, struct nexthop_group *ng,
+			unsigned char rtm_family, struct rtnexthop *rtnh,
+			struct rtattr **tb, void *prefsrc, vrf_id_t vrf_id);
+
 /*
  * Public api for parsing a route notification message: this notification
  * only parses the top-level route attributes, and doesn't include nexthops.

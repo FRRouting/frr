@@ -31,6 +31,7 @@
 #include "frrscript.h"
 #include "frrdistance.h"
 #include "lib/termtable.h"
+#include "lib/nexthop.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/connected.h"
@@ -51,6 +52,7 @@
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_neigh.h"
 #include "zebra/zebra_script.h"
+#include "zebra/rt_netlink.h"
 
 DEFINE_MGROUP(ZEBRA, "zebra");
 
@@ -69,7 +71,6 @@ static struct dplane_ctx_list_head rib_dplane_q;
 DEFINE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 	    (rn, reason));
 DEFINE_HOOK(rib_shutdown, (struct route_node * rn), (rn));
-
 
 /*
  * Meta Q's specific names
@@ -1658,6 +1659,212 @@ static bool rib_compare_routes(const struct route_entry *re1,
 		return true;
 
 	return false;
+}
+
+/* Update the RIB with the dplane route context */
+void rib_route_dplane_update(struct zebra_dplane_ctx *ctx)
+{
+	struct prefix p;
+	struct prefix src_p = {};
+	vrf_id_t vrf_id;
+	bool selfroute;
+	uint32_t flags = 0;
+	int proto = ZEBRA_ROUTE_KERNEL;
+	int index = 0;
+	int table;
+	int metric = 0;
+	uint32_t mtu = 0;
+	uint8_t distance = 0;
+	route_tag_t tag = 0;
+	uint32_t nhe_id = 0;
+	void *gate = NULL;
+	const struct ipaddr *gate_addr;
+	void *prefsrc = NULL; /* IPv4 preferred source host address */
+	const struct ipaddr *prefsrc_addr;
+	enum blackhole_type bh_type = BLACKHOLE_UNSPEC;
+	afi_t afi;
+	ns_id_t ns_id;
+	int startup;
+	struct rtmsg *rtm;
+	struct rtattr **tb;
+
+	flags = dplane_ctx_get_flags(ctx);
+	selfroute = CHECK_FLAG(flags, ZEBRA_FLAG_SELFROUTE);
+	startup = dplane_ctx_get_startup(ctx);
+	enum dplane_op_e op = dplane_ctx_get_op(ctx);
+	rtm = dplane_ctx_get_route_rtm(ctx);
+
+	if (!startup && selfroute && op == DPLANE_OP_ROUTE_INSTALL &&
+	    !zrouter.asic_offloaded) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("Route type: %d Received that we think we have originated, ignoring",
+				   rtm->rtm_protocol);
+		if(ctx)
+			dplane_ctx_fini(&ctx);
+		return;
+	}
+
+	/* Table corresponding to route. */
+	table = dplane_ctx_get_table(ctx);
+	ns_id = dplane_ctx_get_ns_id(ctx);
+
+	/* Map to VRF: note that this can _only_ be done in the main pthread */
+	vrf_id = zebra_vrf_lookup_by_table(table, ns_id);
+	if (vrf_id == VRF_DEFAULT) {
+		if (!is_zebra_valid_kernel_table(table)
+		    && !is_zebra_main_routing_table(table)) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug("Route rtm_type: %s(%d) unable to parse table received %u, ignoring",
+					   nl_rttype_to_str(rtm->rtm_type), rtm->rtm_type, table);
+			if (ctx)
+				dplane_ctx_fini(&ctx);
+			return;
+		}
+	}
+
+	/* Route which inserted by Zebra. */
+	if (selfroute)
+		proto = dplane_ctx_get_type(ctx);
+
+	index = dplane_ctx_get_ifindex(ctx);
+
+	p = *(dplane_ctx_get_dest(ctx));
+
+	if (dplane_ctx_get_src(ctx) == NULL)
+		src_p.prefixlen = 0;
+	else
+		src_p = *(dplane_ctx_get_src(ctx));
+
+	prefsrc_addr = dplane_ctx_get_route_prefsrc(ctx);
+	if (prefsrc_addr)
+		prefsrc = (void *)&(prefsrc_addr->ip.addr);
+
+	gate_addr = dplane_ctx_get_route_gw(ctx);
+	if (!IS_IPADDR_NONE(gate_addr))
+		gate = (void *)&(gate_addr->ip.addr);
+
+	nhe_id = dplane_ctx_get_nhe_id(ctx);
+	metric = dplane_ctx_get_metric(ctx);
+	distance = dplane_ctx_get_distance(ctx);
+	tag = dplane_ctx_get_tag(ctx);
+	mtu = dplane_ctx_get_mtu(ctx);
+	afi = dplane_ctx_get_afi(ctx);
+	bh_type = dplane_ctx_get_route_bhtype(ctx);
+	tb = (struct rtattr **)dplane_ctx_get_route_tb(ctx);
+
+	if (IS_ZEBRA_DEBUG_KERNEL) {
+		char buf2[PREFIX_STRLEN];
+
+		zlog_debug(
+			"%s %pFX%s%s vrf %s(%u) table_id: %u metric: %d Admin Distance: %d",
+			dplane_op2str(op), &p,
+			src_p.prefixlen ? " from " : "",
+			src_p.prefixlen ? prefix2str(&src_p, buf2, sizeof(buf2))
+					: "",
+			vrf_id_to_name(vrf_id), vrf_id, table, metric,
+			distance);
+	}
+
+	if (op == DPLANE_OP_ROUTE_INSTALL) {
+		struct route_entry *re;
+		struct nexthop_group *ng = NULL;
+
+		re = zebra_rib_route_entry_new(vrf_id, proto, 0, flags, nhe_id,
+					       table, metric, mtu, distance,
+					       tag);
+		if (!nhe_id)
+			ng = nexthop_group_new();
+
+		if (!tb[RTA_MULTIPATH]) {
+			struct nexthop *nexthop, nh;
+
+			if (!nhe_id) {
+				nh = parse_nexthop_unicast(
+					ns_id, rtm->rtm_flags, tb, bh_type, index, prefsrc,
+					gate, afi, vrf_id);
+
+				nexthop = nexthop_new();
+				*nexthop = nh;
+				nexthop_group_add_sorted(ng, nexthop);
+			}
+		} else {
+			/* This is a multipath route */
+			struct rtnexthop *rtnh =
+				(struct rtnexthop *)RTA_DATA(tb[RTA_MULTIPATH]);
+
+			if (!nhe_id) {
+				uint16_t nhop_num;
+
+				/* Use temporary list of nexthops; parse
+				 * message payload's nexthops.
+				 */
+				nhop_num =
+					parse_multipath_nexthops_unicast(
+						ns_id, ng, rtm->rtm_family, rtnh, tb,
+						prefsrc, vrf_id);
+
+				zserv_nexthop_num_warn(
+					__func__, (const struct prefix *)&p,
+					nhop_num);
+
+				if (nhop_num == 0) {
+					nexthop_group_delete(&ng);
+					ng = NULL;
+				}
+			}
+		}
+		if (nhe_id || ng) {
+			rib_add_multipath(afi, SAFI_UNICAST, &p,
+					  (struct prefix_ipv6 *)&src_p,
+					  re, ng, startup);
+			if (ng)
+				nexthop_group_delete(&ng);
+		} else {
+			/*
+			 * I really don't see how this is possible
+			 * but since we are testing for it let's
+			 * let the end user know why the route
+			 * that was just received was swallowed
+			 * up and forgotten
+			 */
+			zlog_err(
+				"%s: %pFX multipath RTM_NEWROUTE has a invalid nexthop group from the kernel",
+				__func__, &p);
+			zebra_rib_route_entry_free(re);
+		}
+	} else if (op == DPLANE_OP_ROUTE_DELETE) {
+		if (nhe_id) {
+			rib_delete(afi, SAFI_UNICAST, vrf_id, proto, 0, flags,
+				   &p, (struct prefix_ipv6 *)&src_p, NULL,
+				   nhe_id, table, metric, distance, true);
+		} else {
+			// if (multipath_array->has_multipath) {
+			if (!tb[RTA_MULTIPATH]) {
+				struct nexthop nh;
+
+				nh = parse_nexthop_unicast(
+					ns_id, rtm->rtm_flags, tb, bh_type, index, prefsrc,
+					gate, afi, vrf_id);
+				rib_delete(afi, SAFI_UNICAST, vrf_id, proto, 0,
+					   flags, &p,
+					   (struct prefix_ipv6 *)&src_p, &nh, 0,
+					   table, metric, distance, true);
+
+				if (nh.nh_label)
+					nexthop_del_labels(&nh);
+
+				if (nh.nh_srv6)
+					nexthop_del_srv6_seg6(&nh);
+			} else {
+				/* XXX: need to compare the entire list of
+				 * nexthops here for NLM_F_APPEND stupidity */
+				rib_delete(afi, SAFI_UNICAST, vrf_id, proto, 0,
+					   flags, &p,
+					   (struct prefix_ipv6 *)&src_p, NULL, 0,
+					   table, metric, distance, true);
+			}
+		}
+	}
 }
 
 /*
@@ -5181,6 +5388,8 @@ static void rib_process_dplane_results(struct event *thread)
 				 */
 				if (dplane_ctx_get_notif_provider(ctx) == 0)
 					rib_process_result(ctx);
+				else					
+					rib_route_dplane_update(ctx);
 				break;
 
 			case DPLANE_OP_ROUTE_NOTIFY:
