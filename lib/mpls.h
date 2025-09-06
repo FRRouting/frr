@@ -133,7 +133,7 @@ static inline void vni2label(vni_t vni, mpls_label_t *label)
 
 static inline vni_t label2vni(const mpls_label_t *label)
 {
-	uint8_t *tag = (uint8_t *)label;
+	const uint8_t *tag = (const uint8_t *)label;
 	vni_t vni;
 
 	assert(tag);
