@@ -1318,9 +1318,9 @@ DEFPY_YANG (ipv6_nd_ra_interval,
 
 	if (!no) {
 		if (sec)
-			snprintf(value, sizeof(value), "%lu", sec * 1000);
+			snprintf(value, sizeof(value), "%llu", sec * 1000);
 		else
-			snprintf(value, sizeof(value), "%lu", msec);
+			snprintf(value, sizeof(value), "%llu", msec);
 
 		nb_cli_enqueue_change(vty,
 				      "./frr-zebra:zebra/ipv6-router-advertisements/max-rtr-adv-interval",
@@ -2463,7 +2463,7 @@ DEFPY_YANG (vni_mapping,
 	} else {
 		if (vty->node == CONFIG_NODE) {
 			if (yang_dnode_existsf(vty->candidate_config->dnode,
-					       "/frr-vrf:lib/vrf[name='%s']/frr-zebra:zebra[l3vni-id='%lu']",
+					       "/frr-vrf:lib/vrf[name='%s']/frr-zebra:zebra[l3vni-id='%llu']",
 					       VRF_DEFAULT_NAME, vni))
 				nb_cli_enqueue_change(vty, "./frr-zebra:zebra/l3vni-id",
 						      NB_OP_DESTROY, NULL);
@@ -2473,7 +2473,7 @@ DEFPY_YANG (vni_mapping,
 				vrf = yang_dnode_get_string(dnode, "name");
 
 				if (yang_dnode_existsf(vty->candidate_config->dnode,
-						       "/frr-vrf:lib/vrf[name='%s']/frr-zebra:zebra[l3vni-id='%lu']",
+						       "/frr-vrf:lib/vrf[name='%s']/frr-zebra:zebra[l3vni-id='%llu']",
 						       vrf, vni))
 					nb_cli_enqueue_change(vty, "./frr-zebra:zebra/l3vni-id",
 							      NB_OP_DESTROY, NULL);

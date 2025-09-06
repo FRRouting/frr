@@ -39,8 +39,7 @@ DEFPY_YANG_NOSH(
 		 "/frr-route-map:lib/route-map[name='%s']", name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
-	snprintf(xpath_index, sizeof(xpath_index), "%s/entry[sequence='%lu']",
-		 xpath, sequence);
+	snprintf(xpath_index, sizeof(xpath_index), "%s/entry[sequence='%llu']", xpath, sequence);
 	nb_cli_enqueue_change(vty, xpath_index, NB_OP_CREATE, NULL);
 
 	snprintf(xpath_action, sizeof(xpath_action), "%s/action", xpath_index);
@@ -79,8 +78,7 @@ DEFPY_YANG(
 	char xpath[XPATH_MAXLEN];
 
 	snprintf(xpath, sizeof(xpath),
-		 "/frr-route-map:lib/route-map[name='%s']/entry[sequence='%lu']",
-		 name, sequence);
+		 "/frr-route-map:lib/route-map[name='%s']/entry[sequence='%llu']", name, sequence);
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
@@ -572,7 +570,7 @@ DEFPY_YANG(
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	snprintf(xpath_value, sizeof(xpath_value),
 		 "%s/rmap-match-condition/tag", xpath);
-	snprintf(value, sizeof(value), "%lu", tagged ? tagged : 0);
+	snprintf(value, sizeof(value), "%llu", tagged ? tagged : 0);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, value);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -1136,7 +1134,7 @@ DEFPY_YANG(
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	snprintf(xpath_value, sizeof(xpath_value), "%s/rmap-set-action/tag",
 		 xpath);
-	snprintf(value, sizeof(value), "%lu", tagged ? tagged : 0);
+	snprintf(value, sizeof(value), "%llu", tagged ? tagged : 0);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, value);
 
 	return nb_cli_apply_changes(vty, NULL);
