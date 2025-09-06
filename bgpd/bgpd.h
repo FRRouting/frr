@@ -320,11 +320,9 @@ enum bgp_instance_type {
 	BGP_INSTANCE_TYPE_VIEW
 };
 
-#define BGP_SEND_EOR(bgp, afi, safi)                                           \
-	(!CHECK_FLAG(bgp->flags, BGP_FLAG_GR_DISABLE_EOR)                      \
-	 && ((bgp->gr_info[afi][safi].t_select_deferral == NULL)               \
-	     || (bgp->gr_info[afi][safi].eor_required                          \
-		 == bgp->gr_info[afi][safi].eor_received)))
+#define BGP_SEND_EOR(bgp, afi, safi)                                                              \
+	(!CHECK_FLAG(bgp->flags, BGP_FLAG_GR_DISABLE_EOR) &&                                      \
+	 (!bgp_in_graceful_restart() || bgp->gr_info[afi][safi].select_defer_over))
 
 /* BGP GR Global ds */
 
@@ -333,10 +331,6 @@ enum bgp_instance_type {
 
 /* Graceful restart selection deferral timer info */
 struct graceful_restart_info {
-	/* Count of EOR message expected */
-	uint32_t eor_required;
-	/* Count of EOR received */
-	uint32_t eor_received;
 	/* Deferral Timer */
 	struct event *t_select_deferral;
 	/* Routes Deferred */
@@ -347,6 +341,7 @@ struct graceful_restart_info {
 	bool af_enabled;
 	/* Route update completed */
 	bool route_sync;
+	bool select_defer_over;
 };
 
 enum global_mode {
@@ -676,6 +671,11 @@ struct bgp {
 	 * - ZEBRA_GR_ENABLE / ZEBRA_GR_DISABLE
 	 */
 	enum zebra_gr_mode present_zebra_gr_state;
+
+	/* Is deferred path selection evaluated? Currently, this is done
+	 * upon first peer establishing in an instance.
+	 */
+	bool gr_select_defer_evaluated;
 
 	/* Is deferred path selection still not complete? */
 	bool gr_route_sync_pending;
@@ -1810,7 +1810,7 @@ struct peer {
 #define PEER_STATUS_LLGR_WAIT (1U << 11)
 #define PEER_STATUS_REFRESH_PENDING (1U << 12) /* refresh request from peer */
 #define PEER_STATUS_RTT_SHUTDOWN (1U << 13) /* In shutdown state due to RTT */
-
+#define PEER_STATUS_GR_WAIT_EOR	    (1U << 14) /* wait for EOR */
 	/* Configured timer values. */
 	_Atomic uint32_t holdtime;
 	_Atomic uint32_t keepalive;
@@ -3039,6 +3039,17 @@ static inline bool bgp_gr_is_forwarding_preserved(struct bgp *bgp)
 	 */
 	return (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART) ||
 		CHECK_FLAG(bgp->flags, BGP_FLAG_GR_PRESERVE_FWD));
+}
+
+static inline bool bgp_gr_supported_for_afi_safi(afi_t afi, safi_t safi)
+{
+	/*
+	 * GR restarter behavior is supported only for IPv4-unicast
+	 * and IPv6-unicast.
+	 */
+	if ((afi == AFI_IP && safi == SAFI_UNICAST) || (afi == AFI_IP6 && safi == SAFI_UNICAST))
+		return true;
+	return false;
 }
 
 /* For benefit of rfapi */

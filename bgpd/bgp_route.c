@@ -503,9 +503,9 @@ static int bgp_dest_set_defer_flag(struct bgp_dest *dest, bool delete)
 			if (!CHECK_FLAG(dest->flags, BGP_NODE_SELECT_DEFER))
 				bgp->gr_info[afi][safi].gr_deferred++;
 			SET_FLAG(dest->flags, BGP_NODE_SELECT_DEFER);
-			if (BGP_DEBUG(update, UPDATE_OUT))
-				zlog_debug("DEFER route %pBD(%s), dest %p",
-					   dest, bgp->name_pretty, dest);
+			if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+				zlog_debug("%s: Defer route %pBD, dest %p", bgp->name_pretty, dest,
+					   dest);
 			return 0;
 		}
 	}
@@ -2949,7 +2949,7 @@ static void bgp_route_select_timer_expire(struct event *thread)
 	XFREE(MTYPE_TMP, info);
 
 	/* Best path selection */
-	bgp_best_path_select_defer(bgp, afi, safi);
+	bgp_do_deferred_path_selection(bgp, afi, safi);
 }
 
 void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
@@ -3997,12 +3997,11 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 }
 
 /* Process the routes with the flag BGP_NODE_SELECT_DEFER set */
-void bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi)
+void bgp_do_deferred_path_selection(struct bgp *bgp, afi_t afi, safi_t safi)
 {
 	struct bgp_dest *dest;
 	int cnt = 0;
 	struct afi_safi_info *thread_info;
-	bool route_sync_pending = false;
 
 	if (bgp->gr_info[afi][safi].t_route_select) {
 		struct event *t = bgp->gr_info[afi][safi].t_route_select;
@@ -4041,21 +4040,25 @@ void bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi)
 
 	/* Send EOR message when all routes are processed */
 	if (!bgp->gr_info[afi][safi].gr_deferred) {
+		bool route_sync_pending = false;
+
 		bgp_send_delayed_eor(bgp);
 		/* Send route processing complete message to RIB */
 		bgp_zebra_update(bgp, afi, safi,
 				 ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE);
 		bgp->gr_info[afi][safi].route_sync = true;
 
-		/* If this instance is all done, check for GR completion overall */
-		FOREACH_AFI_SAFI_NSF (afi, safi) {
+		/*
+		 * If this instance is all done,
+		 * check for GR completion overall
+		 */
+		FOREACH_AFI_SAFI (afi, safi) {
 			if (bgp->gr_info[afi][safi].af_enabled &&
 			    !bgp->gr_info[afi][safi].route_sync) {
 				route_sync_pending = true;
 				break;
 			}
 		}
-
 		if (!route_sync_pending) {
 			bgp->gr_route_sync_pending = false;
 			bgp_update_gr_completion();
@@ -4447,9 +4450,6 @@ static void bgp_process_internal(struct bgp *bgp, struct bgp_dest *dest,
 	 * the workqueue
 	 */
 	if (CHECK_FLAG(dest->flags, BGP_NODE_SELECT_DEFER)) {
-		if (BGP_DEBUG(update, UPDATE_OUT))
-			zlog_debug("BGP_NODE_SELECT_DEFER set for route %p",
-				   dest);
 		bgp->node_deferred_on_queue++;
 		return;
 	}
