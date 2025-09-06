@@ -159,7 +159,9 @@ int zebra_evpn_rem_neigh_install(struct zebra_evpn *zevpn,
 		flags |= DPLANE_NTF_ROUTER;
 	ZEBRA_NEIGH_SET_ACTIVE(n);
 
-	dplane_rem_neigh_add(vlan_if, &n->ip, &n->emac, flags, was_static);
+	/* Skip Installation to Kernel as we are not doing ARP Suppression*/
+	if (zebra_evpn_get_arp_nd_suppress())
+		dplane_rem_neigh_add(vlan_if, &n->ip, &n->emac, flags, was_static);
 
 	return ret;
 }
@@ -861,8 +863,8 @@ static int zebra_evpn_neigh_uninstall(struct zebra_evpn *zevpn,
 
 	ZEBRA_NEIGH_SET_INACTIVE(n);
 	n->loc_seq = 0;
-
-	dplane_rem_neigh_delete(vlan_if, &n->ip);
+	if (zebra_evpn_get_arp_nd_suppress())
+		dplane_rem_neigh_delete(vlan_if, &n->ip);
 
 	return 0;
 }
