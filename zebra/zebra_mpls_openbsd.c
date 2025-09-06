@@ -250,7 +250,7 @@ static int kernel_lsp_cmd(struct zebra_dplane_ctx *ctx)
 		if (!nexthop)
 			continue;
 
-		if (nexthop_num >= zrouter.multipath_num)
+		if (nexthop_num >= zrouter.zav.multipath_num)
 			break;
 
 		if (((action == RTM_ADD || action == RTM_CHANGE)

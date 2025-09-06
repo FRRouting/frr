@@ -1827,6 +1827,13 @@ skip:
 	return 0;
 }
 
+static int fpm_nl_nos_initialize_data(struct zebra_architectural_values *zav)
+{
+	zlog_info("dplane_fpm_nl: NOS Initialize data");
+
+	return 0;
+}
+
 static int fpm_nl_new(struct event_loop *tm)
 {
 	struct zebra_dplane_provider *prov = NULL;
@@ -1859,6 +1866,8 @@ static int fpm_nl_new(struct event_loop *tm)
 static int fpm_nl_init(void)
 {
 	hook_register(frr_late_init, fpm_nl_new);
+	hook_register(nos_initialize_data, fpm_nl_nos_initialize_data);
+
 	return 0;
 }
 

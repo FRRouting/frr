@@ -1172,8 +1172,7 @@ static int netlink_route_change_read_unicast_internal(struct nlmsghdr *h,
 
 	selfroute = CHECK_FLAG(flags, ZEBRA_FLAG_SELFROUTE);
 
-	if (!startup && selfroute && h->nlmsg_type == RTM_NEWROUTE &&
-	    !zrouter.asic_offloaded) {
+	if (!startup && selfroute && h->nlmsg_type == RTM_NEWROUTE && !zrouter.zav.asic_offloaded) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("Route type: %d Received that we think we have originated, ignoring",
 				   rtm->rtm_protocol);
@@ -2525,9 +2524,8 @@ ssize_t netlink_route_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx
 	req->n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
 	req->n.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
 
-	if (((cmd == RTM_NEWROUTE) &&
-	     ((p->family == AF_INET) || kernel_nexthops_supported() ||
-	      zrouter.v6_rr_semantics)) ||
+	if (((cmd == RTM_NEWROUTE) && ((p->family == AF_INET) || kernel_nexthops_supported() ||
+				       zrouter.zav.v6_rr_semantics)) ||
 	    force_rr)
 		req->n.nlmsg_flags |= NLM_F_REPLACE;
 
@@ -3487,7 +3485,7 @@ netlink_put_route_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 		cmd = RTM_NEWROUTE;
 	} else if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_UPDATE) {
 		if (p->family == AF_INET || kernel_nexthops_supported() ||
-		    zrouter.v6_rr_semantics) {
+		    zrouter.zav.v6_rr_semantics) {
 			/* Single 'replace' operation */
 
 			/*
