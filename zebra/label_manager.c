@@ -239,8 +239,7 @@ DEFPY(mpls_label_dynamic_block, mpls_label_dynamic_block_cmd,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	if (start > end) {
-		vty_out(vty,
-			"%% label dynamic-block, wrong range (%ld > %ld), aborting\n",
+		vty_out(vty, "%% label dynamic-block, wrong range (%lld > %lld), aborting\n",
 			start, end);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
