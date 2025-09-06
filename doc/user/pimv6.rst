@@ -181,6 +181,22 @@ PIMv6 Router
    never do SM over. This command is vrf aware, to configure for a vrf, specify
    the vrf in the router pim block.
 
+.. clicmd:: join-filter route-map RMAP_NAME
+
+   Specify a route-map name to use for filtering incoming PIM joins.
+
+   The following route-map match statements can be used:
+
+   * match ipv6 multicast-group X:X::X:X
+
+   * match ipv6 multicast-group prefix-list IPV6-PREFIX-LIST
+
+   * match ipv6 multicast-source X:X::X:X
+
+   * match ipv6 multicast-source prefix-list IPV6-PREFIX-LIST
+
+   * match multicast-interface INTERFACE-NAME
+
 .. clicmd:: ssmpingd [X:X::X:X]
 
    Enable ipv6 ssmpingd configuration. A network level management tool
@@ -303,7 +319,7 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
 
 .. clicmd:: ipv6 mld route-map ROUTE-MAP
 
-   Apply the indicated route map to filter incoming IGMP joins.
+   Apply the indicated route map to filter incoming MLD joins.
 
    The following match statements can be used:
 
