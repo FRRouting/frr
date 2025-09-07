@@ -854,12 +854,11 @@ static void bgp_graceful_deferral_timer_expire(struct event *thread)
 			"afi %d, safi %d : graceful restart deferral timer expired",
 			afi, safi);
 
-	bgp->gr_info[afi][safi].eor_required = 0;
-	bgp->gr_info[afi][safi].eor_received = 0;
+	bgp->gr_info[afi][safi].select_defer_over = true;
 	XFREE(MTYPE_TMP, info);
 
 	/* Best path selection */
-	bgp_best_path_select_defer(bgp, afi, safi);
+	bgp_do_deferred_path_selection(bgp, afi, safi);
 }
 
 static bool bgp_update_delay_applicable(struct bgp *bgp)
@@ -1234,6 +1233,231 @@ static void bgp_update_delay_process_status_change(struct peer *peer)
 	}
 }
 
+static bool bgp_gr_check_all_eors(struct bgp *bgp, afi_t afi, safi_t safi)
+{
+	struct listnode *node, *nnode;
+	struct peer *peer = NULL;
+
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("%s: Checking all peers for EOR receipt for %s", bgp->name_pretty,
+			   get_afi_safi_str(afi, safi, false));
+
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug("....examining peer %s status %s flags 0x%" PRIx64
+				   " af_sflags 0x%x",
+				   peer->host,
+				   lookup_msg(bgp_status_msg, peer->connection->status, NULL),
+				   peer->flags, peer->af_sflags[afi][safi]);
+		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE) ||
+		    CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN) ||
+		    !CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART))
+			continue;
+
+		if (!CHECK_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_GR_WAIT_EOR))
+			continue;
+
+		if (!CHECK_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_EOR_RECEIVED)) {
+			if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+				zlog_debug(".... EOR still awaited from this peer for this %s",
+					   get_afi_safi_str(afi, safi, false));
+			return false;
+		}
+	}
+
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug(".... EOR received from all expected peers for this %s",
+			   get_afi_safi_str(afi, safi, false));
+
+	return true;
+}
+
+void bgp_gr_check_path_select(struct bgp *bgp, afi_t afi, safi_t safi)
+{
+	struct graceful_restart_info *gr_info;
+
+	if (bgp_gr_check_all_eors(bgp, afi, safi)) {
+		gr_info = &(bgp->gr_info[afi][safi]);
+		if (gr_info->t_select_deferral) {
+			void *info = EVENT_ARG(gr_info->t_select_deferral);
+
+			XFREE(MTYPE_TMP, info);
+		}
+		event_cancel(&gr_info->t_select_deferral);
+		gr_info->select_defer_over = true;
+		bgp_do_deferred_path_selection(bgp, afi, safi);
+	}
+}
+
+static void bgp_gr_mark_for_deferred_selection(struct bgp *bgp)
+{
+	struct listnode *node, *nnode;
+	struct peer *peer;
+	afi_t afi;
+	safi_t safi;
+
+	/*
+	 * Mark all peers in the instance for EOR wait for the
+	 * AFI/SAFI supported for GR.
+	 */
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+		FOREACH_AFI_SAFI_NSF (afi, safi) {
+			if (bgp_gr_supported_for_afi_safi(afi, safi))
+				SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_GR_WAIT_EOR);
+			else
+				UNSET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_GR_WAIT_EOR);
+		}
+	}
+}
+
+/*
+ * Start the selection deferral timer thread for the specified AFI, SAFI,
+ * mark peers from whom we need an EOR and inform zebra
+ */
+static void bgp_start_deferral_timer(struct bgp *bgp, afi_t afi, safi_t safi,
+				     struct graceful_restart_info *gr_info)
+{
+	struct afi_safi_info *thread_info;
+
+	/* Start the timer */
+	thread_info = XMALLOC(MTYPE_TMP, sizeof(struct afi_safi_info));
+
+	thread_info->afi = afi;
+	thread_info->safi = safi;
+	thread_info->bgp = bgp;
+
+	event_add_timer(bm->master, bgp_graceful_deferral_timer_expire, thread_info,
+			bgp->select_defer_time, &gr_info->t_select_deferral);
+
+	gr_info->af_enabled = true;
+	bgp->gr_route_sync_pending = true;
+
+	/* Inform zebra */
+	bgp_zebra_update(bgp, afi, safi, ZEBRA_CLIENT_ROUTE_UPDATE_PENDING);
+
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("%s: Started path-select deferral timer for %s, duration %ds",
+			   bgp->name_pretty, get_afi_safi_str(afi, safi, false),
+			   bgp->select_defer_time);
+}
+
+static void bgp_gr_process_peer_up_ignore(struct bgp *bgp, struct peer *peer)
+{
+	afi_t afi;
+	safi_t safi;
+
+	/*
+	 * If peer has restarted, GR is disabled for peer or not negotiated
+	 * with the peer, we have to ignore this peer for EOR-wait. This
+	 * might also be the last peer we were waiting for, so check if
+	 * we can move forward with path-selection.
+	 */
+	FOREACH_AFI_SAFI_NSF (afi, safi) {
+		UNSET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_GR_WAIT_EOR);
+		if (bgp_gr_supported_for_afi_safi(afi, safi))
+			bgp_gr_check_path_select(bgp, afi, safi);
+	}
+}
+
+static void bgp_gr_process_peer_up_include(struct bgp *bgp, struct peer *peer)
+{
+	afi_t afi;
+	safi_t safi;
+	struct graceful_restart_info *gr_info;
+
+	/*
+	 * If peer has not restarted and is potentially a valid Helper,
+	 * we need to wait for EOR from the peer for each AFI/SAFI that
+	 * has been negotiated. This should also start the path selection
+	 * deferral, if not yet done. OTOH, for non-negotiated AFI/SAFI,
+	 * we need to check if path-selection can proceed.
+	 */
+	FOREACH_AFI_SAFI_NSF (afi, safi) {
+		if (!peer->afc_nego[afi][safi]) {
+			UNSET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_GR_WAIT_EOR);
+			if (bgp_gr_supported_for_afi_safi(afi, safi))
+				bgp_gr_check_path_select(bgp, afi, safi);
+		} else if (!bgp_gr_supported_for_afi_safi(afi, safi)) {
+			UNSET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_GR_WAIT_EOR);
+		} else {
+			SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_GR_WAIT_EOR);
+			gr_info = &(bgp->gr_info[afi][safi]);
+			if (!gr_info->t_select_deferral)
+				bgp_start_deferral_timer(bgp, afi, safi, gr_info);
+		}
+	}
+}
+
+static void bgp_gr_process_peer_status_change(struct peer *peer)
+{
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+
+	bgp = peer->bgp;
+	if (peer_established(peer->connection)) {
+		/*
+		 * If we haven't yet evaluated for path selection deferral,
+		 * do it now.
+		 */
+		if (!bgp->gr_select_defer_evaluated) {
+			bgp_gr_mark_for_deferred_selection(bgp);
+			bgp->gr_select_defer_evaluated = true;
+		}
+
+		/*
+		 * Peer has come up. We need to figure out if we need to
+		 * wait for EOR from this peer for negotiated AFI/SAFI
+		 * and potentially start deferred path selection. For any
+		 * non-negotiated AFI/SAFI or if the peer has restarted etc.,
+		 * evaluate if path-selection deferral should end
+		 */
+		if (CHECK_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV) ||
+		    !CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART) ||
+		    !BGP_PEER_GRACEFUL_RESTART_CAPABLE(peer)) {
+			if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+				zlog_debug("%s: Peer %s cap 0x%" PRIx64 " flags 0x%" PRIx64
+					   " restarted or GR not negotiated, check for path-selection",
+					   bgp->name_pretty, peer->host, peer->cap, peer->flags);
+
+			bgp_gr_process_peer_up_ignore(bgp, peer);
+		} else {
+			bgp_gr_process_peer_up_include(bgp, peer);
+		}
+	} else if (peer->connection->ostatus == Established) {
+		/*
+		 * If a peer (Helper) went down after establishing the
+		 * session, we will not wait for a EOR from it.
+		 * Note: This is not spelt out well in the RFC.
+		 */
+		FOREACH_AFI_SAFI_NSF (afi, safi)
+			UNSET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_GR_WAIT_EOR);
+	}
+}
+
+static bool gr_path_select_deferral_applicable(struct bgp *bgp)
+{
+	afi_t afi;
+	safi_t safi;
+	struct graceful_restart_info *gr_info;
+
+	/* True if BGP has (re)started gracefully (based on start
+	 * settings and GR is not complete and path selection
+	 * deferral not yet done for this instance
+	 */
+	if (!bgp->t_startup && !bgp_in_graceful_restart())
+		return false;
+	FOREACH_AFI_SAFI_NSF (afi, safi) {
+		if (!bgp_gr_supported_for_afi_safi(afi, safi))
+			continue;
+		gr_info = &(bgp->gr_info[afi][safi]);
+		if (!gr_info->select_defer_over)
+			return true;
+	}
+
+	return false;
+}
+
 /* Called after event occurred, this function change status and reset
    read/write and timer thread. */
 void bgp_fsm_change_status(struct peer_connection *connection,
@@ -1333,9 +1557,10 @@ void bgp_fsm_change_status(struct peer_connection *connection,
 			peer->bgp->maxmed_onstartup_over = 1;
 	}
 
-	/* If update-delay processing is applicable, do the necessary. */
-	if (bgp_update_delay_configured(peer->bgp)
-	    && bgp_update_delay_applicable(peer->bgp))
+	/* Check for GR restarter or update-delay processing. */
+	if (gr_path_select_deferral_applicable(peer->bgp))
+		bgp_gr_process_peer_status_change(peer);
+	else if (bgp_update_delay_configured(peer->bgp) && bgp_update_delay_applicable(peer->bgp))
 		bgp_update_delay_process_status_change(peer);
 
 	if (bgp_debug_neighbor_events(peer))
@@ -1366,8 +1591,6 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 	char orf_name[BUFSIZ];
 	enum bgp_fsm_state_progress ret = BGP_FSM_SUCCESS;
 	struct peer *peer = connection->peer;
-	struct bgp *bgp = peer->bgp;
-	struct graceful_restart_info *gr_info = NULL;
 
 	peer->nsf_af_count = 0;
 
@@ -1451,42 +1674,6 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug("%pBP route-refresh restart stalepath timer stopped for %s",
 					   peer, bgp_peer_get_connection_direction(connection));
-		}
-
-		/* If peer reset before receiving EOR, decrement EOR count and
-		 * cancel the selection deferral timer if there are no
-		 * pending EOR messages to be received
-		 */
-		if (BGP_PEER_GRACEFUL_RESTART_CAPABLE(peer)) {
-			FOREACH_AFI_SAFI (afi, safi) {
-				if (!peer->afc_nego[afi][safi]
-				    || CHECK_FLAG(peer->af_sflags[afi][safi],
-						  PEER_STATUS_EOR_RECEIVED))
-					continue;
-
-				gr_info = &bgp->gr_info[afi][safi];
-				if (!gr_info)
-					continue;
-
-				if (gr_info->eor_required)
-					gr_info->eor_required--;
-
-				if (BGP_DEBUG(update, UPDATE_OUT))
-					zlog_debug("peer %s, EOR_required %d for %s", peer->host,
-						   gr_info->eor_required,
-						   bgp_peer_get_connection_direction(connection));
-
-				/* There is no pending EOR message */
-				if (gr_info->eor_required == 0) {
-					if (gr_info->t_select_deferral) {
-						void *info = EVENT_ARG(
-							gr_info->t_select_deferral);
-						XFREE(MTYPE_TMP, info);
-					}
-					event_cancel(&gr_info->t_select_deferral);
-					gr_info->eor_received = 0;
-				}
-			}
 		}
 
 		/* set last reset time */
@@ -2073,77 +2260,67 @@ bgp_fsm_delayopen_timer_expire(struct peer_connection *connection)
 	return BGP_FSM_SUCCESS;
 }
 
-/* Start the selection deferral timer thread for the specified AFI, SAFI */
-static int bgp_start_deferral_timer(struct bgp *bgp, afi_t afi, safi_t safi,
-				    struct graceful_restart_info *gr_info)
+/*
+ * Upon session becoming established, process the GR capabilities announced
+ * by the peer, and clear stale routes if the peer has not announced a
+ * previously announced (afi,safi) or doesn't preserve forwarding for them.
+ * The clearing of stale routes applies only to a Helper router.
+ */
+static void bgp_peer_process_gr_cap_clear_stale(struct peer *peer)
 {
-	struct afi_safi_info *thread_info;
+	afi_t afi;
+	safi_t safi;
+	int nsf_af_count = 0;
 
-	/* If the deferral timer is active, then increment eor count */
-	if (gr_info->t_select_deferral) {
-		gr_info->eor_required++;
-		return 0;
+	if (peer->connection->t_gr_restart) {
+		event_cancel(&peer->connection->t_gr_restart);
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%pBP: graceful restart timer stopped", peer);
 	}
 
-	/* Start the deferral timer when the first peer enabled for the graceful
-	 * restart is established
-	 */
-	if (gr_info->eor_required == 0) {
-		thread_info = XMALLOC(MTYPE_TMP, sizeof(struct afi_safi_info));
+	UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
+	FOREACH_AFI_SAFI_NSF (afi, safi) {
+		if (peer->afc_nego[afi][safi] && CHECK_FLAG(peer->cap, PEER_CAP_RESTART_ADV) &&
+		    CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_RESTART_AF_RCV)) {
+			/*
+			 * If an (afi,safi) is negotiated with the
+			 * peer and it has announced the GR capab
+			 * for it, it supports NSF for this (afi,
+			 * safi). However, if the peer didn't adv
+			 * the F-bit, any previous (stale) routes
+			 * should be flushed.
+			 */
+			if (peer->nsf[afi][safi] &&
+			    !CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_RESTART_AF_PRESERVE_RCV))
+				bgp_clear_stale_route(peer, afi, safi);
 
-		thread_info->afi = afi;
-		thread_info->safi = safi;
-		thread_info->bgp = bgp;
-
-		event_add_timer(bm->master, bgp_graceful_deferral_timer_expire,
-				thread_info, bgp->select_defer_time,
-				&gr_info->t_select_deferral);
-	}
-	gr_info->eor_required++;
-	/* Send message to RIB indicating route update pending */
-	if (gr_info->af_enabled == false) {
-		gr_info->af_enabled = true;
-		gr_info->route_sync = false;
-		bgp->gr_route_sync_pending = true;
-		bgp_zebra_update(bgp, afi, safi,
-				 ZEBRA_CLIENT_ROUTE_UPDATE_PENDING);
-	}
-	if (BGP_DEBUG(update, UPDATE_OUT))
-		zlog_debug("Started the deferral timer for %s eor_required %d",
-			   get_afi_safi_str(afi, safi, false),
-			   gr_info->eor_required);
-	return 0;
-}
-
-/* Update the graceful restart information for the specified AFI, SAFI */
-static int bgp_update_gr_info(struct peer *peer, afi_t afi, safi_t safi)
-{
-	struct graceful_restart_info *gr_info;
-	struct bgp *bgp = peer->bgp;
-	int ret = 0;
-
-	if ((afi < AFI_IP) || (afi >= AFI_MAX)) {
-		if (BGP_DEBUG(update, UPDATE_OUT))
-			zlog_debug("%s : invalid afi %d", __func__, afi);
-		return -1;
-	}
-
-	if ((safi < SAFI_UNICAST) || (safi > SAFI_MPLS_VPN)) {
-		if (BGP_DEBUG(update, UPDATE_OUT))
-			zlog_debug("%s : invalid safi %d", __func__, safi);
-		return -1;
-	}
-
-	/* Restarting router */
-	if (BGP_PEER_GRACEFUL_RESTART_CAPABLE(peer)
-	    && BGP_PEER_RESTARTING_MODE(peer)) {
-		/* Check if the forwarding state is preserved */
-		if (bgp_gr_is_forwarding_preserved(bgp)) {
-			gr_info = &(bgp->gr_info[afi][safi]);
-			ret = bgp_start_deferral_timer(bgp, afi, safi, gr_info);
+			peer->nsf[afi][safi] = 1;
+			nsf_af_count++;
+		} else {
+			/*
+			 * Some other situation like (afi,safi) not
+			 * negotiated, GR not negotiated etc. Clear
+			 * any previous (stale) routes.
+			 */
+			if (peer->nsf[afi][safi])
+				bgp_clear_stale_route(peer, afi, safi);
+			peer->nsf[afi][safi] = 0;
 		}
 	}
-	return ret;
+
+	peer->nsf_af_count = nsf_af_count;
+
+	if (nsf_af_count)
+		SET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
+	else {
+		UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
+		if (peer->connection->t_gr_stale) {
+			event_cancel(&peer->connection->t_gr_stale);
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug("%s: graceful restart stalepath timer stopped",
+					   peer->host);
+		}
+	}
 }
 
 /**
@@ -2157,10 +2334,8 @@ bgp_establish(struct peer_connection *connection)
 {
 	afi_t afi;
 	safi_t safi;
-	int nsf_af_count = 0;
 	enum bgp_fsm_state_progress ret = BGP_FSM_SUCCESS;
 	struct peer *other;
-	int status;
 	struct peer *peer = connection->peer;
 	struct peer *orig = peer;
 	bool rpki_cache_connected;
@@ -2233,6 +2408,7 @@ bgp_establish(struct peer_connection *connection)
 					 : VRF_DEFAULT_NAME)
 			      : "");
 	}
+
 	/* assign update-group/subgroup */
 	update_group_adjust_peer_afs(peer);
 
@@ -2240,98 +2416,8 @@ bgp_establish(struct peer_connection *connection)
 	if (peer->bfd_config)
 		event_cancel(&peer->bfd_config->t_hold_timer);
 
-	/* graceful restart */
-	UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
-	if (bgp_debug_neighbor_events(peer)) {
-		if (BGP_PEER_RESTARTING_MODE(peer))
-			zlog_debug("%pBP BGP_RESTARTING_MODE %s", peer,
-				   bgp_peer_get_connection_direction(connection));
-		else if (BGP_PEER_HELPER_MODE(peer))
-			zlog_debug("%pBP BGP_HELPER_MODE %s", peer,
-				   bgp_peer_get_connection_direction(connection));
-	}
-
-	FOREACH_AFI_SAFI_NSF (afi, safi) {
-		if (peer->afc_nego[afi][safi] &&
-		    CHECK_FLAG(peer->cap, PEER_CAP_RESTART_ADV) &&
-		    CHECK_FLAG(peer->af_cap[afi][safi],
-			       PEER_CAP_RESTART_AF_RCV)) {
-			if (peer->nsf[afi][safi] &&
-			    !CHECK_FLAG(peer->af_cap[afi][safi],
-					PEER_CAP_RESTART_AF_PRESERVE_RCV))
-				bgp_clear_stale_route(peer, afi, safi);
-
-			peer->nsf[afi][safi] = 1;
-			nsf_af_count++;
-		} else {
-			if (peer->nsf[afi][safi])
-				bgp_clear_stale_route(peer, afi, safi);
-			peer->nsf[afi][safi] = 0;
-		}
-		/* Update the graceful restart information */
-		if (peer->afc_nego[afi][safi]) {
-			if (!BGP_SELECT_DEFER_DISABLE(peer->bgp)) {
-				status = bgp_update_gr_info(peer, afi, safi);
-				if (status < 0)
-					zlog_err(
-						"Error in updating graceful restart for %s",
-						get_afi_safi_str(afi, safi,
-								 false));
-			} else {
-				if (BGP_PEER_GRACEFUL_RESTART_CAPABLE(peer) &&
-				    BGP_PEER_RESTARTING_MODE(peer) &&
-				    bgp_gr_is_forwarding_preserved(peer->bgp))
-					peer->bgp->gr_info[afi][safi]
-						.eor_required++;
-			}
-		}
-	}
-
-	if (!CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV)) {
-		if ((bgp_peer_gr_mode_get(peer) == PEER_GR)
-		    || ((bgp_peer_gr_mode_get(peer) == PEER_GLOBAL_INHERIT)
-			&& (bgp_global_gr_mode_get(peer->bgp) == GLOBAL_GR))) {
-			FOREACH_AFI_SAFI (afi, safi)
-				/* Send route processing complete
-				   message to RIB */
-				bgp_zebra_update(
-					peer->bgp, afi, safi,
-					ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE);
-		}
-	} else {
-		/* Peer sends R-bit. In this case, we need to send
-		 * ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE to Zebra. */
-		if (CHECK_FLAG(peer->cap,
-			       PEER_CAP_GRACEFUL_RESTART_R_BIT_RCV)) {
-			FOREACH_AFI_SAFI (afi, safi)
-				/* Send route processing complete
-				   message to RIB */
-				bgp_zebra_update(
-					peer->bgp, afi, safi,
-					ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE);
-		}
-	}
-
-	peer->nsf_af_count = nsf_af_count;
-
-	if (nsf_af_count)
-		SET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
-	else {
-		UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
-		if (connection->t_gr_stale) {
-			event_cancel(&connection->t_gr_stale);
-			if (bgp_debug_neighbor_events(peer))
-				zlog_debug("%pBP graceful restart stalepath timer stopped for %s",
-					   peer, bgp_peer_get_connection_direction(connection));
-		}
-	}
-
-	if (connection->t_gr_restart) {
-		event_cancel(&connection->t_gr_restart);
-		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("%pBP graceful restart timer stopped for %s", peer,
-				   bgp_peer_get_connection_direction(connection));
-	}
+	/* graceful restart handling */
+	bgp_peer_process_gr_cap_clear_stale(peer);
 
 	/* Reset uptime, turn on keepalives, send current table. */
 	if (!peer->v_holdtime)
@@ -2862,8 +2948,9 @@ int bgp_gr_update_all(struct bgp *bgp, enum global_gr_command global_gr_cmd)
 
 	if (global_old_state == GLOBAL_INVALID)
 		return BGP_ERR_GR_OPERATION_FAILED;
+	/* Next state 'invalid is actually an 'ignore' */
 	if (global_new_state == GLOBAL_INVALID)
-		return BGP_ERR_GR_INVALID_CMD;
+		return BGP_GR_NO_OPERATION;
 	if (global_new_state == global_old_state)
 		return BGP_GR_NO_OPERATION;
 
@@ -2975,8 +3062,9 @@ int bgp_neighbor_graceful_restart(struct peer *peer,
 	if (peer_old_state == PEER_INVALID)
 		return BGP_ERR_GR_OPERATION_FAILED;
 
+	/* Next state 'invalid' is actually an 'ignore' */
 	if (peer_new_state == PEER_INVALID)
-		return BGP_ERR_GR_INVALID_CMD;
+		return BGP_GR_NO_OPERATION;
 
 	if (peer_new_state == peer_old_state)
 		return BGP_GR_NO_OPERATION;
@@ -3007,8 +3095,10 @@ unsigned int bgp_peer_gr_action(struct peer *peer, enum peer_mode old_state,
 
 	if (old_state == new_state)
 		return BGP_GR_NO_OPERATION;
-	if ((old_state == PEER_INVALID) || (new_state == PEER_INVALID))
+	if (old_state == PEER_INVALID)
 		return BGP_ERR_GR_INVALID_CMD;
+	if (new_state == PEER_INVALID)
+		return BGP_GR_NO_OPERATION;
 
 	global_gr_mode = bgp_global_gr_mode_get(peer->bgp);
 
