@@ -570,6 +570,8 @@ const char *neigh_rta2str(int type)
 		return "MASTER";
 	case NDA_LINK_NETNSID:
 		return "LINK_NETNSID";
+	case NDA_PROTOCOL:
+		return "PROTOCOL";
 	default:
 		return "UNKNOWN";
 	}
@@ -1145,6 +1147,7 @@ static void nlneigh_dump(struct ndmsg *ndm, size_t msglen)
 	char bytestr[16];
 	char dbuf[128];
 	unsigned short rta_type;
+	uint8_t protocol = 0;
 
 #ifndef NDA_RTA
 #define NDA_RTA(ndm)                                                           \
@@ -1199,7 +1202,10 @@ next_rta:
 		vid = *(uint16_t *)RTA_DATA(rta);
 		zlog_debug("      %d", vid);
 		break;
-
+	case NDA_PROTOCOL:
+		protocol = *(uint8_t *)RTA_DATA(rta);
+		zlog_debug("      %d", protocol);
+		break;
 	default:
 		/* NOTHING: unhandled. */
 		break;
