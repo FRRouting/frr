@@ -237,6 +237,8 @@ struct zebra_router {
 	uint64_t nexthop_weight_scale_value;
 
 	bool backup_nhs_installed;
+
+	bool nexthop_weight_is_16bit;
 };
 
 #define GRACEFUL_RESTART_TIME 60
@@ -244,8 +246,8 @@ struct zebra_router {
 extern struct zebra_router zrouter;
 extern uint32_t rcvbufsize;
 
-extern void zebra_router_init(bool asic_offload, bool notify_on_ack,
-			      bool v6_with_v4_nexthop);
+extern void zebra_router_init(bool asic_offload, bool notify_on_ack, bool v6_with_v4_nexthop,
+			      bool nexthop_weight_16_bit);
 extern void zebra_router_cleanup(void);
 extern void zebra_router_terminate(void);
 
