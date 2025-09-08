@@ -28,6 +28,7 @@
 #include "queue.h"
 #include "filter.h"
 #include "frrstr.h"
+#include "monotime.h"
 #include "asn.h"
 #include "frregex_real.h"
 
@@ -13621,11 +13622,14 @@ static void bgp_show_peer_gr_info_afi_safi(struct vty *vty, struct peer *peer, b
 					    peer->llgr[afi][safi].stale_time);
 
 			if (peer->connection->t_gr_stale != NULL) {
+				/* Use monotime_until directly to avoid mutex deadlock
+				 * as reported by Coverity (CID 1658451) */
+				int64_t remain = monotime_until(
+					&peer->connection->t_gr_stale->u.sands,
+					NULL) / 1000000LL; /* Convert microseconds to seconds */
 				json_object_int_add(json_timer,
 						    "stalePathTimerRemaining",
-						    event_timer_remain_second(
-							    peer->connection
-								    ->t_gr_stale));
+						    remain < 0 ? 0 : remain);
 			}
 
 			/* Display Configured Selection
@@ -13654,11 +13658,16 @@ static void bgp_show_peer_gr_info_afi_safi(struct vty *vty, struct peer *peer, b
 				"        Configured Stale Path Time(sec): %u\n",
 				peer->bgp->stalepath_time);
 
-			if (peer->connection->t_gr_stale != NULL)
+			if (peer->connection->t_gr_stale != NULL) {
+				/* Use monotime_until directly to avoid mutex deadlock
+				 * as reported by Coverity (CID 1658451) */
+				int64_t remain = monotime_until(
+					&peer->connection->t_gr_stale->u.sands,
+					NULL) / 1000000LL; /* Convert microseconds to seconds */
 				vty_out(vty,
 					"      Stale Path Remaining(sec): %ld\n",
-					event_timer_remain_second(
-						peer->connection->t_gr_stale));
+					remain < 0 ? 0 : remain);
+			}
 			/* Display Configured Selection
 			 * Deferral only when when
 			 * Gr mode is enabled.
@@ -13708,13 +13717,23 @@ static void bgp_show_neighbor_graceful_restart_time(struct vty *vty,
 		json_object_int_add(json_timer, "receivedRestartTimer",
 				    p->v_gr_restart);
 
-		if (p->connection->t_gr_restart != NULL)
+		if (p->connection->t_gr_restart != NULL) {
+			/* Use monotime_until directly to avoid mutex deadlock */
+			int64_t remain = monotime_until(
+				&p->connection->t_gr_restart->u.sands,
+				NULL) / 1000000LL; /* Convert microseconds to seconds */
 			json_object_int_add(json_timer, "restartTimerRemaining",
-					    event_timer_remain_second(
-						    p->connection->t_gr_restart));
-		if (p->connection->t_gr_stale)
+					    remain < 0 ? 0 : remain);
+		}
+		if (p->connection->t_gr_stale) {
+			/* Use monotime_until directly to avoid mutex deadlock
+			 * as reported by Coverity (CID 1658451) */
+			int64_t remain = monotime_until(
+				&p->connection->t_gr_stale->u.sands,
+				NULL) / 1000000LL; /* Convert microseconds to seconds */
 			json_object_int_add(json_timer, "gracefulStalepathTimerSec",
-					    event_timer_remain_second(p->connection->t_gr_stale));
+					    remain < 0 ? 0 : remain);
+		}
 
 		json_object_object_add(json, "timers", json_timer);
 	} else {
@@ -14539,13 +14558,24 @@ static void bgp_show_peer_gr_extra_info(struct vty *vty, struct peer *p, bool us
 		json_object_object_add(json_grace, "endOfRibRecv", json_grace_recv);
 
 
-		if (p->connection->t_gr_restart)
+		if (p->connection->t_gr_restart) {
+			/* Use monotime_until directly to avoid mutex deadlock */
+			int64_t remain = monotime_until(
+				&p->connection->t_gr_restart->u.sands,
+				NULL) / 1000000LL; /* Convert microseconds to seconds */
 			json_object_int_add(json_grace, "gracefulRestartTimerSec",
-					    event_timer_remain_second(p->connection->t_gr_restart));
+					    remain < 0 ? 0 : remain);
+		}
 
-		if (p->connection->t_gr_stale)
+		if (p->connection->t_gr_stale) {
+			/* Use monotime_until directly to avoid mutex deadlock
+			 * as reported by Coverity (CID 1658451) */
+			int64_t remain = monotime_until(
+				&p->connection->t_gr_stale->u.sands,
+				NULL) / 1000000LL; /* Convert microseconds to seconds */
 			json_object_int_add(json_grace, "gracefulStalepathTimerSec",
-					    event_timer_remain_second(p->connection->t_gr_stale));
+					    remain < 0 ? 0 : remain);
+		}
 		/* more gr info in new format */
 		BGP_SHOW_PEER_GR_CAPABILITY(vty, p, json_grace);
 		json_object_object_add(json_neigh, "gracefulRestartInfo", json_grace);
@@ -14572,13 +14602,24 @@ static void bgp_show_peer_gr_extra_info(struct vty *vty, struct peer *p, bool us
 			vty_out(vty, "\n");
 		}
 
-		if (p->connection->t_gr_restart)
+		if (p->connection->t_gr_restart) {
+			/* Use monotime_until directly to avoid mutex deadlock */
+			int64_t remain = monotime_until(
+				&p->connection->t_gr_restart->u.sands,
+				NULL) / 1000000LL; /* Convert microseconds to seconds */
 			vty_out(vty, "    The remaining time of restart timer is %ld\n",
-				event_timer_remain_second(p->connection->t_gr_restart));
+				remain < 0 ? 0 : remain);
+		}
 
-		if (p->connection->t_gr_stale)
+		if (p->connection->t_gr_stale) {
+			/* Use monotime_until directly to avoid mutex deadlock
+			 * as reported by Coverity (CID 1658451) */
+			int64_t remain = monotime_until(
+				&p->connection->t_gr_stale->u.sands,
+				NULL) / 1000000LL; /* Convert microseconds to seconds */
 			vty_out(vty, "    The remaining time of stalepath timer is %ld\n",
-				event_timer_remain_second(p->connection->t_gr_stale));
+				remain < 0 ? 0 : remain);
+		}
 
 		/* more gr info in new format */
 		BGP_SHOW_PEER_GR_CAPABILITY(vty, p, NULL);
