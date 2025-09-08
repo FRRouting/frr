@@ -2784,10 +2784,10 @@ static void evpn_show_routes_vni(struct vty *vty, struct bgp *bgp, vni_t vni,
 		return;
 	}
 
-	if (sockunion_family(_vtep_ip) == AF_INET) {
+	if (_vtep_ip && sockunion_family(_vtep_ip) == AF_INET) {
 		SET_IPADDR_V4(&vtep_ip);
 		vtep_ip.ipaddr_v4 = _vtep_ip->sin.sin_addr;
-	} else if (sockunion_family(_vtep_ip) == AF_INET6) {
+	} else if (_vtep_ip && sockunion_family(_vtep_ip) == AF_INET6) {
 		SET_IPADDR_V6(&vtep_ip);
 		vtep_ip.ipaddr_v6 = _vtep_ip->sin6.sin6_addr;
 	} else {
