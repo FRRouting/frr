@@ -3862,6 +3862,7 @@ static void bgp_zebra_process_srv6_locator_delete_per_bgp(struct srv6_locator *l
 			continue;
 
 		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
+			/* TODO: accept SRv6 entries on default VRF */
 			continue;
 
 		// refresh vpnv4 tovpn_sid
@@ -3908,6 +3909,7 @@ static void bgp_zebra_process_srv6_locator_delete_per_bgp(struct srv6_locator *l
 			continue;
 
 		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
+			/* TODO: accept SRv6 entries on default VRF */
 			continue;
 
 		/* refresh vpnv4 tovpn_sid_locator */
