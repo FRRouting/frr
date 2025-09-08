@@ -1147,9 +1147,6 @@ static int bmp_mirror_packet(struct peer_connection *connection, uint8_t type, b
 	struct bgp *bgp_vrf;
 	struct listnode *node;
 
-	if (!bmp_startup_done)
-		return 0;
-
 	frrtrace(3, frr_bgp, bmp_mirror_packet, peer, type, packet);
 
 	gettimeofday(&tv, NULL);
