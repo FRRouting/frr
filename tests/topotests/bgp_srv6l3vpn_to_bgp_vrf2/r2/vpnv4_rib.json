@@ -160,6 +160,33 @@
             ]
           }
         ]
+      },
+      "2:30": {
+        "192.168.8.0/24": [
+          {
+            "valid": true,
+            "bestpath": true,
+            "selectionReason": "First path received",
+            "pathFrom": "external",
+            "prefix": "192.168.8.0",
+            "prefixLen": 24,
+            "network": "192.168.8.0/24",
+            "metric": 0,
+            "weight": 32768,
+            "peerId": "(unspec)",
+            "path": "",
+            "origin": "incomplete",
+            "nhVrfName": "default",
+            "nexthops": [
+              {
+                "ip": "2001::2",
+                "hostname": "r2",
+                "afi": "ipv6",
+                "used": true
+              }
+            ]
+          }
+        ]
       }
     }
   }

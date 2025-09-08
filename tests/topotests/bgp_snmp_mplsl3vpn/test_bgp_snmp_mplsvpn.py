@@ -253,9 +253,9 @@ def test_pe1_converge_evpn():
 
 
 interfaces_up_test = {
-    "mplsL3VpnConfiguredVrfs": "2",
-    "mplsL3VpnActiveVrfs": "2",
-    "mplsL3VpnConnectedInterfaces": "3",
+    "mplsL3VpnConfiguredVrfs": "3",
+    "mplsL3VpnActiveVrfs": "3",
+    "mplsL3VpnConnectedInterfaces": "7",
     "mplsL3VpnNotificationEnable": "true(1)",
     "mplsL3VpnVrfConfMaxPossRts": "0",
     "mplsL3VpnVrfConfRteMxThrshTime": "0 seconds",
@@ -263,9 +263,9 @@ interfaces_up_test = {
 }
 
 interfaces_down_test = {
-    "mplsL3VpnConfiguredVrfs": "2",
-    "mplsL3VpnActiveVrfs": "1",
-    "mplsL3VpnConnectedInterfaces": "3",
+    "mplsL3VpnConfiguredVrfs": "3",
+    "mplsL3VpnActiveVrfs": "2",
+    "mplsL3VpnConnectedInterfaces": "7",
     "mplsL3VpnNotificationEnable": "true(1)",
     "mplsL3VpnVrfConfMaxPossRts": "0",
     "mplsL3VpnVrfConfRteMxThrshTime": "0 seconds",
@@ -277,6 +277,26 @@ def test_r1_mplsvpn_scalars():
     "check scalar values"
     tgen = get_topogen()
     r1 = tgen.gears["r1"]
+
+    # hack: count ip_gre module interfaces if present
+    nb_interfaces = int(interfaces_up_test["mplsL3VpnConnectedInterfaces"])
+    output = r1.cmd("ip -br li show")
+    for line in output.splitlines():
+        for name in (
+            "gre0@NONE",
+            "tunl0@NONE",
+            "gretap0@NONE",
+            "erspan0@NONE",
+            "ip_vti0@NONE",
+            "ip6_vti0@NONE",
+            "sit0@NONE",
+            "ip6tnl0@NONE",
+            "ip6gre0@NONE",
+        ):
+            nb_interfaces += 1 if line.split()[0] == name else 0
+    interfaces_up_test["mplsL3VpnConnectedInterfaces"] = str(nb_interfaces)
+    interfaces_down_test["mplsL3VpnConnectedInterfaces"] = str(nb_interfaces)
+
     r1_snmp = SnmpTester(r1, "10.1.1.1", "public", "2c")
 
     for item in interfaces_up_test.keys():
@@ -391,17 +411,17 @@ def test_r1_mplsvpn_IfTable():
 
 
 vrftable_test = {
-    "mplsL3VpnVrfDescription": ["VRF-a", "VRF-b"],
-    "mplsL3VpnVrfRD": ['"10:1"', '"10:2"'],
-    "mplsL3VpnVrfOperStatus": ["up(1)", "up(1)"],
-    "mplsL3VpnVrfActiveInterfaces": ["2", "1"],
-    "mplsL3VpnVrfAssociatedInterfaces": ["2", "1"],
-    "mplsL3VpnVrfConfMidRteThresh": ["0", "0"],
-    "mplsL3VpnVrfConfHighRteThresh": ["0", "0"],
-    "mplsL3VpnVrfConfMaxRoutes": ["0", "0"],
-    "mplsL3VpnVrfConfRowStatus": ["active(1)", "active(1)"],
-    "mplsL3VpnVrfConfAdminStatus": ["up(1)", "up(1)"],
-    "mplsL3VpnVrfConfStorageType": ["volatile(2)", "volatile(2)"],
+    "mplsL3VpnVrfDescription": ["VRF-a", "VRF-b", "default"],
+    "mplsL3VpnVrfRD": ['"10:1"', '"10:2"', '"88:88"'],
+    "mplsL3VpnVrfOperStatus": ["up(1)", "up(1)", "up(1)"],
+    "mplsL3VpnVrfActiveInterfaces": ["2", "1", "3"],
+    "mplsL3VpnVrfAssociatedInterfaces": ["2", "1", "3"],
+    "mplsL3VpnVrfConfMidRteThresh": ["0", "0", "0"],
+    "mplsL3VpnVrfConfHighRteThresh": ["0", "0", "0"],
+    "mplsL3VpnVrfConfMaxRoutes": ["0", "0", "0"],
+    "mplsL3VpnVrfConfRowStatus": ["active(1)", "active(1)", "active(1)"],
+    "mplsL3VpnVrfConfAdminStatus": ["up(1)", "up(1)", "up(1)"],
+    "mplsL3VpnVrfConfStorageType": ["volatile(2)", "volatile(2)", "volatile(2)"],
 }
 
 
@@ -498,10 +518,14 @@ def test_r1_mplsvpn_VrfTable():
 
 
 rt_table_test = {
-    "mplsL3VpnVrfRT": ['"1:1"', '"1:2"'],
-    "mplsL3VpnVrfRTDescr": ["RT both for VRF VRF-a", "RT both for VRF VRF-b"],
-    "mplsL3VpnVrfRTRowStatus": ["active(1)", "active(1)"],
-    "mplsL3VpnVrfRTStorageType": ["volatile(2)", "volatile(2)"],
+    "mplsL3VpnVrfRT": ['"1:1"', '"1:2"', '"88:99"'],
+    "mplsL3VpnVrfRTDescr": [
+        "RT both for VRF VRF-a",
+        "RT both for VRF VRF-b",
+        "RT both for VRF default",
+    ],
+    "mplsL3VpnVrfRTRowStatus": ["active(1)", "active(1)", "active(1)"],
+    "mplsL3VpnVrfRTStorageType": ["volatile(2)", "volatile(2)", "volatile(2)"],
 }
 
 
@@ -515,6 +539,7 @@ def test_r1_mplsvpn_VrfRT_table():
     oids = []
     oids.append(generate_vrf_index_type_oid("VRF-a", 1, 3))
     oids.append(generate_vrf_index_type_oid("VRF-b", 1, 3))
+    oids.append(generate_vrf_index_type_oid("default", 1, 3))
 
     # check items
     for item in rt_table_test.keys():

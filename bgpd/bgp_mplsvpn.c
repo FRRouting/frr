@@ -2255,9 +2255,6 @@ static struct bgp *bgp_lookup_by_rd(struct bgp_path_info *bpi,
 		return NULL;
 
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
-		if (bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
-			continue;
-
 		if (!CHECK_FLAG(bgp->vpn_policy[afi].flags,
 				BGP_VPN_POLICY_TOVPN_RD_SET))
 			continue;
@@ -2277,8 +2274,7 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	/* to */
 					  struct peer *from)
 {
 	const struct prefix *p = bgp_dest_get_prefix(path_vpn->net);
-	afi_t afi = family2afi(p->family);
-
+	afi_t afi;
 	struct attr static_attr = {0};
 	struct attr *new_attr = NULL;
 	struct bgp_dest *bn;
@@ -2300,6 +2296,9 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	/* to */
 
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_TO_VRF);
 
+	if (!p)
+		return;
+	afi = family2afi(p->family);
 	if (!vpn_leak_from_vpn_active(to_bgp, afi, &debugmsg)) {
 		if (debug)
 			zlog_debug(
@@ -3979,8 +3978,9 @@ vrf_id_t get_first_vrf_for_redirect_with_rt(struct ecommunity *eckey)
  *     router bgp NNN
  *       ...
  *
- * This function gets called when the default instance ("router bgp NNN")
- * is created.
+ * This function gets called :
+ * - when the default instance ("router bgp NNN")
+ * - when an SRv6 locator is updated.
  */
 void vpn_leak_postchange_all(void)
 {
@@ -3992,8 +3992,8 @@ void vpn_leak_postchange_all(void)
 
 	/* First, do any exporting from VRFs to the single VPN RIB */
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, next, bgp)) {
-
-		if (bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
+		if (bgp->inst_type != BGP_INSTANCE_TYPE_VRF &&
+		    bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT)
 			continue;
 
 		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO))
@@ -4014,8 +4014,8 @@ void vpn_leak_postchange_all(void)
 
 	/* Now, do any importing to VRFs from the single VPN RIB */
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, next, bgp)) {
-
-		if (bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
+		if (bgp->inst_type != BGP_INSTANCE_TYPE_VRF &&
+		    bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT)
 			continue;
 
 		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO))
