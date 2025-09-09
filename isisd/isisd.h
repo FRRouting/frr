@@ -33,6 +33,7 @@ DECLARE_MGROUP(ISISD);
 static const bool fabricd = true;
 #define PROTO_TYPE ZEBRA_ROUTE_OPENFABRIC
 #define PROTO_NAME "openfabric"
+#define PROTO_NICE_NAME "OpenFabric"
 #define PROTO_HELP "OpenFabric routing protocol\n"
 #define PROTO_REDIST_STR FRR_REDIST_STR_FABRICD
 #define PROTO_IP_REDIST_STR FRR_IP_REDIST_STR_FABRICD
@@ -45,6 +46,7 @@ static const bool fabricd = true;
 static const bool fabricd = false;
 #define PROTO_TYPE ZEBRA_ROUTE_ISIS
 #define PROTO_NAME "isis"
+#define PROTO_NICE_NAME "ISIS"
 #define PROTO_HELP "IS-IS routing protocol\n"
 #define PROTO_REDIST_STR FRR_REDIST_STR_ISISD
 #define PROTO_IP_REDIST_STR FRR_IP_REDIST_STR_ISISD
@@ -301,7 +303,9 @@ int isis_area_get(struct vty *vty, const char *area_tag);
 void isis_area_destroy(struct isis_area *area);
 void isis_filter_update(struct access_list *access);
 void isis_prefix_list_update(struct prefix_list *plist);
-void print_debug(struct vty *, int, int);
+void print_debug_line(struct vty *vty, const char *config, int onoff, bool indent);
+void print_debug_with_indentation(struct vty *vty, int flags, int onoff, bool indent);
+void print_debug(struct vty *vty, int flags, int onoff);
 struct isis_lsp *lsp_for_sysid(struct lspdb_head *head, const char *sysid_str,
 			       struct isis *isis);
 
