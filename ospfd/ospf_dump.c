@@ -696,60 +696,9 @@ for (i = 0; i < 5; i++)
 	return CMD_SUCCESS;
 }
 
-DEFUN (debug_ospf_ism,
+DEFPY (debug_ospf_ism,
        debug_ospf_ism_cmd,
-       "debug ospf [(1-65535)] ism [<status|events|timers>]",
-       DEBUG_STR
-       OSPF_STR
-       "Instance ID\n"
-       "OSPF Interface State Machine\n"
-       "ISM Status Information\n"
-       "ISM Event Information\n"
-       "ISM TImer Information\n")
-{
-	int inst = (argv[2]->type == RANGE_TKN);
-	char *dbgparam = (argc == 4 + inst) ? argv[argc - 1]->text : NULL;
-
-	if (inst) // user passed instance ID
-	{
-		if (inst != ospf_instance)
-			return CMD_NOT_MY_INSTANCE;
-	}
-
-	if (vty->node == CONFIG_NODE) {
-		if (!dbgparam)
-			DEBUG_ON(ism, ISM);
-		else {
-			if (strmatch(dbgparam, "status"))
-				DEBUG_ON(ism, ISM_STATUS);
-			else if (strmatch(dbgparam, "events"))
-				DEBUG_ON(ism, ISM_EVENTS);
-			else if (strmatch(dbgparam, "timers"))
-				DEBUG_ON(ism, ISM_TIMERS);
-		}
-
-		return CMD_SUCCESS;
-	}
-
-	/* ENABLE_NODE. */
-	if (!dbgparam)
-		TERM_DEBUG_ON(ism, ISM);
-	else {
-		if (strmatch(dbgparam, "status"))
-			TERM_DEBUG_ON(ism, ISM_STATUS);
-		else if (strmatch(dbgparam, "events"))
-			TERM_DEBUG_ON(ism, ISM_EVENTS);
-		else if (strmatch(dbgparam, "timers"))
-			TERM_DEBUG_ON(ism, ISM_TIMERS);
-	}
-
-	vty_out(vty, "OSPF ISM debugging is on\n");
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_ospf_ism,
-       no_debug_ospf_ism_cmd,
-       "no debug ospf [(1-65535)] ism [<status|events|timers>]",
+       "[no] debug ospf [(1-65535)$instance] ism [<status|events|timers>$type]",
        NO_STR
        DEBUG_STR
        OSPF_STR
@@ -757,180 +706,156 @@ DEFUN (no_debug_ospf_ism,
        "OSPF Interface State Machine\n"
        "ISM Status Information\n"
        "ISM Event Information\n"
-       "ISM TImer Information\n")
+       "ISM Timer Information\n")
 {
-	int inst = (argv[3]->type == RANGE_TKN);
-	char *dbgparam = (argc == 5 + inst) ? argv[argc - 1]->text : NULL;
-
-	if (inst) // user passed instance ID
-	{
-		if (inst != ospf_instance)
+	if (instance) {
+		if (instance != ospf_instance)
 			return CMD_NOT_MY_INSTANCE;
 	}
 
-	if (vty->node == CONFIG_NODE) {
-		if (!dbgparam)
-			DEBUG_OFF(ism, ISM);
-		else {
-			if (strmatch(dbgparam, "status"))
-				DEBUG_OFF(ism, ISM_STATUS);
-			else if (strmatch(dbgparam, "events"))
-				DEBUG_OFF(ism, ISM_EVENTS);
-			else if (strmatch(dbgparam, "timers"))
-				DEBUG_OFF(ism, ISM_TIMERS);
+	if (no) {
+		if (vty->node == CONFIG_NODE) {
+			if (type) {
+				if (strmatch(type, "status"))
+					DEBUG_OFF(ism, ISM_STATUS);
+				else if (strmatch(type, "events"))
+					DEBUG_OFF(ism, ISM_EVENTS);
+				else if (strmatch(type, "timers"))
+					DEBUG_OFF(ism, ISM_TIMERS);
+			} else
+				DEBUG_OFF(ism, ISM);
+
+			return CMD_SUCCESS;
 		}
 
-		return CMD_SUCCESS;
-	}
+		/* ENABLE_NODE. */
+		if (type) {
+			if (strmatch(type, "status")) {
+				TERM_DEBUG_OFF(ism, ISM_STATUS);
+				vty_out(vty, "OSPF ISM status is off\n");
+			} else if (strmatch(type, "events")) {
+				TERM_DEBUG_OFF(ism, ISM_EVENTS);
+				vty_out(vty, "OSPF ISM events is off\n");
+			} else if (strmatch(type, "timers")) {
+				TERM_DEBUG_OFF(ism, ISM_TIMERS);
+				vty_out(vty, "OSPF ISM timers is off\n");
+			}
+		} else {
+			TERM_DEBUG_OFF(ism, ISM);
+			vty_out(vty, "OSPF ISM debugging is off\n");
+		}
+	} else {
+		if (vty->node == CONFIG_NODE) {
+			if (type) {
+				if (strmatch(type, "status"))
+					DEBUG_ON(ism, ISM_STATUS);
+				else if (strmatch(type, "events"))
+					DEBUG_ON(ism, ISM_EVENTS);
+				else if (strmatch(type, "timers"))
+					DEBUG_ON(ism, ISM_TIMERS);
+			} else
+				DEBUG_ON(ism, ISM);
 
-	/* ENABLE_NODE. */
-	if (!dbgparam)
-		TERM_DEBUG_OFF(ism, ISM);
-	else {
-		if (strmatch(dbgparam, "status"))
-			TERM_DEBUG_OFF(ism, ISM_STATUS);
-		else if (strmatch(dbgparam, "events"))
-			TERM_DEBUG_OFF(ism, ISM_EVENTS);
-		else if (strmatch(dbgparam, "timers"))
-			TERM_DEBUG_OFF(ism, ISM_TIMERS);
-	}
+			return CMD_SUCCESS;
+		}
 
-	vty_out(vty, "OSPF ISM debugging is off\n");
+		/* ENABLE_NODE. */
+		if (type) {
+			if (strmatch(type, "status")) {
+				TERM_DEBUG_ON(ism, ISM_STATUS);
+				vty_out(vty, "OSPF ISM status is on\n");
+			} else if (strmatch(type, "events")) {
+				TERM_DEBUG_ON(ism, ISM_EVENTS);
+				vty_out(vty, "OSPF ISM events is on\n");
+			} else if (strmatch(type, "timers")) {
+				TERM_DEBUG_ON(ism, ISM_TIMERS);
+				vty_out(vty, "OSPF ISM timers is on\n");
+			}
+		} else {
+			TERM_DEBUG_ON(ism, ISM);
+			vty_out(vty, "OSPF ISM debugging is on\n");
+		}
+	}
 	return CMD_SUCCESS;
 }
 
-static int debug_ospf_nsm_common(struct vty *vty, int arg_base, int argc,
-				 struct cmd_token **argv)
+static int debug_ospf_nsm_common(struct vty *vty, const char *type)
 {
 	if (vty->node == CONFIG_NODE) {
-		if (argc == arg_base + 0)
-			DEBUG_ON(nsm, NSM);
-		else if (argc == arg_base + 1) {
-			if (strmatch(argv[arg_base]->text, "status"))
+		if (type) {
+			if (strmatch(type, "status"))
 				DEBUG_ON(nsm, NSM_STATUS);
-			else if (strmatch(argv[arg_base]->text, "events"))
+			else if (strmatch(type, "events"))
 				DEBUG_ON(nsm, NSM_EVENTS);
-			else if (strmatch(argv[arg_base]->text, "timers"))
+			else if (strmatch(type, "timers"))
 				DEBUG_ON(nsm, NSM_TIMERS);
+		} else {
+			DEBUG_ON(nsm, NSM);
 		}
 
 		return CMD_SUCCESS;
 	}
 
 	/* ENABLE_NODE. */
-	if (argc == arg_base + 0)
-		TERM_DEBUG_ON(nsm, NSM);
-	else if (argc == arg_base + 1) {
-		if (strmatch(argv[arg_base]->text, "status"))
+	if (type) {
+		if (strmatch(type, "status")) {
 			TERM_DEBUG_ON(nsm, NSM_STATUS);
-		else if (strmatch(argv[arg_base]->text, "events"))
+			vty_out(vty, "OSPF NSM status debugging is on\n");
+		} else if (strmatch(type, "events")) {
 			TERM_DEBUG_ON(nsm, NSM_EVENTS);
-		else if (strmatch(argv[arg_base]->text, "timers"))
+			vty_out(vty, "OSPF NSM event debugging is on\n");
+		} else if (strmatch(type, "timers")) {
 			TERM_DEBUG_ON(nsm, NSM_TIMERS);
+			vty_out(vty, "OSPF NSM timer debugging is on\n");
+		}
+	} else {
+		TERM_DEBUG_ON(nsm, NSM);
+		vty_out(vty, "OSPF NSM debugging is on\n");
 	}
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (debug_ospf_nsm,
-       debug_ospf_nsm_cmd,
-       "debug ospf nsm [<status|events|timers>]",
-       DEBUG_STR
-       OSPF_STR
-       "OSPF Neighbor State Machine\n"
-       "NSM Status Information\n"
-       "NSM Event Information\n"
-       "NSM Timer Information\n")
+static int no_debug_ospf_nsm_common(struct vty *vty, const char *type)
 {
-	int result = debug_ospf_nsm_common(vty, 3, argc, argv);
-
-	if (result == CMD_SUCCESS)
-		vty_out(vty, "OSPF NSM debugging is on\n");
-	return result;
-}
-
-DEFUN (debug_ospf_instance_nsm,
-       debug_ospf_instance_nsm_cmd,
-       "debug ospf (1-65535) nsm [<status|events|timers>]",
-       DEBUG_STR
-       OSPF_STR
-       "Instance ID\n"
-       "OSPF Neighbor State Machine\n"
-       "NSM Status Information\n"
-       "NSM Event Information\n"
-       "NSM Timer Information\n")
-{
-	int idx_number = 2;
-	unsigned short instance = 0;
-
-	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if (instance != ospf_instance)
-		return CMD_NOT_MY_INSTANCE;
-
-	int result = debug_ospf_nsm_common(vty, 4, argc, argv);
-
-	if (result == CMD_SUCCESS)
-		vty_out(vty, "OSPF NSM debugging is on\n");
-	return result;
-}
-
-
-static int no_debug_ospf_nsm_common(struct vty *vty, int arg_base, int argc,
-				    struct cmd_token **argv)
-{
-	/* XXX qlyoung */
 	if (vty->node == CONFIG_NODE) {
-		if (argc == arg_base + 0)
-			DEBUG_OFF(nsm, NSM);
-		else if (argc == arg_base + 1) {
-			if (strmatch(argv[arg_base]->text, "status"))
+		if (type) {
+			if (strmatch(type, "status"))
 				DEBUG_OFF(nsm, NSM_STATUS);
-			else if (strmatch(argv[arg_base]->text, "events"))
+			else if (strmatch(type, "events"))
 				DEBUG_OFF(nsm, NSM_EVENTS);
-			else if (strmatch(argv[arg_base]->text, "timers"))
+			else if (strmatch(type, "timers"))
 				DEBUG_OFF(nsm, NSM_TIMERS);
+		} else {
+			DEBUG_OFF(nsm, NSM);
 		}
 
 		return CMD_SUCCESS;
 	}
 
 	/* ENABLE_NODE. */
-	if (argc == arg_base + 0)
-		TERM_DEBUG_OFF(nsm, NSM);
-	else if (argc == arg_base + 1) {
-		if (strmatch(argv[arg_base]->text, "status"))
+	if (type) {
+		if (strmatch(type, "status")) {
 			TERM_DEBUG_OFF(nsm, NSM_STATUS);
-		else if (strmatch(argv[arg_base]->text, "events"))
+			vty_out(vty, "OSPF NSM status debugging is off\n");
+		} else if (strmatch(type, "events")) {
 			TERM_DEBUG_OFF(nsm, NSM_EVENTS);
-		else if (strmatch(argv[arg_base]->text, "timers"))
+			vty_out(vty, "OSPF NSM event debugging is off\n");
+		} else if (strmatch(type, "timers")) {
 			TERM_DEBUG_OFF(nsm, NSM_TIMERS);
+			vty_out(vty, "OSPF NSM timer debugging is off\n");
+		}
+	} else {
+		TERM_DEBUG_OFF(nsm, NSM);
+		vty_out(vty, "OSPF NSM debugging is off\n");
 	}
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_debug_ospf_nsm,
-       no_debug_ospf_nsm_cmd,
-       "no debug ospf nsm [<status|events|timers>]",
-       NO_STR
-       DEBUG_STR
-       OSPF_STR
-       "OSPF Neighbor State Machine\n"
-       "NSM Status Information\n"
-       "NSM Event Information\n"
-       "NSM Timer Information\n")
-{
-	int result = no_debug_ospf_nsm_common(vty, 4, argc, argv);
-
-	if (result == CMD_SUCCESS)
-		vty_out(vty, "OSPF NSM debugging is off\n");
-	return result;
-}
-
-
-DEFUN (no_debug_ospf_instance_nsm,
-       no_debug_ospf_instance_nsm_cmd,
-       "no debug ospf (1-65535) nsm [<status|events|timers>]",
+DEFPY (debug_ospf_nsm,
+       debug_ospf_nsm_cmd,
+       "[no$no] debug ospf [(1-65535)$instance] nsm [<status|events|timers>$type]",
        NO_STR
        DEBUG_STR
        OSPF_STR
@@ -940,175 +865,112 @@ DEFUN (no_debug_ospf_instance_nsm,
        "NSM Event Information\n"
        "NSM Timer Information\n")
 {
-	int idx_number = 3;
-	unsigned short instance = 0;
+	if (instance) {
+		if (instance != ospf_instance)
+			return CMD_NOT_MY_INSTANCE;
+	}
 
-	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if (instance != ospf_instance)
-		return CMD_NOT_MY_INSTANCE;
-
-	int result = no_debug_ospf_nsm_common(vty, 5, argc, argv);
-
-	if (result == CMD_SUCCESS)
-		vty_out(vty, "OSPF NSM debugging is off\n");
-	return result;
+	if (no)
+		return no_debug_ospf_nsm_common(vty, type);
+	else
+		return debug_ospf_nsm_common(vty, type);
 }
 
-
-static int debug_ospf_lsa_common(struct vty *vty, int arg_base, int argc,
-				 struct cmd_token **argv)
+static int debug_ospf_lsa_common(struct vty *vty, const char *type)
 {
 	if (vty->node == CONFIG_NODE) {
-		if (argc == arg_base + 0)
-			DEBUG_ON(lsa, LSA);
-		else if (argc == arg_base + 1) {
-			if (strmatch(argv[arg_base]->text, "generate"))
+		if (type) {
+			if (strmatch(type, "generate"))
 				DEBUG_ON(lsa, LSA_GENERATE);
-			else if (strmatch(argv[arg_base]->text, "flooding"))
+			else if (strmatch(type, "flooding"))
 				DEBUG_ON(lsa, LSA_FLOODING);
-			else if (strmatch(argv[arg_base]->text, "install"))
+			else if (strmatch(type, "install"))
 				DEBUG_ON(lsa, LSA_INSTALL);
-			else if (strmatch(argv[arg_base]->text, "refresh"))
+			else if (strmatch(type, "refresh"))
 				DEBUG_ON(lsa, LSA_REFRESH);
-			else if (strmatch(argv[arg_base]->text, "aggregate"))
+			else if (strmatch(type, "aggregate"))
 				DEBUG_ON(lsa, EXTNL_LSA_AGGR);
-		}
+		} else
+			DEBUG_ON(lsa, LSA);
 
 		return CMD_SUCCESS;
 	}
 
 	/* ENABLE_NODE. */
-	if (argc == arg_base + 0)
-		TERM_DEBUG_ON(lsa, LSA);
-	else if (argc == arg_base + 1) {
-		if (strmatch(argv[arg_base]->text, "generate"))
+	if (type) {
+		if (strmatch(type, "generate")) {
 			TERM_DEBUG_ON(lsa, LSA_GENERATE);
-		else if (strmatch(argv[arg_base]->text, "flooding"))
+			vty_out(vty, "OSPF LSA generate debugging is on\n");
+		} else if (strmatch(type, "flooding")) {
 			TERM_DEBUG_ON(lsa, LSA_FLOODING);
-		else if (strmatch(argv[arg_base]->text, "install"))
+			vty_out(vty, "OSPF LSA flooding debugging is on\n");
+		} else if (strmatch(type, "install")) {
 			TERM_DEBUG_ON(lsa, LSA_INSTALL);
-		else if (strmatch(argv[arg_base]->text, "refresh"))
+			vty_out(vty, "OSPF LSA install debugging is on\n");
+		} else if (strmatch(type, "refresh")) {
 			TERM_DEBUG_ON(lsa, LSA_REFRESH);
-		else if (strmatch(argv[arg_base]->text, "aggregate"))
+			vty_out(vty, "OSPF LSA refresh debugging is on\n");
+		} else if (strmatch(type, "aggregate")) {
 			TERM_DEBUG_ON(lsa, EXTNL_LSA_AGGR);
+			vty_out(vty, "OSPF LSA aggregate debugging is on\n");
+		}
+	} else {
+		TERM_DEBUG_ON(lsa, LSA);
+		vty_out(vty, "OSPF LSA debugging is on\n");
 	}
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (debug_ospf_lsa,
-       debug_ospf_lsa_cmd,
-       "debug ospf lsa [<generate|flooding|install|refresh|aggregate>]",
-       DEBUG_STR
-       OSPF_STR
-       "OSPF Link State Advertisement\n"
-       "LSA Generation\n"
-       "LSA Flooding\n"
-       "LSA Install/Delete\n"
-       "LSA Refresh\n"
-       "External LSA Aggregation\n")
-{
-	int result = debug_ospf_lsa_common(vty, 3, argc, argv);
-
-	if (result == CMD_SUCCESS)
-		vty_out(vty, "OSPF LSA debugging is on\n");
-	return result;
-}
-
-DEFUN (debug_ospf_instance_lsa,
-       debug_ospf_instance_lsa_cmd,
-       "debug ospf (1-65535) lsa "
-       "[<generate|flooding|install|refresh|aggregate>]",
-       DEBUG_STR
-       OSPF_STR
-       "Instance ID\n"
-       "OSPF Link State Advertisement\n"
-       "LSA Generation\n"
-       "LSA Flooding\n"
-       "LSA Install/Delete\n"
-       "LSA Refresh\n"
-       "External LSA Aggregation\n")
-{
-	int idx_number = 2;
-	unsigned short instance = 0;
-
-	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if (instance != ospf_instance)
-		return CMD_NOT_MY_INSTANCE;
-
-	int result = debug_ospf_lsa_common(vty, 4, argc, argv);
-
-	if (result == CMD_SUCCESS)
-		vty_out(vty, "OSPF LSA debugging is on\n");
-	return result;
-}
-
-
-static int no_debug_ospf_lsa_common(struct vty *vty, int arg_base, int argc,
-				    struct cmd_token **argv)
+static int no_debug_ospf_lsa_common(struct vty *vty, const char *type)
 {
 	if (vty->node == CONFIG_NODE) {
-		if (argc == arg_base + 0)
-			DEBUG_OFF(lsa, LSA);
-		else if (argc == arg_base + 1) {
-			if (strmatch(argv[arg_base]->text, "generate"))
+		if (type) {
+			if (strmatch(type, "generate"))
 				DEBUG_OFF(lsa, LSA_GENERATE);
-			else if (strmatch(argv[arg_base]->text, "flooding"))
+			else if (strmatch(type, "flooding"))
 				DEBUG_OFF(lsa, LSA_FLOODING);
-			else if (strmatch(argv[arg_base]->text, "install"))
+			else if (strmatch(type, "install"))
 				DEBUG_OFF(lsa, LSA_INSTALL);
-			else if (strmatch(argv[arg_base]->text, "refresh"))
+			else if (strmatch(type, "refresh"))
 				DEBUG_OFF(lsa, LSA_REFRESH);
-			else if (strmatch(argv[arg_base]->text, "aggregate"))
+			else if (strmatch(type, "aggregate"))
 				DEBUG_OFF(lsa, EXTNL_LSA_AGGR);
-		}
+		} else
+			DEBUG_OFF(lsa, LSA);
 
 		return CMD_SUCCESS;
 	}
 
 	/* ENABLE_NODE. */
-	if (argc == arg_base + 0)
-		TERM_DEBUG_OFF(lsa, LSA);
-	else if (argc == arg_base + 1) {
-		if (strmatch(argv[arg_base]->text, "generate"))
+	if (type) {
+		if (strmatch(type, "generate")) {
 			TERM_DEBUG_OFF(lsa, LSA_GENERATE);
-		else if (strmatch(argv[arg_base]->text, "flooding"))
+			vty_out(vty, "OSPF LSA generate debugging is off\n");
+		} else if (strmatch(type, "flooding")) {
 			TERM_DEBUG_OFF(lsa, LSA_FLOODING);
-		else if (strmatch(argv[arg_base]->text, "install"))
+			vty_out(vty, "OSPF LSA flooding debugging is off\n");
+		} else if (strmatch(type, "install")) {
 			TERM_DEBUG_OFF(lsa, LSA_INSTALL);
-		else if (strmatch(argv[arg_base]->text, "refresh"))
+			vty_out(vty, "OSPF LSA install debugging is off\n");
+		} else if (strmatch(type, "refresh")) {
 			TERM_DEBUG_OFF(lsa, LSA_REFRESH);
-		else if (strmatch(argv[arg_base]->text, "aggregate"))
+			vty_out(vty, "OSPF LSA refresh debugging is off\n");
+		} else if (strmatch(type, "aggregate")) {
 			TERM_DEBUG_OFF(lsa, EXTNL_LSA_AGGR);
+			vty_out(vty, "OSPF LSA aggregate debugging is off\n");
+		}
+	} else {
+		TERM_DEBUG_OFF(lsa, LSA);
+		vty_out(vty, "OSPF LSA debugging is off\n");
 	}
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_debug_ospf_lsa,
-       no_debug_ospf_lsa_cmd,
-       "no debug ospf lsa [<generate|flooding|install|refresh|aggregate>]",
-       NO_STR
-       DEBUG_STR
-       OSPF_STR
-       "OSPF Link State Advertisement\n"
-       "LSA Generation\n"
-       "LSA Flooding\n"
-       "LSA Install/Delete\n"
-       "LSA Refres\n"
-       "External LSA Aggregation\n")
-{
-	int result = no_debug_ospf_lsa_common(vty, 4, argc, argv);
-
-	if (result == CMD_SUCCESS)
-		vty_out(vty, "OSPF LSA debugging is off\n");
-	return result;
-}
-
-DEFUN (no_debug_ospf_instance_lsa,
-       no_debug_ospf_instance_lsa_cmd,
-       "no debug ospf (1-65535) lsa "
-       "[<generate|flooding|install|refresh|aggregate>]",
+DEFPY (debug_ospf_lsa,
+       debug_ospf_lsa_cmd,
+       "[no] debug ospf [(1-65535)$instance] lsa [<generate|flooding|install|refresh|aggregate>$type]",
        NO_STR
        DEBUG_STR
        OSPF_STR
@@ -1117,143 +979,85 @@ DEFUN (no_debug_ospf_instance_lsa,
        "LSA Generation\n"
        "LSA Flooding\n"
        "LSA Install/Delete\n"
-       "LSA Refres\n"
+       "LSA Refresh\n"
        "External LSA Aggregation\n")
 {
-	int idx_number = 3;
-	unsigned short instance = 0;
-
-	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if (instance != ospf_instance)
-		return CMD_NOT_MY_INSTANCE;
-
-	int result = no_debug_ospf_lsa_common(vty, 5, argc, argv);
-
-	if (result == CMD_SUCCESS)
-		vty_out(vty, "OSPF LSA debugging is off\n");
-	return result;
+	if (instance) {
+		if (instance != ospf_instance)
+			return CMD_NOT_MY_INSTANCE;
+	}
+	if (no)
+		return no_debug_ospf_lsa_common(vty, type);
+	else
+		return debug_ospf_lsa_common(vty, type);
 }
 
-
-static int debug_ospf_zebra_common(struct vty *vty, int arg_base, int argc,
-				   struct cmd_token **argv)
+static int debug_ospf_zebra_common(struct vty *vty, const char *type)
 {
 	if (vty->node == CONFIG_NODE) {
-		if (argc == arg_base + 0)
-			DEBUG_ON(zebra, ZEBRA);
-		else if (argc == arg_base + 1) {
-			if (strmatch(argv[arg_base]->text, "interface"))
+		if (type) {
+			if (strmatch(type, "interface"))
 				DEBUG_ON(zebra, ZEBRA_INTERFACE);
-			else if (strmatch(argv[arg_base]->text, "redistribute"))
+			else if (strmatch(type, "redistribute"))
 				DEBUG_ON(zebra, ZEBRA_REDISTRIBUTE);
-		}
+		} else
+			DEBUG_ON(zebra, ZEBRA);
 
 		return CMD_SUCCESS;
 	}
 
 	/* ENABLE_NODE. */
-	if (argc == arg_base + 0)
-		TERM_DEBUG_ON(zebra, ZEBRA);
-	else if (argc == arg_base + 1) {
-		if (strmatch(argv[arg_base]->text, "interface"))
+	if (type) {
+		if (strmatch(type, "interface")) {
 			TERM_DEBUG_ON(zebra, ZEBRA_INTERFACE);
-		else if (strmatch(argv[arg_base]->text, "redistribute"))
+			vty_out(vty, "OSPF Zebra interface debugging is on\n");
+		} else if (strmatch(type, "redistribute")) {
 			TERM_DEBUG_ON(zebra, ZEBRA_REDISTRIBUTE);
+			vty_out(vty, "OSPF Zebra redistribute debugging is on\n");
+		}
+	} else {
+		TERM_DEBUG_ON(zebra, ZEBRA);
+		vty_out(vty, "OSPF Zebra debugging is on\n");
 	}
+
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (debug_ospf_zebra,
-       debug_ospf_zebra_cmd,
-       "debug ospf zebra [<interface|redistribute>]",
-       DEBUG_STR
-       OSPF_STR
-       ZEBRA_STR
-       "Zebra interface\n"
-       "Zebra redistribute\n")
-{
-	int result = debug_ospf_zebra_common(vty, 3, argc, argv);
-
-	if (result == CMD_SUCCESS)
-		vty_out(vty, "OSPF Zebra debugging is on\n");
-	return result;
-}
-
-DEFUN (debug_ospf_instance_zebra,
-       debug_ospf_instance_zebra_cmd,
-       "debug ospf (1-65535) zebra [<interface|redistribute>]",
-       DEBUG_STR
-       OSPF_STR
-       "Instance ID\n"
-       ZEBRA_STR
-       "Zebra interface\n"
-       "Zebra redistribute\n")
-{
-	int idx_number = 2;
-	unsigned short instance = 0;
-
-	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if (instance != ospf_instance)
-		return CMD_NOT_MY_INSTANCE;
-
-	int result = debug_ospf_zebra_common(vty, 4, argc, argv);
-
-	if (result == CMD_SUCCESS)
-		vty_out(vty, "OSPF Zebra debugging is on\n");
-	return result;
-}
-
-
-static int no_debug_ospf_zebra_common(struct vty *vty, int arg_base, int argc,
-				      struct cmd_token **argv)
+static int no_debug_ospf_zebra_common(struct vty *vty, const char *type)
 {
 	if (vty->node == CONFIG_NODE) {
-		if (argc == arg_base + 0)
-			DEBUG_OFF(zebra, ZEBRA);
-		else if (argc == arg_base + 1) {
-			if (strmatch(argv[arg_base]->text, "interface"))
+		if (type) {
+			if (strmatch(type, "interface"))
 				DEBUG_OFF(zebra, ZEBRA_INTERFACE);
-			else if (strmatch(argv[arg_base]->text, "redistribute"))
+			else if (strmatch(type, "redistribute"))
 				DEBUG_OFF(zebra, ZEBRA_REDISTRIBUTE);
-		}
+		} else
+			DEBUG_OFF(zebra, ZEBRA);
 
 		return CMD_SUCCESS;
 	}
 
 	/* ENABLE_NODE. */
-	if (argc == arg_base + 0)
-		TERM_DEBUG_OFF(zebra, ZEBRA);
-	else if (argc == arg_base + 1) {
-		if (strmatch(argv[arg_base]->text, "interface"))
+	if (type) {
+		if (strmatch(type, "interface")) {
 			TERM_DEBUG_OFF(zebra, ZEBRA_INTERFACE);
-		else if (strmatch(argv[arg_base]->text, "redistribute"))
+			vty_out(vty, "OSPF Zebra interface debugging is off\n");
+		} else if (strmatch(type, "redistribute")) {
 			TERM_DEBUG_OFF(zebra, ZEBRA_REDISTRIBUTE);
+			vty_out(vty, "OSPF Zebra redistribute debugging is off\n");
+		}
+	} else {
+		TERM_DEBUG_OFF(zebra, ZEBRA);
+		vty_out(vty, "OSPF Zebra debugging is off\n");
 	}
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_debug_ospf_zebra,
-       no_debug_ospf_zebra_cmd,
-       "no debug ospf zebra [<interface|redistribute>]",
-       NO_STR
-       DEBUG_STR
-       OSPF_STR
-       ZEBRA_STR
-       "Zebra interface\n"
-       "Zebra redistribute\n")
-{
-	int result = no_debug_ospf_zebra_common(vty, 4, argc, argv);
-
-	if (result == CMD_SUCCESS)
-		vty_out(vty, "OSPF Zebra debugging is off\n");
-	return result;
-}
-
-DEFUN (no_debug_ospf_instance_zebra,
-       no_debug_ospf_instance_zebra_cmd,
-       "no debug ospf (1-65535) zebra [<interface|redistribute>]",
+DEFPY (debug_ospf_zebra,
+       debug_ospf_zebra_cmd,
+       "[no] debug ospf [(1-65535)$instance] zebra [<interface|redistribute>$type]",
        NO_STR
        DEBUG_STR
        OSPF_STR
@@ -1262,166 +1066,74 @@ DEFUN (no_debug_ospf_instance_zebra,
        "Zebra interface\n"
        "Zebra redistribute\n")
 {
-	int idx_number = 3;
-	unsigned short instance = 0;
+	if (instance) {
+		if (instance != ospf_instance)
+			return CMD_NOT_MY_INSTANCE;
+	}
 
-	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if (instance != ospf_instance)
-		return CMD_NOT_MY_INSTANCE;
-
-	int result = no_debug_ospf_zebra_common(vty, 5, argc, argv);
-
-	if (result == CMD_SUCCESS)
-		vty_out(vty, "OSPF Zebra debugging is off\n");
-	return result;
+	if (no)
+		return no_debug_ospf_zebra_common(vty, type);
+	else
+		return debug_ospf_zebra_common(vty, type);
 }
 
-
-DEFUN (debug_ospf_event,
+DEFPY (debug_ospf_event,
        debug_ospf_event_cmd,
-       "debug ospf event",
-       DEBUG_STR
-       OSPF_STR
-       "OSPF event information\n")
-{
-	if (vty->node == CONFIG_NODE)
-		CONF_DEBUG_ON(event, EVENT);
-	TERM_DEBUG_ON(event, EVENT);
-	vty_out(vty, "OSPF Event debugging is on\n");
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_ospf_event,
-       no_debug_ospf_event_cmd,
-       "no debug ospf event",
-       NO_STR
-       DEBUG_STR
-       OSPF_STR
-       "OSPF event information\n")
-{
-	if (vty->node == CONFIG_NODE)
-		CONF_DEBUG_OFF(event, EVENT);
-	TERM_DEBUG_OFF(event, EVENT);
-	vty_out(vty, "OSPF Event debugging is off\n");
-	return CMD_SUCCESS;
-}
-
-DEFUN (debug_ospf_instance_event,
-       debug_ospf_instance_event_cmd,
-       "debug ospf (1-65535) event",
-       DEBUG_STR
-       OSPF_STR
-       "Instance ID\n"
-       "OSPF event information\n")
-{
-	int idx_number = 2;
-	unsigned short instance = 0;
-
-	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if (instance != ospf_instance)
-		return CMD_NOT_MY_INSTANCE;
-
-	if (vty->node == CONFIG_NODE)
-		CONF_DEBUG_ON(event, EVENT);
-	TERM_DEBUG_ON(event, EVENT);
-	vty_out(vty, "OSPF Event debugging is on\n");
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_ospf_instance_event,
-       no_debug_ospf_instance_event_cmd,
-       "no debug ospf (1-65535) event",
+       "[no$no] debug ospf [(1-65535)$instance] event",
        NO_STR
        DEBUG_STR
        OSPF_STR
        "Instance ID\n"
        "OSPF event information\n")
 {
-	int idx_number = 3;
-	unsigned short instance = 0;
+	if (instance) {
+		if (instance != ospf_instance)
+			return CMD_NOT_MY_INSTANCE;
+	}
 
-	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if (instance != ospf_instance)
-		return CMD_NOT_MY_INSTANCE;
+	if (vty->node == CONFIG_NODE) {
+		if (no)
+			CONF_DEBUG_OFF(event, EVENT);
+		else
+			CONF_DEBUG_ON(event, EVENT);
+	} else {
+		if (no) {
+			TERM_DEBUG_OFF(event, EVENT);
+			vty_out(vty, "OSPF Event debugging is off\n");
+		} else {
+			TERM_DEBUG_ON(event, EVENT);
+			vty_out(vty, "OSPF Event debugging is on\n");
+		}
+	}
 
-	if (vty->node == CONFIG_NODE)
-		CONF_DEBUG_OFF(event, EVENT);
-	TERM_DEBUG_OFF(event, EVENT);
-	vty_out(vty, "OSPF Event debugging is off\n");
 	return CMD_SUCCESS;
 }
 
-DEFUN (debug_ospf_nssa,
+DEFPY (debug_ospf_nssa,
        debug_ospf_nssa_cmd,
-       "debug ospf nssa",
-       DEBUG_STR
-       OSPF_STR
-       "OSPF nssa information\n")
-{
-	if (vty->node == CONFIG_NODE)
-		CONF_DEBUG_ON(nssa, NSSA);
-	TERM_DEBUG_ON(nssa, NSSA);
-	vty_out(vty, "OSPF NSSA debugging is on\n");
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_ospf_nssa,
-       no_debug_ospf_nssa_cmd,
-       "no debug ospf nssa",
-       NO_STR
-       DEBUG_STR
-       OSPF_STR
-       "OSPF nssa information\n")
-{
-	if (vty->node == CONFIG_NODE)
-		CONF_DEBUG_OFF(nssa, NSSA);
-	TERM_DEBUG_OFF(nssa, NSSA);
-	vty_out(vty, "OSPF NSSA debugging is off\n");
-	return CMD_SUCCESS;
-}
-
-DEFUN (debug_ospf_instance_nssa,
-       debug_ospf_instance_nssa_cmd,
-       "debug ospf (1-65535) nssa",
-       DEBUG_STR
-       OSPF_STR
-       "Instance ID\n"
-       "OSPF nssa information\n")
-{
-	int idx_number = 2;
-	unsigned short instance = 0;
-
-	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if (instance != ospf_instance)
-		return CMD_NOT_MY_INSTANCE;
-
-	if (vty->node == CONFIG_NODE)
-		CONF_DEBUG_ON(nssa, NSSA);
-	TERM_DEBUG_ON(nssa, NSSA);
-	vty_out(vty, "OSPF NSSA debugging is on\n");
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_ospf_instance_nssa,
-       no_debug_ospf_instance_nssa_cmd,
-       "no debug ospf (1-65535) nssa",
+       "[no] debug ospf [(1-65535)$instance] nssa",
        NO_STR
        DEBUG_STR
        OSPF_STR
        "Instance ID\n"
        "OSPF nssa information\n")
 {
-	int idx_number = 3;
-	unsigned short instance = 0;
+	if (instance) {
+		if (instance != ospf_instance)
+			return CMD_NOT_MY_INSTANCE;
+	}
 
-	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if (instance != ospf_instance)
-		return CMD_NOT_MY_INSTANCE;
-
-	if (vty->node == CONFIG_NODE)
-		CONF_DEBUG_OFF(nssa, NSSA);
-	TERM_DEBUG_OFF(nssa, NSSA);
-	vty_out(vty, "OSPF NSSA debugging is off\n");
+	if (no) {
+		if (vty->node == CONFIG_NODE)
+			CONF_DEBUG_OFF(nssa, NSSA);
+		TERM_DEBUG_OFF(nssa, NSSA);
+		vty_out(vty, "OSPF NSSA debugging is off\n");
+	} else {
+		if (vty->node == CONFIG_NODE)
+			CONF_DEBUG_ON(nssa, NSSA);
+		TERM_DEBUG_ON(nssa, NSSA);
+		vty_out(vty, "OSPF NSSA debugging is on\n");
+	}
 	return CMD_SUCCESS;
 }
 
@@ -2152,33 +1864,16 @@ void ospf_debug_init(void)
 	install_element(ENABLE_NODE, &debug_ospf_ldp_sync_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_client_api_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_opaque_lsa_cmd);
-	install_element(ENABLE_NODE, &no_debug_ospf_ism_cmd);
-	install_element(ENABLE_NODE, &no_debug_ospf_nsm_cmd);
-	install_element(ENABLE_NODE, &no_debug_ospf_lsa_cmd);
-	install_element(ENABLE_NODE, &no_debug_ospf_zebra_cmd);
-	install_element(ENABLE_NODE, &no_debug_ospf_event_cmd);
-	install_element(ENABLE_NODE, &no_debug_ospf_nssa_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_gr_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_bfd_cmd);
 
 	install_element(ENABLE_NODE, &show_debugging_ospf_instance_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_packet_cmd);
 
-	install_element(ENABLE_NODE, &debug_ospf_instance_nsm_cmd);
-	install_element(ENABLE_NODE, &debug_ospf_instance_lsa_cmd);
-	install_element(ENABLE_NODE, &debug_ospf_instance_zebra_cmd);
-	install_element(ENABLE_NODE, &debug_ospf_instance_event_cmd);
-	install_element(ENABLE_NODE, &debug_ospf_instance_nssa_cmd);
-	install_element(ENABLE_NODE, &no_debug_ospf_instance_nsm_cmd);
-	install_element(ENABLE_NODE, &no_debug_ospf_instance_lsa_cmd);
-	install_element(ENABLE_NODE, &no_debug_ospf_instance_zebra_cmd);
-	install_element(ENABLE_NODE, &no_debug_ospf_instance_event_cmd);
-	install_element(ENABLE_NODE, &no_debug_ospf_instance_nssa_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_cmd);
 
 	install_element(CONFIG_NODE, &debug_ospf_packet_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_ism_cmd);
-	install_element(CONFIG_NODE, &no_debug_ospf_ism_cmd);
 
 	install_element(CONFIG_NODE, &debug_ospf_nsm_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_lsa_cmd);
@@ -2192,23 +1887,8 @@ void ospf_debug_init(void)
 	install_element(CONFIG_NODE, &debug_ospf_ldp_sync_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_client_api_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_opaque_lsa_cmd);
-	install_element(CONFIG_NODE, &no_debug_ospf_nsm_cmd);
-	install_element(CONFIG_NODE, &no_debug_ospf_lsa_cmd);
-	install_element(CONFIG_NODE, &no_debug_ospf_zebra_cmd);
-	install_element(CONFIG_NODE, &no_debug_ospf_event_cmd);
-	install_element(CONFIG_NODE, &no_debug_ospf_nssa_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_gr_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_bfd_cmd);
 
-	install_element(CONFIG_NODE, &debug_ospf_instance_nsm_cmd);
-	install_element(CONFIG_NODE, &debug_ospf_instance_lsa_cmd);
-	install_element(CONFIG_NODE, &debug_ospf_instance_zebra_cmd);
-	install_element(CONFIG_NODE, &debug_ospf_instance_event_cmd);
-	install_element(CONFIG_NODE, &debug_ospf_instance_nssa_cmd);
-	install_element(CONFIG_NODE, &no_debug_ospf_instance_nsm_cmd);
-	install_element(CONFIG_NODE, &no_debug_ospf_instance_lsa_cmd);
-	install_element(CONFIG_NODE, &no_debug_ospf_instance_zebra_cmd);
-	install_element(CONFIG_NODE, &no_debug_ospf_instance_event_cmd);
-	install_element(CONFIG_NODE, &no_debug_ospf_instance_nssa_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_cmd);
 }
