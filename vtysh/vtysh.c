@@ -129,13 +129,13 @@ struct vtysh_client vtysh_client[] = {
 	{.name = "babeld", .flag = VTYSH_BABELD},
 	{.name = "sharpd", .flag = VTYSH_SHARPD},
 	{.name = "fabricd", .flag = VTYSH_FABRICD},
-	{.name = "watchfrr", .flag = VTYSH_WATCHFRR},
 	{.name = "pbrd", .flag = VTYSH_PBRD},
 	{.name = "staticd", .flag = VTYSH_STATICD},
 	{.name = "bfdd", .flag = VTYSH_BFDD},
 	{.name = "vrrpd", .flag = VTYSH_VRRPD},
 	{.name = "pathd", .flag = VTYSH_PATHD},
 	{.name = "pim6d", .flag = VTYSH_PIM6D},
+	{.name = "watchfrr", .flag = VTYSH_WATCHFRR},
 };
 
 /* Searches for client by name, returns index */
