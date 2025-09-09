@@ -4273,6 +4273,10 @@ Debugging
    BGP KEEPALIVE messages transmitted and received between local and remote
    instances.
 
+.. clicmd:: debug bgp keepalives <A.B.C.D|X:X::X:X|WORD>
+
+   Enable or disable debugging for BGP keepalives for a specific neighbor.
+
 .. clicmd:: debug bgp bestpath <A.B.C.D/M|X:X::X:X/M>
 
    Enable or disable debugging for bestpath selection on the specified prefix.
