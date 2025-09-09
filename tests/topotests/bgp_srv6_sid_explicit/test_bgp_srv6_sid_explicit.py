@@ -403,6 +403,35 @@ def test_explicit_srv6_sid_per_af_disabled():
     )
 
 
+# Configure 'sid vpn per-vrf export 4294442571'
+# this value stands for FFF7FE4B
+# Demonstrate that when using the index value, the allocation
+# is possible on f3216 locator format
+def test_explicit_srv6_sid_explicit_wide_index_1():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r3"]
+
+    router.vtysh_cmd(
+        """
+        configure terminal
+         router bgp 65003 vrf Vrf10
+           sid vpn per-vrf export 4294442571
+        """
+    )
+
+    # FOR DEVELOPER:
+    # If you want to stop some specific line and start interactive shell,
+    # please use tgen.mininet_cli() to start it.
+    logger.info(
+        "--13--Test for bgp explicit srv6 sid with wide func allocated in zebra"
+    )
+    check_explicit_srv6_sid_allocated(
+        router, "expected_explicit_srv6_sid_wide_allocated_1.json"
+    )
+
+
 # Configure 'sid vpn per-vrf export explicit X:X::X:X'
 # using wide func specifics
 # By command 'show segment-routing srv6 sid json'
@@ -416,6 +445,7 @@ def test_explicit_srv6_sid_explicit_wide():
         """
         configure terminal
          router bgp 65003 vrf Vrf10
+           no sid vpn per-vrf export 4294442571
            sid vpn per-vrf export explicit 2001:db8:3:fff7:fe50::
         """
     )
@@ -424,7 +454,7 @@ def test_explicit_srv6_sid_explicit_wide():
     # If you want to stop some specific line and start interactive shell,
     # please use tgen.mininet_cli() to start it.
     logger.info(
-        "--13--Test for bgp explicit srv6 sid with wide func allocated in zebra"
+        "--14--Test for bgp explicit srv6 sid with wide func allocated in zebra"
     )
     check_explicit_srv6_sid_allocated(
         router, "expected_explicit_srv6_sid_wide_allocated.json"
@@ -462,7 +492,7 @@ def test_explicit_srv6_sid_explicit_wide_index():
     # If you want to stop some specific line and start interactive shell,
     # please use tgen.mininet_cli() to start it.
     logger.info(
-        "--14--Test for bgp explicit srv6 sid with wide func allocated twice in zebra"
+        "--15--Test for bgp explicit srv6 sid with 32 bit function space allocated in zebra"
     )
     check_explicit_srv6_sid_allocated(
         router, "expected_explicit_srv6_sid_wide_allocated_2.json"
