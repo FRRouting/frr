@@ -1,0 +1,18 @@
+{
+    "2001:db8:3:fff7:fe4b::":{
+      "sid":"2001:db8:3:fff7:fe4b::",
+      "behavior":"uDT46",
+      "context":{
+        "vrfName":"Vrf10",
+        "table":10
+      },
+      "locator":"MAIN",
+      "allocationMode":"explicit",
+      "clients":[
+        {
+          "protocol":"bgp",
+          "instance":0
+        }
+      ]
+    }
+}
