@@ -672,10 +672,17 @@ DEFPY (debug_ospf_packet,
 				else
 					DEBUG_PACKET_ON(i, flag);
 			} else {
-				if (no)
+				if (no) {
 					TERM_DEBUG_PACKET_OFF(i, flag);
-				else
+					vty_out(vty, "OSPF packet %s%s debugging is off\n",
+						lookup_msg(ospf_packet_type_str, i + 1, NULL),
+						IS_DEBUG_OSPF_PACKET(i, DETAIL) ? " detail" : "");
+				} else {
 					TERM_DEBUG_PACKET_ON(i, flag);
+					vty_out(vty, "OSPF packet %s%s debugging is on\n",
+						lookup_msg(ospf_packet_type_str, i + 1, NULL),
+						IS_DEBUG_OSPF_PACKET(i, DETAIL) ? " detail" : "");
+				}
 			}
 		}
 
@@ -736,6 +743,7 @@ DEFUN (debug_ospf_ism,
 			TERM_DEBUG_ON(ism, ISM_TIMERS);
 	}
 
+	vty_out(vty, "OSPF ISM debugging is on\n");
 	return CMD_SUCCESS;
 }
 
@@ -787,6 +795,7 @@ DEFUN (no_debug_ospf_ism,
 			TERM_DEBUG_OFF(ism, ISM_TIMERS);
 	}
 
+	vty_out(vty, "OSPF ISM debugging is off\n");
 	return CMD_SUCCESS;
 }
 
@@ -833,7 +842,11 @@ DEFUN (debug_ospf_nsm,
        "NSM Event Information\n"
        "NSM Timer Information\n")
 {
-	return debug_ospf_nsm_common(vty, 3, argc, argv);
+	int result = debug_ospf_nsm_common(vty, 3, argc, argv);
+
+	if (result == CMD_SUCCESS)
+		vty_out(vty, "OSPF NSM debugging is on\n");
+	return result;
 }
 
 DEFUN (debug_ospf_instance_nsm,
@@ -854,7 +867,11 @@ DEFUN (debug_ospf_instance_nsm,
 	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
-	return debug_ospf_nsm_common(vty, 4, argc, argv);
+	int result = debug_ospf_nsm_common(vty, 4, argc, argv);
+
+	if (result == CMD_SUCCESS)
+		vty_out(vty, "OSPF NSM debugging is on\n");
+	return result;
 }
 
 
@@ -903,7 +920,11 @@ DEFUN (no_debug_ospf_nsm,
        "NSM Event Information\n"
        "NSM Timer Information\n")
 {
-	return no_debug_ospf_nsm_common(vty, 4, argc, argv);
+	int result = no_debug_ospf_nsm_common(vty, 4, argc, argv);
+
+	if (result == CMD_SUCCESS)
+		vty_out(vty, "OSPF NSM debugging is off\n");
+	return result;
 }
 
 
@@ -926,7 +947,11 @@ DEFUN (no_debug_ospf_instance_nsm,
 	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
-	return no_debug_ospf_nsm_common(vty, 5, argc, argv);
+	int result = no_debug_ospf_nsm_common(vty, 5, argc, argv);
+
+	if (result == CMD_SUCCESS)
+		vty_out(vty, "OSPF NSM debugging is off\n");
+	return result;
 }
 
 
@@ -983,7 +1008,11 @@ DEFUN (debug_ospf_lsa,
        "LSA Refresh\n"
        "External LSA Aggregation\n")
 {
-	return debug_ospf_lsa_common(vty, 3, argc, argv);
+	int result = debug_ospf_lsa_common(vty, 3, argc, argv);
+
+	if (result == CMD_SUCCESS)
+		vty_out(vty, "OSPF LSA debugging is on\n");
+	return result;
 }
 
 DEFUN (debug_ospf_instance_lsa,
@@ -1007,7 +1036,11 @@ DEFUN (debug_ospf_instance_lsa,
 	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
-	return debug_ospf_lsa_common(vty, 4, argc, argv);
+	int result = debug_ospf_lsa_common(vty, 4, argc, argv);
+
+	if (result == CMD_SUCCESS)
+		vty_out(vty, "OSPF LSA debugging is on\n");
+	return result;
 }
 
 
@@ -1065,7 +1098,11 @@ DEFUN (no_debug_ospf_lsa,
        "LSA Refres\n"
        "External LSA Aggregation\n")
 {
-	return no_debug_ospf_lsa_common(vty, 4, argc, argv);
+	int result = no_debug_ospf_lsa_common(vty, 4, argc, argv);
+
+	if (result == CMD_SUCCESS)
+		vty_out(vty, "OSPF LSA debugging is off\n");
+	return result;
 }
 
 DEFUN (no_debug_ospf_instance_lsa,
@@ -1090,7 +1127,11 @@ DEFUN (no_debug_ospf_instance_lsa,
 	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
-	return no_debug_ospf_lsa_common(vty, 5, argc, argv);
+	int result = no_debug_ospf_lsa_common(vty, 5, argc, argv);
+
+	if (result == CMD_SUCCESS)
+		vty_out(vty, "OSPF LSA debugging is off\n");
+	return result;
 }
 
 
@@ -1132,7 +1173,11 @@ DEFUN (debug_ospf_zebra,
        "Zebra interface\n"
        "Zebra redistribute\n")
 {
-	return debug_ospf_zebra_common(vty, 3, argc, argv);
+	int result = debug_ospf_zebra_common(vty, 3, argc, argv);
+
+	if (result == CMD_SUCCESS)
+		vty_out(vty, "OSPF Zebra debugging is on\n");
+	return result;
 }
 
 DEFUN (debug_ospf_instance_zebra,
@@ -1152,7 +1197,11 @@ DEFUN (debug_ospf_instance_zebra,
 	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
-	return debug_ospf_zebra_common(vty, 4, argc, argv);
+	int result = debug_ospf_zebra_common(vty, 4, argc, argv);
+
+	if (result == CMD_SUCCESS)
+		vty_out(vty, "OSPF Zebra debugging is on\n");
+	return result;
 }
 
 
@@ -1195,7 +1244,11 @@ DEFUN (no_debug_ospf_zebra,
        "Zebra interface\n"
        "Zebra redistribute\n")
 {
-	return no_debug_ospf_zebra_common(vty, 4, argc, argv);
+	int result = no_debug_ospf_zebra_common(vty, 4, argc, argv);
+
+	if (result == CMD_SUCCESS)
+		vty_out(vty, "OSPF Zebra debugging is off\n");
+	return result;
 }
 
 DEFUN (no_debug_ospf_instance_zebra,
@@ -1216,7 +1269,11 @@ DEFUN (no_debug_ospf_instance_zebra,
 	if (instance != ospf_instance)
 		return CMD_NOT_MY_INSTANCE;
 
-	return no_debug_ospf_zebra_common(vty, 5, argc, argv);
+	int result = no_debug_ospf_zebra_common(vty, 5, argc, argv);
+
+	if (result == CMD_SUCCESS)
+		vty_out(vty, "OSPF Zebra debugging is off\n");
+	return result;
 }
 
 
@@ -1230,6 +1287,7 @@ DEFUN (debug_ospf_event,
 	if (vty->node == CONFIG_NODE)
 		CONF_DEBUG_ON(event, EVENT);
 	TERM_DEBUG_ON(event, EVENT);
+	vty_out(vty, "OSPF Event debugging is on\n");
 	return CMD_SUCCESS;
 }
 
@@ -1244,6 +1302,7 @@ DEFUN (no_debug_ospf_event,
 	if (vty->node == CONFIG_NODE)
 		CONF_DEBUG_OFF(event, EVENT);
 	TERM_DEBUG_OFF(event, EVENT);
+	vty_out(vty, "OSPF Event debugging is off\n");
 	return CMD_SUCCESS;
 }
 
@@ -1265,6 +1324,7 @@ DEFUN (debug_ospf_instance_event,
 	if (vty->node == CONFIG_NODE)
 		CONF_DEBUG_ON(event, EVENT);
 	TERM_DEBUG_ON(event, EVENT);
+	vty_out(vty, "OSPF Event debugging is on\n");
 	return CMD_SUCCESS;
 }
 
@@ -1287,6 +1347,7 @@ DEFUN (no_debug_ospf_instance_event,
 	if (vty->node == CONFIG_NODE)
 		CONF_DEBUG_OFF(event, EVENT);
 	TERM_DEBUG_OFF(event, EVENT);
+	vty_out(vty, "OSPF Event debugging is off\n");
 	return CMD_SUCCESS;
 }
 
@@ -1300,6 +1361,7 @@ DEFUN (debug_ospf_nssa,
 	if (vty->node == CONFIG_NODE)
 		CONF_DEBUG_ON(nssa, NSSA);
 	TERM_DEBUG_ON(nssa, NSSA);
+	vty_out(vty, "OSPF NSSA debugging is on\n");
 	return CMD_SUCCESS;
 }
 
@@ -1314,6 +1376,7 @@ DEFUN (no_debug_ospf_nssa,
 	if (vty->node == CONFIG_NODE)
 		CONF_DEBUG_OFF(nssa, NSSA);
 	TERM_DEBUG_OFF(nssa, NSSA);
+	vty_out(vty, "OSPF NSSA debugging is off\n");
 	return CMD_SUCCESS;
 }
 
@@ -1335,6 +1398,7 @@ DEFUN (debug_ospf_instance_nssa,
 	if (vty->node == CONFIG_NODE)
 		CONF_DEBUG_ON(nssa, NSSA);
 	TERM_DEBUG_ON(nssa, NSSA);
+	vty_out(vty, "OSPF NSSA debugging is on\n");
 	return CMD_SUCCESS;
 }
 
@@ -1357,6 +1421,7 @@ DEFUN (no_debug_ospf_instance_nssa,
 	if (vty->node == CONFIG_NODE)
 		CONF_DEBUG_OFF(nssa, NSSA);
 	TERM_DEBUG_OFF(nssa, NSSA);
+	vty_out(vty, "OSPF NSSA debugging is off\n");
 	return CMD_SUCCESS;
 }
 
@@ -1378,10 +1443,13 @@ DEFPY (debug_ospf_te,
 		else
 			DEBUG_ON(te, TE);
 	} else {
-		if (no)
+		if (no) {
 			TERM_DEBUG_OFF(te, TE);
-		else
+			vty_out(vty, "OSPF TE debugging is off\n");
+		} else {
 			TERM_DEBUG_ON(te, TE);
+			vty_out(vty, "OSPF TE debugging is on\n");
+		}
 	}
 
 	return CMD_SUCCESS;
@@ -1405,10 +1473,13 @@ DEFPY (debug_ospf_sr,
 		else
 			DEBUG_ON(sr, SR);
 	} else {
-		if (no)
+		if (no) {
 			TERM_DEBUG_OFF(sr, SR);
-		else
+			vty_out(vty, "OSPF SR debugging is off\n");
+		} else {
 			TERM_DEBUG_ON(sr, SR);
+			vty_out(vty, "OSPF SR debugging is on\n");
+		}
 	}
 
 	return CMD_SUCCESS;
@@ -1432,10 +1503,13 @@ DEFPY (debug_ospf_ti_lfa,
 		else
 			DEBUG_ON(ti_lfa, TI_LFA);
 	} else {
-		if (no)
+		if (no) {
 			TERM_DEBUG_OFF(ti_lfa, TI_LFA);
-		else
+			vty_out(vty, "OSPF TI-LFA debugging is off\n");
+		} else {
 			TERM_DEBUG_ON(ti_lfa, TI_LFA);
+			vty_out(vty, "OSPF TI-LFA debugging is on\n");
+		}
 	}
 
 	return CMD_SUCCESS;
@@ -1459,10 +1533,13 @@ DEFPY (debug_ospf_default_info,
 		else
 			DEBUG_ON(defaultinfo, DEFAULTINFO);
 	} else {
-		if (no)
+		if (no) {
 			TERM_DEBUG_OFF(defaultinfo, DEFAULTINFO);
-		else
+			vty_out(vty, "OSPF default information debugging is off\n");
+		} else {
 			TERM_DEBUG_ON(defaultinfo, DEFAULTINFO);
+			vty_out(vty, "OSPF default information debugging is on\n");
+		}
 	}
 
 	return CMD_SUCCESS;
@@ -1486,10 +1563,13 @@ DEFPY (debug_ospf_ldp_sync,
 		else
 			DEBUG_ON(ldp_sync, LDP_SYNC);
 	} else {
-		if (no)
+		if (no) {
 			TERM_DEBUG_OFF(ldp_sync, LDP_SYNC);
-		else
+			vty_out(vty, "OSPF ldp-sync debugging is off\n");
+		} else {
 			TERM_DEBUG_ON(ldp_sync, LDP_SYNC);
+			vty_out(vty, "OSPF ldp-sync debugging is on\n");
+		}
 	}
 
 	return CMD_SUCCESS;
@@ -1513,10 +1593,13 @@ DEFPY (debug_ospf_gr,
 		else
 			DEBUG_ON(gr, GR);
 	} else {
-		if (no)
+		if (no) {
 			TERM_DEBUG_OFF(gr, GR);
-		else
+			vty_out(vty, "OSPF Graceful Restart debugging is off\n");
+		} else {
 			TERM_DEBUG_ON(gr, GR);
+			vty_out(vty, "OSPF Graceful Restart debugging is on\n");
+		}
 	}
 
 	return CMD_SUCCESS;
@@ -1543,10 +1626,13 @@ DEFPY (debug_ospf_bfd,
 			DEBUG_ON(bfd, BFD_LIB);
 		}
 	} else {
-		if (no)
+		if (no) {
 			TERM_DEBUG_OFF(bfd, BFD_LIB);
-		else
+			vty_out(vty, "OSPF BFD debugging is off\n");
+		} else {
 			TERM_DEBUG_ON(bfd, BFD_LIB);
+			vty_out(vty, "OSPF BFD debugging is on\n");
+		}
 	}
 
 	return CMD_SUCCESS;
@@ -1570,10 +1656,13 @@ DEFPY (debug_ospf_client_api,
 		else
 			DEBUG_ON(client_api, CLIENT_API);
 	} else {
-		if (no)
+		if (no) {
 			TERM_DEBUG_OFF(client_api, CLIENT_API);
-		else
+			vty_out(vty, "OSPF client-api debugging is off\n");
+		} else {
 			TERM_DEBUG_ON(client_api, CLIENT_API);
+			vty_out(vty, "OSPF client-api debugging is on\n");
+		}
 	}
 
 	return CMD_SUCCESS;
@@ -1597,10 +1686,13 @@ DEFPY (debug_ospf_opaque_lsa,
 		else
 			DEBUG_ON(opaque_lsa, OPAQUE_LSA);
 	} else {
-		if (no)
+		if (no) {
 			TERM_DEBUG_OFF(opaque_lsa, OPAQUE_LSA);
-		else
+			vty_out(vty, "OSPF opaque-lsa debugging is off\n");
+		} else {
 			TERM_DEBUG_ON(opaque_lsa, OPAQUE_LSA);
+			vty_out(vty, "OSPF opaque-lsa debugging is on\n");
+		}
 	}
 
 	return CMD_SUCCESS;
