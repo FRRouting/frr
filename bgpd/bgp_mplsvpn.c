@@ -704,6 +704,7 @@ bool srv6_sid_compose(struct in6_addr *sid_value, struct srv6_locator *locator, 
 	uint8_t offset = 0;
 	uint8_t func_len = 0, shift_len = 0;
 	uint32_t sid_func_max = 0;
+	bool store_in_label = true;
 
 	if (!locator || !sid_value)
 		return false;
@@ -717,11 +718,18 @@ bool srv6_sid_compose(struct in6_addr *sid_value, struct srv6_locator *locator, 
 	}
 
 	/* Max value that can be encoded in the Function part of the SID */
-	if (locator->function_bits_length == BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_BGP)
+	if ((CHECK_FLAG(locator->flags, SRV6_LOCATOR_F3216) ||
+	     CHECK_FLAG(locator->flags, SRV6_LOCATOR_F4816)) &&
+	    sid_func > 0xFFFF) {
+		/* f3216 and f4816 supports ewlib. increase sid_func_max */
+		sid_func_max = 0xffffffff;
+		store_in_label = false;
+	} else if (locator->function_bits_length == BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_BGP)
 		/* shifting 32 bits over a 32 bit is not possible. directly encode func_max */
 		sid_func_max = 0xffffffff;
 	else
 		sid_func_max = (1 << locator->function_bits_length) - 1;
+
 
 	if (sid_func > sid_func_max) {
 		if (debug)
@@ -750,8 +758,11 @@ bool srv6_sid_compose(struct in6_addr *sid_value, struct srv6_locator *locator, 
 	 */
 	offset = locator->block_bits_length + locator->node_bits_length;
 
-	func_len = locator->function_bits_length;
-	if (func_len <= BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL) {
+	if (store_in_label)
+		func_len = locator->function_bits_length;
+	else
+		func_len = BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_BGP;
+	if (store_in_label && func_len <= BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL) {
 		/*
 		 * The FUNC part of the SID is advertised in the label field of SRv6 Service TLV.
 		 * (see SID Transposition Scheme, RFC 9252 section #4).
