@@ -1928,6 +1928,10 @@ Debugging
 
    Segment Routing for IPv6 dataplane debugging.
 
+.. clicmd:: debug zebra tc
+
+   Traffic Control debugging.
+
 Scripting
 =========
 
