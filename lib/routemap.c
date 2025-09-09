@@ -2418,7 +2418,7 @@ static void route_map_pentry_update(route_map_event_t event,
 	} else if (event == RMAP_EVENT_PLIST_DELETED) {
 		route_map_del_plist_entries(afi, index, plist_name, pentry);
 
-		if (plist->count == 1) {
+		if (plist == NULL || plist->count == 1) {
 			if (afi == AFI_IP) {
 				if (!route_map_is_ipv6_pfx_list_rule_present(
 					    index))
