@@ -287,7 +287,21 @@ void zebra_srv6_locator_format_set(struct srv6_locator *locator,
 
 	/* Change format */
 	locator->sid_format = format;
-
+	if (format) {
+		if (strmatch(format->name, SRV6_SID_FORMAT_USID_F3216_NAME)) {
+			SET_FLAG(locator->flags, SRV6_LOCATOR_F3216);
+			UNSET_FLAG(locator->flags, SRV6_LOCATOR_F4816);
+		} else if (strmatch(format->name, SRV6_SID_FORMAT_USID_F4816_NAME)) {
+			SET_FLAG(locator->flags, SRV6_LOCATOR_F4816);
+			UNSET_FLAG(locator->flags, SRV6_LOCATOR_F3216);
+		} else {
+			UNSET_FLAG(locator->flags, SRV6_LOCATOR_F3216);
+			UNSET_FLAG(locator->flags, SRV6_LOCATOR_F4816);
+		}
+	} else {
+		UNSET_FLAG(locator->flags, SRV6_LOCATOR_F3216);
+		UNSET_FLAG(locator->flags, SRV6_LOCATOR_F4816);
+	}
 	/* Allocate the new parent block */
 	zebra_srv6_sid_locator_block_alloc(locator);
 

@@ -149,6 +149,8 @@ struct srv6_locator {
 	uint8_t flags;
 #define SRV6_LOCATOR_USID (1 << 0) /* The SRv6 Locator is a uSID Locator */
 #define SRV6_LOCATOR_PSP  (1 << 1) /* The SRv6 Locator has the PSP flavor */
+#define SRV6_LOCATOR_F3216 (1 << 2) /* The SRv6 Locator has F3216 format */
+#define SRV6_LOCATOR_F4816 (1 << 3) /* The SRv6 Locator has F4816 format */
 
 	/* Pointer to the SID format. */
 	struct srv6_sid_format *sid_format;
