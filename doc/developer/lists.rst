@@ -48,7 +48,10 @@ unique and non-unique items.  Hash tables always require unique items
 and mostly follow the "sorted" API but use the hash value as sorting
 key.  Also, iterating while modifying does not work with hash tables.
 Conversely, the heap always has non-unique items, but iterating while modifying
-doesn't work either.
+doesn't work either.  Hash tables also have a property of auto-growing
+and auto-shrinking.  If you are using the hash table as a way to temporarily
+hold data, consider the costs associated with growing and shrinking of the
+data structure before using.
 
 
 The following sorted structures are likely to be implemented at some point
