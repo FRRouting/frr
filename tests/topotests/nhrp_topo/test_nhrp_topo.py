@@ -143,7 +143,7 @@ def setup_module(mod):
     "Sets up the pytest environment"
 
     logger.info("NHRP Topology : \n {}".format(TOPOLOGY))
-    result = required_linux_kernel_version("5.0")
+    result = required_linux_kernel_version("4.18")
     if result is not True:
         pytest.skip("Kernel requirements are not met")
 
