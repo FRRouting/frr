@@ -4982,9 +4982,8 @@ static void bgp_evpn_nh_show_entry(struct bgp_evpn_nh *nh, struct vty *vty,
 		json_object_string_add(json, "basePath", prefix_buf);
 		json_object_int_add(json, "pathCount", listcount(nh->pi_list));
 	} else {
-		vty_out(vty, "%-15s %-15s %-17s %-10d %s\n",
-			nh->bgp_vrf->name_pretty, nh->nh_str, mac_buf,
-			listcount(nh->pi_list), prefix_buf);
+		vty_out(vty, "%-15s %-39s %-17s %-10d %s\n", nh->bgp_vrf->name_pretty, nh->nh_str,
+			mac_buf, listcount(nh->pi_list), prefix_buf);
 	}
 
 	/* add ES to the json array */
@@ -5017,8 +5016,8 @@ void bgp_evpn_nh_show(struct vty *vty, bool uj)
 		/* create an array of nexthops */
 		json_array = json_object_new_array();
 	} else {
-		vty_out(vty, "%-15s %-15s %-17s %-10s %s\n", "VRF", "IP",
-			"RMAC", "#Paths", "Base Path");
+		vty_out(vty, "%-15s %-39s %-17s %-10s %s\n", "VRF", "IP", "RMAC", "#Paths",
+			"Base Path");
 	}
 
 	wctx.vty = vty;
