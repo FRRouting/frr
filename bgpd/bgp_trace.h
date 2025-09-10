@@ -325,7 +325,7 @@ TRACEPOINT_EVENT(
 	evpn_mac_ip_zsend,
 	TP_ARGS(int, add, struct bgpevpn *, vpn,
 		const struct prefix_evpn *, pfx,
-		struct in_addr, vtep, esi_t *, esi),
+		struct ipaddr *, vtep, esi_t *, esi),
 	TP_FIELDS(
 		ctf_string(action, add ? "add" : "del")
 		ctf_integer(vni_t, vni, (vpn ? vpn->vni : 0))
@@ -334,7 +334,7 @@ TRACEPOINT_EVENT(
 			sizeof(struct ethaddr))
 		ctf_array(unsigned char, ip, &pfx->prefix.macip_addr.ip,
 			sizeof(struct ipaddr))
-		ctf_integer_network_hex(unsigned int, vtep, vtep.s_addr)
+		ctf_array(unsigned char, vtep, vtep, sizeof(struct ipaddr))
 		ctf_array(unsigned char, esi, esi, sizeof(esi_t))
 	)
 )
@@ -517,11 +517,11 @@ TRACEPOINT_LOGLEVEL(frr_bgp, evpn_mh_local_ead_es_evi_route_del, TRACE_INFO)
 TRACEPOINT_EVENT(
 	frr_bgp,
 	evpn_local_vni_add_zrecv,
-	TP_ARGS(vni_t, vni, struct in_addr, vtep, vrf_id_t, vrf,
+	TP_ARGS(vni_t, vni, struct ipaddr *, vtep, vrf_id_t, vrf,
 			struct in_addr, mc_grp),
 	TP_FIELDS(
 		ctf_integer(vni_t, vni, vni)
-		ctf_integer_network_hex(unsigned int, vtep, vtep.s_addr)
+		ctf_array(unsigned char, vtep, vtep, sizeof(struct ipaddr))
 		ctf_integer_network_hex(unsigned int, mc_grp,
 			mc_grp.s_addr)
 		ctf_integer(int, vrf, vrf)
@@ -608,7 +608,7 @@ TRACEPOINT_EVENT(
 	TP_ARGS(vni_t, vni, vrf_id_t, vrf,
 			struct ethaddr *, svi_rmac,
 			struct ethaddr *, vrr_rmac, int, filter,
-			struct in_addr, vtep, int, svi_ifindex,
+			struct ipaddr *, vtep, int, svi_ifindex,
 			bool, anycast_mac),
 	TP_FIELDS(
 		ctf_integer(vni_t, vni, vni)
@@ -617,7 +617,7 @@ TRACEPOINT_EVENT(
 			sizeof(struct ethaddr))
 		ctf_array(unsigned char, vrr_rmac, vrr_rmac,
 			sizeof(struct ethaddr))
-		ctf_integer_network_hex(unsigned int, vtep, vtep.s_addr)
+		ctf_array(unsigned char, vtep, vtep, sizeof(struct ipaddr))
 		ctf_integer(int, filter, filter)
 		ctf_integer(int, svi_ifindex, svi_ifindex)
 		ctf_string(anycast_mac, anycast_mac ? "y" : "n")
