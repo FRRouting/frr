@@ -309,7 +309,7 @@ void vnc_direct_bgp_add_route_ce(struct bgp *bgp, struct agg_node *rn,
 		   afi, SAFI_UNICAST, ZEBRA_ROUTE_VNC_DIRECT,
 		   BGP_ROUTE_REDISTRIBUTE, NULL, /* RD not used for unicast */
 		   NULL, 0,			 /* tag not used for unicast */
-		   0, NULL);			 /* EVPN not used */
+		   0, NULL, NULL);	 /* EVPN not used */
 	bgp_attr_unintern(&iattr);
 }
 
@@ -1033,7 +1033,7 @@ void vnc_direct_bgp_add_nve(struct bgp *bgp, struct rfapi_descriptor *rfd)
 						/* RD not used for unicast */
 						NULL,
 						/* tag not used for unicast */
-						0, 0, NULL); /* EVPN not used */
+						0, 0, NULL, NULL); /* EVPN not used */
 
 					bgp_attr_unintern(&iattr);
 				}
@@ -1245,7 +1245,7 @@ static void vnc_direct_add_rn_group_rd(struct bgp *bgp,
 		   afi, SAFI_UNICAST, ZEBRA_ROUTE_VNC_DIRECT,
 		   BGP_ROUTE_REDISTRIBUTE, NULL, /* RD not used for unicast */
 		   NULL,			 /* tag not used for unicast */
-		   0, 0, NULL);			 /* EVPN not used */
+		   0, 0, NULL, NULL);	 /* EVPN not used */
 
 	bgp_attr_unintern(&iattr);
 
@@ -1697,7 +1697,7 @@ void vnc_direct_bgp_rh_add_route(struct bgp *bgp, afi_t afi,
 		   afi, SAFI_UNICAST, ZEBRA_ROUTE_VNC_DIRECT_RH,
 		   BGP_ROUTE_REDISTRIBUTE, NULL, /* RD not used for unicast */
 		   NULL,	/* tag not used for unicast, EVPN neither */
-		   0, 0, NULL); /* EVPN not used */
+		   0, 0, NULL, NULL); /* EVPN not used */
 	bgp_attr_unintern(&iattr);
 }
 
@@ -1936,7 +1936,7 @@ void vnc_direct_bgp_rh_vpn_enable(struct bgp *bgp, afi_t afi)
 						NULL,
 						/* tag not used for unicast,
 						   or EVPN */
-						0, 0, NULL); /* EVPN not used */
+						0, 0, NULL, NULL); /* EVPN not used */
 
 					bgp_attr_unintern(&iattr);
 				}

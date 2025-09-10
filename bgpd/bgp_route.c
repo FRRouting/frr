@@ -100,6 +100,17 @@ DEFINE_HOOK(bgp_route_update,
 	     struct bgp_path_info *old_route, struct bgp_path_info *new_route),
 	    (bgp, afi, safi, bn, old_route, new_route));
 
+/* Invalidate cache if we're uninterning the cached pointer, then do the unintern. */
+static inline void attr_unintern_safe_ctx(struct bgp_attr_reuse_ctx *reuse_ctx, struct attr **p)
+{
+	if (reuse_ctx && reuse_ctx->valid && reuse_ctx->interned == *p) {
+		reuse_ctx->valid = false;
+		reuse_ctx->interned = NULL;
+	}
+	bgp_attr_unintern(p);
+}
+
+
 /* Extern from bgp_dump.c */
 extern const char *bgp_origin_str[];
 extern const char *bgp_origin_long_str[];
@@ -4977,7 +4988,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		struct attr *attr, afi_t afi, safi_t safi, int type,
 		int sub_type, struct prefix_rd *prd, mpls_label_t *label,
 		uint8_t num_labels, int soft_reconfig,
-		struct bgp_route_evpn *evpn)
+		struct bgp_route_evpn *evpn, struct bgp_attr_reuse_ctx *reuse_ctx)
 {
 	int ret;
 	struct bgp_dest *dest;
@@ -5322,7 +5333,28 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		bgp_attr_set_ecommunity(&new_attr, new_ecomm);
 	}
 
-	attr_new = bgp_attr_intern(&new_attr);
+	/*
+	 * Re-use intern'd attribute for same NLRI-section with multiple prefixes.
+	 * Do intern: If the final 'new_attr' does not equal to the parsed attr.
+	 * Re-use: If the final 'new_attr' eqauls to the parsed attr AND reuse_ctx referes
+	 * to the same attr ptr, AFI/SAFI, then re-use the cached interned attribute.
+	 */
+	if (reuse_ctx && attrhash_cmp(&new_attr, attr) &&
+	    reuse_ctx->valid && reuse_ctx->in_attr == attr &&
+	    reuse_ctx->afi == afi && reuse_ctx->safi == safi) {
+		attr_new = reuse_ctx->interned;
+		bgp_attr_ref(attr_new);
+	} else {
+		attr_new = bgp_attr_intern(&new_attr);
+		/* Populate cache only for the unchanged-from-parsed case. */
+		if (reuse_ctx && attrhash_cmp(&new_attr, attr)) {
+			reuse_ctx->valid = true;
+			reuse_ctx->in_attr = attr;
+			reuse_ctx->afi = afi;
+			reuse_ctx->safi = safi;
+			reuse_ctx->interned = attr_new;
+		}
+	}
 
 	/* If the update is implicit withdraw. */
 	if (pi) {
@@ -5386,7 +5418,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			}
 
 			bgp_dest_unlock_node(dest);
-			bgp_attr_unintern(&attr_new);
+			attr_unintern_safe_ctx(reuse_ctx, &attr_new);
 			if (p_evpn)
 				evpn_overlay_free(p_evpn);
 			return;
@@ -6068,7 +6100,7 @@ static void bgp_soft_reconfig_table_update(struct peer *peer,
 
 	bgp_update(peer, bgp_dest_get_prefix(dest), ain->addpath_rx_id,
 		   ain->attr, afi, safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, prd,
-		   label_pnt, num_labels, 1, bre);
+		   label_pnt, num_labels, 1, bre, NULL);
 }
 
 static void bgp_soft_reconfig_table(struct peer *peer, afi_t afi, safi_t safi,
@@ -7216,6 +7248,7 @@ bool bgp_addpath_encode_rx(struct peer *peer, afi_t afi, safi_t safi)
 int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 		      struct bgp_nlri *packet)
 {
+	struct bgp_attr_reuse_ctx reuse_ctx = {0};
 	uint8_t *pnt;
 	uint8_t *lim;
 	struct prefix p;
@@ -7334,7 +7367,7 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 		if (attr)
 			bgp_update(peer, &p, addpath_id, attr, afi, safi,
 				   ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL,
-				   NULL, 0, 0, NULL);
+				   NULL, 0, 0, NULL, &reuse_ctx);
 		else
 			bgp_withdraw(peer, &p, addpath_id, afi, safi,
 				     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL,

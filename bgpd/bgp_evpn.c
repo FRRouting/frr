@@ -4936,7 +4936,7 @@ static int process_type2_route(struct peer *peer, afi_t afi, safi_t safi,
 	if (attr)
 		bgp_update(peer, (struct prefix *)&p, addpath_id, attr, afi,
 			   safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd,
-			   &label[0], num_labels, 0, NULL);
+			   &label[0], num_labels, 0, NULL, NULL);
 	else
 		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, afi, safi,
 			     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, &label[0],
@@ -5026,7 +5026,7 @@ static int process_type3_route(struct peer *peer, afi_t afi, safi_t safi,
 	if (attr)
 		bgp_update(peer, (struct prefix *)&p, addpath_id, attr, afi,
 			   safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL,
-			   0, 0, NULL);
+			   0, 0, NULL, NULL);
 	else
 		bgp_withdraw(peer, (struct prefix *)&p, addpath_id, afi, safi,
 			     ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, NULL, 0);
@@ -5159,7 +5159,7 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 	if (attr && is_valid_update)
 		bgp_update(peer, (struct prefix *)&p, addpath_id, attr, afi,
 			   safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd,
-			   &label, 1, 0, evpn);
+			   &label, 1, 0, evpn, NULL);
 	else {
 		if (!is_valid_update) {
 			char attr_str[BUFSIZ] = {0};

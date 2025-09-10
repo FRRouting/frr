@@ -136,7 +136,11 @@ struct bgp_attr_srv6_l3vpn {
 	uint8_t transposition_offset;
 };
 
-/* BGP core attribute structure. */
+/*
+ * BGP core attribute structure.
+ * If you add/remove a sub-object in this struct, update the bgp_attr_ref
+ * appropriately to keep in sync with attr lifecycle.
+ */
 struct attr {
 	/* AS Path structure */
 	struct aspath *aspath;
@@ -399,6 +403,7 @@ extern void bgp_dump_routes_attr(struct stream *s, struct bgp_path_info *bpi,
 				 const struct prefix *p);
 extern bool attrhash_cmp(const void *arg1, const void *arg2);
 extern unsigned int attrhash_key_make(const void *p);
+extern void bgp_attr_ref(struct attr *attr);
 extern void attr_show_all(struct vty *vty, bool summary);
 extern unsigned long int attr_count(void);
 extern unsigned long int attr_unknown_count(void);

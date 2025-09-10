@@ -1053,6 +1053,74 @@ static void attrhash_init(void)
 }
 
 /*
+ * Increment the refcnt for intern'd attr and its intern'd subs
+ * If any intern'd sub-object in 'struct attr' is added/deleted, update this function
+ */
+void bgp_attr_ref(struct attr *attr)
+{
+	struct community *comm = bgp_attr_get_community(attr);
+	struct ecommunity *ecomm = bgp_attr_get_ecommunity(attr);
+	struct ecommunity *v6ecomm = bgp_attr_get_ipv6_ecommunity(attr);
+	struct lcommunity *lcomm = bgp_attr_get_lcommunity(attr);
+	struct cluster_list *cluster = bgp_attr_get_cluster(attr);
+	struct transit *transit = bgp_attr_get_transit(attr);
+	struct bgp_route_evpn *bre = bgp_attr_get_evpn_overlay(attr);
+	struct bgp_nhc *nhc = bgp_attr_get_nhc(attr);
+
+	if (!attr)
+		return;
+
+	/* Increment the attr itself */
+	attr->refcnt++;
+
+	/* Increment the attr subs */
+	if (attr->aspath)
+		attr->aspath->refcnt++;
+
+#ifdef ENABLE_BGP_VNC
+	struct bgp_attr_encap_subtlv *vnc_subtlvs = bgp_attr_get_vnc_subtlvs(attr);
+#endif
+
+	if (comm)
+		comm->refcnt++;
+
+	if (ecomm)
+		ecomm->refcnt++;
+
+	if (v6ecomm)
+		v6ecomm->refcnt++;
+
+	if (lcomm)
+		lcomm->refcnt++;
+
+	if (cluster)
+		cluster->refcnt++;
+
+	if (transit)
+		transit->refcnt++;
+
+	if (attr->encap_subtlvs)
+		attr->encap_subtlvs->refcnt++;
+
+	if (bre)
+		bre->refcnt++;
+
+	if (attr->srv6_l3vpn)
+		attr->srv6_l3vpn->refcnt++;
+
+	if (attr->srv6_vpn)
+		attr->srv6_vpn->refcnt++;
+
+#ifdef ENABLE_BGP_VNC
+	if (vnc_subtlvs)
+		vnc_subtlvs->refcnt++;
+#endif
+
+	if (nhc)
+		nhc->refcnt++;
+}
+
+/*
  * special for hash_clean below
  */
 static void attr_vfree(void *attr)
