@@ -295,7 +295,7 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	 * pretend like the route is offloaded so everything
 	 * else will work
 	 */
-	if (zrouter.asic_offloaded)
+	if (zrouter.zav.asic_offloaded)
 		flags |= ZEBRA_FLAG_OFFLOADED;
 
 	/*
