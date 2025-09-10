@@ -124,7 +124,7 @@ def parse_frr_bgp_evpn_mac_ip_zsend(event):
         "ip": print_ip_addr,
         "mac": print_mac,
         "esi": print_esi,
-        "vtep": print_net_ipv4_addr,
+        "vtep": print_ip_addr,
     }
 
     parse_event(event, field_parsers)
@@ -243,7 +243,7 @@ def parse_frr_bgp_evpn_local_vni_add_zrecv(event):
     ctf_integer_network_hex(unsigned int, vtep, vtep.s_addr)
     ctf_integer_network_hex(unsigned int, mc_grp, mc_grp.s_addr)
     """
-    field_parsers = {"vtep": print_net_ipv4_addr,
+    field_parsers = {"vtep": print_ip_addr,
                      "mc_grp": print_net_ipv4_addr}
 
     parse_event(event, field_parsers)
@@ -257,7 +257,7 @@ def parse_frr_bgp_evpn_local_l3vni_add_zrecv(event):
     ctf_array(unsigned char, vrr_rmac, vrr_rmac, sizeof(struct ethaddr))
     """
     field_parsers = {
-        "vtep": print_net_ipv4_addr,
+        "vtep": print_ip_addr,
         "svi_rmac": print_mac,
         "vrr_rmac": print_mac,
     }
