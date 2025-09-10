@@ -61,7 +61,7 @@ enum BMP_State {
  * instead moved to the end of the queue.  This ensures that the queue size is
  * bounded by the BGP table size.
  *
- * bmp_qlist is the queue itself while bmp_qhash is used to efficiently check
+ * bmp_qlist is the queue itself while bmp_rbtree is used to efficiently check
  * whether a tuple is already on the list.  The queue is maintained per
  * bmp_target.
  *
@@ -72,11 +72,11 @@ enum BMP_State {
  */
 
 PREDECL_DLIST(bmp_qlist);
-PREDECL_HASH(bmp_qhash);
+PREDECL_RBTREE_UNIQ(bmp_rbtree);
 
 struct bmp_queue_entry {
 	struct bmp_qlist_item bli;
-	struct bmp_qhash_item bhi;
+	struct bmp_rbtree_item bhi;
 
 	uint32_t addpath_id;
 
@@ -268,13 +268,13 @@ struct bmp_targets {
 	struct event *t_stats;
 	struct bmp_session_head sessions;
 
-	struct bmp_qhash_head mon_in_updhash;
+	struct bmp_rbtree_head mon_in_updhash;
 	struct bmp_qlist_head mon_in_updlist;
 
-	struct bmp_qhash_head mon_loc_updhash;
+	struct bmp_rbtree_head mon_loc_updhash;
 	struct bmp_qlist_head mon_loc_updlist;
 
-	struct bmp_qhash_head mon_out_updhash;
+	struct bmp_rbtree_head mon_out_updhash;
 	struct bmp_qlist_head mon_out_updlist;
 
 	struct bmp_imported_bgps_head imported_bgps;
