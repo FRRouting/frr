@@ -853,9 +853,8 @@ void zebra_evpn_print_mac_hash(struct hash_bucket *bucket, void *ctxt)
 
 		zebra_evpn_mac_get_access_info(mac, &ifp, &vid);
 		if (json_mac_hdr == NULL) {
-			vty_out(vty, "%-17s %-6s %-5s %-30s", buf1, "local",
-				zebra_evpn_print_mac_flags(mac, flags_buf,
-							   sizeof(flags_buf)),
+			vty_out(vty, "%-17s %-6s %-5s %-39s", buf1, "local",
+				zebra_evpn_print_mac_flags(mac, flags_buf, sizeof(flags_buf)),
 				ifp ? ifp->name : "-");
 		} else {
 			json_object_string_add(json_mac, "type", "local");
@@ -901,20 +900,16 @@ void zebra_evpn_print_mac_hash(struct hash_bucket *bucket, void *ctxt)
 			if (CHECK_FLAG(wctx->flags, SHOW_REMOTE_MAC_FROM_VTEP) &&
 			    (wctx->count == 0)) {
 				vty_out(vty, "\nVNI %u\n\n", wctx->zevpn->vni);
-				vty_out(vty, "%-17s %-6s %-5s%-30s %-5s %s\n",
-					"MAC", "Type", "Flags",
-					"Intf/Remote ES/VTEP", "VLAN",
-					"Seq #'s");
+				vty_out(vty, "%-17s %-6s %-5s %-39s %-5s %s\n", "MAC", "Type",
+					"Flags", "Intf/Remote ES/VTEP", "VLAN", "Seq #'s");
 			}
 			if (mac->es == NULL)
 				ipaddr2str(&mac->fwd_info.r_vtep_ip, addr_buf, sizeof(addr_buf));
 
-			vty_out(vty, "%-17s %-6s %-5s %-30s %-5s %u/%u\n", buf1,
-				"remote",
-				zebra_evpn_print_mac_flags(mac, flags_buf,
-							   sizeof(flags_buf)),
-				mac->es ? mac->es->esi_str : addr_buf, "",
-				mac->loc_seq, mac->rem_seq);
+			vty_out(vty, "%-17s %-6s %-5s %-39s %-5s %u/%u\n", buf1, "remote",
+				zebra_evpn_print_mac_flags(mac, flags_buf, sizeof(flags_buf)),
+				mac->es ? mac->es->esi_str : addr_buf, "", mac->loc_seq,
+				mac->rem_seq);
 		} else {
 			json_mac = json_object_new_object();
 
