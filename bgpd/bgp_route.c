@@ -5464,6 +5464,10 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		bgp_attr_set_ecommunity(&new_attr, new_ecomm);
 	}
 
+	/* Link the derived 'new_attr' with the NLRI-scoped parsed attr
+	 * so bgp_attr_intern() can reuse as required
+	 */
+	new_attr.attr_intern_reuse.parsed_attr = attr;
 	attr_new = bgp_attr_intern(&new_attr);
 
 	/* Use new evpn overlay pointer */
@@ -5531,7 +5535,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			}
 
 			bgp_dest_unlock_node(dest);
-			bgp_attr_unintern(&attr_new);
+			bgp_attr_unintern_clear_reuse(attr, &attr_new);
 			if (p_evpn)
 				evpn_overlay_free(p_evpn);
 			return;
@@ -5664,7 +5668,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		}
 
 		/* Update to new attribute.  */
-		bgp_attr_unintern(&pi->attr);
+		bgp_attr_unintern_clear_reuse(attr, &pi->attr);
 		pi->attr = attr_new;
 
 		/* Update MPLS label */
@@ -7375,6 +7379,11 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 	addpath_id = 0;
 	addpath_capable = bgp_addpath_encode_rx(peer, afi, safi);
 
+	/* cache the incoming attr to avoid repeated intern */
+	if (attr) {
+		memset(&attr->attr_intern_reuse, 0, sizeof(attr->attr_intern_reuse));
+		attr->attr_intern_reuse.parsed_attr = attr;
+	}
 	/* RFC4271 6.3 The NLRI field in the UPDATE message is checked for
 	   syntactic validity.  If the field is syntactically incorrect,
 	   then the Error Subcode is set to Invalid Network Field. */
@@ -7488,6 +7497,10 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 		if (CHECK_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW))
 			return BGP_NLRI_PARSE_ERROR_PREFIX_OVERFLOW;
 	}
+
+	/* Reset the attr_intern_reuse cache */
+	if (attr)
+		memset(&attr->attr_intern_reuse, 0, sizeof(attr->attr_intern_reuse));
 
 	/* Packet length consistency check. */
 	if (pnt != lim) {
