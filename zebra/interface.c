@@ -2598,7 +2598,7 @@ static void zebra_vxlan_if_dump_vty(struct vty *vty, struct zebra_if *zebra_if)
 	vni_info = &vxlan_info->vni_info;
 
 	if (!ipaddr_is_zero(&vxlan_info->vtep_ip))
-		vty_out(vty, " VTEP IP: %pIA", &vxlan_info->vtep_ip);
+		vty_out(vty, "  VTEP IP: %pIA", &vxlan_info->vtep_ip);
 
 	if (vxlan_info->ifindex_link && (vxlan_info->link_nsid != NS_UNKNOWN)) {
 		struct interface *ifp;
