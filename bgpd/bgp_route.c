@@ -15841,10 +15841,7 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 
 	if (!peer || !peer->afc[afi][safi]) {
 		if (use_json) {
-			json_object_string_add(
-				json, "warning",
-				"No such neighbor or address family");
-			vty_out(vty, "%s\n", json_object_to_json_string(json));
+			vty_out(vty, "  \"warning\": \"No such neighbor or address family\"\n");
 			json_object_free(json);
 			json_object_free(json_ar);
 		} else
@@ -15858,10 +15855,8 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 	    && !CHECK_FLAG(peer->af_flags[afi][safi],
 			   PEER_FLAG_SOFT_RECONFIG)) {
 		if (use_json) {
-			json_object_string_add(
-				json, "warning",
-				"Inbound soft reconfiguration not enabled");
-			vty_out(vty, "%s\n", json_object_to_json_string(json));
+			vty_out(vty,
+				"  \"warning\": \"Inbound soft reconfiguration not enabled\"\n");
 			json_object_free(json);
 			json_object_free(json_ar);
 		} else
@@ -16136,14 +16131,16 @@ DEFPY(show_ip_bgp_instance_neighbor_advertised_route,
 	if (!all) {
 		if (uj)
 			if (type == bgp_show_adj_route_advertised ||
-			    type == bgp_show_adj_route_received)
+			    type == bgp_show_adj_route_received ||
+			    type == bgp_show_adj_route_filtered)
 				vty_out(vty, "{\n");
 
 		ret = peer_adj_routes(vty, peer, afi, safi, type, route_map,
 				      prefix_str ? prefix : NULL, show_flags);
 		if (uj)
 			if (type == bgp_show_adj_route_advertised ||
-			    type == bgp_show_adj_route_received)
+			    type == bgp_show_adj_route_received ||
+			    type == bgp_show_adj_route_filtered)
 				vty_out(vty, "}\n");
 
 		return ret;
