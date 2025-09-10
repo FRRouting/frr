@@ -313,10 +313,10 @@ static void bgp_srv6_sids_unset(struct bgp *bgp)
 			/* bgp_vrf has an active locator, we have to keep it */
 			continue;
 
-		if (bgp_vrf->vpn_policy[AFI_IP].tovpn_sid)
+		if (bgp_vrf->vpn_policy[AFI_IP].tovpn_sid || bgp_vrf->tovpn_sid)
 			vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(),
 					   bgp_vrf);
-		if (bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid)
+		if (bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid || bgp_vrf->tovpn_sid)
 			vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(),
 					   bgp_vrf);
 	}
