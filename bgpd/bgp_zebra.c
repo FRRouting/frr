@@ -3283,9 +3283,8 @@ static int bgp_zebra_process_local_l3vni(ZAPI_CALLBACK_ARGS)
 				   vrf_id_to_name(vrf_id), l3vni, &originator_ip, &svi_rmac,
 				   &vrr_rmac, filter ? "prefix-routes-only" : "none", svi_ifindex);
 
-		frrtrace(8, frr_bgp, evpn_local_l3vni_add_zrecv, l3vni, vrf_id,
-			 &svi_rmac, &vrr_rmac, filter, originator_ip,
-			 svi_ifindex, is_anycast_mac);
+		frrtrace(8, frr_bgp, evpn_local_l3vni_add_zrecv, l3vni, vrf_id, &svi_rmac,
+			 &vrr_rmac, filter, &originator_ip, svi_ifindex, is_anycast_mac);
 
 		bgp_evpn_local_l3vni_add(l3vni, vrf_id, &svi_rmac, &vrr_rmac, &originator_ip,
 					 filter, svi_ifindex, is_anycast_mac);
@@ -3342,8 +3341,8 @@ static int bgp_zebra_process_local_vni(ZAPI_CALLBACK_ARGS)
 	}
 
 	if (cmd == ZEBRA_VNI_ADD) {
-		frrtrace(4, frr_bgp, evpn_local_vni_add_zrecv, vni, vtep_ip,
-			 tenant_vrf_id, mcast_grp);
+		frrtrace(4, frr_bgp, evpn_local_vni_add_zrecv, vni, &vtep_ip, tenant_vrf_id,
+			 mcast_grp);
 
 		return bgp_evpn_local_vni_add(bgp, vni, &vtep_ip, tenant_vrf_id, mcast_grp,
 					      svi_ifindex);
