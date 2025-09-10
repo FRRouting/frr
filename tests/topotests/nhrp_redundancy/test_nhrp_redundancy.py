@@ -205,7 +205,7 @@ def ping_test(source_router, target_ip, count=1000, description=""):
 def setup_module(mod):
     logger.info("NHRP Redundant NHS:\n {}".format(TOPOLOGY))
 
-    result = required_linux_kernel_version("5.0")
+    result = required_linux_kernel_version("4.18")
     if result is not True:
         pytest.skip("Kernel requirements are not met")
 
