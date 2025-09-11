@@ -614,7 +614,6 @@ const char *const peer_down_str[] = {
 	"Waiting for VRF to be initialized",
 	"No AFI/SAFI activated for peer",
 	"AS Set config change",
-	"Waiting for peer OPEN",
 	"Reached received prefix count",
 	"Socket Error",
 	"Admin. shutdown (RTT)",
@@ -2395,9 +2394,6 @@ bgp_establish(struct peer_connection *connection)
 	/* Increment established count. */
 	peer->established++;
 	bgp_fsm_change_status(connection, Established);
-
-	if (peer->last_reset == PEER_DOWN_WAITING_OPEN)
-		peer->last_reset = 0;
 
 	/* bgp log-neighbor-changes of neighbor Up */
 	if (CHECK_FLAG(peer->bgp->flags, BGP_FLAG_LOG_NEIGHBOR_CHANGES)) {
