@@ -214,7 +214,6 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	from_peer->last_event = last_evt;
 	from_peer->last_major_event = last_maj_evt;
 	peer->remote_id = from_peer->remote_id;
-	peer->last_reset = from_peer->last_reset;
 	peer->max_packet_size = from_peer->max_packet_size;
 
 	BGP_GR_ROUTER_DETECT_AND_SEND_CAPABILITY_TO_ZEBRA(peer->bgp,
