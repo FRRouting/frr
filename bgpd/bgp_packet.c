@@ -1023,6 +1023,8 @@ static void bgp_notify_send_internal(struct peer_connection *connection,
 				peer->last_reset = PEER_DOWN_RTT_SHUTDOWN;
 			else
 				peer->last_reset = PEER_DOWN_USER_SHUTDOWN;
+		} else if (sub_code == BGP_NOTIFY_CEASE_MAX_PREFIX) {
+			peer->last_reset = PEER_DOWN_PFX_COUNT;
 		} else
 			peer->last_reset = PEER_DOWN_NOTIFY_SEND;
 	} else
