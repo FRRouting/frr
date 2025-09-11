@@ -5324,6 +5324,9 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 
 	attr_new = bgp_attr_intern(&new_attr);
 
+	/* Use new evpn overlay pointer */
+	evpn = bgp_attr_get_evpn_overlay(attr_new);
+
 	/* If the update is implicit withdraw. */
 	if (pi) {
 		pi->uptime = monotime(NULL);
