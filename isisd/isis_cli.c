@@ -3719,8 +3719,8 @@ DEFPY_YANG_NOSH(flex_algo, flex_algo_cmd, "flex-algo (128-255)$algorithm",
 	int ret;
 	char xpath[XPATH_MAXLEN + 37];
 
-	snprintf(xpath, sizeof(xpath), "%s/flex-algos/flex-algo[flex-algo='%" PRId64 "']",
-		 VTY_CURR_XPATH, algorithm);
+	snprintfrr(xpath, sizeof(xpath), "%s/flex-algos/flex-algo[flex-algo='%" PRId64 "']",
+		   VTY_CURR_XPATH, algorithm);
 
 	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
 
@@ -3739,8 +3739,8 @@ DEFPY_YANG(no_flex_algo, no_flex_algo_cmd, "no flex-algo (128-255)$algorithm",
 {
 	char xpath[XPATH_MAXLEN + 37];
 
-	snprintf(xpath, sizeof(xpath), "%s/flex-algos/flex-algo[flex-algo='%'" PRId64 "']",
-		 VTY_CURR_XPATH, algorithm);
+	snprintfrr(xpath, sizeof(xpath), "%s/flex-algos/flex-algo[flex-algo='%'" PRId64 "']",
+		   VTY_CURR_XPATH, algorithm);
 
 	if (!yang_dnode_exists(vty->candidate_config->dnode, xpath)) {
 		vty_out(vty, "ISIS flex-algo %" PRId64 " isn't exist.\n", algorithm);

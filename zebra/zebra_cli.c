@@ -1318,9 +1318,9 @@ DEFPY_YANG (ipv6_nd_ra_interval,
 
 	if (!no) {
 		if (sec)
-			snprintf(value, sizeof(value), "%" PRIu64, sec * 1000);
+			snprintfrr(value, sizeof(value), "%" PRIu64, sec * 1000);
 		else
-			snprintf(value, sizeof(value), "%" PRIu64, msec);
+			snprintfrr(value, sizeof(value), "%" PRIu64, msec);
 
 		nb_cli_enqueue_change(vty,
 				      "./frr-zebra:zebra/ipv6-router-advertisements/max-rtr-adv-interval",
