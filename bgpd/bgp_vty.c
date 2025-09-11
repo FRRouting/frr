@@ -12308,7 +12308,7 @@ static void bgp_show_failed_summary(struct vty *vty, struct bgp *bgp,
 			    use_json, json_peer);
 		if (peer_established(peer->connection))
 			json_object_string_add(json_peer, "lastResetDueTo",
-					       "AFI/SAFI Not Negotiated");
+					       peer_down_str[peer->last_reset]);
 		else
 			bgp_show_peer_reset(NULL, peer, json_peer, true);
 	} else {
@@ -12330,7 +12330,7 @@ static void bgp_show_failed_summary(struct vty *vty, struct bgp *bgp,
 			peer_uptime(peer->uptime, timebuf,
 				    BGP_UPTIME_LEN, 0, NULL));
 		if (peer_established(peer->connection))
-			vty_out(vty, "  AFI/SAFI Not Negotiated\n");
+			vty_out(vty, "  %s\n", peer_down_str[peer->last_reset]);
 		else
 			bgp_show_peer_reset(vty, peer, NULL,
 					    false);
