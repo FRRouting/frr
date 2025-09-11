@@ -972,6 +972,18 @@ struct nbr_connected *nbr_connected_check(struct interface *ifp,
 	return NULL;
 }
 
+/* Return true if there is at least one connected address in the given family  */
+bool if_has_connected_with_family(struct interface *ifp, int family)
+{
+	struct connected *connected;
+
+	frr_each (if_connected, ifp->connected, connected)
+		if (connected->address->family == family)
+			return true;
+
+	return false;
+}
+
 /* count the number of connected addresses that are in the given family */
 unsigned int connected_count_by_family(struct interface *ifp, int family)
 {
