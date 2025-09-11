@@ -4717,6 +4717,9 @@ static const char *rib_update_event2str(enum rib_update_event event)
 	case RIB_UPDATE_OTHER:
 		ret = "RIB_UPDATE_OTHER";
 		break;
+	case RIB_UPDATE_KERNEL_LAST_ADDRESS_DELETED:
+		ret = "RIB_UPDATE_KERNEL_LAST_ADDRESS_DELETED";
+		break;
 	case RIB_UPDATE_MAX:
 		break;
 	}
@@ -4739,7 +4742,7 @@ rib_update_handle_kernel_route_down_possibility(struct route_node *rn,
 	bool alive = false;
 
 	for (ALL_NEXTHOPS(re->nhe->nhg, nexthop)) {
-		if (!nexthop->ifindex) {
+		if (!nexthop->ifindex || nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {
 			/* blackhole nexthops have no interfaces */
 			alive = true;
 			break;
@@ -4748,10 +4751,36 @@ rib_update_handle_kernel_route_down_possibility(struct route_node *rn,
 		struct interface *ifp = if_lookup_by_index(nexthop->ifindex,
 							   nexthop->vrf_id);
 
-		if ((ifp && if_is_up(ifp)) || nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {
+		if (!ifp || !if_is_up(ifp)) {
+			/* interface is not up, not alive */
+			continue;
+		}
+
+		/*
+		 * Kernel deletes IPv4 routes from interface when last IPv4 address is deleted
+		 * It is not important whether nexthop is reachable after address
+		 * is deleted - route is deleted only after last address deletion.
+		 *
+		 * See net/ipv4/fib_frontend.c fib_inetaddr_event,
+		 * net/ipv4/fib_semantics.c fib_sync_down_dev
+		 */
+
+		/* If not IPv4, set alive
+		 * Check rn->p->family: for nexthop->type=NEXTHOP_TYPE_IFINDEX it
+		 * depends on destination only
+		 */
+		if (rn->p.family != AF_INET) {
 			alive = true;
 			break;
 		}
+
+		/* Check if there are any IPv4 addresses connected, if yes - set alive */
+		if (if_has_connected_with_family(ifp, AF_INET)) {
+			alive = true;
+			break;
+		}
+
+		/* Otherwise kernel deletes the route */
 	}
 
 	if (!alive) {
@@ -4776,8 +4805,9 @@ static void rib_update_route_node(struct route_node *rn, int type,
 	bool re_changed = false;
 
 	RNODE_FOREACH_RE_SAFE (rn, re, next) {
-		if (event == RIB_UPDATE_INTERFACE_DOWN && type == re->type &&
-		    type == ZEBRA_ROUTE_KERNEL)
+		if ((event == RIB_UPDATE_INTERFACE_DOWN ||
+		     event == RIB_UPDATE_KERNEL_LAST_ADDRESS_DELETED) &&
+		    type == re->type && type == ZEBRA_ROUTE_KERNEL)
 			rib_update_handle_kernel_route_down_possibility(rn, re);
 		else if (type == ZEBRA_ROUTE_ALL || type == re->type) {
 			SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
@@ -4820,17 +4850,18 @@ void rib_update_table(struct route_table *table, enum rib_update_event event,
 		 * If we are looking at a route node and the node
 		 * has already been queued  we don't
 		 * need to queue it up again, unless it is
-		 * an interface down event as that we need
-		 * to process this no matter what.
+		 * an interface down event or last address down event
+		 * as that we need
+		 * to process these no matter what.
 		 */
-		if (rn->info &&
-		    CHECK_FLAG(rib_dest_from_rnode(rn)->flags,
-			       RIB_ROUTE_ANY_QUEUED) &&
-		    event != RIB_UPDATE_INTERFACE_DOWN)
+		if (rn->info && CHECK_FLAG(rib_dest_from_rnode(rn)->flags, RIB_ROUTE_ANY_QUEUED) &&
+		    event != RIB_UPDATE_INTERFACE_DOWN &&
+		    event != RIB_UPDATE_KERNEL_LAST_ADDRESS_DELETED)
 			continue;
 
 		switch (event) {
 		case RIB_UPDATE_INTERFACE_DOWN:
+		case RIB_UPDATE_KERNEL_LAST_ADDRESS_DELETED:
 		case RIB_UPDATE_KERNEL:
 			rib_update_route_node(rn, ZEBRA_ROUTE_KERNEL, event);
 			break;
