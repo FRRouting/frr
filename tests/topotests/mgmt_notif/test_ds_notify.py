@@ -79,11 +79,6 @@ def test_frontend_datastore_notification(tgen):
 
     check_kernel_32(r1, "11.11.11.11", 1, "")
 
-    rc, _, _ = r1.cmd_status(FE_CLIENT + " --help")
-
-    if rc:
-        pytest.skip("No protoc or present cannot run test")
-
     # Start our FE client in the background
     p = r1.popen(
         [
@@ -225,10 +220,6 @@ def test_datastore_backend_filters(tgen):
     r1 = tgen.gears["r1"].net
 
     check_kernel_32(r1, "11.11.11.11", 1, "")
-
-    rc, _, _ = r1.cmd_status(FE_CLIENT + " --help")
-    if rc:
-        pytest.skip("No protoc or present cannot run test")
 
     # Start our FE client in the background
     p = r1.popen(
