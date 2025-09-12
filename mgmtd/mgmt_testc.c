@@ -86,7 +86,7 @@ static const struct frr_yang_module_info frr_if_info = {
 	.ignore_cfg_cbs = true,
 	.nodes = {
 		{
-			.xpath = "/frr-interface:lib/interface",
+			.xpath = "/frr-interface:lib",
 			.cbs.notify = async_notification,
 		},
 		{
