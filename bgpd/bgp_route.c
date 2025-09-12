@@ -5232,6 +5232,11 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	    == RMAP_DENY) {
 		peer->stat_pfx_filter++;
 		reason = "route-map;";
+		/* `bgp_attr_flush` will release evpn_overlay, but it may
+		 * still be referenced from `attr`. So better unset it from
+		 * `new_attr` before flushing.
+		 */
+		bgp_attr_set_evpn_overlay(&new_attr, NULL);
 		bgp_attr_flush(&new_attr);
 		goto filtered;
 	}
