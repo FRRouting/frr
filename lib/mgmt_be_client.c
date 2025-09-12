@@ -905,8 +905,9 @@ static void be_client_handle_notify(struct mgmt_be_client *client, void *msgbuf,
 				    size_t msg_len)
 {
 	struct mgmt_msg_notify_data *notif_msg = msgbuf;
-	struct nb_node *nb_node, *nb_parent;
 	struct lyd_node *dnode = NULL;
+	const struct lysc_node *snode;
+	struct nb_node *nb_node;
 	const char *data = NULL;
 	const char *notif;
 	bool is_yang_notify;
@@ -942,15 +943,16 @@ static void be_client_handle_notify(struct mgmt_be_client *client, void *msgbuf,
 		 * See if a parent has a callback, this is so backend's can
 		 * listen for changes on an entire datastore sub-tree.
 		 */
-		for (nb_parent = nb_node->parent; nb_parent; nb_parent = nb_node->parent)
-			if (nb_parent->cbs.notify)
+		snode = nb_node->snode;
+		for (snode = snode->parent; snode; snode = snode->parent)
+			if (((struct nb_node *)snode->priv)->cbs.notify)
 				break;
-		if (!nb_parent) {
+		if (!snode) {
 			debug_be_client("Including parents, no DS notification callback for: %s",
 					notif);
 			return;
 		}
-		nb_node = nb_parent;
+		nb_node = (struct nb_node *)snode->priv;
 	}
 
 	if (data && is_yang_notify) {
