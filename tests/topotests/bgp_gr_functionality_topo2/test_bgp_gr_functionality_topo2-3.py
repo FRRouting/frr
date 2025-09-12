@@ -957,6 +957,9 @@ def test_BGP_GR_15_p2(request):
     input_dict = {
         "r1": {
             "bgp": {
+                "graceful-restart": {
+                    "preserve-fw-state": True,
+                },
                 "address_family": {
                     "ipv4": {
                         "unicast": {
@@ -1023,6 +1026,9 @@ def test_BGP_GR_15_p2(request):
     input_dict = {
         "r1": {
             "bgp": {
+                "graceful-restart": {
+                    "preserve-fw-state": True,
+                },
                 "address_family": {
                     "ipv4": {
                         "unicast": {
