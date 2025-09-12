@@ -4929,11 +4929,16 @@ static bool bgp_accept_own(struct peer *peer, afi_t afi, safi_t safi,
 	return false;
 }
 
-static inline void
-bgp_update_nexthop_reachability_check(struct bgp *bgp, struct peer *peer, struct bgp_dest *dest,
-				      const struct prefix *p, afi_t afi, safi_t safi,
-				      struct bgp_path_info *pi, struct attr *attr_new,
-				      const struct prefix *bgp_nht_param_prefix, bool accept_own)
+/* update path flags: accept own, and valid flag.
+ * - accept_own flag is marked if valid flag is marked
+ * - valid flag is marked if reachability check is ok
+ */
+static inline void bgp_update_check_valid_flags(struct bgp *bgp, struct peer *peer,
+						struct bgp_dest *dest, const struct prefix *p,
+						afi_t afi, safi_t safi, struct bgp_path_info *pi,
+						struct attr *attr_new,
+						const struct prefix *bgp_nht_param_prefix,
+						bool accept_own)
 {
 	bool connected;
 	afi_t nh_afi;
@@ -5589,10 +5594,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			}
 		}
 
-		bgp_update_nexthop_reachability_check(bgp, peer, dest, p, afi, safi, pi, attr_new,
-						      bgp_nht_param_prefix, accept_own);
-		/* Nexthop reachability check - for unicast and
-		 * labeled-unicast.. */
+		bgp_update_check_valid_flags(bgp, peer, dest, p, afi, safi, pi, attr_new,
+					     bgp_nht_param_prefix, accept_own);
 
 
 #ifdef ENABLE_BGP_VNC
@@ -5697,8 +5700,8 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	bgp_path_info_extra_get(new);
 	new->extra->labels = bgp_labels_intern(&bgp_labels);
 
-	bgp_update_nexthop_reachability_check(bgp, peer, dest, p, afi, safi, new, attr_new,
-					      bgp_nht_param_prefix, accept_own);
+	bgp_update_check_valid_flags(bgp, peer, dest, p, afi, safi, new, attr_new,
+				     bgp_nht_param_prefix, accept_own);
 	/* If maximum prefix count is configured and current prefix
 	 * count exeed it.
 	 */
