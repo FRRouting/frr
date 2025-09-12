@@ -1338,7 +1338,14 @@ def test_BGP_GR_TC_49_p1(request):
     step("Configure R1 as GR restarting node in global level")
 
     input_dict = {
-        "r1": {"bgp": {"graceful-restart": {"graceful-restart": True}}},
+        "r1": {
+            "bgp": {
+                "graceful-restart": {
+                    "graceful-restart": True,
+                    "preserve-fw-state": True,
+                }
+            }
+        },
         "r2": {"bgp": {"graceful-restart": {"graceful-restart-helper": True}}},
     }
 
@@ -1706,7 +1713,9 @@ def test_BGP_GR_TC_53_p1(request):
     step("Configure R1 as GR restarting node in global level")
 
     input_dict = {
-        "r1": {"graceful-restart": {"graceful-restart": True}},
+        "r1": {
+            "graceful-restart": {"graceful-restart": True, "preserve-fw-state": True}
+        },
         "r2": {"graceful-restart": {"graceful-restart-helper": True}},
     }
 
@@ -1714,6 +1723,7 @@ def test_BGP_GR_TC_53_p1(request):
         """
         configure terminal
         bgp graceful-restart
+        bgp graceful-restart preserve-fw-state
         !
         """
     )
