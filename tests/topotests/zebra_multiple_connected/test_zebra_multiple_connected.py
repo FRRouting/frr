@@ -336,6 +336,182 @@ def test_zebra_mtu_single_local_route_per_address():
     assert result is None, "Local route check failed: {}".format(result)
 
 
+def test_zebra_kernel_last_ipv4_address_deleted():
+    "Test that when last IPv4 address is deleted on interface, kernel routes are deleted as well"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+
+    ifname = "dummy0"
+
+    def _get_routes_dict(val):
+        return {
+            "203.0.113.0/24": val,
+            "10.0.170.0/24": val,
+        }
+
+    def _assert_kernel_routes(router, msg, val):
+        routes = topotest.ip4_route(router)
+        expected = _get_routes_dict(val)
+        cmp = topotest.json_cmp(routes, expected)
+        assert cmp is None, msg.format(cmp)
+
+    def _assert_kernel_routes_up(router, msg):
+        _assert_kernel_routes(router, msg, {})
+
+    def _assert_kernel_routes_down(router, msg):
+        _assert_kernel_routes(router, msg, None)
+
+    def _assert_zebra_kernel_routes(router, msg, val):
+        expected = _get_routes_dict(val)
+        test_func = partial(
+            topotest.router_json_cmp, router, "show ip route json", expected
+        )
+        result, _ = topotest.run_and_expect(test_func, None, count=20, wait=1)
+        assert result, msg.format(_)
+
+    def _assert_zebra_kernel_routes_up(router, msg):
+        _assert_zebra_kernel_routes(router, msg, [])
+
+    def _assert_zebra_kernel_routes_down(router, msg):
+        _assert_zebra_kernel_routes(router, msg, None)
+
+    # Prepare scene: create dummy interface
+    # add two addresses, two routes
+    router.run(f"ip link add {ifname} type dummy")
+    router.run(f"ip link set {ifname} up")
+    router.run(f"ip -4 addr add 192.168.0.2/24 dev {ifname}")
+    router.run(f"ip -4 addr add 192.168.100.7/24 dev {ifname}")
+    router.run(f"ip -4 route add 203.0.113.0/24 via 192.168.0.1")
+    router.run(f"ip -4 route add 10.0.170.0/24 dev {ifname}")
+
+    _assert_kernel_routes_up(
+        router, "Unexpected kernel behaviour: routes should have been added:\n{}"
+    )
+    _assert_zebra_kernel_routes_up(router, "Expected zebra to add kernel routes:\n{}")
+
+    # Delete one of two addresses, nothing should change
+    router.run(f"ip -4 addr del 192.168.0.2/24 dev {ifname}")
+
+    _assert_kernel_routes_up(
+        router,
+        "Unexpected kernel behaviour: routes should have been unchanged after not last address deletion:\n{}",
+    )
+    _assert_zebra_kernel_routes_up(
+        router,
+        "Expected zebra not to change kernel routes after not last address deletion:\n{}",
+    )
+
+    # Delete last address, all routes should be gone
+    router.run(f"ip -4 addr del 192.168.100.7/24 dev {ifname}")
+    _assert_kernel_routes_down(
+        router,
+        "Unexpected kernel behaviour: routes should have been deleted after last address deletion:\n{}",
+    )
+    _assert_zebra_kernel_routes_down(
+        router,
+        "Expected zebra to delete kernel routes after last address deletion:\n{}",
+    )
+
+
+def test_zebra_kernel_last_ipv6_address_deleted():
+    "Test that both kernel and FRR don't delete route when last address is deleted for IPv6"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r1"]
+
+    ifname = "dummy0"
+
+    def _get_routes_dict(val):
+        return {
+            "2001:db8:c::/64": val,
+            "2001:db8:d::/64": val,
+        }
+
+    def _assert_kernel_routes(router, msg, val):
+        routes = topotest.ip6_route(router)
+        expected = _get_routes_dict(val)
+        cmp = topotest.json_cmp(routes, expected)
+        assert cmp is None, msg.format(cmp)
+
+    def _assert_kernel_routes_up(router, msg):
+        _assert_kernel_routes(router, msg, {})
+
+    def _assert_kernel_routes_down(router, msg):
+        _assert_kernel_routes(router, msg, None)
+
+    def _assert_zebra_kernel_routes(router, msg, val):
+        expected = _get_routes_dict(val)
+        test_func = partial(
+            topotest.router_json_cmp, router, "show ipv6 route json", expected
+        )
+        result, _ = topotest.run_and_expect(test_func, None, count=20, wait=1)
+        assert result, msg.format(_)
+
+    def _assert_zebra_kernel_routes_up(router, msg):
+        _assert_zebra_kernel_routes(router, msg, [])
+
+    def _assert_zebra_kernel_routes_down(router, msg):
+        _assert_zebra_kernel_routes(router, msg, None)
+
+    # Prepare scene: create dummy interface
+    # add two addresses, two routes
+    router.run(f"ip link add {ifname} type dummy")
+    router.run(f"ip link set {ifname} up")
+    # clear scope link address
+    router.run(f"ip -6 addr flush dev {ifname}")
+    router.run(f"ip -6 addr add 2001:db8:a::2/64 dev {ifname}")
+    router.run(f"ip -6 addr add 2001:db8:b::7/64 dev {ifname}")
+    router.run(f"ip -6 route add 2001:db8:c::/64 via 2001:db8:a::1")
+    router.run(f"ip -6 route add 2001:db8:d::/64 dev {ifname}")
+
+    _assert_kernel_routes_up(
+        router, "Unexpected kernel behaviour: routes should have been added:\n{}"
+    )
+    _assert_zebra_kernel_routes_up(router, "Expected zebra to add kernel routes:\n{}")
+
+    # Delete one of two addresses, nothing should change
+    router.run(f"ip -6 addr del 2001:db8:a::2/64 dev {ifname}")
+
+    _assert_kernel_routes_up(
+        router,
+        "Unexpected kernel behaviour: routes should have been unchanged after first IPv6 address deletion:\n{}",
+    )
+    _assert_zebra_kernel_routes_up(
+        router,
+        "Expected zebra not to change kernel routes after first IPv6 address deletion:\n{}",
+    )
+
+    # Delete last address, but no route changes for IPv6
+    router.run(f"ip -6 addr del 2001:db8:b::7/64 dev {ifname}")
+    _assert_kernel_routes_up(
+        router,
+        "Unexpected kernel behaviour: routes should NOT have been deleted after last IPv6 address deletion:\n{}",
+    )
+    _assert_zebra_kernel_routes_up(
+        router,
+        "Expected zebra NOT to delete kernel routes after last IPv6 address deletion:\n{}",
+    )
+
+    # Delete IPv6 routes manually:
+    router.run(f"ip -6 route del 2001:db8:c::/64 via 2001:db8:a::1")
+    router.run(f"ip -6 route del 2001:db8:d::/64 dev {ifname}")
+    _assert_kernel_routes_down(
+        router,
+        "Unexpected kernel behaviour: routes should have been deleted:\n{}",
+    )
+    _assert_zebra_kernel_routes_down(
+        router,
+        "Expected zebra to delete kernel routes after manual IPv6 routes deletion:\n{}",
+    )
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
