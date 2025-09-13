@@ -2574,8 +2574,10 @@ void bgp_fsm_nht_update(struct peer_connection *connection, struct peer *peer,
 	case Established:
 		if (!has_valid_nexthops
 		    && (peer->gtsm_hops == BGP_GTSM_HOPS_CONNECTED
-			|| peer->bgp->fast_convergence))
+			|| peer->bgp->fast_convergence)) {
 			BGP_EVENT_ADD(connection, TCP_fatal_error);
+			peer->last_reset = PEER_DOWN_WAITING_NHT;
+		}
 		break;
 	case Clearing:
 	case Deleted:
