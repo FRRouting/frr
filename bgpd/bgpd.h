@@ -2010,7 +2010,6 @@ struct peer {
 #define PEER_DOWN_VRF_UNINIT            29U /* Associated VRF is not init yet */
 #define PEER_DOWN_NOAFI_ACTIVATED       30U /* No AFI/SAFI activated for peer */
 #define PEER_DOWN_AS_SETS_REJECT        31U /* Reject routes with AS_SET */
-#define PEER_DOWN_WAITING_OPEN          32U /* Waiting for open to succeed */
 #define PEER_DOWN_PFX_COUNT             33U /* Reached received prefix count */
 #define PEER_DOWN_SOCKET_ERROR          34U /* Some socket error happened */
 #define PEER_DOWN_RTT_SHUTDOWN          35U /* Automatically shutdown due to RTT */
