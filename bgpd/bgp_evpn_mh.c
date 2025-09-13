@@ -2129,6 +2129,8 @@ static void bgp_evpn_mac_update_on_es_oper_chg(struct bgp_evpn_es *es)
 			   es->esi_str);
 
 	bgp = bgp_get_evpn();
+	assert(bgp != NULL);
+
 	for (ALL_LIST_ELEMENTS_RO(es->macip_evi_path_list, node, es_info)) {
 		pi = es_info->pi;
 
