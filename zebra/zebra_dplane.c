@@ -235,6 +235,9 @@ struct dplane_intf_info {
 	uint32_t metric;
 	uint32_t flags;
 
+	bool speed_set;
+	uint32_t speed;
+
 	bool protodown;
 	bool protodown_set;
 	bool pd_reason_val;
@@ -910,6 +913,7 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 		break;
 	case DPLANE_OP_GRE_SET:
 	case DPLANE_OP_INTF_NETCONFIG:
+	case DPLANE_OP_INTF_SPEED:
 	case DPLANE_OP_STARTUP_STAGE:
 	case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
 		break;
@@ -1175,6 +1179,9 @@ const char *dplane_op2str(enum dplane_op_e op)
 		return "INTF_UPDATE";
 	case DPLANE_OP_INTF_DELETE:
 		return "INTF_DELETE";
+
+	case DPLANE_OP_INTF_SPEED:
+		return "INTF_SPEED";
 
 	case DPLANE_OP_TC_QDISC_INSTALL:
 		return "TC_QDISC_INSTALL";
@@ -1778,6 +1785,34 @@ void dplane_ctx_set_ifp_zif_type(struct zebra_dplane_ctx *ctx,
 	DPLANE_CTX_VALID(ctx);
 
 	ctx->u.intf.zif_type = zif_type;
+}
+
+void dplane_ctx_set_ifp_speed_set(struct zebra_dplane_ctx *ctx, bool set)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.intf.speed_set = set;
+}
+
+bool dplane_ctx_get_ifp_speed_set(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.intf.speed_set;
+}
+
+void dplane_ctx_set_ifp_speed(struct zebra_dplane_ctx *ctx, uint32_t speed)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.intf.speed = speed;
+}
+
+uint32_t dplane_ctx_get_ifp_speed(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.intf.speed;
 }
 
 void dplane_ctx_set_ifname(struct zebra_dplane_ctx *ctx, const char *ifname)
@@ -5507,6 +5542,32 @@ enum zebra_dplane_result dplane_intf_update(const struct interface *ifp)
 }
 
 /*
+ * Enqueue a interface speed query for the dataplane.
+ */
+enum zebra_dplane_result dplane_intf_speed(const struct interface *ifp)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	struct zebra_dplane_ctx *ctx = NULL;
+	int ret;
+
+	ctx = dplane_ctx_alloc();
+	/* set useless fields for speed like protodwn .., to fix ?
+	 * Calling intf_update_internal will update .dg_intfs_in/errors,
+	 * should we have dedicated stats ?
+	 */
+	ret = dplane_ctx_intf_init(ctx, DPLANE_OP_INTF_SPEED, ifp);
+	if (ret == AOK)
+		ret = dplane_update_enqueue(ctx);
+
+	if (ret == AOK)
+		result = ZEBRA_DPLANE_REQUEST_QUEUED;
+	else if (ctx)
+		dplane_ctx_free(&ctx);
+
+	return result;
+}
+
+/*
  * Enqueue vxlan/evpn mac add (or update).
  */
 enum zebra_dplane_result
@@ -7020,6 +7081,13 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 			   dplane_ctx_get_ifindex(ctx),
 			   dplane_ctx_intf_is_protodown(ctx));
 		break;
+	case DPLANE_OP_INTF_SPEED:
+		zlog_debug("Dplane intf %s, idx %u, speed %u",
+			   dplane_op2str(dplane_ctx_get_op(ctx)),
+			   dplane_ctx_get_ifindex(ctx),
+			   dplane_ctx_get_ifp_speed(ctx));
+		break;
+
 
 	/* TODO: more detailed log */
 	case DPLANE_OP_TC_QDISC_INSTALL:
@@ -7216,6 +7284,7 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_INTF_ADDR_ADD:
 	case DPLANE_OP_INTF_ADDR_DEL:
 	case DPLANE_OP_INTF_NETCONFIG:
+	case DPLANE_OP_INTF_SPEED:
 	case DPLANE_OP_VLAN_INSTALL:
 		break;
 
@@ -7257,6 +7326,14 @@ kernel_dplane_process_ipset_entry(struct zebra_dplane_provider *prov,
 	dplane_provider_enqueue_out_ctx(prov, ctx);
 }
 
+static void
+kernel_dplane_process_if_speed(struct zebra_dplane_provider *prov,
+			       struct zebra_dplane_ctx *ctx)
+{
+	zebra_if_speed_process(ctx);
+	dplane_provider_enqueue_out_ctx(prov, ctx);
+}
+
 /*
  * Kernel provider callback
  */
@@ -7291,6 +7368,8 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
 			  || dplane_ctx_get_op(ctx)
 				     == DPLANE_OP_IPSET_ENTRY_DELETE))
 			kernel_dplane_process_ipset_entry(prov, ctx);
+		else if (dplane_ctx_get_op(ctx) == DPLANE_OP_INTF_SPEED)
+			kernel_dplane_process_if_speed(prov, ctx);
 		else
 			dplane_ctx_list_add_tail(&work_list, ctx);
 	}

@@ -256,13 +256,12 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 		ctx, *(uint32_t *)RTA_DATA(attr[IFLA_VRF_TABLE]));
 }
 
-static uint32_t get_iflink_speed(struct interface *interface, int *error)
+static uint32_t get_iflink_speed(vrf_id_t vrf_id, const char *ifname, int *error)
 {
 	struct ifreq ifdata;
 	struct ethtool_cmd ecmd;
 	int sd;
 	int rc;
-	const char *ifname = interface->name;
 	uint32_t ret;
 
 	if (error)
@@ -281,7 +280,7 @@ static uint32_t get_iflink_speed(struct interface *interface, int *error)
 	/* use ioctl to get speed of an interface */
 	frr_with_privs(&zserv_privs) {
 		sd = vrf_socket(PF_INET, SOCK_DGRAM, IPPROTO_IP,
-				interface->vrf->vrf_id, NULL);
+				vrf_id, NULL);
 		if (sd < 0) {
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug("Failure to read interface %s speed: %d %s",
@@ -292,7 +291,7 @@ static uint32_t get_iflink_speed(struct interface *interface, int *error)
 			return 0;
 		}
 		/* Get the current link state for the interface */
-		rc = vrf_ioctl(interface->vrf->vrf_id, sd, SIOCETHTOOL,
+		rc = vrf_ioctl(vrf_id, sd, SIOCETHTOOL,
 			       (char *)&ifdata);
 	}
 	if (rc < 0) {
@@ -320,7 +319,7 @@ static uint32_t get_iflink_speed(struct interface *interface, int *error)
 
 uint32_t kernel_get_speed(struct interface *ifp, int *error)
 {
-	return get_iflink_speed(ifp, error);
+	return get_iflink_speed(ifp->vrf->vrf_id, ifp->name, error);
 }
 
 static ssize_t
@@ -1416,6 +1415,8 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			} else
 				zif_slave_type = ZEBRA_IF_SLAVE_OTHER;
 		}
+		dplane_ctx_set_ifp_speed(ctx, get_iflink_speed(vrf_id, name, NULL));
+		dplane_ctx_set_ifp_speed_set(ctx, true);
 		dplane_ctx_set_ifp_zif_slave_type(ctx, zif_slave_type);
 		dplane_ctx_set_ifp_vrf_id(ctx, vrf_id);
 		dplane_ctx_set_ifp_master_ifindex(ctx, master_infindex);
