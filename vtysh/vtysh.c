@@ -3432,6 +3432,52 @@ DEFUN (vtysh_show_memory,
 	return show_per_daemon(vty, argv, argc, "Memory statistics for %s:\n");
 }
 
+/*
+ * Support clis when using the tcmalloc lib
+ */
+#ifdef HAVE_TCMALLOC
+
+DEFUN (vtysh_show_tcmalloc_stats,
+       vtysh_show_tcmalloc_stats_cmd,
+       "show tcmalloc stats [" DAEMONS_LIST "]",
+       SHOW_STR
+       "tcmalloc library info\n"
+       "Show tcmalloc stats\n"
+       DAEMONS_STR)
+{
+	if (argc == 4)
+		return show_one_daemon(vty, argv, argc - 1, argv[argc - 1]->text);
+
+	return show_per_daemon(vty, argv, argc, "tcmalloc statistics for %s:\n");
+}
+
+DEFUN (vtysh_tcmalloc_config,
+       vtysh_tcmalloc_config_cmd,
+       "memory release rate (0-100)",
+       "memory library config\n"
+       "Release free memory to OS\n"
+       "Set mem release rate (zero to disable)\n"
+       "Set release rate (MB/sec)\n")
+{
+	unsigned int i;
+	int cmd_stat;
+	char *line;
+
+	line = argv_concat(argv, argc, 0);
+
+	for (i = 0; i < array_size(vtysh_client); i++) {
+		cmd_stat = vtysh_client_execute(&vtysh_client[i], line);
+		if (cmd_stat == CMD_WARNING)
+			break;
+	}
+
+	XFREE(MTYPE_TMP, line);
+
+	return CMD_SUCCESS;
+}
+
+#endif /* HAVE_TCMALLOC */
+
 DEFUN (vtysh_show_modules,
        vtysh_show_modules_cmd,
        "show modules",
@@ -5681,6 +5727,12 @@ void vtysh_init_vty(void)
 	install_element(VIEW_NODE, &vtysh_show_event_cpu_cmd);
 	install_element(VIEW_NODE, &vtysh_show_event_poll_cmd);
 	install_element(VIEW_NODE, &vtysh_show_event_timer_cmd);
+
+	/* tcmalloc-specific commands */
+#ifdef HAVE_TCMALLOC
+	install_element(VIEW_NODE, &vtysh_show_tcmalloc_stats_cmd);
+	install_element(CONFIG_NODE, &vtysh_tcmalloc_config_cmd);
+#endif /* HAVE_TCMALLOC */
 
 	/* Logging */
 	install_element(VIEW_NODE, &vtysh_show_logging_cmd);
