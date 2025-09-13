@@ -32,6 +32,7 @@ bfdd=no
 fabricd=no
 vrrpd=no
 pathd=no
+dhcpgwd=no
 
 #
 # If this option is set the /etc/init.d/frr script automatically loads
@@ -60,6 +61,7 @@ bfdd_options="   -A 127.0.0.1"
 fabricd_options="-A 127.0.0.1"
 vrrpd_options="  -A 127.0.0.1"
 pathd_options="  -A 127.0.0.1"
+dhcpgwd_options="-A 127.0.0.1"
 
 
 # If you want to pass a common option to all daemons, you can use the
