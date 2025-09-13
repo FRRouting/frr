@@ -38,6 +38,9 @@ ospfd_libfrrospf_a_SOURCES = \
 	ospfd/ospf_lsa.c \
 	ospfd/ospf_lsdb.c \
 	ospfd/ospf_memory.c \
+	ospfd/ospf_nb.c \
+	ospfd/ospf_nb_config.c \
+	ospfd/ospf_nb_state.c \
 	ospfd/ospf_neighbor.c \
 	ospfd/ospf_network.c \
 	ospfd/ospf_nsm.c \
@@ -80,6 +83,7 @@ clippy_scan += \
 	ospfd/ospf_ldp_sync.c \
 	ospfd/ospf_dump.c \
 	ospfd/ospf_gr.c \
+	ospfd/ospf_cli.c \
 	# end
 
 noinst_HEADERS += \
@@ -94,6 +98,7 @@ noinst_HEADERS += \
 	ospfd/ospf_interface.h \
 	ospfd/ospf_ldp_sync.h \
 	ospfd/ospf_memory.h \
+	ospfd/ospf_nb.h \
 	ospfd/ospf_neighbor.h \
 	ospfd/ospf_network.h \
 	ospfd/ospf_packet.h \

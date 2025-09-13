@@ -35,6 +35,9 @@ const char *mgmt_be_client_names[MGMTD_BE_CLIENT_ID_MAX + 1] = {
 	[MGMTD_BE_CLIENT_ID_TESTC] = "mgmtd-testc", /* always first */
 	[MGMTD_BE_CLIENT_ID_MGMTD] = "mgmtd",	    /* loopback */
 	[MGMTD_BE_CLIENT_ID_ZEBRA] = "zebra",
+#ifdef HAVE_OSPFD
+	[MGMTD_BE_CLIENT_ID_OSPFD] = "ospfd",
+#endif
 #ifdef HAVE_RIPD
 	[MGMTD_BE_CLIENT_ID_RIPD] = "ripd",
 #endif
@@ -109,6 +112,14 @@ static const char *const mgmtd_rpc_xpaths[] = {
 #ifdef HAVE_MGMTD_TESTC
 static const char *const mgmtd_testc_oper_xpaths[] = {
 	"/frr-backend:clients",
+	NULL,
+};
+#endif
+
+#if HAVE_OSPFD
+static const char *const ospfd_oper_xpaths[] = {
+	"/frr-interface:lib/interface/state/frr-ospfd-lite:ospf/state/*",
+	"/frr-ospfd-lite:ospf/instance/state/*",
 	NULL,
 };
 #endif
@@ -209,6 +220,9 @@ static const char *const *be_client_oper_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
 	[MGMTD_BE_CLIENT_ID_STATICD] = staticd_oper_xpaths,
 #endif
 	[MGMTD_BE_CLIENT_ID_ZEBRA] = zebra_oper_xpaths,
+#if HAVE_OSPFD
+	[MGMTD_BE_CLIENT_ID_OSPFD] = ospfd_oper_xpaths,
+#endif
 };
 
 static const char *const *be_client_notif_xpaths[MGMTD_BE_CLIENT_ID_MAX] = {
