@@ -625,6 +625,8 @@ static void nhrp_handle_registration_request(struct nhrp_packet_parser *p)
 	int holdtime, prefix_len, hostprefix_len, natted = 0;
 	size_t paylen;
 	void *pay;
+	bool is_unique = p->hdr->flags & htons(NHRP_FLAG_REGISTRATION_UNIQUE);
+	int cie_count = 0;
 
 	debugf(NHRP_DEBUG_COMMON, "Parsing and replying to Registration Req");
 	hostprefix_len = 8 * sockunion_get_addrlen(&p->if_ad->addr);
@@ -652,7 +654,21 @@ static void nhrp_handle_registration_request(struct nhrp_packet_parser *p)
 
 	while ((cie = nhrp_cie_pull(&payload, hdr, &cie_nbma, &cie_proto))
 	       != NULL) {
+		cie_count++;
+
+		if (cie_count > 1 && is_unique) {
+			debugf(NHRP_DEBUG_COMMON, "RFC violation: More than one CIE in unique registration");
+			cie->code = NHRP_CODE_ADMINISTRATIVELY_PROHIBITED;
+			continue;
+		}
+
 		prefix_len = cie->prefix_length;
+		if (is_unique && prefix_len != 0xFF) {
+			debugf(NHRP_DEBUG_COMMON, "RFC violation: Prefix length must be 0xFF for unique registration");
+			cie->code = NHRP_CODE_ADMINISTRATIVELY_PROHIBITED;
+			continue;
+		}
+
 		if (prefix_len == 0 || prefix_len >= hostprefix_len)
 			prefix_len = hostprefix_len;
 
