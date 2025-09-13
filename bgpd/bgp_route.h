@@ -509,6 +509,21 @@ struct bgp_aggregate {
 	struct route_map *suppress_map;
 };
 
+/* Context used to avoid repeated interning for multiple prefixes per NLRI-section */
+struct bgp_attr_reuse_ctx {
+	bool valid;
+
+	/* parsed attr pointer this cache entry corresponds to (for equality check) */
+	const struct attr *in_attr;
+
+	/* AFI/SAFI of the NLRI section for which reuse applies */
+	afi_t afi;
+	safi_t safi;
+
+	/* interned attr(reference) to reuse during prefix parsing */
+	struct attr *interned;
+};
+
 #define BGP_NEXTHOP_AFI_FROM_NHLEN(nhlen)                                      \
 	((nhlen) < IPV4_MAX_BYTELEN                                            \
 		 ? 0                                                           \
@@ -851,7 +866,8 @@ extern void bgp_update(struct peer *peer, const struct prefix *p,
 		       safi_t safi, int type, int sub_type,
 		       struct prefix_rd *prd, mpls_label_t *label,
 		       uint8_t num_labels, int soft_reconfig,
-		       struct bgp_route_evpn *evpn);
+		       struct bgp_route_evpn *evpn,
+		       struct bgp_attr_reuse_ctx *reuse_ctx);
 extern void bgp_withdraw(struct peer *peer, const struct prefix *p,
 			 uint32_t addpath_id, afi_t afi, safi_t safi, int type,
 			 int sub_type, struct prefix_rd *prd,
