@@ -1088,7 +1088,7 @@ static int vty_show_prefix_list(struct vty *vty, afi_t afi, const char *name,
 		plist = prefix_list_lookup(afi, name);
 		if (!plist) {
 			if (uj)
-				json_object_free(json);
+				vty_json(vty, json);
 			else
 				vty_out(vty,
 					"%% Can't find specified prefix-list\n");
