@@ -3242,6 +3242,44 @@ DEFUN (bgp_graceful_restart_stalepath_time,
 	return CMD_SUCCESS;
 }
 
+/*
+ * Reset the BGP session since there's a change
+ * in GR capability
+ */
+static void bgp_update_graceful_restart_capability(struct peer *peer)
+{
+	enum peer_mode peer_gr_mode;
+	enum global_mode global_gr_mode;
+
+	if (!peer)
+		return;
+
+	global_gr_mode = bgp_global_gr_mode_get(peer->bgp);
+
+	peer_gr_mode = bgp_peer_gr_mode_get(peer);
+
+	/*
+	 * Skip if peer is not in graceful restart mode
+	 */
+	if (!((peer_gr_mode == PEER_GR) ||
+	      (peer_gr_mode == PEER_GLOBAL_INHERIT && global_gr_mode == GLOBAL_GR)))
+		return;
+
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("Resetting session for %s: Peer GR mode %s, Global GR mode %s",
+			   peer->host, print_peer_gr_mode(peer_gr_mode),
+			   print_global_gr_mode(global_gr_mode));
+
+	/*
+	 * Reset the session so that the updated capability can be
+	 * exchanged again
+	 */
+	if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status)) {
+		peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
+		bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE, BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+	}
+}
+
 DEFUN (bgp_graceful_restart_restart_time,
 	bgp_graceful_restart_restart_time_cmd,
 	"bgp graceful-restart restart-time (0-4095)",
@@ -3263,18 +3301,27 @@ DEFUN (bgp_graceful_restart_restart_time,
 		bm->restart_time = restart;
 		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
 			bgp->restart_time = restart;
-			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-				bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
-						    CAPABILITY_CODE_RESTART,
-						    CAPABILITY_ACTION_SET);
+			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+				if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) ||
+				    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
+					bgp_update_graceful_restart_capability(peer);
+				else
+					bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+							    CAPABILITY_CODE_RESTART,
+							    CAPABILITY_ACTION_SET);
+			}
 		}
 	} else {
 		VTY_DECLVAR_CONTEXT(bgp, bgp);
 		bgp->restart_time = restart;
-		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-			bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
-					    CAPABILITY_CODE_RESTART,
-					    CAPABILITY_ACTION_SET);
+		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+			if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) ||
+			    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
+				bgp_update_graceful_restart_capability(peer);
+			else
+				bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+						    CAPABILITY_CODE_RESTART, CAPABILITY_ACTION_SET);
+		}
 	}
 	return CMD_SUCCESS;
 }
@@ -3359,19 +3406,29 @@ DEFUN (no_bgp_graceful_restart_restart_time,
 		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
 			bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
 
-			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-				bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
-						    CAPABILITY_CODE_RESTART,
-						    CAPABILITY_ACTION_UNSET);
+			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+				if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) ||
+				    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
+					bgp_update_graceful_restart_capability(peer);
+				else
+					bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+							    CAPABILITY_CODE_RESTART,
+							    CAPABILITY_ACTION_UNSET);
+			}
 		}
 	} else {
 		VTY_DECLVAR_CONTEXT(bgp, bgp);
 		bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
 
-		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-			bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
-					    CAPABILITY_CODE_RESTART,
-					    CAPABILITY_ACTION_UNSET);
+		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+			if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) ||
+			    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
+				bgp_update_graceful_restart_capability(peer);
+			else
+				bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+						    CAPABILITY_CODE_RESTART,
+						    CAPABILITY_ACTION_UNSET);
+		}
 	}
 	return CMD_SUCCESS;
 }
@@ -13695,6 +13752,20 @@ static void bgp_show_peer_gr_info_afi_safi(struct vty *vty, struct peer *peer, b
 						peer->bgp->gr_info[afi][safi]
 							.t_select_deferral));
 			}
+
+			if (peer->bgp->gr_multihop_peer_exists) {
+				if (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART))
+					json_object_int_add(json_timer,
+							    "selectionDeferralTier2Timer",
+							    peer->bgp->select_defer_time);
+
+				if (peer->bgp->gr_info[afi][safi].t_select_deferral_tier2 != NULL)
+					json_object_int_add(json_timer,
+							    "selectionDeferralTier2TimerRemaining",
+							    event_timer_remain_second(
+								    peer->bgp->gr_info[afi][safi]
+									    .t_select_deferral_tier2));
+			}
 		} else {
 			vty_out(vty, "      Timers:\n");
 			vty_out(vty,
@@ -13725,6 +13796,15 @@ static void bgp_show_peer_gr_info_afi_safi(struct vty *vty, struct peer *peer, b
 					event_timer_remain_second(
 						peer->bgp->gr_info[afi][safi]
 							.t_select_deferral));
+			if (peer->bgp->gr_multihop_peer_exists) {
+				vty_out(vty, "        Multihop GR peer exists\n");
+				if (peer->bgp->gr_info[afi][safi].t_select_deferral_tier2 != NULL)
+					vty_out(vty,
+						"        Selection Deferral Tier2 Time Remaining(sec): %ld\n",
+						event_timer_remain_second(
+							peer->bgp->gr_info[afi][safi]
+								.t_select_deferral_tier2));
+			}
 		}
 		if (json) {
 			json_object_object_add(json_afi_safi, "endOfRibStatus",
@@ -20539,6 +20619,11 @@ static void bgp_config_end(void)
 	 */
 	if (!bgp_config_inprocess())
 		return;
+
+	SET_FLAG(bm->flags, BM_FLAG_CONFIG_LOADED);
+
+	if (bgp_in_graceful_restart())
+		bgp_gr_start_peers();
 
 	event_cancel(&t_bgp_cfg);
 

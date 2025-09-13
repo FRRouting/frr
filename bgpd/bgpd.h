@@ -187,6 +187,8 @@ struct bgp_master {
 #define BM_FLAG_GRACEFUL_RESTART	 (1 << 6)
 #define BM_FLAG_GR_COMPLETE		 (1 << 7)
 #define BM_FLAG_IPV6_NO_AUTO_RA		 (1 << 8)
+#define BM_FLAG_CONFIG_LOADED		 (1 << 9)
+
 
 #define BM_FLAG_GR_CONFIGURED (BM_FLAG_GR_RESTARTER | BM_FLAG_GR_DISABLED)
 
@@ -320,9 +322,50 @@ enum bgp_instance_type {
 	BGP_INSTANCE_TYPE_VIEW
 };
 
+/*
+ * If BGP has started gracefully and if this VRF has
+ * multihop peer and tier1 processing is done already,
+ * then check if tier2 timer
+ * was started but tier2 GR processing is still pending.
+ */
+#define BGP_MULTIHOP_GR_PENDING(bgp, afi, safi)                                                   \
+	((CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART) && bgp->gr_multihop_peer_exists &&      \
+	  bgp->gr_info[afi][safi].select_defer_over &&                                            \
+	  bgp->gr_info[afi][safi].select_defer_tier2_required &&                                  \
+	  !bgp->gr_info[afi][safi].select_defer_over_tier2))
+
+/*
+ * If this VRF has a bgp multihop peer, then
+ * 1. If tier2 processing is not required, then check if tier1
+ *    processing is complete
+ *           OR
+ * 2. If tier2 processing is required, then check if tier2
+ *    processing is complete
+ */
+#define BGP_GR_MULTIHOP_SELECT_DEFER_DONE(bgp, afi, safi)                                         \
+	((bgp->gr_multihop_peer_exists &&                                                         \
+	  ((!bgp->gr_info[afi][safi].select_defer_tier2_required &&                               \
+	    bgp->gr_info[afi][safi].select_defer_over) ||                                         \
+	   (bgp->gr_info[afi][safi].select_defer_tier2_required &&                                \
+	    bgp->gr_info[afi][safi].select_defer_over_tier2))))
+
+/*
+ * Check if tier1 and tier2 processing (if required)
+ * is complete
+ */
+#define BGP_GR_SELECT_DEFER_DONE(bgp, afi, safi)                                                  \
+	((!bgp->gr_multihop_peer_exists && bgp->gr_info[afi][safi].select_defer_over) ||          \
+	 BGP_GR_MULTIHOP_SELECT_DEFER_DONE(bgp, afi, safi))
+
+/*
+ * Send eor if:
+ * If eor is enabled and
+ * 1. GR is NOT enabled
+ * OR
+ * 2. GR is enabled and complete
+ */
 #define BGP_SEND_EOR(bgp, afi, safi)                                                              \
-	(!CHECK_FLAG(bgp->flags, BGP_FLAG_GR_DISABLE_EOR) &&                                      \
-	 (!bgp_in_graceful_restart() || bgp->gr_info[afi][safi].select_defer_over))
+	(!CHECK_FLAG(bgp->flags, BGP_FLAG_GR_DISABLE_EOR) && !bgp_in_graceful_restart())
 
 /* BGP GR Global ds */
 
@@ -333,6 +376,13 @@ enum bgp_instance_type {
 struct graceful_restart_info {
 	/* Deferral Timer */
 	struct event *t_select_deferral;
+
+	/* If multihop BGP peers are present, and if their
+	 * loopback is learnt via another BGP peer,
+	 * then BGP needs to do 2 level deferred bestpath
+	 * calculation. Hence we need additional select
+	 * deferral timer  */
+	struct event *t_select_deferral_tier2;
 	/* Routes Deferred */
 	uint32_t gr_deferred;
 	/* Best route select */
@@ -342,6 +392,9 @@ struct graceful_restart_info {
 	/* Route update completed */
 	bool route_sync;
 	bool select_defer_over;
+	bool select_defer_tier2_required;
+	bool select_defer_over_tier2;
+	bool route_sync_tier2;
 };
 
 enum global_mode {
@@ -676,6 +729,8 @@ struct bgp {
 	 * upon first peer establishing in an instance.
 	 */
 	bool gr_select_defer_evaluated;
+
+	bool gr_multihop_peer_exists;
 
 	/* Is deferred path selection still not complete? */
 	bool gr_route_sync_pending;
@@ -1025,6 +1080,7 @@ struct afi_safi_info {
 	afi_t afi;
 	safi_t safi;
 	struct bgp *bgp;
+	bool tier2_gr;
 };
 
 #define BGP_ROUTE_ADV_HOLD(bgp) (bgp->main_peers_update_hold)
@@ -2133,11 +2189,11 @@ DECLARE_QOBJ_TYPE(peer);
 	} while (0)
 
 /* Check if suppress start/restart of sessions to peer. */
-#define BGP_PEER_START_SUPPRESSED(P)                                           \
-	(CHECK_FLAG((P)->flags, PEER_FLAG_SHUTDOWN) ||                         \
-	 CHECK_FLAG((P)->sflags, PEER_STATUS_PREFIX_OVERFLOW) ||               \
-	 CHECK_FLAG((P)->bgp->flags, BGP_FLAG_SHUTDOWN) ||                     \
-	 (P)->shut_during_cfg)
+#define BGP_PEER_START_SUPPRESSED(P)                                                              \
+	(CHECK_FLAG((P)->flags, PEER_FLAG_SHUTDOWN) ||                                            \
+	 CHECK_FLAG((P)->sflags, PEER_STATUS_PREFIX_OVERFLOW) ||                                  \
+	 CHECK_FLAG((P)->bgp->flags, BGP_FLAG_SHUTDOWN) || (P)->shut_during_cfg ||                \
+	 (bgp_in_graceful_restart() && !CHECK_FLAG(bm->flags, BM_FLAG_CONFIG_LOADED)))
 
 #define PEER_ROUTE_ADV_DELAY(peer)					       \
 	(CHECK_FLAG(peer->thread_flags, PEER_THREAD_SUBGRP_ADV_DELAY))
@@ -2320,7 +2376,7 @@ struct bgp_nlri {
 /* BGP graceful restart  */
 #define BGP_DEFAULT_RESTART_TIME               120
 #define BGP_DEFAULT_STALEPATH_TIME             360
-#define BGP_DEFAULT_SELECT_DEFERRAL_TIME       360
+#define BGP_DEFAULT_SELECT_DEFERRAL_TIME       120
 #define BGP_DEFAULT_RIB_STALE_TIME             500
 #define BGP_DEFAULT_UPDATE_ADVERTISEMENT_TIME  1
 
@@ -2752,6 +2808,7 @@ extern void bgp_shutdown_disable(struct bgp *bgp);
 extern void bgp_close(void);
 extern void bgp_free(struct bgp *);
 void bgp_gr_apply_running_config(void);
+extern void bgp_gr_start_peers(void);
 
 /* BGP GR */
 int bgp_global_gr_init(struct bgp *bgp);

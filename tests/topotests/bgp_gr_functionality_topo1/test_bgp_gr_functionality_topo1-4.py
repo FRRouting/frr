@@ -1684,6 +1684,10 @@ def BGP_GR_TC_52_p1(request):
             tc_name, result
         )
 
+    step("Start BGP on R2")
+
+    start_router_daemons(tgen, "r2", ["bgpd"])
+
     write_test_footer(tc_name)
 
 
