@@ -1,0 +1,17 @@
+{
+  "::ffff:192.168.2.1/128": [
+    {
+      "prefix": "::ffff:192.168.2.1/128",
+      "prefixLen": 128,
+      "p": 1,
+      "internalNextHopActiveNum": 1,
+    }
+  ],
+  "::ffff:200.100.222.111/128": [
+    {
+      "prefix": "::ffff:200.100.222.111/128",
+      "prefixLen": 128,
+      "internalNextHopActiveNum": 1,
+    }
+  ]
+}
