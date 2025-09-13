@@ -197,28 +197,7 @@ static int bmp_qhash_cmp(const struct bmp_queue_entry *a,
 	return ret;
 }
 
-static uint32_t bmp_qhash_hkey(const struct bmp_queue_entry *e)
-{
-	uint32_t key;
-
-	key = prefix_hash_key((void *)&e->p);
-	key = jhash(&e->peerid,
-		    offsetof(struct bmp_queue_entry, refcount)
-			    - offsetof(struct bmp_queue_entry, peerid),
-		    key);
-	if ((e->afi == AFI_L2VPN && e->safi == SAFI_EVPN) ||
-	    (e->safi == SAFI_MPLS_VPN))
-		key = jhash(&e->rd,
-			    offsetof(struct bmp_queue_entry, rd)
-				    - offsetof(struct bmp_queue_entry, refcount)
-				    + PSIZE(e->rd.prefixlen),
-			    key);
-
-	return key;
-}
-
-DECLARE_HASH(bmp_qhash, struct bmp_queue_entry, bhi,
-		bmp_qhash_cmp, bmp_qhash_hkey);
+DECLARE_RBTREE_UNIQ(bmp_qhash, struct bmp_queue_entry, bhi, bmp_qhash_cmp);
 
 static int bmp_active_cmp(const struct bmp_active *a,
 		const struct bmp_active *b)

@@ -54,7 +54,7 @@
  */
 
 PREDECL_DLIST(bmp_qlist);
-PREDECL_HASH(bmp_qhash);
+PREDECL_RBTREE_UNIQ(bmp_qhash);
 
 struct bmp_queue_entry {
 	struct bmp_qlist_item bli;
