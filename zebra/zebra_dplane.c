@@ -155,6 +155,13 @@ struct dplane_route_info {
 	enum blackhole_type zd_bh_type;
 	struct ipaddr zd_prefsrc;
 	struct ipaddr zd_gateway;
+
+	/* Additional route info */
+	int startup;
+	int rtnh_ifindex;
+	bool is_multipath;
+	struct nexthop_group route_nhg;
+	struct nexthop nh;
 };
 
 /*
@@ -777,6 +784,23 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 			nexthops_free(ctx->u.rinfo.old_backup_ng.nexthop);
 
 			ctx->u.rinfo.old_backup_ng.nexthop = NULL;
+		}
+
+		if (ctx->u.rinfo.route_nhg.nexthop) {
+			/* This deals with recursive nexthops too */
+			nexthops_free(ctx->u.rinfo.route_nhg.nexthop);
+
+			ctx->u.rinfo.route_nhg.nexthop = NULL;
+		}
+
+		if (ctx->u.rinfo.nh.nh_label) {
+			nexthop_del_labels(&ctx->u.rinfo.nh);
+			ctx->u.rinfo.nh.nh_label = NULL;
+		}
+
+		if (ctx->u.rinfo.nh.nh_srv6) {
+			nexthop_del_srv6(&ctx->u.rinfo.nh);
+			ctx->u.rinfo.nh.nh_srv6 = NULL;
 		}
 
 		/* Optional extra interface info */
@@ -2034,6 +2058,76 @@ void dplane_ctx_set_route_gw(struct zebra_dplane_ctx *ctx, const struct ipaddr *
 		ctx->u.rinfo.zd_gateway = *gw;
 	else
 		memset(&ctx->u.rinfo.zd_gateway, 0, sizeof(ctx->u.rinfo.zd_gateway));
+}
+
+int dplane_ctx_route_get_startup(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rinfo.startup;
+}
+
+void dplane_ctx_route_set_startup(struct zebra_dplane_ctx *ctx, int startup)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.rinfo.startup = startup;
+}
+
+int dplane_ctx_route_get_rtnexthop_ifindex(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rinfo.rtnh_ifindex;
+}
+
+void dplane_ctx_route_set_rtnexthop_ifindex(struct zebra_dplane_ctx *ctx, ifindex_t ifindex)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.rinfo.rtnh_ifindex = ifindex;
+}
+
+bool dplane_ctx_route_get_is_multipath(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rinfo.is_multipath;
+}
+
+void dplane_ctx_route_set_is_multipath(struct zebra_dplane_ctx *ctx, bool is_multipath)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.rinfo.is_multipath = is_multipath;
+}
+
+struct nexthop_group *dplane_ctx_route_get_nexthop_group(struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &(ctx->u.rinfo.route_nhg);
+}
+
+void dplane_ctx_route_set_nexthop_group(struct zebra_dplane_ctx *ctx, struct nexthop_group *ng)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	nexthop_group_copy(&(ctx->u.rinfo.route_nhg), ng);
+}
+
+struct nexthop dplane_ctx_route_get_nexthop(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rinfo.nh;
+}
+
+void dplane_ctx_route_set_nexthop(struct zebra_dplane_ctx *ctx, struct nexthop *nh)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	nexthop_copy_no_recurse(&(ctx->u.rinfo.nh), nh, NULL);
 }
 
 int dplane_ctx_tc_qdisc_get_kind(const struct zebra_dplane_ctx *ctx)
