@@ -2977,6 +2977,9 @@ void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw,
 	edir = BGP_VPN_POLICY_DIR_TOVPN;
 
 	for (afi = 0; afi < AFI_MAX; ++afi) {
+		if (CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_RD_SET))
+			continue;
+
 		if (!vpn_leak_to_vpn_active(bgp, afi, NULL, false))
 			continue;
 
