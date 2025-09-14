@@ -1510,14 +1510,10 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 			/*
 			 * Peering cannot occur across a blackhole nexthop
 			 */
-			if (bnc->nexthop_num == 1 && bnc->nexthop
-			    && bnc->nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {
-				peer->last_reset = PEER_DOWN_WAITING_NHT;
+			if (bnc->nexthop_num == 1 && bnc->nexthop &&
+			    bnc->nexthop->type == NEXTHOP_TYPE_BLACKHOLE)
 				valid_nexthops = 0;
-			} else
-				peer->last_reset = PEER_DOWN_WAITING_OPEN;
-		} else
-			peer->last_reset = PEER_DOWN_WAITING_NHT;
+		}
 
 		if (!CHECK_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED)) {
 			if (BGP_DEBUG(nht, NHT))
