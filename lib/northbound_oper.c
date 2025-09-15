@@ -919,9 +919,9 @@ static void nb_op_list_list_entry_done(struct nb_op_yield_state *ys, struct nb_n
 
 /**
  * nb_op_add_leaf() - Add leaf data to the get tree results
- * @ys - the yield state for this tree walk.
- * @nb_node - the northbound node representing this leaf.
- * @xpath - the xpath (with key predicates) to this leaf value.
+ * @ys: the yield state for this tree walk.
+ * @nb_node: the northbound node representing this leaf.
+ * @xpath: the xpath (with key predicates) to this leaf value.
  *
  * Return: northbound return value (enum nb_error)
  */
@@ -1065,9 +1065,9 @@ static bool nb_op_empty_container_ok(const struct lysc_node *snode,
 
 /**
  * nb_op_get_child_path() - add child node name to the xpath.
- * @xpath_parent - a darr string for the parent node.
- * @schild - the child schema node.
- * @xpath_child - a previous return value from this function to reuse.
+ * @xpath_parent: a darr string for the parent node.
+ * @schild: the child schema node.
+ * @xpath_child: a previous return value from this function to reuse.
  */
 static char *nb_op_get_child_path(const char *xpath_parent,
 				  const struct lysc_node *schild,

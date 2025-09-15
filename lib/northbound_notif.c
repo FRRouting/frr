@@ -163,7 +163,7 @@ static void op_change_free(struct op_change *note)
 
 /**
  * __op_changes_group_push() - Save the current set of changes on the queue.
- * @refer_id - sets refer_id usually 0.
+ * @refer_id: sets refer_id usually 0.
  *
  * This function will save the current set of changes on the queue and
  * initialize a new set of changes.
