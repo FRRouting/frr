@@ -3856,7 +3856,11 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 		zl3vni = zl3vni_from_vrf(re->vrf_id);
 		if (zl3vni && is_l3vni_oper_up(zl3vni)) {
 			nexthop->nh_encap_type = NET_VXLAN;
-			nexthop->nh_encap.vni = zl3vni->vni;
+			nexthop->nh_encap_vni = zl3vni->vni;
+			nexthop->nh_encap_src_ip = zl3vni->local_vtep_ip;
+			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+				zlog_debug("%s vni %u tunnel_ip %pIA", __func__, zl3vni->vni,
+					   &nexthop->nh_encap_src_ip);
 		}
 	}
 
