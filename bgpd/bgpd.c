@@ -4205,6 +4205,15 @@ int bgp_delete(struct bgp *bgp)
 	event_cancel(&bgp->t_maxmed_onstartup);
 	event_cancel(&bgp->t_update_delay);
 	event_cancel(&bgp->t_establish_wait);
+
+	/* If the clearing event is scheduled, there's an extra ref to
+	 * this 'bgp' - ensure we unlock.
+	 */
+	if (event_is_scheduled(bgp->clearing_end)) {
+		assert(bgp->lock > 1);
+		bgp_unlock(bgp);
+	}
+
 	event_cancel(&bgp->clearing_end);
 
 	/* Set flag indicating bgp instance delete in progress */
