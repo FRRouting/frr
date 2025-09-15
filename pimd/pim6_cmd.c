@@ -1691,6 +1691,22 @@ DEFPY_YANG(interface_ipv6_mld_immediate_leave,
 	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
 }
 
+DEFPY_YANG(interface_ipv6_mld_alist, interface_ipv6_mld_alist_cmd,
+           "[no] ipv6 mld access-list ![ACCESSLIST6_NAME]",
+           NO_STR
+           IPV6_STR
+           IFACE_MLD_STR
+           "Filter joins through access-list\n"
+           "Access list name\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./access-list", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./access-list", NB_OP_MODIFY, accesslist6_name);
+
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
+}
+
 DEFPY_YANG(interface_ipv6_mld_rmap, interface_ipv6_mld_rmap_cmd,
            "[no] ipv6 mld route-map ![RMAP_NAME]",
            NO_STR
@@ -3115,6 +3131,7 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_no_ipv6_mld_version_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_immediate_leave_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_rmap_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_mld_alist_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_query_interval_cmd);
 	install_element(INTERFACE_NODE,
 			&interface_no_ipv6_mld_query_interval_cmd);

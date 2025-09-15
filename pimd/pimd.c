@@ -78,6 +78,11 @@ void pim_prefix_list_update(struct prefix_list *plist)
 	}
 }
 
+void pim_access_list_update(struct access_list *access)
+{
+	pim_filter_ref_update();
+}
+
 static void pim_free(void)
 {
 	pim_route_map_terminate();
