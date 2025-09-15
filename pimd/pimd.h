@@ -13,6 +13,7 @@
 #include "prefix.h"
 #include "vty.h"
 #include "plist.h"
+#include "filter.h"
 
 #include "pim_addr.h"
 #include "pim_str.h"
@@ -283,5 +284,6 @@ void pim_terminate(void);
 extern void pim_route_map_init(void);
 extern void pim_route_map_terminate(void);
 void pim_prefix_list_update(struct prefix_list *plist);
+extern void pim_access_list_update(struct access_list *access);
 
 #endif /* PIMD_H */
