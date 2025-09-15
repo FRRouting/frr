@@ -1730,6 +1730,13 @@ static bool _netlink_nexthop_encode_dvni_label(const struct nexthop *nexthop,
 		return false;
 	}
 
+	/* Set tunnel source IP */
+	if (IS_IPADDR_V4(&nexthop->nh_encap_src_ip)) {
+		if (!nl_attr_put(nlmsg, buflen, LWTUNNEL_IP_SRC,
+				 &nexthop->nh_encap_src_ip.ipaddr_v4, 4))
+			return false;
+	}
+
 	return true;
 }
 
@@ -2241,7 +2248,7 @@ static int netlink_route_nexthop_encap(bool fpm, struct nlmsghdr *n,
 		if (!nest)
 			return false;
 
-		if (!nl_attr_put32(n, nlen, 0 /* VXLAN_VNI */, nh->nh_encap.vni))
+		if (!nl_attr_put32(n, nlen, 0 /* VXLAN_VNI */, nh->nh_encap_vni))
 			return false;
 		nl_attr_nest_end(n, nest);
 		break;
