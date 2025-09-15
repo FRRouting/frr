@@ -308,6 +308,8 @@ int lib_interface_gmp_immediate_leave_modify(struct nb_cb_modify_args *args);
 int lib_interface_gmp_require_router_alert_modify(struct nb_cb_modify_args *args);
 int lib_interface_gm_rmap_modify(struct nb_cb_modify_args *args);
 int lib_interface_gm_rmap_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_gm_alist_modify(struct nb_cb_modify_args *args);
+int lib_interface_gm_alist_destroy(struct nb_cb_destroy_args *args);
 
 /*
  * Callback registered with routing_nb lib to validate only

@@ -486,6 +486,13 @@ int pim_config_write(struct vty *vty, int writes, struct interface *ifp,
 		++writes;
 	}
 
+	/* IF igmp/mld access-list */
+	if (pim_ifp->gmp_filter.alistname) {
+		vty_out(vty, " " PIM_AF_NAME " " GM_AF_DBG " access-list %s\n",
+			pim_ifp->gmp_filter.alistname);
+		++writes;
+	}
+
 	/* IF igmp/mld max-sources */
 	if (pim_ifp->gm_source_limit != UINT32_MAX) {
 		vty_out(vty, " " PIM_AF_NAME " " GM_AF_DBG " max-sources %u\n",
