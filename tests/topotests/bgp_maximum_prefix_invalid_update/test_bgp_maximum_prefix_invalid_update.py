@@ -78,8 +78,7 @@ def test_bgp_maximum_prefix_invalid():
         output = json.loads(r2.vtysh_cmd("show ip bgp neighbor 192.168.255.1 json"))
         expected = {
             "192.168.255.1": {
-                "lastNotificationReason": "Cease/Maximum Number of Prefixes Reached",
-                "lastResetDueTo": "BGP Notification send",
+                "lastResetDueTo": "Reached received prefix count",
             }
         }
         return topotest.json_cmp(output, expected)
