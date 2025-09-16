@@ -88,10 +88,23 @@ def test_bgp_bfd_down_notification_shutdown():
         output = json.loads(r2.vtysh_cmd("show ip bgp neighbor 192.168.255.1 json"))
         expected = {
             "192.168.255.1": {
-                "lastNotificationReason": "Cease/BFD Down",
-                "lastNotificationHardReset": True,
+                "lastResetDueTo": "BFD down initiated",
                 "peerBfdInfo": {
                     "status": "Down",
+                },
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    def _bgp_bfd_down_notification_1():
+        output = json.loads(r1.vtysh_cmd("show ip bgp neighbor 192.168.255.2 json"))
+        expected = {
+            "192.168.255.2": {
+                "lastNotificationReason": "Cease/BFD Down",
+                "lastNotificationHardReset": True,
+                "lastResetDueTo": "BGP Notification received",
+                "peerBfdInfo": {
+                    "status": "Admin Down",
                 },
             }
         }
@@ -111,10 +124,15 @@ def test_bgp_bfd_down_notification_shutdown():
     """
     )
 
-    step("Check if we received Cease/BFD Down notification message")
+    step("Check if we sent Cease/BFD Down notification message on R2")
     test_func = functools.partial(_bgp_bfd_down_notification)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "Failed to see BGP Cease/BFD Down notification message on R2"
+
+    step("Check if we received Cease/BFD Down notification message on R1")
+    test_func = functools.partial(_bgp_bfd_down_notification_1)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Failed to see BGP Cease/BFD Down notification message on R1"
 
     def _bgp_status_post_bfd_profile_shutdown():
         output = json.loads(r1.vtysh_cmd("show bgp summary json"))
