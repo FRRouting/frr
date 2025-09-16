@@ -605,7 +605,7 @@ const char *const peer_down_str[] = {
 	"Multihop config change",
 	"NSF peer closed the session",
 	"Intf peering v6only config change",
-	"BFD down received",
+	"BFD down initiated",
 	"Interface down",
 	"Neighbor address lost",
 	"No path to specified Neighbor",
@@ -621,6 +621,13 @@ const char *const peer_down_str[] = {
 	"Password config change",
 	"Router ID is missing",
 	"No RPKI cache server connected",
+	"Cease: peer de-configured",
+	"Cease: connection rejected",
+	"Cease: other config change",
+	"Cease: connection collision",
+	"Cease: out of resources",
+	"Cease: hard reset",
+	"Cease: subcode unknown",
 };
 
 static void bgp_graceful_restart_timer_off(struct peer_connection *connection,
