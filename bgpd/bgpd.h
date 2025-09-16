@@ -2018,6 +2018,18 @@ struct peer {
 #define PEER_DOWN_PASSWORD_CHANGE	 37U /* neighbor password command */
 #define PEER_DOWN_ROUTER_ID_ZERO	 38U /* router-id is 0.0.0.0 */
 #define PEER_DOWN_RPKI_DOWN		 39U /* RPKI cache is not connected due to strict mode */
+#define PEER_DOWN_CEASE_BFD_DOWN	 PEER_DOWN_BFD_DOWN
+#define PEER_DOWN_CEASE_PRX_COUNT	 PEER_DOWN_PFX_COUNT
+#define PEER_DOWN_CEASE_ADMIN_RESET	 PEER_DOWN_USER_RESET
+#define PEER_DOWN_CEASE_ADMIN_SHUTDOWN	 PEER_DOWN_USER_SHUTDOWN
+#define PEER_DOWN_CEASE_PEER_UNCONFIG	 40U /* Peer de-configured */
+#define PEER_DOWN_CEASE_CONNECT_REJECT	 41U /* Connection rejected */
+#define PEER_DOWN_CEASE_CONFIG_CHANGE	 42U /* Other configuration change */
+#define PEER_DOWN_CEASE_COLLISION	 43U /* Connection collision resolution */
+#define PEER_DOWN_CEASE_NO_RESOURCE	 44U /* Out of resources */
+#define PEER_DOWN_CEASE_HARD_RESET	 45U /* Hard reset */
+#define PEER_DOWN_CEASE_UNKNOWN		 46U /* Subcode unknown */
+
 	/*
 	 * Remember to update peer_down_str in bgp_fsm.c when you add
 	 * a new value to the last_reset reason
