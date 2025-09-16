@@ -1305,10 +1305,30 @@ static void bgp_gr_mark_for_deferred_selection(struct bgp *bgp)
 	 */
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 		FOREACH_AFI_SAFI_NSF (afi, safi) {
-			if (bgp_gr_supported_for_afi_safi(afi, safi))
+			if (bgp_gr_supported_for_afi_safi(afi, safi)) {
 				SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_GR_WAIT_EOR);
-			else
+
+				if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+					zlog_debug("POOJA GR_WAIT_EOR_SET %s: peer %s status %s flags 0x%" PRIx64
+						   " af_sflags 0x%x, afi-safi %s",
+						   __func__, peer->host,
+						   lookup_msg(bgp_status_msg,
+							      peer->connection->status, NULL),
+						   peer->flags, peer->af_sflags[afi][safi],
+						   get_afi_safi_str(afi, safi, false));
+
+			} else {
 				UNSET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_GR_WAIT_EOR);
+
+				if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+					zlog_debug("POOJA GR_WAIT_EOR_UNSET %s: peer %s status %s flags 0x%" PRIx64
+						   " af_sflags 0x%x, afi-safi %s",
+						   __func__, peer->host,
+						   lookup_msg(bgp_status_msg,
+							      peer->connection->status, NULL),
+						   peer->flags, peer->af_sflags[afi][safi],
+						   get_afi_safi_str(afi, safi, false));
+			}
 		}
 	}
 }
@@ -1422,6 +1442,11 @@ static void bgp_gr_process_peer_status_change(struct peer *peer)
 		 * If we haven't yet evaluated for path selection deferral,
 		 * do it now.
 		 */
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug("POOJA %s: Peer %s bgp->gr_select_defer_evaluated %s",
+				   bgp->name_pretty, peer->host,
+				   bgp->gr_select_defer_evaluated ? "True" : "false");
+
 		if (!bgp->gr_select_defer_evaluated) {
 			bgp_gr_mark_for_deferred_selection(bgp);
 			bgp->gr_select_defer_evaluated = true;
