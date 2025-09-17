@@ -3204,6 +3204,7 @@ int evpn_show_all_routes_core(struct vty *vty, struct show_bgp *args)
 	safi_t safi;
 	uint32_t prefix_cnt = args->prefix_cnt, path_cnt = args->path_cnt;
 	int first = false;
+	uint32_t count = 0;
 
 	afi = AFI_L2VPN;
 	safi = SAFI_EVPN;
@@ -3249,8 +3250,9 @@ int evpn_show_all_routes_core(struct vty *vty, struct show_bgp *args)
 
 		/* Display all prefixes for an RD */
 		for (; dest; dest = bgp_route_next(dest)) {
-			if (!vty_obuf_has_space(vty))
+			if (count >= show_yield_limit)
 				break;
+			++count;
 
 			json_object *json_prefix =
 				NULL; /* contains prefix under a RD */
@@ -3427,15 +3429,9 @@ static int evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type, json
 				   .add_rd_to_json = 0,
 				   .func = &evpn_show_all_routes_core };
 
-	int ret = evpn_show_all_routes_core(vty, args);
+	vty_yield(vty, bgp_show_cb, args);
 
-	if (ret == CMD_YIELD)
-		vty_yield(vty, bgp_show_cb, args);
-
-	if (ret == CMD_SUCCESS)
-		XFREE(MTYPE_TMP, args);
-
-	return ret;
+	return CMD_YIELD;
 }
 
 int bgp_evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,

@@ -547,6 +547,9 @@ struct show_bgp {
 	int add_rd_to_json;
 };
 
+/* Max routes to show before yielding */
+#define show_yield_limit 1000
+
 #define BGP_NEXTHOP_AFI_FROM_NHLEN(nhlen)                                      \
 	((nhlen) < IPV4_MAX_BYTELEN                                            \
 		 ? 0                                                           \

@@ -12813,12 +12813,6 @@ void bgp_show_cb(struct vty *vty, void *arg)
 		return;
 	}
 
-	/* No remaining space in obuf; yield the traversal event. */
-	if (!vty_obuf_has_space(vty)) {
-		vty_yield(vty, bgp_show_cb, args);
-		return;
-	}
-
 	/* continue traversing */
 	int ret = args->func(vty, args);
 
@@ -12869,6 +12863,7 @@ static int bgp_show_table_core(struct vty *vty, struct show_bgp *args)
 	bool all = CHECK_FLAG(show_flags, BGP_SHOW_OPT_AFI_ALL);
 	bool detail_json = CHECK_FLAG(show_flags, BGP_SHOW_OPT_JSON_DETAIL);
 	bool detail_routes = CHECK_FLAG(show_flags, BGP_SHOW_OPT_ROUTES_DETAIL);
+	uint32_t count = 0;
 
 	if (output_cum && *output_cum != 0)
 		header = false;
@@ -12921,8 +12916,9 @@ static int bgp_show_table_core(struct vty *vty, struct show_bgp *args)
 
 	/* Start processing of routes. */
 	for (; dest; dest = bgp_route_next(dest)) {
-		if (!vty_obuf_has_space(vty))
+		if (count >= show_yield_limit)
 			break;
+		++count;
 
 		const struct prefix *dest_p = bgp_dest_get_prefix(dest);
 		enum rpki_states rpki_curr_state = RPKI_NOT_BEING_USED;
@@ -13415,15 +13411,9 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 	if (json_header_depth)
 		args->json_header_depth = *json_header_depth;
 
-	int ret = bgp_show_table_core(vty, args);
+	vty_yield(vty, bgp_show_cb, args);
 
-	if (ret == CMD_YIELD)
-		vty_yield(vty, bgp_show_cb, args);
-
-	if (ret == CMD_SUCCESS)
-		XFREE(MTYPE_TMP, args);
-
-	return ret;
+	return CMD_YIELD;
 }
 
 static struct bgp_dest *bgp_route_find_prd_match(struct bgp_dest *curr, struct prefix_rd *match)
@@ -13536,15 +13526,9 @@ int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 				   .itable = NULL,
 				   .rpki_target_state = RPKI_NOT_BEING_USED };
 
-	int ret = bgp_show_table_rd_core(vty, args);
+	vty_yield(vty, bgp_show_cb, args);
 
-	if (ret == CMD_YIELD)
-		vty_yield(vty, bgp_show_cb, args);
-
-	if (ret == CMD_SUCCESS)
-		XFREE(MTYPE_TMP, args);
-
-	return ret;
+	return CMD_YIELD;
 }
 
 static int bgp_show_core(struct vty *vty, struct show_bgp *args)
