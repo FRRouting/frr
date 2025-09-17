@@ -113,6 +113,9 @@ static struct vtyservs_head vty_servs[1] = {INIT_DLIST(vty_servs[0])};
 static struct vtys_head vty_sessions[1] = {INIT_DLIST(vty_sessions[0])};
 static struct vtys_head vtysh_sessions[1] = {INIT_DLIST(vtysh_sessions[0])};
 
+/* Checks whether obuf still has free space */
+static bool vty_obuf_has_space(struct vty *vty);
+
 /* Vty timeout value. */
 static unsigned long vty_timeout_val = VTY_TIMEOUT_DEFAULT;
 
@@ -194,6 +197,12 @@ static void yield_resume_cb(struct event *event)
 
 	/* Capture application callback info */
 	ctx = vty->yield_resume;
+
+	/* No remaining space in obuf; yield the task again. */
+	if (!vty_obuf_has_space(vty)) {
+		vty_yield(vty, vty->yield_resume.app_cb, vty->yield_resume.arg);
+		return;
+	}
 
 	/* Clear vty's yield callback info before calling into the application:
 	 * the application may call the "finish" or the "yield" api, so we can't
@@ -3683,7 +3692,7 @@ void vty_terminate(void)
 /* Checks whether obuf still has free space,
  * i.e., whether the number of used chunks is below the threshold.
  */
-bool vty_obuf_has_space(struct vty *vty)
+static bool vty_obuf_has_space(struct vty *vty)
 {
 	return buffer_chunks_used(vty->obuf) < VTY_OBUF_LIMIT;
 }
