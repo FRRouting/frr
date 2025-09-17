@@ -488,8 +488,6 @@ bool vty_yield(struct vty *vty, void (*func)(struct vty *vty, void *arg), void *
  */
 void vty_yield_finish(struct vty *vty);
 
-extern bool vty_obuf_has_space(struct vty *vty);
-
 #ifdef __cplusplus
 }
 #endif
