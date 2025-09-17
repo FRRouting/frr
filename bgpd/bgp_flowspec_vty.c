@@ -418,6 +418,7 @@ int bgp_show_table_flowspec_core(struct vty *vty, struct show_bgp *args)
 	unsigned long total_count = args->total_cum;
 	json_object *json_paths = NULL;
 	int display = NLRI_STRING_FORMAT_LARGE;
+	uint32_t count = 0;
 
 	if (dest == NULL) {
 		if (type != bgp_show_type_detail)
@@ -426,8 +427,9 @@ int bgp_show_table_flowspec_core(struct vty *vty, struct show_bgp *args)
 	}
 
 	for (; dest; dest = bgp_route_next(dest)) {
-		if (!vty_obuf_has_space(vty))
+		if (count >= show_yield_limit)
 			break;
+		++count;
 
 		pi = bgp_dest_get_bgp_path_info(dest);
 		if (pi == NULL)
@@ -485,15 +487,9 @@ int bgp_show_table_flowspec(struct vty *vty, struct bgp *bgp, afi_t afi, struct 
 	if (total_cum)
 		args->total_cum = *total_cum;
 
-	int ret = bgp_show_table_flowspec_core(vty, args);
+	vty_yield(vty, bgp_show_cb, args);
 
-	if (ret == CMD_YIELD)
-		vty_yield(vty, bgp_show_cb, args);
-
-	if (ret == CMD_SUCCESS)
-		XFREE(MTYPE_TMP, args);
-
-	return ret;
+	return CMD_YIELD;
 }
 
 DEFUN (debug_bgp_flowspec,

@@ -12507,6 +12507,25 @@ static int bgp_show_community(struct vty *vty, struct bgp *bgp,
 			      safi_t safi, uint16_t show_flags);
 static int bgp_show_community_core(struct vty *vty, struct show_bgp *args);
 
+static void bgp_show_cb_args_free(struct show_bgp *args)
+{
+	if (!args)
+		return;
+
+	if (args->output_arg) {
+		if (args->type == bgp_show_type_lcommunity_exact ||
+		    args->type == bgp_show_type_lcommunity)
+			lcommunity_free((struct lcommunity **)&args->output_arg);
+		if (args->type == bgp_show_type_regexp)
+			bgp_regex_free(args->output_arg);
+		if (args->type == bgp_show_type_community_exact ||
+		    args->type == bgp_show_type_community)
+			community_free((struct community **)&args->output_arg);
+	}
+
+	XFREE(MTYPE_TMP, args);
+}
+
 void bgp_show_cb(struct vty *vty, void *arg)
 {
 	struct show_bgp *args = arg;
@@ -12521,7 +12540,7 @@ void bgp_show_cb(struct vty *vty, void *arg)
 			if (args->rd_dest_next)
 				route_unlock_node(bgp_dest_to_rnode(args->rd_dest_next));
 
-			XFREE(MTYPE_TMP, args);
+			bgp_show_cb_args_free(args);
 		}
 
 		if (vty) {
@@ -12529,12 +12548,6 @@ void bgp_show_cb(struct vty *vty, void *arg)
 			buffer_reset(vty->obuf);
 			vty_close(vty);
 		}
-		return;
-	}
-
-	/* No remaining space in obuf; yield the traversal event. */
-	if (!vty_obuf_has_space(vty)) {
-		vty_yield(vty, bgp_show_cb, args);
 		return;
 	}
 
@@ -12548,7 +12561,7 @@ void bgp_show_cb(struct vty *vty, void *arg)
 
 	if (ret == CMD_SUCCESS) {
 		vty_yield_finish(vty);
-		XFREE(MTYPE_TMP, args);
+		bgp_show_cb_args_free(args);
 	}
 }
 
@@ -12588,6 +12601,7 @@ static int bgp_show_table_core(struct vty *vty, struct show_bgp *args)
 	bool all = CHECK_FLAG(show_flags, BGP_SHOW_OPT_AFI_ALL);
 	bool detail_json = CHECK_FLAG(show_flags, BGP_SHOW_OPT_JSON_DETAIL);
 	bool detail_routes = CHECK_FLAG(show_flags, BGP_SHOW_OPT_ROUTES_DETAIL);
+	uint32_t count = 0;
 
 	if (output_cum && *output_cum != 0)
 		header = false;
@@ -12640,8 +12654,9 @@ static int bgp_show_table_core(struct vty *vty, struct show_bgp *args)
 
 	/* Start processing of routes. */
 	for (; dest; dest = bgp_route_next(dest)) {
-		if (!vty_obuf_has_space(vty))
+		if (count >= show_yield_limit)
 			break;
+		++count;
 
 		const struct prefix *dest_p = bgp_dest_get_prefix(dest);
 		enum rpki_states rpki_curr_state = RPKI_NOT_BEING_USED;
@@ -13134,15 +13149,9 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 	if (json_header_depth)
 		args->json_header_depth = *json_header_depth;
 
-	int ret = bgp_show_table_core(vty, args);
+	vty_yield(vty, bgp_show_cb, args);
 
-	if (ret == CMD_YIELD)
-		vty_yield(vty, bgp_show_cb, args);
-
-	if (ret == CMD_SUCCESS)
-		XFREE(MTYPE_TMP, args);
-
-	return ret;
+	return CMD_YIELD;
 }
 
 static struct bgp_dest *bgp_route_find_prd_match(struct bgp_dest *curr, struct prefix_rd *match)
@@ -13255,15 +13264,9 @@ int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 				   .itable = NULL,
 				   .rpki_target_state = RPKI_NOT_BEING_USED };
 
-	int ret = bgp_show_table_rd_core(vty, args);
+	vty_yield(vty, bgp_show_cb, args);
 
-	if (ret == CMD_YIELD)
-		vty_yield(vty, bgp_show_cb, args);
-
-	if (ret == CMD_SUCCESS)
-		XFREE(MTYPE_TMP, args);
-
-	return ret;
+	return CMD_YIELD;
 }
 
 static int bgp_show_core(struct vty *vty, struct show_bgp *args)
@@ -13946,8 +13949,8 @@ static int bgp_show_lcommunity(struct vty *vty, struct bgp *bgp, int argc,
 		       (exact ? bgp_show_type_lcommunity_exact
 			      : bgp_show_type_lcommunity),
 		       lcom, show_flags, RPKI_NOT_BEING_USED);
-
-	lcommunity_free(&lcom);
+	if (ret != CMD_YIELD)
+		lcommunity_free(&lcom);
 	return ret;
 }
 
@@ -14892,7 +14895,8 @@ static int bgp_show_regexp(struct vty *vty, struct bgp *bgp, const char *regstr,
 
 	rc = bgp_show(vty, bgp, afi, safi, type, regex, show_flags,
 		      RPKI_NOT_BEING_USED);
-	bgp_regex_free(regex);
+	if (rc != CMD_YIELD)
+		bgp_regex_free(regex);
 	return rc;
 }
 
@@ -14935,7 +14939,8 @@ static int bgp_show_community(struct vty *vty, struct bgp *bgp,
 		       (exact ? bgp_show_type_community_exact
 			      : bgp_show_type_community),
 		       com, show_flags, RPKI_NOT_BEING_USED);
-	community_free(&com);
+	if (ret != CMD_YIELD)
+		community_free(&com);
 
 	return ret;
 }
