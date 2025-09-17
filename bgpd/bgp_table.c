@@ -101,7 +101,7 @@ inline struct bgp_dest *bgp_dest_unlock_node(struct bgp_dest *dest)
  * bgp_node_destroy
  */
 static void bgp_node_destroy(route_table_delegate_t *delegate,
-							struct route_table *table, struct route_node *node)
+			     struct route_table *table, struct route_node *node)
 {
 	struct bgp_dest *dest;
 	struct bgp_table *rt;
@@ -110,8 +110,8 @@ static void bgp_node_destroy(route_table_delegate_t *delegate,
 	if (dest) {
 		if (rt->bgp) {
 			bgp_addpath_free_node_data(&rt->bgp->tx_addpath,
-										&dest->tx_addpath,
-										rt->afi, rt->safi);
+						   &dest->tx_addpath,
+						   rt->afi, rt->safi);
 		}
 		XFREE(MTYPE_BGP_NODE, dest);
 		node->info = NULL;
