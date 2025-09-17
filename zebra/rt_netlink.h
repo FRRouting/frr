@@ -63,7 +63,6 @@ extern ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx,
 
 extern int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup);
 extern int netlink_route_read(struct zebra_ns *zns);
-
 /*
  * Public api for parsing a route notification message: this notification
  * only parses the top-level route attributes, and doesn't include nexthops.
