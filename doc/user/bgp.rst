@@ -4267,7 +4267,7 @@ Dumping Messages and Routing Tables
 
 
    Dump all BGP packet and events to `path` file.
-   If `interval` is set, a new file will be created for echo `interval` of
+   If `interval` is set, a new file will be created for each `interval` of
    seconds.  The path `path` can be set with date and time formatting
    (strftime).  The type ‘all-et’ enables support for Extended Timestamp Header
    (:ref:`packet-binary-dump-format`).
@@ -4278,7 +4278,7 @@ Dumping Messages and Routing Tables
 
 
    Dump only BGP updates messages to `path` file.
-   If `interval` is set, a new file will be created for echo `interval` of
+   If `interval` is set, a new file will be created for each `interval` of
    seconds.  The path `path` can be set with date and time formatting
    (strftime).  The type ‘updates-et’ enables support for Extended Timestamp
    Header (:ref:`packet-binary-dump-format`).
@@ -4290,7 +4290,7 @@ Dumping Messages and Routing Tables
 
    Dump whole BGP routing table to `path`. This is heavy process. The path
    `path` can be set with date and time formatting (strftime). If `interval` is
-   set, a new file will be created for echo `interval` of seconds.
+   set, a new file will be created for each `interval` of seconds.
 
    Note: the interval variable can also be set using hours and minutes: 04h20m00.
 
