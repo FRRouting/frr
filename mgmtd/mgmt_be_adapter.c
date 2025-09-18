@@ -697,7 +697,7 @@ static void be_adapter_handle_native_msg(struct mgmt_be_client_adapter *adapter,
 
 	case MGMT_MSG_CODE_ERROR:
 		error_msg = (typeof(error_msg))msg;
-		_dbg("Got ERROR from '%s' txn-id %" PRIx64, adapter->name, msg->refer_id);
+		_dbg("Got ERROR from '%s' txn-id %Lu", adapter->name, msg->refer_id);
 
 		/* Forward the reply to the txn module */
 		mgmt_txn_notify_error(adapter, msg->refer_id, msg->req_id,
@@ -706,14 +706,14 @@ static void be_adapter_handle_native_msg(struct mgmt_be_client_adapter *adapter,
 		break;
 	case MGMT_MSG_CODE_TREE_DATA:
 		/* tree data from a backend client */
-		_dbg("Got TREE_DATA from '%s' txn-id %" PRIx64, adapter->name, msg->refer_id);
+		_dbg("Got TREE_DATA from '%s' txn-id %" PRIu64, adapter->name, msg->refer_id);
 
 		/* Forward the reply to the txn module */
 		mgmt_txn_notify_tree_data_reply(adapter, (struct mgmt_msg_tree_data *)msg, msg_len);
 		break;
 	case MGMT_MSG_CODE_RPC_REPLY:
 		/* RPC reply from a backend client */
-		_dbg("Got RPC_REPLY from '%s' txn-id %" PRIx64, adapter->name, msg->refer_id);
+		_dbg("Got RPC_REPLY from '%s' txn-id %" PRIu64, adapter->name, msg->refer_id);
 
 		/* Forward the reply to the txn module */
 		mgmt_txn_notify_rpc_reply(adapter, (struct mgmt_msg_rpc_reply *)msg, msg_len);

@@ -1610,10 +1610,10 @@ int mgmt_txn_notify_be_cfg_reply(uint64_t txn_id, bool success, const char *erro
 	if (!success) {
 		_log_err("CFG_REQ sent to '%s' failed txn-id: %" PRIu64 " err: %s", adapter->name,
 			 txn->txn_id, error_if_any ? error_if_any : "None");
-		mgmt_txn_send_commit_cfg_reply(
-			txn, MGMTD_INTERNAL_ERROR,
-			error_if_any ? error_if_any
-				     : "Internal error! Failed to download config data to backend!");
+		mgmt_txn_send_commit_cfg_reply(txn, MGMTD_VALIDATION_ERROR,
+					       error_if_any
+						       ? error_if_any
+						       : "config validation failed by backend daemon");
 		return 0;
 	}
 
@@ -1985,7 +1985,12 @@ int mgmt_txn_notify_error(struct mgmt_be_client_adapter *adapter,
 				 adapter->name, txn_id, req_id);
 			return -1;
 		}
-		if (txn_req->req_id != req_id) {
+		/*
+		 * Most of the C client code doesn't set req_id so handle this.
+		 * If we ever wanted to support multiple active CFG_REQ for under
+		 * txn (unlikely), we would need to fix this.
+		 */
+		if (req_id != 0 && txn_req->req_id != req_id) {
 			_log_err("Error reply from %s for txn-id %Lu req_id %Lu does not match current config req_id %Lu",
 				 adapter->name, txn_id, req_id, txn_req->req_id);
 			return -1;
