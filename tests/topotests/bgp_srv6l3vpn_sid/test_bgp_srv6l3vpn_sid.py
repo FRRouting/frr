@@ -741,6 +741,145 @@ def test_sid_add_vrf_30_srv6_only():
     )
 
 
+def test_sid_reenable_both_srv6_and_mpls():
+    """
+    Reenable label vpn export auto to r1
+    Test that SRv6 and MPLS prefixes are sent to r2 (2001::8 will be present)
+    """
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1 vrf vrf30
+          address-family ipv6 unicast
+           label vpn export auto
+          exit-address-family
+        """
+    )
+    check_rib(
+        "r2", "show bgp ipv6 vpn 2001:8::/64 json", "r2/vpnv6_rib_2001_8_mpls_srv6.json"
+    )
+
+
+def _check_show_bgp_ipv6_vpn_selected(router, prefix, mpls, srv6):
+    output = json.loads(router.vtysh_cmd(f"show bgp ipv6 vpn {prefix} json"))
+    found_srv6 = False
+    found_mpls = False
+    if "1:30" not in output.keys() or "paths" not in output["1:30"].keys():
+        return "RD 1:30 not found, or paths key not found"
+    paths = output["1:30"]["paths"]
+    for path in paths:
+        if "remoteSid" in path.keys():
+            valid = path.get("valid", False)
+            if srv6 and valid:
+                found_srv6 = True
+            elif not srv6 and not valid:
+                found_srv6 = True
+            else:
+                return (
+                    f"SRv6 path 'valid' value for {prefix} unexpected, expected {srv6}"
+                )
+        else:
+            valid = path.get("valid", False)
+            if mpls and valid:
+                found_mpls = True
+            elif not mpls and not valid:
+                found_mpls = True
+            else:
+                return (
+                    f"MPLS path 'valid' value for {prefix} unexpected, expected {mpls}"
+                )
+    if found_mpls and found_srv6:
+        return None
+    return f"only one path has been found : MPLS {found_mpls}, SRv6 {found_srv6}"
+
+
+def test_sid_configure_r2_listener_as_srv6():
+    """
+    Enable R2 as srv6 receiver
+    Test that SRv6 and MPLS prefixes are received, and that r2 only selects SRv6
+    """
+    tgen = get_topogen()
+    tgen.gears["r2"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 2
+          address-family ipv6 vpn
+           neighbor 2001::1 encapsulation-srv6
+          exit-address-family
+        """
+    )
+
+    test_func = functools.partial(
+        _check_show_bgp_ipv6_vpn_selected,
+        tgen.gears["r2"],
+        "2001:8::/64",
+        mpls=False,
+        srv6=True,
+    )
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
+    assert (
+        success
+    ), "network 2001:8::/64 selected for SRv6, unselected for MPLS: not found on r2"
+
+
+def test_sid_configure_r2_listener_as_srv6_and_mpls():
+    """
+    Enable R2 as MPLS receiver
+    Test that SRv6 and MPLS prefixes are received, and that r2 selects both SRv6 and MPLS
+    """
+    tgen = get_topogen()
+    tgen.gears["r2"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 2
+          address-family ipv6 vpn
+           neighbor 2001::1 encapsulation-mpls
+          exit-address-family
+        """
+    )
+
+    test_func = functools.partial(
+        _check_show_bgp_ipv6_vpn_selected,
+        tgen.gears["r2"],
+        "2001:8::/64",
+        mpls=True,
+        srv6=True,
+    )
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
+    assert (
+        success
+    ), "network 2001:8::/64 selected for MPLS, selected for SRv6: not found on r2"
+
+
+def test_sid_configure_r2_listener_as_mpls():
+    """
+    Disable R2 as SRv6 receiver
+    Test that SRv6 and MPLS prefixes are received, and that r2 selects both SRv6 and MPLS
+    """
+    tgen = get_topogen()
+    tgen.gears["r2"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 2
+          address-family ipv6 vpn
+           no neighbor 2001::1 encapsulation-srv6
+          exit-address-family
+        """
+    )
+
+    test_func = functools.partial(
+        _check_show_bgp_ipv6_vpn_selected,
+        tgen.gears["r2"],
+        "2001:8::/64",
+        mpls=True,
+        srv6=False,
+    )
+    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
+    assert (
+        success
+    ), "network 2001:8::/64 selected for MPLS, unselected for SRv6: not found on r2"
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
