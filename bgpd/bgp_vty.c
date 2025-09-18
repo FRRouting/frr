@@ -745,7 +745,7 @@ int bgp_vty_find_and_parse_afi_safi_bgp(struct vty *vty,
 		if (strmatch(vrf_name, "all"))
 			*bgp = NULL;
 		else {
-			*bgp = bgp_lookup_by_name(vrf_name);
+			*bgp = bgp_lookup_by_name_filter(vrf_name, false);
 			if (!*bgp) {
 				if (use_json) {
 					json_object *json = NULL;
