@@ -497,7 +497,8 @@ int mgmt_be_send_txn_req(struct mgmt_be_client_adapter *adapter, uint64_t txn_id
 	msg->refer_id = txn_id;
 	msg->create = create;
 
-	_dbg("Sending TXN_REQ to '%s' txn-id: %" PRIu64, adapter->name, txn_id);
+	_dbg("Sending TXN_REQ to '%s' to %s txn-id: %Lu", adapter->name,
+	     create ? "create" : "delete", txn_id);
 
 	ret = mgmt_msg_native_send_msg(adapter->conn, msg, false);
 	mgmt_msg_native_free_msg(msg);
@@ -701,7 +702,7 @@ static void be_adapter_handle_native_msg(struct mgmt_be_client_adapter *adapter,
 		/* Forward the reply to the txn module */
 		mgmt_txn_notify_error(adapter, msg->refer_id, msg->req_id,
 				      error_msg->error, error_msg->errstr);
-
+		/* We may have lost our connection and adapter at this point */
 		break;
 	case MGMT_MSG_CODE_TREE_DATA:
 		/* tree data from a backend client */
