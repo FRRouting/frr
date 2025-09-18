@@ -492,6 +492,7 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn, const char **con
 	error = false;
 	nb_ctx.client = NB_CLIENT_CLI;
 	nb_ctx.user = (void *)client_ctx->user_data;
+	err_buf[0] = 0;
 
 	/*
 	 * this is always true, right?!
@@ -533,14 +534,19 @@ static int mgmt_be_txn_cfg_prepare(struct mgmt_be_txn_ctx *txn, const char **con
 					  err_buf, sizeof(err_buf) - 1);
 	if (err != NB_OK) {
 		err_buf[sizeof(err_buf) - 1] = 0;
-		if (err == NB_ERR_VALIDATION)
+		if (err == NB_ERR_VALIDATION) {
 			log_err_be_client("Failed to validate configs txn-id: %" PRIu64
 					  " %zu batches, err: '%s'",
 					  txn->txn_id, num_processed, err_buf);
-		else
+			if (err_buf[0] == 0)
+				snprintf(err_buf, sizeof(err_buf), "config validation failed");
+		} else {
 			log_err_be_client("Failed to prepare configs for txn-id: %" PRIu64
 					  " %zu batches, err: '%s'",
 					  txn->txn_id, num_processed, err_buf);
+			if (err_buf[0] == 0)
+				snprintf(err_buf, sizeof(err_buf), "prepare config failed");
+		}
 		error = true;
 		SET_FLAG(txn->flags, MGMTD_BE_TXN_FLAGS_CFGPREP_FAILED);
 	} else
