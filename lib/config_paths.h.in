@@ -16,6 +16,7 @@
 #define YANG_MODELS_PATH	"@e_yangmodelsdir@"
 #define MODULE_PATH		"@e_moduledir@"
 #define SCRIPT_PATH		"@e_scriptdir@"
+#define DHCPGW_STATE_PATH	"@e_dhcpgwstatedir@"
 
 /* for extra footgunning, this one has a trailing slash */
 #define SYSCONFDIR		"@e_frr_sysconfdir@/"
