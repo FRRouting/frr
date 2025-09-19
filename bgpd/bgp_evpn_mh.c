@@ -4895,7 +4895,8 @@ static void bgp_evpn_path_nh_link(struct bgp *bgp_vrf, struct bgp_path_info *pi)
 
 	/* find-create nh */
 	memset(&ip, 0, sizeof(ip));
-	if (pi->net->rn->p.family == AF_INET6) {
+	/* copy path attribute's ipv4 or ipv6 address as nexthop field synced to zebra */
+	if (pi->net->rn->p.family == AF_INET6 || BGP_ATTR_MP_NEXTHOP_LEN_IP6(pi->attr)) {
 		SET_IPADDR_V6(&ip);
 		memcpy(&ip.ipaddr_v6, &pi->attr->mp_nexthop_global,
 		       sizeof(ip.ipaddr_v6));
