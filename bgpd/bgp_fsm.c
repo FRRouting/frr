@@ -628,6 +628,7 @@ const char *const peer_down_str[] = {
 	"Cease: out of resources",
 	"Cease: hard reset",
 	"Cease: subcode unknown",
+	"Cease: unspecific",
 };
 
 static void bgp_graceful_restart_timer_off(struct peer_connection *connection,

@@ -2033,6 +2033,7 @@ struct peer {
 #define PEER_DOWN_CEASE_NO_RESOURCE	 44U /* Out of resources */
 #define PEER_DOWN_CEASE_HARD_RESET	 45U /* Hard reset */
 #define PEER_DOWN_CEASE_UNKNOWN		 46U /* Subcode unknown */
+#define PEER_DOWN_CEASE_UNSPECIFIC	 47U /* Cease unspecific: 0 */
 
 	/*
 	 * Remember to update peer_down_str in bgp_fsm.c when you add
