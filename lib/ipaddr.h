@@ -124,7 +124,7 @@ static inline void ipv4_mapped_ipv6_to_ipv4(const struct in6_addr *in6,
 					    struct in_addr *in)
 {
 	memset(in, 0, sizeof(struct in_addr));
-	memcpy(in, (char *)in6 + 12, sizeof(struct in_addr));
+	memcpy(in, (const char *)in6 + 12, sizeof(struct in_addr));
 }
 
 /*
@@ -145,8 +145,7 @@ static inline int ipaddr_cmp(const struct ipaddr *a, const struct ipaddr *b)
 			return (va < vb) ? -1 : 1;
 		return 0;
 	case IPADDR_V6:
-		return memcmp((void *)&a->ipaddr_v6, (void *)&b->ipaddr_v6,
-			      sizeof(a->ipaddr_v6));
+		return memcmp(&a->ipaddr_v6, &b->ipaddr_v6, sizeof(a->ipaddr_v6));
 	case IPADDR_NONE:
 		return 0;
 	}
