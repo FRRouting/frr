@@ -29,6 +29,21 @@
 				__LINE__, __func__, ##__VA_ARGS__);            \
 	} while (0)
 
+static inline int csv_safe_snprintf(char *buf, int size, const char *fmt, ...)
+{
+	va_list args;
+	int ret;
+
+	if (size <= 0)
+		return 0;
+
+	va_start(args, fmt);
+	ret = vsnprintf(buf, size, fmt, args);
+	va_end(args);
+
+	return MIN(ret, size - 1);
+}
+
 #define log_verbose(fmt, ...)                                                  \
 	do {                                                                   \
 		if (DEBUG_V)                                                   \
@@ -189,7 +204,7 @@ static csv_field_t *csv_add_field_to_record(csv_t *csv, csv_record_t *rec,
 	}
 	TAILQ_INSERT_TAIL(&(rec->fields), fld, next_field);
 	fld->field = str + rlen;
-	fld->field_len = snprintf((str + rlen), (blen - rlen), "%s", col);
+	fld->field_len = csv_safe_snprintf(str + rlen, blen - rlen, "%s", col);
 	rlen += fld->field_len;
 	rec->rec_len = rlen;
 	return fld;
@@ -244,13 +259,11 @@ csv_record_t *csv_encode(csv_t *csv, int count, ...)
 			va_end(list);
 			return NULL;
 		}
-		if (tempc < (count - 1)) {
-			rec->rec_len += snprintf((str + rec->rec_len),
-						 (len - rec->rec_len), ",");
-		}
+		if (tempc < (count - 1))
+			rec->rec_len += csv_safe_snprintf(str + rec->rec_len, len - rec->rec_len,
+							  ",");
 	}
-	rec->rec_len +=
-		snprintf((str + rec->rec_len), (len - rec->rec_len), "\n");
+	rec->rec_len += csv_safe_snprintf(str + rec->rec_len, len - rec->rec_len, "\n");
 	va_end(list);
 	csv->csv_len += rec->rec_len;
 	csv->pointer += rec->rec_len;
@@ -341,13 +354,11 @@ csv_record_t *csv_append_record(csv_t *csv, csv_record_t *rec, int count, ...)
 			log_error("fld malloc failed\n");
 			break;
 		}
-		if (tempc < (count - 1)) {
-			rec->rec_len += snprintf((str + rec->rec_len),
-						 (len - rec->rec_len), ",");
-		}
+		if (tempc < (count - 1))
+			rec->rec_len += csv_safe_snprintf(str + rec->rec_len, len - rec->rec_len,
+							  ",");
 	}
-	rec->rec_len +=
-		snprintf((str + rec->rec_len), (len - rec->rec_len), "\n");
+	rec->rec_len += csv_safe_snprintf(str + rec->rec_len, len - rec->rec_len, "\n");
 	va_end(list);
 	csv->csv_len += (rec->rec_len - tlen);
 	csv->pointer += (rec->rec_len - tlen);
@@ -514,7 +525,7 @@ csv_record_t *csv_concat_record(csv_t *csv, csv_record_t *rec1,
 	}
 
 	snprintf(curr, (int)(ret - rec1->record + 1), "%s", rec1->record);
-	strcat(curr, ",");
+	strlcat(curr, ",", csv->buflen);
 
 	ret = strstr(rec2->record, "\n");
 	if (!ret) {
@@ -524,7 +535,7 @@ csv_record_t *csv_concat_record(csv_t *csv, csv_record_t *rec1,
 
 	snprintf((curr + strlen(curr)), (int)(ret - rec2->record + 1), "%s",
 		 rec2->record);
-	strcat(curr, "\n");
+	strlcat(curr, "\n", csv->buflen);
 	rec->rec_len = strlen(curr);
 
 	/* paranoia */
