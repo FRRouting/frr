@@ -164,8 +164,8 @@ DECLARE_LIST(bmp_session, struct bmp, bsi);
 
 DECLARE_DLIST(bmp_qlist, struct bmp_queue_entry, bli);
 
-static int bmp_qhash_cmp(const struct bmp_queue_entry *a,
-		const struct bmp_queue_entry *b)
+static int bmp_rbtree_cmp(const struct bmp_queue_entry *a,
+			  const struct bmp_queue_entry *b)
 {
 	int ret;
 	if (a->afi == AFI_L2VPN && a->safi == SAFI_EVPN && b->afi == AFI_L2VPN
@@ -197,28 +197,7 @@ static int bmp_qhash_cmp(const struct bmp_queue_entry *a,
 	return ret;
 }
 
-static uint32_t bmp_qhash_hkey(const struct bmp_queue_entry *e)
-{
-	uint32_t key;
-
-	key = prefix_hash_key((void *)&e->p);
-	key = jhash(&e->peerid,
-		    offsetof(struct bmp_queue_entry, refcount)
-			    - offsetof(struct bmp_queue_entry, peerid),
-		    key);
-	if ((e->afi == AFI_L2VPN && e->safi == SAFI_EVPN) ||
-	    (e->safi == SAFI_MPLS_VPN))
-		key = jhash(&e->rd,
-			    offsetof(struct bmp_queue_entry, rd)
-				    - offsetof(struct bmp_queue_entry, refcount)
-				    + PSIZE(e->rd.prefixlen),
-			    key);
-
-	return key;
-}
-
-DECLARE_HASH(bmp_qhash, struct bmp_queue_entry, bhi,
-		bmp_qhash_cmp, bmp_qhash_hkey);
+DECLARE_RBTREE_UNIQ(bmp_rbtree, struct bmp_queue_entry, bhi, bmp_rbtree_cmp);
 
 static int bmp_active_cmp(const struct bmp_active *a,
 		const struct bmp_active *b)
@@ -1545,7 +1524,7 @@ afibreak:
 }
 
 static struct bmp_queue_entry *
-bmp_pull_from_queue(struct bmp_qlist_head *list, struct bmp_qhash_head *hash,
+bmp_pull_from_queue(struct bmp_qlist_head *list, struct bmp_rbtree_head *hash,
 		    struct bmp_queue_entry **queuepos_ptr)
 {
 	struct bmp_queue_entry *bqe;
@@ -1558,7 +1537,7 @@ bmp_pull_from_queue(struct bmp_qlist_head *list, struct bmp_qhash_head *hash,
 
 	bqe->refcount--;
 	if (!bqe->refcount) {
-		bmp_qhash_del(hash, bqe);
+		bmp_rbtree_del(hash, bqe);
 		bmp_qlist_del(list, bqe);
 	}
 	return bqe;
@@ -1799,7 +1778,7 @@ static void bmp_wrerr(struct bmp *bmp, struct pullwr *pullwr, bool eof)
 }
 
 static struct bmp_queue_entry *
-bmp_process_one(struct bmp_targets *bt, struct bmp_qhash_head *updhash,
+bmp_process_one(struct bmp_targets *bt, struct bmp_rbtree_head *updhash,
 		struct bmp_qlist_head *updlist, struct bgp *bgp, afi_t afi,
 		safi_t safi, struct bgp_dest *bn, struct peer *peer)
 {
@@ -1821,7 +1800,7 @@ bmp_process_one(struct bmp_targets *bt, struct bmp_qhash_head *updhash,
 		prefix_copy(&bqeref.rd,
 			    (struct prefix_rd *)bgp_dest_get_prefix(bn->pdest));
 
-	bqe = bmp_qhash_find(updhash, &bqeref);
+	bqe = bmp_rbtree_find(updhash, &bqeref);
 	if (bqe) {
 		if (bqe->refcount >= refcount)
 			/* nothing to do here */
@@ -1832,7 +1811,7 @@ bmp_process_one(struct bmp_targets *bt, struct bmp_qhash_head *updhash,
 		bqe = XMALLOC(MTYPE_BMP_QUEUE, sizeof(*bqe));
 		memcpy(bqe, &bqeref, sizeof(*bqe));
 
-		bmp_qhash_add(updhash, bqe);
+		bmp_rbtree_add(updhash, bqe);
 	}
 
 	bqe->refcount = refcount;
@@ -2349,9 +2328,9 @@ static struct bmp_targets *bmp_targets_get(struct bgp *bgp, const char *name)
 	FOREACH_AFI_SAFI (afi, safi)
 		bt->bgp_request_sync[afi][safi] = false;
 	bmp_session_init(&bt->sessions);
-	bmp_qhash_init(&bt->updhash);
+	bmp_rbtree_init(&bt->updhash);
 	bmp_qlist_init(&bt->updlist);
-	bmp_qhash_init(&bt->locupdhash);
+	bmp_rbtree_init(&bt->locupdhash);
 	bmp_qlist_init(&bt->locupdlist);
 	bmp_actives_init(&bt->actives);
 	bmp_listeners_init(&bt->listeners);
@@ -2394,9 +2373,9 @@ static void bmp_targets_put(struct bmp_targets *bt)
 	bmp_imported_bgps_fini(&bt->imported_bgps);
 	bmp_listeners_fini(&bt->listeners);
 	bmp_actives_fini(&bt->actives);
-	bmp_qhash_fini(&bt->updhash);
+	bmp_rbtree_fini(&bt->updhash);
 	bmp_qlist_fini(&bt->updlist);
-	bmp_qhash_fini(&bt->locupdhash);
+	bmp_rbtree_fini(&bt->locupdhash);
 	bmp_qlist_fini(&bt->locupdlist);
 
 	XFREE(MTYPE_BMP_ACLNAME, bt->acl_name);
