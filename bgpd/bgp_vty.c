@@ -16156,7 +16156,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint16_t sh_flags, bo
 		vty_out(vty, "  Connections established %d; dropped %d\n",
 			p->established, p->dropped);
 
-	if (!p->last_reset) {
+	if (p->last_reset == PEER_DOWN_NONE) {
 		if (use_json)
 			json_object_string_add(json_neigh, "lastReset",
 					       "never");

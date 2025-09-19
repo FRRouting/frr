@@ -2108,7 +2108,7 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 	/* Set up peer's events and timers. */
 	else if (active != BGP_PEER_ACTIVE && peer_active(peer->connection) == BGP_PEER_ACTIVE) {
 		if (peer->last_reset == PEER_DOWN_NOAFI_ACTIVATED)
-			peer->last_reset = 0;
+			peer->last_reset = PEER_DOWN_NONE;
 		bgp_timer_set(peer->connection);
 	}
 
