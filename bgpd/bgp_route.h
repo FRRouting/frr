@@ -545,6 +545,7 @@ struct show_bgp {
 	int match_p;
 	struct listnode *node;
 	int add_rd_to_json;
+	struct listnode *nnode;
 };
 
 /* Max routes to show before yielding */
