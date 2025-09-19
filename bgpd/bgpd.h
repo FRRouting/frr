@@ -2010,7 +2010,7 @@ struct peer {
 #define PEER_DOWN_IF_DOWN               25U /* Interface down */
 #define PEER_DOWN_NBR_ADDR_DEL          26U /* Peer address lost */
 #define PEER_DOWN_WAITING_NHT           27U /* Waiting for NHT to resolve */
-#define PEER_DOWN_NBR_ADDR              28U /* Waiting for peer IPv6 IP Addr */
+#define PEER_DOWN_NBR_ADDR              28U /* Waiting for peer address */
 #define PEER_DOWN_VRF_UNINIT            29U /* Associated VRF is not init yet */
 #define PEER_DOWN_NOAFI_ACTIVATED       30U /* No AFI/SAFI activated for peer */
 #define PEER_DOWN_AS_SETS_REJECT        31U /* Reject routes with AS_SET */

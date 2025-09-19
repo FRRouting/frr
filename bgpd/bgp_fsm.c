@@ -609,7 +609,7 @@ const char *const peer_down_str[] = {
 	"Interface down",
 	"Neighbor address lost",
 	"No path to specified Neighbor",
-	"Waiting for Peer IPv6 LLA",
+	"Waiting for peer address",
 	"Waiting for VRF to be initialized",
 	"No AFI/SAFI activated for peer",
 	"AS Set config change",
