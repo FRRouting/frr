@@ -11261,7 +11261,7 @@ DEFPY (bgp_srv6_only,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
-	if (!no == bgp->srv6_only)
+	if ((!no && bgp->srv6_only) || (no && !bgp->srv6_only))
 		return CMD_SUCCESS;
 
 	/* pre-change */
