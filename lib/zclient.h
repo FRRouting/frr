@@ -288,6 +288,10 @@ struct zclient_capabilities {
 	bool mpls_enabled;
 	enum mlag_role role;
 	bool v6_with_v4_nexthop;
+	bool graceful_restart;
+
+	uint16_t platform_blob_length;
+	uint8_t platform_blob[UINT16_MAX];
 };
 
 /* Graceful Restart Capabilities message */
