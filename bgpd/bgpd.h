@@ -961,6 +961,7 @@ struct bgp {
 	struct srv6_locator *tovpn_sid_locator;
 	uint32_t tovpn_sid_transpose_label;
 	struct in6_addr *tovpn_zebra_vrf_sid_last_sent;
+	bool srv6_only;
 
 	/* TCP keepalive parameters for BGP connection */
 	uint16_t tcp_keepalive_idle;
@@ -1767,6 +1768,8 @@ struct peer {
 #define PEER_FLAG_SEND_EXT_COMMUNITY_RPKI (1ULL << 29)
 #define PEER_FLAG_ADDPATH_RX_PATHS_LIMIT (1ULL << 30)
 #define PEER_FLAG_CONFIG_DAMPENING (1ULL << 31)
+#define PEER_FLAG_CONFIG_ENCAPSULATION_SRV6	(1ULL << 32)
+#define PEER_FLAG_CONFIG_ENCAPSULATION_MPLS	(1ULL << 33)
 #define PEER_FLAG_ACCEPT_OWN (1ULL << 63)
 
 	enum bgp_addpath_strat addpath_type[AFI_MAX][SAFI_MAX];
@@ -2435,6 +2438,7 @@ enum peer_change_type {
 	peer_change_reset,
 	peer_change_reset_in,
 	peer_change_reset_out,
+	peer_change_best_path,
 };
 
 /* Enumeration of martian ("self") entry types.

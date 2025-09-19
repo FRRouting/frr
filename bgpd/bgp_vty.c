@@ -313,10 +313,10 @@ static void bgp_srv6_sids_unset(struct bgp *bgp)
 			/* bgp_vrf has an active locator, we have to keep it */
 			continue;
 
-		if (bgp_vrf->vpn_policy[AFI_IP].tovpn_sid)
+		if (bgp_vrf->vpn_policy[AFI_IP].tovpn_sid || bgp_vrf->tovpn_sid)
 			vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(),
 					   bgp_vrf);
-		if (bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid)
+		if (bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid || bgp_vrf->tovpn_sid)
 			vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(),
 					   bgp_vrf);
 	}
@@ -9440,6 +9440,46 @@ DEFUN (no_neighbor_ttl_security,
 	return bgp_vty_return(vty, peer_ttl_security_hops_unset(peer));
 }
 
+/* "neighbor encapsulation-srv6|encapsulation-mpls" */
+DEFPY (neighbor_encapsulation_srv6_or_mpls,
+       neighbor_encapsulation_srv6_or_mpls_cmd,
+       "[no] neighbor <A.B.C.D|X:X::X:X|WORD>$peer_str <encapsulation-srv6$srv6|encapsulation-mpls$mpls>",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Distribute L3VPN updates with SRv6 prefix SID\n"
+       "Distribute L3VPN updates with MPLS prefix SID\n")
+{
+	struct peer *peer;
+	afi_t afi = bgp_node_afi(vty);
+	safi_t safi = bgp_node_safi(vty);
+	int ret;
+
+	peer = peer_and_group_lookup_vty(vty, peer_str);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (srv6) {
+		if (no)
+			ret = peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+						     PEER_FLAG_CONFIG_ENCAPSULATION_SRV6);
+		else
+			ret = peer_af_flag_set_vty(vty, peer_str, afi, safi,
+						   PEER_FLAG_CONFIG_ENCAPSULATION_SRV6);
+		return ret;
+	}
+	if (mpls) {
+		if (no)
+			ret = peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+						     PEER_FLAG_CONFIG_ENCAPSULATION_MPLS);
+		else
+			ret = peer_af_flag_set_vty(vty, peer_str, afi, safi,
+						   PEER_FLAG_CONFIG_ENCAPSULATION_MPLS);
+		return ret;
+	}
+	return CMD_WARNING_CONFIG_FAILED;
+}
+
 /* disable-addpath-rx */
 DEFUN(neighbor_disable_addpath_rx,
       neighbor_disable_addpath_rx_cmd,
@@ -11210,6 +11250,29 @@ DEFPY (bgp_srv6_locator,
 	if (ret < 0)
 		return CMD_WARNING_CONFIG_FAILED;
 
+	return CMD_SUCCESS;
+}
+
+DEFPY (bgp_srv6_only,
+       bgp_srv6_only_cmd,
+       "[no] srv6-only",
+       NO_STR
+       "Only allow SRv6 and disallow MPLS routes\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (!no == bgp->srv6_only)
+		return CMD_SUCCESS;
+
+	/* pre-change */
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(), bgp);
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(), bgp);
+
+	bgp->srv6_only = !no;
+
+	/* post-change */
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(), bgp);
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(), bgp);
 	return CMD_SUCCESS;
 }
 
@@ -19573,6 +19636,12 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 		vty_out(vty, "  neighbor %s weight %lu\n", addr,
 			peer->weight[afi][safi]);
 
+	/* encapsulation-srv6|encapsulation-mpls */
+	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_SRV6))
+		vty_out(vty, "  neighbor %s encapsulation-srv6\n", addr);
+	else if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_MPLS))
+		vty_out(vty, "  neighbor %s encapsulation-mpls\n", addr);
+
 	/* Filter. */
 	bgp_config_write_filter(vty, peer, afi, safi);
 
@@ -20236,7 +20305,7 @@ int bgp_config_write(struct vty *vty)
 		if (bgp->fast_convergence)
 			vty_out(vty, " bgp fast-convergence\n");
 
-		if (bgp_srv6_locator_is_configured(bgp) ||
+		if (bgp_srv6_locator_is_configured(bgp) || bgp->srv6_only == false ||
 		    bgp->srv6_encap_behavior != SRV6_HEADEND_BEHAVIOR_H_ENCAPS) {
 			vty_frame(vty, " !\n segment-routing srv6\n");
 			if (strlen(bgp->srv6_locator_name))
@@ -20245,6 +20314,9 @@ int bgp_config_write(struct vty *vty)
 			if (bgp->srv6_encap_behavior != SRV6_HEADEND_BEHAVIOR_H_ENCAPS)
 				vty_out(vty, "  encap-behavior %s\n",
 					srv6_headend_behavior2str(bgp->srv6_encap_behavior, true));
+			if (bgp->srv6_only == false)
+				vty_out(vty, "  no srv6-only\n");
+
 			vty_endframe(vty, " exit\n");
 		}
 
@@ -21852,6 +21924,10 @@ void bgp_vty_init(void)
 	install_element(BGP_VPNV6_NODE, &neighbor_weight_cmd);
 	install_element(BGP_VPNV6_NODE, &no_neighbor_weight_cmd);
 
+	/* "neighbor encapsulation-srv6|encapsulation-mpls" commands. */
+	install_element(BGP_VPNV4_NODE, &neighbor_encapsulation_srv6_or_mpls_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_encapsulation_srv6_or_mpls_cmd);
+
 	/* "neighbor override-capability" commands. */
 	install_element(BGP_NODE, &neighbor_override_capability_cmd);
 	install_element(BGP_NODE, &no_neighbor_override_capability_cmd);
@@ -22370,6 +22446,7 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &no_bgp_segment_routing_srv6_cmd);
 	install_element(BGP_SRV6_NODE, &bgp_srv6_locator_cmd);
 	install_element(BGP_SRV6_NODE, &no_bgp_srv6_locator_cmd);
+	install_element(BGP_SRV6_NODE, &bgp_srv6_only_cmd);
 	install_element(BGP_SRV6_NODE, &bgp_srv6_encap_behavior_cmd);
 	install_element(BGP_IPV4_NODE, &af_sid_vpn_export_cmd);
 	install_element(BGP_IPV6_NODE, &af_sid_vpn_export_cmd);
