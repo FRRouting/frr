@@ -1982,6 +1982,7 @@ struct peer {
 
 	/* peer reset cause */
 	uint8_t last_reset;
+#define PEER_DOWN_NONE			 0U /* No peer down event */
 #define PEER_DOWN_RID_CHANGE             1U /* bgp router-id command */
 #define PEER_DOWN_REMOTE_AS_CHANGE       2U /* neighbor remote-as command */
 #define PEER_DOWN_LOCAL_AS_CHANGE        3U /* neighbor local-as command */
