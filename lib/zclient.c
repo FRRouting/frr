@@ -4451,6 +4451,10 @@ static int zclient_capability_decode(ZAPI_CALLBACK_ARGS)
 	STREAM_GETC(s, graceful_restart);
 	cap.graceful_restart = !!graceful_restart;
 
+	STREAM_GETW(s, cap.platform_blob_length);
+	if (cap.platform_blob_length)
+		STREAM_GET(&cap.platform_blob[0], s, cap.platform_blob_length);
+
 	if (zclient->zebra_capabilities)
 		(*zclient->zebra_capabilities)(&cap);
 
