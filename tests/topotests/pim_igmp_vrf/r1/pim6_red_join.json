@@ -1,0 +1,21 @@
+{
+  "r1-eth2":{
+    "name":"r1-eth2",
+    "state":"up",
+    "address":"fe80::XXXX:XXXX:XXXX:XXXX",
+    "flagMulticast":true,
+    "flagBroadcast":true,
+    "lanDelayEnabled":true,
+    "ff18:100::1":{
+      "*":{
+        "source":"*",
+        "group":"ff18:100::1",
+        "upTime":"--:--:--",
+        "expire":"--:--",
+        "prune":"--:--",
+        "channelJoinName":"NOINFO",
+        "protocolIgmp":1
+      }
+    }
+  }
+}
