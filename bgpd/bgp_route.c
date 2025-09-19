@@ -15055,34 +15055,37 @@ static int bgp_show_table_core(struct vty *vty, struct show_bgp *args)
 				vty_out(vty, "{\n");
 				*json_header_depth = 2;
 			}
-			vty_out(vty,
-				" \"vrfId\": %d,\n \"vrfName\": \"%s\",\n \"tableVersion\": %" PRId64
-				",\n \"routerId\": \"%pI4\",\n \"defaultLocPrf\": %u,\n"
-				" \"localAS\": ",
-				bgp->vrf_id == VRF_UNKNOWN ? -1 : (int)bgp->vrf_id,
-				bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT ? VRF_DEFAULT_NAME
-									    : bgp->name,
-				table->version, &bgp->router_id, bgp->default_local_pref);
-			if ((bgp->asnotation == ASNOTATION_PLAIN) ||
-			    ((bgp->asnotation == ASNOTATION_DOT) && (bgp->as < UINT16_MAX)))
-				vty_out(vty, "%u", bgp->as);
-			else {
-				vty_out(vty, "\"");
-				vty_out(vty, ASN_FORMAT(bgp->asnotation), &bgp->as);
-				vty_out(vty, "\"");
-			}
-			vty_out(vty, ",\n \"routes\": { ");
-			if (rd) {
-				vty_out(vty, " \"routeDistinguishers\" : {");
-				++*json_header_depth;
+			if (brief) {
+				vty_out(vty, " \"routes\": { ");
+			} else {
+				vty_out(vty,
+					" \"vrfId\": %d,\n \"vrfName\": \"%s\",\n"
+					" \"tableVersion\": %" PRId64
+					",\n \"routerId\": \"%pI4\",\n \"defaultLocPrf\": %u,\n"
+					" \"localAS\": ",
+					bgp->vrf_id == VRF_UNKNOWN ? -1 : (int)bgp->vrf_id,
+					bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT
+						? VRF_DEFAULT_NAME
+						: bgp->name,
+					table->version, &bgp->router_id, bgp->default_local_pref);
+				if ((bgp->asnotation == ASNOTATION_PLAIN) ||
+				    ((bgp->asnotation == ASNOTATION_DOT) && (bgp->as < UINT16_MAX)))
+					vty_out(vty, "%u", bgp->as);
+				else {
+					vty_out(vty, "\"");
+					vty_out(vty, ASN_FORMAT(bgp->asnotation), &bgp->as);
+					vty_out(vty, "\"");
+				}
+				vty_out(vty, ",\n \"routes\": { ");
+				if (rd) {
+					vty_out(vty, " \"routeDistinguishers\" : {");
+					++*json_header_depth;
+				}
 			}
 		}
 
-		if (use_json && rd) {
+		if (use_json && rd)
 			vty_out(vty, " \"%s\" : { ", rd);
-		}
-		if (use_json && brief)
-			vty_out(vty, " \"routes\": { ");
 
 		/* Check for 'json detail', where we need header output once per dest */
 		if (use_json && detail_json && type != bgp_show_type_dampend_paths &&
@@ -15818,46 +15821,92 @@ static int bgp_show(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			      &json_header_depth, show_flags, rpki_target_state, brief);
 }
 
-static void bgp_show_all_instances_routes_vty(struct vty *vty, afi_t afi,
-					      safi_t safi, uint16_t show_flags)
+static int bgp_show_all_instances_routes_vty_core(struct vty *vty, struct show_bgp *args)
 {
-	struct listnode *node, *nnode;
+	struct listnode *node = args->node, *nnode;
 	struct bgp *bgp;
-	int is_first = 1;
-	bool route_output = false;
-	bool use_json = CHECK_FLAG(show_flags, BGP_SHOW_OPT_JSON);
+	int is_first = 0;
+	bool route_output = true;
+	bool use_json = CHECK_FLAG(args->show_flags, BGP_SHOW_OPT_JSON);
+	int ret = 0;
 
-	if (use_json)
-		vty_out(vty, "{\n");
+	if (node == NULL) {
+		if (use_json)
+			vty_out(vty, "{\n");
+		node = listhead(bm->bgp);
+		bgp = NULL;
+		is_first = 1;
+		route_output = false;
+	}
 
-	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+	for (; node != NULL && (bgp = static_cast(bgp, listgetdata(node)), nnode = node->next, 1);
+	     node = nnode, (bgp = NULL)) {
 		if (IS_BGP_INSTANCE_HIDDEN(bgp))
 			continue;
 		route_output = true;
-		if (use_json) {
-			if (!is_first)
-				vty_out(vty, ",\n");
-			else
-				is_first = 0;
 
-			vty_out(vty, "\"%s\":",
-				(bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-					? VRF_DEFAULT_NAME
-					: bgp->name);
-		} else {
-			vty_out(vty, "\nInstance %s:\n",
-				(bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-					? VRF_DEFAULT_NAME
-					: bgp->name);
+		if (args->rd_dest == NULL && args->dest == NULL) {
+			if (use_json) {
+				if (!is_first)
+					vty_out(vty, ",\n");
+				else
+					is_first = 0;
+
+				vty_out(vty, "\"%s\":",
+					(bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+						? VRF_DEFAULT_NAME
+						: bgp->name);
+			} else {
+				vty_out(vty, "\nInstance %s:\n",
+					(bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+						? VRF_DEFAULT_NAME
+						: bgp->name);
+			}
+
+			args->output_cum = 0;
+			args->total_cum = 0;
+			args->json_header_depth = 0;
 		}
-		bgp_show(vty, bgp, afi, safi, bgp_show_type_normal, NULL, show_flags,
-			 RPKI_NOT_BEING_USED, false);
+
+		args->node = node;
+		args->nnode = nnode;
+		args->bgp = bgp;
+
+		ret = bgp_show_core(vty, args);
+
+		if (ret == CMD_YIELD)
+			return ret;
+
+		if (ret == CMD_SUCCESS) {
+			args->node = nnode;
+			if (nnode != NULL)
+				return CMD_YIELD;
+		}
 	}
 
 	if (use_json)
 		vty_out(vty, "}\n");
 	else if (!route_output)
 		vty_out(vty, "%% BGP instance not found\n");
+
+	return ret;
+}
+
+static int bgp_show_all_instances_routes_vty(struct vty *vty, afi_t afi, safi_t safi,
+					     uint16_t show_flags)
+{
+	struct show_bgp *args = XCALLOC(MTYPE_TMP, sizeof(struct show_bgp));
+
+	*args = (struct show_bgp){ .afi = afi,
+				   .safi = safi,
+				   .show_flags = show_flags,
+				   .type = bgp_show_type_normal,
+				   .rpki_target_state = RPKI_NOT_BEING_USED,
+				   .func = &bgp_show_all_instances_routes_vty_core };
+
+	vty_yield(vty, bgp_show_cb, args);
+
+	return CMD_YIELD;
 }
 
 /* Header of detailed BGP route information */
@@ -16838,6 +16887,10 @@ static int show_ip_bgp_all_core(struct vty *vty, struct show_bgp *args)
 					} else
 						vty_out(vty, "\nFor address family: %s\n",
 							get_afi_safi_str(afi, safi, false));
+
+					args->output_cum = 0;
+					args->total_cum = 0;
+					args->json_header_depth = 0;
 				}
 
 				if (community)
@@ -16883,9 +16936,14 @@ static int show_ip_bgp_all_core(struct vty *vty, struct show_bgp *args)
 
 					if (!bgp_afi_safi_peer_exists(abgp, afi, safi))
 						continue;
-					if (args->rd_dest == NULL && args->dest == NULL)
+					if (args->rd_dest == NULL && args->dest == NULL) {
 						format_bgp_family_output(vty, uj, afi, safi,
 									 &first);
+						args->output_cum = 0;
+						args->total_cum = 0;
+						args->json_header_depth = 0;
+					}
+
 
 					if (community)
 						ret = bgp_show_community_core(vty, args);
@@ -16897,10 +16955,6 @@ static int show_ip_bgp_all_core(struct vty *vty, struct show_bgp *args)
 
 					if (uj)
 						vty_out(vty, "}\n");
-
-					args->output_cum = 0;
-					args->total_cum = 0;
-					args->json_header_depth = 0;
 				}
 			}
 		}
@@ -16943,15 +16997,9 @@ static int show_ip_bgp_all(struct vty *vty, bool uj, uint16_t show_flags, afi_t 
 	if (uj)
 		vty_out(vty, "{\n");
 
-	int ret = show_ip_bgp_all_core(vty, args);
+	vty_yield(vty, bgp_show_cb, args);
 
-	if (ret == CMD_YIELD)
-		vty_yield(vty, bgp_show_cb, args);
-
-	if (ret == CMD_SUCCESS)
-		XFREE(MTYPE_TMP, args);
-
-	return ret;
+	return CMD_YIELD;
 }
 
 /* BGP route print out function */
@@ -17457,8 +17505,7 @@ DEFPY (show_ip_bgp_instance_all,
 	if (!idx)
 		return CMD_WARNING;
 
-	bgp_show_all_instances_routes_vty(vty, afi, safi, show_flags);
-	return CMD_SUCCESS;
+	return bgp_show_all_instances_routes_vty(vty, afi, safi, show_flags);
 }
 
 static int bgp_show_regexp(struct vty *vty, struct bgp *bgp, const char *regstr,
@@ -19469,10 +19516,8 @@ DEFPY(show_ip_bgp_vrf_afi_safi_routes_detailed,
 	if (!idx)
 		return CMD_WARNING;
 	/* 'vrf all' case to iterate all vrfs & show output per vrf instance */
-	if (vrf_name && strmatch(vrf_name, "all")) {
-		bgp_show_all_instances_routes_vty(vty, afi, safi, show_flags);
-		return CMD_SUCCESS;
-	}
+	if (vrf_name && strmatch(vrf_name, "all"))
+		return bgp_show_all_instances_routes_vty(vty, afi, safi, show_flags);
 
 	/* All other cases except vrf all */
 	return bgp_show(vty, bgp, afi, safi, bgp_show_type_detail, NULL, show_flags,
