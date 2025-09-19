@@ -685,6 +685,14 @@ Debugging ISIS
 
    IS-IS LFA events.
 
+.. clicmd:: debug isis flooding
+
+.. clicmd:: debug isis bfd
+
+.. clicmd:: debug isis ldp-sync
+
+.. clicmd:: debug isis tx-queue
+
 .. clicmd:: show debugging isis
 
    Print which ISIS debug level is activate.
