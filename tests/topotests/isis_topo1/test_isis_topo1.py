@@ -149,12 +149,9 @@ def test_isis_route_installation():
         filename = "{0}/{1}/{1}_route.json".format(CWD, rname)
         expected = json.loads(open(filename, "r").read())
 
-        def compare_isis_installed_routes(router, expected):
-            "Helper function to test ISIS routes installed in rib."
-            actual = router.vtysh_cmd("show ip route json", isjson=True)
-            return topotest.json_cmp(actual, expected)
-
-        test_func = functools.partial(compare_isis_installed_routes, router, expected)
+        test_func = functools.partial(
+            _helper_compare_isis_installed_routes, router, expected
+        )
         (result, _) = topotest.run_and_expect(test_func, None, wait=1, count=10)
         assertmsg = "Router '{}' routes mismatch".format(rname)
         assert result, assertmsg
@@ -667,6 +664,21 @@ def test_isis_advertise_passive_only():
     )
     assert result is True, result
 
+    logger.info("Checking router for installed ISIS routes with advertise-passive-only")
+
+    # routes must be installed
+    rname = "r1"
+    router = r1
+    filename = "{0}/{1}/{1}_route.json".format(CWD, rname)
+    expected = json.loads(open(filename, "r").read())
+
+    test_func = functools.partial(
+        _helper_compare_isis_installed_routes, router, expected
+    )
+    (result, _) = topotest.run_and_expect(test_func, None, wait=1, count=10)
+    assertmsg = "Router '{}' routes mismatch:\n{}".format(rname, _)
+    assert result, assertmsg
+
 
 def test_isis_hello_padding_during_adjacency_formation():
     """Check that IIH packets is only padded when adjacency is still being formed
@@ -1003,3 +1015,9 @@ def parse_topology(lines, level):
             continue
 
     return areas
+
+
+def _helper_compare_isis_installed_routes(router, expected):
+    "Helper function to test ISIS routes installed in rib."
+    actual = router.vtysh_cmd("show ip route json", isjson=True)
+    return topotest.json_cmp(actual, expected)
