@@ -882,7 +882,7 @@ bool bgp_notify_received_hard_reset(struct peer *peer, uint8_t code,
 
 /* BGP cease subcode to peer down cause */
 static uint8_t bgp_cease_to_reset_cause[] = {
-	PEER_DOWN_CEASE_UNKNOWN,       PEER_DOWN_CEASE_PRX_COUNT,   PEER_DOWN_CEASE_ADMIN_SHUTDOWN,
+	PEER_DOWN_CEASE_UNSPECIFIC,    PEER_DOWN_CEASE_PRX_COUNT,   PEER_DOWN_CEASE_ADMIN_SHUTDOWN,
 	PEER_DOWN_CEASE_PEER_UNCONFIG, PEER_DOWN_CEASE_ADMIN_RESET, PEER_DOWN_CEASE_CONNECT_REJECT,
 	PEER_DOWN_CEASE_CONFIG_CHANGE, PEER_DOWN_CEASE_COLLISION,   PEER_DOWN_CEASE_NO_RESOURCE,
 	PEER_DOWN_CEASE_HARD_RESET,    PEER_DOWN_CEASE_BFD_DOWN,
@@ -1030,7 +1030,7 @@ static void bgp_notify_send_internal(struct peer_connection *connection,
 			peer->last_reset = CHECK_FLAG(peer->sflags, PEER_STATUS_RTT_SHUTDOWN)
 						   ? PEER_DOWN_RTT_SHUTDOWN
 						   : PEER_DOWN_USER_SHUTDOWN;
-		else if (sub_code <= CEASE_CAUSES)
+		else if (sub_code < CEASE_CAUSES)
 			peer->last_reset = bgp_cease_to_reset_cause[sub_code];
 		else
 			peer->last_reset = PEER_DOWN_CEASE_UNKNOWN;

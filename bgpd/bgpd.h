@@ -1982,6 +1982,7 @@ struct peer {
 
 	/* peer reset cause */
 	uint8_t last_reset;
+#define PEER_DOWN_NONE			 0U /* No peer down event */
 #define PEER_DOWN_RID_CHANGE             1U /* bgp router-id command */
 #define PEER_DOWN_REMOTE_AS_CHANGE       2U /* neighbor remote-as command */
 #define PEER_DOWN_LOCAL_AS_CHANGE        3U /* neighbor local-as command */
@@ -2032,6 +2033,7 @@ struct peer {
 #define PEER_DOWN_CEASE_NO_RESOURCE	 44U /* Out of resources */
 #define PEER_DOWN_CEASE_HARD_RESET	 45U /* Hard reset */
 #define PEER_DOWN_CEASE_UNKNOWN		 46U /* Subcode unknown */
+#define PEER_DOWN_CEASE_UNSPECIFIC	 47U /* Cease unspecific: 0 */
 
 	/*
 	 * Remember to update peer_down_str in bgp_fsm.c when you add
