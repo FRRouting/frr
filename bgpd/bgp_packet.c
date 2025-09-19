@@ -1030,7 +1030,7 @@ static void bgp_notify_send_internal(struct peer_connection *connection,
 			peer->last_reset = CHECK_FLAG(peer->sflags, PEER_STATUS_RTT_SHUTDOWN)
 						   ? PEER_DOWN_RTT_SHUTDOWN
 						   : PEER_DOWN_USER_SHUTDOWN;
-		else if (sub_code <= CEASE_CAUSES)
+		else if (sub_code < CEASE_CAUSES)
 			peer->last_reset = bgp_cease_to_reset_cause[sub_code];
 		else
 			peer->last_reset = PEER_DOWN_CEASE_UNKNOWN;
