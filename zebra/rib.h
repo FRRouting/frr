@@ -660,6 +660,8 @@ void route_entry_dump_nh(const struct route_entry *re, const char *straddr,
 /* Name of hook calls */
 #define ZEBRA_ON_RIB_PROCESS_HOOK_CALL "on_rib_process_dplane_results"
 
+extern char *zebra_rib_dump_re_status(const struct route_entry *re, char *buf, size_t len);
+
 #ifdef __cplusplus
 }
 #endif
