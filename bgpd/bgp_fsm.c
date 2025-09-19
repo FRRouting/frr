@@ -2349,9 +2349,9 @@ bgp_establish(struct peer_connection *connection)
 	struct vrf *vrf = NULL;
 
 	other = peer->doppelganger;
-	hash_release(peer->bgp->peerhash, peer);
-	if (other)
-		hash_release(peer->bgp->peerhash, other);
+	hash_release(peer->bgp->connectionhash, connection);
+	if (other && other->connection)
+		hash_release(peer->bgp->connectionhash, other->connection);
 
 	peer = peer_xfer_conn(peer);
 	if (!peer) {
@@ -2363,9 +2363,9 @@ bgp_establish(struct peer_connection *connection)
 		 * connections are rejected, as that the peer is not found
 		 * when a lookup is done
 		 */
-		(void)hash_get(orig->bgp->peerhash, orig, hash_alloc_intern);
-		if (other)
-			(void)hash_get(other->bgp->peerhash, other,
+		(void)hash_get(orig->bgp->connectionhash, orig->connection, hash_alloc_intern);
+		if (other && other->connection)
+			(void)hash_get(other->bgp->connectionhash, other->connection,
 				       hash_alloc_intern);
 		return BGP_FSM_FAILURE;
 	}
@@ -2499,7 +2499,7 @@ bgp_establish(struct peer_connection *connection)
 	 * the doppelgangers su and this peer's su are the same
 	 * so the hash_release is the same for either.
 	 */
-	(void)hash_get(peer->bgp->peerhash, peer, hash_alloc_intern);
+	(void)hash_get(peer->bgp->connectionhash, peer->connection, hash_alloc_intern);
 
 	/* Start BFD peer if not already running. */
 	if (peer->bfd_config)
