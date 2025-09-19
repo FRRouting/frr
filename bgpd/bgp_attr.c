@@ -86,6 +86,28 @@ static const struct message attr_flag_str[] = {
 
 static struct hash *cluster_hash;
 
+/* To avoid repeated attr interning for multiple prefixes per NLRI-section */
+static struct {
+	bool valid;
+
+	/* parsed attr pointer for equality check */
+	const struct attr *parsed_attr;
+
+	/* interned attr(reference) to reuse during prefix parsing */
+	struct attr *interned;
+} bgp_attr_reuse_ctx;
+
+void bgp_attr_reuse_cache(const struct attr *parsed_attr)
+{
+	memset(&bgp_attr_reuse_ctx, 0, sizeof(bgp_attr_reuse_ctx));
+	bgp_attr_reuse_ctx.parsed_attr = parsed_attr;
+}
+
+void bgp_attr_reuse_clear(void)
+{
+	memset(&bgp_attr_reuse_ctx, 0, sizeof(bgp_attr_reuse_ctx));
+}
+
 static void *cluster_hash_alloc(void *p)
 {
 	const struct cluster_list *val = (const struct cluster_list *)p;
@@ -1294,9 +1316,24 @@ struct attr *bgp_attr_intern(struct attr *attr)
 	 * correctly updated the refcounts on these.
 	 * If we don't find it, we need to allocate a one because in all
 	 * cases this returns a new reference to a hashed attr, but the input
-	 * wasn't on hash. */
-	find = (struct attr *)hash_get(attrhash, attr, bgp_attr_hash_alloc);
-	find->refcnt++;
+	 * wasn't on hash.
+	 * If the incoming attr equals to the parsed attr, Re-use the intern'd attribute
+	 * attr from the cache. Otherwise do the new intern.
+	 */
+	if (bgp_attr_reuse_ctx.valid && bgp_attr_reuse_ctx.parsed_attr && attrhash_cmp(attr, bgp_attr_reuse_ctx.parsed_attr)) {
+		/* Reuse cached interned attr. its sub-objects are already accounted for */
+		find = bgp_attr_reuse_ctx.interned;
+		find->refcnt++;
+	} else {
+		find = (struct attr *)hash_get(attrhash, attr, bgp_attr_hash_alloc);
+		find->refcnt++;
+
+		/* Populate cache only for the unchanged-parsed-attr case */
+		if (bgp_attr_reuse_ctx.parsed_attr && attrhash_cmp(attr, bgp_attr_reuse_ctx.parsed_attr)) {
+			bgp_attr_reuse_ctx.valid = true;
+			bgp_attr_reuse_ctx.interned = find;
+		}
+	}
 
 	return find;
 }
@@ -1518,6 +1555,11 @@ void bgp_attr_unintern(struct attr **pattr)
 
 	/* If reference becomes zero then free attribute object. */
 	if (attr->refcnt == 0) {
+		/* Invalidate reuse cache if it pointed to this attr */
+		if (bgp_attr_reuse_ctx.valid && bgp_attr_reuse_ctx.interned == attr) {
+			bgp_attr_reuse_ctx.valid = false;
+			bgp_attr_reuse_ctx.interned = NULL;
+		}
 		ret = hash_release(attrhash, attr);
 		assert(ret != NULL);
 		XFREE(MTYPE_ATTR, attr);

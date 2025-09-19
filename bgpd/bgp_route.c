@@ -7291,6 +7291,8 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 	addpath_id = 0;
 	addpath_capable = bgp_addpath_encode_rx(peer, afi, safi);
 
+	/* cache the incoming attr to avoid repeated intern */
+	bgp_attr_reuse_cache(attr);
 	/* RFC4271 6.3 The NLRI field in the UPDATE message is checked for
 	   syntactic validity.  If the field is syntactically incorrect,
 	   then the Error Subcode is set to Invalid Network Field. */
@@ -7404,6 +7406,8 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 		if (CHECK_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW))
 			return BGP_NLRI_PARSE_ERROR_PREFIX_OVERFLOW;
 	}
+
+	bgp_attr_reuse_clear();
 
 	/* Packet length consistency check. */
 	if (pnt != lim) {
