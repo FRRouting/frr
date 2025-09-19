@@ -29,4 +29,5 @@ enum filter_type pim_access_list_apply(struct access_list *access, const struct 
 bool pim_is_group_filtered(struct pim_interface *pim_ifp, pim_addr *grp, pim_addr *src);
 void pim_get_all_mcast_group(struct prefix *prefix);
 bool pim_addr_is_multicast(pim_addr addr);
+bool pim_is_valid_ipddress(const struct ipaddr *ip);
 #endif /* PIM_UTIL_H */
