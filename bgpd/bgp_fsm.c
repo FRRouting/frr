@@ -84,6 +84,9 @@ static void bgp_connect_timer(struct event *event);
 static void bgp_holdtime_timer(struct event *event);
 static void bgp_delayopen_timer(struct event *event);
 
+/* BGP GR functions. */
+static bool bgp_gr_check_all_eors(struct bgp *bgp, afi_t afi, safi_t safi);
+
 /* Register peer with NHT */
 int bgp_peer_reg_with_nht(struct peer *peer)
 {
@@ -864,6 +867,16 @@ static void bgp_graceful_deferral_timer_expire(struct event *thread)
 	bgp->gr_info[afi][safi].select_defer_over = true;
 	XFREE(MTYPE_TMP, info);
 
+	/* Check if graceful restart deferral completion is needed */
+	if (BGP_SUPPRESS_FIB_ENABLED(bgp) && bgp_gr_check_all_eors(bgp, afi, safi) &&
+	    !bgp->gr_info[afi][safi].gr_deferred && bgp->gr_route_sync_pending) {
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug("%s: Triggering GR deferral completion from timer expiry for %s",
+				   bgp->name_pretty, get_afi_safi_str(afi, safi, false));
+		bgp_process_gr_deferral_complete(bgp, afi, safi);
+		return;
+	}
+
 	/* Best path selection */
 	bgp_do_deferred_path_selection(bgp, afi, safi);
 }
@@ -1285,12 +1298,14 @@ void bgp_gr_check_path_select(struct bgp *bgp, afi_t afi, safi_t safi)
 
 	if (bgp_gr_check_all_eors(bgp, afi, safi)) {
 		gr_info = &(bgp->gr_info[afi][safi]);
-		if (gr_info->t_select_deferral) {
-			void *info = EVENT_ARG(gr_info->t_select_deferral);
+		if (!BGP_SUPPRESS_FIB_ENABLED(bgp)) {
+			if (gr_info->t_select_deferral) {
+				void *info = EVENT_ARG(gr_info->t_select_deferral);
 
-			XFREE(MTYPE_TMP, info);
+				XFREE(MTYPE_TMP, info);
+			}
+			event_cancel(&gr_info->t_select_deferral);
 		}
-		event_cancel(&gr_info->t_select_deferral);
 		gr_info->select_defer_over = true;
 		bgp_do_deferred_path_selection(bgp, afi, safi);
 	}
