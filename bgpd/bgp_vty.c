@@ -3080,6 +3080,10 @@ static int bgp_inst_gr_config_vty(struct vty *vty, struct bgp *bgp, bool on,
 {
 	int ret = BGP_GR_FAILURE;
 
+
+	/* Cancel the restart timer */
+	event_cancel(&bgp->t_startup);
+
 	/*
 	 * Update the instance and all its peers, if appropriate.
 	 * Then, inform zebra of BGP's GR capabilities, if needed.
