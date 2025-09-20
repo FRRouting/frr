@@ -2014,14 +2014,14 @@ struct peer {
 #define PEER_DOWN_VRF_UNINIT            29U /* Associated VRF is not init yet */
 #define PEER_DOWN_NOAFI_ACTIVATED       30U /* No AFI/SAFI activated for peer */
 #define PEER_DOWN_AS_SETS_REJECT        31U /* Reject routes with AS_SET */
-#define PEER_DOWN_WAITING_OPEN          32U /* Waiting for open to succeed */
+#define PEER_DOWN_RPKI_DOWN             32U /* RPKI cache is not connected due to strict mode */
 #define PEER_DOWN_PFX_COUNT             33U /* Reached received prefix count */
 #define PEER_DOWN_SOCKET_ERROR          34U /* Some socket error happened */
 #define PEER_DOWN_RTT_SHUTDOWN          35U /* Automatically shutdown due to RTT */
 #define PEER_DOWN_SUPPRESS_FIB_PENDING	 36U /* Suppress fib pending changed */
 #define PEER_DOWN_PASSWORD_CHANGE	 37U /* neighbor password command */
 #define PEER_DOWN_ROUTER_ID_ZERO	 38U /* router-id is 0.0.0.0 */
-#define PEER_DOWN_RPKI_DOWN		 39U /* RPKI cache is not connected due to strict mode */
+#define PEER_DOWN_CEASE_UNSPECIFIC	 39U /* Cease unspecific: 0 */
 #define PEER_DOWN_CEASE_BFD_DOWN	 PEER_DOWN_BFD_DOWN
 #define PEER_DOWN_CEASE_PRX_COUNT	 PEER_DOWN_PFX_COUNT
 #define PEER_DOWN_CEASE_ADMIN_RESET	 PEER_DOWN_USER_RESET
@@ -2033,7 +2033,6 @@ struct peer {
 #define PEER_DOWN_CEASE_NO_RESOURCE	 44U /* Out of resources */
 #define PEER_DOWN_CEASE_HARD_RESET	 45U /* Hard reset */
 #define PEER_DOWN_CEASE_UNKNOWN		 46U /* Subcode unknown */
-#define PEER_DOWN_CEASE_UNSPECIFIC	 47U /* Cease unspecific: 0 */
 
 	/*
 	 * Remember to update peer_down_str in bgp_fsm.c when you add
