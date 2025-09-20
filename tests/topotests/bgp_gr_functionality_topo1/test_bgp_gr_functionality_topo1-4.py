@@ -1684,15 +1684,16 @@ def BGP_GR_TC_52_p1(request):
             tc_name, result
         )
 
+    step("Start BGP on R2")
+
+    start_router_daemons(tgen, "r2", ["bgpd"])
+
     write_test_footer(tc_name)
 
 
 def test_BGP_GR_TC_53_p1(request):
     """
-    Test Objective : Peer-level inherit from BGP wide Restarting
-    Global Mode : GR Restart
-    PerPeer Mode :  None
-    GR Mode effective : GR Restart
+    Test Objective : Test GR knobs at global level
 
     """
 
@@ -1710,7 +1711,7 @@ def test_BGP_GR_TC_53_p1(request):
     # Creating configuration from JSON
     reset_config_on_routers(tgen)
 
-    step("Configure R1 as GR restarting node in global level")
+    step("Configure R1 as GR restarting node at global level")
 
     input_dict = {
         "r1": {
@@ -1719,14 +1720,45 @@ def test_BGP_GR_TC_53_p1(request):
         "r2": {"graceful-restart": {"graceful-restart-helper": True}},
     }
 
-    output = tgen.gears["r1"].vtysh_cmd(
+    r1=tgen.gears["r1"]
+    r2=tgen.gears["r2"]
+
+    def _bgp_converge():
+        output = json.loads(r1.vtysh_cmd("show ip bgp neighbor 192.168.0.2 json"))
+        expected = {
+            "192.168.0.2": {
+                "bgpState": "Established",
+            }
+        }
+        output = json.loads(r1.vtysh_cmd("show ip bgp neighbor fd00::2 json"))
+        expected = {
+            "fd00::2": {
+                "bgpState": "Established",
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+
+    r1.vtysh_cmd(
         """
         configure terminal
+        debug bgp neighbor-events
+        debug bgp graceful-restart
         bgp graceful-restart
         bgp graceful-restart preserve-fw-state
         !
         """
     )
+    r1.vtysh_cmd(
+        """
+        clear bgp *
+        """
+    )
+    step("Initial BGP converge")
+    test_func = functools.partial(_bgp_converge)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to see BGP convergence on R1"
+
 
     step("Verify that R2 receives GR restarting capabilities" " from R1")
 
@@ -1792,7 +1824,6 @@ def test_BGP_GR_TC_53_p1(request):
         result = verify_rib(tgen, addr_type, dut, input_topo, next_hop, protocol)
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
-    # Configure graceful-restart-disable at config global level verify that the functionality works
     step("Bring up BGP on R1 and configure graceful-restart-disable")
 
     start_router_daemons(tgen, "r1", ["bgpd"])
@@ -1802,13 +1833,25 @@ def test_BGP_GR_TC_53_p1(request):
         "r2": {"graceful-restart": {"graceful-restart-helper": True}},
     }
 
-    output = tgen.gears["r1"].vtysh_cmd(
+    r1.vtysh_cmd(
         """
         configure terminal
+        debug bgp neighbor-events
+        debug bgp graceful-restart
         bgp graceful-restart-disable
         !
         """
     )
+    r1.vtysh_cmd(
+        """
+        clear bgp *
+        """
+    )
+    step("Initial BGP converge")
+    test_func = functools.partial(_bgp_converge)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to see BGP convergence on R1"
+
 
     step("Verify on R2 that R1 does't advertise any GR capabilities")
 
@@ -1897,9 +1940,11 @@ def test_BGP_GR_TC_53_p1(request):
 
     start_router_daemons(tgen, "r1", ["bgpd"])
 
-    output = tgen.gears["r1"].vtysh_cmd(
+    r1.vtysh_cmd(
         """
         configure terminal
+        debug bgp graceful-restart
+        debug bgp neighbor-events
         no bgp graceful-restart-disable
         bgp graceful-restart
         bgp graceful-restart stalepath-time 420
@@ -1908,6 +1953,15 @@ def test_BGP_GR_TC_53_p1(request):
         !
         """
     )
+    r1.vtysh_cmd(
+        """
+        clear bgp *
+        """
+    )
+    step("Initial BGP converge")
+    test_func = functools.partial(_bgp_converge)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to see BGP convergence on R1"
 
     step("Verify on R2 that R1 sent the updated GR restart-time")
 
