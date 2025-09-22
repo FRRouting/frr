@@ -3081,6 +3081,14 @@ static int bgp_inst_gr_config_vty(struct vty *vty, struct bgp *bgp, bool on,
 	int ret = BGP_GR_FAILURE;
 
 	/*
+	 * Reset gr_select_defer_evaluated if startup timer is running
+	 * so that deferred path selection can be reevaluated once
+	 * sessions come back up after BGP session reset
+	 */
+	if (event_is_scheduled(bgp->t_startup))
+		bgp->gr_select_defer_evaluated = false;
+
+	/*
 	 * Update the instance and all its peers, if appropriate.
 	 * Then, inform zebra of BGP's GR capabilities, if needed.
 	 */
