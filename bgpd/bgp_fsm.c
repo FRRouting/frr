@@ -3152,6 +3152,15 @@ unsigned int bgp_peer_gr_action(struct peer *peer, enum peer_mode old_state,
 	bgp_peer_move_to_gr_mode(peer, new_state);
 
 	if (session_reset) {
+		/*
+		 * Reset gr_select_defer_evaluated if startup timer is running
+		 * so that deferred path selection
+		 * can be reevaluated once sessions come back up after
+		 * BGP session reset
+		 */
+		if (event_is_scheduled(peer->bgp->t_startup))
+			peer->bgp->gr_select_defer_evaluated = false;
+
 		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 			peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
 
