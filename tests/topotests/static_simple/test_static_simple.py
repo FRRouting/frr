@@ -13,11 +13,10 @@ import datetime
 import ipaddress
 import math
 import os
-import sys
 import re
 
 import pytest
-from lib.topogen import TopoRouter, Topogen, get_topogen
+from lib.topogen import TopoRouter, Topogen
 from lib.topolog import logger
 from lib.common_config import retry, step
 
@@ -80,7 +79,7 @@ def check_kernel(r1, super_prefix, count, add, is_blackhole, vrf, matchvia):
         kernel = r1.run(f"ip -4 route show{vrfstr}")
 
     logger.debug("checking kernel routing table%s:\n%s", vrfstr, kernel)
-    for i, net in enumerate(get_ip_networks(super_prefix, count)):
+    for _, net in enumerate(get_ip_networks(super_prefix, count)):
         if not add:
             assert str(net) not in kernel
             continue
@@ -116,7 +115,6 @@ def do_config(
     else:
         super_prefix = "2001::/48" if do_ipv6 else "10.0.0.0/8"
 
-    matchtype = ""
     matchvia = ""
     if via == "blackhole":
         pass
@@ -146,7 +144,7 @@ def do_config(
         if vrf:
             f.write("vrf {}\n".format(vrf))
 
-        for i, net in enumerate(get_ip_networks(super_prefix, count)):
+        for _, net in enumerate(get_ip_networks(super_prefix, count)):
             if add:
                 f.write("ip route {} {}\n".format(net, via))
             else:
