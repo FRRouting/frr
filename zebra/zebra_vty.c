@@ -419,6 +419,8 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 	char buf[SRCDEST2STR_BUFFER];
 	struct zebra_vrf *zvrf;
 	rib_dest_t *dest;
+	char flags_buf[128];
+	char status_buf[128];
 
 	dest = rib_dest_from_rnode(rn);
 
@@ -467,6 +469,13 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 		uptime2str(re->uptime, buf, sizeof(buf));
 
 		vty_out(vty, "  Last update %s ago\n", buf);
+
+		zclient_dump_route_flags(re->flags, flags_buf, sizeof(flags_buf));
+		zebra_rib_dump_re_status(re, status_buf, sizeof(status_buf));
+		if (flags_buf[0] != '\0')
+			vty_out(vty, "  Flags: %s\n", flags_buf);
+		if (status_buf[0] != '\0')
+			vty_out(vty, "  Status: %s\n", status_buf);
 
 		if (show_ng) {
 			vty_out(vty, "  Nexthop Group ID: %u\n", re->nhe_id);
@@ -744,6 +753,14 @@ static void vty_show_ip_route_detail_json(struct vty *vty,
 		if (use_fib && re != dest->selected_fib)
 			continue;
 		vty_show_ip_route(vty, rn, re, json_prefix, use_fib, false);
+
+		/* Add flags and status to the last object */
+		json_object *json_route =
+			json_object_array_get_idx(json_prefix,
+						  json_object_array_length(json_prefix) - 1);
+
+		json_object_int_add(json_route, "flags", re->flags);
+		json_object_int_add(json_route, "status", re->status);
 	}
 
 	prefix2str(&rn->p, buf, sizeof(buf));
@@ -1100,6 +1117,7 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 				       vrf_id_to_name(nhe->vrf_id));
 		json_object_string_add(json, "afi", zebra_nhg_afi2str(nhe));
 		json_object_int_add(json, "nexthopCount", nexthop_count);
+		json_object_int_add(json, "flags", nhe->flags);
 
 	} else {
 		vty_out(vty, "ID: %u (%s)\n", nhe->id,
@@ -1116,6 +1134,7 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 		vty_out(vty, "     VRF: %s(%s)\n", vrf_id_to_name(nhe->vrf_id),
 			zebra_nhg_afi2str(nhe));
 		vty_out(vty, "     Nexthop Count: %u\n", nexthop_count);
+		vty_out(vty, "     Flags: 0x%x\n", nhe->flags);
 	}
 
 	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID)) {
@@ -1141,6 +1160,42 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 							     "initialDelay");
 			else
 				vty_out(vty, ", Initial Delay");
+		}
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED)) {
+			if (json)
+				json_object_boolean_true_add(json, "queued");
+			else
+				vty_out(vty, ", Queued");
+		}
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE)) {
+			if (json)
+				json_object_boolean_true_add(json, "recursive");
+			else
+				vty_out(vty, ", Recursive");
+		}
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_BACKUP)) {
+			if (json)
+				json_object_boolean_true_add(json, "backup");
+			else
+				vty_out(vty, ", Backup");
+		}
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_PROTO_RELEASED)) {
+			if (json)
+				json_object_boolean_true_add(json, "protoReleased");
+			else
+				vty_out(vty, ", Proto Released");
+		}
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_KEEP_AROUND)) {
+			if (json)
+				json_object_boolean_true_add(json, "keepAround");
+			else
+				vty_out(vty, ", Keep Around");
+		}
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_FPM)) {
+			if (json)
+				json_object_boolean_true_add(json, "fpm");
+			else
+				vty_out(vty, ", FPM");
 		}
 		if (!json)
 			vty_out(vty, "\n");
