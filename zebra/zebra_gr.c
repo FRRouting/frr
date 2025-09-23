@@ -200,8 +200,11 @@ static void zebra_gr_delete_stale_client(struct client_gr_info *info)
 	       zebra_route_string(s_client->proto),
 	       s_client->gr_instance_count);
 
-	if (s_client->gr_instance_count > 0)
+	if (s_client->gr_instance_count > 0) {
+		/* We removed this instance's GR info from the queue; free it now. */
+		XFREE(MTYPE_ZEBRA_GR, info);
 		return;
+	}
 
 	LOG_GR("%s: Stale client %s is being deleted", __func__,
 	       zebra_route_string(s_client->proto));
@@ -450,6 +453,12 @@ static void zebra_gr_route_stale_delete_timer_expiry(struct event *thread)
 	       zebra_route_string(client->proto), VRF_LOGNAME(vrf), info->vrf_id);
 
 	zebra_gr_delete_stale_routes(info);
+
+	/* If we're shutting down, free synchronously to avoid leaks. */
+	if (zebra_router_in_shutdown()) {
+		zebra_gr_delete_stale_client(info);
+		return;
+	}
 
 	/* Schedule GR info and stale client deletion */
 	rib_add_gr_run(0, info->vrf_id, client->proto, client->instance, 0, true);
