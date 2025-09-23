@@ -377,7 +377,7 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
 	union sockunion link_layer_ipv4;
 	struct interface *link_if;
 	struct ethaddr mac;
-	bool is_ext;
+	bool is_own;
 	bool is_router;
 	bool local_inactive;
 	bool dp_static;
@@ -458,7 +458,7 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
 
 	if (op == DPLANE_OP_NEIGH_IP_INSTALL) {
 		mac = *dplane_ctx_neigh_get_mac(ctx);
-		is_ext = dplane_ctx_neigh_get_is_ext(ctx);
+		is_own = dplane_ctx_neigh_get_is_own(ctx);
 		is_router = dplane_ctx_neigh_get_is_router(ctx);
 		local_inactive = dplane_ctx_neigh_get_local_inactive(ctx);
 		dp_static = dplane_ctx_neigh_get_dp_static(ctx);
@@ -471,14 +471,14 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
 		 */
 		if (ndm_state & ZEBRA_NUD_VALID) {
 			/* Add local neighbors to the l3 interface database */
-			if (is_ext)
+			if (is_own)
 				zebra_neigh_del(ifp, &ip);
 			else
 				zebra_neigh_add(ifp, &ip, &mac);
 
 			if (link_if)
 				zebra_vxlan_handle_kernel_neigh_update(ifp, link_if, &ip, &mac,
-								       ndm_state, is_ext, is_router,
+								       ndm_state, is_own, is_router,
 								       local_inactive, dp_static);
 			return;
 		}
