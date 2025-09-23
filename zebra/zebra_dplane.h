@@ -1315,6 +1315,11 @@ void zebra_dplane_startup_stage(struct zebra_ns *zns,
 enum zebra_dplane_startup_notifications
 dplane_ctx_get_startup_spot(struct zebra_dplane_ctx *ctx);
 
+/*
+ * Cleanup all dplane namespace info structures during shutdown.
+ */
+void zebra_dplane_cleanup(void);
+
 #ifdef __cplusplus
 }
 #endif
