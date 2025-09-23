@@ -3487,6 +3487,10 @@ static void bgp_startup_timer_expire(struct event *thread)
 	struct bgp *bgp;
 
 	bgp = EVENT_ARG(thread);
+
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("%s: Startup timer expired", bgp->name_pretty);
+
 	bgp->t_startup = NULL;
 }
 
