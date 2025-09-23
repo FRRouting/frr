@@ -614,14 +614,14 @@ const char *const peer_down_str[] = {
 	"Waiting for VRF to be initialized",
 	"No AFI/SAFI activated for peer",
 	"AS Set config change",
-	"Waiting for peer OPEN",
+	"No RPKI cache server connected",
 	"Reached received prefix count",
 	"Socket Error",
 	"Admin. shutdown (RTT)",
 	"Suppress Fib Turned On or Off",
 	"Password config change",
 	"Router ID is missing",
-	"No RPKI cache server connected",
+	"Cease: unspecific",
 	"Cease: peer de-configured",
 	"Cease: connection rejected",
 	"Cease: other config change",
@@ -629,7 +629,6 @@ const char *const peer_down_str[] = {
 	"Cease: out of resources",
 	"Cease: hard reset",
 	"Cease: subcode unknown",
-	"Cease: unspecific",
 };
 
 static void bgp_graceful_restart_timer_off(struct peer_connection *connection,
@@ -2399,9 +2398,6 @@ bgp_establish(struct peer_connection *connection)
 	/* Increment established count. */
 	peer->established++;
 	bgp_fsm_change_status(connection, Established);
-
-	if (peer->last_reset == PEER_DOWN_WAITING_OPEN)
-		peer->last_reset = PEER_DOWN_NONE;
 
 	/* bgp log-neighbor-changes of neighbor Up */
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_LOG_NEIGHBOR_CHANGES)) {
