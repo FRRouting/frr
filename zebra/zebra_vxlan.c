@@ -4140,13 +4140,9 @@ int zebra_vxlan_handle_kernel_neigh_del(struct interface *ifp,
  * also be for a remote neighbor (e.g., ageout notification). It could
  * also be a "move" scenario.
  */
-int zebra_vxlan_handle_kernel_neigh_update(struct interface *ifp,
-					   struct interface *link_if,
-					   struct ipaddr *ip,
-					   struct ethaddr *macaddr,
-					   uint16_t state,
-					   bool is_ext,
-					   bool is_router,
+int zebra_vxlan_handle_kernel_neigh_update(struct interface *ifp, struct interface *link_if,
+					   struct ipaddr *ip, struct ethaddr *macaddr,
+					   uint16_t state, bool is_own, bool is_router,
 					   bool local_inactive, bool dp_static)
 {
 	struct zebra_evpn *zevpn = NULL;
@@ -4167,16 +4163,14 @@ int zebra_vxlan_handle_kernel_neigh_update(struct interface *ifp,
 		return 0;
 
 	if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
-		zlog_debug(
-			"Add/Update neighbor %pIA MAC %pEA intf %s(%u) state 0x%x %s%s%s%s-> L2-VNI %u",
-			ip, macaddr, ifp->name,
-			ifp->ifindex, state, is_ext ? "ext-learned " : "",
-			is_router ? "router " : "",
-			local_inactive ? "local_inactive " : "",
-			dp_static ? "peer_sync " : "", zevpn->vni);
+		zlog_debug("Add/Update neighbor %pIA MAC %pEA intf %s(%u) state 0x%x %s%s%s%s-> L2-VNI %u",
+			   ip, macaddr, ifp->name, ifp->ifindex, state,
+			   is_own ? "ext-learned proto zebra" : "", is_router ? "router " : "",
+			   local_inactive ? "local_inactive " : "", dp_static ? "peer_sync " : "",
+			   zevpn->vni);
 
 	/* Is this about a local neighbor or a remote one? */
-	if (!is_ext)
+	if (!is_own)
 		return zebra_evpn_local_neigh_update(zevpn, ifp, ip, macaddr,
 						     is_router, local_inactive,
 						     dp_static);

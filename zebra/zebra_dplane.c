@@ -289,7 +289,7 @@ struct dplane_neigh_info {
 	uint16_t state;
 	uint32_t update_flags;
 	uint32_t ndm_family;
-	bool is_ext;
+	bool is_own;
 	bool is_router;
 	bool local_inactive;
 	bool dp_static;
@@ -3001,18 +3001,18 @@ void dplane_ctx_neigh_set_mac(struct zebra_dplane_ctx *ctx, const struct ethaddr
 	ctx->u.neigh.link.mac = *mac;
 }
 
-void dplane_ctx_neigh_set_is_ext(struct zebra_dplane_ctx *ctx, bool is_ext)
+void dplane_ctx_neigh_set_is_own(struct zebra_dplane_ctx *ctx, bool is_own)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	ctx->u.neigh.is_ext = is_ext;
+	ctx->u.neigh.is_own = is_own;
 }
 
-bool dplane_ctx_neigh_get_is_ext(const struct zebra_dplane_ctx *ctx)
+bool dplane_ctx_neigh_get_is_own(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->u.neigh.is_ext;
+	return ctx->u.neigh.is_own;
 }
 
 void dplane_ctx_neigh_set_is_router(struct zebra_dplane_ctx *ctx, bool is_router)

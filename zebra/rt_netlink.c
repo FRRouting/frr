@@ -4447,7 +4447,7 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	struct ipaddr ip;
 	char buf[ETHER_ADDR_STRLEN];
 	int mac_present = 0;
-	bool is_ext;
+	bool is_own;
 	bool is_router;
 	bool local_inactive;
 	uint32_t ext_flags = 0;
@@ -4557,7 +4557,7 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 		if (tb[NDA_PROTOCOL])
 			rtprot = *(__u8 *)RTA_DATA(tb[NDA_PROTOCOL]);
 
-		is_ext = !!(ndm->ndm_flags & NTF_EXT_LEARNED) && rtprot == RTPROT_ZEBRA;
+		is_own = !!(ndm->ndm_flags & NTF_EXT_LEARNED) && rtprot == RTPROT_ZEBRA;
 		is_router = !!(ndm->ndm_flags & NTF_ROUTER);
 
 		if (tb[NDA_EXT_FLAGS]) {
@@ -4566,21 +4566,17 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 				dp_static = true;
 		}
 
-		dplane_ctx_neigh_set_is_ext(ctx, is_ext);
+		dplane_ctx_neigh_set_is_own(ctx, is_own);
 		dplane_ctx_neigh_set_is_router(ctx, is_router);
 		dplane_ctx_neigh_set_dp_static(ctx, dp_static);
 
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug(
-				"Rx %s family %s IF %s(%u) vrf %s(%u) IP %pIA MAC %s state 0x%x flags 0x%x ext_flags 0x%x",
-				nl_msg_type_to_str(h->nlmsg_type),
-				nl_family_to_str(ndm->ndm_family), ifp->name,
-				ndm->ndm_ifindex, ifp->vrf->name,
-				ifp->vrf->vrf_id, &ip,
-				mac_present
-					? prefix_mac2str(&mac, buf, sizeof(buf))
-					: "",
-				ndm->ndm_state, ndm->ndm_flags, ext_flags);
+			zlog_debug("Rx %s family %s IF %s(%u) vrf %s(%u) IP %pIA MAC %s state 0x%x flags 0x%x ext_flags 0x%x, proto %u",
+				   nl_msg_type_to_str(h->nlmsg_type),
+				   nl_family_to_str(ndm->ndm_family), ifp->name, ndm->ndm_ifindex,
+				   ifp->vrf->name, ifp->vrf->vrf_id, &ip,
+				   mac_present ? prefix_mac2str(&mac, buf, sizeof(buf)) : "",
+				   ndm->ndm_state, ndm->ndm_flags, ext_flags, rtprot);
 
 		if (ndm->ndm_state & NUD_VALID) {
 			if (zebra_evpn_mh_do_adv_reachable_neigh_only())
