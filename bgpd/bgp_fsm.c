@@ -854,15 +854,14 @@ static void bgp_graceful_deferral_timer_expire(struct event *thread)
 	safi = info->safi;
 	bgp = info->bgp;
 
-	if (BGP_DEBUG(update, UPDATE_OUT))
-		zlog_debug(
-			"afi %d, safi %d : graceful restart deferral timer expired",
-			afi, safi);
-
 	bgp->gr_info[afi][safi].select_defer_over = true;
 	XFREE(MTYPE_TMP, info);
 
 	/* Best path selection */
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("%s: Starting deferred path selection for %s, #routes %d -- timeout",
+			   bgp->name_pretty, get_afi_safi_str(afi, safi, false),
+			   bgp->gr_info[afi][safi].gr_deferred);
 	bgp_do_deferred_path_selection(bgp, afi, safi);
 }
 
@@ -1290,6 +1289,10 @@ void bgp_gr_check_path_select(struct bgp *bgp, afi_t afi, safi_t safi)
 		}
 		event_cancel(&gr_info->t_select_deferral);
 		gr_info->select_defer_over = true;
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug("%s: Starting deferred path selection for %s, #routes %d -- EORs recvd",
+				   bgp->name_pretty, get_afi_safi_str(afi, safi, false),
+				   gr_info->gr_deferred);
 		bgp_do_deferred_path_selection(bgp, afi, safi);
 	}
 }
@@ -1344,6 +1347,25 @@ static void bgp_start_deferral_timer(struct bgp *bgp, afi_t afi, safi_t safi,
 		zlog_debug("%s: Started path-select deferral timer for %s, duration %ds",
 			   bgp->name_pretty, get_afi_safi_str(afi, safi, false),
 			   bgp->select_defer_time);
+}
+
+/*
+ * start the GR deferral timer for all GR supported afi-safis
+ */
+void bgp_gr_start_all_deferral_timers(struct bgp *bgp)
+{
+	struct graceful_restart_info *gr_info;
+	afi_t afi;
+	safi_t safi;
+
+	FOREACH_AFI_SAFI_NSF (afi, safi) {
+		if (!bgp_gr_supported_for_afi_safi(afi, safi))
+			continue;
+
+		gr_info = &(bgp->gr_info[afi][safi]);
+		if (!gr_info->t_select_deferral)
+			bgp_start_deferral_timer(bgp, afi, safi, gr_info);
+	}
 }
 
 static void bgp_gr_process_peer_up_ignore(struct bgp *bgp, struct peer *peer)
@@ -1455,6 +1477,7 @@ static bool gr_path_select_deferral_applicable(struct bgp *bgp)
 	FOREACH_AFI_SAFI_NSF (afi, safi) {
 		if (!bgp_gr_supported_for_afi_safi(afi, safi))
 			continue;
+
 		gr_info = &(bgp->gr_info[afi][safi]);
 		if (!gr_info->select_defer_over)
 			return true;

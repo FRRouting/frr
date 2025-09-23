@@ -78,7 +78,7 @@
 #include "bgpd/bgp_evpn_private.h"
 #include "bgpd/bgp_evpn_mh.h"
 #include "bgpd/bgp_mac.h"
-#include "bgp_trace.h"
+#include "bgpd/bgp_trace.h"
 
 DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
 DEFINE_QOBJ_TYPE(bgp_master);
@@ -8976,8 +8976,17 @@ static int peer_unshut_after_cfg(struct bgp *bgp)
 {
 	struct listnode *node;
 	struct peer *peer;
+	bool all_peers_are_admin_down = true;
+	bool gr_cfgd_at_nbr = false;
 
 	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+		/* This peer is admin up */
+		if (!CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
+			all_peers_are_admin_down = false;
+
+		if (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART))
+			gr_cfgd_at_nbr = true;
+
 		if (!peer->shut_during_cfg)
 			continue;
 
@@ -8992,6 +9001,66 @@ static int peer_unshut_after_cfg(struct bgp *bgp)
 				BGP_EVENT_ADD(peer->connection, BGP_Stop);
 			BGP_EVENT_ADD(peer->connection, BGP_Start);
 		}
+	}
+
+	/*
+	 * If bgp shutdown is configured, all the peers will be set to admin
+	 * down. If there are no bgp peers configured then
+	 * all_peers_are_admin_down will be true.
+	 *
+	 * if All bgp peers are admin down or if there are no BGP peers
+	 * configured or if bgp shutdown is configured then set this boolean to
+	 * true.
+	 */
+	all_peers_are_admin_down = (all_peers_are_admin_down ||
+				    CHECK_FLAG(bgp->flags, BGP_FLAG_SHUTDOWN));
+
+	enum global_mode global_gr_mode = bgp_global_gr_mode_get(bgp);
+
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("GR %s: All peers in %s are ADMIN down %d. BGP in GR %d, GR mode %s, gr is %sconfigured at nbr",
+			   __func__, bgp->name_pretty, all_peers_are_admin_down,
+			   bgp_in_graceful_restart(), print_global_gr_mode(global_gr_mode),
+			   (gr_cfgd_at_nbr) ? "" : "not ");
+
+	frrtrace(5, frr_bgp, gr_bgp_state, bgp->name_pretty, all_peers_are_admin_down,
+		 bgp_in_graceful_restart(), global_gr_mode, gr_cfgd_at_nbr);
+
+	/*
+	 * If BGP is not in GR
+	 * OR
+	 * If this VRF doesn't have GR configured at global and neighbor level
+	 * then return
+	 */
+	if (!bgp_in_graceful_restart() || (global_gr_mode != GLOBAL_GR && !gr_cfgd_at_nbr))
+		return 0;
+
+	/*
+	 * If BGP is restarting gracefully, if the mode is GLOBAL_GR
+	 * and if there are no BGP peers configured/all peers are admin down,
+	 * then send the UPDATE_PENDING and UPDATE_COMPLETE to zebra.
+	 */
+	if (all_peers_are_admin_down) {
+		if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug("GR %s: All peers in %s are ADMIN down. Sending update_pending and complete to zebra",
+				   __func__, bgp->name_pretty);
+
+		/* Send GR capability to zebra for this VRF */
+		bgp_zebra_send_capabilities(bgp, false);
+
+		afi_t afi;
+		safi_t safi;
+
+		FOREACH_AFI_SAFI_NSF (afi, safi) {
+			if (!bgp_gr_supported_for_afi_safi(afi, safi))
+				continue;
+			/* Inform zebra */
+			bgp_zebra_update(bgp, afi, safi, ZEBRA_CLIENT_ROUTE_UPDATE_PENDING);
+			bgp_zebra_update(bgp, afi, safi, ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE);
+		}
+	} else {
+		/* start select-deferral-timer for all GR supported afi safi */
+		bgp_gr_start_all_deferral_timers(bgp);
 	}
 
 	return 0;
@@ -9192,6 +9261,21 @@ void bgp_gr_apply_running_config(void)
 		}
 
 		gr_router_detected = false;
+	}
+}
+
+void bgp_gr_start_peers(void)
+{
+	struct peer *peer = NULL;
+	struct bgp *bgp = NULL;
+	struct listnode *node, *nnode;
+	struct listnode *node2, *nnode2;
+
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		for (ALL_LIST_ELEMENTS(bgp->peer, node2, nnode2, peer)) {
+			if (!BGP_PEER_START_SUPPRESSED(peer))
+				BGP_EVENT_ADD(peer->connection, BGP_Start);
+		}
 	}
 }
 

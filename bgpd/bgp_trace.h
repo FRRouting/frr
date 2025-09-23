@@ -635,6 +635,47 @@ TRACEPOINT_EVENT(
 	)
 )
 TRACEPOINT_LOGLEVEL(frr_bgp, evpn_local_l3vni_del_zrecv, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	eor_send,
+	TP_ARGS(char *, bgp_name, uint8_t, afi, uint8_t, safi,
+		char *, peer_name),
+	TP_FIELDS(ctf_string(bgp_instance, bgp_name)
+		ctf_integer(uint8_t, afi, afi)
+		ctf_integer(uint8_t, safi, safi)
+		ctf_string(peer, peer_name)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, eor_send, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	eor_received,
+	TP_ARGS(char *, bgp_name, uint8_t, afi, uint8_t, safi,
+		char *, peer_name),
+	TP_FIELDS(ctf_string(bgp_instance, bgp_name)
+		ctf_integer(uint8_t, afi, afi)
+		ctf_integer(uint8_t, safi, safi)
+		ctf_string(peer, peer_name)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, eor_received, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	gr_bgp_state,
+	TP_ARGS(char *, bgp_name, bool, all_peers_admin_down, bool, bgp_in_gr,
+		uint8_t, global_gr_mode, bool, gr_cfgd_at_nbr_lvl),
+	TP_FIELDS(ctf_string(bgp_instance, bgp_name)
+		ctf_integer(bool, all_peers_admin_down, all_peers_admin_down)
+		ctf_integer(bool, bgp_in_gr, bgp_in_gr)
+		ctf_integer(uint8_t, global_gr_mode, global_gr_mode)
+		ctf_integer(bool, gr_cfgd_at_nbr_lvl, gr_cfgd_at_nbr_lvl)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, gr_bgp_state, TRACE_INFO)
+
 /* clang-format on */
 
 #include <lttng/tracepoint-event.h>

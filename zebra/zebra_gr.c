@@ -32,13 +32,14 @@
 #include "zebra/zebra_router.h"
 #include "zebra/debug.h"
 #include "zebra/zapi_msg.h"
+#include "zebra/zebra_trace.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_GR, "GR");
 
 /*
  * Forward declaration.
  */
-static struct zserv *zebra_gr_find_stale_client(struct zserv *client);
+static struct zserv *zebra_gr_find_stale_client(uint8_t proto, uint16_t instance);
 static void zebra_gr_route_stale_delete_timer_expiry(struct event *thread);
 static int32_t zebra_gr_delete_stale_routes(struct client_gr_info *info);
 static void zebra_gr_process_client_stale_routes(struct zserv *client,
@@ -47,10 +48,10 @@ static void zebra_gr_delete_stale_route_table_afi(struct event *event);
 /*
  * Debug macros.
  */
-#define LOG_GR(msg, ...)                                                       \
-	do {                                                                   \
-		if (IS_ZEBRA_DEBUG_EVENT)                                      \
-			zlog_debug(msg, ##__VA_ARGS__);                        \
+#define LOG_GR(msg, ...)                                                                          \
+	do {                                                                                      \
+		if (IS_ZEBRA_DEBUG_EVENT)                                                         \
+			zlog_debug("GR " msg, ##__VA_ARGS__);                                     \
 	} while (0)
 
 /*
@@ -79,6 +80,7 @@ void zebra_gr_stale_client_cleanup(void)
 			if (info->t_stale_removal != NULL) {
 				event_cancel(&info->t_stale_removal);
 				info->do_delete = true;
+				info->stale_client = true;
 				/* Process the stale routes */
 				event_execute(
 					zrouter.master,
@@ -138,7 +140,7 @@ int32_t zebra_gr_client_disconnect(struct zserv *client)
 	struct client_gr_info *info = NULL;
 
 	/* Find the stale client */
-	stale_client = zebra_gr_find_stale_client(client);
+	stale_client = zebra_gr_find_stale_client(client->proto, client->instance);
 
 	/*
 	 * We should never be here.
@@ -157,13 +159,10 @@ int32_t zebra_gr_client_disconnect(struct zserv *client)
 		    && (info->t_stale_removal == NULL)) {
 			struct vrf *vrf = vrf_lookup_by_id(info->vrf_id);
 
-			event_add_timer(
-				zrouter.master,
-				zebra_gr_route_stale_delete_timer_expiry, info,
-				info->stale_removal_time,
-				&info->t_stale_removal);
 			info->stale_client_ptr = client;
 			info->stale_client = true;
+			event_add_timer(zrouter.master, zebra_gr_route_stale_delete_timer_expiry,
+					info, info->stale_removal_time, &info->t_stale_removal);
 			LOG_GR("%s: Client %s vrf %s(%u) Stale timer update to %d",
 			       __func__, zebra_route_string(client->proto),
 			       VRF_LOGNAME(vrf), info->vrf_id,
@@ -181,9 +180,7 @@ int32_t zebra_gr_client_disconnect(struct zserv *client)
  */
 static void zebra_gr_delete_stale_client(struct client_gr_info *info)
 {
-	struct client_gr_info *bgp_info;
 	struct zserv *s_client = NULL;
-	struct vrf *vrf = vrf_lookup_by_id(info->vrf_id);
 
 	s_client = info->stale_client_ptr;
 
@@ -203,14 +200,13 @@ static void zebra_gr_delete_stale_client(struct client_gr_info *info)
 	       zebra_route_string(s_client->proto),
 	       s_client->gr_instance_count);
 
-	TAILQ_FOREACH (bgp_info, &s_client->gr_info_queue, gr_info) {
-		if (bgp_info->t_stale_removal != NULL)
-			return;
-	}
+	if (s_client->gr_instance_count > 0)
+		return;
 
-	LOG_GR("%s: Client %s vrf %s(%u) is being deleted", __func__,
-	       zebra_route_string(s_client->proto), VRF_LOGNAME(vrf),
-	       info->vrf_id);
+	LOG_GR("%s: Stale client %s is being deleted", __func__,
+	       zebra_route_string(s_client->proto));
+	frrtrace(2, frr_zebra, gr_free_stale_client, zebra_route_string(s_client->proto),
+		 VRF_LOGNAME(vrf_lookup_by_id(info->vrf_id)));
 
 	TAILQ_INIT(&(s_client->gr_info_queue));
 	zserv_stale_client_list_del(&zrouter.stale_client_list, s_client);
@@ -222,16 +218,14 @@ static void zebra_gr_delete_stale_client(struct client_gr_info *info)
 /*
  * Function to find stale client.
  */
-static struct zserv *zebra_gr_find_stale_client(struct zserv *client)
+static struct zserv *zebra_gr_find_stale_client(uint8_t proto, uint16_t instance)
 {
 	struct zserv *stale_client;
 
 	/* Find the stale client */
 	frr_each (zserv_stale_client_list, &zrouter.stale_client_list, stale_client) {
-		if (client->proto == stale_client->proto
-		    && client->instance == stale_client->instance) {
+		if (stale_client->proto == proto && stale_client->instance == instance)
 			return stale_client;
-		}
 	}
 
 	return NULL;
@@ -246,7 +240,7 @@ void zebra_gr_client_reconnect(struct zserv *client)
 	struct client_gr_info *info = NULL;
 
 	/* Find the stale client */
-	old_client = zebra_gr_find_stale_client(client);
+	old_client = zebra_gr_find_stale_client(client->proto, client->instance);
 
 	/* Copy the timers */
 	if (!old_client)
@@ -411,8 +405,8 @@ void zread_client_capabilities(ZAPI_HANDLER_ARGS)
 		/*
 		 * Schedule for after anything already in the meta Q
 		 */
-		rib_add_gr_run(api.afi, api.vrf_id, client->proto,
-			       client->instance, client->restart_time);
+		rib_add_gr_run(api.afi, api.vrf_id, client->proto, client->instance,
+			       client->restart_time, false);
 		zebra_gr_process_client_stale_routes(client, info);
 		break;
 	case ZEBRA_CLIENT_ROUTE_UPDATE_PENDING:
@@ -443,7 +437,6 @@ void zread_client_capabilities(ZAPI_HANDLER_ARGS)
 static void zebra_gr_route_stale_delete_timer_expiry(struct event *thread)
 {
 	struct client_gr_info *info = EVENT_ARG(thread);
-	int32_t cnt = 0;
 	struct zserv *client;
 	struct vrf *vrf = vrf_lookup_by_id(info->vrf_id);
 
@@ -453,26 +446,13 @@ static void zebra_gr_route_stale_delete_timer_expiry(struct event *thread)
 	else
 		client = (struct zserv *)info->stale_client_ptr;
 
-	cnt = zebra_gr_delete_stale_routes(info);
+	LOG_GR("%s: Cleaning up stale routes for client %s vrf %s(%u) ", __func__,
+	       zebra_route_string(client->proto), VRF_LOGNAME(vrf), info->vrf_id);
 
-	/* Restart the timer */
-	if (cnt > 0) {
-		LOG_GR("%s: Client %s vrf %s(%u) processed %d routes. Start timer again",
-		       __func__, zebra_route_string(client->proto),
-		       VRF_LOGNAME(vrf), info->vrf_id, cnt);
+	zebra_gr_delete_stale_routes(info);
 
-		event_add_timer(zrouter.master,
-				zebra_gr_route_stale_delete_timer_expiry, info,
-				ZEBRA_DEFAULT_STALE_UPDATE_DELAY,
-				&info->t_stale_removal);
-	} else {
-		/* No routes to delete for the VRF */
-		LOG_GR("%s: Client %s vrf %s(%u) all stale routes processed",
-		       __func__, zebra_route_string(client->proto),
-		       VRF_LOGNAME(vrf), info->vrf_id);
-
-		zebra_gr_delete_stale_client(info);
-	}
+	/* Schedule GR info and stale client deletion */
+	rib_add_gr_run(0, info->vrf_id, client->proto, client->instance, 0, true);
 }
 
 
@@ -506,6 +486,16 @@ static bool zebra_gr_process_route_entry(struct route_node *rn,
 	}
 
 	return false;
+}
+
+static void zebra_gr_delete_stale_info_client(struct event *event)
+{
+	struct zebra_gr_afi_clean *gac = EVENT_ARG(event);
+
+	if (gac->info->stale_client)
+		zebra_gr_delete_stale_client(gac->info);
+
+	XFREE(MTYPE_ZEBRA_GR, gac);
 }
 
 static void zebra_gr_delete_stale_route_table_afi(struct event *event)
@@ -586,7 +576,7 @@ static int32_t zebra_gr_delete_stale_route(struct client_gr_info *info,
 		}
 		proto = client->proto;
 		instance = client->instance;
-		restart_time = zrouter.startup_time;
+		restart_time = client->restart_time;
 	} else {
 		s_client = info->stale_client_ptr;
 		if (s_client == NULL) {
@@ -598,7 +588,7 @@ static int32_t zebra_gr_delete_stale_route(struct client_gr_info *info,
 		restart_time = s_client->restart_time;
 	}
 
-	LOG_GR("%s: Client %s %s(%u) stale routes are being deleted", __func__,
+	LOG_GR("%s: Client %s %s(%u) stale routes are scheduled for deletion", __func__,
 	       zebra_route_string(proto), zvrf->vrf->name, zvrf->vrf->vrf_id);
 
 	/* Process routes for all AFI */
@@ -607,7 +597,7 @@ static int32_t zebra_gr_delete_stale_route(struct client_gr_info *info,
 		 * Schedule for immediately after anything in the
 		 * meta-Q
 		 */
-		rib_add_gr_run(afi, info->vrf_id, proto, instance, restart_time);
+		rib_add_gr_run(afi, info->vrf_id, proto, instance, restart_time, false);
 	}
 	return 0;
 }
@@ -673,15 +663,26 @@ static void zebra_gr_process_client_stale_routes(struct zserv *client,
 	}
 }
 
-void zebra_gr_process_client(afi_t afi, vrf_id_t vrf_id, uint8_t proto,
-			     uint8_t instance, time_t restart_time)
+void zebra_gr_process_client(afi_t afi, vrf_id_t vrf_id, uint8_t proto, uint8_t instance,
+			     time_t restart_time, bool stale_client_cleanup)
 {
 	struct zserv *client = zserv_find_client(proto, instance);
 	struct client_gr_info *info = NULL;
 	struct zebra_gr_afi_clean *gac;
 
-	if (client == NULL)
-		return;
+	if (!client) {
+		/*
+		 * Active client doesn't exist. May be it's already been
+		 * unlinked from zrouter.client_list in zserv_close_client(),
+		 * which could happen when client goes down. See if stale client
+		 * exists
+		 */
+		client = zebra_gr_find_stale_client(proto, instance);
+		if (!client) {
+			LOG_GR("GR: %s: Neither active nor stale client found", __func__);
+			return;
+		}
+	}
 
 	TAILQ_FOREACH (info, &client->gr_info_queue, gr_info) {
 		if (info->vrf_id == vrf_id)
@@ -698,6 +699,14 @@ void zebra_gr_process_client(afi_t afi, vrf_id_t vrf_id, uint8_t proto,
 	gac->instance = instance;
 	gac->restart_time = restart_time;
 
-	event_add_event(zrouter.master, zebra_gr_delete_stale_route_table_afi,
-			gac, 0, &gac->t_gac);
+	/*
+	 * If stale_client_cleanup is set, then we are being asked to cleanup
+	 * the GR info and the stale client.
+	 */
+	if (stale_client_cleanup)
+		event_add_event(zrouter.master, zebra_gr_delete_stale_info_client, gac, 0,
+				&gac->t_gac);
+	else
+		event_add_event(zrouter.master, zebra_gr_delete_stale_route_table_afi, gac, 0,
+				&gac->t_gac);
 }
