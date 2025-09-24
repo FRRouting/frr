@@ -176,7 +176,7 @@ static void bgp_nbr_connected_delete(struct bgp *bgp, struct nbr_connected *ifc,
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 		if (peer->conf_if
 		    && (strcmp(peer->conf_if, ifc->ifp->name) == 0)) {
-			peer->last_reset = PEER_DOWN_NBR_ADDR_DEL;
+			peer_set_last_reset(peer, PEER_DOWN_NBR_ADDR_DEL);
 			BGP_EVENT_ADD(peer->connection, BGP_Stop);
 		}
 	}
@@ -281,7 +281,7 @@ static int bgp_ifp_down(struct interface *ifp)
 
 			if (ifp == peer->nexthop.ifp) {
 				BGP_EVENT_ADD(peer->connection, BGP_Stop);
-				peer->last_reset = PEER_DOWN_IF_DOWN;
+				peer_set_last_reset(peer, PEER_DOWN_IF_DOWN);
 			}
 		}
 	}

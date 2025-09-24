@@ -45,7 +45,7 @@ static void bgp_bfd_strict_holdtime_expire(struct event *event)
 		zlog_debug("%pBP BFD Strict mode Hold timer expire for %s", peer,
 			   bgp_peer_get_connection_direction(connection));
 
-	peer->last_reset = PEER_DOWN_BFD_DOWN;
+	peer_set_last_reset(peer, PEER_DOWN_BFD_DOWN);
 	SET_FLAG(peer->sflags, PEER_STATUS_BFD_STRICT_HOLD_TIME_EXPIRED);
 
 	if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status))
@@ -90,7 +90,7 @@ static void bfd_session_status_update(struct bfd_session_params *bsp,
 						peer->bfd_config->hold_time,
 						&peer->bfd_config->t_hold_timer);
 			} else {
-				peer->last_reset = PEER_DOWN_BFD_DOWN;
+				peer_set_last_reset(peer, PEER_DOWN_BFD_DOWN);
 				/* rfc9384 */
 				if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status))
 					bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE,
