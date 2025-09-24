@@ -1028,15 +1028,16 @@ static void bgp_notify_send_internal(struct peer_connection *connection,
 	/* peer reset cause */
 	if (code == BGP_NOTIFY_CEASE) {
 		if (sub_code == BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN)
-			peer->last_reset = CHECK_FLAG(peer->sflags, PEER_STATUS_RTT_SHUTDOWN)
-						   ? PEER_DOWN_RTT_SHUTDOWN
-						   : PEER_DOWN_USER_SHUTDOWN;
+			peer_set_last_reset(peer,
+					    (CHECK_FLAG(peer->sflags, PEER_STATUS_RTT_SHUTDOWN)
+						     ? PEER_DOWN_RTT_SHUTDOWN
+						     : PEER_DOWN_USER_SHUTDOWN));
 		else if (sub_code < CEASE_CAUSES)
-			peer->last_reset = bgp_cease_to_reset_cause[sub_code];
+			peer_set_last_reset(peer, bgp_cease_to_reset_cause[sub_code]);
 		else
-			peer->last_reset = PEER_DOWN_CEASE_UNKNOWN;
+			peer_set_last_reset(peer, PEER_DOWN_CEASE_UNKNOWN);
 	} else
-		peer->last_reset = PEER_DOWN_NOTIFY_SEND;
+		peer_set_last_reset(peer, PEER_DOWN_NOTIFY_SEND);
 
 	/* Add packet to peer's output queue */
 	stream_fifo_push(connection->obuf, s);
@@ -2651,7 +2652,7 @@ static int bgp_notify_receive(struct peer_connection *connection,
 	/* peer count update */
 	atomic_fetch_add_explicit(&peer->notify_in, 1, memory_order_relaxed);
 
-	peer->last_reset = PEER_DOWN_NOTIFY_RECEIVED;
+	peer_set_last_reset(peer, PEER_DOWN_NOTIFY_RECEIVED);
 
 	/* We have to check for Notify with Unsupported Optional Parameter.
 	   in that case we fallback to open without the capability option.

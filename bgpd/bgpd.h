@@ -2930,6 +2930,11 @@ static inline bool peer_established(struct peer_connection *connection)
 	return connection->status == Established;
 }
 
+static inline void peer_set_last_reset(struct peer *peer, uint8_t reset_cause)
+{
+	peer->last_reset = reset_cause;
+}
+
 static inline bool peer_dynamic_neighbor(struct peer *peer)
 {
 	return CHECK_FLAG(peer->flags, PEER_FLAG_DYNAMIC_NEIGHBOR);
