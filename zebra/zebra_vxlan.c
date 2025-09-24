@@ -1391,6 +1391,10 @@ static int zl3vni_remote_rmac_add(struct zebra_l3vni *zl3vni,
 		hook_call(zebra_rmac_update, zrmac, zl3vni, false,
 			  "new RMAC added");
 
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("%s RMAC %pEA L3VNI %u Remote VTEP %pIA add", __func__, rmac,
+				   zl3vni->vni, &ip_vtep);
+
 		/* install rmac in kernel */
 		zl3vni_rmac_install(zl3vni, zrmac);
 	} else {
@@ -1409,6 +1413,9 @@ static int zl3vni_remote_rmac_add(struct zebra_l3vni *zl3vni,
 		memcpy(vtep, vtep_ip, sizeof(struct ipaddr));
 		if (!listnode_add_sort_nodup(zrmac->nh_list, (void *)vtep))
 			XFREE(MTYPE_EVPN_VTEP, vtep);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("%s L3VNI %u VTEP %pIA nh_list count %u", __func__, zl3vni->vni,
+				   vtep, listcount(zrmac->nh_list));
 	}
 
 	return 0;
