@@ -3581,7 +3581,8 @@ static void write_vni_config(struct vty *vty, struct bgpevpn *vpn)
 		if (is_rd_configured(vpn))
 			vty_out(vty, "   rd %s\n", vpn->prd_pretty);
 
-		if (vpn->vxlan_flood_ctrl != vpn->bgp_vrf->vxlan_flood_ctrl) {
+		if (!vpn->bgp_vrf ||
+		    (vpn->bgp_vrf && (vpn->vxlan_flood_ctrl != vpn->bgp_vrf->vxlan_flood_ctrl))) {
 			if (vpn->vxlan_flood_ctrl == VXLAN_FLOOD_DISABLED)
 				vty_out(vty, "   flooding disable\n");
 			else if (vpn->vxlan_flood_ctrl == VXLAN_FLOOD_HEAD_END_REPL)
