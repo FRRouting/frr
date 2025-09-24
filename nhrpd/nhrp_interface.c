@@ -269,8 +269,9 @@ static void nhrp_interface_update_address(struct interface *ifp, afi_t afi,
 	frr_each (if_connected, ifp->connected, c) {
 		if (PREFIX_FAMILY(c->address) != family)
 			continue;
-		/* On NHRP interfaces a host prefix is required */
-		if (if_ad->configured && c->address->prefixlen != 8 * prefix_blen(c->address))
+		/* On NHRPv6 interfaces a host prefix is required */
+		if (if_ad->configured && afi != AFI_IP
+		    && c->address->prefixlen != 8 * prefix_blen(c->address))
 			continue;
 		if (best == NULL) {
 			best = c;
