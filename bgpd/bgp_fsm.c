@@ -2085,7 +2085,7 @@ static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s [FSM] Unable to get neighbor's IP address, waiting... for %s",
 				   peer->host, bgp_peer_get_connection_direction(connection));
-		peer->last_reset = PEER_DOWN_NBR_ADDR;
+		peer_set_last_reset(peer, PEER_DOWN_NBR_ADDR);
 		return BGP_FSM_FAILURE;
 	}
 
@@ -2095,13 +2095,13 @@ static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 				 "%s [FSM] Trying to start suppressed peer - this is never supposed to happen!",
 				 peer->host);
 		if (CHECK_FLAG(peer->sflags, PEER_STATUS_RTT_SHUTDOWN))
-			peer->last_reset = PEER_DOWN_RTT_SHUTDOWN;
+			peer_set_last_reset(peer, PEER_DOWN_RTT_SHUTDOWN);
 		else if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
-			peer->last_reset = PEER_DOWN_USER_SHUTDOWN;
+			peer_set_last_reset(peer, PEER_DOWN_USER_SHUTDOWN);
 		else if (CHECK_FLAG(peer->bgp->flags, BGP_FLAG_SHUTDOWN))
-			peer->last_reset = PEER_DOWN_USER_SHUTDOWN;
+			peer_set_last_reset(peer, PEER_DOWN_USER_SHUTDOWN);
 		else if (CHECK_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW))
-			peer->last_reset = PEER_DOWN_PFX_COUNT;
+			peer_set_last_reset(peer, PEER_DOWN_PFX_COUNT);
 		return BGP_FSM_FAILURE;
 	}
 
@@ -2119,7 +2119,7 @@ static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 				flog_err(EC_BGP_FSM,
 					 "%s [FSM] RPKI strict mode enabled, but RPKI cache is not connected",
 					 peer->host);
-			peer->last_reset = PEER_DOWN_RPKI_DOWN;
+			peer_set_last_reset(peer, PEER_DOWN_RPKI_DOWN);
 			return BGP_FSM_FAILURE;
 		}
 	}
@@ -2130,7 +2130,7 @@ static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 				EC_BGP_FSM,
 				"%s [FSM] In a VRF that is not initialised yet",
 				peer->host);
-		peer->last_reset = PEER_DOWN_VRF_UNINIT;
+		peer_set_last_reset(peer, PEER_DOWN_VRF_UNINIT);
 		return BGP_FSM_FAILURE;
 	}
 
@@ -2143,7 +2143,7 @@ static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 				zlog_debug("%s [FSM] Waiting for NHT, no path to neighbor present for %s",
 					   peer->host,
 					   bgp_peer_get_connection_direction(connection));
-			peer->last_reset = PEER_DOWN_WAITING_NHT;
+			peer_set_last_reset(peer, PEER_DOWN_WAITING_NHT);
 			BGP_EVENT_ADD(connection, TCP_connection_open_failed);
 			return BGP_FSM_SUCCESS;
 		}
@@ -2397,7 +2397,7 @@ bgp_establish(struct peer_connection *connection)
 				flog_err(EC_BGP_FSM,
 					 "%s [FSM] RPKI strict mode enabled, but RPKI cache is not connected",
 					 peer->host);
-			peer->last_reset = PEER_DOWN_RPKI_DOWN;
+			peer_set_last_reset(peer, PEER_DOWN_RPKI_DOWN);
 			return BGP_FSM_FAILURE;
 		}
 	}
@@ -2598,7 +2598,7 @@ void bgp_fsm_nht_update(struct peer_connection *connection, struct peer *peer,
 		if (!has_valid_nexthops &&
 		    (peer->gtsm_hops == BGP_GTSM_HOPS_CONNECTED || peer->bgp->fast_convergence)) {
 			BGP_EVENT_ADD(connection, TCP_fatal_error);
-			peer->last_reset = PEER_DOWN_WAITING_NHT;
+			peer_set_last_reset(peer, PEER_DOWN_WAITING_NHT);
 		}
 		break;
 	case Clearing:
@@ -2927,7 +2927,7 @@ static void bgp_gr_update_mode_of_all_peers(struct bgp *bgp,
 					   "...resetting session",
 					   peer, peer->peer_gr_new_status_flag, peer->flags);
 
-			peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
+			peer_set_last_reset(peer, PEER_DOWN_CAPABILITY_CHANGE);
 
 			if (!peer_notify_config_change(peer->connection))
 				bgp_session_reset_safe(peer, &nnode);
@@ -2947,7 +2947,7 @@ static void bgp_gr_update_mode_of_all_peers(struct bgp *bgp,
 						   member, member->peer_gr_new_status_flag,
 						   member->flags);
 
-				member->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
+				peer_set_last_reset(member, PEER_DOWN_CAPABILITY_CHANGE);
 
 				if (!peer_notify_config_change(member->connection))
 					bgp_session_reset(member);
@@ -3153,14 +3153,14 @@ unsigned int bgp_peer_gr_action(struct peer *peer, enum peer_mode old_state,
 
 	if (session_reset) {
 		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-			peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
+			peer_set_last_reset(peer, PEER_DOWN_CAPABILITY_CHANGE);
 
 			if (!peer_notify_config_change(peer->connection))
 				bgp_session_reset(peer);
 		} else {
 			group = peer->group;
 			for (ALL_LIST_ELEMENTS(group->peer, node, nnode, member)) {
-				member->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
+				peer_set_last_reset(member, PEER_DOWN_CAPABILITY_CHANGE);
 				bgp_peer_move_to_gr_mode(member, new_state);
 
 				if (!peer_notify_config_change(member->connection))

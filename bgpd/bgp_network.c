@@ -521,7 +521,7 @@ static void bgp_accept(struct event *thread)
 			incoming->su_remote = sockunion_dup(&su);
 
 			if (bgp_set_socket_ttl(incoming) < 0) {
-				dynamic_peer->last_reset = PEER_DOWN_SOCKET_ERROR;
+				peer_set_last_reset(dynamic_peer, PEER_DOWN_SOCKET_ERROR);
 				zlog_err("%s: Unable to set min/max TTL on peer %s (dynamic), error received: %s(%d)",
 					 __func__, dynamic_peer->host, safe_strerror(errno), errno);
 				return;
@@ -619,7 +619,7 @@ static void bgp_accept(struct event *thread)
 	if (peer->bgp->router_id.s_addr == INADDR_ANY) {
 		zlog_warn("[Event] Incoming BGP connection rejected from %s due missing BGP identifier, set it with `bgp router-id`",
 			  peer->host);
-		peer->last_reset = PEER_DOWN_ROUTER_ID_ZERO;
+		peer_set_last_reset(peer, PEER_DOWN_ROUTER_ID_ZERO);
 		close(bgp_sock);
 		return;
 	}
@@ -685,7 +685,7 @@ static void bgp_accept(struct event *thread)
 		 * drop
 		 * existing established connection and move state to connect.
 		 */
-		peer->last_reset = PEER_DOWN_NSF_CLOSE_SESSION;
+		peer_set_last_reset(peer, PEER_DOWN_NSF_CLOSE_SESSION);
 
 		if (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART) ||
 		    CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART_HELPER))
@@ -806,7 +806,7 @@ enum connect_result bgp_connect(struct peer_connection *connection)
 	assert(!CHECK_FLAG(connection->thread_flags, PEER_THREAD_READS_ON));
 
 	if (peer->bgp->router_id.s_addr == INADDR_ANY) {
-		peer->last_reset = PEER_DOWN_ROUTER_ID_ZERO;
+		peer_set_last_reset(peer, PEER_DOWN_ROUTER_ID_ZERO);
 		zlog_warn("%s: BGP identifier is missing for peer %s, set it with `bgp router-id`",
 			  __func__, peer->host);
 		return connect_error;
@@ -825,7 +825,7 @@ enum connect_result bgp_connect(struct peer_connection *connection)
 		connection->dir = CONNECTION_OUTGOING;
 	}
 	if (connection->fd < 0) {
-		peer->last_reset = PEER_DOWN_SOCKET_ERROR;
+		peer_set_last_reset(peer, PEER_DOWN_SOCKET_ERROR);
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s: Failure to create socket for connection to %s, error received: %s(%d)",
 				   __func__, peer->host, safe_strerror(errno),
@@ -853,7 +853,7 @@ enum connect_result bgp_connect(struct peer_connection *connection)
 	bgp_update_setsockopt_tcp_keepalive(peer->bgp, connection->fd);
 
 	if (bgp_set_socket_ttl(peer->connection) < 0) {
-		peer->last_reset = PEER_DOWN_SOCKET_ERROR;
+		peer_set_last_reset(peer, PEER_DOWN_SOCKET_ERROR);
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s: Failure to set socket ttl for connection to %s, error received: %s(%d)",
 				   __func__, peer->host, safe_strerror(errno),
@@ -888,7 +888,7 @@ enum connect_result bgp_connect(struct peer_connection *connection)
 
 	/* Update source bind. */
 	if (bgp_update_source(connection) < 0) {
-		peer->last_reset = PEER_DOWN_SOCKET_ERROR;
+		peer_set_last_reset(peer, PEER_DOWN_SOCKET_ERROR);
 		return connect_error;
 	}
 
