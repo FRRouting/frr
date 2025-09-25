@@ -243,6 +243,7 @@ struct interface {
 #define ZEBRA_INTERFACE_LINKDETECTION (1 << 2)
 #define ZEBRA_INTERFACE_VRF_LOOPBACK (1 << 3)
 #define ZEBRA_INTERFACE_DUMMY (1 << 4)
+#define ZEBRA_INTERFACE_MACVLAN	      (1 << 5)
 
 	/* Interface flags. */
 	uint64_t flags;
@@ -577,6 +578,7 @@ extern int if_is_running(const struct interface *ifp);
 extern int if_is_operative(const struct interface *ifp);
 extern int if_is_no_ptm_operative(const struct interface *ifp);
 extern int if_is_loopback_exact(const struct interface *ifp);
+extern int if_is_macvlan(const struct interface *ifp);
 extern int if_is_vrf(const struct interface *ifp);
 extern bool if_is_loopback(const struct interface *ifp);
 extern int if_is_broadcast(const struct interface *ifp);

@@ -547,6 +547,9 @@ void if_add_update(struct interface *ifp)
 	if (IS_ZEBRA_IF_DUMMY(ifp))
 		SET_FLAG(ifp->status, ZEBRA_INTERFACE_DUMMY);
 
+	if (IS_ZEBRA_IF_MACVLAN(ifp))
+		SET_FLAG(ifp->status, ZEBRA_INTERFACE_MACVLAN);
+
 	if (!CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
 		SET_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE);
 
