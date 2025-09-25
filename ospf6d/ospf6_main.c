@@ -83,8 +83,7 @@ static void __attribute__((noreturn)) ospf6_exit(int status)
 
 	for (ALL_LIST_ELEMENTS(om6->ospf6, node, nnode, ospf6)) {
 		vrf = vrf_lookup_by_id(ospf6->vrf_id);
-		ospf6_delete(ospf6);
-		ospf6 = NULL;
+		ospf6_delete(&ospf6);
 		FOR_ALL_INTERFACES (vrf, ifp)
 			if (ifp->info != NULL)
 				ospf6_interface_delete(ifp->info);
