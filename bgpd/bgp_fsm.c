@@ -1772,7 +1772,12 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 		peer->af_cap[afi][safi] = 0;
 
 		/* peer address family status flags*/
-		peer->af_sflags[afi][safi] = 0;
+		/* Don't clear WAIT_EOR */
+		if (CHECK_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_GR_WAIT_EOR)) {
+			peer->af_sflags[afi][safi] = 0;
+			SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_GR_WAIT_EOR);
+		} else
+			peer->af_sflags[afi][safi] = 0;
 
 		/* Received ORF prefix-filter */
 		peer->orf_plist[afi][safi] = NULL;
@@ -3152,6 +3157,15 @@ unsigned int bgp_peer_gr_action(struct peer *peer, enum peer_mode old_state,
 	bgp_peer_move_to_gr_mode(peer, new_state);
 
 	if (session_reset) {
+		/*
+		 * Reset gr_select_defer_evaluated if startup timer is running
+		 * so that deferred path selection
+		 * can be reevaluated once sessions come back up after
+		 * BGP session reset
+		 */
+		if (event_is_scheduled(peer->bgp->t_startup))
+			peer->bgp->gr_select_defer_evaluated = false;
+
 		if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 			peer_set_last_reset(peer, PEER_DOWN_CAPABILITY_CHANGE);
 
