@@ -1,3 +1,5 @@
+.. _nb-advanced_topics:
+
 Advanced Topics
 ===============
 
