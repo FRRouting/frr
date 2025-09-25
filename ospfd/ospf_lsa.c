@@ -1360,9 +1360,7 @@ static struct ospf_lsa *ospf_handle_summarylsa_lsId_chg(struct ospf_area *area,
 	sl->mask.s_addr = mask.s_addr;
 
 	/* Copy the metric*/
-	metric_val = htonl(metric);
-	metric_buf = (char *)&metric_val;
-	memcpy(sl->metric, metric_buf, sizeof(metric_val));
+	ospf_abr_summary_lsa_set_metric(lsa, metric);
 
 	if (type == OSPF_SUMMARY_LSA) {
 		/*Refresh the LSA with new LSA*/
