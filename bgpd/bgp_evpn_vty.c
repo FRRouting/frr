@@ -4128,6 +4128,9 @@ DEFUN (bgp_evpn_advertise_type5,
 	uint16_t flag_oi_none, flag_oi_gw_ip;
 	bool has_flag_oi_none, has_flag_oi_gw_ip;
 
+	if (!bgp_vrf)
+		return CMD_WARNING;
+
 	argv_find_and_parse_afi(argv, argc, &idx_afi, &afi);
 	argv_find_and_parse_safi(argv, argc, &idx_safi, &safi);
 	argv_find_and_parse_oly_idx(argv, argc, &idx_oly, &oly);
@@ -4351,6 +4354,9 @@ DEFPY (bgp_evpn_enable_resolve_overlay_index,
        "Enable Recursive Resolution of type-5 route overlay index\n")
 {
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+
+	if (!bgp)
+		return CMD_WARNING;
 
 	if (bgp != bgp_get_evpn()) {
 		vty_out(vty, "This command is only supported under EVPN VRF\n");

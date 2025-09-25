@@ -575,6 +575,9 @@ DEFUN (bgp_fs_local_install_ifname,
 	char *ifname = argv_find(argv, argc, "INTERFACE", &idx) ?
 		argv[idx]->arg : NULL;
 
+	if (!bgp)
+		return CMD_WARNING;
+
 	return bgp_fs_local_install_interface(bgp, no, ifname,
 					      bgp_node_afi(vty));
 }
