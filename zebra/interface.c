@@ -2083,6 +2083,9 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 			if (IS_ZEBRA_IF_DUMMY(ifp))
 				SET_FLAG(ifp->status, ZEBRA_INTERFACE_DUMMY);
 
+			if (IS_ZEBRA_IF_MACVLAN(ifp))
+				SET_FLAG(ifp->status, ZEBRA_INTERFACE_MACVLAN);
+
 			/* Update link. */
 			zebra_if_update_link(ifp, link_ifindex, link_nsid);
 
@@ -2160,6 +2163,9 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 
 			if (IS_ZEBRA_IF_DUMMY(ifp))
 				SET_FLAG(ifp->status, ZEBRA_INTERFACE_DUMMY);
+
+			if (IS_ZEBRA_IF_MACVLAN(ifp))
+				SET_FLAG(ifp->status, ZEBRA_INTERFACE_MACVLAN);
 
 			memcpy(old_hw_addr, ifp->hw_addr, INTERFACE_HWADDR_MAX);
 
