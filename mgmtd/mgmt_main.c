@@ -56,30 +56,6 @@ static struct frr_daemon_info mgmtd_di;
 static void sighup(void)
 {
 	zlog_info("SIGHUP received, ignoring");
-
-	return;
-
-	/*
-	 * This is turned off for the moment.  There is all
-	 * sorts of config turned off by mgmt_terminate
-	 * that is not setup properly again in mgmt_reset.
-	 * I see no easy way to do this nor do I see that
-	 * this is a desirable way to reload config
-	 * given the yang work.
-	 */
-	/* Terminate all thread. */
-	mgmt_terminate();
-
-	/*
-	 * mgmt_reset();
-	 */
-	zlog_info("MGMTD restarting!");
-
-	/*
-	 * Reload config file.
-	 * vty_read_config(NULL, mgmtd_di.config_file, config_default);
-	 */
-	/* Try to return to normal operation. */
 }
 
 /* SIGINT handler. */
