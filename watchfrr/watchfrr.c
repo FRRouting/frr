@@ -1471,6 +1471,8 @@ int main(int argc, char **argv)
 		case 'i': {
 			char garbage[3];
 			int period;
+
+			assert(optarg);
 			if ((sscanf(optarg, "%d%1s", &period, garbage) != 1)
 			    || (gs.period < 1)) {
 				fprintf(stderr,
