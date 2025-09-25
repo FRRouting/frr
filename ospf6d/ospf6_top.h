@@ -239,7 +239,7 @@ extern void ospf6_master_delete(void);
 
 extern void install_element_ospf6_clear_process(void);
 extern void ospf6_top_init(void);
-extern void ospf6_delete(struct ospf6 *o);
+extern void ospf6_delete(struct ospf6 **o);
 extern bool ospf6_router_id_update(struct ospf6 *ospf6, bool init);
 void ospf6_restart_spf(struct ospf6 *ospf6);
 
