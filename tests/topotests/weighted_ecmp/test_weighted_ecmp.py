@@ -130,7 +130,7 @@ def test_weighted_ecmp():
         nexthops = weighted_group["nexthops"]
         expected_nexthops = {
             "10.0.1.2": {"interface": "r1-eth0", "weight": 3985},
-            "10.0.2.2": {"interface": "r1-eth1", "weight": 65534},
+            "10.0.2.2": {"interface": "r1-eth1", "weight": 65535},
             "10.0.1.3": {"interface": "r1-eth0", "weight": 8},
             "10.0.2.3": {"interface": "r1-eth1", "weight": 29335},
         }
