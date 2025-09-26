@@ -299,21 +299,29 @@ static void bgp_srv6_sids_unset(struct bgp *bgp)
 
 	/* withdraw srv6 unicast and refresh srv6 unicast sid locator */
 	if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
-		if (is_srv6_unicast_afi_enabled(bgp, AFI_IP)) {
-			bgp_srv6_unicast_withdraw(bgp, AFI_IP);
-			bgp_srv6_unicast_sid_withdraw(bgp, AFI_IP);
-			/* locator deleted after this call, free the sid */
-			XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[AFI_IP].sid);
-			srv6_locator_free(bgp->srv6_unicast[AFI_IP].sid_locator);
-			bgp->srv6_unicast[AFI_IP].sid_locator = NULL;
-		}
-		if (is_srv6_unicast_afi_enabled(bgp, AFI_IP6)) {
-			bgp_srv6_unicast_withdraw(bgp, AFI_IP6);
-			bgp_srv6_unicast_sid_withdraw(bgp, AFI_IP6);
-			/* locator deleted after this call, free the sid */
-			XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[AFI_IP6].sid);
-			srv6_locator_free(bgp->srv6_unicast[AFI_IP6].sid_locator);
-			bgp->srv6_unicast[AFI_IP6].sid_locator = NULL;
+		if (is_srv6_unicast_vrf_enabled(bgp)) {
+			bgp_srv6_unicast_withdraw(bgp, AFI_UNSPEC);
+			bgp_srv6_unicast_sid_withdraw(bgp, AFI_UNSPEC);
+			XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast_vrf.sid);
+			srv6_locator_free(bgp->srv6_unicast_vrf.sid_locator);
+			bgp->srv6_unicast_vrf.sid_locator = NULL;
+		} else {
+			if (is_srv6_unicast_afi_enabled(bgp, AFI_IP)) {
+				bgp_srv6_unicast_withdraw(bgp, AFI_IP);
+				bgp_srv6_unicast_sid_withdraw(bgp, AFI_IP);
+				/* locator deleted after this call, free the sid */
+				XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[AFI_IP].sid);
+				srv6_locator_free(bgp->srv6_unicast[AFI_IP].sid_locator);
+				bgp->srv6_unicast[AFI_IP].sid_locator = NULL;
+			}
+			if (is_srv6_unicast_afi_enabled(bgp, AFI_IP6)) {
+				bgp_srv6_unicast_withdraw(bgp, AFI_IP6);
+				bgp_srv6_unicast_sid_withdraw(bgp, AFI_IP6);
+				/* locator deleted after this call, free the sid */
+				XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[AFI_IP6].sid);
+				srv6_locator_free(bgp->srv6_unicast[AFI_IP6].sid_locator);
+				bgp->srv6_unicast[AFI_IP6].sid_locator = NULL;
+			}
 		}
 	}
 
@@ -10040,7 +10048,73 @@ DEFPY(sid_export,
 		}
 	}
 
+	if (is_srv6_unicast_vrf_enabled(bgp)) {
+		vty_out(vty,
+			"sid per vrf is configured.\n"
+			"Remove it first before configuring per afi encapsulation SRv6 over default vrf.\n");
+
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	if (bgp_srv6_configure(vty, bgp, afi, sid_auto ? true : false, sid_idx,
+			       sid_explicit ? true : false, sid_value, rmap_str, no ? true : false))
+		return CMD_WARNING_CONFIG_FAILED;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (sid_export_vrf,
+       sid_export_vrf_cmd,
+       "[no] sid per-vrf export <(1-1048575)$sid_idx|auto$sid_auto|explicit$sid_explicit X:X::X:X$sid_value> [route-map RMAP$rmap_str]",
+       NO_STR
+       "sid value for VRF\n"
+       "sid per-VRF (both IPv4 and IPv6 address families)\n"
+       "For encapsulation SRv6 over default vrf\n"
+       "Sid allocation index\n"
+       "Automatically assign a label\n"
+       "Explicitly assign a sid value\n"
+       "Sid value\n"
+       "Specify route-map name\n"
+       "Name of route-map\n")
+{
+	struct bgp *bgp_vrf;
+	struct listnode *node;
+	afi_t afi = bgp_node_afi(vty);
+
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	if (bgp->vrf_id != VRF_DEFAULT)
+		vty_out(vty, "SRv6 unicast is only supported on default vrf");
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
+		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
+			continue;
+
+		if (is_srv6_vpn_afi_enabled(bgp, afi)) {
+			vty_out(vty,
+				"sid vpn per afi is configured.\n"
+				"Remove it first before configuring encapsulation SRv6 over default vrf");
+
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		if (is_srv6_vpn_vrf_enabled(bgp)) {
+			vty_out(vty,
+				"sid vpn per-vrf is configured.\n"
+				"Remove it first before configuring encapsulation SRv6 over default vrf.\n");
+
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	if (is_srv6_unicast_afi_enabled(bgp, AFI_IP) || is_srv6_unicast_afi_enabled(bgp, AFI_IP6)) {
+		vty_out(vty,
+			"sid per afi unicast is configured.\n"
+			"Remove it first before configuring per vrf encapsulation SRv6 over default vrf.\n");
+
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (bgp_srv6_configure(vty, bgp, AFI_UNSPEC, sid_auto ? true : false, sid_idx,
 			       sid_explicit ? true : false, sid_value, rmap_str, no ? true : false))
 		return CMD_WARNING_CONFIG_FAILED;
 
@@ -11536,6 +11610,7 @@ DEFPY (show_bgp_srv6,
 		vty_out(vty, "  per-vrf tovpn_sid: %pI6\n", bgp->tovpn_sid);
 		vty_out(vty, "  srv6_unicast[AFI_IP].sid: %pI6\n", bgp->srv6_unicast[AFI_IP].sid);
 		vty_out(vty, "  srv6_unicast[AFI_IP6].sid: %pI6\n", bgp->srv6_unicast[AFI_IP6].sid);
+		vty_out(vty, "  per-vrf unicast_sid: %pI6\n", bgp->srv6_unicast_vrf.sid);
 	}
 
 	return CMD_SUCCESS;
@@ -20526,6 +20601,21 @@ int bgp_config_write(struct vty *vty)
 				tovpn_sid_index);
 		}
 
+		if (is_srv6_unicast_vrf_enabled(bgp)) {
+			if (CHECK_FLAG(bgp->vrf_flags, BGP_CONFIG_SRV6_UNICAST_SID_AUTO))
+				vty_out(vty, " sid per-vrf export auto");
+			else if (bgp->srv6_unicast_vrf.sid_explicit)
+				vty_out(vty, " sid per-vrf export explicit %pI6",
+					bgp->srv6_unicast_vrf.sid_explicit);
+			else if (bgp->srv6_unicast_vrf.sid_index)
+				vty_out(vty, " sid per-vrf export %u",
+					bgp->srv6_unicast_vrf.sid_index);
+
+			if (bgp->srv6_unicast_vrf.rmap_name)
+				vty_out(vty, " route-map %s", bgp->srv6_unicast_vrf.rmap_name);
+			vty_out(vty, "\n");
+		}
+
 		/* IPv4 unicast configuration.  */
 		bgp_config_write_family(vty, bgp, AFI_IP, SAFI_UNICAST);
 
@@ -22651,6 +22741,7 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV4_NODE, &af_sid_vpn_export_cmd);
 	install_element(BGP_IPV6_NODE, &af_sid_vpn_export_cmd);
 	install_element(BGP_NODE, &bgp_sid_vpn_export_cmd);
+	install_element(BGP_NODE, &sid_export_vrf_cmd);
 	install_element(BGP_IPV4_NODE, &sid_export_cmd);
 	install_element(BGP_IPV6_NODE, &sid_export_cmd);
 	install_element(BGP_IPV6_NODE, &neighbor_encap_srv6_cmd);

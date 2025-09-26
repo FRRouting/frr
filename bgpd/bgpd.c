@@ -1523,6 +1523,7 @@ static void bgp_srv6_init(struct bgp *bgp)
 	bgp->srv6_functions->del = (void (*)(void *))srv6_function_free;
 	bgp->srv6_only = true;
 	memset(bgp->srv6_unicast, 0, sizeof(bgp->srv6_unicast));
+	memset(&bgp->srv6_unicast_vrf, 0, sizeof(bgp->srv6_unicast_vrf));
 }
 
 static void bgp_srv6_cleanup(struct bgp *bgp)
@@ -1569,6 +1570,19 @@ static void bgp_srv6_cleanup(struct bgp *bgp)
 	if (bgp->tovpn_sid_explicit != NULL) {
 		XFREE(MTYPE_BGP_SRV6_SID, bgp->tovpn_sid_explicit);
 	}
+
+	if (bgp->srv6_unicast_vrf.sid_locator) {
+		srv6_locator_free(bgp->srv6_unicast_vrf.sid_locator);
+		bgp->srv6_unicast_vrf.sid_locator = NULL;
+	}
+	if (bgp->srv6_unicast_vrf.zebra_sid_last_sent)
+		XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast_vrf.zebra_sid_last_sent);
+	if (bgp->srv6_unicast_vrf.sid) {
+		sid_unregister(bgp, bgp->srv6_unicast_vrf.sid);
+		XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast_vrf.sid);
+	}
+	if (bgp->srv6_unicast_vrf.sid_explicit)
+		XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast_vrf.sid_explicit);
 
 	if (bgp->srv6_locator_chunks)
 		list_delete(&bgp->srv6_locator_chunks);
