@@ -247,6 +247,7 @@ static int bgp_ifp_up(struct interface *ifp)
 	    bgp->vrf_id == VRF_DEFAULT) {
 		bgp_srv6_unicast_sid_endpoint(bgp, AFI_IP, ifp, true);
 		bgp_srv6_unicast_sid_endpoint(bgp, AFI_IP6, ifp, true);
+		bgp_srv6_unicast_sid_endpoint(bgp, AFI_UNSPEC, ifp, true);
 	}
 
 	return 0;
@@ -308,6 +309,7 @@ static int bgp_ifp_down(struct interface *ifp)
 	    bgp->vrf_id == VRF_DEFAULT) {
 		bgp_srv6_unicast_sid_endpoint(bgp, AFI_IP, ifp, false);
 		bgp_srv6_unicast_sid_endpoint(bgp, AFI_IP6, ifp, false);
+		bgp_srv6_unicast_sid_endpoint(bgp, AFI_UNSPEC, ifp, false);
 	}
 
 	return 0;
@@ -3552,6 +3554,7 @@ static int bgp_zebra_process_srv6_locator_internal(struct srv6_locator *locator,
 	vpn_leak_postchange_all();
 	bgp_srv6_unicast_ensure_afi_sid(bgp, AFI_IP);
 	bgp_srv6_unicast_ensure_afi_sid(bgp, AFI_IP6);
+	bgp_srv6_unicast_ensure_afi_sid(bgp, AFI_UNSPEC);
 
 	return 0;
 }
@@ -3716,13 +3719,23 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 				bgp_vrf->srv6_unicast[AFI_IP].sid_locator = locator;
 			}
 		} else if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT46) {
-			srv6_locator_free(bgp_vrf->tovpn_sid_locator);
-			sid_unregister(bgp, bgp_vrf->tovpn_sid);
-			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
+			if (is_srv6_vpn_vrf_enabled(bgp_vrf)) {
+				srv6_locator_free(bgp_vrf->tovpn_sid_locator);
+				sid_unregister(bgp, bgp_vrf->tovpn_sid);
+				XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
 
-			bgp_vrf->tovpn_sid = tovpn_sid;
-			bgp_vrf->tovpn_sid_locator = locator;
-			bgp_vrf->tovpn_sid_transpose_label = label;
+				bgp_vrf->tovpn_sid = tovpn_sid;
+				bgp_vrf->tovpn_sid_locator = locator;
+				bgp_vrf->tovpn_sid_transpose_label = label;
+			} else if (is_srv6_unicast_vrf_enabled(bgp_vrf)) {
+				afi = AFI_UNSPEC;
+				srv6_locator_free(bgp_vrf->srv6_unicast_vrf.sid_locator);
+				sid_unregister(bgp, bgp_vrf->srv6_unicast_vrf.sid);
+				XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->srv6_unicast_vrf.sid);
+
+				bgp_vrf->srv6_unicast_vrf.sid = tovpn_sid;
+				bgp_vrf->srv6_unicast_vrf.sid_locator = locator;
+			}
 		} else {
 			srv6_locator_free(locator);
 			if (BGP_DEBUG(zebra, ZEBRA))
@@ -3759,7 +3772,8 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 			 !sid_same(bgp_vrf->srv6_unicast[AFI_IP].sid, &sid_addr))
 			break;
 		else if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT46 &&
-			 !sid_same(bgp_vrf->tovpn_sid, &sid_addr))
+			 !sid_same(bgp_vrf->tovpn_sid, &sid_addr) &&
+			 !sid_same(bgp_vrf->srv6_unicast_vrf.sid, &sid_addr))
 			break;
 
 		/* Un-export VPN to VRF routes */
@@ -3806,12 +3820,19 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 			if (bgp_vrf->tovpn_sid_locator) {
 				srv6_locator_free(bgp_vrf->tovpn_sid_locator);
 				bgp_vrf->tovpn_sid_locator = NULL;
-			}
-			bgp_vrf->tovpn_sid_transpose_label = 0;
+				bgp_vrf->tovpn_sid_transpose_label = 0;
 
-			/* Unregister the SID */
-			sid_unregister(bgp, bgp_vrf->tovpn_sid);
-			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
+				/* Unregister the SID */
+				sid_unregister(bgp, bgp_vrf->tovpn_sid);
+				XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
+			} else if (bgp_vrf->srv6_unicast_vrf.sid_locator) {
+				srv6_locator_free(bgp_vrf->srv6_unicast_vrf.sid_locator);
+				bgp_vrf->srv6_unicast_vrf.sid_locator = NULL;
+
+				/* Unregister the SID */
+				sid_unregister(bgp, bgp_vrf->srv6_unicast_vrf.sid);
+				XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast_vrf.sid);
+			}
 		} else {
 			if (BGP_DEBUG(zebra, ZEBRA))
 				zlog_debug("Unsupported behavior. Not assigned SRv6 SID: %s %pI6",
@@ -3824,9 +3845,7 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 
 		/* Export VPN to VRF routes*/
 		vpn_leak_postchange_all();
-		bgp_srv6_unicast_withdraw(bgp_vrf, ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT4
-							   ? AFI_IP
-							   : AFI_IP6);
+		bgp_srv6_unicast_withdraw(bgp_vrf, afi);
 		break;
 	case ZAPI_SRV6_SID_FAIL_ALLOC:
 		if (BGP_DEBUG(zebra, ZEBRA))
