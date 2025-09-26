@@ -92,7 +92,7 @@ def test_bgp_wcmp_zebra_link_bandwidth():
                             "interfaceName": "r1-eth1",
                             "vrf": "blue",
                             "active": True,
-                            "weight": 254,
+                            "weight": 255,
                         },
                     ],
                 }
