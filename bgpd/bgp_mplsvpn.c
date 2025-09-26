@@ -496,8 +496,8 @@ void vpn_leak_zebra_vrf_sid_withdraw_per_af(struct bgp *bgp, afi_t afi)
 	}
 
 	if (debug)
-		zlog_debug("%s: deleting sid for vrf %s afi (id=%d)", __func__,
-			   bgp->name_pretty, bgp->vrf_id);
+		zlog_debug("%s: deleting sid for vrf %s afi %s (id=%d)", __func__,
+			   bgp->name_pretty, afi2str(afi), bgp->vrf_id);
 
 	ifp = if_get_vrf_loopback(bgp->vrf_id);
 	if (!ifp)
