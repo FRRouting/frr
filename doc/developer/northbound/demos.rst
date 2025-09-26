@@ -1,3 +1,5 @@
+.. _nb-demos:
+
 Demos
 =====
 
