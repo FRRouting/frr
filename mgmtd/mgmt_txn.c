@@ -1610,10 +1610,10 @@ int mgmt_txn_notify_be_cfg_reply(uint64_t txn_id, bool success, const char *erro
 	if (!success) {
 		_log_err("CFG_REQ sent to '%s' failed txn-id: %" PRIu64 " err: %s", adapter->name,
 			 txn->txn_id, error_if_any ? error_if_any : "None");
-		mgmt_txn_send_commit_cfg_reply(
-			txn, MGMTD_INTERNAL_ERROR,
-			error_if_any ? error_if_any
-				     : "Internal error! Failed to download config data to backend!");
+		mgmt_txn_send_commit_cfg_reply(txn, MGMTD_VALIDATION_ERROR,
+					       error_if_any
+						       ? error_if_any
+						       : "config validation failed by backend daemon");
 		return 0;
 	}
 
@@ -1977,23 +1977,51 @@ int mgmt_txn_notify_error(struct mgmt_be_client_adapter *adapter,
 
 	if (txn->type == MGMTD_TXN_TYPE_CONFIG) {
 		/*
-		 * XXX want to make sure this isn't an error from sending
-		 * cfg_apply_req, I think in that case we want to disconnect
-		 * earlier anyway
+		 * Handle an error during a configuration transaction.
 		 */
 		txn_req = txn->commit_cfg_req;
-		if (txn_req)
+		if (!txn_req) {
+			_log_err("Error reply from %s for txn-id %Lu req_id %Lu but no commit config request",
+				 adapter->name, txn_id, req_id);
+			return -1;
+		}
+		/*
+		 * Most of the C client code doesn't set req_id so handle this.
+		 * If we ever wanted to support multiple active CFG_REQ for under
+		 * txn (unlikely), we would need to fix this.
+		 */
+		if (req_id != 0 && txn_req->req_id != req_id) {
+			_log_err("Error reply from %s for txn-id %Lu req_id %Lu does not match current config req_id %Lu",
+				 adapter->name, txn_id, req_id, txn_req->req_id);
+			return -1;
+		}
+		switch (txn_req->req.commit_cfg.phase) {
+		case MGMTD_COMMIT_PHASE_TXN_CREATE:
+			/* This is a validation error.*/
 			return mgmt_txn_notify_be_cfg_reply(txn_id, false, errstr, adapter);
-	} else {
-		/* Find the request. */
-		FOREACH_TXN_REQ_IN_LIST (&txn->get_tree_reqs, txn_req)
+		case MGMTD_COMMIT_PHASE_PREPARE_CFG:
+		case MGMTD_COMMIT_PHASE_APPLY_CFG:
+		case MGMTD_COMMIT_PHASE_TXN_DELETE:
+			/* Drop the connection these errors should never happen */
+			msg_conn_disconnect(adapter->conn, false);
+			break;
+		case MGMTD_COMMIT_PHASE_MAX:
+			assert(!"should never have this phase");
+		}
+		return 0;
+	}
+
+	/*
+	 * Find the non-config request.
+	 */
+
+	FOREACH_TXN_REQ_IN_LIST (&txn->get_tree_reqs, txn_req)
+		if (txn_req->req_id == req_id)
+			break;
+	if (!txn_req)
+		FOREACH_TXN_REQ_IN_LIST (&txn->rpc_reqs, txn_req)
 			if (txn_req->req_id == req_id)
 				break;
-		if (!txn_req)
-			FOREACH_TXN_REQ_IN_LIST (&txn->rpc_reqs, txn_req)
-				if (txn_req->req_id == req_id)
-					break;
-	}
 
 	if (!txn_req) {
 		_log_err("Error reply from %s for txn-id %" PRIu64 " cannot find req_id %" PRIu64,
