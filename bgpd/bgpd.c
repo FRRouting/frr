@@ -1524,6 +1524,7 @@ static void bgp_srv6_init(struct bgp *bgp)
 	bgp->srv6_functions->del = (void (*)(void *))srv6_function_free;
 	bgp->srv6_only = true;
 	memset(bgp->srv6_unicast, 0, sizeof(bgp->srv6_unicast));
+	memset(&bgp->srv6_unicast_vrf, 0, sizeof(bgp->srv6_unicast_vrf));
 }
 
 static void bgp_srv6_cleanup(struct bgp *bgp)

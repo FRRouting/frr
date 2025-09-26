@@ -31,7 +31,7 @@ int bgp_srv6_configure(struct vty *vty, struct bgp *bgp, afi_t afi, bool sid_aut
 		if (!is_srv6_unicast_afi_enabled(bgp, afi))
 			return CMD_SUCCESS;
 
-		srv6_policy = &bgp->srv6_unicast[afi];
+		srv6_policy = get_srv6_policy(bgp, afi);
 		if (srv6_policy->rmap_name) {
 			XFREE(MTYPE_ROUTE_MAP_NAME, srv6_policy->rmap_name);
 			srv6_policy->rmap_name = NULL;
@@ -42,21 +42,24 @@ int bgp_srv6_configure(struct vty *vty, struct bgp *bgp, afi_t afi, bool sid_aut
 		}
 
 		srv6_policy->sid_index = 0;
-		UNSET_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_SRV6_UNICAST_SID_AUTO);
+		if (afi == AFI_UNSPEC)
+			UNSET_FLAG(bgp->vrf_flags, BGP_CONFIG_SRV6_UNICAST_SID_AUTO);
+		else
+			UNSET_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_SRV6_UNICAST_SID_AUTO);
 
 		bgp_srv6_unicast_sid_withdraw(bgp, afi);
 
 		return CMD_SUCCESS;
 	}
 
-	srv6_policy = &bgp->srv6_unicast[afi];
+	srv6_policy = get_srv6_policy(bgp, afi);
 	if (afi == AFI_UNSPEC)
 		configured_flags = bgp->vrf_flags;
 	else
 		configured_flags = bgp->af_flags[afi][safi];
 
 	/* configured */
-	if ((sid_auto && CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_SRV6_UNICAST_SID_AUTO)) ||
+	if ((sid_auto && CHECK_FLAG(configured_flags, BGP_CONFIG_SRV6_UNICAST_SID_AUTO)) ||
 	    (sid_idx != 0 && srv6_policy->sid_index != 0) ||
 	    (sid_explicit && srv6_policy->sid_explicit)) {
 		/* no rmap change */
@@ -83,7 +86,7 @@ int bgp_srv6_configure(struct vty *vty, struct bgp *bgp, afi_t afi, bool sid_aut
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	if ((sid_idx != 0 || sid_explicit) &&
-	    CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_SRV6_UNICAST_SID_AUTO)) {
+	    CHECK_FLAG(configured_flags, BGP_CONFIG_SRV6_UNICAST_SID_AUTO)) {
 		vty_out(vty, "it's already configured as auto-mode.\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -92,7 +95,10 @@ int bgp_srv6_configure(struct vty *vty, struct bgp *bgp, afi_t afi, bool sid_aut
 		srv6_policy->rmap_name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_str);
 
 	if (sid_auto) {
-		SET_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_SRV6_UNICAST_SID_AUTO);
+		if (afi == AFI_UNSPEC)
+			SET_FLAG(bgp->vrf_flags, BGP_CONFIG_SRV6_UNICAST_SID_AUTO);
+		else
+			SET_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_SRV6_UNICAST_SID_AUTO);
 	} else if (sid_idx) {
 		srv6_policy->sid_index = sid_idx;
 	} else if (sid_explicit) {
@@ -109,8 +115,19 @@ int bgp_srv6_configure(struct vty *vty, struct bgp *bgp, afi_t afi, bool sid_aut
 
 bool is_srv6_unicast_afi_enabled(struct bgp *bgp, afi_t afi)
 {
-	if (CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST], BGP_CONFIG_SRV6_UNICAST_SID_AUTO)
+	if (afi == AFI_UNSPEC && is_srv6_unicast_vrf_enabled(bgp))
+		return true;
+	else if (CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST], BGP_CONFIG_SRV6_UNICAST_SID_AUTO)
 	    || bgp->srv6_unicast[afi].sid_explicit || bgp->srv6_unicast[afi].sid_index)
+		return true;
+
+	return false;
+}
+
+bool is_srv6_unicast_vrf_enabled(struct bgp *bgp)
+{
+	if (CHECK_FLAG(bgp->vrf_flags, BGP_CONFIG_SRV6_UNICAST_SID_AUTO) ||
+	    bgp->srv6_unicast_vrf.sid_explicit || bgp->srv6_unicast_vrf.sid_index)
 		return true;
 
 	return false;
@@ -118,11 +135,32 @@ bool is_srv6_unicast_afi_enabled(struct bgp *bgp, afi_t afi)
 
 bool is_srv6_unicast_enabled(struct bgp *bgp)
 {
+	if (is_srv6_unicast_vrf_enabled(bgp))
+		return true;
+
 	if (is_srv6_unicast_afi_enabled(bgp, AFI_IP) ||
 	    is_srv6_unicast_afi_enabled(bgp, AFI_IP6))
 		return true;
 
 	return false;
+}
+
+struct srv6_policy *get_srv6_policy(struct bgp *bgp, afi_t afi)
+{
+	if (afi == AFI_UNSPEC)
+		return &bgp->srv6_unicast_vrf;
+	else
+		return &bgp->srv6_unicast[afi];
+}
+
+static int bgp_srv6_get_seg6_action(afi_t afi)
+{
+	if (afi == AFI_IP)
+		return ZEBRA_SEG6_LOCAL_ACTION_END_DT4;
+	else if (afi == AFI_IP6)
+		return ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+	else
+		return ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
 }
 
 void bgp_srv6_unicast_ensure_afi_sid(struct bgp *bgp, afi_t afi)
@@ -132,16 +170,18 @@ void bgp_srv6_unicast_ensure_afi_sid(struct bgp *bgp, afi_t afi)
 	struct srv6_sid_ctx ctx = {};
 	bool unicast_sid_auto = false;
 	uint32_t unicast_sid_index = 0;
+	struct srv6_policy *srv6_policy;
 	struct in6_addr unicast_sid = {};
 	struct srv6_locator *locator_bgp;
 	bool unicast_sid_explicit = false;
 
 	/* no configured */
-	if (!is_srv6_unicast_afi_enabled(bgp, afi))
+	if (!is_srv6_unicast_enabled(bgp))
 		return;
 
+	srv6_policy = get_srv6_policy(bgp, afi);
 	/* already allocated */
-	if (bgp->srv6_unicast[afi].sid)
+	if (srv6_policy->sid)
 		return;
 
 	locator_bgp = bgp->srv6_locator;
@@ -149,10 +189,13 @@ void bgp_srv6_unicast_ensure_afi_sid(struct bgp *bgp, afi_t afi)
 	if (!locator_bgp)
 		return;
 
-	unicast_sid_index = bgp->srv6_unicast[afi].sid_index;
-	unicast_sid_auto = CHECK_FLAG(bgp->af_flags[afi][safi],
-				      BGP_CONFIG_SRV6_UNICAST_SID_AUTO);
-	unicast_sid_explicit = bgp->srv6_unicast[afi].sid_explicit;
+	unicast_sid_index = srv6_policy->sid_index;
+	if (afi == AFI_UNSPEC)
+		unicast_sid_auto = CHECK_FLAG(bgp->vrf_flags, BGP_CONFIG_SRV6_UNICAST_SID_AUTO);
+	else
+		unicast_sid_auto = CHECK_FLAG(bgp->af_flags[afi][safi],
+					      BGP_CONFIG_SRV6_UNICAST_SID_AUTO);
+	unicast_sid_explicit = srv6_policy->sid_explicit;
 
 	if ((unicast_sid_index != 0 && unicast_sid_auto) ||
 	    (unicast_sid_index != 0 && unicast_sid_explicit) ||
@@ -163,7 +206,7 @@ void bgp_srv6_unicast_ensure_afi_sid(struct bgp *bgp, afi_t afi)
 	}
 
 	/* skip when sid value isn't set for explicit-mode */
-	if (unicast_sid_explicit && !bgp->srv6_unicast[afi].sid_explicit) {
+	if (unicast_sid_explicit && !srv6_policy->sid_explicit) {
 		zlog_err("%s: explicit-mode selected without sid value.", __func__);
 		return;
 	}
@@ -174,12 +217,11 @@ void bgp_srv6_unicast_ensure_afi_sid(struct bgp *bgp, afi_t afi)
 			return;
 		}
 	} else if (unicast_sid_explicit) {
-		unicast_sid = *(bgp->srv6_unicast[afi].sid_explicit);
+		unicast_sid = *(srv6_policy->sid_explicit);
 	}
 
 	ctx.vrf_id = bgp->vrf_id;
-	ctx.behavior = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
-				     : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+	ctx.behavior = bgp_srv6_get_seg6_action(afi);
 	if (!bgp_zebra_request_srv6_sid(&ctx, &unicast_sid, locator_bgp->name, &sid_func)) {
 		zlog_err("%s: failed to request sid for bgp %s: afi %s", __func__,
 			 bgp->name_pretty, afi2str(afi));
@@ -192,35 +234,35 @@ void bgp_srv6_unicast_sid_endpoint(struct bgp *bgp, afi_t afi,
 	enum seg6local_action_t act;
 	struct seg6local_context ctx = {};
 	struct in6_addr *unicast_sid_ls = NULL;
+	struct srv6_policy *srv6_policy = get_srv6_policy(bgp, afi);
 
-	if (!bgp->srv6_unicast[afi].sid)
+	if (!srv6_policy->sid)
 		return;
 
-	ctx.block_len = bgp->srv6_unicast[afi].sid_locator->block_bits_length;
-	ctx.node_len = bgp->srv6_unicast[afi].sid_locator->node_bits_length;
-	ctx.function_len = bgp->srv6_unicast[afi].sid_locator->function_bits_length;
-	ctx.argument_len = bgp->srv6_unicast[afi].sid_locator->argument_bits_length;
+	ctx.block_len = srv6_policy->sid_locator->block_bits_length;
+	ctx.node_len = srv6_policy->sid_locator->node_bits_length;
+	ctx.function_len = srv6_policy->sid_locator->function_bits_length;
+	ctx.argument_len = srv6_policy->sid_locator->argument_bits_length;
 
 	if (install) {
-		if (CHECK_FLAG(bgp->srv6_unicast[afi].sid_locator->flags, SRV6_LOCATOR_USID))
+		if (CHECK_FLAG(srv6_policy->sid_locator->flags, SRV6_LOCATOR_USID))
 			SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 		ctx.table = ifp->vrf->data.l.table_id;
-		act = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4 :
-			ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
-		zclient_send_localsid(bgp_zclient, ZEBRA_ROUTE_ADD, bgp->srv6_unicast[afi].sid,
+		act = bgp_srv6_get_seg6_action(afi);
+		zclient_send_localsid(bgp_zclient, ZEBRA_ROUTE_ADD, srv6_policy->sid,
 				      IPV6_MAX_BITLEN, ifp->ifindex, act, &ctx);
 		unicast_sid_ls = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
-		*unicast_sid_ls = *bgp->srv6_unicast[afi].sid;
-		if (bgp->srv6_unicast[afi].zebra_sid_last_sent)
-			XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[afi].zebra_sid_last_sent);
-		bgp->srv6_unicast[afi].zebra_sid_last_sent = unicast_sid_ls;
+		*unicast_sid_ls = *srv6_policy->sid;
+		if (srv6_policy->zebra_sid_last_sent)
+			XFREE(MTYPE_BGP_SRV6_SID, srv6_policy->zebra_sid_last_sent);
+		srv6_policy->zebra_sid_last_sent = unicast_sid_ls;
 
 	} else {
 		zclient_send_localsid(bgp_zclient, ZEBRA_ROUTE_DELETE,
-				      bgp->srv6_unicast[afi].zebra_sid_last_sent, IPV6_MAX_BITLEN,
+				      srv6_policy->zebra_sid_last_sent, IPV6_MAX_BITLEN,
 				      ifp->ifindex, ZEBRA_SEG6_LOCAL_ACTION_UNSPEC, &ctx);
-		XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[afi].zebra_sid_last_sent);
-		bgp->srv6_unicast[afi].zebra_sid_last_sent = NULL;
+		XFREE(MTYPE_BGP_SRV6_SID, srv6_policy->zebra_sid_last_sent);
+		srv6_policy->zebra_sid_last_sent = NULL;
 	}
 }
 
@@ -228,14 +270,16 @@ void bgp_srv6_unicast_sid_withdraw(struct bgp *bgp, afi_t afi)
 {
 	struct interface *ifp;
 	struct srv6_sid_ctx ctx = {};
+	struct srv6_policy *srv6_policy;
 	int debug = BGP_DEBUG(zebra, ZEBRA);
 
 	if (bgp->vrf_id != VRF_DEFAULT)
 		return;
 
+	srv6_policy = get_srv6_policy(bgp, afi);
 	if (debug)
 		zlog_debug("%s: vrf %s: deleting sid %pI6 for vrf id %d", __func__,
-			   bgp->name_pretty, bgp->srv6_unicast[afi].sid, bgp->vrf_id);
+			   bgp->name_pretty, srv6_policy->sid, bgp->vrf_id);
 
 	ifp = if_lookup_by_name(DEFAULT_SRV6_IFNAME, VRF_DEFAULT);
 	if (!ifp) {
@@ -244,57 +288,61 @@ void bgp_srv6_unicast_sid_withdraw(struct bgp *bgp, afi_t afi)
 		return;
 	}
 
-	if (bgp->srv6_unicast[afi].zebra_sid_last_sent)
+	if (srv6_policy->zebra_sid_last_sent)
 		bgp_srv6_unicast_sid_endpoint(bgp, afi, ifp, false);
 
-	ctx.behavior = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
-				     : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+	ctx.behavior = bgp_srv6_get_seg6_action(afi);
 	ctx.vrf_id = bgp->vrf_id;
-	bgp_zebra_release_srv6_sid(&ctx, bgp->srv6_unicast[afi].sid_locator->name);
+	bgp_zebra_release_srv6_sid(&ctx, srv6_policy->sid_locator->name);
 }
 
 void bgp_srv6_unicast_delete(struct bgp *bgp, afi_t afi)
 {
 	struct interface *ifp;
 	struct srv6_sid_ctx ctx = {};
+	struct srv6_policy *srv6_policy;
 
 	if (!bgp || bgp->vrf_id != VRF_DEFAULT)
 		return;
 
-	if (!is_srv6_unicast_afi_enabled(bgp, afi))
+	if (!is_srv6_unicast_enabled(bgp))
 		return;
 
-	if (bgp->srv6_unicast[afi].sid) {
+	srv6_policy = get_srv6_policy(bgp, afi);
+
+	if (srv6_policy->sid) {
 		ifp = if_lookup_by_name(DEFAULT_SRV6_IFNAME, VRF_DEFAULT);
-		if (ifp && bgp->srv6_unicast[afi].zebra_sid_last_sent)
+		if (ifp && srv6_policy->zebra_sid_last_sent)
 			bgp_srv6_unicast_sid_endpoint(bgp, afi, ifp, false);
 
 		ctx.vrf_id = bgp->vrf_id;
-		ctx.behavior = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
-					     : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
-		bgp_zebra_release_srv6_sid(&ctx, bgp->srv6_unicast[afi].sid_locator->name);
+		ctx.behavior = bgp_srv6_get_seg6_action(afi);
+		bgp_zebra_release_srv6_sid(&ctx, srv6_policy->sid_locator->name);
 
-		sid_unregister(bgp, bgp->srv6_unicast[afi].sid);
-		XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[afi].sid);
+		sid_unregister(bgp, srv6_policy->sid);
+		XFREE(MTYPE_BGP_SRV6_SID, srv6_policy->sid);
 	}
 
-	if (bgp->srv6_unicast[afi].sid_explicit)
-		XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[afi].sid_explicit);
+	if (srv6_policy->sid_explicit)
+		XFREE(MTYPE_BGP_SRV6_SID, srv6_policy->sid_explicit);
 
-	if (bgp->srv6_unicast[afi].rmap_name)
-		XFREE(MTYPE_ROUTE_MAP_NAME, bgp->srv6_unicast[afi].rmap_name);
+	if (srv6_policy->rmap_name)
+		XFREE(MTYPE_ROUTE_MAP_NAME, srv6_policy->rmap_name);
 
-	srv6_locator_free(bgp->srv6_unicast[afi].sid_locator);
-	bgp->srv6_unicast[afi].sid_locator = NULL;
-	UNSET_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
-		   BGP_CONFIG_SRV6_UNICAST_SID_AUTO);
+	srv6_locator_free(srv6_policy->sid_locator);
+	srv6_policy->sid_locator = NULL;
+	if (afi == AFI_UNSPEC)
+		UNSET_FLAG(bgp->vrf_flags, BGP_CONFIG_SRV6_UNICAST_SID_AUTO);
+	else
+		UNSET_FLAG(bgp->af_flags[afi][SAFI_UNICAST], BGP_CONFIG_SRV6_UNICAST_SID_AUTO);
 }
 
 void bgp_srv6_unicast_sid_update(struct bgp *bgp, afi_t afi)
 {
 	struct interface *ifp;
+	struct srv6_policy *srv6_policy = get_srv6_policy(bgp, afi);
 
-	if (!bgp->srv6_unicast[afi].sid)
+	if (!srv6_policy->sid)
 		return;
 
 	ifp = if_lookup_by_name(DEFAULT_SRV6_IFNAME, VRF_DEFAULT);
@@ -316,7 +364,7 @@ void bgp_srv6_unicast_unregister_route(struct bgp_dest *dest)
 }
 
 void bgp_srv6_unicast_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest *dest,
-				     struct bgp_path_info *bpi)
+				     struct srv6_policy *srv6_policy, struct bgp_path_info *bpi)
 {
 	struct attr attr_tmp;
 	const struct prefix *p;
@@ -335,11 +383,15 @@ void bgp_srv6_unicast_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest
 	if (bpi->attr->srv6_l3service)
 		return;
 
-	if (!bgp->srv6_unicast[afi].sid_locator)
+	if (!srv6_policy)
+		srv6_policy = is_srv6_unicast_afi_enabled(bgp, afi) ?
+			get_srv6_policy(bgp, afi) : &bgp->srv6_unicast_vrf;
+
+	if (!srv6_policy->sid_locator)
 		return;
 
-	if (bgp->srv6_unicast[afi].rmap_name) {
-		rmap = route_map_lookup_by_name(bgp->srv6_unicast[afi].rmap_name);
+	if (srv6_policy->rmap_name) {
+		rmap = route_map_lookup_by_name(srv6_policy->rmap_name);
 		if (rmap) {
 			attr_tmp = *bpi->attr;
 			info.attr = &attr_tmp;
@@ -360,14 +412,14 @@ void bgp_srv6_unicast_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest
 			}
 		} else {
 			zlog_warn("route-map %s was no found, ignored",
-				  bgp->srv6_unicast[afi].rmap_name);
+				  srv6_policy->rmap_name);
 		}
 	}
 
-	if (dest->srv6_unicast && sid_same(bgp->srv6_unicast[afi].sid, &dest->srv6_unicast->sid))
+	if (dest->srv6_unicast && sid_same(srv6_policy->sid, &dest->srv6_unicast->sid))
 		return;
 
-	locator = bgp->srv6_unicast[afi].sid_locator;
+	locator = srv6_policy->sid_locator;
 	dest->srv6_unicast = XCALLOC(MTYPE_BGP_SRV6_L3SERVICE,
 				     sizeof(struct bgp_attr_srv6_l3service));
 	dest->srv6_unicast->sid_flags = 0x00;
@@ -382,11 +434,11 @@ void bgp_srv6_unicast_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest
 	dest->srv6_unicast->loc_node_len = locator->node_bits_length;
 	dest->srv6_unicast->func_len = locator->function_bits_length;
 	dest->srv6_unicast->arg_len = locator->argument_bits_length;
-	memcpy(&dest->srv6_unicast->sid, bgp->srv6_unicast[afi].sid,
-	       sizeof(struct in6_addr));
+	memcpy(&dest->srv6_unicast->sid, srv6_policy->sid, sizeof(struct in6_addr));
 }
 
-void bgp_srv6_unicast_announce(struct bgp *bgp, afi_t afi)
+static void _bgp_srv6_unicast_announce(struct bgp *bgp, struct srv6_policy *srv6_policy,
+				       afi_t afi)
 {
 	struct peer *peer;
 	struct bgp_dest *pdest;
@@ -394,7 +446,7 @@ void bgp_srv6_unicast_announce(struct bgp *bgp, afi_t afi)
 	safi_t safi = SAFI_UNICAST;
 	struct listnode *node, *nnode;
 
-	if (!bgp->srv6_unicast[afi].sid_locator)
+	if (!srv6_policy->sid_locator)
 		return;
 
 	for (pdest = bgp_table_top(bgp->rib[afi][safi]); pdest; pdest = bgp_route_next(pdest)) {
@@ -405,7 +457,7 @@ void bgp_srv6_unicast_announce(struct bgp *bgp, afi_t afi)
 			if (bpi->attr->srv6_l3service)
 				continue;
 
-			bgp_srv6_unicast_register_route(bgp, afi, pdest, bpi);
+			bgp_srv6_unicast_register_route(bgp, afi, pdest, srv6_policy, bpi);
 			break;
 		}
 	}
@@ -419,7 +471,19 @@ void bgp_srv6_unicast_announce(struct bgp *bgp, afi_t afi)
 	}
 }
 
-void bgp_srv6_unicast_withdraw(struct bgp *bgp, afi_t afi)
+void bgp_srv6_unicast_announce(struct bgp *bgp, afi_t afi)
+{
+	struct srv6_policy *srv6_policy = get_srv6_policy(bgp, afi);
+
+	if (afi == AFI_UNSPEC) {
+		_bgp_srv6_unicast_announce(bgp, srv6_policy, AFI_IP);
+		_bgp_srv6_unicast_announce(bgp, srv6_policy, AFI_IP6);
+	} else {
+		_bgp_srv6_unicast_announce(bgp, srv6_policy, afi);
+	}
+}
+
+static void _bgp_srv6_unicast_withdraw(struct bgp *bgp, afi_t afi)
 {
 	struct peer *peer;
 	struct bgp_dest *pdest;
@@ -439,5 +503,15 @@ void bgp_srv6_unicast_withdraw(struct bgp *bgp, afi_t afi)
 					    PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_STRICT) ||
 		    peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_SRV6))
 			bgp_announce_route(peer, afi, safi, true);
+	}
+}
+
+void bgp_srv6_unicast_withdraw(struct bgp *bgp, afi_t afi)
+{
+	if (afi == AFI_UNSPEC) {
+		_bgp_srv6_unicast_withdraw(bgp, AFI_IP);
+		_bgp_srv6_unicast_withdraw(bgp, AFI_IP6);
+	} else {
+		_bgp_srv6_unicast_withdraw(bgp, afi);
 	}
 }

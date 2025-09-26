@@ -979,6 +979,7 @@ struct bgp {
 
 	/* BGP L3 service IPv4/v6 SRv6 backend */
 	struct srv6_policy srv6_unicast[AFI_MAX];
+	struct srv6_policy srv6_unicast_vrf;
 
 	/* TCP keepalive parameters for BGP connection */
 	uint16_t tcp_keepalive_idle;
