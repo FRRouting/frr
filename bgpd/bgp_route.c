@@ -3845,7 +3845,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	old_select = old_and_new.old;
 	new_select = old_and_new.new;
 
-	if (safi == SAFI_UNICAST && is_srv6_unicast_enabled(bgp, afi))
+	if (safi == SAFI_UNICAST && is_srv6_unicast_enabled(bgp))
 		bgp_srv6_unicast_register_route(bgp, afi, dest, new_select);
 
 	if (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST)
