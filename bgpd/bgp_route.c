@@ -11217,7 +11217,7 @@ void route_vty_out_tag(struct vty *vty, const struct prefix *p,
 			json_object_int_add(json_out, "notag", label);
 			json_object_array_add(json, json_out);
 		} else {
-			vty_out(vty, "notag/%d", label);
+			vty_out(vty, " notag/%d", label);
 			vty_out(vty, "\n");
 		}
 	} else if (!json)
