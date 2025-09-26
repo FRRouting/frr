@@ -1472,8 +1472,9 @@ static bool gr_path_select_deferral_applicable(struct bgp *bgp)
 	 * settings and GR is not complete and path selection
 	 * deferral not yet done for this instance
 	 */
-	if (!bgp->t_startup && !bgp_in_graceful_restart())
+	if (!bgp_in_graceful_restart(bgp))
 		return false;
+
 	FOREACH_AFI_SAFI_NSF (afi, safi) {
 		if (!bgp_gr_supported_for_afi_safi(afi, safi))
 			continue;

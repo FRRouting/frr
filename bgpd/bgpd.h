@@ -326,7 +326,7 @@ enum bgp_instance_type {
 
 #define BGP_SEND_EOR(bgp, afi, safi)                                                              \
 	(!CHECK_FLAG(bgp->flags, BGP_FLAG_GR_DISABLE_EOR) &&                                      \
-	 (!bgp_in_graceful_restart() || bgp->gr_info[afi][safi].select_defer_over))
+	 (!bgp_in_graceful_restart(bgp) || bgp->gr_info[afi][safi].select_defer_over))
 
 /* BGP GR Global ds */
 
@@ -3015,13 +3015,14 @@ static inline bool bgp_in_graceful_shutdown(struct bgp *bgp)
 	        !!CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_SHUTDOWN));
 }
 
-static inline bool bgp_in_graceful_restart(void)
+static inline bool bgp_in_graceful_restart(struct bgp *bgp)
 {
 	/* True if BGP has (re)started gracefully (based on flags
 	 * noted at startup) and GR is not complete.
 	 */
-	return (CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART) &&
-		!CHECK_FLAG(bm->flags, BM_FLAG_GR_COMPLETE));
+	return (event_is_scheduled(bgp->t_startup) ||
+		(CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART) &&
+		 !CHECK_FLAG(bm->flags, BM_FLAG_GR_COMPLETE)));
 }
 
 static inline bool bgp_is_graceful_restart_complete(void)

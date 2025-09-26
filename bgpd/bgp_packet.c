@@ -476,7 +476,7 @@ void bgp_generate_updgrp_packets(struct event *thread)
 	/* If a GR restarter, we have to wait till path-selection
 	 * is complete.
 	 */
-	if (bgp_in_graceful_restart())
+	if (bgp_in_graceful_restart(peer->bgp))
 		return;
 
 	do {
@@ -1323,7 +1323,7 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 		stream_putc(s, 0);
 		gr_restart_time = peer->bgp->restart_time;
 
-		if (peer->bgp->t_startup || bgp_in_graceful_restart()) {
+		if (bgp_in_graceful_restart(peer->bgp)) {
 			SET_FLAG(gr_restart_time, GRACEFUL_RESTART_R_BIT);
 			SET_FLAG(peer->cap, PEER_CAP_GRACEFUL_RESTART_R_BIT_ADV);
 		}
@@ -2258,8 +2258,7 @@ static void bgp_update_receive_eor(struct bgp *bgp, struct peer *peer, afi_t afi
 
 		/* graceful-restart related processing */
 		UNSET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_GR_WAIT_EOR);
-		if ((bgp->t_startup || bgp_in_graceful_restart()) &&
-		    bgp_gr_supported_for_afi_safi(afi, safi)) {
+		if (bgp_in_graceful_restart(bgp) && bgp_gr_supported_for_afi_safi(afi, safi)) {
 			struct graceful_restart_info *gr_info;
 
 			gr_info = &(bgp->gr_info[afi][safi]);
