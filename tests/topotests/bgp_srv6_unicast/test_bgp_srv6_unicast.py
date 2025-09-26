@@ -88,7 +88,10 @@ def get_unicast_sid(afi):
     tgen = get_topogen()
 
     output = tgen.gears["r1"].vtysh_cmd("show bgp segment-routing srv6")
-    match = re.search(r"srv6_unicast\[%s\].sid: ([0-9a-fA-F:]+::)" % afi, output)
+    if afi:
+        match = re.search(r"srv6_unicast\[%s\].sid: ([0-9a-fA-F:]+::)" % afi, output)
+    else:
+        match = re.search(r"unicast_sid: ([0-9a-fA-F:]+::)", output)
 
     if not match:
         return "R1 sid[%s] is null" % afi
@@ -96,7 +99,10 @@ def get_unicast_sid(afi):
     r1_unicast_sid = match.group().split()[-1]
 
     output = tgen.gears["r3"].vtysh_cmd("show bgp segment-routing srv6")
-    match = re.search(r"srv6_unicast\[%s\].sid: ([0-9a-fA-F:]+::)" % afi, output)
+    if afi:
+        match = re.search(r"srv6_unicast\[%s\].sid: ([0-9a-fA-F:]+::)" % afi, output)
+    else:
+        match = re.search(r"per-vrf unicast_sid: ([0-9a-fA-F:]+::)", output)
 
     if not match:
         return "R3 sid[%s] is null" % afi
@@ -458,6 +464,48 @@ def test_ping():
     check_ping("c1", "fd00:300::2", True, 3, 3)
     check_ping("c2", "fd00:100::2", True, 3, 3)
 
+def test_sid_per_vrf():
+    """
+    Check sid per vrf allocation mode.
+    """
+
+    tgen = get_topogen()
+    tgen.gears["r1"].vtysh_multicmd(
+        """
+        configure
+        router bgp 65001
+        address-family ipv4 unicast
+        no sid export explicit 2001:db8:1:1:a1::
+        exit
+        address-family ipv6 unicast
+        no sid export 55
+        sid per-vrf export explicit 2001:db8:1:1:64::
+        """
+    )
+    tgen.gears["r3"].vtysh_multicmd(
+        """
+        configure
+        router bgp 65003
+        address-family ipv4 unicast
+        no sid export auto
+        exit
+        address-family ipv6 unicast
+        no sid export auto
+        exit
+        sid per-vrf export 2
+        """
+    )
+
+    logger.info("Switching to per-vrf allocation mode")
+    res = get_unicast_sid(None)
+    assert res is True, res
+    logger.info("R1 per-vrf sid %s" % (r1_unicast_sid))
+
+    logger.info("Check again ping C1 <-> C2")
+    check_ping("c1", "10.100.3.2", True, 3, 3)
+    check_ping("c2", "10.100.1.2", True, 3, 3)
+    check_ping("c1", "fd00:300::2", True, 3, 3)
+    check_ping("c2", "fd00:100::2", True, 3, 3)
 
 def teardown_module(mod):
     tgen = get_topogen()
