@@ -150,6 +150,8 @@ struct bgp_path_info_extra_evpn {
 	} vni_info;
 	/* Destination Ethernet Segment links for EVPN MH */
 	struct bgp_path_mh_info *mh_info;
+
+	struct bgp_path_info *type5_originator;
 };
 
 /* new structure for flowspec*/
