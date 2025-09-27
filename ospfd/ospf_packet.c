@@ -2989,24 +2989,10 @@ static enum ospf_read_return_enum ospf_read_helper(struct ospf *ospf)
 	 * ospf_recv_packet.
 	 */
 	if (ifp == NULL) {
-		/*
-		 * Handle cases where the platform does not support
-		 * retrieving the ifindex, and also platforms (such as
-		 * Solaris 8) that claim to support ifindex retrieval but do
-		 * not.
-		 */
-		c = if_lookup_address((void *)&iph->ip_src, AF_INET,
-				      ospf->vrf_id);
-		if (c)
-			ifp = c->ifp;
-		if (ifp == NULL) {
-			if (IS_DEBUG_OSPF_PACKET(0, RECV))
-				zlog_debug(
-					"%s: Unable to determine incoming interface from: %pI4(%s)",
-					__func__, &iph->ip_src,
-					ospf_get_name(ospf));
-			return OSPF_READ_CONTINUE;
+		if (IS_DEBUG_OSPF_PACKET(0, RECV)) {
+			zlog_debug("ospf_read: packet dropped as ifp is NULL");
 		}
+		return OSPF_READ_CONTINUE
 	}
 
 	if (ospf->vrf_id == VRF_DEFAULT && ospf->vrf_id != ifp->vrf->vrf_id) {

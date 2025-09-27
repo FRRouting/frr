@@ -1075,6 +1075,7 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 	 * leaked between VRFs with accept-own community.
 	 */
 	if (bpi_ultimate->sub_type == BGP_ROUTE_REDISTRIBUTE ||
+	    bpi_ultimate->sub_type == BGP_ROUTE_STATIC ||
 	    is_pi_family_evpn(bpi_ultimate) ||
 	    CHECK_FLAG(bpi_ultimate->flags, BGP_PATH_ACCEPT_OWN))
 		nh_valid = true;
