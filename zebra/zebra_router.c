@@ -360,9 +360,9 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack, bool v6_with_v4_ne
 	hook_call(nos_initialize_data, &zrouter.zav);
 
 	if (!zrouter.zav.nexthop_weight_is_16bit)
-		zrouter.nexthop_weight_scale_value = 254;
+		zrouter.nexthop_weight_scale_value = 255;
 	else
-		zrouter.nexthop_weight_scale_value = 0xFFFF - 1;
+		zrouter.nexthop_weight_scale_value = 0xFFFF;
 
 #ifdef HAVE_SCRIPTING
 	zebra_script_init();
