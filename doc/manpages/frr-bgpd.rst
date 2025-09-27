@@ -80,3 +80,30 @@ $(PWD)/|DAEMON|.log
 
 .. include:: epilogue.rst
 
+CONFIGURATION NOTES
+===================
+
+eBGP Multihop and Reachability
+------------------------------
+
+When configuring eBGP sessions with the ''ebgp-multihop'' option, remember that 
+this command only increases the allowed TTL for BGP packets.
+It does *not* establish IP reachability on its own.
+
+If you configure a neighbor that is not directly connected, you must:
+
+*Ensure that an IGP or static route exists to reach the neighbor's address.
+*If using loopback addresses, configure an update source:
+
+    ::
+	router bgp 64001
+	  neighbor 192.0.2.2 remote-as 65002
+	  neighbor 192.0.2.2 ebgp-multihop 5
+	  neighbor 192.0.2.2 update-source l0
+
+Without proper reachability, the session will remain in **Active** state and
+bgpd will log messages such as:
+Waiting for NHT, no path to neighbor present
+
+This behavior is expected: ''ebgp-multihop'' does not create a route, it only relaxes the connected-check
+so that BGP packets can traverse multiple hops.
