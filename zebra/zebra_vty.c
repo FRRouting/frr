@@ -64,6 +64,8 @@
 #include "zebra/rtadv.h"
 #include "zebra/zebra_neigh.h"
 
+int g_ovlay_pfx_set_via_cli = 0;
+
 /* context to manage dumps in multiple tables or vrfs */
 struct route_show_ctx {
 	bool multi;       /* dump multiple tables or vrf */
@@ -1709,6 +1711,49 @@ DEFUN (no_ipv6_nht_default_route,
 	return CMD_SUCCESS;
 }
 
+DEFUN (ip_nht_overlay,
+	ip_nht_overlay_cmd,
+	"ip nht overlay A.B.C.D/M",
+	IP_STR
+	"Nexthop Tracking\n"
+	"overlay Prefix\n"
+	"IP prefix <network>/<length>\n")
+{
+	int idx = 3;
+	int ret;
+	struct prefix p;
+
+	ret = str2prefix(argv[idx]->arg, &p);
+	if (ret < 0) {
+		vty_out(vty, "Malformed address\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	apply_mask(&p);
+
+	prefix_copy(&g_infovlay_prefix, &p);
+	g_ovlay_pfx_set_via_cli = 1;
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_nht_overlay,
+	show_ip_nht_overlay_cmd,
+	"show ip nht overlay",
+	SHOW_STR
+	IP_STR
+	"Nexthop Tracking\n"
+	"overlay Prefix\n")
+{
+	char buf[BUFSIZ];
+
+	sprintf(buf, "%s/%d", inet_ntoa(g_infovlay_prefix.u.prefix4),
+	g_infovlay_prefix.prefixlen);
+
+	vty_out(vty, "Global Overlay Prefix is: %s\n", buf);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY_HIDDEN(rnh_hide_backups, rnh_hide_backups_cmd,
 	     "[no] ip nht hide-backup-events",
 	     NO_STR
@@ -2110,6 +2155,53 @@ DEFUN_HIDDEN (show_route_zebra_dump,
 	}
 
 	return CMD_SUCCESS;
+}
+
+DEFUN (skip_kernel_route_install,
+	skip_kernel_route_install_cmd,
+	"kernel-route skip-install",
+	"kernel-route attributes\n"
+	"Skip installing kernel routes (continues to allow FPM)\n")
+{
+	g_skip_rtnetlink = 1;
+	rt_netlink_set_skip_install(g_skip_rtnetlink);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_skip_kernel_route_install,
+	no_skip_kernel_route_install_cmd,
+	"no kernel-route skip-install",
+	NO_STR
+	"kernel-route attributes\n"
+	"Skip installing kernel routes (continues to allow FPM)\n")
+{
+	g_skip_rtnetlink = 0;
+	rt_netlink_set_skip_install(g_skip_rtnetlink);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_skip_kernel_route_install,
+	show_skip_kernel_route_install_cmd,
+	"show kernel-route skip-install",
+	SHOW_STR
+	"kernel-route attributes\n"
+	"Show skip kernel route install state\n")
+{
+	vty_out(vty, "zebra skip_kernel_route_install %u\n", g_skip_rtnetlink);
+	return CMD_SUCCESS;
+}
+
+static int config_write_kernel_route(struct vty *vty)
+{
+	int write = 0;
+	if (g_skip_rtnetlink) {
+		vty_out(vty, "kernel-route skip-install\n");
+		write++;
+	}
+
+	return write;
 }
 
 static void show_ip_route_nht_dump(struct vty *vty, struct nexthop *nexthop,
@@ -3888,6 +3980,11 @@ static int config_write_protocol(struct vty *vty)
 	if (zrouter.allow_delete)
 		vty_out(vty, "allow-external-route-update\n");
 
+	if (g_ovlay_pfx_set_via_cli) {
+		vty_out(vty, "ip nht overlay %s/%d\n", inet_ntoa(g_infovlay_prefix.u.prefix4),
+			g_infovlay_prefix.prefixlen);
+	}
+
 	if (zrouter.nhg_keep != ZEBRA_DEFAULT_NHG_KEEP_TIMER)
 		vty_out(vty, "zebra nexthop-group keep %u\n", zrouter.nhg_keep);
 
@@ -4497,7 +4594,6 @@ void zebra_vty_init(void)
 
 	install_node(&ip_node);
 	install_node(&protocol_node);
-
 	install_element(CONFIG_NODE, &allow_external_route_update_cmd);
 	install_element(CONFIG_NODE, &no_allow_external_route_update_cmd);
 
@@ -4533,6 +4629,8 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &no_ip_nht_default_route_cmd);
 	install_element(CONFIG_NODE, &ipv6_nht_default_route_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_nht_default_route_cmd);
+	install_element(CONFIG_NODE, &ip_nht_overlay_cmd);
+	install_element(VIEW_NODE, &show_ip_nht_overlay_cmd);
 	install_element(VRF_NODE, &ip_nht_default_route_cmd);
 	install_element(VRF_NODE, &no_ip_nht_default_route_cmd);
 	install_element(VRF_NODE, &ipv6_nht_default_route_cmd);

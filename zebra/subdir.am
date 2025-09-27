@@ -250,3 +250,8 @@ zebra_zebra_dplane_dpdk_la_SOURCES = zebra/dpdk/zebra_dplane_dpdk.c zebra/dpdk/z
 zebra_zebra_dplane_dpdk_la_LDFLAGS = -avoid-version -module -shared -export-dynamic -L/usr/local/lib -v
 zebra_zebra_dplane_dpdk_la_CFLAGS = $(DPDK_CFLAGS)
 zebra_zebra_dplane_dpdk_la_LIBADD  = $(DPDK_LIBS)
+
+if ZEBRA_INFIOT_CUSTOM_NEXTHOP_CHECK
+#zebra_zebra_LDFLAGS = -L../../../../../dplane/dcpltrkrs/dist/lib/ -ldcpltrkrs
+#zebra_zebra_CFLAGS = -I. -I.. -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib -I../../../../../dplane/dcpltrkrs/
+endif

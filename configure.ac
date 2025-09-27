@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-AC_PREREQ([2.69])
+AC_PREREQ([2.71])
 
 AC_INIT([frr], [8.5.5], [https://github.com/frrouting/frr/issues])
 PACKAGE_URL="https://frrouting.org/"
@@ -736,6 +736,8 @@ AC_ARG_ENABLE([clippy-only],
   AS_HELP_STRING([--enable-clippy-only], [Only build clippy]))
 AC_ARG_ENABLE([numeric_version],
   AS_HELP_STRING([--enable-numeric-version], [Only numeric digits allowed in version (for Alpine)]))
+AC_ARG_ENABLE([infiotnh],
+  AS_HELP_STRING([--enable-infiotnh], [Enable Infiot Specific overlay NH check]))
 AC_ARG_ENABLE([gcov],
   AS_HELP_STRING([--enable-gcov], [Collect coverage information with gcov]))
 AC_ARG_ENABLE([clang_coverage],
@@ -754,6 +756,10 @@ AC_ARG_WITH([crypto],
   AS_HELP_STRING([--with-crypto=<internal|openssl>], [choose between different implementations of cryptographic functions(default value is --with-crypto=internal)]))
 AC_ARG_WITH([frr-format],
   AS_HELP_STRING([--with-frr-format[=<.../frr-format.so>]], [use frr-format GCC plugin]))
+AC_ARG_ENABLE([sbintargetdir],
+  AS_HELP_STRING([--enable-sbintargetdir], [configure different sbin dir in target]))
+AC_ARG_ENABLE([sysconftargetdir],
+  AS_HELP_STRING([--enable-sysconftargetdir], [configure different sysconf in target]))
 
 AC_ARG_ENABLE([version-build-config],
   AS_HELP_STRING([--disable-version-build-config], [do not include build configs in show version command]))
@@ -2669,11 +2675,28 @@ test "$exec_prefix" = "NONE" && exec_prefix='${prefix}'
 
 dnl get the full path, recursing through variables...
 vtysh_bin="$bindir/vtysh"
+if test "${enable_sbintargetdir}" = "" ; then
+  vtysh_bin="$bindir/vtysh"
+else
+  vtysh_bin="/usr/bin/vtysh"
+fi
 for I in 1 2 3 4 5 6 7 8 9 10; do
 	eval vtysh_bin="\"$vtysh_bin\""
 done
 AC_DEFINE_UNQUOTED([VTYSH_BIN_PATH], ["$vtysh_bin"], [path to vtysh binary])
 AC_SUBST([vtysh_bin])
+
+if test "${enable_sbintargetdir}" = "" ; then
+  CFG_TARGET_SBIN="$sbindir"
+else
+  CFG_TARGET_SBIN="${enable_sbintargetdir}"
+fi
+
+if test "${enable_sysconftargetdir}" = "" ; then
+  CFG_TARGET_SYSCONF="$sysconfdir"
+else
+  CFG_TARGET_SYSCONF="${enable_sysconftargetdir}"
+fi
 
 CFG_SYSCONF="$sysconfdir"
 CFG_SBIN="$sbindir"
@@ -2686,6 +2709,8 @@ for I in 1 2 3 4 5 6 7 8 9 10; do
 	eval CFG_SYSCONF="\"$CFG_SYSCONF\""
 	eval CFG_SBIN="\"$CFG_SBIN\""
 	eval CFG_BIN="\"$CFG_BIN\""
+	eval CFG_TARGET_SYSCONF="\"$CFG_TARGET_SYSCONF\""
+	eval CFG_TARGET_SBIN="\"$CFG_TARGET_SBIN\""
 	eval CFG_STATE="\"$CFG_STATE\""
 	eval CFG_MODULE="\"$CFG_MODULE\""
 	eval CFG_YANGMODELS="\"$CFG_YANGMODELS\""
@@ -2694,6 +2719,8 @@ done
 AC_SUBST([CFG_SYSCONF])
 AC_SUBST([CFG_SBIN])
 AC_SUBST([CFG_BIN])
+AC_SUBST(CFG_TARGET_SYSCONF)
+AC_SUBST(CFG_TARGET_SBIN)
 AC_SUBST([CFG_STATE])
 AC_SUBST([CFG_MODULE])
 AC_SUBST([CFG_SCRIPT])
@@ -2701,7 +2728,7 @@ AC_SUBST([CFG_YANGMODELS])
 AC_DEFINE_UNQUOTED([MODULE_PATH], ["$CFG_MODULE"], [path to modules])
 AC_DEFINE_UNQUOTED([SCRIPT_PATH], ["$CFG_SCRIPT"], [path to scripts])
 AC_DEFINE_UNQUOTED([YANG_MODELS_PATH], ["$CFG_YANGMODELS"], [path to YANG data models])
-AC_DEFINE_UNQUOTED([WATCHFRR_SH_PATH], ["${CFG_SBIN%/}/watchfrr.sh"], [path to watchfrr.sh])
+AC_DEFINE_UNQUOTED([WATCHFRR_SH_PATH], ["${CFG_TARGET_SBIN%/}/watchfrr.sh"], [path to watchfrr.sh])
 
 dnl various features
 AM_CONDITIONAL([SUPPORT_REALMS], [test "$enable_realms" = "yes"])
@@ -2720,6 +2747,25 @@ AM_CONDITIONAL([IRDP], [$IRDP])
 AM_CONDITIONAL([FPM], [test "$enable_fpm" = "yes"])
 AM_CONDITIONAL([HAVE_PROTOBUF], [test "$enable_protobuf" = "yes"])
 AM_CONDITIONAL([HAVE_PROTOBUF3], [$PROTO3])
+
+#
+# Logic for Infiot Overlay NH status support
+#
+if test "$enable_infiotnh" = "yes"; then
+  have_infiotnh=yes
+else
+  have_infiotnh=no
+fi
+
+if test "x$have_infiotnh" = "xyes"; then
+   AC_DEFINE(ZEBRA_INFIOT_CUSTOM_NEXTHOP_CHECK,, infiotnh)
+fi
+
+AM_CONDITIONAL([ZEBRA_INFIOT_CUSTOM_NEXTHOP_CHECK], [test "x$have_infiotnh" = "xyes"])
+
+#
+# End of logic for Infiot NH support.
+#
 
 dnl PCEP plugin
 AS_IF([test "$enable_pathd" != "no"], [
@@ -2826,12 +2872,15 @@ state file directory    : ${frr_statedir}
 config file directory   : `eval echo \`echo ${sysconfdir}\``
 module directory        : ${CFG_MODULE}
 script directory        : ${CFG_SCRIPT}
+target sbin dir         : ${enable_sbintargetdir}
+target sysconf dir      : ${enable_sysconftargetdir}
 user to run as          : ${enable_user}
 group to run as         : ${enable_group}
 group for vty sockets   : ${enable_vty_group}
 config file mask        : ${enable_configfile_mask}
 log file mask           : ${enable_logfile_mask}
 zebra protobuf enabled  : ${enable_protobuf:-no}
+zebra custom nh check   : ${have_infiotnh:-no}
 vici socket path        : ${vici_socket}
 
 The above user and group must have read/write access to the state file

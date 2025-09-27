@@ -64,6 +64,7 @@ void show_nexthop_json_helper(json_object *json_nexthop,
 void show_route_nexthop_helper(struct vty *vty, const struct route_entry *re,
 			       const struct nexthop *nexthop);
 
+extern struct prefix g_infovlay_prefix;
 #ifdef __cplusplus
 }
 #endif

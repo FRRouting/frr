@@ -10876,6 +10876,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 				bgp_rpki_validation2str(rpki_curr_state));
 	}
 
+	vty_out(vty, ", type %d", path->type);
+
 	if (json_bestpath)
 		json_object_object_add(json_path, "bestpath", json_bestpath);
 

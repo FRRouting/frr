@@ -261,6 +261,152 @@ struct frr_signal_t zebra_signals[] = {
 	},
 };
 
+#define ZEBRA_INFIOT_CUSTOM_NEXTHOP_CHECK
+#ifdef ZEBRA_INFIOT_CUSTOM_NEXTHOP_CHECK
+#include "tracker_api.h"
+#include "lib/json.h"
+
+void infnh_init(void);
+struct prefix g_infovlay_prefix;
+struct in_addr g_infovlay_ipv4;
+struct trkr_client *g_infovlay_trkr = NULL;
+uint8_t g_infovlay_cfgread = 0;
+int g_inf_is_controller = 0;
+#define ZEBRA_INFIOT_CUSTOM_NEXTHOP_CFGPATH "/infgw/inf_config.json"
+
+static int infnh_readcfg()
+{
+	int ok = 0;
+	FILE *fp = NULL;
+	ssize_t fsize = 0;
+	char *rawdata = NULL;
+	struct json_object *jsondata = NULL, *dcfg_overlay = NULL, *dcfg_role = NULL;
+	struct json_object *json_ovlay_ipv4 = NULL, *json_ovlay_netmask = NULL;
+	struct json_object *device_config = NULL, *jsondatafull = NULL;
+
+	fprintf(stdout, "reading infiot config\n");
+	fp = fopen(ZEBRA_INFIOT_CUSTOM_NEXTHOP_CFGPATH, "rb");
+	if (fp == NULL) {
+		zlog_debug("error reading infiot config file");
+		return ok;
+	}
+
+	fseek(fp, 0, SEEK_END);
+	fsize = ftell(fp);
+	if (fsize == 0) {
+		ok = 0;
+		goto error;
+	}
+	rewind(fp);
+
+	// rawdata has to be a string (null terminated)
+	rawdata = (char *)calloc(1, (fsize + 1));
+	if (rawdata == NULL) {
+		ok = 0;
+		goto error;
+	}
+
+	fread(rawdata, 1, fsize, fp);
+	//zlog_debug("infiot rawdata %s", rawdata);
+	jsondatafull = json_tokener_parse(rawdata);
+	if (jsondatafull == NULL) {
+		ok = 0;
+		fprintf(stdout, "error parsing config file\n");
+		goto error;
+	}
+
+	jsondata = jsondatafull;
+	json_object_object_get_ex(jsondata, "device_config", &device_config);
+	if (device_config) {
+		jsondata = device_config;
+	}
+
+	json_object_object_get_ex(jsondata, "dcfg_role", &dcfg_role);
+	if (dcfg_role == NULL) {
+		ok = 0;
+		fprintf(stdout, "error parsing dcfg_role\n");
+		goto error;
+	}
+	const char *role_str = json_object_get_string(dcfg_role);
+
+	fprintf(stdout, "INFIOT Role is %s\n", role_str);
+	if (strncmp(role_str, "controller", 10) == 0) {
+		g_inf_is_controller = 1;
+	}
+
+	json_object_object_get_ex(jsondata, "dcfg_overlay", &dcfg_overlay);
+	if (dcfg_overlay == NULL) {
+		ok = 0;
+		fprintf(stdout, "error parsing dcfg_overlay\n");
+		goto error;
+	}
+
+	json_object_object_get_ex(dcfg_overlay, "ovlay_ipv4", &json_ovlay_ipv4);
+	if (json_ovlay_ipv4 == NULL) {
+		ok = 0;
+		fprintf(stdout, "error parsing ovlay_ipv4\n");
+		goto error;
+	}
+	const char *ovlay_ipv4_str = json_object_get_string(json_ovlay_ipv4);
+
+	json_object_object_get_ex(dcfg_overlay, "ovlay_netmask", &json_ovlay_netmask);
+	if (json_ovlay_netmask == NULL) {
+		ok = 0;
+		fprintf(stdout, "error parsing ovlay_netmask\n");
+		goto error;
+	}
+	const char *ovlay_netmask_str = json_object_get_string(json_ovlay_netmask);
+
+	json_object_object_get_ex(dcfg_overlay, "ovlay_netmask_extended", &json_ovlay_netmask);
+
+	if (json_ovlay_netmask != NULL) {
+		ovlay_netmask_str = json_object_get_string(json_ovlay_netmask);
+	}
+
+	struct in_addr nm;
+	inet_pton(AF_INET, ovlay_netmask_str, &nm);
+	inet_pton(AF_INET, ovlay_ipv4_str, &g_infovlay_ipv4);
+	g_infovlay_prefix.u.prefix4.s_addr = (g_infovlay_ipv4.s_addr & nm.s_addr);
+
+	g_infovlay_prefix.family = AF_INET;
+	g_infovlay_prefix.prefixlen = ip_masklen(nm);
+
+	char bufn[INET6_ADDRSTRLEN];
+	prefix2str(&g_infovlay_prefix, bufn, INET6_ADDRSTRLEN);
+	//inet_pton(AF_INET, ovlay_ipv4_str, &g_infovlay_prefix.u.prefix4);
+
+	fprintf(stdout, "ovlay ipv4: %s netmask: %d\n", bufn, g_infovlay_prefix.prefixlen);
+	ok = 1;
+
+error:
+	if (jsondata) {
+		json_object_put(jsondata);
+	}
+	if (rawdata) {
+		free(rawdata);
+	}
+	if (fp) {
+		fclose(fp);
+	}
+	return ok;
+}
+
+void infnh_init(void)
+{
+	zlog_debug("initializing infiot nexthop status cfgread %d",
+			g_infovlay_cfgread);
+	if (g_infovlay_cfgread == 0) {
+		if (infnh_readcfg()) {
+			g_infovlay_cfgread = 1;
+		}
+	}
+
+	g_infovlay_trkr = NULL;
+	trkr_client_create("click.tr", &g_infovlay_trkr);
+	return;
+}
+#endif
+
 static const struct frr_yang_module_info *const zebra_yang_modules[] = {
 	&frr_filter_info,
 	&frr_interface_info,
@@ -438,6 +584,10 @@ int main(int argc, char **argv)
 	*  to that after daemon() completes (if ever called).
 	*/
 	frr_config_fork();
+
+#ifdef ZEBRA_INFIOT_CUSTOM_NEXTHOP_CHECK
+	infnh_init();
+#endif
 
 	/* After we have successfully acquired the pidfile, we can be sure
 	*  about being the only copy of zebra process, which is submitting

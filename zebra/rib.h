@@ -79,6 +79,10 @@ struct rnh {
 	int filtered[ZEBRA_ROUTE_MAX];
 
 	struct rnh_list_item rnh_list_item;
+#ifdef ZEBRA_INFIOT_CUSTOM_NEXTHOP_CHECK
+	int dest_trkr_index;
+	int nh_trkr_index;
+#endif
 };
 
 #define DISTANCE_INFINITY  255

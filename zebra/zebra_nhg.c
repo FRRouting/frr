@@ -2146,6 +2146,12 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 	struct in_addr *ipv4;
 	afi_t afi = AFI_IP;
 
+	if (IS_ZEBRA_DEBUG_NHT) {
+		zlog_debug("NextHopActive1: flags %d nexthop %s type %d NH flags %u ifindex %d",
+				flags, inet_ntoa(nexthop->gate.ipv4),
+				nexthop->type, nexthop->flags, nexthop->ifindex);
+	}
+
 	/* Reset some nexthop attributes that we'll recompute if necessary */
 	if ((nexthop->type == NEXTHOP_TYPE_IPV4)
 	    || (nexthop->type == NEXTHOP_TYPE_IPV6))
