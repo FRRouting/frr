@@ -359,6 +359,15 @@ void zebra_router_init(bool asic_offload, bool notify_on_ack, bool v6_with_v4_ne
 
 	hook_call(nos_initialize_data, &zrouter.zav);
 
+	/*
+	 * Ensure that it is not too big
+	 */
+	if ((uint32_t)zrouter.zav.platform_blob_length + (uint32_t)ZEBRA_SMALL_PACKET_SIZE >
+	    UINT16_MAX) {
+		zlog_err("Platform Blob length is too large: %u", zrouter.zav.platform_blob_length);
+		zrouter.zav.platform_blob_length = UINT16_MAX - ZEBRA_SMALL_PACKET_SIZE;
+	}
+
 	if (!zrouter.zav.nexthop_weight_is_16bit)
 		zrouter.nexthop_weight_scale_value = 254;
 	else

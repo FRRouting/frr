@@ -142,6 +142,17 @@ struct zebra_architectural_values {
 	bool asic_notification_nexthop_control;
 	bool nexthop_weight_is_16bit;
 
+	/*
+	 * This is platform blob data.  NOS's are starting
+	 * to need to properly communicate data about the platform
+	 * up to specialized code in the different daemons
+	 * that can be interpreted as needed by the upper
+	 * level protocols.
+	 * Maximum value of platform_blob_length is probably
+	 * really a 0xFFFF - ZEBRA_SMALL_PACKET_SIZE
+	 */
+	uint16_t platform_blob_length;
+	uint8_t platform_blob[UINT16_MAX];
 };
 
 struct zebra_router {
