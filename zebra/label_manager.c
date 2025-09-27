@@ -240,7 +240,8 @@ DEFPY(mpls_label_dynamic_block, mpls_label_dynamic_block_cmd,
 	}
 	if (start > end) {
 		vty_out(vty,
-			"%% label dynamic-block, wrong range (%ld > %ld), aborting\n",
+			"%% label dynamic-block, wrong range ( %" PRId64 " >  %" PRId64
+			"), aborting\n",
 			start, end);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
