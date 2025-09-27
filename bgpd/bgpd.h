@@ -326,7 +326,8 @@ enum bgp_instance_type {
 
 #define BGP_SEND_EOR(bgp, afi, safi)                                                              \
 	(!CHECK_FLAG(bgp->flags, BGP_FLAG_GR_DISABLE_EOR) &&                                      \
-	 (!bgp_in_graceful_restart() || bgp->gr_info[afi][safi].select_defer_over))
+	 (!bgp_in_graceful_restart() || bgp->gr_info[afi][safi].select_defer_over) &&             \
+	 (!BGP_SUPPRESS_FIB_ENABLED(bgp) || !bgp->gr_info[afi][safi].t_select_deferral))
 
 /* BGP GR Global ds */
 
@@ -339,6 +340,8 @@ struct graceful_restart_info {
 	struct event *t_select_deferral;
 	/* Routes Deferred */
 	uint32_t gr_deferred;
+	/* Routes waiting for FIB install */
+	uint32_t gr_route_fib_install_pending_cnt;
 	/* Best route select */
 	struct event *t_route_select;
 	/* AFI, SAFI enabled */
