@@ -147,7 +147,7 @@ clients.
 Initially the CLI (and all of its commands) will be maintained inside
 the FRR daemons. In the long term, however, the goal is to move the CLI
 to a separate program just like any other management client. The
-[[Advanced Topics]] page describes the motivations and challenges of
+:ref:`nb-advanced_topics` page describes the motivations and challenges of
 doing that. Last but not least, the *libyang* block inside the
 northbound layer is the engine that makes everything possible. The
 *libyang* library will be described in more detail in the following
@@ -195,7 +195,7 @@ for FRR modeled after the existing CLI commands. Having YANG models that
 closely mirror the CLI commands will allow the FRR developers to
 retrofit the code base much more easily, without introducing
 backward-incompatible changes in the CLI and reducing the likelihood of
-introducing bugs. The [[Retrofitting Configuration Commands]] page
+introducing bugs. The :ref:`nb-retrofit` page
 explains in detail how to convert configuration commands to the new
 northbound model.
 
@@ -207,7 +207,7 @@ the northbound plugins).
 
 The new northbound also features an experimental YANG module translator
 that will allow users to translate to and from standard YANG models by
-using translation tables. The [[YANG module translator]] page describes
+using translation tables. The :ref:`nb-yang-mod-trans` page describes
 this mechanism in more detail. At this point it’s unclear what can be
 achieved through module translation and if that can be considered as a
 definitive solution to support standard models or not.
@@ -275,8 +275,8 @@ It’s advisable (but not required) to install sqlite3 and build FRR with
 configuration rollback feature.
 
 To test the northbound, the suggested method is to use the
-[[Transactional CLI]] with the *ripd* daemon and play with the new
+:ref:`nb-transactional-cli` with the *ripd* daemon and play with the new
 commands. The ``debug northbound`` command can be used to see which
 northbound callbacks are called in response to the ``commit`` command.
-For reference, the [[Demos]] page shows a small demonstration of the
+For reference, the :ref:`nb-demos` page shows a small demonstration of the
 transactional CLI in action and what it’s capable of.

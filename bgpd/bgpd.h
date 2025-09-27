@@ -187,6 +187,8 @@ struct bgp_master {
 #define BM_FLAG_GRACEFUL_RESTART	 (1 << 6)
 #define BM_FLAG_GR_COMPLETE		 (1 << 7)
 #define BM_FLAG_IPV6_NO_AUTO_RA		 (1 << 8)
+#define BM_FLAG_CONFIG_LOADED		 (1 << 9)
+
 
 #define BM_FLAG_GR_CONFIGURED (BM_FLAG_GR_RESTARTER | BM_FLAG_GR_DISABLED)
 
@@ -282,6 +284,8 @@ struct vpn_policy {
 /* Manual label is registered with zebra label manager */
 #define BGP_VPN_POLICY_TOVPN_LABEL_MANUAL_REG (1 << 5)
 #define BGP_VPN_POLICY_TOVPN_SID_EXPLICIT     (1 << 6)
+/* Is this value set by the cli? */
+#define BGP_VPN_POLICY_TOVPN_RD_CLI_SET       (1 << 7)
 
 	/*
 	 * If we are importing another vrf into us keep a list of
@@ -2010,18 +2014,18 @@ struct peer {
 #define PEER_DOWN_IF_DOWN               25U /* Interface down */
 #define PEER_DOWN_NBR_ADDR_DEL          26U /* Peer address lost */
 #define PEER_DOWN_WAITING_NHT           27U /* Waiting for NHT to resolve */
-#define PEER_DOWN_NBR_ADDR              28U /* Waiting for peer IPv6 IP Addr */
+#define PEER_DOWN_NBR_ADDR              28U /* Waiting for peer address */
 #define PEER_DOWN_VRF_UNINIT            29U /* Associated VRF is not init yet */
 #define PEER_DOWN_NOAFI_ACTIVATED       30U /* No AFI/SAFI activated for peer */
 #define PEER_DOWN_AS_SETS_REJECT        31U /* Reject routes with AS_SET */
-#define PEER_DOWN_WAITING_OPEN          32U /* Waiting for open to succeed */
+#define PEER_DOWN_RPKI_DOWN             32U /* RPKI cache is not connected due to strict mode */
 #define PEER_DOWN_PFX_COUNT             33U /* Reached received prefix count */
 #define PEER_DOWN_SOCKET_ERROR          34U /* Some socket error happened */
 #define PEER_DOWN_RTT_SHUTDOWN          35U /* Automatically shutdown due to RTT */
 #define PEER_DOWN_SUPPRESS_FIB_PENDING	 36U /* Suppress fib pending changed */
 #define PEER_DOWN_PASSWORD_CHANGE	 37U /* neighbor password command */
 #define PEER_DOWN_ROUTER_ID_ZERO	 38U /* router-id is 0.0.0.0 */
-#define PEER_DOWN_RPKI_DOWN		 39U /* RPKI cache is not connected due to strict mode */
+#define PEER_DOWN_CEASE_UNSPECIFIC	 39U /* Cease unspecific: 0 */
 #define PEER_DOWN_CEASE_BFD_DOWN	 PEER_DOWN_BFD_DOWN
 #define PEER_DOWN_CEASE_PRX_COUNT	 PEER_DOWN_PFX_COUNT
 #define PEER_DOWN_CEASE_ADMIN_RESET	 PEER_DOWN_USER_RESET
@@ -2033,7 +2037,6 @@ struct peer {
 #define PEER_DOWN_CEASE_NO_RESOURCE	 44U /* Out of resources */
 #define PEER_DOWN_CEASE_HARD_RESET	 45U /* Hard reset */
 #define PEER_DOWN_CEASE_UNKNOWN		 46U /* Subcode unknown */
-#define PEER_DOWN_CEASE_UNSPECIFIC	 47U /* Cease unspecific: 0 */
 
 	/*
 	 * Remember to update peer_down_str in bgp_fsm.c when you add
@@ -2150,11 +2153,11 @@ DECLARE_QOBJ_TYPE(peer);
 	} while (0)
 
 /* Check if suppress start/restart of sessions to peer. */
-#define BGP_PEER_START_SUPPRESSED(P)                                           \
-	(CHECK_FLAG((P)->flags, PEER_FLAG_SHUTDOWN) ||                         \
-	 CHECK_FLAG((P)->sflags, PEER_STATUS_PREFIX_OVERFLOW) ||               \
-	 CHECK_FLAG((P)->bgp->flags, BGP_FLAG_SHUTDOWN) ||                     \
-	 (P)->shut_during_cfg)
+#define BGP_PEER_START_SUPPRESSED(P)                                                              \
+	(CHECK_FLAG((P)->flags, PEER_FLAG_SHUTDOWN) ||                                            \
+	 CHECK_FLAG((P)->sflags, PEER_STATUS_PREFIX_OVERFLOW) ||                                  \
+	 CHECK_FLAG((P)->bgp->flags, BGP_FLAG_SHUTDOWN) || (P)->shut_during_cfg ||                \
+	 (bgp_in_graceful_restart() && !CHECK_FLAG(bm->flags, BM_FLAG_CONFIG_LOADED)))
 
 #define PEER_ROUTE_ADV_DELAY(peer)					       \
 	(CHECK_FLAG(peer->thread_flags, PEER_THREAD_SUBGRP_ADV_DELAY))
@@ -2337,7 +2340,7 @@ struct bgp_nlri {
 /* BGP graceful restart  */
 #define BGP_DEFAULT_RESTART_TIME               120
 #define BGP_DEFAULT_STALEPATH_TIME             360
-#define BGP_DEFAULT_SELECT_DEFERRAL_TIME       360
+#define BGP_DEFAULT_SELECT_DEFERRAL_TIME       240
 #define BGP_DEFAULT_RIB_STALE_TIME             500
 #define BGP_DEFAULT_UPDATE_ADVERTISEMENT_TIME  1
 
@@ -2770,6 +2773,7 @@ extern void bgp_shutdown_disable(struct bgp *bgp);
 extern void bgp_close(void);
 extern void bgp_free(struct bgp *);
 void bgp_gr_apply_running_config(void);
+extern void bgp_gr_start_peers(void);
 
 /* BGP GR */
 int bgp_global_gr_init(struct bgp *bgp);
@@ -2926,6 +2930,11 @@ static inline int peer_group_af_configured(struct peer_group *group)
 static inline bool peer_established(struct peer_connection *connection)
 {
 	return connection->status == Established;
+}
+
+static inline void peer_set_last_reset(struct peer *peer, uint8_t reset_cause)
+{
+	peer->last_reset = reset_cause;
 }
 
 static inline bool peer_dynamic_neighbor(struct peer *peer)

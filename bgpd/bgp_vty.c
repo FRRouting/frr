@@ -745,7 +745,7 @@ int bgp_vty_find_and_parse_afi_safi_bgp(struct vty *vty,
 		if (strmatch(vrf_name, "all"))
 			*bgp = NULL;
 		else {
-			*bgp = bgp_lookup_by_name(vrf_name);
+			*bgp = bgp_lookup_by_name_filter(vrf_name, false);
 			if (!*bgp) {
 				if (use_json) {
 					json_object *json = NULL;
@@ -2986,7 +2986,7 @@ DEFUN(bgp_reject_as_sets, bgp_reject_as_sets_cmd,
 	 * with aspath containing AS_SET or AS_CONFED_SET.
 	 */
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		peer->last_reset = PEER_DOWN_AS_SETS_REJECT;
+		peer_set_last_reset(peer, PEER_DOWN_AS_SETS_REJECT);
 		peer_notify_config_change(peer->connection);
 	}
 
@@ -3009,7 +3009,7 @@ DEFUN(no_bgp_reject_as_sets, no_bgp_reject_as_sets_cmd,
 	 * with aspath containing AS_SET or AS_CONFED_SET.
 	 */
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		peer->last_reset = PEER_DOWN_AS_SETS_REJECT;
+		peer_set_last_reset(peer, PEER_DOWN_AS_SETS_REJECT);
 		peer_notify_config_change(peer->connection);
 	}
 
@@ -3079,6 +3079,14 @@ static int bgp_inst_gr_config_vty(struct vty *vty, struct bgp *bgp, bool on,
 				  bool disable)
 {
 	int ret = BGP_GR_FAILURE;
+
+	/*
+	 * Reset gr_select_defer_evaluated if startup timer is running
+	 * so that deferred path selection can be reevaluated once
+	 * sessions come back up after BGP session reset
+	 */
+	if (event_is_scheduled(bgp->t_startup))
+		bgp->gr_select_defer_evaluated = false;
 
 	/*
 	 * Update the instance and all its peers, if appropriate.
@@ -3242,6 +3250,41 @@ DEFUN (bgp_graceful_restart_stalepath_time,
 	return CMD_SUCCESS;
 }
 
+/*
+ * Reset the BGP session since there's a change
+ * in GR capability
+ */
+static void bgp_update_graceful_restart_capability(struct peer *peer)
+{
+	enum peer_mode peer_gr_mode;
+	enum global_mode global_gr_mode;
+
+	global_gr_mode = bgp_global_gr_mode_get(peer->bgp);
+
+	peer_gr_mode = bgp_peer_gr_mode_get(peer);
+
+	/*
+	 * Skip if peer is not in graceful restart mode
+	 */
+	if (!((peer_gr_mode == PEER_GR) ||
+	      (peer_gr_mode == PEER_GLOBAL_INHERIT && global_gr_mode == GLOBAL_GR)))
+		return;
+
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("Resetting session for %s: Peer GR mode %s, Global GR mode %s",
+			   peer->host, print_peer_gr_mode(peer_gr_mode),
+			   print_global_gr_mode(global_gr_mode));
+
+	/*
+	 * Reset the session so that the updated capability can be
+	 * exchanged again
+	 */
+	if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->connection->status)) {
+		peer_set_last_reset(peer, PEER_DOWN_CAPABILITY_CHANGE);
+		bgp_notify_send(peer->connection, BGP_NOTIFY_CEASE, BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+	}
+}
+
 DEFUN (bgp_graceful_restart_restart_time,
 	bgp_graceful_restart_restart_time_cmd,
 	"bgp graceful-restart restart-time (0-4095)",
@@ -3263,18 +3306,27 @@ DEFUN (bgp_graceful_restart_restart_time,
 		bm->restart_time = restart;
 		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
 			bgp->restart_time = restart;
-			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-				bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
-						    CAPABILITY_CODE_RESTART,
-						    CAPABILITY_ACTION_SET);
+			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+				if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) ||
+				    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
+					bgp_update_graceful_restart_capability(peer);
+				else
+					bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+							    CAPABILITY_CODE_RESTART,
+							    CAPABILITY_ACTION_SET);
+			}
 		}
 	} else {
 		VTY_DECLVAR_CONTEXT(bgp, bgp);
 		bgp->restart_time = restart;
-		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-			bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
-					    CAPABILITY_CODE_RESTART,
-					    CAPABILITY_ACTION_SET);
+		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+			if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) ||
+			    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
+				bgp_update_graceful_restart_capability(peer);
+			else
+				bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+						    CAPABILITY_CODE_RESTART, CAPABILITY_ACTION_SET);
+		}
 	}
 	return CMD_SUCCESS;
 }
@@ -3359,19 +3411,29 @@ DEFUN (no_bgp_graceful_restart_restart_time,
 		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
 			bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
 
-			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-				bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
-						    CAPABILITY_CODE_RESTART,
-						    CAPABILITY_ACTION_UNSET);
+			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+				if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) ||
+				    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
+					bgp_update_graceful_restart_capability(peer);
+				else
+					bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+							    CAPABILITY_CODE_RESTART,
+							    CAPABILITY_ACTION_UNSET);
+			}
 		}
 	} else {
 		VTY_DECLVAR_CONTEXT(bgp, bgp);
 		bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
 
-		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-			bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
-					    CAPABILITY_CODE_RESTART,
-					    CAPABILITY_ACTION_UNSET);
+		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+			if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_RCV) ||
+			    !CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV))
+				bgp_update_graceful_restart_capability(peer);
+			else
+				bgp_capability_send(peer, AFI_IP, SAFI_UNICAST,
+						    CAPABILITY_CODE_RESTART,
+						    CAPABILITY_ACTION_UNSET);
+		}
 	}
 	return CMD_SUCCESS;
 }
@@ -5250,7 +5312,7 @@ static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
 		else
 			peer_flag_unset(peer, PEER_FLAG_IFPEER_V6ONLY);
 
-		peer->last_reset = PEER_DOWN_V6ONLY_CHANGE;
+		peer_set_last_reset(peer, PEER_DOWN_V6ONLY_CHANGE);
 
 		/* v6only flag changed. Reset bgp seesion */
 		if (!peer_notify_config_change(peer->connection))
@@ -10092,11 +10154,13 @@ DEFPY (af_rd_vpn_export,
 		bgp->vpn_policy[afi].tovpn_rd = prd;
 		SET_FLAG(bgp->vpn_policy[afi].flags,
 			 BGP_VPN_POLICY_TOVPN_RD_SET);
+		SET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_RD_CLI_SET);
 	} else {
 		XFREE(MTYPE_BGP_NAME, bgp->vpn_policy[afi].tovpn_rd_pretty);
 		bgp->vpn_policy[afi].tovpn_rd_pretty = NULL;
 		UNSET_FLAG(bgp->vpn_policy[afi].flags,
 			   BGP_VPN_POLICY_TOVPN_RD_SET);
+		UNSET_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_RD_CLI_SET);
 	}
 	hook_call(bgp_route_distinguisher_update, bgp, afi, false);
 
@@ -10339,12 +10403,12 @@ DEFPY (af_sid_vpn_export,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	if ((sid_auto || sid_idx != 0) &&
-	    CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VRF_TOVPN_SID_EXPLICIT)) {
+	    CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_EXPLICIT)) {
 		vty_out(vty, "it's already configured as explicit-mode.\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	if ((sid_idx != 0 || sid_explicit) &&
-	    CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VRF_TOVPN_SID_AUTO)) {
+	    CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO)) {
 		vty_out(vty, "it's already configured as auto-mode.\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -11261,7 +11325,7 @@ DEFPY (bgp_srv6_only,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
-	if (!no == bgp->srv6_only)
+	if ((!no && bgp->srv6_only) || (no && !bgp->srv6_only))
 		return CMD_SUCCESS;
 
 	/* pre-change */
@@ -20611,6 +20675,11 @@ static void bgp_config_end(void)
 	 */
 	if (!bgp_config_inprocess())
 		return;
+
+	SET_FLAG(bm->flags, BM_FLAG_CONFIG_LOADED);
+
+	if (bgp_in_graceful_restart())
+		bgp_gr_start_peers();
 
 	event_cancel(&t_bgp_cfg);
 

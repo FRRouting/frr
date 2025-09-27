@@ -2,7 +2,7 @@ Building Documentation
 ======================
 
 To build FRR documentation, first install the dependencies.
-Notice that if you plan to only build html documenation, you only
+Notice that if you plan to only build html documentation, you only
 need the package ``python3-sphinx``.
 
 .. code-block:: console
@@ -10,7 +10,7 @@ need the package ``python3-sphinx``.
    sudo apt-get install -y python3-sphinx \
       texlive-latex-base texlive-latex-extra latexmk
 
-To prepate for building both user and developer documentation, do:
+To prepare for building both user and developer documentation, do:
 
 .. code-block:: console
 
@@ -30,7 +30,7 @@ To build html user documentation:
 This will generate html documentation files under ``_build/html/``.
 With the main page named ``index.html``.
 
-PFD can then be built by:
+PDF can then be built by:
 
 .. code-block:: console
 
@@ -52,7 +52,7 @@ To build the developer documentation:
 This will generate html documentation files under ``_build/html/``.
 With the main page named ``index.html``.
 
-PFD can then be built by:
+PDF can then be built by:
 
 .. code-block:: console
 

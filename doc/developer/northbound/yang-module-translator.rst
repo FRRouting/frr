@@ -1,3 +1,5 @@
+.. _nb-yang-mod-trans:
+
 YANG Module Translation
 =======================
 

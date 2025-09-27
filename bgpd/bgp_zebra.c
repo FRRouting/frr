@@ -176,7 +176,7 @@ static void bgp_nbr_connected_delete(struct bgp *bgp, struct nbr_connected *ifc,
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 		if (peer->conf_if
 		    && (strcmp(peer->conf_if, ifc->ifp->name) == 0)) {
-			peer->last_reset = PEER_DOWN_NBR_ADDR_DEL;
+			peer_set_last_reset(peer, PEER_DOWN_NBR_ADDR_DEL);
 			BGP_EVENT_ADD(peer->connection, BGP_Stop);
 		}
 	}
@@ -281,7 +281,7 @@ static int bgp_ifp_down(struct interface *ifp)
 
 			if (ifp == peer->nexthop.ifp) {
 				BGP_EVENT_ADD(peer->connection, BGP_Stop);
-				peer->last_reset = PEER_DOWN_IF_DOWN;
+				peer_set_last_reset(peer, PEER_DOWN_IF_DOWN);
 			}
 		}
 	}
@@ -4408,15 +4408,22 @@ int bgp_zebra_send_capabilities(struct bgp *bgp, bool disable)
 			   disable ? "dis" : "en", bgp->name_pretty);
 
 	if (bgp_zclient == NULL) {
-		if (BGP_DEBUG(zebra, ZEBRA))
+		if (BGP_DEBUG(zebra, ZEBRA) || BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 			zlog_debug("%s: %s zclient invalid", __func__,
 				   bgp->name_pretty);
 		return BGP_GR_FAILURE;
 	}
 
+	if (bgp->vrf_id == VRF_UNKNOWN) {
+		if (BGP_DEBUG(zebra, ZEBRA) || BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug("%s: %s VRF ID invalid", __func__, bgp->name_pretty);
+		return BGP_GR_FAILURE;
+	}
+
+
 	/* Check if the client is connected */
 	if ((bgp_zclient->sock < 0) || (bgp_zclient->t_connect)) {
-		if (BGP_DEBUG(zebra, ZEBRA))
+		if (BGP_DEBUG(zebra, ZEBRA) || BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 			zlog_debug("%s: %s client not connected", __func__,
 				   bgp->name_pretty);
 		return BGP_GR_FAILURE;
@@ -4451,6 +4458,8 @@ int bgp_zebra_send_capabilities(struct bgp *bgp, bool disable)
 		else
 			bgp->present_zebra_gr_state = ZEBRA_GR_ENABLE;
 
+		if (BGP_DEBUG(zebra, ZEBRA) || BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+			zlog_debug("%s: %s send capability success", __func__, bgp->name_pretty);
 		ret = BGP_GR_SUCCESS;
 	}
 	return ret;

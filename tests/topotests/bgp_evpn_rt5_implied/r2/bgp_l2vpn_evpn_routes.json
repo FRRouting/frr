@@ -1,0 +1,133 @@
+{
+    "bgpLocalRouterId": "192.168.0.2",
+    "defaultLocPrf": 100,
+    "localAS": 65000,
+    "65000:1": {
+        "rd": "65000:1",
+        "[5]:[0]:[32]:[10.0.101.1]": {
+            "prefix": "[5]:[0]:[32]:[10.0.101.1]",
+            "prefixLen": 352,
+            "paths": [
+                {
+                    "valid": true,
+                    "bestpath": true,
+                    "selectionReason": "First path received",
+                    "pathFrom": "internal",
+                    "routeType": 5,
+                    "ethTag": 0,
+                    "ipLen": 32,
+                    "ip": "10.0.101.1",
+                    "metric": 0,
+                    "locPrf": 100,
+                    "weight": 0,
+                    "peerId": "192.168.2.101",
+                    "path": "",
+                    "origin": "IGP",
+                    "nexthops": [
+                        {
+                            "ip":"192.168.1.1",
+                            "hostname":"rr",
+                            "afi": "ipv4",
+                            "used": true
+                        }
+                    ]
+                }
+            ]
+        },
+        "[5]:[0]:[128]:[fd01::1]": {
+            "prefix": "[5]:[0]:[128]:[fd01::1]",
+            "prefixLen": 352,
+            "paths": [
+                {
+                    "valid": true,
+                    "bestpath": true,
+                    "selectionReason": "First path received",
+                    "pathFrom": "internal",
+                    "routeType": 5,
+                    "ethTag": 0,
+                    "ipLen": 128,
+                    "ip": "fd01::1",
+                    "metric": 0,
+                    "locPrf": 100,
+                    "weight": 0,
+                    "peerId": "192.168.2.101",
+                    "path": "",
+                    "origin": "IGP",
+                    "nexthops": [
+                        {
+                            "ip":"192.168.1.1",
+                            "hostname":"rr",
+                            "afi": "ipv4",
+                            "used": true
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "65000:3": {
+        "rd": "65000:3",
+        "[5]:[0]:[32]:[10.0.102.1]": {
+            "prefix": "[5]:[0]:[32]:[10.0.102.1]",
+            "prefixLen": 352,
+            "paths": [
+                {
+                    "valid": true,
+                    "bestpath": true,
+                    "selectionReason": "First path received",
+                    "pathFrom": "internal",
+                    "routeType": 5,
+                    "ethTag": 0,
+                    "ipLen": 32,
+                    "ip": "10.0.102.1",
+                    "metric": 0,
+                    "locPrf": 100,
+                    "weight": 0,
+                    "peerId": "192.168.2.101",
+                    "path": "",
+                    "origin": "IGP",
+                    "nexthops": [
+                        {
+                            "ip": "192.168.1.1",
+                            "hostname": "rr",
+                            "afi": "ipv4",
+                            "used": true
+                        }
+                    ]
+                }
+            ]
+        },
+        "[5]:[0]:[128]:[fd02::1]": {
+            "prefix": "[5]:[0]:[128]:[fd02::1]",
+            "prefixLen": 352,
+            "paths": [
+                {
+                    "valid": true,
+                    "bestpath": true,
+                    "selectionReason": "First path received",
+                    "pathFrom": "internal",
+                    "routeType": 5,
+                    "ethTag": 0,
+                    "ipLen": 128,
+                    "ip": "fd02::1",
+                    "metric": 0,
+                    "locPrf": 100,
+                    "weight": 0,
+                    "peerId": "192.168.2.101",
+                    "path": "",
+                    "origin": "IGP",
+                    "nexthops": [
+                        {
+                            "ip": "192.168.1.1",
+                            "hostname": "rr",
+                            "afi": "ipv4",
+                            "used": true
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "numPrefix": 4,
+    "totalPrefix": 4
+}

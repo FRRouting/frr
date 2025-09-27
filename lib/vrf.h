@@ -108,27 +108,32 @@ extern const char *vrf_id_to_name(vrf_id_t vrf_id);
 
 #define VRF_LOGNAME(V) V ? V->name : "Unknown"
 
-#define VRF_GET_ID(V, NAME, USE_JSON)                                          \
-	do {                                                                   \
-		struct vrf *_vrf;                                              \
-		if (!(_vrf = vrf_lookup_by_name(NAME))) {                      \
-			if (USE_JSON) {                                        \
-				vty_out(vty, "{}\n");                          \
-			} else {                                               \
-				vty_out(vty, "%% VRF %s not found\n", NAME);   \
-			}                                                      \
-			return CMD_WARNING;                                    \
-		}                                                              \
-		if (_vrf->vrf_id == VRF_UNKNOWN) {                             \
-			if (USE_JSON) {                                        \
-				vty_out(vty, "{}\n");                          \
-			} else {                                               \
-				vty_out(vty, "%% VRF %s not active\n", NAME);  \
-			}                                                      \
-			return CMD_WARNING;                                    \
-		}                                                              \
-		(V) = _vrf->vrf_id;                                            \
-	} while (0)
+/* Utility for lookups in a cli/vty context */
+static inline bool vrf_get_id(struct vty *vty, vrf_id_t *pvrfid, const char *name,
+			      bool use_json)
+{
+	struct vrf *_vrf;
+
+	if (!(_vrf = vrf_lookup_by_name(name))) {
+		if (use_json)
+			vty_out(vty, "{}\n");
+		else
+			vty_out(vty, "%% VRF %s not found\n", name);
+
+		return false;
+	}
+	if (_vrf->vrf_id == VRF_UNKNOWN) {
+		if (use_json)
+			vty_out(vty, "{}\n");
+		else
+			vty_out(vty, "%% VRF %s not active\n", name);
+
+		return false;
+	}
+	*pvrfid = _vrf->vrf_id;
+
+	return true;
+}
 
 /*
  * Check whether the VRF is enabled.

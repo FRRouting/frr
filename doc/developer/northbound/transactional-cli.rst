@@ -1,3 +1,5 @@
+.. _nb-transactional-cli:
+
 Transactional CLI
 =================
 

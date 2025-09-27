@@ -388,8 +388,7 @@ static ssize_t printfrr_zebra_node(struct fbuf *buf, struct printfrr_eargs *ea,
 			  VRF_LOGNAME(vrf), node, node, ##__VA_ARGS__);        \
 	} while (0)
 
-static char *_dump_re_status(const struct route_entry *re, char *buf,
-			     size_t len)
+char *zebra_rib_dump_re_status(const struct route_entry *re, char *buf, size_t len)
 {
 	if (re->status == 0) {
 		snprintfrr(buf, len, "None ");
@@ -1314,8 +1313,9 @@ static void rib_process(struct route_node *rn)
 			zlog_debug("%s(%u:%u:%u):%pRN: Examine re %p (%s) status: %sflags: %sdist %d metric %d",
 				   VRF_LOGNAME(vrf), vrf_id, re->table, safi, rn, re,
 				   zebra_route_string(re->type),
-				   _dump_re_status(re, status_buf, sizeof(status_buf)),
-				   zclient_dump_route_flags(re->flags, flags_buf, sizeof(flags_buf)),
+				   zebra_rib_dump_re_status(re, status_buf, sizeof(status_buf)),
+				   zclient_dump_route_flags(re->flags, flags_buf,
+							    sizeof(flags_buf)),
 				   re->distance, re->metric);
 		}
 
@@ -3262,14 +3262,15 @@ struct meta_q_gr_run {
 	uint8_t proto;
 	uint8_t instance;
 	time_t restart_time;
+	bool stale_client_cleanup;
 };
 
 static void process_subq_gr_run(struct listnode *lnode)
 {
 	struct meta_q_gr_run *gr_run = listgetdata(lnode);
 
-	zebra_gr_process_client(gr_run->afi, gr_run->vrf_id, gr_run->proto,
-				gr_run->instance, gr_run->restart_time);
+	zebra_gr_process_client(gr_run->afi, gr_run->vrf_id, gr_run->proto, gr_run->instance,
+				gr_run->restart_time, gr_run->stale_client_cleanup);
 
 	XFREE(MTYPE_WQ_WRAPPER, gr_run);
 }
@@ -4375,9 +4376,8 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 		   re->type, re->instance, re->table);
 	zlog_debug("%s(%s): metric == %u, mtu == %u, distance == %u, flags == %sstatus == %s",
 		   straddr, VRF_LOGNAME(vrf), re->metric, re->mtu, re->distance,
-		   zclient_dump_route_flags(re->flags, flags_buf,
-					    sizeof(flags_buf)),
-		   _dump_re_status(re, status_buf, sizeof(status_buf)));
+		   zclient_dump_route_flags(re->flags, flags_buf, sizeof(flags_buf)),
+		   zebra_rib_dump_re_status(re, status_buf, sizeof(status_buf)));
 	zlog_debug("%s(%s): tag == %u, nexthop_num == %u, nexthop_active_num == %u",
 		   straddr, VRF_LOGNAME(vrf), re->tag,
 		   nexthop_group_nexthop_num(&(re->nhe->nhg)),
@@ -4451,7 +4451,7 @@ static int rib_meta_queue_early_route_add(struct meta_queue *mq, void *data)
 }
 
 int rib_add_gr_run(afi_t afi, vrf_id_t vrf_id, uint8_t proto, uint8_t instance,
-		   time_t restart_time)
+		   time_t restart_time, bool stale_client_cleanup)
 {
 	struct meta_q_gr_run *gr_run;
 
@@ -4462,6 +4462,7 @@ int rib_add_gr_run(afi_t afi, vrf_id_t vrf_id, uint8_t proto, uint8_t instance,
 	gr_run->vrf_id = vrf_id;
 	gr_run->instance = instance;
 	gr_run->restart_time = restart_time;
+	gr_run->stale_client_cleanup = stale_client_cleanup;
 
 	return mq_add_handler(gr_run, rib_meta_queue_gr_run_add);
 }

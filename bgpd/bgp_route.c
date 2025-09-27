@@ -2963,6 +2963,11 @@ static void bgp_route_select_timer_expire(struct event *thread)
 	XFREE(MTYPE_TMP, info);
 
 	/* Best path selection */
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("%s: Continuing deferred path selection for %s, #routes %d",
+			   bgp->name_pretty, get_afi_safi_str(afi, safi, false),
+			   bgp->gr_info[afi][safi].gr_deferred);
+
 	bgp_do_deferred_path_selection(bgp, afi, safi);
 }
 
@@ -6881,7 +6886,7 @@ static int clear_batch_rib_helper(struct bgp_clearing_info *cinfo)
 					/* This will resume the "inner" walk if necessary */
 					ret = walk_batch_table_helper(cinfo, table, true /*inner*/);
 					if (ret != 0) {
-						/* The "inner" resume info will be set; 
+						/* The "inner" resume info will be set;
 						 * capture the resume info we need
 						 * from the outer afi/safi and dest
 						 */
@@ -15900,11 +15905,18 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 
 	if (!peer || !peer->afc[afi][safi]) {
 		if (use_json) {
-			json_object_string_add(
-				json, "warning",
-				"No such neighbor or address family");
-			vty_out(vty, "%s\n", json_object_to_json_string(json));
-			json_object_free(json);
+			if (type == bgp_show_adj_route_advertised ||
+			    type == bgp_show_adj_route_received) {
+				/* Raw fragment for CLI brace wrapping */
+				vty_out(vty,
+					"\"warning\": \"No such neighbor or address family\"\n");
+				json_object_free(json);
+			} else {
+				/* Complete object for filtered/bestpath */
+				json_object_string_add(json, "warning",
+						       "No such neighbor or address family");
+				vty_json(vty, json);
+			}
 			json_object_free(json_ar);
 		} else
 			vty_out(vty, "%% No such neighbor or address family\n");
@@ -15917,11 +15929,17 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 	    && !CHECK_FLAG(peer->af_flags[afi][safi],
 			   PEER_FLAG_SOFT_RECONFIG)) {
 		if (use_json) {
-			json_object_string_add(
-				json, "warning",
-				"Inbound soft reconfiguration not enabled");
-			vty_out(vty, "%s\n", json_object_to_json_string(json));
-			json_object_free(json);
+			if (type == bgp_show_adj_route_received) {
+				/* Raw fragment for CLI brace wrapping */
+				vty_out(vty,
+					"\"warning\": \"Inbound soft reconfiguration not enabled\"\n");
+				json_object_free(json);
+			} else {
+				/* Complete object for filtered routes */
+				json_object_string_add(json, "warning",
+						       "Inbound soft reconfiguration not enabled");
+				vty_json(vty, json);
+			}
 			json_object_free(json_ar);
 		} else
 			vty_out(vty,
