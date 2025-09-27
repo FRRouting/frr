@@ -732,12 +732,18 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 					"re_type=%d rnh_flags=%d",
 					vrfid, bufn, re, rn, re->status, re->flags, re->type, rnh->flags);
 			}
-			hook_call(evaluate_custom_nexthop, &nrn->p, &isreachable);
-			if (isreachable) {
-				break;
-			} else if (prefix_match(&g_infovlay_prefix, &rn->p)){
-				zlog_debug("overlay supernet prefix node, so look for next re entry");
-				continue;
+			if (!CHECK_FLAG(rnh->client_info_flag , ZEBRA_NHT_EBGP)) {
+				hook_call(evaluate_custom_nexthop, &nrn->p, &isreachable, rnh);
+				if (isreachable) {
+					break;
+				} else if (prefix_match(&g_infovlay_prefix, &rn->p)){
+					zlog_debug("overlay supernet prefix node, so look for next re entry");
+					continue;
+				}
+			} else {
+				if (IS_ZEBRA_DEBUG_NHT){
+					zlog_debug("skipping custom nexthop check for prefix-%s", bufn);
+				}
 			}
 #endif
 			if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED)) {

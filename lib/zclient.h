@@ -85,6 +85,9 @@ typedef uint16_t zebra_size_t;
 #define ZEBRA_FEC_REGISTER_LABEL          0x1
 #define ZEBRA_FEC_REGISTER_LABEL_INDEX    0x2
 
+#define ZEBRA_INF_BGP_NHT_IBGP_REG 1
+#define ZEBRA_INF_BGP_NHT_EBGP_REG 2
+
 /* Client capabilities */
 enum zserv_client_capabilities {
 	ZEBRA_CLIENT_GR_CAPABILITIES = 1,
@@ -247,6 +250,8 @@ typedef enum {
 	ZEBRA_TC_CLASS_DELETE,
 	ZEBRA_TC_FILTER_ADD,
 	ZEBRA_TC_FILTER_DELETE,
+	ZEBRA_INFIOT_EGRESS_ADD,
+	ZEBRA_INFIOT_EGRESS_DELETE
 } zebra_message_types_t;
 
 enum zebra_error_types {
@@ -883,6 +888,8 @@ extern struct zclient *zclient_new(struct thread_master *m,
 
 extern void zclient_init(struct zclient *, int, unsigned short,
 			 struct zebra_privs_t *privs);
+extern void zclient_init_sync(struct zclient *, int, unsigned short,
+				struct zebra_privs_t *privs);
 extern int zclient_start(struct zclient *);
 extern void zclient_stop(struct zclient *);
 extern void zclient_reset(struct zclient *);
@@ -1090,7 +1097,7 @@ extern enum zclient_send_status zclient_route_send(uint8_t, struct zclient *,
 extern enum zclient_send_status
 zclient_send_rnh(struct zclient *zclient, int command, const struct prefix *p,
 		 safi_t safi, bool connected, bool resolve_via_default,
-		 vrf_id_t vrf_id);
+		 vrf_id_t vrf_id, uint8_t client_info);
 int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 			uint32_t api_flags, uint32_t api_message);
 extern int zapi_route_encode(uint8_t, struct stream *, struct zapi_route *);

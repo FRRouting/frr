@@ -391,7 +391,7 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 	}
 
 	if (zclient_send_rnh(zclient, cmd, &lookup.nh, si->safi, false, false,
-			     nh->nh_vrf_id) == ZCLIENT_SEND_FAILURE)
+			     nh->nh_vrf_id, 0) == ZCLIENT_SEND_FAILURE)
 		zlog_warn("%s: Failure to send nexthop %pFX for %pRN to zebra",
 			  __func__, &lookup.nh, rn);
 	else if (reg)

@@ -31,6 +31,7 @@
 #include "zebra/zebra_errors.h"
 #include "zebra/label_manager.h"
 #include "zebra/zebra_srv6.h"
+#include "zebra/zebra_egress.h"
 
 
 #ifdef __cplusplus

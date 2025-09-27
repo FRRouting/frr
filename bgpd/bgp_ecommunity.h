@@ -154,6 +154,12 @@ struct ecommunity_ip6 {
 	uint16_t val;
 };
 
+struct egress_data {
+	uint32_t nexthop[30];
+	uint16_t cost[30];
+	uint32_t destination;
+};
+
 /* Extended community value is eight octet.  */
 struct ecommunity_val {
 	char val[ECOMMUNITY_SIZE];

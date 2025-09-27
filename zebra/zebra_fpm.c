@@ -37,6 +37,7 @@
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_errors.h"
+#include "zebra/zebra_egress.h"
 
 #include "fpm/fpm.h"
 #include "zebra_fpm_private.h"
@@ -68,6 +69,8 @@ DEFINE_MTYPE_STATIC(ZEBRA, FPM_MAC_INFO, "FPM_MAC_INFO");
  */
 #define ZFPM_STATS_IVL_SECS        10
 #define FPM_MAX_MAC_MSG_LEN 512
+
+#define NLMSG_INFIOT_EXCOMM  120
 
 static void zfpm_iterate_rmac_table(struct hash_bucket *bucket, void *args);
 
@@ -192,6 +195,11 @@ struct zfpm_glob {
 	TAILQ_HEAD(zfpm_mac_q, fpm_mac_info_t) mac_q;
 
 	/*
+	 * list egress updates to be processed
+	 */
+	TAILQ_HEAD(zfpm_egress_q, infiot_egress) egress_q;
+
+	/*
 	 * Hash table of fpm_mac_info_t entries
 	 *
 	 * While adding fpm_mac_info_t for a MAC to the mac_q,
@@ -283,9 +291,11 @@ static struct zfpm_glob zfpm_glob_space;
 static struct zfpm_glob *zfpm_g = &zfpm_glob_space;
 
 static int zfpm_trigger_update(struct route_node *rn, const char *reason);
+static int zfpm_trigger_egress_update(struct infiot_egress_hook *rn, const char *reason);
 
 static void zfpm_read_cb(struct thread *thread);
 static void zfpm_write_cb(struct thread *thread);
+static int zfpm_write_egress_cb(struct thread *thread);
 
 static void zfpm_set_state(enum zfpm_state state, const char *reason);
 static void zfpm_start_connect_timer(const char *reason);
@@ -435,6 +445,15 @@ static inline void zfpm_stats_copy(const struct zfpm_stats *src,
 				   struct zfpm_stats *dest)
 {
 	memcpy(dest, src, sizeof(*dest));
+}
+
+static inline void zfpm_egress_write_on(void)
+{
+	assert(!zfpm_g->t_write);
+	assert(zfpm_g->sock >= 0);
+
+	thread_add_write(zfpm_g->master, zfpm_write_egress_cb, 0, zfpm_g->sock,
+			&zfpm_g->t_write);
 }
 
 /*
@@ -735,6 +754,15 @@ static void zfpm_connection_down(const char *detail)
 	zfpm_set_state(ZFPM_STATE_IDLE, detail);
 }
 
+static int zfpm_egress_writes_pending(void)
+{
+	if (stream_get_endp(zfpm_g->obuf) - stream_get_getp(zfpm_g->obuf))
+		return 1;
+	if (!TAILQ_EMPTY(&zfpm_g->egress_q))
+		return 1;
+	return 0;
+}
+
 /*
  * zfpm_read_cb
  */
@@ -862,6 +890,79 @@ static int zfpm_writes_pending(void)
 	return 0;
 }
 
+static inline int zfpm_encode_egress(infiot_egress *upd,
+				char *in_buf, size_t in_buf_len,
+				fpm_msg_type_e *msg_type)
+{
+	*msg_type = FPM_MSG_TYPE_NETLINK;
+	size_t buf_offset;
+	struct {
+		struct nlmsghdr n;
+		struct infiot_egress_hook r;
+		char buf[1];
+	} * req;
+	req = (void *)in_buf;
+	buf_offset = ((char *)req->buf) - ((char *)req);
+	if (in_buf_len < buf_offset) {
+		assert(0);
+		return 0;
+	}
+	memset(req, 0, buf_offset);
+        req->n.nlmsg_len = NLMSG_LENGTH(sizeof(struct infiot_egress_hook));
+	req->n.nlmsg_flags = NLM_F_REQUEST;
+	//message type to inform click that this message is for egress tracking
+	req->n.nlmsg_type = NLMSG_INFIOT_EXCOMM;
+	for(int i=0;i<upd->size;i++){
+		req->r.nexthop[i] = upd->nexthop[i];
+	}
+	for(int i=0;i<upd->size;i++){
+		req->r.cost[i] = upd->cost[i];
+	}
+	req->r.size = upd->size;
+	req->r.dest = upd->dest;
+	assert(req->n.nlmsg_len < in_buf_len);
+	return req->n.nlmsg_len;
+}
+
+//Build the egress message updates into the FPM format
+static void zfpm_build_egress_updates(void)
+{
+	struct stream *s;
+	infiot_egress *update;
+	unsigned char *buf, *data, *buf_end;
+	size_t msg_len;
+	size_t data_len;
+	fpm_msg_hdr_t *hdr;
+	fpm_msg_type_e msg_type;
+	s = zfpm_g->obuf;
+	do {
+		if (STREAM_WRITEABLE(s) < FPM_MAX_MSG_LEN)
+			break;
+
+		buf = STREAM_DATA(s) + stream_get_endp(s);
+		buf_end = buf + STREAM_WRITEABLE(s);
+
+		update = TAILQ_FIRST(&zfpm_g->egress_q);
+		if (!update)
+			break;
+		hdr = (fpm_msg_hdr_t *)buf;
+		hdr->version = FPM_PROTO_VERSION;
+		data = fpm_msg_data(hdr);
+		data_len = zfpm_encode_egress(update, (char *)data,
+						buf_end - data, &msg_type);
+		if (data_len) {
+			hdr->msg_type = msg_type;
+			msg_len = fpm_data_len_to_msg_len(data_len);
+			hdr->msg_len = htons(msg_len);
+			stream_forward_endp(s, msg_len);
+		}
+		TAILQ_REMOVE(&zfpm_g->egress_q, update, egress_q_entries);
+		if(update) {
+			free(update);
+		}
+	} while (1);
+}
+
 /*
  * zfpm_encode_route
  *
@@ -907,6 +1008,61 @@ static inline int zfpm_encode_route(rib_dest_t *dest, struct route_entry *re,
 	}
 
 	return len;
+}
+
+//Thread to send the egress update to the control plane
+static int zfpm_write_egress_cb(struct thread *thread)
+{
+	struct stream *s;
+	int num_writes;
+	zfpm_g->stats.write_cb_calls++;
+	zfpm_g->t_write = NULL;
+	if (zfpm_g->state == ZFPM_STATE_CONNECTING) {
+		zfpm_connect_check();
+		return 0;
+	}
+	assert(zfpm_g->state == ZFPM_STATE_ESTABLISHED);
+	assert(zfpm_g->sock >= 0);
+	num_writes = 0;
+
+	do {
+		int bytes_to_write, bytes_written;
+		s = zfpm_g->obuf;
+		if (stream_empty(s)) {
+			zfpm_build_egress_updates();
+		}
+		bytes_to_write = stream_get_endp(s) - stream_get_getp(s);
+		if (!bytes_to_write)
+			break;
+		bytes_written =
+			write(zfpm_g->sock, stream_pnt(s), bytes_to_write);
+		zfpm_g->stats.write_calls++;
+		num_writes++;
+		if (bytes_written < 0) {
+			if (ERRNO_IO_RETRY(errno))
+				break;
+			zfpm_connection_down("failed to write to socket");
+			return 0;
+		}
+		if (bytes_written != bytes_to_write) {
+			stream_forward_getp(s, bytes_written);
+			break;
+		}
+		stream_reset(s);
+		if (num_writes >= ZFPM_MAX_WRITES_PER_RUN) {
+			break;
+		}
+
+		if (zfpm_thread_should_yield(thread)) {
+			break;
+		}
+	} while (1);
+
+	//If there is a pending info to send to the data place trigger new
+	//thread until the linked list is empty
+	if (zfpm_egress_writes_pending())
+		zfpm_egress_write_on();
+	return 0;
 }
 
 /*
@@ -1207,6 +1363,8 @@ static void zfpm_write_cb(struct thread *thread)
 			write(zfpm_g->sock, stream_pnt(s), bytes_to_write);
 		zfpm_g->stats.write_calls++;
 		num_writes++;
+		zlog_debug("sent out fd:%d bytes_to_write:%ld bytes_written:%ld",
+				zfpm_g->sock, bytes_to_write, bytes_written);
 
 		if (bytes_written < 0) {
 			if (ERRNO_IO_RETRY(errno))
@@ -1418,12 +1576,41 @@ static inline int zfpm_is_enabled(void)
 	return zfpm_g->enabled;
 }
 
+int zfpm_trigger_egress_update(struct infiot_egress_hook *upd, const char *reason)
+{
+	if (!zfpm_conn_is_up()) {
+		return 0;
+	}
+	infiot_egress *info = malloc(sizeof(infiot_egress));
+	if(!info) {
+		zlog_warn("Malloc failed");
+		return 0;
+	}
+	for(int i=0;i<upd->size;i++){
+		info->nexthop[i] = upd->nexthop[i];
+	}
+	for(int i=0;i<upd->size;i++){
+		info->cost[i] = upd->cost[i];
+	}
+	info->dest = upd->dest;
+	info->size = upd->size;
+	//Linked list to store the egress information useful when the dataplane
+	//is down and we got the update from peer BGP. Cache and send once the
+	//data plane is up and running
+	TAILQ_INSERT_TAIL(&zfpm_g->egress_q, info, egress_q_entries);
+	free(upd);
+	if (zfpm_g->t_write)
+		return 0;
+	zfpm_egress_write_on();
+	return 0;
+}
+
 /*
  * zfpm_conn_is_up
  *
  * Returns true if the connection to the FPM is up.
  */
-static inline int zfpm_conn_is_up(void)
+inline int zfpm_conn_is_up(void)
 {
 	if (zfpm_g->state != ZFPM_STATE_ESTABLISHED)
 		return 0;
@@ -2003,6 +2190,7 @@ static int zfpm_init(struct thread_master *master)
 	zfpm_g->master = master;
 	TAILQ_INIT(&zfpm_g->dest_q);
 	TAILQ_INIT(&zfpm_g->mac_q);
+	TAILQ_INIT(&zfpm_g->egress_q);
 
 	/* Create hash table for fpm_mac_info_t enties */
 	zfpm_g->fpm_mac_info_table = hash_create(zfpm_mac_info_hash_keymake,
@@ -2071,6 +2259,7 @@ static int zebra_fpm_module_init(void)
 	hook_register(zebra_rmac_update, zfpm_trigger_rmac_update);
 	hook_register(frr_late_init, zfpm_init);
 	hook_register(frr_early_fini, zfpm_fini);
+	hook_register(egress_update, zfpm_trigger_egress_update);
 	return 0;
 }
 

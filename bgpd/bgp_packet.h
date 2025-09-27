@@ -48,6 +48,8 @@ DECLARE_HOOK(bgp_packet_send,
 #define ORF_COMMON_PART_PERMIT     0x00
 #define ORF_COMMON_PART_DENY       0x20
 
+#define INFIOT_EXT_COMM  111
+
 #define BGP_UPDATE_EOR_PKT(_peer, _afi, _safi, _s)                             \
 	do {                                                                   \
 		_s = bgp_update_packet_eor(_peer, _afi, _safi);                \

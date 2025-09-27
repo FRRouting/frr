@@ -62,10 +62,13 @@
 #include "zebra/zebra_opaque.h"
 #include "zebra/zebra_srte.h"
 #include "zebra/zebra_srv6.h"
+#include "zebra/zebra_fpm_private.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, RE_OPAQUE, "Route Opaque Data");
 
 static int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg);
+DEFINE_HOOK(egress_update, (struct infiot_egress_hook * rn, const char *reason),
+		(rn, reason))
 
 /* Encoding helpers -------------------------------------------------------- */
 
@@ -1191,6 +1194,7 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 	bool flag_changed = false;
 	uint8_t orig_flags;
 	safi_t safi;
+	uint8_t client_info = 0;
 
 	if (IS_ZEBRA_DEBUG_NHT)
 		zlog_debug(
@@ -1209,7 +1213,8 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 		STREAM_GETW(s, safi);
 		STREAM_GETW(s, p.family);
 		STREAM_GETC(s, p.prefixlen);
-		l += 7;
+		STREAM_GETC(s, client_info);
+		l += 8;
 		if (p.family == AF_INET) {
 			client->v4_nh_watch_add_cnt++;
 			if (p.prefixlen > IPV4_MAX_BITLEN) {
@@ -1253,6 +1258,14 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 
 		if (orig_flags != rnh->flags)
 			flag_changed = true;
+
+		switch (client_info) {
+			case ZEBRA_INF_BGP_NHT_EBGP_REG:
+				SET_FLAG(rnh->client_info_flag , ZEBRA_NHT_EBGP);
+				break;
+			default:
+				rnh->client_info_flag = 0;
+		}
 
 		/* Anything not AF_INET/INET6 has been filtered out above */
 		if (!exist || flag_changed)
@@ -3541,6 +3554,35 @@ stream_failure:
 	return;
 }
 
+//update from BGP regarding the egress tracking
+static inline void zread_infiot_egress(ZAPI_HANDLER_ARGS)
+{
+	uint32_t size = 0;
+	uint32_t dest= 0;
+	struct stream *s;
+	s = msg;
+	STREAM_GETL(s, size);
+	STREAM_GETL(s, dest);
+	struct infiot_egress_hook* update = NULL;
+	update = (struct infiot_egress_hook*)malloc(sizeof(struct infiot_egress_hook));
+	if(!update) {
+		zlog_warn("Malloc failed");
+		return;
+	}
+	update->dest = dest;
+	update->size = size;
+	for(int i=0;i<size;i++) {
+		STREAM_GETL(s, update->nexthop[i]);
+	}
+	for(int i=0;i<size;i++) {
+		STREAM_GETW(s, update->cost[i]);
+	}
+	//Added a hook call to the FPM library to send the information
+	//to the dataplane via FPM
+	hook_call(egress_update, update,NULL);
+stream_failure:
+	return;
+}
 
 static inline void zebra_neigh_register(ZAPI_HANDLER_ARGS)
 {
@@ -3937,6 +3979,8 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_TC_CLASS_DELETE] = zread_tc_class,
 	[ZEBRA_TC_FILTER_ADD] = zread_tc_filter,
 	[ZEBRA_TC_FILTER_DELETE] = zread_tc_filter,
+	[ZEBRA_INFIOT_EGRESS_ADD] = zread_infiot_egress,
+	[ZEBRA_INFIOT_EGRESS_DELETE] = zread_infiot_egress,
 };
 
 /*

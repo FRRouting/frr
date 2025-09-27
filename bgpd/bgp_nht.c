@@ -1023,7 +1023,11 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 {
 	bool exact_match = false;
+	union sockunion addr;
 	bool resolve_via_default = false;
+	struct peer *peer;
+	struct listnode *node, *nnode;
+	uint8_t bgp_client_info = 0;
 	int ret;
 
 	if (!zclient)
@@ -1056,9 +1060,23 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 			   zserv_command_string(command), &bnc->prefix,
 			   bnc->bgp->name_pretty);
 
+	prefix2sockunion(p, &addr);
+
+	for (ALL_LIST_ELEMENTS(bnc->bgp->peer, node, nnode, peer)) {
+		char buf[SU_ADDRSTRLEN];
+		if(sockunion_same(&peer->su, &addr)) {
+			if (peer->local_as != peer->as) {
+				bgp_client_info = ZEBRA_INF_BGP_NHT_EBGP_REG;
+			} else {
+				bgp_client_info = ZEBRA_INF_BGP_NHT_IBGP_REG;
+			}
+			break;
+		}
+	}
+
 	ret = zclient_send_rnh(zclient, command, &bnc->prefix, SAFI_UNICAST,
 			       exact_match, resolve_via_default,
-			       bnc->bgp->vrf_id);
+			       bnc->bgp->vrf_id, bgp_client_info);
 	if (ret == ZCLIENT_SEND_FAILURE) {
 		flog_warn(EC_BGP_ZEBRA_SEND,
 			  "sendmsg_nexthop: zclient_send_message() failed");
@@ -1188,9 +1206,18 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		    && path->extra && path->extra->num_labels
 		    && (path->attr->evpn_overlay.type
 			!= OVERLAY_INDEX_GATEWAY_IP)) {
-			bnc_is_valid_nexthop =
-				bgp_isvalid_nexthop_for_mpls(bnc, path) ? true
-									: false;
+			uint32_t label = 0;
+
+			label = decode_label(&path->extra->label[0]);
+			if (path->extra->num_labels == 1 && label == MPLS_LABEL_IMPLICIT_NULL) {
+				bnc_is_valid_nexthop =
+					bgp_isvalid_nexthop(bnc) ? true
+								: false;
+			} else {
+				bnc_is_valid_nexthop =
+                                        bgp_isvalid_nexthop_for_mpls(bnc, path) ? true
+                                                                                : false;
+			}
 		} else {
 			if (bgp_update_martian_nexthop(
 				    bnc->bgp, afi, safi, path->type,

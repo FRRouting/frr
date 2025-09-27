@@ -1800,6 +1800,109 @@ static int bgp_keepalive_receive(struct peer *peer, bgp_size_t size)
 	return Receive_KEEPALIVE_message;
 }
 
+//extract the ipaddress and value from the extended community list
+static void ecommunity_gettoken_infiot(char *str,uint32_t *ipaddr,uint16_t *value)
+{
+	int ret;
+	int dot = 0;
+	int digit = 0;
+	int separator = 0;
+	char *p = str;
+	char *endptr;
+	struct in_addr ip;
+	as_t as = 0;
+	uint16_t val = 0;
+	char buf[INET_ADDRSTRLEN + 1];
+
+	while (isspace((int)*p)) {
+		p++;
+		str++;
+	}
+	if (*p == '\0')
+		return NULL;
+	while (isdigit((int)*p) || *p == ':' || *p == '.') {
+		if (*p == ':') {
+			if (separator)
+				return;
+			separator = 1;
+			digit = 0;
+
+			if ((p - str) > INET_ADDRSTRLEN)
+				return;
+			memset(buf, 0, INET_ADDRSTRLEN + 1);
+			memcpy(buf, str, p - str);
+
+			if (dot) {
+				ret = inet_aton(buf, &ip);
+				if (ret == 0)
+					return;
+			} else {
+				as = strtoul(buf, &endptr, 10);
+				if (*endptr != '\0' || as == BGP_AS4_MAX)
+					return;
+			}
+		} else if (*p == '.') {
+			if (separator)
+				return;
+			dot++;
+			if (dot > 4)
+				return;
+		} else {
+			digit = 1;
+			if (separator) {
+				val *= 10;
+				val += (*p - '0');
+			}
+		}
+		p++;
+	}
+	if (!digit || !separator)
+		return;
+	*ipaddr = ip.s_addr;
+	*value = val;
+}
+
+//parse the infiot encoded ext-comm list
+static void update_click_peer_egress(struct attr *attr)
+{
+	uint32_t dest = ntohl(attr->nexthop.s_addr);
+	char buffer[650] = {0};
+	struct egress_data info;
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES))) {
+		snprintf(buffer, sizeof(buffer),"%s", ecommunity_str(attr->ecommunity));
+		struct ecommunity_val eval;
+		char* rest = buffer;
+		char* token;
+		int size=0;
+		while ((token = strtok_r(rest, " ", &rest))) {
+			uint32_t ip;
+			uint16_t val;
+			ecommunity_gettoken_infiot(token+3, &ip, &val);
+			val = ntohs(val);
+			//exract the cost(last 8bits) and infiot tag(first 8bits)
+			uint8_t cost = ((val >> 8) & 0xff);
+			uint8_t ext_infiot = ((val >> 0) & 0xff);
+			//ext communities for egress tracking
+			if(ext_infiot == INFIOT_EXT_COMM) {
+				info.nexthop[size] = ntohl(ip);
+				info.cost[size] = cost;
+				info.destination = dest;
+				size++;
+			}
+		}
+		//Add/update next-hop case
+		//We cant do subscriber/published model since FRR doesn't have the
+		//knowledge base about the infiot endpoints simply dump to click
+		if(size != 0) {
+			bgp_send_infiot_egress(info,size);
+		}
+	} else {
+		//remove next-hop case(no form)
+		info.destination = dest;
+		bgp_send_infiot_egress(info,0);
+	}
+}
+
 static void bgp_refresh_stalepath_timer_expire(struct thread *thread)
 {
 	struct peer_af *paf;
@@ -1957,6 +2060,8 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 			return BGP_Stop;
 		}
 	}
+
+	update_click_peer_egress(&attr);
 
 	/* Logging the attribute. */
 	if (attr_parse_ret == BGP_ATTR_PARSE_WITHDRAW

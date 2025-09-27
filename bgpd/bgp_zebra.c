@@ -67,6 +67,7 @@
 #include "bgpd/bgp_trace.h"
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_lcommunity.h"
+#include "bgpd/bgp_ecommunity.h"
 
 /* All information about zebra. */
 struct zclient *zclient = NULL;
@@ -3451,9 +3452,10 @@ void bgp_zebra_init(struct thread_master *master, unsigned short instance)
 	/* Set default values. */
 	zclient = zclient_new(master, &zclient_options_default, bgp_handlers,
 			      array_size(bgp_handlers));
-	zclient_init(zclient, ZEBRA_ROUTE_BGP, 0, &bgpd_privs);
+	//zclient_init(zclient, ZEBRA_ROUTE_BGP, 0, &bgpd_privs);
 	zclient->zebra_connected = bgp_zebra_connected;
 	zclient->instance = instance;
+	zclient_init_sync(zclient, ZEBRA_ROUTE_BGP, 0, &bgpd_privs);
 }
 
 void bgp_zebra_destroy(void)
@@ -3602,6 +3604,29 @@ static int bgp_pbr_get_ifnumber(struct bgp *bgp, uint8_t family)
 			cnt++;
 	}
 	return cnt;
+}
+
+//process next-hop and cost and encode the data in the message
+//send to zebra
+void bgp_send_infiot_egress(struct egress_data info, int size) {
+	struct stream *s;
+	int ret = 0;
+	s = zclient->obuf;
+	stream_reset(s);
+	zclient_create_header(s,
+			true ? ZEBRA_INFIOT_EGRESS_ADD :
+			ZEBRA_INFIOT_EGRESS_DELETE,
+			VRF_DEFAULT);
+	stream_putl(s, size);
+	stream_putl(s, info.destination);
+	for(int i=0; i<size; i++) {
+		stream_putl(s, info.nexthop[i]);
+	}
+	for(int i=0; i<size; i++) {
+		stream_putw(s, info.cost[i]);
+	}
+	stream_putw_at(s, 0, stream_get_endp(s));
+	ret = zclient_send_message(zclient);
 }
 
 void bgp_send_pbr_iptable(struct bgp_pbr_action *pba,
