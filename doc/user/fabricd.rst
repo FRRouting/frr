@@ -209,17 +209,9 @@ Debugging OpenFabric
 
    OpenFabric Adjacency related packets.
 
-.. clicmd:: debug openfabric checksum-errors
-
-   OpenFabric LSP checksum errors.
-
 .. clicmd:: debug openfabric events
 
    OpenFabric Events.
-
-.. clicmd:: debug openfabric local-updates
-
-   OpenFabric local update packets.
 
 .. clicmd:: debug openfabric lsp-gen
 
@@ -233,10 +225,6 @@ Debugging OpenFabric
 
    OpenFabric packet dump.
 
-.. clicmd:: debug openfabric protocol-errors
-
-   OpenFabric LSP protocol errors.
-
 .. clicmd:: debug openfabric route-events
 
    OpenFabric Route related events.
@@ -247,16 +235,23 @@ Debugging OpenFabric
 
 .. clicmd:: debug openfabric spf-events
 
-.. clicmd:: debug openfabric spf-statistics
-
-.. clicmd:: debug openfabric spf-triggers
-
-   OpenFabric Shortest Path First Events, Timing and Statistic Data and
-   triggering events.
-
 .. clicmd:: debug openfabric update-packets
 
    Update-related packets.
+
+.. clicmd:: debug openfabric flooding
+
+.. clicmd:: debug openfabric bfd
+
+.. clicmd:: debug openfabric ldp-sync
+
+.. clicmd:: debug openfabric lfa
+
+.. clicmd:: debug openfabric sr-events
+
+.. clicmd:: debug openfabric te-events
+
+.. clicmd:: debug openfabric tx-queue
 
 .. clicmd:: show debugging openfabric
 
