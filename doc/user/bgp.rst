@@ -1817,6 +1817,12 @@ Configuring Peers
 
    Send the BGP Next Hop Dependent Characteristics Attribute (NHC) to the peer.
 
+   If the route is learned and NHC attribute is present with Next-Next Hop Nodes
+   (NNHN) TLV set, then the number of NNHN can be used for weighted ECMP.
+
+   In order to use weighted ECMP with NNHN, ``bgp bestpath bandwidth ignore``
+   must be configured (do not use Link Bandwidth extended community).
+
    Default: disabled.
 
 .. clicmd:: neighbor PEER send-community <both|all|extended|standard|large>
