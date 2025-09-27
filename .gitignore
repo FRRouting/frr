@@ -31,6 +31,8 @@
 /test-driver
 /test-suite.log
 
+/pkgconfig/frr.pc
+
 /Makefile
 /Makefile.in
 
