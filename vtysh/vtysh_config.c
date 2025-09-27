@@ -468,6 +468,8 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			config = config_get(RESOLVER_DEBUG_NODE, line);
 		else if (strncmp(line, "debug", strlen("debug")) == 0)
 			config = config_get(DEBUG_NODE, line);
+		else if (strncmp(line, "kernel-route", strlen("kernel-route")) == 0)
+			config = config_get(KERNEL_ROUTE_NODE, line);
 		else if (strncmp(line, "password", strlen("password")) == 0
 			 || strncmp(line, "enable password",
 				    strlen("enable password"))
@@ -529,7 +531,8 @@ void vtysh_config_parse_line(void *arg, const char *line)
 	 || (I) == FORWARDING_NODE || (I) == DEBUG_NODE || (I) == AAA_NODE     \
 	 || (I) == VRF_DEBUG_NODE || (I) == NORTHBOUND_DEBUG_NODE              \
 	 || (I) == RMAP_DEBUG_NODE || (I) == RESOLVER_DEBUG_NODE               \
-	 || (I) == MPLS_NODE || (I) == KEYCHAIN_KEY_NODE)
+	 || (I) == MPLS_NODE || (I) == KEYCHAIN_KEY_NODE)                      \
+	 || (I) == KERNEL_ROUTE_NODE
 
 static void configvec_dump(vector vec, bool nested)
 {

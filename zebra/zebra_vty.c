@@ -63,7 +63,9 @@
 #include "zebra/zebra_script.h"
 #include "zebra/rtadv.h"
 #include "zebra/zebra_neigh.h"
+#include "zebra/rt_netlink.h"
 
+uint8_t g_skip_rtnetlink = 0;
 int g_ovlay_pfx_set_via_cli = 0;
 
 /* context to manage dumps in multiple tables or vrfs */
@@ -4572,6 +4574,13 @@ static struct cmd_node forwarding_node = {
 	.prompt = "",
 	.config_write = config_write_forwarding,
 };
+static int config_write_kernel_route(struct vty *vty);
+static struct kernel_routes_node = {
+	.name = "kernel_routes",
+	.node = KERNEL_ROUTE_NODE,
+	.prompt = "",
+	.config_write = config_write_kernel_route,
+};
 
 /* Route VTY.  */
 void zebra_vty_init(void)
@@ -4594,6 +4603,11 @@ void zebra_vty_init(void)
 
 	install_node(&ip_node);
 	install_node(&protocol_node);
+	install_node(&kernel_routes_node);
+
+	install_element(CONFIG_NODE, &skip_kernel_route_install_cmd);
+	install_element(CONFIG_NODE, &no_skip_kernel_route_install_cmd);
+	install_element(VIEW_NODE, &show_skip_kernel_route_install_cmd);
 	install_element(CONFIG_NODE, &allow_external_route_update_cmd);
 	install_element(CONFIG_NODE, &no_allow_external_route_update_cmd);
 

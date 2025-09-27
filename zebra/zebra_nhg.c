@@ -2123,6 +2123,8 @@ zebra_nhg_connected_ifindex(struct route_node *rn, struct route_entry *match,
 	return match;
 }
 
+extern uint8_t g_skip_rtnetlink;
+
 /*
  * Given a nexthop we need to properly recursively resolve,
  * do a table lookup to find and match if at all possible.
@@ -2324,6 +2326,13 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 	rn = route_node_match(table, (struct prefix *)&p);
 	while (rn) {
 		route_unlock_node(rn);
+
+		if (g_skip_rtnetlink) {
+			zlog_debug("NextHopActive2: flags %d, nexthop %s type %d NH flags %u",
+					flags, inet_ntoa(nexthop->gate.ipv4),
+					nexthop->type, nexthop->flags);
+			return 1;
+		}
 
 		/* Lookup should halt if we've matched against ourselves ('top',
 		 * if specified) - i.e., we cannot have a nexthop NH1 is

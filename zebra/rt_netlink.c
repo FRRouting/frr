@@ -93,6 +93,7 @@
 #endif
 
 static vlanid_t filter_vlan = 0;
+static uint8_t g_rtnetlink_skip_install = 0;
 
 /* We capture whether the current kernel supports nexthop ids; by
  * default, we'll use them if possible. There's also a configuration
@@ -162,6 +163,12 @@ static bool is_proto_nhg(uint32_t id, int type)
 void rt_netlink_init(void)
 {
 	inet_pton(AF_INET, ipv4_ll_buf, &ipv4_ll);
+}
+
+void rt_netlink_set_skip_install(uint8_t setflag)
+{
+	g_rtnetlink_skip_install = setflag;
+	return;
 }
 
 /*
@@ -1473,7 +1480,8 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 					    const struct nexthop *nexthop,
 					    struct nlmsghdr *nlmsg,
 					    struct rtmsg *rtmsg,
-					    size_t req_size, int cmd)
+					    size_t req_size, int cmd,
+					    vrf_id_t route_vrf_id)
 {
 
 	char label_buf[256];
@@ -1682,8 +1690,27 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 	 * leaking.
 	 */
 	if (nexthop->type != NEXTHOP_TYPE_BLACKHOLE) {
-		if (!nl_attr_put32(nlmsg, req_size, RTA_OIF, nexthop->ifindex))
-			return false;
+		if ((route_vrf_id != nexthop->vrf_id) &&
+			(strncmp(ifindex2ifname(nexthop->ifindex, nexthop->vrf_id),
+			"overlay", sizeof("overlay")) == 0 )) {
+			char vrftunname[100];
+			ifindex_t tunindex;
+
+			snprintf(vrftunname, sizeof(vrftunname), "%s%s",
+				vrf_id_to_name(route_vrf_id), "tun");
+			tunindex = ifname2ifindex(vrftunname,route_vrf_id);
+
+			if (tunindex) {
+				if(!nl_attr_put32(nlmsg, req_size, RTA_OIF, tunindex))
+					return false;
+			} else {
+				if(!nl_attr_put32(nlmsg, req_size, RTA_OIF, nexthop->ifindex))
+                                        return false;
+			}
+		} else {
+			if(!nl_attr_put32(nlmsg, req_size, RTA_OIF, nexthop->ifindex))
+				return false;
+		}
 	}
 
 	if (nexthop->type == NEXTHOP_TYPE_IFINDEX) {
@@ -1744,7 +1771,7 @@ static inline bool _netlink_set_tag(struct nlmsghdr *n, unsigned int maxlen,
 static bool _netlink_route_build_multipath(
 	const struct prefix *p, const char *routedesc, int bytelen,
 	const struct nexthop *nexthop, struct nlmsghdr *nlmsg, size_t req_size,
-	struct rtmsg *rtmsg, const union g_addr **src, route_tag_t tag)
+	struct rtmsg *rtmsg, const union g_addr **src, route_tag_t tag, vrf_id_t route_vrf_id)
 {
 	char label_buf[256];
 	struct vrf *vrf;
@@ -1831,8 +1858,24 @@ static bool _netlink_route_build_multipath(
 	 * This is especially useful if we are doing route
 	 * leaking.
 	 */
-	if (nexthop->type != NEXTHOP_TYPE_BLACKHOLE)
-		rtnh->rtnh_ifindex = nexthop->ifindex;
+	if (nexthop->type != NEXTHOP_TYPE_BLACKHOLE) {
+		if ((route_vrf_id != nexthop->vrf_id) &&
+			(strncmp(ifindex2ifname(nexthop->ifindex, nexthop->vrf_id),
+			"overlay", sizeof("overlay")) == 0 )) {
+			char vrftunname[100];
+			ifindex_t tunindex;
+			snprintf(vrftunname, sizeof(vrftunname), "%s%s",
+				vrf_id_to_name(route_vrf_id), "tun");
+			tunindex = ifname2ifindex(vrftunname,route_vrf_id);
+			if (tunindex) {
+				rtnh->rtnh_ifindex =  tunindex;
+			} else {
+				rtnh->rtnh_ifindex = nexthop->ifindex;
+			}
+		} else {
+			rtnh->rtnh_ifindex = nexthop->ifindex;
+		}
+	}
 
 	/* ifindex */
 	if (nexthop->type == NEXTHOP_TYPE_IFINDEX) {
@@ -1870,7 +1913,7 @@ _netlink_mpls_build_singlepath(const struct prefix *p, const char *routedesc,
 	bytelen = (family == AF_INET ? 4 : 16);
 	return _netlink_route_build_singlepath(p, routedesc, bytelen,
 					       nhlfe->nexthop, nlmsg, rtmsg,
-					       req_size, cmd);
+					       req_size, cmd, VRF_DEFAULT);
 }
 
 
@@ -1887,7 +1930,7 @@ _netlink_mpls_build_multipath(const struct prefix *p, const char *routedesc,
 	bytelen = (family == AF_INET ? 4 : 16);
 	return _netlink_route_build_multipath(p, routedesc, bytelen,
 					      nhlfe->nexthop, nlmsg, req_size,
-					      rtmsg, src, 0);
+					      rtmsg, src, 0, VRF_DEFAULT);
 }
 
 static void _netlink_mpls_debug(int cmd, uint32_t label, const char *routedesc)
@@ -2235,7 +2278,8 @@ ssize_t netlink_route_multipath_msg_encode(int cmd,
 
 				if (!_netlink_route_build_singlepath(
 					    p, routedesc, bytelen, nexthop,
-					    &req->n, &req->r, datalen, cmd))
+					    &req->n, &req->r, datalen, cmd,
+					    dplane_ctx_get_vrf(ctx)))
 					return 0;
 
 				/*
@@ -2295,7 +2339,7 @@ ssize_t netlink_route_multipath_msg_encode(int cmd,
 				if (!_netlink_route_build_multipath(
 					    p, routedesc, bytelen, nexthop,
 					    &req->n, datalen, &req->r, &src1,
-					    tag))
+					    tag, dplane_ctx_get_vrf(ctx)))
 					return 0;
 
 				/*
@@ -2882,6 +2926,17 @@ netlink_put_route_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 {
 	int cmd;
 	const struct prefix *p = dplane_ctx_get_dest(ctx);
+
+	zlog_debug("kernel_route_rib: skip netlink %u", g_rtnetlink_skip_install);
+	if (g_rtnetlink_skip_install) {
+		char buf[SRCDEST2STR_BUFFER + 1];
+		if (p) {
+			prefix2str(p, buf, SRCDEST2STR_BUFFER);
+			zlog_debug("kernel_route_rib: skip install/remove route p=%s to kernel", buf);
+		}
+		zlog_debug("kernel_route_rib: skip install/remove route to kernel");
+		return FRR_NETLINK_SUCCESS;
+	}
 
 	if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_DELETE) {
 		cmd = RTM_DELROUTE;

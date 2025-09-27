@@ -1137,7 +1137,7 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 		 * to add routes.
 		 */
 		if (!CHECK_FLAG(new->status, ROUTE_ENTRY_INSTALLED) ||
-		    RIB_SYSTEM_ROUTE(new))
+		    RIB_SYSTEM_ROUTE(new) || new->type == ZEBRA_ROUTE_STATIC)
 			rib_install_kernel(rn, new, NULL);
 	}
 
