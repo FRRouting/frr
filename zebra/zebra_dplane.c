@@ -6822,6 +6822,33 @@ void zebra_dplane_ns_enable(struct zebra_ns *zns, bool enabled)
 	}
 }
 
+
+/*
+ * Cleanup all dplane namespace info structures during shutdown.
+ * This ensures proper cleanup of memory allocated in zebra_dplane_ns_enable().
+ */
+void zebra_dplane_cleanup(void)
+{
+	struct dplane_zns_info *zi;
+
+	if (IS_ZEBRA_DEBUG_DPLANE)
+		zlog_debug("%s: cleaning up dplane namespace info structures", __func__);
+
+	/* Clean up all namespace info structures */
+	while ((zi = zns_info_list_pop(&zdplane_info.dg_zns_list)) != NULL) {
+		if (IS_ZEBRA_DEBUG_DPLANE)
+			zlog_debug("%s: cleaning up nsid %u, zi %p", __func__, zi->info.ns_id, zi);
+
+		/* Stop any outstanding tasks */
+		if (zdplane_info.dg_master) {
+			event_cancel_async(zdplane_info.dg_master, &zi->t_request, NULL);
+			event_cancel_async(zdplane_info.dg_master, &zi->t_read, NULL);
+		}
+
+		XFREE(MTYPE_DP_NS, zi);
+	}
+}
+
 /*
  * Provider api to signal that work/events are available
  * for the dataplane pthread.

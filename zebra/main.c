@@ -50,6 +50,7 @@
 #include "zebra/zebra_srte.h"
 #include "zebra/zebra_srv6.h"
 #include "zebra/zebra_srv6_vty.h"
+#include "zebra/zebra_dplane.h"
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -233,6 +234,9 @@ void zebra_finalize(struct event *dummy)
 	 * in those functions
 	 */
 	zebra_dplane_shutdown();
+
+	/* Clean up any remaining dplane namespace info structures */
+	zebra_dplane_cleanup();
 
 	ns_walk_func(zebra_ns_early_shutdown, NULL, NULL);
 	zebra_ns_notify_close();
