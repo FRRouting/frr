@@ -120,10 +120,10 @@ def test_weighted_ecmp():
         if weighted_group["nexthopCount"] != 4:
             return "Expected 4 nexthops, got {}".format(weighted_group["nexthopCount"])
 
-        if not weighted_group["valid"]:
+        if not weighted_group.get("valid", False):
             return "Nexthop group is not valid"
 
-        if not weighted_group["installed"]:
+        if not weighted_group.get("installed", False):
             return "Nexthop group is not installed"
 
         # Check that all expected nexthops are present with correct weights
