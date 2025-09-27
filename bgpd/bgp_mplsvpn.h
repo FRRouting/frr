@@ -93,6 +93,7 @@ extern void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 				afi_t afi, safi_t safi);
 void vrf_unimport_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 			   afi_t afi, safi_t safi);
+bool srv6_sid_compose(struct in6_addr *sid_value, struct srv6_locator *locator, uint32_t sid_func);
 
 static inline bool is_bgp_vrf_mplsvpn(struct bgp *bgp)
 {
@@ -362,7 +363,7 @@ static inline bool is_pi_family_vpn(struct bgp_path_info *pi)
 static inline bool is_pi_srv6_valid(struct bgp_path_info *pi, struct bgp *bgp_nexthop, afi_t afi,
 				    safi_t safi)
 {
-	if (!pi->attr->srv6_l3vpn && !pi->attr->srv6_vpn)
+	if (!pi->attr->srv6_l3service && !pi->attr->srv6_vpn)
 		return !bgp_nexthop->srv6_only;
 
 	/* imported paths from VPN: srv6 enabled and nht reachability
@@ -465,5 +466,8 @@ void bgp_mplsvpn_nexthop_init(void);
 extern void sid_register(struct bgp *bgp, const struct in6_addr *sid,
 			 const char *locator_name);
 extern void sid_unregister(struct bgp *bgp, const struct in6_addr *sid);
+extern bool is_srv6_vpn_enabled(struct bgp *bgp);
+extern bool is_srv6_vpn_afi_enabled(struct bgp *bgp, afi_t afi);
+extern bool is_srv6_vpn_vrf_enabled(struct bgp *bgp);
 
 #endif /* _QUAGGA_BGP_MPLSVPN_H */
