@@ -235,6 +235,9 @@ EXTRA_DIST += \
 	m4/libtool-whole-archive.patch \
 	config.version \
 	\
+	frr.pc.in \
+	frr-uninstalled.pc.in \
+	\
 	python/clidef.py \
 	python/clippy/__init__.py \
 	python/clippy/elf.py \
