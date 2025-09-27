@@ -77,7 +77,7 @@ static inline int bgp_is_withdraw_label(mpls_label_t *label)
 
 static inline int bgp_is_valid_label(const mpls_label_t *label)
 {
-	uint8_t *t = (uint8_t *)label;
+	const uint8_t *t = (const uint8_t *)label;
 	if (!t)
 		return 0;
 	return (t[2] & 0x02);

@@ -6,7 +6,16 @@
 #ifndef _FRR_COMPILER_H
 #define _FRR_COMPILER_H
 
+#if defined(__cplusplus) || defined(test__cplusplus)
+/* -Wcast-qual is not supported in the FRR codebase with C++, since the macros
+ * don't work
+ */
+#pragma GCC diagnostic ignored "-Wcast-qual"
+#endif
+
 #ifdef __cplusplus
+#include <cstddef>
+
 extern "C" {
 #endif
 
@@ -266,7 +275,98 @@ extern "C" {
 #undef container_of
 #endif
 
+#ifdef __cplusplus
+#define typeof(x) decltype(x)
+#endif
+
+/* strip qualifiers of a type */
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202000L
+/* nothing - typeof_unqual is in ISO C23.  note that that is normally
+ * 202311L, but gcc 14 claims 202000L for -std=gnu23 and that works too
+ */
+
+#elif !defined(__cplusplus) && (__GNUC__ >= 14 || (defined(__clang__) && __clang_major__ >= 19))
+/* __typeof_unqual__ is available as an alias for the C23 feature for use
+ * outside C23 mode in GCC >= 14 and clang >= 19
+ */
+#define typeof_unqual(_t) __typeof_unqual__(_t)
+
+#else
+/* this works because a function return value can't have qualifiers attached.
+ * unfortunately there is a warning about the very thing we're intentionally
+ * doing here (ignoring the qualifiers), so mute that
+ *
+ * declaring a variable with this type would also do it, except that'll barf
+ * if we try to declare a variable of type "void";  a function pointer is fine
+ *
+ * turn off clang-format because it wrecks the _Pragma formatting
+ */
+/* clang-format off */
+#define typeof_unqual(_t)                                                                          \
+	typeof(({                                                                                  \
+		_Pragma("GCC diagnostic push")                                                     \
+		_Pragma("GCC diagnostic ignored \"-Wignored-qualifiers\"")                         \
+		typeof(_t) (*_v)(void);                                                            \
+		_Pragma("GCC diagnostic pop")                                                      \
+		_v();                                                                              \
+	}))
+/* clang-format on */
+#endif
+
+#if !defined(__cplusplus)
+/* cast val (pointer type) into the same type but without const
+ * this is built to work with -Wcast-qual, hence the cast via uintptr_t
+ *
+ * the type is automatically determined to help against accidentally changing
+ * into some other type while intending to only remove the const
+ */
+#define unconst(_val)                                                                              \
+	({                                                                                         \
+		__auto_type _v = _val;                                                             \
+		typeof_unqual(*_v) * d;                                                            \
+		(typeof(d))(uintptr_t)_v;                                                          \
+	})
+#else
+#define unconst(_val)                                                                              \
+	({                                                                                         \
+		auto _v = _val;                                                                    \
+		const_cast<decltype(({                                                             \
+			auto _t = *_v;                                                             \
+			&_t;                                                                       \
+		}))>(_v);                                                                          \
+	})
+#endif
+
 #if !(defined(__cplusplus) || defined(test__cplusplus))
+/* returns 1 if v is a pointer to const (e.g. "const char *x; is_const_ptr(x)")
+ * or bare type specification (e.g. "is_const_ptr(const char *)")
+ * (supporting the latter is the reason for some extra hoops to jump through)
+ * "w" exists only to avoid a "duplicate use of const" warning on clang
+ */
+#define is_const_ptr(_v)                                                                           \
+	__builtin_types_compatible_p(typeof(_v), typeof(({                                         \
+					     typeof(_v) _w;                                        \
+					     const typeof(*_w) *_x;                                \
+					     _x;                                                   \
+				     })))
+
+/* shortcut */
+#define is_const_ptr2(_v1, _v2) is_const_ptr(_v1) || is_const_ptr(_v2)
+
+/* conditionally add const.  It is intentional that the combination of "const"
+ * and "typ" happens on the preprocessor level here, which is not quite the
+ * same thing as doing "const typeof(x)".
+ */
+#define constlify(cond, typ)                                                                       \
+	typeof(__builtin_choose_expr(cond, ({                                                      \
+					     const typ _x;                                         \
+					     _x;                                                   \
+				     }),                                                           \
+				     ({                                                            \
+					     typ _x;                                               \
+					     _x;                                                   \
+				     })))
+
 /* this variant of container_of() retains 'const' on pointers without needing
  * to be told to do so.  The following will all work without warning:
  *
@@ -284,22 +384,19 @@ extern "C" {
  * struct cont *x       = container_of(cp, struct cont, member);
  * struct cont *x       = container_of(cp, const struct cont, member);
  * struct cont *x       = container_of(p,  const struct cont, member);
+ *
+ * _mptype, _outtype and _chtype are here to make compiler warnings better.
  */
-#define container_of(ptr, type, member)                                        \
-	(__builtin_choose_expr(                                                \
-		__builtin_types_compatible_p(typeof(&((type *)0)->member),     \
-			typeof(ptr))                                           \
-		    ||  __builtin_types_compatible_p(void *, typeof(ptr)),     \
-		({                                                             \
-			typeof(((type *)0)->member) *__mptr = (void *)(ptr);   \
-			(type *)((char *)__mptr - offsetof(type, member));     \
-		}),                                                            \
-		({                                                             \
-			typeof(((const type *)0)->member) *__mptr = (ptr);     \
-			(const type *)((const char *)__mptr -                  \
-					offsetof(type, member));               \
-		})                                                             \
-	))
+#define container_of(ptr, type, member)                                                            \
+	({                                                                                         \
+		__auto_type _p = ptr; /* avoid multiple eval */                                    \
+		constlify(is_const_ptr2(_p, type *), typeof(((type *)0)->member) *) _mptype;       \
+		constlify(is_const_ptr2(_p, type *), typeof_unqual(type) *) _outtype;              \
+		constlify(is_const_ptr2(_p, type *), char *) _chtype;                              \
+		typeof(_mptype) _memberptr = _p; /* input type check */                            \
+		(typeof(_outtype))((typeof(_chtype))_memberptr - offsetof(type, member));          \
+	})
+
 #else
 /* current C++ compilers don't have the builtins used above; so this version
  * of the macro doesn't do the const check. */
