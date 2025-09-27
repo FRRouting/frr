@@ -59,10 +59,9 @@ extern void zebra_vxlan_remote_macip_add(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_remote_macip_del(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_remote_vtep_add_zapi(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_remote_vtep_del_zapi(ZAPI_HANDLER_ARGS);
-void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni,
-				 struct in_addr vtep_ip, int flood_control);
-extern void zebra_vxlan_remote_vtep_del(vrf_id_t vrf_id, vni_t vni,
-					struct in_addr vtep_ip);
+void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep_ip,
+				 int flood_control);
+extern void zebra_vxlan_remote_vtep_del(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep_ip);
 extern void zebra_vxlan_flood_control(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_advertise_subnet(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_advertise_svi_macip(ZAPI_HANDLER_ARGS);
@@ -96,18 +95,14 @@ extern void zebra_vxlan_print_macs_all_vni_detail(struct vty *vty,
 						  struct zebra_vrf *zvrf,
 						  bool print_dup,
 						  bool use_json);
-extern void zebra_vxlan_print_macs_all_vni_vtep(struct vty *vty,
-						struct zebra_vrf *zvrf,
-						struct in_addr vtep_ip,
-						bool use_json);
+extern void zebra_vxlan_print_macs_all_vni_vtep(struct vty *vty, struct zebra_vrf *zvrf,
+						struct ipaddr *vtep_ip, bool use_json);
 extern void zebra_vxlan_print_specific_mac_vni(struct vty *vty,
 					       struct zebra_vrf *zvrf,
 					       vni_t vni, struct ethaddr *mac,
 					       bool use_json);
-extern void zebra_vxlan_print_macs_vni_vtep(struct vty *vty,
-					    struct zebra_vrf *zvrf, vni_t vni,
-					    struct in_addr vtep_ip,
-					    bool use_json);
+extern void zebra_vxlan_print_macs_vni_vtep(struct vty *vty, struct zebra_vrf *zvrf, vni_t vni,
+					    struct ipaddr *vtep_ip, bool use_json);
 extern void zebra_vxlan_print_macs_vni_dad(struct vty *vty,
 					   struct zebra_vrf *zvrf, vni_t vni,
 					   bool use_json);
@@ -125,10 +120,8 @@ extern void zebra_vxlan_print_specific_neigh_vni(struct vty *vty,
 						 struct zebra_vrf *zvrf,
 						 vni_t vni, struct ipaddr *ip,
 						 bool use_json);
-extern void zebra_vxlan_print_neigh_vni_vtep(struct vty *vty,
-					     struct zebra_vrf *zvrf, vni_t vni,
-					     struct in_addr vtep_ip,
-					     bool use_json);
+extern void zebra_vxlan_print_neigh_vni_vtep(struct vty *vty, struct zebra_vrf *zvrf, vni_t vni,
+					     struct ipaddr *vtep_ip, bool use_json);
 extern void zebra_vxlan_print_neigh_vni_dad(struct vty *vty,
 					struct zebra_vrf *zvrf, vni_t vni,
 					bool use_json);
@@ -170,8 +163,7 @@ extern int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 extern int zebra_vxlan_local_mac_del(struct interface *ifp,
 				     struct interface *br_if,
 				     struct ethaddr *mac, vlanid_t vid);
-extern int zebra_vxlan_check_readd_vtep(struct interface *ifp, vni_t vni,
-					struct in_addr vtep_ip);
+extern int zebra_vxlan_check_readd_vtep(struct interface *ifp, vni_t vni, struct ipaddr *vtep_ip);
 extern int zebra_vxlan_if_up(struct interface *ifp);
 extern int zebra_vxlan_if_down(struct interface *ifp);
 extern int zebra_vxlan_if_add(struct interface *ifp);
