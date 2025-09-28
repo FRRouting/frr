@@ -17,6 +17,96 @@
 
 extern struct zclient *bgp_zclient;
 
+int bgp_srv6_configure(struct vty *vty, struct bgp *bgp, afi_t afi, bool sid_auto,
+			   uint32_t sid_idx, bool sid_explicit,
+			   struct in6_addr sid_value, const char *rmap_str, bool no)
+{
+
+	safi_t safi = SAFI_UNICAST;
+	uint32_t configured_flags;
+	struct srv6_policy *srv6_policy;
+	struct in6_addr *unicast_sid_explicit = NULL;
+
+	if (no) {
+		if (!is_srv6_unicast_afi_enabled(bgp, afi))
+			return CMD_SUCCESS;
+
+		srv6_policy = &bgp->srv6_unicast[afi];
+		if (srv6_policy->rmap_name) {
+			XFREE(MTYPE_ROUTE_MAP_NAME, srv6_policy->rmap_name);
+			srv6_policy->rmap_name = NULL;
+		}
+		if (srv6_policy->sid_explicit) {
+			XFREE(MTYPE_BGP_SRV6_SID, srv6_policy->sid_explicit);
+			srv6_policy->sid_explicit = NULL;
+		}
+
+		srv6_policy->sid_index = 0;
+		UNSET_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_SRV6_UNICAST_SID_AUTO);
+
+		bgp_srv6_unicast_sid_withdraw(bgp, afi);
+
+		return CMD_SUCCESS;
+	}
+
+	srv6_policy = &bgp->srv6_unicast[afi];
+	if (afi == AFI_UNSPEC)
+		configured_flags = bgp->vrf_flags;
+	else
+		configured_flags = bgp->af_flags[afi][safi];
+
+	/* configured */
+	if ((sid_auto && CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_SRV6_UNICAST_SID_AUTO)) ||
+	    (sid_idx != 0 && srv6_policy->sid_index != 0) ||
+	    (sid_explicit && srv6_policy->sid_explicit)) {
+		/* no rmap change */
+		if (!rmap_str || (srv6_policy->rmap_name &&
+				  !strcmp(rmap_str, srv6_policy->rmap_name)))
+			return CMD_SUCCESS;
+
+		/* apply route-map change */
+		bgp_srv6_unicast_announce(bgp, afi);
+
+		return CMD_SUCCESS;
+	}
+
+	/*
+	 * mode change between sid_idx and sid_auto isn't supported.
+	 * user must negate sid vpn export when they want to change the mode
+	 */
+	if ((sid_auto || sid_explicit) && srv6_policy->sid_index != 0) {
+		vty_out(vty, "it's already configured as idx-mode.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if ((sid_auto || sid_idx != 0) && srv6_policy->sid_explicit) {
+		vty_out(vty, "it's already configured as explicit-mode.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if ((sid_idx != 0 || sid_explicit) &&
+	    CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_SRV6_UNICAST_SID_AUTO)) {
+		vty_out(vty, "it's already configured as auto-mode.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (rmap_str)
+		srv6_policy->rmap_name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_str);
+
+	if (sid_auto) {
+		SET_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_SRV6_UNICAST_SID_AUTO);
+	} else if (sid_idx) {
+		srv6_policy->sid_index = sid_idx;
+	} else if (sid_explicit) {
+		unicast_sid_explicit = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
+		IPV6_ADDR_COPY(unicast_sid_explicit, &sid_value);
+		srv6_policy->sid_explicit = unicast_sid_explicit;
+	}
+
+	/* request srv6 sid */
+	bgp_srv6_unicast_ensure_afi_sid(bgp, afi);
+
+	return CMD_SUCCESS;
+}
+
 void bgp_srv6_unicast_ensure_afi_sid(struct bgp *bgp, afi_t afi)
 {
 	uint32_t sid_func;
@@ -29,7 +119,7 @@ void bgp_srv6_unicast_ensure_afi_sid(struct bgp *bgp, afi_t afi)
 	bool unicast_sid_explicit = false;
 
 	/* no configured */
-	if (!is_srv6_unicast_enabled(bgp, afi))
+	if (!is_srv6_unicast_afi_enabled(bgp, afi))
 		return;
 
 	/* already allocated */
@@ -153,7 +243,7 @@ void bgp_srv6_unicast_delete(struct bgp *bgp, afi_t afi)
 	if (!bgp || bgp->vrf_id != VRF_DEFAULT)
 		return;
 
-	if (!is_srv6_unicast_enabled(bgp, afi))
+	if (!is_srv6_unicast_afi_enabled(bgp, afi))
 		return;
 
 	if (bgp->srv6_unicast[afi].sid) {

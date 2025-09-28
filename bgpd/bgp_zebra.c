@@ -3695,7 +3695,7 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 				bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid = tovpn_sid;
 				bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator = locator;
 				bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_transpose_label = label;
-			} else if (is_srv6_unicast_enabled(bgp_vrf, AFI_IP6)) {
+			} else if (is_srv6_unicast_afi_enabled(bgp_vrf, AFI_IP6)) {
 				srv6_locator_free(bgp_vrf->srv6_unicast[AFI_IP6].sid_locator);
 				sid_unregister(bgp, bgp_vrf->srv6_unicast[AFI_IP6].sid);
 				XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->srv6_unicast[AFI_IP6].sid);
@@ -3713,7 +3713,7 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 				bgp_vrf->vpn_policy[AFI_IP].tovpn_sid = tovpn_sid;
 				bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator = locator;
 				bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_transpose_label = label;
-			} else if (is_srv6_unicast_enabled(bgp_vrf, AFI_IP)) {
+			} else if (is_srv6_unicast_afi_enabled(bgp_vrf, AFI_IP)) {
 				srv6_locator_free(bgp_vrf->srv6_unicast[AFI_IP].sid_locator);
 				sid_unregister(bgp, bgp_vrf->srv6_unicast[AFI_IP].sid);
 				XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->srv6_unicast[AFI_IP].sid);
@@ -3745,7 +3745,7 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 		vpn_leak_postchange_all();
 
 		/* SRv6 unicast */
-		if (is_srv6_unicast_enabled(bgp_vrf, afi)) {
+		if (is_srv6_unicast_enabled(bgp_vrf)) {
 			bgp_srv6_unicast_sid_update(bgp_vrf, afi);
 			bgp_srv6_unicast_announce(bgp_vrf, afi);
 		}
