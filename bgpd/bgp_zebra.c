@@ -2376,15 +2376,6 @@ void bgp_zebra_update_srv6_encap_routes(struct bgp *bgp, afi_t afi, struct bgp *
 			if (!CHECK_FLAG(pi->flags, BGP_PATH_SELECTED) || pi->type != ZEBRA_ROUTE_BGP)
 				continue;
 
-			if (pi->sub_type != BGP_ROUTE_IMPORTED)
-				continue;
-
-			if (!pi->extra || !pi->extra->vrfleak)
-				continue;
-
-			if (pi->extra->vrfleak->bgp_orig != from_bgp)
-				continue;
-
 			if ((pi->attr->srv6_l3service &&
 			     !sid_zero_ipv6(&pi->attr->srv6_l3service->sid)) ||
 			    (pi->attr->srv6_vpn && !sid_zero_ipv6(&pi->attr->srv6_vpn->sid)))
