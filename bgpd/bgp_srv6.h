@@ -8,7 +8,11 @@
 #ifndef _BGP_SRV6_H_
 #define _BGP_SRV6_H_
 
-bool is_srv6_unicast_enabled(struct bgp *bgp, afi_t afi);
+int bgp_srv6_configure(struct vty *vty, struct bgp *bgp, afi_t afi, bool sid_auto,
+			   uint32_t sid_idx, bool sid_explicit,
+			   struct in6_addr sid_value, const char *rmap_str, bool no);
+bool is_srv6_unicast_enabled(struct bgp *bgp);
+bool is_srv6_unicast_afi_enabled(struct bgp *bgp, afi_t afi);
 void bgp_srv6_unicast_ensure_afi_sid(struct bgp *bgp, afi_t afi);
 void bgp_srv6_unicast_sid_withdraw(struct bgp *bgp, afi_t afi);
 void bgp_srv6_unicast_sid_update(struct bgp *bgp, afi_t afi);
