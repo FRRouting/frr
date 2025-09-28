@@ -11399,9 +11399,6 @@ static void bgp_segment_routing_srv6_hencaps_refresh(struct bgp *bgp)
 	struct listnode *node;
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_inst)) {
-		if (!bgp_fibupd_safi(SAFI_UNICAST))
-			continue;
-
 		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP, bgp, false);
 		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP6, bgp, false);
 
