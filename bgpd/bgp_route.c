@@ -7923,7 +7923,10 @@ void bgp_static_withdraw(struct bgp *bgp, const struct prefix *p, afi_t afi,
 	struct bgp_dest *dest;
 	struct bgp_path_info *pi;
 
-	dest = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi, p, prd);
+	dest = bgp_safi_node_lookup(bgp->rib[afi][safi], safi, p, prd);
+
+	if (dest == NULL)
+		return;
 
 	/* Check selected route and self inserted route. */
 	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
