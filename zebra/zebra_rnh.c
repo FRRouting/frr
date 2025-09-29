@@ -589,7 +589,7 @@ static int check_overlay_nexthop(struct prefix *pp, uint8_t *isreachable, struct
 
 	if (IS_ZEBRA_DEBUG_NHT)
 	{
-		zlog_debug("Infiot via: %s, cntrname %s val %lu reachable %d nhindex %d destindex %d", via, cntrname,
+		zlog_debug("Infiot via: %s, cntrname %s val %llu reachable %d nhindex %d destindex %d", via, cntrname,
 			trkr == NULL ? 1 : trkr->val, *isreachable, rnh->nh_trkr_index, rnh->dest_trkr_index);
 	}
 	return *isreachable;
@@ -675,7 +675,7 @@ done:
  */
 static struct route_entry *
 zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
-				struct route_node *nrn, const struct rnh *rnh,
+				struct route_node *nrn, struct rnh *rnh,
 				struct route_node **prn)
 {
 	struct route_table *route_table;
@@ -729,7 +729,7 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 				zlog_debug(
 					"%u:%s: RNH resolve re %p rn %p re_status=%d re_flags=%d "
 					"re_type=%d rnh_flags=%d",
-					vrfid, bufn, re, rn, re->status, re->flags, re->type, rnh->flags);
+					rnh->vrf_id, bufn, re, rn, re->status, re->flags, re->type, rnh->flags);
 			}
 			if (!CHECK_FLAG(rnh->client_info_flag , ZEBRA_NHT_EBGP)) {
 				hook_call(evaluate_custom_nexthop, &nrn->p, &isreachable, rnh);
