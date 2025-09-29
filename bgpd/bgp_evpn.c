@@ -1288,7 +1288,7 @@ enum zclient_send_status evpn_zebra_install(struct bgp *bgp, struct bgpevpn *vpn
 	int flood_control = VXLAN_FLOOD_DISABLED;
 	uint32_t seq;
 	enum zclient_send_status ret = ZCLIENT_SEND_SUCCESS;
-	struct ipaddr vtep_ip;
+	struct ipaddr vtep_ip = { .ipa_type = IPADDR_V4, .ipaddr_v4 = { INADDR_ANY } };
 
 	if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE) {
 		flags = 0;
