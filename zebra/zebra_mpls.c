@@ -176,6 +176,12 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 	tmp_ile.in_label = label;
 	lsp = hash_get(lsp_table, &tmp_ile, lsp_alloc);
 
+	if (!lsp) {
+		zlog_err("%s: hash_get failed to allocate LSP for label %u",
+			 __func__, label);
+		return -1;
+	}
+
 	/* For each active nexthop, create NHLFE. Note that we deliberately skip
 	 * recursive nexthops right now, because intermediate hops won't
 	 * understand
@@ -2937,6 +2943,11 @@ void zebra_mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
 		/* Find or create LSP object */
 		tmp_ile.in_label = zl->local_label;
 		lsp = hash_get(lsp_table, &tmp_ile, lsp_alloc);
+		if (!lsp) {
+			zlog_err("%s: hash_get failed to allocate LSP for label %u",
+				 __func__, zl->local_label);
+			return;
+		}
 	}
 
 	/* Prep for route/FEC update if requested */
@@ -3222,6 +3233,12 @@ int mpls_lsp_install(struct zebra_vrf *zvrf, enum lsp_types_t type,
 	/* Find or create LSP object */
 	tmp_ile.in_label = in_label;
 	lsp = hash_get(lsp_table, &tmp_ile, lsp_alloc);
+
+	if (!lsp) {
+		zlog_err("%s: hash_get failed to allocate LSP for label %u",
+			 __func__, in_label);
+		return -1;
+	}
 
 	nhlfe = lsp_add_nhlfe(lsp, type, num_out_labels, out_labels, gtype,
 			      gate, ifindex, VRF_DEFAULT, false /*backup*/);
@@ -3584,6 +3601,12 @@ int zebra_mpls_static_lsp_add(struct zebra_vrf *zvrf, mpls_label_t in_label,
 	tmp_ile.in_label = in_label;
 	lsp = hash_get(slsp_table, &tmp_ile, lsp_alloc);
 
+	if (!lsp) {
+		zlog_err("%s: hash_get failed to allocate LSP for label %u",
+			 __func__, in_label);
+		return -1;
+	}
+
 	nhlfe = nhlfe_find(&lsp->nhlfe_list, ZEBRA_LSP_STATIC, gtype, gate,
 			   ifindex);
 	if (nhlfe) {
@@ -3701,8 +3724,10 @@ int zebra_mpls_static_lsp_del(struct zebra_vrf *zvrf, mpls_label_t in_label,
 	 */
 	if (nhlfe_list_first(&lsp->nhlfe_list) == NULL) {
 		lsp = hash_release(slsp_table, &tmp_ile);
-		lsp_free_nhlfe(lsp);
-		XFREE(MTYPE_LSP, lsp);
+		if (lsp) {
+			lsp_free_nhlfe(lsp);
+			XFREE(MTYPE_LSP, lsp);
+		}
 	}
 
 	return 0;

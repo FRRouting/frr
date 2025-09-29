@@ -554,6 +554,9 @@ static void start_icmpv6_join_timer(struct event *thread)
 	struct zebra_if *zif = ifp->info;
 	struct zebra_vrf *zvrf = rtadv_interface_get_zvrf(ifp);
 
+	if (!zvrf)
+		return;
+
 	if (if_join_all_router(zvrf->rtadv.sock, ifp)) {
 		/*Wait random amount of time between 1 ms to ICMPV6_JOIN_TIMER_EXP_MS ms*/
 		int random_ms = (frr_weak_random() % ICMPV6_JOIN_TIMER_EXP_MS) + 1;
@@ -571,6 +574,9 @@ void process_rtadv(void *arg)
 	struct interface *ifp = arg;
 	struct zebra_if *zif = ifp->info;
 	struct zebra_vrf *zvrf = rtadv_interface_get_zvrf(ifp);
+
+	if (!zvrf)
+		return;
 
 	if (zif->rtadv.inFastRexmit && zif->rtadv.UseFastRexmit) {
 		if (--zif->rtadv.NumFastReXmitsRemain <= 0)
@@ -1434,6 +1440,8 @@ void ipv6_nd_suppress_ra_set(struct interface *ifp,
 	zif = ifp->info;
 
 	zvrf = rtadv_interface_get_zvrf(ifp);
+	if (!zvrf)
+		return;
 
 	if (status == RA_SUPPRESS) {
 		/* RA is currently enabled */
@@ -1480,6 +1488,9 @@ void ipv6_nd_interval_set(struct interface *ifp, uint32_t interval)
 	struct zebra_if *zif = ifp->info;
 	struct zebra_vrf *zvrf = rtadv_interface_get_zvrf(ifp);
 	struct adv_if *adv_if;
+
+	if (!zvrf)
+		return;
 
 	if (zif->rtadv.MaxRtrAdvInterval % 1000) {
 		adv_if = adv_msec_if_del(zvrf, ifp->name);
@@ -1600,9 +1611,11 @@ void rtadv_stop_ra(struct interface *ifp, bool if_down_event)
 
 	zif = ifp->info;
 	zvrf = rtadv_interface_get_zvrf(ifp);
-	adv_if = adv_if_del(zvrf, ifp->name);
-	if (adv_if != NULL)
-		adv_if_free(adv_if);
+	if (zvrf) {
+		adv_if = adv_if_del(zvrf, ifp->name);
+		if (adv_if != NULL)
+			adv_if_free(adv_if);
+	}
 
 	/*Turn off event for ICMPv6 join*/
 	event_cancel(&zif->icmpv6_join_timer);

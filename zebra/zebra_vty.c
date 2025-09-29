@@ -1043,6 +1043,9 @@ DEFPY (show_ip_nht,
 	}
 
 	zvrf = zebra_vrf_lookup_by_id(vrf_id);
+	if (!zvrf)
+		return CMD_WARNING;
+
 	resolve_via_default = (afi == AFI_IP)
 				      ? zvrf->zebra_rnh_ip_default_route
 				      : zvrf->zebra_rnh_ipv6_default_route;

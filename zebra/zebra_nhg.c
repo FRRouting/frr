@@ -735,7 +735,8 @@ static bool zebra_nhe_find(struct nhg_hash_entry **nhe, /* return value */
 		 * It goes in HASH and ID table.
 		 */
 		newnhe = hash_get(zrouter.nhgs, lookup, zebra_nhg_hash_alloc);
-		zebra_nhg_insert_id(newnhe);
+		if (newnhe)
+			zebra_nhg_insert_id(newnhe);
 	} else {
 		/*
 		 * This is upperproto owned NHG or one we read in from dataplane
@@ -745,6 +746,11 @@ static bool zebra_nhe_find(struct nhg_hash_entry **nhe, /* return value */
 		 */
 		newnhe =
 			hash_get(zrouter.nhgs_id, lookup, zebra_nhg_hash_alloc);
+	}
+
+	if (!newnhe) {
+		zlog_err("Failed to allocate nexthop hash entry");
+		return false;
 	}
 
 	created = true;
@@ -3831,6 +3837,12 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 	}
 
 	new = zebra_nhg_rib_find_nhe(&lookup, afi);
+
+	if (!new) {
+		zlog_err("%s: zebra_nhg_rib_find_nhe failed for id %u",
+			 __func__, id);
+		return NULL;
+	}
 
 	zebra_nhg_increment_ref(new);
 

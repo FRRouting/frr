@@ -2512,6 +2512,11 @@ ssize_t netlink_route_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx
 	p = dplane_ctx_get_dest(ctx);
 	src_p = dplane_ctx_get_src(ctx);
 
+	if (!p) {
+		zlog_err("Context received for kernel route update with null destination prefix");
+		return -1;
+	}
+
 	if (datalen < sizeof(*req))
 		return 0;
 
@@ -2981,6 +2986,11 @@ static bool _netlink_nexthop_build_group(struct nlmsghdr *n, size_t req_size, ui
 			struct rtattr *nest;
 
 			nest = nl_attr_nest(n, req_size, NHA_RES_GROUP);
+			if (!nest) {
+				// Log error and return early
+				zlog_err("Failed to populate netlink attribute nest");
+				return false;
+			}
 
 			nl_attr_put16(n, req_size, NHA_RES_GROUP_BUCKETS,
 				      nhgr->buckets);
@@ -3159,6 +3169,12 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 				req->nhm.nh_family = AF_INET;
 			else if (afi == AFI_IP6)
 				req->nhm.nh_family = AF_INET6;
+
+			if (!nh) {
+				flog_err(EC_ZEBRA_NHG_FIB_UPDATE,
+					 "Context received for kernel nexthop update with null nexthop");
+				return -1;
+			}
 
 			switch (nh->type) {
 			case NEXTHOP_TYPE_IPV4:
@@ -4079,7 +4095,18 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	uint32_t nhg_id = 0;
 	enum dplane_op_e op;
 
+	if (!h) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: null netlink message header", __func__);
+		return 0;
+	}
+
 	ndm = NLMSG_DATA(h);
+	if (!ndm) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: null ndmsg from netlink data", __func__);
+		return 0;
+	}
 
 	/* Parse attributes and extract fields of interest. Do basic
 	 * validation of the fields.
@@ -4502,12 +4529,23 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	int l2_len = 0;
 	enum dplane_op_e op;
 
+	if (!h) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: null netlink message header", __func__);
+		return 0;
+	}
+
 	if (h->nlmsg_type != RTM_NEWNEIGH && h->nlmsg_type != RTM_DELNEIGH &&
 	    h->nlmsg_type != RTM_GETNEIGH) {
 		return 0;
 	}
 
 	ndm = NLMSG_DATA(h);
+	if (!ndm) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: null ndmsg from netlink data", __func__);
+		return 0;
+	}
 
 	/* The interface should exist. */
 	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(ns_id), ndm->ndm_ifindex);
@@ -4552,8 +4590,10 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 
 	if (l2_len) {
 		sockunion_family(&link_layer_ipv4) = AF_INET;
-		memcpy((void *)sockunion_get_addr(&link_layer_ipv4),
-		       RTA_DATA(tb[NDA_LLADDR]), l2_len);
+		const uint8_t *addr = sockunion_get_addr(&link_layer_ipv4);
+
+		if (addr)
+			memcpy((void *)addr, RTA_DATA(tb[NDA_LLADDR]), l2_len);
 	} else
 		sockunion_family(&link_layer_ipv4) = AF_UNSPEC;
 

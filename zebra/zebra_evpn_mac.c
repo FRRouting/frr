@@ -331,7 +331,14 @@ static void zebra_evpn_mac_get_access_info(struct zebra_mac *mac,
 		if (mac->zevpn->vxlan_if) {
 			zif = mac->zevpn->vxlan_if->info;
 			vni = zebra_vxlan_if_vni_find(zif, mac->zevpn->vni);
-			*vid = vni->access_vlan;
+			if (vni)
+				*vid = vni->access_vlan;
+			else {
+				if (IS_ZEBRA_DEBUG_VXLAN)
+					zlog_debug("VNI %u not found in interface for MAC %pEA access info",
+						   mac->zevpn->vni, &mac->macaddr);
+				*vid = 0;
+			}
 		} else {
 			*vid = 0;
 		}
@@ -1093,6 +1100,12 @@ struct zebra_mac *zebra_evpn_mac_add(struct zebra_evpn *zevpn,
 	memset(&tmp_mac, 0, sizeof(tmp_mac));
 	memcpy(&tmp_mac.macaddr, macaddr, ETH_ALEN);
 	mac = hash_get(zevpn->mac_table, &tmp_mac, zebra_evpn_mac_alloc);
+
+	if (!mac) {
+		zlog_err("%s: hash_get failed to allocate MAC for %pEA",
+			 __func__, macaddr);
+		return NULL;
+	}
 
 	mac->zevpn = zevpn;
 	mac->dad_mac_auto_recovery_timer = NULL;

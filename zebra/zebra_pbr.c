@@ -1034,6 +1034,8 @@ void zebra_pbr_add_iptable(struct zebra_pbr_iptable *iptable)
 
 	ipt_hash = hash_get(zrouter.iptable_hash, iptable,
 			    pbr_iptable_alloc_intern);
+	if (!ipt_hash)
+		return;
 	(void)dplane_pbr_iptable_add(ipt_hash);
 }
 

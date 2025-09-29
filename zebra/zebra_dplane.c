@@ -3834,6 +3834,10 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 
 	/* Extract ns info - can't use pointers to 'core' structs */
 	zvrf = vrf_info_lookup(re->vrf_id);
+	if (!zvrf) {
+		zlog_warn("VRF %u not found for route init", re->vrf_id);
+		return -EINVAL;
+	}
 	zns = zvrf->zns;
 	dplane_ctx_ns_init(ctx, zns, (op == DPLANE_OP_ROUTE_UPDATE));
 
@@ -5109,9 +5113,11 @@ dplane_lsp_notif_update(struct zebra_lsp *lsp, enum dplane_op_e op,
 							  nhlfe->type,
 							  nhlfe->nexthop);
 
-			/* Need to copy flags too */
-			new_nhlfe->flags = nhlfe->flags;
-			new_nhlfe->nexthop->flags = nhlfe->nexthop->flags;
+			if (new_nhlfe) {
+				/* Need to copy flags too */
+				new_nhlfe->flags = nhlfe->flags;
+				new_nhlfe->nexthop->flags = nhlfe->nexthop->flags;
+			}
 		}
 	}
 
@@ -7815,7 +7821,7 @@ static void dplane_thread_loop(struct event *event)
 			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 				zlog_debug("%s: Next Provider(%s) Input queue is %" PRIu64
 					   ", holding off work",
-					   __func__, next_prov->dp_name, curr);
+					   __func__, next_prov ? next_prov->dp_name : "NULL", curr);
 			counter = 0;
 		} else if (out_curr >= (uint64_t)limit) {
 			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)

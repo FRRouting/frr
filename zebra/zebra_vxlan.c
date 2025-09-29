@@ -1232,6 +1232,13 @@ static struct zebra_mac *zl3vni_rmac_add(struct zebra_l3vni *zl3vni,
 	memset(&tmp_rmac, 0, sizeof(tmp_rmac));
 	memcpy(&tmp_rmac.macaddr, rmac, ETH_ALEN);
 	zrmac = hash_get(zl3vni->rmac_table, &tmp_rmac, zl3vni_rmac_alloc);
+	if (!zrmac) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_err("Failed to allocate RMAC entry for %pEA in L3VNI %u",
+				 rmac, zl3vni->vni);
+		return NULL;
+	}
+
 	zrmac->nh_list = list_new();
 	zrmac->nh_list->cmp = (int (*)(void *, void *))l3vni_rmac_nh_list_cmp;
 	zrmac->nh_list->del = (void (*)(void *))l3vni_rmac_nh_free;
@@ -1283,6 +1290,13 @@ static int zl3vni_rmac_install(struct zebra_l3vni *zl3vni,
 		return -1;
 
 	vni = zebra_vxlan_if_vni_find(zif, zl3vni->vni);
+	if (!vni) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug(
+				"RMAC %pEA on L3-VNI %u couldn't be installed - VNI not found",
+				&zrmac->macaddr, zl3vni->vni);
+		return -1;
+	}
 
 	br_zif = (const struct zebra_if *)br_ifp->info;
 
@@ -1333,6 +1347,13 @@ static int zl3vni_rmac_uninstall(struct zebra_l3vni *zl3vni,
 		return -1;
 
 	vni = zebra_vxlan_if_vni_find(zif, zl3vni->vni);
+	if (!vni) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug(
+				"RMAC %pEA on L3-VNI %u couldn't be uninstalled - VNI not found",
+				&zrmac->macaddr, zl3vni->vni);
+		return -1;
+	}
 
 	br_zif = (const struct zebra_if *)br_ifp->info;
 	if (IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif))
@@ -1925,6 +1946,12 @@ static struct zebra_l3vni *zl3vni_add(vni_t vni, vrf_id_t vrf_id)
 	tmp_zl3vni.vni = vni;
 
 	zl3vni = hash_get(zrouter.l3vni_table, &tmp_zl3vni, zl3vni_alloc);
+	if (!zl3vni) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_err("Failed to allocate L3VNI %u for VRF %u",
+				 vni, vrf_id);
+		return NULL;
+	}
 
 	zl3vni->vrf_id = vrf_id;
 	zl3vni->svi_if = NULL;
@@ -5956,6 +5983,8 @@ static struct zebra_vxlan_sg *zebra_vxlan_sg_new(struct zebra_vrf *zvrf,
 	struct zebra_vxlan_sg *vxlan_sg;
 
 	vxlan_sg = XCALLOC(MTYPE_ZVXLAN_SG, sizeof(*vxlan_sg));
+	if (!zvrf || !sg || !vxlan_sg)
+		return NULL;
 
 	vxlan_sg->zvrf = zvrf;
 	vxlan_sg->sg = *sg;
@@ -6003,6 +6032,11 @@ static struct zebra_vxlan_sg *zebra_vxlan_sg_add(struct zebra_vrf *zvrf,
 
 	vxlan_sg = zebra_vxlan_sg_new(zvrf, sg);
 
+	if (!vxlan_sg) {
+		zlog_err("%s: zebra_vxlan_sg_new failed", __func__);
+		return NULL;
+	}
+
 	zebra_vxlan_sg_send(zvrf, sg, vxlan_sg->sg_str,
 			ZEBRA_VXLAN_SG_ADD);
 
@@ -6013,6 +6047,9 @@ static void zebra_vxlan_sg_del(struct zebra_vxlan_sg *vxlan_sg)
 {
 	struct ipaddr sip;
 	struct zebra_vrf *zvrf;
+
+	if (!vxlan_sg)
+		return;
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
 

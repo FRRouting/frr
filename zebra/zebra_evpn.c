@@ -71,7 +71,7 @@ int advertise_svi_macip_enabled(struct zebra_evpn *zevpn)
 	struct zebra_vrf *zvrf;
 
 	zvrf = zebra_vrf_get_evpn();
-	if (zvrf->advertise_svi_macip)
+	if (zvrf && zvrf->advertise_svi_macip)
 		return 1;
 
 	if (zevpn && zevpn->advertise_svi_macip)
@@ -414,6 +414,11 @@ int zebra_evpn_gw_macip_add(struct interface *ifp, struct zebra_evpn *zevpn,
 		return -1;
 
 	vni = zebra_vxlan_if_vni_find(zif, zevpn->vni);
+	if (!vni) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("VNI %u not found in interface for GW MACIP ADD", zevpn->vni);
+		return -1;
+	}
 
 	zebra_evpn_mac_gw_macip_add(ifp, zevpn, ip, &mac, macaddr,
 				    vni->access_vlan, true);
@@ -928,6 +933,11 @@ void zebra_evpn_read_mac_neigh(struct zebra_evpn *zevpn, struct interface *ifp)
 
 	zif = ifp->info;
 	vni = zebra_vxlan_if_vni_find(zif, zevpn->vni);
+	if (!vni) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("VNI %u not found in interface for MAC/neigh read", zevpn->vni);
+		return;
+	}
 	zvrf = zebra_vrf_lookup_by_id(zevpn->vrf_id);
 	if (!zvrf || !zvrf->zns)
 		return;
@@ -1541,6 +1551,12 @@ void zebra_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr,
 	if (!vnip) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("VNI %u not in interface upon remote MACIP DEL", vni);
+		return;
+	}
+
+	if (!macaddr) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("NULL MAC address provided for remote MACIP DEL VNI %u", vni);
 		return;
 	}
 

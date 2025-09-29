@@ -76,7 +76,15 @@ static inline struct route_table *get_rnh_table(vrf_id_t vrfid, afi_t afi,
 static void zebra_rnh_remove_from_routing_table(struct rnh *rnh)
 {
 	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(rnh->vrf_id);
-	struct route_table *table = zvrf->table[rnh->afi][rnh->safi];
+	struct route_table *table;
+
+	if (!zvrf) {
+		if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+			zlog_debug("%s: VRF %u not found for RNH removal", __func__, rnh->vrf_id);
+		return;
+	}
+
+	table = zvrf->table[rnh->afi][rnh->safi];
 	struct route_node *rn;
 	rib_dest_t *dest;
 
@@ -100,7 +108,15 @@ static void zebra_rnh_remove_from_routing_table(struct rnh *rnh)
 static void zebra_rnh_store_in_routing_table(struct rnh *rnh)
 {
 	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(rnh->vrf_id);
-	struct route_table *table = zvrf->table[rnh->afi][rnh->safi];
+	struct route_table *table;
+
+	if (!zvrf) {
+		if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+			zlog_debug("%s: VRF %u not found for RNH storage", __func__, rnh->vrf_id);
+		return;
+	}
+
+	table = zvrf->table[rnh->afi][rnh->safi];
 	struct route_node *rn;
 	rib_dest_t *dest;
 
@@ -287,7 +303,7 @@ void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client)
 
 		zlog_debug("Client %s unregisters for RNH %s(%u)%pRN",
 			   zebra_route_string(client->proto), VRF_LOGNAME(vrf),
-			   vrf->vrf_id, rnh->node);
+			   vrf ? vrf->vrf_id : rnh->vrf_id, rnh->node);
 	}
 	listnode_delete(rnh->client_list, client);
 	zebra_delete_rnh(rnh);
@@ -410,6 +426,11 @@ static void zebra_rnh_notify_protocol_clients(struct zebra_vrf *zvrf, afi_t afi,
 	struct listnode *node;
 	struct zserv *client;
 	int num_resolving_nh;
+
+	if (!zvrf || !zvrf->vrf) {
+		zlog_warn("%s: Invalid VRF context", __func__);
+		return;
+	}
 
 	if (IS_ZEBRA_DEBUG_NHT) {
 		if (prn && re) {
