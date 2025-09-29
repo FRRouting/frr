@@ -33,7 +33,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.common_config import required_linux_kernel_version
+from lib.common_config import required_linux_kernel_version, retry
 from lib.checkping import check_ping
 
 
@@ -760,6 +760,7 @@ def test_sid_reenable_both_srv6_and_mpls():
     )
 
 
+@retry(retry_timeout=10)
 def _check_show_bgp_ipv6_vpn_selected(router, prefix, mpls, srv6):
     output = json.loads(router.vtysh_cmd(f"show bgp ipv6 vpn {prefix} json"))
     found_srv6 = False
@@ -789,7 +790,7 @@ def _check_show_bgp_ipv6_vpn_selected(router, prefix, mpls, srv6):
                     f"MPLS path 'valid' value for {prefix} unexpected, expected {mpls}"
                 )
     if found_mpls and found_srv6:
-        return None
+        return True
     return f"only one path has been found : MPLS {found_mpls}, SRv6 {found_srv6}"
 
 
@@ -809,16 +810,11 @@ def test_sid_configure_r2_listener_as_srv6():
         """
     )
 
-    test_func = functools.partial(
-        _check_show_bgp_ipv6_vpn_selected,
-        tgen.gears["r2"],
-        "2001:8::/64",
-        mpls=False,
-        srv6=True,
+    success = _check_show_bgp_ipv6_vpn_selected(
+        tgen.gears["r2"], "2001:8::/64", mpls=False, srv6=True
     )
-    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
     assert (
-        success
+        success is True
     ), "network 2001:8::/64 selected for SRv6, unselected for MPLS: not found on r2"
 
 
@@ -838,16 +834,11 @@ def test_sid_configure_r2_listener_as_srv6_and_mpls():
         """
     )
 
-    test_func = functools.partial(
-        _check_show_bgp_ipv6_vpn_selected,
-        tgen.gears["r2"],
-        "2001:8::/64",
-        mpls=True,
-        srv6=True,
+    success = _check_show_bgp_ipv6_vpn_selected(
+        tgen.gears["r2"], "2001:8::/64", mpls=True, srv6=True
     )
-    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
     assert (
-        success
+        success is True
     ), "network 2001:8::/64 selected for MPLS, selected for SRv6: not found on r2"
 
 
@@ -867,16 +858,11 @@ def test_sid_configure_r2_listener_as_mpls():
         """
     )
 
-    test_func = functools.partial(
-        _check_show_bgp_ipv6_vpn_selected,
-        tgen.gears["r2"],
-        "2001:8::/64",
-        mpls=True,
-        srv6=False,
+    success = _check_show_bgp_ipv6_vpn_selected(
+        tgen.gears["r2"], "2001:8::/64", mpls=True, srv6=False
     )
-    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=3)
     assert (
-        success
+        success is True
     ), "network 2001:8::/64 selected for MPLS, unselected for SRv6: not found on r2"
 
 
