@@ -4575,7 +4575,7 @@ static struct cmd_node forwarding_node = {
 	.config_write = config_write_forwarding,
 };
 static int config_write_kernel_route(struct vty *vty);
-static struct kernel_routes_node = {
+static struct cmd_node kernel_routes_node = {
 	.name = "kernel_routes",
 	.node = KERNEL_ROUTE_NODE,
 	.prompt = "",
