@@ -287,7 +287,7 @@ void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client)
 
 		zlog_debug("Client %s unregisters for RNH %s(%u)%pRN",
 			   zebra_route_string(client->proto), VRF_LOGNAME(vrf),
-			   vrf->vrf_id, rnh->node);
+			   vrf ? vrf->vrf_id : rnh->vrf_id, rnh->node);
 	}
 	listnode_delete(rnh->client_list, client);
 	zebra_delete_rnh(rnh);

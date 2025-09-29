@@ -1858,7 +1858,7 @@ void zebra_evpn_print_neigh(struct zebra_neigh *n, void *ctxt,
 		} else if (n->dad_count) {
 			monotime_since(&n->detect_start_time,
 				       &detect_start_time);
-			if (detect_start_time.tv_sec <= zvrf->dad_time) {
+			if (zvrf && detect_start_time.tv_sec <= zvrf->dad_time) {
 				time_to_string(n->detect_start_time.tv_sec,
 					       timebuf);
 				vty_out(vty,
