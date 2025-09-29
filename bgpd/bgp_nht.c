@@ -1060,7 +1060,7 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 			   zserv_command_string(command), &bnc->prefix,
 			   bnc->bgp->name_pretty);
 
-	prefix2sockunion(p, &addr);
+	prefix2sockunion(&bnc->prefix, &addr);
 
 	for (ALL_LIST_ELEMENTS(bnc->bgp->peer, node, nnode, peer)) {
 		char buf[SU_ADDRSTRLEN];
