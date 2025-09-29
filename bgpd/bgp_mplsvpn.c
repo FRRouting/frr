@@ -1830,7 +1830,6 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 	struct ecommunity *new_ecom = NULL;
 	struct ecommunity *rtlist_ecom;
 
-
 	if (debug)
 		zlog_debug("%s: from vrf %s", __func__, from_bgp->name_pretty);
 
