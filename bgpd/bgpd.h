@@ -724,7 +724,7 @@ struct bgp {
 	struct hash *tip_hash;
 
 	/* Static route configuration.  */
-	struct bgp_table *route[AFI_MAX][SAFI_MAX];
+	struct bgp_table *static_routes[AFI_MAX][SAFI_MAX];
 
 	/* Aggregate address configuration.  */
 	struct bgp_table *aggregate[AFI_MAX][SAFI_MAX];

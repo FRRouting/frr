@@ -7979,7 +7979,7 @@ int bgp_static_set(struct vty *vty, bool negate, const char *ip_str,
 	}
 
 	if (safi == SAFI_MPLS_VPN || safi == SAFI_EVPN) {
-		pdest = bgp_node_get(bgp->route[afi][safi],
+		pdest = bgp_node_get(bgp->static_routes[afi][safi],
 				     (struct prefix *)&prd);
 		if (!bgp_dest_has_bgp_path_info_data(pdest))
 			bgp_dest_set_bgp_table_info(pdest,
@@ -7987,12 +7987,12 @@ int bgp_static_set(struct vty *vty, bool negate, const char *ip_str,
 								   safi));
 		table = bgp_dest_get_bgp_table_info(pdest);
 	} else {
-		table = bgp->route[afi][safi];
+		table = bgp->static_routes[afi][safi];
 	}
 
 	if (negate) {
 		/* Set BGP static route configuration. */
-		dest = bgp_node_lookup(bgp->route[afi][safi], &p);
+		dest = bgp_node_lookup(bgp->static_routes[afi][safi], &p);
 
 		if (!dest) {
 			vty_out(vty, "%% Can't find static route specified\n");
@@ -8141,7 +8141,7 @@ void bgp_static_add(struct bgp *bgp)
 
 	SET_FLAG(bgp->flags, BGP_FLAG_FORCE_STATIC_PROCESS);
 	FOREACH_AFI_SAFI (afi, safi)
-		for (dest = bgp_table_top(bgp->route[afi][safi]); dest;
+		for (dest = bgp_table_top(bgp->static_routes[afi][safi]); dest;
 		     dest = bgp_route_next(dest)) {
 			if (!bgp_dest_has_bgp_path_info_data(dest))
 				continue;
@@ -8181,7 +8181,7 @@ void bgp_static_delete(struct bgp *bgp)
 	struct bgp_static *bgp_static;
 
 	FOREACH_AFI_SAFI (afi, safi)
-		for (dest = bgp_table_top(bgp->route[afi][safi]); dest;
+		for (dest = bgp_table_top(bgp->static_routes[afi][safi]); dest;
 		     dest = bgp_route_next(dest)) {
 			if (!bgp_dest_has_bgp_path_info_data(dest))
 				continue;
@@ -8238,7 +8238,7 @@ void bgp_static_redo_import_check(struct bgp *bgp)
 	/* Use this flag to force reprocessing of the route */
 	SET_FLAG(bgp->flags, BGP_FLAG_FORCE_STATIC_PROCESS);
 	FOREACH_AFI_SAFI (afi, safi) {
-		for (dest = bgp_table_top(bgp->route[afi][safi]); dest;
+		for (dest = bgp_table_top(bgp->static_routes[afi][safi]); dest;
 		     dest = bgp_route_next(dest)) {
 			if (!bgp_dest_has_bgp_path_info_data(dest))
 				continue;
@@ -16774,7 +16774,7 @@ uint8_t bgp_distance_apply(const struct prefix *p, struct bgp_path_info *pinfo,
 	}
 
 	/* Backdoor check. */
-	dest = bgp_node_lookup(bgp->route[afi][safi], p);
+	dest = bgp_node_lookup(bgp->static_routes[afi][safi], p);
 	if (dest) {
 		bgp_static = bgp_dest_get_bgp_static_info(dest);
 		bgp_dest_unlock_node(dest);
@@ -17290,7 +17290,7 @@ static void bgp_config_write_network_vpn(struct vty *vty, struct bgp *bgp,
 	mpls_label_t label;
 
 	/* Network configuration. */
-	for (pdest = bgp_table_top(bgp->route[afi][safi]); pdest;
+	for (pdest = bgp_table_top(bgp->static_routes[afi][safi]); pdest;
 	     pdest = bgp_route_next(pdest)) {
 		table = bgp_dest_get_bgp_table_info(pdest);
 		if (!table)
@@ -17337,7 +17337,7 @@ static void bgp_config_write_network_evpn(struct vty *vty, struct bgp *bgp,
 	char esi_buf[ESI_STR_LEN];
 
 	/* Network configuration. */
-	for (pdest = bgp_table_top(bgp->route[afi][safi]); pdest;
+	for (pdest = bgp_table_top(bgp->static_routes[afi][safi]); pdest;
 	     pdest = bgp_route_next(pdest)) {
 		table = bgp_dest_get_bgp_table_info(pdest);
 		if (!table)
@@ -17416,7 +17416,7 @@ void bgp_config_write_network(struct vty *vty, struct bgp *bgp, afi_t afi,
 	}
 
 	/* Network configuration. */
-	for (dest = bgp_table_top(bgp->route[afi][safi]); dest;
+	for (dest = bgp_table_top(bgp->static_routes[afi][safi]); dest;
 	     dest = bgp_route_next(dest)) {
 		bgp_static = bgp_dest_get_bgp_static_info(dest);
 		if (bgp_static == NULL)
