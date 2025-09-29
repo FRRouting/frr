@@ -804,12 +804,11 @@ void zclient_init_sync(struct zclient *zclient, int redist_default,
 	zclient->redist_default = redist_default;
 	zclient->instance = instance;
 	/* Pending: make afi(s) an arg. */
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
+	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		redist_add_instance(&zclient->mi_redist[afi][redist_default],
 				instance);
-
-	/* Set default-information redistribute to zero. */
-	zclient->default_information = vrf_bitmap_init();
+		zclient->default_information[afi] = vrf_bitmap_init();
+	}
 
 	if (zclient_debug)
 		zlog_debug("zclient_start is called");

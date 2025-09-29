@@ -62,7 +62,6 @@ static void free_state(vrf_id_t vrf_id, struct route_entry *re,
 static void copy_state(struct rnh *rnh, const struct route_entry *re,
 		       struct route_node *rn);
 
-#define ZEBRA_INFIOT_CUSTOM_NEXTHOP_CHECK
 #ifdef ZEBRA_INFIOT_CUSTOM_NEXTHOP_CHECK
 static int check_overlay_nexthop(struct prefix *pp, uint8_t *isreachable, struct rnh *rnh);
 DECLARE_HOOK(evaluate_custom_nexthop, (struct prefix *pp, uint8_t *isreachable, struct rnh *rnh),

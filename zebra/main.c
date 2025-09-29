@@ -261,7 +261,6 @@ struct frr_signal_t zebra_signals[] = {
 	},
 };
 
-#define ZEBRA_INFIOT_CUSTOM_NEXTHOP_CHECK
 #ifdef ZEBRA_INFIOT_CUSTOM_NEXTHOP_CHECK
 #include "tracker_api.h"
 #include "lib/json.h"

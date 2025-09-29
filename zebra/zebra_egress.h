@@ -3,9 +3,15 @@
  *
  * This file is part of GNU Zebra.
  */
+#ifndef _ZEBRA_EGRESS_H
+#define _ZEBRA_EGRESS_H
 
 #include <zebra.h>
 #include "hook.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct infiot_egress_t_ {
 	int size;
@@ -23,4 +29,9 @@ struct infiot_egress_hook {
 };
 
 DECLARE_HOOK(egress_update, (struct infiot_egress_hook * rn, const char *reason),
-	     (rn, reason))
+	     (rn, reason));
+#ifdef __cplusplus
+}
+#endif
+
+#endif

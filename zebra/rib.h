@@ -48,6 +48,8 @@ DECLARE_MTYPE(RE);
 
 PREDECL_LIST(rnh_list);
 
+#define ZEBRA_INFIOT_CUSTOM_NEXTHOP_CHECK
+
 /* Nexthop structure. */
 struct rnh {
 	uint8_t flags;
@@ -79,12 +81,11 @@ struct rnh {
 	 * if this has been filtered for the client
 	 */
 	int filtered[ZEBRA_ROUTE_MAX];
-
-	struct rnh_list_item rnh_list_item;
 #ifdef ZEBRA_INFIOT_CUSTOM_NEXTHOP_CHECK
-	int dest_trkr_index;
-	int nh_trkr_index;
+        int dest_trkr_index;
+        int nh_trkr_index;
 #endif
+	struct rnh_list_item rnh_list_item;
 };
 
 #define DISTANCE_INFINITY  255

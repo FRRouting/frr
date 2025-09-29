@@ -55,7 +55,6 @@
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_vxlan.h"
-#include "zebra/zapi_msg.h"
 #include "zebra/zebra_dplane.h"
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_script.h"

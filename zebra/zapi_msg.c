@@ -68,7 +68,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, RE_OPAQUE, "Route Opaque Data");
 
 static int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg);
 DEFINE_HOOK(egress_update, (struct infiot_egress_hook * rn, const char *reason),
-		(rn, reason))
+		(rn, reason));
 
 /* Encoding helpers -------------------------------------------------------- */
 
