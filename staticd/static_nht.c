@@ -17,11 +17,13 @@
 #include "static_zebra.h"
 #include "static_nht.h"
 
-static void static_nht_update_path(struct static_path *pn, struct prefix *nhp,
-				   uint32_t nh_num, vrf_id_t nh_vrf_id)
+static void static_nht_update_path(struct static_path *pn, struct prefix *nhp, uint32_t nh_num,
+				   vrf_id_t nh_vrf_id, struct zapi_nexthop *nexthops)
 {
 	struct static_nexthop *nh;
 	bool route_changed = false;
+	uint32_t i;
+	bool found_nh_interface;
 
 	frr_each(static_nexthop_list, &pn->nexthop_list, nh) {
 		if (nh->nh_vrf_id != nh_vrf_id)
@@ -42,6 +44,21 @@ static void static_nht_update_path(struct static_path *pn, struct prefix *nhp,
 			       == 0)
 			nh->nh_valid = !!nh_num;
 
+		if (nh->type == STATIC_IPV4_GATEWAY_IFNAME ||
+		    nh->type == STATIC_IPV6_GATEWAY_IFNAME) {
+			found_nh_interface = false;
+			/* invalidate nh_num if interface does not match */
+			for (i = 0; i < nh_num; i++) {
+				if (nexthops[i].type == NEXTHOP_TYPE_IPV4_IFINDEX ||
+				    nexthops[i].type == NEXTHOP_TYPE_IPV6_IFINDEX ||
+				    nexthops[i].type == NEXTHOP_TYPE_IFINDEX)
+					if (nh->ifindex && nh->ifindex == nexthops[i].ifindex)
+						found_nh_interface = true;
+			}
+			if (found_nh_interface == false)
+				nh->nh_valid = false;
+		}
+
 		if (nh->state == STATIC_START)
 			route_changed = true;
 	}
@@ -51,7 +68,8 @@ static void static_nht_update_path(struct static_path *pn, struct prefix *nhp,
 
 static void static_nht_update_safi(const struct prefix *sp, const struct prefix *ssrc_p,
 				   struct prefix *nhp, uint32_t nh_num, afi_t afi, safi_t safi,
-				   struct static_vrf *svrf, vrf_id_t nh_vrf_id)
+				   struct static_vrf *svrf, vrf_id_t nh_vrf_id,
+				   struct zapi_nexthop *nexthops)
 {
 	struct route_table *stable;
 	struct route_node *rn;
@@ -67,8 +85,7 @@ static void static_nht_update_safi(const struct prefix *sp, const struct prefix 
 		if (rn && rn->info) {
 			si = static_route_info_from_rnode(rn);
 			frr_each(static_path_list, &si->path_list, pn) {
-				static_nht_update_path(pn, nhp, nh_num,
-						       nh_vrf_id);
+				static_nht_update_path(pn, nhp, nh_num, nh_vrf_id, nexthops);
 			}
 			route_unlock_node(rn);
 		}
@@ -80,18 +97,20 @@ static void static_nht_update_safi(const struct prefix *sp, const struct prefix 
 		if (!si)
 			continue;
 		frr_each(static_path_list, &si->path_list, pn) {
-			static_nht_update_path(pn, nhp, nh_num, nh_vrf_id);
+			static_nht_update_path(pn, nhp, nh_num, nh_vrf_id, nexthops);
 		}
 	}
 }
 
 void static_nht_update(const struct prefix *sp, const struct prefix *ssrc_p, struct prefix *nhp,
-		       uint32_t nh_num, afi_t afi, safi_t safi, vrf_id_t nh_vrf_id)
+		       uint32_t nh_num, afi_t afi, safi_t safi, vrf_id_t nh_vrf_id,
+		       struct zapi_nexthop *nexthops)
 {
 	struct static_vrf *svrf;
 
 	RB_FOREACH (svrf, svrf_name_head, &svrfs)
-		static_nht_update_safi(sp, ssrc_p, nhp, nh_num, afi, safi, svrf, nh_vrf_id);
+		static_nht_update_safi(sp, ssrc_p, nhp, nh_num, afi, safi, svrf, nh_vrf_id,
+				       nexthops);
 }
 
 static void static_nht_reset_start_safi(struct prefix *nhp, afi_t afi,
