@@ -2969,7 +2969,6 @@ static enum ospf_read_return_enum ospf_read_helper(struct ospf *ospf)
 	struct ip *iph;
 	struct ospf_header *ospfh;
 	uint16_t length;
-	struct connected *c;
 	struct interface *ifp = NULL;
 
 	stream_reset(ospf->ibuf);
@@ -2992,7 +2991,7 @@ static enum ospf_read_return_enum ospf_read_helper(struct ospf *ospf)
 		if (IS_DEBUG_OSPF_PACKET(0, RECV)) {
 			zlog_debug("ospf_read: packet dropped as ifp is NULL");
 		}
-		return OSPF_READ_CONTINUE
+		return OSPF_READ_CONTINUE;
 	}
 
 	if (ospf->vrf_id == VRF_DEFAULT && ospf->vrf_id != ifp->vrf->vrf_id) {
