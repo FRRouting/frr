@@ -321,7 +321,7 @@ union prefixconstptr {
 #endif /* INET6_BUFSIZ */
 
 /* Maximum string length of the result of prefix2str */
-#define PREFIX_STRLEN 80
+#define PREFIX_STRLEN 84
 
 /*
  * Longest possible length of a (S,G) string is 82 bytes
