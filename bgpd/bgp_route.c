@@ -5058,8 +5058,8 @@ void bgp_update_check_valid_flags(struct bgp *bgp, struct peer *peer, struct bgp
 		    CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD)) {
 			if (accept_own)
 				bgp_path_info_set_flag(dest, pi, BGP_PATH_ACCEPT_OWN);
-			if (pi->peer && pi->peer->bgp->peer_self != pi->peer &&
-			    safi == SAFI_MPLS_VPN) {
+			if (safi == SAFI_MPLS_VPN && pi->peer &&
+			    pi->peer->bgp->peer_self != pi->peer) {
 				if (pi->attr->srv6_l3vpn || pi->attr->srv6_vpn) {
 					if (peergroup_af_flag_check(peer, afi, SAFI_MPLS_VPN,
 								    PEER_FLAG_CONFIG_ENCAPSULATION_SRV6) ||
