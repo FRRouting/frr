@@ -273,7 +273,7 @@ uint8_t g_infovlay_cfgread = 0;
 int g_inf_is_controller = 0;
 #define ZEBRA_INFIOT_CUSTOM_NEXTHOP_CFGPATH "/infgw/inf_config.json"
 
-static int infnh_readcfg()
+static int infnh_readcfg(void)
 {
 	int ok = 0;
 	FILE *fp = NULL;

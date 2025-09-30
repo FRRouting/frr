@@ -1063,7 +1063,6 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 	prefix2sockunion(&bnc->prefix, &addr);
 
 	for (ALL_LIST_ELEMENTS(bnc->bgp->peer, node, nnode, peer)) {
-		char buf[SU_ADDRSTRLEN];
 		if(sockunion_same(&peer->su, &addr)) {
 			if (peer->local_as != peer->as) {
 				bgp_client_info = ZEBRA_INF_BGP_NHT_EBGP_REG;

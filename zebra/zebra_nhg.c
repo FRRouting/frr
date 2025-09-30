@@ -2149,8 +2149,8 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 	afi_t afi = AFI_IP;
 
 	if (IS_ZEBRA_DEBUG_NHT) {
-		zlog_debug("NextHopActive1: flags %d nexthop %s type %d NH flags %u ifindex %d",
-				flags, inet_ntoa(nexthop->gate.ipv4),
+		zlog_debug("NextHopActive1: flags %d nexthop %pI4 type %d NH flags %u ifindex %d",
+				flags, &nexthop->gate.ipv4,
 				nexthop->type, nexthop->flags, nexthop->ifindex);
 	}
 
@@ -2328,8 +2328,8 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 		route_unlock_node(rn);
 
 		if (g_skip_rtnetlink) {
-			zlog_debug("NextHopActive2: flags %d, nexthop %s type %d NH flags %u",
-					flags, inet_ntoa(nexthop->gate.ipv4),
+			zlog_debug("NextHopActive2: flags %d, nexthop %pI4 type %d NH flags %u",
+					flags, &nexthop->gate.ipv4,
 					nexthop->type, nexthop->flags);
 			return 1;
 		}

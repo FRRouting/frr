@@ -500,7 +500,7 @@ static void zebra_rnh_notify_protocol_clients(struct zebra_vrf *zvrf, afi_t afi,
 #ifdef ZEBRA_INFIOT_CUSTOM_NEXTHOP_CHECK
 #include "tracker_api.h"
 
-static void recreate_tracker_client() {
+static void recreate_tracker_client(void) {
 	/* trkr should not be NULL, certainly a race condition where
 	 * data is inconsistent between tracker client and manager.
 	 * Recreating fixes it.

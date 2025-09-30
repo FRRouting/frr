@@ -3610,7 +3610,6 @@ static int bgp_pbr_get_ifnumber(struct bgp *bgp, uint8_t family)
 //send to zebra
 void bgp_send_infiot_egress(struct egress_data info, int size) {
 	struct stream *s;
-	int ret = 0;
 	s = zclient->obuf;
 	stream_reset(s);
 	zclient_create_header(s,
@@ -3626,7 +3625,7 @@ void bgp_send_infiot_egress(struct egress_data info, int size) {
 		stream_putw(s, info.cost[i]);
 	}
 	stream_putw_at(s, 0, stream_get_endp(s));
-	ret = zclient_send_message(zclient);
+	zclient_send_message(zclient);
 }
 
 void bgp_send_pbr_iptable(struct bgp_pbr_action *pba,

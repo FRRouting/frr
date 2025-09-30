@@ -1819,7 +1819,7 @@ static void ecommunity_gettoken_infiot(char *str,uint32_t *ipaddr,uint16_t *valu
 		str++;
 	}
 	if (*p == '\0')
-		return NULL;
+		return;
 	while (isdigit((int)*p) || *p == ':' || *p == '.') {
 		if (*p == ':') {
 			if (separator)
@@ -1870,7 +1870,6 @@ static void update_click_peer_egress(struct attr *attr)
 	struct egress_data info;
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES))) {
 		snprintf(buffer, sizeof(buffer),"%s", ecommunity_str(attr->ecommunity));
-		struct ecommunity_val eval;
 		char* rest = buffer;
 		char* token;
 		int size=0;
