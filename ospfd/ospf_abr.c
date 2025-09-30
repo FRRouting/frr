@@ -564,7 +564,7 @@ static void ospf_abr_update_aggregate(struct ospf_area_range *range,
 	range->specifics++;
 }
 
-static void set_metric(struct ospf_lsa *lsa, uint32_t metric)
+void ospf_abr_summary_lsa_set_metric(struct ospf_lsa *lsa, uint32_t metric)
 {
 	struct summary_lsa *header;
 	uint8_t *mp;
@@ -736,7 +736,7 @@ void ospf_abr_announce_network_to_area(struct prefix_ipv4 *p, uint32_t cost,
 			/* LSA is changed, refresh it */
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug("%s: refreshing summary", __func__);
-			set_metric(old, full_cost);
+			ospf_abr_summary_lsa_set_metric(old, full_cost);
 			lsa = ospf_lsa_refresh(area->ospf, old);
 
 			if (!lsa) {
@@ -1107,7 +1107,7 @@ static void ospf_abr_announce_rtr_to_area(struct prefix_ipv4 *p, uint32_t cost,
 			zlog_debug("%s: 2.2", __func__);
 
 		if (old) {
-			set_metric(old, cost);
+			ospf_abr_summary_lsa_set_metric(old, cost);
 			lsa = ospf_lsa_refresh(area->ospf, old);
 		} else
 			lsa = ospf_summary_asbr_lsa_originate(p, cost, area);
