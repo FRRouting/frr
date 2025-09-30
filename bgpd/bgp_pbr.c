@@ -1683,9 +1683,6 @@ static void bgp_pbr_flush_iprule(struct bgp *bgp, struct bgp_pbr_action *bpa,
 	bgp_pbr_bpa_remove(bpa);
 }
 
-/*
- * This function frees the bpme that is passed in
- */
 static void bgp_pbr_flush_entry(struct bgp *bgp, struct bgp_pbr_action *bpa,
 				struct bgp_pbr_match *bpm,
 				struct bgp_pbr_match_entry *bpme)
@@ -1733,8 +1730,6 @@ static void bgp_pbr_flush_entry(struct bgp *bgp, struct bgp_pbr_action *bpa,
 		 * note that drop does not need to call send_pbr_action
 		 */
 	}
-
-	bgp_pbr_match_entry_free(bpme);
 	bgp_pbr_bpa_remove(bpa);
 }
 
@@ -1979,6 +1974,7 @@ static void bgp_pbr_policyroute_remove_from_zebra_unit(
 		local_bpa = local_bpm->action;
 		bgp_pbr_flush_entry(bgp, local_bpa,
 				    local_bpm, bpmer.bpme_found);
+		bpmer.bpme_found = NULL;
 	}
 }
 
@@ -2549,6 +2545,7 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 		local_bpa = local_bpm->action;
 		bgp_pbr_flush_entry(bgp, local_bpa,
 				    local_bpm, bpmer.bpme_found);
+		bpmer.bpme_found = NULL;
 	}
 
 
