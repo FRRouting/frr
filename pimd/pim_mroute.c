@@ -1488,7 +1488,7 @@ void pim_mroute_update_counters(struct channel_oil *c_oil)
 	c_oil->cc.oldwrong_if = c_oil->cc.wrong_if;
 
 	if (!c_oil->installed) {
-		c_oil->cc.lastused = 100 * pim->keep_alive_time;
+		c_oil->cc.lastused = 100ULL * pim->keep_alive_time;
 		if (PIM_DEBUG_MROUTE) {
 			pim_sgaddr sg;
 
