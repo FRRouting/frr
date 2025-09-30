@@ -1478,7 +1478,7 @@ int main(int argc, char **argv)
 					optarg);
 				frr_help_exit(1);
 			}
-			gs.period = 1000 * period;
+			gs.period = 1000UL * period;
 		} break;
 		case 'p':
 			watchfrr_di.pid_file = optarg;

@@ -261,7 +261,7 @@ void fabricd_initial_sync_hello(struct isis_circuit *circuit)
 
 	f->initial_sync_state = FABRICD_SYNC_STARTED;
 
-	long timeout = 2 * circuit->hello_interval[1] * circuit->hello_multiplier[1];
+	long timeout = 2L * circuit->hello_interval[1] * circuit->hello_multiplier[1];
 
 	f->initial_sync_circuit = circuit;
 	if (f->initial_sync_timeout)
