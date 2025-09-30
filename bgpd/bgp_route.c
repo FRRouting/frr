@@ -6923,10 +6923,6 @@ static int clear_batch_rib_helper(struct bgp_clearing_info *cinfo)
 				zlog_debug("%s: examining AFI/SAFI %s/%s", __func__, afi2str(afi),
 					   safi2str(safi));
 
-			/* Record the tables we've seen and don't repeat */
-			if (cinfo->table_map[afi][safi] > 0)
-				continue;
-
 			if (safi != SAFI_MPLS_VPN && safi != SAFI_ENCAP && safi != SAFI_EVPN) {
 				table = cinfo->bgp->rib[afi][safi];
 				if (!table) {
@@ -6938,9 +6934,6 @@ static int clear_batch_rib_helper(struct bgp_clearing_info *cinfo)
 				ret = walk_batch_table_helper(cinfo, table, false /*inner*/);
 				if (ret != 0)
 					break;
-
-				cinfo->table_map[afi][safi] = 1;
-
 			} else {
 				/* Process "inner" table for these SAFIs */
 				outer_table = cinfo->bgp->rib[afi][safi];
@@ -6977,8 +6970,6 @@ static int clear_batch_rib_helper(struct bgp_clearing_info *cinfo)
 
 				if (ret != 0)
 					break;
-
-				cinfo->table_map[afi][safi] = 1;
 			}
 
 			/* We've finished with a table: ensure we don't try to use stale
