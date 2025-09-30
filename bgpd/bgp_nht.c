@@ -1367,7 +1367,7 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		 */
 
 		bool bnc_is_valid_nexthop = false;
-		bool path_valid = false;
+		bool old_path_valid = false;
 		struct bgp_route_evpn *bre =
 			bgp_attr_get_evpn_overlay(path->attr);
 
@@ -1437,7 +1437,7 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		    bgp_attr_get_color(path->attr))
 			SET_FLAG(path->flags, BGP_PATH_IGP_CHANGED);
 
-		path_valid = CHECK_FLAG(path->flags, BGP_PATH_VALID);
+		old_path_valid = CHECK_FLAG(path->flags, BGP_PATH_VALID);
 		if (path->type == ZEBRA_ROUTE_BGP &&
 		    path->sub_type == BGP_ROUTE_STATIC &&
 		    !CHECK_FLAG(bgp_path->flags, BGP_FLAG_IMPORT_CHECK))
@@ -1457,8 +1457,8 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 			 */
 			vpn_leak_from_vrf_update(bgp_get_default(), bgp_path,
 						 path);
-		else if (path_valid != bnc_is_valid_nexthop) {
-			if (path_valid) {
+		else if (old_path_valid != bnc_is_valid_nexthop) {
+			if (old_path_valid) {
 				/* No longer valid, clear flag; also for EVPN
 				 * routes, unimport from VRFs if needed.
 				 */
@@ -1497,7 +1497,7 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 			}
 		}
 
-		if (path_valid != bnc_is_valid_nexthop)
+		if (old_path_valid != bnc_is_valid_nexthop)
 			hook_call(bgp_nht_path_update, bgp_path, path, bnc_is_valid_nexthop);
 
 		bgp_process(bgp_path, dest, path, afi, safi);
