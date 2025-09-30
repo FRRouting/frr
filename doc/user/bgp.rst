@@ -198,8 +198,9 @@ bottom until one of the factors can be used.
    If multi-pathing is enabled, then check whether the routes not yet
    distinguished in preference may be considered equal. If
    :clicmd:`bgp bestpath as-path multipath-relax` is set, all such routes are
-   considered equal, otherwise routes received via iBGP with identical AS_PATHs
-   or routes received from eBGP neighbours in the same AS are considered equal.
+   considered equal; otherwise, only routes received via iBGP with identical
+   AS_PATHs or routes received from eBGP neighbours in the same AS are
+   considered equal.
 
 10. **Already-selected external check**
 
