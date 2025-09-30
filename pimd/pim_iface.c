@@ -1206,7 +1206,7 @@ long pim_if_t_suppressed_msec(struct interface *ifp)
 
 	/* t_suppressed = t_periodic * rand(1.1, 1.4) */
 	ramount = 1100 + (frr_weak_random() % (1400 - 1100 + 1));
-	t_suppressed_msec = router->t_periodic * ramount;
+	t_suppressed_msec = (long)(router->t_periodic) * ramount;
 
 	return t_suppressed_msec;
 }
