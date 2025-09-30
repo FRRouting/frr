@@ -1974,6 +1974,7 @@ static void bgp_pbr_policyroute_remove_from_zebra_unit(
 		local_bpa = local_bpm->action;
 		bgp_pbr_flush_entry(bgp, local_bpa,
 				    local_bpm, bpmer.bpme_found);
+		bpmer.bpme_found = NULL;
 	}
 }
 
@@ -2544,6 +2545,7 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 		local_bpa = local_bpm->action;
 		bgp_pbr_flush_entry(bgp, local_bpa,
 				    local_bpm, bpmer.bpme_found);
+		bpmer.bpme_found = NULL;
 	}
 
 
