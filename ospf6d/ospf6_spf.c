@@ -693,7 +693,7 @@ void ospf6_spf_schedule(struct ospf6 *ospf6, unsigned int reason)
 	}
 
 	elapsed = monotime_since(&ospf6->ts_spf, NULL) / 1000LL;
-	ht = ospf6->spf_holdtime * ospf6->spf_hold_multiplier;
+	ht = (uint64_t)(ospf6->spf_holdtime) * ospf6->spf_hold_multiplier;
 
 	if (ht > ospf6->spf_max_holdtime)
 		ht = ospf6->spf_max_holdtime;

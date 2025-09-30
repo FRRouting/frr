@@ -196,7 +196,7 @@ static int rule_notify_owner(ZAPI_CALLBACK_ARGS)
 		return 0;
 	}
 
-	installed = 1 << pmi->install_bit;
+	installed = 1ULL << pmi->install_bit;
 
 	switch (note) {
 	case ZAPI_RULE_FAIL_INSTALL:
