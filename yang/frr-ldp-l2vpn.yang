@@ -1,0 +1,177 @@
+// SPDX-License-Identifier: BSD-2-Clause
+module frr-ldp-l2vpn {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/ldp-l2vpn";
+  prefix frr-ldp-l2vpn;
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  import frr-interface {
+    prefix frr-interface;
+  }
+
+  organization
+    "FRRouting";
+  contact
+    "FRR Users List:       <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This module defines LDP l2vpn settings
+
+     Copyright 2025 FRRouting
+
+     Redistribution and use in source and binary forms, with or without
+     modification, are permitted provided that the following conditions
+     are met:
+
+     1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+
+     2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+
+     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+     \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+     LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+     A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+     HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+     LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+     DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+     THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
+
+  revision 2025-10-01 {
+    description
+      "Initial revision.";
+  }
+
+  identity l2vpn-instance-type {
+    description
+      "Base Instance type.";
+  }
+
+  typedef l2vpn-instance-name {
+    type string;
+    description
+      "L2VPN instance name format.";
+  }
+
+  container l2vpn {
+    description
+      "L2VPN container.";
+
+    list l2vpn-instance {
+      key "name type";
+      description
+        "L2VPN instance name";
+      leaf name {
+        type l2vpn-instance-name;
+        description
+          "L2VPN instance name.";
+      }
+
+      leaf type {
+        type enumeration {
+          enum "vpls" {
+            value 2;
+            description
+              "LDP VPLS L2VPN instance, as defined per RFC4762.";
+          }
+        }
+        description "PW type.";
+      }
+
+      leaf pw-type {
+        type enumeration {
+          enum "ethernet-tagged" {
+            value 4;
+            description
+              "As defined per RFC4448, ch.4.1, this mode introduces a tag
+               for service-delimitation, used by the service provider to
+               distinguish the traffic.";
+          }
+          enum "ethernet" {
+            value 5;
+            description
+              "As defined per RFC4448, ch.4.2, the raw mode takes the ethernet
+               frames from the attachment circuit, and transmit the frame to
+               the single PW.";
+          }
+        }
+        description "PW type.";
+      }
+
+      leaf mtu {
+        type uint16 {
+          range "1500..9180";
+        }
+        description
+          "Maximum Transmission Unit value on the pseudowire";
+      }
+
+      leaf bridge-interface {
+        type frr-interface:interface-ref;
+        description
+          "Bridge interface name.";
+      }
+
+      list member-interface {
+        key "interface";
+        description
+          "Member Interface considered as attachment circuit.";
+        leaf interface {
+          type frr-interface:interface-ref;
+          description
+            "Attachment Circuit L2 interface name.";
+        }
+      }
+
+      list member-pseudowire {
+        key "interface";
+        description
+          "Member Interface considered as attachment circuit.";
+
+        leaf interface {
+          type frr-interface:interface-ref;
+          description
+            "Pseudowire L2 interface name.";
+        }
+
+        leaf neighbor-lsr-id {
+          type inet:ipv4-address;
+          description "Specify the LSR-ID of the remote endpoint.";
+        }
+
+        leaf neighbor-address {
+          type inet:ip-address;
+          description "Specify the IPv4 or IPv6 address of the remote endpoint.";
+        }
+
+        leaf pw-id {
+          type uint32 {
+            range "1..4294967295";
+          }
+          description
+            "Set the Virtual Circuit ID.";
+        }
+
+        leaf control-word {
+          type boolean;
+          default true;
+          description "Add the MPLS control-word in pseudowire packets.";
+        }
+
+        leaf pw-status {
+          type boolean;
+          default true;
+          description "Enable the PW status.";
+        }
+      }
+    }
+  }
+}
