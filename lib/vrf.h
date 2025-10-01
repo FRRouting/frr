@@ -295,7 +295,7 @@ extern void vrf_install_commands(void);
  */
 extern void vrf_configure_backend(enum vrf_backend_type backend);
 extern enum vrf_backend_type vrf_get_backend(void);
-extern int vrf_is_backend_netns(void);
+extern bool vrf_is_backend_netns(void);
 
 /* used internally to enable or disable VRF.
  * Notify a change in the VRF ID of the VRF

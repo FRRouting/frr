@@ -637,7 +637,7 @@ int vrf_socket(int domain, int type, int protocol, vrf_id_t vrf_id,
 	return ret;
 }
 
-int vrf_is_backend_netns(void)
+bool vrf_is_backend_netns(void)
 {
 	return (vrf_backend == VRF_BACKEND_NETNS);
 }
