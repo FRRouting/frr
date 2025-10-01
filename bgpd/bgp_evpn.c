@@ -7095,14 +7095,12 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id,
 	}
 
 	if (bgp_debug_zebra(NULL))
-		zlog_debug(
-			"VRF %s vni %u pip %s RMAC %pEA sys RMAC %pEA static RMAC %pEA is_anycast_mac %s",
-			vrf_id_to_name(bgp_vrf->vrf_id), bgp_vrf->l3vni,
-			bgp_vrf->evpn_info->advertise_pip ? "enable"
-							  : "disable",
-			&bgp_vrf->rmac, &bgp_vrf->evpn_info->pip_rmac,
-			&bgp_vrf->evpn_info->pip_rmac_static,
-			is_anycast_mac ? "Enable" : "Disable");
+		zlog_debug("VRF %s vni %u pip %s IP %pIA RMAC %pEA sys RMAC %pEA static RMAC %pEA is_anycast_mac %s",
+			   vrf_id_to_name(bgp_vrf->vrf_id), bgp_vrf->l3vni,
+			   bgp_vrf->evpn_info->advertise_pip ? "enable" : "disable",
+			   &bgp_vrf->evpn_info->pip_ip, &bgp_vrf->rmac,
+			   &bgp_vrf->evpn_info->pip_rmac, &bgp_vrf->evpn_info->pip_rmac_static,
+			   is_anycast_mac ? "Enable" : "Disable");
 
 	/* set the right filter - are we using l3vni only for prefix routes? */
 	if (filter) {
