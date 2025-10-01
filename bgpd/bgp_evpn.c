@@ -4201,8 +4201,7 @@ int install_uninstall_routes_for_vni(struct bgp *bgp, struct bgpevpn *vpn, bool 
  */
 static int install_routes_for_vrf(struct bgp *bgp_vrf)
 {
-	install_uninstall_routes_for_vrf(bgp_vrf, true);
-	return 0;
+	return install_uninstall_routes_for_vrf(bgp_vrf, true);
 }
 
 /*
@@ -4222,8 +4221,7 @@ static int install_routes_for_vni(struct bgp *bgp, struct bgpevpn *vpn)
 /* uninstall routes from l3vni vrf. */
 static int uninstall_routes_for_vrf(struct bgp *bgp_vrf)
 {
-	install_uninstall_routes_for_vrf(bgp_vrf, false);
-	return 0;
+	return install_uninstall_routes_for_vrf(bgp_vrf, false);
 }
 
 /*
