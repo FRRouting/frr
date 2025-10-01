@@ -384,10 +384,11 @@ static int bmp_rbtree_cmp(const struct bmp_queue_entry *a,
 	ret = prefix_cmp(&a->p, &b->p);
 	if (ret)
 		return ret;
-	ret = memcmp(&a->peerid, &b->peerid,
-			offsetof(struct bmp_queue_entry, refcount) -
-			offsetof(struct bmp_queue_entry, peerid));
-	return ret;
+
+	if (a->peerid != b->peerid)
+		return -1;
+
+	return 0;
 }
 
 DECLARE_RBTREE_UNIQ(bmp_rbtree, struct bmp_queue_entry, bhi, bmp_rbtree_cmp);
