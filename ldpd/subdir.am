@@ -38,6 +38,7 @@ ldpd_libldp_a_SOURCES = \
 	ldpd/rlfa.c \
 	ldpd/socket.c \
 	ldpd/util.c \
+	ldpd/ldp_l2vpn_cli.c \
 	ldpd/ldp_l2vpn_northbound.c \
 	# end
 
@@ -51,6 +52,7 @@ endif
 
 clippy_scan += \
 	ldpd/ldp_vty_cmds.c \
+	ldpd/ldp_l2vpn_cli.c \
 	# end
 
 noinst_HEADERS += \
