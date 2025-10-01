@@ -13,6 +13,11 @@ import json
 from functools import partial
 import pytest
 
+# Save the Current Working Directory to find configuration files.
+CWD = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.join(CWD, "../"))
+
+
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
@@ -24,7 +29,6 @@ from lib.common_config import (
     retry,
 )
 from lib.checkping import check_ping
-
 
 """
 test_nhrp_redundancy.py: Test NHS redundancy for NHRP
@@ -51,23 +55,21 @@ TOPOLOGY = """
                                                    +-----+------+                             
                                                          |                                    
                                                          |                                    
-                               ---------+----------------+-------------+------                
-                                        |          192.168.2.0/24      |                      
-                                        |                              |                      
-                       |                |.4                            |.5                    
-+------------+         |        +-------+----+                  +------+-----+     |          
-|            |         |        |            |                  |            |     |          
-|            |         +--------+            |                  |            |     |          
-|    Host    |.7       |        |    NHC 1   |                  |    NHC 2   +-----+10.5.5.0/24
-|            +---------+        |            |                  |            |     |          
-+------------+         |        +------------+                  +------------+     |          
-                       |                                                           |          
+                               ---------+----------------+-------------+--------------------------------------+                
+                                        |          192.168.2.0/24      |                                      |
+                                        |                              |                                      |
+                       |                |.4                            |.5                                    |.8
++------------+         |        +-------+----+                  +------+-----+     |                   +------+-----+     |
+|            |         |        |            |                  |            |     |                   |            |     |
+|            |         +--------+            |                  |            |     |                   |            |     |
+|    Host    |.7       |        |    NHC 1   |                  |    NHC 2   +-----+10.5.5.0/24        |    NHC 3   +-----+10.5.5.0/24
+|            +---------+        |            |                  |            |     |                   |            |     |
++------------+         |        +------------+                  +------------+     |                   +------------+     |
+                       |                                                           |                                      |
                   10.4.4.0/24                                                                  
 """
 
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
+
 
 # Required to instantiate the topology builder class.
 
@@ -78,7 +80,7 @@ def build_topo(tgen):
     "Build function"
 
     # Create 7 routers
-    for rname in ["nhs1", "nhs2", "nhs3", "nhc1", "nhc2", "router", "host"]:
+    for rname in ["nhs1", "nhs2", "nhs3", "nhc1", "nhc2", "nhc3", "router", "host"]:
         tgen.add_router(rname)
 
     switch = tgen.add_switch("s1")
@@ -90,6 +92,7 @@ def build_topo(tgen):
     switch = tgen.add_switch("s2")
     switch.add_link(tgen.gears["nhc1"])
     switch.add_link(tgen.gears["nhc2"])
+    switch.add_link(tgen.gears["nhc3"])
     switch.add_link(tgen.gears["router"])
 
     switch = tgen.add_switch("s3")
@@ -98,6 +101,9 @@ def build_topo(tgen):
 
     switch = tgen.add_switch("s4")
     switch.add_link(tgen.gears["nhc2"])
+
+    switch = tgen.add_switch("s5")
+    switch.add_link(tgen.gears["nhc3"])
 
 
 def _populate_iface():
@@ -146,12 +152,17 @@ def _populate_iface():
         output = tgen.net["nhc2"].cmd(input)
         logger.info("output: " + output)
 
+        input = cmd.format("nhc3", "8")
+        logger.info("input: " + input)
+        output = tgen.net["nhc3"].cmd(input)
+        logger.info("output: " + output)
+        
 
-def _verify_iptables():
-    tgen = get_topogen()
-    # Verify iptables is installed. Required for shortcuts
-    rc, _, _ = tgen.net["nhs1"].cmd_status("iptables")
-    return False if rc == 127 else True
+#def _verify_iptables():
+#    tgen = get_topogen()
+#    # Verify iptables is installed. Required for shortcuts
+#    rc, _, _ = tgen.net["nhs1"].cmd_status("iptables")
+#    return False if rc == 127 else True
 
 
 def setup_module(mod):
@@ -173,14 +184,13 @@ def setup_module(mod):
             TopoRouter.RD_ZEBRA,
             os.path.join(CWD, "{}/zebra.conf".format(rname)),
         )
-        if rname in ("nhs1", "nhs2", "nhs3", "nhc1", "nhc2"):
+        if rname in ("nhs1", "nhs2", "nhs3", "nhc1", "nhc2", "nhc3"):
             router.load_config(
                 TopoRouter.RD_NHRP, os.path.join(CWD, "{}/nhrpd.conf".format(rname))
             )
 
     # Initialize all routers.
     tgen.start_router()
-
 
 def teardown_module(_mod):
     "Teardown the pytest environment"
@@ -197,22 +207,33 @@ def test_protocols_convergence():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    if not _verify_iptables():
-        assert False, "iptables is missing"
+    nhc3 = tgen.gears["nhc3"]
+    nhc3.vtysh_cmd(
+        """
+        configure terminal
+         interface nhc3-eth0
+          no ip address 192.168.2.8/24
+        """
+    )
+#    if not _verify_iptables():
+#        assert False, "iptables is missing"
 
     logger.info("Checking NHRP cache for convergence")
     router_list = tgen.routers()
 
     # Check NHRP cache on servers and clients
     for rname, router in router_list.items():
+        if "nhc3" in rname:
+            continue
         if "nh" not in rname:
             continue
 
-        json_file = "{}/{}/nhrp_cache.json".format(CWD, router.name)
+        json_file = "{}/{}/nhrp_cache.json".format(CWD, rname)
         expected = json.loads(open(json_file).read())
         test_func = partial(
             topotest.router_json_cmp, router, "show ip nhrp cache json", expected
         )
+
         _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
 
         output = router.vtysh_cmd("show ip nhrp cache")
@@ -224,10 +245,12 @@ def test_protocols_convergence():
     # Check NHRP IPV4 routes on servers and clients
     logger.info("Checking IPv4 routes for convergence")
     for rname, router in router_list.items():
+        if "nhc3" in rname:
+            continue
         if "nh" not in rname:
             continue
 
-        json_file = "{}/{}/nhrp_route.json".format(CWD, router.name)
+        json_file = "{}/{}/nhrp_route.json".format(CWD, rname)
         expected = json.loads(open(json_file).read())
         test_func = partial(
             topotest.router_json_cmp, router, "show ip route nhrp json", expected
@@ -309,10 +332,11 @@ def test_redundancy_shortcut():
     assert result is None, assertmsg
 
     logger.info("Check the shortcut")
-    json_file = "{}/{}/nhrp_shortcut_present.json".format(CWD, nhc1.name)
+    json_file = "{}/{}/nhrp_shortcut_present.json".format(CWD, "nhc1")
     expected = json.loads(open(json_file).read())
+
     test_func = partial(
-        topotest.router_json_cmp, nhc1, "show ip nhrp shortcut json", expected
+        topotest.router_json_cmp, nhc1, "show ip nhrp shortcut json", expected,
     )
     _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
 
@@ -372,6 +396,8 @@ def test_redundancy_shortcut_nhs1_down():
 
     logger.info("Check NHRP cache on servers and clients")
     for rname, router in router_list.items():
+        if rname == "nhc3":
+            continue
         if "nh" not in rname:
             continue
         if "nhs1" in rname:
@@ -393,6 +419,8 @@ def test_redundancy_shortcut_nhs1_down():
     # Check NHRP IPV4 routes on servers and clients
     logger.info("Checking IPv4 routes for convergence")
     for rname, router in router_list.items():
+        if "nhc3" in rname:
+            continue
         if "nh" not in rname:
             continue
         if "nhs1" in rname:
@@ -438,6 +466,7 @@ def test_redundancy_shortcut_nhs1_down():
     output = nhc1.vtysh_cmd("show ip nhrp shortcut")
     logger.info(output)
 
+    
     assertmsg = '"{}" JSON output mismatches'.format(nhc1.name)
     assert result is None, assertmsg
 
@@ -450,15 +479,20 @@ def test_redundancy_shortcut_del_arp():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    if not _verify_iptables():
-        pytest.skip("iptables not installed")
+#    if not _verify_iptables():
+#        pytest.skip("iptables not installed")
 
     nhc1 = tgen.gears["nhc1"]
+    nhc2 = tgen.gears["nhc2"]
+    nhc3 = tgen.gears["nhc3"]
+    nhs2 = tgen.gears["nhs2"]
+    host = tgen.gears["host"]
     router_list = tgen.routers()
 
     logger.info("Remove ARP on nhc1 to nhc2")
-    nhc1.cmd("ip neigh del 10.5.5.5 dev nhc1-gre0")
-    nhc1.cmd("ip neigh del 172.16.1.5 dev nhc1-gre0")
+
+    nhc1.run("ip neigh del 10.5.5.5 dev nhc1-gre0")
+    nhc1.run("ip neigh del 172.16.1.5 dev nhc1-gre0")
 
     logger.info(
         "Check that shortcut is purged with lack of traffic and neighbor entries"
@@ -490,6 +524,179 @@ def test_redundancy_shortcut_del_arp():
     logger.info(output)
 
     assertmsg = '"{}" JSON output mismatches'.format(nhc1.name)
+    assert result is None, assertmsg
+    
+    nhc3.vtysh_cmd(
+        """
+        configure terminal
+         interface nhc3-eth0
+          ip address 192.168.2.8/24
+         interface nhc3-eth1
+          ip address 10.5.5.5/24
+        """
+    )
+
+    nhc2.vtysh_cmd(
+        """
+        configure terminal
+         interface nhc2-eth0
+         no ip address 192.168.2.5/24
+        """
+    )
+
+    host.run("ping -c 50 -s 0.1 10.5.5.5;:")
+    nhc1.run("ip neigh del 10.5.5.5 dev nhc1-gre0")
+    nhc1.run("ip neigh del 172.16.1.5 dev nhc1-gre0")
+
+    expected = {
+        "attr":{
+            "entriesCount": 5
+        },
+        "table":[
+            {
+                "interface": "nhc1-gre0",
+                "type": "dynamic",
+                "protocol": "10.5.5.5",
+                "nbma": "192.168.2.5",
+                "claimed_nbma": "192.168.2.5",
+                "used": False,
+                "routeInstalled": True,
+                "nhrpRouteInstalled": True
+            }
+        ]
+    }
+
+    expected2 = {
+        "attr":{
+            "entriesCount": 6
+        },
+        "table":[
+            {
+                "interface": "nhc1-gre0",
+                "type": "dynamic",
+                "protocol": "10.5.5.5",
+                "nbma": "192.168.2.8",
+                "claimed_nbma": "192.168.2.8",
+                "claimedNbma": "192.168.2.8",
+                "used": True,
+                "routeInstalled": True,
+                "nhrpRouteInstalled": True
+            }
+        ]
+    }
+        
+    expected3 = {
+        "attr":{
+            "entriesCount": 4
+        }
+    }
+
+    expected4 = {
+        "attr":{
+            "entriesCount": 3
+        }
+    }
+
+    expected5 = {
+        "attr":{
+            "entriesCount": 5
+        },
+        "table":[
+            {
+                "interface": "nhc1-gre0",
+                "type": "dynamic",
+                "protocol": "10.5.5.5",
+                "nbma": "192.168.2.5",
+                "claimed_nbma": "192.168.2.5",
+                "used": True,
+                "routeInstalled": True,
+                "nhrpRouteInstalled": True
+            }
+        ]
+    }
+
+    output = nhc1.vtysh_cmd("show ip nhrp cache")
+    logger.info(output)
+  
+    test_func = partial(
+        topotest.router_json_cmp, nhc1, "show ip nhrp cache json", expected
+    )        
+    _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
+    
+    assertmsg = '"{}" JSON nhrp cache, route to 10.5.5.5 is not present'
+    assert result is None, assertmsg
+
+
+    test_func = partial(
+        topotest.router_json_cmp, nhc1, "show ip nhrp cache json", expected3
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
+
+    assertmsg = '"{}" JSON nhrp cache, route to 10.5.5.5 always present'
+    assert result is None, assertmsg
+
+    nhs2.vtysh_cmd(
+        """
+        configure terminal
+         no ip route 10.5.5.0/24 172.16.1.5
+         ip route 10.5.5.0/24 172.16.1.8
+        """
+    )
+    
+    logger.info("Check Ping IPv4 from  host to nhc3 via shortcut = 10.5.5.5")
+    check_ping("host", "10.5.5.5", True, 10, 0.5)
+
+    nhc1.run("ip neigh del 10.5.5.5 dev nhc1-gre0")
+    nhc1.run("ip neigh del 172.16.1.5 dev nhc1-gre0")
+
+    test_func = partial(
+        topotest.router_json_cmp, nhc1, "show ip nhrp cache json", expected4
+    )        
+    _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
+    output = nhc1.vtysh_cmd("show ip nhrp cache json")
+    logger.info(output)
+    assertmsg = '"{}" JSON nhrp cache, route to  "172.16.1.5 not removed'
+    assert result is None, assertmsg
+
+
+    nhc3.vtysh_cmd(
+        """
+        configure terminal
+         interface nhc3-eth0
+          no ip address 192.168.2.8/24
+         interface nhc3-eth1
+          ip address 10.5.5.5/24
+        """
+    )
+
+    nhc2.vtysh_cmd(
+        """
+        configure terminal
+         interface nhc2-eth0
+          ip address 192.168.2.5/24
+        """
+    )
+
+    
+    nhs2.vtysh_cmd(
+        """
+        configure terminal
+         no ip route 10.5.5.0/24 172.16.1.8
+         ip route 10.5.5.0/24 172.16.1.5
+        """
+    )
+
+    logger.info("Check Ping IPv4 from  host to nhc2 via shortcut = 10.5.5.5")
+    check_ping("host", "10.5.5.5", True, 10, 0.5)
+    nhc1.run("ip neigh del 10.5.5.5 dev nhc1-gre0")
+    nhc1.run("ip neigh del 172.16.1.5 dev nhc1-gre0")
+
+    test_func = partial(
+        topotest.router_json_cmp, nhc1, "show ip nhrp cache json", expected5
+    )        
+    _, result = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
+    
+    assertmsg = '"{}" JSON nhrp cache, route to 10.5.5.5 not reusing "192.168.2.5'
     assert result is None, assertmsg
 
 
