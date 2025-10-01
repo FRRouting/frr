@@ -647,11 +647,9 @@ enum vrf_backend_type vrf_get_backend(void)
 	return vrf_backend;
 }
 
-int vrf_configure_backend(enum vrf_backend_type backend)
+void vrf_configure_backend(enum vrf_backend_type backend)
 {
 	vrf_backend = backend;
-
-	return 0;
 }
 
 /* vrf CLI commands */
