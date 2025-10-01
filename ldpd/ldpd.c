@@ -392,6 +392,8 @@ main(int argc, char *argv[])
 	vty_conf = config_new_empty();
 	QOBJ_REG(vty_conf, ldpd_conf);
 
+	ldp_l2vpn_cli_init();
+
 	/* read configuration file and daemonize  */
 	frr_config_fork();
 
