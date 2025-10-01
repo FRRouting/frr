@@ -36,6 +36,8 @@
 #include "libfrr.h"
 #include "lib_errors.h"
 
+#include "ldp_l2vpn.h"
+
 static void		 ldpd_shutdown(void);
 static pid_t		 start_child(enum ldpd_process, char *, int, int);
 static void main_dispatch_ldpe(struct event *thread);
@@ -194,6 +196,7 @@ static struct frr_signal_t ldp_signals[] =
 static const struct frr_yang_module_info *const ldpd_yang_modules[] = {
 	&frr_filter_info,
 	&frr_vrf_info,
+	&frr_ldp_l2vpn,
 };
 
 /* clang-format off */
