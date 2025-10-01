@@ -256,7 +256,7 @@ struct community_list *community_list_lookup(struct community_list_handler *ch,
 
 	lookup.name = (char *)name;
 	lookup.name_hash = name_hash;
-	return hash_get(cm->hash, &lookup, NULL);
+	return hash_lookup(cm->hash, &lookup);
 }
 
 static struct community_list *

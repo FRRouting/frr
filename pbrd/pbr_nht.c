@@ -752,7 +752,7 @@ bool pbr_nht_nexthop_group_valid(const char *name)
 	DEBUGD(&pbr_dbg_nht, "%s: %s", __func__, name);
 
 	snprintf(lookup.name, sizeof(lookup.name), "%s", name);
-	pnhgc = hash_get(pbr_nhg_hash, &lookup, NULL);
+	pnhgc = hash_lookup(pbr_nhg_hash, &lookup);
 	if (!pnhgc)
 		return false;
 	DEBUGD(&pbr_dbg_nht, "%s:    %d %d", __func__, pnhgc->valid,
