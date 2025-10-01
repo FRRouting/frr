@@ -358,6 +358,20 @@ void prefix_copy(union prefixptr udest, union prefixconstptr usrc)
 	}
 }
 
+/*
+ * Helper function to free memory associated with FlowSpec prefixes
+ */
+void flowspec_free_prefix(const struct prefix *p)
+{
+	void *temp;
+
+	if (!p || p->family != AF_FLOWSPEC || !p->u.prefix_flowspec.ptr)
+		return;
+
+	temp = (void *)p->u.prefix_flowspec.ptr;
+	XFREE(MTYPE_PREFIX_FLOWSPEC, temp);
+}
+
 bool evpn_addr_same(const struct evpn_addr *e1, const struct evpn_addr *e2)
 {
 	if (e1->route_type != e2->route_type)

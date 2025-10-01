@@ -4757,6 +4757,9 @@ void bgp_rib_remove(struct bgp_dest *dest, struct bgp_path_info *pi,
 
 	struct bgp *bgp = NULL;
 	bool delete_route = false;
+	const struct prefix *p = bgp_dest_get_prefix(dest);
+
+	flowspec_free_prefix(p);
 
 	bgp_aggregate_decrement(peer->bgp, bgp_dest_get_prefix(dest), pi, afi,
 				safi);
