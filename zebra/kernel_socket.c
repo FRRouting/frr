@@ -830,7 +830,7 @@ static void ifam_read_mesg(struct ifa_msghdr *ifm, union sockunion *addr,
 int ifam_read(struct ifa_msghdr *ifam)
 {
 	struct interface *ifp = NULL;
-	union sockunion addr, mask, brd;
+	union sockunion addr, mask, brd, zero = { 0 };
 	bool dest_same = false;
 	char ifname[IFNAMSIZ];
 	short ifnlen = 0;
@@ -865,7 +865,8 @@ int ifam_read(struct ifa_msghdr *ifam)
 	if (if_is_pointopoint(ifp))
 		SET_FLAG(flags, ZEBRA_IFA_PEER);
 	else {
-		if (memcmp(&addr, &brd, sizeof(addr)) == 0)
+		if ((memcmp(&addr, &brd, sizeof(addr)) == 0)
+		    || (memcmp(&brd, &zero, sizeof(addr)) == 0))
 			dest_same = true;
 	}
 
