@@ -432,6 +432,7 @@ extern int prefix_same(union prefixconstptr ua, union prefixconstptr ub);
 extern int prefix_cmp(union prefixconstptr ua, union prefixconstptr ub);
 extern int prefix_common_bits(union prefixconstptr ua, union prefixconstptr ub);
 extern void prefix_copy(union prefixptr udst, union prefixconstptr usrc);
+extern void flowspec_free_prefix(const struct prefix *p);
 extern void apply_mask(union prefixptr pu);
 extern bool evpn_addr_same(const struct evpn_addr *e1, const struct evpn_addr *e2);
 
