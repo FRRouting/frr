@@ -38,6 +38,11 @@ ldpd_libldp_a_SOURCES = \
 	ldpd/rlfa.c \
 	ldpd/socket.c \
 	ldpd/util.c \
+	ldpd/ldp_l2vpn_northbound.c \
+	# end
+
+nodist_ldpd_ldpd_SOURCES = \
+	yang/frr-ldp-l2vpn.yang.c \
 	# end
 
 if SNMP
@@ -59,6 +64,7 @@ noinst_HEADERS += \
 	ldpd/ldpe.h \
 	ldpd/log.h \
 	ldpd/rlfa.h \
+	ldpd/ldp_l2vpn.h \
 	# end
 
 ldpd_ldpd_SOURCES = ldpd/ldpd.c

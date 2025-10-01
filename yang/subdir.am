@@ -29,6 +29,7 @@ dist_yangmodels_DATA += yang/frr-nexthop.yang
 dist_yangmodels_DATA += yang/frr-test-module.yang
 dist_yangmodels_DATA += yang/frr-if-rmap.yang
 dist_yangmodels_DATA += yang/frr-interface.yang
+dist_yangmodels_DATA += yang/frr-ldp-l2vpn.yang
 dist_yangmodels_DATA += yang/frr-route-map.yang
 dist_yangmodels_DATA += yang/frr-zebra-route-map.yang
 dist_yangmodels_DATA += yang/frr-ospf-route-map.yang
