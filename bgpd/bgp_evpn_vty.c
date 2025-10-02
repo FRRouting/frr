@@ -855,11 +855,11 @@ static void show_vni_routes(struct bgp *bgp, struct bgpevpn *vpn, struct vty *vt
 			struct prefix tmp_p;
 			json_object *json_path = NULL;
 
-			if (IS_IPADDR_V4(vtep_ip) &&
+			if (vtep_ip && IS_IPADDR_V4(vtep_ip) &&
 			    !IPV4_ADDR_SAME(&(vtep_ip->ipaddr_v4), &pi->attr->nexthop))
 				continue;
 
-			if (IS_IPADDR_V6(vtep_ip) &&
+			if (vtep_ip && IS_IPADDR_V6(vtep_ip) &&
 			    !IPV6_ADDR_SAME(&(vtep_ip->ipaddr_v6), &(pi->attr->mp_nexthop_global)))
 				continue;
 
