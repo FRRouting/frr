@@ -20,6 +20,7 @@
 #include "ldpd/ldp_l2vpn_cli_clippy.c"
 #endif /* VTYSH_EXTRACT_PL */
 
+static void ldp_l2vpn_init_new(bool in_backend);
 
 DEFPY_YANG_NOSH(ldp_l2vpn,
 	ldp_l2vpn_cmd,
@@ -272,8 +273,23 @@ struct cmd_node ldp_pseudowire_node = {
 	.prompt = "%s(config-l2vpn-pw)# ",
 };
 
+static void l2vpn_autocomplete(vector comps, struct cmd_token *token)
+{
+	struct l2vpn *l2vpn;
+
+	RB_FOREACH (l2vpn, l2vpn_head, &vty_conf->l2vpn_tree)
+		vector_set(comps, XSTRDUP(MTYPE_COMPLETION, l2vpn->name));
+}
+
+static const struct cmd_variable_handler l2vpn_var_handlers[] = {
+	{ .varname = "l2vpn_name", .completions = l2vpn_autocomplete },
+	{ .completions = NULL }
+};
+
 void ldp_l2vpn_cli_init(void)
 {
+	cmd_variable_handler_register(l2vpn_var_handlers);
+
 	install_node(&ldp_l2vpn_node);
 	install_node(&ldp_pseudowire_node);
 	install_default(LDP_L2VPN_NODE);
@@ -294,4 +310,17 @@ void ldp_l2vpn_cli_init(void)
 	install_element(LDP_PSEUDOWIRE_NODE, &ldp_l2vpn_neighbor_lsr_id_cmd);
 	install_element(LDP_PSEUDOWIRE_NODE, &ldp_l2vpn_pw_id_cmd);
 	install_element(LDP_PSEUDOWIRE_NODE, &ldp_l2vpn_pw_status_disable_cmd);
+}
+
+static void ldp_l2vpn_init_new(bool in_backend)
+{
+	if (!in_backend) {
+		/* we do not want to handle config commands in the backend */
+		ldp_l2vpn_cli_init();
+	}
+}
+
+void ldp_l2vpn_init(void)
+{
+	ldp_l2vpn_init_new(true);
 }
