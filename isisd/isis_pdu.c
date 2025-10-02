@@ -2106,7 +2106,7 @@ static void send_hello_cb(struct event *thread)
 	send_hello(circuit, level);
 
 	/* set next timer thread */
-	send_hello_sched(circuit, level, 1000 * circuit->hello_interval[level - 1]);
+	send_hello_sched(circuit, level, 1000L * circuit->hello_interval[level - 1]);
 }
 
 static void _send_hello_sched(struct isis_circuit *circuit,

@@ -2014,7 +2014,7 @@ void ospf_spf_calculate_schedule(struct ospf *ospf, ospf_spf_reason_t reason)
 
 	elapsed = monotime_since(&ospf->ts_spf, NULL) / 1000;
 
-	ht = ospf->spf_holdtime * ospf->spf_hold_multiplier;
+	ht = (uint64_t)(ospf->spf_holdtime) * ospf->spf_hold_multiplier;
 
 	if (ht > ospf->spf_max_holdtime)
 		ht = ospf->spf_max_holdtime;
