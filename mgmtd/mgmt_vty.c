@@ -15,6 +15,7 @@
 #include "network.h"
 #include "northbound_cli.h"
 #include "routemap.h"
+#include "l2vpn.h"
 
 #include "mgmtd/mgmt.h"
 #include "mgmtd/mgmt_be_adapter.h"
@@ -603,6 +604,7 @@ void mgmt_vty_init(void)
 	filter_cli_init();
 	route_map_cli_init();
 	affinity_map_init();
+	l2vpn_cli_init();
 
 	/*
 	 * Initialize command handling from VTYSH connection.
