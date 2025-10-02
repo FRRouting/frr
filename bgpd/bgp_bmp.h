@@ -83,7 +83,7 @@ struct bmp_queue_entry {
 #define BMP_QUEUE_FLAGS_NONE (0)
 	uint8_t flags;
 	struct prefix p;
-	uint64_t peerid;
+	uint64_t id;
 	afi_t afi;
 	safi_t safi;
 
