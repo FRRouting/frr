@@ -244,81 +244,11 @@ DEFPY_YANG  (ldp_l2vpn_pw_status_disable,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-static void ldp_l2vpn_pw_config_write(struct vty *vty, struct l2vpn_pw *pw)
-{
-	int missing_lsrid = 0;
-	int missing_pwid = 0;
-
-	vty_out(vty, " !\n");
-	vty_out(vty, " member pseudowire %s\n", pw->ifname);
-
-	if (pw->lsr_id.s_addr != INADDR_ANY)
-		vty_out(vty, "  neighbor lsr-id %pI4\n", &pw->lsr_id);
-	else
-		missing_lsrid = 1;
-
-	if (pw->flags & F_PW_STATIC_NBR_ADDR)
-		vty_out(vty, "  neighbor address %s\n", log_addr(pw->af, &pw->addr));
-
-	if (pw->pwid != 0)
-		vty_out(vty, "  pw-id %u\n", pw->pwid);
-	else
-		missing_pwid = 1;
-
-	if (!(pw->flags & F_PW_CWORD_CONF))
-		vty_out(vty, "  control-word exclude\n");
-
-	if (!(pw->flags & F_PW_STATUSTLV_CONF))
-		vty_out(vty, "  pw-status disable\n");
-
-	if (missing_lsrid)
-		vty_out(vty, "  ! Incomplete config, specify a neighbor lsr-id\n");
-	if (missing_pwid)
-		vty_out(vty, "  ! Incomplete config, specify a pw-id\n");
-
-	vty_out(vty, " exit\n");
-}
-
-static int ldp_l2vpn_config_write(struct vty *vty)
-{
-	struct l2vpn *l2vpn;
-	struct l2vpn_if *lif;
-	struct l2vpn_pw *pw;
-
-	RB_FOREACH (l2vpn, l2vpn_head, &ldpd_conf->l2vpn_tree) {
-		vty_out(vty, "l2vpn %s type vpls\n", l2vpn->name);
-
-		if (l2vpn->pw_type != DEFAULT_PW_TYPE)
-			vty_out(vty, " vc type ethernet-tagged\n");
-
-		if (l2vpn->mtu != DEFAULT_L2VPN_MTU)
-			vty_out(vty, " mtu %u\n", l2vpn->mtu);
-
-		if (l2vpn->br_ifname[0] != '\0')
-			vty_out(vty, " bridge %s\n", l2vpn->br_ifname);
-
-		RB_FOREACH (lif, l2vpn_if_head, &l2vpn->if_tree)
-			vty_out(vty, " member interface %s\n", lif->ifname);
-
-		RB_FOREACH (pw, l2vpn_pw_head, &l2vpn->pw_tree)
-			ldp_l2vpn_pw_config_write(vty, pw);
-		RB_FOREACH (pw, l2vpn_pw_head, &l2vpn->pw_inactive_tree)
-			ldp_l2vpn_pw_config_write(vty, pw);
-
-		vty_out(vty, " !\n");
-		vty_out(vty, "exit\n");
-		vty_out(vty, "!\n");
-	}
-
-	return (0);
-}
-
 struct cmd_node ldp_l2vpn_node = {
 	.name = "ldp l2vpn",
 	.node = LDP_L2VPN_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-l2vpn)# ",
-	.config_write = ldp_l2vpn_config_write,
 };
 
 struct cmd_node ldp_pseudowire_node = {
@@ -351,3 +281,123 @@ void ldp_l2vpn_cli_init(void)
 	install_element(LDP_PSEUDOWIRE_NODE, &ldp_l2vpn_pw_id_cmd);
 	install_element(LDP_PSEUDOWIRE_NODE, &ldp_l2vpn_pw_status_disable_cmd);
 }
+
+static void l2vpn_instance_show(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
+{
+	const char *name = yang_dnode_get_string(dnode, "./name");
+	const char *pwtype = NULL;
+	const char *bridge_name = NULL;
+	uint16_t mtu;
+
+	vty_out(vty, "l2vpn %s type vpls\n", name);
+
+	if (yang_dnode_exists(dnode, "./pw-type")) {
+		pwtype = yang_dnode_get_string(dnode, "./pw-type");
+		if (!strcmp(pwtype, "ethernet-tagged"))
+			vty_out(vty, " vc type %s\n", pwtype);
+	}
+
+	if (yang_dnode_exists(dnode, "./mtu")) {
+		mtu = yang_dnode_get_uint16(dnode, "./mtu");
+		if (mtu != DEFAULT_L2VPN_MTU)
+			vty_out(vty, " mtu %d\n", mtu);
+	}
+
+	if (yang_dnode_exists(dnode, "./bridge-interface")) {
+		bridge_name = yang_dnode_get_string(dnode, "./bridge-interface");
+		if (bridge_name)
+			vty_out(vty, " bridge %s\n", bridge_name);
+	}
+}
+
+static void l2vpn_instance_show_end(struct vty *vty, const struct lyd_node *dnode)
+{
+	vty_out(vty, "exit\n");
+	vty_out(vty, "!\n");
+}
+
+static void l2vpn_instance_member_pseudowire_show(struct vty *vty, const struct lyd_node *dnode,
+						  bool show_defaults)
+
+{
+	const char *name = yang_dnode_get_string(dnode, "./interface");
+	uint32_t pw_id;
+	struct ipaddr lsr_id;
+	struct ipaddr address;
+
+	vty_out(vty, " member pseudowire %s\n", name);
+
+	if (!yang_dnode_get_bool(dnode, "./pw-status"))
+		vty_out(vty, "  pw-status disable\n");
+
+	if (yang_dnode_exists(dnode, "./pw-id")) {
+		pw_id = yang_dnode_get_uint32(dnode, "./pw-id");
+		if (pw_id != 0)
+			vty_out(vty, "  pw-id %u\n", pw_id);
+		else
+			vty_out(vty, "  ! Incomplete config, specify a pw-id\n");
+	}
+
+	if (yang_dnode_exists(dnode, "./neighbor-lsr-id")) {
+		yang_dnode_get_ip(&lsr_id, dnode, "./neighbor-lsr-id");
+		if (lsr_id.ipaddr_v4.s_addr != INADDR_ANY)
+			vty_out(vty, "  neighbor lsr-id %pI4\n", &lsr_id.ipaddr_v4);
+		else
+			vty_out(vty, "  ! Incomplete config, specify a neighbor lsr-id\n");
+	}
+
+	if (yang_dnode_exists(dnode, "./neighbor-address")) {
+		yang_dnode_get_ip(&address, dnode, "./neighbor-address");
+		if (address.ipa_type == IPADDR_V4)
+			vty_out(vty, "  neighbor address %pI4\n", &address.ipaddr_v4);
+		else if (address.ipa_type == IPADDR_V6)
+			vty_out(vty, "  neighbor address %pI6\n", &address.ipaddr_v6);
+	}
+
+	if (!yang_dnode_get_bool(dnode, "./control-word"))
+		vty_out(vty, "  control-word exclude\n");
+}
+
+static void l2vpn_instance_member_pseudowire_show_end(struct vty *vty, const struct lyd_node *dnode)
+{
+	vty_out(vty, " exit\n");
+	vty_out(vty, " !\n");
+}
+
+static void l2vpn_instance_member_interface_show(struct vty *vty, const struct lyd_node *dnode,
+						 bool show_defaults)
+{
+	const char *name = yang_dnode_get_string(dnode, "./interface");
+
+	vty_out(vty, " member interface %s\n", name);
+}
+
+const struct frr_yang_module_info frr_l2vpn_cli_info = {
+       .name = "frr-l2vpn",
+       .ignore_cfg_cbs = true,
+       .nodes = {
+               {
+                       .xpath = "/frr-l2vpn:l2vpn/l2vpn-instance",
+                       .cbs = {
+                               .cli_show = l2vpn_instance_show,
+                               .cli_show_end = l2vpn_instance_show_end,
+                       }
+               },
+               {
+                       .xpath = "/frr-l2vpn:l2vpn/l2vpn-instance/member-interface",
+                       .cbs = {
+                               .cli_show = l2vpn_instance_member_interface_show,
+                       }
+               },
+               {
+                       .xpath = "/frr-l2vpn:l2vpn/l2vpn-instance/member-pseudowire",
+                       .cbs = {
+                               .cli_show = l2vpn_instance_member_pseudowire_show,
+                               .cli_show_end = l2vpn_instance_member_pseudowire_show_end,
+                       }
+               },
+               {
+                       .xpath = NULL,
+               },
+       }
+};
