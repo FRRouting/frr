@@ -388,6 +388,9 @@ static int bmp_rbtree_cmp(const struct bmp_queue_entry *a,
 	if (a->peerid != b->peerid)
 		return -1;
 
+	if (a->addpath_id != b->addpath_id)
+		return -1;
+
 	return 0;
 }
 
