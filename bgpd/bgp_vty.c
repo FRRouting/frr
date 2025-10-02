@@ -116,7 +116,6 @@ FRR_CFG_DEFAULT_BOOL(BGP_SOFT_VERSION_CAPABILITY,
 	{ .val_bool = false },
 );
 FRR_CFG_DEFAULT_BOOL(BGP_LINK_LOCAL_CAPABILITY,
-	{ .val_bool = true, .match_profile = "datacenter", },
 	{ .val_bool = false },
 );
 FRR_CFG_DEFAULT_BOOL(BGP_DYNAMIC_CAPABILITY,
