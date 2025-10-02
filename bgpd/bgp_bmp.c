@@ -385,7 +385,7 @@ static int bmp_rbtree_cmp(const struct bmp_queue_entry *a,
 	if (ret)
 		return ret;
 
-	if (a->peerid != b->peerid)
+	if (a->id != b->id)
 		return -1;
 
 	if (a->addpath_id != b->addpath_id)
@@ -2062,7 +2062,7 @@ static bool bmp_wrqueue_locrib(struct bmp *bmp, struct pullwr *pullwr)
 		goto out;
 
 
-	peer = QOBJ_GET_TYPESAFE(bqe->peerid, peer);
+	peer = QOBJ_GET_TYPESAFE(bqe->id, peer);
 	if (!peer) {
 		/* skipping queued item for deleted peer
 		 */
@@ -2169,7 +2169,7 @@ static bool bmp_wrqueue_ribin(struct bmp *bmp, struct pullwr *pullwr)
 	if (bmp_prefix_will_sync(bmp, afi, safi, &bqe->p))
 		goto out;
 
-	peer = QOBJ_GET_TYPESAFE(bqe->peerid, peer);
+	peer = QOBJ_GET_TYPESAFE(bqe->id, peer);
 	if (!peer) {
 		zlog_info("bmp: skipping queued item for deleted peer");
 		goto out;
@@ -2218,17 +2218,47 @@ out:
 	return written;
 }
 
+static int find_subgrp_walkcb(struct update_group *updgrp, void *arg)
+{
+	int match = 0;
+	struct update_subgroup *subgrp;
+	struct updwalk_context *ctx = arg;
+
+	if (!ctx)
+		return CMD_SUCCESS;
+
+	if (ctx->subgrp_id) {
+		UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
+			if (ctx->subgrp_id != subgrp->id)
+				continue;
+
+			match = 1;
+			break;
+		}
+	}
+
+	if (!match)
+		return UPDWALK_CONTINUE;
+
+	ctx->context = (void *)subgrp;
+
+	return CMD_SUCCESS;
+}
+
 /* gets a bqe from the rib-out pre/post-policy queue and sends a bmp
  * rib-out
  * pre/post-policy monitoring message to the peer
  */
 static bool bmp_wrqueue_ribout(struct bmp *bmp, struct pullwr *pullwr)
 {
+	struct updwalk_context ctx = {};
 	struct bmp_queue_entry *bqe;
 	struct peer *peer;
 	struct bgp_dest *bn = NULL;
 	bool written = false;
 	uint8_t bpi_num_labels;
+	struct peer_af *paf;
+	struct update_subgroup *subgrp;
 
 	bqe = bmp_pull_ribout(bmp);
 	if (!bqe)
@@ -2238,6 +2268,14 @@ static bool bmp_wrqueue_ribout(struct bmp *bmp, struct pullwr *pullwr)
 	safi_t safi = bqe->safi;
 	uint32_t addpath_tx_id = bqe->addpath_id;
 
+	ctx.subgrp_id = bqe->id;
+	update_group_af_walk(bmp->targets->bgp, afi, safi, find_subgrp_walkcb, &ctx);
+	subgrp = (struct update_subgroup *)ctx.context;
+
+	if (!subgrp) {
+		zlog_info("bmp: skipping queue item for deleted subgroup %" PRIu64, bqe->id);
+		goto out;
+	}
 	if (!CHECK_FLAG(bmp->targets->afimon[afi][safi],
 			BMP_MON_OUT_POSTPOLICY | BMP_MON_OUT_PREPOLICY)) {
 		goto out;
@@ -2245,12 +2283,6 @@ static bool bmp_wrqueue_ribout(struct bmp *bmp, struct pullwr *pullwr)
 
 	if (bmp_prefix_will_sync(bmp, afi, safi, &bqe->p))
 		goto out;
-
-	peer = QOBJ_GET_TYPESAFE(bqe->peerid, peer);
-	if (!peer) {
-		zlog_info("bmp: skipping queued item for deleted peer");
-		goto out;
-	}
 
 	bool is_vpn = (bqe->afi == AFI_L2VPN && bqe->safi == SAFI_EVPN) ||
 		      (bqe->safi == SAFI_MPLS_VPN);
@@ -2264,22 +2296,26 @@ static bool bmp_wrqueue_ribout(struct bmp *bmp, struct pullwr *pullwr)
 		/* lookup path in rib */
 		struct bgp_path_info *bpi;
 
-		for (bpi = bgp_dest_get_bgp_path_info(bn); bpi;
-		     bpi = bpi->next) {
-			if (addpath_tx_id !=
-			    bgp_addpath_id_for_peer(peer, afi, safi, &bpi->tx_addpath))
-				continue;
+		SUBGRP_FOREACH_PEER (subgrp, paf) {
+			peer = PAF_PEER(paf);
 
-			if (CHECK_FLAG(bpi->flags, BGP_PATH_SELECTED | BGP_PATH_MULTIPATH))
-				break;
+			for (bpi = bgp_dest_get_bgp_path_info(bn); bpi; bpi = bpi->next) {
+				if (addpath_tx_id !=
+				    bgp_addpath_id_for_peer(peer, afi, safi, &bpi->tx_addpath))
+					continue;
+
+				if (CHECK_FLAG(bpi->flags, BGP_PATH_SELECTED | BGP_PATH_MULTIPATH))
+					break;
+			}
+
+			bpi_num_labels = BGP_PATH_INFO_NUM_LABELS(bpi);
+			bmp_monitor(bmp, peer, BMP_PEER_FLAG_O, bmp_get_peer_type(peer), &bqe->p,
+				    prd, bpi ? bpi->attr : NULL, afi, safi, addpath_tx_id,
+				    (time_t)(-1L),
+				    bpi_num_labels ? bpi->extra->labels->label : NULL,
+				    bpi_num_labels);
+			written = true;
 		}
-
-		bpi_num_labels = BGP_PATH_INFO_NUM_LABELS(bpi);
-
-		bmp_monitor(bmp, peer, BMP_PEER_FLAG_O, bmp_get_peer_type(peer), &bqe->p, prd,
-			    bpi ? bpi->attr : NULL, afi, safi, addpath_tx_id, (time_t)(-1L),
-			    bpi_num_labels ? bpi->extra->labels->label : NULL, bpi_num_labels);
-		written = true;
 	}
 
 	if (CHECK_FLAG(bmp->targets->afimon[afi][safi], BMP_MON_OUT_POSTPOLICY) &&
@@ -2287,22 +2323,25 @@ static bool bmp_wrqueue_ribout(struct bmp *bmp, struct pullwr *pullwr)
 		struct bgp_adj_out *adj;
 		struct attr *advertised_attr;
 
-		/* lookup path in adj-rib-out */
-		adj = adj_lookup(bn, peer_subgroup(peer, afi, safi), addpath_tx_id);
+		SUBGRP_FOREACH_PEER (subgrp, paf) {
+			peer = PAF_PEER(paf);
+			/* lookup path in adj-rib-out */
+			adj = adj_lookup(bn, subgrp, addpath_tx_id);
 
-		/* advertised attributes (NULL if withdrawn) */
-		advertised_attr = adj ? !adj->adv	  ? adj->attr
-					  : adj->adv->baa ? adj->adv->baa->attr
-							  : NULL
-				      : NULL;
+			/* advertised attributes (NULL if withdrawn) */
+			advertised_attr = adj ? !adj->adv	  ? adj->attr
+						  : adj->adv->baa ? adj->adv->baa->attr
+								  : NULL
+					      : NULL;
 
-		bpi_num_labels = adj && adj->labels ? adj->labels->num_labels : 0;
+			bpi_num_labels = adj && adj->labels ? adj->labels->num_labels : 0;
+			bmp_monitor(bmp, peer, BMP_PEER_FLAG_L | BMP_PEER_FLAG_O,
+				    bmp_get_peer_type(peer), &bqe->p, prd, advertised_attr, afi,
+				    safi, addpath_tx_id, (time_t)(-1L),
+				    bpi_num_labels ? adj->labels->label : NULL, bpi_num_labels);
 
-		bmp_monitor(bmp, peer, BMP_PEER_FLAG_L | BMP_PEER_FLAG_O, bmp_get_peer_type(peer),
-			    &bqe->p, prd, advertised_attr, afi, safi, addpath_tx_id, (time_t)(-1L),
-			    bpi_num_labels ? adj->labels->label : NULL, bpi_num_labels);
-
-		written = true;
+			written = true;
+		}
 	}
 
 out:
@@ -2311,6 +2350,9 @@ out:
 
 	if (bn)
 		bgp_dest_unlock_node(bn);
+
+	if (!written && bmp->mon_out_queuepos)
+		pullwr_bump(bmp->pullwr);
 
 	return written;
 }
@@ -2384,10 +2426,11 @@ static void bmp_wrerr(struct bmp *bmp, struct pullwr *pullwr, bool eof)
  * need to update correct queue pos for all sessions of the target after
  * a call to this function
  */
-static struct bmp_queue_entry *
-bmp_process_one(struct bmp_targets *bt, struct bmp_rbtree_head *updhash,
-		struct bmp_qlist_head *updlist, afi_t afi, safi_t safi, struct bgp_dest *bn,
-		uint32_t addpath_id, struct peer *peer, uint8_t mon_flag)
+static struct bmp_queue_entry *bmp_process_one(struct bmp_targets *bt,
+					       struct bmp_rbtree_head *updhash,
+					       struct bmp_qlist_head *updlist, afi_t afi,
+					       safi_t safi, struct bgp_dest *bn,
+					       uint32_t addpath_id, uint64_t id, uint8_t mon_flag)
 {
 	struct bmp_queue_entry *bqe, bqeref;
 	size_t refcount;
@@ -2398,7 +2441,7 @@ bmp_process_one(struct bmp_targets *bt, struct bmp_rbtree_head *updhash,
 
 	memset(&bqeref, 0, sizeof(bqeref));
 	prefix_copy(&bqeref.p, bgp_dest_get_prefix(bn));
-	bqeref.peerid = peer->qobj_node.nid;
+	bqeref.id = id;
 	bqeref.afi = afi;
 	bqeref.safi = safi;
 	bqeref.flags = mon_flag;
@@ -2488,7 +2531,8 @@ static int bmp_process_ribinpre(struct bgp *bgp, afi_t afi, safi_t safi, struct 
 
 			struct bmp_queue_entry *new_item =
 				bmp_process_one(bt, &bt->mon_in_updhash, &bt->mon_in_updlist, afi,
-						safi, bn, addpath_id, peer, BMP_MON_IN_PREPOLICY);
+						safi, bn, addpath_id, peer->qobj_node.nid,
+						BMP_MON_IN_PREPOLICY);
 
 			/* if bmp_process_one returns NULL
 			 * we don't have anything to do next
@@ -2570,7 +2614,7 @@ static int bmp_process_ribinpost(struct bgp *bgp, afi_t afi, safi_t safi, struct
 					new_item = bmp_process_one(bt, &bt->mon_loc_updhash,
 								   &bt->mon_loc_updlist, afi, safi,
 								   bn, bpi->addpath_rx_id,
-								   bpi->peer,
+								   bpi->peer->qobj_node.nid,
 								   BMP_MON_IN_POSTPOLICY);
 
 					new_head = !new_head ? new_item : new_head;
@@ -4367,13 +4411,13 @@ static int bmp_route_update_bgpbmp(struct bmp_targets *bt, afi_t afi, safi_t saf
 	 */
 	if (old_route && new_route && old_route != new_route) {
 		new_head = bmp_process_one(bt, &bt->mon_loc_updhash, &bt->mon_loc_updlist, afi,
-					   safi, bn, old_route->addpath_rx_id, old_route->peer,
-					   BMP_MON_LOC_RIB);
+					   safi, bn, old_route->addpath_rx_id,
+					   old_route->peer->qobj_node.nid, BMP_MON_LOC_RIB);
 	}
 
 	new_item = bmp_process_one(bt, &bt->mon_loc_updhash, &bt->mon_loc_updlist, afi, safi, bn,
-				   updated_route->addpath_rx_id, updated_route->peer,
-				   BMP_MON_LOC_RIB);
+				   updated_route->addpath_rx_id,
+				   updated_route->peer->qobj_node.nid, BMP_MON_LOC_RIB);
 	new_head = !new_head ? new_item : new_head;
 
 
@@ -4457,11 +4501,10 @@ static int bmp_adj_out_changed(struct update_subgroup *subgrp, struct bgp_dest *
 	struct bmp_bgp *bmpbgp;
 	afi_t afi = SUBGRP_AFI(subgrp);
 	safi_t safi = SUBGRP_SAFI(subgrp);
+	struct peer *peer = SUBGRP_PEER(subgrp);
 
 	uint8_t mon_flag = post_policy ? BMP_MON_OUT_POSTPOLICY : BMP_MON_OUT_PREPOLICY;
 
-	struct peer_af *paf;
-	struct peer *peer;
 	struct bmp *bmp;
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
@@ -4472,31 +4515,25 @@ static int bmp_adj_out_changed(struct update_subgroup *subgrp, struct bgp_dest *
 			if (!CHECK_FLAG(bt->afimon[afi][safi], mon_flag))
 				continue;
 
-			SUBGRP_FOREACH_PEER (subgrp, paf) {
-				peer = PAF_PEER(paf);
+			if (bgp_vrf != peer->bgp && !bmp_imported_bgp_find(bt, peer->bgp->name))
+				continue;
 
-				if (bgp_vrf != peer->bgp &&
-				    !bmp_imported_bgp_find(bt, peer->bgp->name))
-					continue;
+			struct bmp_queue_entry *new_item =
+				bmp_process_one(bt, &bt->mon_out_updhash, &bt->mon_out_updlist,
+						afi, safi, dest, addpath_id, subgrp->id, mon_flag);
 
-				struct bmp_queue_entry *new_item =
-					bmp_process_one(bt, &bt->mon_out_updhash,
-							&bt->mon_out_updlist, afi, safi, dest,
-							addpath_id, peer, mon_flag);
+			/* if bmp_process_one returns NULL
+			 * we don't have anything to do next
+			 */
+			if (!new_item)
+				continue;
 
-				/* if bmp_process_one returns NULL
-				 * we don't have anything to do next
-				 */
-				if (!new_item)
-					continue;
+			frr_each (bmp_session, &bt->sessions, bmp) {
+				if (!bmp->mon_out_queuepos)
+					bmp->mon_out_queuepos = new_item;
 
-				frr_each (bmp_session, &bt->sessions, bmp) {
-					if (!bmp->mon_out_queuepos)
-						bmp->mon_out_queuepos = new_item;
-
-					pullwr_bump(bmp->pullwr);
-				};
-			}
+				pullwr_bump(bmp->pullwr);
+			};
 		};
 	}
 
