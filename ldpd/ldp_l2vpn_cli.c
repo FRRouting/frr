@@ -20,7 +20,6 @@
 #include "ldpd/ldp_l2vpn_cli_clippy.c"
 #endif /* VTYSH_EXTRACT_PL */
 
-
 DEFPY_YANG_NOSH(ldp_l2vpn,
 	ldp_l2vpn_cmd,
 	"l2vpn WORD$l2vpn_name type vpls",
@@ -258,6 +257,19 @@ struct cmd_node ldp_pseudowire_node = {
 	.prompt = "%s(config-l2vpn-pw)# ",
 };
 
+static void l2vpn_autocomplete(vector comps, struct cmd_token *token)
+{
+	struct l2vpn *l2vpn;
+
+	RB_FOREACH (l2vpn, l2vpn_head, &vty_conf->l2vpn_tree)
+		vector_set(comps, XSTRDUP(MTYPE_COMPLETION, l2vpn->name));
+}
+
+static const struct cmd_variable_handler l2vpn_var_handlers[] = {
+	{ .varname = "l2vpn_name", .completions = l2vpn_autocomplete },
+	{ .completions = NULL }
+};
+
 void ldp_l2vpn_cli_init(void)
 {
 	install_node(&ldp_l2vpn_node);
@@ -401,3 +413,9 @@ const struct frr_yang_module_info frr_l2vpn_cli_info = {
                },
        }
 };
+
+void ldp_l2vpn_init(void)
+{
+	cmd_variable_handler_register(l2vpn_var_handlers);
+	ldp_l2vpn_cli_init();
+}
