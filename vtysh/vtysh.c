@@ -2183,7 +2183,7 @@ DEFUNSH(VTYSH_LDPD, ldp_interface_ifname, ldp_interface_ifname_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_LDPD, ldp_l2vpn_word_type_vpls, ldp_l2vpn_word_type_vpls_cmd,
+DEFUNSH(VTYSH_L2VPN_CONFIG, l2vpn_word_type_vpls, l2vpn_word_type_vpls_cmd,
 	"l2vpn WORD type vpls",
 	"Configure l2vpn commands\n"
 	"L2VPN name\n"
@@ -2194,7 +2194,7 @@ DEFUNSH(VTYSH_LDPD, ldp_l2vpn_word_type_vpls, ldp_l2vpn_word_type_vpls_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_LDPD, ldp_member_pseudowire_ifname,
+DEFUNSH(VTYSH_L2VPN_CONFIG, ldp_member_pseudowire_ifname,
 	ldp_member_pseudowire_ifname_cmd, "member pseudowire IFNAME",
 	"L2VPN member configuration\n"
 	"Pseudowire interface\n"
@@ -5400,7 +5400,7 @@ void vtysh_init_vty(void)
 	install_element(LDP_IPV6_IFACE_NODE, &vtysh_quit_ldpd_cmd);
 	install_element(LDP_IPV6_IFACE_NODE, &vtysh_end_all_cmd);
 
-	install_element(CONFIG_NODE, &ldp_l2vpn_word_type_vpls_cmd);
+	install_element(CONFIG_NODE, &l2vpn_word_type_vpls_cmd);
 	install_element(LDP_L2VPN_NODE, &vtysh_exit_ldpd_cmd);
 	install_element(LDP_L2VPN_NODE, &vtysh_quit_ldpd_cmd);
 	install_element(LDP_L2VPN_NODE, &vtysh_end_all_cmd);
