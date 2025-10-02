@@ -10,11 +10,132 @@
 #include "lib/command.h"
 #include "lib/log.h"
 #include "lib/northbound.h"
+#include "lib/ipaddr.h"
 
 #include "ldpd/ldpd.h"
 #include "ldpd/ldp_vty.h"
 #include "ldpd/ldp_l2vpn.h"
 #include "ldpd/lde.h"
+
+static void ldp_l2vpn_instance_show(struct vty *vty, const struct lyd_node *dnode,
+				    bool show_defaults)
+{
+	const char *name = yang_dnode_get_string(dnode, "./name");
+
+	vty_out(vty, "l2vpn %s type vpls\n", name);
+}
+
+static void ldp_l2vpn_instance_show_end(struct vty *vty, const struct lyd_node *dnode)
+{
+	vty_out(vty, "exit\n");
+	vty_out(vty, "!\n");
+}
+
+static void ldp_l2vpn_instance_pw_type_show(struct vty *vty, const struct lyd_node *dnode,
+					    bool show_defaults)
+{
+	const char *pwtype = yang_dnode_get_string(dnode, NULL);
+
+	if (pwtype && !strcmp(pwtype, "ethernet-tagged"))
+		vty_out(vty, " vc type %s\n", pwtype);
+}
+
+static void ldp_l2vpn_instance_member_pseudowire_show(struct vty *vty, const struct lyd_node *dnode,
+						      bool show_defaults)
+{
+	const char *name = yang_dnode_get_string(dnode, "./interface");
+
+	vty_out(vty, " member pseudowire %s\n", name);
+}
+
+static void ldp_l2vpn_instance_member_pseudowire_show_end(struct vty *vty,
+							  const struct lyd_node *dnode)
+{
+	vty_out(vty, " exit\n");
+	vty_out(vty, " !\n");
+}
+
+static void ldp_l2vpn_instance_member_interface_show(struct vty *vty, const struct lyd_node *dnode,
+						     bool show_defaults)
+{
+	const char *name = yang_dnode_get_string(dnode, "./interface");
+
+	vty_out(vty, " member interface %s\n", name);
+}
+
+static void ldp_l2vpn_instance_bridge_interface_show(struct vty *vty, const struct lyd_node *dnode,
+						     bool show_defaults)
+{
+	const char *name = yang_dnode_get_string(dnode, NULL);
+
+	vty_out(vty, " bridge %s\n", name);
+}
+
+static void ldp_l2vpn_instance_mtu_show(struct vty *vty, const struct lyd_node *dnode,
+					bool show_defaults)
+{
+	const uint16_t mtu = yang_dnode_get_uint16(dnode, NULL);
+
+	if (mtu != DEFAULT_L2VPN_MTU)
+		vty_out(vty, " mtu %d\n", mtu);
+}
+
+static void ldp_l2vpn_instance_member_pseudowire_neighbor_lsr_id_show(struct vty *vty,
+								      const struct lyd_node *dnode,
+								      bool show_defaults)
+{
+	struct ipaddr lsr_id;
+
+	yang_dnode_get_ip(&lsr_id, dnode, NULL);
+	if (lsr_id.ipaddr_v4.s_addr != INADDR_ANY)
+		vty_out(vty, "  neighbor lsr-id %pI4\n", &lsr_id.ipaddr_v4);
+	else
+		vty_out(vty, "  ! Incomplete config, specify a neighbor lsr-id\n");
+}
+
+static void ldp_l2vpn_instance_member_pseudowire_neighbor_address_show(struct vty *vty,
+								       const struct lyd_node *dnode,
+								       bool show_defaults)
+{
+	struct ipaddr address;
+
+	yang_dnode_get_ip(&address, dnode, NULL);
+	if (address.ipa_type == IPADDR_V4)
+		vty_out(vty, "  neighbor address %pI4\n", &address.ipaddr_v4);
+	else if (address.ipa_type == IPADDR_V6)
+		vty_out(vty, "  neighbor address %pI6\n", &address.ipaddr_v6);
+}
+
+static void ldp_l2vpn_instance_member_pseudowire_pw_id_show(struct vty *vty,
+							    const struct lyd_node *dnode,
+							    bool show_defaults)
+{
+	uint32_t pw_id;
+
+	pw_id = yang_dnode_get_uint32(dnode, NULL);
+
+	if (pw_id != 0)
+		vty_out(vty, "  pw-id %u\n", pw_id);
+	else
+		vty_out(vty, "  ! Incomplete config, specify a pw-id\n");
+}
+
+static void ldp_l2vpn_instance_member_pseudowire_control_word_show(struct vty *vty,
+								   const struct lyd_node *dnode,
+								   bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "  control-word exclude\n");
+}
+
+static void ldp_l2vpn_instance_member_pseudowire_pw_status_show(struct vty *vty,
+								const struct lyd_node *dnode,
+								bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, "  pw-status disable\n");
+}
+
 
 /*
  * XPath: /frr-ldp-l2vpn:l2vpn/l2vpn-instance
@@ -649,6 +770,8 @@ const struct frr_yang_module_info frr_ldp_l2vpn = {
 			.cbs = {
 				.create = ldp_l2vpn_instance_create,
 				.destroy = ldp_l2vpn_instance_destroy,
+                                .cli_show = ldp_l2vpn_instance_show,
+                                .cli_show_end = ldp_l2vpn_instance_show_end,
 			}
 		},
 		{
@@ -656,6 +779,7 @@ const struct frr_yang_module_info frr_ldp_l2vpn = {
 			.cbs = {
 				.modify = ldp_l2vpn_instance_pw_type_modify,
 				.destroy = ldp_l2vpn_instance_pw_type_destroy,
+				.cli_show = ldp_l2vpn_instance_pw_type_show,
 			}
 		},
 		{
@@ -663,6 +787,7 @@ const struct frr_yang_module_info frr_ldp_l2vpn = {
 			.cbs = {
 				.modify = ldp_l2vpn_instance_mtu_modify,
 				.destroy = ldp_l2vpn_instance_mtu_destroy,
+				.cli_show = ldp_l2vpn_instance_mtu_show,
 			}
 		},
 		{
@@ -670,6 +795,7 @@ const struct frr_yang_module_info frr_ldp_l2vpn = {
 			.cbs = {
 				.modify = ldp_l2vpn_instance_bridge_interface_modify,
 				.destroy = ldp_l2vpn_instance_bridge_interface_destroy,
+				.cli_show = ldp_l2vpn_instance_bridge_interface_show,
 			}
 		},
 		{
@@ -677,6 +803,7 @@ const struct frr_yang_module_info frr_ldp_l2vpn = {
 			.cbs = {
 				.create = ldp_l2vpn_instance_member_interface_create,
 				.destroy = ldp_l2vpn_instance_member_interface_destroy,
+				.cli_show = ldp_l2vpn_instance_member_interface_show,
 			}
 		},
 		{
@@ -684,6 +811,8 @@ const struct frr_yang_module_info frr_ldp_l2vpn = {
 			.cbs = {
 				.create = ldp_l2vpn_instance_member_pseudowire_create,
 				.destroy = ldp_l2vpn_instance_member_pseudowire_destroy,
+                                .cli_show = ldp_l2vpn_instance_member_pseudowire_show,
+                                .cli_show_end = ldp_l2vpn_instance_member_pseudowire_show_end,
 			}
 		},
 		{
@@ -691,6 +820,7 @@ const struct frr_yang_module_info frr_ldp_l2vpn = {
 			.cbs = {
 				.modify = ldp_l2vpn_instance_member_pseudowire_neighbor_lsr_id_modify,
 				.destroy = ldp_l2vpn_instance_member_pseudowire_neighbor_lsr_id_destroy,
+                                .cli_show = ldp_l2vpn_instance_member_pseudowire_neighbor_lsr_id_show,
 			}
 		},
 		{
@@ -698,6 +828,7 @@ const struct frr_yang_module_info frr_ldp_l2vpn = {
 			.cbs = {
 				.modify = ldp_l2vpn_instance_member_pseudowire_neighbor_address_modify,
 				.destroy = ldp_l2vpn_instance_member_pseudowire_neighbor_address_destroy,
+                                .cli_show = ldp_l2vpn_instance_member_pseudowire_neighbor_address_show,
 			}
 		},
 		{
@@ -705,6 +836,7 @@ const struct frr_yang_module_info frr_ldp_l2vpn = {
 			.cbs = {
 				.modify = ldp_l2vpn_instance_member_pseudowire_pw_id_modify,
 				.destroy = ldp_l2vpn_instance_member_pseudowire_pw_id_destroy,
+                                .cli_show = ldp_l2vpn_instance_member_pseudowire_pw_id_show,
 			}
 		},
 		{
@@ -712,6 +844,7 @@ const struct frr_yang_module_info frr_ldp_l2vpn = {
 			.cbs = {
 				.modify = ldp_l2vpn_instance_member_pseudowire_control_word_modify,
 				.destroy = ldp_l2vpn_instance_member_pseudowire_control_word_destroy,
+                                .cli_show = ldp_l2vpn_instance_member_pseudowire_control_word_show,
 			}
 		},
 		{
@@ -719,6 +852,7 @@ const struct frr_yang_module_info frr_ldp_l2vpn = {
 			.cbs = {
 				.modify = ldp_l2vpn_instance_member_pseudowire_pw_status_modify,
 				.destroy = ldp_l2vpn_instance_member_pseudowire_pw_status_destroy,
+                                .cli_show = ldp_l2vpn_instance_member_pseudowire_pw_status_show,
 			}
 		},
 		{

@@ -244,73 +244,17 @@ DEFPY_YANG  (ldp_l2vpn_pw_status_disable,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-static void ldp_l2vpn_pw_config_write(struct vty *vty, struct l2vpn_pw *pw)
-{
-	int missing_lsrid = 0;
-	int missing_pwid = 0;
-
-	vty_out(vty, " !\n");
-	vty_out(vty, " member pseudowire %s\n", pw->ifname);
-
-	if (pw->lsr_id.s_addr != INADDR_ANY)
-		vty_out(vty, "  neighbor lsr-id %pI4\n", &pw->lsr_id);
-	else
-		missing_lsrid = 1;
-
-	if (pw->flags & F_PW_STATIC_NBR_ADDR)
-		vty_out(vty, "  neighbor address %s\n", log_addr(pw->af, &pw->addr));
-
-	if (pw->pwid != 0)
-		vty_out(vty, "  pw-id %u\n", pw->pwid);
-	else
-		missing_pwid = 1;
-
-	if (!(pw->flags & F_PW_CWORD_CONF))
-		vty_out(vty, "  control-word exclude\n");
-
-	if (!(pw->flags & F_PW_STATUSTLV_CONF))
-		vty_out(vty, "  pw-status disable\n");
-
-	if (missing_lsrid)
-		vty_out(vty, "  ! Incomplete config, specify a neighbor lsr-id\n");
-	if (missing_pwid)
-		vty_out(vty, "  ! Incomplete config, specify a pw-id\n");
-
-	vty_out(vty, " exit\n");
-}
-
 static int ldp_l2vpn_config_write(struct vty *vty)
 {
-	struct l2vpn *l2vpn;
-	struct l2vpn_if *lif;
-	struct l2vpn_pw *pw;
+	const struct lyd_node *dnode;
+	int written = 0;
 
-	RB_FOREACH (l2vpn, l2vpn_head, &ldpd_conf->l2vpn_tree) {
-		vty_out(vty, "l2vpn %s type vpls\n", l2vpn->name);
-
-		if (l2vpn->pw_type != DEFAULT_PW_TYPE)
-			vty_out(vty, " vc type ethernet-tagged\n");
-
-		if (l2vpn->mtu != DEFAULT_L2VPN_MTU)
-			vty_out(vty, " mtu %u\n", l2vpn->mtu);
-
-		if (l2vpn->br_ifname[0] != '\0')
-			vty_out(vty, " bridge %s\n", l2vpn->br_ifname);
-
-		RB_FOREACH (lif, l2vpn_if_head, &l2vpn->if_tree)
-			vty_out(vty, " member interface %s\n", lif->ifname);
-
-		RB_FOREACH (pw, l2vpn_pw_head, &l2vpn->pw_tree)
-			ldp_l2vpn_pw_config_write(vty, pw);
-		RB_FOREACH (pw, l2vpn_pw_head, &l2vpn->pw_inactive_tree)
-			ldp_l2vpn_pw_config_write(vty, pw);
-
-		vty_out(vty, " !\n");
-		vty_out(vty, "exit\n");
-		vty_out(vty, "!\n");
+	dnode = yang_dnode_get(running_config->dnode, "/frr-ldp-l2vpn:l2vpn/l2vpn-instance");
+	if (dnode) {
+		nb_cli_show_dnode_cmds(vty, dnode, false);
+		written = 1;
 	}
-
-	return (0);
+	return written;
 }
 
 struct cmd_node ldp_l2vpn_node = {
