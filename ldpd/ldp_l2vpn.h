@@ -14,6 +14,7 @@ extern const struct frr_yang_module_info frr_ldp_l2vpn;
 extern const struct frr_yang_module_info frr_ldp_l2vpn_cli_info;
 
 extern void ldp_l2vpn_cli_init(void);
+extern void ldp_l2vpn_init(void);
 
 #ifdef __cplusplus
 }
