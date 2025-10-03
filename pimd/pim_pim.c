@@ -236,9 +236,13 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 			break;
 
 #if PIM_IPV == 4
-		if (PIM_DEBUG_PIM_PACKETS)
-			zlog_debug("neighbor filter rejects packet %pI4 -> %pI4 on %s",
-				   &ip_hdr->ip_src, &ip_hdr->ip_dst, ifp->name);
+		if (PIM_DEBUG_PIM_PACKETS) {
+			struct in_addr srcaddr = ip_hdr->ip_src;
+			struct in_addr dstaddr = ip_hdr->ip_dst;
+
+			zlog_debug("neighbor filter rejects packet %pI4 -> %pI4 on %s", &srcaddr,
+				   &dstaddr, ifp->name);
+		}
 #else
 		if (PIM_DEBUG_PIM_PACKETS)
 			zlog_debug("neighbor filter rejects packet %pI6 -> %pI6 on %s", &sg.src,
