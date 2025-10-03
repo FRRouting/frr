@@ -94,7 +94,6 @@ DECLARE_QOBJ_TYPE(vrf);
 enum vrf_backend_type {
 	VRF_BACKEND_VRF_LITE,
 	VRF_BACKEND_NETNS,
-	VRF_BACKEND_MAX,
 };
 
 extern struct vrf_id_head vrfs_by_id;
@@ -294,9 +293,9 @@ extern void vrf_install_commands(void);
 /*
  * API for configuring VRF backend
  */
-extern int vrf_configure_backend(enum vrf_backend_type backend);
-extern int vrf_get_backend(void);
-extern int vrf_is_backend_netns(void);
+extern void vrf_configure_backend(enum vrf_backend_type backend);
+extern enum vrf_backend_type vrf_get_backend(void);
+extern bool vrf_is_backend_netns(void);
 
 /* used internally to enable or disable VRF.
  * Notify a change in the VRF ID of the VRF

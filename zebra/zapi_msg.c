@@ -2427,7 +2427,7 @@ static void zsend_capabilities(struct zserv *client, struct zebra_vrf *zvrf)
 	struct stream *s = stream_new(ZEBRA_SMALL_PACKET_SIZE);
 
 	zclient_create_header(s, ZEBRA_CAPABILITIES, zvrf->vrf->vrf_id);
-	stream_putl(s, vrf_get_backend());
+	stream_putc(s, vrf_get_backend());
 	stream_putc(s, mpls_enabled);
 	stream_putl(s, zrouter.zav.multipath_num);
 	stream_putc(s, zebra_mlag_get_role());

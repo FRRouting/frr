@@ -4429,18 +4429,12 @@ static int zclient_capability_decode(ZAPI_CALLBACK_ARGS)
 {
 	struct zclient_capabilities cap;
 	struct stream *s = zclient->ibuf;
-	int vrf_backend;
+	enum vrf_backend_type vrf_backend;
 	uint8_t mpls_enabled;
 
-	STREAM_GETL(s, vrf_backend);
+	STREAM_GETC(s, vrf_backend);
 
-	if (vrf_backend < 0 || vrf_configure_backend(vrf_backend)) {
-		flog_err(EC_LIB_ZAPI_ENCODE,
-			 "%s: Garbage VRF backend type: %d", __func__,
-			 vrf_backend);
-		goto stream_failure;
-	}
-
+	vrf_configure_backend(vrf_backend);
 
 	memset(&cap, 0, sizeof(cap));
 	STREAM_GETC(s, mpls_enabled);
