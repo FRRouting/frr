@@ -196,6 +196,13 @@ static int rule_notify_owner(ZAPI_CALLBACK_ARGS)
 		return 0;
 	}
 
+	if (pmi->install_bit >= 64) {
+		DEBUGD(&pbr_dbg_zebra,
+		       "%s: Interface %s has install_bit %u >= 64, skipping state tracking",
+		       __func__, ifname, pmi->install_bit);
+		return 0;
+	}
+
 	installed = 1ULL << pmi->install_bit;
 
 	switch (note) {
@@ -593,9 +600,19 @@ bool pbr_send_pbr_map(struct pbr_map_sequence *pbrms,
 {
 	struct pbr_map *pbrm = pbrms->parent;
 	struct stream *s;
-	uint64_t is_installed = (uint64_t)1 << pmi->install_bit;
+	uint64_t is_installed = 0;
 
-	is_installed &= pbrms->installed;
+
+	/* Protect against bit positions >= 64,
+	 * when the install_bit is >= 64,
+	 * treat it as not installed, this forces rule
+	 * to sent to Kernel
+	 */
+	if (pmi->install_bit < 64) {
+		is_installed = 1ULL << pmi->install_bit;
+		is_installed &= pbrms->installed;
+	}
+
 
 	/*
 	 * If we are installed and asked to do so again and the config
