@@ -599,8 +599,12 @@ struct ripng_info *ripng_ecmp_replace(struct ripng *ripng,
 struct ripng_info *ripng_ecmp_delete(struct ripng *ripng,
 				     struct ripng_info *rinfo)
 {
-	struct agg_node *rp = rinfo->rp;
-	struct list *list = (struct list *)rp->info;
+	struct agg_node *rp;
+	struct list *list;
+
+	assert(rinfo);
+	rp = rinfo->rp;
+	list = rp->info;
 
 	event_cancel(&rinfo->t_timeout);
 
