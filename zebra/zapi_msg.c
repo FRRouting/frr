@@ -2424,7 +2424,8 @@ stream_failure:
 
 static void zsend_capabilities(struct zserv *client, struct zebra_vrf *zvrf)
 {
-	struct stream *s = stream_new(ZEBRA_SMALL_PACKET_SIZE);
+	uint32_t size = ZEBRA_SMALL_PACKET_SIZE + zrouter.zav.platform_blob_length;
+	struct stream *s = stream_new(size);
 
 	zclient_create_header(s, ZEBRA_CAPABILITIES, zvrf->vrf->vrf_id);
 	stream_putl(s, vrf_get_backend());
@@ -2433,6 +2434,10 @@ static void zsend_capabilities(struct zserv *client, struct zebra_vrf *zvrf)
 	stream_putc(s, zebra_mlag_get_role());
 	stream_putc(s, zrouter.zav.v6_with_v4_nexthop);
 	stream_putc(s, zrouter.graceful_restart);
+	stream_putw(s, zrouter.zav.platform_blob_length);
+	if (zrouter.zav.platform_blob_length)
+		stream_put(s, zrouter.zav.platform_blob, zrouter.zav.platform_blob_length);
+
 	stream_putw_at(s, 0, stream_get_endp(s));
 	zserv_send_message(client, s);
 }
