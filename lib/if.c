@@ -827,6 +827,12 @@ int if_is_vrf(const struct interface *ifp)
 	return CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
 }
 
+/* Check interface is MACVLAN */
+int if_is_macvlan(const struct interface *ifp)
+{
+	return CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_MACVLAN);
+}
+
 /* Should this interface be treated as a loopback? */
 bool if_is_loopback(const struct interface *ifp)
 {
