@@ -18,7 +18,7 @@ is first package install and asked)
 .. code-block:: shell
 
    pkg install autoconf automake bison c-ares git gmake json-c libtool \
-        libunwind libyang2 pkgconf protobuf-c py39-pytest py39-sphinx texinfo
+        libunwind libyang2 pkgconf protobuf-c texinfo
 
 .. include:: building-libunwind-note.rst
 
