@@ -943,7 +943,8 @@ DEFPY (locator_prefix,
 
 	if (prefix->prefixlen + func_bit_len + 0 > 128) {
 		vty_out(vty,
-			"%% prefix-len + function-len + arg-len (%ld) cannot be greater than 128\n",
+			"%% prefix-len + function-len + arg-len (%" PRId64
+			") cannot be greater than 128\n",
 			prefix->prefixlen + func_bit_len + 0);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
