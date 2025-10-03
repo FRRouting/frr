@@ -301,8 +301,14 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 		listnode_add(circuit->ip_addrs, ipv4);
 
 		/* Update Local IP address parameter if MPLS TE is enable */
-		if (circuit->ext && circuit->area
-		    && IS_MPLS_TE(circuit->area->mta)) {
+		if (circuit->area && connected->ifp && IS_MPLS_TE(circuit->area->mta)) {
+			/* Check if MPLS TE Circuit context has not been already
+			 * created */
+			if (circuit->ext == NULL) {
+				circuit->ext = isis_alloc_ext_subtlvs();
+				te_debug("  |- Allocated new Ext-subTLVs for interface %s",
+					 connected->ifp->name);
+			}
 			circuit->ext->local_addr.s_addr = ipv4->prefix.s_addr;
 			SET_SUBTLV(circuit->ext, EXT_LOCAL_ADDR);
 		}
@@ -340,8 +346,12 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 		else {
 			listnode_add(circuit->ipv6_non_link, ipv6);
 			/* Update Local IPv6 address param. if MPLS TE is on */
-			if (circuit->ext && circuit->area
-			    && IS_MPLS_TE(circuit->area->mta)) {
+			if (circuit->area && connected->ifp && IS_MPLS_TE(circuit->area->mta)) {
+				if (circuit->ext == NULL) {
+					circuit->ext = isis_alloc_ext_subtlvs();
+					te_debug("  |- Allocated new Ext-subTLVs for interface %s",
+						 connected->ifp->name);
+				}
 				IPV6_ADDR_COPY(&circuit->ext->local_addr6,
 					       &ipv6->prefix);
 				SET_SUBTLV(circuit->ext, EXT_LOCAL_ADDR6);
