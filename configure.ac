@@ -469,6 +469,7 @@ AC_C_FLAG([-Wundef])
 AC_C_FLAG([-Wimplicit-fallthrough])
 AC_C_FLAG([-Wshadow])
 AC_C_FLAG([-Wmissing-noreturn])
+AC_C_FLAG([-Wformat-extra-args])
 if test "$enable_gcc_ultra_verbose" = "yes" ; then
   AC_C_FLAG([-Wcast-qual])
   AC_C_FLAG([-Wmissing-format-attribute])
