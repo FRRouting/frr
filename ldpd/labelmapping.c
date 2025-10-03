@@ -132,7 +132,7 @@ int
 recv_labelmessage(struct nbr *nbr, char *buf, uint16_t len, uint16_t type)
 {
 	struct ldp_msg		 msg;
-	struct tlv		 ft;
+	struct tlv ft_tlv;
 	uint32_t		 label = NO_LABEL, reqid = 0;
 	uint32_t		 pw_status = 0;
 	uint8_t			 flags = 0;
@@ -147,17 +147,17 @@ recv_labelmessage(struct nbr *nbr, char *buf, uint16_t len, uint16_t type)
 	len -= LDP_MSG_SIZE;
 
 	/* FEC TLV */
-	if (len < sizeof(ft)) {
+	if (len < sizeof(ft_tlv)) {
 		session_shutdown(nbr, S_BAD_TLV_LEN, msg.id, msg.type);
 		return (-1);
 	}
 
-	memcpy(&ft, buf, sizeof(ft));
-	if (ntohs(ft.type) != TLV_TYPE_FEC) {
+	memcpy(&ft_tlv, buf, sizeof(ft_tlv));
+	if (ntohs(ft_tlv.type) != TLV_TYPE_FEC) {
 		send_notification(nbr->tcp, S_MISS_MSG, msg.id, msg.type);
 		return (-1);
 	}
-	feclen = ntohs(ft.length);
+	feclen = ntohs(ft_tlv.length);
 	if (feclen > len - TLV_HDR_SIZE) {
 		session_shutdown(nbr, S_BAD_TLV_LEN, msg.id, msg.type);
 		return (-1);
@@ -526,25 +526,25 @@ len_fec_tlv(struct map *map)
 int
 gen_fec_tlv(struct ibuf *buf, struct map *map)
 {
-	struct tlv	ft;
+	struct tlv ft_tlv;
 	uint16_t	family, len, pw_type, ifmtu;
 	uint8_t		pw_len = 0, twcard_len;
 	uint32_t	group_id, pwid;
 	int		err = 0;
 
-	ft.type = htons(TLV_TYPE_FEC);
+	ft_tlv.type = htons(TLV_TYPE_FEC);
 
 	switch (map->type) {
 	case MAP_TYPE_WILDCARD:
-		ft.length = htons(sizeof(uint8_t));
-		SET_FLAG(err, ibuf_add(buf, &ft, sizeof(ft)));
+		ft_tlv.length = htons(sizeof(uint8_t));
+		SET_FLAG(err, ibuf_add(buf, &ft_tlv, sizeof(ft_tlv)));
 		SET_FLAG(err, ibuf_add(buf, &map->type, sizeof(map->type)));
 		break;
 	case MAP_TYPE_PREFIX:
 		len = PREFIX_SIZE(map->fec.prefix.prefixlen);
-		ft.length = htons(sizeof(map->type) + sizeof(family) +
-		    sizeof(map->fec.prefix.prefixlen) + len);
-		SET_FLAG(err, ibuf_add(buf, &ft, sizeof(ft)));
+		ft_tlv.length = htons(sizeof(map->type) + sizeof(family) +
+				      sizeof(map->fec.prefix.prefixlen) + len);
+		SET_FLAG(err, ibuf_add(buf, &ft_tlv, sizeof(ft_tlv)));
 		SET_FLAG(err, ibuf_add(buf, &map->type, sizeof(map->type)));
 		switch (map->fec.prefix.af) {
 		case AF_INET:
@@ -571,8 +571,8 @@ gen_fec_tlv(struct ibuf *buf, struct map *map)
 
 		len = FEC_PWID_ELM_MIN_LEN + pw_len;
 
-		ft.length = htons(len);
-		SET_FLAG(err, ibuf_add(buf, &ft, sizeof(ft)));
+		ft_tlv.length = htons(len);
+		SET_FLAG(err, ibuf_add(buf, &ft_tlv, sizeof(ft_tlv)));
 
 		SET_FLAG(err, ibuf_add(buf, &map->type, sizeof(uint8_t)));
 		pw_type = map->fec.pwid.type;
@@ -608,8 +608,8 @@ gen_fec_tlv(struct ibuf *buf, struct map *map)
 		default:
 			fatalx("gen_fec_tlv: unexpected fec type");
 		}
-		ft.length = htons(len);
-		SET_FLAG(err, ibuf_add(buf, &ft, sizeof(ft)));
+		ft_tlv.length = htons(len);
+		SET_FLAG(err, ibuf_add(buf, &ft_tlv, sizeof(ft_tlv)));
 		SET_FLAG(err, ibuf_add(buf, &map->type, sizeof(uint8_t)));
 		SET_FLAG(err, ibuf_add(buf, &map->fec.twcard.type, sizeof(uint8_t)));
 
