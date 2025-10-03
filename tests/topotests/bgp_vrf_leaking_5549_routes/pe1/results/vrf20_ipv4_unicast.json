@@ -21,6 +21,11 @@
                         "afi": "ipv6",
                         "scope": "link-local",
                         "used": true
+                    },
+                    {
+                        "hostname": "pe1",
+                        "afi": "ipv6",
+                        "scope": "link-local"
                     }
                 ]
             }
