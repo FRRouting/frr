@@ -24,7 +24,7 @@ from lib.common_config import (
     run_frr_cmd,
     validate_ip_address,
 )
-from lib.micronet import get_exec_path
+from lib.micronet import get_exec_path, comm_error
 from lib.topolog import logger
 from lib.topotest import frr_unicode
 
@@ -4274,6 +4274,94 @@ class McastTesterHelper(HostApplicationHelper):
             self.run(host, ["--send=0.7", send_to, bind_intf])
 
         return True
+
+    def stop_traffic_senders(self):
+        """
+        Stop only the traffic sender processes (mcast-tester.py with --send flag)
+        while keeping IGMP join processes (mcast-tester.py without --send flag) running.
+        """
+        hosts_to_clean = []
+
+        for host in self.host_procs:
+            hlogger = self.tgen.net[host].logger
+            procs_to_remove = []
+
+            for i, (p, v) in enumerate(self.host_procs[host]):
+                # Check if this process is a traffic sender by examining command line
+                try:
+                    # Get the command line arguments
+                    cmdline = p.args if hasattr(p, "args") else []
+
+                    # Check if --send flag is present in the command
+                    is_sender = any("--send" in str(arg) for arg in cmdline)
+
+                    if is_sender:
+                        self.stopping_proc(host, p, v)
+                        logger.debug(
+                            "%s: %s: terminating traffic sender process %s",
+                            self,
+                            host,
+                            p.pid,
+                        )
+                        hlogger.debug(
+                            "%s: %s: terminating traffic sender process %s",
+                            self,
+                            host,
+                            p.pid,
+                        )
+
+                        rc = p.poll()
+                        if rc is not None:
+                            logger.error(
+                                "%s: %s: traffic sender process early exit %s: %s",
+                                self,
+                                host,
+                                p.pid,
+                                comm_error(p),
+                            )
+                            hlogger.error(
+                                "%s: %s: traffic sender process early exit %s: %s",
+                                self,
+                                host,
+                                p.pid,
+                                comm_error(p),
+                            )
+                        else:
+                            p.terminate()
+                            p.wait()
+                            logger.debug(
+                                "%s: %s: terminated traffic sender process %s: %s",
+                                self,
+                                host,
+                                p.pid,
+                                comm_error(p),
+                            )
+                            hlogger.debug(
+                                "%s: %s: terminated traffic sender process %s: %s",
+                                self,
+                                host,
+                                p.pid,
+                                comm_error(p),
+                            )
+
+                        procs_to_remove.append(i)
+
+                except Exception as e:
+                    logger.warning(
+                        "%s: %s: could not check process %s: %s", self, host, p.pid, e
+                    )
+
+            # Remove terminated processes from tracking (in reverse order to maintain indices)
+            for i in reversed(procs_to_remove):
+                del self.host_procs[host][i]
+
+            # If no processes left for this host, mark for cleanup
+            if not self.host_procs[host]:
+                hosts_to_clean.append(host)
+
+        # Clean up empty host entries
+        for host in hosts_to_clean:
+            del self.host_procs[host]
 
 
 @retry(retry_timeout=62)
