@@ -454,20 +454,16 @@ struct bgp_clearing_info {
 	struct prefix last_pfx;
 
 	/* For some afi/safi (vpn/evpn e.g.), bgp may do an inner walk
-	 * for a related table; the 'last' info represents the outer walk,
-	 * and this info represents the inner walk.
+	 * for an RD-based table; the 'last' info represents the outer walk,
+	 * and this info represents the inner RD table walk.
 	 */
 	afi_t inner_afi;
 	safi_t inner_safi;
 	struct prefix inner_pfx;
 
-	/* Map of afi/safi so we don't re-walk any tables */
-	uint8_t table_map[AFI_MAX][SAFI_MAX];
-
 	/* Counters: current iteration, overall total, and processed count. */
 	uint32_t curr_counter;
 	uint32_t total_counter;
-	uint32_t total_processed;
 
 	/* TODO -- id, serial number, for debugging/logging? */
 

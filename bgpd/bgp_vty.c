@@ -156,9 +156,6 @@ enum show_type {
 	show_ipv6_peer
 };
 
-static struct peer_group *listen_range_exists(struct bgp *bgp,
-					      struct prefix *range, int exact);
-
 static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 {
 	switch (afi) {
