@@ -148,6 +148,20 @@ static struct cmd_node keychain_key_node = {
 	.prompt = "%s(config-keychain-key)# ",
 };
 
+struct cmd_node ldp_l2vpn_node = {
+	.name = "ldp l2vpn",
+	.node = LDP_L2VPN_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-l2vpn)# ",
+};
+
+struct cmd_node ldp_pseudowire_node = {
+	.name = "ldp",
+	.node = LDP_PSEUDOWIRE_NODE,
+	.parent_node = LDP_L2VPN_NODE,
+	.prompt = "%s(config-l2vpn-pw)# ",
+};
+
 static int test_callback(const struct cmd_element *cmd, struct vty *vty,
 			 int argc, struct cmd_token *argv[])
 {
@@ -216,6 +230,8 @@ static void test_init(void)
 	install_node(&keychain_key_node);
 	install_node(&isis_node);
 	install_node(&vty_node);
+	install_node(&ldp_l2vpn_node);
+	install_node(&ldp_pseudowire_node);
 
 	test_init_cmd();
 
