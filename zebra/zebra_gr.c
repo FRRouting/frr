@@ -208,8 +208,6 @@ static void zebra_gr_delete_stale_client(struct client_gr_info *info)
 
 	LOG_GR("%s: Stale client %s is being deleted", __func__,
 	       zebra_route_string(s_client->proto));
-	frrtrace(2, frr_zebra, gr_free_stale_client, zebra_route_string(s_client->proto),
-		 VRF_LOGNAME(vrf_lookup_by_id(info->vrf_id)));
 
 	TAILQ_INIT(&(s_client->gr_info_queue));
 	zserv_stale_client_list_del(&zrouter.stale_client_list, s_client);
