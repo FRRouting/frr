@@ -771,9 +771,12 @@ int pim_igmp_packet(struct gm_sock *igmp, char *buf, size_t len)
 		router_alert = false;
 
 	if (pim_interface->gmp_require_ra && !router_alert) {
-		if (PIM_DEBUG_GM_PACKETS)
+		if (PIM_DEBUG_GM_PACKETS) {
+			struct in_addr srcaddr = ip_hdr->ip_src;
+
 			zlog_debug("discarding IGMP packet from %pI4 on %s due to Router Alert option missing",
-				   &ip_hdr->ip_src, igmp->interface->name);
+				   &srcaddr, igmp->interface->name);
+		}
 		return -1;
 	}
 
