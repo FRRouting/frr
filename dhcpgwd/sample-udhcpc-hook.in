@@ -1,0 +1,20 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# DHCP gateway related functions
+# Copyright (C) 2025 VyOS Inc.
+# Kyrylo Yatsenko
+
+arg_state='down'
+arg_gateway_ip=''
+case "$1" in
+    deconfig|leasefail|nak)
+        arg_state=down
+        ;;
+    bound|renew)
+        arg_state=up
+        arg_gateway_ip=$router
+        ;;
+esac
+
+@e_sbindir@/update-dhcp-gw $interface $arg_state $arg_gateway_ip

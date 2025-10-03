@@ -217,6 +217,13 @@ AC_ARG_WITH([yangmodelsdir], [AS_HELP_STRING([--with-yangmodelsdir=DIR], [yang m
 ])
 AC_SUBST([yangmodelsdir])
 
+AC_ARG_WITH([dhcpgwstatedir], [AS_HELP_STRING([--with-dhcpgwstatedir=DIR], [dhcpgw state directory (${frr_runstatedir}/dhcpgw-state)])], [
+	dhcpgwstatedir="$withval"
+], [
+	dhcpgwstatedir="\${frr_runstatedir}/dhcpgw-state"
+])
+AC_SUBST([dhcpgwstatedir])
+
 AC_ARG_WITH([vici-socket], [AS_HELP_STRING([--with-vici-socket=PATH], [vici-socket (/var/run/charon.vici)])], [
 	vici_socket="$withval"
 ], [
@@ -792,6 +799,8 @@ AC_ARG_ENABLE([vrrpd],
   AS_HELP_STRING([--disable-vrrpd], [do not build vrrpd]))
 AC_ARG_ENABLE([pathd],
   AS_HELP_STRING([--disable-pathd], [do not build pathd]))
+AC_ARG_ENABLE([dhcpgwd],
+  AS_HELP_STRING([--disable-dhcpgwd], [do not build dhcpgwd]))
 AC_ARG_ENABLE([bgp-announce],
   AS_HELP_STRING([--disable-bgp-announce], [turn off BGP route announcement]))
 AC_ARG_ENABLE([bgp-vnc],
@@ -1882,6 +1891,10 @@ AS_IF([test "$enable_staticd" != "no"], [
   AC_DEFINE([HAVE_STATICD], [1], [staticd])
 ])
 
+AS_IF([test "$enable_dhcpgwd" != "no"], [
+  AC_DEFINE([HAVE_DHCPGWD], [1], [dhcpgwd])
+])
+
 AS_IF([test "$enable_fabricd" != "no"], [
   AC_DEFINE([HAVE_FABRICD], [1], [fabricd])
 ])
@@ -2699,6 +2712,7 @@ AX_SUBST_EXPANDED([frr_runstatedir])
 AX_SUBST_EXPANDED([frr_libstatedir])
 AX_SUBST_EXPANDED([moduledir])
 AX_SUBST_EXPANDED([yangmodelsdir])
+AX_SUBST_EXPANDED([dhcpgwstatedir])
 AX_SUBST_EXPANDED([scriptdir])
 
 dnl strip duplicate trailing slashes if necessary
@@ -2758,6 +2772,7 @@ AM_CONDITIONAL([PIM6D], [test "$enable_pim6d" != "no"])
 AM_CONDITIONAL([PBRD], [test "$enable_pbrd" != "no"])
 AM_CONDITIONAL([SHARPD], [test "$enable_sharpd" = "yes"])
 AM_CONDITIONAL([STATICD], [test "$enable_staticd" != "no"])
+AM_CONDITIONAL([DHCPGWD], [test "$enable_dhcpgwd" != "no"])
 AM_CONDITIONAL([FABRICD], [test "$enable_fabricd" != "no"])
 AM_CONDITIONAL([VRRPD], [test "$enable_vrrpd" != "no"])
 AM_CONDITIONAL([PATHD], [test "$enable_pathd" != "no"])
@@ -2793,6 +2808,10 @@ AC_CONFIG_FILES([tools/frrinit.sh], [chmod +x tools/frrinit.sh])
 AC_CONFIG_FILES([tools/frrcommon.sh])
 AC_CONFIG_FILES([tools/frr.service])
 AC_CONFIG_FILES([tools/frr@.service])
+
+AC_CONFIG_FILES([dhcpgwd/sample-dhclient-hook])
+AC_CONFIG_FILES([dhcpgwd/sample-dhcpcd-hook])
+AC_CONFIG_FILES([dhcpgwd/sample-udhcpc-hook])
 
 # dnl write out a ccls file with our compile configuration
 # dnl have to add -Wno-unused-function otherwise foobar_cmd_magic causes
