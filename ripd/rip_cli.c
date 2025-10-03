@@ -1250,6 +1250,33 @@ DEFPY_YANG (clear_ip_rip,
 	return nb_cli_rpc(vty, "/frr-ripd:clear-rip-route", NULL);
 }
 
+DEFPY_YANG(if_ipv4_route_map, if_ipv4_route_map_cmd,
+	   "route-map ROUTE-MAP <in$in|out> IFNAME",
+	   "Route map set\n"
+	   "Route map name\n"
+	   "Route map set for input filtering\n"
+	   "Route map set for output filtering\n" INTERFACE_STR)
+{
+	const char *dir = in ? "in" : "out";
+	const char *other_dir = in ? "out" : "in";
+
+	return if_route_map_handler(vty, false, dir, other_dir, ifname, route_map);
+}
+
+DEFPY_YANG(no_if_ipv4_route_map, no_if_ipv4_route_map_cmd,
+	   "no route-map [ROUTE-MAP] <in$in|out> IFNAME",
+	   NO_STR
+	   "Route map set\n"
+	   "Route map name\n"
+	   "Route map set for input filtering\n"
+	   "Route map set for output filtering\n" INTERFACE_STR)
+{
+	const char *dir = in ? "in" : "out";
+	const char *other_dir = in ? "out" : "in";
+
+	return if_route_map_handler(vty, true, dir, other_dir, ifname, route_map);
+}
+
 /* RIP node structure. */
 static struct cmd_node rip_node = {
 	.name = "rip",
@@ -1314,7 +1341,8 @@ void rip_cli_init(void)
 
 	install_element(ENABLE_NODE, &clear_ip_rip_cmd);
 
-	if_rmap_init(RIP_NODE);
+	install_element(RIP_NODE, &if_ipv4_route_map_cmd);
+	install_element(RIP_NODE, &no_if_ipv4_route_map_cmd);
 }
 /* clang-format off */
 const struct frr_yang_module_info frr_ripd_cli_info = {
