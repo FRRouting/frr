@@ -2498,8 +2498,7 @@ void route_map_notify_pentry_dependencies(const char *affected_name,
 	if (!upd8_hash)
 		return;
 
-	dep = (struct route_map_dep *)hash_get(upd8_hash, (void *)affected_name,
-					       NULL);
+	dep = hash_lookup(upd8_hash, (void *)affected_name);
 	if (dep) {
 		if (!dep->this_hash)
 			dep->this_hash = upd8_hash;
@@ -3125,7 +3124,7 @@ void route_map_notify_dependencies(const char *affected_name,
 		return;
 	}
 
-	dep = (struct route_map_dep *)hash_get(upd8_hash, name, NULL);
+	dep = hash_lookup(upd8_hash, name);
 	if (dep) {
 		if (!dep->this_hash)
 			dep->this_hash = upd8_hash;
