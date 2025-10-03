@@ -350,6 +350,7 @@ enum rib_update_event {
 	RIB_UPDATE_KERNEL,
 	RIB_UPDATE_RMAP_CHANGE,
 	RIB_UPDATE_OTHER,
+	RIB_UPDATE_KERNEL_LAST_ADDRESS_DELETED,
 	RIB_UPDATE_MAX
 };
 void rib_update_finish(void);
