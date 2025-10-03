@@ -478,7 +478,8 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 				nl_attr_nest(&req->n, in_buf_len, RTA_ENCAP);
 			nl_attr_put32(&req->n, in_buf_len, VXLAN_VNI,
 				      vxlan->vni);
-			nl_attr_nest_end(&req->n, inner_nest);
+			if (inner_nest)
+				nl_attr_nest_end(&req->n, inner_nest);
 			break;
 		}
 

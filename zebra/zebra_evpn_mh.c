@@ -2119,6 +2119,12 @@ static void zebra_evpn_flush_local_mac(struct zebra_mac *mac,
 	if (mac->zevpn->vxlan_if) {
 		zif = mac->zevpn->vxlan_if->info;
 		vni = zebra_vxlan_if_vni_find(zif, mac->zevpn->vni);
+		if (!vni) {
+			if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+				zlog_debug("VNI %u not found in interface for MAC %pEA flush",
+					   mac->zevpn->vni, &mac->macaddr);
+			return;
+		}
 		vid = vni->access_vlan;
 	} else {
 		vid = 0;
@@ -2643,9 +2649,9 @@ bool zebra_evpn_es_mac_ref(struct zebra_mac *mac, const esi_t *esi)
 		/* If non-zero esi implicitly create a new ES */
 		if (memcmp(esi, zero_esi, sizeof(esi_t))) {
 			es = zebra_evpn_es_new(esi);
-			if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+			if (es && IS_ZEBRA_DEBUG_EVPN_MH_ES)
 				zlog_debug("auto es %s add on mac ref",
-					   es->esi_str);
+					es->esi_str);
 		}
 	}
 
@@ -3035,18 +3041,17 @@ static char *zebra_evpn_es_vtep_str(char *vtep_str, struct zebra_evpn_es *es,
 
 	vtep_str[0] = '\0';
 	for (ALL_LIST_ELEMENTS_RO(es->es_vtep_list, node, zvtep)) {
+		char *ip_str = inet_ntop(AF_INET, &zvtep->vtep_ip, ip_buf,
+					 sizeof(ip_buf));
+		if (!ip_str)
+			continue;
+
 		if (first) {
 			first = false;
-			strlcat(vtep_str,
-				inet_ntop(AF_INET, &zvtep->vtep_ip, ip_buf,
-					  sizeof(ip_buf)),
-				vtep_str_size);
+			strlcat(vtep_str, ip_str, vtep_str_size);
 		} else {
 			strlcat(vtep_str, ",", vtep_str_size);
-			strlcat(vtep_str,
-				inet_ntop(AF_INET, &zvtep->vtep_ip, ip_buf,
-					  sizeof(ip_buf)),
-				vtep_str_size);
+			strlcat(vtep_str, ip_str, vtep_str_size);
 		}
 	}
 	return vtep_str;

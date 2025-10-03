@@ -1830,14 +1830,14 @@ int lib_interface_zebra_affinity_create(struct nb_cb_create_args *args)
 		iflp = if_link_params_get(ifp);
 		affmap = affinity_map_get(affname);
 
-		if (affmap->bit_position < 32 &&
+		if (affmap && affmap->bit_position < 32 &&
 		    (affinity_mode == AFFINITY_MODE_STANDARD ||
 		     affinity_mode == AFFINITY_MODE_BOTH)) {
 			iflp->admin_grp |= 1 << affmap->bit_position;
 			SET_PARAM(iflp, LP_ADM_GRP);
 		}
-		if (affinity_mode == AFFINITY_MODE_EXTENDED ||
-		    affinity_mode == AFFINITY_MODE_BOTH) {
+		if (affmap && (affinity_mode == AFFINITY_MODE_EXTENDED ||
+			       affinity_mode == AFFINITY_MODE_BOTH)) {
 			admin_group_set(&iflp->ext_admin_grp,
 					affmap->bit_position);
 			SET_PARAM(iflp, LP_EXTEND_ADM_GRP);
@@ -1867,8 +1867,7 @@ int lib_interface_zebra_affinity_destroy(struct nb_cb_destroy_args *args)
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		iflp = if_link_params_get(ifp);
 		affmap = affinity_map_get(affname);
-
-		if (affmap->bit_position < 32 &&
+		if (affmap && affmap->bit_position < 32 &&
 		    (affinity_mode == AFFINITY_MODE_STANDARD ||
 		     affinity_mode == AFFINITY_MODE_BOTH)) {
 			iflp->admin_grp &= ~(1 << affmap->bit_position);

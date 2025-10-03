@@ -211,8 +211,8 @@ static ssize_t netlink_qdisc_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 			break;
 			/* not implemented */
 		}
-
-		nl_attr_nest_end(&req->n, nest);
+		if (nest)
+			nl_attr_nest_end(&req->n, nest);
 	} else {
 		/* ifindex are enough for del/get qdisc */
 	}
@@ -331,7 +331,8 @@ static ssize_t netlink_tclass_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 			break;
 		}
 
-		nl_attr_nest_end(&req->n, nest);
+		if (nest)
+			nl_attr_nest_end(&req->n, nest);
 	}
 
 	return NLMSG_ALIGN(req->n.nlmsg_len);
@@ -540,7 +541,8 @@ static ssize_t netlink_tfilter_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 		default:
 			break;
 		}
-		nl_attr_nest_end(&req->n, nest);
+		if (nest)
+			nl_attr_nest_end(&req->n, nest);
 	}
 
 	return NLMSG_ALIGN(req->n.nlmsg_len);

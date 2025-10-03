@@ -188,7 +188,8 @@ void zebra_tc_qdisc_install(struct zebra_tc_qdisc *qdisc)
 	} else {
 		new = hash_get(zrouter.qdisc_hash, qdisc,
 			       tc_qdisc_alloc_intern);
-		(void)dplane_tc_qdisc_install(new);
+		if (new)
+			(void)dplane_tc_qdisc_install(new);
 	}
 }
 
@@ -304,7 +305,7 @@ void zebra_tc_class_add(struct zebra_tc_class *class)
 
 	if (found)
 		(void)dplane_tc_class_update(new);
-	else
+	else if (new)
 		(void)dplane_tc_class_add(new);
 }
 
@@ -422,6 +423,11 @@ void zebra_tc_filter_add(struct zebra_tc_filter *filter)
 
 	found = hash_lookup(zrouter.filter_hash, filter);
 	new = hash_get(zrouter.filter_hash, filter, tc_filter_alloc_intern);
+
+	if (!new) {
+		zlog_err("%s: hash_get failed to allocate filter", __func__);
+		return;
+	}
 
 	if (found)
 		(void)dplane_tc_filter_update(new);

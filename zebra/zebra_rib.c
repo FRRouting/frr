@@ -889,6 +889,14 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq,
 				zebra_vrf_lookup_by_id(rnh->vrf_id);
 			struct prefix *p = &rnh->node->p;
 
+			if (!zvrf) {
+				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+					zlog_debug(
+						"%s: VRF %u not found for RNH evaluation",
+						__func__, rnh->vrf_id);
+				continue;
+			}
+
 			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
 				zlog_debug(
 					"%s(%u):%pRN has Nexthop(%pRN) depending on it, evaluating %u:%u",
@@ -4168,6 +4176,14 @@ static void rib_link(struct route_node *rn, struct route_entry *re, int process)
 		if (is_zebra_import_table_enabled(afi, safi, re->vrf_id, re->table)) {
 			struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
 
+			if (!zvrf) {
+				if (IS_ZEBRA_DEBUG_RIB)
+					zlog_debug(
+						"%s: VRF %u not found for import table entry",
+						__func__, re->vrf_id);
+				return;
+			}
+
 			rmap_name = zebra_get_import_table_route_map(afi, safi, re->table);
 			zebra_add_import_table_entry(zvrf, safi, rn, re, rmap_name);
 		}
@@ -4387,11 +4403,11 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 	for (ALL_NEXTHOPS(re->nhe->nhg, nexthop))
 		route_entry_dump_nh(re, straddr, vrf, nexthop);
 
-	if (zebra_nhg_get_backup_nhg(re->nhe)) {
+	nhg = zebra_nhg_get_backup_nhg(re->nhe);
+	if (nhg) {
 		zlog_debug("%s(%s): backup nexthops:", straddr,
 			   VRF_LOGNAME(vrf));
 
-		nhg = zebra_nhg_get_backup_nhg(re->nhe);
 		for (ALL_NEXTHOPS_PTR(nhg, nexthop))
 			route_entry_dump_nh(re, straddr, vrf, nexthop);
 	}

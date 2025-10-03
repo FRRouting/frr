@@ -1616,6 +1616,12 @@ static int zfpm_trigger_rmac_update(struct zebra_mac *rmac,
 		fpm_mac = hash_get(zfpm_g->fpm_mac_info_table, &key,
 				   zfpm_mac_info_alloc);
 
+	if (!fpm_mac) {
+		zlog_err("%s: hash_get failed to allocate FPM MAC info for %pEA vni %u",
+			 __func__, &rmac->macaddr, zl3vni->vni);
+		return -1;
+	}
+
 	fpm_mac->r_vtep_ip.s_addr = rmac->fwd_info.r_vtep_ip.s_addr;
 	fpm_mac->zebra_flags = rmac->flags;
 	fpm_mac->vxlan_if = vxlan_if ? vxlan_if->ifindex : 0;

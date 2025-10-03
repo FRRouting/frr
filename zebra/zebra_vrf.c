@@ -80,8 +80,14 @@ void zebra_vrf_update_all(struct zserv *client)
 	struct vrf *vrf;
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-		if (vrf->vrf_id != VRF_UNKNOWN)
-			zsend_vrf_add(client, vrf_info_lookup(vrf->vrf_id));
+		if (vrf->vrf_id != VRF_UNKNOWN) {
+			struct zebra_vrf *zvrf = vrf_info_lookup(vrf->vrf_id);
+
+			if (zvrf)
+				zsend_vrf_add(client, zvrf);
+			else
+				zlog_warn("VRF %u not found for client update", vrf->vrf_id);
+		}
 	}
 }
 
@@ -389,6 +395,12 @@ struct route_table *zebra_vrf_get_table_with_table_id(afi_t afi, safi_t safi,
 	struct other_route_table *otable;
 	struct route_table *table;
 
+	if (!zvrf) {
+		if (IS_ZEBRA_DEBUG_EVENT)
+			zlog_debug("VRF %u not found for table lookup", vrf_id);
+		return NULL;
+	}
+
 	table = zebra_vrf_lookup_table_with_table_id(afi, safi, vrf_id,
 						     table_id);
 
@@ -651,7 +663,14 @@ int zebra_vrf_netns_handler_create(struct vty *vty, struct vrf *vrf,
 	ns->vrf_ctxt = (void *)vrf;
 	vrf->ns_ctxt = (void *)ns;
 	/* update VRF netns NAME */
-	strlcpy(vrf->data.l.netns_name, basename(pathname), NS_NAMSIZ);
+	{
+		char *basename_result = basename(pathname);
+
+		if (basename_result)
+			strlcpy(vrf->data.l.netns_name, basename_result, NS_NAMSIZ);
+		else
+			vrf->data.l.netns_name[0] = '\0';
+	}
 
 	if (!ns_enable(ns, vrf_update_vrf_id)) {
 		if (vty)
