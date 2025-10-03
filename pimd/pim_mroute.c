@@ -818,6 +818,8 @@ static int process_igmp_packet(struct pim_instance *pim, const char *buf,
 	struct gm_sock *igmp;
 	const struct prefix *connected_src;
 	const struct ip *ip_hdr = (const struct ip *)buf;
+	const struct in_addr srcaddr = ip_hdr->ip_src;
+	const struct in_addr dstaddr = ip_hdr->ip_dst;
 
 	/* We have the IP packet but we do not know which interface this
 	 * packet was
@@ -834,9 +836,8 @@ static int process_igmp_packet(struct pim_instance *pim, const char *buf,
 
 	if (!connected_src && !pim_addr_is_any(ip_hdr->ip_src)) {
 		if (PIM_DEBUG_GM_PACKETS) {
-			zlog_debug(
-				"Recv IGMP packet on interface: %s from a non-connected source: %pI4",
-				ifp->name, &ip_hdr->ip_src);
+			zlog_debug("Recv IGMP packet on interface: %s from a non-connected source: %pI4",
+				   ifp->name, &srcaddr);
 		}
 		return 0;
 	}
@@ -847,10 +848,8 @@ static int process_igmp_packet(struct pim_instance *pim, const char *buf,
 	igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->gm_socket_list, ifaddr);
 
 	if (PIM_DEBUG_GM_PACKETS) {
-		zlog_debug(
-			"%s(%s): igmp kernel upcall on %s(%p) for %pI4 -> %pI4",
-			__func__, pim->vrf->name, ifp->name, igmp,
-			&ip_hdr->ip_src, &ip_hdr->ip_dst);
+		zlog_debug("%s(%s): igmp kernel upcall on %s(%p) for %pI4 -> %pI4", __func__,
+			   pim->vrf->name, ifp->name, igmp, &srcaddr, &dstaddr);
 	}
 	if (igmp)
 		pim_igmp_packet(igmp, (char *)buf, buf_size);
@@ -876,14 +875,14 @@ int pim_mroute_msg(struct pim_instance *pim, const char *buf, size_t buf_size,
 	ip_hdr = (const ipv_hdr *)buf;
 
 #if PIM_IPV == 4
+	struct in_addr srcaddr, dstaddr;
+
 	if (ip_hdr->ip_p == IPPROTO_IGMP) {
 		process_igmp_packet(pim, buf, buf_size, ifindex);
 	} else if (ip_hdr->ip_p) {
 		if (PIM_DEBUG_MROUTE_DETAIL) {
-			zlog_debug(
-				"%s: no kernel upcall proto=%d src: %pI4 dst: %pI4 msg_size=%ld",
-				__func__, ip_hdr->ip_p, &ip_hdr->ip_src,
-				&ip_hdr->ip_dst, (long int)buf_size);
+			zlog_debug("%s: no kernel upcall proto=%d src: %pI4 dst: %pI4 msg_size=%ld",
+				   __func__, ip_hdr->ip_p, &srcaddr, &dstaddr, (long int)buf_size);
 		}
 
 	} else {
