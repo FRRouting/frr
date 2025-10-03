@@ -339,7 +339,7 @@ static int bgp_router_id_set(struct bgp *bgp, const struct in_addr *id,
 	if (is_evpn_enabled())
 		bgp_evpn_handle_router_id_update(bgp, true);
 
-	vpn_handle_router_id_update(bgp, true, is_config);
+	vpn_handle_router_id_update(bgp, true, false);
 
 	hook_call(bgp_routerid_update, bgp, true);
 
@@ -358,7 +358,7 @@ static int bgp_router_id_set(struct bgp *bgp, const struct in_addr *id,
 	if (is_evpn_enabled())
 		bgp_evpn_handle_router_id_update(bgp, false);
 
-	vpn_handle_router_id_update(bgp, false, is_config);
+	vpn_handle_router_id_update(bgp, false, false);
 
 	hook_call(bgp_routerid_update, bgp, false);
 	return 0;
