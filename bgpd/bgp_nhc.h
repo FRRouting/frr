@@ -56,5 +56,6 @@ extern void bgp_nhc_tlv_free(struct bgp_nhc_tlv *tlv);
 extern void bgp_nhc_tlvs_free(struct bgp_nhc_tlv *tlv);
 extern void bgp_nhc_free(struct bgp_nhc *bnc);
 extern struct bgp_nhc_tlv *bgp_nhc_tlv_new(uint16_t code, uint16_t length, const void *value);
+extern uint64_t bgp_nhc_nnhn_count(struct bgp_nhc *nhc);
 
 #endif /* _FRR_BGP_NHC_H */
