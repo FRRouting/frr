@@ -105,6 +105,19 @@ uint16_t nexthop_group_active_nexthop_num(const struct nexthop_group *nhg)
 	return num;
 }
 
+uint16_t nexthop_group_fib_nexthop_num(const struct nexthop_group *nhg)
+{
+	struct nexthop *nhop;
+	uint16_t num = 0;
+
+	for (ALL_NEXTHOPS_PTR(nhg, nhop)) {
+		if (CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_FIB))
+			num++;
+	}
+
+	return num;
+}
+
 bool nexthop_group_has_label(const struct nexthop_group *nhg)
 {
 	struct nexthop *nhop;

@@ -98,6 +98,8 @@ def _router_json_cmp_exact_filter(router, cmd, expected):
                 attr.pop("internalNextHopNum")
             if "internalNextHopActiveNum" in attr:
                 attr.pop("internalNextHopActiveNum")
+            if "internalNextHopFibInstalledNum" in attr:
+                attr.pop("internalNextHopFibInstalledNum")
             if "nexthopGroupId" in attr:
                 attr.pop("nexthopGroupId")
             if "installedNexthopGroupId" in attr:

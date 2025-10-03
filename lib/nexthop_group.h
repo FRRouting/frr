@@ -151,6 +151,7 @@ extern void nexthop_group_json_nexthop(json_object *j,
 /* Return the number of nexthops in this nhg */
 extern uint16_t nexthop_group_nexthop_num(const struct nexthop_group *nhg);
 extern uint16_t nexthop_group_active_nexthop_num(const struct nexthop_group *nhg);
+extern uint16_t nexthop_group_fib_nexthop_num(const struct nexthop_group *nhg);
 
 /* Return TRUE if the NHG is Singleton (has only one nexthop) */
 #define NHG_IS_SINGLETON(nhg) ((nhg)->nexthop && !(nhg)->nexthop->next)
