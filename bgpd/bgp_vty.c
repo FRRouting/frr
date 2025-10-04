@@ -12371,6 +12371,11 @@ static void bgp_show_peer_reset(struct vty * vty, struct peer *peer,
 				       peer_down_str[(int)peer->last_reset]);
 		json_object_int_add(json_peer, "lastResetCode",
 				    peer->last_reset);
+		if (peer->last_reset2 != PEER_DOWN_NONE) {
+			json_object_string_add(json_peer, "lastReset2DueTo",
+					       peer_down_str[(int)peer->last_reset2]);
+			json_object_int_add(json_peer, "lastReset2Code", peer->last_reset2);
+		}
 		json_object_string_add(json_peer, "softwareVersion",
 				       peer->soft_version ? peer->soft_version
 							  : "n/a");
