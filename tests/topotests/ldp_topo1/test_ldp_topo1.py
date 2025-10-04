@@ -637,15 +637,15 @@ def test_zebra_ipv4_routingtable_with_ldp():
 
     router["r1"].vtysh_cmd("config \n mpls ldp \n addr ipv4 \n no int r1-eth0 \n end")
 
-    def show_route_without_ldp():
+    def show_route_with_label():
         output = json.loads(router["r1"].vtysh_cmd("show ip route json"))
-        expected = {"2.2.2.2/32": [{"nexthops": [{"ip": "10.0.1.2"}]}]}
+        expected = {"2.2.2.2/32": [{"nexthops": [{"labels": [3]}]}]}
         return topotest.json_cmp(output, expected)
 
     # Make sure no label in route
-    test_func = partial(show_route_without_ldp)
+    test_func = partial(show_route_with_label)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
-    assert result is None, "r1: wrongly with label in route!\n{}".format(result)
+    assert result, "r1: wrongly with label in route!\n{}".format(result)
 
     # r1: with both target and link config, r2: with only targeted config
     router["r2"].vtysh_cmd("config \n mpls ldp \n addr ipv4 \n no int r2-eth0 \n end")
@@ -657,13 +657,8 @@ def test_zebra_ipv4_routingtable_with_ldp():
     )
     router["r1"].vtysh_cmd("config \n mpls ldp \n addr ipv4 \n int r1-eth0 \n end")
 
-    def show_route_with_ldp():
-        output = json.loads(router["r1"].vtysh_cmd("show ip route json"))
-        expected = {"2.2.2.2/32": [{"nexthops": [{"labels": [3]}]}]}
-        return topotest.json_cmp(output, expected)
-
     # Make sure with label in route
-    test_func = partial(show_route_with_ldp)
+    test_func = partial(show_route_with_label)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
     assert result is None, "r1: wrongly without label with route!"
 
@@ -680,7 +675,7 @@ def test_zebra_ipv4_routingtable_with_ldp():
     sleep(5)
 
     # Make sure with label in route with their original state
-    test_func = partial(show_route_with_ldp)
+    test_func = partial(show_route_with_label)
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
     assert result is None, "r1: wrongly without label with route!"
 
