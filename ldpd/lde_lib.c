@@ -431,6 +431,9 @@ lde_kernel_update(struct fec *fec)
 		return;
 
 	LIST_FOREACH(fnh, &fn->nexthops, entry) {
+		if (CHECK_FLAG(fnh->flags, F_FEC_NH_NO_LDP))
+			continue;
+
 		lde_send_change_klabel(fn, fnh);
 
 		switch (fn->fec.type) {
