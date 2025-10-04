@@ -1618,6 +1618,7 @@ struct peer *peer_new(struct bgp *bgp)
 	peer->password = NULL;
 	peer->max_packet_size = BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE;
 	peer->last_reset = PEER_DOWN_NONE;
+	peer->last_reset2 = PEER_DOWN_NONE;
 
 	/* Set default flags. */
 	FOREACH_AFI_SAFI (afi, safi) {

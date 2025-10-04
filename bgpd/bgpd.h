@@ -1984,7 +1984,9 @@ struct peer {
 	unsigned long weight[AFI_MAX][SAFI_MAX];
 
 	/* peer reset cause */
-	uint8_t last_reset;
+	uint8_t last_reset;         /* when established */
+	uint8_t last_reset2;        /* when not established */
+	uint32_t last_established;  /* "established" for last_reset */
 #define PEER_DOWN_NONE			 0U /* No peer down event */
 #define PEER_DOWN_RID_CHANGE             1U /* bgp router-id command */
 #define PEER_DOWN_REMOTE_AS_CHANGE       2U /* neighbor remote-as command */
@@ -2933,7 +2935,34 @@ static inline bool peer_established(struct peer_connection *connection)
 
 static inline void peer_set_last_reset(struct peer *peer, uint8_t reset_cause)
 {
-	peer->last_reset = reset_cause;
+	/*
+	 * Record the cause for debugging even if the session is never
+	 * established (as in topotests/bgp_as_wide_bgp_identifier).
+	 */
+	if (peer->established == 0) {
+		peer->last_reset = reset_cause;
+		return;
+	}
+
+	if (!peer_established(peer->connection)) {
+		peer->last_reset2 = reset_cause;
+		return;
+	}
+
+	/*
+	 * This function could be called more than once while the session
+	 * is established. For example:
+	 *
+	 * 1) A local event may cause a notification to be sent.
+	 * 2) Subsequently the socket would be closed by the remote peer,
+	 *    and the local speaker may report a socket error.
+	 *
+	 * The first reset cause is more important, and is recorded.
+	 */
+	if (peer->last_established != peer->established) {
+		peer->last_reset = reset_cause;
+		peer->last_established = peer->established;
+	}
 }
 
 static inline bool peer_dynamic_neighbor(struct peer *peer)
