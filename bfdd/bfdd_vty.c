@@ -209,6 +209,8 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs)
 		_display_rtt(&min, &avg, &max, bs);
 		vty_out(vty, "\t\tRTT min/avg/max: %u/%u/%u usec\n", min, avg, max);
 	}
+	if (bs->profile_name)
+		vty_out(vty, "\t\tProfile: %s\n", bs->profile_name);
 
 	vty_out(vty, "\t\tLocal timers:\n");
 	vty_out(vty, "\t\t\tDetect-multiplier: %u\n",
@@ -340,6 +342,9 @@ static struct json_object *__display_peer_json(struct bfd_session *bs)
 		json_object_string_add(jo, "type", "configured");
 	else
 		json_object_string_add(jo, "type", "dynamic");
+
+	if (bs->profile_name)
+		json_object_string_add(jo, "profile", bs->profile_name);
 
 	json_object_int_add(jo, "receive-interval",
 			    bs->timers.required_min_rx / 1000);
@@ -788,14 +793,16 @@ static void _display_peer_brief(struct vty *vty, struct bfd_session *bs)
 		vty_out(vty, " %-40s", addr_buf);
 		inet_ntop(bs->key.family, &bs->key.peer, addr_buf, sizeof(addr_buf));
 		vty_out(vty, " %-40s", addr_buf);
-		vty_out(vty, "%-15s\n", state_list[bs->ses_state].str);
+		vty_out(vty, "%-15s", state_list[bs->ses_state].str);
+		vty_out(vty, " %-20s\n", bs->profile_name ? bs->profile_name : "-");
 	} else {
 		vty_out(vty, "%-10u", bs->discrs.my_discr);
 		vty_out(vty, " %-40s", satostr(&bs->local_address));
 		inet_ntop(bs->key.family, &bs->key.peer, addr_buf, sizeof(addr_buf));
 		vty_out(vty, " %-40s", addr_buf);
 
-		vty_out(vty, "%-15s\n", state_list[bs->ses_state].str);
+		vty_out(vty, "%-15s", state_list[bs->ses_state].str);
+		vty_out(vty, " %-20s\n", bs->profile_name ? bs->profile_name : "-");
 	}
 }
 
@@ -832,12 +839,14 @@ static void _display_peers_brief(struct vty *vty, const char *vrfname, bool use_
 		vty_out(vty, "%-10s", "SessionId");
 		vty_out(vty, " %-40s", "LocalAddress");
 		vty_out(vty, " %-40s", "PeerAddress");
-		vty_out(vty, "%-15s\n", "Status");
+		vty_out(vty, "%-15s", "Status");
+		vty_out(vty, " %-20s\n", "Profile");
 
 		vty_out(vty, "%-10s", "=========");
 		vty_out(vty, " %-40s", "============");
 		vty_out(vty, " %-40s", "===========");
-		vty_out(vty, "%-15s\n", "======");
+		vty_out(vty, "%-15s", "======");
+		vty_out(vty, " %-20s\n", "=======");
 
 		bfd_id_iterate(_display_peer_brief_iter, &bvt);
 		return;
