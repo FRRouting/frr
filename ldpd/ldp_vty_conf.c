@@ -308,17 +308,8 @@ ldp_vty_get_af(struct vty *vty)
 
 int ldp_iface_is_configured(struct ldpd_conf *xconf, const char *ifname)
 {
-	struct l2vpn	*l2vpn;
-
 	if (if_lookup_name(xconf, ifname))
 		return (1);
-
-	RB_FOREACH(l2vpn, l2vpn_head, &xconf->l2vpn_tree) {
-		if (l2vpn_if_find(l2vpn, ifname))
-			return (1);
-		if (l2vpn_pw_find(l2vpn, ifname))
-			return (1);
-	}
 
 	return (0);
 }
