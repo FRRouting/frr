@@ -3656,12 +3656,12 @@ void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 		memset(&vreq, 0, sizeof(vreq));
 #if PIM_IPV == 4
 		vreq.vifi = pim_ifp->mroute_vif_index;
-		if (ioctl(pim->mroute_socket, SIOCGETVIFCNT, &vreq)) {
-			zlog_warn(
-				"ioctl(SIOCGETVIFCNT=%lu) failure for interface %s vif_index=%d: errno=%d: %s",
-				(unsigned long)SIOCGETVIFCNT, ifp->name,
-				pim_ifp->mroute_vif_index, errno,
-				safe_strerror(errno));
+		frr_with_privs (&pimd_privs) {
+			if (ioctl(pim->mroute_socket, SIOCGETVIFCNT, &vreq)) {
+				zlog_warn("ioctl(SIOCGETVIFCNT=%lu) failure for interface %s vif_index=%d: errno=%d: %s",
+					  (unsigned long)SIOCGETVIFCNT, ifp->name,
+					  pim_ifp->mroute_vif_index, errno, safe_strerror(errno));
+			}
 		}
 #else
 		vreq.mifi = pim_ifp->mroute_vif_index;
