@@ -20,8 +20,8 @@ static __inline int	 fec_compare(const struct fec *, const struct fec *);
 static int	 lde_nbr_is_nexthop(struct fec_node *, struct lde_nbr *);
 static void	 fec_free(void *);
 static struct fec_node	 *fec_add(struct fec *fec);
-static struct fec_nh	 *fec_nh_add(struct fec_node *, int, union ldpd_addr *,
-			    ifindex_t, uint8_t, unsigned short);
+static struct fec_nh *fec_nh_add(struct fec_node *, int, union g_addr *, ifindex_t, uint8_t,
+				 unsigned short);
 static void	 fec_nh_del(struct fec_nh *);
 
 RB_GENERATE(fec_tree, fec, entry, fec_compare)
@@ -154,12 +154,12 @@ rt_dump(pid_t pid)
 		switch (fn->fec.type) {
 		case FEC_TYPE_IPV4:
 			rtctl.af = AF_INET;
-			rtctl.prefix.v4 = fn->fec.u.ipv4.prefix;
+			rtctl.prefix.ipv4 = fn->fec.u.ipv4.prefix;
 			rtctl.prefixlen = fn->fec.u.ipv4.prefixlen;
 			break;
 		case FEC_TYPE_IPV6:
 			rtctl.af = AF_INET6;
-			rtctl.prefix.v6 = fn->fec.u.ipv6.prefix;
+			rtctl.prefix.ipv6 = fn->fec.u.ipv6.prefix;
 			rtctl.prefixlen = fn->fec.u.ipv6.prefixlen;
 			break;
 		case FEC_TYPE_PWID:
@@ -261,9 +261,8 @@ fec_add(struct fec *fec)
 	return (fn);
 }
 
-struct fec_nh *
-fec_nh_find(struct fec_node *fn, int af, union ldpd_addr *nexthop,
-    ifindex_t ifindex, uint8_t route_type, unsigned short route_instance)
+struct fec_nh *fec_nh_find(struct fec_node *fn, int af, union g_addr *nexthop, ifindex_t ifindex,
+			   uint8_t route_type, unsigned short route_instance)
 {
 	struct fec_nh	*fnh;
 
@@ -278,9 +277,9 @@ fec_nh_find(struct fec_node *fn, int af, union ldpd_addr *nexthop,
 	return (NULL);
 }
 
-static struct fec_nh *
-fec_nh_add(struct fec_node *fn, int af, union ldpd_addr *nexthop,
-    ifindex_t ifindex, uint8_t route_type, unsigned short route_instance)
+static struct fec_nh *fec_nh_add(struct fec_node *fn, int af, union g_addr *nexthop,
+				 ifindex_t ifindex, uint8_t route_type,
+				 unsigned short route_instance)
 {
 	struct fec_nh	*fnh;
 
@@ -306,10 +305,8 @@ fec_nh_del(struct fec_nh *fnh)
 	free(fnh);
 }
 
-void
-lde_kernel_insert(struct fec *fec, int af, union ldpd_addr *nexthop,
-    ifindex_t ifindex, uint8_t route_type, unsigned short route_instance,
-    int connected, void *data)
+void lde_kernel_insert(struct fec *fec, int af, union g_addr *nexthop, ifindex_t ifindex,
+		       uint8_t route_type, unsigned short route_instance, int connected, void *data)
 {
 	struct fec_node		*fn;
 	struct fec_nh		*fnh;
@@ -342,9 +339,8 @@ lde_kernel_insert(struct fec *fec, int af, union ldpd_addr *nexthop,
 		SET_FLAG(fnh->flags, F_FEC_NH_CONNECTED);
 }
 
-void
-lde_kernel_remove(struct fec *fec, int af, union ldpd_addr *nexthop,
-    ifindex_t ifindex, uint8_t route_type, unsigned short route_instance)
+void lde_kernel_remove(struct fec *fec, int af, union g_addr *nexthop, ifindex_t ifindex,
+		       uint8_t route_type, unsigned short route_instance)
 {
 	struct fec_node		*fn;
 	struct fec_nh		*fnh;
@@ -474,21 +470,21 @@ lde_check_mapping(struct map *map, struct lde_nbr *ln, int rcvd_label_mapping)
 
 	switch (fec.type) {
 	case FEC_TYPE_IPV4:
-		if (lde_acl_check(ldeconf->ipv4.acl_label_accept_from,
-		    AF_INET, (union ldpd_addr *)&ln->id, 32) != FILTER_PERMIT)
+		if (lde_acl_check(ldeconf->ipv4.acl_label_accept_from, AF_INET,
+				  (union g_addr *)&ln->id, 32) != FILTER_PERMIT)
 			return;
-		if (lde_acl_check(ldeconf->ipv4.acl_label_accept_for,
-		    AF_INET, (union ldpd_addr *)&fec.u.ipv4.prefix,
-		    fec.u.ipv4.prefixlen) != FILTER_PERMIT)
+		if (lde_acl_check(ldeconf->ipv4.acl_label_accept_for, AF_INET,
+				  (union g_addr *)&fec.u.ipv4.prefix,
+				  fec.u.ipv4.prefixlen) != FILTER_PERMIT)
 			return;
 		break;
 	case FEC_TYPE_IPV6:
-		if (lde_acl_check(ldeconf->ipv6.acl_label_accept_from,
-		    AF_INET, (union ldpd_addr *)&ln->id, 32) != FILTER_PERMIT)
+		if (lde_acl_check(ldeconf->ipv6.acl_label_accept_from, AF_INET,
+				  (union g_addr *)&ln->id, 32) != FILTER_PERMIT)
 			return;
-		if (lde_acl_check(ldeconf->ipv6.acl_label_accept_for,
-		    AF_INET6, (union ldpd_addr *)&fec.u.ipv6.prefix,
-		    fec.u.ipv6.prefixlen) != FILTER_PERMIT)
+		if (lde_acl_check(ldeconf->ipv6.acl_label_accept_for, AF_INET6,
+				  (union g_addr *)&fec.u.ipv6.prefix,
+				  fec.u.ipv6.prefixlen) != FILTER_PERMIT)
 			return;
 		break;
 	case FEC_TYPE_PWID:
