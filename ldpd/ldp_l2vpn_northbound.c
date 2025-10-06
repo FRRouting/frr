@@ -518,10 +518,10 @@ ldp_l2vpn_instance_member_pseudowire_neighbor_address_modify(struct nb_cb_modify
 		pw = nb_running_get_entry(args->dnode, NULL, true);
 		if (nbr_id.ipa_type == IPADDR_V4) {
 			pw->af = AF_INET;
-			pw->addr.v4 = nbr_id.ip._v4_addr;
+			pw->addr.ipv4 = nbr_id.ip._v4_addr;
 		} else {
 			pw->af = AF_INET6;
-			IPV6_ADDR_COPY(&pw->addr.v6, &nbr_id.ip._v4_addr);
+			IPV6_ADDR_COPY(&pw->addr.ipv6, &nbr_id.ip._v4_addr);
 		}
 		pw->flags |= F_PW_STATIC_NBR_ADDR;
 		l2vpn = nb_running_get_entry(args->dnode, "../.", true);

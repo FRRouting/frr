@@ -162,10 +162,10 @@ void lde_rlfa_client_send(struct ldp_rlfa_client *rclient)
 		rlfa_labels.nexthops[i].family = fnh->af;
 		switch (fnh->af) {
 		case AF_INET:
-			rlfa_labels.nexthops[i].gate.ipv4 = fnh->nexthop.v4;
+			rlfa_labels.nexthops[i].gate.ipv4 = fnh->nexthop.ipv4;
 			break;
 		case AF_INET6:
-			rlfa_labels.nexthops[i].gate.ipv6 = fnh->nexthop.v6;
+			rlfa_labels.nexthops[i].gate.ipv6 = fnh->nexthop.ipv6;
 			break;
 		default:
 			continue;
@@ -207,9 +207,9 @@ void lde_rlfa_check(struct ldp_rlfa_client *rclient)
 	struct lde_nbr *ln;
 	struct lde_map *me;
 	struct fec fec;
-	union ldpd_addr pq_address = {};
+	union g_addr pq_address = {};
 
-	pq_address.v4 = rclient->node->pq_address;
+	pq_address.ipv4 = rclient->node->pq_address;
 	ln = lde_nbr_find_by_addr(AF_INET, &pq_address);
 	if (!ln)
 		return;
@@ -248,9 +248,9 @@ void lde_rlfa_update_clients(struct fec *fec, struct lde_nbr *ln,
 void ldpe_rlfa_init(struct ldp_rlfa_client *rclient)
 {
 	struct tnbr *tnbr;
-	union ldpd_addr pq_address = {};
+	union g_addr pq_address = {};
 
-	pq_address.v4 = rclient->node->pq_address;
+	pq_address.ipv4 = rclient->node->pq_address;
 	tnbr = tnbr_find(leconf, AF_INET, &pq_address);
 	if (tnbr == NULL) {
 		tnbr = tnbr_new(AF_INET, &pq_address);
@@ -264,9 +264,9 @@ void ldpe_rlfa_init(struct ldp_rlfa_client *rclient)
 void ldpe_rlfa_exit(struct ldp_rlfa_client *rclient)
 {
 	struct tnbr *tnbr;
-	union ldpd_addr pq_address = {};
+	union g_addr pq_address = {};
 
-	pq_address.v4 = rclient->node->pq_address;
+	pq_address.ipv4 = rclient->node->pq_address;
 	tnbr = tnbr_find(leconf, AF_INET, &pq_address);
 	if (tnbr) {
 		tnbr->rlfa_count--;

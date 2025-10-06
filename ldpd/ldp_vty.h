@@ -7,6 +7,7 @@
 #define _LDP_VTY_H_
 
 #include "vty.h"
+#include "nexthop.h"
 
 extern struct cmd_node ldp_node;
 extern struct cmd_node ldp_ipv4_node;
@@ -17,8 +18,7 @@ extern struct cmd_node ldp_l2vpn_node;
 extern struct cmd_node ldp_pseudowire_node;
 extern struct cmd_node ldp_debug_node;
 
-union ldpd_addr;
-int ldp_get_address(const char *str, int *af, union ldpd_addr *addr);
+int ldp_get_address(const char *str, int *af, union g_addr *addr);
 int ldp_vty_mpls_ldp(struct vty *vty, const char *negate);
 int ldp_vty_allow_broken_lsp(struct vty *vty, const char *negate);
 int ldp_vty_address_family(struct vty *vty, const char *negate, const char *af_str);
