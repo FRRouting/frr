@@ -134,8 +134,6 @@ void if_get_metric(struct interface *ifp)
 	if (vrf_if_ioctl(SIOCGIFMETRIC, (caddr_t)&ifreq, ifp->vrf->vrf_id) < 0)
 		return;
 	ifp->metric = ifreq.ifr_metric;
-	if (ifp->metric == 0)
-		ifp->metric = 1;
 #else  /* SIOCGIFMETRIC */
 	ifp->metric = -1;
 #endif /* SIOCGIFMETRIC */
