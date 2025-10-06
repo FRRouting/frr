@@ -125,6 +125,7 @@ ldpe(void)
 
 	/* create base configuration */
 	leconf = config_new_empty();
+	RB_INIT(l2vpn_head, &leconf->l2vpn_tree);
 
 	struct event thread;
 	while (event_fetch(master, &thread))

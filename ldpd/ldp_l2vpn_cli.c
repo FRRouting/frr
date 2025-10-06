@@ -21,6 +21,7 @@
 #endif /* VTYSH_EXTRACT_PL */
 
 struct l2vpn_lib_register l2vpn_lib_master = { NULL, NULL, NULL, NULL };
+struct l2vpn_head l2vpn_tree_config;
 
 static void ldp_l2vpn_init_new(bool in_backend);
 
@@ -31,6 +32,10 @@ static __inline int     l2vpn_if_compare(const struct l2vpn_if *, const struct l
 static __inline int     l2vpn_pw_compare(const struct l2vpn_pw *, const struct l2vpn_pw *);
 
 /* clang-format on */
+
+DEFINE_QOBJ_TYPE(l2vpn_if);
+DEFINE_QOBJ_TYPE(l2vpn_pw);
+DEFINE_QOBJ_TYPE(l2vpn);
 
 RB_GENERATE(l2vpn_head, l2vpn, entry, l2vpn_compare)
 RB_GENERATE(l2vpn_if_head, l2vpn_if, entry, l2vpn_if_compare)
@@ -449,7 +454,7 @@ static void l2vpn_autocomplete(vector comps, struct cmd_token *token)
 {
 	struct l2vpn *l2vpn;
 
-	RB_FOREACH (l2vpn, l2vpn_head, &vty_conf->l2vpn_tree)
+	RB_FOREACH (l2vpn, l2vpn_head, &l2vpn_tree_config)
 		vector_set(comps, XSTRDUP(MTYPE_COMPLETION, l2vpn->name));
 }
 
@@ -494,6 +499,7 @@ static void ldp_l2vpn_init_new(bool in_backend)
 
 void ldp_l2vpn_init(void)
 {
+	RB_INIT(l2vpn_head, &l2vpn_tree_config);
 	ldp_l2vpn_init_new(true);
 }
 
