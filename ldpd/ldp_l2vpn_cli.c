@@ -22,6 +22,144 @@
 
 struct l2vpn_lib_register l2vpn_lib_master = { NULL, NULL, NULL, NULL };
 
+/* clang-format off */
+
+static __inline int     l2vpn_compare(const struct l2vpn *, const struct l2vpn *);
+static __inline int     l2vpn_if_compare(const struct l2vpn_if *, const struct l2vpn_if *);
+static __inline int     l2vpn_pw_compare(const struct l2vpn_pw *, const struct l2vpn_pw *);
+
+/* clang-format on */
+
+RB_GENERATE(l2vpn_head, l2vpn, entry, l2vpn_compare)
+RB_GENERATE(l2vpn_if_head, l2vpn_if, entry, l2vpn_if_compare)
+RB_GENERATE(l2vpn_pw_head, l2vpn_pw, entry, l2vpn_pw_compare)
+
+/* clang-format off */
+
+static __inline int
+l2vpn_compare(const struct l2vpn *a, const struct l2vpn *b)
+{
+	return strcmp(a->name, b->name);
+}
+
+static __inline int l2vpn_pw_compare(const struct l2vpn_pw *a, const struct l2vpn_pw *b)
+{
+	return if_cmp_name_func(a->ifname, b->ifname);
+}
+
+static __inline int
+l2vpn_if_compare(const struct l2vpn_if *a, const struct l2vpn_if *b)
+{
+	return if_cmp_name_func(a->ifname, b->ifname);
+}
+
+struct l2vpn *
+l2vpn_new(const char *name)
+{
+	struct l2vpn *l2vpn;
+
+	if ((l2vpn = calloc(1, sizeof(*l2vpn))) == NULL)
+		fatal("l2vpn_new: calloc");
+
+	strlcpy(l2vpn->name, name, sizeof(l2vpn->name));
+
+	/* set default values */
+	l2vpn->mtu = DEFAULT_L2VPN_MTU;
+	l2vpn->pw_type = DEFAULT_PW_TYPE;
+
+	RB_INIT(l2vpn_if_head, &l2vpn->if_tree);
+	RB_INIT(l2vpn_pw_head, &l2vpn->pw_tree);
+	RB_INIT(l2vpn_pw_head, &l2vpn->pw_inactive_tree);
+
+	return l2vpn;
+}
+
+
+struct l2vpn *
+l2vpn_find(struct l2vpn_head *l2vpn_tree, const char *name)
+{
+	struct l2vpn l2vpn;
+
+	strlcpy(l2vpn.name, name, sizeof(l2vpn.name));
+	return RB_FIND(l2vpn_head, l2vpn_tree, &l2vpn);
+}
+
+void
+l2vpn_del(struct l2vpn *l2vpn)
+{
+	struct l2vpn_if *lif;
+	struct l2vpn_pw *pw;
+
+	while (!RB_EMPTY(l2vpn_if_head, &l2vpn->if_tree)) {
+		lif = RB_ROOT(l2vpn_if_head, &l2vpn->if_tree);
+
+		RB_REMOVE(l2vpn_if_head, &l2vpn->if_tree, lif);
+		free(lif);
+	}
+	while (!RB_EMPTY(l2vpn_pw_head, &l2vpn->pw_tree)) {
+		pw = RB_ROOT(l2vpn_pw_head, &l2vpn->pw_tree);
+
+		RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_tree, pw);
+		free(pw);
+	}
+	while (!RB_EMPTY(l2vpn_pw_head, &l2vpn->pw_inactive_tree)) {
+		pw = RB_ROOT(l2vpn_pw_head, &l2vpn->pw_inactive_tree);
+
+		RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
+		free(pw);
+	}
+
+	free(l2vpn);
+}
+
+struct l2vpn_pw *
+l2vpn_pw_new(struct l2vpn *l2vpn, const char *ifname)
+{
+	struct l2vpn_pw *pw;
+
+	if ((pw = calloc(1, sizeof(*pw))) == NULL)
+		fatal("l2vpn_pw_new: calloc");
+
+	pw->l2vpn = l2vpn;
+	strlcpy(pw->ifname, ifname, sizeof(pw->ifname));
+
+	return pw;
+}
+
+struct l2vpn_if *
+l2vpn_if_new(struct l2vpn *l2vpn, const char *ifname)
+{
+	struct l2vpn_if *lif;
+
+	if ((lif = calloc(1, sizeof(*lif))) == NULL)
+		fatal("l2vpn_if_new: calloc");
+
+	lif->l2vpn = l2vpn;
+	strlcpy(lif->ifname, ifname, sizeof(lif->ifname));
+
+	return lif;
+}
+
+struct l2vpn_pw *
+l2vpn_pw_find_active(struct l2vpn *l2vpn, const char *ifname)
+{
+	struct l2vpn_pw s;
+
+	strlcpy(s.ifname, ifname, sizeof(s.ifname));
+	return RB_FIND(l2vpn_pw_head, &l2vpn->pw_tree, &s);
+}
+
+struct l2vpn_pw *
+l2vpn_pw_find_inactive(struct l2vpn *l2vpn, const char *ifname)
+{
+	struct l2vpn_pw s;
+
+	strlcpy(s.ifname, ifname, sizeof(s.ifname));
+	return RB_FIND(l2vpn_pw_head, &l2vpn->pw_inactive_tree, &s);
+}
+
+/* clang-format on */
+
 struct l2vpn_if *l2vpn_if_find(struct l2vpn *l2vpn, const char *ifname)
 {
 	struct l2vpn_if lif;
@@ -421,33 +559,33 @@ static void l2vpn_instance_member_interface_show(struct vty *vty, const struct l
 }
 
 const struct frr_yang_module_info frr_l2vpn_cli_info = {
-       .name = "frr-l2vpn",
-       .ignore_cfg_cbs = true,
-       .nodes = {
-               {
-                       .xpath = "/frr-l2vpn:l2vpn/l2vpn-instance",
-                       .cbs = {
-                               .cli_show = l2vpn_instance_show,
-                               .cli_show_end = l2vpn_instance_show_end,
-                       }
-               },
-               {
-                       .xpath = "/frr-l2vpn:l2vpn/l2vpn-instance/member-interface",
-                       .cbs = {
-                               .cli_show = l2vpn_instance_member_interface_show,
-                       }
-               },
-               {
-                       .xpath = "/frr-l2vpn:l2vpn/l2vpn-instance/member-pseudowire",
-                       .cbs = {
-                               .cli_show = l2vpn_instance_member_pseudowire_show,
-                               .cli_show_end = l2vpn_instance_member_pseudowire_show_end,
-                       }
-               },
-               {
-                       .xpath = NULL,
-               },
-       }
+	.name = "frr-l2vpn",
+	.ignore_cfg_cbs = true,
+	.nodes = {
+		{
+			.xpath = "/frr-l2vpn:l2vpn/l2vpn-instance",
+			.cbs = {
+				.cli_show = l2vpn_instance_show,
+				.cli_show_end = l2vpn_instance_show_end,
+			}
+		},
+		{
+			.xpath = "/frr-l2vpn:l2vpn/l2vpn-instance/member-interface",
+			.cbs = {
+				.cli_show = l2vpn_instance_member_interface_show,
+			}
+		},
+		{
+			.xpath = "/frr-l2vpn:l2vpn/l2vpn-instance/member-pseudowire",
+			.cbs = {
+				.cli_show = l2vpn_instance_member_pseudowire_show,
+				.cli_show_end = l2vpn_instance_member_pseudowire_show_end,
+			}
+		},
+		{
+			.xpath = NULL,
+		},
+	}
 };
 
 void ldp_l2vpn_init(void)
