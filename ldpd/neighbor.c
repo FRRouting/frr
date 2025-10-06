@@ -205,9 +205,7 @@ nbr_fsm(struct nbr *nbr, enum nbr_event event)
 	return (0);
 }
 
-struct nbr *
-nbr_new(struct in_addr id, int af, int ds_tlv, union ldpd_addr *addr,
-    uint32_t scope_id)
+struct nbr *nbr_new(struct in_addr id, int af, int ds_tlv, union g_addr *addr, uint32_t scope_id)
 {
 	struct nbr		*nbr;
 	struct nbr_params	*nbrp;
@@ -361,8 +359,7 @@ nbr_get_next_ldpid(uint32_t lsr_id)
 }
 
 
-struct nbr *
-nbr_find_addr(int af, union ldpd_addr *addr)
+struct nbr *nbr_find_addr(int af, union g_addr *addr)
 {
 	struct nbr	n;
 	n.af = af;

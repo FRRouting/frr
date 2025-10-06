@@ -20,8 +20,7 @@ static int	 gen_address_list_tlv(struct ibuf *, int, struct if_addr_head *,
 static int	 gen_mac_list_tlv(struct ibuf *, uint8_t *);
 static void	 address_list_add(struct if_addr_head *, struct if_addr *);
 static void	 address_list_clr(struct if_addr_head *);
-static void	 log_msg_address(int, uint16_t, struct nbr *, int,
-		    union ldpd_addr *);
+static void log_msg_address(int, uint16_t, struct nbr *, int, union g_addr *);
 static void	 log_msg_mac_withdrawal(int, struct nbr *, uint8_t *);
 
 static void
@@ -400,9 +399,7 @@ address_list_clr(struct if_addr_head *addr_list)
 	}
 }
 
-static void
-log_msg_address(int out, uint16_t msg_type, struct nbr *nbr, int af,
-    union ldpd_addr *addr)
+static void log_msg_address(int out, uint16_t msg_type, struct nbr *nbr, int af, union g_addr *addr)
 {
 	debug_msg(out, "%s: lsr-id %pI4, address %s", msg_name(msg_type),
 	    &nbr->id, log_addr(af, addr));

@@ -804,8 +804,7 @@ ldpe_close_sockets(int af)
 	}
 }
 
-int
-ldpe_acl_check(char *acl_name, int af, union ldpd_addr *addr, uint8_t prefixlen)
+int ldpe_acl_check(char *acl_name, int af, union g_addr *addr, uint8_t prefixlen)
 {
 	return ldp_acl_request(iev_main_sync, acl_name, af, addr, prefixlen);
 }
