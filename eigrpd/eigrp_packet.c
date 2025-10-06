@@ -551,6 +551,12 @@ void eigrp_read(struct event *thread)
 	/* Advance from IP header to EIGRP header (iph->ip_hl has been verified
 	   by eigrp_recv_packet() to be correct). */
 
+	if ((iph->ip_hl * 4) + EIGRP_HEADER_LEN > stream_get_endp(ibuf)) {
+		zlog_warn("Malformed packet: IP header extends beyond packet data. IP header len = %u endp = %zu",
+				 iph->ip_hl * 4, stream_get_endp(ibuf));
+		return;
+	}
+
 	stream_forward_getp(ibuf, (iph->ip_hl * 4));
 	eigrph = (struct eigrp_header *)stream_pnt(ibuf);
 
