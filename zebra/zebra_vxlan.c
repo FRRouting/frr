@@ -269,7 +269,7 @@ static void zevpn_print_neigh_hash_all_evpn(struct hash_bucket *bucket,
 	wctx.zevpn = zevpn;
 	wctx.vty = vty;
 	wctx.addr_width = 15;
-	wctx.r_vtep_width = 39;
+	wctx.r_vtep_width = INET6_GUA_ADDRSTRLEN;
 	wctx.json = json_evpn;
 	hash_iterate(zevpn->neigh_table, zebra_evpn_find_neigh_addr_width,
 		     &wctx);
@@ -336,7 +336,7 @@ static void zevpn_print_neigh_hash_all_evpn_detail(struct hash_bucket *bucket,
 	wctx.zevpn = zevpn;
 	wctx.vty = vty;
 	wctx.addr_width = 15;
-	wctx.r_vtep_width = 39;
+	wctx.r_vtep_width = INET6_GUA_ADDRSTRLEN;
 	wctx.json = json_evpn;
 
 	if (print_dup)
