@@ -845,8 +845,9 @@ int vrf_bind(vrf_id_t vrf_id, int fd, const char *ifname)
 		/* nothing to do for default vrf */
 		if (vrf_id == VRF_DEFAULT)
 			return 0;
-
+#ifdef SO_BINDTODEVICE
 		ifname = vrf->name;
+#endif
 	}
 
 #ifdef SO_BINDTODEVICE
