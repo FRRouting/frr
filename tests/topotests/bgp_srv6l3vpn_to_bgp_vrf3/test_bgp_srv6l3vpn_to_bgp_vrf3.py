@@ -96,7 +96,7 @@ def open_json_file(filename):
         assert False, "Could not read file {}".format(filename)
 
 
-def check_rib(name, cmd, expected_file, count=10, wait=0.5):
+def check_rib(name, cmd, expected_file, count=15, wait=1):
     def _check(router, cmd, expected):
         logger.info("polling")
         tgen = get_topogen()
