@@ -116,7 +116,6 @@ FRR_CFG_DEFAULT_BOOL(BGP_SOFT_VERSION_CAPABILITY,
 	{ .val_bool = false },
 );
 FRR_CFG_DEFAULT_BOOL(BGP_LINK_LOCAL_CAPABILITY,
-	{ .val_bool = true, .match_profile = "datacenter", },
 	{ .val_bool = false },
 );
 FRR_CFG_DEFAULT_BOOL(BGP_DYNAMIC_CAPABILITY,
@@ -5171,11 +5170,6 @@ static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
 		SET_FLAG(peer->flags_invert, PEER_FLAG_CAPABILITY_ENHE);
 		SET_FLAG(peer->flags_override, PEER_FLAG_CAPABILITY_ENHE);
 	}
-
-	/* For unnumbered peers enable Link-Local Next Hop
-	 * capability implicitly.
-	 */
-	peer_flag_set(peer, PEER_FLAG_CAPABILITY_LINK_LOCAL);
 
 	if (peer_group_name) {
 		group = peer_group_lookup(bgp, peer_group_name);
