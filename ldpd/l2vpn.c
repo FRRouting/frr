@@ -14,6 +14,7 @@
 #include "ldpe.h"
 #include "lde.h"
 #include "log.h"
+#include "ldp_l2vpn.h"
 
 static void		 l2vpn_pw_fec(struct l2vpn_pw *, struct fec *);
 static __inline int	 l2vpn_compare(const struct l2vpn *, const struct l2vpn *);
@@ -125,14 +126,6 @@ l2vpn_if_new(struct l2vpn *l2vpn, const char *ifname)
 	return (lif);
 }
 
-struct l2vpn_if *
-l2vpn_if_find(struct l2vpn *l2vpn, const char *ifname)
-{
-	struct l2vpn_if	 lif;
-	strlcpy(lif.ifname, ifname, sizeof(lif.ifname));
-	return (RB_FIND(l2vpn_if_head, &l2vpn->if_tree, &lif));
-}
-
 void
 l2vpn_if_update_info(struct l2vpn_if *lif, struct kif *kif)
 {
@@ -186,19 +179,6 @@ l2vpn_pw_new(struct l2vpn *l2vpn, const char *ifname)
 	strlcpy(pw->ifname, ifname, sizeof(pw->ifname));
 
 	return (pw);
-}
-
-struct l2vpn_pw *
-l2vpn_pw_find(struct l2vpn *l2vpn, const char *ifname)
-{
-	struct l2vpn_pw	*pw;
-	struct l2vpn_pw	 s;
-
-	strlcpy(s.ifname, ifname, sizeof(s.ifname));
-	pw = RB_FIND(l2vpn_pw_head, &l2vpn->pw_tree, &s);
-	if (pw)
-		return (pw);
-	return (RB_FIND(l2vpn_pw_head, &l2vpn->pw_inactive_tree, &s));
 }
 
 struct l2vpn_pw *
