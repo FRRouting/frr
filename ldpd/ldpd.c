@@ -927,9 +927,8 @@ main_imsg_send_net_socket(int af, enum socket_type type)
 	    sizeof(type));
 }
 
-int
-ldp_acl_request(struct imsgev *iev, char *acl_name, int af,
-    union ldpd_addr *addr, uint8_t prefixlen)
+int ldp_acl_request(struct imsgev *iev, char *acl_name, int af, union g_addr *addr,
+		    uint8_t prefixlen)
 {
 	struct imsg	 imsg;
 	struct acl_check acl_check;
@@ -976,10 +975,10 @@ ldp_acl_reply(struct imsgev *iev, struct acl_check *acl_check)
 		prefix.family = acl_check->af;
 		switch (prefix.family) {
 		case AF_INET:
-			prefix.u.prefix4 = acl_check->addr.v4;
+			prefix.u.prefix4 = acl_check->addr.ipv4;
 			break;
 		case AF_INET6:
-			prefix.u.prefix6 = acl_check->addr.v6;
+			prefix.u.prefix6 = acl_check->addr.ipv6;
 			break;
 		default:
 			fatalx("ldp_acl_reply: unknown af");
@@ -1159,7 +1158,7 @@ ldp_config_normalize(struct ldpd_conf *xconf)
 		RB_FOREACH_SAFE(pw, l2vpn_pw_head, &l2vpn->pw_tree, ptmp) {
 			if (!CHECK_FLAG(pw->flags, F_PW_STATIC_NBR_ADDR)) {
 				pw->af = AF_INET;
-				pw->addr.v4 = pw->lsr_id;
+				pw->addr.ipv4 = pw->lsr_id;
 			}
 
 			if (pw->lsr_id.s_addr != INADDR_ANY && pw->pwid != 0)
@@ -1172,7 +1171,7 @@ ldp_config_normalize(struct ldpd_conf *xconf)
 		    ptmp) {
 			if (!CHECK_FLAG(pw->flags, F_PW_STATIC_NBR_ADDR)) {
 				pw->af = AF_INET;
-				pw->addr.v4 = pw->lsr_id;
+				pw->addr.ipv4 = pw->lsr_id;
 			}
 
 			if (pw->lsr_id.s_addr == INADDR_ANY || pw->pwid == 0)
