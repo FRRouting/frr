@@ -125,6 +125,8 @@ ldpe(void)
 
 	/* create base configuration */
 	leconf = config_new_empty();
+	ldp_config_reset_l2vpns(&leconf->l2vpn_tree);
+	RB_INIT(l2vpn_head, &leconf->l2vpn_tree);
 
 	struct event thread;
 	while (event_fetch(master, &thread))
@@ -523,6 +525,7 @@ static void ldpe_dispatch_main(struct event *event)
 			break;
 		case IMSG_RECONF_END:
 			merge_config(leconf, nconf);
+			merge_l2vpns(&leconf->l2vpn_tree, &nconf->l2vpn_tree);
 			ldp_clear_config(nconf);
 			nconf = NULL;
 			global.conf_seqnum++;
