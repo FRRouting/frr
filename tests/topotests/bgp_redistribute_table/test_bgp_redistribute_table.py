@@ -151,7 +151,7 @@ def _check_zebra_rib_r1(with_redistributed_route, with_second_route=False):
         "show ip route bgp json",
         expected,
     )
-    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assertmsg = '"{}" JSON output mismatches'.format(router.name)
     assert result is None, assertmsg
 

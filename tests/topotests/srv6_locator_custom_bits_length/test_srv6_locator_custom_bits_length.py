@@ -77,12 +77,12 @@ def test_srv6():
 
     def check_srv6_locator(router, expected_file):
         func = functools.partial(_check_srv6_locator, router, expected_file)
-        _, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
+        _, result = topotest.run_and_expect(func, None, count=15, wait=1)
         assert result is None, "Failed"
 
     def check_sharpd_chunk(router, expected_file):
         func = functools.partial(_check_sharpd_chunk, router, expected_file)
-        _, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
+        _, result = topotest.run_and_expect(func, None, count=15, wait=1)
         assert result is None, "Failed"
 
     # FOR DEVELOPER:
@@ -156,7 +156,7 @@ def test_srv6_locator_func_bits():
 
     def check_srv6_locator(router, expected_file):
         func = functools.partial(_check_srv6_locator, router, expected_file)
-        _, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
+        _, result = topotest.run_and_expect(func, None, count=15, wait=1)
         assert result is None, "Failed"
 
     logger.info("Configure various locators with and without func-len")

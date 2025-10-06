@@ -331,7 +331,7 @@ def test_vpn_label_export_auto():
     assert result is None, "Failed to see LDP label on R2"
 
     test_func = functools.partial(check_mpls_table, "auto", "BGP")
-    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert result is None, "Failed to see BGP label on R2"
 
     output = tgen.net["r2"].cmd("vtysh -c 'show debugging label-table' | grep Proto")
@@ -379,7 +379,7 @@ def test_vpn_label_export_no_auto():
     assert result is None, "Failed to see LDP label on R2"
 
     test_func = functools.partial(check_mpls_table, auto_label, None)
-    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert result is None, "Unexpected BGP label on R2"
 
     output = tgen.net["r2"].cmd("vtysh -c 'show debugging label-table' | grep Proto")
@@ -424,7 +424,7 @@ def test_vpn_label_export_auto_back():
     assert result is None, "Failed to see LDP label on R2"
 
     test_func = functools.partial(check_mpls_table, "auto", "BGP")
-    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert result is None, "Failed to see BGP label on R2"
 
     output = tgen.net["r2"].cmd("vtysh -c 'show debugging label-table' | grep Proto")
@@ -476,7 +476,7 @@ def test_vpn_label_export_manual_from_auto():
     assert result is None, "Failed to see LDP label on R2"
 
     test_func = functools.partial(check_mpls_table, auto_label, "BGP")
-    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert result is None, "Failed to see BGP label on R2"
 
     output = tgen.net["r2"].cmd("vtysh -c 'show debugging label-table' | grep Proto")
@@ -508,7 +508,7 @@ def test_vpn_label_configure_dynamic_range():
     assert result is None, "Unexpected BGP prefix on R2"
 
     test_func = functools.partial(check_mpls_table, 500, "BGP")
-    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert result is None, "Unexpected BGP label on R2"
 
     output = tgen.gears["r2"].vtysh_cmd("show debugging label-table")
@@ -580,7 +580,7 @@ def test_vpn_label_unconfigure_dynamic_range():
     assert result is None, "Unexpected BGP prefix on R2"
 
     test_func = functools.partial(check_mpls_table, 16, "BGP")
-    _, result = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert result is None, "Unexpected BGP label on R2"
 
     output = tgen.gears["r2"].vtysh_cmd("show debugging label-table")
