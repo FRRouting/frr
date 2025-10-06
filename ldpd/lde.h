@@ -69,7 +69,7 @@ struct lde_wdraw {
 struct lde_addr {
 	TAILQ_ENTRY(lde_addr)	 entry;
 	int			 af;
-	union ldpd_addr		 addr;
+	union g_addr addr;
 };
 
 /* just the info LDE needs */
@@ -94,7 +94,7 @@ RB_PROTOTYPE(nbr_tree, lde_nbr, entry, lde_nbr_compare)
 struct fec_nh {
 	LIST_ENTRY(fec_nh)	 entry;
 	int			 af;
-	union ldpd_addr		 nexthop;
+	union g_addr nexthop;
 	ifindex_t		 ifindex;
 	uint32_t		 remote_label;
 	uint8_t			 route_type;
@@ -140,7 +140,7 @@ void		 lde_init(struct ldpd_init *);
 int		 lde_imsg_compose_parent(int, pid_t, void *, uint16_t);
 void		 lde_imsg_compose_parent_sync(int, pid_t, void *, uint16_t);
 int		 lde_imsg_compose_ldpe(int, uint32_t, pid_t, void *, uint16_t);
-int		 lde_acl_check(char *, int, union ldpd_addr *, uint8_t);
+int lde_acl_check(char *, int, union g_addr *, uint8_t);
 uint32_t	 lde_update_label(struct fec_node *);
 void		 lde_free_label(uint32_t label);
 void		 lde_send_change_klabel(struct fec_node *, struct fec_nh *);
@@ -170,7 +170,7 @@ void		 lde_send_notification(struct lde_nbr *, uint32_t, uint32_t,
 void		 lde_send_notification_eol_prefix(struct lde_nbr *, int);
 void		 lde_send_notification_eol_pwid(struct lde_nbr *, uint16_t);
 struct lde_nbr	*lde_nbr_find_by_lsrid(struct in_addr);
-struct lde_nbr	*lde_nbr_find_by_addr(int, union ldpd_addr *);
+struct lde_nbr *lde_nbr_find_by_addr(int, union g_addr *);
 struct lde_map	*lde_map_add(struct lde_nbr *, struct fec_node *, int);
 void		 lde_map_del(struct lde_nbr *, struct lde_map *, int);
 struct fec 	*lde_map_pending_add(struct lde_nbr *, struct fec_node *);
@@ -187,8 +187,7 @@ void		 lde_change_expnull_for_filter(int);
 void		 lde_route_update(struct iface *, int);
 void		 lde_route_update_release(struct iface *, int);
 void		 lde_route_update_release_all(int);
-struct lde_addr	*lde_address_find(struct lde_nbr *, int,
-		    union ldpd_addr *);
+struct lde_addr *lde_address_find(struct lde_nbr *, int, union g_addr *);
 void		 lde_allow_broken_lsp_update(int new_config);
 
 /* lde_lib.c */
@@ -200,12 +199,11 @@ void		 fec_clear(struct fec_tree *, void (*)(void *));
 void		 rt_dump(pid_t);
 void		 fec_snap(struct lde_nbr *);
 void		 fec_tree_clear(void);
-struct fec_nh	*fec_nh_find(struct fec_node *, int, union ldpd_addr *,
-		    ifindex_t, uint8_t, unsigned short);
-void		 lde_kernel_insert(struct fec *, int, union ldpd_addr *,
-		    ifindex_t, uint8_t, unsigned short, int, void *);
-void		 lde_kernel_remove(struct fec *, int, union ldpd_addr *,
-		    ifindex_t, uint8_t, unsigned short);
+struct fec_nh *fec_nh_find(struct fec_node *, int, union g_addr *, ifindex_t, uint8_t,
+			   unsigned short);
+void lde_kernel_insert(struct fec *, int, union g_addr *, ifindex_t, uint8_t, unsigned short, int,
+		       void *);
+void lde_kernel_remove(struct fec *, int, union g_addr *, ifindex_t, uint8_t, unsigned short);
 void		 lde_kernel_update(struct fec *);
 void		 lde_check_mapping(struct map *, struct lde_nbr *, int);
 void		 lde_check_request(struct map *, struct lde_nbr *);

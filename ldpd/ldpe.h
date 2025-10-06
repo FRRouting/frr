@@ -26,7 +26,7 @@ struct hello_source {
 	enum hello_type		 type;
 	struct {
 		struct iface_af	*ia;
-		union ldpd_addr	 src_addr;
+		union g_addr src_addr;
 	} link;
 	struct tnbr		*target;
 };
@@ -39,7 +39,7 @@ struct adj {
 	struct hello_source	 source;
 	struct event *inactivity_timer;
 	uint16_t		 holdtime;
-	union ldpd_addr		 trans_addr;
+	union g_addr trans_addr;
 };
 RB_PROTOTYPE(global_adj_head, adj, global_entry, adj_compare)
 RB_PROTOTYPE(nbr_adj_head, adj, nbr_entry, adj_compare)
@@ -77,8 +77,8 @@ struct nbr {
 	int			 v4_enabled;	/* announce/process v4 msgs */
 	int			 v6_enabled;	/* announce/process v6 msgs */
 	struct in_addr		 id;		/* lsr id */
-	union ldpd_addr		 laddr;		/* local address */
-	union ldpd_addr		 raddr;		/* remote address */
+	union g_addr laddr;			/* local address */
+	union g_addr raddr;			/* remote address */
 	ifindex_t		 raddr_scope;	/* remote address scope (v6) */
 	time_t			 uptime;
 	int			 fd;
@@ -114,7 +114,7 @@ struct pending_conn {
 	TAILQ_ENTRY(pending_conn)	 entry;
 	int				 fd;
 	int				 af;
-	union ldpd_addr			 addr;
+	union g_addr addr;
 	struct event *ev_timeout;
 };
 #define PENDING_CONN_TIMEOUT	5
@@ -144,8 +144,8 @@ void	accept_unpause(void);
 
 /* hello.c */
 int	 send_hello(enum hello_type, struct iface_af *, struct tnbr *);
-void	 recv_hello(struct in_addr, struct ldp_msg *, int, union ldpd_addr *,
-	    struct iface *, int, char *, uint16_t);
+void recv_hello(struct in_addr, struct ldp_msg *, int, union g_addr *, struct iface *, int, char *,
+		uint16_t);
 
 /* init.c */
 void	 send_init(struct nbr *);
@@ -189,7 +189,7 @@ int		 ldpe_imsg_compose_parent(int, pid_t, void *,
 void		 ldpe_imsg_compose_parent_sync(int, pid_t, void *, uint16_t);
 int		 ldpe_imsg_compose_lde(int, uint32_t, pid_t, void *,
 		    uint16_t);
-int		 ldpe_acl_check(char *, int, union ldpd_addr *, uint8_t);
+int ldpe_acl_check(char *, int, union g_addr *, uint8_t);
 void		 ldpe_reset_nbrs(int);
 void		 ldpe_reset_ds_nbrs(void);
 void		 ldpe_remove_dynamic_tnbrs(int);
@@ -231,15 +231,14 @@ const char      *ldp_sync_event_name(int);
 struct ctl_ldp_sync *ldp_sync_to_ctl(struct iface *);
 
 /* adjacency.c */
-struct adj	*adj_new(struct in_addr, struct hello_source *,
-		    union ldpd_addr *);
+struct adj *adj_new(struct in_addr, struct hello_source *, union g_addr *);
 void		 adj_del(struct adj *, uint32_t);
 struct adj	*adj_find(struct in_addr, struct hello_source *);
 int		 adj_get_af(const struct adj *adj);
 void		 adj_start_itimer(struct adj *);
 void		 adj_stop_itimer(struct adj *);
-struct tnbr	*tnbr_new(int, union ldpd_addr *);
-struct tnbr	*tnbr_find(struct ldpd_conf *, int, union ldpd_addr *);
+struct tnbr *tnbr_new(int, union g_addr *);
+struct tnbr *tnbr_find(struct ldpd_conf *, int, union g_addr *);
 struct tnbr	*tnbr_check(struct ldpd_conf *, struct tnbr *);
 void		 tnbr_update(struct tnbr *);
 void		 tnbr_update_all(int);
@@ -249,13 +248,12 @@ struct ctl_adj	*adj_to_ctl(struct adj *);
 
 /* neighbor.c */
 int			 nbr_fsm(struct nbr *, enum nbr_event);
-struct nbr		*nbr_new(struct in_addr, int, int, union ldpd_addr *,
-			    uint32_t);
+struct nbr *nbr_new(struct in_addr, int, int, union g_addr *, uint32_t);
 void			 nbr_del(struct nbr *);
 struct nbr		*nbr_find_ldpid(uint32_t);
 struct nbr		*nbr_get_first_ldpid(void);
 struct nbr		*nbr_get_next_ldpid(uint32_t);
-struct nbr		*nbr_find_addr(int, union ldpd_addr *);
+struct nbr *nbr_find_addr(int, union g_addr *);
 struct nbr		*nbr_find_peerid(uint32_t);
 int			 nbr_adj_count(struct nbr *, int);
 int			 nbr_session_active_role(struct nbr *);
@@ -279,8 +277,7 @@ void			 nbr_clear_ctl(struct ctl_nbr *);
 /* packet.c */
 int			 gen_ldp_hdr(struct ibuf *, uint16_t);
 int			 gen_msg_hdr(struct ibuf *, uint16_t, uint16_t);
-int			 send_packet(int, int, union ldpd_addr *,
-			    struct iface_af *, void *, size_t);
+int send_packet(int, int, union g_addr *, struct iface_af *, void *, size_t);
 void disc_recv_packet(struct event *thread);
 void session_accept(struct event *thread);
 void			 session_accept_nbr(struct nbr *, int);
@@ -289,7 +286,7 @@ void			 session_shutdown(struct nbr *, uint32_t, uint32_t,
 void			 session_close(struct nbr *);
 struct tcp_conn		*tcp_new(int, struct nbr *);
 void			 pending_conn_del(struct pending_conn *);
-struct pending_conn	*pending_conn_find(int, union ldpd_addr *);
+struct pending_conn *pending_conn_find(int, union g_addr *);
 
 extern char *pkt_ptr; /* packet buffer */
 

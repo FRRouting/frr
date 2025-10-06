@@ -76,20 +76,19 @@ struct cmd_node ldp_pseudowire_node = {
 	.prompt = "%s(config-l2vpn-pw)# ",
 };
 
-int
-ldp_get_address(const char *str, int *af, union ldpd_addr *addr)
+int ldp_get_address(const char *str, int *af, union g_addr *addr)
 {
 	if (!str || !af || !addr)
 		return (-1);
 
 	memset(addr, 0, sizeof(*addr));
 
-	if (inet_pton(AF_INET, str, &addr->v4) == 1) {
+	if (inet_pton(AF_INET, str, &addr->ipv4) == 1) {
 		*af = AF_INET;
 		return (0);
 	}
 
-	if (inet_pton(AF_INET6, str, &addr->v6) == 1) {
+	if (inet_pton(AF_INET6, str, &addr->ipv6) == 1) {
 		*af = AF_INET6;
 		return (0);
 	}
@@ -842,7 +841,7 @@ int
 ldp_vty_neighbor_targeted(struct vty *vty, const char *negate, const char *addr_str)
 {
 	int			 af;
-	union			 ldpd_addr addr = {};
+	union g_addr addr;
 	struct tnbr		*tnbr;
 
 	af = ldp_vty_get_af(vty);
@@ -852,7 +851,7 @@ ldp_vty_neighbor_targeted(struct vty *vty, const char *negate, const char *addr_
 		vty_out (vty, "%% Malformed address\n");
 		return (CMD_WARNING_CONFIG_FAILED);
 	}
-	if (af == AF_INET6 && IN6_IS_SCOPE_EMBED(&addr.v6)) {
+	if (af == AF_INET6 && IN6_IS_SCOPE_EMBED(&addr.ipv6)) {
 		vty_out (vty, "%% Address can not be link-local\n");
 		return (CMD_WARNING_CONFIG_FAILED);
 	}
@@ -1437,7 +1436,7 @@ ldp_vty_l2vpn_pw_nbr_addr(struct vty *vty, const char *negate, const char *addr_
 {
 	VTY_DECLVAR_CONTEXT_SUB(l2vpn_pw, pw);
 	int			 af;
-	union ldpd_addr		 addr;
+	union g_addr addr;
 
 	if (ldp_get_address(addr_str, &af, &addr) == -1 ||
 	    bad_addr(af, &addr)) {

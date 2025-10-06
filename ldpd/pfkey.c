@@ -22,15 +22,11 @@
 #include "ldpe.h"
 #include "log.h"
 
-static int	 pfkey_send(int, uint8_t, uint8_t, uint8_t,
-		    int, union ldpd_addr *, union ldpd_addr *,
-		    uint32_t, uint8_t, int, char *, uint8_t, int, char *,
-		    uint16_t, uint16_t);
+static int pfkey_send(int, uint8_t, uint8_t, uint8_t, int, union g_addr *, union g_addr *,
+		      uint32_t, uint8_t, int, char *, uint8_t, int, char *, uint16_t, uint16_t);
 static int	 pfkey_reply(int, uint32_t *);
-static int	 pfkey_sa_add(int, union ldpd_addr *, union ldpd_addr *,
-		    uint8_t, char *, uint32_t *);
-static int	 pfkey_sa_remove(int, union ldpd_addr *, union ldpd_addr *,
-		    uint32_t *);
+static int pfkey_sa_add(int, union g_addr *, union g_addr *, uint8_t, char *, uint32_t *);
+static int pfkey_sa_remove(int, union g_addr *, union g_addr *, uint32_t *);
 static int	 pfkey_md5sig_establish(struct nbr *, struct nbr_params *nbrp);
 static int	 pfkey_md5sig_remove(struct nbr *);
 
@@ -42,11 +38,9 @@ static uint32_t	 sadb_msg_seq;
 static uint32_t	 pid; /* should pid_t but pfkey needs uint32_t */
 static int	 fd;
 
-static int
-pfkey_send(int sd, uint8_t satype, uint8_t mtype, uint8_t dir,
-    int af, union ldpd_addr *src, union ldpd_addr *dst, uint32_t spi,
-    uint8_t aalg, int alen, char *akey, uint8_t ealg, int elen, char *ekey,
-    uint16_t sport, uint16_t dport)
+static int pfkey_send(int sd, uint8_t satype, uint8_t mtype, uint8_t dir, int af, union g_addr *src,
+		      union g_addr *dst, uint32_t spi, uint8_t aalg, int alen, char *akey,
+		      uint8_t ealg, int elen, char *ekey, uint16_t sport, uint16_t dport)
 {
 	struct sadb_msg		smsg;
 	struct sadb_sa		sa;
@@ -335,9 +329,8 @@ pfkey_reply(int sd, uint32_t *spi)
 	return (0);
 }
 
-static int
-pfkey_sa_add(int af, union ldpd_addr *src, union ldpd_addr *dst, uint8_t keylen,
-    char *key, uint32_t *spi)
+static int pfkey_sa_add(int af, union g_addr *src, union g_addr *dst, uint8_t keylen, char *key,
+			uint32_t *spi)
 {
 	if (pfkey_send(fd, SADB_X_SATYPE_TCPSIGNATURE, SADB_GETSPI, 0,
 	    af, src, dst, 0, 0, 0, NULL, 0, 0, NULL, 0, 0) < 0)
@@ -352,9 +345,7 @@ pfkey_sa_add(int af, union ldpd_addr *src, union ldpd_addr *dst, uint8_t keylen,
 	return (0);
 }
 
-static int
-pfkey_sa_remove(int af, union ldpd_addr *src, union ldpd_addr *dst,
-    uint32_t *spi)
+static int pfkey_sa_remove(int af, union g_addr *src, union g_addr *dst, uint32_t *spi)
 {
 	if (pfkey_send(fd, SADB_X_SATYPE_TCPSIGNATURE, SADB_DELETE, 0,
 	    af, src, dst, *spi, 0, 0, NULL, 0, 0, NULL, 0, 0) < 0)

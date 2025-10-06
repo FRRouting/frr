@@ -18,14 +18,14 @@ static int	gen_opt4_hello_prms_tlv(struct ibuf *, uint16_t, uint32_t);
 static int	gen_opt16_hello_prms_tlv(struct ibuf *, uint16_t, uint8_t *);
 static int	gen_ds_hello_prms_tlv(struct ibuf *, uint32_t);
 static int	tlv_decode_hello_prms(char *, uint16_t, uint16_t *, uint16_t *);
-static int	tlv_decode_opt_hello_prms(char *, uint16_t, int *, int,
-		    union ldpd_addr *, uint32_t *, uint16_t *);
+static int tlv_decode_opt_hello_prms(char *, uint16_t, int *, int, union g_addr *, uint32_t *,
+				     uint16_t *);
 
 int
 send_hello(enum hello_type type, struct iface_af *ia, struct tnbr *tnbr)
 {
 	int			 af;
-	union ldpd_addr		 dst;
+	union g_addr dst;
 	uint16_t		 size, holdtime = 0, flags = 0;
 	int			 fd = 0;
 	struct ibuf		*buf;
@@ -43,10 +43,10 @@ send_hello(enum hello_type type, struct iface_af *ia, struct tnbr *tnbr)
 		case AF_INET:
 			if (!CHECK_FLAG(leconf->ipv4.flags, F_LDPD_AF_NO_GTSM))
 				SET_FLAG(flags, F_HELLO_GTSM);
-			dst.v4 = global.mcast_addr_v4;
+			dst.ipv4 = global.mcast_addr_v4;
 			break;
 		case AF_INET6:
-			dst.v6 = global.mcast_addr_v6;
+			dst.ipv6 = global.mcast_addr_v6;
 			break;
 		default:
 			fatalx("send_hello: unknown af");
@@ -104,11 +104,11 @@ send_hello(enum hello_type type, struct iface_af *ia, struct tnbr *tnbr)
 	switch (af) {
 	case AF_INET:
 		SET_FLAG(err, gen_opt4_hello_prms_tlv(buf, TLV_TYPE_IPV4TRANSADDR,
-		    leconf->ipv4.trans_addr.v4.s_addr));
+						      leconf->ipv4.trans_addr.ipv4.s_addr));
 		break;
 	case AF_INET6:
 		SET_FLAG(err, gen_opt16_hello_prms_tlv(buf, TLV_TYPE_IPV6TRANSADDR,
-		    leconf->ipv6.trans_addr.v6.s6_addr));
+						       leconf->ipv6.trans_addr.ipv6.s6_addr));
 		break;
 	default:
 		fatalx("send_hello: unknown af");
@@ -150,17 +150,15 @@ send_hello(enum hello_type type, struct iface_af *ia, struct tnbr *tnbr)
 	return (0);
 }
 
-void
-recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
-    union ldpd_addr *src, struct iface *iface, int multicast, char *buf,
-    uint16_t len)
+void recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af, union g_addr *src,
+		struct iface *iface, int multicast, char *buf, uint16_t len)
 {
 	struct adj		*adj = NULL;
 	struct nbr		*nbr, *nbrt;
 	uint16_t		 holdtime = 0, flags = 0;
 	int			 tlvs_rcvd;
 	int			 ds_tlv;
-	union ldpd_addr		 trans_addr;
+	union g_addr trans_addr;
 	ifindex_t		 scope_id = 0;
 	uint32_t		 conf_seqnum;
 	uint16_t		 trans_pref;
@@ -213,7 +211,7 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 		    __func__, &lsr_id, log_addr(af, &trans_addr));
 		return;
 	}
-	if (af == AF_INET6 && IN6_IS_SCOPE_EMBED(&trans_addr.v6)) {
+	if (af == AF_INET6 && IN6_IS_SCOPE_EMBED(&trans_addr.ipv6)) {
 		/*
 	 	 * RFC 7552 - Section 6.1:
 		 * "An LSR MUST use a global unicast IPv6 address in an IPv6
@@ -237,7 +235,7 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 		* "The link-local IPv6 addresses MUST NOT be used as the
 		* targeted LDP Hello packet's source or destination addresses".
 		*/
-		if (af == AF_INET6 && IN6_IS_SCOPE_EMBED(&src->v6)) {
+		if (af == AF_INET6 && IN6_IS_SCOPE_EMBED(&src->ipv6)) {
 			log_debug("%s: lsr-id %pI4: targeted hello with link-local source address", __func__,
 			    &lsr_id);
 			return;
@@ -490,9 +488,9 @@ tlv_decode_hello_prms(char *buf, uint16_t len, uint16_t *holdtime,
 	return (sizeof(tlv));
 }
 
-static int
-tlv_decode_opt_hello_prms(char *buf, uint16_t len, int *tlvs_rcvd, int af,
-    union ldpd_addr *addr, uint32_t *conf_number, uint16_t *trans_pref)
+static int tlv_decode_opt_hello_prms(char *buf, uint16_t len, int *tlvs_rcvd, int af,
+				     union g_addr *addr, uint32_t *conf_number,
+				     uint16_t *trans_pref)
 {
 	struct tlv	tlv;
 	uint16_t	tlv_len;
@@ -525,23 +523,23 @@ tlv_decode_opt_hello_prms(char *buf, uint16_t len, int *tlvs_rcvd, int af,
 
 		switch (ntohs(tlv.type)) {
 		case TLV_TYPE_IPV4TRANSADDR:
-			if (tlv_len != sizeof(addr->v4))
+			if (tlv_len != sizeof(addr->ipv4))
 				return (-1);
 			if (af != AF_INET)
 				return (-1);
 			if (CHECK_FLAG(*tlvs_rcvd, F_HELLO_TLV_RCVD_ADDR))
 				break;
-			memcpy(&addr->v4, buf, sizeof(addr->v4));
+			memcpy(&addr->ipv4, buf, sizeof(addr->ipv4));
 			SET_FLAG(*tlvs_rcvd, F_HELLO_TLV_RCVD_ADDR);
 			break;
 		case TLV_TYPE_IPV6TRANSADDR:
-			if (tlv_len != sizeof(addr->v6))
+			if (tlv_len != sizeof(addr->ipv6))
 				return (-1);
 			if (af != AF_INET6)
 				return (-1);
 			if (CHECK_FLAG(*tlvs_rcvd, F_HELLO_TLV_RCVD_ADDR))
 				break;
-			memcpy(&addr->v6, buf, sizeof(addr->v6));
+			memcpy(&addr->ipv6, buf, sizeof(addr->ipv6));
 			SET_FLAG(*tlvs_rcvd, F_HELLO_TLV_RCVD_ADDR);
 			break;
 		case TLV_TYPE_CONFIG:
