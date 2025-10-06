@@ -20,6 +20,42 @@
 #include "ldpd/ldp_l2vpn_cli_clippy.c"
 #endif /* VTYSH_EXTRACT_PL */
 
+struct l2vpn_lib_register l2vpn_lib_master = { NULL, NULL, NULL, NULL };
+
+struct l2vpn_if *l2vpn_if_find(struct l2vpn *l2vpn, const char *ifname)
+{
+	struct l2vpn_if lif;
+
+	strlcpy(lif.ifname, ifname, sizeof(lif.ifname));
+	return RB_FIND(l2vpn_if_head, &l2vpn->if_tree, &lif);
+}
+
+struct l2vpn_pw *l2vpn_pw_find(struct l2vpn *l2vpn, const char *ifname)
+{
+	struct l2vpn_pw *pw;
+	struct l2vpn_pw s;
+
+	strlcpy(s.ifname, ifname, sizeof(s.ifname));
+	pw = RB_FIND(l2vpn_pw_head, &l2vpn->pw_tree, &s);
+	if (pw)
+		return pw;
+	return RB_FIND(l2vpn_pw_head, &l2vpn->pw_inactive_tree, &s);
+}
+
+int l2vpn_iface_is_configured(const char *ifname)
+{
+	struct l2vpn *l2vpn;
+
+	RB_FOREACH (l2vpn, l2vpn_head, &vty_conf->l2vpn_tree) {
+		if (l2vpn_if_find(l2vpn, ifname))
+			return 1;
+		if (l2vpn_pw_find(l2vpn, ifname))
+			return 1;
+	}
+
+	return 0;
+}
+
 DEFPY_YANG_NOSH(ldp_l2vpn,
 	ldp_l2vpn_cmd,
 	"l2vpn WORD$l2vpn_name type vpls",
@@ -418,4 +454,14 @@ void ldp_l2vpn_init(void)
 {
 	cmd_variable_handler_register(l2vpn_var_handlers);
 	ldp_l2vpn_cli_init();
+}
+
+void l2vpn_register_hook(void (*func_add)(const char *), void (*func_del)(const char *),
+			 void (*func_event)(const char *),
+			 bool (*func_iface_ok_for_l2vpn)(const char *))
+{
+	l2vpn_lib_master.add_hook = func_add;
+	l2vpn_lib_master.del_hook = func_del;
+	l2vpn_lib_master.event_hook = func_event;
+	l2vpn_lib_master.iface_ok_for_l2vpn = func_iface_ok_for_l2vpn;
 }
