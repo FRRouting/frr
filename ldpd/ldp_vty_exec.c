@@ -30,7 +30,7 @@ enum show_command {
 
 struct show_params {
 	int		family;
-	union ldpd_addr	addr;
+	union g_addr addr;
 	uint8_t		prefixlen;
 	int		detail;
 	int		json;
@@ -352,7 +352,7 @@ show_discovery_detail_msg(struct vty *vty, struct imsg *imsg,
 	struct ctl_disc_if	*iface;
 	struct ctl_disc_tnbr	*tnbr;
 	struct in_addr		 rtr_id;
-	union ldpd_addr		*trans_addr;
+	union g_addr *trans_addr;
 	size_t			 buflen;
 	static char		 ifaces_buffer[LDPBUFSIZ];
 	static char		 tnbrs_buffer[LDPBUFSIZ];
@@ -513,7 +513,7 @@ show_discovery_detail_msg_json(struct imsg *imsg, struct show_params *params,
 	struct ctl_disc_if	*iface;
 	struct ctl_disc_tnbr	*tnbr;
 	struct in_addr		 rtr_id;
-	union ldpd_addr		*trans_addr;
+	union g_addr *trans_addr;
 	json_object		*json_interface;
 	json_object		*json_target;
 	static json_object	*json_interfaces;
