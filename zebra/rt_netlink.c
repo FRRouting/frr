@@ -1700,20 +1700,19 @@ static bool _netlink_nexthop_encode_dvni_label(const struct nexthop *nexthop,
 		return false;
 
 	if (nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX) {
-		if (!nl_attr_put(nlmsg, buflen, LWTUNNEL_IP_DST,
-				 &nexthop->gate.ipv4, 4))
+		if (!nl_attr_put(nlmsg, buflen, LWTUNNEL_IP_DST, &nexthop->gate.ipv4,
+				 IPV4_MAX_BYTELEN))
 			return false;
 
 	} else if (nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
 		if (IS_MAPPED_IPV6(&nexthop->gate.ipv6)) {
 			ipv4_mapped_ipv6_to_ipv4(&nexthop->gate.ipv6, &ipv4);
-			if (!nl_attr_put(nlmsg, buflen, LWTUNNEL_IP_DST, &ipv4,
-					 4))
+			if (!nl_attr_put(nlmsg, buflen, LWTUNNEL_IP_DST, &ipv4, IPV4_MAX_BYTELEN))
 				return false;
 
 		} else {
-			if (!nl_attr_put(nlmsg, buflen, LWTUNNEL_IP6_DST,
-					 &nexthop->gate.ipv6, 16))
+			if (!nl_attr_put(nlmsg, buflen, LWTUNNEL_IP6_DST, &nexthop->gate.ipv6,
+					 IPV6_MAX_BYTELEN))
 				return false;
 		}
 	} else {
