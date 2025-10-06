@@ -14,8 +14,6 @@
 #include "openbsd-tree.h"
 #include "if.h"
 
-#include "ldp_l2vpn.h"
-
 enum fec_type {
 	FEC_TYPE_IPV4,
 	FEC_TYPE_IPV6,
@@ -217,17 +215,9 @@ void		 lde_gc_start_timer(void);
 void		 lde_gc_stop_timer(void);
 
 /* l2vpn.c */
-struct l2vpn *l2vpn_new(const char *name);
-struct l2vpn *l2vpn_find(struct ldpd_conf *xconf, const char *name);
-void l2vpn_del(struct l2vpn *l2vpn);
 void l2vpn_init(struct l2vpn *l2vpn);
-void l2vpn_exit(struct l2vpn *l2vpn);
-struct l2vpn_if *l2vpn_if_new(struct l2vpn *l2vpn, const char *ifname);
 void l2vpn_if_update_info(struct l2vpn_if *lif, struct kif *kif);
 void l2vpn_if_update(struct l2vpn_if *lif);
-struct l2vpn_pw *l2vpn_pw_new(struct l2vpn *l2vpn, const char *ifname);
-struct l2vpn_pw *l2vpn_pw_find_active(struct l2vpn *l2vpn, const char *ifname);
-struct l2vpn_pw *l2vpn_pw_find_inactive(struct l2vpn *l2vpn, const char *ifname);
 void l2vpn_pw_update_info(struct l2vpn_pw *pw, struct kif *kif);
 void l2vpn_pw_init(struct l2vpn_pw *pw);
 void l2vpn_pw_exit(struct l2vpn_pw *pw);

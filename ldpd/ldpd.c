@@ -1805,7 +1805,7 @@ merge_l2vpns(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 
 	RB_FOREACH_SAFE(l2vpn, l2vpn_head, &conf->l2vpn_tree, ltmp) {
 		/* find deleted l2vpns */
-		if (l2vpn_find(xconf, l2vpn->name) == NULL) {
+		if (l2vpn_find(&xconf->l2vpn_tree, l2vpn->name) == NULL) {
 			switch (ldpd_process) {
 			case PROC_LDE_ENGINE:
 				l2vpn_exit(l2vpn);
@@ -1822,7 +1822,7 @@ merge_l2vpns(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 	}
 	RB_FOREACH_SAFE(xl, l2vpn_head, &xconf->l2vpn_tree, ltmp) {
 		/* find new l2vpns */
-		if ((l2vpn = l2vpn_find(conf, xl->name)) == NULL) {
+		if ((l2vpn = l2vpn_find(&conf->l2vpn_tree, xl->name)) == NULL) {
 			COPY(l2vpn, xl);
 			RB_INSERT(l2vpn_head, &conf->l2vpn_tree, l2vpn);
 			RB_INIT(l2vpn_if_head, &l2vpn->if_tree);
