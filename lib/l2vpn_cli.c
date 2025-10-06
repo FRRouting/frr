@@ -8,6 +8,7 @@
 
 #include <zebra.h>
 
+#include "lib/memory.h"
 #include "lib/command.h"
 #include "lib/northbound_cli.h"
 
@@ -29,6 +30,10 @@ static inline int     l2vpn_pw_compare(const struct l2vpn_pw *, const struct l2v
 DEFINE_QOBJ_TYPE(l2vpn_if);
 DEFINE_QOBJ_TYPE(l2vpn_pw);
 DEFINE_QOBJ_TYPE(l2vpn);
+
+DEFINE_MTYPE_STATIC(LIB, L2VPN, "L2VPN entry");
+DEFINE_MTYPE_STATIC(LIB, L2VPN_PWE, "L2VPN PWE entry");
+DEFINE_MTYPE_STATIC(LIB, L2VPN_IF, "L2VPN IF entry");
 
 RB_GENERATE(l2vpn_head, l2vpn, entry, l2vpn_compare)
 RB_GENERATE(l2vpn_if_head, l2vpn_if, entry, l2vpn_if_compare)
@@ -58,8 +63,7 @@ l2vpn_new(const char *name)
 {
 	struct l2vpn *l2vpn;
 
-	if ((l2vpn = calloc(1, sizeof(*l2vpn))) == NULL)
-		assert(!"l2vpn_new: calloc");
+	l2vpn = XCALLOC(MTYPE_L2VPN, sizeof(*l2vpn));
 
 	strlcpy(l2vpn->name, name, sizeof(l2vpn->name));
 
@@ -94,19 +98,19 @@ l2vpn_del(struct l2vpn *l2vpn)
 		lif = RB_ROOT(l2vpn_if_head, &l2vpn->if_tree);
 
 		RB_REMOVE(l2vpn_if_head, &l2vpn->if_tree, lif);
-		free(lif);
+		XFREE(MTYPE_L2VPN_IF, lif);
 	}
 	while (!RB_EMPTY(l2vpn_pw_head, &l2vpn->pw_tree)) {
 		pw = RB_ROOT(l2vpn_pw_head, &l2vpn->pw_tree);
 
 		RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_tree, pw);
-		free(pw);
+		XFREE(MTYPE_L2VPN_PWE, pw);
 	}
 	while (!RB_EMPTY(l2vpn_pw_head, &l2vpn->pw_inactive_tree)) {
 		pw = RB_ROOT(l2vpn_pw_head, &l2vpn->pw_inactive_tree);
 
 		RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
-		free(pw);
+		XFREE(MTYPE_L2VPN_PWE, pw);
 	}
 
 	free(l2vpn);
@@ -117,8 +121,7 @@ l2vpn_pw_new(struct l2vpn *l2vpn, const char *ifname)
 {
 	struct l2vpn_pw *pw;
 
-	if ((pw = calloc(1, sizeof(*pw))) == NULL)
-		assert(!"l2vpn_pw_new: calloc");
+	pw = XCALLOC(MTYPE_L2VPN_PWE, sizeof(*pw));
 
 	pw->l2vpn = l2vpn;
 	strlcpy(pw->ifname, ifname, sizeof(pw->ifname));
@@ -131,8 +134,7 @@ l2vpn_if_new(struct l2vpn *l2vpn, const char *ifname)
 {
 	struct l2vpn_if *lif;
 
-	if ((lif = calloc(1, sizeof(*lif))) == NULL)
-		assert(!"l2vpn_if_new: calloc");
+	lif = XCALLOC(MTYPE_L2VPN_IF, sizeof(*lif));
 
 	lif->l2vpn = l2vpn;
 	strlcpy(lif->ifname, ifname, sizeof(lif->ifname));
