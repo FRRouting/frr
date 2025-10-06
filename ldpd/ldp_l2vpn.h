@@ -119,6 +119,7 @@ struct l2vpn_lib_register {
 };
 
 extern struct l2vpn_lib_register l2vpn_lib_master;
+extern struct l2vpn_head l2vpn_tree_config;
 
 int l2vpn_iface_is_configured(const char *ifname);
 
