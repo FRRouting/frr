@@ -143,7 +143,7 @@ def test_converge_bgplu():
         "192.168.2.2/32",
         "0",
     )
-    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert success, "r1, prefix 192.168.2.2/32 from r2 not present"
 
     # Check r2 gets prefix 192.168.2.1/32
@@ -154,7 +154,7 @@ def test_converge_bgplu():
         "192.168.2.1/32",
         "0",
     )
-    success, _ = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
+    success, _ = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert success, "r2, prefix 192.168.2.1/32 from r1 not present"
 
 

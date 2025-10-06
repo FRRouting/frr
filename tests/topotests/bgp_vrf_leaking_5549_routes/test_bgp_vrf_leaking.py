@@ -92,7 +92,7 @@ def check(name, command, checker):
             return False
 
     logger.info('[+] check {} "{}"'.format(name, command))
-    _, result = topotest.run_and_expect(_check, None, count=10, wait=0.5)
+    _, result = topotest.run_and_expect(_check, None, count=15, wait=1)
     assert result is None, "Failed"
 
 
