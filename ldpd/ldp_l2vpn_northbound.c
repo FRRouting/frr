@@ -32,7 +32,7 @@ static int ldp_l2vpn_instance_create(struct nb_cb_create_args *args)
 		break;
 	case NB_EV_APPLY:
 		l2vpn_name = yang_dnode_get_string(args->dnode, "name");
-		l2vpn = l2vpn_find(vty_conf, l2vpn_name);
+		l2vpn = l2vpn_find(&vty_conf->l2vpn_tree, l2vpn_name);
 		if (l2vpn) {
 			nb_running_set_entry(args->dnode, l2vpn);
 			return NB_OK;
