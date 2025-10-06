@@ -4848,7 +4848,7 @@ static ssize_t netlink_neigh_update_ctx(const struct zebra_dplane_ctx *ctx,
 	flags = neigh_flags_to_netlink(dplane_ctx_neigh_get_flags(ctx));
 	state = neigh_state_to_netlink(dplane_ctx_neigh_get_state(ctx));
 
-	family = IS_IPADDR_V4(ip) ? AF_INET : AF_INET6;
+	family = ipaddr_family(ip);
 
 	if (update_flags & DPLANE_NEIGH_REMOTE) {
 		flags |= NTF_EXT_LEARNED;
@@ -5154,10 +5154,7 @@ static int netlink_fdb_nh_update(uint32_t nh_id, struct ipaddr *vtep_ip)
 	req.n.nlmsg_flags = NLM_F_REQUEST;
 	req.n.nlmsg_flags |= (NLM_F_CREATE | NLM_F_REPLACE);
 	req.n.nlmsg_type = cmd;
-	if (IS_IPADDR_V4(vtep_ip))
-		req.nhm.nh_family = AF_INET;
-	else
-		req.nhm.nh_family = AF_INET6;
+	req.nhm.nh_family = ipaddr_family(vtep_ip);
 
 	if (!nl_attr_put32(&req.n, sizeof(req), NHA_ID, nh_id))
 		return -1;
