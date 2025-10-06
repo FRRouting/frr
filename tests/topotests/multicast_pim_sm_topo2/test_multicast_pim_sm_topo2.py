@@ -1055,7 +1055,7 @@ def test_verify_mroute_after_shut_noshut_of_upstream_interface_p1(request):
         )
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
-    step("Stop the traffic to all the receivers")
+    step("Stop Everything")
     app_helper.stop_all_hosts()
 
     for data in input_dict:
@@ -1346,9 +1346,9 @@ def test_verify_mroute_when_FRR_is_FHR_and_LHR_p0(request):
         )
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
-    # Stop the multicast traffic
-    step("Stop the traffic to all the receivers")
-    app_helper.stop_all_hosts()
+    # Stop the multicast traffic senders only (keep IGMP joins active)
+    step("Stop the traffic being sent")
+    app_helper.stop_traffic_senders()
 
     step(
         "After traffic stopped , verify (*,G) entries are not flushed"
