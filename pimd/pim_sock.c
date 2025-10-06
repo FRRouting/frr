@@ -15,6 +15,9 @@
 #include <unistd.h>
 #include <netdb.h>
 #include <errno.h>
+#ifndef __linux__
+#include <net/if_dl.h>
+#endif
 
 #include "log.h"
 #include "privs.h"
@@ -101,6 +104,11 @@ static inline int pim_setsockopt(int protocol, int fd, struct interface *ifp)
 	if (setsockopt(fd, IPPROTO_IP, IP_RECVDSTADDR, &one, sizeof(one)))
 		zlog_warn("Could not set IP_RECVDSTADDR on socket fd=%d: %m",
 			  fd);
+#if defined(HAVE_IP_RECVIF)
+	/* BSD IP_RECVIF */
+	if (setsockopt(fd, IPPROTO_IP, IP_RECVIF, &one, sizeof(one)))
+		zlog_warn("Could not set IP_RECVIF on socket fd=%d: %m", fd);
+#endif
 #else
 	flog_err(
 		EC_LIB_DEVELOPMENT,
@@ -341,8 +349,6 @@ static void cmsg_getdstaddr(struct msghdr *mh, struct sockaddr_storage *dst,
 				dst4->sin_addr = i->ipi_addr;
 			if (ifindex)
 				*ifindex = i->ipi_ifindex;
-
-			break;
 		}
 #endif
 
@@ -353,15 +359,16 @@ static void cmsg_getdstaddr(struct msghdr *mh, struct sockaddr_storage *dst,
 
 			if (dst4)
 				dst4->sin_addr = *i;
-
-			break;
 		}
 #endif
 
-#if defined(HAVE_IP_RECVIF) && defined(CMSG_IFINDEX)
-		if (cmsg->cmsg_type == IP_RECVIF)
-			if (ifindex)
-				*ifindex = CMSG_IFINDEX(cmsg);
+#if defined(HAVE_IP_RECVIF)
+		if (cmsg->cmsg_type == IP_RECVIF && ifindex) {
+			struct sockaddr_dl *sdl;
+
+			sdl = (struct sockaddr_dl *)CMSG_DATA(cmsg);
+			*ifindex = sdl->sdl_index;
+		}
 #endif
 	}
 }
