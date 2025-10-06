@@ -311,9 +311,16 @@ union prefixconstptr {
 #endif /* INET_ADDRSTRLEN */
 
 #ifndef INET6_ADDRSTRLEN
+/* Use this for GUA or LL IPv6 address len */
 /* dead:beef:dead:beef:dead:beef:dead:beef + \0 */
 #define INET6_ADDRSTRLEN 46
 #endif /* INET6_ADDRSTRLEN */
+
+#ifndef INET6_GUA_ADDRSTRLEN
+/* Use this for GUA IPv6 addresss len */
+/* dead:beef:dead:beef:dead:beef:dead:beef + \0 */
+#define INET6_GUA_ADDRSTRLEN 40
+#endif /* INET6_GUA_ADDRSTRLEN */
 
 #ifndef INET6_BUFSIZ
 #define INET6_BUFSIZ 53
