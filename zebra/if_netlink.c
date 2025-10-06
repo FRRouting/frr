@@ -512,14 +512,16 @@ static int netlink_extract_vxlan_info(struct rtattr *link_data,
 	if (attr[IFLA_VXLAN_LOCAL]) {
 		vxl_info->vtep_ip.ipaddr_v4 = *(struct in_addr *)RTA_DATA(attr[IFLA_VXLAN_LOCAL]);
 		SET_IPADDR_V4(&vxl_info->vtep_ip);
-		zlog_debug("IFLA_VXLAN_LOCAL VXLAN IF message, local address V4: %pIA",
-			   &vxl_info->vtep_ip);
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("IFLA_VXLAN_LOCAL VXLAN IF message, local address V4: %pIA",
+				   &vxl_info->vtep_ip);
 	} else if (attr[IFLA_VXLAN_LOCAL6]) {
 		IPV6_ADDR_COPY(&vxl_info->vtep_ip.ipaddr_v6,
 			       (struct in6_addr *)RTA_DATA(attr[IFLA_VXLAN_LOCAL6]));
 		SET_IPADDR_V6(&vxl_info->vtep_ip);
-		zlog_debug("IFLA_VXLAN_LOCAL VXLAN IF message, local address V6: %pIA",
-			   &vxl_info->vtep_ip);
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("IFLA_VXLAN_LOCAL VXLAN IF message, local address V6: %pIA",
+				   &vxl_info->vtep_ip);
 	} else {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
