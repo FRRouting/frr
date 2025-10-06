@@ -234,6 +234,29 @@ static void ldp_config_fork_apply(struct event *t)
 	ldp_config_apply(NULL, vty_conf);
 }
 
+static void ldp_l2vpn_entry_added(const char *l2vpn_name)
+{
+	/* XXX handle config load from file */
+	ldp_config_apply(NULL, vty_conf);
+}
+
+static void ldp_l2vpn_entry_deleted(const char *l2vpn_name)
+{
+	/* XXX handle config load from file */
+	ldp_config_apply(NULL, vty_conf);
+}
+
+static void ldp_l2vpn_entry_event(const char *l2vpn_name)
+{
+	/* XXX handle config load from file */
+	ldp_config_apply(NULL, vty_conf);
+}
+
+static bool ldp_l2vpn_iface_ok_for_l2vpn(const char *ifname)
+{
+	return ldp_iface_is_configured(vty_conf, ifname);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -393,6 +416,8 @@ main(int argc, char *argv[])
 	QOBJ_REG(vty_conf, ldpd_conf);
 
 	ldp_l2vpn_init();
+	l2vpn_register_hook(ldp_l2vpn_entry_added, ldp_l2vpn_entry_deleted, ldp_l2vpn_entry_event,
+			    ldp_l2vpn_iface_ok_for_l2vpn);
 
 	/* read configuration file and daemonize  */
 	frr_config_fork();
