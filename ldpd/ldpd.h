@@ -21,6 +21,7 @@
 #include "vty.h"
 #include "pw.h"
 #include "zclient.h"
+#include "nexthop.h"
 
 #include "ldp.h"
 #include "lib/ldp_sync.h"
@@ -165,11 +166,6 @@ struct ldp_access {
 	char			 name[ACL_NAMSIZ];
 };
 
-union ldpd_addr {
-	struct in_addr	v4;
-	struct in6_addr	v6;
-};
-
 #define IN6_IS_SCOPE_EMBED(a)   \
 	((IN6_IS_ADDR_LINKLOCAL(a)) ||  \
 	 (IN6_IS_ADDR_MC_LINKLOCAL(a)) || \
@@ -262,7 +258,7 @@ struct map {
 	union {
 		struct {
 			uint16_t	af;
-			union ldpd_addr	prefix;
+			union g_addr prefix;
 			uint8_t		prefixlen;
 		} prefix;
 		struct {
@@ -316,9 +312,9 @@ struct notify_msg {
 struct if_addr {
 	LIST_ENTRY(if_addr)	 entry;
 	int			 af;
-	union ldpd_addr		 addr;
+	union g_addr addr;
 	uint8_t			 prefixlen;
-	union ldpd_addr		 dstbrd;
+	union g_addr dstbrd;
 };
 LIST_HEAD(if_addr_head, if_addr);
 
@@ -363,7 +359,7 @@ struct tnbr {
 	struct event *hello_timer;
 	struct adj		*adj;
 	int			 af;
-	union ldpd_addr		 addr;
+	union g_addr addr;
 	int			 state;
 	uint16_t		 pw_count;
 	uint32_t		 rlfa_count;
@@ -463,7 +459,7 @@ struct l2vpn_pw {
 	struct l2vpn		*l2vpn;
 	struct in_addr		 lsr_id;
 	int			 af;
-	union ldpd_addr		 addr;
+	union g_addr addr;
 	uint32_t		 pwid;
 	char ifname[IFNAMSIZ];
 	ifindex_t		 ifindex;
@@ -542,7 +538,7 @@ struct ldpd_af_conf {
 	uint16_t		 lhello_interval;
 	uint16_t		 thello_holdtime;
 	uint16_t		 thello_interval;
-	union ldpd_addr		 trans_addr;
+	union g_addr trans_addr;
 	char			 acl_thello_accept_from[ACL_NAMSIZ];
 	char			 acl_label_allocate_for[ACL_NAMSIZ];
 	char			 acl_label_advertise_to[ACL_NAMSIZ];
@@ -609,9 +605,9 @@ struct ldpd_global {
 /* kroute */
 struct kroute {
 	int			 af;
-	union ldpd_addr		 prefix;
+	union g_addr prefix;
 	uint8_t			 prefixlen;
-	union ldpd_addr		 nexthop;
+	union g_addr nexthop;
 	uint32_t		 local_label;
 	uint32_t		 remote_label;
 	ifindex_t		 ifindex;
@@ -624,9 +620,9 @@ struct kaddr {
 	char ifname[IFNAMSIZ];
 	ifindex_t		 ifindex;
 	int			 af;
-	union ldpd_addr		 addr;
+	union g_addr addr;
 	uint8_t			 prefixlen;
-	union ldpd_addr	 	 dstbrd;
+	union g_addr dstbrd;
 };
 
 struct kif {
@@ -641,7 +637,7 @@ struct kif {
 struct acl_check {
 	char			 acl[ACL_NAMSIZ];
 	int			 af;
-	union ldpd_addr		 addr;
+	union g_addr addr;
 	uint8_t			 prefixlen;
 };
 
@@ -667,7 +663,7 @@ struct ctl_disc_if {
 
 struct ctl_disc_tnbr {
 	int			 af;
-	union ldpd_addr		 addr;
+	union g_addr addr;
 	int			 no_adj;
 };
 
@@ -676,19 +672,19 @@ struct ctl_adj {
 	struct in_addr		 id;
 	enum hello_type		 type;
 	char ifname[IFNAMSIZ];
-	union ldpd_addr		 src_addr;
+	union g_addr src_addr;
 	uint16_t		 holdtime;
 	uint16_t		 holdtime_remaining;
-	union ldpd_addr		 trans_addr;
+	union g_addr trans_addr;
 	int			 ds_tlv;
 };
 
 struct ctl_nbr {
 	int			 af;
 	struct in_addr		 id;
-	union ldpd_addr		 laddr;
+	union g_addr laddr;
 	in_port_t		 lport;
-	union ldpd_addr		 raddr;
+	union g_addr raddr;
 	in_port_t		 rport;
 	enum auth_method	 auth_method;
 	uint16_t		 holdtime;
@@ -702,7 +698,7 @@ struct ctl_nbr {
 
 struct ctl_rt {
 	int			 af;
-	union ldpd_addr		 prefix;
+	union g_addr prefix;
 	uint8_t			 prefixlen;
 	struct in_addr		 nexthop;	/* lsr-id */
 	uint32_t		 local_label;
@@ -763,19 +759,19 @@ uint8_t mask2prefixlen(in_addr_t ina);
 uint8_t mask2prefixlen6(struct sockaddr_in6 *sa_in6);
 in_addr_t prefixlen2mask(uint8_t prefixlen);
 struct in6_addr	*prefixlen2mask6(uint8_t);
-void ldp_applymask(int af, union ldpd_addr *dest, const union ldpd_addr *src, int prefixlen);
-int ldp_addrcmp(int af, const union ldpd_addr *a, const union ldpd_addr *b);
-int ldp_addrisset(int af, const union ldpd_addr *addr);
-int ldp_prefixcmp(int af, const union ldpd_addr *a, const union ldpd_addr *b, uint8_t prefixlen);
+void ldp_applymask(int af, union g_addr *dest, const union g_addr *src, int prefixlen);
+int ldp_addrcmp(int af, const union g_addr *a, const union g_addr *b);
+int ldp_addrisset(int af, const union g_addr *addr);
+int ldp_prefixcmp(int af, const union g_addr *a, const union g_addr *b, uint8_t prefixlen);
 int bad_addr_v4(struct in_addr addr);
 int bad_addr_v6(struct in6_addr *addr);
-int bad_addr(int af, union ldpd_addr *addr);
+int bad_addr(int af, union g_addr *addr);
 void embedscope(struct sockaddr_in6 *sin6);
 void recoverscope(struct sockaddr_in6 *sin6);
 void addscope(struct sockaddr_in6 *sin6, uint32_t id);
 void clearscope(struct in6_addr *in6);
-void addr2sa(int af, const union ldpd_addr *addr, uint16_t port, union sockunion *su);
-void sa2addr(struct sockaddr *sa, int *af, union ldpd_addr *addr, in_port_t *port);
+void addr2sa(int af, const union g_addr *addr, uint16_t port, union sockunion *su);
+void sa2addr(struct sockaddr *sa, int *af, union g_addr *addr, in_port_t *port);
 socklen_t sockaddr_len(struct sockaddr *sa);
 
 /* ldpd.c */
@@ -790,7 +786,7 @@ void evbuf_enqueue(struct evbuf *eb, struct ibuf *buf);
 void evbuf_event_add(struct evbuf *eb);
 void evbuf_init(struct evbuf *eb, int fd, void (*handler)(struct event *), void *arg);
 void evbuf_clear(struct evbuf *eb);
-int ldp_acl_request(struct imsgev *iev, char *acl_name, int af, union ldpd_addr *addr,
+int ldp_acl_request(struct imsgev *iev, char *acl_name, int af, union g_addr *addr,
 		    uint8_t prefixlen);
 void ldp_acl_reply(struct imsgev *iev, struct acl_check *acl_check);
 struct ldpd_af_conf	*ldp_af_conf_get(struct ldpd_conf *, int);
@@ -810,7 +806,7 @@ void sock_set_cloexec(int fd);
 void sock_set_recvbuf(int fd);
 int sock_set_reuse(int fd, int enable);
 int sock_set_bindany(int fd, int enable);
-int sock_set_md5sig(int fd, int af, union ldpd_addr *addr, const char *password);
+int sock_set_md5sig(int fd, int af, union g_addr *addr, const char *password);
 int sock_set_ipv4_tos(int fd, int tos);
 int sock_set_ipv4_pktinfo(int fd, int enable);
 int		 sock_set_ipv4_recvdstaddr(int fd, ifindex_t ifindex);
@@ -830,7 +826,6 @@ int sock_set_ipv6_mcast_loop(int fd);
 
 /* logmsg.h */
 struct in6_addr;
-union ldpd_addr;
 struct hello_source;
 struct fec;
 
@@ -838,7 +833,7 @@ const char	*log_sockaddr(void *);
 const char	*log_in6addr(const struct in6_addr *);
 const char	*log_in6addr_scope(const struct in6_addr *addr,
 				   ifindex_t ifidx);
-const char	*log_addr(int, const union ldpd_addr *);
+const char *log_addr(int, const union g_addr *);
 char		*log_label(uint32_t);
 const char	*log_time(time_t);
 char		*log_hello_src(const struct hello_source *);

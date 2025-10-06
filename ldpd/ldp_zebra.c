@@ -64,14 +64,14 @@ ifc2kaddr(struct interface *ifp, struct connected *ifc, struct kaddr *ka)
 
 	switch (ka->af) {
 	case AF_INET:
-		ka->addr.v4 = ifc->address->u.prefix4;
+		ka->addr.ipv4 = ifc->address->u.prefix4;
 		if (ifc->destination)
-			ka->dstbrd.v4 = ifc->destination->u.prefix4;
+			ka->dstbrd.ipv4 = ifc->destination->u.prefix4;
 		break;
 	case AF_INET6:
-		ka->addr.v6 = ifc->address->u.prefix6;
+		ka->addr.ipv6 = ifc->address->u.prefix6;
 		if (ifc->destination)
-			ka->dstbrd.v6 = ifc->destination->u.prefix6;
+			ka->dstbrd.ipv6 = ifc->destination->u.prefix6;
 		break;
 	default:
 		break;
@@ -86,7 +86,7 @@ pw2zpw(struct l2vpn_pw *pw, struct zapi_pw *zpw)
 	zpw->ifindex = pw->ifindex;
 	zpw->type = pw->l2vpn->pw_type;
 	zpw->af = pw->af;
-	zpw->nexthop.ipv6 = pw->addr.v6;
+	zpw->nexthop.ipv6 = pw->addr.ipv6;
 	zpw->local_label = NO_LABEL;
 	zpw->remote_label = NO_LABEL;
 	if (CHECK_FLAG(pw->flags, F_PW_CWORD))
@@ -219,10 +219,10 @@ ldp_zebra_send_mpls_labels(int cmd, struct kroute *kr)
 		zl.route.prefix.family = kr->af;
 		switch (kr->af) {
 		case AF_INET:
-			zl.route.prefix.u.prefix4 = kr->prefix.v4;
+			zl.route.prefix.u.prefix4 = kr->prefix.ipv4;
 			break;
 		case AF_INET6:
-			zl.route.prefix.u.prefix6 = kr->prefix.v6;
+			zl.route.prefix.u.prefix6 = kr->prefix.ipv6;
 			break;
 		default:
 			fatalx("ldp_zebra_send_mpls_labels: unknown af");
@@ -251,14 +251,14 @@ ldp_zebra_send_mpls_labels(int cmd, struct kroute *kr)
 	znh = &zl.nexthops[0];
 	switch (kr->af) {
 	case AF_INET:
-		znh->gate.ipv4 = kr->nexthop.v4;
+		znh->gate.ipv4 = kr->nexthop.ipv4;
 		if (kr->ifindex)
 			znh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
 		else
 			znh->type = NEXTHOP_TYPE_IPV4;
 		break;
 	case AF_INET6:
-		znh->gate.ipv6 = kr->nexthop.v6;
+		znh->gate.ipv6 = kr->nexthop.ipv6;
 		if (kr->ifindex)
 			znh->type = NEXTHOP_TYPE_IPV6_IFINDEX;
 		else
@@ -292,8 +292,8 @@ kr_delete(struct kroute *kr)
 int
 kmpw_add(struct zapi_pw *zpw)
 {
-	debug_zebra_out("pseudowire %s nexthop %s (add)",
-	    zpw->ifname, log_addr(zpw->af, (union ldpd_addr *)&zpw->nexthop));
+	debug_zebra_out("pseudowire %s nexthop %s (add)", zpw->ifname,
+			log_addr(zpw->af, (union g_addr *)&zpw->nexthop));
 
 	return zebra_send_pw(ldp_zclient, ZEBRA_PW_ADD, zpw) == ZCLIENT_SEND_FAILURE;
 }
@@ -301,8 +301,8 @@ kmpw_add(struct zapi_pw *zpw)
 int
 kmpw_del(struct zapi_pw *zpw)
 {
-	debug_zebra_out("pseudowire %s nexthop %s (del)",
-	    zpw->ifname, log_addr(zpw->af, (union ldpd_addr *)&zpw->nexthop));
+	debug_zebra_out("pseudowire %s nexthop %s (del)", zpw->ifname,
+			log_addr(zpw->af, (union g_addr *)&zpw->nexthop));
 
 	return zebra_send_pw(ldp_zclient, ZEBRA_PW_DELETE, zpw) == ZCLIENT_SEND_FAILURE;
 }
@@ -310,9 +310,9 @@ kmpw_del(struct zapi_pw *zpw)
 int
 kmpw_set(struct zapi_pw *zpw)
 {
-	debug_zebra_out("pseudowire %s nexthop %s labels %u/%u (set)",
-	    zpw->ifname, log_addr(zpw->af, (union ldpd_addr *)&zpw->nexthop),
-	    zpw->local_label, zpw->remote_label);
+	debug_zebra_out("pseudowire %s nexthop %s labels %u/%u (set)", zpw->ifname,
+			log_addr(zpw->af, (union g_addr *)&zpw->nexthop), zpw->local_label,
+			zpw->remote_label);
 
 	return zebra_send_pw(ldp_zclient, ZEBRA_PW_SET, zpw) == ZCLIENT_SEND_FAILURE;
 }
@@ -320,8 +320,8 @@ kmpw_set(struct zapi_pw *zpw)
 int
 kmpw_unset(struct zapi_pw *zpw)
 {
-	debug_zebra_out("pseudowire %s nexthop %s (unset)",
-	    zpw->ifname, log_addr(zpw->af, (union ldpd_addr *)&zpw->nexthop));
+	debug_zebra_out("pseudowire %s nexthop %s (unset)", zpw->ifname,
+			log_addr(zpw->af, (union g_addr *)&zpw->nexthop));
 
 	return zebra_send_pw(ldp_zclient, ZEBRA_PW_UNSET, zpw) == ZCLIENT_SEND_FAILURE;
 }
@@ -507,10 +507,10 @@ ldp_zebra_read_route(ZAPI_CALLBACK_ARGS)
 	kr.af = api.prefix.family;
 	switch (kr.af) {
 	case AF_INET:
-		kr.prefix.v4 = api.prefix.u.prefix4;
+		kr.prefix.ipv4 = api.prefix.u.prefix4;
 		break;
 	case AF_INET6:
-		kr.prefix.v6 = api.prefix.u.prefix6;
+		kr.prefix.ipv6 = api.prefix.u.prefix6;
 		break;
 	default:
 		break;
@@ -531,7 +531,7 @@ ldp_zebra_read_route(ZAPI_CALLBACK_ARGS)
 	}
 
 	if (bad_addr(kr.af, &kr.prefix) ||
-	    (kr.af == AF_INET6 && IN6_IS_SCOPE_EMBED(&kr.prefix.v6)))
+	    (kr.af == AF_INET6 && IN6_IS_SCOPE_EMBED(&kr.prefix.ipv6)))
 		return (0);
 
 	if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD)
@@ -549,25 +549,25 @@ ldp_zebra_read_route(ZAPI_CALLBACK_ARGS)
 		case NEXTHOP_TYPE_IPV4:
 			if (kr.af != AF_INET)
 				continue;
-			kr.nexthop.v4 = api_nh->gate.ipv4;
+			kr.nexthop.ipv4 = api_nh->gate.ipv4;
 			kr.ifindex = 0;
 			break;
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
 			if (kr.af != AF_INET)
 				continue;
-			kr.nexthop.v4 = api_nh->gate.ipv4;
+			kr.nexthop.ipv4 = api_nh->gate.ipv4;
 			kr.ifindex = api_nh->ifindex;
 			break;
 		case NEXTHOP_TYPE_IPV6:
 			if (kr.af != AF_INET6)
 				continue;
-			kr.nexthop.v6 = api_nh->gate.ipv6;
+			kr.nexthop.ipv6 = api_nh->gate.ipv6;
 			kr.ifindex = 0;
 			break;
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
 			if (kr.af != AF_INET6)
 				continue;
-			kr.nexthop.v6 = api_nh->gate.ipv6;
+			kr.nexthop.ipv6 = api_nh->gate.ipv6;
 			kr.ifindex = api_nh->ifindex;
 			break;
 		case NEXTHOP_TYPE_IFINDEX:

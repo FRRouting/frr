@@ -71,7 +71,7 @@ struct lde_wdraw {
 struct lde_addr {
 	TAILQ_ENTRY(lde_addr)	 entry;
 	int			 af;
-	union ldpd_addr		 addr;
+	union g_addr addr;
 };
 
 /* just the info LDE needs */
@@ -96,7 +96,7 @@ RB_PROTOTYPE(nbr_tree, lde_nbr, entry, lde_nbr_compare)
 struct fec_nh {
 	LIST_ENTRY(fec_nh)	 entry;
 	int			 af;
-	union ldpd_addr		 nexthop;
+	union g_addr nexthop;
 	ifindex_t		 ifindex;
 	uint32_t		 remote_label;
 	uint8_t			 route_type;
@@ -142,7 +142,7 @@ void lde_init(struct ldpd_init *init);
 int lde_imsg_compose_parent(int type, pid_t pid, void *data, uint16_t datalen);
 void lde_imsg_compose_parent_sync(int type, pid_t pid, void *data, uint16_t datalen);
 int lde_imsg_compose_ldpe(int type, uint32_t peerid, pid_t pid, void *data, uint16_t datalen);
-int lde_acl_check(char *acl_name, int af, union ldpd_addr *addr, uint8_t prefixlen);
+int lde_acl_check(char *acl_name, int af, union g_addr *addr, uint8_t prefixlen);
 uint32_t lde_update_label(struct fec_node *fn);
 void		 lde_free_label(uint32_t label);
 void lde_send_change_klabel(struct fec_node *fn, struct fec_nh *fnh);
@@ -167,7 +167,7 @@ void lde_send_notification(struct lde_nbr *ln, uint32_t status_code, uint32_t ms
 void lde_send_notification_eol_prefix(struct lde_nbr *ln, int af);
 void lde_send_notification_eol_pwid(struct lde_nbr *ln, uint16_t pw_type);
 struct lde_nbr *lde_nbr_find_by_lsrid(struct in_addr addr);
-struct lde_nbr *lde_nbr_find_by_addr(int af, union ldpd_addr *addr);
+struct lde_nbr *lde_nbr_find_by_addr(int af, union g_addr *addr);
 struct lde_map *lde_map_add(struct lde_nbr *ln, struct fec_node *fn, int sent);
 void lde_map_del(struct lde_nbr *ln, struct lde_map *me, int sent);
 struct fec *lde_map_pending_add(struct lde_nbr *ln, struct fec_node *fn);
@@ -184,7 +184,7 @@ void lde_change_expnull_for_filter(int af);
 void lde_route_update(struct iface *iface, int af);
 void lde_route_update_release(struct iface *iface, int af);
 void lde_route_update_release_all(int af);
-struct lde_addr *lde_address_find(struct lde_nbr *ln, int af, union ldpd_addr *addr);
+struct lde_addr *lde_address_find(struct lde_nbr *ln, int af, union g_addr *addr);
 void		 lde_allow_broken_lsp_update(int new_config);
 
 /* lde_lib.c */
@@ -196,12 +196,12 @@ void fec_clear(struct fec_tree *fh, void (*free_cb)(void *));
 void rt_dump(pid_t pid);
 void fec_snap(struct lde_nbr *ln);
 void		 fec_tree_clear(void);
-struct fec_nh *fec_nh_find(struct fec_node *fn, int af, union ldpd_addr *nexthop,
-			   ifindex_t ifindex, uint8_t route_type, unsigned short route_instance);
-void lde_kernel_insert(struct fec *fec, int af, union ldpd_addr *nexthop, ifindex_t ifindex,
+struct fec_nh *fec_nh_find(struct fec_node *fn, int af, union g_addr *nexthop, ifindex_t ifindex,
+			   uint8_t route_type, unsigned short route_instance);
+void lde_kernel_insert(struct fec *fec, int af, union g_addr *nexthop, ifindex_t ifindex,
 		       uint8_t priority, unsigned short route_type, int route_instance,
 		       void *zclient);
-void lde_kernel_remove(struct fec *fec, int af, union ldpd_addr *nexthop, ifindex_t ifindex,
+void lde_kernel_remove(struct fec *fec, int af, union g_addr *nexthop, ifindex_t ifindex,
 		       uint8_t priority, unsigned short route_type);
 void lde_kernel_update(struct fec *fec);
 void lde_check_mapping(struct map *map, struct lde_nbr *ln, int rcvd_label_mapping);
