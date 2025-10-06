@@ -32,14 +32,14 @@ static int ldp_l2vpn_instance_create(struct nb_cb_create_args *args)
 		break;
 	case NB_EV_APPLY:
 		l2vpn_name = yang_dnode_get_string(args->dnode, "name");
-		l2vpn = l2vpn_find(&vty_conf->l2vpn_tree, l2vpn_name);
+		l2vpn = l2vpn_find(&l2vpn_tree_config, l2vpn_name);
 		if (l2vpn) {
 			nb_running_set_entry(args->dnode, l2vpn);
 			return NB_OK;
 		}
 		l2vpn = l2vpn_new(l2vpn_name);
 		l2vpn->type = L2VPN_TYPE_VPLS;
-		RB_INSERT(l2vpn_head, &vty_conf->l2vpn_tree, l2vpn);
+		RB_INSERT(l2vpn_head, &l2vpn_tree_config, l2vpn);
 		QOBJ_REG(l2vpn, l2vpn);
 		nb_running_set_entry(args->dnode, l2vpn);
 
@@ -74,7 +74,7 @@ static int ldp_l2vpn_instance_destroy(struct nb_cb_destroy_args *args)
 		RB_FOREACH (pw, l2vpn_pw_head, &l2vpn->pw_inactive_tree)
 			QOBJ_UNREG(pw);
 		QOBJ_UNREG(l2vpn);
-		RB_REMOVE(l2vpn_head, &vty_conf->l2vpn_tree, l2vpn);
+		RB_REMOVE(l2vpn_head, &l2vpn_tree_config, l2vpn);
 		l2vpn_del(l2vpn);
 		if (l2vpn_lib_master.del_hook)
 			(*l2vpn_lib_master.del_hook)(name);
