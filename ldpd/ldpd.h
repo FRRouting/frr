@@ -730,8 +730,10 @@ in_addr_t ldp_rtr_id_get(struct ldpd_conf *xconf);
 int ldp_config_apply(struct vty *vty, struct ldpd_conf *xconf);
 void ldp_clear_config(struct ldpd_conf *xconf);
 void merge_config(struct ldpd_conf *conf, struct ldpd_conf *xconf);
+void merge_l2vpns(struct l2vpn_head *conf, struct l2vpn_head *xconf);
 struct ldpd_conf	*config_new_empty(void);
 void config_clear(struct ldpd_conf *conf);
+void ldp_config_reset_l2vpns(struct l2vpn_head *conf);
 
 /* socket.c */
 int ldp_create_socket(int af, enum socket_type type);
