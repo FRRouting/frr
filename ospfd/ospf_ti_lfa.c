@@ -782,7 +782,6 @@ ospf_ti_lfa_generate_p_space(struct ospf_area *area, struct vertex *child,
 
 	p_space = XCALLOC(MTYPE_OSPF_P_SPACE, sizeof(struct p_space));
 	vertex_list = list_new();
-	vertex_list->del = ospf_vertex_free;
 
 	/* The P-space will get its own SPF tree, so copy the old one */
 	ospf_spf_copy(area->spf, vertex_list);
