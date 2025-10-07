@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BSD-2-Clause
-module frr-ldp-l2vpn {
+module frr-l2vpn {
   yang-version 1.1;
-  namespace "http://frrouting.org/yang/ldp-l2vpn";
-  prefix frr-ldp-l2vpn;
+  namespace "http://frrouting.org/yang/l2vpn";
+  prefix frr-l2vpn;
 
   import ietf-inet-types {
     prefix inet;
@@ -18,7 +18,7 @@ module frr-ldp-l2vpn {
     "FRR Users List:       <mailto:frog@lists.frrouting.org>
      FRR Development List: <mailto:dev@lists.frrouting.org>";
   description
-    "This module defines LDP l2vpn settings
+    "This module defines L2VPN settings
 
      Copyright 2025 FRRouting
 
