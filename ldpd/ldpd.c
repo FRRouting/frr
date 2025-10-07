@@ -39,7 +39,7 @@
 #include "libagentx.h"
 #include "plist.h"
 
-#include "ldp_l2vpn.h"
+#include "l2vpn.h"
 
 static void		 ldpd_shutdown(void);
 static pid_t		 start_child(enum ldpd_process, char *, int, int, int);
@@ -198,7 +198,7 @@ static struct frr_signal_t ldp_signals[] =
 static const struct frr_yang_module_info *const ldpd_yang_modules[] = {
 	&frr_filter_info,
 	&frr_vrf_info,
-	&frr_ldp_l2vpn,
+	&frr_l2vpn,
 };
 
 /* clang-format off */
@@ -413,7 +413,9 @@ main(int argc, char *argv[])
 	vty_conf = config_new_empty();
 	/* l2vpn tree initialised in ldp_l2vpn_init() function */
 
-	ldp_l2vpn_init();
+	l2vpn_init();
+	l2vpn_register_hook(ldp_l2vpn_entry_added, ldp_l2vpn_entry_deleted, ldp_l2vpn_entry_event,
+			    ldp_l2vpn_iface_ok_for_l2vpn);
 	QOBJ_REG(vty_conf, ldpd_conf);
 	l2vpn_register_hook(ldp_l2vpn_entry_added, ldp_l2vpn_entry_deleted, ldp_l2vpn_entry_event,
 			    ldp_l2vpn_iface_ok_for_l2vpn);
@@ -1832,7 +1834,7 @@ static void merge_l2vpns(struct l2vpn_head *dst, struct l2vpn_head *src)
 
 			switch (ldpd_process) {
 			case PROC_LDE_ENGINE:
-				l2vpn_init(l2vpn);
+				ldp_l2vpn_init(l2vpn);
 				break;
 			case PROC_LDP_ENGINE:
 				ldpe_l2vpn_init(l2vpn);
