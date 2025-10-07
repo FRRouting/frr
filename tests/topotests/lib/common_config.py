@@ -1321,20 +1321,20 @@ def create_debug_log_config(tgen, input_dict, build=False):
                     _log_file = os.path.join(tgen.logdir, log_file)
                     debug_config.append("log file {} \n".format(_log_file))
 
-                if type(enable_logs) is list:
+                if isinstance(enable_logs, list):
                     for daemon in enable_logs:
                         for debug_log in DEBUG_LOGS[daemon]:
                             debug_config.append("{}".format(debug_log))
-                elif type(enable_logs) is dict:
+                elif isinstance(enable_logs, dict):
                     for daemon, debug_logs in enable_logs.items():
                         for debug_log in debug_logs:
                             debug_config.append("{}".format(debug_log))
 
-                if type(disable_logs) is list:
+                if isinstance(disable_logs, list):
                     for daemon in disable_logs:
                         for debug_log in DEBUG_LOGS[daemon]:
                             debug_config.append("no {}".format(debug_log))
-                elif type(disable_logs) is dict:
+                elif isinstance(disable_logs, dict):
                     for daemon, debug_logs in disable_logs.items():
                         for debug_log in debug_logs:
                             debug_config.append("no {}".format(debug_log))
@@ -1483,7 +1483,7 @@ def create_vrf_cfg(tgen, topo, input_dict=None, build=False):
                             if "vrf" in data:
                                 vrf_list = data["vrf"]
 
-                                if type(vrf_list) is not list:
+                                if not isinstance(vrf_list, list):
                                     vrf_list = [vrf_list]
 
                                 for _vrf in vrf_list:
@@ -1672,7 +1672,7 @@ def generate_ips(network, no_of_ips):
     * `no_of_ips` : these many IPs will be generated
     """
     ipaddress_list = []
-    if type(network) is not list:
+    if not isinstance(network, list):
         network = [network]
 
     for start_ipaddr in network:
@@ -2147,7 +2147,7 @@ def create_static_routes(tgen, input_dict, build=False):
                 del_action = static_route.setdefault("delete", False)
                 no_of_ip = static_route.setdefault("no_of_ip", 1)
                 network = static_route.setdefault("network", [])
-                if type(network) is not list:
+                if not isinstance(network, list):
                     network = [network]
 
                 admin_distance = static_route.setdefault("admin_distance", None)
@@ -2876,7 +2876,7 @@ def addKernelRoute(
 
     rnode = tgen.gears[router]
 
-    if type(group_addr_range) is not list:
+    if not isinstance(group_addr_range, list):
         group_addr_range = [group_addr_range]
 
     for grp_addr in group_addr_range:
@@ -3338,7 +3338,7 @@ def verify_rib(
                                     continue
 
                             if fib and next_hop:
-                                if type(next_hop) is not list:
+                                if not isinstance(next_hop, list):
                                     next_hop = [next_hop]
 
                                 # Check if any route entry has FIB next hops
@@ -3401,7 +3401,7 @@ def verify_rib(
                                     continue
 
                             elif next_hop and fib is None:
-                                if type(next_hop) is not list:
+                                if not isinstance(next_hop, list):
                                     next_hop = [next_hop]
 
                                 # Check if any route entry has the expected next hops
@@ -3647,7 +3647,7 @@ def verify_rib(
                                 continue
 
                         if next_hop:
-                            if type(next_hop) is not list:
+                            if not isinstance(next_hop, list):
                                 next_hop = [next_hop]
 
                             # Check if any route entry has the expected next hops
@@ -3827,7 +3827,7 @@ def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None, protocol=
                             found_routes.append(st_rt)
 
                             if next_hop:
-                                if type(next_hop) is not list:
+                                if not isinstance(next_hop, list):
                                     next_hop = [next_hop]
 
                                 count = 0
@@ -3932,7 +3932,7 @@ def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None, protocol=
                         found_routes.append(st_rt)
 
                         if next_hop:
-                            if type(next_hop) is not list:
+                            if not isinstance(next_hop, list):
                                 next_hop = [next_hop]
 
                             count = 0
