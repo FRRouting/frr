@@ -15,6 +15,7 @@
 #include "lde.h"
 #include "log.h"
 
+/* clang-format off */
 static void l2vpn_pw_fec(struct l2vpn_pw *, struct fec *);
 
 void
@@ -531,3 +532,5 @@ ldpe_l2vpn_pw_exit(struct l2vpn_pw *pw)
 		tnbr_check(leconf, tnbr);
 	}
 }
+
+/* clang-format on */
