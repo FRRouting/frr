@@ -125,7 +125,6 @@ static void test_run_spf(struct vty *vty, struct ospf *ospf,
 
 	/* Cleanup */
 	ospf_ti_lfa_free_p_spaces(area);
-	ospf_spf_cleanup(area->spf, area->spf_vertex_list);
 
 	/*
 	 * Print the new routing table which is augmented with TI-LFA backup
