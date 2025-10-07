@@ -42,7 +42,7 @@ def json_cmp(got, expect, exact_match):
             if (new_items := json_diff.get("iterable_item_added")) is not None:
                 new_item_paths = list(new_items.keys())
                 for path in new_item_paths:
-                    if type(new_items[path]) is dict:
+                    if isinstance(new_items[path], dict):
                         del new_items[path]
                 if len(new_items) == 0:
                     del json_diff["iterable_item_added"]
