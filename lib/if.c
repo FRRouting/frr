@@ -680,7 +680,7 @@ struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id,
 				 const char *vrf_name)
 {
 	struct interface *ifp = NULL;
-	struct vrf *vrf;
+	struct vrf *vrf = NULL;
 
 	switch (vrf_get_backend()) {
 	case VRF_BACKEND_NETNS:
@@ -715,8 +715,6 @@ struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id,
 		assert(vrf);
 
 		break;
-	default:
-		return NULL;
 	}
 
 	return if_create_name(name, vrf);
