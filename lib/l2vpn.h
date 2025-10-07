@@ -3,8 +3,8 @@
  * Copyright (C) 1998 Kunihiro Ishiguro
  */
 
-#ifndef _LDP_L2VPN_H
-#define _LDP_L2VPN_H
+#ifndef _L2VPN_H
+#define _L2VPN_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -18,6 +18,12 @@ extern "C" {
 #include "lib/nexthop.h"
 
 /* clang-format off */
+
+#define        DEFAULT_L2VPN_MTU       1500
+#define        MIN_L2VPN_MTU           512
+#define        MAX_L2VPN_MTU           0xffff
+
+#define DEFAULT_PW_TYPE PW_TYPE_ETHERNET
 
 struct l2vpn_if {
 	RB_ENTRY(l2vpn_if)	 entry;
@@ -91,11 +97,11 @@ DECLARE_QOBJ_TYPE(l2vpn);
 
 /* clang-format on */
 
-extern const struct frr_yang_module_info frr_ldp_l2vpn;
-extern const struct frr_yang_module_info frr_ldp_l2vpn_cli_info;
+extern const struct frr_yang_module_info frr_l2vpn;
+extern const struct frr_yang_module_info frr_l2vpn_cli_info;
 
-extern void ldp_l2vpn_cli_init(void);
-extern void ldp_l2vpn_init(void);
+extern void l2vpn_cli_init(void);
+extern void l2vpn_init(void);
 
 struct l2vpn *l2vpn_new(const char *name);
 struct l2vpn *l2vpn_find(struct l2vpn_head *l2vpn_tree, const char *name);
@@ -108,8 +114,6 @@ struct l2vpn_pw *l2vpn_pw_new(struct l2vpn *l2vpn, const char *ifname);
 struct l2vpn_pw *l2vpn_pw_find(struct l2vpn *l2vpn, const char *ifname);
 struct l2vpn_pw *l2vpn_pw_find_active(struct l2vpn *l2vpn, const char *ifname);
 struct l2vpn_pw *l2vpn_pw_find_inactive(struct l2vpn *l2vpn, const char *ifname);
-
-void l2vpn_init(struct l2vpn *l2vpn);
 
 struct l2vpn_lib_register {
 	void (*add_hook)(const char *name);
@@ -131,4 +135,4 @@ void l2vpn_register_hook(void (*func_add)(const char *), void (*func_del)(const 
 }
 #endif
 
-#endif /* _LDP_L2VPN_H */
+#endif /* _L2VPN_H */

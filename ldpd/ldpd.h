@@ -22,8 +22,8 @@
 #include "pw.h"
 #include "zclient.h"
 #include "nexthop.h"
+#include "l2vpn.h"
 
-#include "ldp_l2vpn.h"
 #include "ldp.h"
 #include "lib/ldp_sync.h"
 
@@ -697,8 +697,6 @@ void ldp_applymask(int af, union g_addr *dest, const union g_addr *src, int pref
 int ldp_addrcmp(int af, const union g_addr *a, const union g_addr *b);
 int ldp_addrisset(int af, const union g_addr *addr);
 int ldp_prefixcmp(int af, const union g_addr *a, const union g_addr *b, uint8_t prefixlen);
-int bad_addr_v4(struct in_addr addr);
-int bad_addr_v6(struct in6_addr *addr);
 int bad_addr(int af, union g_addr *addr);
 void embedscope(struct sockaddr_in6 *sin6);
 void recoverscope(struct sockaddr_in6 *sin6);
