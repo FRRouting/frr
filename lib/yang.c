@@ -85,6 +85,7 @@ static const char *const frr_native_modules[] = {
 	"frr-ripd",
 	"frr-ripngd",
 	"frr-isisd",
+	"frr-l2vpn",
 	"frr-vrrpd",
 	"frr-zebra",
 	"frr-pathd",

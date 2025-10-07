@@ -165,6 +165,27 @@ static inline bool ipaddr_is_zero(const struct ipaddr *ip)
 	return true;
 }
 
+static inline int bad_addr_v4(struct in_addr addr)
+{
+	uint32_t a = ntohl(addr.s_addr);
+
+	if (((a >> IN_CLASSA_NSHIFT) == 0) || ((a >> IN_CLASSA_NSHIFT) == IN_LOOPBACKNET) ||
+	    IN_MULTICAST(a) || IN_BADCLASS(a))
+		return 1;
+
+	return 0;
+}
+
+static inline int bad_addr_v6(struct in6_addr *addr)
+{
+	if (IN6_IS_ADDR_UNSPECIFIED(addr) || IN6_IS_ADDR_LOOPBACK(addr) ||
+	    IN6_IS_ADDR_MULTICAST(addr) || IN6_IS_ADDR_SITELOCAL(addr) ||
+	    IN6_IS_ADDR_V4MAPPED(addr) || IN6_IS_ADDR_V4COMPAT(addr))
+		return 1;
+
+	return 0;
+}
+
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pIA"  (struct ipaddr *)
 #endif
