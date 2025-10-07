@@ -676,7 +676,7 @@ ldp_vty_interface(struct vty *vty, const char *negate, const char *ifname)
 	}
 
 	if (iface == NULL) {
-		if (ldp_iface_is_configured(vty_conf, ifname)) {
+		if (l2vpn_iface_is_configured(ifname)) {
 			vty_out (vty,"%% Interface is already in use\n");
 			return (CMD_SUCCESS);
 		}
