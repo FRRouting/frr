@@ -11,23 +11,18 @@
 #include "lib/command.h"
 #include "lib/northbound_cli.h"
 
-#include "ldp_l2vpn.h"
+#include "lib/l2vpn.h"
 
-#include "ldpd/ldpd.h"
-#include "ldpd/ldp_vty.h"
-
-#ifndef VTYSH_EXTRACT_PL
-#include "ldpd/ldp_l2vpn_cli_clippy.c"
-#endif /* VTYSH_EXTRACT_PL */
+#include "lib/l2vpn_cli_clippy.c"
 
 struct l2vpn_lib_register l2vpn_lib_master = { NULL, NULL, NULL, NULL };
 struct l2vpn_head l2vpn_tree_config;
 
 /* clang-format off */
 
-static __inline int     l2vpn_compare(const struct l2vpn *, const struct l2vpn *);
-static __inline int     l2vpn_if_compare(const struct l2vpn_if *, const struct l2vpn_if *);
-static __inline int     l2vpn_pw_compare(const struct l2vpn_pw *, const struct l2vpn_pw *);
+static inline int     l2vpn_compare(const struct l2vpn *, const struct l2vpn *);
+static inline int     l2vpn_if_compare(const struct l2vpn_if *, const struct l2vpn_if *);
+static inline int     l2vpn_pw_compare(const struct l2vpn_pw *, const struct l2vpn_pw *);
 
 /* clang-format on */
 
@@ -41,18 +36,18 @@ RB_GENERATE(l2vpn_pw_head, l2vpn_pw, entry, l2vpn_pw_compare)
 
 /* clang-format off */
 
-static __inline int
+static inline int
 l2vpn_compare(const struct l2vpn *a, const struct l2vpn *b)
 {
 	return strcmp(a->name, b->name);
 }
 
-static __inline int l2vpn_pw_compare(const struct l2vpn_pw *a, const struct l2vpn_pw *b)
+static inline int l2vpn_pw_compare(const struct l2vpn_pw *a, const struct l2vpn_pw *b)
 {
 	return if_cmp_name_func(a->ifname, b->ifname);
 }
 
-static __inline int
+static inline int
 l2vpn_if_compare(const struct l2vpn_if *a, const struct l2vpn_if *b)
 {
 	return if_cmp_name_func(a->ifname, b->ifname);
@@ -189,7 +184,7 @@ int l2vpn_iface_is_configured(const char *ifname)
 {
 	struct l2vpn *l2vpn;
 
-	RB_FOREACH (l2vpn, l2vpn_head, &vty_conf->l2vpn_tree) {
+	RB_FOREACH (l2vpn, l2vpn_head, &l2vpn_tree_config) {
 		if (l2vpn_if_find(l2vpn, ifname))
 			return 1;
 		if (l2vpn_pw_find(l2vpn, ifname))
@@ -199,8 +194,8 @@ int l2vpn_iface_is_configured(const char *ifname)
 	return 0;
 }
 
-DEFPY_YANG_NOSH(ldp_l2vpn,
-	ldp_l2vpn_cmd,
+DEFPY_YANG_NOSH(l2vpn_command,
+	l2vpn_cmd,
 	"l2vpn WORD$l2vpn_name type vpls",
 	"Configure l2vpn commands\n"
 	"L2VPN name\n"
@@ -210,19 +205,19 @@ DEFPY_YANG_NOSH(ldp_l2vpn,
 	char xpath[XPATH_MAXLEN];
 	int rv;
 
-	snprintf(xpath, sizeof(xpath),
-		 "/frr-ldp-l2vpn:l2vpn/l2vpn-instance[name='%s'][type='vpls']", l2vpn_name);
+	snprintf(xpath, sizeof(xpath), "/frr-l2vpn:l2vpn/l2vpn-instance[name='%s'][type='vpls']",
+		 l2vpn_name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
 	rv = nb_cli_apply_changes(vty, NULL);
 	if (rv == CMD_SUCCESS)
-		VTY_PUSH_XPATH(LDP_L2VPN_NODE, xpath);
+		VTY_PUSH_XPATH(L2VPN_NODE, xpath);
 
 	return rv;
 }
 
-DEFPY_YANG (no_ldp_l2vpn,
-	no_ldp_l2vpn_cmd,
+DEFPY_YANG (no_l2vpn_command,
+	no_l2vpn_cmd,
 	"no l2vpn WORD$l2vpn_name type vpls",
 	NO_STR
 	"Configure l2vpn commands\n"
@@ -232,15 +227,15 @@ DEFPY_YANG (no_ldp_l2vpn,
 {
 	char xpath[XPATH_MAXLEN];
 
-	snprintf(xpath, sizeof(xpath),
-		 "/frr-ldp-l2vpn:l2vpn/l2vpn-instance[name='%s'][type='vpls']", l2vpn_name);
+	snprintf(xpath, sizeof(xpath), "/frr-l2vpn:l2vpn/l2vpn-instance[name='%s'][type='vpls']",
+		 l2vpn_name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY_YANG  (ldp_l2vpn_bridge,
-	ldp_l2vpn_bridge_cmd,
+DEFPY_YANG  (l2vpn_bridge,
+	l2vpn_bridge_cmd,
 	"[no] bridge IFNAME$ifname",
 	NO_STR
 	"Bridge interface\n"
@@ -254,8 +249,8 @@ DEFPY_YANG  (ldp_l2vpn_bridge,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY_YANG  (ldp_l2vpn_mtu,
-	ldp_l2vpn_mtu_cmd,
+DEFPY_YANG  (l2vpn_mtu,
+	l2vpn_mtu_cmd,
 	"[no] mtu (1500-9180)$mtu",
 	NO_STR
 	"Set Maximum Transmission Unit\n"
@@ -269,8 +264,8 @@ DEFPY_YANG  (ldp_l2vpn_mtu,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY_YANG  (ldp_l2vpn_vc_type,
-	ldp_l2vpn_vc_type_cmd,
+DEFPY_YANG  (l2vpn_vc_type,
+	l2vpn_vc_type_cmd,
 	"[no] vc type <ethernet|ethernet-tagged>$vc_type",
 	NO_STR
 	"Virtual Circuit options\n"
@@ -286,8 +281,8 @@ DEFPY_YANG  (ldp_l2vpn_vc_type,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY_YANG  (ldp_l2vpn_member_interface,
-	ldp_l2vpn_member_interface_cmd,
+DEFPY_YANG  (l2vpn_member_interface,
+	l2vpn_member_interface_cmd,
 	"[no] member interface IFNAME$ifname",
 	NO_STR
 	"L2VPN member configuration\n"
@@ -305,8 +300,8 @@ DEFPY_YANG  (ldp_l2vpn_member_interface,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY_YANG_NOSH(ldp_l2vpn_member_pseudowire,
-	ldp_l2vpn_member_pseudowire_cmd,
+DEFPY_YANG_NOSH(l2vpn_member_pseudowire,
+	l2vpn_member_pseudowire_cmd,
 	"member pseudowire IFNAME$ifname",
 	"L2VPN member configuration\n"
 	"Pseudowire interface\n"
@@ -321,13 +316,13 @@ DEFPY_YANG_NOSH(ldp_l2vpn_member_pseudowire,
 
 	rv = nb_cli_apply_changes(vty, NULL);
 	if (rv == CMD_SUCCESS)
-		VTY_PUSH_XPATH(LDP_PSEUDOWIRE_NODE, xpath_index);
+		VTY_PUSH_XPATH(L2VPN_PSEUDOWIRE_NODE, xpath_index);
 
 	return rv;
 }
 
-DEFPY_YANG  (no_ldp_l2vpn_member_pseudowire,
-	no_ldp_l2vpn_member_pseudowire_cmd,
+DEFPY_YANG  (no_l2vpn_member_pseudowire,
+	no_l2vpn_member_pseudowire_cmd,
 	"no member pseudowire IFNAME$ifname",
 	NO_STR
 	"L2VPN member configuration\n"
@@ -344,8 +339,8 @@ DEFPY_YANG  (no_ldp_l2vpn_member_pseudowire,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY_YANG  (ldp_l2vpn_control_word,
-	ldp_l2vpn_control_word_cmd,
+DEFPY_YANG  (l2vpn_control_word,
+	l2vpn_control_word_cmd,
 	"[no] control-word <exclude$exclude|include$include>",
 	NO_STR
 	"Control-word options\n"
@@ -362,8 +357,8 @@ DEFPY_YANG  (ldp_l2vpn_control_word,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY_YANG  (ldp_l2vpn_neighbor_address,
-	ldp_l2vpn_neighbor_address_cmd,
+DEFPY_YANG  (l2vpn_neighbor_address,
+	l2vpn_neighbor_address_cmd,
 	"[no] neighbor address <A.B.C.D|X:X::X:X>$pw_address",
 	NO_STR
 	"Remote endpoint configuration\n"
@@ -379,8 +374,8 @@ DEFPY_YANG  (ldp_l2vpn_neighbor_address,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY_YANG  (ldp_l2vpn_neighbor_lsr_id,
-	ldp_l2vpn_neighbor_lsr_id_cmd,
+DEFPY_YANG  (l2vpn_neighbor_lsr_id,
+	l2vpn_neighbor_lsr_id_cmd,
 	"[no] neighbor lsr-id A.B.C.D$address",
 	NO_STR
 	"Remote endpoint configuration\n"
@@ -395,8 +390,8 @@ DEFPY_YANG  (ldp_l2vpn_neighbor_lsr_id,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY_YANG  (ldp_l2vpn_pw_id,
-	ldp_l2vpn_pw_id_cmd,
+DEFPY_YANG  (l2vpn_pw_id,
+	l2vpn_pw_id_cmd,
 	"[no] pw-id (1-4294967295)$pwid",
 	NO_STR
 	"Set the Virtual Circuit ID\n"
@@ -410,8 +405,8 @@ DEFPY_YANG  (ldp_l2vpn_pw_id,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFPY_YANG  (ldp_l2vpn_pw_status_disable,
-	ldp_l2vpn_pw_status_disable_cmd,
+DEFPY_YANG  (l2vpn_pw_status_disable,
+	     l2vpn_pw_status_disable_cmd,
 	"[no] pw-status disable",
 	NO_STR
 	"Configure PW status\n"
@@ -422,17 +417,17 @@ DEFPY_YANG  (ldp_l2vpn_pw_status_disable,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-struct cmd_node ldp_l2vpn_node = {
-	.name = "ldp l2vpn",
-	.node = LDP_L2VPN_NODE,
+struct cmd_node l2vpn_node = {
+	.name = "l2vpn",
+	.node = L2VPN_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-l2vpn)# ",
 };
 
-struct cmd_node ldp_pseudowire_node = {
-	.name = "ldp",
-	.node = LDP_PSEUDOWIRE_NODE,
-	.parent_node = LDP_L2VPN_NODE,
+struct cmd_node l2vpn_pseudowire_node = {
+	.name = "pseudowire",
+	.node = L2VPN_PSEUDOWIRE_NODE,
+	.parent_node = L2VPN_NODE,
 	.prompt = "%s(config-l2vpn-pw)# ",
 };
 
@@ -449,28 +444,28 @@ static const struct cmd_variable_handler l2vpn_var_handlers[] = {
 	{ .completions = NULL }
 };
 
-void ldp_l2vpn_cli_init(void)
+void l2vpn_cli_init(void)
 {
-	install_node(&ldp_l2vpn_node);
-	install_node(&ldp_pseudowire_node);
-	install_default(LDP_L2VPN_NODE);
-	install_default(LDP_PSEUDOWIRE_NODE);
-	install_element(CONFIG_NODE, &ldp_l2vpn_cmd);
-	install_element(CONFIG_NODE, &no_ldp_l2vpn_cmd);
+	install_node(&l2vpn_node);
+	install_node(&l2vpn_pseudowire_node);
+	install_default(L2VPN_NODE);
+	install_default(L2VPN_PSEUDOWIRE_NODE);
+	install_element(CONFIG_NODE, &l2vpn_cmd);
+	install_element(CONFIG_NODE, &no_l2vpn_cmd);
 
-	install_element(LDP_L2VPN_NODE, &ldp_l2vpn_bridge_cmd);
-	install_element(LDP_L2VPN_NODE, &ldp_l2vpn_mtu_cmd);
-	install_element(LDP_L2VPN_NODE, &ldp_l2vpn_vc_type_cmd);
+	install_element(L2VPN_NODE, &l2vpn_bridge_cmd);
+	install_element(L2VPN_NODE, &l2vpn_mtu_cmd);
+	install_element(L2VPN_NODE, &l2vpn_vc_type_cmd);
 
-	install_element(LDP_L2VPN_NODE, &ldp_l2vpn_member_interface_cmd);
-	install_element(LDP_L2VPN_NODE, &ldp_l2vpn_member_pseudowire_cmd);
-	install_element(LDP_L2VPN_NODE, &no_ldp_l2vpn_member_pseudowire_cmd);
+	install_element(L2VPN_NODE, &l2vpn_member_interface_cmd);
+	install_element(L2VPN_NODE, &l2vpn_member_pseudowire_cmd);
+	install_element(L2VPN_NODE, &no_l2vpn_member_pseudowire_cmd);
 
-	install_element(LDP_PSEUDOWIRE_NODE, &ldp_l2vpn_control_word_cmd);
-	install_element(LDP_PSEUDOWIRE_NODE, &ldp_l2vpn_neighbor_address_cmd);
-	install_element(LDP_PSEUDOWIRE_NODE, &ldp_l2vpn_neighbor_lsr_id_cmd);
-	install_element(LDP_PSEUDOWIRE_NODE, &ldp_l2vpn_pw_id_cmd);
-	install_element(LDP_PSEUDOWIRE_NODE, &ldp_l2vpn_pw_status_disable_cmd);
+	install_element(L2VPN_PSEUDOWIRE_NODE, &l2vpn_control_word_cmd);
+	install_element(L2VPN_PSEUDOWIRE_NODE, &l2vpn_neighbor_address_cmd);
+	install_element(L2VPN_PSEUDOWIRE_NODE, &l2vpn_neighbor_lsr_id_cmd);
+	install_element(L2VPN_PSEUDOWIRE_NODE, &l2vpn_pw_id_cmd);
+	install_element(L2VPN_PSEUDOWIRE_NODE, &l2vpn_pw_status_disable_cmd);
 }
 
 static void l2vpn_instance_show(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
@@ -593,11 +588,11 @@ const struct frr_yang_module_info frr_l2vpn_cli_info = {
 	}
 };
 
-void ldp_l2vpn_init(void)
+void l2vpn_init(void)
 {
 	cmd_variable_handler_register(l2vpn_var_handlers);
 	RB_INIT(l2vpn_head, &l2vpn_tree_config);
-	ldp_l2vpn_cli_init();
+	l2vpn_cli_init();
 }
 
 void l2vpn_register_hook(void (*func_add)(const char *), void (*func_del)(const char *),

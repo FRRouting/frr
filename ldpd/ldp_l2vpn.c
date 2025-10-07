@@ -9,6 +9,7 @@
  */
 
 #include <zebra.h>
+#include "l2vpn.h"
 
 #include "ldpd.h"
 #include "ldpe.h"
@@ -19,7 +20,7 @@
 static void l2vpn_pw_fec(struct l2vpn_pw *, struct fec *);
 
 void
-l2vpn_init(struct l2vpn *l2vpn)
+ldp_l2vpn_init(struct l2vpn *l2vpn)
 {
 	struct l2vpn_pw *pw;
 

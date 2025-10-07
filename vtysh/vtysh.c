@@ -1587,17 +1587,17 @@ static struct cmd_node ldp_ipv6_iface_node = {
 	.prompt = "%s(config-ldp-af-if)# ",
 };
 
-static struct cmd_node ldp_l2vpn_node = {
-	.name = "ldp l2vpn",
-	.node = LDP_L2VPN_NODE,
+static struct cmd_node l2vpn_node = {
+	.name = "l2vpn",
+	.node = L2VPN_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-l2vpn)# ",
 };
 
-static struct cmd_node ldp_pseudowire_node = {
-	.name = "ldp",
-	.node = LDP_PSEUDOWIRE_NODE,
-	.parent_node = LDP_L2VPN_NODE,
+static struct cmd_node l2vpn_pseudowire_node = {
+	.name = "pseudowire",
+	.node = L2VPN_PSEUDOWIRE_NODE,
+	.parent_node = L2VPN_NODE,
 	.prompt = "%s(config-l2vpn-pw)# ",
 };
 
@@ -2190,7 +2190,7 @@ DEFUNSH(VTYSH_L2VPN_CONFIG, l2vpn_word_type_vpls, l2vpn_word_type_vpls_cmd,
 	"L2VPN type\n"
 	"Virtual Private LAN Service\n")
 {
-	vty->node = LDP_L2VPN_NODE;
+	vty->node = L2VPN_NODE;
 	return CMD_SUCCESS;
 }
 
@@ -2200,7 +2200,7 @@ DEFUNSH(VTYSH_L2VPN_CONFIG, ldp_member_pseudowire_ifname,
 	"Pseudowire interface\n"
 	"Interface's name\n")
 {
-	vty->node = LDP_PSEUDOWIRE_NODE;
+	vty->node = L2VPN_PSEUDOWIRE_NODE;
 	return CMD_SUCCESS;
 }
 #endif
@@ -5166,8 +5166,8 @@ void vtysh_init_vty(void)
 	install_node(&ldp_ipv6_node);
 	install_node(&ldp_ipv4_iface_node);
 	install_node(&ldp_ipv6_iface_node);
-	install_node(&ldp_l2vpn_node);
-	install_node(&ldp_pseudowire_node);
+	install_node(&l2vpn_node);
+	install_node(&l2vpn_pseudowire_node);
 	install_node(&eigrp_node);
 	install_node(&isis_node);
 	install_node(&isis_flex_algo_node);
@@ -5401,14 +5401,14 @@ void vtysh_init_vty(void)
 	install_element(LDP_IPV6_IFACE_NODE, &vtysh_end_all_cmd);
 
 	install_element(CONFIG_NODE, &l2vpn_word_type_vpls_cmd);
-	install_element(LDP_L2VPN_NODE, &vtysh_exit_ldpd_cmd);
-	install_element(LDP_L2VPN_NODE, &vtysh_quit_ldpd_cmd);
-	install_element(LDP_L2VPN_NODE, &vtysh_end_all_cmd);
+	install_element(L2VPN_NODE, &vtysh_exit_ldpd_cmd);
+	install_element(L2VPN_NODE, &vtysh_quit_ldpd_cmd);
+	install_element(L2VPN_NODE, &vtysh_end_all_cmd);
 
-	install_element(LDP_L2VPN_NODE, &ldp_member_pseudowire_ifname_cmd);
-	install_element(LDP_PSEUDOWIRE_NODE, &vtysh_exit_ldpd_cmd);
-	install_element(LDP_PSEUDOWIRE_NODE, &vtysh_quit_ldpd_cmd);
-	install_element(LDP_PSEUDOWIRE_NODE, &vtysh_end_all_cmd);
+	install_element(L2VPN_NODE, &ldp_member_pseudowire_ifname_cmd);
+	install_element(L2VPN_PSEUDOWIRE_NODE, &vtysh_exit_ldpd_cmd);
+	install_element(L2VPN_PSEUDOWIRE_NODE, &vtysh_quit_ldpd_cmd);
+	install_element(L2VPN_PSEUDOWIRE_NODE, &vtysh_end_all_cmd);
 #endif
 
 	/* eigrpd */

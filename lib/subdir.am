@@ -144,6 +144,8 @@ lib_libfrr_la_SOURCES = \
 	lib/routing_nb.c \
 	lib/routing_nb_config.c \
 	lib/tc.c \
+	lib/l2vpn_cli.c \
+	lib/l2vpn_northbound.c \
 	# end
 
 nodist_lib_libfrr_la_SOURCES = \
@@ -159,6 +161,7 @@ nodist_lib_libfrr_la_SOURCES = \
 	yang/frr-vrf.yang.c \
 	yang/frr-routing.yang.c \
 	yang/frr-nexthop.yang.c \
+	yang/frr-l2vpn.yang.c \
 	yang/ietf/frr-deviations-ietf-key-chain.yang.c \
 	yang/ietf/ietf-routing-types.yang.c \
 	yang/ietf/ietf-syslog-types.yang.c \
@@ -194,6 +197,7 @@ clippy_scan += \
 	lib/event.c \
 	lib/vty.c \
 	lib/zlog_5424_cli.c \
+	lib/l2vpn_cli.c \
 	# end
 
 nobase_pkginclude_HEADERS += \
@@ -245,6 +249,7 @@ nobase_pkginclude_HEADERS += \
 	lib/json.h \
 	lib/keychain.h \
 	lib/ldp_sync.h \
+	lib/l2vpn.h \
 	lib/lib_errors.h \
 	lib/lib_vty.h \
 	lib/libagentx.h \
