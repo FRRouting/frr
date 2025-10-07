@@ -103,6 +103,7 @@ lib_libfrr_la_SOURCES = \
 	lib/routemap.c \
 	lib/routemap_cli.c \
 	lib/routemap_northbound.c \
+	lib/sanitizer.c \
 	lib/sbuf.c \
 	lib/seqlock.c \
 	lib/sha256.c \
@@ -290,6 +291,7 @@ pkginclude_HEADERS += \
 	lib/ringbuf.h \
 	lib/routemap.h \
 	lib/route_opaque.h \
+	lib/sanitizer.h \
 	lib/sbuf.h \
 	lib/seqlock.h \
 	lib/sha256.h \
