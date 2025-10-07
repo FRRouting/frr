@@ -968,8 +968,10 @@ int pim_mroute_add_vif(struct interface *ifp, pim_addr ifaddr,
 #endif
 #endif
 
-	err = setsockopt(pim_ifp->pim->mroute_socket, PIM_IPPROTO, MRT_ADD_VIF,
-			 (void *)&vc, sizeof(vc));
+	frr_with_privs (&pimd_privs) {
+		err = setsockopt(pim_ifp->pim->mroute_socket, PIM_IPPROTO, MRT_ADD_VIF,
+				 (void *)&vc, sizeof(vc));
+	}
 	if (err) {
 		zlog_warn(
 			"%s: failure: setsockopt(fd=%d,PIM_IPPROTO,MRT_ADD_VIF,vif_index=%d,ifaddr=%pPAs,flag=%d): errno=%d: %s",
@@ -995,8 +997,10 @@ int pim_mroute_del_vif(struct interface *ifp)
 	memset(&vc, 0, sizeof(vc));
 	vc.vc_vifi = pim_ifp->mroute_vif_index;
 
-	err = setsockopt(pim_ifp->pim->mroute_socket, PIM_IPPROTO, MRT_DEL_VIF,
-			 (void *)&vc, sizeof(vc));
+	frr_with_privs (&pimd_privs) {
+		err = setsockopt(pim_ifp->pim->mroute_socket, PIM_IPPROTO, MRT_DEL_VIF,
+				 (void *)&vc, sizeof(vc));
+	}
 	if (err) {
 		zlog_warn(
 			"%s %s: failure: setsockopt(fd=%d,PIM_IPPROTO,MRT_DEL_VIF,vif_index=%d): errno=%d: %s",
@@ -1108,14 +1112,18 @@ static int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 		*oil_incoming_vif(tmp_oil) = 0;
 	}
 	/* For IPv6 MRT_ADD_MFC is defined to MRT6_ADD_MFC */
-	err = setsockopt(pim->mroute_socket, PIM_IPPROTO, MRT_ADD_MFC,
-			 &tmp_oil->oil, sizeof(tmp_oil->oil));
+	frr_with_privs (&pimd_privs) {
+		err = setsockopt(pim->mroute_socket, PIM_IPPROTO, MRT_ADD_MFC, &tmp_oil->oil,
+				 sizeof(tmp_oil->oil));
+	}
 
 	if (!err && !c_oil->installed && !pim_addr_is_any(*oil_origin(c_oil)) &&
 	    *oil_incoming_vif(c_oil) != 0) {
 		*oil_incoming_vif(tmp_oil) = *oil_incoming_vif(c_oil);
-		err = setsockopt(pim->mroute_socket, PIM_IPPROTO, MRT_ADD_MFC,
-				 &tmp_oil->oil, sizeof(tmp_oil->oil));
+		frr_with_privs (&pimd_privs) {
+			err = setsockopt(pim->mroute_socket, PIM_IPPROTO, MRT_ADD_MFC,
+					 &tmp_oil->oil, sizeof(tmp_oil->oil));
+		}
 	}
 
 	if (err) {
