@@ -12,6 +12,7 @@
 #include "ldpe.h"
 #include "log.h"
 #include "ldp_debug.h"
+#include "lde.h"
 
 #include "mpls.h"
 
