@@ -3598,7 +3598,7 @@ peer_init:
 
 	FOREACH_AFI_SAFI (afi, safi) {
 		if (!hidden) {
-			bgp->route[afi][safi] = bgp_table_init(bgp, afi, safi);
+			bgp->static_routes[afi][safi] = bgp_table_init(bgp, afi, safi);
 			bgp->aggregate[afi][safi] = bgp_table_init(bgp, afi,
 								   safi);
 			bgp->rib[afi][safi] = bgp_table_init(bgp, afi, safi);
@@ -4478,8 +4478,8 @@ void bgp_free(struct bgp *bgp)
 				bgp_table_finish(&table);
 			}
 		}
-		if (bgp->route[afi][safi])
-			bgp_table_finish(&bgp->route[afi][safi]);
+		if (bgp->static_routes[afi][safi])
+			bgp_table_finish(&bgp->static_routes[afi][safi]);
 		if (bgp->aggregate[afi][safi])
 			bgp_table_finish(&bgp->aggregate[afi][safi]);
 		if (bgp->rib[afi][safi])
