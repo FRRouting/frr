@@ -43,6 +43,12 @@ module frr-bgp-route-map {
       "Match BGP community alias name";
   }
 
+  identity match-vpn-dataplane {
+    base frr-route-map:rmap-match-type;
+    description
+      "Match vpn dataplane kind used in a BGP path";
+  }
+
   identity match-local-preference {
     base frr-route-map:rmap-match-type;
     description
@@ -563,7 +569,32 @@ identity set-extcommunity-color {
 
   augment "/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:rmap-match-condition/frr-route-map:match-condition" {
     description
-      "Augments the match condition with local preference";
+      "Augments the match condition with vpn dataplane";
+
+    case vpn-dataplane {
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:match-vpn-dataplane')";
+      leaf vpn-dataplane {
+        type enumeration {
+          enum "vxlan" {
+            description
+              "BGP path using VXLAN dataplane.";
+          }
+          enum "mpls" {
+            description
+              "BGP path using MPLS dataplane.";
+          }
+          enum "srv6" {
+            description
+              "BGP path using SRv6 dataplane.";
+          }
+        }
+        description
+          "Specifies the dataplane used in a given VPN path";
+        reference
+          "RFC 9012 - The BGP Tunnel Encapsulation Attribute.
+           RFC 9252 - BGP Overlay Services Based on Segment Routing over IPv6 (SRv6).";
+      }
+    }
 
     case local-preference {
       when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:match-local-preference')";
