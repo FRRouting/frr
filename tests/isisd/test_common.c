@@ -158,6 +158,7 @@ static void lsp_add_reach(struct isis_lsp *lsp,
 				   : ISIS_MT_IPV6_UNICAST;
 
 	isis_tlvs_add_extended_reach(lsp->tlvs, mtid, nodeid, metric, ext);
+	isis_del_ext_subtlvs(ext);
 }
 
 static void lsp_add_router_capability(struct isis_lsp *lsp,
