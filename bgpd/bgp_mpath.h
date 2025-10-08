@@ -10,6 +10,12 @@
 #ifndef _FRR_BGP_MPATH_H
 #define _FRR_BGP_MPATH_H
 
+enum bgp_wecmp_behavior {
+	BGP_WECMP_BEHAVIOR_NONE = 0,
+	BGP_WECMP_BEHAVIOR_LINK_BW = 1,
+	BGP_WECMP_BEHAVIOR_NNHN_COUNT = 2
+};
+
 /* Supplemental information linked to bgp_path_info for keeping track of
  * multipath selections, lazily allocated to save memory
  */
@@ -66,8 +72,8 @@ bgp_path_info_mpath_next(struct bgp_path_info *path);
 /* Accessors for multipath information */
 extern uint32_t bgp_path_info_mpath_count(struct bgp_path_info *path);
 extern struct attr *bgp_path_info_mpath_attr(struct bgp_path_info *path);
-extern bool bgp_path_info_mpath_chkwtd(struct bgp *bgp,
-				       struct bgp_path_info *path);
+extern enum bgp_wecmp_behavior bgp_path_info_mpath_chkwtd(struct bgp *bgp,
+							  struct bgp_path_info *path);
 extern uint64_t bgp_path_info_mpath_cumbw(struct bgp_path_info *path);
 
 #endif /* _FRR_BGP_MPATH_H */
