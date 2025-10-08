@@ -2156,6 +2156,9 @@ out:
 	if (bn)
 		bgp_dest_unlock_node(bn);
 
+	if (!written && bmp->mon_loc_queuepos)
+		pullwr_bump(bmp->pullwr);
+
 	return written;
 }
 
@@ -2225,6 +2228,9 @@ out:
 
 	if (bn)
 		bgp_dest_unlock_node(bn);
+
+	if (!written && bmp->mon_in_queuepos)
+		pullwr_bump(bmp->pullwr);
 
 	return written;
 }
