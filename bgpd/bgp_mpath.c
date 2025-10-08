@@ -27,6 +27,7 @@
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_lcommunity.h"
 #include "bgpd/bgp_mpath.h"
+#include "bgpd/bgp_nhc.h"
 
 /*
  * bgp_maximum_paths_set
@@ -362,21 +363,35 @@ struct attr *bgp_path_info_mpath_attr(struct bgp_path_info *path)
  * Return if we should attempt to do weighted ECMP or not
  * The path passed in is the bestpath.
  */
-bool bgp_path_info_mpath_chkwtd(struct bgp *bgp, struct bgp_path_info *path)
+enum bgp_wecmp_behavior bgp_path_info_mpath_chkwtd(struct bgp *bgp, struct bgp_path_info *path)
 {
-	/* Check if told to ignore weights or not multipath */
-	if (bgp->lb_handling == BGP_LINK_BW_IGNORE_BW || !path->mpath)
-		return false;
+	/* Check if not multipath */
+	if (!path->mpath)
+		return BGP_WECMP_BEHAVIOR_NONE;
+
+	/* If link bandwidth is to be ignored, check if we have Next-Next Hop Nodes
+	 * characteristic and do weighted ECMP based on that.
+	 */
+	if (bgp->lb_handling == BGP_LINK_BW_IGNORE_BW) {
+		if (CHECK_FLAG(path->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NHC)))
+			return BGP_WECMP_BEHAVIOR_NNHN_COUNT;
+	}
 
 	/* All paths in multipath should have associated weight (bandwidth)
 	 * unless told explicitly otherwise.
 	 */
 	if (bgp->lb_handling != BGP_LINK_BW_SKIP_MISSING &&
-	    bgp->lb_handling != BGP_LINK_BW_DEFWT_4_MISSING)
-		return CHECK_FLAG(path->mpath->mp_flags, BGP_MP_LB_ALL);
+	    bgp->lb_handling != BGP_LINK_BW_DEFWT_4_MISSING) {
+		if (CHECK_FLAG(path->mpath->mp_flags, BGP_MP_LB_ALL))
+			return BGP_WECMP_BEHAVIOR_LINK_BW;
+		else
+			return BGP_WECMP_BEHAVIOR_NONE;
+	}
 
-	/* At least one path should have bandwidth. */
-	return CHECK_FLAG(path->mpath->mp_flags, BGP_MP_LB_PRESENT);
+	if (CHECK_FLAG(path->mpath->mp_flags, BGP_MP_LB_PRESENT))
+		return BGP_WECMP_BEHAVIOR_LINK_BW;
+
+	return BGP_WECMP_BEHAVIOR_NONE;
 }
 
 /*
