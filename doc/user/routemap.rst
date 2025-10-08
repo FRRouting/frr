@@ -181,6 +181,10 @@ Route Map Match Command
 
    Matches the specified tag (or untagged) value associated with the route.
 
+.. clicmd:: match vpn dataplane <mpls|srv6|vxlan>
+
+   Accept VPN paths with the appropriate dataplane.
+
 .. clicmd:: match local-preference METRIC
 
    Matches the specified `local-preference`.
