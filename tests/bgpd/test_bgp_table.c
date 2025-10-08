@@ -23,12 +23,10 @@ struct zebra_privs_t bgpd_privs = {0};
  * Information that is kept for each node in the radix tree.
  */
 struct test_node_t {
-
 	/*
-	 * Human readable representation of the string. Allocated using
-	 * malloc()/dup().
+	 * Human readable representation of the string.
 	 */
-	char *prefix_str;
+	const char *prefix_str;
 };
 
 /*
@@ -36,10 +34,9 @@ struct test_node_t {
  *
  * Add the given prefix (passed in as a string) to the given table.
  */
-static void add_node(struct bgp_table *table, const char *prefix_str)
+static void add_node(struct bgp_table *table, const char *prefix_str, struct test_node_t *tn)
 {
 	struct prefix_ipv4 p;
-	struct test_node_t *node;
 	struct bgp_dest *dest;
 
 	assert(prefix_str);
@@ -53,11 +50,8 @@ static void add_node(struct bgp_table *table, const char *prefix_str)
 		return;
 	}
 
-	node = malloc(sizeof(struct test_node_t));
-	assert(node);
-	node->prefix_str = strdup(prefix_str);
-	assert(node->prefix_str);
-	dest->info = node;
+	tn->prefix_str = prefix_str;
+	dest->info = tn;
 }
 
 static bool prefix_in_array(const struct prefix *p, struct prefix *prefix_array,
@@ -86,8 +80,10 @@ static void check_lookup_result(struct bgp_dest *match, va_list arglist)
 
 	/* check if the result is empty and if it is allowd to be empty */
 	assert((prefix_count == 0 && !match) || prefix_count > 0);
-	if (!match)
+	if (!match) {
+		free(prefixes);
 		return;
+	}
 
 	struct bgp_dest *dest = match;
 
@@ -100,6 +96,8 @@ static void check_lookup_result(struct bgp_dest *match, va_list arglist)
 			assert(0);
 		}
 	}
+
+	free(prefixes);
 }
 
 static void do_test(struct bgp_table *table, const char *prefix, ...)
@@ -137,9 +135,10 @@ static void test_range_lookup(void)
 				  "1.16.32.0/21",  "16.0.0.0/16"};
 
 	int num_prefixes = array_size(prefixes);
+	struct test_node_t tns[num_prefixes];
 
 	for (int i = 0; i < num_prefixes; i++)
-		add_node(table, prefixes[i]);
+		add_node(table, prefixes[i], &tns[i]);
 
 	do_test(table, "1.16.0.0/17", "1.16.64.0/19", "1.16.32.0/20",
 		"1.16.32.0/20", "1.16.32.0/21", NULL);
@@ -159,6 +158,8 @@ static void test_range_lookup(void)
 	do_test(table, "0.0.0.0/2", "1.16.0.0/16", "1.16.128.0/18",
 		"1.16.192.0/18", "1.16.64.0/19", "1.16.160.0/19",
 		"1.16.32.0/20", "1.16.32.0/21", "16.0.0.0/16", NULL);
+
+	bgp_table_finish(&table);
 }
 
 int main(void)
