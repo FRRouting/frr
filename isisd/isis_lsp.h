@@ -75,6 +75,8 @@ struct isis_lsp *lsp_new_from_recv(struct isis_lsp_hdr *hdr,
 				   struct isis_tlvs *tlvs,
 				   struct stream *stream, struct isis_lsp *lsp0,
 				   struct isis_area *area, int level);
+void lsp_free(struct isis_lsp *lsp);
+
 void lsp_insert(struct lspdb_head *head, struct isis_lsp *lsp);
 struct isis_lsp *lsp_search(struct lspdb_head *head, const uint8_t *id);
 
