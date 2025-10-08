@@ -690,6 +690,10 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 			yang_dnode_get_string(
 				dnode,
 				"./rmap-match-condition/frr-zebra-route-map:source-instance"));
+	} else if (IS_MATCH_VPN_DATAPLANE(condition)) {
+		vty_out(vty, " match vpn dataplane %s\n",
+			yang_dnode_get_string(dnode,
+					      "./rmap-match-condition/frr-bgp-route-map:vpn-dataplane"));
 	} else if (IS_MATCH_LOCAL_PREF(condition)) {
 		vty_out(vty, " match local-preference %s\n",
 			yang_dnode_get_string(

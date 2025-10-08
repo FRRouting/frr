@@ -49,6 +49,7 @@
 #include "bgpd/bgp_encap_types.h"
 #include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_script.h"
+#include "bgpd/bgp_encap_types.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
@@ -4554,6 +4555,67 @@ static const struct route_map_rule_cmd route_match_rpki_extcommunity_cmd = {
 	route_value_free
 };
 
+static enum route_map_cmd_result_t
+route_match_vpn_dataplane(void *rule, const struct prefix *prefix, void *object)
+{
+	struct bgp_path_info *path_vpn;
+	bgp_encap_types *bgp_encap_type = rule;
+	struct bgp_dest *dest;
+	struct bgp_table *table = NULL;
+
+	/* Fetch routemap's rule information. */
+	path_vpn = object;
+	dest = path_vpn->net;
+
+	assert(path_vpn->attr);
+
+	if (dest)
+		table = bgp_dest_table(dest);
+
+	if (!table || table->safi == SAFI_UNICAST)
+		/* applied to unicast packet, find out the path_vpn origin. XXX */
+		return RMAP_OKAY;
+
+	/* for L2VPN */
+	if (table->safi == SAFI_EVPN) {
+		if (path_vpn->attr->encap_tunneltype == *bgp_encap_type)
+			return RMAP_MATCH;
+		return RMAP_NOMATCH;
+	}
+	/* for L3VPN */
+	if (*bgp_encap_type == BGP_ENCAP_TYPE_MPLS &&
+	    bgp_mplsvpn_path_uses_valid_mpls_label(path_vpn))
+		return RMAP_MATCH;
+
+	if (*bgp_encap_type == BGP_ENCAP_TYPE_SRV6 &&
+	    (path_vpn->attr->srv6_l3vpn || path_vpn->attr->srv6_vpn))
+		return RMAP_MATCH;
+
+	return RMAP_NOMATCH;
+}
+
+static void *route_match_vpn_dataplane_compile(const char *arg)
+{
+	uint16_t *tunnel_type;
+
+	tunnel_type = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(uint32_t));
+
+	if (strmatch(arg, "vxlan"))
+		*tunnel_type = BGP_ENCAP_TYPE_VXLAN;
+	else if (strmatch(arg, "mpls"))
+		*tunnel_type = BGP_ENCAP_TYPE_MPLS;
+	else if (strmatch(arg, "srv6"))
+		*tunnel_type = BGP_ENCAP_TYPE_SRV6;
+
+	return tunnel_type;
+}
+
+static const struct route_map_rule_cmd route_match_vpn_dataplane_cmd = {
+	"vpn dataplane", route_match_vpn_dataplane, route_match_vpn_dataplane_compile,
+	route_value_free
+};
+
+
 /*
  * This is the workhorse routine for processing in/out routemap
  * modifications.
@@ -8007,6 +8069,35 @@ DEFPY_YANG (no_match_source_protocol,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY_YANG (match_vpn_dataplane,
+       match_vpn_dataplane_cmd,
+       "[no$no] match vpn dataplane [<mpls|srv6|vxlan>$dataplane]",
+       NO_STR
+       MATCH_STR
+       "VPN operations\n"
+       "Dataplane operation\n"
+       "Valid MPLS path\n"
+       "Valid SRv6 path\n"
+       "Valid VXLAN path\n")
+{
+	const char *xpath = "./match-condition[condition='frr-bgp-route-map:match-vpn-dataplane']";
+	char xpath_value[XPATH_MAXLEN];
+	enum nb_operation operation = NB_OP_CREATE;
+
+	if (no || !dataplane)
+		operation = NB_OP_DESTROY;
+
+	nb_cli_enqueue_change(vty, xpath, operation, NULL);
+
+	if (!no && dataplane) {
+		snprintf(xpath_value, sizeof(xpath_value),
+			 "%s/rmap-match-condition/frr-bgp-route-map:vpn-dataplane", xpath);
+		nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, dataplane);
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 /* Initialization of route map. */
 void bgp_route_map_init(void)
 {
@@ -8273,7 +8364,9 @@ void bgp_route_map_init(void)
 	route_map_install_set(&route_set_ipv6_nexthop_local_cmd);
 	route_map_install_set(&route_set_ipv6_nexthop_peer_cmd);
 	route_map_install_match(&route_match_rpki_extcommunity_cmd);
+	route_map_install_match(&route_match_vpn_dataplane_cmd);
 
+	install_element(RMAP_NODE, &match_vpn_dataplane_cmd);
 	install_element(RMAP_NODE, &match_ipv6_next_hop_address_cmd);
 	install_element(RMAP_NODE, &no_match_ipv6_next_hop_address_cmd);
 	install_element(RMAP_NODE, &match_ipv6_next_hop_old_cmd);
