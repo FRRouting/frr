@@ -20,6 +20,7 @@
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_label.h"
+#include "bgpd/bgp_evpn_mh.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -1390,6 +1391,8 @@ static void bgp_shutdown(void)
 	bgp_route_map_terminate();
 	bgp_attr_finish();
 	bgp_labels_finish();
+	bgp_lp_finish();
+	bgp_evpn_mh_finish();
 	bgp_pthreads_finish();
 	access_list_add_hook(NULL);
 	access_list_delete_hook(NULL);
@@ -1409,6 +1412,7 @@ static void bgp_shutdown(void)
 
 	bf_free(bm->rd_idspace);
 	list_delete(&bm->bgp);
+	list_delete(&bm->addresses);
 	memset(bm, 0, sizeof(*bm));
 
 	vty_terminate();
