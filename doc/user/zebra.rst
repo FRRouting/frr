@@ -158,7 +158,7 @@ Standard Commands
 
 
 .. clicmd:: shutdown
-
+   :daemon: zebra
 
    Up or down the current interface.
 
@@ -1000,10 +1000,12 @@ and this section also helps that case.
    }
 
 .. clicmd:: segment-routing
+   :daemon: zebra
 
    Move from configure mode to segment-routing node.
 
 .. clicmd:: srv6
+   :daemon: zebra
 
    Move from segment-routing node to srv6 node.
 
@@ -1013,6 +1015,7 @@ and this section also helps that case.
    configure detailed settings such as the actual srv6 locator.
 
 .. clicmd:: locator NAME
+   :daemon: zebra
 
    Create a new locator. If the name of an existing locator is specified,
    move to specified locator's configuration node to change the settings it.

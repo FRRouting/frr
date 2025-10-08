@@ -29,10 +29,12 @@ Currently ripngd supports the following commands:
    Enable RIPng.
 
 .. clicmd:: network NETWORK
+   :daemon: ripngd
 
    Set RIPng enabled interface by NETWORK.
 
 .. clicmd:: network IFNAME
+   :daemon: ripngd
 
    Set RIPng enabled interface by IFNAME.
 
@@ -41,15 +43,18 @@ Currently ripngd supports the following commands:
    Set RIPng static routing announcement of NETWORK.
 
 .. clicmd:: allow-ecmp [1-MULTIPATH_NUM]
+   :daemon: ripngd
 
    Control how many ECMP paths RIPng can inject for the same prefix. If specified
    without a number, a maximum is taken (compiled with ``--enable-multipath``).
 
 .. clicmd:: default-information originate
+   :daemon: ripngd
 
    Distribute default route information.
 
 .. clicmd:: default-metric (1-16)
+   :daemon: ripngd
 
    Set a metric of redistribute routes.
 
@@ -68,6 +73,7 @@ Currently ripngd supports the following commands:
    metric or route-map for the redistributed routes.
 
 .. clicmd:: aggregate-address X:X::X:X/M
+   :daemon: ripngd
 
    Set aggregate RIPng route announcement.
 
@@ -166,6 +172,7 @@ Route-map statement (:ref:`route-map`) is needed to use route-map
 functionality.
 
 .. clicmd:: match interface WORD
+   :daemon: ripngd
 
    This command match to incoming interface. Notation of this match is
    different from Cisco. Cisco uses a list of interfaces - NAME1 NAME2 ...
@@ -182,12 +189,14 @@ functionality.
    Match if route destination is permitted by access-list/prefix-list.
 
 .. clicmd:: match metric (0-4294967295)
+   :daemon: ripngd
 
    This command match to the metric value of RIPng updates. For other protocol
    compatibility metric range is shown as (0-4294967295). But for RIPng protocol
    only the value range (0-16) make sense.
 
 .. clicmd:: set ipv6 next-hop local IPV6_ADDRESS
+   :daemon: ripngd
 
    Set the link-local IPv6 nexthop address.
 
@@ -198,6 +207,7 @@ functionality.
    metric values are from 1 to 16.
 
 .. clicmd:: set tag <untagged|(1-4294967295)>
+   :daemon: ripngd
 
    Set a tag on the matched route.
 

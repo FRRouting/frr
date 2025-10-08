@@ -95,7 +95,7 @@ RIP Configuration
    RIP commands.
 
 .. clicmd:: network NETWORK
-
+   :daemon: ripd
 
    Set the RIP enable interface by NETWORK. The interfaces which have addresses
    matching with NETWORK are enabled.
@@ -107,7 +107,7 @@ RIP Configuration
    disable RIP for the specified network.
 
 .. clicmd:: network IFNAME
-
+   :daemon: ripd
 
    Set a RIP enabled interface by IFNAME. Both the sending and
    receiving of RIP packets will be enabled on the port specified in the
@@ -139,7 +139,7 @@ RIP Configuration
 
 
 .. clicmd:: passive-interface (IFNAME|default)
-
+   :daemon: ripd
 
    This command sets the specified interface to passive mode. On passive mode
    interface, all receiving packets are processed as normal and ripd does not
@@ -235,6 +235,7 @@ How to Announce RIP route
 If you want to specify RIP only static routes:
 
 .. clicmd:: default-information originate
+   :daemon: ripd
 
 .. clicmd:: route A.B.C.D/M
 
@@ -310,11 +311,12 @@ RIP distance
 Distance value is used in zebra daemon. Default RIP distance is 120.
 
 .. clicmd:: distance (1-255)
-
+   :daemon: ripd
 
    Set default RIP distance to specified value.
 
 .. clicmd:: distance (1-255) A.B.C.D/M
+   :daemon: ripd
 
 
    Set default RIP distance to specified value when the route's source IP
@@ -336,6 +338,7 @@ link failures. BFD can be enabled globally with a default profile or on
 individual interfaces.
 
 .. clicmd:: ip rip bfd
+   :daemon: ripd
 
    Enable BFD monitoring for RIP peers on this interface.
 

@@ -3218,6 +3218,7 @@ there is a route-map configured at inbound side of ipv4-vpn or ipv6-vpn
 address family with following syntax:
 
 .. clicmd:: set l3vpn next-hop encapsulation gre
+   :daemon: bgp
 
 The incoming BGP L3VPN entry is accepted, provided that the next hop of the
 L3VPN entry uses a path that takes the GRE tunnel as outgoing interface. The
