@@ -485,6 +485,8 @@ def check_es(dut):
     for es in bgp_es_json:
         esi = es["esi"]
         curr_es_set.append(esi)
+        if not es.get("type", False):
+            return None
         types = es["type"]
         vtep_ips = []
         for vtep in es.get("vteps", []):
@@ -516,6 +518,8 @@ def check_one_es(dut, esi, down_vteps):
         return "esi %s not found" % esi
 
     esi = es["esi"]
+    if not es.get("type", False):
+        return None
     types = es["type"]
     vtep_ips = []
     for vtep in es.get("vteps", []):
