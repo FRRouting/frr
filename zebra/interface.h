@@ -326,7 +326,7 @@ extern int if_no_shutdown(struct interface *ifp);
 extern void if_arp(struct interface *ifp, bool enable);
 extern int if_multicast_set(struct interface *ifp);
 extern int if_multicast_unset(struct interface *ifp);
-extern int if_linkdetect(struct interface *ifp, bool detect);
+extern void if_linkdetect(struct interface *ifp, bool detect);
 extern void if_addr_wakeup(struct interface *ifp);
 
 void link_param_cmd_set_uint32(struct interface *ifp, uint32_t *field,
