@@ -123,11 +123,8 @@ static void lsp_destroy(struct isis_lsp *lsp)
 		if (!LSP_PSEUDO_ID(lsp->hdr.lsp_id))
 			isis_dynhn_remove(lsp->area->isis, lsp->hdr.lsp_id);
 
-		if (lsp->lspu.frags) {
-			lsp_remove_frags(&lsp->area->lspdb[lsp->level - 1],
-					lsp->lspu.frags);
-			list_delete(&lsp->lspu.frags);
-		}
+		if (lsp->lspu.frags)
+			lsp_remove_frags(&lsp->area->lspdb[lsp->level - 1], lsp->lspu.frags);
 	} else {
 		if (lsp->lspu.zero_lsp
 		    && lsp->lspu.zero_lsp->lspu.frags) {
@@ -137,10 +134,19 @@ static void lsp_destroy(struct isis_lsp *lsp)
 
 	isis_spf_schedule(lsp->area, lsp->level);
 
+	fabricd_lsp_free(lsp);
+	lsp_free(lsp);
+}
+
+void lsp_free(struct isis_lsp *lsp)
+{
+	if (!LSP_FRAGMENT(lsp->hdr.lsp_id))
+		if (lsp->lspu.frags)
+			list_delete(&lsp->lspu.frags);
+
 	if (lsp->pdu)
 		stream_free(lsp->pdu);
 
-	fabricd_lsp_free(lsp);
 	XFREE(MTYPE_ISIS_LSP, lsp);
 }
 
