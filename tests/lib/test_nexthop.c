@@ -110,6 +110,9 @@ static void test_run_first(void)
 	ret = nexthop_cmp_basic(nh1, nh2);
 	assert(ret != 0);
 
+	nexthop_free(nh1);
+	nexthop_free(nh2);
+
 	/* Labels */
 	addr.s_addr = 0x04030201;
 	nh1 = nexthop_from_ipv4(&addr, NULL, 0);
