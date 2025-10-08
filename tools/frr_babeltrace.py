@@ -57,6 +57,24 @@ def print_net_ipv4_addr(field_val):
     return str(ipaddress.IPv4Address(field_val))
 
 
+def print_net_ipv6_addr(field_val):
+    """
+    pretty print ctf_array/ctf_integer_network ipv6 (struct in6_addr)
+    """
+    if isinstance(field_val, (list, tuple)):
+        # If it's a list/tuple of bytes (from ctf_array)
+        if len(field_val) == 16:
+            ipv6_bytes = bytes(field_val)
+            return str(ipaddress.IPv6Address(ipv6_bytes))
+    else:
+        # If it's already in a format that IPv6Address can handle
+        try:
+            return str(ipaddress.IPv6Address(field_val))
+        except:
+            pass
+    return str(field_val)
+
+
 def print_esi(field_val):
     """
     pretty print ethernet segment id, esi_t
