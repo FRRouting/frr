@@ -223,6 +223,7 @@ SRv6 Static SIDs Commands
 =========================
 
 .. clicmd:: segment-routing
+   :daemon: staticd
 
    Move from configure mode to segment-routing node.
 
