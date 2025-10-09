@@ -129,8 +129,19 @@ static inline int ssmpingd_setsockopt(int fd, pim_addr addr, int mttl)
 #else
 static inline int ssmpingd_setsockopt(int fd, pim_addr addr, int mttl)
 {
-	setsockopt_ipv6_pktinfo(fd, 1);
-	setsockopt_ipv6_multicast_hops(fd, mttl);
+	if (setsockopt_ipv6_pktinfo(fd, 1)) {
+		zlog_warn("%s: could not set IPV6_PKTINFO on socket fd=%d: %s", __func__, fd,
+			  safe_strerror(errno));
+		close(fd);
+		return PIM_SOCK_ERR_PKTINFO;
+	}
+
+	if (setsockopt_ipv6_multicast_hops(fd, mttl)) {
+		zlog_warn("%s: could not set IPV6_MULTICAST_HOPS=%d on fd=%d: %s", __func__, mttl,
+			  fd, safe_strerror(errno));
+		close(fd);
+		return PIM_SOCK_ERR_MCAST_HOPS;
+	}
 
 	if (setsockopt_ipv6_multicast_loop(fd, 0)) {
 		zlog_warn(
