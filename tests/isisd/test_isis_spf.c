@@ -255,8 +255,6 @@ static int test_run(struct vty *vty, const struct isis_topology *topology,
 	memcpy(area->isis->sysid, root->sysid, sizeof(area->isis->sysid));
 	area->is_type = IS_LEVEL_1_AND_2;
 	area->srdb.enabled = true;
-	area->area_addrs = list_new();
-	area->area_addrs->del = isis_area_address_delete;
 	addr = XMALLOC(MTYPE_ISIS_AREA_ADDR, sizeof(struct iso_address));
 	snprintfrr(sysidstr, sizeof(sysidstr), "%pSY", area->isis->sysid);
 	snprintf(net_title, sizeof(net_title), "49.%s.00", sysidstr);
