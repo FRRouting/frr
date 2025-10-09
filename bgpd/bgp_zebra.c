@@ -512,18 +512,21 @@ static int zebra_read_route(ZAPI_CALLBACK_ARGS)
 	    && IN6_IS_ADDR_LINKLOCAL(&api.prefix.u.prefix6))
 		return 0;
 
-	ifindex = api.nexthops[0].ifindex;
-	nhtype = api.nexthops[0].type;
-
-	/* api_nh structure has union of gate and bh_type */
-	if (nhtype == NEXTHOP_TYPE_BLACKHOLE) {
-		/* bh_type is only applicable if NEXTHOP_TYPE_BLACKHOLE*/
-		bhtype = api.nexthops[0].bh_type;
-	} else
-		nexthop = api.nexthops[0].gate;
-
 	add = (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD);
 	if (add) {
+		if (api.nexthop_num == 0)
+			return 0;
+
+		ifindex = api.nexthops[0].ifindex;
+		nhtype = api.nexthops[0].type;
+
+		/* api_nh structure has union of gate and bh_type */
+		if (nhtype == NEXTHOP_TYPE_BLACKHOLE) {
+			/* bh_type is only applicable if NEXTHOP_TYPE_BLACKHOLE*/
+			bhtype = api.nexthops[0].bh_type;
+		} else
+			nexthop = api.nexthops[0].gate;
+
 		/*
 		 * The ADD message is actually an UPDATE and there is no
 		 * explicit DEL

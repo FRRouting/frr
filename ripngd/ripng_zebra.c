@@ -104,8 +104,8 @@ static int ripng_zebra_read_route(ZAPI_CALLBACK_ARGS)
 {
 	struct ripng *ripng;
 	struct zapi_route api;
-	struct in6_addr nexthop;
-	unsigned long ifindex;
+	struct in6_addr nexthop = {};
+	unsigned long ifindex = 0;
 
 	ripng = ripng_lookup_by_vrf_id(vrf_id);
 	if (!ripng)
@@ -121,8 +121,10 @@ static int ripng_zebra_read_route(ZAPI_CALLBACK_ARGS)
 	if (IN6_IS_ADDR_LINKLOCAL(&api.prefix.u.prefix6))
 		return 0;
 
-	nexthop = api.nexthops[0].gate.ipv6;
-	ifindex = api.nexthops[0].ifindex;
+	if (api.nexthop_num > 0) {
+		nexthop = api.nexthops[0].gate.ipv6;
+		ifindex = api.nexthops[0].ifindex;
+	}
 
 	if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD)
 		ripng_redistribute_add(ripng, api.type,
