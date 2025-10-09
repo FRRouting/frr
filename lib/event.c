@@ -833,18 +833,6 @@ static int fd_poll(struct event_loop *m, const struct timeval *timer_wait,
 	/* number of file descriptors with events */
 	int num;
 
-	if (timer_wait != NULL && m->selectpoll_timeout == 0) {
-		/* use the default value */
-		timeout = (timer_wait->tv_sec * 1000)
-			  + (timer_wait->tv_usec / 1000);
-	} else if (m->selectpoll_timeout > 0) {
-		/* use the user's timeout */
-		timeout = m->selectpoll_timeout;
-	} else if (m->selectpoll_timeout < 0) {
-		/* effect a poll (return immediately) */
-		timeout = 0;
-	}
-
 	zlog_tls_buffer_flush();
 	rcu_read_unlock();
 	rcu_assert_read_unlocked();
