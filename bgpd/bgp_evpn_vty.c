@@ -3479,8 +3479,7 @@ static void evpn_process_default_originate_cmd(struct bgp *bgp_vrf,
 	}
 
 	if (is_l3vni_live(bgp_vrf))
-		bgp_evpn_install_uninstall_default_route(bgp_vrf,
-							 afi, safi, add);
+		bgp_evpn_install_uninstall_default_route(bgp_vrf, afi, safi, NULL, add);
 }
 
 /*

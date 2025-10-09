@@ -3436,15 +3436,17 @@ static int bgp_zebra_process_local_ip_prefix(ZAPI_CALLBACK_ARGS)
 	if (cmd == ZEBRA_IP_PREFIX_ROUTE_ADD) {
 
 		if (p.family == AF_INET)
-			bgp_evpn_advertise_type5_route(bgp_vrf, &p, NULL, AFI_IP, SAFI_UNICAST, 0);
+			bgp_evpn_advertise_type5_route(bgp_vrf, NULL, &p, NULL, AFI_IP,
+						       SAFI_UNICAST, 0);
 		else
-			bgp_evpn_advertise_type5_route(bgp_vrf, &p, NULL, AFI_IP6, SAFI_UNICAST, 0);
+			bgp_evpn_advertise_type5_route(bgp_vrf, NULL, &p, NULL, AFI_IP6,
+						       SAFI_UNICAST, 0);
 
 	} else {
 		if (p.family == AF_INET)
-			bgp_evpn_withdraw_type5_route(bgp_vrf, &p, AFI_IP, SAFI_UNICAST, 0);
+			bgp_evpn_withdraw_type5_route(bgp_vrf, NULL, &p, AFI_IP, SAFI_UNICAST, 0);
 		else
-			bgp_evpn_withdraw_type5_route(bgp_vrf, &p, AFI_IP6, SAFI_UNICAST, 0);
+			bgp_evpn_withdraw_type5_route(bgp_vrf, NULL, &p, AFI_IP6, SAFI_UNICAST, 0);
 	}
 	return 0;
 }
