@@ -1226,7 +1226,7 @@ static void empty_prepend_test(struct test_segment *t)
 
 	printf("\n");
 	aspath_unintern(&asp1);
-	aspath_free(asp2);
+	aspath_free(ascratch);
 }
 
 /* as2+as4 reconciliation testing */
@@ -1344,7 +1344,6 @@ static int handle_attr_test(struct aspath_tests *t)
 
 	peer.curr = stream_new(BGP_MAX_PACKET_SIZE);
 	peer.connection = bgp_peer_connection_new(&peer);
-	peer.connection->obuf = stream_fifo_new();
 	peer.bgp = &bgp;
 	peer.host = (char *)"none";
 	peer.connection->fd = -1;
@@ -1393,6 +1392,10 @@ static int handle_attr_test(struct aspath_tests *t)
 out:
 	aspath_unintern(&attr.aspath);
 	aspath_unintern(&asp);
+	bgp_peer_connection_free(&peer.connection);
+	stream_free(peer.last_reset_cause);
+	stream_free(peer.curr);
+	XFREE(MTYPE_BGP_NOTIFICATION, peer.notify.data);
 	return failed - initfail;
 }
 

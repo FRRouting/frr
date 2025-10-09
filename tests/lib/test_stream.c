@@ -53,5 +53,6 @@ int main(void)
 	printfrr("l: 0x%x\n", stream_getl(s));
 	printfrr("q: 0x%" PRIx64 "\n", stream_getq(s));
 
+	stream_free(s);
 	return 0;
 }
