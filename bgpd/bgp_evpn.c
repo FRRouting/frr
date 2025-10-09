@@ -618,9 +618,8 @@ static void bgp_evpn_get_rmac_nexthop(struct bgpevpn *vpn,
 		/* copy sys rmac */
 		memcpy(&attr->rmac, &bgp_vrf->evpn_info->pip_rmac,
 		       ETH_ALEN);
-		attr->nexthop = bgp_vrf->evpn_info->pip_ip;
-		attr->mp_nexthop_global_in =
-			bgp_vrf->evpn_info->pip_ip;
+		attr->nexthop = bgp_vrf->evpn_info->pip_ip.ipaddr_v4;
+		attr->mp_nexthop_global_in = bgp_vrf->evpn_info->pip_ip.ipaddr_v4;
 	} else
 		memcpy(&attr->rmac, &bgp_vrf->rmac, ETH_ALEN);
 }
@@ -1768,6 +1767,7 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct bgp_path_info *or
 	struct bgp *bgp_evpn = NULL;
 	int route_changed = 0;
 	struct bgp_path_info *pi = NULL;
+	struct ipaddr vtep_ip;
 
 	bgp_evpn = bgp_get_evpn();
 	if (!bgp_evpn)
@@ -1788,40 +1788,14 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct bgp_path_info *or
 	 * PIP is disabled or vrr interface is not present
 	 * use anycast-IP as nexthop and anycast RMAC.
 	 */
-	if (!bgp_vrf->evpn_info->advertise_pip ||
-	    (!bgp_vrf->evpn_info->is_anycast_mac)) {
-		if (IS_IPADDR_V4(&bgp_vrf->originator_ip)) {
-			attr.nexthop =  bgp_vrf->originator_ip.ipaddr_v4;
-			attr.mp_nexthop_global_in =  bgp_vrf->originator_ip.ipaddr_v4;
-			attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
-		} else {
-			IPV6_ADDR_COPY(&attr.mp_nexthop_global, &bgp_vrf->originator_ip.ipaddr_v6);
-			attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
-		}
-		memcpy(&attr.rmac, &bgp_vrf->rmac, ETH_ALEN);
-	} else {
-		/* copy sys rmac */
-		memcpy(&attr.rmac, &bgp_vrf->evpn_info->pip_rmac, ETH_ALEN);
-		attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
-		if (bgp_vrf->evpn_info->pip_ip.s_addr != INADDR_ANY) {
-			/* V6_VTEP_PR_QUESTION: only V4 is configurable for PIP? */
-			attr.nexthop = bgp_vrf->evpn_info->pip_ip;
-			attr.mp_nexthop_global_in = bgp_vrf->evpn_info->pip_ip;
-		} else if (bgp_vrf->evpn_info->pip_ip.s_addr == INADDR_ANY)
-			if (bgp_debug_zebra(NULL))
-				zlog_debug(
-					"VRF %s evp %pFX advertise-pip primary ip is not configured",
-					vrf_id_to_name(bgp_vrf->vrf_id), evp);
-	}
+	bgp_evpn_fill_rmac_nh_to_attr(bgp_vrf, &attr, evp, &vtep_ip);
 
 	if (bgp_debug_zebra(NULL))
-		zlog_debug(
-			"VRF %s type-5 route evp %pFX RMAC %pEA nexthop %pI4 mp_nexthop %pI6",
-			vrf_id_to_name(bgp_vrf->vrf_id), evp, &attr.rmac,
-			&attr.nexthop, &attr.mp_nexthop_global);
+		zlog_debug("VRF %s type-5 route evp %pFX RMAC %pEA nexthop %pI4 mp_nexthop %pI6 orig vtep %pIA",
+			   vrf_id_to_name(bgp_vrf->vrf_id), evp, &attr.rmac, &attr.nexthop,
+			   &attr.mp_nexthop_global, &bgp_vrf->originator_ip);
 
-	frrtrace(4, frr_bgp, evpn_advertise_type5, bgp_vrf->vrf_id, evp,
-		 &attr.rmac, attr.nexthop);
+	frrtrace(4, frr_bgp, evpn_advertise_type5, bgp_vrf->vrf_id, evp, &attr.rmac, &vtep_ip);
 
 	if (src_afi == AFI_IP6 &&
 	    CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
@@ -5892,11 +5866,16 @@ void bgp_evpn_handle_router_id_update(struct bgp *bgp, int withdraw)
 
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
 			for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
+				/* advertise pip is enabled,
+				 * bgp instance L3VNI VTEP-IP is IPv4
+				 * advertise pip IP is not user configured.
+				 */
 				if (bgp_vrf->evpn_info->advertise_pip &&
-				    (bgp_vrf->evpn_info->pip_ip_static.s_addr
-				     == INADDR_ANY))
-					bgp_vrf->evpn_info->pip_ip.s_addr
-						= INADDR_ANY;
+				    IS_IPADDR_V4(&bgp_vrf->originator_ip) &&
+				    (bgp_vrf->evpn_info->pip_ip_static.ipaddr_v4.s_addr ==
+				     INADDR_ANY)) {
+					bgp_vrf->evpn_info->pip_ip.ipaddr_v4.s_addr = INADDR_ANY;
+				}
 			}
 		}
 	} else {
@@ -5904,11 +5883,17 @@ void bgp_evpn_handle_router_id_update(struct bgp *bgp, int withdraw)
 		/* Assign new default instance router-id */
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
 			for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
+				/* advertise pip is enabled,
+				 * bgp instance L3VNI VTEP-IP is IPv4
+				 * advertise pip IP is not user configured.
+				 * assign the bgp default router-id as pip IP.
+				 */
 				if (bgp_vrf->evpn_info->advertise_pip &&
-				    (bgp_vrf->evpn_info->pip_ip_static.s_addr
-				     == INADDR_ANY)) {
-					bgp_vrf->evpn_info->pip_ip =
-						bgp->router_id;
+				    IS_IPADDR_V4(&bgp_vrf->originator_ip) &&
+				    (bgp_vrf->evpn_info->pip_ip_static.ipaddr_v4.s_addr ==
+				     INADDR_ANY)) {
+					SET_IPADDR_V4(&bgp_vrf->evpn_info->pip_ip);
+					bgp_vrf->evpn_info->pip_ip.ipaddr_v4 = bgp->router_id;
 					/* advertise type-5 routes with
 					 * new nexthop
 					 */
@@ -7089,6 +7074,25 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id,
 	/* PIP user configured mac is not present use svi mac as sys mac */
 	if (is_zero_mac(&bgp_vrf->evpn_info->pip_rmac_static))
 		memcpy(&bgp_vrf->evpn_info->pip_rmac, svi_rmac, ETH_ALEN);
+	/* for v6 vtep_ip assign lo primary v6 address as pip,
+	 * for v4 vtep_ip bgp instance router-id as pip in bgp_evpn_init.
+	 */
+	if (IS_IPADDR_V6(&bgp_vrf->originator_ip)) {
+		struct interface *ifp;
+		struct in6_addr addr;
+
+		ifp = if_get_vrf_loopback(VRF_DEFAULT);
+		if (ifp && if_get_ipv6_global(ifp, &addr)) {
+			if (bgp_debug_zebra(NULL))
+				zlog_debug("%s vni %u ifp %s addr %pI6 copy as pip", __func__,
+					   bgp_vrf->l3vni, ifp->name, &addr);
+			SET_IPADDR_V6(&bgp_vrf->evpn_info->pip_ip);
+			IPV6_ADDR_COPY(&bgp_vrf->evpn_info->pip_ip.ipaddr_v6, &addr);
+		} else if (ifp)
+			if (bgp_debug_zebra(NULL))
+				zlog_debug("%s vni %u ifp %s v6 addr not found, skip pip assignment",
+					   __func__, bgp_vrf->l3vni, ifp->name);
+	}
 
 	if (bgp_debug_zebra(NULL))
 		zlog_debug(
@@ -7606,8 +7610,10 @@ void bgp_evpn_init(struct bgp *bgp)
 
 			bgp->evpn_info->advertise_pip = true;
 			bgp_default = bgp_get_default();
-			if (bgp_default)
-				bgp->evpn_info->pip_ip = bgp_default->router_id;
+			if (bgp_default) {
+				SET_IPADDR_V4(&bgp->evpn_info->pip_ip);
+				bgp->evpn_info->pip_ip.ipaddr_v4 = bgp_default->router_id;
+			}
 		}
 	}
 
@@ -8130,6 +8136,69 @@ bool bgp_evpn_mpath_has_dvni(const struct bgp *bgp_vrf,
 	}
 
 	return false;
+}
+
+
+/*
+ * From tenant vrf instance's L3VNI source VTEP_IP fill V4 or V6
+ * version of attr's nexthop field from PIP.
+ */
+void bgp_evpn_fill_rmac_nh_to_attr(struct bgp *bgp_vrf, struct attr *attr, struct prefix_evpn *evp,
+				   struct ipaddr *vtep_ip)
+{
+	if (!bgp_vrf || !attr)
+		return;
+	/* Advertise Primary IP (PIP) is enabled, send individual
+	 * IP (default instance router-id) as nexthop.
+	 * PIP is disabled or vrr interface is not present
+	 * use anycast-IP as nexthop and anycast RMAC.
+	 */
+	if (!bgp_vrf->evpn_info->advertise_pip || (!bgp_vrf->evpn_info->is_anycast_mac)) {
+		memcpy(&attr->rmac, &bgp_vrf->rmac, ETH_ALEN);
+		if (IS_IPADDR_V4(&bgp_vrf->originator_ip)) {
+			attr->nexthop = bgp_vrf->originator_ip.ipaddr_v4;
+			attr->mp_nexthop_global_in = bgp_vrf->originator_ip.ipaddr_v4;
+			attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
+		} else {
+			IPV6_ADDR_COPY(&attr->mp_nexthop_global, &bgp_vrf->originator_ip.ipaddr_v6);
+			attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
+		}
+		if (vtep_ip)
+			*vtep_ip = bgp_vrf->originator_ip;
+	} else {
+		/* copy sys rmac */
+		memcpy(&attr->rmac, &bgp_vrf->evpn_info->pip_rmac, ETH_ALEN);
+		/* L3VNI VTEP-IP is IPv4 copy v4 PIP IP, otherwise copy
+		 * v6 PIP IP for nexthop path attribute
+		 */
+		if (vtep_ip)
+			*vtep_ip = bgp_vrf->evpn_info->pip_ip;
+
+		if (IS_IPADDR_V4(&bgp_vrf->originator_ip)) {
+			attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
+			if (bgp_vrf->evpn_info->pip_ip.ipaddr_v4.s_addr != INADDR_ANY) {
+				attr->nexthop = bgp_vrf->evpn_info->pip_ip.ipaddr_v4;
+				attr->mp_nexthop_global_in = bgp_vrf->evpn_info->pip_ip.ipaddr_v4;
+			} else if (bgp_vrf->evpn_info->pip_ip.ipaddr_v4.s_addr == INADDR_ANY) {
+				if (bgp_debug_zebra(NULL))
+					zlog_debug("VRF %s evp %pFX advertise-pip primary ip is not configured",
+						   vrf_id_to_name(bgp_vrf->vrf_id), evp);
+			}
+		} else if (IS_IPADDR_V6(&bgp_vrf->originator_ip)) {
+			attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
+			if (!IN6_IS_ADDR_UNSPECIFIED(&bgp_vrf->evpn_info->pip_ip.ipaddr_v6)) {
+				IPV6_ADDR_COPY(&attr->mp_nexthop_global,
+					       &bgp_vrf->evpn_info->pip_ip.ipaddr_v6);
+				if (bgp_debug_zebra(NULL))
+					zlog_debug("%s ipv6 vtep, pip %pI6 address as nexthop",
+						   __func__, &bgp_vrf->evpn_info->pip_ip.ipaddr_v6);
+			} else if (IN6_IS_ADDR_UNSPECIFIED(&bgp_vrf->evpn_info->pip_ip.ipaddr_v6)) {
+				if (bgp_debug_zebra(NULL))
+					zlog_debug("VRF %s evp %pFX advertise-pip primary ip is not configured",
+						   vrf_id_to_name(bgp_vrf->vrf_id), evp);
+			}
+		}
+	}
 }
 
 /* Upon aggregate set trigger unimport suppressed routes

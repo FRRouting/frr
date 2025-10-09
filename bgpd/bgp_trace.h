@@ -578,14 +578,14 @@ TRACEPOINT_EVENT(
 	frr_bgp,
 	evpn_advertise_type5,
 	TP_ARGS(vrf_id_t, vrf, const struct prefix_evpn *, pfx,
-		struct ethaddr *, rmac, struct in_addr, vtep),
+		struct ethaddr *, rmac, struct ipaddr *, vtep),
 	TP_FIELDS(
 		ctf_integer(int, vrf_id, vrf)
 		ctf_array(unsigned char, ip, &pfx->prefix.prefix_addr.ip,
 			sizeof(struct ipaddr))
 		ctf_array(unsigned char, rmac, rmac,
 			sizeof(struct ethaddr))
-		ctf_integer_network_hex(unsigned int, vtep, vtep.s_addr)
+		ctf_array(unsigned char, vtep, vtep, sizeof(struct ipaddr))
 	)
 )
 TRACEPOINT_LOGLEVEL(frr_bgp, evpn_advertise_type5, TRACE_INFO)

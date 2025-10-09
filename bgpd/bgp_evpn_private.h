@@ -186,8 +186,8 @@ struct bgp_evpn_info {
 	/* PIP feature knob */
 	bool advertise_pip;
 	/* PIP IP (sys ip) */
-	struct in_addr pip_ip;
-	struct in_addr pip_ip_static;
+	struct ipaddr pip_ip;
+	struct ipaddr pip_ip_static;
 	/* PIP MAC (sys MAC) */
 	struct ethaddr pip_rmac;
 	struct ethaddr pip_rmac_static;
