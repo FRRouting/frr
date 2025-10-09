@@ -2245,6 +2245,32 @@ static int find_subgrp_walkcb(struct update_group *updgrp, void *arg)
 	return CMD_SUCCESS;
 }
 
+static uint64_t bmp_ribout_clear_bqe(struct bmp *bmp, uint64_t id)
+{
+	uint64_t count = 0;
+	struct bmp *bmp_iter;
+	struct bmp_queue_entry *bqe_iter, *bqe_next;
+
+	for (bqe_iter = bmp_qlist_first(&bmp->targets->mon_out_updlist); bqe_iter;) {
+		bqe_next = bmp_qlist_next(&bmp->targets->mon_out_updlist, bqe_iter);
+
+		if (bqe_iter->id == id) {
+			count++;
+			frr_each (bmp_session, &bmp->targets->sessions, bmp_iter) {
+				if (bmp_iter->mon_out_queuepos == bqe_iter)
+					bmp_iter->mon_out_queuepos = bqe_next;
+			}
+
+			bmp_rbtree_del(&bmp->targets->mon_out_updhash, bqe_iter);
+			bmp_qlist_del(&bmp->targets->mon_out_updlist, bqe_iter);
+			bmp_bqe_free(bqe_iter);
+		}
+		bqe_iter = bqe_next;
+	}
+
+	return count;
+}
+
 /* gets a bqe from the rib-out pre/post-policy queue and sends a bmp
  * rib-out
  * pre/post-policy monitoring message to the peer
@@ -2259,6 +2285,7 @@ static bool bmp_wrqueue_ribout(struct bmp *bmp, struct pullwr *pullwr)
 	uint8_t bpi_num_labels;
 	struct peer_af *paf;
 	struct update_subgroup *subgrp;
+	uint64_t count = 0;
 
 	bqe = bmp_pull_ribout(bmp);
 	if (!bqe)
@@ -2274,8 +2301,17 @@ static bool bmp_wrqueue_ribout(struct bmp *bmp, struct pullwr *pullwr)
 
 	if (!subgrp) {
 		zlog_info("bmp: skipping queue item for deleted subgroup %" PRIu64, bqe->id);
-		goto out;
+		/* When a subgroup is deleted, instead deleting a bqe by one
+		 * fill call, delete same subgrp id in the list once
+		 */
+		count = bmp_ribout_clear_bqe(bmp, bqe->id);
+		zlog_info("Deleted %" PRIu64 " items in the list for invalid subgroup", count);
+		if (bmp->mon_out_queuepos)
+			pullwr_bump(bmp->pullwr);
+
+		return false;
 	}
+
 	if (!CHECK_FLAG(bmp->targets->afimon[afi][safi],
 			BMP_MON_OUT_POSTPOLICY | BMP_MON_OUT_PREPOLICY)) {
 		goto out;
