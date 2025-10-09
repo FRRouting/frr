@@ -298,7 +298,7 @@ def parse_frr_bgp_evpn_advertise_type5(event):
     field_parsers = {
         "ip": print_ip_addr,
         "rmac": print_mac,
-        "vtep": print_net_ipv4_addr,
+        "vtep": print_ip_addr,
     }
 
     parse_event(event, field_parsers)
