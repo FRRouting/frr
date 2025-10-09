@@ -63,5 +63,6 @@ int main(int argc, char **argv)
 		fprintf(stdout, "%s\n", buf1);
 	}
 
+	prng_free(prng);
 	return 0;
 }
