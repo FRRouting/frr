@@ -1284,8 +1284,8 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 	struct zapi_route api;
 	struct prefix_ipv4 p;
 	struct prefix pgen = {};
-	unsigned long ifindex;
-	struct in_addr nexthop;
+	unsigned long ifindex = 0;
+	struct in_addr nexthop = {};
 	struct external_info *ei;
 	struct ospf *ospf;
 	int i;
@@ -1298,8 +1298,10 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 	if (zapi_route_decode(zclient->ibuf, &api) < 0)
 		return -1;
 
-	ifindex = api.nexthops[0].ifindex;
-	nexthop = api.nexthops[0].gate.ipv4;
+	if (api.nexthop_num > 0) {
+		ifindex = api.nexthops[0].ifindex;
+		nexthop = api.nexthops[0].gate.ipv4;
+	}
 	rt_type = api.type;
 
 	memcpy(&p, &api.prefix, sizeof(p));
