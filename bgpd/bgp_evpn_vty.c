@@ -400,8 +400,7 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 					       bgp_vrf->evpn_info->advertise_pip
 						       ? "Enabled"
 						       : "Disabled");
-			json_object_string_addf(json, "sysIP", "%pI4",
-						&bgp_vrf->evpn_info->pip_ip);
+			json_object_string_addf(json, "sysIP", "%pIA", &bgp_vrf->evpn_info->pip_ip);
 			json_object_string_addf(json, "sysMac", "%pEA",
 						&bgp_vrf->evpn_info->pip_rmac);
 		}
@@ -434,8 +433,7 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 			vty_out(vty, "  Advertise-pip: %s\n",
 				bgp_vrf->evpn_info->advertise_pip ? "Yes"
 								  : "No");
-			vty_out(vty, "  System-IP: %pI4\n",
-				&bgp_vrf->evpn_info->pip_ip);
+			vty_out(vty, "  System-IP: %pIA\n", &bgp_vrf->evpn_info->pip_ip);
 			vty_out(vty, "  System-MAC: %pEA\n",
 				&bgp_vrf->evpn_info->pip_rmac);
 		}
@@ -1054,8 +1052,7 @@ static void show_l3vni_entry(struct vty *vty, struct bgp *bgp,
 		json_object_string_add(
 			json_vni, "advertisePip",
 			bgp->evpn_info->advertise_pip ? "Enabled" : "Disabled");
-		json_object_string_addf(json_vni, "sysIP", "%pI4",
-					&bgp->evpn_info->pip_ip);
+		json_object_string_addf(json_vni, "sysIP", "%pIA", &bgp->evpn_info->pip_ip);
 		json_object_string_add(json_vni, "sysMAC",
 				       prefix_mac2str(&bgp->evpn_info->pip_rmac,
 						      buf2, sizeof(buf2)));
@@ -4437,19 +4434,16 @@ DEFPY (bgp_evpn_advertise_pip_ip_mac,
 		bgp_vrf->evpn_info->advertise_pip = true;
 		if (ip.s_addr != INADDR_ANY) {
 			/* Already configured with same IP */
-			if (IPV4_ADDR_SAME(&ip,
-					&bgp_vrf->evpn_info->pip_ip_static))
+			if (IPV4_ADDR_SAME(&ip, &bgp_vrf->evpn_info->pip_ip_static.ipaddr_v4))
 				return CMD_SUCCESS;
 
-			bgp_vrf->evpn_info->pip_ip_static = ip;
-			bgp_vrf->evpn_info->pip_ip = ip;
+			bgp_vrf->evpn_info->pip_ip_static.ipaddr_v4 = ip;
+			bgp_vrf->evpn_info->pip_ip.ipaddr_v4 = ip;
 		} else {
-			bgp_vrf->evpn_info->pip_ip_static.s_addr
-				= INADDR_ANY;
+			bgp_vrf->evpn_info->pip_ip_static.ipaddr_v4.s_addr = INADDR_ANY;
 			/* default instance router-id assignemt */
 			if (bgp_evpn)
-				bgp_vrf->evpn_info->pip_ip =
-					bgp_evpn->router_id;
+				bgp_vrf->evpn_info->pip_ip.ipaddr_v4 = bgp_evpn->router_id;
 		}
 		/* parse sys mac */
 		if (!is_zero_mac(&mac->eth_addr)) {
@@ -4482,8 +4476,7 @@ DEFPY (bgp_evpn_advertise_pip_ip_mac,
 		} else {
 			/* remove MAC-IP option retain PIP knob. */
 			if ((ip.s_addr != INADDR_ANY) &&
-			    !IPV4_ADDR_SAME(&ip,
-					&bgp_vrf->evpn_info->pip_ip_static)) {
+			    !IPV4_ADDR_SAME(&ip, &bgp_vrf->evpn_info->pip_ip_static.ipaddr_v4)) {
 				vty_out(vty,
 					"%% BGP EVPN PIP IP does not match\n");
 				return CMD_WARNING_CONFIG_FAILED;
@@ -4518,12 +4511,12 @@ DEFPY (bgp_evpn_advertise_pip_ip_mac,
 		/* reset user configured sys MAC */
 		memset(&bgp_vrf->evpn_info->pip_rmac_static, 0, ETH_ALEN);
 		/* reset user configured sys IP */
-		bgp_vrf->evpn_info->pip_ip_static.s_addr = INADDR_ANY;
+		bgp_vrf->evpn_info->pip_ip_static.ipaddr_v4.s_addr = INADDR_ANY;
 		/* Assign default PIP IP (bgp instance router-id) */
 		if (bgp_evpn)
-			bgp_vrf->evpn_info->pip_ip = bgp_evpn->router_id;
+			bgp_vrf->evpn_info->pip_ip.ipaddr_v4 = bgp_evpn->router_id;
 		else
-			bgp_vrf->evpn_info->pip_ip.s_addr = INADDR_ANY;
+			bgp_vrf->evpn_info->pip_ip.ipaddr_v4.s_addr = INADDR_ANY;
 	}
 
 	if (is_evpn_enabled()) {
@@ -7451,9 +7444,8 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 		if (!bgp->evpn_info->advertise_pip)
 			vty_out(vty, "  no advertise-pip\n");
 		if (bgp->evpn_info->advertise_pip) {
-			if (bgp->evpn_info->pip_ip_static.s_addr
-			    != INADDR_ANY) {
-				vty_out(vty, "  advertise-pip ip %pI4",
+			if (bgp->evpn_info->pip_ip_static.ipaddr_v4.s_addr != INADDR_ANY) {
+				vty_out(vty, "  advertise-pip ip %pIA",
 					&bgp->evpn_info->pip_ip_static);
 				if (!is_zero_mac(&(
 					    bgp->evpn_info->pip_rmac_static))) {
