@@ -209,10 +209,8 @@ This packet will be routed in the topo according to the dst ip 200::A, it will g
 .. clicmd:: peer 200::D bfd-mode sbfd-init bfd-name a-d local-address 200::A remote-discr 456
 
 
-   Command used to configure the SBFDReflector on D is:
-
-.. clicmd:: sbfd reflector source-address 200::D discriminator 456
-
+   Command used to configure the SBFDReflector on D is the same as
+   documented earlier in the SBFD section.
 
 .. note::
 
