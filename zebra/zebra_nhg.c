@@ -2415,12 +2415,15 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 	while (rn) {
 		route_unlock_node(rn);
 
-		/* Lookup should halt if we've matched against ourselves ('top',
+		/*
+		 * Lookup should not care about the prefix being the same
+		 * for a cross vrf nexthop.
+		 * Lookup should halt if we've matched against ourselves ('top',
 		 * if specified) - i.e., we cannot have a nexthop NH1 is
 		 * resolved by a route NH1. The exception is if the route is a
 		 * host route.
 		 */
-		if (prefix_same(&rn->p, top))
+		if (vrf_id == nexthop->vrf_id && prefix_same(&rn->p, top))
 			if (((afi == AFI_IP)
 			     && (rn->p.prefixlen != IPV4_MAX_BITLEN))
 			    || ((afi == AFI_IP6)
