@@ -86,6 +86,8 @@ extern struct vertex_parent *ospf_spf_vertex_parent_find(struct in_addr id,
 							 struct vertex *vertex);
 extern int vertex_parent_cmp(void *aa, void *bb);
 
+extern void ospf_vertex_free(void *data);
+
 extern void ospf_spf_print(struct vty *vty, struct vertex *v, int i);
 extern void ospf_restart_spf(struct ospf *ospf);
 /* void ospf_spf_calculate_timer_add (); */
