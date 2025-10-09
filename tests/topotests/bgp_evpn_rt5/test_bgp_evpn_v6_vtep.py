@@ -165,9 +165,13 @@ def setup_module(mod):
         if rname == "r1":
             router.load_config(TopoRouter.RD_MGMTD, None, "--vrfwnetns")
             router.load_config(TopoRouter.RD_ZEBRA, None, "--vrfwnetns")
-            router.load_frr_config(os.path.join(CWD, "{}/frr-v6-vtep.conf".format(rname)))
+            router.load_frr_config(
+                os.path.join(CWD, "{}/frr-v6-vtep.conf".format(rname))
+            )
         else:
-            router.load_frr_config(os.path.join(CWD, "{}/frr-v6-vtep.conf".format(rname)))
+            router.load_frr_config(
+                os.path.join(CWD, "{}/frr-v6-vtep.conf".format(rname))
+            )
 
     # Initialize all routers.
     tgen.start_router()
