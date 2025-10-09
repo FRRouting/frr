@@ -1056,7 +1056,12 @@ int bgp_socket(struct bgp *bgp, unsigned short port, const char *address)
 
 		/* if we intend to implement ttl-security, this socket needs
 		 * ttl=255 */
-		sockopt_ttl(ainfo->ai_family, sock, MAXTTL);
+		ret = sockopt_ttl(ainfo->ai_family, sock, MAXTTL);
+		if (ret < 0) {
+			flog_err_sys(EC_LIB_SOCKET, "%s: Can't set TTL on socket %d err = %s",
+				     __func__, sock, safe_strerror(errno));
+			continue;
+		}
 
 		ret = bgp_listener(sock, ainfo->ai_addr, ainfo->ai_addrlen,
 				   bgp);
