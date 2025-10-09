@@ -18672,6 +18672,9 @@ DEFPY(bgp_retain_route_target, bgp_retain_route_target_cmd,
 	bool check;
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
 
+	if (!bgp)
+		return CMD_WARNING;
+
 	check = CHECK_FLAG(bgp->af_flags[bgp_node_afi(vty)][bgp_node_safi(vty)],
 			   BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL);
 	if (check != !no) {
