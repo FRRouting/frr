@@ -120,9 +120,12 @@ static int rip_zebra_read_route(ZAPI_CALLBACK_ARGS)
 		return -1;
 
 	memset(&nh, 0, sizeof(nh));
-	nh.type = api.nexthops[0].type;
-	nh.gate.ipv4 = api.nexthops[0].gate.ipv4;
-	nh.ifindex = api.nexthops[0].ifindex;
+
+	if (api.nexthop_num > 0) {
+		nh.type = api.nexthops[0].type;
+		nh.gate.ipv4 = api.nexthops[0].gate.ipv4;
+		nh.ifindex = api.nexthops[0].ifindex;
+	}
 
 	/* Then fetch IPv4 prefixes. */
 	if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD)
