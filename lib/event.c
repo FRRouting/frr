@@ -818,18 +818,6 @@ static int fd_poll(struct event_loop *m, const struct timeval *timer_wait,
 	unsigned char trash[64];
 	nfds_t count = m->handler.copycount;
 
-	/*
-	 * If timer_wait is null here, that means poll() should block
-	 * indefinitely, unless the event_master has overridden it by setting
-	 * ->selectpoll_timeout.
-	 *
-	 * If the value is positive, it specifies the maximum number of
-	 * milliseconds to wait. If the timeout is -1, it specifies that
-	 * we should never wait and always return immediately even if no
-	 * event is detected. If the value is zero, the behavior is default.
-	 */
-	int timeout = -1;
-
 	/* number of file descriptors with events */
 	int num;
 
@@ -867,18 +855,26 @@ static int fd_poll(struct event_loop *m, const struct timeval *timer_wait,
 	}
 
 #if defined(HAVE_PPOLL)
+	/* ppoll supports nanosecond timeout precision */
 	struct timespec ts, *tsp;
 
-	if (timeout >= 0) {
-		ts.tv_sec = timeout / 1000;
-		ts.tv_nsec = (timeout % 1000) * 1000000;
+	if (timer_wait != NULL) {
+		ts.tv_sec = timer_wait->tv_sec;
+		ts.tv_nsec = timer_wait->tv_usec * 1000; /* microseconds to nanoseconds */
 		tsp = &ts;
-	} else
-		tsp = NULL;
-
+	} else {
+		tsp = NULL; /* Block indefinitely, because there is no timer to wait for */
+	}
 	num = ppoll(m->handler.copy, count + 1, tsp, &origsigs);
 	pthread_sigmask(SIG_SETMASK, &origsigs, NULL);
 #else
+	/* poll supports millisecond timeout precision */
+	int timeout = -1;  /* -1 means block indefinitely */
+
+	if (timer_wait != NULL) {
+		timeout = (timer_wait->tv_sec * 1000)
+			  + (timer_wait->tv_usec / 1000);       /* microseconds to milliseconds */
+	}
 	/* Not ideal - there is a race after we restore the signal mask */
 	pthread_sigmask(SIG_SETMASK, &origsigs, NULL);
 	num = poll(m->handler.copy, count + 1, timeout);
