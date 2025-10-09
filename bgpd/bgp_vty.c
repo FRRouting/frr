@@ -12424,11 +12424,7 @@ static void bgp_show_failed_summary(struct vty *vty, struct bgp *bgp,
 				    peer->dropped);
 		peer_uptime(peer->uptime, timebuf, BGP_UPTIME_LEN,
 			    use_json, json_peer);
-		if (peer_established(peer->connection))
-			json_object_string_add(json_peer, "lastResetDueTo",
-					       peer_down_str[peer->last_reset]);
-		else
-			bgp_show_peer_reset(NULL, peer, json_peer, true);
+		bgp_show_peer_reset(NULL, peer, json_peer, true);
 	} else {
 		dn_flag[1] = '\0';
 		dn_flag[0] = peer_dynamic_neighbor(peer) ? '*' : '\0';
@@ -12447,11 +12443,7 @@ static void bgp_show_failed_summary(struct vty *vty, struct bgp *bgp,
 			peer->dropped,
 			peer_uptime(peer->uptime, timebuf,
 				    BGP_UPTIME_LEN, 0, NULL));
-		if (peer_established(peer->connection))
-			vty_out(vty, "  %s\n", peer_down_str[peer->last_reset]);
-		else
-			bgp_show_peer_reset(vty, peer, NULL,
-					    false);
+		bgp_show_peer_reset(vty, peer, NULL, false);
 	}
 }
 
@@ -16277,9 +16269,9 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint16_t sh_flags, bo
 	if (p->last_reset == PEER_DOWN_NONE) {
 		if (use_json)
 			json_object_string_add(json_neigh, "lastReset",
-					       "never");
+					       peer_down_str[PEER_DOWN_NONE]);
 		else
-			vty_out(vty, "  Last reset never\n");
+			vty_out(vty, "  Last reset %s\n", peer_down_str[PEER_DOWN_NONE]);
 	} else {
 		if (use_json) {
 			time_t uptime;

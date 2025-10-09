@@ -585,7 +585,7 @@ void bgp_delayopen_timer(struct event *thread)
 
 /* BGP Peer Down Cause */
 const char *const peer_down_str[] = {
-	"",
+	"never",
 	"Router ID changed",
 	"Remote AS changed",
 	"Local AS change",
