@@ -76,20 +76,19 @@ struct cmd_node ldp_pseudowire_node = {
 	.prompt = "%s(config-l2vpn-pw)# ",
 };
 
-int
-ldp_get_address(const char *str, int *af, union ldpd_addr *addr)
+int ldp_get_address(const char *str, int *af, union g_addr *addr)
 {
 	if (!str || !af || !addr)
 		return (-1);
 
 	memset(addr, 0, sizeof(*addr));
 
-	if (inet_pton(AF_INET, str, &addr->v4) == 1) {
+	if (inet_pton(AF_INET, str, &addr->ipv4) == 1) {
 		*af = AF_INET;
 		return (0);
 	}
 
-	if (inet_pton(AF_INET6, str, &addr->v6) == 1) {
+	if (inet_pton(AF_INET6, str, &addr->ipv6) == 1) {
 		*af = AF_INET6;
 		return (0);
 	}
@@ -842,7 +841,7 @@ int
 ldp_vty_neighbor_targeted(struct vty *vty, const char *negate, const char *addr_str)
 {
 	int			 af;
-	union ldpd_addr		 addr;
+	union g_addr addr;
 	struct tnbr		*tnbr;
 
 	af = ldp_vty_get_af(vty);
@@ -852,7 +851,7 @@ ldp_vty_neighbor_targeted(struct vty *vty, const char *negate, const char *addr_
 		vty_out (vty, "%% Malformed address\n");
 		return (CMD_WARNING_CONFIG_FAILED);
 	}
-	if (af == AF_INET6 && IN6_IS_SCOPE_EMBED(&addr.v6)) {
+	if (af == AF_INET6 && IN6_IS_SCOPE_EMBED(&addr.ipv6)) {
 		vty_out (vty, "%% Address can not be link-local\n");
 		return (CMD_WARNING_CONFIG_FAILED);
 	}
@@ -1437,7 +1436,7 @@ ldp_vty_l2vpn_pw_nbr_addr(struct vty *vty, const char *negate, const char *addr_
 {
 	VTY_DECLVAR_CONTEXT_SUB(l2vpn_pw, pw);
 	int			 af;
-	union ldpd_addr		 addr;
+	union g_addr addr;
 
 	if (ldp_get_address(addr_str, &af, &addr) == -1 ||
 	    bad_addr(af, &addr)) {
@@ -1508,169 +1507,4 @@ ldp_vty_l2vpn_pw_pwstatus(struct vty *vty, const char *negate)
 	ldp_config_apply(vty, vty_conf);
 
 	return (CMD_SUCCESS);
-}
-
-struct iface *
-iface_new_api(struct ldpd_conf *conf, const char *name)
-{
-	const char		*ifname = name;
-	struct iface		*iface;
-
-	if (ldp_iface_is_configured(conf, ifname))
-		return (NULL);
-
-	iface = if_new(name);
-	RB_INSERT(iface_head, &conf->iface_tree, iface);
-	QOBJ_REG(iface, iface);
-	return (iface);
-}
-
-void
-iface_del_api(struct ldpd_conf *conf, struct iface *iface)
-{
-	QOBJ_UNREG(iface);
-	RB_REMOVE(iface_head, &conf->iface_tree, iface);
-	free(iface);
-}
-
-struct tnbr *
-tnbr_new_api(struct ldpd_conf *conf, int af, union ldpd_addr *addr)
-{
-	struct tnbr		*tnbr;
-
-	if (af == AF_INET6 && IN6_IS_SCOPE_EMBED(&addr->v6))
-		return (NULL);
-
-	if (tnbr_find(conf, af, addr))
-		return (NULL);
-
-	tnbr = tnbr_new(af, addr);
-	tnbr->flags |= F_TNBR_CONFIGURED;
-	RB_INSERT(tnbr_head, &conf->tnbr_tree, tnbr);
-	QOBJ_REG(tnbr, tnbr);
-	return (tnbr);
-}
-
-void
-tnbr_del_api(struct ldpd_conf *conf, struct tnbr *tnbr)
-{
-	QOBJ_UNREG(tnbr);
-	RB_REMOVE(tnbr_head, &conf->tnbr_tree, tnbr);
-	free(tnbr);
-}
-
-struct nbr_params *
-nbrp_new_api(struct ldpd_conf *conf, struct in_addr lsr_id)
-{
-	struct nbr_params	*nbrp;
-
-	if (nbr_params_find(conf, lsr_id))
-		return (NULL);
-
-	nbrp = nbr_params_new(lsr_id);
-	RB_INSERT(nbrp_head, &conf->nbrp_tree, nbrp);
-	QOBJ_REG(nbrp, nbr_params);
-	return (nbrp);
-}
-
-void
-nbrp_del_api(struct ldpd_conf *conf, struct nbr_params *nbrp)
-{
-	QOBJ_UNREG(nbrp);
-	RB_REMOVE(nbrp_head, &conf->nbrp_tree, nbrp);
-	free(nbrp);
-}
-
-struct l2vpn *
-l2vpn_new_api(struct ldpd_conf *conf, const char *name)
-{
-	struct l2vpn		*l2vpn;
-
-	if (l2vpn_find(conf, name))
-		return (NULL);
-
-	l2vpn = l2vpn_new(name);
-	l2vpn->type = L2VPN_TYPE_VPLS;
-	RB_INSERT(l2vpn_head, &conf->l2vpn_tree, l2vpn);
-	QOBJ_REG(l2vpn, l2vpn);
-	return (l2vpn);
-}
-
-void
-l2vpn_del_api(struct ldpd_conf *conf, struct l2vpn *l2vpn)
-{
-	struct l2vpn_if		*lif;
-	struct l2vpn_pw		*pw;
-
-	while (!RB_EMPTY(l2vpn_if_head, &l2vpn->if_tree)) {
-		lif = RB_ROOT(l2vpn_if_head, &l2vpn->if_tree);
-
-		QOBJ_UNREG(lif);
-		RB_REMOVE(l2vpn_if_head, &l2vpn->if_tree, lif);
-		free(lif);
-	}
-	while (!RB_EMPTY(l2vpn_pw_head, &l2vpn->pw_tree)) {
-		pw = RB_ROOT(l2vpn_pw_head, &l2vpn->pw_tree);
-
-		QOBJ_UNREG(pw);
-		RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_tree, pw);
-		free(pw);
-	}
-	while (!RB_EMPTY(l2vpn_pw_head, &l2vpn->pw_inactive_tree)) {
-		pw = RB_ROOT(l2vpn_pw_head, &l2vpn->pw_inactive_tree);
-
-		QOBJ_UNREG(pw);
-		RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
-		free(pw);
-	}
-	QOBJ_UNREG(l2vpn);
-	RB_REMOVE(l2vpn_head, &conf->l2vpn_tree, l2vpn);
-	free(l2vpn);
-}
-
-struct l2vpn_if *
-l2vpn_if_new_api(struct ldpd_conf *conf, struct l2vpn *l2vpn,
-    const char *ifname)
-{
-	struct l2vpn_if		*lif;
-
-	if (ldp_iface_is_configured(conf, ifname))
-		return (NULL);
-
-	lif = l2vpn_if_new(l2vpn, ifname);
-	RB_INSERT(l2vpn_if_head, &l2vpn->if_tree, lif);
-	QOBJ_REG(lif, l2vpn_if);
-	return (lif);
-}
-
-void
-l2vpn_if_del_api(struct l2vpn *l2vpn, struct l2vpn_if *lif)
-{
-	QOBJ_UNREG(lif);
-	RB_REMOVE(l2vpn_if_head, &l2vpn->if_tree, lif);
-	free(lif);
-}
-
-struct l2vpn_pw *
-l2vpn_pw_new_api(struct ldpd_conf *conf, struct l2vpn *l2vpn,
-    const char *ifname)
-{
-	struct l2vpn_pw		*pw;
-
-	if (ldp_iface_is_configured(conf, ifname))
-		return (NULL);
-
-	pw = l2vpn_pw_new(l2vpn, ifname);
-	pw->flags = F_PW_STATUSTLV_CONF|F_PW_CWORD_CONF;
-	RB_INSERT(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
-	QOBJ_REG(pw, l2vpn_pw);
-	return (pw);
-}
-
-void
-l2vpn_pw_del_api(struct l2vpn *l2vpn, struct l2vpn_pw *pw)
-{
-	QOBJ_UNREG(pw);
-	RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
-	free(pw);
 }
