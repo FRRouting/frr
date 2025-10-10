@@ -545,6 +545,17 @@ void dplane_ctx_set_route_prefsrc(struct zebra_dplane_ctx *ctx,
 const struct ipaddr *dplane_ctx_get_route_gw(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_route_gw(struct zebra_dplane_ctx *ctx, const struct ipaddr *gw);
 
+int dplane_ctx_route_get_startup(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_route_set_startup(struct zebra_dplane_ctx *ctx, int startup);
+int dplane_ctx_route_get_rtnexthop_ifindex(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_route_set_rtnexthop_ifindex(struct zebra_dplane_ctx *ctx, int ifindex);
+bool dplane_ctx_route_get_is_multipath(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_route_set_is_multipath(struct zebra_dplane_ctx *ctx, bool is_multipath);
+struct nexthop_group *dplane_ctx_route_get_nexthop_group(struct zebra_dplane_ctx *ctx);
+void dplane_ctx_route_set_nexthop_group(struct zebra_dplane_ctx *ctx, struct nexthop_group *ng);
+struct nexthop *dplane_ctx_route_get_nexthop(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_route_set_nexthop(struct zebra_dplane_ctx *ctx, struct nexthop *nh);
+
 /* Accessors for traffic control context */
 int dplane_ctx_tc_qdisc_get_kind(const struct zebra_dplane_ctx *ctx);
 const char *

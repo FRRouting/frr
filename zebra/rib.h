@@ -398,6 +398,8 @@ extern int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		   uint32_t nhe_id, uint32_t table_id, uint32_t metric,
 		   uint32_t mtu, uint8_t distance, route_tag_t tag,
 		   bool startup);
+void rib_route_dplane_update(struct zebra_dplane_ctx *ctx);
+
 /*
  * Multipath route apis.
  */
