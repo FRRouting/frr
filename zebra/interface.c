@@ -1280,11 +1280,13 @@ static void zebra_if_addr_update_ctx(struct zebra_dplane_ctx *ctx,
 	}
 
 	/*
-	 * Linux kernel does not send route delete on interface down/addr del
+	 * Linux kernel does not send route delete on interface down/last addr del
 	 * so we have to re-process routes it owns (i.e. kernel routes)
+	 * See rib_update_handle_kernel_route_down_possibility for more details
 	 */
-	if (op != DPLANE_OP_INTF_ADDR_ADD)
-		rib_update(RIB_UPDATE_KERNEL);
+	if (op != DPLANE_OP_INTF_ADDR_ADD && addr->family == AF_INET &&
+	    !if_has_connected_with_family(ifp, AF_INET))
+		rib_update(RIB_UPDATE_KERNEL_LAST_ADDRESS_DELETED);
 }
 
 static void zebra_if_update_ctx(struct zebra_dplane_ctx *ctx,
