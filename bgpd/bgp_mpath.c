@@ -685,12 +685,24 @@ void bgp_path_info_mpath_aggregate_update(struct bgp_path_info *new_best,
 
 		attr.aspath = aspath;
 		attr.origin = origin;
-		if (community)
+		if (community) {
+			struct community *old_comm = bgp_attr_get_community(&attr);
+			if (old_comm && !old_comm->refcnt)
+				community_free(&old_comm);
 			bgp_attr_set_community(&attr, community);
-		if (ecomm)
+		}
+		if (ecomm) {
+			struct ecommunity *old_ecom = bgp_attr_get_ecommunity(&attr);
+			if (old_ecom && !old_ecom->refcnt)
+				ecommunity_free(&old_ecom);
 			bgp_attr_set_ecommunity(&attr, ecomm);
-		if (lcomm)
+		}
+		if (lcomm) {
+			struct lcommunity *old_lcomm = bgp_attr_get_lcommunity(&attr);
+			if (old_lcomm && !old_lcomm->refcnt)
+				lcommunity_free(&old_lcomm);
 			bgp_attr_set_lcommunity(&attr, lcomm);
+		}
 
 		/* Zap multipath attr nexthop so we set nexthop to self */
 		attr.nexthop.s_addr = INADDR_ANY;
