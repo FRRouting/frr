@@ -99,6 +99,27 @@ def test_bgp_nhc():
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=2)
     assert result is None, "Can't see NHC attributes as expected"
 
+    def check_weighted_ecmp_with_nnhn():
+        output = json.loads(r1.vtysh_cmd("show ip route 10.0.0.1/32 json"))
+        expected = {
+            "10.0.0.1/32": [
+                {
+                    "nexthops": [
+                        {"ip": "10.255.16.6", "weight": 170},
+                        {"ip": "10.255.0.2", "weight": 255},
+                    ]
+                }
+            ]
+        }
+
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(
+        check_weighted_ecmp_with_nnhn,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=2)
+    assert result is None, "Can't see weighted ECMP with NNHN as expected"
+
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]

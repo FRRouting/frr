@@ -38,6 +38,7 @@
 #include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_nht.h"
+#include "bgpd/bgp_nhc.h"
 #include "bgpd/bgp_bfd.h"
 #include "bgpd/bgp_label.h"
 #ifdef ENABLE_BGP_VNC
@@ -1243,7 +1244,7 @@ static void bgp_zebra_announce_parse_nexthop(
 	mpls_label_t nh_label;
 	int nh_othervrf = 0;
 	bool nh_updated = false;
-	bool do_wt_ecmp;
+	enum bgp_wecmp_behavior do_wt_ecmp = BGP_WECMP_BEHAVIOR_NONE;
 	uint32_t ttl = 0;
 	uint32_t bos = 0;
 	uint32_t exp = 0;
@@ -1293,7 +1294,7 @@ static void bgp_zebra_announce_parse_nexthop(
 		 * weight. Based on user setting, we may skip the next hop
 		 * in some situations.
 		 */
-		if (do_wt_ecmp) {
+		if (do_wt_ecmp == BGP_WECMP_BEHAVIOR_LINK_BW) {
 			/* Extended communities are exported/imported correctly
 			 * between VRFs, but we need to extract the actual link-bandwidth
 			 * value from the extended communities.
@@ -1308,6 +1309,9 @@ static void bgp_zebra_announce_parse_nexthop(
 			if (!bgp_zebra_use_nhop_weighted(bgp, mpinfo->attr,
 							 &nh_weight))
 				continue;
+		} else if (do_wt_ecmp == BGP_WECMP_BEHAVIOR_NNHN_COUNT) {
+			if (CHECK_FLAG(mpinfo->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NHC)))
+				nh_weight = bgp_nhc_nnhn_count(bgp_attr_get_nhc(mpinfo->attr));
 		}
 		api_nh = &api->nexthops[*valid_nh_count];
 
