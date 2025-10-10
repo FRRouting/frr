@@ -1982,7 +1982,11 @@ Configuring Peers
    are utilized. This capability standardizes the operation of BGP over a
    point-to-point links using link-local IPv6 addressing only.
 
-   Enabled by default for the ``datacenter`` profile.
+   If this capability is enabled, only link-local IPv6 address will be sent as
+   next-hop (16-bytes) to the neighbor instead of global and link-local addresses
+   (32-bytes).
+
+   Disabled by default.
 
 .. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> accept-own
 
