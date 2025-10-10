@@ -10,7 +10,7 @@
                 "origin": "IGP",
                 "peer_asn": 65501,
                 "peer_bgp_id": "192.168.0.1",
-                "peer_distinguisher": "666:22",
+                "peer_distinguisher": "444:1",
                 "peer_type": "loc-rib instance",
                 "policy": "loc-rib"
             },
@@ -24,7 +24,7 @@
                 "origin": "IGP",
                 "peer_asn": 65501,
                 "peer_bgp_id": "192.168.0.1",
-                "peer_distinguisher": "666:22",
+                "peer_distinguisher": "555:1",
                 "peer_type": "loc-rib instance",
                 "policy": "loc-rib",
                 "safi": 1

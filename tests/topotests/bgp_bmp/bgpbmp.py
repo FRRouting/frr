@@ -4,10 +4,23 @@
 # Copyright 2023, 6wind
 import json
 import os
+from functools import partial, reduce
 
 from lib import topotest
+from lib.bgp import bgp_configure_prefixes
 from lib.topogen import get_topogen
 from lib.topolog import logger
+
+# BMP type message
+BMP_UPDATE = "update"
+BMP_WITHDRAW = "withdraw"
+ADJ_IN_PRE_POLICY = "rib-in-pre-policy"
+ADJ_IN_POST_POLICY = "rib-in-post-policy"
+ADJ_OUT_PRE_POLICY = "rib-out-pre-policy"
+ADJ_OUT_POST_POLICY = "rib-out-post-policy"
+LOC_RIB = "loc-rib"
+
+UPDATE_EXPECTED_JSON = False
 
 
 class BMPSequenceContext:
@@ -72,15 +85,14 @@ def get_bmp_messages(bmp_collector, bmp_log_file):
     Read the BMP logging messages.
     """
     messages = []
-    text_output = bmp_collector.run(f"cat {bmp_log_file}")
 
-    for m in text_output.splitlines():
-        # some output in the bash can break the message decoding
-        try:
-            messages.append(json.loads(m))
-        except Exception as e:
-            logger.warning(str(e) + " message: {}".format(str(m)))
-            continue
+    with open(bmp_log_file, "r") as f:
+        for m in f:
+            try:
+                messages.append(json.loads(m.strip()))
+            except Exception as e:
+                logger.warning(str(e) + " message: {}".format(str(m)))
+                continue
 
     if not messages:
         logger.error("Bad BMP log format, check your BMP server")
@@ -245,6 +257,97 @@ def bmp_check_for_prefixes(
     return topotest.json_cmp(actual, expected, exact=True)
 
 
+def bmp_check_for_addpath(
+    prefixes,
+    policy,
+    bmp_collector,
+    bmp_log_file,
+    nexthops,
+    peer_bgp_id,
+    seq_context,
+    id_per_prefix=True,
+    m_type="update",
+    safi=None,
+):
+    """
+    For each prefix in the prefix list, check its addpath id.
+    In rx case, peer can receive the same addpath rx id for multiple prefixes,
+    while in loc-rib and tx case, one addpath id is allocated for one prefix.
+    Use id_per_prefix to distinguish these cases.
+    """
+
+    messages = [
+        m
+        for m in sorted(
+            get_bmp_messages(bmp_collector, bmp_log_file), key=lambda d: d["seq"]
+        )
+        if m["seq"] > seq_context.get_seq()
+    ]
+    addpath_set = {4: set(), 6: set()}
+
+    for i in range(len(prefixes)):
+        addpath_ids = addpath_set[4]
+        prefix = prefixes[i]
+        p_messages = list(
+            filter(
+                lambda m: m.get("ip_prefix") == prefix
+                and m["policy"] == policy
+                and m["bmp_log_type"] == m_type,
+                messages,
+            )
+        )
+
+        if peer_bgp_id:
+            p_messages = list(
+                filter(lambda m: m["peer_bgp_id"] == peer_bgp_id, p_messages)
+            )
+
+        if safi:
+            p_messages = list(filter(lambda m: m.get("safi") == safi, p_messages))
+
+        if not p_messages:
+            return "No bmp log for %s" % prefix
+
+        nexthop_key = "bgp_nexthop"
+        # nexthop key is diffrent for MP_REACH_NLRI
+        if ":" in prefix or safi:
+            addpath_ids = addpath_set[6]
+            nexthop_key = "nxhp_ip"
+
+        if m_type == "withdraw":
+            for m in p_messages:
+                addpath_ids.add(m["path_id"])
+
+            continue
+
+        t_nexthop = nexthops[i]
+        for nexthop in t_nexthop:
+            m_nexthop = list(
+                filter(lambda m: m.get(nexthop_key) == nexthop, p_messages)
+            )
+            if not m_nexthop:
+                return "prefix %s does not have %s as nexthop" % (prefix, nexthop)
+
+            m_nexthop = reduce(
+                lambda m1, m2: m1 if m1["seq"] > m2["seq"] else m2, m_nexthop
+            )
+            if m_nexthop.get("path_id", 0) == 0:
+                return "prefix %s, nexthop %s have a null addpath tx id" % (
+                    prefix,
+                    nexthop,
+                )
+
+            if m_nexthop["path_id"] in addpath_ids and id_per_prefix:
+                return "same addpath id %d for prefix %s " % (
+                    m_nexthop["path_id"],
+                    prefix,
+                )
+
+            addpath_ids.add(m_nexthop["path_id"])
+
+    return addpath_set
+
+
 def bmp_check_for_peer_message(
     expected_peers,
     bmp_log_type,
@@ -334,3 +437,80 @@ def bmp_check_for_peer_message(
         "bmp_check_for_peer_message: SEQ is now: {}".format(seq_context.get_seq())
     )
     return True
+
+
+def _test_prefixes(
+    policy,
+    prefixes,
+    r_conf,
+    r_check,
+    bmp,
+    cur_dir,
+    bmp_seq_context,
+    vrf_conf=None,
+    vrf_check=None,
+    asn=65002,
+    safi="unicast",
+    step=0,
+):
+    """
+    Setup the BMP  monitor policy, Add and withdraw ipv4/v6 prefixes.
+    Check if the previous actions are logged in the BMP server with the right
+    message type and the right policy.
+    """
+    tgen = get_topogen()
+
+    vrf = f"vrf {vrf_check}" if vrf_check else ""
+
+    for type in (BMP_UPDATE, BMP_WITHDRAW):
+        bmp_update_seq(
+            tgen.gears[bmp], os.path.join(tgen.logdir, bmp, "bmp.log"), bmp_seq_context
+        )
+
+        bgp_configure_prefixes(
+            tgen.gears[r_conf],
+            asn,
+            "unicast",
+            prefixes,
+            vrf=vrf_conf,
+            update=(type == BMP_UPDATE),
+        )
+
+        logger.info(f"checking for prefixes %s {type}" % prefixes)
+
+        for ipver in [4, 6]:
+            if UPDATE_EXPECTED_JSON:
+                continue
+            ref_file = "{}/{}/show-bgp-ipv{}-{}-step{}.json".format(
+                cur_dir, r_check, ipver, type, step
+            )
+            expected = json.loads(open(ref_file).read())
+
+            logger.debug(f"checking ipv{ipver} {policy} {type}s for step={step}")
+            test_func = partial(
+                topotest.router_json_cmp,
+                tgen.gears[r_check],
+                f"show bgp {vrf} ipv{ipver} {safi} json",
+                expected,
+            )
+            _, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
+            assertmsg = f"{r_check}: BGP IPv{ipver} convergence failed"
+            assert res is None, assertmsg
+
+        # check
+        test_func = partial(
+            bmp_check_for_prefixes,
+            prefixes,
+            type,
+            policy,
+            step,
+            tgen.gears[bmp],
+            os.path.join(tgen.logdir, bmp),
+            tgen.gears[r_check],
+            f"{cur_dir}/{bmp}",
+            UPDATE_EXPECTED_JSON,
+            LOC_RIB,
+            bmp_seq_context,
+        )
+        success, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
+        assert success, "Checking the updated prefixes has failed ! %s" % res
