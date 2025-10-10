@@ -705,26 +705,37 @@ static bool srv6_sid_compose(struct in6_addr *sid_value,
 	uint8_t offset = 0;
 	uint8_t func_len = 0, shift_len = 0;
 	uint32_t sid_func_max = 0;
+	bool store_in_label = true;
 
 	if (!locator || !sid_value)
 		return false;
 
-	if (locator->function_bits_length >
-	    BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH) {
+	if (locator->function_bits_length > BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_BGP) {
 		if (debug)
 			zlog_debug("%s: invalid SRv6 Locator (%pFX): Function Length must be less or equal to %d",
 				   __func__, &locator->prefix,
-				   BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH);
+				   BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL);
 		return false;
 	}
 
 	/* Max value that can be encoded in the Function part of the SID */
-	sid_func_max = (1 << locator->function_bits_length) - 1;
+	if ((CHECK_FLAG(locator->flags, SRV6_LOCATOR_F3216) ||
+	     CHECK_FLAG(locator->flags, SRV6_LOCATOR_F4816)) &&
+	    sid_func > 0xFFFF) {
+		/* f3216 and f4816 supports ewlib. increase sid_func_max */
+		sid_func_max = 0xffffffff;
+		store_in_label = false;
+	} else if (locator->function_bits_length == BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_BGP)
+		/* shifting 32 bits over a 32 bit is not possible. directly encode func_max */
+		sid_func_max = 0xffffffff;
+	else
+		sid_func_max = (1 << locator->function_bits_length) - 1;
+
 
 	if (sid_func > sid_func_max) {
 		if (debug)
-			zlog_debug("%s: invalid SRv6 Locator (%pFX): Function Length is too short to support specified function (%u)",
-				   __func__, &locator->prefix, sid_func);
+			zlog_debug("%s: invalid SRv6 Locator (%pFX): Function Length is too short (%u) to support specified function (%u)",
+				   __func__, &locator->prefix, sid_func_max, sid_func);
 		return false;
 	}
 
@@ -736,37 +747,45 @@ static bool srv6_sid_compose(struct in6_addr *sid_value,
 	/* First, we put the locator (LOC) in the most significant bits of sid_value */
 	*sid_value = locator->prefix.prefix;
 
-	/*
-	 * Then, we compute the offset at which we have to place the function (FUNC).
-	 * FUNC will be placed immediately after LOC, i.e. at block_bits_length + node_bits_length
-	 */
-	offset = locator->block_bits_length + locator->node_bits_length;
-
-	/*
-	 * The FUNC part of the SID is advertised in the label field of SRv6 Service TLV.
-	 * (see SID Transposition Scheme, RFC 9252 section #4).
-	 * Therefore, we need to encode the FUNC in the most significant bits of the
-	 * 20-bit label.
-	 */
-	func_len = locator->function_bits_length;
-	shift_len = BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH - func_len;
-
-	label = sid_func << shift_len;
-	if (label < MPLS_LABEL_UNRESERVED_MIN) {
-		if (debug)
-			zlog_debug("%s: skipped to allocate SRv6 SID (%pFX): Label (%u) is too small to use",
-				   __func__, &locator->prefix, label);
-		return false;
-	}
-
 	if (sid_exist(bgp_get_default(), sid_value)) {
 		zlog_warn("%s: skipped to allocate SRv6 SID (%pFX): SID %pI6 already in use",
 			  __func__, &locator->prefix, sid_value);
 		return false;
 	}
 
-	/* Finally, we put the FUNC in sid_value at the computed offset */
-	transpose_sid(sid_value, label, offset, func_len);
+	/*
+	 * Then, we compute the offset at which we have to place the function (FUNC).
+	 * FUNC will be placed immediately after LOC, i.e. at block_bits_length + node_bits_length
+	 */
+	offset = locator->block_bits_length + locator->node_bits_length;
+
+	if (store_in_label)
+		func_len = locator->function_bits_length;
+	else
+		func_len = BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_BGP;
+	if (store_in_label && func_len <= BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL) {
+		/*
+		 * The FUNC part of the SID is advertised in the label field of SRv6 Service TLV.
+		 * (see SID Transposition Scheme, RFC 9252 section #4).
+		 * Therefore, we need to encode the FUNC in the most significant bits of the
+		 * 20-bit label.
+		 */
+		shift_len = BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL - func_len;
+		label = sid_func << shift_len;
+		if (label < MPLS_LABEL_UNRESERVED_MIN) {
+			if (debug)
+				zlog_debug("%s: skipped to allocate SRv6 SID (%pFX): Label (%u) is too small to use",
+					   __func__, &locator->prefix, label);
+			return false;
+		}
+		/* Finally, we put the FUNC in sid_value at the computed offset */
+		transpose_sid(sid_value, label, offset, func_len,
+			      BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL);
+	} else {
+		label = sid_func;
+		transpose_sid(sid_value, label, offset, func_len,
+			      BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_BGP);
+	}
 
 	return true;
 }
@@ -1089,13 +1108,13 @@ void delete_vrf_tovpn_sid(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi)
  *                    |
  *                 offset from MSB
  */
-void transpose_sid(struct in6_addr *sid, uint32_t label, uint8_t offset,
-		   uint8_t len)
+void transpose_sid(struct in6_addr *sid, uint32_t label, uint8_t offset, uint8_t len,
+		   uint8_t len_max)
 {
 	for (uint8_t idx = 0; idx < len; idx++) {
 		uint8_t tidx = offset + idx;
 		sid->s6_addr[tidx / 8] &= ~(0x1 << (7 - tidx % 8));
-		if (label >> (19 - idx) & 0x1)
+		if (label >> (len_max - 1 - idx) & 0x1)
 			sid->s6_addr[tidx / 8] |= 0x1 << (7 - tidx % 8);
 	}
 }
@@ -1722,7 +1741,7 @@ static bool vpn_leak_from_vrf_fill_srv6(struct attr *attr, struct bgp *from_bgp,
 					mpls_label_t *label)
 {
 	/* Set SID for SRv6 VPN */
-	if (from_bgp->vpn_policy[afi].tovpn_sid_locator) {
+	if (from_bgp->vpn_policy[afi].tovpn_sid_locator && from_bgp->vpn_policy[afi].tovpn_sid) {
 		struct srv6_locator *locator = from_bgp->vpn_policy[afi].tovpn_sid_locator;
 
 		encode_label(from_bgp->vpn_policy[afi].tovpn_sid_transpose_label, label);
@@ -1744,18 +1763,23 @@ static bool vpn_leak_from_vrf_fill_srv6(struct attr *attr, struct bgp *from_bgp,
 			from_bgp->vpn_policy[afi].tovpn_sid_locator->function_bits_length;
 		attr->srv6_l3vpn->arg_len =
 			from_bgp->vpn_policy[afi].tovpn_sid_locator->argument_bits_length;
-		attr->srv6_l3vpn->transposition_len =
-			from_bgp->vpn_policy[afi].tovpn_sid_locator->function_bits_length;
-		attr->srv6_l3vpn->transposition_offset =
-			from_bgp->vpn_policy[afi].tovpn_sid_locator->block_bits_length +
-			from_bgp->vpn_policy[afi].tovpn_sid_locator->node_bits_length;
-		;
-		memcpy(&attr->srv6_l3vpn->sid,
-		       &from_bgp->vpn_policy[afi].tovpn_sid_locator->prefix.prefix,
-		       sizeof(struct in6_addr));
+		if (from_bgp->vpn_policy[afi].tovpn_sid_locator->function_bits_length >
+		    BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL) {
+			attr->srv6_l3vpn->transposition_len = 0;
+			attr->srv6_l3vpn->transposition_offset = 0;
+			IPV6_ADDR_COPY(&attr->srv6_l3vpn->sid, from_bgp->vpn_policy[afi].tovpn_sid);
+		} else {
+			attr->srv6_l3vpn->transposition_len =
+				from_bgp->vpn_policy[afi].tovpn_sid_locator->function_bits_length;
+			attr->srv6_l3vpn->transposition_offset =
+				from_bgp->vpn_policy[afi].tovpn_sid_locator->block_bits_length +
+				from_bgp->vpn_policy[afi].tovpn_sid_locator->node_bits_length;
+			IPV6_ADDR_COPY(&attr->srv6_l3vpn->sid,
+				       &from_bgp->vpn_policy[afi].tovpn_sid_locator->prefix.prefix);
+		}
 		return true;
 	}
-	if (from_bgp->tovpn_sid_locator) {
+	if (from_bgp->tovpn_sid_locator && from_bgp->tovpn_sid) {
 		struct srv6_locator *locator = from_bgp->tovpn_sid_locator;
 
 		encode_label(from_bgp->tovpn_sid_transpose_label, label);
@@ -1769,13 +1793,20 @@ static bool vpn_leak_from_vrf_fill_srv6(struct attr *attr, struct bgp *from_bgp,
 		attr->srv6_l3vpn->loc_node_len = from_bgp->tovpn_sid_locator->node_bits_length;
 		attr->srv6_l3vpn->func_len = from_bgp->tovpn_sid_locator->function_bits_length;
 		attr->srv6_l3vpn->arg_len = from_bgp->tovpn_sid_locator->argument_bits_length;
-		attr->srv6_l3vpn->transposition_len =
-			from_bgp->tovpn_sid_locator->function_bits_length;
-		attr->srv6_l3vpn->transposition_offset =
-			from_bgp->tovpn_sid_locator->block_bits_length +
-			from_bgp->tovpn_sid_locator->node_bits_length;
-		memcpy(&attr->srv6_l3vpn->sid, &from_bgp->tovpn_sid_locator->prefix.prefix,
-		       sizeof(struct in6_addr));
+		if (from_bgp->tovpn_sid_locator->function_bits_length >
+		    BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH_FOR_LABEL) {
+			attr->srv6_l3vpn->transposition_len = 0;
+			attr->srv6_l3vpn->transposition_offset = 0;
+			IPV6_ADDR_COPY(&attr->srv6_l3vpn->sid, from_bgp->tovpn_sid);
+		} else {
+			attr->srv6_l3vpn->transposition_len =
+				from_bgp->tovpn_sid_locator->function_bits_length;
+			attr->srv6_l3vpn->transposition_offset =
+				from_bgp->tovpn_sid_locator->block_bits_length +
+				from_bgp->tovpn_sid_locator->node_bits_length;
+			IPV6_ADDR_COPY(&attr->srv6_l3vpn->sid,
+				       &from_bgp->tovpn_sid_locator->prefix.prefix);
+		}
 		return true;
 	}
 	return false;

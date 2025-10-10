@@ -741,19 +741,18 @@ static void *srv6_l3vpn_hash_alloc(void *p)
 	return p;
 }
 
-static void srv6_l3vpn_free(struct bgp_attr_srv6_l3vpn *l3vpn)
+void bgp_attr_srv6_l3vpn_free(struct bgp_attr_srv6_l3vpn *l3vpn)
 {
 	XFREE(MTYPE_BGP_SRV6_L3VPN, l3vpn);
 }
 
-static struct bgp_attr_srv6_l3vpn *
-srv6_l3vpn_intern(struct bgp_attr_srv6_l3vpn *l3vpn)
+struct bgp_attr_srv6_l3vpn *bgp_attr_srv6_l3vpn_intern(struct bgp_attr_srv6_l3vpn *l3vpn)
 {
 	struct bgp_attr_srv6_l3vpn *find;
 
 	find = hash_get(srv6_l3vpn_hash, l3vpn, srv6_l3vpn_hash_alloc);
 	if (find != l3vpn)
-		srv6_l3vpn_free(l3vpn);
+		bgp_attr_srv6_l3vpn_free(l3vpn);
 	find->refcnt++;
 	return find;
 }
@@ -770,7 +769,7 @@ static void srv6_l3vpn_unintern(struct bgp_attr_srv6_l3vpn **l3vpnp)
 
 	if (l3vpn->refcnt == 0) {
 		hash_release(srv6_l3vpn_hash, l3vpn);
-		srv6_l3vpn_free(l3vpn);
+		bgp_attr_srv6_l3vpn_free(l3vpn);
 		*l3vpnp = NULL;
 	}
 }
@@ -893,8 +892,7 @@ static void srv6_init(void)
 
 static void srv6_finish(void)
 {
-	hash_clean_and_free(&srv6_l3vpn_hash,
-			    (void (*)(void *))srv6_l3vpn_free);
+	hash_clean_and_free(&srv6_l3vpn_hash, (void (*)(void *))bgp_attr_srv6_l3vpn_free);
 	hash_clean_and_free(&srv6_vpn_hash, (void (*)(void *))srv6_vpn_free);
 }
 
@@ -1256,7 +1254,7 @@ struct attr *bgp_attr_intern(struct attr *attr)
 
 	if (attr->srv6_l3vpn) {
 		if (!attr->srv6_l3vpn->refcnt)
-			attr->srv6_l3vpn = srv6_l3vpn_intern(attr->srv6_l3vpn);
+			attr->srv6_l3vpn = bgp_attr_srv6_l3vpn_intern(attr->srv6_l3vpn);
 		else
 			attr->srv6_l3vpn->refcnt++;
 	}
@@ -1578,7 +1576,7 @@ void bgp_attr_flush(struct attr *attr)
 		attr->encap_subtlvs = NULL;
 	}
 	if (attr->srv6_l3vpn && !attr->srv6_l3vpn->refcnt) {
-		srv6_l3vpn_free(attr->srv6_l3vpn);
+		bgp_attr_srv6_l3vpn_free(attr->srv6_l3vpn);
 		attr->srv6_l3vpn = NULL;
 	}
 	if (attr->srv6_vpn && !attr->srv6_vpn->refcnt) {
@@ -3271,7 +3269,7 @@ bgp_attr_srv6_service(struct bgp_attr_parser_args *args)
 				return err;
 		}
 
-		attr->srv6_l3vpn = srv6_l3vpn_intern(attr->srv6_l3vpn);
+		attr->srv6_l3vpn = bgp_attr_srv6_l3vpn_intern(attr->srv6_l3vpn);
 	}
 
 	/* Placeholder code for unsupported type */
