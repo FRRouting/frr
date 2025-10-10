@@ -6133,15 +6133,16 @@ void bgp_evpn_encode_prefix(struct stream *s, const struct prefix *p,
 
 	case BGP_EVPN_IMET_ROUTE: {
 		uint8_t orig_ip_bits = 0;
+		/* RFC-7432 IMET NLRI 13 = RD (8) + Ethtag (4) + IP length (1) */
 		uint8_t total_bytes = 13; /* Fixed part excluding Originator IP */
 
 		/* If Originator IP, add bytes to sizes */
 		if (IS_IPADDR_V4(&evp->prefix.imet_addr.ip)) {
 			orig_ip_bits = IPV4_MAX_BITLEN;
-			total_bytes += 4; /* V4 Originator IP */
+			total_bytes += IPV4_MAX_BYTELEN; /* V4 Originator IP */
 		} else if (IS_IPADDR_V6(&evp->prefix.imet_addr.ip)) {
 			orig_ip_bits = IPV6_MAX_BITLEN;
-			total_bytes += 16; /* V6 Originator IP */
+			total_bytes += IPV6_MAX_BYTELEN; /* V6 Originator IP */
 		}
 
 		stream_putc(s, total_bytes);
@@ -6151,7 +6152,9 @@ void bgp_evpn_encode_prefix(struct stream *s, const struct prefix *p,
 		stream_putc(s, orig_ip_bits); /* Originator IP address Length - bits */
 		if (orig_ip_bits)
 			stream_put(s, &evp->prefix.imet_addr.ip.ip, orig_ip_bits / 8);
-	} break;
+
+		break;
+	}
 
 	case BGP_EVPN_ES_ROUTE:
 		stream_putc(s, 23); /* TODO: length: assumes ipv4 VTEP */
