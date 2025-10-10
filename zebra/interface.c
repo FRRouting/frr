@@ -3721,7 +3721,7 @@ int if_multicast_unset(struct interface *ifp)
 	return 0;
 }
 
-int if_linkdetect(struct interface *ifp, bool detect)
+void if_linkdetect(struct interface *ifp, bool detect)
 {
 	int if_was_operative;
 
@@ -3741,7 +3741,6 @@ int if_linkdetect(struct interface *ifp, bool detect)
 	}
 	/* FIXME: Will defer status change forwarding if interface
 	   does not come down! */
-	return 0;
 }
 
 int if_shutdown(struct interface *ifp)
