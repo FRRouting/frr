@@ -64,7 +64,7 @@ l2vpn_new(const char *name)
 	struct l2vpn *l2vpn;
 
 	if ((l2vpn = calloc(1, sizeof(*l2vpn))) == NULL)
-		fatal("l2vpn_new: calloc");
+		assert(!"l2vpn_new: calloc");
 
 	strlcpy(l2vpn->name, name, sizeof(l2vpn->name));
 
@@ -123,7 +123,7 @@ l2vpn_pw_new(struct l2vpn *l2vpn, const char *ifname)
 	struct l2vpn_pw *pw;
 
 	if ((pw = calloc(1, sizeof(*pw))) == NULL)
-		fatal("l2vpn_pw_new: calloc");
+		assert(!"l2vpn_pw_new: calloc");
 
 	pw->l2vpn = l2vpn;
 	strlcpy(pw->ifname, ifname, sizeof(pw->ifname));
@@ -137,7 +137,7 @@ l2vpn_if_new(struct l2vpn *l2vpn, const char *ifname)
 	struct l2vpn_if *lif;
 
 	if ((lif = calloc(1, sizeof(*lif))) == NULL)
-		fatal("l2vpn_if_new: calloc");
+		assert(!"l2vpn_if_new: calloc");
 
 	lif->l2vpn = l2vpn;
 	strlcpy(lif->ifname, ifname, sizeof(lif->ifname));
