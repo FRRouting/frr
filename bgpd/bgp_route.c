@@ -10594,13 +10594,11 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 		switch (af) {
 		case AF_INET:
 			snprintf(nexthop, sizeof(nexthop), "%s",
-				 inet_ntop(af, &attr->mp_nexthop_global_in, buf,
-					   BUFSIZ));
+				 inet_ntop(af, &attr->mp_nexthop_global_in, buf, BUFSIZ));
 			break;
 		case AF_INET6:
 			snprintf(nexthop, sizeof(nexthop), "%s",
-				 inet_ntop(af, &attr->mp_nexthop_global, buf,
-					   BUFSIZ));
+				 inet_ntop(af, &attr->mp_nexthop_global, buf, BUFSIZ));
 			break;
 		default:
 			snprintf(nexthop, sizeof(nexthop), "?");
@@ -10622,13 +10620,10 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 						     "used");
 		} else {
 			if (nexthop_hostname)
-				len = vty_out(vty, "%s(%s)%s",
-					      nexthop,
-					      nexthop_hostname, vrf_id_str);
-			else
-				len = vty_out(vty, "%s%s",
-					      nexthop,
+				len = vty_out(vty, "%s(%s)%s", nexthop, nexthop_hostname,
 					      vrf_id_str);
+			else
+				len = vty_out(vty, "%s%s", nexthop, vrf_id_str);
 
 			len = wide ? (41 - len) : (16 - len);
 			if (len < 1)
