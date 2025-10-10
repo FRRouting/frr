@@ -3160,6 +3160,12 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 			else if (afi == AFI_IP6)
 				req->nhm.nh_family = AF_INET6;
 
+			if (!nh) {
+				flog_err(EC_ZEBRA_NHG_FIB_UPDATE,
+					 "Context received for kernel nexthop update with null nexthop");
+				return -1;
+			}
+
 			switch (nh->type) {
 			case NEXTHOP_TYPE_IPV4:
 			case NEXTHOP_TYPE_IPV4_IFINDEX:

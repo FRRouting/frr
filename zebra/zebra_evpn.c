@@ -1544,6 +1544,12 @@ void zebra_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr,
 		return;
 	}
 
+	if (!macaddr) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("NULL MAC address provided for remote MACIP DEL VNI %u", vni);
+		return;
+	}
+
 	mac = zebra_evpn_mac_lookup(zevpn, macaddr);
 	if (ipa_len)
 		n = zebra_evpn_neigh_lookup(zevpn, ipaddr);
