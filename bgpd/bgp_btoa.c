@@ -89,8 +89,12 @@ static void attr_parse(struct stream *s, uint16_t len)
 
 			aspath = aspath_parse(s, length, 1,
 					      bgp_get_asnotation(NULL));
-			printf("ASPATH: %s\n", aspath->str);
-			aspath_free(aspath);
+			if (aspath) {
+				printf("ASPATH: %s\n", aspath->str);
+				aspath_free(aspath);
+			} else {
+				printf("ASPATH: malformed\n");
+			}
 		} break;
 		case BGP_ATTR_NEXT_HOP: {
 			struct in_addr nexthop;

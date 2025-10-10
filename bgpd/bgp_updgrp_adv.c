@@ -864,14 +864,20 @@ void subgroup_announce_route(struct update_subgroup *subgrp)
 	    && SUBGRP_SAFI(subgrp) != SAFI_ENCAP
 	    && SUBGRP_SAFI(subgrp) != SAFI_EVPN)
 		subgroup_announce_table(subgrp, NULL);
-	else
-		for (dest = bgp_table_top(update_subgroup_rib(subgrp)); dest;
+	else {
+		struct bgp_table *rib = update_subgroup_rib(subgrp);
+
+		if (!rib)
+			return;
+
+		for (dest = bgp_table_top(rib); dest;
 		     dest = bgp_route_next(dest)) {
 			table = bgp_dest_get_bgp_table_info(dest);
 			if (!table)
 				continue;
 			subgroup_announce_table(subgrp, table);
 		}
+	}
 }
 
 void subgroup_default_originate(struct update_subgroup *subgrp, bool withdraw)

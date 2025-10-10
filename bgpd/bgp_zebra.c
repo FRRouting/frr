@@ -3487,6 +3487,11 @@ static int bgp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 	s = zclient->ibuf;
 	zapi_srv6_locator_chunk_decode(s, chunk);
 
+	if (!bgp) {
+		srv6_locator_chunk_free(&chunk);
+		return 0;
+	}
+
 	if (strcmp(bgp->srv6_locator_name, chunk->locator_name) != 0) {
 		zlog_err("%s: Locator name unmatch %s:%s", __func__,
 			 bgp->srv6_locator_name, chunk->locator_name);

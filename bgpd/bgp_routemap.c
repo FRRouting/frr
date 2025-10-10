@@ -2724,7 +2724,7 @@ route_set_aspath_replace(void *rule, const struct prefix *dummy, void *object)
 		path->attr->aspath = aspath_replace_regex_asn(aspath_new,
 							      aspath_acl,
 							      configured_asn);
-	} else if (strmatch(replace, "any")) {
+	} else if (replace && strmatch(replace, "any")) {
 		path->attr->aspath =
 			aspath_replace_all_asn(aspath_new, configured_asn);
 	} else {
