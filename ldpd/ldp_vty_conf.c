@@ -842,7 +842,7 @@ int
 ldp_vty_neighbor_targeted(struct vty *vty, const char *negate, const char *addr_str)
 {
 	int			 af;
-	union ldpd_addr		 addr;
+	union			 ldpd_addr addr = {};
 	struct tnbr		*tnbr;
 
 	af = ldp_vty_get_af(vty);

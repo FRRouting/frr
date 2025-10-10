@@ -49,8 +49,6 @@ lib_libfrr_la_SOURCES = \
 	lib/id_alloc.c \
 	lib/if.c \
 	lib/if_rmap.c \
-	lib/imsg-buffer.c \
-	lib/imsg.c \
 	lib/iso.c \
 	lib/jhash.c \
 	lib/json.c \
@@ -240,7 +238,6 @@ pkginclude_HEADERS += \
 	lib/id_alloc.h \
 	lib/if.h \
 	lib/if_rmap.h \
-	lib/imsg.h \
 	lib/ipaddr.h \
 	lib/iso.h \
 	lib/jhash.h \

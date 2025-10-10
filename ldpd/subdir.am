@@ -15,6 +15,8 @@ ldpd_libldp_a_SOURCES = \
 	ldpd/adjacency.c \
 	ldpd/control.c \
 	ldpd/hello.c \
+	ldpd/imsg.c \
+	ldpd/imsg-buffer.c \
 	ldpd/init.c \
 	ldpd/interface.c \
 	ldpd/keepalive.c \
@@ -48,6 +50,7 @@ clippy_scan += \
 
 noinst_HEADERS += \
 	ldpd/control.h \
+	ldpd/imsg.h \
 	ldpd/lde.h \
 	ldpd/ldp.h \
 	ldpd/ldp_debug.h \
