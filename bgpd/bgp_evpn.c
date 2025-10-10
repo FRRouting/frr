@@ -5550,6 +5550,11 @@ void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 		for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
 			if (!is_route_injectable_into_evpn(pi))
 				continue;
+
+			if (!CHECK_FLAG(pi->flags, BGP_PATH_SELECTED) &&
+			    !CHECK_FLAG(pi->flags, BGP_PATH_MULTIPATH))
+				continue;
+
 			bgp_evpn_export_type5_route(bgp_vrf, dest, pi, afi, safi);
 
 			if (advertise_type5_routes_bestpath(bgp_vrf, afi))
