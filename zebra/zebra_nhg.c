@@ -1961,6 +1961,13 @@ static struct nexthop *nexthop_set_resolved(afi_t afi,
 					      nexthop->nh_srv6->seg6_segs->encap_behavior);
 	}
 
+	/* Handle evpn nexthop - capture that info also */
+	if (CHECK_FLAG(newhop->flags, NEXTHOP_FLAG_EVPN)) {
+		resolved_hop->nh_encap_type = newhop->nh_encap_type;
+		memcpy(&(resolved_hop->rmac), &(newhop->rmac), ETH_ALEN);
+		SET_FLAG(resolved_hop->flags, NEXTHOP_FLAG_EVPN);
+	}
+
 	resolved_hop->rparent = nexthop;
 	_nexthop_add(&nexthop->resolved, resolved_hop);
 
