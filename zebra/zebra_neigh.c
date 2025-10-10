@@ -593,9 +593,15 @@ static void zebra_neigh_macfdb_update(struct zebra_dplane_ctx *ctx)
 				return;
 
 			if (vni_mcast_grp) {
-				/* PIM does not yet support IPV6 */
-				zebra_vxlan_if_vni_mcast_group_add_update(
-					ifp, vni, (struct in_addr *)&vtep_ip->ipaddr_v4.s_addr);
+				if (IS_IPADDR_V4(vtep_ip)) {
+					zebra_vxlan_if_vni_mcast_group_add_update(ifp, vni,
+						  (struct in_addr *)&vtep_ip->ipaddr_v4.s_addr);
+					/* IPV6 mcast is not supported with EVPNv6 */
+				} else if (IS_IPADDR_V6(vtep_ip)) {
+					if (IS_ZEBRA_DEBUG_KERNEL)
+						zlog_debug("%s ifp %s vni %u IPv6 address %pIA is not supported",
+							   __func__, ifp->name, vni, vtep_ip);
+				}
 				return;
 			}
 
@@ -624,9 +630,15 @@ static void zebra_neigh_macfdb_update(struct zebra_dplane_ctx *ctx)
 
 	if (dst_present) {
 		if (vni_mcast_grp) {
-			/* PIM does not yet support IPV6 */
-			zebra_vxlan_if_vni_mcast_group_del(
-				ifp, vni, (struct in_addr *)&vtep_ip->ipaddr_v4.s_addr);
+			if (IS_IPADDR_V4(vtep_ip)) {
+				zebra_vxlan_if_vni_mcast_group_del(ifp, vni,
+					  (struct in_addr *)&vtep_ip->ipaddr_v4.s_addr);
+				/* IPV6 mcast is not supported with EVPNv6 */
+			} else if (IS_IPADDR_V6(vtep_ip)) {
+				if (IS_ZEBRA_DEBUG_KERNEL)
+					zlog_debug("%s ifp %s vni %u IPv6 address %pIA is not supported",
+						   __func__, ifp->name, vni, vtep_ip);
+			}
 			return;
 		}
 
