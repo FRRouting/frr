@@ -42,6 +42,7 @@
 #include "json.h"
 #include "sockopt.h"
 #include "frregex_real.h"
+#include "lib/lib_vty.h"
 
 #include <arpa/telnet.h>
 #include <termios.h>
@@ -3466,6 +3467,98 @@ static int vty_config_write(struct vty *vty)
 	return CMD_SUCCESS;
 }
 
+#ifdef HAVE_TCMALLOC
+/*
+ * Support clis when using the tcmalloc lib. The main cli definition is in
+ * vtysh; these NOSH handlers are for individual daemons.
+ */
+#include "gperftools/tcmalloc.h"
+#include "gperftools/malloc_extension_c.h"
+
+struct tcm_stats_s {
+	const char *label;
+	size_t val;
+} tcm_stats_table[] = {
+	{},
+	{},
+	{},
+	{},
+	{NULL, 0},
+};
+
+DEFUN_NOSH (show_tcmalloc_stats,
+	    show_tcmalloc_stats_cmd,
+	    "show tcmalloc stats",
+	    SHOW_STR
+	    "tcmalloc library info\n"
+	    "Show tcmalloc stats\n")
+{
+	struct mallinfo2 minfo;
+	char buf[30];
+	size_t sval;
+	int major = 0, minor = 0;
+	const char *str, *patch = NULL;
+
+	str = tc_version(&major, &minor, &patch);
+
+	vty_out(vty, "Tcmalloc version '%s' (%d.%d)\n", str, major, minor);
+
+	minfo = tc_mallinfo2();
+
+	vty_out(vty, "Tcmalloc mallinfo statistics:\n");
+	vty_out(vty, "  Total heap allocated:  %s\n",
+		mtype_memstr(buf, sizeof(buf), minfo.arena));
+	vty_out(vty, "  Holding block headers: %s\n",
+		mtype_memstr(buf, sizeof(buf), minfo.hblkhd));
+	vty_out(vty, "  Used small blocks:     %s\n",
+		mtype_memstr(buf, sizeof(buf), minfo.usmblks));
+	vty_out(vty, "  Used ordinary blocks:  %s\n",
+		mtype_memstr(buf, sizeof(buf), minfo.uordblks));
+	vty_out(vty, "  Free small blocks:     %s\n",
+		mtype_memstr(buf, sizeof(buf), minfo.fsmblks));
+	vty_out(vty, "  Free ordinary blocks:  %s\n",
+		mtype_memstr(buf, sizeof(buf), minfo.fordblks));
+	vty_out(vty, "  Ordinary blocks:       %ld\n",
+		(unsigned long)minfo.ordblks);
+	vty_out(vty, "  Small blocks:          %ld\n",
+		(unsigned long)minfo.smblks);
+	vty_out(vty, "  Holding blocks:        %ld\n\n",
+		(unsigned long)minfo.hblks);
+
+	/* Read some tcmalloc lib values */
+	MallocExtension_GetNumericProperty("generic.heap_size", &sval);
+	vty_out(vty, "%s: %zu\n", "generic.heap_size", sval);
+
+	MallocExtension_GetNumericProperty("generic.total_physical_bytes", &sval);
+	vty_out(vty, "%s: %zu\n", "generic.total_physical_bytes", sval);
+
+	MallocExtension_GetNumericProperty("tcmalloc.pageheap_free_bytes", &sval);
+	vty_out(vty, "%s: %zu\n", "tcmalloc.pageheap_free_bytes", sval);
+
+	MallocExtension_GetNumericProperty("tcmalloc.pageheap_unmapped_bytes", &sval);
+	vty_out(vty, "%s: %zu\n", "tcmalloc.pageheap_unmapped_bytes", sval);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN_NOSH (lib_tcmalloc_config,
+	    lib_tcmalloc_config_cmd,
+	    "memory release rate (0-100)",
+	    "memory library config\n"
+	    "Release free memory to OS\n"
+	    "Set mem release rate (zero to disable)\n"
+	    "Set release rate (MB/sec)\n")
+{
+	uint32_t rate = 0;
+
+	rate = (uint32_t)atol(argv[3]->arg);
+
+	frr_mem_release_config(rate);
+
+	return CMD_SUCCESS;
+}
+#endif /* HAVE_TCMALLOC */
+
 static int vty_config_write(struct vty *vty);
 struct cmd_node vty_node = {
 	.name = "vty",
@@ -4148,6 +4241,11 @@ void vty_init(struct event_loop *master_thread, bool do_command_logging)
 	install_element(VTY_NODE, &no_vty_login_cmd);
 	install_element(VTY_NODE, &vty_ipv6_access_class_cmd);
 	install_element(VTY_NODE, &no_vty_ipv6_access_class_cmd);
+
+#ifdef HAVE_TCMALLOC
+	install_element(VIEW_NODE, &show_tcmalloc_stats_cmd);
+	install_element(CONFIG_NODE, &lib_tcmalloc_config_cmd);
+#endif /* HAVE_TCMALLOC */
 }
 
 void vty_terminate(void)

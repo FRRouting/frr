@@ -876,6 +876,22 @@ specifying the encapsulation to use. ``Netlink`` is the default, and
 support. Refer to :ref:`zebra-fib-push-interface` for more information.
 
 
+tcmalloc CLI Options
+====================
+
+If tcmalloc support is enabled (see the build instructions),
+additional CLI commands are available.
+
+.. clicmd:: show tcmalloc stats
+
+   Display memory utilization and stats from the tcmalloc library.
+
+.. clicmd:: memory release rate (0-100)
+
+   Configure the rate at which each FRR daemon will release free
+   memory back to the host OS, in MB/sec.
+
+
 .. _virtual-terminal-interfaces:
 
 Virtual Terminal Interfaces
