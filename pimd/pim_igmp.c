@@ -1119,10 +1119,12 @@ void igmp_sock_free(struct gm_sock *igmp)
 
 void igmp_sock_delete(struct gm_sock *igmp)
 {
+	struct interface *ifp;
 	struct pim_interface *pim_ifp;
 
 	sock_close(igmp);
 
+	ifp = igmp->interface;
 	pim_ifp = igmp->interface->info;
 
 	listnode_delete(pim_ifp->gm_socket_list, igmp);
@@ -1130,7 +1132,7 @@ void igmp_sock_delete(struct gm_sock *igmp)
 	igmp_sock_free(igmp);
 
 	if (!listcount(pim_ifp->gm_socket_list))
-		pim_igmp_if_reset(pim_ifp);
+		pim_gm_if_reset(ifp);
 }
 
 void igmp_sock_delete_all(struct interface *ifp)
@@ -1180,8 +1182,9 @@ void pim_igmp_if_init(struct pim_interface *pim_ifp, struct interface *ifp)
 					     igmp_group_hash_equal, hash_name);
 }
 
-void pim_igmp_if_reset(struct pim_interface *pim_ifp)
+void pim_gm_if_reset(struct interface *ifp)
 {
+	struct pim_interface *pim_ifp = ifp->info;
 	struct listnode *grp_node, *grp_nextnode;
 	struct gm_group *grp;
 
@@ -1191,9 +1194,11 @@ void pim_igmp_if_reset(struct pim_interface *pim_ifp)
 	}
 }
 
-void pim_igmp_if_fini(struct pim_interface *pim_ifp)
+void pim_igmp_if_fini(struct interface *ifp)
 {
-	pim_igmp_if_reset(pim_ifp);
+	struct pim_interface *pim_ifp = ifp->info;
+
+	pim_gm_if_reset(ifp);
 
 	assert(pim_ifp->gm_group_list);
 	assert(!listcount(pim_ifp->gm_group_list));
