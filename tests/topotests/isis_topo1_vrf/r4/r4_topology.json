@@ -10,7 +10,7 @@
                 {
                     "metric": 0,
                     "parent": "r4(4)",
-                    "type": "IP internal",
+                    "type": "IP TE",
                     "vertex": "10.0.11.0/24"
                 },
                 {
@@ -28,14 +28,6 @@
                     "parent": "r5(4)",
                     "type": "IP TE",
                     "vertex": "10.0.10.0/24"
-                },
-                {
-                    "interface": "r4-eth1",
-                    "metric": 10,
-                    "nextHop": "r5",
-                    "parent": "r5(4)",
-                    "type": "IP TE",
-                    "vertex": "10.0.11.0/24"
                 },
                 {
                     "interface": "r4-eth1",
@@ -104,7 +96,7 @@
                 {
                     "metric": 0,
                     "parent": "r4(4)",
-                    "type": "IP internal",
+                    "type": "IP TE",
                     "vertex": "10.0.21.0/24"
                 },
                 {
@@ -114,14 +106,6 @@
                     "parent": "r4(4)",
                     "type": "TE-IS",
                     "vertex": "r2"
-                },
-                {
-                    "interface": "r4-eth0",
-                    "metric": 10,
-                    "nextHop": "r2",
-                    "parent": "r2(4)",
-                    "type": "IP TE",
-                    "vertex": "10.0.21.0/24"
                 }
             ],
             "ipv6-paths": [
