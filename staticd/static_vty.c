@@ -2014,7 +2014,7 @@ DEFUN_NOSH (show_debugging_static,
 	    DEBUG_STR
 	    "Static Information\n")
 {
-	vty_out(vty, "Staticd debugging status\n");
+	vty_out(vty, "StaticD debugging status:\n");
 
 	cmd_show_lib_debugs(vty);
 
