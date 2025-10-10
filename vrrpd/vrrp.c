@@ -1232,10 +1232,17 @@ static int vrrp_socket(struct vrrp_router *r)
 		}
 
 		/* Set Tx socket DSCP byte */
-		setsockopt_ipv6_tclass(r->sock_tx, IPTOS_PREC_INTERNETCONTROL);
+		ret = setsockopt_ipv6_tclass(r->sock_tx, IPTOS_PREC_INTERNETCONTROL);
+		if (ret < 0) {
+			zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
+				  "Failed to set DSCP value on socket %d",
+				  r->vr->vrid, family2str(r->family), r->sock_tx);
+			failed = true;
+			goto done;
+		}
 
 		/* Request hop limit delivery */
-		setsockopt_ipv6_hoplimit(r->sock_rx, 1);
+		ret = setsockopt_ipv6_hoplimit(r->sock_rx, 1);
 		if (ret < 0) {
 			zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
 				  "Failed to request IPv6 Hop Limit delivery",
