@@ -156,7 +156,7 @@ static unsigned int bgp_tip_hash_key_make(const void *p)
 		return jhash_1word(addr->addr.ipaddr_v4.s_addr, 0);
 	} else {
 		return jhash2(addr->addr.ipaddr_v6.s6_addr32,
-				array_size(addr->addr.ipaddr_v6.s6_addr32), 0);
+			      array_size(addr->addr.ipaddr_v6.s6_addr32), 0);
 	}
 }
 
@@ -581,9 +581,9 @@ bool bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type,
 			    (attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4))) {
 			IPV4_ADDR_COPY(&tmp_tip.addr.ipaddr_v4, &attr->mp_nexthop_global_in);
 		} else if ((attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL) ||
-					(attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) ||
-					(attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL) ||
-					(attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL)) {
+			   (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) ||
+			   (attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL) ||
+			   (attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL)) {
 			SET_IPADDR_V6(&tmp_tip.addr);
 			IPV6_ADDR_COPY(&tmp_tip.addr.ipaddr_v6, &attr->mp_nexthop_global);
 		}
