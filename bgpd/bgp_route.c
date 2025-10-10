@@ -6866,8 +6866,9 @@ static int walk_batch_table_helper(struct bgp_clearing_info *cinfo,
 	/* Locate starting dest, possibly using "resume" info */
 	dest = clearing_dest_helper(table, cinfo, inner_p);
 
-	/* Reset flag */
-	UNSET_FLAG(cinfo->flags, BGP_CLEARING_INFO_FLAG_RESUME);
+	/* Reset flags, now that we've used the "resume" info */
+	UNSET_FLAG(cinfo->flags, (BGP_CLEARING_INFO_FLAG_RESUME |
+				  BGP_CLEARING_INFO_FLAG_INNER));
 
 	if (bgp_debug_neighbor_events(NULL))
 		zlog_debug("%s: table %s/%s, dest %pBD", __func__, afi2str(table->afi),
