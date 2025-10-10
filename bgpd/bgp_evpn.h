@@ -158,18 +158,14 @@ extern int bgp_evpn_local_macip_del(struct bgp *bgp, vni_t vni,
 extern int bgp_evpn_local_macip_add(struct bgp *bgp, vni_t vni,
 				    struct ethaddr *mac, struct ipaddr *ip,
 				    uint8_t flags, uint32_t seq, esi_t *esi);
-extern int bgp_evpn_local_l3vni_add(vni_t vni, vrf_id_t vrf_id,
-				    struct ethaddr *rmac,
-				    struct ethaddr *vrr_rmac,
-				    struct in_addr originator_ip, int filter,
-				    ifindex_t svi_ifindex, bool is_anycast_mac);
+extern int bgp_evpn_local_l3vni_add(vni_t vni, vrf_id_t vrf_id, struct ethaddr *rmac,
+				    struct ethaddr *vrr_rmac, struct ipaddr *originator_ip,
+				    int filter, ifindex_t svi_ifindex, bool is_anycast_mac);
 extern int bgp_evpn_local_l3vni_del(vni_t vni, vrf_id_t vrf_id);
 extern void bgp_evpn_instance_down(struct bgp *bgp);
 extern int bgp_evpn_local_vni_del(struct bgp *bgp, vni_t vni);
-extern int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
-				  struct in_addr originator_ip,
-				  vrf_id_t tenant_vrf_id,
-				  struct in_addr mcast_grp,
+extern int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni, struct ipaddr *originator_ip,
+				  vrf_id_t tenant_vrf_id, struct in_addr mcast_grp,
 				  ifindex_t svi_ifindex);
 extern void bgp_evpn_flood_control_change(struct bgp *bgp);
 extern void bgp_evpn_cleanup_on_disable(struct bgp *bgp);
@@ -212,4 +208,6 @@ int uninstall_evpn_route_entry_in_vrf(struct bgp *bgp_vrf, const struct prefix_e
 				      struct bgp_path_info *parent_pi);
 extern void bgp_zebra_evpn_pop_items_from_announce_fifo(struct bgpevpn *vpn);
 extern int install_uninstall_routes_for_vni(struct bgp *bgp, struct bgpevpn *vpn, bool install);
+extern void bgp_evpn_fill_rmac_nh_to_attr(struct bgp *bgp_vrf, struct attr *attr,
+					  struct prefix_evpn *evp, struct ipaddr *vtep_ip);
 #endif /* _QUAGGA_BGP_EVPN_H */

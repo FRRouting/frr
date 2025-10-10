@@ -188,7 +188,7 @@ void lua_pushzebra_dplane_ctx(lua_State *L, const struct zebra_dplane_ctx *ctx)
 			lua_setfield(L, -2, "br_ifindex");
 			lua_pushethaddr(L, dplane_ctx_mac_get_addr(ctx));
 			lua_setfield(L, -2, "mac");
-			lua_pushinaddr(L, dplane_ctx_mac_get_vtep_ip(ctx));
+			lua_pushipaddr(L, dplane_ctx_mac_get_vtep_ip(ctx));
 			lua_setfield(L, -2, "vtep_ip");
 			lua_pushinteger(L, dplane_ctx_mac_is_sticky(ctx));
 			lua_setfield(L, -2, "is_sticky");
