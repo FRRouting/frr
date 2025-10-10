@@ -3060,8 +3060,15 @@ struct ospf_lsa *ospf_lsa_install(struct ospf *ospf, struct ospf_interface *oi,
 	}
 
 	/* discard old LSA from LSDB */
-	if (old != NULL)
+	if (old != NULL) {
+		if (rt_recalc && !IS_LSA_SELF(lsa) && (lsa->data->type == OSPF_AS_EXTERNAL_LSA) &&
+		    !IS_LSA_SELF(old) && (old->data->type == OSPF_AS_EXTERNAL_LSA)) {
+			old->data->ls_age = htons(OSPF_LSA_MAXAGE);
+			ospf_ase_incremental_update(ospf, old);
+		}
+
 		ospf_discard_from_db(ospf, lsdb, lsa);
+	}
 
 	/* Calculate Checksum if self-originated?. */
 	if (IS_LSA_SELF(lsa))
