@@ -2802,13 +2802,14 @@ int peer_delete(struct peer *peer)
 	/* If this peer belongs to peer group, clear up the
 	   relationship.  */
 	if (peer->group) {
+		struct peer_group *group = peer->group;
+
 		if (peer_dynamic_neighbor(peer))
 			peer_drop_dynamic_neighbor(peer);
 
-		if ((pn = listnode_lookup(peer->group->peer, peer))) {
-			peer = peer_unlock(
-				peer); /* group->peer list reference */
-			list_delete_node(peer->group->peer, pn);
+		if ((pn = listnode_lookup(group->peer, peer))) {
+			list_delete_node(group->peer, pn);
+			peer_unlock(peer); /* group->peer list reference */
 		}
 		peer->group = NULL;
 	}
