@@ -3402,8 +3402,10 @@ static void zread_vrf_label(ZAPI_HANDLER_ARGS)
 
 	if (nlabel != MPLS_LABEL_NONE) {
 		mpls_label_t out_label = MPLS_LABEL_IMPLICIT_NULL;
-		mpls_lsp_install(def_zvrf, ltype, nlabel, 1, &out_label,
-				 NEXTHOP_TYPE_IFINDEX, NULL, ifp->ifindex);
+		if (mpls_lsp_install(def_zvrf, ltype, nlabel, 1, &out_label, NEXTHOP_TYPE_IFINDEX,
+				     NULL, ifp->ifindex) < 0) {
+			zlog_debug("%s: Failed to install LSP for label %u", __func__, nlabel);
+		}
 	}
 
 	zvrf->label[afi] = nlabel;
