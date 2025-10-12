@@ -22,6 +22,7 @@
 #include <linux/neighbour.h>
 #include <linux/rtnetlink.h>
 #include <linux/nexthop.h>
+#include <string.h>
 
 /* Hack for GNU libc version 2. */
 #ifndef MSG_TRUNC
@@ -5097,6 +5098,7 @@ static int netlink_neigh_table_update_ctx(const struct zebra_dplane_ctx *ctx,
 		struct ndtmsg ndtm;
 		char buf[];
 	} *req = data;
+	const char *name;
 	struct rtattr *nest;
 	uint8_t family;
 	ifindex_t idx;
@@ -5113,8 +5115,8 @@ static int netlink_neigh_table_update_ctx(const struct zebra_dplane_ctx *ctx,
 	req->n.nlmsg_type = RTM_SETNEIGHTBL;
 	req->ndtm.ndtm_family = family;
 
-	nl_attr_put(&req->n, datalen, NDTA_NAME,
-		    family == AF_INET ? "arp_cache" : "ndisc_cache", 10);
+	name = family == AF_INET ? "arp_cache" : "ndisc_cache";
+	nl_attr_put(&req->n, datalen, NDTA_NAME, name, strlen(name) + 1);
 	nest = nl_attr_nest(&req->n, datalen, NDTA_PARMS);
 	if (nest == NULL)
 		return 0;
