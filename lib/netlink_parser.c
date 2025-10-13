@@ -1,41 +1,16 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Stub netlink parser library module
- * Copyright (c) 2023 Cisco Systems Inc.
+ * Netlink parser library module
+ * Copyright (c) 2024 Cisco Systems Inc.
  */
 
-#include "config.h"
-#include "xref.h"
-
-XREF_SETUP();
+#include "zebra.h"
 
 /* Only used with netlink, for now */
 #ifdef HAVE_NETLINK
 
-/* This is built two ways: embedded in a zebra netlink module, and as a
- * standalone shared-lib. We have to do a little bit of adaptation to make
- * that work.
- */
-#ifndef FRR_ZEBRA_KERNEL_NETLINK
-
-/* Need some things to build this code as standalone, outside zebra. */
-
-#include "zebra.h"
-#include "linux/netlink.h"
-#include "linux/rtnetlink.h"
-
-/* Forward decl */
-struct zebra_dplane_info;
-
-#include "zebra_ns.h"
-#include "kernel_netlink.h"
-
-void vzlogx(const struct xref_logmsg *xref, int prio, const char *fmt,
-	    va_list ap)
-{
-}
-
-#endif	/* FRR_ZEBRA_KERNEL_NETLINK */
+#include "lib/netlink_parser.h"
+#include "lib/zlog.h"
 
 /*
  * Init nl message in-place in a buffer
@@ -71,8 +46,7 @@ void nl_msg_get_data(const struct nlmsghdr *n, uint16_t *ptype, uint32_t *plen,
 	}
 }
 
-void netlink_parse_rtattr(struct rtattr **tb, int max, struct rtattr *rta,
-			  int len)
+void netlink_parse_rtattr(struct rtattr **tb, int max, struct rtattr *rta, int len)
 {
 	memset(tb, 0, sizeof(struct rtattr *) * (max + 1));
 	while (RTA_OK(rta, len)) {
@@ -96,8 +70,8 @@ void netlink_parse_rtattr(struct rtattr **tb, int max, struct rtattr *rta,
 /*
  * Given a message header, locate and parse out the atttributes
  */
-struct nlmsghdr *netlink_parse_buf(struct rtattr **tb, int max,
-				   void *buf, size_t len)
+struct nlmsghdr *netlink_parse_buf(struct rtattr **tb, int max, void *buf,
+				   size_t len)
 {
 	struct nlmsghdr *msg;
 	struct rtattr *rta;
@@ -112,10 +86,9 @@ struct nlmsghdr *netlink_parse_buf(struct rtattr **tb, int max,
 	/* Figure out where the attrs start, then use the attribute
 	 * parse api.
 	 */
-	if (msg->nlmsg_type == RTM_NEWROUTE ||
-	    msg->nlmsg_type == RTM_DELROUTE) {
+	if (msg->nlmsg_type == RTM_NEWROUTE || msg->nlmsg_type == RTM_DELROUTE)
 		offset = sizeof(struct rtmsg);
-	}
+
 	/* Add clauses for the messages we want to use in this path... */
 
 	if (offset > msg->nlmsg_len)
@@ -136,8 +109,7 @@ struct nlmsghdr *netlink_parse_buf(struct rtattr **tb, int max,
  * @max:        Max number to store.
  * @rta:        Pointer to rtattr to look for nested items in.
  */
-void netlink_parse_rtattr_nested(struct rtattr **tb, int max,
-				 struct rtattr *rta)
+void netlink_parse_rtattr_nested(struct rtattr **tb, int max, struct rtattr *rta)
 {
 	netlink_parse_rtattr(tb, max, RTA_DATA(rta), RTA_PAYLOAD(rta));
 }
@@ -157,8 +129,8 @@ bool nl_addraw_l(struct nlmsghdr *n, unsigned int maxlen, const void *data,
 	return true;
 }
 
-bool nl_attr_put(struct nlmsghdr *n, unsigned int maxlen, int type,
-		 const void *data, unsigned int alen)
+bool nl_attr_put(struct nlmsghdr *n, unsigned int maxlen, int type, const void *data,
+		 unsigned int alen)
 {
 	int len;
 	struct rtattr *rta;
@@ -182,26 +154,22 @@ bool nl_attr_put(struct nlmsghdr *n, unsigned int maxlen, int type,
 	return true;
 }
 
-bool nl_attr_put8(struct nlmsghdr *n, unsigned int maxlen, int type,
-		  uint8_t data)
+bool nl_attr_put8(struct nlmsghdr *n, unsigned int maxlen, int type, uint8_t data)
 {
 	return nl_attr_put(n, maxlen, type, &data, sizeof(uint8_t));
 }
 
-bool nl_attr_put16(struct nlmsghdr *n, unsigned int maxlen, int type,
-		   uint16_t data)
+bool nl_attr_put16(struct nlmsghdr *n, unsigned int maxlen, int type, uint16_t data)
 {
 	return nl_attr_put(n, maxlen, type, &data, sizeof(uint16_t));
 }
 
-bool nl_attr_put32(struct nlmsghdr *n, unsigned int maxlen, int type,
-		   uint32_t data)
+bool nl_attr_put32(struct nlmsghdr *n, unsigned int maxlen, int type, uint32_t data)
 {
 	return nl_attr_put(n, maxlen, type, &data, sizeof(uint32_t));
 }
 
-bool nl_attr_put64(struct nlmsghdr *n, unsigned int maxlen, int type,
-		   uint64_t data)
+bool nl_attr_put64(struct nlmsghdr *n, unsigned int maxlen, int type, uint64_t data)
 {
 	return nl_attr_put(n, maxlen, type, &data, sizeof(uint64_t));
 }
@@ -227,13 +195,11 @@ struct rtnexthop *nl_attr_rtnh(struct nlmsghdr *n, unsigned int maxlen)
 {
 	struct rtnexthop *rtnh = (struct rtnexthop *)NLMSG_TAIL(n);
 
-	if (NLMSG_ALIGN(n->nlmsg_len) + RTNH_ALIGN(sizeof(struct rtnexthop))
-	    > maxlen)
+	if (NLMSG_ALIGN(n->nlmsg_len) + RTNH_ALIGN(sizeof(struct rtnexthop)) > maxlen)
 		return NULL;
 
 	memset(rtnh, 0, sizeof(struct rtnexthop));
-	n->nlmsg_len =
-		NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(sizeof(struct rtnexthop));
+	n->nlmsg_len = NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(sizeof(struct rtnexthop));
 
 	return rtnh;
 }
@@ -250,8 +216,7 @@ bool nl_rta_put(struct rtattr *rta, unsigned int maxlen, int type,
 	int len = RTA_LENGTH(alen);
 
 	if (RTA_ALIGN(rta->rta_len) + RTA_ALIGN(len) > maxlen) {
-		zlog_err("ERROR max allowed bound %d exceeded for rtattr",
-			 maxlen);
+		zlog_err("ERROR max allowed bound %d exceeded for rtattr", maxlen);
 		return false;
 	}
 	subrta = (struct rtattr *)(((char *)rta) + RTA_ALIGN(rta->rta_len));
@@ -264,14 +229,12 @@ bool nl_rta_put(struct rtattr *rta, unsigned int maxlen, int type,
 	return true;
 }
 
-bool nl_rta_put16(struct rtattr *rta, unsigned int maxlen, int type,
-		  uint16_t data)
+bool nl_rta_put16(struct rtattr *rta, unsigned int maxlen, int type, uint16_t data)
 {
 	return nl_rta_put(rta, maxlen, type, &data, sizeof(uint16_t));
 }
 
-bool nl_rta_put64(struct rtattr *rta, unsigned int maxlen, int type,
-		  uint64_t data)
+bool nl_rta_put64(struct rtattr *rta, unsigned int maxlen, int type, uint64_t data)
 {
 	return nl_rta_put(rta, maxlen, type, &data, sizeof(uint64_t));
 }
@@ -302,13 +265,6 @@ int nl_rta_nest_end(struct rtattr *rta, struct rtattr *nest)
 #define NLA_NEXT(nla, attrlen)                                                 \
 	((attrlen) -= NLA_ALIGN((nla)->nla_len),                               \
 	 (struct nlattr *)(((char *)(nla)) + NLA_ALIGN((nla)->nla_len)))
-#define NLA_LENGTH(len) (NLA_ALIGN(sizeof(struct nlattr)) + (len))
-#define NLA_DATA(nla) ((struct nlattr *)(((char *)(nla)) + NLA_LENGTH(0)))
-
-#define ERR_NLA(err, inner_len)                                                \
-	((struct nlattr *)(((char *)(err))                                     \
-			   + NLMSG_ALIGN(sizeof(struct nlmsgerr))              \
-			   + NLMSG_ALIGN((inner_len))))
 
 void netlink_parse_nlattr(struct nlattr **tb, int max, struct nlattr *nla,
 			  int len)
@@ -320,4 +276,4 @@ void netlink_parse_nlattr(struct nlattr **tb, int max, struct nlattr *nla,
 	}
 }
 
-#endif	/* HAVE_NETLINK */
+#endif /* HAVE_NETLINK */
