@@ -244,14 +244,6 @@ module_LTLIBRARIES += zebra/dplane_fpm_nl.la
 zebra_dplane_fpm_nl_la_SOURCES = zebra/dplane_fpm_nl.c
 zebra_dplane_fpm_nl_la_LDFLAGS = $(MODULE_LDFLAGS)
 zebra_dplane_fpm_nl_la_LIBADD  =
-
-# Netlink parser library
-module_LTLIBRARIES += zebra/netlink_parser.la
-
-zebra_netlink_parser_la_SOURCES = zebra/netlink_parser.c
-zebra_netlink_parser_la_LDFLAGS = $(MODULE_LDFLAGS)
-zebra_netlink_parser_la_LIBADD  =
-
 endif
 
 if NETLINK_DEBUG

@@ -47,6 +47,7 @@
 #include "mpls.h"
 #include "vxlan.h"
 #include "printfrr.h"
+#include "lib/netlink_parser.h"
 
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_ns.h"
