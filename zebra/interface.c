@@ -2570,8 +2570,8 @@ static void zebra_vxlan_if_dump_vty(struct vty *vty, struct zebra_if *zebra_if)
 	vxlan_info = &zebra_if->l2info.vxl;
 	vni_info = &vxlan_info->vni_info;
 
-	if (vxlan_info->vtep_ip.s_addr != INADDR_ANY)
-		vty_out(vty, " VTEP IP: %pI4", &vxlan_info->vtep_ip);
+	if (!ipaddr_is_zero(&vxlan_info->vtep_ip))
+		vty_out(vty, " VTEP IP: %pIA", &vxlan_info->vtep_ip);
 
 	if (vxlan_info->ifindex_link && (vxlan_info->link_nsid != NS_UNKNOWN)) {
 		struct interface *ifp;
@@ -2939,9 +2939,8 @@ static void zebra_vxlan_if_dump_vty_json(json_object *json_if,
 	vxlan_info = &zebra_if->l2info.vxl;
 	vni_info = &vxlan_info->vni_info;
 
-	if (vxlan_info->vtep_ip.s_addr != INADDR_ANY)
-		json_object_string_addf(json_if, "vtepIp", "%pI4",
-					&vxlan_info->vtep_ip);
+	if (!ipaddr_is_zero(&vxlan_info->vtep_ip))
+		json_object_string_addf(json_if, "vtepIp", "%pIA", &vxlan_info->vtep_ip);
 
 	if (vxlan_info->ifindex_link && (vxlan_info->link_nsid != NS_UNKNOWN)) {
 		struct interface *ifp;

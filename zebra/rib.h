@@ -456,27 +456,19 @@ int zebra_rib_queue_evpn_route_del(vrf_id_t vrf_id,
 				   const struct ipaddr *vtep_ip,
 				   const struct prefix *host_prefix);
 /* Enqueue EVPN remote ES for processing */
-int zebra_rib_queue_evpn_rem_es_add(const esi_t *esi,
-				    const struct in_addr *vtep_ip,
-				    bool esr_rxed, uint8_t df_alg,
-				    uint16_t df_pref);
-int zebra_rib_queue_evpn_rem_es_del(const esi_t *esi,
-				    const struct in_addr *vtep_ip);
+int zebra_rib_queue_evpn_rem_es_add(const esi_t *esi, const struct ipaddr *vtep_ip, bool esr_rxed,
+				    uint8_t df_alg, uint16_t df_pref);
+int zebra_rib_queue_evpn_rem_es_del(const esi_t *esi, const struct ipaddr *vtep_ip);
 /* Enqueue EVPN remote macip update for processing */
 int zebra_rib_queue_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr,
-				       const struct ipaddr *ip,
-				       struct in_addr vtep_ip);
+				       const struct ipaddr *ip, struct ipaddr *vtep_ip);
 int zebra_rib_queue_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
-				       const struct ipaddr *ipaddr,
-				       uint8_t flags, uint32_t seq,
-				       struct in_addr vtep_ip,
-				       const esi_t *esi);
+				       const struct ipaddr *ipaddr, uint8_t flags, uint32_t seq,
+				       struct ipaddr *vtep_ip, const esi_t *esi);
 /* Enqueue VXLAN remote vtep update for processing */
-int zebra_rib_queue_evpn_rem_vtep_add(vrf_id_t vrf_id, vni_t vni,
-				      struct in_addr vtep_ip,
+int zebra_rib_queue_evpn_rem_vtep_add(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep_ip,
 				      int flood_control);
-int zebra_rib_queue_evpn_rem_vtep_del(vrf_id_t vrf_id, vni_t vni,
-				      struct in_addr vtep_ip);
+int zebra_rib_queue_evpn_rem_vtep_del(vrf_id_t vrf_id, vni_t vni, struct ipaddr *vtep_ip);
 
 extern void meta_queue_free(struct meta_queue *mq, struct zebra_vrf *zvrf);
 extern int zebra_rib_labeled_unicast(struct route_entry *re);
