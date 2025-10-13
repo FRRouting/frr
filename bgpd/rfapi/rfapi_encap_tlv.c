@@ -137,6 +137,7 @@ rfapi_tunneltype_option_to_tlv(struct bgp *bgp, struct rfapi_ip_addr *ea,
 		bgp_encap_type_pbb_to_tlv(&tto->bgpinfo.pbb, attr);
 		break;
 
+	case BGP_ENCAP_TYPE_SRV6:
 	case BGP_ENCAP_TYPE_RESERVED:
 		assert(!"Cannot process BGP_ENCAP_TYPE_RESERVED");
 	}
@@ -725,6 +726,7 @@ void rfapi_print_tunneltype_option(void *stream, int column_offset,
 		break;
 
 	case BGP_ENCAP_TYPE_RESERVED:
+	case BGP_ENCAP_TYPE_SRV6:
 		assert(!"Cannot process BGP_ENCAP_TYPE_RESERVED");
 	}
 }
