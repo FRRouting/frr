@@ -1616,7 +1616,8 @@ static enum bgp_attr_parse_ret
 bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 		   bgp_size_t length)
 {
-	struct peer *const peer = args->peer;
+	struct peer_connection *const connection = args->connection;
+	struct peer *const peer = connection->peer;
 	struct attr *const attr = args->attr;
 	const uint8_t flags = args->flags;
 	/* startp and length must be special-cased, as whether or not to
@@ -1789,7 +1790,8 @@ static bool bgp_attr_flag_invalid(struct bgp_attr_parser_args *args)
 	uint8_t mask = BGP_ATTR_FLAG_EXTLEN;
 	const uint8_t flags = args->flags;
 	const uint8_t attr_code = args->type;
-	struct peer *peer = args->peer;
+	struct peer_connection *const connection = args->connection;
+	struct peer *peer = connection->peer;
 
 	/* there may be attributes we don't know about */
 	if (attr_code > attr_flags_values_max)
@@ -1856,7 +1858,8 @@ static bool bgp_attr_flag_invalid(struct bgp_attr_parser_args *args)
 static enum bgp_attr_parse_ret
 bgp_attr_origin(struct bgp_attr_parser_args *args)
 {
-	struct peer *const peer = args->peer;
+	struct peer_connection *const connection = args->connection;
+	struct peer *const peer = connection->peer;
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
 
@@ -1897,12 +1900,12 @@ bgp_attr_origin(struct bgp_attr_parser_args *args)
 static int bgp_attr_aspath(struct bgp_attr_parser_args *args)
 {
 	struct attr *const attr = args->attr;
-	struct peer *const peer = args->peer;
+	struct peer_connection *const connection = args->connection;
+	struct peer *const peer = connection->peer;
 	const bgp_size_t length = args->length;
 	enum asnotation_mode asnotation;
 
-	asnotation = bgp_get_asnotation(
-		args->peer && args->peer->bgp ? args->peer->bgp : NULL);
+	asnotation = bgp_get_asnotation(peer->bgp);
 	/*
 	 * peer with AS4 => will get 4Byte ASnums
 	 * otherwise, will get 16 Bit
@@ -2012,7 +2015,8 @@ static enum bgp_attr_parse_ret bgp_attr_aspath_check(struct peer *const peer,
 static int bgp_attr_as4_path(struct bgp_attr_parser_args *args,
 			     struct aspath **as4_path)
 {
-	struct peer *const peer = args->peer;
+	struct peer_connection *const connection = args->connection;
+	struct peer *const peer = connection->peer;
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
 	enum asnotation_mode asnotation;
@@ -2083,7 +2087,7 @@ enum bgp_attr_parse_ret bgp_attr_nexthop_valid(struct peer *peer,
 static enum bgp_attr_parse_ret
 bgp_attr_nexthop(struct bgp_attr_parser_args *args)
 {
-	struct peer *const peer = args->peer;
+	struct peer_connection *const connection = args->connection;
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
 
@@ -2096,7 +2100,7 @@ bgp_attr_nexthop(struct bgp_attr_parser_args *args)
 					  args->total);
 	}
 
-	attr->nexthop.s_addr = stream_get_ipv4(peer->curr);
+	attr->nexthop.s_addr = stream_get_ipv4(connection->curr);
 	SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP));
 
 	return BGP_ATTR_PARSE_PROCEED;
@@ -2105,7 +2109,7 @@ bgp_attr_nexthop(struct bgp_attr_parser_args *args)
 /* MED atrribute. */
 static enum bgp_attr_parse_ret bgp_attr_med(struct bgp_attr_parser_args *args)
 {
-	struct peer *const peer = args->peer;
+	struct peer_connection *const connection = args->connection;
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
 
@@ -2118,7 +2122,7 @@ static enum bgp_attr_parse_ret bgp_attr_med(struct bgp_attr_parser_args *args)
 					  args->total);
 	}
 
-	bgp_attr_set_med(attr, stream_getl(peer->curr));
+	bgp_attr_set_med(attr, stream_getl(connection->curr));
 
 	return BGP_ATTR_PARSE_PROCEED;
 }
@@ -2127,7 +2131,8 @@ static enum bgp_attr_parse_ret bgp_attr_med(struct bgp_attr_parser_args *args)
 static enum bgp_attr_parse_ret
 bgp_attr_local_pref(struct bgp_attr_parser_args *args)
 {
-	struct peer *const peer = args->peer;
+	struct peer_connection *const connection = args->connection;
+	struct peer *const peer = connection->peer;
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
 
@@ -2168,7 +2173,8 @@ stream_failure:
 /* Atomic aggregate. */
 static int bgp_attr_atomic(struct bgp_attr_parser_args *args)
 {
-	struct peer *const peer = args->peer;
+	struct peer_connection *const connection = args->connection;
+	struct peer *const peer = connection->peer;
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
 
@@ -2198,7 +2204,8 @@ atomic_ignore:
 /* Aggregator attribute */
 static int bgp_attr_aggregator(struct bgp_attr_parser_args *args)
 {
-	struct peer *const peer = args->peer;
+	struct peer_connection *const connection = args->connection;
+	struct peer *const peer = connection->peer;
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
 	as_t aggregator_as;
@@ -2260,7 +2267,8 @@ bgp_attr_as4_aggregator(struct bgp_attr_parser_args *args,
 			as_t *as4_aggregator_as,
 			struct in_addr *as4_aggregator_addr)
 {
-	struct peer *const peer = args->peer;
+	struct peer_connection *const connection = args->connection;
+	struct peer *const peer = connection->peer;
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
 	as_t aggregator_as;
@@ -2415,7 +2423,8 @@ bgp_attr_munge_as4_attrs(struct peer *const peer, struct attr *const attr,
 static enum bgp_attr_parse_ret
 bgp_attr_community(struct bgp_attr_parser_args *args)
 {
-	struct peer *const peer = args->peer;
+	struct peer_connection *const connection = args->connection;
+	struct peer *const peer = connection->peer;
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
 
@@ -2454,7 +2463,8 @@ community_ignore:
 static enum bgp_attr_parse_ret
 bgp_attr_originator_id(struct bgp_attr_parser_args *args)
 {
-	struct peer *const peer = args->peer;
+	struct peer_connection *const connection = args->connection;
+	struct peer *const peer = connection->peer;
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
 
@@ -2499,7 +2509,8 @@ originator_id_ignore:
 static enum bgp_attr_parse_ret
 bgp_attr_cluster_list(struct bgp_attr_parser_args *args)
 {
-	struct peer *const peer = args->peer;
+	struct peer_connection *const connection = args->connection;
+	struct peer *const peer = connection->peer;
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
 
@@ -2563,7 +2574,8 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 	bgp_size_t nlri_len;
 	size_t start;
 	struct stream *s;
-	struct peer *const peer = args->peer;
+	struct peer_connection *connection = args->connection;
+	struct peer *const peer = connection->peer;
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
 
@@ -2759,7 +2771,8 @@ int bgp_mp_unreach_parse(struct bgp_attr_parser_args *args,
 	iana_safi_t pkt_safi;
 	safi_t safi;
 	uint16_t withdraw_len;
-	struct peer *const peer = args->peer;
+	struct peer_connection *const connection = args->connection;
+	struct peer *const peer = connection->peer;
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
 
@@ -2804,7 +2817,8 @@ int bgp_mp_unreach_parse(struct bgp_attr_parser_args *args,
 static enum bgp_attr_parse_ret
 bgp_attr_large_community(struct bgp_attr_parser_args *args)
 {
-	struct peer *const peer = args->peer;
+	struct peer_connection *const connection = args->connection;
+	struct peer *const peer = connection->peer;
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
 
@@ -2842,7 +2856,8 @@ large_community_ignore:
 static enum bgp_attr_parse_ret
 bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 {
-	struct peer *const peer = args->peer;
+	struct peer_connection *const connection = args->connection;
+	struct peer *const peer = connection->peer;
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
 	bool proxy = false;
@@ -2913,7 +2928,8 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 static enum bgp_attr_parse_ret
 bgp_attr_ipv6_ext_communities(struct bgp_attr_parser_args *args)
 {
-	struct peer *const peer = args->peer;
+	struct peer_connection *const connection = args->connection;
+	struct peer *const peer = connection->peer;
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
 	struct ecommunity *ipv6_ecomm = NULL;
@@ -2953,7 +2969,8 @@ ipv6_ext_community_ignore:
 static int bgp_attr_encap(struct bgp_attr_parser_args *args)
 {
 	uint16_t tunneltype = 0;
-	struct peer *const peer = args->peer;
+	struct peer_connection *const connection = args->connection;
+	struct peer *const peer = connection->peer;
 	struct attr *const attr = args->attr;
 	bgp_size_t length = args->length;
 	uint8_t type = args->type;
@@ -3097,7 +3114,8 @@ encap_ignore:
 static enum bgp_attr_parse_ret
 bgp_attr_srv6_service_data(struct bgp_attr_parser_args *args)
 {
-	struct peer *const peer = args->peer;
+	struct peer_connection *const connection = args->connection;
+	struct peer *const peer = connection->peer;
 	struct attr *const attr = args->attr;
 	uint8_t type, loc_block_len, loc_node_len, func_len, arg_len,
 		transposition_len, transposition_offset;
@@ -3190,7 +3208,8 @@ bgp_attr_srv6_service_data(struct bgp_attr_parser_args *args)
 static enum bgp_attr_parse_ret
 bgp_attr_srv6_service(struct bgp_attr_parser_args *args)
 {
-	struct peer *const peer = args->peer;
+	struct peer_connection *const connection = args->connection;
+	struct peer *const peer = connection->peer;
 	struct attr *const attr = args->attr;
 	struct in6_addr ipv6_sid;
 	uint8_t type, sid_flags;
@@ -3295,7 +3314,8 @@ static enum bgp_attr_parse_ret
 bgp_attr_psid_sub(uint8_t type, uint16_t length,
 		  struct bgp_attr_parser_args *args)
 {
-	struct peer *const peer = args->peer;
+	struct peer_connection *const connection = args->connection;
+	struct peer *const peer = connection->peer;
 	struct attr *const attr = args->attr;
 	uint32_t label_index;
 	struct in6_addr ipv6_sid;
@@ -3470,7 +3490,8 @@ bgp_attr_psid_sub(uint8_t type, uint16_t length,
  */
 enum bgp_attr_parse_ret bgp_attr_prefix_sid(struct bgp_attr_parser_args *args)
 {
-	struct peer *const peer = args->peer;
+	struct peer_connection *const connection = args->connection;
+	struct peer *const peer = connection->peer;
 	struct attr *const attr = args->attr;
 	enum bgp_attr_parse_ret ret;
 
@@ -3542,7 +3563,8 @@ prefix_sid_ignore:
 static enum bgp_attr_parse_ret
 bgp_attr_pmsi_tunnel(struct bgp_attr_parser_args *args)
 {
-	struct peer *const peer = args->peer;
+	struct peer_connection *const connection = args->connection;
+	struct peer *const peer = connection->peer;
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
 	uint8_t tnl_type;
@@ -3597,7 +3619,8 @@ pmsi_tunnel_ignore:
 /* AIGP attribute (rfc7311) */
 static enum bgp_attr_parse_ret bgp_attr_aigp(struct bgp_attr_parser_args *args)
 {
-	struct peer *const peer = args->peer;
+	struct peer_connection *const connection = args->connection;
+	struct peer *const peer = connection->peer;
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
 	uint8_t *s = stream_pnt(peer->curr);
@@ -3639,7 +3662,8 @@ aigp_ignore:
 
 static int bgp_attr_nhc(struct bgp_attr_parser_args *args)
 {
-	struct peer *const peer = args->peer;
+	struct peer_connection *const connection = args->connection;
+	struct peer *const peer = connection->peer;
 	struct attr *const attr = args->attr;
 	bgp_size_t length = args->length;
 	uint8_t type = args->type;
@@ -3793,7 +3817,8 @@ nhc_ignore:
 /* OTC attribute. */
 static enum bgp_attr_parse_ret bgp_attr_otc(struct bgp_attr_parser_args *args)
 {
-	struct peer *const peer = args->peer;
+	struct peer_connection *const connection = args->connection;
+	struct peer *const peer = connection->peer;
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
 
@@ -3831,7 +3856,8 @@ bgp_attr_unknown(struct bgp_attr_parser_args *args)
 {
 	bgp_size_t total = args->total;
 	struct transit *transit;
-	struct peer *const peer = args->peer;
+	struct peer_connection *const connection = args->connection;
+	struct peer *const peer = connection->peer;
 	struct attr *const attr = args->attr;
 	uint8_t *const startp = args->startp;
 	const uint8_t type = args->type;
@@ -4154,7 +4180,7 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 		SET_BITMAP(seen, type);
 
 		struct bgp_attr_parser_args attr_args = {
-			.peer = peer,
+			.connection = peer->connection,
 			.length = length,
 			.attr = attr,
 			.type = type,
