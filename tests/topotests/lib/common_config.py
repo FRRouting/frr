@@ -227,12 +227,7 @@ def run_frr_cmd(rnode, cmd, isjson=False):
     """
 
     if cmd:
-        ret_data = rnode.vtysh_cmd(cmd, isjson=isjson)
-
-        if isjson:
-            rnode.vtysh_cmd(cmd.rstrip("json"), isjson=False)
-
-        return ret_data
+        return rnode.vtysh_cmd(cmd, isjson=isjson)
 
     else:
         raise InvalidCLIError("No actual cmd passed")
