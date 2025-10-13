@@ -26,6 +26,7 @@
 #include "mpls.h"
 #include "lib_errors.h"
 #include "hash.h"
+#include "lib/netlink_parser.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_ns.h"
@@ -629,13 +630,6 @@ void netlink_parse_rtattr_flags(struct rtattr **tb, int max, struct rtattr *rta,
 		rta = RTA_NEXT(rta, len);
 	}
 }
-
-/*
- * Pull in some of the core parse and unparse apis from a separate module;
- * we may also build that as a standalone lib, outside/alongside zebra.
- */
-#define FRR_ZEBRA_KERNEL_NETLINK 1
-#include "zebra/netlink_parser.c"
 
 const char *nl_msg_type_to_str(uint16_t msg_type)
 {
