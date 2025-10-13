@@ -310,7 +310,7 @@ static void bgp_capability_mp_data(struct stream *s,
 static int bgp_capability_mp(struct peer *peer, struct capability_header *hdr)
 {
 	struct capability_mp_data mpc;
-	struct stream *s = BGP_INPUT(peer);
+	struct stream *s = BGP_INPUT(peer->connection);
 	afi_t afi;
 	safi_t safi;
 
@@ -367,7 +367,7 @@ const struct message orf_mode_str[] = { { ORF_MODE_RECEIVE, "Receive" },
 static int bgp_capability_orf_entry(struct peer *peer,
 				    struct capability_header *hdr)
 {
-	struct stream *s = BGP_INPUT(peer);
+	struct stream *s = BGP_INPUT(peer->connection);
 	struct capability_mp_data mpc;
 	uint8_t num;
 	iana_afi_t pkt_afi;
@@ -496,7 +496,7 @@ static int bgp_capability_orf_entry(struct peer *peer,
 static int bgp_capability_restart(struct peer *peer,
 				  struct capability_header *caphdr)
 {
-	struct stream *s = BGP_INPUT(peer);
+	struct stream *s = BGP_INPUT(peer->connection);
 	uint16_t restart_flag_time;
 	size_t end = stream_get_getp(s) + caphdr->length;
 
@@ -583,7 +583,7 @@ static int bgp_capability_restart(struct peer *peer,
 static int bgp_capability_llgr(struct peer *peer,
 			       struct capability_header *caphdr)
 {
-	struct stream *s = BGP_INPUT(peer);
+	struct stream *s = BGP_INPUT(peer->connection);
 	size_t end = stream_get_getp(s) + caphdr->length;
 
 	SET_FLAG(peer->cap, PEER_CAP_LLGR_RCV);
@@ -637,7 +637,7 @@ static as_t bgp_capability_as4(struct peer *peer, struct capability_header *hdr)
 		return -1;
 	}
 
-	as_t as4 = stream_getl(BGP_INPUT(peer));
+	as_t as4 = stream_getl(BGP_INPUT(peer->connection));
 
 	SET_FLAG(peer->cap, PEER_CAP_AS4_RCV);
 
@@ -667,7 +667,7 @@ static int bgp_capability_ext_message(struct peer *peer,
 static int bgp_capability_addpath(struct peer *peer,
 				  struct capability_header *hdr)
 {
-	struct stream *s = BGP_INPUT(peer);
+	struct stream *s = BGP_INPUT(peer->connection);
 	size_t end = stream_get_getp(s) + hdr->length;
 
 	/* Verify length is a multiple of 4 */
@@ -750,7 +750,7 @@ static int bgp_capability_addpath(struct peer *peer,
 static int bgp_capability_paths_limit(struct peer *peer,
 				      struct capability_header *hdr)
 {
-	struct stream *s = BGP_INPUT(peer);
+	struct stream *s = BGP_INPUT(peer->connection);
 	size_t end = stream_get_getp(s) + hdr->length;
 
 	if (hdr->length % CAPABILITY_CODE_PATHS_LIMIT_LEN) {
@@ -805,7 +805,7 @@ static int bgp_capability_paths_limit(struct peer *peer,
 
 static int bgp_capability_enhe(struct peer *peer, struct capability_header *hdr)
 {
-	struct stream *s = BGP_INPUT(peer);
+	struct stream *s = BGP_INPUT(peer->connection);
 	size_t end = stream_get_getp(s) + hdr->length;
 
 	/* Verify length is a multiple of 4 */
@@ -877,7 +877,7 @@ static int bgp_capability_enhe(struct peer *peer, struct capability_header *hdr)
 static int bgp_capability_hostname(struct peer *peer,
 				   struct capability_header *hdr)
 {
-	struct stream *s = BGP_INPUT(peer);
+	struct stream *s = BGP_INPUT(peer->connection);
 	char str[BGP_MAX_HOSTNAME + 1];
 	size_t end = stream_get_getp(s) + hdr->length;
 	uint8_t len;
@@ -957,7 +957,7 @@ static int bgp_capability_role(struct peer *peer, struct capability_header *hdr)
 		return -1;
 	}
 
-	uint8_t role = stream_getc(BGP_INPUT(peer));
+	uint8_t role = stream_getc(BGP_INPUT(peer->connection));
 
 	SET_FLAG(peer->cap, PEER_CAP_ROLE_RCV);
 
@@ -968,7 +968,7 @@ static int bgp_capability_role(struct peer *peer, struct capability_header *hdr)
 static int bgp_capability_software_version(struct peer *peer,
 					   struct capability_header *hdr)
 {
-	struct stream *s = BGP_INPUT(peer);
+	struct stream *s = BGP_INPUT(peer->connection);
 	char str[BGP_MAX_SOFT_VERSION + 1];
 	size_t end = stream_get_getp(s) + hdr->length;
 	uint8_t len;
@@ -1021,7 +1021,7 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 				int *mp_capability, uint8_t **error)
 {
 	int ret;
-	struct stream *s = BGP_INPUT(peer);
+	struct stream *s = BGP_INPUT(peer->connection);
 	size_t end = stream_get_getp(s) + length;
 	uint16_t restart_flag_time = 0;
 
@@ -1274,7 +1274,7 @@ static bool bgp_role_violation(struct peer *peer)
  */
 as_t peek_for_as4_capability(struct peer *peer, uint16_t length)
 {
-	struct stream *s = BGP_INPUT(peer);
+	struct stream *s = BGP_INPUT(peer->connection);
 	size_t orig_getp = stream_get_getp(s);
 	size_t end = orig_getp + length;
 	as_t as4 = 0;
@@ -1367,7 +1367,7 @@ int bgp_open_option_parse(struct peer *peer, uint16_t length,
 	int ret = 0;
 	uint8_t *error;
 	uint8_t error_data[BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE];
-	struct stream *s = BGP_INPUT(peer);
+	struct stream *s = BGP_INPUT(peer->connection);
 	size_t end = stream_get_getp(s) + length;
 
 	error = error_data;

@@ -1342,22 +1342,21 @@ static int handle_attr_test(struct aspath_tests *t)
 			  t->segment->asnotation);
 	bgp.asnotation = t->segment->asnotation;
 
-	peer.curr = stream_new(BGP_MAX_PACKET_SIZE);
 	peer.connection = bgp_peer_connection_new(&peer);
+	peer.connection->curr = stream_new(BGP_MAX_PACKET_SIZE);
 	peer.bgp = &bgp;
 	peer.host = (char *)"none";
 	peer.connection->fd = -1;
 	peer.cap = t->cap;
 	peer.max_packet_size = BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE;
 
-	stream_write(peer.curr, t->attrheader, t->len);
-	datalen = aspath_put(peer.curr, asp, t->as4 == AS4_DATA);
+	stream_write(peer.connection->curr, t->attrheader, t->len);
+	datalen = aspath_put(peer.connection->curr, asp, t->as4 == AS4_DATA);
 	if (t->old_segment) {
 		char dummyaspath[] = {BGP_ATTR_FLAG_TRANS, BGP_ATTR_AS_PATH,
 				      t->old_segment->len};
-		stream_write(peer.curr, dummyaspath, sizeof(dummyaspath));
-		stream_write(peer.curr, t->old_segment->asdata,
-			     t->old_segment->len);
+		stream_write(peer.connection->curr, dummyaspath, sizeof(dummyaspath));
+		stream_write(peer.connection->curr, t->old_segment->asdata, t->old_segment->len);
 		datalen += sizeof(dummyaspath) + t->old_segment->len;
 	}
 
@@ -1394,7 +1393,6 @@ out:
 	aspath_unintern(&asp);
 	bgp_peer_connection_free(&peer.connection);
 	stream_free(peer.last_reset_cause);
-	stream_free(peer.curr);
 	XFREE(MTYPE_BGP_NOTIFICATION, peer.notify.data);
 	return failed - initfail;
 }

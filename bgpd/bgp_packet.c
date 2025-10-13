@@ -964,12 +964,12 @@ static void bgp_notify_send_internal(struct peer_connection *connection,
 	 * Some callers should not attempt this - the io pthread for example
 	 * should not touch internals of the peer struct.
 	 */
-	if (use_curr && peer->curr) {
-		size_t packetsize = stream_get_endp(peer->curr);
+	if (use_curr && connection->curr) {
+		size_t packetsize = stream_get_endp(connection->curr);
 		assert(packetsize <= peer->max_packet_size);
 		if (peer->last_reset_cause)
 			stream_free(peer->last_reset_cause);
-		peer->last_reset_cause = stream_dup(peer->curr);
+		peer->last_reset_cause = stream_dup(connection->curr);
 	}
 
 	/* For debug */
@@ -1771,17 +1771,17 @@ static int bgp_open_receive(struct peer_connection *connection,
 	uint16_t *holdtime_ptr;
 
 	/* Parse open packet. */
-	version = stream_getc(peer->curr);
-	memcpy(notify_data_remote_as, stream_pnt(peer->curr), 2);
-	remote_as = stream_getw(peer->curr);
-	holdtime_ptr = (uint16_t *)stream_pnt(peer->curr);
-	holdtime = stream_getw(peer->curr);
-	memcpy(notify_data_remote_id, stream_pnt(peer->curr), 4);
-	remote_id.s_addr = stream_get_ipv4(peer->curr);
+	version = stream_getc(connection->curr);
+	memcpy(notify_data_remote_as, stream_pnt(connection->curr), 2);
+	remote_as = stream_getw(connection->curr);
+	holdtime_ptr = (uint16_t *)stream_pnt(connection->curr);
+	holdtime = stream_getw(connection->curr);
+	memcpy(notify_data_remote_id, stream_pnt(connection->curr), 4);
+	remote_id.s_addr = stream_get_ipv4(connection->curr);
 
 	/* BEGIN to read the capability here, but dont do it yet */
 	mp_capability = 0;
-	optlen = stream_getc(peer->curr);
+	optlen = stream_getc(connection->curr);
 
 	/* If we previously had some more capabilities e.g.:
 	 *   FQDN, SOFT_VERSION, we MUST clear the values we used
@@ -1805,7 +1805,7 @@ static int bgp_open_receive(struct peer_connection *connection,
 	    || CHECK_FLAG(peer->flags, PEER_FLAG_EXTENDED_OPT_PARAMS)) {
 		uint8_t opttype;
 
-		if (STREAM_READABLE(peer->curr) < 1) {
+		if (STREAM_READABLE(connection->curr) < 1) {
 			flog_err(
 				EC_BGP_PKT_OPEN,
 				"%s: stream does not have enough bytes for extended optional parameters",
@@ -1815,9 +1815,9 @@ static int bgp_open_receive(struct peer_connection *connection,
 			return BGP_Stop;
 		}
 
-		opttype = stream_getc(peer->curr);
+		opttype = stream_getc(connection->curr);
 		if (opttype == BGP_OPEN_NON_EXT_OPT_TYPE_EXTENDED_LENGTH) {
-			if (STREAM_READABLE(peer->curr) < 2) {
+			if (STREAM_READABLE(connection->curr) < 2) {
 				flog_err(
 					EC_BGP_PKT_OPEN,
 					"%s: stream does not have enough bytes to read the extended optional parameters optlen",
@@ -1826,7 +1826,7 @@ static int bgp_open_receive(struct peer_connection *connection,
 						BGP_NOTIFY_OPEN_MALFORMED_ATTR);
 				return BGP_Stop;
 			}
-			optlen = stream_getw(peer->curr);
+			optlen = stream_getw(connection->curr);
 			SET_FLAG(peer->sflags,
 				 PEER_STATUS_EXT_OPT_PARAMS_LENGTH);
 		}
@@ -1845,7 +1845,7 @@ static int bgp_open_receive(struct peer_connection *connection,
 
 	if (optlen != 0) {
 		/* If not enough bytes, it is an error. */
-		if (STREAM_READABLE(peer->curr) < optlen) {
+		if (STREAM_READABLE(connection->curr) < optlen) {
 			flog_err(EC_BGP_PKT_OPEN,
 				 "%s: stream has not enough bytes (%u)",
 				 peer->host, optlen);
@@ -2327,7 +2327,7 @@ static int bgp_update_receive(struct peer_connection *connection,
 	memset(peer->rcvd_attr_str, 0, BUFSIZ);
 	peer->rcvd_attr_printed = false;
 
-	s = peer->curr;
+	s = connection->curr;
 	end = stream_pnt(s) + size;
 
 	/* RFC1771 6.3 If the Unfeasible Routes Length or Total Attribute
@@ -2574,14 +2574,14 @@ static int bgp_notify_receive(struct peer_connection *connection,
 		peer->notify.hard_reset = false;
 	}
 
-	outer.code = stream_getc(peer->curr);
-	outer.subcode = stream_getc(peer->curr);
+	outer.code = stream_getc(connection->curr);
+	outer.subcode = stream_getc(connection->curr);
 	outer.length = size - 2;
 	outer.data = NULL;
 	outer.raw_data = NULL;
 	if (outer.length) {
 		outer.raw_data = XMALLOC(MTYPE_BGP_NOTIFICATION, outer.length);
-		memcpy(outer.raw_data, stream_pnt(peer->curr), outer.length);
+		memcpy(outer.raw_data, stream_pnt(connection->curr), outer.length);
 	}
 
 	hard_reset =
@@ -2616,7 +2616,7 @@ static int bgp_notify_receive(struct peer_connection *connection,
 			for (i = 0; i < inner.length; i++)
 				if (first) {
 					snprintf(c, sizeof(c), " %02x",
-						stream_getc(peer->curr));
+						 stream_getc(connection->curr));
 
 					strlcat(inner.data, c,
 						inner.length * 3);
@@ -2624,7 +2624,7 @@ static int bgp_notify_receive(struct peer_connection *connection,
 				} else {
 					first = 1;
 					snprintf(c, sizeof(c), "%02x",
-						 stream_getc(peer->curr));
+						 stream_getc(connection->curr));
 
 					strlcpy(inner.data, c,
 						inner.length * 3);
@@ -2734,7 +2734,7 @@ static int bgp_route_refresh_receive(struct peer_connection *connection,
 		return BGP_Stop;
 	}
 
-	s = peer->curr;
+	s = connection->curr;
 
 	/* Parse packet. */
 	pkt_afi = stream_getw(s);
@@ -3919,7 +3919,7 @@ int bgp_capability_receive(struct peer_connection *connection,
 	uint8_t *pnt;
 
 	/* Fetch pointer. */
-	pnt = stream_pnt(peer->curr);
+	pnt = stream_pnt(connection->curr);
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s rcv CAPABILITY", peer->host);
@@ -4018,9 +4018,9 @@ void bgp_process_packet(struct event *thread)
 		char notify_data_length[2];
 
 		frr_with_mutex (&connection->io_mtx)
-			peer->curr = stream_fifo_pop(connection->ibuf);
+			connection->curr = stream_fifo_pop(connection->ibuf);
 
-		if (peer->curr == NULL) {
+		if (connection->curr == NULL) {
 			frr_with_mutex (&bm->peer_connection_mtx)
 				connection = peer_connection_fifo_pop(&bm->connection_fifo);
 
@@ -4032,14 +4032,14 @@ void bgp_process_packet(struct event *thread)
 		}
 
 		/* skip the marker and copy the packet length */
-		stream_forward_getp(peer->curr, BGP_MARKER_SIZE);
-		memcpy(notify_data_length, stream_pnt(peer->curr), 2);
+		stream_forward_getp(connection->curr, BGP_MARKER_SIZE);
+		memcpy(notify_data_length, stream_pnt(connection->curr), 2);
 
 		/* read in the packet length and type */
-		size = stream_getw(peer->curr);
-		type = stream_getc(peer->curr);
+		size = stream_getw(connection->curr);
+		type = stream_getc(connection->curr);
 
-		hook_call(bgp_packet_dump, peer, type, size, peer->curr);
+		hook_call(bgp_packet_dump, peer, type, size, connection->curr);
 
 		/* adjust size to exclude the marker + length + type */
 		size -= BGP_HEADER_SIZE;
@@ -4130,8 +4130,8 @@ void bgp_process_packet(struct event *thread)
 		}
 
 		/* delete processed packet */
-		stream_free(peer->curr);
-		peer->curr = NULL;
+		stream_free(connection->curr);
+		connection->curr = NULL;
 		processed++;
 		curr_connection_processed++;
 
