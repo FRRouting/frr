@@ -795,11 +795,13 @@ static void gm_handle_v2_pass2_incl(struct gm_packet_state *pkt, size_t i)
 	/* EXCLUDE state was already dropped in pass1 */
 	assert(!gm_packet_sg_find(sg, GM_SUB_NEG, pkt->subscriber));
 
+	/* if repeated MLD records are in a packet, pkt == old is possible */
+	pkt->n_active++;
+
 	old = gm_packet_sg_find(sg, GM_SUB_POS, pkt->subscriber);
 	if (old)
 		gm_packet_sg_drop(old);
 
-	pkt->n_active++;
 	gm_packet_sg_subs_add(sg->subs_positive, item);
 
 	sg->most_recent = item;
@@ -813,6 +815,9 @@ static void gm_handle_v2_pass2_excl(struct gm_packet_state *pkt, size_t offs)
 	struct gm_packet_sg *old_grp, *item_dup;
 	struct gm_sg *sg_grp = item->sg;
 	size_t i;
+
+	/* if repeated MLD records are in a packet, pkt == old is possible */
+	pkt->n_active++;
 
 	old_grp = gm_packet_sg_find(sg_grp, GM_SUB_POS, pkt->subscriber);
 	if (old_grp) {
@@ -858,7 +863,6 @@ static void gm_handle_v2_pass2_excl(struct gm_packet_state *pkt, size_t offs)
 
 	item_dup = gm_packet_sg_subs_add(sg_grp->subs_positive, item);
 	assert(!item_dup);
-	pkt->n_active++;
 
 	sg_grp->most_recent = item;
 	gm_sg_expiry_cancel(sg_grp);
