@@ -401,10 +401,6 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	 * think about it.
 	 */
 	switch (h->nlmsg_type) {
-	case RTM_NEWROUTE:
-		return netlink_route_change(h, ns_id, startup);
-	case RTM_DELROUTE:
-		return netlink_route_change(h, ns_id, startup);
 	case RTM_NEWRULE:
 		return netlink_rule_change(h, ns_id, startup);
 	case RTM_DELRULE:
@@ -444,6 +440,8 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	case RTM_NEWNEIGH:
 	case RTM_DELNEIGH:
 	case RTM_GETNEIGH:
+	case RTM_NEWROUTE:
+	case RTM_DELROUTE:
 		return 0;
 	default:
 		/*
@@ -495,6 +493,10 @@ static int dplane_netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	case RTM_DELNEIGH:
 	case RTM_GETNEIGH:
 		return netlink_neigh_change(h, ns_id);
+
+	case RTM_NEWROUTE:
+	case RTM_DELROUTE:
+		return netlink_route_change(h, ns_id, startup);
 	default:
 		break;
 	}
@@ -1774,12 +1776,12 @@ void kernel_init(struct zebra_ns *zns)
 	 * groups are added further below after SOL_NETLINK is verified to
 	 * exist.
 	 */
-	groups = RTMGRP_IPV4_ROUTE | RTMGRP_IPV6_ROUTE | RTMGRP_IPV4_MROUTE |
-		 ((uint32_t)1 << (RTNLGRP_IPV4_RULE - 1)) |
+	groups = ((uint32_t)1 << (RTNLGRP_IPV4_RULE - 1)) |
 		 ((uint32_t)1 << (RTNLGRP_IPV6_RULE - 1)) |
 		 ((uint32_t)1 << (RTNLGRP_NEXTHOP - 1)) | ((uint32_t)1 << (RTNLGRP_TC - 1));
 
-	dplane_groups = (RTMGRP_LINK | RTMGRP_NEIGH | RTMGRP_IPV4_IFADDR | RTMGRP_IPV6_IFADDR |
+	dplane_groups = (RTMGRP_LINK | RTMGRP_IPV4_ROUTE | RTMGRP_IPV6_ROUTE | RTMGRP_IPV4_MROUTE |
+			 RTMGRP_NEIGH | RTMGRP_IPV4_IFADDR | RTMGRP_IPV6_IFADDR |
 			 ((uint32_t)1 << (RTNLGRP_IPV4_NETCONF - 1)) |
 			 ((uint32_t)1 << (RTNLGRP_IPV6_NETCONF - 1)) |
 			 ((uint32_t)1 << (RTNLGRP_MPLS_NETCONF - 1)));
