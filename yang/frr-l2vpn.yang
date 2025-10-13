@@ -77,6 +77,11 @@ module frr-l2vpn {
 
       leaf type {
         type enumeration {
+          enum "vpws" {
+            value 1;
+            description
+              "BGP VPWS instance, as defined per RFC8214.";
+          }
           enum "vpls" {
             value 2;
             description

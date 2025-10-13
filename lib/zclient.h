@@ -23,8 +23,8 @@ struct zclient;
 /* For resilience */
 #include "nexthop_group.h"
 
-/* For union pw_protocol_fields */
-#include "pw.h"
+/* For union l2vpn_protocol_fields */
+#include "l2vpn.h"
 
 #include "mlag.h"
 #include "srte.h"
@@ -698,7 +698,7 @@ struct zapi_pw {
 	uint32_t local_label;
 	uint32_t remote_label;
 	uint8_t flags;
-	union pw_protocol_fields data;
+	union l2vpn_protocol_fields data;
 	uint8_t protocol;
 };
 

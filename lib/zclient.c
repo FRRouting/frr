@@ -4478,7 +4478,7 @@ enum zclient_send_status zebra_send_pw(struct zclient *zclient, int command,
 	stream_putc(s, pw->flags);
 
 	/* Protocol specific fields */
-	stream_write(s, &pw->data, sizeof(union pw_protocol_fields));
+	stream_write(s, &pw->data, sizeof(union l2vpn_protocol_fields));
 
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));

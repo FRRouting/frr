@@ -10,7 +10,7 @@
 #include "lib/command.h"
 #include "lib/log.h"
 #include "lib/northbound.h"
-#include "lib/l2vpn.h"
+#include "lib/l2vpn_svc.h"
 
 /*
  * XPath: /frr-l2vpn:l2vpn/l2vpn-instance
@@ -19,6 +19,7 @@ static int l2vpn_instance_create(struct nb_cb_create_args *args)
 {
 	const char *l2vpn_name;
 	struct l2vpn *l2vpn;
+	uint16_t l2_type;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -28,13 +29,14 @@ static int l2vpn_instance_create(struct nb_cb_create_args *args)
 		break;
 	case NB_EV_APPLY:
 		l2vpn_name = yang_dnode_get_string(args->dnode, "name");
-		l2vpn = l2vpn_find(&l2vpn_tree_config, l2vpn_name);
+		l2_type = yang_dnode_get_enum(args->dnode, "type");
+		l2vpn = l2vpn_find(&l2vpn_tree_config, l2vpn_name, l2_type);
 		if (l2vpn) {
 			nb_running_set_entry(args->dnode, l2vpn);
 			return NB_OK;
 		}
 		l2vpn = l2vpn_new(l2vpn_name);
-		l2vpn->type = L2VPN_TYPE_VPLS;
+		l2vpn->type = l2_type;
 		RB_INSERT(l2vpn_head, &l2vpn_tree_config, l2vpn);
 		QOBJ_REG(l2vpn, l2vpn);
 		nb_running_set_entry(args->dnode, l2vpn);

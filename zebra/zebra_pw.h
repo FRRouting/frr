@@ -13,7 +13,7 @@
 #include "lib/hook.h"
 #include "lib/qobj.h"
 #include "lib/if.h"
-#include "lib/pw.h"
+#include "lib/l2vpn.h"
 #include "lib/nexthop.h"
 #include "lib/openbsd-tree.h"
 
@@ -37,7 +37,7 @@ struct zebra_pw {
 	uint32_t local_label;
 	uint32_t remote_label;
 	uint8_t flags;
-	union pw_protocol_fields data;
+	union l2vpn_protocol_fields data;
 	int enabled;
 	int status;
 	uint8_t protocol;
@@ -61,7 +61,7 @@ struct zebra_pw *zebra_pw_add(struct zebra_vrf *zvrf, const char *ifname,
 			      uint8_t protocol, struct zserv *client);
 void zebra_pw_del(struct zebra_vrf *, struct zebra_pw *);
 void zebra_pw_change(struct zebra_pw *, ifindex_t, int, int, union g_addr *,
-		     uint32_t, uint32_t, uint8_t, union pw_protocol_fields *);
+		     uint32_t, uint32_t, uint8_t, union l2vpn_protocol_fields *);
 struct zebra_pw *zebra_pw_find(struct zebra_vrf *, const char *);
 void zebra_pw_update(struct zebra_pw *);
 void zebra_pw_install_failure(struct zebra_pw *pw, int pwstatus);

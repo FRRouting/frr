@@ -2221,12 +2221,13 @@ DEFUNSH(VTYSH_LDPD, ldp_interface_ifname, ldp_interface_ifname_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_L2VPN, l2vpn_word_type_vpls, l2vpn_word_type_vpls_cmd,
-	"l2vpn WORD type vpls",
+DEFUNSH(VTYSH_L2VPN, l2vpn_word_type, l2vpn_word_type_cmd,
+	"l2vpn WORD type <vpls|vpws>",
 	"Configure l2vpn commands\n"
 	"L2VPN name\n"
 	"L2VPN type\n"
-	"Virtual Private LAN Service\n")
+	"Virtual Private LAN Service\n"
+	"Virtual Private Wire Service\n")
 {
 	vty->node = L2VPN_NODE;
 	return CMD_SUCCESS;
@@ -2614,6 +2615,12 @@ DEFUNSH(VTYSH_REALLYALL, vtysh_quit_all, vtysh_quit_all_cmd, "quit",
 	"Exit current mode and down to previous mode\n")
 {
 	return vtysh_exit_all(self, vty, argc, argv);
+}
+
+DEFUNSH(VTYSH_L2VPN, vtysh_exit_l2vpn, vtysh_exit_l2vpn_cmd, "exit",
+	"Exit current mode and down to previous mode\n")
+{
+	return vtysh_exit(vty);
 }
 
 #ifdef HAVE_BGPD
@@ -5221,8 +5228,8 @@ void vtysh_init_vty(void)
 	install_element(LDP_IPV6_IFACE_NODE, &vtysh_quit_ldpd_cmd);
 	install_element(LDP_IPV6_IFACE_NODE, &vtysh_end_all_cmd);
 
-	install_element(CONFIG_NODE, &l2vpn_word_type_vpls_cmd);
-	install_element(L2VPN_NODE, &vtysh_exit_ldpd_cmd);
+	install_element(CONFIG_NODE, &l2vpn_word_type_cmd);
+	install_element(L2VPN_NODE, &vtysh_exit_l2vpn_cmd);
 	install_element(L2VPN_NODE, &vtysh_quit_ldpd_cmd);
 	install_element(L2VPN_NODE, &vtysh_end_all_cmd);
 

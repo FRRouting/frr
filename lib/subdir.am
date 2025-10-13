@@ -56,6 +56,7 @@ lib_libfrr_la_SOURCES = \
 	lib/keychain.c \
 	lib/l2vpn_cli.c \
 	lib/l2vpn_northbound.c \
+	lib/l2vpn_svc.c \
 	lib/ldp_sync.c \
 	lib/lib_errors.c \
 	lib/lib_vty.c \
@@ -258,6 +259,7 @@ pkginclude_HEADERS += \
 	lib/keychain.h \
 	lib/ldp_sync.h \
 	lib/l2vpn.h \
+	lib/l2vpn_svc.h \
 	lib/lib_errors.h \
 	lib/lib_vty.h \
 	lib/libfrr.h \
@@ -296,7 +298,6 @@ pkginclude_HEADERS += \
 	lib/privs.h \
 	lib/ptm_lib.h \
 	lib/pullwr.h \
-	lib/pw.h \
 	lib/qobj.h \
 	lib/queue.h \
 	lib/ringbuf.h \

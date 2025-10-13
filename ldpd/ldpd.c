@@ -226,18 +226,33 @@ static void ldp_config_fork_apply(struct event *t)
 
 static void ldp_l2vpn_entry_added(const char *l2vpn_name)
 {
+	struct l2vpn *l2vpn;
+
+	l2vpn = l2vpn_find(&l2vpn_tree_config, l2vpn_name, L2VPN_TYPE_VPLS);
+	if (!l2vpn)
+		return;
+
 	/* XXX handle config load from file */
 	ldp_config_apply(NULL, vty_conf);
 }
 
 static void ldp_l2vpn_entry_deleted(const char *l2vpn_name)
 {
+	struct l2vpn *l2vpn;
+
+	l2vpn = l2vpn_find(&l2vpn_tree_config, l2vpn_name, L2VPN_TYPE_VPLS);
+	if (!l2vpn)
+		return;
+
 	/* XXX handle config load from file */
 	ldp_config_apply(NULL, vty_conf);
 }
 
 static void ldp_l2vpn_entry_event(struct l2vpn_svc *l2vpn_svc)
 {
+	if (l2vpn_svc->l2vpn->type != L2VPN_TYPE_VPLS)
+		return;
+
 	/* XXX handle config load from file */
 	ldp_config_apply(NULL, vty_conf);
 }
@@ -1051,6 +1066,8 @@ static int main_imsg_send_config(struct ldpd_conf *xconf, struct l2vpn_head *l2v
 	}
 
 	RB_FOREACH (l2vpn, l2vpn_head, l2vpn_tree) {
+		if (l2vpn->type != L2VPN_TYPE_VPLS)
+			continue;
 		if (main_imsg_compose_both(IMSG_RECONF_L2VPN, l2vpn,
 		    sizeof(*l2vpn)) == -1)
 			return (-1);
@@ -1812,7 +1829,7 @@ void merge_l2vpns(struct l2vpn_head *dst, struct l2vpn_head *src)
 
 	RB_FOREACH_SAFE (l2vpn, l2vpn_head, dst, ltmp) {
 		/* find deleted l2vpns */
-		if (l2vpn_find(src, l2vpn->name) == NULL) {
+		if (l2vpn_find(src, l2vpn->name, l2vpn->type) == NULL) {
 			switch (ldpd_process) {
 			case PROC_LDE_ENGINE:
 				ldp_l2vpn_exit(l2vpn);
@@ -1829,7 +1846,7 @@ void merge_l2vpns(struct l2vpn_head *dst, struct l2vpn_head *src)
 	}
 	RB_FOREACH_SAFE (xl, l2vpn_head, src, ltmp) {
 		/* find new l2vpns */
-		if ((l2vpn = l2vpn_find(dst, xl->name)) == NULL) {
+		if ((l2vpn = l2vpn_find(dst, xl->name, xl->type)) == NULL) {
 			COPY(l2vpn, xl);
 			RB_INSERT(l2vpn_head, dst, l2vpn);
 			RB_INIT(l2vpn_if_head, &l2vpn->if_tree);

@@ -165,7 +165,7 @@ struct dplane_pw_info {
 	struct nexthop_group primary_nhg;
 	struct nexthop_group backup_nhg;
 
-	union pw_protocol_fields fields;
+	union l2vpn_protocol_fields fields;
 };
 
 /*
@@ -2506,8 +2506,7 @@ const union g_addr *dplane_ctx_get_pw_dest(
 	return &(ctx->u.pw.dest);
 }
 
-const union pw_protocol_fields *dplane_ctx_get_pw_proto(
-	const struct zebra_dplane_ctx *ctx)
+const union l2vpn_protocol_fields *dplane_ctx_get_pw_proto(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 

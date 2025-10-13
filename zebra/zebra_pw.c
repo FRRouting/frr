@@ -100,9 +100,8 @@ void zebra_pw_del(struct zebra_vrf *zvrf, struct zebra_pw *pw)
 }
 
 void zebra_pw_change(struct zebra_pw *pw, ifindex_t ifindex, int type, int af,
-		     union g_addr *nexthop, uint32_t local_label,
-		     uint32_t remote_label, uint8_t flags,
-		     union pw_protocol_fields *data)
+		     union g_addr *nexthop, uint32_t local_label, uint32_t remote_label,
+		     uint8_t flags, union l2vpn_protocol_fields *data)
 {
 	pw->ifindex = ifindex;
 	pw->type = type;

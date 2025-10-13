@@ -19,10 +19,10 @@
 #include "prefix.h"
 #include "filter.h"
 #include "vty.h"
-#include "pw.h"
+#include "l2vpn.h"
 #include "zclient.h"
 #include "nexthop.h"
-#include "l2vpn.h"
+#include "l2vpn_svc.h"
 
 #include "ldp.h"
 #include "lib/ldp_sync.h"

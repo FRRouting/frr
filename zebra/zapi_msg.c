@@ -3386,7 +3386,7 @@ static void zread_pseudowire(ZAPI_HANDLER_ARGS)
 	uint32_t local_label;
 	uint32_t remote_label;
 	uint8_t flags;
-	union pw_protocol_fields data;
+	union l2vpn_protocol_fields data;
 	uint8_t protocol;
 	struct zebra_pw *pw;
 

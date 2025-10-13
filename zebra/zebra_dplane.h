@@ -656,8 +656,7 @@ int dplane_ctx_get_pw_status(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_pw_status(struct zebra_dplane_ctx *ctx, int status);
 const union g_addr *dplane_ctx_get_pw_dest(
 	const struct zebra_dplane_ctx *ctx);
-const union pw_protocol_fields *dplane_ctx_get_pw_proto(
-	const struct zebra_dplane_ctx *ctx);
+const union l2vpn_protocol_fields *dplane_ctx_get_pw_proto(const struct zebra_dplane_ctx *ctx);
 const struct nexthop_group *dplane_ctx_get_pw_nhg(
 	const struct zebra_dplane_ctx *ctx);
 const struct nexthop_group *
