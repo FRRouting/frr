@@ -2645,7 +2645,7 @@ bool zebra_evpn_es_mac_ref(struct zebra_mac *mac, const esi_t *esi)
 			es = zebra_evpn_es_new(esi);
 			if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 				zlog_debug("auto es %s add on mac ref",
-					   es->esi_str);
+					   es ? es->esi_str : "unknown");
 		}
 	}
 
@@ -3035,19 +3035,13 @@ static char *zebra_evpn_es_vtep_str(char *vtep_str, struct zebra_evpn_es *es,
 
 	vtep_str[0] = '\0';
 	for (ALL_LIST_ELEMENTS_RO(es->es_vtep_list, node, zvtep)) {
-		if (first) {
+		snprintfrr(ip_buf, sizeof(ip_buf), "%pI4", &zvtep->vtep_ip);
+
+		if (first)
 			first = false;
-			strlcat(vtep_str,
-				inet_ntop(AF_INET, &zvtep->vtep_ip, ip_buf,
-					  sizeof(ip_buf)),
-				vtep_str_size);
-		} else {
+		else
 			strlcat(vtep_str, ",", vtep_str_size);
-			strlcat(vtep_str,
-				inet_ntop(AF_INET, &zvtep->vtep_ip, ip_buf,
-					  sizeof(ip_buf)),
-				vtep_str_size);
-		}
+		strlcat(vtep_str, ip_buf, vtep_str_size);
 	}
 	return vtep_str;
 }

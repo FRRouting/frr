@@ -820,6 +820,15 @@ int zsend_route_notify_owner_ctx(const struct zebra_dplane_ctx *ctx,
 	int result;
 	struct route_node *rn = rib_find_rn_from_ctx(ctx);
 
+	if (!rn) {
+		if (IS_ZEBRA_DEBUG_PACKET) {
+			zlog_debug("%s: route node not found for ctx vrf %u table %u afi %u safi %u",
+				   __func__, dplane_ctx_get_vrf(ctx), dplane_ctx_get_table(ctx),
+				   dplane_ctx_get_afi(ctx), dplane_ctx_get_safi(ctx));
+		}
+		return -1;
+	}
+
 	result = route_notify_internal(
 		rn, dplane_ctx_get_type(ctx), dplane_ctx_get_instance(ctx),
 		dplane_ctx_get_vrf(ctx), dplane_ctx_get_table(ctx), note,
@@ -1525,6 +1534,7 @@ static void zread_interface_add(ZAPI_HANDLER_ARGS)
 	struct interface *ifp;
 
 	vrf_id_t vrf_id = zvrf_id(zvrf);
+
 	if (vrf_id != VRF_DEFAULT && vrf_id != VRF_UNKNOWN) {
 		FOR_ALL_INTERFACES (zvrf->vrf, ifp) {
 			/* Skip pseudo interface. */
