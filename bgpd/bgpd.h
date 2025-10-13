@@ -1401,6 +1401,8 @@ struct peer_connection {
 
 	/* For FIFO list */
 	struct peer_connection_fifo_item fifo_item;
+
+	struct stream *curr;
 };
 
 /* Declare the FIFO list implementation */
@@ -1451,8 +1453,6 @@ struct peer {
 
 	/* Local router ID. */
 	struct in_addr local_id;
-
-	struct stream *curr; // the current packet being parsed
 
 	/* the doppelganger peer structure, due to dual TCP conn setup */
 	struct peer *doppelganger;
@@ -2376,8 +2376,8 @@ enum bgp_clear_type {
 };
 
 /* Macros. */
-#define BGP_INPUT(P)         ((P)->curr)
-#define BGP_INPUT_PNT(P)     (stream_pnt(BGP_INPUT(P)))
+#define BGP_INPUT(C)	 ((C)->curr)
+#define BGP_INPUT_PNT(C) (stream_pnt(BGP_INPUT(C)))
 #define BGP_IS_VALID_STATE_FOR_NOTIF(S)                                        \
 	(((S) == OpenSent) || ((S) == OpenConfirm) || ((S) == Established))
 

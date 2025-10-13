@@ -1205,6 +1205,11 @@ void bgp_peer_connection_buffers_free(struct peer_connection *connection)
 			connection->ibuf_work = NULL;
 		}
 	}
+
+	if (connection->curr) {
+		stream_free(connection->curr);
+		connection->curr = NULL;
+	}
 }
 
 void bgp_peer_connection_free(struct peer_connection **connection)

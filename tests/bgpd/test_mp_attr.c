@@ -995,20 +995,20 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 	struct attr attr = {};
 	struct bgp_nlri nlri = {};
 	struct bgp_attr_parser_args attr_args = {
-		.peer = peer,
+		.connection = peer->connection,
 		.length = t->len,
 		.total = 1,
 		.attr = &attr,
 		.type = type,
 		.flags = BGP_ATTR_FLAG_OPTIONAL,
-		.startp = BGP_INPUT_PNT(peer),
+		.startp = BGP_INPUT_PNT(peer->connection),
 	};
 #define RANDOM_FUZZ 35
-	stream_reset(peer->curr);
-	stream_put(peer->curr, NULL, RANDOM_FUZZ);
-	stream_set_getp(peer->curr, RANDOM_FUZZ);
+	stream_reset(peer->connection->curr);
+	stream_put(peer->connection->curr, NULL, RANDOM_FUZZ);
+	stream_set_getp(peer->connection->curr, RANDOM_FUZZ);
 
-	stream_write(peer->curr, t->data, t->len);
+	stream_write(peer->connection->curr, t->data, t->len);
 
 	printf("%s: %s\n", t->name, t->desc);
 
@@ -1089,7 +1089,7 @@ int main(void)
 	peer->host = (char *)"foo";
 	peer->connection = bgp_peer_connection_new(peer);
 	peer->connection->status = Established;
-	peer->curr = stream_new(BGP_MAX_PACKET_SIZE);
+	peer->connection->curr = stream_new(BGP_MAX_PACKET_SIZE);
 
 	ifp.ifindex = 0;
 	peer->nexthop.ifp = &ifp;
