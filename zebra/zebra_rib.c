@@ -4469,15 +4469,15 @@ void rib_meta_queue_early_route_cleanup(const struct prefix *p, int route_type)
 			atomic_fetch_sub_explicit(&zrouter.mq->total_subq[META_QUEUE_EARLY_ROUTE],
 						  1, memory_order_relaxed);
 
-			/* Free the early route memory */
-			early_route_memory_free(ere);
-
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 				struct vrf *vrf = vrf_lookup_by_id(ere->re->vrf_id);
 
 				zlog_debug("Route %pFX(%s) type %d removed from early route queue",
 					   p, VRF_LOGNAME(vrf), route_type);
 			}
+
+			/* Free the early route memory */
+			early_route_memory_free(ere);
 		}
 	}
 }
