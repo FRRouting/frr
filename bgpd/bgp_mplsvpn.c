@@ -2969,7 +2969,9 @@ void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw,
 			 */
 			form_auto_rd(bgp->router_id, bgp->vrf_rd_id,
 				     &bgp->vrf_prd_auto);
-			bgp->vpn_policy[afi].tovpn_rd = bgp->vrf_prd_auto;
+			if (!CHECK_FLAG(bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_RD_CLI_SET))
+				bgp->vpn_policy[afi].tovpn_rd = bgp->vrf_prd_auto;
+
 			prefix_rd2str(&bgp->vpn_policy[afi].tovpn_rd, buf,
 				      sizeof(buf), bgp->asnotation);
 
@@ -3103,9 +3105,13 @@ void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 	if (first_export) {
 		form_auto_rd(from_bgp->router_id, from_bgp->vrf_rd_id,
 			     &from_bgp->vrf_prd_auto);
-		from_bgp->vpn_policy[afi].tovpn_rd = from_bgp->vrf_prd_auto;
+
+		if (!CHECK_FLAG(from_bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_TOVPN_RD_CLI_SET))
+			from_bgp->vpn_policy[afi].tovpn_rd = from_bgp->vrf_prd_auto;
+
 		SET_FLAG(from_bgp->vpn_policy[afi].flags,
 			 BGP_VPN_POLICY_TOVPN_RD_SET);
+
 		prefix_rd2str(&from_bgp->vpn_policy[afi].tovpn_rd, buf,
 			      sizeof(buf), from_bgp->asnotation);
 		from_bgp->vpn_policy[afi].rtlist[edir] =
