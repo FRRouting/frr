@@ -26,7 +26,8 @@ typedef enum {
 	BGP_ENCAP_TYPE_MPLS_IN_GRE = 11,
 	BGP_ENCAP_TYPE_VXLAN_GPE = 12,
 	BGP_ENCAP_TYPE_MPLS_IN_UDP = 13,
-	BGP_ENCAP_TYPE_PBB
+	BGP_ENCAP_TYPE_PBB,
+	BGP_ENCAP_TYPE_SRV6 = 255, /* For internal usage only */
 } bgp_encap_types;
 
 typedef enum {
