@@ -415,7 +415,7 @@ extern bool cluster_loop_check(struct cluster_list *cluster,
 
 /* Below exported for unit-test purposes only */
 struct bgp_attr_parser_args {
-	struct peer *peer;
+	struct peer_connection *connection;
 	bgp_size_t length; /* attribute data length; */
 	bgp_size_t total;  /* total length, inc header */
 	struct attr *attr;
