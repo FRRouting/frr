@@ -1474,6 +1474,9 @@ void nexthop_vty_helper(struct vty *vty, const struct nexthop *nexthop,
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 		vty_out(vty, " (recursive)");
 
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
+		vty_out(vty, " (dup)");
+
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
