@@ -4765,6 +4765,10 @@ int lib_interface_gmp_require_router_alert_modify(struct nb_cb_modify_args *args
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		pim_ifp = ifp->info;
+		if (!pim_ifp) {
+			pim_ifp = pim_if_new(ifp, true, false, false, false);
+			ifp->info = pim_ifp;
+		}
 		pim_ifp->gmp_require_ra = yang_dnode_get_bool(args->dnode, NULL);
 		break;
 	}
