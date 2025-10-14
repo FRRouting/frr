@@ -7420,14 +7420,6 @@ void bgp_cleanup_routes(struct bgp *bgp)
 	}
 }
 
-void bgp_reset(void)
-{
-	vty_reset();
-	bgp_zclient_reset();
-	access_list_reset();
-	prefix_list_reset();
-}
-
 bool bgp_addpath_encode_rx(struct peer *peer, afi_t afi, safi_t safi)
 {
 	return (CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV)
