@@ -3461,6 +3461,7 @@ ospf6_start_asbr_summary_delay_timer(struct ospf6 *ospf6,
 			if (IS_OSPF6_DEBUG_AGGR)
 				zlog_debug("%s: Not required to restart timer,set is already added.",
 					__func__);
+			ospf6->aggr_action = operation;
 			return;
 		}
 
