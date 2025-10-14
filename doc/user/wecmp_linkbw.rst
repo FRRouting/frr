@@ -178,7 +178,9 @@ The operator can change these behaviors with the following configuration:
 The different options imply behavior as follows:
 
 - ignore: Ignore link bandwidth completely for route installation
-  (i.e.,  do regular ECMP,  not weighted)
+  using link-bandwidth extended community. If ignore is configured,
+  but Next-Next Hop Nodes (NNHN) characteristic attribute is present,
+  the NNHN attribute will be used for multipath calculation.
 - skip-missing: Skip paths without link bandwidth and do UCMP among
   the others (if at least some paths have link-bandwidth)
 - default-weight-for-missing: Assign a low default weight (value 1)
