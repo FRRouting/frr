@@ -217,6 +217,7 @@ struct srv6_policy {
 	struct srv6_locator *sid_locator;
 	struct in6_addr *zebra_sid_last_sent;
 	char *rmap_name;
+	char endpoint_vrf[IFNAMSIZ];
 };
 
 struct vpn_policy {

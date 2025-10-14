@@ -28,5 +28,7 @@ void bgp_srv6_unicast_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest
 				     struct bgp_path_info *bpi);
 void bgp_srv6_unicast_announce(struct bgp *bgp, afi_t afi);
 void bgp_srv6_unicast_withdraw(struct bgp *bgp, afi_t afi);
+struct interface *get_srv6_endpoint_ifp(char *vrf_name);
+void bgp_srv6_unicast_ifp_update(struct interface *ifp, bool state);
 
 #endif /* _BGP_SRV6_H_ */

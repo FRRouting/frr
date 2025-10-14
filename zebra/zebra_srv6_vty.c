@@ -30,6 +30,7 @@
 
 #include "zebra/zebra_srv6_vty_clippy.c"
 
+static char srv6_routing_redirect[IFNAMSIZ] = {0};
 static int zebra_sr_config(struct vty *vty);
 
 static struct cmd_node sr_node = {
@@ -899,6 +900,49 @@ DEFUN_NOSH (srv6_locators,
 	return CMD_SUCCESS;
 }
 
+DEFPY (srv6_dft_redirect,
+       srv6_dft_redirect_cmd,
+       "[no] default-routing-table redirect WORD$vrf_name",
+       NO_STR
+       "Global routing table\n"
+       "Redirect endpoint behaviors to\n"
+       "Specify vrf name\n")
+{
+	struct stream *s;
+	struct zserv *client;
+	struct listnode *node;
+	char name[IFNAMSIZ] = {0};
+
+
+	if (strlen(vrf_name) >= IFNAMSIZ) {
+		vty_out(vty, "VRF name length should be less than %u", IFNAMSIZ);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (!no && strmatch(srv6_routing_redirect, vrf_name))
+		return CMD_SUCCESS;
+
+	if (no) {
+		if (!srv6_routing_redirect[0])
+			return CMD_SUCCESS;
+
+		memset(srv6_routing_redirect, 0, IFNAMSIZ);
+	} else {
+		strlcpy(srv6_routing_redirect, vrf_name, IFNAMSIZ);
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
+		s = stream_new(ZEBRA_SMALL_PACKET_SIZE);
+		zclient_create_header(s, ZEBRA_SRV6_ACT_REDIRECT, VRF_DEFAULT);
+		strlcpy(name, srv6_routing_redirect, IFNAMSIZ);
+		stream_put(s, name, IFNAMSIZ);
+		stream_putw_at(s, 0, stream_get_endp(s));
+		zserv_send_message(client, s);
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFUN_NOSH (srv6_locator,
             srv6_locator_cmd,
             "locator WORD",
@@ -1702,6 +1746,9 @@ static int zebra_sr_config(struct vty *vty)
 	}
 	if (srv6 && zebra_srv6_is_enable()) {
 		vty_out(vty, "  locators\n");
+		if (srv6_routing_redirect[0])
+			vty_out(vty, "   default-routing-table redirect %s\n",
+				srv6_routing_redirect);
 		for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
 			inet_ntop(AF_INET6, &locator->prefix.prefix,
 				  str, sizeof(str));
@@ -1851,6 +1898,7 @@ void zebra_srv6_vty_init(void)
 	install_element(SRV6_NODE, &srv6_sid_formats_cmd);
 	install_element(SRV6_LOCS_NODE, &srv6_locator_cmd);
 	install_element(SRV6_LOCS_NODE, &no_srv6_locator_cmd);
+	install_element(SRV6_LOCS_NODE, &srv6_dft_redirect_cmd);
 	install_element(SRV6_SID_FORMATS_NODE, &srv6_sid_format_f3216_usid_cmd);
 	install_element(SRV6_SID_FORMATS_NODE, &srv6_sid_format_f4816_usid_cmd);
 	install_element(SRV6_SID_FORMATS_NODE,

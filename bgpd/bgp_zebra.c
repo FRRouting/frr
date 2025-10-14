@@ -222,6 +222,7 @@ static int bgp_ifp_up(struct interface *ifp)
 	bgp = ifp->vrf->info;
 
 	bgp_mac_add_mac_entry(ifp);
+	bgp_srv6_unicast_ifp_update(ifp, true);
 
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("Rx Intf up VRF %s IF %s", ifp->vrf->name, ifp->name);
@@ -246,12 +247,6 @@ static int bgp_ifp_up(struct interface *ifp)
 		vpn_leak_postchange_all(true);
 	}
 
-	if (ifp->vrf->data.l.table_id == 254 && strmatch(ifp->name, DEFAULT_SRV6_IFNAME) &&
-	    bgp->vrf_id == VRF_DEFAULT) {
-		bgp_srv6_unicast_sid_endpoint(bgp, AFI_IP, ifp, true);
-		bgp_srv6_unicast_sid_endpoint(bgp, AFI_IP6, ifp, true);
-	}
-
 	return 0;
 }
 
@@ -266,6 +261,7 @@ static int bgp_ifp_down(struct interface *ifp)
 	bgp = ifp->vrf->info;
 
 	bgp_mac_del_mac_entry(ifp);
+	bgp_srv6_unicast_ifp_update(ifp, false);
 
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("Rx Intf down VRF %s IF %s", ifp->vrf->name,
@@ -305,12 +301,6 @@ static int bgp_ifp_down(struct interface *ifp)
 		vpn_leak_zebra_vrf_sid_withdraw(bgp, AFI_IP);
 		vpn_leak_zebra_vrf_sid_withdraw(bgp, AFI_IP6);
 		vpn_leak_postchange_all(true);
-	}
-
-	if (ifp->vrf->data.l.table_id == 254 && strmatch(ifp->name, DEFAULT_SRV6_IFNAME) &&
-	    bgp->vrf_id == VRF_DEFAULT) {
-		bgp_srv6_unicast_sid_endpoint(bgp, AFI_IP, ifp, false);
-		bgp_srv6_unicast_sid_endpoint(bgp, AFI_IP6, ifp, false);
 	}
 
 	return 0;
@@ -3800,6 +3790,71 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+static void bgp_zebra_srv6_act_redirect_afi(struct bgp *bgp, afi_t afi, char *vrf_name)
+{
+	char debug_msg[128];
+	struct interface *ifp;
+	struct srv6_policy *srv6_policy;
+
+	srv6_policy = &bgp->srv6_unicast[afi];
+	if (srv6_policy->zebra_sid_last_sent) {
+		ifp = get_srv6_endpoint_ifp(srv6_policy->endpoint_vrf);
+
+		if (!ifp) {
+			zlog_warn("Can not remove SRv6 endpoint for sid %pI6",
+				  srv6_policy->zebra_sid_last_sent);
+			return;
+		}
+
+		bgp_srv6_unicast_sid_endpoint(bgp, afi, ifp, false);
+	}
+
+	ifp = get_srv6_endpoint_ifp(vrf_name);
+	if (!ifp) {
+		if (vrf_name[0])
+			snprintf(debug_msg, sizeof(debug_msg), "VRF loopback %s",
+				 vrf_name);
+		else
+			snprintf(debug_msg, sizeof(debug_msg), "%s", DEFAULT_SRV6_IFNAME);
+		zlog_warn("Can not find %s interface, sid endpoint install failed",
+			  debug_msg);
+		return;
+	}
+
+	if (!if_is_up(ifp))
+		return;
+
+	bgp_srv6_unicast_sid_endpoint(bgp, afi, ifp, true);
+}
+
+static int bgp_zebra_srv6_act_redirect(ZAPI_CALLBACK_ARGS)
+{
+	struct bgp *bgp;
+	struct stream *s;
+	char vrf_name[IFNAMSIZ] = {0};
+
+	bgp = bgp_get_default();
+	if (!bgp)
+		return 0;
+
+	s = zclient->ibuf;
+	stream_get(vrf_name, s, IFNAMSIZ);
+
+	if (BGP_DEBUG(zebra, ZEBRA))
+		zlog_debug("Received default-routing-table redirect %s", vrf_name);
+
+	if (is_srv6_unicast_enabled(bgp, AFI_IP))
+		bgp_zebra_srv6_act_redirect_afi(bgp, AFI_IP, vrf_name);
+
+	if (is_srv6_unicast_enabled(bgp, AFI_IP6))
+		bgp_zebra_srv6_act_redirect_afi(bgp, AFI_IP6, vrf_name);
+
+	strlcpy(bgp->srv6_unicast[AFI_IP].endpoint_vrf, vrf_name, sizeof(vrf_name));
+	strlcpy(bgp->srv6_unicast[AFI_IP6].endpoint_vrf, vrf_name, sizeof(vrf_name));
+
+	return 0;
+}
+
 static int bgp_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
 {
 	struct srv6_locator loc = {};
@@ -4041,6 +4096,7 @@ static zclient_handler *const bgp_handlers[] = {
 	[ZEBRA_TRACKER_NOTIFY] = bgp_zebra_tracker,
 	[ZEBRA_TRACKER_DEL] = bgp_zebra_tracker,
 	[ZEBRA_SRV6_SID_NOTIFY] = bgp_zebra_srv6_sid_notify,
+	[ZEBRA_SRV6_ACT_REDIRECT] = bgp_zebra_srv6_act_redirect,
 };
 
 static int bgp_if_new_hook(struct interface *ifp)

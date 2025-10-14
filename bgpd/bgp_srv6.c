@@ -76,6 +76,20 @@ void bgp_srv6_unicast_ensure_afi_sid(struct bgp *bgp, afi_t afi)
 	}
 }
 
+struct interface *get_srv6_endpoint_ifp(char *vrf_name)
+{
+	struct vrf *vrf;
+
+	if (!vrf_name[0])
+		return if_lookup_by_name(DEFAULT_SRV6_IFNAME, VRF_DEFAULT);
+
+	vrf = vrf_lookup_by_name(vrf_name);
+	if (!vrf)
+		return NULL;
+
+	return if_get_vrf_loopback(vrf->vrf_id);
+}
+
 void bgp_srv6_unicast_sid_endpoint(struct bgp *bgp, afi_t afi,
 				   struct interface *ifp, bool install)
 {
@@ -116,31 +130,38 @@ void bgp_srv6_unicast_sid_endpoint(struct bgp *bgp, afi_t afi,
 
 void bgp_srv6_unicast_sid_withdraw(struct bgp *bgp, afi_t afi)
 {
+	char debug_msg[128];
 	struct interface *ifp;
 	struct srv6_sid_ctx ctx = {};
+	struct srv6_policy *srv6_policy;
 	int debug = BGP_DEBUG(zebra, ZEBRA);
 
 	if (bgp->vrf_id != VRF_DEFAULT)
 		return;
 
+	srv6_policy = &bgp->srv6_unicast[afi];
 	if (debug)
 		zlog_debug("%s: vrf %s: deleting sid %pI6 for vrf id %d", __func__,
-			   bgp->name_pretty, bgp->srv6_unicast[afi].sid, bgp->vrf_id);
+			   bgp->name_pretty, srv6_policy->sid, bgp->vrf_id);
 
-	ifp = if_lookup_by_name(DEFAULT_SRV6_IFNAME, VRF_DEFAULT);
+	ifp = get_srv6_endpoint_ifp(srv6_policy->endpoint_vrf);
 	if (!ifp) {
-		zlog_warn("%s interface not found, nothing to uninstall",
-			  DEFAULT_SRV6_IFNAME);
+		if (srv6_policy->endpoint_vrf[0])
+			snprintf(debug_msg, sizeof(debug_msg), "VRF loopback %s",
+				 srv6_policy->endpoint_vrf);
+		else
+			snprintf(debug_msg, sizeof(debug_msg), "%s", DEFAULT_SRV6_IFNAME);
+		zlog_warn("%s interface not found, nothing to uninstall", debug_msg);
 		return;
 	}
 
-	if (bgp->srv6_unicast[afi].zebra_sid_last_sent)
+	if (srv6_policy->zebra_sid_last_sent)
 		bgp_srv6_unicast_sid_endpoint(bgp, afi, ifp, false);
 
 	ctx.behavior = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
 				     : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
 	ctx.vrf_id = bgp->vrf_id;
-	bgp_zebra_release_srv6_sid(&ctx, bgp->srv6_unicast[afi].sid_locator->name);
+	bgp_zebra_release_srv6_sid(&ctx, srv6_policy->sid_locator->name);
 }
 
 void bgp_srv6_unicast_delete(struct bgp *bgp, afi_t afi)
@@ -155,7 +176,7 @@ void bgp_srv6_unicast_delete(struct bgp *bgp, afi_t afi)
 		return;
 
 	if (bgp->srv6_unicast[afi].sid) {
-		ifp = if_lookup_by_name(DEFAULT_SRV6_IFNAME, VRF_DEFAULT);
+		ifp = get_srv6_endpoint_ifp(bgp->srv6_unicast[afi].endpoint_vrf);
 		if (ifp && bgp->srv6_unicast[afi].zebra_sid_last_sent)
 			bgp_srv6_unicast_sid_endpoint(bgp, afi, ifp, false);
 
@@ -182,21 +203,55 @@ void bgp_srv6_unicast_delete(struct bgp *bgp, afi_t afi)
 
 void bgp_srv6_unicast_sid_update(struct bgp *bgp, afi_t afi)
 {
+	char debug_msg[128];
 	struct interface *ifp;
+	struct srv6_policy *srv6_policy;
 
+	srv6_policy = &bgp->srv6_unicast[afi];
 	if (!bgp->srv6_unicast[afi].sid)
 		return;
 
-	ifp = if_lookup_by_name(DEFAULT_SRV6_IFNAME, VRF_DEFAULT);
+	ifp = get_srv6_endpoint_ifp(srv6_policy->endpoint_vrf);
 	if (!ifp) {
+		if (srv6_policy->endpoint_vrf[0])
+			snprintf(debug_msg, sizeof(debug_msg), "VRF loopback %s",
+				 srv6_policy->endpoint_vrf);
+		else
+			snprintf(debug_msg, sizeof(debug_msg), "%s", DEFAULT_SRV6_IFNAME);
 		zlog_warn("%s interface not found, can not install SRV6 endpoint behavior",
-			  DEFAULT_SRV6_IFNAME);
+			  debug_msg);
 		return;
 	}
 	if (!if_is_up(ifp))
 		return;
 
 	bgp_srv6_unicast_sid_endpoint(bgp, afi, ifp, true);
+}
+
+static void bgp_srv6_unicast_ifp_update_afi(struct bgp *bgp, struct interface *ifp,
+				       afi_t afi, bool state)
+{
+	struct srv6_policy *srv6_policy;
+
+	srv6_policy = &bgp->srv6_unicast[afi];
+	if((!srv6_policy->endpoint_vrf[0] && ifp->vrf->data.l.table_id == 254 &&
+	    strmatch(ifp->name, DEFAULT_SRV6_IFNAME)) ||
+	   (if_is_vrf(ifp) && strmatch(ifp->name, srv6_policy->endpoint_vrf)))
+		bgp_srv6_unicast_sid_endpoint(bgp, afi, ifp, state);
+}
+
+void bgp_srv6_unicast_ifp_update(struct interface *ifp, bool state)
+{
+	struct bgp *bgp = bgp_get_default();
+
+	if (!bgp)
+		return;
+
+	if (is_srv6_unicast_enabled(bgp, AFI_IP))
+		bgp_srv6_unicast_ifp_update_afi(bgp, ifp, AFI_IP, state);
+
+	if (is_srv6_unicast_enabled(bgp, AFI_IP6))
+		bgp_srv6_unicast_ifp_update_afi(bgp, ifp, AFI_IP6, state);
 }
 
 void bgp_srv6_unicast_unregister_route(struct bgp_dest *dest)
