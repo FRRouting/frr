@@ -1642,6 +1642,9 @@ out:
 	if (bn)
 		bgp_dest_unlock_node(bn);
 
+	if (!written && bmp->locrib_queuepos)
+		pullwr_bump(bmp->pullwr);
+
 	return written;
 }
 
@@ -1734,6 +1737,9 @@ out:
 
 	if (bn)
 		bgp_dest_unlock_node(bn);
+
+	if (!written && bmp->queuepos)
+		pullwr_bump(bmp->pullwr);
 
 	return written;
 }
