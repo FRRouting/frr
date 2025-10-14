@@ -813,14 +813,14 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 	int len = t->len;
 #define RANDOM_FUZZ 35
 
-	stream_reset(peer->curr);
-	stream_put(peer->curr, NULL, RANDOM_FUZZ);
-	stream_set_getp(peer->curr, RANDOM_FUZZ);
+	stream_reset(peer->connection->curr);
+	stream_put(peer->connection->curr, NULL, RANDOM_FUZZ);
+	stream_set_getp(peer->connection->curr, RANDOM_FUZZ);
 
 	switch (type) {
 	case CAPABILITY:
-		stream_putc(peer->curr, BGP_OPEN_OPT_CAP);
-		stream_putc(peer->curr, t->len);
+		stream_putc(peer->connection->curr, BGP_OPEN_OPT_CAP);
+		stream_putc(peer->connection->curr, t->len);
 		break;
 	case DYNCAP:
 		/*        for (i = 0; i < BGP_MARKER_SIZE; i++)
@@ -829,7 +829,7 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 			stream_putc (s, BGP_MSG_CAPABILITY);*/
 		break;
 	}
-	stream_write(peer->curr, t->data, t->len);
+	stream_write(peer->connection->curr, t->data, t->len);
 
 	printf("%s: %s\n", t->name, t->desc);
 
@@ -843,7 +843,7 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 		as4 = peek_for_as4_capability(peer, len);
 		printf("peek_for_as4: as4 is %u\n", as4);
 		/* and it should leave getp as it found it */
-		assert(stream_get_getp(peer->curr) == RANDOM_FUZZ);
+		assert(stream_get_getp(peer->connection->curr) == RANDOM_FUZZ);
 
 		ret = bgp_open_option_parse(peer, len, &capability);
 		break;
@@ -951,7 +951,7 @@ int main(void)
 			peer->afc_adv[i][j] = 1;
 		}
 
-	peer->curr = stream_new(BGP_MAX_PACKET_SIZE);
+	peer->connection->curr = stream_new(BGP_MAX_PACKET_SIZE);
 
 	i = 0;
 	while (mp_segments[i].name)
@@ -975,6 +975,7 @@ int main(void)
 	SET_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV);
 	peer->connection = bgp_peer_connection_new(peer);
 	peer->connection->status = Established;
+	peer->connection->curr = stream_new(BGP_MAX_PACKET_SIZE);
 
 	i = 0;
 	while (dynamic_cap_msgs[i].name)
