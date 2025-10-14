@@ -4074,11 +4074,11 @@ void bgp_instance_down(struct bgp *bgp)
 	struct listnode *node;
 	struct listnode *next;
 
-	/* Cleanup evpn instance state */
-	bgp_evpn_instance_down(bgp);
-
 	/* notify BMP of instance state changed */
 	hook_call(bgp_instance_state, bgp);
+
+	/* Cleanup evpn instance state */
+	bgp_evpn_instance_down(bgp);
 
 	/* Stop timers. */
 	if (bgp->t_rmap_def_originate_eval)

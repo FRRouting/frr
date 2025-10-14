@@ -1,5 +1,5 @@
 {
-    "pre-policy": {
+    "rib-in-pre-policy": {
         "withdraw": {
             "172.31.0.15/32": {
                 "bmp_log_type": "withdraw",
@@ -7,22 +7,22 @@
                 "ipv6": false,
                 "peer_asn": 65502,
                 "peer_bgp_id": "192.168.0.2",
-                "peer_distinguisher": "0:0",
+                "peer_distinguisher": "444:1",
                 "peer_ip": "192.168.0.2",
-                "peer_type": "global instance",
-                "policy": "pre-policy"
+                "peer_type": "route distinguisher instance",
+                "policy": "rib-in-pre-policy"
             },
-            "2001::1111/128": {
+            "2111::1111/128": {
                 "afi": 2,
                 "bmp_log_type": "withdraw",
-                "ip_prefix": "2001::1111/128",
+                "ip_prefix": "2111::1111/128",
                 "ipv6": true,
                 "peer_asn": 65502,
                 "peer_bgp_id": "192.168.0.2",
-                "peer_distinguisher": "0:0",
+                "peer_distinguisher": "555:1",
                 "peer_ip": "192:168::2",
-                "peer_type": "global instance",
-                "policy": "pre-policy",
+                "peer_type": "route distinguisher instance",
+                "policy": "rib-in-pre-policy",
                 "safi": 1
             }
         }

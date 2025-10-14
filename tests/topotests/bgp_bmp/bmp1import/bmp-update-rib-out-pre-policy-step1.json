@@ -1,34 +1,33 @@
 {
-    "pre-policy": {
+    "rib-out-pre-policy": {
         "update": {
-            "172.31.0.77/32": {
-                "as_path": "",
+            "172.35.0.55/32": {
+                "as_path": "65501",
                 "bgp_nexthop": "192.168.1.3",
                 "bmp_log_type": "update",
-                "ip_prefix": "172.31.0.77/32",
+                "ip_prefix": "172.35.0.55/32",
                 "ipv6": false,
                 "origin": "IGP",
                 "peer_asn": 65501,
                 "peer_bgp_id": "192.168.1.3",
-                "peer_distinguisher": "666:22",
-                "peer_ip": "192.168.1.3",
-                "peer_type": "route distinguisher instance",
-                "policy": "pre-policy"
+                "peer_ip": "192.168.0.2",
+                "peer_type": "",
+                "policy": "rib-out-pre-policy"
             },
-            "2001::1125/128": {
+            "2003::1133/128": {
+                "as_path": "65501",
                 "afi": 2,
                 "as_path": "",
                 "bmp_log_type": "update",
-                "ip_prefix": "2001::1125/128",
+                "ip_prefix": "2003::1133/128",
                 "ipv6": true,
                 "nxhp_ip": "192:167::3",
                 "origin": "IGP",
                 "peer_asn": 65501,
                 "peer_bgp_id": "192.168.1.3",
-                "peer_distinguisher": "666:22",
                 "peer_ip": "192:167::3",
                 "peer_type": "route distinguisher instance",
-                "policy": "pre-policy",
+                "policy": "rib-out-pre-policy",
                 "safi": 1
             }
         }
