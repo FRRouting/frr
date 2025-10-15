@@ -1093,7 +1093,7 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 	json_object *json_backup_nexthop_array = NULL;
 	json_object *json_backup_nexthops = NULL;
 	uint16_t nexthop_count = 0;
-
+	bool outdent_p;
 
 	uptime2str(nhe->uptime, up_str, sizeof(up_str));
 
@@ -1240,12 +1240,13 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 			show_nexthop_json_helper(json_nexthops, nexthop, NULL,
 						 NULL);
 		} else {
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE) ||
-			    CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
-				/* Make recursive nexthops a bit more clear */
+			outdent_p = (nexthop->rparent == NULL);
+			if (outdent_p)
 				vty_out(vty, "       ");
 			else
+				/* Make recursive nexthops a bit more clear */
 				vty_out(vty, "          ");
+
 			show_route_nexthop_helper(vty, NULL, NULL, nexthop);
 		}
 
@@ -1308,14 +1309,14 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 				json_object_array_add(json_backup_nexthop_array,
 						      json_backup_nexthops);
 			} else {
-				if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE) ||
-				    CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
-					/* Make recursive nexthops a bit more clear */
+				outdent_p = (nexthop->rparent == NULL);
+				if (outdent_p)
 					vty_out(vty, "       ");
 				else
+					/* Make recursive nexthops a bit more clear */
 					vty_out(vty, "          ");
-				show_route_nexthop_helper(vty, NULL, NULL,
-							  nexthop);
+
+				show_route_nexthop_helper(vty, NULL, NULL, nexthop);
 				vty_out(vty, "\n");
 			}
 		}
