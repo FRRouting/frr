@@ -4656,6 +4656,11 @@ int lib_interface_gmp_immediate_leave_modify(struct nb_cb_modify_args *args)
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		pim_ifp = ifp->info;
+		if (!pim_ifp) {
+			pim_ifp = pim_if_new(ifp, true, false, false, false);
+			ifp->info = pim_ifp;
+		}
+
 		pim_ifp->gmp_immediate_leave = yang_dnode_get_bool(args->dnode, NULL);
 		break;
 	}
@@ -4663,6 +4668,59 @@ int lib_interface_gmp_immediate_leave_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
+<<<<<<< HEAD
+=======
+int lib_interface_gm_rmap_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+	const char *rmap;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_ABORT:
+	case NB_EV_PREPARE:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		if (!pim_ifp) {
+			pim_ifp = pim_if_new(ifp, true, false, false, false);
+			ifp->info = pim_ifp;
+		}
+
+		rmap = yang_dnode_get_string(args->dnode, NULL);
+		pim_filter_ref_set_rmap(&pim_ifp->gmp_filter, rmap);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int lib_interface_gm_rmap_destroy(struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_ABORT:
+	case NB_EV_PREPARE:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		if (!pim_ifp)
+			return NB_ERR_INCONSISTENCY;
+
+		pim_filter_ref_set_rmap(&pim_ifp->gmp_filter, NULL);
+		break;
+	}
+
+	return NB_OK;
+}
+
+>>>>>>> 557f80750 (pimd/pim6d: fix gm crash with interface node)
 /*
  * XPath: /frr-interface:lib/interface/frr-gmp:gmp/address-family/require-router-alert
  */
