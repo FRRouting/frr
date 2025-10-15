@@ -6866,7 +6866,6 @@ static struct bgp_dest *clearing_dest_helper(struct bgp_table *table,
 		 *    the RD in the "outer" table, and then a second time to locate
 		 *    the closest prefix _after_ the "inner" prefix within the RD table.
 		 */
-		pfx = NULL;
 		if (inner_p && CHECK_FLAG(cinfo->flags, BGP_CLEARING_INFO_FLAG_INNER))
 			pfx = &(cinfo->inner_pfx);
 		else
