@@ -2512,7 +2512,7 @@ def clear_mroute_verify(tgen, dut, expected=True):
     # RFC 3376: 8.2. Query Interval - Default: 125 seconds
     # So waiting for maximum 130 sec to get the igmp report
     for _ in range(1, 26):
-        logger.info("[DUT: %s]: Waiting for 2 sec for mroutes" " to come up", dut)
+        logger.info("[DUT: %s]: Waiting for 5 sec for mroutes to come up", dut)
         sleep(5)
         keys_json1 = mroute_json_1.keys()
         mroute_json_2 = run_frr_cmd(rnode, "show ip mroute json", isjson=True)
@@ -2520,20 +2520,27 @@ def clear_mroute_verify(tgen, dut, expected=True):
         if bool(mroute_json_2):
             keys_json2 = mroute_json_2.keys()
 
+            all_groups_ready = True
             for group in mroute_json_2.keys():
-                flag = False
+                group_ready = False
                 for key in mroute_json_2[group].keys():
-                    if "oil" not in mroute_json_2[group]:
+                    if "oil" not in mroute_json_2[group][key]:
                         continue
 
                     for _key, _value in mroute_json_2[group][key]["oil"].items():
                         if _key != "pimreg" and keys_json1 == keys_json2:
-                            flag = True
+                            group_ready = True
                             break
-            if flag:
+                    if group_ready:
+                        break
+
+                if not group_ready:
+                    all_groups_ready = False
+                    break
+
+            if all_groups_ready:
+                logger.info("[DUT: %s]: Mroutes repopulated, exiting early!", dut)
                 break
-            else:
-                continue
 
     for group in mroute_json_2.keys():
         mroute_after_clear[group] = {}
