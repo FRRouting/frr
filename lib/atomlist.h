@@ -239,6 +239,8 @@ macro_inline type *prefix ## _add(struct prefix##_head *h, type *item)         \
 {                                                                              \
 	struct atomsort_item *p;                                               \
 	p = atomsort_add(&h->ah, &item->field.ai, cmpfn_uq);                   \
+	if (p)                                                                 \
+		_sa_dummy_store(item);                                         \
 	return container_of_null(p, type, field.ai);                           \
 }                                                                              \
 macro_inline type *prefix ## _first(struct prefix##_head *h)                   \

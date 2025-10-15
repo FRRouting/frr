@@ -86,6 +86,8 @@ macro_inline type *prefix ## _add(struct prefix##_head *h, type *item)         \
 {                                                                              \
 	struct typed_rb_entry *re;                                             \
 	re = typed_rb_insert(&h->rr, &item->field.re, cmpfn_uq);               \
+	if (!re)                                                               \
+		_sa_dummy_store(item);                                         \
 	return container_of_null(re, type, field.re);                          \
 }                                                                              \
 macro_inline const type *prefix ## _const_find_gteq(                           \
