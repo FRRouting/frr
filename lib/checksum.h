@@ -32,11 +32,15 @@ struct ipv6_ph {
 
 extern uint16_t in_cksumv(const struct iovec *iov, size_t iov_len);
 
+/* note the (char *) in the casts below is needed to make this header work
+ * when compiled as C++ as it behaves differently with const qualification
+ */
+
 static inline uint16_t in_cksum(const void *data, size_t nbytes)
 {
 	struct iovec iov[1];
 
-	iov[0].iov_base = (void *)data;
+	iov[0].iov_base = unconst((char *)data);
 	iov[0].iov_len = nbytes;
 	return in_cksumv(iov, array_size(iov));
 }
@@ -46,9 +50,9 @@ static inline uint16_t in_cksum_with_ph4(const struct ipv4_ph *ph,
 {
 	struct iovec iov[2];
 
-	iov[0].iov_base = (void *)ph;
+	iov[0].iov_base = unconst(ph);
 	iov[0].iov_len = sizeof(*ph);
-	iov[1].iov_base = (void *)data;
+	iov[1].iov_base = unconst((char *)data);
 	iov[1].iov_len = nbytes;
 	return in_cksumv(iov, array_size(iov));
 }
@@ -58,9 +62,9 @@ static inline uint16_t in_cksum_with_ph6(const struct ipv6_ph *ph,
 {
 	struct iovec iov[2];
 
-	iov[0].iov_base = (void *)ph;
+	iov[0].iov_base = unconst(ph);
 	iov[0].iov_len = sizeof(*ph);
-	iov[1].iov_base = (void *)data;
+	iov[1].iov_base = unconst((char *)data);
 	iov[1].iov_len = nbytes;
 	return in_cksumv(iov, array_size(iov));
 }

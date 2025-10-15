@@ -147,7 +147,7 @@ static inline int pim_sgaddr_cmp(const pim_sgaddr a, const pim_sgaddr b)
 
 static inline uint32_t pim_sgaddr_hash(const pim_sgaddr a, uint32_t initval)
 {
-	return jhash2((uint32_t *)&a, sizeof(a) / sizeof(uint32_t), initval);
+	return jhash2((const uint32_t *)&a, sizeof(a) / sizeof(uint32_t), initval);
 }
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
