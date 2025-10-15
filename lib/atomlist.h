@@ -112,6 +112,8 @@ struct atomlist_head {
 	atomic_size_t count;
 };
 
+/* clang-format off */
+
 /* use as:
  *
  * PREDECL_ATOMLIST(namelist);
@@ -165,6 +167,8 @@ macro_inline void prefix ## _fini(struct prefix##_head *h)                     \
 }                                                                              \
 MACRO_REQUIRE_SEMICOLON() /* end */
 
+/* clang-format on */
+
 /* add_head:
  * - contention on ->first pointer
  * - return implies completion
@@ -211,6 +215,8 @@ struct atomsort_head {
 	atomic_size_t count;
 };
 
+/* clang-format off */
+
 #define _PREDECL_ATOMSORT(prefix)                                              \
 struct prefix ## _head { struct atomsort_head ah; };                           \
 struct prefix ## _item { struct atomsort_item ai; };                           \
@@ -233,6 +239,8 @@ macro_inline type *prefix ## _add(struct prefix##_head *h, type *item)         \
 {                                                                              \
 	struct atomsort_item *p;                                               \
 	p = atomsort_add(&h->ah, &item->field.ai, cmpfn_uq);                   \
+	if (p)                                                                 \
+		_sa_dummy_store(item);                                         \
 	return container_of_null(p, type, field.ai);                           \
 }                                                                              \
 macro_inline type *prefix ## _first(struct prefix##_head *h)                   \
@@ -347,6 +355,8 @@ macro_inline int prefix ## __cmp_uq(const struct atomsort_item *a,             \
 _DECLARE_ATOMSORT(prefix, type, field,                                         \
 		prefix ## __cmp, prefix ## __cmp_uq);                          \
 MACRO_REQUIRE_SEMICOLON() /* end */
+
+/* clang-format on */
 
 struct atomsort_item *atomsort_add(struct atomsort_head *h,
 		struct atomsort_item *item, int (*cmpfn)(
