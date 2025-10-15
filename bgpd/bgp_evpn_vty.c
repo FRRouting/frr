@@ -3417,13 +3417,9 @@ static void evpn_show_vni(struct vty *vty, struct bgp *bgp, vni_t vni,
 		}
 	}
 
-	if (!found) {
-		if (json) {
-			vty_out(vty, "{}\n");
-		} else {
-			vty_out(vty, "VNI not found\n");
-			return;
-		}
+	if (!found && !json) {
+		vty_out(vty, "VNI not found\n");
+		return;
 	}
 }
 
