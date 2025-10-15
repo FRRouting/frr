@@ -5589,15 +5589,13 @@ enum zebra_dplane_result dplane_local_mac_add(const struct interface *ifp,
 {
 	enum zebra_dplane_result result;
 	uint32_t update_flags = 0;
-	struct ipaddr vtep_ip;
+	struct ipaddr vtep_ip = {};
 
 	if (set_static)
 		update_flags |= DPLANE_MAC_SET_STATIC;
 
 	if (set_inactive)
 		update_flags |= DPLANE_MAC_SET_INACTIVE;
-
-	SET_IPADDR_NONE(&vtep_ip);
 
 	/* Use common helper api */
 	result = mac_update_common(DPLANE_OP_MAC_INSTALL, ifp, bridge_ifp, vid, mac, 0, &vtep_ip,
@@ -5614,9 +5612,7 @@ dplane_local_mac_del(const struct interface *ifp,
 		     const struct ethaddr *mac)
 {
 	enum zebra_dplane_result result;
-	struct ipaddr vtep_ip;
-
-	SET_IPADDR_NONE(&vtep_ip);
+	struct ipaddr vtep_ip = {};
 
 	/* Use common helper api */
 	result = mac_update_common(DPLANE_OP_MAC_DELETE, ifp, bridge_ifp, vid, mac, 0, &vtep_ip,
