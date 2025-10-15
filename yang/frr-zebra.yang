@@ -163,6 +163,12 @@ module frr-zebra {
       "Zebra interface type gre.";
   }
 
+  identity zif-gretap {
+    base zebra-interface-type;
+    description
+      "Zebra interface type gretap.";
+  }
+
   /*
    * Multicast RPF mode configurable type
    */
