@@ -36,15 +36,16 @@ extern "C" {
 /* Zebra interface type - ones of interest. */
 enum zebra_iftype {
 	ZEBRA_IF_OTHER = 0, /* Anything else */
-	ZEBRA_IF_VXLAN,     /* VxLAN interface */
-	ZEBRA_IF_VRF,       /* VRF device */
+	ZEBRA_IF_VXLAN,	    /* VxLAN interface */
+	ZEBRA_IF_VRF,	    /* VRF device */
 	ZEBRA_IF_BRIDGE,    /* bridge device */
-	ZEBRA_IF_VLAN,      /* VLAN sub-interface */
+	ZEBRA_IF_VLAN,	    /* VLAN sub-interface */
 	ZEBRA_IF_MACVLAN,   /* MAC VLAN interface*/
-	ZEBRA_IF_VETH,      /* VETH interface*/
+	ZEBRA_IF_VETH,	    /* VETH interface*/
 	ZEBRA_IF_BOND,	    /* Bond */
-	ZEBRA_IF_GRE,       /* GRE interface */
-	ZEBRA_IF_DUMMY,     /* Dummy interface */
+	ZEBRA_IF_GRE,	    /* GRE interface */
+	ZEBRA_IF_GRETAP,    /* GRETAP interface */
+	ZEBRA_IF_DUMMY,	    /* Dummy interface */
 };
 
 /* Zebra "slave" interface type */
@@ -249,6 +250,8 @@ DECLARE_HOOK(zebra_if_extra_info, (struct vty * vty, json_object *json_if, struc
 
 #define IS_ZEBRA_IF_GRE(ifp)                                               \
 	(((struct zebra_if *)(ifp->info))->zif_type == ZEBRA_IF_GRE)
+
+#define IS_ZEBRA_IF_GRETAP(ifp) (((struct zebra_if *)(ifp->info))->zif_type == ZEBRA_IF_GRETAP)
 
 #define IS_ZEBRA_IF_DUMMY(ifp)                                               \
 	(((struct zebra_if *)(ifp->info))->zif_type == ZEBRA_IF_DUMMY)

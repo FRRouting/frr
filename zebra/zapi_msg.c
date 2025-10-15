@@ -3819,6 +3819,7 @@ static inline void zebra_gre_get(ZAPI_HANDLER_ARGS)
 	zclient_create_header(s, ZEBRA_GRE_UPDATE, vrf_id);
 
 	if (ifp  && IS_ZEBRA_IF_GRE(ifp) && zebra_if) {
+		/* XXX TODO: other tunnels kinds should be handled */
 		gre_info = &zebra_if->l2info.gre;
 
 		stream_putl(s, idx);
@@ -4012,6 +4013,7 @@ static inline void zebra_gre_source_set(ZAPI_HANDLER_ARGS)
 		return;
 	}
 
+	/* XXX TODO: other tunnels kinds should be handled */
 	if (!IS_ZEBRA_IF_GRE(ifp))
 		return;
 
