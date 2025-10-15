@@ -62,6 +62,8 @@ struct typed_rb_entry *typed_rb_next(const struct typed_rb_entry *rbe);
 bool typed_rb_member(const struct typed_rb_root *rbt,
 		     const struct typed_rb_entry *rbe);
 
+/* clang-format off */
+
 #define _PREDECL_RBTREE(prefix)                                                \
 struct prefix ## _head { struct typed_rb_root rr; };                           \
 struct prefix ## _item { struct typed_rb_entry re; };                          \
@@ -216,6 +218,8 @@ macro_inline int prefix ## __cmp_uq(const struct typed_rb_entry *a,            \
                                                                                \
 _DECLARE_RBTREE(prefix, type, field, prefix ## __cmp, prefix ## __cmp_uq);     \
 MACRO_REQUIRE_SEMICOLON() /* end */
+
+/* clang-format on */
 
 #ifdef __cplusplus
 }

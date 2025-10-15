@@ -18,6 +18,8 @@
 extern "C" {
 #endif
 
+/* clang-format off */
+
 /* generic macros for all list-like types */
 
 /* to iterate using the const variants of the functions, append "_const" to
@@ -1141,7 +1143,6 @@ _DECLARE_SKIPLIST(prefix, type, field,                                         \
 TYPESAFE_MEMBER_VIA_FIND_GTEQ(prefix, type, cmpfn)                             \
 MACRO_REQUIRE_SEMICOLON() /* end */
 
-
 extern struct sskip_item *typesafe_skiplist_add(struct sskip_head *head,
 		struct sskip_item *item, int (*cmpfn)(
 			const struct sskip_item *a,
@@ -1166,6 +1167,8 @@ extern struct sskip_item *typesafe_skiplist_del(
 			const struct sskip_item *a,
 			const struct sskip_item *b));
 extern struct sskip_item *typesafe_skiplist_pop(struct sskip_head *head);
+
+/* clang-format on */
 
 #ifdef __cplusplus
 }
