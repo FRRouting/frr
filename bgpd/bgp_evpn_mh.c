@@ -456,9 +456,10 @@ int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 					: (vpn ? "ead-evi" : "ead-es"),
 				&attr->mp_nexthop_global_in);
 
-		frrtrace(4, frr_bgp, evpn_mh_local_ead_es_evi_route_upd,
-			 &es->esi, (vpn ? vpn->vni : 0), evp->prefix.route_type,
-			 attr->mp_nexthop_global_in);
+		if (es)
+			frrtrace(4, frr_bgp, evpn_mh_local_ead_es_evi_route_upd, &es->esi,
+				 (vpn ? vpn->vni : 0), evp->prefix.route_type,
+				 attr->mp_nexthop_global_in);
 	}
 
 	/* Return back th*e route entry. */
