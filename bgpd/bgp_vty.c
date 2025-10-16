@@ -9523,6 +9523,85 @@ ALIAS_HIDDEN(
 	"Number of occurrences of AS number\n"
 	"Only accept my AS in the as-path if the route was originated in my AS\n")
 
+DEFPY(neighbor_allowas_in_route_map, neighbor_allowas_in_route_map_cmd,
+      "neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor allowas-in route-map WORD$rmap_name [<(1-10)$allow_num|origin$origin>]",
+      NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+      "Accept as-path with my AS present in it\n"
+      "Filter routes using route-map\n"
+      "Name of route map\n"
+      "Number of occurrences of AS number\n"
+      "Only accept my AS in the as-path if the route was originated in my AS\n")
+{
+	int ret;
+	struct peer *peer;
+	int allow_num_val;
+	int origin_flag;
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	/* Parse optional parameters (same behavior as neighbor_allowas_in_cmd):
+	 * - No args: allow my AS up to 3 times in AS-path
+	 * - Number (1-10): allow my AS up to <number> times
+	 * - "origin": allow only if route originated in my AS (count passed as 0 with origin flag)
+	 */
+	if (!allow_num && !origin)
+		allow_num_val = 3; /* default from neighbor_allowas_in_cmd */
+	else if (origin)
+		allow_num_val = 0; /* passed with origin flag to backend */
+	else
+		allow_num_val = (int)allow_num;
+
+	origin_flag = origin ? 1 : 0;
+
+	ret = peer_allowas_in_route_map_set(peer, bgp_node_afi(vty), bgp_node_safi(vty), rmap_name,
+					    allow_num_val, origin_flag);
+
+	return bgp_vty_return(vty, ret);
+}
+
+ALIAS_HIDDEN(
+	neighbor_allowas_in_route_map, neighbor_allowas_in_route_map_hidden_cmd,
+	"neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor allowas-in route-map WORD$rmap_name [<(1-10)$allow_num|origin$origin>]",
+	NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	"Accept as-path with my AS present in it\n"
+	"Filter routes using route-map\n"
+	"Name of route map\n"
+	"Number of occurrences of AS number\n"
+	"Only accept my AS in the as-path if the route was originated in my AS\n")
+
+DEFPY(no_neighbor_allowas_in_route_map, no_neighbor_allowas_in_route_map_cmd,
+      "no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor allowas-in route-map [WORD$rmap_name [<(1-10)$allow_num|origin$origin>]]",
+      NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+      "allow local ASN appears in aspath attribute\n"
+      "Filter routes using route-map\n"
+      "Name of route map\n"
+      "Number of occurrences of AS number\n"
+      "Only accept my AS in the as-path if the route was originated in my AS\n")
+{
+	int ret;
+	struct peer *peer;
+
+	peer = peer_and_group_lookup_vty(vty, neighbor);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	ret = peer_allowas_in_route_map_unset(peer, bgp_node_afi(vty), bgp_node_safi(vty));
+
+	return bgp_vty_return(vty, ret);
+}
+
+ALIAS_HIDDEN(
+	no_neighbor_allowas_in_route_map, no_neighbor_allowas_in_route_map_hidden_cmd,
+	"no neighbor <A.B.C.D|X:X::X:X|WORD>$neighbor allowas-in route-map [WORD$rmap_name [<(1-10)$allow_num|origin$origin>]]",
+	NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	"allow local ASN appears in aspath attribute\n"
+	"Filter routes using route-map\n"
+	"Name of route map\n"
+	"Number of occurrences of AS number\n"
+	"Only accept my AS in the as-path if the route was originated in my AS\n")
+
 DEFUN (neighbor_ttl_security,
        neighbor_ttl_security_cmd,
        "neighbor <A.B.C.D|X:X::X:X|WORD> ttl-security hops (1-254)",
@@ -14295,6 +14374,10 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 			else
 				json_object_int_add(json_addr, "allowAsInCount",
 						    p->allowas_in[afi][safi]);
+
+			if (p->allowas_in_rmap[afi][safi].name)
+				json_object_string_add(json_addr, "allowAsInRouteMap",
+						       p->allowas_in_rmap[afi][safi].name);
 		}
 
 		if (p->addpath_type[afi][safi] != BGP_ADDPATH_NONE)
@@ -14594,9 +14677,12 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 				vty_out(vty,
 					"  Local AS allowed as path origin\n");
 			else
-				vty_out(vty,
-					"  Local AS allowed in path, %d occurrences\n",
+				vty_out(vty, "  Local AS allowed in path, %d occurrences\n",
 					p->allowas_in[afi][safi]);
+
+			if (p->allowas_in_rmap[afi][safi].name)
+				vty_out(vty, "  Local AS allowed with route-map: %s\n",
+					p->allowas_in_rmap[afi][safi].name);
 		}
 
 		if (p->addpath_type[afi][safi] != BGP_ADDPATH_NONE)
@@ -19945,14 +20031,29 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 
 	/* allowas-in <1-10> */
 	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_ALLOWAS_IN)) {
-		if (peer_af_flag_check(peer, afi, safi,
-				       PEER_FLAG_ALLOWAS_IN_ORIGIN)) {
-			vty_out(vty, "  neighbor %s allowas-in origin\n", addr);
-		} else if (peer->allowas_in[afi][safi] == 3) {
-			vty_out(vty, "  neighbor %s allowas-in\n", addr);
+		if (peer->allowas_in_rmap[afi][safi].name) {
+			/* allowas-in with route-map */
+			if (peer_af_flag_check(peer, afi, safi, PEER_FLAG_ALLOWAS_IN_ORIGIN)) {
+				vty_out(vty, "  neighbor %s allowas-in route-map %s origin\n",
+					addr, peer->allowas_in_rmap[afi][safi].name);
+			} else if (peer->allowas_in[afi][safi] == 3) {
+				vty_out(vty, "  neighbor %s allowas-in route-map %s\n", addr,
+					peer->allowas_in_rmap[afi][safi].name);
+			} else {
+				vty_out(vty, "  neighbor %s allowas-in route-map %s %d\n", addr,
+					peer->allowas_in_rmap[afi][safi].name,
+					peer->allowas_in[afi][safi]);
+			}
 		} else {
-			vty_out(vty, "  neighbor %s allowas-in %d\n", addr,
-				peer->allowas_in[afi][safi]);
+			/* regular allowas-in without filtering */
+			if (peer_af_flag_check(peer, afi, safi, PEER_FLAG_ALLOWAS_IN_ORIGIN)) {
+				vty_out(vty, "  neighbor %s allowas-in origin\n", addr);
+			} else if (peer->allowas_in[afi][safi] == 3) {
+				vty_out(vty, "  neighbor %s allowas-in\n", addr);
+			} else {
+				vty_out(vty, "  neighbor %s allowas-in %d\n", addr,
+					peer->allowas_in[afi][safi]);
+			}
 		}
 	}
 
@@ -22591,6 +22692,28 @@ void bgp_vty_init(void)
 	install_element(BGP_VPNV6_NODE, &no_neighbor_allowas_in_cmd);
 	install_element(BGP_EVPN_NODE, &neighbor_allowas_in_cmd);
 	install_element(BGP_EVPN_NODE, &no_neighbor_allowas_in_cmd);
+
+	/* "neighbor allowas-in route-map" commands */
+	install_element(BGP_NODE, &neighbor_allowas_in_route_map_hidden_cmd);
+	install_element(BGP_NODE, &no_neighbor_allowas_in_route_map_hidden_cmd);
+	install_element(BGP_IPV4_NODE, &neighbor_allowas_in_route_map_cmd);
+	install_element(BGP_IPV4_NODE, &no_neighbor_allowas_in_route_map_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_allowas_in_route_map_cmd);
+	install_element(BGP_IPV4M_NODE, &no_neighbor_allowas_in_route_map_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_allowas_in_route_map_cmd);
+	install_element(BGP_IPV4L_NODE, &no_neighbor_allowas_in_route_map_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_allowas_in_route_map_cmd);
+	install_element(BGP_IPV6_NODE, &no_neighbor_allowas_in_route_map_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_allowas_in_route_map_cmd);
+	install_element(BGP_IPV6M_NODE, &no_neighbor_allowas_in_route_map_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_allowas_in_route_map_cmd);
+	install_element(BGP_IPV6L_NODE, &no_neighbor_allowas_in_route_map_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_allowas_in_route_map_cmd);
+	install_element(BGP_VPNV4_NODE, &no_neighbor_allowas_in_route_map_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_allowas_in_route_map_cmd);
+	install_element(BGP_VPNV6_NODE, &no_neighbor_allowas_in_route_map_cmd);
+	install_element(BGP_EVPN_NODE, &neighbor_allowas_in_route_map_cmd);
+	install_element(BGP_EVPN_NODE, &no_neighbor_allowas_in_route_map_cmd);
 
 	/* neighbor accept-own */
 	install_element(BGP_VPNV4_NODE, &neighbor_accept_own_cmd);

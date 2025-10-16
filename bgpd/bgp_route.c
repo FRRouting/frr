@@ -5702,6 +5702,68 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 					   .sub_type = sub_type,
 					   .addpath_rx_id = addpath_id };
 
+	/*
+	 * Determine allowas-in value for this prefix.
+	 *
+	 * If allowas-in is configured with a route-map, only
+	 * apply it to routes that match. Otherwise, apply unconditionally.
+	 *
+	 * Note: The route-map pointer is cached and updated
+	 * via hooks when it changes. We never do lookups in this hot path.
+	 */
+	int allowas_in = 0;
+
+	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN)) {
+		if (peer->allowas_in_rmap[afi][safi].rmap) {
+			/*
+			 * Route-map configured - apply allowas-in only if
+			 * route-map permits. Otherwise use strict AS-path check.
+			 *
+			 * Create a temporary bgp_path_info for route-map evaluation.
+			 */
+			struct bgp_path_info rmap_path = { 0 };
+			struct bgp_path_info_extra rmap_extra = { 0 };
+			route_map_result_t rmap_ret;
+
+			rmap_path.peer = peer;
+			rmap_path.attr = attr;
+			rmap_path.extra = &rmap_extra;
+			rmap_path.net = dest;
+
+			if (num_labels && num_labels <= BGP_MAX_LABELS)
+				rmap_extra.labels = &bgp_labels;
+
+			if (BGP_DEBUG(update, UPDATE_IN))
+				zlog_debug("%s: Applying allowas-in route-map %s for prefix %pFX from peer %s",
+					   __func__, peer->allowas_in_rmap[afi][safi].name, p,
+					   peer->host);
+
+			SET_FLAG(peer->rmap_type, PEER_RMAP_TYPE_IN);
+			rmap_ret = route_map_apply(peer->allowas_in_rmap[afi][safi].rmap, p,
+						   &rmap_path);
+			peer->rmap_type = 0;
+
+			if (BGP_DEBUG(update, UPDATE_IN))
+				zlog_debug("%s: Route-map %s result for %pFX: ret=%d (%s), allowas_in=%d",
+					   __func__, peer->allowas_in_rmap[afi][safi].name, p,
+					   rmap_ret,
+					   rmap_ret == RMAP_PERMITMATCH
+						   ? "PERMIT"
+						   : (rmap_ret == RMAP_DENYMATCH ? "DENY"
+										 : "OTHER"),
+					   rmap_ret == RMAP_PERMITMATCH
+						   ? peer->allowas_in[afi][safi]
+						   : 0);
+
+			if (rmap_ret == RMAP_PERMITMATCH)
+				allowas_in = peer->allowas_in[afi][safi];
+		} else if (!peer->allowas_in_rmap[afi][safi].name) {
+			/* Standard allowas-in without filtering */
+			allowas_in = peer->allowas_in[afi][safi];
+		}
+		/* Else: filter configured but not found - strict check */
+	}
+
 	pi = bgp_pi_hash_find(&rib_table->pi_hash, &pi_lookup);
 
 	/* AS path local-as loop check. */
@@ -5750,8 +5812,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN_ORIGIN) ||
 	    (aspath_get_last_as(attr->aspath) != bgp->as)) {
 		/* AS path loop check. */
-		if (aspath_loop_check(attr->aspath, bgp->as) >
-		    peer->allowas_in[afi][safi]) {
+		if (aspath_loop_check(attr->aspath, bgp->as) > allowas_in) {
 			peer->stat_pfx_aspath_loop++;
 			reason = "as-path contains our own AS;";
 			goto filtered;
@@ -5759,8 +5820,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 
 		/* If we're a CONFED we need to loop check the CONFED ID too */
 		if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION)) {
-			if (aspath_loop_check_confed(attr->aspath, bgp->confed_id) >
-			    peer->allowas_in[afi][safi]) {
+			if (aspath_loop_check_confed(attr->aspath, bgp->confed_id) > allowas_in) {
 				peer->stat_pfx_aspath_loop++;
 				reason = "as-path contains our own confed AS;";
 				goto filtered;
