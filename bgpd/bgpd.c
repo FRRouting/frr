@@ -2810,13 +2810,23 @@ int peer_delete(struct peer *peer)
 	/* If this peer belongs to peer group, clear up the
 	   relationship.  */
 	if (peer->group) {
+		/* CID 109492: Save peer->group pointer BEFORE peer_unlock().
+		 * peer_unlock() can free the peer structure if refcount reaches
+		 * zero, making any subsequent access to peer->group a
+		 * use-after-free bug. We must:
+		 * 1. Save group pointer while peer is valid
+		 * 2. Delete from group->peer list
+		 * 3. Unlock peer LAST (may free peer structure)
+		 * This prevents NULL dereference if peer_unlock() returns NULL.
+		 */
+		struct peer_group *group = peer->group;
+
 		if (peer_dynamic_neighbor(peer))
 			peer_drop_dynamic_neighbor(peer);
 
-		if ((pn = listnode_lookup(peer->group->peer, peer))) {
-			peer = peer_unlock(
-				peer); /* group->peer list reference */
-			list_delete_node(peer->group->peer, pn);
+		if ((pn = listnode_lookup(group->peer, peer))) {
+			list_delete_node(group->peer, pn);
+			peer_unlock(peer); /* group->peer list reference */
 		}
 		peer->group = NULL;
 	}
