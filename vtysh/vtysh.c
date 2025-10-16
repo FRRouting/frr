@@ -4250,10 +4250,24 @@ DEFUN (vtysh_show_daemons,
        "Show list of running daemons\n")
 {
 	unsigned int i;
+	struct vtysh_client *client;
 
-	for (i = 0; i < array_size(vtysh_client); i++)
+	for (i = 0; i < array_size(vtysh_client); i++) {
+		if (vtysh_client[i].flag == VTYSH_OSPFD) {
+			client = &vtysh_client[i];
+			while (client) {
+				if (client->fd >= 0) {
+					vty_out(vty, " %s", client->name);
+					break;
+				}
+
+				client = client->next;
+			}
+		}
+
 		if (vtysh_client[i].fd >= 0)
 			vty_out(vty, " %s", vtysh_client[i].name);
+	}
 	vty_out(vty, "\n");
 
 	return CMD_SUCCESS;
