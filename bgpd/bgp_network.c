@@ -1060,6 +1060,7 @@ int bgp_socket(struct bgp *bgp, unsigned short port, const char *address)
 		if (ret < 0) {
 			flog_err_sys(EC_LIB_SOCKET, "%s: Can't set TTL on socket %d err = %s",
 				     __func__, sock, safe_strerror(errno));
+			close(sock);
 			continue;
 		}
 
