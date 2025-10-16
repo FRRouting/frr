@@ -2129,6 +2129,12 @@ struct peer {
 	/* allowas-in. */
 	char allowas_in[AFI_MAX][SAFI_MAX];
 
+	/* allowas-in with route-map. */
+	struct {
+		char *name;
+		struct route_map *rmap;
+	} allowas_in_rmap[AFI_MAX][SAFI_MAX];
+
 	/* soo */
 	struct ecommunity *soo[AFI_MAX][SAFI_MAX];
 
@@ -2207,6 +2213,7 @@ struct peer {
 #define PEER_RMAP_TYPE_REDISTRIBUTE   (1U << 3) /* redistribute route-map */
 #define PEER_RMAP_TYPE_DEFAULT        (1U << 4) /* default-originate route-map */
 #define PEER_RMAP_TYPE_AGGREGATE      (1U << 5) /* aggregate-address route-map */
+#define PEER_RMAP_TYPE_ALLOWAS_IN     (1U << 6) /* allowas-in route-map */
 
 	/** Peer overwrite configuration. */
 	struct bfd_session_config {
@@ -2853,7 +2860,7 @@ extern int peer_distribute_set(struct peer *peer, afi_t afi, safi_t safi, int di
 extern int peer_distribute_unset(struct peer *peer, afi_t afi, safi_t safi, int direct);
 
 extern int peer_allowas_in_set(struct peer *peer, afi_t afi, safi_t safi, int allow_num,
-			       bool origin);
+			       bool origin, const char *rmap_name);
 extern int peer_allowas_in_unset(struct peer *peer, afi_t afi, safi_t safi);
 
 extern int peer_local_as_set(struct peer *peer, as_t as, bool no_prepend,
