@@ -1434,10 +1434,11 @@ static void update_subgroup_merge(struct update_subgroup *subgrp,
 	SUBGRP_INCR_STAT(target, merge_events);
 
 	if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
-		zlog_debug("u%" PRIu64 ":s%" PRIu64" (%d peers) merged into u%" PRIu64 ":s%" PRIu64", trigger: %s",
-			   subgrp->update_group->id, subgrp->id, peer_count,
-			   target->update_group->id, target->id,
-			   reason ? reason : "unknown");
+		zlog_debug("u%" PRIu64 ":s%" PRIu64 " (%d peers) merged into u%" PRIu64
+			   ":s%" PRIu64 ", trigger: %s",
+			   subgrp->update_group ? subgrp->update_group->id : 0, subgrp->id,
+			   peer_count, target->update_group ? target->update_group->id : 0,
+			   target->id, reason ? reason : "unknown");
 
 	result = update_subgroup_check_delete(subgrp);
 	assert(result);
