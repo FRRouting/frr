@@ -1700,6 +1700,8 @@ DEFPY (no_rpki,
 	}
 
 	rpki_vrf = find_rpki_vrf(vrfname);
+	if (!rpki_vrf)
+		return CMD_WARNING;
 
 	rpki_delete_all_cache_nodes(rpki_vrf);
 	stop(rpki_vrf);
