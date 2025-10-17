@@ -1189,6 +1189,11 @@ identity set-extcommunity-color {
             description
               "GRE protocol";
           }
+          enum "gretap" {
+            value 1;
+            description
+              "GRETAP protocol";
+          }
         }
       }
     }
