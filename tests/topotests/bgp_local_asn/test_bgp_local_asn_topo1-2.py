@@ -1,22 +1,9 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: ISC
 #
 # Copyright (c) 2022 by VMware, Inc. ("VMware")
 # Used Copyright (c) 2018 by Network Device Education Foundation,
 # Inc. ("NetDEF") in this file.
-#
-# Permission to use, copy, modify, and/or distribute this software
-# for any purpose with or without fee is hereby granted, provided
-# that the above copyright notice and this permission notice appear
-# in all copies.
-#
-# THE SOFTWARE IS PROVIDED "AS IS" AND VMWARE DISCLAIMS ALL WARRANTIES
-# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL VMWARE BE LIABLE FOR
-# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THIS SOFTWARE.
 #
 
 ##########################################################################################################
@@ -114,7 +101,7 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    json_file = "{}/bgp_local_asn_dot_topo1.json".format(CWD)
+    json_file = "{}/bgp_local_asn_topo1.json".format(CWD)
     tgen = Topogen(json_file, mod.__name__)
     global topo
     topo = tgen.json_topo
@@ -211,7 +198,7 @@ def test_verify_bgp_local_as_allow_as_in_iBGP_p0(request):
     reset_config_on_routers(tgen)
 
     step("Modidy AS Number for R4")
-    input_dict_modify_as_number = {"r4": {"bgp": {"local_as": "1.100"}}}
+    input_dict_modify_as_number = {"r4": {"bgp": {"local_as": 100}}}
     result = modify_as_number(tgen, topo, input_dict_modify_as_number)
 
     step("Base config is done as part of JSON")
@@ -225,6 +212,12 @@ def test_verify_bgp_local_as_allow_as_in_iBGP_p0(request):
                 ]
             }
         }
+
+        logger.info("Configure static routes")
+        result = create_static_routes(tgen, input_dict_static_route)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
         step("configure redistribute static in Router BGP in R1")
         input_dict_static_route_redist = {
@@ -297,7 +290,7 @@ def test_verify_bgp_local_as_allow_as_in_iBGP_p0(request):
 
     # now modify the as in r4 and reconfig bgp in r3 with new remote as.
     topo1 = deepcopy(topo)
-    topo1["routers"]["r4"]["bgp"]["local_as"] = "1.100"
+    topo1["routers"]["r4"]["bgp"]["local_as"] = "100"
 
     delete_bgp = {"r3": {"bgp": {"delete": True}}}
     result = create_router_bgp(tgen, topo1, delete_bgp)
@@ -310,16 +303,14 @@ def test_verify_bgp_local_as_allow_as_in_iBGP_p0(request):
             "r3": {
                 "bgp": [
                     {
-                        "local_as": "1.300",
+                        "local_as": "300",
                         "address_family": {
                             addr_type: {
                                 "unicast": {
                                     "neighbor": {
                                         "r2": {
                                             "dest_link": {
-                                                "r3": {
-                                                    "local_asn": {"local_as": "1.110"}
-                                                }
+                                                "r3": {"local_asn": {"local_as": "110"}}
                                             }
                                         }
                                     }
@@ -341,16 +332,14 @@ def test_verify_bgp_local_as_allow_as_in_iBGP_p0(request):
             "r3": {
                 "bgp": [
                     {
-                        "local_as": "1.300",
+                        "local_as": "300",
                         "address_family": {
                             addr_type: {
                                 "unicast": {
                                     "neighbor": {
                                         "r4": {
                                             "dest_link": {
-                                                "r3": {
-                                                    "local_asn": {"local_as": "1.110"}
-                                                }
+                                                "r3": {"local_asn": {"local_as": "110"}}
                                             }
                                         }
                                     }
@@ -372,7 +361,7 @@ def test_verify_bgp_local_as_allow_as_in_iBGP_p0(request):
             "r2": {
                 "bgp": [
                     {
-                        "local_as": "1.200",
+                        "local_as": "200",
                         "address_family": {
                             addr_type: {
                                 "unicast": {
@@ -380,7 +369,7 @@ def test_verify_bgp_local_as_allow_as_in_iBGP_p0(request):
                                         "r3": {
                                             "dest_link": {
                                                 "r2": {
-                                                    "local_asn": {"remote_as": "1.110"}
+                                                    "local_asn": {"remote_as": "110"}
                                                 }
                                             }
                                         }
@@ -403,7 +392,7 @@ def test_verify_bgp_local_as_allow_as_in_iBGP_p0(request):
             "r4": {
                 "bgp": [
                     {
-                        "local_as": "1.100",
+                        "local_as": "100",
                         "address_family": {
                             addr_type: {
                                 "unicast": {
@@ -411,7 +400,7 @@ def test_verify_bgp_local_as_allow_as_in_iBGP_p0(request):
                                         "r3": {
                                             "dest_link": {
                                                 "r4": {
-                                                    "local_asn": {"remote_as": "1.110"}
+                                                    "local_asn": {"remote_as": "110"}
                                                 }
                                             }
                                         }
@@ -455,11 +444,11 @@ def test_verify_bgp_local_as_allow_as_in_iBGP_p0(request):
             )
 
     step(
-        "Verify that AS-1.110 is got added in the AS list 1.110 1.200 1.100 by following "
+        "Verify that AS-110 is got added in the AS list 110 200 100 by following "
         " commands at R3 router."
     )
     dut = "r3"
-    aspath = "1.110 1.200 1.100"
+    aspath = "110 200 100"
     for addr_type in ADDR_TYPES:
         input_static_r1 = {"r1": {"static_routes": [{"network": NETWORK[addr_type]}]}}
         result = verify_bgp_rib(tgen, addr_type, dut, input_static_r1, aspath=aspath)
@@ -473,7 +462,7 @@ def test_verify_bgp_local_as_allow_as_in_iBGP_p0(request):
             "r3": {
                 "bgp": [
                     {
-                        "local_as": "1.300",
+                        "local_as": "300",
                         "address_family": {
                             addr_type: {
                                 "unicast": {
@@ -482,7 +471,7 @@ def test_verify_bgp_local_as_allow_as_in_iBGP_p0(request):
                                             "dest_link": {
                                                 "r3": {
                                                     "local_asn": {
-                                                        "local_as": "1.110",
+                                                        "local_as": "110",
                                                         "no_prepend": True,
                                                     }
                                                 }
@@ -507,7 +496,7 @@ def test_verify_bgp_local_as_allow_as_in_iBGP_p0(request):
             "r3": {
                 "bgp": [
                     {
-                        "local_as": "1.300",
+                        "local_as": "300",
                         "address_family": {
                             addr_type: {
                                 "unicast": {
@@ -516,7 +505,7 @@ def test_verify_bgp_local_as_allow_as_in_iBGP_p0(request):
                                             "dest_link": {
                                                 "r3": {
                                                     "local_asn": {
-                                                        "local_as": "1.110",
+                                                        "local_as": "110",
                                                         "no_prepend": True,
                                                     }
                                                 }
@@ -542,7 +531,7 @@ def test_verify_bgp_local_as_allow_as_in_iBGP_p0(request):
     )
 
     dut = "r3"
-    aspath = "1.200 1.100"
+    aspath = "200 100"
     for addr_type in ADDR_TYPES:
         input_static_r1 = {"r2": {"static_routes": [{"network": NETWORK[addr_type]}]}}
         result = verify_bgp_rib(tgen, addr_type, dut, input_static_r1, aspath=aspath)
@@ -556,7 +545,7 @@ def test_verify_bgp_local_as_allow_as_in_iBGP_p0(request):
             "r3": {
                 "bgp": [
                     {
-                        "local_as": "1.300",
+                        "local_as": "300",
                         "address_family": {
                             addr_type: {
                                 "unicast": {
@@ -565,7 +554,7 @@ def test_verify_bgp_local_as_allow_as_in_iBGP_p0(request):
                                             "dest_link": {
                                                 "r3": {
                                                     "local_asn": {
-                                                        "local_as": "1.110",
+                                                        "local_as": "110",
                                                         "no_prepend": True,
                                                         "replace_as": True,
                                                     }
@@ -591,7 +580,7 @@ def test_verify_bgp_local_as_allow_as_in_iBGP_p0(request):
             "r3": {
                 "bgp": [
                     {
-                        "local_as": "1.300",
+                        "local_as": "300",
                         "address_family": {
                             addr_type: {
                                 "unicast": {
@@ -600,7 +589,7 @@ def test_verify_bgp_local_as_allow_as_in_iBGP_p0(request):
                                             "dest_link": {
                                                 "r3": {
                                                     "local_asn": {
-                                                        "local_as": "1.110",
+                                                        "local_as": "110",
                                                         "no_prepend": True,
                                                         "replace_as": True,
                                                     }
@@ -627,7 +616,7 @@ def test_verify_bgp_local_as_allow_as_in_iBGP_p0(request):
     )
 
     dut = "r4"
-    aspath = "1.110 1.200 1.100"
+    aspath = "110 200 100"
     for addr_type in ADDR_TYPES:
         input_static_r1 = {"r1": {"static_routes": [{"network": NETWORK[addr_type]}]}}
         result = verify_bgp_rib(tgen, addr_type, dut, input_static_r1, aspath=aspath)
@@ -661,16 +650,14 @@ def test_verify_bgp_local_as_in_EBGP_port_reset_p0(request):
             input_dict_r3 = {
                 "r3": {
                     "bgp": {
-                        "local_as": "1.300",
+                        "local_as": "300",
                         "address_family": {
                             addr_type: {
                                 "unicast": {
                                     "neighbor": {
                                         neighbor: {
                                             "dest_link": {
-                                                "r3": {
-                                                    "local_asn": {"local_as": "1.110"}
-                                                }
+                                                "r3": {"local_asn": {"local_as": "110"}}
                                             }
                                         }
                                     }
@@ -686,7 +673,7 @@ def test_verify_bgp_local_as_in_EBGP_port_reset_p0(request):
             )
 
     for addr_type in ADDR_TYPES:
-        for dut, asn, neighbor in zip(["r2", "r4"], ["1.200", "1.400"], ["r3", "r3"]):
+        for dut, asn, neighbor in zip(["r2", "r4"], ["200", "400"], ["r3", "r3"]):
             input_dict_r2_r4 = {
                 dut: {
                     "bgp": {
@@ -697,9 +684,7 @@ def test_verify_bgp_local_as_in_EBGP_port_reset_p0(request):
                                     "neighbor": {
                                         neighbor: {
                                             "dest_link": {
-                                                dut: {
-                                                    "local_asn": {"remote_as": "1.110"}
-                                                }
+                                                dut: {"local_asn": {"remote_as": "110"}}
                                             }
                                         }
                                     }
@@ -721,9 +706,9 @@ def test_verify_bgp_local_as_in_EBGP_port_reset_p0(request):
     )
 
     # configure static routes
-    step("Done in base config: Advertise prefix 10.1.1.0/32 from Router-1(AS-1.100).")
+    step("Done in base config: Advertise prefix 10.1.1.0/32 from Router-1(AS-100).")
     step(
-        "Done in base config: Advertise an ipv6 prefix 10:1::1:0/128 from Router-1(AS-1.100)."
+        "Done in base config: Advertise an ipv6 prefix 10:1::1:0/128 from Router-1(AS-100)."
     )
     step("Verify that Static routes are redistributed in BGP process")
     dut = "r1"
@@ -737,6 +722,12 @@ def test_verify_bgp_local_as_in_EBGP_port_reset_p0(request):
                 ]
             }
         }
+
+        logger.info("Configure static routes")
+        result = create_static_routes(tgen, input_static_r1)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
         step("configure redistribute static in Router BGP in R1")
         input_static_redist_r1 = {
@@ -783,7 +774,7 @@ def test_verify_bgp_local_as_in_EBGP_port_reset_p0(request):
         input_dict_r3_timers = {
             "r3": {
                 "bgp": {
-                    "local_as": "1.300",
+                    "local_as": "300",
                     "address_family": {
                         addr_type: {
                             "unicast": {
@@ -809,11 +800,11 @@ def test_verify_bgp_local_as_in_EBGP_port_reset_p0(request):
         )
 
     step(
-        "Verify that AS-1.110 is got added in the AS list 1.110 1.200 1.100 by following"
+        "Verify that AS-110 is got added in the AS list 110 200 100 by following"
         "commands at R3 router."
     )
     dut = "r3"
-    aspath = "1.110 1.200 1.100"
+    aspath = "110 200 100"
     for addr_type in ADDR_TYPES:
         input_static_r1 = {"r1": {"static_routes": [{"network": NETWORK[addr_type]}]}}
         result = verify_bgp_rib(tgen, addr_type, dut, input_static_r1, aspath=aspath)
@@ -864,11 +855,11 @@ def test_verify_bgp_local_as_in_EBGP_port_reset_p0(request):
     )
 
     step(
-        "Verify that AS-1.110 is got added in the AS list 1.110 1.200 1.100 by following"
+        "Verify that AS-110 is got added in the AS list 110 200 100 by following"
         "commands at R3 router."
     )
     dut = "r3"
-    aspath = "1.110 1.200 1.100"
+    aspath = "110 200 100"
     for addr_type in ADDR_TYPES:
         input_static_r1 = {"r1": {"static_routes": [{"network": NETWORK[addr_type]}]}}
         result = verify_bgp_rib(tgen, addr_type, dut, input_static_r1, aspath=aspath)
@@ -882,7 +873,7 @@ def test_verify_bgp_local_as_in_EBGP_port_reset_p0(request):
             input_dict_r3 = {
                 "r3": {
                     "bgp": {
-                        "local_as": "1.300",
+                        "local_as": "300",
                         "address_family": {
                             addr_type: {
                                 "unicast": {
@@ -891,7 +882,7 @@ def test_verify_bgp_local_as_in_EBGP_port_reset_p0(request):
                                             "dest_link": {
                                                 "r3": {
                                                     "local_asn": {
-                                                        "local_as": "1.110",
+                                                        "local_as": "110",
                                                         "no_prepend": True,
                                                     }
                                                 }
@@ -916,7 +907,7 @@ def test_verify_bgp_local_as_in_EBGP_port_reset_p0(request):
     )
 
     dut = "r3"
-    aspath = "1.200 1.100"
+    aspath = "200 100"
     for addr_type in ADDR_TYPES:
         input_static_r1 = {"r1": {"static_routes": [{"network": NETWORK[addr_type]}]}}
         result = verify_bgp_rib(tgen, addr_type, dut, input_static_r1, aspath=aspath)
@@ -930,7 +921,7 @@ def test_verify_bgp_local_as_in_EBGP_port_reset_p0(request):
             input_dict_r3 = {
                 "r3": {
                     "bgp": {
-                        "local_as": "1.300",
+                        "local_as": "300",
                         "address_family": {
                             addr_type: {
                                 "unicast": {
@@ -939,7 +930,7 @@ def test_verify_bgp_local_as_in_EBGP_port_reset_p0(request):
                                             "dest_link": {
                                                 "r3": {
                                                     "local_asn": {
-                                                        "local_as": "1.110",
+                                                        "local_as": "110",
                                                         "no_prepend": True,
                                                         "replace_as": True,
                                                     }
@@ -965,7 +956,7 @@ def test_verify_bgp_local_as_in_EBGP_port_reset_p0(request):
     )
 
     dut = "r4"
-    aspath = "1.110 1.200 1.100"
+    aspath = "110 200 100"
     for addr_type in ADDR_TYPES:
         input_static_r1 = {"r1": {"static_routes": [{"network": NETWORK[addr_type]}]}}
         result = verify_bgp_rib(tgen, addr_type, dut, input_static_r1, aspath=aspath)
@@ -999,16 +990,14 @@ def test_verify_bgp_local_as_in_EBGP_negative2_p0(request):
             input_dict_r3 = {
                 "r3": {
                     "bgp": {
-                        "local_as": "1.300",
+                        "local_as": "300",
                         "address_family": {
                             addr_type: {
                                 "unicast": {
                                     "neighbor": {
                                         neighbor: {
                                             "dest_link": {
-                                                "r3": {
-                                                    "local_asn": {"local_as": "1.110"}
-                                                }
+                                                "r3": {"local_asn": {"local_as": "110"}}
                                             }
                                         }
                                     }
@@ -1024,7 +1013,7 @@ def test_verify_bgp_local_as_in_EBGP_negative2_p0(request):
             )
 
     for addr_type in ADDR_TYPES:
-        for dut, asn, neighbor in zip(["r2", "r4"], ["1.200", "1.400"], ["r3", "r3"]):
+        for dut, asn, neighbor in zip(["r2", "r4"], ["200", "400"], ["r3", "r3"]):
             input_dict_r2_r4 = {
                 dut: {
                     "bgp": {
@@ -1035,9 +1024,7 @@ def test_verify_bgp_local_as_in_EBGP_negative2_p0(request):
                                     "neighbor": {
                                         neighbor: {
                                             "dest_link": {
-                                                dut: {
-                                                    "local_asn": {"remote_as": "1.110"}
-                                                }
+                                                dut: {"local_asn": {"remote_as": "110"}}
                                             }
                                         }
                                     }
@@ -1059,9 +1046,9 @@ def test_verify_bgp_local_as_in_EBGP_negative2_p0(request):
     )
 
     # configure static routes
-    step("Done in base config: Advertise prefix 10.1.1.0/32 from Router-1(AS-1.100).")
+    step("Done in base config: Advertise prefix 10.1.1.0/32 from Router-1(AS-100).")
     step(
-        "Done in base config: Advertise an ipv6 prefix 10:1::1:0/128 from Router-1(AS-1.100)."
+        "Done in base config: Advertise an ipv6 prefix 10:1::1:0/128 from Router-1(AS-100)."
     )
     step("Verify that Static routes are redistributed in BGP process")
 
@@ -1076,6 +1063,12 @@ def test_verify_bgp_local_as_in_EBGP_negative2_p0(request):
                 ]
             }
         }
+
+        logger.info("Configure static routes")
+        result = create_static_routes(tgen, input_static_r1)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
         step("configure redistribute static in Router BGP in R1")
 
@@ -1119,11 +1112,11 @@ def test_verify_bgp_local_as_in_EBGP_negative2_p0(request):
             )
 
     step(
-        "Verify that AS-1.110 is got added in the AS list 1.110 1.200 1.100 by following"
+        "Verify that AS-110 is got added in the AS list 110 200 100 by following"
         "commands at R3 router."
     )
     dut = "r3"
-    aspath = "1.110 1.200 1.100"
+    aspath = "110 200 100"
     for addr_type in ADDR_TYPES:
         input_static_r1 = {"r1": {"static_routes": [{"network": NETWORK[addr_type]}]}}
         result = verify_bgp_rib(tgen, addr_type, dut, input_static_r1, aspath=aspath)
@@ -1137,7 +1130,7 @@ def test_verify_bgp_local_as_in_EBGP_negative2_p0(request):
             input_dict_r3 = {
                 "r3": {
                     "bgp": {
-                        "local_as": "1.300",
+                        "local_as": "300",
                         "address_family": {
                             addr_type: {
                                 "unicast": {
@@ -1146,7 +1139,7 @@ def test_verify_bgp_local_as_in_EBGP_negative2_p0(request):
                                             "dest_link": {
                                                 "r3": {
                                                     "local_asn": {
-                                                        "local_as": "1.110",
+                                                        "local_as": "110",
                                                         "no_prepend": True,
                                                     }
                                                 }
@@ -1185,11 +1178,11 @@ def test_verify_bgp_local_as_in_EBGP_negative2_p0(request):
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step(
-        "Verify that AS-1.110 is not prepended in the AS list 1.110 1.200 1.100 by following"
+        "Verify that AS-110 is not prepended in the AS list 110 200 100 by following"
         "commands at R3 router."
     )
     dut = "r3"
-    aspath = "1.200 1.100"
+    aspath = "200 100"
     for addr_type in ADDR_TYPES:
         input_static_r1 = {"r1": {"static_routes": [{"network": NETWORK[addr_type]}]}}
         result = verify_bgp_rib(tgen, addr_type, dut, input_static_r1, aspath=aspath)
@@ -1203,7 +1196,7 @@ def test_verify_bgp_local_as_in_EBGP_negative2_p0(request):
             input_dict_r3 = {
                 "r3": {
                     "bgp": {
-                        "local_as": "1.300",
+                        "local_as": "300",
                         "address_family": {
                             addr_type: {
                                 "unicast": {
@@ -1212,7 +1205,7 @@ def test_verify_bgp_local_as_in_EBGP_negative2_p0(request):
                                             "dest_link": {
                                                 "r3": {
                                                     "local_asn": {
-                                                        "local_as": "1.110",
+                                                        "local_as": "110",
                                                         "no_prepend": True,
                                                         "replace_as": True,
                                                     }
@@ -1236,9 +1229,9 @@ def test_verify_bgp_local_as_in_EBGP_negative2_p0(request):
     assert BGP_CONVERGENCE is True, "BGP convergence :Failed \n Error: {}".format(
         BGP_CONVERGENCE
     )
-    step("Verify that AS-1.300 is replaced with AS-1.110 at R3 router.")
+    step("Verify that AS-300 is replaced with AS-110 at R3 router.")
     dut = "r4"
-    aspath = "1.110 1.200 1.100"
+    aspath = "110 200 100"
     for addr_type in ADDR_TYPES:
         input_static_r1 = {"r1": {"static_routes": [{"network": NETWORK[addr_type]}]}}
         result = verify_bgp_rib(tgen, addr_type, dut, input_static_r1, aspath=aspath)
@@ -1251,14 +1244,14 @@ def test_verify_bgp_local_as_in_EBGP_negative2_p0(request):
     input_dict_r3 = {
         "r3": {
             "bgp": {
-                "local_as": "1.300",
+                "local_as": "300",
                 "address_family": {
                     "ipv4": {
                         "unicast": {
                             "neighbor": {
                                 "r4": {
                                     "dest_link": {
-                                        "r3": {"local_asn": {"local_as": "1.300"}}
+                                        "r3": {"local_asn": {"local_as": "300"}}
                                     }
                                 }
                             }
@@ -1280,14 +1273,14 @@ def test_verify_bgp_local_as_in_EBGP_negative2_p0(request):
     input_dict_r3 = {
         "r3": {
             "bgp": {
-                "local_as": "1.110",
+                "local_as": "110",
                 "address_family": {
                     "ipv4": {
                         "unicast": {
                             "neighbor": {
                                 "r4": {
                                     "dest_link": {
-                                        "r3": {"local_asn": {"local_as": "1.110"}}
+                                        "r3": {"local_asn": {"local_as": "110"}}
                                     }
                                 }
                             }
@@ -1337,16 +1330,14 @@ def test_verify_bgp_local_as_in_EBGP_negative3_p0(request):
             input_dict_r3 = {
                 "r3": {
                     "bgp": {
-                        "local_as": "1.300",
+                        "local_as": "300",
                         "address_family": {
                             addr_type: {
                                 "unicast": {
                                     "neighbor": {
                                         neighbor: {
                                             "dest_link": {
-                                                "r3": {
-                                                    "local_asn": {"local_as": "1.110"}
-                                                }
+                                                "r3": {"local_asn": {"local_as": "110"}}
                                             }
                                         }
                                     }
@@ -1362,7 +1353,7 @@ def test_verify_bgp_local_as_in_EBGP_negative3_p0(request):
             )
 
     for addr_type in ADDR_TYPES:
-        for dut, asn, neighbor in zip(["r2", "r4"], ["1.200", "1.400"], ["r3", "r3"]):
+        for dut, asn, neighbor in zip(["r2", "r4"], ["200", "400"], ["r3", "r3"]):
             input_dict_r2_r4 = {
                 dut: {
                     "bgp": {
@@ -1373,9 +1364,7 @@ def test_verify_bgp_local_as_in_EBGP_negative3_p0(request):
                                     "neighbor": {
                                         neighbor: {
                                             "dest_link": {
-                                                dut: {
-                                                    "local_asn": {"remote_as": "1.110"}
-                                                }
+                                                dut: {"local_asn": {"remote_as": "110"}}
                                             }
                                         }
                                     }
@@ -1397,9 +1386,9 @@ def test_verify_bgp_local_as_in_EBGP_negative3_p0(request):
     )
 
     # configure static routes
-    step("Done in base config: Advertise prefix 10.1.1.0/32 from Router-1(AS-1.100).")
+    step("Done in base config: Advertise prefix 10.1.1.0/32 from Router-1(AS-100).")
     step(
-        "Done in base config: Advertise an ipv6 prefix 10:1::1:0/128 from Router-1(AS-1.100)."
+        "Done in base config: Advertise an ipv6 prefix 10:1::1:0/128 from Router-1(AS-100)."
     )
     step("Verify that Static routes are redistributed in BGP process")
 
@@ -1414,6 +1403,12 @@ def test_verify_bgp_local_as_in_EBGP_negative3_p0(request):
                 ]
             }
         }
+
+        logger.info("Configure static routes")
+        result = create_static_routes(tgen, input_static_r1)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
         step("configure redistribute static in Router BGP in R1")
 
@@ -1457,11 +1452,11 @@ def test_verify_bgp_local_as_in_EBGP_negative3_p0(request):
             )
 
     step(
-        "Verify that AS-1.110 is got added in the AS list 1.110 1.200 1.100 by following"
+        "Verify that AS-110 is got added in the AS list 110 200 100 by following"
         "commands at R3 router."
     )
     dut = "r3"
-    aspath = "1.110 1.200 1.100"
+    aspath = "110 200 100"
     for addr_type in ADDR_TYPES:
         input_static_r1 = {"r1": {"static_routes": [{"network": NETWORK[addr_type]}]}}
         result = verify_bgp_rib(tgen, addr_type, dut, input_static_r1, aspath=aspath)
@@ -1474,14 +1469,14 @@ def test_verify_bgp_local_as_in_EBGP_negative3_p0(request):
     input_dict_r3 = {
         "r3": {
             "bgp": {
-                "local_as": "1.300",
+                "local_as": "300",
                 "address_family": {
                     "ipv4": {
                         "unicast": {
                             "neighbor": {
                                 "r4": {
                                     "dest_link": {
-                                        "r3": {"local_asn": {"local_as": "1.300"}}
+                                        "r3": {"local_asn": {"local_as": "300"}}
                                     }
                                 }
                             }
@@ -1525,16 +1520,14 @@ def test_verify_bgp_local_as_in_EBGP_restart_daemons_p0(request):
             input_dict_r3 = {
                 "r3": {
                     "bgp": {
-                        "local_as": "1.300",
+                        "local_as": "300",
                         "address_family": {
                             addr_type: {
                                 "unicast": {
                                     "neighbor": {
                                         neighbor: {
                                             "dest_link": {
-                                                "r3": {
-                                                    "local_asn": {"local_as": "1.110"}
-                                                }
+                                                "r3": {"local_asn": {"local_as": "110"}}
                                             }
                                         }
                                     }
@@ -1550,7 +1543,7 @@ def test_verify_bgp_local_as_in_EBGP_restart_daemons_p0(request):
             )
 
     for addr_type in ADDR_TYPES:
-        for dut, asn, neighbor in zip(["r2", "r4"], ["1.200", "1.400"], ["r3", "r3"]):
+        for dut, asn, neighbor in zip(["r2", "r4"], ["200", "400"], ["r3", "r3"]):
             input_dict_r2_r4 = {
                 dut: {
                     "bgp": {
@@ -1561,9 +1554,7 @@ def test_verify_bgp_local_as_in_EBGP_restart_daemons_p0(request):
                                     "neighbor": {
                                         neighbor: {
                                             "dest_link": {
-                                                dut: {
-                                                    "local_asn": {"remote_as": "1.110"}
-                                                }
+                                                dut: {"local_asn": {"remote_as": "110"}}
                                             }
                                         }
                                     }
@@ -1585,9 +1576,9 @@ def test_verify_bgp_local_as_in_EBGP_restart_daemons_p0(request):
     )
 
     # configure static routes
-    step("Done in base config: Advertise prefix 10.1.1.0/32 from Router-1(AS-1.100).")
+    step("Done in base config: Advertise prefix 10.1.1.0/32 from Router-1(AS-100).")
     step(
-        "Done in base config: Advertise an ipv6 prefix 10:1::1:0/128 from Router-1(AS-1.100)."
+        "Done in base config: Advertise an ipv6 prefix 10:1::1:0/128 from Router-1(AS-100)."
     )
     step("Verify that Static routes are redistributed in BGP process")
     dut = "r1"
@@ -1601,6 +1592,12 @@ def test_verify_bgp_local_as_in_EBGP_restart_daemons_p0(request):
                 ]
             }
         }
+
+        logger.info("Configure static routes")
+        result = create_static_routes(tgen, input_static_r1)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
         step("configure redistribute static in Router BGP in R1")
         input_static_redist_r1 = {
@@ -1643,11 +1640,11 @@ def test_verify_bgp_local_as_in_EBGP_restart_daemons_p0(request):
             )
 
     step(
-        "Verify that AS-1.110 is got added in the AS list 1.110 1.200 1.100 by following"
+        "Verify that AS-110 is got added in the AS list 110 200 100 by following"
         "commands at R3 router."
     )
     dut = "r3"
-    aspath = "1.110 1.200 1.100"
+    aspath = "110 200 100"
     for addr_type in ADDR_TYPES:
         input_static_r1 = {"r1": {"static_routes": [{"network": NETWORK[addr_type]}]}}
         result = verify_bgp_rib(tgen, addr_type, dut, input_static_r1, aspath=aspath)
@@ -1662,11 +1659,11 @@ def test_verify_bgp_local_as_in_EBGP_restart_daemons_p0(request):
     start_router_daemons(tgen, "r3", ["bgpd"])
 
     step(
-        "Verify that AS-1.110 is got added in the AS list 1.110 1.200 1.100 by following"
+        "Verify that AS-110 is got added in the AS list 110 200 100 by following"
         "commands at R3 router."
     )
     dut = "r3"
-    aspath = "1.110 1.200 1.100"
+    aspath = "110 200 100"
     for addr_type in ADDR_TYPES:
         input_static_r1 = {"r1": {"static_routes": [{"network": NETWORK[addr_type]}]}}
         result = verify_bgp_rib(tgen, addr_type, dut, input_static_r1, aspath=aspath)
@@ -1694,7 +1691,7 @@ def test_verify_bgp_local_as_in_EBGP_restart_daemons_p0(request):
             input_dict_r3 = {
                 "r3": {
                     "bgp": {
-                        "local_as": "1.300",
+                        "local_as": "300",
                         "address_family": {
                             addr_type: {
                                 "unicast": {
@@ -1703,7 +1700,7 @@ def test_verify_bgp_local_as_in_EBGP_restart_daemons_p0(request):
                                             "dest_link": {
                                                 "r3": {
                                                     "local_asn": {
-                                                        "local_as": "1.110",
+                                                        "local_as": "110",
                                                         "no_prepend": True,
                                                     }
                                                 }
@@ -1728,11 +1725,11 @@ def test_verify_bgp_local_as_in_EBGP_restart_daemons_p0(request):
     )
 
     step(
-        "Verify that AS-1.110 is not prepended in the AS list 1.200 1.100 by following "
+        "Verify that AS-110 is not prepended in the AS list 200 100 by following "
         "commands at R3 router."
     )
     dut = "r3"
-    aspath = "1.200 1.100"
+    aspath = "200 100"
     for addr_type in ADDR_TYPES:
         input_static_r1 = {"r1": {"static_routes": [{"network": NETWORK[addr_type]}]}}
         result = verify_bgp_rib(tgen, addr_type, dut, input_static_r1, aspath=aspath)
@@ -1747,11 +1744,11 @@ def test_verify_bgp_local_as_in_EBGP_restart_daemons_p0(request):
     start_router_daemons(tgen, "r3", ["bgpd"])
 
     step(
-        "Verify that AS-1.110 is not prepended in the AS list 1.200 1.100 by following "
+        "Verify that AS-110 is not prepended in the AS list 200 100 by following "
         "commands at R3 router."
     )
     dut = "r3"
-    aspath = "1.200 1.100"
+    aspath = "200 100"
     for addr_type in ADDR_TYPES:
         input_static_r1 = {"r1": {"static_routes": [{"network": NETWORK[addr_type]}]}}
         result = verify_bgp_rib(tgen, addr_type, dut, input_static_r1, aspath=aspath)
@@ -1765,7 +1762,7 @@ def test_verify_bgp_local_as_in_EBGP_restart_daemons_p0(request):
             input_dict_r3 = {
                 "r3": {
                     "bgp": {
-                        "local_as": "1.300",
+                        "local_as": "300",
                         "address_family": {
                             addr_type: {
                                 "unicast": {
@@ -1774,7 +1771,7 @@ def test_verify_bgp_local_as_in_EBGP_restart_daemons_p0(request):
                                             "dest_link": {
                                                 "r3": {
                                                     "local_asn": {
-                                                        "local_as": "1.110",
+                                                        "local_as": "110",
                                                         "no_prepend": True,
                                                         "replace_as": True,
                                                     }
@@ -1800,10 +1797,10 @@ def test_verify_bgp_local_as_in_EBGP_restart_daemons_p0(request):
     )
 
     step(
-        "Verified that AS-1.300 is got replaced with original AS-1.110 at R4 by following commands"
+        "Verified that AS-300 is got replaced with original AS-110 at R4 by following commands"
     )
     dut = "r4"
-    aspath = "1.110 1.200 1.100"
+    aspath = "110 200 100"
     for addr_type in ADDR_TYPES:
         input_static_r1 = {"r1": {"static_routes": [{"network": NETWORK[addr_type]}]}}
         result = verify_bgp_rib(tgen, addr_type, dut, input_static_r1, aspath=aspath)
@@ -1812,10 +1809,10 @@ def test_verify_bgp_local_as_in_EBGP_restart_daemons_p0(request):
         )
 
     step(
-        "Verified that AS-1.300 is got replaced with original AS-1.110 at R4 by following commands"
+        "Verified that AS-300 is got replaced with original AS-110 at R4 by following commands"
     )
     dut = "r4"
-    aspath = "1.110 1.200 1.100"
+    aspath = "110 200 100"
     for addr_type in ADDR_TYPES:
         input_static_r1 = {"r1": {"static_routes": [{"network": NETWORK[addr_type]}]}}
         result = verify_bgp_rib(tgen, addr_type, dut, input_static_r1, aspath=aspath)
