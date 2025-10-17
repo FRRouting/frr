@@ -650,10 +650,10 @@ module frr-pim {
       description
         "Add multicast route.";
 
-      leaf oif {
+      leaf-list oif {
         type frr-interface:interface-ref;
         description
-          "Outgoing interface name.";
+          "List of Outgoing interface names.";
       }
 
       leaf source-addr {
