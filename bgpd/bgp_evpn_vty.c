@@ -2374,7 +2374,7 @@ static struct bgpevpn *evpn_create_update_vni(struct bgp *bgp, vni_t vni)
 {
 	struct bgpevpn *vpn;
 	struct in_addr mcast_grp = {INADDR_ANY};
-	struct ipaddr orignator_ip;
+	struct ipaddr orignator_ip = { 0 };
 
 	vpn = bgp_evpn_lookup_vni(bgp, vni);
 	if (!vpn) {
@@ -2763,7 +2763,7 @@ static void evpn_show_routes_vni(struct vty *vty, struct bgp *bgp, vni_t vni, in
 				 bool mac_table, const union sockunion *_vtep_ip, json_object *json)
 {
 	struct bgpevpn *vpn;
-	struct ipaddr vtep_ip;
+	struct ipaddr vtep_ip = { 0 };
 
 	/* Locate VNI. */
 	vpn = bgp_evpn_lookup_vni(bgp, vni);
@@ -5274,7 +5274,7 @@ DEFUN(show_bgp_l2vpn_evpn_route_vni_multicast,
 	vni_t vni;
 	struct bgp *bgp;
 	int ret;
-	struct ipaddr orig_ip;
+	struct ipaddr orig_ip = { 0 };
 	int idx = 0;
 	bool uj = false;
 	json_object *json = NULL;

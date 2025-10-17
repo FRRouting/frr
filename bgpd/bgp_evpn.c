@@ -1392,7 +1392,7 @@ enum zclient_send_status evpn_zebra_uninstall(struct bgp *bgp,
 					      bool is_sync)
 {
 	enum zclient_send_status ret = ZCLIENT_SEND_SUCCESS;
-	struct ipaddr vtep_ip;
+	struct ipaddr vtep_ip = { 0 };
 
 	if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE) {
 		uint8_t nhfamily = NEXTHOP_FAMILY(pi->attr->mp_nexthop_len);
@@ -1762,7 +1762,7 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct bgp_path_info *or
 	struct bgp *bgp_evpn = NULL;
 	int route_changed = 0;
 	struct bgp_path_info *pi = NULL;
-	struct ipaddr vtep_ip;
+	struct ipaddr vtep_ip = { 0 };
 
 	bgp_evpn = bgp_get_evpn();
 	if (!bgp_evpn)
