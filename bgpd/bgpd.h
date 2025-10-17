@@ -1984,7 +1984,10 @@ struct peer {
 	unsigned long weight[AFI_MAX][SAFI_MAX];
 
 	/* peer reset cause */
-	uint8_t last_reset;
+	uint8_t last_reset;		    /* when established */
+	uint8_t down_last_reset;	    /* when not established */
+	uint32_t reset_established;	    /* "established" for last_reset */
+	time_t down_resettime;		    /* down reset time */
 #define PEER_DOWN_NONE			 0U /* No peer down event */
 #define PEER_DOWN_RID_CHANGE             1U /* bgp router-id command */
 #define PEER_DOWN_REMOTE_AS_CHANGE       2U /* neighbor remote-as command */
@@ -2933,7 +2936,37 @@ static inline bool peer_established(struct peer_connection *connection)
 
 static inline void peer_set_last_reset(struct peer *peer, uint8_t reset_cause)
 {
-	peer->last_reset = reset_cause;
+	/*
+	 * Record the cause in last_reset for debugging if the session is
+	 * never established.
+	 *
+	 * Also always record the cause in last_reset for operations like
+	 * snmp when a notification is involved.
+	 */
+	if ((peer->established == 0) || (reset_cause == PEER_DOWN_NOTIFY_SEND) ||
+	    (reset_cause == PEER_DOWN_NOTIFY_RECEIVED)) {
+		peer->last_reset = reset_cause;
+		peer->reset_established = peer->established;
+		return;
+	}
+
+	/*
+	 * If the peer is established, record the cause in last_reset. In case
+	 * this function is called more than once while the session remains
+	 * established, record the first reset which should be more useful.
+	 *
+	 * If the peer is non-established, record the cause for debugging in a
+	 * separate field in order to avoid overwriting the last_reset value.
+	 */
+	if (peer_established(peer->connection)) {
+		if (peer->reset_established != peer->established) {
+			peer->last_reset = reset_cause;
+			peer->reset_established = peer->established;
+		}
+	} else {
+		peer->down_last_reset = reset_cause;
+		peer->down_resettime = monotime(NULL);
+	}
 }
 
 static inline bool peer_dynamic_neighbor(struct peer *peer)
