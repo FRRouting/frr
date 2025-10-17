@@ -18,5 +18,6 @@ int path_zebra_request_label(mpls_label_t label);
 void path_zebra_release_label(mpls_label_t label);
 void path_zebra_init(struct event_loop *master);
 void path_zebra_stop(void);
+void path_nht_removed(struct srte_candidate *candidate);
 
 #endif /* _FRR_PATH_MPLS_H_ */
