@@ -12365,6 +12365,13 @@ static void bgp_show_peer_reset(struct vty * vty, struct peer *peer,
 				       peer_down_str[(int)peer->last_reset]);
 		json_object_int_add(json_peer, "lastResetCode",
 				    peer->last_reset);
+		if (peer->down_last_reset != PEER_DOWN_NONE) {
+			json_object_string_add(json_peer, "downLastResetDueTo",
+					       peer_down_str[peer->down_last_reset]);
+			json_object_int_add(json_peer, "downLastResetCode", peer->down_last_reset);
+			json_object_int_add(json_peer, "downLastResetTimeSecs",
+					    monotime(NULL) - peer->down_resettime);
+		}
 		json_object_string_add(json_peer, "softwareVersion",
 				       peer->soft_version ? peer->soft_version
 							  : "n/a");
@@ -12389,6 +12396,10 @@ static void bgp_show_peer_reset(struct vty * vty, struct peer *peer,
 			vty_out(vty, " %s (%s)\n",
 				peer_down_str[(int)peer->last_reset],
 				peer->soft_version ? peer->soft_version : "n/a");
+			if (peer->down_last_reset != PEER_DOWN_NONE)
+				vty_out(vty, "  Down last reset: %s, %u seconds ago\n",
+					peer_down_str[peer->down_last_reset],
+					(unsigned int)(monotime(NULL) - peer->down_resettime));
 		}
 	}
 }
