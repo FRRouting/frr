@@ -1605,6 +1605,7 @@ static void interface_update_l2info(struct zebra_dplane_ctx *ctx,
 					     link_nsid);
 		break;
 	case ZEBRA_IF_GRE:
+	case ZEBRA_IF_GRETAP:
 		gre_info = dplane_ctx_get_ifp_gre_info(ctx);
 		zebra_l2_greif_add_update(ifp, gre_info, add);
 		if (link_nsid != NS_UNKNOWN && gre_info->ifindex_link)
@@ -2001,6 +2002,9 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 			ifp->ll_type = dplane_ctx_get_ifp_zltype(ctx);
 			interface_update_hw_addr(ctx, ifp);
 
+			/* Update interface type */
+			ifp->zif_type = zif_type;
+
 			/* Inform clients, install any configured addresses. */
 			if_add_update(ifp);
 
@@ -2078,6 +2082,9 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 
 			ifp->ll_type = dplane_ctx_get_ifp_zltype(ctx);
 			interface_update_hw_addr(ctx, ifp);
+
+			/* Update interface type */
+			ifp->zif_type = zif_type;
 
 			if (protodown_set)
 				interface_if_protodown(ifp, protodown,
@@ -2363,6 +2370,9 @@ static const char *zebra_ziftype_2str(enum zebra_iftype zif_type)
 
 	case ZEBRA_IF_GRE:
 		return "GRE";
+
+	case ZEBRA_IF_GRETAP:
+		return "GRETAP";
 
 	case ZEBRA_IF_DUMMY:
 		return "dummy";
@@ -2715,7 +2725,7 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 		vty_out(vty, "  VLAN Id %u\n", vlan_info->vid);
 	} else if (IS_ZEBRA_IF_VXLAN(ifp)) {
 		zebra_vxlan_if_dump_vty(vty, zebra_if);
-	} else if (IS_ZEBRA_IF_GRE(ifp)) {
+	} else if (IS_ZEBRA_IF_GRE(ifp) || IS_ZEBRA_IF_GRETAP(ifp)) {
 		struct zebra_l2info_gre *gre_info;
 
 		gre_info = &zebra_if->l2info.gre;
