@@ -2237,7 +2237,10 @@ static void zebra_evpn_es_df_delay_exp_cb(struct event *t)
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 		zlog_debug("es %s df-delay expired", es->esi_str);
 
-	zebra_evpn_es_run_df_election(es, __func__);
+	if (!zebra_evpn_es_run_df_election(es, __func__)) {
+		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+			zlog_debug("%s: es %s df election returned false", __func__, es->esi_str);
+	}
 }
 
 /* currently there is no global config to turn on MH instead we use
@@ -2736,7 +2739,10 @@ void zebra_evpn_es_df_pref_update(struct zebra_if *zif, uint16_t df_pref)
 
 	es->df_pref = zif->es_info.df_pref;
 	/* run df election */
-	zebra_evpn_es_run_df_election(es, __func__);
+	if (!zebra_evpn_es_run_df_election(es, __func__)) {
+		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+			zlog_debug("%s: es %s df election returned false", __func__, es->esi_str);
+	}
 	/* notify bgp */
 	if (es->flags & ZEBRA_EVPNES_READY_FOR_BGP)
 		zebra_evpn_es_send_add_to_client(es);
@@ -3007,7 +3013,10 @@ void zebra_evpn_es_if_oper_state_change(struct zebra_if *zif, bool up)
 	else
 		es->flags &= ~ZEBRA_EVPNES_OPER_UP;
 
-	zebra_evpn_es_run_df_election(es, __func__);
+	if (!zebra_evpn_es_run_df_election(es, __func__)) {
+		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+			zlog_debug("%s: es %s df election returned false", __func__, es->esi_str);
+	}
 	zebra_evpn_local_mac_oper_state_change(es);
 
 	/* inform BGP of the ES oper state change */
@@ -3409,7 +3418,11 @@ void zebra_evpn_es_set_base_evpn(struct zebra_evpn *zevpn)
 
 	/* if originator ip changes we need to update bgp */
 	for (ALL_LIST_ELEMENTS_RO(zmh_info->local_es_list, node, es)) {
-		zebra_evpn_es_run_df_election(es, __func__);
+		if (!zebra_evpn_es_run_df_election(es, __func__)) {
+			if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+				zlog_debug("%s: es %s df election returned false", __func__,
+					   es->esi_str);
+		}
 
 		if (es->flags & ZEBRA_EVPNES_READY_FOR_BGP)
 			zebra_evpn_es_send_add_to_client(es);

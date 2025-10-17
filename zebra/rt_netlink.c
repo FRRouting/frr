@@ -2920,23 +2920,31 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 		req.rtm.rtm_dst_len = IPV4_MAX_BITLEN;
 		req.rtm.rtm_src_len = IPV4_MAX_BITLEN;
 
-		nl_attr_put(&req.n, sizeof(req), RTA_SRC,
-			    &mroute->src.ipaddr_v4,
-			    sizeof(mroute->src.ipaddr_v4));
-		nl_attr_put(&req.n, sizeof(req), RTA_DST,
-			    &mroute->grp.ipaddr_v4,
-			    sizeof(mroute->grp.ipaddr_v4));
+		if (!nl_attr_put(&req.n, sizeof(req), RTA_SRC, &mroute->src.ipaddr_v4,
+				 sizeof(mroute->src.ipaddr_v4))) {
+			zlog_err("%s: Failed to put ipv4 RTA_SRC nl attribute", __func__);
+			return 0;
+		}
+		if (!nl_attr_put(&req.n, sizeof(req), RTA_DST, &mroute->grp.ipaddr_v4,
+				 sizeof(mroute->grp.ipaddr_v4))) {
+			zlog_err("%s: Failed to put ipv4 RTA_DST nl attribute", __func__);
+			return 0;
+		}
 	} else {
 		req.rtm.rtm_family = RTNL_FAMILY_IP6MR;
 		req.rtm.rtm_dst_len = IPV6_MAX_BITLEN;
 		req.rtm.rtm_src_len = IPV6_MAX_BITLEN;
 
-		nl_attr_put(&req.n, sizeof(req), RTA_SRC,
-			    &mroute->src.ipaddr_v6,
-			    sizeof(mroute->src.ipaddr_v6));
-		nl_attr_put(&req.n, sizeof(req), RTA_DST,
-			    &mroute->grp.ipaddr_v6,
-			    sizeof(mroute->grp.ipaddr_v6));
+		if (!nl_attr_put(&req.n, sizeof(req), RTA_SRC, &mroute->src.ipaddr_v6,
+				 sizeof(mroute->src.ipaddr_v6))) {
+			zlog_err("%s: Failed to put ipv6 RTA_SRC nl attribute", __func__);
+			return 0;
+		}
+		if (!nl_attr_put(&req.n, sizeof(req), RTA_DST, &mroute->grp.ipaddr_v6,
+				 sizeof(mroute->grp.ipaddr_v6))) {
+			zlog_err("%s: Failed to put ipv6 RTA_DST nl attribute", __func__);
+			return 0;
+		}
 	}
 
 	/*
@@ -2960,7 +2968,10 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 	else
 		actual_table = zvrf->table_id;
 
-	nl_attr_put32(&req.n, sizeof(req), RTA_TABLE, actual_table);
+	if (!nl_attr_put32(&req.n, sizeof(req), RTA_TABLE, actual_table)) {
+		zlog_err("%s: Failed to put RTA_TABLE nl attribute", __func__);
+		return 0;
+	}
 
 	suc = netlink_talk(netlink_route_change_read_multicast, &req.n,
 			   &zns->netlink_cmd, zns, false);
@@ -3016,18 +3027,21 @@ static bool _netlink_nexthop_build_group(struct nlmsghdr *n, size_t req_size, ui
 			struct rtattr *nest;
 
 			nest = nl_attr_nest(n, req_size, NHA_RES_GROUP);
+			if (!nest)
+				return false;
 
-			nl_attr_put16(n, req_size, NHA_RES_GROUP_BUCKETS,
-				      nhgr->buckets);
-			nl_attr_put32(n, req_size, NHA_RES_GROUP_IDLE_TIMER,
-				      nhgr->idle_timer * 1000);
-			nl_attr_put32(n, req_size,
-				      NHA_RES_GROUP_UNBALANCED_TIMER,
-				      nhgr->unbalanced_timer * 1000);
+			if (!nl_attr_put16(n, req_size, NHA_RES_GROUP_BUCKETS, nhgr->buckets))
+				return false;
+			if (!nl_attr_put32(n, req_size, NHA_RES_GROUP_IDLE_TIMER,
+					   nhgr->idle_timer * 1000))
+				return false;
+			if (!nl_attr_put32(n, req_size, NHA_RES_GROUP_UNBALANCED_TIMER,
+					   nhgr->unbalanced_timer * 1000))
+				return false;
 			nl_attr_nest_end(n, nest);
 
-			nl_attr_put16(n, req_size, NHA_GROUP_TYPE,
-				      NEXTHOP_GRP_TYPE_RES);
+			if (!nl_attr_put16(n, req_size, NHA_GROUP_TYPE, NEXTHOP_GRP_TYPE_RES))
+				return false;
 		}
 	}
 
@@ -4272,7 +4286,10 @@ static int netlink_request_macs(struct nlsock *netlink_cmd, int family,
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
 	req.ifm.ifi_family = family;
 	if (master_ifindex)
-		nl_attr_put32(&req.n, sizeof(req), IFLA_MASTER, master_ifindex);
+		if (!nl_attr_put32(&req.n, sizeof(req), IFLA_MASTER, master_ifindex)) {
+			zlog_err("%s: Failed to put IFLA_MASTER nl attribute", __func__);
+			return -1;
+		}
 
 	return netlink_request(netlink_cmd, &req);
 }
@@ -4355,18 +4372,31 @@ static int netlink_request_specific_mac(struct zebra_ns *zns, int family,
 	req.ndm.ndm_flags = flags;
 	/* req.ndm.ndm_state = NUD_REACHABLE; */
 
-	nl_attr_put(&req.n, sizeof(req), NDA_LLADDR, mac, 6);
+	if (!nl_attr_put(&req.n, sizeof(req), NDA_LLADDR, mac, 6)) {
+		zlog_err("%s: Failed to add NDA_LLADDR nl attribute", __func__);
+		return -1;
+	}
 
 	zif = (struct zebra_if *)ifp->info;
 	/* Is this a read on a VXLAN interface? */
 	if (IS_ZEBRA_IF_VXLAN(ifp)) {
-		nl_attr_put32(&req.n, sizeof(req), NDA_VNI, vni);
+		if (!nl_attr_put32(&req.n, sizeof(req), NDA_VNI, vni)) {
+			zlog_err("%s: Failed to add NDA_VNI nl attribute", __func__);
+			return -1;
+		}
 		/* TBD: Why is ifindex not filled in the non-vxlan case? */
 		req.ndm.ndm_ifindex = ifp->ifindex;
 	} else {
-		if (IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(zif) && vid > 0)
-			nl_attr_put16(&req.n, sizeof(req), NDA_VLAN, vid);
-		nl_attr_put32(&req.n, sizeof(req), NDA_MASTER, ifp->ifindex);
+		if (IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(zif) && vid > 0) {
+			if (!nl_attr_put16(&req.n, sizeof(req), NDA_VLAN, vid)) {
+				zlog_err("%s: Failed to add NDA_VLAN nl attribute", __func__);
+				return -1;
+			}
+		}
+		if (!nl_attr_put32(&req.n, sizeof(req), NDA_MASTER, ifp->ifindex)) {
+			zlog_err("%s: Failed to add NDA_MASTER nl attribute", __func__);
+			return -1;
+		}
 	}
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
@@ -4722,7 +4752,10 @@ static int netlink_request_neigh(struct nlsock *netlink_cmd, int family,
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ndmsg));
 	req.ndm.ndm_family = family;
 	if (ifindex)
-		nl_attr_put32(&req.n, sizeof(req), NDA_IFINDEX, ifindex);
+		if (!nl_attr_put32(&req.n, sizeof(req), NDA_IFINDEX, ifindex)) {
+			zlog_err("%s: Failed to put NDA_IFINDEX nl attribute", __func__);
+			return -1;
+		}
 
 	return netlink_request(netlink_cmd, &req);
 }
@@ -4802,7 +4835,10 @@ static int netlink_request_specific_neigh_in_vlan(struct zebra_ns *zns,
 		req.ndm.ndm_family = AF_INET6;
 	}
 
-	nl_attr_put(&req.n, sizeof(req), NDA_DST, &ip->ip.addr, ipa_len);
+	if (!nl_attr_put(&req.n, sizeof(req), NDA_DST, &ip->ip.addr, ipa_len)) {
+		zlog_err("%s: Failed to put NDA_DST nl attribute", __func__);
+		return -1;
+	}
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug("%s: Tx %s family %s IF %u IP %pIA flags 0x%x",
@@ -4983,7 +5019,8 @@ static int netlink_neigh_table_update_ctx(const struct zebra_dplane_ctx *ctx,
 	req->ndtm.ndtm_family = family;
 
 	name = family == AF_INET ? "arp_cache" : "ndisc_cache";
-	nl_attr_put(&req->n, datalen, NDTA_NAME, name, strlen(name) + 1);
+	if (!nl_attr_put(&req->n, datalen, NDTA_NAME, name, strlen(name) + 1))
+		return 0;
 	nest = nl_attr_nest(&req->n, datalen, NDTA_PARMS);
 	if (nest == NULL)
 		return 0;
