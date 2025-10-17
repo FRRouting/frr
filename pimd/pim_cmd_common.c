@@ -468,7 +468,12 @@ int pim_process_ip_gmp_proxy_cmd(struct vty *vty, bool enable)
 int pim_process_ip_mroute_cmd(struct vty *vty, const char *interface,
 			      const char *group_str, const char *source_str)
 {
-	nb_cli_enqueue_change(vty, "./oif", NB_OP_MODIFY, interface);
+	/* managing list of oif regarding (iif,mcast group, mcast source)*/
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./oif[.='%s']", interface);
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
 	if (!source_str) {
 		char buf[SRCDEST2STR_BUFFER];
@@ -487,7 +492,12 @@ int pim_process_ip_mroute_cmd(struct vty *vty, const char *interface,
 int pim_process_no_ip_mroute_cmd(struct vty *vty, const char *interface,
 				 const char *group_str, const char *source_str)
 {
-	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	/* managing list of oif regarding (iif,mcast group, mcast source)*/
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), "./oif[.='%s']", interface);
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
 	if (!source_str) {
 		char buf[SRCDEST2STR_BUFFER];

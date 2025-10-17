@@ -2960,8 +2960,8 @@ int lib_interface_pim_address_family_mroute_destroy(
 /*
  * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family/mroute/oif
  */
-int lib_interface_pim_address_family_mroute_oif_modify(
-	struct nb_cb_modify_args *args)
+int lib_interface_pim_address_family_mroute_oif_create(
+	struct nb_cb_create_args *args)
 {
 	struct pim_instance *pim;
 	struct pim_interface *pim_iifp;
@@ -3004,7 +3004,16 @@ int lib_interface_pim_address_family_mroute_oif_modify(
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		iif = nb_running_get_entry(args->dnode, NULL, true);
+		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
+		if (!if_dnode) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "%% Enable PIM and/or IGMP on this interface first");
+			return NB_ERR_INCONSISTENCY;
+		}
+		iif = nb_running_get_entry(if_dnode, NULL, true);
+		if (!iif)
+			return NB_ERR_INCONSISTENCY;
+
 		pim_iifp = iif->info;
 		pim = pim_iifp->pim;
 
@@ -3035,11 +3044,59 @@ int lib_interface_pim_address_family_mroute_oif_modify(
 int lib_interface_pim_address_family_mroute_oif_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct pim_instance *pim;
+	struct pim_interface *pim_iifp;
+	struct interface *iif;
+	struct interface *oif;
+	const char *oifname;
+	pim_addr source_addr;
+	pim_addr group_addr;
+	const struct lyd_node *if_dnode;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
+		if (!is_pim_interface(if_dnode)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "%% Enable PIM and/or IGMP on this interface first");
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
+		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
+		if (!if_dnode) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "%% Enable PIM and/or IGMP on this interface first");
+			return NB_ERR_INCONSISTENCY;
+		}
+		iif = nb_running_get_entry(if_dnode, NULL, true);
+		if (!iif)
+			return NB_ERR_INCONSISTENCY;
+
+
+		pim_iifp = iif->info;
+		pim = pim_iifp->pim;
+
+		oifname = yang_dnode_get_string(args->dnode, NULL);
+		oif = if_lookup_by_name(oifname, pim->vrf->vrf_id);
+		if (!oif) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "No such interface name %s",
+				 oifname);
+			return NB_ERR_INCONSISTENCY;
+		}
+
+		yang_dnode_get_pimaddr(&source_addr, args->dnode, "../source-addr");
+		yang_dnode_get_pimaddr(&group_addr, args->dnode, "../group-addr");
+
+		if (pim_static_del(pim, iif, oif, group_addr, source_addr)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Failed to del static mroute");
+			return NB_ERR_INCONSISTENCY;
+		}
 		break;
 	}
 
