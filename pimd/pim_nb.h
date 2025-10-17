@@ -164,10 +164,7 @@ int lib_interface_pim_address_family_multicast_boundary_acl_modify(struct nb_cb_
 int lib_interface_pim_address_family_multicast_boundary_acl_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_pim_address_family_mroute_create(
 	struct nb_cb_create_args *args);
-int lib_interface_pim_address_family_mroute_destroy(
-	struct nb_cb_destroy_args *args);
-int lib_interface_pim_address_family_mroute_oif_modify(
-	struct nb_cb_modify_args *args);
+int lib_interface_pim_address_family_mroute_oif_create(struct nb_cb_create_args *args);
 int lib_interface_pim_address_family_mroute_oif_destroy(
 	struct nb_cb_destroy_args *args);
 
