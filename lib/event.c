@@ -818,32 +818,8 @@ static int fd_poll(struct event_loop *m, const struct timeval *timer_wait,
 	unsigned char trash[64];
 	nfds_t count = m->handler.copycount;
 
-	/*
-	 * If timer_wait is null here, that means poll() should block
-	 * indefinitely, unless the event_master has overridden it by setting
-	 * ->selectpoll_timeout.
-	 *
-	 * If the value is positive, it specifies the maximum number of
-	 * milliseconds to wait. If the timeout is -1, it specifies that
-	 * we should never wait and always return immediately even if no
-	 * event is detected. If the value is zero, the behavior is default.
-	 */
-	int timeout = -1;
-
 	/* number of file descriptors with events */
 	int num;
-
-	if (timer_wait != NULL && m->selectpoll_timeout == 0) {
-		/* use the default value */
-		timeout = (timer_wait->tv_sec * 1000)
-			  + (timer_wait->tv_usec / 1000);
-	} else if (m->selectpoll_timeout > 0) {
-		/* use the user's timeout */
-		timeout = m->selectpoll_timeout;
-	} else if (m->selectpoll_timeout < 0) {
-		/* effect a poll (return immediately) */
-		timeout = 0;
-	}
 
 	zlog_tls_buffer_flush();
 	rcu_read_unlock();
@@ -879,18 +855,46 @@ static int fd_poll(struct event_loop *m, const struct timeval *timer_wait,
 	}
 
 #if defined(HAVE_PPOLL)
+	/* ppoll supports nanosecond timeout through timespec
+	 * Notice that we are not using previously calculated
+	 * timeout here.
+	 */
 	struct timespec ts, *tsp;
 
-	if (timeout >= 0) {
-		ts.tv_sec = timeout / 1000;
-		ts.tv_nsec = (timeout % 1000) * 1000000;
+	if (timer_wait != NULL) {
+		ts.tv_sec = timer_wait->tv_sec;
+		ts.tv_nsec = timer_wait->tv_usec * 1000; /* microseconds to nanoseconds */
 		tsp = &ts;
-	} else
-		tsp = NULL;
-
+	} else {
+		tsp = NULL; /* block indefinitely, because there is no timer to wait for */
+	}
 	num = ppoll(m->handler.copy, count + 1, tsp, &origsigs);
 	pthread_sigmask(SIG_SETMASK, &origsigs, NULL);
 #else
+	/*
+	 * If timer_wait is null here, that means poll() should block
+	 * indefinitely, unless the event_master has overridden it by setting
+	 * ->selectpoll_timeout.
+	 *
+	 * If the value is positive, it specifies the maximum number of
+	 * milliseconds to wait. If the timeout is -1, it specifies that
+	 * we should never wait and always return immediately even if no
+	 * event is detected. If the value is zero, the behavior is default.
+	 */
+	int timeout = -1;
+
+	if (timer_wait != NULL && m->selectpoll_timeout == 0) {
+		/* use the default value */
+		timeout = (timer_wait->tv_sec * 1000) + (timer_wait->tv_usec / 1000);
+		if (timeout == 0 && timer_wait->tv_usec != 0)
+			timeout = 1;
+	} else if (m->selectpoll_timeout > 0) {
+		/* use the user's timeout */
+		timeout = m->selectpoll_timeout;
+	} else if (m->selectpoll_timeout < 0) {
+		/* effect a poll (return immediately) */
+		timeout = 0;
+	}
 	/* Not ideal - there is a race after we restore the signal mask */
 	pthread_sigmask(SIG_SETMASK, &origsigs, NULL);
 	num = poll(m->handler.copy, count + 1, timeout);
