@@ -191,7 +191,8 @@ typedef enum {
 
 #define FOREACH_AFI_SAFI_NSF(afi, safi)                                        \
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)                               \
-		for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++)
+               for (safi = SAFI_UNICAST; safi <= SAFI_EVPN; safi++)                       \
+                               if (safi != SAFI_ENCAP)
 
 /* Flag manipulation macros. */
 #define CHECK_FLAG(V,F)      ((V) & (F))
