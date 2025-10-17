@@ -102,18 +102,18 @@ static int bgp_isvalid_nexthop_for_mplsovergre(struct bgp_nexthop_cache *bnc,
 							 ? bnc->ifindex_ipv6_ll
 							 : nexthop->ifindex,
 						 bnc->bgp->vrf_id);
-			if (ifp && (ifp->zif_type == ZEBRA_IF_GRE ||
-                                    ifp->zif_type == ZEBRA_IF_IP6GRE)
-				break;
+			if (!ifp)
+				continue;
+			if ((ifp->zif_type == ZEBRA_IF_GRE || ifp->zif_type == ZEBRA_IF_IP6GRE) &&
+			    CHECK_FLAG(path->attr->rmap_change_flags, BATTR_RMAP_L3VPN_ACCEPT_GRE))
+				return true;
+			if ((ifp->zif_type == ZEBRA_IF_GRETAP ||
+			     ifp->zif_type == ZEBRA_IF_IP6GRETAP) &&
+			    CHECK_FLAG(path->attr->rmap_change_flags,
+				       BATTR_RMAP_L3VPN_ACCEPT_GRETAP))
+				return true;
 		}
 	}
-	if (!ifp)
-		return false;
-
-	if (CHECK_FLAG(path->attr->rmap_change_flags,
-		       BATTR_RMAP_L3VPN_ACCEPT_GRE))
-		return true;
-
 	return false;
 }
 
