@@ -879,15 +879,18 @@ static int fd_poll(struct event_loop *m, const struct timeval *timer_wait,
 	}
 
 #if defined(HAVE_PPOLL)
+        /* ppoll supports nanosecond timeout through timespec
+	 * Notice that we are not using previously calculated 
+	 * timeout here. 
+	 */
 	struct timespec ts, *tsp;
-
-	if (timeout >= 0) {
-		ts.tv_sec = timeout / 1000;
-		ts.tv_nsec = (timeout % 1000) * 1000000;
+	if (timer_wait != NULL) {
+		ts.tv_sec = timer_wait->tv_sec;
+		ts.tv_nsec = timer_wait->tv_usec * 1000;  /* microseconds to nanoseconds */
 		tsp = &ts;
-	} else
-		tsp = NULL;
-
+	} else {
+		tsp = NULL;  /* block indefinitely, because there is no timer to wait for */
+	}
 	num = ppoll(m->handler.copy, count + 1, tsp, &origsigs);
 	pthread_sigmask(SIG_SETMASK, &origsigs, NULL);
 #else
