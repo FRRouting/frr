@@ -33,21 +33,6 @@ extern "C" {
 
 #define IF_VLAN_BITMAP_MAX 4096
 
-/* Zebra interface type - ones of interest. */
-enum zebra_iftype {
-	ZEBRA_IF_OTHER = 0, /* Anything else */
-	ZEBRA_IF_VXLAN,	    /* VxLAN interface */
-	ZEBRA_IF_VRF,	    /* VRF device */
-	ZEBRA_IF_BRIDGE,    /* bridge device */
-	ZEBRA_IF_VLAN,	    /* VLAN sub-interface */
-	ZEBRA_IF_MACVLAN,   /* MAC VLAN interface*/
-	ZEBRA_IF_VETH,	    /* VETH interface*/
-	ZEBRA_IF_BOND,	    /* Bond */
-	ZEBRA_IF_GRE,	    /* GRE interface */
-	ZEBRA_IF_GRETAP,    /* GRETAP interface */
-	ZEBRA_IF_DUMMY,	    /* Dummy interface */
-};
-
 /* Zebra "slave" interface type */
 enum zebra_slave_iftype {
 	ZEBRA_IF_SLAVE_NONE,   /* Not a slave */
