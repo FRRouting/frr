@@ -515,14 +515,14 @@ def test_ospfv3_routemaps_functionality_tc20_p0(request):
 
     dut = "r1"
     protocol = "ospf"
-    result = verify_ospf6_rib(tgen, dut, input_dict)
+    result = verify_ospf6_rib(tgen, dut, input_dict, expected=False)
     assert (
         result is not True
     ), "Testcase {} : Failed \n Route found in the RIB, Error: {}".format(
         tc_name, result
     )
 
-    result = verify_rib(tgen, "ipv6", dut, input_dict, protocol=protocol)
+    result = verify_rib(tgen, "ipv6", dut, input_dict, protocol=protocol, expected=False)
     assert (
         result is not True
     ), "Testcase {} : Failed \n Route found in the RIB, Error: {}".format(

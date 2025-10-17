@@ -375,7 +375,7 @@ def test_isis_neighbor_state():
         end
         """
     )
-    result = _check_isis_neighbor_json("r3", "r5", False, "Initializing")
+    result = _check_isis_neighbor_json("r3", "0000.0000.0005", True, "Initializing")
     assert result is True, result
     result = _check_isis_neighbor_json("r5", "r3", False, "Initializing")
     assert result is True, result
