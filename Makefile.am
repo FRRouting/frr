@@ -141,6 +141,8 @@ nodist_noinst_DATA =
 lib_LTLIBRARIES =
 module_LTLIBRARIES =
 pkginclude_HEADERS =
+nobase_pkginclude_HEADERS =
+nobase_nodist_pkginclude_HEADERS =
 nodist_pkginclude_HEADERS =
 dist_yangmodels_DATA =
 man_MANS =
@@ -210,6 +212,7 @@ include vrrpd/subdir.am
 include pceplib/subdir.am
 include pceplib/test/subdir.am
 include pathd/subdir.am
+include pkgconfig/subdir.am
 
 include vtysh/subdir.am
 include tests/subdir.am

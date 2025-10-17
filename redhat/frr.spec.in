@@ -283,16 +283,6 @@ Group: System Environment/Daemons
 Contributed python 2.7 tools which may be of use with frr.
 
 
-%package devel
-Summary: Header and object files for frr development
-Group: System Environment/Daemons
-Requires: %{name} = %{version}-%{release}
-
-%description devel
-The frr-devel package contains the header and object files necessary for
-developing OSPF-API and frr applications.
-
-
 %if %{with_rpki}
 %package rpki-rtrlib
 Summary: BGP RPKI support (rtrlib)
@@ -507,6 +497,10 @@ rm -f %{buildroot}%{_sbindir}/frr
 rm -vf %{buildroot}%{_libdir}/frr/modules/*.la
 rm -vf %{buildroot}%{_libdir}/*.la
 rm -vf %{buildroot}%{_libdir}/frr/libyang_plugins/*.la
+
+# Drop devel artifacts since we no longer ship frr-devel
+rm -rf %{buildroot}%{_includedir}/frr
+rm -f  %{buildroot}%{_libdir}/pkgconfig/frr.pc
 
 # install /etc sources
 %if "%{initsystem}" == "systemd"
@@ -850,26 +844,6 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 %files grpc
 %{_libdir}/libfrrgrpc_pb.*
 %{_libdir}/frr/modules/grpc.so
-%endif
-
-
-%files devel
-%{_libdir}/lib*.so
-%dir %{_includedir}/%{name}
-%{_includedir}/%{name}/*.h
-%dir %{_includedir}/%{name}/ospfd
-%{_includedir}/%{name}/ospfd/*.h
-%if %{with_bfdd}
-    %dir %{_includedir}/%{name}/bfdd
-    %{_includedir}/%{name}/bfdd/bfddp_packet.h
-%endif
-%if %{with_ospfapi}
-    %dir %{_includedir}/%{name}/ospfapi
-    %{_includedir}/%{name}/ospfapi/*.h
-%endif
-%if %{with_eigrpd}
-    %dir %{_includedir}/%{name}/eigrpd
-    %{_includedir}/%{name}/eigrpd/*.h
 %endif
 
 
