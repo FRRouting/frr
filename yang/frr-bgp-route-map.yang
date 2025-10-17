@@ -1366,6 +1366,11 @@ identity set-extcommunity-color {
             description
               "GRE protocol";
           }
+          enum "gretap" {
+            value 1;
+            description
+              "GRE protocol";
+          }
         }
         description
           "Specify L3VPN traffic over other than LSP encapsulation value";
