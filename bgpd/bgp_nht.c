@@ -102,8 +102,8 @@ static int bgp_isvalid_nexthop_for_mplsovergre(struct bgp_nexthop_cache *bnc,
 							 ? bnc->ifindex_ipv6_ll
 							 : nexthop->ifindex,
 						 bnc->bgp->vrf_id);
-			if (ifp && (ifp->ll_type == ZEBRA_LLT_IPGRE ||
-				    ifp->ll_type == ZEBRA_LLT_IP6GRE))
+			if (ifp && (ifp->zif_type == ZEBRA_IF_GRE ||
+                                    ifp->zif_type == ZEBRA_IF_IP6GRE)
 				break;
 		}
 	}
