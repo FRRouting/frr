@@ -2323,8 +2323,8 @@ static void evpn_unconfigure_vrf_rd(struct bgp *bgp_vrf)
 	bgp_evpn_handle_vrf_rd_change(bgp_vrf, 1);
 
 	/* fall back to default RD */
-	bgp_evpn_derive_auto_rd_for_vrf(bgp_vrf);
 	UNSET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_RD_CFGD);
+	bgp_evpn_derive_auto_rd_for_vrf(bgp_vrf);
 	if (bgp_vrf->vrf_prd_pretty)
 		XFREE(MTYPE_BGP_NAME, bgp_vrf->vrf_prd_pretty);
 	/* We have a new RD for VRF.
