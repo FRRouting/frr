@@ -1317,37 +1317,30 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 			continue;
 		}
 
-		if (area->advertise_passive_only && !circuit->is_passive) {
-			lsp_debug(
-				"ISIS (%s): Circuit is not passive, ignoring.",
-				area->area_tag);
-			continue;
-		}
-
 		uint32_t metric = area->oldmetric
 					  ? circuit->metric[level - 1]
 					  : circuit->te_metric[level - 1];
 
-		if (circuit->ip_router && circuit->ip_addrs->count > 0) {
-			lsp_debug(
-				"ISIS (%s): Circuit has IPv4 active, adding respective TLVs.",
-				area->area_tag);
-			struct listnode *ipnode;
-			struct prefix_ipv4 *ipv4;
-			for (ALL_LIST_ELEMENTS_RO(circuit->ip_addrs, ipnode,
-						  ipv4))
-				lsp_build_internal_reach_ipv4(lsp, area, ipv4,
-							      metric);
-		}
+		if (area->advertise_passive_only && !circuit->is_passive) {
+			lsp_debug("ISIS (%s): Circuit is not passive, don't add prefixes.",
+				  area->area_tag);
+		} else {
+			if (circuit->ip_router && circuit->ip_addrs->count > 0) {
+				lsp_debug("ISIS (%s): Circuit has IPv4 active, adding respective TLVs.",
+					  area->area_tag);
+				struct listnode *ipnode;
+				struct prefix_ipv4 *ipv4;
+				for (ALL_LIST_ELEMENTS_RO(circuit->ip_addrs, ipnode, ipv4))
+					lsp_build_internal_reach_ipv4(lsp, area, ipv4, metric);
+			}
 
-		if (circuit->ipv6_router && circuit->ipv6_non_link->count > 0) {
-			struct listnode *ipnode;
-			struct prefix_ipv6 *ipv6;
+			if (circuit->ipv6_router && circuit->ipv6_non_link->count > 0) {
+				struct listnode *ipnode;
+				struct prefix_ipv6 *ipv6;
 
-			for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_non_link,
-						  ipnode, ipv6))
-				lsp_build_internal_reach_ipv6(lsp, area, ipv6,
-							      metric);
+				for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_non_link, ipnode, ipv6))
+					lsp_build_internal_reach_ipv6(lsp, area, ipv6, metric);
+			}
 		}
 
 		switch (circuit->circ_type) {
