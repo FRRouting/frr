@@ -658,7 +658,7 @@ def test_igmp_router_alert():
 def host_send_mldv1_packet(host, source, group, router_alert=True):
     "Sends packet using specified script from host."
     command = f"python3 {CWD}/../lib/packet/mld/mld_v1.py"
-    command += f" --src_ip={source} --gaddr={group}"
+    command += f" --src_ip={source} --dst_ip={group} --gaddr={group}"
     command += f" --iface={host}-eth0"
     if router_alert:
         command += f" --enable_router_alert"
@@ -714,13 +714,10 @@ def test_mld_router_alert():
     #
     # Test that without require-router-alert we learn MLD groups
     #
-    group = "ff05::100"
-    host_send_mldv1_packet("h1", source, group, router_alert=False)
-    test_func = partial(expect_mld_group, "r1", "r1-eth2", group)
-    logger.info(f"Waiting for r1 to learn {group} in interface r1-eth2")
-    rv, _ = topotest.run_and_expect(test_func, True, count=10, wait=2)
-    assert rv, "failed to learn group using MLDv1 without router alert"
-
+    # MLDv1 reports without router-alert are always dropped, they are not
+    # controlled by require-router-alert command. So skip the check of
+    # MLDv1 reports without router-alert.
+    #
     group = "ff05::101"
     host_send_mldv2_packet("h1", source, group, router_alert=False)
     test_func = partial(expect_mld_group, "r1", "r1-eth2", group)

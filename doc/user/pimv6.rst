@@ -260,7 +260,8 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
 
 .. clicmd:: ipv6 mld require-router-alert
 
-   Only accept MLD reports with the router-alert IPv6 hop option.
+   Only accept MLD reports with the router-alert IPv6 hop option. MLDv1 reports
+   without this option are always dropped and not controlled by this command.
 
 .. clicmd:: ipv6 mld join X:X::X:X [Y:Y::Y:Y]
 
