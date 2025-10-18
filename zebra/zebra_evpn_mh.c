@@ -39,6 +39,7 @@
 #include "zebra/zebra_evpn_mac.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_evpn_arp_nd.h"
 #include "zebra/zebra_nhg.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZACC_BD, "Access Broadcast Domain");
@@ -3417,6 +3418,8 @@ void zebra_evpn_es_set_base_evpn(struct zebra_evpn *zevpn)
 			zebra_evpn_es_re_eval_send_to_client(es,
 					true /* es_evi_re_reval */);
 	}
+
+	zebra_evpn_arp_nd_udp_sock_create();
 }
 
 /* called when a vni is removed or becomes oper down or is removed from a

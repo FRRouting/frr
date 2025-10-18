@@ -16,9 +16,9 @@
 #include "log.h"
 #include "lib_errors.h"
 
-#define MIB_SIZ 4
+#include "zebra/zebra_privs.h"
 
-extern struct zebra_privs_t zserv_privs;
+#define MIB_SIZ 4
 
 /* IPv4 forwarding control MIB. */
 int mib[MIB_SIZ] = {CTL_NET, PF_INET, IPPROTO_IP, IPCTL_FORWARDING};

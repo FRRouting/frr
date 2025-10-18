@@ -32,6 +32,7 @@
 #include "zebra_netns_id.h"
 #include "zebra_errors.h"
 #include "interface.h"
+#include "zebra_privs.h"
 
 #ifdef HAVE_NETLINK
 

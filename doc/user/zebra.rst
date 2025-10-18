@@ -701,6 +701,10 @@ via `ip link`, `bridge link` and `bridge vlan` commands:
       bridge.20    vlan20          20       vxlan0          0
       bridge.10    vlan10          0        vxlan0          0
 
+.. clicmd:: show evpn arp-nd-redirect [json]
+
+Displays the evpn arp neighbor discovery redirect information.
+
 .. _zebra-mpls:
 
 MPLS Commands
@@ -1919,7 +1923,7 @@ Debugging
 
    MLAG events.
 
-.. clicmd:: debug zebra evpn mh <es|mac|neigh|nh>
+.. clicmd:: debug zebra evpn mh <es|mac|neigh|nh|arp-nd-evt|arp-nd-pkt>
 
    EVPN multi-hop events.
 
