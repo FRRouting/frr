@@ -84,6 +84,7 @@ extern void ospf_generate_indication_lsa(struct ospf *ospf,
 					 struct ospf_area *area);
 extern bool ospf_check_fr_enabled_all(struct ospf *ospf);
 extern void ospf_recv_indication_lsa_flush(struct ospf_lsa *lsa);
+extern void ospf_abr_summary_lsa_set_metric(struct ospf_lsa *lsa, uint32_t cost);
 
 /** @brief Static inline functions.
  *  @param Area pointer.
