@@ -391,5 +391,6 @@ void zebra_evpn_es_bypass_cfg_update(struct zebra_if *zif, bool bypass);
 void zebra_evpn_mh_uplink_cfg_update(struct zebra_if *zif, bool set);
 
 void zebra_evpn_mh_if_init(struct zebra_if *zif);
+void zebra_evpn_flush_local_mac(struct zebra_mac *mac, struct interface *ifp);
 
 #endif /* _ZEBRA_EVPN_MH_H */

@@ -120,6 +120,16 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
    8 bit values are scaled to a range of 1-254 and 16 bit values are
    scaled to a range of 1-65534.
 
+.. option:: --kernel-mac-ext-learn
+
+   Signal to zebra that its operating in MAC external learn mode.
+   In this mode, both MAC learning and the aging timer are managed
+   by the underlying hardware. As a result, kernel-based MAC learning
+   and aging are disabled. MAC addresses learned via both the
+   control plane and data plane are programmed in the kernel with the
+   'extern_learn' attribute. ARP and Neighbor Discovery (ND) suppression
+   are not supported in this mode.
+
 .. _interface-commands:
 
 Configuration Addresses behaviour
