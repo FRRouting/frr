@@ -174,8 +174,7 @@ static int isis_zebra_add_nexthops(struct isis *isis, struct list *nexthops,
 
 		zapi_nexthop_init(api_nh);
 
-		if (fabricd)
-			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
+		SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
 		api_nh->vrf_id = isis->vrf_id;
 
 		switch (nexthop->family) {
