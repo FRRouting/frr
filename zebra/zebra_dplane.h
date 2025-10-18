@@ -759,7 +759,7 @@ dplane_ctx_neigh_get_link_ip(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_neigh_get_flags(const struct zebra_dplane_ctx *ctx);
 uint16_t dplane_ctx_neigh_get_state(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_neigh_get_update_flags(const struct zebra_dplane_ctx *ctx);
-bool dplane_ctx_neigh_get_is_ext(const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_neigh_get_is_own(const struct zebra_dplane_ctx *ctx);
 bool dplane_ctx_neigh_get_is_router(const struct zebra_dplane_ctx *ctx);
 bool dplane_ctx_neigh_get_local_inactive(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_neigh_set_ipaddr(struct zebra_dplane_ctx *ctx, struct ipaddr *ip);
@@ -770,7 +770,7 @@ uint16_t dplane_ctx_neigh_get_ndm_state(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_neigh_get_ndm_family(const struct zebra_dplane_ctx *ctx);
 union sockunion dplane_ctx_neigh_get_link_layer_ipv4(const struct zebra_dplane_ctx *ctx);
 
-void dplane_ctx_neigh_set_is_ext(struct zebra_dplane_ctx *ctx, bool is_ext);
+void dplane_ctx_neigh_set_is_own(struct zebra_dplane_ctx *ctx, bool is_own);
 void dplane_ctx_neigh_set_is_router(struct zebra_dplane_ctx *ctx, bool is_router);
 void dplane_ctx_neigh_set_local_inactive(struct zebra_dplane_ctx *ctx, bool local_inactive);
 void dplane_ctx_neigh_set_dp_static(struct zebra_dplane_ctx *ctx, bool dp_static);
