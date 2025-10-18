@@ -834,7 +834,7 @@ DEFPY_YANG(
 {
 	char value[32];
 
-	snprintf(value, sizeof(value), "%ld", interval * 1000);
+	snprintfrr(value, sizeof(value), "%" PRId64, interval * 1000);
 	nb_cli_enqueue_change(vty, "./required-receive-interval", no ? NB_OP_DESTROY : NB_OP_MODIFY,
 			      value);
 
@@ -858,7 +858,7 @@ DEFPY_YANG(
 {
 	char value[32];
 
-	snprintf(value, sizeof(value), "%ld", interval * 1000);
+	snprintfrr(value, sizeof(value), "%" PRId64, interval * 1000);
 	nb_cli_enqueue_change(vty, "./desired-transmission-interval",
 			      no ? NB_OP_DESTROY : NB_OP_MODIFY, value);
 
@@ -922,7 +922,7 @@ DEFPY_YANG(
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	snprintf(value, sizeof(value), "%ld", interval * 1000);
+	snprintfrr(value, sizeof(value), "%" PRId64, interval * 1000);
 	nb_cli_enqueue_change(vty, "./desired-echo-transmission-interval",
 			      no ? NB_OP_DESTROY : NB_OP_MODIFY, value);
 	nb_cli_enqueue_change(vty, "./required-echo-receive-interval",
@@ -947,7 +947,7 @@ DEFPY_YANG(
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	snprintf(value, sizeof(value), "%ld", interval * 1000);
+	snprintfrr(value, sizeof(value), "%" PRId64, interval * 1000);
 	nb_cli_enqueue_change(vty, "./desired-echo-transmission-interval",
 			      no ? NB_OP_DESTROY : NB_OP_MODIFY, value);
 
@@ -983,7 +983,7 @@ DEFPY_YANG(
 	if (disabled)
 		snprintf(value, sizeof(value), "0");
 	else
-		snprintf(value, sizeof(value), "%ld", interval * 1000);
+		snprintfrr(value, sizeof(value), "%" PRId64, interval * 1000);
 
 	nb_cli_enqueue_change(vty, "./required-echo-receive-interval",
 			      no ? NB_OP_DESTROY : NB_OP_MODIFY, value);
