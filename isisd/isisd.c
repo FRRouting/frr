@@ -1646,53 +1646,61 @@ DEFUN(clear_isis_neighbor_arg,
 	return clear_isis_neighbor_common(vty, id, vrf_name, all_vrf);
 }
 
-/*
- * 'isis debug', 'show debugging'
- */
-void print_debug(struct vty *vty, int flags, int onoff)
+void print_debug_line(struct vty *vty, const char *config, int onoff, bool indent)
 {
 	const char *onoffs = onoff ? "on" : "off";
 
+	if (indent)
+		vty_out(vty, "  %s %s debugging is %s\n", PROTO_NICE_NAME, config, onoffs);
+	else
+		vty_out(vty, "%s %s debugging is %s\n", PROTO_NICE_NAME, config, onoffs);
+}
+
+/*
+ * 'show debugging'
+ */
+void print_debug_with_indentation(struct vty *vty, int flags, int onoff, bool indent)
+{
 	if (flags & DEBUG_ADJ_PACKETS)
-		vty_out(vty,
-			"IS-IS Adjacency related packets debugging is %s\n",
-			onoffs);
+		print_debug_line(vty, "Adjacency related packets", onoff, indent);
 	if (flags & DEBUG_TX_QUEUE)
-		vty_out(vty, "IS-IS TX queue debugging is %s\n",
-			onoffs);
+		print_debug_line(vty, "TX queue", onoff, indent);
 	if (flags & DEBUG_SNP_PACKETS)
-		vty_out(vty, "IS-IS CSNP/PSNP packets debugging is %s\n",
-			onoffs);
+		print_debug_line(vty, "CSNP/PSNP packets", onoff, indent);
 	if (flags & DEBUG_SPF_EVENTS)
-		vty_out(vty, "IS-IS SPF events debugging is %s\n", onoffs);
+		print_debug_line(vty, "SPF events", onoff, indent);
 	if (flags & DEBUG_SR)
-		vty_out(vty, "IS-IS Segment Routing events debugging is %s\n",
-			onoffs);
+		print_debug_line(vty, "Segment Routing events", onoff, indent);
 	if (flags & DEBUG_TE)
-		vty_out(vty,
-			"IS-IS Traffic Engineering events debugging is %s\n",
-			onoffs);
+		print_debug_line(vty, "Traffic Engineering events", onoff, indent);
 	if (flags & DEBUG_LFA)
-		vty_out(vty, "IS-IS LFA events debugging is %s\n", onoffs);
+		print_debug_line(vty, "LFA events", onoff, indent);
 	if (flags & DEBUG_UPDATE_PACKETS)
-		vty_out(vty, "IS-IS Update related packet debugging is %s\n",
-			onoffs);
+		print_debug_line(vty, "Update related packet", onoff, indent);
 	if (flags & DEBUG_RTE_EVENTS)
-		vty_out(vty, "IS-IS Route related debugging is %s\n", onoffs);
+		print_debug_line(vty, "Route related", onoff, indent);
 	if (flags & DEBUG_EVENTS)
-		vty_out(vty, "IS-IS Event debugging is %s\n", onoffs);
+		print_debug_line(vty, "Event", onoff, indent);
 	if (flags & DEBUG_PACKET_DUMP)
-		vty_out(vty, "IS-IS Packet dump debugging is %s\n", onoffs);
+		print_debug_line(vty, "Packet dump", onoff, indent);
 	if (flags & DEBUG_LSP_GEN)
-		vty_out(vty, "IS-IS LSP generation debugging is %s\n", onoffs);
+		print_debug_line(vty, "LSP generation", onoff, indent);
 	if (flags & DEBUG_LSP_SCHED)
-		vty_out(vty, "IS-IS LSP scheduling debugging is %s\n", onoffs);
+		print_debug_line(vty, "LSP scheduling", onoff, indent);
 	if (flags & DEBUG_FLOODING)
-		vty_out(vty, "IS-IS Flooding debugging is %s\n", onoffs);
+		print_debug_line(vty, "Flooding", onoff, indent);
 	if (flags & DEBUG_BFD)
-		vty_out(vty, "IS-IS BFD debugging is %s\n", onoffs);
+		print_debug_line(vty, "BFD", onoff, indent);
 	if (flags & DEBUG_LDP_SYNC)
-		vty_out(vty, "IS-IS ldp-sync debugging is %s\n", onoffs);
+		print_debug_line(vty, "ldp-sync", onoff, indent);
+}
+
+/*
+ * 'isis debug'
+ */
+void print_debug(struct vty *vty, int flags, int onoff)
+{
+	print_debug_with_indentation(vty, flags, onoff, false);
 }
 
 DEFUN_NOSH (show_debugging,
@@ -1702,40 +1710,40 @@ DEFUN_NOSH (show_debugging,
 	    "State of each debugging option\n"
 	    PROTO_HELP)
 {
-	vty_out(vty, PROTO_NAME " debugging status:\n");
+	vty_out(vty, PROTO_NICE_NAME " debugging status:\n");
 
 	if (IS_DEBUG_ADJ_PACKETS)
-		print_debug(vty, DEBUG_ADJ_PACKETS, 1);
+		print_debug_with_indentation(vty, DEBUG_ADJ_PACKETS, 1, true);
 	if (IS_DEBUG_TX_QUEUE)
-		print_debug(vty, DEBUG_TX_QUEUE, 1);
+		print_debug_with_indentation(vty, DEBUG_TX_QUEUE, 1, true);
 	if (IS_DEBUG_SNP_PACKETS)
-		print_debug(vty, DEBUG_SNP_PACKETS, 1);
+		print_debug_with_indentation(vty, DEBUG_SNP_PACKETS, 1, true);
 	if (IS_DEBUG_SPF_EVENTS)
-		print_debug(vty, DEBUG_SPF_EVENTS, 1);
+		print_debug_with_indentation(vty, DEBUG_SPF_EVENTS, 1, true);
 	if (IS_DEBUG_SR)
-		print_debug(vty, DEBUG_SR, 1);
+		print_debug_with_indentation(vty, DEBUG_SR, 1, true);
 	if (IS_DEBUG_TE)
-		print_debug(vty, DEBUG_TE, 1);
+		print_debug_with_indentation(vty, DEBUG_TE, 1, true);
 	if (IS_DEBUG_UPDATE_PACKETS)
-		print_debug(vty, DEBUG_UPDATE_PACKETS, 1);
+		print_debug_with_indentation(vty, DEBUG_UPDATE_PACKETS, 1, true);
 	if (IS_DEBUG_RTE_EVENTS)
-		print_debug(vty, DEBUG_RTE_EVENTS, 1);
+		print_debug_with_indentation(vty, DEBUG_RTE_EVENTS, 1, true);
 	if (IS_DEBUG_EVENTS)
-		print_debug(vty, DEBUG_EVENTS, 1);
+		print_debug_with_indentation(vty, DEBUG_EVENTS, 1, true);
 	if (IS_DEBUG_PACKET_DUMP)
-		print_debug(vty, DEBUG_PACKET_DUMP, 1);
+		print_debug_with_indentation(vty, DEBUG_PACKET_DUMP, 1, true);
 	if (IS_DEBUG_LSP_GEN)
-		print_debug(vty, DEBUG_LSP_GEN, 1);
+		print_debug_with_indentation(vty, DEBUG_LSP_GEN, 1, true);
 	if (IS_DEBUG_LSP_SCHED)
-		print_debug(vty, DEBUG_LSP_SCHED, 1);
+		print_debug_with_indentation(vty, DEBUG_LSP_SCHED, 1, true);
 	if (IS_DEBUG_FLOODING)
-		print_debug(vty, DEBUG_FLOODING, 1);
+		print_debug_with_indentation(vty, DEBUG_FLOODING, 1, true);
 	if (IS_DEBUG_BFD)
-		print_debug(vty, DEBUG_BFD, 1);
+		print_debug_with_indentation(vty, DEBUG_BFD, 1, true);
 	if (IS_DEBUG_LDP_SYNC)
-		print_debug(vty, DEBUG_LDP_SYNC, 1);
+		print_debug_with_indentation(vty, DEBUG_LDP_SYNC, 1, true);
 	if (IS_DEBUG_LFA)
-		print_debug(vty, DEBUG_LFA, 1);
+		print_debug_with_indentation(vty, DEBUG_LFA, 1, true);
 
 	cmd_show_lib_debugs(vty);
 
