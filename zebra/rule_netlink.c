@@ -30,6 +30,7 @@
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_dplane.h"
 #include "zebra/zebra_trace.h"
+#include "lib/netlink_parser.h"
 
 /* definitions */
 
