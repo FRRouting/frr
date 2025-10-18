@@ -1469,7 +1469,9 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		if (path_valid != bnc_is_valid_nexthop)
 			hook_call(bgp_nht_path_update, bgp_path, path, bnc_is_valid_nexthop);
 
-		bgp_process(bgp_path, dest, path, afi, safi);
+		if (CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_METRIC_CHANGED) ||
+		    CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED))
+			bgp_process(bgp_path, dest, path, afi, safi);
 	}
 
 	if (peer) {
