@@ -10594,13 +10594,11 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 		switch (af) {
 		case AF_INET:
 			snprintf(nexthop, sizeof(nexthop), "%s",
-				 inet_ntop(af, &attr->mp_nexthop_global_in, buf,
-					   BUFSIZ));
+				 inet_ntop(af, &attr->mp_nexthop_global_in, buf, BUFSIZ));
 			break;
 		case AF_INET6:
 			snprintf(nexthop, sizeof(nexthop), "%s",
-				 inet_ntop(af, &attr->mp_nexthop_global, buf,
-					   BUFSIZ));
+				 inet_ntop(af, &attr->mp_nexthop_global, buf, BUFSIZ));
 			break;
 		default:
 			snprintf(nexthop, sizeof(nexthop), "?");
@@ -10622,13 +10620,10 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 						     "used");
 		} else {
 			if (nexthop_hostname)
-				len = vty_out(vty, "%s(%s)%s",
-					      nexthop,
-					      nexthop_hostname, vrf_id_str);
-			else
-				len = vty_out(vty, "%s%s",
-					      nexthop,
+				len = vty_out(vty, "%s(%s)%s", nexthop, nexthop_hostname,
 					      vrf_id_str);
+			else
+				len = vty_out(vty, "%s%s", nexthop, vrf_id_str);
 
 			len = wide ? (41 - len) : (16 - len);
 			if (len < 1)
@@ -11127,9 +11122,8 @@ void route_vty_out_tag(struct vty *vty, const struct prefix *p,
 
 	/* Print attribute */
 	attr = path->attr;
-	if (((p->family == AF_INET) &&
-	     ((safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP))) ||
-	    (safi == SAFI_EVPN && !BGP_ATTR_NEXTHOP_AFI_IP6(attr)) ||
+	if (((p->family == AF_INET) && ((safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP))) ||
+	    (safi == SAFI_EVPN && !BGP_ATTR_MP_NEXTHOP_LEN_IP6(attr)) ||
 	    (!BGP_ATTR_MP_NEXTHOP_LEN_IP6(attr))) {
 		if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP
 		    || safi == SAFI_EVPN) {
@@ -11147,8 +11141,7 @@ void route_vty_out_tag(struct vty *vty, const struct prefix *p,
 			else
 				vty_out(vty, "%-16pI4", &attr->nexthop);
 		}
-	} else if (((p->family == AF_INET6) &&
-		    ((safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP))) ||
+	} else if (((p->family == AF_INET6) && ((safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP))) ||
 		   (safi == SAFI_EVPN && BGP_ATTR_MP_NEXTHOP_LEN_IP6(attr)) ||
 		   (BGP_ATTR_MP_NEXTHOP_LEN_IP6(attr))) {
 		char buf_a[512];
@@ -11183,7 +11176,7 @@ void route_vty_out_tag(struct vty *vty, const struct prefix *p,
 			json_object_int_add(json_out, "notag", label);
 			json_object_array_add(json, json_out);
 		} else {
-			vty_out(vty, "notag/%d", label);
+			vty_out(vty, " notag/%d", label);
 			vty_out(vty, "\n");
 		}
 	} else if (!json)
@@ -11816,10 +11809,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	/* Line2 display Next-hop, Neighbor, Router-id */
 	/* Display the nexthop */
 
-	if ((p->family == AF_INET || p->family == AF_ETHERNET ||
-	     p->family == AF_EVPN) &&
-	    (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP || safi == SAFI_EVPN ||
-	     !BGP_ATTR_MP_NEXTHOP_LEN_IP6(attr))) {
+	if ((p->family == AF_INET || p->family == AF_ETHERNET || p->family == AF_EVPN) &&
+	    (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP || !BGP_ATTR_MP_NEXTHOP_LEN_IP6(attr))) {
 		if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP
 		    || safi == SAFI_EVPN) {
 			if (json_paths) {

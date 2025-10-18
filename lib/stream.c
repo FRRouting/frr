@@ -694,6 +694,8 @@ bool stream_get_ipaddr(struct stream *s, struct ipaddr *ip)
 		STREAM_BOUND_WARN2(s, "get ipaddr");
 		return false;
 	}
+	/* Zero the entire union before copying to ensure unused bytes are clean. */
+	memset(&ip->ip, 0, sizeof(ip->ip));
 	memcpy(&ip->ip, s->data + s->getp, ipa_len);
 	s->getp += ipa_len;
 
