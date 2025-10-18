@@ -200,6 +200,17 @@ struct attr {
 	/* Distance as applied by Route map */
 	uint8_t distance;
 
+	/* Cache to avoid repeated interning within a single UPDATE section */
+	struct {
+		bool valid;
+
+		/* interned attr(reference) to reuse during prefix parsing */
+		struct attr *interned;
+
+		/* parsed attr pointer for equality check */
+		struct attr *parsed_attr;
+	} attr_intern_reuse;
+
 	/* EVPN DF preference for DF election on local ESs */
 	uint8_t df_alg;
 	uint16_t df_pref;
@@ -382,6 +393,7 @@ extern struct attr *bgp_attr_intern(struct attr *attr);
 extern void bgp_attr_unintern_sub(struct attr *attr);
 extern void bgp_attr_unintern(struct attr **pattr);
 extern void bgp_attr_flush(struct attr *attr);
+extern void bgp_attr_unintern_clear_reuse(struct attr *parsed_attr, struct attr **p);
 extern struct attr *bgp_attr_default_set(struct attr *attr, struct bgp *bgp,
 					 uint8_t origin);
 extern struct attr *bgp_attr_aggregate_intern(
