@@ -106,6 +106,7 @@ DECLARE_DLIST(log_args, struct log_arg, itm);
 #define PATH_VTY_PORT 2621
 #define PIM6D_VTY_PORT 2622
 #define MGMTD_VTY_PORT 2623
+#define DHCPGW_VTY_PORT 2624
 /* Registry of daemons' port defaults */
 
 enum frr_cli_mode {
