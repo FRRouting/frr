@@ -14962,6 +14962,72 @@ static void bgp_fib_flags_info(struct vty *vty, struct bgp *bgp, struct bgp_dest
 	}
 }
 
+static void bgp_show_cb_args_free(struct show_bgp *args)
+{
+	if (!args)
+		return;
+
+	if (args->output_arg) {
+		switch (args->type) {
+		case bgp_show_type_lcommunity_exact:
+			lcommunity_free((struct lcommunity **)&args->output_arg);
+			break;
+		case bgp_show_type_lcommunity:
+			lcommunity_free((struct lcommunity **)&args->output_arg);
+			break;
+		case bgp_show_type_regexp:
+			bgp_regex_free(args->output_arg);
+			break;
+		case bgp_show_type_community_exact:
+			community_free((struct community **)&args->output_arg);
+			break;
+		case bgp_show_type_community:
+			community_free((struct community **)&args->output_arg);
+			break;
+		case bgp_show_type_neighbor:
+			XFREE(MTYPE_TMP, args->output_arg);
+			break;
+		case bgp_show_type_prefix_version:
+			XFREE(MTYPE_TMP, args->output_arg);
+			break;
+		case bgp_show_type_community_alias:
+			XFREE(MTYPE_TMP, args->output_arg);
+			break;
+		case bgp_show_type_prefix_longer:
+			XFREE(MTYPE_TMP, args->output_arg);
+			break;
+		case bgp_show_type_normal:
+		case bgp_show_type_prefix_list:
+		case bgp_show_type_access_list:
+		case bgp_show_type_filter_list:
+		case bgp_show_type_route_map:
+		case bgp_show_type_cidr_only:
+		case bgp_show_type_community_all:
+		case bgp_show_type_community_list:
+		case bgp_show_type_community_list_exact:
+		case bgp_show_type_lcommunity_all:
+		case bgp_show_type_lcommunity_list:
+		case bgp_show_type_lcommunity_list_exact:
+		case bgp_show_type_flap_statistics:
+		case bgp_show_type_flap_neighbor:
+		case bgp_show_type_dampend_paths:
+		case bgp_show_type_damp_neighbor:
+		case bgp_show_type_detail:
+		case bgp_show_type_rpki:
+		case bgp_show_type_self_originated:
+		case bgp_show_type_extcommunity:
+		case bgp_show_type_extcommunity_exact:
+		default:
+			break;
+		}
+	}
+
+	if (args->prd_match)
+		XFREE(MTYPE_TMP, args->prd_match);
+
+	XFREE(MTYPE_TMP, args);
+}
+
 void bgp_show_cb(struct vty *vty, void *arg)
 {
 	struct show_bgp *args = arg;
@@ -14976,7 +15042,7 @@ void bgp_show_cb(struct vty *vty, void *arg)
 			if (args->rd_dest_next)
 				route_unlock_node(bgp_dest_to_rnode(args->rd_dest_next));
 
-			XFREE(MTYPE_TMP, args);
+			bgp_show_cb_args_free(args);
 		}
 
 		if (vty) {
@@ -14995,10 +15061,9 @@ void bgp_show_cb(struct vty *vty, void *arg)
 		return;
 	}
 
-	if (ret == CMD_SUCCESS) {
-		vty_yield_finish(vty, ret);
-		XFREE(MTYPE_TMP, args);
-	}
+	/* Finish and clean up for CMD_SUCCESS and all non-yield error statuses. */
+	vty_yield_finish(vty, ret);
+	bgp_show_cb_args_free(args);
 }
 
 static int bgp_show_table_core(struct vty *vty, struct show_bgp *args)
@@ -15629,11 +15694,15 @@ static int bgp_show_table_rd_core(struct vty *vty, struct show_bgp *args)
 	struct bgp_table *table = args->table;
 	struct prefix_rd *prd_match = args->prd_match;
 	uint16_t show_flags = args->show_flags;
+	struct bgp *bgp = args->bgp;
 
 	struct bgp_dest *dest = args->rd_dest, *next = args->rd_dest_next;
 	struct bgp_table *itable;
 	bool show_msg;
 	bool use_json = !!CHECK_FLAG(show_flags, BGP_SHOW_OPT_JSON);
+
+	if (!bgp)
+		return CMD_SUCCESS;
 
 	show_msg = (!use_json && args->type == bgp_show_type_normal);
 	if (dest == NULL) {
@@ -15660,7 +15729,7 @@ static int bgp_show_table_rd_core(struct vty *vty, struct show_bgp *args)
 			char rd[RD_ADDRSTRLEN];
 
 			memcpy(&prd, dest_p, sizeof(struct prefix_rd));
-			prefix_rd2str(&prd, rd, sizeof(rd), args->bgp->asnotation);
+			prefix_rd2str(&prd, rd, sizeof(rd), bgp->asnotation);
 
 			args->itable = itable;
 			args->rd = rd;
@@ -16530,8 +16599,8 @@ static int bgp_show_lcommunity(struct vty *vty, struct bgp *bgp, int argc,
 	ret = bgp_show(vty, bgp, afi, safi,
 		       (exact ? bgp_show_type_lcommunity_exact : bgp_show_type_lcommunity), lcom,
 		       show_flags, RPKI_NOT_BEING_USED, false);
-
-	lcommunity_free(&lcom);
+	if (ret != CMD_YIELD)
+		lcommunity_free(&lcom);
 	return ret;
 }
 
@@ -17095,6 +17164,7 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 	uint16_t show_flags = 0;
 	enum rpki_states rpki_target_state = RPKI_NOT_BEING_USED;
 	struct prefix p;
+	int ret = -1;
 
 	if (uj) {
 		argc--;
@@ -17254,13 +17324,13 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 	/* Display prefixes with matching version numbers */
 	if (argv_find(argv, argc, "version", &idx)) {
 		sh_type = bgp_show_type_prefix_version;
-		output_arg = argv[idx + 1]->arg;
+		output_arg = XSTRDUP(MTYPE_TMP, argv[idx + 1]->arg);
 	}
 
 	/* Display prefixes with matching BGP community alias */
 	if (argv_find(argv, argc, "alias", &idx)) {
 		sh_type = bgp_show_type_community_alias;
-		output_arg = argv[idx + 1]->arg;
+		output_arg = XSTRDUP(MTYPE_TMP, argv[idx + 1]->arg);
 	}
 
 	/* prefix-longer */
@@ -17274,7 +17344,8 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 		}
 
 		sh_type = bgp_show_type_prefix_longer;
-		output_arg = &p;
+		output_arg = XMALLOC(MTYPE_TMP, sizeof(struct prefix));
+		*(struct prefix *)output_arg = p;
 	}
 
 	/* self originated only */
@@ -17284,17 +17355,24 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 	if (!all) {
 		/* show bgp: AFI_IP6, show ip bgp: AFI_IP */
 		if (community)
-			return bgp_show_community(vty, bgp, community,
-						  match_p, afi, safi,
-						  show_flags);
+			ret = bgp_show_community(vty, bgp, community, match_p, afi, safi,
+						 show_flags);
 		else
-			return bgp_show(vty, bgp, afi, safi, sh_type, output_arg, show_flags,
-					rpki_target_state, brief);
+			ret = bgp_show(vty, bgp, afi, safi, sh_type, output_arg, show_flags,
+				       rpki_target_state, brief);
 	} else {
-		return show_ip_bgp_all(vty, uj, show_flags, afi, safi, first, community, match_p,
-				       sh_type, output_arg, rpki_target_state);
+		ret = show_ip_bgp_all(vty, uj, show_flags, afi, safi, first, community, match_p,
+				      sh_type, output_arg, rpki_target_state, brief);
 	}
-	return CMD_SUCCESS;
+
+	if (ret == -1)
+		ret = CMD_SUCCESS;
+	if (sh_type == bgp_show_type_prefix_version || sh_type == bgp_show_type_community_alias ||
+	    sh_type == bgp_show_type_prefix_longer) {
+		if (ret != CMD_YIELD)
+			XFREE(MTYPE_TMP, output_arg);
+	}
+	return ret;
 }
 
 DEFUN (show_bgp_link_state_route,
@@ -17532,7 +17610,8 @@ static int bgp_show_regexp(struct vty *vty, struct bgp *bgp, const char *regstr,
 	}
 
 	rc = bgp_show(vty, bgp, afi, safi, type, regex, show_flags, RPKI_NOT_BEING_USED, false);
-	bgp_regex_free(regex);
+	if (rc != CMD_YIELD)
+		bgp_regex_free(regex);
 	return rc;
 }
 
@@ -17540,20 +17619,23 @@ static int bgp_show_community_core(struct vty *vty, struct show_bgp *args)
 {
 	const char *comstr = args->community;
 	int exact = args->match_p;
-	struct community *com;
 	int ret = 0;
 
-	com = community_str2com(comstr);
-	if (!com) {
-		vty_out(vty, "%% Community malformed: %s\n", comstr);
-		return CMD_WARNING;
-	}
+	if (!args->output_arg) {
+		struct community *com;
 
+		com = community_str2com(comstr);
+		if (!com) {
+			vty_out(vty, "%% Community malformed: %s\n", comstr);
+			return CMD_WARNING;
+		}
+
+		args->output_arg = com;
+	}
 	args->type = exact ? bgp_show_type_community_exact : bgp_show_type_community;
 	args->rpki_target_state = RPKI_NOT_BEING_USED;
 
 	ret = bgp_show_core(vty, args);
-	community_free(&com);
 
 	return ret;
 }
@@ -17574,7 +17656,8 @@ static int bgp_show_community(struct vty *vty, struct bgp *bgp,
 	ret = bgp_show(vty, bgp, afi, safi,
 		       (exact ? bgp_show_type_community_exact : bgp_show_type_community), com,
 		       show_flags, RPKI_NOT_BEING_USED, false);
-	community_free(&com);
+	if (ret != CMD_YIELD)
+		community_free(&com);
 
 	return ret;
 }
@@ -19456,6 +19539,8 @@ static int bgp_show_neighbor_route(struct vty *vty, struct peer *peer, afi_t afi
 				   enum bgp_show_type type, bool use_json, bool brief)
 {
 	uint16_t show_flags = 0;
+	union sockunion *su = NULL;
+	int ret;
 
 	if (use_json)
 		SET_FLAG(show_flags, BGP_SHOW_OPT_JSON);
@@ -19482,8 +19567,16 @@ static int bgp_show_neighbor_route(struct vty *vty, struct peer *peer, afi_t afi
 	if (safi == SAFI_LABELED_UNICAST)
 		safi = SAFI_UNICAST;
 
-	return bgp_show(vty, peer->bgp, afi, safi, type, &peer->connection->su, show_flags,
-			RPKI_NOT_BEING_USED, brief);
+	/* Keep a private copy alive while asynchronous traversal is pending. */
+	su = XMALLOC(MTYPE_TMP, sizeof(union sockunion));
+	*su = peer->connection->su;
+
+	ret = bgp_show(vty, peer->bgp, afi, safi, type, su, show_flags, RPKI_NOT_BEING_USED, brief);
+
+	if (ret != CMD_YIELD)
+		XFREE(MTYPE_TMP, su);
+
+	return ret;
 }
 
 /*
