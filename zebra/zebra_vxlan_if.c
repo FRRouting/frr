@@ -90,6 +90,52 @@ static void zebra_vxlan_if_vni_iterate_callback(struct hash_bucket *bucket,
 	ctx->func(ctx->zif, vni, ctx->arg);
 }
 
+/*
+ * This function only removes VLAN<->VxLAN references when transitioning
+ * from L3-VNI to L2-VNI. It does NOT remove the VNI from the vni_table.
+ * For actual deletion of VNI from the vni_table, use zebra_vxlan_if_vni_del()
+ * which is called when kernel VNI configuration is removed.
+ */
+int zebra_vxlan_if_vni_deref(struct zebra_if *zif, vni_t vni)
+{
+	struct zebra_vxlan_vni vni_tmp;
+	struct zebra_vxlan_vni_info *vni_info;
+	struct zebra_vxlan_vni *vnip;
+
+	/* This should be called in SVD context only */
+	if (!IS_ZEBRA_VXLAN_IF_SVD(zif)) {
+		if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("%s VNI %u vxlan_if %s should be SVD,  skip processing",
+				   __func__, vni, zif->ifp->name);
+		return 0;
+	}
+
+	vni_info = VNI_INFO_FROM_ZEBRA_IF(zif);
+	memset(&vni_tmp, 0, sizeof(vni_tmp));
+	vni_tmp.vni = vni;
+
+	/*
+	 * Rationale:
+	 * 1. The SVD vni_table represents kernel VNI configuration (from netlink)
+	 *    and should only change when kernel config changes, not during
+	 *    zebra's internal L2<->L3 VNI transitions.
+	 * 2. Keeping vnip is REQUIRED for L3-VNI re-add scenarios because:
+	 *    - zl3vni_map_to_svi_if() calls zebra_vxlan_if_vni_find()
+	 *    - Without vnip, SVI mapping fails -> L3-VNI stays non-operational
+	 *    - access_vlan information is needed for proper state restoration
+	 * 3. This does NOT cause memory leaks because vnip remains referenced
+	 *    in the hash table and will be properly freed when:
+	 *    - Kernel removes the VNI (via zebra_vxlan_if_vni_del())
+	 *    - Interface is deleted (via zebra_vxlan_if_del())
+	 */
+	vnip = (struct zebra_vxlan_vni *)hash_lookup(vni_info->vni_table, &vni_tmp);
+	/* Decrement VLAN<->VxLAN reference count for L3-VNI removal */
+	if (vnip)
+		zebra_evpn_vl_vxl_deref(vnip->access_vlan, vnip->vni, zif);
+
+	return 0;
+}
+
 static int zebra_vxlan_if_del_vni(struct interface *ifp,
 				  struct zebra_vxlan_vni *vnip)
 {
