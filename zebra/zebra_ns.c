@@ -49,6 +49,11 @@ void zebra_ns_link_ifp(struct zebra_ns *zns, struct interface *ifp)
 	struct zebra_if *zif;
 	struct ifp_tree_link *link, tlink = {};
 
+	if (ifp->ifindex == IFINDEX_INTERNAL) {
+		zlog_debug("%s: interface %s not ready, ignoring", __func__, ifp->name);
+		return;
+	}
+
 	zif = ifp->info;
 	assert(zif != NULL);
 
