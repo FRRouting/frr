@@ -17,6 +17,7 @@
 #include "lib/printfrr.h"
 
 #include "bgpd/bgpd.h"
+#include "bgpd/bgp_encap_types.h"
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_lcommunity.h"
 #include "bgpd/bgp_aspath.h"
@@ -1235,12 +1236,10 @@ static char *_ecommunity_ecom2str(struct ecommunity *ecom, int format, int filte
 			if (filter == ECOMMUNITY_ROUTE_TARGET)
 				continue;
 			if (*pnt == ECOMMUNITY_OPAQUE_SUBTYPE_ENCAP) {
-				uint16_t tunneltype;
-				memcpy(&tunneltype, pnt + 5, 2);
-				tunneltype = ntohs(tunneltype);
+				bgp_encap_types tunneltype;
 
-				snprintf(encbuf, sizeof(encbuf), "ET:%d",
-					 tunneltype);
+				if (ecommunity_tunnel_type(ecom, i, &tunneltype))
+					snprintf(encbuf, sizeof(encbuf), "ET:%d", tunneltype);
 			} else if (*pnt == ECOMMUNITY_EVPN_SUBTYPE_DEF_GW) {
 				strlcpy(encbuf, "Default Gateway",
 					sizeof(encbuf));
