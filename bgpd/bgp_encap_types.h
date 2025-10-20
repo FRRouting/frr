@@ -216,4 +216,19 @@ static inline void encode_encap_extcomm(bgp_encap_types tnl_type,
 	eval->val[7] = (tnl_type)&0xff;
 }
 
+static inline bool ecommunity_tunnel_type(struct ecommunity *ecom, int ecom_increment,
+					  bgp_encap_types *tunnel_type)
+{
+	uint8_t *pnt;
+	uint8_t type, sub_type;
+
+	pnt = (ecom->val + (ecom_increment * ECOMMUNITY_SIZE));
+	type = pnt[0];
+	sub_type = pnt[1];
+	if (!(type == ECOMMUNITY_ENCODE_OPAQUE && sub_type == ECOMMUNITY_OPAQUE_SUBTYPE_ENCAP))
+		return false;
+	*tunnel_type = ((pnt[6] << 8) | pnt[7]);
+	return true;
+}
+
 #endif /* _QUAGGA_BGP_ENCAP_TYPES_H */

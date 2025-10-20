@@ -4463,17 +4463,8 @@ void bgp_attr_extcom_tunnel_type(struct attr *attr,
 		return;
 
 	for (i = 0; i < ecom->size; i++) {
-		uint8_t *pnt;
-		uint8_t type, sub_type;
-
-		pnt = (ecom->val + (i * ECOMMUNITY_SIZE));
-		type = pnt[0];
-		sub_type = pnt[1];
-		if (!(type == ECOMMUNITY_ENCODE_OPAQUE &&
-		      sub_type == ECOMMUNITY_OPAQUE_SUBTYPE_ENCAP))
-			continue;
-		*tunnel_type = ((pnt[6] << 8) | pnt[7]);
-		return;
+		if (ecommunity_tunnel_type(ecom, i, tunnel_type))
+			return;
 	}
 
 	return;
