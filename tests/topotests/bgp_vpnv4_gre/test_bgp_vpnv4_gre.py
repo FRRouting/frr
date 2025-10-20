@@ -9,8 +9,8 @@
 #
 
 """
- test_bgp_vpnv4_gre.py: Test the FRR BGP daemon with BGP IPv6 interface
- with route advertisements on a separate netns.
+test_bgp_vpnv4_gre.py: Test the FRR BGP daemon with BGP IPv6 interface
+with route advertisements on a separate netns.
 """
 
 import os
@@ -27,6 +27,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # Import topogen and topotest helpers
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.common_config import retry
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
@@ -106,6 +107,19 @@ def teardown_module(_mod):
     tgen.stop_topology()
 
 
+@retry(retry_timeout=10)
+def _check_show_bgp_mpls_not_selected(router, vrf, ipv4prefix):
+    valid = True
+    output = json.loads(router.vtysh_cmd(f"show bgp vrf {vrf} ipv4 {ipv4prefix} json"))
+    paths = output["paths"]
+    for path in paths:
+        if "remoteLabel" in path.keys():
+            valid = path.get("valid", False)
+    if not valid:
+        return True
+    return f"MPLS path to {ipv4prefix} in vrf {vrf} not found or considered as valid"
+
+
 def test_protocols_convergence():
     """
     Assert that all protocols have converged
@@ -148,7 +162,7 @@ def test_protocols_convergence():
     assertmsg = '"{}" JSON output mismatches'.format(router.name)
     assert result is None, assertmsg
 
-    # Check BGP IPv4 routing tables on r2 not installed
+    # Check BGP IPv4 convergence on r2
     logger.info("Checking BGP IPv4 routes for convergence on r2")
     router = tgen.gears["r2"]
     json_file = "{}/{}/bgp_ipv4_routes.json".format(CWD, router.name)
@@ -165,6 +179,13 @@ def test_protocols_convergence():
     _, result = topotest.run_and_expect(test_func, None, count=40, wait=2)
     assertmsg = '"{}" JSON output mismatches'.format(router.name)
     assert result is None, assertmsg
+
+    # Check BGP IPv4 route 10.201.0.0/24 on r2 not installed
+    logger.info("Checking BGP IPv4 route 10.201.0.0/24 for invalidity on r2")
+    success = _check_show_bgp_mpls_not_selected(
+        tgen.gears["r2"], "vrf1", "10.201.0.0/24"
+    )
+    assert success is True, "network 10.201.0.0/24 invalid for MPLS: not found on r2"
 
 
 def test_memory_leak():
