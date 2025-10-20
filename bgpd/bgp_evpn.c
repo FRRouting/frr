@@ -708,7 +708,7 @@ struct bgp_dest *bgp_evpn_global_node_get(struct bgp_table *table, afi_t afi,
 					  struct prefix_rd *prd,
 					  const struct bgp_path_info *local_pi)
 {
-	struct prefix_evpn global_p;
+	struct prefix_evpn global_p = {};
 
 	if (evp->prefix.route_type == BGP_EVPN_AD_ROUTE) {
 		/* prefix in the global table doesn't include the VTEP-IP so
@@ -747,7 +747,7 @@ struct bgp_dest *bgp_evpn_global_node_lookup(
 	struct bgp_table *table, safi_t safi, const struct prefix_evpn *evp,
 	struct prefix_rd *prd, const struct bgp_path_info *local_pi)
 {
-	struct prefix_evpn global_p;
+	struct prefix_evpn global_p = {};
 
 	if (evp->prefix.route_type == BGP_EVPN_AD_ROUTE) {
 		/* prefix in the global table doesn't include the VTEP-IP so
@@ -786,7 +786,7 @@ struct bgp_dest *bgp_evpn_vni_ip_node_get(struct bgp_table *const table,
 					  const struct prefix_evpn *evp,
 					  const struct bgp_path_info *parent_pi)
 {
-	struct prefix_evpn vni_p;
+	struct prefix_evpn vni_p = {};
 
 	if (evp->prefix.route_type == BGP_EVPN_AD_ROUTE && parent_pi) {
 		/* prefix in the global table doesn't include the VTEP-IP so
@@ -817,7 +817,7 @@ bgp_evpn_vni_ip_node_lookup(const struct bgp_table *const table,
 			    const struct prefix_evpn *evp,
 			    const struct bgp_path_info *parent_pi)
 {
-	struct prefix_evpn vni_p;
+	struct prefix_evpn vni_p = {};
 
 	if (evp->prefix.route_type == BGP_EVPN_AD_ROUTE && parent_pi) {
 		/* prefix in the global table doesn't include the VTEP-IP so
@@ -848,7 +848,7 @@ bgp_evpn_vni_mac_node_get(struct bgp_table *const table,
 			  const struct prefix_evpn *evp,
 			  const struct bgp_path_info *parent_pi)
 {
-	struct prefix_evpn vni_p;
+	struct prefix_evpn vni_p = {};
 
 	/* Only type-2 should ever go into this table */
 	assert(evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE);
@@ -870,7 +870,7 @@ bgp_evpn_vni_mac_node_lookup(const struct bgp_table *const table,
 			     const struct prefix_evpn *evp,
 			     const struct bgp_path_info *parent_pi)
 {
-	struct prefix_evpn vni_p;
+	struct prefix_evpn vni_p = {};
 
 	/* Only type-2 should ever go into this table */
 	assert(evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE);
