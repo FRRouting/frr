@@ -35,6 +35,8 @@ from lib.topolog import logger
 
 pytestmark = [pytest.mark.bgpd]
 
+TUNNEL_TYPE = None
+
 
 def build_topo(tgen):
     "Build function"
@@ -54,29 +56,37 @@ def build_topo(tgen):
     switch.add_link(tgen.gears["r2"])
 
 
-def _populate_iface():
+def _populate_iface(mod):
+    global TUNNEL_TYPE
+
     tgen = get_topogen()
+
+    if "gretap" in mod.__name__:
+        TUNNEL_TYPE = "gretap"
+    else:
+        TUNNEL_TYPE = "gre"
+
     cmds_list = [
         "ip link add vrf1 type vrf table 10",
         "echo 10 > /proc/sys/net/mpls/platform_labels",
         "ip link set dev vrf1 up",
         "ip link set dev {0}-eth1 master vrf1",
         "echo 1 > /proc/sys/net/mpls/conf/{0}-eth0/input",
-        "ip tunnel add {0}-gre0 mode gre ttl 64 dev {0}-eth0 local 10.125.0.{1} remote 10.125.0.{2}",
+        "ip link add {0}-gre0 type {3} ttl 64 dev {0}-eth0 local 10.125.0.{1} remote 10.125.0.{2}",
         "ip link set dev {0}-gre0 up",
         "echo 1 > /proc/sys/net/mpls/conf/{0}-gre0/input",
     ]
 
     for cmd in cmds_list:
-        input = cmd.format("r1", "1", "2")
-        logger.info("input: " + cmd)
-        output = tgen.net["r1"].cmd(cmd.format("r1", "1", "2"))
+        input = cmd.format("r1", "1", "2", TUNNEL_TYPE)
+        logger.info("input: " + input)
+        output = tgen.net["r1"].cmd(cmd.format("r1", "1", "2", TUNNEL_TYPE))
         logger.info("output: " + output)
 
     for cmd in cmds_list:
-        input = cmd.format("r2", "2", "1")
-        logger.info("input: " + cmd)
-        output = tgen.net["r2"].cmd(cmd.format("r2", "2", "1"))
+        input = cmd.format("r2", "2", "1", TUNNEL_TYPE)
+        logger.info("input: " + input)
+        output = tgen.net["r2"].cmd(cmd.format("r2", "2", "1", TUNNEL_TYPE))
         logger.info("output: " + output)
 
 
@@ -86,15 +96,18 @@ def setup_module(mod):
     tgen.start_topology()
 
     router_list = tgen.routers()
-    _populate_iface()
+    _populate_iface(mod)
 
     for rname, router in router_list.items():
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
-        router.load_config(
-            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
+        bgp_config = (
+            f"{rname}/bgpd_{TUNNEL_TYPE}.conf"
+            if rname == "r1"
+            else f"{rname}/bgpd.conf"
         )
+        router.load_config(TopoRouter.RD_BGP, os.path.join(CWD, bgp_config))
 
     # Initialize all routers.
     tgen.start_router()
