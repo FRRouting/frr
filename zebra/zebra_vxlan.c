@@ -2351,6 +2351,7 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 {
 	struct zebra_evpn *zevpn = NULL;
 	struct zebra_l3vni *zl3vni = NULL;
+	struct interface *br_if = NULL;
 
 	/* There is a possibility that VNI notification was already received
 	 * from kernel and we programmed it as L2-VNI
@@ -2427,12 +2428,27 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 
 		zevpn = zebra_evpn_add(vni);
 
-		/* Find bridge interface for the VNI */
-		vlan_if = zvni_map_to_svi(vnip->access_vlan,
-					  zif->brslave_info.br_if);
+		/*
+		 * Restore per-VLAN state for the newly created L2-VNI.
+		 * This mirrors the behaviour of zebra_vxlan_if_add_vni() so
+		 * that an L3VNI -> L2VNI transition preserves:
+		 *  - VLAN id used for the VNI (zevpn->vid)
+		 *  - associated SVI (zevpn->svi_if)
+		 *  - bridge membership (zevpn->bridge_if)
+		 *  - tenant VRF and L3VNI<-L2VNI list membership.
+		 */
+		br_if = zif->brslave_info.br_if;
+		zevpn_bridge_if_set(zevpn, br_if, true /* set */);
+
+		zevpn->vid = vnip->access_vlan;
+
+		vlan_if = zvni_map_to_svi(vnip->access_vlan, br_if);
 		if (vlan_if) {
-			zevpn->vrf_id = vlan_if->vrf->vrf_id;
-			zl3vni = zl3vni_from_vrf(vlan_if->vrf->vrf_id);
+			zevpn->svi_if = vlan_if;
+			if (vlan_if->vrf) {
+				zevpn->vrf_id = vlan_if->vrf->vrf_id;
+				zl3vni = zl3vni_from_vrf(vlan_if->vrf->vrf_id);
+			}
 			if (zl3vni)
 				listnode_add_sort_nodup(zl3vni->l2vnis, zevpn);
 		}
@@ -2445,6 +2461,12 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 			zebra_evpn_send_add_to_client(zevpn);
 			zebra_evpn_read_mac_neigh(zevpn, ctx.ret_ifp);
 		}
+
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("L2-VNI:%d transition from L3-VNI, unlink from %s vni_info table",
+				   vni, ctx.ret_ifp->name);
+
+		zebra_vxlan_if_vni_deref(zif, vni);
 	}
 
 	return 0;
@@ -5242,6 +5264,34 @@ void zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 
 		zl3vni->mac_vlan_if = zl3vni_map_to_mac_vlan_if(zl3vni);
 
+<<<<<<< HEAD
+=======
+		if (vxlan_if_zif) {
+			vnip = zebra_vxlan_if_vni_find(vxlan_if_zif, vni);
+			br_if = vxlan_if_zif->brslave_info.br_if;
+		}
+
+		if (vnip) {
+			zl3vni->vid = vnip->access_vlan;
+
+			/*
+			 * Re-establish VLAN<->VxLAN reference for L3-VNI.
+			 * This is needed when transitioning from L2-VNI back to
+			 * L3-VNI (e.g., "no vni X" followed by "vni X"), as the
+			 * reference was dropped during the L3->L2 transition by
+			 * zebra_vxlan_if_vni_remove(). This call increments the
+			 * reference count to maintain proper VLAN association.
+			 * Note: zebra_evpn_vl_vxl_ref() is idempotent and safely
+			 * handles duplicate calls for the same VNI.
+			 */
+			if (vxlan_if_zif)
+				zebra_evpn_vl_vxl_ref(vnip->access_vlan, vnip->vni, vxlan_if_zif);
+		}
+
+		if (br_if)
+			zl3vni_bridge_if_set(zl3vni, br_if, true);
+
+>>>>>>> 3b2930c0e (zebra: fix l3vni to l2vni transition)
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
 				"%s: l3vni %u svi_if %s mac_vlan_if %s",
