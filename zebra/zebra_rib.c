@@ -1977,9 +1977,10 @@ struct route_node *rib_find_rn_from_ctx(const struct zebra_dplane_ctx *ctx)
 
 	if (table == NULL) {
 		if (IS_ZEBRA_DEBUG_DPLANE) {
-			zlog_debug("Failed to find route for ctx: no table for afi %d, safi %d, vrf %s(%u) table %u",
+			zlog_debug("Failed to find route for ctx: no table for afi %d, safi %d, vrf %s(%u) table %u Prefix: %pFX",
 				   dplane_ctx_get_afi(ctx), dplane_ctx_get_safi(ctx),
-				   vrf_id_to_name(vrf_id), vrf_id, tableid);
+				   vrf_id_to_name(vrf_id), vrf_id, tableid,
+				   dplane_ctx_get_dest(ctx));
 		}
 		goto done;
 	}
@@ -2021,9 +2022,9 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	rn = rib_find_rn_from_ctx(ctx);
 	if (rn == NULL) {
 		if (IS_ZEBRA_DEBUG_DPLANE) {
-			zlog_debug(
-				"Failed to process dplane results: no route for %s(%u):%pRN",
-				VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx), rn);
+			zlog_debug("Failed to process dplane results: no route for %s(%u):%pRN prefix: %pFX",
+				   VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx), rn,
+				   dplane_ctx_get_dest(ctx));
 		}
 		goto done;
 	}
@@ -2322,10 +2323,9 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 	rn = rib_find_rn_from_ctx(ctx);
 	if (rn == NULL) {
 		if (debug_p) {
-			zlog_debug(
-				"Failed to process dplane notification: no routes for %s(%u:%u):%pRN",
-				VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
-				tableid, rn);
+			zlog_debug("Failed to process dplane notification: no routes for %s(%u:%u):%pRN prefix %pFX",
+				   VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx), tableid, rn,
+				   dplane_ctx_get_dest(ctx));
 		}
 		goto done;
 	}
