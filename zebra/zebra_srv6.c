@@ -1017,10 +1017,14 @@ static bool zebra_srv6_sid_decompose(struct in6_addr *sid_value,
 	tmp_prefix.prefix = *sid_value;
 
 	/*
-	 * Lookup the parent locator of the SID and return the locator and
-	 * the function of the SID.
+	 * If the parent locator of the SID is provided, allocate the SID from that locator;
+	 * otherwise lookup the parent locator. Return the locator and SID function.
 	 */
 	for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, l)) {
+		/* Skip locators that don't match the provided locator */
+		if (*locator != NULL && *locator != l)
+			continue;
+
 		/*
 		 * Check if the locator prefix includes the temporary prefix
 		 * representing the SID.
@@ -1496,7 +1500,11 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid,
 	struct zebra_srv6_sid_ctx *zctx = NULL;
 	struct listnode *node;
 	uint32_t sid_func = 0, sid_func_wide = 0;
+<<<<<<< HEAD
 	struct srv6_locator *locator = NULL;
+=======
+	struct srv6_locator *loc = locator;
+>>>>>>> a9044d2a6 (zebra: Fix SRv6 explicit SID allocation to use the provided locator)
 	struct zebra_srv6_sid_block *block = NULL;
 	char buf[256];
 
