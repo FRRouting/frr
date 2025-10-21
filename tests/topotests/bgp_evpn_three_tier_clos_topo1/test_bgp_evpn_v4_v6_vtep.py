@@ -72,6 +72,7 @@ from lib.evpn import (
     evpn_verify_l3vni_remote_rmacs,
     evpn_verify_l3vni_remote_nexthops,
     evpn_trigger_arp_scapy,
+    evpn_verify_ping_connectivity,
 )
 
 # Required to instantiate the topology builder class.
