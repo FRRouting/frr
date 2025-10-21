@@ -449,6 +449,82 @@ def test_srv6_static_sids_interface_down_up():
     check_srv6_static_sids(router, "expected_srv6_sids.json")
 
 
+def test_srv6_static_sids_overlapping_locators():
+    """
+    Test SRv6 SID allocation with overlapping locators.
+
+    This test creates a secondary locator with overlapping prefix:
+    - MAIN: fcbb:bbbb:1::/48 (already configured)
+    - LOC2: fcbb:bbbb:1:1::/64 (more specific prefix within MAIN)
+
+    When allocating an explicit SID fcbb:bbbb:1:1:fe00::/80 with locator LOC2,
+    the SID Manager should respect the specified locator and not allocate
+    from MAIN even though MAIN also matches the SID prefix.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+
+    def _check_srv6_static_sids(router, expected_route_file):
+        logger.info("checking zebra srv6 static sids")
+        output = json.loads(router.vtysh_cmd("show ipv6 route static json"))
+        expected = open_json_file("{}/{}".format(CWD, expected_route_file))
+        return topotest.json_cmp(output, expected)
+
+    def check_srv6_static_sids(router, expected_file):
+        func = functools.partial(_check_srv6_static_sids, router, expected_file)
+        _, result = topotest.run_and_expect(func, None, count=15, wait=1)
+        assert result is None, "Failed"
+
+    # Add LOC2 locator with overlapping prefix
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator LOC2
+             prefix fcbb:bbbb:1:1::/64
+             format usid-f4816
+            !
+           !
+        """
+    )
+
+    # Add a SID that could potentially match both locators, but explicitly specify LOC2
+    # The SID Manager should allocate the SID from LOC2 (the specified locator)
+    # and not from MAIN, even though MAIN also matches the SID prefix
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           static-sids
+            sid fcbb:bbbb:1:1:fe00::/80 locator LOC2 behavior uDT46 vrf Vrf10
+        """
+    )
+
+    # Verify the SID is correctly allocated from the LOC2 locator
+    logger.info("Test for SRv6 SID allocation with overlapping locators")
+    check_srv6_static_sids(router, "expected_srv6_sids_overlapping_locators.json")
+
+    # Clean up
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           static-sids
+            no sid fcbb:bbbb:1:1:fe00::/80 locator LOC2 behavior uDT46 vrf Vrf10
+           !
+           locators
+            no locator LOC2
+           !
+        """
+    )
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
