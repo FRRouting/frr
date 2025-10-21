@@ -1328,3 +1328,181 @@ def evpn_trigger_arp_scapy(tgen, host_gateways, interface="swp1"):
             logger.warning(
                 f"{hostname}: Failed to send ARP via Scapy to {gateway_ip}: {e}"
             )
+
+
+def evpn_verify_ping_connectivity(
+    router=None,
+    dest_ip=None,
+    source_ip=None,
+    count=4,
+    timeout=10,
+    tgen=None,
+    source_host=None,
+):
+    """
+    Test ping connectivity between hosts/routers in EVPN topology.
+
+    This function tests reachability with strict success criteria (0% packet loss).
+    Automatically detects IPv4 vs IPv6 and uses appropriate ping command.
+    Designed to work with topotest.run_and_expect for retry logic.
+
+    Parameters
+    ----------
+    * `router`: Router object to ping from (if None, source_host and tgen must be provided)
+    * `dest_ip`: Destination IP address (IPv4 or IPv6) - REQUIRED
+    * `source_ip`: Optional source IP address or interface name for -I flag
+    * `count`: Number of ping packets to send (default: 4)
+    * `timeout`: Timeout in seconds per packet (default: 10)
+    * `tgen`: Topogen object (required if router is None)
+    * `source_host`: Source host/router name (used with tgen if router is None)
+
+    Returns
+    -------
+    None on success (0% packet loss), error string on failure
+
+    Usage
+    -----
+    **Example 1: Using router object directly**
+    ```python
+    from functools import partial
+    from lib import topotest
+    from lib.evpn import evpn_verify_ping_connectivity
+
+    router = tgen.gears["host-211"]
+    test_func = partial(
+        evpn_verify_ping_connectivity,
+        router=router,
+        dest_ip="60.1.1.111",
+        source_ip="60.1.1.211",
+        count=4
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
+    assert result is None, f"Ping failed: {result}"
+    ```
+
+    **Example 2: Using tgen + source_host**
+    ```python
+    test_func = partial(
+        evpn_verify_ping_connectivity,
+        tgen=tgen,
+        source_host="host-211",
+        dest_ip="60.1.1.111",
+        source_ip="60.1.1.211"
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
+    assert result is None, f"Ping failed: {result}"
+    ```
+
+    **Example 3: IPv6 connectivity**
+    ```python
+    result = evpn_verify_ping_connectivity(
+        router=host_router,
+        dest_ip="2060:1:1:1::111",
+        source_ip="2060:1:1:1::211",
+        count=4
+    )
+    if result:
+        logger.error(f"IPv6 ping failed: {result}")
+    ```
+
+    **Example 4: Quick inline test (not recommended for flaky networks)**
+    ```python
+    # Direct call without retry logic
+    result = evpn_verify_ping_connectivity(
+        tgen=tgen,
+        source_host="host-211",
+        dest_ip="60.1.1.111"
+    )
+    assert result is None, result
+    ```
+    """
+    import re
+    import ipaddress
+
+    # Parameter validation
+    if dest_ip is None:
+        return "dest_ip parameter is required"
+
+    # Get router object
+    if router is None:
+        if tgen is None or source_host is None:
+            return "Either 'router' or both 'tgen' and 'source_host' must be provided"
+        if source_host not in tgen.gears:
+            return f"Source host '{source_host}' not found in topology"
+        router = tgen.gears[source_host]
+        router_name = source_host
+    else:
+        router_name = router.name
+
+    # Auto-detect IPv4 vs IPv6
+    is_ipv6 = False
+    try:
+        ipaddress.IPv6Address(dest_ip)
+        is_ipv6 = True
+    except ipaddress.AddressValueError:
+        try:
+            ipaddress.IPv4Address(dest_ip)
+            is_ipv6 = False
+        except ipaddress.AddressValueError:
+            return f"Invalid IP address: {dest_ip}"
+
+    # Build ping command
+    if is_ipv6:
+        cmd = f"ping6 -c {count} -W {timeout}"
+    else:
+        cmd = f"ping -c {count} -W {timeout}"
+
+    # Add source IP/interface if specified
+    if source_ip:
+        cmd += f" -I {source_ip}"
+
+    # Add destination
+    cmd += f" {dest_ip}"
+
+    # Log the test
+    log_msg = f"{router_name}: Testing connectivity to {dest_ip}"
+    if source_ip:
+        log_msg += f" from {source_ip}"
+    logger.info(log_msg)
+    logger.debug(f"{router_name}: Executing: {cmd}")
+
+    # Execute ping
+    try:
+        output = router.run(cmd)
+    except Exception as e:
+        return f"{router_name}: Failed to execute ping command: {e}"
+
+    logger.debug(f"{router_name}: Ping output:\n{output}")
+
+    # Parse ping output for packet statistics
+    # Format: "X packets transmitted, Y received, Z% packet loss"
+    match = re.search(r"(\d+) packets transmitted, (\d+) received", output)
+
+    if not match:
+        return (
+            f"{router_name}: Failed to parse ping output to {dest_ip}\n"
+            f"Output: {output[:200]}"  # Limit output in error message
+        )
+
+    transmitted = int(match.group(1))
+    received = int(match.group(2))
+
+    # Validate packet transmission
+    if transmitted == 0:
+        return f"{router_name}: No packets transmitted to {dest_ip}"
+
+    # Check for packet loss
+    if received != transmitted:
+        packet_loss_pct = ((transmitted - received) / transmitted) * 100
+        return (
+            f"{router_name}: Ping to {dest_ip} failed - "
+            f"{transmitted} transmitted, {received} received, "
+            f"{packet_loss_pct:.1f}% packet loss (expected 0%)"
+        )
+
+    # Success
+    logger.info(
+        f"{router_name}: Ping to {dest_ip} SUCCESS - "
+        f"{transmitted} packets transmitted, {received} received, 0% packet loss"
+    )
+    return None
