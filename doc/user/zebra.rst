@@ -436,7 +436,12 @@ the same distances that other routing suites have chosen.
 
 An admin distance of 255 indicates to Zebra that the route should not be
 installed into the Data Plane. Additionally routes with an admin distance
-of 255 will not be redistributed.
+of 255 will not be redistributed as that these routes are typically not installed.
+The exception here is that Kernel routes may have an admin distance of 255
+and they will be redistributed.  This is because Zebra has no control over
+Kernel routes and if the kernel route has an admin distance of 255 clearly
+it is being used.  As such as part of redistribution, kernel routes are a
+special case.
 
 Zebra does treat Kernel routes as special case for the purposes of Admin
 Distance. Upon learning about a route that is not originated by FRR
