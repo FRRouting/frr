@@ -22,6 +22,9 @@ from lib.common_config import step
 from time import sleep
 
 
+# Global variable to track speedChecked value
+speed_checked = 0
+
 
 def build_topo(tgen):
     "Build function"
@@ -80,6 +83,31 @@ def check_speed_checked(router, interface_name, expected_count):
     return None
 
 
+def check_interface_speed(router, interface_name, expected_speed):
+    """Check if interface has the expected speed"""
+    global speed_checked
+    output = router.vtysh_cmd(f"show interface {interface_name} json", isjson=True)
+
+    if not output:
+        return "No output from command"
+
+    if interface_name not in output:
+        return f"{interface_name} interface not found in output"
+
+    if "speed" not in output[interface_name]:
+        return f"speed field not found in {interface_name} interface"
+
+    actual_speed = output[interface_name]["speed"]
+
+    if "speedChecked" in output[interface_name]:
+        speed_checked = output[interface_name]["speedChecked"]
+
+    if actual_speed != expected_speed:
+        return f"{interface_name} speed is {actual_speed}, expected {expected_speed}"
+
+    return None
+
+
 def test_non_existent_interface_speeds():
     "Test that dummy1 interface that has not been created has had speed checked one time"
 
@@ -130,36 +158,8 @@ def test_bond_coming_up():
         router.cmd(f"ip link set r1-eth{i} up")
         sleep(3)
 
-    speed_checked = 0
-
-    def check_bond_speed(expected_speed):
-        """Check if bond0 interface has the expected speed"""
-        nonlocal speed_checked
-        output = router.vtysh_cmd("show interface bond0 json", isjson=True)
-
-        if not output:
-            return "No output from command"
-
-        if "bond0" not in output:
-            return "bond0 interface not found in output"
-
-        if "speed" not in output["bond0"]:
-            return "speed field not found in bond0 interface"
-
-        actual_speed = output["bond0"]["speed"]
-
-        if "speedChecked" not in output["bond0"]:
-            return "speedChecked field not found in bond0 interface"
-
-        speed_checked = output["bond0"]["speedChecked"]
-
-        if actual_speed != expected_speed:
-            return f"bond0 speed is {actual_speed}, expected {expected_speed}"
-
-        return None
-
     step("Check that bond0 speed is 100000")
-    test_func = partial(check_bond_speed, 100000)
+    test_func = partial(check_interface_speed, router, "bond0", 100000)
     success, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
 
     assert success, f"bond0 speed check failed: {result}"
@@ -175,6 +175,37 @@ def test_bond_coming_up():
     assert (
         success
     ), f"bond0 speedChecked unexpectedly incremented beyond {speed_checked + 1}: {result}"
+
+
+def test_bond_interfaces_going_up_down():
+    "Test bond interface behavior when interfaces go up and down"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip("Skipped because of router(s) failure")
+
+    router = tgen.gears["r1"]
+    router.cmd(f"ip link set r1-eth5 down")
+    router.cmd(f"ip link set r1-eth6 down")
+
+    step("Ensure that bond0's speed actually changes to 80000")
+    test_func = partial(check_interface_speed, router, "bond0", 80000)
+    success, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+
+    assert success, f"bond0 speed check failed: {result}"
+
+    step("Ensure that bond0's speed goes up to 90000")
+    router.cmd(f"ip link set r1-eth5 up")
+
+    test_func = partial(check_interface_speed, router, "bond0", 90000)
+    success, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+
+    assert success, f"bond0 speed check failed: {result}"
+
+    step("Ensure that bond0's speed goes up to 100k again")
+    router.cmd(f"ip link set r1-eth6 up")
+    test_func = partial(check_interface_speed, router, "bond0", 100000)
+    success, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
 
 
 def test_memory_leak():
