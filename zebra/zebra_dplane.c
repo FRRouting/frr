@@ -5107,9 +5107,11 @@ dplane_lsp_notif_update(struct zebra_lsp *lsp, enum dplane_op_e op,
 							  nhlfe->type,
 							  nhlfe->nexthop);
 
-			/* Need to copy flags too */
-			new_nhlfe->flags = nhlfe->flags;
-			new_nhlfe->nexthop->flags = nhlfe->nexthop->flags;
+			if (new_nhlfe) {
+				/* Need to copy flags too */
+				new_nhlfe->flags = nhlfe->flags;
+				new_nhlfe->nexthop->flags = nhlfe->nexthop->flags;
+			}
 		}
 	}
 

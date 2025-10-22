@@ -3025,19 +3025,13 @@ static char *zebra_evpn_es_vtep_str(char *vtep_str, struct zebra_evpn_es *es,
 
 	vtep_str[0] = '\0';
 	for (ALL_LIST_ELEMENTS_RO(es->es_vtep_list, node, zvtep)) {
-		if (first) {
+		snprintfrr(ip_buf, sizeof(ip_buf), "%pIA", &zvtep->vtep_ip);
+
+		if (first)
 			first = false;
-			strlcat(vtep_str,
-				inet_ntop(ipaddr_family(&zvtep->vtep_ip), &zvtep->vtep_ip.ip.addr,
-					  ip_buf, sizeof(ip_buf)),
-				vtep_str_size);
-		} else {
+		else
 			strlcat(vtep_str, ",", vtep_str_size);
-			strlcat(vtep_str,
-				inet_ntop(ipaddr_family(&zvtep->vtep_ip), &zvtep->vtep_ip.ip.addr,
-					  ip_buf, sizeof(ip_buf)),
-				vtep_str_size);
-		}
+		strlcat(vtep_str, ip_buf, vtep_str_size);
 	}
 	return vtep_str;
 }
