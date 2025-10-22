@@ -911,6 +911,25 @@ static void if_down_del_nbr_connected(struct interface *ifp)
 	}
 }
 
+static void if_handle_bond_speed_change(struct interface *ifp)
+{
+	struct zebra_if *zif = ifp->info;
+	struct zebra_l2info_bondslave *part_of_bond;
+
+	if (!IS_ZEBRA_IF_BOND_SLAVE(ifp))
+		return;
+
+	part_of_bond = &zif->bondslave_info;
+
+	if (part_of_bond->bond_if) {
+		zif = part_of_bond->bond_if->info;
+
+		if (!event_is_scheduled(zif->speed_update))
+			event_add_timer(zrouter.master, if_zebra_speed_update, part_of_bond->bond_if, 1,
+					&zif->speed_update);
+	}
+}
+
 /* Interface is up. */
 void if_up(struct interface *ifp, bool install_connected)
 {
@@ -975,6 +994,8 @@ void if_up(struct interface *ifp, bool install_connected)
 
 	if_addr_wakeup(ifp);
 
+	if_handle_bond_speed_change(ifp);
+
 	rib_update_handle_vrf_all(RIB_UPDATE_KERNEL, ZEBRA_ROUTE_KERNEL);
 }
 
@@ -1026,6 +1047,8 @@ void if_down(struct interface *ifp)
 
 	/* Delete all neighbor addresses learnt through IPv6 RA */
 	if_down_del_nbr_connected(ifp);
+
+	if_handle_bond_speed_change(ifp);
 
 	rib_update_handle_vrf_all(RIB_UPDATE_INTERFACE_DOWN, ZEBRA_ROUTE_KERNEL);
 }
