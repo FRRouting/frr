@@ -3742,7 +3742,7 @@ static int bgp_attr_nhc(struct bgp_attr_parser_args *args)
 			zlog_debug("%pBP rcvd BGP NHC TLV code %d, length %d, value %p", peer,
 				   tlv->code, tlv->length, tlv->value);
 
-		/* draft-wang-idr-next-next-hop-nodes */
+		/* draft-ietf-idr-next-next-hop-nodes-00 */
 		if (tlv->code == BGP_ATTR_NHC_TLV_NNHN) {
 			uint16_t len = tlv->length;
 
@@ -4616,6 +4616,7 @@ static void bgp_packet_nhc(struct stream *s, struct peer *peer, afi_t afi, safi_
 		return;
 
 	total = bgp_path_info_mpath_count(bpi) * IPV4_MAX_BYTELEN;
+	total += IPV4_MAX_BYTELEN; /* Next-hop BGP ID */
 
 	/* NHC now supports only draft-wang-idr-next-next-hop-nodes, thus
 	 * do not sent NHC attribute if the path is not multipath or self
@@ -4654,9 +4655,29 @@ static void bgp_packet_nhc(struct stream *s, struct peer *peer, afi_t afi, safi_
 	/* Put TLVs */
 
 	/* Begin NNHN TLV */
+<<<<<<< HEAD
 	stream_putw(s, BGP_ATTR_NHC_TLV_NNHN);
 	stream_putw(s, total);
 	stream_put_ipv4(s, bpi->peer->remote_id.s_addr);
+=======
+	/*
+	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 * |    Characteristic Code = 2    |Characteristic Length(variable)|
+	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 * |                    Next-hop BGP ID                            |
+	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 * |               Next-next-hop BGP IDs (variable)                |
+	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	 */
+	if (bgp_path_info_mpath_count(bpi) > 1) {
+		if (bgp_debug_update(peer, NULL, NULL, 1))
+			zlog_debug("%pBP: Sending NHC TLV (%d) for %pFX", peer,
+				   BGP_ATTR_NHC_TLV_NNHN, prefix);
+		stream_putw(s, BGP_ATTR_NHC_TLV_NNHN);
+		stream_putw(s, total);
+		stream_put_ipv4(s, bpi->peer->local_id.s_addr);
+		stream_put_ipv4(s, bpi->peer->remote_id.s_addr);
+>>>>>>> a6244e56f (bgpd: Put local BGP ID when sending NNHN TLV for NH characteristic)
 
 	for (exists = bgp_path_info_mpath_first(bpi); exists;
 	     exists = bgp_path_info_mpath_next(exists))
