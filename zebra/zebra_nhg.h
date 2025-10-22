@@ -410,6 +410,9 @@ extern int nexthop_active_update(struct route_node *rn, struct route_entry *re,
 
 extern const char *zebra_nhg_afi2str(struct nhg_hash_entry *nhe);
 
+/* Format NHG flags into a comma-separated string for display */
+extern void dump_nhg_flags(uint32_t flags, char *buf, size_t len);
+
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pNG" (const struct nhg_hash_entry *)
 #endif
