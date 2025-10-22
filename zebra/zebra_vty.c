@@ -1676,7 +1676,7 @@ DEFPY (show_route,
           }]\
           [" FRR_IP6_REDIST_STR_ZEBRA "$type_str]\
         >\
-       [<json$json|nexthop-group$ng>]",
+       [nexthop-group$ng] [json$json]",
        SHOW_STR
        IP_STR
        "IP forwarding table\n"
