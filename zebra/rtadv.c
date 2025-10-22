@@ -150,6 +150,7 @@ static struct zebra_vrf *rtadv_interface_get_zvrf(const struct interface *ifp)
 	if (!vrf_is_backend_netns())
 		return vrf_info_lookup(VRF_DEFAULT);
 
+	assert(ifp->vrf->info);
 	return ifp->vrf->info;
 }
 

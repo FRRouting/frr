@@ -3055,7 +3055,7 @@ static void process_subq_early_route_delete(struct zebra_early_route *ere)
 				src_buf[0] = '\0';
 
 			zlog_debug("%s[%d]:%pRN%s%s doesn't exist in rib",
-				   vrf->name, ere->re->table, rn,
+				   vrf ? vrf->name : "Unknown", ere->re->table, rn,
 				   (src_buf[0] != '\0') ? " from " : "",
 				   src_buf);
 		}
@@ -4374,11 +4374,11 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 	for (ALL_NEXTHOPS(re->nhe->nhg, nexthop))
 		route_entry_dump_nh(re, straddr, vrf, nexthop);
 
-	if (zebra_nhg_get_backup_nhg(re->nhe)) {
+	nhg = zebra_nhg_get_backup_nhg(re->nhe);
+	if (nhg) {
 		zlog_debug("%s(%s): backup nexthops:", straddr,
 			   VRF_LOGNAME(vrf));
 
-		nhg = zebra_nhg_get_backup_nhg(re->nhe);
 		for (ALL_NEXTHOPS_PTR(nhg, nexthop))
 			route_entry_dump_nh(re, straddr, vrf, nexthop);
 	}
