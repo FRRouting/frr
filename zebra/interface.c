@@ -68,6 +68,8 @@ static void if_zebra_speed_update(struct event *thread)
 	bool changed = false;
 	int error = 0;
 
+	zif->speed_checked++;
+
 	new_speed = kernel_get_speed(ifp, &error);
 
 	/* error may indicate vrf not available or
@@ -164,6 +166,7 @@ static int if_zebra_new_hook(struct interface *ifp)
 	 * down upon startup.
 	 */
 	zebra_if->speed_update_count = 0;
+	zebra_if->speed_checked = 0;
 	event_add_timer(zrouter.master, if_zebra_speed_update, ifp, 15,
 			&zebra_if->speed_update);
 	event_ignore_late_timer(zebra_if->speed_update);
@@ -3040,6 +3043,8 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 	json_object_string_add(json_if, "shutdownConfig", if_zebra_data_state(zebra_if->shutdown));
 
 	json_object_string_add(json_if, "mplsConfig", if_zebra_data_state(zebra_if->mpls_config));
+	json_object_int_add(json_if, "speedChecked", zebra_if->speed_checked);
+
 
 	if (ifp->ifindex == IFINDEX_INTERNAL) {
 		json_object_boolean_add(json_if, "pseudoInterface", true);
