@@ -1054,11 +1054,14 @@ static void zebra_evpn_acc_vl_show_entry_detail(struct vty *vty,
 static void zebra_evpn_acc_vl_show_entry(struct vty *vty,
 		struct zebra_evpn_access_bd *acc_bd, json_object *json)
 {
+	char vlan_str[22]; /* 15 for bridge name + 1 for dot + 4 for VLAN ID */
+
 	if (json) {
 		zebra_evpn_acc_vl_json_fill(acc_bd, json, false);
 	} else {
-		vty_out(vty, "%-5s.%-5u %-15s %-8d %-15s %u\n",
-			acc_bd->bridge_zif->ifp->name, acc_bd->vid,
+		snprintf(vlan_str, sizeof(vlan_str), "%s.%u", acc_bd->bridge_zif->ifp->name,
+			 acc_bd->vid);
+		vty_out(vty, "%-21s %-15s %-8d %-15s %u\n", vlan_str,
 			acc_bd->vlan_zif ? acc_bd->vlan_zif->ifp->name : "-",
 			acc_bd->zevpn ? acc_bd->zevpn->vni : 0,
 			acc_bd->vxlan_zif ? acc_bd->vxlan_zif->ifp->name : "-",
@@ -1096,8 +1099,8 @@ void zebra_evpn_acc_vl_show(struct vty *vty, bool uj)
 	wctx.detail = false;
 
 	if (!uj)
-		vty_out(vty, "%-12s %-15s %-8s %-15s %s\n", "VLAN", "SVI",
-			"L2-VNI", "VXLAN-IF", "# Members");
+		vty_out(vty, "%-21s %-15s %-8s %-15s %s\n", "VLAN", "SVI", "L2-VNI", "VXLAN-IF",
+			"# Members");
 
 	hash_iterate(zmh_info->evpn_vlan_table, zebra_evpn_acc_vl_show_hash,
 			&wctx);
