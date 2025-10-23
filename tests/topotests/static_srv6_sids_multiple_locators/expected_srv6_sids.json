@@ -192,7 +192,8 @@
 						"action": "uA"
 					},
 					"seg6localContext": {
-						"nh6": "2001::2"
+						"nh6": "2001::2",
+						"interfaceName": "sr0"
 					}
 				}
 			]
@@ -391,7 +392,8 @@
 						"action": "uA"
 					},
 					"seg6localContext": {
-						"nh6": "2001::2"
+						"nh6": "2001::2",
+						"interfaceName": "sr0"
 					}
 				}
 			]
@@ -549,7 +551,8 @@
 						"action": "uA"
 					},
 					"seg6localContext": {
-						"nh6": "2001::2"
+						"nh6": "2001::2",
+						"interfaceName": "sr0"
 					}
 				}
 			]
@@ -748,7 +751,8 @@
 						"action": "uA"
 					},
 					"seg6localContext": {
-						"nh6": "2001::2"
+						"nh6": "2001::2",
+						"interfaceName": "sr0"
 					}
 				}
 			]
@@ -947,7 +951,8 @@
 						"action": "uA"
 					},
 					"seg6localContext": {
-						"nh6": "2001::2"
+						"nh6": "2001::2",
+						"interfaceName": "sr0"
 					}
 				}
 			]
@@ -1105,7 +1110,8 @@
 						"action": "uA"
 					},
 					"seg6localContext": {
-						"nh6": "2001::2"
+						"nh6": "2001::2",
+						"interfaceName": "sr0"
 					}
 				}
 			]
