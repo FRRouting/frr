@@ -1139,68 +1139,35 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 		vty_out(vty, "     Flags: 0x%x\n", nhe->flags);
 	}
 
-	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID)) {
-		if (json)
+	if (json) {
+		/* JSON output - add individual boolean fields */
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID))
 			json_object_boolean_true_add(json, "valid");
-		else
-			vty_out(vty, "     Valid");
-		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_REINSTALL)) {
-			if (json)
-				json_object_boolean_true_add(json, "reInstall");
-			else
-				vty_out(vty, ", Reinstall");
-		}
-		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED)) {
-			if (json)
-				json_object_boolean_true_add(json, "installed");
-			else
-				vty_out(vty, ", Installed");
-		}
-		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL)) {
-			if (json)
-				json_object_boolean_true_add(json,
-							     "initialDelay");
-			else
-				vty_out(vty, ", Initial Delay");
-		}
-		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED)) {
-			if (json)
-				json_object_boolean_true_add(json, "queued");
-			else
-				vty_out(vty, ", Queued");
-		}
-		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE)) {
-			if (json)
-				json_object_boolean_true_add(json, "recursive");
-			else
-				vty_out(vty, ", Recursive");
-		}
-		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_BACKUP)) {
-			if (json)
-				json_object_boolean_true_add(json, "backup");
-			else
-				vty_out(vty, ", Backup");
-		}
-		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_PROTO_RELEASED)) {
-			if (json)
-				json_object_boolean_true_add(json, "protoReleased");
-			else
-				vty_out(vty, ", Proto Released");
-		}
-		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_KEEP_AROUND)) {
-			if (json)
-				json_object_boolean_true_add(json, "keepAround");
-			else
-				vty_out(vty, ", Keep Around");
-		}
-		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_FPM)) {
-			if (json)
-				json_object_boolean_true_add(json, "fpm");
-			else
-				vty_out(vty, ", FPM");
-		}
-		if (!json)
-			vty_out(vty, "\n");
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_REINSTALL))
+			json_object_boolean_true_add(json, "reInstall");
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED))
+			json_object_boolean_true_add(json, "installed");
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL))
+			json_object_boolean_true_add(json, "initialDelay");
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED))
+			json_object_boolean_true_add(json, "queued");
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE))
+			json_object_boolean_true_add(json, "recursive");
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_BACKUP))
+			json_object_boolean_true_add(json, "backup");
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_PROTO_RELEASED))
+			json_object_boolean_true_add(json, "protoReleased");
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_KEEP_AROUND))
+			json_object_boolean_true_add(json, "keepAround");
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_FPM))
+			json_object_boolean_true_add(json, "fpm");
+	} else {
+		/* Text output - use common formatter */
+		char flags_buf[256];
+
+		dump_nhg_flags(nhe->flags, flags_buf, sizeof(flags_buf));
+		if (flags_buf[0])
+			vty_out(vty, "     %s\n", flags_buf);
 	}
 	if (nhe->ifp) {
 		if (json)
