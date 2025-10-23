@@ -82,6 +82,16 @@ def test_bgp_path_attribute_treat_as_withdraw():
         output = json.loads(r2.vtysh_cmd("show bgp ipv4 unicast json detail"))
         expected = {
             "routes": {
+                "10.10.10.0/24": {
+                    "paths": [
+                        {
+                            "valid": True,
+                            "aggregatorAs": 65001,
+                            "aggregatorId": "10.0.0.1",
+                            "atomicAggregate": True,
+                        }
+                    ],
+                },
                 "10.10.10.10/32": {
                     "paths": [
                         {
@@ -105,12 +115,12 @@ def test_bgp_path_attribute_treat_as_withdraw():
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Failed bgp convergence"
 
-    step("Withdraw prefixes with atomic-aggregate from r1")
+    step("Withdraw prefixes with atomic-aggregate or aggregator attributes from r1")
     r2.vtysh_cmd(
         """
     configure terminal
         router bgp
-            neighbor 10.0.0.1 path-attribute treat-as-withdraw 6
+            neighbor 10.0.0.1 path-attribute treat-as-withdraw 6 7
     """
     )
 
@@ -118,6 +128,7 @@ def test_bgp_path_attribute_treat_as_withdraw():
         output = json.loads(r2.vtysh_cmd("show bgp ipv4 unicast json detail"))
         expected = {
             "routes": {
+                "10.10.10.0/24": None,
                 "10.10.10.10/32": None,
                 "10.10.10.20/32": {
                     "paths": [
@@ -132,8 +143,34 @@ def test_bgp_path_attribute_treat_as_withdraw():
 
     test_func = functools.partial(_bgp_check_if_route_withdrawn)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
-    assert result is None, "Failed to withdraw prefixes with atomic-aggregate attribute"
+    assert (
+        result is None
+    ), "Failed to withdraw prefixes with atomic-aggregate/aggregator attributes"
 
+<<<<<<< HEAD
+=======
+    def _bgp_check_attributes_withdrawn_stats():
+        output = json.loads(r2.vtysh_cmd("show bgp neighbor json"))
+        expected = {
+            "10.0.0.1": {
+                "prefixStats": {
+                    "inboundFiltered": 0,
+                    "aspathLoop": 0,
+                    "originatorLoop": 0,
+                    "clusterLoop": 0,
+                    "invalidNextHop": 0,
+                    "withdrawn": 2,
+                    "attributesDiscarded": 0,
+                }
+            }
+        }
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_bgp_check_attributes_withdrawn_stats)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    assert result is None, "Withdrawn prefix count is not as expected"
+
+>>>>>>> 6cc1ca6c3 (tests: Check if aggregator attribute is also withdrawn if demanded)
 
 def test_memory_leak():
     "Run the memory leak test and report results."
