@@ -360,11 +360,16 @@ enum bgp_attr_parse_ret {
 	BGP_ATTR_PARSE_PROCEED = 0,
 	BGP_ATTR_PARSE_ERROR = -1,
 	BGP_ATTR_PARSE_WITHDRAW = -2,
+	/* Treat as withdraw, but do not complain in the logs.
+	 * This is used in bgp_attr_ignore() when we want to
+	 * withdraw the paths having the specified attribute.
+	 */
+	BGP_ATTR_PARSE_WITHDRAW_IGNORE = -3,
 
 	/* only used internally, send notify + convert to BGP_ATTR_PARSE_ERROR
 	 */
-	BGP_ATTR_PARSE_ERROR_NOTIFYPLS = -3,
-	BGP_ATTR_PARSE_MISSING_MANDATORY = -4,
+	BGP_ATTR_PARSE_ERROR_NOTIFYPLS = -4,
+	BGP_ATTR_PARSE_MISSING_MANDATORY = -5,
 };
 
 struct bpacket_attr_vec_arr;
