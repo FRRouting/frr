@@ -1218,16 +1218,39 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
                                                                                 : false;
 			}
 		} else {
-			if (bgp_update_martian_nexthop(
-				    bnc->bgp, afi, safi, path->type,
-				    path->sub_type, path->attr, dest)) {
-				if (BGP_DEBUG(nht, NHT))
-					zlog_debug(
-						"%s: prefix %pBD (vrf %s), ignoring path due to martian or self-next-hop",
-						__func__, dest, bgp_path->name);
-			} else
-				bnc_is_valid_nexthop =
-					bgp_isvalid_nexthop(bnc) ? true : false;
+			if (safi == SAFI_UNICAST && path->sub_type == BGP_ROUTE_IMPORTED
+				&& path->extra && path->extra->num_labels) {
+				uint32_t label = 0;
+
+				label = decode_label(&path->extra->label[0]);
+				if (path->extra->num_labels == 1 && label == MPLS_LABEL_IMPLICIT_NULL) {
+					bnc_is_valid_nexthop =
+						bgp_isvalid_nexthop(bnc) ? true : false;
+				} else {
+					if (bgp_update_martian_nexthop(
+						bnc->bgp, afi, safi, path->type,
+						path->sub_type, path->attr, dest)) {
+						if (BGP_DEBUG(nht, NHT))
+							zlog_debug(
+								"%s: prefix %pBD (vrf %s), ignoring path with label due to martian or self-next-hop",
+								__func__, dest, bgp_path->name);
+					} else {
+						bnc_is_valid_nexthop =
+							bgp_isvalid_nexthop(bnc) ? true : false;
+					}
+				}
+			} else {
+				if (bgp_update_martian_nexthop(
+					bnc->bgp, afi, safi, path->type,
+					path->sub_type, path->attr, dest)) {
+					if (BGP_DEBUG(nht, NHT))
+						zlog_debug(
+							"%s: prefix %pBD (vrf %s), ignoring path due to martian or self-next-hop",
+							__func__, dest, bgp_path->name);
+				} else
+					bnc_is_valid_nexthop =
+						bgp_isvalid_nexthop(bnc) ? true : false;
+			}
 		}
 
 		if (BGP_DEBUG(nht, NHT)) {
