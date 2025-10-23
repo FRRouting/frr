@@ -12663,7 +12663,9 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 					else
 						json_nhc_nnhn = json_object_new_array();
 
-					for (i = 0; i < tlv->length; i += IPV4_MAX_BYTELEN) {
+					/* First is Next-hop BGP ID, skip it. */
+					for (i = IPV4_MAX_BYTELEN; i < tlv->length;
+					     i += IPV4_MAX_BYTELEN) {
 						if (!json_paths) {
 							vty_out(vty, "       %pI4\n",
 								(struct in_addr *)&tlv->value[i]);

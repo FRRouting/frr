@@ -89,9 +89,15 @@ uint64_t bgp_nhc_nnhn_count(struct bgp_nhc *nhc)
 		if (tlv->code == BGP_ATTR_NHC_TLV_NNHN) {
 			/* BGP Identifier is always 4-bytes (yet...) */
 			count = tlv->length / IPV4_MAX_BYTELEN;
-			break;
+			if (count <= 1)
+				return 0;
+
+			/* -1 is to exclude the next-hop BGP ID.
+			 * We care only about Next-next hops here.
+			 */
+			return count - 1;
 		}
 	}
 
-	return count;
+	return 0;
 }
