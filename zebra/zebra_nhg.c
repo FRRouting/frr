@@ -3112,7 +3112,6 @@ static bool zebra_nhg_nexthop_compare(const struct nexthop *nhop,
 
 			nhop = nhop->next;
 			old_nhop = old_nhop->next;
-			continue;
 		} else {
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 				zlog_debug("%s:%pRN They are not the same, stopping using new nexthop entry",
