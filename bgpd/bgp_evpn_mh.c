@@ -70,6 +70,8 @@ static void bgp_evpn_run_consistency_checks(struct event *t);
 static void bgp_evpn_path_nh_info_free(struct bgp_path_evpn_nh_info *nh_info);
 static void bgp_evpn_path_nh_unlink(struct bgp_path_evpn_nh_info *nh_info);
 static void bgp_evpn_es_vrf_delete(struct bgp_evpn_es_vrf *es_vrf);
+static struct bgp_evpn_es_evi *bgp_evpn_es_evi_free_internal(struct bgp_evpn_es_evi *es_evi,
+							     bool force);
 static struct bgp_evpn_es_evi *bgp_evpn_es_evi_free(struct bgp_evpn_es_evi *es_evi);
 
 /******************************************************************************
@@ -3635,21 +3637,20 @@ static struct bgp_evpn_es_evi *bgp_evpn_es_evi_new(struct bgp_evpn_es *es,
 /* remove the ES-EVI from the per-L2-VNI and per-ES tables and free
  * up the memory.
  */
-static struct bgp_evpn_es_evi *
-bgp_evpn_es_evi_free(struct bgp_evpn_es_evi *es_evi)
+static struct bgp_evpn_es_evi *bgp_evpn_es_evi_free_internal(struct bgp_evpn_es_evi *es_evi,
+							     bool force)
 {
 	struct bgp_evpn_es *es = es_evi->es;
 	struct bgpevpn *vpn = es_evi->vpn;
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
-		zlog_debug("Freeing ES-EVI for ES %s VNI %u flags 0x%x", es->esi_str, vpn->vni,
-			   es_evi->flags);
+		zlog_debug("Freeing ES-EVI for ES %s VNI %u flags 0x%x%s", es->esi_str, vpn->vni,
+			   es_evi->flags, force ? " (forced)" : "");
 
 	/* cannot free the element as long as there is a local or remote
-	 * reference
+	 * reference (unless force is set during shutdown)
 	 */
-	if (CHECK_FLAG(es_evi->flags,
-		       (BGP_EVPNES_EVI_LOCAL | BGP_EVPNES_EVI_REMOTE)))
+	if (!force && CHECK_FLAG(es_evi->flags, (BGP_EVPNES_EVI_LOCAL | BGP_EVPNES_EVI_REMOTE)))
 		return es_evi;
 	bgp_evpn_es_frag_evi_del(es_evi, false);
 	bgp_evpn_es_vrf_deref(es_evi);
@@ -3670,6 +3671,12 @@ bgp_evpn_es_evi_free(struct bgp_evpn_es_evi *es_evi)
 	XFREE(MTYPE_BGP_EVPN_ES_EVI, es_evi);
 
 	return NULL;
+}
+
+/* Wrapper function for normal operation (non-forced cleanup) */
+static struct bgp_evpn_es_evi *bgp_evpn_es_evi_free(struct bgp_evpn_es_evi *es_evi)
+{
+	return bgp_evpn_es_evi_free_internal(es_evi, false);
 }
 
 /* init local info associated with the ES-EVI */
@@ -5068,9 +5075,33 @@ void bgp_evpn_mh_finish(void)
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
 		zlog_debug("evpn mh finish");
 
+	/* Force cleanup of all ES structures including ES-EVI and ES-VRF.
+	 * During shutdown, normal cleanup may fail due to guard conditions
+	 * that prevent freeing structures with REMOTE flags set. We force
+	 * cleanup here to ensure no memory leaks.
+	 */
 	RB_FOREACH_SAFE (es, bgp_es_rb_head, &bgp_mh_info->es_rb_tree,
 			 es_next) {
+		/* Clear local info first (attempts normal cleanup) */
 		bgp_evpn_es_local_info_clear(es, true);
+
+		/* Force cleanup of any remaining structures that couldn't be
+		 * freed due to REMOTE flags or other guard conditions
+		 */
+		if (es->es_evi_list && listcount(es->es_evi_list) > 0) {
+			struct listnode *node, *next;
+			struct bgp_evpn_es_evi *es_evi;
+
+			if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
+				zlog_debug("evpn mh finish: force cleanup %d ES-EVIs for ES %s",
+					   listcount(es->es_evi_list), es->esi_str);
+
+			for (ALL_LIST_ELEMENTS(es->es_evi_list, node, next, es_evi)) {
+				/* Clear remote flag and force free */
+				UNSET_FLAG(es_evi->flags, BGP_EVPNES_EVI_REMOTE);
+				bgp_evpn_es_evi_free_internal(es_evi, true);
+			}
+		}
 	}
 	if (bgp_mh_info->t_cons_check)
 		EVENT_OFF(bgp_mh_info->t_cons_check);
