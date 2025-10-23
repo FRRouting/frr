@@ -3933,12 +3933,22 @@ enum bgp_attr_parse_ret bgp_attr_parse(struct peer *peer, struct attr *attr,
 				  lookup_msg(attr_str, type, NULL));
 			goto done;
 		}
+<<<<<<< HEAD
 		if (ret == BGP_ATTR_PARSE_WITHDRAW) {
 			flog_warn(
 				EC_BGP_ATTRIBUTE_PARSE_WITHDRAW,
 				"%s: Attribute %s, parse error - treating as withdrawal",
 				peer->host, lookup_msg(attr_str, type, NULL));
 			stream_forward_getp(BGP_INPUT(peer), endp - BGP_INPUT_PNT(peer));
+=======
+		if (ret == BGP_ATTR_PARSE_WITHDRAW || ret == BGP_ATTR_PARSE_WITHDRAW_IGNORE) {
+			if (ret == BGP_ATTR_PARSE_WITHDRAW)
+				flog_warn(EC_BGP_ATTRIBUTE_PARSE_WITHDRAW,
+					  "%s: Attribute %s, parse error - treating as withdrawal",
+					  peer->host, lookup_msg(attr_str, type, NULL));
+			stream_forward_getp(BGP_INPUT(connection),
+					    endp - BGP_INPUT_PNT(connection));
+>>>>>>> 9f106a974 (bgpd: Do not complain in the logs if we intentionally withdraw specific attrs)
 			goto done;
 		}
 
@@ -5468,7 +5478,18 @@ enum bgp_attr_parse_ret bgp_attr_ignore(struct peer *peer, uint8_t type)
 			   lookup_msg(attr_str, type, NULL),
 			   withdraw ? "treat-as-withdraw" : "discard");
 
+<<<<<<< HEAD
 	return withdraw ? BGP_ATTR_PARSE_WITHDRAW : BGP_ATTR_PARSE_PROCEED;
+=======
+	/* We don't increment stat_pfx_withdraw here, because it's done in
+	 * bgp_update_receive().
+	 */
+	if (withdraw)
+		return BGP_ATTR_PARSE_WITHDRAW_IGNORE;
+
+	peer->stat_pfx_discard++;
+	return BGP_ATTR_PARSE_PROCEED;
+>>>>>>> 9f106a974 (bgpd: Do not complain in the logs if we intentionally withdraw specific attrs)
 }
 
 bool route_matches_soo(struct bgp_path_info *pi, struct ecommunity *soo)
