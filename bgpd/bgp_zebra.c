@@ -3506,7 +3506,12 @@ static int bgp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 	struct bgp *bgp = bgp_get_default();
 	struct listnode *node;
 	struct srv6_locator_chunk *c;
-	struct srv6_locator_chunk *chunk = srv6_locator_chunk_alloc();
+	struct srv6_locator_chunk *chunk;
+
+	if (!bgp)
+		return 0;
+
+	chunk = srv6_locator_chunk_alloc();
 
 	s = zclient->ibuf;
 	zapi_srv6_locator_chunk_decode(s, chunk);
