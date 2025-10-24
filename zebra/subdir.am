@@ -127,6 +127,7 @@ clippy_scan += \
 	zebra/zebra_vty.c \
 	zebra/zebra_srv6_vty.c \
 	zebra/zebra_vrf.c \
+	zebra/zserv.c \
 	zebra/dpdk/zebra_dplane_dpdk_vty.c \
 	zebra/label_manager.c \
 	zebra/zebra_cli.c \
