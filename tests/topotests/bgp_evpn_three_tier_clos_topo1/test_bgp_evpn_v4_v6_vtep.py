@@ -31,7 +31,9 @@ Linux Commands:
 ---------------
 10. bridge -j fdb show
 11. ip -d -j link show {vxlan_device}
-12. ping / ping6
+12. ip -j route show vrf {vrf} {route}
+13. ip -j nexthop get id {nhid}
+14. ping / ping6
 
 Test Execution Order:
 =====================
@@ -43,8 +45,9 @@ Test Execution Order:
 6. test_l3vni_rmacs                     - Verify L3VNI RMACs
 7. test_vrf_routes                      - Display VRF routes (informational)
 8. test_evpn_vtep_nexthops              - Verify L3VNI next-hops
-9. test_host_to_host_ping               - Verify end-to-end connectivity
-10. test_memory_leak                    - Memory leak detection
+9. test_evpn_check_overlay_route        - Verify EVPN Type-5 overlay route in VRF RIB
+10. test_host_to_host_ping              - Verify end-to-end connectivity
+11. test_memory_leak                    - Memory leak detection
 """
 
 import os
@@ -71,6 +74,8 @@ from lib.evpn import (
     evpn_verify_bgp_vni_state,
     evpn_verify_l3vni_remote_rmacs,
     evpn_verify_l3vni_remote_nexthops,
+    evpn_verify_vrf_rib_route,
+    evpn_verify_overlay_route_in_kernel,
     evpn_trigger_arp_scapy,
     evpn_verify_ping_connectivity,
 )
@@ -959,6 +964,106 @@ def test_evpn_vtep_nexthops(tgen_and_ip_version):
     evpn_verify_l3vni_remote_nexthops(tgen, vtep_routers, l3vni_list)
 
     logger.info("EVPN L3VNI next-hop verification completed successfully")
+
+
+def test_evpn_check_overlay_route(tgen_and_ip_version):
+    """
+    Verify EVPN Type-5 overlay route in FRR RIB and Linux kernel
+
+    This test validates that EVPN Type-5 routes advertised from external
+    router (ext-1) are properly received and installed in both:
+    1. FRR routing table (show ip route vrf)
+    2. Linux kernel routing table (ip route show vrf)
+
+    Verification includes:
+    - Route 81.1.1.0/24 exists in vrf1
+    - Protocol is BGP
+    - Route is selected and installed
+    - Multiple ECMP next-hops via EVPN L3VNI (vlan4001)
+    - Kernel nexthop groups are correctly configured
+    - Each nexthop has 'onlink' flag set
+
+    Test scenario:
+    - Router: tor-21
+    - VRF: vrf1
+    - Route: 81.1.1.0/24 (IPv4 overlay route advertised from ext-1)
+    - Expected next-hops:
+      * IPv4 underlay: bordertor-11 (6.0.0.1), bordertor-12 (6.0.0.2)
+      * IPv6 underlay: bordertor-11 (2006:20:20::1), bordertor-12 (2006:20:20::2)
+    - Interface: vlan4001 (L3VNI interface)
+
+    Note: This tests RFC 5549 behavior - IPv4 routes with IPv6 next-hops when
+    using IPv6 underlay. Verifies both control plane (FRR) and data plane (kernel).
+    """
+    tgen, ip_version = tgen_and_ip_version
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info(
+        f"Verifying EVPN Type-5 overlay route 81.1.1.0/24 in vrf1 on tor-21 "
+        f"({ip_version} underlay)"
+    )
+
+    router = tgen.gears["tor-21"]
+
+    # Load expected JSON from version-specific directory
+    # IPv4 underlay: IPv4 next-hops (6.0.0.1, 6.0.0.2)
+    # IPv6 underlay: IPv6 next-hops (2006:20:20::1, 2006:20:20::2)
+    config_dir = os.path.join(CWD, ip_version)
+    expected_file = os.path.join(config_dir, "tor-21", "type5_prefix1.json")
+    with open(expected_file, "r") as f:
+        expected = json.load(f)
+
+    logger.info(
+        f"Loaded expected route data from {expected_file} "
+        f"(testing IPv4 route with {ip_version} next-hops)"
+    )
+
+    # Verify route in FRR RIB with retry logic
+    test_func = partial(
+        evpn_verify_vrf_rib_route,
+        router,
+        vrf="vrf1",
+        route="81.1.1.0/24",
+        expected_json=expected,
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert (
+        result is None
+    ), f"EVPN Type-5 overlay route verification (RIB) failed: {result}"
+
+    logger.info(f"FRR RIB verification successful for route 81.1.1.0/24")
+
+    # Verify route in Linux kernel with nexthop groups
+    # Extract expected nexthops from JSON (the 'ip' field from each nexthop)
+    kernel_expected_nexthops = []
+    for nh in expected["81.1.1.0/24"][0]["nexthops"]:
+        if "ip" in nh and "duplicate" not in nh:
+            # Only add unique nexthops (skip duplicates)
+            if nh["ip"] not in kernel_expected_nexthops:
+                kernel_expected_nexthops.append(nh["ip"])
+
+    logger.info(
+        f"Verifying kernel route 81.1.1.0/24 with nexthops: {kernel_expected_nexthops}"
+    )
+
+    test_func = partial(
+        evpn_verify_overlay_route_in_kernel,
+        router,
+        vrf="vrf1",
+        route="81.1.1.0/24",
+        expected_nexthops=kernel_expected_nexthops,
+        expected_dev="vlan4001",
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert (
+        result is None
+    ), f"EVPN Type-5 overlay route verification (kernel) failed: {result}"
+
+    logger.info(
+        f"EVPN Type-5 overlay route verification completed successfully "
+        f"(RIB + kernel, {ip_version} underlay)"
+    )
 
 
 def test_host_to_host_ping(tgen_and_ip_version):
