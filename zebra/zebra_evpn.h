@@ -51,6 +51,12 @@ struct zebra_vtep {
 	/* Links. */
 	struct zebra_vtep *next;
 	struct zebra_vtep *prev;
+
+	/*
+	 * Timestamp of when this entry was created/refreshed.
+	 * This field is used to do GR stale entry cleanup
+	 */
+	uint64_t gr_refresh_time;
 };
 
 /*
@@ -148,6 +154,11 @@ static inline struct interface *zevpn_map_to_svi(struct zebra_evpn *zevpn)
 	return zvni_map_to_svi(vni->access_vlan, zif->brslave_info.br_if);
 }
 
+struct l2vni_walk_ctx {
+	bool gr_stale_cleanup;
+	uint64_t gr_cleanup_time;
+};
+
 int advertise_gw_macip_enabled(struct zebra_evpn *zevpn);
 int advertise_svi_macip_enabled(struct zebra_evpn *zevpn);
 void zebra_evpn_print(struct zebra_evpn *zevpn, void **ctxt);
@@ -191,7 +202,8 @@ struct zebra_vtep *zebra_evpn_vtep_find(struct zebra_evpn *zevpn, struct ipaddr 
 struct zebra_vtep *zebra_evpn_vtep_add(struct zebra_evpn *zevpn, struct ipaddr *vtep_ip,
 				       int flood_control);
 int zebra_evpn_vtep_del(struct zebra_evpn *zevpn, struct zebra_vtep *zvtep);
-int zebra_evpn_vtep_del_all(struct zebra_evpn *zevpn, int uninstall);
+int zebra_evpn_vtep_del_all(struct zebra_evpn *zevpn, int uninstall,
+			    struct l2vni_walk_ctx *l2_wctx);
 int zebra_evpn_vtep_install(struct zebra_evpn *zevpn, struct zebra_vtep *zvtep);
 int zebra_evpn_vtep_uninstall(struct zebra_evpn *zevpn, struct ipaddr *vtep_ip);
 void zebra_evpn_handle_flooding_remote_vteps(struct hash_bucket *bucket, void *args[]);

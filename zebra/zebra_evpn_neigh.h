@@ -99,9 +99,14 @@ struct zebra_neigh {
 	time_t dad_dup_detect_time;
 
 	time_t uptime;
-
 	/* used for ageing out the PEER_ACTIVE flag */
 	struct event *hold_timer;
+
+	/*
+	 * Timestamp of when this entry was created/refreshed.
+	 * This field is used to do GR stale entry cleanup
+	 */
+	uint64_t gr_refresh_time;
 };
 
 /*
@@ -127,6 +132,9 @@ struct neigh_walk_ctx {
 	uint8_t addr_width;       /* Used by VTY handlers */
 	uint8_t r_vtep_width;	  /* Used by VTY handlers */
 	struct json_object *json; /* Used for JSON Output */
+	bool gr_stale_cleanup;	  /* Used for cleaning up stale entries after GR
+				   */
+	uint64_t gr_cleanup_time;
 };
 
 /**************************** SYNC neigh handling **************************/
@@ -220,8 +228,8 @@ struct zebra_neigh *zebra_evpn_proc_sync_neigh_update(
 	struct zebra_evpn *zevpn, struct zebra_neigh *n, uint16_t ipa_len,
 	const struct ipaddr *ipaddr, uint8_t flags, uint32_t seq,
 	const esi_t *esi, struct zebra_mac *mac);
-void zebra_evpn_neigh_del_all(struct zebra_evpn *zevpn, int uninstall,
-			      int upd_client, uint32_t flags);
+void zebra_evpn_neigh_del_all(struct zebra_evpn *zevpn, int uninstall, int upd_client,
+			      uint32_t flags, struct l2vni_walk_ctx *l2_wctx);
 struct zebra_neigh *zebra_evpn_neigh_lookup(struct zebra_evpn *zevpn,
 					    const struct ipaddr *ip);
 
@@ -242,11 +250,9 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 				  const struct ipaddr *ip,
 				  const struct ethaddr *macaddr, bool is_router,
 				  bool local_inactive, bool dp_static);
-int zebra_evpn_remote_neigh_update(struct zebra_evpn *zevpn,
-				   struct interface *ifp,
-				   const struct ipaddr *ip,
-				   const struct ethaddr *macaddr,
-				   uint16_t state);
+int zebra_evpn_remote_neigh_update(struct zebra_evpn *zevpn, struct interface *ifp,
+				   const struct ipaddr *ip, const struct ethaddr *macaddr,
+				   uint16_t state, bool is_router);
 void zebra_evpn_send_neigh_to_client(struct zebra_evpn *zevpn);
 void zebra_evpn_clear_dup_neigh_hash(struct hash_bucket *bucket, void *ctxt);
 void zebra_evpn_print_neigh(struct zebra_neigh *n, void *ctxt,
