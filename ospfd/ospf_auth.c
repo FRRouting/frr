@@ -10,6 +10,8 @@
 #ifdef CRYPTO_OPENSSL
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
+#include <openssl/core_names.h>
+#include <openssl/params.h>
 #endif
 
 #include "linklist.h"
@@ -71,16 +73,16 @@ static int ospf_check_sum(struct ospf_header *ospfh)
 }
 
 #ifdef CRYPTO_OPENSSL
-static const EVP_MD *ospf_auth_get_openssl_evp_md_from_key(struct key *key)
+static const char *ospf_auth_get_digest_name_from_key(struct key *key)
 {
 	if (key->hash_algo == KEYCHAIN_ALGO_HMAC_SHA1)
-		return EVP_get_digestbyname("sha1");
+		return "SHA1";
 	else if (key->hash_algo == KEYCHAIN_ALGO_HMAC_SHA256)
-		return EVP_get_digestbyname("sha256");
+		return "SHA256";
 	else if (key->hash_algo == KEYCHAIN_ALGO_HMAC_SHA384)
-		return EVP_get_digestbyname("sha384");
+		return "SHA384";
 	else if (key->hash_algo == KEYCHAIN_ALGO_HMAC_SHA512)
-		return EVP_get_digestbyname("sha512");
+		return "SHA512";
 	return NULL;
 }
 #endif
@@ -95,11 +97,13 @@ static int ospf_auth_check_hmac_sha_digest(struct ospf_interface *oi,
 	uint16_t length = ntohs(ospfh->length);
 	uint16_t hash_length = keychain_get_hash_len(key->hash_algo);
 #ifdef CRYPTO_OPENSSL
-	uint32_t openssl_hash_length = hash_length;
-	HMAC_CTX *ctx;
-	const EVP_MD *md_alg = ospf_auth_get_openssl_evp_md_from_key(key);
+	size_t openssl_hash_length = hash_length;
+	EVP_MAC *mac = NULL;
+	EVP_MAC_CTX *ctx = NULL;
+	OSSL_PARAM params[2];
+	const char *digest_name = ospf_auth_get_digest_name_from_key(key);
 
-	if (!md_alg) {
+	if (!digest_name) {
 		flog_warn(EC_OSPF_AUTH,
 			  "interface %s: invalid HMAC algorithm, Router-ID: %pI4",
 			  IF_NAME(oi), &ospfh->router_id);
@@ -127,12 +131,34 @@ static int ospf_auth_check_hmac_sha_digest(struct ospf_interface *oi,
 		return 0;
 	}
 #ifdef CRYPTO_OPENSSL
-	ctx = HMAC_CTX_new();
-	HMAC_Init_ex(ctx, key->string, strlen(key->string), md_alg, NULL);
-	HMAC_Update(ctx, (const unsigned char *)ospfh, length);
-	HMAC_Update(ctx, (const unsigned char *)ospf_auth_apad, hash_length);
-	HMAC_Final(ctx, digest, &openssl_hash_length);
-	HMAC_CTX_free(ctx);
+	mac = EVP_MAC_fetch(NULL, "HMAC", NULL);
+	if (!mac) {
+		flog_warn(EC_OSPF_AUTH, "interface %s: EVP_MAC_fetch failed, Router-ID: %pI4",
+			  IF_NAME(oi), &ospfh->router_id);
+		return 0;
+	}
+	ctx = EVP_MAC_CTX_new(mac);
+	if (!ctx) {
+		EVP_MAC_free(mac);
+		flog_warn(EC_OSPF_AUTH, "interface %s: EVP_MAC_CTX_new failed, Router-ID: %pI4",
+			  IF_NAME(oi), &ospfh->router_id);
+		return 0;
+	}
+	params[0] = OSSL_PARAM_construct_utf8_string(OSSL_MAC_PARAM_DIGEST, (char *)digest_name, 0);
+	params[1] = OSSL_PARAM_construct_end();
+
+	if (!EVP_MAC_init(ctx, (const unsigned char *)key->string, strlen(key->string), params)) {
+		EVP_MAC_CTX_free(ctx);
+		EVP_MAC_free(mac);
+		flog_warn(EC_OSPF_AUTH, "interface %s: EVP_MAC_init failed, Router-ID: %pI4",
+			  IF_NAME(oi), &ospfh->router_id);
+		return 0;
+	}
+	EVP_MAC_update(ctx, (const unsigned char *)ospfh, length);
+	EVP_MAC_update(ctx, (const unsigned char *)ospf_auth_apad, hash_length);
+	EVP_MAC_final(ctx, digest, &openssl_hash_length, sizeof(digest));
+	EVP_MAC_CTX_free(ctx);
+	EVP_MAC_free(mac);
 #elif CRYPTO_INTERNAL
 	memset(&ctx, 0, sizeof(ctx));
 	HMAC__SHA256_Init(&ctx, key->string, strlen(key->string));
@@ -299,11 +325,13 @@ static int ospf_auth_make_hmac_sha_digest(struct ospf_interface *oi,
 	ibuf = STREAM_DATA(op->s);
 	ospfh = (struct ospf_header *)ibuf;
 #ifdef CRYPTO_OPENSSL
-	uint32_t openssl_hash_length = hash_length;
-	HMAC_CTX *ctx;
-	const EVP_MD *md_alg = ospf_auth_get_openssl_evp_md_from_key(key);
+	size_t openssl_hash_length = hash_length;
+	EVP_MAC *mac = NULL;
+	EVP_MAC_CTX *ctx = NULL;
+	OSSL_PARAM params[2];
+	const char *digest_name = ospf_auth_get_digest_name_from_key(key);
 
-	if (!md_alg) {
+	if (!digest_name) {
 		flog_warn(EC_OSPF_AUTH,
 			  "interface %s: invalid HMAC algorithm, Router-ID: %pI4",
 			  IF_NAME(oi), &ospfh->router_id);
@@ -320,12 +348,34 @@ static int ospf_auth_make_hmac_sha_digest(struct ospf_interface *oi,
 	}
 #endif
 #ifdef CRYPTO_OPENSSL
-	ctx = HMAC_CTX_new();
-	HMAC_Init_ex(ctx, key->string, strlen(key->string), md_alg, NULL);
-	HMAC_Update(ctx, (const unsigned char *)ospfh, ntohs(ospfh->length));
-	HMAC_Update(ctx, (const unsigned char *)ospf_auth_apad, hash_length);
-	HMAC_Final(ctx, digest, &openssl_hash_length);
-	HMAC_CTX_free(ctx);
+	mac = EVP_MAC_fetch(NULL, "HMAC", NULL);
+	if (!mac) {
+		flog_warn(EC_OSPF_AUTH, "interface %s: EVP_MAC_fetch failed, Router-ID: %pI4",
+			  IF_NAME(oi), &ospfh->router_id);
+		return 0;
+	}
+	ctx = EVP_MAC_CTX_new(mac);
+	if (!ctx) {
+		EVP_MAC_free(mac);
+		flog_warn(EC_OSPF_AUTH, "interface %s: EVP_MAC_CTX_new failed, Router-ID: %pI4",
+			  IF_NAME(oi), &ospfh->router_id);
+		return 0;
+	}
+	params[0] = OSSL_PARAM_construct_utf8_string(OSSL_MAC_PARAM_DIGEST, (char *)digest_name, 0);
+	params[1] = OSSL_PARAM_construct_end();
+
+	if (!EVP_MAC_init(ctx, (const unsigned char *)key->string, strlen(key->string), params)) {
+		EVP_MAC_CTX_free(ctx);
+		EVP_MAC_free(mac);
+		flog_warn(EC_OSPF_AUTH, "interface %s: EVP_MAC_init failed, Router-ID: %pI4",
+			  IF_NAME(oi), &ospfh->router_id);
+		return 0;
+	}
+	EVP_MAC_update(ctx, (const unsigned char *)ospfh, ntohs(ospfh->length));
+	EVP_MAC_update(ctx, (const unsigned char *)ospf_auth_apad, hash_length);
+	EVP_MAC_final(ctx, digest, &openssl_hash_length, sizeof(digest));
+	EVP_MAC_CTX_free(ctx);
+	EVP_MAC_free(mac);
 #elif CRYPTO_INTERNAL
 	memset(&ctx, 0, sizeof(ctx));
 	HMAC__SHA256_Init(&ctx, key->string, strlen(key->string));
