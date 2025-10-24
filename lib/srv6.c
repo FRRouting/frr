@@ -182,6 +182,10 @@ const char *seg6local_context2str(char *str, size_t size,
 		return str;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_X:
+		snprintfrr(str, size, "nh6 %pI6%s, %s", &ctx->nh6, p_flavor,
+			   ifindex2ifname(ctx->ifindex, VRF_DEFAULT));
+		return str;
+
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX6:
 		snprintfrr(str, size, "nh6 %pI6%s", &ctx->nh6, p_flavor);
 		return str;
