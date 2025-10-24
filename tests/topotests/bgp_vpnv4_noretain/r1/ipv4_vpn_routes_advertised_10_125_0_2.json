@@ -22,7 +22,6 @@
                     "announceNexthopSelf":true,
                     "origin":"incomplete",
                     "metric":0,
-                    "locPrf":100,
                     "weight":32768,
                     "valid":true,
                     "sourced":true,
@@ -70,7 +69,6 @@
                     "announceNexthopSelf":true,
                     "origin":"incomplete",
                     "metric":0,
-                    "locPrf":100,
                     "weight":32768,
                     "valid":true,
                     "sourced":true,
@@ -100,6 +98,6 @@
             }
         }
     },
-    "totalPrefixCounter":2,
+    "totalPrefixCounter":6,
     "filteredPrefixCounter":0
 }
