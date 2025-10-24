@@ -121,6 +121,7 @@ struct seg6local_context {
 	struct in_addr nh4;
 	struct in6_addr nh6;
 	uint32_t table;
+	ifindex_t ifindex;
 	struct seg6local_flavors_info flv;
 	uint8_t block_len;
 	uint8_t node_len;
