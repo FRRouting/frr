@@ -1159,11 +1159,8 @@ and this section also helps that case.
 
 .. clicmd:: formats
 
-   Configure SRv6 SID formats.
-
-.. clicmd:: format NAME
-
-   Configure SRv6 SID format.
+   Configure SRv6 SID formats. Use ``format NAME`` to enter configuration mode
+   for a specific SRv6 SID format.
 
 .. clicmd:: compressed usid
 
