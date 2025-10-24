@@ -1506,3 +1506,291 @@ def evpn_verify_ping_connectivity(
         f"{transmitted} packets transmitted, {received} received, 0% packet loss"
     )
     return None
+
+
+def evpn_verify_vrf_rib_route(router, vrf, route, expected_json):
+    """
+    Helper function to verify a specific route in a VRF RIB (Routing Information Base).
+
+    This function queries 'show ip route vrf {vrf} {route} json' and compares
+    the output against expected JSON structure using topotest.json_cmp().
+
+    Parameters
+    ----------
+    * `router`: router object to check
+    * `vrf`: VRF name (e.g., "vrf1", "vrf2")
+    * `route`: Route prefix to verify (e.g., "81.1.1.0/24", "2081:1:1:1::/64")
+    * `expected_json`: Expected JSON structure to compare against
+
+    Returns
+    -------
+    None on success, error string on failure (for use with topotest.run_and_expect)
+
+    Usage
+    -----
+    from functools import partial
+    from lib import topotest
+    from lib.evpn import evpn_verify_vrf_rib_route
+
+    # Verify EVPN Type-5 route with simplified fields (partial matching)
+    expected = {
+        "81.1.1.0/24": [
+            {
+                "protocol": "bgp",
+                "vrfName": "vrf1",
+                "selected": True,
+                "installed": True
+            }
+        ]
+    }
+
+    test_func = partial(
+        evpn_verify_vrf_rib_route,
+        router,
+        vrf="vrf1",
+        route="81.1.1.0/24",
+        expected_json=expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, f"VRF RIB route verification failed: {result}"
+    """
+    from lib import topotest
+
+    # Determine if this is IPv6 based on route format
+    is_ipv6 = ":" in route
+    cmd = f"show {'ipv6' if is_ipv6 else 'ip'} route vrf {vrf} {route} json"
+
+    # Execute command
+    output = router.vtysh_cmd(cmd, isjson=True)
+
+    if not output:
+        return f"VRF {vrf}: No output from '{cmd}'"
+
+    if not isinstance(output, dict):
+        return (
+            f"VRF {vrf}: Invalid output format from '{cmd}', "
+            f"expected dict, got {type(output)}"
+        )
+
+    # Compare actual output with expected JSON
+    result = topotest.json_cmp(output, expected_json)
+
+    if result is not None:
+        return (
+            f"VRF {vrf}: Route {route} mismatch.\n"
+            f"Expected: {expected_json}\n"
+            f"Actual: {output}\n"
+            f"Diff: {result}"
+        )
+
+    logger.info(f"{router.name}: VRF {vrf} route {route} matches expected structure")
+    return None
+
+
+def evpn_verify_overlay_route_in_kernel(
+    router, vrf, route, expected_nexthops, expected_dev="vlan4001"
+):
+    """
+    Verify EVPN overlay route in Linux kernel routing table with nexthop groups.
+
+    This function validates that an overlay route exists in the kernel with correct
+    nexthop group configuration using Linux 'ip' commands with JSON output.
+
+    Validates:
+    - Route exists with nexthop group ID (nhid)
+    - Nexthop group contains expected individual nexthops
+    - Each nexthop has correct gateway IP
+    - Each nexthop uses correct output device
+    - Each nexthop has 'onlink' flag set
+
+    Parameters
+    ----------
+    * `router`: router object to check
+    * `vrf`: VRF name (e.g., "vrf1", "vrf2")
+    * `route`: Route prefix to verify (e.g., "81.1.1.0/24", "2081:1:1:1::/64")
+    * `expected_nexthops`: List of expected nexthop IPs (can be IPv4 or IPv6)
+    * `expected_dev`: Expected output device (default: "vlan4001")
+
+    Returns
+    -------
+    None on success, error string on failure (for use with topotest.run_and_expect)
+
+    Usage
+    -----
+    from functools import partial
+    from lib import topotest
+    from lib.evpn import evpn_verify_overlay_route_in_kernel
+
+    # Verify EVPN Type-5 route with IPv4 overlay and IPv6 nexthops
+    expected_nexthops = ["2006:20:20::1", "2006:20:20::2"]
+
+    test_func = partial(
+        evpn_verify_overlay_route_in_kernel,
+        router,
+        vrf="vrf1",
+        route="81.1.1.0/24",
+        expected_nexthops=expected_nexthops,
+        expected_dev="vlan4001"
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, f"Kernel route verification failed: {result}"
+
+    Notes
+    -----
+    Uses Linux commands with JSON output:
+    - ip -j route show vrf {vrf} {route}
+    - ip -j nexthop get id {nhid}
+
+    Example JSON outputs:
+
+    Route query:
+    [{"dst":"81.1.1.0/24","nhid":185,"protocol":"bgp","metric":20,"flags":[]}]
+
+    Nexthop group query:
+    [{"id":185,"group":[{"id":178},{"id":181}],"protocol":"zebra","flags":[]}]
+
+    Individual nexthop queries:
+    [{"id":178,"gateway":"2006:20:20::1","dev":"vlan4001","scope":"link","protocol":"zebra","flags":["onlink"]}]
+    [{"id":181,"gateway":"2006:20:20::2","dev":"vlan4001","scope":"link","protocol":"zebra","flags":["onlink"]}]
+    """
+    import json
+
+    # Step 1: Get route information with JSON output
+    cmd = f"ip -j route show vrf {vrf} {route}"
+    output = router.run(cmd)
+
+    if not output or not output.strip():
+        return f"VRF {vrf}: No kernel route found for '{cmd}'"
+
+    try:
+        route_data = json.loads(output)
+    except json.JSONDecodeError as e:
+        return (
+            f"VRF {vrf}: Failed to parse JSON from '{cmd}'.\n"
+            f"Error: {e}\nOutput: {output}"
+        )
+
+    if not route_data or not isinstance(route_data, list) or len(route_data) == 0:
+        return f"VRF {vrf}: Route {route} not found in kernel"
+
+    # Step 2: Extract nhid (nexthop group ID) from route
+    route_entry = route_data[0]
+    nhid = route_entry.get("nhid")
+
+    if nhid is None:
+        return (
+            f"VRF {vrf}: Route {route} found but has no 'nhid' field.\n"
+            f"Route data: {route_entry}"
+        )
+
+    logger.info(f"{router.name}: Route {route} has nexthop group ID: {nhid}")
+
+    # Step 3: Get nexthop group details
+    cmd = f"ip -j nexthop get id {nhid}"
+    output = router.run(cmd)
+
+    if not output or not output.strip():
+        return f"VRF {vrf}: Failed to get nexthop group {nhid}"
+
+    try:
+        nh_group_data = json.loads(output)
+    except json.JSONDecodeError as e:
+        return (
+            f"VRF {vrf}: Failed to parse JSON from '{cmd}'.\n"
+            f"Error: {e}\nOutput: {output}"
+        )
+
+    if not nh_group_data or not isinstance(nh_group_data, list):
+        return f"VRF {vrf}: Invalid nexthop group data for ID {nhid}"
+
+    # Step 4: Extract individual nexthop IDs from group
+    nh_group_entry = nh_group_data[0]
+    group_members = nh_group_entry.get("group")
+
+    if not group_members:
+        return (
+            f"VRF {vrf}: Nexthop ID {nhid} has no 'group' field.\n"
+            f"Data: {nh_group_entry}"
+        )
+
+    # Extract individual nexthop IDs
+    nh_ids = [member["id"] for member in group_members if "id" in member]
+
+    logger.info(
+        f"{router.name}: Nexthop group {nhid} contains {len(nh_ids)} members: {nh_ids}"
+    )
+
+    # Step 5: Query each individual nexthop and extract gateway IP
+    actual_nexthops = []
+    for nh_id in nh_ids:
+        cmd = f"ip -j nexthop get id {nh_id}"
+        output = router.run(cmd)
+
+        if not output or not output.strip():
+            return f"VRF {vrf}: Failed to get nexthop details for ID {nh_id}"
+
+        try:
+            nh_data = json.loads(output)
+        except json.JSONDecodeError as e:
+            return (
+                f"VRF {vrf}: Failed to parse JSON from '{cmd}'.\n"
+                f"Error: {e}\nOutput: {output}"
+            )
+
+        if not nh_data or not isinstance(nh_data, list):
+            return f"VRF {vrf}: Invalid nexthop data for ID {nh_id}"
+
+        nh_entry = nh_data[0]
+        nexthop_ip = nh_entry.get("gateway")
+        nexthop_dev = nh_entry.get("dev")
+        nexthop_flags = nh_entry.get("flags", [])
+
+        if not nexthop_ip:
+            return (
+                f"VRF {vrf}: Nexthop ID {nh_id} has no 'gateway' field.\n"
+                f"Data: {nh_entry}"
+            )
+
+        actual_nexthops.append(nexthop_ip)
+
+        logger.info(
+            f"{router.name}: Nexthop ID {nh_id}: gateway {nexthop_ip} dev {nexthop_dev} "
+            f"flags {nexthop_flags}"
+        )
+
+        # Verify device if expected
+        if expected_dev and nexthop_dev != expected_dev:
+            return (
+                f"VRF {vrf}: Nexthop {nexthop_ip} uses device '{nexthop_dev}', "
+                f"expected '{expected_dev}'"
+            )
+
+        # Verify onlink flag is set
+        if "onlink" not in nexthop_flags:
+            return (
+                f"VRF {vrf}: Nexthop {nexthop_ip} (ID {nh_id}) missing 'onlink' flag.\n"
+                f"Flags: {nexthop_flags}"
+            )
+
+    # Step 6: Compare actual nexthops with expected
+    # Convert to sets for comparison (order doesn't matter)
+    actual_set = set(actual_nexthops)
+    expected_set = set(expected_nexthops)
+
+    if actual_set != expected_set:
+        missing = expected_set - actual_set
+        extra = actual_set - expected_set
+        error_msg = f"VRF {vrf}: Route {route} nexthop mismatch.\n"
+        if missing:
+            error_msg += f"  Missing nexthops: {missing}\n"
+        if extra:
+            error_msg += f"  Unexpected nexthops: {extra}\n"
+        error_msg += f"  Expected: {expected_set}\n"
+        error_msg += f"  Actual: {actual_set}"
+        return error_msg
+
+    logger.info(
+        f"{router.name}: VRF {vrf} route {route} verified in kernel with "
+        f"{len(actual_nexthops)} nexthops via {expected_dev}"
+    )
+    return None
