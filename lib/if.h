@@ -90,7 +90,9 @@ enum zebra_iftype {
 	ZEBRA_IF_VETH,	    /* VETH interface*/
 	ZEBRA_IF_BOND,	    /* Bond */
 	ZEBRA_IF_GRE,	    /* GRE interface */
+	ZEBRA_IF_IP6GRE,    /* IP6GRE interface */
 	ZEBRA_IF_GRETAP,    /* GRETAP interface */
+	ZEBRA_IF_IP6GRETAP, /* IP6GRETAP interface */
 	ZEBRA_IF_DUMMY,	    /* Dummy interface */
 };
 
