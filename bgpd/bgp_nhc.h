@@ -45,7 +45,7 @@ struct bgp_nhc {
 #define BGP_NHC_MIN_IPV6_LEN 24
 
 /* TLV values: */
-/* draft-wang-idr-next-next-hop-nodes */
+/* draft-ietf-idr-next-next-hop-nodes-00 */
 #define BGP_ATTR_NHC_TLV_NNHN 2
 /* draft-ietf-idr-entropy-label */
 #define BGP_ATTR_NHC_TLV_BGPID 3
