@@ -286,7 +286,21 @@ void zebra_srv6_locator_format_set(struct srv6_locator *locator,
 
 	/* Change format */
 	locator->sid_format = format;
-
+	if (format) {
+		if (strmatch(format->name, SRV6_SID_FORMAT_USID_F3216_NAME)) {
+			SET_FLAG(locator->flags, SRV6_LOCATOR_F3216);
+			UNSET_FLAG(locator->flags, SRV6_LOCATOR_F4816);
+		} else if (strmatch(format->name, SRV6_SID_FORMAT_USID_F4816_NAME)) {
+			SET_FLAG(locator->flags, SRV6_LOCATOR_F4816);
+			UNSET_FLAG(locator->flags, SRV6_LOCATOR_F3216);
+		} else {
+			UNSET_FLAG(locator->flags, SRV6_LOCATOR_F3216);
+			UNSET_FLAG(locator->flags, SRV6_LOCATOR_F4816);
+		}
+	} else {
+		UNSET_FLAG(locator->flags, SRV6_LOCATOR_F3216);
+		UNSET_FLAG(locator->flags, SRV6_LOCATOR_F4816);
+	}
 	/* Allocate the new parent block */
 	zebra_srv6_sid_locator_block_alloc(locator);
 
@@ -1517,6 +1531,12 @@ static bool alloc_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
 			} else if ((sid_func >= ewlib_start) &&
 				   (sid_func <= ewlib_end)) {
 				/* The SID function has to be allocated from the EWLIB range */
+				if (sid_func - wlib_start >= (wlib_end - wlib_start + 1)) {
+					zlog_err("%s: SID function index %u is out of bounds for wide_lib array (size: %u)",
+						 __func__, sid_func - wlib_start,
+						 (wlib_end - wlib_start + 1));
+					return false;
+				}
 
 				/* Ensure that the requested SID function has not already been taken */
 				for (ALL_LIST_ELEMENTS_RO(block->u.usid
@@ -1898,10 +1918,15 @@ static int get_srv6_sid_explicit(struct zebra_srv6_sid **sid, struct srv6_sid_ct
 
 	zebra_srv6_sid_entry_add(*sid, locator->name, sid_value, is_localonly);
 
-	if (IS_ZEBRA_DEBUG_SRV6)
-		zlog_debug("%s: allocated explicit SRv6 SID function %u for context %s", __func__,
-			   (*sid)->func, srv6_sid_ctx2str(buf, sizeof(buf), ctx));
-
+	if (IS_ZEBRA_DEBUG_SRV6) {
+		if ((*sid)->wide_func == 0)
+			zlog_debug("%s: allocated explicit SRv6 SID function %u for context %s",
+				   __func__, (*sid)->func, srv6_sid_ctx2str(buf, sizeof(buf), ctx));
+		else
+			zlog_debug("%s: allocated explicit SRv6 SID function %u (wide SID %u) for context %s",
+				   __func__, (*sid)->func, (*sid)->wide_func,
+				   srv6_sid_ctx2str(buf, sizeof(buf), ctx));
+	}
 	return 1;
 }
 
