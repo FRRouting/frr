@@ -3789,8 +3789,8 @@ struct bgp *bgp_lookup_by_name_filter(const char *name, bool filter_auto)
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
 		if (filter_auto && CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO))
 			continue;
-		if ((bgp->name == NULL && name == NULL)
-		    || (bgp->name && name && strcmp(bgp->name, name) == 0))
+		if ((bgp->name == NULL && (name == NULL || strcmp(name, VRF_DEFAULT_NAME) == 0)) ||
+		    (bgp->name && name && strcmp(bgp->name, name) == 0))
 			return bgp;
 	}
 	return NULL;

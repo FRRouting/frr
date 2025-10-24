@@ -554,6 +554,7 @@ static bool is_bgp_vrf_active(struct bgp *bgp)
 {
 	struct vrf *vrf;
 	struct interface *ifp;
+	const char *vrf_name;
 
 	/* if there is one interface in the vrf which is up then it is deemed
 	 *  active
@@ -561,9 +562,15 @@ static bool is_bgp_vrf_active(struct bgp *bgp)
 	vrf = vrf_lookup_by_id(bgp->vrf_id);
 	if (vrf == NULL)
 		return false;
+
+	if (bgp->name)
+		vrf_name = bgp->name;
+	else
+		vrf_name = VRF_DEFAULT_NAME;
+
 	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
 		/* if we are in a vrf skip the l3mdev */
-		if (bgp->name && strncmp(ifp->name, bgp->name, VRF_NAMSIZ) == 0)
+		if (vrf_name && strncmp(ifp->name, vrf_name, VRF_NAMSIZ) == 0)
 			continue;
 
 		if (if_is_up(ifp))
@@ -581,6 +588,7 @@ static int bgp_vrf_check_update_active(struct bgp *bgp, struct interface *ifp)
 	bool new_active = false;
 	oid trap;
 	struct index_oid trap_index[2];
+	const char *vrf_name;
 
 	if (!is_bgp_vrf_mplsvpn(bgp) || bgp->snmp_stats == NULL
 	    || !bgp_mplsvpn_notif_enable)
@@ -601,15 +609,17 @@ static int bgp_vrf_check_update_active(struct bgp *bgp, struct interface *ifp)
 		else
 			trap = MPLSL3VPNDOWN;
 
+		if (bgp->name)
+			vrf_name = bgp->name;
+		else
+			vrf_name = VRF_DEFAULT_NAME;
 		/*
 		 * first index vrf_name + ifindex
 		 * second index vrf_name
 		 */
-		trap_index[1].indexlen = strnlen(bgp->name, VRF_NAMSIZ);
-		oid_copy_str(trap_index[0].indexname, bgp->name,
-			     trap_index[1].indexlen);
-		oid_copy_str(trap_index[1].indexname, bgp->name,
-			     trap_index[1].indexlen);
+		trap_index[1].indexlen = strnlen(vrf_name, VRF_NAMSIZ);
+		oid_copy_str(trap_index[0].indexname, vrf_name, trap_index[1].indexlen);
+		oid_copy_str(trap_index[1].indexname, vrf_name, trap_index[1].indexlen);
 		trap_index[0].indexlen =
 			trap_index[1].indexlen + sizeof(ifindex_t);
 		oid_copy_int(trap_index[0].indexname + trap_index[1].indexlen,
@@ -674,14 +684,20 @@ static uint8_t *mplsL3vpnConnectedInterfaces(struct variable *v, oid name[],
 	struct bgp *bgp;
 	uint32_t count = 0;
 	struct vrf *vrf;
+	char *vrf_name;
 
 	if (smux_header_generic(v, name, length, exact, var_len, write_method)
 	    == MATCH_FAILED)
 		return NULL;
 
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+		if (bgp->name)
+			vrf_name = bgp->name;
+		else
+			vrf_name = (char *)VRF_DEFAULT_NAME;
+
 		if (is_bgp_vrf_mplsvpn(bgp)) {
-			vrf = vrf_lookup_by_name(bgp->name);
+			vrf = vrf_lookup_by_name(vrf_name);
 			if (vrf == NULL)
 				continue;
 
@@ -765,6 +781,8 @@ static struct bgp *bgp_lookup_by_name_next(char *vrf_name)
 	struct bgp *bgp, *bgp_next = NULL;
 	struct listnode *node, *nnode;
 	bool first = false;
+	char *vrf_name_selected;
+	char *bgp_next_name;
 
 	/*
 	 * the vrfs are not stored alphabetically but since we are using the
@@ -779,11 +797,21 @@ static struct bgp *bgp_lookup_by_name_next(char *vrf_name)
 			bgp_next = bgp;
 			continue;
 		}
-		if (first || strncmp(bgp->name, vrf_name, VRF_NAMSIZ) > 0) {
+
+		if (bgp->name)
+			vrf_name_selected = bgp->name;
+		else
+			vrf_name_selected = (char *)VRF_DEFAULT_NAME;
+
+		if (bgp_next && bgp_next->name)
+			bgp_next_name = bgp_next->name;
+		else
+			bgp_next_name = (char *)VRF_DEFAULT_NAME;
+
+		if (first || strncmp(vrf_name_selected, vrf_name, VRF_NAMSIZ) > 0) {
 			if (bgp_next == NULL)
 				bgp_next = bgp;
-			else if (strncmp(bgp->name, bgp_next->name, VRF_NAMSIZ)
-				 < 0)
+			else if (strncmp(vrf_name_selected, bgp_next_name, VRF_NAMSIZ) < 0)
 				bgp_next = bgp;
 		}
 	}
@@ -800,6 +828,7 @@ static struct bgp *bgpL3vpnIfConf_lookup(struct variable *v, oid name[],
 	size_t namelen = v ? v->namelen : IFCONFTAB_NAMELEN;
 	struct interface *ifp;
 	int vrf_name_len, len;
+	char *bgp_name;
 
 	/* too long ? */
 	if (*length - namelen > (VRF_NAMSIZ + sizeof(uint32_t)))
@@ -831,12 +860,15 @@ static struct bgp *bgpL3vpnIfConf_lookup(struct variable *v, oid name[],
 		while (bgp) {
 			ifp = if_vrf_lookup_by_index_next(*ifindex,
 							  bgp->vrf_id);
+			if (bgp->name)
+				bgp_name = bgp->name;
+			else
+				bgp_name = (char *)VRF_DEFAULT_NAME;
 			if (ifp) {
-				vrf_name_len = strnlen(bgp->name, VRF_NAMSIZ);
+				vrf_name_len = strnlen(bgp_name, VRF_NAMSIZ);
 				*ifindex = ifp->ifindex;
 				len = vrf_name_len + sizeof(ifindex_t);
-				oid_copy_str(name + namelen, bgp->name,
-					     vrf_name_len);
+				oid_copy_str(name + namelen, bgp_name, vrf_name_len);
 				oid_copy_int(name + namelen + vrf_name_len,
 					     ifindex);
 				*length = len + namelen;
@@ -844,7 +876,7 @@ static struct bgp *bgpL3vpnIfConf_lookup(struct variable *v, oid name[],
 				return bgp;
 			}
 			*ifindex = 0;
-			bgp = bgp_lookup_by_name_next(bgp->name);
+			bgp = bgp_lookup_by_name_next(bgp_name);
 		}
 
 		return NULL;
@@ -890,6 +922,7 @@ static struct bgp *bgpL3vpnVrf_lookup(struct variable *v, oid name[],
 	struct bgp *bgp = NULL;
 	size_t namelen = v ? v->namelen : VRFTAB_NAMELEN;
 	int len;
+	const char *bgp_name;
 
 	if (*length - namelen > VRF_NAMSIZ)
 		return NULL;
@@ -905,8 +938,12 @@ static struct bgp *bgpL3vpnVrf_lookup(struct variable *v, oid name[],
 		if (bgp == NULL)
 			return NULL;
 
-		len = strnlen(bgp->name, VRF_NAMSIZ);
-		oid_copy_str(name + namelen, bgp->name, len);
+		if (bgp->name)
+			bgp_name = bgp->name;
+		else
+			bgp_name = VRF_DEFAULT_NAME;
+		len = strnlen(bgp_name, VRF_NAMSIZ);
+		oid_copy_str(name + namelen, bgp_name, len);
 		*length = len + namelen;
 	}
 	return bgp;
@@ -918,6 +955,7 @@ static uint8_t *mplsL3vpnVrfTable(struct variable *v, oid name[],
 {
 	char vrf_name[VRF_NAMSIZ];
 	struct bgp *l3vpn_bgp;
+	const char *bgp_name;
 
 	if (smux_header_table(v, name, length, exact, var_len, write_method)
 	    == MATCH_FAILED)
@@ -934,8 +972,12 @@ static uint8_t *mplsL3vpnVrfTable(struct variable *v, oid name[],
 		*var_len = 0;
 		return NULL;
 	case MPLSL3VPNVRFDESC:
-		*var_len = strnlen(l3vpn_bgp->name, VRF_NAMSIZ);
-		return (uint8_t *)l3vpn_bgp->name;
+		if (l3vpn_bgp->name)
+			bgp_name = l3vpn_bgp->name;
+		else
+			bgp_name = VRF_DEFAULT_NAME;
+		*var_len = strnlen(bgp_name, VRF_NAMSIZ);
+		return (uint8_t *)bgp_name;
 	case MPLSL3VPNVRFRD:
 		/*
 		 * this is a horror show but the MIB dicates one RD per vrf
@@ -999,6 +1041,7 @@ static struct bgp *bgpL3vpnVrfRt_lookup(struct variable *v, oid name[],
 	struct bgp *l3vpn_bgp;
 	size_t namelen = v ? v->namelen : VRFRTTAB_NAMELEN;
 	int vrf_name_len, len;
+	char *l3vpn_bgp_name;
 
 	/* too long ? */
 	if (*length - namelen
@@ -1052,6 +1095,10 @@ static struct bgp *bgpL3vpnVrfRt_lookup(struct variable *v, oid name[],
 			continue;
 		}
 		if (*rt_index) {
+			if (l3vpn_bgp->name)
+				l3vpn_bgp_name = l3vpn_bgp->name;
+			else
+				l3vpn_bgp_name = (char *)VRF_DEFAULT_NAME;
 			switch (*rt_type) {
 			case 0:
 				*rt_type = MPLSVPNVRFRTTYPEIMPORT;
@@ -1090,19 +1137,17 @@ static struct bgp *bgpL3vpnVrfRt_lookup(struct variable *v, oid name[],
 					*rt_type = MPLSVPNVRFRTTYPEBOTH;
 
 				/* we have a match copy the oid info */
-				vrf_name_len =
-					strnlen(l3vpn_bgp->name, VRF_NAMSIZ);
+				vrf_name_len = strnlen(l3vpn_bgp_name, VRF_NAMSIZ);
 				len = vrf_name_len + sizeof(uint32_t)
 				      + sizeof(uint8_t);
-				oid_copy_str(name + namelen, l3vpn_bgp->name,
-					     vrf_name_len);
+				oid_copy_str(name + namelen, l3vpn_bgp_name, vrf_name_len);
 				oid_copy_int(name + namelen + vrf_name_len,
 					     (int *)rt_index);
 				name[(namelen + len) - 1] = *rt_type;
 				*length = len + namelen;
 				return l3vpn_bgp;
 			}
-			l3vpn_bgp = bgp_lookup_by_name_next(l3vpn_bgp->name);
+			l3vpn_bgp = bgp_lookup_by_name_next(l3vpn_bgp_name);
 		}
 	}
 	return NULL;
@@ -1131,6 +1176,7 @@ static uint8_t *mplsL3vpnVrfRtTable(struct variable *v, oid name[],
 	uint8_t rt_type = 0;
 	char *rt_b = NULL;
 	static char rt_b_str[BUFSIZ] = {};
+	const char *l3vpn_bgp_name;
 
 	if (smux_header_table(v, name, length, exact, var_len, write_method)
 	    == MATCH_FAILED)
@@ -1143,6 +1189,10 @@ static uint8_t *mplsL3vpnVrfRtTable(struct variable *v, oid name[],
 	if (!l3vpn_bgp)
 		return NULL;
 
+	if (l3vpn_bgp->name)
+		l3vpn_bgp_name = l3vpn_bgp->name;
+	else
+		l3vpn_bgp_name = VRF_DEFAULT_NAME;
 	switch (v->magic) {
 	case MPLSL3VPNVRFRT:
 		switch (rt_type) {
@@ -1175,9 +1225,8 @@ static uint8_t *mplsL3vpnVrfRtTable(struct variable *v, oid name[],
 	case MPLSL3VPNVRFRTDESCR:
 		/* since we dont have a description generate one */
 		memset(rt_description, 0, VRF_NAMSIZ + RT_PREAMBLE_SIZE);
-		snprintf(rt_description, VRF_NAMSIZ + RT_PREAMBLE_SIZE,
-			 "RT %s for VRF %s", rt_type2str(rt_type),
-			 l3vpn_bgp->name);
+		snprintf(rt_description, VRF_NAMSIZ + RT_PREAMBLE_SIZE, "RT %s for VRF %s",
+			 rt_type2str(rt_type), l3vpn_bgp_name);
 		*var_len =
 			strnlen(rt_description, VRF_NAMSIZ + RT_PREAMBLE_SIZE);
 		return (uint8_t *)rt_description;
@@ -1319,8 +1368,7 @@ static struct bgp_path_info *bgp_lookup_route_next(struct bgp **l3vpn_bgp,
 	}
 
 	/* No more paths in the input route so find the next route */
-	for (; *l3vpn_bgp;
-	     *l3vpn_bgp = bgp_lookup_by_name_next((*l3vpn_bgp)->name)) {
+	while (*l3vpn_bgp) {
 		*policy = 0;
 		if (!*dest) {
 			table = (*l3vpn_bgp)->rib[AFI_IP][SAFI_UNICAST];
@@ -1345,6 +1393,10 @@ static struct bgp_path_info *bgp_lookup_route_next(struct bgp **l3vpn_bgp,
 			}
 			break;
 		}
+		if ((*l3vpn_bgp)->name)
+			*l3vpn_bgp = bgp_lookup_by_name_next((*l3vpn_bgp)->name);
+		else
+			*l3vpn_bgp = bgp_lookup_by_name_next((char *)VRF_DEFAULT_NAME);
 	}
 
 	return NULL;
@@ -1378,6 +1430,7 @@ static struct bgp_path_info *bgpL3vpnRte_lookup(struct variable *v, oid name[],
 	struct ipaddr nexthop = {0};
 	uint8_t prefix_type;
 	uint8_t nexthop_type;
+	const char *l3vpn_bgp_name;
 
 	if ((uint32_t)(*length - namelen) > (VRF_NAMSIZ + 37))
 		return NULL;
@@ -1459,6 +1512,7 @@ static struct bgp_path_info *bgpL3vpnRte_lookup(struct variable *v, oid name[],
 
 		pi = bgp_lookup_route_next(l3vpn_bgp, dest, &prefix, policy,
 					   &nexthop);
+
 		if (pi) {
 			const struct prefix *p = bgp_dest_get_prefix(*dest);
 			uint8_t oid_index;
@@ -1467,11 +1521,13 @@ static struct bgp_path_info *bgpL3vpnRte_lookup(struct variable *v, oid name[],
 					      : sizeof(struct in6_addr);
 			struct attr *attr = pi->attr;
 
-			vrf_name_len = strnlen((*l3vpn_bgp)->name, VRF_NAMSIZ);
-
+			if ((*l3vpn_bgp)->name)
+				l3vpn_bgp_name = (*l3vpn_bgp)->name;
+			else
+				l3vpn_bgp_name = VRF_DEFAULT_NAME;
+			vrf_name_len = strnlen(l3vpn_bgp_name, VRF_NAMSIZ);
 			/* copy the index parameters */
-			oid_copy_str(&name[namelen], (*l3vpn_bgp)->name,
-				     vrf_name_len);
+			oid_copy_str(&name[namelen], l3vpn_bgp_name, vrf_name_len);
 			oid_index = namelen + vrf_name_len;
 			if (v4) {
 				name[oid_index++] = INETADDRESSTYPEIPV4;

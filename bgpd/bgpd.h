@@ -3014,7 +3014,11 @@ static inline uint32_t bgp_vrf_interfaces(struct bgp *bgp, bool active)
 	if (vrf == NULL)
 		return 0;
 	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
-		if (strcmp(ifp->name, bgp->name) == 0)
+		/* vrf interface */
+		if (bgp->name && strcmp(ifp->name, bgp->name) == 0)
+			continue;
+		/* loopback interface */
+		if (!bgp->name && if_is_loopback_exact(ifp))
 			continue;
 		if (!active || if_is_up(ifp))
 			count++;

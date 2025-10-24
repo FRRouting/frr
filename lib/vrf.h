@@ -154,6 +154,9 @@ static inline uint32_t vrf_interface_count(struct vrf *vrf)
 	struct interface *ifp;
 
 	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+		/* skip the lo interface */
+		if (if_is_loopback_exact(ifp))
+			continue;
 		/* skip the l3mdev */
 		if (strncmp(ifp->name, vrf->name, VRF_NAMSIZ) == 0)
 			continue;
