@@ -309,9 +309,13 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    10 deciseconds. 'no' form of this command is used to to configure back to the
    default value.
 
+.. clicmd:: ipv6 mld access-list ACCESSLIST6_NAME
+
+   Apply the indicated access list to filter incoming MLD joins.
+
 .. clicmd:: ipv6 mld route-map ROUTE-MAP
 
-   Apply the indicated route map to filter incoming IGMP joins.
+   Apply the indicated route map to filter incoming MLD joins.
 
    The following match statements can be used:
 

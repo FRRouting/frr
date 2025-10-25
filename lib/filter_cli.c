@@ -443,6 +443,319 @@ DEFPY_YANG(
 					 false);
 }
 
+DEFPY_YANG(
+	access_list_v6_std, access_list_v6_std_cmd,
+	"ipv6 access-list ACCESSLIST6_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action <X:X::X:X$dst X:X::X:X$dst_mask|[host] X:X::X:X$dst>",
+	IPV6_STR
+	ACCESS_LIST_STR
+	ACCESS_LIST_ZEBRA_STR
+	ACCESS_LIST_SEQ_STR
+	ACCESS_LIST_ACTION_STR
+	"Destination address to match\n"
+	"Destination address mask to apply\n"
+	"Single destination host\n"
+	"Destination address to match\n")
+{
+	int idx = 0;
+	int64_t sseq;
+	struct acl_dup_args ada = {};
+	char xpath[XPATH_MAXLEN];
+	char xpath_entry[XPATH_MAXLEN + 128];
+
+	/*
+	 * Backward compatibility: don't complain about duplicated values,
+	 * just silently accept.
+	 */
+	ada.ada_type = "ipv6";
+	ada.ada_name = name;
+	ada.ada_action = action;
+	if (dst_str && dst_mask_str == NULL) {
+		ada.ada_xpath[idx] = "./ipv6-host";
+		ada.ada_value[idx] = dst_str;
+		idx++;
+	} else if (dst_str && dst_mask_str) {
+		ada.ada_xpath[idx] = "./ipv6-network/address";
+		ada.ada_value[idx] = dst_str;
+		idx++;
+		ada.ada_xpath[idx] = "./ipv6-network/mask";
+		ada.ada_value[idx] = dst_mask_str;
+		idx++;
+	} else {
+		ada.ada_xpath[idx] = "./ipv6-source-any";
+		ada.ada_value[idx] = "";
+		idx++;
+	}
+
+	if (acl_is_dup(vty->candidate_config->dnode, &ada))
+		return CMD_SUCCESS;
+
+	/*
+	 * Create the access-list first, so we can generate sequence if
+	 * none given (backward compatibility).
+	 */
+	snprintf(xpath, sizeof(xpath), "/frr-filter:lib/access-list[type='ipv6'][name='%s']", name);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	if (seq_str == NULL) {
+		/* Use XPath to find the next sequence number. */
+		sseq = acl_get_seq(vty, xpath, false);
+		snprintfrr(xpath_entry, sizeof(xpath_entry), "%s/entry[sequence='%" PRId64 "']",
+			   xpath, sseq);
+	} else
+		snprintfrr(xpath_entry, sizeof(xpath_entry), "%s/entry[sequence='%s']", xpath,
+			   seq_str);
+
+	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
+
+	nb_cli_enqueue_change(vty, "./action", NB_OP_MODIFY, action);
+	if (dst_str != NULL && dst_mask_str == NULL) {
+		nb_cli_enqueue_change(vty, "./ipv6-host", NB_OP_MODIFY, dst_str);
+	} else if (dst_str != NULL && dst_mask_str != NULL) {
+		nb_cli_enqueue_change(vty, "./ipv6-network/address", NB_OP_MODIFY, dst_str);
+		nb_cli_enqueue_change(vty, "./ipv6-network/mask", NB_OP_MODIFY, dst_mask_str);
+	} else {
+		nb_cli_enqueue_change(vty, "./ipv6-source-any", NB_OP_CREATE, NULL);
+	}
+
+	return nb_cli_apply_changes(vty, "%s", xpath_entry);
+}
+
+DEFPY_YANG(
+	no_access_list_v6_std, no_access_list_v6_std_cmd,
+	"no ipv6 access-list ACCESSLIST6_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action <X:X::X:X$dst X:X::X:X$dst_mask|[host] X:X::X:X$dst>",
+	NO_STR
+	IPV6_STR
+	ACCESS_LIST_STR
+	ACCESS_LIST_ZEBRA_STR
+	ACCESS_LIST_SEQ_STR
+	ACCESS_LIST_ACTION_STR
+	"Destination address to match\n"
+	"Destination address mask to apply\n"
+	"Single destination host\n"
+	"Destination address to match\n")
+{
+	int idx = 0;
+	int64_t sseq;
+	struct acl_dup_args ada = {};
+
+	/* If the user provided sequence number, then just go for it. */
+	if (seq_str != NULL)
+		return filter_remove_check_empty(vty, "access", "ipv6", name, seq, false);
+
+	/* Otherwise, to keep compatibility, we need to figure it out. */
+	ada.ada_type = "ipv6";
+	ada.ada_name = name;
+	ada.ada_action = action;
+	if (dst_str && dst_mask_str == NULL) {
+		ada.ada_xpath[idx] = "./ipv6-host";
+		ada.ada_value[idx] = dst_str;
+		idx++;
+	} else if (dst_str && dst_mask_str) {
+		ada.ada_xpath[idx] = "./ipv6-network/address";
+		ada.ada_value[idx] = dst_str;
+		idx++;
+		ada.ada_xpath[idx] = "./ipv6-network/mask";
+		ada.ada_value[idx] = dst_mask_str;
+		idx++;
+	} else {
+		ada.ada_xpath[idx] = "./ipv6-source-any";
+		ada.ada_value[idx] = "";
+		idx++;
+	}
+
+	if (acl_is_dup(vty->candidate_config->dnode, &ada))
+		sseq = ada.ada_seq;
+	else
+		return CMD_WARNING_CONFIG_FAILED;
+
+	return filter_remove_check_empty(vty, "access", "ipv6", name, sseq, false);
+}
+
+DEFPY_YANG(
+	access_list_v6_ext, access_list_v6_ext_cmd,
+	"ipv6 access-list ACCESSLIST6_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action ipv6 <X:X::X:X$src X:X::X:X$src_mask|host X:X::X:X$src|any> <X:X::X:X$dst X:X::X:X$dst_mask|host X:X::X:X$dst|any>",
+	IPV6_STR
+	ACCESS_LIST_STR
+	ACCESS_LIST_ZEBRA_STR
+	ACCESS_LIST_SEQ_STR
+	ACCESS_LIST_ACTION_STR
+	"IPv6 address\n"
+	"Source address to match\n"
+	"Source address mask to apply\n"
+	"Single source host\n"
+	"Source address to match\n"
+	"Any source host\n"
+	"Destination address to match\n"
+	"Destination address mask to apply\n"
+	"Single destination host\n"
+	"Destination address to match\n"
+	"Any destination host\n")
+{
+	int idx = 0;
+	int64_t sseq;
+	struct acl_dup_args ada = {};
+	char xpath[XPATH_MAXLEN];
+	char xpath_entry[XPATH_MAXLEN + 128];
+
+	/*
+	 * Backward compatibility: don't complain about duplicated values,
+	 * just silently accept.
+	 */
+	ada.ada_type = "ipv6";
+	ada.ada_name = name;
+	ada.ada_action = action;
+	if (src_str && src_mask_str == NULL) {
+		ada.ada_xpath[idx] = "./ipv6-host";
+		ada.ada_value[idx] = src_str;
+		idx++;
+	} else if (src_str && src_mask_str) {
+		ada.ada_xpath[idx] = "./ipv6-network/address";
+		ada.ada_value[idx] = src_str;
+		idx++;
+		ada.ada_xpath[idx] = "./ipv6-network/mask";
+		ada.ada_value[idx] = src_mask_str;
+		idx++;
+	} else {
+		ada.ada_xpath[idx] = "./ipv6-source-any";
+		ada.ada_value[idx] = "";
+		idx++;
+	}
+
+	if (dst_str && dst_mask_str == NULL) {
+		ada.ada_xpath[idx] = "./ipv6-destination-host";
+		ada.ada_value[idx] = dst_str;
+		idx++;
+	} else if (dst_str && dst_mask_str) {
+		ada.ada_xpath[idx] = "./ipv6-destination-network/address";
+		ada.ada_value[idx] = dst_str;
+		idx++;
+		ada.ada_xpath[idx] = "./ipv6-destination-network/mask";
+		ada.ada_value[idx] = dst_mask_str;
+		idx++;
+	} else {
+		ada.ada_xpath[idx] = "./ipv6-destination-any";
+		ada.ada_value[idx] = "";
+		idx++;
+	}
+
+	if (acl_is_dup(vty->candidate_config->dnode, &ada))
+		return CMD_SUCCESS;
+
+	/*
+	 * Create the access-list first, so we can generate sequence if
+	 * none given (backward compatibility).
+	 */
+	snprintf(xpath, sizeof(xpath), "/frr-filter:lib/access-list[type='ipv6'][name='%s']", name);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	if (seq_str == NULL) {
+		/* Use XPath to find the next sequence number. */
+		sseq = acl_get_seq(vty, xpath, false);
+		snprintfrr(xpath_entry, sizeof(xpath_entry), "%s/entry[sequence='%" PRId64 "']",
+			   xpath, sseq);
+	} else
+		snprintfrr(xpath_entry, sizeof(xpath_entry), "%s/entry[sequence='%s']", xpath,
+			   seq_str);
+
+	nb_cli_enqueue_change(vty, xpath_entry, NB_OP_CREATE, NULL);
+
+	nb_cli_enqueue_change(vty, "./action", NB_OP_MODIFY, action);
+	if (src_str != NULL && src_mask_str == NULL) {
+		nb_cli_enqueue_change(vty, "./ipv6-host", NB_OP_MODIFY, src_str);
+	} else if (src_str != NULL && src_mask_str != NULL) {
+		nb_cli_enqueue_change(vty, "./ipv6-network/address", NB_OP_MODIFY, src_str);
+		nb_cli_enqueue_change(vty, "./ipv6-network/mask", NB_OP_MODIFY, src_mask_str);
+	} else {
+		nb_cli_enqueue_change(vty, "./ipv6-source-any", NB_OP_CREATE, NULL);
+	}
+
+	if (dst_str != NULL && dst_mask_str == NULL) {
+		nb_cli_enqueue_change(vty, "./ipv6-destination-host", NB_OP_MODIFY, dst_str);
+	} else if (dst_str != NULL && dst_mask_str != NULL) {
+		nb_cli_enqueue_change(vty, "./ipv6-destination-network/address", NB_OP_MODIFY,
+				      dst_str);
+		nb_cli_enqueue_change(vty, "./ipv6-destination-network/mask", NB_OP_MODIFY,
+				      dst_mask_str);
+	} else {
+		nb_cli_enqueue_change(vty, "./ipv6-destination-any", NB_OP_CREATE, NULL);
+	}
+
+	return nb_cli_apply_changes(vty, "%s", xpath_entry);
+}
+
+DEFPY_YANG(
+	no_access_list_v6_ext, no_access_list_v6_ext_cmd,
+	"no ipv6 access-list ACCESSLIST6_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action ipv6 <X:X::X:X$src X:X::X:X$src_mask|host X:X::X:X$src|any> <X:X::X:X$dst X:X::X:X$dst_mask|host X:X::X:X$dst|any>",
+	NO_STR
+	IPV6_STR
+	ACCESS_LIST_STR
+	ACCESS_LIST_ZEBRA_STR
+	ACCESS_LIST_SEQ_STR
+	ACCESS_LIST_ACTION_STR
+	"IPv6 address\n"
+	"Source address to match\n"
+	"Source address mask to apply\n"
+	"Single source host\n"
+	"Source address to match\n"
+	"Any source host\n"
+	"Destination address to match\n"
+	"Destination address mask to apply\n"
+	"Single destination host\n"
+	"Destination address to match\n"
+	"Any destination host\n")
+{
+	int idx = 0;
+	int64_t sseq;
+	struct acl_dup_args ada = {};
+
+	/* If the user provided sequence number, then just go for it. */
+	if (seq_str != NULL)
+		return filter_remove_check_empty(vty, "access", "ipv6", name, seq, false);
+
+	/* Otherwise, to keep compatibility, we need to figure it out. */
+	ada.ada_type = "ipv6";
+	ada.ada_name = name;
+	ada.ada_action = action;
+	if (src_str && src_mask_str == NULL) {
+		ada.ada_xpath[idx] = "./ipv6-host";
+		ada.ada_value[idx] = src_str;
+		idx++;
+	} else if (src_str && src_mask_str) {
+		ada.ada_xpath[idx] = "./ipv6-network/address";
+		ada.ada_value[idx] = src_str;
+		idx++;
+		ada.ada_xpath[idx] = "./ipv6-network/mask";
+		ada.ada_value[idx] = src_mask_str;
+		idx++;
+	} else {
+		ada.ada_xpath[idx] = "./ipv6-source-any";
+		ada.ada_value[idx] = "";
+		idx++;
+	}
+
+	if (dst_str && dst_mask_str == NULL) {
+		ada.ada_xpath[idx] = "./ipv6-destination-host";
+		ada.ada_value[idx] = dst_str;
+		idx++;
+	} else if (dst_str && dst_mask_str) {
+		ada.ada_xpath[idx] = "./ipv6-destination-network/address";
+		ada.ada_value[idx] = dst_str;
+		idx++;
+		ada.ada_xpath[idx] = "./ipv6-destination-network/mask";
+		ada.ada_value[idx] = dst_mask_str;
+		idx++;
+	} else {
+		ada.ada_xpath[idx] = "./ipv6-destination-any";
+		ada.ada_value[idx] = "";
+		idx++;
+	}
+
+	if (acl_is_dup(vty->candidate_config->dnode, &ada))
+		sseq = ada.ada_seq;
+	else
+		return CMD_WARNING_CONFIG_FAILED;
+
+	return filter_remove_check_empty(vty, "access", "ipv6", name, sseq, false);
+}
+
 /*
  * Zebra access lists.
  */
@@ -1001,6 +1314,7 @@ void access_list_show(struct vty *vty, const struct lyd_node *dnode,
 	bool cisco_style = false;
 	bool cisco_extended = false;
 	struct in_addr addr, mask;
+	struct in6_addr addr6, mask6;
 	char macstr[PREFIX2STR_BUFFER];
 
 	is_any = yang_dnode_exists(dnode, "any");
@@ -1029,8 +1343,18 @@ void access_list_show(struct vty *vty, const struct lyd_node *dnode,
 		if (is_any)
 			break;
 
-		yang_dnode_get_prefix(&p, dnode, "ipv6-prefix");
-		is_exact = yang_dnode_get_bool(dnode, "ipv6-exact-match");
+		if (yang_dnode_exists(dnode, "./ipv6-host") ||
+		    yang_dnode_exists(dnode, "./ipv6-network/address") ||
+		    yang_dnode_exists(dnode, "./ipv6-source-any")) {
+			cisco_style = true;
+			if (yang_dnode_exists(dnode, "./ipv6-destination-host") ||
+			    yang_dnode_exists(dnode, "./ipv6-destination-network/address") ||
+			    yang_dnode_exists(dnode, "./ipv6-destination-any"))
+				cisco_extended = true;
+		} else {
+			yang_dnode_get_prefix(&p, dnode, "./ipv6-prefix");
+			is_exact = yang_dnode_get_bool(dnode, "./ipv6-exact-match");
+		}
 		break;
 	case YALT_MAC: /* mac */
 		vty_out(vty, "mac ");
@@ -1048,8 +1372,12 @@ void access_list_show(struct vty *vty, const struct lyd_node *dnode,
 
 	/* Handle Cisco style access lists. */
 	if (cisco_style) {
-		if (cisco_extended)
-			vty_out(vty, " ip");
+		if (cisco_extended) {
+			if (type == YALT_IPV4)
+				vty_out(vty, " ip");
+			else
+				vty_out(vty, " ipv6");
+		}
 
 		if (yang_dnode_exists(dnode, "network")) {
 			yang_dnode_get_ipv4(&addr, dnode, "network/address");
@@ -1062,6 +1390,18 @@ void access_list_show(struct vty *vty, const struct lyd_node *dnode,
 			vty_out(vty, " %s",
 				yang_dnode_get_string(dnode, "host"));
 		} else if (yang_dnode_exists(dnode, "source-any"))
+			vty_out(vty, " any");
+
+		if (yang_dnode_exists(dnode, "./ipv6-network")) {
+			yang_dnode_get_ipv6(&addr6, dnode, "./ipv6-network/address");
+			yang_dnode_get_ipv6(&mask6, dnode, "./ipv6-network/mask");
+			vty_out(vty, " %pI6 %pI6", &addr6, &mask6);
+		} else if (yang_dnode_exists(dnode, "./ipv6-host")) {
+			if (cisco_extended)
+				vty_out(vty, " host");
+
+			vty_out(vty, " %s", yang_dnode_get_string(dnode, "./ipv6-host"));
+		} else if (yang_dnode_exists(dnode, "./ipv6-source-any"))
 			vty_out(vty, " any");
 
 		/* Not extended, exit earlier. */
@@ -1082,6 +1422,16 @@ void access_list_show(struct vty *vty, const struct lyd_node *dnode,
 				yang_dnode_get_string(dnode,
 						      "./destination-host"));
 		else if (yang_dnode_exists(dnode, "destination-any"))
+			vty_out(vty, " any");
+
+		if (yang_dnode_exists(dnode, "./ipv6-destination-network")) {
+			yang_dnode_get_ipv6(&addr6, dnode, "./ipv6-destination-network/address");
+			yang_dnode_get_ipv6(&mask6, dnode, "./ipv6-destination-network/mask");
+			vty_out(vty, " %pI6 %pI6", &addr6, &mask6);
+		} else if (yang_dnode_exists(dnode, "./ipv6-destination-host"))
+			vty_out(vty, " host %s",
+				yang_dnode_get_string(dnode, "./ipv6-destination-host"));
+		else if (yang_dnode_exists(dnode, "./ipv6-destination-any"))
 			vty_out(vty, " any");
 
 		vty_out(vty, "\n");
@@ -1646,6 +1996,10 @@ void filter_cli_init(void)
 	install_element(CONFIG_NODE, &no_access_list_std_cmd);
 	install_element(CONFIG_NODE, &access_list_ext_cmd);
 	install_element(CONFIG_NODE, &no_access_list_ext_cmd);
+	install_element(CONFIG_NODE, &access_list_v6_std_cmd);
+	install_element(CONFIG_NODE, &no_access_list_v6_std_cmd);
+	install_element(CONFIG_NODE, &access_list_v6_ext_cmd);
+	install_element(CONFIG_NODE, &no_access_list_v6_ext_cmd);
 
 	/* access-list zebra-style. */
 	install_element(CONFIG_NODE, &access_list_cmd);
