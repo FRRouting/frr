@@ -1,0 +1,10 @@
+{
+  "r1-eth2":{
+  },
+  "r1-eth3":{
+    "fe80::XXXX:XXXX:XXXX:XXXX":{
+      "interface":"r1-eth3",
+      "neighbor":"fe80::XXXX:XXXX:XXXX:XXXX"
+    }
+  }
+}
