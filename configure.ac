@@ -670,6 +670,7 @@ fi
 AC_SUBST([AC_LDFLAGS])
 AC_SUBST([AC_LDFLAGS_EXEC])
 AM_CONDITIONAL([STATIC_BIN], [test "$enable_static_bin" = "yes"])
+AC_SUBST([LT_OBJDIR], [$lt_cv_objdir])
 
 dnl libtool, the repository of all knowledge related linkers, is too stupid to
 dnl correctly tell the linker how to build modules.
@@ -1075,6 +1076,7 @@ case "${enable_multipath}" in
 esac
 
 AC_DEFINE_UNQUOTED([MULTIPATH_NUM], [$MPATH_NUM], [Maximum number of paths for a route])
+AC_SUBST([MULTIPATH_NUM], [$MPATH_NUM])
 
 case "${with_log_timestamp_precision}" in
 [[0-9]|1[012]])
@@ -2808,6 +2810,8 @@ AC_CONFIG_FILES([tools/frrinit.sh], [chmod +x tools/frrinit.sh])
 AC_CONFIG_FILES([tools/frrcommon.sh])
 AC_CONFIG_FILES([tools/frr.service])
 AC_CONFIG_FILES([tools/frr@.service])
+AC_CONFIG_FILES([frr.pc])
+AC_CONFIG_FILES([frr-uninstalled.pc])
 
 # dnl write out a ccls file with our compile configuration
 # dnl have to add -Wno-unused-function otherwise foobar_cmd_magic causes
