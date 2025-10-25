@@ -114,6 +114,7 @@ struct bgp_debug_filter {
 
 #define BGP_DEBUG_BESTPATH            0x01
 #define BGP_DEBUG_NEIGHBOR_EVENTS     0x01
+#define BGP_DEBUG_NEIGHBOR_EVENTS_DETAIL 0x02
 #define BGP_DEBUG_PACKET              0x01
 #define BGP_DEBUG_KEEPALIVE           0x01
 #define BGP_DEBUG_UPDATE_IN           0x01

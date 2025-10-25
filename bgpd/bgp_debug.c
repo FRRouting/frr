@@ -820,6 +820,31 @@ DEFUN (debug_bgp_neighbor_events,
 	return CMD_SUCCESS;
 }
 
+DEFPY(debug_bgp_neighbor_events_detail,
+      debug_bgp_neighbor_events_detail_cmd,
+      "[no] debug bgp neighbor-events detail",
+      NO_STR
+      DEBUG_STR
+      BGP_STR
+      "BGP Neighbor Events\n"
+      "Show detailed information about neighbor events\n")
+{
+	if (vty->node == CONFIG_NODE) {
+		if (no)
+			DEBUG_OFF(neighbor_events, NEIGHBOR_EVENTS_DETAIL);
+		else
+			DEBUG_ON(neighbor_events, NEIGHBOR_EVENTS_DETAIL);
+	} else {
+		if (no)
+			TERM_DEBUG_OFF(neighbor_events, NEIGHBOR_EVENTS_DETAIL);
+		else
+			TERM_DEBUG_ON(neighbor_events, NEIGHBOR_EVENTS_DETAIL);
+		vty_out(vty, "BGP neighbor-events detail debugging is %s\n", (no) ? "off" : "on");
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (debug_bgp_neighbor_events_peer,
        debug_bgp_neighbor_events_peer_cmd,
        "debug bgp neighbor-events <A.B.C.D|X:X::X:X|WORD>",
@@ -867,10 +892,12 @@ DEFUN (no_debug_bgp_neighbor_events,
 {
 	bgp_debug_list_free(bgp_debug_neighbor_events_peers);
 
-	if (vty->node == CONFIG_NODE)
+	if (vty->node == CONFIG_NODE) {
 		DEBUG_OFF(neighbor_events, NEIGHBOR_EVENTS);
-	else {
+		DEBUG_OFF(neighbor_events, NEIGHBOR_EVENTS_DETAIL);
+	} else {
 		TERM_DEBUG_OFF(neighbor_events, NEIGHBOR_EVENTS);
+		TERM_DEBUG_OFF(neighbor_events, NEIGHBOR_EVENTS_DETAIL);
 		vty_out(vty, "BGP neighbor-events debugging is off\n");
 	}
 	return CMD_SUCCESS;
@@ -2287,6 +2314,7 @@ DEFUN (no_debug_bgp,
 	TERM_DEBUG_OFF(as4, AS4);
 	TERM_DEBUG_OFF(as4, AS4_SEGMENT);
 	TERM_DEBUG_OFF(neighbor_events, NEIGHBOR_EVENTS);
+	TERM_DEBUG_OFF(neighbor_events, NEIGHBOR_EVENTS_DETAIL);
 	TERM_DEBUG_OFF(zebra, ZEBRA);
 	TERM_DEBUG_OFF(nht, NHT);
 	TERM_DEBUG_OFF(vpn, VPN_LEAK_FROM_VRF);
@@ -2335,6 +2363,9 @@ DEFUN_NOSH (show_debugging_bgp,
 		bgp_debug_list_print(vty,
 				     "  BGP neighbor-events debugging is on",
 				     bgp_debug_neighbor_events_peers);
+
+	if (BGP_DEBUG(neighbor_events, NEIGHBOR_EVENTS_DETAIL))
+		vty_out(vty, "  BGP neighbor-events detail debugging is on\n");
 
 	if (BGP_DEBUG(nht, NHT))
 		vty_out(vty, "  BGP next-hop tracking debugging is on\n");
@@ -2434,6 +2465,11 @@ static int bgp_config_write_debug(struct vty *vty)
 		write += bgp_debug_list_conf_print(
 			vty, "debug bgp neighbor-events",
 			bgp_debug_neighbor_events_peers);
+	}
+
+	if (CONF_BGP_DEBUG(neighbor_events, NEIGHBOR_EVENTS_DETAIL)) {
+		vty_out(vty, "debug bgp neighbor-events detail\n");
+		write++;
 	}
 
 	if (CONF_BGP_DEBUG(nht, NHT)) {
@@ -2574,6 +2610,8 @@ void bgp_debug_init(void)
 
 	install_element(ENABLE_NODE, &debug_bgp_neighbor_events_cmd);
 	install_element(CONFIG_NODE, &debug_bgp_neighbor_events_cmd);
+	install_element(ENABLE_NODE, &debug_bgp_neighbor_events_detail_cmd);
+	install_element(CONFIG_NODE, &debug_bgp_neighbor_events_detail_cmd);
 	install_element(ENABLE_NODE, &debug_bgp_nht_cmd);
 	install_element(CONFIG_NODE, &debug_bgp_nht_cmd);
 	install_element(ENABLE_NODE, &debug_bgp_keepalive_cmd);
