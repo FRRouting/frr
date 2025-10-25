@@ -25,12 +25,11 @@
 #include "zebra/interface.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/debug.h"
+#include "zebra/zebra_privs.h"
 
 #ifdef HAVE_BSD_LINK_DETECT
 #include <net/if_media.h>
 #endif /* HAVE_BSD_LINK_DETECT*/
-
-extern struct zebra_privs_t zserv_privs;
 
 /* clear and set interface name string */
 void ifreq_set_name(struct ifreq *ifreq, struct interface *ifp)
