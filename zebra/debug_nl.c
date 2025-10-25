@@ -22,6 +22,7 @@
 
 #include "zebra/rt_netlink.h"
 #include "zebra/kernel_netlink.h"
+#include "lib/netlink_parser.h"
 #include "lib/vxlan.h"
 #include "zebra/zebra_router.h"
 
