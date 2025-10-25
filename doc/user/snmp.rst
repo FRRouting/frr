@@ -72,6 +72,7 @@ To enable AgentX protocol support, FRR must have been build with the
 master SNMP agent (snmpd) and each of the FRR daemons must be configured. In
 :file:`/etc/snmp/snmpd.conf`, the ``master agentx`` directive should be added.
 In each of the FRR daemons, ``agentx`` command will enable AgentX support.
+And adding ``-M snmp`` to the daemon options in :file:`/etc/frr/daemons`.
 
 :file:`/etc/snmp/zebra.conf`:
 
