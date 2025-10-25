@@ -7890,6 +7890,11 @@ static void peer_aslist_update(const char *aslist_name)
 						filter->aslist[direct].aslist =
 							NULL;
 				}
+				/* Route re-eval for the peer */
+				if (filter->aslist[FILTER_IN].name &&
+				    peer_established(peer->connection)) {
+					peer_on_policy_change(peer, afi, safi, 0);
+				}
 			}
 		}
 		for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group)) {
@@ -7906,6 +7911,18 @@ static void peer_aslist_update(const char *aslist_name)
 					else
 						filter->aslist[direct].aslist =
 							NULL;
+				}
+				/* Trigger route re-eval for established group members */
+				if (filter->aslist[FILTER_IN].name &&
+				    strcmp(filter->aslist[FILTER_IN].name, aslist_name) == 0) {
+					struct listnode *pnode, *pnnode;
+					struct peer *peer;
+
+					for (ALL_LIST_ELEMENTS(group->peer, pnode, pnnode,
+						peer)) {
+						if (peer_established(peer->connection))
+							peer_on_policy_change(peer, afi, safi, 0);
+					}
 				}
 			}
 		}
