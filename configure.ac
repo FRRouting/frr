@@ -203,6 +203,13 @@ AC_ARG_WITH([moduledir], [AS_HELP_STRING([--with-moduledir=DIR], [module directo
 ])
 AC_SUBST([moduledir], [$moduledir])
 
+AC_ARG_WITH([pkgconfigdir], [AS_HELP_STRING([--with-pkgconfigdir=DIR], [pkg-config directory (${libdir}/pkgconfig)])], [
+	pkgconfigdir="$withval"
+], [
+	pkgconfigdir="\${libdir}/pkgconfig"
+])
+AC_SUBST([pkgconfigdir], [$pkgconfigdir])
+
 AC_ARG_WITH([scriptdir], [AS_HELP_STRING([--with-scriptdir=DIR], [script directory (${sysconfdir}/frr/scripts)])], [
 	scriptdir="$withval"
 ], [
@@ -1075,6 +1082,7 @@ case "${enable_multipath}" in
 esac
 
 AC_DEFINE_UNQUOTED([MULTIPATH_NUM], [$MPATH_NUM], [Maximum number of paths for a route])
+AC_SUBST([MULTIPATH_NUM], [$MPATH_NUM])
 
 case "${with_log_timestamp_precision}" in
 [[0-9]|1[012]])
@@ -2713,6 +2721,7 @@ AX_SUBST_EXPANDED([frr_sysconfdir])
 AX_SUBST_EXPANDED([frr_runstatedir])
 AX_SUBST_EXPANDED([frr_libstatedir])
 AX_SUBST_EXPANDED([moduledir])
+AX_SUBST_EXPANDED([pkgconfigdir])
 AX_SUBST_EXPANDED([yangmodelsdir])
 AX_SUBST_EXPANDED([scriptdir])
 
@@ -2808,6 +2817,7 @@ AC_CONFIG_FILES([tools/frrinit.sh], [chmod +x tools/frrinit.sh])
 AC_CONFIG_FILES([tools/frrcommon.sh])
 AC_CONFIG_FILES([tools/frr.service])
 AC_CONFIG_FILES([tools/frr@.service])
+AC_CONFIG_FILES([tools/frr.pc])
 
 # dnl write out a ccls file with our compile configuration
 # dnl have to add -Wno-unused-function otherwise foobar_cmd_magic causes
@@ -2888,6 +2898,7 @@ local state file dir    : ${e_frr_libstatedir}
 run state file dir      : ${e_frr_runstatedir}
 config file directory   : ${e_frr_sysconfdir}
 module directory        : ${e_moduledir}
+pkgconfig directory     : ${e_pkgconfigdir}
 script directory        : ${e_scriptdir}
 user to run as          : ${enable_user}
 group to run as         : ${enable_group}
