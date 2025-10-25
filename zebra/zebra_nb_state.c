@@ -189,6 +189,10 @@ lib_interface_zebra_state_mcast_group_get_elem(struct nb_cb_get_elem_args *args)
 		return NULL;
 
 	vni = zebra_vxlan_if_vni_find(zebra_if, 0);
+
+	if (vni->mcast_grp.s_addr == INADDR_ANY)
+		return NULL;
+
 	return yang_data_new_ipv4(args->xpath, &vni->mcast_grp);
 }
 
