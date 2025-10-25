@@ -3281,7 +3281,6 @@ DEFPY(show_bmp,
 					       state_str,
 					       ba->last_err ? ba->last_err : "",
 					       uptime, &ba->addrsrc);
-				continue;
 			}
 			out = ttable_dump(tt, "\n");
 			vty_out(vty, "%s", out);
