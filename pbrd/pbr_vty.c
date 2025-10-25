@@ -20,6 +20,7 @@
 #include "json.h"
 #include "debug.h"
 #include "pbr.h"
+#include "bitfield.h"
 
 #include "pbrd/pbr_nht.h"
 #include "pbrd/pbr_map.h"
@@ -1511,6 +1512,30 @@ pbrms_nexthop_group_write_individual_nexthop(
 	vty_out(vty, "\n");
 }
 
+static uint32_t count_installed_interfaces(const struct pbr_map_sequence *pbrms)
+{
+	uint32_t count = 0;
+	unsigned int bit;
+
+	if (!bf_is_inited(pbrms->installed))
+		return 0;
+
+	for (bit = bf_find_next_set_bit(pbrms->installed, 0);
+	     bit != WORD_MAX;
+	     bit = bf_find_next_set_bit(pbrms->installed, bit + 1))
+		count++;
+
+	return count;
+}
+
+static bool is_any_interface_installed(const struct pbr_map_sequence *pbrms)
+{
+	if (!bf_is_inited(pbrms->installed))
+		return false;
+
+	return bf_find_next_set_bit(pbrms->installed, 0) != WORD_MAX;
+}
+
 static void vty_show_pbrms(struct vty *vty,
 			   const struct pbr_map_sequence *pbrms, bool detail)
 {
@@ -1522,12 +1547,12 @@ static void vty_show_pbrms(struct vty *vty,
 	vty_out(vty, "    Seq: %u rule: %u\n", pbrms->seqno, pbrms->ruleno);
 
 	if (detail)
-		vty_out(vty, "        Installed: %" PRIu64 "(%u) Reason: %s\n",
-			pbrms->installed, pbrms->unique,
+		vty_out(vty, "        Installed: %u(%u) Reason: %s\n",
+			count_installed_interfaces(pbrms), pbrms->unique,
 			pbrms->reason ? rbuf : "Valid");
 	else
 		vty_out(vty, "        Installed: %s Reason: %s\n",
-			pbrms->installed ? "yes" : "no",
+			is_any_interface_installed(pbrms) ? "yes" : "no",
 			pbrms->reason ? rbuf : "Valid");
 
 	/* match clauses first */
@@ -1669,7 +1694,7 @@ static void vty_json_pbrms(json_object *j, struct vty *vty,
 	json_object_int_add(jpbrm, "sequenceNumber", pbrms->seqno);
 	json_object_int_add(jpbrm, "ruleNumber", pbrms->ruleno);
 	json_object_boolean_add(jpbrm, "vrfUnchanged", pbrms->vrf_unchanged);
-	json_object_boolean_add(jpbrm, "installed", pbrms->installed);
+	json_object_boolean_add(jpbrm, "installed", is_any_interface_installed(pbrms));
 	json_object_string_add(jpbrm, "installedReason",
 			       pbrms->reason ? rbuf : "Valid");
 

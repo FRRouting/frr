@@ -64,6 +64,9 @@ static int pbr_map_sequence_compare(const struct pbr_map_sequence *pbrms1,
 
 void pbr_map_sequence_delete(struct pbr_map_sequence *pbrms)
 {
+	if (bf_is_inited(pbrms->installed))
+		bf_free(pbrms->installed);
+
 	XFREE(MTYPE_TMP, pbrms->internal_nhg_name);
 
 	QOBJ_UNREG(pbrms);
@@ -92,14 +95,11 @@ static void pbr_map_interface_list_delete(struct pbr_map_interface *pmi)
 static bool pbrms_is_installed(const struct pbr_map_sequence *pbrms,
 			       const struct pbr_map_interface *pmi)
 {
-	uint64_t is_installed = (uint64_t)1 << pmi->install_bit;
+	if (!bf_is_inited(pbrms->installed) ||
+	    pmi->install_bit >= (pbrms->installed.m * WORD_SIZE))
+		return false;
 
-	is_installed &= pbrms->installed;
-
-	if (is_installed)
-		return true;
-
-	return false;
+	return bf_test_index(pbrms->installed, pmi->install_bit) != 0;
 }
 
 /* If any sequence is installed on the interface, assume installed */
@@ -223,6 +223,16 @@ void pbr_map_add_interface(struct pbr_map *pbrm, struct interface *ifp_add)
 	for (ALL_LIST_ELEMENTS_RO(pbrm->incoming, node, pmi)) {
 		if (ifp_add == pmi->ifp)
 			return;
+	}
+
+	/*
+	 * Check if we have room in the bitfield before adding.
+	 */
+	if (listcount(pbrm->incoming) >= PBR_MAP_INTERFACE_MAX) {
+		zlog_warn("%s: PBR map %s has reached maximum interface limit (%d), cannot add interface %s",
+			  __func__, pbrm->name, PBR_MAP_INTERFACE_MAX,
+			  ifp_add->name);
+		return;
 	}
 
 	pmi = XCALLOC(MTYPE_PBR_MAP_INTERFACE, sizeof(*pmi));
@@ -522,7 +532,7 @@ struct pbr_map_sequence *pbrms_get(const char *name, uint32_t seqno)
 
 		RB_INSERT(pbr_map_entry_head, &pbr_maps, pbrm);
 
-		bf_init(pbrm->ifi_bitfield, 64);
+		bf_init(pbrm->ifi_bitfield, PBR_MAP_INTERFACE_MAX);
 		pbr_map_add_interfaces(pbrm);
 	}
 
@@ -545,6 +555,8 @@ struct pbr_map_sequence *pbrms_get(const char *name, uint32_t seqno)
 			PBR_MAP_INVALID_EMPTY |
 			PBR_MAP_INVALID_NO_NEXTHOPS;
 		pbrms->vrf_name[0] = '\0';
+
+		bf_init(pbrms->installed, PBR_MAP_INTERFACE_MAX);
 
 		QOBJ_REG(pbrms, pbr_map_sequence);
 		listnode_add_sort(pbrm->seqnumbers, pbrms);
