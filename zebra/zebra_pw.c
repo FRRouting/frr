@@ -203,6 +203,9 @@ void zebra_pw_handle_dplane_results(struct zebra_dplane_ctx *ctx)
 	op = dplane_ctx_get_op(ctx);
 
 	vrf = zebra_vrf_lookup_by_id(dplane_ctx_get_vrf(ctx));
+	if (!vrf)
+		return;
+
 	pw = zebra_pw_find(vrf, dplane_ctx_get_ifname(ctx));
 
 	if (!pw)
