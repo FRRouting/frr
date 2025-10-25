@@ -1432,7 +1432,7 @@ static void zebra_evpn_es_l2_nh_show_entry(struct zebra_evpn_l2_nh *nh,
 
 		json_object_array_add(json_array, json);
 	} else {
-		vty_out(vty, "%-16pIA %-10u %u\n", &nh->vtep_ip, nh->nh_id, nh->ref_cnt);
+		vty_out(vty, "%-39pIA %-10u %u\n", &nh->vtep_ip, nh->nh_id, nh->ref_cnt);
 	}
 }
 
@@ -1452,7 +1452,7 @@ void zebra_evpn_l2_nh_show(struct vty *vty, bool uj)
 	if (uj) {
 		json_array = json_object_new_array();
 	} else {
-		vty_out(vty, "%-16s %-10s %s\n", "VTEP", "NH id", "#ES");
+		vty_out(vty, "%-39s %-10s %s\n", "VTEP", "NH id", "#ES");
 	}
 
 	memset(&wctx, 0, sizeof(wctx));
@@ -3237,8 +3237,7 @@ static void zebra_evpn_es_show_entry_detail(struct vty *vty,
 			vty_out(vty, "     %pIA", &es_vtep->vtep_ip);
 			if (es_vtep->flags & ZEBRA_EVPNES_VTEP_RXED_ESR)
 				vty_out(vty, " df_alg: %s df_pref: %d",
-					evpn_es_df_alg2str(es_vtep->df_alg,
-							   alg_buf,
+					evpn_es_df_alg2str(es_vtep->df_alg, alg_buf,
 							   sizeof(alg_buf)),
 					es_vtep->df_pref);
 			vty_out(vty, " nh: %u\n",

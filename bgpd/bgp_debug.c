@@ -650,8 +650,7 @@ static void bgp_debug_print_evpn_prefix(struct vty *vty, const char *desc,
 					buf, PREFIX2STR_BUFFER));
 		}
 	} else if (p->u.prefix_evpn.route_type == BGP_EVPN_IMET_ROUTE) {
-		snprintfrr(evpn_desc, sizeof(evpn_desc),
-			   "l2vpn evpn type multicast ip %pIA",
+		snprintfrr(evpn_desc, sizeof(evpn_desc), "l2vpn evpn type multicast ip %pIA",
 			   &p->u.prefix_evpn.imet_addr.ip);
 
 	} else if (p->u.prefix_evpn.route_type == BGP_EVPN_IP_PREFIX_ROUTE) {
@@ -707,8 +706,7 @@ static int bgp_debug_parse_evpn_prefix(struct vty *vty, struct cmd_token **argv,
 				return CMD_WARNING;
 			}
 
-		build_evpn_type3_prefix((struct prefix_evpn *)argv_p,
-					&ip);
+		build_evpn_type3_prefix((struct prefix_evpn *)argv_p, &ip);
 	} else if (evpn_type == BGP_EVPN_IP_PREFIX_ROUTE) {
 		struct prefix ip_prefix;
 

@@ -186,8 +186,8 @@ struct bgp_evpn_info {
 	/* PIP feature knob */
 	bool advertise_pip;
 	/* PIP IP (sys ip) */
-	struct in_addr pip_ip;
-	struct in_addr pip_ip_static;
+	struct ipaddr pip_ip;
+	struct ipaddr pip_ip_static;
 	/* PIP MAC (sys MAC) */
 	struct ethaddr pip_rmac;
 	struct ethaddr pip_rmac_static;
@@ -498,8 +498,7 @@ build_type5_prefix_from_ip_prefix(struct prefix_evpn *evp,
 	memcpy(&evp->prefix.prefix_addr.ip, &ip, sizeof(struct ipaddr));
 }
 
-static inline void build_evpn_type3_prefix(struct prefix_evpn *p,
-					   struct ipaddr *originator_ip)
+static inline void build_evpn_type3_prefix(struct prefix_evpn *p, struct ipaddr *originator_ip)
 {
 	memset(p, 0, sizeof(struct prefix_evpn));
 	p->family = AF_EVPN;
@@ -717,11 +716,9 @@ extern void bgp_evpn_derive_auto_rt_export(struct bgp *bgp,
 extern void bgp_evpn_derive_auto_rd(struct bgp *bgp, struct bgpevpn *vpn);
 extern void bgp_evpn_derive_auto_rd_for_vrf(struct bgp *bgp);
 extern struct bgpevpn *bgp_evpn_lookup_vni(struct bgp *bgp, vni_t vni);
-extern struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
-		struct ipaddr *originator_ip,
-		vrf_id_t tenant_vrf_id,
-		struct in_addr mcast_grp,
-		ifindex_t svi_ifindex);
+extern struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni, struct ipaddr *originator_ip,
+				    vrf_id_t tenant_vrf_id, struct in_addr mcast_grp,
+				    ifindex_t svi_ifindex);
 extern void bgp_evpn_free(struct bgp *bgp, struct bgpevpn *vpn);
 extern bool bgp_evpn_lookup_l3vni_l2vni_table(vni_t vni);
 extern int update_routes_for_vni(struct bgp *bgp, struct bgpevpn *vpn);

@@ -164,9 +164,13 @@ def setup_module(mod):
         logger.info("Loading router %s" % rname)
         if rname == "r1":
             router.use_netns_vrf()
-            router.load_frr_config(os.path.join(CWD, "{}/frr-v6-vtep.conf".format(rname)))
+            router.load_frr_config(
+                os.path.join(CWD, "{}/frr-v6-vtep.conf".format(rname))
+            )
         else:
-            router.load_frr_config(os.path.join(CWD, "{}/frr-v6-vtep.conf".format(rname)))
+            router.load_frr_config(
+                os.path.join(CWD, "{}/frr-v6-vtep.conf".format(rname))
+            )
 
     # Initialize all routers.
     tgen.start_router()

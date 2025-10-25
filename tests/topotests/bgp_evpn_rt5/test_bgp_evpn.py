@@ -993,7 +993,8 @@ def _validate_evpn_rmacs(router, expected):
                     # Compare VTEP IPs - a forgiving comparison
                     if detail["vtepIp"].find(jvni[rmac]["vtepIp"]) < 0:
                         return "VTEP {} failed, not found in VNI {}".format(
-                            detail["vtepIp"], vni)
+                            detail["vtepIp"], vni
+                        )
             if vtep_ip in vtep_ips:
                 # VTEP IP is occuring for more than one RMAC in the same VNI
                 return "Duplicate VTEP IP {} found in VNI {}".format(vtep_ip, vni)
