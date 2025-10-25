@@ -207,6 +207,7 @@ struct zebra_if {
 
 	uint8_t speed_update_count;
 	struct event *speed_update;
+	uint32_t speed_checked;
 
 	/*
 	 * Does this interface have a v6 to v4 ll neighbor entry
