@@ -10602,7 +10602,7 @@ DEFPY (af_sid_vpn_export,
 	} else if (sid_idx != 0) {
 		/* SID allocation index-mode */
 		if (debug)
-			zlog_debug("%s: idx %ld sid alloc.", __func__, sid_idx);
+			zlog_debug("%s: idx %" PRId64 " sid alloc.", __func__, sid_idx);
 		bgp->vpn_policy[afi].tovpn_sid_index = sid_idx;
 	} else if (sid_explicit) {
 		/* SID allocation explicit-mode */
@@ -10706,8 +10706,7 @@ DEFPY (bgp_sid_vpn_export,
 	} else if (sid_idx != 0) {
 		/* SID allocation index-mode */
 		if (debug)
-			zlog_debug("%s: idx %ld per-vrf sid alloc.", __func__,
-				   sid_idx);
+			zlog_debug("%s: idx %" PRId64 " per-vrf sid alloc.", __func__, sid_idx);
 		bgp->tovpn_sid_index = sid_idx;
 	} else if (sid_explicit) {
 		/* SID allocation explicit-mode */
@@ -18673,8 +18672,7 @@ DEFPY(bgp_redistribute_ipv6_table, bgp_redistribute_ipv6_table_cmd,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	if (table_id == RT_TABLE_MAIN || table_id == RT_TABLE_LOCAL) {
-		vty_out(vty,
-			"%% 'table-direct', can not use %lu routing table\n",
+		vty_out(vty, "%% 'table-direct', can not use %" PRIu64 " routing table\n",
 			table_id);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -18709,8 +18707,7 @@ DEFPY(no_bgp_redistribute_ipv6_table, no_bgp_redistribute_ipv6_table_cmd,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	if (table_id == RT_TABLE_MAIN || table_id == RT_TABLE_LOCAL) {
-		vty_out(vty,
-			"%% 'table-direct', can not use %lu routing table\n",
+		vty_out(vty, "%% 'table-direct', can not use %" PRIu64 " routing table\n",
 			table_id);
 		return CMD_WARNING_CONFIG_FAILED;
 	}

@@ -39,8 +39,8 @@ DEFPY_YANG_NOSH(
 		 "/frr-route-map:lib/route-map[name='%s']", name);
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
-	snprintf(xpath_index, sizeof(xpath_index), "%s/entry[sequence='%lu']",
-		 xpath, sequence);
+	snprintfrr(xpath_index, sizeof(xpath_index), "%s/entry[sequence='%" PRIu64 "']", xpath,
+		   sequence);
 	nb_cli_enqueue_change(vty, xpath_index, NB_OP_CREATE, NULL);
 
 	snprintf(xpath_action, sizeof(xpath_action), "%s/action", xpath_index);
@@ -78,9 +78,9 @@ DEFPY_YANG(
 {
 	char xpath[XPATH_MAXLEN];
 
-	snprintf(xpath, sizeof(xpath),
-		 "/frr-route-map:lib/route-map[name='%s']/entry[sequence='%lu']",
-		 name, sequence);
+	snprintfrr(xpath, sizeof(xpath),
+		   "/frr-route-map:lib/route-map[name='%s']/entry[sequence='%" PRIu64 "']", name,
+		   sequence);
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
@@ -572,7 +572,7 @@ DEFPY_YANG(
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	snprintf(xpath_value, sizeof(xpath_value),
 		 "%s/rmap-match-condition/tag", xpath);
-	snprintf(value, sizeof(value), "%lu", tagged ? tagged : 0);
+	snprintfrr(value, sizeof(value), "%" PRIu64, tagged ? tagged : 0);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, value);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -1140,7 +1140,7 @@ DEFPY_YANG(
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	snprintf(xpath_value, sizeof(xpath_value), "%s/rmap-set-action/tag",
 		 xpath);
-	snprintf(value, sizeof(value), "%lu", tagged ? tagged : 0);
+	snprintfrr(value, sizeof(value), "%" PRIu64, tagged ? tagged : 0);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, value);
 
 	return nb_cli_apply_changes(vty, NULL);
