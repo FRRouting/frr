@@ -2541,7 +2541,7 @@ static void zebra_vxlan_if_vni_dump_vty(struct vty *vty,
 {
 	char str[INET6_ADDRSTRLEN];
 
-	vty_out(vty, "  VxLAN Id %u", vni->vni);
+	vty_out(vty, "\n  VxLAN Id %u", vni->vni);
 	if (vni->access_vlan)
 		vty_out(vty, " Access VLAN Id %u\n", vni->access_vlan);
 
