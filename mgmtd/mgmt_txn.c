@@ -643,6 +643,9 @@ static int mgmt_txn_create_config_msgs(struct mgmt_txn_req *txn_req, struct nb_c
 
 		assert(!cmtcfg_req->mgmtd_nb_txn);
 		nb_ctx.client = NB_CLIENT_MGMTD_SERVER;
+
+		/* Prepare the mgmtd local config changes */
+		/* XXX This isn't calling the VALIDATE callback, it's just running PREPARE */
 		if (nb_changes_commit_prepare(nb_ctx, mgmtd_changes, "mgmtd-changes", NULL,
 					      &cmtcfg_req->mgmtd_nb_txn, errmsg, errmsg_len)) {
 			_log_err("Failed to prepare local config for mgmtd: %s", errmsg);
