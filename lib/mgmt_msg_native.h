@@ -777,7 +777,7 @@ extern int vmgmt_msg_native_send_error(struct msg_conn *conn,
  * mgmt_msg_free_native_msg() - Free a native msg.
  * @msg: pointer to message allocated by mgmt_msg_create_native_msg().
  */
-#define mgmt_msg_native_free_msg(msg) darr_free(msg)
+#define mgmt_msg_native_free_msg darr_free
 
 /**
  * mgmt_msg_native_get_msg_len() - Get the total length of the msg.
