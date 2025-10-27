@@ -2638,7 +2638,7 @@ bool zebra_evpn_es_mac_ref(struct zebra_mac *mac, const esi_t *esi)
 			es = zebra_evpn_es_new(esi);
 			if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 				zlog_debug("auto es %s add on mac ref",
-					   es->esi_str);
+					   es ? es->esi_str : "unknown");
 		}
 	}
 

@@ -5912,6 +5912,8 @@ static struct zebra_vxlan_sg *zebra_vxlan_sg_new(struct zebra_vrf *zvrf,
 	struct zebra_vxlan_sg *vxlan_sg;
 
 	vxlan_sg = XCALLOC(MTYPE_ZVXLAN_SG, sizeof(*vxlan_sg));
+	assert(sg);
+	assert(zvrf);
 
 	vxlan_sg->zvrf = zvrf;
 	vxlan_sg->sg = *sg;
@@ -5970,6 +5972,7 @@ static void zebra_vxlan_sg_del(struct zebra_vxlan_sg *vxlan_sg)
 	struct ipaddr sip;
 	struct zebra_vrf *zvrf;
 
+	assert(vxlan_sg);
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
 
 	/* On SG entry deletion remove the reference to its parent XG

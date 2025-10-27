@@ -7794,13 +7794,13 @@ static void dplane_thread_loop(struct event *event)
 			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 				zlog_debug("%s: Next Provider(%s) Input queue is %" PRIu64
 					   ", holding off work",
-					   __func__, next_prov->dp_name, curr);
+					   __func__, next_prov ? next_prov->dp_name : "NULL", curr);
 			counter = 0;
 		} else if (out_curr >= (uint64_t)limit) {
 			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 				zlog_debug("%s: Next Provider(%s) Output queue is %" PRIu64
 					   ", holding off work",
-					   __func__, next_prov->dp_name,
+					   __func__, next_prov ? next_prov->dp_name : "NULL",
 					   out_curr);
 			counter = 0;
 		} else {
