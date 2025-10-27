@@ -222,6 +222,96 @@ def test_bgp_peer_type_multipath_relax_test2():
     assert res is None, assertMsg
 
 
+def test_bgp_peer_type_multipath_relax_nexthop_group_summary():
+    tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    logger.info("Test nexthop-group summary command with various filters")
+
+    # Test 1: show ip route nexthop-group summary json
+    reffile = os.path.join(CWD, "r1/nhg-summary.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        r1,
+        "show ip route nexthop-group summary json",
+        expected,
+    )
+    _, res = topotest.run_and_expect(test_func, None, count=20, wait=3)
+    assertMsg = "Nexthop-group summary output mismatch"
+    assert res is None, assertMsg
+
+    # Test 2: show ip route nexthop-group summary ecmp-count gt 2 json
+    reffile = os.path.join(CWD, "r1/nhg-summary-ecmp-gt-2.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        r1,
+        "show ip route nexthop-group summary ecmp-count gt 2 json",
+        expected,
+    )
+    _, res = topotest.run_and_expect(test_func, None, count=20, wait=3)
+    assertMsg = "Nexthop-group summary with ecmp-count gt 2 mismatch"
+    assert res is None, assertMsg
+
+    # Test 3: show ip route nexthop-group summary ecmp-count eq 3 json
+    reffile = os.path.join(CWD, "r1/nhg-summary-ecmp-eq-3.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        r1,
+        "show ip route nexthop-group summary ecmp-count eq 3 json",
+        expected,
+    )
+    _, res = topotest.run_and_expect(test_func, None, count=20, wait=3)
+    assertMsg = "Nexthop-group summary with ecmp-count eq 3 mismatch"
+    assert res is None, assertMsg
+
+    # Test 4: show ip route nexthop-group summary ecmp-count lt 2 json
+    reffile = os.path.join(CWD, "r1/nhg-summary-ecmp-lt-2.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        r1,
+        "show ip route nexthop-group summary ecmp-count lt 2 json",
+        expected,
+    )
+    _, res = topotest.run_and_expect(test_func, None, count=20, wait=3)
+    assertMsg = "Nexthop-group summary with ecmp-count lt 2 mismatch"
+    assert res is None, assertMsg
+
+    # Test 5: show ip route bgp nexthop-group summary json
+    reffile = os.path.join(CWD, "r1/nhg-summary-bgp.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        r1,
+        "show ip route bgp nexthop-group summary json",
+        expected,
+    )
+    _, res = topotest.run_and_expect(test_func, None, count=20, wait=3)
+    assertMsg = "Nexthop-group summary for BGP routes mismatch"
+    assert res is None, assertMsg
+
+    # Test 6: show ip route vrf default nexthop-group summary json
+    reffile = os.path.join(CWD, "r1/nhg-summary.json")
+    expected = json.loads(open(reffile).read())
+    test_func = functools.partial(
+        topotest.router_json_cmp,
+        r1,
+        "show ip route vrf default nexthop-group summary json",
+        expected,
+    )
+    _, res = topotest.run_and_expect(test_func, None, count=20, wait=3)
+    assertMsg = "Nexthop-group summary for VRF default mismatch"
+    assert res is None, assertMsg
+
+
 def test_bgp_peer_type_multipath_relax_test3():
     tgen = get_topogen()
 
