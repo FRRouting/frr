@@ -269,10 +269,10 @@ static void bgp_send_fec_register_label_msg(struct bgp_dest *dest, bool reg,
 	if (reg) {
 		/* label index takes precedence over auto-assigned label. */
 		if (label_index != 0) {
-			flags |= ZEBRA_FEC_REGISTER_LABEL_INDEX;
+			SET_FLAG(flags, ZEBRA_FEC_REGISTER_LABEL_INDEX);
 			stream_putl(s, label_index);
 		} else if (have_label_to_reg) {
-			flags |= ZEBRA_FEC_REGISTER_LABEL;
+			SET_FLAG(flags, ZEBRA_FEC_REGISTER_LABEL);
 			stream_putl(s, label);
 		}
 		SET_FLAG(dest->flags, BGP_NODE_REGISTERED_FOR_LABEL);
