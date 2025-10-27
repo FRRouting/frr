@@ -1126,6 +1126,40 @@ def test_ping_step9():
     check_ping("rt1", "fc00:0:9::1", True, 10, 1)
 
 
+def test_srv6_path_with_ua_sid():
+    """
+    Test SRv6 path with uA SID.
+
+    This test verifies connectivity over an SRv6 path that includes a uA SID
+    to enforce traffic engineering. The path is from rt1 to dst, steered
+    through rt2 and rt6. On rt2, a uA SID is used to direct traffic out of a
+    specific interface.
+    """
+    logger.info("Test: Verify SRv6 path with uA SID")
+    tgen = get_topogen()
+
+    # Required linux kernel version for this case to run.
+    result = required_linux_kernel_version("6.17")
+    if result is not True:
+        pytest.skip("Kernel requirements are not met, kernel version should be >=6.17")
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # On rt1, install an SRv6 route to encapsulate packets towards dst.
+    # The segment list is fc00:0:2:4:6:f00d::, which corresponds to the
+    # path rt2 -> rt6 -> dst.
+    logger.info("Installing SRv6 route on rt1 to steer traffic via rt2->rt6 to dst")
+    tgen.gears["rt1"].vtysh_cmd(
+        "sharp install seg6-routes 2001:db8:10::2 nexthop-seg6 2001:db8:1::2 encap fc00:0:2:4:6:f00d:: 1"
+    )
+
+    # Ping dst from rt1 to verify the SRv6 path.
+    logger.info("Pinging dst from rt1 to validate the SRv6 path with uA SID")
+    check_ping("rt1", "2001:db8:10::2", True, 10, 1)
+
+
 # Memory leak test template
 def test_memory_leak():
     "Run the memory leak test and report results."
