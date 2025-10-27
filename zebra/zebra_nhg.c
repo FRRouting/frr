@@ -3112,7 +3112,6 @@ static bool zebra_nhg_nexthop_compare(const struct nexthop *nhop,
 
 			nhop = nhop->next;
 			old_nhop = old_nhop->next;
-			continue;
 		} else {
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 				zlog_debug("%s:%pRN They are not the same, stopping using new nexthop entry",
@@ -3269,8 +3268,8 @@ backups_done:
 		if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 			zlog_debug("%s: re %p CHANGED: nhe %p (%pNG) flags (0x%x) => new_nhe %p (%pNG) flags (0x%x) rib_find_nhe returned %p (%pNG) flags (0x%x) refcnt: %d",
 				   __func__, re, re->nhe, re->nhe, re->nhe->flags, new_nhe,
-				   new_nhe, new_nhe->flags, remove, remove, remove->flags,
-				   remove ? remove->refcnt : 0);
+				   new_nhe, new_nhe ? new_nhe->flags : 0, remove, remove,
+				   remove ? remove->flags : 0, remove ? remove->refcnt : 0);
 
 		/*
 		 * if the results from zebra_nhg_rib_find_nhe is being
