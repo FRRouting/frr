@@ -4294,8 +4294,10 @@ DEFUN (bgp_evpn_advertise_type5,
 		/* Only allocate/update if the route-map name is different */
 		if (!bgp_vrf->adv_cmd_rmap[afi][safi].name ||
 		    strcmp(bgp_vrf->adv_cmd_rmap[afi][safi].name, argv[idx_rmap + 1]->arg) != 0) {
-			if (bgp_vrf->adv_cmd_rmap[afi][safi].name)
+			if (bgp_vrf->adv_cmd_rmap[afi][safi].name) {
 				XFREE(MTYPE_ROUTE_MAP_NAME, bgp_vrf->adv_cmd_rmap[afi][safi].name);
+				route_map_counter_decrement(bgp_vrf->adv_cmd_rmap[afi][safi].map);
+			}
 			bgp_vrf->adv_cmd_rmap[afi][safi].name = XSTRDUP(MTYPE_ROUTE_MAP_NAME,
 									argv[idx_rmap + 1]->arg);
 			bgp_vrf->adv_cmd_rmap[afi][safi].map =
