@@ -399,6 +399,109 @@ def test_rule_linux_installation():
         assert result is None, assertmsg
 
 
+def test_pbr_nhg_with_vrf_disable_enable():
+    """
+    Test PBR nexthop-group with VRF nexthops.
+
+    Test verifies that when VRF is disabled and re-enabled,
+    the nexthop-group C remains valid and functional.
+
+    """
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Testing PBR nexthop-group C with VRF disable/enable")
+
+    router = tgen.gears["r1"]
+
+    # Helper function to check if nexthop-group C is valid
+    def check_nhg_c_valid(router, valid=True):
+        output = router.vtysh_cmd("show pbr nexthop-groups C json")
+        try:
+            nhg_data = json.loads(output)
+        except:
+            return "Failed to parse nexthop-groups JSON"
+
+        logger.info("Got nexthop-groups JSON: %s" % nhg_data)
+
+        if not nhg_data:
+            return "Nexthop-group C data is empty"
+
+        # Find the nexthop-group with name "C" (ID is variable)
+        nhg = None
+
+        if isinstance(nhg_data, list):
+            for item in nhg_data:
+                if isinstance(item, dict) and item.get("name") == "C":
+                    nhg = item
+                    break
+
+        if nhg is None:
+            return "Nexthop-group C not found in output"
+
+        if nhg.get("valid") != valid:
+            return "Nexthop-group C valid=%s, expected=%s" % (nhg.get("valid"), valid)
+
+        if not valid:
+            # If nexthop-group is invalid, we don't need to check nexthops
+            return None
+
+        nexthops = nhg.get("nexthops", [])
+        if len(nexthops) == 0:
+            return "Nexthop-group C has no nexthops"
+
+        for nexthop in nexthops:
+            if nexthop.get("targetVrf") != "vrf-chiyoda":
+                return "Nexthop %s is not in vrf-chiyoda" % nexthop.get("nexthop")
+            if nexthop.get("valid") != valid:
+                return "Nexthop %s valid=%s, expected=%s" % (nexthop.get("nexthop"), nexthop.get("valid"), valid)
+
+        return None
+
+    logger.info("Step 1: Verifying nexthop-group C is valid")
+    test_func = partial(check_nhg_c_valid, router, True)
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
+    assertmsg = "Failed to verify nexthop-group C is valid initially"
+    if result is not None:
+        logger.error(result)
+    assert result is None, assertmsg
+
+    logger.info("Step 2: Disabling VRF vrf-chiyoda")
+    router.run("ip link set dev r1-eth3 nomaster")
+    router.run("ip link set vrf-chiyoda down")
+    router.run("ip link del dev vrf-chiyoda")
+
+    # Allow time for VRF deletion to propagate
+    topotest.sleep(2, "Waiting for VRF deletion to propagate")
+
+    logger.info("Step 3: Verifying nexthop-group C is invalid after VRF deletion")
+    test_func = partial(check_nhg_c_valid, router, False)
+    _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
+    assertmsg = "Failed to verify nexthop-group C is invalid after VRF deletion"
+    if result is not None:
+        logger.error(result)
+    assert result is None, assertmsg
+
+    logger.info("Step 4: Re-enabling VRF vrf-chiyoda")
+    router.run("ip link add vrf-chiyoda type vrf table 1000")
+    router.run("ip link set dev r1-eth3 master vrf-chiyoda")
+    router.run("ip link set vrf-chiyoda up")
+
+
+    logger.info("Step 5: Verifying nexthop-group C is valid after VRF is enabled")
+
+    test_func = partial(check_nhg_c_valid, router, True)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assertmsg = "Failed to verify nexthop-group C is valid after VRF is enabled"
+    if result is not None:
+        logger.error(result)
+    assert result is None, assertmsg
+
+    logger.info("Test completed successfully - nexthop-group remains valid")
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
