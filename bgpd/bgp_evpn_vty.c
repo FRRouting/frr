@@ -4227,11 +4227,17 @@ DEFUN (bgp_evpn_advertise_type5,
 
 	/* set the route-map for advertise command */
 	if (ret && argv[idx_rmap + 1]->arg) {
-		bgp_vrf->adv_cmd_rmap[afi][safi].name =
-			XSTRDUP(MTYPE_ROUTE_MAP_NAME, argv[idx_rmap + 1]->arg);
-		bgp_vrf->adv_cmd_rmap[afi][safi].map =
-			route_map_lookup_by_name(argv[idx_rmap + 1]->arg);
-		route_map_counter_increment(bgp_vrf->adv_cmd_rmap[afi][safi].map);
+		/* Only allocate/update if the route-map name is different */
+		if (!bgp_vrf->adv_cmd_rmap[afi][safi].name ||
+		    strcmp(bgp_vrf->adv_cmd_rmap[afi][safi].name, argv[idx_rmap + 1]->arg) != 0) {
+			if (bgp_vrf->adv_cmd_rmap[afi][safi].name)
+				XFREE(MTYPE_ROUTE_MAP_NAME, bgp_vrf->adv_cmd_rmap[afi][safi].name);
+			bgp_vrf->adv_cmd_rmap[afi][safi].name = XSTRDUP(MTYPE_ROUTE_MAP_NAME,
+									argv[idx_rmap + 1]->arg);
+			bgp_vrf->adv_cmd_rmap[afi][safi].map =
+				route_map_lookup_by_name(argv[idx_rmap + 1]->arg);
+			route_map_counter_increment(bgp_vrf->adv_cmd_rmap[afi][safi].map);
+		}
 	}
 
 	/* advertise type-5 routes */
