@@ -75,6 +75,12 @@
     %global use_python2 0
 %endif
 
+# force python 3.6 for sphinx
+%if %{with_docs}
+    %global python3_pkgversion 3.6
+    %global __python3 /usr/bin/python3.6
+%endif
+
 # If init system is systemd, then always enable watchfrr
 %if "%{initsystem}" == "systemd"
     %global with_watchfrr 1
@@ -184,7 +190,6 @@ BuildRequires:  flex
 BuildRequires:  gcc
 BuildRequires:  json-c-devel
 BuildRequires:  libcap-devel
-BuildRequires:  protobuf-c-devel
 BuildRequires:  make
 BuildRequires:  ncurses-devel
 BuildRequires:  readline-devel
@@ -443,6 +448,7 @@ CFLAGS="%{optflags} -DINET_NTOP_NO_OVERRIDE"
 %endif
     --enable-isisd \
 %if %{with_docs}
+    PYTHON=%{__python3} \
     --enable-doc \
 %else
     --disable-doc \
@@ -784,7 +790,9 @@ fi
 %{_libdir}/libfrr_pb.so*
 %{_libdir}/libfrrfpm_pb.so*
 %{_libdir}/libmgmt_be_nb.so*
-%{_libdir}/libmlag_pb.so*
+%if %{with_grpc}
+    %{_libdir}/libmlag_pb.so*
+%endif
 %{_bindir}/*
 %config(noreplace) %{configdir}/[!v]*.conf*
 %config(noreplace) %attr(750,%{frr_user},%{frr_user}) %{configdir}/daemons
