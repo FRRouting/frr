@@ -569,7 +569,7 @@ identity set-extcommunity-color {
 
   augment "/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:rmap-match-condition/frr-route-map:match-condition" {
     description
-      "Augments the match condition with vpn dataplane";
+      "Augment match-condition for route-map entries";
 
     case vpn-dataplane {
       when "derived-from-or-self(../frr-route-map:condition, 'frr-bgp-route-map:match-vpn-dataplane')";
