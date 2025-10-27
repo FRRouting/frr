@@ -73,7 +73,7 @@ struct event_loop {
 	struct event **read;
 	struct event **write;
 	struct event_timer_list_head timer;
-	struct event_list_head event, ready, unuse;
+	struct event_list_head event, ready;
 	struct list *cancel_req;
 	bool canceled;
 	pthread_cond_t cancel_cond;
@@ -101,7 +101,6 @@ enum event_types {
 	EVENT_TIMER,
 	EVENT_EVENT,
 	EVENT_READY,
-	EVENT_UNUSED,
 	EVENT_EXECUTE,
 };
 

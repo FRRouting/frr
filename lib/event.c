@@ -564,7 +564,6 @@ struct event_loop *event_master_create(const char *name)
 
 	event_list_init(&rv->event);
 	event_list_init(&rv->ready);
-	event_list_init(&rv->unuse);
 	event_timer_list_init(&rv->timer);
 
 	/* Initialize event_fetch() settings */
@@ -614,31 +613,6 @@ void event_master_set_name(struct event_loop *master, const char *name)
 	}
 }
 
-#define EVENT_UNUSED_DEPTH 10
-
-/* Move thread to unuse list. */
-static void thread_add_unuse(struct event_loop *m, struct event *thread)
-{
-	pthread_mutex_t mtxc = thread->mtx;
-
-	assert(m != NULL && thread != NULL);
-
-	thread->hist->total_active--;
-	memset(thread, 0, sizeof(struct event));
-	thread->type = EVENT_UNUSED;
-
-	/* Restore the thread mutex context. */
-	thread->mtx = mtxc;
-
-	if (event_list_count(&m->unuse) < EVENT_UNUSED_DEPTH) {
-		event_list_add_tail(&m->unuse, thread);
-		return;
-	}
-
-	thread_free(m, thread);
-}
-
-/* Free all unused thread. */
 static void thread_list_free(struct event_loop *m, struct event_list_head *list)
 {
 	struct event *t;
@@ -680,7 +654,6 @@ void event_master_free(struct event_loop *m)
 		thread_free(m, t);
 	thread_list_free(m, &m->event);
 	thread_list_free(m, &m->ready);
-	thread_list_free(m, &m->unuse);
 	pthread_mutex_destroy(&m->mtx);
 	pthread_cond_destroy(&m->cancel_cond);
 	close(m->io_pipe[0]);
@@ -762,13 +735,10 @@ static struct event *thread_get(struct event_loop *m, uint8_t type,
 				void (*func)(struct event *), void *arg,
 				const struct xref_eventsched *xref)
 {
-	struct event *thread = event_list_pop(&m->unuse);
+	struct event *thread;
 
-	if (!thread) {
-		thread = XCALLOC(MTYPE_THREAD, sizeof(struct event));
-		/* mutex only needs to be initialized at struct creation. */
-		pthread_mutex_init(&thread->mtx, NULL);
-	}
+	thread = XCALLOC(MTYPE_THREAD, sizeof(struct event));
+	pthread_mutex_init(&thread->mtx, NULL);
 
 	thread->type = type;
 	thread->add_type = type;
@@ -776,26 +746,8 @@ static struct event *thread_get(struct event_loop *m, uint8_t type,
 	thread->arg = arg;
 	thread->yield = EVENT_YIELD_TIME_SLOT; /* default */
 	thread->tardy_threshold = 0;
-	/* thread->ref is zeroed either by XCALLOC above or by memset before
-	 * being put on the "unuse" list by thread_add_unuse().
-	 * Setting it here again makes coverity complain about a missing
-	 * lock :(
-	 */
-	/* thread->ref = NULL; */
 
-	/*
-	 * So if the passed in funcname is not what we have
-	 * stored that means the thread->hist needs to be
-	 * updated.  We keep the last one around in unused
-	 * under the assumption that we are probably
-	 * going to immediately allocate the same
-	 * type of thread.
-	 * This hopefully saves us some serious
-	 * hash_get lookups.
-	 */
-	if ((thread->xref && thread->xref->funcname != xref->funcname)
-	    || thread->func != func)
-		thread->hist = cpu_records_get(m, func, xref->funcname);
+	thread->hist = cpu_records_get(m, func, xref->funcname);
 
 	thread->hist->total_active++;
 	thread->func = func;
@@ -1230,7 +1182,7 @@ static void cancel_arg_helper(struct event_loop *master,
 		event_list_del(&master->event, t);
 		if (t->ref)
 			*t->ref = NULL;
-		thread_add_unuse(master, t);
+		thread_free(master, t);
 	}
 
 	frr_each_safe (event_list, &master->ready, t) {
@@ -1239,7 +1191,7 @@ static void cancel_arg_helper(struct event_loop *master,
 		event_list_del(&master->ready, t);
 		if (t->ref)
 			*t->ref = NULL;
-		thread_add_unuse(master, t);
+		thread_free(master, t);
 	}
 
 	/* If requested, stop here and ignore io and timers */
@@ -1277,7 +1229,7 @@ static void cancel_arg_helper(struct event_loop *master,
 			if (t->ref)
 				*t->ref = NULL;
 
-			thread_add_unuse(master, t);
+			thread_free(master, t);
 
 			/* Don't increment 'i' since the cancellation will have
 			 * removed the entry from the pfd array
@@ -1297,7 +1249,7 @@ static void cancel_arg_helper(struct event_loop *master,
 			event_timer_list_del(&master->timer, t);
 			if (t->ref)
 				*t->ref = NULL;
-			thread_add_unuse(master, t);
+			thread_free(master, t);
 		}
 
 		t = t_next;
@@ -1364,7 +1316,6 @@ static void do_event_cancel(struct event_loop *master)
 		case EVENT_READY:
 			list = &master->ready;
 			break;
-		case EVENT_UNUSED:
 		case EVENT_EXECUTE:
 			continue;
 			break;
@@ -1378,7 +1329,7 @@ static void do_event_cancel(struct event_loop *master)
 		if (thread->ref)
 			*thread->ref = NULL;
 
-		thread_add_unuse(thread->master, thread);
+		thread_free(thread->master, thread);
 	}
 
 	/* Delete and free all cancellation requests */
@@ -1560,7 +1511,7 @@ static struct event *thread_run(struct event_loop *m, struct event *thread,
 				struct event *fetch)
 {
 	*fetch = *thread;
-	thread_add_unuse(m, thread);
+	thread_free(m, thread);
 	return fetch;
 }
 
@@ -2107,8 +2058,7 @@ void _event_execute(const struct xref_eventsched *xref, struct event_loop *m,
 	/* Execute thread doing all accounting. */
 	event_call(thread);
 
-	/* Give back or free thread. */
-	thread_add_unuse(m, thread);
+	thread_free(m, thread);
 }
 
 /* Debug signal mask - if 'sigs' is NULL, use current effective mask. */
@@ -2161,10 +2111,8 @@ static ssize_t printfrr_thread_dbg(struct fbuf *buf, struct printfrr_eargs *ea,
 				   const struct event *thread)
 {
 	static const char *const types[] = {
-		[EVENT_READ] = "read",	  [EVENT_WRITE] = "write",
-		[EVENT_TIMER] = "timer",  [EVENT_EVENT] = "event",
-		[EVENT_READY] = "ready",  [EVENT_UNUSED] = "unused",
-		[EVENT_EXECUTE] = "exec",
+		[EVENT_READ] = "read",	 [EVENT_WRITE] = "write", [EVENT_TIMER] = "timer",
+		[EVENT_EVENT] = "event", [EVENT_READY] = "ready", [EVENT_EXECUTE] = "exec",
 	};
 	ssize_t rv = 0;
 	char info[16] = "";
@@ -2190,7 +2138,6 @@ static ssize_t printfrr_thread_dbg(struct fbuf *buf, struct printfrr_eargs *ea,
 		break;
 	case EVENT_READY:
 	case EVENT_EVENT:
-	case EVENT_UNUSED:
 	case EVENT_EXECUTE:
 		break;
 	}
