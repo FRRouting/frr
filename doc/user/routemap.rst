@@ -97,6 +97,12 @@ cont
 
    If the ``json`` option is specified, output is displayed in JSON format.
 
+.. clicmd:: show route-map-unused [json]
+
+   Display data about each daemons knowledge of individual unused route-maps.
+
+   If the ``json`` option is specified, output is displayed in JSON format.
+
 .. _route-map-clear-counter-command:
 
 .. clicmd:: clear route-map counter [WORD]
