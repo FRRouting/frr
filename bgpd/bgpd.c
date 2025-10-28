@@ -3113,9 +3113,15 @@ void peer_group_notify_unconfig(struct peer_group *group)
 		other = peer->doppelganger;
 		if (other && other->connection->status != Deleted) {
 			other->group = NULL;
+<<<<<<< HEAD
 			peer_notify_unconfig(other);
 		} else
 			peer_notify_unconfig(peer);
+=======
+			peer_notify_unconfig(other->connection);
+		}
+		peer_notify_unconfig(peer->connection);
+>>>>>>> 82fc14fd5 (bgpd: Notify all incoming/outgoing on peer group notify unconfig)
 	}
 }
 
