@@ -2541,7 +2541,7 @@ static void zebra_vxlan_if_vni_dump_vty(struct vty *vty,
 {
 	char str[INET6_ADDRSTRLEN];
 
-	vty_out(vty, "  VxLAN Id %u", vni->vni);
+	vty_out(vty, "\n  VxLAN Id %u", vni->vni);
 	if (vni->access_vlan)
 		vty_out(vty, " Access VLAN Id %u\n", vni->access_vlan);
 
@@ -2907,15 +2907,27 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 #endif /* HAVE_NET_RT_IFLIST */
 }
 
+/*
+ * Create hierarchical JSON structure for VNI information
+ * This creates a nested object keyed by VNI ID to support both:
+ * - TVD (Traditional VxLAN Device): single VLAN-to-VNI mapping
+ * - SVD (Single VxLAN Device): multiple VLAN-to-VNI mappings
+ * The VNI ID is used as the key, allowing multiple VNI entries
+ * to coexist under the "vxlanId" parent object.
+ */
 static void zebra_vxlan_if_vni_dump_vty_json(json_object *json_if,
 					     struct zebra_vxlan_vni *vni)
 {
-	json_object_int_add(json_if, "vxlanId", vni->vni);
+	json_object *json_vni;
+	char vni_str[VNI_STR_LEN];
+
+	json_vni = json_object_new_object();
+	snprintf(vni_str, sizeof(vni_str), "%u", vni->vni);
 	if (vni->access_vlan)
-		json_object_int_add(json_if, "accessVlanId", vni->access_vlan);
+		json_object_int_add(json_vni, "accessVlanId", vni->access_vlan);
 	if (vni->mcast_grp.s_addr != INADDR_ANY)
-		json_object_string_addf(json_if, "mcastGroup", "%pI4",
-					&vni->mcast_grp);
+		json_object_string_addf(json_vni, "mcastGroup", "%pI4", &vni->mcast_grp);
+	json_object_object_add(json_if, vni_str, json_vni);
 }
 
 static void zebra_vxlan_if_vni_hash_dump_vty_json(struct hash_bucket *bucket,
@@ -2935,6 +2947,7 @@ static void zebra_vxlan_if_dump_vty_json(json_object *json_if,
 {
 	struct zebra_l2info_vxlan *vxlan_info;
 	struct zebra_vxlan_vni_info *vni_info;
+	json_object *json_vnis = NULL;
 
 	vxlan_info = &zebra_if->l2info.vxl;
 	vni_info = &vxlan_info->vni_info;
@@ -2951,12 +2964,14 @@ static void zebra_vxlan_if_dump_vty_json(json_object *json_if,
 		json_object_string_add(json_if, "linkInterface",
 				       ifp == NULL ? "Unknown" : ifp->name);
 	}
-	if (IS_ZEBRA_VXLAN_IF_VNI(zebra_if)) {
-		zebra_vxlan_if_vni_dump_vty_json(json_if, &vni_info->vni);
-	} else {
-		hash_iterate(vni_info->vni_table,
-			     zebra_vxlan_if_vni_hash_dump_vty_json, json_if);
-	}
+
+	json_vnis = json_object_new_object();
+	if (IS_ZEBRA_VXLAN_IF_VNI(zebra_if))
+		zebra_vxlan_if_vni_dump_vty_json(json_vnis, &vni_info->vni);
+	else
+		hash_iterate(vni_info->vni_table, zebra_vxlan_if_vni_hash_dump_vty_json, json_vnis);
+
+	json_object_object_add(json_if, "vxlanId", json_vnis);
 }
 
 static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
