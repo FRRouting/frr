@@ -3055,9 +3055,8 @@ static void process_subq_early_route_delete(struct zebra_early_route *ere)
 				src_buf[0] = '\0';
 
 			zlog_debug("%s[%d]:%pRN%s%s doesn't exist in rib",
-				   vrf->name, ere->re->table, rn,
-				   (src_buf[0] != '\0') ? " from " : "",
-				   src_buf);
+				   vrf ? vrf->name : "Unknown", ere->re->table, rn,
+				   (src_buf[0] != '\0') ? " from " : "", src_buf);
 		}
 		early_route_memory_free(ere);
 		return;
