@@ -104,6 +104,9 @@ struct buf_req {
 static const char ipv4_ll_buf[16] = "169.254.0.1";
 static struct in_addr ipv4_ll;
 
+static int netlink_nexthop_msg_encode_end_b6_encaps(struct nlmsghdr *nlmsg,
+						    const struct nexthop *nh, size_t buflen);
+
 /* Is this a ipv4 over ipv6 route? */
 static bool is_route_v4_over_v6(unsigned char rtm_family,
 				enum nexthop_types_t nexthop_type)
@@ -2046,9 +2049,11 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 						   ctx->table))
 					return false;
 				break;
+			case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
+				netlink_nexthop_msg_encode_end_b6_encaps(nlmsg, nexthop, req_size);
+				break;
 			case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
 			case ZEBRA_SEG6_LOCAL_ACTION_END_B6:
-			case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
 			case ZEBRA_SEG6_LOCAL_ACTION_END_BM:
 			case ZEBRA_SEG6_LOCAL_ACTION_END_S:
 			case ZEBRA_SEG6_LOCAL_ACTION_END_AS:
