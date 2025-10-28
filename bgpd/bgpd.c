@@ -3139,8 +3139,8 @@ void peer_group_notify_unconfig(struct peer_group *group)
 		if (other && other->connection->status != Deleted) {
 			other->group = NULL;
 			peer_notify_unconfig(other);
-		} else
-			peer_notify_unconfig(peer);
+		}
+		peer_notify_unconfig(peer);
 	}
 }
 
