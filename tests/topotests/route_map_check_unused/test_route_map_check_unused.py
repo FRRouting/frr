@@ -39,7 +39,7 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
-def test_bgp_route_map_unused():
+def test_route_map_check_unused():
     tgen = get_topogen()
 
     if tgen.routers_have_failure():
@@ -47,7 +47,7 @@ def test_bgp_route_map_unused():
 
     r1 = tgen.gears["r1"]
 
-    def _bgp_converge():
+    def _check_unused_route_maps():
         output = json.loads(r1.vtysh_cmd("show route-map-unused json"))
         expected = {
             "zebra": {
@@ -125,9 +125,9 @@ def test_bgp_route_map_unused():
 
         return topotest.json_cmp(output, expected, exact=True)
 
-    test_func = functools.partial(_bgp_converge)
+    test_func = functools.partial(_check_unused_route_maps)
     _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
-    assert result is None, "There are some unused route-maps in BGP"
+    assert result is None, "There are some unused route-maps"
 
 
 if __name__ == "__main__":
