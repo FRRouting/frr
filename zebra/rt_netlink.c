@@ -3426,7 +3426,14 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 											 nh,
 											 buflen);
 						break;
-					default:
+					case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
+					case ZEBRA_SEG6_LOCAL_ACTION_END_B6:
+					case ZEBRA_SEG6_LOCAL_ACTION_END_BM:
+					case ZEBRA_SEG6_LOCAL_ACTION_END_S:
+					case ZEBRA_SEG6_LOCAL_ACTION_END_AS:
+					case ZEBRA_SEG6_LOCAL_ACTION_END_AM:
+					case ZEBRA_SEG6_LOCAL_ACTION_END_BPF:
+					case ZEBRA_SEG6_LOCAL_ACTION_UNSPEC:
 						zlog_err("%s: unsupported seg6local behavior, action=%u",
 							 __func__, action);
 						return 0;
