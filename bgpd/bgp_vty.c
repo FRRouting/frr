@@ -11005,11 +11005,11 @@ DEFPY(af_import_vrf_route_map, af_import_vrf_route_map_cmd,
 		XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_str);
 	bgp->vpn_policy[afi].rmap[dir] =
 		route_map_lookup_warn_noexist(vty, rmap_str);
-	if (!bgp->vpn_policy[afi].rmap[dir])
-		return CMD_SUCCESS;
 
 	SET_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
 		 BGP_CONFIG_VRF_TO_VRF_IMPORT);
+	if (!bgp->vpn_policy[afi].rmap[dir])
+		return CMD_SUCCESS;
 
 	vpn_leak_postchange(dir, afi, bgp_get_default(), bgp);
 
