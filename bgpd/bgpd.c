@@ -4486,6 +4486,12 @@ void bgp_free(struct bgp *bgp)
 			bgp_table_finish(&bgp->rib[afi][safi]);
 		rmap = &bgp->table_map[afi][safi];
 		XFREE(MTYPE_ROUTE_MAP_NAME, rmap->name);
+		/* Free advertise command route-map */
+		rmap = &bgp->adv_cmd_rmap[afi][safi];
+		if (rmap->name) {
+			XFREE(MTYPE_ROUTE_MAP_NAME, rmap->name);
+			route_map_counter_decrement(rmap->map);
+		}
 	}
 
 	bgp_scan_finish(bgp);
