@@ -10041,6 +10041,8 @@ DEFPY(sid_export,
 
 		if (bgp->srv6_unicast[afi].rmap_name) {
 			XFREE(MTYPE_ROUTE_MAP_NAME, bgp->srv6_unicast[afi].rmap_name);
+			route_map_counter_decrement(
+				route_map_lookup_by_name(bgp->srv6_unicast[afi].rmap_name));
 			bgp->srv6_unicast[afi].rmap_name = NULL;
 		}
 		if (bgp->srv6_unicast[afi].sid_explicit) {
@@ -10088,8 +10090,11 @@ DEFPY(sid_export,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (rmap_str)
+	if (rmap_str) {
 		bgp->srv6_unicast[afi].rmap_name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_str);
+		route_map_counter_increment(
+			route_map_lookup_by_name(bgp->srv6_unicast[afi].rmap_name));
+	}
 
 	if (sid_auto) {
 		SET_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_SRV6_UNICAST_SID_AUTO);

@@ -171,8 +171,11 @@ void bgp_srv6_unicast_delete(struct bgp *bgp, afi_t afi)
 	if (bgp->srv6_unicast[afi].sid_explicit)
 		XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[afi].sid_explicit);
 
-	if (bgp->srv6_unicast[afi].rmap_name)
+	if (bgp->srv6_unicast[afi].rmap_name) {
 		XFREE(MTYPE_ROUTE_MAP_NAME, bgp->srv6_unicast[afi].rmap_name);
+		route_map_counter_decrement(
+			route_map_lookup_by_name(bgp->srv6_unicast[afi].rmap_name));
+	}
 
 	srv6_locator_free(bgp->srv6_unicast[afi].sid_locator);
 	bgp->srv6_unicast[afi].sid_locator = NULL;
@@ -248,6 +251,8 @@ void bgp_srv6_unicast_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest
 
 				return;
 			}
+
+			route_map_counter_increment(rmap);
 		} else {
 			zlog_warn("route-map %s was no found, ignored",
 				  bgp->srv6_unicast[afi].rmap_name);
