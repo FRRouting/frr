@@ -1130,11 +1130,15 @@ static int vty_show_route_map(struct vty *vty, const char *name, bool use_json)
 }
 
 /* Unused route map details */
-static int vty_show_unused_route_map(struct vty *vty)
+static int vty_show_unused_route_map(struct vty *vty, bool uj)
 {
 	struct list *maplist = list_new();
 	struct listnode *ln;
 	struct route_map *map;
+	json_object *json = NULL;
+
+	if (uj)
+		json = json_object_new_object();
 
 	for (map = route_map_master.head; map; map = map->next) {
 		/* If use_count is zero, No protocol is using this routemap.
@@ -1145,16 +1149,22 @@ static int vty_show_unused_route_map(struct vty *vty)
 	}
 
 	if (maplist->count > 0) {
-		vty_out(vty, "\n%s:\n", frr_protonameinst);
+		if (!uj)
+			vty_out(vty, "\n%s:\n", frr_protonameinst);
 		list_sort(maplist, sort_route_map);
 
 		for (ALL_LIST_ELEMENTS_RO(maplist, ln, map))
-			vty_show_route_map_entry(vty, map, NULL);
+			vty_show_route_map_entry(vty, map, json);
 	} else {
-		vty_out(vty, "\n%s: None\n", frr_protonameinst);
+		if (!uj)
+			vty_out(vty, "\n%s: None\n", frr_protonameinst);
 	}
 
 	list_delete(&maplist);
+
+	if (uj)
+		vty_json(vty, json);
+
 	return CMD_SUCCESS;
 }
 
@@ -3198,13 +3208,16 @@ DEFUN_NOSH (rmap_show_name,
 	return vty_show_route_map(vty, name, uj);
 }
 
-DEFUN (rmap_show_unused,
+DEFPY_NOSH (rmap_show_unused,
        rmap_show_unused_cmd,
-       "show route-map-unused",
+       "show route-map-unused [json$json]",
        SHOW_STR
-       "unused route-map information\n")
+       "unused route-map information\n"
+       JSON_STR)
 {
-	return vty_show_unused_route_map(vty);
+	bool uj = use_json(argc, argv);
+
+	return vty_show_unused_route_map(vty, uj);
 }
 
 DEFPY (debug_rmap,
