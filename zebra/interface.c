@@ -44,7 +44,12 @@ DEFINE_HOOK(zebra_if_extra_info, (struct vty * vty, json_object *json_if, struct
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZIF_DESC, "Intf desc");
 
+/* Values for interface speed polling timer */
+#define SPEED_UPDATE_SLEEP_TIME 5
+#define SPEED_UPDATE_COUNT_MAX (4 * 60 / SPEED_UPDATE_SLEEP_TIME)
+
 static void if_down_del_nbr_connected(struct interface *ifp);
+static void if_zebra_speed_update(struct event *thread);
 
 static const char *if_zebra_data_state(uint8_t state)
 {
@@ -60,6 +65,19 @@ static const char *if_zebra_data_state(uint8_t state)
 	return "STATE IS WRONG DEV ESCAPE";
 }
 
+/*
+ * Helper to start timer while polling an interface's speed
+ */
+static void zebra_if_speed_query(struct zebra_if *zif)
+{
+	event_add_timer(zrouter.master, if_zebra_speed_update, zif->ifp,
+			SPEED_UPDATE_SLEEP_TIME, &zif->speed_update);
+	event_ignore_late_timer(zif->speed_update);
+}
+
+/*
+ * Timer callback for ifp speed queries
+ */
 static void if_zebra_speed_update(struct event *thread)
 {
 	struct interface *ifp = EVENT_ARG(thread);
@@ -74,25 +92,22 @@ static void if_zebra_speed_update(struct event *thread)
 	 * interfaces not available.
 	 * note that loopback & virtual interfaces can return 0 as speed
 	 */
-	if (error == INTERFACE_SPEED_ERROR_READ)
-		return;
-
-	if (new_speed != ifp->speed) {
-		zlog_info("%s: %s old speed: %u new speed: %u", __func__,
-			  ifp->name, ifp->speed, new_speed);
-		if_update_state_speed(ifp, new_speed);
-		if_add_update(ifp);
-		changed = true;
+	if (error == 0) {
+		if (new_speed != ifp->speed) {
+			zlog_info("%s: %s old speed: %u new speed: %u", __func__,
+				  ifp->name, ifp->speed, new_speed);
+			if_update_state_speed(ifp, new_speed);
+			if_add_update(ifp);
+			changed = true;
+		}
 	}
 
-	if (changed || error == INTERFACE_SPEED_ERROR_UNKNOWN) {
-#define SPEED_UPDATE_SLEEP_TIME 5
-#define SPEED_UPDATE_COUNT_MAX (4 * 60 / SPEED_UPDATE_SLEEP_TIME)
+	if (changed || error != 0) {
 		/*
 		 * Some interfaces never actually have an associated speed
 		 * with them ( I am looking at you bridges ).
 		 * So instead of iterating forever, let's give the
-		 * system 4 minutes to try to figure out the speed
+		 * system a few minutes to try to figure out the speed
 		 * if after that it it's probably never going to become
 		 * useful.
 		 * Since I don't know all the wonderful types of interfaces
@@ -100,14 +115,12 @@ static void if_zebra_speed_update(struct event *thread)
 		 * to not update the system to keep track of that.  This
 		 * is far simpler to just stop trying after 4 minutes
 		 */
-		if (error == INTERFACE_SPEED_ERROR_UNKNOWN &&
-		    zif->speed_update_count == SPEED_UPDATE_COUNT_MAX)
+		zif->speed_update_count++;
+
+		if (zif->speed_update_count >= SPEED_UPDATE_COUNT_MAX)
 			return;
 
-		zif->speed_update_count++;
-		event_add_timer(zrouter.master, if_zebra_speed_update, ifp,
-				SPEED_UPDATE_SLEEP_TIME, &zif->speed_update);
-		event_ignore_late_timer(zif->speed_update);
+		zebra_if_speed_query(zif);
 	}
 }
 
@@ -155,18 +168,6 @@ static int if_zebra_new_hook(struct interface *ifp)
 		route_table_init_with_delegate(&zebra_if_table_delegate);
 
 	ifp->info = zebra_if;
-
-	/*
-	 * Some platforms are telling us that the interface is
-	 * up and ready to go.  When we check the speed we
-	 * sometimes get the wrong value.  Wait a couple
-	 * of seconds and ask again.  Hopefully it's all settled
-	 * down upon startup.
-	 */
-	zebra_if->speed_update_count = 0;
-	event_add_timer(zrouter.master, if_zebra_speed_update, ifp, 15,
-			&zebra_if->speed_update);
-	event_ignore_late_timer(zebra_if->speed_update);
 
 	return 0;
 }
@@ -524,6 +525,10 @@ void if_add_update(struct interface *ifp)
 	struct zebra_if *if_data;
 	struct zebra_ns *zns;
 	struct zebra_vrf *zvrf = ifp->vrf->info;
+
+	/* Don't process if we don't have a valid device */
+	if (ifp->ifindex == IFINDEX_INTERNAL)
+		return;
 
 	/* case interface populate before vrf enabled */
 	if (zvrf->zns)
@@ -966,9 +971,9 @@ void if_up(struct interface *ifp, bool install_connected)
 	if (zif->flags & ZIF_FLAG_EVPN_MH_UPLINK)
 		zebra_evpn_mh_uplink_oper_update(zif);
 
-	event_add_timer(zrouter.master, if_zebra_speed_update, ifp, 0,
-			&zif->speed_update);
-	event_ignore_late_timer(zif->speed_update);
+	/* Re-start interface speed querying. */
+	zif->speed_update_count = 0;
+	zebra_if_speed_query(zif);
 
 	if_addr_wakeup(ifp);
 
@@ -1989,6 +1994,15 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 			ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
 			ifp->txqlen = dplane_ctx_get_intf_txqlen(ctx);
 
+			/*
+			 * Start a timer to poll the interface speed; some
+			 * platforms or interface types take some time to make
+			 * a valid speed available. We'll wait a few seconds and
+			 * ask again.
+			 */
+			zif->speed_update_count = 0;
+			zebra_if_speed_query(zif);
+
 			/* Set interface type */
 			zebra_if_set_ziftype(ifp, zif_type, zif_slave_type);
 			if (IS_ZEBRA_IF_VRF(ifp))
@@ -2035,7 +2049,6 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 						IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(
 							zif));
 			}
-			// if_update_state(ifp);
 		} else if (ifp->vrf->vrf_id != vrf_id) {
 			/* VRF change for an interface. */
 			if (IS_ZEBRA_DEBUG_KERNEL)
