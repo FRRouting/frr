@@ -3326,14 +3326,14 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 						return 0;
 
 					switch (action) {
-					case SEG6_LOCAL_ACTION_END:
+					case ZEBRA_SEG6_LOCAL_ACTION_END:
 						if (!nl_attr_put32(
 						    &req->n, buflen,
 						    SEG6_LOCAL_ACTION,
 						    SEG6_LOCAL_ACTION_END))
 							return 0;
 						break;
-					case SEG6_LOCAL_ACTION_END_X:
+					case ZEBRA_SEG6_LOCAL_ACTION_END_X:
 						if (!nl_attr_put32(
 						    &req->n, buflen,
 						    SEG6_LOCAL_ACTION,
@@ -3345,7 +3345,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 						    sizeof(struct in6_addr)))
 							return 0;
 						break;
-					case SEG6_LOCAL_ACTION_END_T:
+					case ZEBRA_SEG6_LOCAL_ACTION_END_T:
 						if (!nl_attr_put32(
 						    &req->n, buflen,
 						    SEG6_LOCAL_ACTION,
@@ -3357,7 +3357,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 						    ctx6->table))
 							return 0;
 						break;
-					case SEG6_LOCAL_ACTION_END_DX4:
+					case ZEBRA_SEG6_LOCAL_ACTION_END_DX4:
 						if (!nl_attr_put32(
 						    &req->n, buflen,
 						    SEG6_LOCAL_ACTION,
@@ -3369,7 +3369,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 						    sizeof(struct in_addr)))
 							return 0;
 						break;
-					case SEG6_LOCAL_ACTION_END_DX6:
+					case ZEBRA_SEG6_LOCAL_ACTION_END_DX6:
 						if (!nl_attr_put32(&req->n,
 								   buflen,
 								   SEG6_LOCAL_ACTION,
@@ -3381,7 +3381,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 								 sizeof(struct in6_addr)))
 							return 0;
 						break;
-					case SEG6_LOCAL_ACTION_END_DT6:
+					case ZEBRA_SEG6_LOCAL_ACTION_END_DT6:
 						if (!nl_attr_put32(
 						    &req->n, buflen,
 						    SEG6_LOCAL_ACTION,
@@ -3393,7 +3393,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 						    ctx6->table))
 							return 0;
 						break;
-					case SEG6_LOCAL_ACTION_END_DT4:
+					case ZEBRA_SEG6_LOCAL_ACTION_END_DT4:
 						if (!nl_attr_put32(
 							    &req->n, buflen,
 							    SEG6_LOCAL_ACTION,
@@ -3405,7 +3405,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 							    ctx6->table))
 							return 0;
 						break;
-					case SEG6_LOCAL_ACTION_END_DT46:
+					case ZEBRA_SEG6_LOCAL_ACTION_END_DT46:
 						if (!nl_attr_put32(
 							    &req->n, buflen,
 							    SEG6_LOCAL_ACTION,
