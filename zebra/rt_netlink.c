@@ -3084,18 +3084,18 @@ static ssize_t fill_srh_end_b6_encaps(char *buffer, size_t buflen, struct seg6_s
 	return srhlen;
 }
 
-static int netlink_nexthop_msg_encode_end_b6_encaps(struct buf_req *req, const struct nexthop *nh,
-						    size_t buflen)
+static int netlink_nexthop_msg_encode_end_b6_encaps(struct nlmsghdr *nlmsg,
+						    const struct nexthop *nh, size_t buflen)
 {
 	int srh_len;
 	char srh_buf[4096];
 
-	if (!nl_attr_put32(&req->n, buflen, SEG6_LOCAL_ACTION, SEG6_LOCAL_ACTION_END_B6_ENCAP))
+	if (!nl_attr_put32(nlmsg, buflen, SEG6_LOCAL_ACTION, SEG6_LOCAL_ACTION_END_B6_ENCAP))
 		return 0;
 	srh_len = fill_srh_end_b6_encaps(srh_buf, sizeof(srh_buf), nh->nh_srv6->seg6_segs);
 	if (srh_len < 0)
 		return 0;
-	if (!nl_attr_put(&req->n, buflen, SEG6_LOCAL_SRH, srh_buf, srh_len))
+	if (!nl_attr_put(nlmsg, buflen, SEG6_LOCAL_SRH, srh_buf, srh_len))
 		return 0;
 	return 1;
 }
@@ -3417,10 +3417,9 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 							return 0;
 						break;
 					case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
-						netlink_nexthop_msg_encode_end_b6_encaps((struct buf_req
-												  *)
-												 req,
-											 nh, buflen);
+						netlink_nexthop_msg_encode_end_b6_encaps(&req->n,
+											 nh,
+											 buflen);
 						break;
 					default:
 						zlog_err("%s: unsupported seg6local behavior, action=%u",
