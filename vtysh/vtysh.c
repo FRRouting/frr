@@ -3661,13 +3661,17 @@ DEFUN (vtysh_show_running_config,
 	return vtysh_write_terminal(self, vty, argc, argv);
 }
 
-static void show_route_map_send(const char *route_map, bool json)
+static void show_route_map_send(const char *route_map, bool unused, bool json)
 {
 	unsigned int i;
 	bool first = true;
 	char command_line[128];
 
-	snprintf(command_line, sizeof(command_line), "do show route-map ");
+	if (unused)
+		snprintf(command_line, sizeof(command_line), "do show route-map-unused ");
+	else
+		snprintf(command_line, sizeof(command_line), "do show route-map ");
+
 	if (route_map)
 		strlcat(command_line, route_map, sizeof(command_line));
 	if (json)
@@ -3713,7 +3717,19 @@ DEFPY (show_route_map,
        "route-map name\n"
        JSON_STR)
 {
-	show_route_map_send(route_map, !!json);
+	show_route_map_send(route_map, false, !!json);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_route_map_unused,
+       show_route_map_unused_cmd,
+       "show route-map-unused [json]$json",
+       SHOW_STR
+       "unused route-map information\n"
+       JSON_STR)
+{
+	show_route_map_send(NULL, true, !!json);
 
 	return CMD_SUCCESS;
 }
@@ -5658,6 +5674,7 @@ void vtysh_init_vty(void)
 	install_element(ENABLE_NODE, &vtysh_copy_to_running_cmd);
 
 	install_element(ENABLE_NODE, &show_route_map_cmd);
+	install_element(ENABLE_NODE, &show_route_map_unused_cmd);
 	install_element(ENABLE_NODE, &show_ip_prefix_list_cmd);
 	install_element(ENABLE_NODE, &show_ip_prefix_list_summary_cmd);
 	install_element(ENABLE_NODE, &show_ip_prefix_list_detail_cmd);
