@@ -31,6 +31,9 @@
 /test-driver
 /test-suite.log
 
+/frr.pc
+/frr-uninstalled.pc
+
 /Makefile
 /Makefile.in
 
