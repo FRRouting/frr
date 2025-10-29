@@ -1642,7 +1642,7 @@ enum zclient_send_status bgp_zebra_announce_actual(struct bgp_dest *dest,
 	metric = info->attr->med;
 
 	/* Determine if we're doing weighted ECMP or not */
-	do_wt_ecmp = bgp_path_info_mpath_chkwtd(bgp, info);
+	do_wt_ecmp = bgp_path_info_mpath_chkwtd(bgp, dest);
 	bgp_zebra_announce_parse_nexthop(info, p, bgp, &api, &valid_nh_count, table->afi,
 					 table->safi, &nhg_id, &metric, &tag, &allow_recursion,
 					 do_wt_ecmp);

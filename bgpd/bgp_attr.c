@@ -4702,12 +4702,12 @@ static void bgp_packet_nhc(struct stream *s, struct peer *peer, afi_t afi, safi_
 	if (!bpi)
 		return;
 
-	if (bgp_path_info_mpath_count(bpi) < 2 && !nhc)
+	if (bgp_path_info_mpath_count(bpi->net) < 2 && !nhc)
 		return;
 
 	prefix = bgp_dest_get_prefix(bpi->net);
 
-	total = bgp_path_info_mpath_count(bpi) * IPV4_MAX_BYTELEN;
+	total = bgp_path_info_mpath_count(bpi->net) * IPV4_MAX_BYTELEN;
 	total += IPV4_MAX_BYTELEN; /* Next-hop BGP ID */
 
 	stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
@@ -4749,7 +4749,7 @@ static void bgp_packet_nhc(struct stream *s, struct peer *peer, afi_t afi, safi_
 	 * |               Next-next-hop BGP IDs (variable)                |
 	 * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 	 */
-	if (bgp_path_info_mpath_count(bpi) > 1) {
+	if (bgp_path_info_mpath_count(bpi->net) > 1) {
 		if (bgp_debug_update(peer, NULL, NULL, 1))
 			zlog_debug("%pBP: Sending NHC TLV (%d) for %pFX", peer,
 				   BGP_ATTR_NHC_TLV_NNHN, prefix);
