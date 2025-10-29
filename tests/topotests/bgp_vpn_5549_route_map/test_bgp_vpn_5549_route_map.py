@@ -22,6 +22,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topotest import sleep
 from lib.checkping import check_ping
 from lib.common_config import step
 
@@ -68,8 +69,6 @@ def setup_module(mod):
 
     pe1.run("sysctl -w net.ipv4.ip_forward=1")
     pe2.run("sysctl -w net.ipv4.ip_forward=1")
-    pe1.run("sysctl -w net.mpls.conf.pe1-eth0.100.input=1")
-    pe2.run("sysctl -w net.mpls.conf.pe2-eth1.100.input=1")
 
     router_list = tgen.routers()
 
@@ -95,69 +94,76 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
-def test_bgp_vpn_5549():
+def _bgp_vpn_nexthop_changed():
     tgen = get_topogen()
 
-    pe2 = tgen.gears["pe2"]
-
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    def _bgp_vpn_nexthop_changed():
-        output = json.loads(pe2.vtysh_cmd("show bgp ipv4 vpn json"))
-        expected = {
-            "routes": {
-                "routeDistinguishers": {
-                    "192.168.1.2:2": {
-                        "172.16.255.1/32": [
-                            {"valid": True, "nexthops": [{"ip": "2001:db8::1"}]}
-                        ],
-                        "192.168.1.0/24": [
-                            {"valid": True, "nexthops": [{"ip": "2001:db8:1::1"}]}
-                        ],
-                    }
+    output = json.loads(tgen.gears["pe2"].vtysh_cmd("show bgp ipv4 vpn json"))
+    expected = {
+        "routes": {
+            "routeDistinguishers": {
+                "192.168.1.2:2": {
+                    "172.16.255.1/32": [
+                        {"valid": True, "nexthops": [{"ip": "2001:db8::1"}]}
+                    ],
+                    "192.168.1.0/24": [
+                        {"valid": True, "nexthops": [{"ip": "2001:db8:1::1"}]}
+                    ],
                 }
             }
         }
-        return topotest.json_cmp(output, expected)
+    }
+    return topotest.json_cmp(output, expected)
 
-    def _bgp_verify_v4_nexthop_validity():
-        output = json.loads(tgen.gears["cpe1"].vtysh_cmd("show bgp nexthop json"))
-        expected = {
-            "ipv4": {
-                "192.168.1.2": {
-                    "valid": True,
-                    "complete": True,
-                    "igpMetric": 0,
-                    "pathCount": 1,
-                    "nexthops": [{"interfaceName": "cpe1-eth0"}],
-                },
-            }
-        }
-        return topotest.json_cmp(output, expected)
 
-    def _bgp_verify_v6_global_nexthop_validity():
-        output = json.loads(tgen.gears["pe2"].vtysh_cmd("show bgp nexthop json"))
-        expected = {
-            "ipv6": {
-                "2001:db8::1": {
-                    "valid": True,
-                    "complete": True,
-                    "igpMetric": 0,
-                    "pathCount": 2,
-                    "nexthops": [{"interfaceName": "pe2-eth0.100"}],
-                },
-                "2001:db8:1::1": {
-                    "valid": True,
-                    "complete": True,
-                    "igpMetric": 10,
-                    "pathCount": 2,
-                    "peer": "2001:db8:1::1",
-                    "nexthops": [{"interfaceName": "pe2-eth0.100"}],
-                },
-            }
+def _bgp_verify_v4_nexthop_validity():
+    tgen = get_topogen()
+
+    output = json.loads(tgen.gears["cpe1"].vtysh_cmd("show bgp nexthop json"))
+    expected = {
+        "ipv4": {
+            "192.168.1.2": {
+                "valid": True,
+                "complete": True,
+                "igpMetric": 0,
+                "pathCount": 1,
+                "nexthops": [{"interfaceName": "cpe1-eth0"}],
+            },
         }
-        return topotest.json_cmp(output, expected)
+    }
+    return topotest.json_cmp(output, expected)
+
+
+def _bgp_verify_v6_global_nexthop_validity():
+    tgen = get_topogen()
+
+    output = json.loads(tgen.gears["pe2"].vtysh_cmd("show bgp nexthop json"))
+    expected = {
+        "ipv6": {
+            "2001:db8::1": {
+                "valid": True,
+                "complete": True,
+                "igpMetric": 0,
+                "pathCount": 2,
+                "nexthops": [{"interfaceName": "pe2-eth0.100"}],
+            },
+            "2001:db8:1::1": {
+                "valid": True,
+                "complete": True,
+                "igpMetric": 10,
+                "pathCount": 2,
+                "peer": "2001:db8:1::1",
+                "nexthops": [{"interfaceName": "pe2-eth0.100"}],
+            },
+        }
+    }
+    return topotest.json_cmp(output, expected)
+
+
+def test_bgp_vpn_5549():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
 
     test_func = functools.partial(_bgp_vpn_nexthop_changed)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
@@ -297,6 +303,8 @@ def test_show_interface_rtadv_params_not_found_after_reapply():
         "configure \n \
             no router bgp 65001 vrf RED \n \
             no router bgp 65001 \n \
+            no mpls ldp \n \
+            no router ospf6 \n \
             exit"
     )
     test_func = functools.partial(
@@ -310,7 +318,12 @@ def test_reapply_bgp_config():
     tgen = get_topogen()
 
     router = tgen.gears["pe1"]
+    router.run("vtysh -f {0}".format(os.path.join(CWD, "pe1/ospf6d.conf")))
+    sleep(1, "{}: waiting for ospf6d config to be loaded".format(router.name))
+    router.run("vtysh -f {0}".format(os.path.join(CWD, "pe1/ldpd.conf")))
+    sleep(1, "{}: waiting for ldpd config to be loaded".format(router.name))
     router.run("vtysh -f {0}".format(os.path.join(CWD, "pe1/bgpd.conf")))
+    sleep(1, "{}: waiting for bgp config to be loaded".format(router.name))
 
     test_func = functools.partial(
         check_show_interface_rtadv_params_found_reapply, router
@@ -346,6 +359,34 @@ def test_readd_vlan_interface_from_pe1():
     )
     success, _ = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert success, "not good"
+
+
+def test_bgp_vpn_5549_after_recreation():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    test_func = functools.partial(_bgp_vpn_nexthop_changed)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed overriding IPv6 next-hop for VPN underlay"
+
+    test_func = functools.partial(_bgp_verify_v4_nexthop_validity)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "IPv4 nexthop is invalid"
+
+    test_func = functools.partial(_bgp_verify_v6_global_nexthop_validity)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "IPv6 nexthop is invalid"
+
+
+def test_ping_from_cpe1_to_cpe2_after_recreation():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    check_ping("cpe1", "192.168.2.1", True, 5, 1)
 
 
 if __name__ == "__main__":
