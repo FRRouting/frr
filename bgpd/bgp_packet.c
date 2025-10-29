@@ -632,8 +632,8 @@ void bgp_keepalive_send(struct peer_connection *connection)
 	bgp_writes_on(connection);
 }
 
-struct stream *bgp_open_make(struct peer *peer, uint16_t send_holdtime, as_t local_as,
-			     struct in_addr *id)
+struct stream *bgp_open_make(struct peer *peer, struct peer_connection *connection,
+			     uint16_t send_holdtime, as_t local_as, struct in_addr *id)
 {
 	struct stream *s = stream_new(BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE);
 	bool ext_opt_params = false;
@@ -651,14 +651,15 @@ struct stream *bgp_open_make(struct peer *peer, uint16_t send_holdtime, as_t loc
 	/* Set capabilities */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_EXTENDED_OPT_PARAMS)) {
 		ext_opt_params = true;
-		(void)bgp_open_capability(s, peer, ext_opt_params);
+		(void)bgp_open_capability(s, peer, connection, ext_opt_params);
 	} else {
 		size_t endp = stream_get_endp(s);
 
-		if (bgp_open_capability(s, peer, ext_opt_params) > BGP_OPEN_NON_EXT_OPT_LEN) {
+		if (bgp_open_capability(s, peer, connection, ext_opt_params) >
+		    BGP_OPEN_NON_EXT_OPT_LEN) {
 			stream_set_endp(s, endp);
 			ext_opt_params = true;
-			(void)bgp_open_capability(s, peer, ext_opt_params);
+			(void)bgp_open_capability(s, peer, connection, ext_opt_params);
 		}
 	}
 
@@ -667,9 +668,8 @@ struct stream *bgp_open_make(struct peer *peer, uint16_t send_holdtime, as_t loc
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%pBP fd %d sending OPEN%s, version %d, my as %u, holdtime %d, id %pI4",
-			   peer, peer->connection->fd,
-			   ext_opt_params ? " (Extended)" : "", BGP_VERSION_4,
-			   local_as, send_holdtime, &peer->local_id);
+			   peer, connection->fd, ext_opt_params ? " (Extended)" : "",
+			   BGP_VERSION_4, local_as, send_holdtime, &peer->local_id);
 
 	return s;
 }
@@ -696,7 +696,7 @@ void bgp_open_send(struct peer_connection *connection)
 	else
 		local_as = peer->local_as;
 
-	s = bgp_open_make(peer, send_holdtime, local_as, &peer->local_id);
+	s = bgp_open_make(peer, connection, send_holdtime, local_as, &peer->local_id);
 
 	/* Dump packet if debug option is set. */
 	/* bgp_packet_dump (s); */
@@ -2103,7 +2103,7 @@ static int bgp_open_receive(struct peer_connection *connection,
 
 	/* Open option part parse. */
 	if (optlen != 0) {
-		if (bgp_open_option_parse(peer, optlen, &mp_capability) < 0)
+		if (bgp_open_option_parse(peer, connection, optlen, &mp_capability) < 0)
 			return BGP_Stop;
 	} else {
 		if (bgp_debug_neighbor_events(peer))

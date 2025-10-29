@@ -845,7 +845,7 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 		/* and it should leave getp as it found it */
 		assert(stream_get_getp(peer->connection->curr) == RANDOM_FUZZ);
 
-		ret = bgp_open_option_parse(peer, len, &capability);
+		ret = bgp_open_option_parse(peer, peer->connection, len, &capability);
 		break;
 	case DYNCAP:
 		ret = bgp_capability_receive(peer->connection, peer, t->len);
