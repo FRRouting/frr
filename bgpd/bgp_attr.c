@@ -549,7 +549,7 @@ void evpn_overlay_free(struct bgp_route_evpn *bre)
 	XFREE(MTYPE_BGP_EVPN_OVERLAY, bre);
 }
 
-static struct bgp_route_evpn *evpn_overlay_intern(struct bgp_route_evpn *bre)
+struct bgp_route_evpn *evpn_overlay_intern(struct bgp_route_evpn *bre)
 {
 	struct bgp_route_evpn *find;
 
