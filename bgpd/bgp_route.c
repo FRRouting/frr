@@ -4640,11 +4640,18 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		 * will not be interned. In which case, it is ok to update the
 		 * attr->evpn_overlay, so that, this can be stored in adj_in.
 		 */
+<<<<<<< HEAD
 		if (evpn) {
 			if (afi == AFI_L2VPN)
 				bgp_attr_set_evpn_overlay(attr, evpn);
 			else
 				evpn_overlay_free(evpn);
+=======
+		if (evpn && afi == AFI_L2VPN) {
+			evpn = evpn_overlay_intern(evpn);
+			bgp_attr_set_evpn_overlay(attr, evpn);
+			p_evpn = NULL;
+>>>>>>> 8b087b2a4 (bgpd: Crash due to usage of freed up evpn_overlay attr)
 		}
 		bgp_adj_in_set(dest, peer, attr, addpath_id, &bgp_labels);
 	}
