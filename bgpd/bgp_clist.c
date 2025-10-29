@@ -1041,13 +1041,15 @@ struct ecommunity *ecommunity_list_match_delete(struct ecommunity *ecom,
 	struct ecommunity local_ecom = {.size = 1};
 	struct ecommunity_val local_eval = {0};
 
+	local_ecom.unit_size = ecom->unit_size;
+	local_ecom.disable_ieee_floating = ecom->disable_ieee_floating;
 	for (i = 0; i < ecom->size; i++) {
 		local_ecom.val = ecom->val + (i * ECOMMUNITY_SIZE);
 		for (entry = list->head; entry; entry = entry->next) {
 			if (((entry->style == EXTCOMMUNITY_LIST_STANDARD) &&
 			     ecommunity_include(entry->u.ecom, &local_ecom)) ||
-			   ((entry->style == EXTCOMMUNITY_LIST_EXPANDED) &&
-			    ecommunity_regexp_match(ecom, entry->reg))) {
+			    ((entry->style == EXTCOMMUNITY_LIST_EXPANDED) &&
+			     ecommunity_regexp_match(&local_ecom, entry->reg))) {
 				if (entry->direct == COMMUNITY_PERMIT) {
 					com_index_to_delete[delete_index] = i;
 					delete_index++;
@@ -1055,6 +1057,7 @@ struct ecommunity *ecommunity_list_match_delete(struct ecommunity *ecom,
 				break;
 			}
 		}
+		ecommunity_strfree(&local_ecom.str);
 	}
 
 	/* Delete all of the extended communities we flagged for deletion */
