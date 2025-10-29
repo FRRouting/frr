@@ -4636,54 +4636,13 @@ static void bgp_maximum_prefix_restart_timer(struct event *event)
 		zlog_debug("%s: %s peer_clear failed", __func__, peer->host);
 }
 
-static uint32_t bgp_filtered_routes_count(struct peer *peer, afi_t afi,
-					  safi_t safi)
-{
-	uint32_t count = 0;
-	bool filtered = false;
-	struct bgp_dest *dest;
-	struct bgp_adj_in *ain;
-	struct attr attr = {};
-	struct bgp_table *table = peer->bgp->rib[afi][safi];
-
-	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
-		for (ain = dest->adj_in; ain; ain = ain->next) {
-			const struct prefix *rn_p = bgp_dest_get_prefix(dest);
-
-			attr = *ain->attr;
-
-			filtered = false;
-
-			if (bgp_input_filter(peer, rn_p, &attr, afi, safi)
-			    == FILTER_DENY)
-				filtered = true;
-
-			if (bgp_input_modifier(
-				    peer, rn_p, &attr, afi, safi,
-				    ROUTE_MAP_IN_NAME(&peer->filter[afi][safi]),
-				    NULL, 0, NULL)
-			    == RMAP_DENY)
-				filtered = true;
-
-			if (filtered)
-				count++;
-
-			bgp_attr_flush(&attr);
-		}
-	}
-
-	return count;
-}
-
 bool bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 				 int always)
 {
 	iana_afi_t pkt_afi;
 	iana_safi_t pkt_safi;
-	uint32_t pcount = (CHECK_FLAG(peer->af_flags[afi][safi],
-				      PEER_FLAG_MAX_PREFIX_FORCE))
-				  ? bgp_filtered_routes_count(peer, afi, safi)
-					    + peer->pcount[afi][safi]
+	uint32_t pcount = (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_FORCE))
+				  ? peer->pcount[afi][safi] + peer->pfiltered[afi][safi]
 				  : peer->pcount[afi][safi];
 	struct peer_connection *connection = peer->connection;
 
@@ -5156,6 +5115,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	struct bgp_labels bgp_labels = {};
 	struct bgp_route_evpn *p_evpn = evpn;
 	uint8_t i;
+	struct bgp_adj_in *ain = NULL;
 
 	if (frrtrace_enabled(frr_bgp, process_update)) {
 		char pfxprint[PREFIX2STR_BUFFER];
@@ -5200,7 +5160,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			bgp_attr_set_evpn_overlay(attr, evpn);
 			p_evpn = NULL;
 		}
-		bgp_adj_in_set(dest, peer, attr, addpath_id, &bgp_labels);
+		ain = bgp_adj_in_set(dest, peer, attr, addpath_id, &bgp_labels);
 	}
 
 	/* Check previously received route. */
@@ -5330,6 +5290,10 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	/* Apply incoming filter.  */
 	if (bgp_input_filter(peer, p, attr, afi, orig_safi) == FILTER_DENY) {
 		peer->stat_pfx_filter++;
+		if (ain && !ain->filtered) {
+			peer->pfiltered[afi][orig_safi]++;
+			ain->filtered = true;
+		}
 		reason = "filter;";
 		goto filtered;
 	}
@@ -5395,6 +5359,10 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			       num_labels, dest)
 	    == RMAP_DENY) {
 		peer->stat_pfx_filter++;
+		if (ain && !ain->filtered) {
+			peer->pfiltered[afi][orig_safi]++;
+			ain->filtered = true;
+		}
 		reason = "route-map;";
 		bgp_attr_flush(&new_attr);
 		goto filtered;
@@ -5460,6 +5428,16 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		reason = "failing otc validation";
 		bgp_attr_flush(&new_attr);
 		goto filtered;
+	}
+
+	/* If the route passed all filters and was previously filtered,
+	 * decrement the filtered counter and clear the flag.
+	 * This handles the case where policy changes and routes that were
+	 * previously filtered now pass (e.g., after soft reconfiguration).
+	 */
+	if (ain && ain->filtered) {
+		peer->pfiltered[afi][orig_safi]--;
+		ain->filtered = false;
 	}
 
 	/* If neighbor soo is configured, tag all incoming routes with
@@ -6618,8 +6596,11 @@ static void bgp_clear_route_table(struct peer *peer, afi_t afi, safi_t safi,
 		while (ain) {
 			ain_next = ain->next;
 
-			if (ain->peer == peer)
+			if (ain->peer == peer) {
+				if (ain->filtered)
+					peer->pfiltered[afi][safi]--;
 				bgp_adj_in_remove(&dest, ain);
+			}
 
 			ain = ain_next;
 
@@ -7172,8 +7153,11 @@ void bgp_clear_adj_in(struct peer *peer, afi_t afi, safi_t safi)
 		while (ain) {
 			ain_next = ain->next;
 
-			if (ain->peer == peer)
+			if (ain->peer == peer) {
+				if (ain->filtered)
+					peer->pfiltered[afi][safi]--;
 				bgp_adj_in_remove(&dest, ain);
+			}
 
 			ain = ain_next;
 

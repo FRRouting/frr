@@ -509,6 +509,7 @@ struct bgp {
 
 	/* BGP peer. */
 	struct list *peer;
+	struct list *peer_by_addr;
 	struct hash *connectionhash;
 
 	/* BGP peer group.  */
@@ -1982,6 +1983,9 @@ struct peer {
 	/* Accepted prefix count */
 	uint32_t pcount[AFI_MAX][SAFI_MAX];
 
+	/* Filtered prefix count */
+	uint32_t pfiltered[AFI_MAX][SAFI_MAX];
+
 	/* Max prefix count. */
 	uint32_t pmax[AFI_MAX][SAFI_MAX];
 	uint8_t pmax_threshold[AFI_MAX][SAFI_MAX];
@@ -2774,7 +2778,8 @@ extern void bgp_route_map_terminate(void);
 
 extern bool bgp_route_map_has_extcommunity_rt(const struct route_map *map);
 
-extern int peer_cmp(struct peer *p1, struct peer *p2);
+extern int peer_cmp(const struct peer *p1, const struct peer *p2);
+extern int peer_cmp_addr(const struct peer *p1, const struct peer *p2);
 
 extern int bgp_map_afi_safi_iana2int(iana_afi_t pkt_afi, iana_safi_t pkt_safi,
 				     afi_t *afi, safi_t *safi);
@@ -2784,6 +2789,7 @@ extern int bgp_map_afi_safi_int2iana(afi_t afi, safi_t safi,
 
 extern struct peer_af *peer_af_create(struct peer *peer, afi_t afi, safi_t safi);
 extern struct peer_af *peer_af_find(struct peer *peer, afi_t afi, safi_t safi);
+extern struct peer_af *peer_af_next(struct peer *peer, afi_t afi, safi_t safi);
 extern int peer_af_delete(struct peer *peer, afi_t afi, safi_t safi);
 
 extern void bgp_shutdown_enable(struct bgp *bgp, const char *msg);
@@ -3161,10 +3167,8 @@ extern void bgp_recalculate_afi_safi_bestpaths(struct bgp *bgp, afi_t afi,
 					       safi_t safi);
 extern void peer_on_policy_change(struct peer *peer, afi_t afi, safi_t safi,
 				  int outbound);
-extern bool bgp_path_attribute_discard(struct peer *peer, char *buf,
-				       size_t size);
-extern bool bgp_path_attribute_treat_as_withdraw(struct peer *peer, char *buf,
-						 size_t size);
+extern bool bgp_path_attribute_discard(struct peer *peer, char *buf, size_t size);
+extern bool bgp_path_attribute_treat_as_withdraw(struct peer *peer, char *buf, size_t size);
 
 extern void srv6_function_free(struct bgp_srv6_function *func);
 
