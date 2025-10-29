@@ -419,6 +419,9 @@ PREDECL_RBTREE_UNIQ(bgp_mplsvpn_nh_label_bind_cache);
 /* List of peers that have connection errors in the io pthread */
 PREDECL_DLIST(bgp_peer_conn_errlist);
 
+/* List of peers sorted by address for SNMP */
+PREDECL_DLIST(peer_by_addr_list);
+
 /* List of info about peers that are being cleared from BGP RIBs in a batch */
 PREDECL_DLIST(bgp_clearing_info);
 
@@ -509,7 +512,7 @@ struct bgp {
 
 	/* BGP peer. */
 	struct list *peer;
-	struct list *peer_by_addr;
+	struct peer_by_addr_list_head peer_by_addr;
 	struct hash *connectionhash;
 
 	/* BGP peer group.  */
@@ -1442,6 +1445,9 @@ struct peer {
 	 */
 	int lock;
 
+	/* List item for peer_by_addr list (sorted by address for SNMP) */
+	struct peer_by_addr_list_item peer_by_addr_item;
+
 	/* BGP peer group.  */
 	struct peer_group *group;
 
@@ -2153,6 +2159,7 @@ struct peer {
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(peer);
+DECLARE_DLIST(peer_by_addr_list, struct peer, peer_by_addr_item);
 
 /* Inherit peer attribute from peer-group. */
 #define PEER_ATTR_INHERIT(peer, group, attr)                                   \
