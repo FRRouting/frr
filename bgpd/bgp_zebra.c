@@ -1265,7 +1265,7 @@ static void bgp_zebra_announce_parse_nexthop(
 	struct bgp_route_evpn *bre = NULL;
 
 	/* Determine if we're doing weighted ECMP or not */
-	do_wt_ecmp = bgp_path_info_mpath_chkwtd(bgp, info);
+	do_wt_ecmp = bgp_path_info_mpath_chkwtd(bgp, info->net);
 
 	/*
 	 * vrf leaking support (will have only one nexthop)
