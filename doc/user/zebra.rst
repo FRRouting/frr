@@ -1691,12 +1691,13 @@ zebra Terminal Mode Commands
    show various zebra state that is useful when debugging an operator's
    setup.
 
-.. clicmd:: show zebra client [summary]
+.. clicmd:: show zebra client [summary|json]
 
    Display statistics about clients that are connected to zebra.  This is
    useful for debugging and seeing how much data is being passed between
    zebra and it's clients.  If the summary form of the command is chosen
-   a table is displayed with shortened information.
+   a table is displayed with shortened information.  The json form of
+   the command dumps the client information in json.
 
 .. clicmd:: show zebra router table summary
 
