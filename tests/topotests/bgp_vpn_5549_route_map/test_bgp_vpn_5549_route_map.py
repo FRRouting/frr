@@ -22,6 +22,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.checkping import check_ping
 from lib.common_config import step
 
 pytestmark = [pytest.mark.bgpd]
@@ -128,7 +129,7 @@ def test_bgp_vpn_5549():
                     "valid": True,
                     "complete": True,
                     "igpMetric": 0,
-                    "pathCount": 0,
+                    "pathCount": 1,
                     "nexthops": [{"interfaceName": "cpe1-eth0"}],
                 },
             }
@@ -169,6 +170,15 @@ def test_bgp_vpn_5549():
     test_func = functools.partial(_bgp_verify_v6_global_nexthop_validity)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "IPv6 nexthop is invalid"
+
+
+def test_ping_from_cpe1_to_cpe2_once():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    check_ping("cpe1", "192.168.2.1", True, 5, 1)
 
 
 def check_show_interface_rtadv_params_found(router):
