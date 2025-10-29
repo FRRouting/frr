@@ -129,6 +129,63 @@ def test_fpm_install_routes():
     assert success, "Unable to remove 10000 routes: {}".format(result)
 
 
+def test_fpm_conneted_and_local_routes():
+    "Test that conneted and local routes"
+
+    tgen = get_topogen()
+    router = tgen.gears["r1"]
+
+    # Let's check added routes
+    router_count = 1
+    router.vtysh_cmd(
+        """
+        configure terminal
+        interface r1-eth0
+        ip address 10.10.10.10 peer 10.10.10.11/24
+        """
+    )
+
+    def check_r1_connected_routes():
+        output = router.run(
+            "pkill -SIGUSR1 fpm_listener; grep '10.10.10.0/24' /tmp/fpm_test.data | wc -l"
+        )
+        return int(output)
+
+    def check_r1_local_routes():
+        output = router.run(
+            "pkill -SIGUSR1 fpm_listener; grep '10.10.10.10/32' /tmp/fpm_test.data | wc -l"
+        )
+        return int(output)
+
+    success, result = topotest.run_and_expect(
+        check_r1_connected_routes, router_count, count=30, wait=1
+    )
+    assert success, f"Failed to find {result} connected routes"
+    success, result = topotest.run_and_expect(
+        check_r1_local_routes, router_count, count=30, wait=1
+    )
+    assert success, f"Failed to find {result} local routes"
+
+    # Let's check removed routes
+    router_count = 0
+    router.vtysh_cmd(
+        """
+        configure terminal
+        interface r1-eth0
+        no ip address 10.10.10.10 peer 10.10.10.11/24
+        """
+    )
+
+    success, result = topotest.run_and_expect(
+        check_r1_connected_routes, router_count, count=30, wait=1
+    )
+    assert success, f"Failed to find {result} connected routes"
+    success, result = topotest.run_and_expect(
+        check_r1_local_routes, router_count, count=30, wait=1
+    )
+    assert success, f"Failed to find {result} local routes"
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
