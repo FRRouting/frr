@@ -1860,7 +1860,7 @@ static int bgp_open_receive(struct peer_connection *connection,
 		 * without
 		 * that we do not know which peer is connecting to us now.
 		 */
-		as4 = peek_for_as4_capability(peer, optlen);
+		as4 = peek_for_as4_capability(connection, optlen);
 	}
 
 	as4_be = htonl(as4);
