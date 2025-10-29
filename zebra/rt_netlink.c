@@ -1886,6 +1886,21 @@ static ssize_t fill_seg6ipt_encap(char *buffer, size_t buflen,
 	return sizeof(struct seg6_iptunnel_encap) + srhlen;
 }
 
+static bool _netlink_nexthop_encode_seg6_info(struct nlmsghdr *nlmsg, size_t buflen,
+					      struct seg6_seg_stack *segs)
+{
+	char tun_buf[4096];
+	ssize_t tun_len;
+
+	tun_len = fill_seg6ipt_encap(tun_buf, sizeof(tun_buf), segs);
+	if (tun_len < 0)
+		return false;
+	if (!nl_attr_put(nlmsg, buflen, SEG6_IPTUNNEL_SRH, tun_buf, tun_len))
+		return false;
+
+	return true;
+}
+
 static bool
 _netlink_nexthop_encode_seg6local_flavor(const struct nexthop *nexthop,
 					 struct nlmsghdr *nlmsg, size_t buflen)
@@ -2056,8 +2071,6 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 		if (nexthop->nh_srv6->seg6_segs &&
 		    nexthop->nh_srv6->seg6_segs->num_segs &&
 		    !sid_zero(nexthop->nh_srv6->seg6_segs)) {
-			char tun_buf[4096];
-			ssize_t tun_len;
 			struct rtattr *nest;
 
 			if (!nl_attr_put16(nlmsg, req_size, RTA_ENCAP_TYPE,
@@ -2066,13 +2079,8 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 			nest = nl_attr_nest(nlmsg, req_size, RTA_ENCAP);
 			if (!nest)
 				return false;
-			tun_len =
-				fill_seg6ipt_encap(tun_buf, sizeof(tun_buf),
-						   nexthop->nh_srv6->seg6_segs);
-			if (tun_len < 0)
-				return false;
-			if (!nl_attr_put(nlmsg, req_size, SEG6_IPTUNNEL_SRH,
-					 tun_buf, tun_len))
+			if (!_netlink_nexthop_encode_seg6_info(nlmsg, req_size,
+							       nexthop->nh_srv6->seg6_segs))
 				return false;
 			nl_attr_nest_end(nlmsg, nest);
 		}
@@ -3315,8 +3323,6 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 				if (nh->nh_srv6->seg6_segs && nh->nh_srv6->seg6_segs->num_segs &&
 				    !sid_zero(nh->nh_srv6->seg6_segs) &&
 				    nh->nh_srv6->seg6local_action == ZEBRA_SEG6_LOCAL_ACTION_UNSPEC) {
-					char tun_buf[4096];
-					ssize_t tun_len;
 
 					if (!nl_attr_put16(&req->n, buflen,
 					    NHA_ENCAP_TYPE,
@@ -3326,14 +3332,9 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 					    NHA_ENCAP | NLA_F_NESTED);
 					if (!nest)
 						return 0;
-					tun_len = fill_seg6ipt_encap(
-						tun_buf, sizeof(tun_buf),
-						nh->nh_srv6->seg6_segs);
-					if (tun_len < 0)
-						return 0;
-					if (!nl_attr_put(&req->n, buflen,
-							 SEG6_IPTUNNEL_SRH,
-							 tun_buf, tun_len))
+					if (!_netlink_nexthop_encode_seg6_info(&req->n, buflen,
+									       nh->nh_srv6
+										       ->seg6_segs))
 						return 0;
 					nl_attr_nest_end(&req->n, nest);
 				}
