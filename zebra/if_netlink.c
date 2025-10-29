@@ -930,8 +930,14 @@ int kernel_interface_set_master(struct interface *master,
 
 	req.ifa.ifi_index = slave->ifindex;
 
-	nl_attr_put32(&req.n, sizeof(req), IFLA_MASTER, master->ifindex);
-	nl_attr_put32(&req.n, sizeof(req), IFLA_LINK, slave->ifindex);
+	if (!nl_attr_put32(&req.n, sizeof(req), IFLA_MASTER, master->ifindex)) {
+		zlog_err("%s: failed to encode IFLA_MASTER nl attribute", __func__);
+		return -1;
+	}
+	if (!nl_attr_put32(&req.n, sizeof(req), IFLA_LINK, slave->ifindex)) {
+		zlog_err("%s: failed to encode IFLA_LINK nl attribute", __func__);
+		return -1;
+	}
 
 	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
 			    false);
@@ -1508,21 +1514,24 @@ ssize_t netlink_intf_msg_encode(uint16_t cmd,
 
 	req->ifa.ifi_index = ifindex;
 
-	nl_attr_put8(&req->n, buflen, IFLA_PROTO_DOWN, down);
-	nl_attr_put32(&req->n, buflen, IFLA_LINK, ifindex);
+	if (!nl_attr_put8(&req->n, buflen, IFLA_PROTO_DOWN, down))
+		return 0;
+	if (!nl_attr_put32(&req->n, buflen, IFLA_LINK, ifindex))
+		return 0;
 
 	/* Reason info nest */
 	nest_protodown_reason =
 		nl_attr_nest(&req->n, buflen, IFLA_PROTO_DOWN_REASON);
 
 	if (!nest_protodown_reason)
-		return -1;
+		return 0;
 
-	nl_attr_put32(&req->n, buflen, IFLA_PROTO_DOWN_REASON_MASK,
-		      (1 << if_netlink_get_frr_protodown_r_bit()));
-	nl_attr_put32(&req->n, buflen, IFLA_PROTO_DOWN_REASON_VALUE,
-		      ((int)pd_reason_val)
-			      << if_netlink_get_frr_protodown_r_bit());
+	if (!nl_attr_put32(&req->n, buflen, IFLA_PROTO_DOWN_REASON_MASK,
+			   (1 << if_netlink_get_frr_protodown_r_bit())))
+		return 0;
+	if (!nl_attr_put32(&req->n, buflen, IFLA_PROTO_DOWN_REASON_VALUE,
+			   ((int)pd_reason_val) << if_netlink_get_frr_protodown_r_bit()))
+		return 0;
 
 	nl_attr_nest_end(&req->n, nest_protodown_reason);
 
@@ -1798,8 +1807,12 @@ static int netlink_request_vlan(struct zebra_ns *zns, int family, int type)
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct br_vlan_msg));
 	req.bvm.family = family;
 
-	nl_attr_put32(&req.n, sizeof(req), BRIDGE_VLANDB_DUMP_FLAGS,
-		      BRIDGE_VLANDB_DUMPF_STATS);
+	if (!nl_attr_put32(&req.n, sizeof(req), BRIDGE_VLANDB_DUMP_FLAGS,
+			   BRIDGE_VLANDB_DUMPF_STATS)) {
+		zlog_err("%s: Failed to put BRIDGE_VLANDB_DUMP_FLAGS nl attribute",
+			__func__);
+		return -1;
+	}
 
 	return netlink_request(&zns->netlink_cmd, &req);
 }
