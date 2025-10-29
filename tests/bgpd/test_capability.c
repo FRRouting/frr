@@ -840,7 +840,7 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 	case OPT_PARAM:
 		printf("len: %u\n", len);
 		/* peek_for_as4 wants getp at capibility*/
-		as4 = peek_for_as4_capability(peer, len);
+		as4 = peek_for_as4_capability(peer->connection, len);
 		printf("peek_for_as4: as4 is %u\n", as4);
 		/* and it should leave getp as it found it */
 		assert(stream_get_getp(peer->connection->curr) == RANDOM_FUZZ);
