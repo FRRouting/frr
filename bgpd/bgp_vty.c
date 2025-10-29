@@ -211,7 +211,7 @@ static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 	return BGP_IPV4_NODE;
 }
 
-static const char *get_afi_safi_vty_str(afi_t afi, safi_t safi)
+const char *get_afi_safi_vty_str(afi_t afi, safi_t safi)
 {
 	if (afi == AFI_IP) {
 		if (safi == SAFI_UNICAST)
