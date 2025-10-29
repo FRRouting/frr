@@ -159,6 +159,27 @@ def test_nt_extcomm_list_delete():
     assert result, "NT extended community 3.3.3.3:0 was not stripped."
 
 
+<<<<<<< HEAD
+=======
+def test_rt_extcomm_list_expanded_delete():
+    tgen = get_topogen()
+    r2 = tgen.gears["r2"]
+
+    # unset previous extended community
+    _unset_extcomm_list(r2, "rt", "1.1.1.1:1")
+
+    # set the extended community with regex for deletion
+    _set_extcomm_list_regex(r2, "rt", "1\.1\.1\.[1-2]:1")
+
+    # check for the deletion of the extended community
+    test_func = functools.partial(
+        _bgp_extcomm_list_del_check, r2, "10.10.10.1/32", r"1.1.1.1:1"
+    )
+    _, result = topotest.run_and_expect(test_func, True, count=60, wait=0.5)
+    assert result, "RT extended community 1.1.1.1:1 was not stripped."
+
+
+>>>>>>> f6e504a58 (test: update bgp_extcomm_list_delete after extcomm-list delete fix)
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
