@@ -2796,7 +2796,6 @@ extern int bgp_map_afi_safi_int2iana(afi_t afi, safi_t safi,
 
 extern struct peer_af *peer_af_create(struct peer *peer, afi_t afi, safi_t safi);
 extern struct peer_af *peer_af_find(struct peer *peer, afi_t afi, safi_t safi);
-extern struct peer_af *peer_af_next(struct peer *peer, afi_t afi, safi_t safi);
 extern int peer_af_delete(struct peer *peer, afi_t afi, safi_t safi);
 
 extern void bgp_shutdown_enable(struct bgp *bgp, const char *msg);

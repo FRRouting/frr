@@ -942,34 +942,6 @@ struct peer_af *peer_af_find(struct peer *peer, afi_t afi, safi_t safi)
 	return peer->peer_af_array[afid];
 }
 
-struct peer_af *peer_af_next(struct peer *peer, afi_t afi, safi_t safi)
-{
-	int afid, next_afid;
-
-	if (!peer)
-		return NULL;
-
-	if (afi == AFI_UNSPEC || safi == SAFI_UNSPEC)
-		afid = -1;
-	else {
-		/* Get the current afid index */
-		afid = afindex(afi, safi);
-		if (afid >= BGP_AF_MAX)
-			return NULL;
-	}
-
-	/* Iterate through the peer_af_array to find the next valid entry */
-	AF_FOREACH (next_afid) {
-		if (next_afid <= afid)
-			continue;
-		if (peer->peer_af_array[next_afid])
-			return peer->peer_af_array[next_afid];
-	}
-
-	/* If no next peer_af is found, return NULL */
-	return NULL;
-}
-
 int peer_af_delete(struct peer *peer, afi_t afi, safi_t safi)
 {
 	struct peer_af *af;
