@@ -4959,6 +4959,7 @@ void bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		 * attr->evpn_overlay, so that, this can be stored in adj_in.
 		 */
 		if (evpn && afi == AFI_L2VPN) {
+			evpn = evpn_overlay_intern(evpn);
 			bgp_attr_set_evpn_overlay(attr, evpn);
 			p_evpn = NULL;
 		}
