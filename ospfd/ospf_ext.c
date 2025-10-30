@@ -1861,6 +1861,8 @@ static uint16_t show_vty_unknown_tlv(struct vty *vty, struct tlv_header *tlvh,
 			vty_out(vty, "    TLV size %d exceeds buffer size. Abort!", TLV_SIZE(tlvh));
 		else
 			zlog_debug("    TLV size %d exceeds buffer size. Abort!", TLV_SIZE(tlvh));
+
+		return buf_size;
 	}
 	if (!json)
 		if (vty != NULL) {
@@ -1902,6 +1904,7 @@ static uint16_t show_vty_link_info(struct vty *vty, struct tlv_header *ext,
 			zlog_debug("  Extended Link TLV size %d exceeds buffer size. Abort!",
 				   length);
 		}
+		return buf_size;
 	}
 
 	if (!json) {
