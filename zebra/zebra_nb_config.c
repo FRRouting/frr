@@ -1829,6 +1829,11 @@ int lib_interface_zebra_affinity_create(struct nb_cb_create_args *args)
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		iflp = if_link_params_get(ifp);
 		affmap = affinity_map_get(affname);
+		if (!affmap) {
+			snprintf(args->errmsg, args->errmsg_len, "affinity map %s isn't found",
+				 affname);
+			return NB_ERR_RESOURCE;
+		}
 
 		if (affmap->bit_position < 32 &&
 		    (affinity_mode == AFFINITY_MODE_STANDARD ||
