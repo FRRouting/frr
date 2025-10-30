@@ -1825,9 +1825,9 @@ void igmp_v3_recv_query(struct gm_sock *igmp, const char *from_str,
 		if (group_addr.s_addr == INADDR_ANY) {
 			/* this is a general query */
 			/* log that general query should have the s_flag set */
-			zlog_warn(
-				"General IGMP query v3 from %s on %s: Suppress Router-Side Processing flag is clear",
-				from_str, ifp->name);
+			if (PIM_DEBUG_GM_TRACE)
+				zlog_debug("General IGMP query v3 from %s on %s: Suppress Router-Side Processing flag is clear",
+					   from_str, ifp->name);
 		} else {
 			struct gm_group *group;
 
