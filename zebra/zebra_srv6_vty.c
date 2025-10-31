@@ -459,11 +459,13 @@ static void do_show_srv6_sid_json(struct vty *vty, json_object **json, struct sr
 		if (sid_ctx->ctx.vrf_id) {
 			json_object_int_add(json_sid_ctx, "vrfId", sid_ctx->ctx.vrf_id);
 
+			vrf = vrf_lookup_by_id(sid_ctx->ctx.vrf_id);
+			if (vrf)
+				json_object_string_add(json_sid_ctx, "vrfName", vrf->name);
+
 			zvrf = vrf_info_lookup(sid_ctx->ctx.vrf_id);
-			if (zvrf) {
-				json_object_string_add(json_sid_ctx, "vrfName", zvrf->vrf->name);
+			if (vrf)
 				json_object_int_add(json_sid_ctx, "table", zvrf->table_id);
-			}
 		}
 		if (sid_ctx->ctx.ifindex) {
 			json_object_int_add(json_sid_ctx, "interfaceIndex", sid_ctx->ctx.ifindex);
