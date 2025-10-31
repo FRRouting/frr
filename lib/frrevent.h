@@ -6,10 +6,19 @@
 #ifndef _ZEBRA_THREAD_H
 #define _ZEBRA_THREAD_H
 
+#if defined(USE_EPOLL) && defined(HAVE_EPOLL_PWAIT)
+#define EPOLL_ENABLED 1
+#else
+#define EPOLL_ENABLED 0
+#endif
+
 #include <signal.h>
 #include <zebra.h>
 #include <pthread.h>
 #include <poll.h>
+#if EPOLL_ENABLED
+#include <sys/epoll.h>
+#endif
 #include "monotime.h"
 #include "frratomic.h"
 #include "typesafe.h"
@@ -39,6 +48,34 @@ struct rusage_t {
 PREDECL_LIST(event_list);
 PREDECL_HEAP(event_timer_list);
 
+#if EPOLL_ENABLED
+struct fd_handler {
+	/* The epoll set file descriptor */
+	int epoll_fd;
+
+	/* A hash table in which monitored I/O file descrpitors and events
+	 * are registered
+	 */
+	struct hash *epoll_event_hash;
+
+	/* Maximum size of .revents and .regular_revents arrays */
+	int eventsize;
+
+	/* The buffer which stores the results of epoll_wait */
+	struct epoll_event *revents;
+
+	/* Vtysh might redirect stdin/stdout to regular files. However,
+	 * regular files can't be added into epoll set and need special
+	 * treatment. I/O events from/to regular file will be directly
+	 * added to regular_revents, but not into epoll set, whereby
+	 * sidesteping epoll_wait.
+	 */
+	struct epoll_event *regular_revents;
+	int regular_revent_count;
+
+	unsigned long *fd_poll_counter;
+};
+#else
 struct fd_handler {
 	/* number of pfd that fit in the allocated space of pfds. This is a
 	 * constant and is the same for both pfds and copy.
@@ -55,6 +92,7 @@ struct fd_handler {
 	/* number of pollfds stored in copy */
 	nfds_t copycount;
 };
+#endif
 
 struct xref_eventsched {
 	struct xref xref;
@@ -87,7 +125,9 @@ struct event_loop {
 	pthread_mutex_t mtx;
 	pthread_t owner;
 
+#if !EPOLL_ENABLED
 	nfds_t last_read;
+#endif
 
 	bool ready_run_loop;
 	RUSAGE_T last_getrusage;
