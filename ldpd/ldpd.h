@@ -484,6 +484,8 @@ DECLARE_QOBJ_TYPE(l2vpn_pw);
 #define F_PW_CWORD_CONF		0x04	/* control word configured */
 #define F_PW_CWORD		0x08	/* control word negotiated */
 #define F_PW_STATIC_NBR_ADDR	0x10	/* static neighbor address configured */
+#define F_PW_SEND_REMOTE	0x20	/* send pw message to remote */
+
 
 #define F_PW_NO_ERR             0x00	/* no error reported */
 #define F_PW_LOCAL_NOT_FWD      0x01	/* locally can't forward over PW */

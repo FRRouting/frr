@@ -293,6 +293,7 @@ l2vpn_pw_reset(struct l2vpn_pw *pw)
 			pw->remote_status = fn->pw_remote_status;
 	}
 
+	UNSET_FLAG(pw->flags, F_PW_SEND_REMOTE);
 }
 
 int
