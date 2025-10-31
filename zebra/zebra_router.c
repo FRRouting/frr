@@ -83,6 +83,9 @@ struct zebra_router_table *zebra_router_find_next_zrt(struct zebra_vrf *zvrf,
 	finder.tableid = tableid;
 	finder.ns_id = zvrf->zns->ns_id;
 	zrt = RB_NFIND(zebra_router_table_head, &zrouter.tables, &finder);
+	if (!zrt)
+		return NULL;
+
 	if (zrt->afi == afi && zrt->safi == safi && zrt->tableid == tableid &&
 	    zrt->ns_id == finder.ns_id)
 		zrt = RB_NEXT(zebra_router_table_head, zrt);
