@@ -104,13 +104,13 @@ struct graceful_restart_af {
 	(CHECK_FLAG(peer->flags, PEER_FLAG_EXTENDED_OPT_PARAMS)                \
 	 || CHECK_FLAG(peer->sflags, PEER_STATUS_EXT_OPT_PARAMS_LENGTH))
 
-extern int bgp_open_option_parse(struct peer *peer, uint16_t length,
-				 int *mp_capability);
+extern int bgp_open_option_parse(struct peer *peer, struct peer_connection *connection,
+				 uint16_t length, int *mp_capability);
 extern uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
-				    bool ext_opt_params);
+				    struct peer_connection *connection, bool ext_opt_params);
 extern void bgp_capability_vty_out(struct vty *vty, struct peer *peer,
 				   bool use_json, json_object *json_neigh);
-extern as_t peek_for_as4_capability(struct peer *peer, uint16_t length);
+extern as_t peek_for_as4_capability(struct peer_connection *connection, uint16_t length);
 extern const struct message capcode_str[];
 extern const struct message orf_type_str[];
 extern const struct message orf_mode_str[];

@@ -1241,12 +1241,15 @@ const char *bgp_peer_get_connection_direction(struct peer_connection *connection
 	return "DEV ESCAPE";
 }
 
-struct peer_connection *bgp_peer_connection_new(struct peer *peer)
+struct peer_connection *bgp_peer_connection_new(struct peer *peer, const union sockunion *su)
 {
 	struct peer_connection *connection;
 
 	connection = XCALLOC(MTYPE_BGP_PEER_CONNECTION,
 			     sizeof(struct peer_connection));
+
+	if (su)
+		connection->su = *su;
 
 	connection->peer = peer;
 	connection->fd = -1;
@@ -1621,7 +1624,7 @@ struct srv6_locator *bgp_srv6_locator_lookup(struct bgp *bgp_vrf, struct bgp *bg
 }
 
 /* Allocate new peer object, implicitely locked.  */
-struct peer *peer_new(struct bgp *bgp)
+struct peer *peer_new(struct bgp *bgp, union sockunion *su)
 {
 	afi_t afi;
 	safi_t safi;
@@ -1635,7 +1638,7 @@ struct peer *peer_new(struct bgp *bgp)
 	peer = XCALLOC(MTYPE_BGP_PEER, sizeof(struct peer));
 
 	/* Create buffers. */
-	peer->connection = bgp_peer_connection_new(peer);
+	peer->connection = bgp_peer_connection_new(peer, su);
 	peer->connection->dir = CONNECTION_OUTGOING;
 
 	/* Set default value. */
@@ -2060,17 +2063,14 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 	afi_t afi;
 	safi_t safi;
 
-	peer = peer_new(bgp);
+	peer = peer_new(bgp, su);
 	if (conf_if) {
 		peer->conf_if = XSTRDUP(MTYPE_PEER_CONF_IF, conf_if);
-		if (su)
-			peer->connection->su = *su;
-		else
+		if (!su)
 			bgp_peer_conf_if_to_su_update(peer->connection);
 		XFREE(MTYPE_BGP_PEER_HOST, peer->host);
 		peer->host = XSTRDUP(MTYPE_BGP_PEER_HOST, conf_if);
 	} else if (su) {
-		peer->connection->su = *su;
 		sockunion2str(su, buf, SU_ADDRSTRLEN);
 		XFREE(MTYPE_BGP_PEER_HOST, peer->host);
 		peer->host = XSTRDUP(MTYPE_BGP_PEER_HOST, buf);
@@ -2153,11 +2153,11 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 }
 
 /* Make accept BGP peer. This function is only called from the test code */
-struct peer *peer_create_accept(struct bgp *bgp)
+struct peer *peer_create_accept(struct bgp *bgp, union sockunion *su)
 {
 	struct peer *peer;
 
-	peer = peer_new(bgp);
+	peer = peer_new(bgp, su);
 
 	peer = peer_lock(peer); /* bgp peer list reference */
 	listnode_add_sort(bgp->peer, peer);
@@ -2991,7 +2991,7 @@ struct peer_group *peer_group_get(struct bgp *bgp, const char *name)
 	group->peer = list_new();
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
 		group->listen_range[afi] = list_new();
-	group->conf = peer_new(bgp);
+	group->conf = peer_new(bgp, NULL);
 	FOREACH_AFI_SAFI (afi, safi) {
 		if (bgp->default_af[afi][safi])
 			group->conf->afc[afi][safi] = 1;
@@ -3606,7 +3606,7 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp->inst_type = inst_type;
 	bgp->vrf_id = (inst_type == BGP_INSTANCE_TYPE_DEFAULT) ? VRF_DEFAULT
 							       : VRF_UNKNOWN;
-	bgp->peer_self = peer_new(bgp);
+	bgp->peer_self = peer_new(bgp, NULL);
 	XFREE(MTYPE_BGP_PEER_HOST, bgp->peer_self->host);
 	bgp->peer_self->host =
 		XSTRDUP(MTYPE_BGP_PEER_HOST, "Static announcement");

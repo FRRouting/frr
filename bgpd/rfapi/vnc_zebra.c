@@ -170,7 +170,7 @@ static void vnc_redistribute_add(struct prefix *p, uint32_t metric,
 			/*
 			 * Same setup as in rfapi_open()
 			 */
-			vncHD1VR.peer = peer_new(bgp);
+			vncHD1VR.peer = peer_new(bgp, NULL);
 			vncHD1VR.peer->connection->status =
 				Established; /* keep bgp core happy */
 

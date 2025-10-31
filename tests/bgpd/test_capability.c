@@ -840,12 +840,12 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 	case OPT_PARAM:
 		printf("len: %u\n", len);
 		/* peek_for_as4 wants getp at capibility*/
-		as4 = peek_for_as4_capability(peer, len);
+		as4 = peek_for_as4_capability(peer->connection, len);
 		printf("peek_for_as4: as4 is %u\n", as4);
 		/* and it should leave getp as it found it */
 		assert(stream_get_getp(peer->connection->curr) == RANDOM_FUZZ);
 
-		ret = bgp_open_option_parse(peer, len, &capability);
+		ret = bgp_open_option_parse(peer, peer->connection, len, &capability);
 		break;
 	case DYNCAP:
 		ret = bgp_capability_receive(peer->connection, peer, t->len);
@@ -942,7 +942,7 @@ int main(void)
 		    ASNOTATION_PLAIN) < 0)
 		return -1;
 
-	peer = peer_create_accept(bgp);
+	peer = peer_create_accept(bgp, NULL);
 	peer->host = (char *)"foo";
 
 	for (i = AFI_IP; i < AFI_MAX; i++)
@@ -973,7 +973,7 @@ int main(void)
 		parse_test(peer, &opt_params[i++], OPT_PARAM);
 
 	SET_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV);
-	peer->connection = bgp_peer_connection_new(peer);
+	peer->connection = bgp_peer_connection_new(peer, NULL);
 	peer->connection->status = Established;
 	peer->connection->curr = stream_new(BGP_MAX_PACKET_SIZE);
 
