@@ -596,7 +596,8 @@ static int32_t zebra_gr_delete_stale_route(struct client_gr_info *info,
 	}
 
 	LOG_GR("%s: Client %s %s(%u) stale routes are scheduled for deletion", __func__,
-	       zebra_route_string(proto), zvrf->vrf->name, zvrf->vrf->vrf_id);
+	       zebra_route_string(proto), zvrf->vrf ? zvrf->vrf->name : "Unknown",
+	       zvrf->vrf ? zvrf->vrf->vrf_id : info->vrf_id);
 
 	/* Process routes for all AFI */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
