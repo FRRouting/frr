@@ -1096,23 +1096,44 @@ int stream_put_prefix(struct stream *s, const struct prefix *p)
 	return stream_put_prefix_addpath(s, p, 0, 0);
 }
 
+/* TODO Move out label-specific logic to bgpd, there BGP_LABEL_BYTES is already defined */
+#define BGP_LABEL_BYTES 3
+
 /* Put NLRI with label */
-int stream_put_labeled_prefix(struct stream *s, const struct prefix *p,
-			      mpls_label_t *label, bool addpath_capable,
-			      uint32_t addpath_tx_id)
+int stream_put_labeled_prefix(struct stream *s, const struct prefix *p, mpls_label_t *label,
+			      uint8_t num_labels, bool addpath_capable, uint32_t addpath_tx_id)
 {
 	size_t psize;
 	size_t psize_with_addpath;
-	uint8_t *label_pnt = (uint8_t *)label;
+	size_t labels_size;
+	uint8_t i;
+	bool added_bos = false;
+	mpls_label_t restore_label;
+	mpls_label_t tmp_label;
+	uint32_t ttl;
+	uint32_t exp;
+	uint32_t bos;
 
 	STREAM_VERIFY_SANE(s);
 
 	psize = PSIZE(p->prefixlen);
 	psize_with_addpath = psize + (addpath_capable ? 4 : 0);
 
-	if (STREAM_WRITEABLE(s) < (psize_with_addpath + 3)) {
+	if (p->prefixlen + BGP_LABEL_BYTES * 8 * num_labels >= 256) {
+		num_labels = (256 - p->prefixlen) / 8 / BGP_LABEL_BYTES;
+		zlog_warn("%s: Ignoring extra labels, can fit only %d in BGP-LU message with prefixlen %d",
+			  __func__, num_labels, p->prefixlen);
+		added_bos = true;
+		restore_label = label[num_labels - 1];
+		mpls_lse_decode((mpls_lse_t)label[num_labels - 1], &tmp_label, &ttl, &exp, &bos);
+		label[num_labels - 1] = (mpls_label_t)mpls_lse_encode(tmp_label, ttl, exp, 1);
+	}
+
+	labels_size = BGP_LABEL_BYTES * num_labels;
+
+	if (STREAM_WRITEABLE(s) < (psize_with_addpath + labels_size)) {
 		if (s->allow_expansion) {
-			stream_expand(s, STREAM_EXPAND_SIZE(s, psize_with_addpath + 3));
+			stream_expand(s, STREAM_EXPAND_SIZE(s, psize_with_addpath + labels_size));
 		} else {
 			STREAM_BOUND_WARN(s, "put");
 			return 0;
@@ -1126,14 +1147,20 @@ int stream_put_labeled_prefix(struct stream *s, const struct prefix *p,
 		s->data[s->endp++] = (uint8_t)addpath_tx_id;
 	}
 
-	stream_putc(s, (p->prefixlen + 24));
-	stream_putc(s, label_pnt[0]);
-	stream_putc(s, label_pnt[1]);
-	stream_putc(s, label_pnt[2]);
+	stream_putc(s, (p->prefixlen + 8 * labels_size));
+	for (i = 0; i < num_labels; i++) {
+		uint8_t *label_pnt = (uint8_t *)(&label[i]);
+
+		stream_putc(s, label_pnt[0]);
+		stream_putc(s, label_pnt[1]);
+		stream_putc(s, label_pnt[2]);
+	}
+	if (added_bos)
+		label[num_labels - 1] = restore_label;
 	memcpy(s->data + s->endp, &p->u.prefix, psize);
 	s->endp += psize;
 
-	return (psize + 3);
+	return (psize + labels_size);
 }
 
 /* Read size from fd. */

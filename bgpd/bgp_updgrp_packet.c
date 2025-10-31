@@ -681,7 +681,8 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 	int addpath_overhead = 0;
 	uint32_t addpath_tx_id = 0;
 	struct prefix_rd *prd = NULL;
-	mpls_label_t label = MPLS_INVALID_LABEL, *label_pnt = NULL;
+	mpls_label_t *label_pnt = NULL;
+	mpls_label_t labels[BGP_MAX_LABELS] = { MPLS_INVALID_LABEL };
 	uint8_t num_labels = 0;
 
 	if (!subgrp)
@@ -805,10 +806,8 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 					dest->pdest);
 
 			if (safi == SAFI_LABELED_UNICAST) {
-				label = bgp_adv_label(dest, path, peer, afi,
-						      safi);
-				label_pnt = &label;
-				num_labels = 1;
+				bgp_adv_label(dest, path, peer, afi, safi, labels, &num_labels);
+				label_pnt = &labels[0];
 			} else if (safi == SAFI_MPLS_VPN && path &&
 				   CHECK_FLAG(path->flags,
 					      BGP_PATH_MPLSVPN_NH_LABEL_BIND) &&
@@ -828,9 +827,8 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 				 * called here, 'get_label()' returns a valid
 				 * label.
 				 */
-				label = bgp_mplsvpn_nh_label_bind_get_label(
-					path);
-				label_pnt = &label;
+				labels[0] = bgp_mplsvpn_nh_label_bind_get_label(path);
+				label_pnt = &labels[0];
 				num_labels = 1;
 			} else {
 				num_labels = BGP_PATH_INFO_NUM_LABELS(path);

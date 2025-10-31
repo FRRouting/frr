@@ -4770,8 +4770,7 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 		break;
 	case SAFI_LABELED_UNICAST:
 		/* Prefix write with label. */
-		stream_put_labeled_prefix(s, p, label, addpath_capable,
-					  addpath_tx_id);
+		stream_put_labeled_prefix(s, p, label, num_labels, addpath_capable, addpath_tx_id);
 		break;
 	case SAFI_FLOWSPEC:
 		stream_putc(s, p->u.prefix_flowspec.prefixlen);
@@ -4810,7 +4809,11 @@ size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
 		assert(!"Do we try to use this?");
 		break;
 	case SAFI_LABELED_UNICAST:
-		size += BGP_LABEL_BYTES;
+		/*
+		 * Length of all labels + prefix is given in bits in one octet,
+		 * so maximum 256 bits, 32 bytes
+		 */
+		size += 32 - PSIZE(p->prefixlen);
 		break;
 	case SAFI_EVPN:
 		/*
