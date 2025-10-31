@@ -1334,11 +1334,10 @@ static void bgp_zebra_announce_parse_nexthop(
 
 		if (bgp_debug_zebra(&api->prefix)) {
 			if (BGP_PATH_INFO_NUM_LABELS(mpinfo)) {
-				zlog_debug("%s: p=%pFX, bgp_is_valid_label: %d",
+				zlog_debug("%s: p=%pFX, bgp_is_valid_label: %d, num_labels: %d",
 					   __func__, p,
-					   bgp_is_valid_label(
-						   &mpinfo->extra->labels
-							    ->label[0]));
+					   bgp_is_valid_label(&mpinfo->extra->labels->label[0]),
+					   BGP_PATH_INFO_NUM_LABELS(mpinfo));
 			} else {
 				zlog_debug("%s: p=%pFX, no label", __func__, p);
 			}
@@ -1417,15 +1416,28 @@ static void bgp_zebra_announce_parse_nexthop(
 				nh_label = *bgp_evpn_path_info_labels_get_l3vni(
 					labels, num_labels);
 				nh_label_type = ZEBRA_LSP_EVPN;
+
+				api_nh->label_num = 1;
+				api_nh->labels[0] = nh_label;
 			} else {
-				mpls_lse_decode(labels[0], &nh_label, &ttl,
-						&exp, &bos);
+				uint8_t i;
+				int max_elements = sizeof(api_nh->labels) /
+						   sizeof(api_nh->labels[0]);
+
+				api_nh->label_num = num_labels;
+				if (api_nh->label_num > max_elements) {
+					zlog_warn("%s: too many labels provided for zebra (%d), copying first %d",
+						  __func__, num_labels, max_elements);
+					api_nh->label_num = max_elements;
+				}
+				for (i = 0; i < api_nh->label_num; i++) {
+					mpls_lse_decode(labels[i], &api_nh->labels[i], &ttl, &exp,
+							&bos);
+				}
 			}
 
 			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL);
-			api_nh->label_num = 1;
 			api_nh->label_type = nh_label_type;
-			api_nh->labels[0] = nh_label;
 		}
 
 		if (is_evpn && !(bre && bre->type == OVERLAY_INDEX_GATEWAY_IP))
@@ -1478,7 +1490,8 @@ static void bgp_debug_zebra_nh(struct zapi_route *api)
 	char nh_buf[INET6_ADDRSTRLEN];
 	char eth_buf[ETHER_ADDR_STRLEN + 7] = { '\0' };
 	char buf1[ETHER_ADDR_STRLEN];
-	char label_buf[20];
+	/* strlen("label ") + 8 chars per label + '/' or '\0' for each label */
+	char label_buf[6 + 9 * BGP_MAX_LABELS];
 	char sid_buf[20];
 	char segs_buf[256];
 	struct zapi_nexthop *api_nh;
@@ -1516,9 +1529,19 @@ static void bgp_debug_zebra_nh(struct zapi_route *api)
 		eth_buf[0] = '\0';
 		segs_buf[0] = '\0';
 		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL) &&
-		    !CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN))
-			snprintf(label_buf, sizeof(label_buf), "label %u",
-				 api_nh->labels[0]);
+		    !CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN)) {
+			int label_len;
+			int j;
+
+			label_len = snprintf(label_buf, sizeof(label_buf), "label %u",
+					     api_nh->labels[0]);
+
+			for (j = 1; j < api_nh->label_num; j++) {
+				label_len += snprintf(label_buf + label_len,
+						      sizeof(label_buf) - label_len, "/%u",
+						      api_nh->labels[j]);
+			}
+		}
 		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6) &&
 		    !CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN)) {
 			inet_ntop(AF_INET6, &api_nh->seg6_segs[0], sid_buf,
