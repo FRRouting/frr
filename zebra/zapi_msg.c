@@ -728,39 +728,41 @@ int zsend_nhg_notify(uint16_t type, uint16_t instance, uint32_t session_id,
 }
 
 /*
- * Common utility send route notification, called from a path using a
- * route_entry and from a path using a dataplane context.
+ * Common utility to send route notification with prefix information.
  */
-static int route_notify_internal(const struct route_node *rn, int type,
-				 uint16_t instance, vrf_id_t vrf_id,
-				 uint32_t table_id,
-				 enum zapi_route_notify_owner note, afi_t afi,
-				 safi_t safi)
+static int route_notify_internal(const struct prefix *p,
+				  const struct prefix *src_p,
+				  int type, uint16_t instance,
+				  vrf_id_t vrf_id, uint32_t table_id,
+				  enum zapi_route_notify_owner note,
+				  afi_t afi, safi_t safi)
 {
 	struct zserv *client;
 	struct stream *s;
 	uint8_t blen;
-	const struct prefix *p, *src_p;
 	struct prefix src_dummy = {};
-
-	srcdest_rnode_prefixes(rn, &p, &src_p);
 
 	client = zserv_find_client(type, instance);
 	if (!client || !client->notify_owner) {
 		if (IS_ZEBRA_DEBUG_PACKET) {
 			struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 
-			zlog_debug("Not Notifying Owner: %s about prefix %pRN(%u) %d vrf: %s",
-				   zebra_route_string(type), rn, table_id, note,
+			zlog_debug("Not Notifying Owner: %s about prefix %pFX(%u) %d vrf: %s",
+				   zebra_route_string(type), p, table_id, note,
 				   VRF_LOGNAME(vrf));
 		}
 		return 0;
 	}
 
 	if (IS_ZEBRA_DEBUG_PACKET)
+<<<<<<< HEAD
 		zlog_debug(
 			"Notifying Owner: %s about prefix %pRN(%u) %d vrf: %u",
 			zebra_route_string(type), rn, table_id, note, vrf_id);
+=======
+		zlog_debug("Notifying Owner: %s about prefix %pFX(%u) %d vrf: %u Table: %u",
+			   zebra_route_string(type), p, table_id, note, vrf_id, table_id);
+>>>>>>> 731317b29 (zebra: Coverity issue (Null pointer derefence(CID 71721)))
 
 	/* We're just allocating a small-ish buffer here, since we only
 	 * encode a small amount of data.
@@ -773,7 +775,7 @@ static int route_notify_internal(const struct route_node *rn, int type,
 
 	stream_put(s, &note, sizeof(note));
 
-	stream_putc(s, rn->p.family);
+	stream_putc(s, p->family);
 
 	blen = prefix_blen(p);
 	stream_putc(s, p->prefixlen);
@@ -803,27 +805,34 @@ int zsend_route_notify_owner(const struct route_node *rn,
 			     enum zapi_route_notify_owner note, afi_t afi,
 			     safi_t safi)
 {
-	return (route_notify_internal(rn, re->type, re->instance, re->vrf_id,
-				      re->table, note, afi, safi));
+	const struct prefix *p, *src_p;
+
+	srcdest_rnode_prefixes(rn, &p, &src_p);
+
+	return route_notify_internal(p, src_p, re->type, re->instance,
+				     re->vrf_id, re->table, note, afi, safi);
 }
 
 /*
  * Route-owner notification using info from dataplane update context.
+ * Extract prefix information directly from context to avoid dependency
+ * on route_node lookup.
  */
 int zsend_route_notify_owner_ctx(const struct zebra_dplane_ctx *ctx,
 				 enum zapi_route_notify_owner note)
 {
-	int result;
-	struct route_node *rn = rib_find_rn_from_ctx(ctx);
+	const struct prefix *p, *src_p;
 
-	result = route_notify_internal(
-		rn, dplane_ctx_get_type(ctx), dplane_ctx_get_instance(ctx),
-		dplane_ctx_get_vrf(ctx), dplane_ctx_get_table(ctx), note,
-		dplane_ctx_get_afi(ctx), dplane_ctx_get_safi(ctx));
+	/* Extract prefix information directly from context */
+	p = dplane_ctx_get_dest(ctx);
+	src_p = dplane_ctx_get_src(ctx);
 
-	route_unlock_node(rn);
-
-	return result;
+	return route_notify_internal(p, src_p, dplane_ctx_get_type(ctx),
+				     dplane_ctx_get_instance(ctx),
+				     dplane_ctx_get_vrf(ctx),
+				     dplane_ctx_get_table(ctx), note,
+				     dplane_ctx_get_afi(ctx),
+				     dplane_ctx_get_safi(ctx));
 }
 
 static void zread_route_notify_request(ZAPI_HANDLER_ARGS)
