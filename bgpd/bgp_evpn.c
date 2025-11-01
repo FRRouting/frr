@@ -4588,6 +4588,9 @@ void update_advertise_vrf_routes(struct bgp *bgp_vrf)
 	if (!bgp_evpn)
 		return;
 
+	if (!is_l3vni_live(bgp_vrf))
+		return; /* Nothing to do if no l3vni */
+
 	/* update all ipv4 routes */
 	if (advertise_type5_routes(bgp_vrf, AFI_IP))
 		bgp_evpn_advertise_type5_routes(bgp_vrf, AFI_IP, SAFI_UNICAST);
