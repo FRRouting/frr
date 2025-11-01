@@ -271,3 +271,27 @@ SRv6 Static SIDs Commands
       sid    fcbb:bbbb:1:fe04::/64 locator LOC1 behavior uA interface eth0 nexthop 2001::2
        !
    ...
+
+Showing Static information
+=========================
+
+.. clicmd:: show static ip route [vrf <NAME|all>] [json]
+
+   The command displays all static ipv4 routes information.
+
+.. clicmd:: show static ipv6 route [vrf <NAME|all>] [json]
+
+   The command displays all static ipv6 routes information.
+
+::
+
+   router# show static ip route vrf all
+   Staticd routes:
+       VRF Vrf1 IPv4 Unicast:
+           2.3.4.5/32 ip4:192.168.11.100 valid, registered:yes, state:2
+           2.3.4.6/32 ip4:192.168.11.200 valid, registered:yes, state:2
+       VRF Vrf1 IPv4 Multicast:
+       VRF default IPv4 Unicast:
+           2.2.2.2/32 ip4:100.13.13.200 valid, registered:yes, state:2
+                      ip4:100.13.13.100 valid, registered:yes, state:2
+       VRF default IPv4 Multicast:
