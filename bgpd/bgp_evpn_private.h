@@ -410,13 +410,20 @@ static inline void ip_prefix_from_type5_prefix(const struct prefix_evpn *evp,
 	}
 }
 
-static inline int is_evpn_prefix_default(const struct prefix *evp)
+static inline bool is_evpn_prefix_default(const struct prefix *evp)
 {
 	if (evp->family != AF_EVPN)
-		return 0;
+		return false;
 
-	return ((evp->u.prefix_evpn.prefix_addr.ip_prefix_length  == 0) ?
-		1 : 0);
+	/*
+	 * EVPN default type-5 route
+	 * RD:[5]:[0]:[0.0.0.0/0]/352 or RD:[5]:[0]:[::/0]/352
+	 */
+	if ((evp->u.prefix_evpn.route_type == BGP_EVPN_IP_PREFIX_ROUTE) &&
+	    (evp->u.prefix_evpn.prefix_addr.ip_prefix_length == 0))
+		return true;
+
+	return false;
 }
 
 static inline void ip_prefix_from_type2_prefix(const struct prefix_evpn *evp,
