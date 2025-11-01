@@ -249,6 +249,41 @@ def test_ldp_pseudowires():
         )
 
 
+def test_ldp_pseudowires_with_changed_configuration():
+    logger.info("Test: verify LDP pseudowires with changed pw configuration")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Remove and restore the same pw
+    tgen = get_topogen()
+    rname = "r1"
+    router = tgen.gears[rname]
+    router.vtysh_cmd(
+        """
+        config
+        l2vpn CUST_A type vpls
+        member pseudowire r1-mpw0
+        no pw-id 100
+        """
+    )
+    router.vtysh_cmd(
+        """
+        config
+        l2vpn CUST_A type vpls
+        member pseudowire r1-mpw0
+        pw-id 100
+        """
+    )
+
+    for rname in ["r1", "r2", "r3"]:
+        router_compare_json_output(
+            rname, "show l2vpn atom vc json", "show_l2vpn_vc.ref", count=160, wait=1
+        )
+
+
 def test_ldp_pseudowires_after_link_down():
     logger.info("Test: verify LDP pseudowires after r1-r2 link goes down")
     tgen = get_topogen()

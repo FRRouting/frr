@@ -499,6 +499,14 @@ lde_check_mapping(struct map *map, struct lde_nbr *ln, int rcvd_label_mapping)
 	if (fn == NULL)
 		fn = fec_add(&fec);
 
+	if (fec.type == FEC_TYPE_PWID && rcvd_label_mapping) {
+		pw = (struct l2vpn_pw *)fn->data;
+		if (pw && !CHECK_FLAG(pw->flags, F_PW_SEND_REMOTE)) {
+			SET_FLAG(pw->flags, F_PW_SEND_REMOTE);
+			lde_send_labelmapping(ln, fn, 1);
+		}
+	}
+
 	/* LMp.1: first check if we have a pending request running */
 	lre = (struct lde_req *)fec_find(&ln->sent_req, &fn->fec);
 	if (lre)
@@ -823,6 +831,13 @@ lde_check_withdraw(struct map *map, struct lde_nbr *ln)
 	fn = (struct fec_node *)fec_find(&ft, &fec);
 	if (fn == NULL)
 		fn = fec_add(&fec);
+
+	if (fec.type == FEC_TYPE_PWID) {
+		pw = (struct l2vpn_pw *)fn->data;
+		if (pw && CHECK_FLAG(pw->flags, F_PW_SEND_REMOTE)) {
+			UNSET_FLAG(pw->flags, F_PW_SEND_REMOTE);
+		}
+	}
 
 	/* LWd.1: remove label from forwarding/switching use */
 	LIST_FOREACH(fnh, &fn->nexthops, entry) {
