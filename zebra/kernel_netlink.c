@@ -683,8 +683,12 @@ bool nl_attr_put(struct nlmsghdr *n, unsigned int maxlen, int type,
 
 	len = RTA_LENGTH(alen);
 
-	if (NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(len) > maxlen)
+	if (NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(len) > maxlen) {
+		flog_err(EC_ZEBRA_NETLINK_LENGTH_ERROR,
+			 "%s: message exceeded bound: maxlen=%u type=%d alen=%u", __func__, maxlen,
+			 type, alen);
 		return false;
+	}
 
 	rta = (struct rtattr *)(((char *)n) + NLMSG_ALIGN(n->nlmsg_len));
 	rta->rta_type = type;
