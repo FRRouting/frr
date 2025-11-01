@@ -1,0 +1,11 @@
+{%- extends "item.html.j2" %}
+{%- macro nodesum(item) %}
+  <div class="e_always" onclick="raw_expand(this, event);">{{ item.result.outcome }} after {{ "%.2f"|format(item.result.duration) }}s, CLI command: <tt>{{ item.item.command }}</tt></div>
+  <div class="e_hide">
+    {%- if item.item.compare %}
+    Expected output:
+    <pre>{{ item.item.compare }}</pre>
+    {%- endif %}
+    {{ item.result.location }}
+  </div>
+{%- endmacro %}
