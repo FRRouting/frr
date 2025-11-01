@@ -4895,7 +4895,8 @@ static void bgp_evpn_path_nh_link(struct bgp *bgp_vrf, struct bgp_path_info *pi)
 
 	/* find-create nh */
 	memset(&ip, 0, sizeof(ip));
-	if (pi->net->rn->p.family == AF_INET6) {
+	/* copy path attribute's ipv4 or ipv6 address as nexthop field synced to zebra */
+	if (pi->net->rn->p.family == AF_INET6 || BGP_ATTR_MP_NEXTHOP_LEN_IP6(pi->attr)) {
 		SET_IPADDR_V6(&ip);
 		memcpy(&ip.ipaddr_v6, &pi->attr->mp_nexthop_global,
 		       sizeof(ip.ipaddr_v6));
@@ -4982,9 +4983,8 @@ static void bgp_evpn_nh_show_entry(struct bgp_evpn_nh *nh, struct vty *vty,
 		json_object_string_add(json, "basePath", prefix_buf);
 		json_object_int_add(json, "pathCount", listcount(nh->pi_list));
 	} else {
-		vty_out(vty, "%-15s %-15s %-17s %-10d %s\n",
-			nh->bgp_vrf->name_pretty, nh->nh_str, mac_buf,
-			listcount(nh->pi_list), prefix_buf);
+		vty_out(vty, "%-15s %-39s %-17s %-10d %s\n", nh->bgp_vrf->name_pretty, nh->nh_str,
+			mac_buf, listcount(nh->pi_list), prefix_buf);
 	}
 
 	/* add ES to the json array */
@@ -5017,8 +5017,8 @@ void bgp_evpn_nh_show(struct vty *vty, bool uj)
 		/* create an array of nexthops */
 		json_array = json_object_new_array();
 	} else {
-		vty_out(vty, "%-15s %-15s %-17s %-10s %s\n", "VRF", "IP",
-			"RMAC", "#Paths", "Base Path");
+		vty_out(vty, "%-15s %-39s %-17s %-10s %s\n", "VRF", "IP", "RMAC", "#Paths",
+			"Base Path");
 	}
 
 	wctx.vty = vty;
