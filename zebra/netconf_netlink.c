@@ -20,6 +20,7 @@
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_dplane.h"
 #include "zebra/kernel_netlink.h"
+#include "lib/netlink_parser.h"
 #include "zebra/netconf_netlink.h"
 #include "zebra/debug.h"
 

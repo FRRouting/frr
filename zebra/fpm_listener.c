@@ -40,6 +40,7 @@
 #include "fpm/fpm.h"
 #include "lib/libfrr.h"
 #include "zebra/kernel_netlink.h"
+#include "lib/netlink_parser.h"
 
 XREF_SETUP();
 

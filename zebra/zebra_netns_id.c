@@ -28,6 +28,7 @@
 
 #include "zebra_ns.h"
 #include "kernel_netlink.h"
+#include "lib/netlink_parser.h"
 #endif /* defined(HAVE_NETLINK) */
 
 #include "zebra/zebra_netns_id.h"

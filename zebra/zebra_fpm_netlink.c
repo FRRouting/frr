@@ -31,6 +31,7 @@
 #include "zebra/zebra_fpm_private.h"
 #include "zebra/zebra_vxlan_private.h"
 #include "zebra/interface.h"
+#include "lib/netlink_parser.h"
 
 /*
  * af_addr_size

@@ -78,6 +78,7 @@ lib_libfrr_la_SOURCES = \
 	lib/module.c \
 	lib/mpls.c \
 	lib/srv6.c \
+	lib/netlink_parser.c \
 	lib/network.c \
 	lib/nexthop.c \
 	lib/netns_linux.c \
@@ -265,6 +266,7 @@ nobase_pkginclude_HEADERS += \
 	lib/monotime.h \
 	lib/mpls.h \
 	lib/srv6.h \
+	lib/netlink_parser.h \
 	lib/network.h \
 	lib/nexthop.h \
 	lib/nexthop_group.h \
