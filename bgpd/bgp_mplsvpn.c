@@ -3483,7 +3483,7 @@ DEFUN (show_bgp_ip_vpn_all_rd,
        JSON_STR)
 {
 	int ret;
-	struct prefix_rd prd;
+	struct prefix_rd *prd = NULL;
 	afi_t afi;
 	int idx = 0;
 
@@ -3491,15 +3491,19 @@ DEFUN (show_bgp_ip_vpn_all_rd,
 		/* Constrain search if user supplies RD && RD != "all" */
 		if (argv_find(argv, argc, "rd", &idx)
 		    && strcmp(argv[idx + 1]->arg, "all")) {
-			ret = str2prefix_rd(argv[idx + 1]->arg, &prd);
+			prd = XMALLOC(MTYPE_TMP, sizeof(struct prefix_rd));
+			ret = str2prefix_rd(argv[idx + 1]->arg, prd);
 			if (!ret) {
 				vty_out(vty,
 					"%% Malformed Route Distinguisher\n");
+				XFREE(MTYPE_TMP, prd);
 				return CMD_WARNING;
 			}
-			return bgp_show_mpls_vpn(vty, afi, &prd,
-						 bgp_show_type_normal, NULL, 0,
-						 use_json(argc, argv));
+			ret = bgp_show_mpls_vpn(vty, afi, prd, bgp_show_type_normal, NULL, 0,
+						use_json(argc, argv));
+			if (ret != CMD_YIELD)
+				XFREE(MTYPE_TMP, prd);
+			return ret;
 		} else {
 			return bgp_show_mpls_vpn(vty, afi, NULL,
 						 bgp_show_type_normal, NULL, 0,
@@ -3536,7 +3540,7 @@ DEFUN (show_ip_bgp_vpn_rd,
 {
 	int idx_ext_community = argc - 1;
 	int ret;
-	struct prefix_rd prd;
+	struct prefix_rd *prd = NULL;
 	afi_t afi;
 	int idx = 0;
 
@@ -3545,13 +3549,17 @@ DEFUN (show_ip_bgp_vpn_rd,
 			return bgp_show_mpls_vpn(vty, afi, NULL,
 						 bgp_show_type_normal, NULL, 0,
 						 0);
-		ret = str2prefix_rd(argv[idx_ext_community]->arg, &prd);
+		prd = XMALLOC(MTYPE_TMP, sizeof(struct prefix_rd));
+		ret = str2prefix_rd(argv[idx_ext_community]->arg, prd);
 		if (!ret) {
 			vty_out(vty, "%% Malformed Route Distinguisher\n");
+			XFREE(MTYPE_TMP, prd);
 			return CMD_WARNING;
 		}
-		return bgp_show_mpls_vpn(vty, afi, &prd, bgp_show_type_normal,
-					 NULL, 0, 0);
+		ret = bgp_show_mpls_vpn(vty, afi, prd, bgp_show_type_normal, NULL, 0, 0);
+		if (ret != CMD_YIELD)
+			XFREE(MTYPE_TMP, prd);
+		return ret;
 	}
 	return CMD_SUCCESS;
 }
@@ -3606,7 +3614,7 @@ DEFUN (show_ip_bgp_vpn_rd_tags,
 {
 	int idx_ext_community = 5;
 	int ret;
-	struct prefix_rd prd;
+	struct prefix_rd *prd = NULL;
 	afi_t afi;
 	int idx = 0;
 
@@ -3615,13 +3623,17 @@ DEFUN (show_ip_bgp_vpn_rd_tags,
 			return bgp_show_mpls_vpn(vty, afi, NULL,
 						 bgp_show_type_normal, NULL, 1,
 						 0);
-		ret = str2prefix_rd(argv[idx_ext_community]->arg, &prd);
+		prd = XMALLOC(MTYPE_TMP, sizeof(struct prefix_rd));
+		ret = str2prefix_rd(argv[idx_ext_community]->arg, prd);
 		if (!ret) {
 			vty_out(vty, "%% Malformed Route Distinguisher\n");
+			XFREE(MTYPE_TMP, prd);
 			return CMD_WARNING;
 		}
-		return bgp_show_mpls_vpn(vty, afi, &prd, bgp_show_type_normal,
-					 NULL, 1, 0);
+		ret = bgp_show_mpls_vpn(vty, afi, prd, bgp_show_type_normal, NULL, 1, 0);
+		if (ret != CMD_YIELD)
+			XFREE(MTYPE_TMP, prd);
+		return ret;
 	}
 	return CMD_SUCCESS;
 }
@@ -3640,7 +3652,7 @@ DEFUN (show_ip_bgp_vpn_all_neighbor_routes,
        JSON_STR)
 {
 	int idx_ipv4 = 6;
-	union sockunion su;
+	union sockunion *su = NULL;
 	struct peer *peer;
 	int ret;
 	bool uj = use_json(argc, argv);
@@ -3648,8 +3660,10 @@ DEFUN (show_ip_bgp_vpn_all_neighbor_routes,
 	int idx = 0;
 
 	if (argv_find_and_parse_vpnvx(argv, argc, &idx, &afi)) {
-		ret = str2sockunion(argv[idx_ipv4]->arg, &su);
+		su = XCALLOC(MTYPE_TMP, sizeof(union sockunion));
+		ret = str2sockunion(argv[idx_ipv4]->arg, su);
 		if (ret < 0) {
+			XFREE(MTYPE_TMP, su);
 			if (uj) {
 				json_object *json_no = NULL;
 				json_no = json_object_new_object();
@@ -3664,8 +3678,9 @@ DEFUN (show_ip_bgp_vpn_all_neighbor_routes,
 			return CMD_WARNING;
 		}
 
-		peer = peer_lookup(NULL, &su);
+		peer = peer_lookup(NULL, su);
 		if (!peer || !peer->afc[afi][SAFI_MPLS_VPN]) {
+			XFREE(MTYPE_TMP, su);
 			if (uj) {
 				json_object *json_no = NULL;
 				json_no = json_object_new_object();
@@ -3681,8 +3696,10 @@ DEFUN (show_ip_bgp_vpn_all_neighbor_routes,
 			return CMD_WARNING;
 		}
 
-		return bgp_show_mpls_vpn(vty, afi, NULL, bgp_show_type_neighbor,
-					 &su, 0, uj);
+		ret = bgp_show_mpls_vpn(vty, afi, NULL, bgp_show_type_neighbor, su, 0, uj);
+		if (ret != CMD_YIELD)
+			XFREE(MTYPE_TMP, su);
+		return ret;
 	}
 	return CMD_SUCCESS;
 }
@@ -3705,9 +3722,9 @@ DEFUN (show_ip_bgp_vpn_rd_neighbor_routes,
 	int idx_ext_community = 5;
 	int idx_ipv4 = 7;
 	int ret;
-	union sockunion su;
+	union sockunion *su = NULL;
 	struct peer *peer;
-	struct prefix_rd prd;
+	struct prefix_rd *prd = NULL;
 	bool prefix_rd_all = false;
 	bool uj = use_json(argc, argv);
 	afi_t afi;
@@ -3717,7 +3734,8 @@ DEFUN (show_ip_bgp_vpn_rd_neighbor_routes,
 		if (!strcmp(argv[idx_ext_community]->arg, "all"))
 			prefix_rd_all = true;
 		else {
-			ret = str2prefix_rd(argv[idx_ext_community]->arg, &prd);
+			prd = XMALLOC(MTYPE_TMP, sizeof(struct prefix_rd));
+			ret = str2prefix_rd(argv[idx_ext_community]->arg, prd);
 			if (!ret) {
 				if (uj) {
 					json_object *json_no = NULL;
@@ -3732,12 +3750,17 @@ DEFUN (show_ip_bgp_vpn_rd_neighbor_routes,
 				} else
 					vty_out(vty,
 						"%% Malformed Route Distinguisher\n");
+				XFREE(MTYPE_TMP, prd);
 				return CMD_WARNING;
 			}
 		}
 
-		ret = str2sockunion(argv[idx_ipv4]->arg, &su);
+		su = XCALLOC(MTYPE_TMP, sizeof(union sockunion));
+		ret = str2sockunion(argv[idx_ipv4]->arg, su);
 		if (ret < 0) {
+			XFREE(MTYPE_TMP, su);
+			if (prd)
+				XFREE(MTYPE_TMP, prd);
 			if (uj) {
 				json_object *json_no = NULL;
 				json_no = json_object_new_object();
@@ -3752,8 +3775,11 @@ DEFUN (show_ip_bgp_vpn_rd_neighbor_routes,
 			return CMD_WARNING;
 		}
 
-		peer = peer_lookup(NULL, &su);
+		peer = peer_lookup(NULL, su);
 		if (!peer || !peer->afc[afi][SAFI_MPLS_VPN]) {
+			XFREE(MTYPE_TMP, su);
+			if (prd)
+				XFREE(MTYPE_TMP, prd);
 			if (uj) {
 				json_object *json_no = NULL;
 				json_no = json_object_new_object();
@@ -3770,13 +3796,16 @@ DEFUN (show_ip_bgp_vpn_rd_neighbor_routes,
 		}
 
 		if (prefix_rd_all)
-			return bgp_show_mpls_vpn(vty, afi, NULL,
-						 bgp_show_type_neighbor, &su, 0,
-						 uj);
-		else
-			return bgp_show_mpls_vpn(vty, afi, &prd,
-						 bgp_show_type_neighbor, &su, 0,
-						 uj);
+			ret = bgp_show_mpls_vpn(vty, afi, NULL, bgp_show_type_neighbor, su, 0, uj);
+		else {
+			ret = bgp_show_mpls_vpn(vty, afi, prd, bgp_show_type_neighbor, su, 0, uj);
+			if (ret != CMD_YIELD)
+				XFREE(MTYPE_TMP, prd);
+		}
+
+		if (ret != CMD_YIELD)
+			XFREE(MTYPE_TMP, su);
+		return ret;
 	}
 	return CMD_SUCCESS;
 }
