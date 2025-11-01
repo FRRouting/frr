@@ -196,9 +196,11 @@ def test_rt_extcomm_list_expanded_delete():
     _set_extcomm_list_regex(r2, "rt", "1\.1\.1\.[1-2]:1")
 
     # check for the deletion of the extended community
-    test_func = functools.partial(_bgp_extcomm_list_del_check, r2, "10.10.10.1/32", r"")
+    test_func = functools.partial(
+        _bgp_extcomm_list_del_check, r2, "10.10.10.1/32", r"1.1.1.1:1"
+    )
     _, result = topotest.run_and_expect(test_func, True, count=60, wait=0.5)
-    assert result is False, "RT extended community 1.1.1.1:1 was not stripped."
+    assert result, "RT extended community 1.1.1.1:1 was not stripped."
 
 
 if __name__ == "__main__":
