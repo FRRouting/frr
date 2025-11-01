@@ -167,6 +167,9 @@ struct srte_segment_entry {
 	/* Label Value. */
 	mpls_label_t sid_value;
 
+	/* SRv6 SID. */
+	struct in6_addr srv6_sid_value;
+
 	/* NAI Type */
 	enum srte_segment_nai_type nai_type;
 	/* NAI local address when nai type is not NONE */
@@ -207,6 +210,7 @@ struct srte_segment_list {
 #define F_SEGMENT_LIST_MODIFIED 0x0004
 #define F_SEGMENT_LIST_DELETED 0x0008
 #define F_SEGMENT_LIST_SID_CONFLICT 0x0010
+#define F_SEGMENT_LIST_NHT_REGISTERED 0x0020
 };
 RB_HEAD(srte_segment_list_head, srte_segment_list);
 RB_PROTOTYPE(srte_segment_list_head, srte_segment_list, entry,
