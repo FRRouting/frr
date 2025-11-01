@@ -706,6 +706,7 @@ void static_zebra_srv6_sid_install(struct static_srv6_sid *sid)
 				  &sid->addr, sid->attributes.ifname);
 			return;
 		}
+		ctx.ifindex = ifp->ifindex;
 		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_PSP_USD:
@@ -901,6 +902,7 @@ void static_zebra_srv6_sid_uninstall(struct static_srv6_sid *sid)
 				  &sid->addr, sid->attributes.ifname);
 			return;
 		}
+		ctx.ifindex = ifp->ifindex;
 		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_PSP_USD:
