@@ -536,6 +536,10 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    be forwarded on the given interface if the traffic matches the group address
    and optionally the source address.
 
+.. clicmd:: ip igmp access-list ACCESSLIST4_NAME
+
+   Apply the indicated access list to filter incoming IGMP joins.
+
 .. clicmd:: ip igmp route-map ROUTE-MAP
 
    Apply the indicated route map to filter incoming IGMP joins.
