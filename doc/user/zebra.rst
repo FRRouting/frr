@@ -1594,7 +1594,7 @@ zebra Terminal Mode Commands
    Display detailed information about a route. If [nexthop-group] is
    included, it will display the nexthop group ID the route is using as well.
 
-.. clicmd:: show [ip|ipv6] route [vrf NAME|all|table TABLENO] [A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M] [json] [nexthop-group]
+.. clicmd:: show [ip|ipv6] route [vrf NAME|all|table TABLENO] [A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M] [json] [nexthop-group [summary [ecmp-count <gt|lt|eq> (1-256)]]]
 
    Display detailed information about routes in the routing table. This command provides comprehensive information about specific routes, including their attributes, nexthops, and other routing details.
 
@@ -1604,8 +1604,13 @@ zebra Terminal Mode Commands
    - ``table TABLENO``: Display routes from a specific routing table (1-4294967295)
    - ``A.B.C.D|A.B.C.D/M``: Display detailed information for a specific IPv4 address or prefix
    - ``X:X::X:X|X:X::X:X/M``: Display detailed information for a specific IPv6 address or prefix
-   - ``json``: Display output in JSON format
    - ``nexthop-group``: Include nexthop group information in the output
+   - ``nexthop-group summary``: Display a concise summary view with ECMP counts and nexthop group IDs instead of full nexthop details
+   - ``ecmp-count <gt|lt|eq> N``: Filter routes by ECMP count (requires summary option)
+     - ``gt``: Show routes with ECMP count greater than N
+     - ``lt``: Show routes with ECMP count less than N
+     - ``eq``: Show routes with ECMP count equal to N
+   - ``json``: Display output in JSON format
 
    The detailed output includes:
 
@@ -1637,6 +1642,68 @@ zebra Terminal Mode Commands
             Backup nexthop: 10.0.0.2 via eth1
 
    When using the JSON output format, the information is structured in a hierarchical JSON object containing all the route details in a machine-readable format.
+
+   **Nexthop Group Summary View**
+
+   When using the ``nexthop-group summary`` option, instead of showing all individual nexthops for each route, this displays a concise view showing ECMP counts, nexthop group IDs, and status flags.
+
+   The summary output includes:
+
+   - Route prefix and protocol
+   - Received/Installed NHG ID: The nexthop group IDs (received from protocol / installed in kernel)
+   - ECMP/FIB count: Number of ECMP paths / Number of paths installed in FIB
+   - Status: Route installation status (Installed, Queued, Failed)
+   - Flags: Nexthop group flags (Valid, Installed, Recursive, etc.)
+
+   Example showing routes with exactly 2 ECMP paths:
+
+   ::
+
+      Router# show ip route bgp nexthop-group summary ecmp-count eq 2
+      B>  192.168.1.0/24 [20/0] Rcv/Ins NHG ID: 100/100 ECMP/FIB count: 2/2 Status: Installed Flags: Valid, Installed
+      B>* 192.168.2.0/24 [20/0] Rcv/Ins NHG ID: 101/101 ECMP/FIB count: 2/2 Status: Installed Flags: Valid, Installed
+      B>  192.168.3.0/24 [20/0] Rcv/Ins NHG ID: 102/102 ECMP/FIB count: 2/2 Status: Installed Flags: Valid, Installed
+      B>  192.168.4.0/24 [20/0] Rcv/Ins NHG ID: 103/103 ECMP/FIB count: 2/2 Status: Installed Flags: Valid, Installed
+
+   Example showing routes with less than 2 ECMP paths:
+
+   ::
+
+      Router# show ip route ospf nexthop-group summary ecmp-count lt 2
+      O>  192.168.10.0/24 [110/20] Rcv/Ins NHG ID: 150/151 ECMP/FIB count: 1/1 Status: Installed Flags: Valid, Recursive
+
+   JSON output example:
+
+   ::
+
+      Router# show ip route bgp nexthop-group summary ecmp-count eq 1 json
+      {"192.168.10.0/24":[{
+        "prefix":"192.168.10.0/24",
+        "prefixLen":24,
+        "protocol":"bgp",
+        "vrfId":0,
+        "vrfName":"default",
+        "selected":true,
+        "destSelected":true,
+        "distance":20,
+        "metric":0,
+        "installed":true,
+        "table":254,
+        "nexthopGroupId":200,
+        "ecmpCount":1,
+        "fibInstalledCount":1,
+        "installedNexthopGroupId":200,
+        "receivedNexthopGroupId":200,
+        "nexthopGroupFlags":9,
+        "nexthopGroupValid":"true"
+      }]}
+
+   The summary view is particularly useful for:
+
+   - Quickly identifying routes with specific ECMP configurations
+   - Troubleshooting nexthop group installation issues
+   - Monitoring ECMP load-balancing configurations
+   - Verifying routes have the expected number of paths
 
 .. clicmd:: show [ip|ipv6] route summary
 
