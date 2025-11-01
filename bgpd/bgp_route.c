@@ -2404,7 +2404,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	if (reflect
 	    && (!(attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID)))) {
 		IPV4_ADDR_COPY(&(attr->originator_id), &(from->remote_id));
-		SET_FLAG(attr->flag, BGP_ATTR_ORIGINATOR_ID);
+		SET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID));
 	}
 
 	/* Remove MED if its an EBGP peer - will get overwritten by route-maps
