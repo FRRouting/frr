@@ -2068,8 +2068,7 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 			nl_attr_nest_end(nlmsg, nest);
 		}
 
-		if (nexthop->nh_srv6->seg6_segs &&
-		    nexthop->nh_srv6->seg6_segs->num_segs &&
+		if (nexthop->nh_srv6->seg6_segs && nexthop->nh_srv6->seg6_segs->num_segs &&
 		    !sid_zero(nexthop->nh_srv6->seg6_segs)) {
 			struct rtattr *nest;
 
@@ -3322,8 +3321,8 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 
 				if (nh->nh_srv6->seg6_segs && nh->nh_srv6->seg6_segs->num_segs &&
 				    !sid_zero(nh->nh_srv6->seg6_segs) &&
-				    nh->nh_srv6->seg6local_action == ZEBRA_SEG6_LOCAL_ACTION_UNSPEC) {
-
+				    nh->nh_srv6->seg6local_action ==
+					    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC) {
 					if (!nl_attr_put16(&req->n, buflen,
 					    NHA_ENCAP_TYPE,
 					    LWTUNNEL_ENCAP_SEG6))
