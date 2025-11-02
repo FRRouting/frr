@@ -1297,10 +1297,8 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
 		 * route-map test permit 10
 		 *   set extcommunity rt none
 		 */
-		if (CHECK_FLAG(bpi->attr->flag,
-			       ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)) &&
-		    CHECK_FLAG(new_attr->flag,
-			       ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES))) {
+		if (bgp_attr_exists(bpi->attr, BGP_ATTR_EXT_COMMUNITIES) &&
+		    bgp_attr_exists(new_attr, BGP_ATTR_EXT_COMMUNITIES)) {
 			if (!ecommunity_cmp(
 				    bgp_attr_get_ecommunity(bpi->attr),
 				    bgp_attr_get_ecommunity(new_attr))) {
@@ -1618,9 +1616,8 @@ vpn_leak_from_vrf_get_per_nexthop_label(afi_t afi, struct bgp_path_info *pi,
 			      bpi_ultimate->type == ZEBRA_ROUTE_BGP;
 
 	if (is_bgp_static_route == false && afi == AFI_IP &&
-	    CHECK_FLAG(pi->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)) &&
-	    (pi->attr->nexthop.s_addr == INADDR_ANY ||
-	     !ipv4_unicast_valid(&pi->attr->nexthop))) {
+	    bgp_attr_exists(pi->attr, BGP_ATTR_NEXT_HOP) &&
+	    (pi->attr->nexthop.s_addr == INADDR_ANY || !ipv4_unicast_valid(&pi->attr->nexthop))) {
 		/* IPv4 nexthop in standard BGP encoding format.
 		 * Format of address is not valid (not any, not unicast).
 		 * Fallback to the per VRF label.
@@ -4398,8 +4395,7 @@ bool bgp_mplsvpn_path_uses_valid_mpls_label(struct bgp_path_info *pi)
 		/* srv6 sid */
 		return false;
 
-	if (pi->attr &&
-	    CHECK_FLAG(pi->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID)) &&
+	if (pi->attr && bgp_attr_exists(pi->attr, BGP_ATTR_PREFIX_SID) &&
 	    pi->attr->label_index != BGP_INVALID_LABEL_INDEX)
 		/* prefix_sid attribute */
 		return false;

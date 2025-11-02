@@ -98,7 +98,7 @@ static void encap_attr_export_ce(struct attr *new, struct attr *orig,
 	if (!CHECK_FLAG(new->flag, BGP_ATTR_MULTI_EXIT_DISC)) {
 		uint32_t med = 255;
 
-		if (CHECK_FLAG(new->flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))) {
+		if (bgp_attr_exists(new, BGP_ATTR_LOCAL_PREF)) {
 			if (new->local_pref > 255)
 				med = 0;
 			else
@@ -645,7 +645,7 @@ encap_attr_export(struct attr *new, struct attr *orig,
 	if (!CHECK_FLAG(new->flag, BGP_ATTR_MULTI_EXIT_DISC)) {
 		uint32_t med = 255;
 
-		if (CHECK_FLAG(new->flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))) {
+		if (bgp_attr_exists(new, BGP_ATTR_LOCAL_PREF)) {
 			if (new->local_pref > 255)
 				med = 0;
 			else

@@ -470,11 +470,10 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 
 		path->attr->med = newattr.med;
 
-		if (CHECK_FLAG(path->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)))
+		if (bgp_attr_exists(path->attr, BGP_ATTR_LOCAL_PREF))
 			locpref = path->attr->local_pref;
 		if (locpref != newattr.local_pref) {
-			SET_FLAG(path->attr->flag,
-				 ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF));
+			bgp_attr_set(path->attr, BGP_ATTR_LOCAL_PREF);
 			path->attr->local_pref = newattr.local_pref;
 		}
 		break;
@@ -2201,7 +2200,7 @@ route_set_ip_nexthop(void *rule, const struct prefix *prefix, void *object)
 		    peer->connection->su_remote &&
 		    sockunion_family(peer->connection->su_remote) == AF_INET) {
 			path->attr->nexthop.s_addr = sockunion2ip(peer->connection->su_remote);
-			SET_FLAG(path->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP));
+			bgp_attr_set(path->attr, BGP_ATTR_NEXT_HOP);
 		} else if (CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_OUT)) {
 			/* The next hop value will be set as part of
 			 * packet rewrite.  Set the flags here to indicate
@@ -2214,7 +2213,7 @@ route_set_ip_nexthop(void *rule, const struct prefix *prefix, void *object)
 		}
 	} else {
 		/* Set next hop value. */
-		SET_FLAG(path->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP));
+		bgp_attr_set(path->attr, BGP_ATTR_NEXT_HOP);
 		path->attr->nexthop = *rins->address;
 		SET_FLAG(path->attr->rmap_change_flags,
 			 BATTR_RMAP_IPV4_NHOP_CHANGED);
@@ -2348,7 +2347,7 @@ route_set_local_pref(void *rule, const struct prefix *prefix, void *object)
 	if (path->attr->local_pref)
 		locpref = path->attr->local_pref;
 
-	SET_FLAG(path->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF));
+	bgp_attr_set(path->attr, BGP_ATTR_LOCAL_PREF);
 	path->attr->local_pref = route_value_adjust(rv, locpref, path);
 
 	return RMAP_OKAY;
@@ -2423,7 +2422,7 @@ route_set_metric(void *rule, const struct prefix *prefix, void *object)
 	rv = rule;
 	path = object;
 
-	if (CHECK_FLAG(path->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC)))
+	if (bgp_attr_exists(path->attr, BGP_ATTR_MULTI_EXIT_DISC))
 		med = path->attr->med;
 
 	bgp_attr_set_med(path->attr, route_value_adjust(rv, med, path));
@@ -3625,7 +3624,7 @@ route_set_atomic_aggregate(void *rule, const struct prefix *pfx, void *object)
 	struct bgp_path_info *path;
 
 	path = object;
-	SET_FLAG(path->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE));
+	bgp_attr_set(path->attr, BGP_ATTR_ATOMIC_AGGREGATE);
 
 	return RMAP_OKAY;
 }
@@ -3703,7 +3702,7 @@ route_set_aggregator_as(void *rule, const struct prefix *prefix, void *object)
 
 	path->attr->aggregator_as = aggregator->as;
 	path->attr->aggregator_addr = aggregator->address;
-	SET_FLAG(path->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR));
+	bgp_attr_set(path->attr, BGP_ATTR_AGGREGATOR);
 
 	return RMAP_OKAY;
 }
@@ -3783,7 +3782,7 @@ route_set_label_index(void *rule, const struct prefix *prefix, void *object)
 	label_index = rv->value;
 	if (label_index) {
 		path->attr->label_index = label_index;
-		SET_FLAG(path->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID));
+		bgp_attr_set(path->attr, BGP_ATTR_PREFIX_SID);
 	}
 
 	return RMAP_OKAY;
@@ -4450,7 +4449,7 @@ route_set_originator_id(void *rule, const struct prefix *prefix, void *object)
 	address = rule;
 	path = object;
 
-	SET_FLAG(path->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID));
+	bgp_attr_set(path->attr, BGP_ATTR_ORIGINATOR_ID);
 	path->attr->originator_id = *address;
 
 	return RMAP_OKAY;

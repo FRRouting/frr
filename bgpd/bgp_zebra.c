@@ -1323,7 +1323,7 @@ static void bgp_zebra_announce_parse_nexthop(
 							 &nh_weight))
 				continue;
 		} else if (do_wt_ecmp == BGP_WECMP_BEHAVIOR_NNHN_COUNT) {
-			if (CHECK_FLAG(mpinfo->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NHC)))
+			if (bgp_attr_exists(mpinfo->attr, BGP_ATTR_NHC))
 				nh_weight = bgp_nhc_nnhn_count(bgp_attr_get_nhc(mpinfo->attr));
 		}
 		api_nh = &api->nexthops[*valid_nh_count];

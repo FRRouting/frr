@@ -348,6 +348,10 @@ struct transit {
 #define ATTR_FLAG_BIT(X)                                                       \
 	__builtin_choose_expr((X) >= 1 && (X) <= 64, 1ULL << ((X)-1), (void)0)
 
+#define bgp_attr_exists(attr, id) CHECK_FLAG((attr)->flag, ATTR_FLAG_BIT(id))
+#define bgp_attr_set(attr, id) SET_FLAG((attr)->flag, ATTR_FLAG_BIT(id))
+#define bgp_attr_unset(attr, id) UNSET_FLAG((attr)->flag, ATTR_FLAG_BIT(id))
+
 #define BGP_CLUSTER_LIST_LENGTH(attr)                                          \
 	(CHECK_FLAG((attr)->flag, ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST))        \
 		 ? bgp_attr_get_cluster((attr))->length                        \
