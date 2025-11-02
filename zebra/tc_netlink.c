@@ -531,6 +531,9 @@ static ssize_t netlink_tfilter_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 			dplane_ctx_tc_filter_get_ip_proto(ctx));
 
 		nest = nl_attr_nest(&req->n, datalen, TCA_OPTIONS);
+		if (!nest)
+			return 0;
+
 		switch (dplane_ctx_tc_filter_get_kind(ctx)) {
 		case TC_FILTER_FLOWER: {
 			netlink_tfilter_flower_put_options(&req->n, datalen,
