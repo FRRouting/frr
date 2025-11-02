@@ -824,8 +824,7 @@ static uint8_t *bgp4v2PathAttrTable(struct variable *v, oid name[],
 		else
 			return SNMP_INTEGER(0);
 	case BGP4V2_NLRI_CALC_LOCAL_PREF:
-		if (CHECK_FLAG(path->attr->flag,
-			       ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)))
+		if (bgp_attr_exists(path->attr, BGP_ATTR_LOCAL_PREF))
 			return SNMP_INTEGER(path->attr->local_pref);
 		else
 			return SNMP_INTEGER(0);
@@ -878,50 +877,42 @@ static uint8_t *bgp4v2PathAttrTable(struct variable *v, oid name[],
 		/* Not properly defined in specification what should be here. */
 		break;
 	case BGP4V2_NLRI_LOCAL_PREF_PRESENT:
-		if (CHECK_FLAG(path->attr->flag,
-			       ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)))
+		if (bgp_attr_exists(path->attr, BGP_ATTR_LOCAL_PREF))
 			return SNMP_INTEGER(1);
 		else
 			return SNMP_INTEGER(0);
 	case BGP4V2_NLRI_LOCAL_PREF:
-		if (CHECK_FLAG(path->attr->flag,
-			       ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)))
+		if (bgp_attr_exists(path->attr, BGP_ATTR_LOCAL_PREF))
 			return SNMP_INTEGER(path->attr->local_pref);
 		else
 			return SNMP_INTEGER(0);
 	case BGP4V2_NLRI_MED_PRESENT:
-		if (CHECK_FLAG(path->attr->flag,
-			       ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC)))
+		if (bgp_attr_exists(path->attr, BGP_ATTR_MULTI_EXIT_DISC))
 			return SNMP_INTEGER(1);
 		else
 			return SNMP_INTEGER(0);
 	case BGP4V2_NLRI_MED:
-		if (CHECK_FLAG(path->attr->flag,
-			       ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC)))
+		if (bgp_attr_exists(path->attr, BGP_ATTR_MULTI_EXIT_DISC))
 			return SNMP_INTEGER(path->attr->med);
 		else
 			return SNMP_INTEGER(0);
 	case BGP4V2_NLRI_ATOMIC_AGGREGATE:
-		if (CHECK_FLAG(path->attr->flag,
-			       ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE)))
+		if (bgp_attr_exists(path->attr, BGP_ATTR_ATOMIC_AGGREGATE))
 			return SNMP_INTEGER(1);
 		else
 			return SNMP_INTEGER(0);
 	case BGP4V2_NLRI_AGGREGATOR_PRESENT:
-		if (CHECK_FLAG(path->attr->flag,
-			       ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR)))
+		if (bgp_attr_exists(path->attr, BGP_ATTR_AGGREGATOR))
 			return SNMP_INTEGER(1);
 		else
 			return SNMP_INTEGER(0);
 	case BGP4V2_NLRI_AGGREGATOR_AS:
-		if (CHECK_FLAG(path->attr->flag,
-			       ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR)))
+		if (bgp_attr_exists(path->attr, BGP_ATTR_AGGREGATOR))
 			return SNMP_INTEGER(path->attr->aggregator_as);
 		else
 			return SNMP_INTEGER(0);
 	case BGP4V2_NLRI_AGGREGATOR_ADDR:
-		if (CHECK_FLAG(path->attr->flag,
-			       ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR)))
+		if (bgp_attr_exists(path->attr, BGP_ATTR_AGGREGATOR))
 			return SNMP_IPADDRESS(path->attr->aggregator_addr);
 		else
 			return SNMP_IPADDRESS(bgp_empty_addr);

@@ -374,9 +374,8 @@ void bgp_reg_dereg_for_label(struct bgp_dest *dest, struct bgp_path_info *pi,
 		 * Determine if we will let zebra should derive label from
 		 * label index instead of bgpd requesting from label pool
 		 */
-		if (CHECK_FLAG(pi->attr->flag,
-			    ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID))
-			&& pi->attr->label_index != BGP_INVALID_LABEL_INDEX) {
+		if (bgp_attr_exists(pi->attr, BGP_ATTR_PREFIX_SID) &&
+		    pi->attr->label_index != BGP_INVALID_LABEL_INDEX) {
 			with_label_index = true;
 			UNSET_FLAG(dest->flags, BGP_NODE_LABEL_REQUESTED);
 		} else {
