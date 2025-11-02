@@ -226,6 +226,10 @@ Security fixes are backported to all releases less than or equal to at least one
 year old. Security fixes may also be backported to older releases depending on
 severity.
 
+It is important to note that if a fix is backported to stable branch, all newer stable
+branches must have that fix too. For example, if a fix is backported to ``stable/10.0``
+then all releases after ``10.0`` are expected to have that fix where applicable.
+
 For detailed instructions on how to produce an FRR release, refer to
 :ref:`frr-release-procedure`.
 
