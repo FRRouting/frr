@@ -800,8 +800,8 @@ static int netlink_request_intf_addr(struct nlsock *netlink_cmd, int family,
 	req.ifm.ifi_family = family;
 
 	/* Include filter, if specified. */
-	if (filter_mask)
-		nl_attr_put32(&req.n, sizeof(req), IFLA_EXT_MASK, filter_mask);
+	if (filter_mask && !nl_attr_put32(&req.n, sizeof(req), IFLA_EXT_MASK, filter_mask))
+		return -1;
 
 	return netlink_request(netlink_cmd, &req);
 }

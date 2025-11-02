@@ -458,6 +458,9 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 			}
 			vxlan = &nhi->encap_info.vxlan_encap;
 			nest = nl_attr_nest(&req->n, in_buf_len, RTA_ENCAP);
+			if (!nest)
+				return 0;
+
 			if (!nl_attr_put32(&req->n, in_buf_len, VXLAN_VNI, vxlan->vni)) {
 				zlog_err("%s: Failed to add VXLAN_VNI nl attribute", __func__);
 				return 0;
