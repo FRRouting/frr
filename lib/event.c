@@ -758,7 +758,7 @@ char *event_timer_to_hhmmss(char *buf, int buf_size, struct event *t_timer)
 }
 
 /* Get new thread.  */
-static struct event *thread_get(struct event_loop *m, uint8_t type,
+static struct event *event_get(struct event_loop *m, uint8_t type,
 				void (*func)(struct event *), void *arg,
 				const struct xref_eventsched *xref)
 {
@@ -979,7 +979,7 @@ void _event_add_read_write(const struct xref_eventsched *xref,
 		/* make sure we have room for this fd + pipe poker fd */
 		assert(queuepos + 1 < m->handler.pfdsize);
 
-		event = thread_get(m, dir, func, arg, xref);
+		event = event_get(m, dir, func, arg, xref);
 
 		m->handler.pfds[queuepos].fd = fd;
 		m->handler.pfds[queuepos].events |=
@@ -1030,7 +1030,7 @@ static void _event_add_timer_timeval(const struct xref_eventsched *xref,
 			/* thread is already scheduled; don't reschedule */
 			return;
 
-		event = thread_get(m, EVENT_TIMER, func, arg, xref);
+		event = event_get(m, EVENT_TIMER, func, arg, xref);
 		/* default lateness warning: 4s */
 		event->tardy_threshold = TARDY_DEFAULT_THRESHOLD;
 
@@ -1114,7 +1114,7 @@ void _event_add_event(const struct xref_eventsched *xref, struct event_loop *m,
 			/* thread is already scheduled; don't reschedule */
 			break;
 
-		event = thread_get(m, EVENT_EVENT, func, arg, xref);
+		event = event_get(m, EVENT_EVENT, func, arg, xref);
 		frr_with_mutex (&event->mtx) {
 			event->u.val = val;
 			event_list_add_tail(&m->event, event);
@@ -1557,7 +1557,7 @@ static struct timeval *thread_timer_wait(struct event_timer_list_head *timers,
 	return timer_val;
 }
 
-static struct event *thread_run(struct event_loop *m, struct event *event, struct event *fetch)
+static struct event *event_run(struct event_loop *m, struct event *event, struct event *fetch)
 {
 	*fetch = *event;
 	thread_add_unuse(m, event);
@@ -1751,7 +1751,7 @@ struct event *event_fetch(struct event_loop *m, struct event *fetch)
 		 * This is performance-critical. Think twice before modifying.
 		 */
 		if ((event = event_list_pop(&m->ready))) {
-			fetch = thread_run(m, event, fetch);
+			fetch = event_run(m, event, fetch);
 			if (fetch->ref)
 				*fetch->ref = NULL;
 			pthread_mutex_unlock(&m->mtx);
@@ -2094,7 +2094,7 @@ void _event_execute(const struct xref_eventsched *xref, struct event_loop *m,
 
 	/* Get or allocate new thread to execute. */
 	frr_with_mutex (&m->mtx) {
-		event = thread_get(m, EVENT_EVENT, func, arg, xref);
+		event = event_get(m, EVENT_EVENT, func, arg, xref);
 
 		/* Set its event value. */
 		frr_with_mutex (&event->mtx) {
