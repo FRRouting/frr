@@ -2385,7 +2385,7 @@ static struct bgpevpn *evpn_create_update_vni(struct bgp *bgp, vni_t vni)
 {
 	struct bgpevpn *vpn;
 	struct in_addr mcast_grp = {INADDR_ANY};
-	struct ipaddr orignator_ip;
+	struct ipaddr orignator_ip = {};
 
 	vpn = bgp_evpn_lookup_vni(bgp, vni);
 	if (!vpn) {
