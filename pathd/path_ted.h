@@ -103,7 +103,7 @@ uint32_t path_ted_config_write(struct vty *vty);
 /* clang-format on */
 
 
-uint32_t path_ted_get_current_igp(uint32_t);
+uint32_t path_ted_get_current_igp(uint32_t igp);
 /* TED Query functions */
 
 /*

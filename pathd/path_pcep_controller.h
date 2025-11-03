@@ -77,7 +77,7 @@ struct pcep_ctrl_socket_data {
 	void *payload;
 };
 
-typedef void (*pcep_ctrl_thread_callback)(struct event *);
+typedef void (*pcep_ctrl_thread_callback)(struct event *thread);
 
 /* PCC connection information, populated in a thread-safe
  * manner with pcep_ctrl_get_pcc_info() */
