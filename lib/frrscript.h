@@ -205,7 +205,7 @@ void frrscript_fini(void);
 /*
  * Noop function. Used below where we need a noop decoder for any type.
  */
-void _lua_decode_noop(lua_State *, ...);
+void _lua_decode_noop(lua_State *L, ...);
 
 /*
  * Maps the type of value to its encoder/decoder.

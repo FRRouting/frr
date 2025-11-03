@@ -16,7 +16,7 @@ extern void lib_cmd_init(void);
 
 /* Human friendly string for given byte count */
 #define MTYPE_MEMSTR_LEN 20
-extern const char *mtype_memstr(char *, size_t, unsigned long);
+extern const char *mtype_memstr(char *buf, size_t len, unsigned long bytes);
 
 #ifdef __cplusplus
 }

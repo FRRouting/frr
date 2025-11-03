@@ -103,12 +103,12 @@ extern void libagentx_init(void);
 extern void smux_init(struct event_loop *tm);
 extern void smux_terminate(void);
 extern void smux_agentx_enable(void);
-extern void smux_register_mib(const char *, struct variable *, size_t, int,
-			      oid[], size_t);
-extern int smux_header_generic(struct variable *, oid[], size_t *, int,
-			       size_t *, WriteMethod **);
-extern int smux_header_table(struct variable *, oid *, size_t *, int, size_t *,
-			     WriteMethod **);
+extern void smux_register_mib(const char *descr, struct variable *var, size_t width, int num,
+			      oid name[], size_t namelen);
+extern int smux_header_generic(struct variable *v, oid name[], size_t *length, int exact,
+			       size_t *var_len, WriteMethod **write_method);
+extern int smux_header_table(struct variable *v, oid *name, size_t *length, int exact,
+			     size_t *var_len, WriteMethod **write_method);
 
 /* For traps, three OID are provided:
 
@@ -131,9 +131,11 @@ extern int smux_header_table(struct variable *, oid *, size_t *, int, size_t *,
  The use of the arguments may differ depending on the implementation
  used.
 */
-extern void smux_trap(struct variable *, size_t, const oid *, size_t,
-		      const oid *, size_t, const oid *, size_t,
-		      const struct trap_object *, size_t, uint8_t);
+extern void smux_trap(struct variable *vp, size_t vp_len, const oid *ename,
+		      size_t enamelen, const oid *name, size_t namelen,
+		      const oid *iname, size_t inamelen,
+		      const struct trap_object *trapobj, size_t trapobjlen,
+		      uint8_t sptrap);
 
 extern int smux_trap_multi_index(struct variable *vp, size_t vp_len,
 				 const oid *ename, size_t enamelen,
@@ -143,13 +145,13 @@ extern int smux_trap_multi_index(struct variable *vp, size_t vp_len,
 				 size_t trapobjlen, uint8_t sptrap);
 
 extern void smux_events_update(void);
-extern int oid_compare(const oid *, int, const oid *, int);
-extern void oid2in_addr(oid[], int, struct in_addr *);
+extern int oid_compare(const oid *o1, int o1_len, const oid *o2, int o2_len);
+extern void oid2in_addr(oid oid[], int len, struct in_addr *addr);
 extern void oid2in6_addr(oid oid[], struct in6_addr *addr);
 extern void oid2int(oid oid[], int *dest);
-extern void *oid_copy(void *, const void *, size_t);
-extern void oid_copy_in_addr(oid[], const struct in_addr *);
-extern void oid_copy_in6_addr(oid[], const struct in6_addr *);
+extern void *oid_copy(void *dest, const void *src, size_t size);
+extern void oid_copy_in_addr(oid oid[], const struct in_addr *addr);
+extern void oid_copy_in6_addr(oid oid[], const struct in6_addr *addr);
 extern void oid_copy_int(oid oid[], int *val);
 extern void oid2string(oid oid[], int len, char *string);
 extern void oid_copy_str(oid oid[], const char *string, int len);

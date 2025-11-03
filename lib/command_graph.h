@@ -115,10 +115,10 @@ struct cmd_element {
 #define CMD_CR_TEXT "<cr>"
 
 /* memory management for cmd_token */
-extern struct cmd_token *cmd_token_new(enum cmd_token_type, uint8_t attr,
-				       const char *text, const char *desc);
-extern struct cmd_token *cmd_token_dup(struct cmd_token *);
-extern void cmd_token_del(struct cmd_token *);
+extern struct cmd_token *cmd_token_new(enum cmd_token_type type, uint8_t attr, const char *text,
+				       const char *desc);
+extern struct cmd_token *cmd_token_dup(struct cmd_token *token);
+extern void cmd_token_del(struct cmd_token *token);
 extern void cmd_token_varname_set(struct cmd_token *token, const char *varname);
 extern void cmd_token_varname_seqappend(struct graph_node *n);
 extern void cmd_token_varname_join(struct graph_node *n, const char *varname);

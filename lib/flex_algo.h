@@ -98,8 +98,8 @@ struct flex_algo {
 	void *data;
 };
 
-typedef void *(*flex_algo_allocator_t)(void *);
-typedef void (*flex_algo_releaser_t)(void *);
+typedef void *(*flex_algo_allocator_t)(void *arg);
+typedef void (*flex_algo_releaser_t)(void *data);
 
 struct flex_algos {
 	flex_algo_allocator_t allocator;
