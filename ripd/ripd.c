@@ -2976,15 +2976,15 @@ static void rip_vty_out_uptime(struct vty *vty, struct rip_info *rinfo)
 	struct tm tm;
 #define TIME_BUF 25
 	char timebuf[TIME_BUF];
-	struct event *thread;
+	struct event *event;
 
-	if ((thread = rinfo->t_timeout) != NULL) {
-		clock = event_timer_remain_second(thread);
+	if ((event = rinfo->t_timeout) != NULL) {
+		clock = event_timer_remain_second(event);
 		gmtime_r(&clock, &tm);
 		strftime(timebuf, TIME_BUF, "%M:%S", &tm);
 		vty_out(vty, "%5s", timebuf);
-	} else if ((thread = rinfo->t_garbage_collect) != NULL) {
-		clock = event_timer_remain_second(thread);
+	} else if ((event = rinfo->t_garbage_collect) != NULL) {
+		clock = event_timer_remain_second(event);
 		gmtime_r(&clock, &tm);
 		strftime(timebuf, TIME_BUF, "%M:%S", &tm);
 		vty_out(vty, "%5s", timebuf);

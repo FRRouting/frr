@@ -784,7 +784,7 @@ void		 sa2addr(struct sockaddr *, int *, union ldpd_addr *,
 socklen_t	 sockaddr_len(struct sockaddr *);
 
 /* ldpd.c */
-void ldp_write_handler(struct event *thread);
+void ldp_write_handler(struct event *event);
 void			 main_imsg_compose_ldpe(int, pid_t, void *, uint16_t);
 void			 main_imsg_compose_lde(int, pid_t, void *, uint16_t);
 int			 main_imsg_compose_both(enum imsg_type, void *,

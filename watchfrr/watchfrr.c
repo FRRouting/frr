@@ -600,7 +600,7 @@ static void restart_done(struct daemon *dmn)
 		SET_WAKEUP_DOWN(dmn);
 }
 
-static void daemon_restarting_operational(struct event *thread)
+static void daemon_restarting_operational(struct event *event)
 {
 	systemd_send_status("FRR Operational");
 }

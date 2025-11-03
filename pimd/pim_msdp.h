@@ -196,7 +196,7 @@ enum pim_msdp_flags {
 struct pim_msdp_listener {
 	int fd;
 	union sockunion su;
-	struct event *thread;
+	struct event *event;
 };
 
 PREDECL_HASH(msdp_rp_cache);
@@ -260,7 +260,7 @@ void pim_msdp_peer_established(struct pim_msdp_peer *mp);
 void pim_msdp_peer_pkt_rxed(struct pim_msdp_peer *mp);
 void pim_msdp_peer_stop_tcp_conn(struct pim_msdp_peer *mp, bool chg_state);
 void pim_msdp_peer_reset_tcp_conn(struct pim_msdp_peer *mp, const char *rc_str);
-void pim_msdp_write(struct event *thread);
+void pim_msdp_write(struct event *event);
 int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty);
 bool pim_msdp_peer_config_write(struct vty *vty, struct pim_instance *pim);
 void pim_msdp_peer_pkt_txed(struct pim_msdp_peer *mp);

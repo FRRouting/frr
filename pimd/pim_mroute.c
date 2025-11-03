@@ -981,13 +981,12 @@ done:
 
 static void mroute_read_on(struct pim_instance *pim)
 {
-	event_add_read(router->master, mroute_read, pim, pim->mroute_socket,
-		       &pim->thread);
+	event_add_read(router->master, mroute_read, pim, pim->mroute_socket, &pim->event);
 }
 
 static void mroute_read_off(struct pim_instance *pim)
 {
-	event_cancel(&pim->thread);
+	event_cancel(&pim->event);
 }
 
 int pim_mroute_socket_enable(struct pim_instance *pim)

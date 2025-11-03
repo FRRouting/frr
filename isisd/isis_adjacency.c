@@ -489,14 +489,14 @@ const char *isis_adj_yang_state(enum isis_adj_state state)
 	return "DEV ESCAPE";
 }
 
-void isis_adj_expire(struct event *thread)
+void isis_adj_expire(struct event *event)
 {
 	struct isis_adjacency *adj;
 
 	/*
 	 * Get the adjacency
 	 */
-	adj = EVENT_ARG(thread);
+	adj = EVENT_ARG(event);
 	assert(adj);
 	adj->t_expire = NULL;
 

@@ -1961,9 +1961,9 @@ static void bmp_stats_peer(struct peer *peer, struct bmp_targets *bt)
 	bmp_send_all(bt->bmpbgp, s);
 }
 
-static void bmp_stats(struct event *thread)
+static void bmp_stats(struct event *event)
 {
-	struct bmp_targets *bt = EVENT_ARG(thread);
+	struct bmp_targets *bt = EVENT_ARG(event);
 	struct bmp_imported_bgp *bib;
 	struct bgp *bgp;
 
@@ -2099,10 +2099,10 @@ static struct bmp *bmp_open(struct bmp_targets *bt, int bmp_sock)
 }
 
 /* Accept BMP connection. */
-static void bmp_accept(struct event *thread)
+static void bmp_accept(struct event *event)
 {
 	union sockunion su;
-	struct bmp_listener *bl = EVENT_ARG(thread);
+	struct bmp_listener *bl = EVENT_ARG(event);
 	int bmp_sock;
 
 	/* We continue hearing BMP socket. */

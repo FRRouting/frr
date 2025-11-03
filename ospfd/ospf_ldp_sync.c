@@ -337,7 +337,7 @@ static int ospf_ldp_sync_ism_change(struct ospf_interface *oi, int state,
 /*
  * LDP-SYNC holddown timer routines
  */
-static void ospf_ldp_sync_holddown_timer(struct event *thread)
+static void ospf_ldp_sync_holddown_timer(struct event *event)
 {
 	struct interface *ifp;
 	struct ospf_if_params *params;
@@ -347,7 +347,7 @@ static void ospf_ldp_sync_holddown_timer(struct event *thread)
 	 *  didn't receive msg from LDP indicating sync-complete
 	 *  restore interface cost to original value
 	 */
-	ifp = EVENT_ARG(thread);
+	ifp = EVENT_ARG(event);
 	params = IF_DEF_PARAMS(ifp);
 	if (params->ldp_sync_info) {
 		ldp_sync_info = params->ldp_sync_info;

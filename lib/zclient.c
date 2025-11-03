@@ -346,9 +346,9 @@ static enum zclient_send_status zclient_failed(struct zclient *zclient)
 	return ZCLIENT_SEND_FAILURE;
 }
 
-static void zclient_flush_data(struct event *thread)
+static void zclient_flush_data(struct event *event)
 {
-	struct zclient *zclient = EVENT_ARG(thread);
+	struct zclient *zclient = EVENT_ARG(event);
 
 	zclient->t_write = NULL;
 	if (zclient->sock < 0)
@@ -4759,7 +4759,7 @@ static zclient_handler *const lib_handlers[] = {
 };
 
 /* Zebra client message read function. */
-static void zclient_read(struct event *thread)
+static void zclient_read(struct event *event)
 {
 	size_t already;
 	uint16_t length, command;
@@ -4768,7 +4768,7 @@ static void zclient_read(struct event *thread)
 	struct zclient *zclient;
 
 	/* Get socket to zebra. */
-	zclient = EVENT_ARG(thread);
+	zclient = EVENT_ARG(event);
 	zclient->t_read = NULL;
 
 	/* Read zebra header (if we don't have it already). */
@@ -4871,7 +4871,7 @@ static void zclient_read(struct event *thread)
 		/* Connection was closed during packet processing. */
 		return;
 
-	/* Register read thread. */
+	/* Register read event. */
 	stream_reset(zclient->ibuf);
 	zclient_event(ZCLIENT_READ, zclient);
 }

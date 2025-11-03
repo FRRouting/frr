@@ -2953,14 +2953,14 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	return true;
 }
 
-static void bgp_route_select_timer_expire(struct event *thread)
+static void bgp_route_select_timer_expire(struct event *event)
 {
 	struct afi_safi_info *info;
 	afi_t afi;
 	safi_t safi;
 	struct bgp *bgp;
 
-	info = EVENT_ARG(thread);
+	info = EVENT_ARG(event);
 	afi = info->afi;
 	safi = info->safi;
 	bgp = info->bgp;
@@ -4622,9 +4622,9 @@ void bgp_add_eoiu_mark(struct bgp *bgp)
 	eoiu_marker_process(bgp, dummy_dest);
 }
 
-static void bgp_maximum_prefix_restart_timer(struct event *thread)
+static void bgp_maximum_prefix_restart_timer(struct event *event)
 {
-	struct peer_connection *connection = EVENT_ARG(thread);
+	struct peer_connection *connection = EVENT_ARG(event);
 	struct peer *peer = connection->peer;
 
 	if (bgp_debug_neighbor_events(peer))
@@ -6268,7 +6268,7 @@ static void bgp_soft_reconfig_table(struct peer *peer, afi_t afi, safi_t safi,
  * Without splitting the full job into several part,
  * vtysh waits for the job to finish before responding to a BGP command
  */
-static void bgp_soft_reconfig_table_task(struct event *thread)
+static void bgp_soft_reconfig_table_task(struct event *event)
 {
 	uint32_t iter, max_iter;
 	struct bgp_dest *dest;
@@ -6278,7 +6278,7 @@ static void bgp_soft_reconfig_table_task(struct event *thread)
 	struct prefix_rd *prd;
 	struct listnode *node, *nnode;
 
-	table = EVENT_ARG(thread);
+	table = EVENT_ARG(event);
 	prd = NULL;
 
 	max_iter = SOFT_RECONFIG_TASK_MAX_PREFIX;
@@ -6677,7 +6677,7 @@ void bgp_clear_route(struct peer *peer, afi_t afi, safi_t safi)
 	 * the unlock will happen upon work-queue completion; other wise, the
 	 * unlock happens at the end of this function.
 	 */
-	if (!peer->clear_node_queue->thread)
+	if (!peer->clear_node_queue->event)
 		peer_lock(peer);
 
 	if (safi != SAFI_MPLS_VPN && safi != SAFI_ENCAP && safi != SAFI_EVPN)
@@ -6693,7 +6693,7 @@ void bgp_clear_route(struct peer *peer, afi_t afi, safi_t safi)
 		}
 
 	/* unlock if no nodes got added to the clear-node-queue. */
-	if (!peer->clear_node_queue->thread)
+	if (!peer->clear_node_queue->event)
 		peer_unlock(peer);
 }
 

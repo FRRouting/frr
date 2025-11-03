@@ -330,7 +330,7 @@ void isis_ldp_sync_set_if_metric(struct isis_circuit *circuit, bool run_regen)
 /*
  * LDP-SYNC holddown timer routines
  */
-static void isis_ldp_sync_holddown_timer(struct event *thread)
+static void isis_ldp_sync_holddown_timer(struct event *event)
 {
 	struct isis_circuit *circuit;
 	struct ldp_sync_info *ldp_sync_info;
@@ -339,7 +339,7 @@ static void isis_ldp_sync_holddown_timer(struct event *thread)
 	 *  didn't receive msg from LDP indicating sync-complete
 	 *  restore interface cost to original value
 	 */
-	circuit = EVENT_ARG(thread);
+	circuit = EVENT_ARG(event);
 	if (circuit->ldp_sync_info == NULL)
 		return;
 

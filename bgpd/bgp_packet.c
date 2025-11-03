@@ -417,9 +417,9 @@ static void bgp_write_proceed_actions(struct peer *peer)
  * update group a peer belongs to, encode this information into packets, and
  * enqueue the packets onto the peer's output buffer.
  */
-void bgp_generate_updgrp_packets(struct event *thread)
+void bgp_generate_updgrp_packets(struct event *event)
 {
-	struct peer_connection *connection = EVENT_ARG(thread);
+	struct peer_connection *connection = EVENT_ARG(event);
 	struct peer *peer = connection->peer;
 	struct stream *s;
 	struct peer_af *paf;
@@ -597,7 +597,7 @@ void bgp_generate_updgrp_packets(struct event *thread)
 			bpacket_queue_advance_peer(paf);
 		}
 	} while (s && (++generated < wpq) && (connection->obuf->count <= bm->outq_limit) &&
-		 !event_should_yield(thread));
+		 !event_should_yield(event));
 
 	if (generated)
 		bgp_writes_on(connection);
@@ -2218,11 +2218,11 @@ static int bgp_keepalive_receive(struct peer_connection *connection,
 	return Receive_KEEPALIVE_message;
 }
 
-static void bgp_refresh_stalepath_timer_expire(struct event *thread)
+static void bgp_refresh_stalepath_timer_expire(struct event *event)
 {
 	struct peer_af *paf;
 
-	paf = EVENT_ARG(thread);
+	paf = EVENT_ARG(event);
 
 	afi_t afi = paf->afi;
 	safi_t safi = paf->safi;
@@ -3981,7 +3981,7 @@ int bgp_capability_receive(struct peer_connection *connection,
  * @param thread
  * @return 0
  */
-void bgp_process_packet(struct event *thread)
+void bgp_process_packet(struct event *event)
 {
 	/* Yes first of all get peer pointer. */
 	struct peer *peer;	// peer
@@ -4160,7 +4160,7 @@ void bgp_process_packet(struct event *thread)
 			continue;
 		}
 
-		bool yield = event_should_yield(thread);
+		bool yield = event_should_yield(event);
 		if (curr_connection_processed >= rpkt_quanta_old || yield) {
 			curr_connection_processed = 0;
 			frr_with_mutex (&bm->peer_connection_mtx) {

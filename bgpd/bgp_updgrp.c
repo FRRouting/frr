@@ -1478,11 +1478,11 @@ bool update_subgroup_check_merge(struct update_subgroup *subgrp,
 /*
 * update_subgroup_merge_check_thread_cb
 */
-static void update_subgroup_merge_check_thread_cb(struct event *thread)
+static void update_subgroup_merge_check_thread_cb(struct event *event)
 {
 	struct update_subgroup *subgrp;
 
-	subgrp = EVENT_ARG(thread);
+	subgrp = EVENT_ARG(event);
 
 	subgrp->t_merge_check = NULL;
 
@@ -2142,12 +2142,12 @@ update_group_default_originate_route_map_walkcb(struct update_group *updgrp,
 	return UPDWALK_CONTINUE;
 }
 
-void update_group_refresh_default_originate_route_map(struct event *thread)
+void update_group_refresh_default_originate_route_map(struct event *event)
 {
 	struct bgp *bgp;
 	char reason[] = "refresh default-originate route-map";
 
-	bgp = EVENT_ARG(thread);
+	bgp = EVENT_ARG(event);
 	update_group_walk(bgp, update_group_default_originate_route_map_walkcb,
 			  reason);
 	event_cancel(&bgp->t_rmap_def_originate_eval);

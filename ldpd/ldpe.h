@@ -281,8 +281,8 @@ int			 gen_ldp_hdr(struct ibuf *, uint16_t);
 int			 gen_msg_hdr(struct ibuf *, uint16_t, uint16_t);
 int			 send_packet(int, int, union ldpd_addr *,
 			    struct iface_af *, void *, size_t);
-void disc_recv_packet(struct event *thread);
-void session_accept(struct event *thread);
+void disc_recv_packet(struct event *event);
+void session_accept(struct event *event);
 void			 session_accept_nbr(struct nbr *, int);
 void			 session_shutdown(struct nbr *, uint32_t, uint32_t,
 			    uint32_t);

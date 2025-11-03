@@ -484,9 +484,9 @@ static void msg_conn_sched_proc_msgs(struct msg_conn *conn);
 static void msg_conn_sched_read(struct msg_conn *conn);
 static void msg_conn_sched_write(struct msg_conn *conn);
 
-static void msg_conn_write(struct event *thread)
+static void msg_conn_write(struct event *event)
 {
-	struct msg_conn *conn = EVENT_ARG(thread);
+	struct msg_conn *conn = EVENT_ARG(event);
 	enum mgmt_msg_wsched rv;
 
 	rv = mgmt_msg_write(&conn->mstate, conn->fd, conn->debug);
@@ -498,9 +498,9 @@ static void msg_conn_write(struct event *thread)
 		assert(rv == MSW_SCHED_NONE);
 }
 
-static void msg_conn_read(struct event *thread)
+static void msg_conn_read(struct event *event)
 {
-	struct msg_conn *conn = EVENT_ARG(thread);
+	struct msg_conn *conn = EVENT_ARG(event);
 	enum mgmt_msg_rsched rv;
 
 	rv = mgmt_msg_read(&conn->mstate, conn->fd, conn->debug);
@@ -514,9 +514,9 @@ static void msg_conn_read(struct event *thread)
 }
 
 /* collapse this into mgmt_msg_procbufs */
-static void msg_conn_proc_msgs(struct event *thread)
+static void msg_conn_proc_msgs(struct event *event)
 {
-	struct msg_conn *conn = EVENT_ARG(thread);
+	struct msg_conn *conn = EVENT_ARG(event);
 
 	if (mgmt_msg_procbufs(&conn->mstate,
 			      (void (*)(uint8_t, uint8_t *, size_t,
@@ -653,9 +653,9 @@ static struct msg_server_list_head msg_servers;
 
 static void msg_client_connect(struct msg_client *conn);
 
-static void msg_client_connect_timer(struct event *thread)
+static void msg_client_connect_timer(struct event *event)
 {
-	msg_client_connect(EVENT_ARG(thread));
+	msg_client_connect(EVENT_ARG(event));
 }
 
 static void msg_client_sched_connect(struct msg_client *client,

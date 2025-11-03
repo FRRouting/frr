@@ -40,7 +40,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_GR, "GR");
  * Forward declaration.
  */
 static struct zserv *zebra_gr_find_stale_client(uint8_t proto, uint16_t instance);
-static void zebra_gr_route_stale_delete_timer_expiry(struct event *thread);
+static void zebra_gr_route_stale_delete_timer_expiry(struct event *event);
 static int32_t zebra_gr_delete_stale_routes(struct client_gr_info *info);
 static void zebra_gr_process_client_stale_routes(struct zserv *client,
 						 struct client_gr_info *info);
@@ -435,9 +435,9 @@ void zread_client_capabilities(ZAPI_HANDLER_ARGS)
  * Delete all the stale routes that have not been refreshed
  * post restart.
  */
-static void zebra_gr_route_stale_delete_timer_expiry(struct event *thread)
+static void zebra_gr_route_stale_delete_timer_expiry(struct event *event)
 {
-	struct client_gr_info *info = EVENT_ARG(thread);
+	struct client_gr_info *info = EVENT_ARG(event);
 	struct zserv *client;
 	struct vrf *vrf = vrf_lookup_by_id(info->vrf_id);
 

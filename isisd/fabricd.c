@@ -237,9 +237,9 @@ void fabricd_finish(struct fabricd *f)
 	hash_free(f->neighbors_neighbors);
 }
 
-static void fabricd_initial_sync_timeout(struct event *thread)
+static void fabricd_initial_sync_timeout(struct event *event)
 {
-	struct fabricd *f = EVENT_ARG(thread);
+	struct fabricd *f = EVENT_ARG(event);
 
 	if (IS_DEBUG_ADJ_PACKETS)
 		zlog_debug(
@@ -392,16 +392,16 @@ static uint8_t fabricd_calculate_fabric_tier(struct isis_area *area)
 	return tier;
 }
 
-static void fabricd_tier_set_timer(struct event *thread)
+static void fabricd_tier_set_timer(struct event *event)
 {
-	struct fabricd *f = EVENT_ARG(thread);
+	struct fabricd *f = EVENT_ARG(event);
 
 	fabricd_set_tier(f, f->tier_pending);
 }
 
-static void fabricd_tier_calculation_cb(struct event *thread)
+static void fabricd_tier_calculation_cb(struct event *event)
 {
-	struct fabricd *f = EVENT_ARG(thread);
+	struct fabricd *f = EVENT_ARG(event);
 	uint8_t tier = ISIS_TIER_UNDEFINED;
 
 	tier = fabricd_calculate_fabric_tier(f->area);

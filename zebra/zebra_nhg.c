@@ -1766,9 +1766,9 @@ void zebra_nhg_hash_free_zero_id(struct hash_bucket *b, void *arg)
 	}
 }
 
-static void zebra_nhg_timer(struct event *thread)
+static void zebra_nhg_timer(struct event *event)
 {
-	struct nhg_hash_entry *nhe = EVENT_ARG(thread);
+	struct nhg_hash_entry *nhe = EVENT_ARG(event);
 
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 		zlog_debug("Nexthop Timer for nhe: %pNG", nhe);

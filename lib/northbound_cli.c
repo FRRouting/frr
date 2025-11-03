@@ -417,9 +417,9 @@ int nb_cli_confirmed_commit_rollback(struct vty *vty)
 	return ret;
 }
 
-static void nb_cli_confirmed_commit_timeout(struct event *thread)
+static void nb_cli_confirmed_commit_timeout(struct event *event)
 {
-	struct vty *vty = EVENT_ARG(thread);
+	struct vty *vty = EVENT_ARG(event);
 
 	/* XXX: broadcast this message to all logged-in users? */
 	vty_out(vty,

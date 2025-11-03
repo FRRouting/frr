@@ -180,11 +180,11 @@ class RpcStateBase
 	}
 
       protected:
-	virtual CallState run_mainthread(struct event *thread) = 0;
+	virtual CallState run_mainthread(struct event *event) = 0;
 
-	static void c_callback(struct event *thread)
+	static void c_callback(struct event *event)
 	{
-		auto _tag = static_cast<RpcStateBase *>(EVENT_ARG(thread));
+		auto _tag = static_cast<RpcStateBase *>(EVENT_ARG(event));
 		/*
 		 * We hold the lock until the callback finishes and has updated
 		 * _tag->state, then we signal done and release.
@@ -192,12 +192,12 @@ class RpcStateBase
 		pthread_mutex_lock(&_tag->cmux);
 
 		CallState enter_state = _tag->state;
-		grpc_debug("%s RPC: running %s on main thread", _tag->name,
+		grpc_debug("%s RPC: running %s on main event", _tag->name,
 			   call_states[enter_state]);
 
-		_tag->state = _tag->run_mainthread(thread);
+		_tag->state = _tag->run_mainthread(event);
 
-		grpc_debug("%s RPC: %s -> %s [main thread]", _tag->name,
+		grpc_debug("%s RPC: %s -> %s [main event]", _tag->name,
 			   call_states[enter_state], call_states[_tag->state]);
 
 		pthread_cond_signal(&_tag->cond);
@@ -249,7 +249,7 @@ template <typename Q, typename S> class UnaryRpcState : public RpcStateBase
 				     &copy->responder, cq, cq, copy);
 	}
 
-	CallState run_mainthread(struct event *thread) override
+	CallState run_mainthread(struct event *event) override
 	{
 		// Unary RPC are always finished, see "Unary" :)
 		grpc::Status status = this->callback(this);
@@ -301,7 +301,7 @@ class StreamRpcState : public RpcStateBase
 				      &copy->async_responder, cq, cq, copy);
 	}
 
-	CallState run_mainthread(struct event *thread) override
+	CallState run_mainthread(struct event *event) override
 	{
 		if (this->callback(this))
 			return MORE;
@@ -1285,7 +1285,7 @@ static int frr_grpc_finish(void)
  * fork. This is done by scheduling this init function as an event task, since
  * the event loop doesn't run until after fork.
  */
-static void frr_grpc_module_very_late_init(struct event *thread)
+static void frr_grpc_module_very_late_init(struct event *event)
 {
 	const char *args = THIS_MODULE->load_args;
 	uint port = GRPC_DEFAULT_PORT;

@@ -4879,11 +4879,11 @@ static void rib_update_ctx_fini(struct rib_update_ctx **ctx)
 	XFREE(MTYPE_RIB_UPDATE_CTX, *ctx);
 }
 
-static void rib_update_handler(struct event *thread)
+static void rib_update_handler(struct event *event)
 {
 	struct rib_update_ctx *ctx;
 
-	ctx = EVENT_ARG(thread);
+	ctx = EVENT_ARG(event);
 
 	rib_update_handle_vrf_all(ctx->event, ZEBRA_ROUTE_ALL);
 
@@ -5123,7 +5123,7 @@ static inline void zebra_rib_translate_ctx_from_dplane(struct zebra_dplane_ctx *
  * Handle results from the dataplane system. Dequeue update context
  * structs, dispatch to appropriate internal handlers.
  */
-static void rib_process_dplane_results(struct event *thread)
+static void rib_process_dplane_results(struct event *event)
 {
 	struct zebra_dplane_ctx *ctx;
 	struct dplane_ctx_list_head ctxlist;

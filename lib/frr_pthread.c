@@ -297,14 +297,14 @@ int frr_pthread_non_controlled_startup(pthread_t thread, const char *name,
  */
 
 /* dummy task for sleeper pipe */
-static void fpt_dummy(struct event *thread)
+static void fpt_dummy(struct event *event)
 {
 }
 
 /* poison pill task to end event loop */
-static void fpt_finish(struct event *thread)
+static void fpt_finish(struct event *event)
 {
-	struct frr_pthread *fpt = EVENT_ARG(thread);
+	struct frr_pthread *fpt = EVENT_ARG(event);
 
 	atomic_store_explicit(&fpt->running, false, memory_order_relaxed);
 }

@@ -18,8 +18,8 @@
 #define _ZEBRA_EIGRP_PACKET_H
 
 /*Prototypes*/
-extern void eigrp_read(struct event *thread);
-extern void eigrp_write(struct event *thread);
+extern void eigrp_read(struct event *event);
+extern void eigrp_write(struct event *event);
 
 extern struct eigrp_packet *eigrp_packet_new(size_t size,
 					     struct eigrp_neighbor *nbr);
@@ -51,8 +51,8 @@ extern uint16_t eigrp_add_authTLV_MD5_to_stream(struct stream *s,
 extern uint16_t eigrp_add_authTLV_SHA256_to_stream(struct stream *s,
 						   struct eigrp_interface *ei);
 
-extern void eigrp_unack_packet_retrans(struct event *thread);
-extern void eigrp_unack_multicast_packet_retrans(struct event *thread);
+extern void eigrp_unack_packet_retrans(struct event *event);
+extern void eigrp_unack_multicast_packet_retrans(struct event *event);
 
 /*
  * untill there is reason to have their own header, these externs are found in
@@ -65,7 +65,7 @@ extern void eigrp_hello_send_ack(struct eigrp_neighbor *nbr);
 extern void eigrp_hello_receive(struct eigrp *eigrp, struct ip *iph,
 				struct eigrp_header *eigrph, struct stream *s,
 				struct eigrp_interface *ei, int size);
-extern void eigrp_hello_timer(struct event *thread);
+extern void eigrp_hello_timer(struct event *event);
 
 /*
  * These externs are found in eigrp_update.c
@@ -81,7 +81,7 @@ extern void eigrp_update_send_all(struct eigrp *eigrp,
 				  struct eigrp_interface *exception);
 extern void eigrp_update_send_init(struct eigrp_neighbor *nbr);
 extern void eigrp_update_send_EOT(struct eigrp_neighbor *nbr);
-extern void eigrp_update_send_GR_thread(struct event *thread);
+extern void eigrp_update_send_GR_thread(struct event *event);
 extern void eigrp_update_send_GR(struct eigrp_neighbor *nbr,
 				 enum GR_type gr_type, struct vty *vty);
 extern void eigrp_update_send_interface_GR(struct eigrp_interface *ei,

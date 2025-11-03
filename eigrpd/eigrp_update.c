@@ -928,16 +928,16 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
  *
  * Uses nbr_gr_packet_type and t_nbr_send_gr from neighbor.
  */
-void eigrp_update_send_GR_thread(struct event *thread)
+void eigrp_update_send_GR_thread(struct event *event)
 {
 	struct eigrp_neighbor *nbr;
 
-	/* get argument from thread */
-	nbr = EVENT_ARG(thread);
-	/* remove this thread pointer */
+	/* get argument from event */
+	nbr = EVENT_ARG(event);
+	/* remove this event pointer */
 
 	/* if there is packet waiting in queue,
-	 * schedule this thread again with small delay */
+	 * schedule this event again with small delay */
 	if (nbr->retrans_queue->count > 0) {
 		event_add_timer_msec(master, eigrp_update_send_GR_thread, nbr,
 				     10, &nbr->t_nbr_send_gr);
@@ -947,7 +947,7 @@ void eigrp_update_send_GR_thread(struct event *thread)
 	/* send GR EIGRP packet chunk */
 	eigrp_update_send_GR_part(nbr);
 
-	/* if it wasn't last chunk, schedule this thread again */
+	/* if it wasn't last chunk, schedule this event again */
 	if (nbr->nbr_gr_packet_type != EIGRP_PACKET_PART_LAST) {
 		event_execute(master, eigrp_update_send_GR_thread, nbr, 0, NULL);
 	}

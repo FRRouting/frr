@@ -96,7 +96,7 @@ void work_queue_free_and_null(struct work_queue **wqp)
 {
 	struct work_queue *wq = *wqp;
 
-	event_cancel(&wq->thread);
+	event_cancel(&wq->event);
 
 	while (!work_queue_empty(wq)) {
 		struct work_queue_item *item = work_queue_last_item(wq);
@@ -114,29 +114,26 @@ void work_queue_free_and_null(struct work_queue **wqp)
 
 bool work_queue_is_scheduled(struct work_queue *wq)
 {
-	return event_is_scheduled(wq->thread);
+	return event_is_scheduled(wq->event);
 }
 
 static int work_queue_schedule(struct work_queue *wq, unsigned int delay)
 {
 	/* if appropriate, schedule work queue thread */
-	if (CHECK_FLAG(wq->flags, WQ_UNPLUGGED) &&
-	    !event_is_scheduled(wq->thread) && !work_queue_empty(wq)) {
+	if (CHECK_FLAG(wq->flags, WQ_UNPLUGGED) && !event_is_scheduled(wq->event) &&
+	    !work_queue_empty(wq)) {
 		/* Schedule timer if there's a delay, otherwise just schedule
 		 * as an 'event'
 		 */
 		if (delay > 0) {
-			event_add_timer_msec(wq->master, work_queue_run, wq,
-					     delay, &wq->thread);
-			event_ignore_late_timer(wq->thread);
+			event_add_timer_msec(wq->master, work_queue_run, wq, delay, &wq->event);
+			event_ignore_late_timer(wq->event);
 		} else
-			event_add_event(wq->master, work_queue_run, wq, 0,
-					&wq->thread);
+			event_add_event(wq->master, work_queue_run, wq, 0, &wq->event);
 
 		/* set thread yield time, if needed */
-		if (event_is_scheduled(wq->thread) &&
-		    wq->spec.yield != EVENT_YIELD_TIME_SLOT)
-			event_set_yield_time(wq->thread, wq->spec.yield);
+		if (event_is_scheduled(wq->event) && wq->spec.yield != EVENT_YIELD_TIME_SLOT)
+			event_set_yield_time(wq->event, wq->spec.yield);
 		return 1;
 	} else
 		return 0;
@@ -213,7 +210,7 @@ void workqueue_cmd_init(void)
  */
 void work_queue_plug(struct work_queue *wq)
 {
-	event_cancel(&wq->thread);
+	event_cancel(&wq->event);
 
 	UNSET_FLAG(wq->flags, WQ_UNPLUGGED);
 }
@@ -233,7 +230,7 @@ void work_queue_unplug(struct work_queue *wq)
  * will reschedule itself if required,
  * otherwise work_queue_item_add
  */
-void work_queue_run(struct event *thread)
+void work_queue_run(struct event *event)
 {
 	struct work_queue *wq;
 	struct work_queue_item *item, *titem;
@@ -241,7 +238,7 @@ void work_queue_run(struct event *thread)
 	unsigned int cycles = 0;
 	char yielded = 0;
 
-	wq = EVENT_ARG(thread);
+	wq = EVENT_ARG(event);
 
 	assert(wq);
 
@@ -297,12 +294,12 @@ void work_queue_run(struct event *thread)
 			/* If a single node is being used with a meta-queue
 			 * (e.g., zebra),
 			 * update the next node as we don't want to exit the
-			 * thread and
+			 * event and
 			 * reschedule it after every node. By definition,
 			 * WQ_REQUEUE is
 			 * meant to continue the processing; the yield logic
 			 * will kick in
-			 * to terminate the thread when time has exceeded.
+			 * to terminate the event when time has exceeded.
 			 */
 			if (titem == NULL)
 				titem = item;
@@ -320,7 +317,7 @@ void work_queue_run(struct event *thread)
 
 		/* test if we should yield */
 		if (!(cycles % wq->cycles.granularity) &&
-		    event_should_yield(thread)) {
+		    event_should_yield(event)) {
 			yielded = 1;
 			goto stats;
 		}

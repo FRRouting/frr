@@ -161,9 +161,9 @@ adj_get_af(const struct adj *adj)
 /* adjacency timers */
 
 /* ARGSUSED */
-static void adj_itimer(struct event *thread)
+static void adj_itimer(struct event *event)
 {
-	struct adj *adj = EVENT_ARG(thread);
+	struct adj *adj = EVENT_ARG(event);
 
 	adj->inactivity_timer = NULL;
 
@@ -331,9 +331,9 @@ tnbr_get_hello_interval(struct tnbr *tnbr)
 /* target neighbors timers */
 
 /* ARGSUSED */
-static void tnbr_hello_timer(struct event *thread)
+static void tnbr_hello_timer(struct event *event)
 {
-	struct tnbr *tnbr = EVENT_ARG(thread);
+	struct tnbr *tnbr = EVENT_ARG(event);
 
 	tnbr->hello_timer = NULL;
 	send_hello(HELLO_TARGETED, NULL, tnbr);
