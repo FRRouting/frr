@@ -44,37 +44,34 @@ struct ospf_area_range {
 };
 
 /* Prototypes. */
-extern struct ospf_area_range *ospf_area_range_lookup(struct ospf_area *,
-						      struct route_table *,
-						      struct prefix_ipv4 *);
 extern struct ospf_area_range *
-ospf_area_range_lookup_next(struct ospf_area *, struct in_addr *, int);
+ospf_area_range_lookup(struct ospf_area *area, struct route_table *ranges, struct prefix_ipv4 *p);
+extern struct ospf_area_range *ospf_area_range_lookup_next(struct ospf_area *area,
+							   struct in_addr *range_net, int first);
 
-extern int ospf_area_range_set(struct ospf *, struct ospf_area *,
-			       struct route_table *, struct prefix_ipv4 *, int,
-			       bool);
-extern int ospf_area_range_cost_set(struct ospf *, struct ospf_area *,
-				    struct route_table *, struct prefix_ipv4 *,
-				    uint32_t);
-extern int ospf_area_range_unset(struct ospf *, struct ospf_area *,
-				 struct route_table *, struct prefix_ipv4 *);
-extern int ospf_area_range_substitute_set(struct ospf *, struct ospf_area *,
-					  struct prefix_ipv4 *,
-					  struct prefix_ipv4 *);
-extern int ospf_area_range_substitute_unset(struct ospf *, struct ospf_area *,
-					    struct prefix_ipv4 *);
-extern struct ospf_area_range *ospf_area_range_match_any(struct ospf *,
-							 struct prefix_ipv4 *);
-extern int ospf_area_range_active(struct ospf_area_range *);
-extern int ospf_act_bb_connection(struct ospf *);
+extern int ospf_area_range_set(struct ospf *ospf, struct ospf_area *area,
+			       struct route_table *ranges, struct prefix_ipv4 *p, int advertise,
+			       bool substitute);
+extern int ospf_area_range_cost_set(struct ospf *ospf, struct ospf_area *area,
+				    struct route_table *ranges, struct prefix_ipv4 *p,
+				    uint32_t cost);
+extern int ospf_area_range_unset(struct ospf *ospf, struct ospf_area *area,
+				 struct route_table *ranges, struct prefix_ipv4 *p);
+extern int ospf_area_range_substitute_set(struct ospf *ospf, struct ospf_area *area,
+					  struct prefix_ipv4 *p, struct prefix_ipv4 *p_new);
+extern int ospf_area_range_substitute_unset(struct ospf *ospf, struct ospf_area *area,
+					    struct prefix_ipv4 *p);
+extern struct ospf_area_range *ospf_area_range_match_any(struct ospf *ospf, struct prefix_ipv4 *p);
+extern int ospf_area_range_active(struct ospf_area_range *range);
+extern int ospf_act_bb_connection(struct ospf *ospf);
 
-extern void ospf_check_abr_status(struct ospf *);
-extern void ospf_abr_task(struct ospf *);
+extern void ospf_check_abr_status(struct ospf *ospf);
+extern void ospf_abr_task(struct ospf *ospf);
 extern void ospf_abr_nssa_task(struct ospf *ospf);
-extern void ospf_schedule_abr_task(struct ospf *);
+extern void ospf_schedule_abr_task(struct ospf *ospf);
 
-extern void ospf_abr_announce_network_to_area(struct prefix_ipv4 *, uint32_t,
-					      struct ospf_area *);
+extern void ospf_abr_announce_network_to_area(struct prefix_ipv4 *p, uint32_t cost,
+					      struct ospf_area *area);
 extern void ospf_abr_nssa_type7_defaults(struct ospf *ospf);
 extern void ospf_abr_nssa_check_status(struct ospf *ospf);
 extern void ospf_abr_generate_indication_lsa(struct ospf *ospf,
