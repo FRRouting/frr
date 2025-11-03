@@ -3465,8 +3465,8 @@ int zebra_rib_queue_evpn_rem_es_add(const esi_t *esi, const struct ipaddr *vtep_
 	w->df_pref = df_pref;
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug("%s: vtep %pIA, esi %s enqueued", __func__, vtep_ip,
-			   esi_to_str(esi, buf, sizeof(buf)));
+		zlog_debug("%s: vtep %pIA, esi %s df_alg %u df_pref %u enqueued", __func__, vtep_ip,
+			   esi_to_str(esi, buf, sizeof(buf)), df_alg, df_pref);
 
 	return mq_add_handler(w, rib_meta_queue_evpn_add);
 }
