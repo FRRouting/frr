@@ -215,6 +215,8 @@ DECLARE_MTYPE(MSG_NATIVE_COMMIT_REPLY);
 #define MGMT_MSG_DATASTORE_CANDIDATE   2
 #define MGMT_MSG_DATASTORE_OPERATIONAL 3
 
+const char *mgmt_msg_code_name(uint code);
+
 /*
  * Formats
  */
