@@ -592,6 +592,12 @@ void nexthop_add_labels(struct nexthop *nexthop, enum lsp_types_t ltype,
 	if (num_labels == 0)
 		return;
 
+	/* Free existing labels if present to prevent memory leak */
+	if (nexthop->nh_label != NULL) {
+		XFREE(MTYPE_NH_LABEL, nexthop->nh_label);
+		nexthop->nh_label = NULL;
+	}
+
 	/* Enforce limit on label stack size */
 	if (num_labels > MPLS_MAX_LABELS)
 		num_labels = MPLS_MAX_LABELS;
