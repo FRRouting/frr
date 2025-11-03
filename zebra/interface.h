@@ -267,12 +267,11 @@ DECLARE_HOOK(zebra_if_extra_info, (struct vty * vty, json_object *json_if, struc
 
 extern void zebra_if_init(void);
 
-extern struct interface *if_lookup_by_index_per_ns(struct zebra_ns *, uint32_t);
-extern struct interface *if_lookup_by_name_per_ns(struct zebra_ns *,
-						  const char *);
+extern struct interface *if_lookup_by_index_per_ns(struct zebra_ns *ns, uint32_t ifindex);
+extern struct interface *if_lookup_by_name_per_ns(struct zebra_ns *ns, const char *ifname);
 extern struct interface *if_lookup_by_index_per_nsid(ns_id_t nsid,
 						     uint32_t ifindex);
-extern const char *ifindex2ifname_per_ns(struct zebra_ns *, unsigned int);
+extern const char *ifindex2ifname_per_ns(struct zebra_ns *zns, unsigned int ifindex);
 
 extern void if_nbr_mac_to_ipv4ll_neigh_update(struct interface *fip,
 					      char mac[6],
@@ -285,11 +284,11 @@ extern void if_nbr_ipv6ll_to_ipv4ll_neigh_del_all(struct interface *ifp);
 extern void if_delete_update(struct interface **ifp);
 extern void if_add_update(struct interface *ifp);
 extern void if_up(struct interface *ifp, bool install_connected);
-extern void if_down(struct interface *);
-extern void if_refresh(struct interface *);
-extern void if_flags_update(struct interface *, uint64_t);
-extern int if_subnet_add(struct interface *, struct connected *);
-extern int if_subnet_delete(struct interface *, struct connected *);
+extern void if_down(struct interface *ifp);
+extern void if_refresh(struct interface *ifp);
+extern void if_flags_update(struct interface *ifp, uint64_t newflags);
+extern int if_subnet_add(struct interface *ifp, struct connected *ifc);
+extern int if_subnet_delete(struct interface *ifp, struct connected *ifc);
 extern void if_handle_vrf_change(struct interface *ifp, vrf_id_t vrf_id);
 extern void zebra_if_update_link(struct interface *ifp, ifindex_t link_ifindex,
 				 ns_id_t ns_id);

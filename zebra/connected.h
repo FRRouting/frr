@@ -47,7 +47,7 @@ extern void connected_delete_ipv6(struct interface *ifp,
 				  const struct in6_addr *dest,
 				  uint16_t prefixlen);
 
-extern int connected_is_unnumbered(struct interface *);
+extern int connected_is_unnumbered(struct interface *ifp);
 
 #ifdef __cplusplus
 }

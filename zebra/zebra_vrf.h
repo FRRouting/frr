@@ -250,7 +250,7 @@ extern struct zebra_vrf *zebra_vrf_lookup_by_id(vrf_id_t vrf_id);
 extern struct zebra_vrf *zebra_vrf_lookup_by_name(const char *);
 extern vrf_id_t zebra_vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id);
 extern struct zebra_vrf *zebra_vrf_alloc(struct vrf *vrf);
-extern struct route_table *zebra_vrf_table(afi_t, safi_t, vrf_id_t);
+extern struct route_table *zebra_vrf_table(afi_t afi, safi_t safi, vrf_id_t vrf_id);
 int zebra_vrf_lookup_tableid(vrf_id_t vrf_id, ns_id_t ns_id);
 
 /*

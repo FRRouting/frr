@@ -59,14 +59,15 @@ DECLARE_HOOK(pw_uninstall, (struct zebra_pw * pw), (pw));
 
 struct zebra_pw *zebra_pw_add(struct zebra_vrf *zvrf, const char *ifname,
 			      uint8_t protocol, struct zserv *client);
-void zebra_pw_del(struct zebra_vrf *, struct zebra_pw *);
-void zebra_pw_change(struct zebra_pw *, ifindex_t, int, int, union g_addr *,
-		     uint32_t, uint32_t, uint8_t, union pw_protocol_fields *);
-struct zebra_pw *zebra_pw_find(struct zebra_vrf *, const char *);
-void zebra_pw_update(struct zebra_pw *);
+void zebra_pw_del(struct zebra_vrf *zvrf, struct zebra_pw *pw);
+void zebra_pw_change(struct zebra_pw *pw, ifindex_t ifindex, int type, int af,
+		     union g_addr *nexthop, uint32_t local_label, uint32_t remote_label,
+		     uint8_t flags, union pw_protocol_fields *data);
+struct zebra_pw *zebra_pw_find(struct zebra_vrf *zvrf, const char *ifname);
+void zebra_pw_update(struct zebra_pw *pw);
 void zebra_pw_install_failure(struct zebra_pw *pw, int pwstatus);
-void zebra_pw_init_vrf(struct zebra_vrf *);
-void zebra_pw_exit_vrf(struct zebra_vrf *);
+void zebra_pw_init_vrf(struct zebra_vrf *zvrf);
+void zebra_pw_exit_vrf(struct zebra_vrf *zvrf);
 void zebra_pw_terminate(void);
 void zebra_pw_vty_init(void);
 void zebra_pw_handle_dplane_results(struct zebra_dplane_ctx *ctx);
