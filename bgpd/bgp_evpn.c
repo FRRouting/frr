@@ -3779,7 +3779,7 @@ static int is_route_matching_for_vrf(struct bgp *bgp_vrf,
 
 	assert(attr);
 	/* Route should have valid RT to be even considered. */
-	if (!CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)))
+	if (!bgp_attr_exists(attr, BGP_ATTR_EXT_COMMUNITIES))
 		return 0;
 
 	ecom = bgp_attr_get_ecommunity(attr);
@@ -3846,7 +3846,7 @@ static int is_route_matching_for_vni(struct bgp *bgp, struct bgpevpn *vpn,
 
 	assert(attr);
 	/* Route should have valid RT to be even considered. */
-	if (!CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)))
+	if (!bgp_attr_exists(attr, BGP_ATTR_EXT_COMMUNITIES))
 		return 0;
 
 	ecom = bgp_attr_get_ecommunity(attr);
@@ -4415,7 +4415,7 @@ static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi,
 		return 0;
 
 	/* If we don't have Route Target, nothing much to do. */
-	if (!CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)))
+	if (!bgp_attr_exists(attr, BGP_ATTR_EXT_COMMUNITIES))
 		return 0;
 
 	/* EAD prefix in the global table doesn't include the VTEP-IP so
@@ -5045,7 +5045,7 @@ static int process_type3_route(struct peer *peer, afi_t afi, safi_t safi,
 	 * Note: We just simply ignore the values as it is not clear if
 	 * doing anything else is better.
 	 */
-	if (attr && CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL))) {
+	if (attr && bgp_attr_exists(attr, BGP_ATTR_PMSI_TUNNEL)) {
 		enum pta_type pmsi_tnl_type = bgp_attr_get_pmsi_tnl_type(attr);
 
 		if (pmsi_tnl_type != PMSI_TNLTYPE_INGR_REPL

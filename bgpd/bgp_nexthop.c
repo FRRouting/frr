@@ -539,7 +539,7 @@ bool bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type,
 			tmp_addr.p.prefixlen = p->prefixlen;
 		} else {
 			/* Here we need to find out which nexthop to be used*/
-			if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP))) {
+			if (bgp_attr_exists(attr, BGP_ATTR_NEXT_HOP)) {
 				tmp_addr.p.u.prefix4 = attr->nexthop;
 				tmp_addr.p.prefixlen = IPV4_MAX_BITLEN;
 			} else if ((attr->mp_nexthop_len) &&
@@ -574,16 +574,16 @@ bool bgp_nexthop_self(struct bgp *bgp, afi_t afi, uint8_t type,
 		SET_IPADDR_V4(&tmp_tip.addr);
 		IPV4_ADDR_COPY(&tmp_tip.addr.ipaddr_v4, &attr->nexthop);
 
-		if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP))) {
+		if (bgp_attr_exists(attr, BGP_ATTR_NEXT_HOP)) {
 			IPV4_ADDR_COPY(&tmp_tip.addr.ipaddr_v4, &attr->nexthop);
 		} else if ((attr->mp_nexthop_len) &&
 			   ((attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4) ||
 			    (attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4))) {
 			IPV4_ADDR_COPY(&tmp_tip.addr.ipaddr_v4, &attr->mp_nexthop_global_in);
 		} else if ((attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL) ||
-					(attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) ||
-					(attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL) ||
-					(attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL)) {
+			   (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) ||
+			   (attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL) ||
+			   (attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL)) {
 			SET_IPADDR_V6(&tmp_tip.addr);
 			IPV6_ADDR_COPY(&tmp_tip.addr.ipaddr_v6, &attr->mp_nexthop_global);
 		}

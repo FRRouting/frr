@@ -406,10 +406,10 @@ bool bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 
 	buf[0] = '\0';
 
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)))
+	if (bgp_attr_exists(attr, BGP_ATTR_NEXT_HOP))
 		snprintfrr(buf, size, "nexthop %pI4", &attr->nexthop);
 
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGIN)))
+	if (bgp_attr_exists(attr, BGP_ATTR_ORIGIN))
 		snprintf(buf + strlen(buf), size - strlen(buf), ", origin %s",
 			 bgp_origin_str[attr->origin]);
 
@@ -426,54 +426,54 @@ bool bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 	if (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4)
 		snprintfrr(buf, size, "nexthop %pI4", &attr->nexthop);
 
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)))
+	if (bgp_attr_exists(attr, BGP_ATTR_LOCAL_PREF))
 		snprintf(buf + strlen(buf), size - strlen(buf),
 			 ", localpref %u", attr->local_pref);
 
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AIGP)))
+	if (bgp_attr_exists(attr, BGP_ATTR_AIGP))
 		snprintf(buf + strlen(buf), size - strlen(buf),
 			 ", aigp-metric %" PRIu64,
 			 (unsigned long long)bgp_attr_get_aigp_metric(attr));
 
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC)))
+	if (bgp_attr_exists(attr, BGP_ATTR_MULTI_EXIT_DISC))
 		snprintf(buf + strlen(buf), size - strlen(buf), ", metric %u",
 			 attr->med);
 
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES)))
+	if (bgp_attr_exists(attr, BGP_ATTR_COMMUNITIES))
 		snprintf(buf + strlen(buf), size - strlen(buf),
 			 ", community %s",
 			 community_str(bgp_attr_get_community(attr), false,
 				       true));
 
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES)))
+	if (bgp_attr_exists(attr, BGP_ATTR_LARGE_COMMUNITIES))
 		snprintf(buf + strlen(buf), size - strlen(buf),
 			 ", large-community %s",
 			 lcommunity_str(bgp_attr_get_lcommunity(attr), false,
 					true));
 
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)))
+	if (bgp_attr_exists(attr, BGP_ATTR_EXT_COMMUNITIES))
 		snprintf(buf + strlen(buf), size - strlen(buf),
 			 ", extcommunity %s",
 			 ecommunity_str(bgp_attr_get_ecommunity(attr)));
 
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES)))
+	if (bgp_attr_exists(attr, BGP_ATTR_IPV6_EXT_COMMUNITIES))
 		snprintf(buf + strlen(buf), size - strlen(buf), ", ipv6-extcommunity %s",
 			 ecommunity_str(bgp_attr_get_ipv6_ecommunity(attr)));
 
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE)))
+	if (bgp_attr_exists(attr, BGP_ATTR_ATOMIC_AGGREGATE))
 		snprintf(buf + strlen(buf), size - strlen(buf),
 			 ", atomic-aggregate");
 
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR)))
+	if (bgp_attr_exists(attr, BGP_ATTR_AGGREGATOR))
 		snprintfrr(buf + strlen(buf), size - strlen(buf),
 			   ", aggregated by %u %pI4", attr->aggregator_as,
 			   &attr->aggregator_addr);
 
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID)))
+	if (bgp_attr_exists(attr, BGP_ATTR_ORIGINATOR_ID))
 		snprintfrr(buf + strlen(buf), size - strlen(buf),
 			   ", originator %pI4", &attr->originator_id);
 
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST))) {
+	if (bgp_attr_exists(attr, BGP_ATTR_CLUSTER_LIST)) {
 		struct cluster_list *cluster;
 		int i;
 
@@ -486,21 +486,21 @@ bool bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 				   " %pI4", &cluster->list[i]);
 	}
 
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL)))
+	if (bgp_attr_exists(attr, BGP_ATTR_PMSI_TUNNEL))
 		snprintf(buf + strlen(buf), size - strlen(buf),
 			 ", pmsi tnltype %u", bgp_attr_get_pmsi_tnl_type(attr));
 
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AS_PATH)))
+	if (bgp_attr_exists(attr, BGP_ATTR_AS_PATH))
 		snprintf(buf + strlen(buf), size - strlen(buf), ", path %s",
 			 aspath_print(attr->aspath));
 
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID))) {
+	if (bgp_attr_exists(attr, BGP_ATTR_PREFIX_SID)) {
 		if (attr->label_index != BGP_INVALID_LABEL_INDEX)
 			snprintf(buf + strlen(buf), size - strlen(buf),
 				 ", label-index %u", attr->label_index);
 	}
 
-	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NHC))) {
+	if (bgp_attr_exists(attr, BGP_ATTR_NHC)) {
 		struct bgp_nhc_tlv *tlv;
 		struct bgp_nhc *nhc = bgp_attr_get_nhc(attr);
 

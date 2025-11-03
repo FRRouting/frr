@@ -373,7 +373,7 @@ enum bgp_wecmp_behavior bgp_path_info_mpath_chkwtd(struct bgp *bgp, struct bgp_p
 	 * characteristic and do weighted ECMP based on that.
 	 */
 	if (bgp->lb_handling == BGP_LINK_BW_IGNORE_BW) {
-		if (CHECK_FLAG(path->attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NHC)))
+		if (bgp_attr_exists(path->attr, BGP_ATTR_NHC))
 			return BGP_WECMP_BEHAVIOR_NNHN_COUNT;
 	}
 
