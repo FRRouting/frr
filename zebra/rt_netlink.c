@@ -2461,11 +2461,13 @@ static int netlink_neigh_update(int cmd, int ifindex, void *addr, char *lla,
 	} else
 		req.ndm.ndm_state = NUD_FAILED;
 
-	nl_attr_put(&req.n, sizeof(req), NDA_PROTOCOL, &protocol,
-		    sizeof(protocol));
+	if (!nl_attr_put(&req.n, sizeof(req), NDA_PROTOCOL, &protocol, sizeof(protocol)))
+		return -1;
+
 	req.ndm.ndm_type = RTN_UNICAST;
-	nl_attr_put(&req.n, sizeof(req), NDA_DST, addr,
-		    family2addrsize(family));
+	if (!nl_attr_put(&req.n, sizeof(req), NDA_DST, addr, family2addrsize(family)))
+		return -1;
+
 	if (lla)
 		nl_attr_put(&req.n, sizeof(req), NDA_LLADDR, lla, llalen);
 
