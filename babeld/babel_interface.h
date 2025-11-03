@@ -95,25 +95,27 @@ void babel_if_init(void);
 void babel_if_terminate(void);
 
 /* Callback functions for zebra client */
-int babel_interface_up(int, struct zclient *, zebra_size_t, vrf_id_t);
-int babel_interface_down(int, struct zclient *, zebra_size_t, vrf_id_t);
-int babel_interface_add(int, struct zclient *, zebra_size_t, vrf_id_t);
-int babel_interface_delete(int, struct zclient *, zebra_size_t, vrf_id_t);
-int babel_interface_address_add(int, struct zclient *, zebra_size_t, vrf_id_t);
-int babel_interface_address_delete(int, struct zclient *, zebra_size_t, vrf_id_t);
+int babel_interface_up(int cmd, struct zclient *zclient, zebra_size_t length, vrf_id_t vrf_id);
+int babel_interface_down(int cmd, struct zclient *zclient, zebra_size_t length, vrf_id_t vrf_id);
+int babel_interface_add(int cmd, struct zclient *zclient, zebra_size_t length, vrf_id_t vrf_id);
+int babel_interface_delete(int cmd, struct zclient *zclient, zebra_size_t length, vrf_id_t vrf_id);
+int babel_interface_address_add(int cmd, struct zclient *zclient, zebra_size_t length,
+				vrf_id_t vrf_id);
+int babel_interface_address_delete(int cmd, struct zclient *zclient, zebra_size_t length,
+				   vrf_id_t vrf_id);
 
 int babel_ifp_create(struct interface *ifp);
 int babel_ifp_up(struct interface *ifp);
 int babel_ifp_down(struct interface *ifp);
 int babel_ifp_destroy(struct interface *ifp);
 
-unsigned jitter(babel_interface_nfo *, int);
+unsigned jitter(babel_interface_nfo *babel_ifp, int urgent);
 unsigned update_jitter(babel_interface_nfo *babel_ifp, int urgent);
 /* return "true" if "address" is one of our ipv6 addresses */
 int is_interface_ll_address(struct interface *ifp, const unsigned char *address);
 /* Send retraction to all, and reset all interfaces statistics. */
 void babel_interface_close_all(void);
-extern int babel_enable_if_config_write(struct vty *);
+extern int babel_enable_if_config_write(struct vty *vty);
 
 
 #endif
