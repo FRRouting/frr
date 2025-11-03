@@ -97,34 +97,33 @@ struct ospf_external_aggr_rt {
 #define OSPF_ASBR_CHECK_DELAY 30
 #define OSPF_ASBR_REDIST_UPDATE_DELAY 9
 
-extern void ospf_external_route_remove(struct ospf *, struct prefix_ipv4 *);
-extern struct external_info *ospf_external_info_new(struct ospf *, uint8_t,
-						    unsigned short);
-extern void ospf_reset_route_map_set_values(struct route_map_set_values *);
-extern int ospf_route_map_set_compare(struct route_map_set_values *,
-				      struct route_map_set_values *);
-extern struct external_info *
-ospf_external_info_add(struct ospf *, uint8_t, unsigned short,
-		       struct prefix_ipv4, ifindex_t, struct in_addr,
-		       route_tag_t, uint32_t metric);
-extern void ospf_external_info_delete(struct ospf *, uint8_t, unsigned short,
-				      struct prefix_ipv4);
+extern void ospf_external_route_remove(struct ospf *ospf, struct prefix_ipv4 *p);
+extern struct external_info *ospf_external_info_new(struct ospf *ospf, uint8_t type,
+						    unsigned short instance);
+extern void ospf_reset_route_map_set_values(struct route_map_set_values *values);
+extern int ospf_route_map_set_compare(struct route_map_set_values *values1,
+				      struct route_map_set_values *values2);
+extern struct external_info *ospf_external_info_add(struct ospf *ospf, uint8_t type,
+						    unsigned short instance, struct prefix_ipv4 p,
+						    ifindex_t ifindex, struct in_addr nexthop,
+						    route_tag_t tag, uint32_t metric);
+extern void ospf_external_info_delete(struct ospf *ospf, uint8_t type, unsigned short instance,
+				      struct prefix_ipv4 p);
 extern void ospf_external_info_delete_multi_instance(struct ospf *ospf, uint8_t type,
 						     struct prefix_ipv4 p,
 						     unsigned long preserve_instance);
 #define OSPF_DELETE_ANY_INSTANCE 0xffffffff
-extern struct external_info *ospf_external_info_lookup(struct ospf *, uint8_t,
-						       unsigned short,
-						       struct prefix_ipv4 *);
-extern void ospf_asbr_status_update(struct ospf *, uint8_t);
+extern struct external_info *ospf_external_info_lookup(struct ospf *ospf, uint8_t type,
+						       unsigned short instance,
+						       struct prefix_ipv4 *p);
+extern void ospf_asbr_status_update(struct ospf *ospf, uint8_t status);
 extern void ospf_schedule_asbr_redist_update(struct ospf *ospf);
 
-extern void ospf_redistribute_withdraw(struct ospf *, uint8_t, unsigned short);
+extern void ospf_redistribute_withdraw(struct ospf *ospf, uint8_t type, unsigned short instance);
 extern void ospf_asbr_check(void);
 extern void ospf_schedule_asbr_check(void);
-extern void ospf_asbr_route_install_lsa(struct ospf_lsa *);
-extern struct ospf_lsa *ospf_external_info_find_lsa(struct ospf *,
-						    struct prefix_ipv4 *p);
+extern void ospf_asbr_route_install_lsa(struct ospf_lsa *lsa);
+extern struct ospf_lsa *ospf_external_info_find_lsa(struct ospf *ospf, struct prefix_ipv4 *p);
 
 /* External Route Aggregator */
 extern void ospf_asbr_external_aggregator_init(struct ospf *instance);
