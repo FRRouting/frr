@@ -166,7 +166,7 @@ extern void ospf_gr_helper_supported_gracetime_set(struct ospf *ospf,
 						   uint32_t interval);
 extern void ospf_gr_helper_set_supported_planned_only_restart(struct ospf *ospf,
 							     bool planned_only);
-extern void ospf_gr_iface_send_grace_lsa(struct event *thread);
+extern void ospf_gr_iface_send_grace_lsa(struct event *event);
 extern void ospf_gr_restart_enter(struct ospf *ospf,
 				  enum ospf_gr_restart_reason reason,
 				  time_t timestamp);

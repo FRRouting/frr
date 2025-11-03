@@ -113,10 +113,10 @@ void bgp_reads_off(struct peer_connection *connection)
 /*
  * Called from I/O pthread when a file descriptor has become ready for writing.
  */
-static void bgp_process_writes(struct event *thread)
+static void bgp_process_writes(struct event *event)
 {
 	static struct peer *peer;
-	struct peer_connection *connection = EVENT_ARG(thread);
+	struct peer_connection *connection = EVENT_ARG(event);
 	uint16_t status;
 	bool reschedule;
 	bool fatal = false;
@@ -218,10 +218,10 @@ static int read_ibuf_work(struct peer_connection *connection)
  * place them on peer->connection.ibuf for secondary processing by the main
  * thread.
  */
-static void bgp_process_reads(struct event *thread)
+static void bgp_process_reads(struct event *event)
 {
 	/* clang-format off */
-	struct peer_connection *connection = EVENT_ARG(thread);
+	struct peer_connection *connection = EVENT_ARG(event);
 	static struct peer *peer;       /* peer to read from */
 	uint16_t status;                /* bgp_read status code */
 	bool fatal = false;             /* whether fatal error occurred */

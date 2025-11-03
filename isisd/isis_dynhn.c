@@ -54,14 +54,14 @@ void dyn_cache_finish(struct isis *isis)
 	list_delete(&isis->dyn_cache);
 }
 
-static void dyn_cache_cleanup(struct event *thread)
+static void dyn_cache_cleanup(struct event *event)
 {
 	struct listnode *node, *nnode;
 	struct isis_dynhn *dyn;
 	time_t now = time(NULL);
 	struct isis *isis = NULL;
 
-	isis = EVENT_ARG(thread);
+	isis = EVENT_ARG(event);
 
 	isis->t_dync_clean = NULL;
 

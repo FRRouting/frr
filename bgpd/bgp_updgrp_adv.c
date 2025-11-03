@@ -389,13 +389,13 @@ static void updgrp_show_adj(struct bgp *bgp, afi_t afi, safi_t safi,
 	update_group_af_walk(bgp, afi, safi, updgrp_show_adj_walkcb, &ctx);
 }
 
-static void subgroup_coalesce_timer(struct event *thread)
+static void subgroup_coalesce_timer(struct event *event)
 {
 	struct update_subgroup *subgrp;
 	struct bgp *bgp;
 	safi_t safi;
 
-	subgrp = EVENT_ARG(thread);
+	subgrp = EVENT_ARG(event);
 	if (bgp_debug_update(NULL, NULL, subgrp->update_group, 0))
 		zlog_debug("u%" PRIu64 ":s%" PRIu64" announcing routes upon coalesce timer expiry(%u ms)",
 			   (SUBGRP_UPDGRP(subgrp))->id, subgrp->id,

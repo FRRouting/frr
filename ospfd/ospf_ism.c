@@ -237,11 +237,11 @@ int ospf_dr_election(struct ospf_interface *oi)
 }
 
 
-void ospf_hello_timer(struct event *thread)
+void ospf_hello_timer(struct event *event)
 {
 	struct ospf_interface *oi;
 
-	oi = EVENT_ARG(thread);
+	oi = EVENT_ARG(event);
 	oi->t_hello = NULL;
 
 	/* Check if the GR hello-delay is active. */
@@ -258,11 +258,11 @@ void ospf_hello_timer(struct event *thread)
 	OSPF_HELLO_TIMER_ON(oi);
 }
 
-static void ospf_wait_timer(struct event *thread)
+static void ospf_wait_timer(struct event *event)
 {
 	struct ospf_interface *oi;
 
-	oi = EVENT_ARG(thread);
+	oi = EVENT_ARG(event);
 	oi->t_wait = NULL;
 
 	if (IS_DEBUG_OSPF(ism, ISM_TIMERS))
@@ -558,14 +558,14 @@ static void ism_change_state(struct ospf_interface *oi, int state)
 }
 
 /* Execute ISM event process. */
-void ospf_ism_event(struct event *thread)
+void ospf_ism_event(struct event *e)
 {
 	int event;
 	int next_state;
 	struct ospf_interface *oi;
 
-	oi = EVENT_ARG(thread);
-	event = EVENT_VAL(thread);
+	oi = EVENT_ARG(e);
+	event = EVENT_VAL(e);
 
 	/* Call function. */
 	next_state = (*(ISM[oi->state][event].func))(oi);

@@ -21,7 +21,7 @@ extern int eigrp_network_set(struct eigrp *eigrp, struct prefix *p);
 extern int eigrp_network_unset(struct eigrp *eigrp, struct prefix *p);
 extern void eigrp_network_free(struct eigrp *eigrp, struct route_table *table);
 
-extern void eigrp_hello_timer(struct event *thread);
+extern void eigrp_hello_timer(struct event *event);
 extern void eigrp_if_update(struct interface *);
 extern int eigrp_if_add_allspfrouters(struct eigrp *, struct prefix *,
 				      unsigned int);

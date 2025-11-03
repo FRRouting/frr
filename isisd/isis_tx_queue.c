@@ -100,9 +100,9 @@ static struct isis_tx_queue_entry *tx_queue_find(struct isis_tx_queue *queue,
 	return hash_lookup(queue->hash, &e);
 }
 
-static void tx_queue_send_event(struct event *thread)
+static void tx_queue_send_event(struct event *event)
 {
-	struct isis_tx_queue_entry *e = EVENT_ARG(thread);
+	struct isis_tx_queue_entry *e = EVENT_ARG(event);
 	struct isis_tx_queue *queue = e->queue;
 
 	event_add_timer(master, tx_queue_send_event, e, 5, &e->retry);

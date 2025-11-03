@@ -361,15 +361,15 @@ void ospf_apiserver_free(struct ospf_apiserver *apiserv)
 	XFREE(MTYPE_APISERVER, apiserv);
 }
 
-void ospf_apiserver_read(struct event *thread)
+void ospf_apiserver_read(struct event *e)
 {
 	struct ospf_apiserver *apiserv;
 	struct msg *msg;
 	int fd;
 	enum ospf_apiserver_event event;
 
-	apiserv = EVENT_ARG(thread);
-	fd = EVENT_FD(thread);
+	apiserv = EVENT_ARG(e);
+	fd = EVENT_FD(e);
 
 	if (fd == apiserv->fd_sync) {
 		event = OSPF_APISERVER_SYNC_READ;
@@ -414,22 +414,22 @@ void ospf_apiserver_read(struct event *thread)
 	/* Dispatch to corresponding message handler. */
 	ospf_apiserver_handle_msg(apiserv, msg);
 
-	/* Prepare for next message, add read thread. */
+	/* Prepare for next message, add read event. */
 	ospf_apiserver_event(event, fd, apiserv);
 
 	msg_free(msg);
 }
 
-void ospf_apiserver_sync_write(struct event *thread)
+void ospf_apiserver_sync_write(struct event *event)
 {
 	struct ospf_apiserver *apiserv;
 	struct msg *msg;
 	int fd;
 	int rc = -1;
 
-	apiserv = EVENT_ARG(thread);
+	apiserv = EVENT_ARG(event);
 	assert(apiserv);
-	fd = EVENT_FD(thread);
+	fd = EVENT_FD(event);
 
 	apiserv->t_sync_write = NULL;
 
@@ -465,7 +465,7 @@ void ospf_apiserver_sync_write(struct event *thread)
 	}
 
 
-	/* If more messages are in sync message fifo, schedule write thread. */
+	/* If more messages are in sync message fifo, schedule write event. */
 	if (msg_fifo_head(apiserv->out_sync_fifo)) {
 		ospf_apiserver_event(OSPF_APISERVER_SYNC_WRITE,
 				     apiserv->fd_sync, apiserv);
@@ -480,16 +480,16 @@ out:
 }
 
 
-void ospf_apiserver_async_write(struct event *thread)
+void ospf_apiserver_async_write(struct event *event)
 {
 	struct ospf_apiserver *apiserv;
 	struct msg *msg;
 	int fd;
 	int rc = -1;
 
-	apiserv = EVENT_ARG(thread);
+	apiserv = EVENT_ARG(event);
 	assert(apiserv);
-	fd = EVENT_FD(thread);
+	fd = EVENT_FD(event);
 
 	apiserv->t_async_write = NULL;
 
@@ -525,7 +525,7 @@ void ospf_apiserver_async_write(struct event *thread)
 	}
 
 
-	/* If more messages are in async message fifo, schedule write thread. */
+	/* If more messages are in async message fifo, schedule write event. */
 	if (msg_fifo_head(apiserv->out_async_fifo)) {
 		ospf_apiserver_event(OSPF_APISERVER_ASYNC_WRITE,
 				     apiserv->fd_async, apiserv);
@@ -580,7 +580,7 @@ int ospf_apiserver_serv_sock_family(unsigned short port, int family)
 
 /* Accept connection request from external applications. For each
    accepted connection allocate own connection instance. */
-void ospf_apiserver_accept(struct event *thread)
+void ospf_apiserver_accept(struct event *event)
 {
 	int accept_sock;
 	int new_sync_sock;
@@ -592,8 +592,8 @@ void ospf_apiserver_accept(struct event *thread)
 	unsigned int peerlen;
 	int ret;
 
-	/* EVENT_ARG (thread) is NULL */
-	accept_sock = EVENT_FD(thread);
+	/* EVENT_ARG (event) is NULL */
+	accept_sock = EVENT_FD(event);
 
 	/* Keep hearing on socket for further connections. */
 	ospf_apiserver_event(OSPF_APISERVER_ACCEPT, accept_sock, NULL);

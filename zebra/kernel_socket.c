@@ -1278,7 +1278,7 @@ static void rtmsg_debug(struct rt_msghdr *rtm)
 #endif /* RTAX_MAX */
 
 /* Kernel routing table and interface updates via routing socket. */
-static void kernel_read(struct event *thread)
+static void kernel_read(struct event *event)
 {
 	int sock;
 	int nbytes;
@@ -1323,7 +1323,7 @@ static void kernel_read(struct event *thread)
 	} buf;
 
 	/* Fetch routing socket. */
-	sock = EVENT_FD(thread);
+	sock = EVENT_FD(event);
 
 	nbytes = read(sock, &buf, sizeof(buf));
 

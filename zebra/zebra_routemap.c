@@ -1163,7 +1163,7 @@ static void zebra_route_map_process_update_cb(char *rmap_name)
 	zebra_nht_rm_update(rmap_name);
 }
 
-static void zebra_route_map_update_timer(struct event *thread)
+static void zebra_route_map_update_timer(struct event *event)
 {
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("Event driven route-map update triggered");

@@ -194,7 +194,7 @@ static void pim_msdp_write_proceed_actions(struct pim_msdp_peer *mp)
 	}
 }
 
-void pim_msdp_write(struct event *thread)
+void pim_msdp_write(struct event *event)
 {
 	struct pim_msdp_peer *mp;
 	struct stream *s;
@@ -204,7 +204,7 @@ void pim_msdp_write(struct event *thread)
 	int work_cnt = 0;
 	int work_max_cnt = 100;
 
-	mp = EVENT_ARG(thread);
+	mp = EVENT_ARG(event);
 	mp->t_write = NULL;
 
 	if (PIM_DEBUG_MSDP_INTERNAL) {
@@ -778,13 +778,13 @@ static int pim_msdp_read_packet(struct pim_msdp_peer *mp)
 	return 0;
 }
 
-void pim_msdp_read(struct event *thread)
+void pim_msdp_read(struct event *event)
 {
 	struct pim_msdp_peer *mp;
 	int rc;
 	uint32_t len;
 
-	mp = EVENT_ARG(thread);
+	mp = EVENT_ARG(event);
 	mp->t_read = NULL;
 
 	if (PIM_DEBUG_MSDP_INTERNAL) {

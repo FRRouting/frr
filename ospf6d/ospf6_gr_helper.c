@@ -196,9 +196,9 @@ static int ospf6_extract_grace_lsa_fields(struct ospf6_lsa *lsa,
  * Returns:
  *    Nothing
  */
-static void ospf6_handle_grace_timer_expiry(struct event *thread)
+static void ospf6_handle_grace_timer_expiry(struct event *event)
 {
-	struct ospf6_neighbor *nbr = EVENT_ARG(thread);
+	struct ospf6_neighbor *nbr = EVENT_ARG(event);
 
 	ospf6_gr_helper_exit(nbr, OSPF6_GR_HELPER_GRACE_TIMEOUT);
 }

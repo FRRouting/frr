@@ -160,16 +160,16 @@ extern void ospf6_fifo_free(struct ospf6_fifo *fifo);
 
 extern int ospf6_iobuf_size(unsigned int size);
 extern void ospf6_message_terminate(void);
-extern void ospf6_receive(struct event *thread);
+extern void ospf6_receive(struct event *event);
 
-extern void ospf6_hello_send(struct event *thread);
-extern void ospf6_dbdesc_send(struct event *thread);
-extern void ospf6_dbdesc_send_newone(struct event *thread);
-extern void ospf6_lsreq_send(struct event *thread);
-extern void ospf6_lsupdate_send_interface(struct event *thread);
-extern void ospf6_lsupdate_send_neighbor(struct event *thread);
-extern void ospf6_lsack_send_interface(struct event *thread);
-extern void ospf6_lsack_send_neighbor(struct event *thread);
+extern void ospf6_hello_send(struct event *event);
+extern void ospf6_dbdesc_send(struct event *event);
+extern void ospf6_dbdesc_send_newone(struct event *event);
+extern void ospf6_lsreq_send(struct event *event);
+extern void ospf6_lsupdate_send_interface(struct event *event);
+extern void ospf6_lsupdate_send_neighbor(struct event *event);
+extern void ospf6_lsack_send_interface(struct event *event);
+extern void ospf6_lsack_send_neighbor(struct event *event);
 
 extern void ospf6_hello_send_addr(struct ospf6_interface *oi,
 				  const struct in6_addr *addr);

@@ -921,7 +921,7 @@ int pim_zebra_mlag_process_down(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-static void pim_mlag_register_handler(struct event *thread)
+static void pim_mlag_register_handler(struct event *event)
 {
 	uint32_t bit_mask = 0;
 
@@ -956,7 +956,7 @@ void pim_mlag_register(void)
 			NULL);
 }
 
-static void pim_mlag_deregister_handler(struct event *thread)
+static void pim_mlag_deregister_handler(struct event *event)
 {
 	if (!pim_zclient)
 		return;

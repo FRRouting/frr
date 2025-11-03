@@ -583,9 +583,9 @@ void ospf6_master_delete(void)
 	list_delete(&om6->ospf6);
 }
 
-static void ospf6_maxage_remover(struct event *thread)
+static void ospf6_maxage_remover(struct event *event)
 {
-	struct ospf6 *o = (struct ospf6 *)EVENT_ARG(thread);
+	struct ospf6 *o = (struct ospf6 *)EVENT_ARG(event);
 	struct ospf6_area *oa;
 	struct ospf6_interface *oi;
 	struct ospf6_neighbor *on;

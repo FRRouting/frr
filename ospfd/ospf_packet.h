@@ -124,7 +124,7 @@ extern struct ospf_packet *ospf_fifo_head(struct ospf_fifo *);
 extern void ospf_fifo_flush(struct ospf_fifo *);
 extern void ospf_fifo_free(struct ospf_fifo *);
 
-extern void ospf_read(struct event *thread);
+extern void ospf_read(struct event *event);
 extern void ospf_hello_send(struct ospf_interface *);
 extern void ospf_db_desc_send(struct ospf_neighbor *);
 extern void ospf_db_desc_resend(struct ospf_neighbor *);
@@ -141,10 +141,10 @@ extern void ospf_ls_ack_send_delayed(struct ospf_interface *);
 extern void ospf_ls_retransmit(struct ospf_interface *, struct ospf_lsa *);
 extern void ospf_ls_req_event(struct ospf_neighbor *);
 
-extern void ospf_ls_rxmt_timer(struct event *thread);
-extern void ospf_ls_ack_delayed_timer(struct event *thread);
-extern void ospf_poll_timer(struct event *thread);
-extern void ospf_hello_reply_timer(struct event *thread);
+extern void ospf_ls_rxmt_timer(struct event *event);
+extern void ospf_ls_ack_delayed_timer(struct event *event);
+extern void ospf_poll_timer(struct event *event);
+extern void ospf_hello_reply_timer(struct event *event);
 
 extern const struct message ospf_packet_type_str[];
 extern const size_t ospf_packet_type_str_max;

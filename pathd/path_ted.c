@@ -28,8 +28,8 @@ static void path_ted_unregister_vty(void);
 static uint32_t path_ted_start_importing_igp(const char *daemon_str);
 static uint32_t path_ted_stop_importing_igp(void);
 static enum zclient_send_status path_ted_link_state_sync(void);
-static void path_ted_timer_handler_sync(struct event *thread);
-static void path_ted_timer_handler_refresh(struct event *thread);
+static void path_ted_timer_handler_sync(struct event *event);
+static void path_ted_timer_handler_refresh(struct event *event);
 
 extern struct zclient *pathd_zclient;
 
@@ -562,10 +562,10 @@ enum zclient_send_status path_ted_link_state_sync(void)
  *
  * @return		status
  */
-void path_ted_timer_handler_sync(struct event *thread)
+void path_ted_timer_handler_sync(struct event *event)
 {
 	/* data unpacking */
-	struct ted_state *data = EVENT_ARG(thread);
+	struct ted_state *data = EVENT_ARG(event);
 
 	assert(data != NULL);
 	/* Retry the sync */
@@ -598,14 +598,14 @@ int path_ted_segment_list_refresh(void)
  *
  * @return		status
  */
-void path_ted_timer_handler_refresh(struct event *thread)
+void path_ted_timer_handler_refresh(struct event *event)
 {
 	if (!path_ted_is_initialized())
 		return;
 
 	PATH_TED_DEBUG("%s: PATHD-TED: Refresh sid from current TED", __func__);
 	/* data unpacking */
-	struct ted_state *data = EVENT_ARG(thread);
+	struct ted_state *data = EVENT_ARG(event);
 
 	assert(data != NULL);
 

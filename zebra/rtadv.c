@@ -549,9 +549,9 @@ no_more_opts:
 		zif->ra_sent++;
 }
 
-static void start_icmpv6_join_timer(struct event *thread)
+static void start_icmpv6_join_timer(struct event *event)
 {
-	struct interface *ifp = EVENT_ARG(thread);
+	struct interface *ifp = EVENT_ARG(event);
 	struct zebra_if *zif = ifp->info;
 	struct zebra_vrf *zvrf = rtadv_interface_get_zvrf(ifp);
 
@@ -603,9 +603,9 @@ void process_rtadv(void *arg)
 	}
 }
 
-static void rtadv_timer(struct event *thread)
+static void rtadv_timer(struct event *event)
 {
-	struct zebra_vrf *zvrf = EVENT_ARG(thread);
+	struct zebra_vrf *zvrf = EVENT_ARG(event);
 	struct vrf *vrf;
 	struct interface *ifp;
 	struct zebra_if *zif;
@@ -945,7 +945,7 @@ static void rtadv_process_packet(uint8_t *buf, unsigned int len,
 	return;
 }
 
-static void rtadv_read(struct event *thread)
+static void rtadv_read(struct event *event)
 {
 	int sock;
 	int len;
@@ -953,9 +953,9 @@ static void rtadv_read(struct event *thread)
 	struct sockaddr_in6 from;
 	ifindex_t ifindex = 0;
 	int hoplimit = -1;
-	struct zebra_vrf *zvrf = EVENT_ARG(thread);
+	struct zebra_vrf *zvrf = EVENT_ARG(event);
 
-	sock = EVENT_FD(thread);
+	sock = EVENT_FD(event);
 	zvrf->rtadv.ra_read = NULL;
 
 	/* Register myself. */

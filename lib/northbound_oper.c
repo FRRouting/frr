@@ -1868,9 +1868,9 @@ done:
 	return ret;
 }
 
-static void nb_op_walk_continue(struct event *thread)
+static void nb_op_walk_continue(struct event *event)
 {
-	struct nb_op_yield_state *ys = EVENT_ARG(thread);
+	struct nb_op_yield_state *ys = EVENT_ARG(event);
 	enum nb_error ret = NB_OK;
 
 	DEBUGD(&nb_dbg_cbs_state, "northbound oper-state: resuming %s",
@@ -2198,9 +2198,9 @@ static const struct lysc_node *_next_top_level_node(struct nb_op_yield_state *ys
 	return NULL;
 }
 
-static void nb_op_root_walk_continue(struct event *thread)
+static void nb_op_root_walk_continue(struct event *event)
 {
-	struct nb_op_yield_state *ys = EVENT_ARG(thread);
+	struct nb_op_yield_state *ys = EVENT_ARG(event);
 
 	nb_op_root_walk_branch_finished(ys, NB_OK);
 }

@@ -78,10 +78,10 @@ struct get_pcep_session_args {
 
 /* Internal Functions Called From Main Thread */
 static int pcep_ctrl_halt_cb(struct frr_pthread *fpt, void **res);
-static void pcep_refine_path_event_cb(struct event *thread);
+static void pcep_refine_path_event_cb(struct event *event);
 
 /* Internal Functions Called From Controller Thread */
-static void pcep_thread_finish_event_handler(struct event *thread);
+static void pcep_thread_finish_event_handler(struct event *event);
 
 /* Controller Thread Timer Handler */
 static int schedule_thread_timer(struct ctrl_state *ctrl_state, int pcc_id,
@@ -94,7 +94,7 @@ static int schedule_thread_timer_with_cb(
 	enum pcep_ctrl_timer_type timer_type,
 	enum pcep_ctrl_timeout_type timeout_type, uint32_t delay, void *payload,
 	struct event **thread, pcep_ctrl_thread_callback timer_cb);
-static void pcep_thread_timer_handler(struct event *thread);
+static void pcep_thread_timer_handler(struct event *event);
 
 /* Controller Thread Socket read/write Handler */
 static int schedule_thread_socket(struct ctrl_state *ctrl_state, int pcc_id,
@@ -110,7 +110,7 @@ static int send_to_thread_with_cb(struct ctrl_state *ctrl_state, int pcc_id,
 				  enum pcep_ctrl_event_type type,
 				  uint32_t sub_type, void *payload,
 				  pcep_ctrl_thread_callback event_cb);
-static void pcep_thread_event_handler(struct event *thread);
+static void pcep_thread_event_handler(struct event *event);
 static int pcep_thread_event_update_pcc_options(struct ctrl_state *ctrl_state,
 						struct pcc_opts *opts);
 static int pcep_thread_event_update_pce_options(struct ctrl_state *ctrl_state,
@@ -135,7 +135,7 @@ pcep_thread_path_refined_event(struct ctrl_state *ctrl_state,
 /* Main Thread Event Handler */
 static int send_to_main(struct ctrl_state *ctrl_state, int pcc_id,
 			enum pcep_main_event_type type, void *payload);
-static void pcep_main_event_handler(struct event *thread);
+static void pcep_main_event_handler(struct event *event);
 
 /* Helper functions */
 static void set_ctrl_state(struct frr_pthread *fpt,
@@ -326,9 +326,9 @@ int pcep_ctrl_halt_cb(struct frr_pthread *fpt, void **res)
 	return 0;
 }
 
-void pcep_refine_path_event_cb(struct event *thread)
+void pcep_refine_path_event_cb(struct event *event)
 {
-	struct pcep_refine_path_event_data *data = EVENT_ARG(thread);
+	struct pcep_refine_path_event_data *data = EVENT_ARG(event);
 	assert(data != NULL);
 	struct ctrl_state *ctrl_state = data->ctrl_state;
 	struct path *path = data->path;
@@ -493,10 +493,10 @@ void pcep_thread_path_refined_event(struct ctrl_state *ctrl_state,
 
 /* ------------ Internal Functions Called From Controller Thread ------------ */
 
-void pcep_thread_finish_event_handler(struct event *thread)
+void pcep_thread_finish_event_handler(struct event *event)
 {
 	int i;
-	struct frr_pthread *fpt = EVENT_ARG(thread);
+	struct frr_pthread *fpt = EVENT_ARG(event);
 	struct ctrl_state *ctrl_state = fpt->data;
 
 	assert(ctrl_state != NULL);
@@ -551,10 +551,10 @@ int schedule_thread_timer(struct ctrl_state *ctrl_state, int pcc_id,
 					     thread, pcep_thread_timer_handler);
 }
 
-void pcep_thread_timer_handler(struct event *thread)
+void pcep_thread_timer_handler(struct event *event)
 {
 	/* data unpacking */
-	struct pcep_ctrl_timer_data *data = EVENT_ARG(thread);
+	struct pcep_ctrl_timer_data *data = EVENT_ARG(event);
 	assert(data != NULL);
 	struct ctrl_state *ctrl_state = data->ctrl_state;
 	assert(ctrl_state != NULL);
@@ -598,9 +598,9 @@ void pcep_thread_timer_handler(struct event *thread)
 	}
 }
 
-void pcep_thread_pcep_event(struct event *thread)
+void pcep_thread_pcep_event(struct event *e)
 {
-	struct pcep_ctrl_event_data *data = EVENT_ARG(thread);
+	struct pcep_ctrl_event_data *data = EVENT_ARG(e);
 	assert(data != NULL);
 	struct ctrl_state *ctrl_state = data->ctrl_state;
 	pcep_event *event = data->payload;
@@ -707,10 +707,10 @@ int send_to_thread_with_cb(struct ctrl_state *ctrl_state, int pcc_id,
 	return 0;
 }
 
-void pcep_thread_event_handler(struct event *thread)
+void pcep_thread_event_handler(struct event *event)
 {
 	/* data unpacking */
-	struct pcep_ctrl_event_data *data = EVENT_ARG(thread);
+	struct pcep_ctrl_event_data *data = EVENT_ARG(event);
 	assert(data != NULL);
 	struct ctrl_state *ctrl_state = data->ctrl_state;
 	assert(ctrl_state != NULL);
@@ -813,7 +813,7 @@ void pcep_thread_event_handler(struct event *thread)
 		break;
 	case EV_PCEPLIB_EVENT:
 		flog_warn(EC_PATH_PCEP_RECOVERABLE_INTERNAL_ERROR,
-			  "Unexpected event received in controller thread: %u",
+			  "Unexpected event received in controller event: %u",
 			  type);
 		break;
 	}
@@ -969,10 +969,10 @@ int send_to_main(struct ctrl_state *ctrl_state, int pcc_id,
 	return 0;
 }
 
-void pcep_main_event_handler(struct event *thread)
+void pcep_main_event_handler(struct event *event)
 {
 	/* data unpacking */
-	struct pcep_main_event_data *data = EVENT_ARG(thread);
+	struct pcep_main_event_data *data = EVENT_ARG(event);
 	assert(data != NULL);
 	pcep_main_event_handler_t handler = data->handler;
 	enum pcep_main_event_type type = data->type;

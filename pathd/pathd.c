@@ -43,9 +43,9 @@ struct debug path_policy_debug = {
 
 
 static void trigger_pathd_candidate_created(struct srte_candidate *candidate);
-static void trigger_pathd_candidate_created_timer(struct event *thread);
+static void trigger_pathd_candidate_created_timer(struct event *event);
 static void trigger_pathd_candidate_updated(struct srte_candidate *candidate);
-static void trigger_pathd_candidate_updated_timer(struct event *thread);
+static void trigger_pathd_candidate_updated_timer(struct event *event);
 static void trigger_pathd_candidate_removed(struct srte_candidate *candidate);
 static const char *
 srte_candidate_metric_name(enum srte_candidate_metric_type type);
@@ -1315,9 +1315,9 @@ void trigger_pathd_candidate_created(struct srte_candidate *candidate)
 			(void *)candidate, HOOK_DELAY, &candidate->hook_timer);
 }
 
-void trigger_pathd_candidate_created_timer(struct event *thread)
+void trigger_pathd_candidate_created_timer(struct event *event)
 {
-	struct srte_candidate *candidate = EVENT_ARG(thread);
+	struct srte_candidate *candidate = EVENT_ARG(event);
 	candidate->hook_timer = NULL;
 	hook_call(pathd_candidate_created, candidate);
 }
@@ -1335,9 +1335,9 @@ void trigger_pathd_candidate_updated(struct srte_candidate *candidate)
 			(void *)candidate, HOOK_DELAY, &candidate->hook_timer);
 }
 
-void trigger_pathd_candidate_updated_timer(struct event *thread)
+void trigger_pathd_candidate_updated_timer(struct event *event)
 {
-	struct srte_candidate *candidate = EVENT_ARG(thread);
+	struct srte_candidate *candidate = EVENT_ARG(event);
 	candidate->hook_timer = NULL;
 	hook_call(pathd_candidate_updated, candidate);
 }

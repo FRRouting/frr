@@ -288,9 +288,9 @@ extern pthread_key_t thread_current;
 extern char *event_timer_to_hhmmss(char *buf, int buf_size,
 				   struct event *t_timer);
 
-static inline bool event_is_scheduled(struct event *thread)
+static inline bool event_is_scheduled(struct event *event)
 {
-	if (thread)
+	if (event)
 		return true;
 
 	return false;

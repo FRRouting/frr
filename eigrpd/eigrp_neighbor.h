@@ -24,7 +24,7 @@ extern struct eigrp_neighbor *eigrp_nbr_get(struct eigrp_interface *ei,
 extern struct eigrp_neighbor *eigrp_nbr_new(struct eigrp_interface *ei);
 extern void eigrp_nbr_delete(struct eigrp_neighbor *neigh);
 
-extern void holddown_timer_expired(struct event *thread);
+extern void holddown_timer_expired(struct event *event);
 
 extern void eigrp_nbr_state_update(struct eigrp_neighbor *neigh);
 extern void eigrp_nbr_state_set(struct eigrp_neighbor *neigh, uint8_t state);

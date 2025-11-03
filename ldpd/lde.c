@@ -31,8 +31,8 @@
 #include "zlog_live.h"
 
 static void		 lde_shutdown(void);
-static void lde_dispatch_imsg(struct event *thread);
-static void lde_dispatch_parent(struct event *thread);
+static void lde_dispatch_imsg(struct event *event);
+static void lde_dispatch_parent(struct event *event);
 static __inline	int	 lde_nbr_compare(const struct lde_nbr *,
 			    const struct lde_nbr *);
 static struct lde_nbr	*lde_nbr_new(uint32_t, struct lde_nbr *);
@@ -236,9 +236,9 @@ lde_imsg_compose_ldpe(int type, uint32_t peerid, pid_t pid, void *data,
 }
 
 /* ARGSUSED */
-static void lde_dispatch_imsg(struct event *thread)
+static void lde_dispatch_imsg(struct event *event)
 {
-	struct imsgev *iev = EVENT_ARG(thread);
+	struct imsgev *iev = EVENT_ARG(event);
 	struct imsgbuf		*ibuf = &iev->ibuf;
 	struct imsg		 imsg;
 	struct lde_nbr		*ln;
@@ -449,7 +449,7 @@ static void lde_send_all_klabel(struct iface *iface)
 }
 
 /* ARGSUSED */
-static void lde_dispatch_parent(struct event *thread)
+static void lde_dispatch_parent(struct event *event)
 {
 	static struct ldpd_conf	*nconf;
 	struct iface		*iface, *niface;
@@ -462,7 +462,7 @@ static void lde_dispatch_parent(struct event *thread)
 	struct kif		*kif;
 	struct kroute		*kr;
 	int			 fd;
-	struct imsgev *iev = EVENT_ARG(thread);
+	struct imsgev *iev = EVENT_ARG(event);
 	struct imsgbuf		*ibuf = &iev->ibuf;
 	ssize_t			 n;
 	int			 shut = 0;
@@ -2173,7 +2173,7 @@ lde_address_list_free(struct lde_nbr *ln)
 /*
  * Event callback used to retry the label-manager sync zapi session.
  */
-static void zclient_sync_retry(struct event *thread)
+static void zclient_sync_retry(struct event *event)
 {
 	zclient_sync_init();
 }

@@ -23,7 +23,7 @@ extern void eigrp_distribute_update(struct distribute_ctx *ctx,
 extern void eigrp_distribute_update_interface(struct interface *ifp);
 extern void eigrp_distribute_update_all(struct prefix_list *plist);
 extern void eigrp_distribute_update_all_wrapper(struct access_list *alist);
-extern void eigrp_distribute_timer_process(struct event *thread);
-extern void eigrp_distribute_timer_interface(struct event *thread);
+extern void eigrp_distribute_timer_process(struct event *event);
+extern void eigrp_distribute_timer_interface(struct event *event);
 
 #endif /* EIGRPD_EIGRP_FILTER_H_ */

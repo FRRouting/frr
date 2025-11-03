@@ -1460,13 +1460,13 @@ static void vty_buffer_reset(struct vty *vty)
 }
 
 /* Read data via vty socket. */
-static void vty_read(struct event *thread)
+static void vty_read(struct event *event)
 {
 	int i;
 	int nbytes;
 	unsigned char buf[VTY_READ_BUFSIZ];
 
-	struct vty *vty = EVENT_ARG(thread);
+	struct vty *vty = EVENT_ARG(event);
 
 	/* Read raw data from socket */
 	if ((nbytes = read(vty->fd, buf, VTY_READ_BUFSIZ)) <= 0) {
@@ -1663,13 +1663,13 @@ static void vty_read(struct event *thread)
 }
 
 /* Flush buffer to the vty. */
-static void vty_flush(struct event *thread)
+static void vty_flush(struct event *event)
 {
 	int erase;
 	buffer_status_t flushrc;
-	struct vty *vty = EVENT_ARG(thread);
+	struct vty *vty = EVENT_ARG(event);
 
-	/* Tempolary disable read thread. */
+	/* Tempolary disable read event. */
 	if (vty->lines == 0)
 		event_cancel(&vty->t_read);
 
@@ -1925,9 +1925,9 @@ struct vty *vty_stdio(void (*atclose)(int isexit))
 }
 
 /* Accept connection from the network. */
-static void vty_accept(struct event *thread)
+static void vty_accept(struct event *event)
 {
-	struct vty_serv *vtyserv = EVENT_ARG(thread);
+	struct vty_serv *vtyserv = EVENT_ARG(event);
 	int vty_sock;
 	union sockunion su;
 	int ret;
@@ -2138,9 +2138,9 @@ static void vty_serv_un(const char *path)
 
 /* #define VTYSH_DEBUG 1 */
 
-static void vtysh_accept(struct event *thread)
+static void vtysh_accept(struct event *event)
 {
-	struct vty_serv *vtyserv = EVENT_ARG(thread);
+	struct vty_serv *vtyserv = EVENT_ARG(event);
 	int accept_sock = vtyserv->sock;
 	int sock;
 	int client_len;
@@ -2369,7 +2369,7 @@ bool mgmt_vty_read_configs(void)
 	return true;
 }
 
-static void vtysh_read(struct event *thread)
+static void vtysh_read(struct event *event)
 {
 	int ret;
 	int sock;
@@ -2379,8 +2379,8 @@ static void vtysh_read(struct event *thread)
 	unsigned char *p;
 	uint8_t header[4] = {0, 0, 0, 0};
 
-	sock = EVENT_FD(thread);
-	vty = EVENT_ARG(thread);
+	sock = EVENT_FD(event);
+	vty = EVENT_ARG(event);
 
 	/*
 	 * This code looks like it can read multiple commands from the `buf`
@@ -2505,9 +2505,9 @@ static void vtysh_read(struct event *thread)
 		vty_event(VTYSH_READ, vty);
 }
 
-static void vtysh_write(struct event *thread)
+static void vtysh_write(struct event *event)
 {
-	struct vty *vty = EVENT_ARG(thread);
+	struct vty *vty = EVENT_ARG(event);
 
 	vtysh_flush(vty);
 }
@@ -2638,11 +2638,11 @@ void vty_close(struct vty *vty)
 }
 
 /* When time out occur output message then close connection. */
-static void vty_timeout(struct event *thread)
+static void vty_timeout(struct event *event)
 {
 	struct vty *vty;
 
-	vty = EVENT_ARG(thread);
+	vty = EVENT_ARG(event);
 	vty->v_timeout = 0;
 
 	/* Clear buffer*/

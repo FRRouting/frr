@@ -4442,9 +4442,9 @@ static void vtysh_log_print(struct vtysh_client *vclient,
 		text + textpos);
 }
 
-static void vtysh_log_read(struct event *thread)
+static void vtysh_log_read(struct event *event)
 {
-	struct vtysh_client *vclient = EVENT_ARG(thread);
+	struct vtysh_client *vclient = EVENT_ARG(event);
 	struct {
 		struct zlog_live_hdr hdr;
 		char text[4096];

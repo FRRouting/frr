@@ -893,11 +893,11 @@ static int mgmt_txn_send_be_txn_delete(struct mgmt_txn_ctx *txn,
 	return mgmt_be_send_txn_req(adapter, txn->txn_id, false);
 }
 
-static void mgmt_txn_cfg_commit_timedout(struct event *thread)
+static void mgmt_txn_cfg_commit_timedout(struct event *event)
 {
 	struct mgmt_txn_ctx *txn;
 
-	txn = (struct mgmt_txn_ctx *)EVENT_ARG(thread);
+	txn = (struct mgmt_txn_ctx *)EVENT_ARG(event);
 	assert(txn);
 
 	assert(txn->type == MGMTD_TXN_TYPE_CONFIG);
@@ -998,12 +998,12 @@ static int txn_rpc_done(struct mgmt_txn_ctx *txn, struct mgmt_txn_req *txn_req)
 	return 0;
 }
 
-static void txn_get_tree_timeout(struct event *thread)
+static void txn_get_tree_timeout(struct event *event)
 {
 	struct mgmt_txn_ctx *txn;
 	struct mgmt_txn_req *txn_req;
 
-	txn_req = (struct mgmt_txn_req *)EVENT_ARG(thread);
+	txn_req = (struct mgmt_txn_req *)EVENT_ARG(event);
 	txn = txn_req->txn;
 
 	assert(txn);
@@ -1023,12 +1023,12 @@ static void txn_get_tree_timeout(struct event *thread)
 	txn_get_tree_data_done(txn, txn_req);
 }
 
-static void txn_rpc_timeout(struct event *thread)
+static void txn_rpc_timeout(struct event *event)
 {
 	struct mgmt_txn_ctx *txn;
 	struct mgmt_txn_req *txn_req;
 
-	txn_req = (struct mgmt_txn_req *)EVENT_ARG(thread);
+	txn_req = (struct mgmt_txn_req *)EVENT_ARG(event);
 	txn = txn_req->txn;
 
 	assert(txn);
@@ -1113,12 +1113,12 @@ static int mgmt_txn_send_be_cfg_apply(struct mgmt_txn_ctx *txn)
 	return 0;
 }
 
-static void mgmt_txn_process_commit_cfg(struct event *thread)
+static void mgmt_txn_process_commit_cfg(struct event *event)
 {
 	struct mgmt_txn_ctx *txn;
 	struct mgmt_commit_cfg_req *cmtcfg_req;
 
-	txn = (struct mgmt_txn_ctx *)EVENT_ARG(thread);
+	txn = (struct mgmt_txn_ctx *)EVENT_ARG(event);
 	assert(txn);
 
 	_dbg("Processing COMMIT_CONFIG for txn-id: %" PRIu64 " session-id: %" PRIu64 " Phase '%s'",
