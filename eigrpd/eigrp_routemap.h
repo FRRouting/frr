@@ -15,11 +15,11 @@
 extern bool eigrp_routemap_prefix_apply(struct eigrp *eigrp,
 					struct eigrp_interface *ei, int in,
 					struct prefix *prefix);
-extern void eigrp_route_map_update(const char *);
+extern void eigrp_route_map_update(const char *notused);
 extern void eigrp_route_map_init();
-extern void eigrp_if_rmap_update(struct if_rmap *);
-extern void eigrp_if_rmap_update_interface(struct interface *);
+extern void eigrp_if_rmap_update(struct if_rmap *if_rmap);
+extern void eigrp_if_rmap_update_interface(struct interface *ifp);
 extern void eigrp_routemap_update_redistribute(void);
-extern void eigrp_rmap_update(const char *);
+extern void eigrp_rmap_update(const char *notused);
 
 #endif /* EIGRPD_EIGRP_ROUTEMAP_H_ */
