@@ -188,7 +188,7 @@ static inline ssize_t printfrr_ext_len(struct printfrr_eargs *ea)
  * this restriction hopefully won't be a huge bother considering normal usage
  * scenarios...
  */
-void printfrr_ext_reg(const struct printfrr_ext *);
+void printfrr_ext_reg(const struct printfrr_ext *ext);
 
 #define printfrr_ext_autoreg_p(matchs, print_fn)                               \
 	static ssize_t print_fn(struct fbuf *, struct printfrr_eargs *,        \

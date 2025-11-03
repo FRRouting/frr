@@ -101,7 +101,7 @@ extern struct vrf_name_head vrfs_by_name;
 
 extern struct vrf *vrf_lookup_by_id(vrf_id_t);
 extern struct vrf *vrf_lookup_by_name(const char *);
-extern struct vrf *vrf_get(vrf_id_t, const char *);
+extern struct vrf *vrf_get(vrf_id_t vrf_id, const char *name);
 extern struct vrf *vrf_update(vrf_id_t new_vrf_id, const char *name);
 extern const char *vrf_id_to_name(vrf_id_t vrf_id);
 

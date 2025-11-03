@@ -527,7 +527,7 @@ struct cmd_node {
 
 /* Prototypes. */
 extern void install_node(struct cmd_node *node);
-extern void install_default(enum node_type);
+extern void install_default(enum node_type node);
 
 struct xref_install_element {
 	struct xref xref;
@@ -548,11 +548,11 @@ struct xref_install_element {
 		_install_element(node_type_, cmd_element_);                    \
 	} while (0)
 
-extern void _install_element(enum node_type, const struct cmd_element *);
+extern void _install_element(enum node_type ntype, const struct cmd_element *cmd);
 
 /* known issue with uninstall_element:  changes to cmd_token->attr (i.e.
  * deprecated/hidden) are not reversed. */
-extern void uninstall_element(enum node_type, const struct cmd_element *);
+extern void uninstall_element(enum node_type ntype, const struct cmd_element *cmd);
 
 /* construct CLI tree only when entering nodes */
 extern void cmd_defer_tree(bool val);
@@ -574,16 +574,16 @@ extern char *argv_concat(struct cmd_token **argv, int argc, int shift);
 extern int argv_find(struct cmd_token **argv, int argc, const char *text,
 		     int *index);
 
-extern vector cmd_make_strvec(const char *);
+extern vector cmd_make_strvec(const char *string);
 extern void cmd_free_strvec(vector);
-extern vector cmd_describe_command(vector, struct vty *, int *status);
-extern char **cmd_complete_command(vector, struct vty *, int *status);
+extern vector cmd_describe_command(vector vline, struct vty *vty, int *status);
+extern char **cmd_complete_command(vector vline, struct vty *vty, int *status);
 extern const char *cmd_prompt(enum node_type);
 extern int command_config_read_one_line(struct vty *vty,
-					const struct cmd_element **,
+					const struct cmd_element **cmd,
 					uint32_t line_num, int use_config_node);
-extern int config_from_file(struct vty *, FILE *, unsigned int *line_num);
-extern enum node_type node_parent(enum node_type);
+extern int config_from_file(struct vty *vty, FILE *fp, unsigned int *line_num);
+extern enum node_type node_parent(enum node_type node);
 /*
  * Execute command under the given vty context.
  *
@@ -606,10 +606,10 @@ extern enum node_type node_parent(enum node_type);
  */
 extern int cmd_execute(struct vty *vty, const char *cmd,
 		       const struct cmd_element **matched, int vtysh);
-extern int cmd_execute_command(vector, struct vty *,
-			       const struct cmd_element **, int);
-extern int cmd_execute_command_strict(vector, struct vty *,
-				      const struct cmd_element **);
+extern int cmd_execute_command(vector vline, struct vty *vty, const struct cmd_element **cmd,
+			       int vtysh);
+extern int cmd_execute_command_strict(vector vline, struct vty *vty,
+				      const struct cmd_element **cmd);
 extern void cmd_init(int terminal);
 extern void cmd_init_config_callbacks(void (*start_config_cb)(void),
 				      void (*end_config_cb)(void));
@@ -635,11 +635,11 @@ extern vector completions_to_vec(struct list *completions);
 
 /* Export typical functions. */
 extern const char *host_config_get(void);
-extern void host_config_set(const char *);
+extern void host_config_set(const char *filename);
 
-extern void print_version(const char *);
+extern void print_version(const char *progname);
 
-extern int cmd_banner_motd_file(const char *);
+extern int cmd_banner_motd_file(const char *file);
 extern void cmd_banner_motd_line(const char *line);
 
 struct cmd_variable_handler {
