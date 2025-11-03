@@ -50,7 +50,7 @@ extern int Debug_Radix;
 
 /* Prototypes. */
 extern void bgp_debug_init(void);
-extern void bgp_packet_dump(struct stream *);
+extern void bgp_packet_dump(struct stream *s);
 
 extern int debug(unsigned int option);
 

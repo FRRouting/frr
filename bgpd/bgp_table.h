@@ -121,10 +121,10 @@ typedef struct bgp_table_iter_t_ {
 	route_table_iter_t rt_iter;
 } bgp_table_iter_t;
 
-extern struct bgp_table *bgp_table_init(struct bgp *bgp, afi_t, safi_t);
-extern void bgp_table_lock(struct bgp_table *);
-extern void bgp_table_unlock(struct bgp_table *);
-extern void bgp_table_finish(struct bgp_table **);
+extern struct bgp_table *bgp_table_init(struct bgp *bgp, afi_t afi, safi_t safi);
+extern void bgp_table_lock(struct bgp_table *rt);
+extern void bgp_table_unlock(struct bgp_table *rt);
+extern void bgp_table_finish(struct bgp_table **table);
 extern struct bgp_dest *bgp_dest_unlock_node(struct bgp_dest *dest);
 extern struct bgp_dest *bgp_dest_lock_node(struct bgp_dest *dest);
 extern const char *bgp_dest_get_prefix_str(struct bgp_dest *dest);

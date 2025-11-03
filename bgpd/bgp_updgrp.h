@@ -345,8 +345,7 @@ struct updwalk_context {
 
 /* Prototypes.  */
 /* bgp_updgrp.c */
-extern void update_bgp_group_init(struct bgp *);
-extern void udpate_bgp_group_free(struct bgp *);
+extern void update_bgp_group_init(struct bgp *bgp);
 
 extern void update_group_show(struct bgp *bgp, afi_t afi, safi_t safi,
 			      struct vty *vty, uint64_t subgrp_id, bool uj);
@@ -354,13 +353,11 @@ extern void update_group_show_stats(struct bgp *bgp, struct vty *vty);
 extern void update_group_adjust_peer(struct peer_af *paf);
 extern int update_group_adjust_soloness(struct peer *peer, int set);
 
-extern void update_subgroup_remove_peer(struct update_subgroup *,
-					struct peer_af *);
+extern void update_subgroup_remove_peer(struct update_subgroup *subgrp, struct peer_af *paf);
 extern struct bgp_table *update_subgroup_rib(struct update_subgroup *);
-extern void update_subgroup_split_peer(struct peer_af *, struct update_group *);
-extern bool update_subgroup_check_merge(struct update_subgroup *, const char *);
-extern bool update_subgroup_trigger_merge_check(struct update_subgroup *,
-						int force);
+extern void update_subgroup_split_peer(struct peer_af *paf, struct update_group *updgrp);
+extern bool update_subgroup_check_merge(struct update_subgroup *subgrp, const char *reason);
+extern bool update_subgroup_trigger_merge_check(struct update_subgroup *subgrp, int force);
 extern void update_group_policy_update(struct bgp *bgp,
 				       enum bgp_policy_type ptype,
 				       const char *pname, bool route_update,
