@@ -71,35 +71,36 @@ struct imsg {
 
 
 /* buffer.c */
-struct ibuf *ibuf_open(size_t);
-struct ibuf *ibuf_dynamic(size_t, size_t);
-int ibuf_add(struct ibuf *, const void *, size_t);
-void *ibuf_reserve(struct ibuf *, size_t);
-void *ibuf_seek(struct ibuf *, size_t, size_t);
-size_t ibuf_size(struct ibuf *);
-size_t ibuf_left(struct ibuf *);
-void ibuf_close(struct msgbuf *, struct ibuf *);
-int ibuf_write(struct msgbuf *);
-void ibuf_free(struct ibuf *);
-void msgbuf_init(struct msgbuf *);
-void msgbuf_clear(struct msgbuf *);
-int msgbuf_write(struct msgbuf *);
-void msgbuf_drain(struct msgbuf *, size_t);
+struct ibuf *ibuf_open(size_t size);
+struct ibuf *ibuf_dynamic(size_t len, size_t max);
+int ibuf_add(struct ibuf *buf, const void *data, size_t len);
+void *ibuf_reserve(struct ibuf *buf, size_t len);
+void *ibuf_seek(struct ibuf *buf, size_t pos, size_t len);
+size_t ibuf_size(struct ibuf *buf);
+size_t ibuf_left(struct ibuf *buf);
+void ibuf_close(struct msgbuf *msgbuf, struct ibuf *buf);
+int ibuf_write(struct msgbuf *msgbuf);
+void ibuf_free(struct ibuf *buf);
+void msgbuf_init(struct msgbuf *msgbuf);
+void msgbuf_clear(struct msgbuf *msgbuf);
+int msgbuf_write(struct msgbuf *msgbuf);
+void msgbuf_drain(struct msgbuf *msgbuf, size_t n);
 
 /* imsg.c */
-void imsg_init(struct imsgbuf *, int);
-ssize_t imsg_read(struct imsgbuf *);
-ssize_t imsg_get(struct imsgbuf *, struct imsg *);
-int imsg_compose(struct imsgbuf *, uint32_t, uint32_t, pid_t, int, const void *,
-		 uint16_t);
-int imsg_composev(struct imsgbuf *, uint32_t, uint32_t, pid_t, int,
-		  const struct iovec *, int);
-struct ibuf *imsg_create(struct imsgbuf *, uint32_t, uint32_t, pid_t, uint16_t);
-int imsg_add(struct ibuf *, const void *, uint16_t);
-void imsg_close(struct imsgbuf *, struct ibuf *);
-void imsg_free(struct imsg *);
-int imsg_flush(struct imsgbuf *);
-void imsg_clear(struct imsgbuf *);
+void imsg_init(struct imsgbuf *ibuf, int fd);
+ssize_t imsg_read(struct imsgbuf *ibuf);
+ssize_t imsg_get(struct imsgbuf *ibuf, struct imsg *imsg);
+int imsg_compose(struct imsgbuf *ibuf, uint32_t type, uint32_t peerid, pid_t pid, int fd,
+		 const void *data, uint16_t datalen);
+int imsg_composev(struct imsgbuf *ibuf, uint32_t type, uint32_t peerid, pid_t pid, int fd,
+		  const struct iovec *iov, int iovcnt);
+struct ibuf *imsg_create(struct imsgbuf *ibuf, uint32_t type, uint32_t peerid, pid_t pid,
+			 uint16_t datalen);
+int imsg_add(struct ibuf *msg, const void *data, uint16_t datalen);
+void imsg_close(struct imsgbuf *ibuf, struct ibuf *msg);
+void imsg_free(struct imsg *imsg);
+int imsg_flush(struct imsgbuf *ibuf);
+void imsg_clear(struct imsgbuf *ibuf);
 
 #ifdef __cplusplus
 }
