@@ -386,8 +386,8 @@ extern void ripng_redistribute_delete(struct ripng *ripng, int type,
 extern void ripng_redistribute_withdraw(struct ripng *ripng, int type);
 
 extern void ripng_ecmp_disable(struct ripng *ripng);
-extern void ripng_distribute_update_interface(struct interface *);
-extern void ripng_if_rmap_update_interface(struct interface *);
+extern void ripng_distribute_update_interface(struct interface *ifp);
+extern void ripng_if_rmap_update_interface(struct interface *ifp);
 
 extern void ripng_zebra_ipv6_add(struct ripng *ripng, struct agg_node *node);
 extern void ripng_zebra_ipv6_delete(struct ripng *ripng, struct agg_node *node);
