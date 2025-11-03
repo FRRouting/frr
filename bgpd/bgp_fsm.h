@@ -118,10 +118,10 @@ extern void bgp_routeadv_timer(struct event *event);
 extern void bgp_fsm_change_status(struct peer_connection *connection,
 				  enum bgp_fsm_status status);
 extern const char *const peer_down_str[];
-extern void bgp_update_delay_end(struct bgp *);
-extern void bgp_maxmed_update(struct bgp *);
-extern bool bgp_maxmed_onstartup_configured(struct bgp *);
-extern bool bgp_maxmed_onstartup_active(struct bgp *);
+extern void bgp_update_delay_end(struct bgp *bgp);
+extern void bgp_maxmed_update(struct bgp *bgp);
+extern bool bgp_maxmed_onstartup_configured(struct bgp *bgp);
+extern bool bgp_maxmed_onstartup_active(struct bgp *bgp);
 extern int bgp_fsm_error_subcode(int status);
 extern enum bgp_fsm_state_progress
 bgp_stop_with_notify(struct peer_connection *connection, uint8_t code,
@@ -132,7 +132,7 @@ bgp_stop_with_notify(struct peer_connection *connection, uint8_t code,
  * peers. Typically called at the end of initial convergence, coming
  * out of read-only mode.
  */
-extern void bgp_start_routeadv(struct bgp *);
+extern void bgp_start_routeadv(struct bgp *bgp);
 
 /**
  * See if the route advertisement timer needs to be adjusted for a
@@ -141,7 +141,7 @@ extern void bgp_start_routeadv(struct bgp *);
  * timer to expire to send the new set of prefixes. It should fire
  * instantly and updates should go out sooner.
  */
-extern void bgp_adjust_routeadv(struct peer *);
+extern void bgp_adjust_routeadv(struct peer *peer);
 
 #include "hook.h"
 DECLARE_HOOK(peer_backward_transition, (struct peer *peer), (peer));

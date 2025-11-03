@@ -33,7 +33,7 @@
 
 extern void bgp_mplsvpn_init(void);
 extern void bgp_mplsvpn_path_nh_label_unlink(struct bgp_path_info *pi);
-extern int bgp_nlri_parse_vpn(struct peer *, struct attr *, struct bgp_nlri *);
+extern int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr, struct bgp_nlri *packet);
 
 extern int argv_find_and_parse_vpnvx(struct cmd_token **argv, int argc,
 				     int *index, afi_t *afi);

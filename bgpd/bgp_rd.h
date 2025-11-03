@@ -54,7 +54,7 @@ struct rd_vnc_eth {
 #endif
 
 extern uint16_t decode_rd_type(const uint8_t *pnt);
-extern void encode_rd_type(uint16_t, uint8_t *);
+extern void encode_rd_type(uint16_t type, uint8_t *rd_type);
 
 extern void decode_rd_as(const uint8_t *pnt, struct rd_as *rd_as);
 extern void decode_rd_as4(const uint8_t *pnt, struct rd_as *rd_as);
@@ -64,7 +64,7 @@ extern void decode_rd_vnc_eth(const uint8_t *pnt,
 			      struct rd_vnc_eth *rd_vnc_eth);
 #endif
 
-extern int str2prefix_rd(const char *, struct prefix_rd *);
+extern int str2prefix_rd(const char *str, struct prefix_rd *prd);
 extern char *prefix_rd2str(const struct prefix_rd *prd, char *buf, size_t size,
 			   enum asnotation_mode asnotation);
 extern void form_auto_rd(struct in_addr router_id, uint16_t rd_id,
