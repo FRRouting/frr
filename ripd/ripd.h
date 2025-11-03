@@ -444,8 +444,8 @@ extern struct rip *rip_lookup_by_vrf_name(const char *vrf_name);
 extern struct rip *rip_create(const char *vrf_name, struct vrf *vrf,
 			      int socket);
 
-extern int rip_request_send(struct sockaddr_in *, struct interface *, uint8_t,
-			    struct connected *);
+extern int rip_request_send(struct sockaddr_in *to, struct interface *ifp, uint8_t version,
+			    struct connected *connected);
 extern int rip_neighbor_lookup(struct rip *rip, struct sockaddr_in *from);
 extern int rip_neighbor_add(struct rip *rip, struct prefix_ipv4 *p);
 extern int rip_neighbor_delete(struct rip *rip, struct prefix_ipv4 *p);
@@ -472,8 +472,8 @@ extern void rip_redistribute_delete(struct rip *rip, int type, int sub_type,
 extern void rip_redistribute_withdraw(struct rip *rip, int type);
 extern void rip_zebra_ipv4_add(struct rip *rip, struct route_node *rp);
 extern void rip_zebra_ipv4_delete(struct rip *rip, struct route_node *rp);
-extern void rip_interface_multicast_set(int, struct connected *);
-extern void rip_distribute_update_interface(struct interface *);
+extern void rip_interface_multicast_set(int sock, struct connected *connected);
+extern void rip_distribute_update_interface(struct interface *ifp);
 extern void rip_if_rmap_update_interface(struct interface *ifp);
 
 extern int rip_show_network_config(struct vty *vty, struct rip *rip);
@@ -494,7 +494,7 @@ extern int rip_peer_list_cmp(struct rip_peer *p1, struct rip_peer *p2);
 extern void rip_peer_list_del(void *arg);
 void rip_peer_delete_routes(const struct rip_peer *peer);
 
-extern void rip_info_free(struct rip_info *);
+extern void rip_info_free(struct rip_info *rinfo);
 extern struct rip *rip_info_get_instance(const struct rip_info *rinfo);
 extern struct rip_distance *rip_distance_new(void);
 extern void rip_distance_free(struct rip_distance *rdistance);
@@ -516,10 +516,9 @@ extern void offset_list_del(struct rip_offset_list *offset);
 extern void offset_list_free(struct rip_offset_list *offset);
 extern struct rip_offset_list *rip_offset_list_lookup(struct rip *rip,
 						      const char *ifname);
-extern int rip_offset_list_apply_in(struct prefix_ipv4 *, struct interface *,
-				    uint32_t *);
-extern int rip_offset_list_apply_out(struct prefix_ipv4 *, struct interface *,
-				     uint32_t *);
+extern int rip_offset_list_apply_in(struct prefix_ipv4 *p, struct interface *ifp, uint32_t *metric);
+extern int rip_offset_list_apply_out(struct prefix_ipv4 *p, struct interface *ifp,
+				     uint32_t *metric);
 extern int offset_list_cmp(struct rip_offset_list *o1,
 			   struct rip_offset_list *o2);
 
