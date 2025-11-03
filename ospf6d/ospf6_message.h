@@ -148,11 +148,11 @@ struct ospf6_lls_hdr {
 /* It is just a sequence of LSA Headers */
 
 /* Function definition */
-extern void ospf6_hello_print(struct ospf6_header *, int action);
-extern void ospf6_dbdesc_print(struct ospf6_header *, int action);
-extern void ospf6_lsreq_print(struct ospf6_header *, int action);
-extern void ospf6_lsupdate_print(struct ospf6_header *, int action);
-extern void ospf6_lsack_print(struct ospf6_header *, int action);
+extern void ospf6_hello_print(struct ospf6_header *oh, int action);
+extern void ospf6_dbdesc_print(struct ospf6_header *oh, int action);
+extern void ospf6_lsreq_print(struct ospf6_header *oh, int action);
+extern void ospf6_lsupdate_print(struct ospf6_header *oh, int action);
+extern void ospf6_lsack_print(struct ospf6_header *oh, int action);
 
 extern struct ospf6_fifo *ospf6_fifo_new(void);
 extern void ospf6_fifo_flush(struct ospf6_fifo *fifo);
@@ -174,7 +174,7 @@ extern void ospf6_lsack_send_neighbor(struct event *event);
 extern void ospf6_hello_send_addr(struct ospf6_interface *oi,
 				  const struct in6_addr *addr);
 
-extern int config_write_ospf6_debug_message(struct vty *);
+extern int config_write_ospf6_debug_message(struct vty *vty);
 extern void install_element_ospf6_debug_message(void);
 extern const char *ospf6_message_type(int type);
 #endif /* OSPF6_MESSAGE_H */
