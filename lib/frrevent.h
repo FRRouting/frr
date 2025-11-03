@@ -49,14 +49,22 @@ PREDECL_LIST(event_list);
 PREDECL_HEAP(event_timer_list);
 
 #if EPOLL_ENABLED
+
+PREDECL_HASH(epoll_event_hash);
+
+struct frr_epoll_event {
+	struct epoll_event ev;
+	struct epoll_event_hash_item link;
+};
+
 struct fd_handler {
 	/* The epoll set file descriptor */
 	int epoll_fd;
 
-	/* A hash table in which monitored I/O file descrpitors and events
+	/* A hash table in which monitored I/O file descriptors and events
 	 * are registered
 	 */
-	struct hash *epoll_event_hash;
+	struct epoll_event_hash_head epoll_event_hash;
 
 	/* Maximum size of .revents and .regular_revents arrays */
 	int eventsize;
@@ -68,7 +76,7 @@ struct fd_handler {
 	 * regular files can't be added into epoll set and need special
 	 * treatment. I/O events from/to regular file will be directly
 	 * added to regular_revents, but not into epoll set, whereby
-	 * sidesteping epoll_wait.
+	 * sidestepping epoll_wait.
 	 */
 	struct epoll_event *regular_revents;
 	int regular_revent_count;
