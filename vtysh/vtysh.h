@@ -125,24 +125,24 @@ extern int vtysh_connect_all(const char *optional_daemon_name);
 void vtysh_readline_init(void);
 void vtysh_user_init(void);
 
-int vtysh_execute(const char *);
-int vtysh_execute_no_pager(const char *);
+int vtysh_execute(const char *line);
+int vtysh_execute_no_pager(const char *line);
 int vtysh_execute_command_questionmark(char *input);
 
 char *vtysh_prompt(void);
 
 void vtysh_config_write(void);
 
-int vtysh_config_from_file(struct vty *, FILE *);
+int vtysh_config_from_file(struct vty *vty, FILE *fp);
 
-void config_add_line(struct list *, const char *);
+void config_add_line(struct list *config, const char *line);
 
 int vtysh_mark_file(const char *filename);
 
 int vtysh_apply_config(const char *config_file_path, bool dry_run, bool fork);
 int vtysh_write_config_integrated(void);
 
-void vtysh_config_parse_line(void *, const char *);
+void vtysh_config_parse_line(void *arg, const char *line);
 
 void vtysh_config_dump(void);
 
