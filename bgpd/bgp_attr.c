@@ -1049,6 +1049,9 @@ unsigned int attrhash_key_make(const void *p)
 	MIX3(attr->bh_type, attr->otc, bgp_attr_get_aigp_metric(attr));
 	MIX3(attr->mm_seqnum, attr->df_alg, attr->df_pref);
 	MIX(attr->encap_tunneltype);
+	MIX(bgp_attr_get_pmsi_tnl_type(attr));
+	if (bgp_attr_get_pmsi_tnl_type(attr) == PMSI_TNLTYPE_INGR_REPL)
+		key = jhash(attr->tunn_id.s6_addr, IPV6_MAX_BYTELEN, key);
 	key = jhash(&attr->rmac, sizeof(attr->rmac), key);
 	if (bgp_attr_get_nhc(attr))
 		MIX(bgp_nhc_hash_key_make(bgp_attr_get_nhc(attr)));
@@ -1104,7 +1107,9 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    attr1->bh_type == attr2->bh_type && attr1->otc == attr2->otc &&
 		    !memcmp(&attr1->rmac, &attr2->rmac, sizeof(struct ethaddr)) &&
 		    bgp_nhc_same(bgp_attr_get_nhc(attr1), bgp_attr_get_nhc(attr2)) &&
-		    bgp_ls_attr_same(attr1->ls_attr, attr2->ls_attr))
+		    bgp_ls_attr_same(attr1->ls_attr, attr2->ls_attr) &&
+		    (attr1->pmsi_tnl_type == attr2->pmsi_tnl_type) &&
+		    IPV6_ADDR_SAME(&attr1->tunn_id, &attr2->tunn_id))
 			return true;
 	}
 
@@ -3751,6 +3756,7 @@ bgp_attr_pmsi_tunnel(struct bgp_attr_parser_args *args)
 	const bgp_size_t length = args->length;
 	uint8_t tnl_type;
 	int attr_parse_len = 2 + BGP_LABEL_BYTES;
+	struct in_addr tunn_id;
 
 	if (peer->discard_attrs[args->type] || peer->withdraw_attrs[args->type])
 		goto pmsi_tunnel_ignore;
@@ -3773,9 +3779,14 @@ bgp_attr_pmsi_tunnel(struct bgp_attr_parser_args *args)
 					  args->total);
 	}
 	if (tnl_type == PMSI_TNLTYPE_INGR_REPL) {
-		if (length != 9) {
+		/* The length should be one of these values:
+		 *  1 (Flags) + 1 (Tunnel Type) + 3 (Label) + 4 (IPv4 address) = 9 octets
+		 *  1 (Flags) + 1 (Tunnel Type) + 3 (Label) + 16 (IPv6 address) = 21 octets
+		 */
+		if (length != BGP_ATTR_PMSI_TUNNEL_V4_LENGTH &&
+		    length != BGP_ATTR_PMSI_TUNNEL_V6_LENGTH) {
 			flog_err(EC_BGP_ATTR_PMSI_LEN,
-				 "Bad PMSI tunnel attribute length %d for IR",
+				 "Bad PMSI tunnel attribute length %d for Ingress Replication",
 				 length);
 			return bgp_attr_malformed(
 				args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
@@ -3787,7 +3798,19 @@ bgp_attr_pmsi_tunnel(struct bgp_attr_parser_args *args)
 	bgp_attr_set_pmsi_tnl_type(attr, tnl_type);
 	stream_get(&attr->label, connection->curr, BGP_LABEL_BYTES);
 
-	/* Forward read pointer of input stream. */
+	/* Decode ingress-replication tunnel id */
+	if (tnl_type == PMSI_TNLTYPE_INGR_REPL) {
+		if (length == BGP_ATTR_PMSI_TUNNEL_V4_LENGTH) {
+			tunn_id.s_addr = stream_get_ipv4(connection->curr);
+			ipv4_to_ipv4_mapped_ipv6(&attr->tunn_id, tunn_id);
+			attr_parse_len += IPV4_MAX_BYTELEN;
+		} else {
+			stream_get(&attr->tunn_id, connection->curr, IPV6_MAX_BYTELEN);
+			attr_parse_len += IPV6_MAX_BYTELEN;
+		}
+	}
+
+	/* Forward read pointer of input stream to skip anything we didn't parse */
 	stream_forward_getp(connection->curr, length - attr_parse_len);
 
 	return BGP_ATTR_PARSE_PROCEED;
@@ -5652,15 +5675,37 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer, struct strea
 
 	/* PMSI Tunnel */
 	if (bgp_attr_exists(attr, BGP_ATTR_PMSI_TUNNEL)) {
+		uint8_t tunn_id_len = 0;
+		uint8_t *nh;
+		struct in_addr tunn_id;
+
 		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
 		stream_putc(s, BGP_ATTR_PMSI_TUNNEL);
-		stream_putc(s, 9); // Length
-		stream_putc(s, 0); // Flags
+
+		/* Encode tunnel id for known tunnel type */
+		if (bgp_attr_get_pmsi_tnl_type(attr) == PMSI_TNLTYPE_INGR_REPL) {
+			if (IS_MAPPED_IPV6(&attr->tunn_id)) {
+				stream_putc(s, BGP_ATTR_PMSI_TUNNEL_V4_LENGTH);
+				tunn_id_len = IPV4_MAX_BYTELEN;
+				ipv4_mapped_ipv6_to_ipv4(&attr->tunn_id, &tunn_id);
+				nh = (uint8_t *)&tunn_id;
+			} else {
+				stream_putc(s, BGP_ATTR_PMSI_TUNNEL_V6_LENGTH);
+				tunn_id_len = IPV6_MAX_BYTELEN;
+				nh = (uint8_t *)&attr->tunn_id;
+			}
+		} else {
+			/* Encode label part only */
+			stream_putc(s, BGP_ATTR_PMSI_TUNNEL_LBL_ONLY_LEN);
+		}
+
+		stream_putc(s, 0); /* Flags */
 		stream_putc(s, bgp_attr_get_pmsi_tnl_type(attr));
-		stream_put(s, &(attr->label),
-			   BGP_LABEL_BYTES); // MPLS Label / VXLAN VNI
-		stream_put_ipv4(s, attr->nexthop.s_addr);
-		// Unicast tunnel endpoint IP address
+		stream_put(s, &(attr->label), BGP_LABEL_BYTES); /* MPLS Label/VXLAN VNI */
+
+		/* Unicast tunnel endpoint IP address */
+		if (tunn_id_len > 0)
+			stream_put(s, nh, tunn_id_len);
 	}
 
 	/* OTC */
