@@ -21,6 +21,7 @@
 #include "vty.h"
 #include "pw.h"
 #include "zclient.h"
+#include "nexthop.h"
 
 #include "ldp.h"
 #include "lib/ldp_sync.h"
@@ -165,11 +166,6 @@ struct ldp_access {
 	char			 name[ACL_NAMSIZ];
 };
 
-union ldpd_addr {
-	struct in_addr	v4;
-	struct in6_addr	v6;
-};
-
 #define IN6_IS_SCOPE_EMBED(a)   \
 	((IN6_IS_ADDR_LINKLOCAL(a)) ||  \
 	 (IN6_IS_ADDR_MC_LINKLOCAL(a)) || \
@@ -262,7 +258,7 @@ struct map {
 	union {
 		struct {
 			uint16_t	af;
-			union ldpd_addr	prefix;
+			union g_addr prefix;
 			uint8_t		prefixlen;
 		} prefix;
 		struct {
@@ -316,9 +312,9 @@ struct notify_msg {
 struct if_addr {
 	LIST_ENTRY(if_addr)	 entry;
 	int			 af;
-	union ldpd_addr		 addr;
+	union g_addr addr;
 	uint8_t			 prefixlen;
-	union ldpd_addr		 dstbrd;
+	union g_addr dstbrd;
 };
 LIST_HEAD(if_addr_head, if_addr);
 
@@ -363,7 +359,7 @@ struct tnbr {
 	struct event *hello_timer;
 	struct adj		*adj;
 	int			 af;
-	union ldpd_addr		 addr;
+	union g_addr addr;
 	int			 state;
 	uint16_t		 pw_count;
 	uint32_t		 rlfa_count;
@@ -463,7 +459,7 @@ struct l2vpn_pw {
 	struct l2vpn		*l2vpn;
 	struct in_addr		 lsr_id;
 	int			 af;
-	union ldpd_addr		 addr;
+	union g_addr addr;
 	uint32_t		 pwid;
 	char ifname[IFNAMSIZ];
 	ifindex_t		 ifindex;
@@ -542,7 +538,7 @@ struct ldpd_af_conf {
 	uint16_t		 lhello_interval;
 	uint16_t		 thello_holdtime;
 	uint16_t		 thello_interval;
-	union ldpd_addr		 trans_addr;
+	union g_addr trans_addr;
 	char			 acl_thello_accept_from[ACL_NAMSIZ];
 	char			 acl_label_allocate_for[ACL_NAMSIZ];
 	char			 acl_label_advertise_to[ACL_NAMSIZ];
@@ -609,9 +605,9 @@ struct ldpd_global {
 /* kroute */
 struct kroute {
 	int			 af;
-	union ldpd_addr		 prefix;
+	union g_addr prefix;
 	uint8_t			 prefixlen;
-	union ldpd_addr		 nexthop;
+	union g_addr nexthop;
 	uint32_t		 local_label;
 	uint32_t		 remote_label;
 	ifindex_t		 ifindex;
@@ -624,9 +620,9 @@ struct kaddr {
 	char ifname[IFNAMSIZ];
 	ifindex_t		 ifindex;
 	int			 af;
-	union ldpd_addr		 addr;
+	union g_addr addr;
 	uint8_t			 prefixlen;
-	union ldpd_addr	 	 dstbrd;
+	union g_addr dstbrd;
 };
 
 struct kif {
@@ -641,7 +637,7 @@ struct kif {
 struct acl_check {
 	char			 acl[ACL_NAMSIZ];
 	int			 af;
-	union ldpd_addr		 addr;
+	union g_addr addr;
 	uint8_t			 prefixlen;
 };
 
@@ -667,7 +663,7 @@ struct ctl_disc_if {
 
 struct ctl_disc_tnbr {
 	int			 af;
-	union ldpd_addr		 addr;
+	union g_addr addr;
 	int			 no_adj;
 };
 
@@ -676,19 +672,19 @@ struct ctl_adj {
 	struct in_addr		 id;
 	enum hello_type		 type;
 	char ifname[IFNAMSIZ];
-	union ldpd_addr		 src_addr;
+	union g_addr src_addr;
 	uint16_t		 holdtime;
 	uint16_t		 holdtime_remaining;
-	union ldpd_addr		 trans_addr;
+	union g_addr trans_addr;
 	int			 ds_tlv;
 };
 
 struct ctl_nbr {
 	int			 af;
 	struct in_addr		 id;
-	union ldpd_addr		 laddr;
+	union g_addr laddr;
 	in_port_t		 lport;
-	union ldpd_addr		 raddr;
+	union g_addr raddr;
 	in_port_t		 rport;
 	enum auth_method	 auth_method;
 	uint16_t		 holdtime;
@@ -702,7 +698,7 @@ struct ctl_nbr {
 
 struct ctl_rt {
 	int			 af;
-	union ldpd_addr		 prefix;
+	union g_addr prefix;
 	uint8_t			 prefixlen;
 	struct in_addr		 nexthop;	/* lsr-id */
 	uint32_t		 local_label;
@@ -763,24 +759,19 @@ uint8_t		 mask2prefixlen(in_addr_t);
 uint8_t		 mask2prefixlen6(struct sockaddr_in6 *);
 in_addr_t	 prefixlen2mask(uint8_t);
 struct in6_addr	*prefixlen2mask6(uint8_t);
-void		 ldp_applymask(int, union ldpd_addr *,
-		    const union ldpd_addr *, int);
-int		 ldp_addrcmp(int, const union ldpd_addr *,
-		    const union ldpd_addr *);
-int		 ldp_addrisset(int, const union ldpd_addr *);
-int		 ldp_prefixcmp(int, const union ldpd_addr *,
-		    const union ldpd_addr *, uint8_t);
+void ldp_applymask(int, union g_addr *, const union g_addr *, int);
+int ldp_addrcmp(int, const union g_addr *, const union g_addr *);
+int ldp_addrisset(int, const union g_addr *);
+int ldp_prefixcmp(int, const union g_addr *, const union g_addr *, uint8_t);
 int		 bad_addr_v4(struct in_addr);
 int		 bad_addr_v6(struct in6_addr *);
-int		 bad_addr(int, union ldpd_addr *);
+int bad_addr(int, union g_addr *);
 void		 embedscope(struct sockaddr_in6 *);
 void		 recoverscope(struct sockaddr_in6 *);
 void		 addscope(struct sockaddr_in6 *, uint32_t);
 void		 clearscope(struct in6_addr *);
-void		 addr2sa(int af, const union ldpd_addr *, uint16_t,
-		    union sockunion *su);
-void		 sa2addr(struct sockaddr *, int *, union ldpd_addr *,
-		    in_port_t *);
+void addr2sa(int af, const union g_addr *, uint16_t, union sockunion *su);
+void sa2addr(struct sockaddr *, int *, union g_addr *, in_port_t *);
 socklen_t	 sockaddr_len(struct sockaddr *);
 
 /* ldpd.c */
@@ -796,8 +787,7 @@ void			 evbuf_enqueue(struct evbuf *, struct ibuf *);
 void			 evbuf_event_add(struct evbuf *);
 void evbuf_init(struct evbuf *, int, void (*)(struct event *), void *);
 void			 evbuf_clear(struct evbuf *);
-int			 ldp_acl_request(struct imsgev *, char *, int,
-			    union ldpd_addr *, uint8_t);
+int ldp_acl_request(struct imsgev *, char *, int, union g_addr *, uint8_t);
 void			 ldp_acl_reply(struct imsgev *, struct acl_check *);
 struct ldpd_af_conf	*ldp_af_conf_get(struct ldpd_conf *, int);
 struct ldpd_af_global	*ldp_af_global_get(struct ldpd_global *, int);
@@ -809,31 +799,6 @@ void			 merge_config(struct ldpd_conf *, struct ldpd_conf *);
 struct ldpd_conf	*config_new_empty(void);
 void			 config_clear(struct ldpd_conf *);
 
-/* ldp_vty_conf.c */
-/* NOTE: the parameters' names should be preserved because of codegen */
-struct iface		*iface_new_api(struct ldpd_conf *conf,
-			    const char *name);
-void			 iface_del_api(struct ldpd_conf *conf,
-			    struct iface *iface);
-struct tnbr		*tnbr_new_api(struct ldpd_conf *conf, int af,
-			    union ldpd_addr *addr);
-void			 tnbr_del_api(struct ldpd_conf *conf, struct tnbr *tnbr);
-struct nbr_params	*nbrp_new_api(struct ldpd_conf *conf,
-			    struct in_addr lsr_id);
-void			 nbrp_del_api(struct ldpd_conf *conf,
-			    struct nbr_params *nbrp);
-struct l2vpn		*l2vpn_new_api(struct ldpd_conf *conf, const char *name);
-void			 l2vpn_del_api(struct ldpd_conf *conf,
-			    struct l2vpn *l2vpn);
-struct l2vpn_if		*l2vpn_if_new_api(struct ldpd_conf *conf,
-			    struct l2vpn *l2vpn, const char *ifname);
-void			 l2vpn_if_del_api(struct l2vpn *l2vpn,
-			   struct l2vpn_if *lif);
-struct l2vpn_pw		*l2vpn_pw_new_api(struct ldpd_conf *conf,
-			    struct l2vpn *l2vpn, const char *ifname);
-void			 l2vpn_pw_del_api(struct l2vpn *l2vpn,
-			    struct l2vpn_pw *pw);
-
 /* socket.c */
 int		 ldp_create_socket(int, enum socket_type);
 void		 sock_set_nonblock(int);
@@ -841,7 +806,7 @@ void		 sock_set_cloexec(int);
 void		 sock_set_recvbuf(int);
 int		 sock_set_reuse(int, int);
 int		 sock_set_bindany(int, int);
-int		 sock_set_md5sig(int, int, union ldpd_addr *, const char *);
+int sock_set_md5sig(int, int, union g_addr *, const char *);
 int		 sock_set_ipv4_tos(int, int);
 int		 sock_set_ipv4_pktinfo(int, int);
 int		 sock_set_ipv4_recvdstaddr(int fd, ifindex_t ifindex);
@@ -861,7 +826,6 @@ int		 sock_set_ipv6_mcast_loop(int);
 
 /* logmsg.h */
 struct in6_addr;
-union ldpd_addr;
 struct hello_source;
 struct fec;
 
@@ -869,7 +833,7 @@ const char	*log_sockaddr(void *);
 const char	*log_in6addr(const struct in6_addr *);
 const char	*log_in6addr_scope(const struct in6_addr *addr,
 				   ifindex_t ifidx);
-const char	*log_addr(int, const union ldpd_addr *);
+const char *log_addr(int, const union g_addr *);
 char		*log_label(uint32_t);
 const char	*log_time(time_t);
 char		*log_hello_src(const struct hello_source *);
