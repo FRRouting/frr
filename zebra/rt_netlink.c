@@ -2460,8 +2460,8 @@ static int netlink_neigh_update(int cmd, int ifindex, void *addr, char *lla,
 	if (!nl_attr_put(&req.n, sizeof(req), NDA_DST, addr, family2addrsize(family)))
 		return -1;
 
-	if (lla)
-		nl_attr_put(&req.n, sizeof(req), NDA_LLADDR, lla, llalen);
+	if (lla && !nl_attr_put(&req.n, sizeof(req), NDA_LLADDR, lla, llalen))
+		return -1;
 
 	if (IS_ZEBRA_DEBUG_KERNEL) {
 		char ip_str[INET6_ADDRSTRLEN + 8];
