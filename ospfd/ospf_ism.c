@@ -258,7 +258,7 @@ void ospf_hello_timer(struct event *thread)
 	OSPF_HELLO_TIMER_ON(oi);
 }
 
-static void ospf_wait_timer(struct event *thread)
+void ospf_wait_timer(struct event *thread)
 {
 	struct ospf_interface *oi;
 

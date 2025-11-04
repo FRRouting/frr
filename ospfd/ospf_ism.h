@@ -76,6 +76,7 @@ extern void ospf_ism_event(struct event *thread);
 extern void ism_change_status(struct ospf_interface *, int);
 extern void ospf_hello_timer(struct event *thread);
 extern int ospf_dr_election(struct ospf_interface *oi);
+extern void ospf_wait_timer(struct event *thread);
 
 DECLARE_HOOK(ospf_ism_change,
 	     (struct ospf_interface * oi, int state, int oldstate),
