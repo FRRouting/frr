@@ -38,7 +38,8 @@
 DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_GR, "GR");
 
 struct zebra_gr_afi_clean {
-	struct client_gr_info *info;
+	/* Do NOT store pointers to client_gr_info; it can be freed asynchronously. */
+	vrf_id_t vrf_id;
 	afi_t afi;
 	uint8_t proto;
 	uint8_t instance;
@@ -588,11 +589,40 @@ static bool zebra_gr_process_route_entry(struct route_node *rn,
 static void zebra_gr_delete_stale_info_client(struct event *event)
 {
 	struct zebra_gr_afi_clean *gac = EVENT_ARG(event);
+	struct zserv *s_client = zebra_gr_find_stale_client(gac->proto, gac->instance);
 
-	if (gac->info->stale_client)
-		zebra_gr_delete_stale_client(gac->info);
+	if (s_client) {
+		struct client_gr_info *info;
+
+		TAILQ_FOREACH (info, &s_client->gr_info_queue, gr_info) {
+			if (info->vrf_id == gac->vrf_id) {
+				if (info->stale_client)
+					zebra_gr_delete_stale_client(info);
+				break;
+			}
+		}
+	}
 
 	XFREE(MTYPE_ZEBRA_GR, gac);
+}
+
+/* Helper: return whether we should reschedule based on live info state. */
+static bool zebra_gr_should_reschedule(const struct zebra_gr_afi_clean *gac)
+{
+	struct zserv *client;
+	struct client_gr_info *info;
+
+	client = zserv_find_client(gac->proto, gac->instance);
+	if (!client)
+		client = zebra_gr_find_stale_client(gac->proto, gac->instance);
+	if (!client)
+		return false;
+
+	TAILQ_FOREACH (info, &client->gr_info_queue, gr_info) {
+		if (info->vrf_id == gac->vrf_id)
+			return !info->do_delete;
+	}
+	return false;
 }
 
 static bool zebra_gr_unicast_stale_route_delete(struct route_table *table,
@@ -624,7 +654,7 @@ static bool zebra_gr_unicast_stale_route_delete(struct route_table *table,
 			 * Store the current prefix and afi
 			 */
 			if ((n >= ZEBRA_MAX_STALE_ROUTE_COUNT) &&
-			    (gac->info->do_delete == false) && !no_max) {
+			    zebra_gr_should_reschedule(gac) && !no_max) {
 				LOG_GR("GR: Stale routes deleted %d. Restarting timer.", n);
 				event_add_timer(
 					zrouter.master,
@@ -642,7 +672,7 @@ static void zebra_gr_delete_stale_route_table_afi(struct event *event)
 {
 	struct zebra_gr_afi_clean *gac = EVENT_ARG(event);
 	struct route_table *table;
-	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(gac->info->vrf_id);
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(gac->vrf_id);
 
 	if (!zvrf)
 		goto done;
@@ -820,7 +850,7 @@ void zebra_gr_process_client(afi_t afi, vrf_id_t vrf_id, uint8_t proto, uint8_t 
 		return;
 
 	gac = XCALLOC(MTYPE_ZEBRA_GR, sizeof(*gac));
-	gac->info = info;
+	gac->vrf_id = vrf_id;
 	gac->afi = afi;
 	gac->proto = proto;
 	gac->instance = instance;
