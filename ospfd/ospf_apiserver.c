@@ -280,7 +280,6 @@ void ospf_apiserver_event(enum ospf_apiserver_event event, int fd,
 				     NULL);
 		break;
 	case OSPF_APISERVER_SYNC_READ:
-		apiserv->t_sync_read = NULL;
 		event_add_read(master, ospf_apiserver_read, apiserv, fd,
 			       &apiserv->t_sync_read);
 		break;
@@ -309,14 +308,6 @@ void ospf_apiserver_free(struct ospf_apiserver *apiserv)
 {
 	struct listnode *node;
 
-	/* Cancel read and write threads. */
-	event_cancel(&apiserv->t_sync_read);
-#ifdef USE_ASYNC_READ
-	event_cancel(&apiserv->t_async_read);
-#endif /* USE_ASYNC_READ */
-	event_cancel(&apiserv->t_sync_write);
-	event_cancel(&apiserv->t_async_write);
-
 	/* Unregister all opaque types that application registered
 	   and flush opaque LSAs if still in LSDB. */
 
@@ -327,6 +318,14 @@ void ospf_apiserver_free(struct ospf_apiserver *apiserv)
 			apiserv, regtype->lsa_type, regtype->opaque_type);
 	}
 	list_delete(&apiserv->opaque_types);
+
+	/* Cancel read and write threads. */
+	event_cancel(&apiserv->t_sync_read);
+#ifdef USE_ASYNC_READ
+	event_cancel(&apiserv->t_async_read);
+#endif /* USE_ASYNC_READ */
+	event_cancel(&apiserv->t_sync_write);
+	event_cancel(&apiserv->t_async_write);
 
 	/* Close connections to OSPFd. */
 	if (apiserv->fd_sync > 0) {
