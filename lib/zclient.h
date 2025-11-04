@@ -1410,6 +1410,8 @@ extern enum zclient_send_status zclient_send_hello(struct zclient *client);
 extern void zclient_register_neigh(struct zclient *zclient, vrf_id_t vrf_id,
 				   afi_t afi, bool reg);
 
+extern void zclient_neigh_get(struct zclient *zclient, struct interface *ifp, afi_t afi);
+
 extern enum zclient_send_status
 zclient_send_neigh_discovery_req(struct zclient *zclient,
 				 const struct interface *ifp,
