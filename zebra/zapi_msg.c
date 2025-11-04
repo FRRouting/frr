@@ -52,6 +52,7 @@
 #include "zebra/zebra_opaque.h"
 #include "zebra/zebra_srte.h"
 #include "zebra/zebra_srv6.h"
+#include "zebra/zebra_neigh.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, RE_OPAQUE, "Route Opaque Data");
 
@@ -3769,6 +3770,66 @@ stream_failure:
 	return;
 }
 
+/* Send neighbor info to client */
+static void zsend_neighbor(struct zserv *client, struct interface *ifp,
+			   struct zebra_neigh_ent *neigh)
+{
+	struct stream *s;
+	union sockunion ip, lladdr;
+
+	/* Convert ipaddr to sockunion */
+	sockunion_family(&ip) = neigh->ip.ipa_type;
+	if (neigh->ip.ipa_type == AF_INET)
+		memcpy(&ip.sin.sin_addr, &neigh->ip.ipaddr_v4, sizeof(struct in_addr));
+	else
+		memcpy(&ip.sin6.sin6_addr, &neigh->ip.ipaddr_v6, sizeof(struct in6_addr));
+
+	/* Convert lladdr to sockunion */
+	sockunion_family(&lladdr) = AF_UNSPEC;
+
+	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+	zclient_neigh_ip_encode(s, ZEBRA_NEIGH_ADDED, &ip, &lladdr, ifp,
+				ZEBRA_NEIGH_STATE_REACHABLE, 0);
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zserv_send_message(client, s);
+}
+
+static void zebra_neigh_get(ZAPI_HANDLER_ARGS)
+{
+	ifindex_t ifindex;
+	struct interface *ifp;
+	struct zebra_neigh_ent *n;
+	afi_t afi;
+
+	STREAM_GETL(msg, ifindex);
+	STREAM_GETW(msg, afi);
+
+	if (!(IS_VALID_AFI(afi))) {
+		zlog_warn("Failed to get neighbors: invalid AFI %u", afi);
+		return;
+	}
+
+	ifp = if_lookup_by_index(ifindex, zvrf_id(zvrf));
+	if (!ifp) {
+		zlog_warn("Failed to get neighbors: interface with index %u not found", ifindex);
+		return;
+	}
+
+	/* Send all neighbors for this interface */
+	RB_FOREACH (n, zebra_neigh_rb_head, &zneigh_info->neigh_rb_tree) {
+		if (n->ifindex != ifindex)
+			continue;
+
+		if ((afi == AFI_IP && n->ip.ipa_type != AF_INET) ||
+		    (afi == AFI_IP6 && n->ip.ipa_type != AF_INET6))
+			continue;
+
+		zsend_neighbor(client, ifp, n);
+	}
+
+stream_failure:
+	return;
+}
 
 static inline void zebra_neigh_register(ZAPI_HANDLER_ARGS)
 {
@@ -4159,6 +4220,7 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_NEIGH_IP_DEL] = zebra_neigh_ip_del,
 	[ZEBRA_NEIGH_REGISTER] = zebra_neigh_register,
 	[ZEBRA_NEIGH_UNREGISTER] = zebra_neigh_unregister,
+	[ZEBRA_NEIGH_GET] = zebra_neigh_get,
 	[ZEBRA_CONFIGURE_ARP] = zebra_configure_arp,
 	[ZEBRA_GRE_GET] = zebra_gre_get,
 	[ZEBRA_GRE_SOURCE_SET] = zebra_gre_source_set,
