@@ -1,6 +1,8 @@
 ARG UBUNTU_VERSION=22.04
 FROM ubuntu:$UBUNTU_VERSION
 
+# If passed, update the value
+ARG UBUNTU_VERSION
 ARG DEBIAN_FRONTEND=noninteractive
 
 # Update and install build requirements.
@@ -86,6 +88,18 @@ RUN apt update && apt upgrade -y && \
     python3 -m pip install pyyaml && \
     python3 -m pip install xmltodict && \
     python3 -m pip install git+https://github.com/Exa-Networks/exabgp@0659057837cd6c6351579e9f0fa47e9fb7de7311
+
+    RUN if [ "$UBUNTU_VERSION" = "24.04" ]; then \
+            wget --tries=5 --waitretry=10 --retry-connrefused https://www.iana.org/assignments/ianasmf-mib/ianasmf-mib -O /usr/share/snmp/mibs/iana/IANA-SMF-MIB && \
+            wget --tries=5 --waitretry=10 --retry-connrefused https://www.iana.org/assignments/ianaentity-mib/ianaentity-mib -O /usr/share/snmp/mibs/iana/IANA-ENTITY-MIB && \
+            wget --tries=5 --waitretry=10 --retry-connrefused https://www.iana.org/assignments/ianapowerstateset-mib/ianapowerstateset-mib -O /usr/share/snmp/mibs/iana/IANAPowerStateSet-MIB && \
+            wget --tries=5 --waitretry=10 --retry-connrefused https://www.iana.org/assignments/ianaolsrv2linkmetrictype-mib/ianaolsrv2linkmetrictype-mib -O /usr/share/snmp/mibs/iana/IANA-OLSRv2-LINK-METRIC-TYPE-MIB && \
+            wget --tries=5 --waitretry=10 --retry-connrefused https://www.iana.org/assignments/ianaenergyrelation-mib/ianaenergyrelation-mib -O /usr/share/snmp/mibs/iana/IANA-ENERGY-RELATION-MIB && \
+            wget --tries=5 --waitretry=10 --retry-connrefused https://www.iana.org/assignments/ianabfdtcstd-mib/ianabfdtcstd-mib -O /usr/share/snmp/mibs/iana/IANA-BFD-TC-STD-MIB && \
+            wget --tries=5 --waitretry=10 --retry-connrefused https://www.iana.org/assignments/ianastoragemediatype-mib/ianastoragemediatype-mib -O /usr/share/snmp/mibs/iana/IANA-STORAGE-MEDIA-TYPE-MIB && \
+            wget --tries=5 --waitretry=10 --retry-connrefused https://www.ieee802.org/1/files/public/MIBs/IEEE8021-CFM-MIB.mib -O /usr/share/snmp/mibs/IEEE8021-CFM-MIB && \
+            wget --tries=5 --waitretry=10 --retry-connrefused https://www.ieee802.org/1/files/public/MIBs/LLDP-MIB-200505060000Z.mib -O /usr/share/snmp/mibs/LLDP-MIB ; \
+        fi
 
 ARG UID=1010
 RUN groupadd -r -g 92 frr && \
