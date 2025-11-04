@@ -12273,6 +12273,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	bool nexthop_self =
 		CHECK_FLAG(path->flags, BGP_PATH_ANNC_NH_SELF) ? true : false;
 	int i;
+	const char *msgstr;
 	char *nexthop_hostname = bgp_nexthop_hostname(path->peer, path->nexthop);
 	char time_buf[64];
 	struct bgp_path_info *bpi_ultimate =
@@ -13315,19 +13316,41 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 
 	/* Line 10 display PMSI tunnel attribute, if present */
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL))) {
-		const char *str = lookup_msg(bgp_pmsi_tnltype_str,
-					     bgp_attr_get_pmsi_tnl_type(attr),
-					     PMSI_TNLTYPE_STR_DEFAULT);
+		msgstr = lookup_msg(bgp_pmsi_tnltype_str, bgp_attr_get_pmsi_tnl_type(attr),
+				    PMSI_TNLTYPE_STR_DEFAULT);
 
 		if (json_paths) {
 			json_pmsi = json_object_new_object();
-			json_object_string_add(json_pmsi, "tunnelType", str);
+			json_object_string_add(json_pmsi, "tunnelType", msgstr);
 			json_object_int_add(json_pmsi, "label",
 					    label2vni(&attr->label));
+
+			if (bgp_attr_get_pmsi_tnl_type(attr) == PMSI_TNLTYPE_INGR_REPL) {
+				if (IS_MAPPED_IPV6(&attr->tunn_id)) {
+					json_object_string_addf(
+						json_pmsi, "id", "%pI4",
+						(in_addr_t *)&attr->tunn_id.s6_addr32[3]);
+				} else {
+					json_object_string_addf(json_pmsi, "id", "%pI6",
+								&attr->tunn_id);
+				}
+			}
 			json_object_object_add(json_path, "pmsi", json_pmsi);
-		} else
-			vty_out(vty, "      PMSI Tunnel Type: %s, label: %d\n",
-				str, label2vni(&attr->label));
+		} else if (bgp_attr_get_pmsi_tnl_type(attr) == PMSI_TNLTYPE_INGR_REPL) {
+			/* Include tunnel ID for known types */
+			if (IS_MAPPED_IPV6(&attr->tunn_id)) {
+				vty_out(vty, "      PMSI Tunnel Type: %s, label: %d ID:%pI4\n",
+					msgstr, label2vni(&attr->label),
+					(in_addr_t *)&attr->tunn_id.s6_addr32[3]);
+			} else {
+				vty_out(vty, "      PMSI Tunnel Type: %s, label: %d ID:%pI6\n",
+					msgstr, label2vni(&attr->label), &attr->tunn_id);
+			}
+		} else {
+			/* Label only */
+			vty_out(vty, "      PMSI Tunnel Type: %s, label: %d\n", msgstr,
+				label2vni(&attr->label));
+		}
 	}
 
 	if (path->peer->connection->t_gr_restart &&
