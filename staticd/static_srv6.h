@@ -46,6 +46,52 @@ struct static_srv6_sid {
 	struct static_srv6_locator *locator;
 };
 
+/* Hash table to keep per-interface neighbors used for SRv6 SID nexthop resolution */
+PREDECL_HASH(static_srv6_neigh_table);
+
+/*
+ * Neighbor information.
+ */
+struct static_srv6_neigh {
+	struct in6_addr addr; /* IPv6 address */
+	ifindex_t ifindex;    /* Interface index */
+	uint32_t ndm_state;   /* Neighbor state */
+
+	/* For linked list: next neighbor on the same interface */
+	struct static_srv6_neigh *next;
+};
+
+/*
+ * Per-interface neighbor list container for hash table.
+ * Maps interface index to list of neighbors on that interface.
+ */
+struct static_srv6_if_neigh {
+	/* Linkage for neighbors hash table */
+	struct static_srv6_neigh_table_item item;
+
+	/* Interface index (hash key) */
+	ifindex_t ifindex;
+
+	/* Linked list of neighbors on this interface */
+	struct static_srv6_neigh *neighbors;
+
+	/* Flag to indicate if a neighbor request has been sent */
+	bool neigh_request_sent;
+};
+
+/*
+ * Neighbor cache for SRv6 SID nexthop resolution.
+ * Maintains per-interface neighbor lists.
+ */
+struct static_srv6_neigh_cache {
+	/* Hash table: ifindex -> neighbor list */
+	struct static_srv6_neigh_table_head neigh_table;
+	/* Number of SIDs requiring nexthop resolution */
+	uint32_t resolve_sids_cnt;
+	/* Whether we are registered for neighbor notifications */
+	bool registered;
+};
+
 struct static_srv6_locator {
 	char name[SRV6_LOCNAME_SIZE];
 	struct prefix_ipv6 prefix;
@@ -102,6 +148,9 @@ void delete_static_srv6_sid(void *val);
 void delete_static_srv6_locator(void *val);
 
 void static_zebra_request_srv6_sids(void);
+
+void static_srv6_neigh_cache_init(void);
+void static_srv6_neigh_cache_cleanup(void);
 
 #ifdef __cplusplus
 }
