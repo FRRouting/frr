@@ -24,6 +24,20 @@ struct list *srv6_sids;
 
 DEFINE_MTYPE_STATIC(STATIC, STATIC_SRV6_LOCATOR, "Static SRv6 locator");
 DEFINE_MTYPE_STATIC(STATIC, STATIC_SRV6_SID, "Static SRv6 SID");
+DEFINE_MTYPE_STATIC(STATIC, STATIC_SRV6_NEIGH, "Static SRv6 Neighbor");
+DEFINE_MTYPE_STATIC(STATIC, STATIC_SRV6_NEIGH_CACHE, "Static SRv6 Neighbor Cache");
+DEFINE_MTYPE_STATIC(STATIC, STATIC_SRV6_IF_NEIGH, "Static SRv6 Interface Neighbors");
+
+/* Comparison and hash functions for neighbor table */
+static int static_srv6_neigh_table_cmp(const struct static_srv6_if_neigh *n1,
+				       const struct static_srv6_if_neigh *n2);
+static uint32_t static_srv6_neigh_table_hash(const struct static_srv6_if_neigh *neigh);
+
+DECLARE_HASH(static_srv6_neigh_table, struct static_srv6_if_neigh, item,
+	     static_srv6_neigh_table_cmp, static_srv6_neigh_table_hash);
+
+/* Global neighbor cache instance */
+struct static_srv6_neigh_cache *neigh_cache;
 
 /*
  * Determines if the specified SID needs to be installed or removed
@@ -254,6 +268,79 @@ void static_zebra_request_srv6_sids(void)
 }
 
 /*
+ * Neighbor Cache Functions
+ */
+
+/* Comparison function for neighbor table */
+int static_srv6_neigh_table_cmp(const struct static_srv6_if_neigh *ifn1,
+				const struct static_srv6_if_neigh *ifn2)
+{
+	if (ifn1->ifindex < ifn2->ifindex)
+		return -1;
+
+	if (ifn1->ifindex > ifn2->ifindex)
+		return 1;
+
+	return 0;
+}
+
+/* Hash function for neighbor table */
+uint32_t static_srv6_neigh_table_hash(const struct static_srv6_if_neigh *ifn)
+{
+	return jhash_1word(ifn->ifindex, 0);
+}
+
+/* Free neighbor */
+static void static_srv6_neigh_free(struct static_srv6_neigh *neigh)
+{
+	XFREE(MTYPE_STATIC_SRV6_NEIGH, neigh);
+}
+
+/*
+ * Initialize the neighbor cache
+ */
+void static_srv6_neigh_cache_init(void)
+{
+	if (neigh_cache)
+		return;
+
+	neigh_cache = XCALLOC(MTYPE_STATIC_SRV6_NEIGH_CACHE,
+			      sizeof(struct static_srv6_neigh_cache));
+
+	static_srv6_neigh_table_init(&neigh_cache->neigh_table);
+	neigh_cache->resolve_sids_cnt = 0;
+	neigh_cache->registered = false;
+}
+
+/*
+ * Clean up the neighbor cache
+ */
+void static_srv6_neigh_cache_cleanup(void)
+{
+	struct static_srv6_if_neigh *ifn;
+	struct static_srv6_neigh *neigh;
+	struct static_srv6_neigh *next;
+
+	if (!neigh_cache)
+		return;
+
+	/* Clean up hash table - free all interface neighbors */
+	while ((ifn = static_srv6_neigh_table_pop(&neigh_cache->neigh_table)) != NULL) {
+		neigh = ifn->neighbors;
+		while (neigh) {
+			next = neigh->next;
+			static_srv6_neigh_free(neigh);
+			neigh = next;
+		}
+		XFREE(MTYPE_STATIC_SRV6_IF_NEIGH, ifn);
+	}
+	static_srv6_neigh_table_fini(&neigh_cache->neigh_table);
+
+	XFREE(MTYPE_STATIC_SRV6_NEIGH_CACHE, neigh_cache);
+	neigh_cache = NULL;
+}
+
+/*
  * Initialize SRv6 data structures.
  */
 void static_srv6_init(void)
@@ -262,6 +349,7 @@ void static_srv6_init(void)
 	srv6_locators->del = delete_static_srv6_locator;
 	srv6_sids = list_new();
 	srv6_sids->del = delete_static_srv6_sid;
+	static_srv6_neigh_cache_init();
 }
 
 /*
@@ -269,6 +357,7 @@ void static_srv6_init(void)
  */
 void static_srv6_cleanup(void)
 {
+	static_srv6_neigh_cache_cleanup();
 	list_delete(&srv6_locators);
 	list_delete(&srv6_sids);
 }
