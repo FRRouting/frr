@@ -469,7 +469,25 @@ static void route_entry_attach_ref(struct route_entry *re,
 
 static void route_entry_update_original_nhe(struct route_entry *re, struct nhg_hash_entry *nhe)
 {
+	/* Store the original NHE received from the protocol before it is resolved */
+	if (!nhe)
+		return;
+
+	if (re->nhe_received == NULL) {
+		re->nhe_received = nhe;
+		SET_FLAG(nhe->flags, NEXTHOP_GROUP_RECEIVED);
+		zebra_nhg_increment_ref(nhe);
+		return;
+	}
+
+	if (re->nhe_received == nhe) {
+		zebra_nhg_increment_ref(nhe);
+		return;
+	}
+
+	zebra_nhg_decrement_ref(re->nhe_received);
 	re->nhe_received = nhe;
+	SET_FLAG(nhe->flags, NEXTHOP_GROUP_RECEIVED);
 	zebra_nhg_increment_ref(nhe);
 }
 
@@ -502,14 +520,6 @@ done:
 	/* Detach / deref previous nhg */
 
 	if (old_nhg) {
-		if (re->nhe_received == old_nhg) {
-			zebra_nhg_decrement_ref(old_nhg);
-		}
-		if (new_nhghe)
-			zebra_nhg_increment_ref(new_nhghe);
-
-		re->nhe_received = new_nhghe;
-
 		/*
 		 * Return true if we are deleting the previous NHE
 		 * Note: we dont check the return value of the function anywhere
@@ -544,6 +554,14 @@ int rib_handle_nhg_replace(struct nhg_hash_entry *old_entry,
 				if (re->nhe && re->nhe == old_entry)
 					ret += route_entry_update_nhe(re,
 								      new_entry);
+				/* If the RE's 'nhe_received' NHG is the proto-owned NHG being
+				 * replaced here, drop the reference. Protocols can update/delete
+				 * NHGs without a corresponding route update, so keeping this
+				 * pointer risks a stale/dangling reference. It will be
+				 * repopulated on the next valid route add/update.
+				 */
+				if (re->nhe_received == old_entry)
+					re->nhe_received = NULL;
 			}
 		}
 	}
