@@ -1459,6 +1459,14 @@ static int static_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+void static_zebra_neigh_register(afi_t afi, bool reg)
+{
+	DEBUGD(&static_dbg_events, "%s: Sending neighbor %s request for afi %u", __func__,
+	       reg ? "register" : "unregister", afi);
+
+	zclient_register_neigh(static_zclient, VRF_DEFAULT, afi, reg);
+}
+
 static zclient_handler *const static_handlers[] = {
 	[ZEBRA_INTERFACE_ADDRESS_ADD] = interface_address_add,
 	[ZEBRA_INTERFACE_ADDRESS_DELETE] = interface_address_delete,

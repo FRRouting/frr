@@ -32,6 +32,8 @@ extern void static_zebra_release_srv6_sid(struct static_srv6_sid *sid);
 extern void static_zebra_srv6_sid_install(struct static_srv6_sid *sid);
 extern void static_zebra_srv6_sid_uninstall(struct static_srv6_sid *sid);
 
+extern void static_zebra_neigh_register(afi_t afi, bool reg);
+
 #ifdef __cplusplus
 }
 #endif

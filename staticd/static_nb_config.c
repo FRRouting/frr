@@ -1263,8 +1263,9 @@ void routing_control_plane_protocols_control_plane_protocol_staticd_segment_rout
 			       "%s: Enabling nexthop resolution for SID %pFX on interface %s",
 			       __func__, &sid->addr, sid->attributes.ifname);
 
-			/* Set nexthop resolution flag */
+			/* Set nexthop resolution flag and register for neighbor notifications */
 			SET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_NEEDS_NH_RESOLUTION);
+			static_srv6_neigh_register_if_needed();
 		}
 	} else {
 		/* This is a SID that does not require nexthop resolution - disable nexthop resolution */
@@ -1272,8 +1273,12 @@ void routing_control_plane_protocols_control_plane_protocol_staticd_segment_rout
 			DEBUGD(&static_dbg_srv6, "%s: Disabling nexthop resolution for SID %pFX",
 			       __func__, &sid->addr);
 
-			/* Clear nexthop resolution flag */
+			/*
+			 * Clear the nexthop resolution flag and unregister from neighbor notifications
+			 * if there are no other SIDs requiring nexthop resolution.
+			 */
 			UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_NEEDS_NH_RESOLUTION);
+			static_srv6_neigh_unregister_if_needed();
 		}
 	}
 
