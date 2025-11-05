@@ -136,6 +136,7 @@ void static_ifp_srv6_sids_update(struct interface *ifp, bool is_up)
 {
 	struct static_srv6_sid *sid;
 	struct listnode *node;
+	bool needs_install = true;
 
 	if (!srv6_sids || !ifp)
 		return;
@@ -160,8 +161,14 @@ void static_ifp_srv6_sids_update(struct interface *ifp, bool is_up)
 				UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
 			}
 
-			static_zebra_srv6_sid_install(sid);
-			SET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
+			if (static_srv6_sid_needs_resolution(sid))
+				if (!static_srv6_sid_resolve_nexthop(sid))
+					needs_install = false; /* Can't install without neighbor */
+
+			if (needs_install) {
+				static_zebra_srv6_sid_install(sid);
+				SET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
+			}
 		} else {
 			static_zebra_srv6_sid_uninstall(sid);
 			UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
