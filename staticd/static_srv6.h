@@ -156,11 +156,18 @@ void static_zebra_request_srv6_sids(void);
 
 void static_srv6_neigh_cache_init(void);
 void static_srv6_neigh_cache_cleanup(void);
+void static_srv6_neigh_add(struct interface *ifp, struct in6_addr *addr, uint32_t ndm_state);
+void static_srv6_neigh_remove(struct interface *ifp, struct in6_addr *addr);
+struct in6_addr *static_srv6_neigh_lookup(struct interface *ifp);
 void static_srv6_neigh_register_if_needed(void);
 void static_srv6_neigh_unregister_if_needed(void);
+void static_srv6_refresh_sids_on_neigh_change(struct interface *ifp, struct in6_addr *nexthop,
+					      bool is_add);
 
 const struct in6_addr *static_srv6_sid_get_nexthop(const struct static_srv6_sid *sid);
+bool static_srv6_sid_needs_resolution(const struct static_srv6_sid *sid);
 void static_srv6_sid_clear_resolution(struct static_srv6_sid *sid);
+bool static_srv6_sid_resolve_nexthop(struct static_srv6_sid *sid);
 
 #ifdef __cplusplus
 }

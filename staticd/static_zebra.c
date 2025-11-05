@@ -1480,6 +1480,61 @@ static int static_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+/*
+ * Handle neighbor notifications from zebra
+ */
+static int static_zebra_process_neigh(ZAPI_CALLBACK_ARGS)
+{
+	struct zapi_neigh_ip api = {};
+	struct in6_addr addr;
+	ifindex_t ifindex;
+	uint32_t ndm_state;
+	struct interface *ifp;
+
+	DEBUGD(&static_dbg_events, "%s: Received neighbor event, cmd=%s", __func__,
+	       zserv_command_string(cmd));
+
+	zclient_neigh_ip_decode(zclient->ibuf, &api);
+
+	/* Only handle IPv6 neighbors for now */
+	if (api.ip_in.ipa_type != AF_INET6) {
+		DEBUGD(&static_dbg_events, "%s: Ignoring non-IPv6 neighbor (ipa_type=%u)",
+		       __func__, api.ip_in.ipa_type);
+		return 0;
+	}
+
+	memcpy(&addr, &api.ip_in.ip.addr, sizeof(struct in6_addr));
+	ifindex = api.index;
+	ndm_state = api.ndm_state;
+
+	ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
+	if (!ifp) {
+		DEBUGD(&static_dbg_events, "%s: Ignoring neighbor on unknown interface index %u",
+		       __func__, ifindex);
+		return 0;
+	}
+
+	DEBUGD(&static_dbg_events,
+	       "%s: Processing IPv6 neighbor %pI6 on interface %s (index %u) with state 0x%x",
+	       __func__, &addr, ifp->name, ifindex, ndm_state);
+
+	switch (cmd) {
+	case ZEBRA_NEIGH_ADDED:
+		DEBUGD(&static_dbg_events, "%s: Received neighbor added notification", __func__);
+		if (ndm_state == ZEBRA_NEIGH_STATE_FAILED)
+			static_srv6_neigh_remove(ifp, &addr);
+		else
+			static_srv6_neigh_add(ifp, &addr, ndm_state);
+		break;
+	case ZEBRA_NEIGH_REMOVED:
+		DEBUGD(&static_dbg_events, "%s: Received neighbor removed notification", __func__);
+		static_srv6_neigh_remove(ifp, &addr);
+		break;
+	}
+
+	return 0;
+}
+
 void static_zebra_neigh_get(struct interface *ifp, afi_t afi)
 {
 	if (!static_zclient || static_zclient->sock < 0) {
@@ -1514,6 +1569,8 @@ static zclient_handler *const static_handlers[] = {
 	[ZEBRA_SRV6_LOCATOR_ADD] = static_zebra_process_srv6_locator_add,
 	[ZEBRA_SRV6_LOCATOR_DELETE] = static_zebra_process_srv6_locator_delete,
 	[ZEBRA_SRV6_SID_NOTIFY] = static_zebra_srv6_sid_notify,
+	[ZEBRA_NEIGH_ADDED] = static_zebra_process_neigh,
+	[ZEBRA_NEIGH_REMOVED] = static_zebra_process_neigh,
 };
 
 void static_zebra_init(void)
