@@ -161,6 +161,7 @@ void static_srv6_neigh_remove(struct interface *ifp, struct in6_addr *addr);
 struct in6_addr *static_srv6_neigh_lookup(struct interface *ifp);
 void static_srv6_neigh_register_if_needed(void);
 void static_srv6_neigh_unregister_if_needed(void);
+void static_srv6_neigh_cleanup_interface(struct interface *ifp);
 void static_srv6_refresh_sids_on_neigh_change(struct interface *ifp, struct in6_addr *nexthop,
 					      bool is_add);
 

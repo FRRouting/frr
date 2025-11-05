@@ -722,6 +722,41 @@ struct in6_addr *static_srv6_neigh_lookup(struct interface *ifp)
 }
 
 /*
+ * Clean up all neighbors for a specific interface (when interface goes down)
+ */
+void static_srv6_neigh_cleanup_interface(struct interface *ifp)
+{
+	struct static_srv6_if_neigh *ifn;
+	struct static_srv6_neigh *neighbor;
+	struct static_srv6_neigh *next;
+	struct static_srv6_if_neigh lookup_key = { .ifindex = ifp->ifindex };
+
+	if (!neigh_cache)
+		return;
+
+	DEBUGD(&static_dbg_srv6, "%s: Cleaning up neighbors for interface %s (index %u)", __func__,
+	       ifp->name, ifp->ifindex);
+
+	ifn = static_srv6_neigh_table_find(&neigh_cache->neigh_table, &lookup_key);
+	if (!ifn)
+		return;
+
+	/* Remove all neighbors for this interface */
+	neighbor = ifn->neighbors;
+	while (neighbor) {
+		next = neighbor->next;
+		DEBUGD(&static_dbg_srv6, "%s: Removing neighbor %pI6 from interface %s (index %u)",
+		       __func__, &neighbor->addr, ifp->name, ifp->ifindex);
+		XFREE(MTYPE_STATIC_SRV6_NEIGH, neighbor);
+		neighbor = next;
+	}
+	ifn->neighbors = NULL;
+
+	/* Refresh all SIDs that might be using this interface for auto-resolution */
+	static_srv6_refresh_sids_on_neigh_change(ifp, NULL, false);
+}
+
+/*
  * Register for neighbor notifications if we have SIDs requiring nexthop resolution
  */
 void static_srv6_neigh_register_if_needed(void)
