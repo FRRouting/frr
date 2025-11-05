@@ -30,6 +30,7 @@
 #include "zebra/zebra_dplane.h"
 #include "zebra/zebra_tc.h"
 #include "zebra/zebra_trace.h"
+#include "lib/netlink_parser.h"
 
 #define TC_FREQ_DEFAULT (100)
 
