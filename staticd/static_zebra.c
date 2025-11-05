@@ -127,6 +127,9 @@ static int static_ifp_down(struct interface *ifp)
 
 	static_ifp_srv6_sids_update(ifp, false);
 
+	/* Clean up neighbor table entries for this interface */
+	static_srv6_neigh_cleanup_interface(ifp);
+
 	return 0;
 }
 
