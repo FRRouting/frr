@@ -3469,6 +3469,7 @@ accomplished via the following command, which lives under ``address-family ipv4
 unicast``/``address-family ipv6 unicast`` only in the default VRF:
 
 .. clicmd:: sid export <(1..1048575)|auto|explicit X:X::X:X> [route-map RNAME]
+
    Enables a SRv6 SID to be attached to routes in the current unicast
    address-family, received routes that already have a SID attached are ignored.
    If the value is ``auto``, the SID value is automatically assigned
@@ -3482,6 +3483,7 @@ unicast``/``address-family ipv6 unicast`` only in the default VRF:
    its rules.
 
 .. clicmd:: neighbor <X:X::X:X|WORD> <encapsulation-srv6|encapsulation-srv6-relax>
+
    Enables SRv6 for neighbor in the current unicast address family, this allows
    sending BGP prefix-sid attribute to this neighbor.
    If ``encapsulation-srv6`` is enabled, only BGP prefix-sid is sent to this
