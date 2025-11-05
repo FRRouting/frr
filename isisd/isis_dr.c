@@ -48,9 +48,9 @@ const char *isis_disflag2string(int disflag)
 	return NULL; /* not reached */
 }
 
-void isis_run_dr(struct event *thread)
+void isis_run_dr(struct event *event)
 {
-	struct isis_circuit_arg *arg = EVENT_ARG(thread);
+	struct isis_circuit_arg *arg = EVENT_ARG(event);
 
 	assert(arg);
 
@@ -61,8 +61,8 @@ void isis_run_dr(struct event *thread)
 
 	if (circuit->circ_type != CIRCUIT_T_BROADCAST) {
 		zlog_warn("%s: scheduled for non broadcast circuit from %s:%d",
-			  __func__, thread->xref->xref.file,
-			  thread->xref->xref.line);
+			  __func__, event->xref->xref.file,
+			  event->xref->xref.line);
 		return;
 	}
 

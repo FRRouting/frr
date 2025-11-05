@@ -60,9 +60,9 @@ static const char *if_zebra_data_state(uint8_t state)
 	return "STATE IS WRONG DEV ESCAPE";
 }
 
-static void if_zebra_speed_update(struct event *thread)
+static void if_zebra_speed_update(struct event *event)
 {
-	struct interface *ifp = EVENT_ARG(thread);
+	struct interface *ifp = EVENT_ARG(event);
 	struct zebra_if *zif = ifp->info;
 	uint32_t new_speed;
 	bool changed = false;

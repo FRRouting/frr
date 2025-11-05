@@ -3522,11 +3522,11 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 	return 0;
 }
 
-static void bgp_startup_timer_expire(struct event *thread)
+static void bgp_startup_timer_expire(struct event *event)
 {
 	struct bgp *bgp;
 
-	bgp = EVENT_ARG(thread);
+	bgp = EVENT_ARG(event);
 
 	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 		zlog_debug("%s: Startup timer expired", bgp->name_pretty);

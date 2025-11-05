@@ -1395,9 +1395,9 @@ static struct rlfa *rlfa_lookup(struct isis_spftree *spftree,
 	return rlfa_tree_find(&spftree->lfa.remote.rlfas, &s);
 }
 
-static void isis_area_verify_routes_cb(struct event *thread)
+static void isis_area_verify_routes_cb(struct event *event)
 {
-	struct isis_area *area = EVENT_ARG(thread);
+	struct isis_area *area = EVENT_ARG(event);
 
 	if (IS_DEBUG_LFA)
 		zlog_debug("ISIS-LFA: updating RLFAs in the RIB");

@@ -125,7 +125,7 @@ struct pim_instance {
 
 	int send_v6_secondary;
 
-	struct event *thread;
+	struct event *event;
 	int mroute_socket;
 	int reg_sock; /* Socket to send register msg */
 	int64_t mroute_socket_creation;

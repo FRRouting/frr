@@ -33,7 +33,7 @@
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_gr_clippy.c"
 
-static void ospf_gr_grace_period_expired(struct event *thread);
+static void ospf_gr_grace_period_expired(struct event *event);
 
 /* Lookup self-originated Grace-LSA in the LSDB. */
 static struct ospf_lsa *ospf_gr_lsa_lookup(struct ospf *ospf,
@@ -547,18 +547,18 @@ void ospf_gr_check_adjs(struct ospf *ospf)
 }
 
 /* Handling of grace period expiry. */
-static void ospf_gr_grace_period_expired(struct event *thread)
+static void ospf_gr_grace_period_expired(struct event *event)
 {
-	struct ospf *ospf = EVENT_ARG(thread);
+	struct ospf *ospf = EVENT_ARG(event);
 
 	ospf->gr_info.t_grace_period = NULL;
 	ospf_gr_restart_exit(ospf, "grace period has expired");
 }
 
 /* Send extra Grace-LSA out the interface (unplanned outages only). */
-void ospf_gr_iface_send_grace_lsa(struct event *thread)
+void ospf_gr_iface_send_grace_lsa(struct event *event)
 {
-	struct ospf_interface *oi = EVENT_ARG(thread);
+	struct ospf_interface *oi = EVENT_ARG(event);
 	struct ospf_if_params *params = IF_DEF_PARAMS(oi->ifp);
 
 	ospf_gr_lsa_originate(oi, oi->ospf->gr_info.reason, false);

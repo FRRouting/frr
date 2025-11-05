@@ -128,7 +128,7 @@ void isis_adj_state_change(struct isis_adjacency **adj,
 			   enum isis_adj_state state, const char *reason);
 void isis_adj_print(struct isis_adjacency *adj);
 const char *isis_adj_yang_state(enum isis_adj_state state);
-void isis_adj_expire(struct event *thread);
+void isis_adj_expire(struct event *event);
 void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 			char detail);
 void isis_adj_print_json(struct isis_adjacency *adj, struct json_object *json,
@@ -136,6 +136,6 @@ void isis_adj_print_json(struct isis_adjacency *adj, struct json_object *json,
 void isis_adj_build_neigh_list(struct list *adjdb, struct list *list);
 void isis_adj_build_up_list(struct list *adjdb, struct list *list);
 int isis_adj_usage2levels(enum isis_adj_usage usage);
-void isis_bfd_startup_timer(struct event *thread);
+void isis_bfd_startup_timer(struct event *event);
 const char *isis_adj_name(const struct isis_adjacency *adj);
 #endif /* ISIS_ADJACENCY_H */

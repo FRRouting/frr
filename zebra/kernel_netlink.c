@@ -502,9 +502,9 @@ static int dplane_netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	return 0;
 }
 
-static void kernel_read(struct event *thread)
+static void kernel_read(struct event *event)
 {
-	struct zebra_ns *zns = (struct zebra_ns *)EVENT_ARG(thread);
+	struct zebra_ns *zns = (struct zebra_ns *)EVENT_ARG(event);
 	struct zebra_dplane_info dp_info;
 
 	/* Capture key info from ns struct */

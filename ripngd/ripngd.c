@@ -1343,9 +1343,9 @@ static void ripng_request_process(struct ripng_packet *packet, int size,
 }
 
 /* First entry point of reading RIPng packet. */
-static void ripng_read(struct event *thread)
+static void ripng_read(struct event *event)
 {
-	struct ripng *ripng = EVENT_ARG(thread);
+	struct ripng *ripng = EVENT_ARG(event);
 	int len;
 	int sock;
 	struct sockaddr_in6 from;
@@ -1358,9 +1358,9 @@ static void ripng_read(struct event *thread)
 	assert(ripng != NULL);
 	assert(ripng->sock >= 0);
 
-	/* Fetch thread data and set read pointer to empty for event
+	/* Fetch event data and set read pointer to empty for event
 	   managing.  `sock' sould be same as ripng->sock. */
-	sock = EVENT_FD(thread);
+	sock = EVENT_FD(event);
 
 	/* Add myself to the next event. */
 	ripng_event(ripng, RIPNG_READ, sock);
@@ -1989,15 +1989,15 @@ static void ripng_vty_out_uptime(struct vty *vty, struct ripng_info *rinfo)
 	struct tm tm;
 #define TIME_BUF 25
 	char timebuf[TIME_BUF];
-	struct event *thread;
+	struct event *event;
 
-	if ((thread = rinfo->t_timeout) != NULL) {
-		clock = event_timer_remain_second(thread);
+	if ((event = rinfo->t_timeout) != NULL) {
+		clock = event_timer_remain_second(event);
 		gmtime_r(&clock, &tm);
 		strftime(timebuf, TIME_BUF, "%M:%S", &tm);
 		vty_out(vty, "%5s", timebuf);
-	} else if ((thread = rinfo->t_garbage_collect) != NULL) {
-		clock = event_timer_remain_second(thread);
+	} else if ((event = rinfo->t_garbage_collect) != NULL) {
+		clock = event_timer_remain_second(event);
 		gmtime_r(&clock, &tm);
 		strftime(timebuf, TIME_BUF, "%M:%S", &tm);
 		vty_out(vty, "%5s", timebuf);

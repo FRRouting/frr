@@ -309,9 +309,9 @@ int eigrp_check_sha256_digest(struct stream *s,
 	return 1;
 }
 
-void eigrp_write(struct event *thread)
+void eigrp_write(struct event *event)
 {
-	struct eigrp *eigrp = EVENT_ARG(thread);
+	struct eigrp *eigrp = EVENT_ARG(event);
 	struct eigrp_header *eigrph;
 	struct eigrp_interface *ei;
 	struct eigrp_packet *ep;
@@ -456,7 +456,7 @@ out:
 		list_delete_node(eigrp->oi_write_q, node);
 	}
 
-	/* If packets still remain in queue, call write thread. */
+	/* If packets still remain in queue, call write event. */
 	if (!list_isempty(eigrp->oi_write_q)) {
 		event_add_write(master, eigrp_write, eigrp, eigrp->fd,
 				&eigrp->t_write);
@@ -464,7 +464,7 @@ out:
 }
 
 /* Starting point of packet process function. */
-void eigrp_read(struct event *thread)
+void eigrp_read(struct event *event)
 {
 	int ret;
 	struct stream *ibuf;
@@ -480,7 +480,7 @@ void eigrp_read(struct event *thread)
 	uint16_t length = 0;
 
 	/* first of all get interface pointer. */
-	eigrp = EVENT_ARG(thread);
+	eigrp = EVENT_ARG(event);
 
 	/* prepare for next packet. */
 	event_add_read(master, eigrp_read, eigrp, eigrp->fd, &eigrp->t_read);
@@ -975,10 +975,10 @@ static int eigrp_check_network_mask(struct eigrp_interface *ei,
 	return 0;
 }
 
-void eigrp_unack_packet_retrans(struct event *thread)
+void eigrp_unack_packet_retrans(struct event *event)
 {
 	struct eigrp_neighbor *nbr;
-	nbr = (struct eigrp_neighbor *)EVENT_ARG(thread);
+	nbr = (struct eigrp_neighbor *)EVENT_ARG(event);
 
 	struct eigrp_packet *ep;
 	ep = eigrp_fifo_next(nbr->retrans_queue);
@@ -1001,7 +1001,7 @@ void eigrp_unack_packet_retrans(struct event *thread)
 				EIGRP_PACKET_RETRANS_TIME,
 				&ep->t_retrans_timer);
 
-		/* Hook thread to write packet. */
+		/* Hook event to write packet. */
 		if (nbr->ei->on_write_q == 0) {
 			listnode_add(nbr->ei->eigrp->oi_write_q, nbr->ei);
 			nbr->ei->on_write_q = 1;
@@ -1011,10 +1011,10 @@ void eigrp_unack_packet_retrans(struct event *thread)
 	}
 }
 
-void eigrp_unack_multicast_packet_retrans(struct event *thread)
+void eigrp_unack_multicast_packet_retrans(struct event *event)
 {
 	struct eigrp_neighbor *nbr;
-	nbr = (struct eigrp_neighbor *)EVENT_ARG(thread);
+	nbr = (struct eigrp_neighbor *)EVENT_ARG(event);
 
 	struct eigrp_packet *ep;
 	ep = eigrp_fifo_next(nbr->multicast_queue);
@@ -1036,7 +1036,7 @@ void eigrp_unack_multicast_packet_retrans(struct event *thread)
 				nbr, EIGRP_PACKET_RETRANS_TIME,
 				&ep->t_retrans_timer);
 
-		/* Hook thread to write packet. */
+		/* Hook event to write packet. */
 		if (nbr->ei->on_write_q == 0) {
 			listnode_add(nbr->ei->eigrp->oi_write_q, nbr->ei);
 			nbr->ei->on_write_q = 1;

@@ -275,11 +275,11 @@ static unsigned int ospf_packet_max(struct ospf_interface *oi)
 	return max;
 }
 
-static void ospf_ls_req_timer(struct event *thread)
+static void ospf_ls_req_timer(struct event *event)
 {
 	struct ospf_neighbor *nbr;
 
-	nbr = EVENT_ARG(thread);
+	nbr = EVENT_ARG(event);
 	nbr->t_ls_req = NULL;
 
 	/* Send Link State Request. */
@@ -300,12 +300,12 @@ void ospf_ls_req_event(struct ospf_neighbor *nbr)
  * OSPF neighbor link state retransmission timer handler. Unicast
  * unacknowledged LSAs to the neigbhors.
  */
-void ospf_ls_rxmt_timer(struct event *thread)
+void ospf_ls_rxmt_timer(struct event *event)
 {
 	struct ospf_neighbor *nbr;
 	int retransmit_interval, retransmit_window, rxmt_lsa_count = 0;
 
-	nbr = EVENT_ARG(thread);
+	nbr = EVENT_ARG(event);
 	nbr->t_ls_rxmt = NULL;
 	retransmit_interval = nbr->v_ls_rxmt;
 	retransmit_window = OSPF_IF_PARAM(nbr->oi, retransmit_window);
@@ -373,11 +373,11 @@ void ospf_ls_rxmt_timer(struct event *thread)
 	ospf_ls_retransmit_set_timer(nbr);
 }
 
-void ospf_ls_ack_delayed_timer(struct event *thread)
+void ospf_ls_ack_delayed_timer(struct event *event)
 {
 	struct ospf_interface *oi;
 
-	oi = EVENT_ARG(thread);
+	oi = EVENT_ARG(event);
 	oi->t_ls_ack_delayed = NULL;
 
 	/* Send Link State Acknowledgment. */
@@ -458,9 +458,9 @@ static void ospf_write_frags(int fd, struct ospf_packet *op, struct ip *iph,
 }
 #endif /* WANT_OSPF_WRITE_FRAGMENT */
 
-static void ospf_write(struct event *thread)
+static void ospf_write(struct event *event)
 {
-	struct ospf *ospf = EVENT_ARG(thread);
+	struct ospf *ospf = EVENT_ARG(event);
 	struct ospf_interface *oi;
 	struct ospf_packet *op;
 	struct sockaddr_in sa_dst;
@@ -574,7 +574,7 @@ static void ospf_write(struct event *thread)
 #endif
 
 #ifdef WANT_OSPF_WRITE_FRAGMENT
-		/* XXX-MT: not thread-safe at all..
+		/* XXX-MT: not event-safe at all..
 		 * XXX: this presumes this is only programme sending OSPF
 		 * packets
 		 * otherwise, no guarantee ipid will be unique
@@ -703,7 +703,7 @@ static void ospf_write(struct event *thread)
 		}
 	}
 
-	/* If packets still remain in queue, call write thread. */
+	/* If packets still remain in queue, call write event. */
 	if (!list_isempty(ospf->oi_write_q))
 		event_add_write(master, ospf_write, ospf, ospf->fd,
 				&ospf->t_write);
@@ -2926,14 +2926,14 @@ static enum ospf_read_return_enum ospf_read_helper(struct ospf *ospf)
 }
 
 /* Starting point of packet process function. */
-void ospf_read(struct event *thread)
+void ospf_read(struct event *event)
 {
 	struct ospf *ospf;
 	int32_t count = 0;
 	enum ospf_read_return_enum ret;
 
 	/* first of all get interface pointer. */
-	ospf = EVENT_ARG(thread);
+	ospf = EVENT_ARG(event);
 
 	/* prepare for next packet. */
 	event_add_read(master, ospf_read, ospf, ospf->fd, &ospf->t_read);
@@ -3483,11 +3483,11 @@ static void ospf_poll_send(struct ospf_nbr_nbma *nbr_nbma)
 	ospf_hello_send_sub(oi, nbr_nbma->addr.s_addr);
 }
 
-void ospf_poll_timer(struct event *thread)
+void ospf_poll_timer(struct event *event)
 {
 	struct ospf_nbr_nbma *nbr_nbma;
 
-	nbr_nbma = EVENT_ARG(thread);
+	nbr_nbma = EVENT_ARG(event);
 	nbr_nbma->t_poll = NULL;
 
 	if (IS_DEBUG_OSPF(nsm, NSM_TIMERS))
@@ -3502,11 +3502,11 @@ void ospf_poll_timer(struct event *thread)
 }
 
 
-void ospf_hello_reply_timer(struct event *thread)
+void ospf_hello_reply_timer(struct event *event)
 {
 	struct ospf_neighbor *nbr;
 
-	nbr = EVENT_ARG(thread);
+	nbr = EVENT_ARG(event);
 	nbr->t_hello_reply = NULL;
 
 	if (IS_DEBUG_OSPF(nsm, NSM_TIMERS))
@@ -3860,9 +3860,9 @@ void ospf_ls_upd_queue_send(struct ospf_interface *oi, struct list *update,
 	}
 }
 
-static void ospf_ls_upd_send_queue_event(struct event *thread)
+static void ospf_ls_upd_send_queue_event(struct event *event)
 {
-	struct ospf_interface *oi = EVENT_ARG(thread);
+	struct ospf_interface *oi = EVENT_ARG(event);
 	struct route_node *rn;
 	struct route_node *rnext;
 	struct list *update;
@@ -4012,9 +4012,9 @@ static void ospf_ls_ack_send_list(struct ospf_interface *oi,
 	OSPF_ISM_WRITE_ON(oi->ospf);
 }
 
-static void ospf_ls_ack_send_direct_event(struct event *thread)
+static void ospf_ls_ack_send_direct_event(struct event *event)
 {
-	struct ospf_interface *oi = EVENT_ARG(thread);
+	struct ospf_interface *oi = EVENT_ARG(event);
 	struct in_addr dst = { INADDR_ANY };
 
 	oi->t_ls_ack_direct = NULL;

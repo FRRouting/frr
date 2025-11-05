@@ -889,12 +889,12 @@ void ospf6_lsa_unlock(struct ospf6_lsa **lsa)
 
 
 /* ospf6 lsa expiry */
-void ospf6_lsa_expire(struct event *thread)
+void ospf6_lsa_expire(struct event *event)
 {
 	struct ospf6_lsa *lsa;
 	struct ospf6 *ospf6;
 
-	lsa = (struct ospf6_lsa *)EVENT_ARG(thread);
+	lsa = (struct ospf6_lsa *)EVENT_ARG(event);
 
 	assert(lsa && lsa->header);
 	assert(OSPF6_LSA_IS_MAXAGE(lsa));
@@ -922,12 +922,12 @@ void ospf6_lsa_expire(struct event *thread)
 	ospf6_maxage_remove(ospf6);
 }
 
-void ospf6_lsa_refresh(struct event *thread)
+void ospf6_lsa_refresh(struct event *event)
 {
 	struct ospf6_lsa *old, *self, *new;
 	struct ospf6_lsdb *lsdb_self;
 
-	old = (struct ospf6_lsa *)EVENT_ARG(thread);
+	old = (struct ospf6_lsa *)EVENT_ARG(event);
 	assert(old && old->header);
 
 	old->refresh = (struct event *)NULL;

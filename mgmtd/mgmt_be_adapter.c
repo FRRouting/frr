@@ -766,11 +766,11 @@ struct mgmt_be_get_adapter_config_params {
 /*
  * Initialize a BE client over a new connection
  */
-static void mgmt_be_adapter_conn_init(struct event *thread)
+static void mgmt_be_adapter_conn_init(struct event *event)
 {
 	struct mgmt_be_client_adapter *adapter;
 
-	adapter = (struct mgmt_be_client_adapter *)EVENT_ARG(thread);
+	adapter = (struct mgmt_be_client_adapter *)EVENT_ARG(event);
 	assert(adapter && adapter->conn->fd >= 0);
 
 	/*

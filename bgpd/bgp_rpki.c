@@ -597,9 +597,9 @@ struct rpki_revalidate_prefix {
 	safi_t safi;
 };
 
-static void rpki_revalidate_prefix(struct event *thread)
+static void rpki_revalidate_prefix(struct event *event)
 {
-	struct rpki_revalidate_prefix *rrp = EVENT_ARG(thread);
+	struct rpki_revalidate_prefix *rrp = EVENT_ARG(event);
 	struct bgp_dest *match, *node;
 
 	match = bgp_table_subtree_lookup(rrp->bgp->rib[rrp->afi][rrp->safi],
@@ -649,11 +649,11 @@ static void revalidate_single_prefix(struct vrf *vrf, struct prefix prefix, afi_
 	}
 }
 
-static void bgpd_sync_callback(struct event *thread)
+static void bgpd_sync_callback(struct event *event)
 {
 	struct prefix prefix;
 	struct pfx_record rec;
-	struct rpki_vrf *rpki_vrf = EVENT_ARG(thread);
+	struct rpki_vrf *rpki_vrf = EVENT_ARG(event);
 	struct vrf *vrf = NULL;
 	afi_t afi;
 	int retval;
@@ -875,9 +875,9 @@ static int bgp_rpki_module_init(void)
 	return 0;
 }
 
-static void sync_expired(struct event *thread)
+static void sync_expired(struct event *event)
 {
-	struct rpki_vrf *rpki_vrf = EVENT_ARG(thread);
+	struct rpki_vrf *rpki_vrf = EVENT_ARG(event);
 
 	if (!rtr_mgr_conf_in_sync(rpki_vrf->rtr_config)) {
 		RPKI_DEBUG("rtr_mgr is not synced, retrying.");

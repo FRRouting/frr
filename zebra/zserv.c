@@ -219,9 +219,9 @@ static void zserv_client_fail(struct zserv *client)
  * allows us to expose information about input and output queues to the user in
  * terms of number of packets rather than size of data.
  */
-static void zserv_write(struct event *thread)
+static void zserv_write(struct event *event)
 {
-	struct zserv *client = EVENT_ARG(thread);
+	struct zserv *client = EVENT_ARG(event);
 	struct stream *msg;
 	uint32_t wcmd = 0;
 	struct stream_fifo *cache;
@@ -320,9 +320,9 @@ zwrite_fail:
  * The main thread processes the items in ibuf_fifo and always signals the
  * client IO thread.
  */
-static void zserv_read(struct event *thread)
+static void zserv_read(struct event *event)
 {
-	struct zserv *client = EVENT_ARG(thread);
+	struct zserv *client = EVENT_ARG(event);
 	int sock;
 	size_t already;
 	struct stream_fifo *cache;
@@ -345,7 +345,7 @@ static void zserv_read(struct event *thread)
 
 	p2p = p2p_avail;
 	cache = stream_fifo_new();
-	sock = EVENT_FD(thread);
+	sock = EVENT_FD(event);
 
 	while (p2p) {
 		ssize_t nb;
@@ -460,7 +460,7 @@ static void zserv_read(struct event *thread)
 			while (cache->head)
 				stream_fifo_push(client->ibuf_fifo,
 						 stream_fifo_pop(cache));
-			/* Need to update count as main thread could have processed few */
+			/* Need to update count as main event could have processed few */
 			client_ibuf_fifo_cnt =
 				stream_fifo_count_safe(client->ibuf_fifo);
 		}
@@ -531,9 +531,9 @@ static void zserv_client_event(struct zserv *client,
  *    items to the ibuf_fifo (until max limit)
  *  - the hidden config change (zebra zapi-packets <>) is taken into account.
  */
-static void zserv_process_messages(struct event *thread)
+static void zserv_process_messages(struct event *event)
 {
-	struct zserv *client = EVENT_ARG(thread);
+	struct zserv *client = EVENT_ARG(event);
 	struct stream *msg;
 	struct stream_fifo *cache = stream_fifo_new();
 	uint32_t p2p = zrouter.packets_to_process;
@@ -774,9 +774,9 @@ void zserv_close_client(struct zserv *client)
  * already have been closed and the thread will most likely have died, but its
  * resources still need to be cleaned up.
  */
-static void zserv_handle_client_fail(struct event *thread)
+static void zserv_handle_client_fail(struct event *event)
 {
-	struct zserv *client = EVENT_ARG(thread);
+	struct zserv *client = EVENT_ARG(event);
 
 	zserv_close_client(client);
 }
@@ -911,7 +911,7 @@ void zserv_release_client(struct zserv *client)
 /*
  * Accept socket connection.
  */
-static void zserv_accept(struct event *thread)
+static void zserv_accept(struct event *event)
 {
 	int client_sock;
 	struct sockaddr_in client;

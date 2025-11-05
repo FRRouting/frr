@@ -40,7 +40,7 @@ static void register_zebra_rnh(struct bgp_nexthop_cache *bnc);
 static void unregister_zebra_rnh(struct bgp_nexthop_cache *bnc);
 static bool make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p,
 			struct bgp *bgp_nexthop, struct bgp_path_info *pi_source);
-static void bgp_nht_ifp_initial(struct event *thread);
+static void bgp_nht_ifp_initial(struct event *event);
 
 DEFINE_HOOK(bgp_nht_path_update, (struct bgp *bgp, struct bgp_path_info *pi, bool valid),
 	    (bgp, pi, valid));
@@ -859,10 +859,10 @@ void bgp_nht_ifp_down(struct interface *ifp)
 	bgp_nht_ifp_handle(ifp, false);
 }
 
-static void bgp_nht_ifp_initial(struct event *thread)
+static void bgp_nht_ifp_initial(struct event *event)
 {
-	ifindex_t ifindex = EVENT_VAL(thread);
-	struct bgp *bgp = EVENT_ARG(thread);
+	ifindex_t ifindex = EVENT_VAL(event);
+	struct bgp *bgp = EVENT_ARG(event);
 	struct interface *ifp = if_lookup_by_index(ifindex, bgp->vrf_id);
 
 	if (!ifp)

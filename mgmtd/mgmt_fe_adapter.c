@@ -410,20 +410,20 @@ static int fe_adapter_send_error(struct mgmt_fe_session_ctx *session,
 }
 
 
-static void mgmt_fe_session_cfg_txn_clnup(struct event *thread)
+static void mgmt_fe_session_cfg_txn_clnup(struct event *event)
 {
 	struct mgmt_fe_session_ctx *session;
 
-	session = (struct mgmt_fe_session_ctx *)EVENT_ARG(thread);
+	session = (struct mgmt_fe_session_ctx *)EVENT_ARG(event);
 
 	mgmt_fe_session_cfg_txn_cleanup(session);
 }
 
-static void mgmt_fe_session_show_txn_clnup(struct event *thread)
+static void mgmt_fe_session_show_txn_clnup(struct event *event)
 {
 	struct mgmt_fe_session_ctx *session;
 
-	session = (struct mgmt_fe_session_ctx *)EVENT_ARG(thread);
+	session = (struct mgmt_fe_session_ctx *)EVENT_ARG(event);
 
 	mgmt_fe_session_show_txn_cleanup(session);
 }

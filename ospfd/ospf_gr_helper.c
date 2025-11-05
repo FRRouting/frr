@@ -329,9 +329,9 @@ static int ospf_extract_grace_lsa_fields(struct ospf_lsa *lsa,
  * Returns:
  *    Nothing
  */
-static void ospf_handle_grace_timer_expiry(struct event *thread)
+static void ospf_handle_grace_timer_expiry(struct event *event)
 {
-	struct ospf_neighbor *nbr = EVENT_ARG(thread);
+	struct ospf_neighbor *nbr = EVENT_ARG(event);
 
 	nbr->gr_helper_info.t_grace_timer = NULL;
 

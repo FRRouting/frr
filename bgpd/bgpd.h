@@ -2766,7 +2766,7 @@ extern int peer_ttl_security_hops_unset(struct peer *);
 extern void peer_tx_shutdown_message_set(struct peer *, const char *msg);
 extern void peer_tx_shutdown_message_unset(struct peer *);
 
-extern void bgp_route_map_update_timer(struct event *thread);
+extern void bgp_route_map_update_timer(struct event *event);
 extern const char *bgp_get_name_by_role(uint8_t role);
 extern enum asnotation_mode bgp_get_asnotation(struct bgp *bgp);
 

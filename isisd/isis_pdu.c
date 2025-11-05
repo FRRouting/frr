@@ -1840,7 +1840,7 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 	return retval;
 }
 
-void isis_receive(struct event *thread)
+void isis_receive(struct event *event)
 {
 	struct isis_circuit *circuit;
 	uint8_t ssnpa[ETH_ALEN];
@@ -1848,7 +1848,7 @@ void isis_receive(struct event *thread)
 	/*
 	 * Get the circuit
 	 */
-	circuit = EVENT_ARG(thread);
+	circuit = EVENT_ARG(event);
 	assert(circuit);
 
 	circuit->t_read = NULL;
@@ -2069,9 +2069,9 @@ int send_hello(struct isis_circuit *circuit, int level)
 	return retval;
 }
 
-static void send_hello_cb(struct event *thread)
+static void send_hello_cb(struct event *event)
 {
-	struct isis_circuit_arg *arg = EVENT_ARG(thread);
+	struct isis_circuit_arg *arg = EVENT_ARG(event);
 	assert(arg);
 
 	struct isis_circuit *circuit = arg->circuit;
@@ -2105,7 +2105,7 @@ static void send_hello_cb(struct event *thread)
 
 	send_hello(circuit, level);
 
-	/* set next timer thread */
+	/* set next timer event */
 	send_hello_sched(circuit, level, 1000L * circuit->hello_interval[level - 1]);
 }
 
@@ -2298,11 +2298,11 @@ int send_csnp(struct isis_circuit *circuit, int level)
 	return ISIS_OK;
 }
 
-void send_l1_csnp(struct event *thread)
+void send_l1_csnp(struct event *event)
 {
 	struct isis_circuit *circuit;
 
-	circuit = EVENT_ARG(thread);
+	circuit = EVENT_ARG(event);
 	assert(circuit);
 
 	circuit->t_send_csnp[0] = NULL;
@@ -2312,17 +2312,17 @@ void send_l1_csnp(struct event *thread)
 	     || circuit->circ_type == CIRCUIT_T_P2P) {
 		send_csnp(circuit, 1);
 	}
-	/* set next timer thread */
+	/* set next timer event */
 	event_add_timer(master, send_l1_csnp, circuit,
 			isis_jitter(circuit->csnp_interval[0], CSNP_JITTER),
 			&circuit->t_send_csnp[0]);
 }
 
-void send_l2_csnp(struct event *thread)
+void send_l2_csnp(struct event *event)
 {
 	struct isis_circuit *circuit;
 
-	circuit = EVENT_ARG(thread);
+	circuit = EVENT_ARG(event);
 	assert(circuit);
 
 	circuit->t_send_csnp[1] = NULL;
@@ -2332,7 +2332,7 @@ void send_l2_csnp(struct event *thread)
              || circuit->circ_type == CIRCUIT_T_P2P) {
 		send_csnp(circuit, 2);
 	}
-	/* set next timer thread */
+	/* set next timer event */
 	event_add_timer(master, send_l2_csnp, circuit,
 			isis_jitter(circuit->csnp_interval[1], CSNP_JITTER),
 			&circuit->t_send_csnp[1]);
@@ -2452,18 +2452,18 @@ static int send_psnp(int level, struct isis_circuit *circuit)
 	return ISIS_OK;
 }
 
-void send_l1_psnp(struct event *thread)
+void send_l1_psnp(struct event *event)
 {
 
 	struct isis_circuit *circuit;
 
-	circuit = EVENT_ARG(thread);
+	circuit = EVENT_ARG(event);
 	assert(circuit);
 
 	circuit->t_send_psnp[0] = NULL;
 
 	send_psnp(1, circuit);
-	/* set next timer thread */
+	/* set next timer event */
 	event_add_timer(master, send_l1_psnp, circuit,
 			isis_jitter(circuit->psnp_interval[0], PSNP_JITTER),
 			&circuit->t_send_psnp[0]);
@@ -2473,18 +2473,18 @@ void send_l1_psnp(struct event *thread)
  *  7.3.15.4 action on expiration of partial SNP interval
  *  level 2
  */
-void send_l2_psnp(struct event *thread)
+void send_l2_psnp(struct event *event)
 {
 	struct isis_circuit *circuit;
 
-	circuit = EVENT_ARG(thread);
+	circuit = EVENT_ARG(event);
 	assert(circuit);
 
 	circuit->t_send_psnp[1] = NULL;
 
 	send_psnp(2, circuit);
 
-	/* set next timer thread */
+	/* set next timer event */
 	event_add_timer(master, send_l2_psnp, circuit,
 			isis_jitter(circuit->psnp_interval[1], PSNP_JITTER),
 			&circuit->t_send_psnp[1]);

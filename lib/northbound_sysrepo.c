@@ -28,7 +28,7 @@ static sr_session_ctx_t *session;
 static sr_conn_ctx_t *connection;
 static struct nb_transaction *transaction;
 
-static void frr_sr_read_cb(struct event *thread);
+static void frr_sr_read_cb(struct event *event);
 static int frr_sr_finish(void);
 
 /* Convert FRR YANG data value to sysrepo YANG data value. */
@@ -444,10 +444,10 @@ static int frr_sr_notification_send(const char *xpath, struct list *arguments)
 	return NB_OK;
 }
 
-static void frr_sr_read_cb(struct event *thread)
+static void frr_sr_read_cb(struct event *event)
 {
-	struct yang_module *module = EVENT_ARG(thread);
-	int fd = EVENT_FD(thread);
+	struct yang_module *module = EVENT_ARG(event);
+	int fd = EVENT_FD(event);
 	int ret;
 
 	ret = sr_subscription_process_events(module->sr_subscription, session,

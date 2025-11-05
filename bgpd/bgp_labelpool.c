@@ -1350,7 +1350,7 @@ static int test_cb(mpls_label_t label, void *labelid, bool allocated)
 	return 0;
 }
 
-static void labelpool_test_event_handler(struct event *thread)
+static void labelpool_test_event_handler(struct event *event)
 {
 	struct lp_test *tcb;
 

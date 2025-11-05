@@ -1033,7 +1033,7 @@ lde_wildcard_apply(struct map *wcard, struct fec *fec, struct lde_map *me)
 /* gabage collector timer: timer to remove dead entries from the LIB */
 
 /* ARGSUSED */
-void lde_gc_timer(struct event *thread)
+void lde_gc_timer(struct event *event)
 {
 	struct fec	*fec, *safe;
 	struct fec_node	*fn;

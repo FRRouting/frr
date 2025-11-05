@@ -764,12 +764,12 @@ static bool ifmaddr_check(ifindex_t ifindex, struct in6_addr *addr)
 #endif /* __FreeBSD__ */
 
 /* Interface State Machine */
-void interface_up(struct event *thread)
+void interface_up(struct event *event)
 {
 	struct ospf6_interface *oi;
 	struct ospf6 *ospf6;
 
-	oi = (struct ospf6_interface *)EVENT_ARG(thread);
+	oi = (struct ospf6_interface *)EVENT_ARG(event);
 	assert(oi && oi->interface);
 
 	if (!oi->type_cfg)
@@ -886,11 +886,11 @@ void interface_up(struct event *thread)
 	}
 }
 
-void wait_timer(struct event *thread)
+void wait_timer(struct event *event)
 {
 	struct ospf6_interface *oi;
 
-	oi = (struct ospf6_interface *)EVENT_ARG(thread);
+	oi = (struct ospf6_interface *)EVENT_ARG(event);
 	assert(oi && oi->interface);
 
 	if (IS_OSPF6_DEBUG_INTERFACE)
@@ -901,11 +901,11 @@ void wait_timer(struct event *thread)
 		ospf6_interface_state_change(dr_election(oi), oi);
 }
 
-void backup_seen(struct event *thread)
+void backup_seen(struct event *event)
 {
 	struct ospf6_interface *oi;
 
-	oi = (struct ospf6_interface *)EVENT_ARG(thread);
+	oi = (struct ospf6_interface *)EVENT_ARG(event);
 	assert(oi && oi->interface);
 
 	if (IS_OSPF6_DEBUG_INTERFACE)
@@ -916,11 +916,11 @@ void backup_seen(struct event *thread)
 		ospf6_interface_state_change(dr_election(oi), oi);
 }
 
-void neighbor_change(struct event *thread)
+void neighbor_change(struct event *event)
 {
 	struct ospf6_interface *oi;
 
-	oi = (struct ospf6_interface *)EVENT_ARG(thread);
+	oi = (struct ospf6_interface *)EVENT_ARG(event);
 	assert(oi && oi->interface);
 
 	if (IS_OSPF6_DEBUG_INTERFACE)
@@ -932,14 +932,14 @@ void neighbor_change(struct event *thread)
 		ospf6_interface_state_change(dr_election(oi), oi);
 }
 
-void interface_down(struct event *thread)
+void interface_down(struct event *event)
 {
 	struct ospf6_interface *oi;
 	struct listnode *node, *nnode;
 	struct ospf6_neighbor *on;
 	struct ospf6 *ospf6;
 
-	oi = (struct ospf6_interface *)EVENT_ARG(thread);
+	oi = (struct ospf6_interface *)EVENT_ARG(event);
 	assert(oi && oi->interface);
 
 	if (IS_OSPF6_DEBUG_INTERFACE)

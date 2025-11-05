@@ -673,8 +673,8 @@ struct vrrp_vrouter *vrrp_lookup(const struct interface *ifp, uint8_t vrid)
 
 /* Forward decls */
 static void vrrp_change_state(struct vrrp_router *r, int to);
-static void vrrp_adver_timer_expire(struct event *thread);
-static void vrrp_master_down_timer_expire(struct event *thread);
+static void vrrp_adver_timer_expire(struct event *event);
+static void vrrp_master_down_timer_expire(struct event *event);
 
 /*
  * Finds the first connected address of the appropriate family on a VRRP
@@ -975,9 +975,9 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 /*
  * Read and process next IPvX datagram.
  */
-static void vrrp_read(struct event *thread)
+static void vrrp_read(struct event *event)
 {
-	struct vrrp_router *r = EVENT_ARG(thread);
+	struct vrrp_router *r = EVENT_ARG(event);
 
 	struct vrrp_pkt *pkt;
 	ssize_t pktsize;
@@ -1491,9 +1491,9 @@ static void vrrp_change_state(struct vrrp_router *r, int to)
 /*
  * Called when Adver_Timer expires.
  */
-static void vrrp_adver_timer_expire(struct event *thread)
+static void vrrp_adver_timer_expire(struct event *event)
 {
-	struct vrrp_router *r = EVENT_ARG(thread);
+	struct vrrp_router *r = EVENT_ARG(event);
 
 	DEBUGD(&vrrp_dbg_proto,
 	       VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
@@ -1519,9 +1519,9 @@ static void vrrp_adver_timer_expire(struct event *thread)
 /*
  * Called when Master_Down_Timer expires.
  */
-static void vrrp_master_down_timer_expire(struct event *thread)
+static void vrrp_master_down_timer_expire(struct event *event)
 {
-	struct vrrp_router *r = EVENT_ARG(thread);
+	struct vrrp_router *r = EVENT_ARG(event);
 
 	zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
 		  "Master_Down_Timer expired",

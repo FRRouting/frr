@@ -49,7 +49,7 @@ void func3(void)
 	func2(6, buf);
 }
 
-static void threadfunc(struct event *thread)
+static void threadfunc(struct event *event)
 {
 	func3();
 }

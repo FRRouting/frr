@@ -477,23 +477,23 @@ void bgp_timer_set(struct peer_connection *connection)
 
 /* BGP start timer.  This function set BGP_Start event to thread value
    and process event. */
-static void bgp_start_timer(struct event *thread)
+static void bgp_start_timer(struct event *event)
 {
-	struct peer_connection *connection = EVENT_ARG(thread);
+	struct peer_connection *connection = EVENT_ARG(event);
 	struct peer *peer = connection->peer;
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] Timer (start timer expire for %s).", peer->host,
 			   bgp_peer_get_connection_direction(connection));
 
-	EVENT_VAL(thread) = BGP_Start;
-	bgp_event(thread); /* bgp_event unlocks peer */
+	EVENT_VAL(event) = BGP_Start;
+	bgp_event(event); /* bgp_event unlocks peer */
 }
 
 /* BGP connect retry timer. */
-static void bgp_connect_timer(struct event *thread)
+static void bgp_connect_timer(struct event *event)
 {
-	struct peer_connection *connection = EVENT_ARG(thread);
+	struct peer_connection *connection = EVENT_ARG(event);
 	struct peer *peer = connection->peer;
 
 	/* stop the DelayOpenTimer if it is running */
@@ -511,16 +511,16 @@ static void bgp_connect_timer(struct event *thread)
 	else {
 		if (!peer->connect)
 			peer->v_connect = MIN(BGP_MAX_CONNECT_RETRY, peer->v_connect * 2);
-		EVENT_VAL(thread) = ConnectRetry_timer_expired;
-		bgp_event(thread); /* bgp_event unlocks peer */
+		EVENT_VAL(event) = ConnectRetry_timer_expired;
+		bgp_event(event); /* bgp_event unlocks peer */
 	}
 }
 
 /* BGP holdtime timer. */
-static void bgp_holdtime_timer(struct event *thread)
+static void bgp_holdtime_timer(struct event *event)
 {
 	atomic_size_t inq_count;
-	struct peer_connection *connection = EVENT_ARG(thread);
+	struct peer_connection *connection = EVENT_ARG(event);
 	struct peer *peer = connection->peer;
 
 	if (bgp_debug_neighbor_events(peer))
@@ -546,13 +546,13 @@ static void bgp_holdtime_timer(struct event *thread)
 		return;
 	}
 
-	EVENT_VAL(thread) = Hold_Timer_expired;
-	bgp_event(thread); /* bgp_event unlocks peer */
+	EVENT_VAL(event) = Hold_Timer_expired;
+	bgp_event(event); /* bgp_event unlocks peer */
 }
 
-void bgp_routeadv_timer(struct event *thread)
+void bgp_routeadv_timer(struct event *event)
 {
-	struct peer_connection *connection = EVENT_ARG(thread);
+	struct peer_connection *connection = EVENT_ARG(event);
 	struct peer *peer = connection->peer;
 
 	if (bgp_debug_neighbor_events(peer))
@@ -570,17 +570,17 @@ void bgp_routeadv_timer(struct event *thread)
 }
 
 /* RFC 4271 DelayOpenTimer */
-void bgp_delayopen_timer(struct event *thread)
+void bgp_delayopen_timer(struct event *event)
 {
-	struct peer_connection *connection = EVENT_ARG(thread);
+	struct peer_connection *connection = EVENT_ARG(event);
 	struct peer *peer = connection->peer;
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [FSM] Timer (DelayOpentimer expire for %s)", peer->host,
 			   bgp_peer_get_connection_direction(connection));
 
-	EVENT_VAL(thread) = DelayOpen_timer_expired;
-	bgp_event(thread); /* bgp_event unlocks peer */
+	EVENT_VAL(event) = DelayOpen_timer_expired;
+	bgp_event(event); /* bgp_event unlocks peer */
 }
 
 /* BGP Peer Down Cause */
@@ -659,14 +659,14 @@ static void bgp_graceful_restart_timer_off(struct peer_connection *connection,
 	bgp_timer_set(connection);
 }
 
-static void bgp_llgr_stale_timer_expire(struct event *thread)
+static void bgp_llgr_stale_timer_expire(struct event *event)
 {
 	struct peer_af *paf;
 	struct peer *peer;
 	afi_t afi;
 	safi_t safi;
 
-	paf = EVENT_ARG(thread);
+	paf = EVENT_ARG(event);
 
 	peer = paf->peer;
 	afi = paf->afi;
@@ -765,9 +765,9 @@ static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
 	}
 }
 
-static void bgp_graceful_restart_timer_expire(struct event *thread)
+static void bgp_graceful_restart_timer_expire(struct event *event)
 {
-	struct peer_connection *connection = EVENT_ARG(thread);
+	struct peer_connection *connection = EVENT_ARG(event);
 	struct peer *peer = connection->peer;
 	struct peer *tmp_peer;
 	struct listnode *node, *nnode;
@@ -827,9 +827,9 @@ static void bgp_graceful_restart_timer_expire(struct event *thread)
 	bgp_graceful_restart_timer_off(connection, peer);
 }
 
-static void bgp_graceful_stale_timer_expire(struct event *thread)
+static void bgp_graceful_stale_timer_expire(struct event *event)
 {
-	struct peer_connection *connection = EVENT_ARG(thread);
+	struct peer_connection *connection = EVENT_ARG(event);
 	struct peer *peer = connection->peer;
 	afi_t afi;
 	safi_t safi;
@@ -845,14 +845,14 @@ static void bgp_graceful_stale_timer_expire(struct event *thread)
 }
 
 /* Selection deferral timer processing function */
-static void bgp_graceful_deferral_timer_expire(struct event *thread)
+static void bgp_graceful_deferral_timer_expire(struct event *event)
 {
 	struct afi_safi_info *info;
 	afi_t afi;
 	safi_t safi;
 	struct bgp *bgp;
 
-	info = EVENT_ARG(thread);
+	info = EVENT_ARG(event);
 	afi = info->afi;
 	safi = info->safi;
 	bgp = info->bgp;
@@ -1132,13 +1132,13 @@ int bgp_fsm_error_subcode(int status)
 }
 
 /* The maxmed onstartup timer expiry callback. */
-static void bgp_maxmed_onstartup_timer(struct event *thread)
+static void bgp_maxmed_onstartup_timer(struct event *event)
 {
 	struct bgp *bgp;
 
 	zlog_info("Max med on startup ended - timer expired.");
 
-	bgp = EVENT_ARG(thread);
+	bgp = EVENT_ARG(event);
 	event_cancel(&bgp->t_maxmed_onstartup);
 	bgp->maxmed_onstartup_over = 1;
 
@@ -1174,25 +1174,25 @@ static void bgp_maxmed_onstartup_process_status_change(struct peer *peer)
 }
 
 /* The update delay timer expiry callback. */
-static void bgp_update_delay_timer(struct event *thread)
+static void bgp_update_delay_timer(struct event *event)
 {
 	struct bgp *bgp;
 
 	zlog_info("Update delay ended - timer expired.");
 
-	bgp = EVENT_ARG(thread);
+	bgp = EVENT_ARG(event);
 	event_cancel(&bgp->t_update_delay);
 	bgp_update_delay_end(bgp);
 }
 
 /* The establish wait timer expiry callback. */
-static void bgp_establish_wait_timer(struct event *thread)
+static void bgp_establish_wait_timer(struct event *event)
 {
 	struct bgp *bgp;
 
 	zlog_info("Establish wait - timer expired.");
 
-	bgp = EVENT_ARG(thread);
+	bgp = EVENT_ARG(event);
 	event_cancel(&bgp->t_establish_wait);
 	bgp_check_update_delay(bgp);
 }
@@ -1897,12 +1897,12 @@ bgp_stop_with_notify(struct peer_connection *connection, uint8_t code,
  * when the connection is established. A read event is triggered when the
  * connection is closed. Thus we need to cancel whichever one did not occur.
  */
-static void bgp_connect_check(struct event *thread)
+static void bgp_connect_check(struct event *event)
 {
 	int status;
 	socklen_t slen;
 	int ret;
-	struct peer_connection *connection = EVENT_ARG(thread);
+	struct peer_connection *connection = EVENT_ARG(event);
 	struct peer *peer = connection->peer;
 
 	assert(!CHECK_FLAG(connection->thread_flags, PEER_THREAD_READS_ON));
@@ -2795,13 +2795,13 @@ static const struct {
 };
 
 /* Execute event process. */
-void bgp_event(struct event *thread)
+void bgp_event(struct event *e)
 {
-	struct peer_connection *connection = EVENT_ARG(thread);
+	struct peer_connection *connection = EVENT_ARG(e);
 	enum bgp_fsm_events event;
 	struct peer *peer = connection->peer;
 
-	event = EVENT_VAL(thread);
+	event = EVENT_VAL(e);
 
 	peer_lock(peer);
 	bgp_event_update(connection, event);

@@ -2061,9 +2061,9 @@ void isis_spf_switchover_routes(struct isis_area *area,
 				      family, nexthop_ip, ifindex);
 }
 
-static void isis_run_spf_cb(struct event *thread)
+static void isis_run_spf_cb(struct event *event)
 {
-	struct isis_spf_run *run = EVENT_ARG(thread);
+	struct isis_spf_run *run = EVENT_ARG(event);
 	struct isis_area *area = run->area;
 	int level = run->level;
 	int have_run = 0;

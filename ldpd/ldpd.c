@@ -41,8 +41,8 @@
 
 static void		 ldpd_shutdown(void);
 static pid_t		 start_child(enum ldpd_process, char *, int, int, int);
-static void main_dispatch_ldpe(struct event *thread);
-static void main_dispatch_lde(struct event *thread);
+static void main_dispatch_ldpe(struct event *event);
+static void main_dispatch_lde(struct event *event);
 static int		 main_imsg_send_ipc_sockets(struct imsgbuf *,
 			    struct imsgbuf *);
 static void		 main_imsg_send_net_sockets(int);
@@ -572,9 +572,9 @@ start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync,
 
 /* imsg handling */
 /* ARGSUSED */
-static void main_dispatch_ldpe(struct event *thread)
+static void main_dispatch_ldpe(struct event *event)
 {
-	struct imsgev *iev = EVENT_ARG(thread);
+	struct imsgev *iev = EVENT_ARG(event);
 	struct imsgbuf		*ibuf = &iev->ibuf;
 	struct imsg		 imsg;
 	int			 af;
@@ -637,9 +637,9 @@ static void main_dispatch_ldpe(struct event *thread)
 }
 
 /* ARGSUSED */
-static void main_dispatch_lde(struct event *thread)
+static void main_dispatch_lde(struct event *event)
 {
-	struct imsgev *iev = EVENT_ARG(thread);
+	struct imsgev *iev = EVENT_ARG(event);
 	struct imsgbuf	*ibuf = &iev->ibuf;
 	struct imsg	 imsg;
 	ssize_t		 n;
@@ -742,9 +742,9 @@ static void main_dispatch_lde(struct event *thread)
 }
 
 /* ARGSUSED */
-void ldp_write_handler(struct event *thread)
+void ldp_write_handler(struct event *event)
 {
-	struct imsgev *iev = EVENT_ARG(thread);
+	struct imsgev *iev = EVENT_ARG(event);
 	struct imsgbuf	*ibuf = &iev->ibuf;
 	ssize_t		 n;
 

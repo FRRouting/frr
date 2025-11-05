@@ -35,7 +35,7 @@
 #include "ospf6d/ospf6_gr.h"
 #include "ospf6d/ospf6_gr_clippy.c"
 
-static void ospf6_gr_grace_period_expired(struct event *thread);
+static void ospf6_gr_grace_period_expired(struct event *event);
 
 /* Originate and install Grace-LSA for a given interface. */
 static int ospf6_gr_lsa_originate(struct ospf6_interface *oi,
@@ -528,17 +528,17 @@ static bool ospf6_gr_check_adjs(struct ospf6 *ospf6)
 }
 
 /* Handling of grace period expiry. */
-static void ospf6_gr_grace_period_expired(struct event *thread)
+static void ospf6_gr_grace_period_expired(struct event *event)
 {
-	struct ospf6 *ospf6 = EVENT_ARG(thread);
+	struct ospf6 *ospf6 = EVENT_ARG(event);
 
 	ospf6_gr_restart_exit(ospf6, "grace period has expired");
 }
 
 /* Send extra Grace-LSA out the interface (unplanned outages only). */
-void ospf6_gr_iface_send_grace_lsa(struct event *thread)
+void ospf6_gr_iface_send_grace_lsa(struct event *event)
 {
-	struct ospf6_interface *oi = EVENT_ARG(thread);
+	struct ospf6_interface *oi = EVENT_ARG(event);
 
 	ospf6_gr_lsa_originate(oi, oi->area->ospf6->gr_info.reason);
 

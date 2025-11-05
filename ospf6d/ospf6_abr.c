@@ -1544,9 +1544,9 @@ void ospf6_abr_task(struct ospf6 *ospf6)
 }
 
 /* This function performs ABR related processing */
-static void ospf6_abr_task_timer(struct event *thread)
+static void ospf6_abr_task_timer(struct event *event)
 {
-	struct ospf6 *ospf6 = EVENT_ARG(thread);
+	struct ospf6 *ospf6 = EVENT_ARG(event);
 
 	if (IS_OSPF6_DEBUG_ABR)
 		zlog_debug("Running ABR task on timer");

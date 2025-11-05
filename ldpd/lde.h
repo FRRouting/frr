@@ -216,7 +216,7 @@ void		 lde_check_withdraw(struct map *, struct lde_nbr *);
 void		 lde_check_withdraw_wcard(struct map *, struct lde_nbr *);
 int		 lde_wildcard_apply(struct map *, struct fec *,
 		    struct lde_map *);
-void lde_gc_timer(struct event *thread);
+void lde_gc_timer(struct event *event);
 void		 lde_gc_start_timer(void);
 void		 lde_gc_stop_timer(void);
 
