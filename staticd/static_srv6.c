@@ -236,13 +236,15 @@ void delete_static_srv6_locator(void *val)
 
 /*
  * Remove an SRv6 SID from the zebra RIB (if it was previously installed) and
- * release the memory previously allocated for the SID.
+ * release the memory previously allocated for the SID.<<<
  */
 void static_srv6_sid_del(struct static_srv6_sid *sid)
 {
 	/* Clean up nexthop resolution flag if set */
-	if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_NEEDS_NH_RESOLUTION))
+	if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_NEEDS_NH_RESOLUTION)) {
+		static_srv6_neigh_unregister_if_needed();
 		UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_NEEDS_NH_RESOLUTION);
+	}
 
 	if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID)) {
 		static_zebra_release_srv6_sid(sid);
@@ -328,6 +330,10 @@ void static_srv6_neigh_cache_cleanup(void)
 	if (!neigh_cache)
 		return;
 
+	/* Unregister from neighbor notifications if needed */
+	if (neigh_cache->registered)
+		static_srv6_neigh_unregister_if_needed();
+
 	/* Clean up hash table - free all interface neighbors */
 	while ((ifn = static_srv6_neigh_table_pop(&neigh_cache->neigh_table)) != NULL) {
 		neigh = ifn->neighbors;
@@ -342,6 +348,56 @@ void static_srv6_neigh_cache_cleanup(void)
 
 	XFREE(MTYPE_STATIC_SRV6_NEIGH_CACHE, neigh_cache);
 	neigh_cache = NULL;
+}
+
+/*
+ * Register for neighbor notifications if we have SIDs requiring nexthop resolution
+ */
+void static_srv6_neigh_register_if_needed(void)
+{
+	if (!neigh_cache) {
+		DEBUGD(&static_dbg_srv6, "%s: Initializing neighbor cache", __func__);
+		static_srv6_neigh_cache_init();
+	}
+
+	neigh_cache->resolve_sids_cnt++;
+	DEBUGD(&static_dbg_srv6, "%s: SRv6 SID resolve count increased to %u", __func__,
+	       neigh_cache->resolve_sids_cnt);
+
+	if (!neigh_cache->registered && neigh_cache->resolve_sids_cnt > 0) {
+		DEBUGD(&static_dbg_srv6, "%s: Registering for IPv6 neighbor notifications",
+		       __func__);
+		static_zebra_neigh_register(AFI_IP6, true);
+		neigh_cache->registered = true;
+	} else if (neigh_cache->registered) {
+		DEBUGD(&static_dbg_srv6, "%s: Already registered for neighbor notifications",
+		       __func__);
+	}
+}
+
+/*
+ * Unregister from neighbor notifications if there are no other SIDs requiring
+ * nexthop resolution
+ */
+void static_srv6_neigh_unregister_if_needed(void)
+{
+	if (!neigh_cache) {
+		DEBUGD(&static_dbg_srv6, "%s: Cache not initialized during unregister", __func__);
+		return;
+	}
+
+	if (neigh_cache->resolve_sids_cnt > 0) {
+		neigh_cache->resolve_sids_cnt--;
+		DEBUGD(&static_dbg_srv6, "%s: SRv6 SID resolve count decreased to %u", __func__,
+		       neigh_cache->resolve_sids_cnt);
+	}
+
+	if (neigh_cache->registered && neigh_cache->resolve_sids_cnt == 0) {
+		DEBUGD(&static_dbg_srv6, "%s: Unregistering from IPv6 neighbor notifications",
+		       __func__);
+		static_zebra_neigh_register(AFI_IP6, false);
+		neigh_cache->registered = false;
+	}
 }
 
 /*

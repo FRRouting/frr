@@ -153,6 +153,8 @@ void static_zebra_request_srv6_sids(void);
 
 void static_srv6_neigh_cache_init(void);
 void static_srv6_neigh_cache_cleanup(void);
+void static_srv6_neigh_register_if_needed(void);
+void static_srv6_neigh_unregister_if_needed(void);
 
 #ifdef __cplusplus
 }
