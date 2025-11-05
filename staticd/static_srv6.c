@@ -400,6 +400,37 @@ void static_srv6_neigh_unregister_if_needed(void)
 	}
 }
 
+/**
+ * Get the effective nexthop to use for SID installation
+ * Returns pointer to attributes.resolved_nh6 for SIDs
+ * requiring nexthop resolution, or attributes.nh6 for SIDs
+ * that provide an explicit nexthop.
+ */
+const struct in6_addr *static_srv6_sid_get_nexthop(const struct static_srv6_sid *sid)
+{
+	if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_NEEDS_NH_RESOLUTION)) {
+		return IN6_IS_ADDR_UNSPECIFIED(&sid->attributes.resolved_nh6)
+			       ? NULL
+			       : &sid->attributes.resolved_nh6;
+	}
+
+	return &sid->attributes.nh6;
+}
+
+/**
+ * Clear resolved nexthop for a SID
+ */
+void static_srv6_sid_clear_resolution(struct static_srv6_sid *sid)
+{
+	if (IN6_IS_ADDR_UNSPECIFIED(&sid->attributes.resolved_nh6))
+		return;
+
+	DEBUGD(&static_dbg_srv6, "%s: Clearing resolved nexthop for SID %pFX", __func__,
+	       &sid->addr);
+
+	sid->attributes.resolved_nh6 = in6addr_any;
+}
+
 /*
  * Initialize SRv6 data structures.
  */

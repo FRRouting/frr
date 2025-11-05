@@ -569,6 +569,7 @@ void static_zebra_srv6_sid_install(struct static_srv6_sid *sid)
 	struct interface *ifp = NULL;
 	struct vrf *vrf;
 	struct prefix_ipv6 sid_locator = {};
+	const struct in6_addr *nexthop;
 
 	if (!sid)
 		return;
@@ -699,7 +700,18 @@ void static_zebra_srv6_sid_install(struct static_srv6_sid *sid)
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID:
 		action = ZEBRA_SEG6_LOCAL_ACTION_END_X;
-		ctx.nh6 = sid->attributes.nh6;
+
+		/* Get effective nexthop (resolved or configured) */
+		nexthop = static_srv6_sid_get_nexthop(sid);
+		if (!nexthop) {
+			DEBUGD(&static_dbg_srv6,
+			       "%s: Cannot install SID %pFX - nexthop not available", __func__,
+			       &sid->addr);
+			return;
+		}
+		ctx.nh6 = *nexthop;
+
+		/* Lookup interface */
 		ifp = if_lookup_by_name(sid->attributes.ifname, VRF_DEFAULT);
 		if (!ifp) {
 			zlog_warn("Failed to install SID %pFX: failed to get interface %s",
@@ -707,6 +719,7 @@ void static_zebra_srv6_sid_install(struct static_srv6_sid *sid)
 			return;
 		}
 		ctx.ifindex = ifp->ifindex;
+
 		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_PSP_USD:
@@ -765,6 +778,7 @@ void static_zebra_srv6_sid_uninstall(struct static_srv6_sid *sid)
 	struct prefix_ipv6 sid_block = {};
 	struct prefix_ipv6 locator_block = {};
 	struct prefix_ipv6 sid_locator = {};
+	const struct in6_addr *nexthop;
 
 	if (!sid)
 		return;
@@ -895,7 +909,12 @@ void static_zebra_srv6_sid_uninstall(struct static_srv6_sid *sid)
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID:
 		action = ZEBRA_SEG6_LOCAL_ACTION_END_X;
-		ctx.nh6 = sid->attributes.nh6;
+
+		/* Use same nexthop that was used during installation */
+		nexthop = static_srv6_sid_get_nexthop(sid);
+		assert(nexthop != NULL);
+		ctx.nh6 = *nexthop;
+
 		ifp = if_lookup_by_name(sid->attributes.ifname, VRF_DEFAULT);
 		if (!ifp) {
 			zlog_warn("Failed to install SID %pFX: failed to get interface %s",
@@ -903,6 +922,7 @@ void static_zebra_srv6_sid_uninstall(struct static_srv6_sid *sid)
 			return;
 		}
 		ctx.ifindex = ifp->ifindex;
+
 		SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_PSP_USD:
@@ -962,6 +982,9 @@ void static_zebra_srv6_sid_uninstall(struct static_srv6_sid *sid)
 
 	zclient_send_localsid(static_zclient, ZEBRA_ROUTE_DELETE, &sid->addr.prefix,
 			      sid->addr.prefixlen, ifp->ifindex, action, &ctx);
+
+	if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_NEEDS_NH_RESOLUTION))
+		static_srv6_sid_clear_resolution(sid);
 
 	UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
 }
@@ -1457,6 +1480,11 @@ static int static_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 	}
 
 	return 0;
+}
+
+void static_zebra_neigh_get(struct interface *ifp, afi_t afi)
+{
+	zclient_neigh_get(static_zclient, ifp, afi);
 }
 
 void static_zebra_neigh_register(afi_t afi, bool reg)
