@@ -41,6 +41,8 @@ struct static_srv6_sid {
 #define STATIC_FLAG_SRV6_SID_VALID (1 << 0)
 /* this SRv6 SID has been installed in the zebra RIB */
 #define STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA (1 << 1)
+/* this SRv6 SID requires nexthop resolution */
+#define STATIC_FLAG_SRV6_SID_NEEDS_NH_RESOLUTION (1 << 2)
 
 	char locator_name[SRV6_LOCNAME_SIZE];
 	struct static_srv6_locator *locator;

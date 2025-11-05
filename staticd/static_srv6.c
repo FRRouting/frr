@@ -240,6 +240,10 @@ void delete_static_srv6_locator(void *val)
  */
 void static_srv6_sid_del(struct static_srv6_sid *sid)
 {
+	/* Clean up nexthop resolution flag if set */
+	if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_NEEDS_NH_RESOLUTION))
+		UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_NEEDS_NH_RESOLUTION);
+
 	if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID)) {
 		static_zebra_release_srv6_sid(sid);
 		UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID);
