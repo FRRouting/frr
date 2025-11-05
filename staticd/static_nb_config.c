@@ -1229,6 +1229,7 @@ void routing_control_plane_protocols_control_plane_protocol_staticd_segment_rout
 {
 	struct static_srv6_sid *sid;
 	struct static_srv6_locator *locator;
+	bool is_ua, has_interface, has_nexthop;
 
 	sid = nb_running_get_entry(args->dnode, NULL, true);
 
@@ -1242,6 +1243,39 @@ void routing_control_plane_protocols_control_plane_protocol_staticd_segment_rout
 	}
 
 	sid->locator = locator;
+
+	/* Determine if this is a SID that requires nexthop resolution */
+
+	/* Check if SID is uA or End.X that may require nexthop resolution */
+	is_ua = (sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_X ||
+		 sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID);
+
+	/* Check if interface is configured */
+	has_interface = (sid->attributes.ifname[0] != '\0');
+
+	/* Check if nexthop is configured (not all zeros) */
+	has_nexthop = !IN6_IS_ADDR_UNSPECIFIED(&sid->attributes.nh6);
+
+	if (is_ua && has_interface && !has_nexthop) {
+		/* This is a uA SID with interface but no explicit nexthop - enable nexthop resolution */
+		if (!CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_NEEDS_NH_RESOLUTION)) {
+			DEBUGD(&static_dbg_srv6,
+			       "%s: Enabling nexthop resolution for SID %pFX on interface %s",
+			       __func__, &sid->addr, sid->attributes.ifname);
+
+			/* Set nexthop resolution flag */
+			SET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_NEEDS_NH_RESOLUTION);
+		}
+	} else {
+		/* This is a SID that does not require nexthop resolution - disable nexthop resolution */
+		if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_NEEDS_NH_RESOLUTION)) {
+			DEBUGD(&static_dbg_srv6, "%s: Disabling nexthop resolution for SID %pFX",
+			       __func__, &sid->addr);
+
+			/* Clear nexthop resolution flag */
+			UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_NEEDS_NH_RESOLUTION);
+		}
+	}
 
 	static_zebra_request_srv6_sid(sid);
 }
