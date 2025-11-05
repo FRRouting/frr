@@ -1367,10 +1367,8 @@ static int static_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 		 * Uninstall the SRv6 SID from the forwarding plane
 		 * through Zebra
 		 */
-		if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA)) {
+		if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA))
 			static_zebra_srv6_sid_uninstall(sid);
-			UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
-		}
 	}
 
 	listnode_delete(srv6_locators, locator);
@@ -1437,8 +1435,6 @@ static int static_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 		 */
 		static_zebra_srv6_sid_install(sid);
 
-		SET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
-
 		break;
 	case ZAPI_SRV6_SID_RELEASED:
 
@@ -1460,10 +1456,8 @@ static int static_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 
 		UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID);
 
-		if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA)) {
+		if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA))
 			static_zebra_srv6_sid_uninstall(sid);
-			UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
-		}
 
 		break;
 	case ZAPI_SRV6_SID_FAIL_ALLOC:
