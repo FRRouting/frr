@@ -7697,8 +7697,10 @@ DEFUN (ip_ospf_authentication_key,
 		ospf_if_update_params(ifp, addr);
 	}
 
-	strlcpy((char *)params->auth_simple, argv[3]->arg,
-		sizeof(params->auth_simple));
+	if (!argv_find(argv, argc, "AUTH_KEY", &idx))
+		return CMD_WARNING;
+
+	strlcpy((char *)params->auth_simple, argv[idx]->arg, sizeof(params->auth_simple));
 	SET_IF_PARAM(params, auth_simple);
 
 	return CMD_SUCCESS;
