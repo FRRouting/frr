@@ -1538,6 +1538,31 @@ static int static_zebra_process_neigh(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+/*
+ * Request neighbor discovery from zebra for a specific neighbor
+ */
+void static_zebra_send_neigh_discovery_req(struct interface *ifp, struct ipaddr *addr)
+{
+	struct prefix p = {};
+
+	DEBUGD(&static_dbg_events,
+	       "%s: Sending neighbor discovery request for %pIA on interface %s (index %u)",
+	       __func__, addr, ifp->name, ifp->ifindex);
+
+	if (addr->ipa_type != IPADDR_V6) {
+		zlog_err("%s: Unsupported address family %d for neighbor discovery request",
+			 __func__, addr->ipa_type);
+		return;
+	}
+
+	p.family = AF_INET6;
+	p.prefixlen = IPV6_MAX_BITLEN;
+	memcpy(&p.u.prefix6, &addr->ipaddr_v6, sizeof(struct in6_addr));
+
+	/* Send neighbor discovery request to zebra */
+	zclient_send_neigh_discovery_req(static_zclient, ifp, &p);
+}
+
 void static_zebra_neigh_get(struct interface *ifp, afi_t afi)
 {
 	if (!static_zclient || static_zclient->sock < 0) {

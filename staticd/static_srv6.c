@@ -461,6 +461,30 @@ void static_srv6_refresh_sids_on_neigh_change(struct interface *ifp, struct in6_
 }
 
 /*
+ * Check if there are any SIDs that need auto-resolution for this interface
+ */
+static bool static_srv6_has_sids_for_interface(ifindex_t ifindex)
+{
+	struct listnode *node;
+	struct static_srv6_sid *sid;
+	struct interface *ifp;
+
+	if (!srv6_sids)
+		return false;
+
+	for (ALL_LIST_ELEMENTS_RO(srv6_sids, node, sid)) {
+		if (!static_srv6_sid_needs_resolution(sid))
+			continue;
+
+		ifp = if_lookup_by_name(sid->attributes.ifname, VRF_DEFAULT);
+		if (ifp && ifp->ifindex == ifindex)
+			return true;
+	}
+
+	return false;
+}
+
+/*
  * Add a neighbor to the cache
  */
 void static_srv6_neigh_add(struct interface *ifp, struct in6_addr *addr, uint32_t ndm_state)
@@ -509,6 +533,25 @@ void static_srv6_neigh_add(struct interface *ifp, struct in6_addr *addr, uint32_
 				old_state = existing->ndm_state;
 				existing->ndm_state = ndm_state;
 				state_changed = true;
+			}
+
+			/*
+			 * If neighbor is STALE and we have SIDs using this interface,
+			 * request neighbor discovery to verify if neighbor is still alive
+			 */
+			if (ndm_state & ZEBRA_NEIGH_STATE_STALE) {
+				if (static_srv6_has_sids_for_interface(ifp->ifindex)) {
+					struct ipaddr ipaddr;
+
+					DEBUGD(&static_dbg_srv6,
+					       "%s: Requesting neighbor discovery for STALE neighbor %pI6 on interface %s (index %u)",
+					       __func__, addr, ifp->name, ifp->ifindex);
+
+					SET_IPADDR_V6(&ipaddr);
+					ipaddr.ipaddr_v6 = *addr;
+
+					static_zebra_send_neigh_discovery_req(ifp, &ipaddr);
+				}
 			}
 
 			/* Refresh SIDs if state changed to a usable or unusable state */
