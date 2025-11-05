@@ -21,6 +21,9 @@ struct static_srv6_sid_attributes {
 	char vrf_name[VRF_NAMSIZ];
 	char ifname[IFNAMSIZ];
 	struct in6_addr nh6;
+
+	/* Resolved nexthop IPv6 address */
+	struct in6_addr resolved_nh6;
 };
 
 /* Static SRv6 SID */
@@ -155,6 +158,9 @@ void static_srv6_neigh_cache_init(void);
 void static_srv6_neigh_cache_cleanup(void);
 void static_srv6_neigh_register_if_needed(void);
 void static_srv6_neigh_unregister_if_needed(void);
+
+const struct in6_addr *static_srv6_sid_get_nexthop(const struct static_srv6_sid *sid);
+void static_srv6_sid_clear_resolution(struct static_srv6_sid *sid);
 
 #ifdef __cplusplus
 }
