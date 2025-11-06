@@ -316,15 +316,6 @@ union prefixconstptr {
 #define INET6_ADDRSTRLEN 46
 #endif /* INET6_ADDRSTRLEN */
 
-#ifndef INET6_GUA_ADDRSTRLEN
-/* Use this for GUA IPv6 address len
- * It is used for column width of gloabl IPv6
- * address rendering.
- * dead:beef:dead:beef:dead:beef:dead:beef + \0
- */
-#define INET6_GUA_ADDRSTRLEN 40
-#endif /* INET6_GUA_ADDRSTRLEN */
-
 #ifndef INET6_BUFSIZ
 #define INET6_BUFSIZ 53
 #endif /* INET6_BUFSIZ */
