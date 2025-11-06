@@ -409,6 +409,55 @@ static void uptime2str(time_t uptime, char *buf, size_t bufsize)
 	frrtime_to_interval(cur, buf, bufsize);
 }
 
+static void show_redistributing_protocol(struct vty *vty,
+					 const struct route_node *rn,
+					 const struct route_entry *re)
+{
+	struct zserv *client;
+	bool first = true;
+
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
+		if (zebra_redistribute_check(rn, re, client)) {
+			if (first)
+				vty_out(vty, "  Redistributing via");
+			else
+				vty_out(vty, ",");
+			vty_out(vty, " %s", zebra_route_string(client->proto));
+			first = false;
+		}
+	}
+
+	if (!first)
+		vty_out(vty, "\n");
+}
+
+static void json_add_redistributing_protocol(struct json_object *json,
+					     const struct route_node *rn,
+					     const struct route_entry *re)
+{
+	struct zserv *client;
+	json_object *json_redist;
+	json_object *json_proto;
+	bool redist_found = false;
+
+	json_redist = json_object_new_array();
+
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
+		if (zebra_redistribute_check(rn, re, client)) {
+			json_proto = json_object_new_object();
+			json_object_string_add(json_proto, "protocol",
+					       zebra_route_string(client->proto));
+			json_object_array_add(json_redist, json_proto);
+			redist_found = true;
+		}
+	}
+
+	if (redist_found)
+		json_object_object_add(json, "redistributingVia", json_redist);
+	else
+		json_object_put(json_redist);
+}
+
 /* New RIB.  Detailed information for IPv4 route. */
 static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 				     int mcast, bool use_fib, bool show_ng)
@@ -464,6 +513,8 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))
 			vty_out(vty, ", best");
 		vty_out(vty, "\n");
+
+		show_redistributing_protocol(vty, rn, re);
 
 		uptime2str(re->uptime, buf, sizeof(buf));
 
@@ -570,6 +621,8 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn, struct rou
 		json_object_int_add(json_route, "distance",
 				    re->distance);
 		json_object_int_add(json_route, "metric", re->metric);
+
+		json_add_redistributing_protocol(json_route, rn, re);
 
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED))
 			json_object_boolean_true_add(json_route, "installed");
