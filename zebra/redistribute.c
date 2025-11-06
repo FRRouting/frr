@@ -996,3 +996,11 @@ void zebra_interface_parameters_update(struct interface *ifp)
 		zsend_interface_link_params(client, ifp);
 	}
 }
+
+bool zebra_route_is_redistributed(const struct route_entry *re,
+				  struct zserv *client,
+                                  const struct prefix *p,
+                                  afi_t afi)
+{
+	return zebra_redistribute_check(re, client, p, afi);
+}

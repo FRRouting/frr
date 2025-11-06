@@ -410,6 +410,32 @@ static void uptime2str(time_t uptime, char *buf, size_t bufsize)
 	frrtime_to_interval(cur, buf, bufsize);
 }
 
+static void show_redistributing_protocol(struct vty *vty, const struct prefix *p,
+					 const struct route_entry *re)
+{
+	struct listnode *node;
+	struct zserv *client;
+	afi_t afi = family2afi(p->family);
+	bool first = true;
+
+	if (!afi)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
+        	if (zebra_route_is_redistributed(re, client, p, afi)) {
+			if (first)
+				vty_out(vty, "  Redistributing via");
+			else
+				vty_out(vty, ",");
+			vty_out(vty, " %s", zebra_route_string(client->proto));
+			first = false;
+		}
+	}
+
+	if (!first)
+        	vty_out(vty, "\n");
+}
+
 /* New RIB.  Detailed information for IPv4 route. */
 static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 				     int mcast, bool use_fib, bool show_ng)
@@ -465,6 +491,8 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))
 			vty_out(vty, ", best");
 		vty_out(vty, "\n");
+
+		show_redistributing_protocol(vty, &rn->p, re);
 
 		uptime2str(re->uptime, buf, sizeof(buf));
 
