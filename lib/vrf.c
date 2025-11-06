@@ -506,7 +506,7 @@ void vrf_bitmap_unset(vrf_bitmap_t *pbmap, vrf_id_t vrf_id)
 	bit->set = false;
 }
 
-int vrf_bitmap_check(vrf_bitmap_t *pbmap, vrf_id_t vrf_id)
+int vrf_bitmap_check(const vrf_bitmap_t *pbmap, vrf_id_t vrf_id)
 {
 	struct vrf_bit_set lookup = { .vrf_id = vrf_id };
 	struct hash *vrf_hash;
