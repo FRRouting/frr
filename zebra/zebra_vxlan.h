@@ -33,6 +33,17 @@ static inline int is_evpn_enabled(void)
 	return EVPN_ENABLED(zebra_vrf_get_evpn());
 }
 
+#ifndef INET6_GUA_ADDRSTRLEN
+/* Use this for GUA IPv6 address len
+ * NOTE: ideal place can be lib/prefix.h where
+ * INET6_ADDRSTRLEN is defined.
+ * It is used for column width of gloabl IPv6
+ * address rendering.
+ * dead:beef:dead:beef:dead:beef:dead:beef + \0
+ */
+#define INET6_GUA_ADDRSTRLEN 40
+#endif /* INET6_GUA_ADDRSTRLEN */
+
 static inline int
 is_vxlan_flooding_head_end(void)
 {
