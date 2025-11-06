@@ -421,7 +421,7 @@ static void show_redistributing_protocol(struct vty *vty, const struct prefix *p
 		return;
 
 	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
-        	if (zebra_route_is_redistributed(re, client, p, afi)) {
+		if (zebra_route_is_redistributed(re, client, p, afi)) {
 			if (first)
 				vty_out(vty, "  Redistributing via");
 			else
@@ -432,7 +432,7 @@ static void show_redistributing_protocol(struct vty *vty, const struct prefix *p
 	}
 
 	if (!first)
-        	vty_out(vty, "\n");
+		vty_out(vty, "\n");
 }
 
 /* New RIB.  Detailed information for IPv4 route. */
