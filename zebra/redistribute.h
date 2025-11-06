@@ -69,10 +69,8 @@ extern int zebra_import_table_config(struct vty *, vrf_id_t vrf_id);
 
 extern void zebra_import_table_rm_update(const char *rmap);
 
-bool zebra_route_is_redistributed(const struct route_entry *re,
-				  struct zserv *client,
-                                  const struct prefix *p,
-                                  afi_t afi);
+bool zebra_route_is_redistributed(const struct route_entry *re, struct zserv *client,
+				  const struct prefix *p, afi_t afi);
 
 #ifdef __cplusplus
 }
