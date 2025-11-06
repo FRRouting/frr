@@ -952,7 +952,8 @@ extern void zclient_free(struct zclient *zclient);
 
 extern int zclient_socket_connect(struct zclient *zclient);
 
-extern unsigned short *redist_check_instance(struct redist_proto *red, unsigned short instance);
+extern unsigned short *redist_check_instance(const struct redist_proto *red,
+					     unsigned short instance);
 extern void redist_add_instance(struct redist_proto *red, unsigned short instance);
 extern void redist_del_instance(struct redist_proto *red, unsigned short instance);
 extern void redist_del_all_instances(struct redist_proto *red);
