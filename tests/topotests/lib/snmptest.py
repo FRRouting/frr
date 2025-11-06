@@ -85,7 +85,7 @@ class SnmpTester(object):
         return out_dict, out_list
 
     def get(self, oid):
-        cmd = "snmpget {0} {1} 2>&1 | grep -v SNMPv2-PDU".format(
+        cmd = "snmpget {0} {1} 2>&1 | grep -v SNMPv2-PDU | grep -v 'not find' | grep -v 'MIB search' ".format(
             self._snmp_config(), oid
         )
         result = self.router.cmd(cmd)
@@ -94,7 +94,7 @@ class SnmpTester(object):
         return self._get_snmp_value(result)
 
     def get_next(self, oid):
-        cmd = "snmpgetnext {0} {1} 2>&1 | grep -v SNMPv2-PDU".format(
+        cmd = "snmpgetnext {0} {1} 2>&1 | grep -v SNMPv2-PDU | grep -v 'not find' | grep -v 'MIB search' ".format(
             self._snmp_config(), oid
         )
 
@@ -105,7 +105,7 @@ class SnmpTester(object):
         return self._get_snmp_value(result)
 
     def walk(self, oid):
-        cmd = "snmpwalk {0} {1} 2>&1 | grep -v SNMPv2-PDU".format(
+        cmd = "snmpwalk {0} {1} 2>&1 | grep -v SNMPv2-PDU | grep -v 'not find' | grep -v 'MIB search'".format(
             self._snmp_config(), oid
         )
 
