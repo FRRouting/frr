@@ -10008,6 +10008,7 @@ DEFPY(sid_export,
       "Specify route-map name\n"
       "Name of route-map\n")
 {
+	int idx = 0;
 	safi_t safi = SAFI_UNICAST;
 	afi_t afi = bgp_node_afi(vty);
 	struct in6_addr *unicast_sid_explicit = NULL;
@@ -10045,6 +10046,14 @@ DEFPY(sid_export,
 				route_map_lookup_by_name(bgp->srv6_unicast[afi].rmap_name));
 			bgp->srv6_unicast[afi].rmap_name = NULL;
 		}
+
+		/* delete route-map */
+		if (argv_find(argv, argc, "route-map", &idx)) {
+			bgp_srv6_unicast_announce(bgp, afi);
+
+			return CMD_SUCCESS;
+		}
+
 		if (bgp->srv6_unicast[afi].sid_explicit) {
 			XFREE(MTYPE_BGP_SRV6_SID, bgp->srv6_unicast[afi].sid_explicit);
 			bgp->srv6_unicast[afi].sid_explicit = NULL;
@@ -10067,6 +10076,14 @@ DEFPY(sid_export,
 			return CMD_SUCCESS;
 
 		/* apply route-map change */
+		if (bgp->srv6_unicast[afi].rmap_name) {
+			route_map_counter_decrement(
+				route_map_lookup_by_name(bgp->srv6_unicast[afi].rmap_name));
+			XFREE(MTYPE_ROUTE_MAP_NAME, bgp->srv6_unicast[afi].rmap_name);
+		}
+		bgp->srv6_unicast[afi].rmap_name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_str);
+		route_map_counter_increment(
+			route_map_lookup_by_name(bgp->srv6_unicast[afi].rmap_name));
 		bgp_srv6_unicast_announce(bgp, afi);
 
 		return CMD_SUCCESS;
@@ -10111,6 +10128,19 @@ DEFPY(sid_export,
 
 	return CMD_SUCCESS;
 }
+
+ALIAS(sid_export,
+      no_sid_export_rmap_cmd,
+      "no$no sid export <(1-1048575)$sid_idx|auto$sid_auto|explicit$sid_explicit X:X::X:X$sid_value> route-map",
+      NO_STR
+      "Sid value for VRF\n"
+      "Encapsulation SRv6 over default vrf\n"
+      "Sid allocation index\n"
+      "Automatically assign a label\n"
+      "Explicitly assign a sid value\n"
+      "Sid value\n"
+      "Specify route-map\n")
+
 
 DEFPY(neighbor_damp,
       neighbor_damp_cmd,
@@ -22720,7 +22750,9 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6_NODE, &af_sid_vpn_export_cmd);
 	install_element(BGP_NODE, &bgp_sid_vpn_export_cmd);
 	install_element(BGP_IPV4_NODE, &sid_export_cmd);
+	install_element(BGP_IPV4_NODE, &no_sid_export_rmap_cmd);
 	install_element(BGP_IPV6_NODE, &sid_export_cmd);
+	install_element(BGP_IPV6_NODE, &no_sid_export_rmap_cmd);
 	install_element(BGP_IPV6_NODE, &neighbor_encap_srv6_cmd);
 	install_element(BGP_IPV4_NODE, &neighbor_encap_srv6_cmd);
 	install_element(BGP_NODE, &no_bgp_sid_vpn_export_cmd);
