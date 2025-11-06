@@ -2225,12 +2225,6 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		samepeer_safe = 1;
 	}
 
-	if (safi == SAFI_UNICAST &&
-	    CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CONFIG_ENCAPSULATION_SRV6) &&
-	    (!pi->attr->srv6_l3service && !dest->srv6_unicast)) {
-		return false;
-	}
-
 	/* With addpath we may be asked to TX all kinds of paths so make sure
 	 * pi is valid */
 	if (!CHECK_FLAG(pi->flags, BGP_PATH_VALID)
@@ -2638,6 +2632,30 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		    (pi->attr->srv6_l3service || pi->attr->srv6_vpn))
 			/* SRv6 update not advertised if MPLS is autorised, but not SRv6 */
 			return false;
+	}
+
+	if (safi == SAFI_UNICAST) {
+		if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_CONFIG_ENCAPSULATION_SRV6) &&
+		    (!pi->attr->srv6_l3service && !dest->srv6_unicast))
+			return false;
+		if (CHECK_FLAG(peer->af_flags[afi][safi],
+			       PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX) &&
+		    dest->srv6_unicast && !attr->srv6_l3service) {
+			attr->srv6_l3service = XCALLOC(MTYPE_BGP_SRV6_L3SERVICE,
+						       sizeof(struct bgp_attr_srv6_l3service));
+			attr->srv6_l3service->sid_flags = dest->srv6_unicast->sid_flags;
+			attr->srv6_l3service->endpoint_behavior =
+				dest->srv6_unicast->endpoint_behavior;
+			attr->srv6_l3service->loc_block_len = dest->srv6_unicast->loc_block_len;
+			attr->srv6_l3service->loc_node_len = dest->srv6_unicast->loc_node_len;
+			attr->srv6_l3service->func_len = dest->srv6_unicast->func_len;
+			attr->srv6_l3service->arg_len = dest->srv6_unicast->arg_len;
+			attr->srv6_l3service->transposition_len =
+				dest->srv6_unicast->transposition_len;
+			attr->srv6_l3service->transposition_offset =
+				dest->srv6_unicast->transposition_offset;
+			IPV6_ADDR_COPY(&attr->srv6_l3service->sid, &dest->srv6_unicast->sid);
+		}
 	}
 
 	bgp_peer_remove_private_as(bgp, afi, safi, peer, attr);
