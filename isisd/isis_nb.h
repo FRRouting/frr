@@ -765,11 +765,10 @@ void isis_notif_reject_adjacency(const struct isis_circuit *circuit,
 				 size_t raw_pdu_len);
 void isis_notif_area_mismatch(const struct isis_circuit *circuit,
 			      const char *raw_pdu, size_t raw_pdu_len);
-void isis_notif_lsp_received(const struct isis_circuit *circuit,
-			     const uint8_t *lsp_id, uint32_t seqno,
-			     uint32_t timestamp, const char *sys_id);
-void isis_notif_lsp_gen(const struct isis_area *area, const uint8_t *lsp_id,
-			uint32_t seqno, uint32_t timestamp);
+void isis_notif_lsp_received(const struct isis_circuit *circuit, const uint8_t *lsp_id,
+			     uint32_t seqno, time_t timestamp, const char *sys_id);
+void isis_notif_lsp_gen(const struct isis_area *area, const uint8_t *lsp_id, uint32_t seqno,
+			time_t timestamp);
 void isis_notif_id_len_mismatch(const struct isis_circuit *circuit,
 				uint8_t rcv_id_len, const char *raw_pdu,
 				size_t raw_pdu_len);
