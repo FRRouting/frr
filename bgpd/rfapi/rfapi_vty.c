@@ -53,9 +53,9 @@
 #define FMT_DAY     (24  * FMT_HOUR)
 #define FMT_YEAR    (365 * FMT_DAY)
 
-char *rfapiFormatSeconds(uint32_t seconds, char *buf, size_t len)
+char *rfapiFormatSeconds(time_t seconds, char *buf, size_t len)
 {
-	int year, day, hour, min;
+	time_t year, day, hour, min;
 
 	if (seconds >= FMT_YEAR) {
 		year = seconds / FMT_YEAR;
@@ -82,11 +82,11 @@ char *rfapiFormatSeconds(uint32_t seconds, char *buf, size_t len)
 		min = 0;
 
 	if (year > 0) {
-		snprintf(buf, len, "%dy%dd%dh", year, day, hour);
+		snprintf(buf, len, "%ldy%ldd%ldh", (long)year, (long)day, (long)hour);
 	} else if (day > 0) {
-		snprintf(buf, len, "%dd%dh%dm", day, hour, min);
+		snprintf(buf, len, "%ldd%ldh%ldm", (long)day, (long)hour, (long)min);
 	} else {
-		snprintf(buf, len, "%02d:%02d:%02d", hour, min, seconds);
+		snprintf(buf, len, "%02ld:%02ld:%02ld", (long)hour, (long)min, (long)seconds);
 	}
 
 	return buf;
