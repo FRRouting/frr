@@ -28,6 +28,10 @@ module frr-isisd {
     prefix frr-route-types;
   }
 
+  import frr-routing {
+    prefix frr-rt;
+  }
+
   organization
     "FRRouting";
   contact
@@ -2550,7 +2554,7 @@ module frr-isisd {
     }
 
     leaf received-timestamp {
-      type yang:timestamp;
+      type frr-rt:unix-timestamp;
       description
         "Timestamp when the LSP was received.";
     }
@@ -2582,7 +2586,7 @@ module frr-isisd {
     }
 
     leaf send-timestamp {
-      type yang:timestamp;
+      type frr-rt:unix-timestamp;
       description
         "Timestamp when our LSP was regenerated.";
     }
