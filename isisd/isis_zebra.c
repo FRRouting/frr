@@ -1071,6 +1071,7 @@ void isis_zebra_srv6_adj_sid_install(struct srv6_adjacency *sra)
 		action = ZEBRA_SEG6_LOCAL_ACTION_END_X;
 		prefixlen = IPV6_MAX_BITLEN;
 		ctx.nh6 = sra->nexthop;
+		ctx.ifindex = sra->adj->circuit->interface->ifindex;
 		break;
 	case SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID:
 		action = ZEBRA_SEG6_LOCAL_ACTION_END_X;
@@ -1078,6 +1079,7 @@ void isis_zebra_srv6_adj_sid_install(struct srv6_adjacency *sra)
 			    sra->locator->node_bits_length +
 			    sra->locator->function_bits_length;
 		ctx.nh6 = sra->nexthop;
+		ctx.ifindex = sra->adj->circuit->interface->ifindex;
 		SET_SRV6_FLV_OP(ctx.flv.flv_ops,
 				ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 		ctx.flv.lcblock_len = sra->locator->block_bits_length;
