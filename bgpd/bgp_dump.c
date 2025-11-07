@@ -185,7 +185,7 @@ static void bgp_dump_header(struct stream *obuf, int type, int subtype,
 	msecs = clock.tv_usec;
 
 	/* Put dump packet header. */
-	stream_putl(obuf, secs);
+	stream_putl(obuf, frr_time_t_to_uint32_t(secs));
 	stream_putw(obuf, type);
 	stream_putw(obuf, subtype);
 	stream_putl(obuf, 0); /* len */
