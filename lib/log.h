@@ -176,6 +176,7 @@ struct timestamp_control {
 extern struct frr_yang_module_info frr_logging_nb_info;
 extern void frr_logging_merge_cli_to_nb_info(void);
 
+extern uint32_t frr_time_t_to_uint32_t(time_t value);
 #ifdef __cplusplus
 }
 #endif

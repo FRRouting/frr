@@ -912,14 +912,6 @@ static struct bgp *bgpL3vpnVrf_lookup(struct variable *v, oid name[],
 	return bgp;
 }
 
-/* Convert time_t to uint32_t, capping at UINT32_MAX if too large */
-static uint32_t bgp_mplsvpn_snmp_time_t_to_uint32(time_t value)
-{
-	if (value > UINT32_MAX)
-		return UINT32_MAX;
-	return (uint32_t)value;
-}
-
 static uint8_t *mplsL3vpnVrfTable(struct variable *v, oid name[],
 				  size_t *length, int exact, size_t *var_len,
 				  WriteMethod **write_method)
@@ -966,8 +958,8 @@ static uint8_t *mplsL3vpnVrfTable(struct variable *v, oid name[],
 		*var_len = strnlen(rd_buf, RD_ADDRSTRLEN);
 		return (uint8_t *)rd_buf;
 	case MPLSL3VPNVRFCREATIONTIME:
-		return SNMP_INTEGER(
-			bgp_mplsvpn_snmp_time_t_to_uint32(l3vpn_bgp->snmp_stats->creation_time));
+		return SNMP_INTEGER(frr_time_t_to_uint32_t(
+			l3vpn_bgp->snmp_stats->creation_time));
 	case MPLSL3VPNVRFOPERSTATUS:
 		if (l3vpn_bgp->snmp_stats->active)
 			return SNMP_INTEGER(1);
