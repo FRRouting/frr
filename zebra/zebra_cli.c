@@ -137,13 +137,11 @@ void lib_interface_zebra_mpls_cli_write(struct vty *vty,
 {
 	enum if_zebra_data_mode mpls = yang_dnode_get_enum(dnode, NULL);
 
-	if (mpls && ((SAVE_ZEBRA_MPLS != IF_ZEBRA_DATA_ON) || show_defaults))
+	if (mpls == IF_DATA_ON && ((SAVE_ZEBRA_MPLS != IF_DATA_ON) || show_defaults))
 		vty_out(vty, " mpls enable\n");
-	else if (mpls == false &&
-		 ((SAVE_ZEBRA_MPLS != IF_ZEBRA_DATA_OFF) || show_defaults))
+	else if (mpls == IF_DATA_OFF && ((SAVE_ZEBRA_MPLS != IF_DATA_OFF) || show_defaults))
 		vty_out(vty, " mpls disable\n");
-	else if (mpls == IF_DATA_AUTO &&
-		 ((SAVE_ZEBRA_MPLS != IF_ZEBRA_DATA_AUTO) || show_defaults))
+	else if (mpls == IF_DATA_AUTO && ((SAVE_ZEBRA_MPLS != IF_DATA_AUTO) || show_defaults))
 		vty_out(vty, " mpls disable\n");
 }
 
