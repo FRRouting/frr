@@ -1306,6 +1306,9 @@ void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa,
 						       : "(Invalid length?)");
 	}
 
+	if (!VALID_OPAQUE_INFO_LEN(lsah))
+		return;
+
 	/* Call individual output functions. */
 	functab = ospf_opaque_functab_lookup(lsa);
 	if (functab) {
