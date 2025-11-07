@@ -1492,6 +1492,8 @@ static void zebra_if_netconf_update_ctx(struct zebra_dplane_ctx *ctx,
 			zebra_mpls_turned_on();
 		} else if (mpls == DPLANE_NETCONF_STATUS_DISABLED)
 			zif->mpls = false;
+		if (zif->mpls_config == IF_ZEBRA_DATA_AUTO)
+			zif->mpls_dynamic = zif->mpls;
 	}
 
 	if (linkdown == DPLANE_NETCONF_STATUS_ENABLED)
@@ -4061,7 +4063,6 @@ static void mpls_auto_interface_data_internal(struct interface *ifp, bool mpls)
 	if (zif->mpls_dynamic == mpls_val)
 		return;
 
-	zif->mpls_dynamic = mpls;
 	dplane_intf_mpls_modify_state(ifp, mpls);
 }
 
