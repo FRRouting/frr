@@ -2094,11 +2094,10 @@ void _event_execute(const struct xref_eventsched *xref, struct event_loop *m,
 
 	/* Get or allocate new thread to execute. */
 	frr_with_mutex (&m->mtx) {
-		event = event_get(m, EVENT_EVENT, func, arg, xref);
+		event = event_get(m, EVENT_EXECUTE, func, arg, xref);
 
 		/* Set its event value. */
 		frr_with_mutex (&event->mtx) {
-			event->add_type = EVENT_EXECUTE;
 			event->u.val = val;
 			event->ref = &event;
 		}
