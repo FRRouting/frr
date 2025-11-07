@@ -19694,7 +19694,14 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 	/* encapsulation-srv6|encapsulation-mpls */
 	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_SRV6))
 		vty_out(vty, "  neighbor %s encapsulation-srv6\n", addr);
+<<<<<<< HEAD
 	else if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_MPLS))
+=======
+	else if (peergroup_af_flag_check(peer, afi, safi,
+					 PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX))
+		vty_out(vty, "  neighbor %s encapsulation-srv6-relax\n", addr);
+	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_MPLS))
+>>>>>>> f7871679e (bgpd: fix show running-config encapsulation-[mpls/srv6])
 		vty_out(vty, "  neighbor %s encapsulation-mpls\n", addr);
 
 	/* Filter. */
