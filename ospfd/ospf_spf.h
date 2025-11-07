@@ -57,7 +57,7 @@ typedef enum {
 	SPF_FLAG_GR_FINISH,
 } ospf_spf_reason_t;
 
-extern void ospf_spf_calculate_schedule(struct ospf *, ospf_spf_reason_t);
+extern void ospf_spf_calculate_schedule(struct ospf *ospf, ospf_spf_reason_t reason);
 extern void ospf_spf_calculate(struct ospf_area *area,
 			       struct ospf_lsa *root_lsa,
 			       struct route_table *new_table,
@@ -72,7 +72,7 @@ extern void ospf_spf_calculate_areas(struct ospf *ospf,
 				     struct route_table *new_table,
 				     struct route_table *all_rtrs,
 				     struct route_table *new_rtrs);
-extern void ospf_rtrs_free(struct route_table *);
+extern void ospf_rtrs_free(struct route_table *rtrs);
 extern void ospf_spf_cleanup(struct vertex *spf, struct list *vertex_list);
 extern void ospf_spf_copy(struct vertex *vertex, struct list *vertex_list);
 extern void ospf_spf_remove_resource(struct vertex *vertex,

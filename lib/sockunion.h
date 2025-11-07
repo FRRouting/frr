@@ -77,27 +77,27 @@ enum connect_result { connect_error, connect_success, connect_in_progress };
 #define sockunion2ip(X)      (X)->sin.sin_addr.s_addr
 
 /* Prototypes. */
-extern int str2sockunion(const char *, union sockunion *);
-extern const char *sockunion2str(const union sockunion *, char *, size_t);
-extern int sockunion_cmp(const union sockunion *, const union sockunion *);
-extern int sockunion_same(const union sockunion *, const union sockunion *);
-extern unsigned int sockunion_hash(const union sockunion *);
+extern int str2sockunion(const char *str, union sockunion *su);
+extern const char *sockunion2str(const union sockunion *su, char *buf,
+				 size_t len);
+extern int sockunion_cmp(const union sockunion *su1, const union sockunion *su2);
+extern int sockunion_same(const union sockunion *su1, const union sockunion *su2);
+extern unsigned int sockunion_hash(const union sockunion *su);
 
 extern size_t family2addrsize(int family);
-extern size_t sockunion_get_addrlen(const union sockunion *);
+extern size_t sockunion_get_addrlen(const union sockunion *su);
 extern const uint8_t *sockunion_get_addr(const union sockunion *);
-extern void sockunion_set(union sockunion *, int family, const uint8_t *addr,
-			  size_t bytes);
+extern void sockunion_set(union sockunion *su, int family, const uint8_t *addr, size_t bytes);
 
 extern union sockunion *sockunion_str2su(const char *str);
-extern int sockunion_accept(int sock, union sockunion *);
+extern int sockunion_accept(int sock, union sockunion *su);
 extern int sockunion_sizeof(const union sockunion *su);
-extern int sockunion_stream_socket(union sockunion *);
-extern int sockopt_reuseaddr(int);
-extern int sockopt_reuseport(int);
+extern int sockunion_stream_socket(union sockunion *su);
+extern int sockopt_reuseaddr(int sock);
+extern int sockopt_reuseport(int sock);
 extern int sockopt_v6only(int family, int sock);
-extern int sockunion_bind(int sock, union sockunion *, unsigned short,
-			  union sockunion *);
+extern int sockunion_bind(int sock, union sockunion *su, unsigned short port,
+			  union sockunion *su_addr);
 extern int sockopt_ttl(int family, int sock, int ttl);
 extern int sockopt_minttl(int family, int sock, int minttl);
 extern int sockunion_socket(const union sockunion *su);
@@ -106,8 +106,8 @@ extern enum connect_result sockunion_connect(int fd, const union sockunion *su, 
 extern union sockunion *sockunion_getsockname(int);
 extern union sockunion *sockunion_getpeername(int);
 extern union sockunion *sockunion_dup(const union sockunion *);
-extern void sockunion_free(union sockunion *);
-extern void sockunion_init(union sockunion *);
+extern void sockunion_free(union sockunion *su);
+extern void sockunion_init(union sockunion *su);
 extern int sockunion_is_null(const union sockunion *su);
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR

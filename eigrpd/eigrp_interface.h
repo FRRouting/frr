@@ -19,29 +19,27 @@
 
 /*Prototypes*/
 extern void eigrp_if_init(void);
-extern int eigrp_if_new_hook(struct interface *);
-extern int eigrp_if_delete_hook(struct interface *);
+extern int eigrp_if_new_hook(struct interface *ifp);
+extern int eigrp_if_delete_hook(struct interface *ifp);
 
 extern bool eigrp_if_is_passive(struct eigrp_interface *ei);
-extern void eigrp_del_if_params(struct eigrp_if_params *);
-extern struct eigrp_interface *eigrp_if_new(struct eigrp *, struct interface *,
-					    struct prefix *);
-extern int eigrp_if_up(struct eigrp_interface *);
-extern void eigrp_if_stream_set(struct eigrp_interface *);
-extern void eigrp_if_set_multicast(struct eigrp_interface *);
-extern uint8_t eigrp_default_iftype(struct interface *);
-extern void eigrp_if_free(struct eigrp_interface *, int);
-extern int eigrp_if_down(struct eigrp_interface *);
-extern void eigrp_if_stream_unset(struct eigrp_interface *);
+extern void eigrp_del_if_params(struct eigrp_if_params *eip);
+extern struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
+					    struct prefix *p);
+extern int eigrp_if_up(struct eigrp_interface *ei);
+extern void eigrp_if_stream_set(struct eigrp_interface *ei);
+extern void eigrp_if_set_multicast(struct eigrp_interface *ei);
+extern uint8_t eigrp_default_iftype(struct interface *ifp);
+extern void eigrp_if_free(struct eigrp_interface *ei, int source);
+extern int eigrp_if_down(struct eigrp_interface *ei);
+extern void eigrp_if_stream_unset(struct eigrp_interface *ei);
 
-extern struct eigrp_interface *eigrp_if_lookup_by_local_addr(struct eigrp *,
-							     struct interface *,
-							     struct in_addr);
-extern struct eigrp_interface *eigrp_if_lookup_by_name(struct eigrp *,
-						       const char *);
+extern struct eigrp_interface *
+eigrp_if_lookup_by_local_addr(struct eigrp *eigrp, struct interface *ifp, struct in_addr address);
+extern struct eigrp_interface *eigrp_if_lookup_by_name(struct eigrp *eigrp, const char *ifname);
 
 /* Simulate down/up on the interface. */
-extern void eigrp_if_reset(struct interface *);
+extern void eigrp_if_reset(struct interface *ifp);
 
 extern int eigrp_interface_cmp(const struct eigrp_interface *a, const struct eigrp_interface *b);
 extern uint32_t eigrp_interface_hash(const struct eigrp_interface *ei);

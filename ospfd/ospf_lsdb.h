@@ -59,26 +59,26 @@ struct ospf_lsdb_linked_node {
 
 /* OSPF LSDB related functions. */
 extern struct ospf_lsdb *ospf_lsdb_new(void);
-extern void ospf_lsdb_init(struct ospf_lsdb *);
+extern void ospf_lsdb_init(struct ospf_lsdb *lsdb);
 extern void ospf_lsdb_linked_init(struct ospf_lsdb *lsdb);
 extern struct ospf_lsdb_linked_node *
 ospf_lsdb_linked_lookup(struct ospf_lsdb *lsdb, struct ospf_lsa *lsa);
-extern void ospf_lsdb_free(struct ospf_lsdb *);
-extern void ospf_lsdb_cleanup(struct ospf_lsdb *);
+extern void ospf_lsdb_free(struct ospf_lsdb *lsdb);
+extern void ospf_lsdb_cleanup(struct ospf_lsdb *lsdb);
 extern void ls_prefix_set(struct prefix_ls *lp, struct ospf_lsa *lsa);
-extern void ospf_lsdb_add(struct ospf_lsdb *, struct ospf_lsa *);
-extern void ospf_lsdb_delete(struct ospf_lsdb *, struct ospf_lsa *);
-extern void ospf_lsdb_delete_all(struct ospf_lsdb *);
-extern struct ospf_lsa *ospf_lsdb_lookup(struct ospf_lsdb *, struct ospf_lsa *);
-extern struct ospf_lsa *ospf_lsdb_lookup_by_id(struct ospf_lsdb *, uint8_t,
-					       struct in_addr, struct in_addr);
-extern struct ospf_lsa *ospf_lsdb_lookup_by_id_next(struct ospf_lsdb *, uint8_t,
-						    struct in_addr,
-						    struct in_addr, int);
-extern unsigned long ospf_lsdb_count_all(struct ospf_lsdb *);
-extern unsigned long ospf_lsdb_count(struct ospf_lsdb *, int);
-extern unsigned long ospf_lsdb_count_self(struct ospf_lsdb *, int);
-extern unsigned int ospf_lsdb_checksum(struct ospf_lsdb *, int);
-extern unsigned long ospf_lsdb_isempty(struct ospf_lsdb *);
+extern void ospf_lsdb_add(struct ospf_lsdb *lsdb, struct ospf_lsa *lsa);
+extern void ospf_lsdb_delete(struct ospf_lsdb *lsdb, struct ospf_lsa *lsa);
+extern void ospf_lsdb_delete_all(struct ospf_lsdb *lsdb);
+extern struct ospf_lsa *ospf_lsdb_lookup(struct ospf_lsdb *lsdb, struct ospf_lsa *lsa);
+extern struct ospf_lsa *ospf_lsdb_lookup_by_id(struct ospf_lsdb *lsdb, uint8_t type,
+					       struct in_addr id, struct in_addr adv_router);
+extern struct ospf_lsa *ospf_lsdb_lookup_by_id_next(struct ospf_lsdb *lsdb, uint8_t type,
+						    struct in_addr id, struct in_addr adv_router,
+						    int first);
+extern unsigned long ospf_lsdb_count_all(struct ospf_lsdb *lsdb);
+extern unsigned long ospf_lsdb_count(struct ospf_lsdb *lsdb, int type);
+extern unsigned long ospf_lsdb_count_self(struct ospf_lsdb *lsdb, int type);
+extern unsigned int ospf_lsdb_checksum(struct ospf_lsdb *lsdb, int type);
+extern unsigned long ospf_lsdb_isempty(struct ospf_lsdb *lsdb);
 
 #endif /* _ZEBRA_OSPF_LSDB_H */

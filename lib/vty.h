@@ -371,9 +371,9 @@ extern struct vty *vty_stdio(void (*atclose)(int isexit));
  * - vty_endframe() clears the buffer without printing it, and prints an
  *   extra string if the buffer was empty before (for context-end markers)
  */
-extern int vty_out(struct vty *, const char *, ...) PRINTFRR(2, 3);
-extern void vty_frame(struct vty *, const char *, ...) PRINTFRR(2, 3);
-extern void vty_endframe(struct vty *, const char *);
+extern int vty_out(struct vty *vty, const char *format, ...) PRINTFRR(2, 3);
+extern void vty_frame(struct vty *vty, const char *format, ...) PRINTFRR(2, 3);
+extern void vty_endframe(struct vty *vty, const char *endtext);
 extern bool vty_set_include(struct vty *vty, const char *regexp);
 /* returns CMD_SUCCESS so you can do a one-line "return vty_json(...)"
  * NULL check and json_object_free() is included.
@@ -396,19 +396,19 @@ extern bool vty_read_config(struct nb_config *config, const char *config_file,
 			    char *config_default_dir);
 extern void vty_read_file(struct nb_config *config, FILE *confp);
 extern void vty_read_file_finish(struct vty *vty, struct nb_config *config);
-extern void vty_time_print(struct vty *, int);
-extern void vty_serv_start(const char *, unsigned short, const char *);
+extern void vty_time_print(struct vty *vty, int cr);
+extern void vty_serv_start(const char *addr, unsigned short port, const char *path);
 extern void vty_serv_stop(void);
-extern void vty_close(struct vty *);
+extern void vty_close(struct vty *vty);
 extern char *vty_get_cwd(void);
 extern void vty_update_xpath(const char *oldpath, const char *newpath);
 extern int vty_config_enter(struct vty *vty, bool private_config,
 			    bool exclusive, bool file_lock);
-extern void vty_config_exit(struct vty *);
-extern int vty_config_node_exit(struct vty *);
-extern int vty_shell(struct vty *);
-extern int vty_shell_serv(struct vty *);
-extern void vty_hello(struct vty *);
+extern void vty_config_exit(struct vty *vty);
+extern int vty_config_node_exit(struct vty *vty);
+extern int vty_shell(struct vty *vty);
+extern int vty_shell_serv(struct vty *vty);
+extern void vty_hello(struct vty *vty);
 
 /* ^Z / SIGTSTP handling */
 extern void vty_stdio_suspend(void);
