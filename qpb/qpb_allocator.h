@@ -62,8 +62,8 @@ static inline void qpb_free(qpb_allocator_t *allocator, void *ptr)
 /*
  * Externs.
  */
-extern void qpb_allocator_init_linear(qpb_allocator_t *,
-				      struct linear_allocator_t_ *);
+extern void qpb_allocator_init_linear(qpb_allocator_t *allocator,
+				      struct linear_allocator_t_ *linear_allocator);
 
 /*
  * The following macros are for the common case where a qpb allocator
