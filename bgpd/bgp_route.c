@@ -11627,6 +11627,9 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	json_object *json_peer = NULL;
 	json_object *json_string = NULL;
 	json_object *json_adv_to = NULL;
+	json_object *json_aspath = NULL;
+	json_object *json_community = NULL;
+	json_object *json_lcommunity = NULL;
 	int first = 0;
 	struct listnode *node, *nnode;
 	struct peer *peer;
@@ -11768,11 +11771,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	/* Line1 display AS-path, Aggregator */
 	if (attr->aspath) {
 		if (json_paths) {
-			if (!attr->aspath->json)
-				aspath_str_update(attr->aspath, true);
-			json_object_lock(attr->aspath->json);
-			json_object_object_add(json_path, "aspath",
-					       attr->aspath->json);
+			json_aspath = aspath_get_json(attr->aspath);
+			json_object_object_add(json_path, "aspath", json_aspath);
 		} else {
 			if (attr->aspath->segments)
 				vty_out(vty, "  %s", attr->aspath->str);
@@ -12341,13 +12341,10 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	/* Line 4 display Community */
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES))) {
 		if (json_paths) {
-			if (!bgp_attr_get_community(attr)->json)
-				community_str(bgp_attr_get_community(attr),
-					      true, true);
-			json_object_lock(bgp_attr_get_community(attr)->json);
-			json_object_object_add(
-				json_path, "community",
-				bgp_attr_get_community(attr)->json);
+			json_community = community_get_json(
+				bgp_attr_get_community(attr));
+			json_object_object_add(json_path, "community",
+					       json_community);
 		} else {
 			if (!bgp_attr_get_community(attr)->str)
 				community_str(bgp_attr_get_community(attr), true, true);
@@ -12395,13 +12392,10 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	/* Line 6 display Large community */
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES))) {
 		if (json_paths) {
-			if (!bgp_attr_get_lcommunity(attr)->json)
-				lcommunity_str(bgp_attr_get_lcommunity(attr),
-					       true, true);
-			json_object_lock(bgp_attr_get_lcommunity(attr)->json);
-			json_object_object_add(
-				json_path, "largeCommunity",
-				bgp_attr_get_lcommunity(attr)->json);
+			json_lcommunity = lcommunity_get_json(
+				bgp_attr_get_lcommunity(attr));
+			json_object_object_add(json_path, "largeCommunity",
+					       json_lcommunity);
 		} else {
 			if (!bgp_attr_get_lcommunity(attr)->str)
 				lcommunity_str(bgp_attr_get_lcommunity(attr), true, true);
