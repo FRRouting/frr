@@ -6937,7 +6937,8 @@ static int walk_batch_table_helper(struct bgp_clearing_info *cinfo,
 			processed++;
 
 			if (force) {
-				bgp_path_info_reap(dest, pi);
+				dest = bgp_path_info_reap(dest, pi);
+				assert(dest);
 			} else {
 				/* Do clearing for this pi */
 				clearing_clear_one_pi(table, dest, pi);
