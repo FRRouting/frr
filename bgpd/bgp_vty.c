@@ -19889,7 +19889,7 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 	else if (peergroup_af_flag_check(peer, afi, safi,
 					 PEER_FLAG_CONFIG_ENCAPSULATION_SRV6_RELAX))
 		vty_out(vty, "  neighbor %s encapsulation-srv6-relax\n", addr);
-	else if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_MPLS))
+	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_CONFIG_ENCAPSULATION_MPLS))
 		vty_out(vty, "  neighbor %s encapsulation-mpls\n", addr);
 
 	/* Filter. */
