@@ -233,9 +233,6 @@ void bgp_keepalives_on(struct peer_connection *connection)
 {
 	struct peer *peer = connection->peer;
 
-	if (CHECK_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON))
-		return;
-
 	struct frr_pthread *fpt = bgp_pth_ka;
 	assert(fpt->running);
 
@@ -248,6 +245,9 @@ void bgp_keepalives_on(struct peer_connection *connection)
 	assert(peerhash_mtx);
 
 	frr_with_mutex (peerhash_mtx) {
+		if (CHECK_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON))
+			return;
+
 		holder.peer = peer;
 		if (!hash_lookup(peerhash, &holder)) {
 			struct pkat *pkat = pkat_new(peer);
@@ -264,9 +264,6 @@ void bgp_keepalives_off(struct peer_connection *connection)
 {
 	struct peer *peer = connection->peer;
 
-	if (!CHECK_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON))
-		return;
-
 	struct frr_pthread *fpt = bgp_pth_ka;
 	assert(fpt->running);
 
@@ -279,6 +276,9 @@ void bgp_keepalives_off(struct peer_connection *connection)
 	assert(peerhash_mtx);
 
 	frr_with_mutex (peerhash_mtx) {
+		if (!CHECK_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON))
+			return;
+
 		holder.peer = peer;
 		struct pkat *res = hash_release(peerhash, &holder);
 		if (res) {
