@@ -21,7 +21,7 @@ typedef enum {
 
 #define VNC_SHOW_STR "VNC information\n"
 
-extern char *rfapiFormatSeconds(uint32_t seconds, char *buf, size_t len);
+extern char *rfapiFormatSeconds(time_t seconds, char *buf, size_t len);
 
 extern char *rfapiFormatAge(time_t age, char *buf, size_t len);
 
