@@ -107,8 +107,8 @@ enum event_types {
 
 /* Event itself. */
 struct event {
-	enum event_types type;	   /* event type */
-	enum event_types add_type; /* event type */
+	enum event_types type;	   /* event type as it moves through the event system*/
+	enum event_types add_type; /* event type as it was created */
 	struct event_list_item eventitem;
 	struct event_timer_list_item timeritem;
 	struct event **ref;	      /* external reference (if given) */
