@@ -422,8 +422,11 @@ DEFUN_NOSH (show_event_poll,
 	struct event_loop *m;
 
 	frr_with_mutex (&masters_mtx) {
-		for (ALL_LIST_ELEMENTS_RO(masters, node, m))
+		for (ALL_LIST_ELEMENTS_RO(masters, node, m)) {
+			pthread_mutex_lock(&m->mtx);
 			show_event_poll_helper(vty, m);
+			pthread_mutex_unlock(&m->mtx);
+		}
 	}
 
 	return CMD_SUCCESS;
@@ -482,8 +485,11 @@ DEFPY_NOSH (show_event_timers,
 	struct event_loop *m;
 
 	frr_with_mutex (&masters_mtx) {
-		for (ALL_LIST_ELEMENTS_RO(masters, node, m))
+		for (ALL_LIST_ELEMENTS_RO(masters, node, m)) {
+			pthread_mutex_lock(&m->mtx);
 			show_event_timers_helper(vty, m);
+			pthread_mutex_unlock(&m->mtx);
+		}
 	}
 
 	return CMD_SUCCESS;
