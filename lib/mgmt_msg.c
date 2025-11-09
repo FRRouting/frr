@@ -563,6 +563,10 @@ void msg_conn_disconnect(struct msg_conn *conn, bool reconnect)
 		close(conn->fd);
 		conn->fd = -1;
 
+		/* We need to unschedule any pending events on this fd */
+		event_cancel(&conn->read_ev);
+		event_cancel(&conn->write_ev);
+
 		/* Notify client through registered callback (if any) */
 		if (conn->notify_disconnect)
 			(void)(*conn->notify_disconnect)(conn);
