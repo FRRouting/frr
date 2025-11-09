@@ -2178,7 +2178,12 @@ static bool is_interface_in_group(const char *ifname_in, const char *mcast_addr_
 
 	/* Convert binary to hex format */
 	while (fgets(line, sizeof(line), fp)) {
-		sscanf(line, "%d %s %s", &if_index, ifname_found, mcast_addr_found_hex_str);
+		if (sscanf(line, "%d %s %s", &if_index, ifname_found, mcast_addr_found_hex_str) !=
+		    3) {
+			flog_err_sys(EC_LIB_SYSTEM_CALL, "sscanf failed to properly scan: %s",
+				     line);
+			continue;
+		}
 
 		ifname_in_len = strlen(ifname_in);
 		ifname_found_len = strlen(ifname_found);
