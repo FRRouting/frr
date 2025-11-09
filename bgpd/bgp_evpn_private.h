@@ -564,8 +564,20 @@ static inline void evpn_type1_prefix_global_copy(struct prefix_evpn *global_p,
 		const struct prefix_evpn *vni_p)
 {
 	memcpy(global_p, vni_p, sizeof(*global_p));
-	global_p->prefix.ead_addr.ip.ipa_type = 0;
-	global_p->prefix.ead_addr.ip.ipaddr_v4.s_addr = INADDR_ANY;
+	/* EAD prefix in global table doesn't include VTEP IP - zero it out
+	 * but preserve ipa_type to maintain address family information
+	 */
+	if (IS_IPADDR_V4(&vni_p->prefix.ead_addr.ip)) {
+		global_p->prefix.ead_addr.ip.ipa_type = IPADDR_V4;
+		global_p->prefix.ead_addr.ip.ipaddr_v4.s_addr = INADDR_ANY;
+	} else if (IS_IPADDR_V6(&vni_p->prefix.ead_addr.ip)) {
+		global_p->prefix.ead_addr.ip.ipa_type = IPADDR_V6;
+		memset(&global_p->prefix.ead_addr.ip.ipaddr_v6, 0, sizeof(struct in6_addr));
+	} else {
+		global_p->prefix.ead_addr.ip.ipa_type = IPADDR_NONE;
+		/* ipa_type is IPADDR_NONE, zero everything */
+		memset(&global_p->prefix.ead_addr.ip, 0, sizeof(struct ipaddr));
+	}
 	global_p->prefix.ead_addr.frag_id = 0;
 }
 
