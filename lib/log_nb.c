@@ -119,7 +119,8 @@ void command_setup_early_logging(const char *dest, const char *level)
 	}
 	if (strcmp(type, "file") == 0 && sep) {
 		sep++;
-		set_log_file(&zt_file_cmdline, NULL, sep, nlevel);
+		if (!set_log_file(&zt_file_cmdline, NULL, sep, nlevel))
+			fprintf(stderr, "Unable to set log file: %s\n", sep);
 		return;
 	}
 	if (strcmp(type, "monitor") == 0 && sep) {
