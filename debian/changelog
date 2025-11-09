@@ -1,8 +1,8 @@
-frr (10.5-dev) UNRELEASED; urgency=medium
+frr (10.5.0-0) unstable; urgency=medium
 
-  * FRR Development 10.5
+  * New upstream release FRR 10.5.0
 
- -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Tue, 04 Nov 2025 02:00:00 -0600
+ -- Jafar Al-Gharaibeh <jafar@atcorp.com>  Sun, 09 Nov 2025 02:00:00 -0600
 
 frr (10.4-0) unstable; urgency=medium
 
