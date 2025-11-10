@@ -2442,6 +2442,11 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 			NULL /* ip */, 1, &global_pi, flags, seq,
 			false /* setup_sync */, NULL /* old_is_sync */);
 
+		if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE && !mac_only) {
+			SET_FLAG(global_pi->flags, BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP);
+			bgp_evpn_import_route(bgp, afi, safi, bgp_dest_get_prefix(dest), global_pi);
+		}
+
 		/* Schedule for processing and unlock node. */
 		bgp_process(bgp, dest, global_pi, afi, safi);
 		bgp_dest_unlock_node(dest);
@@ -2546,8 +2551,13 @@ static int delete_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 		/* Schedule for processing - withdraws to peers happen from
 		 * this table.
 		 */
-		if (pi)
+		if (pi) {
 			bgp_process(bgp, global_dest, pi, afi, safi);
+			if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE &&
+			    !is_evpn_prefix_ipaddr_none(p))
+				bgp_evpn_unimport_route(bgp, afi, safi,
+							bgp_dest_get_prefix(global_dest), pi);
+		}
 		bgp_dest_unlock_node(global_dest);
 	}
 
@@ -3106,6 +3116,8 @@ bgp_create_evpn_bgp_path_info(struct bgp_path_info *parent_pi,
 	/* Create new route with its attribute. */
 	pi = info_make(parent_pi->type, BGP_ROUTE_IMPORTED, 0, parent_pi->peer,
 		       attr_new, dest);
+	if (CHECK_FLAG(parent_pi->flags, BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP))
+		SET_FLAG(pi->flags, BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP);
 	SET_FLAG(pi->flags, BGP_PATH_VALID);
 	bgp_path_info_extra_get(pi);
 	if (!pi->extra->vrfleak)
