@@ -51,11 +51,17 @@ COPY --from=alpine-apk-builder-libyang /pkgs/apk/src /pkgs/apk
 RUN cd /pkgs/apk && apk add --allow-untrusted */*.apk
 RUN find /pkgs/apk -type f -name APKINDEX.tar.gz -delete
 RUN chown -R builder /dist /pkgs
+RUN source /dist/APKBUILD.in \
+	&& apk add \
+		--no-cache \
+		--update-cache \
+		$makedepends \
+		$depends
 USER builder
 RUN cd /dist \
 	&& abuild checksum \
 	&& git init \
-	&& abuild -r -P /pkgs/apk
+	&& abuild -P /pkgs/apk
 
 # This stage installs frr from the apk
 FROM alpine:3.22
