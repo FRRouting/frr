@@ -663,6 +663,50 @@ def _test_rmac_present(router):
     assert result is None, "evpn rmac is missing on router"
 
 
+def _validate_singleton_equivalent_nhg(router, vrf, prefix):
+    """
+    Internal validation function for singleton-equivalent NHG optimization.
+    Returns None on success, error string on failure.
+    """
+    route = router.vtysh_cmd(f"show ip route vrf {vrf} {prefix} json", isjson=True)
+    if prefix not in route:
+        return f"Route {prefix} not found"
+    rcv_nhg_id = route[prefix][0].get("receivedNexthopGroupId")
+    ins_nhg_id = route[prefix][0].get("installedNexthopGroupId")
+    if not rcv_nhg_id or not ins_nhg_id:
+        return "Received or Installed NHG ID not found"
+    if rcv_nhg_id == ins_nhg_id:
+        return f"Received NHG ({rcv_nhg_id}) should differ from Installed NHG ({ins_nhg_id})"
+
+    rcv_nhg = router.vtysh_cmd(f"show nexthop-group rib {rcv_nhg_id} json", isjson=True)
+    ins_nhg = router.vtysh_cmd(f"show nexthop-group rib {ins_nhg_id} json", isjson=True)
+    rcv_depends = rcv_nhg[str(rcv_nhg_id)].get("depends", [])
+    if ins_nhg_id not in rcv_depends and str(ins_nhg_id) not in [
+        str(d) for d in rcv_depends
+    ]:
+        return f"Received NHG {rcv_nhg_id} depends {rcv_depends} does not include Installed NHG {ins_nhg_id}"
+    logger.info(
+        f"Route {prefix}: Received NHG={rcv_nhg_id}, Installed NHG={ins_nhg_id}"
+    )
+    return None
+
+
+def _test_singleton_equivalent_nhg_optimization(router, vrf, prefix):
+    """
+    Verify singleton-equivalent NHG optimization for duplicate nexthops:
+    - Installed NHG ID should differ from Received NHG ID
+    - Received NHG should have 2 nexthops (duplicates) and NOT be installed
+    - Received NHG should depend on Installed NHG
+    - Installed NHG should be singleton (1 nexthop) and have Installed flag
+    """
+    test_func = partial(_validate_singleton_equivalent_nhg, router, vrf, prefix)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=3)
+    assert (
+        result is None
+    ), f"Singleton-equivalent NHG optimization check failed for {prefix}"
+    logger.info(f"Singleton-equivalent NHG optimization verified for {prefix}")
+
+
 def test_evpn_multipath():
     """
     Configure a second path between R1 and R2, then flap it a couple times.
@@ -768,6 +812,7 @@ configure terminal
  no debug zebra dplane detailed
 """
     )
+    _test_singleton_equivalent_nhg_optimization(r2, "vrf-101", "10.0.101.1/32")
 
 
 def test_shutdown_multipath_check_next_hops():
