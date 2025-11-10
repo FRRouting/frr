@@ -1591,6 +1591,12 @@ static int lib_interface_create(struct nb_cb_create_args *args)
 					     VRF_DEFAULT_NAME);
 		}
 
+		if (!ifp) {
+			snprintf(args->errmsg, args->errmsg_len, "failed to create interface '%s'",
+				 ifname);
+			return NB_ERR_RESOURCE;
+		}
+
 		ifp->configured = true;
 		nb_running_set_entry(args->dnode, ifp);
 		break;
