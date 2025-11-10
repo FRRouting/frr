@@ -1029,6 +1029,8 @@ static const void *lib_vrf_lookup_next(struct nb_cb_lookup_entry_args *args)
 
 	strlcpy(vrfkey.name, vrfname, sizeof(vrfkey.name));
 	vrf = RB_FIND(vrf_name_head, &vrfs_by_name, &vrfkey);
+	if (!vrf)
+		return NULL;
 	if (!strcmp(vrf->name, vrfname))
 		vrf = RB_NEXT(vrf_name_head, vrf);
 
