@@ -1075,6 +1075,8 @@ void if_terminate(struct vrf *vrf)
 
 	while (!RB_EMPTY(if_name_head, &vrf->ifaces_by_name)) {
 		ifp = RB_ROOT(if_name_head, &vrf->ifaces_by_name);
+		if (!ifp)
+			break;
 		if_delete(&ifp);
 	}
 }
