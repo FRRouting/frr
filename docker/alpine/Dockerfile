@@ -17,12 +17,12 @@ FROM alpine-builder as alpine-apk-builder-libyang
 RUN mkdir -p /src/libyang
 COPY docker/alpine/libyang/APKBUILD /src/libyang
 RUN chown -R builder /pkgs /src
-RUN apk add bison cmake cmocka-dev flex pcre2-dev acl
+RUN source /src/libyang/APKBUILD && apk add $makedepends
 USER builder
 RUN cd /src/libyang \
 	&& abuild checksum \
 	&& git init \
-	&& abuild -r -P /pkgs/apk
+	&& abuild -P /pkgs/apk
 
 # This stage builds a dist tarball from the source
 FROM alpine:3.22 as source-builder
