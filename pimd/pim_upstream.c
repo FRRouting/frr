@@ -768,6 +768,16 @@ void pim_upstream_register_reevaluate(struct pim_instance *pim)
 		 * is actually active; if it is not kat setup will trigger
 		 * source
 		 * registration whenever the flow becomes active. */
+
+		if (PIM_UPSTREAM_DM_TEST_INTERFACE(up->flags) &&
+		    !pim_iface_grp_dm(up->rpf.source_nexthop.interface->info, up->sg.grp)) {
+			zlog_info("Setting DM mroute %s to sparse", up->sg_str);
+			/* Upstream is both sparse and dense, unset dense flag */
+			PIM_UPSTREAM_DM_UNSET_INTERFACE(up->flags);
+			PIM_UPSTREAM_FLAG_SET_USE_RPT(up->flags);
+			PIM_UPSTREAM_FLAG_SET_DR_JOIN_DESIRED(up->flags);
+		}
+
 		if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags) ||
 			!pim_upstream_is_kat_running(up))
 			continue;
