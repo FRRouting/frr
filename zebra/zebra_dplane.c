@@ -3839,7 +3839,11 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	{
 		struct nhg_hash_entry *nhe = zebra_nhg_resolve(re->nhe);
 
-		ctx->u.rinfo.nhe.id = nhe->id;
+		/*
+		 * Use the NHG ID that was installed to kernel (may differ
+		 * from resolved nhe->id if the NHG is singleton-equivalent).
+		 */
+		ctx->u.rinfo.nhe.id = re->nhe_installed_id ? re->nhe_installed_id : nhe->id;
 		ctx->u.rinfo.nhe.old_id = 0;
 		/*
 		 * Check if the nhe is installed/queued before doing anything
