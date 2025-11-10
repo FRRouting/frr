@@ -487,6 +487,8 @@ void vrf_bitmap_set(vrf_bitmap_t *pbmap, vrf_id_t vrf_id)
 		vrf_hash = *pbmap;
 
 	bit = hash_get(vrf_hash, &lookup, vrf_hash_bitmap_alloc);
+	if (!bit)
+		return;
 	bit->set = true;
 }
 
