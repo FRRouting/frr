@@ -17,6 +17,7 @@ FROM alpine-builder as alpine-apk-builder-libyang
 RUN mkdir -p /src/libyang
 COPY docker/alpine/libyang/APKBUILD /src/libyang
 RUN chown -R builder /pkgs /src
+RUN apk add bison cmake cmocka-dev flex pcre2-dev
 USER builder
 RUN cd /src/libyang \
 	&& abuild checksum \
