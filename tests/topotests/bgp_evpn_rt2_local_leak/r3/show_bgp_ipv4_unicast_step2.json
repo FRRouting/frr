@@ -1,0 +1,53 @@
+{
+  "routes": {
+    "192.168.0.0/24": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "path": "",
+        "origin": "incomplete",
+        "nexthops": [
+          {
+            "hostname": "r3",
+            "used": true
+          }
+        ]
+      },
+      {
+        "valid": true,
+        "pathFrom": "external",
+        "path": "65001 65002",
+        "origin": "incomplete",
+        "nexthops": [
+          {
+            "hostname": "r1",
+            "scope": "link-local",
+            "linkLocalOnly": false,
+            "used": true
+          },
+          {
+            "interface": "eth-r1",
+            "hostname": "r1",
+            "scope": "link-local"
+          }
+        ]
+      }
+    ],
+    "192.168.0.3/32": [
+      {
+        "valid": true,
+        "bestpath": true,
+        "pathFrom": "external",
+        "path": "",
+        "origin": "IGP",
+        "nexthops": [
+          {
+            "hostname": "r3",
+            "used": true
+          }
+        ]
+      }
+    ]
+  }
+}
