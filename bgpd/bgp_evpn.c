@@ -2372,6 +2372,10 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
         * and (re)install the remote route into zebra.
 	*/
 	evpn_route_select_install(bgp, vpn, dest, pi);
+
+	if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE && !mac_only)
+		bgp_evpn_import_route(bgp, AFI_L2VPN, SAFI_EVPN, &dest->rn->p, pi);
+
 	/*
 	 * If the new local route was not selected evict it and tell zebra
 	 * to re-add the best remote dest. BGP doesn't retain non-best local
