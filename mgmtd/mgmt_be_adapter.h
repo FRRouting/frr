@@ -53,7 +53,6 @@ struct mgmt_be_client_adapter {
 	struct event *conn_init_ev;
 
 	enum mgmt_be_client_id id;
-	uint32_t flags;
 	char name[MGMTD_CLIENT_NAME_MAX_LEN];
 
 	int refcount;
@@ -69,8 +68,6 @@ struct mgmt_be_client_adapter {
 
 	struct mgmt_be_adapters_item list_linkage;
 };
-
-#define MGMTD_BE_ADAPTER_FLAGS_CFG_SYNCED (1U << 0)
 
 DECLARE_LIST(mgmt_be_adapters, struct mgmt_be_client_adapter, list_linkage);
 
@@ -96,6 +93,8 @@ DECLARE_LIST(mgmt_be_adapters, struct mgmt_be_client_adapter, list_linkage);
 
 #define IS_IDBIT_SET(v, id)   (!IS_IDBIT_UNSET(v, id))
 #define IS_IDBIT_UNSET(v, id) (!((v) & (1ull << (id))))
+#define SET_IDBIT(v, id)      ((v) |= (1ull << (id)))
+#define UNSET_IDBIT(v, id)    ((v) &= ~(1ull << (id)))
 
 #define _GET_NEXT_SET(id, bits)                                                                    \
 	({                                                                                         \
@@ -110,6 +109,26 @@ DECLARE_LIST(mgmt_be_adapters, struct mgmt_be_client_adapter, list_linkage);
 #define FOREACH_BE_CLIENT_BITS(id, bits)                                                           \
 	for ((id) = _GET_NEXT_SET(MGMTD_BE_CLIENT_ID_MIN, bits); (id) < MGMTD_BE_CLIENT_ID_MAX;    \
 	     (id) = _GET_NEXT_SET((id) + 1, bits))
+
+/* This is required to avoid assignment in if conditional in FOREACH_BE_ADAPTER_BITS :( */
+#define _GET_NEXT_SET_ADAPTER(id, adapter, bits)                                                  \
+	({                                                                                        \
+		enum mgmt_be_client_id _gnsa_id = (id);                                           \
+                                                                                                  \
+		for (; _gnsa_id < MGMTD_BE_CLIENT_ID_MAX; _gnsa_id++) {                           \
+			if (IS_IDBIT_SET(bits, _gnsa_id)) {                                       \
+				(adapter) = mgmt_be_get_adapter_by_id(_gnsa_id);                  \
+				if ((adapter))                                                    \
+					break;                                                    \
+			}                                                                         \
+		}                                                                                 \
+		_gnsa_id;                                                                         \
+	})
+
+#define FOREACH_BE_ADAPTER_BITS(id, adapter, bits)                                                \
+	for ((id) = _GET_NEXT_SET_ADAPTER(MGMTD_BE_CLIENT_ID_MIN, (adapter), (bits));             \
+	     (id) < MGMTD_BE_CLIENT_ID_MAX;                                                       \
+	     (id) = _GET_NEXT_SET_ADAPTER((id) + 1, (adapter), (bits)))
 
 /* ---------- */
 /* Prototypes */
@@ -149,40 +168,6 @@ extern void mgmt_be_adapter_toggle_client_debug(bool set);
 extern void mgmt_be_get_adapter_config(struct mgmt_be_client_adapter *adapter,
 				       struct nb_config_cbs **changes);
 
-/* Create/destroy a transaction. */
-extern int mgmt_be_send_txn_req(struct mgmt_be_client_adapter *adapter,
-				uint64_t txn_id, bool create);
-
-/*
- * Send config data create request to backend client.
- *
- * adaptr
- *    Backend adapter information.
- *
- * msg
- *    The already constructed message to send.
- *
- * Returns:
- *    0 on success, -1 on failure.
- */
-extern int mgmt_be_send_cfgdata_req(struct mgmt_be_client_adapter *adapter,
-				    struct mgmt_msg_cfg_req *msg);
-
-/*
- * Send config apply request to backend client.
- *
- * adapter
- *    Backend adapter information.
- *
- * txn_id
- *    Unique transaction identifier.
- *
- * Returns:
- *    0 on success, -1 on failure.
- */
-extern int mgmt_be_send_cfgapply_req(struct mgmt_be_client_adapter *adapter,
-				     uint64_t txn_id);
-
 /*
  * Dump backend adapter status to vty.
  */
@@ -204,7 +189,7 @@ extern void mgmt_be_xpath_register_write(struct vty *vty);
  * Return:
  *	Any return value from msg_conn_send_msg().
  */
-extern int mgmt_be_send_native(enum mgmt_be_client_id id, void *msg);
+extern int mgmt_be_send_native(struct mgmt_be_client_adapter *adapter, void *msg);
 
 enum mgmt_be_xpath_subscr_type {
 	MGMT_BE_XPATH_SUBSCR_TYPE_CFG,
