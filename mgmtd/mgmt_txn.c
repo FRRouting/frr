@@ -109,8 +109,8 @@ struct txn_req_commit {
 struct txn_req_get_tree {
 	struct txn_req req;
 	char *xpath;	       /* xpath of tree to get */
-	uint64_t sent_clients; /* Bitmask of clients sent req to */
-	uint64_t recv_clients; /* Bitmask of clients recv reply from */
+	uint64_t clients;      /* Bitmask of clients sent req to */
+	uint64_t clients_wait; /* Bitmask of clients waiting for reply from */
 	int32_t partial_error; /* an error while gather results */
 	uint8_t result_type;   /* LYD_FORMAT for results */
 	uint8_t wd_options;    /* LYD_PRINT_WD_* flags for results */
@@ -127,8 +127,8 @@ struct txn_req_get_tree {
 struct txn_req_rpc {
 	struct txn_req req;
 	char *xpath;	       /* xpath of rpc/action to invoke */
-	uint64_t sent_clients; /* Bitmask of clients sent req to */
-	uint64_t recv_clients; /* Bitmask of clients recv reply from */
+	uint64_t clients;      /* Bitmask of clients sent req to */
+	uint64_t clients_wait; /* Bitmask of clients waiting for reply from */
 	uint8_t result_type;   /* LYD_FORMAT for results */
 	struct lyd_node *client_results; /* result tree from clients */
 };
@@ -1552,13 +1552,13 @@ state:
 	FOREACH_BE_ADAPTER_BITS (id, adapter, clients) {
 		if (mgmt_be_send_native(adapter, msg))
 			continue;
-		SET_IDBIT(get_tree->sent_clients, id);
+		SET_IDBIT(get_tree->clients, id);
 	}
 
 	mgmt_msg_native_free_msg(msg);
 
-	/* Return if we didn't send any messages to backends */
-	if (!get_tree->sent_clients)
+	get_tree->clients_wait = get_tree->clients;
+	if (!get_tree->clients_wait)
 		return txn_get_tree_data_done(get_tree);
 
 	/* Start timeout timer - pulled out of register event code so we can
@@ -1653,12 +1653,13 @@ int mgmt_txn_send_rpc(uint64_t txn_id, uint64_t req_id, uint64_t clients,
 	FOREACH_BE_ADAPTER_BITS (id, adapter, clients) {
 		if (mgmt_be_send_native(adapter, msg))
 			continue;
-		SET_IDBIT(rpc->sent_clients, id);
+		SET_IDBIT(rpc->clients, id);
 	}
 
 	mgmt_msg_native_free_msg(msg);
 
-	if (!rpc->sent_clients)
+	rpc->clients_wait = rpc->clients;
+	if (!rpc->clients_wait)
 		return txn_rpc_done(rpc);
 
 	event_add_timer(mgmt_txn_tm, txn_rpc_timeout, rpc,
@@ -1768,20 +1769,20 @@ void mgmt_txn_notify_error(struct mgmt_be_client_adapter *adapter, uint64_t txn_
 	switch (txn_req->req_type) {
 	case TXN_REQ_TYPE_GETTREE:
 		get_tree = into_get_tree_req(txn_req);
-		get_tree->recv_clients |= (1u << id);
+		UNSET_IDBIT(get_tree->clients_wait, id);
 		get_tree->partial_error = error;
 
 		/* check if done yet */
-		if (get_tree->recv_clients == get_tree->sent_clients)
+		if (!get_tree->clients_wait)
 			txn_get_tree_data_done(get_tree);
 		return;
 	case TXN_REQ_TYPE_RPC:
 		rpc = into_rpc_req(txn_req);
-		rpc->recv_clients |= (1u << id);
+		UNSET_IDBIT(rpc->clients_wait, id);
 		if (errstr)
 			darr_in_strdup(rpc->req.err_info, errstr);
 		/* check if done yet */
-		if (rpc->recv_clients == rpc->sent_clients)
+		if (!rpc->clients_wait)
 			txn_rpc_done(rpc);
 		return;
 
@@ -1854,10 +1855,10 @@ int mgmt_txn_notify_tree_data_reply(struct mgmt_be_client_adapter *adapter,
 						   : (int)err);
 
 	if (!data_msg->more)
-		get_tree->recv_clients |= (1u << id);
+		UNSET_IDBIT(get_tree->clients_wait, id);
 
 	/* check if done yet */
-	if (get_tree->recv_clients != get_tree->sent_clients)
+	if (get_tree->clients_wait)
 		return 0;
 
 	return txn_get_tree_data_done(get_tree);
@@ -1915,10 +1916,10 @@ int mgmt_txn_notify_rpc_reply(struct mgmt_be_client_adapter *adapter,
 	if (err)
 		darr_in_strdup(rpc->req.err_info, "Cannot parse result from the backend");
 
-	rpc->recv_clients |= (1u << id);
+	UNSET_IDBIT(rpc->clients_wait, id);
 
 	/* check if done yet */
-	if (rpc->recv_clients != rpc->sent_clients)
+	if (rpc->clients_wait)
 		return 0;
 
 	return txn_rpc_done(rpc);
