@@ -1469,6 +1469,24 @@ static int peer_flag_unset_vty(struct vty *vty, const char *ip_str,
 	return peer_flag_modify_vty(vty, ip_str, flag, 0);
 }
 
+static void bgp_need_listening(struct bgp *bgp, struct vty *vty)
+{
+	struct listnode *node;
+	struct bgp_listener *listener;
+
+	for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, listener)) {
+		if (listener->bgp == bgp)
+			break;
+	}
+	if (listener == NULL) {
+		struct vrf *vrf;
+
+		SET_FLAG(bgp->flags, BGP_FLAG_VRF_MAY_LISTEN);
+		vrf = bgp_vrf_lookup_by_instance_type(bgp);
+		bgp_handle_socket(bgp, vrf, VRF_UNKNOWN, true);
+	}
+}
+
 #include "bgpd/bgp_vty_clippy.c"
 
 DEFUN_HIDDEN (bgp_local_mac,
@@ -1666,8 +1684,10 @@ DEFUN_NOSH (router_bgp,
 		 * any pending VRF-VPN leaking that was configured via
 		 * earlier "router bgp X vrf FOO" blocks.
 		 */
-		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
+			bgp_need_listening(bgp, vty);
 			vpn_leak_postchange_all();
+		}
 
 		if (inst_type == BGP_INSTANCE_TYPE_VRF || IS_BGP_INSTANCE_HIDDEN(bgp)) {
 			bgp_vpn_leak_export(bgp);
@@ -4852,25 +4872,6 @@ static void bgp_may_stop_listening(struct bgp *bgp, struct vty *vty)
 	vrf = bgp_vrf_lookup_by_instance_type(bgp);
 	bgp_handle_socket(bgp, vrf, VRF_UNKNOWN, false);
 	UNSET_FLAG(bgp->flags, BGP_FLAG_VRF_MAY_LISTEN);
-}
-
-
-static void bgp_need_listening(struct bgp *bgp, struct vty *vty)
-{
-	struct listnode *node;
-	struct bgp_listener *listener;
-
-	for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, listener)) {
-		if (listener->bgp == bgp)
-			break;
-	}
-	if (listener == NULL) {
-		struct vrf *vrf;
-
-		SET_FLAG(bgp->flags, BGP_FLAG_VRF_MAY_LISTEN);
-		vrf = bgp_vrf_lookup_by_instance_type(bgp);
-		bgp_handle_socket(bgp, vrf, VRF_UNKNOWN, true);
-	}
 }
 
 DEFUN (bgp_listen_range,
