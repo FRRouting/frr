@@ -6577,16 +6577,14 @@ int dplane_provider_get_work_limit(const struct zebra_dplane_provider *prov)
 /* Lock/unlock a provider's mutex - iff the provider was registered with
  * the THREADED flag.
  */
-void dplane_provider_lock(struct zebra_dplane_provider *prov)
+inline void dplane_provider_lock(struct zebra_dplane_provider *prov)
 {
-	if (dplane_provider_is_threaded(prov))
-		DPLANE_PROV_LOCK(prov);
+	DPLANE_PROV_LOCK(prov);
 }
 
-void dplane_provider_unlock(struct zebra_dplane_provider *prov)
+inline void dplane_provider_unlock(struct zebra_dplane_provider *prov)
 {
-	if (dplane_provider_is_threaded(prov))
-		DPLANE_PROV_UNLOCK(prov);
+	DPLANE_PROV_UNLOCK(prov);
 }
 
 /*
