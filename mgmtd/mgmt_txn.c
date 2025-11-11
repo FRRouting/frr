@@ -18,6 +18,7 @@
 #include "mgmtd/mgmt_memory.h"
 #include "mgmtd/mgmt_txn.h"
 #include "mgmtd/mgmt_be_adapter.h"
+#include "queue.h"
 
 #define _dbg(fmt, ...)	   DEBUGD(&mgmt_debug_txn, "TXN: %s: " fmt, __func__, ##__VA_ARGS__)
 #define _log_warn(fmt, ...) zlog_warn("%s: WARNING: " fmt, __func__, ##__VA_ARGS__)
@@ -26,13 +27,12 @@
 #define MGMTD_TXN_LOCK(txn)   mgmt_txn_lock(txn, __FILE__, __LINE__)
 #define MGMTD_TXN_UNLOCK(txn, in_hash_free) mgmt_txn_unlock(txn, in_hash_free, __FILE__, __LINE__)
 
-enum mgmt_txn_req_type {
-	MGMTD_TXN_PROC_COMMITCFG = 1,
-	MGMTD_TXN_PROC_GETTREE,
-	MGMTD_TXN_PROC_RPC,
-};
 
-PREDECL_LIST(mgmt_txn_reqs);
+enum txn_req_type {
+	TXN_REQ_TYPE_COMMIT = 1,
+	TXN_REQ_TYPE_GETTREE,
+	TXN_REQ_TYPE_RPC,
+};
 
 enum mgmt_commit_phase {
 	MGMTD_COMMIT_PHASE_SEND_CFG = 0,
@@ -52,7 +52,20 @@ struct mgmt_edit_req {
 	bool unlock;
 };
 
-struct mgmt_commit_cfg_req {
+struct txn_req {
+	uint64_t req_id;
+	struct mgmt_txn *txn;
+	TAILQ_ENTRY(txn_req) link;
+	enum txn_req_type req_type;
+	int16_t error;		/* cfg: MGMTD return code, else errno */
+	char *err_info;		/* darr str */
+	struct event *timeout;	/* for timing out the request */
+};
+/* Macro to coerce back into txn_req */
+#define into_txn_req(xreq) (&(xreq)->req)
+
+struct txn_req_commit {
+	struct txn_req req;
 	enum mgmt_ds_id src_ds_id;
 	struct mgmt_ds_ctx *src_ds_ctx;
 	enum mgmt_ds_id dst_ds_id;
@@ -87,8 +100,14 @@ struct mgmt_commit_cfg_req {
 
 	struct mgmt_commit_stats *cmt_stats;
 };
+#define into_commit_req(txn_req)                                                                  \
+	({                                                                                        \
+		assert((txn_req)->req_type == TXN_REQ_TYPE_COMMIT);                               \
+		(struct txn_req_commit *)(txn_req);                                               \
+	})
 
 struct txn_req_get_tree {
+	struct txn_req req;
 	char *xpath;	       /* xpath of tree to get */
 	uint64_t sent_clients; /* Bitmask of clients sent req to */
 	uint64_t recv_clients; /* Bitmask of clients recv reply from */
@@ -99,139 +118,120 @@ struct txn_req_get_tree {
 	uint8_t simple_xpath;  /* if xpath is simple */
 	struct lyd_node *client_results; /* result tree from clients */
 };
+#define into_get_tree_req(txn_req)                                                                \
+	({                                                                                        \
+		assert((txn_req)->req_type == TXN_REQ_TYPE_GETTREE);                              \
+		(struct txn_req_get_tree *)(txn_req);                                             \
+	})
 
 struct txn_req_rpc {
+	struct txn_req req;
 	char *xpath;	       /* xpath of rpc/action to invoke */
 	uint64_t sent_clients; /* Bitmask of clients sent req to */
 	uint64_t recv_clients; /* Bitmask of clients recv reply from */
 	uint8_t result_type;   /* LYD_FORMAT for results */
-	char *errstr;	       /* error string */
 	struct lyd_node *client_results; /* result tree from clients */
 };
+#define into_rpc_req(txn_req)                                                                     \
+	({                                                                                        \
+		assert((txn_req)->req_type == TXN_REQ_TYPE_RPC);                                  \
+		(struct txn_req_rpc *)(txn_req);                                                  \
+	})
 
-struct mgmt_txn_req {
-	struct mgmt_txn_ctx *txn;
-	enum mgmt_txn_req_type req_type;
-	uint64_t req_id;
-	union {
-		/*
-		 * XXX Make the sub-structure variants either allocated or
-		 * embedded -- not both; embedding only the commit_cfg variant
-		 * makes little sense since it is the largest of the variants
-		 * though!
-		 */
-		struct txn_req_get_tree *get_tree;
-		struct txn_req_rpc *rpc;
-		struct mgmt_commit_cfg_req commit_cfg;
-	} req;
-
-	/* So far used by commit_cfg to expand to others */
-	enum mgmt_result error; /* MGMTD return code */
-	char *err_info;		/* darr str */
-
-	struct mgmt_txn_reqs_item list_linkage;
+const char *txn_req_names[] = {
+	[TXN_REQ_TYPE_COMMIT] = "COMMIT",
+	[TXN_REQ_TYPE_GETTREE] = "GET-TREE",
+	[TXN_REQ_TYPE_RPC] = "RPC",
 };
 
-DECLARE_LIST(mgmt_txn_reqs, struct mgmt_txn_req, list_linkage);
-
-#define FOREACH_TXN_REQ_IN_LIST(list, req)                                     \
-	frr_each_safe (mgmt_txn_reqs, list, req)
-
-struct mgmt_txn_ctx {
+struct mgmt_txn {
 	uint64_t session_id; /* One transaction per client session */
 	uint64_t txn_id;
 	enum mgmt_txn_type type;
-
-	struct event *proc_comm_cfg;
-	struct event *proc_get_tree;
-	struct event *comm_cfg_timeout;
-	struct event *get_tree_timeout;
-	struct event *rpc_timeout;
-	struct event *clnup;
-
 	int refcount;
 
-	struct mgmt_txns_item list_linkage;
+	TAILQ_ENTRY(mgmt_txn) link;
 
 	/*
 	 * List of pending requests.
 	 */
-	struct mgmt_txn_reqs_head reqs;
-
-	/*
-	 * There will always be one commit-config allowed for a given
-	 * transaction/session. Keep a pointer to it for quick access.
-	 */
-	struct mgmt_txn_req *commit_cfg_req;
+	TAILQ_HEAD(txn_req_head, txn_req) reqs;
 };
 
-DECLARE_LIST(mgmt_txns, struct mgmt_txn_ctx, list_linkage);
+/* Global list of all transactions */
+TAILQ_HEAD(mgmt_txn_head, mgmt_txn) txn_txns = TAILQ_HEAD_INITIALIZER(txn_txns);
 
-#define FOREACH_TXN_IN_LIST(mm, txn)                                           \
-	frr_each_safe (mgmt_txns, &(mm)->txn_list, (txn))
+/* The single instance of config transaction allowed at any time */
+struct mgmt_txn *txn_config_txn;
 
-static inline const char *mgmt_txn_commit_phase_str(struct mgmt_txn_req *txn_req)
+
+static inline struct txn_req_commit *txn_txn_req_commit(struct mgmt_txn *txn)
 {
-	return mgmt_commit_phase_name[txn_req->req.commit_cfg.phase];
+	struct txn_req *first_req = TAILQ_FIRST(&txn->reqs);
+
+	if (first_req && first_req->req_type == TXN_REQ_TYPE_COMMIT)
+		return into_commit_req(first_req);
+	return NULL;
 }
 
-static void mgmt_txn_lock(struct mgmt_txn_ctx *txn, const char *file, int line);
-static void mgmt_txn_unlock(struct mgmt_txn_ctx **txn, bool in_hash_free, const char *file,
-			    int line);
+static inline struct txn_req *txn_txn_req(struct mgmt_txn *txn, uint64_t req_id)
+{
+	struct txn_req *txn_req;
+
+	TAILQ_FOREACH (txn_req, &txn->reqs, link)
+		if (txn_req->req_id == req_id)
+			return txn_req;
+	return NULL;
+}
+
+static void mgmt_txn_lock(struct mgmt_txn *txn, const char *file, int line);
+static void mgmt_txn_unlock(struct mgmt_txn **txn, bool in_hash_free, const char *file, int line);
 
 static struct event_loop *mgmt_txn_tm;
 static struct mgmt_master *mgmt_txn_mm;
 
-static void mgmt_txn_cleanup_txn(struct mgmt_txn_ctx **txn);
+static void mgmt_txn_cleanup_txn(struct mgmt_txn **txn);
 
 static void mgmt_txn_cfg_commit_timedout(struct event *thread);
-static void txn_cfg_send_cfg_apply(struct mgmt_txn_req *txn_req);
+static void txn_cfg_send_cfg_apply(struct txn_req_commit *ccreq);
 
-static struct mgmt_txn_req *mgmt_txn_req_alloc(struct mgmt_txn_ctx *txn, uint64_t req_id,
-					       enum mgmt_txn_req_type req_type)
+static struct txn_req *txn_req_alloc(struct mgmt_txn *txn, uint64_t req_id,
+				     enum txn_req_type req_type, size_t size)
 {
-	struct mgmt_txn_req *txn_req;
+	struct txn_req *txn_req = XCALLOC(MTYPE_MGMTD_TXN_REQ, size);
 
-	txn_req = XCALLOC(MTYPE_MGMTD_TXN_REQ, sizeof(struct mgmt_txn_req));
-	assert(txn_req);
-	txn_req->txn = txn;
-	txn_req->req_id = req_id;
 	txn_req->req_type = req_type;
+	txn_req->req_id = req_id;
 
-	switch (txn_req->req_type) {
-	case MGMTD_TXN_PROC_COMMITCFG:
-		/*
-		 * XXX Not allocated, makes no sense to have some allocated and
-		 * some not, and this embedded one is the largest of the lot
-		 */
-
-		txn->commit_cfg_req = txn_req;
-		_dbg("Added a new COMMITCFG req-id: %" PRIu64 " txn-id: %" PRIu64
-		     " session-id: %" PRIu64,
-		     txn_req->req_id, txn->txn_id, txn->session_id);
-
-		break;
-	case MGMTD_TXN_PROC_GETTREE:
-		txn_req->req.get_tree = XCALLOC(MTYPE_MGMTD_TXN_GETTREE_REQ,
-						sizeof(struct txn_req_get_tree));
-
-		_dbg("Added a new GETTREE req-id: %" PRIu64 " txn-id: %" PRIu64
-		     " session-id: %" PRIu64,
-		     txn_req->req_id, txn->txn_id, txn->session_id);
-		break;
-	case MGMTD_TXN_PROC_RPC:
-		txn_req->req.rpc = XCALLOC(MTYPE_MGMTD_TXN_RPC_REQ, sizeof(struct txn_req_rpc));
-
-		_dbg("Added a new RPC req-id: %" PRIu64 " txn-id: %" PRIu64 " session-id: %" PRIu64,
-		     txn_req->req_id, txn->txn_id, txn->session_id);
-		break;
-	}
-
-	mgmt_txn_reqs_add_tail(&txn->reqs, txn_req);
-
+	txn_req->txn = txn;
+	TAILQ_INSERT_TAIL(&txn->reqs, txn_req, link);
 	MGMTD_TXN_LOCK(txn);
 
+	_dbg("Added %s txn-req req-id: %Lu txn-id: %Lu session-id: %Lu", txn_req_names[req_type],
+	     req_id, txn->txn_id, txn->session_id);
+
 	return txn_req;
+}
+
+static struct txn_req_commit *txn_req_commit_alloc(struct mgmt_txn *txn, uint64_t req_id)
+{
+	struct txn_req *txn_req = txn_req_alloc(txn, req_id, TXN_REQ_TYPE_COMMIT,
+						sizeof(struct txn_req_commit));
+	return into_commit_req(txn_req);
+}
+
+static struct txn_req_get_tree *txn_req_get_tree_alloc(struct mgmt_txn *txn, uint64_t req_id)
+{
+	struct txn_req *txn_req = txn_req_alloc(txn, req_id, TXN_REQ_TYPE_GETTREE,
+						sizeof(struct txn_req_get_tree));
+	return into_get_tree_req(txn_req);
+}
+
+static struct txn_req_rpc *txn_req_rpc_alloc(struct mgmt_txn *txn, uint64_t req_id)
+{
+	struct txn_req *txn_req = txn_req_alloc(txn, req_id, TXN_REQ_TYPE_RPC,
+						sizeof(struct txn_req_rpc));
+	return into_rpc_req(txn_req);
 }
 
 static int txn_send_txn_delete(struct mgmt_be_client_adapter *adapter, uint64_t txn_id)
@@ -249,9 +249,9 @@ static int txn_send_txn_delete(struct mgmt_be_client_adapter *adapter, uint64_t 
 	return ret;
 }
 
-static void txn_cfg_cleanup(struct mgmt_txn_req *txn_req)
+static void txn_cfg_cleanup(struct txn_req_commit *ccreq)
 {
-	struct mgmt_commit_cfg_req *ccreq = &txn_req->req.commit_cfg;
+	struct txn_req *txn_req = &ccreq->req;
 	struct mgmt_be_client_adapter *adapter;
 	enum mgmt_commit_phase phase;
 	enum mgmt_be_client_id id;
@@ -295,6 +295,7 @@ static void txn_cfg_cleanup(struct mgmt_txn_req *txn_req)
 	case MGMTD_COMMIT_PHASE_FINISH:
 		break;
 	case MGMTD_COMMIT_PHASE_APPLY_CFG:
+		/* cache and clear the bits as they are checked on client disconnect */
 		clients = ccreq->clients_wait;
 		ccreq->clients_wait = 0;
 		ccreq->clients = 0;
@@ -305,6 +306,7 @@ static void txn_cfg_cleanup(struct mgmt_txn_req *txn_req)
 		}
 		break;
 	case MGMTD_COMMIT_PHASE_SEND_CFG:
+		/* cache and clear the bits as they are checked on client disconnect */
 		clients = ccreq->clients;
 		ccreq->clients_wait = 0;
 		ccreq->clients = 0;
@@ -319,49 +321,42 @@ static void txn_cfg_cleanup(struct mgmt_txn_req *txn_req)
 	}
 }
 
-static void mgmt_txn_req_free(struct mgmt_txn_req **txn_req)
+static void mgmt_txn_req_free(struct txn_req *txn_req)
 {
-	struct mgmt_txn_ctx *txn = (*txn_req)->txn;
-	struct mgmt_txn_req *safe_req = NULL;
+	struct mgmt_txn *txn = txn_req->txn;
+	struct txn_req_rpc *rreq;
+	struct txn_req_get_tree *gtreq;
 	uint64_t txn_id = txn->txn_id;
 
-	switch ((*txn_req)->req_type) {
-	case MGMTD_TXN_PROC_COMMITCFG:
-		/* prevent recursion */
-		safe_req = *txn_req;
-		*txn_req = NULL;
-		txn_req = &safe_req;
-		txn_cfg_cleanup(*txn_req);
-		/* NOTE: config request state is not allocated separately */
+	/* prevent recursion */
+	_dbg("Deleting %s txn-req req-id: %Lu txn-id: %Lu", txn_req_names[txn_req->req_type],
+	     txn_req->req_id, txn_id);
+
+	switch (txn_req->req_type) {
+	case TXN_REQ_TYPE_COMMIT:
+		txn_cfg_cleanup(into_commit_req(txn_req));
 		break;
-	case MGMTD_TXN_PROC_GETTREE:
-		_dbg("Deleting GETTREE req-id: %" PRIu64 " of txn-id: %" PRIu64,
-		     (*txn_req)->req_id, txn_id);
-		lyd_free_all((*txn_req)->req.get_tree->client_results);
-		XFREE(MTYPE_MGMTD_XPATH, (*txn_req)->req.get_tree->xpath);
-		XFREE(MTYPE_MGMTD_TXN_GETTREE_REQ, (*txn_req)->req.get_tree);
+	case TXN_REQ_TYPE_GETTREE:
+		gtreq = into_get_tree_req(txn_req);
+		lyd_free_all(gtreq->client_results);
+		XFREE(MTYPE_MGMTD_XPATH, gtreq->xpath);
 		break;
-	case MGMTD_TXN_PROC_RPC:
-		_dbg("Deleting RPC req-id: %" PRIu64 " txn-id: %" PRIu64, (*txn_req)->req_id,
-		     txn_id);
-		lyd_free_all((*txn_req)->req.rpc->client_results);
-		XFREE(MTYPE_MGMTD_ERR, (*txn_req)->req.rpc->errstr);
-		XFREE(MTYPE_MGMTD_XPATH, (*txn_req)->req.rpc->xpath);
-		XFREE(MTYPE_MGMTD_TXN_RPC_REQ, (*txn_req)->req.rpc);
+	case TXN_REQ_TYPE_RPC:
+		rreq = into_rpc_req(txn_req);
+		lyd_free_all(rreq->client_results);
+		XFREE(MTYPE_MGMTD_XPATH, rreq->xpath);
 		break;
 	}
 
-	mgmt_txn_reqs_del(&txn->reqs, *txn_req);
-	_dbg("Removed req-id: %Lu from request-list (left:%zu)", (*txn_req)->req_id,
-	     mgmt_txn_reqs_count(&txn->reqs));
+	TAILQ_REMOVE(&txn->reqs, txn_req, link);
+	_dbg("Removed req-id: %Lu from request-list", txn_req->req_id);
 
-	darr_free((*txn_req)->err_info);
-	MGMTD_TXN_UNLOCK(&(*txn_req)->txn, false);
-	XFREE(MTYPE_MGMTD_TXN_REQ, (*txn_req));
-	*txn_req = NULL;
+	darr_free(txn_req->err_info);
+	MGMTD_TXN_UNLOCK(&txn_req->txn, false);
+	XFREE(MTYPE_MGMTD_TXN_REQ, txn_req);
 }
 
-static int txn_set_config_error(struct mgmt_txn_req *txn_req, enum mgmt_result error,
+static int txn_set_config_error(struct txn_req *txn_req, enum mgmt_result error,
 				const char *error_info)
 {
 	txn_req->error = error;
@@ -374,12 +369,12 @@ static int txn_set_config_error(struct mgmt_txn_req *txn_req, enum mgmt_result e
  *
  * NOTE: can disconnect (and delete) backends.
  */
-static void txn_finish_commit(struct mgmt_txn_req *txn_req, enum mgmt_result result,
+static void txn_finish_commit(struct txn_req_commit *ccreq, enum mgmt_result result,
 			      const char *error_if_any)
 {
 	bool success, apply_op, accept_changes, discard_changes;
-	struct mgmt_commit_cfg_req *ccreq = &txn_req->req.commit_cfg;
-	struct mgmt_txn_ctx *txn = txn_req->txn;
+	struct txn_req *txn_req = into_txn_req(ccreq);
+	struct mgmt_txn *txn = txn_req->txn;
 	int ret;
 
 	success = (result == MGMTD_SUCCESS || result == MGMTD_NO_CFG_CHANGES);
@@ -407,7 +402,7 @@ static void txn_finish_commit(struct mgmt_txn_req *txn_req, enum mgmt_result res
 	/*
 	 * Stop the commit-timeout timer.
 	 */
-	event_cancel(&txn->comm_cfg_timeout);
+	event_cancel(&txn_req->timeout);
 
 	/*
 	 * Decide what our datastores should now look like
@@ -479,7 +474,7 @@ static void txn_finish_commit(struct mgmt_txn_req *txn_req, enum mgmt_result res
 	}
 
 	ccreq->cmt_stats = NULL;
-	mgmt_txn_req_free(&txn->commit_cfg_req);
+	mgmt_txn_req_free(txn_req);
 
 	/*
 	 * The CONFIG Transaction should be destroyed from Frontend-adapter.
@@ -490,9 +485,9 @@ static void txn_finish_commit(struct mgmt_txn_req *txn_req, enum mgmt_result res
 		mgmt_txn_cleanup_txn(&txn);
 }
 
-static void txn_cfg_next_phase(struct mgmt_txn_req *txn_req)
+static void txn_cfg_next_phase(struct txn_req_commit *ccreq)
 {
-	struct mgmt_commit_cfg_req *ccreq = &txn_req->req.commit_cfg;
+	struct txn_req *txn_req = &ccreq->req;
 
 	switch (ccreq->phase) {
 	case MGMTD_COMMIT_PHASE_SEND_CFG:
@@ -513,16 +508,16 @@ static void txn_cfg_next_phase(struct mgmt_txn_req *txn_req)
 	}
 
 	_dbg("CONFIG-STATE-MACHINE txn-id: %Lu transition to state: %s", txn_req->txn->txn_id,
-	     mgmt_txn_commit_phase_str(txn_req));
+	     mgmt_commit_phase_name[ccreq->phase]);
 
 	switch (ccreq->phase) {
 	case MGMTD_COMMIT_PHASE_APPLY_CFG:
-		txn_cfg_send_cfg_apply(txn_req);
+		txn_cfg_send_cfg_apply(ccreq);
 		break;
 	case MGMTD_COMMIT_PHASE_FINISH:
 		if (mm->perf_stats_en)
 			gettimeofday(&ccreq->cmt_stats->txn_del_start, NULL);
-		txn_finish_commit(txn_req, MGMTD_SUCCESS, NULL);
+		txn_finish_commit(ccreq, MGMTD_SUCCESS, NULL);
 		return;
 	case MGMTD_COMMIT_PHASE_SEND_CFG:
 	default:
@@ -530,13 +525,12 @@ static void txn_cfg_next_phase(struct mgmt_txn_req *txn_req)
 	}
 }
 
-static void txn_cfg_adapter_acked(struct mgmt_txn_req *txn_req,
-				  struct mgmt_be_client_adapter *adapter)
+static void txn_cfg_adapter_acked(struct txn_req_commit *ccreq, struct mgmt_be_client_adapter *adapter)
 {
-	struct mgmt_commit_cfg_req *ccreq = &txn_req->req.commit_cfg;
+	struct txn_req *txn_req = &ccreq->req;
 
 	_dbg("CONFIG-STATE-MACHINE txn-id: %Lu in state: %s", txn_req->txn->txn_id,
-	     mgmt_txn_commit_phase_str(txn_req));
+	     mgmt_commit_phase_name[ccreq->phase]);
 
 	if (adapter) {
 		enum mgmt_be_client_id id = adapter->id;
@@ -553,7 +547,7 @@ static void txn_cfg_adapter_acked(struct mgmt_txn_req *txn_req,
 		return;
 	}
 
-	txn_cfg_next_phase(txn_req);
+	txn_cfg_next_phase(ccreq);
 }
 
 /*
@@ -580,8 +574,7 @@ static void txn_cfg_adapter_acked(struct mgmt_txn_req *txn_req,
  * Can disconnect backends, but this is not called from backends, so it's safe.
  */
 
-static int txn_make_and_send_cfg_msgs(struct mgmt_txn_req *txn_req,
-				      const struct nb_config_cbs *changes,
+static int txn_make_and_send_cfg_msgs(struct txn_req_commit *ccreq, const struct nb_config_cbs *changes,
 				      uint64_t init_client_mask)
 {
 	struct nb_config_cb *cb, *nxt;
@@ -590,7 +583,7 @@ static int txn_make_and_send_cfg_msgs(struct mgmt_txn_req *txn_req,
 	char *xpath = NULL, *value = NULL;
 	enum mgmt_be_client_id id;
 	struct mgmt_be_client_adapter *adapter;
-	struct mgmt_commit_cfg_req *cmtcfg_req;
+	struct txn_req *txn_req = &ccreq->req;
 	struct mgmt_msg_cfg_req **cfg_msgs = NULL;
 	char **cfg_actions = NULL;
 	uint64_t *num_cfg_data = NULL;
@@ -600,8 +593,6 @@ static int txn_make_and_send_cfg_msgs(struct mgmt_txn_req *txn_req,
 	uint64_t clients, chg_clients;
 	char op;
 	int ret = -1;
-
-	cmtcfg_req = &txn_req->req.commit_cfg;
 
 	RB_FOREACH_SAFE (cb, nb_config_cbs, changes, nxt) {
 		chg = (struct nb_config_change *)cb;
@@ -677,11 +668,11 @@ static int txn_make_and_send_cfg_msgs(struct mgmt_txn_req *txn_req,
 		if (clients && clients != chg_clients)
 			_dbg("Some deamons interested in XPATH are not currently connected");
 
-		cmtcfg_req->clients |= chg_clients;
+		ccreq->clients |= chg_clients;
 
 		free(xpath);
 	}
-	cmtcfg_req->cmt_stats->last_batch_cnt = batch_items;
+	ccreq->cmt_stats->last_batch_cnt = batch_items;
 
 	if (!RB_EMPTY(nb_config_cbs, &mgmtd_changes)) {
 		/* Create a northbound transaction for local mgmtd config changes */
@@ -691,7 +682,7 @@ static int txn_make_and_send_cfg_msgs(struct mgmt_txn_req *txn_req,
 
 		_dbg("Processing mgmtd bound changes");
 
-		assert(!cmtcfg_req->mgmtd_nb_txn);
+		assert(!ccreq->mgmtd_nb_txn);
 		nb_ctx.client = NB_CLIENT_MGMTD_SERVER;
 
 		/* Prepare the mgmtd local config changes */
@@ -700,25 +691,25 @@ static int txn_make_and_send_cfg_msgs(struct mgmt_txn_req *txn_req,
 		 * running PREPARE. See #19948
 		 */
 		if (nb_changes_commit_prepare(nb_ctx, mgmtd_changes, "mgmtd-changes", NULL,
-					      &cmtcfg_req->mgmtd_nb_txn, errmsg, errmsg_len)) {
+					      &ccreq->mgmtd_nb_txn, errmsg, errmsg_len)) {
 			_log_err("Failed to prepare local config for mgmtd: %s", errmsg);
-			if (cmtcfg_req->mgmtd_nb_txn) {
-				nb_candidate_commit_abort(cmtcfg_req->mgmtd_nb_txn, NULL, 0);
-				cmtcfg_req->mgmtd_nb_txn = NULL;
+			if (ccreq->mgmtd_nb_txn) {
+				nb_candidate_commit_abort(ccreq->mgmtd_nb_txn, NULL, 0);
+				ccreq->mgmtd_nb_txn = NULL;
 			}
 			(void)txn_set_config_error(txn_req, MGMTD_INTERNAL_ERROR,
 						   "Failed to prepare local config for mgmtd");
 			goto done;
 		}
-		assert(cmtcfg_req->mgmtd_nb_txn);
+		assert(ccreq->mgmtd_nb_txn);
 	}
 
 	/* Record txn create start time */
 	if (mm->perf_stats_en)
-		gettimeofday(&cmtcfg_req->cmt_stats->txn_create_start, NULL);
+		gettimeofday(&ccreq->cmt_stats->txn_create_start, NULL);
 
 	/* Send the messages to the backends */
-	FOREACH_BE_ADAPTER_BITS (id, adapter, cmtcfg_req->clients) {
+	FOREACH_BE_ADAPTER_BITS (id, adapter, ccreq->clients) {
 		/* NUL terminate actions string and add to tail of message */
 		darr_push(cfg_actions[id], 0);
 		mgmt_msg_native_add_str(cfg_msgs[id], cfg_actions[id]);
@@ -727,26 +718,25 @@ static int txn_make_and_send_cfg_msgs(struct mgmt_txn_req *txn_req,
 
 		if (mgmt_be_send_native(adapter, cfg_msgs[id])) {
 			/* remove this client and reset the connection */
-			UNSET_IDBIT(cmtcfg_req->clients, id);
+			UNSET_IDBIT(ccreq->clients, id);
 			msg_conn_disconnect(adapter->conn, false);
 		}
-		cmtcfg_req->cmt_stats->last_num_cfgdata_reqs++;
+		ccreq->cmt_stats->last_num_cfgdata_reqs++;
 	}
 	/* Record who we are waiting for */
-	cmtcfg_req->clients_wait = cmtcfg_req->clients;
+	ccreq->clients_wait = ccreq->clients;
 
-	if (cmtcfg_req->clients) {
+	if (ccreq->clients) {
 		/* set a timeout for hearing back from the backend clients */
-		event_add_timer(mgmt_txn_tm, mgmt_txn_cfg_commit_timedout, txn_req->txn,
-				MGMTD_TXN_CFG_COMMIT_MAX_DELAY_SEC,
-				&txn_req->txn->comm_cfg_timeout);
+		event_add_timer(mgmt_txn_tm, mgmt_txn_cfg_commit_timedout, txn_req,
+				MGMTD_TXN_CFG_COMMIT_MAX_DELAY_SEC, &txn_req->timeout);
 	} else {
 		/* We have no connected interested clients */
-		if (cmtcfg_req->mgmtd_nb_txn)
+		if (ccreq->mgmtd_nb_txn)
 			_dbg("No connected and interested backend clients, proceed with mgmtd local changes");
 		else
 			_dbg("No connected and interested backend clients, proceed to apply changes");
-		txn_cfg_adapter_acked(txn_req, NULL);
+		txn_cfg_adapter_acked(ccreq, NULL);
 	}
 
 	ret = 0;
@@ -757,49 +747,49 @@ done:
 	return ret;
 }
 
-static int txn_send_config_changes(struct mgmt_txn_ctx *txn, struct nb_config_cbs *cfg_chgs,
+static int txn_send_config_changes(struct txn_req_commit *ccreq, struct nb_config_cbs *cfg_chgs,
 				   uint64_t init_client_mask);
 
 /*
  * Prepare and send config changes by comparing the source and destination
  * datastores.
  */
-static int txn_get_config_changes(struct mgmt_txn_ctx *txn, struct nb_config_cbs *cfg_chgs)
+static int txn_get_config_changes(struct txn_req_commit *ccreq, struct nb_config_cbs *cfg_chgs)
 {
 	struct nb_config *nb_config;
-	struct mgmt_txn_req *txn_req = txn->commit_cfg_req;
+	struct txn_req *txn_req = &ccreq->req;
 	int ret = 0;
 
-	if (txn->commit_cfg_req->req.commit_cfg.src_ds_id != MGMTD_DS_CANDIDATE) {
+	if (ccreq->src_ds_id != MGMTD_DS_CANDIDATE) {
 		return txn_set_config_error(txn_req, MGMTD_INVALID_PARAM,
 					    "Source DS cannot be any other than CANDIDATE!");
 	}
 
-	if (txn->commit_cfg_req->req.commit_cfg.dst_ds_id != MGMTD_DS_RUNNING) {
+	if (ccreq->dst_ds_id != MGMTD_DS_RUNNING) {
 		return txn_set_config_error(txn_req, MGMTD_INVALID_PARAM,
 					    "Destination DS cannot be any other than RUNNING!");
 	}
 
-	if (!txn->commit_cfg_req->req.commit_cfg.src_ds_ctx) {
+	if (!ccreq->src_ds_ctx) {
 		return txn_set_config_error(txn_req, MGMTD_INVALID_PARAM,
 					    "No such source datastore!");
 	}
 
-	if (!txn->commit_cfg_req->req.commit_cfg.dst_ds_ctx) {
+	if (!ccreq->dst_ds_ctx) {
 		return txn_set_config_error(txn_req, MGMTD_INVALID_PARAM,
 					    "No such destination datastore!");
 	}
 
-	if (txn->commit_cfg_req->req.commit_cfg.abort) {
+	if (ccreq->abort) {
 		/*
 		 * This is a commit abort request. Return back success.
 		 * The reply routing special cases abort, this isn't pretty,
 		 * fix in later cleanup.
 		 */
-		return txn_set_config_error(txn->commit_cfg_req, MGMTD_SUCCESS, "commit abort");
+		return txn_set_config_error(txn_req, MGMTD_SUCCESS, "commit abort");
 	}
 
-	nb_config = mgmt_ds_get_nb_config(txn->commit_cfg_req->req.commit_cfg.src_ds_ctx);
+	nb_config = mgmt_ds_get_nb_config(ccreq->src_ds_ctx);
 	if (!nb_config) {
 		return txn_set_config_error(txn_req, MGMTD_INTERNAL_ERROR,
 					    "Unable to retrieve Commit DS Config Tree!");
@@ -818,7 +808,7 @@ static int txn_get_config_changes(struct mgmt_txn_ctx *txn, struct nb_config_cbs
 		return txn_set_config_error(txn_req, MGMTD_INVALID_PARAM, err_buf);
 	}
 
-	nb_config_diff(mgmt_ds_get_nb_config(txn->commit_cfg_req->req.commit_cfg.dst_ds_ctx),
+	nb_config_diff(mgmt_ds_get_nb_config(ccreq->dst_ds_ctx),
 		       nb_config, cfg_chgs);
 	if (RB_EMPTY(nb_config_cbs, cfg_chgs)) {
 		return txn_set_config_error(txn_req, MGMTD_NO_CFG_CHANGES,
@@ -831,15 +821,15 @@ static int txn_get_config_changes(struct mgmt_txn_ctx *txn, struct nb_config_cbs
  * Given a list of config changes, make backend client messages and send them. Aslo
  * apply any mgmtd specific config as well.
  */
-static int txn_send_config_changes(struct mgmt_txn_ctx *txn, struct nb_config_cbs *cfg_chgs,
+static int txn_send_config_changes(struct txn_req_commit *ccreq, struct nb_config_cbs *cfg_chgs,
 				   uint64_t init_client_mask)
 {
 	int ret;
 
 	if (mm->perf_stats_en)
-		gettimeofday(&txn->commit_cfg_req->req.commit_cfg.cmt_stats->prep_cfg_start, NULL);
+		gettimeofday(&ccreq->cmt_stats->prep_cfg_start, NULL);
 
-	ret = txn_make_and_send_cfg_msgs(txn->commit_cfg_req, cfg_chgs, init_client_mask);
+	ret = txn_make_and_send_cfg_msgs(ccreq, cfg_chgs, init_client_mask);
 	nb_config_diff_del_changes(cfg_chgs);
 	return ret;
 }
@@ -847,17 +837,11 @@ static int txn_send_config_changes(struct mgmt_txn_ctx *txn, struct nb_config_cb
 
 static void mgmt_txn_cfg_commit_timedout(struct event *event)
 {
-	struct mgmt_txn_ctx *txn;
-	struct mgmt_txn_req *txn_req;
-	struct mgmt_commit_cfg_req *ccreq;
+	struct txn_req *txn_req;
+	struct txn_req_commit *ccreq;
 
-	txn = (struct mgmt_txn_ctx *)EVENT_ARG(event);
-	assert(txn);
-	assert(txn->type == MGMTD_TXN_TYPE_CONFIG);
-	txn_req = txn->commit_cfg_req;
-	if (!txn_req)
-		return;
-	ccreq = &txn_req->req.commit_cfg;
+	txn_req = EVENT_ARG(event);
+	ccreq = into_commit_req(txn_req);
 
 	/*
 	 * If we are applying changes we need to return SUCCESS as there is no
@@ -867,35 +851,34 @@ static void mgmt_txn_cfg_commit_timedout(struct event *event)
 	 */
 	if (ccreq->phase < MGMTD_COMMIT_PHASE_APPLY_CFG) {
 		_log_err("Backend timeout validating txn-id: %Lu waiting: 0x%Lx aborting commit",
-			 txn->txn_id, ccreq->clients_wait);
-		txn_finish_commit(txn_req, MGMTD_INTERNAL_ERROR,
+			 txn_req->txn->txn_id, ccreq->clients_wait);
+		txn_finish_commit(ccreq, MGMTD_INTERNAL_ERROR,
 				  "Some backend clients taking too long to validate the changes.");
 	} else {
 		_log_warn("Backend timeout applying txn-id: %Lu waiting: 0x%Lx, applying commit",
-			  txn->txn_id, ccreq->clients_wait);
-		txn_finish_commit(txn_req, MGMTD_SUCCESS,
+			  txn_req->txn->txn_id, ccreq->clients_wait);
+		txn_finish_commit(ccreq, MGMTD_SUCCESS,
 				  "Some backend clients taking too long to apply the changes.");
 	}
 }
 
 
-static int txn_get_tree_data_done(struct mgmt_txn_ctx *txn,
-				  struct mgmt_txn_req *txn_req)
+static int txn_get_tree_data_done(struct txn_req_get_tree *get_tree)
 {
-	struct txn_req_get_tree *get_tree = txn_req->req.get_tree;
+	struct txn_req *txn_req = into_txn_req(get_tree);
+	struct mgmt_txn *txn = txn_req->txn;
 	uint64_t req_id = txn_req->req_id;
 	struct lyd_node *result;
 	int ret = NB_OK;
 
 	/* cancel timer and send reply onward */
-	event_cancel(&txn->get_tree_timeout);
+	event_cancel(&txn_req->timeout);
 
 	if (!get_tree->simple_xpath && get_tree->client_results) {
 		/*
 		 * We have a complex query so Filter results by the xpath query.
 		 */
-		if (yang_lyd_trim_xpath(&get_tree->client_results,
-					txn_req->req.get_tree->xpath))
+		if (yang_lyd_trim_xpath(&get_tree->client_results, get_tree->xpath))
 			ret = NB_ERR;
 	}
 
@@ -915,7 +898,7 @@ static int txn_get_tree_data_done(struct mgmt_txn_ctx *txn,
 						     false);
 
 	/* we're done with the request */
-	mgmt_txn_req_free(&txn_req);
+	mgmt_txn_req_free(txn_req);
 
 	if (ret) {
 		_log_err("Error sending the results of GETTREE for txn-id %" PRIu64
@@ -930,17 +913,18 @@ static int txn_get_tree_data_done(struct mgmt_txn_ctx *txn,
 	return ret;
 }
 
-static int txn_rpc_done(struct mgmt_txn_ctx *txn, struct mgmt_txn_req *txn_req)
+static int txn_rpc_done(struct txn_req_rpc *rpc)
 {
-	struct txn_req_rpc *rpc = txn_req->req.rpc;
-	uint64_t req_id = txn_req->req_id;
+	struct txn_req *txn_req = into_txn_req(rpc);
+	struct mgmt_txn *txn = txn_req->txn;
+	uint64_t req_id = rpc->req.req_id;
 
 	/* cancel timer and send reply onward */
-	event_cancel(&txn->rpc_timeout);
+	event_cancel(&rpc->req.timeout);
 
-	if (rpc->errstr)
-		mgmt_fe_adapter_txn_error(txn->txn_id, req_id, false, -EINVAL,
-					  rpc->errstr);
+	if (txn_req->err_info)
+		mgmt_fe_adapter_txn_error(txn->txn_id, req_id, false, txn_req->error ?: -EINVAL,
+					  txn_req->err_info);
 	else if (mgmt_fe_adapter_send_rpc_reply(txn->session_id, txn->txn_id,
 						req_id, rpc->result_type,
 						rpc->client_results)) {
@@ -954,119 +938,90 @@ static int txn_rpc_done(struct mgmt_txn_ctx *txn, struct mgmt_txn_req *txn_req)
 	}
 
 	/* we're done with the request */
-	mgmt_txn_req_free(&txn_req);
+	mgmt_txn_req_free(txn_req);
 
 	return 0;
 }
 
 static void txn_get_tree_timeout(struct event *event)
 {
-	struct mgmt_txn_ctx *txn;
-	struct mgmt_txn_req *txn_req;
-
-	txn_req = (struct mgmt_txn_req *)EVENT_ARG(event);
-	txn = txn_req->txn;
-
-	assert(txn);
-	assert(txn->type == MGMTD_TXN_TYPE_SHOW);
-
+	struct txn_req_get_tree *get_tree = EVENT_ARG(event);
+	struct mgmt_txn *txn = get_tree->req.txn;
 
 	_log_err("Backend timeout txn-id: %" PRIu64 " ending get-tree", txn->txn_id);
 
-	/*
-	 * Send a get-tree data reply.
-	 *
-	 * NOTE: The transaction cleanup will be triggered from Front-end
-	 * adapter.
-	 */
-
-	txn_req->req.get_tree->partial_error = -ETIMEDOUT;
-	txn_get_tree_data_done(txn, txn_req);
+	get_tree->partial_error = -ETIMEDOUT;
+	get_tree->req.err_info = darr_strdup("Get data on the backend timed-out");
+	txn_get_tree_data_done(get_tree);
 }
 
 static void txn_rpc_timeout(struct event *event)
 {
-	struct mgmt_txn_ctx *txn;
-	struct mgmt_txn_req *txn_req;
-
-	txn_req = (struct mgmt_txn_req *)EVENT_ARG(event);
-	txn = txn_req->txn;
-
-	assert(txn);
-	assert(txn->type == MGMTD_TXN_TYPE_RPC);
+	struct txn_req_rpc *rpc = EVENT_ARG(event);
+	struct mgmt_txn *txn = rpc->req.txn;
 
 	_log_err("Backend timeout txn-id: %" PRIu64 " ending rpc", txn->txn_id);
 
-	/*
-	 * Send a get-tree data reply.
-	 *
-	 * NOTE: The transaction cleanup will be triggered from Front-end
-	 * adapter.
-	 */
-
-	txn_req->req.rpc->errstr =
-		XSTRDUP(MTYPE_MGMTD_ERR, "Operation on the backend timed-out");
-	txn_rpc_done(txn, txn_req);
+	rpc->req.error = -ETIMEDOUT;
+	rpc->req.err_info = darr_strdup("RPC on the backend timed-out");
+	txn_rpc_done(rpc);
 }
 
 /*
  * Send CFG_APPLY_REQs to all the backend client.
  */
-static void txn_cfg_send_cfg_apply(struct mgmt_txn_req *txn_req)
+static void txn_cfg_send_cfg_apply(struct txn_req_commit *ccreq)
 {
 	enum mgmt_be_client_id id;
 	struct mgmt_be_client_adapter *adapter;
-	struct mgmt_commit_cfg_req *cmtcfg_req;
 	struct mgmt_msg_cfg_apply_req *msg;
-	uint64_t txn_id = txn_req->txn->txn_id;
+	uint64_t txn_id = ccreq->req.txn->txn_id;
 
-	assert(txn_req->txn->type == MGMTD_TXN_TYPE_CONFIG);
+	assert(ccreq->req.txn->type == MGMTD_TXN_TYPE_CONFIG);
 
-	cmtcfg_req = &txn_req->req.commit_cfg;
-	assert(!cmtcfg_req->validate_only);
+	assert(!ccreq->validate_only);
 
 	if (mm->perf_stats_en)
-		gettimeofday(&cmtcfg_req->cmt_stats->apply_cfg_start, NULL);
+		gettimeofday(&ccreq->cmt_stats->apply_cfg_start, NULL);
 	/*
 	 * Handle mgmtd internal special case
 	 */
-	if (cmtcfg_req->mgmtd_nb_txn) {
+	if (ccreq->mgmtd_nb_txn) {
 		char errmsg[BUFSIZ] = { 0 };
 
 		_dbg("Applying mgmtd local bound changes");
 
-		(void)nb_candidate_commit_apply(cmtcfg_req->mgmtd_nb_txn, false, NULL, errmsg,
+		(void)nb_candidate_commit_apply(ccreq->mgmtd_nb_txn, false, NULL, errmsg,
 						sizeof(errmsg));
-		cmtcfg_req->mgmtd_nb_txn = NULL;
+		ccreq->mgmtd_nb_txn = NULL;
 	}
 
 	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_cfg_apply_req, 0,
 					MTYPE_MSG_NATIVE_CFG_APPLY_REQ);
 	msg->code = MGMT_MSG_CODE_CFG_APPLY_REQ;
 	msg->refer_id = txn_id;
-	FOREACH_BE_ADAPTER_BITS (id, adapter, cmtcfg_req->clients) {
+	FOREACH_BE_ADAPTER_BITS (id, adapter, ccreq->clients) {
 		if (mgmt_be_send_native(adapter, msg)) {
 			msg_conn_disconnect(adapter->conn, false);
 			continue;
 		}
-		SET_IDBIT(cmtcfg_req->clients_wait, id);
-		cmtcfg_req->cmt_stats->last_num_apply_reqs++;
+		SET_IDBIT(ccreq->clients_wait, id);
+		ccreq->cmt_stats->last_num_apply_reqs++;
 	}
 	mgmt_msg_native_free_msg(msg);
 
-	if (!cmtcfg_req->clients_wait) {
+	if (!ccreq->clients_wait) {
 		_dbg("No backends to wait for on CFG_APPLY for txn-id: %Lu", txn_id);
-		txn_cfg_adapter_acked(txn_req, NULL);
+		txn_cfg_adapter_acked(ccreq, NULL);
 	}
 }
 
-static struct mgmt_txn_ctx *
-mgmt_fe_find_txn_by_session_id(struct mgmt_master *cm, uint64_t session_id,
-			       enum mgmt_txn_type type)
+static struct mgmt_txn *mgmt_fe_find_txn_by_session_id(struct mgmt_master *cm, uint64_t session_id,
+						       enum mgmt_txn_type type)
 {
-	struct mgmt_txn_ctx *txn;
+	struct mgmt_txn *txn, *next;
 
-	FOREACH_TXN_IN_LIST (cm, txn) {
+	TAILQ_FOREACH_SAFE (txn, &txn_txns, link, next) {
 		if (txn->session_id == session_id && txn->type == type)
 			return txn;
 	}
@@ -1074,27 +1029,21 @@ mgmt_fe_find_txn_by_session_id(struct mgmt_master *cm, uint64_t session_id,
 	return NULL;
 }
 
-static struct mgmt_txn_ctx *mgmt_txn_create_new(uint64_t session_id,
-						enum mgmt_txn_type type)
+static struct mgmt_txn *mgmt_txn_create_new(uint64_t session_id, enum mgmt_txn_type type)
 {
-	struct mgmt_txn_ctx *txn = NULL;
+	struct mgmt_txn *txn = NULL;
 
 	/* Do not allow multiple config transactions */
-	if (type == MGMTD_TXN_TYPE_CONFIG && mgmt_config_txn_in_progress())
+	if (type == MGMTD_TXN_TYPE_CONFIG && txn_config_txn)
 		return NULL;
 
 	txn = mgmt_fe_find_txn_by_session_id(mgmt_txn_mm, session_id, type);
 	if (!txn) {
-		txn = XCALLOC(MTYPE_MGMTD_TXN, sizeof(struct mgmt_txn_ctx));
-		assert(txn);
-
+		txn = XCALLOC(MTYPE_MGMTD_TXN, sizeof(struct mgmt_txn));
 		txn->session_id = session_id;
 		txn->type = type;
-		mgmt_txns_add_tail(&mgmt_txn_mm->txn_list, txn);
-		/* TODO: why do we need N lists for one transaction */
-		mgmt_txn_reqs_init(&txn->reqs);
-		txn->commit_cfg_req = NULL;
-		txn->refcount = 0;
+		TAILQ_INSERT_TAIL(&txn_txns, txn, link);
+		TAILQ_INIT(&txn->reqs);
 		if (!mgmt_txn_mm->next_txn_id)
 			mgmt_txn_mm->next_txn_id++;
 		txn->txn_id = mgmt_txn_mm->next_txn_id++;
@@ -1103,7 +1052,7 @@ static struct mgmt_txn_ctx *mgmt_txn_create_new(uint64_t session_id,
 		_dbg("Added new '%s' txn-id: %" PRIu64, mgmt_txn_type2str(type), txn->txn_id);
 
 		if (type == MGMTD_TXN_TYPE_CONFIG)
-			mgmt_txn_mm->cfg_txn = txn;
+			txn_config_txn = txn;
 
 		MGMTD_TXN_LOCK(txn);
 	}
@@ -1111,14 +1060,14 @@ static struct mgmt_txn_ctx *mgmt_txn_create_new(uint64_t session_id,
 	return txn;
 }
 
-static void mgmt_txn_delete(struct mgmt_txn_ctx **txn, bool in_hash_free)
+static void mgmt_txn_delete(struct mgmt_txn **txn, bool in_hash_free)
 {
 	MGMTD_TXN_UNLOCK(txn, in_hash_free);
 }
 
 static unsigned int mgmt_txn_hash_key(const void *data)
 {
-	const struct mgmt_txn_ctx *txn = data;
+	const struct mgmt_txn *txn = data;
 
 	return jhash2((uint32_t *)&txn->txn_id,
 		      sizeof(txn->txn_id) / sizeof(uint32_t), 0);
@@ -1126,15 +1075,15 @@ static unsigned int mgmt_txn_hash_key(const void *data)
 
 static bool mgmt_txn_hash_cmp(const void *d1, const void *d2)
 {
-	const struct mgmt_txn_ctx *txn1 = d1;
-	const struct mgmt_txn_ctx *txn2 = d2;
+	const struct mgmt_txn *txn1 = d1;
+	const struct mgmt_txn *txn2 = d2;
 
 	return (txn1->txn_id == txn2->txn_id);
 }
 
 static void mgmt_txn_hash_free(void *data)
 {
-	struct mgmt_txn_ctx *txn = data;
+	struct mgmt_txn *txn = data;
 
 	mgmt_txn_delete(&txn, true);
 }
@@ -1158,10 +1107,10 @@ static void mgmt_txn_hash_destroy(void)
 	mgmt_txn_mm->txn_hash = NULL;
 }
 
-static inline struct mgmt_txn_ctx *mgmt_txn_id2ctx(uint64_t txn_id)
+static inline struct mgmt_txn *mgmt_txn_id2ctx(uint64_t txn_id)
 {
-	struct mgmt_txn_ctx key = { 0 };
-	struct mgmt_txn_ctx *txn;
+	struct mgmt_txn key = { 0 };
+	struct mgmt_txn *txn;
 
 	if (!mgmt_txn_mm || !mgmt_txn_mm->txn_hash)
 		return NULL;
@@ -1174,19 +1123,19 @@ static inline struct mgmt_txn_ctx *mgmt_txn_id2ctx(uint64_t txn_id)
 
 uint64_t mgmt_txn_get_session_id(uint64_t txn_id)
 {
-	struct mgmt_txn_ctx *txn = mgmt_txn_id2ctx(txn_id);
+	struct mgmt_txn *txn = mgmt_txn_id2ctx(txn_id);
 
 	return txn ? txn->session_id : MGMTD_SESSION_ID_NONE;
 }
 
-static void mgmt_txn_lock(struct mgmt_txn_ctx *txn, const char *file, int line)
+static void mgmt_txn_lock(struct mgmt_txn *txn, const char *file, int line)
 {
 	txn->refcount++;
 	_dbg("%s:%d --> Lock %s txn-id: %" PRIu64 " refcnt: %d", file, line,
 	     mgmt_txn_type2str(txn->type), txn->txn_id, txn->refcount);
 }
 
-static void mgmt_txn_unlock(struct mgmt_txn_ctx **txn, bool in_hash_free, const char *file, int line)
+static void mgmt_txn_unlock(struct mgmt_txn **txn, bool in_hash_free, const char *file, int line)
 {
 	assert(*txn && (*txn)->refcount);
 
@@ -1195,15 +1144,12 @@ static void mgmt_txn_unlock(struct mgmt_txn_ctx **txn, bool in_hash_free, const 
 	     mgmt_txn_type2str((*txn)->type), (*txn)->txn_id, (*txn)->refcount);
 	if (!(*txn)->refcount) {
 		if ((*txn)->type == MGMTD_TXN_TYPE_CONFIG)
-			if (mgmt_txn_mm->cfg_txn == *txn)
-				mgmt_txn_mm->cfg_txn = NULL;
-		event_cancel(&(*txn)->proc_comm_cfg);
-		event_cancel(&(*txn)->comm_cfg_timeout);
-		event_cancel(&(*txn)->get_tree_timeout);
+			if (txn_config_txn == *txn)
+				txn_config_txn = NULL;
 		if (!in_hash_free)
 			hash_release(mgmt_txn_mm->txn_hash, *txn);
 
-		mgmt_txns_del(&mgmt_txn_mm->txn_list, *txn);
+		TAILQ_REMOVE(&txn_txns, *txn, link);
 
 		_dbg("Deleted %s txn-id: %" PRIu64 " session-id: %" PRIu64,
 		     mgmt_txn_type2str((*txn)->type), (*txn)->txn_id, (*txn)->session_id);
@@ -1214,7 +1160,7 @@ static void mgmt_txn_unlock(struct mgmt_txn_ctx **txn, bool in_hash_free, const 
 	*txn = NULL;
 }
 
-static void mgmt_txn_cleanup_txn(struct mgmt_txn_ctx **txn)
+static void mgmt_txn_cleanup_txn(struct mgmt_txn **txn)
 {
 	/* TODO: Any other cleanup applicable */
 
@@ -1223,12 +1169,12 @@ static void mgmt_txn_cleanup_txn(struct mgmt_txn_ctx **txn)
 
 static void mgmt_txn_cleanup_all_txns(void)
 {
-	struct mgmt_txn_ctx *txn;
+	struct mgmt_txn *txn, *next;
 
 	if (!mgmt_txn_mm || !mgmt_txn_mm->txn_hash)
 		return;
 
-	FOREACH_TXN_IN_LIST (mgmt_txn_mm, txn)
+	TAILQ_FOREACH_SAFE (txn, &txn_txns, link, next)
 		mgmt_txn_cleanup_txn(&txn);
 }
 
@@ -1239,10 +1185,7 @@ int mgmt_txn_init(struct mgmt_master *m, struct event_loop *loop)
 
 	mgmt_txn_mm = m;
 	mgmt_txn_tm = loop;
-	mgmt_txns_init(&m->txn_list);
 	mgmt_txn_hash_init();
-	assert(!m->cfg_txn);
-	m->cfg_txn = NULL;
 
 	return 0;
 }
@@ -1255,15 +1198,12 @@ void mgmt_txn_destroy(void)
 
 bool mgmt_config_txn_in_progress(void)
 {
-	if (mgmt_txn_mm && mgmt_txn_mm->cfg_txn)
-		return true;
-
-	return false;
+	return txn_config_txn != NULL;
 }
 
 uint64_t mgmt_create_txn(uint64_t session_id, enum mgmt_txn_type type)
 {
-	struct mgmt_txn_ctx *txn;
+	struct mgmt_txn *txn;
 
 	txn = mgmt_txn_create_new(session_id, type);
 	return txn ? txn->txn_id : MGMTD_TXN_ID_NONE;
@@ -1271,7 +1211,7 @@ uint64_t mgmt_create_txn(uint64_t session_id, enum mgmt_txn_type type)
 
 void mgmt_destroy_txn(uint64_t *txn_id)
 {
-	struct mgmt_txn_ctx *txn;
+	struct mgmt_txn *txn;
 
 	txn = mgmt_txn_id2ctx(*txn_id);
 	if (!txn)
@@ -1293,40 +1233,43 @@ int mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id, enum mgmt_
 				    struct mgmt_ds_ctx *dst_ds_ctx, bool validate_only, bool abort,
 				    bool implicit, bool unlock, struct mgmt_edit_req *edit)
 {
-	struct mgmt_txn_ctx *txn;
-	struct mgmt_txn_req *txn_req;
+	struct mgmt_txn *txn;
+	struct txn_req *txn_req;
+	struct txn_req_commit *ccreq;
 	struct nb_config_cbs changes = { 0 };
 
 	txn = mgmt_txn_id2ctx(txn_id);
-	assert(txn && txn->type == MGMTD_TXN_TYPE_CONFIG && txn->commit_cfg_req == NULL);
+	assert(txn && txn->type == MGMTD_TXN_TYPE_CONFIG);
 
-	txn_req = mgmt_txn_req_alloc(txn, req_id, MGMTD_TXN_PROC_COMMITCFG);
-	txn_req->req.commit_cfg.src_ds_id = src_ds_id;
-	txn_req->req.commit_cfg.src_ds_ctx = src_ds_ctx;
-	txn_req->req.commit_cfg.dst_ds_id = dst_ds_id;
-	txn_req->req.commit_cfg.dst_ds_ctx = dst_ds_ctx;
-	txn_req->req.commit_cfg.validate_only = validate_only;
-	txn_req->req.commit_cfg.abort = abort;
-	txn_req->req.commit_cfg.implicit = implicit; /* this is only true iff edit */
-	txn_req->req.commit_cfg.unlock = unlock; /* this is true for implicit commit in front-end */
-	txn_req->req.commit_cfg.edit = edit;
-	txn_req->req.commit_cfg.cmt_stats =
-		mgmt_fe_get_session_commit_stats(txn->session_id);
+	/* Only one outstanding commit request per txn */
+	assert(txn_txn_req_commit(txn) == NULL);
 
-	int ret = txn_get_config_changes(txn, &changes);
+	ccreq = txn_req_commit_alloc(txn, req_id);
+	txn_req = &ccreq->req;
+	ccreq->src_ds_id = src_ds_id;
+	ccreq->src_ds_ctx = src_ds_ctx;
+	ccreq->dst_ds_id = dst_ds_id;
+	ccreq->dst_ds_ctx = dst_ds_ctx;
+	ccreq->validate_only = validate_only;
+	ccreq->abort = abort;
+	ccreq->implicit = implicit; /* this is only true iff edit */
+	ccreq->unlock = unlock;	   /* this is true for implicit commit in front-end */
+	ccreq->edit = edit;
+	ccreq->cmt_stats = mgmt_fe_get_session_commit_stats(txn->session_id);
+
+	int ret = txn_get_config_changes(ccreq, &changes);
 	if (ret == 0)
-		ret = txn_send_config_changes(txn, &changes, 0);
+		ret = txn_send_config_changes(ccreq, &changes, 0);
 	if (ret)
-		txn_finish_commit(txn_req, txn_req->error, txn_req->err_info);
+		txn_finish_commit(ccreq, txn_req->error, txn_req->err_info);
 	return 0;
 }
 
 int mgmt_txn_notify_be_adapter_conn(struct mgmt_be_client_adapter *adapter,
 				    bool connect)
 {
-	struct mgmt_txn_ctx *txn;
-	struct mgmt_txn_req *txn_req;
-	struct mgmt_commit_cfg_req *cmtcfg_req;
+	struct mgmt_txn *txn, *next;
+	struct txn_req_commit *ccreq;
 	struct nb_config_cbs *adapter_cfgs = NULL;
 	struct mgmt_ds_ctx *ds_ctx;
 
@@ -1377,38 +1320,36 @@ int mgmt_txn_notify_be_adapter_conn(struct mgmt_be_client_adapter *adapter,
 		 * commit request.
 		 */
 		memset(&adapter->cfg_stats, 0, sizeof(adapter->cfg_stats));
-		txn_req = mgmt_txn_req_alloc(txn, 0, MGMTD_TXN_PROC_COMMITCFG);
-		txn_req->req.commit_cfg.src_ds_id = MGMTD_DS_NONE;
-		txn_req->req.commit_cfg.src_ds_ctx = 0;
-		txn_req->req.commit_cfg.dst_ds_id = MGMTD_DS_RUNNING;
-		txn_req->req.commit_cfg.dst_ds_ctx = ds_ctx;
-		txn_req->req.commit_cfg.validate_only = false;
-		txn_req->req.commit_cfg.abort = false;
-		txn_req->req.commit_cfg.init = true;
-		txn_req->req.commit_cfg.cmt_stats = &adapter->cfg_stats;
+		ccreq = txn_req_commit_alloc(txn, 0);
+		ccreq->src_ds_id = MGMTD_DS_NONE;
+		ccreq->src_ds_ctx = 0;
+		ccreq->dst_ds_id = MGMTD_DS_RUNNING;
+		ccreq->dst_ds_ctx = ds_ctx;
+		ccreq->validate_only = false;
+		ccreq->abort = false;
+		ccreq->init = true;
+		ccreq->cmt_stats = &adapter->cfg_stats;
 
 		/*
 		 * Apply the initial changes.
 		 */
-		return txn_send_config_changes(txn, adapter_cfgs, 1ull << adapter->id);
+		return txn_send_config_changes(ccreq, adapter_cfgs, 1ull << adapter->id);
 	} else {
 		/*
 		 * Check if any transaction is currently on-going that
 		 * involves this backend client. If so check if we can now
 		 * advance that configuration.
 		 */
-		FOREACH_TXN_IN_LIST (mgmt_txn_mm, txn) {
+		TAILQ_FOREACH_SAFE (txn, &txn_txns, link, next) {
 			/* XXX update to handle get-tree and RPC too! */
 			if (txn->type == MGMTD_TXN_TYPE_CONFIG) {
-				cmtcfg_req = txn->commit_cfg_req
-						     ? &txn->commit_cfg_req->req.commit_cfg
-						     : NULL;
-				if (!cmtcfg_req)
+				ccreq = txn_txn_req_commit(txn);
+				if (!ccreq)
 					continue;
 
-				UNSET_IDBIT(cmtcfg_req->clients, adapter->id);
-				if (IS_IDBIT_SET(cmtcfg_req->clients_wait, adapter->id))
-					txn_cfg_adapter_acked(txn->commit_cfg_req, adapter);
+				UNSET_IDBIT(ccreq->clients, adapter->id);
+				if (IS_IDBIT_SET(ccreq->clients_wait, adapter->id))
+					txn_cfg_adapter_acked(ccreq, adapter);
 			}
 		}
 	}
@@ -1423,14 +1364,12 @@ int mgmt_txn_notify_be_adapter_conn(struct mgmt_be_client_adapter *adapter,
  *
  * NOTE: can disconnect (and delete) the backend.
  */
-static void txn_handle_cfg_reply(struct mgmt_txn_req *txn_req, bool success,
-				 const char *error_if_any, struct mgmt_be_client_adapter *adapter)
+static void txn_handle_cfg_reply(struct txn_req_commit *ccreq, bool success, const char *error_if_any,
+				 struct mgmt_be_client_adapter *adapter)
 {
-	struct mgmt_commit_cfg_req *cmtcfg_req = &txn_req->req.commit_cfg;
+	struct txn_req *txn_req = into_txn_req(ccreq);
 
-	assert(cmtcfg_req);
-
-	if (!IS_IDBIT_SET(cmtcfg_req->clients_wait, adapter->id)) {
+	if (!IS_IDBIT_SET(ccreq->clients_wait, adapter->id)) {
 		_log_warn("CFG_REPLY from '%s' but not waiting for it for txn-id: %Lu, resetting connection",
 			  adapter->name, txn_req->txn->txn_id);
 		msg_conn_disconnect(adapter->conn, false);
@@ -1441,19 +1380,19 @@ static void txn_handle_cfg_reply(struct mgmt_txn_req *txn_req, bool success,
 		_dbg("CFG_REPLY from '%s'", adapter->name);
 	else {
 		_log_err("CFG_REQ to '%s' failed err: %s", adapter->name, error_if_any ?: "None");
-		txn_finish_commit(txn_req, MGMTD_VALIDATION_ERROR,
+		txn_finish_commit(ccreq, MGMTD_VALIDATION_ERROR,
 				  error_if_any ?: "config validation failed by backend daemon");
 		return;
 	}
 
-	txn_cfg_adapter_acked(txn_req, adapter);
+	txn_cfg_adapter_acked(ccreq, adapter);
 }
 
-static struct mgmt_txn_req *
+static struct txn_req_commit *
 txn_ensure_be_cfg_msg(uint64_t txn_id, struct mgmt_be_client_adapter *adapter, const char *tag)
 {
-	struct mgmt_txn_ctx *txn = mgmt_txn_id2ctx(txn_id);
-	struct mgmt_txn_req *txn_req;
+	struct mgmt_txn *txn = mgmt_txn_id2ctx(txn_id);
+	struct txn_req_commit *ccreq;
 
 	if (!txn) {
 		_log_err("%s reply from '%s' for txn-id: %Lu no TXN, resetting connection", tag,
@@ -1465,19 +1404,19 @@ txn_ensure_be_cfg_msg(uint64_t txn_id, struct mgmt_be_client_adapter *adapter, c
 			 tag, adapter->name, txn_id, txn->type);
 		return NULL;
 	}
-	txn_req = txn->commit_cfg_req;
-	if (!txn_req) {
+	ccreq = txn_txn_req_commit(txn);
+	if (!ccreq) {
 		_log_err("%s reply from '%s' for txn-id: %Lu failed no COMMITCFG_REQ, resetting connection",
 			 tag, adapter->name, txn_id);
 		return NULL;
 	}
 	/* make sure we are part of this config commit */
-	if (!IS_IDBIT_SET(txn_req->req.commit_cfg.clients, adapter->id)) {
+	if (!IS_IDBIT_SET(ccreq->clients, adapter->id)) {
 		_log_err("%s reply from '%s' for txn-id %Lu not participating, resetting connection",
 			 tag, adapter->name, txn_id);
 		return NULL;
 	}
-	return txn_req;
+	return ccreq;
 }
 
 /*
@@ -1485,12 +1424,12 @@ txn_ensure_be_cfg_msg(uint64_t txn_id, struct mgmt_be_client_adapter *adapter, c
  */
 void mgmt_txn_notify_be_cfg_reply(uint64_t txn_id, struct mgmt_be_client_adapter *adapter)
 {
-	struct mgmt_txn_req *txn_req = txn_ensure_be_cfg_msg(txn_id, adapter, "CFG_REPLY");
+	struct txn_req_commit *ccreq = txn_ensure_be_cfg_msg(txn_id, adapter, "CFG_REPLY");
 
-	if (!txn_req)
+	if (!ccreq)
 		msg_conn_disconnect(adapter->conn, false);
 	else
-		txn_handle_cfg_reply(txn_req, true, NULL, adapter);
+		txn_handle_cfg_reply(ccreq, true, NULL, adapter);
 }
 
 /*
@@ -1498,12 +1437,12 @@ void mgmt_txn_notify_be_cfg_reply(uint64_t txn_id, struct mgmt_be_client_adapter
  */
 void mgmt_txn_notify_be_cfg_apply_reply(uint64_t txn_id, struct mgmt_be_client_adapter *adapter)
 {
-	struct mgmt_txn_req *txn_req = txn_ensure_be_cfg_msg(txn_id, adapter, "CFG_APPLY");
+	struct txn_req_commit *ccreq = txn_ensure_be_cfg_msg(txn_id, adapter, "CFG_APPLY");
 
-	if (!txn_req)
+	if (!ccreq)
 		msg_conn_disconnect(adapter->conn, false);
 	else
-		txn_cfg_adapter_acked(txn_req, adapter);
+		txn_cfg_adapter_acked(ccreq, adapter);
 }
 
 /**
@@ -1517,9 +1456,8 @@ int mgmt_txn_send_get_tree(uint64_t txn_id, uint64_t req_id, uint64_t clients,
 {
 	struct mgmt_be_client_adapter *adapter;
 	struct mgmt_msg_get_tree *msg;
-	struct mgmt_txn_ctx *txn;
-	struct mgmt_txn_req *txn_req;
 	struct txn_req_get_tree *get_tree;
+	struct mgmt_txn *txn;
 	enum mgmt_be_client_id id;
 	ssize_t slen = strlen(xpath);
 
@@ -1528,8 +1466,7 @@ int mgmt_txn_send_get_tree(uint64_t txn_id, uint64_t req_id, uint64_t clients,
 		return -1;
 
 	/* If error in this function below here, be sure to free the req */
-	txn_req = mgmt_txn_req_alloc(txn, req_id, MGMTD_TXN_PROC_GETTREE);
-	get_tree = txn_req->req.get_tree;
+	get_tree = txn_req_get_tree_alloc(txn, req_id);
 	get_tree->result_type = result_type;
 	get_tree->wd_options = wd_options;
 	get_tree->exact = CHECK_FLAG(flags, GET_DATA_FLAG_EXACT);
@@ -1600,7 +1537,7 @@ state:
 	/* If we are only getting config, we are done */
 	if (!CHECK_FLAG(flags, GET_DATA_FLAG_STATE) ||
 	    ds_id != MGMTD_DS_OPERATIONAL || !clients)
-		return txn_get_tree_data_done(txn, txn_req);
+		return txn_get_tree_data_done(get_tree);
 
 	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_get_tree, slen + 1,
 					MTYPE_MSG_NATIVE_GET_TREE);
@@ -1622,14 +1559,14 @@ state:
 
 	/* Return if we didn't send any messages to backends */
 	if (!get_tree->sent_clients)
-		return txn_get_tree_data_done(txn, txn_req);
+		return txn_get_tree_data_done(get_tree);
 
 	/* Start timeout timer - pulled out of register event code so we can
 	 * pass a different arg
 	 */
-	event_add_timer(mgmt_txn_tm, txn_get_tree_timeout, txn_req,
+	event_add_timer(mgmt_txn_tm, txn_get_tree_timeout, get_tree,
 			MGMTD_TXN_GET_TREE_MAX_DELAY_SEC,
-			&txn->get_tree_timeout);
+			&get_tree->req.timeout);
 	return 0;
 }
 
@@ -1639,7 +1576,7 @@ int mgmt_txn_send_edit(uint64_t txn_id, uint64_t req_id, enum mgmt_ds_id ds_id,
 		       LYD_FORMAT request_type, uint8_t flags, uint8_t operation,
 		       const char *xpath, const char *data)
 {
-	struct mgmt_txn_ctx *txn;
+	struct mgmt_txn *txn;
 	struct mgmt_edit_req *edit;
 	struct nb_config *nb_config;
 	char errstr[BUFSIZ];
@@ -1688,8 +1625,7 @@ int mgmt_txn_send_rpc(uint64_t txn_id, uint64_t req_id, uint64_t clients,
 		      const char *data, size_t data_len)
 {
 	struct mgmt_be_client_adapter *adapter;
-	struct mgmt_txn_ctx *txn;
-	struct mgmt_txn_req *txn_req;
+	struct mgmt_txn *txn;
 	struct mgmt_msg_rpc *msg;
 	struct txn_req_rpc *rpc;
 	enum mgmt_be_client_id id;
@@ -1698,8 +1634,7 @@ int mgmt_txn_send_rpc(uint64_t txn_id, uint64_t req_id, uint64_t clients,
 	if (!txn)
 		return -1;
 
-	txn_req = mgmt_txn_req_alloc(txn, req_id, MGMTD_TXN_PROC_RPC);
-	rpc = txn_req->req.rpc;
+	rpc = txn_req_rpc_alloc(txn, req_id);
 	rpc->xpath = XSTRDUP(MTYPE_MGMTD_XPATH, xpath);
 	rpc->result_type = result_type;
 
@@ -1724,10 +1659,10 @@ int mgmt_txn_send_rpc(uint64_t txn_id, uint64_t req_id, uint64_t clients,
 	mgmt_msg_native_free_msg(msg);
 
 	if (!rpc->sent_clients)
-		return txn_rpc_done(txn, txn_req);
+		return txn_rpc_done(rpc);
 
-	event_add_timer(mgmt_txn_tm, txn_rpc_timeout, txn_req,
-			MGMTD_TXN_RPC_MAX_DELAY_SEC, &txn->rpc_timeout);
+	event_add_timer(mgmt_txn_tm, txn_rpc_timeout, rpc,
+			MGMTD_TXN_RPC_MAX_DELAY_SEC, &rpc->req.timeout);
 
 	return 0;
 }
@@ -1780,10 +1715,11 @@ void mgmt_txn_notify_error(struct mgmt_be_client_adapter *adapter, uint64_t txn_
 			   uint64_t req_id, int error, const char *errstr)
 {
 	enum mgmt_be_client_id id = adapter->id;
-	struct mgmt_txn_ctx *txn = mgmt_txn_id2ctx(txn_id);
+	struct mgmt_txn *txn = mgmt_txn_id2ctx(txn_id);
 	struct txn_req_get_tree *get_tree;
+	struct txn_req_commit *ccreq;
 	struct txn_req_rpc *rpc;
-	struct mgmt_txn_req *txn_req;
+	struct txn_req *txn_req;
 
 	if (!txn) {
 		_log_err("Error reply from %s cannot find txn-id %" PRIu64, adapter->name, txn_id);
@@ -1794,8 +1730,8 @@ void mgmt_txn_notify_error(struct mgmt_be_client_adapter *adapter, uint64_t txn_
 		/*
 		 * Handle an error during a configuration transaction.
 		 */
-		txn_req = txn_ensure_be_cfg_msg(txn_id, adapter, "ERROR");
-		if (!txn_req) {
+		ccreq = txn_ensure_be_cfg_msg(txn_id, adapter, "ERROR");
+		if (!ccreq) {
 			msg_conn_disconnect(adapter->conn, false);
 			return;
 		}
@@ -1805,8 +1741,8 @@ void mgmt_txn_notify_error(struct mgmt_be_client_adapter *adapter, uint64_t txn_
 		 * during some other phase of the commit process and we
 		 * disconnect the client and start over.
 		 */
-		if (txn_req->req.commit_cfg.phase == MGMTD_COMMIT_PHASE_SEND_CFG)
-			txn_handle_cfg_reply(txn_req, false, errstr, adapter);
+		if (ccreq->phase == MGMTD_COMMIT_PHASE_SEND_CFG)
+			txn_handle_cfg_reply(ccreq, false, errstr, adapter);
 		else
 			/* Drop the connection these errors should never happen */
 			msg_conn_disconnect(adapter->conn, false);
@@ -1817,7 +1753,7 @@ void mgmt_txn_notify_error(struct mgmt_be_client_adapter *adapter, uint64_t txn_
 	 * Find the non-config request.
 	 */
 
-	FOREACH_TXN_REQ_IN_LIST (&txn->reqs, txn_req)
+	TAILQ_FOREACH (txn_req, &txn->reqs, link)
 		if (txn_req->req_id == req_id)
 			break;
 	if (!txn_req) {
@@ -1830,29 +1766,27 @@ void mgmt_txn_notify_error(struct mgmt_be_client_adapter *adapter, uint64_t txn_
 		 txn_id, req_id);
 
 	switch (txn_req->req_type) {
-	case MGMTD_TXN_PROC_GETTREE:
-		get_tree = txn_req->req.get_tree;
+	case TXN_REQ_TYPE_GETTREE:
+		get_tree = into_get_tree_req(txn_req);
 		get_tree->recv_clients |= (1u << id);
 		get_tree->partial_error = error;
 
 		/* check if done yet */
 		if (get_tree->recv_clients == get_tree->sent_clients)
-			txn_get_tree_data_done(txn, txn_req);
+			txn_get_tree_data_done(get_tree);
 		return;
-	case MGMTD_TXN_PROC_RPC:
-		rpc = txn_req->req.rpc;
+	case TXN_REQ_TYPE_RPC:
+		rpc = into_rpc_req(txn_req);
 		rpc->recv_clients |= (1u << id);
-		if (errstr) {
-			XFREE(MTYPE_MGMTD_ERR, rpc->errstr);
-			rpc->errstr = XSTRDUP(MTYPE_MGMTD_ERR, errstr);
-		}
+		if (errstr)
+			darr_in_strdup(rpc->req.err_info, errstr);
 		/* check if done yet */
 		if (rpc->recv_clients == rpc->sent_clients)
-			txn_rpc_done(txn, txn_req);
+			txn_rpc_done(rpc);
 		return;
 
 	/* non-native message events */
-	case MGMTD_TXN_PROC_COMMITCFG:
+	case TXN_REQ_TYPE_COMMIT:
 	default:
 		assert(!"non-native req type in native error path");
 	}
@@ -1869,8 +1803,8 @@ int mgmt_txn_notify_tree_data_reply(struct mgmt_be_client_adapter *adapter,
 	uint64_t req_id = data_msg->req_id;
 
 	enum mgmt_be_client_id id = adapter->id;
-	struct mgmt_txn_ctx *txn = mgmt_txn_id2ctx(txn_id);
-	struct mgmt_txn_req *txn_req;
+	struct mgmt_txn *txn = mgmt_txn_id2ctx(txn_id);
+	struct txn_req *txn_req;
 	struct txn_req_get_tree *get_tree;
 	struct lyd_node *tree = NULL;
 	LY_ERR err;
@@ -1882,16 +1816,13 @@ int mgmt_txn_notify_tree_data_reply(struct mgmt_be_client_adapter *adapter,
 	}
 
 	/* Find the request. */
-	FOREACH_TXN_REQ_IN_LIST (&txn->reqs, txn_req)
-		if (txn_req->req_id == req_id)
-			break;
-	if (!txn_req) {
+	txn_req = txn_txn_req(txn, req_id);
+	if (!txn_req || txn_req->req_type != TXN_REQ_TYPE_GETTREE) {
 		_log_err("GETTREE reply from %s for txn-id %" PRIu64 " missing req_id %" PRIu64,
 			 adapter->name, txn_id, req_id);
 		return -1;
 	}
-
-	get_tree = txn_req->req.get_tree;
+	get_tree = into_get_tree_req(txn_req);
 
 	/* store the result */
 	err = lyd_parse_data_mem(ly_native_ctx, (const char *)data_msg->result,
@@ -1929,7 +1860,7 @@ int mgmt_txn_notify_tree_data_reply(struct mgmt_be_client_adapter *adapter,
 	if (get_tree->recv_clients != get_tree->sent_clients)
 		return 0;
 
-	return txn_get_tree_data_done(txn, txn_req);
+	return txn_get_tree_data_done(get_tree);
 }
 
 int mgmt_txn_notify_rpc_reply(struct mgmt_be_client_adapter *adapter,
@@ -1939,8 +1870,8 @@ int mgmt_txn_notify_rpc_reply(struct mgmt_be_client_adapter *adapter,
 	uint64_t txn_id = reply_msg->refer_id;
 	uint64_t req_id = reply_msg->req_id;
 	enum mgmt_be_client_id id = adapter->id;
-	struct mgmt_txn_ctx *txn = mgmt_txn_id2ctx(txn_id);
-	struct mgmt_txn_req *txn_req;
+	struct mgmt_txn *txn = mgmt_txn_id2ctx(txn_id);
+	struct txn_req *txn_req;
 	struct txn_req_rpc *rpc;
 	struct lyd_node *tree;
 	size_t data_len = msg_len - sizeof(*reply_msg);
@@ -1952,16 +1883,13 @@ int mgmt_txn_notify_rpc_reply(struct mgmt_be_client_adapter *adapter,
 	}
 
 	/* Find the request. */
-	FOREACH_TXN_REQ_IN_LIST (&txn->reqs, txn_req)
-		if (txn_req->req_id == req_id)
-			break;
-	if (!txn_req) {
+	txn_req = txn_txn_req(txn, req_id);
+	if (!txn_req || txn_req->req_type != TXN_REQ_TYPE_RPC) {
 		_log_err("RPC reply from %s for txn-id %" PRIu64 " missing req_id %" PRIu64,
 			 adapter->name, txn_id, req_id);
 		return -1;
 	}
-
-	rpc = txn_req->req.rpc;
+	rpc = into_rpc_req(txn_req);
 
 	tree = NULL;
 	if (data_len)
@@ -1984,11 +1912,8 @@ int mgmt_txn_notify_rpc_reply(struct mgmt_be_client_adapter *adapter,
 				 adapter->name, txn_id, req_id, ly_strerrcode(err));
 		}
 	}
-	if (err) {
-		XFREE(MTYPE_MGMTD_ERR, rpc->errstr);
-		rpc->errstr = XSTRDUP(MTYPE_MGMTD_ERR,
-				      "Cannot parse result from the backend");
-	}
+	if (err)
+		darr_in_strdup(rpc->req.err_info, "Cannot parse result from the backend");
 
 	rpc->recv_clients |= (1u << id);
 
@@ -1996,26 +1921,25 @@ int mgmt_txn_notify_rpc_reply(struct mgmt_be_client_adapter *adapter,
 	if (rpc->recv_clients != rpc->sent_clients)
 		return 0;
 
-	return txn_rpc_done(txn, txn_req);
+	return txn_rpc_done(rpc);
 }
 
 void mgmt_txn_status_write(struct vty *vty)
 {
-	struct mgmt_txn_ctx *txn;
+	struct mgmt_txn *txn;
+	uint count = 0;
 
 	vty_out(vty, "MGMTD Transactions\n");
 
-	FOREACH_TXN_IN_LIST (mgmt_txn_mm, txn) {
+	TAILQ_FOREACH (txn, &txn_txns, link) {
 		vty_out(vty, "  Txn: \t\t\t0x%p\n", txn);
 		vty_out(vty, "    Txn-Id: \t\t\t%" PRIu64 "\n", txn->txn_id);
-		vty_out(vty, "    Session-Id: \t\t%" PRIu64 "\n",
-			txn->session_id);
-		vty_out(vty, "    Type: \t\t\t%s\n",
-			mgmt_txn_type2str(txn->type));
+		vty_out(vty, "    Session-Id: \t\t%" PRIu64 "\n", txn->session_id);
+		vty_out(vty, "    Type: \t\t\t%s\n", mgmt_txn_type2str(txn->type));
 		vty_out(vty, "    Ref-Count: \t\t\t%d\n", txn->refcount);
+		count++;
 	}
-	vty_out(vty, "  Total: %d\n",
-		(int)mgmt_txns_count(&mgmt_txn_mm->txn_list));
+	vty_out(vty, "  Total: %u\n", count);
 }
 
 int mgmt_txn_rollback_trigger_cfg_apply(struct mgmt_ds_ctx *src_ds_ctx,
@@ -2024,8 +1948,9 @@ int mgmt_txn_rollback_trigger_cfg_apply(struct mgmt_ds_ctx *src_ds_ctx,
 	static struct mgmt_commit_stats dummy_stats = { 0 };
 
 	struct nb_config_cbs changes = { 0 };
-	struct mgmt_txn_ctx *txn;
-	struct mgmt_txn_req *txn_req;
+	struct mgmt_txn *txn;
+	struct txn_req *txn_req;
+	struct txn_req_commit *ccreq;
 	int ret;
 
 	/*
@@ -2057,21 +1982,22 @@ int mgmt_txn_rollback_trigger_cfg_apply(struct mgmt_ds_ctx *src_ds_ctx,
 	 * Set the changeset for transaction to commit and trigger the commit
 	 * request.
 	 */
-	txn_req = mgmt_txn_req_alloc(txn, 0, MGMTD_TXN_PROC_COMMITCFG);
-	txn_req->req.commit_cfg.src_ds_id = MGMTD_DS_CANDIDATE;
-	txn_req->req.commit_cfg.src_ds_ctx = src_ds_ctx;
-	txn_req->req.commit_cfg.dst_ds_id = MGMTD_DS_RUNNING;
-	txn_req->req.commit_cfg.dst_ds_ctx = dst_ds_ctx;
-	txn_req->req.commit_cfg.validate_only = false;
-	txn_req->req.commit_cfg.abort = false;
-	txn_req->req.commit_cfg.rollback = true;
-	txn_req->req.commit_cfg.cmt_stats = &dummy_stats;
+	ccreq = txn_req_commit_alloc(txn, 0);
+	txn_req = into_txn_req(ccreq);
+	ccreq->src_ds_id = MGMTD_DS_CANDIDATE;
+	ccreq->src_ds_ctx = src_ds_ctx;
+	ccreq->dst_ds_id = MGMTD_DS_RUNNING;
+	ccreq->dst_ds_ctx = dst_ds_ctx;
+	ccreq->validate_only = false;
+	ccreq->abort = false;
+	ccreq->rollback = true;
+	ccreq->cmt_stats = &dummy_stats;
 
 	/*
 	 * Send the changes.
 	 */
-	ret = txn_send_config_changes(txn, &changes, 0);
+	ret = txn_send_config_changes(ccreq, &changes, 0);
 	if (ret)
-		txn_finish_commit(txn_req, txn_req->error, txn_req->err_info);
+		txn_finish_commit(ccreq, txn_req->error, txn_req->err_info);
 	return ret;
 }
