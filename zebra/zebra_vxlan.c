@@ -269,7 +269,7 @@ static void zevpn_print_neigh_hash_all_evpn(struct hash_bucket *bucket,
 	wctx.zevpn = zevpn;
 	wctx.vty = vty;
 	wctx.addr_width = 15;
-	wctx.r_vtep_width = 30;
+	wctx.r_vtep_width = INET6_GUA_ADDRSTRLEN;
 	wctx.json = json_evpn;
 	hash_iterate(zevpn->neigh_table, zebra_evpn_find_neigh_addr_width,
 		     &wctx);
@@ -336,7 +336,7 @@ static void zevpn_print_neigh_hash_all_evpn_detail(struct hash_bucket *bucket,
 	wctx.zevpn = zevpn;
 	wctx.vty = vty;
 	wctx.addr_width = 15;
-	wctx.r_vtep_width = 30;
+	wctx.r_vtep_width = INET6_GUA_ADDRSTRLEN;
 	wctx.json = json_evpn;
 
 	if (print_dup)
@@ -465,9 +465,8 @@ static void zevpn_print_mac_hash_all_evpn(struct hash_bucket *bucket, void *ctxt
 				zevpn->vni, num_macs);
 			vty_out(vty,
 				"Flags: N=sync-neighs, I=local-inactive, P=peer-active, X=peer-proxy\n");
-			vty_out(vty, "%-17s %-6s %-5s %-30s %-5s %s\n", "MAC",
-				"Type", "Flags", "Intf/Remote ES/VTEP",
-				"VLAN", "Seq #'s");
+			vty_out(vty, "%-17s %-6s %-5s %-39s %-5s %s\n", "MAC", "Type", "Flags",
+				"Intf/Remote ES/VTEP", "VLAN", "Seq #'s");
 		} else
 			json_object_int_add(json_evpn, "numMacs", num_macs);
 	}
@@ -586,8 +585,7 @@ static void zl3vni_print_nh_hash(struct hash_bucket *bucket, void *ctx)
 	n = (struct zebra_neigh *)bucket->data;
 
 	if (!json_evpn) {
-		vty_out(vty, "%-15s %-17s\n",
-			ipaddr2str(&(n->ip), buf2, sizeof(buf2)),
+		vty_out(vty, "%-39s %-17s\n", ipaddr2str(&(n->ip), buf2, sizeof(buf2)),
 			prefix_mac2str(&n->emac, buf1, sizeof(buf1)));
 	} else {
 		json_object_string_add(json_nh, "nexthopIp",
@@ -631,7 +629,7 @@ static void zl3vni_print_nh_all_table(struct hash *nh_table, vni_t vni,
 		else
 			vty_out(vty, "\nVNI %u #Next-Hops %u\n\n", vni, num_nh);
 
-		vty_out(vty, "%-15s %-17s\n", "IP", "RMAC");
+		vty_out(vty, "%-39s %-17s\n", "IP", "RMAC");
 	} else
 		json_object_int_add(json_evpn, "numNextHops", num_nh);
 
@@ -685,7 +683,7 @@ static void zl3vni_print_rmac_hash_all_vni(struct hash_bucket *bucket,
 
 	if (json == NULL) {
 		vty_out(vty, "\nVNI %u #RMACs %u\n\n", zl3vni->vni, num_rmacs);
-		vty_out(vty, "%-17s %-21s\n", "RMAC", "Remote VTEP");
+		vty_out(vty, "%-17s %-39s\n", "RMAC", "Remote VTEP");
 	} else
 		json_object_int_add(json_evpn, "numRmacs", num_rmacs);
 
@@ -718,7 +716,7 @@ static void zl3vni_print_rmac_hash(struct hash_bucket *bucket, void *ctx)
 	zrmac = (struct zebra_mac *)bucket->data;
 
 	if (!json) {
-		vty_out(vty, "%-17s %-21pIA\n", prefix_mac2str(&zrmac->macaddr, buf, sizeof(buf)),
+		vty_out(vty, "%-17s %-39pIA\n", prefix_mac2str(&zrmac->macaddr, buf, sizeof(buf)),
 			&zrmac->fwd_info.r_vtep_ip);
 	} else {
 		json_object_string_add(
@@ -1340,6 +1338,16 @@ static int zl3vni_rmac_uninstall(struct zebra_l3vni *zl3vni,
 		return -1;
 }
 
+static void vtep_to_v4(const struct ipaddr *vtep_ip, struct ipaddr *ipv4_vtep)
+{
+	memset(ipv4_vtep, 0, sizeof(struct ipaddr));
+	ipv4_vtep->ipa_type = IPADDR_V4;
+	if (vtep_ip->ipa_type == IPADDR_V6)
+		ipv4_mapped_ipv6_to_ipv4(&vtep_ip->ipaddr_v6, &ipv4_vtep->ipaddr_v4);
+	else
+		memcpy(&ipv4_vtep->ipaddr_v4, &vtep_ip->ipaddr_v4, sizeof(struct in_addr));
+}
+
 /* handle rmac add */
 static int zl3vni_remote_rmac_add(struct zebra_l3vni *zl3vni,
 				  const struct ethaddr *rmac,
@@ -1347,6 +1355,18 @@ static int zl3vni_remote_rmac_add(struct zebra_l3vni *zl3vni,
 {
 	struct zebra_mac *zrmac = NULL;
 	struct ipaddr *vtep = NULL;
+	struct ipaddr ip_vtep;
+
+	/* L3VNI local VTEP-IP is v4 then map to v4 remote vtep,
+	 * if local VTEP-IP is v6 then use as is.
+	 * if the remote vtep is a ipv4 mapped ipv6 address convert it to ipv4
+	 * address. Rmac is programmed against the ipv4 vtep because we only
+	 * support ipv4 tunnels in the h/w right now
+	 */
+	if (IS_IPADDR_V4(&zl3vni->local_vtep_ip))
+		vtep_to_v4(vtep_ip, &ip_vtep);
+	else
+		ip_vtep = *vtep_ip;
 
 	zrmac = zl3vni_rmac_lookup(zl3vni, rmac);
 	if (!zrmac) {
@@ -1360,7 +1380,7 @@ static int zl3vni_remote_rmac_add(struct zebra_l3vni *zl3vni,
 			return -1;
 		}
 		memset(&zrmac->fwd_info, 0, sizeof(zrmac->fwd_info));
-		zrmac->fwd_info.r_vtep_ip = *vtep_ip;
+		zrmac->fwd_info.r_vtep_ip = ip_vtep;
 
 		vtep = XCALLOC(MTYPE_EVPN_VTEP, sizeof(struct ipaddr));
 		memcpy(vtep, vtep_ip, sizeof(struct ipaddr));
@@ -1371,15 +1391,19 @@ static int zl3vni_remote_rmac_add(struct zebra_l3vni *zl3vni,
 		hook_call(zebra_rmac_update, zrmac, zl3vni, false,
 			  "new RMAC added");
 
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("%s RMAC %pEA L3VNI %u Remote VTEP %pIA add", __func__, rmac,
+				   zl3vni->vni, &ip_vtep);
+
 		/* install rmac in kernel */
 		zl3vni_rmac_install(zl3vni, zrmac);
 	} else {
-		if (!ipaddr_is_same(&zrmac->fwd_info.r_vtep_ip, vtep_ip)) {
+		if (!ipaddr_is_same(&zrmac->fwd_info.r_vtep_ip, &ip_vtep)) {
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug("L3VNI %u Remote VTEP change(%pIA -> %pIA) for RMAC %pEA",
 					   zl3vni->vni, &zrmac->fwd_info.r_vtep_ip, vtep_ip, rmac);
 
-			zrmac->fwd_info.r_vtep_ip = *vtep_ip;
+			zrmac->fwd_info.r_vtep_ip = ip_vtep;
 
 			/* install rmac in kernel */
 			zl3vni_rmac_install(zl3vni, zrmac);
@@ -1389,6 +1413,9 @@ static int zl3vni_remote_rmac_add(struct zebra_l3vni *zl3vni,
 		memcpy(vtep, vtep_ip, sizeof(struct ipaddr));
 		if (!listnode_add_sort_nodup(zrmac->nh_list, (void *)vtep))
 			XFREE(MTYPE_EVPN_VTEP, vtep);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("%s L3VNI %u VTEP %pIA nh_list count %u", __func__, zl3vni->vni,
+				   vtep, listcount(zrmac->nh_list));
 	}
 
 	return 0;
@@ -1400,15 +1427,39 @@ static void zl3vni_remote_rmac_del(struct zebra_l3vni *zl3vni,
 				   struct zebra_mac *zrmac,
 				   struct ipaddr *vtep_ip)
 {
+	struct ipaddr ip_vtep;
+	struct ipaddr found_ip_vtep;
+
 	if (!zl3vni_nh_lookup(zl3vni, vtep_ip)) {
-		/* remove nh from rmac's list */
+		if (IS_IPADDR_V4(&zl3vni->local_vtep_ip))
+			vtep_to_v4(vtep_ip, &ip_vtep);
+		else
+			ip_vtep = *vtep_ip;
+
+		/*
+		 * remove nh from rmac's list
+		 *
+		 * use ipv6 still here if mapped
+		 */
 		l3vni_rmac_nh_list_nh_delete(zl3vni, zrmac, vtep_ip);
 		/* If there are remaining entries, use IP from one */
-		if (listcount(zrmac->nh_list)) {
+		if (ipaddr_is_same(&zrmac->fwd_info.r_vtep_ip, &ip_vtep) &&
+		    listcount(zrmac->nh_list)) {
 			struct ipaddr *vtep;
 
 			vtep = listgetdata(listhead(zrmac->nh_list));
-			zrmac->fwd_info.r_vtep_ip = *vtep;
+
+			/* Check if mapped */
+			if (IS_IPADDR_V4(&zl3vni->local_vtep_ip))
+				vtep_to_v4(vtep, &found_ip_vtep);
+			else
+				found_ip_vtep = *vtep;
+
+			/* If still same, do nothing */
+			if (ipaddr_is_same(&zrmac->fwd_info.r_vtep_ip, &found_ip_vtep))
+				return;
+
+			zrmac->fwd_info.r_vtep_ip = found_ip_vtep;
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug("L3VNI %u Remote VTEP nh change(%pIA -> %pIA) for RMAC %pEA",
 					   zl3vni->vni, vtep_ip, &zrmac->fwd_info.r_vtep_ip,
@@ -2626,7 +2677,7 @@ void zebra_vxlan_print_rmacs_l3vni(struct vty *vty, vni_t l3vni, bool use_json)
 	if (!use_json) {
 		vty_out(vty, "Number of Remote RMACs known for this VNI: %u\n",
 			num_rmacs);
-		vty_out(vty, "%-17s %-21s\n", "MAC", "Remote VTEP");
+		vty_out(vty, "%-17s %-39s\n", "MAC", "Remote VTEP");
 	} else
 		json_object_int_add(json, "numRmacs", num_rmacs);
 
@@ -2732,7 +2783,7 @@ static void l3vni_print_nh_table(struct hash *nh_table, struct vty *vty,
 	if (!use_json) {
 		vty_out(vty, "Number of NH Neighbors known for this VNI: %u\n",
 			num_nh);
-		vty_out(vty, "%-15s %-17s\n", "IP", "RMAC");
+		vty_out(vty, "%-39s %-17s\n", "IP", "RMAC");
 	} else
 		json_object_int_add(json, "numNextHops", num_nh);
 
@@ -2910,7 +2961,7 @@ void zebra_vxlan_print_neigh_vni(struct vty *vty, struct zebra_vrf *zvrf,
 	wctx.zevpn = zevpn;
 	wctx.vty = vty;
 	wctx.addr_width = 15;
-	wctx.r_vtep_width = 30;
+	wctx.r_vtep_width = 39;
 	wctx.json = json;
 	hash_iterate(zevpn->neigh_table, zebra_evpn_find_neigh_addr_width,
 		     &wctx);
@@ -3069,8 +3120,8 @@ void zebra_vxlan_print_neigh_vni_vtep(struct vty *vty, struct zebra_vrf *zvrf, v
 	wctx.zevpn = zevpn;
 	wctx.vty = vty;
 	wctx.addr_width = 15;
-	/* r_vtep_width starts at 30 to print ESIs from remote MH neighbors */
-	wctx.r_vtep_width = 30;
+	/* r_vtep_width starts at 39 to print IPv6 vtep from remote MH neighbors */
+	wctx.r_vtep_width = 39;
 	wctx.flags = SHOW_REMOTE_NEIGH_FROM_VTEP;
 	wctx.r_vtep_ip = *vtep_ip;
 	wctx.json = json;
@@ -3130,7 +3181,7 @@ void zebra_vxlan_print_neigh_vni_dad(struct vty *vty,
 	wctx.zevpn = zevpn;
 	wctx.vty = vty;
 	wctx.addr_width = 15;
-	wctx.r_vtep_width = 30;
+	wctx.r_vtep_width = 39;
 	wctx.json = json;
 	hash_iterate(zevpn->neigh_table, zebra_evpn_find_neigh_addr_width,
 		     &wctx);
@@ -3204,9 +3255,8 @@ void zebra_vxlan_print_macs_vni(struct vty *vty, struct zebra_vrf *zvrf,
 				num_macs);
 			vty_out(vty,
 				"Flags: N=sync-neighs, I=local-inactive, P=peer-active, X=peer-proxy\n");
-			vty_out(vty, "%-17s %-6s %-5s %-30s %-5s %s\n", "MAC",
-				"Type", "Flags", "Intf/Remote ES/VTEP", "VLAN",
-				"Seq #'s");
+			vty_out(vty, "%-17s %-6s %-5s %-39s %-5s %s\n", "MAC", "Type", "Flags",
+				"Intf/Remote ES/VTEP", "VLAN", "Seq #'s");
 		}
 	} else
 		json_object_int_add(json, "numMacs", num_macs);
@@ -3414,8 +3464,8 @@ void zebra_vxlan_print_macs_vni_dad(struct vty *vty,
 		vty_out(vty,
 		"Number of MACs (local and remote) known for this VNI: %u\n",
 			num_macs);
-		vty_out(vty, "%-17s %-6s %-5s %-30s %-5s\n", "MAC", "Type",
-			"Flags", "Intf/Remote ES/VTEP", "VLAN");
+		vty_out(vty, "%-17s %-6s %-5s %-39s %-5s\n", "MAC", "Type", "Flags",
+			"Intf/Remote ES/VTEP", "VLAN");
 	} else
 		json_object_int_add(json, "numMacs", num_macs);
 
