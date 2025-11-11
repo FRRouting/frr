@@ -6674,14 +6674,6 @@ dplane_provider_dequeue_out_ctx(struct zebra_dplane_provider *prov)
 	return ctx;
 }
 
-/*
- * Accessor for provider object
- */
-bool dplane_provider_is_threaded(const struct zebra_dplane_provider *prov)
-{
-	return CHECK_FLAG(prov->dp_flags, DPLANE_PROV_FLAG_THREADED);
-}
-
 #ifdef HAVE_NETLINK
 /*
  * Callback when an OS (netlink) incoming event read is ready. This runs
