@@ -4,6 +4,7 @@
  *
  * Copyright (C) 2021  Vmware, Inc.
  *		       Pushpasis Sarkar <spushpasis@vmware.com>
+ * Copyright (c) 2025, LabN Consulting, L.L.C.
  */
 
 #ifndef _FRR_MGMTD_TXN_H_
@@ -261,24 +262,13 @@ mgmt_txn_notify_be_txn_reply(uint64_t txn_id, bool create, bool success,
 /*
  * Reply to backend adapater with config data create request.
  */
-extern int mgmt_txn_notify_be_cfg_reply(uint64_t txn_id, bool success, const char *error_if_any,
-					struct mgmt_be_client_adapter *adapter);
-
-/*
- * Reply to backend adapater with config data validate request.
- */
-extern int mgmt_txn_notify_be_cfg_validate_reply(
-	uint64_t txn_id, bool success, uint64_t batch_ids[],
-	size_t num_batch_ids, char *error_if_any,
-	struct mgmt_be_client_adapter *adapter);
+extern void mgmt_txn_notify_be_cfg_reply(uint64_t txn_id, struct mgmt_be_client_adapter *adapter);
 
 /*
  * Reply to backend adapater with config data apply request.
  */
-extern int
-mgmt_txn_notify_be_cfg_apply_reply(uint64_t txn_id, bool success,
-				       char *error_if_any,
-				       struct mgmt_be_client_adapter *adapter);
+extern void mgmt_txn_notify_be_cfg_apply_reply(uint64_t txn_id,
+					       struct mgmt_be_client_adapter *adapter);
 
 
 /**
@@ -291,9 +281,8 @@ mgmt_txn_notify_be_cfg_apply_reply(uint64_t txn_id, bool success,
  *	error: the integer error value (negative)
  *	errstr: the string description of the error.
  */
-int mgmt_txn_notify_error(struct mgmt_be_client_adapter *adapter,
-			  uint64_t txn_id, uint64_t req_id, int error,
-			  const char *errstr);
+void mgmt_txn_notify_error(struct mgmt_be_client_adapter *adapter, uint64_t txn_id,
+			   uint64_t req_id, int error, const char *errstr);
 
 /**
  * Process a reply from a backend client to our get-tree request
