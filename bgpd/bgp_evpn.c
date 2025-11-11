@@ -6331,14 +6331,32 @@ void bgp_evpn_encode_prefix(struct stream *s, const struct prefix *p,
 		break;
 	}
 
-	case BGP_EVPN_ES_ROUTE:
-		stream_putc(s, 23); /* TODO: length: assumes ipv4 VTEP */
+	case BGP_EVPN_ES_ROUTE: {
+		uint8_t ipaddr_bits = 0;
+		/* RFC-7432 ES NLRI 19 = RD (8) + ESI (10) + IP length (1) */
+		uint8_t total_bytes = 19; /* Fixed independent of IP family */
+
+		if (IS_IPADDR_V4(&evp->prefix.es_addr.ip)) {
+			ipaddr_bits = IPV4_MAX_BITLEN;
+			total_bytes += IPV4_MAX_BYTELEN; /* V4 Originator IP */
+		} else if (IS_IPADDR_V6(&evp->prefix.es_addr.ip)) {
+			ipaddr_bits = IPV6_MAX_BITLEN;
+			total_bytes += IPV6_MAX_BYTELEN; /* V6 Originator IP */
+		}
+
+		stream_putc(s, total_bytes);
 		stream_put(s, prd->val, 8); /* RD */
 		stream_put(s, evp->prefix.es_addr.esi.val, 10); /* ESI */
-		stream_putc(s, IPV4_MAX_BITLEN); /* IP address Length - bits */
+		stream_putc(s, ipaddr_bits); /* Originator IP address Length - bits */
 		/* VTEP IP */
-		stream_put_in_addr(s, &evp->prefix.es_addr.ip.ipaddr_v4);
+		if (ipaddr_bits)
+			stream_put(s, &evp->prefix.es_addr.ip.ip, ipaddr_bits / 8);
+		else
+			flog_err(EC_BGP_EVPN_ROUTE_CREATE,
+				 "evpn ES route %pFX created with ip field as empty", evp);
+
 		break;
+	}
 
 	case BGP_EVPN_AD_ROUTE:
 		/* RD, ESI, EthTag, 1 VNI */
