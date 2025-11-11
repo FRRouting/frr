@@ -4,7 +4,7 @@
  *
  * Copyright (C) 2021  Vmware, Inc.
  *		       Pushpasis Sarkar <spushpasis@vmware.com>
- * Copyright (c) 2023, LabN Consulting, L.L.C.
+ * Copyright (c) 2023-2025, LabN Consulting, L.L.C.
  */
 
 #include <zebra.h>
@@ -22,6 +22,7 @@
 #include "mgmtd/mgmt_be_adapter.h"
 
 #define _dbg(fmt, ...)	   DEBUGD(&mgmt_debug_be, "BE-ADAPTER: %s: " fmt, __func__, ##__VA_ARGS__)
+#define _log_warn(fmt, ...) zlog_warn("BE-ADAPTER: %s: WARNING: " fmt, __func__, ##__VA_ARGS__)
 #define _log_err(fmt, ...) zlog_err("BE-ADAPTER: %s: ERROR: " fmt, __func__, ##__VA_ARGS__)
 
 #define FOREACH_ADAPTER_IN_LIST(adapter)                                       \
@@ -487,64 +488,21 @@ mgmt_be_adapter_cleanup_old_conn(struct mgmt_be_client_adapter *adapter)
 	}
 }
 
-int mgmt_be_send_txn_req(struct mgmt_be_client_adapter *adapter, uint64_t txn_id, bool create)
+
+int mgmt_be_send_native(struct mgmt_be_client_adapter *adapter, void *_msg)
 {
-	struct mgmt_msg_txn_req *msg;
+	struct mgmt_msg_header *msg = (struct mgmt_msg_header *)_msg;
+	uint64_t txn_id = msg->refer_id;
 	int ret;
 
-	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_txn_req, 0, MTYPE_MSG_NATIVE_TXN_REQ);
-	msg->code = MGMT_MSG_CODE_TXN_REQ;
-	msg->refer_id = txn_id;
-	msg->create = create;
-
-	_dbg("Sending TXN_REQ to '%s' to %s txn-id: %Lu", adapter->name,
-	     create ? "create" : "delete", txn_id);
-
-	ret = mgmt_msg_native_send_msg(adapter->conn, msg, false);
-	mgmt_msg_native_free_msg(msg);
-	return ret;
-}
-
-int mgmt_be_send_cfgdata_req(struct mgmt_be_client_adapter *adapter, struct mgmt_msg_cfg_req *msg)
-{
-	int ret;
-
-	_dbg("Sending CFG_REQ to '%s' txn-id: %Lu req-id: %Lu", adapter->name, msg->refer_id,
-	     msg->req_id);
+	_dbg("Sending %s to '%s' txn-id: %Lu", mgmt_msg_code_name(msg->code), adapter->name,
+	     txn_id);
 
 	ret = mgmt_msg_native_send_msg(adapter->conn, msg, false);
 	if (ret)
-		_log_err("Could not send CFG_REQ txn-id: %Lu to client '%s", msg->refer_id,
-			 adapter->name);
+		_log_err("Failed sending %s to '%s' txn-id: %Lu", mgmt_msg_code_name(msg->code),
+			 adapter->name, txn_id);
 	return ret;
-}
-
-int mgmt_be_send_cfgapply_req(struct mgmt_be_client_adapter *adapter,
-			      uint64_t txn_id)
-{
-	struct mgmt_msg_cfg_apply_req *msg;
-	int ret;
-
-	msg = mgmt_msg_native_alloc_msg(struct mgmt_msg_cfg_apply_req, 0,
-					MTYPE_MSG_NATIVE_CFG_APPLY_REQ);
-	msg->code = MGMT_MSG_CODE_CFG_APPLY_REQ;
-	msg->refer_id = txn_id;
-
-	_dbg("Sending CFG_APPLY_REQ to '%s' txn-id: %Lu", adapter->name, txn_id);
-
-	ret = mgmt_msg_native_send_msg(adapter->conn, msg, false);
-	mgmt_msg_native_free_msg(msg);
-	return ret;
-}
-
-int mgmt_be_send_native(enum mgmt_be_client_id id, void *msg)
-{
-	struct mgmt_be_client_adapter *adapter = mgmt_be_get_adapter_by_id(id);
-
-	if (!adapter)
-		return -1;
-
-	return mgmt_msg_native_send_msg(adapter->conn, msg, false);
 }
 
 /*
@@ -655,11 +613,12 @@ static void be_adapter_handle_native_msg(struct mgmt_be_client_adapter *adapter,
 {
 	struct mgmt_msg_subscribe *subr_msg;
 	struct mgmt_msg_notify_data *notify_msg;
-	struct mgmt_msg_txn_reply *txn_msg;
 	struct mgmt_msg_error *error_msg;
 
-	/* get the transaction */
-
+	/*
+	 * NOTE: Handling the config messages may lead to disconnect and
+	 * deletion of the adapater. So don't do anything later.
+	 */
 	switch (msg->code) {
 	case MGMT_MSG_CODE_SUBSCRIBE:
 		subr_msg = (typeof(subr_msg))msg;
@@ -668,33 +627,25 @@ static void be_adapter_handle_native_msg(struct mgmt_be_client_adapter *adapter,
 		     subr_msg->nrpc);
 
 		be_adapter_handle_subscribe(subr_msg, msg_len, adapter);
-		break;
-
+		return;
 	case MGMT_MSG_CODE_TXN_REPLY:
-		txn_msg = (typeof(txn_msg))msg;
-		_dbg("Got TXN_REPLY from '%s' txn-id %Lu successfully '%s'", adapter->name,
-		     txn_msg->refer_id, txn_msg->created ? "Created" : "Deleted");
-		/*
-		 * Forward the TXN_REPLY to txn module.
-		 */
-		mgmt_txn_notify_be_txn_reply(txn_msg->refer_id, txn_msg->created, true, adapter);
-		break;
+		assert(0);
+		return;
 	case MGMT_MSG_CODE_CFG_REPLY:
 		_dbg("Got successful CFG_REPLY from '%s' txn-id %Lu", adapter->name, msg->refer_id);
 		/*
 		 * Forward the CGFData-create reply to txn module.
 		 */
-		mgmt_txn_notify_be_cfg_reply(msg->refer_id, true, NULL, adapter);
-		break;
+		mgmt_txn_notify_be_cfg_reply(msg->refer_id, adapter);
+		return;
 	case MGMT_MSG_CODE_CFG_APPLY_REPLY:
 		_dbg("Got successful CFG_APPLY_REPLY from '%s' txn-id %Lu", adapter->name,
 		     msg->refer_id);
 		/*
 		 * Forward the CGFData-apply reply to txn module.
 		 */
-		mgmt_txn_notify_be_cfg_apply_reply(msg->refer_id, true, NULL, adapter);
-		break;
-
+		mgmt_txn_notify_be_cfg_apply_reply(msg->refer_id, adapter);
+		return;
 	case MGMT_MSG_CODE_ERROR:
 		error_msg = (typeof(error_msg))msg;
 		_dbg("Got ERROR from '%s' txn-id %Lu", adapter->name, msg->refer_id);
@@ -702,22 +653,21 @@ static void be_adapter_handle_native_msg(struct mgmt_be_client_adapter *adapter,
 		/* Forward the reply to the txn module */
 		mgmt_txn_notify_error(adapter, msg->refer_id, msg->req_id,
 				      error_msg->error, error_msg->errstr);
-		/* We may have lost our connection and adapter at this point */
-		break;
+		return;
 	case MGMT_MSG_CODE_TREE_DATA:
 		/* tree data from a backend client */
 		_dbg("Got TREE_DATA from '%s' txn-id %" PRIu64, adapter->name, msg->refer_id);
 
 		/* Forward the reply to the txn module */
 		mgmt_txn_notify_tree_data_reply(adapter, (struct mgmt_msg_tree_data *)msg, msg_len);
-		break;
+		return;
 	case MGMT_MSG_CODE_RPC_REPLY:
 		/* RPC reply from a backend client */
 		_dbg("Got RPC_REPLY from '%s' txn-id %" PRIu64, adapter->name, msg->refer_id);
 
 		/* Forward the reply to the txn module */
 		mgmt_txn_notify_rpc_reply(adapter, (struct mgmt_msg_rpc_reply *)msg, msg_len);
-		break;
+		return;
 	case MGMT_MSG_CODE_NOTIFY:
 		/*
 		 * Handle notify message from a back-end client
@@ -726,12 +676,12 @@ static void be_adapter_handle_native_msg(struct mgmt_be_client_adapter *adapter,
 		_dbg("Got NOTIFY from '%s'", adapter->name);
 		mgmt_be_adapter_send_notify(notify_msg, msg_len, adapter);
 		mgmt_fe_adapter_send_notify(notify_msg, msg_len);
-		break;
+		return;
 	default:
 		_log_err("unknown native message txn-id %" PRIu64 " req-id %" PRIu64
 			 " code %u from BE client for adapter %s",
 			 msg->refer_id, msg->req_id, msg->code, adapter->name);
-		break;
+		return;
 	}
 }
 
@@ -769,9 +719,11 @@ struct mgmt_be_get_adapter_config_params {
 static void mgmt_be_adapter_conn_init(struct event *event)
 {
 	struct mgmt_be_client_adapter *adapter;
+	enum mgmt_be_client_id id;
 
 	adapter = (struct mgmt_be_client_adapter *)EVENT_ARG(event);
 	assert(adapter && adapter->conn->fd >= 0);
+	id = adapter->id;
 
 	/*
 	 * Notify TXN module to create a CONFIG transaction and
@@ -781,9 +733,11 @@ static void mgmt_be_adapter_conn_init(struct event *event)
 	 * transaction in progress.
 	 */
 	if (mgmt_txn_notify_be_adapter_conn(adapter, true) != 0) {
-		zlog_err("XXX txn in progress, retry init");
+		/* Deal with a disconnect happening */
+		if (!mgmt_be_adapters_by_id[id])
+			return;
+		_log_err("Couldn't send intial config to adapter: %s", adapter->name);
 		mgmt_be_adapter_sched_init_event(adapter);
-		return;
 	}
 }
 
@@ -945,8 +899,7 @@ uint64_t mgmt_be_interested_clients(const char *xpath,
 				    enum mgmt_be_xpath_subscr_type type)
 {
 	struct mgmt_be_xpath_map *maps = NULL, *map;
-	enum mgmt_be_client_id id;
-	uint64_t clients;
+	uint64_t clients = 0;
 	bool wild_root;
 
 	switch (type) {
@@ -964,20 +917,14 @@ uint64_t mgmt_be_interested_clients(const char *xpath,
 		break;
 	}
 
-	clients = 0;
-
-	_dbg("XPATH: '%s'", xpath);
-
 	/* wild_root will select all clients that advertise op-state */
 	wild_root = !strcmp(xpath, "/") || !strcmp(xpath, "/*");
 	darr_foreach_p (maps, map)
 		if (wild_root || mgmt_be_xpath_prefix(map->xpath_prefix, xpath))
 			clients |= map->clients;
 
-	if (DEBUG_MODE_CHECK(&mgmt_debug_be, DEBUG_MODE_ALL)) {
-		FOREACH_BE_CLIENT_BITS (id, clients)
-			_dbg("Cient: %s: subscribed", mgmt_be_client_id2name(id));
-	}
+	_dbg("xpath: '%s' subscribed clients: 0x%Lx", xpath, clients);
+
 	return clients;
 }
 

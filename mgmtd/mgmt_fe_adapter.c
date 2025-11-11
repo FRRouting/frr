@@ -743,8 +743,11 @@ static void fe_adapter_handle_commit(struct mgmt_fe_session_ctx *session, void *
 	struct mgmt_msg_commit *msg = _msg;
 	struct mgmt_ds_ctx *src_ds_ctx, *dst_ds_ctx;
 
-	_dbg("Got COMMIT for source-ds: %s target-ds: %s action: %u on session-id %Lu from '%s'",
-	     mgmt_ds_id2name(msg->source), mgmt_ds_id2name(msg->target), msg->action,
+	_dbg("Got COMMIT for source-ds: %s target-ds: %s action: %s on session-id %Lu from '%s'",
+	     mgmt_ds_id2name(msg->source), mgmt_ds_id2name(msg->target),
+	     msg->action == MGMT_MSG_COMMIT_VALIDATE ? "validate"
+	     : msg->action == MGMT_MSG_COMMIT_ABORT  ? "abort"
+						     : "apply",
 	     session->session_id, session->adapter->name);
 
 	if (mm->perf_stats_en)
@@ -766,6 +769,7 @@ static void fe_adapter_handle_commit(struct mgmt_fe_session_ctx *session, void *
 		return;
 	}
 
+	/* We get an exisitng cfg_txn_id if a check/validate was done first then an apply/abort later */
 	if (session->cfg_txn_id == MGMTD_TXN_ID_NONE) {
 		/* as we have the lock no-one else should have a config txn */
 		assert(!mgmt_config_txn_in_progress());
