@@ -1233,8 +1233,8 @@ uint32_t dplane_provider_get_id(const struct zebra_dplane_provider *prov);
 void *dplane_provider_get_data(const struct zebra_dplane_provider *prov);
 bool dplane_provider_is_threaded(const struct zebra_dplane_provider *prov);
 
-/* Lock/unlock a provider's mutex - iff the provider was registered with
- * the THREADED flag.
+/*
+ * Lock/unlock a provider's mutex
  */
 void dplane_provider_lock(struct zebra_dplane_provider *prov);
 void dplane_provider_unlock(struct zebra_dplane_provider *prov);
