@@ -30,7 +30,7 @@
  *  RD (8), ESI (10), ip-len (1), ip (4 or 16)
  */
 #define BGP_EVPN_TYPE4_V4_PSIZE 23
-#define BGP_EVPN_TYPE4_V6_PSIZE 34
+#define BGP_EVPN_TYPE4_V6_PSIZE 35
 
 static const struct message bgp_evpn_route_type_str[] = { { BGP_EVPN_AD_ROUTE, "AD" },
 							  { BGP_EVPN_MAC_IP_ROUTE, "MACIP" },
