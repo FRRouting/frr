@@ -1231,7 +1231,6 @@ int dplane_provider_register(const char *name,
 const char *dplane_provider_get_name(const struct zebra_dplane_provider *prov);
 uint32_t dplane_provider_get_id(const struct zebra_dplane_provider *prov);
 void *dplane_provider_get_data(const struct zebra_dplane_provider *prov);
-bool dplane_provider_is_threaded(const struct zebra_dplane_provider *prov);
 
 /*
  * Lock/unlock a provider's mutex
