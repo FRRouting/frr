@@ -33,7 +33,7 @@ extern struct debug mgmt_debug_txn;
 #define MGMT_DEBUG_FE_CHECK() DEBUG_MODE_CHECK(&mgmt_debug_fe, DEBUG_MODE_ALL)
 #define MGMT_DEBUG_TXN_CHECK() DEBUG_MODE_CHECK(&mgmt_debug_tx, DEBUG_MODE_ALL)
 
-struct mgmt_txn_ctx;
+struct mgmt_txn;
 
 /*
  * MGMTD master for system wide configurations and variables.
@@ -44,15 +44,9 @@ struct mgmt_master {
 	/* How big should we set the socket buffer size */
 	uint32_t socket_buffer;
 
-	/* The single instance of config transaction allowed at any time */
-	struct mgmt_txns_head txn_list;
-
 	/* Map of Transactions and its ID */
 	struct hash *txn_hash;
 	uint64_t next_txn_id;
-
-	/* The single instance of config transaction allowed at any time */
-	struct mgmt_txn_ctx *cfg_txn;
 
 	/* Datastores */
 	struct mgmt_ds_ctx *running_ds;

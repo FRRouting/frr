@@ -28,8 +28,6 @@
 
 #define MGMTD_TXN_ID_NONE 0
 
-PREDECL_LIST(mgmt_txns);
-
 struct mgmt_master;
 struct mgmt_edit_req;
 
