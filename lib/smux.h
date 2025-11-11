@@ -28,8 +28,8 @@ extern "C" {
 #define SNMP_VALID  1
 #define SNMP_INVALID 2
 
-#define IN_ADDR_SIZE sizeof(struct in_addr)
-#define IN6_ADDR_SIZE sizeof(struct in6_addr)
+#define IN_ADDR_SIZE 4
+#define IN6_ADDR_SIZE 16
 
 /* IANAipRouteProtocol */
 #define IANAIPROUTEPROTOCOLOTHER 1
