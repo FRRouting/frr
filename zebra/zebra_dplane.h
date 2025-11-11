@@ -1191,9 +1191,6 @@ enum dplane_provider_prio {
 /* Flags values used during provider registration. */
 #define DPLANE_PROV_FLAGS_DEFAULT  0x0
 
-/* Provider will be spawning its own worker thread */
-#define DPLANE_PROV_FLAG_THREADED  0x1
-
 /* Provider registration: ordering or priority value, callbacks, and optional
  * opaque data value. If 'prov_p', return the newly-allocated provider object
  * on success.

@@ -1839,10 +1839,8 @@ static int fpm_nl_new(struct event_loop *tm)
 	int rv;
 
 	gfnc = calloc(1, sizeof(*gfnc));
-	rv = dplane_provider_register(prov_name, DPLANE_PRIO_POSTPROCESS,
-				      DPLANE_PROV_FLAG_THREADED, fpm_nl_start,
-				      fpm_nl_process, fpm_nl_finish, gfnc,
-				      &prov);
+	rv = dplane_provider_register(prov_name, DPLANE_PRIO_POSTPROCESS, DPLANE_PROV_FLAGS_DEFAULT,
+				      fpm_nl_start, fpm_nl_process, fpm_nl_finish, gfnc, &prov);
 
 	if (IS_ZEBRA_DEBUG_DPLANE)
 		zlog_debug("%s register status: %d", prov_name, rv);
