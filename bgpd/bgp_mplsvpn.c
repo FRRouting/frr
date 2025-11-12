@@ -1950,6 +1950,7 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 					bslc = bgp_srv6_per_locator_new(
 						&from_bgp->srv6_locators_per_routemap[afi],
 						dummy_rmap_path_extra.srv6_locator);
+					bslc->afi = afi;
 					bslc->bgp = from_bgp;
 				}
 				bslc->path_count++;
@@ -2052,6 +2053,10 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 		nexthop_self_flag = 1;
 	}
 
+	/* even if sid allocation fails, prefix can be eligible for MPLS */
+	bgp_srv6_per_locator_cache_vrf_sid_update(path_vrf->srv6_vpn.bslc);
+	bgp_srv6_per_locator_cache_ensure_tovpn_sid(path_vrf->srv6_vpn.bslc);
+
 	if (CHECK_FLAG(from_bgp->vpn_policy[afi].flags,
 		       BGP_VPN_POLICY_TOVPN_LABEL_PER_NEXTHOP))
 		/* per nexthop label mode */
@@ -2095,7 +2100,29 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 		_vpn_leak_from_vrf_update_leak_attr(&static_attr, to_bgp, from_bgp, afi, safi,
 						    path_vrf, nexthop_self_flag, debug, &label);
 
-	if (vpn_leak_from_vrf_fill_srv6(&static_attr, from_bgp, afi, &label))
+	bslc = path_vrf->srv6_vpn.bslc;
+	if (bslc) {
+		if (bslc->sid_policy.tovpn_sid_locator) {
+			encode_label(bslc->sid_policy.tovpn_sid_transpose_label, &label);
+			vpn_leak_fill_srv6_from_locator(
+				&static_attr, bslc->sid_policy.tovpn_sid_locator,
+				afi == AFI_IP
+					? (CHECK_FLAG(bslc->sid_policy.tovpn_sid_locator->flags,
+						      SRV6_LOCATOR_USID)
+						   ? SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID
+						   : SRV6_ENDPOINT_BEHAVIOR_END_DT4)
+					: (CHECK_FLAG(bslc->sid_policy.tovpn_sid_locator->flags,
+						      SRV6_LOCATOR_USID)
+						   ? SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID
+						   : SRV6_ENDPOINT_BEHAVIOR_END_DT6),
+				bslc->sid_policy.tovpn_sid);
+
+			_vpn_leak_from_vrf_update_leak_attr(&static_attr, to_bgp, from_bgp, afi,
+							    safi, path_vrf, nexthop_self_flag,
+							    debug, &label);
+		}
+		/* if locator not found, then no srv6 exportation */
+	} else if (vpn_leak_from_vrf_fill_srv6(&static_attr, from_bgp, afi, &label))
 		/* SRv6 */
 		_vpn_leak_from_vrf_update_leak_attr(&static_attr, to_bgp, from_bgp, afi, safi,
 						    path_vrf, nexthop_self_flag, debug, &label);

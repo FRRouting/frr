@@ -447,6 +447,41 @@ static void bgp_srv6_per_locator_free(struct bgp_srv6_per_locator_cache *bslc)
 		XFREE(MTYPE_SRV6_PER_LOCATOR_CACHE, bslc);
 }
 
+/* code derived from ensure_vrf_tovpn_sid(), applied to auto mode only */
+static void bgp_srv6_per_locator_cache_delete_tovpn_sid(struct bgp_srv6_per_locator_cache *bslc)
+{
+	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF);
+	struct srv6_sid_ctx ctx = {};
+
+	if (debug)
+		zlog_debug("%s: try to remove SID for vrf %s: afi %s locator %s, mode %s", __func__,
+			   bslc->bgp->name_pretty, afi2str(bslc->afi), bslc->locator_name,
+			   srv6_sid_alloc_mode2str(
+				   bslc->sid_policy.tovpn_zebra_sid_alloc_mode_last_sent));
+
+	if (bslc->bgp->vrf_id == VRF_UNKNOWN) {
+		if (debug)
+			zlog_debug("%s: vrf %s: vrf_id not set, can't set zebra vrf sid", __func__,
+				   bslc->bgp->name_pretty);
+		return;
+	}
+	if (bslc->sid_policy.tovpn_sid) {
+		ctx.vrf_id = bslc->bgp->vrf_id;
+		ctx.behavior = bslc->afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
+						   : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+		ctx.alloc_mode = SRV6_SID_ALLOC_MODE_DYNAMIC;
+		bgp_zebra_release_srv6_sid(&ctx, bslc->locator_name);
+		sid_unregister(bgp_get_default(), bslc->sid_policy.tovpn_sid);
+		XFREE(MTYPE_BGP_SRV6_SID, bslc->sid_policy.tovpn_sid);
+		XFREE(MTYPE_BGP_SRV6_SID, bslc->sid_policy.tovpn_zebra_sid_last_sent);
+	}
+	bslc->sid_policy.tovpn_sid = NULL;
+	bslc->sid_policy.tovpn_sid_transpose_label = 0;
+	bslc->sid_policy.tovpn_zebra_sid_alloc_mode_last_sent = SRV6_SID_ALLOC_MODE_UNSPEC;
+	srv6_locator_free(bslc->sid_policy.tovpn_sid_locator);
+	bslc->sid_policy.tovpn_sid_locator = NULL;
+}
+
 struct bgp_srv6_per_locator_cache *
 bgp_srv6_per_locator_new(struct bgp_srv6_per_locator_cache_head *tree, const char *locator_name)
 {
@@ -492,8 +527,10 @@ static void bgp_srv6_per_locator_unlink_and_free(struct bgp_path_info *pi, bool 
 	bslc->path_count--;
 	pi->srv6_vpn.bslc = NULL;
 
-	if (free_bslc && LIST_EMPTY(&(bslc->paths)))
+	if (free_bslc && LIST_EMPTY(&(bslc->paths))) {
+		bgp_srv6_per_locator_cache_delete_tovpn_sid(bslc);
 		bgp_srv6_per_locator_free(bslc);
+	}
 }
 
 void bgp_srv6_per_locator_unlink(struct bgp_path_info *pi)
@@ -514,6 +551,7 @@ void bgp_srv6_per_locator_cache_reset(struct bgp *bgp, afi_t afi)
 
 		while (!LIST_EMPTY(&(bslc->paths)))
 			bgp_srv6_per_locator_unlink_and_free(LIST_FIRST(&(bslc->paths)), false);
+		bgp_srv6_per_locator_cache_delete_tovpn_sid(bslc);
 		bgp_srv6_per_locator_free(bslc);
 	}
 }
@@ -644,4 +682,112 @@ void bgp_srv6_vpn_path_withdraw(struct bgp *bgp, const struct prefix *p, afi_t a
 		if (process_pdest)
 			bgp_process(bgp, bn, afi, SAFI_MPLS_VPN);
 	}
+}
+
+/* code derived from ensure_vrf_tovpn_sid(), applied to auto mode only */
+void bgp_srv6_per_locator_cache_ensure_tovpn_sid(struct bgp_srv6_per_locator_cache *bslc)
+{
+	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF);
+	struct in6_addr tovpn_sid = {};
+	struct srv6_sid_ctx ctx = {};
+	uint32_t sid_func;
+	struct srv6_locator *hash_locator;
+
+	if (!bslc)
+		return;
+
+	/* auto mode is always configured.
+	 * XXX when allocation mode are extended, more controls will be added here
+	 */
+	if (bslc->sid_policy.tovpn_sid)
+		return;
+	if (bslc->bgp->vrf_id == VRF_UNKNOWN) {
+		if (debug)
+			zlog_debug("%s: vrf %s: vrf_id not set, can't set zebra vrf SRv6 SID",
+				   __func__, bslc->bgp->name_pretty);
+		return;
+	}
+	hash_locator = hash_lookup(bm->srv6_locators, bslc->locator_name);
+	if (!bslc->sid_policy.tovpn_sid_locator && hash_locator) {
+		bslc->sid_policy.tovpn_sid_locator = srv6_locator_alloc(bslc->locator_name);
+		srv6_locator_copy(bslc->sid_policy.tovpn_sid_locator, hash_locator);
+	}
+	if (!bslc->sid_policy.tovpn_sid_locator)
+		return;
+	ctx.vrf_id = bslc->bgp->vrf_id;
+	ctx.behavior = bslc->afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
+					   : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+	ctx.alloc_mode = SRV6_SID_ALLOC_MODE_DYNAMIC;
+	if (!bgp_zebra_request_srv6_sid(&ctx, &tovpn_sid, bslc->sid_policy.tovpn_sid_locator->name,
+					&sid_func)) {
+		zlog_err("%s: failed to request sid for vrf %s: afi %s locator %s", __func__,
+			 bslc->bgp->name_pretty, afi2str(bslc->afi),
+			 bslc->sid_policy.tovpn_sid_locator->name);
+		return;
+	}
+	if (debug)
+		zlog_debug("%s: allocating new SID for vrf %s: afi %s, locator %s", __func__,
+			   bslc->bgp->name_pretty, afi2str(bslc->afi),
+			   bslc->sid_policy.tovpn_sid_locator->name);
+}
+
+void bgp_srv6_per_locator_cache_vrf_sid_update(struct bgp_srv6_per_locator_cache *bslc)
+{
+	int debug = BGP_DEBUG(vpn, VPN_LEAK_LABEL);
+	enum seg6local_action_t act;
+	struct seg6local_context ctx = {};
+	struct in6_addr *tovpn_sid;
+	struct in6_addr *tovpn_sid_ls = NULL;
+	struct vrf *vrf;
+	struct interface *ifp;
+	struct bgp *bgp;
+	afi_t afi;
+
+	if (!bslc)
+		return;
+
+	tovpn_sid = bslc->sid_policy.tovpn_sid;
+	if (!bslc->sid_policy.tovpn_sid)
+		return;
+	if (sid_same(bslc->sid_policy.tovpn_sid, bslc->sid_policy.tovpn_zebra_sid_last_sent))
+		return;
+	bgp = bslc->bgp;
+	afi = bslc->afi;
+	if (bgp->vrf_id == VRF_UNKNOWN) {
+		if (debug)
+			zlog_debug("%s: vrf %s: afi %s: vrf_id not set, can't set zebra vrf label",
+				   __func__, bgp->name_pretty, afi2str(afi));
+		return;
+	}
+
+	if (debug)
+		zlog_debug("%s: vrf %s: afi %s: setting sid %pI6 for vrf id %d", __func__,
+			   bgp->name_pretty, afi2str(afi), tovpn_sid, bgp->vrf_id);
+
+	vrf = vrf_lookup_by_id(bgp->vrf_id);
+	if (!vrf)
+		return;
+
+	ifp = if_get_vrf_loopback(bgp->vrf_id);
+	if (!ifp)
+		return;
+
+	if (bslc->sid_policy.tovpn_sid_locator) {
+		ctx.block_len = bslc->sid_policy.tovpn_sid_locator->block_bits_length;
+		ctx.node_len = bslc->sid_policy.tovpn_sid_locator->node_bits_length;
+		ctx.function_len = bslc->sid_policy.tovpn_sid_locator->function_bits_length;
+		ctx.argument_len = bslc->sid_policy.tovpn_sid_locator->argument_bits_length;
+		if (CHECK_FLAG(bslc->sid_policy.tovpn_sid_locator->flags, SRV6_LOCATOR_USID))
+			SET_SRV6_FLV_OP(ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
+	}
+	ctx.table = vrf->data.l.table_id;
+	act = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4 : ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+	zclient_send_localsid(zclient, ZEBRA_ROUTE_ADD, tovpn_sid, IPV6_MAX_BITLEN, ifp->ifindex,
+			      act, &ctx);
+
+	tovpn_sid_ls = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
+	*tovpn_sid_ls = *tovpn_sid;
+	if (bslc->sid_policy.tovpn_zebra_sid_last_sent)
+		XFREE(MTYPE_BGP_SRV6_SID, bslc->sid_policy.tovpn_zebra_sid_last_sent);
+	bslc->sid_policy.tovpn_zebra_sid_last_sent = tovpn_sid_ls;
 }
