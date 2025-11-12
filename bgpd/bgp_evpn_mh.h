@@ -154,7 +154,7 @@ RB_PROTOTYPE(bgp_es_rb_head, bgp_evpn_es, rb_node, bgp_es_rb_cmp);
 /* PE attached to an ES */
 struct bgp_evpn_es_vtep {
 	struct bgp_evpn_es *es; /* parent ES */
-	struct in_addr vtep_ip;
+	struct ipaddr vtep_ip;
 
 	char vtep_str[INET6_ADDRSTRLEN];
 
@@ -252,7 +252,7 @@ struct bgp_evpn_es_evi {
  */
 struct bgp_evpn_es_evi_vtep {
 	struct bgp_evpn_es_evi *es_evi; /* parent ES-EVI */
-	struct in_addr vtep_ip;
+	struct ipaddr vtep_ip;
 
 	uint32_t flags;
 	/* Rxed an EAD-per-ES route from the PE */
@@ -420,10 +420,12 @@ extern int bgp_evpn_local_es_evi_add(struct bgp *bgp, esi_t *esi, vni_t vni);
 extern int bgp_evpn_local_es_evi_del(struct bgp *bgp, esi_t *esi, vni_t vni);
 extern enum zclient_send_status
 bgp_evpn_remote_es_evi_add(struct bgp *bgp, struct bgpevpn *vpn,
-			   const struct prefix_evpn *p);
+			   const struct prefix_evpn *p,
+			   struct bgp_path_info *pi);
 extern enum zclient_send_status
 bgp_evpn_remote_es_evi_del(struct bgp *bgp, struct bgpevpn *vpn,
-			   const struct prefix_evpn *p);
+			   const struct prefix_evpn *p,
+			   struct bgp_path_info *pi);
 extern void bgp_evpn_mh_init(void);
 extern void bgp_evpn_mh_finish(void);
 void bgp_evpn_vni_es_init(struct bgpevpn *vpn);
