@@ -132,7 +132,16 @@ struct zebra_from_svi_param {
 
 struct interface *zvni_map_to_svi(vlanid_t vid, struct interface *br_if);
 
-static inline struct interface *zevpn_map_to_svi(struct zebra_evpn *zevpn)
+/*
+ * This function is called whenever a remote neigh is to be installed or
+ * removed.
+ * At the time of remote neigh istalltion, if the ifp is oper down,
+ * the remote neigh will not be installed. However, at the time of
+ * remote neigh uninstall, neigh will be uninstalled even if ifp is
+ * oper down. Caller must set check_oper_state = true at the time of
+ * installation and `false` during removal.
+ */
+static inline struct interface *zevpn_map_to_svi(struct zebra_evpn *zevpn, bool check_oper_state)
 {
 	struct interface *ifp;
 	struct zebra_if *zif = NULL;
@@ -147,9 +156,15 @@ static inline struct interface *zevpn_map_to_svi(struct zebra_evpn *zevpn)
 	vni = zebra_vxlan_if_vni_find(zif, zevpn->vni);
 	if (!vni)
 		return NULL;
+	/*
+	 * Caller has asked to check operation state of interface and
+	 * interface is operationally down. We're done.
+	 */
+	if (check_oper_state && !if_is_operative(ifp))
+		return NULL;
 
-	/* If down or not mapped to a bridge, we're done. */
-	if (!if_is_operative(ifp) || !zif->brslave_info.br_if)
+	/* If not mapped to a bridge, we're done. */
+	if (!zif->brslave_info.br_if)
 		return NULL;
 
 	return zvni_map_to_svi(vni->access_vlan, zif->brslave_info.br_if);
