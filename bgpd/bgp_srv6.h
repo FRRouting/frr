@@ -65,6 +65,9 @@ DECLARE_RBTREE_UNIQ(bgp_srv6_locators, struct bgp_srv6_locator_entry, item, bgp_
 struct bgp_srv6_vpn_policy {
 	struct srv6_locator *tovpn_sid_locator;
 	struct in6_addr *tovpn_sid;
+	uint32_t tovpn_sid_transpose_label;
+	struct in6_addr *tovpn_zebra_sid_last_sent;
+	enum srv6_sid_alloc_mode tovpn_zebra_sid_alloc_mode_last_sent;
 };
 
 struct bgp_srv6_per_locator_cache {
@@ -129,5 +132,7 @@ struct bgp_srv6_per_locator_cache *
 bgp_srv6_per_locator_new(struct bgp_srv6_per_locator_cache_head *tree, const char *locator_name);
 void bgp_srv6_vpn_path_withdraw(struct bgp *bgp, const struct prefix *p, afi_t afi,
 				struct srv6_locator *locator);
+void bgp_srv6_per_locator_cache_ensure_tovpn_sid(struct bgp_srv6_per_locator_cache *bslc);
+void bgp_srv6_per_locator_cache_vrf_sid_update(struct bgp_srv6_per_locator_cache *bslc);
 
 #endif /* _BGP_SRV6_H_ */
