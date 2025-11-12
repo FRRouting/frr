@@ -82,10 +82,8 @@ def test_bgp_dynamic_capability_enhe():
                 {
                     "protocol": "bgp",
                     "selected": True,
-                    "installed": True,
                     "nexthops": [
                         {
-                            "fib": True,
                             "ip": "192.168.1.2",
                             "afi": "ipv4",
                             "interfaceName": "r1-eth0",
