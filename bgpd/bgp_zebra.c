@@ -3805,15 +3805,21 @@ static int bgp_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 
 		if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT6 &&
 		    !sid_same(bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid, &sid_addr) &&
-		    !sid_same(bgp_vrf->srv6_unicast[AFI_IP6].sid, &sid_addr))
-			break;
-		else if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT4 &&
-			 !sid_same(bgp_vrf->vpn_policy[AFI_IP].tovpn_sid, &sid_addr) &&
-			 !sid_same(bgp_vrf->srv6_unicast[AFI_IP].sid, &sid_addr))
-			break;
-		else if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT46 &&
-			 !sid_same(bgp_vrf->tovpn_sid, &sid_addr))
-			break;
+		    !sid_same(bgp_vrf->srv6_unicast[AFI_IP6].sid, &sid_addr)) {
+			bgp_zebra_release_srv6_sid(&ctx, loc_name);
+			return -1;
+		}
+		if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT4 &&
+		    !sid_same(bgp_vrf->vpn_policy[AFI_IP].tovpn_sid, &sid_addr) &&
+		    !sid_same(bgp_vrf->srv6_unicast[AFI_IP].sid, &sid_addr)) {
+			bgp_zebra_release_srv6_sid(&ctx, loc_name);
+			return -1;
+		}
+		if (ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT46 &&
+		    !sid_same(bgp_vrf->tovpn_sid, &sid_addr)) {
+			bgp_zebra_release_srv6_sid(&ctx, loc_name);
+			return -1;
+		}
 
 		/* Un-export VPN to VRF routes */
 		vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp,
