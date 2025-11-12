@@ -481,6 +481,39 @@ def test_bgp_evpn_route_vni():
     logger.info("PE1: Test passed")
 
 
+def test_evpn_l2vni_vlan_bridge_json():
+    """
+    Test L2 VNI JSON output includes vlan and bridge fields
+
+    This verifies the fix where L2 VNI JSON output was missing
+    "vlan" and "bridge" fields.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe1 = tgen.gears["PE1"]
+    pe2 = tgen.gears["PE2"]
+
+    # Check PE1 L2 VNI 101
+    output = pe1.vtysh_cmd("show evpn vni 101 json", isjson=True)
+    if output:
+        assertmsg = "L2 VNI 101 (PE1): 'vlan' field should be present in JSON"
+        assert "vlan" in output, assertmsg
+
+        assertmsg = "L2 VNI 101 (PE1): 'bridge' field should be present in JSON"
+        assert "bridge" in output, assertmsg
+
+    # Check PE2 L2 VNI 101
+    output = pe2.vtysh_cmd("show evpn vni 101 json", isjson=True)
+    if output:
+        assertmsg = "L2 VNI 101 (PE2): 'vlan' field should be present in JSON"
+        assert "vlan" in output, assertmsg
+
+        assertmsg = "L2 VNI 101 (PE2): 'bridge' field should be present in JSON"
+        assert "bridge" in output, assertmsg
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
