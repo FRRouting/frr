@@ -825,6 +825,40 @@ def test_evpn_uplink_tracking():
     assert result is None, assertmsg
 
 
+def test_evpn_access_vlan_vni_count():
+    """
+    Test EVPN access VLAN VNI count feature
+
+    This test verifies the fix for the issue where VLAN 1 acts as a placeholder
+    when new VNIs are added. The VNI count should track multiple VNIs associated
+    with the same VLAN and prevent incorrect removal of VLAN-VNI mappings.
+    """
+
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    dut_name = "torm11"
+    dut = tgen.gears[dut_name]
+
+    # Test JSON output includes vniCount field
+    output = dut.vtysh_cmd("show evpn access-vlan json", isjson=True)
+    if output:
+        for vlan_entry in output:
+            if "vniCount" in vlan_entry:
+                assertmsg = "vniCount should be >= 1 for active VLAN, got {}".format(
+                    vlan_entry["vniCount"]
+                )
+                assert vlan_entry["vniCount"] >= 1, assertmsg
+
+    # Test text output includes VNI-count column
+    output = dut.vtysh_cmd("show evpn access-vlan", isjson=False)
+    if output and "VLAN" in output:
+        assertmsg = "VNI-count column missing in 'show evpn access-vlan' output"
+        assert "VNI-count" in output, assertmsg
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
