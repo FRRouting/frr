@@ -596,6 +596,7 @@ def test_evpn_multipath():
 
     _test_singleton_equivalent_nhg_optimization(dut, "r2-vrf-101", "192.168.102.21/32")
 
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()

@@ -52,6 +52,7 @@ def build_topo(tgen):
 
     connect_routers(tgen, "rr", "r1")
     connect_routers(tgen, "rr", "r2")
+    connect_routers(tgen, "rr", "r4")
 
 
 def setup_module(mod):
@@ -112,6 +113,24 @@ ip link set dev vxlan-{0} master bridge-{0}
 ip link set vxlan-{0} up type bridge_slave learning off flood off mcast_flood off
 """.format(
                 vrf, _create_rmac(2, vrf)
+            )
+        )
+
+        tgen.gears["r4"].cmd(
+            """
+ip link add vrf-{0} type vrf table {0}
+ip link set dev vrf-{0} up
+ip link add loop{0} type dummy
+ip link set dev loop{0} master vrf-{0}
+ip link set dev loop{0} up
+ip link add bridge-{0} up address {1} type bridge stp_state 0
+ip link set bridge-{0} master vrf-{0}
+ip link set dev bridge-{0} up
+ip link add vxlan-{0} type vxlan id {0} dstport 4789 dev eth-rr local 192.168.4.4
+ip link set dev vxlan-{0} master bridge-{0}
+ip link set vxlan-{0} up type bridge_slave learning off flood off mcast_flood off
+""".format(
+                vrf, _create_rmac(4, vrf)
             )
         )
 
@@ -815,6 +834,154 @@ configure terminal
     _test_singleton_equivalent_nhg_optimization(r2, "vrf-101", "10.0.101.1/32")
 
 
+def _validate_multipath_nhg_with_singleton_members(router, vrf, prefix):
+    """
+    Validate multipath NHG: kernel has multipath group with singleton members.
+    """
+    # Get installed NHG ID from vtysh
+    route = router.vtysh_cmd(f"show ip route vrf {vrf} {prefix} json", isjson=True)
+    route_entry = route[prefix][0]
+    nhid = route_entry.get("installedNexthopGroupId")
+    nhg_output = router.cmd(f"ip nexthop show id {nhid}")
+
+    # Verify it's a group (multipath)
+    if "group" not in nhg_output:
+        return f"Nexthop {nhid} is singleton (expected multipath): {nhg_output.strip()}"
+
+    # Extract group members (e.g., "id 115 group 34/116 proto zebra" -> ["34", "116"])
+    parts = nhg_output.split()
+    group_idx = parts.index("group")
+    group_members = parts[group_idx + 1].split("/")
+
+    if len(group_members) < 2:
+        return f"Nexthop {nhid} group has only {len(group_members)} member(s), expected >= 2"
+
+    # Verify all group members are singletons (not groups)
+    for member_id in group_members:
+        member_output = router.cmd(f"ip nexthop show id {member_id}")
+        if "group" in member_output:
+            return f"Group member {member_id} is a group (expected singleton): {member_output.strip()}"
+        if "via" not in member_output:
+            return f"Group member {member_id} invalid: {member_output.strip()}"
+
+    logger.info(
+        f"Kernel validation: route {prefix} uses multipath NHG {nhid} with {len(group_members)} singleton members: {', '.join(group_members)}"
+    )
+    return None
+
+
+def test_evpn_multipath_4paths_2duplicates():
+    """
+    Test multipath with 4 paths (2 duplicates each): R4 advertises same prefix as R1.
+    R2 receives [A, A, B, B] -- [A, B] where A=192.168.1.1 (R1), B=192.168.4.4 (R4).
+    Validates multipath NHG is installed (not singleton-equivalent optimization).
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r4 = tgen.gears["r4"]
+    rr = tgen.gears["rr"]
+
+    # Configure RR eth-r4 interface
+    rr.vtysh_cmd(
+        """
+configure terminal
+interface eth-r4
+ ip address 192.168.4.101/24
+"""
+    )
+
+    # Configure R4 BGP session and advertise prefix
+    r4.vtysh_cmd(
+        """
+configure terminal
+router bgp 65000
+ bgp router-id 192.168.0.4
+ bgp log-neighbor-changes
+ no bgp default ipv4-unicast
+ no bgp ebgp-requires-policy
+ neighbor 192.168.4.101 remote-as 65000
+ neighbor 192.168.4.101 capability extended-nexthop
+ address-family l2vpn evpn
+  neighbor 192.168.4.101 activate
+  neighbor 192.168.4.101 route-map rmap_r4 in
+  advertise-all-vni
+ exit-address-family
+router bgp 65000 vrf vrf-101
+ bgp router-id 10.0.101.4
+ bgp log-neighbor-changes
+ no bgp network import-check
+ address-family ipv4 unicast
+  network 10.0.101.1/32
+ exit-address-family
+ address-family l2vpn evpn
+  rd 65000:4
+  route-target both 65000:101
+  advertise ipv4 unicast
+ exit-address-family
+route-map rmap_r4 permit 1
+ match evpn vni 101
+exit
+"""
+    )
+
+    # Configure RR to peer with R4
+    rr.vtysh_cmd(
+        """
+configure terminal
+router bgp 65000
+ neighbor 192.168.4.4 remote-as 65000
+ neighbor 192.168.4.4 capability extended-nexthop
+ address-family l2vpn evpn
+  neighbor 192.168.4.4 activate
+  neighbor 192.168.4.4 route-reflector-client
+ exit-address-family
+"""
+    )
+
+    # Wait for R2 to receive routes from both R1 and R4 (expect 4 paths)
+    logger.info("Waiting for R2 to receive 4 BGP paths for 10.0.101.1/32")
+    r2 = tgen.gears["r2"]
+
+    def _check_r2_has_4_paths():
+        """Check if R2 has 4 BGP paths for 10.0.101.1/32"""
+        output = r2.vtysh_cmd("show ip bgp vrf vrf-101 10.0.101.1/32 json", isjson=True)
+        path_count = output.get("pathCount", 0)
+        if path_count == 4:
+            return None
+        return f"R2 has {path_count} paths (expected 4) for 10.0.101.1/32"
+
+    _, result = topotest.run_and_expect(_check_r2_has_4_paths, None, count=20, wait=3)
+    assert result is None, result
+
+    # Validate multipath NHG on R2 with retry
+    _, result = topotest.run_and_expect(
+        lambda: _validate_multipath_nhg_with_singleton_members(
+            r2, "vrf-101", "10.0.101.1/32"
+        ),
+        None,
+        count=20,
+        wait=3,
+    )
+    assert result is None, result
+
+    # Cleanup: Remove R4 config
+    r4.vtysh_cmd(
+        """
+configure terminal
+no router bgp 65000
+"""
+    )
+    rr.vtysh_cmd(
+        """
+configure terminal
+router bgp 65000
+ no neighbor 192.168.4.4
+"""
+    )
+
+
 def test_shutdown_multipath_check_next_hops():
     """
     Deconfigure a second path between R1 and R2, then check that pathCount decreases
@@ -1038,7 +1205,8 @@ def _validate_evpn_rmacs(router, expected):
                     # Compare VTEP IPs - a forgiving comparison
                     if detail["vtepIp"].find(jvni[rmac]["vtepIp"]) < 0:
                         return "VTEP {} failed, not found in VNI {}".format(
-                            detail["vtepIp"], vni)
+                            detail["vtepIp"], vni
+                        )
             if vtep_ip in vtep_ips:
                 # VTEP IP is occuring for more than one RMAC in the same VNI
                 return "Duplicate VTEP IP {} found in VNI {}".format(vtep_ip, vni)
