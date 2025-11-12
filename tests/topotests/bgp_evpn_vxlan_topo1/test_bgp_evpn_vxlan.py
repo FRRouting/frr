@@ -490,6 +490,41 @@ def test_evpn_l2vni_vlan_bridge_json():
         assert "bridge" in output, assertmsg
 
 
+def test_evpn_vni_summary_output():
+    """
+    Test EVPN VNI summary output includes VLAN and BRIDGE columns
+
+    This verifies that 'show evpn vni' summary output displays
+    VLAN and BRIDGE information in both text and JSON formats.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe1 = tgen.gears["PE1"]
+
+    # Test text output has VLAN and BRIDGE columns
+    output = pe1.vtysh_cmd("show evpn vni", isjson=False)
+    if output and "VNI" in output:
+        assertmsg = "'show evpn vni' should have VLAN column in header"
+        assert "VLAN" in output, assertmsg
+
+        assertmsg = "'show evpn vni' should have BRIDGE column in header"
+        assert "BRIDGE" in output, assertmsg
+
+    # Test JSON output has vlan and bridge fields
+    output = pe1.vtysh_cmd("show evpn vni json", isjson=True)
+    if output:
+        for vni_key, vni_data in output.items():
+            if isinstance(vni_data, dict) and "type" in vni_data:
+                assertmsg = "VNI {} JSON should have 'vlan' field".format(vni_key)
+                assert "vlan" in vni_data, assertmsg
+
+                assertmsg = "VNI {} JSON should have 'bridge' field".format(vni_key)
+                assert "bridge" in vni_data, assertmsg
+                break
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
