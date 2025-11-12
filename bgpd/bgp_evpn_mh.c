@@ -47,11 +47,11 @@ static void bgp_evpn_local_type1_evi_route_del(struct bgp *bgp,
 		struct bgp_evpn_es *es);
 static struct bgp_evpn_es_vtep *
 bgp_evpn_es_vtep_add(struct bgp *bgp, struct bgp_evpn_es *es,
-		     struct in_addr vtep_ip, bool esr, uint8_t df_alg,
+		     struct ipaddr vtep_ip, bool esr, uint8_t df_alg,
 		     uint16_t df_pref, int *zret);
 static enum zclient_send_status bgp_evpn_es_vtep_del(struct bgp *bgp,
 						     struct bgp_evpn_es *es,
-						     struct in_addr vtep_ip,
+						     struct ipaddr vtep_ip,
 						     bool esr);
 static void bgp_evpn_es_cons_checks_pend_add(struct bgp_evpn_es *es);
 static void bgp_evpn_es_cons_checks_pend_del(struct bgp_evpn_es *es);
@@ -126,10 +126,29 @@ static int bgp_evpn_es_route_select_install(struct bgp *bgp,
 	    && !CHECK_FLAG(old_select->flags, BGP_PATH_ATTR_CHANGED)
 	    && !bgp_addpath_is_addpath_used(&bgp->tx_addpath, afi, safi)) {
 		if (bgp_zebra_has_route_changed(old_select)) {
-			bgp_evpn_es_vtep_add(bgp, es, old_select->attr->nexthop,
-					     true /*esr*/,
-					     old_select->attr->df_alg,
-					     old_select->attr->df_pref, &zret);
+			struct ipaddr vtep_ip = {};
+			uint8_t nhfamily = NEXTHOP_FAMILY(old_select->attr->mp_nexthop_len);
+
+			if (nhfamily == AF_INET) {
+				SET_IPADDR_V4(&vtep_ip);
+				if (old_select->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4 ||
+				    old_select->attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4)
+					IPV4_ADDR_COPY(&vtep_ip.ipaddr_v4,
+						       &old_select->attr->mp_nexthop_global_in);
+				else
+					IPV4_ADDR_COPY(&vtep_ip.ipaddr_v4,
+						       &old_select->attr->nexthop);
+			} else if (nhfamily == AF_INET6) {
+				SET_IPADDR_V6(&vtep_ip);
+				IPV6_ADDR_COPY(&vtep_ip.ipaddr_v6,
+					       &old_select->attr->mp_nexthop_global);
+			} else {
+				SET_IPADDR_V4(&vtep_ip);
+				IPV4_ADDR_COPY(&vtep_ip.ipaddr_v4, &old_select->attr->nexthop);
+			}
+			bgp_evpn_es_vtep_add(bgp, es, vtep_ip, true /*esr*/,
+					     old_select->attr->df_alg, old_select->attr->df_pref,
+					     &zret);
 		}
 		UNSET_FLAG(old_select->flags, BGP_PATH_MULTIPATH_CHG);
 		bgp_zebra_clear_route_change_flags(dest);
@@ -156,15 +175,47 @@ static int bgp_evpn_es_route_select_install(struct bgp *bgp,
 
 	if (new_select && new_select->type == ZEBRA_ROUTE_BGP
 			&& new_select->sub_type == BGP_ROUTE_IMPORTED) {
-		bgp_evpn_es_vtep_add(bgp, es, new_select->attr->nexthop,
-				     true /*esr */, new_select->attr->df_alg,
+		struct ipaddr vtep_ip = {};
+		uint8_t nhfamily = NEXTHOP_FAMILY(new_select->attr->mp_nexthop_len);
+
+		if (nhfamily == AF_INET) {
+			SET_IPADDR_V4(&vtep_ip);
+			if (new_select->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4 ||
+			    new_select->attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4)
+				IPV4_ADDR_COPY(&vtep_ip.ipaddr_v4,
+					       &new_select->attr->mp_nexthop_global_in);
+			else
+				IPV4_ADDR_COPY(&vtep_ip.ipaddr_v4, &new_select->attr->nexthop);
+		} else if (nhfamily == AF_INET6) {
+			SET_IPADDR_V6(&vtep_ip);
+			IPV6_ADDR_COPY(&vtep_ip.ipaddr_v6, &new_select->attr->mp_nexthop_global);
+		} else {
+			SET_IPADDR_V4(&vtep_ip);
+			IPV4_ADDR_COPY(&vtep_ip.ipaddr_v4, &new_select->attr->nexthop);
+		}
+		bgp_evpn_es_vtep_add(bgp, es, vtep_ip, true /*esr */, new_select->attr->df_alg,
 				     new_select->attr->df_pref, &zret);
 	} else {
-		if (old_select && old_select->type == ZEBRA_ROUTE_BGP
-				&& old_select->sub_type == BGP_ROUTE_IMPORTED)
-			bgp_evpn_es_vtep_del(
-					bgp, es, old_select->attr->nexthop,
-					true /*esr*/);
+		if (old_select && old_select->type == ZEBRA_ROUTE_BGP &&
+		    old_select->sub_type == BGP_ROUTE_IMPORTED) {
+			struct ipaddr vtep_ip = {};
+			uint8_t nhfamily = NEXTHOP_FAMILY(old_select->attr->mp_nexthop_len);
+
+			if (nhfamily == AF_INET) {
+				SET_IPADDR_V4(&vtep_ip);
+				IPV4_ADDR_COPY(&vtep_ip.ipaddr_v4,
+					       &old_select->attr->mp_nexthop_global_in);
+			} else if (nhfamily == AF_INET6) {
+				SET_IPADDR_V6(&vtep_ip);
+				IPV6_ADDR_COPY(&vtep_ip.ipaddr_v6,
+					       &old_select->attr->mp_nexthop_global);
+			} else {
+				/* default condition */
+				SET_IPADDR_V4(&vtep_ip);
+				IPV4_ADDR_COPY(&vtep_ip.ipaddr_v4, &old_select->attr->nexthop);
+			}
+			bgp_evpn_es_vtep_del(bgp, es, vtep_ip, true /*esr*/);
+		}
 	}
 
 	/* Clear any route change flags. */
@@ -1335,18 +1386,17 @@ static int bgp_evpn_es_vtep_cmp(void *p1, void *p2)
 	const struct bgp_evpn_es_vtep *es_vtep1 = p1;
 	const struct bgp_evpn_es_vtep *es_vtep2 = p2;
 
-	return es_vtep1->vtep_ip.s_addr - es_vtep2->vtep_ip.s_addr;
+	return ipaddr_cmp(&es_vtep1->vtep_ip, &es_vtep2->vtep_ip);
 }
 
-static struct bgp_evpn_es_vtep *bgp_evpn_es_vtep_new(struct bgp_evpn_es *es,
-		struct in_addr vtep_ip)
+static struct bgp_evpn_es_vtep *bgp_evpn_es_vtep_new(struct bgp_evpn_es *es, struct ipaddr vtep_ip)
 {
 	struct bgp_evpn_es_vtep *es_vtep;
 
 	es_vtep = XCALLOC(MTYPE_BGP_EVPN_ES_VTEP, sizeof(*es_vtep));
 
 	es_vtep->es = es;
-	es_vtep->vtep_ip.s_addr = vtep_ip.s_addr;
+	es_vtep->vtep_ip = vtep_ip;
 	inet_ntop(AF_INET, &es_vtep->vtep_ip, es_vtep->vtep_str,
 		  sizeof(es_vtep->vtep_str));
 	listnode_init(&es_vtep->es_listnode, es_vtep);
@@ -1370,13 +1420,13 @@ static void bgp_evpn_es_vtep_free(struct bgp_evpn_es_vtep *es_vtep)
 
 /* check if VTEP is already part of the list */
 static struct bgp_evpn_es_vtep *bgp_evpn_es_vtep_find(struct bgp_evpn_es *es,
-		struct in_addr vtep_ip)
+		struct ipaddr vtep_ip)
 {
 	struct listnode *node = NULL;
 	struct bgp_evpn_es_vtep *es_vtep;
 
 	for (ALL_LIST_ELEMENTS_RO(es->es_vtep_list, node, es_vtep)) {
-		if (es_vtep->vtep_ip.s_addr == vtep_ip.s_addr)
+		if (ipaddr_is_same(&es_vtep->vtep_ip, &vtep_ip))
 			return es_vtep;
 	}
 	return NULL;
@@ -1417,7 +1467,7 @@ bgp_zebra_send_remote_es_vtep(struct bgp *bgp, struct bgp_evpn_es_vtep *es_vtep,
 		add ? ZEBRA_REMOTE_ES_VTEP_ADD : ZEBRA_REMOTE_ES_VTEP_DEL,
 		bgp->vrf_id);
 	stream_put(s, &es->esi, sizeof(esi_t));
-	stream_put_ipv4(s, es_vtep->vtep_ip.s_addr);
+	stream_put_ipaddr(s, &es_vtep->vtep_ip);
 	if (add) {
 		stream_putl(s, flags);
 		stream_putc(s, es_vtep->df_alg);
@@ -1427,8 +1477,8 @@ bgp_zebra_send_remote_es_vtep(struct bgp *bgp, struct bgp_evpn_es_vtep *es_vtep,
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
-		zlog_debug("Tx %s Remote ESI %s VTEP %pI4", add ? "ADD" : "DEL",
-			   es->esi_str, &es_vtep->vtep_ip);
+		zlog_debug("Tx %s Remote ESI %s VTEP %pIA", add ? "ADD" : "DEL", es->esi_str,
+			   &es_vtep->vtep_ip);
 
 	frrtrace(3, frr_bgp, evpn_mh_vtep_zsend, add, es, es_vtep);
 
@@ -1456,9 +1506,8 @@ static enum zclient_send_status bgp_evpn_es_vtep_re_eval_active(
 	if ((old_active != new_active) || (new_active && param_change)) {
 
 		if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
-			zlog_debug("es %s vtep %pI4 %s df %u/%u",
-				   es_vtep->es->esi_str, &es_vtep->vtep_ip,
-				   new_active ? "active" : "inactive",
+			zlog_debug("es %s vtep %pIA %s df %u/%u", es_vtep->es->esi_str,
+				   &es_vtep->vtep_ip, new_active ? "active" : "inactive",
 				   es_vtep->df_alg, es_vtep->df_pref);
 
 		/* send remote ES to zebra */
@@ -1480,7 +1529,7 @@ static enum zclient_send_status bgp_evpn_es_vtep_re_eval_active(
 
 static struct bgp_evpn_es_vtep *
 bgp_evpn_es_vtep_add(struct bgp *bgp, struct bgp_evpn_es *es,
-		     struct in_addr vtep_ip, bool esr, uint8_t df_alg,
+		     struct ipaddr vtep_ip, bool esr, uint8_t df_alg,
 		     uint16_t df_pref, int *zret)
 {
 	struct bgp_evpn_es_vtep *es_vtep;
@@ -1492,9 +1541,8 @@ bgp_evpn_es_vtep_add(struct bgp *bgp, struct bgp_evpn_es *es,
 		es_vtep = bgp_evpn_es_vtep_new(es, vtep_ip);
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
-		zlog_debug("es %s vtep %pI4 add %s df %u/%u",
-			   es_vtep->es->esi_str, &es_vtep->vtep_ip,
-			   esr ? "esr" : "ead", df_alg, df_pref);
+		zlog_debug("es %s vtep %pIA add %s df %u/%u", es_vtep->es->esi_str,
+			   &es_vtep->vtep_ip, esr ? "esr" : "ead", df_alg, df_pref);
 
 	if (esr) {
 		SET_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ESR);
@@ -1521,8 +1569,8 @@ bgp_evpn_es_vtep_do_del(struct bgp *bgp, struct bgp_evpn_es_vtep *es_vtep,
 	enum zclient_send_status ret = ZCLIENT_SEND_SUCCESS;
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
-		zlog_debug("es %s vtep %pI4 del %s", es_vtep->es->esi_str,
-			   &es_vtep->vtep_ip, esr ? "esr" : "ead");
+		zlog_debug("es %s vtep %pIA del %s", es_vtep->es->esi_str, &es_vtep->vtep_ip,
+			   esr ? "esr" : "ead");
 	if (esr) {
 		UNSET_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ESR);
 		if (es_vtep->df_pref || es_vtep->df_alg) {
@@ -1543,7 +1591,7 @@ bgp_evpn_es_vtep_do_del(struct bgp *bgp, struct bgp_evpn_es_vtep *es_vtep,
 
 static enum zclient_send_status bgp_evpn_es_vtep_del(struct bgp *bgp,
 						     struct bgp_evpn_es *es,
-						     struct in_addr vtep_ip,
+						     struct ipaddr vtep_ip,
 						     bool esr)
 {
 	struct bgp_evpn_es_vtep *es_vtep;
@@ -2886,10 +2934,9 @@ static void bgp_evpn_l3nhg_zebra_add_v4_or_v6(struct bgp_evpn_es_vrf *es_vrf,
 
 		/* overwrite the gw */
 		if (v4_nhg)
-			nh.gate.ipv4 = es_vtep->vtep_ip;
+			nh.gate.ipv4 = es_vtep->vtep_ip.ipaddr_v4;
 		else
-			ipv4_to_ipv4_mapped_ipv6(&nh.gate.ipv6,
-						 es_vtep->vtep_ip);
+			ipv4_to_ipv4_mapped_ipv6(&nh.gate.ipv6, es_vtep->vtep_ip.ipaddr_v4);
 
 		/* convert to zapi format */
 		api_nh = &api_nhg.nexthops[api_nhg.nexthop_num];
@@ -2897,8 +2944,7 @@ static void bgp_evpn_l3nhg_zebra_add_v4_or_v6(struct bgp_evpn_es_vrf *es_vrf,
 
 		++api_nhg.nexthop_num;
 		if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
-			zlog_debug("nhg %u vtep %pI4 l3-svi %d", api_nhg.id,
-				   &es_vtep->vtep_ip,
+			zlog_debug("nhg %u vtep %pIA l3-svi %d", api_nhg.id, &es_vtep->vtep_ip,
 				   es_vrf->bgp_vrf->l3vni_svi_ifindex);
 
 		frrtrace(3, frr_bgp, evpn_mh_nh_zsend, nhg_id, es_vtep, es_vrf);
@@ -3414,18 +3460,18 @@ static int bgp_evpn_es_evi_vtep_cmp(void *p1, void *p2)
 	const struct bgp_evpn_es_evi_vtep *evi_vtep1 = p1;
 	const struct bgp_evpn_es_evi_vtep *evi_vtep2 = p2;
 
-	return evi_vtep1->vtep_ip.s_addr - evi_vtep2->vtep_ip.s_addr;
+	return ipaddr_cmp(&evi_vtep1->vtep_ip, &evi_vtep2->vtep_ip);
 }
 
 static struct bgp_evpn_es_evi_vtep *bgp_evpn_es_evi_vtep_new(
-		struct bgp_evpn_es_evi *es_evi, struct in_addr vtep_ip)
+		struct bgp_evpn_es_evi *es_evi, struct ipaddr vtep_ip)
 {
 	struct bgp_evpn_es_evi_vtep *evi_vtep;
 
 	evi_vtep = XCALLOC(MTYPE_BGP_EVPN_ES_EVI_VTEP, sizeof(*evi_vtep));
 
 	evi_vtep->es_evi = es_evi;
-	evi_vtep->vtep_ip.s_addr = vtep_ip.s_addr;
+	evi_vtep->vtep_ip = vtep_ip;
 	listnode_init(&evi_vtep->es_evi_listnode, evi_vtep);
 	listnode_add_sort(es_evi->es_evi_vtep_list, &evi_vtep->es_evi_listnode);
 
@@ -3446,13 +3492,13 @@ static void bgp_evpn_es_evi_vtep_free(struct bgp_evpn_es_evi_vtep *evi_vtep)
 
 /* check if VTEP is already part of the list */
 static struct bgp_evpn_es_evi_vtep *bgp_evpn_es_evi_vtep_find(
-		struct bgp_evpn_es_evi *es_evi, struct in_addr vtep_ip)
+		struct bgp_evpn_es_evi *es_evi, struct ipaddr vtep_ip)
 {
 	struct listnode *node = NULL;
 	struct bgp_evpn_es_evi_vtep *evi_vtep;
 
 	for (ALL_LIST_ELEMENTS_RO(es_evi->es_evi_vtep_list, node, evi_vtep)) {
-		if (evi_vtep->vtep_ip.s_addr == vtep_ip.s_addr)
+		if (ipaddr_is_same(&evi_vtep->vtep_ip, &vtep_ip))
 			return evi_vtep;
 	}
 	return NULL;
@@ -3519,7 +3565,7 @@ bgp_evpn_es_evi_vtep_re_eval_active(struct bgp *bgp,
 
 static enum zclient_send_status
 bgp_evpn_es_evi_vtep_add(struct bgp *bgp, struct bgp_evpn_es_evi *es_evi,
-			 struct in_addr vtep_ip, bool ead_es)
+			 struct ipaddr vtep_ip, bool ead_es)
 {
 	struct bgp_evpn_es_evi_vtep *evi_vtep;
 
@@ -3548,7 +3594,7 @@ bgp_evpn_es_evi_vtep_add(struct bgp *bgp, struct bgp_evpn_es_evi *es_evi,
 
 static enum zclient_send_status
 bgp_evpn_es_evi_vtep_del(struct bgp *bgp, struct bgp_evpn_es_evi *es_evi,
-			 struct in_addr vtep_ip, bool ead_es)
+			 struct ipaddr vtep_ip, bool ead_es)
 {
 	struct bgp_evpn_es_evi_vtep *evi_vtep;
 	enum zclient_send_status ret = ZCLIENT_SEND_SUCCESS;
@@ -3558,8 +3604,7 @@ bgp_evpn_es_evi_vtep_del(struct bgp *bgp, struct bgp_evpn_es_evi *es_evi,
 		return ret;
 
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
-		zlog_debug("del es %s evi %u vtep %pI4 %s",
-			   evi_vtep->es_evi->es->esi_str,
+		zlog_debug("del es %s evi %u vtep %pIA %s", evi_vtep->es_evi->es->esi_str,
 			   evi_vtep->es_evi->vpn->vni, &evi_vtep->vtep_ip,
 			   ead_es ? "ead_es" : "ead_evi");
 
@@ -3886,7 +3931,8 @@ int bgp_evpn_local_es_evi_add(struct bgp *bgp, esi_t *esi, vni_t vni)
  */
 enum zclient_send_status bgp_evpn_remote_es_evi_add(struct bgp *bgp,
 						    struct bgpevpn *vpn,
-						    const struct prefix_evpn *p)
+						    const struct prefix_evpn *p,
+							struct bgp_path_info *pi)
 {
 	char buf[ESI_STR_LEN];
 	struct bgp_evpn_es *es;
@@ -3894,16 +3940,34 @@ enum zclient_send_status bgp_evpn_remote_es_evi_add(struct bgp *bgp,
 	bool ead_es;
 	const esi_t *esi = &p->prefix.ead_addr.esi;
 	enum zclient_send_status ret = ZCLIENT_SEND_SUCCESS;
+	struct ipaddr vtep_ip = {};
 
 	if (!vpn)
 		/* local EAD-ES need not be sent back to zebra */
 		return ret;
 
+	/* Extract VTEP IP from BGP path attributes, not from prefix
+	 * (prefix in global table has IP zeroed out)
+	 */
+	if (pi && pi->attr) {
+		if (pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4 ||
+		    pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4) {
+			SET_IPADDR_V4(&vtep_ip);
+			vtep_ip.ipaddr_v4 = pi->attr->mp_nexthop_global_in;
+		} else if (pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL ||
+			   pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL ||
+			   pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL ||
+			   pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL) {
+			SET_IPADDR_V6(&vtep_ip);
+			IPV6_ADDR_COPY(&vtep_ip.ipaddr_v6, &pi->attr->mp_nexthop_global);
+		}
+	}
+
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
-		zlog_debug("add remote %s es %s evi %u vtep %pI4",
+		zlog_debug("add remote %s es %s evi %u ead-ip %pIA vtep %pIA",
 			   p->prefix.ead_addr.eth_tag ? "ead-es" : "ead-evi",
-			   esi_to_str(esi, buf, sizeof(buf)), vpn->vni,
-			   &p->prefix.ead_addr.ip.ipaddr_v4);
+			   esi_to_str(esi, buf, sizeof(buf)), vpn->vni, &p->prefix.ead_addr.ip,
+			   &vtep_ip);
 
 	es = bgp_evpn_es_find(esi);
 	if (!es)
@@ -3914,8 +3978,7 @@ enum zclient_send_status bgp_evpn_remote_es_evi_add(struct bgp *bgp,
 		es_evi = bgp_evpn_es_evi_new(es, vpn);
 
 	ead_es = !!p->prefix.ead_addr.eth_tag;
-	ret = bgp_evpn_es_evi_vtep_add(bgp, es_evi,
-				       p->prefix.ead_addr.ip.ipaddr_v4, ead_es);
+	ret = bgp_evpn_es_evi_vtep_add(bgp, es_evi, vtep_ip, ead_es);
 
 	bgp_evpn_es_evi_remote_info_re_eval(es_evi);
 	return ret;
@@ -3926,54 +3989,63 @@ enum zclient_send_status bgp_evpn_remote_es_evi_add(struct bgp *bgp,
  */
 enum zclient_send_status bgp_evpn_remote_es_evi_del(struct bgp *bgp,
 						    struct bgpevpn *vpn,
-						    const struct prefix_evpn *p)
+						    const struct prefix_evpn *p,
+						    struct bgp_path_info *pi)
 {
 	char buf[ESI_STR_LEN];
 	struct bgp_evpn_es *es;
 	struct bgp_evpn_es_evi *es_evi;
 	bool ead_es;
 	enum zclient_send_status ret = ZCLIENT_SEND_SUCCESS;
+	struct ipaddr vtep_ip = {};
 
 	if (!vpn)
 		/* local EAD-ES need not be sent back to zebra */
 		return ret;
 
+	/* Extract VTEP IP from BGP path attributes, not from prefix
+	 * (prefix in global table has IP zeroed out)
+	 */
+	if (pi && pi->attr) {
+		if (pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4 ||
+		    pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV4) {
+			SET_IPADDR_V4(&vtep_ip);
+			vtep_ip.ipaddr_v4 = pi->attr->mp_nexthop_global_in;
+		} else if (pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL ||
+			   pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL ||
+			   pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL ||
+			   pi->attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL) {
+			SET_IPADDR_V6(&vtep_ip);
+			IPV6_ADDR_COPY(&vtep_ip.ipaddr_v6, &pi->attr->mp_nexthop_global);
+		}
+	}
 	if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
-		zlog_debug(
-			"del remote %s es %s evi %u vtep %pI4",
-			p->prefix.ead_addr.eth_tag ? "ead-es" : "ead-evi",
-			esi_to_str(&p->prefix.ead_addr.esi, buf, sizeof(buf)),
-			vpn->vni, &p->prefix.ead_addr.ip.ipaddr_v4);
+		zlog_debug("del remote %s es %s evi %u ead_ip %pIA vtep %pIA",
+			   p->prefix.ead_addr.eth_tag ? "ead-es" : "ead-evi",
+			   esi_to_str(&p->prefix.ead_addr.esi, buf, sizeof(buf)), vpn->vni,
+			   &p->prefix.ead_addr.ip, &vtep_ip);
 
 	es = bgp_evpn_es_find(&p->prefix.ead_addr.esi);
 	if (!es) {
 		if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
-			zlog_debug(
-				"del remote %s es %s evi %u vtep %pI4, NO es",
-				p->prefix.ead_addr.eth_tag ? "ead-es"
-							   : "ead-evi",
-				esi_to_str(&p->prefix.ead_addr.esi, buf,
-					   sizeof(buf)),
-				vpn->vni, &p->prefix.ead_addr.ip.ipaddr_v4);
+			zlog_debug("del remote %s es %s evi %u vtep %pIA, NO es",
+				   p->prefix.ead_addr.eth_tag ? "ead-es" : "ead-evi",
+				   esi_to_str(&p->prefix.ead_addr.esi, buf, sizeof(buf)), vpn->vni,
+				   &vtep_ip);
 		return ret;
 	}
 	es_evi = bgp_evpn_es_evi_find(es, vpn);
 	if (!es_evi) {
 		if (BGP_DEBUG(evpn_mh, EVPN_MH_ES))
-			zlog_debug(
-				"del remote %s es %s evi %u vtep %pI4, NO es-evi",
-				p->prefix.ead_addr.eth_tag ? "ead-es"
-							   : "ead-evi",
-				esi_to_str(&p->prefix.ead_addr.esi, buf,
-					   sizeof(buf)),
-				vpn->vni,
-				&p->prefix.ead_addr.ip.ipaddr_v4);
+			zlog_debug("del remote %s es %s evi %u vtep %pIA, NO es-evi",
+				   p->prefix.ead_addr.eth_tag ? "ead-es" : "ead-evi",
+				   esi_to_str(&p->prefix.ead_addr.esi, buf, sizeof(buf)), vpn->vni,
+				   &vtep_ip);
 		return ret;
 	}
 
 	ead_es = !!p->prefix.ead_addr.eth_tag;
-	ret = bgp_evpn_es_evi_vtep_del(bgp, es_evi,
-				       p->prefix.ead_addr.ip.ipaddr_v4, ead_es);
+	ret = bgp_evpn_es_evi_vtep_del(bgp, es_evi, vtep_ip, ead_es);
 	bgp_evpn_es_evi_remote_info_re_eval(es_evi);
 
 	return ret;
@@ -4489,8 +4561,7 @@ static uint32_t bgp_evpn_es_run_consistency_checks(struct bgp_evpn_es *es)
 				bgp_evpn_es_evi_set_inconsistent(es_evi);
 				break;
 			}
-			if (es_vtep->vtep_ip.s_addr !=
-					evi_vtep->vtep_ip.s_addr) {
+			if (!ipaddr_is_same(&es_vtep->vtep_ip, &evi_vtep->vtep_ip)) {
 				/* inconsistency detected; set it and move
 				 * to the next evi
 				 */

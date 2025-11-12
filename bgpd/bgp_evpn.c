@@ -1370,7 +1370,7 @@ enum zclient_send_status evpn_zebra_install(struct bgp *bgp, struct bgpevpn *vpn
 			&vtep_ip, 1, flags, seq,
 			bgp_evpn_attr_get_esi(pi->attr));
 	} else if (p->prefix.route_type == BGP_EVPN_AD_ROUTE) {
-		ret = bgp_evpn_remote_es_evi_add(bgp, vpn, p);
+		ret = bgp_evpn_remote_es_evi_add(bgp, vpn, p, pi);
 	} else {
 		switch (bgp_attr_get_pmsi_tnl_type(pi->attr)) {
 		case PMSI_TNLTYPE_INGR_REPL:
@@ -1432,7 +1432,7 @@ enum zclient_send_status evpn_zebra_uninstall(struct bgp *bgp,
 			(is_sync ? &zero_vtep_ip : &vtep_ip), 0, 0, 0,
 			NULL);
 	else if (p->prefix.route_type == BGP_EVPN_AD_ROUTE)
-		ret = bgp_evpn_remote_es_evi_del(bgp, vpn, p);
+		ret = bgp_evpn_remote_es_evi_del(bgp, vpn, p, pi);
 	else
 		ret = bgp_zebra_send_remote_vtep(bgp, vpn, p,
 						 VXLAN_FLOOD_DISABLED, 0);
