@@ -20356,6 +20356,117 @@ ALIAS(no_community_list_standard_all, no_bgp_community_list_standard_all_list_cm
       "Add an standard community-list entry\n"
       "Community list name\n")
 
+/*Added for Backwards compatibility with 6.0.3. community-list standard */
+DEFUN (ip_community_list_standard,
+       ip_community_list_standard_cmd,
+       "ip community-list <(1-99)|standard COMMUNITY_LIST_NAME> [seq (0-4294967295)] <deny|permit> AA:NN...",
+       "ip community (Legacy syntax for backward compatibility with 6.0.3)\n"
+       COMMUNITY_LIST_STR
+       "Community list number (standard)\n"
+       "Add an standard community-list entry\n"
+       "Community list name\n"
+       "Sequence number of an entry\n"
+       "Sequence number\n"
+       "Specify community to reject\n"
+       "Specify community to accept\n"
+       COMMUNITY_VAL_STR)
+{
+	char *cl_name_or_number = NULL;
+	char *seq = NULL;
+	int direct = 0;
+	int style = COMMUNITY_LIST_STANDARD;
+	int idx = 0;
+
+	if (argv_find(argv, argc, "(0-4294967295)", &idx))
+		seq = argv[idx]->arg;
+
+	idx = 0;
+	argv_find(argv, argc, "(1-99)", &idx);
+	argv_find(argv, argc, "COMMUNITY_LIST_NAME", &idx);
+	cl_name_or_number = argv[idx]->arg;
+	direct = argv_find(argv, argc, "permit", &idx) ? COMMUNITY_PERMIT
+						       : COMMUNITY_DENY;
+	argv_find(argv, argc, "AA:NN", &idx);
+	char *str = argv_concat(argv, argc, idx);
+
+	int ret = community_list_set(bgp_clist, cl_name_or_number, str, seq,
+				     direct, style);
+
+	XFREE(MTYPE_TMP, str);
+
+	if (ret < 0) {
+		/* Display error string.  */
+		community_list_perror(vty, ret);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_ip_community_list_standard_all,
+       no_ip_community_list_standard_all_cmd,
+       "no ip community-list <(1-99)|standard COMMUNITY_LIST_NAME> [seq (0-4294967295)] <deny|permit> AA:NN...",
+       NO_STR
+       "ip community (Legacy syntax for backward compatibility with 6.0.3)\n"
+       COMMUNITY_LIST_STR
+       "Community list number (standard)\n"
+       "Add an standard community-list entry\n"
+       "Community list name\n"
+       "Sequence number of an entry\n"
+       "Sequence number\n"
+       "Specify community to reject\n"
+       "Specify community to accept\n"
+       COMMUNITY_VAL_STR)
+{
+	char *cl_name_or_number = NULL;
+	char *str = NULL;
+	int direct = 0;
+	int style = COMMUNITY_LIST_STANDARD;
+	char *seq = NULL;
+	int idx = 0;
+
+	if (argv_find(argv, argc, "(0-4294967295)", &idx))
+		seq = argv[idx]->arg;
+
+	idx = 0;
+	argv_find(argv, argc, "permit", &idx);
+	argv_find(argv, argc, "deny", &idx);
+
+	if (idx) {
+		direct = argv_find(argv, argc, "permit", &idx)
+				 ? COMMUNITY_PERMIT
+				 : COMMUNITY_DENY;
+
+		idx = 0;
+		argv_find(argv, argc, "AA:NN", &idx);
+		str = argv_concat(argv, argc, idx);
+	}
+
+	idx = 0;
+	argv_find(argv, argc, "(1-99)", &idx);
+	argv_find(argv, argc, "COMMUNITY_LIST_NAME", &idx);
+	cl_name_or_number = argv[idx]->arg;
+
+	int ret = community_list_unset(bgp_clist, cl_name_or_number, str, seq,
+				       direct, style);
+
+	XFREE(MTYPE_TMP, str);
+
+	if (ret < 0) {
+		community_list_perror(vty, ret);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	return CMD_SUCCESS;
+}
+
+ALIAS(no_ip_community_list_standard_all, no_ip_community_list_standard_all_list_cmd,
+      "no ip community-list <(1-99)|standard COMMUNITY_LIST_NAME>",
+      NO_STR "ip community (Legacy syntax for backward compatibility with 6.0.3)\n" COMMUNITY_LIST_STR
+      "Community list number (standard)\n"
+      "Add an standard community-list entry\n"
+      "Community list name\n")
+
 /*community-list expanded */
 DEFUN (community_list_expanded_all,
        bgp_community_list_expanded_all_cmd,
@@ -20979,6 +21090,52 @@ DEFUN (extcommunity_list_standard,
 	return CMD_SUCCESS;
 }
 
+DEFUN (ip_extcommunity_list_standard,
+       ip_extcommunity_list_standard_cmd,
+       "ip extcommunity-list <(1-99)|standard EXTCOMMUNITY_LIST_NAME> [seq (0-4294967295)] <deny|permit> AA:NN...",
+       "ip extcommunity-list (Command for backwards compatibility with FRR 6.0.3)\n"
+       EXTCOMMUNITY_LIST_STR
+       "Extended Community list number (standard)\n"
+       "Specify standard extcommunity-list\n"
+       "Community list name\n"
+       "Sequence number of an entry\n"
+       "Sequence number\n"
+       "Specify community to reject\n"
+       "Specify community to accept\n"
+       EXTCOMMUNITY_VAL_STR)
+{
+	int style = EXTCOMMUNITY_LIST_STANDARD;
+	int direct = 0;
+	char *cl_number_or_name = NULL;
+	char *seq = NULL;
+
+	int idx = 0;
+
+	argv_find(argv, argc, "(1-99)", &idx);
+	argv_find(argv, argc, "EXTCOMMUNITY_LIST_NAME", &idx);
+	cl_number_or_name = argv[idx]->arg;
+
+	if (argv_find(argv, argc, "(0-4294967295)", &idx))
+		seq = argv[idx]->arg;
+
+	direct = argv_find(argv, argc, "permit", &idx) ? COMMUNITY_PERMIT
+						       : COMMUNITY_DENY;
+	argv_find(argv, argc, "AA:NN", &idx);
+	char *str = argv_concat(argv, argc, idx);
+
+	int ret = extcommunity_list_set(bgp_clist, cl_number_or_name, str, seq,
+					direct, style);
+
+	XFREE(MTYPE_TMP, str);
+
+	if (ret < 0) {
+		community_list_perror(vty, ret);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (extcommunity_list_name_expanded,
        bgp_extcommunity_list_name_expanded_cmd,
        "bgp extcommunity-list <(100-500)|expanded EXTCOMMUNITY_LIST_NAME> [seq (0-4294967295)] <deny|permit> LINE...",
@@ -21084,6 +21241,70 @@ ALIAS(no_extcommunity_list_standard_all,
       no_bgp_extcommunity_list_standard_all_list_cmd,
       "no bgp extcommunity-list <(1-99)|standard EXTCOMMUNITY_LIST_NAME>",
       NO_STR BGP_STR EXTCOMMUNITY_LIST_STR
+      "Extended Community list number (standard)\n"
+      "Specify standard extcommunity-list\n"
+      "Community list name\n")
+
+DEFUN (no_ip_extcommunity_list_standard_all,
+       no_ip_extcommunity_list_standard_all_cmd,
+       "no ip extcommunity-list <(1-99)|standard EXTCOMMUNITY_LIST_NAME> [seq (0-4294967295)] <deny|permit> AA:NN...",
+       NO_STR
+       "ip extcommunity-list (Command for backward compatibility with FRR 6.0.3)\n"
+       EXTCOMMUNITY_LIST_STR
+       "Extended Community list number (standard)\n"
+       "Specify standard extcommunity-list\n"
+       "Community list name\n"
+       "Sequence number of an entry\n"
+       "Sequence number\n"
+       "Specify community to reject\n"
+       "Specify community to accept\n"
+       EXTCOMMUNITY_VAL_STR)
+{
+	int style = EXTCOMMUNITY_LIST_STANDARD;
+	int direct = 0;
+	char *cl_number_or_name = NULL;
+	char *str = NULL;
+	char *seq = NULL;
+	int idx = 0;
+
+	if (argv_find(argv, argc, "(0-4294967295)", &idx))
+		seq = argv[idx]->arg;
+
+	idx = 0;
+	argv_find(argv, argc, "permit", &idx);
+	argv_find(argv, argc, "deny", &idx);
+	if (idx) {
+		direct = argv_find(argv, argc, "permit", &idx)
+				 ? COMMUNITY_PERMIT
+				 : COMMUNITY_DENY;
+
+		idx = 0;
+		argv_find(argv, argc, "AA:NN", &idx);
+		str = argv_concat(argv, argc, idx);
+	}
+
+	idx = 0;
+	argv_find(argv, argc, "(1-99)", &idx);
+	argv_find(argv, argc, "EXTCOMMUNITY_LIST_NAME", &idx);
+	cl_number_or_name = argv[idx]->arg;
+
+	int ret = extcommunity_list_unset(bgp_clist, cl_number_or_name, str,
+					  seq, direct, style);
+
+	XFREE(MTYPE_TMP, str);
+
+	if (ret < 0) {
+		community_list_perror(vty, ret);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	return CMD_SUCCESS;
+}
+
+ALIAS(no_ip_extcommunity_list_standard_all,
+      no_ip_extcommunity_list_standard_all_list_cmd,
+      "no ip extcommunity-list <(1-99)|standard EXTCOMMUNITY_LIST_NAME>",
+      NO_STR "ip extcommunity-list (Command for backward compatibility with FRR 6.0.3)\n" EXTCOMMUNITY_LIST_STR
       "Extended Community list number (standard)\n"
       "Specify standard extcommunity-list\n"
       "Community list name\n")
@@ -21341,6 +21562,11 @@ static void community_list_vty(void)
 	install_element(VIEW_NODE, &show_bgp_community_list_cmd);
 	install_element(VIEW_NODE, &show_bgp_community_list_arg_cmd);
 
+	/* community list Commands for Backward compatibility with FRR 6.0.3 */
+	install_element(CONFIG_NODE, &ip_community_list_standard_cmd);
+	install_element(CONFIG_NODE, &no_ip_community_list_standard_all_cmd);
+	install_element(CONFIG_NODE, &no_ip_community_list_standard_all_list_cmd);
+
 	/* Extcommunity-list.  */
 	install_element(CONFIG_NODE, &bgp_extcommunity_list_standard_cmd);
 	install_element(CONFIG_NODE, &bgp_extcommunity_list_name_expanded_cmd);
@@ -21352,6 +21578,11 @@ static void community_list_vty(void)
 			&no_bgp_extcommunity_list_expanded_all_list_cmd);
 	install_element(VIEW_NODE, &show_bgp_extcommunity_list_cmd);
 	install_element(VIEW_NODE, &show_bgp_extcommunity_list_arg_cmd);
+
+	/* ext-community list Commands for Backward compatibility with FRR 6.0.3 */
+	install_element(CONFIG_NODE, &ip_extcommunity_list_standard_cmd);
+	install_element(CONFIG_NODE, &no_ip_extcommunity_list_standard_all_cmd);
+	install_element(CONFIG_NODE, &no_ip_extcommunity_list_standard_all_list_cmd);
 
 	/* Large Community List */
 	install_element(CONFIG_NODE, &bgp_lcommunity_list_standard_cmd);
