@@ -1187,6 +1187,7 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 				      const struct prefix *p, int debug)
 {
 	struct bgp_path_info *bpi_ultimate;
+	struct bgp_srv6_per_locator_cache *bslc = source_bpi->srv6_vpn.bslc;
 	struct bgp *bgp_nexthop;
 	struct bgp_table *table;
 	struct interface *ifp;
@@ -1253,11 +1254,12 @@ static bool leak_update_nexthop_valid(struct bgp *to_bgp, struct bgp_dest *bn,
 	 * the SID allocation. If the sid is not allocated, the rib
 	 * will be invalid.
 	 * If the SID per VRF is not available, also consider the rib as
-	 * invalid.
+	 * invalid, unless the path uses the SID of its route-map locator.
 	 */
 	if ((bgp_srv6_locator_is_configured(to_bgp) ||
 	     bgp_srv6_locator_is_configured(bgp_nexthop)) &&
-	    nh_valid)
+	    nh_valid &&
+	    !(bslc && bslc->sid_policy.tovpn_sid && bgp_attr_get_srv6_l3service(bpi->attr)))
 		nh_valid = is_pi_srv6_valid(bpi, bgp_nexthop, afi, safi);
 
 	if (debug) {
@@ -2068,6 +2070,7 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 					bslc = bgp_srv6_per_locator_new(
 						&from_bgp->srv6_locators_per_routemap[afi],
 						rmap_extra.srv6_locator);
+					bslc->afi = afi;
 					bslc->bgp = from_bgp;
 				}
 				bslc->path_count++;
@@ -2170,6 +2173,10 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 		nexthop_self_flag = 1;
 	}
 
+	/* even if sid allocation fails, prefix can be eligible for MPLS */
+	bgp_srv6_per_locator_cache_vrf_sid_update(path_vrf->srv6_vpn.bslc);
+	bgp_srv6_per_locator_cache_ensure_tovpn_sid(path_vrf->srv6_vpn.bslc);
+
 	if (CHECK_FLAG(from_bgp->vpn_policy[afi].flags,
 		       BGP_VPN_POLICY_TOVPN_LABEL_PER_NEXTHOP))
 		/* per nexthop label mode */
@@ -2214,7 +2221,51 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 						    path_vrf, nexthop_self_flag, debug, &label,
 						    ret == RMAP_PERMITMATCH ? &rmap_bpi : NULL);
 
-	if (vpn_leak_from_vrf_fill_srv6(&static_attr, from_bgp, afi, &label))
+	bslc = path_vrf->srv6_vpn.bslc;
+	if (bslc) {
+		if (bslc->sid_policy.tovpn_sid_locator && bslc->sid_policy.tovpn_sid) {
+			struct bgp_attr_srv6_service *srv6_l3service;
+
+			encode_label(bslc->sid_policy.tovpn_sid_transpose_label, &label);
+			srv6_l3service = XCALLOC(MTYPE_BGP_SRV6_SERVICE,
+						 sizeof(struct bgp_attr_srv6_service));
+			vpn_leak_fill_srv6_from_locator(
+				srv6_l3service, bslc->sid_policy.tovpn_sid_locator,
+				afi == AFI_IP
+					? (CHECK_FLAG(bslc->sid_policy.tovpn_sid_locator->flags,
+						      SRV6_LOCATOR_USID)
+						   ? SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID
+						   : SRV6_ENDPOINT_BEHAVIOR_END_DT4)
+					: (CHECK_FLAG(bslc->sid_policy.tovpn_sid_locator->flags,
+						      SRV6_LOCATOR_USID)
+						   ? SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID
+						   : SRV6_ENDPOINT_BEHAVIOR_END_DT6),
+				bslc->sid_policy.tovpn_sid);
+			bgp_attr_set_srv6_l3service(&static_attr, srv6_l3service);
+			_vpn_leak_from_vrf_update_leak_attr(&static_attr, to_bgp, from_bgp, afi,
+							    safi, path_vrf, nexthop_self_flag,
+							    debug, &label,
+							    ret == RMAP_PERMITMATCH ? &rmap_bpi
+										    : NULL);
+		} else if (label_val == MPLS_LABEL_NONE) {
+			if (is_srv6_vpn_afi_enabled(from_bgp, afi) ||
+			    is_srv6_vpn_vrf_enabled(from_bgp)) {
+				if (debug)
+					zlog_debug("%s: %s skipping: no SID for locator %s",
+						   __func__, from_bgp->name_pretty,
+						   bslc->locator_name);
+				vpn_leak_from_vrf_withdraw(to_bgp, from_bgp, path_vrf);
+			} else
+				/* import-vrf */
+				_vpn_leak_from_vrf_update_leak_attr(&static_attr, to_bgp, from_bgp,
+								    afi, safi, path_vrf,
+								    nexthop_self_flag, debug,
+								    &label,
+								    ret == RMAP_PERMITMATCH
+									    ? &rmap_bpi
+									    : NULL);
+		}
+	} else if (vpn_leak_from_vrf_fill_srv6(&static_attr, from_bgp, afi, &label))
 
 		/* SRv6 */
 		_vpn_leak_from_vrf_update_leak_attr(&static_attr, to_bgp, from_bgp, afi, safi,
