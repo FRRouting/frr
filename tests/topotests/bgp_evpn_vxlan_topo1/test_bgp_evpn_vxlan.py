@@ -422,6 +422,41 @@ def test_ip_pe2_learn():
     # tgen.mininet_cli()
 
 
+def test_bgp_evpn_route_vni():
+    "Test show bgp l2vpn evpn route vni command"
+
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    pe1 = tgen.gears["PE1"]
+    host1 = tgen.gears["host1"]
+
+    mac = host1.run(
+        "ip link show host1-eth0 | grep link/ether | awk '{print $2}'"
+    ).strip()
+    ip = "10.10.1.55"
+
+    output = pe1.vtysh_cmd("show bgp l2vpn evpn route vni 101")
+
+    logger.info(
+        "Testing 'show bgp l2vpn evpn route vni 101 mac {} ip {} json' on PE1".format(
+            mac, ip
+        )
+    )
+    mac_output = pe1.vtysh_cmd(
+        "show bgp l2vpn evpn route vni 101 mac {} ip {} json".format(mac, ip),
+        isjson=True,
+    )
+
+    prefix = mac_output.get("prefix")
+    assert prefix in output, "PE1: Prefix {} not found in full VNI output".format(
+        prefix
+    )
+
+    logger.info("PE1: Test passed")
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
