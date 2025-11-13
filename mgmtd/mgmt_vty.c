@@ -251,7 +251,7 @@ DEFPY(mgmt_edit, mgmt_edit_cmd,
 {
 	LYD_FORMAT format = (fmt && fmt[0] == 'x') ? LYD_XML : LYD_JSON;
 	uint8_t operation;
-	uint8_t flags = 0;
+	uint8_t ds_id;
 
 	switch (op[2]) {
 	case 'e':
@@ -280,14 +280,8 @@ DEFPY(mgmt_edit, mgmt_edit_cmd,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (lock)
-		flags |= EDIT_FLAG_IMPLICIT_LOCK;
-
-	if (commit)
-		flags |= EDIT_FLAG_IMPLICIT_COMMIT;
-
-	return vty_mgmt_send_edit_req(vty, MGMT_MSG_DATASTORE_CANDIDATE, format, flags, operation,
-				      xpath, data);
+	ds_id = commit ? MGMT_MSG_DATASTORE_RUNNING : MGMT_MSG_DATASTORE_CANDIDATE;
+	return vty_mgmt_send_edit_req(vty, ds_id, format, 0, operation, xpath, data);
 }
 
 DEFPY(mgmt_rpc, mgmt_rpc_cmd,
