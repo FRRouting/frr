@@ -3749,6 +3749,7 @@ static int bgp_attr_nhc(struct bgp_attr_parser_args *args)
 			if (len % IPV4_MAX_BYTELEN != 0) {
 				zlog_err("%pBP rcvd BGP NHC (NNHN TLV) length %d not a multiple of %d",
 					 peer, tlv->length, IPV4_MAX_BYTELEN);
+				bgp_nhc_tlv_free(tlv);
 				bgp_nhc_free(nhc);
 				return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
 							  args->total);
@@ -3756,12 +3757,19 @@ static int bgp_attr_nhc(struct bgp_attr_parser_args *args)
 		}
 
 		found = bgp_nhc_tlv_find(nhc, tlv_code);
+<<<<<<< HEAD
 		if (found) {
 			nhc->tlvs_length -= found->length + BGP_NHC_TLV_MIN_LEN;
 			bgp_nhc_tlv_free(found);
 		}
 
 		bgp_nhc_tlv_add(nhc, tlv);
+=======
+		if (!found)
+			bgp_nhc_tlv_add(nhc, tlv);
+		else
+			bgp_nhc_tlv_free(tlv);
+>>>>>>> a9c53ede9 (bgpd: fix memory leak in BGP NHC TLV processing)
 
 		length -= tlv_length + BGP_NHC_TLV_MIN_LEN;
 	}
