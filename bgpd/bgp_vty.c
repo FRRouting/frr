@@ -1472,7 +1472,7 @@ static int peer_flag_unset_vty(struct vty *vty, const char *ip_str,
 static void bgp_need_listening(struct bgp *bgp, struct vty *vty)
 {
 	struct listnode *node;
-	struct bgp_listener *listener;
+	struct bgp_listener *listener = NULL;
 
 	for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, listener)) {
 		if (listener->bgp == bgp)
