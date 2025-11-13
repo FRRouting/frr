@@ -1309,6 +1309,11 @@ void pim_msdp_peer_restart(struct pim_msdp_peer *mp)
 void pim_msdp_peer_change_source(struct pim_msdp_peer *mp,
 				 const struct in_addr *addr)
 {
+	/* Only restart if the source IP is actually changing */
+	if (mp->local.s_addr == addr->s_addr) {
+		/* Source IP hasn't changed, no need to restart */
+		return;
+	}
 	mp->local = *addr;
 	pim_msdp_peer_restart(mp);
 }

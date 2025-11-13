@@ -38,6 +38,8 @@
 #include "pim_mlag.h"
 #include "pim_autorp.h"
 
+extern struct zclient *pim_zclient;
+
 #if MAXVIFS > 256
 CPP_NOTICE("Work needs to be done to make this work properly via the pim mroute socket\n");
 #endif /* MAXVIFS > 256 */
@@ -124,7 +126,7 @@ void pim_router_terminate(void)
 }
 
 /* Cleanup function for parent process after fork() */
-void pim_parent_cleanup(void)
+int pim_parent_cleanup(void)
 {
 	/* Free MLAG resources allocated in router structure */
 	pim_mlag_terminate();
@@ -139,6 +141,8 @@ void pim_parent_cleanup(void)
 
 	/* Free router structure */
 	pim_router_terminate();
+
+	return 0;
 }
 
 void pim_init(void)
