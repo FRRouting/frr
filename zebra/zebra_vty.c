@@ -1120,6 +1120,12 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 		json_object_string_add(json, "afi", zebra_nhg_afi2str(nhe));
 		json_object_int_add(json, "nexthopCount", nexthop_count);
 		json_object_int_add(json, "flags", nhe->flags);
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECEIVED) && nhe->resolved_nhe_id != 0 &&
+		    nhe->cache_gen_num != 0) {
+			json_object_int_add(json, "cacheResolvedNheId", nhe->resolved_nhe_id);
+			json_object_int_add(json, "cacheGenId", nhe->cache_gen_num);
+			json_object_int_add(json, "globalNhEpoch", global_nh_epoch);
+		}
 
 	} else {
 		vty_out(vty, "ID: %u (%s)\n", nhe->id,
@@ -1131,6 +1137,10 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe,
 						      sizeof(time_left),
 						      nhe->timer));
 		vty_out(vty, "\n");
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECEIVED) && nhe->resolved_nhe_id != 0 &&
+		    nhe->cache_gen_num != 0)
+			vty_out(vty, "     Cache: cached nhe %u, gen_id %u, global_count %u\n",
+				nhe->resolved_nhe_id, nhe->cache_gen_num, global_nh_epoch);
 
 		vty_out(vty, "     Uptime: %s\n", up_str);
 		vty_out(vty, "     VRF: %s(%s)\n", vrf_id_to_name(nhe->vrf_id),
