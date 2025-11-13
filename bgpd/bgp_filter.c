@@ -767,9 +767,9 @@ void bgp_filter_init(void)
 	install_node(&as_list_node);
 
         /* Install elements for FRR 6.0.3 backward compatibility */
-        install_element(CONFIG_NODE, &ip_as_path_cmd);
-        install_element(CONFIG_NODE, &no_ip_as_path_cmd);
-        install_element(CONFIG_NODE, &no_ip_as_path_all_cmd);
+	install_element(CONFIG_NODE, &ip_as_path_cmd);
+	install_element(CONFIG_NODE, &no_ip_as_path_cmd);
+	install_element(CONFIG_NODE, &no_ip_as_path_all_cmd);
 
 	install_element(VIEW_NODE, &show_bgp_as_path_access_list_cmd);
 	install_element(VIEW_NODE, &show_ip_as_path_access_list_cmd);
