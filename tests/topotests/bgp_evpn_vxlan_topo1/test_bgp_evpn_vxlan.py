@@ -454,6 +454,30 @@ def test_bgp_evpn_route_vni():
         prefix
     )
 
+    # Check that RD is displayed for each route
+    output = pe1.vtysh_cmd("show bgp l2vpn evpn route")
+    lines = output.split("\n")
+    route_count = 0
+    routes_with_rd = 0
+
+    for line in lines:
+        # Route lines start with status codes (* > etc) and contain EVPN prefix [type]:...
+        if line.strip().startswith("*") and "[" in line and "]:" in line:
+            route_count += 1
+            if " RD " in line:
+                routes_with_rd += 1
+            else:
+                logger.warning("PE1: Route without RD: {}".format(line.strip()))
+
+    logger.info(
+        "PE1: Found {} routes, {} with RD displayed".format(route_count, routes_with_rd)
+    )
+    assert (
+        routes_with_rd == route_count
+    ), "PE1: Not all routes have RD displayed ({}/{})".format(
+        routes_with_rd, route_count
+    )
+
     logger.info("PE1: Test passed")
 
 
