@@ -440,181 +440,7 @@ bool config_bgp_aspath_validate(const char *regstr)
 	return false;
 }
 
-DEFUN(as_path, bgp_as_path_cmd,
-      "bgp as-path access-list AS_PATH_FILTER_NAME [seq (0-4294967295)] <deny|permit> LINE...",
-      BGP_STR
-      "BGP autonomous system path filter\n"
-      "Specify an access list name\n"
-      "Regular expression access list name\n"
-      "Sequence number of an entry\n"
-      "Sequence number\n"
-      "Specify packets to reject\n"
-      "Specify packets to forward\n"
-      "A regular-expression (1234567890_^|[,{}() ]$*+.?-\\) to match the BGP AS paths\n")
-{
-	int idx = 0;
-	enum as_filter_type type;
-	struct as_filter *asfilter;
-	struct as_list *aslist;
-	regex_t *regex;
-	char *regstr;
-	int64_t seqnum = ASPATH_SEQ_NUMBER_AUTO;
-
-	/* Retrieve access list name */
-	argv_find(argv, argc, "AS_PATH_FILTER_NAME", &idx);
-	char *alname = argv[idx]->arg;
-
-	if (argv_find(argv, argc, "(0-4294967295)", &idx))
-		seqnum = (int64_t)atol(argv[idx]->arg);
-
-	/* Check the filter type. */
-	type = argv_find(argv, argc, "deny", &idx) ? AS_FILTER_DENY
-						   : AS_FILTER_PERMIT;
-
-	/* Check AS path regex. */
-	argv_find(argv, argc, "LINE", &idx);
-	regstr = argv_concat(argv, argc, idx);
-
-	regex = bgp_regcomp(regstr);
-	if (!regex) {
-		vty_out(vty, "can't compile regexp %s\n", regstr);
-		XFREE(MTYPE_TMP, regstr);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (!config_bgp_aspath_validate(regstr)) {
-		vty_out(vty, "Invalid character in as-path access-list %s\n",
-			regstr);
-		XFREE(MTYPE_TMP, regstr);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	asfilter = as_filter_make(regex, regstr, type);
-
-	XFREE(MTYPE_TMP, regstr);
-
-	/* Install new filter to the access_list. */
-	aslist = as_list_get(alname);
-
-	if (seqnum == ASPATH_SEQ_NUMBER_AUTO)
-		seqnum = bgp_alist_new_seq_get(aslist);
-
-	asfilter->seq = seqnum;
-
-	/* Duplicate insertion check. */;
-	if (as_list_dup_check(aslist, asfilter))
-		as_filter_free(asfilter);
-	else
-		as_list_filter_add(aslist, asfilter);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN(no_as_path, no_bgp_as_path_cmd,
-      "no bgp as-path access-list AS_PATH_FILTER_NAME [seq (0-4294967295)] <deny|permit> LINE...",
-      NO_STR
-      BGP_STR
-      "BGP autonomous system path filter\n"
-      "Specify an access list name\n"
-      "Regular expression access list name\n"
-      "Sequence number of an entry\n"
-      "Sequence number\n"
-      "Specify packets to reject\n"
-      "Specify packets to forward\n"
-      "A regular-expression (1234567890_^|[,{}() ]$*+.?-\\) to match the BGP AS paths\n")
-{
-	int idx = 0;
-	enum as_filter_type type;
-	struct as_filter *asfilter;
-	struct as_list *aslist;
-	char *regstr;
-	regex_t *regex;
-
-	char *aslistname =
-		argv_find(argv, argc, "AS_PATH_FILTER_NAME", &idx) ? argv[idx]->arg : NULL;
-
-	/* Lookup AS list from AS path list. */
-	aslist = as_list_lookup(aslistname);
-	if (aslist == NULL) {
-		vty_out(vty, "bgp as-path access-list %s doesn't exist\n",
-			aslistname);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* Check the filter type. */
-	if (argv_find(argv, argc, "permit", &idx))
-		type = AS_FILTER_PERMIT;
-	else if (argv_find(argv, argc, "deny", &idx))
-		type = AS_FILTER_DENY;
-	else {
-		vty_out(vty, "filter type must be [permit|deny]\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* Compile AS path. */
-	argv_find(argv, argc, "LINE", &idx);
-	regstr = argv_concat(argv, argc, idx);
-
-	if (!config_bgp_aspath_validate(regstr)) {
-		vty_out(vty, "Invalid character in as-path access-list %s\n",
-			regstr);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	regex = bgp_regcomp(regstr);
-	if (!regex) {
-		vty_out(vty, "can't compile regexp %s\n", regstr);
-		XFREE(MTYPE_TMP, regstr);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* Lookup asfilter. */
-	asfilter = as_filter_lookup(aslist, regstr, type);
-
-	bgp_regex_free(regex);
-
-	if (asfilter == NULL) {
-		vty_out(vty, "Regex entered %s does not exist\n", regstr);
-		XFREE(MTYPE_TMP, regstr);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	XFREE(MTYPE_TMP, regstr);
-
-	as_list_filter_delete(aslist, asfilter);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_as_path_all,
-       no_bgp_as_path_all_cmd,
-       "no bgp as-path access-list AS_PATH_FILTER_NAME",
-       NO_STR
-       BGP_STR
-       "BGP autonomous system path filter\n"
-       "Specify an access list name\n"
-       "Regular expression access list name\n")
-{
-	int idx_word = 4;
-	struct as_list *aslist;
-
-	aslist = as_list_lookup(argv[idx_word]->arg);
-	if (aslist == NULL) {
-		vty_out(vty, "bgp as-path access-list %s doesn't exist\n",
-			argv[idx_word]->arg);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	as_list_delete(aslist);
-
-	/* Run hook function. */
-	if (as_list_master.delete_hook)
-		(*as_list_master.delete_hook)(argv[idx_word]->arg);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN(ip_as_path, ip_as_path_cmd,
+DEFUN(as_path, ip_as_path_cmd,
       "ip as-path access-list AS_PATH_FILTER_NAME [seq (0-4294967295)] <deny|permit> LINE...",
       "ip as-path (Command for backward compatibility with FRR 6.0.3)\n"
       "BGP autonomous system path filter\n"
@@ -684,7 +510,7 @@ DEFUN(ip_as_path, ip_as_path_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUN(no_ip_as_path, no_ip_as_path_cmd,
+DEFUN(no_as_path, no_ip_as_path_cmd,
       "no ip as-path access-list AS_PATH_FILTER_NAME [seq (0-4294967295)] <deny|permit> LINE...",
       NO_STR
       "ip as-path (Command for backward compatibility with FRR 6.0.3)\n"
@@ -716,51 +542,51 @@ DEFUN(no_ip_as_path, no_ip_as_path_cmd,
 	}
 
 	/* Check the filter type. */
-	if (argv_find(argv, argc, "permit", &idx))\
-                type = AS_FILTER_PERMIT;
-        else if (argv_find(argv, argc, "deny", &idx))
-                type = AS_FILTER_DENY;
-        else {
-                vty_out(vty, "filter type must be [permit|deny]\n");
-                return CMD_WARNING_CONFIG_FAILED;
-        }
+	if (argv_find(argv, argc, "permit", &idx))
+		type = AS_FILTER_PERMIT;
+	else if (argv_find(argv, argc, "deny", &idx))
+		type = AS_FILTER_DENY;
+	else {
+		vty_out(vty, "filter type must be [permit|deny]\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-        /* Compile AS path. */
-        argv_find(argv, argc, "LINE", &idx);
-        regstr = argv_concat(argv, argc, idx);
+	/* Compile AS path. */
+	argv_find(argv, argc, "LINE", &idx);
+	regstr = argv_concat(argv, argc, idx);
 
-        if (!config_bgp_aspath_validate(regstr)) {
-                vty_out(vty, "Invalid character in as-path access-list %s\n",
-                        regstr);
-                return CMD_WARNING_CONFIG_FAILED;
-        }
+	if (!config_bgp_aspath_validate(regstr)) {
+		vty_out(vty, "Invalid character in as-path access-list %s\n",
+			regstr);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-        regex = bgp_regcomp(regstr);
-        if (!regex) {
-                vty_out(vty, "can't compile regexp %s\n", regstr);
-                XFREE(MTYPE_TMP, regstr);
-                return CMD_WARNING_CONFIG_FAILED;
-        }
+	regex = bgp_regcomp(regstr);
+	if (!regex) {
+		vty_out(vty, "can't compile regexp %s\n", regstr);
+		XFREE(MTYPE_TMP, regstr);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-        /* Lookup asfilter. */
-        asfilter = as_filter_lookup(aslist, regstr, type);
+	/* Lookup asfilter. */
+	asfilter = as_filter_lookup(aslist, regstr, type);
 
-        bgp_regex_free(regex);
+	bgp_regex_free(regex);
 
-        if (asfilter == NULL) {
-                vty_out(vty, "Regex entered %s does not exist\n", regstr);
-                XFREE(MTYPE_TMP, regstr);
-                return CMD_WARNING_CONFIG_FAILED;
-        }
+	if (asfilter == NULL) {
+		vty_out(vty, "Regex entered %s does not exist\n", regstr);
+		XFREE(MTYPE_TMP, regstr);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-        XFREE(MTYPE_TMP, regstr);
+	XFREE(MTYPE_TMP, regstr);
 
-        as_list_filter_delete(aslist, asfilter);
+	as_list_filter_delete(aslist, asfilter);
 
-        return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
-DEFUN (no_ip_as_path_all,
+DEFUN (no_as_path_all,
        no_ip_as_path_all_cmd,
        "no ip as-path access-list AS_PATH_FILTER_NAME",
        NO_STR
@@ -769,23 +595,23 @@ DEFUN (no_ip_as_path_all,
        "Specify an access list name\n"
        "Regular expression access list name\n")
 {
-        int idx_word = 4;
-        struct as_list *aslist;
+	int idx_word = 4;
+	struct as_list *aslist;
 
-        aslist = as_list_lookup(argv[idx_word]->arg);
-        if (aslist == NULL) {
-                vty_out(vty, "ip as-path access-list %s doesn't exist\n",
-                        argv[idx_word]->arg);
-                return CMD_WARNING_CONFIG_FAILED;
-        }
+	aslist = as_list_lookup(argv[idx_word]->arg);
+	if (aslist == NULL) {
+		vty_out(vty, "ip as-path access-list %s doesn't exist\n",
+			argv[idx_word]->arg);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-        as_list_delete(aslist);
+	as_list_delete(aslist);
 
-        /* Run hook function. */
-        if (as_list_master.delete_hook)
-                (*as_list_master.delete_hook)(argv[idx_word]->arg);
+	/* Run hook function. */
+	if (as_list_master.delete_hook)
+		(*as_list_master.delete_hook)(argv[idx_word]->arg);
 
-        return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
 static void as_list_show(struct vty *vty, struct as_list *aslist,
@@ -903,7 +729,7 @@ static int config_write_as_list(struct vty *vty)
 		for (asfilter = aslist->head; asfilter;
 		     asfilter = asfilter->next) {
 			vty_out(vty,
-				"bgp as-path access-list %s seq %" PRId64
+				"ip as-path access-list %s seq %" PRId64
 				" %s %s\n",
 				aslist->name, asfilter->seq,
 				filter_type_str(asfilter->type),
@@ -939,10 +765,6 @@ static const struct cmd_variable_handler aspath_filter_handlers[] = {
 void bgp_filter_init(void)
 {
 	install_node(&as_list_node);
-
-	install_element(CONFIG_NODE, &bgp_as_path_cmd);
-	install_element(CONFIG_NODE, &no_bgp_as_path_cmd);
-	install_element(CONFIG_NODE, &no_bgp_as_path_all_cmd);
 
         /* Install elements for FRR 6.0.3 backward compatibility */
         install_element(CONFIG_NODE, &ip_as_path_cmd);
