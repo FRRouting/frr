@@ -41,6 +41,7 @@
 
 DEFINE_HOOK(frr_early_init, (struct event_loop * tm), (tm));
 DEFINE_HOOK(frr_late_init, (struct event_loop * tm), (tm));
+DEFINE_KOOH(frr_parent_cleanup, (), ());
 DEFINE_HOOK(frr_config_pre, (struct event_loop * tm), (tm));
 DEFINE_HOOK(frr_config_post, (struct event_loop * tm), (tm));
 DEFINE_KOOH(frr_early_fini, (), ());
@@ -946,11 +947,16 @@ static FRR_NORETURN void frr_daemon_wait(int fd)
 	} while (ret <= 0);
 
 	exitpid = waitpid(-1, &exitstat, WNOHANG);
-	if (exitpid == 0)
+	if (exitpid == 0) {
 		/* child successfully went to main loop & closed socket */
+		/* Clean up parent process memory before exiting */
+		hook_call(frr_parent_cleanup);
 		exit(0);
+	}
 
 	/* child failed one way or another ... */
+	/* Clean up parent process memory before exiting */
+	hook_call(frr_parent_cleanup);
 	if (WIFEXITED(exitstat) && WEXITSTATUS(exitstat) == 0)
 		/* can happen in --terminal case if exit is fast enough */
 		(void)0;

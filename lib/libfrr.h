@@ -205,6 +205,8 @@ extern bool frr_is_daemon(void);
 DECLARE_HOOK(frr_early_init, (struct event_loop * tm), (tm));
 DECLARE_HOOK(frr_late_init, (struct event_loop * tm), (tm));
 /* fork() happens between late_init and config_pre */
+/* frr_parent_cleanup is called in the parent process before it exits after fork() */
+DECLARE_KOOH(frr_parent_cleanup, (), ());
 DECLARE_HOOK(frr_config_pre, (struct event_loop * tm), (tm));
 DECLARE_HOOK(frr_config_post, (struct event_loop * tm), (tm));
 

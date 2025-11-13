@@ -276,6 +276,7 @@ extern uint8_t qpim_ecmp_rebalance_enable;
 
 void pim_router_init(void);
 void pim_router_terminate(void);
+void pim_parent_cleanup(void);
 
 void pim_init(void);
 void pim_terminate(void);

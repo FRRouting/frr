@@ -1054,23 +1054,30 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 
 int pim_mroute_socket_disable(struct pim_instance *pim)
 {
+	int ret = 0;
+
 	if (pim_mroute_set(pim, 0)) {
 		zlog_warn(
 			"Could not disable mroute on socket fd=%d: errno=%d: %s",
 			pim->mroute_socket, errno, safe_strerror(errno));
-		return -2;
+		ret = -2;
+		/* Continue to cleanup socket and event even if mroute_set failed */
 	}
 
-	if (close(pim->mroute_socket)) {
-		zlog_warn("Failure closing mroute socket: fd=%d errno=%d: %s",
-			  pim->mroute_socket, errno, safe_strerror(errno));
-		return -3;
-	}
-
+	/* Cancel event before closing socket */
 	mroute_read_off(pim);
-	pim->mroute_socket = -1;
 
-	return 0;
+	if (pim->mroute_socket >= 0) {
+		if (close(pim->mroute_socket)) {
+			zlog_warn("Failure closing mroute socket: fd=%d errno=%d: %s",
+				  pim->mroute_socket, errno, safe_strerror(errno));
+			if (ret == 0)
+				ret = -3;
+		}
+		pim->mroute_socket = -1;
+	}
+
+	return ret;
 }
 
 /*
