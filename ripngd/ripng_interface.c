@@ -495,6 +495,8 @@ int ripng_enable_network_delete(struct ripng *ripng, struct prefix *p)
 		/* Unlock lookup lock. */
 		agg_unlock_node(node);
 
+		ripng_enable_apply_all(ripng);
+
 		return NB_OK;
 	}
 
