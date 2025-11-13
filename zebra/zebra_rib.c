@@ -1316,6 +1316,28 @@ static void rib_process(struct route_node *rn)
 
 	old_fib = dest->selected_fib;
 
+	/* Increment global epoch once if the RN has RNH dependents.
+	 * This invalidates all cached resolved NHEs when routes that
+	 * other protocols track change (via RNH for recursive nexthop resolution).
+	 */
+	if (rnh_list_count(&dest->nht) > 0) {
+		zrouter.global_nh_epoch++;
+		if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
+			uint32_t ing = (old_fib && old_fib->nhe) ? old_fib->nhe->id : 0;
+			uint32_t rng = (old_fib && old_fib->nhe_received)
+					       ? old_fib->nhe_received->id
+					       : 0;
+			uint32_t resolved = (old_fib && old_fib->nhe_received)
+						    ? old_fib->nhe_received->resolved_nhe_id
+						    : 0;
+			uint32_t nhe_flags = (old_fib && old_fib->nhe) ? old_fib->nhe->flags : 0;
+
+			zlog_debug("%s: RNH dependents exist for %pRN, bumped epoch=%u re=%p ing=%u rng=%u resolved=%u nhe_flags=0x%x",
+				   __func__, rn, zrouter.global_nh_epoch, old_fib, ing, rng,
+				   resolved, nhe_flags);
+		}
+	}
+
 	RNODE_FOREACH_RE_SAFE (rn, re, next) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 			char flags_buf[128];

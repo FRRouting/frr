@@ -147,6 +147,11 @@ struct route_entry {
  * used for nexthops
  */
 #define ROUTE_ENTRY_ROUTE_REPLACING 0x80
+/*
+ * Skip resolved NHE caching for this route entry. So that,
+ * we force slow-path/resolution for the NHs that have labels or policies.
+ */
+#define ROUTE_ENTRY_SKIP_NHE_CACHE 0x100
 
 	/* Sequence value incremented for each dataplane operation */
 	uint32_t dplane_sequence;

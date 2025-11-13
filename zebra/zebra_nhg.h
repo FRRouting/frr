@@ -63,6 +63,11 @@ struct nhg_hash_entry {
 
 	uint32_t flags;
 
+	/* Cached resolved_nhe for NH active check optimization (0 = not cached) */
+	uint32_t resolved_nhe_id;
+	/* Generation number/stamp for the resolved_nhe cache */
+	uint32_t cache_gen_num;
+
 	/* Dependency trees for other entries.
 	 * For instance a group with two
 	 * nexthops will have two dependencies

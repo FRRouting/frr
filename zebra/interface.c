@@ -1005,6 +1005,8 @@ void if_up(struct interface *ifp, bool install_connected)
 
 	if_handle_bond_speed_change(ifp);
 
+	/* Interface up affects nexthop reachability - invalidate NH resolution cache */
+	zrouter.global_nh_epoch++;
 	rib_update_handle_vrf_all(RIB_UPDATE_KERNEL, ZEBRA_ROUTE_KERNEL);
 }
 
@@ -1059,6 +1061,8 @@ void if_down(struct interface *ifp)
 
 	if_handle_bond_speed_change(ifp);
 
+	/* Interface down affects nexthop reachability - invalidate NH resolution cache */
+	zrouter.global_nh_epoch++;
 	rib_update_handle_vrf_all(RIB_UPDATE_INTERFACE_DOWN, ZEBRA_ROUTE_KERNEL);
 }
 
@@ -1324,6 +1328,11 @@ static void zebra_if_addr_update_ctx(struct zebra_dplane_ctx *ctx,
 			connected_delete_ipv6(ifp, &addr->u.prefix6, NULL,
 					      addr->prefixlen);
 	}
+
+	/* Connected route-updates affect nexthop reachability.
+	 * Invalidate NH resolution cache.
+	 */
+	zrouter.global_nh_epoch++;
 
 	/*
 	 * Linux kernel does not send route delete on interface down/addr del

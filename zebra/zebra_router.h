@@ -143,6 +143,9 @@ struct zebra_router {
 	/* Thread master */
 	struct event_loop *master;
 
+	/* Global NH resolution epoch for received->resolved cache invalidation */
+	uint32_t global_nh_epoch;
+
 	/* Wheel to process V6 RA update */
 	struct timer_wheel *ra_wheel;
 
