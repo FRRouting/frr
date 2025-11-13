@@ -149,6 +149,8 @@ static void mgmt_be_txn_delete(struct mgmt_be_txn_ctx *txn)
 	if (txn->nb_txn)
 		nb_candidate_commit_abort(txn->nb_txn, err_msg, sizeof(err_msg));
 
+	nb_config_free(txn->candidate_config);
+
 	XFREE(MTYPE_MGMTD_BE_TXN, txn);
 }
 

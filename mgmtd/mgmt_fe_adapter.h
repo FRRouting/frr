@@ -55,6 +55,14 @@ struct mgmt_fe_client_adapter {
 
 DECLARE_LIST(mgmt_fe_adapters, struct mgmt_fe_client_adapter, list_linkage);
 
+struct mgmt_edit_req {
+	char xpath_created[XPATH_MAXLEN];
+	struct nb_config *nb_backup;
+	bool created;
+	bool unlock_candidate;
+	bool unlock_running;
+};
+
 /* Initialise frontend adapter module */
 extern void mgmt_fe_adapter_init(struct event_loop *tm);
 
@@ -136,16 +144,13 @@ extern int mgmt_fe_adapter_send_rpc_reply(uint64_t session_id, uint64_t txn_id,
  *     req_id: the req id for the edit message
  *     unlock: implicit-lock flag was set in the request
  *     commit: implicit-commit flag was set in the request
- *     created: true if the node was just created
- *     xpath: the xpath of the data node that was created/updated
- *     error: >0 LY_ERR, < 0 -errno
+ *     edit: the edit request info created when processing the edit
+ *     error: mgmt result code
  *     errstr: the error string, if error is non-zero
  */
-extern int mgmt_fe_adapter_send_edit_reply(uint64_t session_id, uint64_t txn_id,
-					   uint64_t req_id, bool unlock,
-					   bool commit, bool created,
-					   const char *xpath, int16_t error,
-					   const char *errstr);
+extern int mgmt_fe_adapter_send_edit_reply(uint64_t session_id, uint64_t txn_id, uint64_t req_id,
+					   bool unlock, bool commit, struct mgmt_edit_req **edit,
+					   enum mgmt_result error, const char *errstr);
 
 /**
  * Send an error back to the FE client using native messaging.

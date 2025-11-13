@@ -46,12 +46,6 @@ static const char *mgmt_commit_phase_name[] = {
 	[MGMTD_COMMIT_PHASE_FINISH] = "FINISH",
 };
 
-struct mgmt_edit_req {
-	char xpath_created[XPATH_MAXLEN];
-	bool created;
-	bool unlock;
-};
-
 struct txn_req {
 	uint64_t req_id;
 	struct mgmt_txn *txn;
@@ -70,13 +64,16 @@ struct txn_req_commit {
 	struct mgmt_ds_ctx *src_ds_ctx;
 	enum mgmt_ds_id dst_ds_id;
 	struct mgmt_ds_ctx *dst_ds_ctx;
+
 	uint32_t nb_txn_id;
+
 	uint8_t validate_only : 1;
 	uint8_t abort : 1;
 	uint8_t implicit : 1;
 	uint8_t rollback : 1;
 	uint8_t init : 1;
-	uint8_t unlock : 1;
+	uint8_t unlock_info : 1;
+	uint8_t txn_lock : 1;
 
 	/* Track commit phases */
 	enum mgmt_commit_phase phase;
@@ -164,6 +161,8 @@ TAILQ_HEAD(mgmt_txn_head, mgmt_txn) txn_txns = TAILQ_HEAD_INITIALIZER(txn_txns);
 /* The single instance of config transaction allowed at any time */
 struct mgmt_txn *txn_config_txn;
 
+/* The number of init txn's in progress, we lock on 0->1 and unlock on 1->0 */
+uint txn_init_readers;
 
 static inline struct txn_req_commit *txn_txn_req_commit(struct mgmt_txn *txn)
 {
@@ -319,6 +318,14 @@ static void txn_cfg_cleanup(struct txn_req_commit *ccreq)
 		}
 		break;
 	}
+
+	/*
+	 * Now release the TXN locks if held.
+	 */
+	if (ccreq->txn_lock) {
+		mgmt_ds_txn_unlock(ccreq->src_ds_ctx, txn_id);
+		mgmt_ds_txn_unlock(ccreq->dst_ds_ctx, txn_id);
+	}
 }
 
 static void mgmt_txn_req_free(struct txn_req *txn_req)
@@ -380,26 +387,6 @@ static void txn_finish_commit(struct txn_req_commit *ccreq, enum mgmt_result res
 	success = (result == MGMTD_SUCCESS || result == MGMTD_NO_CFG_CHANGES);
 
 	/*
-	 * Send reply to front-end session (if any).
-	 */
-	if (!txn->session_id)
-		ret = 0; /* No front-end session to reply to (rollback or init) */
-	else if (!ccreq->edit)
-		/* This means we are in the mgmtd CLI vty code */
-		ret = mgmt_fe_send_commit_cfg_reply(txn->session_id, txn->txn_id, ccreq->src_ds_id,
-						    ccreq->dst_ds_id, txn_req->req_id,
-						    ccreq->validate_only, ccreq->unlock, result,
-						    error_if_any);
-	else
-		ret = mgmt_fe_adapter_send_edit_reply(txn->session_id, txn->txn_id,
-						      txn_req->req_id, ccreq->edit->unlock, true,
-						      ccreq->edit->created,
-						      ccreq->edit->xpath_created, success ? 0 : -1,
-						      error_if_any);
-	if (ret)
-		_log_err("Failed sending config reply for txn-id: %Lu session-id: %Lu",
-			 txn->txn_id, txn->session_id);
-	/*
 	 * Stop the commit-timeout timer.
 	 */
 	event_cancel(&txn_req->timeout);
@@ -417,33 +404,11 @@ static void txn_finish_commit(struct txn_req_commit *ccreq, enum mgmt_result res
 	 *
 	 * Discard candidate changes (running->candidate):
 	 *
-	 *    If this is a successful abort, or a failed immediate-effect config
-	 *    operation. Failed means no backend clients have been told to apply
-	 *    the config yet, and immediate-effect config ops are from classic
-	 *    CLI interface (unlock set) or edit messages with implicit commit
-	 *    indicated (implicit set, e.g., as used by clients like RESTCONF).
-	 *
-	 *    In particular when doing validate-only operation (`commit check`)
-	 *    the candidate shouldn't revert, the user will expect to keep
-	 *    modifying it to make it valid.
-	 *
-	 *    NOTE: the mgmtd front-end adapter code should ideally be doing
-	 *    this candidate restore itself as it is the one modifying the
-	 *    candidate datastore. So this is sloppy. This code is handling a
-	 *    commit request so it is either accepting the changes into running
-	 *    or it is not.
-	 *
-	 * It would be nice to reduce options to better represent some of the
-	 * mutual exclusivity, not all variations are valid (e.g., validate_only
-	 * will never be set with abort or init or rollback or when doing
-	 * immediate-effect operations).
+	 *    If this is a successful abort
 	 */
 	apply_op = !ccreq->validate_only && !ccreq->abort && !ccreq->init;
 	accept_changes = ccreq->phase >= MGMTD_COMMIT_PHASE_APPLY_CFG && apply_op;
-	discard_changes = (result == MGMTD_SUCCESS && ccreq->abort) ||
-			  (apply_op && ccreq->phase < MGMTD_COMMIT_PHASE_APPLY_CFG &&
-			   (ccreq->implicit || ccreq->unlock));
-
+	discard_changes = (result == MGMTD_SUCCESS && ccreq->abort);
 	if (accept_changes) {
 		bool create_cmt_info_rec = (result != MGMTD_NO_CFG_CHANGES && !ccreq->rollback);
 
@@ -452,9 +417,18 @@ static void txn_finish_commit(struct txn_req_commit *ccreq, enum mgmt_result res
 	if (discard_changes)
 		mgmt_ds_copy_dss(ccreq->src_ds_ctx, ccreq->dst_ds_ctx, false);
 
-	if (ccreq->rollback) {
-		mgmt_ds_unlock(ccreq->src_ds_ctx);
-		mgmt_ds_unlock(ccreq->dst_ds_ctx);
+	/*
+	 * For internal txns do lock cleanup, for front-end session send replies.
+	 */
+	if (ccreq->init) {
+		/*
+		 * This is the backend init request. Unlock the running
+		 * datastore if we are the last reader.
+		 */
+		if (!--txn_init_readers)
+			mgmt_ds_unlock(ccreq->dst_ds_ctx, 0);
+		ret = 0;
+	} else if (ccreq->rollback) {
 		/*
 		 * Resume processing the rollback command.
 		 *
@@ -463,15 +437,23 @@ static void txn_finish_commit(struct txn_req_commit *ccreq, enum mgmt_result res
 		 * can do the right thing.
 		 */
 		mgmt_history_rollback_complete(success);
+		ret = 0;
+	} else if (!ccreq->edit)
+		/* This means we are in the mgmtd CLI vty code */
+		ret = mgmt_fe_send_commit_cfg_reply(txn->session_id, txn->txn_id, ccreq->src_ds_id,
+						    ccreq->dst_ds_id, txn_req->req_id,
+						    ccreq->validate_only, ccreq->unlock_info,
+						    result, error_if_any);
+	else {
+		ret = mgmt_fe_adapter_send_edit_reply(txn->session_id, txn->txn_id,
+						      txn_req->req_id, ccreq->unlock_info,
+						      true /* commit */, &ccreq->edit,
+						      success ? 0 : MGMTD_INTERNAL_ERROR,
+						      error_if_any);
 	}
-
-	if (ccreq->init) {
-		/*
-		 * This is the backend init request.
-		 * We need to unlock the running datastore.
-		 */
-		mgmt_ds_unlock(ccreq->dst_ds_ctx);
-	}
+	if (ret)
+		_log_err("Failed sending config reply for txn-id: %Lu session-id: %Lu",
+			 txn->txn_id, txn->session_id);
 
 	ccreq->cmt_stats = NULL;
 	mgmt_txn_req_free(txn_req);
@@ -1223,13 +1205,12 @@ void mgmt_destroy_txn(uint64_t *txn_id)
  * Return: -1 on setup failure -- should immediately handle error, Otherwise 0
  * and will reply to session with any downstream error.
  */
-int mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id, enum mgmt_ds_id src_ds_id,
-				    struct mgmt_ds_ctx *src_ds_ctx, enum mgmt_ds_id dst_ds_id,
-				    struct mgmt_ds_ctx *dst_ds_ctx, bool validate_only, bool abort,
-				    bool implicit, bool unlock, struct mgmt_edit_req *edit)
+void mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id, enum mgmt_ds_id src_ds_id,
+				     struct mgmt_ds_ctx *src_ds_ctx, enum mgmt_ds_id dst_ds_id,
+				     struct mgmt_ds_ctx *dst_ds_ctx, bool validate_only, bool abort,
+				     bool implicit, bool unlock, struct mgmt_edit_req *edit)
 {
 	struct mgmt_txn *txn;
-	struct txn_req *txn_req;
 	struct txn_req_commit *ccreq;
 	struct nb_config_cbs changes = { 0 };
 
@@ -1240,7 +1221,12 @@ int mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id, enum mgmt_
 	assert(txn_txn_req_commit(txn) == NULL);
 
 	ccreq = txn_req_commit_alloc(txn, req_id);
-	txn_req = &ccreq->req;
+
+	/* Lock the datastores for this transaction */
+	assert(!mgmt_ds_txn_lock(src_ds_ctx, txn->txn_id));
+	assert(!mgmt_ds_txn_lock(dst_ds_ctx, txn->txn_id));
+	ccreq->txn_lock = true;
+
 	ccreq->src_ds_id = src_ds_id;
 	ccreq->src_ds_ctx = src_ds_ctx;
 	ccreq->dst_ds_id = dst_ds_id;
@@ -1248,7 +1234,7 @@ int mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id, enum mgmt_
 	ccreq->validate_only = validate_only;
 	ccreq->abort = abort;
 	ccreq->implicit = implicit; /* this is only true iff edit */
-	ccreq->unlock = unlock;	   /* this is true for implicit commit in front-end */
+	ccreq->unlock_info = unlock; /* this is true for implicit commit in front-end */
 	ccreq->edit = edit;
 	ccreq->cmt_stats = mgmt_fe_get_session_commit_stats(txn->session_id);
 
@@ -1256,8 +1242,7 @@ int mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id, enum mgmt_
 	if (ret == 0)
 		ret = txn_send_config_changes(ccreq, &changes, 0);
 	if (ret)
-		txn_finish_commit(ccreq, txn_req->error, txn_req->err_info);
-	return 0;
+		txn_finish_commit(ccreq, ccreq->req.error, ccreq->req.err_info);
 }
 
 int mgmt_txn_notify_be_adapter_conn(struct mgmt_be_client_adapter *adapter,
@@ -1279,19 +1264,24 @@ int mgmt_txn_notify_be_adapter_conn(struct mgmt_be_client_adapter *adapter,
 		}
 
 		/*
-		 * Lock the running datastore to prevent any changes while we
-		 * are initializing the backend.
+		 * If this is the first set of changes we are sending to a
+		 * backend, obtain a lock on running. We will release the lock
+		 * when the last init cfg request completes. This allows for
+		 * initializing the backends in parallel.
 		 */
-		if (mgmt_ds_lock(ds_ctx, 0) != 0) {
+
+		if (!txn_init_readers++ && mgmt_ds_lock(ds_ctx, 0) != 0) {
 			_dbg("Failed to lock DS:%s for init of BE adapter '%s'",
 			     mgmt_ds_id2name(MGMTD_DS_RUNNING), adapter->name);
+			--txn_init_readers;
 			return -1;
 		}
 
 		/* Get config for this single backend client */
 		mgmt_be_get_adapter_config(adapter, &adapter_cfgs);
 		if (!adapter_cfgs || RB_EMPTY(nb_config_cbs, adapter_cfgs)) {
-			mgmt_ds_unlock(ds_ctx);
+			if (!--txn_init_readers)
+				mgmt_ds_unlock(ds_ctx, 0);
 			return 0;
 		}
 
@@ -1303,13 +1293,15 @@ int mgmt_txn_notify_be_adapter_conn(struct mgmt_be_client_adapter *adapter,
 		if (!txn) {
 			_log_err("Failed to create CONFIG Transaction for downloading CONFIGs for client '%s'",
 				 adapter->name);
-			mgmt_ds_unlock(ds_ctx);
+			if (!--txn_init_readers)
+				mgmt_ds_unlock(ds_ctx, 0);
 			nb_config_diff_del_changes(adapter_cfgs);
 			return -1;
 		}
 
 		_dbg("Created initial txn-id: %" PRIu64 " for BE client '%s'", txn->txn_id,
 		     adapter->name);
+
 		/*
 		 * Set the changeset for transaction to commit and trigger the
 		 * commit request.
@@ -1560,58 +1552,7 @@ state:
 	 * pass a different arg
 	 */
 	event_add_timer(mgmt_txn_tm, txn_get_tree_timeout, get_tree,
-			MGMTD_TXN_GET_TREE_MAX_DELAY_SEC,
-			&get_tree->req.timeout);
-	return 0;
-}
-
-int mgmt_txn_send_edit(uint64_t txn_id, uint64_t req_id, enum mgmt_ds_id ds_id,
-		       struct mgmt_ds_ctx *ds_ctx, enum mgmt_ds_id commit_ds_id,
-		       struct mgmt_ds_ctx *commit_ds_ctx, bool unlock, bool commit,
-		       LYD_FORMAT request_type, uint8_t flags, uint8_t operation,
-		       const char *xpath, const char *data)
-{
-	struct mgmt_txn *txn;
-	struct mgmt_edit_req *edit;
-	struct nb_config *nb_config;
-	char errstr[BUFSIZ];
-	int ret;
-
-	txn = mgmt_txn_id2ctx(txn_id);
-	if (!txn)
-		return -1;
-
-	edit = XCALLOC(MTYPE_MGMTD_TXN_REQ, sizeof(struct mgmt_edit_req));
-
-	nb_config = mgmt_ds_get_nb_config(ds_ctx);
-	assert(nb_config);
-
-	/* XXX Should we do locking here? */
-
-	ret = nb_candidate_edit_tree(nb_config, operation, request_type, xpath,
-				     data, &edit->created, edit->xpath_created,
-				     errstr, sizeof(errstr));
-	if (ret)
-		goto reply;
-
-	if (commit) {
-		edit->unlock = unlock;
-		if (mgmt_txn_send_commit_config_req(txn_id, req_id, ds_id, ds_ctx, commit_ds_id,
-						    commit_ds_ctx, false, false, true /*implicit*/,
-						    false /*unlock*/, edit)) {
-			ret = NB_ERR;
-			goto reply;
-		}
-		return 0;
-	}
-reply:
-	mgmt_fe_adapter_send_edit_reply(txn->session_id, txn->txn_id, req_id,
-					unlock, commit, edit->created,
-					edit->xpath_created,
-					errno_from_nb_error(ret), errstr);
-
-	XFREE(MTYPE_MGMTD_TXN_REQ, edit);
-
+			MGMTD_TXN_GET_TREE_MAX_DELAY_SEC, &get_tree->req.timeout);
 	return 0;
 }
 
