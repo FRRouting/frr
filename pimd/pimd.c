@@ -123,6 +123,24 @@ void pim_router_terminate(void)
 	XFREE(MTYPE_ROUTER, router);
 }
 
+/* Cleanup function for parent process after fork() */
+void pim_parent_cleanup(void)
+{
+	/* Free MLAG resources allocated in router structure */
+	pim_mlag_terminate();
+
+	/* Free zclient structures (global variables, not in router) */
+	zclient_lookup_free();
+	if (pim_zclient) {
+		zclient_stop(pim_zclient);
+		zclient_free(pim_zclient);
+		pim_zclient = NULL;
+	}
+
+	/* Free router structure */
+	pim_router_terminate();
+}
+
 void pim_init(void)
 {
 	if (!inet_pton(PIM_AF, PIM_ALL_PIM_ROUTERS,
