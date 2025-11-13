@@ -932,8 +932,8 @@ static enum zclient_send_status bgp_zebra_send_remote_macip(
 	static struct ipaddr zero_remote_vtep_ip = { .ipa_type = IPADDR_V4, .ipaddr_v4 = { INADDR_ANY } };
 	bool esi_valid;
 
-	if (!IPV4_ADDR_CMP(&vpn->originator_ip, &remote_vtep_ip))
-		return 0;
+	if (ipaddr_is_same(&vpn->originator_ip, remote_vtep_ip))
+		return ZCLIENT_SEND_SUCCESS;
 
 	/* Check socket. */
 	if (!zclient || zclient->sock < 0) {
