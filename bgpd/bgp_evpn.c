@@ -907,6 +907,9 @@ static int bgp_zebra_send_remote_macip(struct bgp *bgp, struct bgpevpn *vpn,
 	static struct in_addr zero_remote_vtep_ip;
 	bool esi_valid;
 
+	if (!IPV4_ADDR_CMP(&vpn->originator_ip, &remote_vtep_ip))
+		return 0;
+
 	/* Check socket. */
 	if (!zclient || zclient->sock < 0)
 		return 0;
