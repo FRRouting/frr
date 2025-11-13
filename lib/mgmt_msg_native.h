@@ -377,7 +377,13 @@ struct mgmt_msg_notify_data {
 _Static_assert(sizeof(struct mgmt_msg_notify_data) == offsetof(struct mgmt_msg_notify_data, data),
 	       "Size mismatch");
 
-#define EDIT_FLAG_IMPLICIT_LOCK	  0x01
+/*
+ * deprecated -- can simply do the locks as needed, if the session holds the
+ * locks then they aren't needed, otherwise an attempt to acquire them is made
+ * and if that fails the edit fails.
+ */
+#define EDIT_FLAG_IMPLICIT_LOCK 0x01
+/* also deprecated -- unneeded, if DS is candidate, then no "commit", if running then "commit" */
 #define EDIT_FLAG_IMPLICIT_COMMIT 0x02
 
 #define EDIT_OP_CREATE	0

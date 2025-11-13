@@ -29,7 +29,6 @@
 #define MGMTD_TXN_ID_NONE 0
 
 struct mgmt_master;
-struct mgmt_edit_req;
 
 enum mgmt_txn_type {
 	MGMTD_TXN_TYPE_NONE = 0,
@@ -81,6 +80,7 @@ static inline int16_t errno_from_nb_error(enum nb_error ret)
 	}
 }
 
+extern enum mgmt_result nb_error_to_mgmt_result(enum nb_error error);
 
 /* Initialise transaction module. */
 extern int mgmt_txn_init(struct mgmt_master *cm, struct event_loop *tm);
@@ -153,11 +153,8 @@ extern void mgmt_destroy_txn(uint64_t *txn_id);
  *
  * edit
  *    Additional info when triggered from native edit request.
- *
- * Returns:
- *    0 on success, -1 on failures.
  */
-extern int
+extern void
 mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id, enum mgmt_ds_id src_ds_id,
 				struct mgmt_ds_ctx *dst_ds_ctx, enum mgmt_ds_id dst_ds_id,
 				struct mgmt_ds_ctx *src_ds_ctx, bool validate_only, bool abort,
@@ -185,30 +182,6 @@ extern int mgmt_txn_send_get_tree(uint64_t txn_id, uint64_t req_id, uint64_t cli
 				  enum mgmt_ds_id ds_id, LYD_FORMAT result_type, uint8_t flags,
 				  uint32_t wd_options, bool simple_xpath, struct lyd_node **ylib,
 				  const char *xpath);
-
-/**
- * Send edit request.
- *
- * Args:
- *	txn_id: Transaction identifier.
- *	req_id: FE client request identifier.
- *	ds_id: Datastore ID.
- *	ds_ctx: Datastore context.
- *	commit_ds_id: Commit datastore ID.
- *	commit_ds_ctx: Commit datastore context.
- *	unlock: Unlock datastores after the edit.
- *	commit: Commit the candidate datastore after the edit.
- *	request_type: LYD_FORMAT request type.
- *	flags: option flags for the request.
- *	operation: The operation to perform.
- *	xpath: The xpath of data node to edit.
- *	data: The data tree.
- */
-extern int mgmt_txn_send_edit(uint64_t txn_id, uint64_t req_id, enum mgmt_ds_id ds_id,
-			      struct mgmt_ds_ctx *ds_ctx, enum mgmt_ds_id commit_ds_id,
-			      struct mgmt_ds_ctx *commit_ds_ctx, bool unlock, bool commit,
-			      LYD_FORMAT request_type, uint8_t flags, uint8_t operation,
-			      const char *xpath, const char *data);
 
 /**
  * Send RPC request.
