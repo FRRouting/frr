@@ -1093,7 +1093,7 @@ static struct ospf_area_range *ospfAreaRangeLookup(struct variable *v,
 
 	if (exact) {
 		/* Area ID + Range Network. */
-		if (v->namelen + IN_ADDR_SIZE + IN_ADDR_SIZE != *length)
+		if ((size_t)(v->namelen + IN_ADDR_SIZE + IN_ADDR_SIZE) != *length)
 			return NULL;
 
 		/* Set OID offset for Area ID. */
@@ -1231,7 +1231,7 @@ static struct ospf_nbr_nbma *ospfHostLookup(struct variable *v, oid *name,
 
 	if (exact) {
 		/* INDEX { ospfHostIpAddress, ospfHostTOS } */
-		if (*length != v->namelen + IN_ADDR_SIZE + 1)
+		if (*length != (size_t)(v->namelen + IN_ADDR_SIZE + 1))
 			return NULL;
 
 		/* Check ospfHostTOS. */
@@ -1528,7 +1528,7 @@ static struct ospf_interface *ospfIfLookup(struct variable *v, oid *name,
 	oid *offset;
 
 	if (exact) {
-		if (*length != v->namelen + IN_ADDR_SIZE + 1)
+		if (*length != (size_t)(v->namelen + IN_ADDR_SIZE + 1))
 			return NULL;
 
 		oid2in_addr(name + v->namelen, IN_ADDR_SIZE, ifaddr);
@@ -1668,7 +1668,7 @@ static struct ospf_interface *ospfIfMetricLookup(struct variable *v, oid *name,
 	int metric;
 
 	if (exact) {
-		if (*length != v->namelen + IN_ADDR_SIZE + 1 + 1)
+		if (*length != (size_t)(v->namelen + IN_ADDR_SIZE + 1 + 1))
 			return NULL;
 
 		oid2in_addr(name + v->namelen, IN_ADDR_SIZE, ifaddr);
@@ -1864,7 +1864,7 @@ ospfVirtIfLookup(struct variable *v, oid *name, size_t *length,
 	struct ospf_vl_data *vl_data;
 
 	if (exact) {
-		if (*length != v->namelen + IN_ADDR_SIZE + IN_ADDR_SIZE)
+		if (*length != (size_t)(v->namelen + IN_ADDR_SIZE + IN_ADDR_SIZE))
 			return NULL;
 
 		oid2in_addr(name + v->namelen, IN_ADDR_SIZE, area_id);
@@ -2041,7 +2041,7 @@ static struct ospf_neighbor *ospfNbrLookup(struct variable *v, oid *name,
 		return NULL;
 
 	if (exact) {
-		if (*length != v->namelen + IN_ADDR_SIZE + 1)
+		if (*length != (size_t)(v->namelen + IN_ADDR_SIZE + 1))
 			return NULL;
 
 		oid2in_addr(name + v->namelen, IN_ADDR_SIZE, nbr_addr);
@@ -2227,7 +2227,7 @@ static struct ospf_lsa *ospfExtLsdbLookup(struct variable *v, oid *name,
 
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 	if (exact) {
-		if (*length != v->namelen + 1 + IN_ADDR_SIZE + IN_ADDR_SIZE)
+		if (*length != (size_t)(v->namelen + 1 + IN_ADDR_SIZE + IN_ADDR_SIZE))
 			return NULL;
 
 		offset = name + v->namelen;
