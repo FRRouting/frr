@@ -506,7 +506,7 @@ static int zebra_read_route(ZAPI_CALLBACK_ARGS)
 	enum blackhole_type bhtype = BLACKHOLE_UNSPEC;
 	struct zapi_route api;
 	union g_addr nexthop = {};
-	ifindex_t ifindex;
+	ifindex_t ifindex = IFINDEX_INTERNAL;
 	int add, i;
 	struct bgp *bgp;
 
