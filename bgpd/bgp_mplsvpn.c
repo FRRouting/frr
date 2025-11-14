@@ -827,7 +827,8 @@ void ensure_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 	if ((tovpn_sid_index != 0 && tovpn_sid_auto) ||
 	    (tovpn_sid_index != 0 && is_tovpn_sid_explicit) ||
 	    (tovpn_sid_auto && is_tovpn_sid_explicit)) {
-		zlog_err("%s: more than one mode selected among index-mode, auto-mode and explicit-mode. ignored.",
+		flog_err(EC_BGP_SRV6_SID_MODE_CONFLICT,
+			 "%s: more than one mode selected among index-mode, auto-mode and explicit-mode. ignored.",
 			 __func__);
 		return;
 	}
@@ -915,7 +916,8 @@ void ensure_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 	if ((tovpn_sid_index != 0 && tovpn_sid_auto) ||
 	    (tovpn_sid_index != 0 && is_tovpn_sid_explicit) ||
 	    (tovpn_sid_auto && is_tovpn_sid_explicit)) {
-		zlog_err("%s: more than one mode selected among index-mode, auto-mode and explicit-mode. ignored.",
+		flog_err(EC_BGP_SRV6_SID_MODE_CONFLICT,
+			 "%s: more than one mode selected among index-mode, auto-mode and explicit-mode. ignored.",
 			 __func__);
 		return;
 	}

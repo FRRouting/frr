@@ -296,8 +296,9 @@ static mpls_label_t get_label_from_pool(void *labelid)
 		lbl = chunk->first + index;
 		if (skiplist_insert(lp->inuse, (void *)lbl, labelid)) {
 			/* something is very wrong */
-			zlog_err("%s: unable to insert inuse label %u (id %p)",
-				 __func__, (uint32_t)lbl, labelid);
+			flog_err(EC_BGP_LABEL_POOL_INSERT_FAIL,
+				 "%s: unable to insert inuse label %u (id %p)", __func__,
+				 (uint32_t)lbl, labelid);
 			return MPLS_LABEL_NONE;
 		}
 
