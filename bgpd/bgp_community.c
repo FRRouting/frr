@@ -854,9 +854,21 @@ struct community *community_str2com(const char *str)
 	struct community *com_sort = NULL;
 	uint32_t val = 0;
 	enum community_token token = community_token_unknown;
+	char com_str[33];
+	const char *com_str_ptr;
 
-	do {
-		str = community_gettoken(str, &token, &val);
+	memset (com_str, 0, sizeof(com_str));
+
+	/* Restore old 6.0.3 behavior: if only a number is given, prepend "0:" */
+	if (is_number(str)) {
+		snprintf(com_str, sizeof(com_str), "0:%s", str);
+	} else {
+		snprintf(com_str, sizeof(com_str), "%s", str);
+	}
+
+	com_str_ptr = com_str;
+
+	while ((com_str_ptr = community_gettoken(com_str_ptr, &token, &val)) != NULL) {
 
 		switch (token) {
 		case community_token_val:
@@ -885,7 +897,7 @@ struct community *community_str2com(const char *str)
 				community_free(&com);
 			return NULL;
 		}
-	} while (str);
+	}
 
 	com_sort = community_uniq_sort(com);
 	community_free(&com);
