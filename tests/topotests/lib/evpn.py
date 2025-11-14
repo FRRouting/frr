@@ -853,6 +853,86 @@ def evpn_verify_l3vni_nexthops(router, l3vni_list, expected_remote_vteps):
     return None
 
 
+def _discover_vtep_ips(tgen, vtep_routers, vxlan_device="vxlan48"):
+    """
+    Helper function to discover VTEP IP addresses from VXLAN devices.
+
+    Returns dict mapping router names to their VTEP IP addresses.
+    Raises AssertionError on failure with detailed error message.
+    """
+    import json
+
+    vtep_ips = {}
+
+    for rname in vtep_routers:
+        router = tgen.gears[rname]
+        # Get VXLAN device details in JSON format
+        output = router.run(f"ip -j -d link show {vxlan_device}")
+
+        # Check if output is empty - device might not exist
+        if not output or output.strip() == "":
+            logger.error(
+                f"{rname}: Empty output from 'ip -j -d link show {vxlan_device}'"
+            )
+            # Check if device exists at all
+            check_output = router.run(f"ip link show {vxlan_device} 2>&1")
+            if "does not exist" in check_output or "Cannot find device" in check_output:
+                raise AssertionError(
+                    f"{rname}: VXLAN device '{vxlan_device}' does not exist. "
+                    f"This indicates setup_vtep() may have failed or timing issue. "
+                    f"Run 'ip link show' on {rname} to see available interfaces."
+                )
+            else:
+                raise AssertionError(
+                    f"{rname}: VXLAN device '{vxlan_device}' exists but 'ip -j' returned empty output. "
+                    f"This may indicate iproute2 JSON support issue (Ubuntu 24.04 requires iproute2 >= 5.9). "
+                    f"Device status: {check_output.strip()}"
+                )
+
+        try:
+            link_info = json.loads(output)
+            if not link_info or not isinstance(link_info, list) or len(link_info) == 0:
+                raise AssertionError(
+                    f"{rname}: Invalid JSON output from 'ip -j -d link show {vxlan_device}'. "
+                    f"Output was: {output[:200]}"
+                )
+
+            # Extract local VTEP IP from linkinfo
+            # Kernel uses "local" for IPv4 and "local6" for IPv6
+            vxlan_info = link_info[0].get("linkinfo", {}).get("info_data", {})
+            local_ip = vxlan_info.get("local6") or vxlan_info.get("local")
+
+            if local_ip:
+                vtep_ips[rname] = local_ip
+                # Detect IP version for logging
+                ip_version = "IPv6" if ":" in local_ip else "IPv4"
+                logger.info(
+                    f"{rname}: Discovered VTEP IP {vtep_ips[rname]} ({ip_version})"
+                )
+            else:
+                # Log the full vxlan_info for debugging
+                logger.error(
+                    f"{rname}: No 'local' or 'local6' field found. "
+                    f"vxlan_info content: {json.dumps(vxlan_info, indent=2)}"
+                )
+                raise AssertionError(
+                    f"{rname}: No 'local' or 'local6' field found in {vxlan_device} device info. "
+                    f"The VXLAN device may not have a source IP configured properly."
+                )
+        except json.JSONDecodeError as e:
+            raise AssertionError(
+                f"{rname}: Failed to parse {vxlan_device} device info as JSON: {e}. "
+                f"Raw output (first 500 chars): {output[:500]}"
+            )
+        except (KeyError, IndexError) as e:
+            raise AssertionError(
+                f"{rname}: Failed to extract {vxlan_device} device info: {e}. "
+                f"JSON structure may be unexpected. Output: {output[:500]}"
+            )
+
+    return vtep_ips
+
+
 def evpn_verify_l3vni_remote_nexthops(
     tgen, vtep_routers, l3vni_list, vxlan_device="vxlan48"
 ):
@@ -884,54 +964,13 @@ def evpn_verify_l3vni_remote_nexthops(
 
     evpn_verify_l3vni_remote_nexthops(tgen, vtep_routers, l3vni_list)
     """
-    import json
     from functools import partial
     from lib import topotest
 
     logger.info(f"Discovering VTEP IPs from {vxlan_device} device (IPv4/IPv6 agnostic)")
 
-    # Discover VTEP addresses from VXLAN device
-    vtep_ips = {}
-    detected_ip_versions = set()
-
-    for rname in vtep_routers:
-        router = tgen.gears[rname]
-        # Get VXLAN device details in JSON format
-        output = router.run(f"ip -j -d link show {vxlan_device}")
-
-        try:
-            link_info = json.loads(output)
-            if not link_info or not isinstance(link_info, list) or len(link_info) == 0:
-                raise AssertionError(
-                    f"{rname}: Invalid JSON output from 'ip -j -d link show {vxlan_device}'"
-                )
-
-            # Extract local VTEP IP from linkinfo
-            # Kernel uses "local" for IPv4 and "local6" for IPv6
-            vxlan_info = link_info[0].get("linkinfo", {}).get("info_data", {})
-            local_ip = vxlan_info.get("local6") or vxlan_info.get("local")
-
-            if local_ip:
-                vtep_ips[rname] = local_ip
-                # Detect IP version
-                ip_version = "IPv6" if ":" in local_ip else "IPv4"
-                detected_ip_versions.add(ip_version)
-                logger.info(
-                    f"{rname}: Discovered VTEP IP {vtep_ips[rname]} ({ip_version})"
-                )
-            else:
-                raise AssertionError(
-                    f"{rname}: No 'local' or 'local6' field found in {vxlan_device} device info"
-                )
-        except (json.JSONDecodeError, KeyError, IndexError) as e:
-            raise AssertionError(
-                f"{rname}: Failed to parse {vxlan_device} device info: {e}"
-            )
-
-    # Log the IP version(s) detected in this topology
-    logger.info(
-        f"VTEP IP version(s) detected: {', '.join(sorted(detected_ip_versions))}"
-    )
+    # Discover VTEP addresses using helper function
+    vtep_ips = _discover_vtep_ips(tgen, vtep_routers, vxlan_device)
 
     # Verify L3VNI next-hops for all VTEPs
     for rname in vtep_routers:
@@ -1053,16 +1092,30 @@ def evpn_verify_l3vni_rmacs(router, l3vni_list, expected_remote_vteps):
         )
 
         # Verify each RMAC has a bridge FDB entry for this VNI
+        # Note: Bridge FDB population may lag behind EVPN RMAC learning,
+        # especially on newer kernels (e.g., Ubuntu 24.04 with kernel 6.8+)
+
+        # Debug: Get full bridge FDB output for this VNI to aid troubleshooting
+        full_fdb_cmd = (
+            f"bridge fdb show | grep '{vni}' || echo 'No FDB entries for VNI {vni}'"
+        )
+        full_fdb_output = router.run(full_fdb_cmd)
+        logger.debug(f"{router.name}: VNI {vni} bridge FDB entries:\n{full_fdb_output}")
+
         for rmac, rmac_data in rmac_entries.items():
             vtep_ip = rmac_data.get("vtepIp", "unknown")
             # Query bridge FDB for this RMAC and VNI
             # Format: "<rmac> dev <vxlan_dev> dst <vtep_ip> src_vni <vni> self permanent"
-            fdb_cmd = f"bridge fdb show | grep '{rmac}' | grep '{vni}'"
+            # Use 'grep -i' for case-insensitive MAC matching (some kernels report uppercase)
+            fdb_cmd = f"bridge fdb show | grep -i '{rmac}' | grep '{vni}'"
             fdb_output = router.run(fdb_cmd)
 
             if not fdb_output or fdb_output.strip() == "":
+                # Don't immediately fail - return error for retry logic
+                # Bridge FDB may take additional time to sync on some systems
                 return (
                     f"VNI {vni}: Bridge FDB entry not found for RMAC {rmac} (VTEP: {vtep_ip}). "
+                    f"This may indicate slow bridge FDB sync (common on Ubuntu 24.04+). "
                     f"Expected format: '<rmac> dev <vxlan_dev> dst {vtep_ip} src_vni {vni} self permanent'"
                 )
 
@@ -1104,54 +1157,13 @@ def evpn_verify_l3vni_remote_rmacs(
 
     evpn_verify_l3vni_remote_rmacs(tgen, vtep_routers, l3vni_list)
     """
-    import json
     from functools import partial
     from lib import topotest
 
     logger.info(f"Discovering VTEP IPs from {vxlan_device} device (IPv4/IPv6 agnostic)")
 
-    # Discover VTEP addresses from VXLAN device
-    vtep_ips = {}
-    detected_ip_versions = set()
-
-    for rname in vtep_routers:
-        router = tgen.gears[rname]
-        # Get VXLAN device details in JSON format
-        output = router.run(f"ip -j -d link show {vxlan_device}")
-
-        try:
-            link_info = json.loads(output)
-            if not link_info or not isinstance(link_info, list) or len(link_info) == 0:
-                raise AssertionError(
-                    f"{rname}: Invalid JSON output from 'ip -j -d link show {vxlan_device}'"
-                )
-
-            # Extract local VTEP IP from linkinfo
-            # Kernel uses "local" for IPv4 and "local6" for IPv6
-            vxlan_info = link_info[0].get("linkinfo", {}).get("info_data", {})
-            local_ip = vxlan_info.get("local6") or vxlan_info.get("local")
-
-            if local_ip:
-                vtep_ips[rname] = local_ip
-                # Detect IP version
-                ip_version = "IPv6" if ":" in local_ip else "IPv4"
-                detected_ip_versions.add(ip_version)
-                logger.info(
-                    f"{rname}: Discovered VTEP IP {vtep_ips[rname]} ({ip_version})"
-                )
-            else:
-                raise AssertionError(
-                    f"{rname}: No 'local' or 'local6' field found in {vxlan_device} device info"
-                )
-        except (json.JSONDecodeError, KeyError, IndexError) as e:
-            raise AssertionError(
-                f"{rname}: Failed to parse {vxlan_device} device info: {e}"
-            )
-
-    # Log the IP version(s) detected in this topology
-    logger.info(
-        f"VTEP IP version(s) detected: {', '.join(sorted(detected_ip_versions))}"
-    )
+    # Discover VTEP addresses using helper function
+    vtep_ips = _discover_vtep_ips(tgen, vtep_routers, vxlan_device)
 
     # Verify L3VNI RMACs for all VTEPs
     for rname in vtep_routers:
@@ -1167,10 +1179,11 @@ def evpn_verify_l3vni_remote_rmacs(
         )
 
         # Use library function to check L3VNI RMACs
+        # Increased timeout for certain system where bridge FDB sync may be slower
         test_func = partial(
             evpn_verify_l3vni_rmacs, router, l3vni_list, expected_remote_vteps
         )
-        _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+        _, result = topotest.run_and_expect(test_func, None, count=70, wait=1)
         assert result is None, f"{rname} L3VNI RMAC verification failed: {result}"
 
 
