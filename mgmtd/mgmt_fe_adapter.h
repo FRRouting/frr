@@ -14,9 +14,6 @@
 #include "mgmt_msg.h"
 #include "mgmt_defines.h"
 
-struct mgmt_fe_client_adapter;
-struct mgmt_master;
-
 struct mgmt_commit_stats {
 	struct timeval last_start;
 	struct timeval prep_cfg_start;
@@ -36,25 +33,6 @@ struct mgmt_commit_stats {
 	unsigned long commit_cnt;
 };
 
-PREDECL_LIST(mgmt_fe_sessions);
-
-PREDECL_LIST(mgmt_fe_adapters);
-
-struct mgmt_fe_client_adapter {
-	struct msg_conn *conn;
-	char name[MGMTD_CLIENT_NAME_MAX_LEN];
-
-	/* List of sessions created and being maintained for this client. */
-	struct mgmt_fe_sessions_head fe_sessions;
-
-	int refcount;
-	struct mgmt_commit_stats cmt_stats;
-
-	struct mgmt_fe_adapters_item list_linkage;
-};
-
-DECLARE_LIST(mgmt_fe_adapters, struct mgmt_fe_client_adapter, list_linkage);
-
 struct mgmt_edit_req {
 	char xpath_created[XPATH_MAXLEN];
 	struct nb_config *nb_backup;
@@ -68,17 +46,6 @@ extern void mgmt_fe_adapter_init(struct event_loop *tm);
 
 /* Destroy frontend adapter module */
 extern void mgmt_fe_adapter_destroy(void);
-
-/* Acquire lock for frontend adapter */
-extern void mgmt_fe_adapter_lock(struct mgmt_fe_client_adapter *adapter);
-
-/* Remove lock from frontend adapter */
-extern void
-mgmt_fe_adapter_unlock(struct mgmt_fe_client_adapter **adapter);
-
-/* Create frontend adapter */
-extern struct msg_conn *mgmt_fe_create_adapter(int conn_fd,
-					       union sockunion *su);
 
 /*
  * Send commit-config reply to the frontend client.
