@@ -5,17 +5,18 @@ EVPN
 ****
 
 :abbr:`EVPN` stands for Ethernet Virtual Private Network. This is an extension
-of BGP that enables the signaling of bridged (L2) and routed (L3) VPNs over a
-common network. EVPN is described in :rfc:`7432` and is updated by several
-additional RFCs and IETF drafts including :rfc:`9135` (Integrated Routing
-and Bridging in Ethernet VPN), :rfc:`9136` (IP Prefix Advertisement in Ethernet
-VPN), :rfc:`8584` (Framework for Ethernet VPN Designated Forwarder Election
-Extensibility), and :rfc:`8365` (A Network Virtualization Overlay Solution Using
-Ethernet VPN). FRR supports All-Active Layer-2 Multihoming for devices (MHD) via
-LACP Ethernet Segments as well as both Symmetric and Asymmetric IRB.
-FRR implements MAC-VRFs using a "VLAN-Based Service Interface" (:rfc:`7432`)
-and performs processing of Symmetric IRB routes following the
-"Interface-less IP-VRF-to-IP-VRF Model" (:rfc:`9136`).
+of BGP that enables the signaling of bridged (L2) and routed (L3)
+:abbr:`VPNs (Virtual Private Networks)` over a common network. EVPN is described
+in :rfc:`7432` and is updated by several additional RFCs and IETF drafts
+including :rfc:`9135` (Integrated Routing and Bridging in Ethernet VPN),
+:rfc:`9136` (IP Prefix Advertisement in Ethernet VPN), :rfc:`8584` (Framework
+for Ethernet VPN Designated Forwarder Election Extensibility), and :rfc:`8365`
+(A Network Virtualization Overlay Solution Using Ethernet VPN). FRR supports
+All-Active Layer-2 Multihoming for devices (MHD) via LACP Ethernet Segments as
+well as both Symmetric and Asymmetric IRB.  FRR implements MAC-VRFs using a
+"VLAN-Based Service Interface" (:rfc:`7432`) and performs processing of
+Symmetric IRB routes following the "Interface-less IP-VRF-to-IP-VRF Model"
+(:rfc:`9136`).
 
 .. _evpn-concepts:
 
@@ -23,7 +24,8 @@ EVPN Concepts
 =============
 BGP-EVPN is the control plane for the transport of Ethernet frames, regardless
 of whether those frames are bridged or routed. In the case of a VLAN-Based
-Service Interface with VXLAN encap, a single VNI is used to represent an EVPN
+Service Interface with VXLAN encap, a single
+:abbr:`VNI (VXLAN Network Identifier)` is used to represent an EVPN
 Instance (EVI) and will have its own Route Distinguisher and set of
 Import/Export Route-Targets.
 
@@ -34,11 +36,12 @@ a VRF traditionally operates in L3VPN), while a MAC-VRF represents a bridging
 table i.e. MAC (fdb) and ARP/NDP entries.
 
 A MAC-VRF can be thought of as a VLAN with or without an SVI associated with it.
-An SVI is a Layer-3 interface bound to a bridging domain. In Linux an SVI can
-either be a traditional bridge or a VLAN subinterface of a VLAN-aware bridge.
-If there is an SVI for the VLAN, ARP/NDP entries can be bound to the MACs within
-the broadcast domain. Without an SVI, the VLAN operates in traditional L2
-fashion and MACs are the only type of host addresses known within the VLAN.
+An :abbr:`SVI (Switched Virtual Interface)` is a Layer-3 interface bound to a
+bridging domain. In Linux an SVI can either be a traditional bridge or a VLAN
+subinterface of a VLAN-aware bridge.  If there is an SVI for the VLAN, ARP/NDP
+entries can be bound to the MACs within the broadcast domain. Without an SVI,
+the VLAN operates in traditional L2 fashion and MACs are the only type of host
+addresses known within the VLAN.
 
 In the same way that there can be a many-to-one relationship of SVIs to a VRF,
 there can also be a many-to-one relationship of MAC-VRFs (L2VNIs) to an IP-VRF
