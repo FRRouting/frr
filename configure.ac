@@ -1599,6 +1599,17 @@ AC_CHECK_FUNCS([pollts], [
   AC_DEFINE([HAVE_POLLTS], [1], [have NetBSD pollts()])
 ])
 
+AC_CHECK_FUNC([epoll_pwait], [AC_DEFINE([HAVE_EPOLL_PWAIT], [1],
+			     [Define if you have epoll_pwait])])
+# Define USE_EPOLL if any of the above is found
+AC_MSG_CHECKING([for epoll API support])
+if test "x$ac_cv_func_epoll_pwait" = "xyes" ; then
+    AC_DEFINE([USE_EPOLL], [1], [Define if any epoll API is supported])
+    AC_MSG_RESULT([yes])
+else
+    AC_MSG_RESULT([no])
+fi
+
 AC_CHECK_HEADER([asm-generic/unistd.h],
                 [AC_CHECK_DECL(__NR_setns,
                                AC_DEFINE([HAVE_NETNS], [1], [Have netns]),,
