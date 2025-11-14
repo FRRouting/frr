@@ -1927,8 +1927,8 @@ static void bgp_connect_check(struct event *event)
 
 	/* If getsockopt is fail, this is fatal error. */
 	if (ret < 0) {
-		zlog_err("can't get sockopt for nonblocking connect: %d(%s)",
-			  errno, safe_strerror(errno));
+		flog_err(EC_LIB_SOCKET, "can't get sockopt for nonblocking connect: %d(%s)", errno,
+			 safe_strerror(errno));
 		BGP_EVENT_ADD(connection, TCP_fatal_error);
 		return;
 	}
@@ -2936,7 +2936,7 @@ bgp_peer_inherit_global_gr_mode(struct peer *peer,
 		break;
 	case GLOBAL_INVALID:
 	default:
-		zlog_err("Unexpected Global GR mode %d", global_gr_mode);
+		flog_err(EC_LIB_DEVELOPMENT, "Unexpected Global GR mode %d", global_gr_mode);
 	}
 }
 
@@ -3240,8 +3240,8 @@ void bgp_peer_move_to_gr_mode(struct peer *peer, enum peer_mode new_state)
 		break;
 	case PEER_INVALID:
 	default:
-		zlog_err(
-			"[BGP_GR] Default switch mode ::: SOMETHING IS WRONG !!!");
+		flog_err(EC_LIB_DEVELOPMENT,
+			 "[BGP_GR] Default switch mode ::: SOMETHING IS WRONG !!!");
 		break;
 	}
 	bgp_peer_gr_flags_update(peer);

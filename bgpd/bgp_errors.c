@@ -492,6 +492,84 @@ static struct log_ref ferr_bgp_err[] = {
 		.suggestion = "Most likely a bug. This should never happen. Please try to build a reproducer and report.",
 	},
 	{
+		.code = EC_BGP_ROUTE_REFRESH_INVALID,
+		.title = "BGP route refresh message format error",
+		.description = "BGP received an invalid or malformed route refresh message from peer (enhanced route refresh length error, invalid subtype, or EoRR without BoRR)",
+		.suggestion = "Check BGP capability compatibility with peer. Verify enhanced route refresh configuration and ensure proper BoRR/EoRR sequence.",
+	},
+	{
+		.code = EC_BGP_PER_SRC_NHG,
+		.title = "BGP per-source nexthop group resolution failed",
+		.description = "BGP unable to resolve IPv6 nexthop for per-source nexthop group",
+		.suggestion = "Ensure the nexthop group and advertised paths include IPv6 information. Verify per-source nexthop group configuration.",
+	},
+	{
+		.code = EC_BGP_ROUTE_ATTRIBUTE_MALFORMED,
+		.title = "BGP route attribute is malformed or invalid",
+		.description = "BGP received or processed a route with malformed attributes (prefix, RD, ESI, MAC, gateway IP, L2VPN prefix data, address family mismatches, route-map/label-index mismatches) or referenced route not found",
+		.suggestion = "Check route definitions and EVPN/L2VPN configuration. Verify peer configuration for attribute consistency, address family matching, and static route configuration alignment. Ensure all referenced routes exist and route data format is correct.",
+	},
+	{
+		.code = EC_BGP_CONFIG_CONSTRAINT_VIOLATION,
+		.title = "BGP configuration constraint violated",
+		.description = "BGP configuration attempted to change an immutable parameter (e.g., label-index)",
+		.suggestion = "Review configuration changes to ensure immutable parameters are not modified after initial setup.",
+	},
+	{
+		.code = EC_BGP_ROUTE_MAP_SCRIPT,
+		.title = "BGP route-map script execution failed",
+		.description = "BGP route-map script or function failed to load or execute properly",
+		.suggestion = "Debug the route-map script and ensure it returns successful status. Verify script accessibility and correct any errors in the script file.",
+	},
+	{
+		.code = EC_BGP_VRF_NOT_FOUND,
+		.title = "BGP VRF not found",
+		.description = "BGP requested VRF does not exist or cannot be found",
+		.suggestion = "Create the required VRF or correct the configured VRF name.",
+	},
+	{
+		.code = EC_BGP_ZEBRA_MSG_DECODE,
+		.title = "BGP failed to decode message from Zebra",
+		.description = "BGP received a malformed or incompatible message from Zebra daemon",
+		.suggestion = "Ensure BGP and Zebra daemons are version-synchronized and IPC communication is healthy. Check for version mismatches between daemons.",
+	},
+	{
+		.code = EC_BGP_SRV6_LOCATOR_MISMATCH,
+		.title = "BGP SRv6 locator name mismatch",
+		.description = "BGP SRv6 locator advertised by BGP doesn't match the locator name in the SRv6 chunk from Zebra",
+		.suggestion = "Fix the inconsistent SRv6 locator configuration between BGP and Zebra.",
+	},
+	{
+		.code = EC_BGP_INVALID_BGP_INSTANCE_ID,
+		.title = "BGP instance ID out of range",
+		.description = "BGP instance ID specified is outside the valid range",
+		.suggestion = "Set a valid instance ID in the configuration within the allowed range.",
+	},
+	{
+		.code = EC_BGP_SRV6_SID_MODE_CONFLICT,
+		.title = "BGP SRv6 SID mode configuration conflict",
+		.description = "BGP SRv6 configuration has both index-mode and auto-mode enabled simultaneously",
+		.suggestion = "Choose one SRv6 SID mode (typically auto), remove the other from the config, and reapply the import/export settings.",
+	},
+	{
+		.code = EC_BGP_CONFIG_TIMEOUT,
+		.title = "BGP configuration timeout",
+		.description = "BGP configuration end timer expired during config application",
+		.suggestion = "Review provisioning speed or increase the configuration timeout value.",
+	},
+	{
+		.code = EC_BGP_LABEL_POOL_INSERT_FAIL,
+		.title = "BGP label pool insertion failed",
+		.description = "BGP failed to insert a label into the label pool tracking structure",
+		.suggestion = "Restart BGP service. If issues persist, gather log files and open an issue.",
+	},
+	{
+		.code = EC_BGP_TTL_SECURITY_FAIL,
+		.title = "BGP TTL security configuration failed",
+		.description = "BGP failed to configure TTL security parameters (min/max TTL) on peer connection",
+		.suggestion = "Ensure both peers support TTL security feature and verify kernel supports TTL security socket options. Check peer TTL security configuration for compatibility.",
+	},
+	{
 		.code = END_FERR,
 	}
 };

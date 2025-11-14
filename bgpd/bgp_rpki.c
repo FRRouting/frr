@@ -38,6 +38,7 @@
 #include "bgpd/bgp_debug.h"
 #include "northbound_cli.h"
 
+#include "bgpd/bgp_errors.h"
 #include "lib/network.h"
 #include "rtrlib/rtrlib.h"
 #include "hook.h"
@@ -664,7 +665,8 @@ static void bgpd_sync_callback(struct event *event)
 	if (rpki_vrf->vrfname) {
 		vrf = vrf_lookup_by_name(rpki_vrf->vrfname);
 		if (!vrf) {
-			zlog_err("%s(): vrf for rpki %s not found", __func__, rpki_vrf->vrfname);
+			flog_err(EC_BGP_VRF_NOT_FOUND, "%s(): vrf for rpki %s not found", __func__,
+				 rpki_vrf->vrfname);
 			return;
 		}
 	}
@@ -765,7 +767,7 @@ static void rpki_update_cb_sync_rtr(struct pfx_table *p __attribute__((unused)),
 		RPKI_DEBUG("Could not write to rpki_sync_socket_rtr");
 	return;
 err:
-	zlog_err("RPKI: %s", msg);
+	flog_err(EC_LIB_DEVELOPMENT, "RPKI: %s", msg);
 }
 
 static void rpki_init_sync_socket(struct rpki_vrf *rpki_vrf)
@@ -798,7 +800,7 @@ static void rpki_init_sync_socket(struct rpki_vrf *rpki_vrf)
 	return;
 
 err:
-	zlog_err("RPKI: %s", msg);
+	flog_err(EC_LIB_DEVELOPMENT, "RPKI: %s", msg);
 	abort();
 
 }
