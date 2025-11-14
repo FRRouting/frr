@@ -502,7 +502,7 @@ static int bgp_interface_nbr_address_delete(ZAPI_CALLBACK_ARGS)
 /* Zebra route add and delete treatment. */
 static int zebra_read_route(ZAPI_CALLBACK_ARGS)
 {
-	enum nexthop_types_t nhtype;
+	enum nexthop_types_t nhtype = 0;
 	enum blackhole_type bhtype = BLACKHOLE_UNSPEC;
 	struct zapi_route api;
 	union g_addr nexthop = {};
