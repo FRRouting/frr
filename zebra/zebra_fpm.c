@@ -19,6 +19,7 @@
 #include "network.h"
 #include "command.h"
 #include "lib/version.h"
+#include "lib/lib_errors.h"
 #include "jhash.h"
 
 #include "zebra/rib.h"
@@ -1003,8 +1004,9 @@ static int zfpm_build_route_updates(void)
 				else
 					zfpm_g->stats.route_dels++;
 			} else {
-				zlog_err("%s: Encoding Prefix: %pRN No valid nexthops",
-					 __func__, dest->rnode);
+				flog_err(EC_ZEBRA_FPM_ENCODE_FAIL,
+					 "%s: Encoding Prefix: %pRN No valid nexthops", __func__,
+					 dest->rnode);
 			}
 		}
 
@@ -1249,8 +1251,8 @@ static void zfpm_connect_cb(struct event *t)
 
 	sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (sock < 0) {
-		zlog_err("Failed to create socket for connect(): %s",
-			   strerror(errno));
+		flog_err(EC_LIB_SOCKET, "Failed to create socket for connect(): %s",
+			 strerror(errno));
 		zfpm_g->stats.connect_no_sock++;
 		return;
 	}

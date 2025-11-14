@@ -105,8 +105,8 @@ void zebra_mlag_process_mlag_data(uint8_t *data, uint32_t len)
 	if (msg_type <= 0) {
 		/* Something went wrong in decoding */
 		stream_free(s);
-		zlog_err("%s: failed to process mlag data-%d, %u", __func__,
-			 msg_type, len);
+		flog_err(EC_ZEBRA_MLAG_DATA_PROCESS_FAIL, "%s: failed to process mlag data-%d, %u",
+			 __func__, msg_type, len);
 		return;
 	}
 

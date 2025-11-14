@@ -718,9 +718,8 @@ static void zserv_client_free(struct zserv *client)
 			zlog_debug("%s: client %s restart enabled", __func__,
 				   zebra_route_string(client->proto));
 		if (zebra_gr_client_disconnect(client) < 0)
-			zlog_err(
-				"%s: GR enabled but could not handle disconnect event",
-				__func__);
+			flog_err(EC_ZEBRA_GR_DISCONNECT_FAIL,
+				 "%s: GR enabled but could not handle disconnect event", __func__);
 	}
 }
 
