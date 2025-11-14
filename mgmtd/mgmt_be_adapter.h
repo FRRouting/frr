@@ -14,6 +14,7 @@
 #include "mgmt_msg.h"
 #include "mgmt_defines.h"
 #include "mgmtd/mgmt_ds.h"
+#include "queue.h"
 
 #define MGMTD_BE_CONN_INIT_DELAY_MSEC 50
 
@@ -45,7 +46,6 @@ enum mgmt_be_client_id {
 
 
 PREDECL_LIST(mgmt_be_adapters);
-PREDECL_LIST(mgmt_txn_badapters);
 
 struct mgmt_be_client_adapter {
 	struct msg_conn *conn;
@@ -55,33 +55,11 @@ struct mgmt_be_client_adapter {
 	enum mgmt_be_client_id id;
 	char name[MGMTD_CLIENT_NAME_MAX_LEN];
 
-	int refcount;
-
-	/*
-	 * List of config items that should be sent to the
-	 * backend during re/connect. This is temporarily
-	 * created and then freed-up as soon as the initial
-	 * config items has been applied onto the backend.
-	 */
-	struct nb_config_cbs cfg_chgs;
 	struct mgmt_commit_stats cfg_stats;
-
 	struct mgmt_be_adapters_item list_linkage;
+
+	LIST_ENTRY(mgmt_be_client_adapter) link;
 };
-
-DECLARE_LIST(mgmt_be_adapters, struct mgmt_be_client_adapter, list_linkage);
-
-/*
- * MGMT_SUBSCR_xxx - flags for subscription types for xpaths registrations
- *
- * MGMT_SUBSCR_VALIDATE_CFG :: the client should be asked to validate config
- * MGMT_SUBSCR_NOTIFY_CFG :: the client should be notified of config changes
- * MGMT_SUBSCR_OPER_OWN :: the client owns the given oeprational state
- */
-#define MGMT_SUBSCR_VALIDATE_CFG 0x1
-#define MGMT_SUBSCR_NOTIFY_CFG 0x2
-#define MGMT_SUBSCR_OPER_OWN 0x4
-#define MGMT_SUBSCR_ALL 0x7
 
 /* --------- */
 /* CLIENT-ID */
@@ -91,10 +69,11 @@ DECLARE_LIST(mgmt_be_adapters, struct mgmt_be_client_adapter, list_linkage);
 	for ((id) = MGMTD_BE_CLIENT_ID_MIN; (id) < MGMTD_BE_CLIENT_ID_MAX;     \
 	     (id)++)
 
+#define IDBIT_MASK(id)	      (1ull << (id))
+#define IS_IDBIT_UNSET(v, id) (!((v)&IDBIT_MASK(id)))
 #define IS_IDBIT_SET(v, id)   (!IS_IDBIT_UNSET(v, id))
-#define IS_IDBIT_UNSET(v, id) (!((v) & (1ull << (id))))
-#define SET_IDBIT(v, id)      ((v) |= (1ull << (id)))
-#define UNSET_IDBIT(v, id)    ((v) &= ~(1ull << (id)))
+#define SET_IDBIT(v, id)      ((v) |= IDBIT_MASK(id))
+#define UNSET_IDBIT(v, id)    ((v) &= ~IDBIT_MASK(id))
 
 #define _GET_NEXT_SET(id, bits)                                                                    \
 	({                                                                                         \
@@ -140,19 +119,9 @@ extern void mgmt_be_adapter_init(struct event_loop *tm);
 /* Destroy the backend adapter module. */
 extern void mgmt_be_adapter_destroy(void);
 
-/* Acquire lock for backend adapter. */
-extern void mgmt_be_adapter_lock(struct mgmt_be_client_adapter *adapter);
-
-/* Remove lock from backend adapter. */
-extern void mgmt_be_adapter_unlock(struct mgmt_be_client_adapter **adapter);
-
 /* Create backend adapter. */
 extern struct msg_conn *mgmt_be_create_adapter(int conn_fd,
 					       union sockunion *su);
-
-/* Fetch backend adapter given an adapter name. */
-extern struct mgmt_be_client_adapter *
-mgmt_be_get_adapter_by_name(const char *name);
 
 /* Fetch backend adapter given an client ID. */
 extern struct mgmt_be_client_adapter *
@@ -165,8 +134,7 @@ extern const char *mgmt_be_client_id2name(enum mgmt_be_client_id id);
 extern void mgmt_be_adapter_toggle_client_debug(bool set);
 
 /* Fetch backend adapter config. */
-extern void mgmt_be_get_adapter_config(struct mgmt_be_client_adapter *adapter,
-				       struct nb_config_cbs **changes);
+extern struct nb_config_cbs mgmt_be_get_adapter_config(struct mgmt_be_client_adapter *adapter);
 
 /*
  * Dump backend adapter status to vty.

@@ -1245,12 +1245,13 @@ void mgmt_txn_send_commit_config_req(uint64_t txn_id, uint64_t req_id, enum mgmt
 		txn_finish_commit(ccreq, ccreq->req.error, ccreq->req.err_info);
 }
 
+
 int mgmt_txn_notify_be_adapter_conn(struct mgmt_be_client_adapter *adapter,
 				    bool connect)
 {
+	struct nb_config_cbs adapter_cfgs;
 	struct mgmt_txn *txn, *next;
 	struct txn_req_commit *ccreq;
-	struct nb_config_cbs *adapter_cfgs = NULL;
 	struct mgmt_ds_ctx *ds_ctx;
 
 	if (connect) {
@@ -1278,8 +1279,8 @@ int mgmt_txn_notify_be_adapter_conn(struct mgmt_be_client_adapter *adapter,
 		}
 
 		/* Get config for this single backend client */
-		mgmt_be_get_adapter_config(adapter, &adapter_cfgs);
-		if (!adapter_cfgs || RB_EMPTY(nb_config_cbs, adapter_cfgs)) {
+		adapter_cfgs = mgmt_be_get_adapter_config(adapter);
+		if (RB_EMPTY(nb_config_cbs, &adapter_cfgs)) {
 			if (!--txn_init_readers)
 				mgmt_ds_unlock(ds_ctx, 0);
 			return 0;
@@ -1295,7 +1296,7 @@ int mgmt_txn_notify_be_adapter_conn(struct mgmt_be_client_adapter *adapter,
 				 adapter->name);
 			if (!--txn_init_readers)
 				mgmt_ds_unlock(ds_ctx, 0);
-			nb_config_diff_del_changes(adapter_cfgs);
+			nb_config_diff_del_changes(&adapter_cfgs);
 			return -1;
 		}
 
@@ -1320,7 +1321,7 @@ int mgmt_txn_notify_be_adapter_conn(struct mgmt_be_client_adapter *adapter,
 		/*
 		 * Apply the initial changes.
 		 */
-		return txn_send_config_changes(ccreq, adapter_cfgs, 1ull << adapter->id);
+		return txn_send_config_changes(ccreq, &adapter_cfgs, IDBIT_MASK(adapter->id));
 	} else {
 		/*
 		 * Check if any transaction is currently on-going that
