@@ -26,10 +26,6 @@
 #define _dbg(fmt, ...)	   DEBUGD(&mgmt_debug_fe, "FE-ADAPTER: %s: " fmt, __func__, ##__VA_ARGS__)
 #define _log_err(fmt, ...) zlog_err("FE-ADAPTER: %s: ERROR: " fmt, __func__, ##__VA_ARGS__)
 
-#define FOREACH_ADAPTER_IN_LIST(adapter)                                       \
-	frr_each_safe (mgmt_fe_adapters, &mgmt_fe_adapters, (adapter))
-
-
 enum mgmt_session_event {
 	MGMTD_FE_SESSION_CFG_TXN_CLNUP = 1,
 	MGMTD_FE_SESSION_SHOW_TXN_CLNUP,
@@ -47,13 +43,21 @@ struct mgmt_fe_session_ctx {
 	struct event *proc_cfg_txn_clnp;
 	struct event *proc_show_txn_clnp;
 
-	struct mgmt_fe_sessions_item list_linkage;
+	LIST_ENTRY(mgmt_fe_session_ctx) link;
 };
 
-DECLARE_LIST(mgmt_fe_sessions, struct mgmt_fe_session_ctx, list_linkage);
+struct mgmt_fe_client_adapter {
+	struct msg_conn *conn;
+	char name[MGMTD_CLIENT_NAME_MAX_LEN];
 
-#define FOREACH_SESSION_IN_LIST(adapter, session)                              \
-	frr_each_safe (mgmt_fe_sessions, &(adapter)->fe_sessions, (session))
+	LIST_ENTRY(mgmt_fe_client_adapter) link;
+
+	/* List of sessions created and being maintained for this client. */
+	LIST_HEAD(fe_session_list_head, mgmt_fe_session_ctx) sessions;
+
+	/* NOTE: shared by all sessions, only works b/c one session configuring at a time */
+	struct mgmt_commit_stats cmt_stats;
+};
 
 /*
  * A tree for storing unique notify-select strings.
@@ -67,6 +71,12 @@ struct ns_string {
 static uint32_t ns_string_compare(const struct ns_string *ns1, const struct ns_string *ns2);
 DECLARE_RBTREE_UNIQ(ns_string, struct ns_string, link, ns_string_compare);
 
+/* ---------- */
+/* Prototypes */
+/* ---------- */
+
+static struct msg_conn *mgmt_fe_create_adapter(int conn_fd, union sockunion *from);
+
 /* ---------------- */
 /* Global variables */
 /* ---------------- */
@@ -74,7 +84,7 @@ DECLARE_RBTREE_UNIQ(ns_string, struct ns_string, link, ns_string_compare);
 static struct event_loop *mgmt_loop;
 static struct msg_server mgmt_fe_server = {.fd = -1};
 
-static struct mgmt_fe_adapters_head mgmt_fe_adapters;
+LIST_HEAD(fe_adapter_list_head, mgmt_fe_client_adapter) fe_adapters;
 
 static struct hash *mgmt_fe_sessions;
 static uint64_t mgmt_fe_next_session_id;
@@ -277,12 +287,7 @@ static void mgmt_fe_cleanup_session(struct mgmt_fe_session_ctx **sessionp)
 			mgmt_fe_session_unlock_ds(ds_id, ds_ctx, session);
 	}
 
-	if (session->adapter) {
-		/* remove from the list before we release the adapter */
-		mgmt_fe_sessions_del(&session->adapter->fe_sessions, session);
-		assert(session->adapter->refcount > 1);
-		mgmt_fe_adapter_unlock(&session->adapter);
-	}
+	LIST_REMOVE(session, link);
 
 	mgmt_fe_ns_string_remove_session(&mgmt_fe_ns_strings, session);
 	darr_free_free(session->notify_xpaths);
@@ -297,7 +302,7 @@ mgmt_fe_find_session_by_client_id(struct mgmt_fe_client_adapter *adapter,
 {
 	struct mgmt_fe_session_ctx *session;
 
-	FOREACH_SESSION_IN_LIST (adapter, session) {
+	LIST_FOREACH (session, &adapter->sessions, link) {
 		if (session->client_id == client_id) {
 			_dbg("Found session-id %" PRIu64 " using client-id %" PRIu64,
 			     session->session_id, client_id);
@@ -346,7 +351,7 @@ void mgmt_fe_adapter_toggle_client_debug(bool set)
 {
 	struct mgmt_fe_client_adapter *adapter;
 
-	FOREACH_ADAPTER_IN_LIST (adapter)
+	LIST_FOREACH (adapter, &fe_adapters, link)
 		adapter->conn->debug = set;
 }
 
@@ -376,8 +381,7 @@ static struct mgmt_fe_session_ctx *mgmt_fe_create_session(struct mgmt_fe_client_
 	session->notify_format = notify_format;
 	session->txn_id = MGMTD_TXN_ID_NONE;
 	session->cfg_txn_id = MGMTD_TXN_ID_NONE;
-	mgmt_fe_adapter_lock(adapter);
-	mgmt_fe_sessions_add_tail(&adapter->fe_sessions, session);
+	LIST_INSERT_HEAD(&adapter->sessions, session, link);
 	if (!mgmt_fe_next_session_id)
 		mgmt_fe_next_session_id++;
 	session->session_id = mgmt_fe_next_session_id++;
@@ -440,26 +444,23 @@ mgmt_fe_find_adapter_by_fd(int conn_fd)
 {
 	struct mgmt_fe_client_adapter *adapter;
 
-	FOREACH_ADAPTER_IN_LIST (adapter) {
+	LIST_FOREACH (adapter, &fe_adapters, link)
 		if (adapter->conn->fd == conn_fd)
 			return adapter;
-	}
-
 	return NULL;
 }
 
 static void mgmt_fe_adapter_delete(struct mgmt_fe_client_adapter *adapter)
 {
-	struct mgmt_fe_session_ctx *session;
+	struct mgmt_fe_session_ctx *session, *next;
 	_dbg("deleting client adapter '%s'", adapter->name);
 
 	/* TODO: notify about client disconnect for appropriate cleanup */
-	FOREACH_SESSION_IN_LIST (adapter, session)
+	LIST_FOREACH_SAFE (session, &adapter->sessions, link, next)
 		mgmt_fe_cleanup_session(&session);
-	mgmt_fe_sessions_fini(&adapter->fe_sessions);
-
-	assert(adapter->refcount == 1);
-	mgmt_fe_adapter_unlock(&adapter);
+	LIST_REMOVE(adapter, link);
+	msg_server_conn_delete(adapter->conn);
+	XFREE(MTYPE_MGMTD_FE_ADPATER, adapter);
 }
 
 static int mgmt_fe_adapter_notify_disconnect(struct msg_conn *conn)
@@ -1622,8 +1623,8 @@ void mgmt_fe_adapter_send_notify(struct mgmt_msg_notify_data *msg, size_t msglen
 	 * scheme).
 	 */
 	if (CHECK_FLAG(nb_node->snode->nodetype, LYS_NOTIF)) {
-		FOREACH_ADAPTER_IN_LIST (adapter) {
-			FOREACH_SESSION_IN_LIST (adapter, session) {
+		LIST_FOREACH (adapter, &fe_adapters, link) {
+			LIST_FOREACH (session, &adapter->sessions, link) {
 				if (session->notify_xpaths)
 					continue;
 				send_msg = assure_notify_msg_cache(msg, msglen, &tree,
@@ -1640,25 +1641,6 @@ done:
 	cleanup_notify_msg_cache(msg, &tree, cache);
 }
 
-void mgmt_fe_adapter_lock(struct mgmt_fe_client_adapter *adapter)
-{
-	adapter->refcount++;
-}
-
-void mgmt_fe_adapter_unlock(struct mgmt_fe_client_adapter **adapter)
-{
-	struct mgmt_fe_client_adapter *a = *adapter;
-
-	assert(a && a->refcount);
-
-	if (!--a->refcount) {
-		mgmt_fe_adapters_del(&mgmt_fe_adapters, a);
-		msg_server_conn_delete(a->conn);
-		XFREE(MTYPE_MGMTD_FE_ADPATER, a);
-	}
-	*adapter = NULL;
-}
-
 /*
  * Initialize the FE adapter module
  */
@@ -1668,8 +1650,6 @@ void mgmt_fe_adapter_init(struct event_loop *tm)
 
 	assert(!mgmt_loop);
 	mgmt_loop = tm;
-
-	mgmt_fe_adapters_init(&mgmt_fe_adapters);
 
 	assert(!mgmt_fe_sessions);
 	mgmt_fe_sessions =
@@ -1702,13 +1682,13 @@ static FRR_NORETURN void mgmt_fe_abort_if_session(void *data)
  */
 void mgmt_fe_adapter_destroy(void)
 {
-	struct mgmt_fe_client_adapter *adapter;
+	struct mgmt_fe_client_adapter *adapter, *next;
 
 	msg_server_cleanup(&mgmt_fe_server);
 
 
 	/* Deleting the adapters will delete all the sessions */
-	FOREACH_ADAPTER_IN_LIST (adapter)
+	LIST_FOREACH_SAFE (adapter, &fe_adapters, link, next)
 		mgmt_fe_adapter_delete(adapter);
 
 	mgmt_fe_free_ns_strings(&mgmt_fe_ns_strings);
@@ -1719,7 +1699,7 @@ void mgmt_fe_adapter_destroy(void)
 /*
  * The server accepted a new connection
  */
-struct msg_conn *mgmt_fe_create_adapter(int conn_fd, union sockunion *from)
+static struct msg_conn *mgmt_fe_create_adapter(int conn_fd, union sockunion *from)
 {
 	struct mgmt_fe_client_adapter *adapter = NULL;
 
@@ -1729,9 +1709,7 @@ struct msg_conn *mgmt_fe_create_adapter(int conn_fd, union sockunion *from)
 		snprintf(adapter->name, sizeof(adapter->name), "Unknown-FD-%d",
 			 conn_fd);
 
-		mgmt_fe_sessions_init(&adapter->fe_sessions);
-		mgmt_fe_adapter_lock(adapter);
-		mgmt_fe_adapters_add_tail(&mgmt_fe_adapters, adapter);
+		LIST_INSERT_HEAD(&fe_adapters, adapter, link);
 
 		adapter->conn = msg_server_conn_create(
 			mgmt_loop, conn_fd, mgmt_fe_adapter_notify_disconnect,
@@ -2023,17 +2001,20 @@ void mgmt_fe_adapter_status_write(struct vty *vty, bool detail)
 	struct mgmt_fe_session_ctx *session;
 	enum mgmt_ds_id ds_id;
 	bool locked = false;
+	uint acount = 0;
+	uint scount;
 
 	vty_out(vty, "MGMTD Frontend Adpaters\n");
 
-	FOREACH_ADAPTER_IN_LIST (adapter) {
+	LIST_FOREACH (adapter, &fe_adapters, link) {
 		vty_out(vty, "  Client: \t\t\t\t%s\n", adapter->name);
 		vty_out(vty, "    Conn-FD: \t\t\t\t%d\n", adapter->conn->fd);
 		if (detail) {
 			mgmt_fe_adapter_cmt_stats_write(vty, adapter);
 		}
+		scount = 0;
 		vty_out(vty, "    Sessions\n");
-		FOREACH_SESSION_IN_LIST (adapter, session) {
+		LIST_FOREACH (session, &adapter->sessions, link) {
 			vty_out(vty, "      Session: \t\t\t\t%p\n", session);
 			vty_out(vty, "        Client-Id: \t\t\t%" PRIu64 "\n",
 				session->client_id);
@@ -2049,9 +2030,9 @@ void mgmt_fe_adapter_status_write(struct vty *vty, bool detail)
 			}
 			if (!locked)
 				vty_out(vty, "          None\n");
+			scount++;
 		}
-		vty_out(vty, "    Total-Sessions: \t\t\t%d\n",
-			(int)mgmt_fe_sessions_count(&adapter->fe_sessions));
+		vty_out(vty, "    Total-Sessions: \t\t\t%u\n", scount);
 		vty_out(vty, "    Msg-Recvd: \t\t\t\t%" PRIu64 "\n",
 			adapter->conn->mstate.nrxm);
 		vty_out(vty, "    Bytes-Recvd: \t\t\t%" PRIu64 "\n",
@@ -2061,8 +2042,7 @@ void mgmt_fe_adapter_status_write(struct vty *vty, bool detail)
 		vty_out(vty, "    Bytes-Sent: \t\t\t%" PRIu64 "\n",
 			adapter->conn->mstate.ntxb);
 	}
-	vty_out(vty, "  Total: %d\n",
-		(int)mgmt_fe_adapters_count(&mgmt_fe_adapters));
+	vty_out(vty, "  Total: %u\n", acount);
 }
 
 void mgmt_fe_adapter_perf_measurement(struct vty *vty, bool config)
@@ -2073,12 +2053,7 @@ void mgmt_fe_adapter_perf_measurement(struct vty *vty, bool config)
 void mgmt_fe_adapter_reset_perf_stats(struct vty *vty)
 {
 	struct mgmt_fe_client_adapter *adapter;
-	struct mgmt_fe_session_ctx *session;
 
-	FOREACH_ADAPTER_IN_LIST (adapter) {
-		FOREACH_SESSION_IN_LIST (adapter, session) {
-			memset(&adapter->cmt_stats, 0,
-			       sizeof(adapter->cmt_stats));
-		}
-	}
+	LIST_FOREACH (adapter, &fe_adapters, link)
+		memset(&adapter->cmt_stats, 0, sizeof(adapter->cmt_stats));
 }
