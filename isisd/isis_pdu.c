@@ -1363,6 +1363,10 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 		zlog_warn("Received a CSNP with bogus length %d", pdu_len);
 		return ISIS_WARNING;
 	}
+#ifndef FABRICD
+	/* endp may have been decreased by pdu_len_validate() */
+	pdu_end = stream_get_endp(circuit->rcv_stream);
+#endif
 
 	if (IS_DEBUG_SNP_PACKETS) {
 		zlog_debug(
