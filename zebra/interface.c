@@ -1962,7 +1962,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 
 	zns = zebra_ns_lookup(ns_id);
 	if (!zns) {
-		zlog_err("Where is our namespace?");
+		flog_err(EC_ZEBRA_NS_NO_DEFAULT, "Where is our namespace?");
 		return;
 	}
 
