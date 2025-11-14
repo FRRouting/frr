@@ -20899,7 +20899,7 @@ static void bgp_config_finish(struct event *t)
 
 static void bgp_config_end_timeout(struct event *t)
 {
-	zlog_err("BGP configuration end timer expired after %d seconds.",
+	flog_err(EC_BGP_CONFIG_TIMEOUT, "BGP configuration end timer expired after %d seconds.",
 		 BGP_PRE_CONFIG_MAX_WAIT_SECONDS);
 	bgp_config_finish(t);
 }
