@@ -528,6 +528,8 @@ int main(int argc, char **argv)
 	/* BGP related initialization.  */
 	bgp_init((unsigned short)instance);
 
+	resolver_init(bm->master);
+
 	if (list_isempty(bm->addresses)) {
 		snprintf(bgpd_di.startinfo, sizeof(bgpd_di.startinfo),
 			 ", bgp@<all>:%d", bm->port);

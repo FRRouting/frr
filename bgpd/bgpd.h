@@ -17,6 +17,7 @@
 #include "srv6.h"
 #include "iana_afi.h"
 #include "asn.h"
+#include "resolver.h"
 
 PREDECL_LIST(zebra_announce);
 PREDECL_LIST(zebra_l2_vni);
