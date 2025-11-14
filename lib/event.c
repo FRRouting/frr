@@ -1736,7 +1736,7 @@ struct event *event_fetch(struct event_loop *m, struct event *fetch)
 {
 	struct event *event = NULL;
 	struct timeval now;
-	struct timeval zerotime = {0, 0};
+	struct timeval mintime = {0, 1000}; /* 1ms minimum timeout */
 	struct timeval tv;
 	struct timeval *tw = NULL;
 	bool eintr_p = false;
@@ -1781,7 +1781,7 @@ struct event *event_fetch(struct event_loop *m, struct event *fetch)
 		 * until a timer expires or we receive I/O, whichever comes
 		 * first. The strategy for doing this is:
 		 *
-		 * - If there are events pending, set the poll() timeout to zero
+		 * - If there are events pending, set the poll() timeout to 1ms minimum
 		 * - If there are no events pending, but there are timers
 		 * pending, set the timeout to the smallest remaining time on
 		 * any timer.
@@ -1796,8 +1796,8 @@ struct event *event_fetch(struct event_loop *m, struct event *fetch)
 			tw = thread_timer_wait(&m->timer, &tv);
 
 		if (event_list_count(&m->ready) ||
-		    (tw && !timercmp(tw, &zerotime, >)))
-			tw = &zerotime;
+		    (tw && !timercmp(tw, &mintime, >)))
+			tw = &mintime;
 
 		if (!tw && m->handler.pfdcount == 0) { /* die */
 			pthread_mutex_unlock(&m->mtx);
