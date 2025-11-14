@@ -311,7 +311,7 @@ static int netlink_socket(struct nlsock *nl, unsigned long groups,
 	frr_with_privs(&zserv_privs) {
 		sock = ns_socket(AF_NETLINK, SOCK_RAW, nl_family, ns_id);
 		if (sock < 0) {
-			zlog_err("Can't open %s socket: %s", nl->name,
+			flog_err(EC_LIB_SOCKET, "Can't open %s socket: %s", nl->name,
 				 safe_strerror(errno));
 			return -1;
 		}
@@ -350,7 +350,7 @@ static int netlink_socket(struct nlsock *nl, unsigned long groups,
 	}
 
 	if (ret < 0) {
-		zlog_err("Can't bind %s socket to group 0x%x: %s", nl->name,
+		flog_err(EC_LIB_SOCKET, "Can't bind %s socket to group 0x%x: %s", nl->name,
 			 snl.nl_groups, safe_strerror(errno));
 		close(sock);
 		return -1;
@@ -678,7 +678,8 @@ static void netlink_parse_extended_ack(struct nlmsghdr *h)
 		off = *(uint32_t *)NLA_DATA(tb[NLMSGERR_ATTR_OFFS]);
 
 		if (off > h->nlmsg_len) {
-			zlog_err("Invalid offset for NLMSGERR_ATTR_OFFS");
+			flog_err(EC_ZEBRA_NETLINK_LENGTH_ERROR,
+				 "Invalid offset for NLMSGERR_ATTR_OFFS");
 		} else if (!(h->nlmsg_flags & NLM_F_CAPPED)) {
 			/*
 			 * Header of failed message
@@ -695,7 +696,7 @@ static void netlink_parse_extended_ack(struct nlmsghdr *h)
 		bool is_err = !!err->error;
 
 		if (is_err)
-			zlog_err("Extended Error: %s", msg);
+			flog_err(EC_ZEBRA_NETLINK_EXTENDED_ERROR, "Extended Error: %s", msg);
 		else
 			flog_warn(EC_ZEBRA_NETLINK_EXTENDED_WARNING,
 				  "Extended Warning: %s", msg);
@@ -1184,9 +1185,9 @@ static int nl_batch_read_resp(struct nl_batch *bth, struct nlsock *nl)
 				 * into a bad spot.  We need to know that
 				 * this happens( does it? )
 				 */
-				zlog_err(
-					"%s:WARNING Received netlink Response for an error and no Contexts to associate with it",
-					__func__);
+				flog_err(EC_ZEBRA_NETLINK_NO_CONTEXT,
+					 "%s:WARNING Received netlink Response for an error and no Contexts to associate with it",
+					 __func__);
 				break;
 			}
 
@@ -1639,8 +1640,7 @@ void kernel_init(struct zebra_ns *zns)
 	zns->netlink.sock = -1;
 	if (netlink_socket(&zns->netlink, groups, &ext_groups, 1, zns->ns_id,
 			   NETLINK_ROUTE) < 0) {
-		zlog_err("Failure to create %s socket",
-			 zns->netlink.name);
+		flog_err(EC_LIB_SOCKET, "Failure to create %s socket", zns->netlink.name);
 		frr_exit_with_buffer_flush(-1);
 	}
 
@@ -1651,8 +1651,7 @@ void kernel_init(struct zebra_ns *zns)
 	zns->netlink_cmd.sock = -1;
 	if (netlink_socket(&zns->netlink_cmd, 0, 0, 0, zns->ns_id,
 			   NETLINK_ROUTE) < 0) {
-		zlog_err("Failure to create %s socket",
-			 zns->netlink_cmd.name);
+		flog_err(EC_LIB_SOCKET, "Failure to create %s socket", zns->netlink_cmd.name);
 		frr_exit_with_buffer_flush(-1);
 	}
 
@@ -1665,7 +1664,7 @@ void kernel_init(struct zebra_ns *zns)
 	zns->netlink_dplane_out.sock = -1;
 	if (netlink_socket(&zns->netlink_dplane_out, 0, 0, 0, zns->ns_id,
 			   NETLINK_ROUTE) < 0) {
-		zlog_err("Failure to create %s socket",
+		flog_err(EC_LIB_SOCKET, "Failure to create %s socket",
 			 zns->netlink_dplane_out.name);
 		frr_exit_with_buffer_flush(-1);
 	}
@@ -1679,8 +1678,7 @@ void kernel_init(struct zebra_ns *zns)
 	zns->netlink_dplane_in.sock = -1;
 	if (netlink_socket(&zns->netlink_dplane_in, dplane_groups, 0, 0,
 			   zns->ns_id, NETLINK_ROUTE) < 0) {
-		zlog_err("Failure to create %s socket",
-			 zns->netlink_dplane_in.name);
+		flog_err(EC_LIB_SOCKET, "Failure to create %s socket", zns->netlink_dplane_in.name);
 		frr_exit_with_buffer_flush(-1);
 	}
 
@@ -1742,7 +1740,8 @@ void kernel_init(struct zebra_ns *zns)
 		ret = setsockopt(zns->ge_netlink_cmd.sock, SOL_NETLINK,
 				 NETLINK_EXT_ACK, &one, sizeof(one));
 		if (ret < 0)
-			zlog_err("Registration for extended generic netlink cmd ACK failed : %d %s",
+			flog_err(EC_ZEBRA_NETLINK_EXT_ACK_FAILED,
+				 "Registration for extended generic netlink cmd ACK failed : %d %s",
 				 errno, safe_strerror(errno));
 	}
 
@@ -1765,24 +1764,21 @@ void kernel_init(struct zebra_ns *zns)
 			     zns->netlink.name, safe_strerror(errno));
 
 	if (fcntl(zns->netlink_cmd.sock, F_SETFL, O_NONBLOCK) < 0)
-		zlog_err("Can't set %s socket error: %s(%d)",
-			 zns->netlink_cmd.name, safe_strerror(errno), errno);
+		flog_err(EC_LIB_SOCKET, "Can't set %s socket error: %s(%d)", zns->netlink_cmd.name,
+			 safe_strerror(errno), errno);
 
 	if (fcntl(zns->netlink_dplane_out.sock, F_SETFL, O_NONBLOCK) < 0)
-		zlog_err("Can't set %s socket error: %s(%d)",
-			 zns->netlink_dplane_out.name, safe_strerror(errno),
-			 errno);
+		flog_err(EC_LIB_SOCKET, "Can't set %s socket error: %s(%d)",
+			 zns->netlink_dplane_out.name, safe_strerror(errno), errno);
 
 	if (fcntl(zns->netlink_dplane_in.sock, F_SETFL, O_NONBLOCK) < 0)
-		zlog_err("Can't set %s socket error: %s(%d)",
-			 zns->netlink_dplane_in.name, safe_strerror(errno),
-			 errno);
+		flog_err(EC_LIB_SOCKET, "Can't set %s socket error: %s(%d)",
+			 zns->netlink_dplane_in.name, safe_strerror(errno), errno);
 
 	if (zns->ge_netlink_cmd.sock >= 0) {
 		if (fcntl(zns->ge_netlink_cmd.sock, F_SETFL, O_NONBLOCK) < 0)
-			zlog_err("Can't set %s socket error: %s(%d)",
-				 zns->ge_netlink_cmd.name, safe_strerror(errno),
-				 errno);
+			flog_err(EC_LIB_SOCKET, "Can't set %s socket error: %s(%d)",
+				 zns->ge_netlink_cmd.name, safe_strerror(errno), errno);
 	}
 
 	/* Set receive buffer size if it's set from command line */

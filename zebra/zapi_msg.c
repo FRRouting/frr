@@ -3199,7 +3199,8 @@ static void zread_srv6_manager_request(ZAPI_HANDLER_ARGS)
 		zread_srv6_manager_get_locator(client, msg);
 		break;
 	default:
-		zlog_err("%s: unknown SRv6 Manager command", __func__);
+		flog_err(EC_ZEBRA_SRV6_MANAGER_UNKNOWN_COMMAND, "%s: unknown SRv6 Manager command",
+			 __func__);
 		break;
 	}
 }

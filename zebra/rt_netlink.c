@@ -932,9 +932,9 @@ static int netlink_route_read_unicast_ctx(struct nlmsghdr *h, ns_id_t ns_id,
 	if (rtm->rtm_family == AF_INET) {
 		p.family = AF_INET;
 		if (rtm->rtm_dst_len > IPV4_MAX_BITLEN) {
-			zlog_err(
-				"Invalid destination prefix length: %u received from kernel route change",
-				rtm->rtm_dst_len);
+			flog_err(EC_ZEBRA_NETLINK_INVALID_PREFIX_LEN,
+				 "Invalid destination prefix length: %u received from kernel route change",
+				 rtm->rtm_dst_len);
 			ret = -1;
 			goto done;
 		}
@@ -956,9 +956,9 @@ static int netlink_route_read_unicast_ctx(struct nlmsghdr *h, ns_id_t ns_id,
 		afi = AFI_IP6;
 		p.family = AF_INET6;
 		if (rtm->rtm_dst_len > IPV6_MAX_BITLEN) {
-			zlog_err(
-				"Invalid destination prefix length: %u received from kernel route change",
-				rtm->rtm_dst_len);
+			flog_err(EC_ZEBRA_NETLINK_INVALID_PREFIX_LEN,
+				 "Invalid destination prefix length: %u received from kernel route change",
+				 rtm->rtm_dst_len);
 			return -1;
 		}
 		memcpy(&p.u.prefix6, dest, 16);
@@ -966,9 +966,9 @@ static int netlink_route_read_unicast_ctx(struct nlmsghdr *h, ns_id_t ns_id,
 
 		src_p.family = AF_INET6;
 		if (rtm->rtm_src_len > IPV6_MAX_BITLEN) {
-			zlog_err(
-				"Invalid source prefix length: %u received from kernel route change",
-				rtm->rtm_src_len);
+			flog_err(EC_ZEBRA_NETLINK_INVALID_PREFIX_LEN,
+				 "Invalid source prefix length: %u received from kernel route change",
+				 rtm->rtm_src_len);
 			return -1;
 		}
 		memcpy(&src_p.u.prefix6, src, 16);
@@ -1555,10 +1555,9 @@ int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct rtmsg));
 	if (len < 0) {
-		zlog_err(
-			"%s: Message received from netlink is of a broken size: %d %zu",
-			__func__, h->nlmsg_len,
-			(size_t)NLMSG_LENGTH(sizeof(struct rtmsg)));
+		flog_err(EC_ZEBRA_NETLINK_LENGTH_ERROR,
+			 "%s: Message received from netlink is of a broken size: %d %zu", __func__,
+			 h->nlmsg_len, (size_t)NLMSG_LENGTH(sizeof(struct rtmsg)));
 		return -1;
 	}
 
@@ -4782,10 +4781,9 @@ int netlink_neigh_change(struct nlmsghdr *h, ns_id_t ns_id)
 	/* Length validity. */
 	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct ndmsg));
 	if (len < 0) {
-		zlog_err(
-			"%s: Message received from netlink is of a broken size %d %zu",
-			__func__, h->nlmsg_len,
-			(size_t)NLMSG_LENGTH(sizeof(struct ndmsg)));
+		flog_err(EC_ZEBRA_NETLINK_LENGTH_ERROR,
+			 "%s: Message received from netlink is of a broken size %d %zu", __func__,
+			 h->nlmsg_len, (size_t)NLMSG_LENGTH(sizeof(struct ndmsg)));
 		return -1;
 	}
 
