@@ -34,6 +34,7 @@
 
 extern struct nb_config *running_config;
 
+struct mgmt_master;
 struct mgmt_ds_ctx;
 
 /***************************************************************
