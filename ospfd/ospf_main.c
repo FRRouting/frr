@@ -176,7 +176,7 @@ FRR_DAEMON_INFO(ospfd, OSPF,
 
 static void ospf_config_finish(struct event *t)
 {
-	zlog_err("OSPF configuration end timer expired after %d seconds.",
+	flog_err(EC_OSPF_CONFIG_TIMEOUT, "OSPF configuration end timer expired after %d seconds.",
 		 OSPF_PRE_CONFIG_MAX_WAIT_SECONDS);
 }
 

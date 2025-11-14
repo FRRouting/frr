@@ -18,6 +18,7 @@
 #include "filter.h"
 #include "log.h"
 #include "jhash.h"
+#include "lib/lib_errors.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -688,8 +689,8 @@ void ospf_gr_helper_exit(struct ospf_neighbor *nbr,
 	ospf->last_exit_reason = reason;
 
 	if (ospf->active_restarter_cnt <= 0) {
-		zlog_err(
-			"OSPF GR-Helper: active_restarter_cnt should be greater than zero here.");
+		flog_err(EC_LIB_DEVELOPMENT,
+			 "OSPF GR-Helper: active_restarter_cnt should be greater than zero here.");
 		return;
 	}
 	/* Decrement active Restarter count */

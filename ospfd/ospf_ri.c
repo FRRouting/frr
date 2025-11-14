@@ -603,10 +603,9 @@ void ospf_router_info_update_sr(bool enable, struct sr_node *srn)
 
 	/* Verify that scope is AREA */
 	if (OspfRI.scope != OSPF_OPAQUE_AREA_LSA) {
-		zlog_err(
-			"RI (%s): Router Info is %s flooding: Change scope to Area flooding for Segment Routing",
-			__func__,
-			OspfRI.scope == OSPF_OPAQUE_AREA_LSA ? "Area" : "AS");
+		flog_err(EC_OSPF_SR_RI_SCOPE,
+			 "RI (%s): Router Info is %s flooding: Change scope to Area flooding for Segment Routing",
+			 __func__, OspfRI.scope == OSPF_OPAQUE_AREA_LSA ? "Area" : "AS");
 		return;
 	}
 
