@@ -11224,6 +11224,20 @@ static void bgp_segment_routing_srv6_hencaps_refresh(struct bgp *bgp)
 		bgp_zebra_update_srv6_encap_routes(bgp_inst, AFI_IP6, bgp, true);
 	}
 }
+
+static void bgp_srv6_only_change(struct bgp *bgp, bool enable)
+{
+	/* pre-change */
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(), bgp);
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(), bgp);
+
+	bgp->srv6_only = enable;
+
+	/* post-change */
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(), bgp);
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(), bgp);
+}
+
 DEFUN (no_bgp_segment_routing_srv6,
        no_bgp_segment_routing_srv6_cmd,
        "no segment-routing srv6",
@@ -11241,6 +11255,9 @@ DEFUN (no_bgp_segment_routing_srv6,
 		bgp->srv6_encap_behavior = SRV6_HEADEND_BEHAVIOR_H_ENCAPS;
 		bgp_segment_routing_srv6_hencaps_refresh(bgp);
 	}
+
+	if (bgp->srv6_only)
+		bgp_srv6_only_change(bgp, false);
 
 	return CMD_SUCCESS;
 }
@@ -11318,16 +11335,7 @@ DEFPY (bgp_srv6_only,
 
 	if ((!no && bgp->srv6_only) || (no && !bgp->srv6_only))
 		return CMD_SUCCESS;
-
-	/* pre-change */
-	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(), bgp);
-	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(), bgp);
-
-	bgp->srv6_only = !no;
-
-	/* post-change */
-	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(), bgp);
-	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(), bgp);
+	bgp_srv6_only_change(bgp, !no);
 	return CMD_SUCCESS;
 }
 
