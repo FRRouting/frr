@@ -3244,7 +3244,7 @@ static int bgp_zebra_process_local_es_add(ZAPI_CALLBACK_ARGS)
 	struct bgp *bgp = NULL;
 	struct stream *s = NULL;
 	char buf[ESI_STR_LEN];
-	struct in_addr originator_ip;
+	struct ipaddr originator_ip = { .ipa_type = IPADDR_V4 };
 	uint8_t active;
 	uint8_t bypass;
 	uint16_t df_pref;
@@ -3255,16 +3255,19 @@ static int bgp_zebra_process_local_es_add(ZAPI_CALLBACK_ARGS)
 
 	s = zclient->ibuf;
 	stream_get(&esi, s, sizeof(esi_t));
-	originator_ip.s_addr = stream_get_ipv4(s);
+	if (!stream_get_ipaddr(s, &originator_ip)) {
+		flog_err(EC_BGP_EVPN_ROUTE_INVALID, "%u: Failed to read originator IP for ESI %s",
+			 vrf_id, esi_to_str(&esi, buf, sizeof(buf)));
+		return -1;
+	}
 	active = stream_getc(s);
 	df_pref = stream_getw(s);
 	bypass = stream_getc(s);
 
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug(
-			"Rx add ESI %s originator-ip %pI4 active %u df_pref %u %s",
-			esi_to_str(&esi, buf, sizeof(buf)), &originator_ip,
-			active, df_pref, bypass ? "bypass" : "");
+		zlog_debug("Rx add ESI %s originator-ip %pIA active %u df_pref %u %s",
+			   esi_to_str(&esi, buf, sizeof(buf)), &originator_ip, active, df_pref,
+			   bypass ? "bypass" : "");
 
 	frrtrace(5, frr_bgp, evpn_mh_local_es_add_zrecv, &esi, originator_ip,
 		 active, bypass, df_pref);

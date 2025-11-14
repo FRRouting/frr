@@ -97,7 +97,7 @@ struct bgp_evpn_es {
 	struct bgp_evpn_es_frag *es_base_frag;
 
 	/* [EVPNES_LOCAL] originator ip address  */
-	struct in_addr originator_ip;
+	struct ipaddr originator_ip;
 
 	/* [EVPNES_LOCAL] Route table for EVPN routes for this ESI-
 	 * - Type-4 local and remote routes
@@ -412,9 +412,8 @@ int bgp_evpn_type1_route_process(struct peer *peer, afi_t afi, safi_t safi,
 int bgp_evpn_type4_route_process(struct peer *peer, afi_t afi, safi_t safi,
 		struct attr *attr, uint8_t *pfx, int psize,
 		uint32_t addpath_id);
-extern int bgp_evpn_local_es_add(struct bgp *bgp, esi_t *esi,
-				 struct in_addr originator_ip, bool oper_up,
-				 uint16_t df_pref, bool bypass);
+extern int bgp_evpn_local_es_add(struct bgp *bgp, esi_t *esi, struct ipaddr originator_ip,
+				 bool oper_up, uint16_t df_pref, bool bypass);
 extern int bgp_evpn_local_es_del(struct bgp *bgp, esi_t *esi);
 extern int bgp_evpn_local_es_evi_add(struct bgp *bgp, esi_t *esi, vni_t vni);
 extern int bgp_evpn_local_es_evi_del(struct bgp *bgp, esi_t *esi, vni_t vni);

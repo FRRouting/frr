@@ -522,32 +522,41 @@ static inline void build_evpn_type3_prefix(struct prefix_evpn *p,
 	p->prefix.imet_addr.ip = *originator_ip;
 }
 
-static inline void build_evpn_type4_prefix(struct prefix_evpn *p,
-					   esi_t *esi,
-					   struct in_addr originator_ip)
+static inline void build_evpn_type4_prefix(struct prefix_evpn *p, esi_t *esi,
+					   struct ipaddr originator_ip)
 {
 	memset(p, 0, sizeof(struct prefix_evpn));
 	p->family = AF_EVPN;
 	p->prefixlen = EVPN_ROUTE_PREFIXLEN;
 	p->prefix.route_type = BGP_EVPN_ES_ROUTE;
-	p->prefix.es_addr.ip_prefix_length = IPV4_MAX_BITLEN;
-	p->prefix.es_addr.ip.ipa_type = IPADDR_V4;
-	p->prefix.es_addr.ip.ipaddr_v4 = originator_ip;
+	/* Set IP prefix length and address based on originator_ip type */
+	p->prefix.es_addr.ip_prefix_length = IS_IPADDR_V4(&originator_ip) ? IPV4_MAX_BITLEN
+									  : IPV6_MAX_BITLEN;
+	p->prefix.es_addr.ip = originator_ip;
 	memcpy(&p->prefix.es_addr.esi, esi, sizeof(esi_t));
 }
 
-static inline void build_evpn_type1_prefix(struct prefix_evpn *p,
-		uint32_t eth_tag,
-		esi_t *esi,
-		struct in_addr originator_ip)
+static inline void build_evpn_type1_prefix(struct prefix_evpn *p, uint32_t eth_tag, esi_t *esi,
+					   struct ipaddr originator_ip)
 {
 	memset(p, 0, sizeof(struct prefix_evpn));
 	p->family = AF_EVPN;
 	p->prefixlen = EVPN_ROUTE_PREFIXLEN;
 	p->prefix.route_type = BGP_EVPN_AD_ROUTE;
 	p->prefix.ead_addr.eth_tag = eth_tag;
-	p->prefix.ead_addr.ip.ipa_type = IPADDR_V4;
-	p->prefix.ead_addr.ip.ipaddr_v4 = originator_ip;
+	/* Set IP address and type based on originator_ip */
+	if (IS_IPADDR_V4(&originator_ip)) {
+		SET_IPADDR_V4(&p->prefix.ead_addr.ip);
+		IPV4_ADDR_COPY(&p->prefix.ead_addr.ip.ipaddr_v4, &originator_ip.ipaddr_v4);
+	} else if (IS_IPADDR_V6(&originator_ip)) {
+		SET_IPADDR_V6(&p->prefix.ead_addr.ip);
+		IPV6_ADDR_COPY(&p->prefix.ead_addr.ip.ipaddr_v6, &originator_ip.ipaddr_v6);
+	} else {
+		/* IPADDR_NONE - should not happen, but handle gracefully */
+		p->prefix.ead_addr.ip.ipa_type = IPADDR_NONE;
+		memset(&p->prefix.ead_addr.ip.ipaddr_v4, 0,
+		       sizeof(p->prefix.ead_addr.ip.ipaddr_v4));
+	}
 	memcpy(&p->prefix.ead_addr.esi, esi, sizeof(esi_t));
 }
 
