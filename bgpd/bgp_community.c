@@ -860,7 +860,7 @@ struct community *community_str2com(const char *str)
 	memset (com_str, 0, sizeof(com_str));
 
 	/* Restore old 6.0.3 behavior: if only a number is given, prepend "0:" */
-	if (is_number(str)) {
+	if (all_digit(str)) {
 		snprintf(com_str, sizeof(com_str), "0:%s", str);
 	} else {
 		snprintf(com_str, sizeof(com_str), "%s", str);
