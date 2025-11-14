@@ -871,30 +871,23 @@ def _discover_vtep_ips(tgen, vtep_routers, vxlan_device="vxlan48"):
 
         # Check if output is empty - device might not exist
         if not output or output.strip() == "":
-            logger.error(
-                f"{rname}: Empty output from 'ip -j -d link show {vxlan_device}'"
+            raise AssertionError(
+                f"{rname}: No output from 'ip -j -d link show {vxlan_device}'"
             )
-            # Check if device exists at all
-            check_output = router.run(f"ip link show {vxlan_device} 2>&1")
-            if "does not exist" in check_output or "Cannot find device" in check_output:
-                raise AssertionError(
-                    f"{rname}: VXLAN device '{vxlan_device}' does not exist. "
-                    f"This indicates setup_vtep() may have failed or timing issue. "
-                    f"Run 'ip link show' on {rname} to see available interfaces."
-                )
-            else:
-                raise AssertionError(
-                    f"{rname}: VXLAN device '{vxlan_device}' exists but 'ip -j' returned empty output. "
-                    f"This may indicate iproute2 JSON support issue (Ubuntu 24.04 requires iproute2 >= 5.9). "
-                    f"Device status: {check_output.strip()}"
-                )
+
+        # Clean kernel message corruption from output
+        # Remove any junk before JSON array starts
+        json_start = output.find('[')
+        if json_start > 0:
+            output = output[json_start:]
+        # Remove inline corruption strings (e.g., "id":0fan-map becomes "id":0)
+        output = output.replace('fan-map ', '')
 
         try:
             link_info = json.loads(output)
             if not link_info or not isinstance(link_info, list) or len(link_info) == 0:
                 raise AssertionError(
-                    f"{rname}: Invalid JSON output from 'ip -j -d link show {vxlan_device}'. "
-                    f"Output was: {output[:200]}"
+                    f"{rname}: Invalid JSON output from 'ip -j -d link show {vxlan_device}'"
                 )
 
             # Extract local VTEP IP from linkinfo
@@ -910,14 +903,8 @@ def _discover_vtep_ips(tgen, vtep_routers, vxlan_device="vxlan48"):
                     f"{rname}: Discovered VTEP IP {vtep_ips[rname]} ({ip_version})"
                 )
             else:
-                # Log the full vxlan_info for debugging
-                logger.error(
-                    f"{rname}: No 'local' or 'local6' field found. "
-                    f"vxlan_info content: {json.dumps(vxlan_info, indent=2)}"
-                )
                 raise AssertionError(
-                    f"{rname}: No 'local' or 'local6' field found in {vxlan_device} device info. "
-                    f"The VXLAN device may not have a source IP configured properly."
+                    f"{rname}: No 'local' or 'local6' field found in {vxlan_device} device info"
                 )
         except json.JSONDecodeError as e:
             raise AssertionError(
@@ -927,7 +914,7 @@ def _discover_vtep_ips(tgen, vtep_routers, vxlan_device="vxlan48"):
         except (KeyError, IndexError) as e:
             raise AssertionError(
                 f"{rname}: Failed to extract {vxlan_device} device info: {e}. "
-                f"JSON structure may be unexpected. Output: {output[:500]}"
+                f"Output: {output[:500]}"
             )
 
     return vtep_ips
