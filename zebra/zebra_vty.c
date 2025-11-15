@@ -409,30 +409,43 @@ static void uptime2str(time_t uptime, char *buf, size_t bufsize)
 	frrtime_to_interval(cur, buf, bufsize);
 }
 
-static void show_redistributing_protocol(struct vty *vty, const struct prefix *p,
-					 const struct route_entry *re)
+static void show_redistributing_protocol(struct vty *vty, const struct route_node *rn,
+					 const struct route_entry *re, struct json_object *json)
 {
-	struct listnode *node;
 	struct zserv *client;
-	afi_t afi = family2afi(p->family);
+	json_object *json_redist = NULL;
+	json_object *json_proto;
 	bool first = true;
 
-	if (!afi)
-		return;
+	if (json)
+		json_redist = json_object_new_array();
 
-	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
-		if (zebra_route_is_redistributed(re, client, p, afi)) {
-			if (first)
-				vty_out(vty, "  Redistributing via");
-			else
-				vty_out(vty, ",");
-			vty_out(vty, " %s", zebra_route_string(client->proto));
+	frr_each (zserv_client_list, &zrouter.client_list, client) {
+		if (zebra_redistribute_check(rn, re, client)) {
+			if (json) {
+				json_proto = json_object_new_object();
+				json_object_string_add(json_proto, "protocol",
+						       zebra_route_string(client->proto));
+				json_object_array_add(json_redist, json_proto);
+			} else {
+				if (first)
+					vty_out(vty, "  Redistributing via");
+				else
+					vty_out(vty, ",");
+				vty_out(vty, " %s", zebra_route_string(client->proto));
+			}
 			first = false;
 		}
 	}
 
-	if (!first)
+	if (json) {
+		if (first)
+			json_object_put(json_redist);
+		else
+			json_object_object_add(json, "redistributingVia", json_redist);
+	} else if (!first) {
 		vty_out(vty, "\n");
+	}
 }
 
 /* New RIB.  Detailed information for IPv4 route. */
@@ -491,7 +504,7 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 			vty_out(vty, ", best");
 		vty_out(vty, "\n");
 
-		show_redistributing_protocol(vty, &rn->p, re);
+		show_redistributing_protocol(vty, rn, re, NULL);
 
 		uptime2str(re->uptime, buf, sizeof(buf));
 
@@ -598,6 +611,8 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn, struct rou
 		json_object_int_add(json_route, "distance",
 				    re->distance);
 		json_object_int_add(json_route, "metric", re->metric);
+
+		show_redistributing_protocol(vty, rn, re, json_route);
 
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED))
 			json_object_boolean_true_add(json_route, "installed");

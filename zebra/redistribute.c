@@ -183,8 +183,7 @@ static bool zebra_redistribute_is_table_direct(const struct route_entry *re)
  * Function to check if prefix is candidate for
  * redistribute.
  */
-bool zebra_redistribute_check(const struct route_node *rn,
-			      const struct route_entry *re,
+bool zebra_redistribute_check(const struct route_node *rn, const struct route_entry *re,
 			      struct zserv *client)
 {
 	struct zebra_vrf *zvrf;
