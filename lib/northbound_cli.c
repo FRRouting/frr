@@ -218,35 +218,12 @@ static void create_xpath_base_abs(struct vty *vty, char *xpath_base_abs,
 static int _nb_cli_apply_changes(struct vty *vty, const char *xpath_base, bool clear_pending)
 {
 	char xpath_base_abs[XPATH_MAXLEN] = {};
-	bool implicit_commit;
 
 	create_xpath_base_abs(vty, xpath_base_abs, sizeof(xpath_base_abs),
 			      xpath_base);
 
-	if (vty_mgmt_should_process_cli_apply_changes(vty)) {
-		VTY_CHECK_XPATH;
-
-		assert(vty->type != VTY_FILE);
-		/*
-		 * The legacy user wanted to clear pending (i.e., perform a
-		 * commit immediately) due to some non-yang compatible
-		 * functionality. This new mgmtd code however, continues to send
-		 * changes putting off the commit until XFRR_end is received
-		 * (i.e., end-of-config-file). This should be fine b/c all
-		 * conversions to mgmtd require full proper implementations.
-		 */
-		if (!vty->num_cfg_changes)
-			return CMD_SUCCESS;
-
-		implicit_commit = vty_needs_implicit_commit(vty);
-		if (vty_mgmt_send_config_data(vty, xpath_base_abs, implicit_commit) < 0) {
-			vty_out(vty, "%% Failed to apply configuration data.\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		if (!implicit_commit)
-			++vty->mgmt_num_pending_setcfg;
-		return CMD_SUCCESS;
-	}
+	if (vty->type != VTY_FILE && nb_cli_apply_changes_mgmt_cb)
+		return nb_cli_apply_changes_mgmt_cb(vty, xpath_base_abs);
 
 	return nb_cli_apply_changes_internal(vty, xpath_base_abs, clear_pending);
 }
@@ -330,20 +307,10 @@ int nb_cli_rpc(struct vty *vty, const char *xpath, struct lyd_node **output_p)
 		assert(err == LY_SUCCESS);
 	}
 
-	if (vty_mgmt_fe_enabled()) {
-		char *data = NULL;
-
-		err = lyd_print_mem(&data, input, LYD_JSON, LYD_PRINT_SHRINK);
-		assert(err == LY_SUCCESS);
-
-		ret = vty_mgmt_send_rpc_req(vty, LYD_JSON, xpath, data);
-
-		free(data);
+	if (nb_cli_rpc_mgmt_cb) {
+		ret = nb_cli_rpc_mgmt_cb(vty, xpath, input);
 		lyd_free_all(input);
-
-		if (ret < 0)
-			return CMD_WARNING;
-		return CMD_SUCCESS;
+		return ret;
 	}
 
 	/* validate input tree to create implicit defaults */

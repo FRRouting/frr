@@ -66,7 +66,7 @@ void mgmt_init(void)
 	 * Initialize the CLI frontend client -- this queues an event for the
 	 * client to short-circuit connect to the server (ourselves).
 	 */
-	vty_init_mgmt_fe();
+	vty_mgmt_init();
 
 	/*
 	 * MGMTD VTY commands installation -- the frr lib code will queue an

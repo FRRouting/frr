@@ -29,8 +29,6 @@
 #include "staticd/static_vty.h"
 #include "zebra/zebra_cli.h"
 
-extern struct frr_daemon_info *mgmt_daemon_info;
-
 DEFPY(show_mgmt_be_adapter,
       show_mgmt_be_adapter_cmd,
       "show mgmt backend-adapter all",
@@ -147,6 +145,11 @@ DEFPY(mgmt_commit,
 	bool validate_only = type[0] == 'c';
 	bool abort = type[1] == 'b';
 
+	if (!vty->mgmt_locked_candidate_ds)
+		vty_out(vty, "Warning: candidate datastore is not locked.\n");
+	if (!validate_only && !vty->mgmt_locked_running_ds)
+		vty_out(vty, "Warning: running datastore is not locked.\n");
+
 	if (vty_mgmt_send_commit_config(vty, validate_only, abort, false) != 0)
 		return CMD_WARNING_CONFIG_FAILED;
 	return CMD_SUCCESS;
@@ -159,11 +162,13 @@ DEFPY(mgmt_create_config_data, mgmt_create_config_data_cmd,
       "XPath expression specifying the YANG data path\n"
       "Value of the data to create\n")
 {
-	strlcpy(vty->cfg_changes[0].xpath, path,
-		sizeof(vty->cfg_changes[0].xpath));
+	strlcpy(vty->cfg_changes[0].xpath, path, sizeof(vty->cfg_changes[0].xpath));
 	vty->cfg_changes[0].value = value;
 	vty->cfg_changes[0].operation = NB_OP_CREATE_EXCL;
 	vty->num_cfg_changes = 1;
+
+	if (!vty->mgmt_locked_candidate_ds)
+		vty_out(vty, "Warning: candidate datastore is not locked.\n");
 
 	return vty_mgmt_send_config_data(vty, NULL, false);
 }
@@ -175,11 +180,13 @@ DEFPY(mgmt_set_config_data, mgmt_set_config_data_cmd,
       "XPath expression specifying the YANG data path\n"
       "Value of the data to set\n")
 {
-	strlcpy(vty->cfg_changes[0].xpath, path,
-		sizeof(vty->cfg_changes[0].xpath));
+	strlcpy(vty->cfg_changes[0].xpath, path, sizeof(vty->cfg_changes[0].xpath));
 	vty->cfg_changes[0].value = value;
 	vty->cfg_changes[0].operation = NB_OP_MODIFY;
 	vty->num_cfg_changes = 1;
+
+	if (!vty->mgmt_locked_candidate_ds)
+		vty_out(vty, "Warning: candidate datastore is not locked.\n");
 
 	return vty_mgmt_send_config_data(vty, NULL, false);
 }
@@ -190,12 +197,13 @@ DEFPY(mgmt_delete_config_data, mgmt_delete_config_data_cmd,
       "Delete configuration data\n"
       "XPath expression specifying the YANG data path\n")
 {
-
-	strlcpy(vty->cfg_changes[0].xpath, path,
-		sizeof(vty->cfg_changes[0].xpath));
+	strlcpy(vty->cfg_changes[0].xpath, path, sizeof(vty->cfg_changes[0].xpath));
 	vty->cfg_changes[0].value = NULL;
 	vty->cfg_changes[0].operation = NB_OP_DELETE;
 	vty->num_cfg_changes = 1;
+
+	if (!vty->mgmt_locked_candidate_ds)
+		vty_out(vty, "Warning: candidate datastore is not locked.\n");
 
 	return vty_mgmt_send_config_data(vty, NULL, false);
 }
@@ -206,12 +214,13 @@ DEFPY(mgmt_remove_config_data, mgmt_remove_config_data_cmd,
       "Remove configuration data\n"
       "XPath expression specifying the YANG data path\n")
 {
-
-	strlcpy(vty->cfg_changes[0].xpath, path,
-		sizeof(vty->cfg_changes[0].xpath));
+	strlcpy(vty->cfg_changes[0].xpath, path, sizeof(vty->cfg_changes[0].xpath));
 	vty->cfg_changes[0].value = NULL;
 	vty->cfg_changes[0].operation = NB_OP_DESTROY;
 	vty->num_cfg_changes = 1;
+
+	if (!vty->mgmt_locked_candidate_ds)
+		vty_out(vty, "Warning: candidate datastore is not locked.\n");
 
 	return vty_mgmt_send_config_data(vty, NULL, false);
 }
@@ -229,6 +238,9 @@ DEFPY(mgmt_replace_config_data, mgmt_replace_config_data_cmd,
 	vty->cfg_changes[0].value = value;
 	vty->cfg_changes[0].operation = NB_OP_REPLACE;
 	vty->num_cfg_changes = 1;
+
+	if (!vty->mgmt_locked_candidate_ds)
+		vty_out(vty, "Warning: candidate datastore is not locked.\n");
 
 	return vty_mgmt_send_config_data(vty, NULL, false);
 }
@@ -562,18 +574,6 @@ DEFPY(debug_mgmt, debug_mgmt_cmd,
 	return CMD_SUCCESS;
 }
 
-static void mgmt_config_read_in(struct event *event)
-{
-	if (vty_mgmt_fe_enabled())
-		mgmt_vty_read_configs();
-	else {
-		zlog_warn("%s: no connection to front-end server, retry in 1s",
-			  __func__);
-		event_add_timer(mm->master, mgmt_config_read_in, NULL, 1,
-				&mgmt_daemon_info->read_in);
-	}
-}
-
 static int mgmtd_config_write(struct vty *vty)
 {
 	struct lyd_node *root;
@@ -618,10 +618,6 @@ void mgmt_vty_init(void)
 #ifdef HAVE_STATICD
 	static_vty_init();
 #endif
-
-	event_add_event(mm->master, mgmt_config_read_in, NULL, 0,
-			&mgmt_daemon_info->read_in);
-
 	install_node(&mgmtd_node);
 
 	install_element(VIEW_NODE, &show_mgmt_be_adapter_cmd);

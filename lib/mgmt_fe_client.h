@@ -232,10 +232,10 @@ extern int mgmt_fe_send_lockds_req(struct mgmt_fe_client *client, uint64_t sessi
  * Returns:
  *    0 on success, otherwise msg_conn_send_msg() return values.
  */
-extern int mgmt_fe_send_commitcfg_req(struct mgmt_fe_client *client, uint64_t session_id,
-				      uint64_t req_id, enum mgmt_ds_id src_ds_id,
-				      enum mgmt_ds_id dst_ds_id, bool validate_only, bool abort,
-				      bool unlock);
+extern int mgmt_fe_send_commit_req(struct mgmt_fe_client *client, uint64_t session_id,
+				   uint64_t req_id, enum mgmt_ds_id src_ds_id,
+				   enum mgmt_ds_id dst_ds_id, bool validate_only, bool abort,
+				   bool unlock);
 
 /*
  * Send GET-DATA to MGMTD daemon.
