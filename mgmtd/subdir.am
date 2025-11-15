@@ -35,6 +35,7 @@ mgmtd_libmgmtd_a_SOURCES = \
 	mgmtd/mgmt_memory.c \
 	mgmtd/mgmt_txn.c \
 	mgmtd/mgmt_vty.c \
+	mgmtd/mgmt_vty_frontend.c \
 	# end
 
 noinst_HEADERS += \
