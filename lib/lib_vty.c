@@ -252,21 +252,13 @@ DEFUN_NOSH(end_config, end_config_cmd, "XFRR_end_configuration",
 	frrtime_to_interval(readin_time, readin_time_str,
 			    sizeof(readin_time_str));
 
+	/* This is also getting cleared in the config node exit */
 	vty->pending_allowed = 0;
 	ret = nb_cli_pending_commit_check(vty);
 
 	zlog_info("Configuration Read in Took: %s", readin_time_str);
 	zlog_debug("%s: VTY:%p, pending SET-CFG: %u", __func__, vty,
 		   (uint32_t)vty->mgmt_num_pending_setcfg);
-
-	/*
-	 * If (and only if) we have sent any CLI config commands to MGMTd
-	 * FE interface using vty_mgmt_send_config_data() without implicit
-	 * commit before, should we need to send an explicit COMMIT-REQ now
-	 * to apply all those commands at once.
-	 */
-	if (vty->mgmt_num_pending_setcfg && vty_mgmt_fe_enabled())
-		vty_mgmt_send_commit_config(vty, false, false, false);
 
 	if (callback.end_config)
 		(*callback.end_config)(vty);

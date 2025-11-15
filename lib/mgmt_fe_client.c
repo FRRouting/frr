@@ -266,9 +266,9 @@ int mgmt_fe_send_lockds_req(struct mgmt_fe_client *client, uint64_t session_id, 
 	return ret;
 }
 
-int mgmt_fe_send_commitcfg_req(struct mgmt_fe_client *client, uint64_t session_id, uint64_t req_id,
-			       enum mgmt_ds_id src_ds_id, enum mgmt_ds_id dest_ds_id,
-			       bool validate_only, bool abort, bool unlock)
+int mgmt_fe_send_commit_req(struct mgmt_fe_client *client, uint64_t session_id, uint64_t req_id,
+			    enum mgmt_ds_id src_ds_id, enum mgmt_ds_id dest_ds_id,
+			    bool validate_only, bool abort, bool unlock)
 {
 	struct mgmt_msg_commit *msg;
 	int ret;
@@ -699,7 +699,7 @@ static void mgmt_fe_client_process_msg(uint8_t version, uint8_t *data,
 		return;
 	}
 
-	log_err_fe_client("Protobuf no longer used in backend API");
+	log_err_fe_client("Protobuf no longer used in frontend API");
 	msg_conn_disconnect(&client->client.conn, true);
 }
 

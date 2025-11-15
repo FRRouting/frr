@@ -415,30 +415,6 @@ extern void vty_stdio_suspend(void);
 extern void vty_stdio_resume(void);
 extern void vty_stdio_close(void);
 
-extern void vty_init_mgmt_fe(void);
-extern bool vty_mgmt_fe_enabled(void);
-extern bool vty_mgmt_should_process_cli_apply_changes(struct vty *vty);
-
-extern bool mgmt_vty_read_configs(void);
-extern int vty_mgmt_send_config_data(struct vty *vty, const char *xpath_base,
-				     bool implicit_commit);
-extern int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only, bool abort, bool unlock);
-extern int vty_mgmt_send_get_data_req(struct vty *vty, uint8_t datastore,
-				      LYD_FORMAT result_type, uint8_t flags,
-				      uint8_t defaults, const char *xpath);
-extern int vty_mgmt_send_edit_req(struct vty *vty, uint8_t datastore,
-				  LYD_FORMAT request_type, uint8_t flags,
-				  uint8_t operation, const char *xpath,
-				  const char *data);
-extern int vty_mgmt_send_rpc_req(struct vty *vty, LYD_FORMAT request_type,
-				 const char *xpath, const char *data);
-extern int vty_mgmt_send_lockds_req(struct vty *vty, enum mgmt_ds_id ds_id, bool lock, bool scok);
-extern void vty_mgmt_resume_response(struct vty *vty, int ret);
-
-static inline bool vty_needs_implicit_commit(const struct vty *vty)
-{
-	return frr_get_cli_mode() == FRR_CLI_CLASSIC && !vty->pending_allowed;
-}
 
 /* Applications can check vty status */
 static inline bool vty_is_closed(const struct vty *vty)
@@ -446,6 +422,23 @@ static inline bool vty_is_closed(const struct vty *vty)
 	return (vty == NULL || vty->status == VTY_CLOSE || vty->fd < 0 ||
 		vty->wfd < 0);
 }
+
+/*
+ * Semi-private APIs for use in mgmtd-vty code
+ */
+extern void vty_resume_response(struct vty *vty, int ret);
+
+/* --------------------------------------------------- */
+/* Callbacks for Mgmtd front-end CLI vty modifications */
+/* --------------------------------------------------- */
+extern void (*vty_new_mgmt_cb)(struct vty *vty);
+extern void (*vty_close_mgmt_cb)(struct vty *vty);
+extern int (*vty_config_enter_mgmt_cb)(struct vty *vty, bool private_config, bool exclusive,
+				       bool file_lock);
+extern void (*vty_config_node_exit_mgmt_cb)(struct vty *vty);
+extern int (*nb_cli_apply_changes_mgmt_cb)(struct vty *vty, const char *xpath_base_abs);
+extern int (*nb_cli_rpc_mgmt_cb)(struct vty *vty, const char *xpath, const struct lyd_node *input);
+
 
 #ifdef __cplusplus
 }
