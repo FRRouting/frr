@@ -1,7 +1,7 @@
 {
-  "81.1.1.0/24": [
+  "198.51.100.0/24": [
     {
-      "prefix": "81.1.1.0/24",
+      "prefix": "198.51.100.0/24",
       "prefixLen": 24,
       "protocol": "bgp",
       "vrfName": "vrf1",
@@ -19,7 +19,7 @@
         {
           "flags": 267,
           "fib": true,
-          "ip": "6.0.0.1",
+          "ip": "10.0.0.1",
           "afi": "ipv4",
           "interfaceName": "vlan4001",
           "active": true,
@@ -29,7 +29,7 @@
         {
           "flags": 281,
           "duplicate": true,
-          "ip": "6.0.0.1",
+          "ip": "10.0.0.1",
           "afi": "ipv4",
           "interfaceName": "vlan4001",
           "active": true,
@@ -38,7 +38,7 @@
         },
         {
           "flags": 265,
-          "ip": "6.0.0.2",
+          "ip": "10.0.0.2",
           "afi": "ipv4",
           "interfaceName": "vlan4001",
           "active": true,
@@ -48,7 +48,7 @@
         {
           "flags": 281,
           "duplicate": true,
-          "ip": "6.0.0.2",
+          "ip": "10.0.0.2",
           "afi": "ipv4",
           "interfaceName": "vlan4001",
           "active": true,

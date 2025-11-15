@@ -9,7 +9,8 @@ This test validates BGP EVPN functionality using:
   - Uses VLAN-to-VNI tunnel mapping for both L2VNIs and L3VNIs
 - **4 VTEPs:** bordertor-11, bordertor-12, tor-21, tor-22
 - **Parametrized Testing:** Tests run with both IPv4 and IPv6 underlay configurations
-- VTEP addresses use IPv6 (2006:20:20::x) for IPv6 underlay or IPv4 (6.0.0.x) for IPv4 underlay
+- VTEP addresses use IPv6 (fd00:0:20::x) for IPv6 underlay or IPv4 (10.0.0.x) for IPv4 underlay
+- **RFC-Compliant Addresses:** Uses RFC 5737, RFC 3849, RFC 1918, and RFC 4193 address ranges for documentation and testing
 - **eBGP numbered sessions** (IPv4 or IPv6) for underlay with **L2VPN EVPN overlay**
 - **RFC 5549 Support:** IPv4 routes with IPv6 next-hops (IPv6 underlay mode)
 - **EVPN Type-5 (IP Prefix) routes** for external connectivity via L3VNI BGP peering
@@ -33,7 +34,7 @@ This test validates BGP EVPN functionality using:
 
                     ┌─────────────┐                ┌─────────────┐
                     │   spine-1   │                │   spine-2   │
-                    │  6.0.0.28   │                │  6.0.0.29   │
+                    │  10.0.0.28   │                │  10.0.0.29   │
                     └──┬──┬──┬──┬─┘                └─┬──┬──┬──┬──┘
                        │  │  │  │                    │  │  │  │
         ┌──────────────┘  │  │  └──────────┐  ┌─────┘  │  │  └─────────┐
@@ -48,7 +49,7 @@ This test validates BGP EVPN functionality using:
     │ leaf-11│    │ leaf-12│            │ leaf-21│    │ leaf-22│
     │ AS     │    │ AS     │            │ AS     │    │ AS     │
     │ 651001 │    │ 651001 │            │ 651004 │    │ 651004 │
-    │6.0.0.24│    │6.0.0.25│            │6.0.0.26│    │6.0.0.27│
+    │10.0.0.24│    │10.0.0.25│            │10.0.0.26│    │10.0.0.27│
     └──┬──┬──┘    └──┬──┬──┘            └──┬──┬──┘    └──┬──┬──┘
        │  │          │  │                   │  │          │  │
 
@@ -61,9 +62,9 @@ This test validates BGP EVPN functionality using:
     │ AS 660000   │ │ AS 660000  │      │ AS      │  │ AS      │
     │★ VTEP IPv6  │ │★ VTEP IPv6 │      │★ VTEP   │  │★ VTEP   │
     │ 2006:20::1  │ │ 2006:20::2 │      │2006:20  │  │2006:20  │
-    │ 6.0.0.1     │ │ 6.0.0.2    │      │::30     │  │::31     │
+    │ 10.0.0.1     │ │ 10.0.0.2    │      │::30     │  │::31     │
     └─┬─┬─┬─┬─────┘ └──┬─┬─┬─┬───┘      │650030   │  │650031   │
-      │ │ │ │          │ │ │ │          │6.0.0.30 │  │6.0.0.31 │
+      │ │ │ │          │ │ │ │          │10.0.0.30 │  │10.0.0.31 │
       │ │ │ │          │ │ │ │          └─────────┘  └─────────┘
 
                         ╔══════════════════════════════════════════════════════╗
@@ -73,15 +74,15 @@ This test validates BGP EVPN functionality using:
     ┌─▼─────────▼──┐
     │    ext-1     │
     │  AS 655000   │
-    │  6.0.0.3     │
-    │  swp1.4001   │◄─── VRF1 BGP Peering (144.1.1.0/30, 2144:1:1:1::/64)
-    │  swp1.4002   │◄─── VRF2 BGP Peering (144.1.1.4/30, 2144:1:1:2::/64)
-    │  swp2.4001   │◄─── VRF1 BGP Peering (144.2.1.0/30, 2144:2:1:1::/64)
-    │  swp2.4002   │◄─── VRF2 BGP Peering (144.2.1.4/30, 2144:2:1:2::/64)
+    │  10.0.0.3     │
+    │  swp1.4001   │◄─── VRF1 BGP Peering (192.0.2.0/30, 2001:db8:144:1::/64)
+    │  swp1.4002   │◄─── VRF2 BGP Peering (192.0.2.4/30, 2001:db8:144:2::/64)
+    │  swp2.4001   │◄─── VRF1 BGP Peering (192.0.2.0/30, 2001:db8:144:11::/64)
+    │  swp2.4002   │◄─── VRF2 BGP Peering (192.0.2.4/30, 2001:db8:144:12::/64)
     └──────────────┘
 
     VRF2/VLAN111                VRF2/VLAN111
-    60.1.1.0/24                 60.1.1.0/24
+    192.168.11.0/24                 192.168.11.0/24
     ┌──▼───┐    ┌───▼──┐        ┌───▼──┐    ┌───▼──┐
     │host  │    │host  │        │host  │    │host  │
     │ 111  │    │ 121  │        │ 211  │    │ 221  │
@@ -116,10 +117,10 @@ This test validates BGP EVPN functionality using:
 
 ### VTEP Configuration
 All 4 ToRs act as EVPN VTEPs:
-- **bordertor-11:** VTEP 2006:20:20::1 (loopback IPv6)
-- **bordertor-12:** VTEP 2006:20:20::2 (loopback IPv6)
-- **tor-21:** VTEP 2006:20:20::30 (loopback IPv6)
-- **tor-22:** VTEP 2006:20:20::31 (loopback IPv6)
+- **bordertor-11:** VTEP fd00:0:20::1 (loopback IPv6)
+- **bordertor-12:** VTEP fd00:0:20::2 (loopback IPv6)
+- **tor-21:** VTEP fd00:0:20::30 (loopback IPv6)
+- **tor-22:** VTEP fd00:0:20::31 (loopback IPv6)
 
 **TRUE SVD Parameters:**
 - **Single VXLAN device:** `vxlan48` for **ALL VNIs** (L2 + L3)
@@ -155,12 +156,12 @@ vrf vrf2
 - **VNI 1000111** → VLAN 111 (vrf2)
   - Hosts: host-111 (connected to bordertor-11), host-121 (connected to bordertor-12)
   - Hosts: host-211 (connected to tor-21), host-221 (connected to tor-22)
-  - Subnet: 60.1.1.0/24, 2060:1:1:1::/64
+  - Subnet: 192.168.11.0/24, fd00:60:1:1::/64
   - SVIs: .11 (bordertor-11), .12 (bordertor-12), .21 (tor-21), .22 (tor-22)
 
 - **VNI 1000112** → VLAN 112 (vrf1)
   - Hosts: host-211 swp2 (connected to tor-21), host-221 swp2 (connected to tor-22)
-  - Subnet: 50.1.1.0/24, 2050:1:1:1::/64
+  - Subnet: 192.168.12.0/24, fd00:50:1:1::/64
   - SVIs: .11 (bordertor-11), .12 (bordertor-12), .21 (tor-21), .22 (tor-22)
 
 #### L3VNIs (on all 4 VTEPs)
@@ -183,25 +184,25 @@ vrf vrf2
 BorderToR L3VNI BGP Peering to ext-1:
 
 bordertor-11 (AS 660000)                     ext-1 (AS 655000)
-├─ VRF vrf1 ── swp3.4001 ── 144.1.1.2/30 ←→ 144.1.1.1/30 ── swp1.4001
-│              2144:1:1:1::2/64          ←→ 2144:1:1:1::1/64
-│              BGP neighbor 144.1.1.1 remote-as external
+├─ VRF vrf1 ── swp3.4001 ── 192.0.2.2/30 ←→ 192.0.2.1/30 ── swp1.4001
+│              2001:db8:144:1::2/64          ←→ 2001:db8:144:1::1/64
+│              BGP neighbor 192.0.2.1 remote-as external
 │              ↕ Exchanges EVPN Type-5 routes
 │
-└─ VRF vrf2 ── swp3.4002 ── 144.1.1.6/30 ←→ 144.1.1.5/30 ── swp1.4002
-               2144:1:1:2::6/64          ←→ 2144:1:1:2::5/64
-               BGP neighbor 144.1.1.5 remote-as external
+└─ VRF vrf2 ── swp3.4002 ── 192.0.2.6/30 ←→ 192.0.2.5/30 ── swp1.4002
+               2001:db8:144:2::6/64          ←→ 2001:db8:144:2::5/64
+               BGP neighbor 192.0.2.5 remote-as external
                ↕ Exchanges EVPN Type-5 routes
 
 bordertor-12 (AS 660000)                     ext-1 (AS 655000)
-├─ VRF vrf1 ── swp3.4001 ── 144.2.1.2/30 ←→ 144.2.1.1/30 ── swp2.4001
-│              2144:2:1:1::2/64          ←→ 2144:2:1:1::1/64
-│              BGP neighbor 144.2.1.1 remote-as external
+├─ VRF vrf1 ── swp3.4001 ── 192.0.2.2/30 ←→ 192.0.2.1/30 ── swp2.4001
+│              2001:db8:144:11::2/64          ←→ 2001:db8:144:11::1/64
+│              BGP neighbor 192.0.2.1 remote-as external
 │              ↕ Exchanges EVPN Type-5 routes
 │
-└─ VRF vrf2 ── swp3.4002 ── 144.2.1.6/30 ←→ 144.2.1.5/30 ── swp2.4002
-               2144:2:1:2::6/64          ←→ 2144:2:1:2::5/64
-               BGP neighbor 144.2.1.5 remote-as external
+└─ VRF vrf2 ── swp3.4002 ── 192.0.2.6/30 ←→ 192.0.2.5/30 ── swp2.4002
+               2001:db8:144:12::6/64          ←→ 2001:db8:144:12::5/64
+               BGP neighbor 192.0.2.5 remote-as external
                ↕ Exchanges EVPN Type-5 routes
 ```
 
@@ -211,7 +212,7 @@ bordertor-12 (AS 660000)                     ext-1 (AS 655000)
 - **EVPN Type-5 routes** - IP prefix advertisements between fabric and external
 - **Dual-stack support** - Both IPv4 and IPv6 peering
 - **RFC 5549 support** - IPv4 routes with IPv6 next-hops (IPv6 underlay mode)
-- **External route filtering** - ext-1 advertises specific prefixes (81.1.0.0/16, 2081:1:1::/48)
+- **External route filtering** - ext-1 advertises prefixes (198.51.100-103.0/24, 2001:db8:81::/48)
 
 ### BGP Configuration
 
@@ -268,20 +269,20 @@ ext-1 (External AS)
 - EVPN Type-5 (IP Prefix) routes exchange between VRFs and external router via BGP
 
 ### IPv6 Underlay Addressing
-All underlay links use IPv6 /126 subnets from 2010:2254::/32
+All underlay links use IPv6 /126 subnets from fd00:10:254::/32
 
 ### Loopback Assignments
-- bordertor-11: 6.0.0.1/32, 2006:20:20::1/128 (VTEP)
-- bordertor-12: 6.0.0.2/32, 2006:20:20::2/128 (VTEP)
-- leaf-11: 6.0.0.24/32, 2006:20:20::24/128
-- leaf-12: 6.0.0.25/32, 2006:20:20::25/128
-- leaf-21: 6.0.0.26/32, 2006:20:20::26/128
-- leaf-22: 6.0.0.27/32, 2006:20:20::27/128
-- spine-1: 6.0.0.28/32, 2006:20:20::28/128
-- spine-2: 6.0.0.29/32, 2006:20:20::29/128
-- tor-21: 6.0.0.30/32, 2006:20:20::30/128 (VTEP)
-- tor-22: 6.0.0.31/32, 2006:20:20::31/128 (VTEP)
-- ext-1: 6.0.0.3/32, 2006:0:0::3/128
+- bordertor-11: 10.0.0.1/32, fd00:0:20::1/128 (VTEP)
+- bordertor-12: 10.0.0.2/32, fd00:0:20::2/128 (VTEP)
+- leaf-11: 10.0.0.24/32, fd00:0:20::24/128
+- leaf-12: 10.0.0.25/32, fd00:0:20::25/128
+- leaf-21: 10.0.0.26/32, fd00:0:20::26/128
+- leaf-22: 10.0.0.27/32, fd00:0:20::27/128
+- spine-1: 10.0.0.28/32, fd00:0:20::28/128
+- spine-2: 10.0.0.29/32, fd00:0:20::29/128
+- tor-21: 10.0.0.30/32, fd00:0:20::30/128 (VTEP)
+- tor-22: 10.0.0.31/32, fd00:0:20::31/128 (VTEP)
+- ext-1: 10.0.0.3/32, fd00:0:20::3/128
 
 ## Test Cases
 
@@ -310,7 +311,7 @@ All underlay links use IPv6 /126 subnets from 2010:2254::/32
 9. **test_evpn_check_overlay_route()** - Verify EVPN Type-5 overlay routes in FRR RIB and Linux kernel
    - Uses `evpn_verify_vrf_rib_route()` for FRR RIB validation
    - Uses `evpn_verify_overlay_route_in_kernel()` for kernel validation
-   - Validates route 81.1.1.0/24 in vrf1 on tor-21
+   - Validates route 198.51.100.0/24 in vrf1 on tor-21
    - Checks ECMP next-hops, nexthop groups, and 'onlink' flag
    - Tests RFC 5549: IPv4 routes with IPv6 next-hops (IPv6 underlay)
 10. **test_host_to_host_ping()** - Verify end-to-end connectivity (host-211 → host-111)
@@ -396,7 +397,7 @@ This test utilizes generic, reusable EVPN helper functions located in `tests/top
 ### EVPN/VXLAN Features
 - **TRUE Single VXLAN Device (SVD):** Single vxlan48 device for ALL VNIs (L2+L3)
 - **Dual Underlay Support:** Tests run with both IPv4 and IPv6 underlay (parametrized)
-- **VTEP Addressing:** IPv6 (2006:20:20::x) or IPv4 (6.0.0.x) based on underlay version
+- **VTEP Addressing:** IPv6 (fd00:0:20::x) or IPv4 (10.0.0.x) based on underlay version
 - **Complete EVPN Fabric:** EVPN enabled on all BGP sessions (leafs ↔ spines ↔ leafs ↔ VTEPs)
 - **L2 Connectivity:** EVPN Type-2 MAC/IP routes for intra-VLAN communication
 - **L3 Connectivity:** EVPN Type-5 IP prefix routes for inter-subnet routing via L3VNIs
@@ -425,10 +426,10 @@ This test utilizes generic, reusable EVPN helper functions located in `tests/top
 
 ### Static Routes for Testing
 ToRs (tor-21, tor-22) advertise static blackhole routes to test EVPN Type-5:
-- **tor-21 VRF1:** 72.21.1.0/24, 2001:21:1:1::/64
-- **tor-21 VRF2:** 73.21.1.0/24, 2003:21:1:1::/64
-- **tor-22 VRF1:** 72.22.1.0/24, 2001:22:1:1::/64
-- **tor-22 VRF2:** 73.22.1.0/24, 2003:22:1:1::/64
+- **tor-21 VRF1:** 203.0.113.21/24, 2001:db8:72:21::/64
+- **tor-21 VRF2:** 203.0.113.121/24, 2001:db8:73:21::/64
+- **tor-22 VRF1:** 203.0.113.22/24, 2001:db8:72:22::/64
+- **tor-22 VRF2:** 203.0.113.122/24, 2001:db8:73:22::/64
 
 Routes redistributed via `redistribute static` under BGP VRF address families.
 
@@ -456,14 +457,14 @@ bgp_evpn_three_tier_clos_topo1/
 
 **Key Differences:**
 - **Underlay**: IPv4 vs IPv6 point-to-point links and BGP sessions
-- **VTEP IPs**: IPv6 (2006:20:20::1) vs IPv4 (6.0.0.1) for VXLAN tunnel endpoints
+- **VTEP IPs**: IPv6 (fd00:0:20::1) vs IPv4 (10.0.0.1) for VXLAN tunnel endpoints
 - **BGP Extended Nexthop**: RFC 5549 enabled for IPv6 underlay
-- **Overlay**: Remains IPv4 (60.1.1.x, 50.1.1.x) for both underlay versions
-- **VRF Peering**: Dual-stack (144.1.1.x / 2144:x:x:x::x) for both underlay versions
+- **Overlay**: Remains IPv4 (192.168.11.x, 192.168.12.x) for both underlay versions
+- **VRF Peering**: Dual-stack (IPv4: 192.0.2.x, IPv6: 2001:db8:144:x::) for both underlay versions
 
 **Test Data Files:**
-- `ipv4/tor-21/type5_prefix1.json` - Expected FRR RIB output for route 81.1.1.0/24 with IPv4 next-hops
-- `ipv6/tor-21/type5_prefix1.json` - Expected FRR RIB output for route 81.1.1.0/24 with IPv6 next-hops
+- `ipv4/tor-21/type5_prefix1.json` - Expected FRR RIB output for route 198.51.100.0/24 with IPv4 next-hops
+- `ipv6/tor-21/type5_prefix1.json` - Expected FRR RIB output for route 198.51.100.0/24 with IPv6 next-hops
 
 ### Run Both IPv4 and IPv6 Tests
 
@@ -517,10 +518,10 @@ sudo pytest test_bgp_evpn_v4_v6_vtep.py -v -s -k ipv6
 
 | Node         | IPv6 VTEP        | IPv4 VTEP |
 |--------------|------------------|-----------|
-| bordertor-11 | 2006:20:20::1    | 6.0.0.1   |
-| bordertor-12 | 2006:20:20::2    | 6.0.0.2   |
-| tor-21       | 2006:20:20::30   | 6.0.0.30  |
-| tor-22       | 2006:20:20::31   | 6.0.0.31  |
+| bordertor-11 | fd00:0:20::1   | 10.0.0.1   |
+| bordertor-12 | fd00:0:20::2   | 10.0.0.2   |
+| tor-21       | fd00:0:20::30  | 10.0.0.30  |
+| tor-22       | fd00:0:20::31  | 10.0.0.31  |
 
 ## Debugging with pdb
 
@@ -567,13 +568,13 @@ bridge vlan add dev vxlan48 vid 4002 tunnel_info id 104002  # L3VNI
 # VLAN sub-interfaces for L3VNI BGP peering
 ip link add link swp3 name swp3.4001 type vlan id 4001
 ip link set dev swp3.4001 master vrf1
-ip addr add 144.1.1.2/30 dev swp3.4001
-ip addr add 2144:1:1:1::2/64 dev swp3.4001
+ip addr add 192.0.2.2/30 dev swp3.4001
+ip addr add 2001:db8:144:1::2/64 dev swp3.4001
 
 ip link add link swp3 name swp3.4002 type vlan id 4002
 ip link set dev swp3.4002 master vrf2
-ip addr add 144.1.1.6/30 dev swp3.4002
-ip addr add 2144:1:1:2::6/64 dev swp3.4002
+ip addr add 192.0.2.6/30 dev swp3.4002
+ip addr add 2001:db8:144:2::6/64 dev swp3.4002
 ```
 
 ### BGP EVPN Configuration (per VTEP)
@@ -615,9 +616,9 @@ vrf vrf2
  vni 104002
 !
 router bgp <ASN> vrf vrf1
- neighbor 144.1.1.1 remote-as external
- neighbor 144.1.1.1 capability extended-nexthop
- neighbor 2144:1:1:1::1 remote-as external
+ neighbor 192.0.2.1 remote-as external
+ neighbor 192.0.2.1 capability extended-nexthop
+ neighbor 2001:db8:144:1::1 remote-as external
  !
  address-family ipv4 unicast
   redistribute static
@@ -625,7 +626,7 @@ router bgp <ASN> vrf vrf1
  exit-address-family
  !
  address-family ipv6 unicast
-  neighbor 2144:1:1:1::1 activate
+  neighbor 2001:db8:144:1::1 activate
   redistribute static
   redistribute connected route-map HOST_ALLOW_1_v6
  exit-address-family
