@@ -87,16 +87,16 @@ pytestmark = [pytest.mark.evpn]
 # VTEP source IP addresses by underlay version
 VTEP_IPS = {
     "ipv6": {
-        "bordertor-11": "2006:20:20::1",
-        "bordertor-12": "2006:20:20::2",
-        "tor-21": "2006:20:20::30",
-        "tor-22": "2006:20:20::31",
+        "bordertor-11": "fd00:0:20::1",
+        "bordertor-12": "fd00:0:20::2",
+        "tor-21": "fd00:0:20::30",
+        "tor-22": "fd00:0:20::31",
     },
     "ipv4": {
-        "bordertor-11": "6.0.0.1",
-        "bordertor-12": "6.0.0.2",
-        "tor-21": "6.0.0.30",
-        "tor-22": "6.0.0.31",
+        "bordertor-11": "10.0.0.1",
+        "bordertor-12": "10.0.0.2",
+        "tor-21": "10.0.0.30",
+        "tor-22": "10.0.0.31",
     },
 }
 
@@ -165,15 +165,15 @@ def tgen_and_ip_version(request):
 
     # Define VLAN interfaces and their host-gateway mappings
     vlan_host_gateways = {
-        "swp1": {  # VLAN 111 (VRF2) - 60.1.1.0/24
-            "host-111": "60.1.1.11",
-            "host-121": "60.1.1.12",
-            "host-211": "60.1.1.21",
-            "host-221": "60.1.1.22",
+        "swp1": {  # VLAN 111 (VRF2) - 192.168.11.0/24
+            "host-111": "192.168.11.11",
+            "host-121": "192.168.11.12",
+            "host-211": "192.168.11.21",
+            "host-221": "192.168.11.22",
         },
-        "swp2": {  # VLAN 112 (VRF1) - 50.1.1.0/24
-            "host-211": "50.1.1.21",
-            "host-221": "50.1.1.22",
+        "swp2": {  # VLAN 112 (VRF1) - 192.168.12.0/24
+            "host-211": "192.168.12.21",
+            "host-221": "192.168.12.22",
         },
     }
 
@@ -467,17 +467,17 @@ def setup_vtep(tgen, rname, local_ip, is_bordertor=True):
 
     # Configure SVI IPs based on router
     if rname == "bordertor-11":
-        router.run("ip addr add 60.1.1.11/24 dev vlan111")
-        router.run("ip addr add 2060:1:1:1::11/64 dev vlan111")
+        router.run("ip addr add 192.168.11.11/24 dev vlan111")
+        router.run("ip addr add fd00:60:1:1::11/64 dev vlan111")
     elif rname == "bordertor-12":
-        router.run("ip addr add 60.1.1.12/24 dev vlan111")
-        router.run("ip addr add 2060:1:1:1::12/64 dev vlan111")
+        router.run("ip addr add 192.168.11.12/24 dev vlan111")
+        router.run("ip addr add fd00:60:1:1::12/64 dev vlan111")
     elif rname == "tor-21":
-        router.run("ip addr add 60.1.1.21/24 dev vlan111")
-        router.run("ip addr add 2060:1:1:1::21/64 dev vlan111")
+        router.run("ip addr add 192.168.11.21/24 dev vlan111")
+        router.run("ip addr add fd00:60:1:1::21/64 dev vlan111")
     elif rname == "tor-22":
-        router.run("ip addr add 60.1.1.22/24 dev vlan111")
-        router.run("ip addr add 2060:1:1:1::22/64 dev vlan111")
+        router.run("ip addr add 192.168.11.22/24 dev vlan111")
+        router.run("ip addr add fd00:60:1:1::22/64 dev vlan111")
 
     router.run("ip link set dev vlan111 up")
     router.run("/sbin/sysctl net.ipv4.conf.vlan111.arp_accept=1")
@@ -489,17 +489,17 @@ def setup_vtep(tgen, rname, local_ip, is_bordertor=True):
     router.run("ip link set dev vlan112 master vrf1")
 
     if rname == "bordertor-11":
-        router.run("ip addr add 50.1.1.11/24 dev vlan112")
-        router.run("ip addr add 2050:1:1:1::11/64 dev vlan112")
+        router.run("ip addr add 192.168.12.11/24 dev vlan112")
+        router.run("ip addr add fd00:50:1:1::11/64 dev vlan112")
     elif rname == "bordertor-12":
-        router.run("ip addr add 50.1.1.12/24 dev vlan112")
-        router.run("ip addr add 2050:1:1:1::12/64 dev vlan112")
+        router.run("ip addr add 192.168.12.12/24 dev vlan112")
+        router.run("ip addr add fd00:50:1:1::12/64 dev vlan112")
     elif rname == "tor-21":
-        router.run("ip addr add 50.1.1.21/24 dev vlan112")
-        router.run("ip addr add 2050:1:1:1::21/64 dev vlan112")
+        router.run("ip addr add 192.168.12.21/24 dev vlan112")
+        router.run("ip addr add fd00:50:1:1::21/64 dev vlan112")
     elif rname == "tor-22":
-        router.run("ip addr add 50.1.1.22/24 dev vlan112")
-        router.run("ip addr add 2050:1:1:1::22/64 dev vlan112")
+        router.run("ip addr add 192.168.12.22/24 dev vlan112")
+        router.run("ip addr add fd00:50:1:1::22/64 dev vlan112")
 
     router.run("ip link set dev vlan112 up")
     router.run("/sbin/sysctl net.ipv4.conf.vlan112.arp_accept=1")
@@ -564,17 +564,17 @@ def setup_bordertor_ext_connectivity(tgen, ip_version):
     # swp3.4001 for VRF1 L3VNI
     router.run("ip link add link swp3 name swp3.4001 type vlan id 4001")
     router.run("ip link set dev swp3.4001 master vrf1")
-    router.run("ip addr add 144.1.1.2/30 dev swp3.4001")
+    router.run("ip addr add 192.0.2.2/30 dev swp3.4001")
     if ip_version == "ipv6":
-        router.run("ip addr add 2144:1:1:1::2/64 dev swp3.4001")
+        router.run("ip addr add 2001:db8:144:1::2/64 dev swp3.4001")
     router.run("ip link set dev swp3.4001 up")
 
     # swp3.4002 for VRF2 L3VNI
     router.run("ip link add link swp3 name swp3.4002 type vlan id 4002")
     router.run("ip link set dev swp3.4002 master vrf2")
-    router.run("ip addr add 144.1.1.6/30 dev swp3.4002")
+    router.run("ip addr add 192.0.2.6/30 dev swp3.4002")
     if ip_version == "ipv6":
-        router.run("ip addr add 2144:1:1:2::6/64 dev swp3.4002")
+        router.run("ip addr add 2001:db8:144:2::6/64 dev swp3.4002")
     router.run("ip link set dev swp3.4002 up")
 
     # Configure bordertor-12
@@ -585,17 +585,17 @@ def setup_bordertor_ext_connectivity(tgen, ip_version):
     # swp3.4001 for VRF1 L3VNI
     router.run("ip link add link swp3 name swp3.4001 type vlan id 4001")
     router.run("ip link set dev swp3.4001 master vrf1")
-    router.run("ip addr add 144.2.1.2/30 dev swp3.4001")
+    router.run("ip addr add 192.0.2.10/30 dev swp3.4001")
     if ip_version == "ipv6":
-        router.run("ip addr add 2144:2:1:1::2/64 dev swp3.4001")
+        router.run("ip addr add 2001:db8:144:11::2/64 dev swp3.4001")
     router.run("ip link set dev swp3.4001 up")
 
     # swp3.4002 for VRF2 L3VNI
     router.run("ip link add link swp3 name swp3.4002 type vlan id 4002")
     router.run("ip link set dev swp3.4002 master vrf2")
-    router.run("ip addr add 144.2.1.6/30 dev swp3.4002")
+    router.run("ip addr add 192.0.2.14/30 dev swp3.4002")
     if ip_version == "ipv6":
-        router.run("ip addr add 2144:2:1:2::6/64 dev swp3.4002")
+        router.run("ip addr add 2001:db8:144:12::6/64 dev swp3.4002")
     router.run("ip link set dev swp3.4002 up")
 
 
@@ -614,52 +614,60 @@ def setup_ext1(tgen, ip_version):
     # Configure swp1 - Connected to bordertor-11
     router.run("ip link set dev swp1 up")
     if ip_version == "ipv6":
-        router.run("ip addr add 2010:2254::2:0:2/126 dev swp1")
+        router.run("ip addr add fd00:10:254::2:0:2/126 dev swp1")
     else:  # ipv4
         router.run("ip addr add 10.254.0.10/30 dev swp1")
 
     # Configure swp2 - Connected to bordertor-12
     router.run("ip link set dev swp2 up")
     if ip_version == "ipv6":
-        router.run("ip addr add 2010:2254::9:0:2/126 dev swp2")
+        router.run("ip addr add fd00:10:254::9:0:2/126 dev swp2")
     else:  # ipv4
         router.run("ip addr add 10.254.0.38/30 dev swp2")
 
     # Configure VLAN sub-interfaces on swp1 for bordertor-11
     # swp1.4001 for VRF1 L3VNI connectivity - always configure both IPv4 and IPv6
     router.run("ip link add link swp1 name swp1.4001 type vlan id 4001")
-    router.run("ip addr add 144.1.1.1/30 dev swp1.4001")
-    router.run("ip addr add 2144:1:1:1::1/64 dev swp1.4001")
+    router.run("ip addr add 192.0.2.1/30 dev swp1.4001")
+    router.run("ip addr add 2001:db8:144:1::1/64 dev swp1.4001")
     router.run("ip link set dev swp1.4001 up")
 
     # swp1.4002 for VRF2 L3VNI connectivity - always configure both IPv4 and IPv6
     router.run("ip link add link swp1 name swp1.4002 type vlan id 4002")
-    router.run("ip addr add 144.1.1.5/30 dev swp1.4002")
-    router.run("ip addr add 2144:1:1:2::5/64 dev swp1.4002")
+    router.run("ip addr add 192.0.2.5/30 dev swp1.4002")
+    router.run("ip addr add 2001:db8:144:2::5/64 dev swp1.4002")
     router.run("ip link set dev swp1.4002 up")
 
     # Configure VLAN sub-interfaces on swp2 for bordertor-12
     # swp2.4001 for VRF1 L3VNI connectivity - always configure both IPv4 and IPv6
     router.run("ip link add link swp2 name swp2.4001 type vlan id 4001")
-    router.run("ip addr add 144.2.1.1/30 dev swp2.4001")
-    router.run("ip addr add 2144:2:1:1::1/64 dev swp2.4001")
+    router.run("ip addr add 192.0.2.9/30 dev swp2.4001")
+    router.run("ip addr add 2001:db8:144:11::1/64 dev swp2.4001")
     router.run("ip link set dev swp2.4001 up")
 
     # swp2.4002 for VRF2 L3VNI connectivity - always configure both IPv4 and IPv6
     router.run("ip link add link swp2 name swp2.4002 type vlan id 4002")
-    router.run("ip addr add 144.2.1.5/30 dev swp2.4002")
-    router.run("ip addr add 2144:2:1:2::5/64 dev swp2.4002")
+    router.run("ip addr add 192.0.2.13/30 dev swp2.4002")
+    router.run("ip addr add 2001:db8:144:12::5/64 dev swp2.4002")
     router.run("ip link set dev swp2.4002 up")
 
     # Configure swp3-6 for connection to host-1 (4 links)
-    for i, net in enumerate([1, 2, 3, 4], start=3):
+    # Using separate /24 networks from 198.51.100-103.0/24 TEST-NET-2 space
+    # This matches the original design where each link has its own /24 network
+    link_networks = [
+        (100, 1),
+        (101, 2),
+        (102, 3),
+        (103, 4),
+    ]  # (IPv4 3rd octet, IPv6 net)
+    for i, (ipv4_net, ipv6_net) in enumerate(link_networks, start=3):
         intf = f"swp{i}"
         # Check if interface exists by examining command output
         output = router.run(f"ip link show {intf} 2>&1")
         if "does not exist" not in output and "Cannot find device" not in output:
             router.run(f"ip link set dev {intf} up")
-            router.run(f"ip addr add 81.1.{net}.1/24 dev {intf}")
-            router.run(f"ip addr add 2081:1:1:{net}::1/64 dev {intf}")
+            router.run(f"ip addr add 198.51.{ipv4_net}.1/24 dev {intf}")
+            router.run(f"ip addr add 2001:db8:81:{ipv6_net}::1/64 dev {intf}")
             logger.info(f"Configured {intf} on ext-1 (connected to host-1 swp{i-2})")
         else:
             logger.info(f"Interface {intf} does not exist on ext-1, skipping")
@@ -976,7 +984,7 @@ def test_evpn_check_overlay_route(tgen_and_ip_version):
     2. Linux kernel routing table (ip route show vrf)
 
     Verification includes:
-    - Route 81.1.1.0/24 exists in vrf1
+    - Route 198.51.100.0/24 exists in vrf1
     - Protocol is BGP
     - Route is selected and installed
     - Multiple ECMP next-hops via EVPN L3VNI (vlan4001)
@@ -986,10 +994,10 @@ def test_evpn_check_overlay_route(tgen_and_ip_version):
     Test scenario:
     - Router: tor-21
     - VRF: vrf1
-    - Route: 81.1.1.0/24 (IPv4 overlay route advertised from ext-1)
+    - Route: 198.51.100.0/24 (IPv4 overlay route advertised from ext-1)
     - Expected next-hops:
-      * IPv4 underlay: bordertor-11 (6.0.0.1), bordertor-12 (6.0.0.2)
-      * IPv6 underlay: bordertor-11 (2006:20:20::1), bordertor-12 (2006:20:20::2)
+      * IPv4 underlay: bordertor-11 (10.0.0.1), bordertor-12 (10.0.0.2)
+      * IPv6 underlay: bordertor-11 (fd00:0:0::1), bordertor-12 (fd00:0:0::2)
     - Interface: vlan4001 (L3VNI interface)
 
     Note: This tests RFC 5549 behavior - IPv4 routes with IPv6 next-hops when
@@ -1000,15 +1008,15 @@ def test_evpn_check_overlay_route(tgen_and_ip_version):
         pytest.skip(tgen.errors)
 
     logger.info(
-        f"Verifying EVPN Type-5 overlay route 81.1.1.0/24 in vrf1 on tor-21 "
+        f"Verifying EVPN Type-5 overlay route 198.51.100.0/24 in vrf1 on tor-21 "
         f"({ip_version} underlay)"
     )
 
     router = tgen.gears["tor-21"]
 
     # Load expected JSON from version-specific directory
-    # IPv4 underlay: IPv4 next-hops (6.0.0.1, 6.0.0.2)
-    # IPv6 underlay: IPv6 next-hops (2006:20:20::1, 2006:20:20::2)
+    # IPv4 underlay: IPv4 next-hops (10.0.0.1, 10.0.0.2)
+    # IPv6 underlay: IPv6 next-hops (fd00:0:0::1, fd00:0:0::2)
     config_dir = os.path.join(CWD, ip_version)
     expected_file = os.path.join(config_dir, "tor-21", "type5_prefix1.json")
     with open(expected_file, "r") as f:
@@ -1024,7 +1032,7 @@ def test_evpn_check_overlay_route(tgen_and_ip_version):
         evpn_verify_vrf_rib_route,
         router,
         vrf="vrf1",
-        route="81.1.1.0/24",
+        route="198.51.100.0/24",
         expected_json=expected,
     )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
@@ -1032,26 +1040,26 @@ def test_evpn_check_overlay_route(tgen_and_ip_version):
         result is None
     ), f"EVPN Type-5 overlay route verification (RIB) failed: {result}"
 
-    logger.info(f"FRR RIB verification successful for route 81.1.1.0/24")
+    logger.info(f"FRR RIB verification successful for route 198.51.100.0/24")
 
     # Verify route in Linux kernel with nexthop groups
     # Extract expected nexthops from JSON (the 'ip' field from each nexthop)
     kernel_expected_nexthops = []
-    for nh in expected["81.1.1.0/24"][0]["nexthops"]:
+    for nh in expected["198.51.100.0/24"][0]["nexthops"]:
         if "ip" in nh and "duplicate" not in nh:
             # Only add unique nexthops (skip duplicates)
             if nh["ip"] not in kernel_expected_nexthops:
                 kernel_expected_nexthops.append(nh["ip"])
 
     logger.info(
-        f"Verifying kernel route 81.1.1.0/24 with nexthops: {kernel_expected_nexthops}"
+        f"Verifying kernel route 198.51.100.0/24 with nexthops: {kernel_expected_nexthops}"
     )
 
     test_func = partial(
         evpn_verify_overlay_route_in_kernel,
         router,
         vrf="vrf1",
-        route="81.1.1.0/24",
+        route="198.51.100.0/24",
         expected_nexthops=kernel_expected_nexthops,
         expected_dev="vlan4001",
     )
@@ -1076,11 +1084,11 @@ def test_host_to_host_ping(tgen_and_ip_version):
 
     Test scenario:
     - Source: host-211 (connected to tor-21 on VLAN 111, VRF2)
-      - IPv4: 60.1.1.211/24
-      - IPv6: 2060:1:1:1::211/64
+      - IPv4: 192.168.11.211/24
+      - IPv6: fd00:60:1:1::211/64
     - Destination: host-111 (connected to bordertor-11 on VLAN 111, VRF2)
-      - IPv4: 60.1.1.111/24
-      - IPv6: 2060:1:1:1::111/64
+      - IPv4: 192.168.11.111/24
+      - IPv6: fd00:60:1:1::111/64
 
     This tests VXLAN overlay connectivity (L2VNI 1000111) between:
     - tor-21 VTEP (different pod)
@@ -1099,13 +1107,15 @@ def test_host_to_host_ping(tgen_and_ip_version):
 
     # Test IPv4 connectivity only when running with IPv4 underlay
     if ip_version == "ipv4":
-        logger.info("Testing IPv4: host-211 (60.1.1.211) -> host-111 (60.1.1.111)")
+        logger.info(
+            "Testing IPv4: host-211 (192.168.11.211) -> host-111 (192.168.11.111)"
+        )
         test_func = partial(
             evpn_verify_ping_connectivity,
             tgen=tgen,
             source_host="host-211",
-            dest_ip="60.1.1.111",
-            source_ip="60.1.1.211",
+            dest_ip="192.168.11.111",
+            source_ip="192.168.11.211",
             count=4,
         )
         _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
@@ -1116,14 +1126,14 @@ def test_host_to_host_ping(tgen_and_ip_version):
     # Test IPv6 connectivity only when running with IPv6 underlay
     if ip_version == "ipv6":
         logger.info(
-            "Testing IPv6: host-211 (2060:1:1:1::211) -> host-111 (2060:1:1:1::111)"
+            "Testing IPv6: host-211 (fd00:60:1:1::211) -> host-111 (fd00:60:1:1::111)"
         )
         test_func = partial(
             evpn_verify_ping_connectivity,
             tgen=tgen,
             source_host="host-211",
-            dest_ip="2060:1:1:1::111",
-            source_ip="2060:1:1:1::211",
+            dest_ip="fd00:60:1:1::111",
+            source_ip="fd00:60:1:1::211",
             count=4,
         )
         _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)

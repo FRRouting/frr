@@ -8,6 +8,45 @@
 - **VTEP Type:** Single VXLAN Device (SVD) - IPv6 VTEPs
 - **External Connectivity:** Per-VRF eBGP sessions for EVPN Type-5 routes + external host (host-1)
 - **Test Modes:** Parametrized tests run with both IPv4 and IPv6 underlay configurations
+- **Addresses:** RFC-compliant private and documentation ranges (RFC 5737, RFC 3849, RFC 1918, RFC 4193)
+
+---
+
+## Address Migration - RFC Compliance
+
+This topology uses RFC-compliant address ranges for documentation and testing purposes.
+
+### IPv4 Address Mapping (RFC 1918 + RFC 5737)
+
+| Purpose | Old Address | New Address | RFC |
+|---------|------------|-------------|-----|
+| **Loopbacks/VTEPs** | 6.0.0.x/32 | 10.0.0.x/32 | RFC 1918 |
+| **Underlay Links** | 10.254.0.x/30 | 10.254.0.x/30 | RFC 1918 (unchanged) |
+| **Host VLAN 111** | 60.1.1.0/24 | 192.168.11.0/24 | RFC 1918 |
+| **Host VLAN 112** | 50.1.1.0/24 | 192.168.12.0/24 | RFC 1918 |
+| **External Peering VRF1 (bordertor-11)** | 144.1.1.0/30 | 192.0.2.0/30 | RFC 5737 TEST-NET-1 |
+| **External Peering VRF2 (bordertor-11)** | 144.1.1.4/30 | 192.0.2.4/30 | RFC 5737 TEST-NET-1 |
+| **External Peering VRF1 (bordertor-12)** | 144.2.1.0/30 | 192.0.2.8/30 | RFC 5737 TEST-NET-1 |
+| **External Peering VRF2 (bordertor-12)** | 144.2.1.4/30 | 192.0.2.12/30 | RFC 5737 TEST-NET-1 |
+| **External Networks (ext-1)** | 81.1.1-4.0/24 | 198.51.100-103.0/24 | RFC 5737 TEST-NET-2 |
+| **Static Routes VRF1** | 72.21-22.1.0/24 | 203.0.113.21-22/24 | RFC 5737 TEST-NET-3 |
+| **Static Routes VRF2** | 73.21-22.1.0/24 | 203.0.113.121-122/24 | RFC 5737 TEST-NET-3 |
+
+### IPv6 Address Mapping (RFC 4193 ULA + RFC 3849)
+
+| Purpose | Old Address | New Address | RFC |
+|---------|------------|-------------|-----|
+| **Loopbacks/VTEPs** | 2006:20:20::x/128 | fd00:0:20::x/128 | RFC 4193 ULA |
+| **Underlay Links** | 2010:2254::/32 subnets | fd00:10:254::/48 subnets | RFC 4193 ULA |
+| **Host VLAN 111** | 2060:1:1:1::/64 | fd00:60:1:1::/64 | RFC 4193 ULA |
+| **Host VLAN 112** | 2050:1:1:1::/64 | fd00:50:1:1::/64 | RFC 4193 ULA |
+| **External Peering VRF1 (bordertor-11)** | 2144:1:1:1::/64 | 2001:db8:144:1::/64 | RFC 3849 |
+| **External Peering VRF2 (bordertor-11)** | 2144:1:1:2::/64 | 2001:db8:144:2::/64 | RFC 3849 |
+| **External Peering VRF1 (bordertor-12)** | 2144:2:1:1::/64 | 2001:db8:144:11::/64 | RFC 3849 |
+| **External Peering VRF2 (bordertor-12)** | 2144:2:1:2::/64 | 2001:db8:144:12::/64 | RFC 3849 |
+| **External Networks (ext-1)** | 2081:1:1:1-4::/64 | 2001:db8:81:1-4::/64 | RFC 3849 |
+| **Static Routes VRF1** | 2001:21-22:1:1::/64 | 2001:db8:72:21-22::/64 | RFC 3849 |
+| **Static Routes VRF2** | 2003:21-22:1:1::/64 | 2001:db8:73:21-22::/64 | RFC 3849 |
 
 ---
 
@@ -22,8 +61,8 @@
                     ┌──────────────────────┐              ┌──────────────────────┐
                     │      spine-1         │              │      spine-2         │
                     │    AS: 652000        │              │    AS: 652000        │
-                    │ Router-ID: 6.0.0.28  │              │ Router-ID: 6.0.0.29  │
-                    │  Lo: 2006:20:20::28  │              │  Lo: 2006:20:20::29  │
+                    │ Router-ID: 10.0.0.28 │              │ Router-ID: 10.0.0.29 │
+                    │  Lo: fd00:0:20::28    │              │  Lo: fd00:0:20::29    │
                     │                      │              │                      │
                     │  [swp1][swp2][swp3]  │              │  [swp1][swp2][swp3]  │
                     │        [swp4]        │              │        [swp4]        │
@@ -44,8 +83,8 @@
        ┌──────▼──────┐      ┌──────▼──────┐    ┌──────▼──────┐      ┌──────▼──────┐
        │   leaf-11   │      │   leaf-12   │    │   leaf-21   │      │   leaf-22   │
        │  AS: 651001 │      │  AS: 651001 │    │  AS: 651004 │      │  AS: 651004 │
-       │ RID: 6.0.0.24│     │ RID: 6.0.0.25│    │ RID: 6.0.0.26│     │ RID: 6.0.0.27│
-       │Lo:2006:20::24│     │Lo:2006:20::25│    │Lo:2006:20::26│     │Lo:2006:20::27│
+       │ RID: 10.0.0.24│    │ RID: 10.0.0.25│   │ RID: 10.0.0.26│    │ RID: 10.0.0.27│
+       │Lo:fd00:0:20::24│    │Lo:fd00:0:20::25│   │Lo:fd00:0:20::26│    │Lo:fd00:0:20::27│
        │              │      │              │    │              │      │              │
        │[swp1] [swp2] │      │[swp1] [swp2] │    │[swp1] [swp2] │      │[swp1] [swp2] │
        │[swp3] [swp4] │      │[swp3] [swp4] │    │[swp3] [swp4] │      │[swp3] [swp4] │
@@ -64,8 +103,8 @@
         ┌────────▼─────────┐  ┌──────▼────────┐    ┌────────▼─────────┐  ┌────────▼──────┐
         │  bordertor-11 ★  │  │bordertor-12 ★ │    │    tor-21 ★      │  │   tor-22 ★    │
         │   AS: 660000     │  │  AS: 660000   │    │  AS: 650030      │  │  AS: 650031   │
-        │ RID: 6.0.0.1     │  │ RID: 6.0.0.2  │    │ RID: 6.0.0.30    │  │ RID: 6.0.0.31 │
-        │VTEP:2006:20::1   │  │VTEP:2006:20::2│    │VTEP:2006:20::30  │  │VTEP:2006:20::31│
+        │ RID: 10.0.0.1    │  │ RID: 10.0.0.2 │    │ RID: 10.0.0.30   │  │ RID: 10.0.0.31│
+        │VTEP:fd00:0:20::1  │  │VTEP:fd00:0:20::2│   │VTEP:fd00:0:20::30 │  │VTEP:fd00:0:20::31│
         │                  │  │               │    │                  │  │               │
         │ vxlan48 (SVD)    │  │ vxlan48 (SVD) │    │ vxlan48 (SVD)    │  │ vxlan48 (SVD) │
         │ L2VNI: 1000111   │  │ L2VNI: 1000111│    │ L2VNI: 1000111   │  │ L2VNI: 1000111│
@@ -88,19 +127,19 @@
         ┌──▼───┴─────────────────┴───┴──┐               │                     │
         │   ext-1 (External Router)     │               │                     │
         │        AS: 655000              │               │                     │
-        │     Router-ID: 6.0.0.3         │               │                     │
-        │    Lo: 2006:20:20::3           │               │                     │
+        │     Router-ID: 10.0.0.3         │               │                     │
+        │    Lo: fd00:0:20::3           │               │                     │
         │  [swp1]              [swp2]    │               │                     │
         │  │.4001 │.4002    │.4001│.4002 │               │                     │
         │  ↓ VRF1 ↓ VRF2    ↓ VRF1↓ VRF2 │               │                     │
         │  BGP    BGP       BGP   BGP    │               │                     │
-        │  144.1  144.1     144.2 144.2  │               │                     │
-        │  .1.1   .1.5      .1.1  .1.5   │               │                     │
+        │ 192.0  192.0     192.0 192.0   │               │                     │
+        │  .2.2   .2.6      .2.10 .2.14  │               │                     │
         │  [swp3] [swp4] [swp5] [swp6]   │               │                     │
         │  │      │      │      │         │               │                     │
         │  ↓      ↓      ↓      ↓         │               │                     │
-        │ 81.1   81.1   81.1   81.1      │               │                     │
-        │ .1.1   .2.1   .3.1   .4.1      │               │                     │
+        │ 198.51 198.51 198.51 198.51    │               │                     │
+        │ .100.1 .100.2 .100.3 .100.4    │               │                     │
         │  /24    /24    /24    /24       │               │                     │
         └────────────────────────────────┘               │                     │
 
@@ -115,7 +154,7 @@
     ┌─────────────┐                              ┌─────────────┐
     │  host-111   │                              │  host-121   │
     │             │                              │             │
-    │ 60.1.1.111  │                              │ 60.1.1.121  │
+    │ 192.168.11.111│                            │ 192.168.11.121│
     │  VLAN 111   │                              │  VLAN 111   │
     │   VRF2      │                              │   VRF2      │
     │   [swp1]    │                              │   [swp1]    │
@@ -128,7 +167,7 @@
          ┌─────────────┐                               ┌─────────────┐
          │  host-211   │                               │  host-221   │
          │             │                               │             │
-         │ 60.1.1.211  │                               │ 60.1.1.221  │
+         │ 192.168.11.211│                             │ 192.168.11.221│
          │  VLAN 111   │                               │  VLAN 111   │
          │   VRF2      │                               │   VRF2      │
          │   [swp1]    │                               │   [swp1]    │
@@ -147,7 +186,7 @@ Legend:
   .400X = VLAN sub-interface for L3VNI peering
   
 Note: The diagram shows IPv6 addresses/prefixes. When running with IPv4 underlay, 
-corresponding IPv4 addresses are used (e.g., VTEP: 6.0.0.1 instead of 2006:20:20::1)
+corresponding IPv4 addresses are used (e.g., VTEP: 10.0.0.1 instead of fd00:0:20::1)
 ```
 
 ---
@@ -158,24 +197,24 @@ corresponding IPv4 addresses are used (e.g., VTEP: 6.0.0.1 instead of 2006:20:20
 
 #### spine-1
 - **AS:** 652000
-- **Router-ID:** 6.0.0.28
-- **Loopback:** 6.0.0.28/32, 2006:20:20::28/128
+- **Router-ID:** 10.0.0.28
+- **Loopback:** 10.0.0.28/32, fd00:0:20::28/128
 - **Interfaces:**
-  - swp1 → leaf-11 (2010:2254::14:0:2/126)
-  - swp2 → leaf-12 (2010:2254::18:0:2/126)
-  - swp3 → leaf-21 (2010:2254::1c:0:2/126)
-  - swp4 → leaf-22 (2010:2254::20:0:2/126)
+  - swp1 → leaf-11 (fd00:10:254::14:0:2/126)
+  - swp2 → leaf-12 (fd00:10:254::18:0:2/126)
+  - swp3 → leaf-21 (fd00:10:254::1c:0:2/126)
+  - swp4 → leaf-22 (fd00:10:254::20:0:2/126)
 - **BGP:** eBGP + L2VPN EVPN with all leafs
 
 #### spine-2
 - **AS:** 652000
-- **Router-ID:** 6.0.0.29
-- **Loopback:** 6.0.0.29/32, 2006:20:20::29/128
+- **Router-ID:** 10.0.0.29
+- **Loopback:** 10.0.0.29/32, fd00:0:20::29/128
 - **Interfaces:**
-  - swp1 → leaf-11 (2010:2254::15:0:2/126)
-  - swp2 → leaf-12 (2010:2254::19:0:2/126)
-  - swp3 → leaf-21 (2010:2254::1d:0:2/126)
-  - swp4 → leaf-22 (2010:2254::21:0:2/126)
+  - swp1 → leaf-11 (fd00:10:254::15:0:2/126)
+  - swp2 → leaf-12 (fd00:10:254::19:0:2/126)
+  - swp3 → leaf-21 (fd00:10:254::1d:0:2/126)
+  - swp4 → leaf-22 (fd00:10:254::21:0:2/126)
 - **BGP:** eBGP + L2VPN EVPN with all leafs
 
 ---
@@ -184,24 +223,24 @@ corresponding IPv4 addresses are used (e.g., VTEP: 6.0.0.1 instead of 2006:20:20
 
 #### leaf-11
 - **AS:** 651001
-- **Router-ID:** 6.0.0.24
-- **Loopback:** 6.0.0.24/32, 2006:20:20::24/128
+- **Router-ID:** 10.0.0.24
+- **Loopback:** 10.0.0.24/32, fd00:0:20::24/128
 - **Interfaces:**
-  - swp1 → spine-1 (2010:2254::14:0:1/126)
-  - swp2 → spine-2 (2010:2254::15:0:1/126)
-  - swp3 → bordertor-11 (2010:2254::2/126)
-  - swp4 → bordertor-12 (2010:2254::7:0:2/126)
+  - swp1 → spine-1 (fd00:10:254::14:0:1/126)
+  - swp2 → spine-2 (fd00:10:254::15:0:1/126)
+  - swp3 → bordertor-11 (fd00:10:254::2/126)
+  - swp4 → bordertor-12 (fd00:10:254::7:0:2/126)
 - **BGP:** eBGP + L2VPN EVPN with spines and bordertors
 
 #### leaf-12
 - **AS:** 651001
-- **Router-ID:** 6.0.0.25
-- **Loopback:** 6.0.0.25/32, 2006:20:20::25/128
+- **Router-ID:** 10.0.0.25
+- **Loopback:** 10.0.0.25/32, fd00:0:20::25/128
 - **Interfaces:**
-  - swp1 → spine-1 (2010:2254::18:0:1/126)
-  - swp2 → spine-2 (2010:2254::19:0:1/126)
-  - swp3 → bordertor-11 (2010:2254::1:0:2/126)
-  - swp4 → bordertor-12 (2010:2254::8:0:2/126)
+  - swp1 → spine-1 (fd00:10:254::18:0:1/126)
+  - swp2 → spine-2 (fd00:10:254::19:0:1/126)
+  - swp3 → bordertor-11 (fd00:10:254::1:0:2/126)
+  - swp4 → bordertor-12 (fd00:10:254::8:0:2/126)
 - **BGP:** eBGP + L2VPN EVPN with spines and bordertors
 
 ---
@@ -210,24 +249,24 @@ corresponding IPv4 addresses are used (e.g., VTEP: 6.0.0.1 instead of 2006:20:20
 
 #### leaf-21
 - **AS:** 651004
-- **Router-ID:** 6.0.0.26
-- **Loopback:** 6.0.0.26/32, 2006:20:20::26/128
+- **Router-ID:** 10.0.0.26
+- **Loopback:** 10.0.0.26/32, fd00:0:20::26/128
 - **Interfaces:**
-  - swp1 → spine-1 (2010:2254::1c:0:1/126)
-  - swp2 → spine-2 (2010:2254::1d:0:1/126)
-  - swp3 → tor-21 (2010:2254::1e:0:1/126)
-  - swp4 → tor-22 (2010:2254::1f:0:1/126)
+  - swp1 → spine-1 (fd00:10:254::1c:0:1/126)
+  - swp2 → spine-2 (fd00:10:254::1d:0:1/126)
+  - swp3 → tor-21 (fd00:10:254::1e:0:1/126)
+  - swp4 → tor-22 (fd00:10:254::1f:0:1/126)
 - **BGP:** eBGP + L2VPN EVPN with spines and tors
 
 #### leaf-22
 - **AS:** 651004
-- **Router-ID:** 6.0.0.27
-- **Loopback:** 6.0.0.27/32, 2006:20:20::27/128
+- **Router-ID:** 10.0.0.27
+- **Loopback:** 10.0.0.27/32, fd00:0:20::27/128
 - **Interfaces:**
-  - swp1 → spine-1 (2010:2254::20:0:1/126)
-  - swp2 → spine-2 (2010:2254::21:0:1/126)
-  - swp3 → tor-21 (2010:2254::22:0:2/126)
-  - swp4 → tor-22 (2010:2254::23:0:2/126)
+  - swp1 → spine-1 (fd00:10:254::20:0:1/126)
+  - swp2 → spine-2 (fd00:10:254::21:0:1/126)
+  - swp3 → tor-21 (fd00:10:254::22:0:2/126)
+  - swp4 → tor-22 (fd00:10:254::23:0:2/126)
 - **BGP:** eBGP + L2VPN EVPN with spines and tors
 
 ---
@@ -236,45 +275,45 @@ corresponding IPv4 addresses are used (e.g., VTEP: 6.0.0.1 instead of 2006:20:20
 
 #### bordertor-11 ★
 - **AS:** 660000
-- **Router-ID:** 6.0.0.1
-- **Loopback:** 6.0.0.1/32, 2006:20:20::1/128
-- **VTEP Address:** 2006:20:20::1 (for VXLAN tunnels)
+- **Router-ID:** 10.0.0.1
+- **Loopback:** 10.0.0.1/32, fd00:0:20::1/128
+- **VTEP Address:** fd00:0:20::1 (for VXLAN tunnels)
 - **VXLAN:** vxlan48 (TRUE SVD - all VNIs)
   - L2VNI: 1000111 (VLAN 111), 1000112 (VLAN 112)
   - L3VNI: 104001 (VLAN 4001/vrf1), 104002 (VLAN 4002/vrf2)
 - **Interfaces:**
-  - swp1 → leaf-11 (2010:2254::1/126)
-  - swp2 → leaf-12 (2010:2254::1:0:1/126)
-  - swp3 → ext-1 (2010:2254::2:0:1/126) - Physical interface
-  - **swp3.4001** → ext-1 swp1.4001 (144.1.1.2/30, 2144:1:1:1::2/64) - VRF1 L3VNI peering
-  - **swp3.4002** → ext-1 swp1.4002 (144.1.1.6/30, 2144:1:1:2::6/64) - VRF2 L3VNI peering
+  - swp1 → leaf-11 (fd00:10:254::1/126)
+  - swp2 → leaf-12 (fd00:10:254::1:0:1/126)
+  - swp3 → ext-1 (fd00:10:254::2:0:1/126) - Physical interface
+  - **swp3.4001** → ext-1 swp1.4001 (192.0.2.2/30, 2001:db8:144:1::2/64) - VRF1 L3VNI peering
+  - **swp3.4002** → ext-1 swp1.4002 (192.0.2.6/30, 2001:db8:144:2::6/64) - VRF2 L3VNI peering
   - swp4 → host-111 (VLAN 111, VRF2)
 - **VRFs:** vrf1 (vni 104001), vrf2 (vni 104002)
 - **BGP:**
   - **Global:** eBGP + L2VPN EVPN with leafs (TOR-LEAF-SPINE peer-group)
-  - **VRF vrf1:** eBGP with ext-1 (144.1.1.1, 2144:1:1:1::1) for Type-5 routes
-  - **VRF vrf2:** eBGP with ext-1 (144.1.1.5, 2144:1:1:2::5) for Type-5 routes
+  - **VRF vrf1:** eBGP with ext-1 (192.0.2.1, 2001:db8:144:1::1) for Type-5 routes
+  - **VRF vrf2:** eBGP with ext-1 (192.0.2.5, 2001:db8:144:2::5) for Type-5 routes
 
 #### bordertor-12 ★
 - **AS:** 660000
-- **Router-ID:** 6.0.0.2
-- **Loopback:** 6.0.0.2/32, 2006:20:20::2/128
-- **VTEP Address:** 2006:20:20::2 (for VXLAN tunnels)
+- **Router-ID:** 10.0.0.2
+- **Loopback:** 10.0.0.2/32, fd00:0:20::2/128
+- **VTEP Address:** fd00:0:20::2 (for VXLAN tunnels)
 - **VXLAN:** vxlan48 (TRUE SVD - all VNIs)
   - L2VNI: 1000111 (VLAN 111), 1000112 (VLAN 112)
   - L3VNI: 104001 (VLAN 4001/vrf1), 104002 (VLAN 4002/vrf2)
 - **Interfaces:**
-  - swp1 → leaf-11 (2010:2254::7:0:1/126)
-  - swp2 → leaf-12 (2010:2254::8:0:1/126)
-  - swp3 → ext-1 (2010:2254::9:0:1/126) - Physical interface
-  - **swp3.4001** → ext-1 swp2.4001 (144.2.1.2/30, 2144:2:1:1::2/64) - VRF1 L3VNI peering
-  - **swp3.4002** → ext-1 swp2.4002 (144.2.1.6/30, 2144:2:1:2::6/64) - VRF2 L3VNI peering
+  - swp1 → leaf-11 (fd00:10:254::7:0:1/126)
+  - swp2 → leaf-12 (fd00:10:254::8:0:1/126)
+  - swp3 → ext-1 (fd00:10:254::9:0:1/126) - Physical interface
+  - **swp3.4001** → ext-1 swp2.4001 (192.0.2.10/30, 2001:db8:144:11::2/64) - VRF1 L3VNI peering
+  - **swp3.4002** → ext-1 swp2.4002 (192.0.2.14/30, 2001:db8:144:12::6/64) - VRF2 L3VNI peering
   - swp4 → host-121 (VLAN 111, VRF2)
 - **VRFs:** vrf1 (vni 104001), vrf2 (vni 104002)
 - **BGP:**
   - **Global:** eBGP + L2VPN EVPN with leafs (TOR-LEAF-SPINE peer-group)
-  - **VRF vrf1:** eBGP with ext-1 (144.2.1.1, 2144:2:1:1::1) for Type-5 routes
-  - **VRF vrf2:** eBGP with ext-1 (144.2.1.5, 2144:2:1:2::5) for Type-5 routes
+  - **VRF vrf1:** eBGP with ext-1 (192.0.2.9, 2001:db8:144:11::1) for Type-5 routes
+  - **VRF vrf2:** eBGP with ext-1 (192.0.2.13, 2001:db8:144:12::5) for Type-5 routes
 
 ---
 
@@ -282,15 +321,15 @@ corresponding IPv4 addresses are used (e.g., VTEP: 6.0.0.1 instead of 2006:20:20
 
 #### tor-21 ★
 - **AS:** 650030
-- **Router-ID:** 6.0.0.30
-- **Loopback:** 6.0.0.30/32, 2006:20:20::30/128
-- **VTEP Address:** 2006:20:20::30 (for VXLAN tunnels)
+- **Router-ID:** 10.0.0.30
+- **Loopback:** 10.0.0.30/32, fd00:0:20::30/128
+- **VTEP Address:** fd00:0:20::30 (for VXLAN tunnels)
 - **VXLAN:** vxlan48 (TRUE SVD - all VNIs)
   - L2VNI: 1000111 (VLAN 111), 1000112 (VLAN 112)
   - L3VNI: 104001 (VLAN 4001/vrf1), 104002 (VLAN 4002/vrf2)
 - **Interfaces:**
-  - swp1 → leaf-21 (2010:2254::1e:0:2/126)
-  - swp2 → leaf-22 (2010:2254::22:0:2/126)
+  - swp1 → leaf-21 (fd00:10:254::1e:0:2/126)
+  - swp2 → leaf-22 (fd00:10:254::22:0:2/126)
   - swp3 → host-211 swp1 (VLAN 111, VRF2)
   - swp4 → host-211 swp2 (VLAN 112, VRF1)
 - **VRFs:** vrf1 (vni 104001), vrf2 (vni 104002)
@@ -298,15 +337,15 @@ corresponding IPv4 addresses are used (e.g., VTEP: 6.0.0.1 instead of 2006:20:20
 
 #### tor-22 ★
 - **AS:** 650031
-- **Router-ID:** 6.0.0.31
-- **Loopback:** 6.0.0.31/32, 2006:20:20::31/128
-- **VTEP Address:** 2006:20:20::31 (for VXLAN tunnels)
+- **Router-ID:** 10.0.0.31
+- **Loopback:** 10.0.0.31/32, fd00:0:20::31/128
+- **VTEP Address:** fd00:0:20::31 (for VXLAN tunnels)
 - **VXLAN:** vxlan48 (TRUE SVD - all VNIs)
   - L2VNI: 1000111 (VLAN 111), 1000112 (VLAN 112)
   - L3VNI: 104001 (VLAN 4001/vrf1), 104002 (VLAN 4002/vrf2)
 - **Interfaces:**
-  - swp1 → leaf-21 (2010:2254::1f:0:2/126)
-  - swp2 → leaf-22 (2010:2254::23:0:2/126)
+  - swp1 → leaf-21 (fd00:10:254::1f:0:2/126)
+  - swp2 → leaf-22 (fd00:10:254::23:0:2/126)
   - swp3 → host-221 swp1 (VLAN 111, VRF2)
   - swp4 → host-221 swp2 (VLAN 112, VRF1)
 - **VRFs:** vrf1 (vni 104001), vrf2 (vni 104002)
@@ -318,22 +357,22 @@ corresponding IPv4 addresses are used (e.g., VTEP: 6.0.0.1 instead of 2006:20:20
 
 #### ext-1
 - **AS:** 655000
-- **Router-ID:** 6.0.0.3
-- **Loopback:** 6.0.0.3/32, 2006:0:0::3/128
+- **Router-ID:** 10.0.0.3
+- **Loopback:** 10.0.0.3/32, fd00:0:20::3/128
 - **Interfaces:**
-  - swp1 → bordertor-11 (2010:2254::2:0:2/126)
-  - **swp1.4001** → bordertor-11 swp3.4001 (144.1.1.1/30, 2144:1:1:1::1/64) - VRF1 peering
-  - **swp1.4002** → bordertor-11 swp3.4002 (144.1.1.5/30, 2144:1:1:2::5/64) - VRF2 peering
-  - swp2 → bordertor-12 (2010:2254::9:0:2/126)
-  - **swp2.4001** → bordertor-12 swp3.4001 (144.2.1.1/30, 2144:2:1:1::1/64) - VRF1 peering
-  - **swp2.4002** → bordertor-12 swp3.4002 (144.2.1.5/30, 2144:2:1:2::5/64) - VRF2 peering
-  - swp3 → host-1 swp1 (81.1.1.1/24, 2081:1:1:1::1/64)
-  - swp4 → host-1 swp2 (81.1.2.1/24, 2081:1:1:2::1/64)
-  - swp5 → host-1 swp3 (81.1.3.1/24, 2081:1:1:3::1/64)
-  - swp6 → host-1 swp4 (81.1.4.1/24, 2081:1:1:4::1/64)
+  - swp1 → bordertor-11 (fd00:10:254::2:0:2/126)
+  - **swp1.4001** → bordertor-11 swp3.4001 (192.0.2.1/30, 2001:db8:144:1::1/64) - VRF1 peering
+  - **swp1.4002** → bordertor-11 swp3.4002 (192.0.2.5/30, 2001:db8:144:2::5/64) - VRF2 peering
+  - swp2 → bordertor-12 (fd00:10:254::9:0:2/126)
+  - **swp2.4001** → bordertor-12 swp3.4001 (192.0.2.9/30, 2001:db8:144:11::1/64) - VRF1 peering
+  - **swp2.4002** → bordertor-12 swp3.4002 (192.0.2.13/30, 2001:db8:144:12::5/64) - VRF2 peering
+  - swp3 → host-1 swp1 (198.51.100.0/24, 2001:db8:81:1::1/64)
+  - swp4 → host-1 swp2 (198.51.101.0/24, 2001:db8:81:2::1/64)
+  - swp5 → host-1 swp3 (198.51.102.0/24, 2001:db8:81:3::1/64)
+  - swp6 → host-1 swp4 (198.51.103.0/24, 2001:db8:81:4::1/64)
 - **BGP:**
   - **Global:** eBGP with bordertor-11 and bordertor-12 per-VRF
-  - **Advertises:** 81.1.0.0/16, 2081:1:1::/48 via prefix-lists and route-maps
+  - **Advertises:** 198.51.100-103.0/24, 2001:db8:81::/48 via prefix-lists and route-maps
   - **Route Filtering:** EXT_HOSTS (IPv4), EXT_HOSTS_v6 (IPv6) prefix-lists
   - **RFC 5549:** Supports capability extended-nexthop for IPv4 routes over IPv6 BGP sessions
 
@@ -341,10 +380,10 @@ corresponding IPv4 addresses are used (e.g., VTEP: 6.0.0.1 instead of 2006:20:20
 - **Type:** External host connected to ext-1
 - **Purpose:** Represents external networks/hosts beyond the EVPN fabric
 - **Interfaces:**
-  - swp1 → ext-1 swp3 (81.1.1.2/24, 2081:1:1:1::2/64)
-  - swp2 → ext-1 swp4 (81.1.2.2/24, 2081:1:1:2::2/64)
-  - swp3 → ext-1 swp5 (81.1.3.2/24, 2081:1:1:3::2/64)
-  - swp4 → ext-1 swp6 (81.1.4.2/24, 2081:1:1:4::2/64)
+  - swp1 → ext-1 swp3 (198.51.100.0/24, 2001:db8:81:1::2/64)
+  - swp2 → ext-1 swp4 (198.51.101.0/24, 2001:db8:81:2::2/64)
+  - swp3 → ext-1 swp5 (198.51.102.0/24, 2001:db8:81:3::2/64)
+  - swp4 → ext-1 swp6 (198.51.103.0/24, 2001:db8:81:4::2/64)
 - **Connectivity:** 4 links to ext-1 for redundancy and bandwidth
 
 ---
@@ -354,21 +393,21 @@ corresponding IPv4 addresses are used (e.g., VTEP: 6.0.0.1 instead of 2006:20:20
 #### Hosts on bordertor-11 (Pod 1) - VLAN 111 only
 
 **host-111**
-- **IP:** 60.1.1.111/24, 2060:1:1:1::111/64
+- **IP:** 192.168.11.111/24, fd00:60:1:1::111/64
 - **VLAN:** 111
 - **VRF:** vrf2
 - **L2VNI:** 1000111
-- **Gateway:** bordertor-11 (60.1.1.11)
+- **Gateway:** bordertor-11 (192.168.11.11)
 - **Interface:** swp1 → bordertor-11 swp4
 
 #### Hosts on bordertor-12 (Pod 1) - VLAN 111 only
 
 **host-121**
-- **IP:** 60.1.1.121/24, 2060:1:1:1::121/64
+- **IP:** 192.168.11.121/24, fd00:60:1:1::121/64
 - **VLAN:** 111
 - **VRF:** vrf2
 - **L2VNI:** 1000111
-- **Gateway:** bordertor-12 (60.1.1.12)
+- **Gateway:** bordertor-12 (192.168.11.12)
 - **Interface:** swp1 → bordertor-12 swp4
 
 #### Hosts on tor-21 (Pod 2) - VLAN 111 & 112
@@ -376,26 +415,26 @@ corresponding IPv4 addresses are used (e.g., VTEP: 6.0.0.1 instead of 2006:20:20
 **host-211**
 - **Interfaces:**
   - swp1 → tor-21 swp3
-    - IP: 60.1.1.211/24, 2060:1:1:1::211/64
+    - IP: 192.168.11.211/24, fd00:60:1:1::211/64
     - VLAN: 111, VRF: vrf2, L2VNI: 1000111
-    - Gateway: tor-21 (60.1.1.21)
+    - Gateway: tor-21 (192.168.11.21)
   - swp2 → tor-21 swp4
-    - IP: 50.1.1.212/24, 2050:1:1:1::212/64
+    - IP: 192.168.12.212/24, fd00:50:1:1::212/64
     - VLAN: 112, VRF: vrf1, L2VNI: 1000112
-    - Gateway: tor-21 (50.1.1.21)
+    - Gateway: tor-21 (192.168.12.21)
 
 #### Hosts on tor-22 (Pod 2) - VLAN 111 & 112
 
 **host-221**
 - **Interfaces:**
   - swp1 → tor-22 swp3
-    - IP: 60.1.1.221/24, 2060:1:1:1::221/64
+    - IP: 192.168.11.221/24, fd00:60:1:1::221/64
     - VLAN: 111, VRF: vrf2, L2VNI: 1000111
-    - Gateway: tor-22 (60.1.1.22)
+    - Gateway: tor-22 (192.168.11.22)
   - swp2 → tor-22 swp4
-    - IP: 50.1.1.222/24, 2050:1:1:1::222/64
+    - IP: 192.168.12.222/24, fd00:50:1:1::222/64
     - VLAN: 112, VRF: vrf1, L2VNI: 1000112
-    - Gateway: tor-22 (50.1.1.22)
+    - Gateway: tor-22 (192.168.12.22)
 
 ---
 
@@ -430,7 +469,7 @@ tor-21, tor-22 (VTEP, AS 650030/650031)
 ```
 External Prefixes → EVPN Fabric:
 
-ext-1 (AS 655000, 81.1.0.0/16)
+ext-1 (AS 655000, External Networks: 198.51.100.0/16)
     │
     │ Per-VRF eBGP (NOT EVPN)
     ↓
@@ -452,14 +491,14 @@ Internal hosts get external routes
 VXLAN Tunnel Endpoints:
 
 IPv6 Underlay Mode:
-  bordertor-11 (2006:20:20::1) ←→ bordertor-12 (2006:20:20::2)
+  bordertor-11 (fd00:0:20::1) ←→ bordertor-12 (fd00:0:20::2)
                   ↕                           ↕
-             tor-21 (2006:20:20::30) ←→ tor-22 (2006:20:20::31)
+             tor-21 (fd00:0:20::30) ←→ tor-22 (fd00:0:20::31)
 
 IPv4 Underlay Mode:
-  bordertor-11 (6.0.0.1) ←→ bordertor-12 (6.0.0.2)
+  bordertor-11 (10.0.0.1) ←→ bordertor-12 (10.0.0.2)
               ↕                       ↕
-         tor-21 (6.0.0.30) ←→ tor-22 (6.0.0.31)
+         tor-21 (10.0.0.30) ←→ tor-22 (10.0.0.31)
 
 All tunnels carry:
 - L2VNI traffic: 1000111, 1000112 (intra-VLAN)
@@ -470,17 +509,17 @@ All tunnels carry:
 
 ```
 vrf1 → L3VNI 104001 (VLAN 4001)
-  ├─ Contains: 50.1.1.0/24 (VLAN 112)
+  ├─ Contains: 192.168.12.0/24 (VLAN 112)
   ├─ External Connectivity:
-  │    144.1.1.0/30 (bordertor-11 .2 ↔ ext-1 .1)
-  │    144.2.1.0/30 (bordertor-12 .2 ↔ ext-1 .1)
+  │    192.0.2.0/30 (bordertor-11 .2 ↔ ext-1 .1)
+  │    192.0.2.8/30 (bordertor-12 .10 ↔ ext-1 .9)
   └─ Hosts: host-113, host-114, host-123, host-124 (not in current topology)
 
 vrf2 → L3VNI 104002 (VLAN 4002)
-  ├─ Contains: 60.1.1.0/24 (VLAN 111)
+  ├─ Contains: 192.168.11.0/24 (VLAN 111)
   ├─ External Connectivity:
-  │    144.1.1.4/30 (bordertor-11 .6 ↔ ext-1 .5)
-  │    144.2.1.4/30 (bordertor-12 .6 ↔ ext-1 .5)
+  │    192.0.2.4/30 (bordertor-11 .6 ↔ ext-1 .5)
+  │    192.0.2.12/30 (bordertor-12 .14 ↔ ext-1 .13)
   └─ Hosts: host-111, host-121, host-211, host-221
 ```
 
@@ -510,7 +549,7 @@ vrf2 → L3VNI 104002 (VLAN 4002)
 6. Routes in VRF2 to host-121
 
 ### Example 4: External Connectivity via L3VNI BGP (NEW)
-**host-111 (VLAN 111/VRF2) → ext-1 (81.1.1.0/24)**
+**host-111 (VLAN 111/VRF2) → ext-1 (External networks via 198.51.100.0/16)**
 1. host-111 → bordertor-11 (default gateway)
 2. bordertor-11 routes in VRF2
 3. Matches external prefix learned via eBGP from ext-1
@@ -518,7 +557,7 @@ vrf2 → L3VNI 104002 (VLAN 4002)
 5. ext-1 forwards to external network
 
 **External network → host-111:**
-1. ext-1 knows 60.1.1.0/24 via eBGP from bordertor-11
+1. ext-1 knows 192.168.11.0/24 via eBGP from bordertor-11
 2. ext-1 forwards to bordertor-11 via swp1.4002
 3. bordertor-11 routes in VRF2
 4. Encapsulates in L2VNI 1000111
@@ -551,26 +590,30 @@ br_default: Single VLAN-aware bridge
 
 **bordertor-11:**
 ```
-Per-VRF VLAN Sub-interfaces:
+Per-VRF VLAN Sub-interfaces (VRF peering to ext-1):
   ├─ swp3.4001 (VRF1) → ext-1 swp1.4001
-  │    144.1.1.2/30, 2144:1:1:1::2/64
-  │    BGP neighbor 144.1.1.1 remote-as external
+  │    IPv4: 192.0.2.2/30 (bordertor .2 ↔ ext-1 .1)
+  │    IPv6: 2001:db8:144:1::2/64
+  │    BGP neighbor 192.0.2.1 remote-as external
   │
   └─ swp3.4002 (VRF2) → ext-1 swp1.4002
-       144.1.1.6/30, 2144:1:1:2::6/64
-       BGP neighbor 144.1.1.5 remote-as external
+       IPv4: 192.0.2.6/30 (bordertor .6 ↔ ext-1 .5)
+       IPv6: 2001:db8:144:2::6/64
+       BGP neighbor 192.0.2.5 remote-as external
 ```
 
 **bordertor-12:**
 ```
-Per-VRF VLAN Sub-interfaces:
+Per-VRF VLAN Sub-interfaces (VRF peering to ext-1):
   ├─ swp3.4001 (VRF1) → ext-1 swp2.4001
-  │    144.2.1.2/30, 2144:2:1:1::2/64
-  │    BGP neighbor 144.2.1.1 remote-as external
+  │    IPv4: 192.0.2.10/30 (bordertor .10 ↔ ext-1 .9)
+  │    IPv6: 2001:db8:144:11::2/64
+  │    BGP neighbor 192.0.2.9 remote-as external
   │
   └─ swp3.4002 (VRF2) → ext-1 swp2.4002
-       144.2.1.6/30, 2144:2:1:2::6/64
-       BGP neighbor 144.2.1.5 remote-as external
+       IPv4: 192.0.2.14/30 (bordertor .14 ↔ ext-1 .13)
+       IPv6: 2001:db8:144:12::6/64
+       BGP neighbor 192.0.2.13 remote-as external
 ```
 
 ### BGP Configuration Highlights
@@ -595,42 +638,42 @@ Per-VRF VLAN Sub-interfaces:
 
 | From Node    | Interface  | To Node      | Interface  | IPv4/IPv6 Address (From) | Protocol      | Description               |
 |--------------|------------|--------------|------------|--------------------------|---------------|---------------------------|
-| spine-1      | swp1       | leaf-11      | swp1       | 2010:2254::14:0:2/126    | eBGP+EVPN     | Underlay + Overlay        |
-| spine-1      | swp2       | leaf-12      | swp1       | 2010:2254::18:0:2/126    | eBGP+EVPN     | Underlay + Overlay        |
-| spine-1      | swp3       | leaf-21      | swp1       | 2010:2254::1c:0:2/126    | eBGP+EVPN     | Underlay + Overlay        |
-| spine-1      | swp4       | leaf-22      | swp1       | 2010:2254::20:0:2/126    | eBGP+EVPN     | Underlay + Overlay        |
-| spine-2      | swp1       | leaf-11      | swp2       | 2010:2254::15:0:2/126    | eBGP+EVPN     | Underlay + Overlay        |
-| spine-2      | swp2       | leaf-12      | swp2       | 2010:2254::19:0:2/126    | eBGP+EVPN     | Underlay + Overlay        |
-| spine-2      | swp3       | leaf-21      | swp2       | 2010:2254::1d:0:2/126    | eBGP+EVPN     | Underlay + Overlay        |
-| spine-2      | swp4       | leaf-22      | swp2       | 2010:2254::21:0:2/126    | eBGP+EVPN     | Underlay + Overlay        |
-| leaf-11      | swp3       | bordertor-11 | swp1       | 2010:2254::2/126         | eBGP+EVPN     | Underlay + Overlay        |
-| leaf-11      | swp4       | bordertor-12 | swp1       | 2010:2254::7:0:2/126     | eBGP+EVPN     | Underlay + Overlay        |
-| leaf-12      | swp3       | bordertor-11 | swp2       | 2010:2254::1:0:2/126     | eBGP+EVPN     | Underlay + Overlay        |
-| leaf-12      | swp4       | bordertor-12 | swp2       | 2010:2254::8:0:2/126     | eBGP+EVPN     | Underlay + Overlay        |
-| leaf-21      | swp3       | tor-21       | swp1       | 2010:2254::1e:0:1/126    | eBGP+EVPN     | Underlay + Overlay        |
-| leaf-21      | swp4       | tor-22       | swp1       | 2010:2254::1f:0:1/126    | eBGP+EVPN     | Underlay + Overlay        |
-| leaf-22      | swp3       | tor-21       | swp2       | 2010:2254::22:0:1/126    | eBGP+EVPN     | Underlay + Overlay        |
-| leaf-22      | swp4       | tor-22       | swp2       | 2010:2254::23:0:1/126    | eBGP+EVPN     | Underlay + Overlay        |
-| bordertor-11 | swp3       | ext-1        | swp1       | 2010:2254::2:0:1/126     | IPv6          | Physical link             |
-| bordertor-11 | swp3.4001  | ext-1        | swp1.4001  | 144.1.1.2/30             | eBGP (VRF1)   | L3VNI peering             |
-| bordertor-11 | swp3.4001  | ext-1        | swp1.4001  | 2144:1:1:1::2/64         | eBGP (VRF1)   | L3VNI peering (IPv6)      |
-| bordertor-11 | swp3.4002  | ext-1        | swp1.4002  | 144.1.1.6/30             | eBGP (VRF2)   | L3VNI peering             |
-| bordertor-11 | swp3.4002  | ext-1        | swp1.4002  | 2144:1:1:2::6/64         | eBGP (VRF2)   | L3VNI peering (IPv6)      |
-| bordertor-12 | swp3       | ext-1        | swp2       | 2010:2254::9:0:1/126     | IPv6          | Physical link             |
-| bordertor-12 | swp3.4001  | ext-1        | swp2.4001  | 144.2.1.2/30             | eBGP (VRF1)   | L3VNI peering             |
-| bordertor-12 | swp3.4001  | ext-1        | swp2.4001  | 2144:2:1:1::2/64         | eBGP (VRF1)   | L3VNI peering (IPv6)      |
-| bordertor-12 | swp3.4002  | ext-1        | swp2.4002  | 144.2.1.6/30             | eBGP (VRF2)   | L3VNI peering             |
-| bordertor-12 | swp3.4002  | ext-1        | swp2.4002  | 2144:2:1:2::6/64         | eBGP (VRF2)   | L3VNI peering (IPv6)      |
+| spine-1      | swp1       | leaf-11      | swp1       | fd00:10:254::14:0:2/126    | eBGP+EVPN     | Underlay + Overlay        |
+| spine-1      | swp2       | leaf-12      | swp1       | fd00:10:254::18:0:2/126    | eBGP+EVPN     | Underlay + Overlay        |
+| spine-1      | swp3       | leaf-21      | swp1       | fd00:10:254::1c:0:2/126    | eBGP+EVPN     | Underlay + Overlay        |
+| spine-1      | swp4       | leaf-22      | swp1       | fd00:10:254::20:0:2/126    | eBGP+EVPN     | Underlay + Overlay        |
+| spine-2      | swp1       | leaf-11      | swp2       | fd00:10:254::15:0:2/126    | eBGP+EVPN     | Underlay + Overlay        |
+| spine-2      | swp2       | leaf-12      | swp2       | fd00:10:254::19:0:2/126    | eBGP+EVPN     | Underlay + Overlay        |
+| spine-2      | swp3       | leaf-21      | swp2       | fd00:10:254::1d:0:2/126    | eBGP+EVPN     | Underlay + Overlay        |
+| spine-2      | swp4       | leaf-22      | swp2       | fd00:10:254::21:0:2/126    | eBGP+EVPN     | Underlay + Overlay        |
+| leaf-11      | swp3       | bordertor-11 | swp1       | fd00:10:254::2/126         | eBGP+EVPN     | Underlay + Overlay        |
+| leaf-11      | swp4       | bordertor-12 | swp1       | fd00:10:254::7:0:2/126     | eBGP+EVPN     | Underlay + Overlay        |
+| leaf-12      | swp3       | bordertor-11 | swp2       | fd00:10:254::1:0:2/126     | eBGP+EVPN     | Underlay + Overlay        |
+| leaf-12      | swp4       | bordertor-12 | swp2       | fd00:10:254::8:0:2/126     | eBGP+EVPN     | Underlay + Overlay        |
+| leaf-21      | swp3       | tor-21       | swp1       | fd00:10:254::1e:0:1/126    | eBGP+EVPN     | Underlay + Overlay        |
+| leaf-21      | swp4       | tor-22       | swp1       | fd00:10:254::1f:0:1/126    | eBGP+EVPN     | Underlay + Overlay        |
+| leaf-22      | swp3       | tor-21       | swp2       | fd00:10:254::22:0:1/126    | eBGP+EVPN     | Underlay + Overlay        |
+| leaf-22      | swp4       | tor-22       | swp2       | fd00:10:254::23:0:1/126    | eBGP+EVPN     | Underlay + Overlay        |
+| bordertor-11 | swp3       | ext-1        | swp1       | fd00:10:254::2:0:1/126     | IPv6          | Physical link             |
+| bordertor-11 | swp3.4001  | ext-1        | swp1.4001  | 192.0.2.2/30             | eBGP (VRF1)   | L3VNI peering             |
+| bordertor-11 | swp3.4001  | ext-1        | swp1.4001  | 2001:db8:144:1::2/64         | eBGP (VRF1)   | L3VNI peering (IPv6)      |
+| bordertor-11 | swp3.4002  | ext-1        | swp1.4002  | 192.0.2.6/30             | eBGP (VRF2)   | L3VNI peering             |
+| bordertor-11 | swp3.4002  | ext-1        | swp1.4002  | 2001:db8:144:2::6/64         | eBGP (VRF2)   | L3VNI peering (IPv6)      |
+| bordertor-12 | swp3       | ext-1        | swp2       | fd00:10:254::9:0:1/126     | IPv6          | Physical link             |
+| bordertor-12 | swp3.4001  | ext-1        | swp2.4001  | 192.0.2.10/30            | eBGP (VRF1)   | L3VNI peering             |
+| bordertor-12 | swp3.4001  | ext-1        | swp2.4001  | 2001:db8:144:11::2/64         | eBGP (VRF1)   | L3VNI peering (IPv6)      |
+| bordertor-12 | swp3.4002  | ext-1        | swp2.4002  | 192.0.2.14/30            | eBGP (VRF2)   | L3VNI peering             |
+| bordertor-12 | swp3.4002  | ext-1        | swp2.4002  | 2001:db8:144:12::6/64         | eBGP (VRF2)   | L3VNI peering (IPv6)      |
 | bordertor-11 | swp4       | host-111     | swp1       | VLAN 111                 | L2 (EVPN)     | Host access               |
 | bordertor-12 | swp4       | host-121     | swp1       | VLAN 111                 | L2 (EVPN)     | Host access               |
 | tor-21       | swp3       | host-211     | swp1       | VLAN 111                 | L2 (EVPN)     | Host access               |
 | tor-21       | swp4       | host-211     | swp2       | VLAN 112                 | L2 (EVPN)     | Host access (VRF1)        |
 | tor-22       | swp3       | host-221     | swp1       | VLAN 111                 | L2 (EVPN)     | Host access               |
 | tor-22       | swp4       | host-221     | swp2       | VLAN 112                 | L2 (EVPN)     | Host access (VRF1)        |
-| ext-1        | swp3       | host-1       | swp1       | 81.1.1.0/24              | L3            | External host link 1      |
-| ext-1        | swp4       | host-1       | swp2       | 81.1.2.0/24              | L3            | External host link 2      |
-| ext-1        | swp5       | host-1       | swp3       | 81.1.3.0/24              | L3            | External host link 3      |
-| ext-1        | swp6       | host-1       | swp4       | 81.1.4.0/24              | L3            | External host link 4      |
+| ext-1        | swp3       | host-1       | swp1       | 198.51.100.0/24            | L3            | External host link 1      |
+| ext-1        | swp4       | host-1       | swp2       | 198.51.101.0/24            | L3            | External host link 2      |
+| ext-1        | swp5       | host-1       | swp3       | 198.51.102.0/24            | L3            | External host link 3      |
+| ext-1        | swp6       | host-1       | swp4       | 198.51.103.0/24            | L3            | External host link 4      |
 
 ---
 
@@ -649,8 +692,8 @@ Per-VRF VLAN Sub-interfaces:
 - **L3VNIs:** 2 (104001, 104002)
 - **VRFs:** 2 (vrf1, vrf2)
 - **VLANs:** 4 (111, 112, 4001, 4002)
-- **L3VNI Peering Subnets:** 4 (144.1.1.0/30, 144.1.1.4/30, 144.2.1.0/30, 144.2.1.4/30)
-- **External Networks:** 4 (81.1.1.0/24, 81.1.2.0/24, 81.1.3.0/24, 81.1.4.0/24)
+- **L3VNI Peering Subnets:** 4 (192.0.2.0/30, 192.0.2.4/30, 192.0.2.8/30, 192.0.2.12/30)
+- **External Networks:** 4 separate /24 networks (198.51.100-103.0/24)
 
 ## Key Features Tested
 
@@ -700,7 +743,7 @@ The test suite (`test_bgp_evpn_v4_v6_vtep.py`) includes comprehensive validation
 7. **`test_vrf_routes`** - Displays route learning in VRF routing tables (informational)
 8. **`test_evpn_vtep_nexthops`** - Verifies EVPN L3VNI next-hops from remote VTEPs (IPv4/IPv6 agnostic)
 9. **`test_evpn_check_overlay_route`** - Verifies EVPN Type-5 overlay routes in FRR RIB and Linux kernel
-   - Validates route 81.1.1.0/24 in vrf1 on tor-21
+   - Validates route 198.51.100.0/24 in vrf1 on tor-21
    - Checks ECMP next-hops (bordertor-11, bordertor-12)
    - Verifies kernel nexthop groups with 'onlink' flag
    - Tests RFC 5549: IPv4 routes with IPv6 next-hops (IPv6 underlay)
@@ -757,20 +800,20 @@ Hosts automatically trigger ARP/NDP requests during setup using `evpn_trigger_ar
 ToRs (tor-21, tor-22) advertise static blackhole routes via BGP to test EVPN Type-5 route propagation:
 
 **tor-21 VRF1:**
-- `ip route 72.21.1.0/24 blackhole`
-- `ipv6 route 2001:21:1:1::/64 blackhole`
+- `ip route 203.0.113.0/24 blackhole`
+- `ipv6 route 2001:db8:72:21::/64 blackhole`
 
 **tor-21 VRF2:**
-- `ip route 73.21.1.0/24 blackhole`
-- `ipv6 route 2003:21:1:1::/64 blackhole`
+- `ip route 203.0.115.0/24 blackhole`
+- `ipv6 route 2001:db8:73:21::/64 blackhole`
 
 **tor-22 VRF1:**
-- `ip route 72.22.1.0/24 blackhole`
-- `ipv6 route 2001:22:1:1::/64 blackhole`
+- `ip route 203.0.114.0/24 blackhole`
+- `ipv6 route 2001:db8:72:22::/64 blackhole`
 
 **tor-22 VRF2:**
-- `ip route 73.22.1.0/24 blackhole`
-- `ipv6 route 2003:22:1:1::/64 blackhole`
+- `ip route 203.0.116.0/24 blackhole`
+- `ipv6 route 2001:db8:73:22::/64 blackhole`
 
 These routes are redistributed via `redistribute static` under BGP VRF address families and advertised as EVPN Type-5 routes to the fabric.
 
@@ -781,9 +824,9 @@ These routes are redistributed via `redistribute static` under BGP VRF address f
 Expected JSON outputs are stored in version-specific directories:
 
 **IPv4 Underlay (`ipv4/` directory):**
-- `tor-21/type5_prefix1.json` - Expected output for route 81.1.1.0/24 with IPv4 next-hops (6.0.0.1, 6.0.0.2)
+- `tor-21/type5_prefix1.json` - Expected output for route 198.51.100.0/24 with IPv4 next-hops (10.0.0.1, 10.0.0.2)
 
 **IPv6 Underlay (`ipv6/` directory):**
-- `tor-21/type5_prefix1.json` - Expected output for route 81.1.1.0/24 with IPv6 next-hops (2006:20:20::1, 2006:20:20::2)
+- `tor-21/type5_prefix1.json` - Expected output for route 198.51.100.0/24 with IPv6 next-hops (fd00:0:20::1, fd00:0:20::2)
 
 These files are used by `test_evpn_check_overlay_route` to validate FRR RIB state using `evpn_verify_vrf_rib_route`.
