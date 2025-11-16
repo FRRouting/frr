@@ -2077,7 +2077,7 @@ void vpn_leak_from_vrf_withdraw(struct bgp *to_bgp,		/* to */
 	const struct prefix *p = bgp_dest_get_prefix(path_vrf->net);
 	afi_t afi = family2afi(p->family);
 	safi_t safi = SAFI_MPLS_VPN;
-	struct bgp_path_info *bpi;
+	struct bgp_path_info *bpi, *bpi_next;
 	struct bgp_dest *bn;
 	const char *debugmsg;
 
@@ -2119,7 +2119,10 @@ void vpn_leak_from_vrf_withdraw(struct bgp *to_bgp,		/* to */
 	 * vrf -> vpn
 	 * match original bpi imported from
 	 */
-	for (bpi = bgp_dest_get_bgp_path_info(bn); bpi; bpi = bpi->next) {
+	bpi_next = bgp_dest_get_bgp_path_info(bn);
+	while (bpi_next) {
+		bpi = bpi_next;
+		bpi_next = bpi->next;
 		if (!bpi->extra || !bpi->extra->vrfleak || bpi->extra->vrfleak->parent != path_vrf)
 			continue;
 		if (path_vrf->attr->srv6_l3service && !bpi->attr->srv6_l3service &&
@@ -2132,10 +2135,6 @@ void vpn_leak_from_vrf_withdraw(struct bgp *to_bgp,		/* to */
 			/* MPLS path can not overwrite Srv6 path */
 			continue;
 		/* MPLS or SRv6 path found or path with LABEL_NONE*/
-		break;
-	}
-
-	if (bpi) {
 		/* withdraw from looped vrfs as well */
 		vpn_leak_to_vrf_withdraw(bpi);
 

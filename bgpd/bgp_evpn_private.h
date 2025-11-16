@@ -280,8 +280,13 @@ static inline void bgpevpn_link_to_l3vni(struct bgpevpn *vpn)
 	if (vpn->bgp_vrf)
 		return;
 
+	/* bail if VRF still doesn't exist */
 	bgp_vrf = bgp_lookup_by_vrf_id(vpn->tenant_vrf_id);
 	if (!bgp_vrf)
+		return;
+
+	/* or if there is no l3vni */
+	if (!bgp_vrf->l3vni)
 		return;
 
 	/* associate the vpn to the bgp_vrf instance */
@@ -289,11 +294,9 @@ static inline void bgpevpn_link_to_l3vni(struct bgpevpn *vpn)
 	listnode_add_sort(bgp_vrf->l2vnis, vpn);
 
 	/*
-	 * If L3VNI is configured,
 	 * check if we are advertising two labels for this vpn
 	 */
-	if (bgp_vrf->l3vni &&
-	    !CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY))
+	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY))
 		SET_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS);
 
 	bgp_evpn_es_evi_vrf_ref(vpn);

@@ -836,6 +836,57 @@ def _check_show_bgp_ipv6_vpn_selected(router, prefix, mpls, srv6):
     return f"only one path has been found : MPLS {found_mpls}, SRv6 {found_srv6}"
 
 
+@retry(retry_timeout=10)
+def _check_show_bgp_ipv6_vpn_not_present(router, prefix):
+    output = json.loads(router.vtysh_cmd(f"show bgp ipv6 vpn {prefix} json"))
+    if "1:30" in output.keys():
+        return f"show bgp ipv6 vpn {prefix} not empty"
+    return True
+
+
+def test_sid_disable_redistribute_on_r1_vrf30():
+    """
+    Disable redistribute connected on r1/vrf30
+    Test that none of those prefixes are present on r2
+    """
+    tgen = get_topogen()
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1 vrf vrf30
+          address-family ipv6 unicast
+           no redistribute connected
+          exit-address-family
+        """
+    )
+
+    success = _check_show_bgp_ipv6_vpn_not_present(
+        tgen.gears["r2"],
+        "2001:8::/64",
+    )
+    assert success is True, "network 2001:8::/64 not present on r2: still present"
+
+
+def test_sid_reenable_redistribute_on_r1_vrf30():
+    """
+    Disable redistribute connected on r1/vrf30
+    Test that none of those prefixes are present on r2
+    """
+    tgen = get_topogen()
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1 vrf vrf30
+          address-family ipv6 unicast
+           redistribute connected
+          exit-address-family
+        """
+    )
+    check_rib(
+        "r2", "show bgp ipv6 vpn 2001:8::/64 json", "r2/vpnv6_rib_2001_8_mpls_srv6.json"
+    )
+
+
 def test_sid_configure_r2_listener_as_srv6():
     """
     Enable R2 as srv6 receiver
