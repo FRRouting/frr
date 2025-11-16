@@ -20858,7 +20858,7 @@ static void bgp_config_end_timeout(struct event *t)
 	bgp_config_finish(t);
 }
 
-static void bgp_config_start(void)
+static void bgp_config_start(struct vty *vty)
 {
 	event_cancel(&t_bgp_cfg);
 	event_add_timer(bm->master, bgp_config_end_timeout, NULL,
@@ -20870,7 +20870,7 @@ static void bgp_config_start(void)
  * EoR before route-maps are processed.
  * This is especially valid if using `bgp route-map delay-timer`.
  */
-static void bgp_config_end(void)
+static void bgp_config_end(struct vty *vty)
 {
 #define BGP_POST_CONFIG_DELAY_SECONDS 1
 	uint32_t bgp_post_config_delay =
