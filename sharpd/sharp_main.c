@@ -151,12 +151,12 @@ FRR_DAEMON_INFO(sharpd, SHARP,
 );
 /* clang-format on */
 
-static void sharp_start_configuration(void)
+static void sharp_start_configuration(struct vty *vty)
 {
 	zlog_debug("Configuration has started to be read");
 }
 
-static void sharp_end_configuration(void)
+static void sharp_end_configuration(struct vty *vty)
 {
 	zlog_debug("Configuration has finished being read");
 }
