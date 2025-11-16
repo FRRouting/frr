@@ -221,8 +221,8 @@ DEFUN (frr_version,
 static struct call_back {
 	time_t readin_time;
 
-	void (*start_config)(void);
-	void (*end_config)(void);
+	void (*start_config)(struct vty *vty);
+	void (*end_config)(struct vty *vty);
 } callback;
 
 
@@ -234,7 +234,7 @@ DEFUN_NOSH(start_config, start_config_cmd, "XFRR_start_configuration",
 	vty->pending_allowed = 1;
 
 	if (callback.start_config)
-		(*callback.start_config)();
+		(*callback.start_config)(vty);
 
 	return CMD_SUCCESS;
 }
@@ -269,13 +269,13 @@ DEFUN_NOSH(end_config, end_config_cmd, "XFRR_end_configuration",
 		vty_mgmt_send_commit_config(vty, false, false, false);
 
 	if (callback.end_config)
-		(*callback.end_config)();
+		(*callback.end_config)(vty);
 
 	return ret;
 }
 
-void cmd_init_config_callbacks(void (*start_config_cb)(void),
-			       void (*end_config_cb)(void))
+void cmd_init_config_callbacks(void (*start_config_cb)(struct vty *vty),
+			       void (*end_config_cb)(struct vty *vty))
 {
 	callback.start_config = start_config_cb;
 	callback.end_config = end_config_cb;

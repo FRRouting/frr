@@ -1275,12 +1275,12 @@ static FRR_NORETURN void netns_setup(const char *nsname)
 }
 #endif
 
-static void watchfrr_start_config(void)
+static void watchfrr_start_config(struct vty *vty)
 {
 	gs.reading_configuration = true;
 }
 
-static void watchfrr_end_config(void)
+static void watchfrr_end_config(struct vty *vty)
 {
 	gs.reading_configuration = false;
 }
