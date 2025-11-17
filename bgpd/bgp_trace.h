@@ -348,8 +348,7 @@ TRACEPOINT_EVENT(
 	TP_FIELDS(
 		ctf_string(action, add ? "add" : "del")
 		ctf_integer(vni_t, vni, (vpn ? vpn->vni : 0))
-		ctf_integer_network_hex(unsigned int, vtep,
-			pfx->prefix.imet_addr.ip.ipaddr_v4.s_addr)
+		ctf_array(unsigned char, vtep, &pfx->prefix.imet_addr.ip, sizeof(struct ipaddr))
 	)
 )
 TRACEPOINT_LOGLEVEL(frr_bgp, evpn_bum_vtep_zsend, TRACE_INFO)
@@ -362,7 +361,7 @@ TRACEPOINT_EVENT(
 	TP_FIELDS(
 		ctf_string(action, add ? "add" : "del")
 		ctf_string(esi, es->esi_str)
-		ctf_string(vtep, es_vtep->vtep_str)
+		ctf_array(unsigned char, vtep, &es_vtep->vtep_ip, sizeof(struct ipaddr))
 	)
 )
 TRACEPOINT_LOGLEVEL(frr_bgp, evpn_mh_vtep_zsend, TRACE_INFO)
@@ -389,7 +388,7 @@ TRACEPOINT_EVENT(
 		struct bgp_evpn_es_vrf *, es_vrf),
 	TP_FIELDS(
 		ctf_integer(unsigned int, nhg, nhg_id)
-		ctf_string(vtep, vtep->vtep_str)
+		ctf_array(unsigned char, vtep, &vtep->vtep_ip, sizeof(struct ipaddr))
 		ctf_integer(int, svi, es_vrf->bgp_vrf->l3vni_svi_ifindex)
 	)
 )
@@ -412,11 +411,11 @@ TRACEPOINT_LOGLEVEL(frr_bgp, evpn_nh_rmac_zsend, TRACE_INFO)
 TRACEPOINT_EVENT(
 	frr_bgp,
 	evpn_mh_local_es_add_zrecv,
-	TP_ARGS(esi_t *, esi, struct in_addr, vtep,
+	TP_ARGS(esi_t *, esi, struct ipaddr *, vtep,
 		uint8_t, active, uint8_t, bypass, uint16_t, df_pref),
 	TP_FIELDS(
 		ctf_array(unsigned char, esi, esi, sizeof(esi_t))
-		ctf_integer_network_hex(unsigned int, vtep, vtep.s_addr)
+		ctf_array(unsigned char, vtep, vtep, sizeof(struct ipaddr))
 		ctf_integer(uint8_t, active, active)
 		ctf_integer(uint8_t, bypass, bypass)
 		ctf_integer(uint16_t, df_pref, df_pref)
@@ -459,12 +458,12 @@ TRACEPOINT_LOGLEVEL(frr_bgp, evpn_mh_local_es_evi_del_zrecv, TRACE_INFO)
 TRACEPOINT_EVENT(
 	frr_bgp,
 	evpn_mh_es_evi_vtep_add,
-	TP_ARGS(esi_t *, esi, vni_t, vni, struct in_addr, vtep,
+	TP_ARGS(esi_t *, esi, vni_t, vni, struct ipaddr *, vtep,
 		uint8_t, ead_es),
 	TP_FIELDS(
 		ctf_array(unsigned char, esi, esi, sizeof(esi_t))
 		ctf_integer(vni_t, vni, vni)
-		ctf_integer_network_hex(unsigned int, vtep, vtep.s_addr)
+		ctf_array(unsigned char, vtep, vtep, sizeof(struct ipaddr))
 		ctf_integer(uint8_t, ead_es, ead_es)
 	)
 )
@@ -473,12 +472,12 @@ TRACEPOINT_LOGLEVEL(frr_bgp, evpn_mh_es_evi_vtep_add, TRACE_INFO)
 TRACEPOINT_EVENT(
 	frr_bgp,
 	evpn_mh_es_evi_vtep_del,
-	TP_ARGS(esi_t *, esi, vni_t, vni, struct in_addr, vtep,
+	TP_ARGS(esi_t *, esi, vni_t, vni, struct ipaddr *, vtep,
 		uint8_t, ead_es),
 	TP_FIELDS(
 		ctf_array(unsigned char, esi, esi, sizeof(esi_t))
 		ctf_integer(vni_t, vni, vni)
-		ctf_integer_network_hex(unsigned int, vtep, vtep.s_addr)
+		ctf_array(unsigned char, vtep, vtep, sizeof(struct ipaddr))
 		ctf_integer(uint8_t, ead_es, ead_es)
 	)
 )
@@ -489,12 +488,12 @@ TRACEPOINT_EVENT(
 	evpn_mh_local_ead_es_evi_route_upd,
 	TP_ARGS(esi_t *, esi, vni_t, vni,
 		uint8_t, route_type,
-		struct in_addr, vtep),
+		struct ipaddr *, vtep),
 	TP_FIELDS(
 		ctf_array(unsigned char, esi, esi, sizeof(esi_t))
 		ctf_integer(vni_t, vni, vni)
 		ctf_integer(uint8_t, route_type, route_type)
-		ctf_integer_network_hex(unsigned int, vtep, vtep.s_addr)
+		ctf_array(unsigned char, vtep, vtep, sizeof(struct ipaddr))
 	)
 )
 TRACEPOINT_LOGLEVEL(frr_bgp, evpn_mh_local_ead_es_evi_route_upd, TRACE_INFO)
@@ -504,12 +503,12 @@ TRACEPOINT_EVENT(
 	evpn_mh_local_ead_es_evi_route_del,
 	TP_ARGS(esi_t *, esi, vni_t, vni,
 		uint8_t, route_type,
-		struct in_addr, vtep),
+		struct ipaddr *, vtep),
 	TP_FIELDS(
 		ctf_array(unsigned char, esi, esi, sizeof(esi_t))
 		ctf_integer(vni_t, vni, vni)
 		ctf_integer(uint8_t, route_type, route_type)
-		ctf_integer_network_hex(unsigned int, vtep, vtep.s_addr)
+		ctf_array(unsigned char, vtep, vtep, sizeof(struct ipaddr))
 	)
 )
 TRACEPOINT_LOGLEVEL(frr_bgp, evpn_mh_local_ead_es_evi_route_del, TRACE_INFO)
